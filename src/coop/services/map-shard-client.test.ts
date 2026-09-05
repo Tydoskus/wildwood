@@ -203,3 +203,18 @@ it("rejects a reset route wait when its connection is discarded", async () => {
   s.client.clear();
   await expect(waiting).rejects.toThrow("Map connection closed");
 });
+
+it("hands a regional player back to the root for Home and replays the arrival", async () => {
+  const s = setup(); s.apply();
+  s.route(forest); await Promise.resolve(); await hydrateLatest();
+  const homePlayer = { mapId: "home_exterior", x: 500, y: 700 };
+  s.root.db.player.iter = () => [homePlayer];
+  const move = s.client.port.connection()!.reducers.changeMap({ mapId: "home_exterior", x: 2000, y: 2500 });
+  await Promise.resolve();
+  s.route(null); await Promise.resolve();
+  await move;
+  expect(s.client.port.connection()).toBe(s.root);
+  expect(s.handlers.player).toHaveBeenCalledWith(homePlayer);
+  expect(s.client.ready()).toBe(true);
+  s.client.clear();
+});

@@ -922,7 +922,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
           !connection ||
           !Number.isFinite(x) ||
           !Number.isFinite(y) ||
-          ![TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, INFERNAL_DEPTHS_MAP_ID, WATER_REACH_MAP_ID, SAMURAI_GARDEN_MAP_ID, CLOUDSPIRE_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID].includes(mapId)
+          !["home_exterior", TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, INFERNAL_DEPTHS_MAP_ID, WATER_REACH_MAP_ID, SAMURAI_GARDEN_MAP_ID, CLOUDSPIRE_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID].includes(mapId)
         ) return false;
         try {
           await dependencies.reducers.runWorldReducer(() => connection.reducers.changeMap({ mapId, x, y }));
@@ -935,6 +935,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       remotePlayers() {
         const result = remotePlayerRenderBuffer;
         result.length = 0;
+        if (currentMapId === "home_exterior") return result;
         const now = performance.now();
         const consensusServerAtMs = estimatedServerNowMs(now) - REGULAR_ENEMY_CONSENSUS_DELAY_MS;
         for (const player of players.values()) {
@@ -960,7 +961,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         return result;
       },
       remotePlayerCount() {
-        return detailedMotionIdentities.size;
+        return currentMapId === "home_exterior" ? 0 : detailedMotionIdentities.size;
       },
       serverNowMs: () => estimatedServerNowMs(),
       regularEnemyLocalPosition: () => regularEnemyLocalPosition(),
@@ -978,7 +979,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         }
         return { ...death };
       },
-      mapPlayerMarkers: () => [...mapPlayerMarkers.values()],
+      mapPlayerMarkers: () => currentMapId === "home_exterior" ? [] : [...mapPlayerMarkers.values()],
       onlinePlayerCount: () => onlinePlayerCount,
       hasRemotePlayerInArea(minX: number, minY: number, maxX: number, maxY: number) {
         for (const player of players.values()) {

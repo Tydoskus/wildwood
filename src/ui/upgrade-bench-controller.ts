@@ -40,7 +40,7 @@ type UpgradeBenchDependencies = {
   inventory: InventoryState;
   playerPosition: () => { x: number; y: number };
   currentMapId: () => string;
-  snowMapId: string;
+  benchMapId: string;
   benchPosition: { x: number; y: number };
   activeUpgrades: () => ActiveItemUpgrade[];
   secondSlotUnlocked: () => boolean;
@@ -507,7 +507,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
   }
 
   function updateTouch() {
-    if (dependencies.currentMapId() !== dependencies.snowMapId) {
+    if (dependencies.currentMapId() !== dependencies.benchMapId) {
       touchingBench = false;
       close();
       return;

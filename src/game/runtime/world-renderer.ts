@@ -705,6 +705,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   }
 
   function drawPortal() {
+    if (options.getMapId() === "home_exterior") return;
     drawPortalAt(options.activePortal());
   }
 
@@ -754,6 +755,22 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const x = snapToWorldPixel(bench.x - camera.x);
     const y = snapToWorldPixel(bench.y - camera.y);
     if (x < -120 || y < -160 || x > visible.width + 120 || y > visible.height + 50) return;
+    if (bench.label === "Tech Research") {
+      ctx.save();
+      options.drawShadow(x, y - 27, 130, .2);
+      ctx.fillStyle = "#354e61"; ctx.fillRect(x - 58, y - 78, 116, 46);
+      ctx.fillStyle = "#c2a87d"; ctx.fillRect(x - 67, y - 89, 134, 15);
+      ctx.fillStyle = "#182c45"; ctx.fillRect(x - 43, y - 152, 86, 62);
+      ctx.strokeStyle = "#8cecff"; ctx.lineWidth = 4; ctx.strokeRect(x - 40, y - 149, 80, 56);
+      ctx.translate(x, y - 122); ctx.rotate(options.getGameTime() * .6);
+      ctx.strokeStyle = "#adf7fa"; ctx.strokeRect(-14, -14, 28, 28);
+      ctx.restore();
+      drawScreenSpaceAt(ctx, camera.zoom, x, y - 168, () => {
+        ctx.textAlign = "center"; ctx.font = '900 13px Arial';
+        options.outlinedText("Tech Research", 0, 0, "#adf7fa", 4);
+      });
+      return;
+    }
     if (!options.upgradeBench.complete || options.upgradeBench.naturalWidth <= 0) return;
     const width = Math.round(180 * bench.s);
     const height = Math.round(width * options.upgradeBench.naturalHeight / options.upgradeBench.naturalWidth);
@@ -908,7 +925,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       const unlocked = options.portalIsUnlocked(portal);
       drawPortalMapMarker(draw, px, py, portal.destination, unlocked);
     };
-    drawPortalMarker(options.activePortal());
+    if (options.getMapId() !== "home_exterior") drawPortalMarker(options.activePortal());
     const secondary = options.secondaryPortal();
     if (secondary) drawPortalMarker(secondary);
 

@@ -30,7 +30,7 @@ describe("Clockwork Ruins and Duskfall Orchard", () => {
     expect(reachable.size).toBe(paths.length);
     expect(decor.some(item => item.type === decorType)).toBe(true);
     expect(mapVisualTheme(map).ground).not.toBe(mapVisualTheme("crystal_hollows").ground);
-    expect(MAP_ENEMY_FAMILIES[map]).toBe(family);
+    expect(MAP_ENEMY_FAMILIES[map as keyof typeof MAP_ENEMY_FAMILIES]).toBe(family);
     const camps = mapSpawnCamps(map);
     expect(camps).toHaveLength(5);
     expect(new Set(camps.map(camp => ENEMY_TYPES[camp.types[0]].reward.type)).size).toBe(4);

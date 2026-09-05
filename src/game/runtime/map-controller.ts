@@ -1,3 +1,4 @@
+import { beginHomeTeleport, endHomeTeleport } from "./home-teleport";
 import { createPortalCutscene } from "./cutscene";
 import { snapCameraToPlayer, type Camera } from "./camera";
 import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, MiremawBogBurst, PrismshellCrystalBurst, IronhornCrystalBurst, DreadreaperCrystalBurst, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, PlayerState, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
@@ -22,6 +23,7 @@ export async function prepareMapTransition(
 }
 
 export type MapController = {
+  teleportHome: () => Promise<boolean>;
   activePortal: () => MapPortal;
   secondaryPortal: () => MapPortal | null;
   portalIsUnlocked: (portal: MapPortal) => boolean;
@@ -136,6 +138,41 @@ export function createMapController(options: {
   let portalCutsceneSeenKey = dragonCutsceneSeenKey;
   let portalCutscenePortal = mapConfig[tutorialMapId].portal;
 
+  async function teleportHome() {
+    if (!running() || player.hp <= 0 || isDueling() || mapTransitioning || portalCutscene.active) return false;
+    mapTransitioning = true;
+    const attempt = mapLoadGeneration;
+    const returning = getCurrentMapId() === "home_exterior";
+    keys.clear(); stopTouchMove(); player.moving = false;
+    syncStoppedPosition();
+    beginHomeTeleport();
+    let arrived = false;
+    try {
+      await new Promise(resolve => setTimeout(resolve, 650));
+      if (attempt !== mapLoadGeneration || !running() || player.hp <= 0) return false;
+      const changed = await changeMap("home_exterior", player.x, player.y);
+      if (!changed) return false;
+      // The root owns the remembered region and position, including after reconnect.
+      let state = localMapState();
+      const deadline = performance.now() + 30_000;
+      while ((!state || (state.mapId === "home_exterior") === returning) && performance.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 25));
+        state = localMapState();
+      }
+      if (!state || !(state.mapId in mapConfig) || (state.mapId === "home_exterior") === returning || attempt !== mapLoadGeneration) return false;
+      await options.prepareMapAssets(state.mapId as MapId);
+      if (attempt !== mapLoadGeneration) return false;
+      loadMap(state.mapId as MapId, state.x, state.y, state.facing);
+      snapCameraToPlayer(camera, player, viewport()); resetPresentationState();
+      beginHomeTeleport(true);
+      arrived = true;
+      return true;
+    } finally {
+      if (!arrived) endHomeTeleport();
+      mapTransitioning = false;
+    }
+  }
+
   function activePortal() { return mapConfig[getCurrentMapId()].portal; }
   function secondaryPortal() { return mapConfig[getCurrentMapId()].secondaryPortal ?? null; }
   function portalIsUnlocked(portal: MapPortal) { return portal.destination === tutorialMapId || mapUnlocked(portal.destination); }
@@ -219,7 +256,7 @@ export function createMapController(options: {
 
   function updatePortal(dt: number) {
     portalCooldown = Math.max(0, portalCooldown - dt);
-    if (mapTransitioning || portalCooldown > 0 || isDueling()) return;
+    if (getCurrentMapId() === "home_exterior" || mapTransitioning || portalCooldown > 0 || isDueling()) return;
     if (portalExitGuard) {
       if (playerIsInsidePortal(portalExitGuard)) return;
       portalExitGuard = null;
@@ -264,7 +301,7 @@ export function createMapController(options: {
     if (!running() || mapTransitioning || isDueling()) return;
     const state = localMapState();
     if (!state || state.mapId === getCurrentMapId()) return;
-    if (state.mapId !== tutorialMapId && state.mapId !== desertMapId && state.mapId !== snowMapId && state.mapId !== lavaMapId && state.mapId !== infernalMapId && state.mapId !== waterMapId && state.mapId !== samuraiMapId && state.mapId !== cloudspireMapId && state.mapId !== moonfenMapId && state.mapId !== crystalHollowsMapId && state.mapId !== clockworkRuinsMapId && state.mapId !== duskfallOrchardMapId) return;
+    if (state.mapId !== "home_exterior" && state.mapId !== tutorialMapId && state.mapId !== desertMapId && state.mapId !== snowMapId && state.mapId !== lavaMapId && state.mapId !== infernalMapId && state.mapId !== waterMapId && state.mapId !== samuraiMapId && state.mapId !== cloudspireMapId && state.mapId !== moonfenMapId && state.mapId !== crystalHollowsMapId && state.mapId !== clockworkRuinsMapId && state.mapId !== duskfallOrchardMapId) return;
     mapTransitioning = true;
     const attempt = mapLoadGeneration;
     void options.prepareMapAssets(state.mapId as MapId).then(() => {
@@ -338,6 +375,7 @@ export function createMapController(options: {
   }
 
   return {
+    teleportHome,
     activePortal,
     secondaryPortal,
     portalIsUnlocked,

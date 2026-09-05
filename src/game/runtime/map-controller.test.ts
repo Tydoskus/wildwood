@@ -227,3 +227,45 @@ describe("reset map presentation", () => {
     expect(h.controller.isMapTransitioning()).toBe(false);
   });
 });
+
+describe("Home teleport", () => {
+  afterEach(() => vi.useRealTimers());
+  it("locks departure, waits for server state, and restores the server return point", async () => {
+    vi.useFakeTimers();
+    const h = portalArrivalHarness({ x: 300, y: 400 });
+    h.player.x = 1234; h.player.y = 2345;
+    h.changeMap.mockImplementationOnce(async () => {
+      h.setServerMap({ mapId: "home_exterior", x: 500, y: 700, facing: 0 });
+      return true;
+    });
+    const travel = h.controller.teleportHome();
+    expect(h.controller.isMapTransitioning()).toBe(true);
+    expect(await h.controller.teleportHome()).toBe(false);
+    expect(h.changeMap).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(650);
+    expect(await travel).toBe(true);
+    expect(h.currentMapId()).toBe("home_exterior");
+    expect(h.changeMap).toHaveBeenCalledWith("home_exterior", 1234, 2345);
+    h.player.x = 380; h.player.y = 414;
+    h.changeMap.mockImplementationOnce(async () => {
+      h.setServerMap({ mapId: "tutorial_forest", x: 1234, y: 2345, facing: Math.PI });
+      return true;
+    });
+    const back = h.controller.teleportHome();
+    await vi.advanceTimersByTimeAsync(650);
+    expect(await back).toBe(true);
+    expect(h.player).toMatchObject({ x: 1234, y: 2345, facing: Math.PI });
+    expect(h.controller.isMapTransitioning()).toBe(false);
+  });
+  it("keeps the player in place and unlocks input when travel fails", async () => {
+    vi.useFakeTimers();
+    const h = portalArrivalHarness({ x: 300, y: 400 });
+    h.changeMap.mockResolvedValueOnce(false);
+    const travel = h.controller.teleportHome();
+    await vi.advanceTimersByTimeAsync(650);
+    expect(await travel).toBe(false);
+    expect(h.currentMapId()).toBe("tutorial_forest");
+    expect(h.player).toMatchObject({ x: 100, y: 68 });
+    expect(h.controller.isMapTransitioning()).toBe(false);
+  });
+});

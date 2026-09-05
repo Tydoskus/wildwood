@@ -1,3 +1,4 @@
+import { drawHomeTeleport } from "./home-teleport";
 import { createActorRenderer, type ActorStatus } from "./actor-renderer";
 import { createBossRenderer } from "./boss-renderer";
 import type { Camera } from "./camera";
@@ -417,11 +418,11 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawPortal: world.drawPortal,
       drawSecondaryPortal: world.drawSecondaryPortal,
       drawRemotePlayer: actor.drawRemotePlayer,
-      drawPlayer: () => actor.drawPlayer(
+      drawPlayer: () => drawHomeTeleport(options.ctx, options.player.x - options.camera.x, options.player.y - options.camera.y, () => actor.drawPlayer(
         frame.localIdentity(),
         options.publicPlayerName(frame.localIdentity(), frame.localDisplayName()),
         options.playerPower(options.player),
-      ),
+      )),
     });
     invalidateDepthOrder = depth.invalidateDepthOrder;
     renderer = createRenderController({

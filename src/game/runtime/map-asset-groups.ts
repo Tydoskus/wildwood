@@ -39,6 +39,7 @@ export type MapAssetGroup = {
 
 /** Source-of-truth for every image-backed asset that is gated by the active map. */
 export const MAP_ASSET_GROUPS = {
+  home_exterior: { art: ["forestDecor", "snowDecor"], enemies: [] },
   [TUTORIAL_FOREST_MAP_ID]: {
     art: ["forestBoss", "forestDecor"],
     enemies: ["Bramble", "Needle", "Mossback", "Spitter", "Brood", "Cindermaw", "King Slime", "Dread Warden"],
@@ -89,6 +90,7 @@ export const MAP_ASSET_GROUPS = {
 
 /** Map-keyed view consumed by the regular-enemy image loader. */
 export const MAP_ENEMY_SPRITE_GROUPS: Record<MapId, readonly EnemyKind[]> = {
+  home_exterior: [],
   [TUTORIAL_FOREST_MAP_ID]: MAP_ASSET_GROUPS[TUTORIAL_FOREST_MAP_ID].enemies,
   [BEGINNER_DESERT_MAP_ID]: MAP_ASSET_GROUPS[BEGINNER_DESERT_MAP_ID].enemies,
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: MAP_ASSET_GROUPS[INTERMEDIATE_SNOWLANDS_MAP_ID].enemies,

@@ -1,3 +1,4 @@
+import { HOME_EXTERIOR_MAP_ID } from "../../shared/home";
 import { table, t, SenderError } from "spacetimedb/server";
 import { MAP_IDS } from "../../shared/rules";
 import { MAP_SHARD_CAPACITY, selectMapShard, shouldWarmMapShard } from "../../shared/map-sharding";
@@ -91,6 +92,7 @@ export function releaseMapShard(ctx: any, identity: any) {
 }
 export function assignMapShard(ctx: any, player: any) {
   if (!rootShardingEnabled(ctx) || !player) return;
+  if (player.mapId === HOME_EXTERIOR_MAP_ID) { releaseMapShard(ctx, player.identity); return; }
   const current = ctx.db.mapShardMember.identity.find(player.identity);
   if (current?.mapId === player.mapId && current.shardId !== 0n) return;
   if (current && current.mapId !== player.mapId) releaseMapShard(ctx, player.identity);

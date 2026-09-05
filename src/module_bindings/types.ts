@@ -536,6 +536,15 @@ export const GuildStanding = __t.object("GuildStanding", {
 });
 export type GuildStanding = __Infer<typeof GuildStanding>;
 
+export const HomeReturnLocation = __t.object("HomeReturnLocation", {
+  identity: __t.identity(),
+  mapId: __t.string(),
+  x: __t.f64(),
+  y: __t.f64(),
+  facing: __t.f32(),
+});
+export type HomeReturnLocation = __Infer<typeof HomeReturnLocation>;
+
 export const IronhornAttackWindow = __t.object("IronhornAttackWindow", {
   identity: __t.identity(),
   encounter: __t.u64(),

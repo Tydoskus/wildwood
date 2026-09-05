@@ -16,6 +16,7 @@ import {
 export const PORTAL_SWIRL_SOURCE = "assets/wildstat/portal-swirl-spritesheet.png";
 
 const PORTAL_DESTINATION_COLORS: Record<MapId, string> = {
+  home_exterior: "#82e9ff",
   [TUTORIAL_FOREST_MAP_ID]: "#61e87c",
   [BEGINNER_DESERT_MAP_ID]: "#ffd34d",
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: "#8deeff",

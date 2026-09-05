@@ -75,6 +75,7 @@ const document = storedMapDesigns as unknown as StoredMapDesignDocument;
 const resolvedThemeCache = new Map<string, MapVisualTheme>();
 
 const DEFAULT_MAP_THEMES: Record<MapId, MapVisualTheme> = {
+  home_exterior: { ground: "#488761", path: "#b29a78", pathDetail: "rgba(68,38,29,.12)", decorColors: {} },
   tutorial_forest: {
     ground: "#31945b",
     path: "#8b6551",

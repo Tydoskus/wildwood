@@ -79,6 +79,7 @@ export function createGameBootstrap() {
   const dreadreaperCrystalBursts: DreadreaperCrystalBurst[] = [];
   const startSpawn = { x: 360, y: 360 };
   const mapConfig = {
+    home_exterior: { name: "Home", portal: { x: -1000, y: -1000, width: 0, height: 0, depth: -1000, destination: TUTORIAL_FOREST_MAP_ID }, arrival: { x: 500, y: 700 } },
     [TUTORIAL_FOREST_MAP_ID]: editedMapEntry(TUTORIAL_FOREST_MAP_ID, {
       name: MAP_DISPLAY_NAMES[TUTORIAL_FOREST_MAP_ID],
       portal: { x: 190, y: 448, width: 198, height: 198, depth: 448, destination: BEGINNER_DESERT_MAP_ID },

@@ -1,7 +1,10 @@
+import { HOME_RESEARCH_POSITION } from "../shared/home";
+import { WORLD_WIDTH, WORLD_HEIGHT } from "../shared/rules";
 import { createGuildPanel } from "./ui/guild-panel";
 import { isDeveloperIdentity } from "./app/developer";
 import { nativeBridgeForRuntime } from "./app/native-ads";
 import {
+  WORLD,
   BASE_ATTACK_RANGE,
   BASE_PROJECTILE_SPEED,
 } from "./game/constants";
@@ -214,6 +217,8 @@ import {
 
   function setCurrentMap(mapId: MapId) {
     currentMapId = mapId;
+    WORLD.w = mapId === "home_exterior" ? 1000 : WORLD_WIDTH;
+    WORLD.h = mapId === "home_exterior" ? 1000 : WORLD_HEIGHT;
     void prepareMapAssets(mapId);
     preloadAdjacentMapAssets(mapId);
   }
@@ -887,7 +892,7 @@ import {
       throw error;
     });
   };
-  const adjacentMapAssetPreloader = createAdjacentMapAssetPreloader({
+  const adjacentMapAssetPreloader = createAdjacentMapAssetPreloader<MapId>({
     mapConfig: MAP_CONFIG,
     mapAssetsReady: assets.mapAssetsReady,
     prepareMapAssets: (mapId) => prepareMapAssets(mapId),
@@ -1367,6 +1372,23 @@ import {
     showMessage,
   });
 
+  gameElements.techTreeBtn.addEventListener("click", () => {
+    techTree.close(); upgradeBenchController.close();
+    void mapController.teleportHome().then(changed => {
+      if (!changed) showMessage("TELEPORT UNAVAILABLE", "#ffbc91");
+    }).catch(() => showMessage("TELEPORT FAILED · TRY AGAIN", "#ffbc91"));
+  });
+  let touchingResearch = false;
+  function updateHomeStations() {
+    const home = currentMapId === "home_exterior";
+    const label = gameElements.techTreeBtn.querySelector(".toolbar-label");
+    if (label) label.textContent = home ? "Return" : "Home";
+    gameElements.techTreeBtn.setAttribute("aria-label", home ? "Return to enemy map" : "Teleport home");
+    const touching = home && !mapController.isMapTransitioning() && Math.hypot(player.x - HOME_RESEARCH_POSITION.x, player.y - (HOME_RESEARCH_POSITION.y - 36)) < 85;
+    if (touching && !touchingResearch) { playerInput.clear(); techTree.open(); }
+    touchingResearch = touching;
+    upgradeBenchController.updateTouch();
+  }
   upgradeBenchController = createUpgradeBenchController({
     panel: gameElements.upgradeBenchPanel,
     prompt: gameElements.upgradeBenchPrompt,
@@ -1384,7 +1406,7 @@ import {
     inventory,
     playerPosition: () => player,
     currentMapId: () => currentMapId,
-    snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID,
+    benchMapId: "home_exterior",
     benchPosition: UPGRADE_BENCH_POSITION,
     activeUpgrades: () => coop?.activeItemUpgrades?.() ?? [],
     secondSlotUnlocked: () => coop?.secondUpgradeSlotUnlocked?.() ?? false,
@@ -1529,7 +1551,7 @@ import {
   session = createGameSessionController({
     player, camera, viewport: canvasRuntime.viewport,
     tutorialMapId: TUTORIAL_FOREST_MAP_ID, desertMapId: BEGINNER_DESERT_MAP_ID, snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID, lavaMapId: ADVANCED_LAVA_WASTES_MAP_ID, infernalMapId: INFERNAL_DEPTHS_MAP_ID, waterMapId: WATER_REACH_MAP_ID, samuraiMapId: SAMURAI_GARDEN_MAP_ID, cloudspireMapId: CLOUDSPIRE_MAP_ID, moonfenMapId: MOONFEN_MAP_ID, crystalHollowsMapId: CRYSTAL_HOLLOWS_MAP_ID, clockworkRuinsMapId: CLOCKWORK_RUINS_MAP_ID, duskfallOrchardMapId: DUSKFALL_ORCHARD_MAP_ID,
-    validMapIds: [TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, INFERNAL_DEPTHS_MAP_ID, WATER_REACH_MAP_ID, SAMURAI_GARDEN_MAP_ID, CLOUDSPIRE_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID],
+    validMapIds: ["home_exterior", TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, INFERNAL_DEPTHS_MAP_ID, WATER_REACH_MAP_ID, SAMURAI_GARDEN_MAP_ID, CLOUDSPIRE_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID],
     getMapId: () => currentMapId, setMapId: (mapId) => { setCurrentMap(mapId as MapId); },
     serverMapId: () => coop?.localState?.()?.mapId,
     serverPlayerState: () => coop?.localState?.() ?? undefined,
@@ -1562,7 +1584,7 @@ import {
     isDueling, activeDuel,
     syncDragon: bossController.syncDragonState, syncSpider: bossController.syncSpiderState, syncFrostclaw: bossController.syncFrostclawState, syncMagmalisk: bossController.syncMagmaliskState, syncGloomroot: bossController.syncGloomrootState, syncTidewyrm: bossController.syncTidewyrmState, syncKoiShogun: bossController.syncKoiShogunState, syncTempestKirin: bossController.syncTempestKirinState, syncMiremaw: bossController.syncMiremawState, syncPrismshell: bossController.syncPrismshellState, syncIronhorn: bossController.syncIronhornState, syncDreadreaper: bossController.syncDreadreaperState,
     cutsceneActive: mapController.isCutsceneActive, updateCutscene: mapController.updatePortalCutscene,
-    updatePlayer: playerController.update, updateUpgradeBench: upgradeBenchController.updateTouch, updatePortal: mapController.updatePortal, updateBootPickup: worldProgression.updateBootPickup,
+    updatePlayer: (dt) => { if (!mapController.isMapTransitioning()) playerController.update(dt); }, updateUpgradeBench: updateHomeStations, updatePortal: mapController.updatePortal, updateBootPickup: worldProgression.updateBootPickup,
     updateEnemies: enemySimulation.update, updateDragon: bossController.updateBoss, updateSpider: bossController.updateSpiderBoss, updateFrostclaw: bossController.updateFrostclawBoss, updateMagmalisk: bossController.updateMagmaliskBoss, updateGloomroot: bossController.updateGloomrootBoss, updateTidewyrm: bossController.updateTidewyrmBoss, updateKoiShogun: bossController.updateKoiShogunBoss, updateTempestKirin: bossController.updateTempestKirinBoss, updateMiremaw: bossController.updateMiremawBoss, updatePrismshell: bossController.updatePrismshellBoss, updateIronhorn: bossController.updateIronhornBoss, updateDreadreaper: bossController.updateDreadreaperBoss,
     updateProjectiles: playerCombat.updateProjectiles, updateRespawns,
     clearDuelCombat: () => { projectileStore.clear(); playerCombat.clearPendingBossHits(); },

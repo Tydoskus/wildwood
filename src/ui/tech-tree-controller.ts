@@ -356,10 +356,7 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     button.setAttribute("aria-expanded", "false");
   }
 
-  button.addEventListener("click", () => {
-    if (overlay.hidden) open();
-    else close();
-  });
+
   closeButton.addEventListener("click", close);
   closeDetailButton.addEventListener("click", () => { detail.hidden = true; });
   addEventListener("resize", () => { if (!overlay.hidden) { sizeTreeEdges(); drawLinks(); } });
@@ -374,6 +371,7 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
   }
 
   return {
+    open,
     close,
     isOpen: () => !overlay.hidden,
     render,

@@ -1,3 +1,4 @@
+import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_BENCH_POSITION } from "../../shared/home";
 import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./shard-snapshot-writes";
 import { decodeShardSnapshot, encodeShardSnapshot } from "../../shared/shard-wire";
 import { coordinateShard, validateCoordinatorConfig } from "./shard-coordinator";
@@ -234,7 +235,7 @@ const LEGACY_CLIENT_ERRORS = {
 const WORLD = { width: WORLD_WIDTH, height: WORLD_HEIGHT };
 const MAX_PACKED_PLAYER_VELOCITY = 0x7fff / PLAYER_VELOCITY_SCALE;
 const PLAYER_ZONE_SIZE = 1_000;
-const VALID_MAP_IDS = new Set<string>(MAP_IDS);
+const VALID_MAP_IDS = new Set<string>([...MAP_IDS, HOME_EXTERIOR_MAP_ID]);
 const LEGACY_FROSTWIND_EXPANSE_MAP_ID = "frostwind_expanse";
 const BETA_TESTER_ACTIVITY_MICROS = 120n * 60n * 60n * 1_000_000n;
 
@@ -404,7 +405,6 @@ const MIREMAW_RESPAWN_MICROS = 30_000_000n;
 const PRISMSHELL_RESPAWN_MICROS = 30_000_000n;
 const IRONHORN_RESPAWN_MICROS = 30_000_000n;
 const DREADREAPER_RESPAWN_MICROS = 30_000_000n;
-const UPGRADE_BENCH_POSITION = MAP_EDITOR_GAMEPLAY_OVERRIDES[INTERMEDIATE_SNOWLANDS_MAP_ID]?.upgradeBench ?? { x: 800, y: 710 };
 const UPGRADE_BENCH_USE_RANGE = 150;
 const UPGRADE_BENCH_SLOT_ONE = 1;
 const UPGRADE_BENCH_SLOT_TWO = 2;
@@ -817,6 +817,10 @@ const playerProgress = table(
 
 // Reconnect coordinates are private. Keeping them outside public profile
 // progress prevents offline or invisible players from leaking exact locations.
+const homeReturnLocation = table({ name: "home_return_location", public: false }, {
+  identity: t.identity().primaryKey(), mapId: t.string(), x: t.f64(), y: t.f64(), facing: t.f32(),
+});
+
 const playerLastLocation = table(
   { public: false },
   {
@@ -1621,6 +1625,7 @@ const shardCoordinatorSchedule = table(
   { scheduledId: t.u64().primaryKey(), scheduledAt: t.scheduleAt() },
 );
 const spacetimedb = schema({
+  homeReturnLocation,
   ...guildTables,
   shardCoordinatorSchedule,
   ...mapShardingTables,
@@ -2804,6 +2809,10 @@ function analyticalMotionAt(motion: any, sampledAtMicros: bigint) {
     simulationTick: motion.simulationTick,
     anchoredAtMicros: motion.lastInputAt.microsSinceUnixEpoch,
   }, sampledAtMicros);
+  if (motion.mapId === HOME_EXTERIOR_MAP_ID) {
+    sampled.x = Math.max(PLAYER_RADIUS, Math.min(1000 - PLAYER_RADIUS, sampled.x));
+    sampled.y = Math.max(PLAYER_RADIUS, Math.min(1000 - PLAYER_RADIUS, sampled.y));
+  }
   return {
     ...motion,
     ...sampled,
@@ -2815,7 +2824,7 @@ function analyticalMotionAt(motion: any, sampledAtMicros: bigint) {
 function playerWithMotion(ctx: any, activePlayer: any) {
   if (!activePlayer) return activePlayer;
   const motion = ctx.db.playerMotion.identity.find(activePlayer.identity);
-  if (!motion) return activePlayer;
+  if (!motion || motion.mapId !== activePlayer.mapId) return activePlayer;
   const sampled = analyticalMotionAt(motion, ctx.timestamp.microsSinceUnixEpoch);
   return {
     ...activePlayer,
@@ -2900,10 +2909,10 @@ function rebuildPlayerMotionMapState(ctx: any) {
 }
 
 function syncPlayerMotion(ctx: any, activePlayer: any) {
-  if (rootShardingEnabled(ctx)) return { ...activePlayer, networkId: 0 };
+  if (rootShardingEnabled(ctx) && activePlayer.mapId !== HOME_EXTERIOR_MAP_ID) return { ...activePlayer, networkId: 0 };
   const current = ctx.db.playerMotion.identity.find(activePlayer.identity);
   const moving = Boolean(activePlayer.moving);
-  const isVisible = activePlayer.isVisible !== false;
+  const isVisible = activePlayer.mapId !== HOME_EXTERIOR_MAP_ID && activePlayer.isVisible !== false;
   const hasStoredVelocity = Number.isFinite(activePlayer.vx) && Number.isFinite(activePlayer.vy) && (
     !moving || activePlayer.vx !== 0 || activePlayer.vy !== 0
   );
@@ -2951,7 +2960,8 @@ function syncPlayerMotion(ctx: any, activePlayer: any) {
 }
 
 function syncPlayerMotionIdentity(ctx: any, activePlayer: any) {
-  if (rootShardingEnabled(ctx)) {
+  if (activePlayer?.mapId === HOME_EXTERIOR_MAP_ID) releaseMapShard(ctx, activePlayer.identity);
+  if (rootShardingEnabled(ctx) && activePlayer?.mapId !== HOME_EXTERIOR_MAP_ID) {
     const member = activePlayer && ctx.db.mapShardMember.identity.find(activePlayer.identity);
     if (activePlayer && (!member || member.mapId !== activePlayer.mapId)) persistWorldLocation(ctx, activePlayer);
     assignMapShard(ctx, activePlayer);
@@ -2966,7 +2976,7 @@ function syncPlayerMotionIdentity(ctx: any, activePlayer: any) {
     networkId: motion.networkId,
     identity: activePlayer.identity,
     mapId: activePlayer.mapId,
-    isVisible: activePlayer.isVisible,
+    isVisible: activePlayer.mapId !== HOME_EXTERIOR_MAP_ID && activePlayer.isVisible,
     zoneX: activePlayer.zoneX,
     zoneY: activePlayer.zoneY,
     displayName: profile.displayName,
@@ -3149,7 +3159,7 @@ function savedWorldLocation(ctx: any, identity: any, progress: any) {
     mapId = progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
   }
   if (mapId === BEGINNER_DESERT_MAP_ID && !progress.desertUnlocked) mapId = TUTORIAL_FOREST_MAP_ID;
-  const fallback = mapId === TUTORIAL_FOREST_MAP_ID ? PLAYER_SPAWN : MAP_ARRIVALS[mapId as keyof typeof MAP_ARRIVALS];
+  const fallback = mapId === HOME_EXTERIOR_MAP_ID ? HOME_EXTERIOR_SPAWN : mapId === TUTORIAL_FOREST_MAP_ID ? PLAYER_SPAWN : MAP_ARRIVALS[mapId as keyof typeof MAP_ARRIVALS];
   const useSavedPosition = mapId === requestedMap;
   const x = useSavedPosition && Number.isFinite(saved?.x)
     ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, saved.x))
@@ -3190,7 +3200,7 @@ function syncPlayerMapMarker(ctx: any, activePlayer: any, force = false) {
     x: activePlayer.x,
     y: activePlayer.y,
     mapId: activePlayer.mapId,
-    isVisible: activePlayer.isVisible,
+    isVisible: activePlayer.mapId !== HOME_EXTERIOR_MAP_ID && activePlayer.isVisible,
     updatedAt: ctx.timestamp,
   };
   if (!current) {
@@ -8577,8 +8587,8 @@ export const startItemUpgrade = spacetimedb.reducer(
   (ctx, { slot: requestedSlot, itemId }) => {
     const slot = requireUpgradeBenchSlot(requestedSlot);
     const playerAtBench = requireControllingPlayer(ctx);
-    if (playerAtBench.mapId !== INTERMEDIATE_SNOWLANDS_MAP_ID ||
-      Math.hypot(playerAtBench.x - UPGRADE_BENCH_POSITION.x, playerAtBench.y - UPGRADE_BENCH_POSITION.y) > UPGRADE_BENCH_USE_RANGE) {
+    if (playerAtBench.mapId !== HOME_EXTERIOR_MAP_ID ||
+      Math.hypot(playerAtBench.x - HOME_BENCH_POSITION.x, playerAtBench.y - HOME_BENCH_POSITION.y) > UPGRADE_BENCH_USE_RANGE) {
       throw new SenderError("Touch the Upgrade Bench first.");
     }
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel first.");
@@ -8980,6 +8990,7 @@ export const requestDuel = spacetimedb.reducer(
   { opponent: t.identity() },
   (ctx, { opponent }) => {
     const challenger = requireControllingPlayer(ctx);
+    if (challenger.mapId === HOME_EXTERIOR_MAP_ID || ctx.db.player.identity.find(opponent)?.mapId === HOME_EXTERIOR_MAP_ID) throw new SenderError("Home is single player.");
     if (sameIdentity(opponent, ctx.sender)) throw new SenderError("You cannot duel yourself.");
     if (playersBlocked(ctx, ctx.sender, opponent)) throw new SenderError("Duel unavailable for this player.");
     if (isVirtualPlayer(ctx, opponent) || isVirtualPlayer(ctx, ctx.sender)) {
@@ -9119,8 +9130,9 @@ function applyMovementState(
   if (sequence <= current.lastInputSequence || ["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
   if (![x, y, vx, vy, simulationTick, motionEpoch].every(Number.isFinite)) throw new SenderError("Movement state values must be finite");
 
-  const clampedX = Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, x));
-  const clampedY = Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, y));
+  const bounds = current.mapId === HOME_EXTERIOR_MAP_ID ? { width: 1000, height: 1000 } : WORLD;
+  const clampedX = Math.max(PLAYER_RADIUS, Math.min(bounds.width - PLAYER_RADIUS, x));
+  const clampedY = Math.max(PLAYER_RADIUS, Math.min(bounds.height - PLAYER_RADIUS, y));
   const boundedVx = Math.max(-MAX_PACKED_PLAYER_VELOCITY, Math.min(MAX_PACKED_PLAYER_VELOCITY, vx));
   const boundedVy = Math.max(-MAX_PACKED_PLAYER_VELOCITY, Math.min(MAX_PACKED_PLAYER_VELOCITY, vy));
   const moving = Math.abs(boundedVx) > 1e-6 || Math.abs(boundedVy) > 1e-6;
@@ -9265,6 +9277,22 @@ export const changeMap = spacetimedb.reducer(
   (ctx, { mapId, x, y }) => {
     const current = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish the duel before using a portal.");
+    if (mapId === HOME_EXTERIOR_MAP_ID) {
+      if (current.hp <= 0) throw new SenderError("Respawn before teleporting home.");
+      if (current.mapId === HOME_EXTERIOR_MAP_ID) {
+        const saved = ctx.db.homeReturnLocation.identity.find(ctx.sender);
+        if (!saved) throw new SenderError("Home return location unavailable.");
+        transitionPlayerMap(ctx, current, saved.mapId, saved, saved.facing);
+      } else {
+        if (![x, y].every(Number.isFinite) || x < PLAYER_RADIUS || y < PLAYER_RADIUS || x > WORLD.width - PLAYER_RADIUS || y > WORLD.height - PLAYER_RADIUS) throw new SenderError("Invalid teleport position.");
+        const saved = { identity: ctx.sender, mapId: current.mapId, x, y, facing: current.facing };
+        if (ctx.db.homeReturnLocation.identity.find(ctx.sender)) ctx.db.homeReturnLocation.identity.update(saved);
+        else ctx.db.homeReturnLocation.insert(saved);
+        transitionPlayerMap(ctx, current, HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN);
+      }
+      persistWorldLocation(ctx, ctx.db.player.identity.find(ctx.sender));
+      return;
+    }
     if (!VALID_MAP_IDS.has(mapId) || mapId === current.mapId) throw new SenderError("Unsupported map destination.");
     if (!Number.isFinite(x) || !Number.isFinite(y)) throw new SenderError("Portal position must be finite.");
     if (x < PLAYER_RADIUS || x > WORLD.width - PLAYER_RADIUS || y < PLAYER_RADIUS || y > WORLD.height - PLAYER_RADIUS) {
@@ -9351,7 +9379,7 @@ function requireShardOperator(ctx: any) {
   if (!internal && !isDatabaseOwnerIdentity(ctx.sender)) throw new SenderError("Shard operator required");
 }
 function requireMapWorkload(ctx: any) {
-  if (rootShardingEnabled(ctx)) throw new SenderError("Connect to the assigned map shard");
+  if (rootShardingEnabled(ctx) && ctx.db.player.identity.find(ctx.sender)?.mapId !== HOME_EXTERIOR_MAP_ID) throw new SenderError("Connect to the assigned map shard");
   const runtime = ctx.db.shardRuntime.id.find(0);
   if (runtime?.role === "map" && (!runtime.enabled || runtime.leaseExpiresAtMicros <= ctx.timestamp.microsSinceUnixEpoch)) {
     throw new SenderError("Map shard is reconnecting to the account service");

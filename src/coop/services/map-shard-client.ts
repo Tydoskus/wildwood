@@ -28,6 +28,7 @@ export function createMapShardClient(options: {
     return new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => finish(new Error("Destination map connection timed out")), 30_000);
       const finish = (error?: Error) => {
+        if (!error && mapId === "home_exterior" && !route) { clearTimeout(timeout); mapWaiters.delete(finish); resolve(); return; }
         if (!error && attachedRoot === root && (!hydrated || route?.mapId !== mapId || (previousGeneration !== undefined && route?.generation === previousGeneration))) return;
         clearTimeout(timeout);
         mapWaiters.delete(finish);
@@ -127,7 +128,11 @@ export function createMapShardClient(options: {
     route = next;
     options.resetWorld();
     connectRegion();
-    if (!next) options.worldReady();
+    if (!next) {
+      for (const row of attachedRoot?.db.player.iter() ?? []) options.handlers.player(row);
+      for (const row of attachedRoot?.db.playerMotionIdentity.iter() ?? []) options.handlers.motionIdentity(row);
+      options.worldReady(); notifyMapWaiters();
+    }
     options.changed();
   }
   const port: ReducerPort = {

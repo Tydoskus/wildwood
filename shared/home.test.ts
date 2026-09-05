@@ -33,7 +33,7 @@ describe("private home routes", () => {
   });
 
   it("provides compact room bounds only for home routes", () => {
-    expect(homeBoundsForNetworkMapId(homeNetworkMapId(OWNER, "exterior"))).toEqual({ width: 2_400, height: 1_800 });
+    expect(homeBoundsForNetworkMapId(homeNetworkMapId(OWNER, "exterior"))).toEqual({ width: 1_000, height: 1_000 });
     expect(homeBoundsForNetworkMapId(homeNetworkMapId(OWNER, "interior"))).toEqual({ width: 1_600, height: 1_200 });
     expect(homeBoundsForNetworkMapId(HOME_EXTERIOR_MAP_ID)).toBeNull();
   });

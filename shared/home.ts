@@ -1,3 +1,5 @@
+export const HOME_BENCH_POSITION = { x: 380, y: 450 };
+export const HOME_RESEARCH_POSITION = { x: 620, y: 450 };
 export const HOME_EXTERIOR_MAP_ID = "home_exterior";
 export const HOME_INTERIOR_MAP_ID = "home_interior";
 
@@ -9,13 +11,13 @@ export type WorldBounds = { width: number; height: number };
 export type WorldPoint = { x: number; y: number };
 
 export const HOME_WORLD_BOUNDS: Record<HomeMapId, WorldBounds> = {
-  [HOME_EXTERIOR_MAP_ID]: { width: 2_400, height: 1_800 },
+  [HOME_EXTERIOR_MAP_ID]: { width: 1_000, height: 1_000 },
   [HOME_INTERIOR_MAP_ID]: { width: 1_600, height: 1_200 },
 };
 
 // Teleporting home always starts outside. Door travel uses separate arrivals
 // so a player never lands inside the same trigger that initiated the move.
-export const HOME_EXTERIOR_SPAWN: WorldPoint = { x: 1_200, y: 900 };
+export const HOME_EXTERIOR_SPAWN: WorldPoint = { x: 500, y: 700 };
 export const HOME_EXTERIOR_DOOR: WorldPoint = { x: 1_200, y: 748 };
 export const HOME_EXTERIOR_DOOR_ARRIVAL: WorldPoint = { x: 1_200, y: 870 };
 export const HOME_INTERIOR_SPAWN: WorldPoint = { x: 800, y: 930 };

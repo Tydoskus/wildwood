@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.635": [
+    "Added a single-player 1000×1000 Home map, reached from the toolbar.",
+    "Moved the Upgrade Bench home and added a Tech Research station beside it.",
+    "Added teleport animations and saved return positions so you resume where you left each enemy map.",
+  ],
   "0.634": [
     "Added guilds with saved three-champion lineups, asynchronous battles, and weekly guild rankings.",
     "Introduced a streamlined guild interface with focused Guild, Battles, and Rankings views, compact member controls, and expandable battle reports.",
@@ -1536,6 +1541,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.635": "2026-09-05",
   "0.634": "2026-09-05",
   "0.633": "2026-09-05",
   "0.632": "2026-09-05",

@@ -1,3 +1,4 @@
+import { HOME_EXTERIOR_MAP_ID, HOME_BENCH_POSITION, HOME_RESEARCH_POSITION } from "../../shared/home";
 import { createExpansionLayout } from "./expansion-layouts";
 import { BOSS_ENEMY_SAFE_DISTANCE, WORLD } from "./constants";
 import { CAMPS, ENEMY_TYPES, type EnemyKind } from "./enemies";
@@ -16,7 +17,7 @@ export type WorldDecor = WorldDecorPlacement & (
   | { type: "desertGrass"; variant: number }
   | { type: "snowPine"; s: number }
   | { type: "snowTuft"; variant: number }
-  | { type: "upgradeBench"; s: number; label: "Upgrade Bench" }
+  | { type: "upgradeBench"; s: number; label: "Upgrade Bench" | "Tech Research" }
   | { type: "lavaPool"; s: number; variant: number }
   | { type: "lavaRock"; s: number; variant: number }
   | { type: "charredTree"; s: number; variant: number }
@@ -53,11 +54,9 @@ export const MOONFEN_MAP_ID = "moonfen";
 export const CRYSTAL_HOLLOWS_MAP_ID = "crystal_hollows";
 export const CLOCKWORK_RUINS_MAP_ID = "clockwork_ruins";
 export const DUSKFALL_ORCHARD_MAP_ID = "duskfall_orchard";
-const editedUpgradeBench = savedMapDesign(INTERMEDIATE_SNOWLANDS_MAP_ID)?.decor.find((decor) => decor.type === "upgradeBench");
-export const UPGRADE_BENCH_POSITION = editedUpgradeBench
-  ? { x: editedUpgradeBench.x, y: editedUpgradeBench.y }
-  : { x: 800, y: 710 } as const;
+export const UPGRADE_BENCH_POSITION = HOME_BENCH_POSITION;
 export type MapId =
+  | typeof HOME_EXTERIOR_MAP_ID
   | typeof TUTORIAL_FOREST_MAP_ID
   | typeof BEGINNER_DESERT_MAP_ID
   | typeof INTERMEDIATE_SNOWLANDS_MAP_ID
@@ -325,7 +324,7 @@ function createDesertLayout() {
 
 function createSnowLayout() {
   const decor: WorldDecor[] = [
-    { type: "upgradeBench", ...UPGRADE_BENCH_POSITION, s: 1, label: "Upgrade Bench" },
+
   ];
   const paths: WorldPath[] = [
     { x: 300, y: 600, w: 3800, h: 150 },
@@ -704,10 +703,18 @@ function createClockworkRuinsLayout() { return createExpansionLayout(false, CLOC
 function createDuskfallOrchardLayout() { return createExpansionLayout(true, DUSKFALL_ORCHARD_CAMPS); }
 
 export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID) {
+  if (mapId === HOME_EXTERIOR_MAP_ID) return {
+    paths: [{ x: 240, y: 380, w: 520, h: 140 }, { x: 450, y: 510, w: 100, h: 300 }],
+    decor: [
+      { type: "upgradeBench", ...HOME_BENCH_POSITION, s: 1, label: "Upgrade Bench" },
+      { type: "upgradeBench", ...HOME_RESEARCH_POSITION, s: 1, label: "Tech Research" },
+      ...[100, 900].flatMap(x => [180, 420, 720, 940].map((y, variant) => ({ type: "tree", x, y, s: 1, variant }))),
+    ] as WorldDecor[],
+  };
   const saved = savedMapDesign(mapId);
   if (saved) {
     return {
-      decor: saved.decor.map((item) => ({ ...item })),
+      decor: saved.decor.filter(item => item.type !== "upgradeBench").map((item) => ({ ...item })),
       paths: saved.paths.map((path) => ({ ...path })),
     };
   }
@@ -782,6 +789,7 @@ export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FO
 }
 
 export function mapSpawnCamps(mapId: MapId = TUTORIAL_FOREST_MAP_ID): readonly SpawnCamp[] {
+  if (mapId === HOME_EXTERIOR_MAP_ID) return [];
   const saved = savedMapDesign(mapId);
   if (saved?.spawnCamps.length) return saved.spawnCamps.map((camp) => ({ ...camp, types: [...camp.types] }));
   return mapId === BEGINNER_DESERT_MAP_ID
@@ -806,6 +814,7 @@ export function mapSpawnCamps(mapId: MapId = TUTORIAL_FOREST_MAP_ID): readonly S
 }
 
 export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID): SpawnSite[] {
+  if (mapId === HOME_EXTERIOR_MAP_ID) return [];
   const sites: SpawnSite[] = [];
   const camps = mapSpawnCamps(mapId);
   assertCampContracts(camps);

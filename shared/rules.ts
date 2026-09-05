@@ -158,6 +158,7 @@ export const CRYSTAL_HOLLOWS_MAP_ID = "crystal_hollows";
 export const CLOCKWORK_RUINS_MAP_ID = "clockwork_ruins";
 export const DUSKFALL_ORCHARD_MAP_ID = "duskfall_orchard";
 export const MAP_DISPLAY_NAMES = {
+  home_exterior: "Home",
   [TUTORIAL_FOREST_MAP_ID]: "Tutorial Forest",
   [BEGINNER_DESERT_MAP_ID]: "Beginner Desert",
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: "Intermediate Snowlands",
@@ -182,7 +183,7 @@ export const MAP_IDS: readonly string[] = [
   CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 90;
+export const PROTOCOL_VERSION = 91;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

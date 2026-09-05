@@ -88,6 +88,7 @@ export type MapGuideZone = {
 };
 
 const MAP_GUIDE_DROPS: Record<MapId, readonly MapGuideDrop[]> = {
+  home_exterior: [],
   [TUTORIAL_FOREST_MAP_ID]: [
     { itemId: STARTER_BOW, denominator: FOREST_ITEM_DROP_DENOMINATOR, source: "Any regular forest enemy" },
     { itemId: WOODEN_ARMOR, denominator: FOREST_ITEM_DROP_DENOMINATOR, source: "Any regular forest enemy" },
@@ -119,6 +120,7 @@ const MAP_GUIDE_DROPS: Record<MapId, readonly MapGuideDrop[]> = {
 };
 
 const MAP_GUIDE_THEMES: Record<MapId, { ground: string; path: string; glow: string }> = {
+  home_exterior: { ground: "#488761", path: "#b29a78", glow: "#82e9ff" },
   [TUTORIAL_FOREST_MAP_ID]: { ground: "#31945b", path: "#8b6551", glow: "#65e889" },
   [BEGINNER_DESERT_MAP_ID]: { ground: "#d9a95f", path: "#c48b4b", glow: "#ffe09a" },
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: { ground: "#bfddeb", path: "#8fb7d0", glow: "#e9fbff" },
