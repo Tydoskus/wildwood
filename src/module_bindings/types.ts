@@ -198,6 +198,49 @@ export const DragonResult = __t.object("DragonResult", {
 });
 export type DragonResult = __Infer<typeof DragonResult>;
 
+export const DreadreaperAttackWindow = __t.object("DreadreaperAttackWindow", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  startedAtMicros: __t.u64(),
+  hits: __t.u32(),
+});
+export type DreadreaperAttackWindow = __Infer<typeof DreadreaperAttackWindow>;
+
+export const DreadreaperBoss = __t.object("DreadreaperBoss", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  hp: __t.f32(),
+  maxHp: __t.f32(),
+  alive: __t.bool(),
+  respawnAtMicros: __t.u64(),
+  lastDamageAtMicros: __t.u64(),
+});
+export type DreadreaperBoss = __Infer<typeof DreadreaperBoss>;
+
+export const DreadreaperContribution = __t.object("DreadreaperContribution", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  displayName: __t.string(),
+  damage: __t.f32(),
+});
+export type DreadreaperContribution = __Infer<typeof DreadreaperContribution>;
+
+export const DreadreaperRespawnSchedule = __t.object("DreadreaperRespawnSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+  encounter: __t.u64(),
+});
+export type DreadreaperRespawnSchedule = __Infer<typeof DreadreaperRespawnSchedule>;
+
+export const DreadreaperResult = __t.object("DreadreaperResult", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  totalDamage: __t.f32(),
+  contributorsJson: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type DreadreaperResult = __Infer<typeof DreadreaperResult>;
+
 export const Duel = __t.object("Duel", {
   id: __t.u64(),
   challenger: __t.identity(),
@@ -417,6 +460,49 @@ export const GloomrootResult = __t.object("GloomrootResult", {
   createdAt: __t.timestamp(),
 });
 export type GloomrootResult = __Infer<typeof GloomrootResult>;
+
+export const IronhornAttackWindow = __t.object("IronhornAttackWindow", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  startedAtMicros: __t.u64(),
+  hits: __t.u32(),
+});
+export type IronhornAttackWindow = __Infer<typeof IronhornAttackWindow>;
+
+export const IronhornBoss = __t.object("IronhornBoss", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  hp: __t.f32(),
+  maxHp: __t.f32(),
+  alive: __t.bool(),
+  respawnAtMicros: __t.u64(),
+  lastDamageAtMicros: __t.u64(),
+});
+export type IronhornBoss = __Infer<typeof IronhornBoss>;
+
+export const IronhornContribution = __t.object("IronhornContribution", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  displayName: __t.string(),
+  damage: __t.f32(),
+});
+export type IronhornContribution = __Infer<typeof IronhornContribution>;
+
+export const IronhornRespawnSchedule = __t.object("IronhornRespawnSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+  encounter: __t.u64(),
+});
+export type IronhornRespawnSchedule = __Infer<typeof IronhornRespawnSchedule>;
+
+export const IronhornResult = __t.object("IronhornResult", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  totalDamage: __t.f32(),
+  contributorsJson: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type IronhornResult = __Infer<typeof IronhornResult>;
 
 export const ItemUpgradeCompletionSchedule = __t.object("ItemUpgradeCompletionSchedule", {
   scheduledId: __t.u64(),
@@ -994,6 +1080,8 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   cloudspireUnlocked: __t.bool(),
   moonfenUnlocked: __t.bool(),
   crystalHollowsUnlocked: __t.bool(),
+  clockworkRuinsUnlocked: __t.bool(),
+  duskfallOrchardUnlocked: __t.bool(),
   bossRewardClaims: __t.u32(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;

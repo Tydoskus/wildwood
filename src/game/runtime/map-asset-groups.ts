@@ -8,7 +8,7 @@ import {
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
   MOONFEN_MAP_ID,
-  CRYSTAL_HOLLOWS_MAP_ID,
+  CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID,
   type MapId,
 } from "../world";
 import type { EnemyKind } from "../enemies";
@@ -27,7 +27,8 @@ export type MapArtAssetGroup =
   | "samuraiBoss"
   | "cloudspireBoss"
   | "moonfenBoss"
-  | "crystalHollowsBoss";
+  | "orchardDecor"
+  | "crystalHollowsBoss" | "clockworkRuinsBoss" | "duskfallOrchardBoss";
 
 export type MapAssetGroup = {
   /** Boss and scenery images used only by this map. */
@@ -77,6 +78,12 @@ export const MAP_ASSET_GROUPS = {
   [CRYSTAL_HOLLOWS_MAP_ID]: {
     art: ["crystalHollowsBoss"],
     enemies: ["Shard Hopper", "Crystal Spitter", "Crystal Regent", "Geode Guardian", "Prism Reaver", "Hollow Oracle"],
+  }, [CLOCKWORK_RUINS_MAP_ID]: {
+    art: ["clockworkRuinsBoss"],
+    enemies: ["Gear Prowler", "Rivet Spitter", "Gear Regent", "Iron Guardian", "Scrap Reaver", "Spark Oracle"],
+  }, [DUSKFALL_ORCHARD_MAP_ID]: {
+    art: ["duskfallOrchardBoss", "orchardDecor"],
+    enemies: ["Gourd Prowler", "Seed Spitter", "Harvest Regent", "Husk Guardian", "Thorn Reaver", "Harvest Oracle"],
   },
 } as const satisfies Record<MapId, MapAssetGroup>;
 
@@ -91,5 +98,5 @@ export const MAP_ENEMY_SPRITE_GROUPS: Record<MapId, readonly EnemyKind[]> = {
   [SAMURAI_GARDEN_MAP_ID]: MAP_ASSET_GROUPS[SAMURAI_GARDEN_MAP_ID].enemies,
   [CLOUDSPIRE_MAP_ID]: MAP_ASSET_GROUPS[CLOUDSPIRE_MAP_ID].enemies,
   [MOONFEN_MAP_ID]: MAP_ASSET_GROUPS[MOONFEN_MAP_ID].enemies,
-  [CRYSTAL_HOLLOWS_MAP_ID]: MAP_ASSET_GROUPS[CRYSTAL_HOLLOWS_MAP_ID].enemies,
+  [CRYSTAL_HOLLOWS_MAP_ID]: MAP_ASSET_GROUPS[CRYSTAL_HOLLOWS_MAP_ID].enemies, [CLOCKWORK_RUINS_MAP_ID]: MAP_ASSET_GROUPS[CLOCKWORK_RUINS_MAP_ID].enemies, [DUSKFALL_ORCHARD_MAP_ID]: MAP_ASSET_GROUPS[DUSKFALL_ORCHARD_MAP_ID].enemies,
 };

@@ -11,9 +11,9 @@ import type {
   MagmaliskBossState,
   MagmaliskResult,
   MiremawBossState,
-  PrismshellBossState,
+  PrismshellBossState, IronhornBossState, DreadreaperBossState,
   MiremawResult,
-  PrismshellResult,
+  PrismshellResult, IronhornResult, DreadreaperResult,
   SpiderBossState,
   SpiderResult,
   TempestKirinBossState,
@@ -107,8 +107,12 @@ export function createBossService(dependencies: BossServiceDependencies) {
   let tempestKirinResult: TempestKirinResult | null = null;
   let miremaw: MiremawBossState | null = null;
   let prismshell: PrismshellBossState | null = null;
+  let ironhorn: IronhornBossState | null = null;
+  let dreadreaper: DreadreaperBossState | null = null;
   let miremawResult: MiremawResult | null = null;
   let prismshellResult: PrismshellResult | null = null;
+  let ironhornResult: IronhornResult | null = null;
+  let dreadreaperResult: DreadreaperResult | null = null;
 
   function damage(
     action: string,
@@ -185,6 +189,10 @@ export function createBossService(dependencies: BossServiceDependencies) {
       },
       upsertPrismshell(row: BossRow) {
         prismshell = bossState(row);
+      }, upsertIronhorn(row: BossRow) {
+        ironhorn = bossState(row);
+      }, upsertDreadreaper(row: BossRow) {
+        dreadreaper = bossState(row);
       },
       upsertMiremawResult(row: BossResultRow) {
         miremawResult = bossResult(row);
@@ -192,6 +200,12 @@ export function createBossService(dependencies: BossServiceDependencies) {
       },
       upsertPrismshellResult(row: BossResultRow) {
         prismshellResult = bossResult(row);
+        dependencies.notify();
+      }, upsertIronhornResult(row: BossResultRow) {
+        ironhornResult = bossResult(row);
+        dependencies.notify();
+      }, upsertDreadreaperResult(row: BossResultRow) {
+        dreadreaperResult = bossResult(row);
         dependencies.notify();
       },
     },
@@ -213,9 +227,9 @@ export function createBossService(dependencies: BossServiceDependencies) {
       tempestKirinBoss: () => tempestKirin ? { ...tempestKirin } : null,
       tempestKirinResult: () => copyResult(tempestKirinResult),
       miremawBoss: () => miremaw ? { ...miremaw } : null,
-      prismshellBoss: () => prismshell ? { ...prismshell } : null,
+      prismshellBoss: () => prismshell ? { ...prismshell } : null, ironhornBoss: () => ironhorn ? { ...ironhorn } : null, dreadreaperBoss: () => dreadreaper ? { ...dreadreaper } : null,
       miremawResult: () => copyResult(miremawResult),
-      prismshellResult: () => copyResult(prismshellResult),
+      prismshellResult: () => copyResult(prismshellResult), ironhornResult: () => copyResult(ironhornResult), dreadreaperResult: () => copyResult(dreadreaperResult),
       damageDragon(hits = 1, x?: number, y?: number) {
         damage("dragon damage", (connection, count, px, py) => connection.reducers.damageDragonFromPosition({ hits: count, x: px, y: py }), hits, x, y);
       },
@@ -245,6 +259,10 @@ export function createBossService(dependencies: BossServiceDependencies) {
       },
       damagePrismshell(hits = 1, x?: number, y?: number) {
         damage("Prismshell damage", (connection, count, px, py) => connection.reducers.damagePrismshellFromPosition({ hits: count, x: px, y: py }), hits, x, y);
+      }, damageIronhorn(hits = 1, x?: number, y?: number) {
+        damage("Ironhorn damage", (connection, count, px, py) => connection.reducers.damageIronhornFromPosition({ hits: count, x: px, y: py }), hits, x, y);
+      }, damageDreadreaper(hits = 1, x?: number, y?: number) {
+        damage("Dreadreaper damage", (connection, count, px, py) => connection.reducers.damageDreadreaperFromPosition({ hits: count, x: px, y: py }), hits, x, y);
       },
     },
     resetSession() {
@@ -266,8 +284,12 @@ export function createBossService(dependencies: BossServiceDependencies) {
       tempestKirinResult = null;
       miremaw = null;
       prismshell = null;
+      ironhorn = null;
+      dreadreaper = null;
       miremawResult = null;
       prismshellResult = null;
+      ironhornResult = null;
+      dreadreaperResult = null;
     },
   };
 }

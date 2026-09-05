@@ -27,7 +27,7 @@ const knownMapIds = new Set([
   "samurai_garden",
   "cloudspire",
   "moonfen",
-  "crystal_hollows",
+  "crystal_hollows", "clockwork_ruins", "duskfall_orchard",
 ]);
 const liveMapConnections = {
   tutorial_forest: ["beginner_desert"],
@@ -39,21 +39,21 @@ const liveMapConnections = {
   samurai_garden: ["water_reach", "cloudspire"],
   cloudspire: ["samurai_garden", "moonfen"],
   moonfen: ["cloudspire", "crystal_hollows"],
-  crystal_hollows: ["moonfen"],
+  crystal_hollows: ["moonfen", "clockwork_ruins"], clockwork_ruins: ["crystal_hollows", "duskfall_orchard"], duskfall_orchard: ["clockwork_ruins"],
 };
 const decorTypes = new Set([
   "tree", "grass", "petal", "cherryPetal", "cactus", "rock", "desertGrass",
   "snowPine", "snowTuft", "upgradeBench", "lavaPool", "lavaRock", "charredTree",
-  "coral", "shell", "cloud", "skyShard", "glowMushroom", "lilyPad",
+  "coral", "shell", "cloud", "skyShard", "gear", "pumpkin", "glowMushroom", "lilyPad",
 ]);
 const scalableDecor = new Set([
   "tree", "cactus", "rock", "snowPine", "upgradeBench", "lavaPool", "lavaRock",
-  "charredTree", "coral", "shell", "cloud", "skyShard", "glowMushroom", "lilyPad",
+  "charredTree", "coral", "shell", "cloud", "skyShard", "gear", "pumpkin", "glowMushroom", "lilyPad",
 ]);
 const variantDecor = new Set([
   "tree", "grass", "petal", "cherryPetal", "cactus", "rock", "desertGrass",
   "snowTuft", "lavaPool", "lavaRock", "charredTree", "coral", "shell", "cloud",
-  "skyShard", "glowMushroom", "lilyPad",
+  "skyShard", "gear", "pumpkin", "glowMushroom", "lilyPad",
 ]);
 const formations = new Set(["scatter", "crescent", "shoal", "ranks"]);
 const cssColorPattern = /^(#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})|rgba?\([\d\s.,%+-]+\)|hsla?\([\d\s.,%+-]+\))$/i;
@@ -210,7 +210,7 @@ function normalizeDesign(value, enemyKinds, enemyRewards) {
   if (knownMapIds.has(id) && portals.some((portal) => !knownMapIds.has(portal.destination) || portal.destination === id)) {
     throw new Error("Live-map portals must point to another existing game map.");
   }
-  const expectedPortalCount = id === "tutorial_forest" || id === "crystal_hollows" ? 1 : 2;
+  const expectedPortalCount = liveMapConnections[id]?.length ?? 2;
   if (knownMapIds.has(id) && portals.length !== expectedPortalCount) {
     throw new Error(`This game map must keep ${expectedPortalCount === 1 ? "one portal" : "its two portals"} so progression stays connected.`);
   }

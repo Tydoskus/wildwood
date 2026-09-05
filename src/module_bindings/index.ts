@@ -53,8 +53,10 @@ import ConfigureShardingReducer from "./configure_sharding_reducer";
 import DamageDragonReducer from "./damage_dragon_reducer";
 import DamageDragonBatchReducer from "./damage_dragon_batch_reducer";
 import DamageDragonFromPositionReducer from "./damage_dragon_from_position_reducer";
+import DamageDreadreaperFromPositionReducer from "./damage_dreadreaper_from_position_reducer";
 import DamageFrostclawFromPositionReducer from "./damage_frostclaw_from_position_reducer";
 import DamageGloomrootFromPositionReducer from "./damage_gloomroot_from_position_reducer";
+import DamageIronhornFromPositionReducer from "./damage_ironhorn_from_position_reducer";
 import DamageKoiShogunFromPositionReducer from "./damage_koi_shogun_from_position_reducer";
 import DamageMagmaliskFromPositionReducer from "./damage_magmalisk_from_position_reducer";
 import DamageMiremawFromPositionReducer from "./damage_miremaw_from_position_reducer";
@@ -134,12 +136,16 @@ import DevBugReportsRow from "./dev_bug_reports_table";
 import DevForestRewardPrototypeRow from "./dev_forest_reward_prototype_table";
 import DragonBossRow from "./dragon_boss_table";
 import DragonResultRow from "./dragon_result_table";
+import DreadreaperBossRow from "./dreadreaper_boss_table";
+import DreadreaperResultRow from "./dreadreaper_result_table";
 import DuelRow from "./duel_table";
 import DuelReplayRow from "./duel_replay_table";
 import FrostclawBossRow from "./frostclaw_boss_table";
 import FrostclawResultRow from "./frostclaw_result_table";
 import GloomrootBossRow from "./gloomroot_boss_table";
 import GloomrootResultRow from "./gloomroot_result_table";
+import IronhornBossRow from "./ironhorn_boss_table";
+import IronhornResultRow from "./ironhorn_result_table";
 import KoiShogunBossRow from "./koi_shogun_boss_table";
 import KoiShogunResultRow from "./koi_shogun_result_table";
 import LeaderboardEntryRow from "./leaderboard_entry_table";
@@ -264,6 +270,28 @@ const tablesSchema = __schema({
       { name: 'dragon_result_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, DragonResultRow),
+  dreadreaperBoss: __table({
+    name: 'dreadreaper_boss',
+    indexes: [
+      { accessor: 'id', name: 'dreadreaper_boss_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'dreadreaper_boss_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, DreadreaperBossRow),
+  dreadreaperResult: __table({
+    name: 'dreadreaper_result',
+    indexes: [
+      { accessor: 'id', name: 'dreadreaper_result_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'dreadreaper_result_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, DreadreaperResultRow),
   duel: __table({
     name: 'duel',
     indexes: [
@@ -336,6 +364,28 @@ const tablesSchema = __schema({
       { name: 'gloomroot_result_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, GloomrootResultRow),
+  ironhornBoss: __table({
+    name: 'ironhorn_boss',
+    indexes: [
+      { accessor: 'id', name: 'ironhorn_boss_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'ironhorn_boss_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, IronhornBossRow),
+  ironhornResult: __table({
+    name: 'ironhorn_result',
+    indexes: [
+      { accessor: 'id', name: 'ironhorn_result_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'ironhorn_result_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, IronhornResultRow),
   koiShogunBoss: __table({
     name: 'koi_shogun_boss',
     indexes: [
@@ -817,8 +867,10 @@ const reducersSchema = __reducers(
   __reducerSchema("damage_dragon", DamageDragonReducer),
   __reducerSchema("damage_dragon_batch", DamageDragonBatchReducer),
   __reducerSchema("damage_dragon_from_position", DamageDragonFromPositionReducer),
+  __reducerSchema("damage_dreadreaper_from_position", DamageDreadreaperFromPositionReducer),
   __reducerSchema("damage_frostclaw_from_position", DamageFrostclawFromPositionReducer),
   __reducerSchema("damage_gloomroot_from_position", DamageGloomrootFromPositionReducer),
+  __reducerSchema("damage_ironhorn_from_position", DamageIronhornFromPositionReducer),
   __reducerSchema("damage_koi_shogun_from_position", DamageKoiShogunFromPositionReducer),
   __reducerSchema("damage_magmalisk_from_position", DamageMagmaliskFromPositionReducer),
   __reducerSchema("damage_miremaw_from_position", DamageMiremawFromPositionReducer),

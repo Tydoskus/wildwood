@@ -393,35 +393,91 @@ const enemyTypes = {
     attackSpeed: .65, speed: 230, r: 30,
     color: "#90e9ef", outline: "#303d5b",
     ...postForestLaneBalance("raider", 9),
+  }, "Gear Prowler": {
+    attackSpeed: .65, speed: 230, r: 30,
+    color: "#90e9ef", outline: "#303d5b",
+    ...postForestLaneBalance("raider", 10),
+  }, "Gourd Prowler": {
+    attackSpeed: .65, speed: 230, r: 30,
+    color: "#90e9ef", outline: "#303d5b",
+    ...postForestLaneBalance("raider", 11),
   },
   "Crystal Spitter": {
     attackSpeed: .65, speed: 215, r: 29,
     color: "#c9b0ff", outline: "#463762",
     ranged: true,
     ...postForestLaneBalance("archer", 9),
+  }, "Rivet Spitter": {
+    attackSpeed: .65, speed: 215, r: 29,
+    color: "#c9b0ff", outline: "#463762",
+    ranged: true,
+    ...postForestLaneBalance("archer", 10),
+  }, "Seed Spitter": {
+    attackSpeed: .65, speed: 215, r: 29,
+    color: "#c9b0ff", outline: "#463762",
+    ranged: true,
+    ...postForestLaneBalance("archer", 11),
   },
   "Crystal Regent": {
     speed: 202, attackSpeed: .65, r: 47,
     color: "#e2cdfd", outline: "#463762",
     elite: true, aggro: 340,
     ...healthEliteBalance(9),
+  }, "Gear Regent": {
+    speed: 202, attackSpeed: .65, r: 47,
+    color: "#e2cdfd", outline: "#463762",
+    elite: true, aggro: 340,
+    ...healthEliteBalance(10),
+  }, "Harvest Regent": {
+    speed: 202, attackSpeed: .65, r: 47,
+    color: "#e2cdfd", outline: "#463762",
+    elite: true, aggro: 340,
+    ...healthEliteBalance(11),
   },
   "Geode Guardian": {
     attackSpeed: .65, speed: 202, r: 40,
     color: "#8299c9", outline: "#303854",
     ...postForestLaneBalance("guardian", 9),
+  }, "Iron Guardian": {
+    attackSpeed: .65, speed: 202, r: 40,
+    color: "#8299c9", outline: "#303854",
+    ...postForestLaneBalance("guardian", 10),
+  }, "Husk Guardian": {
+    attackSpeed: .65, speed: 202, r: 40,
+    color: "#8299c9", outline: "#303854",
+    ...postForestLaneBalance("guardian", 11),
   },
   "Prism Reaver": {
     attackSpeed: .65, speed: 235, r: 46,
     color: "#ab87e6", outline: "#453365",
     ranged: true, elite: true, aggro: 340,
     ...postForestLaneBalance("reaper", 9),
+  }, "Scrap Reaver": {
+    attackSpeed: .65, speed: 235, r: 46,
+    color: "#ab87e6", outline: "#453365",
+    ranged: true, elite: true, aggro: 340,
+    ...postForestLaneBalance("reaper", 10),
+  }, "Thorn Reaver": {
+    attackSpeed: .65, speed: 235, r: 46,
+    color: "#ab87e6", outline: "#453365",
+    ranged: true, elite: true, aggro: 340,
+    ...postForestLaneBalance("reaper", 11),
   },
   "Hollow Oracle": {
     attackSpeed: .65, speed: 220, r: 43,
     color: "#f0c58b", outline: "#624862",
     elite: true, aggro: 340,
     ...postForestLaneBalance("oracle", 9),
+  }, "Spark Oracle": {
+    attackSpeed: .65, speed: 220, r: 43,
+    color: "#f0c58b", outline: "#624862",
+    elite: true, aggro: 340,
+    ...postForestLaneBalance("oracle", 10),
+  }, "Harvest Oracle": {
+    attackSpeed: .65, speed: 220, r: 43,
+    color: "#f0c58b", outline: "#624862",
+    elite: true, aggro: 340,
+    ...postForestLaneBalance("oracle", 11),
   },
 } satisfies Record<string, EnemyDefinition>;
 

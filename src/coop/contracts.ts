@@ -192,8 +192,12 @@ export type TempestKirinBossState = DragonBossState;
 export type TempestKirinResult = DragonResult;
 export type MiremawBossState = DragonBossState;
 export type PrismshellBossState = DragonBossState;
+export type IronhornBossState = DragonBossState;
+export type DreadreaperBossState = DragonBossState;
 export type MiremawResult = DragonResult;
 export type PrismshellResult = DragonResult;
+export type IronhornResult = DragonResult;
+export type DreadreaperResult = DragonResult;
 
 export type DragonContributor = {
   identity: string;

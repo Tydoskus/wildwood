@@ -6,11 +6,8 @@ const MAX_DELAY_MS = 320;
 const BASE_NETWORK_DELAY_MS = 220;
 const MIN_SAMPLE_INTERVAL_MS = 35;
 const MAX_SAMPLE_INTERVAL_MS = 1_200;
+const MAX_RESTART_ANCHOR_INTERVAL_MS = 250;
 const MAX_EXTRAPOLATION_MS = 1_500;
-const SIMULATION_TICK_HZ = 60;
-const SIMULATION_TICK_MODULUS = 0x1_0000;
-const SIMULATION_TICK_HALF_RANGE = SIMULATION_TICK_MODULUS / 2;
-const LIVE_CORRECTION_MIN_ARRIVAL_MS = 8;
 const CORRECTION_TIME_CONSTANT_MS = 180;
 const MAX_CORRECTION_SPEED_RATIO = .75;
 const MIN_CORRECTION_SPEED = 90;
@@ -36,7 +33,6 @@ export type TimestampedRemoteMotionSample = RemoteMotionSample & {
 };
 
 export type RemoteInterpolationClock = {
-  expectedIntervalMs: number;
   jitterMs: number;
   targetDelayMs: number;
   delayMs: number;
@@ -73,7 +69,6 @@ export function duplicateRemoteMotionSample(
 
 export function createRemoteInterpolationClock(now: number): RemoteInterpolationClock {
   return {
-    expectedIntervalMs: 50,
     jitterMs: 0,
     targetDelayMs: DEFAULT_DELAY_MS,
     delayMs: DEFAULT_DELAY_MS,
@@ -91,39 +86,35 @@ export function createRestartRemoteInterpolationClock(now: number): RemoteInterp
 }
 
 /**
- * Adds a server-ordered sample without ever placing it in local clock future.
- * When subscription rows arrive as one burst, confirmed server spacing is
- * reconstructed backwards from arrival time. This prevents a permanent
- * future lead that otherwise makes playback step behind the oldest sample.
+ * Maps the server's publication clock onto local time. Late delivery does not
+ * stretch the movement timeline; only an earlier arrival improves the clock
+ * offset, rebasing history backwards so no sample sits in the local future.
+ * The server samples positions at publication time, so sender tick counters
+ * (which can wrap, pause, or be reanchored) must not determine their spacing.
  */
 export function appendRemoteTimelineSample<T extends TimestampedRemoteMotionSample>(
   samples: T[],
   sample: Omit<T, "timelineAt">,
 ): T {
   const previous = samples[samples.length - 1];
+  let timelineAt = sample.receivedAt;
   if (previous) {
-    const sourceIntervalMs = clamp(remoteSampleIntervalMs(previous, sample), 1, 250);
-    const projectedTimelineAt = previous.timelineAt + sourceIntervalMs;
+    const serverIntervalMs = Math.max(1, sample.serverAtMs - previous.serverAtMs);
+    const projectedTimelineAt = previous.timelineAt + serverIntervalMs;
     const futureLeadMs = projectedTimelineAt - sample.receivedAt;
     if (futureLeadMs > 0) {
       for (const buffered of samples) buffered.timelineAt -= futureLeadMs;
     }
+    timelineAt = Math.min(projectedTimelineAt, sample.receivedAt);
+    // Idle history is only a start anchor, not a movement segment to replay.
+    // Shorten that stationary segment without losing the stream's clock offset.
+    if (!previous.moving) {
+      previous.timelineAt = Math.max(previous.timelineAt, timelineAt - MAX_RESTART_ANCHOR_INTERVAL_MS);
+    }
   }
-  const next = { ...sample, timelineAt: sample.receivedAt } as T;
+  const next = { ...sample, timelineAt } as T;
   samples.push(next);
   return next;
-}
-
-/** Uses sender simulation time when it is unambiguous, then falls back to server order. */
-export function remoteSampleIntervalMs(
-  previous: Pick<TimestampedRemoteMotionSample, "simulationTick" | "motionEpoch" | "serverAtMs">,
-  next: Pick<TimestampedRemoteMotionSample, "simulationTick" | "motionEpoch" | "serverAtMs">,
-) {
-  if (previous.motionEpoch === next.motionEpoch) {
-    const tickDelta = (next.simulationTick - previous.simulationTick + SIMULATION_TICK_MODULUS) % SIMULATION_TICK_MODULUS;
-    if (tickDelta > 0 && tickDelta < SIMULATION_TICK_HALF_RANGE) return tickDelta * 1_000 / SIMULATION_TICK_HZ;
-  }
-  return Math.max(1, next.serverAtMs - previous.serverAtMs);
 }
 
 /** Learns network burstiness without mistaking sparse correction cadence for jitter. */
@@ -133,12 +124,6 @@ export function observeRemoteSample(
   arrivalIntervalMs: number,
 ) {
   const interval = clamp(serverIntervalMs, MIN_SAMPLE_INTERVAL_MS, MAX_SAMPLE_INTERVAL_MS);
-  // React immediately when packets become less frequent. Decay slowly when a
-  // high-rate stream returns so brief bursts cannot make the buffer underrun.
-  clock.expectedIntervalMs = interval > clock.expectedIntervalMs
-    ? interval
-    : clock.expectedIntervalMs + (interval - clock.expectedIntervalMs) * .25;
-
   const deviation = Math.abs(clamp(arrivalIntervalMs, 0, MAX_SAMPLE_INTERVAL_MS * 2) - interval);
   clock.jitterMs += (deviation - clock.jitterMs) * .2;
   // The 3 Hz nearby stream is sparse by design. Keep most of one interval in
@@ -235,9 +220,10 @@ export function constrainRemoteMotionToLatestStop(
 }
 
 /**
- * Adds an authoritative sample without changing the pose already on screen.
- * The current predicted pose becomes a short synthetic anchor, so correction
- * error is consumed over the remaining jitter buffer instead of in one frame.
+ * Preserves the presented pose while replacing its underlying prediction.
+ * This also applies within a delivery burst: skipping those rows would expose
+ * intermediate clock rebases or turns as jumps. Only real prediction error
+ * becomes a decaying offset; a late but otherwise correct sample adds none.
  */
 export function appendRemoteCorrectionSample<T extends TimestampedRemoteMotionSample>(
   samples: T[],
@@ -247,7 +233,7 @@ export function appendRemoteCorrectionSample<T extends TimestampedRemoteMotionSa
   correction: RemoteMotionCorrection,
 ): T {
   const previous = samples[samples.length - 1];
-  if (!previous || sample.receivedAt - previous.receivedAt <= LIVE_CORRECTION_MIN_ARRIVAL_MS) {
+  if (!previous) {
     return appendRemoteTimelineSample(samples, sample);
   }
 

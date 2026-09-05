@@ -20,6 +20,8 @@ export const MAP_DECOR_TYPES = [
   "shell",
   "cloud",
   "skyShard",
+  "gear",
+  "pumpkin",
   "glowMushroom",
   "lilyPad",
 ] as const;
@@ -154,6 +156,22 @@ const DEFAULT_MAP_THEMES: Record<MapId, MapVisualTheme> = {
     pathDetail: "rgba(207,217,255,.2)",
     decorColors: {
       skyShard: ["#85e7ec", "#c0a1f3", "#f1c790"],
+      rock: ["#4c526b", "#64627c", "#526477", "#706879"],
+    },
+  }, clockwork_ruins: {
+    ground: "#333c3d",
+    path: "#897250",
+    pathDetail: "rgba(245,207,117,.2)",
+    decorColors: {
+      gear: ["#b58b47", "#839695", "#cfad63"],
+      rock: ["#4c526b", "#64627c", "#526477", "#706879"],
+    },
+  }, duskfall_orchard: {
+    ground: "#29263e",
+    path: "#68506b",
+    pathDetail: "rgba(248,174,86,.18)",
+    decorColors: {
+      pumpkin: ["#df8139", "#b95935", "#e5a855"],
       rock: ["#4c526b", "#64627c", "#526477", "#706879"],
     },
   },

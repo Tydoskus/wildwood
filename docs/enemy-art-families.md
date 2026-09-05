@@ -86,3 +86,11 @@ exporter's preview. The user owns visual review: inspect facing, idle/walk/attac
 elite scale, and label/shadow placement on the four new maps, plus the restored
 goblin/skeleton assembly and its bow overlays. Objective checks cover paths, frame crops,
 texture budgets, map-scoped loading, animation transitions and renderer transforms.
+
+## Clockwork Ruins and Duskfall Orchard
+
+Clockwork Ruins uses the exported `raptor-mechanic` family; Duskfall Orchard uses
+`pumpkin-orange`. Ironhorn uses `rhino-armor`, and Dreadreaper uses `reaper-death`.
+All four were captured with the existing Unity sprite exporter. See
+[the expansion notes](clockwork-ruins-and-duskfall-orchard.md) for capture settings,
+map progression, lazy-loading details, and validation coverage.

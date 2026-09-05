@@ -65,8 +65,12 @@ export type BaseSubscriptionHandlers = {
   tempestKirinResult: RowHandler;
   miremawBoss: RowHandler;
   prismshellBoss: RowHandler;
+  ironhornBoss: RowHandler;
+  dreadreaperBoss: RowHandler;
   miremawResult: RowHandler;
   prismshellResult: RowHandler;
+  ironhornResult: RowHandler;
+  dreadreaperResult: RowHandler;
   chatMessage: RowHandler;
   playerBlock: RowHandler;
   removePlayerBlock: RowHandler;
@@ -143,8 +147,12 @@ type BaseSubscriptionHandlerSources = {
     upsertTempestKirinResult: BaseSubscriptionHandlers["tempestKirinResult"];
     upsertMiremaw: BaseSubscriptionHandlers["miremawBoss"];
     upsertPrismshell: BaseSubscriptionHandlers["prismshellBoss"];
+    upsertIronhorn: BaseSubscriptionHandlers["ironhornBoss"];
+    upsertDreadreaper: BaseSubscriptionHandlers["dreadreaperBoss"];
     upsertMiremawResult: BaseSubscriptionHandlers["miremawResult"];
     upsertPrismshellResult: BaseSubscriptionHandlers["prismshellResult"];
+    upsertIronhornResult: BaseSubscriptionHandlers["ironhornResult"];
+    upsertDreadreaperResult: BaseSubscriptionHandlers["dreadreaperResult"];
   };
   chat: { upsert: BaseSubscriptionHandlers["chatMessage"]; upsertBlock: RowHandler; removeBlock: RowHandler };
   duel: { upsert: BaseSubscriptionHandlers["duel"]; remove: BaseSubscriptionHandlers["removeDuel"] };
@@ -212,9 +220,9 @@ export function createBaseSubscriptionHandlers(sources: BaseSubscriptionHandlerS
     tempestKirinBoss: boss.upsertTempestKirin,
     tempestKirinResult: boss.upsertTempestKirinResult,
     miremawBoss: boss.upsertMiremaw,
-    prismshellBoss: boss.upsertPrismshell,
+    prismshellBoss: boss.upsertPrismshell, ironhornBoss: boss.upsertIronhorn, dreadreaperBoss: boss.upsertDreadreaper,
     miremawResult: boss.upsertMiremawResult,
-    prismshellResult: boss.upsertPrismshellResult,
+    prismshellResult: boss.upsertPrismshellResult, ironhornResult: boss.upsertIronhornResult, dreadreaperResult: boss.upsertDreadreaperResult,
     chatMessage: chat.upsert,
     playerBlock: chat.upsertBlock,
     removePlayerBlock: chat.removeBlock,
@@ -348,12 +356,20 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   connection.db.tempestKirinResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.tempestKirinResult(row); });
   connection.db.miremawBoss.onInsert((_ctx, row) => { if (shouldHandle()) handlers.miremawBoss(row); });
   connection.db.prismshellBoss.onInsert((_ctx, row) => { if (shouldHandle()) handlers.prismshellBoss(row); });
+  connection.db.ironhornBoss.onInsert((_ctx, row) => { if (shouldHandle()) handlers.ironhornBoss(row); });
+  connection.db.dreadreaperBoss.onInsert((_ctx, row) => { if (shouldHandle()) handlers.dreadreaperBoss(row); });
   connection.db.miremawBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.miremawBoss(row); });
   connection.db.prismshellBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.prismshellBoss(row); });
+  connection.db.ironhornBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.ironhornBoss(row); });
+  connection.db.dreadreaperBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.dreadreaperBoss(row); });
   connection.db.miremawResult.onInsert((_ctx, row) => { if (shouldHandle()) handlers.miremawResult(row); });
   connection.db.prismshellResult.onInsert((_ctx, row) => { if (shouldHandle()) handlers.prismshellResult(row); });
+  connection.db.ironhornResult.onInsert((_ctx, row) => { if (shouldHandle()) handlers.ironhornResult(row); });
+  connection.db.dreadreaperResult.onInsert((_ctx, row) => { if (shouldHandle()) handlers.dreadreaperResult(row); });
   connection.db.miremawResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.miremawResult(row); });
   connection.db.prismshellResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.prismshellResult(row); });
+  connection.db.ironhornResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.ironhornResult(row); });
+  connection.db.dreadreaperResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.dreadreaperResult(row); });
   connection.db.chatMessage.onInsert((_ctx, row) => { if (shouldHandle()) handlers.chatMessage(row); });
   connection.db.chatMessage.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.chatMessage(row); });
   connection.db.myPlayerBlocks.onInsert((_ctx, row) => { if (shouldHandle()) handlers.playerBlock(row); });
@@ -373,7 +389,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
     [tables.koiShogunBoss],
     [tables.tempestKirinBoss],
     [tables.miremawBoss],
-    [tables.prismshellBoss]
+    [tables.prismshellBoss], [tables.ironhornBoss], [tables.dreadreaperBoss]
   ];
   return createSessionSubscriptions({
     isCurrent: dependencies.isCurrent,
@@ -419,7 +435,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.koiShogunResult,
       tables.tempestKirinResult,
       tables.miremawResult,
-      tables.prismshellResult,
+            tables.prismshellResult, tables.ironhornResult, tables.dreadreaperResult,
       tables.chatMessage,
       tables.myPlayerBlocks,
       tables.duel.where((duel) => duel.challenger.eq(dependencies.identity)),
@@ -467,8 +483,12 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
           for (const row of connection.db.tempestKirinResult.iter()) handlers.tempestKirinResult(row);
           for (const row of connection.db.miremawBoss.iter()) handlers.miremawBoss(row);
           for (const row of connection.db.prismshellBoss.iter()) handlers.prismshellBoss(row);
+          for (const row of connection.db.ironhornBoss.iter()) handlers.ironhornBoss(row);
+          for (const row of connection.db.dreadreaperBoss.iter()) handlers.dreadreaperBoss(row);
           for (const row of connection.db.miremawResult.iter()) handlers.miremawResult(row);
           for (const row of connection.db.prismshellResult.iter()) handlers.prismshellResult(row);
+          for (const row of connection.db.ironhornResult.iter()) handlers.ironhornResult(row);
+          for (const row of connection.db.dreadreaperResult.iter()) handlers.dreadreaperResult(row);
           for (const row of connection.db.myPlayerBlocks.iter()) handlers.playerBlock(row);
           for (const row of connection.db.chatMessage.iter()) handlers.chatMessage(row);
           for (const row of connection.db.duel.iter()) handlers.duel(row);
@@ -487,6 +507,8 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
           for (const row of connection.db.tempestKirinBoss.iter()) handlers.tempestKirinBoss(row);
           for (const row of connection.db.miremawBoss.iter()) handlers.miremawBoss(row);
           for (const row of connection.db.prismshellBoss.iter()) handlers.prismshellBoss(row);
+          for (const row of connection.db.ironhornBoss.iter()) handlers.ironhornBoss(row);
+          for (const row of connection.db.dreadreaperBoss.iter()) handlers.dreadreaperBoss(row);
         });
         return;
       }

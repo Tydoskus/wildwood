@@ -88,6 +88,8 @@ type SessionDependencies = {
   cloudspireMapId: MapId;
   moonfenMapId: MapId;
   crystalHollowsMapId: MapId;
+  clockworkRuinsMapId: MapId;
+  duskfallOrchardMapId: MapId;
   validMapIds: readonly MapId[];
   getMapId: () => MapId;
   setMapId: (mapId: MapId) => void;
@@ -118,6 +120,8 @@ type SessionDependencies = {
   syncTempestKirin: () => void;
   syncMiremaw: () => void;
   syncPrismshell: () => void;
+  syncIronhorn: () => void;
+  syncDreadreaper: () => void;
   cutsceneActive: () => boolean;
   updateCutscene: (dt: number) => void;
   updatePlayer: (dt: number) => void;
@@ -135,6 +139,8 @@ type SessionDependencies = {
   updateTempestKirin: (dt: number) => void;
   updateMiremaw: (dt: number) => void;
   updatePrismshell: (dt: number) => void;
+  updateIronhorn: (dt: number) => void;
+  updateDreadreaper: (dt: number) => void;
   updateProjectiles: (dt: number) => void;
   updateRespawns: (gameTime: number) => void;
   clearDuelCombat: () => void;
@@ -178,7 +184,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     if (dependencies.getMapId() === dependencies.samuraiMapId) dependencies.syncKoiShogun();
     if (dependencies.getMapId() === dependencies.cloudspireMapId) dependencies.syncTempestKirin();
     if (dependencies.getMapId() === dependencies.moonfenMapId) dependencies.syncMiremaw();
-    if (dependencies.getMapId() === dependencies.crystalHollowsMapId) dependencies.syncPrismshell();
+    if (dependencies.getMapId() === dependencies.clockworkRuinsMapId) dependencies.syncIronhorn(); else if (dependencies.getMapId() === dependencies.duskfallOrchardMapId) dependencies.syncDreadreaper(); else if (dependencies.getMapId() === dependencies.crystalHollowsMapId) dependencies.syncPrismshell();
   }
 
   function simulate(dt: number) {
@@ -206,7 +212,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
       if (dependencies.getMapId() === dependencies.samuraiMapId) dependencies.updateKoiShogun(dt);
       if (dependencies.getMapId() === dependencies.cloudspireMapId) dependencies.updateTempestKirin(dt);
       if (dependencies.getMapId() === dependencies.moonfenMapId) dependencies.updateMiremaw(dt);
-      if (dependencies.getMapId() === dependencies.crystalHollowsMapId) dependencies.updatePrismshell(dt);
+      if (dependencies.getMapId() === dependencies.clockworkRuinsMapId) dependencies.updateIronhorn(dt); else if (dependencies.getMapId() === dependencies.duskfallOrchardMapId) dependencies.updateDreadreaper(dt); else if (dependencies.getMapId() === dependencies.crystalHollowsMapId) dependencies.updatePrismshell(dt);
       dependencies.updateProjectiles(dt);
       dependencies.updateRespawns(gameTime);
     } else {

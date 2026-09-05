@@ -24,7 +24,7 @@ export const BOSS_DAMAGE_REFERENCE = {
   koiShogun: bossHeavyHitAt(5),
   tempestKirin: bossHeavyHitAt(6),
   miremaw: bossHeavyHitAt(7),
-  prismshell: bossHeavyHitAt(8),
+  prismshell: bossHeavyHitAt(8), ironhorn: bossHeavyHitAt(9), dreadreaper: bossHeavyHitAt(10),
 } as const;
 
 export const BOSS_DAMAGE_PROFILES = {
@@ -37,5 +37,5 @@ export const BOSS_DAMAGE_PROFILES = {
   koiShogun: scaledProfile(BOSS_DAMAGE_REFERENCE.koiShogun, { slash: 1, whirlpool: .7, contact: .5 }),
   tempestKirin: scaledProfile(BOSS_DAMAGE_REFERENCE.tempestKirin, { charge: 1, thunder: .7, contact: .5 }),
   miremaw: scaledProfile(BOSS_DAMAGE_REFERENCE.miremaw, { tongue: 1, bogBurst: .7, contact: .5 }),
-  prismshell: scaledProfile(BOSS_DAMAGE_REFERENCE.prismshell, { shatter: 1, crystalBurst: .7, contact: .5 }),
+  prismshell: scaledProfile(BOSS_DAMAGE_REFERENCE.prismshell, { shatter: 1, crystalBurst: .7, contact: .5 }), ironhorn: scaledProfile(BOSS_DAMAGE_REFERENCE.ironhorn, { shatter: 1, crystalBurst: .7, contact: .5 }), dreadreaper: scaledProfile(BOSS_DAMAGE_REFERENCE.dreadreaper, { shatter: 1, crystalBurst: .7, contact: .5 }),
 } as const;

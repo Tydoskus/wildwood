@@ -159,6 +159,14 @@ export type PrismshellCrystalBurst = Circle & {
   timer: number;
   maxTimer: number;
 };
+export type IronhornCrystalBurst = Circle & {
+  timer: number;
+  maxTimer: number;
+};
+export type DreadreaperCrystalBurst = Circle & {
+  timer: number;
+  maxTimer: number;
+};
 
 export type FrostclawRoar = {
   windup: number;
@@ -247,8 +255,18 @@ export type PrismshellBossState = BossStateBase & {
   nextAttack: "shatter" | "crystalBurst";
   shatter: BossCone | null;
 };
+export type IronhornBossState = BossStateBase & {
+  bossKind: "ironhorn";
+  nextAttack: "shatter" | "crystalBurst";
+  shatter: BossCone | null;
+};
+export type DreadreaperBossState = BossStateBase & {
+  bossKind: "dreadreaper";
+  nextAttack: "shatter" | "crystalBurst";
+  shatter: BossCone | null;
+};
 
-export type BossTarget = DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState | KoiShogunBossState | TempestKirinBossState | MiremawBossState | PrismshellBossState;
+export type BossTarget = DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState | KoiShogunBossState | TempestKirinBossState | MiremawBossState | PrismshellBossState | IronhornBossState | DreadreaperBossState;
 
 export type DuelPresentation = {
   id: bigint;

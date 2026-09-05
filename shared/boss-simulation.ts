@@ -19,7 +19,7 @@ export type BossSimulationKind =
   | "koiShogun"
   | "tempestKirin"
   | "miremaw"
-  | "prismshell";
+  | "prismshell" | "ironhorn" | "dreadreaper";
 
 export type BossAbilityName =
   | "cone"
@@ -94,6 +94,12 @@ const BOSS_ABILITY_CYCLES: Record<BossSimulationKind, readonly BossAbilityDefini
   ],
   prismshell: [
     { ability: "shatter", slotDurationMs: 4_400, activeDurationMs: 1_650 },
+    { ability: "crystalBurst", slotDurationMs: 5_200, activeDurationMs: 2_050 },
+  ], ironhorn: [
+    { ability: "shatter", slotDurationMs: 4_800, activeDurationMs: 1_850 },
+    { ability: "crystalBurst", slotDurationMs: 5_200, activeDurationMs: 2_050 },
+  ], dreadreaper: [
+    { ability: "shatter", slotDurationMs: 4_600, activeDurationMs: 1_900 },
     { ability: "crystalBurst", slotDurationMs: 5_200, activeDurationMs: 2_050 },
   ],
 };

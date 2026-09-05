@@ -37,7 +37,7 @@ const progress = (equippedRightHand = "", equippedChest = ""): PlayerProgress =>
   samuraiUnlocked: false,
   cloudspireUnlocked: false,
   moonfenUnlocked: false,
-  crystalHollowsUnlocked: false,
+  crystalHollowsUnlocked: false, clockworkRuinsUnlocked: false, duskfallOrchardUnlocked: false,
   bowCount: 0,
   woodenArmorCount: 0,
 });

@@ -105,9 +105,9 @@ describe("enemy sprite loading", () => {
     expect(MAP_ENEMY_FAMILIES).toEqual({
       tutorial_forest: "slime-green", beginner_desert: "goblin", intermediate_snowlands: "skeleton",
       advanced_lava_wastes: "slime-orange", infernal_depths: "skeleton-poison", water_reach: "goblin-green",
-      samurai_garden: "flower-tulip", cloudspire: "wingdemon-bee", moonfen: "fungus-rock", crystal_hollows: "hornrabbit-crystal",
+      samurai_garden: "flower-tulip", cloudspire: "wingdemon-bee", moonfen: "fungus-rock", crystal_hollows: "hornrabbit-crystal", clockwork_ruins: "raptor-mechanic", duskfall_orchard: "pumpkin-orange",
     });
-    expect(new Set(Object.values(MAP_ENEMY_FAMILIES)).size).toBe(10);
+    expect(new Set(Object.values(MAP_ENEMY_FAMILIES)).size).toBe(12);
     const covered = new Set<string>();
     for (const [mapId, family] of Object.entries(MAP_ENEMY_FAMILIES)) {
       const kinds = new Set(mapSpawnCamps(mapId as MapId).flatMap((camp) => camp.types));
@@ -154,7 +154,7 @@ describe("enemy sprite loading", () => {
   });
 
   it("ships only idle/walk/attack WebP sheets with valid frames and a bounded texture budget", () => {
-    const sprites = ["Sakura Ronin", "Gale Prowler", "Fen Prowler", "Shard Hopper"].map((kind) => ENEMY_SPRITE_LAYOUTS[kind]);
+    const sprites = ["Sakura Ronin", "Gale Prowler", "Fen Prowler", "Shard Hopper", "Gear Prowler", "Gourd Prowler"].map((kind) => ENEMY_SPRITE_LAYOUTS[kind]);
     for (const sprite of sprites) {
       let bytes = 0;
       const animation = sprite.animation!;

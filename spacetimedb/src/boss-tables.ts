@@ -55,6 +55,8 @@ const koiShogun = createBossTableSet();
 const tempestKirin = createBossTableSet();
 const miremaw = createBossTableSet();
 const prismshell = createBossTableSet();
+const ironhorn = createBossTableSet();
+const dreadreaper = createBossTableSet();
 
 export const dragonBossTables = {
   dragonBoss: dragon.boss,
@@ -123,4 +125,16 @@ export const prismshellBossTables = {
   prismshellContribution: prismshell.contribution,
   prismshellAttackWindow: prismshell.attackWindow,
   prismshellResult: prismshell.result,
+};
+export const ironhornBossTables = {
+  ironhornBoss: ironhorn.boss,
+  ironhornContribution: ironhorn.contribution,
+  ironhornAttackWindow: ironhorn.attackWindow,
+  ironhornResult: ironhorn.result,
+};
+export const dreadreaperBossTables = {
+  dreadreaperBoss: dreadreaper.boss,
+  dreadreaperContribution: dreadreaper.contribution,
+  dreadreaperAttackWindow: dreadreaper.attackWindow,
+  dreadreaperResult: dreadreaper.result,
 };

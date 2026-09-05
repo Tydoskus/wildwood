@@ -4,7 +4,7 @@ import { MAP_IDS, PROTOCOL_VERSION } from "../../../shared/rules";
 import type { BaseSubscriptionHandlers } from "./base-subscription";
 import type { ReducerPort } from "../ports";
 
-const BOSSES = ["dragon", "spider", "frostclaw", "magmalisk", "gloomroot", "tidewyrm", "koiShogun", "tempestKirin", "miremaw", "prismshell"];
+const BOSSES = ["dragon", "spider", "frostclaw", "magmalisk", "gloomroot", "tidewyrm", "koiShogun", "tempestKirin", "miremaw", "prismshell", "ironhorn", "dreadreaper"];
 const REGIONAL_HANDLERS = new Set(["player", "removePlayer", "motionIdentity", "removeMotionIdentity", "motionFrame", "mapFrame", "deathFrame"]);
 type Route = { databaseName: string; mapId: string; generation: bigint; ready: boolean };
 export function createMapShardClient(options: {

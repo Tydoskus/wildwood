@@ -8,6 +8,8 @@ import { MAP_ASSET_GROUPS, type MapArtAssetGroup } from "./map-asset-groups";
 import { SCORPION_SPRITE } from "./scorpion-sprite";
 import { savedMapDesign } from "../map-design";
 import { PRISMSHELL_ATLAS, PRISMSHELL_USED_PAGES } from "./prismshell-sprite";
+import { IRONHORN_ATLAS, IRONHORN_USED_PAGES } from "./ironhorn-sprite";
+import { DREADREAPER_ATLAS, DREADREAPER_USED_PAGES } from "./dreadreaper-sprite";
 
 export type TreeSpriteBound = {
   x: number;
@@ -254,7 +256,11 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     settle();
   });
   const prismshellPageAssets = PRISMSHELL_ATLAS.pages.map((page) => createLazyImageAsset(page.src));
+  const ironhornPageAssets = IRONHORN_ATLAS.pages.map((page) => createLazyImageAsset(page.src));
+  const dreadreaperPageAssets = DREADREAPER_ATLAS.pages.map((page) => createLazyImageAsset(page.src));
   const prismshellAssets = PRISMSHELL_USED_PAGES.map((index) => prismshellPageAssets[index]);
+  const ironhornAssets = IRONHORN_USED_PAGES.map((index) => ironhornPageAssets[index]);
+  const dreadreaperAssets = DREADREAPER_USED_PAGES.map((index) => dreadreaperPageAssets[index]);
 
   const portalArchAsset = createLazyImageAsset("assets/wildstat/stone-portal-arch.png");
   const portalSwirlAsset = createLazyImageAsset(PORTAL_SWIRL_SOURCE);
@@ -322,6 +328,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   const assetGroups: Record<MapArtAssetGroup, LazyImageAsset[]> = {
     forestBoss: [dragonAsset],
     forestDecor: [treeAsset],
+    orchardDecor: lavaAssets.slice(6),
     desertBoss: [spiderAsset],
     snowBoss: [frostclawAsset],
     snowDecor: [snowPineAsset, upgradeBenchAsset],
@@ -333,7 +340,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     samuraiBoss: [koiShogunAsset],
     cloudspireBoss: [tempestKirinAsset],
     moonfenBoss: [miremawAsset],
-    crystalHollowsBoss: prismshellAssets,
+    crystalHollowsBoss: prismshellAssets, clockworkRuinsBoss: ironhornAssets, duskfallOrchardBoss: dreadreaperAssets,
   };
   const mapAssets = {} as Record<MapId, LazyImageAsset[]>;
   for (const mapId of Object.keys(MAP_ASSET_GROUPS) as MapId[]) {
@@ -391,9 +398,9 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     tempestKirinReady: () => tempestKirinReady,
     tempestKirinSpriteCanvas,
     miremawReady: () => miremawReady,
-    prismshellReady: () => prismshellAssets.every((asset) => asset.settled() && !asset.failed()),
+    prismshellReady: () => prismshellAssets.every((asset) => asset.settled() && !asset.failed()), ironhornReady: () => ironhornAssets.every((asset) => asset.settled() && !asset.failed()), dreadreaperReady: () => dreadreaperAssets.every((asset) => asset.settled() && !asset.failed()),
     miremawSpriteCanvas,
-    prismshellSpritePages: prismshellPageAssets.map((asset) => asset.image),
+    prismshellSpritePages: prismshellPageAssets.map((asset) => asset.image), ironhornSpritePages: ironhornPageAssets.map((asset) => asset.image), dreadreaperSpritePages: dreadreaperPageAssets.map((asset) => asset.image),
     ensureDuelAssets,
     duelAssetsReady: () => duelSpaceAsset.settled() && duelPlatformAsset.settled(),
     ensureMapAssets,

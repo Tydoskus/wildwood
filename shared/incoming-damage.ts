@@ -5,7 +5,7 @@ export const LATE_MAP_DAMAGE_TIER = {
   samurai_garden: 0,
   cloudspire: 1,
   moonfen: 2,
-  crystal_hollows: 3,
+  crystal_hollows: 3, clockwork_ruins: 4, duskfall_orchard: 5,
 } as const;
 export type LateDamageMap = keyof typeof LATE_MAP_DAMAGE_TIER;
 

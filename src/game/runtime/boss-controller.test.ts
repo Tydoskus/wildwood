@@ -37,7 +37,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     koiShogunBoss: state.koiShogunBoss,
     tempestKirinBoss: state.tempestKirinBoss,
     miremawBoss: state.miremawBoss,
-    prismshellBoss: state.prismshellBoss,
+    prismshellBoss: state.prismshellBoss, ironhornBoss: state.ironhornBoss, dreadreaperBoss: state.dreadreaperBoss,
     bossRain: state.bossRain,
     spiderVenom: state.spiderVenom,
     frostclawIcefalls: state.frostclawIcefalls,
@@ -47,7 +47,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     koiShogunWhirlpools: state.koiShogunWhirlpools,
     tempestKirinThunderbolts: state.tempestKirinThunderbolts,
     miremawBogBursts: state.miremawBogBursts,
-    prismshellCrystalBursts: state.prismshellCrystalBursts,
+    prismshellCrystalBursts: state.prismshellCrystalBursts, ironhornCrystalBursts: state.ironhornCrystalBursts, dreadreaperCrystalBursts: state.dreadreaperCrystalBursts,
     player: state.player,
     getDragonBoss: () => null,
     getSpiderBoss: () => null,
@@ -58,7 +58,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     getKoiShogunBoss: () => null,
     getTempestKirinBoss: () => null,
     getMiremawBoss: () => null,
-    getPrismshellBoss: () => null,
+    getPrismshellBoss: () => null, getIronhornBoss: () => null, getDreadreaperBoss: () => null,
     getDragonResult: () => null,
     getSpiderResult: () => null,
     getFrostclawResult: () => null,
@@ -68,7 +68,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     getKoiShogunResult: () => null,
     getTempestKirinResult: () => null,
     getMiremawResult: () => null,
-    getPrismshellResult: () => null,
+    getPrismshellResult: () => null, getIronhornResult: () => null, getDreadreaperResult: () => null,
     localIdentity: () => "local",
     running: () => true,
     currentMapIsDesert: () => false,
@@ -79,7 +79,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     currentMapIsSamurai: () => false,
     currentMapIsCloudspire: () => false,
     currentMapIsMoonfen: () => false,
-    currentMapIsCrystalHollows: () => false,
+    currentMapIsCrystalHollows: () => false, currentMapIsClockworkRuins: () => false, currentMapIsDuskfallOrchard: () => false,
     portalCutsceneActive: () => false,
     hasSeenDragonPortalCutscene: () => true,
     hasSeenSnowlandsPortalCutscene: () => true,
@@ -646,5 +646,35 @@ describe("Prismshell boss", () => {
     controller.resetPrismshellBoss();
     expect(prismshellBoss.shatter).toBeNull();
     expect(prismshellCrystalBursts).toHaveLength(0);
+  });
+});
+
+
+describe("expansion boss patterns", () => {
+  it("Ironhorn alternates a narrow wave with two rows of scrap and clears on reset", () => {
+    const h = createFrostclawHarness();
+    h.player.x = h.ironhornBoss.x + 300; h.player.y = h.ironhornBoss.y;
+    h.ironhornBoss.attackClock = 0;
+    h.controller.updateIronhornBoss(.016);
+    expect(h.ironhornBoss.shatter).toMatchObject({ windup: 1.05, duration: .8 });
+    h.controller.updateIronhornBoss(1.06); h.controller.updateIronhornBoss(.81); h.controller.updateIronhornBoss(2.4);
+    expect(h.ironhornCrystalBursts).toHaveLength(6);
+    expect(new Set(h.ironhornCrystalBursts.map(burst => burst.maxTimer)).size).toBe(2);
+    h.controller.resetIronhornBoss();
+    expect(h.ironhornCrystalBursts).toHaveLength(0);
+    expect(h.ironhornBoss.shatter).toBeNull();
+  });
+  it("Dreadreaper surrounds its target with a ring that leaves the center safe", () => {
+    const h = createFrostclawHarness();
+    h.player.x = h.dreadreaperBoss.x - 300; h.player.y = h.dreadreaperBoss.y;
+    h.dreadreaperBoss.attackClock = 0;
+    h.controller.updateDreadreaperBoss(.016);
+    expect(h.dreadreaperBoss.shatter).toMatchObject({ windup: 1.1, duration: .8 });
+    h.controller.updateDreadreaperBoss(1.11); h.controller.updateDreadreaperBoss(.81); h.controller.updateDreadreaperBoss(2.4);
+    expect(h.dreadreaperCrystalBursts).toHaveLength(10);
+    for (const burst of h.dreadreaperCrystalBursts) expect(Math.hypot(burst.x - h.player.x, burst.y - h.player.y)).toBeGreaterThan(burst.r);
+    h.controller.resetDreadreaperBoss();
+    expect(h.dreadreaperCrystalBursts).toHaveLength(0);
+    expect(h.dreadreaperBoss.shatter).toBeNull();
   });
 });

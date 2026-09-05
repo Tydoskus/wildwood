@@ -8,7 +8,7 @@ import {
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
   MOONFEN_MAP_ID,
-  CRYSTAL_HOLLOWS_MAP_ID,
+  CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID,
   type MapId,
 } from "./world";
 
@@ -25,7 +25,7 @@ const PORTAL_DESTINATION_COLORS: Record<MapId, string> = {
   [SAMURAI_GARDEN_MAP_ID]: "#ff83bd",
   [CLOUDSPIRE_MAP_ID]: "#9fdfff",
   [MOONFEN_MAP_ID]: "#82f2c4",
-  [CRYSTAL_HOLLOWS_MAP_ID]: "#c3a6ff",
+  [CRYSTAL_HOLLOWS_MAP_ID]: "#c3a6ff", [CLOCKWORK_RUINS_MAP_ID]: "#e3b964", [DUSKFALL_ORCHARD_MAP_ID]: "#b8df82",
 };
 
 export function portalDestinationColor(destination: MapId) {

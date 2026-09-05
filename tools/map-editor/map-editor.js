@@ -5,16 +5,16 @@ const LIVE_MAP_IDS = new Set([
 ]);
 const SCALABLE_DECOR = new Set([
   "tree", "cactus", "rock", "snowPine", "upgradeBench", "lavaPool", "lavaRock",
-  "charredTree", "coral", "shell", "cloud", "skyShard", "glowMushroom", "lilyPad",
+  "charredTree", "coral", "shell", "cloud", "skyShard", "gear", "pumpkin", "glowMushroom", "lilyPad",
 ]);
 const VARIANT_DECOR = new Set([
   "tree", "grass", "petal", "cherryPetal", "cactus", "rock", "desertGrass", "snowTuft",
-  "lavaPool", "lavaRock", "charredTree", "coral", "shell", "cloud", "skyShard",
+  "lavaPool", "lavaRock", "charredTree", "coral", "shell", "cloud", "skyShard", "gear", "pumpkin",
   "glowMushroom", "lilyPad",
 ]);
 const COLORABLE_DECOR = new Set([
   "grass", "petal", "cherryPetal", "cactus", "rock", "desertGrass", "snowTuft",
-  "coral", "shell", "cloud", "skyShard", "glowMushroom", "lilyPad", "tree",
+  "coral", "shell", "cloud", "skyShard", "gear", "pumpkin", "glowMushroom", "lilyPad", "tree",
 ]);
 const ADD_ITEMS = [
   { kind: "path", label: "Path", icon: "▭", wide: true },
@@ -37,6 +37,8 @@ const ADD_ITEMS = [
   { kind: "decor", type: "shell", label: "Shell", icon: "◒" },
   { kind: "decor", type: "cloud", label: "Cloud", icon: "☁" },
   { kind: "decor", type: "skyShard", label: "Sky shard", icon: "♦" },
+  { kind: "decor", type: "gear", label: "Gear", icon: "⚙" },
+  { kind: "decor", type: "pumpkin", label: "Pumpkin", icon: "●" },
   { kind: "decor", type: "glowMushroom", label: "Glow mushroom", icon: "♠" },
   { kind: "decor", type: "lilyPad", label: "Lily pad", icon: "●" },
 ];
@@ -926,6 +928,13 @@ function drawDecoration(item) {
     context.fillStyle = paletteColor(item, ["#f0bed0", "#f6d9b8"]); context.beginPath(); context.arc(x, y, 24 * scale, Math.PI, Math.PI * 2); context.lineTo(x - 24 * scale, y); context.fill();
   } else if (item.type === "cloud") {
     context.fillStyle = paletteColor(item, ["#d6efff", "#ebf8ff"]); for (const [dx, dy, rx, ry] of [[-25, 0, 32, 20], [5, -10, 42, 27], [38, 2, 30, 19]]) { context.beginPath(); context.ellipse(x + dx * scale, y + dy * scale, rx * scale, ry * scale, 0, 0, Math.PI * 2); context.fill(); }
+  } else if (item.type === "gear") {
+    context.strokeStyle = paletteColor(item, ["#b58b47", "#839695", "#cfad63"]);
+    context.lineWidth = 10 * scale; context.beginPath(); context.ellipse(x, y, 20 * scale, 14 * scale, 0, 0, Math.PI * 2); context.stroke();
+    for (let tooth = 0; tooth < 10; tooth++) { const a = tooth * Math.PI / 5; context.beginPath(); context.moveTo(x + Math.cos(a) * 18 * scale, y + Math.sin(a) * 12 * scale); context.lineTo(x + Math.cos(a) * 29 * scale, y + Math.sin(a) * 19 * scale); context.stroke(); }
+  } else if (item.type === "pumpkin") {
+    context.fillStyle = paletteColor(item, ["#df8139", "#b95935", "#e5a855"]); context.beginPath(); context.ellipse(x, y - 8 * scale, 17 * scale, 14 * scale, 0, 0, Math.PI * 2); context.fill();
+    context.fillStyle = "#879952"; context.fillRect(x - 2 * scale, y - 27 * scale, 5 * scale, 9 * scale);
   } else if (item.type === "skyShard") {
     context.fillStyle = paletteColor(item, ["#8de5ff", "#f3d778", "#c9b8ff"]); context.beginPath(); context.moveTo(x, y - 62 * scale); context.lineTo(x + 23 * scale, y - 18 * scale); context.lineTo(x + 13 * scale, y); context.lineTo(x - 17 * scale, y); context.lineTo(x - 24 * scale, y - 20 * scale); context.closePath(); context.fill();
   } else if (item.type === "glowMushroom") {

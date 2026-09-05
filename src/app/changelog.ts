@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.627": [
+    "Smoothed multiplayer movement by following server sample timing and blending delayed updates more consistently through turns and stops.",
+    "Added Clockwork Ruins and Duskfall Orchard after Crystal Hollows, with mechanical raptor and pumpkin enemy families captured through the Unity sprite exporter.",
+    "Added Ironhorn and Dreadreaper bosses with distinct shockwaves, scrap rows, and harvest-ring attacks, plus multiplayer rewards and portal unlocks.",
+    "Existing Prismshell victories unlock Clockwork Ruins automatically.",
+  ],
   "0.626": [
     "Portals now wait for the destination connection before revealing the new map, preventing flashes back to the old map.",
     "Fixed map reconnects getting stuck offline, restored immediate movement after reconnecting, and kept the global online count visible during travel.",
@@ -1505,6 +1511,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.627": "2026-09-04",
   "0.626": "2026-09-04",
   "0.625": "2026-09-04",
   "0.624": "2026-09-04",

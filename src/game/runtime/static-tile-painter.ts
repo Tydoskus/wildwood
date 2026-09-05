@@ -95,7 +95,7 @@ export function paintStaticTile(
     }
     // Tall crystal tips can overlap the neighboring tile even when their base
     // is outside the old 50px margin. Keep those fragments in both tile paints.
-    const decorMargin = decor.type === "skyShard" ? Math.max(50, Math.ceil(34 * Math.max(.6, decor.s)) + 4) : 50;
+    const decorMargin = (decor.type === "skyShard" || decor.type === "gear" || decor.type === "pumpkin") ? Math.max(50, Math.ceil(34 * Math.max(.6, decor.s)) + 4) : 50;
     if (x < -decorMargin || y < -decorMargin || x > scene.tileSize + decorMargin || y > scene.tileSize + decorMargin) continue;
     if (decor.type === "grass") {
       context.fillStyle = decorColor(scene, decor, ["#267f4c", "#237b49"]);
@@ -159,6 +159,22 @@ export function paintStaticTile(
       context.fill();
       context.fillStyle = "rgba(255,255,255,.52)";
       context.beginPath(); context.ellipse(x - width * .08, y - height * .18, width * .27, height * .22, 0, 0, TAU); context.fill();
+    } else if (decor.type === "gear") {
+      const radius = 25 * decor.s;
+      context.save(); context.translate(x, y); context.scale(1, .65);
+      context.fillStyle = decorColor(scene, decor, ["#b58b47", "#839695", "#cfad63"]);
+      for (let tooth = 0; tooth < 10; tooth++) {
+        context.rotate(TAU / 10); context.fillRect(radius * .68, -radius * .16, radius * .45, radius * .32);
+      }
+      context.beginPath(); context.arc(0, 0, radius * .84, 0, TAU); context.arc(0, 0, radius * .34, 0, TAU, true); context.fill("evenodd");
+      context.restore();
+    } else if (decor.type === "pumpkin") {
+      const radius = 17 * decor.s;
+      context.fillStyle = decorColor(scene, decor, ["#df8139", "#b95935", "#e5a855"]);
+      context.beginPath(); context.ellipse(x, y - radius * .5, radius, radius * .8, 0, 0, TAU); context.fill();
+      context.strokeStyle = "rgba(77,36,38,.35)"; context.lineWidth = 2;
+      context.beginPath(); context.ellipse(x, y - radius * .5, radius * .48, radius * .8, 0, 0, TAU); context.stroke();
+      context.fillStyle = "#879952"; context.fillRect(x - 2, y - radius * 1.6, 5, radius * .5);
     } else if (decor.type === "skyShard") {
       const scale = Math.max(.6, decor.s);
       const width = Math.round(16 * scale);

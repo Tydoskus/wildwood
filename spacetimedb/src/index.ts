@@ -47,7 +47,7 @@ import {
   koiShogunBossTables,
   magmaliskBossTables,
   miremawBossTables,
-  prismshellBossTables,
+  prismshellBossTables, ironhornBossTables, dreadreaperBossTables,
   spiderBossTables,
   tempestKirinBossTables,
   tidewyrmBossTables,
@@ -171,17 +171,17 @@ import {
   MAP_DISPLAY_NAMES,
   MAP_IDS,
   MIREMAW_MAX_HP,
-  PRISMSHELL_MAX_HP,
+  PRISMSHELL_MAX_HP, IRONHORN_MAX_HP, DREADREAPER_MAX_HP,
   MIREMAW_REWARD_ARMOR,
-  PRISMSHELL_REWARD_ARMOR,
+  PRISMSHELL_REWARD_ARMOR, IRONHORN_REWARD_ARMOR, DREADREAPER_REWARD_ARMOR,
   MIREMAW_REWARD_DAMAGE,
-  PRISMSHELL_REWARD_DAMAGE,
+  PRISMSHELL_REWARD_DAMAGE, IRONHORN_REWARD_DAMAGE, DREADREAPER_REWARD_DAMAGE,
   MIREMAW_REWARD_HEALTH,
-  PRISMSHELL_REWARD_HEALTH,
+  PRISMSHELL_REWARD_HEALTH, IRONHORN_REWARD_HEALTH, DREADREAPER_REWARD_HEALTH,
   MIREMAW_REWARD_REGEN,
-  PRISMSHELL_REWARD_REGEN,
+  PRISMSHELL_REWARD_REGEN, IRONHORN_REWARD_REGEN, DREADREAPER_REWARD_REGEN,
   MOONFEN_MAP_ID,
-  CRYSTAL_HOLLOWS_MAP_ID,
+  CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID,
   MAX_ARMOR,
   MAX_MOVEMENT_SPEED_OVERRIDE,
   MAX_PLAYER_STAT,
@@ -277,7 +277,7 @@ const DEFAULT_MAP_PORTALS = {
     { x: 360, y: 617, destination: CLOUDSPIRE_MAP_ID },
     { x: 580, y: 617, destination: CRYSTAL_HOLLOWS_MAP_ID },
   ],
-  [CRYSTAL_HOLLOWS_MAP_ID]: [{ x: 360, y: 617, destination: MOONFEN_MAP_ID }],
+  [CRYSTAL_HOLLOWS_MAP_ID]: [{ x: 360, y: 617, destination: MOONFEN_MAP_ID }, { x: 580, y: 617, destination: CLOCKWORK_RUINS_MAP_ID }], [CLOCKWORK_RUINS_MAP_ID]: [{ x: 360, y: 617, destination: CRYSTAL_HOLLOWS_MAP_ID }, { x: 580, y: 617, destination: DUSKFALL_ORCHARD_MAP_ID }], [DUSKFALL_ORCHARD_MAP_ID]: [{ x: 360, y: 617, destination: CLOCKWORK_RUINS_MAP_ID }],
 } as const;
 const DEFAULT_MAP_ARRIVALS = {
   [TUTORIAL_FOREST_MAP_ID]: { x: 190, y: 540 },
@@ -289,7 +289,7 @@ const DEFAULT_MAP_ARRIVALS = {
   [SAMURAI_GARDEN_MAP_ID]: { x: 580, y: 770 },
   [CLOUDSPIRE_MAP_ID]: { x: 580, y: 770 },
   [MOONFEN_MAP_ID]: { x: 580, y: 770 },
-  [CRYSTAL_HOLLOWS_MAP_ID]: { x: 580, y: 770 },
+  [CRYSTAL_HOLLOWS_MAP_ID]: { x: 580, y: 770 }, [CLOCKWORK_RUINS_MAP_ID]: { x: 580, y: 770 }, [DUSKFALL_ORCHARD_MAP_ID]: { x: 580, y: 770 },
 } as const;
 const MAP_PORTALS: Record<string, { x: number; y: number; destination: string }[]> = Object.fromEntries(
   Object.entries(DEFAULT_MAP_PORTALS).map(([mapId, portals]) => {
@@ -320,7 +320,7 @@ const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const MOTION_DETAIL_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_DETAIL_FRAME_HZ);
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 24;
+const MODULE_MIGRATION_VERSION = 25;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 9;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -382,14 +382,24 @@ const TEMPEST_KIRIN_HIT_RANGE_TOLERANCE = 60;
 const TEMPEST_KIRIN_RESPAWN_MICROS = 30_000_000n;
 const MIREMAW_ID = 1;
 const PRISMSHELL_ID = 1;
+const IRONHORN_ID = 1;
+const DREADREAPER_ID = 1;
 const MIREMAW_RADIUS = 170;
 const PRISMSHELL_RADIUS = 170;
+const IRONHORN_RADIUS = 170;
+const DREADREAPER_RADIUS = 170;
 const MIREMAW_POSITION = editedBossPosition(MOONFEN_MAP_ID, { x: 4050, y: 4050 });
 const PRISMSHELL_POSITION = editedBossPosition(CRYSTAL_HOLLOWS_MAP_ID, { x: 4050, y: 4050 });
+const IRONHORN_POSITION = editedBossPosition(CLOCKWORK_RUINS_MAP_ID, { x: 4050, y: 4050 });
+const DREADREAPER_POSITION = editedBossPosition(DUSKFALL_ORCHARD_MAP_ID, { x: 4050, y: 4050 });
 const MIREMAW_HIT_RANGE_TOLERANCE = 60;
 const PRISMSHELL_HIT_RANGE_TOLERANCE = 60;
+const IRONHORN_HIT_RANGE_TOLERANCE = 60;
+const DREADREAPER_HIT_RANGE_TOLERANCE = 60;
 const MIREMAW_RESPAWN_MICROS = 30_000_000n;
 const PRISMSHELL_RESPAWN_MICROS = 30_000_000n;
+const IRONHORN_RESPAWN_MICROS = 30_000_000n;
+const DREADREAPER_RESPAWN_MICROS = 30_000_000n;
 const UPGRADE_BENCH_POSITION = MAP_EDITOR_GAMEPLAY_OVERRIDES[INTERMEDIATE_SNOWLANDS_MAP_ID]?.upgradeBench ?? { x: 800, y: 710 };
 const UPGRADE_BENCH_USE_RANGE = 150;
 const UPGRADE_BENCH_SLOT_ONE = 1;
@@ -795,6 +805,9 @@ const playerProgress = table(
     // Append-only clear ledger. The bit records that a boss has been cleared
     // while preserving old save rows; every clear pays the full authored reward.
     bossRewardClaims: t.u32().default(0),
+    // New region gates must stay after every previously published column.
+    clockworkRuinsUnlocked: t.bool().default(false),
+    duskfallOrchardUnlocked: t.bool().default(false),
   },
 );
 
@@ -1573,6 +1586,22 @@ const prismshellRespawnSchedule = table(
     encounter: t.u64(),
   },
 );
+const ironhornRespawnSchedule = table(
+  { scheduled: (): any => respawnIronhorn },
+  {
+    scheduledId: t.u64().primaryKey().autoInc(),
+    scheduledAt: t.scheduleAt(),
+    encounter: t.u64(),
+  },
+);
+const dreadreaperRespawnSchedule = table(
+  { scheduled: (): any => respawnDreadreaper },
+  {
+    scheduledId: t.u64().primaryKey().autoInc(),
+    scheduledAt: t.scheduleAt(),
+    encounter: t.u64(),
+  },
+);
 
 const forestRewardPrototype = table(
   { name: "forest_reward_prototype", public: false },
@@ -1675,9 +1704,9 @@ const spacetimedb = schema({
   ...tempestKirinBossTables,
   tempestKirinRespawnSchedule,
   ...miremawBossTables,
-  ...prismshellBossTables,
+  ...prismshellBossTables, ...ironhornBossTables, ...dreadreaperBossTables,
   miremawRespawnSchedule,
-  prismshellRespawnSchedule,
+  prismshellRespawnSchedule, ironhornRespawnSchedule, dreadreaperRespawnSchedule,
 });
 export default spacetimedb;
 
@@ -1965,6 +1994,40 @@ function syncDisplayNamePresentation(ctx: any, identity: any, displayName: strin
       table.identity.update({ ...contribution, displayName });
     }
   }
+  for (const table of [
+    ctx.db.dragonContribution,
+    ctx.db.spiderContribution,
+    ctx.db.frostclawContribution,
+    ctx.db.magmaliskContribution,
+    ctx.db.gloomrootContribution,
+    ctx.db.tidewyrmContribution,
+    ctx.db.koiShogunContribution,
+    ctx.db.tempestKirinContribution,
+    ctx.db.miremawContribution,
+    ctx.db.ironhornContribution,
+  ]) {
+    const contribution = table.identity.find(identity);
+    if (contribution && contribution.displayName !== displayName) {
+      table.identity.update({ ...contribution, displayName });
+    }
+  }
+  for (const table of [
+    ctx.db.dragonContribution,
+    ctx.db.spiderContribution,
+    ctx.db.frostclawContribution,
+    ctx.db.magmaliskContribution,
+    ctx.db.gloomrootContribution,
+    ctx.db.tidewyrmContribution,
+    ctx.db.koiShogunContribution,
+    ctx.db.tempestKirinContribution,
+    ctx.db.miremawContribution,
+    ctx.db.dreadreaperContribution,
+  ]) {
+    const contribution = table.identity.find(identity);
+    if (contribution && contribution.displayName !== displayName) {
+      table.identity.update({ ...contribution, displayName });
+    }
+  }
   for (const message of [...ctx.db.chatMessage.iter()] as any[]) {
     if (sameIdentity(message.sender, identity) && message.senderName && message.senderName !== displayName) {
       ctx.db.chatMessage.id.update({ ...message, senderName: displayName });
@@ -2020,7 +2083,7 @@ function defaultPlayerProgress(identity: any) {
     samuraiUnlocked: false,
     cloudspireUnlocked: false,
     moonfenUnlocked: false,
-    crystalHollowsUnlocked: false,
+    crystalHollowsUnlocked: false, clockworkRuinsUnlocked: false, duskfallOrchardUnlocked: false,
     bossRewardClaims: 0,
     bowCount: 0,
     woodenArmorCount: 0,
@@ -2059,7 +2122,7 @@ const PLAYER_PROGRESS_VALUE_FIELDS = [
   "samuraiUnlocked",
   "cloudspireUnlocked",
   "moonfenUnlocked",
-  "crystalHollowsUnlocked",
+  "crystalHollowsUnlocked", "clockworkRuinsUnlocked", "duskfallOrchardUnlocked",
   "bossRewardClaims",
   "bowCount",
   "woodenArmorCount",
@@ -2421,10 +2484,22 @@ function runPendingModuleMigrations(ctx: any) {
     ensureTempestKirinBoss(ctx);
     ensureMiremawBoss(ctx);
     ensurePrismshellBoss(ctx);
+    ensureIronhornBoss(ctx);
+    ensureDreadreaperBoss(ctx);
     ensureWorldStatus(ctx);
     ensureMaintenanceSweepSchedule(ctx);
   }
   if (currentVersion < 24) rebaseLegacyPlayersToMaps(ctx);
+  if (currentVersion < 25) {
+    ensureIronhornBoss(ctx);
+    ensureDreadreaperBoss(ctx);
+    // The existing claim ledger preserves every prior Prismshell victory.
+    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      if ((progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.prismshell) !== 0 || contributedToLatestPrismshell(ctx, progress.identity)) {
+        ctx.db.playerProgress.identity.update({ ...progress, clockworkRuinsUnlocked: true });
+      }
+    }
+  }
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
   if (state) ctx.db.moduleMigrationState.id.update(next);
   else ctx.db.moduleMigrationState.insert(next);
@@ -3002,7 +3077,25 @@ function savedWorldLocation(ctx: any, identity: any, progress: any) {
               : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
                 : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
   }
-  if (mapId === CRYSTAL_HOLLOWS_MAP_ID && !progress.crystalHollowsUnlocked) {
+  if (mapId === CLOCKWORK_RUINS_MAP_ID && !progress.clockworkRuinsUnlocked) {
+    mapId = progress.moonfenUnlocked ? MOONFEN_MAP_ID : progress.cloudspireUnlocked
+      ? CLOUDSPIRE_MAP_ID
+      : progress.samuraiUnlocked ? SAMURAI_GARDEN_MAP_ID
+        : progress.waterUnlocked ? WATER_REACH_MAP_ID
+          : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
+            : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
+              : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
+                : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
+  } else if (mapId === DUSKFALL_ORCHARD_MAP_ID && !progress.duskfallOrchardUnlocked) {
+    mapId = progress.moonfenUnlocked ? MOONFEN_MAP_ID : progress.cloudspireUnlocked
+      ? CLOUDSPIRE_MAP_ID
+      : progress.samuraiUnlocked ? SAMURAI_GARDEN_MAP_ID
+        : progress.waterUnlocked ? WATER_REACH_MAP_ID
+          : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
+            : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
+              : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
+                : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
+  } else if (mapId === CRYSTAL_HOLLOWS_MAP_ID && !progress.crystalHollowsUnlocked) {
     mapId = progress.moonfenUnlocked ? MOONFEN_MAP_ID : progress.cloudspireUnlocked
       ? CLOUDSPIRE_MAP_ID
       : progress.samuraiUnlocked ? SAMURAI_GARDEN_MAP_ID
@@ -3406,6 +3499,8 @@ function hasFreshProgress(progress: any) {
     progress.cloudspireUnlocked === defaultProgress.cloudspireUnlocked &&
     progress.moonfenUnlocked === defaultProgress.moonfenUnlocked &&
     progress.crystalHollowsUnlocked === defaultProgress.crystalHollowsUnlocked &&
+    progress.clockworkRuinsUnlocked === defaultProgress.clockworkRuinsUnlocked &&
+    progress.duskfallOrchardUnlocked === defaultProgress.duskfallOrchardUnlocked &&
     (progress.bossRewardClaims ?? 0) === defaultProgress.bossRewardClaims;
 }
 
@@ -3454,6 +3549,12 @@ function contributedToLatestMiremaw(ctx: any, identity: any) {
 
 function contributedToLatestPrismshell(ctx: any, identity: any) {
   return resultIncludesContributor(ctx.db.prismshellResult.id.find(PRISMSHELL_ID), identity);
+}
+function contributedToLatestIronhorn(ctx: any, identity: any) {
+  return resultIncludesContributor(ctx.db.ironhornResult.id.find(IRONHORN_ID), identity);
+}
+function contributedToLatestDreadreaper(ctx: any, identity: any) {
+  return resultIncludesContributor(ctx.db.dreadreaperResult.id.find(DREADREAPER_ID), identity);
 }
 
 function forestItemCountForProgress(progress: any, itemId: string, field: "bowCount" | "woodenArmorCount") {
@@ -4116,9 +4217,9 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
   if (ctx.db.tempestKirinContribution.identity.find(identity)) ctx.db.tempestKirinContribution.identity.delete(identity);
   if (ctx.db.tempestKirinAttackWindow.identity.find(identity)) ctx.db.tempestKirinAttackWindow.identity.delete(identity);
   if (ctx.db.miremawContribution.identity.find(identity)) ctx.db.miremawContribution.identity.delete(identity);
-  if (ctx.db.prismshellContribution.identity.find(identity)) ctx.db.prismshellContribution.identity.delete(identity);
+  if (ctx.db.ironhornContribution.identity.find(identity)) ctx.db.ironhornContribution.identity.delete(identity); else if (ctx.db.dreadreaperContribution.identity.find(identity)) ctx.db.dreadreaperContribution.identity.delete(identity); else if (ctx.db.prismshellContribution.identity.find(identity)) ctx.db.prismshellContribution.identity.delete(identity);
   if (ctx.db.miremawAttackWindow.identity.find(identity)) ctx.db.miremawAttackWindow.identity.delete(identity);
-  if (ctx.db.prismshellAttackWindow.identity.find(identity)) ctx.db.prismshellAttackWindow.identity.delete(identity);
+  if (ctx.db.ironhornAttackWindow.identity.find(identity)) ctx.db.ironhornAttackWindow.identity.delete(identity); else if (ctx.db.dreadreaperAttackWindow.identity.find(identity)) ctx.db.dreadreaperAttackWindow.identity.delete(identity); else if (ctx.db.prismshellAttackWindow.identity.find(identity)) ctx.db.prismshellAttackWindow.identity.delete(identity);
   if (ctx.db.leaderboardEntry.identity.find(identity)) ctx.db.leaderboardEntry.identity.delete(identity);
 
   for (const session of [...ctx.db.playerSession.byIdentity.filter(identity) as Iterable<any>]) {
@@ -4204,9 +4305,9 @@ function removePlayerIdentityData(ctx: any, identity: any) {
   if (ctx.db.tempestKirinContribution.identity.find(identity)) ctx.db.tempestKirinContribution.identity.delete(identity);
   if (ctx.db.tempestKirinAttackWindow.identity.find(identity)) ctx.db.tempestKirinAttackWindow.identity.delete(identity);
   if (ctx.db.miremawContribution.identity.find(identity)) ctx.db.miremawContribution.identity.delete(identity);
-  if (ctx.db.prismshellContribution.identity.find(identity)) ctx.db.prismshellContribution.identity.delete(identity);
+  if (ctx.db.ironhornContribution.identity.find(identity)) ctx.db.ironhornContribution.identity.delete(identity); else if (ctx.db.dreadreaperContribution.identity.find(identity)) ctx.db.dreadreaperContribution.identity.delete(identity); else if (ctx.db.prismshellContribution.identity.find(identity)) ctx.db.prismshellContribution.identity.delete(identity);
   if (ctx.db.miremawAttackWindow.identity.find(identity)) ctx.db.miremawAttackWindow.identity.delete(identity);
-  if (ctx.db.prismshellAttackWindow.identity.find(identity)) ctx.db.prismshellAttackWindow.identity.delete(identity);
+  if (ctx.db.ironhornAttackWindow.identity.find(identity)) ctx.db.ironhornAttackWindow.identity.delete(identity); else if (ctx.db.dreadreaperAttackWindow.identity.find(identity)) ctx.db.dreadreaperAttackWindow.identity.delete(identity); else if (ctx.db.prismshellAttackWindow.identity.find(identity)) ctx.db.prismshellAttackWindow.identity.delete(identity);
   if (ctx.db.leaderboardEntry.identity.find(identity)) ctx.db.leaderboardEntry.identity.delete(identity);
 
   for (const session of [...ctx.db.playerSession.byIdentity.filter(identity) as Iterable<any>]) {
@@ -4579,6 +4680,42 @@ function ensurePrismshellBoss(ctx: any) {
     lastDamageAtMicros: 0n,
   });
 }
+function ensureIronhornBoss(ctx: any) {
+  const existing = ctx.db.ironhornBoss.id.find(IRONHORN_ID);
+  if (existing) {
+    const balanced = bossRowAtMaxHealth(existing, IRONHORN_MAX_HP);
+    if (balanced === existing) return existing;
+    ctx.db.ironhornBoss.id.update(balanced);
+    return balanced;
+  }
+  return ctx.db.ironhornBoss.insert({
+    id: IRONHORN_ID,
+    encounter: 1n,
+    hp: IRONHORN_MAX_HP,
+    maxHp: IRONHORN_MAX_HP,
+    alive: true,
+    respawnAtMicros: 0n,
+    lastDamageAtMicros: 0n,
+  });
+}
+function ensureDreadreaperBoss(ctx: any) {
+  const existing = ctx.db.dreadreaperBoss.id.find(DREADREAPER_ID);
+  if (existing) {
+    const balanced = bossRowAtMaxHealth(existing, DREADREAPER_MAX_HP);
+    if (balanced === existing) return existing;
+    ctx.db.dreadreaperBoss.id.update(balanced);
+    return balanced;
+  }
+  return ctx.db.dreadreaperBoss.insert({
+    id: DREADREAPER_ID,
+    encounter: 1n,
+    hp: DREADREAPER_MAX_HP,
+    maxHp: DREADREAPER_MAX_HP,
+    alive: true,
+    respawnAtMicros: 0n,
+    lastDamageAtMicros: 0n,
+  });
+}
 
 
 function regenerateIdleBosses(ctx: any) {
@@ -4605,6 +4742,8 @@ function regenerateIdleBosses(ctx: any) {
   regenerate(ensureTempestKirinBoss(ctx), (next) => ctx.db.tempestKirinBoss.id.update(next));
   regenerate(ensureMiremawBoss(ctx), (next) => ctx.db.miremawBoss.id.update(next));
   regenerate(ensurePrismshellBoss(ctx), (next) => ctx.db.prismshellBoss.id.update(next));
+  regenerate(ensureIronhornBoss(ctx), (next) => ctx.db.ironhornBoss.id.update(next));
+  regenerate(ensureDreadreaperBoss(ctx), (next) => ctx.db.dreadreaperBoss.id.update(next));
 }
 
 function clearSpiderCombatRows(ctx: any) {
@@ -4919,6 +5058,18 @@ function clearPrismshellCombatRows(ctx: any) {
   for (const identity of contributionIdentities) ctx.db.prismshellContribution.identity.delete(identity);
   for (const identity of attackIdentities) ctx.db.prismshellAttackWindow.identity.delete(identity);
 }
+function clearIronhornCombatRows(ctx: any) {
+  const contributionIdentities = [...ctx.db.ironhornContribution.iter()].map((row: any) => row.identity);
+  const attackIdentities = [...ctx.db.ironhornAttackWindow.iter()].map((row: any) => row.identity);
+  for (const identity of contributionIdentities) ctx.db.ironhornContribution.identity.delete(identity);
+  for (const identity of attackIdentities) ctx.db.ironhornAttackWindow.identity.delete(identity);
+}
+function clearDreadreaperCombatRows(ctx: any) {
+  const contributionIdentities = [...ctx.db.dreadreaperContribution.iter()].map((row: any) => row.identity);
+  const attackIdentities = [...ctx.db.dreadreaperAttackWindow.iter()].map((row: any) => row.identity);
+  for (const identity of contributionIdentities) ctx.db.dreadreaperContribution.identity.delete(identity);
+  for (const identity of attackIdentities) ctx.db.dreadreaperAttackWindow.identity.delete(identity);
+}
 
 function applyBossRepeatableReward(
   progress: any,
@@ -5048,7 +5199,53 @@ function rewardPrismshellContributor(ctx: any, identity: any) {
     armor: PRISMSHELL_REWARD_ARMOR,
     regen: PRISMSHELL_REWARD_REGEN,
   });
-  const next = { ...reward, crystalHollowsUnlocked: true };
+  const next = { ...reward, crystalHollowsUnlocked: true, clockworkRuinsUnlocked: true };
+  ctx.db.playerProgress.identity.update(next);
+  const active = ctx.db.player.identity.find(identity);
+  if (active) {
+    const nextPlayer = {
+      ...active,
+      ...powerFieldsForProgress(ctx, next),
+    };
+    ctx.db.player.identity.update(nextPlayer);
+    syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
+  }
+}
+function rewardIronhornContributor(ctx: any, identity: any) {
+  if (queueShardReward(ctx, identity, "ironhorn")) return;
+  const current = ctx.db.playerProgress.identity.find(identity);
+  if (!current) return;
+  const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+  const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.ironhorn, rewardMultiplier, {
+    damage: IRONHORN_REWARD_DAMAGE,
+    maxHp: IRONHORN_REWARD_HEALTH,
+    armor: IRONHORN_REWARD_ARMOR,
+    regen: IRONHORN_REWARD_REGEN,
+  });
+  const next = { ...reward, clockworkRuinsUnlocked: true, duskfallOrchardUnlocked: true };
+  ctx.db.playerProgress.identity.update(next);
+  const active = ctx.db.player.identity.find(identity);
+  if (active) {
+    const nextPlayer = {
+      ...active,
+      ...powerFieldsForProgress(ctx, next),
+    };
+    ctx.db.player.identity.update(nextPlayer);
+    syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
+  }
+}
+function rewardDreadreaperContributor(ctx: any, identity: any) {
+  if (queueShardReward(ctx, identity, "dreadreaper")) return;
+  const current = ctx.db.playerProgress.identity.find(identity);
+  if (!current) return;
+  const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+  const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.dreadreaper, rewardMultiplier, {
+    damage: DREADREAPER_REWARD_DAMAGE,
+    maxHp: DREADREAPER_REWARD_HEALTH,
+    armor: DREADREAPER_REWARD_ARMOR,
+    regen: DREADREAPER_REWARD_REGEN,
+  });
+  const next = { ...reward, duskfallOrchardUnlocked: true };
   ctx.db.playerProgress.identity.update(next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
@@ -5228,6 +5425,72 @@ function finishPrismshellEncounter(ctx: any, prismshell: any) {
     scheduledId: 0n,
     scheduledAt: ScheduleAt.time(respawnAtMicros),
     encounter: prismshell.encounter,
+  });
+}
+function finishIronhornEncounter(ctx: any, ironhorn: any) {
+  const contributions = [...ctx.db.ironhornContribution.iter()]
+    .filter((row: any) => row.encounter === ironhorn.encounter && row.damage > 0)
+    .sort((a: any, b: any) => b.damage - a.damage);
+  const totalDamage = contributions.reduce((sum: number, row: any) => sum + row.damage, 0);
+  const contributorsJson = JSON.stringify(contributions.map((row: any) => ({
+    identity: row.identity.toHexString(),
+    name: row.displayName,
+    gender: ctx.db.playerProfile.identity.find(row.identity)?.gender ?? PLAYER_GENDER_UNSET,
+    damage: row.damage,
+    percentage: totalDamage > 0 ? row.damage / totalDamage * 100 : 0,
+  })));
+
+  const result = {
+    id: IRONHORN_ID,
+    encounter: ironhorn.encounter,
+    totalDamage,
+    contributorsJson,
+    createdAt: ctx.timestamp,
+  };
+  if (ctx.db.ironhornResult.id.find(IRONHORN_ID)) ctx.db.ironhornResult.id.update(result);
+  else ctx.db.ironhornResult.insert(result);
+
+  for (const row of contributions) rewardIronhornContributor(ctx, row.identity);
+
+  const respawnAtMicros = ctx.timestamp.microsSinceUnixEpoch + IRONHORN_RESPAWN_MICROS;
+  ctx.db.ironhornBoss.id.update({ ...ironhorn, hp: 0, alive: false, respawnAtMicros });
+  ctx.db.ironhornRespawnSchedule.insert({
+    scheduledId: 0n,
+    scheduledAt: ScheduleAt.time(respawnAtMicros),
+    encounter: ironhorn.encounter,
+  });
+}
+function finishDreadreaperEncounter(ctx: any, dreadreaper: any) {
+  const contributions = [...ctx.db.dreadreaperContribution.iter()]
+    .filter((row: any) => row.encounter === dreadreaper.encounter && row.damage > 0)
+    .sort((a: any, b: any) => b.damage - a.damage);
+  const totalDamage = contributions.reduce((sum: number, row: any) => sum + row.damage, 0);
+  const contributorsJson = JSON.stringify(contributions.map((row: any) => ({
+    identity: row.identity.toHexString(),
+    name: row.displayName,
+    gender: ctx.db.playerProfile.identity.find(row.identity)?.gender ?? PLAYER_GENDER_UNSET,
+    damage: row.damage,
+    percentage: totalDamage > 0 ? row.damage / totalDamage * 100 : 0,
+  })));
+
+  const result = {
+    id: DREADREAPER_ID,
+    encounter: dreadreaper.encounter,
+    totalDamage,
+    contributorsJson,
+    createdAt: ctx.timestamp,
+  };
+  if (ctx.db.dreadreaperResult.id.find(DREADREAPER_ID)) ctx.db.dreadreaperResult.id.update(result);
+  else ctx.db.dreadreaperResult.insert(result);
+
+  for (const row of contributions) rewardDreadreaperContributor(ctx, row.identity);
+
+  const respawnAtMicros = ctx.timestamp.microsSinceUnixEpoch + DREADREAPER_RESPAWN_MICROS;
+  ctx.db.dreadreaperBoss.id.update({ ...dreadreaper, hp: 0, alive: false, respawnAtMicros });
+  ctx.db.dreadreaperRespawnSchedule.insert({
+    scheduledId: 0n,
+    scheduledAt: ScheduleAt.time(respawnAtMicros),
+    encounter: dreadreaper.encounter,
   });
 }
 
@@ -5589,7 +5852,9 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     const isInWaterReach = existingPlayer?.mapId === WATER_REACH_MAP_ID;
     const isInSamuraiGarden = existingPlayer?.mapId === SAMURAI_GARDEN_MAP_ID;
     const isInCloudspire = existingPlayer?.mapId === CLOUDSPIRE_MAP_ID;
-    const isInCrystalHollows = existingPlayer?.mapId === CRYSTAL_HOLLOWS_MAP_ID;
+    const isInDuskfallOrchard = existingPlayer?.mapId === DUSKFALL_ORCHARD_MAP_ID || contributedToLatestIronhorn(ctx, ctx.sender) || contributedToLatestDreadreaper(ctx, ctx.sender);
+    const isInClockworkRuins = existingPlayer?.mapId === CLOCKWORK_RUINS_MAP_ID || isInDuskfallOrchard || contributedToLatestPrismshell(ctx, ctx.sender) || Boolean(existingProgress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.prismshell);
+    const isInCrystalHollows = existingPlayer?.mapId === CRYSTAL_HOLLOWS_MAP_ID || isInClockworkRuins;
     // A later server-owned location/clear also proves all earlier map gates.
     const isInMoonfen = existingPlayer?.mapId === MOONFEN_MAP_ID || isInCrystalHollows || latestMiremawContributor;
     if ((!existingProgress.desertUnlocked && (isInDesert || isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || isInMoonfen || latestDragonContributor || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor)) ||
@@ -5600,7 +5865,9 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
       (!existingProgress.samuraiUnlocked && (isInSamuraiGarden || isInCloudspire || isInMoonfen || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor)) ||
       (!existingProgress.cloudspireUnlocked && (isInCloudspire || isInMoonfen || latestKoiShogunContributor || latestTempestKirinContributor)) ||
       (!existingProgress.moonfenUnlocked && (isInMoonfen || latestTempestKirinContributor)) ||
-      (!existingProgress.crystalHollowsUnlocked && (isInCrystalHollows || latestMiremawContributor))) {
+      (!existingProgress.crystalHollowsUnlocked && (isInCrystalHollows || latestMiremawContributor)) ||
+      (!existingProgress.clockworkRuinsUnlocked && isInClockworkRuins) ||
+      (!existingProgress.duskfallOrchardUnlocked && isInDuskfallOrchard)) {
       existingProgress = {
         ...existingProgress,
         desertUnlocked: existingProgress.desertUnlocked || isInDesert || isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || isInMoonfen || latestDragonContributor || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor,
@@ -5611,7 +5878,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
         samuraiUnlocked: existingProgress.samuraiUnlocked || isInSamuraiGarden || isInCloudspire || isInMoonfen || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor,
         cloudspireUnlocked: existingProgress.cloudspireUnlocked || isInCloudspire || isInMoonfen || latestKoiShogunContributor || latestTempestKirinContributor,
         moonfenUnlocked: existingProgress.moonfenUnlocked || isInMoonfen || latestTempestKirinContributor,
-        crystalHollowsUnlocked: existingProgress.crystalHollowsUnlocked || isInCrystalHollows || latestMiremawContributor,
+        crystalHollowsUnlocked: existingProgress.crystalHollowsUnlocked || isInCrystalHollows || latestMiremawContributor, clockworkRuinsUnlocked: existingProgress.clockworkRuinsUnlocked || isInClockworkRuins, duskfallOrchardUnlocked: existingProgress.duskfallOrchardUnlocked || isInDuskfallOrchard,
       };
       ctx.db.playerProgress.identity.update(existingProgress);
     }
@@ -6158,6 +6425,40 @@ export const respawnPrismshell = spacetimedb.reducer(
       ...prismshell,
       encounter: prismshell.encounter + 1n,
       hp: prismshell.maxHp,
+      alive: true,
+      respawnAtMicros: 0n,
+      lastDamageAtMicros: 0n,
+    });
+  },
+);
+export const respawnIronhorn = spacetimedb.reducer(
+  { schedule: ironhornRespawnSchedule.rowType },
+  (ctx, { schedule }) => {
+    const ironhorn = ensureIronhornBoss(ctx);
+    if (ironhorn.alive || ironhorn.encounter !== schedule.encounter) return;
+    if (ctx.timestamp.microsSinceUnixEpoch < ironhorn.respawnAtMicros) return;
+    clearIronhornCombatRows(ctx);
+    ctx.db.ironhornBoss.id.update({
+      ...ironhorn,
+      encounter: ironhorn.encounter + 1n,
+      hp: ironhorn.maxHp,
+      alive: true,
+      respawnAtMicros: 0n,
+      lastDamageAtMicros: 0n,
+    });
+  },
+);
+export const respawnDreadreaper = spacetimedb.reducer(
+  { schedule: dreadreaperRespawnSchedule.rowType },
+  (ctx, { schedule }) => {
+    const dreadreaper = ensureDreadreaperBoss(ctx);
+    if (dreadreaper.alive || dreadreaper.encounter !== schedule.encounter) return;
+    if (ctx.timestamp.microsSinceUnixEpoch < dreadreaper.respawnAtMicros) return;
+    clearDreadreaperCombatRows(ctx);
+    ctx.db.dreadreaperBoss.id.update({
+      ...dreadreaper,
+      encounter: dreadreaper.encounter + 1n,
+      hp: dreadreaper.maxHp,
       alive: true,
       respawnAtMicros: 0n,
       lastDamageAtMicros: 0n,
@@ -6906,6 +7207,142 @@ function applyPrismshellDamage(ctx: any, requestedHits: number, clientPosition?:
   if (nextPrismshell.hp <= 0) finishPrismshellEncounter(ctx, nextPrismshell);
   else ctx.db.prismshellBoss.id.update(nextPrismshell);
 }
+function applyIronhornDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
+  requireMapWorkload(ctx);
+  if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
+  const activePlayer = requireControllingPlayer(ctx);
+  if (activeDuelFor(ctx, ctx.sender)) return;
+  if (activePlayer.mapId !== CLOCKWORK_RUINS_MAP_ID) return;
+  const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+  if (!progress) return;
+  const ironhorn = ensureIronhornBoss(ctx);
+  if (!ironhorn.alive || ironhorn.hp <= 0) return;
+
+  if (clientPosition && ![clientPosition.x, clientPosition.y].every(Number.isFinite)) {
+    throw new SenderError("Boss attack position must be finite");
+  }
+  const actionX = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, clientPosition.x)) : activePlayer.x;
+  const actionY = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, clientPosition.y)) : activePlayer.y;
+  const centerDistance = Math.hypot(actionX - IRONHORN_POSITION.x, actionY - IRONHORN_POSITION.y);
+  if (centerDistance - IRONHORN_RADIUS > progress.attackRange + IRONHORN_HIT_RANGE_TOLERANCE) return;
+
+  const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
+  const now = ctx.timestamp.microsSinceUnixEpoch;
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(ctx, ctx.sender, progress) * 1_000_000)));
+  const currentWindow = ctx.db.ironhornAttackWindow.identity.find(ctx.sender);
+  const newWindow =
+    !currentWindow ||
+    currentWindow.encounter !== ironhorn.encounter ||
+    now - currentWindow.startedAtMicros >= intervalMicros;
+  const remainingHits = newWindow
+    ? progress.projectileCount
+    : Math.max(0, progress.projectileCount - currentWindow.hits);
+  const acceptedHits = Math.min(boundedHits, remainingHits);
+  if (acceptedHits <= 0) return;
+
+  if (newWindow) {
+    const nextWindow = {
+      identity: ctx.sender,
+      encounter: ironhorn.encounter,
+      startedAtMicros: now,
+      hits: acceptedHits,
+    };
+    if (currentWindow) ctx.db.ironhornAttackWindow.identity.update(nextWindow);
+    else ctx.db.ironhornAttackWindow.insert(nextWindow);
+  } else {
+    ctx.db.ironhornAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
+  }
+
+  const damage = Math.min(ironhorn.hp, Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage)) * acceptedHits);
+  const currentContribution = ctx.db.ironhornContribution.identity.find(ctx.sender);
+  const continuingContribution = currentContribution?.encounter === ironhorn.encounter;
+  const displayName = continuingContribution
+    ? currentContribution.displayName
+    : ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "PLAYER";
+  const nextContribution = {
+    identity: ctx.sender,
+    encounter: ironhorn.encounter,
+    displayName,
+    damage: continuingContribution ? currentContribution.damage + damage : damage,
+  };
+  if (currentContribution) ctx.db.ironhornContribution.identity.update(nextContribution);
+  else ctx.db.ironhornContribution.insert(nextContribution);
+  const nextIronhorn = {
+    ...ironhorn,
+    hp: Math.max(0, ironhorn.hp - damage),
+    lastDamageAtMicros: ctx.timestamp.microsSinceUnixEpoch,
+  };
+  if (nextIronhorn.hp <= 0) finishIronhornEncounter(ctx, nextIronhorn);
+  else ctx.db.ironhornBoss.id.update(nextIronhorn);
+}
+function applyDreadreaperDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
+  requireMapWorkload(ctx);
+  if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
+  const activePlayer = requireControllingPlayer(ctx);
+  if (activeDuelFor(ctx, ctx.sender)) return;
+  if (activePlayer.mapId !== DUSKFALL_ORCHARD_MAP_ID) return;
+  const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+  if (!progress) return;
+  const dreadreaper = ensureDreadreaperBoss(ctx);
+  if (!dreadreaper.alive || dreadreaper.hp <= 0) return;
+
+  if (clientPosition && ![clientPosition.x, clientPosition.y].every(Number.isFinite)) {
+    throw new SenderError("Boss attack position must be finite");
+  }
+  const actionX = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, clientPosition.x)) : activePlayer.x;
+  const actionY = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, clientPosition.y)) : activePlayer.y;
+  const centerDistance = Math.hypot(actionX - DREADREAPER_POSITION.x, actionY - DREADREAPER_POSITION.y);
+  if (centerDistance - DREADREAPER_RADIUS > progress.attackRange + DREADREAPER_HIT_RANGE_TOLERANCE) return;
+
+  const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
+  const now = ctx.timestamp.microsSinceUnixEpoch;
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(ctx, ctx.sender, progress) * 1_000_000)));
+  const currentWindow = ctx.db.dreadreaperAttackWindow.identity.find(ctx.sender);
+  const newWindow =
+    !currentWindow ||
+    currentWindow.encounter !== dreadreaper.encounter ||
+    now - currentWindow.startedAtMicros >= intervalMicros;
+  const remainingHits = newWindow
+    ? progress.projectileCount
+    : Math.max(0, progress.projectileCount - currentWindow.hits);
+  const acceptedHits = Math.min(boundedHits, remainingHits);
+  if (acceptedHits <= 0) return;
+
+  if (newWindow) {
+    const nextWindow = {
+      identity: ctx.sender,
+      encounter: dreadreaper.encounter,
+      startedAtMicros: now,
+      hits: acceptedHits,
+    };
+    if (currentWindow) ctx.db.dreadreaperAttackWindow.identity.update(nextWindow);
+    else ctx.db.dreadreaperAttackWindow.insert(nextWindow);
+  } else {
+    ctx.db.dreadreaperAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
+  }
+
+  const damage = Math.min(dreadreaper.hp, Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage)) * acceptedHits);
+  const currentContribution = ctx.db.dreadreaperContribution.identity.find(ctx.sender);
+  const continuingContribution = currentContribution?.encounter === dreadreaper.encounter;
+  const displayName = continuingContribution
+    ? currentContribution.displayName
+    : ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "PLAYER";
+  const nextContribution = {
+    identity: ctx.sender,
+    encounter: dreadreaper.encounter,
+    displayName,
+    damage: continuingContribution ? currentContribution.damage + damage : damage,
+  };
+  if (currentContribution) ctx.db.dreadreaperContribution.identity.update(nextContribution);
+  else ctx.db.dreadreaperContribution.insert(nextContribution);
+  const nextDreadreaper = {
+    ...dreadreaper,
+    hp: Math.max(0, dreadreaper.hp - damage),
+    lastDamageAtMicros: ctx.timestamp.microsSinceUnixEpoch,
+  };
+  if (nextDreadreaper.hp <= 0) finishDreadreaperEncounter(ctx, nextDreadreaper);
+  else ctx.db.dreadreaperBoss.id.update(nextDreadreaper);
+}
 
 export const damageMiremawFromPosition = spacetimedb.reducer(
   { hits: t.u32(), x: t.f64(), y: t.f64() },
@@ -6914,6 +7351,14 @@ export const damageMiremawFromPosition = spacetimedb.reducer(
 export const damagePrismshellFromPosition = spacetimedb.reducer(
   { hits: t.u32(), x: t.f64(), y: t.f64() },
   (ctx, { hits, x, y }) => applyPrismshellDamage(ctx, hits, { x, y }),
+);
+export const damageIronhornFromPosition = spacetimedb.reducer(
+  { hits: t.u32(), x: t.f64(), y: t.f64() },
+  (ctx, { hits, x, y }) => applyIronhornDamage(ctx, hits, { x, y }),
+);
+export const damageDreadreaperFromPosition = spacetimedb.reducer(
+  { hits: t.u32(), x: t.f64(), y: t.f64() },
+  (ctx, { hits, x, y }) => applyDreadreaperDamage(ctx, hits, { x, y }),
 );
 
 
@@ -7238,6 +7683,66 @@ export const claimGuestAccount = spacetimedb.reducer(
       [ctx.db.tempestKirinContribution, ctx.db.tempestKirinAttackWindow],
       [ctx.db.miremawContribution, ctx.db.miremawAttackWindow],
       [ctx.db.prismshellContribution, ctx.db.prismshellAttackWindow],
+    ] as any[]) {
+      const guestContribution = contributionTable.identity.find(link.guest);
+      const accountContribution = contributionTable.identity.find(ctx.sender);
+      if (guestContribution) {
+        const nextContribution = {
+          identity: ctx.sender,
+          encounter: guestContribution.encounter,
+          displayName: finalDisplayName,
+          damage: accountContribution?.encounter === guestContribution.encounter
+            ? accountContribution.damage + guestContribution.damage
+            : guestContribution.damage,
+        };
+        if (accountContribution) contributionTable.identity.update(nextContribution);
+        else contributionTable.insert(nextContribution);
+        contributionTable.identity.delete(link.guest);
+      }
+      if (attackWindowTable.identity.find(link.guest)) attackWindowTable.identity.delete(link.guest);
+      if (attackWindowTable.identity.find(ctx.sender)) attackWindowTable.identity.delete(ctx.sender);
+    }
+    for (const [contributionTable, attackWindowTable] of [
+      [ctx.db.dragonContribution, ctx.db.dragonAttackWindow],
+      [ctx.db.spiderContribution, ctx.db.spiderAttackWindow],
+      [ctx.db.frostclawContribution, ctx.db.frostclawAttackWindow],
+      [ctx.db.magmaliskContribution, ctx.db.magmaliskAttackWindow],
+      [ctx.db.gloomrootContribution, ctx.db.gloomrootAttackWindow],
+      [ctx.db.tidewyrmContribution, ctx.db.tidewyrmAttackWindow],
+      [ctx.db.koiShogunContribution, ctx.db.koiShogunAttackWindow],
+      [ctx.db.tempestKirinContribution, ctx.db.tempestKirinAttackWindow],
+      [ctx.db.miremawContribution, ctx.db.miremawAttackWindow],
+      [ctx.db.ironhornContribution, ctx.db.ironhornAttackWindow],
+    ] as any[]) {
+      const guestContribution = contributionTable.identity.find(link.guest);
+      const accountContribution = contributionTable.identity.find(ctx.sender);
+      if (guestContribution) {
+        const nextContribution = {
+          identity: ctx.sender,
+          encounter: guestContribution.encounter,
+          displayName: finalDisplayName,
+          damage: accountContribution?.encounter === guestContribution.encounter
+            ? accountContribution.damage + guestContribution.damage
+            : guestContribution.damage,
+        };
+        if (accountContribution) contributionTable.identity.update(nextContribution);
+        else contributionTable.insert(nextContribution);
+        contributionTable.identity.delete(link.guest);
+      }
+      if (attackWindowTable.identity.find(link.guest)) attackWindowTable.identity.delete(link.guest);
+      if (attackWindowTable.identity.find(ctx.sender)) attackWindowTable.identity.delete(ctx.sender);
+    }
+    for (const [contributionTable, attackWindowTable] of [
+      [ctx.db.dragonContribution, ctx.db.dragonAttackWindow],
+      [ctx.db.spiderContribution, ctx.db.spiderAttackWindow],
+      [ctx.db.frostclawContribution, ctx.db.frostclawAttackWindow],
+      [ctx.db.magmaliskContribution, ctx.db.magmaliskAttackWindow],
+      [ctx.db.gloomrootContribution, ctx.db.gloomrootAttackWindow],
+      [ctx.db.tidewyrmContribution, ctx.db.tidewyrmAttackWindow],
+      [ctx.db.koiShogunContribution, ctx.db.koiShogunAttackWindow],
+      [ctx.db.tempestKirinContribution, ctx.db.tempestKirinAttackWindow],
+      [ctx.db.miremawContribution, ctx.db.miremawAttackWindow],
+      [ctx.db.dreadreaperContribution, ctx.db.dreadreaperAttackWindow],
     ] as any[]) {
       const guestContribution = contributionTable.identity.find(link.guest);
       const accountContribution = contributionTable.identity.find(ctx.sender);
@@ -7880,7 +8385,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       samuraiUnlocked: base.samuraiUnlocked,
       cloudspireUnlocked: base.cloudspireUnlocked,
       moonfenUnlocked: base.moonfenUnlocked,
-      crystalHollowsUnlocked: base.crystalHollowsUnlocked,
+      crystalHollowsUnlocked: base.crystalHollowsUnlocked, clockworkRuinsUnlocked: base.clockworkRuinsUnlocked, duskfallOrchardUnlocked: base.duskfallOrchardUnlocked,
       bossRewardClaims: base.bossRewardClaims ?? 0,
       bowCount: forestItemCountForProgress(base, STARTER_BOW, "bowCount"),
       woodenArmorCount: forestItemCountForProgress(base, WOODEN_ARMOR, "woodenArmorCount"),
@@ -8759,7 +9264,11 @@ export const changeMap = spacetimedb.reducer(
     if (mapId === MOONFEN_MAP_ID && !currentProgress?.moonfenUnlocked) {
       throw new SenderError(`Defeat Tempest Kirin before entering ${MAP_DISPLAY_NAMES[MOONFEN_MAP_ID]}.`);
     }
-    if (mapId === CRYSTAL_HOLLOWS_MAP_ID && !currentProgress?.crystalHollowsUnlocked) {
+    if (mapId === CLOCKWORK_RUINS_MAP_ID && !currentProgress?.clockworkRuinsUnlocked) {
+      throw new SenderError(`Defeat Prismshell before entering ${MAP_DISPLAY_NAMES[CLOCKWORK_RUINS_MAP_ID]}.`);
+    } else if (mapId === DUSKFALL_ORCHARD_MAP_ID && !currentProgress?.duskfallOrchardUnlocked) {
+      throw new SenderError(`Defeat Ironhorn before entering ${MAP_DISPLAY_NAMES[DUSKFALL_ORCHARD_MAP_ID]}.`);
+    } else if (mapId === CRYSTAL_HOLLOWS_MAP_ID && !currentProgress?.crystalHollowsUnlocked) {
       throw new SenderError(`Defeat Miremaw before entering ${MAP_DISPLAY_NAMES[CRYSTAL_HOLLOWS_MAP_ID]}.`);
     }
 
@@ -8961,7 +9470,7 @@ const shardRewardHandlers: Record<string, (ctx: any, identity: any) => void> = {
   dragon: rewardDragonContributor, spider: rewardSpiderContributor, frostclaw: rewardFrostclawContributor,
   magmalisk: rewardMagmaliskContributor, gloomroot: rewardGloomrootContributor, tidewyrm: rewardTidewyrmContributor,
   koiShogun: rewardKoiShogunContributor, tempestKirin: rewardTempestKirinContributor,
-  miremaw: rewardMiremawContributor, prismshell: rewardPrismshellContributor,
+  miremaw: rewardMiremawContributor, prismshell: rewardPrismshellContributor, ironhorn: rewardIronhornContributor, dreadreaper: rewardDreadreaperContributor,
 };
 export const deliverShardReward = spacetimedb.reducer(
   { shardId: t.u64(), identity: t.identity(), boss: t.string(), encounter: t.u64() }, deliverShardRewardImpl);
