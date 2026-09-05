@@ -57,9 +57,9 @@ to match the actor's right-facing coordinate system before world-facing is appli
 This applies equally to idle, walking and attacks, without changing movement,
 combat targeting, or the original families' equipment.
 
-Crystal Hollows' separate boss, Prismshell, uses `Carapace_Castle`. Its fixed-origin
-atlas renderer only loads idle and attack pages (the walk export is unused),
-scales the idle silhouette to 340 units high, and does not add a second shadow.
+Crystal Hollows' separate boss, Prismshell, uses the generated pink-purple
+`prismshell-amethyst-v1.webp` artwork at 340 units high, with procedural breathing,
+attack motion, and a soft ground shadow. Its retired Unity atlases are no longer shipped.
 Boss damage and telegraphs follow the shared encounter timeline, not clip playback.
 
 ## Promoting another capture
@@ -96,20 +96,20 @@ All four were captured with the existing Unity sprite exporter. See
 map progression, lazy-loading details, and validation coverage.
 
 
-## Higher-resolution boss trial
+## Boss image quality
 
-Prismshell, Ironhorn, and Dreadreaper now use fresh 512px / 12 FPS Unity captures
-in the `carapace-castle-512`, `rhino-armor-512`, and `reaper-death-512` atlases.
-Their visible idle heights are 281, 280, and 202 source pixels respectively,
-roughly twice the earlier exports. Display height remains 340 game units;
-combat sizes, clip timing, and fixed-origin alignment are preserved.
+Ironhorn and Dreadreaper use 512px / 12 FPS Unity captures in the
+`rhino-armor-512` and `reaper-death-512` atlases. Their visible idle heights are
+280 and 202 source pixels. Display height remains 340 game units; combat sizes,
+clip timing, and fixed-origin alignment are preserved.
 
-High-quality canvas smoothing is enabled only while drawing these three boss
-images, within the existing canvas save/restore. Text, telegraphs, normal enemies,
-and other game artwork keep their existing rendering settings.
+Their idle/attack pages use approximately 488 / 355 KiB compressed and
+29.5 / 29.5 MiB decoded. Earlier captures remain referenced by timing/alignment
+regression tests. Regular enemy families retain their smaller 256px captures.
 
-Only idle/attack pages load: approximately 332 / 488 / 355 KiB compressed and
-27.4 / 29.5 / 29.5 MiB decoded, respectively. Boss-only limits are 512 KiB and
-32 MiB per atlas in use, with every sheet still at most 2048px. Regular enemy
-families retain their smaller 256px captures and budgets. Earlier captures remain
-available for comparison; the new asset paths avoid stale cached images.
+Prismshell uses one 1254 × 1254 amethyst texture, approximately 435 KiB compressed
+and 6 MiB decoded. The older Carapace Castle captures are retained only as local
+source art and in Git history.
+
+High-quality canvas smoothing is confined to each boss image's save/restore scope.
+Text, telegraphs, and normal enemies keep their existing rendering settings.

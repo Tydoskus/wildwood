@@ -25,4 +25,4 @@ For local setup and development, see the [development guide](docs/development.md
 - `public/`, `art-source/` — shipped assets and editable source art.
 - `tools/`, `scripts/` — browser tools (including the Balance Lab) and development automation.
 
-`dist/` is generated output; `local-data/` contains local-only data. Keep package files, `spacetime.json`, and repository guidance at the root.
+`dist/` is generated output. Optional profiling captures in `local-data/` stay entirely local and are ignored by Git.

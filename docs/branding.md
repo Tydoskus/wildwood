@@ -1,6 +1,6 @@
 # WildStat branding
 
-The game name is **WildStat**. Runtime art lives in `public/assets/wildstat/`; the browser entry is `src/wildstat-coop.ts`, exposed as `window.wildstatCoop`. Retired branding is kept outside the deployed files in `art-source/retired/branding/`.
+The game name is **WildStat**. Runtime art lives in `public/assets/wildstat/`; the browser entry is `src/wildstat-coop.ts`, exposed as `window.wildstatCoop`. Optional retired branding copies stay local in the ignored `art-source/retired/branding/` folder; earlier versions remain in Git history.
 
 The public README is for players. Setup, architecture, release steps, and account invariants are in [development.md](development.md).
 

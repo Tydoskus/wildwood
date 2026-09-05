@@ -25,7 +25,7 @@ WildStat is mobile-first. Touch interaction, narrow portrait layouts, safe areas
 | Shared game values | `src/game/constants.ts` | World dimensions, player and boss tuning, and movement constants. |
 | Static site files | `public/index.html`, `public/assets/wildstat/game.css` | Static shell, overlays, controls, and visual styling. |
 | Art source files | `art-source/` | Original and unused vendor art. Never deployed. |
-| Local test data | `local-data/` | Ignored profiling exports and machine-specific captures. Only its README is tracked. |
+| Local test data | `local-data/` | Optional profiling exports and machine-specific captures; the entire folder is ignored. |
 | Browser build output | `dist/asset-manifest.json`, `dist/assets/wildstat/game.<hash>.js`, `dist/assets/wildstat/coop-client.<hash>.js` | Generated during builds and deployments. Do not edit or commit. |
 | Generated server bindings | `src/module_bindings/` | TypeScript bindings from the deployed SpacetimeDB schema. Do not edit by hand. |
 

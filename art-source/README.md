@@ -9,6 +9,7 @@ Use these folders as a one-way promotion pipeline:
 - `generated/` for generated candidates and working source images.
 - `unity-workspace/` for the local Unity sprite-export project (all imported art, caches, and settings stay ignored).
 - `alignments/` for small, human-authored sprite assembly recipes that should be reviewed and committed like code.
+- `retired/` for optional local copies of superseded artwork; this folder is ignored. Previously committed versions remain recoverable from Git history.
 - `public/assets/wildstat/` only for runtime art that is referenced by shipped code.
 
 New files under `inbox/`, `vendor/`, and `generated/` are ignored by Git. Existing files that were already committed remain tracked. When source art is worth preserving in the repository, add that specific file explicitly with `git add -f`; when art is ready for the game, copy the selected optimized runtime asset into `public/assets/wildstat/` and stage it normally.

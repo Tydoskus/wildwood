@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.633": [
+    "Removed unused Prismshell assets and retired repository files, and updated development documentation.",
+  ],
   "0.632": [
     "Reduced background database reads with change-tracked account synchronization, acknowledged position checkpoints, and map-specific maintenance.",
   ],
@@ -1528,6 +1531,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.633": "2026-09-05",
   "0.632": "2026-09-05",
   "0.631": "2026-09-05",
   "0.630": "2026-09-05",

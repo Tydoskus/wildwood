@@ -20,7 +20,8 @@ captures. They have no added bow or second ground shadow. Existing hit/death
 effects remain unchanged. Art is shared across the five variants and loaded
 through map preparation, not the initial Forest loading screen.
 
-Prismshell uses a separate `Carapace_Castle` capture. Its attacks are a narrow
+Prismshell uses generated pink-purple amethyst artwork with a soft ground shadow.
+Its attacks are a narrow
 shatter wave with a visible windup and eight staggered crystal eruptions around
 the selected target. The wave uses the established two-hit range knockback.
 The encounter shares the deterministic server-clock ability schedule and the
