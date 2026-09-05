@@ -4331,6 +4331,7 @@ function clearOrphanPresence(ctx: any) {
 
   const orphanIdentities: any[] = [];
   for (const activePlayer of ctx.db.player.iter() as Iterable<any>) {
+    if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(activePlayer.identity)) continue;
     if (!ctx.db.playerController.identity.find(activePlayer.identity)) orphanIdentities.push(activePlayer.identity);
   }
   for (const identity of orphanIdentities) {
@@ -5808,6 +5809,20 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
     return;
   }
   ctx.db.playerController.identity.delete(ctx.sender);
+
+  if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)) {
+    // The account coordinator owns admission lifetime. Deleting this row on a
+    // transient socket loss strands retries: the unchanged snapshot is not sent
+    // again, while enterShardPresence still requires its admitted player row.
+    const currentPlayer = playerWithMotion(ctx, ctx.db.player.identity.find(ctx.sender));
+    if (currentPlayer) {
+      const stopped = { ...currentPlayer, ...stoppedMotionFields(currentPlayer, true), lastInputAt: ctx.timestamp };
+      ctx.db.player.identity.update(stopped);
+      syncPlayerMotion(ctx, stopped);
+      syncPlayerMotionIdentity(ctx, stopped);
+    }
+    return;
+  }
 
   if (isDeveloperIdentity(ctx.sender)) clearVirtualPlayersForOwner(ctx, ctx.sender);
   finishLifetimeSession(ctx, ctx.sender);

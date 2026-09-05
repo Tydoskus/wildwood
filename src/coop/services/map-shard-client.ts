@@ -20,6 +20,24 @@ export function createMapShardClient(options: {
   let routeKnown = true;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let attachedRoot: DbConnection | null = null;
+  const mapWaiters = new Set<(error?: Error) => void>();
+  function notifyMapWaiters(error?: Error) {
+    for (const waiter of [...mapWaiters]) waiter(error);
+  }
+  function waitForMap(mapId: string, root: DbConnection) {
+    return new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => finish(new Error("Destination map connection timed out")), 30_000);
+      const finish = (error?: Error) => {
+        if (!error && attachedRoot === root && (!hydrated || route?.mapId !== mapId)) return;
+        clearTimeout(timeout);
+        mapWaiters.delete(finish);
+        if (error || attachedRoot !== root) reject(error ?? new Error("Map connection changed"));
+        else resolve();
+      };
+      mapWaiters.add(finish);
+      finish();
+    });
+  }
   function closeRegion() {
     generation++;
     hydrated = false;
@@ -52,6 +70,12 @@ export function createMapShardClient(options: {
           // Account operations invoked by the presence service (portals/speed)
           // stay on the root; only regional work uses this connection.
           const reducers = new Proxy(connection.reducers, { get(target, key) {
+            if (key === "changeMap") return async (args: Parameters<typeof root.reducers.changeMap>[0]) => {
+              await root.reducers.changeMap(args);
+              // The root commits before the destination shard is admitted and
+              // hydrated. Keep the portal transition open through that handoff.
+              await waitForMap(args.mapId, root);
+            };
             const source = ["changeMap", "setSpeed", "recordPlayerDeath"].includes(String(key)) ? root.reducers : target;
             const value = Reflect.get(source, key);
             return typeof value === "function" ? value.bind(source) : value;
@@ -86,6 +110,7 @@ export function createMapShardClient(options: {
             for (const row of resultTable.iter()) (h as any)[`${boss}Result`](row);
             hydrated = true;
             options.worldReady();
+            notifyMapWaiters();
             options.changed();
           }).onError(retry).subscribe([
             tables.player.where(row => row.identity.eq(own)),
@@ -97,7 +122,7 @@ export function createMapShardClient(options: {
     region = conn;
   }
   function update(next: Route | null) {
-    if (route?.databaseName === next?.databaseName && route?.generation === next?.generation && route?.ready === next?.ready) return;
+    if (route?.databaseName === next?.databaseName && route?.mapId === next?.mapId && route?.generation === next?.generation && route?.ready === next?.ready) return;
     closeRegion();
     route = next;
     options.resetWorld();
@@ -125,19 +150,39 @@ export function createMapShardClient(options: {
     enabled: () => route !== null,
     ready: () => routeKnown && (route === null || hydrated),
     rootHandlers: Object.fromEntries(Object.entries(options.handlers).map(([key, handler]) => [key,
-      REGIONAL_HANDLERS.has(key) || /(?:Boss|Result)$/.test(key) ? (row: any) => { if (!route) (handler as (row: any) => void)(row); } : handler,
+      REGIONAL_HANDLERS.has(key) || /(?:Boss|Result)$/.test(key) ? (row: any) => { if (routeKnown && !route) (handler as (row: any) => void)(row); } : handler,
     ])) as BaseSubscriptionHandlers,
     attach(root: DbConnection, identity: Identity) {
       this.clear();
       attachedRoot = root;
       routeKnown = false;
-      const apply = () => { if (attachedRoot === root) { routeKnown = true; update(root.db.myMapShardRoute.identity.find(identity) ?? null); options.changed(); } };
-      root.db.myMapShardRoute.onInsert(apply);
-      root.db.myMapShardRoute.onUpdate(apply);
-      root.db.myMapShardRoute.onDelete(apply);
+      const apply = () => {
+        if (attachedRoot !== root) return;
+        const wasKnown = routeKnown;
+        routeKnown = true;
+        const next = root.db.myMapShardRoute.identity.find(identity) ?? null;
+        update(next);
+        if (!wasKnown && !next) {
+          // Own/base rows can arrive before routing hydration. Replay them only
+          // after the root is confirmed as the world authority.
+          for (const row of root.db.player.iter()) options.handlers.player(row);
+          for (const row of root.db.playerMotionIdentity.iter()) options.handlers.motionIdentity(row);
+          for (const boss of BOSSES) {
+            for (const row of (root.db as any)[`${boss}Boss`].iter()) (options.handlers as any)[`${boss}Boss`](row);
+            for (const row of (root.db as any)[`${boss}Result`].iter()) (options.handlers as any)[`${boss}Result`](row);
+          }
+        }
+        options.changed();
+      };
+      // A view update may delete its old row before inserting the replacement.
+      // Observe the completed transaction, never its temporary missing route.
+      const changed = () => queueMicrotask(apply);
+      root.db.myMapShardRoute.onInsert(changed);
+      root.db.myMapShardRoute.onUpdate(changed);
+      root.db.myMapShardRoute.onDelete(changed);
       root.subscriptionBuilder().onApplied(apply).onError(() => { if (attachedRoot === root) options.port.handleFailure("map routing", new Error("Map route subscription failed")); })
         .subscribe(tables.myMapShardRoute);
     },
-    clear() { attachedRoot = null; route = null; routeKnown = true; closeRegion(); },
+    clear() { attachedRoot = null; route = null; routeKnown = true; closeRegion(); notifyMapWaiters(new Error("Map connection closed")); },
   };
 }

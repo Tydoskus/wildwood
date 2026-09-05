@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.626": [
+    "Portals now wait for the destination connection before revealing the new map, preventing flashes back to the old map.",
+    "Fixed map reconnects getting stuck offline, restored immediate movement after reconnecting, and kept the global online count visible during travel.",
+  ],
   "0.625": [
     "Online players now shows one global total across all maps and stays correct when connecting or switching map instances.",
     "Virtual-player cleanup now frees its map slots instead of leaving instances marked full.",
@@ -1501,6 +1505,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.626": "2026-09-04",
   "0.625": "2026-09-04",
   "0.624": "2026-09-04",
   "0.623": "2026-09-04",

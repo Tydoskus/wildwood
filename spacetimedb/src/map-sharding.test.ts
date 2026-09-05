@@ -26,6 +26,27 @@ function snapshot(f: ReturnType<typeof rootFixture>, who = identity("1")) {
     playerResearch: null, playerAccountStatus: null, playerItemUpgrade: [], inDuel: false });
 }
 describe("separate map database control plane", () => {
+  it("preserves a stopped admission across socket loss and accepts immediate movement after reconnect", () => {
+    const root = rootFixture(), region = regionFixture();
+    region.run(server.installShardPlayer, { identity: identity("1"), generation: 10n, snapshot: snapshot(root) });
+    region.ctx.sender = identity("1");
+    region.run(server.enterRegionalWorld, { tabId: "test-tab-1" });
+    region.run(server.updateMovementState, { x: 1200, y: 900, vx: 180, vy: 0, simulationTick: 100, motionEpoch: 2, sequence: 500 });
+    region.run(server.onDisconnect);
+    expect(region.db.player.identity.find(identity("1"))).toMatchObject({ x: 1200, y: 900, moving: false, vx: 0, lastInputSequence: 500 });
+    expect(region.db.playerMotion.identity.find(identity("1"))).toMatchObject({ moving: false, vx: 0 });
+    expect(region.db.shardAdmission.identity.find(identity("1"))).not.toBeNull();
+    region.run(server.runMaintenanceSweep);
+    expect(region.db.player.identity.find(identity("1"))).not.toBeNull();
+    region.run(server.onConnect);
+    region.run(server.registerProtocol, { protocolVersion: root.db.player.identity.find(identity("1")).protocolVersion });
+    expect(() => region.run(server.enterRegionalWorld, { tabId: "test-tab-1" })).not.toThrow();
+    region.run(server.updateMovementState, { x: 1203, y: 900, vx: 180, vy: 0, simulationTick: 101, motionEpoch: 3, sequence: 501 });
+    expect(region.db.playerMotion.identity.find(identity("1"))).toMatchObject({ x: 1203, moving: true });
+    region.ctx.sender = owner;
+    region.run(server.revokeShardPlayer, { identity: identity("1"), generation: 10n });
+    expect(region.db.player.identity.find(identity("1"))).toBeNull();
+  });
   it("reserves ten seats atomically, warms at nine, and gives the eleventh player the next ready database", () => {
     const f = rootFixture();
     for (let n = 2; n <= 11; n++) f.seed("player", { ...f.db.player.identity.find(identity("1")), identity: identity(n.toString(16)) });

@@ -261,9 +261,11 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
     dependencies.updateTechNotice();
     const remoteCount = dependencies.remotePlayerCount();
     const reportedOnline = dependencies.onlinePlayerCount();
-    const playerCount = dependencies.connected()
-      ? (Number.isFinite(reportedOnline) ? reportedOnline ?? remoteCount + 1 : remoteCount + 1)
-      : 0;
+    // Global presence belongs to the account connection and remains valid
+    // while a portal replaces the regional connection. Full disconnect clears it.
+    const playerCount = Number.isFinite(reportedOnline)
+      ? reportedOnline ?? 0
+      : dependencies.connected() ? remoteCount + 1 : 0;
     const developer = dependencies.isDeveloper();
     dependencies.applyProfileIcon(elements.playerIcon, dependencies.profileIcon());
     dependencies.setDeveloperAccess(developer);

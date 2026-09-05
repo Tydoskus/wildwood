@@ -428,6 +428,9 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   function upsertPlayer(row: PlayerRow) {
     const id = row.identity.toHexString();
     if (id === dependencies.localIdentity()) {
+      // A shard reconnect can restore an existing input watermark. Starting
+      // again at sequence 1 would silently discard movement until it catches up.
+      nextPositionSequence = Math.max(nextPositionSequence, row.lastInputSequence);
       localMotionEpoch = row.motionEpoch & 0xffff;
       speedSyncTracker.observe(row.speed);
       const nextMapId = row.mapId || TUTORIAL_FOREST_MAP_ID;
@@ -691,7 +694,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
 
   function releaseMapMarkerSubscription() {
     mapMarkerSubscriptionGeneration += 1;
-    mapMarkerSubscription?.unsubscribe();
+    unsubscribeIfActive(mapMarkerSubscription);
     mapMarkerSubscription = null;
   }
 
@@ -707,8 +710,11 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     const next = connection
       .subscriptionBuilder()
       .onApplied(() => {
-        if (dependencies.reducers.connection() !== connection || generation !== mapMarkerSubscriptionGeneration) return;
-        previous?.unsubscribe();
+        if (dependencies.reducers.connection() !== connection || generation !== mapMarkerSubscriptionGeneration) {
+          unsubscribeIfActive(next);
+          return;
+        }
+        unsubscribeIfActive(previous);
       })
       .onError((ctx) => {
         if (dependencies.reducers.connection() !== connection || generation !== mapMarkerSubscriptionGeneration) return;

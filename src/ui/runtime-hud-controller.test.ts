@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRuntimeHudController } from "./runtime-hud-controller";
+import { renderPlayerHud } from "./hud";
+vi.mock("./hud", () => ({ renderPlayerHud: vi.fn() }));
 
 class TestElement {
   className = "";
@@ -12,6 +14,7 @@ class TestElement {
     add: (name: string) => { this.classes.add(name); },
     remove: (name: string) => { this.classes.delete(name); },
     contains: (name: string) => this.classes.has(name),
+    toggle: (name: string, value: boolean) => { if (value) this.classes.add(name); else this.classes.delete(name); },
   };
   style = {
     opacity: "",
@@ -73,6 +76,21 @@ afterEach(() => {
   vi.clearAllTimers();
   vi.useRealTimers();
   vi.unstubAllGlobals();
+});
+
+it("keeps the account-wide online count through a regional handoff, then clears it on account disconnect", () => {
+  let online = 2;
+  const elements = new Proxy({}, { get(target: any, key) { return target[key] ??= new TestElement(); } });
+  const dependencies = new Proxy({
+    elements, player: {}, connected: () => false, onlinePlayerCount: () => online,
+    remotePlayerCount: () => 0, activeDuel: () => null,
+  }, { get(target: any, key) { return target[key] ??= vi.fn(); } });
+  const controller = createRuntimeHudController(dependencies as any);
+  controller.updateHud(true);
+  expect(vi.mocked(renderPlayerHud).mock.lastCall?.[3]).toBe(2);
+  online = 0;
+  controller.updateHud(true);
+  expect(vi.mocked(renderPlayerHud).mock.lastCall?.[3]).toBe(0);
 });
 
 describe("runtime reward notifications", () => {
