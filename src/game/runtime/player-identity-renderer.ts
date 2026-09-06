@@ -1,3 +1,4 @@
+import { playerNamePrefix, appendPlayerNameTags } from "../../app/player-name-tags";
 import {
   playerPowerForStats,
   type PlayerPowerProgress,
@@ -95,18 +96,13 @@ export function createPlayerIdentityRenderer(options: {
   function publicPlayerName(identity: string | undefined, name: string | undefined) {
     const baseName = name || "PLAYER";
     const guestName = options.isGuest(identity) ? `${baseName} (guest)` : baseName;
-    return options.isDeveloper(identity) ? `${DEVELOPER_BADGE} ${guestName}` : guestName;
+    return `${playerNamePrefix(identity, options.isDeveloper(identity))}${guestName}`;
   }
 
   function renderDomPlayerName(element: HTMLElement, identity: string | undefined, name: string | undefined, gender = options.playerGender(identity)) {
     const baseName = name || "PLAYER";
     element.replaceChildren();
-    if (options.isDeveloper(identity)) {
-      const badge = document.createElement("span");
-      badge.className = "dev-badge";
-      badge.textContent = `${DEVELOPER_BADGE} `;
-      element.appendChild(badge);
-    }
+    appendPlayerNameTags(element, identity, options.isDeveloper(identity));
     element.append(document.createTextNode(baseName));
     appendPlayerGenderIcon(element, gender);
     if (options.isGuest(identity)) {
@@ -322,7 +318,7 @@ export function createPlayerIdentityRenderer(options: {
     const labelWidth = nameWidth + genderIconGap + genderIconWidth;
     const textLeft = centerX - labelWidth / 2;
     const nameBottom = powerValue ? bottom - 18 : bottom;
-    const developerPrefix = `${DEVELOPER_BADGE} `;
+    const developerPrefix = DEVELOPER_BADGE;
     if (displayName.startsWith(developerPrefix)) {
       const playerName = displayName.slice(developerPrefix.length);
       const prefixWidth = ctx.measureText(developerPrefix).width;

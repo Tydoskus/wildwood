@@ -139,7 +139,9 @@ export function createPlayerCombatController(options: {
   damageDreadreaper: (hits: number) => void;
   spawnBurst: (x: number, y: number, color: string, count?: number, speed?: number) => void;
   spawnParticle: (x: number, y: number, vx: number, vy: number, life: number, maxLife: number, size: number, color: string) => void;
-  spawnDamageNumber: (x: number, y: number, amount: number, critical?: boolean) => void;
+  spawnDamageNumber: (x: number, y: number, amount: number, critical?: boolean, damageTaken?: boolean) => void;
+  drainBossHitResults?: () => { mapId: string; x: number; y: number; damage: number; critical: boolean }[];
+  currentMapId?: () => string;
   playBowAttackSound?: () => void;
   logPickup: (text: string, color: string) => void;
   saveProgress: () => void;
@@ -271,9 +273,7 @@ export function createPlayerCombatController(options: {
     for (let index = 0; index < player.projectileCount; index++) {
       const angle = baseAngle + (index - (player.projectileCount - 1) / 2) * .13;
       const projectileLifeBonus = 1.25;
-      // Shared bosses validate aggregate hits on the server and do not accept
-      // client-authored crit rolls. Keep boss numbers honest; regular enemies
-      // remain client-simulated and use the full critical system.
+      // Boss criticals and hit numbers come from confirmed server damage.
       const critical = !target.isBoss && Math.random() < researchCriticalChance();
       const projectile = projectileStore.acquirePlayerProjectile();
       projectile.x = player.x + Math.cos(angle) * 20;
@@ -396,7 +396,7 @@ export function createPlayerCombatController(options: {
     if (isDueling() || player.hurtClock > 0) return false;
     const dealt = damageAfterArmor(amount, effectiveArmor());
     player.hp -= dealt;
-    spawnDamageNumber(player.x, player.y, dealt);
+    spawnDamageNumber(player.x, player.y, dealt, false, true);
     player.hurtClock = .1;
     setHitFlash();
     addScreenShake(7);
@@ -466,6 +466,9 @@ export function createPlayerCombatController(options: {
   }
 
   function updateProjectiles(dt: number) {
+    for (const hit of options.drainBossHitResults?.() ?? []) {
+      if (hit.mapId === options.currentMapId?.()) spawnDamageNumber(hit.x, hit.y, hit.damage, hit.critical);
+    }
     const nowSeconds = options.nowSeconds();
     syncAttackTimeline(nowSeconds);
     if (projectiles.length > 0) rebuildTargetGrid();
@@ -486,7 +489,7 @@ export function createPlayerCombatController(options: {
         projectile.x = startX + (endX - startX) * hit.t;
         projectile.y = startY + (endY - startY) * hit.t;
         const target = hit.enemy;
-        spawnDamageNumber(target.x, target.y, projectile.damage, projectile.critical);
+        if (!target.isBoss) spawnDamageNumber(target.x, target.y, projectile.damage, projectile.critical);
         target.hurt = .12;
         projectile.life = 0;
         if (target.isBoss) {

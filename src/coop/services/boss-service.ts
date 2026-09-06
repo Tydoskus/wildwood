@@ -89,6 +89,7 @@ function copyResult(result: DragonResult | null) {
 }
 
 export function createBossService(dependencies: BossServiceDependencies) {
+  const hitResults: { mapId: string; x: number; y: number; damage: number; critical: boolean }[] = [];
   let dragon: DragonBossState | null = null;
   let dragonResult: DragonResult | null = null;
   let spider: SpiderBossState | null = null;
@@ -128,6 +129,10 @@ export function createBossService(dependencies: BossServiceDependencies) {
 
   return {
     tables: {
+      upsertHitResult(row: { mapId: string; x: number; y: number; damage: number; critical: boolean }) {
+        if (hitResults.length >= 100) hitResults.shift();
+        hitResults.push({ mapId: row.mapId, x: row.x, y: row.y, damage: row.damage, critical: row.critical });
+      },
       upsertDragon(row: BossRow) {
         dragon = bossState(row);
       },
@@ -210,6 +215,7 @@ export function createBossService(dependencies: BossServiceDependencies) {
       },
     },
     api: {
+      drainBossHitResults: () => hitResults.splice(0),
       dragonBoss: () => dragon ? { ...dragon } : null,
       dragonResult: () => copyResult(dragonResult),
       spiderBoss: () => spider ? { ...spider } : null,
@@ -266,6 +272,7 @@ export function createBossService(dependencies: BossServiceDependencies) {
       },
     },
     resetSession() {
+      hitResults.length = 0;
       dragon = null;
       dragonResult = null;
       spider = null;

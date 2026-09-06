@@ -1,3 +1,4 @@
+import { appendPlayerNameTags } from "../../app/player-name-tags";
 import { createDuelPresentation, type DuelReplayTitle } from "./duel-presentation";
 import type { RuntimeDuelReplay, RuntimeDuelState } from "./types";
 import { appendPlayerGenderIcon } from "../../ui/player-gender";
@@ -10,6 +11,7 @@ export function createDuelRuntime(hooks: {
   playerDisplayName: (identity: string) => string | undefined;
   pulseDuel: () => void;
   spawnDamageNumber: (x: number, y: number, damage: number) => void;
+  prepareArena: () => Promise<void>;
   loadReplay: (replayId: bigint) => Promise<RuntimeDuelReplay | null | undefined>;
   clearDamageNumbers: () => void;
   showMessage: (text: string, color: string) => void;
@@ -25,10 +27,12 @@ export function createDuelRuntime(hooks: {
   function renderReplayTitle(title: DuelReplayTitle) {
     const challenger = document.createElement("span");
     challenger.className = "duel-replay-player-name";
+    appendPlayerNameTags(challenger, title.challengerIdentity);
     challenger.append(document.createTextNode(title.challengerName));
     appendPlayerGenderIcon(challenger, title.challengerGender);
     const opponent = document.createElement("span");
     opponent.className = "duel-replay-player-name";
+    appendPlayerNameTags(opponent, title.opponentIdentity);
     opponent.append(document.createTextNode(title.opponentName));
     appendPlayerGenderIcon(opponent, title.opponentGender);
     hooks.replayTitle.replaceChildren(challenger, " VS ", opponent);
@@ -49,7 +53,7 @@ export function createDuelRuntime(hooks: {
   });
 
   async function openReplay(replayId: bigint) {
-    const replay = await hooks.loadReplay(replayId);
+    const [replay] = await Promise.all([hooks.loadReplay(replayId), hooks.prepareArena()]);
     if (!replay) {
       hooks.showMessage("REPLAY EXPIRED", "#ff9b91");
       return;

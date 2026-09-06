@@ -13,6 +13,8 @@ export type EnemySpriteLayout = {
   family: string;
   size: number;
   height: number;
+  /** Artwork offset only; labels remain anchored to the actor. */
+  visualOffsetY?: number;
   layers: EnemySpriteLayerLayout[];
   animation?: EnemySpriteAnimationLayout;
 };

@@ -279,6 +279,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
       dependencies.playerPower(dependencies.player),
       developer,
       dependencies.playerGender(identity),
+      identity,
     );
     updateDuelControls();
     dependencies.refreshAppStatus();

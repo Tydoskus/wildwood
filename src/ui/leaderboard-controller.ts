@@ -1,3 +1,4 @@
+import { playerNameTagsRevision } from "../app/player-name-tags";
 import { renderLeaderboard, renderLeaderboardPodium, setLeaderboardTab, type LeaderboardStat, type RenderedLeaderboardPodiumPlayer } from "./leaderboard";
 import type { LeaderboardEntry } from "../wildstat-coop";
 
@@ -30,7 +31,9 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
   let loading = false;
   let podiumPlayers: RenderedLeaderboardPodiumPlayer[] = [];
 
+  let nameTagRevision = -1;
   function render() {
+    nameTagRevision = playerNameTagsRevision();
     if (loading) {
       elements.rows.hidden = true;
       elements.empty.hidden = true;
@@ -54,6 +57,7 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
 
   function drawPodium() {
     if (elements.overlay.hidden) return;
+    if (nameTagRevision !== playerNameTagsRevision()) render();
     for (const player of podiumPlayers) hooks.drawPodiumCharacter(player.canvas, player.entry, player.rank);
   }
 

@@ -39,22 +39,22 @@ describe("guild root reducer integration", () => {
     const f = fixture();
     f.actor("1", false);
     expect(f.snapshot()).toMatchObject({ signedIn: false, guild: null, directory: [] });
-    expect(() => f.run(server.createGuild, { name: "Rose Guard" })).toThrow("Register");
+    expect(() => f.run(server.createGuild, { name: "Rose" })).toThrow("Register");
     expect(f.db.guild.count()).toBe(0n);
     f.actor("1");
     f.ctx.connectionId = null;
-    expect(() => f.run(server.createGuild, { name: "Rose Guard" })).toThrow();
+    expect(() => f.run(server.createGuild, { name: "Rose" })).toThrow();
     f.actor("1");
     f.seed("shardRuntime", { id: 0, role: "map", enabled: true });
     f.seed("shardAdmission", { identity: f.ctx.sender, generation: 1n, tabId: "test", inDuel: false });
-    expect(() => f.run(server.createGuild, { name: "Rose Guard" })).toThrow("main character");
+    expect(() => f.run(server.createGuild, { name: "Rose" })).toThrow("main character");
     expect(f.db.guild.count()).toBe(0n);
     expect(f.db.guildAccount.count()).toBe(0n);
   });
   it("rejects cross-guild leadership, champion and removal requests without partial changes", () => {
     const f = fixture();
-    const ours = f.guild(["1", "2"], "Rose Guard");
-    const theirs = f.guild(["3", "4"], "Moon Guard");
+    const ours = f.guild(["1", "2"], "Rose");
+    const theirs = f.guild(["3", "4"], "Moon");
     f.actor("1");
     expect(() => f.run(server.setGuildChampion, { identity: identity("3"), champion: true })).toThrow("member");
     expect(() => f.run(server.transferGuildLeadership, { identity: identity("3") })).toThrow("member");
@@ -68,7 +68,7 @@ describe("guild root reducer integration", () => {
   });
   it("captures authoritative gear/research stats, leaves saved builds stable, and keeps fighters private", () => {
     const f = fixture();
-    f.guild(["1", "2", "3"], "Rose Guard");
+    f.guild(["1", "2", "3"], "Rose");
     f.patch("playerProgress", { damage: 100, armor: 30, bowCount: 1, inventoryJson: JSON.stringify([STARTER_BOW]), equippedRightHand: STARTER_BOW });
     f.seed("playerResearch", { identity: f.ctx.sender, precision: 5 });
     for (const name of ["player", "playerProfile", "playerProgress", "guild", "guildMember", "guildRank", "guildBattleReport", "guildReportParticipant"]) {
@@ -90,9 +90,9 @@ describe("guild root reducer integration", () => {
   });
   it("rolls back battle points, participation and reports if a transactional write fails", () => {
     const f = fixture();
-    const ours = f.guild(["1", "2", "3"], "Rose Guard");
+    const ours = f.guild(["1", "2", "3"], "Rose");
     for (const digit of ["1", "2", "3"]) f.run(server.setGuildChampion, { identity: identity(digit), champion: true });
-    const theirs = f.guild(["4", "5", "6"], "Moon Guard");
+    const theirs = f.guild(["4", "5", "6"], "Moon");
     for (const digit of ["4", "5", "6"]) f.run(server.setGuildChampion, { identity: identity(digit), champion: true });
     f.actor("1");
     const previous = f.db.guild.id.find(ours);

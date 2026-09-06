@@ -11,8 +11,11 @@ export type BaseSubscriptionHandlers = {
   motionFrame: RowHandler;
   mapFrame: RowHandler;
   deathFrame: RowHandler;
+  bossHitResult: RowHandler;
   motionIdentity: RowHandler;
   removeMotionIdentity: RowHandler;
+  nameTag: RowHandler;
+  removeNameTag: RowHandler;
   profile: RowHandler;
   removeProfile: RowHandler;
   gemWallet: RowHandler;
@@ -90,6 +93,8 @@ type BaseSubscriptionHandlerSources = {
     upsertWorldStatus: BaseSubscriptionHandlers["worldStatus"];
   };
   profile: {
+    upsertNameTag: RowHandler;
+    removeNameTag: RowHandler;
     upsertProfile: BaseSubscriptionHandlers["profile"];
     removeProfile: BaseSubscriptionHandlers["removeProfile"];
     upsertAccountStatus: BaseSubscriptionHandlers["accountStatus"];
@@ -129,6 +134,7 @@ type BaseSubscriptionHandlerSources = {
     removeForestPrototype: BaseSubscriptionHandlers["removeForestPrototype"];
   };
   boss: {
+    upsertHitResult: BaseSubscriptionHandlers["bossHitResult"];
     upsertDragon: BaseSubscriptionHandlers["dragonBoss"];
     upsertDragonResult: BaseSubscriptionHandlers["dragonResult"];
     upsertSpider: BaseSubscriptionHandlers["spiderBoss"];
@@ -167,8 +173,11 @@ export function createBaseSubscriptionHandlers(sources: BaseSubscriptionHandlerS
     motionFrame: presence.upsertPlayerMotionFrame,
     mapFrame: presence.upsertPlayerMapFrame,
     deathFrame: presence.upsertPlayerDeathFrame,
+    bossHitResult: boss.upsertHitResult,
     motionIdentity: presence.upsertMotionIdentity,
     removeMotionIdentity: presence.removeMotionIdentity,
+    nameTag: profile.upsertNameTag,
+    removeNameTag: profile.removeNameTag,
     profile: profile.upsertProfile,
     removeProfile: profile.removeProfile,
     gemWallet: progression.upsertGemWallet,
@@ -260,12 +269,16 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   // intentionally do not trigger application-wide UI fanout.
   connection.db.playerMotionDetailFrame.onInsert((_ctx, row) => { if (shouldHandle()) handlers.motionFrame(row); });
   connection.db.playerMapFrame.onInsert((_ctx, row) => { if (shouldHandle()) handlers.mapFrame(row); });
+  connection.db.bossHitResult.onInsert((_ctx, row) => { if (shouldHandle()) handlers.bossHitResult(row); });
   connection.db.playerDeathFrame.onInsert((_ctx, row) => { if (shouldHandle()) handlers.deathFrame(row); });
   connection.db.playerMotionIdentity.onInsert((_ctx, row) => { if (shouldHandle()) handlers.motionIdentity(row); });
   connection.db.playerMotionIdentity.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.motionIdentity(row); });
   connection.db.playerMotionIdentity.onDelete((_ctx, row) => {
     if (shouldHandle() && !dependencies.isPresenceSubscriptionTransitioning()) handlers.removeMotionIdentity(row);
   });
+  connection.db.playerNameTag.onInsert((_ctx, row) => { if (shouldHandle()) handlers.nameTag(row); });
+  connection.db.playerNameTag.onUpdate((_ctx, _old, row) => { if (shouldHandle()) handlers.nameTag(row); });
+  connection.db.playerNameTag.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeNameTag(row); });
   connection.db.playerProfile.onInsert((_ctx, row) => { if (shouldHandle()) handlers.profile(row); });
   connection.db.playerProfile.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.profile(row); });
   connection.db.playerProfile.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeProfile(row); });
@@ -405,6 +418,8 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.playerProgress.where((progress) => progress.identity.eq(dependencies.identity)),
       tables.playerAccountStatus.where((status) => status.identity.eq(dependencies.identity)),
     ] : [
+      tables.playerNameTag,
+      tables.bossHitResult.where((result) => result.identity.eq(dependencies.identity)),
       tables.player.where((player) => player.identity.eq(dependencies.identity)),
       tables.playerMotionIdentity.where((presence) => presence.identity.eq(dependencies.identity)),
       tables.playerProfile.where((profile) => profile.identity.eq(dependencies.identity)),
@@ -443,6 +458,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
     hydrate: (scope) => {
       if (!scope.startsWith("boss:")) {
         dependencies.batch(() => {
+          for (const row of connection.db.playerNameTag.iter()) handlers.nameTag(row);
           for (const row of connection.db.playerProfile.iter()) handlers.profile(row);
           for (const row of connection.db.myGemWallet.iter()) handlers.gemWallet(row);
           for (const row of connection.db.myDailyGemBonus.iter()) handlers.dailyGemBonus(row);

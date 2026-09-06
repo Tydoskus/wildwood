@@ -41,6 +41,8 @@ type VirtualPlayerLoadTestState = {
 type DevPanelDependencies = {
   forestPrototype: ForestPrototypePanelDependencies;
   isDeveloper: () => boolean;
+  getNameTagVisible: () => boolean;
+  setNameTagVisible: (visible: boolean) => Promise<{ ok?: boolean; error?: string } | undefined> | undefined;
   getPresenceVisible: () => boolean;
   setPresenceVisible: (visible: boolean) => Promise<{ ok?: boolean; error?: string } | undefined> | undefined;
   getVirtualPlayerLoadTest: () => VirtualPlayerLoadTestState;
@@ -71,6 +73,7 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     cutscenes: requiredElement("devCutscenesPanel"),
     performance: requiredElement("devPerformancePanel"),
   };
+  const nameTagToggle = requiredElement<HTMLButtonElement>("devNameTagToggle");
   const presenceStatus = requiredElement("devPresenceStatus");
   const presenceToggle = requiredElement<HTMLButtonElement>("devPresenceToggle");
   const virtualPlayerStatus = requiredElement("devVirtualPlayerStatus");
@@ -115,6 +118,8 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
 
   function renderControls() {
     forestPrototype.render();
+    nameTagToggle.textContent = dependencies.getNameTagVisible() ? "HIDE [dev]" : "SHOW [dev]";
+    nameTagToggle.setAttribute("aria-pressed", String(dependencies.getNameTagVisible()));
     const visible = dependencies.getPresenceVisible();
     presenceStatus.textContent = visible ? "VISIBLE · COUNTED ONLINE" : "INVISIBLE · NOT COUNTED ONLINE";
     presenceToggle.textContent = visible ? "GO INVISIBLE" : "APPEAR ONLINE";
@@ -220,6 +225,13 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
   for (const [tab, element] of Object.entries(tabs) as [DevPanelTab, HTMLElement][]) {
     element.addEventListener("click", () => setTab(tab));
   }
+  nameTagToggle.addEventListener("click", async () => {
+    nameTagToggle.disabled = true;
+    try {
+      const result = await dependencies.setNameTagVisible(!dependencies.getNameTagVisible());
+      if (!result?.ok) dependencies.showMessage(result?.error || "NAME TAG UPDATE FAILED", "#ff9b91");
+    } finally { nameTagToggle.disabled = false; renderControls(); }
+  });
   presenceToggle.addEventListener("click", async () => {
     const visible = dependencies.getPresenceVisible();
     presenceToggle.disabled = true;

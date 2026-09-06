@@ -242,7 +242,7 @@ describe("player attack timing", () => {
 
     controller.updateProjectiles(.2);
 
-    expect(spawnDamageNumber).toHaveBeenCalledWith(200, 100, 25, false);
+    expect(spawnDamageNumber).not.toHaveBeenCalled();
     expect(damageMagmalisk).toHaveBeenCalledWith(1);
   });
 
@@ -276,4 +276,20 @@ describe("player attack timing", () => {
 
     expect(recordSnowEnemyDefeat).toHaveBeenCalledOnce();
   });
+});
+
+
+it("shows confirmed boss critical damage once and discards events from another map", () => {
+  const spawnDamageNumber = vi.fn();
+  let hits = [
+    { mapId: "tutorial_forest", x: 4000, y: 4200, damage: 1550, critical: true },
+    { mapId: "beginner_desert", x: 4050, y: 4050, damage: 1000, critical: false },
+  ];
+  const { controller } = createCombatHarness({
+    spawnDamageNumber, currentMapId: () => "tutorial_forest",
+    drainBossHitResults: () => { const current = hits; hits = []; return current; },
+  });
+  controller.updateProjectiles(.01);
+  controller.updateProjectiles(.01);
+  expect(spawnDamageNumber).toHaveBeenCalledExactlyOnceWith(4000, 4200, 1550, true);
 });

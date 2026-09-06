@@ -213,6 +213,10 @@ describe("enemy sprite loading", () => {
       mapId, [...new Set(mapSpawnCamps(mapId as MapId).flatMap((camp) => camp.types))],
     ]));
     const assets = loadEnemySprites(groups);
+    for (const [kind, layout] of Object.entries(ENEMY_SPRITE_LAYOUTS)) {
+      expect(assets.sprites[kind as keyof typeof assets.sprites].visualOffsetY).toBe(layout.visualOffsetY);
+      if (layout.animation) expect(assets.sprites[kind as keyof typeof assets.sprites].visualOffsetY).toBe(7);
+    }
     expect(images.every((image) => !image.src)).toBe(true);
     const forest = assets.ensureMapSprites("tutorial_forest");
     const forestPaths = new Set(groups.tutorial_forest.flatMap((kind) => enemySpriteAssetSources(ENEMY_SPRITE_LAYOUTS[kind])));

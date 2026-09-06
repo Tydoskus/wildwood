@@ -273,6 +273,7 @@ export function createMapController(options: {
       if (attempt !== mapLoadGeneration) return;
       if (!changed) {
         mapTransitioning = false;
+        portalExitGuard = portal;
         portalCooldown = 1;
         return;
       }
@@ -288,6 +289,7 @@ export function createMapController(options: {
     }).catch(() => {
       if (attempt !== mapLoadGeneration) return;
       mapTransitioning = false;
+      portalExitGuard = portal;
       portalCooldown = 1;
     });
   }

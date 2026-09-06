@@ -1,3 +1,4 @@
+import { updatePlayerNameTag, removePlayerNameTag, clearPlayerNameTags, developerNameTagVisible, playerNamePrefix, playerNameTagsRevision } from "../../app/player-name-tags";
 import type { Identity } from "spacetimedb";
 import {
   NAME_ADJECTIVES,
@@ -146,8 +147,26 @@ export function createProfileDirectory(dependencies: ProfileDirectoryDependencie
   }
 
   return {
-    tables: { upsertProfile, removeProfile, upsertAccountStatus, removeAccountStatus },
+    tables: { upsertProfile, removeProfile, upsertAccountStatus, removeAccountStatus,
+      upsertNameTag(row: { identity: Identity; guildTag: string; showDevTag: boolean }) {
+        updatePlayerNameTag(row.identity.toHexString(), row);
+        dependencies.markChatPresentationChanged(); dependencies.notify();
+      },
+      removeNameTag(row: { identity: Identity }) {
+        removePlayerNameTag(row.identity.toHexString());
+        dependencies.markChatPresentationChanged(); dependencies.notify();
+      },
+    },
     api: {
+      playerNamePrefix, playerNameTagsRevision,
+      developerNameTagVisible: () => developerNameTagVisible(dependencies.localIdentity()),
+      async setDeveloperNameTag(visible: boolean) {
+        if (dependencies.reducers.protocolBlocked()) return { ok: false, error: "UPDATE REQUIRED" };
+        const connection = dependencies.reducers.connection();
+        if (!connection) return { ok: false, error: "NOT CONNECTED" };
+        try { await connection.reducers.setDeveloperNameTag({ visible }); return { ok: true }; }
+        catch (error) { return { ok: false, error: dependencies.reducers.errorMessage(error) }; }
+      },
       localDisplayName: () => localDisplayName,
       playerDisplayName(identity: string) {
         return names.get(identity) ?? generatedDisplayName(identity);
@@ -263,6 +282,7 @@ export function createProfileDirectory(dependencies: ProfileDirectoryDependencie
       localDisplayName = displayName;
     },
     clearSession() {
+      clearPlayerNameTags();
       names.clear();
       icons.clear();
       sprites.clear();

@@ -40,7 +40,7 @@ export type EnemySimulationSharedOptions = {
   remotePlayers?: () => readonly RemotePlayer[];
   remoteCombatStats?: (identity: string) => RemoteCombatStats | null | undefined;
   remoteBoss?: () => RemoteBossSimulationTarget | null | undefined;
-  spawnDamageNumber?: (x: number, y: number, amount: number, critical?: boolean) => void;
+  spawnDamageNumber?: (x: number, y: number, amount: number, critical?: boolean, damageTaken?: boolean) => void;
   spawnBurst?: (x: number, y: number, color: string, count?: number, speed?: number) => void;
 };
 

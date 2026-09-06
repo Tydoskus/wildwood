@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   DAMAGE_NUMBER_FADE_DURATION,
   DAMAGE_NUMBER_RISE_DURATION,
@@ -60,4 +60,19 @@ describe("combat effects runtime", () => {
     expect(effects.particles).toHaveLength(0);
     expect(effects.damageNumbers).toHaveLength(0);
   });
+});
+
+
+it("uses white for outgoing hits and crits, red for damage taken, including recycled numbers", () => {
+  const effects = createCombatEffects();
+  const ctx = { save() {}, restore() {}, translate() {}, scale() {} } as unknown as CanvasRenderingContext2D;
+  const draw = vi.fn();
+  effects.spawnDamageNumber(0, 0, 10);
+  effects.spawnDamageNumber(0, 0, 20, true);
+  effects.spawnDamageNumber(0, 0, 30, false, true);
+  effects.drawDamageNumbers(ctx, { x: 0, y: 0, zoom: 1 }, draw);
+  expect(draw.mock.calls.map((args) => args[3])).toEqual(["#ffffff", "#ffffff", "#ff5a5a"]);
+  effects.update(2);
+  effects.spawnDamageNumber(0, 0, 40);
+  expect(effects.damageNumbers[0].damageTaken).toBe(false);
 });

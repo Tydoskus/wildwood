@@ -153,6 +153,7 @@ export type FrameRendererOptions = {
   mapPlayerMarkers: () => MapPlayerMarker[];
   isDueling: () => boolean;
   isArenaScene: () => boolean;
+  duelAssetsReady: () => boolean;
   isReplayActive: () => boolean;
   replayScene: () => DuelScene | null;
   liveScene: () => DuelScene | null;
@@ -436,6 +437,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       mapPlayerMarkers: frame.mapPlayerMarkers,
       isDueling: frame.isDueling,
       isArenaScene: frame.isArenaScene,
+      duelAssetsReady: frame.duelAssetsReady,
       isReplayActive: frame.isReplayActive,
       replayScene: frame.replayScene,
       liveScene: frame.liveScene,

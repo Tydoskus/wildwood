@@ -535,8 +535,7 @@ const baseSubscriptionHandlers = createBaseSubscriptionHandlers({
 
 mapShardClient = createMapShardClient({
   host, root: () => connection, port: reducerPort, handlers: baseSubscriptionHandlers,
-  token: () => accountService.accountToken() || accountService.guestToken() || undefined,
-  tabId: () => accountService.tabId(), changed: onChange,
+  tabId: () => accountService.tabId(), changed: onChange, recoverSession: () => { retryConnection(); },
   resetWorld: () => { presenceService.clearSession(true); presenceService.beginSession(false); bossService.resetSession(); },
   worldReady: () => presenceService.activateSubscriptions(),
 });

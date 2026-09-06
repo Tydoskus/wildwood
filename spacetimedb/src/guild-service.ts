@@ -1,3 +1,4 @@
+import { syncGuildTag } from "./player-name-tags";
 import type { Identity } from "spacetimedb";
 import { Range, SenderError } from "spacetimedb/server";
 import type { ModuleReducerCtx } from "./index";
@@ -89,6 +90,7 @@ function anonymizeAccountReports(ctx: Ctx, identity: Identity) {
 function removeMember(ctx: Ctx, member: Member) {
   const guild = ctx.db.guild.id.find(member.guildId);
   ctx.db.guildMember.identity.delete(member.identity);
+  syncGuildTag(ctx, member.identity);
   const previous = account(ctx, member.identity);
   ctx.db.guildAccount.identity.update({ ...previous, joinAfter: now(ctx) + GUILD_MEMBERSHIP_COOLDOWN });
   if (!guild) return;
@@ -125,6 +127,7 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
     const { name } = deps.fighterFor(ctx, ctx.sender);
     ctx.db.guildMember.insert({ identity: ctx.sender, guildId, name, joinedAt: now(ctx),
       eligibleAt: now(ctx), champion: false, fighter: "", power: 0 });
+    syncGuildTag(ctx, ctx.sender);
   }
   return {
     create(ctx: Ctx, value: string) {

@@ -28,4 +28,6 @@ const guildReportParticipant = table({ name: "guild_report_participant", public:
   reportKey: t.string().index("btree"), side: t.string(), round: t.u8(),
 });
 const guildBattleCounter = table({ name: "guild_battle_counter", public: false }, { id: t.u8().primaryKey(), next: t.u64() });
-export const guildTables = { guild, guildMember, guildAccount, guildRank, guildStanding, guildBattleReport, guildReportParticipant, guildBattleCounter };
+const playerNameTag = table({ public: true }, { identity: t.identity().primaryKey(), guildTag: t.string(), showDevTag: t.bool() });
+
+export const guildTables = { playerNameTag, guild, guildMember, guildAccount, guildRank, guildStanding, guildBattleReport, guildReportParticipant, guildBattleCounter };

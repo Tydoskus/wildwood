@@ -515,7 +515,7 @@ export type EnemySpriteLayerSource = {
 };
 export type EnemySpriteSource =
   | { src: string; size: number }
-  | { size: number; height: number; layers: EnemySpriteLayerSource[]; animation?: EnemySpriteAnimationLayout };
+  | { size: number; height: number; visualOffsetY?: number; layers: EnemySpriteLayerSource[]; animation?: EnemySpriteAnimationLayout };
 export type LoadedSpriteLayer = EnemySpriteLayerSource & { image: HTMLImageElement };
 export type LoadedEnemySprite = {
   size: number;
@@ -651,7 +651,7 @@ export function createMapScopedEnemySpriteAssets<Kind extends string, MapKey ext
         ...source.animation,
         pages: source.animation.pages.map((page) => ({ ...page, image: imageAssets.get(page.src)!.image })),
       } : undefined;
-      return [kind, { size: source.size, height: source.height, layers, ...(animation ? { animation } : {}) }];
+      return [kind, { size: source.size, height: source.height, visualOffsetY: source.visualOffsetY, layers, ...(animation ? { animation } : {}) }];
     }
     return [kind, { size: source.size, image: imageAssets.get(source.src)!.image }];
   })) as Record<Kind, LoadedEnemySprite>;

@@ -162,7 +162,7 @@ function createGhost(source: EnemyState, ambient: RegularEnemyAmbientPose, targe
 }
 
 export function createRemoteEnemyCombatShadows(options: {
-  spawnDamageNumber: (x: number, y: number, amount: number, critical?: boolean) => void;
+  spawnDamageNumber: (x: number, y: number, amount: number, critical?: boolean, damageTaken?: boolean) => void;
   spawnBurst?: (x: number, y: number, color: string, count?: number, speed?: number) => void;
 }) {
   const shadows = new Map<number, ShadowState>();
@@ -380,7 +380,7 @@ export function createRemoteEnemyCombatShadows(options: {
       fighter.lastHurtAtMs = hitAtMs;
       const damage = damageAfterArmor(shadow.ghost.damage, shadow.stats.armor);
       fighter.hp = Math.max(0, fighter.hp - damage);
-      options.spawnDamageNumber(target.x, target.y, damage, false);
+      options.spawnDamageNumber(target.x, target.y, damage, false, true);
     }
     if (fighter.hp <= 0) shadow.opponentDefeatedAtMs = serverNowMs;
   }

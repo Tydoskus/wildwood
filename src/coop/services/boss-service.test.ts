@@ -28,7 +28,13 @@ describe("co-op boss service", () => {
     blocked = true;
     service.api.damagePrismshell(2);
     expect(damagePrismshellFromPosition).toHaveBeenCalledTimes(1);
+    const hit = { mapId: "crystal_hollows", x: 4050, y: 4050, damage: 1550, critical: true };
+    service.tables.upsertHitResult(hit);
+    expect(service.api.drainBossHitResults()).toEqual([hit]);
+    expect(service.api.drainBossHitResults()).toEqual([]);
+    service.tables.upsertHitResult(hit);
     service.resetSession();
+    expect(service.api.drainBossHitResults()).toEqual([]);
     expect(service.api.prismshellBoss()).toBeNull();
     expect(service.api.prismshellResult()).toBeNull();
   });

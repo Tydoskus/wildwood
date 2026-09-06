@@ -10,7 +10,7 @@ export const guildDay = (now: bigint) => Number(now / 86_400_000_000n);
 export const guildWeek = (now: bigint) => Math.floor((guildDay(now) + 3) / 7);
 export function normalizeGuildName(value: string) {
   const name = value.normalize("NFKC").trim().replace(/\s+/g, " ");
-  if (!/^[\p{L}\p{N}][\p{L}\p{N} .'-]{2,23}$/u.test(name)) throw new Error("Use 3–24 letters, numbers, spaces, apostrophes, periods or hyphens.");
+  if (!/^[A-Za-z]{4}$/.test(name)) throw new Error("Use exactly 4 letters (A–Z).");
   return { name, nameKey: name.toLowerCase() };
 }
 export type GuildFighter = { identity: string; name: string; fighter: DuelFighter };

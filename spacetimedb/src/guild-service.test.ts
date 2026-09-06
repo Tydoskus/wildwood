@@ -10,6 +10,7 @@ vi.mock("spacetimedb/server", async () => ({ ...(await import("../../tests/helpe
   Range: class { constructor(public from: any = { tag: "unbounded" }, public to: any = { tag: "unbounded" }) {} },
 }));
 const identity = (id: number) => new Identity(id.toString(16).padStart(64, "0"));
+const guildName = (n: number) => `G${String.fromCharCode(65 + Math.floor(n / 26))}${String.fromCharCode(65 + n % 26)}d`;
 const fighter: DuelFighter = { maxHp: 100, damage: 20, armor: 0, regen: 0, attackRate: 1 };
 function fixture() {
   // Separate root/server SDK installs have nominal BinaryReader private fields;
@@ -43,7 +44,7 @@ function fixture() {
     ctx.sender = identity(who); insertedRank = null;
     return memory.transaction(() => action(ctx));
   };
-  const makeGuild = (first: number, name = `Guild ${first}`) => {
+  const makeGuild = (first: number, name = guildName(first)) => {
     run(first, context => service.create(context, name));
     const id: bigint = db.guildMember.identity.find(identity(first)).guildId;
     for (const next of [first + 1, first + 2]) run(next, context => service.join(context, id));
@@ -57,10 +58,10 @@ function fixture() {
 describe("guild membership and authoritative lineups", () => {
   it("normalizes names, rejects duplicate names and duplicate membership", () => {
     const f = fixture();
-    f.run(1, ctx => f.service.create(ctx, "  Rose   Guard "));
-    expect(f.db.guild.id.find(1n).name).toBe("Rose Guard");
-    expect(() => f.run(2, ctx => f.service.create(ctx, "rose guard"))).toThrow("already taken");
-    expect(() => f.run(1, ctx => f.service.create(ctx, "Other Guild"))).toThrow("Leave");
+    f.run(1, ctx => f.service.create(ctx, "  Rose  "));
+    expect(f.db.guild.id.find(1n).name).toBe("Rose");
+    expect(() => f.run(2, ctx => f.service.create(ctx, "rose"))).toThrow("already taken");
+    expect(() => f.run(1, ctx => f.service.create(ctx, "Othr"))).toThrow("Leave");
     expect(() => normalizeGuildName("<img src=x>")).toThrow();
     expect(f.db.guild.count()).toBe(1n);
   });
@@ -82,7 +83,7 @@ describe("guild membership and authoritative lineups", () => {
     expect(f.db.guild.id.find(a).champions).toBe(2);
     expect(() => f.run(2, ctx => f.service.join(ctx, b))).toThrow("24 hours");
     f.advance(GUILD_MEMBERSHIP_COOLDOWN - 1n);
-    expect(() => f.run(2, ctx => f.service.create(ctx, "New Guard"))).toThrow("24 hours");
+    expect(() => f.run(2, ctx => f.service.create(ctx, "NewG"))).toThrow("24 hours");
     f.advance(1n);
     f.run(2, ctx => f.service.join(ctx, b));
     expect(f.db.guildMember.identity.find(identity(2)).eligibleAt).toBe(f.ctx.timestamp.microsSinceUnixEpoch);
@@ -229,7 +230,7 @@ describe("asynchronous battles and bounded standings", () => {
   });
   it("returns stable twenty-row directory pages and never scans global tables", () => {
     const f = fixture();
-    for (let who = 1; who <= 45; who++) f.run(who, ctx => f.service.create(ctx, `Guild ${who}`));
+    for (let who = 1; who <= 45; who++) f.run(who, ctx => f.service.create(ctx, guildName(who)));
     const first = f.run(1, ctx => f.service.snapshot(ctx));
     expect(first.directory).toHaveLength(20);
     expect(first.nextPage).toBe("20");
@@ -245,7 +246,7 @@ describe("asynchronous battles and bounded standings", () => {
     const f = fixture();
     const week = guildWeek(f.ctx.timestamp.microsSinceUnixEpoch);
     for (let who = 1; who <= 55; who++) {
-      f.run(who, ctx => f.service.create(ctx, `Guild ${who}`));
+      f.run(who, ctx => f.service.create(ctx, guildName(who)));
       const guild = f.db.guild.id.find(BigInt(who));
       const changed = { ...guild, battles: 1, score: who <= 50 ? 3 : 0, wins: who <= 50 ? 1 : 0 };
       f.db.guild.id.update(changed);

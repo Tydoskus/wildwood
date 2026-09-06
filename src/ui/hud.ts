@@ -7,6 +7,8 @@ import { PLAYER_GENDER_UNSET, type PlayerGender } from "../../shared/player-gend
 import { isHiddenCosmeticItem } from "../../shared/equipment-appearance";
 import { itemDisplayName, normalizeItemUpgradeLevel } from "../../shared/items";
 
+import { appendPlayerNameTags, playerNamePrefix } from "../app/player-name-tags";
+
 type PlayerHudState = {
   hp: number;
   maxHp: number;
@@ -29,6 +31,7 @@ export function renderPlayerHud(
   power: number,
   isDeveloper = false,
   gender: PlayerGender = PLAYER_GENDER_UNSET,
+  identity?: string,
 ) {
   const hpRatio = Math.max(0, Math.min(1, player.hp / player.maxHp));
   const hpWidth = `${(hpRatio * 100).toFixed(1)}%`;
@@ -37,19 +40,14 @@ export function renderPlayerHud(
   if (elements.hpText.textContent !== hpText) elements.hpText.textContent = hpText;
   if (elements.playerName) {
     const name = displayName || "WANDERER";
-    const nameKey = `${isDeveloper ? "dev" : "player"}:${name}:${gender}`;
+    const nameKey = `${playerNamePrefix(identity, isDeveloper)}:${name}:${gender}`;
     if (elements.playerName.dataset.renderedName !== nameKey) {
       const nameText = document.createElement("span");
       nameText.className = "player-hud-name-text";
       nameText.textContent = name;
-      if (isDeveloper) {
-        const badge = document.createElement("span");
-        badge.className = "dev-badge";
-        badge.textContent = "[dev] ";
-        elements.playerName.replaceChildren(badge, nameText);
-      } else {
-        elements.playerName.replaceChildren(nameText);
-      }
+      elements.playerName.replaceChildren();
+      appendPlayerNameTags(elements.playerName, identity, isDeveloper);
+      elements.playerName.append(nameText);
       appendPlayerGenderIcon(elements.playerName, gender);
       elements.playerName.dataset.renderedName = nameKey;
     }

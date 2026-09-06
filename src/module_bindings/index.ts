@@ -106,6 +106,7 @@ import RevokeShardPlayerReducer from "./revoke_shard_player_reducer";
 import SavePlayerProgressReducer from "./save_player_progress_reducer";
 import SendChatMessageReducer from "./send_chat_message_reducer";
 import SendChatReplyReducer from "./send_chat_reply_reducer";
+import SetDeveloperNameTagReducer from "./set_developer_name_tag_reducer";
 import SetDeveloperPresenceReducer from "./set_developer_presence_reducer";
 import SetDisplayNameReducer from "./set_display_name_reducer";
 import SetGenderReducer from "./set_gender_reducer";
@@ -139,6 +140,7 @@ import ActiveItemUpgradeRow from "./active_item_upgrade_table";
 import ActiveItemUpgradeSlotTwoRow from "./active_item_upgrade_slot_two_table";
 import ActiveResearchRow from "./active_research_table";
 import BossAttackFrameRow from "./boss_attack_frame_table";
+import BossHitResultRow from "./boss_hit_result_table";
 import ChatMessageRow from "./chat_message_table";
 import DevAccessAuditRow from "./dev_access_audit_table";
 import DevBugReportsRow from "./dev_bug_reports_table";
@@ -183,6 +185,7 @@ import PlayerMapMarkerRow from "./player_map_marker_table";
 import PlayerMotionDetailFrameRow from "./player_motion_detail_frame_table";
 import PlayerMotionFrameRow from "./player_motion_frame_table";
 import PlayerMotionIdentityRow from "./player_motion_identity_table";
+import PlayerNameTagRow from "./player_name_tag_table";
 import PlayerProfileRow from "./player_profile_table";
 import PlayerProgressRow from "./player_progress_table";
 import PlayerResearchRow from "./player_research_table";
@@ -246,6 +249,17 @@ const tablesSchema = __schema({
     ],
     event: true,
   }, BossAttackFrameRow),
+  bossHitResult: __table({
+    name: 'boss_hit_result',
+    indexes: [
+      { accessor: 'byIdentity', name: 'boss_hit_result_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+    ],
+    event: true,
+  }, BossHitResultRow),
   chatMessage: __table({
     name: 'chat_message',
     indexes: [
@@ -637,6 +651,17 @@ const tablesSchema = __schema({
       { name: 'player_motion_identity_network_id_key', constraint: 'unique', columns: ['networkId'] },
     ],
   }, PlayerMotionIdentityRow),
+  playerNameTag: __table({
+    name: 'player_name_tag',
+    indexes: [
+      { accessor: 'identity', name: 'player_name_tag_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_name_tag_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerNameTagRow),
   playerProfile: __table({
     name: 'player_profile',
     indexes: [
@@ -929,6 +954,7 @@ const reducersSchema = __reducers(
   __reducerSchema("save_player_progress", SavePlayerProgressReducer),
   __reducerSchema("send_chat_message", SendChatMessageReducer),
   __reducerSchema("send_chat_reply", SendChatReplyReducer),
+  __reducerSchema("set_developer_name_tag", SetDeveloperNameTagReducer),
   __reducerSchema("set_developer_presence", SetDeveloperPresenceReducer),
   __reducerSchema("set_display_name", SetDisplayNameReducer),
   __reducerSchema("set_gender", SetGenderReducer),

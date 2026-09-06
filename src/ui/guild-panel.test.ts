@@ -91,9 +91,9 @@ describe("guild panel", () => {
     expect(h.document.querySelector("#guildOverlay img")).toBeNull();
     expect(h.document.querySelector("#guildName")).toBeNull(); h.click("Create a guild");
     const input = h.document.querySelector("#guildName") as unknown as HTMLInputElement;
-    input.value = "New Guild";
+    input.value = "NewG";
     h.document.querySelector("form")!.dispatchEvent(new h.document.defaultView!.Event("submit", { cancelable: true }));
-    await settled(); expect(h.api.guildAction).toHaveBeenCalledWith({ kind: "create", name: "New Guild" });
+    await settled(); expect(h.api.guildAction).toHaveBeenCalledWith({ kind: "create", name: "NewG" });
   });
   it("shows defensive results from the current guild's perspective", async () => {
     const g = fixture();

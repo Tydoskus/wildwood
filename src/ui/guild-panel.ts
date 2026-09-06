@@ -1,3 +1,4 @@
+import { playerNamePrefix } from "../app/player-name-tags";
 import { GUILD_MEMBER_LIMIT, GUILD_TEAM_SIZE, type GuildSnapshot } from "../../shared/guilds";
 import type { GuildAction, GuildApi } from "../coop/services/guild-service";
 
@@ -121,7 +122,7 @@ export function createGuildPanel(options: Options) {
     const form = element("form", undefined, "guild-create");
     const label = element("label", "Guild name"); label.htmlFor = "guildName";
     const input = element("input"); input.id = "guildName"; input.name = "guildName";
-    input.value = draftName; input.placeholder = "Name your guild"; input.maxLength = 24; input.minLength = 3;
+    input.value = draftName; input.placeholder = "4 letters, e.g. Fire"; input.maxLength = 4; input.minLength = 4; input.pattern = "[A-Za-z]{4}";
     input.required = true; input.disabled = busy || !canJoin(); input.autocomplete = "off";
     input.dataset.focusKey = "guild-name";
     input.addEventListener("input", () => { draftName = input.value; });
@@ -130,7 +131,7 @@ export function createGuildPanel(options: Options) {
     controls.append(create, button("Cancel", () => { creating = false; render(); }, "quiet"));
     form.append(label, input, controls);
     form.addEventListener("submit", event => {
-      event.preventDefault(); if (!busy && canJoin() && input.value.trim().length >= 3) act({ kind: "create", name: input.value.trim() });
+      event.preventDefault(); if (!busy && canJoin() && /^[A-Za-z]{4}$/.test(input.value.trim())) act({ kind: "create", name: input.value.trim() });
     }); parent.append(form);
   }
   function canJoin() { return Boolean(snapshot?.signedIn && date(snapshot.joinAfter).getTime() <= now()); }
@@ -160,7 +161,7 @@ export function createGuildPanel(options: Options) {
     const g = snapshot!, own = g.guild!;
     const self = member.identity === g.identity;
     const detail = [member.identity === own.leader ? "Leader" : "Member", self ? "You" : "", member.champion ? `${number(member.power)} power` : ""].filter(Boolean).join(" · ");
-    const item = row(parent, member.name, detail); item.prepend(mark(member.name, "guild-avatar"));
+    const item = row(parent, `${playerNamePrefix(member.identity)}${member.name}`, detail); item.prepend(mark(member.name, "guild-avatar"));
     if (member.champion) item.append(element("span", "Champion", "guild-badge"));
     if (isLeader()) {
       const control = button("···", () => { managedMember = managedMember === member.identity ? null : member.identity; render(); }, "icon", false, `manage-${member.identity}`);

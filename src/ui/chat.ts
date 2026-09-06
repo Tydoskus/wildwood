@@ -1,4 +1,4 @@
-import { DEVELOPER_BADGE, isDeveloperIdentity } from "../app/developer";
+import { appendPlayerNameTags } from "../app/player-name-tags";
 import {
   duelReplayIsInteractive,
   formatChatTime,
@@ -252,12 +252,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       name.style.color = nameColor(displayIdentity);
       const nameCore = document.createElement("span");
       nameCore.className = "chat-name-core";
-      if (isDeveloperIdentity(displayIdentity)) {
-        const badge = document.createElement("span");
-        badge.className = "dev-badge";
-        badge.textContent = `${DEVELOPER_BADGE} `;
-        nameCore.appendChild(badge);
-      }
+      appendPlayerNameTags(nameCore, displayIdentity);
       const nameText = document.createElement("span");
       nameText.className = "chat-name-text";
       nameText.textContent = displayName;

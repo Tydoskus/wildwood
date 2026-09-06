@@ -30,6 +30,7 @@ export function createRenderController(options: {
   mapPlayerMarkers: () => MapPlayerMarker[];
   isDueling: () => boolean;
   isArenaScene: () => boolean;
+  duelAssetsReady: () => boolean;
   isReplayActive: () => boolean;
   replayScene: () => DuelScene | null;
   liveScene: () => DuelScene | null;
@@ -178,6 +179,20 @@ export function createRenderController(options: {
   }
 
   function renderDuelScene(scene: DuelScene) {
+    if (!options.duelAssetsReady()) {
+      const { width, height } = viewport();
+      setRenderedDuelScene(null);
+      setDuelCountdown(0);
+      ctx.save();
+      ctx.fillStyle = "#050713";
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = "#eef3ff";
+      ctx.font = 'bold 16px sans-serif';
+      ctx.textAlign = "center";
+      ctx.fillText("LOADING ARENA…", width / 2, height / 2);
+      ctx.restore();
+      return;
+    }
     setRenderedDuelScene(scene);
     positionDuelCamera();
     ctx.save();
@@ -201,7 +216,8 @@ export function createRenderController(options: {
       ctx.fillText(`ESCALATION · HITS ×${scene.hitMultiplier!.toFixed(1)}`, width / 2, height * .72);
       ctx.restore();
     }
-    drawVignette();
+    // Arena lighting is uniform. The world vignette follows the exploration
+    // player, whose off-arena position used to darken replays.
   }
 
   function render() {

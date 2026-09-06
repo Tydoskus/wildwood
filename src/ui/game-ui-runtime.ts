@@ -47,6 +47,8 @@ export function createDevPanel(d: Record<string, any>) {
       send: (action) => coop?.devForestRewardPrototype?.(action),
     },
     isDeveloper: () => isDeveloperIdentity(coop?.localIdentity?.()),
+    getNameTagVisible: () => coop?.developerNameTagVisible?.() !== false,
+    setNameTagVisible: (visible: boolean) => coop?.setDeveloperNameTag?.(visible),
     getPresenceVisible: () => coop?.developerPresenceVisible?.() === true,
     setPresenceVisible: (visible: boolean) => coop?.setDeveloperPresence?.(visible),
     getVirtualPlayerLoadTest: () => coop?.virtualPlayerLoadTestState?.() ?? { phase: "idle", requested: 0, connected: 0, failures: 0, movementHz: VIRTUAL_PLAYER_MOVEMENT_HZ, saveIntervalMs: VIRTUAL_PLAYER_SAVE_INTERVAL_MS },

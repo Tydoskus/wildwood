@@ -475,22 +475,6 @@ export function createActorRenderer(options: {
       ctx.drawImage(options.duelPlatformArt, x - size / 2, y - size / 2, size, size);
       return;
     }
-
-    ctx.save();
-    ctx.fillStyle = "#697174";
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.lineWidth = 10;
-    ctx.strokeStyle = "#aeb8ba";
-    ctx.stroke();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = "rgba(235,239,238,.46)";
-    ctx.setLineDash([10, 12]);
-    ctx.beginPath();
-    ctx.arc(x, y, radius - 18, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
   }
 
   function drawDuelScene(scene: DuelScene) {
@@ -529,7 +513,7 @@ export function createActorRenderer(options: {
       x,
       y,
       identity: actor.identity,
-      name: actor.name,
+      name: options.publicName(actor.identity, actor.name),
       gender: actor.gender,
       nameColor: actor.isLocal ? "#ffffff" : "#9eeeff",
       hp: actor.hp,

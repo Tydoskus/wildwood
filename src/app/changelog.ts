@@ -1,4 +1,11 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.638": [
+    "Fixed enemy sprite alignment and boss critical damage, with clearer colors for ordinary hits, critical hits, and damage taken.",
+    "Added four-letter guild tags beside player names and a developer name-tag toggle. TheGuilds is now TheG.",
+    "Improved portal connection recovery and prevented failed travel from repeatedly triggering the same portal.",
+    "Removed the legacy duel arena flash during loading and brightened duel replays.",
+    "Made all game-update status text white for readability.",
+  ],
   "0.637": [
     "Rebalanced early enemies and rewards, and tuned later maps for progressively longer completion times with research and equipment upgrades.",
     "Regular enemies now respawn in 20 seconds, or 10 seconds with the boost; bosses respawn in 45 seconds.",
@@ -1553,6 +1560,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.638": "2026-09-06",
   "0.637": "2026-09-06",
   "0.636": "2026-09-05",
   "0.635": "2026-09-05",

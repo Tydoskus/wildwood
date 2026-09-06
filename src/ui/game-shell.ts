@@ -250,6 +250,10 @@ const afterUpdateGateShell = String.raw`
       <button id="devPerformanceTab" class="profile-tab" type="button" role="tab" aria-selected="false">Performance</button>
     </div>
     <section id="devControlsPanel" role="tabpanel" aria-labelledby="devControlsTab">
+      <div class="setting-row">
+        <span>DEVELOPER NAME TAG</span>
+        <button id="devNameTagToggle" class="secondary-button" type="button" aria-pressed="true">HIDE [dev]</button>
+      </div>
       <p class="dev-audit-help">SESSION · SERVER-SAFE DEVELOPER CONTROLS</p>
       <div class="dev-presence-control">
         <div>

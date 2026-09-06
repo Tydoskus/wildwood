@@ -1,3 +1,4 @@
+import { bindPlayerNameTags } from "./app/player-name-tags";
 import { HOME_RESEARCH_POSITION, HOME_WORLD_SIZE } from "../shared/home";
 import { WORLD_WIDTH, WORLD_HEIGHT } from "../shared/rules";
 import { createGuildPanel } from "./ui/guild-panel";
@@ -127,6 +128,7 @@ import {
   });
   const { ctx, outlinedWorldText, fillWorldText, pixelCircle, roundRect, drawActorShadow } = canvasRuntime;
   const coop = window.wildstatCoop ?? window.wildwoodCoop ?? null;
+  if (coop) bindPlayerNameTags({ prefix: (identity) => coop.playerNamePrefix(identity), revision: () => coop.playerNameTagsRevision() });
   const gameplayReadyTelemetry = coop?.beginStartupTelemetryStage?.("gameplay-ready");
   let gameplayReadyRecorded = false;
   function recordGameplayReady() {
@@ -596,6 +598,8 @@ import {
     recordDesertEnemyDefeat: () => coop?.recordDesertEnemyDefeat?.(),
     recordSnowEnemyDefeat: () => coop?.recordSnowEnemyDefeat?.(),
     recordLavaEnemyDefeat: () => coop?.recordLavaEnemyDefeat?.(),
+    drainBossHitResults: () => coop?.drainBossHitResults?.() ?? [],
+    currentMapId: () => currentMapId,
     damageDragon: (hits) => coop?.damageDragon?.(hits, player.x, player.y),
     damageSpider: (hits) => coop?.damageSpider?.(hits, player.x, player.y),
     damageFrostclaw: (hits) => coop?.damageFrostclaw?.(hits, player.x, player.y),
@@ -1050,6 +1054,7 @@ import {
     playerDisplayName: (identity) => coop?.playerDisplayName?.(identity),
     pulseDuel: () => coop?.pulseDuel?.(),
     spawnDamageNumber,
+    prepareArena: assets.ensureDuelAssets,
     loadReplay: async (replayId) => coop?.loadDuelReplay
       ? await coop.loadDuelReplay(replayId)
       : coop?.duelReplay?.(replayId),
@@ -1147,6 +1152,7 @@ import {
     mapPlayerMarkers: () => coop?.mapPlayerMarkers?.() ?? [],
     isDueling,
     isArenaScene,
+    duelAssetsReady: assets.duelAssetsReady,
     isReplayActive: () => duelRuntime.isReplayActive(),
     replayScene: () => duelRuntime.replayScene(),
     liveScene: () => duelRuntime.liveScene(),
@@ -1589,7 +1595,7 @@ import {
     resetPresentationState: presentation.reset,
     render: (interpolationAlpha) => presentation.render(interpolationAlpha, () => {
       upgradeBenchController.tick();
-      if (isArenaScene()) void assets.ensureDuelAssets();
+      if (activeDuel() || isArenaScene()) void assets.ensureDuelAssets();
       renderController.render();
     }), recordPerformance: performanceMonitor.record,
     renderPerformancePanel: devPanel.renderPerformance, performancePanelVisible: devPanel.isPerformanceVisible,

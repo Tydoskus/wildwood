@@ -1,3 +1,4 @@
+import { appendPlayerNameTags } from "../app/player-name-tags";
 import { formatCompactNumber } from "./number-format";
 import type { LeaderboardEntry } from "../wildstat-coop";
 import { appendPlayerGenderIcon } from "./player-gender";
@@ -115,12 +116,7 @@ export function renderLeaderboardPodium(
       slot.disabled = true;
       name.textContent = "—";
     } else {
-      if (actions.isDeveloper(entry.identity)) {
-        const badge = document.createElement("span");
-        badge.className = "dev-badge";
-        badge.textContent = "[dev] ";
-        name.append(badge);
-      }
+      appendPlayerNameTags(name, entry.identity, actions.isDeveloper(entry.identity));
       const nameText = document.createElement("span");
       nameText.className = "leaderboard-podium-name-text";
       nameText.textContent = entry.name;
@@ -164,12 +160,7 @@ export function renderLeaderboard(
     const name = document.createElement("button");
     name.className = "leaderboard-name";
     name.type = "button";
-    if (actions.isDeveloper(entry.identity)) {
-      const badge = document.createElement("span");
-      badge.className = "dev-badge";
-      badge.textContent = "[dev] ";
-      name.appendChild(badge);
-    }
+    appendPlayerNameTags(name, entry.identity, actions.isDeveloper(entry.identity));
     const nameText = document.createElement("span");
     nameText.className = "leaderboard-name-text";
     nameText.textContent = entry.name;

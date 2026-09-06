@@ -23,6 +23,7 @@ export type DamageNumber = {
   opacity: number;
   text: string;
   critical: boolean;
+  damageTaken: boolean;
 };
 
 type CameraPosition = { x: number; y: number; zoom: number };
@@ -74,11 +75,11 @@ export function createCombatEffects() {
     }
   }
 
-  function spawnDamageNumber(x: number, y: number, amount: number, critical = false) {
+  function spawnDamageNumber(x: number, y: number, amount: number, critical = false, damageTaken = false) {
     if (!Number.isFinite(amount) || amount <= 0) return;
     let number: DamageNumber;
     if (damageNumbers.length < MAX_DAMAGE_NUMBERS) {
-      number = damageNumberPool.pop() ?? { x: 0, y: 0, startY: 0, life: 0, maxLife: 0, opacity: 1, text: "", critical: false };
+      number = damageNumberPool.pop() ?? { x: 0, y: 0, startY: 0, life: 0, maxLife: 0, opacity: 1, text: "", critical: false, damageTaken: false };
       damageNumbers.push(number);
     } else {
       number = damageNumbers[damageNumberReplacement % damageNumbers.length];
@@ -92,6 +93,7 @@ export function createCombatEffects() {
     number.opacity = 1;
     number.text = `-${formatCompactNumber(amount)}`;
     number.critical = critical;
+    number.damageTaken = damageTaken;
   }
 
   function update(dt: number) {
@@ -158,7 +160,7 @@ export function createCombatEffects() {
           number.text,
           0,
           0,
-          number.critical ? "#ffe36b" : "#ff5a5a",
+          number.damageTaken ? "#ff5a5a" : "#ffffff",
           4,
         );
       });

@@ -274,3 +274,19 @@ describe("Home teleport", () => {
     expect(h.controller.isMapTransitioning()).toBe(false);
   });
 });
+
+
+it("requires leaving a failed portal before attempting it again", async () => {
+  const h = portalArrivalHarness({ x: 300, y: 400 });
+  h.changeMap.mockResolvedValue(false);
+  h.controller.updatePortal(.016);
+  await vi.waitFor(() => expect(h.controller.isMapTransitioning()).toBe(false));
+  expect(h.changeMap).toHaveBeenCalledTimes(1);
+  for (let frame = 0; frame < 10; frame++) h.controller.updatePortal(1);
+  expect(h.changeMap).toHaveBeenCalledTimes(1);
+  h.player.x = 500;
+  h.controller.updatePortal(1);
+  h.player.x = 100;
+  h.controller.updatePortal(1);
+  await vi.waitFor(() => expect(h.changeMap).toHaveBeenCalledTimes(2));
+});

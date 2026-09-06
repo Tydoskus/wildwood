@@ -7,7 +7,7 @@ vi.mock("../../module_bindings", () => ({
       return target[key] ??= { rows: [], onInsert(fn: any) { this.insert = fn; }, onUpdate(fn: any) { this.update = fn; },
         onDelete(fn: any) { this.remove = fn; }, iter() { return this.rows; } };
     } });
-    const connection: any = { isActive: true, identity: {}, queries: [], db,
+    const connection: any = { isActive: true, identity: { equals: (other: unknown) => Boolean(other) }, queries: [], db,
       reducers: new Proxy({}, { get(target: any, key) { return target[key] ??= vi.fn(async () => {}); } }),
       disconnect: vi.fn(),
       subscriptionBuilder() { const query: any = {
@@ -16,7 +16,7 @@ vi.mock("../../module_bindings", () => ({
         subscribe() { connection.queries.push(query); return query; },
       }; return query; },
     };
-    const builder: any = { withUri: () => builder, withToken: () => builder,
+    const builder: any = { withUri: () => builder, withToken(token: string) { connection.token = token; return builder; },
       withDatabaseName(name: string) { connection.database = name; return builder; },
       onConnect(fn: any) { connection.connect = () => fn(connection); return builder; },
       onDisconnect(fn: any) { connection.disconnected = fn; return builder; },
@@ -35,16 +35,17 @@ function setup() {
   rootTables.myMapShardRoute = {
     identity: { find: () => route }, onInsert(fn: any) { change = fn; }, onUpdate() {}, onDelete() {},
   };
-  const root: any = { isActive: true, reducers: { changeMap: vi.fn(async () => {}), setSpeed: vi.fn() }, db: rootTables,
+  const root: any = { isActive: true, token: "authenticated-root-token", identity: {}, reducers: { changeMap: vi.fn(async () => {}), setSpeed: vi.fn() }, db: rootTables,
     subscriptionBuilder() { const q: any = { onApplied(fn: any) { apply = fn; return q; }, onError: () => q, subscribe() {} }; return q; } };
   const handlers: any = new Proxy({}, { get(target: any, key) { return target[key] ??= vi.fn(); }, ownKeys: () => ["player", "dragonBoss", "progress"], getOwnPropertyDescriptor: () => ({ enumerable: true, configurable: true }) });
+  const recoverSession = vi.fn();
   const ready = vi.fn();
   const resetWorld = vi.fn();
-  const client = createMapShardClient({ root: () => root, host: "wss://test", token: () => "", tabId: () => "tab",
-    handlers, worldReady: ready, changed: vi.fn(), resetWorld,
-    port: { sendReducer: (_action: any, fn: any) => fn(root) } as any });
+  const client = createMapShardClient({ root: () => root, host: "wss://test", tabId: () => "tab",
+    recoverSession, handlers, worldReady: ready, changed: vi.fn(), resetWorld,
+    port: { handleFailure: vi.fn(), sendReducer: (_action: any, fn: any) => fn(root) } as any });
   client.attach(root, {} as any);
-  return { client, root, handlers, ready, resetWorld, apply: () => apply(),
+  return { client, root, handlers, ready, resetWorld, recoverSession, apply: () => apply(),
     route(value: any) { route = value; change(); },
   };
 }
@@ -148,7 +149,7 @@ it("retries a failed destination subscription and finishes the original portal a
   const move = s.client.port.connection()!.reducers.changeMap({ mapId: desert.mapId, x: 100, y: 100 });
   await Promise.resolve(); s.route(desert); await Promise.resolve();
   const failed = mock.connections[mock.connections.length - 1];
-  await failed.connect(); failed.queries[0].error();
+  await failed.connect(); failed.queries[0].error({ event: new Error("subscription interrupted") });
   expect(s.client.ready()).toBe(false);
   await vi.advanceTimersByTimeAsync(1_000);
   await hydrateLatest();
@@ -216,5 +217,48 @@ it("hands a regional player back to the root for Home and replays the arrival", 
   expect(s.client.port.connection()).toBe(s.root);
   expect(s.handlers.player).toHaveBeenCalledWith(homePlayer);
   expect(s.client.ready()).toBe(true);
+  s.client.clear();
+});
+
+
+it("uses the active account token for every portal connection", async () => {
+  const s = setup(); s.apply(); s.route(forest); await Promise.resolve();
+  expect(mock.connections[0].token).toBe(s.root.token);
+  await hydrateLatest(); s.route(desert); await Promise.resolve();
+  expect(mock.connections[1].token).toBe(s.root.token);
+  s.client.clear();
+});
+
+it("does not send enter-world on a closed route after protocol registration resolves", async () => {
+  const s = setup(); s.apply(); s.route(forest); await Promise.resolve();
+  const previous = mock.connections[0];
+  let finish!: () => void;
+  previous.reducers.registerProtocol.mockImplementation(() => new Promise<void>(resolve => { finish = resolve; }));
+  const connecting = previous.connect();
+  s.route(desert); await Promise.resolve();
+  finish(); await connecting;
+  expect(previous.reducers.enterWorld).not.toHaveBeenCalled();
+  s.client.clear();
+});
+
+it("stops a mismatched account immediately and bounds repeated admission failures", async () => {
+  vi.useFakeTimers();
+  const s = setup(); s.apply(); s.route(forest); await Promise.resolve();
+  mock.connections[0].identity.equals = () => false;
+  await mock.connections[0].connect();
+  await vi.advanceTimersByTimeAsync(30_000);
+  expect(mock.connections).toHaveLength(1);
+  expect(mock.connections[0].reducers.enterWorld).not.toHaveBeenCalled();
+  s.route(desert); await Promise.resolve();
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    const conn = mock.connections[mock.connections.length - 1];
+    conn.reducers.enterWorld.mockRejectedValue(new Error("Map admission unavailable"));
+    await conn.connect();
+    await vi.advanceTimersByTimeAsync(attempt * 1_000);
+  }
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(mock.connections).toHaveLength(6);
+  expect(s.recoverSession).toHaveBeenCalledTimes(2);
+  expect(s.client.ready()).toBe(false);
   s.client.clear();
 });

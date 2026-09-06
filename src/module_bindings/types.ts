@@ -72,6 +72,16 @@ export const BossAttackFrame = __t.object("BossAttackFrame", {
 });
 export type BossAttackFrame = __Infer<typeof BossAttackFrame>;
 
+export const BossHitResult = __t.object("BossHitResult", {
+  identity: __t.identity(),
+  mapId: __t.string(),
+  x: __t.f64(),
+  y: __t.f64(),
+  damage: __t.f64(),
+  critical: __t.bool(),
+});
+export type BossHitResult = __Infer<typeof BossHitResult>;
+
 export const BugReport = __t.object("BugReport", {
   id: __t.u64(),
   reporter: __t.identity(),
@@ -1116,6 +1126,13 @@ export const PlayerNameCooldown = __t.object("PlayerNameCooldown", {
   changedAt: __t.timestamp(),
 });
 export type PlayerNameCooldown = __Infer<typeof PlayerNameCooldown>;
+
+export const PlayerNameTag = __t.object("PlayerNameTag", {
+  identity: __t.identity(),
+  guildTag: __t.string(),
+  showDevTag: __t.bool(),
+});
+export type PlayerNameTag = __Infer<typeof PlayerNameTag>;
 
 export const PlayerPowerRebaseBackup = __t.object("PlayerPowerRebaseBackup", {
   identity: __t.identity(),

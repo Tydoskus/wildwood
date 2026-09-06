@@ -16,6 +16,8 @@ import type { PlayerGender } from "../../../shared/player-gender";
 type RemotePlayer = { id: string; name: string };
 
 export type DuelReplayTitle = {
+  challengerIdentity?: string;
+  opponentIdentity?: string;
   challengerName: string;
   challengerGender: PlayerGender;
   opponentName: string;
@@ -187,6 +189,8 @@ export function createDuelPresentation(hooks: DuelPresentationHooks) {
       },
     };
     hooks.setReplayTitle({
+      challengerIdentity: replay.challengerIdentity,
+      opponentIdentity: replay.opponentIdentity,
       challengerName: replay.challengerName,
       challengerGender: replay.challengerGender,
       opponentName: replay.opponentName,
@@ -248,6 +252,8 @@ export function createDuelPresentation(hooks: DuelPresentationHooks) {
       };
     };
     hooks.setReplayTitle({
+      challengerIdentity: replay.challengerIdentity,
+      opponentIdentity: replay.opponentIdentity,
       challengerName: replay.challengerName,
       challengerGender: replay.challengerGender,
       opponentName: replay.opponentName,

@@ -73,6 +73,7 @@ import {
   researchSpeedUpGemCost,
 } from "../../shared/gems";
 import { HIDDEN_COSMETIC_ITEM_ID, isHiddenCosmeticItem, resolveEquipmentAppearance } from "../../shared/equipment-appearance";
+import { migrateGuildTags } from "./player-name-tags";
 import { guildTables } from "./guild-tables";
 import { createGuildService } from "./guild-service";
 import type { DuelFighter } from "../../shared/duel-combat";
@@ -323,7 +324,7 @@ const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const MOTION_DETAIL_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_DETAIL_FRAME_HZ);
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 26;
+const MODULE_MIGRATION_VERSION = 27;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 9;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -605,6 +606,12 @@ const playerMapFrame = table(
     playerCount: t.u32(),
     payload: t.byteArray(),
   },
+);
+
+// Confirmed damage for the attacking player's hit-number presentation.
+const bossHitResult = table(
+  { public: true, event: true, indexes: [{ accessor: "byIdentity", algorithm: "btree", columns: ["identity"] as const }] },
+  { identity: t.identity(), mapId: t.string(), x: t.f64(), y: t.f64(), damage: t.f64(), critical: t.bool() },
 );
 
 // Inert schema-compatibility table. Boss attack presentation is reconstructed
@@ -1649,6 +1656,7 @@ const spacetimedb = schema({
   playerMotionDetailFrame,
   playerMapFrame,
   bossAttackFrame,
+  bossHitResult,
   playerDeathFrame,
   playerProfile,
   playerGemWallet,
@@ -2521,6 +2529,7 @@ function runPendingModuleMigrations(ctx: any) {
     }
   }
   if (currentVersion < 26) rebasePlayersToEndgame(ctx);
+  if (currentVersion < 27) migrateGuildTags(ctx);
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
   if (state) ctx.db.moduleMigrationState.id.update(next);
   else ctx.db.moduleMigrationState.insert(next);
@@ -2790,6 +2799,22 @@ function effectivePowerForProgress(ctx: any, progress: any) {
 function powerFieldsForProgress(ctx: any, progress: any) {
   const powerLevel = effectivePowerForProgress(ctx, progress);
   return { power: legacyU32Power(powerLevel), powerLevel };
+}
+
+function bossDamageWithCriticals(ctx: any, progress: any, hits: number, hp: number, mapId: string, position: { x: number; y: number }) {
+  const research = ctx.db.playerResearch.identity.find(ctx.sender);
+  const chance = Math.max(0, Math.min(100, research?.criticalChance ?? 0));
+  const multiplier = 1.05 + Math.max(0, research?.criticalDamage ?? 0) * .05;
+  const baseDamage = Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage));
+  let total = 0, critical = false;
+  for (let hit = 0; hit < hits; hit++) {
+    const crit = chance > 0 && ctx.random.integerInRange(1, 100) <= chance;
+    total += baseDamage * (crit ? multiplier : 1);
+    critical ||= crit;
+  }
+  const damage = Math.min(hp, total);
+  ctx.db.bossHitResult.insert({ identity: ctx.sender, mapId, ...position, damage, critical });
+  return damage;
 }
 
 function researchedDamage(ctx: any, identity: any, damage: number) {
@@ -4222,6 +4247,7 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
   const registration = ctx.db.virtualPlayer.identity.find(identity);
   if (!registration) return false;
   guildService.removeAccount(ctx, identity);
+  ctx.db.playerNameTag.identity.delete(identity);
   releaseMapShard(ctx, identity);
   removePlayerSafetyData(ctx, identity);
 
@@ -4301,6 +4327,7 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
  */
 function removePlayerIdentityData(ctx: any, identity: any) {
   guildService.removeAccount(ctx, identity);
+  ctx.db.playerNameTag.identity.delete(identity);
   removePlayerSafetyData(ctx, identity);
   const activePlayer = ctx.db.player.identity.find(identity);
   if (activePlayer) deleteSnapshotRow(ctx, "player", identity);
@@ -6570,7 +6597,7 @@ function applyDragonDamage(ctx: any, requestedHits: number, clientPosition?: { x
     ctx.db.dragonAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
   }
 
-  const damage = Math.min(dragon.hp, Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage)) * acceptedHits);
+  const damage = bossDamageWithCriticals(ctx, progress, acceptedHits, dragon.hp, TUTORIAL_FOREST_MAP_ID, DRAGON_POSITION);
   const currentContribution = ctx.db.dragonContribution.identity.find(ctx.sender);
   const continuingContribution = currentContribution?.encounter === dragon.encounter;
   const displayName = continuingContribution
@@ -6652,7 +6679,7 @@ function applySpiderDamage(ctx: any, requestedHits: number, clientPosition?: { x
     ctx.db.spiderAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
   }
 
-  const damage = Math.min(spider.hp, Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage)) * acceptedHits);
+  const damage = bossDamageWithCriticals(ctx, progress, acceptedHits, spider.hp, BEGINNER_DESERT_MAP_ID, SPIDER_POSITION);
   const currentContribution = ctx.db.spiderContribution.identity.find(ctx.sender);
   const continuingContribution = currentContribution?.encounter === spider.encounter;
   const displayName = continuingContribution
@@ -6731,7 +6758,7 @@ function applyFrostclawDamage(ctx: any, requestedHits: number, clientPosition?: 
     ctx.db.frostclawAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
   }
 
-  const damage = Math.min(frostclaw.hp, Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage)) * acceptedHits);
+  const damage = bossDamageWithCriticals(ctx, progress, acceptedHits, frostclaw.hp, INTERMEDIATE_SNOWLANDS_MAP_ID, FROSTCLAW_POSITION);
   const currentContribution = ctx.db.frostclawContribution.identity.find(ctx.sender);
   const continuingContribution = currentContribution?.encounter === frostclaw.encounter;
   const displayName = continuingContribution
@@ -6805,7 +6832,7 @@ function applyMagmaliskDamage(ctx: any, requestedHits: number, clientPosition?: 
     ctx.db.magmaliskAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
   }
 
-  const damage = Math.min(magmalisk.hp, Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage)) * acceptedHits);
+  const damage = bossDamageWithCriticals(ctx, progress, acceptedHits, magmalisk.hp, ADVANCED_LAVA_WASTES_MAP_ID, MAGMALISK_POSITION);
   const currentContribution = ctx.db.magmaliskContribution.identity.find(ctx.sender);
   const continuingContribution = currentContribution?.encounter === magmalisk.encounter;
   const displayName = continuingContribution
@@ -6879,7 +6906,7 @@ function applyGloomrootDamage(ctx: any, requestedHits: number, clientPosition?: 
     ctx.db.gloomrootAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
   }
 
-  const damage = Math.min(gloomroot.hp, Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage)) * acceptedHits);
+  const damage = bossDamageWithCriticals(ctx, progress, acceptedHits, gloomroot.hp, INFERNAL_DEPTHS_MAP_ID, GLOOMROOT_POSITION);
   const currentContribution = ctx.db.gloomrootContribution.identity.find(ctx.sender);
   const continuingContribution = currentContribution?.encounter === gloomroot.encounter;
   const displayName = continuingContribution
@@ -6953,7 +6980,7 @@ function applyTidewyrmDamage(ctx: any, requestedHits: number, clientPosition?: {
     ctx.db.tidewyrmAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
   }
 
-  const damage = Math.min(tidewyrm.hp, Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage)) * acceptedHits);
+  const damage = bossDamageWithCriticals(ctx, progress, acceptedHits, tidewyrm.hp, WATER_REACH_MAP_ID, TIDEWYRM_POSITION);
   const currentContribution = ctx.db.tidewyrmContribution.identity.find(ctx.sender);
   const continuingContribution = currentContribution?.encounter === tidewyrm.encounter;
   const displayName = continuingContribution
@@ -7027,7 +7054,7 @@ function applyKoiShogunDamage(ctx: any, requestedHits: number, clientPosition?: 
     ctx.db.koiShogunAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
   }
 
-  const damage = Math.min(koiShogun.hp, Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage)) * acceptedHits);
+  const damage = bossDamageWithCriticals(ctx, progress, acceptedHits, koiShogun.hp, SAMURAI_GARDEN_MAP_ID, KOI_SHOGUN_POSITION);
   const currentContribution = ctx.db.koiShogunContribution.identity.find(ctx.sender);
   const continuingContribution = currentContribution?.encounter === koiShogun.encounter;
   const displayName = continuingContribution
@@ -7101,7 +7128,7 @@ function applyTempestKirinDamage(ctx: any, requestedHits: number, clientPosition
     ctx.db.tempestKirinAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
   }
 
-  const damage = Math.min(tempestKirin.hp, Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage)) * acceptedHits);
+  const damage = bossDamageWithCriticals(ctx, progress, acceptedHits, tempestKirin.hp, CLOUDSPIRE_MAP_ID, TEMPEST_KIRIN_POSITION);
   const currentContribution = ctx.db.tempestKirinContribution.identity.find(ctx.sender);
   const continuingContribution = currentContribution?.encounter === tempestKirin.encounter;
   const displayName = continuingContribution
@@ -7174,7 +7201,7 @@ function applyMiremawDamage(ctx: any, requestedHits: number, clientPosition?: { 
     ctx.db.miremawAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
   }
 
-  const damage = Math.min(miremaw.hp, Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage)) * acceptedHits);
+  const damage = bossDamageWithCriticals(ctx, progress, acceptedHits, miremaw.hp, MOONFEN_MAP_ID, MIREMAW_POSITION);
   const currentContribution = ctx.db.miremawContribution.identity.find(ctx.sender);
   const continuingContribution = currentContribution?.encounter === miremaw.encounter;
   const displayName = continuingContribution
@@ -7242,7 +7269,7 @@ function applyPrismshellDamage(ctx: any, requestedHits: number, clientPosition?:
     ctx.db.prismshellAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
   }
 
-  const damage = Math.min(prismshell.hp, Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage)) * acceptedHits);
+  const damage = bossDamageWithCriticals(ctx, progress, acceptedHits, prismshell.hp, CRYSTAL_HOLLOWS_MAP_ID, PRISMSHELL_POSITION);
   const currentContribution = ctx.db.prismshellContribution.identity.find(ctx.sender);
   const continuingContribution = currentContribution?.encounter === prismshell.encounter;
   const displayName = continuingContribution
@@ -7310,7 +7337,7 @@ function applyIronhornDamage(ctx: any, requestedHits: number, clientPosition?: {
     ctx.db.ironhornAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
   }
 
-  const damage = Math.min(ironhorn.hp, Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage)) * acceptedHits);
+  const damage = bossDamageWithCriticals(ctx, progress, acceptedHits, ironhorn.hp, CLOCKWORK_RUINS_MAP_ID, IRONHORN_POSITION);
   const currentContribution = ctx.db.ironhornContribution.identity.find(ctx.sender);
   const continuingContribution = currentContribution?.encounter === ironhorn.encounter;
   const displayName = continuingContribution
@@ -7378,7 +7405,7 @@ function applyDreadreaperDamage(ctx: any, requestedHits: number, clientPosition?
     ctx.db.dreadreaperAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
   }
 
-  const damage = Math.min(dreadreaper.hp, Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage)) * acceptedHits);
+  const damage = bossDamageWithCriticals(ctx, progress, acceptedHits, dreadreaper.hp, DUSKFALL_ORCHARD_MAP_ID, DREADREAPER_POSITION);
   const currentContribution = ctx.db.dreadreaperContribution.identity.find(ctx.sender);
   const continuingContribution = currentContribution?.encounter === dreadreaper.encounter;
   const displayName = continuingContribution
@@ -7927,6 +7954,16 @@ export const setDisplayName = spacetimedb.reducer(
     syncDisplayNamePresentation(ctx, ctx.sender, normalized);
     syncPlayerMotionIdentity(ctx, activePlayer);
     touchPlayerAccessAudit(ctx, activePlayer.protocolVersion);
+  },
+);
+
+export const setDeveloperNameTag = spacetimedb.reducer(
+  { visible: t.bool() },
+  (ctx, { visible }) => {
+    requireDeveloper(ctx);
+    const previous = ctx.db.playerNameTag.identity.find(ctx.sender);
+    if (previous) ctx.db.playerNameTag.identity.update({ ...previous, showDevTag: visible });
+    else ctx.db.playerNameTag.insert({ identity: ctx.sender, guildTag: "", showDevTag: visible });
   },
 );
 
