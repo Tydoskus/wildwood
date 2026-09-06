@@ -1,3 +1,5 @@
+import { paintArrowProjectile, paintRockProjectile, rockProjectileSize } from "./weapon-projectile-renderer";
+export { rockProjectileSize } from "./weapon-projectile-renderer";
 import { ENEMY_TYPES, REWARD_DATA, rewardAmountLabel, rewardStatLabel, type EnemyDefinition, type LoadedEnemySprite, type LoadedSpriteLayer } from "../enemies";
 import { clamp } from "../math";
 import { formatCompactNumber } from "../../ui/number-format";
@@ -11,16 +13,8 @@ import { playerDeathPose, type PlayerDeathAnimationState } from "./player-death-
 import type { StaticWorldSpriteFrame } from "./webgl-static-world-layer";
 import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
 import { createTintedImageCanvas } from "./image-tint";
-import { PLAYER_WORLD_SCALE } from "../player-render-scale";
 import { createEnemyAnimationSampler } from "./enemy-animation";
 
-export function rockProjectileSize(itemId: string | undefined, naturalWidth: number, naturalHeight: number) {
-  const held = itemPresentation(itemId)?.world;
-  return {
-    width: (held?.kind === "SPRITE" ? held.width ?? naturalWidth : naturalWidth) * PLAYER_WORLD_SCALE,
-    height: (held?.kind === "SPRITE" ? held.height ?? naturalHeight : naturalHeight) * PLAYER_WORLD_SCALE,
-  };
-}
 
 type Viewport = { width: number; height: number };
 type DrawShadow = (x: number, y: number, width: number, alpha?: number) => void;
@@ -216,42 +210,13 @@ export function createActorRenderer(options: {
   const projectileCircleSprites = new Map<string, HTMLCanvasElement>();
   let arrowProjectileSprite: HTMLCanvasElement | null | undefined;
 
-  function paintArrow(target: CanvasRenderingContext2D, x: number, y: number, angle: number, offset = 0) {
-    target.save();
-    target.translate(x, y);
-    target.rotate(angle);
-    target.translate(0, offset);
-    target.lineCap = "round";
-    target.strokeStyle = "#160b07";
-    target.lineWidth = 5;
-    target.beginPath(); target.moveTo(-10, 0); target.lineTo(8, 0); target.stroke();
-    target.strokeStyle = "#f4ce84";
-    target.lineWidth = 2;
-    target.beginPath(); target.moveTo(-10, 0); target.lineTo(8, 0); target.stroke();
-    target.fillStyle = "#160b07";
-    target.beginPath(); target.moveTo(13, 0); target.lineTo(5, -6); target.lineTo(5, 6); target.closePath(); target.fill();
-    target.fillStyle = "#d7e8ee";
-    target.beginPath(); target.moveTo(10, 0); target.lineTo(6, -3); target.lineTo(6, 3); target.closePath(); target.fill();
-    target.strokeStyle = "#160b07";
-    target.lineWidth = 3;
-    target.beginPath(); target.moveTo(-9, 0); target.lineTo(-13, -4); target.moveTo(-9, 0); target.lineTo(-13, 4); target.stroke();
-    target.restore();
-  }
 
   function drawArrow(x: number, y: number, angle: number, offset = 0) {
-    paintArrow(ctx, x, y, angle, offset);
+    paintArrowProjectile(ctx, x, y, angle, offset);
   }
 
   function drawRock(itemId: string | undefined, x: number, y: number, angle: number, offset = 0) {
-    const image = options.itemSprite(itemId);
-    if (!image?.complete || image.naturalWidth <= 0) return false;
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-    const { width, height } = rockProjectileSize(itemId, image.naturalWidth, image.naturalHeight);
-    ctx.drawImage(image, -width / 2, offset - height / 2, width, height);
-    ctx.restore();
-    return true;
+    return paintRockProjectile(ctx, options.itemSprite(itemId), itemId, x, y, angle, offset);
   }
 
   function arrowSprite() {
@@ -261,7 +226,7 @@ export function createActorRenderer(options: {
     canvas.height = 18;
     const target = canvas.getContext("2d");
     if (!target) return (arrowProjectileSprite = null);
-    paintArrow(target, canvas.width / 2, canvas.height / 2, 0);
+    paintArrowProjectile(target, canvas.width / 2, canvas.height / 2, 0);
     arrowProjectileSprite = canvas;
     return canvas;
   }

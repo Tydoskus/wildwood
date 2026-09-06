@@ -161,7 +161,7 @@
 .guild-report > p { padding: 0 14px 12px; }
 .guild-replay { padding: 14px; }
 .guild-replay h3, .guild-replay > p { text-align: center; margin-bottom: 10px; color: #fff; }
-.guild-replay canvas { width: 100%; aspect-ratio: 1000 / 640; display: block; border-radius: 14px; background: #101d29; }
+.guild-replay canvas { position: relative; inset: auto; width: 100%; height: auto; aspect-ratio: 1000 / 640; display: block; border-radius: 14px; image-rendering: auto; background: #39864b; }
 .guild-replay-controls { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
 .guild-replay-controls input { flex: 1; min-width: 100px; width: auto; accent-color: #79d7ff; }
 @media (max-width: 520px) {
@@ -169,3 +169,5 @@
   .guild-replay { padding: 4px; }
   .guild-window--replay .guild-content { padding: 10px; }
 }
+.guild-replay-controls { position: sticky; top: -1px; margin: 0 0 12px; z-index: 2; padding: 10px; border: 1px solid #ffffff20; border-radius: 12px; background: #14221ef5; }
+.guild-replay-controls .guild-button:first-child { margin-right: auto; }

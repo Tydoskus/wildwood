@@ -211,9 +211,9 @@ export function createGuildPanel(options: Options) {
       info.append(element("strong", `vs ${attacking ? battle.defender : battle.attacker}`), element("span", `${attacking ? "Attack" : "Defense"} · ${date(battle.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`));
       summary.append(element("span", result, `guild-result guild-result--${result.toLowerCase()}`), info); report.append(summary);
       if (battle.result.version === 2) {
-        summary.append(button(replayId === battle.id ? "Close replay" : "Watch replay", () => { replayId = replayId === battle.id ? null : battle.id; render(); }, "secondary", false, `replay-${battle.id}`));
+        summary.append(button(replayId === battle.id ? "Back to battles" : "Watch replay", () => { replayId = replayId === battle.id ? null : battle.id; render(); }, "secondary", false, `replay-${battle.id}`));
         report.append(element("p", `${battle.result.attackers.length} vs ${battle.result.defenders.length} members · ${battle.result.duration.toFixed(1)}s`));
-        if (replayId === battle.id) replay = createGuildBattleReplay(report, battle.result, [battle.attacker, battle.defender], options.replayAssets);
+        if (replayId === battle.id) replay = createGuildBattleReplay(report, battle.result, [battle.attacker, battle.defender], options.replayAssets, () => { replayId = null; render(); });
       } else {
         const legacy = element("details", undefined, "guild-disclosure"); legacy.append(element("summary", "Previous battle report"));
         battle.result.rounds.forEach(round => row(legacy, `${round.attacker} vs ${round.defender}`, `${(round.durationMicros / 1_000_000).toFixed(1)}s`));
@@ -311,7 +311,7 @@ export function createGuildPanel(options: Options) {
   function onKey(event: KeyboardEvent) {
     if (root.hidden) return;
     event.stopImmediatePropagation();
-    if (event.key === "Escape") { event.preventDefault(); if (confirmation) { confirmation = null; render(); } else close(); return; }
+    if (event.key === "Escape") { event.preventDefault(); if (confirmation) { confirmation = null; render(); } else if (replayId) { replayId = null; render(); } else close(); return; }
     if (event.key !== "Tab") return;
     const focusable = [...dialog.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), summary")]
       .filter(node => !node.closest("details:not([open])") || node.tagName === "SUMMARY");

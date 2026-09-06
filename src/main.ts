@@ -1297,7 +1297,7 @@ import {
   });
 
   guildPanel = createGuildPanel({
-    replayAssets: { player: playerAppearanceAssets, prepare: assets.ensureDuelAssets, background: assets.duelSpaceBackground, arena: assets.duelPlatformArt },
+    replayAssets: { player: playerAppearanceAssets, prepare: () => assets.ensureMapAssets("home_exterior"), trees: assets.treeSpritesheet, treeBounds: assets.treeSpriteBounds },
     api: () => coop?.guild,
     sessionKey: () => `${coop?.localIdentity?.() ?? ""}:${coop?.sessionGeneration?.() ?? 0}:${coop?.isConnected?.() ?? false}`,
     beforeOpen: () => {

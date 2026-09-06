@@ -57,6 +57,7 @@ function cachedPlayerBody(
   assets: PlayerAppearanceAssets,
   key: string,
   draw: (context: CanvasRenderingContext2D) => void,
+  resolution = 1,
 ) {
   const cache = playerBodyCache(assets);
   const existing = cache.get(key);
@@ -67,11 +68,13 @@ function cachedPlayerBody(
   }
   if (typeof document === "undefined") return null;
   const canvas = document.createElement("canvas");
-  canvas.width = PLAYER_BODY_WIDTH;
-  canvas.height = PLAYER_BODY_HEIGHT;
+  canvas.width = PLAYER_BODY_WIDTH * resolution;
+  canvas.height = PLAYER_BODY_HEIGHT * resolution;
   const context = canvas.getContext("2d");
   if (!context) return null;
-  context.imageSmoothingEnabled = false;
+  context.imageSmoothingEnabled = resolution > 1;
+  context.imageSmoothingQuality = "high";
+  context.scale(resolution, resolution);
   draw(context);
   cache.set(key, canvas);
   while (cache.size > PLAYER_BODY_CACHE_LIMIT) {
@@ -225,7 +228,7 @@ function drawPillHead(ctx: CanvasRenderingContext2D, width: number, height: numb
 export function drawStartingPlayer(
   ctx: CanvasRenderingContext2D,
   assets: PlayerAppearanceAssets,
-  options: { x: number; y: number; facing: number; combatFacing?: number | null; moving?: boolean; gameTime: number; throwClock?: number; skinTone?: number; headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string; alpha?: number; scale?: number },
+  options: { x: number; y: number; facing: number; combatFacing?: number | null; moving?: boolean; gameTime: number; throwClock?: number; skinTone?: number; headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string; alpha?: number; scale?: number; smooth?: boolean },
 ) {
   const scale = options.scale ?? PLAYER_WORLD_SCALE;
   const walkFrame = options.moving ? Math.floor(options.gameTime * 10) % 3 + 1 : 0;
@@ -332,6 +335,7 @@ export function drawStartingPlayer(
 
   ctx.save();
   ctx.globalAlpha = options.alpha ?? 1;
+  if (options.smooth) { ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high"; }
   // World renderers already align the actor anchor to a physical pixel. Keep
   // that fractional CSS coordinate intact at non-integer zoom and DPR.
   ctx.translate(options.x, options.y + 29);
@@ -354,7 +358,9 @@ export function drawStartingPlayer(
     drawLayer(ctx, asset, -width / 2, -height / 2, width, height);
     ctx.restore();
   };
+  const bodyResolution = options.smooth ? 2 : 1;
   const bodyCacheKey = [
+    bodyResolution,
     skinToneColor(options.skinTone),
     headItem,
     options.chestItem ?? "",
@@ -363,9 +369,9 @@ export function drawStartingPlayer(
     idleFrame,
   ].join("|");
   const bodyCanvas = bodyAssetsReady
-    ? cachedPlayerBody(assets, bodyCacheKey, drawBody)
+    ? cachedPlayerBody(assets, bodyCacheKey, drawBody, bodyResolution)
     : null;
-  if (bodyCanvas) ctx.drawImage(bodyCanvas, 0, 0);
+  if (bodyCanvas) ctx.drawImage(bodyCanvas, 0, 0, PLAYER_BODY_WIDTH, PLAYER_BODY_HEIGHT);
   else drawBody(ctx);
   // Keep weapons readable above armor from every facing and hand position.
   drawHeldItem();

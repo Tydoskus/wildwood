@@ -37,3 +37,14 @@ it("does not start a late asset load after the replay is disposed", async () => 
   replay.dispose(); finish(); await settle();
   expect(h.scheduled.size).toBe(0); expect(h.host.childElementCount).toBe(0);
 });
+it("keeps Back to battles available after seeking to the finished replay", async () => {
+  const h = setup(), back = vi.fn();
+  const replay = createGuildBattleReplay(h.host, h.battle, ["Fire", "Moon"], undefined, back);
+  await settle();
+  const seek = h.document.querySelector("input")! as unknown as HTMLInputElement;
+  seek.value = seek.max; seek.oninput!(new Event("input"));
+  expect(h.document.querySelector('[role="status"]')!.textContent).toContain("Draw");
+  const control = [...h.document.querySelectorAll("button")].find(button => button.textContent === "Back to battles")!;
+  expect(control.disabled).toBe(false); control.click(); expect(back).toHaveBeenCalledOnce();
+  replay.dispose();
+});

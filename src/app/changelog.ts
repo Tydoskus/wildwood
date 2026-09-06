@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.640": [
+    "Guild replays now take place on a grass battlefield with forest scenery.",
+    "Fixed stretched, pixelated guild replay rendering and restored full character equipment, continuous aiming, and native arrow and stone projectiles.",
+    "Timed projectile impacts and defeat animations to the battle replay, and added persistent Back to battles controls.",
+  ],
   "0.639": [
     "Guild battles now include every member in one simultaneous fight, using current saved stats and gear. Removed champion selection.",
     "Added a zoomed-out guild battle replay with pause, scrubbing, playback speeds, and optional player names.",
@@ -1567,6 +1572,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.640": "2026-09-06",
   "0.639": "2026-09-06",
   "0.638": "2026-09-06",
   "0.637": "2026-09-06",
