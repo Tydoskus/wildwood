@@ -69,6 +69,11 @@ function parseArguments(args: string[]) {
     else if (flag === "--future-speedup") config.futureSpeedupReserveMultiplier = Number(value);
     else if (flag === "--clears") config.requiredClears = Number(value);
     else if (flag === "--respawn") config.respawnSeconds = parseDuration(value);
+    else if (flag === "--target-add") config.targetMapDurationStepSeconds = parseDuration(value);
+    else if (flag === "--upgrades") {
+      if (value !== "steady" && value !== "off") throw new Error("Use --upgrades steady or off.");
+      config.steadyEquipmentUpgrades = value === "steady";
+    }
     else if (flag === "--gear-level") config.itemUpgradeLevel = Number(value);
     else if (flag === "--equipment-strength") config.equipmentStrengthMultiplier = Number(value);
     else if (flag === "--pathing") config.pathingMultiplier = Number(value);
@@ -125,7 +130,9 @@ Usage: npm run balance:simulate -- [options]
   --future-speedup 1.25        Uniform future progression-rate reserve
   --clears 1                   Full spawn-site clears required per map
   --respawn 30s                Regular enemy respawn time
-  --gear-level 0               Shared equipped-item upgrade level (0–10)
+  --target-add 20m             Additional target time per map after Desert
+  --upgrades steady           Single-slot upgrades: steady or off
+  --gear-level 0               Starting equipped-item upgrade level (0–10)
   --equipment-strength 1       Sandbox equipment-bonus strength multiplier
   --pathing 1.15               Travel distance overhead
   --seed 1337                  Deterministic base seed

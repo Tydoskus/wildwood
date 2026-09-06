@@ -6,6 +6,8 @@ import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
   CLOUDSPIRE_MAP_ID,
+  CLOCKWORK_RUINS_MAP_ID,
+  DUSKFALL_ORCHARD_MAP_ID,
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   MOONFEN_MAP_ID,
@@ -313,5 +315,27 @@ describe("Home", () => {
     ]);
     expect(createSpawnSites({ x: 4050, y: 4050 }, "home_exterior")).toEqual([]);
     expect(layout.decor.every(item => item.x >= 0 && item.x <= 1000 && item.y >= 0 && item.y <= 1000)).toBe(true);
+  });
+});
+
+
+describe("regional group aggro", () => {
+  it.each([
+    TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID,
+    ADVANCED_LAVA_WASTES_MAP_ID, INFERNAL_DEPTHS_MAP_ID, WATER_REACH_MAP_ID,
+    SAMURAI_GARDEN_MAP_ID, CLOUDSPIRE_MAP_ID, MOONFEN_MAP_ID,
+    CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID,
+  ] as const)("selects exactly one consistent region on %s", (mapId) => {
+    const sites = createSpawnSites({ x: 4050, y: 4050 }, mapId);
+    const grouped = sites.filter((site) => site.groupAggro);
+    expect(grouped.length).toBeGreaterThan(1);
+    expect(new Set(grouped.map((site) => site.campName)).size).toBe(1);
+    expect(sites.filter((site) => site.campName === grouped[0].campName)).toEqual(grouped);
+    expect(grouped.every((site) => site.leashRange >= 900)).toBe(true);
+    expect(sites.some((site) => !site.groupAggro)).toBe(true);
+    expect(createSpawnSites({ x: 4050, y: 4050 }, mapId)).toEqual(sites);
+    if (mapId === BEGINNER_DESERT_MAP_ID) {
+      expect(grouped.some((site) => site.type === "Dune Archer")).toBe(true);
+    }
   });
 });

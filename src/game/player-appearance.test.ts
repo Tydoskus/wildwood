@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FROST_ARMOR, STARTER_BOW } from "./inventory";
 import {
-  BOW_RIGHT_HAND_ANGLE_DEGREES,
   bowHeldAlignment,
   bowHeldAnchorX,
   bowHeldRotationRadians,
@@ -14,14 +13,23 @@ const degrees = (radians: number) => radians * 180 / Math.PI;
 
 describe("Bow pose", () => {
   it("keeps the native downward pose until combat aiming begins", () => {
-    expect(BOW_RIGHT_HAND_ANGLE_DEGREES).toBe(125);
     expect(degrees(bowHeldRotationRadians({ facingLeft: false, heldInLeftHand: false }))).toBe(0);
     expect(degrees(bowHeldRotationRadians({ facingLeft: true, heldInLeftHand: true }))).toBe(0);
   });
 
   it("rotates mirrored left- and right-hand bows only when following combat aim", () => {
-    expect(degrees(bowHeldRotationRadians({ combatFacing: Math.PI / 4, facingLeft: false, heldInLeftHand: false }))).toBeCloseTo(-10);
-    expect(degrees(bowHeldRotationRadians({ combatFacing: Math.PI * .75, facingLeft: true, heldInLeftHand: false }))).toBeCloseTo(-10);
+    for (const combatFacing of [0, Math.PI / 4, Math.PI / 2, Math.PI * .75, Math.PI, -Math.PI / 4, -Math.PI * .75]) {
+      for (const heldInLeftHand of [false, true]) {
+        const facingLeft = Math.cos(combatFacing) < 0;
+        const rotation = bowHeldRotationRadians({ combatFacing, facingLeft, heldInLeftHand });
+        // The source firing axis is (0, 1). Hand mirroring preserves it;
+        // rotate it, then apply the character's horizontal mirror.
+        const x = -Math.sin(rotation) * (facingLeft ? -1 : 1);
+        const y = Math.cos(rotation);
+        expect(x).toBeCloseTo(Math.cos(combatFacing));
+        expect(y).toBeCloseTo(Math.sin(combatFacing));
+      }
+    }
   });
 
   it("centers either hand's bow on the actor through actor mirroring", () => {

@@ -89,6 +89,8 @@
               </div>
             </div>
 
+            <label class="field-label" for="targetMapDurationStepMinutes">Minutes added per map</label>
+            <input id="targetMapDurationStepMinutes" type="number" min="0" max="1440" step="5" />
             <label class="field-label" for="targetMapDurationMultiplier">
               <span>Desired map step</span>
               <span class="field-hint">each map vs previous</span>
@@ -139,7 +141,9 @@
                   <span>× DIRECT</span>
                 </div>
 
-                <label class="field-label" for="itemUpgradeLevel">All equipped gear level</label>
+                <label class="field-label" for="steadyEquipmentUpgrades">Equipment upgrades</label>
+                <select id="steadyEquipmentUpgrades"><option value="steady">Steady single-slot queue</option><option value="off">Fixed starting levels</option></select>
+                <label class="field-label" for="itemUpgradeLevel">Starting gear level</label>
                 <input id="itemUpgradeLevel" name="itemUpgradeLevel" type="number" min="0" max="10" step="1" inputmode="numeric" />
 
                 <label class="field-label" for="equipmentStrengthPercent">

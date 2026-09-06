@@ -1,9 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { damageAfterArmor } from "./combat";
 import { desertLaneCombatValue, desertLaneRewardValue, referenceBuildForMap, ENCOUNTER_PROFILES,
-  DESERT_REFERENCE, FOREST_LANE_BASES, desertBossHealthAt, bossHeavyHitAt, MAP_STAT_GROWTH } from "./progression";
+  DESERT_REFERENCE, FOREST_LANE_BASES, desertBossHealthAt, bossHeavyHitAt, MAP_STAT_GROWTH, campaignEnemyRewardMultiplier } from "./progression";
 
 describe("encounter experience contract", () => {
+  it("awards 36 health for a Desert regent", () => {
+    expect(desertLaneRewardValue("King Slime", 0)).toEqual({ type: "health", amount: 36 });
+  });
+  it("awards 18 health for Desert archers and 2 armor for guards", () => {
+    expect(desertLaneRewardValue("Bramble", 0)).toEqual({ type: "health", amount: 18 });
+    expect(desertLaneRewardValue("Mossback", 0)).toEqual({ type: "armor", amount: 2 });
+  });
+  it("awards 6 damage for a Desert raider", () => {
+    expect(desertLaneRewardValue("Cindermaw", 0)).toEqual({ type: "damage", amount: 6 });
+  });
+  it("awards 22 damage for a Desert reaper", () => {
+    const reward = desertLaneRewardValue("Dread Warden", 0);
+    expect(reward.type).toBe("damage");
+    expect(reward.amount).toBeCloseTo(22, 10);
+  });
   it("preserves fight length, reward value, and threat across present and future tiers", () => {
     for (let tier = 0; tier <= 15; tier++) {
       const build = referenceBuildForMap(tier);
@@ -14,10 +29,10 @@ describe("encounter experience contract", () => {
         expect(damageAfterArmor(enemy.damage, build.armor) / build.maxHp).toBeCloseTo(profile.hitShare, 3);
         if (reward.type !== "speed") {
           const next = desertLaneRewardValue(lane, tier + 1);
-          if (tier !== 1) expect(next.amount / reward.amount).toBeCloseTo(MAP_STAT_GROWTH, 8);
+          if (tier !== 1) expect(next.amount / reward.amount).toBeCloseTo(MAP_STAT_GROWTH * campaignEnemyRewardMultiplier(tier + 1) / campaignEnemyRewardMultiplier(tier), 8);
         }
       }
-      expect(desertBossHealthAt(tier) / (build.damage * MAP_STAT_GROWTH)).toBeCloseTo(90);
+      expect(desertBossHealthAt(tier) / (build.damage / build.attackInterval * MAP_STAT_GROWTH)).toBeCloseTo(90);
       expect(damageAfterArmor(bossHeavyHitAt(tier), build.armor * MAP_STAT_GROWTH) / (build.maxHp * MAP_STAT_GROWTH)).toBeCloseTo(.25, 3);
     }
   });

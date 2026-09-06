@@ -37,15 +37,19 @@ function forestLaneBalance(lane: ForestProgressionLane): Pick<EnemyDefinition, "
 
 function postForestLaneBalance(role: PostForestRole, mapIndex: number): Pick<EnemyDefinition, "hp" | "damage" | "reward"> {
   const lane = CURRENT_ROLE_LANES[role];
+  const combat = desertLaneCombatValue(lane, mapIndex - 1);
   return {
-    ...desertLaneCombatValue(lane, mapIndex - 1),
+    ...combat,
+    hp: combat.hp * (mapIndex === 1 ? .05 : 1),
     reward: desertLaneRewardValue(lane, mapIndex - 1),
   };
 }
 
 function healthEliteBalance(mapIndex: number): Pick<EnemyDefinition, "hp" | "damage" | "reward"> {
+  const combat = desertLaneCombatValue("King Slime", mapIndex - 1);
   return {
-    ...desertLaneCombatValue("King Slime", mapIndex - 1),
+    ...combat,
+    hp: combat.hp * (mapIndex === 1 ? .05 : 1),
     reward: desertLaneRewardValue("King Slime", mapIndex - 1),
   };
 }
@@ -53,43 +57,43 @@ function healthEliteBalance(mapIndex: number): Pick<EnemyDefinition, "hp" | "dam
 const enemyTypes = {
   // TUTORIAL FOREST ENEMIES
   Bramble: {
-    speed: 105, attackSpeed: 1, r: 14,
+    speed: 205, attackSpeed: 1, r: 14,
     color: "#d95738", outline: "#5c1b13",
     ...forestLaneBalance("Bramble"),
   },
   Needle: {
-    speed: 105, attackSpeed: 1, r: 10,
+    speed: 205, attackSpeed: 1, r: 10,
     color: "#ffd34d", outline: "#6f4a12",
     ...forestLaneBalance("Needle"),
   },
   Mossback: {
-    speed: 105, attackSpeed: 1, r: 22,
+    speed: 205, attackSpeed: 1, r: 22,
     color: "#768d51", outline: "#2c3b20",
     ...forestLaneBalance("Mossback"),
   },
   Spitter: {
-    speed: 105, attackSpeed: 1, r: 15,
+    speed: 205, attackSpeed: 1, r: 15,
     color: "#b16ac8", outline: "#4b235d",
     ...forestLaneBalance("Spitter"),
   },
   Brood: {
-    speed: 90, attackSpeed: .69, r: 16,
+    speed: 205, attackSpeed: .69, r: 16,
     color: "#45b6c2", outline: "#174a54", ranged: true,
     ...forestLaneBalance("Brood"),
   },
   Cindermaw: {
-    speed: 105, attackSpeed: 1, r: 19,
+    speed: 205, attackSpeed: 1, r: 19,
     color: "#d95738", outline: "#5c1b13",
     ...forestLaneBalance("Cindermaw"),
   },
   "King Slime": {
-    speed: 95, attackSpeed: 1, r: 27,
+    speed: 205, attackSpeed: 1, r: 27,
     color: "#70a94f", outline: "#2d5127",
     elite: true, aggro: 300,
     ...forestLaneBalance("King Slime"),
   },
   "Dread Warden": {
-    speed: 110, attackSpeed: 1, r: 36,
+    speed: 205, attackSpeed: 1, r: 36,
     color: "#a52e3a", outline: "#47101a",
     elite: true, aggro: 340,
     ...forestLaneBalance("Dread Warden"),
@@ -97,35 +101,35 @@ const enemyTypes = {
 
   // BEGINNER DESERT ENEMIES
   "Dune Raider": {
-    speed: 165, attackSpeed: .65, r: 19,
+    speed: 205, attackSpeed: .65, r: 19,
     color: "#d6a13a", outline: "#5f3c18",
     ...postForestLaneBalance("raider", 1),
   },
   "Dune Archer": {
-    speed: 153.75, attackSpeed: .55, r: 17,
+    speed: 205, attackSpeed: .55, r: 17,
     color: "#d5b04d", outline: "#61481d",
     ranged: true,
     ...postForestLaneBalance("archer", 1),
   },
   "Dune Regent": {
-    speed: 145, attackSpeed: .65, r: 29,
+    speed: 205, attackSpeed: .65, r: 29,
     color: "#e3c568", outline: "#61481d",
     elite: true, aggro: 310,
     ...healthEliteBalance(1),
   },
   "Venom Guard": {
-    speed: 146.25, attackSpeed: .55, r: 24,
+    speed: 205, attackSpeed: .55, r: 24,
     color: "#79d18b", outline: "#285a37",
     ...postForestLaneBalance("guardian", 1),
   },
   "Wastes Reaper": {
-    speed: 168.75, attackSpeed: .7, r: 31,
+    speed: 205, attackSpeed: .7, r: 31,
     color: "#8fe09a", outline: "#294f34",
     ranged: true, elite: true, aggro: 300,
     ...postForestLaneBalance("reaper", 1),
   },
   "Blight Oracle": {
-    speed: 157.5, attackSpeed: .6, r: 29,
+    speed: 205, attackSpeed: .6, r: 29,
     color: "#a5df79", outline: "#345426",
     elite: true, aggro: 300,
     ...postForestLaneBalance("oracle", 1),
@@ -419,31 +423,31 @@ const enemyTypes = {
     ...postForestLaneBalance("archer", 11),
   },
   "Crystal Regent": {
-    speed: 202, attackSpeed: .65, r: 47,
+    speed: 205, attackSpeed: .65, r: 47,
     color: "#e2cdfd", outline: "#463762",
     elite: true, aggro: 340,
     ...healthEliteBalance(9),
   }, "Gear Regent": {
-    speed: 202, attackSpeed: .65, r: 47,
+    speed: 205, attackSpeed: .65, r: 47,
     color: "#e2cdfd", outline: "#463762",
     elite: true, aggro: 340,
     ...healthEliteBalance(10),
   }, "Harvest Regent": {
-    speed: 202, attackSpeed: .65, r: 47,
+    speed: 205, attackSpeed: .65, r: 47,
     color: "#e2cdfd", outline: "#463762",
     elite: true, aggro: 340,
     ...healthEliteBalance(11),
   },
   "Geode Guardian": {
-    attackSpeed: .65, speed: 202, r: 40,
+    attackSpeed: .65, speed: 205, r: 40,
     color: "#8299c9", outline: "#303854",
     ...postForestLaneBalance("guardian", 9),
   }, "Iron Guardian": {
-    attackSpeed: .65, speed: 202, r: 40,
+    attackSpeed: .65, speed: 205, r: 40,
     color: "#8299c9", outline: "#303854",
     ...postForestLaneBalance("guardian", 10),
   }, "Husk Guardian": {
-    attackSpeed: .65, speed: 202, r: 40,
+    attackSpeed: .65, speed: 205, r: 40,
     color: "#8299c9", outline: "#303854",
     ...postForestLaneBalance("guardian", 11),
   },

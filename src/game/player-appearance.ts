@@ -13,8 +13,7 @@ export const PLAYER_SKIN_TONE_NAMES = [
   "light green", "mint", "sky blue", "periwinkle", "lavender", "pink", "coral red", "violet", "gold", "cool gray",
 ] as const;
 export const DEFAULT_SKIN_TONE = 3;
-export const BOW_RIGHT_HAND_ANGLE_DEGREES = 125;
-const BOW_SOURCE_DOWN_ANGLE_DEGREES = 180;
+const BOW_SOURCE_DOWN_ANGLE_DEGREES = 90;
 const DEGREES_TO_RADIANS = Math.PI / 180;
 
 export type PlayerAppearanceAssets = {
@@ -155,7 +154,7 @@ export function warmPlayerAppearanceCache(assets: PlayerAppearanceAssets, option
   }
 }
 
-/** Converts the requested 125° right-hand pose into canvas rotation. */
+/** Aligns the artwork's downward firing axis with the combat direction. */
 export function bowHeldRotationRadians(options: {
   combatFacing?: number | null;
   facingLeft: boolean;
@@ -166,9 +165,8 @@ export function bowHeldRotationRadians(options: {
   if (options.combatFacing === null || options.combatFacing === undefined) return 0;
   // Left-hand art is already mirrored on its Y axis below. Reversing the
   // rotation too would double-flip the pose and point the bow upward.
-  const handOffsetDegrees = BOW_RIGHT_HAND_ANGLE_DEGREES - BOW_SOURCE_DOWN_ANGLE_DEGREES;
   const localAim = options.facingLeft ? Math.PI - options.combatFacing : options.combatFacing;
-  return localAim + handOffsetDegrees * DEGREES_TO_RADIANS;
+  return localAim - BOW_SOURCE_DOWN_ANGLE_DEGREES * DEGREES_TO_RADIANS;
 }
 
 /** Keeps the bow artwork centered on the actor until aiming begins. */

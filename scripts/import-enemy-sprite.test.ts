@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { alphaBounds, coreManifest } from "./import-enemy-sprite.mjs";
+import { alphaBounds, coreManifest, frameContentBounds } from "./import-enemy-sprite.mjs";
 
 function source() {
   return {
@@ -44,4 +44,15 @@ describe("enemy sprite promotion", () => {
       { x: 1, y: 1, w: 4, h: 4 }, { x: 7, y: 1, w: 4, h: 4 },
     ])).toEqual({ left: 1, top: 0, right: 3, bottom: 3 });
   });
+});
+
+
+it("keeps faint attack pixels and a sampling border when trimming a frame", () => {
+  const data = new Uint8Array(20 * 20 * 4);
+  data[(3 * 20 + 4) * 4 + 3] = 1;
+  data[(12 * 20 + 13) * 4 + 3] = 255;
+  expect(frameContentBounds(data, 20, { x: 2, y: 2, w: 16, h: 16 }))
+    .toEqual({ x: 0, y: 0, w: 14, h: 13 });
+  expect(frameContentBounds(new Uint8Array(20 * 20 * 4), 20, { x: 2, y: 2, w: 16, h: 16 }))
+    .toEqual({ x: 0, y: 0, w: 0, h: 0 });
 });

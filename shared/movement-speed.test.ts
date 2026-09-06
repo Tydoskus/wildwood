@@ -7,16 +7,16 @@ import {
 } from "./rules";
 
 describe("player movement speed", () => {
-  it("applies the Trailblazer Boots bonus to the base speed", () => {
+  it("keeps cosmetic boots from changing movement speed", () => {
     expect(playerBaseMovementSpeed(false)).toBe(180);
-    expect(playerBaseMovementSpeed(true)).toBe(205);
+    expect(playerBaseMovementSpeed(true)).toBe(180);
   });
 
   it("applies every Move Speed research rank after equipment", () => {
     expect(movementSpeedMultiplier(5)).toBeCloseTo(1.1);
-    expect(effectivePlayerMovementSpeed(true, 5)).toBeCloseTo(225.5);
-    expect(effectivePlayerMovementSpeed(true, 11)).toBeCloseTo(250.1);
-    expect(effectivePlayerMovementSpeed(true, 15)).toBeCloseTo(266.5);
+    expect(effectivePlayerMovementSpeed(true, 5)).toBeCloseTo(198);
+    expect(effectivePlayerMovementSpeed(true, 11)).toBeCloseTo(219.6);
+    expect(effectivePlayerMovementSpeed(true, 15)).toBeCloseTo(234);
   });
 
   it("uses a server-owned developer override as the researched base speed", () => {

@@ -18,6 +18,7 @@ export function createEnemyLifecycle(
       type: site.type,
       siteId: site.id,
       campName: site.campName,
+      groupAggro: site.groupAggro,
       x: site.x,
       y: site.y,
       homeX: site.x,
@@ -53,8 +54,8 @@ export function createEnemyLifecycle(
   }
 
   function engageEnemy(enemy: EnemyState, targetId: string | null = null, startedAtTick = 0) {
-    const group = enemy.type === "Dune Archer"
-      ? enemies.filter((candidate) => !candidate.dead && candidate.type === "Dune Archer")
+    const group = enemy.groupAggro
+      ? enemies.filter((candidate) => !candidate.dead && candidate.groupAggro && candidate.campName === enemy.campName)
       : [enemy];
     for (const candidate of group) {
       candidate.engaged = true;

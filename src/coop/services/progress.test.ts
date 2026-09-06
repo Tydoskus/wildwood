@@ -1,3 +1,4 @@
+import { rescaleEndgameProgress } from "../../../shared/endgame-power-rescale";
 import { compressLegacyMapPower } from "../../../shared/map-power-rescale";
 import { describe, expect, it } from "vitest";
 import { ATTACK_BALANCE_VERSION, DEFAULT_ATTACK_RANGE, MAX_PLAYER_STAT, MIN_ATTACK_INTERVAL } from "../../../shared/rules";
@@ -106,7 +107,7 @@ describe("progress persistence rules", () => {
     expect(migrated.damage).toBeLessThan(topFiveSave.damage);
     expect(migrated.maxHp / topFiveSave.maxHp).toBeCloseTo(migrated.damage / topFiveSave.damage, 10);
     expect(migrateProgressSave(topFiveSave, ATTACK_BALANCE_VERSION)).toMatchObject(topFiveSave);
-    expect(migrateProgressSave({ ...pending, damage: 1_000_000 }, 4)).toEqual(copyProgress(compressLegacyMapPower({ ...pending, damage: 1_000_000 })));
+    expect(migrateProgressSave({ ...pending, damage: 1_000_000 }, 4)).toEqual(copyProgress(rescaleEndgameProgress(compressLegacyMapPower({ ...pending, damage: 1_000_000 }))));
   });
 
   it("corrects a version-5 pending save to the current-equipment Water anchor", () => {
@@ -119,9 +120,22 @@ describe("progress persistence rules", () => {
       regen: 35_612.242,
     };
     const migrated = migrateProgressSave(v5Save, 5);
-    expect(migrated).toEqual(copyProgress(compressLegacyMapPower(correctLegacyTopFiveV5Progression(v5Save))));
+    expect(migrated).toEqual(copyProgress(rescaleEndgameProgress(compressLegacyMapPower(correctLegacyTopFiveV5Progression(v5Save)))));
     expect(migrated.maxHp / v5Save.maxHp).toBeCloseTo(migrated.damage / v5Save.damage, 6);
     expect(migrateProgressSave(v5Save, ATTACK_BALANCE_VERSION)).toMatchObject(v5Save);
+  });
+
+  it("converts a version-7 queued save exactly once without scaling new earnings", () => {
+    const storage = memoryStorage();
+    const old = { ...pending, damage: 1e8, maxHp: 2e8, armor: 1e6, regen: 2e6 };
+    storage.setItem("pending/player-1", JSON.stringify({ identity: "player-1", balanceVersion: 7, progress: old }));
+    const store = createProgressStore(storage, "pending");
+    const migrated = store.read("player-1")!;
+    expect(migrated).toEqual(copyProgress(rescaleEndgameProgress(old)));
+    expect(store.read("player-1")).toEqual(migrated);
+    const earned = { ...migrated, damage: migrated.damage + 1000 };
+    store.write("player-1", earned);
+    expect(store.read("player-1")).toEqual(earned);
   });
 
   it("converts a version-6 queued save once and keeps new earnings on subsequent reads", () => {
@@ -130,7 +144,7 @@ describe("progress persistence rules", () => {
     storage.setItem("pending/player-1", JSON.stringify({ identity: "player-1", balanceVersion: 6, progress: old }));
     const store = createProgressStore(storage, "pending");
     const migrated = store.read("player-1")!;
-    expect(migrated).toEqual(copyProgress(compressLegacyMapPower(old)));
+    expect(migrated).toEqual(copyProgress(rescaleEndgameProgress(compressLegacyMapPower(old))));
     expect(migrated.damage).toBeLessThan(old.damage / 100);
     expect(store.read("player-1")).toEqual(migrated);
     const earned = { ...migrated, damage: migrated.damage + 1000 };

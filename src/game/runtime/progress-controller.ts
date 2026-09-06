@@ -231,6 +231,5 @@ function isDefaultProgress(progress: Partial<PlayerProgress>) {
     progress.armor === 0 &&
     progress.regen === 0 &&
     progress.speed === PLAYER_SPEED &&
-    (progress.speedOverride ?? 0) === 0 &&
-    progress.bootsCollected === false;
+    (progress.speedOverride ?? 0) === 0;
 }

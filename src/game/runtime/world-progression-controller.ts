@@ -24,23 +24,6 @@ export function createWorldProgressionController(hooks: {
     return hooks.hasSeenPortalCutscene(key);
   }
 
-  function updateBootPickup() {
-    const { bootsPickup, player } = hooks;
-    if (bootsPickup.collected) return;
-    const dx = player.x - bootsPickup.x;
-    const dy = player.y - bootsPickup.y;
-    const reach = player.r + bootsPickup.r;
-    if (dx * dx + dy * dy > reach * reach) return;
-    bootsPickup.collected = true;
-    hooks.collectBoots();
-    player.speed = hooks.movementSpeedForBoots(true);
-    hooks.saveProgress();
-    hooks.renderInventory();
-    hooks.pause();
-    hooks.bootUpgrade.hidden = false;
-    hooks.bootUpgradeClose.focus();
-  }
-
   function closeBootUpgrade() {
     hooks.resume();
     hooks.bootUpgrade.hidden = true;
@@ -53,7 +36,6 @@ export function createWorldProgressionController(hooks: {
     hasSeenInfernalPortalCutscene: () => hasSeen(hooks.infernalCutsceneSeenKey),
     hasSeenWaterPortalCutscene: () => hasSeen(hooks.waterCutsceneSeenKey),
     hasSeenSamuraiPortalCutscene: () => hasSeen(hooks.samuraiCutsceneSeenKey),
-    updateBootPickup,
     closeBootUpgrade,
     hideBootUpgrade: () => { hooks.bootUpgrade.hidden = true; },
   };

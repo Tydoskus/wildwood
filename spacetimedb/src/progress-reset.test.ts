@@ -3,6 +3,7 @@ import { type ConnectionId, Identity } from "spacetimedb";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { BOSS_REWARD_CLAIM_BITS, MAP_IDS, PLAYER_BASE_HP, PLAYER_SPAWN, PROTOCOL_VERSION, TUTORIAL_FOREST_MAP_ID } from "../../shared/rules";
 import { AGE_BAND_ADULT, TERMS_VERSION } from "../../shared/legal";
+import { TRAILBLAZER_BOOTS, SUPERIOR_GOLDEN_HELMET } from "../../shared/items";
 
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 const owner = new Identity("c200383520521c925f3cf6deafb20cd6a7d6168d1c31cb3c0ddb731c197a2d79");
@@ -23,6 +24,27 @@ function rootFixture(mapId: string) {
 }
 
 describe("progress reset returns the character to the tutorial", () => {
+  it("starts new players in cosmetic boots without granting a beta helmet on entry or re-entry", () => {
+    const f = crystalFixture();
+    f.db.playerProgress.identity.delete(f.ctx.sender);
+    f.run(server.acceptTerms, { termsVersion: TERMS_VERSION, ageBand: AGE_BAND_ADULT });
+    for (let visit = 0; visit < 2; visit++) {
+      f.run(server.enterWorld, { tabId: "starter-test-tab" });
+      const progress = f.db.playerProgress.identity.find(f.ctx.sender);
+      expect(progress.equippedFeet).toBe(TRAILBLAZER_BOOTS);
+      expect(progress.speed).toBe(180);
+      expect(JSON.parse(progress.inventoryJson)).toContain(TRAILBLAZER_BOOTS);
+      expect(JSON.parse(progress.inventoryJson)).not.toContain(SUPERIOR_GOLDEN_HELMET);
+    }
+  });
+
+  it("preserves an already owned beta helmet across reset", () => {
+    const f = crystalFixture();
+    f.patch("playerProgress", { inventoryJson: JSON.stringify([SUPERIOR_GOLDEN_HELMET]) });
+    f.run(server.resetPlayerProgress);
+    expect(JSON.parse(f.db.playerProgress.identity.find(f.ctx.sender).inventoryJson)).toContain(SUPERIOR_GOLDEN_HELMET);
+  });
+
   it.each(MAP_IDS)("resets location, movement and progress from %s", (mapId) => {
     const f = crystalFixture();
     f.patch("player", { mapId, hp: 1, maxHp: 900, moving: true, vx: 180, dx: 1, motionEpoch: 2 });
@@ -38,6 +60,11 @@ describe("progress reset returns the character to the tutorial", () => {
     expect(f.db.playerMapMarker.identity.find(f.ctx.sender)).toMatchObject(spawn);
     expect(f.db.playerProgress.identity.find(f.ctx.sender)).toMatchObject({ introComplete: false,
       desertUnlocked: false, crystalHollowsUnlocked: false, maxHp: PLAYER_BASE_HP, bossRewardClaims: 0 });
+    const progress = f.db.playerProgress.identity.find(f.ctx.sender);
+    expect(progress.equippedFeet).toBe(TRAILBLAZER_BOOTS);
+    expect(progress.bootsCollected).toBe(true);
+    expect(JSON.parse(progress.inventoryJson)).toContain(TRAILBLAZER_BOOTS);
+    expect(JSON.parse(progress.inventoryJson)).not.toContain(SUPERIOR_GOLDEN_HELMET);
   });
 
   it.each(["crystal_hollows", TUTORIAL_FOREST_MAP_ID])("rotates regional admission from %s and ignores old checkpoints", (mapId) => {

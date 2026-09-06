@@ -231,43 +231,44 @@ export function createDepthWorldRenderer(options: {
     };
     for (const enemy of options.enemies) queueEnemy(enemy);
     for (const enemy of options.remoteEnemies?.() ?? []) queueEnemy(enemy);
+    // Includes large sprites, HP bars and reward labels beyond the body radius.
+    const bossVisible = (boss: { x: number; y: number; dead: boolean }) => !boss.dead
+      && boss.x >= camera.x - 600 && boss.x <= camera.x + visibleW + 600
+      && boss.y >= camera.y - 600 && boss.y <= camera.y + visibleH + 600;
     const currentMapId = options.currentMapId();
-    if (currentMapId === TUTORIAL_FOREST_MAP_ID && !options.boss.dead) {
+    if (currentMapId === TUTORIAL_FOREST_MAP_ID && bossVisible(options.boss)) {
       queueLayer(options.boss.y + 93, 1, "dragon");
     }
-    if (currentMapId === BEGINNER_DESERT_MAP_ID && !options.spiderBoss.dead) {
+    if (currentMapId === BEGINNER_DESERT_MAP_ID && bossVisible(options.spiderBoss)) {
       queueLayer(options.spiderBoss.y + 55, 1, "spider");
     }
-    if (currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID && !options.frostclawBoss.dead) {
+    if (currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID && bossVisible(options.frostclawBoss)) {
       queueLayer(options.frostclawBoss.y + FROSTCLAW_SPRITE_Y_OFFSET + FROSTCLAW_SPRITE_GROUND_OFFSET, 1, "frostclaw");
     }
-    if (currentMapId === ADVANCED_LAVA_WASTES_MAP_ID && !options.magmaliskBoss.dead) {
+    if (currentMapId === ADVANCED_LAVA_WASTES_MAP_ID && bossVisible(options.magmaliskBoss)) {
       queueLayer(options.magmaliskBoss.y + MAGMALISK_SPRITE_Y_OFFSET + MAGMALISK_SPRITE_GROUND_OFFSET, 1, "magmalisk");
     }
-    if (currentMapId === INFERNAL_DEPTHS_MAP_ID && !options.gloomrootBoss.dead) {
+    if (currentMapId === INFERNAL_DEPTHS_MAP_ID && bossVisible(options.gloomrootBoss)) {
       queueLayer(options.gloomrootBoss.y + GLOOMROOT_SPRITE_Y_OFFSET + GLOOMROOT_SPRITE_GROUND_OFFSET, 1, "gloomroot");
     }
-    if (currentMapId === WATER_REACH_MAP_ID && !options.tidewyrmBoss.dead) {
+    if (currentMapId === WATER_REACH_MAP_ID && bossVisible(options.tidewyrmBoss)) {
       queueLayer(options.tidewyrmBoss.y + TIDEWYRM_SPRITE_Y_OFFSET + TIDEWYRM_SPRITE_GROUND_OFFSET, 1, "tidewyrm");
     }
-    if (currentMapId === SAMURAI_GARDEN_MAP_ID && !options.koiShogunBoss.dead) {
+    if (currentMapId === SAMURAI_GARDEN_MAP_ID && bossVisible(options.koiShogunBoss)) {
       queueLayer(options.koiShogunBoss.y + KOI_SHOGUN_SPRITE_Y_OFFSET + KOI_SHOGUN_SPRITE_GROUND_OFFSET, 1, "koiShogun");
     }
-    if (currentMapId === CLOUDSPIRE_MAP_ID && !options.tempestKirinBoss.dead) {
+    if (currentMapId === CLOUDSPIRE_MAP_ID && bossVisible(options.tempestKirinBoss)) {
       queueLayer(options.tempestKirinBoss.y + TEMPEST_KIRIN_SPRITE_Y_OFFSET + TEMPEST_KIRIN_SPRITE_GROUND_OFFSET, 1, "tempestKirin");
     }
-    if (currentMapId === MOONFEN_MAP_ID && !options.miremawBoss.dead) {
+    if (currentMapId === MOONFEN_MAP_ID && bossVisible(options.miremawBoss)) {
       queueLayer(options.miremawBoss.y + MIREMAW_SPRITE_Y_OFFSET + MIREMAW_SPRITE_GROUND_OFFSET, 1, "miremaw");
     }
-    if (currentMapId === CLOCKWORK_RUINS_MAP_ID && !options.ironhornBoss.dead) {
+    if (currentMapId === CLOCKWORK_RUINS_MAP_ID && bossVisible(options.ironhornBoss)) {
       queueLayer(options.ironhornBoss.y + IRONHORN_SPRITE_Y_OFFSET + IRONHORN_SPRITE_GROUND_OFFSET, 1, "ironhorn");
-    } else if (currentMapId === DUSKFALL_ORCHARD_MAP_ID && !options.dreadreaperBoss.dead) {
+    } else if (currentMapId === DUSKFALL_ORCHARD_MAP_ID && bossVisible(options.dreadreaperBoss)) {
       queueLayer(options.dreadreaperBoss.y + DREADREAPER_SPRITE_Y_OFFSET + DREADREAPER_SPRITE_GROUND_OFFSET, 1, "dreadreaper");
-    } else if (currentMapId === CRYSTAL_HOLLOWS_MAP_ID && !options.prismshellBoss.dead) {
+    } else if (currentMapId === CRYSTAL_HOLLOWS_MAP_ID && bossVisible(options.prismshellBoss)) {
       queueLayer(options.prismshellBoss.y + PRISMSHELL_SPRITE_Y_OFFSET + PRISMSHELL_SPRITE_GROUND_OFFSET, 1, "prismshell");
-    }
-    if (currentMapId === TUTORIAL_FOREST_MAP_ID && !options.bootsPickup.collected) {
-      queueLayer(options.bootsPickup.y + options.bootsPickup.r, 1, "boots");
     }
     const portal = options.activePortal();
     if (includePortal && portal) queueLayer(portal.depth, 2, "portal");

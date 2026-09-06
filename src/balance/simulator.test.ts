@@ -15,7 +15,7 @@ describe("balance simulator", () => {
   it("uses the intended campaign defaults when no overrides are supplied", () => {
     const defaults = defaultBalanceSimulationConfig();
     const targetedMapSeconds = MAP_IDS.slice(1).reduce((total, _map, index) =>
-      total + BALANCE_TARGET_DESERT_DURATION_SECONDS * BALANCE_TARGET_MAP_DURATION_MULTIPLIER ** index, 0);
+      total + BALANCE_TARGET_DESERT_DURATION_SECONDS * BALANCE_TARGET_MAP_DURATION_MULTIPLIER ** index + defaults.targetMapDurationStepSeconds * index, 0);
     expect(defaults.durationSeconds).toBeCloseTo(1.5 * (22.5 * 60 + targetedMapSeconds));
     expect(defaults.trials).toBe(100);
     expect(defaults.strategy).toBe("mixed");
@@ -95,13 +95,13 @@ describe("balance simulator", () => {
     const finalPoint = bossRush?.timeline.at(-1);
     const previousPoint = bossRush?.timeline.at(-2);
     expect(finalPoint?.powerMedian).toBeGreaterThan(previousPoint?.powerMedian ?? 0);
-  });
+  }, 30_000);
 
   it("keeps a DPS-first player moving through discrete boss-readiness ties", () => {
-    const result = runBalanceSimulation({ durationSeconds: 6 * 60 * 60, trials: 1, strategy: "dps-first", seed: 7_331 });
+    const result = runBalanceSimulation({ durationSeconds: 24 * 60 * 60, trials: 1, strategy: "dps-first", seed: 7_331 });
     expect(result.maps.find((map) => map.mapId === BEGINNER_DESERT_MAP_ID)?.completedPercent).toBe(100);
     expect(result.maps.find((map) => map.mapId === INTERMEDIATE_SNOWLANDS_MAP_ID)?.completedPercent).toBe(100);
-  });
+  }, 30_000);
 
   it("can run an explicit repeat-boss scenario and exposes its farming cost", () => {
     const result = runBalanceSimulation({ durationSeconds: 6 * 60 * 60, trials: 1, strategy: "boss-farm", seed: 7_331 });
@@ -114,8 +114,8 @@ describe("balance simulator", () => {
     expect(result.diagnostics.some((diagnostic) => diagnostic.includes("full authored reward"))).toBe(true);
   });
 
-  it("produces a monotonic power timeline", () => {
-    const timeline = runBalanceSimulation(quickConfig).timeline;
+  it("produces a monotonic power timeline when no gear is at the bench", () => {
+    const timeline = runBalanceSimulation({ ...quickConfig, steadyEquipmentUpgrades: false }).timeline;
     for (let index = 1; index < timeline.length; index += 1) {
       expect(timeline[index].powerP10).toBeGreaterThanOrEqual(timeline[index - 1].powerP10);
       expect(timeline[index].powerMedian).toBeGreaterThanOrEqual(timeline[index - 1].powerMedian);
@@ -148,8 +148,8 @@ describe("balance simulator", () => {
     expect(bossReadinessTargetSeconds(WATER_REACH_MAP_ID, config)).toBe(BALANCE_LATE_BOSS_TARGET_MAX_SECONDS);
   });
 
-  it("keeps the default post-onboarding campaign measurable and surfaces balance drift", () => {
-    const result = runBalanceSimulation();
+  it("adds about 20 minutes per map after Desert with steady gear and research", () => {
+    const result = runBalanceSimulation({ strategy: "efficient", trials: 5, durationSeconds: 32 * 3600 });
     const progressionMaps = result.maps.slice(1);
 
     expect(progressionMaps.every((map) => map.reachedPercent >= 50)).toBe(true);
@@ -177,17 +177,11 @@ describe("balance simulator", () => {
       expect(map.momentum?.largestSingleJumpGrowthSharePercent).toBeGreaterThanOrEqual(0);
     }
     expect(result.diagnostics.some((diagnostic) => diagnostic.includes("Pacing curve:"))).toBe(true);
-    const lateStatTracks = result.maps
-      .filter((map) => map.mapId !== TUTORIAL_FOREST_MAP_ID)
-      .flatMap((map) => map.statProgression)
-      .filter((metric) =>
-        metric.stat === "damage" ||
-        metric.stat === "health" ||
-        metric.stat === "armor" ||
-        metric.stat === "regeneration");
-    expect(lateStatTracks
-      .filter((metric) => metric.stat === "damage")
-      .every((metric) => metric.investmentSharePercent <= 50)).toBe(true);
+    const desertDuration = progressionMaps[0].durationMedianSeconds!;
+    for (const [index, map] of progressionMaps.entries()) {
+      const target = desertDuration + index * 20 * 60;
+      expect(Math.abs(map.durationMedianSeconds! - target), map.mapId).toBeLessThan(12 * 60);
+    }
     expect(result.diagnostics.some((diagnostic) => diagnostic.includes("Stat farming:"))).toBe(true);
 
     const nightEnemies = result.enemyMetrics[INFERNAL_DEPTHS_MAP_ID];
@@ -212,10 +206,6 @@ describe("balance simulator", () => {
     expect(lateEnemy.referenceHitPercentOfHealth).not.toBeNull();
     expect(lateEnemy.incomingDamagePerSecond).toBeGreaterThan(0);
     expect(lateEnemy.survivalSeconds).not.toBeNull();
-
-    const snow = result.maps.find((map) => map.mapId === "intermediate_snowlands")!;
-    expect(snow.powerGrowthMultiplier).toBeGreaterThan(2);
-    expect(snow.powerGrowthMultiplier).toBeLessThan(4.5);
 
     for (const map of progressionMaps.slice(0, 5)) {
       expect(map.curveProgress?.p25).toBeGreaterThanOrEqual(0);

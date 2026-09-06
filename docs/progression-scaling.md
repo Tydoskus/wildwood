@@ -11,13 +11,13 @@ The September 4 overhaul replaces the chained map multipliers. `shared/progressi
 - Health has its own meaningful budget: the Desert reference has 400 damage and 4,000 health. Equal damage and health are not a balance target; that produces near-one-shot raw-stat duels.
 - Six raiders plus one reaper in Desert/Snow and six plus seven later have the same damage-reward budget per clear. Adding damage enemies must not accidentally double progression speed. Other roles retain their authored rewards and camp layouts.
 - Boss HP uses the intended end-of-map reference DPS and a 90-second fight. Heavy hits target 25% of that reference's health after armor. Smaller overlapping abilities remain below the heavy strike.
-- Repeat bosses pay the same small guaranteed capstone as first clears. They must compete with regular farming including the 30-second respawn. The bulk of map growth comes from ordinary encounters.
+- Repeat bosses pay the same small guaranteed capstone as first clears. They must compete with regular farming including the 45-second respawn. The bulk of map growth comes from ordinary encounters.
 - Equipment bonuses remain additive, upgrades remain linear, and equipment never grants attack speed. Attack speed retains its existing cap.
 - Regular movement stays at or below Snowlands' matching role. Existing enemy art and map geometry retain their identity. Health elites must exist in both authored and saved map rosters and in asset-loading groups.
 
 ## Pacing hypothesis and validation
 
-25 active minutes per campaign map and 90 seconds per boss are initial playtest targets, not research-established constants. Maps need not take equal time for every strategy. The default simulation window includes 50% extra time to avoid censoring the last map solely because the window equals the sum of the targets.
+About 52 active minutes of efficient farming tracks the current Desert baseline, with 20 additional minutes for each later map; 90 seconds per boss is the simulator’s readiness target. Map-specific regular reward multipliers account for camps, travel, gear, and research. The forecast continuously advances balanced research and one equipment upgrade slot using actual upgrade durations, with the queued item unavailable and fallback gear equipped. Item levels persist separately; newly found gear starts at the configured initial level. This assumes prompt bench visits without paid skips; travel to Home is not simulated. Maps need not take equal time for every strategy. The default simulation window includes 50% extra time to avoid censoring the last map solely because the window equals the sum of the targets.
 
 The lab's four primary readouts are ordinary fight length, regular hits survived, longest wait for a cumulative +10% power improvement, and boss fight/payout. Power is only a momentum proxy. Use the detailed stat, reward, and threat tables to diagnose the cause.
 

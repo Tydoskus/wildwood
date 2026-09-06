@@ -226,7 +226,7 @@ it("retries checkpoints until acknowledged and skips checkpoint reads between ca
 
 it("regional maintenance avoids account scans and unrelated bosses", () => {
   const f = regionFixture();
-  f.db.moduleMigrationState.id.update({ id: 0, version: 25 });
+  f.db.moduleMigrationState.id.update({ id: 0, version: 26 });
   const reads = [vi.spyOn(f.db.playerProgress, "iter"), vi.spyOn(f.db.duel, "iter"),
     vi.spyOn(f.db.playerLifetime, "iter"), vi.spyOn(f.db.startupTelemetryEvent, "iter"),
     vi.spyOn(f.db.dragonBoss.id, "find"), vi.spyOn(f.db.ironhornBoss.id, "find")];

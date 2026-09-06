@@ -130,8 +130,8 @@ export const ITEM_DEFINITIONS = {
     name: "TRAILBLAZER BOOTS",
     slot: "FEET",
     acquisition: "PROGRESSION",
-    description: "Leather boots built for crossing Wildstat faster.",
-    stats: ["MOVE SPEED +25"],
+    description: "Your starting leather boots. No stats, just style.",
+    stats: ["COSMETIC · NO STATS"],
   },
   [STARTER_STONE]: {
     id: STARTER_STONE,

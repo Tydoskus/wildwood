@@ -36,6 +36,15 @@ export function alphaBounds(data, width, frames) {
   return { left, top, right, bottom };
 }
 
+export function frameContentBounds(data, width, frame) {
+  const bounds = alphaBounds(data, width, [frame]);
+  if (!Number.isFinite(bounds.left)) return { x: 0, y: 0, w: 0, h: 0 };
+  // Keep a transparent sampling border for smooth scaling. Attack bounds are
+  // measured separately: the idle silhouette cannot bound an extended weapon.
+  const x = Math.max(0, bounds.left - 2), y = Math.max(0, bounds.top - 2);
+  return { x, y, w: Math.min(frame.w, bounds.right + 2) - x, h: Math.min(frame.h, bounds.bottom + 2) - y };
+}
+
 export async function importEnemySprite(source, id, sharp) {
   if (!/^[a-z][a-z0-9-]{0,63}$/.test(id)) throw new Error("Expected a simple lowercase enemy id.");
   const { sourcePages, ...manifest } = coreManifest(JSON.parse(readFileSync(join(source, "sprite.json"), "utf8")));
@@ -51,6 +60,9 @@ export async function importEnemySprite(source, id, sharp) {
     if (info.width !== page.width || info.height !== page.height || info.channels !== 4) throw new Error("Sheet dimensions do not match sprite.json.");
     const idleFrames = manifest.animations[0].frames.filter((frame) => frame.page === index);
     if (idleFrames.length) idleBounds.push(alphaBounds(data, info.width, idleFrames));
+    for (const clip of manifest.animations) for (const frame of clip.frames) {
+      if (frame.page === index) frame.contentBounds = frameContentBounds(data, info.width, frame);
+    }
     const bytes = /\.webp$/.test(page.file) ? readFileSync(path) : await sharp(path).webp({ quality: 95, alphaQuality: 100, effort: 6 }).toBuffer();
     const converted = await sharp(bytes).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     if (converted.info.width !== info.width || converted.info.height !== info.height) throw new Error("WebP conversion resized the sheet.");

@@ -48,6 +48,8 @@ const targetPowerArcPercent = requiredElement<HTMLInputElement>("targetPowerArcP
 const requiredClears = requiredElement<HTMLInputElement>("requiredClears");
 const respawnSeconds = requiredElement<HTMLInputElement>("respawnSeconds");
 const pathingMultiplier = requiredElement<HTMLInputElement>("pathingMultiplier");
+const steadyEquipmentUpgrades = requiredElement<HTMLSelectElement>("steadyEquipmentUpgrades");
+const targetMapDurationStepMinutes = requiredElement<HTMLInputElement>("targetMapDurationStepMinutes");
 const itemUpgradeLevel = requiredElement<HTMLInputElement>("itemUpgradeLevel");
 const equipmentStrengthPercent = requiredElement<HTMLInputElement>("equipmentStrengthPercent");
 const futureSpeedupReservePercent = requiredElement<HTMLInputElement>("futureSpeedupReservePercent");
@@ -176,6 +178,8 @@ function syncControlsFromConfig() {
   requiredClears.value = String(config.requiredClears);
   respawnSeconds.value = String(config.respawnSeconds);
   pathingMultiplier.value = String(config.pathingMultiplier);
+  steadyEquipmentUpgrades.value = config.steadyEquipmentUpgrades ? "steady" : "off";
+  targetMapDurationStepMinutes.value = String(config.targetMapDurationStepSeconds / 60);
   itemUpgradeLevel.value = String(config.itemUpgradeLevel);
   equipmentStrengthPercent.value = String(Number((config.equipmentStrengthMultiplier * 100).toFixed(2)));
   futureSpeedupReservePercent.value = String(Number(((config.futureSpeedupReserveMultiplier - 1) * 100).toFixed(2)));
@@ -197,6 +201,8 @@ function syncConfigFromControls() {
   config.requiredClears = Math.round(numberValue(requiredClears, config.requiredClears));
   config.respawnSeconds = numberValue(respawnSeconds, config.respawnSeconds);
   config.pathingMultiplier = numberValue(pathingMultiplier, config.pathingMultiplier);
+  config.steadyEquipmentUpgrades = steadyEquipmentUpgrades.value === "steady";
+  config.targetMapDurationStepSeconds = numberValue(targetMapDurationStepMinutes, config.targetMapDurationStepSeconds / 60) * 60;
   config.itemUpgradeLevel = Math.round(numberValue(itemUpgradeLevel, config.itemUpgradeLevel));
   config.equipmentStrengthMultiplier = numberValue(
     equipmentStrengthPercent,

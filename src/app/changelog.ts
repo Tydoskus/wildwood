@@ -1,4 +1,12 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.637": [
+    "Rebalanced early enemies and rewards, and tuned later maps for progressively longer completion times with research and equipment upgrades.",
+    "Regular enemies now respawn in 20 seconds, or 10 seconds with the boost; bosses respawn in 45 seconds.",
+    "Halved boss targeting range and reduced area-attack knockback. One regular-enemy region on each map now engages as a group.",
+    "Rescaled veteran combat stats toward final-map progression while preserving leaderboard positions and early-player progress.",
+    "Reduced Reaper and Ironhorn sprite rendering work and skipped off-screen boss drawing.",
+    "Fixed bow aiming, simplified sign-in and profile styling, and made starter boots cosmetic equipment granted at character creation.",
+  ],
   "0.636": [
     "Removed obsolete gameplay code and unused sprite metadata across the client and server.",
     "Simplified combat calculations, map rendering, and Home controls, reducing redundant work.",
@@ -1545,6 +1553,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.637": "2026-09-06",
   "0.636": "2026-09-05",
   "0.635": "2026-09-05",
   "0.634": "2026-09-05",

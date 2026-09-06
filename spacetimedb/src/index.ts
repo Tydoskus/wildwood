@@ -1,3 +1,4 @@
+import { rescaleEndgameProgress, rescaleRankingConflict, rescaleRankingStats } from "../../shared/endgame-power-rescale";
 import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_BENCH_POSITION, HOME_WORLD_SIZE } from "../../shared/home";
 import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./shard-snapshot-writes";
 import { decodeShardSnapshot, encodeShardSnapshot } from "../../shared/shard-wire";
@@ -235,7 +236,6 @@ const MAX_PACKED_PLAYER_VELOCITY = 0x7fff / PLAYER_VELOCITY_SCALE;
 const PLAYER_ZONE_SIZE = 1_000;
 const VALID_MAP_IDS = new Set<string>([...MAP_IDS, HOME_EXTERIOR_MAP_ID]);
 const LEGACY_FROSTWIND_EXPANSE_MAP_ID = "frostwind_expanse";
-const BETA_TESTER_ACTIVITY_MICROS = 120n * 60n * 60n * 1_000_000n;
 
 function canonicalMapId(mapId: string) {
   return mapId === LEGACY_FROSTWIND_EXPANSE_MAP_ID ? INTERMEDIATE_SNOWLANDS_MAP_ID : mapId;
@@ -323,7 +323,7 @@ const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const MOTION_DETAIL_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_DETAIL_FRAME_HZ);
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 25;
+const MODULE_MIGRATION_VERSION = 26;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 9;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -347,42 +347,42 @@ function editedBossPosition(mapId: string, fallback: { x: number; y: number }) {
 
 const DRAGON_POSITION = editedBossPosition(TUTORIAL_FOREST_MAP_ID, { x: WORLD.width - 760, y: WORLD.height - 560 });
 const DRAGON_HIT_RANGE_TOLERANCE = 60;
-const DRAGON_RESPAWN_MICROS = 30_000_000n;
+const DRAGON_RESPAWN_MICROS = 45_000_000n;
 const SPIDER_ID = 1;
 const SPIDER_RADIUS = 125;
 const SPIDER_POSITION = editedBossPosition(BEGINNER_DESERT_MAP_ID, { x: 4050, y: 4050 });
 const SPIDER_HIT_RANGE_TOLERANCE = 60;
-const SPIDER_RESPAWN_MICROS = 30_000_000n;
+const SPIDER_RESPAWN_MICROS = 45_000_000n;
 const FROSTCLAW_ID = 1;
 const FROSTCLAW_RADIUS = 150;
 const FROSTCLAW_POSITION = editedBossPosition(INTERMEDIATE_SNOWLANDS_MAP_ID, { x: 4050, y: 4050 });
 const FROSTCLAW_HIT_RANGE_TOLERANCE = 60;
-const FROSTCLAW_RESPAWN_MICROS = 30_000_000n;
+const FROSTCLAW_RESPAWN_MICROS = 45_000_000n;
 const MAGMALISK_ID = 1;
 const MAGMALISK_RADIUS = 165;
 const MAGMALISK_POSITION = editedBossPosition(ADVANCED_LAVA_WASTES_MAP_ID, { x: 4050, y: 4050 });
 const MAGMALISK_HIT_RANGE_TOLERANCE = 60;
-const MAGMALISK_RESPAWN_MICROS = 30_000_000n;
+const MAGMALISK_RESPAWN_MICROS = 45_000_000n;
 const GLOOMROOT_ID = 1;
 const GLOOMROOT_RADIUS = 175;
 const GLOOMROOT_POSITION = editedBossPosition(INFERNAL_DEPTHS_MAP_ID, { x: 4050, y: 4050 });
 const GLOOMROOT_HIT_RANGE_TOLERANCE = 60;
-const GLOOMROOT_RESPAWN_MICROS = 30_000_000n;
+const GLOOMROOT_RESPAWN_MICROS = 45_000_000n;
 const TIDEWYRM_ID = 1;
 const TIDEWYRM_RADIUS = 175;
 const TIDEWYRM_POSITION = editedBossPosition(WATER_REACH_MAP_ID, { x: 4050, y: 4050 });
 const TIDEWYRM_HIT_RANGE_TOLERANCE = 60;
-const TIDEWYRM_RESPAWN_MICROS = 30_000_000n;
+const TIDEWYRM_RESPAWN_MICROS = 45_000_000n;
 const KOI_SHOGUN_ID = 1;
 const KOI_SHOGUN_RADIUS = 175;
 const KOI_SHOGUN_POSITION = editedBossPosition(SAMURAI_GARDEN_MAP_ID, { x: 4050, y: 4050 });
 const KOI_SHOGUN_HIT_RANGE_TOLERANCE = 60;
-const KOI_SHOGUN_RESPAWN_MICROS = 30_000_000n;
+const KOI_SHOGUN_RESPAWN_MICROS = 45_000_000n;
 const TEMPEST_KIRIN_ID = 1;
 const TEMPEST_KIRIN_RADIUS = 180;
 const TEMPEST_KIRIN_POSITION = editedBossPosition(CLOUDSPIRE_MAP_ID, { x: 4050, y: 4050 });
 const TEMPEST_KIRIN_HIT_RANGE_TOLERANCE = 60;
-const TEMPEST_KIRIN_RESPAWN_MICROS = 30_000_000n;
+const TEMPEST_KIRIN_RESPAWN_MICROS = 45_000_000n;
 const MIREMAW_ID = 1;
 const PRISMSHELL_ID = 1;
 const IRONHORN_ID = 1;
@@ -399,10 +399,10 @@ const MIREMAW_HIT_RANGE_TOLERANCE = 60;
 const PRISMSHELL_HIT_RANGE_TOLERANCE = 60;
 const IRONHORN_HIT_RANGE_TOLERANCE = 60;
 const DREADREAPER_HIT_RANGE_TOLERANCE = 60;
-const MIREMAW_RESPAWN_MICROS = 30_000_000n;
-const PRISMSHELL_RESPAWN_MICROS = 30_000_000n;
-const IRONHORN_RESPAWN_MICROS = 30_000_000n;
-const DREADREAPER_RESPAWN_MICROS = 30_000_000n;
+const MIREMAW_RESPAWN_MICROS = 45_000_000n;
+const PRISMSHELL_RESPAWN_MICROS = 45_000_000n;
+const IRONHORN_RESPAWN_MICROS = 45_000_000n;
+const DREADREAPER_RESPAWN_MICROS = 45_000_000n;
 const UPGRADE_BENCH_USE_RANGE = 150;
 const UPGRADE_BENCH_SLOT_ONE = 1;
 const UPGRADE_BENCH_SLOT_TWO = 2;
@@ -1047,6 +1047,17 @@ const playerPowerRebaseBackup = table(
   },
 );
 
+// Separate v8 archive retains the original v7 recovery records.
+const playerEndgameRebaseBackup = table(
+  { public: false },
+  {
+    identity: t.identity().primaryKey(),
+    maxHp: t.f32(), damage: t.f32(), armor: t.f32(), regen: t.f32(), attackRate: t.f32(),
+    beforePower: t.f64(), afterPower: t.f64(),
+    recordedAt: t.timestamp(),
+  },
+);
+
 // Developers keep their presence choice across disconnects and devices. The
 // active player row is deliberately ephemeral, so it cannot hold this setting.
 const developerPresencePreference = table(
@@ -1665,6 +1676,7 @@ const spacetimedb = schema({
   playerNameCooldown,
   playerBalanceVersion,
   playerPowerRebaseBackup,
+  playerEndgameRebaseBackup,
   developerPresencePreference,
   playerMovementDemand,
   playerAccessAudit,
@@ -2075,11 +2087,11 @@ function defaultPlayerProgress(identity: any) {
     armor: 0,
     regen: 0,
     speed: PLAYER_SPEED,
-    bootsCollected: false,
-    inventoryJson: JSON.stringify([BASIC_PAPER_HAT, STARTER_STONE]),
+    bootsCollected: true,
+    inventoryJson: JSON.stringify([BASIC_PAPER_HAT, STARTER_STONE, TRAILBLAZER_BOOTS]),
     equippedHead: BASIC_PAPER_HAT,
     equippedChest: "",
-    equippedFeet: "",
+    equippedFeet: TRAILBLAZER_BOOTS,
     equippedRightHand: STARTER_STONE,
     equippedLeftHand: "",
     introComplete: false,
@@ -2508,6 +2520,7 @@ function runPendingModuleMigrations(ctx: any) {
       }
     }
   }
+  if (currentVersion < 26) rebasePlayersToEndgame(ctx);
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
   if (state) ctx.db.moduleMigrationState.id.update(next);
   else ctx.db.moduleMigrationState.insert(next);
@@ -2674,7 +2687,8 @@ function playerBalanceProgress(progress: any, version: number, includeMapRebase 
   const damageHealthBalanced = version < 4 ? rebalanceLegacyDamageHealth(outlierBalanced) : outlierBalanced;
   const topFiveBalanced = version < 5 ? compressLegacyTopFiveProgression(damageHealthBalanced) : damageHealthBalanced;
   const corrected = version === 5 ? correctLegacyTopFiveV5Progression(topFiveBalanced) : topFiveBalanced;
-  return includeMapRebase && version < 7 ? compressLegacyMapPower(corrected) : corrected;
+  const mapBalanced = includeMapRebase && version < 7 ? compressLegacyMapPower(corrected) : corrected;
+  return includeMapRebase && version < 8 ? rescaleEndgameProgress(mapBalanced) : mapBalanced;
 }
 
 function rebaseLegacyPlayersToMaps(ctx: any) {
@@ -2697,6 +2711,40 @@ function rebaseLegacyPlayersToMaps(ctx: any) {
       identity: progress.identity, version: 7, maxHp: progress.maxHp, damage: progress.damage,
       armor: progress.armor, regen: progress.regen, attackRate: progress.attackRate,
       beforePower: before, afterPower: after, recordedAt: ctx.timestamp,
+    });
+    if (!samePlayerProgressValues(progress, next)) updateSnapshotRow(ctx, "playerProgress", next);
+    markPlayerBalanceCurrent(ctx, progress.identity);
+    const active = ctx.db.player.identity.find(progress.identity);
+    if (active) {
+      const updated = { ...active, ...powerFieldsForProgress(ctx, next) };
+      updateSnapshotRow(ctx, "player", updated);
+      syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, updated));
+    }
+  }
+  refreshLeaderboard(ctx);
+}
+
+function rebasePlayersToEndgame(ctx: any) {
+  const stats = (progress: any) => {
+    const effective = effectivePowerStatsForProgress(ctx, progress);
+    return rescaleRankingStats(effective);
+  };
+  const plans = [...ctx.db.playerProgress.iter() as Iterable<any>].map((progress) => {
+    const archived = ctx.db.playerEndgameRebaseBackup.identity.find(progress.identity);
+    const next = archived ? progress : rescaleEndgameProgress(progress);
+    return { progress, next, archived, before: stats(progress), after: stats(next) };
+  });
+  const displayedPlans = plans.flatMap((plan) => {
+    const entry = ctx.db.leaderboardEntry.identity.find(plan.progress.identity);
+    return entry ? [{ before: { ...entry, power: entry.powerLevel || entry.power }, after: plan.after }] : [];
+  });
+  const conflict = rescaleRankingConflict(plans) ?? rescaleRankingConflict(displayedPlans);
+  if (conflict) throw new SenderError(`Endgame rescale needs a fresh ${conflict} ranking audit; no stats changed.`);
+  for (const { progress, next, archived, before, after } of plans) {
+    if (!archived) ctx.db.playerEndgameRebaseBackup.insert({
+      identity: progress.identity, maxHp: progress.maxHp, damage: progress.damage,
+      armor: progress.armor, regen: progress.regen, attackRate: progress.attackRate,
+      beforePower: before.power, afterPower: after.power, recordedAt: ctx.timestamp,
     });
     if (!samePlayerProgressValues(progress, next)) updateSnapshotRow(ctx, "playerProgress", next);
     markPlayerBalanceCurrent(ctx, progress.identity);
@@ -3700,12 +3748,6 @@ function publishItemDrop(ctx: any, identity: any, itemId: string, alreadyOwned: 
   else ctx.db.playerItemDrop.insert(next);
 }
 
-function hasRecentPlayerActivity(ctx: any, identity: any) {
-  if (isDeveloperIdentity(identity)) return true;
-  const lifetime = ctx.db.playerLifetime.identity.find(identity);
-  if (!lifetime) return true;
-  return ctx.timestamp.microsSinceUnixEpoch - lifetime.sessionStartedAt.microsSinceUnixEpoch <= BETA_TESTER_ACTIVITY_MICROS;
-}
 
 function equippedHeadForProgress(progress: any) {
   const inventory = inventoryForProgress(progress);
@@ -5832,14 +5874,10 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
   if (hasSpacetimeAuthAccount(ctx)) ensureDailyGemBonusState(ctx, ctx.sender);
 
   const lifetime = ensurePlayerLifetime(ctx);
-  const grantBetaTesterGoldenHelmet = hasRecentPlayerActivity(ctx, ctx.sender);
 
   let existingProgress: any = ctx.db.playerProgress.identity.find(ctx.sender);
   if (!existingProgress) {
     existingProgress = defaultPlayerProgress(ctx.sender);
-    if (grantBetaTesterGoldenHelmet) {
-      existingProgress.inventoryJson = JSON.stringify(inventoryWithBetaHelmet(existingProgress, true));
-    }
     insertSnapshotRow(ctx, "playerProgress", existingProgress);
     markPlayerBalanceCurrent(ctx);
   } else {
@@ -5895,7 +5933,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     const equippedChest = equippedChestForProgress(existingProgress);
     const equippedRightHand = equippedRightHandForProgress(existingProgress);
     const equippedLeftHand = equippedRightHand ? "" : equippedLeftHandForProgress(existingProgress);
-    const inventoryJson = JSON.stringify(inventoryWithBetaHelmet(existingProgress, grantBetaTesterGoldenHelmet));
+    const inventoryJson = JSON.stringify(inventoryForProgress(existingProgress));
     const cosmeticEquipment = cosmeticEquipmentForProgress({ ...existingProgress, inventoryJson });
     const speed = playerBaseMovementSpeed(equippedFeet === TRAILBLAZER_BOOTS);
     const maxHp = Math.max(PLAYER_BASE_HP, existingProgress.maxHp);
@@ -8346,7 +8384,7 @@ export const savePlayerProgress = spacetimedb.reducer(
     };
     const bootsCollected = base.bootsCollected || normalized.bootsCollected;
     const inventorySource = { ...base, identity: ctx.sender, bootsCollected };
-    const inventory = inventoryWithBetaHelmet(inventorySource, hasRecentPlayerActivity(ctx, ctx.sender));
+    const inventory = inventoryForProgress(inventorySource);
     const inventoryJson = JSON.stringify(inventory);
     const equippedHead = progress.equippedHead === ""
       ? ""
@@ -8834,7 +8872,7 @@ export const resetPlayerProgress = spacetimedb.reducer(
     const history = ctx.db.playerCutsceneHistory.identity.find(ctx.sender);
     if (history) ctx.db.playerCutsceneHistory.identity.update({ ...history, seenMask: 0, generation: history.generation + 1 });
     else ctx.db.playerCutsceneHistory.insert({ identity: ctx.sender, seenMask: 0, generation: 0 });
-    if (hasRecentPlayerActivity(ctx, ctx.sender)) {
+    if (current && inventoryForProgress(current).includes(SUPERIOR_GOLDEN_HELMET)) {
       next.inventoryJson = JSON.stringify(inventoryWithBetaHelmet(next, true));
     }
     if (current) updateSnapshotRow(ctx, "playerProgress", next);

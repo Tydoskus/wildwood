@@ -1,3 +1,4 @@
+import { rescaleEndgameProgress } from "../../../shared/endgame-power-rescale";
 import { compressLegacyMapPower } from "../../../shared/map-power-rescale";
 import {
   ATTACK_BALANCE_VERSION,
@@ -134,7 +135,8 @@ export function migrateProgressSave(progress: ProgressSave, savedBalanceVersion:
   const damageHealthBalanced = version < 4 ? rebalanceLegacyDamageHealth(outlierBalanced) : outlierBalanced;
   const topFiveBalanced = version < 5 ? compressLegacyTopFiveProgression(damageHealthBalanced) : damageHealthBalanced;
   const corrected = version === 5 ? correctLegacyTopFiveV5Progression(topFiveBalanced) : topFiveBalanced;
-  return copyProgress(version < 7 ? compressLegacyMapPower(corrected) : corrected);
+  const mapBalanced = version < 7 ? compressLegacyMapPower(corrected) : corrected;
+  return copyProgress(version < 8 ? rescaleEndgameProgress(mapBalanced) : mapBalanced);
 }
 
 export function progressCovers(saved: PlayerProgress, pending: ProgressSave) {

@@ -21,7 +21,8 @@ export type EnemySpriteMotion = {
   loop: boolean;
   durationMs: number;
   frameDurationMs: number;
-  frames: { page: number; x: number; y: number; w: number; h: number }[];
+  frames: { page: number; x: number; y: number; w: number; h: number;
+    contentBounds?: { x: number; y: number; w: number; h: number } }[];
 };
 export type EnemySpriteAnimationLayout = {
   /** Authored horizontal facing; omitted means right. Applies only to atlas art. */

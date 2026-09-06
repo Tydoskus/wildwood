@@ -85,7 +85,7 @@ export function createEnemySimulation(
   }
 
   function regularRetainRadius(enemy: EnemyState) {
-    const authoredLeash = enemy.type === "Dune Archer" ? Math.max(900, enemy.leashRange) : enemy.leashRange;
+    const authoredLeash = enemy.leashRange;
     return regularEnemyAggroRetainRadius(regularAggroRadius(enemy), authoredLeash);
   }
 

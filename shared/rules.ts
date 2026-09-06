@@ -14,7 +14,7 @@ export const PLAYER_SPAWN = { x: 360, y: 360 } as const;
 export const PLAYER_RADIUS = 17;
 export const PLAYER_BASE_HP = 100;
 export const PLAYER_SPEED = 180;
-export const BOOTS_SPEED_BONUS = 25;
+export const BOOTS_SPEED_BONUS = 0;
 export const MOVE_SPEED_RESEARCH_BONUS_PER_RANK = .02;
 export const MAX_MOVEMENT_SPEED_OVERRIDE = 2_000;
 export const MOVEMENT_SPEED_EPSILON = .01;
@@ -23,13 +23,13 @@ export const DEFAULT_ATTACK_RANGE = 200;
 export const DEFAULT_ATTACK_INTERVAL = 1.56;
 export const MAX_BASE_ATTACKS_PER_SECOND = 2.625;
 export const MIN_ATTACK_INTERVAL = 1 / MAX_BASE_ATTACKS_PER_SECOND;
-export const BOSS_RESPAWN_SECONDS = 30;
+export const BOSS_RESPAWN_SECONDS = 45;
 // Scalable combat stats use f32 storage. One undecillion stays below f32's
 // finite limit with room for research and power multipliers. Movement and
 // attack speed retain their separate gameplay caps.
 export const MAX_PLAYER_STAT = 1e36;
 export const MAX_ARMOR = MAX_PLAYER_STAT;
-export const ATTACK_BALANCE_VERSION = 7;
+export const ATTACK_BALANCE_VERSION = 8;
 export {
   BASIC_PAPER_HAT,
   DARK_METAL_HELMET,
@@ -51,6 +51,7 @@ export {
 // Targets are playtest hypotheses. The encounter generator owns combat stats.
 export const BALANCE_TARGET_DESERT_DURATION_SECONDS = MAP_TARGET_SECONDS;
 export const BALANCE_TARGET_MAP_DURATION_MULTIPLIER = 1;
+export const BALANCE_TARGET_MAP_DURATION_STEP_SECONDS = 20 * 60;
 export const BALANCE_TARGET_MAP_POWER_MULTIPLIER = MAP_STAT_GROWTH;
 export const BALANCE_FIRST_SLOWDOWN_POWER = 400_000; // historical chart marker only
 export const BALANCE_TARGET_POWER_ARC_BLEND = .35;
@@ -80,7 +81,7 @@ const bossRewardAt = (stat: "damage" | "health" | "armor" | "regen", mapIndex: n
   bossRewardValue(stat, mapIndex - 1);
 
 export const DRAGON_MAX_HP = bossHealthAt(0);
-export const SPIDER_MAX_HP = bossHealthAt(1);
+export const SPIDER_MAX_HP = 160_000;
 export const FROSTCLAW_MAX_HP = bossHealthAt(2);
 export const MAGMALISK_MAX_HP = bossHealthAt(3);
 export const GLOOMROOT_MAX_HP = bossHealthAt(4);
@@ -173,7 +174,7 @@ export const MAP_IDS: readonly string[] = [
   CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 91;
+export const PROTOCOL_VERSION = 92;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

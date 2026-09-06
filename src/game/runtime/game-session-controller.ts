@@ -127,7 +127,6 @@ type SessionDependencies = {
   updatePlayer: (dt: number) => void;
   updateUpgradeBench: () => void;
   updatePortal: (dt: number) => void;
-  updateBootPickup: () => void;
   updateEnemies: (dt: number) => void;
   updateDragon: (dt: number) => void;
   updateSpider: (dt: number) => void;
@@ -201,7 +200,6 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     dependencies.updateUpgradeBench();
     if (!dependencies.isDueling()) {
       dependencies.updatePortal(dt);
-      if (dependencies.getMapId() === dependencies.tutorialMapId) dependencies.updateBootPickup();
       dependencies.updateEnemies(dt);
       if (dependencies.getMapId() === dependencies.tutorialMapId) dependencies.updateDragon(dt);
       if (dependencies.getMapId() === dependencies.desertMapId) dependencies.updateSpider(dt);

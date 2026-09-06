@@ -938,6 +938,19 @@ export const PlayerDeathFrame = __t.object("PlayerDeathFrame", {
 });
 export type PlayerDeathFrame = __Infer<typeof PlayerDeathFrame>;
 
+export const PlayerEndgameRebaseBackup = __t.object("PlayerEndgameRebaseBackup", {
+  identity: __t.identity(),
+  maxHp: __t.f32(),
+  damage: __t.f32(),
+  armor: __t.f32(),
+  regen: __t.f32(),
+  attackRate: __t.f32(),
+  beforePower: __t.f64(),
+  afterPower: __t.f64(),
+  recordedAt: __t.timestamp(),
+});
+export type PlayerEndgameRebaseBackup = __Infer<typeof PlayerEndgameRebaseBackup>;
+
 export const PlayerGemWallet = __t.object("PlayerGemWallet", {
   identity: __t.identity(),
   balance: __t.u64(),

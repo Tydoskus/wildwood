@@ -35,6 +35,7 @@ export type SpawnSite = {
   x: number;
   y: number;
   campName: string;
+  groupAggro?: boolean;
   type: EnemyKind;
   leashRange: number;
   alive: boolean;
@@ -818,6 +819,9 @@ export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP
   const sites: SpawnSite[] = [];
   const camps = mapSpawnCamps(mapId);
   assertCampContracts(camps);
+  // One stable group per map; preserve the Desert's existing archer region.
+  const groupCamp = camps.find((camp) => camp.types.includes("Dune Archer"))
+    ?? camps[stableStringSeed(`wildwood-group-aggro:${mapId}`) % camps.length];
   // Tutorial remains deliberately readable. Later maps use a fixed map seed:
   // layouts gain variety, but every client still derives identical sites.
   // This seed is part of the existing world layout, independent of the game's display name.
@@ -845,7 +849,8 @@ export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP
       const type = campTypes[index];
       sites.push({
         id: id++, x, y, campName: camp.name, type,
-        leashRange: Math.max(420, camp.radius * 0.9),
+        groupAggro: camp === groupCamp,
+        leashRange: Math.max(camp === groupCamp ? 900 : 420, camp.radius * 0.9),
         alive: false, respawnAt: 0,
       });
     }

@@ -1,5 +1,5 @@
 import { WORLD } from "../constants";
-import { BASIC_PAPER_HAT, STARTER_STONE, type EquipmentSlot, type InventoryState } from "../inventory";
+import { BASIC_PAPER_HAT, STARTER_STONE, TRAILBLAZER_BOOTS, type EquipmentSlot, type InventoryState } from "../inventory";
 import { loadActorShadowSprite, loadEnemySprites, type EnemyKind } from "../enemies";
 import { loadPlayerAppearanceAssets } from "../player-appearance";
 import { ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, CLOUDSPIRE_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, SAMURAI_GARDEN_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID, type MapId, type SpawnSite, type WorldDecor, type WorldPath } from "../world";
@@ -399,12 +399,12 @@ export function createGameBootstrap() {
     encounter: null,
   };
   const editedBootsPickup = MAP_EDITOR_GAMEPLAY_OVERRIDES[TUTORIAL_FOREST_MAP_ID]?.bootsPickup;
-  const bootsPickup = { x: editedBootsPickup?.x ?? 940, y: editedBootsPickup?.y ?? 3660, r: 18, collected: false };
+  const bootsPickup = { x: editedBootsPickup?.x ?? 940, y: editedBootsPickup?.y ?? 3660, r: 18, collected: true };
   const inventory: BootstrapInventory = {
-    itemIds: [BASIC_PAPER_HAT, STARTER_STONE],
+    itemIds: [BASIC_PAPER_HAT, STARTER_STONE, TRAILBLAZER_BOOTS],
     equippedHead: BASIC_PAPER_HAT,
     equippedChest: "",
-    equippedFeet: "",
+    equippedFeet: TRAILBLAZER_BOOTS,
     equippedRightHand: STARTER_STONE,
     equippedLeftHand: "",
     cosmeticHead: "",

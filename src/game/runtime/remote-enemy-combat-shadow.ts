@@ -549,14 +549,14 @@ export function createRemoteEnemyCombatShadows(options: {
       enemyX: ambient.x,
       enemyY: ambient.y,
       acquireRadius: options.acquireRadius,
-      retainRadius: enemy.type === "Dune Archer" ? Math.max(900, enemy.leashRange) : enemy.leashRange,
+      retainRadius: enemy.leashRange,
       candidates,
     });
     if (!target) return;
     const remote = targetById.get(target.id);
     const stats = combatStatsFor(target.id, options.statsFor);
     if (!remote || !stats) return;
-    const authoredLeash = enemy.type === "Dune Archer" ? Math.max(900, enemy.leashRange) : enemy.leashRange;
+    const authoredLeash = enemy.leashRange;
     const retainRadius = regularEnemyAggroRetainRadius(
       target.acquireRadius ?? options.acquireRadius,
       authoredLeash,

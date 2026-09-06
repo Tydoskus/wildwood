@@ -107,18 +107,17 @@ export const SPIDER_WEB_RANGE = 720;
 export const BOSS_AREA_KNOCKBACK_DURATION = .32;
 
 /**
- * One hit covers half of the usable attack radius. A player pressed against
- * the boss therefore needs two area hits to be pushed beyond that attack.
+ * One hit covers a quarter of the usable attack radius.
  */
 export function bossAreaKnockbackDistance(attackRange: number, bossRadius: number) {
-  return Math.max(0, (attackRange - bossRadius) / 2);
+  return Math.max(0, (attackRange - bossRadius) / 4);
 }
 
 const DRAGON_CONE_WINDUP = .75;
 const DRAGON_CONE_DURATION = 1.2;
 const DRAGON_RAIN_DAMAGE = BOSS_DAMAGE_PROFILES.dragon.rain;
 const DRAGON_CONE_DAMAGE = BOSS_DAMAGE_PROFILES.dragon.cone;
-const SPIDER_AGGRO_RANGE = 1150;
+const SPIDER_AGGRO_RANGE = 575;
 const SPIDER_WEB_DAMAGE = BOSS_DAMAGE_PROFILES.spider.web;
 const SPIDER_VENOM_DAMAGE = BOSS_DAMAGE_PROFILES.spider.venom;
 const SPIDER_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.spider.contact;

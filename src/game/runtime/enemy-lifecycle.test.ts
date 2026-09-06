@@ -27,17 +27,24 @@ describe("enemy lifecycle runtime", () => {
     expect(bursts).toEqual(["#76d978"]);
   });
 
-  it("engages every Dune Archer together", () => {
+  it("engages living members of the selected region together", () => {
     const enemies: EnemyState[] = [];
     const spawnSites: SpawnSite[] = [
-      { id: 1, x: 10, y: 20, campName: "A", type: "Dune Archer" as const, leashRange: 300, alive: false, respawnAt: 0 },
-      { id: 2, x: 30, y: 40, campName: "B", type: "Dune Archer" as const, leashRange: 300, alive: false, respawnAt: 0 },
+      { id: 1, x: 10, y: 20, campName: "A", groupAggro: true, type: "Dune Archer" as const, leashRange: 300, alive: false, respawnAt: 0 },
+      { id: 2, x: 30, y: 40, campName: "A", groupAggro: true, type: "Dune Regent" as const, leashRange: 300, alive: false, respawnAt: 0 },
     ];
     const lifecycle = createEnemyLifecycle(enemies, spawnSites, () => {});
     spawnSites.forEach(lifecycle.spawnFromSite);
 
-    lifecycle.engageEnemy(enemies[0]);
+    const otherSite = { ...spawnSites[0], id: 3, campName: "B", groupAggro: false };
+    lifecycle.spawnFromSite(otherSite);
+    lifecycle.spawnFromSite({ ...spawnSites[0], id: 4 });
+    enemies[3].dead = true;
+    lifecycle.engageEnemy(enemies[0], "player", 42);
 
-    expect(enemies.every((enemy) => enemy.engaged && !enemy.leashing && !enemy.wandering)).toBe(true);
+    expect(enemies.slice(0, 2).every((enemy) => enemy.engaged && !enemy.leashing && !enemy.wandering)).toBe(true);
+    expect(enemies[1]).toMatchObject({ aggroTargetId: "player", aggroStartedAtTick: 42 });
+    expect(enemies[2].engaged).toBe(false);
+    expect(enemies[3].engaged).toBe(false);
   });
 });

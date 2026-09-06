@@ -11,24 +11,25 @@ function renderer(
   tidewyrmDead = true,
   remoteEnemies: EnemyState[] = [],
   enemyOpacities: number[] = [],
+  cameraPosition = { x: 0, y: 0 },
 ) {
   return createDepthWorldRenderer({
-    camera: { x: 0, y: 0, zoom: 1 } as Camera,
+    camera: { ...cameraPosition, zoom: 1 } as Camera,
     viewport: () => ({ width: 500, height: 500 }),
     decor,
     enemies: [],
     remoteEnemies: () => remoteEnemies,
     player: { y: 170 } as PlayerState,
-    boss: { dead: true, y: 0 } as DragonBossState,
-    spiderBoss: { dead: true, y: 0 } as SpiderBossState,
-    frostclawBoss: { dead: true, y: 0 } as FrostclawBossState,
-    magmaliskBoss: { dead: true, y: 0 } as MagmaliskBossState,
-    gloomrootBoss: { dead: true, y: 0 } as GloomrootBossState,
-    tidewyrmBoss: { dead: tidewyrmDead, y: 120 } as TidewyrmBossState,
-    koiShogunBoss: { dead: true, y: 120 } as KoiShogunBossState,
-    tempestKirinBoss: { dead: true, y: 120 } as TempestKirinBossState,
-    miremawBoss: { dead: mapId !== MOONFEN_MAP_ID, y: 120 } as MiremawBossState,
-    prismshellBoss: { dead: mapId !== CRYSTAL_HOLLOWS_MAP_ID, y: 120 } as PrismshellBossState, ironhornBoss: { dead: mapId !== "clockwork_ruins", y: 120 } as IronhornBossState, dreadreaperBoss: { dead: mapId !== "duskfall_orchard", y: 120 } as DreadreaperBossState,
+    boss: { dead: true, x: 120, y: 0 } as DragonBossState,
+    spiderBoss: { dead: true, x: 120, y: 0 } as SpiderBossState,
+    frostclawBoss: { dead: true, x: 120, y: 0 } as FrostclawBossState,
+    magmaliskBoss: { dead: true, x: 120, y: 0 } as MagmaliskBossState,
+    gloomrootBoss: { dead: true, x: 120, y: 0 } as GloomrootBossState,
+    tidewyrmBoss: { dead: tidewyrmDead, x: 120, y: 120 } as TidewyrmBossState,
+    koiShogunBoss: { dead: true, x: 120, y: 120 } as KoiShogunBossState,
+    tempestKirinBoss: { dead: true, x: 120, y: 120 } as TempestKirinBossState,
+    miremawBoss: { dead: mapId !== MOONFEN_MAP_ID, x: 120, y: 120 } as MiremawBossState,
+    prismshellBoss: { dead: mapId !== CRYSTAL_HOLLOWS_MAP_ID, x: 120, y: 120 } as PrismshellBossState, ironhornBoss: { dead: mapId !== "clockwork_ruins", x: 120, y: 120 } as IronhornBossState, dreadreaperBoss: { dead: mapId !== "duskfall_orchard", x: 120, y: 120 } as DreadreaperBossState,
     bootsPickup: { y: 0, r: 0, collected: true },
     currentMapId: () => mapId,
     activePortal: () => mapId === "home_exterior" ? null : ({ depth: 0 }),
@@ -167,3 +168,15 @@ it("renders a map without portals without queuing a placeholder portal", () => {
   renderer([], calls, "home_exterior").drawDepthSortedWorld([], true);
   expect(calls).toEqual(["player"]);
 });
+
+
+it.each([MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, "clockwork_ruins", "duskfall_orchard"] as const)(
+  "skips off-screen boss rendering on %s while keeping partial sprites visible", (mapId) => {
+    const far: string[] = [];
+    renderer([], far, mapId, true, [], [], { x: 3000, y: 3000 }).drawDepthSortedWorld([]);
+    expect(far.some((call) => ["miremaw", "prismshell", "ironhorn", "dreadreaper"].includes(call))).toBe(false);
+    const edge: string[] = [];
+    renderer([], edge, mapId, true, [], [], { x: 650, y: 120 }).drawDepthSortedWorld([]);
+    expect(edge.some((call) => ["miremaw", "prismshell", "ironhorn", "dreadreaper"].includes(call))).toBe(true);
+  },
+);

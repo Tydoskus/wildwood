@@ -58,6 +58,7 @@ export type EnemyState = Circle & {
   type: EnemyKind;
   siteId: number;
   campName: string;
+  groupAggro?: boolean;
   homeX: number;
   homeY: number;
   vx: number;

@@ -49,7 +49,7 @@ export function createLegalGateController(
       : "Not selected");
     elements.ageOutput.textContent = ageSelected
       ? age >= AGE_SLIDER_MAX ? `${AGE_SLIDER_MAX}+` : String(age)
-      : "—";
+      : "";
     elements.agreement.disabled = !eligible || pending;
     if (!eligible) elements.agreement.checked = false;
     elements.continueButton.disabled = pending || !eligible || !elements.agreement.checked;

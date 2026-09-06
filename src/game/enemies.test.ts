@@ -24,8 +24,8 @@ afterEach(() => {
 
 describe("generated encounter economy", () => {
   it("keeps tutorial breakthroughs and reward labels readable", () => {
-    expect(ENEMY_TYPES.Bramble.reward).toEqual({ type: "health", amount: 27 });
-    expect(ENEMY_TYPES["King Slime"].reward).toEqual({ type: "health", amount: 50 });
+    expect(ENEMY_TYPES.Bramble.reward).toEqual({ type: "health", amount: 7 });
+    expect(ENEMY_TYPES["King Slime"].reward).toEqual({ type: "health", amount: 15 });
     expect(rewardLabel({ type: "speed", amount: .25 })).toBe("+0.25 ATK/SEC");
     expect(rewardLabel({ type: "damage", amount: 1.05 })).toBe("+1.05 DAMAGE");
   });
@@ -38,47 +38,16 @@ describe("generated encounter economy", () => {
     }
     const raider = ENEMY_TYPES["Dune Raider"], elite = ENEMY_TYPES["Wastes Reaper"];
     expect(elite.hp).toBeGreaterThan(raider.hp);
-    expect(elite.reward.amount / elite.hp / (raider.reward.amount / raider.hp)).toBeLessThan(1.5);
+    expect(raider.reward.amount).toBe(6);
+    expect(elite.reward.amount).toBeCloseTo(22);
   });
 });
 
 describe("enemy movement balance", () => {
-  it("slows every Tutorial Forest regular enemy by 50 percent", () => {
-    expect({
-      Bramble: ENEMY_TYPES.Bramble.speed,
-      Needle: ENEMY_TYPES.Needle.speed,
-      Mossback: ENEMY_TYPES.Mossback.speed,
-      Spitter: ENEMY_TYPES.Spitter.speed,
-      Brood: ENEMY_TYPES.Brood.speed,
-      Cindermaw: ENEMY_TYPES.Cindermaw.speed,
-      "King Slime": ENEMY_TYPES["King Slime"].speed,
-      "Dread Warden": ENEMY_TYPES["Dread Warden"].speed,
-    }).toEqual({
-      Bramble: 105,
-      Needle: 105,
-      Mossback: 105,
-      Spitter: 105,
-      Brood: 90,
-      Cindermaw: 105,
-      "King Slime": 95,
-      "Dread Warden": 110,
-    });
-  });
-
-  it("slows every Beginner Desert regular enemy by 25 percent", () => {
-    expect({
-      "Dune Raider": ENEMY_TYPES["Dune Raider"].speed,
-      "Dune Archer": ENEMY_TYPES["Dune Archer"].speed,
-      "Venom Guard": ENEMY_TYPES["Venom Guard"].speed,
-      "Wastes Reaper": ENEMY_TYPES["Wastes Reaper"].speed,
-      "Blight Oracle": ENEMY_TYPES["Blight Oracle"].speed,
-    }).toEqual({
-      "Dune Raider": 165,
-      "Dune Archer": 153.75,
-      "Venom Guard": 146.25,
-      "Wastes Reaper": 168.75,
-      "Blight Oracle": 157.5,
-    });
+  it("keeps every enemy at or above the minimum movement speed", () => {
+    for (const enemy of Object.values(ENEMY_TYPES)) expect(enemy.speed).toBeGreaterThanOrEqual(205);
+    expect(ENEMY_TYPES.Bramble.speed).toBe(205);
+    expect(ENEMY_TYPES["Frost Raider"].speed).toBe(230);
   });
 
   it("keeps post-Snowlands movement and aggro at the Snowlands archetype values", () => {

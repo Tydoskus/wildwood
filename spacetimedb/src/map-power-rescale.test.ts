@@ -1,3 +1,4 @@
+import { rescaleEndgameProgress } from "../../shared/endgame-power-rescale";
 import { describe, expect, it, vi } from "vitest";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { compressLegacyMapPower } from "../../shared/map-power-rescale";
@@ -19,13 +20,13 @@ describe("one-time live map power migration", () => {
     const low = f.db.playerProgress.identity.find(f.ctx.sender);
     f.run(server.onConnect);
     const next = f.db.playerProgress.identity.find(identity("2"));
-    expect(next).toEqual(compressLegacyMapPower(original));
+    expect(next).toEqual(rescaleEndgameProgress(compressLegacyMapPower(original)));
     expect(f.db.playerProgress.identity.find(identity("3"))).toEqual({ ...next, identity: identity("3") });
     expect(f.db.playerProgress.identity.find(f.ctx.sender)).toEqual(low);
     expect(f.db.playerPowerRebaseBackup.identity.find(identity("2"))).toMatchObject({ damage: 1e10, maxHp: 2e10, version: 7 });
     expect(f.db.playerPowerRebaseBackup.count()).toBe(3n);
-    expect(f.db.playerBalanceVersion.identity.find(identity("2")).version).toBe(7);
-    expect(f.db.moduleMigrationState.id.find(0).version).toBe(25);
+    expect(f.db.playerBalanceVersion.identity.find(identity("2")).version).toBe(8);
+    expect(f.db.moduleMigrationState.id.find(0).version).toBe(26);
     f.patch("playerProgress", { damage: next.damage + 1000 }, identity("2"));
     f.run(server.onConnect);
     expect(f.db.playerProgress.identity.find(identity("2")).damage).toBe(next.damage + 1000);

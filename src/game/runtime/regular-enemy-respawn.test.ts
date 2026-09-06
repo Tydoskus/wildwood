@@ -22,7 +22,7 @@ function site(overrides: Partial<SpawnSite> = {}): SpawnSite {
 }
 
 describe("regular enemy respawn boost", () => {
-  it("schedules 30-second respawns before the reward and 15-second respawns after it", () => {
+  it("schedules 20-second respawns before the reward and 10-second respawns after it", () => {
     let gameTime = 10;
     const first = site();
     const second = site({ id: 1 });
@@ -43,17 +43,17 @@ describe("regular enemy respawn boost", () => {
     const boost = createRegularEnemyRespawnBoost([localSite], () => 10, Date.now, 0, 3);
 
     boost.schedule(localSite);
-    expect(localSite.respawnAt).toBe(20);
-    expect(boost.respawnSeconds()).toBe(10);
+    expect(localSite.respawnAt).toBeCloseTo(10 + 20 / 3);
+    expect(boost.respawnSeconds()).toBeCloseTo(20 / 3);
   });
 
-  it("rebases pending timers to 15 seconds from their original defeat", () => {
+  it("rebases pending timers to 10 seconds from their original defeat", () => {
     const pending = site({ alive: false, respawnAt: 40 });
     const boost = createRegularEnemyRespawnBoost([pending], () => 20);
 
     boost.activate();
 
-    expect(pending.respawnAt).toBe(25);
+    expect(pending.respawnAt).toBe(30);
   });
 
   it("makes overdue boosted timers immediately eligible without changing live enemies", () => {
@@ -73,7 +73,7 @@ describe("regular enemy respawn boost", () => {
 
     expect(boost.activate()).toBe(true);
     expect(boost.activate()).toBe(false);
-    expect(pending.respawnAt).toBe(25);
+    expect(pending.respawnAt).toBe(30);
   });
 
   it("expires after 30 real-time minutes", () => {

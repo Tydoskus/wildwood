@@ -148,7 +148,7 @@ describe("Boss area knockback", () => {
       const oneHitDistance = bossAreaKnockbackDistance(bossCase.range, bossState.r);
       expect(after - before).toBeCloseTo(oneHitDistance, 5);
       expect(after).toBeLessThan(bossCase.range);
-      expect(before + oneHitDistance * 2).toBeGreaterThan(bossCase.range);
+      expect(after - before).toBeCloseTo((bossCase.range - bossState.r) / 4, 5);
     });
   }
 });

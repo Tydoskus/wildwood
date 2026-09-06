@@ -1,3 +1,5 @@
+import { BALANCE_TARGET_MAP_DURATION_STEP_SECONDS } from "../../shared/rules";
+import { isUpgradeableItem, itemUpgradeDurationMs, MAX_ITEM_UPGRADE_LEVEL } from "../../shared/items";
 import { BOSS_TARGET_SECONDS } from "../../shared/progression";
 import { ATTACK_WINDUP_SECONDS } from "../game/attack-timeline";
 import { BOSS_DAMAGE_PROFILES } from "../game/boss-damage";
@@ -145,15 +147,18 @@ export type BalanceSimulationConfig = {
   trials: number;
   strategy: FarmingStrategy;
   researchPlan: ResearchPlan;
+  steadyEquipmentUpgrades: boolean;
   bossTargetSeconds: number;
   targetDesertDurationSeconds: number;
   targetMapDurationMultiplier: number;
+  targetMapDurationStepSeconds: number;
   targetMapPowerMultiplier: number;
   targetPowerArcBlend: number;
   futureSpeedupReserveMultiplier: number;
   requiredClears: number;
   respawnSeconds: number;
   itemUpgradeLevel: number;
+  itemUpgradeLevels?: Record<string, number>;
   equipmentStrengthMultiplier: number;
   pathingMultiplier: number;
   seed: number;
@@ -180,6 +185,7 @@ export type SimulationStateSnapshot = {
   equipped: EquippedItems;
   bootsEquipped: boolean;
   itemUpgradeLevel: number;
+  itemUpgradeLevels?: Record<string, number>;
   equipmentStrengthMultiplier: number;
 };
 
@@ -223,8 +229,11 @@ type MutableSimulationState = {
   ownedItems: Set<string>;
   bootsEquipped: boolean;
   itemUpgradeLevel: number;
+  itemUpgradeLevels?: Record<string, number>;
   equipmentStrengthMultiplier: number;
   activeResearch: ActiveResearch | null;
+  steadyEquipmentUpgrades: boolean;
+  activeUpgrade: { itemId: string; completesAt: number; level: number } | null;
   bossRewardClaims: number;
 };
 
@@ -454,7 +463,7 @@ const LOOT_AND_RETARGET_SECONDS = .3;
 const DEFAULT_FOREST_ONBOARDING_SECONDS = 22.5 * 60;
 const DEFAULT_CAMPAIGN_DURATION_SECONDS = 1.5 * (DEFAULT_FOREST_ONBOARDING_SECONDS + BALANCE_MAP_IDS
   .slice(1)
-  .reduce((total, _mapId, index) => total + BALANCE_TARGET_DESERT_DURATION_SECONDS * BALANCE_TARGET_MAP_DURATION_MULTIPLIER ** index, 0));
+  .reduce((total, _mapId, index) => total + BALANCE_TARGET_DESERT_DURATION_SECONDS * BALANCE_TARGET_MAP_DURATION_MULTIPLIER ** index + BALANCE_TARGET_MAP_DURATION_STEP_SECONDS * index, 0));
 const PROJECTILE_TRAVEL_SECONDS = DEFAULT_ATTACK_RANGE / PLAYER_PROJECTILE_SPEED * .5;
 const FIRST_HIT_SECONDS = ATTACK_WINDUP_SECONDS + PROJECTILE_TRAVEL_SECONDS;
 
@@ -542,14 +551,16 @@ export function defaultBalanceSimulationConfig(): BalanceSimulationConfig {
     trials: 100,
     strategy: "mixed",
     researchPlan: "balanced",
+    steadyEquipmentUpgrades: true,
     bossTargetSeconds: BOSS_TARGET_SECONDS,
     targetDesertDurationSeconds: BALANCE_TARGET_DESERT_DURATION_SECONDS,
     targetMapDurationMultiplier: BALANCE_TARGET_MAP_DURATION_MULTIPLIER,
+    targetMapDurationStepSeconds: BALANCE_TARGET_MAP_DURATION_STEP_SECONDS,
     targetMapPowerMultiplier: BALANCE_TARGET_MAP_POWER_MULTIPLIER,
     targetPowerArcBlend: BALANCE_TARGET_POWER_ARC_BLEND,
     futureSpeedupReserveMultiplier: 1.25,
     requiredClears: 1,
-    respawnSeconds: 30,
+    respawnSeconds: 20,
     itemUpgradeLevel: 0,
     equipmentStrengthMultiplier: 1,
     pathingMultiplier: 1.15,
@@ -562,14 +573,14 @@ export function bossReadinessTargetSeconds(
   mapId: BalanceMapId,
   config: Pick<
     BalanceSimulationConfig,
-    "bossTargetSeconds" | "targetDesertDurationSeconds" | "targetMapDurationMultiplier"
+    "bossTargetSeconds" | "targetDesertDurationSeconds" | "targetMapDurationMultiplier" | "targetMapDurationStepSeconds"
   >,
 ) {
   const progressionIndex = BALANCE_MAP_IDS.indexOf(mapId) - 1;
   const lavaProgressionIndex = BALANCE_MAP_IDS.indexOf(ADVANCED_LAVA_WASTES_MAP_ID) - 1;
   if (progressionIndex < lavaProgressionIndex) return config.bossTargetSeconds;
   const targetMapDuration = config.targetDesertDurationSeconds *
-    config.targetMapDurationMultiplier ** progressionIndex;
+    config.targetMapDurationMultiplier ** progressionIndex + config.targetMapDurationStepSeconds * progressionIndex;
   return Math.max(
     config.bossTargetSeconds,
     Math.min(
@@ -601,6 +612,8 @@ function normalizeConfig(config: Partial<BalanceSimulationConfig>): BalanceSimul
     strategy: strategy === "natural" || strategy === "efficient" || strategy === "dps-first" || strategy === "boss-rush" || strategy === "boss-farm" || strategy === "mixed"
       ? strategy
       : "efficient",
+    steadyEquipmentUpgrades: config.steadyEquipmentUpgrades ?? defaults.steadyEquipmentUpgrades,
+    targetMapDurationStepSeconds: finiteRange(config.targetMapDurationStepSeconds, defaults.targetMapDurationStepSeconds, 0, 86400),
     researchPlan: researchPlan === "balanced" || researchPlan === "damage-first" ? researchPlan : "off",
     bossTargetSeconds: finiteRange(config.bossTargetSeconds, defaults.bossTargetSeconds, 1, 24 * 60 * 60),
     targetDesertDurationSeconds: finiteRange(
@@ -981,13 +994,14 @@ function stateSnapshot(state: MutableSimulationState): SimulationStateSnapshot {
     equipped: { ...state.equipped },
     bootsEquipped: state.bootsEquipped,
     itemUpgradeLevel: state.itemUpgradeLevel,
+    itemUpgradeLevels: { ...state.itemUpgradeLevels },
     equipmentStrengthMultiplier: state.equipmentStrengthMultiplier,
   };
 }
 
 type EffectiveStatsState = Pick<
   SimulationStateSnapshot,
-  "stats" | "research" | "equipped" | "itemUpgradeLevel" | "equipmentStrengthMultiplier"
+  "stats" | "research" | "equipped" | "itemUpgradeLevel" | "itemUpgradeLevels" | "equipmentStrengthMultiplier"
 >;
 
 function effectiveStats(state: EffectiveStatsState) {
@@ -996,7 +1010,7 @@ function effectiveStats(state: EffectiveStatsState) {
     equippedHead: state.equipped.head,
     equippedChest: state.equipped.chest,
     equippedRightHand: state.equipped.weapon,
-  }, state.research, () => state.itemUpgradeLevel);
+  }, state.research, (itemId) => state.itemUpgradeLevels?.[itemId] ?? state.itemUpgradeLevel);
   const strength = Math.max(0, Math.min(2, state.equipmentStrengthMultiplier));
   if (strength === 1) return withEquipment;
   const withoutEquipment = effectivePlayerPowerStats({
@@ -1004,7 +1018,7 @@ function effectiveStats(state: EffectiveStatsState) {
     equippedHead: "",
     equippedChest: "",
     equippedRightHand: "",
-  }, state.research, () => state.itemUpgradeLevel);
+  }, state.research, (itemId) => state.itemUpgradeLevels?.[itemId] ?? state.itemUpgradeLevel);
   return {
     damage: withoutEquipment.damage + (withEquipment.damage - withoutEquipment.damage) * strength,
     maxHp: withoutEquipment.maxHp + (withEquipment.maxHp - withoutEquipment.maxHp) * strength,
@@ -1126,22 +1140,36 @@ function startNextResearch(state: MutableSimulationState, plan: ResearchPlan) {
     : null;
 }
 
-function advanceTime(
+export function advanceTime(
   state: MutableSimulationState,
   targetTime: number,
   plan: ResearchPlan,
   recordHistory: () => void,
 ) {
-  while (state.activeResearch && state.activeResearch.completesAt <= targetTime) {
-    state.time = state.activeResearch.completesAt;
-    const id = state.activeResearch.id;
-    const previousRank = state.research[id];
-    state.research[id] = Math.min(RESEARCH_DEFINITIONS[id].maxRank, previousRank + 1);
-    if (id === "vitality") {
-      state.stats.maxHp = state.stats.maxHp / (1 + previousRank * .02) * (1 + state.research.vitality * .02);
+  startNextEquipmentUpgrade(state);
+  while (true) {
+    const researchAt = state.activeResearch?.completesAt ?? Infinity;
+    const upgradeAt = state.activeUpgrade?.completesAt ?? Infinity;
+    const nextAt = Math.min(researchAt, upgradeAt);
+    if (nextAt > targetTime) break;
+    state.time = nextAt;
+    if (state.activeResearch && researchAt === nextAt) {
+      const id = state.activeResearch.id;
+      const previousRank = state.research[id];
+      state.research[id] = Math.min(RESEARCH_DEFINITIONS[id].maxRank, previousRank + 1);
+      if (id === "vitality") {
+        state.stats.maxHp = state.stats.maxHp / (1 + previousRank * .02) * (1 + state.research.vitality * .02);
+      }
+      startNextResearch(state, plan);
+    }
+    if (state.activeUpgrade && upgradeAt === nextAt) {
+      const upgrade = state.activeUpgrade;
+      (state.itemUpgradeLevels ??= {})[upgrade.itemId] = upgrade.level + 1;
+      state.activeUpgrade = null;
+      equipBestAvailableItems(state);
+      startNextEquipmentUpgrade(state);
     }
     recordHistory();
-    startNextResearch(state, plan);
   }
   state.time = targetTime;
 }
@@ -1152,6 +1180,32 @@ function equipmentSlot(itemId: ItemId): keyof EquippedItems | null {
   if (slot === "CHEST") return "chest";
   if (slot === "HAND") return "weapon";
   return null;
+}
+
+function equipBestAvailableItems(state: MutableSimulationState) {
+  for (const slot of ["weapon", "head", "chest"] as const) {
+    state.equipped[slot] = "";
+    for (const itemId of state.ownedItems) {
+      if (itemId === state.activeUpgrade?.itemId || equipmentSlot(itemId as ItemId) !== slot) continue;
+      const previous = state.equipped[slot];
+      const before = powerForState(state);
+      state.equipped[slot] = itemId;
+      if (powerForState(state) < before) state.equipped[slot] = previous;
+    }
+  }
+}
+
+export function startNextEquipmentUpgrade(state: MutableSimulationState) {
+  if (!state.steadyEquipmentUpgrades || state.activeUpgrade || state.equipmentStrengthMultiplier === 0) return;
+  const candidates = [state.equipped.weapon, state.equipped.head, state.equipped.chest]
+    .filter(itemId => isUpgradeableItem(itemId))
+    .map(itemId => ({ itemId, level: state.itemUpgradeLevels?.[itemId] ?? state.itemUpgradeLevel }))
+    .filter(item => item.level < MAX_ITEM_UPGRADE_LEVEL)
+    .sort((a, b) => a.level - b.level);
+  const next = candidates[0];
+  if (!next) return;
+  state.activeUpgrade = { ...next, completesAt: state.time + itemUpgradeDurationMs(next.level) / 1000 };
+  equipBestAvailableItems(state);
 }
 
 function acquireAndAutoEquip(state: MutableSimulationState, itemId: ItemId, recordHistory: () => void) {
@@ -1241,6 +1295,7 @@ function projectedBossRewardPowerGain(
     equipped: { ...state.equipped },
     bootsEquipped: false,
     itemUpgradeLevel: state.itemUpgradeLevel,
+    itemUpgradeLevels: { ...state.itemUpgradeLevels },
     equipmentStrengthMultiplier: state.equipmentStrengthMultiplier,
   };
   const before = continuousPowerForState(projected);
@@ -1613,6 +1668,9 @@ function simulateTrial(
     ownedItems: new Set([BASIC_PAPER_HAT, STARTER_STONE]),
     bootsEquipped: false,
     itemUpgradeLevel: config.itemUpgradeLevel,
+    itemUpgradeLevels: {},
+    steadyEquipmentUpgrades: config.steadyEquipmentUpgrades,
+    activeUpgrade: null,
     equipmentStrengthMultiplier: config.equipmentStrengthMultiplier,
     activeResearch: null,
     bossRewardClaims: 0,
@@ -2575,7 +2633,7 @@ function runBalanceSimulationInternal(
     const progressionIndex = index - 1;
     const targetDurationSeconds = progressionIndex < 0
       ? null
-      : config.targetDesertDurationSeconds * config.targetMapDurationMultiplier ** progressionIndex;
+      : config.targetDesertDurationSeconds * config.targetMapDurationMultiplier ** progressionIndex + config.targetMapDurationStepSeconds * progressionIndex;
     return mapSummary(
       trials,
       map,
