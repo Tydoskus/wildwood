@@ -39,6 +39,7 @@ export function createRenderController(options: {
   setRenderedDuelScene: (scene: DuelScene | null) => void;
   setDuelCountdown: (countdown: number) => void;
   drawProfileCharacterPreview: () => void;
+  worldOccluded?: () => boolean;
   updateSpeechBubbles: () => void;
   drawGround: () => void;
   drawStaticWorld: (
@@ -224,6 +225,9 @@ export function createRenderController(options: {
     const { width, height, dpr } = viewport();
     ctx.clearRect(0, 0, width, height);
     drawProfileCharacterPreview();
+    // Opaque menus already cover the world. Keep their previews alive without
+    // repainting the terrain, actors, effects, minimap, and WebGL layers below.
+    if (options.worldOccluded?.()) return;
     const remotes = remotePlayers();
     updateSpeechBubbles();
     const replay = replayScene();

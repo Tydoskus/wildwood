@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.643": [
+    "Capped gameplay and guild replays at 60 FPS, while keeping the 30 FPS idle and Low Performance modes.",
+    "Reduced canvas rendering resolution on high-density screens to lower GPU workload and memory use.",
+    "Stopped world redraws behind opaque menus and rendering in hidden tabs, and reduced repeated chat and replay UI work.",
+  ],
   "0.642": [
     "Simplified the toolbar to Guilds, Leaderboard, Home, Inventory, and Shop, in that order.",
     "Friends management is available inside Guilds and private Chat instead of a separate toolbar button.",
@@ -1583,6 +1588,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.643": "2026-09-06",
   "0.642": "2026-09-06",
   "0.641": "2026-09-06",
   "0.640": "2026-09-06",

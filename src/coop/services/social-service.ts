@@ -24,6 +24,7 @@ const emptySnapshot = (): SocialSnapshot => ({ identity: "", signedIn: false, fr
 export function createSocialService(deps: Dependencies) {
   let snapshot = emptySnapshot();
   const messages = new Map<bigint, SocialMessage>();
+  let orderedMessages: SocialMessage[] | null = null;
   let generation = 0, revision = 0, hubRevision = 0;
   let pending: symbol | null = null;
   function changed() { revision++; deps.notify(); }
@@ -45,7 +46,7 @@ export function createSocialService(deps: Dependencies) {
     try { await deps.reducers.runWorldReducer(() => action(current.connection)); current.check(); }
     catch (error) { throw new Error(deps.reducers.errorMessage(error)); }
   }
-  function sorted() { return [...messages.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0); }
+  function sorted() { return orderedMessages ??= [...messages.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0); }
   function peerMatches(row: SocialMessage, target: string) {
     const mine = row.sender === deps.localIdentity();
     const peer = mine ? row.recipient : row.sender, name = mine ? row.recipientName : row.senderName;
@@ -67,7 +68,7 @@ export function createSocialService(deps: Dependencies) {
     privateMessages: (target: string) => sorted().filter(row => row.channel === "dm" && peerMatches(row, target)),
     privateConversations: () => {
       const peers = new Map<string, { identity: string; name: string }>();
-      for (const row of sorted().reverse()) if (row.channel === "dm") {
+      for (const row of [...sorted()].reverse()) if (row.channel === "dm") {
         const mine = row.sender === deps.localIdentity();
         const identity = mine ? row.recipient : row.sender;
         if (!peers.has(identity)) peers.set(identity, { identity, name: snapshot.friends.find(friend => friend.identity === identity)?.name ?? (mine ? row.recipientName : row.senderName) });
@@ -110,14 +111,15 @@ export function createSocialService(deps: Dependencies) {
       if (row.identity.toHexString() !== deps.localIdentity()) return;
       snapshot = JSON.parse(row.snapshot) as SocialSnapshot; hubRevision++; changed();
     },
-    removeHub() { snapshot = emptySnapshot(); messages.clear(); hubRevision++; changed(); },
+    removeHub() { snapshot = emptySnapshot(); messages.clear(); orderedMessages = null; hubRevision++; changed(); },
     upsertMessage(row: MessageRow) {
+      orderedMessages = null;
       deps.rememberSender?.({ identity: row.sender.toHexString(), identityValue: row.sender, name: row.senderName, isGuest: row.senderIsGuest ?? true });
       messages.set(row.id, { ...row, sender: row.sender.toHexString(), recipient: row.recipient.toHexString(),
         guildId: String(row.guildId), replayId: 0n, senderGender: normalizePlayerGender(row.senderGender),
         sentAtMs: Number(row.sentAt.microsSinceUnixEpoch / 1_000n) }); changed();
     },
-    removeMessage(row: { id: bigint }) { if (messages.delete(row.id)) changed(); },
-  }, resetSession() { generation++; pending = null; snapshot = emptySnapshot(); messages.clear(); hubRevision++; changed(); } };
+    removeMessage(row: { id: bigint }) { if (messages.delete(row.id)) { orderedMessages = null; changed(); } },
+  }, resetSession() { generation++; pending = null; snapshot = emptySnapshot(); messages.clear(); orderedMessages = null; hubRevision++; changed(); } };
 }
 export type SocialApi = ReturnType<typeof createSocialService>["api"];

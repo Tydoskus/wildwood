@@ -6,7 +6,7 @@ function arena(ready: boolean, replay: boolean) {
   const ctx = new Proxy({} as any, { get: (target, key) => target[key] ??= vi.fn() });
   const options = new Proxy({
     ctx, camera: { x: 0, y: 0, zoom: 1 }, player: { x: 5000, y: 5000, attackRange: 200 },
-    viewport: () => ({ width: 900, height: 700, dpr: 1 }), remotePlayers: () => [],
+    viewport: () => ({ width: 900, height: 700, dpr: 1 }), remotePlayers: vi.fn(() => []),
     duelAssetsReady: () => ready, isReplayActive: () => replay,
     replayScene: () => replay ? scene : null, heldScene: () => null,
     duelResultHeld: () => false, liveScene: () => scene, isDueling: () => !replay,
@@ -24,6 +24,18 @@ it.each([true, false])("keeps arena lighting independent of exploration coordina
   const f = arena(true, replay); f.render();
   expect(f.options.drawDuelScene).toHaveBeenCalledWith(f.scene);
   expect(f.ctx.createRadialGradient).not.toHaveBeenCalled();
+});
+it("does not redraw a covered world while keeping menu previews alive", () => {
+  const f = arena(true, false);
+  f.options.worldOccluded = () => true;
+  f.render();
+  expect(f.options.drawProfileCharacterPreview).toHaveBeenCalledOnce();
+  expect(f.options.remotePlayers).not.toHaveBeenCalled();
+  expect(f.options.drawDuelScene).not.toHaveBeenCalled();
+  expect(f.options.drawStaticWorld).not.toHaveBeenCalled();
+  f.options.worldOccluded = () => false;
+  f.render();
+  expect(f.options.drawDuelScene).toHaveBeenCalledOnce();
 });
 
 describe("snapToDevicePixel", () => {

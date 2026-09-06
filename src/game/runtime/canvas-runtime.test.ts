@@ -13,9 +13,9 @@ describe("gameplay canvas viewport", () => {
       width: 390,
       height: 780,
       reservedBottom: 64,
-      dpr: 3,
-      backingWidth: 1170,
-      backingHeight: 2340,
+      dpr: 2,
+      backingWidth: 780,
+      backingHeight: 1560,
     });
   });
 

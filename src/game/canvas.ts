@@ -1,3 +1,4 @@
+import { canvasRenderPixelRatio } from "./runtime/render-budget";
 type TextSprite = {
   canvas: HTMLCanvasElement;
   logicalWidth: number;
@@ -50,7 +51,7 @@ export function createCanvasPrimitives(ctx: CanvasRenderingContext2D) {
   let cachedTextPixels = 0;
 
   function textSprite(text: string, fillColor: string, strokeWidth: number | null) {
-    const scale = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+    const scale = canvasRenderPixelRatio(window.devicePixelRatio || 1);
     const font = ctx.font;
     const direction = ctx.direction;
     const key = `${scale}\u0000${font}\u0000${direction}\u0000${fillColor}\u0000${strokeWidth ?? "fill"}\u0000${text}`;

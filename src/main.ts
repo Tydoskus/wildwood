@@ -1159,7 +1159,9 @@ import {
     duelResultHeld: () => playerController.isDuelResultHeld(),
     setRenderedDuelScene: (scene) => { renderedDuelScene = scene; },
     setDuelCountdown: (countdown) => runtimeHud?.setDuelCountdown(countdown),
+    worldOccluded: () => !settingsPanel.hidden || !inventoryPanel.hidden || leaderboard.isOpen(),
     drawProfileCharacterPreview: () => {
+      if (!settingsPanel.hidden) return;
       profileWindow.drawPreview();
       leaderboard.drawPodium();
       inventoryCharacterPreview.draw({

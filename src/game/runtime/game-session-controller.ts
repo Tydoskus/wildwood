@@ -1,16 +1,12 @@
 import { DUEL_ARENA } from "../duel";
 import { snapCameraToPlayer, updateCamera } from "./camera";
 import type { PlayerState } from "./types";
+import { frameDeadlineReached, nextPresentationDeadline } from "./render-budget";
+export { FRAME_DEADLINE_TOLERANCE_MS, frameDeadlineReached } from "./render-budget";
 
 type MapId = string;
 type RuntimeDuel = { status: string; startsAtMs: number; endsAtMs: number } | null;
 
-/**
- * requestAnimationFrame timestamps can land a fraction of a millisecond before
- * a nominal refresh deadline. Treating those callbacks as early makes a 60 Hz
- * display skip the callback and render at 30 FPS instead.
- */
-export const FRAME_DEADLINE_TOLERANCE_MS = 1;
 export const SIMULATION_HZ = 60;
 export const SIMULATION_STEP_SECONDS = 1 / SIMULATION_HZ;
 export const MAX_SIMULATION_STEPS_PER_FRAME = 8;
@@ -24,13 +20,9 @@ export type FixedSimulationClock = {
   interpolationAlpha: number;
 };
 
-export function frameDeadlineReached(now: number, nextFrameAt: number) {
-  return now + FRAME_DEADLINE_TOLERANCE_MS >= nextFrameAt;
-}
-
-/** Default presentation follows every display callback; battery mode stays 30 FPS. */
-export function presentationFrameDue(lowPerformanceMode: boolean, now: number, nextFrameAt: number) {
-  return !lowPerformanceMode || frameDeadlineReached(now, nextFrameAt);
+/** Both normal (60 FPS) and battery/idle (30 FPS) modes obey their deadline. */
+export function presentationFrameDue(_lowPerformanceMode: boolean, now: number, nextFrameAt: number) {
+  return frameDeadlineReached(now, nextFrameAt);
 }
 
 export function idlePresentationThrottleActive(
@@ -258,6 +250,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
   document.addEventListener("visibilitychange", refreshFrameClock);
 
   function loop(now: number) {
+    if (document.hidden) { requestAnimationFrame(loop); return; }
     const lowPerformanceMode = dependencies.lowPerformanceMode();
     const combatActive = running && !paused && !dependencies.accountInConflict()
       && presentationCombatActive(dependencies.player, dependencies.isDueling());
@@ -265,18 +258,12 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     if (activityActive) lastPresentationActivityAt = now;
     const idleThrottled = !lowPerformanceMode
       && idlePresentationThrottleActive(activityActive, now, lastPresentationActivityAt);
-    const reducedFrameRate = lowPerformanceMode || idleThrottled;
+    const reducedFrameRate = lowPerformanceMode || idleThrottled || paused || !running;
     if (!presentationFrameDue(reducedFrameRate, now, nextFrameAt)) {
       requestAnimationFrame(loop);
       return;
     }
-    if (reducedFrameRate) {
-      const frameIntervalMs = 1_000 / 30;
-      nextFrameAt += frameIntervalMs;
-      if (nextFrameAt < now) nextFrameAt = now + frameIntervalMs;
-    } else {
-      nextFrameAt = now;
-    }
+    nextFrameAt = nextPresentationDeadline(now, nextFrameAt, reducedFrameRate ? 30 : 60);
     const frameDeltaMs = Math.max(0, now - lastFrameAt);
     lastFrameAt = now;
     const renderedFrameDeltaMs = Math.max(0, now - lastRenderedAt);

@@ -1,3 +1,4 @@
+import { canvasRenderPixelRatio } from "../game/runtime/render-budget";
 import {
   DARK_METAL_HELMET,
   DESERT_ITEM_DROP_DENOMINATOR,
@@ -282,7 +283,7 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
     const bounds = canvas.getBoundingClientRect();
     const width = Math.max(1, Math.round(bounds.width));
     const height = Math.max(1, Math.round(bounds.height));
-    const dpr = Math.min(globalThis.devicePixelRatio || 1, 3);
+    const dpr = canvasRenderPixelRatio(globalThis.devicePixelRatio || 1);
     const pixelWidth = Math.round(width * dpr);
     const pixelHeight = Math.round(height * dpr);
     if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {

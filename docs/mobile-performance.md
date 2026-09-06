@@ -50,8 +50,8 @@ high-refresh panels repeated a simulation pose and then jumped to the next one.
 The presentation path now:
 
 - keeps gameplay deterministic at a fixed 60 Hz;
-- renders every browser animation callback in normal mode and retains the
-  explicit 30 FPS cap in Low Performance mode;
+- caps game and guild-replay presentation at 60 FPS on every display, with
+  phase-preserving deadlines and a 30 FPS Low Performance/idle cap;
 - interpolates the camera, local actors, enemies, projectiles, bosses, hazards,
   particles, and damage numbers using the accumulator remainder;
 - restores authoritative simulation transforms immediately after each
@@ -112,10 +112,10 @@ cost:
 3. Move remaining sprite pixel preprocessing to build time. The worker already
    keeps it off the main thread, but runtime preprocessing still consumes CPU,
    memory, and mobile-core bandwidth during entry.
-4. Add an adaptive render-DPR ceiling. The current cap is 3. A lower phone cap
-   can reduce framebuffer memory substantially, but choose it only after
-   comparing text, pixel art, and screenshots across representative DPR 2–4
-   devices.
+4. Canvas render DPR is now capped at 2 for the world, guild replays, previews,
+   map guide, and text sprites. A DPR 3 phone allocates 56% fewer pixels per
+   same-sized canvas; DOM text remains native-resolution. Measure thermal
+   behavior on the affected Android phone before considering a lower tier.
 5. Budget WebGL tile uploads per frame if a new trace still shows upload tasks
    above roughly 2 ms. The renderer now excludes offscreen tiles, so measure
    the smaller visible-only batch before accepting temporary tile pop-in.
@@ -126,10 +126,11 @@ cost:
    WebGL texture cache to avoid retaining both representations. This requires a
    designed Canvas2D fallback and context-loss recovery path; closing bitmaps
    immediately after upload is unsafe with the current renderer contract.
-8. If native-refresh rendering is too expensive on a measured device, add an
-   explicit adaptive presentation tier (for example, native / 60 / 30) with a
-   cadence algorithm that spaces frames evenly for the detected panel. Do not
-   restore the old fixed 60 Hz deadline filter on arbitrary refresh rates.
+8. The requested hard 60 FPS ceiling takes priority over native-refresh
+   presentation. On 90/144 Hz screens, deadlines preserve a 60 FPS average;
+   frame intervals necessarily follow the available refresh callbacks. Idle
+   and Low Performance mode remain at 30 FPS. Hidden documents do no rendering,
+   and opaque Settings/Inventory/Leaderboard windows skip world redraws.
 9. Standard fixed-step interpolation intentionally presents local motion up to
    one simulation tick behind. If controlled tests show input latency rather
    than uneven cadence is the remaining problem, evaluate short local-player

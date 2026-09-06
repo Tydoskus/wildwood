@@ -2,6 +2,7 @@ import { expect, it, vi } from "vitest";
 import { parseHTML } from "linkedom";
 import { simulateGuildBattle } from "../../shared/guild-combat";
 import { createGuildBattleReplay, type GuildReplayAssets } from "./guild-battle-replay";
+import * as battlefield from "./guild-battlefield-renderer";
 function setup() {
   const { document, window } = parseHTML("<html><body><div id='host'></div></body></html>");
   let nextId = 0;
@@ -17,6 +18,18 @@ function setup() {
   return { document, scheduled, frame, battle, host: document.getElementById("host")! as unknown as HTMLElement };
 }
 const settle = async () => { for (let i = 0; i < 5; i++) await Promise.resolve(); };
+it("caps a 120 Hz guild replay at 60 rendered FPS without slowing playback", async () => {
+  const h = setup();
+  const draw = vi.fn(() => [{ hp: 100 }, { hp: 100 }] as any);
+  const renderer = vi.spyOn(battlefield, "createGuildBattlefieldRenderer").mockReturnValue({ draw, dispose: vi.fn() });
+  const replay = createGuildBattleReplay(h.host, h.battle, ["Fire", "Moon"], { prepare: async () => {} } as GuildReplayAssets);
+  try {
+    await settle(); draw.mockClear();
+    for (let index = 0; index <= 120; index++) h.frame(100 + index * 1000 / 120);
+    expect(draw).toHaveBeenCalledTimes(61);
+    expect(Number((h.document.querySelector("input") as HTMLInputElement).value)).toBeCloseTo(1);
+  } finally { replay.dispose(); renderer.mockRestore(); }
+});
 it("supports pause, seek, restart and releases the animation callback on close", async () => {
   const h = setup(), replay = createGuildBattleReplay(h.host, h.battle, ["Fire", "Moon"]);
   await settle(); expect(h.scheduled.size).toBe(1);

@@ -1,3 +1,4 @@
+import { canvasRenderPixelRatio } from "../game/runtime/render-budget";
 import { drawStartingPlayer, type PlayerAppearanceAssets } from "../game/player-appearance";
 import { projectileKindForWeapon } from "../game/item-presentation";
 import { paintArrowProjectile, paintRockProjectile } from "../game/runtime/weapon-projectile-renderer";
@@ -27,7 +28,7 @@ export function createGuildBattlefieldRenderer(canvas: HTMLCanvasElement, ctx: C
   }
   for (const [x, y, size] of [[48, 145, .8], [955, 493, .9], [840, 588, .6], [154, 58, .7], [44, 418, .55], [925, 103, .5]]) decor.push({ type: "rock", x, y, s: size, variant: 0 });
   function resize() {
-    const width = Math.max(1, canvas.clientWidth || 900), dpr = doc.defaultView?.devicePixelRatio || 1;
+    const width = Math.max(1, canvas.clientWidth || 900), dpr = canvasRenderPixelRatio(doc.defaultView?.devicePixelRatio || 1);
     const pixelWidth = Math.round(width * dpr), pixelHeight = Math.round(width * HEIGHT / WIDTH * dpr);
     if (canvas.width === pixelWidth && canvas.height === pixelHeight && ground.width === pixelWidth) return;
     canvas.width = pixelWidth; canvas.height = pixelHeight; ground.width = pixelWidth; ground.height = pixelHeight;

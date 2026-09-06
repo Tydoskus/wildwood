@@ -162,6 +162,7 @@ export type FrameRendererOptions = {
   setRenderedDuelScene: (scene: DuelScene | null) => void;
   setDuelCountdown: (countdown: number) => void;
   drawProfileCharacterPreview: () => void;
+  worldOccluded?: () => boolean;
   updateSpeechBubbles: () => void;
   localIdentity: () => string | undefined;
   localDisplayName: () => string | undefined;
@@ -446,6 +447,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       setRenderedDuelScene: frame.setRenderedDuelScene,
       setDuelCountdown: frame.setDuelCountdown,
       drawProfileCharacterPreview: frame.drawProfileCharacterPreview,
+      worldOccluded: frame.worldOccluded,
       updateSpeechBubbles: frame.updateSpeechBubbles,
       drawGround: world.drawGround,
       drawStaticWorld: world.drawStaticWorld,

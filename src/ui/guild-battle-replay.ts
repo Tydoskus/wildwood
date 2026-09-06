@@ -1,4 +1,5 @@
 import type { GuildBattleResult } from "../../shared/guild-combat";
+import { frameDeadlineReached, nextPresentationDeadline } from "../game/runtime/render-budget";
 import { createGuildBattlefieldRenderer, type GuildReplayAssets } from "./guild-battlefield-renderer";
 import { buildGuildReplayTimeline, type GuildReplayTimeline } from "./guild-replay-timeline";
 export type { GuildReplayAssets } from "./guild-battlefield-renderer";
@@ -24,7 +25,7 @@ export function createGuildBattleReplay(parent: HTMLElement, battle: GuildBattle
   const fighters = [...battle.attackers, ...battle.defenders], split = battle.attackers.length;
   let timeline: GuildReplayTimeline | undefined;
   let renderer: ReturnType<typeof createGuildBattlefieldRenderer> | undefined;
-  let disposed = false, ready = false, playing = true, elapsed = 0, rate = 1, request = 0, last = 0;
+  let disposed = false, ready = false, playing = true, elapsed = 0, rate = 1, request = 0, last = 0, nextFrameAt = 0;
   const endTime = Math.round((battle.duration + 1.1) * 10) / 10;
   let ctx: CanvasRenderingContext2D | null = null;
   try { ctx = canvas.getContext("2d"); } catch { /* Non-canvas hosts still show report text. */ }
@@ -34,12 +35,17 @@ export function createGuildBattleReplay(parent: HTMLElement, battle: GuildBattle
     const actors = renderer?.draw(elapsed, showNames) ?? timeline!.sample(elapsed);
     const alive = (from: number, to: number) => actors.slice(from, to).filter(actor => actor.hp > 0).length;
     const done = elapsed >= endTime;
-    status.textContent = done ? `${battle.outcome === "DRAW" ? "Draw" : `[${battle.outcome === "VICTORY" ? names[0] : names[1]}] wins`} · ${battle.attackerSurvivors}–${battle.defenderSurvivors} survivors` : `[${names[0]}] ${alive(0, split)}/${split}  ·  ${Math.min(battle.duration, elapsed).toFixed(1)}s  ·  [${names[1]}] ${alive(split, fighters.length)}/${fighters.length - split}`;
-    seek.value = String(elapsed); play.textContent = playing ? "Pause" : done ? "Replay" : "Play";
+    const nextStatus = done ? `${battle.outcome === "DRAW" ? "Draw" : `[${battle.outcome === "VICTORY" ? names[0] : names[1]}] wins`} · ${battle.attackerSurvivors}–${battle.defenderSurvivors} survivors` : `[${names[0]}] ${alive(0, split)}/${split}  ·  ${Math.min(battle.duration, elapsed).toFixed(1)}s  ·  [${names[1]}] ${alive(split, fighters.length)}/${fighters.length - split}`;
+    if (status.textContent !== nextStatus) status.textContent = nextStatus;
+    seek.value = String(elapsed);
+    const playLabel = playing ? "Pause" : done ? "Replay" : "Play";
+    if (play.textContent !== playLabel) play.textContent = playLabel;
   }
   function tick(timestamp: number) {
     request = 0;
     if (disposed || !playing || doc.hidden) { last = 0; return; }
+    if (!frameDeadlineReached(timestamp, nextFrameAt)) { schedule(); return; }
+    nextFrameAt = nextPresentationDeadline(timestamp, nextFrameAt);
     if (last) elapsed = Math.min(endTime, elapsed + Math.min(.25, (timestamp - last) / 1000) * rate);
     last = timestamp;
     if (elapsed >= endTime) playing = false;
@@ -51,7 +57,7 @@ export function createGuildBattleReplay(parent: HTMLElement, battle: GuildBattle
   speed.onclick = () => { rate = rate === 1 ? 2 : rate === 2 ? 4 : 1; speed.textContent = `${rate}×`; };
   labels.onclick = () => { showNames = !showNames; labels.setAttribute("aria-pressed", String(showNames)); draw(); };
   seek.oninput = () => { elapsed = Number(seek.value); last = 0; draw(); };
-  const visibility = () => { last = 0; schedule(); }; doc.addEventListener("visibilitychange", visibility);
+  const visibility = () => { last = 0; nextFrameAt = 0; schedule(); }; doc.addEventListener("visibilitychange", visibility);
   const resize = () => draw(); win?.addEventListener("resize", resize);
   void (assets?.prepare() ?? Promise.resolve()).then(() => {
     if (disposed) return;

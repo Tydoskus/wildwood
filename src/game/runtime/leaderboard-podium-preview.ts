@@ -1,3 +1,4 @@
+import { canvasRenderPixelRatio } from "./render-budget";
 import { drawStartingPlayer, type PlayerAppearanceAssets } from "../player-appearance";
 import { requiredCanvasContext } from "./dom";
 
@@ -23,7 +24,7 @@ export function createLeaderboardPodiumPreview(playerAppearanceAssets: PlayerApp
 
   function draw(canvas: HTMLCanvasElement, appearance: LeaderboardPodiumAppearance, rank: 1 | 2 | 3) {
     const ctx = contextFor(canvas);
-    const pixelRatio = Math.max(1, window.devicePixelRatio || 1);
+    const pixelRatio = canvasRenderPixelRatio(window.devicePixelRatio || 1);
     const width = Math.max(1, Math.round(canvas.clientWidth));
     const height = Math.max(1, Math.round(canvas.clientHeight));
     const pixelWidth = Math.round(width * pixelRatio);

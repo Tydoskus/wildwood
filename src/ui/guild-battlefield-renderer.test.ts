@@ -7,7 +7,7 @@ import { buildGuildReplayTimeline } from "./guild-replay-timeline";
 import { createGuildBattlefieldRenderer } from "./guild-battlefield-renderer";
 vi.mock("../game/player-appearance", () => ({ drawStartingPlayer: vi.fn() }));
 vi.mock("../game/runtime/weapon-projectile-renderer", () => ({ paintArrowProjectile: vi.fn(), paintRockProjectile: vi.fn() }));
-it("uses full-resolution continuous equipment poses and the actual weapon projectile painters", () => {
+it("uses bounded high-DPI continuous equipment poses and the actual weapon projectile painters", () => {
   const context = new Proxy({}, { get: () => vi.fn(), set: () => true }) as CanvasRenderingContext2D;
   const doc = { defaultView: { devicePixelRatio: 3 }, createElement: () => ({ width: 0, height: 0, getContext: () => context }) };
   const canvas = { ownerDocument: doc, clientWidth: 400, width: 300, height: 150 } as unknown as HTMLCanvasElement;
@@ -16,7 +16,7 @@ it("uses full-resolution continuous equipment poses and the actual weapon projec
   const stone = { complete: true, naturalWidth: 26, naturalHeight: 26 } as HTMLImageElement;
   const renderer = createGuildBattlefieldRenderer(canvas, context, timeline, 1, { player: { basicFrontLeg: stone, basicBackLeg: stone, equipment: { [STARTER_STONE]: { sprite: stone } } }, prepare: async () => {}, trees: stone, treeBounds: () => [] });
   for (const shot of timeline.shots.slice(0, 3)) renderer.draw((shot.launch + shot.impact) / 2, true);
-  expect(canvas.width).toBe(1200); expect(canvas.height).toBe(768);
+  expect(canvas.width).toBe(800); expect(canvas.height).toBe(512);
   expect(vi.mocked(drawStartingPlayer).mock.calls[0][0]).toBe(context);
   expect(vi.mocked(drawStartingPlayer).mock.calls.some(([, , pose]) => pose.smooth && pose.rightHandItem === STARTER_BOW)).toBe(true);
   expect(vi.mocked(drawStartingPlayer).mock.calls.some(([, , pose]) => pose.combatFacing !== 0 && pose.combatFacing !== Math.PI && pose.throwClock! > 0)).toBe(true);

@@ -1,5 +1,6 @@
 import { createCanvasPrimitives } from "../canvas";
 import { requiredCanvasContext } from "./dom";
+import { canvasRenderPixelRatio } from "./render-budget";
 
 export function gameplayBottomInset(toolbarHeight: number) {
   return Number.isFinite(toolbarHeight) ? Math.max(0, toolbarHeight) : 0;
@@ -14,7 +15,7 @@ export function canvasViewportMetrics(
   const width = Math.max(1, Math.round(Number.isFinite(viewportWidth) ? viewportWidth : 1));
   const bottom = Math.max(0, Math.round(Number.isFinite(reservedBottom) ? reservedBottom : 0));
   const height = Math.max(1, Math.round(Number.isFinite(viewportHeight) ? viewportHeight : 1) - bottom);
-  const dpr = Math.min(Math.max(1, Number.isFinite(pixelRatio) ? pixelRatio : 1), 3);
+  const dpr = canvasRenderPixelRatio(pixelRatio);
   return {
     width,
     height,

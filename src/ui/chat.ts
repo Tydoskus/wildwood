@@ -268,6 +268,8 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     if (pendingReply && coop?.isPlayerBlocked?.(pendingReply.sender)) setPendingReply(null);
 
     const now = Date.now();
+    const revision = `${conversationKey()}:${coop?.chatRevision?.() ?? -1}:${coop?.social?.revision() ?? -1}:${coop?.localIdentity?.() ?? ""}:${enabled}:${large}`;
+    if (revision === renderedRevision && now < nextExpiryAt) return;
     const conversations = coop?.social?.privateConversations() ?? [];
     if (privatePeer && !privatePeerIdentity) {
       privatePeerIdentity = [...(coop?.social?.friends() ?? []), ...conversations]
@@ -277,8 +279,6 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       new Map(conversations.map(person => [person.identity, coop?.social?.privateMessages(person.identity) ?? []])),
       enabled && large ? channel === "guild" ? "guild" : channel === "private" ? `private:${privatePeerIdentity || privatePeer}` : null : null);
     channelPicker.refresh(coop?.social?.friends() ?? [], conversations, coop?.social?.currentGuild()?.name ?? "", unreadCounts);
-    const revision = `${conversationKey()}:${coop?.chatRevision?.() ?? -1}:${coop?.social?.revision() ?? -1}:${coop?.localIdentity?.() ?? ""}`;
-    if (revision === renderedRevision && now < nextExpiryAt) return;
     const previousScrollTop = elements.messages.scrollTop;
     const previousScrollHeight = elements.messages.scrollHeight;
     const distanceFromBottom = previousScrollHeight - elements.messages.clientHeight - previousScrollTop;

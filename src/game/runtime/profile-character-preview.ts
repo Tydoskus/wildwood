@@ -1,3 +1,4 @@
+import { canvasRenderPixelRatio } from "./render-budget";
 import type { PlayerAppearanceAssets } from "../player-appearance";
 import { BASIC_PAPER_HAT, equipmentAppearance } from "../inventory";
 import { drawCharacterPreviewScene } from "./character-preview-scene";
@@ -29,7 +30,7 @@ export function createProfileCharacterPreview(
   const ctx = requiredCanvasContext(canvas);
 
   function resize() {
-    const pixelRatio = Math.max(1, window.devicePixelRatio || 1);
+    const pixelRatio = canvasRenderPixelRatio(window.devicePixelRatio || 1);
     const width = Math.max(1, Math.round(canvas.clientWidth));
     const height = Math.max(1, Math.round(canvas.clientHeight));
     const pixelWidth = Math.round(width * pixelRatio);

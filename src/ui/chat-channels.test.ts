@@ -89,6 +89,7 @@ describe("chat channels", () => {
     expect(h.button("Private").textContent).toBe("Private");
     vi.advanceTimersByTime(1_000);
     h.coop.social.privateConversations = () => [{ identity: "friend", name: "Moss" }];
+    h.coop.social.revision = () => 2;
     h.chat.refresh();
     expect(h.button("Private").textContent).toBe("Private · 1");
     expect(h.document.querySelector(".chat-private-picker select")!.textContent).toContain("Moss (1 unread)");

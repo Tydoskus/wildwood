@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { nextPresentationDeadline } from "./render-budget";
 import { MIN_ATTACK_INTERVAL } from "../../../shared/rules";
 import {
   advanceFixedSimulationClock,
@@ -9,19 +10,17 @@ import {
   SIMULATION_STEP_SECONDS,
   presentationFrameDue,
   presentationCombatActive,
+  createGameSessionController,
 } from "./game-session-controller";
 
 function countScheduledFrames(callbackTimes: number[], lowPerformanceMode: boolean) {
-  const interval = 1_000 / 30;
   let nextFrameAt = 0;
   let frames = 0;
 
   for (const now of callbackTimes) {
     if (!presentationFrameDue(lowPerformanceMode, now, nextFrameAt)) continue;
     frames += 1;
-    if (!lowPerformanceMode) continue;
-    nextFrameAt += interval;
-    if (nextFrameAt < now) nextFrameAt = now + interval;
+    nextFrameAt = nextPresentationDeadline(now, nextFrameAt, lowPerformanceMode ? 30 : 60);
   }
 
   return frames;
@@ -73,6 +72,17 @@ function interpolatedMotionDeltas(refreshRate: number, frameCount: number) {
 }
 
 describe("game session frame scheduling", () => {
+  it("does no update or render work while the document is hidden", () => {
+    vi.stubGlobal("document", { hidden: true, addEventListener: vi.fn() });
+    vi.stubGlobal("requestAnimationFrame", vi.fn());
+    const render = vi.fn(), capturePresentationState = vi.fn();
+    try {
+      const session = createGameSessionController({ render, capturePresentationState } as any);
+      for (let i = 0; i < 10; i++) session.loop(i * 1000);
+      expect(render).not.toHaveBeenCalled();
+      expect(capturePresentationState).not.toHaveBeenCalled();
+    } finally { vi.unstubAllGlobals(); }
+  });
   it("does not collapse 60 Hz rendering to every other callback when timestamps arrive slightly early", () => {
     const interval = 1_000 / 60;
     const callbacks = Array.from({ length: 120 }, (_, index) =>
@@ -82,10 +92,10 @@ describe("game session frame scheduling", () => {
     expect(countScheduledFrames(callbacks, false)).toBe(120);
   });
 
-  it("presents every callback on 90, 120, and 144 Hz displays", () => {
-    for (const refreshRate of [90, 120, 144]) {
+  it("caps presentation at 60 FPS on 90, 120, 144, and 240 Hz displays", () => {
+    for (const refreshRate of [90, 120, 144, 240]) {
       const callbacks = Array.from({ length: refreshRate + 1 }, (_, index) => index * (1_000 / refreshRate));
-      expect(countScheduledFrames(callbacks, false)).toBe(callbacks.length);
+      expect(countScheduledFrames(callbacks, false)).toBe(61);
     }
   });
 
@@ -102,7 +112,7 @@ describe("game session frame scheduling", () => {
     expect(idlePresentationThrottleActive(true, lastInputAt + IDLE_PRESENTATION_DELAY_MS, lastInputAt)).toBe(false);
   });
 
-  it("restores native presentation for stationary combat, hits, and duels", () => {
+  it("restores active presentation for stationary combat, hits, and duels", () => {
     const idle = { hp: 100, combatFacing: null, throwClock: 0, hurtClock: 0 };
     expect(presentationCombatActive(idle, false)).toBe(false);
     for (const player of [
@@ -127,7 +137,7 @@ describe("game session frame scheduling", () => {
     }
     expect(idlePresentationThrottleActive(false, 10_999, lastActivityAt)).toBe(false);
     expect(idlePresentationThrottleActive(false, 11_000, lastActivityAt)).toBe(true);
-    expect(presentationFrameDue(false, 9_001, 9_020)).toBe(true);
+    expect(presentationFrameDue(false, 9_001, 9_020)).toBe(false);
     expect(presentationFrameDue(true, 9_001, 9_020)).toBe(false);
   });
 
