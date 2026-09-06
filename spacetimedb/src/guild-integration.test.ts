@@ -35,11 +35,13 @@ function fixture() {
 }
 
 describe("guild root reducer integration", () => {
-  it("requires a registered controlling root account for mutations while guests may browse", () => {
+  it("allows guests to join and create while requiring the controlling root connection", () => {
     const f = fixture();
     f.actor("1", false);
     expect(f.snapshot()).toMatchObject({ signedIn: false, guild: null, directory: [] });
-    expect(() => f.run(server.createGuild, { name: "Rose" })).toThrow("Register");
+    f.run(server.createGuild, { name: "Rose" });
+    expect(f.snapshot().guild?.name).toBe("Rose");
+    f.run(server.leaveGuild);
     expect(f.db.guild.count()).toBe(0n);
     f.actor("1");
     f.ctx.connectionId = null;
@@ -49,14 +51,13 @@ describe("guild root reducer integration", () => {
     f.seed("shardAdmission", { identity: f.ctx.sender, generation: 1n, tabId: "test", inDuel: false });
     expect(() => f.run(server.createGuild, { name: "Rose" })).toThrow("main character");
     expect(f.db.guild.count()).toBe(0n);
-    expect(f.db.guildAccount.count()).toBe(0n);
+    expect(f.db.guildAccount.count()).toBe(1n);
   });
-  it("rejects cross-guild leadership, champion and removal requests without partial changes", () => {
+  it("rejects cross-guild leadership and removal requests without partial changes", () => {
     const f = fixture();
     const ours = f.guild(["1", "2"], "Rose");
     const theirs = f.guild(["3", "4"], "Moon");
     f.actor("1");
-    expect(() => f.run(server.setGuildChampion, { identity: identity("3"), champion: true })).toThrow("member");
     expect(() => f.run(server.transferGuildLeadership, { identity: identity("3") })).toThrow("member");
     expect(() => f.run(server.kickGuildMember, { identity: identity("3") })).toThrow("not in your guild");
     f.actor("2");
@@ -66,34 +67,31 @@ describe("guild root reducer integration", () => {
     expect(f.db.guild.id.find(ours).leader.equals(identity("1"))).toBe(true);
     expect(f.db.guild.id.find(theirs).leader.equals(identity("3"))).toBe(true);
   });
-  it("captures authoritative gear/research stats, leaves saved builds stable, and keeps fighters private", () => {
+  it("captures current authoritative gear/research stats and ignores client fighters", () => {
     const f = fixture();
     f.guild(["1", "2", "3"], "Rose");
+    const theirs = f.guild(["4", "5", "6"], "Moon");
+    f.actor("1");
     f.patch("playerProgress", { damage: 100, armor: 30, bowCount: 1, inventoryJson: JSON.stringify([STARTER_BOW]), equippedRightHand: STARTER_BOW });
     f.seed("playerResearch", { identity: f.ctx.sender, precision: 5 });
     for (const name of ["player", "playerProfile", "playerProgress", "guild", "guildMember", "guildRank", "guildBattleReport", "guildReportParticipant"]) {
       f.db[name].iter = () => { throw Error(`Unexpected full scan: ${name}`); };
     }
-    f.run(server.setGuildChampion, { identity: identity("1"), champion: true, fighter: { damage: 1e30 } });
-    const saved = JSON.parse(f.db.guildMember.identity.find(identity("1")).fighter);
-    expect(saved.armor).toBeCloseTo(33);
-    expect(saved.damage).toBeGreaterThan(0);
-    expect(saved.damage).toBeLessThan(1000);
+    f.run(server.challengeGuild, { opponentGuildId: theirs, fighter: { damage: 1e30 } });
+    const result = f.snapshot().battles[0].result;
+    if (result.version !== 2) throw Error("Expected whole-guild replay");
+    const saved = result.attackers.find(member => member.identity === identity("1").toHexString())!;
+    expect(saved.fighter.armor).toBeCloseTo(33);
+    expect(saved.fighter.damage).toBeGreaterThan(0); expect(saved.fighter.damage).toBeLessThan(1000);
+    expect(saved.appearance?.rightHandItem).toBe(STARTER_BOW);
     f.patch("playerProgress", { damage: 200 });
-    expect(JSON.parse(f.db.guildMember.identity.find(identity("1")).fighter).damage).toBe(saved.damage);
-    f.run(server.refreshGuildChampion);
-    expect(JSON.parse(f.db.guildMember.identity.find(identity("1")).fighter).damage).toBeCloseTo(saved.damage * 2);
-    const hub = f.snapshot();
-    expect(hub.guild?.members[0]).not.toHaveProperty("fighter");
-    expect(hub.directory[0]).not.toHaveProperty("leader");
-    expect(hub.guild?.members[0]).not.toHaveProperty("account");
+    expect(f.snapshot().battles[0].result).toEqual(result);
+    expect(f.snapshot().guild?.members[0]).not.toHaveProperty("fighter");
   });
   it("rolls back battle points, participation and reports if a transactional write fails", () => {
     const f = fixture();
     const ours = f.guild(["1", "2", "3"], "Rose");
-    for (const digit of ["1", "2", "3"]) f.run(server.setGuildChampion, { identity: identity(digit), champion: true });
     const theirs = f.guild(["4", "5", "6"], "Moon");
-    for (const digit of ["4", "5", "6"]) f.run(server.setGuildChampion, { identity: identity(digit), champion: true });
     f.actor("1");
     const previous = f.db.guild.id.find(ours);
     const participation = f.db.guildAccount.identity.find(identity("1"));
@@ -112,4 +110,16 @@ describe("guild root reducer integration", () => {
     expect(f.db.guild.id.find(ours).attacks).toBe(1);
     expect(f.db.guildBattleReport.count()).toBe(2n);
   });
+});
+
+it("preserves a guest's guild through the real account-link reducer", () => {
+  const f = fixture();
+  f.actor("2", false); f.run(server.createGuild, { name: "Guest".slice(0, 4) });
+  const guestGuild = f.snapshot().guild!.id;
+  f.seed("accountLink", { code: "guild-link", guest: identity("2"), createdAt: f.ctx.timestamp });
+  f.actor("3"); f.db.playerProgress.identity.delete(identity("3")); f.run(server.claimGuestAccount, { code: "guild-link" });
+  expect(f.snapshot().guild?.id).toBe(guestGuild);
+  expect(f.snapshot().guild?.leader).toBe(identity("3").toHexString());
+  expect(f.db.guildMember.identity.find(identity("2"))).toBeNull();
+  expect(f.db.playerNameTag.identity.find(identity("3")).guildTag).toBe("Gues");
 });

@@ -4,7 +4,6 @@ import type { ReducerPort } from "../ports";
 
 export type GuildAction =
   | { kind: "create"; name: string } | { kind: "join"; guildId: string } | { kind: "leave" }
-  | { kind: "champion"; identity: string; champion: boolean } | { kind: "refreshChampion" }
   | { kind: "transfer"; identity: string } | { kind: "kick"; identity: string }
   | { kind: "challenge"; opponentGuildId: string };
 
@@ -59,8 +58,6 @@ export function createGuildService(deps: Dependencies) {
           case "create": return connection.reducers.createGuild({ name: action.name });
           case "join": return connection.reducers.joinGuild({ guildId: BigInt(action.guildId) });
           case "leave": return connection.reducers.leaveGuild({});
-          case "champion": return connection.reducers.setGuildChampion({ identity: Identity.fromString(action.identity), champion: action.champion });
-          case "refreshChampion": return connection.reducers.refreshGuildChampion({});
           case "transfer": return connection.reducers.transferGuildLeadership({ identity: Identity.fromString(action.identity) });
           case "kick": return connection.reducers.kickGuildMember({ identity: Identity.fromString(action.identity) });
           case "challenge": return connection.reducers.challengeGuild({ opponentGuildId: BigInt(action.opponentGuildId) });

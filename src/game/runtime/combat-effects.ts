@@ -160,7 +160,7 @@ export function createCombatEffects() {
           number.text,
           0,
           0,
-          number.damageTaken ? "#ff5a5a" : "#ffffff",
+          number.damageTaken ? "#ff5a5a" : number.critical ? "#ffe36b" : "#ffffff",
           4,
         );
       });

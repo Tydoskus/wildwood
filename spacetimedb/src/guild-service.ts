@@ -4,7 +4,7 @@ import { Range, SenderError } from "spacetimedb/server";
 import type { ModuleReducerCtx } from "./index";
 import type { DuelFighter } from "../../shared/duel-combat";
 import {
-  GUILD_MEMBER_LIMIT, GUILD_TEAM_SIZE, GUILD_DAILY_ATTACKS, GUILD_MEMBERSHIP_COOLDOWN,
+  GUILD_MEMBER_LIMIT, GUILD_DAILY_ATTACKS, GUILD_MEMBERSHIP_COOLDOWN,
   GUILD_RANKING_LIMIT, guildDay, guildWeek, normalizeGuildName, resolveGuildBattle,
   type GuildFighter, type GuildSnapshot, type GuildStanding,
 } from "../../shared/guilds";
@@ -67,7 +67,7 @@ function writeRanking(ctx: Ctx, guild: Guild) {
   else ctx.db.guildStanding.insert(cached);
 }
 function deleteReport(ctx: Ctx, reportKey: string) {
-  // A report has at most six participant references; prune them with the report.
+  // A report has at most forty participant references; prune them with the report.
   for (const ref of ctx.db.guildReportParticipant.reportKey.filter(reportKey)) ctx.db.guildReportParticipant.key.delete(ref.key);
   ctx.db.guildBattleReport.key.delete(reportKey);
 }
@@ -78,9 +78,14 @@ function anonymizeAccountReports(ctx: Ctx, identity: Identity) {
     const row = ctx.db.guildBattleReport.key.find(ref.reportKey);
     if (row) {
       const report: GuildSnapshot["battles"][number] = JSON.parse(row.payload);
-      const round = report.result.rounds[ref.round];
-      if (round && (ref.side === "attacker" || ref.side === "defender")) {
-        round[ref.side] = "Deleted player";
+      if (ref.side === "attacker" || ref.side === "defender") {
+        if (report.result.version === 2) {
+          const actor = (ref.side === "attacker" ? report.result.attackers : report.result.defenders)[ref.round];
+          if (actor) { actor.name = "Deleted player"; actor.identity = ""; }
+        } else {
+          const round = report.result.rounds[ref.round];
+          if (round) round[ref.side] = "Deleted player";
+        }
         ctx.db.guildBattleReport.key.update({ ...row, payload: JSON.stringify(report) });
       }
     }
@@ -108,21 +113,21 @@ function removeMember(ctx: Ctx, member: Member) {
   writeRanking(ctx, updated);
 }
 function validateFighter(fighter: DuelFighter) {
-  if (Object.values(fighter).some(value => !Number.isFinite(value) || value < 0) || fighter.maxHp <= 0 || fighter.attackRate < .05) fail("A champion's combat stats are unavailable.");
+  if (Object.values(fighter).some(value => !Number.isFinite(value) || value < 0) || fighter.maxHp <= 0 || fighter.attackRate < .05) fail("A member's combat stats are unavailable.");
 }
-function fighterPower(fighter: DuelFighter) { return fighter.damage / fighter.attackRate + fighter.maxHp / 10 + fighter.armor + fighter.regen; }
-function team(ctx: Ctx, guildId: bigint): GuildFighter[] {
-  const saved = members(ctx, guildId).filter(member => member.champion)
-    .sort((a, b) => key(a.identity).localeCompare(key(b.identity)));
-  if (saved.length !== GUILD_TEAM_SIZE) fail("Both guilds need three saved champions.");
-  if (saved.some(member => member.eligibleAt > now(ctx))) fail("A champion is not yet eligible for guild battles.");
-  return saved.map(member => ({ identity: key(member.identity), name: member.name, fighter: JSON.parse(member.fighter) }));
-}
-
-/** Root wrappers authenticate the session/account before calling these methods.
- * All fighters come from authoritative persisted stats; snapshots are saved when
- * the leader chooses a lineup. No client fighter or result is accepted. */
-export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identity): { name: string; fighter: DuelFighter } }) {
+/** Root wrappers authenticate the controlling session. Every battle snapshots all
+ * current members from persisted stats; clients cannot submit fighters/results. */
+export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identity): Omit<GuildFighter, "identity"> }) {
+  function team(ctx: Ctx, guildId: bigint): GuildFighter[] {
+    const roster = members(ctx, guildId).sort((a, b) => key(a.identity).localeCompare(key(b.identity)));
+    if (!roster.length) fail("Both guilds need members to battle.");
+    if (roster.some(member => member.eligibleAt > now(ctx))) fail("A member is not yet eligible for guild battles.");
+    return roster.map(member => {
+      const snapshot = deps.fighterFor(ctx, member.identity);
+      validateFighter(snapshot.fighter);
+      return { ...snapshot, identity: key(member.identity) };
+    });
+  }
   function insertMember(ctx: Ctx, guildId: bigint) {
     const { name } = deps.fighterFor(ctx, ctx.sender);
     ctx.db.guildMember.insert({ identity: ctx.sender, guildId, name, joinedAt: now(ctx),
@@ -164,45 +169,6 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
       if (!member || member.guildId !== guild.id) fail("Choose a member of your guild.");
       ctx.db.guild.id.update({ ...guild, leader: identity });
     },
-    setChampion(ctx: Ctx, identity: Identity, champion: boolean) {
-      const guild = requireLeader(ctx);
-      const member = ctx.db.guildMember.identity.find(identity);
-      if (!member || member.guildId !== guild.id) fail("Choose a member of your guild.");
-      if (champion === member.champion) return;
-      if (champion && guild.champions >= GUILD_TEAM_SIZE) fail("Remove a champion before choosing another.");
-      if (champion) {
-        const snapshot = deps.fighterFor(ctx, identity);
-        validateFighter(snapshot.fighter);
-        ctx.db.guildMember.identity.update({ ...member, name: snapshot.name, champion: true,
-          fighter: JSON.stringify(snapshot.fighter), power: fighterPower(snapshot.fighter) });
-      } else ctx.db.guildMember.identity.update({ ...member, champion: false, fighter: "", power: 0 });
-      ctx.db.guild.id.update({ ...guild, champions: guild.champions + (champion ? 1 : -1) });
-    },
-    refreshChampion(ctx: Ctx) {
-      const member = requireMember(ctx);
-      if (!member.champion) fail("Only a saved champion needs to refresh combat stats.");
-      const snapshot = deps.fighterFor(ctx, ctx.sender);
-      validateFighter(snapshot.fighter);
-      ctx.db.guildMember.identity.update({ ...member, name: snapshot.name, fighter: JSON.stringify(snapshot.fighter), power: fighterPower(snapshot.fighter) });
-    },
-    saveTeam(ctx: Ctx, identities: Identity[]) {
-      const guild = requireLeader(ctx);
-      if (identities.length !== GUILD_TEAM_SIZE || new Set(identities.map(key)).size !== GUILD_TEAM_SIZE) fail("Choose three different guild members.");
-      const roster = members(ctx, guild.id);
-      const selection = new Set(identities.map(key));
-      const selected = roster.filter(member => selection.has(key(member.identity)));
-      if (selected.length !== GUILD_TEAM_SIZE) fail("All champions must belong to your guild.");
-      const updated = selected.map(member => {
-        const snapshot = deps.fighterFor(ctx, member.identity);
-        const fighter = snapshot.fighter;
-        validateFighter(fighter);
-        return { ...member, name: snapshot.name, champion: true, fighter: JSON.stringify(fighter),
-          power: fighterPower(fighter) };
-      });
-      for (const member of roster) if (member.champion && !selection.has(key(member.identity))) ctx.db.guildMember.identity.update({ ...member, champion: false, fighter: "", power: 0 });
-      for (const member of updated) ctx.db.guildMember.identity.update(member);
-      ctx.db.guild.id.update({ ...guild, champions: GUILD_TEAM_SIZE });
-    },
     challenge(ctx: Ctx, opponentId: bigint) {
       const guild = currentGuild(ctx, requireLeader(ctx));
       if (guild.id === opponentId) fail("Challenge another guild.");
@@ -211,13 +177,13 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
       const opponents: string[] = JSON.parse(guild.opponents);
       if (opponents.includes(String(opponentId))) fail("You have already challenged this guild today.");
       const attacking = team(ctx, guild.id), defending = team(ctx, opponent.id);
-      const actors = members(ctx, guild.id).filter(member => member.champion || member.identity.equals(ctx.sender));
+      const actors = members(ctx, guild.id);
       const participatingIdentities = new Map([...actors, ...members(ctx, opponent.id)]
         .map(member => [key(member.identity), member.identity]));
       const day = guildDay(now(ctx));
       for (const member of actors) {
         const participation = account(ctx, member.identity);
-        if (participation.lastAttackDay === day && participation.attackGuild !== 0n && participation.attackGuild !== guild.id) fail("A champion has already attacked with another guild today.");
+        if (participation.lastAttackDay === day && participation.attackGuild !== 0n && participation.attackGuild !== guild.id) fail("A member has already attacked with another guild today.");
       }
       const result = resolveGuildBattle(attacking, defending);
       for (const member of actors) ctx.db.guildAccount.identity.update({ ...account(ctx, member.identity), lastAttackDay: day, attackGuild: guild.id });
@@ -239,15 +205,15 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
         const reportKey = `${guildId}:${sequence}`;
         ctx.db.guildBattleReport.insert({ key: reportKey, guildId, sequence, payload: JSON.stringify(report) });
         for (const [side, lineup] of [["attacker", attacking], ["defender", defending]] as const) {
-          lineup.forEach((champion, round) => ctx.db.guildReportParticipant.insert({
+          lineup.forEach((member, round) => ctx.db.guildReportParticipant.insert({
             key: `${reportKey}:${side}:${round}`, reportKey, side, round,
-            identity: participatingIdentities.get(champion.identity)!,
+            identity: participatingIdentities.get(member.identity)!,
           }));
         }
       }
     },
     snapshot(ctx: Ctx, afterId = 0n, signedIn = true): GuildSnapshot {
-      const member = signedIn ? ctx.db.guildMember.identity.find(ctx.sender) : null;
+      const member = ctx.db.guildMember.identity.find(ctx.sender);
       const stored = member ? ctx.db.guild.id.find(member.guildId) : null;
       const guild = stored ? currentGuild(ctx, stored) : null;
       const week = guildWeek(now(ctx));
@@ -257,7 +223,7 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
       let nextPage: string | null = null;
       for (const row of ctx.db.guild.directoryId.filter(new Range({ tag: "excluded", value: afterId }))) {
         if (directory.length === 20) { nextPage = directory[19].id; break; }
-        directory.push({ id: String(row.id), name: row.name, members: row.members, champions: row.champions,
+        directory.push({ id: String(row.id), name: row.name, members: row.members,
           challengedToday: challengedToday.has(String(row.id)) });
       }
       return { identity: key(ctx.sender), serverNow: String(now(ctx)), week,
@@ -266,7 +232,7 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
         guild: guild ? { id: String(guild.id), name: guild.name, leader: key(guild.leader),
           attacksRemaining: GUILD_DAILY_ATTACKS - guild.attacks, score: guild.score,
           members: members(ctx, guild.id).map(row => ({ identity: key(row.identity), name: row.name,
-            champion: row.champion, eligibleAt: String(row.eligibleAt), power: row.power })) } : null,
+            eligibleAt: String(row.eligibleAt) })) } : null,
         directory, nextPage, standings: cache?.week === week ? JSON.parse(cache.entries) : [],
         battles: guild ? [...ctx.db.guildBattleReport.guildId.filter(guild.id)]
           .sort((a, b) => a.sequence > b.sequence ? -1 : 1).map(row => JSON.parse(row.payload)) : [] };
@@ -277,13 +243,39 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
       if (member) removeMember(ctx, member);
       ctx.db.guildAccount.identity.delete(identity);
     },
-    resetAccount(ctx: Ctx, identity: Identity) {
-      // Reset preserves membership and hop history but removes the saved build.
-      const member = ctx.db.guildMember.identity.find(identity);
-      if (!member?.champion) return;
-      ctx.db.guildMember.identity.update({ ...member, champion: false, fighter: "", power: 0 });
-      const guild = ctx.db.guild.id.find(member.guildId);
-      if (guild) ctx.db.guild.id.update({ ...guild, champions: guild.champions - 1 });
+    mergeGuest(ctx: Ctx, guest: Identity, accountIdentity: Identity) {
+      const guestMember = ctx.db.guildMember.identity.find(guest);
+      const accountMember = ctx.db.guildMember.identity.find(accountIdentity);
+      const guestHistory = ctx.db.guildAccount.identity.find(guest);
+      const previous = account(ctx, accountIdentity);
+      if (guestMember && !accountMember) {
+        ctx.db.guildMember.identity.delete(guest);
+        ctx.db.guildMember.insert({ ...guestMember, identity: accountIdentity, name: deps.fighterFor(ctx, accountIdentity).name });
+        const guild = ctx.db.guild.id.find(guestMember.guildId);
+        if (guild?.leader.equals(guest)) ctx.db.guild.id.update({ ...guild, leader: accountIdentity });
+      } else if (guestMember) removeMember(ctx, guestMember);
+      // Keep the stricter cooldown/most recent attack history after linking.
+      const history = guestHistory && guestHistory.lastAttackDay > previous.lastAttackDay ? guestHistory : previous;
+      const conflictingAttacks = guestHistory && guestHistory.lastAttackDay === previous.lastAttackDay
+        && guestHistory.lastAttackDay === guildDay(now(ctx)) && guestHistory.attackGuild !== 0n && previous.attackGuild !== 0n
+        && guestHistory.attackGuild !== previous.attackGuild;
+      ctx.db.guildAccount.identity.update({ ...previous, lastAttackDay: history.lastAttackDay, attackGuild: conflictingAttacks ? 18_446_744_073_709_551_615n : history.attackGuild,
+        joinAfter: guestHistory && guestHistory.joinAfter > previous.joinAfter ? guestHistory.joinAfter : previous.joinAfter });
+      ctx.db.guildAccount.identity.delete(guest);
+      for (const ref of ctx.db.guildReportParticipant.identity.filter(guest)) {
+        const row = ctx.db.guildBattleReport.key.find(ref.reportKey);
+        if (row) {
+          const report: GuildSnapshot["battles"][number] = JSON.parse(row.payload);
+          if (report.result.version === 2) {
+            const member = (ref.side === "attacker" ? report.result.attackers : report.result.defenders)[ref.round];
+            if (member) member.identity = key(accountIdentity);
+            ctx.db.guildBattleReport.key.update({ ...row, payload: JSON.stringify(report) });
+          }
+        }
+        ctx.db.guildReportParticipant.key.update({ ...ref, identity: accountIdentity });
+      }
+      ctx.db.playerNameTag.identity.delete(guest);
+      syncGuildTag(ctx, accountIdentity);
     },
   };
 }

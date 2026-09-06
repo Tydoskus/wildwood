@@ -1,42 +1,41 @@
 # Guilds and asynchronous battles
 
-## Mini plan
+## Membership
 
-1. Add account-owned guild membership and leader management without map-local subscriptions.
-2. Save three authoritative character builds and resolve asynchronous team battles using the existing duel simulator.
-3. Add daily participation limits, weekly standings, bounded reports, and an on-demand guild panel.
-4. Verify authorization, membership lifecycle, battle retries, rollover, and indexed read bounds before release.
+Guests and registered players can create a four-letter guild or join an open guild, up to twenty members. Names normalize Unicode and case for uniqueness. Guild management uses the controlling root connection; map instances and virtual load-test players cannot mutate guild membership.
 
-## Rules implemented
+Every member participates. There is no champion selection or build refresh. Each challenge captures both rosters' current persisted stats and equipment, including offline players. No client-supplied stats or results are accepted. A member who upgrades is included with the new saved build in the next battle; earlier replays remain unchanged.
 
-Registered accounts can create a unique named guild or join an open guild, up to twenty members. Names normalize Unicode, whitespace and case for uniqueness. Guilds are free to create. Guild management uses the root account connection so map changes do not move membership.
+Leaving or being removed starts a 24-hour cooldown before joining or creating another guild. Initial membership is immediately playable. Every attacking member retains the guild they attacked for that UTC day. A departing leader passes ownership to the longest-serving remaining member, with identity as a stable tie-breaker. Explicit transfer, removal, and challenges are leader-only operations.
 
-The leader selects three different guild members as champions. Selecting a champion captures their persisted combat stats; a champion can refresh their own saved build. No client-supplied stats or results are accepted. Saved teams fight while members are offline, in stable identity order, with three simultaneous-build duels using the existing deterministic combat rules. Two round wins beat one; otherwise the number of round wins decides the team result, with equal wins producing a draw.
+Registering a guest transfers membership and leadership into the authenticated identity. An account that already belongs to a guild keeps that membership. Participation/cooldown history and indexed report references follow the account link. A reset keeps membership and uses the reset stats in future challenges. Deleting an account removes membership and anonymizes its identity/name in retained reports for both sides and previous guilds.
 
-Leaders can challenge another guild once per UTC day. Each guild has three outgoing attacks per UTC day. Directory entries indicate opponents already challenged today so the client can disable repeat challenges before submission; the hint resets at the UTC day boundary. Outgoing victories award three weekly points, draws one, and defeats zero. Defensive matches do not alter points or consume attacks. Ties sort by wins, fewer attacks, then guild creation ID. There are no gem or item battle payouts in this first version.
+## Whole-guild combat and replay
 
-Leaving or being removed starts a 24-hour cooldown before joining or creating another guild. Initial membership is immediately playable. Leader and champion identities also retain the guild they attacked for that day, preventing reuse through membership changes. A departing leader passes ownership to the longest-serving remaining member, with identity as a stable tie-breaker. Explicit leadership transfer and removal are leader-only operations.
+Version 2 battles resolve one simultaneous fight with 1–20 members per side. Unequal rosters are allowed. Members advance from opposing formations, acquire nearby opponents, attack using their own interval, and retarget when an opponent falls. Regeneration, armor mitigation, and the existing deterministic duel damage calculation (including expected critical damage) use authoritative saved values. Soft actor spacing keeps groups readable.
 
-A character reset preserves membership and participation history but clears its champion snapshot. Account deletion removes membership, transfers leadership if necessary, deletes the account's guild metadata, and anonymizes its champion name in every retained battle-report copy, including former guilds and opponent histories. Six indexed identity references accompany each report; pruning or disbanding deletes those references with the report. Guests cannot join, so guest migration has no guild membership to merge. Empty guilds and their report records are removed.
+The server and client share `shared/guild-combat.ts`: fixed 100ms ticks, simultaneous damage, a maximum of forty actors and 600 ticks. A knockout decides the winner. At sixty seconds, compare each guild's remaining HP as a fraction of its starting team HP; equal fractions draw. No stat normalization is applied.
 
-Weekly points roll over Monday at 00:00 UTC. Rollover is calculated when reading or changing a guild; it requires no scheduled global maintenance. Historical battle reports remain available, with the ten latest reports retained separately for each guild.
+Reports store the combat version, frozen fighters/appearance, outcome, duration and survivors, rather than hundreds of animation frames. The client computes a bounded timeline once when opening the replay and interpolates it while drawing. Future combat changes must increment the version and retain the old simulator for existing reports.
 
-## Storage and scan bounds
+The replay opens directly after a challenge. It fits the entire battlefield in one canvas and provides pause, restart, scrub, 1×/2×/4× speed and name-label controls. Forty-member battles hide labels initially. Player artwork is cached by appearance, facing and animation frame. Drawing is capped at 30 FPS and 1.5 device-pixel ratio. The covered world does not redraw while the guild panel is open. Playback pauses in hidden tabs and releases callbacks, frames, and sprite caches when closed or replaced. The user owns visual QA.
 
-The guild window has three views: Guild, Battles, and Rankings. The Guild view shows a three-slot champion lineup and a compact roster; leader controls appear only for the selected member. Creation, guild options, battle rules, and report details expand on request. Registered players can join from the directory; guests can browse. A champion's build refresh appears only for that champion, and battle results are presented from the viewing guild's perspective.
+Pre-version-2 reports retain their original round summaries. Existing legacy champion/build table columns remain inert to preserve deployed table rows; no client control or reducer uses them to choose teams.
 
-The panel reuses a single snapshot when switching views. Opening, refreshing, pagination, and completed actions fetch fresh data; there is no background database polling. Closing or switching accounts discards late responses. A committed action followed by a failed refresh clears stale action controls and asks the player to refresh, avoiding accidental resubmission. Journey stages, idle supplies, forging, and Journey offers are not part of this release.
+## Competition and bounded storage
 
-All guild tables are private. The root snapshot procedure returns only the caller's membership/roster, twenty directory entries, the cached top fifty standings and at most ten reports. Directory pagination reads twenty-one indexed records to determine whether another page exists. No subscription or periodic panel polling scans the guild tables.
+Leaders can challenge another guild once per UTC day, with three outgoing attacks per day. Victories award three weekly points, draws one, and defeats zero. Defensive matches consume no attacks and award no points. Ties sort by wins, fewer attacks, then guild creation ID. There are no battle item/gem payouts.
 
-The directory uses a nonunique B-tree `directoryId` mirror of the primary key because the TypeScript SDK exposes point lookup only for unique indexes. Ranking rows use an indexed string combining week, descending score, descending wins, ascending attacks and ID. There is at most one ranking row per guild, replaced when it changes; old weeks are excluded by the index range.
+Weekly points roll over Monday at 00:00 UTC when reading or changing a guild, with no scheduled global maintenance. Each guild retains its ten latest reports. Up to forty indexed participant references accompany each report copy; pruning/disbanding removes those references too. Account deletion never scans unrelated histories.
 
-The leaderboard cache updates transactionally on a scored battle, membership change or guild removal. The host chains transaction-local index entries ahead of committed B-tree entries, so simply taking the first fifty after inserting a ranking row is incorrect. Each service operation changes at most one guild's ranking: it includes that row separately, reads fifty other committed candidates and sorts at most fifty-one entries. This also refills the cache accurately when a ranked guild disbands. Do not call multiple rank-changing service operations in one transaction without revisiting this constraint.
+The root snapshot returns the caller's roster, twenty directory entries, cached top fifty standings and at most ten reports. Opening, refreshing, pagination and completed actions fetch data; switching tabs reuses the snapshot and never starts background database polling. Closing or switching accounts discards late responses. Failed refresh after a committed action removes stale action controls.
 
-Host behavior reference: [SpacetimeDB ScanMutTx::combine](https://github.com/clockworklabs/SpacetimeDB/blob/master/crates/datastore/src/locking_tx_datastore/mut_tx.rs). Tests explicitly simulate this transaction-first ordering.
+Directory pagination reads twenty-one indexed records. Ranking updates include the changed guild separately, read fifty other committed candidates, then sort at most fifty-one entries. This accounts for the host chaining transaction-local rows before committed B-tree rows. Do not call multiple rank-changing scored operations in one transaction without revisiting that bound.
+
+## Temporary opponent
+
+`seedTemporaryGuild` is a one-shot root operator reducer for the requested `[temp]` guild. It selects twenty lowest-power leaderboard players who have persisted profiles/progress, no guild, and no active membership cooldown, excluding virtual players. It fails atomically if twenty are unavailable, never moves existing guild members, and makes a repeated invocation on a full `temp` guild a no-op. This operator-only setup performs one leaderboard scan; normal guild requests use bounded indexes.
 
 ## Verification
 
-`spacetimedb/src/guild-service.test.ts` exercises duplicate names/membership, maximum membership, leader authorization, exact cooldown boundary, leadership succession, server-owned saved stats, reset/deletion cleanup, offline results, idempotent retry rejection, daily limits, same-identity participation, weekly reset, ten-report retention, indexed directory pagination, and top-fifty refill with transaction-local index ordering. The fixture fails on global guild table iteration and counts bounded index reads. Root integration tests separately exercise authenticated reducer wrappers.
-
-These rules establish a functional first leaderboard, not skill-based matchmaking or a purchased-power-normalized competition. Observe population size, repeated weak-opponent targeting and participation before adding ranked rewards or a rating system.
+Guild combat tests cover simultaneous lethal hits, unequal rosters, deterministic mirrored 20v20 fights, exact replay ticks, payload/timeline bounds and timeout/invalid data. Service and root integration tests cover current authoritative builds, guests, real account linking, indexed erasure, membership lifecycle, scoring retries, rollover, report retention and ranking/directory bounds. Panel/replay tests cover controls, guest access, perspective, stale sessions and callback cleanup. Seed tests cover operator authorization, lowest-power selection, existing membership preservation and atomic/idempotent setup.

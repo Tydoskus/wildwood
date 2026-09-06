@@ -1,5 +1,7 @@
 import { table, t } from "spacetimedb/server";
 
+// Legacy champion/build columns remain inert to preserve deployed table rows.
+// Membership and combat no longer read them for eligibility or selection.
 const guild = table({ name: "guild", public: false }, {
   id: t.u64().primaryKey().autoInc(), directoryId: t.u64().index("btree"), nameKey: t.string().unique(), name: t.string(), leader: t.identity(),
   members: t.u32(), champions: t.u32(), week: t.u32(), score: t.u32(), wins: t.u32(), battles: t.u32(),
@@ -22,7 +24,7 @@ const guildStanding = table({ name: "guild_standing", public: false }, {
 const guildBattleReport = table({ name: "guild_battle_report", public: false }, {
   key: t.string().primaryKey(), guildId: t.u64().index("btree"), sequence: t.u64(), payload: t.string(),
 });
-// Six identity references per stored team report make account erasure indexed.
+// Up to forty identity references per stored report make account erasure indexed.
 const guildReportParticipant = table({ name: "guild_report_participant", public: false }, {
   key: t.string().primaryKey(), identity: t.identity().index("btree"),
   reportKey: t.string().index("btree"), side: t.string(), round: t.u8(),

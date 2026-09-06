@@ -1,4 +1,11 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.639": [
+    "Guild battles now include every member in one simultaneous fight, using current saved stats and gear. Removed champion selection.",
+    "Added a zoomed-out guild battle replay with pause, scrubbing, playback speeds, and optional player names.",
+    "Guests can join and create guilds, and keep their membership when registering.",
+    "Added the temporary temp guild with twenty low-power leaderboard players as a battle opponent.",
+    "Restored yellow damage popups for player critical hits; ordinary hits stay white and damage taken stays red.",
+  ],
   "0.638": [
     "Fixed enemy sprite alignment and boss critical damage, with clearer colors for ordinary hits, critical hits, and damage taken.",
     "Added four-letter guild tags beside player names and a developer name-tag toggle. TheGuilds is now TheG.",
@@ -1560,6 +1567,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.639": "2026-09-06",
   "0.638": "2026-09-06",
   "0.637": "2026-09-06",
   "0.636": "2026-09-05",

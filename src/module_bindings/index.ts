@@ -94,7 +94,6 @@ import RecordLavaEnemyDefeatReducer from "./record_lava_enemy_defeat_reducer";
 import RecordPlayerDeathReducer from "./record_player_death_reducer";
 import RecordSnowEnemyDefeatReducer from "./record_snow_enemy_defeat_reducer";
 import RecordStartupTelemetryReducer from "./record_startup_telemetry_reducer";
-import RefreshGuildChampionReducer from "./refresh_guild_champion_reducer";
 import RegisterProtocolReducer from "./register_protocol_reducer";
 import RenewShardLeaseReducer from "./renew_shard_lease_reducer";
 import ReportChatMessageReducer from "./report_chat_message_reducer";
@@ -104,13 +103,13 @@ import ResetPlayerProgressReducer from "./reset_player_progress_reducer";
 import ResumeSessionReducer from "./resume_session_reducer";
 import RevokeShardPlayerReducer from "./revoke_shard_player_reducer";
 import SavePlayerProgressReducer from "./save_player_progress_reducer";
+import SeedTemporaryGuildReducer from "./seed_temporary_guild_reducer";
 import SendChatMessageReducer from "./send_chat_message_reducer";
 import SendChatReplyReducer from "./send_chat_reply_reducer";
 import SetDeveloperNameTagReducer from "./set_developer_name_tag_reducer";
 import SetDeveloperPresenceReducer from "./set_developer_presence_reducer";
 import SetDisplayNameReducer from "./set_display_name_reducer";
 import SetGenderReducer from "./set_gender_reducer";
-import SetGuildChampionReducer from "./set_guild_champion_reducer";
 import SetPlayerBlockedReducer from "./set_player_blocked_reducer";
 import SetPlayerMotionInterestReducer from "./set_player_motion_interest_reducer";
 import SetPlayerSpriteReducer from "./set_player_sprite_reducer";
@@ -942,7 +941,6 @@ const reducersSchema = __reducers(
   __reducerSchema("record_player_death", RecordPlayerDeathReducer),
   __reducerSchema("record_snow_enemy_defeat", RecordSnowEnemyDefeatReducer),
   __reducerSchema("record_startup_telemetry", RecordStartupTelemetryReducer),
-  __reducerSchema("refresh_guild_champion", RefreshGuildChampionReducer),
   __reducerSchema("register_protocol", RegisterProtocolReducer),
   __reducerSchema("renew_shard_lease", RenewShardLeaseReducer),
   __reducerSchema("report_chat_message", ReportChatMessageReducer),
@@ -952,13 +950,13 @@ const reducersSchema = __reducers(
   __reducerSchema("resume_session", ResumeSessionReducer),
   __reducerSchema("revoke_shard_player", RevokeShardPlayerReducer),
   __reducerSchema("save_player_progress", SavePlayerProgressReducer),
+  __reducerSchema("seed_temporary_guild", SeedTemporaryGuildReducer),
   __reducerSchema("send_chat_message", SendChatMessageReducer),
   __reducerSchema("send_chat_reply", SendChatReplyReducer),
   __reducerSchema("set_developer_name_tag", SetDeveloperNameTagReducer),
   __reducerSchema("set_developer_presence", SetDeveloperPresenceReducer),
   __reducerSchema("set_display_name", SetDisplayNameReducer),
   __reducerSchema("set_gender", SetGenderReducer),
-  __reducerSchema("set_guild_champion", SetGuildChampionReducer),
   __reducerSchema("set_player_blocked", SetPlayerBlockedReducer),
   __reducerSchema("set_player_motion_interest", SetPlayerMotionInterestReducer),
   __reducerSchema("set_player_sprite", SetPlayerSpriteReducer),

@@ -48,14 +48,13 @@ function fixture() {
     run(first, context => service.create(context, name));
     const id: bigint = db.guildMember.identity.find(identity(first)).guildId;
     for (const next of [first + 1, first + 2]) run(next, context => service.join(context, id));
-    for (const next of [first, first + 1, first + 2]) run(first, context => service.setChampion(context, identity(next), true));
     return id;
   };
   return { ...memory, db, ctx, service, run, makeGuild, stats, reads,
     advance: (micros: bigint) => { ctx.timestamp = new Timestamp(ctx.timestamp.microsSinceUnixEpoch + micros); } };
 }
 
-describe("guild membership and authoritative lineups", () => {
+describe("guild membership and authoritative rosters", () => {
   it("normalizes names, rejects duplicate names and duplicate membership", () => {
     const f = fixture();
     f.run(1, ctx => f.service.create(ctx, "  Rose  "));
@@ -80,7 +79,7 @@ describe("guild membership and authoritative lineups", () => {
     const f = fixture();
     const a = f.makeGuild(1), b = f.makeGuild(10);
     f.run(2, ctx => f.service.leave(ctx));
-    expect(f.db.guild.id.find(a).champions).toBe(2);
+    expect(f.db.guild.id.find(a).members).toBe(2);
     expect(() => f.run(2, ctx => f.service.join(ctx, b))).toThrow("24 hours");
     f.advance(GUILD_MEMBERSHIP_COOLDOWN - 1n);
     expect(() => f.run(2, ctx => f.service.create(ctx, "NewG"))).toThrow("24 hours");
@@ -98,30 +97,49 @@ describe("guild membership and authoritative lineups", () => {
     expect(f.db.guild.id.find(a)).toBeNull();
     expect(f.db.guildBattleReport.count()).toBe(0n);
   });
-  it("uses server snapshots, enforces three different members and refreshes only self", () => {
-    const f = fixture();
-    const a = f.makeGuild(1);
-    expect(() => f.run(1, ctx => f.service.saveTeam(ctx, [identity(1), identity(1), identity(2)]))).toThrow("different");
+  it("snapshots every current member at challenge time and freezes the report", () => {
+    const f = fixture(), a = f.makeGuild(1), b = f.makeGuild(10);
     f.run(4, ctx => f.service.join(ctx, a));
-    expect(() => f.run(1, ctx => f.service.setChampion(ctx, identity(4), true))).toThrow("Remove");
-    expect(() => f.run(4, ctx => f.service.refreshChampion(ctx))).toThrow("saved champion");
-    const before = f.db.guildMember.identity.find(identity(2));
     f.stats.set(identity(2).toHexString(), { ...fighter, damage: 100 });
-    expect(JSON.parse(before.fighter).damage).toBe(20);
-    f.run(2, ctx => f.service.refreshChampion(ctx));
-    expect(JSON.parse(f.db.guildMember.identity.find(identity(2)).fighter).damage).toBe(100);
+    f.run(1, ctx => f.service.challenge(ctx, b));
+    const result = f.run(1, ctx => f.service.snapshot(ctx)).battles[0].result;
+    if (result.version !== 2) throw Error("Expected whole-guild replay");
+    expect(result.attackers).toHaveLength(4); expect(result.defenders).toHaveLength(3);
+    expect(result.attackers[1].fighter.damage).toBe(100);
+    f.stats.set(identity(2).toHexString(), { ...fighter, damage: 900 });
+    expect(result.attackers[1].fighter.damage).toBe(100);
   });
-  it("clears champion builds on reset without erasing membership or anti-hop history", () => {
+  it("removes membership and transfers leadership on account deletion", () => {
     const f = fixture();
     const a = f.makeGuild(1);
-    f.run(1, ctx => f.service.resetAccount(ctx, identity(1)));
     expect(f.db.guildMember.identity.find(identity(1))).toMatchObject({ guildId: a, champion: false, fighter: "" });
-    expect(f.db.guild.id.find(a).champions).toBe(2);
     f.run(1, ctx => f.service.removeAccount(ctx, identity(1)));
     expect(f.db.guildMember.identity.find(identity(1))).toBeNull();
     expect(f.db.guildAccount.identity.find(identity(1))).toBeNull();
     expect(f.db.guild.id.find(a).leader.equals(identity(2))).toBe(true);
   });
+  it("transfers guest membership, leadership and report erasure references when registering", () => {
+    const f = fixture(), a = f.makeGuild(1), b = f.makeGuild(10);
+    f.run(1, ctx => f.service.challenge(ctx, b));
+    f.run(30, ctx => f.service.mergeGuest(ctx, identity(1), identity(30)));
+    expect(f.db.guildMember.identity.find(identity(1))).toBeNull();
+    expect(f.db.guildMember.identity.find(identity(30)).guildId).toBe(a);
+    expect(f.db.guild.id.find(a).leader.equals(identity(30))).toBe(true);
+    expect(f.db.guild.id.find(a).members).toBe(3);
+    expect(f.db.guildAccount.identity.find(identity(30)).attackGuild).toBe(a);
+    expect([...f.db.guildReportParticipant.identity.filter(identity(1))]).toHaveLength(0);
+    expect([...f.db.guildReportParticipant.identity.filter(identity(30))]).toHaveLength(2);
+    f.run(30, ctx => f.service.removeAccount(ctx, identity(30)));
+    expect(JSON.stringify(f.run(10, ctx => f.service.snapshot(ctx)).battles)).toContain("Deleted player");
+  });
+  it("preserves an existing account guild when linking a guest from another guild", () => {
+    const f = fixture(), a = f.makeGuild(1), b = f.makeGuild(10);
+    f.run(10, ctx => f.service.mergeGuest(ctx, identity(1), identity(10)));
+    expect(f.db.guildMember.identity.find(identity(10)).guildId).toBe(b);
+    expect(f.db.guild.id.find(a).members).toBe(2);
+    expect(f.db.guild.id.find(a).leader.equals(identity(2))).toBe(true);
+  });
+
 });
 
 describe("asynchronous battles and bounded standings", () => {
@@ -130,7 +148,6 @@ describe("asynchronous battles and bounded standings", () => {
     const a = f.makeGuild(1), b = f.makeGuild(10);
     for (const who of [1, 2, 3]) {
       f.stats.set(identity(who).toHexString(), { ...fighter, damage: 1000 });
-      f.run(who, ctx => f.service.refreshChampion(ctx));
     }
     f.run(1, ctx => f.service.challenge(ctx, b));
     const result = f.run(1, ctx => f.service.snapshot(ctx));
@@ -165,14 +182,15 @@ describe("asynchronous battles and bounded standings", () => {
     f.run(1, ctx => f.service.challenge(ctx, targets[0]));
     expect(f.run(1, ctx => f.service.snapshot(ctx)).guild?.attacksRemaining).toBe(2);
   });
-  it("rejects self battle, nonleader attacks, incomplete lineups and identity hopping", () => {
+  it("rejects self battle, nonleader attacks, ineligible members and identity hopping", () => {
     const f = fixture();
     const a = f.makeGuild(1), b = f.makeGuild(10);
     expect(() => f.run(1, ctx => f.service.challenge(ctx, a))).toThrow("another");
     expect(() => f.run(2, ctx => f.service.challenge(ctx, b))).toThrow("leader");
-    f.run(10, ctx => f.service.setChampion(ctx, identity(12), false));
-    expect(() => f.run(1, ctx => f.service.challenge(ctx, b))).toThrow("three saved");
-    f.run(10, ctx => f.service.setChampion(ctx, identity(12), true));
+    const waiting = f.db.guildMember.identity.find(identity(12));
+    f.db.guildMember.identity.update({ ...waiting, eligibleAt: f.ctx.timestamp.microsSinceUnixEpoch + 1n });
+    expect(() => f.run(1, ctx => f.service.challenge(ctx, b))).toThrow("not yet eligible");
+    f.db.guildMember.identity.update(waiting);
     const account = f.db.guildAccount.identity.find(identity(2));
     f.db.guildAccount.identity.update({ ...account, lastAttackDay: guildDay(f.ctx.timestamp.microsSinceUnixEpoch), attackGuild: 99n });
     expect(() => f.run(1, ctx => f.service.challenge(ctx, b))).toThrow("another guild");
@@ -201,15 +219,16 @@ describe("asynchronous battles and bounded standings", () => {
     const a = f.makeGuild(1), b = f.makeGuild(10);
     f.run(1, ctx => f.service.challenge(ctx, b));
     const before = f.run(10, ctx => f.service.snapshot(ctx)).battles[0];
-    const originalName = before.result.rounds[0].attacker;
+    if (before.result.version !== 2) throw Error("Expected whole-guild replay");
+    const originalName = before.result.attackers[0].name;
     f.run(1, ctx => f.service.leave(ctx));
     f.run(10, ctx => f.service.removeAccount(ctx, identity(1)));
     for (const guildId of [a, b]) {
       const row = [...f.db.guildBattleReport.guildId.filter(guildId)][0];
       const report = JSON.parse(row.payload);
-      expect(report.result.rounds[0].attacker).toBe("Deleted player");
-      expect(report.result.rounds[0].defender).toBe(before.result.rounds[0].defender);
-      expect(report.result.rounds[1]).toEqual(before.result.rounds[1]);
+      expect(report.result.attackers[0].name).toBe("Deleted player");
+      expect(report.result.defenders[0]).toEqual(before.result.defenders[0]);
+      expect(report.result.attackers[1]).toEqual(before.result.attackers[1]);
       expect(row.payload).not.toContain(originalName);
       expect([...f.db.guildReportParticipant.reportKey.filter(row.key)]).toHaveLength(5);
     }
@@ -240,7 +259,7 @@ describe("asynchronous battles and bounded standings", () => {
     const last = f.run(1, ctx => f.service.snapshot(ctx, 40n, false));
     expect(last.directory).toHaveLength(5);
     expect(last.nextPage).toBeNull();
-    expect(last.guild).toBeNull();
+    expect(last.guild?.id).toBe("1");
   });
   it("ranks exact top50 despite tx-first index order and refills after disband", () => {
     const f = fixture();

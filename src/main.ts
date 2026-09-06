@@ -1297,6 +1297,7 @@ import {
   });
 
   guildPanel = createGuildPanel({
+    replayAssets: { player: playerAppearanceAssets, prepare: assets.ensureDuelAssets, background: assets.duelSpaceBackground, arena: assets.duelPlatformArt },
     api: () => coop?.guild,
     sessionKey: () => `${coop?.localIdentity?.() ?? ""}:${coop?.sessionGeneration?.() ?? 0}:${coop?.isConnected?.() ?? false}`,
     beforeOpen: () => {
@@ -1596,7 +1597,7 @@ import {
     render: (interpolationAlpha) => presentation.render(interpolationAlpha, () => {
       upgradeBenchController.tick();
       if (activeDuel() || isArenaScene()) void assets.ensureDuelAssets();
-      renderController.render();
+      if (!guildPanel?.isOpen()) renderController.render();
     }), recordPerformance: performanceMonitor.record,
     renderPerformancePanel: devPanel.renderPerformance, performancePanelVisible: devPanel.isPerformanceVisible,
     renderFpsDisplay: () => {

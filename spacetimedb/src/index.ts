@@ -7730,6 +7730,7 @@ export const claimGuestAccount = spacetimedb.reducer(
     if (accountStatus) updateSnapshotRow(ctx, "playerAccountStatus", linkedStatus);
     else insertSnapshotRow(ctx, "playerAccountStatus", linkedStatus);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, ctx.db.player.identity.find(ctx.sender)));
+    guildService.mergeGuest(ctx, link.guest, ctx.sender);
     const guestAccountStatus = ctx.db.playerAccountStatus.identity.find(link.guest);
     if (guestAccountStatus) deleteSnapshotRow(ctx, "playerAccountStatus", link.guest);
     const guestLeaderboardEntry = ctx.db.leaderboardEntry.identity.find(link.guest);
@@ -8903,7 +8904,6 @@ export const resetPlayerProgress = spacetimedb.reducer(
   (ctx) => {
     const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel before resetting progress.");
-    guildService.resetAccount(ctx, ctx.sender);
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
     const next = defaultPlayerProgress(ctx.sender);
     const history = ctx.db.playerCutsceneHistory.identity.find(ctx.sender);
@@ -9759,7 +9759,6 @@ function requireGuildConnection(ctx: ModuleReducerCtx) {
 
 function requireGuildPlayer(ctx: ModuleReducerCtx) {
   requireGuildConnection(ctx);
-  if (!hasSpacetimeAuthAccount(ctx)) throw new SenderError("Register an account to join guilds.");
 }
 
 function guildFighterFor(ctx: ModuleReducerCtx, identity: Identity): DuelFighter {
@@ -9779,7 +9778,11 @@ const guildService = createGuildService({
   fighterFor: (ctx, identity) => {
     const profile = ctx.db.playerProfile.identity.find(identity);
     if (!profile) throw new SenderError("Player profile is unavailable.");
-    return { name: profile.displayName, fighter: guildFighterFor(ctx, identity) };
+    const progress = ctx.db.playerProgress.identity.find(identity);
+    if (!progress) throw new SenderError("Player progress is unavailable.");
+    return { name: profile.displayName, fighter: guildFighterFor(ctx, identity),
+      appearance: leaderboardAppearanceForProgress(progress, profile), range: 160 };
+
   },
 });
 
@@ -9790,8 +9793,6 @@ export const createGuild = spacetimedb.reducer({ name: t.string() }, (ctx, { nam
 });
 export const joinGuild = spacetimedb.reducer({ guildId: t.u64() }, (ctx, { guildId }) => { requireGuildPlayer(ctx); guildService.join(ctx, guildId); });
 export const leaveGuild = spacetimedb.reducer((ctx) => { requireGuildPlayer(ctx); guildService.leave(ctx); });
-export const setGuildChampion = spacetimedb.reducer({ identity: t.identity(), champion: t.bool() }, (ctx, { identity, champion }) => { requireGuildPlayer(ctx); guildService.setChampion(ctx, identity, champion); });
-export const refreshGuildChampion = spacetimedb.reducer((ctx) => { requireGuildPlayer(ctx); guildService.refreshChampion(ctx); });
 export const transferGuildLeadership = spacetimedb.reducer({ identity: t.identity() }, (ctx, { identity }) => { requireGuildPlayer(ctx); guildService.transfer(ctx, identity); });
 export const kickGuildMember = spacetimedb.reducer({ identity: t.identity() }, (ctx, { identity }) => { requireGuildPlayer(ctx); guildService.kick(ctx, identity); });
 export const challengeGuild = spacetimedb.reducer({ opponentGuildId: t.u64() }, (ctx, { opponentGuildId }) => { requireGuildPlayer(ctx); guildService.challenge(ctx, opponentGuildId); });
@@ -9799,3 +9800,25 @@ export const getGuildHub = spacetimedb.procedure({ afterId: t.u64() }, t.string(
   requireGuildConnection(tx);
   return JSON.stringify(guildService.snapshot(tx, afterId, hasSpacetimeAuthAccount(tx)));
 }));
+
+/** One-shot operator setup for the requested temporary opponent. Never runs on
+ * login or startup, and never moves somebody out of an existing guild. */
+export const seedTemporaryGuild = spacetimedb.reducer((ctx) => {
+  requireShardOperator(ctx);
+  if (isMapShard(ctx)) throw new SenderError("Use the root database.");
+  const existing = ctx.db.guild.nameKey.find("temp");
+  if (existing) {
+    if (existing.members === 20) return;
+    throw new SenderError("The temp guild already exists; its membership was preserved.");
+  }
+  const candidates = [...ctx.db.leaderboardEntry.iter()]
+    .filter(row => !ctx.db.guildMember.identity.find(row.identity) && ctx.db.playerProgress.identity.find(row.identity)
+      && ctx.db.playerProfile.identity.find(row.identity) && !isVirtualPlayer(ctx, row.identity)
+      && (ctx.db.guildAccount.identity.find(row.identity)?.joinAfter ?? 0n) <= ctx.timestamp.microsSinceUnixEpoch)
+    .sort((a, b) => a.powerLevel - b.powerLevel || a.identity.toHexString().localeCompare(b.identity.toHexString()))
+    .slice(0, 20);
+  if (candidates.length !== 20) throw new SenderError("Need twenty unassigned leaderboard players.");
+  guildService.create({ ...ctx, sender: candidates[0].identity }, "temp");
+  const guildId = ctx.db.guildMember.identity.find(candidates[0].identity)!.guildId;
+  for (const member of candidates.slice(1)) guildService.join({ ...ctx, sender: member.identity }, guildId);
+});

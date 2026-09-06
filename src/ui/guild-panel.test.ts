@@ -4,11 +4,11 @@ import { createGuildPanel } from "./guild-panel";
 import type { GuildApi } from "../coop/services/guild-service";
 import { resolveGuildBattle, type GuildSnapshot } from "../../shared/guilds";
 
-const member = (identity: string, champion = true) => ({ identity, name: identity.toUpperCase(), champion, eligibleAt: "0", power: 100 });
+const member = (identity: string) => ({ identity, name: identity.toUpperCase(), eligibleAt: "0" });
 const fixture = (): GuildSnapshot => ({
   identity: "a", serverNow: "1000000", week: 1, nextWeekAt: "9999999999999", joinAfter: "0", signedIn: true,
-  guild: { id: "1", name: "Wildwood", leader: "a", attacksRemaining: 3, score: 12, members: [member("a"), member("b"), member("c"), member("d", false)] },
-  directory: [{ id: "2", name: "Moonlight", members: 5, champions: 3, challengedToday: false }], nextPage: null,
+  guild: { id: "1", name: "Wildwood", leader: "a", attacksRemaining: 3, score: 12, members: [member("a"), member("b"), member("c"), member("d")] },
+  directory: [{ id: "2", name: "Moonlight", members: 5, challengedToday: false }], nextPage: null,
   standings: [{ id: "1", name: "Wildwood", members: 4, score: 12, wins: 4, battles: 4 }], battles: [],
 });
 const disposals: (() => void)[] = [];
@@ -30,7 +30,7 @@ describe("guild panel", () => {
   it("keeps navigation focused and reuses the loaded snapshot across sections", async () => {
     const h = setup(); h.panel.open(); await settled();
     expect([...h.document.querySelectorAll(".guild-tabs button")].map(node => node.textContent)).toEqual(["Guild", "Battles", "Rankings"]);
-    expect(h.document.querySelectorAll(".guild-champion")).toHaveLength(3);
+    expect(h.document.querySelectorAll(".guild-champion")).toHaveLength(0);
     expect(h.find("Transfer leadership")).toBeUndefined();
     expect(h.find("Remove member")).toBeUndefined();
     h.click("Rankings"); h.click("Battles");
@@ -45,14 +45,13 @@ describe("guild panel", () => {
     h.click("Transfer leadership"); h.click("Transfer leadership"); await settled();
     expect(h.api.guildAction).toHaveBeenCalledExactlyOnceWith({ kind: "transfer", identity: "b" });
   });
-  it("prevents selecting a fourth champion and lets a saved champion update their own build", async () => {
+  it("has no champion selection and includes every member in the challenge", async () => {
     const h = setup(); h.panel.open(); await settled(); h.click("Manage D");
-    expect(h.find("Set as champion")?.disabled).toBe(true);
-    h.click("Update my build"); await settled();
-    expect(h.api.guildAction).toHaveBeenCalledWith({ kind: "refreshChampion" });
-    expect(h.document.body.textContent).toContain("Your champion build is up to date.");
+    expect(h.find("Set as champion")).toBeUndefined(); expect(h.find("Update my build")).toBeUndefined();
+    h.click("Battles"); h.click("Challenge");
+    expect(h.document.body.textContent).toContain("All 4 of your members will fight their 5 members");
   });
-  it("does not offer a build refresh to a member who is not a champion", async () => {
+  it("keeps leadership controls unavailable to ordinary members", async () => {
     const g = fixture(); g.identity = "d";
     const h = setup(g); h.panel.open(); await settled();
     expect(h.find("Update my build")).toBeUndefined();
@@ -67,19 +66,19 @@ describe("guild panel", () => {
     expect(h.api.guildAction).toHaveBeenCalledExactlyOnceWith({ kind: "challenge", opponentGuildId: "2" });
     expect(h.document.body.textContent).toContain("Battle complete.");
   });
-  it.each(["challenged", "no-attacks", "no-team", "opponent-not-ready"])("disables unavailable challenges: %s", async reason => {
+  it.each(["challenged", "no-attacks", "ineligible", "opponent-not-ready"])("disables unavailable challenges: %s", async reason => {
     const g = fixture();
     if (reason === "challenged") g.directory[0].challengedToday = true;
     if (reason === "no-attacks") g.guild!.attacksRemaining = 0;
-    if (reason === "no-team") g.guild!.members[0].champion = false;
-    if (reason === "opponent-not-ready") g.directory[0].champions = 2;
+    if (reason === "ineligible") g.guild!.members[0].eligibleAt = "999999999999999999";
+    if (reason === "opponent-not-ready") g.directory[0].members = 0;
     const h = setup(g); h.panel.open("battles"); await settled();
     expect((h.find("Challenge") ?? h.find("Challenged") ?? h.find("Not ready"))?.disabled).toBe(true);
   });
-  it("keeps joining and creation disabled for guests and during membership cooldown", async () => {
+  it("allows guests to join and create, but respects membership cooldown", async () => {
     const g = fixture(); g.guild = null; g.signedIn = false;
     const h = setup(g); h.panel.open(); await settled();
-    expect(h.find("Join")?.disabled).toBe(true); expect(h.find("Create a guild")).toBeUndefined();
+    expect(h.find("Join")?.disabled).toBe(false); expect(h.find("Create a guild")?.disabled).toBe(false);
     h.api.loadGuild.mockResolvedValue({ ...g, signedIn: true, joinAfter: "999999999999999999" });
     h.click("Refresh"); await settled();
     expect(h.find("Join")?.disabled).toBe(true); expect(h.find("Create a guild")?.disabled).toBe(true);
@@ -99,10 +98,10 @@ describe("guild panel", () => {
     const g = fixture();
     const fighter = { damage: 4, maxHp: 30, armor: 0, regen: 0, attackRate: 1 };
     const result = resolveGuildBattle(["a", "b", "c"].map(name => ({ identity: name, name, fighter })), ["d", "e", "f"].map(name => ({ identity: name, name, fighter })));
-    g.battles = [{ id: "1", attackerId: "2", defenderId: "1", attacker: "Moonlight", defender: "Wildwood", at: "1000000", result: { ...result, wins: 3, losses: 0, outcome: "VICTORY" } }];
+    g.battles = [{ id: "1", attackerId: "2", defenderId: "1", attacker: "Moonlight", defender: "Wildwood", at: "1000000", result: { ...result, version: 2, attackerSurvivors: 3, defenderSurvivors: 0, outcome: "VICTORY" } }];
     const h = setup(g); h.panel.open("battles"); await settled();
-    const report = h.document.querySelector(".guild-report summary")!;
-    expect(report.textContent).toContain("Defeat"); expect(report.textContent).toContain("0–3");
+    const report = h.document.querySelector(".guild-report-summary")!;
+    expect(report.textContent).toContain("Defeat"); expect(h.find("Watch replay")).toBeDefined();
     expect(report.textContent).toContain("vs Moonlight"); expect(report.textContent).toContain("Defense");
   });
   it("does not poll the database while open and closes when the session changes", async () => {
@@ -113,7 +112,7 @@ describe("guild panel", () => {
   });
   it("rejects a stale button immediately after an account switch, before the close timer fires", async () => {
     const h = setup(); h.panel.open(); await settled();
-    h.changeSession(); h.click("Update my build"); await settled();
+    h.changeSession(); h.click("Refresh"); await settled();
     expect(h.api.guildAction).not.toHaveBeenCalled();
     expect(h.panel.isOpen()).toBe(false);
   });
@@ -126,19 +125,19 @@ describe("guild panel", () => {
   it("recovers after a rejected action without discarding the existing roster", async () => {
     const h = setup(); h.panel.open(); await settled();
     h.api.guildAction.mockRejectedValueOnce(new Error("Connection interrupted"));
-    h.click("Update my build"); await settled();
+    h.click("Manage B"); h.click("Remove member"); h.click("Remove member"); await settled();
     expect(h.document.querySelector('[role="alert"]')?.textContent).toContain("Connection interrupted");
-    expect(h.document.querySelectorAll(".guild-champion")).toHaveLength(3);
-    expect(h.find("Update my build")?.disabled).toBe(false);
+    expect(h.document.querySelectorAll(".guild-champion")).toHaveLength(0);
+    expect(h.find("Refresh")?.disabled).toBe(false);
   });
   it("does not offer stale actions when a saved change cannot be refreshed", async () => {
     const h = setup(); h.panel.open(); await settled();
     h.api.loadGuild.mockRejectedValueOnce(new Error("Timeout"));
-    h.click("Update my build"); await settled();
+    h.click("Manage B"); h.click("Remove member"); h.click("Remove member"); await settled();
     expect(h.document.querySelector('[role="alert"]')?.textContent).toContain("Your change was saved");
-    expect(h.find("Update my build")).toBeUndefined();
+    expect(h.find("Manage B")).toBeUndefined();
     h.click("Refresh"); await settled();
-    expect(h.find("Update my build")?.disabled).toBe(false);
+    expect(h.find("Refresh")?.disabled).toBe(false);
     expect(h.api.guildAction).toHaveBeenCalledTimes(1);
   });
 });

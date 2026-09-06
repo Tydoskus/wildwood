@@ -63,7 +63,7 @@ describe("combat effects runtime", () => {
 });
 
 
-it("uses white for outgoing hits and crits, red for damage taken, including recycled numbers", () => {
+it("uses white for outgoing hits, yellow for crits, and red for damage taken, including recycled numbers", () => {
   const effects = createCombatEffects();
   const ctx = { save() {}, restore() {}, translate() {}, scale() {} } as unknown as CanvasRenderingContext2D;
   const draw = vi.fn();
@@ -71,7 +71,7 @@ it("uses white for outgoing hits and crits, red for damage taken, including recy
   effects.spawnDamageNumber(0, 0, 20, true);
   effects.spawnDamageNumber(0, 0, 30, false, true);
   effects.drawDamageNumbers(ctx, { x: 0, y: 0, zoom: 1 }, draw);
-  expect(draw.mock.calls.map((args) => args[3])).toEqual(["#ffffff", "#ffffff", "#ff5a5a"]);
+  expect(draw.mock.calls.map((args) => args[3])).toEqual(["#ffffff", "#ffe36b", "#ff5a5a"]);
   effects.update(2);
   effects.spawnDamageNumber(0, 0, 40);
   expect(effects.damageNumbers[0].damageTaken).toBe(false);

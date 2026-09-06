@@ -1,5 +1,6 @@
+import { createGuildBattleReplay, type GuildReplayAssets } from "./guild-battle-replay";
 import { playerNamePrefix } from "../app/player-name-tags";
-import { GUILD_MEMBER_LIMIT, GUILD_TEAM_SIZE, type GuildSnapshot } from "../../shared/guilds";
+import { GUILD_MEMBER_LIMIT, type GuildSnapshot } from "../../shared/guilds";
 import type { GuildAction, GuildApi } from "../coop/services/guild-service";
 
 type Section = "guild" | "battles" | "rankings";
@@ -10,6 +11,7 @@ type Options = {
   beforeOpen: () => void;
   onClose: () => void;
   document?: Document;
+  replayAssets?: GuildReplayAssets;
 };
 const number = (value: number) => new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value);
 const date = (micros: string) => new Date(Number(BigInt(micros) / 1000n));
@@ -28,6 +30,8 @@ export function createGuildPanel(options: Options) {
   dialog.setAttribute("role", "dialog"); dialog.setAttribute("aria-modal", "true");
   dialog.setAttribute("aria-labelledby", "guildTitle"); dialog.tabIndex = -1;
   root.append(dialog); doc.body.append(root);
+  let replay: ReturnType<typeof createGuildBattleReplay> | undefined;
+  let replayId: string | null = null;
   let section: Section = "guild";
   let snapshot: GuildSnapshot | null = null;
   let busy = false;
@@ -89,8 +93,7 @@ export function createGuildPanel(options: Options) {
       if (action?.kind === "create" || action?.kind === "join" || action?.kind === "leave") {
         section = "guild"; creating = false; managedMember = null; draftName = "";
       }
-      if (action?.kind === "refreshChampion") notice = "Your champion build is up to date.";
-      if (action?.kind === "challenge") notice = "Battle complete. Your report is ready below.";
+      if (action?.kind === "challenge") { section = "battles"; replayId = next.battles[0]?.id ?? null; notice = "Battle complete. Watch the replay below."; }
     } catch (failure) {
       if (current(id)) {
         if (saved) {
@@ -111,7 +114,7 @@ export function createGuildPanel(options: Options) {
   const act = (action: GuildAction) => { void load(action); };
   function switchSection(next: Section) {
     const body = dialog.querySelector(".guild-content"); if (body) body.scrollTop = 0;
-    section = next; confirmation = null; managedMember = null; notice = ""; render();
+    section = next; replayId = null; confirmation = null; managedMember = null; notice = ""; render();
     dialog.querySelector<HTMLElement>(`[data-focus-key="tab-${next}"]`)?.focus();
   }
   function renderCreate(parent: HTMLElement) {
@@ -134,21 +137,21 @@ export function createGuildPanel(options: Options) {
       event.preventDefault(); if (!busy && canJoin() && /^[A-Za-z]{4}$/.test(input.value.trim())) act({ kind: "create", name: input.value.trim() });
     }); parent.append(form);
   }
-  function canJoin() { return Boolean(snapshot?.signedIn && date(snapshot.joinAfter).getTime() <= now()); }
+  function canJoin() { return Boolean(snapshot && date(snapshot.joinAfter).getTime() <= now()); }
   function renderDirectory(parent: HTMLElement, challenge = false) {
     const g = snapshot!;
     const entries = g.directory.filter(entry => entry.id !== g.guild?.id);
     if (!entries.length) empty(parent, challenge ? "No opponents yet" : "No guilds here yet", challenge ? "Other guilds will appear here as players create them." : "Be the first to create one, or check another page.");
     const list = element("div", undefined, "guild-list"); parent.append(list);
     for (const entry of entries) {
-      const item = row(list, entry.name, `${entry.members}/${GUILD_MEMBER_LIMIT} members · ${entry.champions}/${GUILD_TEAM_SIZE} champions`);
+      const item = row(list, entry.name, `${entry.members}/${GUILD_MEMBER_LIMIT} members`);
       item.prepend(mark(entry.name, "guild-avatar"));
       if (!challenge) item.append(button(entry.members >= GUILD_MEMBER_LIMIT ? "Full" : "Join", () => act({ kind: "join", guildId: entry.id }), "secondary", !canJoin() || entry.members >= GUILD_MEMBER_LIMIT, `join-${entry.id}`));
       else if (isLeader()) {
-        const ready = g.guild!.members.filter(member => member.champion && date(member.eligibleAt).getTime() <= now()).length === GUILD_TEAM_SIZE;
-        const disabled = !ready || !g.guild!.attacksRemaining || entry.champions !== GUILD_TEAM_SIZE || entry.challengedToday;
-        item.append(button(entry.challengedToday ? "Challenged" : entry.champions !== GUILD_TEAM_SIZE ? "Not ready" : "Challenge", () => ask(
-          `Challenge ${entry.name}?`, `Your saved champions will battle their lineup. Uses 1 of your guild’s ${g.guild!.attacksRemaining} remaining attacks today.`, "Start battle", { kind: "challenge", opponentGuildId: entry.id }), "secondary", disabled, `challenge-${entry.id}`));
+        const ready = g.guild!.members.length > 0 && g.guild!.members.every(member => date(member.eligibleAt).getTime() <= now());
+        const disabled = !ready || !g.guild!.attacksRemaining || !entry.members || entry.challengedToday;
+        item.append(button(entry.challengedToday ? "Challenged" : !entry.members ? "Not ready" : "Challenge", () => ask(
+          `Challenge ${entry.name}?`, `All ${g.guild!.members.length} of your members will fight their ${entry.members} members with current saved builds. Uses 1 of your guild’s ${g.guild!.attacksRemaining} remaining attacks today.`, "Start battle", { kind: "challenge", opponentGuildId: entry.id }), "secondary", disabled, `challenge-${entry.id}`));
       }
     }
     if (page !== "0" || g.nextPage) {
@@ -160,17 +163,13 @@ export function createGuildPanel(options: Options) {
   function renderMember(parent: HTMLElement, member: Member) {
     const g = snapshot!, own = g.guild!;
     const self = member.identity === g.identity;
-    const detail = [member.identity === own.leader ? "Leader" : "Member", self ? "You" : "", member.champion ? `${number(member.power)} power` : ""].filter(Boolean).join(" · ");
+    const detail = [member.identity === own.leader ? "Leader" : "Member", self ? "You" : ""].filter(Boolean).join(" · ");
     const item = row(parent, `${playerNamePrefix(member.identity)}${member.name}`, detail); item.prepend(mark(member.name, "guild-avatar"));
-    if (member.champion) item.append(element("span", "Champion", "guild-badge"));
     if (isLeader()) {
       const control = button("···", () => { managedMember = managedMember === member.identity ? null : member.identity; render(); }, "icon", false, `manage-${member.identity}`);
       control.setAttribute("aria-label", `Manage ${member.name}`); control.setAttribute("aria-expanded", String(managedMember === member.identity)); item.append(control);
       if (managedMember === member.identity) {
         const menu = element("div", undefined, "guild-member-actions");
-        const full = own.members.filter(entry => entry.champion).length >= GUILD_TEAM_SIZE;
-        menu.append(button(member.champion ? "Remove champion" : "Set as champion", () => act({ kind: "champion", identity: member.identity, champion: !member.champion }), "secondary", !member.champion && full, `champion-${member.identity}`));
-        if (!member.champion && full) menu.append(element("p", "Remove a champion to free a slot."));
         if (!self) menu.append(
           button("Transfer leadership", () => ask(`Make ${member.name} leader?`, "You will become a member. Only the new leader can manage the guild and start battles.", "Transfer leadership", { kind: "transfer", identity: member.identity }), "quiet"),
           button("Remove member", () => ask(`Remove ${member.name}?`, "They will leave the guild and wait 24 hours before joining another.", "Remove member", { kind: "kick", identity: member.identity }), "danger"));
@@ -182,11 +181,10 @@ export function createGuildPanel(options: Options) {
     const g = snapshot!;
     if (!g.guild) {
       const intro = element("div", undefined, "guild-intro");
-      intro.append(mark("W"), element("h3", "Find your guild"), element("p", "Choose three champions. Battle together, even while offline.")); body.append(intro);
-      if (!g.signedIn) body.append(element("p", "Sign in to join or create a guild. You can browse the rankings as a guest.", "guild-callout"));
-      else if (!canJoin()) body.append(element("p", `You can join again ${date(g.joinAfter).toLocaleString()}.`, "guild-callout"));
+      intro.append(mark("W"), element("h3", "Find your guild"), element("p", "Every member fights. Battle together, even while offline.")); body.append(intro);
+      if (!canJoin()) body.append(element("p", `You can join again ${date(g.joinAfter).toLocaleString()}.`, "guild-callout"));
       heading(body, "Discover guilds"); renderDirectory(body);
-      if (g.signedIn) renderCreate(body);
+      renderCreate(body);
       return;
     }
     const own = g.guild;
@@ -194,19 +192,6 @@ export function createGuildPanel(options: Options) {
     for (const [value, label] of [[`${own.members.length}/${GUILD_MEMBER_LIMIT}`, "Members"], [number(own.score), "Weekly points"], [String(own.attacksRemaining), "Attacks today"]]) {
       const stat = element("div"); stat.append(element("strong", value), element("span", label)); stats.append(stat);
     } body.append(stats);
-    heading(body, "Champions", isLeader() ? "Choose your lineup from the member list." : "Your leader chooses the guild’s battle lineup.");
-    const lineup = element("div", undefined, "guild-lineup");
-    const champions = own.members.filter(member => member.champion);
-    for (let i = 0; i < GUILD_TEAM_SIZE; i++) {
-      const member = champions[i];
-      const slot = element("div", undefined, `guild-champion${member ? "" : " guild-champion--empty"}`);
-      slot.append(mark(member?.name ?? "+", "guild-avatar"), element("strong", member?.name ?? "Open slot"),
-        element("span", member ? date(member.eligibleAt).getTime() > now() ? "Eligible soon" : `${number(member.power)} power` : "No champion")); lineup.append(slot);
-    } body.append(lineup);
-    if (champions.some(member => member.identity === g.identity)) {
-      const update = element("div", undefined, "guild-build-update");
-      update.append(element("span", "Upgraded your gear?"), button("Update my build", () => act({ kind: "refreshChampion" }), "quiet")); body.append(update);
-    }
     heading(body, "Members", `${own.members.length} of ${GUILD_MEMBER_LIMIT}`);
     const roster = element("div", undefined, "guild-list"); body.append(roster);
     [...own.members].sort((a, b) => Number(b.identity === own.leader) - Number(a.identity === own.leader) || a.name.localeCompare(b.name)).forEach(member => renderMember(roster, member));
@@ -215,39 +200,40 @@ export function createGuildPanel(options: Options) {
   }
   function renderReports(body: HTMLElement) {
     const g = snapshot!;
-    heading(body, "Recent battles");
+    heading(body, replayId ? "Battle replay" : "Recent battles");
     if (!g.battles.length) { empty(body, "Your first battle awaits", "Battle reports will appear here after a guild challenge."); return; }
-    for (const battle of g.battles) {
+    for (const battle of replayId ? g.battles.filter(battle => battle.id === replayId) : g.battles) {
       const attacking = battle.attackerId === g.guild?.id;
-      const wins = attacking ? battle.result.wins : battle.result.losses;
-      const losses = attacking ? battle.result.losses : battle.result.wins;
-      const result = wins === losses ? "Draw" : wins > losses ? "Victory" : "Defeat";
-      const report = element("details", undefined, "guild-report");
-      const summary = element("summary");
+      const result = battle.result.outcome === "DRAW" ? "Draw" : (battle.result.outcome === "VICTORY") === attacking ? "Victory" : "Defeat";
+      const report = element("div", undefined, "guild-report");
+      const summary = element("div", undefined, "guild-report-summary");
       const info = element("span", undefined, "guild-row-copy");
       info.append(element("strong", `vs ${attacking ? battle.defender : battle.attacker}`), element("span", `${attacking ? "Attack" : "Defense"} · ${date(battle.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`));
-      summary.append(element("span", result, `guild-result guild-result--${result.toLowerCase()}`), info, element("strong", `${wins}–${losses}`)); report.append(summary);
-      battle.result.rounds.forEach((round, i) => {
-        const winner = round.outcome === "CHALLENGER_WIN" ? round.attacker : round.outcome === "OPPONENT_WIN" ? round.defender : null;
-        row(report, `${round.attacker} vs ${round.defender}`, `Round ${i + 1} · ${winner ? `${winner} wins` : "Draw"} · ${(round.durationMicros / 1_000_000).toFixed(1)}s`);
-      }); body.append(report);
+      summary.append(element("span", result, `guild-result guild-result--${result.toLowerCase()}`), info); report.append(summary);
+      if (battle.result.version === 2) {
+        summary.append(button(replayId === battle.id ? "Close replay" : "Watch replay", () => { replayId = replayId === battle.id ? null : battle.id; render(); }, "secondary", false, `replay-${battle.id}`));
+        report.append(element("p", `${battle.result.attackers.length} vs ${battle.result.defenders.length} members · ${battle.result.duration.toFixed(1)}s`));
+        if (replayId === battle.id) replay = createGuildBattleReplay(report, battle.result, [battle.attacker, battle.defender], options.replayAssets);
+      } else {
+        const legacy = element("details", undefined, "guild-disclosure"); legacy.append(element("summary", "Previous battle report"));
+        battle.result.rounds.forEach(round => row(legacy, `${round.attacker} vs ${round.defender}`, `${(round.durationMicros / 1_000_000).toFixed(1)}s`));
+        report.append(legacy);
+      }
+      body.append(report);
     }
   }
   function renderBattles(body: HTMLElement) {
     const own = snapshot!.guild;
     if (!own) {
-      const message = empty(body, "A team of three. One guild.", "Join a guild to compete with saved champion builds. Nobody needs to be online together.");
+      const message = empty(body, "Your whole guild. One battle.", "Join a guild to fight alongside every member. Nobody needs to be online together.");
       message.append(button("Find a guild", () => switchSection("guild"), "primary")); return;
     }
+    if (replayId && snapshot!.battles.some(battle => battle.id === replayId)) { renderReports(body); return; }
     heading(body, "Challenge a guild", `${own.attacksRemaining} attacks left today · Resets at 00:00 UTC`);
     if (!isLeader()) body.append(element("p", "Your leader starts battles. Everyone can view the results.", "guild-callout"));
-    else if (own.members.filter(member => member.champion && date(member.eligibleAt).getTime() <= now()).length < GUILD_TEAM_SIZE) {
-      const callout = element("div", undefined, "guild-callout");
-      callout.append(element("p", "Three eligible champions are needed to battle."), button("Set your lineup", () => switchSection("guild"), "quiet")); body.append(callout);
-    }
     renderDirectory(body, true); renderReports(body);
     const rules = element("details", undefined, "guild-disclosure"); rules.append(element("summary", "How battles work"),
-      element("p", "Three saved champions face three opponents. Win more rounds to win the battle. Refresh your champion build after upgrading."),
+      element("p", "Every member joins one simultaneous battle using their latest saved stats and gear. Eliminate the opposing guild to win. At 60 seconds, remaining team health percentage breaks the tie."),
       element("p", "Your guild gets 3 attacks a day, once per opponent. Attacking earns 3 weekly points for a victory, 1 for a draw. Defense costs no attacks and awards no points.")); body.append(rules);
   }
   function renderRankings(body: HTMLElement) {
@@ -266,6 +252,8 @@ export function createGuildPanel(options: Options) {
     }); body.append(list);
   }
   function render() {
+    replay?.dispose(); replay = undefined;
+    dialog.classList.toggle("guild-window--replay", Boolean(replayId));
     const active = doc.activeElement as HTMLElement | null;
     const focusKey = active?.dataset?.focusKey;
     const wasInside = dialog.contains(active);
@@ -294,9 +282,9 @@ export function createGuildPanel(options: Options) {
     } else if (section === "guild") renderGuild(body);
     else if (section === "battles") renderBattles(body);
     else renderRankings(body);
-    dialog.append(body); body.scrollTop = scroll;
+    dialog.append(body); body.scrollTop = replayId ? 0 : scroll;
     const footer = element("footer", undefined, "guild-footer");
-    const state = element("span", busy ? "Updating…" : "Weekly competition · 3v3 battles"); state.setAttribute("role", "status");
+    const state = element("span", busy ? "Updating…" : "Weekly competition · Full-guild battles"); state.setAttribute("role", "status");
     footer.append(state, button("Refresh", () => void load(), "quiet")); dialog.append(footer);
     if (wasInside && !root.hidden) {
       const restored = [...dialog.querySelectorAll<HTMLElement>("[data-focus-key]")].find(node => node.dataset.focusKey === focusKey && !(node as HTMLButtonElement).disabled);
@@ -305,6 +293,7 @@ export function createGuildPanel(options: Options) {
   }
   function close() {
     if (root.hidden) return;
+    replay?.dispose(); replay = undefined; replayId = null;
     serial++; root.hidden = true; busy = false; options.api()?.cancel(); clearInterval(timer); timer = undefined;
     confirmation = null; doc.getElementById("guildBtn")?.setAttribute("aria-expanded", "false");
     options.onClose(); previousFocus?.focus();
