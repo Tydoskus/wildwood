@@ -31,7 +31,7 @@ function renderer(
     prismshellBoss: { dead: mapId !== CRYSTAL_HOLLOWS_MAP_ID, y: 120 } as PrismshellBossState, ironhornBoss: { dead: mapId !== "clockwork_ruins", y: 120 } as IronhornBossState, dreadreaperBoss: { dead: mapId !== "duskfall_orchard", y: 120 } as DreadreaperBossState,
     bootsPickup: { y: 0, r: 0, collected: true },
     currentMapId: () => mapId,
-    activePortal: () => ({ depth: 0 }),
+    activePortal: () => mapId === "home_exterior" ? null : ({ depth: 0 }),
     secondaryPortal: () => null,
     drawTree: (tree) => calls.push(`tree:${tree.y}`),
     drawCactus: (cactus) => calls.push(`cactus:${cactus.y}`),
@@ -159,4 +159,11 @@ it.each([["clockwork_ruins", "ironhorn"], ["duskfall_orchard", "dreadreaper"]] a
   const calls: string[] = [];
   renderer([], calls, mapId).drawDepthSortedWorld([], false);
   expect(calls).toEqual(["player", boss]);
+});
+
+
+it("renders a map without portals without queuing a placeholder portal", () => {
+  const calls: string[] = [];
+  renderer([], calls, "home_exterior").drawDepthSortedWorld([], true);
+  expect(calls).toEqual(["player"]);
 });

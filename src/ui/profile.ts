@@ -1,7 +1,7 @@
 import type { PlayerProfileData, PlayerResearch } from "../wildstat-coop";
 import { createEmptyResearchRanks } from "../../shared/research";
 import { effectivePlayerPower, effectivePlayerPowerStats } from "../../shared/player-power";
-import { equipmentDamageMultiplier, equipmentMaxHealthMultiplier, equipmentRegenerationMultiplier, weaponAttackSpeedMultiplier } from "../../shared/items";
+import { equipmentDamageMultiplier, equipmentMaxHealthMultiplier, equipmentRegenerationMultiplier } from "../../shared/items";
 import { formatCompactNumber } from "./number-format";
 
 export function formatPlayedTime(seconds: number) {
@@ -61,7 +61,6 @@ export function effectiveProfileStats(
     headUpgradeLevel,
     chestUpgradeLevel,
   );
-  const attackSpeedMultiplier = weaponAttackSpeedMultiplier(weaponItem, 1, weaponUpgradeLevel);
   const armorMultiplier = multiplier(research.precision, 2);
   const regenResearchMultiplier = multiplier(research.regeneration, 2);
   const regenEquipmentMultiplier = equipmentRegenerationMultiplier(
@@ -94,7 +93,7 @@ export function effectiveProfileStats(
       damageResearch: damageResearchMultiplier,
       damageEquipment: damageEquipmentMultiplier,
       damageTotal: damageTotalMultiplier,
-      attackSpeed: attackSpeedMultiplier,
+      attackSpeed: 1,
       armor: armorMultiplier,
       regen: regenTotalMultiplier,
       regenResearch: regenResearchMultiplier,

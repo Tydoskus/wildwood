@@ -33,17 +33,9 @@ type InventoryDependencies = {
   showMessage: (message: string, color?: string) => void;
 };
 
-export function nextInventorySelection(currentItemId: string, tappedItemId: string) {
-  return currentItemId === tappedItemId ? "" : tappedItemId;
-}
-
 export function clearInventorySelection(inventory: Pick<SelectableInventory, "selectedItemId" | "selectedItemLocation">) {
   inventory.selectedItemId = "";
   inventory.selectedItemLocation = "";
-}
-
-export function inventorySelectionAfterMove(_itemId: string, _destination: EquipmentSlot | "BAG") {
-  return { itemId: "", location: "" as const };
 }
 
 /** Paper-doll loadout, inventory selection, and direct equipment actions. */
@@ -96,8 +88,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
       ? dependencies.moveCosmetic(itemId, destination)
       : dependencies.move(itemId, destination);
     if (!moved) return false;
-    const selection = inventorySelectionAfterMove(itemId, destination);
-    setSelection(selection.itemId, selection.location);
+    clearInventorySelection(dependencies.inventory);
     render();
     playMoveFeedback(destination);
     return true;

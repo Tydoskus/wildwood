@@ -1,5 +1,4 @@
 import storedMapDesigns from "./map-designs.json";
-import type { EnemyKind } from "./enemies";
 import type { MapId, SpawnCamp, WorldDecor, WorldPath } from "./world";
 
 export const MAP_DECOR_TYPES = [
@@ -220,8 +219,4 @@ export function decorPaletteColor(
   const colors = theme.decorColors[type];
   const palette = colors?.length ? colors : fallback;
   return palette[Math.abs(Math.trunc(variant)) % palette.length];
-}
-
-export function isSavedEnemyKind(value: string, enemyKinds: ReadonlySet<string>): value is EnemyKind {
-  return enemyKinds.has(value);
 }

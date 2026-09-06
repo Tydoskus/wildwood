@@ -3,7 +3,6 @@ import {
   equipmentDamageMultiplier,
   equipmentMaxHealthMultiplier,
   equipmentRegenerationMultiplier,
-  weaponAttackInterval,
 } from "./items";
 
 export type PlayerPowerStats = {
@@ -56,7 +55,7 @@ export function effectivePlayerPowerStats(
       headLevel,
       chestLevel,
     ),
-    attackRate: weaponAttackInterval(weaponItem, Math.max(MIN_ATTACK_INTERVAL, progress.attackRate), 1, weaponLevel),
+    attackRate: Math.max(MIN_ATTACK_INTERVAL, progress.attackRate),
     armor: progress.armor * (1 + researchRank(research?.precision) * .02),
     regen: progress.regen * equipmentRegenerationMultiplier(
       headItem,

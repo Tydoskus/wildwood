@@ -2,13 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
   attackReadyAtWithoutTarget,
   createPlayerCombatController,
-  playerAttackAnimationSpeed,
-  playerAttackWindupSeconds,
   projectileSimulationSeconds,
 } from "./player-combat-controller";
 import { createGameBootstrap } from "./game-bootstrap";
 import { bossPlayerAttackCycle } from "../../../shared/boss-simulation";
-import { weaponAttackInterval } from "../../../shared/items";
 import { remoteBossAttackFrame } from "../../coop/services/remote-boss-attack";
 import { createEnemyLifecycle } from "./enemy-lifecycle";
 
@@ -100,16 +97,6 @@ describe("player attack timing", () => {
     expect(sound).toHaveBeenCalledTimes(1);
     expect(state.projectileStore.projectiles).toHaveLength(3);
   });
-  it("keeps the normal windup for slower attacks", () => {
-    expect(playerAttackWindupSeconds(1.56)).toBeCloseTo(.12);
-    expect(playerAttackAnimationSpeed(1.56)).toBe(1);
-  });
-
-  it("fits the complete throw animation inside a 10.5 attacks-per-second interval", () => {
-    const interval = 1 / 10.5;
-    expect(playerAttackWindupSeconds(interval)).toBeLessThan(interval);
-    expect(playerAttackAnimationSpeed(interval)).toBeCloseTo(.42 / interval);
-  });
 
   it("moves a newly released projectile for only the part of the fixed step after release", () => {
     expect(projectileSimulationSeconds(10.012, 10.016, .016)).toBeCloseTo(.004);
@@ -127,7 +114,7 @@ describe("player attack timing", () => {
     const encounter = 22n;
     const identity = "shared-player";
     const preview = createGameBootstrap();
-    const attackInterval = weaponAttackInterval("starter_stone", preview.player.attackRate, 1, 0);
+    const attackInterval = preview.player.attackRate;
     const cycle = bossPlayerAttackCycle({
       kind: "dragon",
       encounter,

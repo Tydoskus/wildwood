@@ -23,7 +23,6 @@ export type ActiveResearch = {
 type ResearchResult = { ok: boolean; error?: string } | undefined;
 
 export type TechTreeControllerElements = {
-  button: HTMLElement;
   notice: HTMLElement;
   overlay: HTMLElement;
   closeButton: HTMLElement;
@@ -87,7 +86,7 @@ export function centerResearchNode(viewport: HTMLElement, node: HTMLElement) {
 }
 
 export function createTechTreeController(elements: TechTreeControllerElements, hooks: TechTreeControllerHooks) {
-  const { button, notice, overlay, closeButton, active, canvas, map, detail, detailContent, closeDetailButton } = elements;
+  const { notice, overlay, closeButton, active, canvas, map, detail, detailContent, closeDetailButton } = elements;
   const confirmGemSpend = hooks.confirmGemSpend ?? ((message: string) => confirm(message));
   const layout = createTechTreeLayout();
   const nodesById = new Map(layout.nodes.map((node) => [node.id, node]));
@@ -336,7 +335,6 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
   function open() {
     overlay.hidden = false;
     detail.hidden = true;
-    button.setAttribute("aria-expanded", "true");
     hooks.beforeOpen();
     const focusNode = researchFocusNode(layout.nodes, hooks.researchRanks(), hooks.activeResearch());
     if (focusNode) selectedNodeId = focusNode.id;
@@ -353,7 +351,6 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
   function close() {
     overlay.hidden = true;
     detail.hidden = true;
-    button.setAttribute("aria-expanded", "false");
   }
 
 

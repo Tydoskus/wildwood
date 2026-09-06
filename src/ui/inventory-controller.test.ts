@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FROST_ARMOR, STARTER_BOW, STARTER_STONE } from "../game/inventory";
 import { inventoryMoveActions } from "./hud";
-import { clearInventorySelection, inventorySelectionAfterMove, nextInventorySelection } from "./inventory-controller";
+import { clearInventorySelection } from "./inventory-controller";
 import { itemInspectionButtonLabel } from "./item-inspection-controller";
 
 describe("inventory selection", () => {
@@ -10,26 +10,11 @@ describe("inventory selection", () => {
     expect(itemInspectionButtonLabel("REMOVE COSMETIC")).toBe("Remove Cosmetic");
     expect(itemInspectionButtonLabel("Back")).toBe("Back");
   });
-  it("unselects an item when tapped twice", () => {
-    expect(nextInventorySelection("starter_stone", "starter_stone")).toBe("");
-  });
-
-  it("selects a different item", () => {
-    expect(nextInventorySelection("starter_stone", "starter_bow")).toBe("starter_bow");
-  });
 
   it("starts a newly opened inventory without a selected item", () => {
     const selection = { selectedItemId: STARTER_BOW, selectedItemLocation: "BAG" as const };
     clearInventorySelection(selection);
     expect(selection).toEqual({ selectedItemId: "", selectedItemLocation: "" });
-  });
-
-  it("clears selection after an item is equipped", () => {
-    expect(inventorySelectionAfterMove(STARTER_BOW, "RIGHT_HAND")).toEqual({ itemId: "", location: "" });
-  });
-
-  it("clears selection after an item is returned to the bag", () => {
-    expect(inventorySelectionAfterMove(STARTER_BOW, "BAG")).toEqual({ itemId: "", location: "" });
   });
 });
 

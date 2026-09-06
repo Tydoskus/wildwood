@@ -37,50 +37,6 @@ export function previewMapPowerRescale<T extends MapRescaleProgress>(progress: T
   };
 }
 
-/** Rank-constrained map targets, returned in input order. Equal input powers
- * retain ties. Adjacent incompatible map targets are pooled in log space.
- * A small retained share of the original log-power gap makes compression strict. */
-export function rankPreservingPowerTargets(entries: readonly { power: number; mapIndex: number }[]) {
-  const sorted = entries.map((entry, index) => ({ ...entry, index })).sort((a, b) => a.power - b.power);
-  const groups: { members: typeof sorted; power: number; desired: number }[] = [];
-  for (const entry of sorted) {
-    if (!Number.isFinite(entry.power) || entry.power < 0) throw new RangeError("Invalid power");
-    const reference = mapExitPowerReference(entry.mapIndex);
-    const desired = entry.power <= reference ? entry.power : reference * (1 + .25 * Math.log(entry.power / reference));
-    const last = groups[groups.length - 1];
-    if (last?.power === entry.power) {
-      last.members.push(entry);
-      last.desired = Math.min(last.desired, desired);
-    } else groups.push({ members: [entry], power: entry.power, desired });
-  }
-  type Block = { start: number; end: number; sum: number; weight: number; bound: number; value: number };
-  const blocks: Block[] = [];
-  groups.forEach((group, index) => {
-    const value = Math.log(Math.max(1, group.desired));
-    blocks.push({ start: index, end: index, sum: value, weight: 1, bound: Math.log(Math.max(1, group.power)), value });
-    while (blocks.length > 1 && blocks[blocks.length - 2].value > blocks[blocks.length - 1].value) {
-      const right = blocks.pop()!;
-      const left = blocks.pop()!;
-      const sum = left.sum + right.sum;
-      const weight = left.weight + right.weight;
-      const bound = Math.min(left.bound, right.bound);
-      blocks.push({ start: left.start, end: right.end, sum, weight, bound, value: Math.min(bound, sum / weight) });
-    }
-  });
-  const targets = new Array<number>(entries.length);
-  let previous = -1;
-  for (const block of blocks) {
-    for (let index = block.start; index <= block.end; index++) {
-      const group = groups[index];
-      const compressed = Math.exp(.95 * block.value + .05 * Math.log(Math.max(1, group.power)));
-      const target = Math.min(group.power, Math.max(previous + 1, Math.round(compressed)));
-      for (const member of group.members) targets[member.index] = target;
-      previous = target;
-    }
-  }
-  return targets;
-}
-
 // One-time v7 conversion calibrated against the September 4 account snapshot.
 // Raw-power knots carry the rank-constrained effective-power plan back into a
 // context-free transform that offline queued saves can apply identically.

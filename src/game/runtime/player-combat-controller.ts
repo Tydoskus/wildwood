@@ -6,11 +6,10 @@ import type { ProjectileStore } from "./projectile-store";
 import { createSpatialGrid } from "./spatial-grid";
 import type { BossTarget, DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, PlayerState, RuntimeReward, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
 import type { SpawnSite } from "../world";
-import { equipmentDamageMultiplier, itemDefinition, weaponAttackInterval } from "../../../shared/items";
+import { equipmentDamageMultiplier, itemDefinition } from "../../../shared/items";
 import { addPlayerBaseMaxHealth } from "./player-health";
 import {
   absoluteAttackTimestamps,
-  ATTACK_ANIMATION_SECONDS,
   attackAnimationClockAt,
   attackAnimationFinished,
   attackReleaseReached,
@@ -45,17 +44,6 @@ type PendingPlayerAttack = {
   timestamps: AbsoluteAttackTimestamps;
   projectileReleased: boolean;
 };
-
-/** Compatibility helpers, now derived from the same absolute phase record. */
-export function playerAttackAnimationSpeed(attackInterval: number) {
-  const timestamps = absoluteAttackTimestamps(0, attackInterval);
-  return ATTACK_ANIMATION_SECONDS / (timestamps.animationEndsAtSeconds - timestamps.startedAtSeconds);
-}
-
-export function playerAttackWindupSeconds(attackInterval: number) {
-  const timestamps = absoluteAttackTimestamps(0, attackInterval);
-  return timestamps.releaseAtSeconds - timestamps.startedAtSeconds;
-}
 
 export function projectileSimulationSeconds(
   spawnedAtSeconds: number | undefined,
@@ -118,7 +106,6 @@ export function createPlayerCombatController(options: {
   isDuskfallOrchardMap: () => boolean;
   engageEnemy: (enemy: EnemyState) => void;
   researchDamageMultiplier: () => number;
-  researchAttackSpeedMultiplier?: () => number;
   researchCriticalChance: () => number;
   researchCriticalDamageMultiplier: () => number;
   researchRewardMultiplier: () => number;
@@ -360,7 +347,7 @@ export function createPlayerCombatController(options: {
       player.attackClock = Math.max(0, nextAttackAtSeconds - nowSeconds);
       return;
     }
-    const attackInterval = weaponAttackInterval(options.equippedWeapon(), player.attackRate, options.researchAttackSpeedMultiplier?.() ?? 1, options.equippedWeaponUpgradeLevel?.() ?? 0);
+    const attackInterval = player.attackRate;
     if (target.isBoss && fireAtSharedBossCycle(target, attackInterval, nowSeconds)) return;
     if (nowSeconds < nextAttackAtSeconds) return;
     fireAt(target, attackInterval, nowSeconds);

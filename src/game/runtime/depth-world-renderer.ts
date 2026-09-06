@@ -54,7 +54,7 @@ export function createDepthWorldRenderer(options: {
   dreadreaperBoss: DreadreaperBossState;
   bootsPickup: BootsPickup;
   currentMapId: () => MapId;
-  activePortal: () => Portal;
+  activePortal: () => Portal | null;
   secondaryPortal: () => Portal | null | undefined;
   drawTree: (tree: TreeDecor) => void;
   drawCactus: (cactus: CactusDecor) => void;
@@ -269,7 +269,8 @@ export function createDepthWorldRenderer(options: {
     if (currentMapId === TUTORIAL_FOREST_MAP_ID && !options.bootsPickup.collected) {
       queueLayer(options.bootsPickup.y + options.bootsPickup.r, 1, "boots");
     }
-    if (includePortal) queueLayer(options.activePortal().depth, 2, "portal");
+    const portal = options.activePortal();
+    if (includePortal && portal) queueLayer(portal.depth, 2, "portal");
     const secondary = options.secondaryPortal();
     if (secondary) queueLayer(secondary.depth, 2, "secondaryPortal");
     for (const remotePlayer of remotePlayers) {

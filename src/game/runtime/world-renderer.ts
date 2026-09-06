@@ -77,7 +77,7 @@ export type WorldRendererOptions = {
   getGameTime: () => number;
   isArenaScene: () => boolean;
   mapName: (mapId: MapId) => string;
-  activePortal: () => Portal;
+  activePortal: () => Portal | null;
   cutscenePortal: () => Portal;
   secondaryPortal: () => Portal | null;
   portalIsUnlocked: (portal: Portal) => boolean;
@@ -705,8 +705,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   }
 
   function drawPortal() {
-    if (options.getMapId() === "home_exterior") return;
-    drawPortalAt(options.activePortal());
+    const portal = options.activePortal();
+    if (portal) drawPortalAt(portal);
   }
 
   function drawCutscenePortal() {
@@ -925,7 +925,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       const unlocked = options.portalIsUnlocked(portal);
       drawPortalMapMarker(draw, px, py, portal.destination, unlocked);
     };
-    if (options.getMapId() !== "home_exterior") drawPortalMarker(options.activePortal());
+    const portal = options.activePortal();
+    if (portal) drawPortalMarker(portal);
     const secondary = options.secondaryPortal();
     if (secondary) drawPortalMarker(secondary);
 

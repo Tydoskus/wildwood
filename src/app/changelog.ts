@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.636": [
+    "Removed obsolete gameplay code and unused sprite metadata across the client and server.",
+    "Simplified combat calculations, map rendering, and Home controls, reducing redundant work.",
+  ],
   "0.635": [
     "Added a single-player 1000×1000 Home map, reached from the toolbar.",
     "Moved the Upgrade Bench home and added a Tech Research station beside it.",
@@ -1541,6 +1545,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.636": "2026-09-05",
   "0.635": "2026-09-05",
   "0.634": "2026-09-05",
   "0.633": "2026-09-05",

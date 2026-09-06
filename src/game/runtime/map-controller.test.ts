@@ -38,10 +38,6 @@ function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
     lavaMapId: desertMapId,
     infernalMapId: desertMapId,
     waterMapId: desertMapId,
-    samuraiMapId: desertMapId,
-    cloudspireMapId: desertMapId,
-    moonfenMapId: MOONFEN_MAP_ID,
-    crystalHollowsMapId: CRYSTAL_HOLLOWS_MAP_ID, clockworkRuinsMapId: CRYSTAL_HOLLOWS_MAP_ID, duskfallOrchardMapId: CRYSTAL_HOLLOWS_MAP_ID,
     dragonCutsceneSeenKey: "dragon",
     snowlandsCutsceneSeenKey: "snow",
     lavaCutsceneSeenKey: "lava",
@@ -229,6 +225,15 @@ describe("reset map presentation", () => {
 });
 
 describe("Home teleport", () => {
+  it("has no portal, portal collision, or automatic map travel at home", () => {
+    const h = portalArrivalHarness({ x: 300, y: 400 });
+    h.controller.loadMap("home_exterior", 500, 700);
+    expect(h.controller.activePortal()).toBeNull();
+    h.controller.resolvePortalCollision();
+    h.controller.updatePortal(1);
+    expect(h.player).toMatchObject({ x: 500, y: 700 });
+    expect(h.changeMap).not.toHaveBeenCalled();
+  });
   afterEach(() => vi.useRealTimers());
   it("locks departure, waits for server state, and restores the server return point", async () => {
     vi.useFakeTimers();

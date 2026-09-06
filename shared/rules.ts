@@ -56,16 +56,10 @@ export const BALANCE_FIRST_SLOWDOWN_POWER = 400_000; // historical chart marker 
 export const BALANCE_TARGET_POWER_ARC_BLEND = .35;
 export const BALANCE_LATE_BOSS_TARGET_DURATION_SHARE = .05;
 export const BALANCE_LATE_BOSS_TARGET_MAX_SECONDS = BOSS_TARGET_SECONDS;
-// Historical diagnostics only; no active encounter derives its stats here.
-export * from "./legacy-balance";
 
 // The claim mask is retained as append-only save metadata. It identifies a
 // boss that has been cleared while preserving the published player_progress
 // column; it no longer changes the reward amount.
-//
-// Keep the historical export name for source compatibility. A value of 1
-// means every clear, including repeats, pays the full authored reward.
-export const BOSS_REPEAT_REWARD_FRACTION = 1;
 export const BOSS_REWARD_CLAIM_BITS = {
   dragon: 1 << 0,
   spider: 1 << 1,
@@ -97,10 +91,6 @@ export const MIREMAW_MAX_HP = bossHealthAt(8);
 export const PRISMSHELL_MAX_HP = bossHealthAt(9);
 export const IRONHORN_MAX_HP = bossHealthAt(10);
 export const DREADREAPER_MAX_HP = bossHealthAt(11);
-// Retained solely for source compatibility with older balance-test imports.
-export const CRYSTAL_HOLLOWS_BOSS_HEALTH_CORRECTION = 1;
-export const CLOCKWORK_RUINS_BOSS_HEALTH_CORRECTION = 1;
-export const DUSKFALL_ORCHARD_BOSS_HEALTH_CORRECTION = 1;
 
 export const DRAGON_REWARD_DAMAGE = TUTORIAL_DRAGON_REWARD;
 export const SPIDER_REWARD_DAMAGE = bossRewardAt("damage", 1);

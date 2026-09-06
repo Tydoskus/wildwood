@@ -1,4 +1,4 @@
-import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_BENCH_POSITION } from "../../shared/home";
+import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_BENCH_POSITION, HOME_WORLD_SIZE } from "../../shared/home";
 import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./shard-snapshot-writes";
 import { decodeShardSnapshot, encodeShardSnapshot } from "../../shared/shard-wire";
 import { coordinateShard, validateCoordinatorConfig } from "./shard-coordinator";
@@ -122,7 +122,6 @@ import {
   SNOW_ITEM_DROP_DENOMINATOR,
   SUPERIOR_GOLDEN_HELMET,
   TRAILBLAZER_BOOTS,
-  weaponAttackInterval,
   WOOD_FULL_HELM,
   WOODEN_ARMOR,
 } from "../../shared/items";
@@ -143,7 +142,6 @@ import { analyticalPlayerMotionAt } from "../../shared/analytical-player-motion"
 import {
   ATTACK_BALANCE_VERSION,
   ADVANCED_LAVA_WASTES_MAP_ID,
-  BOSS_REPEAT_REWARD_FRACTION,
   BOSS_REWARD_CLAIM_BITS,
   BEGINNER_DESERT_MAP_ID,
   CLOUDSPIRE_MAP_ID,
@@ -2810,8 +2808,8 @@ function analyticalMotionAt(motion: any, sampledAtMicros: bigint) {
     anchoredAtMicros: motion.lastInputAt.microsSinceUnixEpoch,
   }, sampledAtMicros);
   if (motion.mapId === HOME_EXTERIOR_MAP_ID) {
-    sampled.x = Math.max(PLAYER_RADIUS, Math.min(1000 - PLAYER_RADIUS, sampled.x));
-    sampled.y = Math.max(PLAYER_RADIUS, Math.min(1000 - PLAYER_RADIUS, sampled.y));
+    sampled.x = Math.max(PLAYER_RADIUS, Math.min(HOME_WORLD_SIZE - PLAYER_RADIUS, sampled.x));
+    sampled.y = Math.max(PLAYER_RADIUS, Math.min(HOME_WORLD_SIZE - PLAYER_RADIUS, sampled.y));
   }
   return {
     ...motion,
@@ -3792,14 +3790,8 @@ function leaderboardAppearanceForProgress(progress: any, profile: any) {
   };
 }
 
-function attackIntervalForProgress(ctx: any, identity: any, progress: any) {
-  const weaponItem = equippedRightHandForProgress(progress) || equippedLeftHandForProgress(progress);
-  return weaponAttackInterval(
-    weaponItem,
-    Math.max(MIN_ATTACK_INTERVAL, progress.attackRate),
-    1,
-    itemUpgradeLevelFor(ctx, identity, weaponItem),
-  );
+function attackIntervalForProgress(progress: any) {
+  return Math.max(MIN_ATTACK_INTERVAL, progress.attackRate);
 }
 
 function maxHealthForProgress(ctx: any, identity: any, progress: any) {
@@ -5095,17 +5087,16 @@ function applyBossRepeatableReward(
   rewards: Partial<{ damage: number; maxHp: number; armor: number; regen: number }>,
 ) {
   const existingClaims = Number(progress.bossRewardClaims ?? 0) >>> 0;
-  const rewardScale = BOSS_REPEAT_REWARD_FRACTION;
   const next = {
     ...progress,
     // Retain the historical claim marker for save compatibility. It records
     // clear history but never suppresses or scales a reward.
     bossRewardClaims: (existingClaims | claimBit) >>> 0,
   };
-  if (rewards.damage !== undefined) next.damage = progress.damage + rewards.damage * rewardMultiplier * rewardScale;
-  if (rewards.maxHp !== undefined) next.maxHp = progress.maxHp + rewards.maxHp * rewardMultiplier * rewardScale;
-  if (rewards.armor !== undefined) next.armor = progress.armor + rewards.armor * rewardMultiplier * rewardScale;
-  if (rewards.regen !== undefined) next.regen = progress.regen + rewards.regen * rewardMultiplier * rewardScale;
+  if (rewards.damage !== undefined) next.damage = progress.damage + rewards.damage * rewardMultiplier;
+  if (rewards.maxHp !== undefined) next.maxHp = progress.maxHp + rewards.maxHp * rewardMultiplier;
+  if (rewards.armor !== undefined) next.armor = progress.armor + rewards.armor * rewardMultiplier;
+  if (rewards.regen !== undefined) next.regen = progress.regen + rewards.regen * rewardMultiplier;
   return next;
 }
 
@@ -6516,7 +6507,7 @@ function applyDragonDamage(ctx: any, requestedHits: number, clientPosition?: { x
 
   const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
   const now = ctx.timestamp.microsSinceUnixEpoch;
-  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(ctx, ctx.sender, progress) * 1_000_000)));
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(progress) * 1_000_000)));
   const currentWindow = ctx.db.dragonAttackWindow.identity.find(ctx.sender);
   const newWindow =
     !currentWindow ||
@@ -6598,7 +6589,7 @@ function applySpiderDamage(ctx: any, requestedHits: number, clientPosition?: { x
 
   const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
   const now = ctx.timestamp.microsSinceUnixEpoch;
-  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(ctx, ctx.sender, progress) * 1_000_000)));
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(progress) * 1_000_000)));
   const currentWindow = ctx.db.spiderAttackWindow.identity.find(ctx.sender);
   const newWindow =
     !currentWindow ||
@@ -6677,7 +6668,7 @@ function applyFrostclawDamage(ctx: any, requestedHits: number, clientPosition?: 
 
   const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
   const now = ctx.timestamp.microsSinceUnixEpoch;
-  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(ctx, ctx.sender, progress) * 1_000_000)));
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(progress) * 1_000_000)));
   const currentWindow = ctx.db.frostclawAttackWindow.identity.find(ctx.sender);
   const newWindow =
     !currentWindow ||
@@ -6751,7 +6742,7 @@ function applyMagmaliskDamage(ctx: any, requestedHits: number, clientPosition?: 
 
   const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
   const now = ctx.timestamp.microsSinceUnixEpoch;
-  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(ctx, ctx.sender, progress) * 1_000_000)));
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(progress) * 1_000_000)));
   const currentWindow = ctx.db.magmaliskAttackWindow.identity.find(ctx.sender);
   const newWindow =
     !currentWindow ||
@@ -6825,7 +6816,7 @@ function applyGloomrootDamage(ctx: any, requestedHits: number, clientPosition?: 
 
   const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
   const now = ctx.timestamp.microsSinceUnixEpoch;
-  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(ctx, ctx.sender, progress) * 1_000_000)));
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(progress) * 1_000_000)));
   const currentWindow = ctx.db.gloomrootAttackWindow.identity.find(ctx.sender);
   const newWindow =
     !currentWindow ||
@@ -6899,7 +6890,7 @@ function applyTidewyrmDamage(ctx: any, requestedHits: number, clientPosition?: {
 
   const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
   const now = ctx.timestamp.microsSinceUnixEpoch;
-  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(ctx, ctx.sender, progress) * 1_000_000)));
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(progress) * 1_000_000)));
   const currentWindow = ctx.db.tidewyrmAttackWindow.identity.find(ctx.sender);
   const newWindow =
     !currentWindow ||
@@ -6973,7 +6964,7 @@ function applyKoiShogunDamage(ctx: any, requestedHits: number, clientPosition?: 
 
   const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
   const now = ctx.timestamp.microsSinceUnixEpoch;
-  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(ctx, ctx.sender, progress) * 1_000_000)));
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(progress) * 1_000_000)));
   const currentWindow = ctx.db.koiShogunAttackWindow.identity.find(ctx.sender);
   const newWindow =
     !currentWindow ||
@@ -7047,7 +7038,7 @@ function applyTempestKirinDamage(ctx: any, requestedHits: number, clientPosition
 
   const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
   const now = ctx.timestamp.microsSinceUnixEpoch;
-  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(ctx, ctx.sender, progress) * 1_000_000)));
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(progress) * 1_000_000)));
   const currentWindow = ctx.db.tempestKirinAttackWindow.identity.find(ctx.sender);
   const newWindow =
     !currentWindow ||
@@ -7120,7 +7111,7 @@ function applyMiremawDamage(ctx: any, requestedHits: number, clientPosition?: { 
 
   const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
   const now = ctx.timestamp.microsSinceUnixEpoch;
-  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(ctx, ctx.sender, progress) * 1_000_000)));
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(progress) * 1_000_000)));
   const currentWindow = ctx.db.miremawAttackWindow.identity.find(ctx.sender);
   const newWindow =
     !currentWindow ||
@@ -7188,7 +7179,7 @@ function applyPrismshellDamage(ctx: any, requestedHits: number, clientPosition?:
 
   const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
   const now = ctx.timestamp.microsSinceUnixEpoch;
-  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(ctx, ctx.sender, progress) * 1_000_000)));
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(progress) * 1_000_000)));
   const currentWindow = ctx.db.prismshellAttackWindow.identity.find(ctx.sender);
   const newWindow =
     !currentWindow ||
@@ -7256,7 +7247,7 @@ function applyIronhornDamage(ctx: any, requestedHits: number, clientPosition?: {
 
   const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
   const now = ctx.timestamp.microsSinceUnixEpoch;
-  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(ctx, ctx.sender, progress) * 1_000_000)));
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(progress) * 1_000_000)));
   const currentWindow = ctx.db.ironhornAttackWindow.identity.find(ctx.sender);
   const newWindow =
     !currentWindow ||
@@ -7324,7 +7315,7 @@ function applyDreadreaperDamage(ctx: any, requestedHits: number, clientPosition?
 
   const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
   const now = ctx.timestamp.microsSinceUnixEpoch;
-  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(ctx, ctx.sender, progress) * 1_000_000)));
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(progress) * 1_000_000)));
   const currentWindow = ctx.db.dreadreaperAttackWindow.identity.find(ctx.sender);
   const newWindow =
     !currentWindow ||
@@ -9045,7 +9036,7 @@ export const requestDuel = spacetimedb.reducer(
       challengerMaxHp,
       challengerDamage: duelDamage(ctx, ctx.sender, challengerProgress.damage),
       challengerArmor: researchedArmor(ctx, ctx.sender, challengerProgress.armor),
-      challengerAttackRate: challengerRightHandItem || challengerLeftHandItem ? attackIntervalForProgress(ctx, ctx.sender, challengerProgress) : inactiveAttackRate,
+      challengerAttackRate: challengerRightHandItem || challengerLeftHandItem ? attackIntervalForProgress(challengerProgress) : inactiveAttackRate,
       challengerRegen: researchedRegen(ctx, ctx.sender, challengerProgress.regen),
       challengerAttacks: 0,
       challengerDamageDealt: 0,
@@ -9055,7 +9046,7 @@ export const requestDuel = spacetimedb.reducer(
       opponentMaxHp,
       opponentDamage: duelDamage(ctx, opponent, opponentProgress.damage),
       opponentArmor: researchedArmor(ctx, opponent, opponentProgress.armor),
-      opponentAttackRate: opponentRightHandItem || opponentLeftHandItem ? attackIntervalForProgress(ctx, opponent, opponentProgress) : inactiveAttackRate,
+      opponentAttackRate: opponentRightHandItem || opponentLeftHandItem ? attackIntervalForProgress(opponentProgress) : inactiveAttackRate,
       opponentRegen: researchedRegen(ctx, opponent, opponentProgress.regen),
       opponentAttacks: 0,
       opponentDamageDealt: 0,
@@ -9130,7 +9121,7 @@ function applyMovementState(
   if (sequence <= current.lastInputSequence || ["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
   if (![x, y, vx, vy, simulationTick, motionEpoch].every(Number.isFinite)) throw new SenderError("Movement state values must be finite");
 
-  const bounds = current.mapId === HOME_EXTERIOR_MAP_ID ? { width: 1000, height: 1000 } : WORLD;
+  const bounds = current.mapId === HOME_EXTERIOR_MAP_ID ? { width: HOME_WORLD_SIZE, height: HOME_WORLD_SIZE } : WORLD;
   const clampedX = Math.max(PLAYER_RADIUS, Math.min(bounds.width - PLAYER_RADIUS, x));
   const clampedY = Math.max(PLAYER_RADIUS, Math.min(bounds.height - PLAYER_RADIUS, y));
   const boundedVx = Math.max(-MAX_PACKED_PLAYER_VELOCITY, Math.min(MAX_PACKED_PLAYER_VELOCITY, vx));
@@ -9705,7 +9696,7 @@ function guildFighterFor(ctx: ModuleReducerCtx, identity: Identity): DuelFighter
     damage: weapon ? duelDamage(ctx, identity, progress.damage) : 0,
     armor: researchedArmor(ctx, identity, progress.armor),
     regen: researchedRegen(ctx, identity, progress.regen),
-    attackRate: weapon ? attackIntervalForProgress(ctx, identity, progress) : 31,
+    attackRate: weapon ? attackIntervalForProgress(progress) : 31,
   };
 }
 

@@ -4,6 +4,12 @@ import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN } from "../../shared/home";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 describe("single player home travel", () => {
+  it("constrains home movement to its 1000 by 1000 boundary", () => {
+    const f = crystalFixture();
+    f.run(server.changeMap, { mapId: HOME_EXTERIOR_MAP_ID, x: 1200, y: 1800 });
+    f.run(server.updateMovementState, { x: 1500, y: 1800, vx: 0, vy: 0, simulationTick: 1, motionEpoch: 1, sequence: 1 });
+    expect(f.db.playerMotion.identity.find(f.ctx.sender)).toMatchObject({ x: 983, y: 983 });
+  });
   it("uses the root for home movement while enemy maps use shards", () => {
     const f = crystalFixture();
     Object.assign(f.ctx, { databaseIdentity: identity("c") });

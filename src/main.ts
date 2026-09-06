@@ -1,4 +1,4 @@
-import { HOME_RESEARCH_POSITION } from "../shared/home";
+import { HOME_RESEARCH_POSITION, HOME_WORLD_SIZE } from "../shared/home";
 import { WORLD_WIDTH, WORLD_HEIGHT } from "../shared/rules";
 import { createGuildPanel } from "./ui/guild-panel";
 import { isDeveloperIdentity } from "./app/developer";
@@ -217,10 +217,12 @@ import {
 
   function setCurrentMap(mapId: MapId) {
     currentMapId = mapId;
-    WORLD.w = mapId === "home_exterior" ? 1000 : WORLD_WIDTH;
-    WORLD.h = mapId === "home_exterior" ? 1000 : WORLD_HEIGHT;
+    WORLD.w = mapId === "home_exterior" ? HOME_WORLD_SIZE : WORLD_WIDTH;
+    WORLD.h = mapId === "home_exterior" ? HOME_WORLD_SIZE : WORLD_HEIGHT;
     void prepareMapAssets(mapId);
     preloadAdjacentMapAssets(mapId);
+    gameElements.techTreeBtn.querySelector(".toolbar-label")!.textContent = mapId === "home_exterior" ? "Return" : "Home";
+    gameElements.techTreeBtn.setAttribute("aria-label", mapId === "home_exterior" ? "Return to enemy map" : "Teleport home");
   }
 
   function mapNameForPresence(mapId: string | undefined) {
@@ -578,7 +580,6 @@ import {
     researchCriticalChance,
     researchCriticalDamageMultiplier,
     researchRewardMultiplier,
-    researchAttackSpeedMultiplier: () => 1,
     equippedWeapon: () => inventory.equippedRightHand || inventory.equippedLeftHand,
     equippedWeaponUpgradeLevel: () => coop?.itemUpgradeLevel?.(inventory.equippedRightHand || inventory.equippedLeftHand) ?? 0,
     equippedHead: () => inventory.equippedHead,
@@ -687,10 +688,6 @@ import {
     lavaMapId: ADVANCED_LAVA_WASTES_MAP_ID,
     infernalMapId: INFERNAL_DEPTHS_MAP_ID,
     waterMapId: WATER_REACH_MAP_ID,
-    samuraiMapId: SAMURAI_GARDEN_MAP_ID,
-    cloudspireMapId: CLOUDSPIRE_MAP_ID,
-    moonfenMapId: MOONFEN_MAP_ID,
-    crystalHollowsMapId: CRYSTAL_HOLLOWS_MAP_ID, clockworkRuinsMapId: CLOCKWORK_RUINS_MAP_ID, duskfallOrchardMapId: DUSKFALL_ORCHARD_MAP_ID,
     dragonCutsceneSeenKey: DRAGON_PORTAL_CUTSCENE_SEEN_KEY,
     snowlandsCutsceneSeenKey: SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY,
     lavaCutsceneSeenKey: LAVA_PORTAL_CUTSCENE_SEEN_KEY,
@@ -1381,9 +1378,6 @@ import {
   let touchingResearch = false;
   function updateHomeStations() {
     const home = currentMapId === "home_exterior";
-    const label = gameElements.techTreeBtn.querySelector(".toolbar-label");
-    if (label) label.textContent = home ? "Return" : "Home";
-    gameElements.techTreeBtn.setAttribute("aria-label", home ? "Return to enemy map" : "Teleport home");
     const touching = home && !mapController.isMapTransitioning() && Math.hypot(player.x - HOME_RESEARCH_POSITION.x, player.y - (HOME_RESEARCH_POSITION.y - 36)) < 85;
     if (touching && !touchingResearch) { playerInput.clear(); techTree.open(); }
     touchingResearch = touching;
@@ -1481,7 +1475,7 @@ import {
       const portals = [activePortal()];
       const secondary = secondaryPortal();
       if (secondary) portals.push(secondary);
-      return portals.map((portal) => ({ x: portal.x, y: portal.y, destination: portal.destination, unlocked: portalIsUnlocked(portal) }));
+      return portals.filter((portal): portal is NonNullable<typeof portal> => portal !== null).map((portal) => ({ x: portal.x, y: portal.y, destination: portal.destination, unlocked: portalIsUnlocked(portal) }));
     },
     beforeOpen: () => {
       guildPanel?.close();
@@ -1551,7 +1545,7 @@ import {
   session = createGameSessionController({
     player, camera, viewport: canvasRuntime.viewport,
     tutorialMapId: TUTORIAL_FOREST_MAP_ID, desertMapId: BEGINNER_DESERT_MAP_ID, snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID, lavaMapId: ADVANCED_LAVA_WASTES_MAP_ID, infernalMapId: INFERNAL_DEPTHS_MAP_ID, waterMapId: WATER_REACH_MAP_ID, samuraiMapId: SAMURAI_GARDEN_MAP_ID, cloudspireMapId: CLOUDSPIRE_MAP_ID, moonfenMapId: MOONFEN_MAP_ID, crystalHollowsMapId: CRYSTAL_HOLLOWS_MAP_ID, clockworkRuinsMapId: CLOCKWORK_RUINS_MAP_ID, duskfallOrchardMapId: DUSKFALL_ORCHARD_MAP_ID,
-    validMapIds: ["home_exterior", TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, INFERNAL_DEPTHS_MAP_ID, WATER_REACH_MAP_ID, SAMURAI_GARDEN_MAP_ID, CLOUDSPIRE_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID],
+    validMapIds: Object.keys(MAP_CONFIG),
     getMapId: () => currentMapId, setMapId: (mapId) => { setCurrentMap(mapId as MapId); },
     serverMapId: () => coop?.localState?.()?.mapId,
     serverPlayerState: () => coop?.localState?.() ?? undefined,

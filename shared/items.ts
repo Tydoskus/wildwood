@@ -446,15 +446,6 @@ export function equipmentDamageMultiplier(
     equipmentStatBonus(chestItemId, chestUpgradeLevel, chestBonus);
 }
 
-/** Equipment never changes attack speed; the arguments remain for shared call-site compatibility. */
-export function weaponAttackSpeedMultiplier(_itemId: unknown, researchMultiplier = 1, _upgradeLevel = 0) {
-  return researchMultiplier;
-}
-
-export function weaponAttackInterval(itemId: unknown, baseInterval: number, researchMultiplier = 1, upgradeLevel = 0) {
-  return baseInterval / weaponAttackSpeedMultiplier(itemId, researchMultiplier, upgradeLevel);
-}
-
 export function itemMaxHealthMultiplier(itemId: unknown, researchMultiplier = 1, upgradeLevel = 0) {
   const bonus = itemDefinition(canonicalItemId(itemId))?.modifiers?.maxHealthMultiplierBonus;
   return researchMultiplier + equipmentStatBonus(itemId, upgradeLevel, bonus);

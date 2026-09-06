@@ -10,7 +10,7 @@ WildStat targets mobile browsers first. Desktop support is useful compatibility 
 - Preserve readable silhouettes, labels, health bars, stat gains, and equipment at actual phone size.
 - Avoid desktop-only spacing expansion. Wider screens may add breathing room around a mobile-sized content column, but must not spread related controls or Tech Tree nodes apart.
 - Treat low-end-phone frame time, memory, network usage, asset decode cost, and battery impact as performance constraints.
-- Keep one Canvas2D renderer with worker-built tile caching. Reconsider GPU rendering only through measured low-end-device benchmarks or a deliberate full-renderer migration.
+- Keep worker-built tile caching and the shared WebGL/Canvas2D rendering pipeline described in `mobile-performance.md`; justify rendering changes with measured low-end-device results.
 - Test touch scrolling, touch steering, safe-area insets, orientation changes, background/resume behavior, mute behavior, and browser lifecycle saves.
 
 ## Desktop scope

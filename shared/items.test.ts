@@ -49,7 +49,6 @@ import {
   SNOW_BOW,
   SNOW_DROP_ITEM_IDS,
   SNOW_ITEM_DROP_DENOMINATOR,
-  weaponAttackSpeedMultiplier,
   weaponDamageMultiplier,
   WOOD_FULL_HELM,
   WOODEN_ARMOR,
@@ -101,16 +100,13 @@ describe("equipment catalog", () => {
 
   it("adds forest equipment bonuses to existing research bonuses", () => {
     expect(weaponDamageMultiplier(STARTER_BOW, 1.2)).toBeCloseTo(1.25);
-    expect(weaponAttackSpeedMultiplier(STARTER_BOW, 1.1)).toBeCloseTo(1.1);
     expect(itemMaxHealthMultiplier(WOODEN_ARMOR, 1.2)).toBeCloseTo(1.25);
     expect(itemMaxHealthMultiplier("", 1.2)).toBeCloseTo(1.2);
   });
 
   it("adds Frost Bow's damage bonus to research without changing attack speed", () => {
     expect(weaponDamageMultiplier(FROST_BOW)).toBeCloseTo(1.4);
-    expect(weaponAttackSpeedMultiplier(FROST_BOW)).toBeCloseTo(1);
     expect(weaponDamageMultiplier(FROST_BOW, 1.2)).toBeCloseTo(1.6);
-    expect(weaponAttackSpeedMultiplier(FROST_BOW, 1.1)).toBeCloseTo(1.1);
   });
 
   it("gives Frost Armor additive 40% health and regeneration bonuses", () => {
@@ -136,7 +132,6 @@ describe("equipment catalog", () => {
   it("gives Lava Bow +50% damage without attack speed", () => {
     expect(isWeaponItem(LAVA_BOW)).toBe(true);
     expect(weaponDamageMultiplier(LAVA_BOW)).toBeCloseTo(1.5);
-    expect(weaponAttackSpeedMultiplier(LAVA_BOW)).toBeCloseTo(1);
     expect(weaponDamageMultiplier(LAVA_BOW, 1.5)).toBeCloseTo(2);
   });
 
@@ -144,7 +139,6 @@ describe("equipment catalog", () => {
     expect(isWeaponItem(FIRE_METAL_BOW)).toBe(true);
     expect(weaponDamageMultiplier(FIRE_METAL_BOW)).toBeCloseTo(1.6);
     expect(weaponDamageMultiplier(FIRE_METAL_BOW)).toBeCloseTo(weaponDamageMultiplier(LAVA_BOW) + .1);
-    expect(weaponAttackSpeedMultiplier(FIRE_METAL_BOW)).toBeCloseTo(1);
   });
 
   it("places regular Snowlands and Night Forest bows between their surrounding weapon tiers", () => {
@@ -154,8 +148,6 @@ describe("equipment catalog", () => {
     expect(weaponDamageMultiplier(NIGHT_BOW)).toBeCloseTo(1.5);
     expect(weaponDamageMultiplier(NIGHT_BOW)).toBeCloseTo(weaponDamageMultiplier(LAVA_BOW));
     expect(weaponDamageMultiplier(NIGHT_BOW)).toBeLessThan(weaponDamageMultiplier(FIRE_METAL_BOW));
-    expect(weaponAttackSpeedMultiplier(SNOW_BOW)).toBe(1);
-    expect(weaponAttackSpeedMultiplier(NIGHT_BOW)).toBe(1);
   });
 
   it("keeps Fire Metal Helmet defensive in the head slot", () => {
@@ -183,7 +175,6 @@ describe("equipment catalog", () => {
     expect(itemMaxHealthMultiplier(WOOD_FULL_HELM)).toBeCloseTo(1.12);
     expect(isWeaponItem(IRON_BOW)).toBe(true);
     expect(weaponDamageMultiplier(IRON_BOW)).toBeCloseTo(1.25);
-    expect(weaponAttackSpeedMultiplier(IRON_BOW)).toBeCloseTo(1);
     expect(equipmentMaxHealthMultiplier(WOOD_FULL_HELM, FROST_ARMOR, 1.2)).toBeCloseTo(1.72);
   });
 
@@ -218,11 +209,9 @@ describe("equipment catalog", () => {
 
   it("scales every stat from only its additive equipment bonus", () => {
     expect(weaponDamageMultiplier(FROST_BOW, 1, 10)).toBeCloseTo(1.72);
-    expect(weaponAttackSpeedMultiplier(FROST_BOW, 1, 10)).toBeCloseTo(1);
     expect(itemMaxHealthMultiplier(FROST_ARMOR, 1, 10)).toBeCloseTo(1.72);
     expect(itemRegenerationMultiplier(FROST_ARMOR, 1, 10)).toBeCloseTo(1.72);
     expect(weaponDamageMultiplier(STARTER_BOW, 1, 10)).toBeCloseTo(1.09);
-    expect(weaponAttackSpeedMultiplier(STARTER_BOW, 1, 10)).toBeCloseTo(1);
     expect(itemMaxHealthMultiplier(WOODEN_ARMOR, 1, 10)).toBeCloseTo(1.09);
     expect(itemRegenerationMultiplier(WOODEN_ARMOR, 1, 10)).toBeCloseTo(1);
     expect(weaponDamageMultiplier(FROST_BOW, 1.2, 10)).toBeCloseTo(1.92);

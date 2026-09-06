@@ -79,7 +79,7 @@ export type WorldRenderRuntimeOptions = {
   prismshellCrystalBursts: PrismshellCrystalBurst[];
   ironhornCrystalBursts: IronhornCrystalBurst[];
   dreadreaperCrystalBursts: DreadreaperCrystalBurst[];
-  activePortal: () => Portal;
+  activePortal: () => Portal | null;
   cutscenePortal: () => Portal;
   secondaryPortal: () => Portal | null;
   portalIsUnlocked: (portal: Portal) => boolean;

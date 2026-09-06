@@ -36,11 +36,11 @@ Keep static definitions and pure calculations outside `main.ts`. `main.ts` is a 
 - Run `npm run typecheck:coop`, `npm run test:unit`, `npm run build:client`, `npm run check:release`, and `git diff --check` before release.
 - Run `npm run test:unit` when changing combat, inventory, duel replay, or progress persistence rules.
 - Use `npm run release:live` for a complete client-only release. Use `npm run release -- <version>` only when preparing release/cache versions manually, then add the matching entry in `src/app/changelog.ts`.
-- For incompatible server changes, update both protocol constants, publish Maincloud, regenerate bindings when reducer/schema signatures change, then deploy the matching client.
+- For incompatible server changes, update the shared protocol constant, publish Maincloud and matching map shards, regenerate bindings when reducer/schema signatures change, then deploy the matching client.
 - Never publish production with destructive database flags.
 - Keep pending saves scoped to player identity. Never share browser-pending progress across guest and account identities.
 - Never reuse `player_research.frontier_mastery`. It is a zeroed, migration-only column retained because Maincloud cannot remove it non-destructively; no client or gameplay rule may read it.
-- Keep one Canvas2D renderer with worker-built static tile caching. Reconsider GPU rendering only after measured low-end-device benchmarks or a deliberate full-renderer migration.
+- Keep the shared rendering pipeline: worker-built static tiles, the WebGL world layer, and Canvas2D actors/fallback. Use measured low-end-device results before adding another renderer. See `docs/mobile-performance.md`.
 
 ## Prioritized improvement backlog
 
@@ -60,11 +60,5 @@ Keep static definitions and pure calculations outside `main.ts`. `main.ts` is a 
 
 ### Quality improvements
 
-1. Seed world generation so layouts can be reproduced in bug reports and tests.
-2. Add a disposable lifecycle for intervals and global event listeners. Current singleton startup is safe, but hot reload, embedded navigation, and automated tests can register duplicates.
-3. Replace remaining HTML-string UI construction with DOM nodes or escaped templates as player-controlled content expands.
-4. Add performance counters for frame time, active projectiles, particles, enemies, remote players, and subscription errors behind a developer toggle.
-
-## Current extraction result
-
-`src/main.ts` is strict TypeScript with no file-level suppression. Typed controllers now own assets, bootstrap, canvas, player/combat/enemy simulation, bosses/maps, persistence, rendering, duels, sessions, and UI windows. `main.ts` was reduced from 5,080 to 973 lines. Preserve the under-1,000-line composition-root boundary; do not add new game systems there.
+1. Add a disposable lifecycle for intervals and global event listeners. Current singleton startup is safe, but hot reload, embedded navigation, and automated tests can register duplicates.
+2. Replace remaining HTML-string UI construction with DOM nodes or escaped templates as player-controlled content expands.

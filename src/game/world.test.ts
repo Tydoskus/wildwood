@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GLOOMROOT_MAX_HP, KOI_SHOGUN_MAX_HP, LATE_MAP_CLEAR_ARCHETYPE_COUNTS, MAGMALISK_MAX_HP, MIREMAW_MAX_HP, PRISMSHELL_MAX_HP, TEMPEST_KIRIN_MAX_HP, TIDEWYRM_MAX_HP } from "../../shared/rules";
+import { GLOOMROOT_MAX_HP, KOI_SHOGUN_MAX_HP, MAGMALISK_MAX_HP, MIREMAW_MAX_HP, PRISMSHELL_MAX_HP, TEMPEST_KIRIN_MAX_HP, TIDEWYRM_MAX_HP } from "../../shared/rules";
 import { ENEMY_TYPES } from "./enemies";
 import { createGameBootstrap } from "./runtime/game-bootstrap";
 import {
@@ -235,7 +235,7 @@ describe("Advanced Lava Lake", () => {
 
     expect(new Set(signatures).size).toBe(signatures.length);
     for (const { sites, kinds } of lateMaps) {
-      const expectedCounts = Object.values(LATE_MAP_CLEAR_ARCHETYPE_COUNTS);
+      const expectedCounts = [6, 6, 7, 7, 4];
       expect(kinds.map((kind) => sites.filter((site) => site.type === kind || (ENEMY_TYPES[site.type].reward.type === "health" && ENEMY_TYPES[kind].reward.type === "health")).length)).toEqual(expectedCounts);
       const campKinds = new Map<string, Set<string>>();
       for (const site of sites) {

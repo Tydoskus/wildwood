@@ -68,7 +68,6 @@ import {
   BALANCE_TARGET_MAP_POWER_MULTIPLIER,
   BALANCE_TARGET_POWER_ARC_BLEND,
   BOSS_RESPAWN_SECONDS,
-  BOSS_REPEAT_REWARD_FRACTION,
   BOSS_REWARD_CLAIM_BITS,
   BOOTS_SPEED_BONUS,
   DEFAULT_ATTACK_INTERVAL,
@@ -1676,12 +1675,11 @@ function simulateTrial(
 
   const projectedBossStatWeights = (boss: BossDefinition, adjustment: MapAdjustment) => {
     const projected = stateSnapshot(state);
-    const rewardScale = BOSS_REPEAT_REWARD_FRACTION;
     const gains = new Map<ProgressionStat, number>();
     for (const reward of boss.rewards) {
       const stat = progressionStatForReward(reward.type);
       const before = continuousPowerForState(projected);
-      const amount = reward.amount * researchStatRewardMultiplier(projected.research) * adjustment.bossReward * rewardScale;
+      const amount = reward.amount * researchStatRewardMultiplier(projected.research) * adjustment.bossReward;
       applyRewardToStats(projected.stats, reward.type, amount);
       gains.set(stat, (gains.get(stat) ?? 0) + Math.max(0, continuousPowerForState(projected) - before));
     }
@@ -1720,13 +1718,12 @@ function simulateTrial(
   ) => {
     if (!map.boss) return 0;
     const claimBit = BOSS_REWARD_CLAIM_BITS[map.boss.kind];
-    const rewardScale = BOSS_REPEAT_REWARD_FRACTION;
     state.bossRewardClaims = (state.bossRewardClaims | claimBit) >>> 0;
     const powerBeforeReward = powerForState(state);
     for (const reward of map.boss.rewards) {
       const stat = progressionStatForReward(reward.type);
       const directPowerBefore = continuousPowerForState(state);
-      applyRewardToStats(state.stats, reward.type, rewardAmount(state, reward.amount, adjustment.bossReward) * rewardScale);
+      applyRewardToStats(state.stats, reward.type, rewardAmount(state, reward.amount, adjustment.bossReward));
       if (trackProgression) {
         record.statInvestments[stat].rewardPowerGain += Math.max(0, continuousPowerForState(state) - directPowerBefore);
         record.statInvestments[stat].rewardEvents += 1;

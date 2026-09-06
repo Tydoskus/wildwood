@@ -1,6 +1,4 @@
-export const GAME_VERSION = "0.635";
-// Persisted keys stay stable so returning players keep their settings and rewards.
-export const SEEN_VERSION_KEY = "wildwood-seen-version-v1";
+export const GAME_VERSION = "0.636";
 export const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
 export const SCREEN_SHAKE_ENABLED_KEY = "wildwood-screen-shake-enabled-v1";
 export const LOW_PERFORMANCE_MODE_KEY = "wildwood-low-performance-mode-v1";

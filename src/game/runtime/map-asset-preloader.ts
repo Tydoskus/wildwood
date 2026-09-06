@@ -2,7 +2,7 @@ import { scheduleBackgroundTask } from "./scheduler";
 
 type PortalDestination<MapKey extends string> = { destination: MapKey };
 type MapPreloadEntry<MapKey extends string> = {
-  portal: PortalDestination<MapKey>;
+  portal: PortalDestination<MapKey> | null;
   secondaryPortal?: PortalDestination<MapKey>;
 };
 
@@ -33,7 +33,7 @@ export function adjacentMapDestinations<MapKey extends string>(
 ) {
   const entry = mapConfig[currentMapId];
   if (!entry) return [];
-  const candidates = [entry.secondaryPortal?.destination, entry.portal.destination];
+  const candidates = [entry.secondaryPortal?.destination, entry.portal?.destination];
   return candidates.filter((mapId, index): mapId is MapKey => Boolean(
     mapId
       && mapId !== currentMapId

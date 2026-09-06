@@ -6,7 +6,7 @@ import type { MapId, SpawnSite } from "../world";
 
 export type MapPortal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
 
-type MapConfig = Record<MapId, { portal: MapPortal; arrival: { x: number; y: number }; secondaryPortal?: MapPortal }>;
+type MapConfig = Record<MapId, { portal: MapPortal | null; arrival: { x: number; y: number }; secondaryPortal?: MapPortal }>;
 
 const PORTAL_TRIGGER_RADIUS = 48;
 
@@ -24,7 +24,7 @@ export async function prepareMapTransition(
 
 export type MapController = {
   teleportHome: () => Promise<boolean>;
-  activePortal: () => MapPortal;
+  activePortal: () => MapPortal | null;
   secondaryPortal: () => MapPortal | null;
   portalIsUnlocked: (portal: MapPortal) => boolean;
   resolvePortalCollision: () => void;
@@ -55,12 +55,6 @@ export function createMapController(options: {
   lavaMapId: MapId;
   infernalMapId: MapId;
   waterMapId: MapId;
-  samuraiMapId: MapId;
-  cloudspireMapId: MapId;
-  moonfenMapId: MapId;
-  crystalHollowsMapId: MapId;
-  clockworkRuinsMapId: MapId;
-  duskfallOrchardMapId: MapId;
   dragonCutsceneSeenKey: string;
   snowlandsCutsceneSeenKey: string;
   lavaCutsceneSeenKey: string;
@@ -120,7 +114,7 @@ export function createMapController(options: {
   onCutsceneFinished: (wasPreview: boolean) => void;
 }): MapController {
   const {
-    mapConfig, tutorialMapId, desertMapId, snowMapId, lavaMapId, infernalMapId, waterMapId, samuraiMapId, cloudspireMapId, moonfenMapId, crystalHollowsMapId, clockworkRuinsMapId, duskfallOrchardMapId, dragonCutsceneSeenKey, snowlandsCutsceneSeenKey, lavaCutsceneSeenKey, infernalCutsceneSeenKey, waterCutsceneSeenKey, samuraiCutsceneSeenKey,
+    mapConfig, tutorialMapId, desertMapId, snowMapId, lavaMapId, infernalMapId, waterMapId, dragonCutsceneSeenKey, snowlandsCutsceneSeenKey, lavaCutsceneSeenKey, infernalCutsceneSeenKey, waterCutsceneSeenKey, samuraiCutsceneSeenKey,
     getCurrentMapId, setCurrentMapId, player, camera, viewport, keys, stopTouchMove, cutsceneOverlay, resizeViewport,
     isDueling, running, localMapState, changeMap, syncStoppedPosition, resetPresentationState, fadeToWorld, mapUnlocked, syncMapMusic,
     rebuildWorld, spawnFromSite, enemies, spawnSites, clearTransientCombat,
@@ -136,7 +130,9 @@ export function createMapController(options: {
   let portalCutsceneDestinationOpacity = 0;
   let portalCutscenePreview = false;
   let portalCutsceneSeenKey = dragonCutsceneSeenKey;
-  let portalCutscenePortal = mapConfig[tutorialMapId].portal;
+  const initialPortal = mapConfig[tutorialMapId].portal;
+  if (!initialPortal) throw new Error("Tutorial map requires an introductory portal.");
+  let portalCutscenePortal: MapPortal = initialPortal;
 
   async function teleportHome() {
     if (!running() || player.hp <= 0 || isDueling() || mapTransitioning || portalCutscene.active) return false;
@@ -195,7 +191,6 @@ export function createMapController(options: {
   }
 
   function resolvePortalCollision() {
-    const portal = activePortal();
     for (const obstacle of portalColliders()) {
       const dx = player.x - obstacle.x;
       const dy = player.y - obstacle.y;
@@ -203,7 +198,7 @@ export function createMapController(options: {
       const distanceSquared = dx * dx + dy * dy;
       if (distanceSquared >= minimumDistance * minimumDistance) continue;
       const distance = Math.sqrt(distanceSquared);
-      const nx = distance > .001 ? dx / distance : (player.x < portal.x ? -1 : 1);
+      const nx = distance > .001 ? dx / distance : (player.x < obstacle.x ? -1 : 1);
       const ny = distance > .001 ? dy / distance : 0;
       player.x = obstacle.x + nx * minimumDistance;
       player.y = obstacle.y + ny * minimumDistance;
@@ -256,7 +251,7 @@ export function createMapController(options: {
 
   function updatePortal(dt: number) {
     portalCooldown = Math.max(0, portalCooldown - dt);
-    if (getCurrentMapId() === "home_exterior" || mapTransitioning || portalCooldown > 0 || isDueling()) return;
+    if (mapTransitioning || portalCooldown > 0 || isDueling()) return;
     if (portalExitGuard) {
       if (playerIsInsidePortal(portalExitGuard)) return;
       portalExitGuard = null;
@@ -301,7 +296,7 @@ export function createMapController(options: {
     if (!running() || mapTransitioning || isDueling()) return;
     const state = localMapState();
     if (!state || state.mapId === getCurrentMapId()) return;
-    if (state.mapId !== "home_exterior" && state.mapId !== tutorialMapId && state.mapId !== desertMapId && state.mapId !== snowMapId && state.mapId !== lavaMapId && state.mapId !== infernalMapId && state.mapId !== waterMapId && state.mapId !== samuraiMapId && state.mapId !== cloudspireMapId && state.mapId !== moonfenMapId && state.mapId !== crystalHollowsMapId && state.mapId !== clockworkRuinsMapId && state.mapId !== duskfallOrchardMapId) return;
+    if (!(state.mapId in mapConfig)) return;
     mapTransitioning = true;
     const attempt = mapLoadGeneration;
     void options.prepareMapAssets(state.mapId as MapId).then(() => {
@@ -314,7 +309,8 @@ export function createMapController(options: {
     });
   }
 
-  function startMapPortalCutscene(mapId: MapId, preview = false, portal: MapPortal = mapConfig[mapId].portal, seenKey = dragonCutsceneSeenKey) {
+  function startMapPortalCutscene(mapId: MapId, preview = false, portal = mapConfig[mapId].portal, seenKey = dragonCutsceneSeenKey) {
+    if (!portal) return;
     void options.prepareMapAssets(portal.destination);
     document.body.classList.add("is-cutscene");
     resizeViewport();

@@ -1,6 +1,6 @@
 # Progression contract
 
-The September 4 overhaul replaces the chained map multipliers. `shared/progression.ts` is the authoring source; `shared/rules.ts` exposes the generated boss constants to browser and server. `shared/legacy-balance.ts` retains old exports only for compatibility. Do not tune that historical file.
+The September 4 overhaul replaces the chained map multipliers. `shared/progression.ts` is the authoring source; `shared/rules.ts` exposes the generated boss constants to browser and server.
 
 ## What is held constant
 

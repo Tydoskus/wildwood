@@ -13,24 +13,6 @@ export const DUEL_SHOT_SPEED = PLAYER_PROJECTILE_SPEED;
 export const DUEL_SPACE_BACKGROUND_SOURCE = "assets/wildstat/duel-space-background-v1.png";
 export const DUEL_PLATFORM_ART_SOURCE = "assets/wildstat/duel-floating-platform-v1.png";
 
-function loadDuelImage(source: string, onSettled?: () => void) {
-  const image = new Image();
-  if (onSettled) {
-    image.addEventListener("load", onSettled, { once: true });
-    image.addEventListener("error", onSettled, { once: true });
-  }
-  image.src = source;
-  return image;
-}
-
-export function loadDuelSpaceBackground(onSettled?: () => void) {
-  return loadDuelImage(DUEL_SPACE_BACKGROUND_SOURCE, onSettled);
-}
-
-export function loadDuelPlatformArt(onSettled?: () => void) {
-  return loadDuelImage(DUEL_PLATFORM_ART_SOURCE, onSettled);
-}
-
 type ReplayCombatantFields = {
   combatVersion?: number;
   durationSeconds: number;

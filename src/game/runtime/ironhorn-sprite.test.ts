@@ -1,4 +1,3 @@
-import previousAtlas from "../enemy-atlases/rhino-armor.mjs";
 import { describe, expect, it } from "vitest";
 import { readFileSync, statSync } from "node:fs";
 import { IRONHORN_ATLAS, IRONHORN_USED_PAGES, ironhornSpriteFrame } from "./ironhorn-sprite";
@@ -47,13 +46,34 @@ describe("Ironhorn sprite", () => {
 
 it("keeps the original capture timing and displayed alignment", () => {
   const atlas = IRONHORN_ATLAS;
+  // Recorded from the original full-resolution capture before the 512px export.
+  const previousAtlas = {
+    "anchorX": 139.95980834960938,
+    "frameHeight": 256,
+    "bounds": {
+      "bottom": 214,
+      "top": 74
+    },
+    "animations": {
+      "idle": {
+        "frameCount": 16,
+        "durationMs": 1333.3333730697632,
+        "frameDurationMs": 83.3333358168602
+      },
+      "attack": {
+        "frameCount": 11,
+        "durationMs": 916.6666865348817,
+        "frameDurationMs": 83.3333351395347
+      }
+    }
+  };
   const previousScale = 340 / (previousAtlas.bounds.bottom - previousAtlas.bounds.top);
   const frame = ironhornSpriteFrame(0);
   expect(Math.abs(frame.drawX - -previousAtlas.anchorX * previousScale)).toBeLessThan(4);
   expect(Math.abs(frame.drawY - (170 - previousAtlas.bounds.bottom * previousScale))).toBeLessThan(4);
   expect(frame.drawHeight).toBeCloseTo(previousAtlas.frameHeight * previousScale, -1);
   for (const motion of ["idle", "attack"] as const) {
-    expect(atlas.animations[motion].frames.length).toBe(previousAtlas.animations[motion].frames.length);
+    expect(atlas.animations[motion].frames.length).toBe(previousAtlas.animations[motion].frameCount);
     expect(atlas.animations[motion].durationMs).toBe(previousAtlas.animations[motion].durationMs);
     expect(atlas.animations[motion].frameDurationMs).toBe(previousAtlas.animations[motion].frameDurationMs);
   }

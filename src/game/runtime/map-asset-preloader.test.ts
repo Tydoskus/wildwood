@@ -39,6 +39,9 @@ function controlledScheduler() {
 }
 
 describe("adjacent map asset preloading", () => {
+  it("does not invent a destination for a map without portals", () => {
+    expect(adjacentMapDestinations({ home: { portal: null } }, "home")).toEqual([]);
+  });
   it("prioritizes the forward portal and deduplicates destinations", () => {
     expect(adjacentMapDestinations(mapConfig, "middle")).toEqual(["forward", "back"]);
     expect(adjacentMapDestinations({

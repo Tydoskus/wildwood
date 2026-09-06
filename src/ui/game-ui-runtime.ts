@@ -33,7 +33,7 @@ export function createGameRuntimeHud(d: Record<string, any>) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createTechTreePanel(d: Record<string, any>) {
   const e = d.e;
-  return createTechTreeController({ button: e.techTreeBtn, notice: e.techTreeNotice, overlay: e.techTreeOverlay, closeButton: e.closeTechTreeBtn, active: e.techTreeActive, canvas: e.techTreeCanvas, map: e.techTreeMap, detail: e.techTreeDetail, detailContent: e.techTreeDetailContent, closeDetailButton: e.closeTechTreeDetailBtn }, {
+  return createTechTreeController({ notice: e.techTreeNotice, overlay: e.techTreeOverlay, closeButton: e.closeTechTreeBtn, active: e.techTreeActive, canvas: e.techTreeCanvas, map: e.techTreeMap, detail: e.techTreeDetail, detailContent: e.techTreeDetailContent, closeDetailButton: e.closeTechTreeDetailBtn }, {
     researchRanks: d.researchRanks, activeResearch: d.activeResearch, startResearch: d.startResearch, gemBalance: d.gemBalance, speedUpResearch: d.speedUpResearch, showMessage: d.showMessage, beforeOpen: d.beforeOpen, nowMs: () => Date.now(),
   });
 }
