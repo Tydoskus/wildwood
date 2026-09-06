@@ -349,6 +349,7 @@ export function installGameShell(doc: Document = document) {
   const toolbar = doc.getElementById("toolbar");
   for (const [id, label, icon] of [
     ["guildBtn", "Guilds", "Icon_Guild.svg"],
+    ["friendsBtn", "Friends", "Icon_Misc_ETC_Chat01.png"],
   ]) {
     if (!toolbar || doc.getElementById(id)) continue;
     const button = doc.createElement("button");

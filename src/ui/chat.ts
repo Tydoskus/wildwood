@@ -16,6 +16,9 @@ import {
   type ChatMessageActionTarget,
 } from "./chat-message-actions";
 
+import { createChatUnreadTracker } from "./chat-unread";
+import { createChatChannelPicker, type ChatChannel, type ChatConversation } from "./chat-channels";
+
 const CHAT_ENABLED_KEY = "wildwood-chat-enabled-v1";
 const CHAT_DISPLAY_TTL_MS = 86_400_000;
 const CHAT_COOLDOWN_MS = 3_000;
@@ -47,6 +50,18 @@ type ChatMessage = {
 };
 
 type CoopClient = {
+  social?: {
+    revision: () => number;
+    guildMessages: () => ChatMessage[];
+    privateMessages: (username: string) => ChatMessage[];
+    friends: () => ChatConversation[];
+    privateConversations: () => ChatConversation[];
+    currentGuild: () => { id: string | bigint; name: string } | null;
+    loadSocial: () => Promise<unknown>;
+    sendGuildMessage: (message: string, replyId?: bigint) => Promise<{ ok: boolean; error?: string }>;
+    sendPrivateMessage: (username: string, message: string, replyId?: bigint) => Promise<{ ok: boolean; error?: string }>;
+    reportMessage: (id: bigint, reason: ChatReportReason) => Promise<{ ok: boolean; error?: string }>;
+  };
   localIdentity?: () => string;
   isGuest?: (identity: string) => boolean;
   profileIcon?: (identity: string) => number;
@@ -87,7 +102,32 @@ type ChatOptions = {
 export function createChatController({ elements, getCoop, showMessage, onOpenReplay, onOpenPlayer, onLayoutChange }: ChatOptions) {
   let enabled = true;
   let large = false;
-  let renderedRevision = -1;
+  let renderedRevision = "";
+  let channel: ChatChannel = "public";
+  let privatePeer = "";
+  let privatePeerIdentity = "";
+  let sessionIdentity = getCoop()?.localIdentity?.() ?? "";
+  let guildContext = String(getCoop()?.social?.currentGuild()?.id ?? "");
+  let submissionGeneration = 0;
+  let submitting = false;
+  const unread = createChatUnreadTracker();
+  const drafts = new Map<string, string>();
+  const channelPicker = createChatChannelPicker((nextChannel, username, identity) => {
+    drafts.set(conversationKey(), elements.input.value);
+    channel = nextChannel;
+    privatePeer = username;
+    const social = getCoop()?.social;
+    privatePeerIdentity = identity ?? social?.friends().find(person => person.name.toLowerCase() === username.toLowerCase())?.identity
+      ?? social?.privateConversations().find(person => person.name.toLowerCase() === username.toLowerCase())?.identity ?? "";
+    elements.input.value = drafts.get(conversationKey()) ?? "";
+    messageActions.close(false);
+    setPendingReply(null);
+    renderedRevision = "";
+    refresh();
+    if (channel !== "public") void getCoop()?.social?.loadSocial().then(refresh).catch(() => showMessage("COULD NOT REFRESH SOCIAL CONTACTS", "#ff9b91"));
+  });
+
+  function conversationKey() { return `${channel}:${channel === "private" ? privatePeerIdentity || privatePeer.toLowerCase() : channel === "guild" ? guildContext : ""}`; }
   let nextExpiryAt = 0;
   let chatCooldownUntil = 0;
   let chatCooldownTimer: number | null = null;
@@ -99,7 +139,8 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     onWatchReplay: (replayId) => onOpenReplay?.(replayId),
     onReply: (target) => setPendingReply(target, true),
     reportMessage: async (messageId, reason) => {
-      const report = getCoop()?.reportChatMessage;
+      const coop = getCoop();
+      const report = channel === "public" ? coop?.reportChatMessage : coop?.social?.reportMessage;
       if (!report) return { ok: false, error: "NOT CONNECTED" };
       return report(messageId, reason);
     },
@@ -143,7 +184,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     elements.backButton.hidden = !large;
     // Minimized chat renders only its two latest messages. Rebuild when the
     // presentation changes so there is no hidden scroll position to preserve.
-    renderedRevision = -1;
+    renderedRevision = "";
     refresh();
     if (!large) {
       elements.input.style.height = "28px";
@@ -179,7 +220,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
   function updateChatCooldown() {
     const remaining = Math.max(0, chatCooldownUntil - Date.now());
     const active = remaining > 0;
-    elements.sendButton.disabled = active;
+    elements.sendButton.disabled = active || submitting;
     elements.sendButton.textContent = active ? `WAIT ${Math.ceil(remaining / 1000)}S` : "SEND";
     if (chatCooldownTimer !== null) window.clearTimeout(chatCooldownTimer);
     chatCooldownTimer = active ? window.setTimeout(updateChatCooldown, Math.min(remaining, 250)) : null;
@@ -201,18 +242,54 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
 
   function refresh() {
     const coop = getCoop();
+    const identity = coop?.localIdentity?.() ?? "";
+    if (identity !== sessionIdentity) {
+      sessionIdentity = identity;
+      unread.reset();
+      submissionGeneration++;
+      submitting = false;
+      elements.input.value = "";
+      drafts.clear();
+      channelPicker.select("public", "");
+      drafts.clear();
+      updateChatCooldown();
+      return;
+    }
+    const nextGuildContext = String(coop?.social?.currentGuild()?.id ?? "");
+    if (nextGuildContext !== guildContext) {
+      drafts.delete(`guild:${guildContext}`);
+      guildContext = nextGuildContext;
+      if (channel === "guild") {
+        elements.input.value = "";
+        setPendingReply(null);
+        messageActions.close(false);
+      }
+    }
     if (pendingReply && coop?.isPlayerBlocked?.(pendingReply.sender)) setPendingReply(null);
 
     const now = Date.now();
-    const revision = coop?.chatRevision?.() ?? -1;
+    const conversations = coop?.social?.privateConversations() ?? [];
+    if (privatePeer && !privatePeerIdentity) {
+      privatePeerIdentity = [...(coop?.social?.friends() ?? []), ...conversations]
+        .find(person => person.name.toLowerCase() === privatePeer.toLowerCase())?.identity ?? "";
+    }
+    const unreadCounts = unread.refresh(identity, coop?.social?.guildMessages() ?? [],
+      new Map(conversations.map(person => [person.identity, coop?.social?.privateMessages(person.identity) ?? []])),
+      enabled && large ? channel === "guild" ? "guild" : channel === "private" ? `private:${privatePeerIdentity || privatePeer}` : null : null);
+    channelPicker.refresh(coop?.social?.friends() ?? [], conversations, coop?.social?.currentGuild()?.name ?? "", unreadCounts);
+    const revision = `${conversationKey()}:${coop?.chatRevision?.() ?? -1}:${coop?.social?.revision() ?? -1}:${coop?.localIdentity?.() ?? ""}`;
     if (revision === renderedRevision && now < nextExpiryAt) return;
     const previousScrollTop = elements.messages.scrollTop;
     const previousScrollHeight = elements.messages.scrollHeight;
     const distanceFromBottom = previousScrollHeight - elements.messages.clientHeight - previousScrollTop;
-    const followNewestMessage = !large || renderedRevision < 0 || distanceFromBottom <= 16;
-    const allMessages = (coop?.chatMessages?.().filter((message) =>
-      now - message.sentAtMs < CHAT_DISPLAY_TTL_MS && shouldShowGlobalChatMessage(message.senderName)
-    ) ?? []).slice(-100);
+    const followNewestMessage = !large || renderedRevision === "" || distanceFromBottom <= 16;
+    const channelMessages = channel === "public" ? coop?.chatMessages?.()
+      : channel === "guild" ? coop?.social?.guildMessages()
+      : privatePeer ? coop?.social?.privateMessages(privatePeerIdentity || privatePeer) : [];
+    const allMessages = (channelMessages ?? []).filter((message) =>
+      now - message.sentAtMs < CHAT_DISPLAY_TTL_MS && !coop?.isPlayerBlocked?.(message.sender)
+      && (channel !== "public" || shouldShowGlobalChatMessage(message.senderName))
+    ).slice(-100);
     // Do not rely on scrolling hidden rows in compact mode. Its DOM contains
     // exactly the newest two rows in the same oldest-to-newest order as the
     // expanded view.
@@ -359,6 +436,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
 
   function init() {
     messageActions.init();
+    elements.panel.insertBefore(channelPicker.root, elements.messages);
     elements.toggle.addEventListener("click", () => {
       enabled = !enabled;
       updateVisibility();
@@ -377,25 +455,57 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     elements.backButton.addEventListener("click", () => setLarge(false));
     elements.form.addEventListener("submit", async (event) => {
       event.preventDefault();
+      if (submitting) return;
       if (Date.now() < chatCooldownUntil) {
         showMessage(`CHAT READY IN ${Math.ceil((chatCooldownUntil - Date.now()) / 1000)}S`, "#ffdb84");
         return;
       }
       const message = elements.input.value.trim();
       if (!message) return;
-      const bugCommand = /^\/bug(?:\s|$)/i.exec(message);
+      const bugCommand = channel === "public" ? /^\/bug(?:\s|$)/i.exec(message) : null;
       if (bugCommand && !message.slice(bugCommand[0].length).trim()) {
         showMessage("USE /BUG FOLLOWED BY A DESCRIPTION", "#ff9b91");
         return;
       }
-      const result = await getCoop()?.sendChatMessage?.(message, pendingReply?.id ?? 0n);
+      const coop = getCoop();
+      if (channel === "private" && !privatePeer) {
+        showMessage("CHOOSE A FRIEND TO MESSAGE", "#ff9b91");
+        return;
+      }
+      if (channel === "guild" && !coop?.social?.currentGuild()) {
+        showMessage("JOIN A GUILD TO CHAT WITH MEMBERS", "#ff9b91");
+        return;
+      }
+      const sentConversation = conversationKey();
+      const sentIdentity = sessionIdentity;
+      const generation = ++submissionGeneration;
+      const replyId = pendingReply?.id ?? 0n;
+      submitting = true;
+      updateChatCooldown();
+      let result: { ok: boolean; error?: string } | undefined;
+      try {
+        result = channel === "public" ? await coop?.sendChatMessage?.(message, replyId)
+          : channel === "guild" ? await coop?.social?.sendGuildMessage(message, replyId)
+          : await coop?.social?.sendPrivateMessage(privatePeerIdentity || privatePeer, message, replyId);
+      } catch {
+        result = { ok: false, error: "MESSAGE FAILED" };
+      } finally {
+        if (generation === submissionGeneration) {
+          submitting = false;
+          updateChatCooldown();
+        }
+      }
+      if (generation !== submissionGeneration || sentIdentity !== (getCoop()?.localIdentity?.() ?? "")) return;
       if (!result?.ok) {
         showMessage(result?.error || "MESSAGE FAILED", "#ff9b91");
         return;
       }
-      elements.input.value = "";
-      elements.input.style.height = "28px";
-      setPendingReply(null);
+      if (drafts.get(sentConversation)?.trim() === message) drafts.delete(sentConversation);
+      if (conversationKey() === sentConversation && elements.input.value.trim() === message) {
+        elements.input.value = "";
+        elements.input.style.height = "28px";
+        setPendingReply(null);
+      }
       startChatCooldown();
       if (bugCommand) showMessage("BUG REPORT SENT", "#c9f5c2");
     });
@@ -427,6 +537,13 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
   return {
     init,
     refresh,
+    openPrivate: (username: string, identity?: string) => {
+      if (!username.trim()) return;
+      enabled = true;
+      updateVisibility();
+      channelPicker.select("private", username, identity);
+      setLarge(true);
+    },
     minimize: () => { if (large) setLarge(false); },
     isMaximized: () => large,
   };

@@ -74,6 +74,10 @@ export type BaseSubscriptionHandlers = {
   prismshellResult: RowHandler;
   ironhornResult: RowHandler;
   dreadreaperResult: RowHandler;
+  socialHub: RowHandler;
+  removeSocialHub: RowHandler;
+  socialMessage: RowHandler;
+  removeSocialMessage: RowHandler;
   chatMessage: RowHandler;
   playerBlock: RowHandler;
   removePlayerBlock: RowHandler;
@@ -160,6 +164,7 @@ type BaseSubscriptionHandlerSources = {
     upsertIronhornResult: BaseSubscriptionHandlers["ironhornResult"];
     upsertDreadreaperResult: BaseSubscriptionHandlers["dreadreaperResult"];
   };
+  social?: { upsertHub: RowHandler; removeHub: RowHandler; upsertMessage: RowHandler; removeMessage: RowHandler };
   chat: { upsert: BaseSubscriptionHandlers["chatMessage"]; upsertBlock: RowHandler; removeBlock: RowHandler };
   duel: { upsert: BaseSubscriptionHandlers["duel"]; remove: BaseSubscriptionHandlers["removeDuel"] };
 };
@@ -232,6 +237,10 @@ export function createBaseSubscriptionHandlers(sources: BaseSubscriptionHandlerS
     prismshellBoss: boss.upsertPrismshell, ironhornBoss: boss.upsertIronhorn, dreadreaperBoss: boss.upsertDreadreaper,
     miremawResult: boss.upsertMiremawResult,
     prismshellResult: boss.upsertPrismshellResult, ironhornResult: boss.upsertIronhornResult, dreadreaperResult: boss.upsertDreadreaperResult,
+    socialHub: sources.social?.upsertHub ?? (() => {}),
+    removeSocialHub: sources.social?.removeHub ?? (() => {}),
+    socialMessage: sources.social?.upsertMessage ?? (() => {}),
+    removeSocialMessage: sources.social?.removeMessage ?? (() => {}),
     chatMessage: chat.upsert,
     playerBlock: chat.upsertBlock,
     removePlayerBlock: chat.removeBlock,
@@ -383,6 +392,12 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   connection.db.prismshellResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.prismshellResult(row); });
   connection.db.ironhornResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.ironhornResult(row); });
   connection.db.dreadreaperResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.dreadreaperResult(row); });
+  connection.db.mySocialHub.onInsert((_ctx, row) => { if (shouldHandle()) handlers.socialHub(row); });
+  connection.db.mySocialHub.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.socialHub(row); });
+  connection.db.mySocialHub.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeSocialHub(row); });
+  connection.db.mySocialMessages.onInsert((_ctx, row) => { if (shouldHandle()) handlers.socialMessage(row); });
+  connection.db.mySocialMessages.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.socialMessage(row); });
+  connection.db.mySocialMessages.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeSocialMessage(row); });
   connection.db.chatMessage.onInsert((_ctx, row) => { if (shouldHandle()) handlers.chatMessage(row); });
   connection.db.chatMessage.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.chatMessage(row); });
   connection.db.myPlayerBlocks.onInsert((_ctx, row) => { if (shouldHandle()) handlers.playerBlock(row); });
@@ -451,6 +466,8 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.tempestKirinResult,
       tables.miremawResult,
             tables.prismshellResult, tables.ironhornResult, tables.dreadreaperResult,
+      tables.mySocialHub,
+      tables.mySocialMessages,
       tables.chatMessage,
       tables.myPlayerBlocks,
       tables.duel.where((duel) => duel.challenger.eq(dependencies.identity)),
@@ -506,6 +523,8 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
           for (const row of connection.db.ironhornResult.iter()) handlers.ironhornResult(row);
           for (const row of connection.db.dreadreaperResult.iter()) handlers.dreadreaperResult(row);
           for (const row of connection.db.myPlayerBlocks.iter()) handlers.playerBlock(row);
+          for (const row of connection.db.mySocialHub.iter()) handlers.socialHub(row);
+          for (const row of connection.db.mySocialMessages.iter()) handlers.socialMessage(row);
           for (const row of connection.db.chatMessage.iter()) handlers.chatMessage(row);
           for (const row of connection.db.duel.iter()) handlers.duel(row);
         });

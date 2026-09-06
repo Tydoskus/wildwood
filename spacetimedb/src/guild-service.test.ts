@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { schema } from "../../tests/helpers/spacetime-module";
 import { Identity, Timestamp, createMemoryDatabase } from "../../tests/helpers/spacetime-memory-db";
+import { socialTables } from "./social-tables";
 import { guildTables } from "./guild-tables";
 import { createGuildService } from "./guild-service";
 import { GUILD_MEMBERSHIP_COOLDOWN, guildDay, guildWeek, normalizeGuildName } from "../../shared/guilds";
@@ -15,7 +16,7 @@ const fighter: DuelFighter = { maxHp: 100, damage: 20, armor: 0, regen: 0, attac
 function fixture() {
   // Separate root/server SDK installs have nominal BinaryReader private fields;
   // the test registration shim consumes identical structural table metadata.
-  const memory = createMemoryDatabase(schema(guildTables as unknown as Parameters<typeof schema>[0]));
+  const memory = createMemoryDatabase(schema({ ...guildTables, ...socialTables } as unknown as Parameters<typeof schema>[0]));
   const db = memory.db;
   const ctx = { db, sender: identity(1), timestamp: new Timestamp(20_000n * GUILD_MEMBERSHIP_COOLDOWN) };
   const stats = new Map<string, DuelFighter>();

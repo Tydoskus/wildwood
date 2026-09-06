@@ -74,6 +74,8 @@ import {
 } from "../../shared/gems";
 import { HIDDEN_COSMETIC_ITEM_ID, isHiddenCosmeticItem, resolveEquipmentAppearance } from "../../shared/equipment-appearance";
 import { migrateGuildTags } from "./player-name-tags";
+import { socialTables } from "./social-tables";
+import { createSocialService, socialSnapshot, visibleSocialMessages, removeSocialAccount, mergeSocialAccount } from "./social-service";
 import { guildTables } from "./guild-tables";
 import { createGuildService } from "./guild-service";
 import type { DuelFighter } from "../../shared/duel-combat";
@@ -1643,6 +1645,7 @@ const shardCoordinatorSchedule = table(
 const spacetimedb = schema({
   homeReturnLocation,
   ...guildTables,
+  ...socialTables,
   shardCoordinatorSchedule,
   ...mapShardingTables,
   forestRewardPrototype,
@@ -1738,6 +1741,7 @@ const spacetimedb = schema({
 });
 export default spacetimedb;
 
+export type ModuleViewCtx = import("spacetimedb/server").ViewCtx<InferSchema<typeof spacetimedb>>;
 export type ModuleReducerCtx = ReducerCtx<InferSchema<typeof spacetimedb>>;
 
 export const devForestRewardPrototype = spacetimedb.view(
@@ -4246,6 +4250,7 @@ function virtualPlayerCountForOwner(ctx: any, owner: any) {
 function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true, adjustOwnerCount = true) {
   const registration = ctx.db.virtualPlayer.identity.find(identity);
   if (!registration) return false;
+  removeSocialAccount(ctx, identity);
   guildService.removeAccount(ctx, identity);
   ctx.db.playerNameTag.identity.delete(identity);
   releaseMapShard(ctx, identity);
@@ -4326,6 +4331,7 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
  * leaderboard removal.
  */
 function removePlayerIdentityData(ctx: any, identity: any) {
+  removeSocialAccount(ctx, identity);
   guildService.removeAccount(ctx, identity);
   ctx.db.playerNameTag.identity.delete(identity);
   removePlayerSafetyData(ctx, identity);
@@ -7731,6 +7737,7 @@ export const claimGuestAccount = spacetimedb.reducer(
     else insertSnapshotRow(ctx, "playerAccountStatus", linkedStatus);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, ctx.db.player.identity.find(ctx.sender)));
     guildService.mergeGuest(ctx, link.guest, ctx.sender);
+    mergeSocialAccount(ctx, link.guest, ctx.sender);
     const guestAccountStatus = ctx.db.playerAccountStatus.identity.find(link.guest);
     if (guestAccountStatus) deleteSnapshotRow(ctx, "playerAccountStatus", link.guest);
     const guestLeaderboardEntry = ctx.db.leaderboardEntry.identity.find(link.guest);
@@ -9821,4 +9828,51 @@ export const seedTemporaryGuild = spacetimedb.reducer((ctx) => {
   guildService.create({ ...ctx, sender: candidates[0].identity }, "temp");
   const guildId = ctx.db.guildMember.identity.find(candidates[0].identity)!.guildId;
   for (const member of candidates.slice(1)) guildService.join({ ...ctx, sender: member.identity }, guildId);
+});
+
+
+// Private backing tables are exposed only through sender-scoped views. Views
+// depend on guild membership and blocks, so leaving or blocking revokes access.
+export const mySocialMessages = spacetimedb.view(
+  { name: "my_social_messages", public: true }, t.array(socialTables.socialMessage.rowType),
+  ctx => visibleSocialMessages(ctx),
+);
+const socialHubRow = t.row("SocialHubPayload", { identity: t.identity().primaryKey(), snapshot: t.string() });
+export const mySocialHub = spacetimedb.view(
+  { name: "my_social_hub", public: true }, t.array(socialHubRow),
+  ctx => [{ identity: ctx.sender, snapshot: JSON.stringify(socialSnapshot(ctx, !(ctx.db.playerAccountStatus.identity.find(ctx.sender)?.isGuest ?? true))) }],
+);
+const socialService = createSocialService({ joinGuild: (ctx, id) => guildService.join(ctx, id) });
+function requireSocialPlayer(ctx: ModuleReducerCtx) {
+  requireControllingPlayer(ctx);
+  if (isMapShard(ctx) || isVirtualPlayer(ctx, ctx.sender)) throw new SenderError("Use your main character connection.");
+}
+export const getSocialHub = spacetimedb.procedure({}, t.string(), ctx => ctx.withTx(tx => {
+  requireSocialPlayer(tx); return JSON.stringify(socialSnapshot(tx, hasSpacetimeAuthAccount(tx)));
+}));
+export const friendAction = spacetimedb.reducer({ action: t.string(), target: t.string() }, (ctx, { action, target }) => {
+  requireSocialPlayer(ctx); socialService.friendAction(ctx, action, target);
+});
+export const guildInviteAction = spacetimedb.reducer({ action: t.string(), target: t.string(), invitationId: t.u64() }, (ctx, { action, target, invitationId }) => {
+  requireGuildPlayer(ctx); socialService.guildInviteAction(ctx, action, target, invitationId);
+});
+export const sendSocialMessage = spacetimedb.reducer({ channel: t.string(), target: t.string(), message: t.string(), replyToMessageId: t.u64() }, (ctx, { channel, target, message, replyToMessageId }) => {
+  requireSocialPlayer(ctx); socialService.sendMessage(ctx, channel, target, message, replyToMessageId);
+});
+export const reportSocialMessage = spacetimedb.reducer({ messageId: t.u64(), reason: t.string() }, (ctx, { messageId, reason }) => {
+  requireSocialPlayer(ctx);
+  if (!isChatReportReason(reason)) throw new SenderError("Choose a valid report reason.");
+  const row = visibleSocialMessages(ctx).find(row => row.id === messageId);
+  if (!row || sameIdentity(row.sender, ctx.sender)) throw new SenderError("Message is unavailable for reporting.");
+  const key = `${ctx.sender.toHexString()}:${messageId}`;
+  if (ctx.db.socialReport.key.find(key)) throw new SenderError("You already reported this message.");
+  consumeReportRate(ctx);
+  ctx.db.socialReport.insert({ key, reporter: ctx.sender, accused: row.sender, messageId, message: row.message, reason, reportedAt: ctx.timestamp });
+  // Reuse the existing developer player-report inbox so private-chat reports
+  // reach moderation without placing their text in any public chat table.
+  ctx.db.playerReport.insert({ id: 0n, reporter: ctx.sender,
+    reporterName: ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "PLAYER",
+    target: row.sender, targetName: row.senderName, reason,
+    note: `[${row.channel === "dm" ? "Private message" : "Guild chat"} #${row.id}] ${row.message}`,
+    status: "pending", reportedAt: ctx.timestamp });
 });

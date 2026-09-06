@@ -1,12 +1,16 @@
 import { createGuildBattleReplay, type GuildReplayAssets } from "./guild-battle-replay";
+import { renderFriends, renderGuildInvites } from "./social-panel-content";
+import type { SocialSnapshot, SocialAction } from "../../shared/social";
+import type { SocialApi } from "../coop/services/social-service";
 import { playerNamePrefix } from "../app/player-name-tags";
 import { GUILD_MEMBER_LIMIT, type GuildSnapshot } from "../../shared/guilds";
 import type { GuildAction, GuildApi } from "../coop/services/guild-service";
 
-type Section = "guild" | "battles" | "rankings";
+type Section = "guild" | "battles" | "rankings" | "friends";
 type Member = NonNullable<GuildSnapshot["guild"]>["members"][number];
 type Options = {
   api: () => GuildApi | undefined;
+  socialApi?: () => SocialApi | undefined;
   sessionKey: () => string;
   beforeOpen: () => void;
   onClose: () => void;
@@ -34,9 +38,11 @@ export function createGuildPanel(options: Options) {
   let replayId: string | null = null;
   let section: Section = "guild";
   let snapshot: GuildSnapshot | null = null;
+  let social: SocialSnapshot | null = null;
+  const drafts = { friend: "", invite: "" };
   let busy = false;
   let error = "", notice = "", page = "0", session = "", draftName = "";
-  let serial = 0, clockOffset = 0;
+  let serial = 0, clockOffset = 0, socialRevision = -1;
   let creating = false;
   let managedMember: string | null = null;
   let confirmation: { title: string; detail: string; label: string; action: GuildAction } | null = null;
@@ -75,7 +81,7 @@ export function createGuildPanel(options: Options) {
     dialog.querySelector<HTMLElement>(".guild-confirm button")?.focus();
   }
   function current(id: number) { return !root.hidden && serial === id && session === options.sessionKey(); }
-  async function load(action?: GuildAction) {
+  async function load(action?: GuildAction, socialAction?: SocialAction) {
     if (session !== options.sessionKey()) { close(); return; }
     if (busy) return;
     const api = options.api();
@@ -87,9 +93,22 @@ export function createGuildPanel(options: Options) {
     try {
       if (action) { await api.guildAction(action); saved = true; }
       if (!current(id)) return;
-      const next = await api.loadGuild(page);
+      if (socialAction) {
+        const socialApi = options.socialApi?.();
+        if (!socialApi) throw new Error("Connect to your character to continue.");
+        await socialApi.socialAction(socialAction); saved = true;
+        if (!current(id)) return;
+      }
+      const [next, socialNext] = await Promise.all([api.loadGuild(page), options.socialApi?.()?.loadSocial() ?? Promise.resolve(null)]);
       if (!current(id)) return;
-      snapshot = next; clockOffset = date(next.serverNow).getTime() - Date.now();
+      snapshot = next; social = socialNext;
+      if (socialAction) {
+        notice = socialAction.action === "requestFriend" ? "Friend request sent." : socialAction.action === "inviteGuild" ? "Guild invitation sent." : "Updated.";
+        if (socialAction.action === "requestFriend") drafts.friend = "";
+        if (socialAction.action === "inviteGuild") drafts.invite = "";
+        if (socialAction.action === "acceptGuildInvite") { section = "guild"; notice = "You joined the guild."; }
+      }
+      clockOffset = date(next.serverNow).getTime() - Date.now();
       if (action?.kind === "create" || action?.kind === "join" || action?.kind === "leave") {
         section = "guild"; creating = false; managedMember = null; draftName = "";
       }
@@ -188,6 +207,7 @@ export function createGuildPanel(options: Options) {
       return;
     }
     const own = g.guild;
+    if (isLeader() && social) renderGuildInvites(body, socialContext(), own.members.map(member => member.identity));
     const stats = element("div", undefined, "guild-stats");
     for (const [value, label] of [[`${own.members.length}/${GUILD_MEMBER_LIMIT}`, "Members"], [number(own.score), "Weekly points"], [String(own.attacksRemaining), "Attacks today"]]) {
       const stat = element("div"); stat.append(element("strong", value), element("span", label)); stats.append(stat);
@@ -251,22 +271,47 @@ export function createGuildPanel(options: Options) {
       item.append(copy, score); list.append(item);
     }); body.append(list);
   }
+  function tick() {
+    if (!root.hidden && session !== options.sessionKey()) { close(); return; }
+    const api = options.socialApi?.();
+    if (!api || busy || api.revision() === socialRevision) return;
+    socialRevision = api.revision();
+    const next = api.snapshot();
+    const inbox = next.incomingRequests.length + next.guildInvitations.length;
+    const launch = doc.getElementById("friendsBtn");
+    launch?.setAttribute("aria-label", inbox ? `Open friends, ${inbox} pending invitations or requests` : "Open friends");
+    launch?.classList.toggle("social-has-inbox", inbox > 0);
+    const label = launch?.querySelector(".toolbar-label");
+    if (label) label.textContent = inbox ? `Friends (${inbox})` : "Friends";
+    if (root.hidden || next === social) return;
+    social = next;
+    if (section === "friends" || section === "guild") render();
+  }
+  function socialContext() {
+    return { document: doc, snapshot: social!, busy, drafts,
+      act: (action: SocialAction) => { void load(undefined, action); },
+      message: (username: string, identity: string) => {
+        close(); doc.defaultView?.dispatchEvent(new CustomEvent("wildwood:open-private-chat", { detail: { username, identity } }));
+      },
+    };
+  }
   function render() {
     replay?.dispose(); replay = undefined;
     dialog.classList.toggle("guild-window--replay", Boolean(replayId));
     const active = doc.activeElement as HTMLElement | null;
     const focusKey = active?.dataset?.focusKey;
     const wasInside = dialog.contains(active);
+    const inviteExpanded = dialog.querySelector<HTMLDetailsElement>(".social-invite")?.open;
     const scroll = dialog.querySelector(".guild-content")?.scrollTop ?? 0;
     dialog.replaceChildren();
     const header = element("header", undefined, "guild-header");
     const title = element("div", undefined, "guild-heading");
-    title.append(element("span", "WILDSTAT GUILDS", "guild-eyebrow"));
-    const h2 = element("h2", snapshot?.guild?.name ?? "Guilds"); h2.id = "guildTitle"; title.append(h2);
+    title.append(element("span", section === "friends" ? "WILDSTAT SOCIAL" : "WILDSTAT GUILDS", "guild-eyebrow"));
+    const h2 = element("h2", section === "friends" ? "Friends" : snapshot?.guild?.name ?? "Guilds"); h2.id = "guildTitle"; title.append(h2);
     header.append(title);
-    const closeButton = button("×", close, "icon"); closeButton.disabled = false; closeButton.setAttribute("aria-label", "Close guilds"); header.append(closeButton); dialog.append(header);
+    const closeButton = button("×", close, "icon"); closeButton.disabled = false; closeButton.setAttribute("aria-label", section === "friends" ? "Close friends" : "Close guilds"); header.append(closeButton); dialog.append(header);
     const nav = element("nav", undefined, "guild-tabs"); nav.setAttribute("aria-label", "Guild sections");
-    for (const [key, label] of [["guild", "Guild"], ["battles", "Battles"], ["rankings", "Rankings"]] as const) {
+    for (const [key, label] of [["guild", "Guild"], ["battles", "Battles"], ["rankings", "Rankings"], ["friends", "Friends"]] as const) {
       const tab = button(label, () => switchSection(key), "tab", false, `tab-${key}`); tab.setAttribute("aria-current", key === section ? "page" : "false"); nav.append(tab);
     } dialog.append(nav);
     const body = element("div", undefined, "guild-content"); body.setAttribute("aria-busy", String(busy));
@@ -279,12 +324,18 @@ export function createGuildPanel(options: Options) {
     } else if (!snapshot) {
       const loading = element("div", undefined, "guild-loading"); loading.setAttribute("role", "status");
       loading.append(element("span", busy ? "Loading guilds…" : "Your guilds will appear here.")); body.append(loading);
+    } else if (section === "friends") {
+      if (social) renderFriends(body, socialContext());
+      else empty(body, "Friends unavailable", "Connect to your character, then refresh to see your friends.");
     } else if (section === "guild") renderGuild(body);
     else if (section === "battles") renderBattles(body);
     else renderRankings(body);
-    dialog.append(body); body.scrollTop = replayId ? 0 : scroll;
+    dialog.append(body);
+    const inviteDisclosure = dialog.querySelector<HTMLDetailsElement>(".social-invite");
+    if (inviteDisclosure && inviteExpanded) inviteDisclosure.open = true;
+    body.scrollTop = replayId ? 0 : scroll;
     const footer = element("footer", undefined, "guild-footer");
-    const state = element("span", busy ? "Updating…" : "Weekly competition · Full-guild battles"); state.setAttribute("role", "status");
+    const state = element("span", busy ? "Updating…" : "Friends · Guilds · Full-guild battles"); state.setAttribute("role", "status");
     footer.append(state, button("Refresh", () => void load(), "quiet")); dialog.append(footer);
     if (wasInside && !root.hidden) {
       const restored = [...dialog.querySelectorAll<HTMLElement>("[data-focus-key]")].find(node => node.dataset.focusKey === focusKey && !(node as HTMLButtonElement).disabled);
@@ -296,14 +347,16 @@ export function createGuildPanel(options: Options) {
     replay?.dispose(); replay = undefined; replayId = null;
     serial++; root.hidden = true; busy = false; options.api()?.cancel(); clearInterval(timer); timer = undefined;
     confirmation = null; doc.getElementById("guildBtn")?.setAttribute("aria-expanded", "false");
+    doc.getElementById("friendsBtn")?.setAttribute("aria-expanded", "false");
     options.onClose(); previousFocus?.focus();
   }
   function open(next: Section = "guild") {
     if (!root.hidden) close();
     previousFocus = doc.activeElement as HTMLElement | null; options.beforeOpen();
-    section = next; session = options.sessionKey(); page = "0"; busy = false; snapshot = null;
+    section = next; session = options.sessionKey(); page = "0"; busy = false; snapshot = null; social = null; drafts.friend = ""; drafts.invite = "";
     error = ""; notice = ""; creating = false; draftName = ""; managedMember = null;
     root.hidden = false; doc.getElementById("guildBtn")?.setAttribute("aria-expanded", "true");
+    doc.getElementById("friendsBtn")?.setAttribute("aria-expanded", "true");
     render(); dialog.focus(); void load();
     // Session safety only: snapshots are fetched on opening, refresh or action.
     timer = setInterval(() => { if (session !== options.sessionKey()) close(); }, 1000);
@@ -321,11 +374,14 @@ export function createGuildPanel(options: Options) {
     else if (!event.shiftKey && (doc.activeElement === last || doc.activeElement === dialog)) { event.preventDefault(); first.focus(); }
   }
   const guildClick = () => open();
+  const friendsClick = () => open("friends");
+  doc.getElementById("friendsBtn")?.addEventListener("click", friendsClick);
   doc.addEventListener("keydown", onKey, true);
   root.addEventListener("click", event => { if (event.target === root) close(); });
   doc.getElementById("guildBtn")?.addEventListener("click", guildClick);
-  return { open, close, isOpen: () => !root.hidden, dispose() {
+  return { open, close, tick, isOpen: () => !root.hidden, dispose() {
     close(); root.remove(); doc.removeEventListener("keydown", onKey, true);
+    doc.getElementById("friendsBtn")?.removeEventListener("click", friendsClick);
     doc.getElementById("guildBtn")?.removeEventListener("click", guildClick);
   } };
 }

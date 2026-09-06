@@ -3260,3 +3260,19 @@
       color: #fff;
     }
   }
+
+/* Expanded chat channels share the existing chat history and composer. */
+#chatPanel:not(.is-large) .chat-channels { display: none; }
+#chatPanel.is-large { grid-template-rows: auto minmax(0, 1fr) auto; }
+#chatPanel.is-large .chat-channels { grid-row: 1; min-width: 0; }
+#chatPanel.is-large #chatMessages { grid-row: 2; }
+#chatPanel.is-large #chatForm { grid-row: 3; }
+.chat-channel-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+.chat-channel-tabs button { min-height: 44px; margin: 0; border-radius: 7px; font-size: 13px; }
+.chat-channel-tabs button[aria-selected="true"] { border-color: #d9b8ff; background: #614d73; color: #fff; }
+.chat-private-picker { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px; margin-top: 6px; }
+.chat-private-picker[hidden] { display: none; }
+.chat-private-picker input, .chat-private-picker select { min-width: 0; min-height: 40px; padding: 7px; border: 1px solid #73667c; border-radius: 6px; background: #29252d; color: #fff; font-size: 14px; }
+.chat-private-picker button { min-height: 40px; margin: 0; font-size: 12px; }
+.chat-private-picker select { grid-column: 1 / -1; width: 100%; }
+.chat-channel-status { padding: 5px 2px 0; color: #d7d2ca; font-size: 11px; line-height: 1.3; }

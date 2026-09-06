@@ -101,6 +101,8 @@ function removeMember(ctx: Ctx, member: Member) {
   if (!guild) return;
   if (guild.members <= 1) {
     ctx.db.guild.id.delete(guild.id);
+    for (const row of ctx.db.socialGuildInvite.guildId.filter(guild.id)) ctx.db.socialGuildInvite.id.delete(row.id);
+    for (const row of ctx.db.socialMessage.conversation.filter(`guild:${guild.id}`)) ctx.db.socialMessage.id.delete(row.id);
     for (const row of ctx.db.guildBattleReport.guildId.filter(guild.id)) deleteReport(ctx, row.key);
     writeRanking(ctx, { ...guild, members: 0 });
     return;
@@ -110,6 +112,7 @@ function removeMember(ctx: Ctx, member: Member) {
     champions: guild.champions - Number(member.champion),
     leader: guild.leader.equals(member.identity) ? remaining[0].identity : guild.leader };
   ctx.db.guild.id.update(updated);
+  if (guild.leader.equals(member.identity)) for (const row of ctx.db.socialGuildInvite.guildId.filter(guild.id)) ctx.db.socialGuildInvite.id.delete(row.id);
   writeRanking(ctx, updated);
 }
 function validateFighter(fighter: DuelFighter) {
@@ -168,6 +171,7 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
       const member = ctx.db.guildMember.identity.find(identity);
       if (!member || member.guildId !== guild.id) fail("Choose a member of your guild.");
       ctx.db.guild.id.update({ ...guild, leader: identity });
+      for (const row of ctx.db.socialGuildInvite.guildId.filter(guild.id)) ctx.db.socialGuildInvite.id.delete(row.id);
     },
     challenge(ctx: Ctx, opponentId: bigint) {
       const guild = currentGuild(ctx, requireLeader(ctx));

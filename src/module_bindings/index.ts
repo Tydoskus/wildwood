@@ -80,6 +80,8 @@ import DevSetAccessAuditLabelReducer from "./dev_set_access_audit_label_reducer"
 import DevUpdatePlayerSaveReducer from "./dev_update_player_save_reducer";
 import EnterRegionalWorldReducer from "./enter_regional_world_reducer";
 import EnterWorldReducer from "./enter_world_reducer";
+import FriendActionReducer from "./friend_action_reducer";
+import GuildInviteActionReducer from "./guild_invite_action_reducer";
 import InstallShardPlayerReducer from "./install_shard_player_reducer";
 import JoinGuildReducer from "./join_guild_reducer";
 import JoinVirtualPlayerLoadTestReducer from "./join_virtual_player_load_test_reducer";
@@ -98,6 +100,7 @@ import RegisterProtocolReducer from "./register_protocol_reducer";
 import RenewShardLeaseReducer from "./renew_shard_lease_reducer";
 import ReportChatMessageReducer from "./report_chat_message_reducer";
 import ReportPlayerReducer from "./report_player_reducer";
+import ReportSocialMessageReducer from "./report_social_message_reducer";
 import RequestDuelReducer from "./request_duel_reducer";
 import ResetPlayerProgressReducer from "./reset_player_progress_reducer";
 import ResumeSessionReducer from "./resume_session_reducer";
@@ -106,6 +109,7 @@ import SavePlayerProgressReducer from "./save_player_progress_reducer";
 import SeedTemporaryGuildReducer from "./seed_temporary_guild_reducer";
 import SendChatMessageReducer from "./send_chat_message_reducer";
 import SendChatReplyReducer from "./send_chat_reply_reducer";
+import SendSocialMessageReducer from "./send_social_message_reducer";
 import SetDeveloperNameTagReducer from "./set_developer_name_tag_reducer";
 import SetDeveloperPresenceReducer from "./set_developer_presence_reducer";
 import SetDisplayNameReducer from "./set_display_name_reducer";
@@ -132,6 +136,7 @@ import UpdateMovementStateReducer from "./update_movement_state_reducer";
 
 // Import all procedure arg schemas
 import * as GetGuildHubProcedure from "./get_guild_hub_procedure";
+import * as GetSocialHubProcedure from "./get_social_hub_procedure";
 import * as SynchronizeMapShardProcedure from "./synchronize_map_shard_procedure";
 
 // Import all table schema definitions
@@ -172,6 +177,8 @@ import MyGemWalletRow from "./my_gem_wallet_table";
 import MyInventoryCapacityRow from "./my_inventory_capacity_table";
 import MyMapShardRouteRow from "./my_map_shard_route_table";
 import MyPlayerBlocksRow from "./my_player_blocks_table";
+import MySocialHubRow from "./my_social_hub_table";
+import MySocialMessagesRow from "./my_social_messages_table";
 import MyUpgradeBenchRow from "./my_upgrade_bench_table";
 import PlayerRow from "./player_table";
 import PlayerAccountStatusRow from "./player_account_status_table";
@@ -870,6 +877,20 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyPlayerBlocksRow),
+  mySocialHub: __table({
+    name: 'my_social_hub',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MySocialHubRow),
+  mySocialMessages: __table({
+    name: 'my_social_messages',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MySocialMessagesRow),
   myUpgradeBench: __table({
     name: 'my_upgrade_bench',
     indexes: [
@@ -927,6 +948,8 @@ const reducersSchema = __reducers(
   __reducerSchema("dev_update_player_save", DevUpdatePlayerSaveReducer),
   __reducerSchema("enter_regional_world", EnterRegionalWorldReducer),
   __reducerSchema("enter_world", EnterWorldReducer),
+  __reducerSchema("friend_action", FriendActionReducer),
+  __reducerSchema("guild_invite_action", GuildInviteActionReducer),
   __reducerSchema("install_shard_player", InstallShardPlayerReducer),
   __reducerSchema("join_guild", JoinGuildReducer),
   __reducerSchema("join_virtual_player_load_test", JoinVirtualPlayerLoadTestReducer),
@@ -945,6 +968,7 @@ const reducersSchema = __reducers(
   __reducerSchema("renew_shard_lease", RenewShardLeaseReducer),
   __reducerSchema("report_chat_message", ReportChatMessageReducer),
   __reducerSchema("report_player", ReportPlayerReducer),
+  __reducerSchema("report_social_message", ReportSocialMessageReducer),
   __reducerSchema("request_duel", RequestDuelReducer),
   __reducerSchema("reset_player_progress", ResetPlayerProgressReducer),
   __reducerSchema("resume_session", ResumeSessionReducer),
@@ -953,6 +977,7 @@ const reducersSchema = __reducers(
   __reducerSchema("seed_temporary_guild", SeedTemporaryGuildReducer),
   __reducerSchema("send_chat_message", SendChatMessageReducer),
   __reducerSchema("send_chat_reply", SendChatReplyReducer),
+  __reducerSchema("send_social_message", SendSocialMessageReducer),
   __reducerSchema("set_developer_name_tag", SetDeveloperNameTagReducer),
   __reducerSchema("set_developer_presence", SetDeveloperPresenceReducer),
   __reducerSchema("set_display_name", SetDisplayNameReducer),
@@ -981,6 +1006,7 @@ const reducersSchema = __reducers(
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */
 const proceduresSchema = __procedures(
   __procedureSchema("get_guild_hub", GetGuildHubProcedure.params, GetGuildHubProcedure.returnType),
+  __procedureSchema("get_social_hub", GetSocialHubProcedure.params, GetSocialHubProcedure.returnType),
   __procedureSchema("synchronize_map_shard", SynchronizeMapShardProcedure.params, SynchronizeMapShardProcedure.returnType),
 );
 

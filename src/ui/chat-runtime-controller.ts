@@ -49,6 +49,10 @@ export function createChatRuntimeController(options: Pick<ChatOptions, "getCoop"
 
   function init() {
     chat.init();
+    window.addEventListener("wildwood:open-private-chat", (event) => {
+      const detail = (event as CustomEvent<{ username?: unknown; identity?: unknown }>).detail;
+      if (typeof detail?.username === "string") chat.openPrivate(detail.username, typeof detail.identity === "string" ? detail.identity : undefined);
+    });
     window.setInterval(chat.refresh, 1_000);
   }
 

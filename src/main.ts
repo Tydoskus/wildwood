@@ -1299,6 +1299,7 @@ import {
   guildPanel = createGuildPanel({
     replayAssets: { player: playerAppearanceAssets, prepare: () => assets.ensureMapAssets("home_exterior"), trees: assets.treeSpritesheet, treeBounds: assets.treeSpriteBounds },
     api: () => coop?.guild,
+    socialApi: () => coop?.social,
     sessionKey: () => `${coop?.localIdentity?.() ?? ""}:${coop?.sessionGeneration?.() ?? 0}:${coop?.isConnected?.() ?? false}`,
     beforeOpen: () => {
       playerInput.clear();
@@ -1596,6 +1597,7 @@ import {
     resetPresentationState: presentation.reset,
     render: (interpolationAlpha) => presentation.render(interpolationAlpha, () => {
       upgradeBenchController.tick();
+      guildPanel?.tick();
       if (activeDuel() || isArenaScene()) void assets.ensureDuelAssets();
       if (!guildPanel?.isOpen()) renderController.render();
     }), recordPerformance: performanceMonitor.record,

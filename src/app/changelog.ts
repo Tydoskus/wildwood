@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.641": [
+    "Added persistent friends with username requests, an invitation inbox, and quick private-message access.",
+    "Guild leaders can invite players by username or from their friends list; recipients can accept or decline invitations.",
+    "Chat now has Public, Guild, and Private tabs, with separate conversations, replies, and unread indicators.",
+    "Guild and private messages are restricted to their participants, with blocking and report controls.",
+  ],
   "0.640": [
     "Guild replays now take place on a grass battlefield with forest scenery.",
     "Fixed stretched, pixelated guild replay rendering and restored full character equipment, continuous aiming, and native arrow and stone projectiles.",
@@ -1572,6 +1578,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.641": "2026-09-06",
   "0.640": "2026-09-06",
   "0.639": "2026-09-06",
   "0.638": "2026-09-06",

@@ -87,3 +87,9 @@ Research completion is schedule-driven and idempotently repaired by minute maint
 `player_research.frontier_mastery` remains only as a zeroed physical migration column because deleting it would require destructive database replacement. Tier II is absent from shared research IDs, client bindings consumption, UI, prerequisites, and completion logic; never reuse that column.
 
 See `docs/realtime-data-flow.md` for full data-lane and reconnect diagrams.
+
+## Friends and private chat
+
+Friends, friend requests, guild invitations, social messages, and report evidence use private backing tables on the root database. `my_social_hub` exposes only the caller's contacts and invitations; `my_social_messages` exposes their DMs and current guild conversation. Clients subscribe to these views separately from public chat, and never send social messages to world speech bubbles. Guild membership and block changes revoke view rows immediately. DM sends require accepted friendship; guild invitations require current leadership and use the existing membership capacity/cooldown rules.
+
+Social history retains 100 messages per conversation and at most 500 DM rows per account. Private reports feed the existing moderation inbox. Account linking migrates relationships and message participants; deletion removes messages and quoted content. Run `npx tsx scripts/social-smoke-local.ts` against the isolated local `wildstat-social-test` database after publishing the module there to verify real subscription isolation, invitation ownership, cross-channel reply rejection, and leave/block revocation.

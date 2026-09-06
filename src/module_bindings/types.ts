@@ -855,6 +855,12 @@ export type MyMapShardRoute = __Infer<typeof MyMapShardRoute>;
 export const MyPlayerBlocks = __t.object("MyPlayerBlocks", {});
 export type MyPlayerBlocks = __Infer<typeof MyPlayerBlocks>;
 
+export const MySocialHub = __t.object("MySocialHub", {});
+export type MySocialHub = __Infer<typeof MySocialHub>;
+
+export const MySocialMessages = __t.object("MySocialMessages", {});
+export type MySocialMessages = __Infer<typeof MySocialMessages>;
+
 export const MyUpgradeBench = __t.object("MyUpgradeBench", {});
 export type MyUpgradeBench = __Infer<typeof MyUpgradeBench>;
 
@@ -1421,6 +1427,67 @@ export const ShardTransferBarrier = __t.object("ShardTransferBarrier", {
   expiresAt: __t.u64(),
 });
 export type ShardTransferBarrier = __Infer<typeof ShardTransferBarrier>;
+
+export const SocialFriend = __t.object("SocialFriend", {
+  key: __t.string(),
+  owner: __t.identity(),
+  peer: __t.identity(),
+});
+export type SocialFriend = __Infer<typeof SocialFriend>;
+
+export const SocialGuildInvite = __t.object("SocialGuildInvite", {
+  id: __t.u64(),
+  guildId: __t.u64(),
+  sender: __t.identity(),
+  recipient: __t.identity(),
+});
+export type SocialGuildInvite = __Infer<typeof SocialGuildInvite>;
+
+export const SocialHubPayload = __t.object("SocialHubPayload", {
+  identity: __t.identity(),
+  snapshot: __t.string(),
+});
+export type SocialHubPayload = __Infer<typeof SocialHubPayload>;
+
+export const SocialMessage = __t.object("SocialMessage", {
+  id: __t.u64(),
+  channel: __t.string(),
+  conversation: __t.string(),
+  guildId: __t.u64(),
+  sender: __t.identity(),
+  recipient: __t.identity(),
+  recipientName: __t.string(),
+  senderName: __t.string(),
+  senderGender: __t.u8(),
+  powerLevel: __t.f64(),
+  senderIsGuest: __t.bool(),
+  message: __t.string(),
+  moderated: __t.bool(),
+  sentAt: __t.timestamp(),
+  replySender: __t.identity(),
+  replyToMessageId: __t.u64(),
+  replyToSenderName: __t.string(),
+  replyToMessage: __t.string(),
+});
+export type SocialMessage = __Infer<typeof SocialMessage>;
+
+export const SocialReport = __t.object("SocialReport", {
+  key: __t.string(),
+  reporter: __t.identity(),
+  accused: __t.identity(),
+  messageId: __t.u64(),
+  message: __t.string(),
+  reason: __t.string(),
+  reportedAt: __t.timestamp(),
+});
+export type SocialReport = __Infer<typeof SocialReport>;
+
+export const SocialRequest = __t.object("SocialRequest", {
+  id: __t.u64(),
+  sender: __t.identity(),
+  recipient: __t.identity(),
+});
+export type SocialRequest = __Infer<typeof SocialRequest>;
 
 export const SpiderAttackWindow = __t.object("SpiderAttackWindow", {
   identity: __t.identity(),

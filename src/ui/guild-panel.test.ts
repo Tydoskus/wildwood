@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseHTML } from "linkedom";
 import { createGuildPanel } from "./guild-panel";
+import type { SocialApi } from "../coop/services/social-service";
+import type { SocialSnapshot } from "../../shared/social";
 import type { GuildApi } from "../coop/services/guild-service";
 import { resolveGuildBattle, type GuildSnapshot } from "../../shared/guilds";
 
@@ -13,12 +15,12 @@ const fixture = (): GuildSnapshot => ({
 });
 const disposals: (() => void)[] = [];
 afterEach(() => { disposals.splice(0).forEach(dispose => dispose()); vi.useRealTimers(); });
-function setup(snapshot = fixture()) {
+function setup(snapshot = fixture(), socialApi?: SocialApi) {
   const { document } = parseHTML('<html><body><button id="guildBtn">Guilds</button></body></html>');
   const api = { cancel: vi.fn(), loadGuild: vi.fn(async () => snapshot), guildAction: vi.fn(async () => {}) } satisfies GuildApi;
   let session = "a";
   const onClose = vi.fn();
-  const panel = createGuildPanel({ document: document as unknown as Document, api: () => api, sessionKey: () => session, beforeOpen: vi.fn(), onClose });
+  const panel = createGuildPanel({ document: document as unknown as Document, api: () => api, socialApi: () => socialApi, sessionKey: () => session, beforeOpen: vi.fn(), onClose });
   disposals.push(panel.dispose);
   const find = (label: string) => [...document.querySelectorAll("#guildOverlay button")].find(el => el.textContent === label || el.getAttribute("aria-label") === label) as HTMLButtonElement | undefined;
   const click = (label: string) => { const target = find(label); expect(target, label).toBeTruthy(); expect(target!.disabled, `${label} disabled`).toBe(false); target!.click(); };
@@ -29,7 +31,7 @@ async function settled() { for (let i = 0; i < 10; i++) await Promise.resolve();
 describe("guild panel", () => {
   it("keeps navigation focused and reuses the loaded snapshot across sections", async () => {
     const h = setup(); h.panel.open(); await settled();
-    expect([...h.document.querySelectorAll(".guild-tabs button")].map(node => node.textContent)).toEqual(["Guild", "Battles", "Rankings"]);
+    expect([...h.document.querySelectorAll(".guild-tabs button")].map(node => node.textContent)).toEqual(["Guild", "Battles", "Rankings", "Friends"]);
     expect(h.document.querySelectorAll(".guild-champion")).toHaveLength(0);
     expect(h.find("Transfer leadership")).toBeUndefined();
     expect(h.find("Remove member")).toBeUndefined();
@@ -139,5 +141,28 @@ describe("guild panel", () => {
     h.click("Refresh"); await settled();
     expect(h.find("Refresh")?.disabled).toBe(false);
     expect(h.api.guildAction).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe("live friends inbox", () => {
+  it("updates from the subscription cache without requesting another snapshot", async () => {
+    let social: SocialSnapshot = { identity: "a", signedIn: true, friends: [], incomingRequests: [], outgoingRequests: [], guildInvitations: [], outgoingGuildInvitations: [], currentGuild: null };
+    let revision = 1;
+    const api = { loadSocial: vi.fn(async () => social), socialAction: vi.fn(async () => {}), revision: () => revision, snapshot: () => social } as unknown as SocialApi;
+    const h = setup(fixture(), api); h.panel.open("friends"); await settled(); h.panel.tick();
+    social = { ...social, incomingRequests: [{ id: "9", identity: "b", name: "Visitor" }] }; revision++;
+    h.panel.tick(); expect(h.document.body.textContent).toContain("Visitor");
+    expect(api.loadSocial).toHaveBeenCalledTimes(1);
+    h.changeSession(); h.panel.tick(); expect(h.panel.isOpen()).toBe(false);
+  });
+  it("ignores an action completing after the account changes", async () => {
+    const social: SocialSnapshot = { identity: "a", signedIn: true, friends: [], incomingRequests: [{ id: "9", identity: "b", name: "Visitor" }], outgoingRequests: [], guildInvitations: [], outgoingGuildInvitations: [], currentGuild: null };
+    let finish!: () => void;
+    const api = { loadSocial: vi.fn(async () => social), socialAction: vi.fn(() => new Promise<void>(resolve => { finish = resolve; })), revision: () => 1, snapshot: () => social } as unknown as SocialApi;
+    const h = setup(fixture(), api); h.panel.open("friends"); await settled(); h.click("Accept");
+    h.changeSession(); h.panel.tick(); finish(); await settled();
+    expect(h.panel.isOpen()).toBe(false); expect(api.loadSocial).toHaveBeenCalledTimes(1);
+    expect(h.api.loadGuild).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,5 +1,5 @@
 import { accountStorageKeys } from "./coop/services/account-storage-keys";
-import { createGuildService } from "./coop/services/guild-service";
+import { createCommunityServices } from "./coop/services/community-services";
 import { createConnectionStatusApi } from "./coop/services/connection-status-api";
 import { createMapShardClient } from "./coop/services/map-shard-client";
 import "./ui/game-shell";
@@ -519,8 +519,9 @@ const duelService = createDuelService({
   preparePosition: () => mapShardClient.prepareDuelPosition(presenceService.localState()),
   storage: localStorage,
 });
-const guildService = createGuildService({
-  reducers: reducerPort, localIdentity: () => localIdentity,
+const { guildService, socialService } = createCommunityServices({
+  reducers: reducerPort, localIdentity: () => localIdentity, notify: onChange,
+  rememberSender: profileDirectory.rememberChatSender,
   drainPendingProgress: progressionService.drainPendingProgress,
 });
 const baseSubscriptionHandlers = createBaseSubscriptionHandlers({
@@ -530,6 +531,7 @@ const baseSubscriptionHandlers = createBaseSubscriptionHandlers({
   developer: developerService.tables,
   boss: bossService.tables,
   chat: chatService.tables,
+  social: socialService.tables,
   duel: duelService.tables,
 });
 
@@ -552,6 +554,7 @@ function clearRealtimeCaches() {
   chatService.resetSession();
   duelService.resetSession();
   guildService.resetSession();
+  socialService.resetSession();
   bossService.resetSession();
 }
 
@@ -936,6 +939,7 @@ export const wildstatCoop = {
   ...chatService.api,
   ...duelService.api,
   guild: guildService.api,
+  social: socialService.api,
   subscriptionCount() {
     if (!connection?.isActive) return 0;
     return 1 + presenceService.activeSubscriptionCount() + playerProfileService.activeSubscriptionCount() + remoteCombatStatsService.activeSubscriptionCount() + duelService.activeReplayLoadCount();
