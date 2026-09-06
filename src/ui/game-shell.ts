@@ -105,6 +105,7 @@ const afterUpdateGateShell = String.raw`
         </div>
         <div id="playerProfilePower"><span class="power-label">Power:</span> <span class="power-value">0</span></div>
       </div>
+      <button id="settingsBtn" class="profile-settings-button" type="button" aria-label="Open settings" aria-expanded="false" aria-controls="settingsPanel" title="Settings" hidden><img src="assets/wildstat/icons/Icon_Settings.png" alt="" aria-hidden="true"></button>
     </header>
     <div id="profileGenderSetting" class="profile-gender-setting" hidden>
       <span class="profile-gender-label">GENDER</span>
@@ -349,7 +350,6 @@ export function installGameShell(doc: Document = document) {
   const toolbar = doc.getElementById("toolbar");
   for (const [id, label, icon] of [
     ["guildBtn", "Guilds", "Icon_Guild.svg"],
-    ["friendsBtn", "Friends", "Icon_Misc_ETC_Chat01.png"],
   ]) {
     if (!toolbar || doc.getElementById(id)) continue;
     const button = doc.createElement("button");
@@ -380,6 +380,9 @@ export function installGameShell(doc: Document = document) {
         <small>Report bugs with /bug in chat. For player concerns, use Report or Block on their profile.</small>
       </div>`);
   }
+  // Settings opens above the profile, outside the toolbar’s lower stacking context.
+  const settingsPanel = doc.getElementById("settingsPanel");
+  if (settingsPanel && settingsPanel.parentElement !== doc.body) doc.body.append(settingsPanel);
   installSettingsTabs(doc);
   const start = doc.getElementById("start");
   if (!start) throw new Error("WildStat startup shell is missing #start");

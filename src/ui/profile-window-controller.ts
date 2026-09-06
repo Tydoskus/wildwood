@@ -19,7 +19,7 @@ export function createProfileWindowController(elements: {
   close: HTMLElement; editName: HTMLButtonElement; nameEditor: HTMLElement; nameForm: HTMLFormElement; nameInput: HTMLInputElement; saveName: HTMLButtonElement;
   skinEdit: HTMLButtonElement; skinChoices: HTMLDivElement; preview: HTMLElement; equipmentHead: HTMLButtonElement; equipmentChest: HTMLButtonElement; equipmentFeet: HTMLButtonElement; equipmentRightHand: HTMLButtonElement; previousSprite: HTMLElement; nextSprite: HTMLElement; genderSetting: HTMLElement; genderValue: HTMLElement; genderEdit: HTMLButtonElement; genderChoices: HTMLElement;
   duel: HTMLButtonElement;
-  safetyActions: HTMLElement; report: HTMLButtonElement; block: HTMLButtonElement;
+  settings?: HTMLElement; safetyActions: HTMLElement; report: HTMLButtonElement; block: HTMLButtonElement;
 }, api: {
   localIdentity: () => string | undefined; localDisplayName: () => string | undefined; profileIcon: (identity?: string) => number; paintIcon: (element: HTMLElement, index: number) => void;
   renderName: (element: HTMLElement, identity: string, name: string, gender?: PlayerGender) => void; isGuest: (identity: string) => boolean; isOnline: (identity: string) => boolean; presenceText: (profile: Profile, online: boolean) => string;
@@ -146,6 +146,7 @@ export function createProfileWindowController(elements: {
     api.paintIcon(elements.icon, api.profileIcon(profile.identity));
     elements.icon.classList.toggle("is-editable", own); elements.icon.disabled = !own; elements.icon.setAttribute("aria-label", own ? "Choose profile icon" : `${profile.name}'s profile icon`);
     elements.editName.hidden = !own;
+    if (elements.settings) elements.settings.hidden = !own;
     elements.genderSetting.hidden = !own;
     if (own) updateGenderChoices(profile.gender);
     else closeGenderChoices();
@@ -170,6 +171,7 @@ export function createProfileWindowController(elements: {
     elements.window.hidden = false; api.renderName(elements.name, nextIdentity, fallbackName, api.playerGender(nextIdentity)); elements.guest.hidden = !api.isGuest(nextIdentity);
     const online = api.isOnline(nextIdentity); elements.presence.textContent = online ? "Online" : "CHECKING LAST SEEN"; elements.presence.classList.toggle("is-online", online);
     api.paintIcon(elements.icon, api.profileIcon(nextIdentity)); const own = nextIdentity === api.localIdentity(); elements.icon.classList.toggle("is-editable", own); elements.icon.disabled = !own; elements.editName.hidden = !own; elements.genderSetting.hidden = !own; closeGenderChoices(); if (own) updateGenderChoices(api.playerGender(nextIdentity));
+    if (elements.settings) elements.settings.hidden = !own;
     renderEquipment(null); updatePreview(nextIdentity, own); renderPower("—"); elements.loading.hidden = false; elements.overviewPanel.hidden = true; elements.statsPanel.hidden = true; selectTab("stats"); elements.statsPanel.hidden = true;
     const cached = api.profile(nextIdentity); if (cached) { render(cached); return; }
     const loaded = await api.loadProfile(nextIdentity); if (nextIdentity !== identity) return; if (loaded) render(loaded); else elements.loading.textContent = "PLAYER DATA UNAVAILABLE";

@@ -62,7 +62,12 @@ export function createChatChannelPicker(onChange: (channel: ChatChannel, usernam
     event.preventDefault();
     if (username.value.trim()) select("private", username.value.trim());
   });
-  picker.append(username, open, contacts);
+  const manageFriends = document.createElement("button");
+  manageFriends.type = "button";
+  manageFriends.textContent = "Manage friends";
+  manageFriends.className = "chat-manage-friends";
+  manageFriends.addEventListener("click", () => window.dispatchEvent(new CustomEvent("wildwood:open-friends")));
+  picker.append(username, open, contacts, manageFriends);
   const status = document.createElement("div");
   status.className = "chat-channel-status";
   status.setAttribute("aria-live", "polite");

@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.642": [
+    "Simplified the toolbar to Guilds, Leaderboard, Home, Inventory, and Shop, in that order.",
+    "Friends management is available inside Guilds and private Chat instead of a separate toolbar button.",
+    "Moved Settings to the upper-right corner of your Player Hub profile, with Back and Escape returning to the profile.",
+  ],
   "0.641": [
     "Added persistent friends with username requests, an invitation inbox, and quick private-message access.",
     "Guild leaders can invite players by username or from their friends list; recipients can accept or decline invitations.",
@@ -1578,6 +1583,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.642": "2026-09-06",
   "0.641": "2026-09-06",
   "0.640": "2026-09-06",
   "0.639": "2026-09-06",

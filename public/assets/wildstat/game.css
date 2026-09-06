@@ -2491,6 +2491,9 @@
   }
   #playerProfile { padding: 5px; }
   .modal.player-profile-modal { width: var(--game-window-width); max-height: calc(100vh - 10px); max-height: calc(100dvh - 10px); padding: 8px; overflow-y: auto; overscroll-behavior: contain; text-align: left; transform: none; }
+  .profile-settings-button { flex: 0 0 44px; align-self: flex-start; display: grid; place-items: center; width: 44px; height: 44px; margin: 0; padding: 7px; border: 1px solid #68746c; border-radius: 7px; background: #222624; }
+  .profile-settings-button[hidden] { display: none; }
+  .profile-settings-button img { width: 28px; height: 28px; object-fit: contain; }
   .player-profile-header { display: flex; align-items: center; gap: 10px; }
   .player-profile-title-row { min-width: 0; flex: 1; display: flex; align-items: center; gap: 10px; }
   .player-profile-identity { min-width: 0; flex: 1; }
@@ -3276,3 +3279,5 @@
 .chat-private-picker button { min-height: 40px; margin: 0; font-size: 12px; }
 .chat-private-picker select { grid-column: 1 / -1; width: 100%; }
 .chat-channel-status { padding: 5px 2px 0; color: #d7d2ca; font-size: 11px; line-height: 1.3; }
+
+.chat-manage-friends { grid-column: 1 / -1; }

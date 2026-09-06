@@ -148,6 +148,7 @@ export function createGameActionsController(dependencies: GameActionsDependencie
   }
 
   function handleInputEscape() {
+    if (!elements.settingsPanel.hidden) { closeSettings(); elements.settingsButton.focus(); return true; }
     const windows = dependencies.escapeWindows;
     if (windows.isRespawnAdPromptOpen()) { windows.closeRespawnAdPrompt(); return true; }
     if (windows.isMapGuideOpen()) { windows.closeMapGuide(); return true; }

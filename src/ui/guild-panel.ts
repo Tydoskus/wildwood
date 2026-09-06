@@ -277,12 +277,6 @@ export function createGuildPanel(options: Options) {
     if (!api || busy || api.revision() === socialRevision) return;
     socialRevision = api.revision();
     const next = api.snapshot();
-    const inbox = next.incomingRequests.length + next.guildInvitations.length;
-    const launch = doc.getElementById("friendsBtn");
-    launch?.setAttribute("aria-label", inbox ? `Open friends, ${inbox} pending invitations or requests` : "Open friends");
-    launch?.classList.toggle("social-has-inbox", inbox > 0);
-    const label = launch?.querySelector(".toolbar-label");
-    if (label) label.textContent = inbox ? `Friends (${inbox})` : "Friends";
     if (root.hidden || next === social) return;
     social = next;
     if (section === "friends" || section === "guild") render();
@@ -312,7 +306,8 @@ export function createGuildPanel(options: Options) {
     const closeButton = button("×", close, "icon"); closeButton.disabled = false; closeButton.setAttribute("aria-label", section === "friends" ? "Close friends" : "Close guilds"); header.append(closeButton); dialog.append(header);
     const nav = element("nav", undefined, "guild-tabs"); nav.setAttribute("aria-label", "Guild sections");
     for (const [key, label] of [["guild", "Guild"], ["battles", "Battles"], ["rankings", "Rankings"], ["friends", "Friends"]] as const) {
-      const tab = button(label, () => switchSection(key), "tab", false, `tab-${key}`); tab.setAttribute("aria-current", key === section ? "page" : "false"); nav.append(tab);
+      const inbox = social ? social.incomingRequests.length + social.guildInvitations.length : 0;
+      const tab = button(key === "friends" && inbox ? `Friends (${inbox})` : label, () => switchSection(key), "tab", false, `tab-${key}`); tab.setAttribute("aria-current", key === section ? "page" : "false"); nav.append(tab);
     } dialog.append(nav);
     const body = element("div", undefined, "guild-content"); body.setAttribute("aria-busy", String(busy));
     if (error || notice) { const status = element("p", error || notice, error ? "guild-status guild-status--error" : "guild-status"); status.setAttribute("role", error ? "alert" : "status"); body.append(status); }
@@ -347,7 +342,6 @@ export function createGuildPanel(options: Options) {
     replay?.dispose(); replay = undefined; replayId = null;
     serial++; root.hidden = true; busy = false; options.api()?.cancel(); clearInterval(timer); timer = undefined;
     confirmation = null; doc.getElementById("guildBtn")?.setAttribute("aria-expanded", "false");
-    doc.getElementById("friendsBtn")?.setAttribute("aria-expanded", "false");
     options.onClose(); previousFocus?.focus();
   }
   function open(next: Section = "guild") {
@@ -356,7 +350,6 @@ export function createGuildPanel(options: Options) {
     section = next; session = options.sessionKey(); page = "0"; busy = false; snapshot = null; social = null; drafts.friend = ""; drafts.invite = "";
     error = ""; notice = ""; creating = false; draftName = ""; managedMember = null;
     root.hidden = false; doc.getElementById("guildBtn")?.setAttribute("aria-expanded", "true");
-    doc.getElementById("friendsBtn")?.setAttribute("aria-expanded", "true");
     render(); dialog.focus(); void load();
     // Session safety only: snapshots are fetched on opening, refresh or action.
     timer = setInterval(() => { if (session !== options.sessionKey()) close(); }, 1000);
@@ -375,13 +368,13 @@ export function createGuildPanel(options: Options) {
   }
   const guildClick = () => open();
   const friendsClick = () => open("friends");
-  doc.getElementById("friendsBtn")?.addEventListener("click", friendsClick);
+  doc.defaultView?.addEventListener("wildwood:open-friends", friendsClick);
   doc.addEventListener("keydown", onKey, true);
   root.addEventListener("click", event => { if (event.target === root) close(); });
   doc.getElementById("guildBtn")?.addEventListener("click", guildClick);
   return { open, close, tick, isOpen: () => !root.hidden, dispose() {
+    doc.defaultView?.removeEventListener("wildwood:open-friends", friendsClick);
     close(); root.remove(); doc.removeEventListener("keydown", onKey, true);
-    doc.getElementById("friendsBtn")?.removeEventListener("click", friendsClick);
     doc.getElementById("guildBtn")?.removeEventListener("click", guildClick);
   } };
 }

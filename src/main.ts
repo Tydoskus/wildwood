@@ -223,7 +223,6 @@ import {
     WORLD.h = mapId === "home_exterior" ? HOME_WORLD_SIZE : WORLD_HEIGHT;
     void prepareMapAssets(mapId);
     preloadAdjacentMapAssets(mapId);
-    gameElements.techTreeBtn.querySelector(".toolbar-label")!.textContent = mapId === "home_exterior" ? "Return" : "Home";
     gameElements.techTreeBtn.setAttribute("aria-label", mapId === "home_exterior" ? "Return to enemy map" : "Teleport home");
   }
 
@@ -1237,7 +1236,7 @@ import {
     close: closePlayerProfileBtn, editName: editPlayerNameBtn, nameEditor: profileNameEditorEl, nameForm: profileNameEditorForm, nameInput: profileNameInput, saveName: savePlayerNameBtn,
     skinEdit: profileSkinToneEdit, skinChoices: profileSkinToneControl, preview: profileCharacterPreviewEl, equipmentHead: profileEquippedHeadSlot, equipmentChest: profileEquippedChestSlot, equipmentFeet: profileEquippedFeetSlot, equipmentRightHand: profileEquippedRightHandSlot, previousSprite: previousPlayerSpriteBtn, nextSprite: nextPlayerSpriteBtn, genderSetting: gameElements.profileGenderSetting, genderValue: gameElements.profileGenderValue, genderEdit: gameElements.profileGenderEdit, genderChoices: gameElements.profileGenderChoices,
     duel: profileDuelBtn,
-    safetyActions: gameElements.profileSafetyActions, report: gameElements.profileReportBtn, block: gameElements.profileBlockBtn,
+    settings: settingsBtn, safetyActions: gameElements.profileSafetyActions, report: gameElements.profileReportBtn, block: gameElements.profileBlockBtn,
   }, {
     isBlocked: (identity) => coop?.isPlayerBlocked?.(identity) ?? false,
     openSafety: playerSafety.open,
