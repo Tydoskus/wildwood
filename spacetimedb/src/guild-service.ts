@@ -120,7 +120,7 @@ function validateFighter(fighter: DuelFighter) {
 }
 /** Root wrappers authenticate the controlling session. Every battle snapshots all
  * current members from persisted stats; clients cannot submit fighters/results. */
-export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identity): Omit<GuildFighter, "identity"> }) {
+export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identity): Omit<GuildFighter, "identity">; announceBattle?: (ctx: Ctx, report: GuildSnapshot["battles"][number]) => void }) {
   function team(ctx: Ctx, guildId: bigint): GuildFighter[] {
     const roster = members(ctx, guildId).sort((a, b) => key(a.identity).localeCompare(key(b.identity)));
     if (!roster.length) fail("Both guilds need members to battle.");
@@ -215,6 +215,7 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
           }));
         }
       }
+      deps.announceBattle?.(ctx, report);
     },
     snapshot(ctx: Ctx, afterId = 0n, signedIn = true): GuildSnapshot {
       const member = ctx.db.guildMember.identity.find(ctx.sender);

@@ -136,6 +136,7 @@ import UpdateMovementStateReducer from "./update_movement_state_reducer";
 
 // Import all procedure arg schemas
 import * as GetGuildHubProcedure from "./get_guild_hub_procedure";
+import * as GetGuildReplayProcedure from "./get_guild_replay_procedure";
 import * as GetSocialHubProcedure from "./get_social_hub_procedure";
 import * as SynchronizeMapShardProcedure from "./synchronize_map_shard_procedure";
 
@@ -1006,6 +1007,7 @@ const reducersSchema = __reducers(
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */
 const proceduresSchema = __procedures(
   __procedureSchema("get_guild_hub", GetGuildHubProcedure.params, GetGuildHubProcedure.returnType),
+  __procedureSchema("get_guild_replay", GetGuildReplayProcedure.params, GetGuildReplayProcedure.returnType),
   __procedureSchema("get_social_hub", GetSocialHubProcedure.params, GetSocialHubProcedure.returnType),
   __procedureSchema("synchronize_map_shard", SynchronizeMapShardProcedure.params, SynchronizeMapShardProcedure.returnType),
 );

@@ -112,6 +112,7 @@ export const ChatMessage = __t.object("ChatMessage", {
   replyToMessageId: __t.u64(),
   replyToSenderName: __t.string(),
   replyToMessage: __t.string(),
+  guildReplayKey: __t.string(),
 });
 export type ChatMessage = __Infer<typeof ChatMessage>;
 

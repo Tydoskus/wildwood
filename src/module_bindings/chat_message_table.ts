@@ -24,4 +24,5 @@ export default __t.row({
   replyToMessageId: __t.u64().name("reply_to_message_id"),
   replyToSenderName: __t.string().name("reply_to_sender_name"),
   replyToMessage: __t.string().name("reply_to_message"),
+  guildReplayKey: __t.string().name("guild_replay_key"),
 });

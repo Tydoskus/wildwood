@@ -74,6 +74,7 @@ export type RemotePlayerDeath = {
 };
 
 export type ChatMessage = {
+  guildReplayKey?: string;
   id: bigint;
   sender: string;
   senderName: string;

@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.644": [
+    "Simplified Guilds to match the game’s window styling, tabs, and Back button.",
+    "Guild battle replays now fill the screen above the toolbar, with a single Replay button in battle lists.",
+    "New guild battles appear in world chat with a compact result and a Replay button.",
+  ],
   "0.643": [
     "Capped gameplay and guild replays at 60 FPS, while keeping the 30 FPS idle and Low Performance modes.",
     "Reduced canvas rendering resolution on high-density screens to lower GPU workload and memory use.",
@@ -1588,6 +1593,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.644": "2026-09-08",
   "0.643": "2026-09-06",
   "0.642": "2026-09-06",
   "0.641": "2026-09-06",

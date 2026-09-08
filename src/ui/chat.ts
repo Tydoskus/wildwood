@@ -35,6 +35,7 @@ export function focusChatReplyInput(input: Pick<HTMLTextAreaElement, "focus" | "
 }
 
 type ChatMessage = {
+  guildReplayKey?: string;
   id: bigint;
   sender: string;
   senderName: string;
@@ -303,6 +304,14 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       const time = document.createElement("span");
       time.className = "chat-time";
       time.textContent = formatChatTime(new Date(message.sentAtMs));
+      if (channel === "public" && message.guildReplayKey) {
+        line.classList.add("chat-guild-battle");
+        const result = document.createElement("span"); result.className = "chat-text chat-guild-result"; result.textContent = message.message;
+        const watch = document.createElement("button"); watch.type = "button"; watch.className = "chat-guild-replay"; watch.textContent = "▶ Replay";
+        watch.setAttribute("aria-label", `Watch guild battle: ${message.message}`);
+        watch.addEventListener("click", () => window.dispatchEvent(new CustomEvent("wildwood:open-guild-replay", { detail: { reportKey: message.guildReplayKey } })));
+        line.append(time, result, watch); elements.messages.appendChild(line); continue;
+      }
       const shownMessage = message.moderated ? MODERATED_CHAT_MESSAGE : message.message;
       const text = document.createElement("span");
       text.className = "chat-text";

@@ -648,7 +648,7 @@ import {
     profileIcon: (identity) => coop?.profileIcon?.(identity) ?? 0,
     playerGender: (identity) => coop?.playerGender?.(identity) ?? 0,
     chatRevision: () => coop?.chatRevision?.() ?? -1,
-    chatMessages: () => coop?.chatMessages?.() ?? [],
+    chatMessages: () => (coop?.chatMessages?.() ?? []).filter(message => !message.guildReplayKey),
     outlinedText: outlinedWorldText,
     fillText: fillWorldText,
     roundRect,

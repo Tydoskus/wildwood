@@ -13,7 +13,7 @@ export function createGuildBattleReplay(parent: HTMLElement, battle: GuildBattle
   const status = doc.createElement("p"); status.setAttribute("role", "status"); status.textContent = "Loading battlefield…";
   const canvas = doc.createElement("canvas"); canvas.setAttribute("aria-label", `${names[0]} versus ${names[1]} guild battle replay`);
   const controls = doc.createElement("div"); controls.className = "guild-replay-controls";
-  const back = doc.createElement("button"); back.type = "button"; back.className = "guild-button guild-button--secondary"; back.textContent = "Back to battles";
+  const back = doc.createElement("button"); back.type = "button"; back.className = "window-back-button"; back.textContent = "Back";
   back.onclick = () => onBack?.();
   const play = doc.createElement("button"); play.type = "button"; play.className = "guild-button"; play.textContent = "Pause";
   const restart = doc.createElement("button"); restart.type = "button"; restart.className = "guild-button"; restart.textContent = "Restart";
@@ -21,7 +21,9 @@ export function createGuildBattleReplay(parent: HTMLElement, battle: GuildBattle
   let showNames = battle.attackers.length + battle.defenders.length <= 12;
   const labels = doc.createElement("button"); labels.type = "button"; labels.className = "guild-button"; labels.textContent = "Names"; labels.setAttribute("aria-pressed", String(showNames));
   const seek = doc.createElement("input"); seek.type = "range"; seek.min = "0"; seek.max = String(Math.round((battle.duration + 1.1) * 10) / 10); seek.step = ".1"; seek.value = "0"; seek.setAttribute("aria-label", "Replay time");
-  controls.append(back, play, restart, speed, labels, seek); root.append(title, status, controls, canvas); parent.append(root);
+  controls.append(play, restart, speed, labels, seek);
+  const footer = doc.createElement("footer"); footer.className = "window-back-footer"; footer.append(back);
+  root.append(title, status, controls, canvas, footer); parent.append(root);
   const fighters = [...battle.attackers, ...battle.defenders], split = battle.attackers.length;
   let timeline: GuildReplayTimeline | undefined;
   let renderer: ReturnType<typeof createGuildBattlefieldRenderer> | undefined;

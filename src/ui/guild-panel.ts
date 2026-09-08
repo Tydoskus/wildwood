@@ -3,7 +3,7 @@ import { renderFriends, renderGuildInvites } from "./social-panel-content";
 import type { SocialSnapshot, SocialAction } from "../../shared/social";
 import type { SocialApi } from "../coop/services/social-service";
 import { playerNamePrefix } from "../app/player-name-tags";
-import { GUILD_MEMBER_LIMIT, type GuildSnapshot } from "../../shared/guilds";
+import { GUILD_MEMBER_LIMIT, type GuildSnapshot, type GuildReport } from "../../shared/guilds";
 import type { GuildAction, GuildApi } from "../coop/services/guild-service";
 
 type Section = "guild" | "battles" | "rankings" | "friends";
@@ -35,7 +35,8 @@ export function createGuildPanel(options: Options) {
   dialog.setAttribute("aria-labelledby", "guildTitle"); dialog.tabIndex = -1;
   root.append(dialog); doc.body.append(root);
   let replay: ReturnType<typeof createGuildBattleReplay> | undefined;
-  let replayId: string | null = null;
+  let activeReplay: GuildReport | null = null;
+  let replayFromChat = false;
   let section: Section = "guild";
   let snapshot: GuildSnapshot | null = null;
   let social: SocialSnapshot | null = null;
@@ -112,7 +113,7 @@ export function createGuildPanel(options: Options) {
       if (action?.kind === "create" || action?.kind === "join" || action?.kind === "leave") {
         section = "guild"; creating = false; managedMember = null; draftName = "";
       }
-      if (action?.kind === "challenge") { section = "battles"; replayId = next.battles[0]?.id ?? null; notice = "Battle complete. Watch the replay below."; }
+      if (action?.kind === "challenge") { section = "battles"; notice = "Battle complete."; }
     } catch (failure) {
       if (current(id)) {
         if (saved) {
@@ -133,7 +134,7 @@ export function createGuildPanel(options: Options) {
   const act = (action: GuildAction) => { void load(action); };
   function switchSection(next: Section) {
     const body = dialog.querySelector(".guild-content"); if (body) body.scrollTop = 0;
-    section = next; replayId = null; confirmation = null; managedMember = null; notice = ""; render();
+    section = next; activeReplay = null; confirmation = null; managedMember = null; notice = ""; render();
     dialog.querySelector<HTMLElement>(`[data-focus-key="tab-${next}"]`)?.focus();
   }
   function renderCreate(parent: HTMLElement) {
@@ -200,7 +201,7 @@ export function createGuildPanel(options: Options) {
     const g = snapshot!;
     if (!g.guild) {
       const intro = element("div", undefined, "guild-intro");
-      intro.append(mark("W"), element("h3", "Find your guild"), element("p", "Every member fights. Battle together, even while offline.")); body.append(intro);
+      intro.append(element("h3", "Join a guild")); body.append(intro);
       if (!canJoin()) body.append(element("p", `You can join again ${date(g.joinAfter).toLocaleString()}.`, "guild-callout"));
       heading(body, "Discover guilds"); renderDirectory(body);
       renderCreate(body);
@@ -220,9 +221,9 @@ export function createGuildPanel(options: Options) {
   }
   function renderReports(body: HTMLElement) {
     const g = snapshot!;
-    heading(body, replayId ? "Battle replay" : "Recent battles");
+    heading(body, "Recent battles");
     if (!g.battles.length) { empty(body, "Your first battle awaits", "Battle reports will appear here after a guild challenge."); return; }
-    for (const battle of replayId ? g.battles.filter(battle => battle.id === replayId) : g.battles) {
+    for (const battle of g.battles) {
       const attacking = battle.attackerId === g.guild?.id;
       const result = battle.result.outcome === "DRAW" ? "Draw" : (battle.result.outcome === "VICTORY") === attacking ? "Victory" : "Defeat";
       const report = element("div", undefined, "guild-report");
@@ -231,9 +232,7 @@ export function createGuildPanel(options: Options) {
       info.append(element("strong", `vs ${attacking ? battle.defender : battle.attacker}`), element("span", `${attacking ? "Attack" : "Defense"} · ${date(battle.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`));
       summary.append(element("span", result, `guild-result guild-result--${result.toLowerCase()}`), info); report.append(summary);
       if (battle.result.version === 2) {
-        summary.append(button(replayId === battle.id ? "Back to battles" : "Watch replay", () => { replayId = replayId === battle.id ? null : battle.id; render(); }, "secondary", false, `replay-${battle.id}`));
-        report.append(element("p", `${battle.result.attackers.length} vs ${battle.result.defenders.length} members · ${battle.result.duration.toFixed(1)}s`));
-        if (replayId === battle.id) replay = createGuildBattleReplay(report, battle.result, [battle.attacker, battle.defender], options.replayAssets, () => { replayId = null; render(); });
+        summary.append(button("Replay", () => { activeReplay = battle; replayFromChat = false; render(); }, "secondary", false, `replay-${battle.id}`));
       } else {
         const legacy = element("details", undefined, "guild-disclosure"); legacy.append(element("summary", "Previous battle report"));
         battle.result.rounds.forEach(round => row(legacy, `${round.attacker} vs ${round.defender}`, `${(round.durationMicros / 1_000_000).toFixed(1)}s`));
@@ -245,10 +244,9 @@ export function createGuildPanel(options: Options) {
   function renderBattles(body: HTMLElement) {
     const own = snapshot!.guild;
     if (!own) {
-      const message = empty(body, "Your whole guild. One battle.", "Join a guild to fight alongside every member. Nobody needs to be online together.");
+      const message = empty(body, "Guild battles", "Join a guild to battle.");
       message.append(button("Find a guild", () => switchSection("guild"), "primary")); return;
     }
-    if (replayId && snapshot!.battles.some(battle => battle.id === replayId)) { renderReports(body); return; }
     heading(body, "Challenge a guild", `${own.attacksRemaining} attacks left today · Resets at 00:00 UTC`);
     if (!isLeader()) body.append(element("p", "Your leader starts battles. Everyone can view the results.", "guild-callout"));
     renderDirectory(body, true); renderReports(body);
@@ -277,7 +275,7 @@ export function createGuildPanel(options: Options) {
     if (!api || busy || api.revision() === socialRevision) return;
     socialRevision = api.revision();
     const next = api.snapshot();
-    if (root.hidden || next === social) return;
+    if (root.hidden || next === social || activeReplay) return;
     social = next;
     if (section === "friends" || section === "guild") render();
   }
@@ -291,19 +289,24 @@ export function createGuildPanel(options: Options) {
   }
   function render() {
     replay?.dispose(); replay = undefined;
-    dialog.classList.toggle("guild-window--replay", Boolean(replayId));
+    dialog.classList.toggle("guild-window--replay", Boolean(activeReplay));
     const active = doc.activeElement as HTMLElement | null;
     const focusKey = active?.dataset?.focusKey;
     const wasInside = dialog.contains(active);
     const inviteExpanded = dialog.querySelector<HTMLDetailsElement>(".social-invite")?.open;
     const scroll = dialog.querySelector(".guild-content")?.scrollTop ?? 0;
     dialog.replaceChildren();
+    if (activeReplay?.result.version === 2) {
+      const battle = activeReplay;
+      replay = createGuildBattleReplay(dialog, activeReplay.result, [battle.attacker, battle.defender], options.replayAssets, backFromReplay);
+      dialog.querySelector("h3")!.id = "guildTitle";
+      return;
+    }
     const header = element("header", undefined, "guild-header");
     const title = element("div", undefined, "guild-heading");
-    title.append(element("span", section === "friends" ? "WILDSTAT SOCIAL" : "WILDSTAT GUILDS", "guild-eyebrow"));
     const h2 = element("h2", section === "friends" ? "Friends" : snapshot?.guild?.name ?? "Guilds"); h2.id = "guildTitle"; title.append(h2);
     header.append(title);
-    const closeButton = button("×", close, "icon"); closeButton.disabled = false; closeButton.setAttribute("aria-label", section === "friends" ? "Close friends" : "Close guilds"); header.append(closeButton); dialog.append(header);
+    header.append(button("Refresh", () => void load(), "quiet")); dialog.append(header);
     const nav = element("nav", undefined, "guild-tabs"); nav.setAttribute("aria-label", "Guild sections");
     for (const [key, label] of [["guild", "Guild"], ["battles", "Battles"], ["rankings", "Rankings"], ["friends", "Friends"]] as const) {
       const inbox = social ? social.incomingRequests.length + social.guildInvitations.length : 0;
@@ -328,10 +331,10 @@ export function createGuildPanel(options: Options) {
     dialog.append(body);
     const inviteDisclosure = dialog.querySelector<HTMLDetailsElement>(".social-invite");
     if (inviteDisclosure && inviteExpanded) inviteDisclosure.open = true;
-    body.scrollTop = replayId ? 0 : scroll;
-    const footer = element("footer", undefined, "guild-footer");
-    const state = element("span", busy ? "Updating…" : "Friends · Guilds · Full-guild battles"); state.setAttribute("role", "status");
-    footer.append(state, button("Refresh", () => void load(), "quiet")); dialog.append(footer);
+    body.scrollTop = scroll;
+    const footer = element("footer", undefined, "window-back-footer");
+    const back = button("Back", close); back.className = "window-back-button"; back.disabled = false;
+    footer.append(back); dialog.append(footer);
     if (wasInside && !root.hidden) {
       const restored = [...dialog.querySelectorAll<HTMLElement>("[data-focus-key]")].find(node => node.dataset.focusKey === focusKey && !(node as HTMLButtonElement).disabled);
       (restored ?? dialog).focus();
@@ -339,7 +342,7 @@ export function createGuildPanel(options: Options) {
   }
   function close() {
     if (root.hidden) return;
-    replay?.dispose(); replay = undefined; replayId = null;
+    replay?.dispose(); replay = undefined; activeReplay = null;
     serial++; root.hidden = true; busy = false; options.api()?.cancel(); clearInterval(timer); timer = undefined;
     confirmation = null; doc.getElementById("guildBtn")?.setAttribute("aria-expanded", "false");
     options.onClose(); previousFocus?.focus();
@@ -357,7 +360,7 @@ export function createGuildPanel(options: Options) {
   function onKey(event: KeyboardEvent) {
     if (root.hidden) return;
     event.stopImmediatePropagation();
-    if (event.key === "Escape") { event.preventDefault(); if (confirmation) { confirmation = null; render(); } else if (replayId) { replayId = null; render(); } else close(); return; }
+    if (event.key === "Escape") { event.preventDefault(); if (confirmation) { confirmation = null; render(); } else if (activeReplay) { backFromReplay(); } else close(); return; }
     if (event.key !== "Tab") return;
     const focusable = [...dialog.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), summary")]
       .filter(node => !node.closest("details:not([open])") || node.tagName === "SUMMARY");
@@ -366,6 +369,28 @@ export function createGuildPanel(options: Options) {
     else if (event.shiftKey && (doc.activeElement === first || doc.activeElement === dialog)) { event.preventDefault(); last.focus(); }
     else if (!event.shiftKey && (doc.activeElement === last || doc.activeElement === dialog)) { event.preventDefault(); first.focus(); }
   }
+  function backFromReplay() {
+    activeReplay = null;
+    if (replayFromChat) close(); else render();
+  }
+  const openChatReplay = async (event: Event) => {
+    const reportKey = (event as CustomEvent<{ reportKey?: unknown }>).detail?.reportKey;
+    if (typeof reportKey !== "string" || !/^\d+:\d+$/.test(reportKey)) return;
+    if (!root.hidden) close();
+    previousFocus = doc.activeElement as HTMLElement | null; options.beforeOpen();
+    session = options.sessionKey(); root.hidden = false; snapshot = null; activeReplay = null;
+    replayFromChat = true; error = ""; notice = ""; busy = true; render();
+    const id = ++serial;
+    timer = setInterval(() => { if (session !== options.sessionKey()) close(); }, 1000);
+    try {
+      const report = await options.api()?.loadReplay(reportKey);
+      if (!current(id)) return;
+      if (!report || report.result.version !== 2) throw new Error("This replay is no longer available.");
+      activeReplay = report;
+    } catch (cause) { if (current(id)) error = cause instanceof Error ? cause.message : "Replay unavailable."; }
+    finally { if (current(id)) { busy = false; render(); dialog.focus(); } }
+  };
+  doc.defaultView?.addEventListener("wildwood:open-guild-replay", openChatReplay);
   const guildClick = () => open();
   const friendsClick = () => open("friends");
   doc.defaultView?.addEventListener("wildwood:open-friends", friendsClick);
@@ -373,6 +398,7 @@ export function createGuildPanel(options: Options) {
   root.addEventListener("click", event => { if (event.target === root) close(); });
   doc.getElementById("guildBtn")?.addEventListener("click", guildClick);
   return { open, close, tick, isOpen: () => !root.hidden, dispose() {
+    doc.defaultView?.removeEventListener("wildwood:open-guild-replay", openChatReplay);
     doc.defaultView?.removeEventListener("wildwood:open-friends", friendsClick);
     close(); root.remove(); doc.removeEventListener("keydown", onKey, true);
     doc.getElementById("guildBtn")?.removeEventListener("click", guildClick);

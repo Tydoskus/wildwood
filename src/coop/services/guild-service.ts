@@ -1,5 +1,5 @@
 import { Identity } from "spacetimedb";
-import type { GuildSnapshot } from "../../../shared/guilds";
+import type { GuildSnapshot, GuildReport } from "../../../shared/guilds";
 import type { ReducerPort } from "../ports";
 
 export type GuildAction =
@@ -46,6 +46,12 @@ export function createGuildService(deps: Dependencies) {
   }
   const api = {
     cancel() { generation++; },
+    async loadReplay(reportKey: string): Promise<GuildReport> {
+      const current = request();
+      const result = await current.connection.procedures.getGuildReplay({ reportKey });
+      current.check();
+      return JSON.parse(result) as GuildReport;
+    },
     async loadGuild(afterId = "0"): Promise<GuildSnapshot> {
       const current = request();
       const result = await current.connection.procedures.getGuildHub({ afterId: BigInt(afterId) });

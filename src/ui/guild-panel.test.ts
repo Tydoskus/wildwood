@@ -17,7 +17,7 @@ const disposals: (() => void)[] = [];
 afterEach(() => { disposals.splice(0).forEach(dispose => dispose()); vi.useRealTimers(); });
 function setup(snapshot = fixture(), socialApi?: SocialApi) {
   const { document } = parseHTML('<html><body><button id="guildBtn">Guilds</button></body></html>');
-  const api = { cancel: vi.fn(), loadGuild: vi.fn(async () => snapshot), guildAction: vi.fn(async () => {}) } satisfies GuildApi;
+  const api = { cancel: vi.fn(), loadReplay: vi.fn(async () => snapshot.battles[0]), loadGuild: vi.fn(async () => snapshot), guildAction: vi.fn(async () => {}) } satisfies GuildApi;
   let session = "a";
   const onClose = vi.fn();
   const panel = createGuildPanel({ document: document as unknown as Document, api: () => api, socialApi: () => socialApi, sessionKey: () => session, beforeOpen: vi.fn(), onClose });
@@ -103,8 +103,35 @@ describe("guild panel", () => {
     g.battles = [{ id: "1", attackerId: "2", defenderId: "1", attacker: "Moonlight", defender: "Wildwood", at: "1000000", result: { ...result, version: 2, attackerSurvivors: 3, defenderSurvivors: 0, outcome: "VICTORY" } }];
     const h = setup(g); h.panel.open("battles"); await settled();
     const report = h.document.querySelector(".guild-report-summary")!;
-    expect(report.textContent).toContain("Defeat"); expect(h.find("Watch replay")).toBeDefined();
+    expect(report.textContent).toContain("Defeat"); expect(h.find("Replay")).toBeDefined();
     expect(report.textContent).toContain("vs Moonlight"); expect(report.textContent).toContain("Defense");
+  });
+  it("opens only a full-window replay and uses Back to return to the battle list", async () => {
+    const g = fixture();
+    const member = (name: string) => ({ identity: name, name, fighter: { damage: 4, maxHp: 30, armor: 0, regen: 0, attackRate: 1 } });
+    g.battles = [{ id: "1", attackerId: "1", defenderId: "2", attacker: "Wildwood", defender: "Moonlight", at: "1000000", result: resolveGuildBattle([member("a")], [member("b")]) }];
+    const h = setup(g); h.panel.open("battles"); await settled();
+    expect(h.document.querySelector("canvas")).toBeNull();
+    h.click("Replay"); await settled();
+    expect(h.document.querySelector(".guild-window--replay > .guild-replay canvas")).not.toBeNull();
+    expect(h.document.querySelector(".guild-tabs")).toBeNull();
+    expect(h.document.querySelector(".window-back-footer .window-back-button")?.textContent).toBe("Back");
+    h.click("Back");
+    expect(h.document.querySelector("canvas")).toBeNull();
+    expect(h.find("Replay")).toBeDefined();
+    h.click("Back"); expect(h.panel.isOpen()).toBe(false);
+  });
+  it("loads a world chat replay on demand and discards it when closed while loading", async () => {
+    const h = setup(); let finish!: (report: GuildSnapshot["battles"][number]) => void;
+    h.api.loadReplay.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    const win = h.document.defaultView!;
+    win.dispatchEvent(new win.CustomEvent("wildwood:open-guild-replay", { detail: { reportKey: "1:2" } }));
+    expect(h.panel.isOpen()).toBe(true);
+    expect(h.api.loadReplay).toHaveBeenCalledWith("1:2");
+    expect(h.api.loadGuild).not.toHaveBeenCalled();
+    h.click("Back"); finish(undefined as never); await settled();
+    expect(h.panel.isOpen()).toBe(false);
+    expect(h.document.querySelector("canvas")).toBeNull();
   });
   it("does not poll the database while open and closes when the session changes", async () => {
     vi.useFakeTimers(); const h = setup(); h.panel.open(); await settled();

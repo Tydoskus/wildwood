@@ -21,6 +21,7 @@ type ChatServiceDependencies = {
 };
 
 type ChatRow = {
+  guildReplayKey?: string;
   id: bigint;
   sender: Identity;
   senderName: string;
@@ -71,6 +72,7 @@ export function createChatService(dependencies: ChatServiceDependencies) {
       senderName: row.senderName,
       message: row.message,
       replayId: row.replayId,
+      guildReplayKey: row.guildReplayKey ?? "",
       powerLevel: Number(row.powerLevel) || 0,
       senderGender: normalizePlayerGender(row.senderGender),
       moderated: row.moderated,

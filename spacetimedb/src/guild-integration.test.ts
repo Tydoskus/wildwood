@@ -88,6 +88,26 @@ describe("guild root reducer integration", () => {
     expect(f.snapshot().battles[0].result).toEqual(result);
     expect(f.snapshot().guild?.members[0]).not.toHaveProperty("fighter");
   });
+  it("announces one public replay and lets spectators fetch only an announced retained report", () => {
+    const f = fixture();
+    const ours = f.guild(["1", "2"], "Rose");
+    const theirs = f.guild(["3", "4"], "Moon");
+    f.actor("1"); f.run(server.challengeGuild, { opponentGuildId: theirs });
+    const report = f.snapshot().battles[0];
+    const announcements = [...f.db.chatMessage.iter()].filter(row => row.guildReplayKey);
+    expect(announcements).toHaveLength(1);
+    expect(announcements[0].guildReplayKey).toBe(`${ours}:${report.id}`);
+    expect(announcements[0].message).toContain("[Rose]");
+    expect(announcements[0].message).toContain("[Moon]");
+    const read = (reportKey: string) => (server.getGuildReplay as any)(
+      { withTx: (action: (ctx: typeof f.ctx) => unknown) => f.transaction(() => action(f.ctx)) }, { reportKey },
+    );
+    f.actor("5");
+    expect(JSON.parse(read(announcements[0].guildReplayKey))).toEqual(report);
+    expect(() => read(`${theirs}:${report.id}`)).toThrow("no longer available");
+    f.db.guildBattleReport.key.delete(announcements[0].guildReplayKey);
+    expect(() => read(announcements[0].guildReplayKey)).toThrow("no longer available");
+  });
   it("rolls back battle points, participation and reports if a transactional write fails", () => {
     const f = fixture();
     const ours = f.guild(["1", "2", "3"], "Rose");

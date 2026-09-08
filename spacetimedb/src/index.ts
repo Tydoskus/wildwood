@@ -1226,6 +1226,7 @@ const chatMessage = table(
     replyToMessageId: t.u64().default(0n),
     replyToSenderName: t.string().default(""),
     replyToMessage: t.string().default(""),
+    guildReplayKey: t.string().default(""),
   },
 );
 
@@ -5662,6 +5663,7 @@ function insertChatMessage(
   replayId = 0n,
   moderated = false,
   reply?: { messageId: bigint; senderName: string; message: string },
+  guildReplayKey = "",
 ) {
   const progress = ctx.db.playerProgress.identity.find(sender);
   const profile = ctx.db.playerProfile.identity.find(sender);
@@ -5679,6 +5681,7 @@ function insertChatMessage(
     replyToMessageId: reply?.messageId ?? 0n,
     replyToSenderName: reply?.senderName ?? "",
     replyToMessage: reply?.message ?? "",
+    guildReplayKey,
   });
   trimChatHistory(ctx);
 }
@@ -9782,6 +9785,13 @@ function guildFighterFor(ctx: ModuleReducerCtx, identity: Identity): DuelFighter
 }
 
 const guildService = createGuildService({
+  announceBattle: (ctx, report) => {
+    const result = report.result;
+    const message = result.outcome === "DRAW" ? `[${report.attacker}] × [${report.defender}] · Draw`
+      : result.outcome === "VICTORY" ? `[${report.attacker}] defeated [${report.defender}]`
+      : `[${report.defender}] defeated [${report.attacker}]`;
+    insertChatMessage(ctx, ctx.sender, "GUILDS", message, 0n, false, undefined, `${report.attackerId}:${report.id}`);
+  },
   fighterFor: (ctx, identity) => {
     const profile = ctx.db.playerProfile.identity.find(identity);
     if (!profile) throw new SenderError("Player profile is unavailable.");
@@ -9806,6 +9816,13 @@ export const challengeGuild = spacetimedb.reducer({ opponentGuildId: t.u64() }, 
 export const getGuildHub = spacetimedb.procedure({ afterId: t.u64() }, t.string(), (ctx, { afterId }) => ctx.withTx(tx => {
   requireGuildConnection(tx);
   return JSON.stringify(guildService.snapshot(tx, afterId, hasSpacetimeAuthAccount(tx)));
+}));
+export const getGuildReplay = spacetimedb.procedure({ reportKey: t.string() }, t.string(), (ctx, { reportKey }) => ctx.withTx(tx => {
+  requireGuildConnection(tx);
+  const announced = [...tx.db.chatMessage.iter()].some(row => row.guildReplayKey === reportKey);
+  const report = announced ? tx.db.guildBattleReport.key.find(reportKey) : null;
+  if (!report) throw new SenderError("This replay is no longer available.");
+  return report.payload;
 }));
 
 /** One-shot operator setup for the requested temporary opponent. Never runs on
