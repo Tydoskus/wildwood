@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.646": [
+    "Fixed Voltwarden being invisible in Neon Bastion.",
+    "Replaced reused enemy artwork with six original animated neon sentries.",
+    "Voltwarden now attacks with parallel laser lanes and expanding EMP rings, with matching warning shapes and damage.",
+  ],
   "0.645": [
     "Added Neon Bastion after Duskfall Orchard, with glowing roads, five enemy camps, and six enemy types.",
     "Added Voltwarden, a new multiplayer boss with an animated reactor and electric attacks.",
@@ -1598,6 +1603,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.646": "2026-09-08",
   "0.645": "2026-09-08",
   "0.644": "2026-09-08",
   "0.643": "2026-09-06",

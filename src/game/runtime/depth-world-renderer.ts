@@ -193,12 +193,17 @@ export function createDepthWorldRenderer(options: {
       case "miremaw": options.drawMiremawBoss(); break;
       case "prismshell": options.drawPrismshellBoss(); break;
       case "ironhorn": options.drawIronhornBoss(); break;
+      case "voltwarden": options.drawVoltwardenBoss(); break;
       case "dreadreaper": options.drawDreadreaperBoss(); break;
       case "boots": options.drawBootPickup(); break;
       case "portal": options.drawPortal(); break;
       case "secondaryPortal": options.drawSecondaryPortal(); break;
       case "remotePlayer": options.drawRemotePlayer(layer.entity as RemotePlayer); break;
       case "player": options.drawPlayer(); break;
+      default: {
+        const missingRenderer: never = layer.kind;
+        throw new Error("Missing depth renderer: " + missingRenderer);
+      }
     }
   }
 

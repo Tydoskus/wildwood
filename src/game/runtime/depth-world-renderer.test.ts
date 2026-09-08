@@ -156,7 +156,7 @@ describe("depth world renderer", () => {
 });
 
 
-it.each([["clockwork_ruins", "ironhorn"], ["duskfall_orchard", "dreadreaper"]] as const)("draws only the boss belonging to %s", (mapId, boss) => {
+it.each([["clockwork_ruins", "ironhorn"], ["duskfall_orchard", "dreadreaper"], ["neon_bastion", "voltwarden"]] as const)("draws only the boss belonging to %s", (mapId, boss) => {
   const calls: string[] = [];
   renderer([], calls, mapId).drawDepthSortedWorld([], false);
   expect(calls).toEqual(["player", boss]);
@@ -170,13 +170,13 @@ it("renders a map without portals without queuing a placeholder portal", () => {
 });
 
 
-it.each([MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, "clockwork_ruins", "duskfall_orchard"] as const)(
+it.each([MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, "clockwork_ruins", "duskfall_orchard", "neon_bastion"] as const)(
   "skips off-screen boss rendering on %s while keeping partial sprites visible", (mapId) => {
     const far: string[] = [];
     renderer([], far, mapId, true, [], [], { x: 3000, y: 3000 }).drawDepthSortedWorld([]);
-    expect(far.some((call) => ["miremaw", "prismshell", "ironhorn", "dreadreaper"].includes(call))).toBe(false);
+    expect(far.some((call) => ["miremaw", "prismshell", "ironhorn", "dreadreaper", "voltwarden"].includes(call))).toBe(false);
     const edge: string[] = [];
     renderer([], edge, mapId, true, [], [], { x: 650, y: 120 }).drawDepthSortedWorld([]);
-    expect(edge.some((call) => ["miremaw", "prismshell", "ironhorn", "dreadreaper"].includes(call))).toBe(true);
+    expect(edge.some((call) => ["miremaw", "prismshell", "ironhorn", "dreadreaper", "voltwarden"].includes(call))).toBe(true);
   },
 );

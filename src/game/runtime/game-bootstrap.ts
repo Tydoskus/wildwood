@@ -419,7 +419,7 @@ export function createGameBootstrap() {
     hpLossFlashTimer: 0,
     contactDamageClock: 0,
     attackClock: 3,
-    nextAttack: "shatter",
+    nextAttack: "laserGrid",
     shatter: null,
     encounter: null,
   };

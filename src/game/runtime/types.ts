@@ -169,6 +169,7 @@ export type DreadreaperCrystalBurst = Circle & {
   maxTimer: number;
 };
 export type VoltwardenCrystalBurst = Circle & {
+  hitPlayer?: boolean;
   timer: number;
   maxTimer: number;
 };
@@ -272,7 +273,7 @@ export type DreadreaperBossState = BossStateBase & {
 };
 export type VoltwardenBossState = BossStateBase & {
   bossKind: "voltwarden";
-  nextAttack: "shatter" | "crystalBurst";
+  nextAttack: "laserGrid" | "empPulse";
   shatter: BossCone | null;
 };
 

@@ -1,3 +1,4 @@
+import { NEON_LASER, NEON_EMP, neonLaserHits, neonEmpHits } from "../../../shared/neon-attacks";
 import {
   BOSS_AGGRO_RANGE,
   BOSS_CONE_HALF_ANGLE,
@@ -19,9 +20,9 @@ import {
   MIREMAW_AGGRO_RANGE,
   PRISMSHELL_AGGRO_RANGE, IRONHORN_AGGRO_RANGE, DREADREAPER_AGGRO_RANGE, VOLTWARDEN_AGGRO_RANGE,
   MIREMAW_TONGUE_HALF_ANGLE,
-  PRISMSHELL_SHATTER_HALF_ANGLE, IRONHORN_SHATTER_HALF_ANGLE, DREADREAPER_SHATTER_HALF_ANGLE, VOLTWARDEN_SHATTER_HALF_ANGLE,
+  PRISMSHELL_SHATTER_HALF_ANGLE, IRONHORN_SHATTER_HALF_ANGLE, DREADREAPER_SHATTER_HALF_ANGLE,
   MIREMAW_TONGUE_RANGE,
-  PRISMSHELL_SHATTER_RANGE, IRONHORN_SHATTER_RANGE, DREADREAPER_SHATTER_RANGE, VOLTWARDEN_SHATTER_RANGE,
+  PRISMSHELL_SHATTER_RANGE, IRONHORN_SHATTER_RANGE, DREADREAPER_SHATTER_RANGE,
   TIDEWYRM_AGGRO_RANGE,
   TIDEWYRM_SURGE_HALF_ANGLE,
   TIDEWYRM_SURGE_RANGE,
@@ -160,12 +161,10 @@ const MIREMAW_TONGUE_WINDUP = .68;
 const PRISMSHELL_SHATTER_WINDUP = .85;
 const IRONHORN_SHATTER_WINDUP = 1.05;
 const DREADREAPER_SHATTER_WINDUP = 1.1;
-const VOLTWARDEN_SHATTER_WINDUP = 1.1;
 const MIREMAW_TONGUE_DURATION = .58;
 const PRISMSHELL_SHATTER_DURATION = .8;
 const IRONHORN_SHATTER_DURATION = .8;
 const DREADREAPER_SHATTER_DURATION = .8;
-const VOLTWARDEN_SHATTER_DURATION = .8;
 const MIREMAW_TONGUE_DAMAGE = BOSS_DAMAGE_PROFILES.miremaw.tongue;
 const PRISMSHELL_SHATTER_DAMAGE = BOSS_DAMAGE_PROFILES.prismshell.shatter;
 const IRONHORN_SHATTER_DAMAGE = BOSS_DAMAGE_PROFILES.ironhorn.shatter;
@@ -450,7 +449,7 @@ export function createBossController(options: {
   let prismshellCrystalBurstPatternIndex = 0;
   let ironhornCrystalBurstPatternIndex = 0;
   let dreadreaperCrystalBurstPatternIndex = 0;
-  let voltwardenCrystalBurstPatternIndex = 0;
+
   let bossKnockbackAngle = 0;
   let bossKnockbackTimeRemaining = 0;
   let bossKnockbackDistanceRemaining = 0;
@@ -800,10 +799,10 @@ function resetMiremawBoss() {
     voltwardenBoss.hpLossFlashTimer = 0;
     voltwardenBoss.contactDamageClock = 0;
     voltwardenBoss.attackClock = 3;
-    voltwardenBoss.nextAttack = "shatter";
+    voltwardenBoss.nextAttack = "laserGrid";
     voltwardenBoss.shatter = null;
     voltwardenCrystalBursts.length = 0;
-    voltwardenCrystalBurstPatternIndex = 0;
+
     resetAbilityTimeline("voltwarden");
   }
 
@@ -1811,10 +1810,10 @@ function syncMiremawState() {
       voltwardenWasAlive = shared.alive;
       voltwardenBoss.dead = !shared.alive;
       voltwardenBoss.attackClock = 3;
-      voltwardenBoss.nextAttack = "shatter";
+      voltwardenBoss.nextAttack = "laserGrid";
       voltwardenBoss.shatter = null;
       voltwardenCrystalBursts.length = 0;
-      voltwardenCrystalBurstPatternIndex = 0;
+
       resetAbilityTimeline("voltwarden");
       voltwardenBoss.hpLossFlashFrom = shared.hp;
       voltwardenBoss.hpLossFlashTimer = 0;
@@ -1829,8 +1828,8 @@ function syncMiremawState() {
       voltwardenWasAlive = true;
       voltwardenBoss.dead = false;
       voltwardenBoss.attackClock = 3;
-      voltwardenBoss.nextAttack = "shatter";
-      voltwardenCrystalBurstPatternIndex = 0;
+      voltwardenBoss.nextAttack = "laserGrid";
+
       resetAbilityTimeline("voltwarden");
     } else if (shared.alive && shared.hp < previousHp) {
       voltwardenBoss.hpLossFlashFrom = voltwardenBoss.hpLossFlashTimer > 0
@@ -2791,12 +2790,11 @@ function startMiremawTongue(elapsedSeconds = 0, target: Pick<BossAbilityTarget, 
     const elapsed = Math.max(0, elapsedSeconds);
     voltwardenBoss.shatter = {
       angle: Math.atan2(target.y - voltwardenBoss.y, target.x - voltwardenBoss.x),
-      windup: Math.max(0, VOLTWARDEN_SHATTER_WINDUP - elapsed),
-      timer: Math.max(0, VOLTWARDEN_SHATTER_DURATION - Math.max(0, elapsed - VOLTWARDEN_SHATTER_WINDUP)),
-      duration: VOLTWARDEN_SHATTER_DURATION,
-      hitPlayer: false,
+      windup: Math.max(0, NEON_LASER.windup - elapsed),
+      timer: Math.max(0, NEON_LASER.duration - Math.max(0, elapsed - NEON_LASER.windup)),
+      duration: NEON_LASER.duration, hitPlayer: false,
     };
-    voltwardenBoss.nextAttack = "crystalBurst";
+    voltwardenBoss.nextAttack = "empPulse";
   }
 
 
@@ -2944,35 +2942,16 @@ function startMiremawBogBurst(elapsedSeconds = 0, deterministicPatternIndex?: nu
     dreadreaperBoss.attackClock = 3.1;
     dreadreaperBoss.nextAttack = "shatter";
   }
-  function startVoltwardenCrystalBurst(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    const patternIndex = deterministicPatternIndex ?? voltwardenCrystalBurstPatternIndex;
-    for (let index = 0; index < 10; index += 1) {
-      const { angle, radius } = seededBossHazardPolar({
-        kind: "voltwarden",
-        encounter: voltwardenBoss.encounter,
-        pattern: "crystalBurst",
-        patternIndex,
-        hazardIndex: index,
-        hazardCount: 10,
-        angleJitter: 0,
-        minimumRadius: 240,
-        maximumRadius: 240,
-        centerFirst: false,
-      });
-      const maxTimer = 1.15 + index * .07;
-      const timer = maxTimer - Math.max(0, elapsedSeconds);
-      if (timer <= 0) continue;
-      voltwardenCrystalBursts.push({
-        x: clamp(target.x + Math.cos(angle) * radius, 82, WORLD.w - 82),
-        y: clamp(target.y + Math.sin(angle) * radius, 82, WORLD.h - 82),
-        r: 68,
-        timer,
-        maxTimer,
-      });
+  function startVoltwardenCrystalBurst(elapsedSeconds = 0) {
+    const duration = NEON_EMP.windup + NEON_EMP.duration;
+    for (let index = 0; index < 3; index++) {
+      const elapsed = elapsedSeconds - index * NEON_EMP.stagger;
+      if (elapsed >= duration) continue;
+      voltwardenCrystalBursts.push({ x: voltwardenBoss.x, y: voltwardenBoss.y, r: NEON_EMP.range,
+        timer: duration - elapsed, maxTimer: duration, hitPlayer: false });
     }
-    if (deterministicPatternIndex === undefined) voltwardenCrystalBurstPatternIndex += 1;
-    voltwardenBoss.attackClock = 3.1;
-    voltwardenBoss.nextAttack = "shatter";
+    voltwardenBoss.attackClock = 3.8;
+    voltwardenBoss.nextAttack = "laserGrid";
   }
 
 
@@ -3339,70 +3318,41 @@ function updateMiremawBoss(dt: number) {
     if (voltwardenBoss.dead) return;
     voltwardenBoss.hurt = Math.max(0, voltwardenBoss.hurt - dt);
     const sharedTimeline = syncAbilityTimeline({
-      kind: "voltwarden",
-      encounter: voltwardenBoss.encounter,
+      kind: "voltwarden", encounter: voltwardenBoss.encounter,
       targetForAttack: (attackIndex) => selectAbilityTarget("voltwarden", voltwardenBoss.encounter, attackIndex, voltwardenBoss.x, voltwardenBoss.y, VOLTWARDEN_AGGRO_RANGE),
       clear: () => { voltwardenBoss.shatter = null; voltwardenCrystalBursts.length = 0; },
-      start: (ability, elapsedSeconds, attackIndex, target) => {
-        if (ability === "shatter") startVoltwardenShatter(elapsedSeconds, target);
-        else if (ability === "crystalBurst") startVoltwardenCrystalBurst(elapsedSeconds, attackIndex, target);
+      start: (ability, elapsedSeconds, _attackIndex, target) => {
+        if (ability === "laserGrid") startVoltwardenShatter(elapsedSeconds, target);
+        else if (ability === "empPulse") startVoltwardenCrystalBurst(elapsedSeconds);
       },
-      setAttackClock: (seconds) => { voltwardenBoss.attackClock = seconds; },
+      setAttackClock: seconds => { voltwardenBoss.attackClock = seconds; },
     });
-
-    for (let index = voltwardenCrystalBursts.length - 1; index >= 0; index -= 1) {
-      const burst = voltwardenCrystalBursts[index];
-      burst.timer -= dt;
-      if (burst.timer > 0) continue;
-      const dx = player.x - burst.x;
-      const dy = player.y - burst.y;
-      if (dx * dx + dy * dy <= burst.r * burst.r) damagePlayer(VOLTWARDEN_CRYSTAL_BURST_DAMAGE);
-      spawnBurst(burst.x, burst.y, "#c3a6ff", 44, 270);
-      voltwardenCrystalBursts.splice(index, 1);
-    }
-    if (voltwardenCrystalBursts.length > 0) return;
-
-    if (voltwardenBoss.shatter) {
-      const shatter = voltwardenBoss.shatter;
-      if (shatter.windup > 0) {
-        shatter.windup -= dt;
-        return;
+    for (let index = voltwardenCrystalBursts.length - 1; index >= 0; index--) {
+      const pulse = voltwardenCrystalBursts[index], previous = pulse.maxTimer - pulse.timer;
+      pulse.timer -= dt;
+      if (!pulse.hitPlayer && neonEmpHits(Math.hypot(player.x - pulse.x, player.y - pulse.y), previous, pulse.maxTimer - pulse.timer, player.r)) {
+        pulse.hitPlayer = true; damagePlayer(VOLTWARDEN_CRYSTAL_BURST_DAMAGE);
+        spawnBurst(player.x, player.y, "#ff48dc", 24, 210);
       }
-      const previousProgress = clamp(1 - shatter.timer / shatter.duration, 0, 1);
-      shatter.timer -= dt;
-      const progress = clamp(1 - shatter.timer / shatter.duration, 0, 1);
-      const minRadius = voltwardenBoss.r + (VOLTWARDEN_SHATTER_RANGE - voltwardenBoss.r) * previousProgress;
-      const maxRadius = voltwardenBoss.r + (VOLTWARDEN_SHATTER_RANGE - voltwardenBoss.r) * progress;
-      if (!shatter.hitPlayer) {
-        const dx = player.x - voltwardenBoss.x;
-        const dy = player.y - voltwardenBoss.y;
-        const distance = Math.hypot(dx, dy) || 1;
-        const angleDelta = Math.atan2(
-          Math.sin(Math.atan2(dy, dx) - shatter.angle),
-          Math.cos(Math.atan2(dy, dx) - shatter.angle),
-        );
-        if (distance >= minRadius - 42 && distance <= maxRadius + 42 && Math.abs(angleDelta) <= VOLTWARDEN_SHATTER_HALF_ANGLE) {
-          shatter.hitPlayer = true;
-          damagePlayer(VOLTWARDEN_SHATTER_DAMAGE);
-          queueBossAreaKnockback(voltwardenBoss.x, voltwardenBoss.y, VOLTWARDEN_SHATTER_RANGE, voltwardenBoss.r);
-          spawnBurst(player.x, player.y, "#d5fcff", 38, 280);
+      if (pulse.timer <= 0) voltwardenCrystalBursts.splice(index, 1);
+    }
+    const laser = voltwardenBoss.shatter;
+    if (laser) {
+      const activeDt = Math.max(0, dt - Math.max(0, laser.windup));
+      laser.windup = Math.max(0, laser.windup - dt);
+      if (activeDt > 0) {
+        laser.timer -= activeDt;
+        if (!laser.hitPlayer && neonLaserHits(player.x - voltwardenBoss.x, player.y - voltwardenBoss.y, laser.angle, player.r)) {
+          laser.hitPlayer = true; damagePlayer(VOLTWARDEN_SHATTER_DAMAGE);
+          spawnBurst(player.x, player.y, "#56f7ff", 24, 240);
         }
+        if (laser.timer <= 0) { voltwardenBoss.shatter = null; voltwardenBoss.attackClock = 2.8; }
       }
-      if (shatter.timer <= 0) {
-        voltwardenBoss.shatter = null;
-        voltwardenBoss.attackClock = 2.35;
-      }
-      return;
     }
-
-    if (sharedTimeline) return;
+    if (sharedTimeline || voltwardenBoss.shatter || voltwardenCrystalBursts.length) return;
     voltwardenBoss.attackClock -= dt;
-    if (voltwardenBoss.attackClock > 0) return;
-    const dx = player.x - voltwardenBoss.x;
-    const dy = player.y - voltwardenBoss.y;
-    if (dx * dx + dy * dy > VOLTWARDEN_AGGRO_RANGE * VOLTWARDEN_AGGRO_RANGE) return;
-    if (voltwardenBoss.nextAttack === "shatter") startVoltwardenShatter();
-    else startVoltwardenCrystalBurst();
+    if (voltwardenBoss.attackClock > 0 || Math.hypot(player.x - voltwardenBoss.x, player.y - voltwardenBoss.y) > VOLTWARDEN_AGGRO_RANGE) return;
+    if (voltwardenBoss.nextAttack === "laserGrid") startVoltwardenShatter(); else startVoltwardenCrystalBurst();
   }
 
 

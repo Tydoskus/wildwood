@@ -1,3 +1,4 @@
+import { drawNeonAttacks } from "./neon-attack-art";
 import { drawVoltwardenArt } from "./neon-boss-art";
 import { drawBossAtlasFrame } from "./boss-atlas-drawing";
 import {
@@ -19,9 +20,9 @@ import {
   MIREMAW_SPRITE_Y_OFFSET,
   PRISMSHELL_SPRITE_Y_OFFSET, IRONHORN_SPRITE_Y_OFFSET, DREADREAPER_SPRITE_Y_OFFSET, VOLTWARDEN_SPRITE_Y_OFFSET,
   MIREMAW_TONGUE_HALF_ANGLE,
-  PRISMSHELL_SHATTER_HALF_ANGLE, IRONHORN_SHATTER_HALF_ANGLE, DREADREAPER_SHATTER_HALF_ANGLE, VOLTWARDEN_SHATTER_HALF_ANGLE,
+  PRISMSHELL_SHATTER_HALF_ANGLE, IRONHORN_SHATTER_HALF_ANGLE, DREADREAPER_SHATTER_HALF_ANGLE,
   MIREMAW_TONGUE_RANGE,
-  PRISMSHELL_SHATTER_RANGE, IRONHORN_SHATTER_RANGE, DREADREAPER_SHATTER_RANGE, VOLTWARDEN_SHATTER_RANGE,
+  PRISMSHELL_SHATTER_RANGE, IRONHORN_SHATTER_RANGE, DREADREAPER_SHATTER_RANGE,
   KOI_SHOGUN_SLASH_HALF_ANGLE,
   KOI_SHOGUN_SLASH_RANGE,
   KOI_SHOGUN_SPRITE_GROUND_OFFSET,
@@ -1228,71 +1229,7 @@ export function createBossRenderer(options: {
     }
   }
   function drawVoltwardenTelegraphs() {
-    if (voltwardenBoss.dead) return;
-    const x = screenX(voltwardenBoss.x);
-    const y = screenY(voltwardenBoss.y);
-    const time = options.gameTime();
-    if (voltwardenBoss.shatter) {
-      const shatter = voltwardenBoss.shatter;
-      ctx.save();
-      ctx.fillStyle = shatter.windup > 0 ? "rgba(141,206,109,.17)" : "rgba(210,244,137,.24)";
-      ctx.strokeStyle = shatter.windup > 0 ? "rgba(205,255,162,.96)" : "rgba(231,255,203,.98)";
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.arc(x, y, VOLTWARDEN_SHATTER_RANGE, shatter.angle - VOLTWARDEN_SHATTER_HALF_ANGLE, shatter.angle + VOLTWARDEN_SHATTER_HALF_ANGLE);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      if (shatter.windup <= 0) {
-        const radius = voltwardenBoss.r + (VOLTWARDEN_SHATTER_RANGE - voltwardenBoss.r) * clamp(1 - shatter.timer / shatter.duration, 0, 1);
-        ctx.strokeStyle = "rgba(231,255,203,.98)";
-        ctx.lineWidth = 9;
-        ctx.beginPath();
-        for (let point = 0; point <= 12; point += 1) {
-          const angle = shatter.angle - VOLTWARDEN_SHATTER_HALF_ANGLE + point / 12 * VOLTWARDEN_SHATTER_HALF_ANGLE * 2;
-          const reach = Math.max(voltwardenBoss.r, radius - (point % 2 ? 24 : 0));
-          const pointX = x + Math.cos(angle) * reach;
-          const pointY = y + Math.sin(angle) * reach;
-          if (point === 0) ctx.moveTo(pointX, pointY);
-          else ctx.lineTo(pointX, pointY);
-        }
-        ctx.stroke();
-      }
-      ctx.restore();
-    }
-    for (const burst of options.voltwardenCrystalBursts) {
-      const progress = 1 - clamp(burst.timer / burst.maxTimer, 0, 1);
-      const burstX = screenX(burst.x);
-      const burstY = screenY(burst.y);
-      ctx.save();
-      ctx.fillStyle = `rgba(132,201,104,${.1 + progress * .22})`;
-      ctx.strokeStyle = "rgba(224,255,176,.96)";
-      ctx.lineWidth = 5;
-      ctx.setLineDash([10, 8]);
-      ctx.lineDashOffset = -time * 44;
-      ctx.beginPath();
-      ctx.arc(burstX, burstY, burst.r, 0, TAU);
-      ctx.fill();
-      ctx.stroke();
-      ctx.setLineDash([]);
-      for (let shard = 0; shard < 6; shard += 1) {
-        const angle = shard * TAU / 6 - Math.PI / 2;
-        const radius = burst.r * (.24 + progress * .32);
-        const shardX = burstX + Math.cos(angle) * radius;
-        const shardY = burstY + Math.sin(angle) * radius;
-        const length = 7 + progress * 12;
-        ctx.fillStyle = shard % 2 ? "rgba(179,235,116,.92)" : "rgba(240,175,91,.92)";
-        ctx.beginPath();
-        ctx.moveTo(shardX + Math.cos(angle) * length, shardY + Math.sin(angle) * length);
-        ctx.lineTo(shardX - Math.sin(angle) * 5, shardY + Math.cos(angle) * 5);
-        ctx.lineTo(shardX - Math.cos(angle) * length, shardY - Math.sin(angle) * length);
-        ctx.lineTo(shardX + Math.sin(angle) * 5, shardY - Math.cos(angle) * 5);
-        ctx.closePath();
-        ctx.fill();
-      }
-      ctx.restore();
-    }
+    if (!voltwardenBoss.dead) drawNeonAttacks(ctx, voltwardenBoss, options.voltwardenCrystalBursts, camera);
   }
 
   function drawMiremawBoss() {

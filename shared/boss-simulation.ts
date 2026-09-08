@@ -41,7 +41,9 @@ export type BossAbilityName =
   | "tongue"
   | "bogBurst"
   | "shatter"
-  | "crystalBurst";
+  | "crystalBurst"
+  | "laserGrid"
+  | "empPulse";
 
 type BossAbilityDefinition = {
   ability: BossAbilityName;
@@ -102,8 +104,8 @@ const BOSS_ABILITY_CYCLES: Record<BossSimulationKind, readonly BossAbilityDefini
     { ability: "shatter", slotDurationMs: 4_600, activeDurationMs: 1_900 },
     { ability: "crystalBurst", slotDurationMs: 5_200, activeDurationMs: 2_050 },
   ], voltwarden: [
-    { ability: "shatter", slotDurationMs: 4_600, activeDurationMs: 1_900 },
-    { ability: "crystalBurst", slotDurationMs: 5_200, activeDurationMs: 2_050 },
+    { ability: "laserGrid", slotDurationMs: 4_700, activeDurationMs: 1_900 },
+    { ability: "empPulse", slotDurationMs: 6_000, activeDurationMs: 3_650 },
   ],
 };
 

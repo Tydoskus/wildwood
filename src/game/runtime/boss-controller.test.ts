@@ -678,3 +678,24 @@ describe("expansion boss patterns", () => {
     expect(h.dreadreaperBoss.shatter).toBeNull();
   });
 });
+
+it("runs Voltwarden's laser lanes and staggered EMP rings on the shared clock", () => {
+  let serverNowMs = 100;
+  const h = createFrostclawHarness({ serverNowMs: () => serverNowMs, currentMapIsSnow: () => false, currentMapIsNeonBastion: () => true });
+  h.voltwardenBoss.dead = false;
+  h.player.x = h.voltwardenBoss.x + 500; h.player.y = h.voltwardenBoss.y;
+  h.controller.updateVoltwardenBoss(.01);
+  expect(h.voltwardenBoss.shatter).not.toBeNull();
+  expect(h.voltwardenBoss.nextAttack).toBe("empPulse");
+  h.player.y += 95;
+  serverNowMs = 1500;
+  h.controller.updateVoltwardenBoss(1.4);
+  expect(h.damagePlayer).not.toHaveBeenCalled();
+  serverNowMs = 4800;
+  h.controller.updateVoltwardenBoss(.01);
+  expect(h.voltwardenBoss.shatter).toBeNull();
+  expect(h.voltwardenCrystalBursts).toHaveLength(3);
+  for (const pulse of h.voltwardenCrystalBursts) {
+    expect(pulse.x).toBe(h.voltwardenBoss.x); expect(pulse.y).toBe(h.voltwardenBoss.y);
+  }
+});
