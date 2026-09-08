@@ -1,13 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { Timestamp } from "spacetimedb";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
-import { BOSS_REWARD_CLAIM_BITS, IRONHORN_MAX_HP, DREADREAPER_MAX_HP, IRONHORN_REWARD_DAMAGE, DREADREAPER_REWARD_DAMAGE } from "../../shared/rules";
+import { BOSS_REWARD_CLAIM_BITS, IRONHORN_MAX_HP, DREADREAPER_MAX_HP, IRONHORN_REWARD_DAMAGE, DREADREAPER_REWARD_DAMAGE, VOLTWARDEN_MAX_HP, VOLTWARDEN_REWARD_DAMAGE } from "../../shared/rules";
 import { reducerParameters } from "../../tests/helpers/spacetime-module";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 const regions = [
   { map: "clockwork_ruins", boss: "ironhorn", unlock: "clockworkRuinsUnlocked", next: "duskfallOrchardUnlocked", maxHp: IRONHORN_MAX_HP, reward: IRONHORN_REWARD_DAMAGE, attack: server.damageIronhornFromPosition, respawn: server.respawnIronhorn },
-  { map: "duskfall_orchard", boss: "dreadreaper", unlock: "duskfallOrchardUnlocked", next: null, maxHp: DREADREAPER_MAX_HP, reward: DREADREAPER_REWARD_DAMAGE, attack: server.damageDreadreaperFromPosition, respawn: server.respawnDreadreaper },
+  { map: "duskfall_orchard", boss: "dreadreaper", unlock: "duskfallOrchardUnlocked", next: "neonBastionUnlocked", maxHp: DREADREAPER_MAX_HP, reward: DREADREAPER_REWARD_DAMAGE, attack: server.damageDreadreaperFromPosition, respawn: server.respawnDreadreaper },
+  { map: "neon_bastion", boss: "voltwarden", unlock: "neonBastionUnlocked", next: null, maxHp: VOLTWARDEN_MAX_HP, reward: VOLTWARDEN_REWARD_DAMAGE, attack: server.damageVoltwardenFromPosition, respawn: server.respawnVoltwarden },
 ] as const;
 
 describe.each(regions)("$map authoritative boss", region => {
@@ -87,4 +88,19 @@ it("enforces the complete portal chain and survives repeated forward/return trip
   }
   f.run(server.onDisconnect);
   expect(f.db.playerLastLocation.identity.find(f.ctx.sender).mapId).toBe("clockwork_ruins");
+});
+
+it("preserves old Dreadreaper clears and gates Neon Bastion behind its own unlock", () => {
+  const f = crystalFixture();
+  f.seed("moduleMigrationState", { id: 0, version: 27 });
+  f.patch("playerProgress", { duskfallOrchardUnlocked: true, bossRewardClaims: BOSS_REWARD_CLAIM_BITS.dreadreaper });
+  f.run(server.runMaintenance, {});
+  expect(f.db.playerProgress.identity.find(f.ctx.sender).neonBastionUnlocked).toBe(true);
+  expect(BOSS_REWARD_CLAIM_BITS.voltwarden).not.toBe(BOSS_REWARD_CLAIM_BITS.dreadreaper);
+  f.patch("player", { mapId: "duskfall_orchard" });
+  f.run(server.changeMap, { mapId: "neon_bastion", x: 580, y: 617 });
+  expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe("neon_bastion");
+  f.run(server.changeMap, { mapId: "duskfall_orchard", x: 360, y: 617 });
+  f.patch("playerProgress", { neonBastionUnlocked: false });
+  expect(() => f.run(server.changeMap, { mapId: "neon_bastion", x: 580, y: 617 })).toThrow("Dreadreaper");
 });

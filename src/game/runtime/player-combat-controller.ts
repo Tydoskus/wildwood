@@ -4,7 +4,7 @@ import { ENEMY_TYPES, REWARD_DATA, rewardLabel } from "../enemies";
 import { circlesOverlap, distanceSquared } from "../math";
 import type { ProjectileStore } from "./projectile-store";
 import { createSpatialGrid } from "./spatial-grid";
-import type { BossTarget, DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, PlayerState, RuntimeReward, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
+import type { BossTarget, DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, PlayerState, RuntimeReward, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
 import type { SpawnSite } from "../world";
 import { equipmentDamageMultiplier, itemDefinition } from "../../../shared/items";
 import { addPlayerBaseMaxHealth } from "./player-health";
@@ -33,6 +33,7 @@ const MIREMAW_HIT_BATCH_DELAY = .1;
 const PRISMSHELL_HIT_BATCH_DELAY = .1;
 const IRONHORN_HIT_BATCH_DELAY = .1;
 const DREADREAPER_HIT_BATCH_DELAY = .1;
+const VOLTWARDEN_HIT_BATCH_DELAY = .1;
 const DEATH_PARTICLE_COLOR = "#e53935";
 const TARGET_GRID_CELL_SIZE = 160;
 const IDLE_TARGET_RECHECK_SECONDS = .08;
@@ -89,6 +90,7 @@ export function createPlayerCombatController(options: {
   prismshellBoss: PrismshellBossState;
   ironhornBoss: IronhornBossState;
   dreadreaperBoss: DreadreaperBossState;
+  voltwardenBoss: VoltwardenBossState;
   nowSeconds: () => number;
   serverNowMs?: () => number;
   localIdentity?: () => string | undefined;
@@ -104,6 +106,7 @@ export function createPlayerCombatController(options: {
   isCrystalHollowsMap: () => boolean;
   isClockworkRuinsMap: () => boolean;
   isDuskfallOrchardMap: () => boolean;
+  isNeonBastionMap: () => boolean;
   engageEnemy: (enemy: EnemyState) => void;
   researchDamageMultiplier: () => number;
   researchCriticalChance: () => number;
@@ -137,6 +140,7 @@ export function createPlayerCombatController(options: {
   damagePrismshell: (hits: number) => void;
   damageIronhorn: (hits: number) => void;
   damageDreadreaper: (hits: number) => void;
+  damageVoltwarden: (hits: number) => void;
   spawnBurst: (x: number, y: number, color: string, count?: number, speed?: number) => void;
   spawnParticle: (x: number, y: number, vx: number, vy: number, life: number, maxLife: number, size: number, color: string) => void;
   spawnDamageNumber: (x: number, y: number, amount: number, critical?: boolean, damageTaken?: boolean) => void;
@@ -151,10 +155,10 @@ export function createPlayerCombatController(options: {
   endGame: () => void;
 }): PlayerCombatController {
   const {
-    player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss,
-    isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, isWaterMap, isSamuraiMap, isCloudspireMap, isMoonfenMap, isCrystalHollowsMap, isClockworkRuinsMap, isDuskfallOrchardMap, engageEnemy, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
+    player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss,
+    isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, isWaterMap, isSamuraiMap, isCloudspireMap, isMoonfenMap, isCrystalHollowsMap, isClockworkRuinsMap, isDuskfallOrchardMap, isNeonBastionMap, engageEnemy, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
     researchRewardMultiplier, minAttackInterval, effectiveArmor, isDueling, scheduleEnemyRespawn,
-    incrementKills, recordForestEnemyDefeat, recordDesertEnemyDefeat, recordSnowEnemyDefeat, recordLavaEnemyDefeat, damageDragon, damageSpider, damageFrostclaw, damageMagmalisk, damageGloomroot, damageTidewyrm, damageKoiShogun, damageTempestKirin, damageMiremaw, damagePrismshell, damageIronhorn, damageDreadreaper, spawnBurst, spawnParticle,
+    incrementKills, recordForestEnemyDefeat, recordDesertEnemyDefeat, recordSnowEnemyDefeat, recordLavaEnemyDefeat, damageDragon, damageSpider, damageFrostclaw, damageMagmalisk, damageGloomroot, damageTidewyrm, damageKoiShogun, damageTempestKirin, damageMiremaw, damagePrismshell, damageIronhorn, damageDreadreaper, damageVoltwarden, spawnBurst, spawnParticle,
     spawnDamageNumber, logPickup, saveProgress, setHitFlash, addScreenShake, recordDeath, endGame,
   } = options;
   const { projectiles, enemyShots } = projectileStore;
@@ -184,10 +188,12 @@ export function createPlayerCombatController(options: {
   let pendingPrismshellHits = 0;
   let pendingIronhornHits = 0;
   let pendingDreadreaperHits = 0;
+  let pendingVoltwardenHits = 0;
   let miremawHitBatchTimer = 0;
   let prismshellHitBatchTimer = 0;
   let ironhornHitBatchTimer = 0;
   let dreadreaperHitBatchTimer = 0;
+  let voltwardenHitBatchTimer = 0;
 
   function activeMapBoss(): BossTarget | null {
     if (isTutorialMap()) return boss;
@@ -199,7 +205,7 @@ export function createPlayerCombatController(options: {
     if (isSamuraiMap()) return koiShogunBoss;
     if (isCloudspireMap()) return tempestKirinBoss;
     if (isMoonfenMap()) return miremawBoss;
-    if (isClockworkRuinsMap()) return ironhornBoss; else if (isDuskfallOrchardMap()) return dreadreaperBoss; else if (isCrystalHollowsMap()) return prismshellBoss;
+    if (isClockworkRuinsMap()) return ironhornBoss; else if (isNeonBastionMap()) return voltwardenBoss; else if (isDuskfallOrchardMap()) return dreadreaperBoss; else if (isCrystalHollowsMap()) return prismshellBoss;
     return null;
   }
 
@@ -520,6 +526,9 @@ export function createPlayerCombatController(options: {
           } else if ("bossKind" in target && target.bossKind === "ironhorn") {
             pendingIronhornHits += 1;
             ironhornHitBatchTimer = IRONHORN_HIT_BATCH_DELAY;
+          } else if ("bossKind" in target && target.bossKind === "voltwarden") {
+            pendingVoltwardenHits += 1;
+            voltwardenHitBatchTimer = VOLTWARDEN_HIT_BATCH_DELAY;
           } else if ("bossKind" in target && target.bossKind === "dreadreaper") {
             pendingDreadreaperHits += 1;
             dreadreaperHitBatchTimer = DREADREAPER_HIT_BATCH_DELAY;
@@ -588,6 +597,9 @@ export function createPlayerCombatController(options: {
     if (isClockworkRuinsMap() && pendingIronhornHits > 0) {
       ironhornHitBatchTimer -= dt;
       if (ironhornHitBatchTimer <= 0) { damageIronhorn(pendingIronhornHits); pendingIronhornHits = 0; ironhornHitBatchTimer = 0; }
+    } else if (isNeonBastionMap() && pendingVoltwardenHits > 0) {
+      voltwardenHitBatchTimer -= dt;
+      if (voltwardenHitBatchTimer <= 0) { damageVoltwarden(pendingVoltwardenHits); pendingVoltwardenHits = 0; voltwardenHitBatchTimer = 0; }
     } else if (isDuskfallOrchardMap() && pendingDreadreaperHits > 0) {
       dreadreaperHitBatchTimer -= dt;
       if (dreadreaperHitBatchTimer <= 0) { damageDreadreaper(pendingDreadreaperHits); pendingDreadreaperHits = 0; dreadreaperHitBatchTimer = 0; }
@@ -629,10 +641,12 @@ export function createPlayerCombatController(options: {
       pendingPrismshellHits = 0;
       pendingIronhornHits = 0;
       pendingDreadreaperHits = 0;
+      pendingVoltwardenHits = 0;
       miremawHitBatchTimer = 0;
       prismshellHitBatchTimer = 0;
       ironhornHitBatchTimer = 0;
       dreadreaperHitBatchTimer = 0;
+      voltwardenHitBatchTimer = 0;
     },
     clearPendingThrow: () => {
       pendingPlayerAttack = null;

@@ -46,7 +46,7 @@ type ProgressRow = { identity: Identity } & Omit<
   | "samuraiUnlocked"
   | "cloudspireUnlocked"
   | "moonfenUnlocked"
-  | "crystalHollowsUnlocked" | "clockworkRuinsUnlocked" | "duskfallOrchardUnlocked"
+  | "crystalHollowsUnlocked" | "clockworkRuinsUnlocked" | "duskfallOrchardUnlocked" | "neonBastionUnlocked"
   | "bowCount"
   | "woodenArmorCount"
   | "cosmeticHead"
@@ -65,6 +65,7 @@ type ProgressRow = { identity: Identity } & Omit<
   crystalHollowsUnlocked?: boolean;
   clockworkRuinsUnlocked?: boolean;
   duskfallOrchardUnlocked?: boolean;
+  neonBastionUnlocked?: boolean;
   bowCount?: number;
   woodenArmorCount?: number;
   cosmeticHead?: string;
@@ -251,7 +252,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       samuraiUnlocked: row.samuraiUnlocked ?? false,
       cloudspireUnlocked: row.cloudspireUnlocked ?? false,
       moonfenUnlocked: row.moonfenUnlocked ?? false,
-      crystalHollowsUnlocked: row.crystalHollowsUnlocked ?? false, clockworkRuinsUnlocked: row.clockworkRuinsUnlocked ?? false, duskfallOrchardUnlocked: row.duskfallOrchardUnlocked ?? false,
+      crystalHollowsUnlocked: row.crystalHollowsUnlocked ?? false, clockworkRuinsUnlocked: row.clockworkRuinsUnlocked ?? false, duskfallOrchardUnlocked: row.duskfallOrchardUnlocked ?? false, neonBastionUnlocked: row.neonBastionUnlocked ?? false,
       bowCount: Math.max(0, Math.floor(row.bowCount ?? 0)),
       woodenArmorCount: Math.max(0, Math.floor(row.woodenArmorCount ?? 0)),
     };

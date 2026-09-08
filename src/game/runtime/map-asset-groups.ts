@@ -8,7 +8,7 @@ import {
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
   MOONFEN_MAP_ID,
-  CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID,
+  CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, NEON_BASTION_MAP_ID,
   type MapId,
 } from "../world";
 import type { EnemyKind } from "../enemies";
@@ -28,7 +28,7 @@ export type MapArtAssetGroup =
   | "cloudspireBoss"
   | "moonfenBoss"
   | "orchardDecor"
-  | "crystalHollowsBoss" | "clockworkRuinsBoss" | "duskfallOrchardBoss";
+  | "crystalHollowsBoss" | "clockworkRuinsBoss" | "duskfallOrchardBoss" | "neonBastionBoss";
 
 export type MapAssetGroup = {
   /** Boss and scenery images used only by this map. */
@@ -85,6 +85,9 @@ export const MAP_ASSET_GROUPS = {
   }, [DUSKFALL_ORCHARD_MAP_ID]: {
     art: ["duskfallOrchardBoss", "orchardDecor"],
     enemies: ["Gourd Prowler", "Seed Spitter", "Harvest Regent", "Husk Guardian", "Thorn Reaver", "Harvest Oracle"],
+  }, [NEON_BASTION_MAP_ID]: {
+    art: ["neonBastionBoss"],
+    enemies: ["Circuit Prowler", "Pulse Spitter", "Voltage Regent", "Relay Guardian", "Arc Reaver", "Signal Oracle"],
   },
 } as const satisfies Record<MapId, MapAssetGroup>;
 
@@ -100,5 +103,5 @@ export const MAP_ENEMY_SPRITE_GROUPS: Record<MapId, readonly EnemyKind[]> = {
   [SAMURAI_GARDEN_MAP_ID]: MAP_ASSET_GROUPS[SAMURAI_GARDEN_MAP_ID].enemies,
   [CLOUDSPIRE_MAP_ID]: MAP_ASSET_GROUPS[CLOUDSPIRE_MAP_ID].enemies,
   [MOONFEN_MAP_ID]: MAP_ASSET_GROUPS[MOONFEN_MAP_ID].enemies,
-  [CRYSTAL_HOLLOWS_MAP_ID]: MAP_ASSET_GROUPS[CRYSTAL_HOLLOWS_MAP_ID].enemies, [CLOCKWORK_RUINS_MAP_ID]: MAP_ASSET_GROUPS[CLOCKWORK_RUINS_MAP_ID].enemies, [DUSKFALL_ORCHARD_MAP_ID]: MAP_ASSET_GROUPS[DUSKFALL_ORCHARD_MAP_ID].enemies,
+  [CRYSTAL_HOLLOWS_MAP_ID]: MAP_ASSET_GROUPS[CRYSTAL_HOLLOWS_MAP_ID].enemies, [CLOCKWORK_RUINS_MAP_ID]: MAP_ASSET_GROUPS[CLOCKWORK_RUINS_MAP_ID].enemies, [DUSKFALL_ORCHARD_MAP_ID]: MAP_ASSET_GROUPS[DUSKFALL_ORCHARD_MAP_ID].enemies, [NEON_BASTION_MAP_ID]: MAP_ASSET_GROUPS[NEON_BASTION_MAP_ID].enemies,
 };

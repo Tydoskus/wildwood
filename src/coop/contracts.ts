@@ -195,10 +195,12 @@ export type MiremawBossState = DragonBossState;
 export type PrismshellBossState = DragonBossState;
 export type IronhornBossState = DragonBossState;
 export type DreadreaperBossState = DragonBossState;
+export type VoltwardenBossState = DragonBossState;
 export type MiremawResult = DragonResult;
 export type PrismshellResult = DragonResult;
 export type IronhornResult = DragonResult;
 export type DreadreaperResult = DragonResult;
+export type VoltwardenResult = DragonResult;
 
 export type DragonContributor = {
   identity: string;

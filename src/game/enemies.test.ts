@@ -74,7 +74,7 @@ describe("enemy sprite loading", () => {
     expect(MAP_ENEMY_FAMILIES).toEqual({
       tutorial_forest: "slime-green", beginner_desert: "goblin", intermediate_snowlands: "skeleton",
       advanced_lava_wastes: "slime-orange", infernal_depths: "skeleton-poison", water_reach: "goblin-green",
-      samurai_garden: "flower-tulip", cloudspire: "wingdemon-bee", moonfen: "fungus-rock", crystal_hollows: "hornrabbit-crystal", clockwork_ruins: "raptor-mechanic", duskfall_orchard: "pumpkin-orange",
+      samurai_garden: "flower-tulip", cloudspire: "wingdemon-bee", moonfen: "fungus-rock", crystal_hollows: "hornrabbit-crystal", clockwork_ruins: "raptor-mechanic", duskfall_orchard: "pumpkin-orange", neon_bastion: "raptor-mechanic",
     });
     expect(new Set(Object.values(MAP_ENEMY_FAMILIES)).size).toBe(12);
     const covered = new Set<string>();

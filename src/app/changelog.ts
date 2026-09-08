@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.645": [
+    "Added Neon Bastion after Duskfall Orchard, with glowing roads, five enemy camps, and six enemy types.",
+    "Added Voltwarden, a new multiplayer boss with an animated reactor and electric attacks.",
+    "Defeating Dreadreaper unlocks Neon Bastion; previous Dreadreaper victories retain access.",
+  ],
   "0.644": [
     "Simplified Guilds to match the game’s window styling, tabs, and Back button.",
     "Guild battle replays now fill the screen above the toolbar, with a single Replay button in battle lists.",
@@ -1593,6 +1598,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.645": "2026-09-08",
   "0.644": "2026-09-08",
   "0.643": "2026-09-06",
   "0.642": "2026-09-06",

@@ -1204,6 +1204,7 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   bossRewardClaims: __t.u32(),
   clockworkRuinsUnlocked: __t.bool(),
   duskfallOrchardUnlocked: __t.bool(),
+  neonBastionUnlocked: __t.bool(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
 
@@ -1674,6 +1675,49 @@ export const VirtualPlayerRun = __t.object("VirtualPlayerRun", {
   expiresAtMicros: __t.u64(),
 });
 export type VirtualPlayerRun = __Infer<typeof VirtualPlayerRun>;
+
+export const VoltwardenAttackWindow = __t.object("VoltwardenAttackWindow", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  startedAtMicros: __t.u64(),
+  hits: __t.u32(),
+});
+export type VoltwardenAttackWindow = __Infer<typeof VoltwardenAttackWindow>;
+
+export const VoltwardenBoss = __t.object("VoltwardenBoss", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  hp: __t.f32(),
+  maxHp: __t.f32(),
+  alive: __t.bool(),
+  respawnAtMicros: __t.u64(),
+  lastDamageAtMicros: __t.u64(),
+});
+export type VoltwardenBoss = __Infer<typeof VoltwardenBoss>;
+
+export const VoltwardenContribution = __t.object("VoltwardenContribution", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  displayName: __t.string(),
+  damage: __t.f32(),
+});
+export type VoltwardenContribution = __Infer<typeof VoltwardenContribution>;
+
+export const VoltwardenRespawnSchedule = __t.object("VoltwardenRespawnSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+  encounter: __t.u64(),
+});
+export type VoltwardenRespawnSchedule = __Infer<typeof VoltwardenRespawnSchedule>;
+
+export const VoltwardenResult = __t.object("VoltwardenResult", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  totalDamage: __t.f32(),
+  contributorsJson: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type VoltwardenResult = __Infer<typeof VoltwardenResult>;
 
 export const WorldStatus = __t.object("WorldStatus", {
   id: __t.u32(),

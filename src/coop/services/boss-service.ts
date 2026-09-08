@@ -11,9 +11,9 @@ import type {
   MagmaliskBossState,
   MagmaliskResult,
   MiremawBossState,
-  PrismshellBossState, IronhornBossState, DreadreaperBossState,
+  PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState,
   MiremawResult,
-  PrismshellResult, IronhornResult, DreadreaperResult,
+  PrismshellResult, IronhornResult, DreadreaperResult, VoltwardenResult,
   SpiderBossState,
   SpiderResult,
   TempestKirinBossState,
@@ -110,10 +110,12 @@ export function createBossService(dependencies: BossServiceDependencies) {
   let prismshell: PrismshellBossState | null = null;
   let ironhorn: IronhornBossState | null = null;
   let dreadreaper: DreadreaperBossState | null = null;
+  let voltwarden: VoltwardenBossState | null = null;
   let miremawResult: MiremawResult | null = null;
   let prismshellResult: PrismshellResult | null = null;
   let ironhornResult: IronhornResult | null = null;
   let dreadreaperResult: DreadreaperResult | null = null;
+  let voltwardenResult: VoltwardenResult | null = null;
 
   function damage(
     action: string,
@@ -198,6 +200,8 @@ export function createBossService(dependencies: BossServiceDependencies) {
         ironhorn = bossState(row);
       }, upsertDreadreaper(row: BossRow) {
         dreadreaper = bossState(row);
+      }, upsertVoltwarden(row: BossRow) {
+        voltwarden = bossState(row);
       },
       upsertMiremawResult(row: BossResultRow) {
         miremawResult = bossResult(row);
@@ -211,6 +215,9 @@ export function createBossService(dependencies: BossServiceDependencies) {
         dependencies.notify();
       }, upsertDreadreaperResult(row: BossResultRow) {
         dreadreaperResult = bossResult(row);
+        dependencies.notify();
+      }, upsertVoltwardenResult(row: BossResultRow) {
+        voltwardenResult = bossResult(row);
         dependencies.notify();
       },
     },
@@ -233,9 +240,9 @@ export function createBossService(dependencies: BossServiceDependencies) {
       tempestKirinBoss: () => tempestKirin ? { ...tempestKirin } : null,
       tempestKirinResult: () => copyResult(tempestKirinResult),
       miremawBoss: () => miremaw ? { ...miremaw } : null,
-      prismshellBoss: () => prismshell ? { ...prismshell } : null, ironhornBoss: () => ironhorn ? { ...ironhorn } : null, dreadreaperBoss: () => dreadreaper ? { ...dreadreaper } : null,
+      prismshellBoss: () => prismshell ? { ...prismshell } : null, ironhornBoss: () => ironhorn ? { ...ironhorn } : null, dreadreaperBoss: () => dreadreaper ? { ...dreadreaper } : null, voltwardenBoss: () => voltwarden ? { ...voltwarden } : null,
       miremawResult: () => copyResult(miremawResult),
-      prismshellResult: () => copyResult(prismshellResult), ironhornResult: () => copyResult(ironhornResult), dreadreaperResult: () => copyResult(dreadreaperResult),
+      prismshellResult: () => copyResult(prismshellResult), ironhornResult: () => copyResult(ironhornResult), dreadreaperResult: () => copyResult(dreadreaperResult), voltwardenResult: () => copyResult(voltwardenResult),
       damageDragon(hits = 1, x?: number, y?: number) {
         damage("dragon damage", (connection, count, px, py) => connection.reducers.damageDragonFromPosition({ hits: count, x: px, y: py }), hits, x, y);
       },
@@ -269,6 +276,8 @@ export function createBossService(dependencies: BossServiceDependencies) {
         damage("Ironhorn damage", (connection, count, px, py) => connection.reducers.damageIronhornFromPosition({ hits: count, x: px, y: py }), hits, x, y);
       }, damageDreadreaper(hits = 1, x?: number, y?: number) {
         damage("Dreadreaper damage", (connection, count, px, py) => connection.reducers.damageDreadreaperFromPosition({ hits: count, x: px, y: py }), hits, x, y);
+      }, damageVoltwarden(hits = 1, x?: number, y?: number) {
+        damage("Voltwarden damage", (connection, count, px, py) => connection.reducers.damageVoltwardenFromPosition({ hits: count, x: px, y: py }), hits, x, y);
       },
     },
     resetSession() {
@@ -293,10 +302,12 @@ export function createBossService(dependencies: BossServiceDependencies) {
       prismshell = null;
       ironhorn = null;
       dreadreaper = null;
+      voltwarden = null;
       miremawResult = null;
       prismshellResult = null;
       ironhornResult = null;
       dreadreaperResult = null;
+      voltwardenResult = null;
     },
   };
 }

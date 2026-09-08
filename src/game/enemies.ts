@@ -405,6 +405,10 @@ const enemyTypes = {
     attackSpeed: .65, speed: 230, r: 30,
     color: "#90e9ef", outline: "#303d5b",
     ...postForestLaneBalance("raider", 11),
+  }, "Circuit Prowler": {
+    attackSpeed: .65, speed: 230, r: 30,
+    color: "#90e9ef", outline: "#303d5b",
+    ...postForestLaneBalance("raider", 12),
   },
   "Crystal Spitter": {
     attackSpeed: .65, speed: 215, r: 29,
@@ -421,6 +425,11 @@ const enemyTypes = {
     color: "#c9b0ff", outline: "#463762",
     ranged: true,
     ...postForestLaneBalance("archer", 11),
+  }, "Pulse Spitter": {
+    attackSpeed: .65, speed: 215, r: 29,
+    color: "#c9b0ff", outline: "#463762",
+    ranged: true,
+    ...postForestLaneBalance("archer", 12),
   },
   "Crystal Regent": {
     speed: 205, attackSpeed: .65, r: 47,
@@ -437,6 +446,11 @@ const enemyTypes = {
     color: "#e2cdfd", outline: "#463762",
     elite: true, aggro: 340,
     ...healthEliteBalance(11),
+  }, "Voltage Regent": {
+    speed: 205, attackSpeed: .65, r: 47,
+    color: "#e2cdfd", outline: "#463762",
+    elite: true, aggro: 340,
+    ...healthEliteBalance(12),
   },
   "Geode Guardian": {
     attackSpeed: .65, speed: 205, r: 40,
@@ -450,6 +464,10 @@ const enemyTypes = {
     attackSpeed: .65, speed: 205, r: 40,
     color: "#8299c9", outline: "#303854",
     ...postForestLaneBalance("guardian", 11),
+  }, "Relay Guardian": {
+    attackSpeed: .65, speed: 205, r: 40,
+    color: "#8299c9", outline: "#303854",
+    ...postForestLaneBalance("guardian", 12),
   },
   "Prism Reaver": {
     attackSpeed: .65, speed: 235, r: 46,
@@ -466,6 +484,11 @@ const enemyTypes = {
     color: "#ab87e6", outline: "#453365",
     ranged: true, elite: true, aggro: 340,
     ...postForestLaneBalance("reaper", 11),
+  }, "Arc Reaver": {
+    attackSpeed: .65, speed: 235, r: 46,
+    color: "#ab87e6", outline: "#453365",
+    ranged: true, elite: true, aggro: 340,
+    ...postForestLaneBalance("reaper", 12),
   },
   "Hollow Oracle": {
     attackSpeed: .65, speed: 220, r: 43,
@@ -482,6 +505,11 @@ const enemyTypes = {
     color: "#f0c58b", outline: "#624862",
     elite: true, aggro: 340,
     ...postForestLaneBalance("oracle", 11),
+  }, "Signal Oracle": {
+    attackSpeed: .65, speed: 220, r: 43,
+    color: "#f0c58b", outline: "#624862",
+    elite: true, aggro: 340,
+    ...postForestLaneBalance("oracle", 12),
   },
 } satisfies Record<string, EnemyDefinition>;
 

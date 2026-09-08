@@ -57,6 +57,7 @@ const miremaw = createBossTableSet();
 const prismshell = createBossTableSet();
 const ironhorn = createBossTableSet();
 const dreadreaper = createBossTableSet();
+const voltwarden = createBossTableSet();
 
 export const dragonBossTables = {
   dragonBoss: dragon.boss,
@@ -137,4 +138,10 @@ export const dreadreaperBossTables = {
   dreadreaperContribution: dreadreaper.contribution,
   dreadreaperAttackWindow: dreadreaper.attackWindow,
   dreadreaperResult: dreadreaper.result,
+};
+export const voltwardenBossTables = {
+  voltwardenBoss: voltwarden.boss,
+  voltwardenContribution: voltwarden.contribution,
+  voltwardenAttackWindow: voltwarden.attackWindow,
+  voltwardenResult: voltwarden.result,
 };

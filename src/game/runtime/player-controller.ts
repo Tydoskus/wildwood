@@ -58,6 +58,7 @@ export function createPlayerController(options: {
   resolvePrismshellCollision: () => void;
   resolveIronhornCollision: () => void;
   resolveDreadreaperCollision: () => void;
+  resolveVoltwardenCollision: () => void;
   applyBossKnockback: (dt: number) => void;
   isTutorialMap: () => boolean;
   isDesertMap: () => boolean;
@@ -71,6 +72,7 @@ export function createPlayerController(options: {
   isCrystalHollowsMap: () => boolean;
   isClockworkRuinsMap: () => boolean;
   isDuskfallOrchardMap: () => boolean;
+  isNeonBastionMap: () => boolean;
   viewport: () => { width: number; height: number; zoom: number };
   cameraPosition: () => { x: number; y: number };
   isConnected: () => boolean;
@@ -98,7 +100,7 @@ export function createPlayerController(options: {
     player, boss, enemies, spawnSites, decor, paths, clearTransientCombat,
     getCurrentMapId, mapSpawn, initialStats, invalidateStaticWorld, spawnFromSite,
     clearPlayerCombat, resetBosses, onResetUI, movement, isMapTransitioning, resolvePortalCollision,
-    resolveDragonCollision, resolveSpiderCollision, resolveFrostclawCollision, resolveMagmaliskCollision, resolveGloomrootCollision, resolveTidewyrmCollision, resolveKoiShogunCollision, resolveTempestKirinCollision, resolveMiremawCollision, resolvePrismshellCollision, resolveIronhornCollision, resolveDreadreaperCollision, applyBossKnockback, isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, isWaterMap, isSamuraiMap, isCloudspireMap, isMoonfenMap, isCrystalHollowsMap, isClockworkRuinsMap, isDuskfallOrchardMap,
+    resolveDragonCollision, resolveSpiderCollision, resolveFrostclawCollision, resolveMagmaliskCollision, resolveGloomrootCollision, resolveTidewyrmCollision, resolveKoiShogunCollision, resolveTempestKirinCollision, resolveMiremawCollision, resolvePrismshellCollision, resolveIronhornCollision, resolveDreadreaperCollision, resolveVoltwardenCollision, applyBossKnockback, isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, isWaterMap, isSamuraiMap, isCloudspireMap, isMoonfenMap, isCrystalHollowsMap, isClockworkRuinsMap, isDuskfallOrchardMap, isNeonBastionMap,
     viewport, cameraPosition, isConnected, syncSpeed, movementSpeedMultiplier, regenerationMultiplier, syncMovementState, autoAttack, isAutoAttackEnabled,
     activeDuel, isDueling, localIdentity, localState, syncLiveDuelDamage, liveDuelScene, setHeldDuelScene,
     pulseDuel, resetLiveDuelPresentation, loadDuelReplay, showDuelResult, showDuelResultUnavailable,
@@ -206,7 +208,7 @@ export function createPlayerController(options: {
     if (isSamuraiMap()) resolveKoiShogunCollision();
     if (isCloudspireMap()) resolveTempestKirinCollision();
     if (isMoonfenMap()) resolveMiremawCollision();
-    if (isClockworkRuinsMap()) resolveIronhornCollision(); else if (isDuskfallOrchardMap()) resolveDreadreaperCollision(); else if (isCrystalHollowsMap()) resolvePrismshellCollision();
+    if (isClockworkRuinsMap()) resolveIronhornCollision(); else if (isNeonBastionMap()) resolveVoltwardenCollision(); else if (isDuskfallOrchardMap()) resolveDreadreaperCollision(); else if (isCrystalHollowsMap()) resolvePrismshellCollision();
     player.x = clamp(player.x, player.r, WORLD.w - player.r);
     player.y = clamp(player.y, player.r, WORLD.h - player.r);
     if (connected) {

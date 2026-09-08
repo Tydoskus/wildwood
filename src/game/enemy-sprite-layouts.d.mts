@@ -61,5 +61,6 @@ export const MAP_ENEMY_FAMILIES: {
   crystal_hollows: string;
 clockwork_ruins: string;
 duskfall_orchard: string;
+neon_bastion: string;
 };
 export const ENEMY_SPRITE_LAYOUTS: Record<string, EnemySpriteLayout>;

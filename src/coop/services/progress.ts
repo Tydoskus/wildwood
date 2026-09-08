@@ -55,11 +55,12 @@ export type PlayerProgress = {
   crystalHollowsUnlocked: boolean;
   clockworkRuinsUnlocked: boolean;
   duskfallOrchardUnlocked: boolean;
+  neonBastionUnlocked: boolean;
   bowCount: number;
   woodenArmorCount: number;
 };
 
-export type ProgressSave = Omit<PlayerProgress, "speedOverride" | "introComplete" | "desertUnlocked" | "snowlandsUnlocked" | "lavaUnlocked" | "infernalUnlocked" | "waterUnlocked" | "samuraiUnlocked" | "cloudspireUnlocked" | "moonfenUnlocked" | "crystalHollowsUnlocked" | "clockworkRuinsUnlocked" | "duskfallOrchardUnlocked" | "bowCount" | "woodenArmorCount"> & { enemyKills: number };
+export type ProgressSave = Omit<PlayerProgress, "speedOverride" | "introComplete" | "desertUnlocked" | "snowlandsUnlocked" | "lavaUnlocked" | "infernalUnlocked" | "waterUnlocked" | "samuraiUnlocked" | "cloudspireUnlocked" | "moonfenUnlocked" | "crystalHollowsUnlocked" | "clockworkRuinsUnlocked" | "duskfallOrchardUnlocked" | "neonBastionUnlocked" | "bowCount" | "woodenArmorCount"> & { enemyKills: number };
 
 export function bounded(value: number, min: number, max: number, fallback: number) {
   return Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;

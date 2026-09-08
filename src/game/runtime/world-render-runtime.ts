@@ -10,7 +10,7 @@ import type { LoadedEnemySprite } from "../enemies";
 import type { MapId, WorldDecor, WorldPath } from "../world";
 import type { MapPlayerMarker, RemotePlayer } from "../../wildstat-coop";
 import type { PlayerGender } from "../../../shared/player-gender";
-import type { BossRainStrike, DragonBossState, DuelScene, EnemyShot, EnemyState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, MiremawBogBurst, PrismshellCrystalBurst, IronhornCrystalBurst, DreadreaperCrystalBurst, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, PlayerState, Projectile, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
+import type { BossRainStrike, DragonBossState, DuelScene, EnemyShot, EnemyState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, MiremawBogBurst, PrismshellCrystalBurst, IronhornCrystalBurst, DreadreaperCrystalBurst, VoltwardenCrystalBurst, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, PlayerState, Projectile, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
 import { BASE_ATTACK_RANGE } from "../constants";
 import type { PlayerDeathAnimationState } from "./player-death-animation";
 import type { Particle } from "./combat-effects";
@@ -50,6 +50,7 @@ export type WorldRenderRuntimeOptions = {
   crystalHollowsMapId: MapId;
   clockworkRuinsMapId: MapId;
   duskfallOrchardMapId: MapId;
+  neonBastionMapId: MapId;
   paths: WorldPath[];
   decor: WorldDecor[];
   enemies: EnemyState[];
@@ -67,6 +68,7 @@ export type WorldRenderRuntimeOptions = {
   prismshellBoss: PrismshellBossState;
   ironhornBoss: IronhornBossState;
   dreadreaperBoss: DreadreaperBossState;
+  voltwardenBoss: VoltwardenBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
@@ -79,6 +81,7 @@ export type WorldRenderRuntimeOptions = {
   prismshellCrystalBursts: PrismshellCrystalBurst[];
   ironhornCrystalBursts: IronhornCrystalBurst[];
   dreadreaperCrystalBursts: DreadreaperCrystalBurst[];
+  voltwardenCrystalBursts: VoltwardenCrystalBurst[];
   activePortal: () => Portal | null;
   cutscenePortal: () => Portal;
   secondaryPortal: () => Portal | null;
@@ -110,6 +113,7 @@ export type WorldRenderRuntimeOptions = {
     prismshellSpritePages: HTMLImageElement[];
     ironhornSpritePages: HTMLImageElement[];
     dreadreaperSpritePages: HTMLImageElement[];
+    voltwardenSpritePages: HTMLImageElement[];
     dragonReady: () => boolean;
     spiderReady: () => boolean;
     frostclawReady: () => boolean;
@@ -122,6 +126,7 @@ export type WorldRenderRuntimeOptions = {
     prismshellReady: () => boolean;
     ironhornReady: () => boolean;
     dreadreaperReady: () => boolean;
+    voltwardenReady: () => boolean;
     duelPlatformArt: HTMLImageElement;
   };
   actorShadowSprite: HTMLImageElement;
@@ -215,7 +220,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     samuraiMapId: options.samuraiMapId,
     cloudspireMapId: options.cloudspireMapId,
     moonfenMapId: options.moonfenMapId,
-    crystalHollowsMapId: options.crystalHollowsMapId, clockworkRuinsMapId: options.clockworkRuinsMapId, duskfallOrchardMapId: options.duskfallOrchardMapId,
+    crystalHollowsMapId: options.crystalHollowsMapId, clockworkRuinsMapId: options.clockworkRuinsMapId, duskfallOrchardMapId: options.duskfallOrchardMapId, neonBastionMapId: options.neonBastionMapId,
     paths: options.paths,
     decor: options.decor,
     enemies: options.enemies,
@@ -229,7 +234,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     koiShogunBoss: options.koiShogunBoss,
     tempestKirinBoss: options.tempestKirinBoss,
     miremawBoss: options.miremawBoss,
-    prismshellBoss: options.prismshellBoss, ironhornBoss: options.ironhornBoss, dreadreaperBoss: options.dreadreaperBoss,
+    prismshellBoss: options.prismshellBoss, ironhornBoss: options.ironhornBoss, dreadreaperBoss: options.dreadreaperBoss, voltwardenBoss: options.voltwardenBoss,
     actorShadowSprite: options.actorShadowSprite,
     drawShadow: options.drawShadow,
     outlinedText: options.outlinedText,
@@ -240,10 +245,10 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     ...options.assets,
   });
   const boss = createBossRenderer({
-    ctx: options.ctx, camera: options.camera, devicePixelRatio: options.devicePixelRatio, boss: options.boss, spiderBoss: options.spiderBoss, frostclawBoss: options.frostclawBoss, magmaliskBoss: options.magmaliskBoss, gloomrootBoss: options.gloomrootBoss, tidewyrmBoss: options.tidewyrmBoss, koiShogunBoss: options.koiShogunBoss, tempestKirinBoss: options.tempestKirinBoss, miremawBoss: options.miremawBoss, prismshellBoss: options.prismshellBoss, ironhornBoss: options.ironhornBoss, dreadreaperBoss: options.dreadreaperBoss,
-    bossRain: options.bossRain, spiderVenom: options.spiderVenom, frostclawIcefalls: options.frostclawIcefalls, magmaliskEruptions: options.magmaliskEruptions, gloomrootBlooms: options.gloomrootBlooms, tidewyrmWhirlpools: options.tidewyrmWhirlpools, koiShogunWhirlpools: options.koiShogunWhirlpools, tempestKirinThunderbolts: options.tempestKirinThunderbolts, miremawBogBursts: options.miremawBogBursts, prismshellCrystalBursts: options.prismshellCrystalBursts, ironhornCrystalBursts: options.ironhornCrystalBursts, dreadreaperCrystalBursts: options.dreadreaperCrystalBursts,
-    dragonSpriteCanvas: options.assets.dragonSpriteCanvas, spiderSpriteCanvas: options.assets.spiderSpriteCanvas, frostclawSpriteCanvas: options.assets.frostclawSpriteCanvas, magmaliskSpriteCanvas: options.assets.magmaliskSpriteCanvas, gloomrootSpriteCanvas: options.assets.gloomrootSpriteCanvas, tidewyrmSpriteCanvas: options.assets.tidewyrmSpriteCanvas, koiShogunSpriteCanvas: options.assets.koiShogunSpriteCanvas, tempestKirinSpriteCanvas: options.assets.tempestKirinSpriteCanvas, miremawSpriteCanvas: options.assets.miremawSpriteCanvas, prismshellSpritePages: options.assets.prismshellSpritePages, ironhornSpritePages: options.assets.ironhornSpritePages, dreadreaperSpritePages: options.assets.dreadreaperSpritePages,
-    dragonReady: options.assets.dragonReady, spiderReady: options.assets.spiderReady, frostclawReady: options.assets.frostclawReady, magmaliskReady: options.assets.magmaliskReady, gloomrootReady: options.assets.gloomrootReady, tidewyrmReady: options.assets.tidewyrmReady, koiShogunReady: options.assets.koiShogunReady, tempestKirinReady: options.assets.tempestKirinReady, miremawReady: options.assets.miremawReady, prismshellReady: options.assets.prismshellReady, ironhornReady: options.assets.ironhornReady, dreadreaperReady: options.assets.dreadreaperReady,
+    ctx: options.ctx, camera: options.camera, devicePixelRatio: options.devicePixelRatio, boss: options.boss, spiderBoss: options.spiderBoss, frostclawBoss: options.frostclawBoss, magmaliskBoss: options.magmaliskBoss, gloomrootBoss: options.gloomrootBoss, tidewyrmBoss: options.tidewyrmBoss, koiShogunBoss: options.koiShogunBoss, tempestKirinBoss: options.tempestKirinBoss, miremawBoss: options.miremawBoss, prismshellBoss: options.prismshellBoss, ironhornBoss: options.ironhornBoss, dreadreaperBoss: options.dreadreaperBoss, voltwardenBoss: options.voltwardenBoss,
+    bossRain: options.bossRain, spiderVenom: options.spiderVenom, frostclawIcefalls: options.frostclawIcefalls, magmaliskEruptions: options.magmaliskEruptions, gloomrootBlooms: options.gloomrootBlooms, tidewyrmWhirlpools: options.tidewyrmWhirlpools, koiShogunWhirlpools: options.koiShogunWhirlpools, tempestKirinThunderbolts: options.tempestKirinThunderbolts, miremawBogBursts: options.miremawBogBursts, prismshellCrystalBursts: options.prismshellCrystalBursts, ironhornCrystalBursts: options.ironhornCrystalBursts, dreadreaperCrystalBursts: options.dreadreaperCrystalBursts, voltwardenCrystalBursts: options.voltwardenCrystalBursts,
+    dragonSpriteCanvas: options.assets.dragonSpriteCanvas, spiderSpriteCanvas: options.assets.spiderSpriteCanvas, frostclawSpriteCanvas: options.assets.frostclawSpriteCanvas, magmaliskSpriteCanvas: options.assets.magmaliskSpriteCanvas, gloomrootSpriteCanvas: options.assets.gloomrootSpriteCanvas, tidewyrmSpriteCanvas: options.assets.tidewyrmSpriteCanvas, koiShogunSpriteCanvas: options.assets.koiShogunSpriteCanvas, tempestKirinSpriteCanvas: options.assets.tempestKirinSpriteCanvas, miremawSpriteCanvas: options.assets.miremawSpriteCanvas, prismshellSpritePages: options.assets.prismshellSpritePages, ironhornSpritePages: options.assets.ironhornSpritePages, dreadreaperSpritePages: options.assets.dreadreaperSpritePages, voltwardenSpritePages: options.assets.voltwardenSpritePages,
+    dragonReady: options.assets.dragonReady, spiderReady: options.assets.spiderReady, frostclawReady: options.assets.frostclawReady, magmaliskReady: options.assets.magmaliskReady, gloomrootReady: options.assets.gloomrootReady, tidewyrmReady: options.assets.tidewyrmReady, koiShogunReady: options.assets.koiShogunReady, tempestKirinReady: options.assets.tempestKirinReady, miremawReady: options.assets.miremawReady, prismshellReady: options.assets.prismshellReady, ironhornReady: options.assets.ironhornReady, dreadreaperReady: options.assets.dreadreaperReady, voltwardenReady: options.assets.voltwardenReady,
     gameTime: options.gameTime, pixelCircle: options.pixelCircle, outlinedText: options.outlinedText,
     drawShadow: drawEntityShadow, hpLossFlashDuration: options.bossHpLossFlashDuration, spiderWebRange: options.spiderWebRange,
     rewardMultiplier: options.rewardMultiplier,
@@ -292,7 +297,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
                       ? options.miremawBoss
                       : options.currentMapId() === options.crystalHollowsMapId
                         ? options.prismshellBoss
-                        : options.currentMapId() === options.clockworkRuinsMapId ? options.ironhornBoss : options.currentMapId() === options.duskfallOrchardMapId ? options.dreadreaperBoss : null,
+                        : options.currentMapId() === options.clockworkRuinsMapId ? options.ironhornBoss : options.currentMapId() === options.neonBastionMapId ? options.voltwardenBoss : options.currentMapId() === options.duskfallOrchardMapId ? options.dreadreaperBoss : null,
     remoteAttackRange: BASE_ATTACK_RANGE,
     duelPlatformArt: options.assets.duelPlatformArt,
     player: options.player,
@@ -392,7 +397,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       koiShogunBoss: options.koiShogunBoss,
       tempestKirinBoss: options.tempestKirinBoss,
       miremawBoss: options.miremawBoss,
-      prismshellBoss: options.prismshellBoss, ironhornBoss: options.ironhornBoss, dreadreaperBoss: options.dreadreaperBoss,
+      prismshellBoss: options.prismshellBoss, ironhornBoss: options.ironhornBoss, dreadreaperBoss: options.dreadreaperBoss, voltwardenBoss: options.voltwardenBoss,
       bootsPickup: frame.bootsPickup,
       currentMapId: options.currentMapId,
       activePortal: options.activePortal,
@@ -415,7 +420,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawKoiShogunBoss: boss.drawKoiShogunBoss,
       drawTempestKirinBoss: boss.drawTempestKirinBoss,
       drawMiremawBoss: boss.drawMiremawBoss,
-      drawPrismshellBoss: boss.drawPrismshellBoss, drawIronhornBoss: boss.drawIronhornBoss, drawDreadreaperBoss: boss.drawDreadreaperBoss,
+      drawPrismshellBoss: boss.drawPrismshellBoss, drawIronhornBoss: boss.drawIronhornBoss, drawDreadreaperBoss: boss.drawDreadreaperBoss, drawVoltwardenBoss: boss.drawVoltwardenBoss,
       drawBootPickup: () => renderer.drawBootPickup(),
       drawPortal: world.drawPortal,
       drawSecondaryPortal: world.drawSecondaryPortal,
@@ -463,7 +468,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawKoiShogunTelegraphs: boss.drawKoiShogunTelegraphs,
       drawTempestKirinTelegraphs: boss.drawTempestKirinTelegraphs,
       drawMiremawTelegraphs: boss.drawMiremawTelegraphs,
-      drawPrismshellTelegraphs: boss.drawPrismshellTelegraphs, drawIronhornTelegraphs: boss.drawIronhornTelegraphs, drawDreadreaperTelegraphs: boss.drawDreadreaperTelegraphs,
+      drawPrismshellTelegraphs: boss.drawPrismshellTelegraphs, drawIronhornTelegraphs: boss.drawIronhornTelegraphs, drawDreadreaperTelegraphs: boss.drawDreadreaperTelegraphs, drawVoltwardenTelegraphs: boss.drawVoltwardenTelegraphs,
       drawProjectile: actor.drawProjectile,
       drawDepthSortedWorld: depth.drawDepthSortedWorld,
       drawMinimap: world.drawMinimap,
@@ -479,7 +484,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       currentMapIsSamurai: () => options.currentMapId() === options.samuraiMapId,
       currentMapIsCloudspire: () => options.currentMapId() === options.cloudspireMapId,
       currentMapIsMoonfen: () => options.currentMapId() === options.moonfenMapId,
-      currentMapIsCrystalHollows: () => options.currentMapId() === options.crystalHollowsMapId, currentMapIsClockworkRuins: () => options.currentMapId() === options.clockworkRuinsMapId, currentMapIsDuskfallOrchard: () => options.currentMapId() === options.duskfallOrchardMapId,
+      currentMapIsCrystalHollows: () => options.currentMapId() === options.crystalHollowsMapId, currentMapIsClockworkRuins: () => options.currentMapId() === options.clockworkRuinsMapId, currentMapIsDuskfallOrchard: () => options.currentMapId() === options.duskfallOrchardMapId, currentMapIsNeonBastion: () => options.currentMapId() === options.neonBastionMapId,
       portalCutsceneActive: frame.portalCutsceneActive,
       portalBlackoutOpacity: frame.portalBlackoutOpacity,
       screenShake: frame.screenShake,

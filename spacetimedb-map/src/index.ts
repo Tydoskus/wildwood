@@ -25,7 +25,7 @@ export { default,
   damageKoiShogunFromPosition,
   damageTempestKirinFromPosition,
   damageMiremawFromPosition,
-  damagePrismshellFromPosition, damageIronhornFromPosition, damageDreadreaperFromPosition,
+  damagePrismshellFromPosition, damageIronhornFromPosition, damageDreadreaperFromPosition, damageVoltwardenFromPosition,
   runMaintenance,
   runMaintenanceSweep,
   publishMotionFrames,
@@ -43,5 +43,5 @@ export { default,
   respawnKoiShogun,
   respawnTempestKirin,
   respawnMiremaw,
-  respawnPrismshell, respawnIronhorn, respawnDreadreaper
+  respawnPrismshell, respawnIronhorn, respawnDreadreaper, respawnVoltwarden
 } from "../../spacetimedb/src/index";

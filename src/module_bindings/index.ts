@@ -67,6 +67,7 @@ import DamageSpiderBatchReducer from "./damage_spider_batch_reducer";
 import DamageSpiderFromPositionReducer from "./damage_spider_from_position_reducer";
 import DamageTempestKirinFromPositionReducer from "./damage_tempest_kirin_from_position_reducer";
 import DamageTidewyrmFromPositionReducer from "./damage_tidewyrm_from_position_reducer";
+import DamageVoltwardenFromPositionReducer from "./damage_voltwarden_from_position_reducer";
 import DeliverShardRewardReducer from "./deliver_shard_reward_reducer";
 import DevAdjustGemsReducer from "./dev_adjust_gems_reducer";
 import DevBeginVirtualPlayerLoadTestReducer from "./dev_begin_virtual_player_load_test_reducer";
@@ -204,6 +205,8 @@ import TempestKirinBossRow from "./tempest_kirin_boss_table";
 import TempestKirinResultRow from "./tempest_kirin_result_table";
 import TidewyrmBossRow from "./tidewyrm_boss_table";
 import TidewyrmResultRow from "./tidewyrm_result_table";
+import VoltwardenBossRow from "./voltwarden_boss_table";
+import VoltwardenResultRow from "./voltwarden_result_table";
 import WorldStatusRow from "./world_status_table";
 
 /** Type-only namespace exports for generated type groups. */
@@ -790,6 +793,28 @@ const tablesSchema = __schema({
       { name: 'tidewyrm_result_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, TidewyrmResultRow),
+  voltwardenBoss: __table({
+    name: 'voltwarden_boss',
+    indexes: [
+      { accessor: 'id', name: 'voltwarden_boss_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'voltwarden_boss_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, VoltwardenBossRow),
+  voltwardenResult: __table({
+    name: 'voltwarden_result',
+    indexes: [
+      { accessor: 'id', name: 'voltwarden_result_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'voltwarden_result_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, VoltwardenResultRow),
   worldStatus: __table({
     name: 'world_status',
     indexes: [
@@ -936,6 +961,7 @@ const reducersSchema = __reducers(
   __reducerSchema("damage_spider_from_position", DamageSpiderFromPositionReducer),
   __reducerSchema("damage_tempest_kirin_from_position", DamageTempestKirinFromPositionReducer),
   __reducerSchema("damage_tidewyrm_from_position", DamageTidewyrmFromPositionReducer),
+  __reducerSchema("damage_voltwarden_from_position", DamageVoltwardenFromPositionReducer),
   __reducerSchema("deliver_shard_reward", DeliverShardRewardReducer),
   __reducerSchema("dev_adjust_gems", DevAdjustGemsReducer),
   __reducerSchema("dev_begin_virtual_player_load_test", DevBeginVirtualPlayerLoadTestReducer),

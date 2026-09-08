@@ -1,7 +1,7 @@
 import { beginHomeTeleport, endHomeTeleport } from "./home-teleport";
 import { createPortalCutscene } from "./cutscene";
 import { snapCameraToPlayer, type Camera } from "./camera";
-import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, MiremawBogBurst, PrismshellCrystalBurst, IronhornCrystalBurst, DreadreaperCrystalBurst, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, PlayerState, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
+import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, MiremawBogBurst, PrismshellCrystalBurst, IronhornCrystalBurst, DreadreaperCrystalBurst, VoltwardenCrystalBurst, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, PlayerState, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
 import type { MapId, SpawnSite } from "../world";
 
 export type MapPortal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
@@ -98,6 +98,7 @@ export function createMapController(options: {
   prismshellCrystalBursts: PrismshellCrystalBurst[];
   ironhornCrystalBursts: IronhornCrystalBurst[];
   dreadreaperCrystalBursts: DreadreaperCrystalBurst[];
+  voltwardenCrystalBursts: VoltwardenCrystalBurst[];
   boss: DragonBossState;
   spiderBoss: SpiderBossState;
   frostclawBoss: FrostclawBossState;
@@ -110,6 +111,7 @@ export function createMapController(options: {
   prismshellBoss: PrismshellBossState;
   ironhornBoss: IronhornBossState;
   dreadreaperBoss: DreadreaperBossState;
+  voltwardenBoss: VoltwardenBossState;
   clearPendingBossHits: () => void;
   onCutsceneFinished: (wasPreview: boolean) => void;
 }): MapController {
@@ -118,7 +120,7 @@ export function createMapController(options: {
     getCurrentMapId, setCurrentMapId, player, camera, viewport, keys, stopTouchMove, cutsceneOverlay, resizeViewport,
     isDueling, running, localMapState, changeMap, syncStoppedPosition, resetPresentationState, fadeToWorld, mapUnlocked, syncMapMusic,
     rebuildWorld, spawnFromSite, enemies, spawnSites, clearTransientCombat,
-    bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, miremawBogBursts, prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, clearPendingBossHits, onCutsceneFinished,
+    bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, miremawBogBursts, prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, clearPendingBossHits, onCutsceneFinished,
   } = options;
   const portalCutscene = createPortalCutscene();
   let mapTransitioning = false;
@@ -241,10 +243,12 @@ export function createMapController(options: {
     prismshellCrystalBursts.length = 0;
     ironhornCrystalBursts.length = 0;
     dreadreaperCrystalBursts.length = 0;
+    voltwardenCrystalBursts.length = 0;
     miremawBoss.tongue = null;
     prismshellBoss.shatter = null;
     ironhornBoss.shatter = null;
     dreadreaperBoss.shatter = null;
+    voltwardenBoss.shatter = null;
     rebuildWorld();
     for (const site of spawnSites) spawnFromSite(site);
   }

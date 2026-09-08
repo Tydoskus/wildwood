@@ -1,10 +1,11 @@
+import { drawNeonRoads } from "./neon-ground";
 import { TAU, WORLD } from "../constants";
 import { ENEMY_TYPES } from "../enemies";
 import { drawPortalMapMarker, portalDestinationColor, portalDestinationTextColor } from "../portal-presentation";
 import type { MapPlayerMarker } from "../../wildstat-coop";
 import type { Camera } from "./camera";
-import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, PlayerState, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
-import { CLOUDSPIRE_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, SAMURAI_GARDEN_MAP_ID, type MapId, type WorldDecor, type WorldPath } from "../world";
+import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, PlayerState, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
+import { CLOUDSPIRE_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, NEON_BASTION_MAP_ID, SAMURAI_GARDEN_MAP_ID, type MapId, type WorldDecor, type WorldPath } from "../world";
 import type { StaticWorldColorQuadFrame, StaticWorldLayer, StaticWorldSpriteFrame, StaticWorldTileFrame } from "./webgl-static-world-layer";
 import {
   paintStaticTile,
@@ -95,6 +96,7 @@ export type WorldRendererOptions = {
   crystalHollowsMapId: MapId;
   clockworkRuinsMapId: MapId;
   duskfallOrchardMapId: MapId;
+  neonBastionMapId: MapId;
   paths: WorldPath[];
   decor: WorldDecor[];
   enemies: EnemyState[];
@@ -111,6 +113,7 @@ export type WorldRendererOptions = {
   prismshellBoss: PrismshellBossState;
   ironhornBoss: IronhornBossState;
   dreadreaperBoss: DreadreaperBossState;
+  voltwardenBoss: VoltwardenBossState;
   duelSpaceBackground: HTMLImageElement;
   treeSpritesheet: HTMLImageElement;
   nightTreeSpritesheet: HTMLImageElement;
@@ -594,6 +597,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const colors = mapColors();
     ctx.fillStyle = colors.ground;
     ctx.fillRect(0, 0, visible.width, visible.height);
+    if (options.getMapId() === NEON_BASTION_MAP_ID) { drawNeonRoads(ctx, options.paths, camera, visible); return; }
     for (const path of options.paths) {
       const x = snapToWorldPixel(path.x - camera.x);
       const y = snapToWorldPixel(path.y - camera.y);
@@ -950,7 +954,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
                       ? { state: options.miremawBoss, color: "#79efc3" }
                       : options.getMapId() === CRYSTAL_HOLLOWS_MAP_ID
                         ? { state: options.prismshellBoss, color: "#c3a6ff" }
-                        : options.getMapId() === CLOCKWORK_RUINS_MAP_ID ? { state: options.ironhornBoss, color: "#c3a6ff" } : options.getMapId() === DUSKFALL_ORCHARD_MAP_ID ? { state: options.dreadreaperBoss, color: "#c3a6ff" } : null;
+                        : options.getMapId() === CLOCKWORK_RUINS_MAP_ID ? { state: options.ironhornBoss, color: "#c3a6ff" } : options.getMapId() === NEON_BASTION_MAP_ID ? { state: options.voltwardenBoss, color: "#c3a6ff" } : options.getMapId() === DUSKFALL_ORCHARD_MAP_ID ? { state: options.dreadreaperBoss, color: "#c3a6ff" } : null;
     if (mapBoss) {
       const bx = Math.round(innerX + mapBoss.state.x * sx); const by = Math.round(innerY + mapBoss.state.y * sy);
       draw.save();

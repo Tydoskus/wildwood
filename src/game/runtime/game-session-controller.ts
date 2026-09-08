@@ -82,6 +82,7 @@ type SessionDependencies = {
   crystalHollowsMapId: MapId;
   clockworkRuinsMapId: MapId;
   duskfallOrchardMapId: MapId;
+  neonBastionMapId: MapId;
   validMapIds: readonly MapId[];
   getMapId: () => MapId;
   setMapId: (mapId: MapId) => void;
@@ -114,6 +115,7 @@ type SessionDependencies = {
   syncPrismshell: () => void;
   syncIronhorn: () => void;
   syncDreadreaper: () => void;
+  syncVoltwarden: () => void;
   cutsceneActive: () => boolean;
   updateCutscene: (dt: number) => void;
   updatePlayer: (dt: number) => void;
@@ -132,6 +134,7 @@ type SessionDependencies = {
   updatePrismshell: (dt: number) => void;
   updateIronhorn: (dt: number) => void;
   updateDreadreaper: (dt: number) => void;
+  updateVoltwarden: (dt: number) => void;
   updateProjectiles: (dt: number) => void;
   updateRespawns: (gameTime: number) => void;
   clearDuelCombat: () => void;
@@ -175,7 +178,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     if (dependencies.getMapId() === dependencies.samuraiMapId) dependencies.syncKoiShogun();
     if (dependencies.getMapId() === dependencies.cloudspireMapId) dependencies.syncTempestKirin();
     if (dependencies.getMapId() === dependencies.moonfenMapId) dependencies.syncMiremaw();
-    if (dependencies.getMapId() === dependencies.clockworkRuinsMapId) dependencies.syncIronhorn(); else if (dependencies.getMapId() === dependencies.duskfallOrchardMapId) dependencies.syncDreadreaper(); else if (dependencies.getMapId() === dependencies.crystalHollowsMapId) dependencies.syncPrismshell();
+    if (dependencies.getMapId() === dependencies.clockworkRuinsMapId) dependencies.syncIronhorn(); else if (dependencies.getMapId() === dependencies.neonBastionMapId) dependencies.syncVoltwarden(); else if (dependencies.getMapId() === dependencies.duskfallOrchardMapId) dependencies.syncDreadreaper(); else if (dependencies.getMapId() === dependencies.crystalHollowsMapId) dependencies.syncPrismshell();
   }
 
   function simulate(dt: number) {
@@ -202,7 +205,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
       if (dependencies.getMapId() === dependencies.samuraiMapId) dependencies.updateKoiShogun(dt);
       if (dependencies.getMapId() === dependencies.cloudspireMapId) dependencies.updateTempestKirin(dt);
       if (dependencies.getMapId() === dependencies.moonfenMapId) dependencies.updateMiremaw(dt);
-      if (dependencies.getMapId() === dependencies.clockworkRuinsMapId) dependencies.updateIronhorn(dt); else if (dependencies.getMapId() === dependencies.duskfallOrchardMapId) dependencies.updateDreadreaper(dt); else if (dependencies.getMapId() === dependencies.crystalHollowsMapId) dependencies.updatePrismshell(dt);
+      if (dependencies.getMapId() === dependencies.clockworkRuinsMapId) dependencies.updateIronhorn(dt); else if (dependencies.getMapId() === dependencies.neonBastionMapId) dependencies.updateVoltwarden(dt); else if (dependencies.getMapId() === dependencies.duskfallOrchardMapId) dependencies.updateDreadreaper(dt); else if (dependencies.getMapId() === dependencies.crystalHollowsMapId) dependencies.updatePrismshell(dt);
       dependencies.updateProjectiles(dt);
       dependencies.updateRespawns(gameTime);
     } else {

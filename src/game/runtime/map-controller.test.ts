@@ -78,7 +78,7 @@ function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
     koiShogunWhirlpools: [],
     tempestKirinThunderbolts: [],
     miremawBogBursts: [],
-    prismshellCrystalBursts: bootstrap.prismshellCrystalBursts, ironhornCrystalBursts: bootstrap.ironhornCrystalBursts, dreadreaperCrystalBursts: bootstrap.dreadreaperCrystalBursts,
+    prismshellCrystalBursts: bootstrap.prismshellCrystalBursts, ironhornCrystalBursts: bootstrap.ironhornCrystalBursts, dreadreaperCrystalBursts: bootstrap.dreadreaperCrystalBursts, voltwardenCrystalBursts: bootstrap.voltwardenCrystalBursts,
     boss: {} as never,
     spiderBoss: {} as never,
     frostclawBoss: {} as never,
@@ -88,7 +88,7 @@ function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
     koiShogunBoss: {} as never,
     tempestKirinBoss: {} as never,
     miremawBoss: {} as never,
-    prismshellBoss: bootstrap.prismshellBoss, ironhornBoss: bootstrap.ironhornBoss, dreadreaperBoss: bootstrap.dreadreaperBoss,
+    prismshellBoss: bootstrap.prismshellBoss, ironhornBoss: bootstrap.ironhornBoss, dreadreaperBoss: bootstrap.dreadreaperBoss, voltwardenBoss: bootstrap.voltwardenBoss,
     clearPendingBossHits: vi.fn(),
     onCutsceneFinished: vi.fn(),
   } as unknown as Parameters<typeof createMapController>[0]);

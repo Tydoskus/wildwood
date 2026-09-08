@@ -49,4 +49,5 @@ export default __t.row({
   bossRewardClaims: __t.u32().name("boss_reward_claims"),
   clockworkRuinsUnlocked: __t.bool().name("clockwork_ruins_unlocked"),
   duskfallOrchardUnlocked: __t.bool().name("duskfall_orchard_unlocked"),
+  neonBastionUnlocked: __t.bool().name("neon_bastion_unlocked"),
 });

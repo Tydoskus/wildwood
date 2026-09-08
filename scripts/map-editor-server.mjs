@@ -27,7 +27,7 @@ const knownMapIds = new Set([
   "samurai_garden",
   "cloudspire",
   "moonfen",
-  "crystal_hollows", "clockwork_ruins", "duskfall_orchard",
+  "crystal_hollows", "clockwork_ruins", "duskfall_orchard", "neon_bastion",
 ]);
 const liveMapConnections = {
   tutorial_forest: ["beginner_desert"],
@@ -39,7 +39,7 @@ const liveMapConnections = {
   samurai_garden: ["water_reach", "cloudspire"],
   cloudspire: ["samurai_garden", "moonfen"],
   moonfen: ["cloudspire", "crystal_hollows"],
-  crystal_hollows: ["moonfen", "clockwork_ruins"], clockwork_ruins: ["crystal_hollows", "duskfall_orchard"], duskfall_orchard: ["clockwork_ruins"],
+  crystal_hollows: ["moonfen", "clockwork_ruins"], clockwork_ruins: ["crystal_hollows", "duskfall_orchard"], duskfall_orchard: ["clockwork_ruins", "neon_bastion"], neon_bastion: ["duskfall_orchard"],
 };
 const decorTypes = new Set([
   "tree", "grass", "petal", "cherryPetal", "cactus", "rock", "desertGrass",

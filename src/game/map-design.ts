@@ -174,6 +174,15 @@ const DEFAULT_MAP_THEMES: Record<MapId, MapVisualTheme> = {
       pumpkin: ["#df8139", "#b95935", "#e5a855"],
       rock: ["#4c526b", "#64627c", "#526477", "#706879"],
     },
+  }, neon_bastion: {
+    ground: "#101528",
+    path: "#23324b",
+    pathDetail: "rgba(65,245,255,.35)",
+    decorColors: {
+      skyShard: ["#4ef7ff", "#ff4cdb", "#8a79ff"],
+      gear: ["#ff4cdb", "#4ef7ff", "#8a79ff"],
+      rock: ["#1b2540", "#263250", "#222f48", "#303354"],
+    },
   },
 };
 
