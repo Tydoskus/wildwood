@@ -1,6 +1,33 @@
-/** Voltwarden is drawn from a small set of solid shapes, so the neon boss
- * stays crisp at every display scale without extra image downloads or blur. */
-export function drawVoltwardenArt(ctx: CanvasRenderingContext2D, x: number, y: number, time: number, attacking: boolean, hurt: number) {
+export const VOLTWARDEN_ART_SOURCE = "assets/wildstat/voltwarden-boss-spritesheet-v1.png";
+export const VOLTWARDEN_ART_TOP = -200;
+export type VoltwardenPose = "idle" | "laser" | "emp";
+
+/** Three total frames in one row: idle, laser and EMP. */
+export function voltwardenSpriteFrame(width: number, height: number, pose: VoltwardenPose) {
+  const w = width / 3;
+  return { x: ({ idle: 0, laser: 1, emp: 2 } as const)[pose] * w, y: 0, w, h: height };
+}
+
+/** ImageGen character art with a small idle/charge motion; the original vector
+ * silhouette remains a fallback while loading or after a failed image request. */
+export function drawVoltwardenArt(ctx: CanvasRenderingContext2D, x: number, y: number, time: number, pose: VoltwardenPose, hurt: number, sprite?: HTMLImageElement) {
+  const attacking = pose !== "idle";
+  if (sprite?.naturalWidth && sprite.naturalHeight) {
+    const size = 400;
+    const frame = voltwardenSpriteFrame(sprite.naturalWidth, sprite.naturalHeight, pose);
+    const bob = Math.sin(time * 2.6) * 3;
+    const charge = attacking ? 1 + Math.sin(time * 12) * .015 : 1;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = "#05071680";
+    ctx.beginPath(); ctx.ellipse(0, 130, 126, 34, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.translate(0, VOLTWARDEN_ART_TOP + 360 + bob);
+    ctx.scale(charge, 1 / charge);
+    if (hurt > 0) ctx.filter = "brightness(1.7)";
+    ctx.drawImage(sprite, frame.x, frame.y, frame.w, frame.h, -size / 2, -size + 36, size, size);
+    ctx.restore();
+    return;
+  }
   const cyan = hurt > 0 ? "#ffffff" : "#56f7ff";
   const pink = attacking ? "#ffffff" : "#ff48d5";
   const hover = Math.sin(time * 2.6) * 7;

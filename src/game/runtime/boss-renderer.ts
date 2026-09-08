@@ -1,5 +1,5 @@
 import { drawNeonAttacks } from "./neon-attack-art";
-import { drawVoltwardenArt } from "./neon-boss-art";
+import { drawVoltwardenArt, VOLTWARDEN_ART_TOP } from "./neon-boss-art";
 import { drawBossAtlasFrame } from "./boss-atlas-drawing";
 import {
   BOSS_CONE_HALF_ANGLE,
@@ -1494,10 +1494,11 @@ export function createBossRenderer(options: {
     const x = screenX(voltwardenBoss.x);
     const y = screenY(voltwardenBoss.y);
     const visualY = y + VOLTWARDEN_SPRITE_Y_OFFSET;
-    drawVoltwardenArt(ctx, x, visualY, options.gameTime(), Boolean(voltwardenBoss.shatter), voltwardenBoss.hurt);
+    drawVoltwardenArt(ctx, x, visualY, options.gameTime(), voltwardenBoss.shatter ? "laser" : options.voltwardenCrystalBursts.length > 0 ? "emp" : "idle",
+      voltwardenBoss.hurt, options.voltwardenReady() ? options.voltwardenSpritePages[0] : undefined);
     drawBossStatus({
       x,
-      spriteTopY: visualY - 172,
+      spriteTopY: visualY + VOLTWARDEN_ART_TOP,
       barGap: 34,
       barWidth: 330,
       barHeight: 23,

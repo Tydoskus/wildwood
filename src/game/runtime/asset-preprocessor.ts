@@ -9,6 +9,7 @@ import { SCORPION_SPRITE } from "./scorpion-sprite";
 import { savedMapDesign } from "../map-design";
 import { PRISMSHELL_ATLAS, PRISMSHELL_USED_PAGES } from "./prismshell-sprite";
 import { IRONHORN_ATLAS, IRONHORN_USED_PAGES } from "./ironhorn-sprite";
+import { VOLTWARDEN_ART_SOURCE } from "./neon-boss-art";
 import { DREADREAPER_ATLAS, DREADREAPER_USED_PAGES } from "./dreadreaper-sprite";
 
 export type TreeSpriteBound = {
@@ -258,11 +259,11 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   const prismshellPageAssets = PRISMSHELL_ATLAS.pages.map((page) => createLazyImageAsset(page.src));
   const ironhornPageAssets = IRONHORN_ATLAS.pages.map((page) => createLazyImageAsset(page.src));
   const dreadreaperPageAssets = DREADREAPER_ATLAS.pages.map((page) => createLazyImageAsset(page.src));
-const voltwardenPageAssets: ReturnType<typeof createLazyImageAsset>[] = [];
+  const voltwardenPageAssets = [createLazyImageAsset(VOLTWARDEN_ART_SOURCE)];
   const prismshellAssets = PRISMSHELL_USED_PAGES.map((index) => prismshellPageAssets[index]);
   const ironhornAssets = IRONHORN_USED_PAGES.map((index) => ironhornPageAssets[index]);
   const dreadreaperAssets = DREADREAPER_USED_PAGES.map((index) => dreadreaperPageAssets[index]);
-const voltwardenAssets = voltwardenPageAssets;
+  const voltwardenAssets = voltwardenPageAssets;
 
   const portalArchAsset = createLazyImageAsset("assets/wildstat/stone-portal-arch.png");
   const portalSwirlAsset = createLazyImageAsset(PORTAL_SWIRL_SOURCE);

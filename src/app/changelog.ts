@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.648": [
+    "Added the new Voltwarden boss artwork with idle, laser, and EMP poses in Neon Bastion.",
+  ],
   "0.647": [
     "Added a fullscreen Gem shop with four packs, flat black styling, and pink Gem accents.",
     "Web purchases are coming soon; prices are shown in USD and checkout remains disabled.",
@@ -1607,6 +1610,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.648": "2026-09-08",
   "0.647": "2026-09-08",
   "0.646": "2026-09-08",
   "0.645": "2026-09-08",
