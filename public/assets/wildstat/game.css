@@ -3281,3 +3281,40 @@
 .chat-channel-status { padding: 5px 2px 0; color: #d7d2ca; font-size: 11px; line-height: 1.3; }
 
 .chat-manage-friends { grid-column: 1 / -1; }
+
+  /* Gem shop: flat black surfaces with a restrained Gem tint. */
+  .gem-shop {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: max(24px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+    border: 0;
+    background: #080808;
+    color: #f5f2f5;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+  }
+  .gem-shop::backdrop { background: #080808; }
+  .gem-shop-content { width: min(100%, 440px); min-height: 100%; margin: auto; display: flex; flex-direction: column; justify-content: center; gap: 20px; }
+  .gem-shop-header { text-align: center; }
+  .gem-shop-header h1 { margin: 0 0 8px; font-size: 28px; }
+  .gem-shop-header p, .gem-shop-notice { margin: 0; color: #bfb7bf; font-size: 12px; line-height: 1.5; text-align: center; }
+  .gem-shop-packs { display: grid; gap: 10px; }
+  .gem-shop-pack { display: flex; align-items: center; gap: 14px; min-height: 82px; padding: 14px; background: #151315; border: 2px solid #302830; border-radius: 10px; }
+  .gem-shop-pack > img { width: 42px; height: 42px; object-fit: contain; }
+  .gem-shop-amount { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+  .gem-shop-amount strong { font-size: 23px; color: #ff9ed5; line-height: 1; }
+  .gem-shop-amount span { font-size: 12px; color: #bfb7bf; }
+  .gem-shop-pack button { min-width: 90px; min-height: 44px; padding: 8px 12px; border: 2px solid #302830; border-radius: 7px; background: #352431; color: #f5f2f5; font-size: 16px; }
+  .gem-shop-pack button:disabled { opacity: 1; cursor: default; }
+  .gem-shop-back { align-self: center; width: min(220px, 100%); min-height: 44px; border: 2px solid #403540; border-radius: 8px; background: #242024; box-shadow: none; color: #fff; font-size: 14px; }
+  .gem-shop-back:focus-visible { outline: 2px solid #ff9ed5; outline-offset: 4px; }
+  @media (max-height: 600px) {
+    .gem-shop-content { gap: 12px; }
+    .gem-shop-pack { min-height: 64px; padding: 9px 12px; }
+  }

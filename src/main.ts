@@ -1802,6 +1802,7 @@ import {
   minimizeMaximizedChat = chatRuntime.minimize;
 
   inputEscapeHandler = createGameActionsRuntime({
+    setShopOpen: (open: boolean) => { playerInput.clear(); setGameplayPause("shop", open); },
     e: gameElements, inventory, renderInventory, logPickup, showMessage, leaveDuelResult,
     itemInspectionController,
     minimizeChat: minimizeMaximizedChat,

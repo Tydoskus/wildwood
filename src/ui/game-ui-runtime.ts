@@ -1,3 +1,4 @@
+import { createGemShopController } from "./gem-shop-controller";
 import { recentReleaseNotes } from "../app/changelog";
 import { isDeveloperIdentity } from "../app/developer";
 import {
@@ -72,7 +73,9 @@ export function createLeaderboardPanel(d: Record<string, any>) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createGameActionsRuntime(d: Record<string, any>) {
   const e = d.e;
+  const shop = createGemShopController({ button: e.shopBtn, setOpen: d.setShopOpen });
   return createGameActionsController({
+    shop,
     elements: {
       settingsButton: e.settingsBtn, settingsPanel: e.settingsPanel, closeSettingsButton: e.closeSettingsBtn,
       inventoryButton: e.inventoryBtn, inventoryPanel: e.inventoryPanel, closeInventoryButton: e.closeInventoryBtn,

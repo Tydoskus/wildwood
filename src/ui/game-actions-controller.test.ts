@@ -17,6 +17,7 @@ function setup() {
   const events: string[] = [];
   const deps = {
     elements,
+    shop: { open: vi.fn(), close: vi.fn(), isOpen: () => false },
     inventory: { itemIds: ["old-sword"], equippedHead: "old-hat", equippedChest: "", equippedFeet: "", equippedRightHand: "old-sword", equippedLeftHand: "", cosmeticHead: "", cosmeticChest: "", cosmeticFeet: "", cosmeticRightHand: "", cosmeticLeftHand: "", selectedItemId: "" },
     closeCompetingWindows: vi.fn(), minimizeChat: vi.fn(), prepareInventoryOpen: vi.fn(), closeItemInspection: vi.fn(), renderInventory: vi.fn(), logPickup: vi.fn(), showMessage: vi.fn(), leaveDuelResult: vi.fn(), closeDuelReplay: vi.fn(), closeBootUpgrade: vi.fn(),
     resetServerProgress: vi.fn(async () => { events.push("server"); return { ok: true } as { ok: boolean; error?: string; restartError?: string }; }),

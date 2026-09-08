@@ -45,6 +45,7 @@ type EscapeWindows = {
 
 type GameActionsDependencies = {
   elements: WindowActionsElements;
+  shop: { open: () => void; close: () => void; isOpen: () => boolean };
   inventory: InventoryState & { selectedItemId: string; selectedItemLocation?: EquipmentSlot | "BAG" | "" };
   closeCompetingWindows: () => void;
   minimizeChat: () => void;
@@ -148,6 +149,7 @@ export function createGameActionsController(dependencies: GameActionsDependencie
   }
 
   function handleInputEscape() {
+    if (dependencies.shop.isOpen()) { dependencies.shop.close(); return true; }
     if (!elements.settingsPanel.hidden) { closeSettings(); elements.settingsButton.focus(); return true; }
     const windows = dependencies.escapeWindows;
     if (windows.isRespawnAdPromptOpen()) { windows.closeRespawnAdPrompt(); return true; }
@@ -193,7 +195,8 @@ export function createGameActionsController(dependencies: GameActionsDependencie
     closeSettings();
     closeInventory();
     dependencies.closeCompetingWindows();
-    dependencies.showMessage("SHOP COMING SOON", "#ff9ed5");
+    dependencies.clearPlayerInput();
+    dependencies.shop.open();
   });
 
   elements.closeDuelResultButton.addEventListener("click", dependencies.leaveDuelResult);

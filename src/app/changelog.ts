@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.647": [
+    "Added a fullscreen Gem shop with four packs, flat black styling, and pink Gem accents.",
+    "Web purchases are coming soon; prices are shown in USD and checkout remains disabled.",
+  ],
   "0.646": [
     "Fixed Voltwarden being invisible in Neon Bastion.",
     "Replaced reused enemy artwork with six original animated neon sentries.",
@@ -1603,6 +1607,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.647": "2026-09-08",
   "0.646": "2026-09-08",
   "0.645": "2026-09-08",
   "0.644": "2026-09-08",
