@@ -50,6 +50,28 @@ function setup() {
 }
 
 describe("chat channels", () => {
+  it("renders guild replays as normal chat bubbles and opens them through replay actions", () => {
+    const h = setup();
+    vi.stubGlobal("CustomEvent", h.window.CustomEvent);
+    const announcement = { ...h.coop.chatMessages()[0], senderName: "GUILDS", guildReplayKey: "1:42", message: "Oak defeated Pine" };
+    h.coop.chatMessages = () => [announcement];
+    h.coop.chatRevision = () => 2;
+    h.chat.refresh();
+    const content = h.document.querySelector(".chat-line .chat-message-content")!;
+    expect(content.querySelector(".chat-name-text")!.textContent).toBe("GUILDS");
+    expect(content.querySelector(".chat-text .chat-message-body")!.textContent).toBe("Oak defeated Pine");
+    expect(h.document.querySelector(".chat-guild-replay")).toBeNull();
+    expect(h.document.querySelector(".chat-replay")).toBeNull();
+    h.document.getElementById("chatSizeToggle")!.click();
+    h.document.querySelector<HTMLElement>(".chat-replay")!.click();
+    expect(h.document.getElementById("chatMessageActionTitle")!.textContent).toBe("Guild battle replay");
+    expect(h.document.getElementById("chatMessageReplyBtn")!.hidden).toBe(true);
+    const openReplay = vi.fn();
+    h.window.addEventListener("wildwood:open-guild-replay", openReplay);
+    h.document.getElementById("chatMessageWatchReplayBtn")!.click();
+    expect(openReplay).toHaveBeenCalledOnce();
+    expect(openReplay.mock.calls[0][0].detail).toEqual({ reportKey: "1:42" });
+  });
   it("deduplicates friends and incoming conversations by username", () => {
     expect(mergeChatConversations([{ identity: "1", name: "Moss" }], [{ identity: "1", name: "moss" }, { identity: "2", name: "Oak" }])).toHaveLength(2);
   });

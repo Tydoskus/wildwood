@@ -138,6 +138,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     elements: elements.messageActions,
     getLocalIdentity: () => getCoop()?.localIdentity?.() ?? "",
     onWatchReplay: (replayId) => onOpenReplay?.(replayId),
+    onWatchGuildReplay: (reportKey) => window.dispatchEvent(new CustomEvent("wildwood:open-guild-replay", { detail: { reportKey } })),
     onReply: (target) => setPendingReply(target, true),
     reportMessage: async (messageId, reason) => {
       const coop = getCoop();
@@ -304,14 +305,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       const time = document.createElement("span");
       time.className = "chat-time";
       time.textContent = formatChatTime(new Date(message.sentAtMs));
-      if (channel === "public" && message.guildReplayKey) {
-        line.classList.add("chat-guild-battle");
-        const result = document.createElement("span"); result.className = "chat-text chat-guild-result"; result.textContent = message.message;
-        const watch = document.createElement("button"); watch.type = "button"; watch.className = "chat-guild-replay"; watch.textContent = "▶ Replay";
-        watch.setAttribute("aria-label", `Watch guild battle: ${message.message}`);
-        watch.addEventListener("click", () => window.dispatchEvent(new CustomEvent("wildwood:open-guild-replay", { detail: { reportKey: message.guildReplayKey } })));
-        line.append(time, result, watch); elements.messages.appendChild(line); continue;
-      }
+      const guildReplayKey = channel === "public" ? message.guildReplayKey : undefined;
       const shownMessage = message.moderated ? MODERATED_CHAT_MESSAGE : message.message;
       const text = document.createElement("span");
       text.className = "chat-text";
@@ -377,6 +371,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
           senderName: displayName,
           message: shownMessage,
           replayId: message.replayId,
+          guildReplayKey,
         });
       };
       const icon = document.createElement("span");
@@ -408,11 +403,12 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
           openMessageActions(event);
         });
       }
-      if (duelReplayIsInteractive(message.replayId, large)) {
+      if (duelReplayIsInteractive(message.replayId, large) || (guildReplayKey && large)) {
         line.classList.add("has-replay");
         line.setAttribute("role", "button");
         line.setAttribute("tabindex", "0");
-        line.setAttribute("aria-label", "Open duel replay actions");
+        const replayLabel = guildReplayKey ? "Open guild battle replay actions" : "Open duel replay actions";
+        line.setAttribute("aria-label", replayLabel);
         line.addEventListener("click", openMessageActions);
         line.addEventListener("keydown", (event) => {
           if (event.key !== "Enter" && event.key !== " ") return;
@@ -422,8 +418,8 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
         const replay = document.createElement("button");
         replay.className = "chat-replay";
         replay.type = "button";
-        replay.title = "Open duel replay actions";
-        replay.setAttribute("aria-label", "Open duel replay actions");
+        replay.title = replayLabel;
+        replay.setAttribute("aria-label", replayLabel);
         const replayIcon = document.createElement("span");
         replayIcon.className = "chat-replay-icon";
         replayIcon.setAttribute("aria-hidden", "true");

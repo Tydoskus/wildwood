@@ -51,4 +51,9 @@ describe("chat message actions", () => {
     expect(shouldDismissMessageActionSheet(32, 320, 45)).toBe(true);
     expect(shouldDismissMessageActionSheet(32, 320, 500)).toBe(false);
   });
+  it("offers Watch Replay for a guild announcement without player report or reply actions", () => {
+    expect(messageActionAvailability({ ...target, guildReplayKey: "1:42" }, "local-player")).toEqual({
+      watchReplay: true, copy: false, reply: false, report: false,
+    });
+  });
 });

@@ -84,6 +84,7 @@ export function createRewardedRespawnAdController(
     elements.button.dataset.state = state;
     elements.button.disabled = disabled;
     elements.status.textContent = status;
+    elements.confirmButton.textContent = state === "waiting" ? "Retry Ad" : "Watch Ad";
     elements.button.setAttribute("aria-busy", state === "checking" || state === "showing" ? "true" : "false");
   }
 
@@ -130,10 +131,11 @@ export function createRewardedRespawnAdController(
         ? await bridge.rewardedAds.isReady(REGULAR_ENEMY_RESPAWN_AD_PLACEMENT)
         : true;
       if (generation !== refreshGeneration || showingAd) return;
-      render(ready ? "ready" : "waiting", ready ? "WATCH AD" : "AD LOADING", !ready);
+      render(ready ? "ready" : "waiting", ready ? "WATCH AD" : "RETRY AD", false);
     } catch {
       if (generation !== refreshGeneration || showingAd) return;
-      render("waiting", "AD UNAVAILABLE", true);
+      render("waiting", "RETRY AD", false);
+      elements.button.title = "Ad could not load. Tap to retry after checking your connection.";
     }
   }
 
@@ -193,7 +195,7 @@ export function createRewardedRespawnAdController(
         dependencies.showMessage("AD NOT COMPLETED", "#ffcf66");
       }
     } catch {
-      render("waiting", "AD UNAVAILABLE", true);
+      render("waiting", "RETRY AD", false);
       dependencies.showMessage("AD UNAVAILABLE", "#ff9b91");
     } finally {
       showingAd = false;
@@ -221,6 +223,7 @@ export function createRewardedRespawnAdController(
     elements.cancelButton.addEventListener("click", onCancelClick);
     elements.prompt.addEventListener("click", onPromptClick);
     for (const event of NATIVE_REWARDED_ADS_CHANGED_EVENTS) window.addEventListener(event, refreshAvailability);
+    window.addEventListener("online", refreshAvailability);
     void refreshAvailability();
   }
 
@@ -237,6 +240,7 @@ export function createRewardedRespawnAdController(
     elements.cancelButton.removeEventListener("click", onCancelClick);
     elements.prompt.removeEventListener("click", onPromptClick);
     for (const event of NATIVE_REWARDED_ADS_CHANGED_EVENTS) window.removeEventListener(event, refreshAvailability);
+    window.removeEventListener("online", refreshAvailability);
   }
 
   return { init, refreshAvailability, destroy, isPromptOpen: () => promptOpen, closePrompt };

@@ -878,7 +878,6 @@
   .respawn-ad-button:hover:not(:disabled) .respawn-ad-video-icon,
   .respawn-ad-button:focus-visible .respawn-ad-video-icon { filter: brightness(1.13); transform: scale(1.06); }
   .respawn-ad-button[data-state="checking"],
-  .respawn-ad-button[data-state="waiting"],
   .respawn-ad-button[data-state="showing"] { opacity: .58; }
 
   .respawn-ad-video-icon,
@@ -2897,20 +2896,22 @@
   .signin-update-notice[hidden] { display: none; }
   .signin-update-notice header { padding: 0 1px 11px; border-bottom: 1px solid rgba(220, 230, 222, .2); }
   .signin-update-notice header strong { color: #fff; font-size: 11px; font-weight: 900; letter-spacing: .12em; }
+  .signin-update-scroll {
+    max-height: min(42svh, 300px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+  .signin-update-scroll::-webkit-scrollbar { display: none; }
   .signin-update-history {
     display: grid;
     gap: 16px;
-    max-height: min(42svh, 300px);
     margin: 13px 0 0;
-    padding: 0 5px 0 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    padding: 0;
     color: #e9eeea;
     font-size: 14px;
     line-height: 1.45;
     list-style: none;
-    scrollbar-color: rgba(255, 255, 255, .52) transparent;
-    scrollbar-width: thin;
   }
   .update-release { margin: 0; padding: 0; }
   .update-release-heading { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }

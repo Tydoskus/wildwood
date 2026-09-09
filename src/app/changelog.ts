@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.650": [
+    "Guild battle replays now use regular chat messages and the Watch Replay action menu.",
+    "Release notes hide the scrollbar and scroll the title and divider with the notes.",
+    "Failed ad loads can be retried without restarting the game.",
+  ],
   "0.649": [
     "Updated the sign-in button with a brighter green gradient and refreshed gray buttons with matching shaded styling.",
     "Renamed Guest Login to Play as Guest.",
@@ -1615,6 +1620,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.650": "2026-09-08",
   "0.649": "2026-09-08",
   "0.648": "2026-09-08",
   "0.647": "2026-09-08",

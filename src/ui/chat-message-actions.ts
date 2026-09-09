@@ -11,6 +11,7 @@ export type ChatMessageActionTarget = {
   senderName: string;
   message: string;
   replayId: bigint;
+  guildReplayKey?: string;
 };
 
 export type ChatMessageActionElements = {
@@ -35,6 +36,7 @@ type ChatMessageActionsOptions = {
   elements: ChatMessageActionElements;
   getLocalIdentity: () => string;
   onWatchReplay: (replayId: bigint) => void;
+  onWatchGuildReplay?: (reportKey: string) => void;
   onReply: (target: ChatMessageActionTarget) => void;
   reportMessage: (messageId: bigint, reason: ChatReportReason) => Promise<{ ok: boolean; error?: string }>;
   showMessage: (text: string, color?: string) => void;
@@ -42,16 +44,17 @@ type ChatMessageActionsOptions = {
 
 export function shouldOfferMessageReport(target: ChatMessageActionTarget, localIdentity: string) {
   return Boolean(target.sender)
+    && !target.guildReplayKey
     && Boolean(target.senderName)
     && target.sender !== localIdentity;
 }
 
 export function messageActionAvailability(target: ChatMessageActionTarget, localIdentity: string) {
-  const isReplay = target.replayId > 0n;
+  const isReplay = target.replayId > 0n || Boolean(target.guildReplayKey);
   return {
     watchReplay: isReplay,
     copy: !isReplay,
-    reply: Boolean(target.senderName),
+    reply: Boolean(target.senderName) && !target.guildReplayKey,
     report: shouldOfferMessageReport(target, localIdentity),
   };
 }
@@ -84,6 +87,7 @@ export function createChatMessageActionsController({
   elements,
   getLocalIdentity,
   onWatchReplay,
+  onWatchGuildReplay,
   onReply,
   reportMessage,
   showMessage,
@@ -122,7 +126,7 @@ export function createChatMessageActionsController({
     const availability = messageActionAvailability(selectedMessage, getLocalIdentity());
     reportPending = false;
     selectReason(null);
-    elements.title.textContent = selectedMessage.replayId > 0n
+    elements.title.textContent = selectedMessage.guildReplayKey ? "Guild battle replay" : selectedMessage.replayId > 0n
       ? `Duel replay from ${selectedMessage.senderName || "Player"}`
       : `Message from ${selectedMessage.senderName || "Player"}`;
     elements.preview.textContent = selectedMessage.message.replace(/\s+/g, " ");
@@ -210,6 +214,12 @@ export function createChatMessageActionsController({
 
     elements.backdrop.addEventListener("click", () => close());
     elements.watchReplayButton.addEventListener("click", () => {
+      const guildReplayKey = selectedMessage?.guildReplayKey;
+      if (guildReplayKey) {
+        close(false);
+        onWatchGuildReplay?.(guildReplayKey);
+        return;
+      }
       const replayId = selectedMessage?.replayId ?? 0n;
       if (replayId <= 0n) return;
       close(false);

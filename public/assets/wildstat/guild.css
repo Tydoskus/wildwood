@@ -100,9 +100,6 @@
 .guild-replay-controls input { flex: 1; min-width: 90px; max-width: 320px; width: auto; accent-color: var(--guild-accent); }
 .guild-replay-controls[hidden] { display: none; }
 .guild-replay-controls .guild-button { padding-inline: 10px; }
-.chat-guild-battle { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px; }
-.chat-guild-result { color: #b9dfa9; }
-.chat-guild-replay { margin: 0; padding: 3px 6px; min-height: 28px; border: 1px solid #ffffff30; border-radius: 4px; background: #23382b; color: #fff; font: inherit; cursor: pointer; white-space: nowrap; }
 /* Social controls share the guild panel's focus, scrolling, and mobile shell. */
 .social-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; }
 .social-row { flex-wrap: wrap; }
