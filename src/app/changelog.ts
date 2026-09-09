@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.649": [
+    "Updated the sign-in button with a brighter green gradient and refreshed gray buttons with matching shaded styling.",
+    "Renamed Guest Login to Play as Guest.",
+    "Made connection and loading text white for clearer readability.",
+  ],
   "0.648": [
     "Added the new Voltwarden boss artwork with idle, laser, and EMP poses in Neon Bastion.",
   ],
@@ -1610,6 +1615,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.649": "2026-09-08",
   "0.648": "2026-09-08",
   "0.647": "2026-09-08",
   "0.646": "2026-09-08",
