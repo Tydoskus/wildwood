@@ -1,7 +1,8 @@
+import { syncResearchNotification } from "../../app/native-research-notifications";
 import type { Identity } from "spacetimedb";
 import { normalizedInventorySlotsUnlocked } from "../../../shared/gems";
 import { itemUpgradeDurationMs, normalizeItemUpgradeLevel } from "../../../shared/items";
-import { createEmptyResearchRanks, isResearchId, type ResearchId } from "../../../shared/research";
+import { createEmptyResearchRanks, RESEARCH_DEFINITIONS, isResearchId, type ResearchId } from "../../../shared/research";
 import type {
   ActiveItemUpgrade,
   ActiveResearch,
@@ -46,7 +47,7 @@ type ProgressRow = { identity: Identity } & Omit<
   | "samuraiUnlocked"
   | "cloudspireUnlocked"
   | "moonfenUnlocked"
-  | "crystalHollowsUnlocked" | "clockworkRuinsUnlocked" | "duskfallOrchardUnlocked" | "neonBastionUnlocked"
+  | "crystalHollowsUnlocked" | "clockworkRuinsUnlocked" | "duskfallOrchardUnlocked" | "neonBastionUnlocked" | "verdantCatacombsUnlocked"
   | "bowCount"
   | "woodenArmorCount"
   | "cosmeticHead"
@@ -66,6 +67,7 @@ type ProgressRow = { identity: Identity } & Omit<
   clockworkRuinsUnlocked?: boolean;
   duskfallOrchardUnlocked?: boolean;
   neonBastionUnlocked?: boolean;
+  verdantCatacombsUnlocked?: boolean;
   bowCount?: number;
   woodenArmorCount?: number;
   cosmeticHead?: string;
@@ -252,7 +254,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       samuraiUnlocked: row.samuraiUnlocked ?? false,
       cloudspireUnlocked: row.cloudspireUnlocked ?? false,
       moonfenUnlocked: row.moonfenUnlocked ?? false,
-      crystalHollowsUnlocked: row.crystalHollowsUnlocked ?? false, clockworkRuinsUnlocked: row.clockworkRuinsUnlocked ?? false, duskfallOrchardUnlocked: row.duskfallOrchardUnlocked ?? false, neonBastionUnlocked: row.neonBastionUnlocked ?? false,
+      crystalHollowsUnlocked: row.crystalHollowsUnlocked ?? false, clockworkRuinsUnlocked: row.clockworkRuinsUnlocked ?? false, duskfallOrchardUnlocked: row.duskfallOrchardUnlocked ?? false, neonBastionUnlocked: row.neonBastionUnlocked ?? false, verdantCatacombsUnlocked: row.verdantCatacombsUnlocked ?? false,
       bowCount: Math.max(0, Math.floor(row.bowCount ?? 0)),
       woodenArmorCount: Math.max(0, Math.floor(row.woodenArmorCount ?? 0)),
     };
@@ -312,11 +314,13 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       startedAtMs: Number(row.startedAt.microsSinceUnixEpoch / 1_000n),
       completesAtMs: Number(row.completesAt.microsSinceUnixEpoch / 1_000n),
     };
+    void syncResearchNotification({ owner: dependencies.localIdentity(), ...activeResearch, title: RESEARCH_DEFINITIONS[row.researchId].title });
     dependencies.notify();
   }
 
   function removeActiveResearch(row: { identity: Identity }) {
     if (row.identity.toHexString() !== dependencies.localIdentity()) return;
+    void syncResearchNotification(null);
     activeResearch = null;
     dependencies.notify();
   }
@@ -665,6 +669,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
               : { ok: false, error: "Your connection changed. Reconnect to check the character reset." };
           }
           if (result.ok) {
+            void syncResearchNotification(null);
             cutscenes.reset();
             let restartError: string | undefined;
             try { await finishRoute?.(); }
@@ -700,6 +705,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       pendingProgress = store.read(dependencies.localIdentity());
       saveInFlightUntil = 0;
       if (!identityChanged) return;
+      void syncResearchNotification(null);
       localProgress = null;
       localResearch = createEmptyResearchRanks();
       activeResearch = null;

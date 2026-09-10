@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { drawHomeTeleport, endHomeTeleport } from "./home-teleport";
 import { createMapController, prepareMapTransition } from "./map-controller";
 import type { PlayerState } from "./types";
 import { createGameBootstrap } from "./game-bootstrap";
@@ -78,7 +79,7 @@ function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
     koiShogunWhirlpools: [],
     tempestKirinThunderbolts: [],
     miremawBogBursts: [],
-    prismshellCrystalBursts: bootstrap.prismshellCrystalBursts, ironhornCrystalBursts: bootstrap.ironhornCrystalBursts, dreadreaperCrystalBursts: bootstrap.dreadreaperCrystalBursts, voltwardenCrystalBursts: bootstrap.voltwardenCrystalBursts,
+    prismshellCrystalBursts: bootstrap.prismshellCrystalBursts, ironhornCrystalBursts: bootstrap.ironhornCrystalBursts, dreadreaperCrystalBursts: bootstrap.dreadreaperCrystalBursts, voltwardenCrystalBursts: bootstrap.voltwardenCrystalBursts, gravebloomCrystalBursts: bootstrap.gravebloomCrystalBursts,
     boss: {} as never,
     spiderBoss: {} as never,
     frostclawBoss: {} as never,
@@ -88,7 +89,7 @@ function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
     koiShogunBoss: {} as never,
     tempestKirinBoss: {} as never,
     miremawBoss: {} as never,
-    prismshellBoss: bootstrap.prismshellBoss, ironhornBoss: bootstrap.ironhornBoss, dreadreaperBoss: bootstrap.dreadreaperBoss, voltwardenBoss: bootstrap.voltwardenBoss,
+    prismshellBoss: bootstrap.prismshellBoss, ironhornBoss: bootstrap.ironhornBoss, dreadreaperBoss: bootstrap.dreadreaperBoss, voltwardenBoss: bootstrap.voltwardenBoss, gravebloomBoss: bootstrap.gravebloomBoss,
     clearPendingBossHits: vi.fn(),
     onCutsceneFinished: vi.fn(),
   } as unknown as Parameters<typeof createMapController>[0]);
@@ -100,7 +101,7 @@ function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
   };
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); endHomeTeleport(); vi.useRealTimers(); });
 
 describe("cutscene completion", () => {
   it.each([false, true])("persists normal completion but not developer previews: preview=%s", (preview) => {
@@ -289,4 +290,97 @@ it("requires leaving a failed portal before attempting it again", async () => {
   h.player.x = 100;
   h.controller.updatePortal(1);
   await vi.waitFor(() => expect(h.changeMap).toHaveBeenCalledTimes(2));
+});
+
+function expectPlayerVisible() {
+  const draw = vi.fn();
+  drawHomeTeleport({} as CanvasRenderingContext2D, 0, 0, draw);
+  expect(draw).toHaveBeenCalledOnce();
+}
+
+it.each(["reducer", "state", "assets"])("bounds a stalled home %s and ignores late completion", async stage => {
+  vi.useFakeTimers();
+  const h = portalArrivalHarness({ x: 300, y: 400 });
+  let finish!: () => void;
+  const pending = new Promise<void>(resolve => { finish = resolve; });
+  if (stage === "reducer") h.changeMap.mockImplementationOnce(async () => { await pending; return true; });
+  if (stage !== "state") h.setServerMap({ mapId: "home_exterior", x: 500, y: 700, facing: 0 });
+  if (stage === "assets") h.prepareMapAssets.mockImplementationOnce(() => pending);
+  const travel = h.controller.teleportHome();
+  await vi.advanceTimersByTimeAsync(30_000);
+  expect(await travel).toBe(false);
+  expect(h.controller.isMapTransitioning()).toBe(false);
+  expectPlayerVisible();
+  h.controller.loadMap("beginner_desert", 600, 900);
+  finish();
+  await vi.advanceTimersByTimeAsync(50);
+  expect(h.currentMapId()).toBe("beginner_desert");
+  expect(h.player).toMatchObject({ x: 600, y: 900 });
+  expectPlayerVisible();
+});
+
+it("clears departure on reset and prevents stale cleanup unlocking a new teleport", async () => {
+  vi.useFakeTimers();
+  const h = portalArrivalHarness({ x: 300, y: 400 });
+  let finish!: (changed: boolean) => void;
+  h.changeMap.mockImplementationOnce(() => new Promise<boolean>(resolve => { finish = resolve; }));
+  const old = h.controller.teleportHome();
+  await vi.advanceTimersByTimeAsync(700);
+  h.controller.loadMap("tutorial_forest", 500, 500);
+  expectPlayerVisible();
+  h.changeMap.mockResolvedValueOnce(false);
+  const next = h.controller.teleportHome();
+  finish(false);
+  expect(await old).toBe(false);
+  expect(h.controller.isMapTransitioning()).toBe(true);
+  await vi.advanceTimersByTimeAsync(650);
+  expect(await next).toBe(false);
+  expect(h.controller.isMapTransitioning()).toBe(false);
+  expectPlayerVisible();
+});
+
+it.each(["reducer", "assets"])("restores visibility after rejected home %s", async stage => {
+  vi.useFakeTimers();
+  const h = portalArrivalHarness({ x: 300, y: 400 });
+  h.setServerMap({ mapId: "home_exterior", x: 500, y: 700, facing: 0 });
+  if (stage === "reducer") h.changeMap.mockRejectedValueOnce(new Error("Disconnected"));
+  else h.prepareMapAssets.mockRejectedValueOnce(new Error("Asset failed"));
+  const travel = h.controller.teleportHome();
+  await vi.advanceTimersByTimeAsync(650);
+  expect(await travel).toBe(false);
+  expect(h.controller.isMapTransitioning()).toBe(false);
+  expectPlayerVisible();
+});
+
+it("rejects an arrival replaced during asset loading", async () => {
+  vi.useFakeTimers();
+  const h = portalArrivalHarness({ x: 300, y: 400 });
+  let finish!: () => void;
+  h.setServerMap({ mapId: "home_exterior", x: 500, y: 700, facing: 0 });
+  h.prepareMapAssets.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
+  const travel = h.controller.teleportHome();
+  await vi.advanceTimersByTimeAsync(650);
+  h.setServerMap({ mapId: "beginner_desert", x: 800, y: 900, facing: 1 });
+  finish();
+  expect(await travel).toBe(false);
+  expectPlayerVisible();
+  h.controller.reconcileMapFromServer();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(h.currentMapId()).toBe("beginner_desert");
+  expect(h.player).toMatchObject({ x: 800, y: 900 });
+});
+
+it.each(["reject", "stall"])("allows reconciliation to retry after assets %s", async mode => {
+  vi.useFakeTimers();
+  const h = portalArrivalHarness({ x: 300, y: 400 });
+  h.setServerMap({ mapId: "home_exterior", x: 500, y: 700, facing: 0 });
+  if (mode === "reject") h.prepareMapAssets.mockRejectedValueOnce(new Error("Asset failed"));
+  else h.prepareMapAssets.mockImplementationOnce(() => new Promise<void>(() => {}));
+  h.controller.reconcileMapFromServer();
+  await vi.advanceTimersByTimeAsync(30_000);
+  expect(h.controller.isMapTransitioning()).toBe(false);
+  h.controller.reconcileMapFromServer();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(h.currentMapId()).toBe("home_exterior");
+  expectPlayerVisible();
 });

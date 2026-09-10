@@ -26,7 +26,7 @@ function createCombatHarness(overrides: Partial<Parameters<typeof createPlayerCo
     koiShogunBoss: state.koiShogunBoss,
     tempestKirinBoss: state.tempestKirinBoss,
     miremawBoss: state.miremawBoss,
-    prismshellBoss: state.prismshellBoss, ironhornBoss: state.ironhornBoss, dreadreaperBoss: state.dreadreaperBoss, voltwardenBoss: state.voltwardenBoss,
+    prismshellBoss: state.prismshellBoss, ironhornBoss: state.ironhornBoss, dreadreaperBoss: state.dreadreaperBoss, voltwardenBoss: state.voltwardenBoss, gravebloomBoss: state.gravebloomBoss,
     nowSeconds: () => 1,
     isTutorialMap: () => true,
     isDesertMap: () => false,
@@ -37,7 +37,7 @@ function createCombatHarness(overrides: Partial<Parameters<typeof createPlayerCo
     isSamuraiMap: () => false,
     isCloudspireMap: () => false,
     isMoonfenMap: () => false,
-    isCrystalHollowsMap: () => false, isClockworkRuinsMap: () => false, isDuskfallOrchardMap: () => false, isNeonBastionMap: () => false,
+    isCrystalHollowsMap: () => false, isClockworkRuinsMap: () => false, isDuskfallOrchardMap: () => false, isNeonBastionMap: () => false, isVerdantCatacombsMap: () => false,
     engageEnemy: noop,
     researchDamageMultiplier: () => 1,
     researchCriticalChance: () => 0,
@@ -65,7 +65,7 @@ function createCombatHarness(overrides: Partial<Parameters<typeof createPlayerCo
     damageKoiShogun: noop,
     damageTempestKirin: noop,
     damageMiremaw: noop,
-    damagePrismshell: noop, damageIronhorn: noop, damageDreadreaper: noop, damageVoltwarden: noop,
+    damagePrismshell: noop, damageIronhorn: noop, damageDreadreaper: noop, damageVoltwarden: noop, damageGravebloom: noop,
     spawnBurst: noop,
     spawnParticle: noop,
     spawnDamageNumber: noop,
@@ -81,6 +81,49 @@ function createCombatHarness(overrides: Partial<Parameters<typeof createPlayerCo
 }
 
 describe("player attack timing", () => {
+  it("prioritizes an aggroed attacker over its selected farm type, then returns to farming", () => {
+    const state = createCombatHarness({ localIdentity: () => "my-account" });
+    state.enemies.length = 0;
+    Object.assign(state.player, { x: 500, y: 500, attackRange: 250 });
+    state.boss.dead = true;
+    const lifecycle = createEnemyLifecycle(state.enemies, state.spawnSites, () => {});
+    for (const [id, type, x, y] of [[0, "Needle", 500, 650], [1, "Bramble", 550, 500]] as const) {
+      lifecycle.spawnFromSite({ id, type, x, y, campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
+    }
+    const attacker = state.enemies[0];
+    attacker.engaged = true; attacker.aggroTargetId = "someone-else";
+    state.controller.attackNearest("Bramble");
+    expect(state.player.combatFacing).toBe(0);
+    state.controller.clearPendingThrow();
+    attacker.aggroTargetId = "my-account";
+    state.controller.attackNearest("Bramble");
+    expect(state.player.combatFacing).toBeCloseTo(Math.PI / 2);
+    state.controller.clearPendingThrow();
+    attacker.dead = true;
+    state.controller.attackNearest("Bramble");
+    expect(state.player.combatFacing).toBe(0);
+  });
+
+  it("autofarm aims only at the chosen type and leaves bosses out of targeting", () => {
+    const state = createCombatHarness();
+    state.enemies.length = 0;
+    Object.assign(state.player, { x: 500, y: 500, attackRange: 250 });
+    Object.assign(state.boss, { x: 550, y: 500, dead: false });
+    const lifecycle = createEnemyLifecycle(state.enemies, state.spawnSites, () => {});
+    for (const [id, type, x, y] of [[0, "Needle", 525, 500], [1, "Bramble", 500, 650]] as const) {
+      lifecycle.spawnFromSite({ id, type, x, y, campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
+    }
+    state.controller.attackNearest("Bramble");
+    expect(state.player.combatFacing).toBeCloseTo(Math.PI / 2);
+    state.controller.clearPendingThrow();
+    state.enemies[1].dead = true;
+    state.controller.attackNearest("Bramble");
+    expect(state.player.combatFacing).toBeNull();
+    expect(state.player.throwClock).toBe(0);
+    state.controller.attackNearest();
+    expect(state.player.combatFacing).toBe(0);
+  });
+
   it.each(["starter_stone", "starter_bow"])("plays one release sound for %s at launch, including multishot", (weapon) => {
     let now = 10;
     const sound = vi.fn();
@@ -189,7 +232,7 @@ describe("player attack timing", () => {
       koiShogunBoss: state.koiShogunBoss,
       tempestKirinBoss: state.tempestKirinBoss,
       miremawBoss: state.miremawBoss,
-      prismshellBoss: state.prismshellBoss, ironhornBoss: state.ironhornBoss, dreadreaperBoss: state.dreadreaperBoss, voltwardenBoss: state.voltwardenBoss,
+      prismshellBoss: state.prismshellBoss, ironhornBoss: state.ironhornBoss, dreadreaperBoss: state.dreadreaperBoss, voltwardenBoss: state.voltwardenBoss, gravebloomBoss: state.gravebloomBoss,
       nowSeconds: () => 1,
       isTutorialMap: () => false,
       isDesertMap: () => false,
@@ -200,7 +243,7 @@ describe("player attack timing", () => {
       isSamuraiMap: () => false,
       isCloudspireMap: () => false,
       isMoonfenMap: () => false,
-      isCrystalHollowsMap: () => false, isClockworkRuinsMap: () => false, isDuskfallOrchardMap: () => false, isNeonBastionMap: () => false,
+      isCrystalHollowsMap: () => false, isClockworkRuinsMap: () => false, isDuskfallOrchardMap: () => false, isNeonBastionMap: () => false, isVerdantCatacombsMap: () => false,
       engageEnemy: noop,
       researchDamageMultiplier: () => 1,
       researchCriticalChance: () => 0,
@@ -228,7 +271,7 @@ describe("player attack timing", () => {
       damageKoiShogun: noop,
       damageTempestKirin: noop,
       damageMiremaw: noop,
-      damagePrismshell: noop, damageIronhorn: noop, damageDreadreaper: noop, damageVoltwarden: noop,
+      damagePrismshell: noop, damageIronhorn: noop, damageDreadreaper: noop, damageVoltwarden: noop, damageGravebloom: noop,
       spawnBurst: noop,
       spawnParticle: noop,
       spawnDamageNumber,
@@ -292,4 +335,19 @@ it("shows confirmed boss critical damage once and discards events from another m
   controller.updateProjectiles(.01);
   controller.updateProjectiles(.01);
   expect(spawnDamageNumber).toHaveBeenCalledExactlyOnceWith(4000, 4200, 1550, true);
+});
+
+it("routes catacombs projectile hits exclusively to Gravebloom", () => {
+  let now = 10;
+  const damageGravebloom = vi.fn(), damageVoltwarden = vi.fn();
+  const state = createCombatHarness({ nowSeconds: () => now, isTutorialMap: () => false,
+    isVerdantCatacombsMap: () => true, damageGravebloom, damageVoltwarden });
+  state.enemies.length = 0;
+  Object.assign(state.player, { x: state.gravebloomBoss.x + state.gravebloomBoss.r + 25, y: state.gravebloomBoss.y });
+  state.controller.attackNearest();
+  now += .13;
+  state.controller.attackNearest();
+  for (let i = 0; i < 30; i++) { now += .02; state.controller.updateProjectiles(.02); }
+  expect(damageGravebloom).toHaveBeenCalled();
+  expect(damageVoltwarden).not.toHaveBeenCalled();
 });

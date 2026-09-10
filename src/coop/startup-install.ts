@@ -1,3 +1,5 @@
+import { isNativePreview } from "../app/native-preview";
+
 export type StartupInstallElements = {
   button: HTMLButtonElement;
   hint: HTMLElement;
@@ -54,6 +56,7 @@ export function createStartupInstallControl(
   let installPrompt: StartupInstallPromptEvent | null = null;
 
   function isStandalone() {
+    if (isNativePreview(windowValue)) return true;
     try {
       return navigatorValue.standalone === true || windowValue.matchMedia("(display-mode: standalone)").matches;
     } catch {

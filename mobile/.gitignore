@@ -1,0 +1,4 @@
+www/
+.build/
+commerce.local.json
+!android/gradle/wrapper/gradle-wrapper.jar

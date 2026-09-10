@@ -8,7 +8,8 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:${HOME}/.local/bin:${PATH}"
 
 PROJECT_DIR="${0:A:h:h}"
 LOCAL_URL="http://127.0.0.1:8000/"
-DATABASE_NAME="wildwood-coop"
+# Keep this aligned with the local guest save used for testing.
+DATABASE_NAME="wildwood-balance-local"
 
 fail() {
   print ""
@@ -35,6 +36,7 @@ print ""
 
 if [[ "${1:-}" == "--check" ]]; then
   print "Launcher check passed."
+  print "Database: $DATABASE_NAME (local)"
   print "SpacetimeDB: $SPACETIME_BIN"
   print "npm: $NPM_BIN"
   print "python3: $PYTHON_BIN"
@@ -66,7 +68,7 @@ if [[ ! -d node_modules ]]; then
 fi
 
 print "Server module: publishing to local database"
-"$SPACETIME_BIN" publish "$DATABASE_NAME" --module-path spacetimedb --server local \
+"$SPACETIME_BIN" publish "$DATABASE_NAME" --module-path spacetimedb --server local --delete-data=never --yes=break-clients \
   || fail "Local SpacetimeDB publish failed."
 
 print "Client bindings: regenerating"
@@ -75,6 +77,25 @@ print "Client bindings: regenerating"
 
 print "Browser client: building with local-only 3x movement and respawns"
 VITE_LOCAL_TESTING=1 "$NPM_BIN" run build:client || fail "Browser build failed."
+
+# The browser storage keys include the database name. Write the same target
+# after the build, which recreates dist and removes previous local overrides.
+"$PYTHON_BIN" - "$DATABASE_NAME" <<'PYCONFIG'
+import json
+import sys
+from pathlib import Path
+
+folder = Path("dist")
+(folder / "local-config.js").write_text(
+    "window.WILDWOOD_SPACETIMEDB_DB_NAME = " + json.dumps(sys.argv[1]) + ";\n"
+)
+page = folder / "index.html"
+html = page.read_text()
+if "</head>" not in html:
+    raise RuntimeError("Built client has no head element")
+page.write_text(html.replace("</head>", '<script src="local-config.js"></script></head>', 1))
+PYCONFIG
+[[ $? == 0 ]] || fail "Could not configure the browser's local database."
 
 if /usr/bin/curl --silent --show-error --fail --max-time 2 "$LOCAL_URL" 2>/dev/null \
   | /usr/bin/grep -q '<title>WildStat</title>'; then

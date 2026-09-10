@@ -150,6 +150,16 @@ function setup(options: {
 }
 
 describe("account service startup identity selection", () => {
+  it("keeps native preview sign-in from navigating or starting a guest link", async () => {
+    const { service, assign, requestWorldEntry, session, local } = setup({ guestToken: "guest" });
+    Object.assign(window, { WILDSTAT_NATIVE_PREVIEW: true });
+    expect(await service.api.signIn()).toEqual({ ok: false, error: "APP SIGN-IN UNAVAILABLE · USE GUEST LOGIN" });
+    expect(assign).not.toHaveBeenCalled();
+    expect(requestWorldEntry).not.toHaveBeenCalled();
+    expect(session.getItem(keys.authStateKey)).toBeNull();
+    expect(local.getItem(keys.guestTokenKey)).toBe("guest");
+  });
+
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
@@ -281,6 +291,43 @@ describe("account service startup identity selection", () => {
     expect(connect).not.toHaveBeenCalled();
     expect(service.api.accountState().signInReady).toBe(true);
     expect(service.canConnect()).toBe(false);
+  });
+
+  it("keeps overlapping native sign-ins on one PKCE transaction", async () => {
+    const { service, session } = setup();
+    const open = vi.fn(async () => {});
+    Object.assign(window, { WILDSTAT_NATIVE_PREVIEW: true, wildstatNativeAuth: { ready: Promise.resolve(false), open, cancel: vi.fn() } });
+    await Promise.all([service.api.signIn(), service.api.signIn()]);
+    const state = session.getItem(keys.authStateKey);
+    const verifier = session.getItem(keys.authVerifierKey);
+    await service.api.signIn();
+    expect(open).toHaveBeenCalledTimes(1);
+    expect(session.getItem(keys.authStateKey)).toBe(state);
+    expect(session.getItem(keys.authVerifierKey)).toBe(verifier);
+  });
+
+  it("allows another native sign-in after opening fails", async () => {
+    const { service } = setup();
+    const open = vi.fn().mockRejectedValueOnce(new Error("Unable to start sign-in")).mockResolvedValue(undefined);
+    Object.assign(window, { WILDSTAT_NATIVE_PREVIEW: true, wildstatNativeAuth: { ready: Promise.resolve(false), open, cancel: vi.fn() } });
+    await expect(service.api.signIn()).rejects.toThrow("Unable to start sign-in");
+    await expect(service.api.signIn()).resolves.toMatchObject({ ok: true, redirecting: true });
+    expect(open).toHaveBeenCalledTimes(2);
+  });
+
+  it("opens native OAuth with the hosted callback and preserves PKCE state", async () => {
+    const { assign, service, session } = setup();
+    const open = vi.fn(async () => {});
+    Object.assign(window, { WILDSTAT_NATIVE_PREVIEW: true, wildstatNativeAuth: { ready: Promise.resolve(false), open, cancel: vi.fn() } });
+    expect(await service.api.signIn()).toMatchObject({ ok: true, redirecting: true });
+    expect(assign).not.toHaveBeenCalled();
+    const [raw, savedKeys] = open.mock.calls[0] as unknown as [string, string[]];
+    const url = new URL(raw);
+    expect(url.searchParams.get("redirect_uri")).toBe("https://wildstatmmo.com/app-auth/");
+    expect(url.searchParams.get("state")).toBe(session.getItem(keys.authStateKey));
+    expect(savedKeys).toContain(keys.authVerifierKey);
+    expect(savedKeys).toContain(keys.accountLinkKey);
+    expect(savedKeys).not.toContain(keys.accountTokenKey);
   });
 
   it("starts OAuth directly for a fresh registration without loading a guest", async () => {

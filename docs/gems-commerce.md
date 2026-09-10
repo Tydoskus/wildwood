@@ -4,6 +4,10 @@ Status: wallet, ledger, daily rewards, research/upgrade skips, bag capacity,
 and the second upgrade bench are implemented. Store checkout and receipt
 verification for buying Gems with real money are not implemented.
 
+The native preview has a separate Test Store purchase lab and AdMob demo ads;
+see [commerce testing](commerce-testing.md). Test purchases never credit this
+production wallet. The initial seller will be an individual / sole proprietor.
+
 ## Non-negotiable economy rules
 
 - SpacetimeDB owns every Gem balance. A browser, iOS app, or Android app never
@@ -93,3 +97,35 @@ convenience and cosmetics.
   consumer-law obligations with a qualified accountant or attorney.
 - Test interrupted, duplicate, pending, refunded, chargeback, account-switch,
   reinstall, offline, and cross-platform purchases before enabling live packs.
+
+## Gem pack catalog
+
+The fullscreen shop displays the catalog in `shared/gem-packs.ts`: 60 Gems for
+$1.99 USD, 220 for $6.99, 800 for $24.99, and 3,300 for $99.99. Each signed-in
+account may buy each pack once per UTC calendar day (reset 00:00 UTC).
+
+Checkout remains disabled until verified fulfillment is connected. At checkout,
+the backend must reserve the account/product/day allowance atomically before
+opening payment, release failed/canceled reservations, and settle it with the
+verified receipt. It must reuse transaction IDs for retries and apply the limit
+across devices and stores. A client-side flag must never authorize a payment or
+Gem credit. The daily limit does not expire already-purchased Gems.
+
+### Implemented database boundary (not deployed)
+
+`reserve_gem_purchase` locks one account/pack/UTC-day slot. Reservation IDs are
+idempotent, and the database clock determines the day. Pending orders keep their
+original day allowance even if approval arrives after midnight. Only a dedicated
+identity configured by the database owner can call `fulfill_gem_purchase` or
+`cancel_gem_purchase`; ordinary players cannot attest payment or clear a lock.
+Receipt references are global and bound to the reservation, and wallet credit,
+ledger insertion and fulfillment commit in the same transaction. No timer frees
+pending payments: the verifier must confirm terminal cancellation first.
+
+The verifier is implemented in `services/gem-verifier` and is not yet deployed
+or configured with production secrets. It authenticates RevenueCat's store-verified
+webhooks, rejects sandbox credits, and feeds `ingest_gem_store_event`. Receipt
+processing matches the UTC payment day's pending reservation; midnight-crossing
+payments without that day's allowance are retained for review. Refund tombstones
+prevent delayed credits, unspent refunds are debited once, and spent refunds hold
+Gem spending for reconciliation. See the service README for setup and operations.

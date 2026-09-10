@@ -173,6 +173,11 @@ export type VoltwardenCrystalBurst = Circle & {
   timer: number;
   maxTimer: number;
 };
+export type GravebloomCrystalBurst = Circle & {
+  hitPlayer?: boolean;
+  timer: number;
+  maxTimer: number;
+};
 
 export type FrostclawRoar = {
   windup: number;
@@ -276,8 +281,13 @@ export type VoltwardenBossState = BossStateBase & {
   nextAttack: "laserGrid" | "empPulse";
   shatter: BossCone | null;
 };
+export type GravebloomBossState = BossStateBase & {
+  bossKind: "gravebloom";
+  nextAttack: "rootGrasp" | "sporeBurst";
+  shatter: BossCone | null;
+};
 
-export type BossTarget = DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState | KoiShogunBossState | TempestKirinBossState | MiremawBossState | PrismshellBossState | IronhornBossState | DreadreaperBossState | VoltwardenBossState;
+export type BossTarget = DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState | KoiShogunBossState | TempestKirinBossState | MiremawBossState | PrismshellBossState | IronhornBossState | DreadreaperBossState | VoltwardenBossState | GravebloomBossState;
 
 export type DuelPresentation = {
   id: bigint;

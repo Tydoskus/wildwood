@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">WildStat Preview</string>
+    <string name="title_activity_main">WildStat Preview</string>
+    <string name="package_name">com.wildstatmmo.preview</string>
+    <string name="custom_url_scheme">com.wildstatmmo.preview</string>
+</resources>

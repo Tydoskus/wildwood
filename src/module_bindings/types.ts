@@ -160,6 +160,9 @@ export type DevBugReports = __Infer<typeof DevBugReports>;
 export const DevForestRewardPrototype = __t.object("DevForestRewardPrototype", {});
 export type DevForestRewardPrototype = __Infer<typeof DevForestRewardPrototype>;
 
+export const DevGemPurchaseReview = __t.object("DevGemPurchaseReview", {});
+export type DevGemPurchaseReview = __Infer<typeof DevGemPurchaseReview>;
+
 export const DeveloperPresencePreference = __t.object("DeveloperPresencePreference", {
   identity: __t.identity(),
   visible: __t.bool(),
@@ -417,6 +420,56 @@ export const FrostclawResult = __t.object("FrostclawResult", {
 });
 export type FrostclawResult = __Infer<typeof FrostclawResult>;
 
+export const GemCommerceConfig = __t.object("GemCommerceConfig", {
+  id: __t.u8(),
+  verifier: __t.identity(),
+  enabled: __t.bool(),
+});
+export type GemCommerceConfig = __Infer<typeof GemCommerceConfig>;
+
+export const GemCommerceHold = __t.object("GemCommerceHold", {
+  reference: __t.string(),
+  identity: __t.identity(),
+});
+export type GemCommerceHold = __Infer<typeof GemCommerceHold>;
+
+export const GemPurchase = __t.object("GemPurchase", {
+  reservationId: __t.string(),
+  identity: __t.identity(),
+  packId: __t.string(),
+  day: __t.u64(),
+  status: __t.string(),
+  externalReference: __t.string(),
+  createdAt: __t.timestamp(),
+  updatedAt: __t.timestamp(),
+});
+export type GemPurchase = __Infer<typeof GemPurchase>;
+
+export const GemPurchaseSlot = __t.object("GemPurchaseSlot", {
+  key: __t.string(),
+  reservationId: __t.string(),
+});
+export type GemPurchaseSlot = __Infer<typeof GemPurchaseSlot>;
+
+export const GemStoreEvent = __t.object("GemStoreEvent", {
+  eventId: __t.string(),
+  eventHash: __t.string(),
+  receivedAt: __t.timestamp(),
+});
+export type GemStoreEvent = __Infer<typeof GemStoreEvent>;
+
+export const GemStoreReceipt = __t.object("GemStoreReceipt", {
+  reference: __t.string(),
+  owner: __t.string(),
+  packId: __t.string(),
+  purchasedAtMs: __t.f64(),
+  status: __t.string(),
+  reservationId: __t.string(),
+  reason: __t.string(),
+  updatedAt: __t.timestamp(),
+});
+export type GemStoreReceipt = __Infer<typeof GemStoreReceipt>;
+
 export const GemTransaction = __t.object("GemTransaction", {
   id: __t.u64(),
   identity: __t.identity(),
@@ -471,6 +524,49 @@ export const GloomrootResult = __t.object("GloomrootResult", {
   createdAt: __t.timestamp(),
 });
 export type GloomrootResult = __Infer<typeof GloomrootResult>;
+
+export const GravebloomAttackWindow = __t.object("GravebloomAttackWindow", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  startedAtMicros: __t.u64(),
+  hits: __t.u32(),
+});
+export type GravebloomAttackWindow = __Infer<typeof GravebloomAttackWindow>;
+
+export const GravebloomBoss = __t.object("GravebloomBoss", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  hp: __t.f32(),
+  maxHp: __t.f32(),
+  alive: __t.bool(),
+  respawnAtMicros: __t.u64(),
+  lastDamageAtMicros: __t.u64(),
+});
+export type GravebloomBoss = __Infer<typeof GravebloomBoss>;
+
+export const GravebloomContribution = __t.object("GravebloomContribution", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  displayName: __t.string(),
+  damage: __t.f32(),
+});
+export type GravebloomContribution = __Infer<typeof GravebloomContribution>;
+
+export const GravebloomRespawnSchedule = __t.object("GravebloomRespawnSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+  encounter: __t.u64(),
+});
+export type GravebloomRespawnSchedule = __Infer<typeof GravebloomRespawnSchedule>;
+
+export const GravebloomResult = __t.object("GravebloomResult", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  totalDamage: __t.f32(),
+  contributorsJson: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type GravebloomResult = __Infer<typeof GravebloomResult>;
 
 export const Guild = __t.object("Guild", {
   id: __t.u64(),
@@ -844,6 +940,9 @@ export type MyCutsceneHistory = __Infer<typeof MyCutsceneHistory>;
 export const MyDailyGemBonus = __t.object("MyDailyGemBonus", {});
 export type MyDailyGemBonus = __Infer<typeof MyDailyGemBonus>;
 
+export const MyGemPurchases = __t.object("MyGemPurchases", {});
+export type MyGemPurchases = __Infer<typeof MyGemPurchases>;
+
 export const MyGemWallet = __t.object("MyGemWallet", {});
 export type MyGemWallet = __Infer<typeof MyGemWallet>;
 
@@ -1205,6 +1304,7 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   clockworkRuinsUnlocked: __t.bool(),
   duskfallOrchardUnlocked: __t.bool(),
   neonBastionUnlocked: __t.bool(),
+  verdantCatacombsUnlocked: __t.bool(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
 

@@ -50,4 +50,5 @@ export default __t.row({
   clockworkRuinsUnlocked: __t.bool().name("clockwork_ruins_unlocked"),
   duskfallOrchardUnlocked: __t.bool().name("duskfall_orchard_unlocked"),
   neonBastionUnlocked: __t.bool().name("neon_bastion_unlocked"),
+  verdantCatacombsUnlocked: __t.bool().name("verdant_catacombs_unlocked"),
 });

@@ -183,6 +183,10 @@ const DEFAULT_MAP_THEMES: Record<MapId, MapVisualTheme> = {
       gear: ["#ff4cdb", "#4ef7ff", "#8a79ff"],
       rock: ["#1b2540", "#263250", "#222f48", "#303354"],
     },
+  }, verdant_catacombs: {
+    ground: "#172d25",
+    path: "#51655a", pathDetail: "rgba(195,223,189,.18)",
+    decorColors: { glowMushroom: ["#76eec4", "#b9f1ab", "#5fcbd0"], rock: ["#4a6052", "#63766b", "#89937b"], tree: ["#274731", "#355c3a", "#53764a"] },
   },
 };
 

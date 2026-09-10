@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.651": [
+    "Added Verdant Catacombs after Neon Bastion, with five camps, six animated enemy types, and the Gravebloom boss.",
+    "Defeat Voltwarden to unlock the catacombs and face telegraphed root attacks and staggered spore rings.",
+    "Added auto-farm enemy selection, defensive targeting, and manual movement that resumes farming on release.",
+    "Updated iPhone sign-in handling and restored the full 30-minute respawn boost.",
+  ],
   "0.650": [
     "Guild battle replays now use regular chat messages and the Watch Replay action menu.",
     "Release notes hide the scrollbar and scroll the title and divider with the notes.",
@@ -1612,6 +1618,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
 };
 
 const RELEASE_DATES: Record<string, string> = {
+  "0.651": "2026-09-10",
   "0.364": "AUG 13, 2026",
   "0.331": "AUG 13, 2026",
   "0.330": "AUG 13, 2026",

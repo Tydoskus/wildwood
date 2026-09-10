@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID, type MapId, type WorldDecor } from "../world";
 import { createDepthWorldRenderer } from "./depth-world-renderer";
 import type { Camera } from "./camera";
-import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, PlayerState, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
+import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, PlayerState, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
 
 function renderer(
   decor: WorldDecor[],
@@ -30,6 +30,7 @@ function renderer(
     tempestKirinBoss: { dead: true, x: 120, y: 120 } as TempestKirinBossState,
     miremawBoss: { dead: mapId !== MOONFEN_MAP_ID, x: 120, y: 120 } as MiremawBossState,
     prismshellBoss: { dead: mapId !== CRYSTAL_HOLLOWS_MAP_ID, x: 120, y: 120 } as PrismshellBossState, ironhornBoss: { dead: mapId !== "clockwork_ruins", x: 120, y: 120 } as IronhornBossState, dreadreaperBoss: { dead: mapId !== "duskfall_orchard", x: 120, y: 120 } as DreadreaperBossState, voltwardenBoss: { dead: mapId !== "neon_bastion", x: 120, y: 120 } as VoltwardenBossState,
+    gravebloomBoss: { dead: mapId !== "verdant_catacombs", x: 120, y: 120 } as GravebloomBossState,
     bootsPickup: { y: 0, r: 0, collected: true },
     currentMapId: () => mapId,
     activePortal: () => mapId === "home_exterior" ? null : ({ depth: 0 }),
@@ -49,7 +50,7 @@ function renderer(
     drawKoiShogunBoss: () => calls.push("koi-shogun"),
     drawTempestKirinBoss: () => calls.push("tempest-kirin"),
     drawMiremawBoss: () => calls.push("miremaw"),
-    drawPrismshellBoss: () => calls.push("prismshell"), drawIronhornBoss: () => calls.push("ironhorn"), drawDreadreaperBoss: () => calls.push("dreadreaper"), drawVoltwardenBoss: () => calls.push("voltwarden"),
+    drawPrismshellBoss: () => calls.push("prismshell"), drawIronhornBoss: () => calls.push("ironhorn"), drawDreadreaperBoss: () => calls.push("dreadreaper"), drawVoltwardenBoss: () => calls.push("voltwarden"), drawGravebloomBoss: () => calls.push("gravebloom"),
     drawBootPickup: () => calls.push("boots"),
     drawPortal: () => calls.push("portal"),
     drawSecondaryPortal: () => calls.push("secondary"),

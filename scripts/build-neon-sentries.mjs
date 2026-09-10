@@ -1,6 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 const root = new URL("../public/assets/wildstat/enemies/neon-sentry/", import.meta.url);
+const archive = new URL("../art-source/reserved/neon-sentries/", import.meta.url);
 await mkdir(root, { recursive: true });
+await mkdir(archive, { recursive: true });
 const roles = ["prowler", "spitter", "regent", "guardian", "reaver", "oracle"];
 const colors = ["#50f5ff", "#ff54d8", "#ffd866", "#69ffb1", "#ac86ff", "#ffa26d"];
 for (const [roleIndex, role] of roles.entries()) {
@@ -33,10 +35,10 @@ for (const [roleIndex, role] of roles.entries()) {
           ${blade ? `<path d="M82 61 L106 14 116 10 99 63 92 77Z" fill="#ac86ff" stroke="#e4d8ff" stroke-width="2"/>`
             : `<path d="M80 54 H111 V70 H93 L87 77 79 68Z" fill="#1d304b"/><path d="M87 58 H108" stroke="${accent}" stroke-width="4"/>`}
         </g>
-        ${fire ? `<path d="M110 58 L124 53 118 63 126 68 110 68Z" fill="${accent}" stroke="#ffffff" stroke-width="2"/>` : ''}
+        ${fire && !blade ? `<path d="M110 58 L124 53 118 63 126 68 110 68Z" fill="${accent}" stroke="#ffffff" stroke-width="2"/>` : ''}
       </g></g>`);
   }
   parts.push("</svg>");
-  await writeFile(new URL(role + ".svg", root), parts.join("\n").split("\n").map(line => line.trimEnd()).join("\n"));
+  await writeFile(new URL(role + ".svg", role === "reaver" ? root : archive), parts.join("\n").split("\n").map(line => line.trimEnd()).join("\n"));
 }
 console.log("Built six original neon sentry sheets: idle, walk and attack.");

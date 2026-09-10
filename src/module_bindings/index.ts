@@ -43,12 +43,14 @@ import AttackForestRewardPrototypeReducer from "./attack_forest_reward_prototype
 import BeginAccountLinkReducer from "./begin_account_link_reducer";
 import BeginAdventureReducer from "./begin_adventure_reducer";
 import BeginForestRewardPrototypeReducer from "./begin_forest_reward_prototype_reducer";
+import CancelGemPurchaseReducer from "./cancel_gem_purchase_reducer";
 import CancelItemUpgradeReducer from "./cancel_item_upgrade_reducer";
 import ChallengeGuildReducer from "./challenge_guild_reducer";
 import ChangeMapReducer from "./change_map_reducer";
 import CheckpointShardLocationReducer from "./checkpoint_shard_location_reducer";
 import ClaimDailyGemBonusReducer from "./claim_daily_gem_bonus_reducer";
 import ClaimGuestAccountReducer from "./claim_guest_account_reducer";
+import ConfigureGemCommerceReducer from "./configure_gem_commerce_reducer";
 import ConfigureShardCoordinatorReducer from "./configure_shard_coordinator_reducer";
 import ConfigureShardingReducer from "./configure_sharding_reducer";
 import CreateGuildReducer from "./create_guild_reducer";
@@ -58,6 +60,7 @@ import DamageDragonFromPositionReducer from "./damage_dragon_from_position_reduc
 import DamageDreadreaperFromPositionReducer from "./damage_dreadreaper_from_position_reducer";
 import DamageFrostclawFromPositionReducer from "./damage_frostclaw_from_position_reducer";
 import DamageGloomrootFromPositionReducer from "./damage_gloomroot_from_position_reducer";
+import DamageGravebloomFromPositionReducer from "./damage_gravebloom_from_position_reducer";
 import DamageIronhornFromPositionReducer from "./damage_ironhorn_from_position_reducer";
 import DamageKoiShogunFromPositionReducer from "./damage_koi_shogun_from_position_reducer";
 import DamageMagmaliskFromPositionReducer from "./damage_magmalisk_from_position_reducer";
@@ -82,7 +85,9 @@ import DevUpdatePlayerSaveReducer from "./dev_update_player_save_reducer";
 import EnterRegionalWorldReducer from "./enter_regional_world_reducer";
 import EnterWorldReducer from "./enter_world_reducer";
 import FriendActionReducer from "./friend_action_reducer";
+import FulfillGemPurchaseReducer from "./fulfill_gem_purchase_reducer";
 import GuildInviteActionReducer from "./guild_invite_action_reducer";
+import IngestGemStoreEventReducer from "./ingest_gem_store_event_reducer";
 import InstallShardPlayerReducer from "./install_shard_player_reducer";
 import JoinGuildReducer from "./join_guild_reducer";
 import JoinVirtualPlayerLoadTestReducer from "./join_virtual_player_load_test_reducer";
@@ -103,6 +108,7 @@ import ReportChatMessageReducer from "./report_chat_message_reducer";
 import ReportPlayerReducer from "./report_player_reducer";
 import ReportSocialMessageReducer from "./report_social_message_reducer";
 import RequestDuelReducer from "./request_duel_reducer";
+import ReserveGemPurchaseReducer from "./reserve_gem_purchase_reducer";
 import ResetPlayerProgressReducer from "./reset_player_progress_reducer";
 import ResumeSessionReducer from "./resume_session_reducer";
 import RevokeShardPlayerReducer from "./revoke_shard_player_reducer";
@@ -151,6 +157,7 @@ import ChatMessageRow from "./chat_message_table";
 import DevAccessAuditRow from "./dev_access_audit_table";
 import DevBugReportsRow from "./dev_bug_reports_table";
 import DevForestRewardPrototypeRow from "./dev_forest_reward_prototype_table";
+import DevGemPurchaseReviewRow from "./dev_gem_purchase_review_table";
 import DragonBossRow from "./dragon_boss_table";
 import DragonResultRow from "./dragon_result_table";
 import DreadreaperBossRow from "./dreadreaper_boss_table";
@@ -161,6 +168,8 @@ import FrostclawBossRow from "./frostclaw_boss_table";
 import FrostclawResultRow from "./frostclaw_result_table";
 import GloomrootBossRow from "./gloomroot_boss_table";
 import GloomrootResultRow from "./gloomroot_result_table";
+import GravebloomBossRow from "./gravebloom_boss_table";
+import GravebloomResultRow from "./gravebloom_result_table";
 import IronhornBossRow from "./ironhorn_boss_table";
 import IronhornResultRow from "./ironhorn_result_table";
 import KoiShogunBossRow from "./koi_shogun_boss_table";
@@ -175,6 +184,7 @@ import MiremawResultRow from "./miremaw_result_table";
 import MyBalanceApologyNoticeRow from "./my_balance_apology_notice_table";
 import MyCutsceneHistoryRow from "./my_cutscene_history_table";
 import MyDailyGemBonusRow from "./my_daily_gem_bonus_table";
+import MyGemPurchasesRow from "./my_gem_purchases_table";
 import MyGemWalletRow from "./my_gem_wallet_table";
 import MyInventoryCapacityRow from "./my_inventory_capacity_table";
 import MyMapShardRouteRow from "./my_map_shard_route_table";
@@ -397,6 +407,28 @@ const tablesSchema = __schema({
       { name: 'gloomroot_result_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, GloomrootResultRow),
+  gravebloomBoss: __table({
+    name: 'gravebloom_boss',
+    indexes: [
+      { accessor: 'id', name: 'gravebloom_boss_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'gravebloom_boss_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, GravebloomBossRow),
+  gravebloomResult: __table({
+    name: 'gravebloom_result',
+    indexes: [
+      { accessor: 'id', name: 'gravebloom_result_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'gravebloom_result_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, GravebloomResultRow),
   ironhornBoss: __table({
     name: 'ironhorn_boss',
     indexes: [
@@ -847,6 +879,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, DevForestRewardPrototypeRow),
+  devGemPurchaseReview: __table({
+    name: 'dev_gem_purchase_review',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, DevGemPurchaseReviewRow),
   localMovementDemand: __table({
     name: 'local_movement_demand',
     indexes: [
@@ -875,6 +914,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyDailyGemBonusRow),
+  myGemPurchases: __table({
+    name: 'my_gem_purchases',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyGemPurchasesRow),
   myGemWallet: __table({
     name: 'my_gem_wallet',
     indexes: [
@@ -937,12 +983,14 @@ const reducersSchema = __reducers(
   __reducerSchema("begin_account_link", BeginAccountLinkReducer),
   __reducerSchema("begin_adventure", BeginAdventureReducer),
   __reducerSchema("begin_forest_reward_prototype", BeginForestRewardPrototypeReducer),
+  __reducerSchema("cancel_gem_purchase", CancelGemPurchaseReducer),
   __reducerSchema("cancel_item_upgrade", CancelItemUpgradeReducer),
   __reducerSchema("challenge_guild", ChallengeGuildReducer),
   __reducerSchema("change_map", ChangeMapReducer),
   __reducerSchema("checkpoint_shard_location", CheckpointShardLocationReducer),
   __reducerSchema("claim_daily_gem_bonus", ClaimDailyGemBonusReducer),
   __reducerSchema("claim_guest_account", ClaimGuestAccountReducer),
+  __reducerSchema("configure_gem_commerce", ConfigureGemCommerceReducer),
   __reducerSchema("configure_shard_coordinator", ConfigureShardCoordinatorReducer),
   __reducerSchema("configure_sharding", ConfigureShardingReducer),
   __reducerSchema("create_guild", CreateGuildReducer),
@@ -952,6 +1000,7 @@ const reducersSchema = __reducers(
   __reducerSchema("damage_dreadreaper_from_position", DamageDreadreaperFromPositionReducer),
   __reducerSchema("damage_frostclaw_from_position", DamageFrostclawFromPositionReducer),
   __reducerSchema("damage_gloomroot_from_position", DamageGloomrootFromPositionReducer),
+  __reducerSchema("damage_gravebloom_from_position", DamageGravebloomFromPositionReducer),
   __reducerSchema("damage_ironhorn_from_position", DamageIronhornFromPositionReducer),
   __reducerSchema("damage_koi_shogun_from_position", DamageKoiShogunFromPositionReducer),
   __reducerSchema("damage_magmalisk_from_position", DamageMagmaliskFromPositionReducer),
@@ -976,7 +1025,9 @@ const reducersSchema = __reducers(
   __reducerSchema("enter_regional_world", EnterRegionalWorldReducer),
   __reducerSchema("enter_world", EnterWorldReducer),
   __reducerSchema("friend_action", FriendActionReducer),
+  __reducerSchema("fulfill_gem_purchase", FulfillGemPurchaseReducer),
   __reducerSchema("guild_invite_action", GuildInviteActionReducer),
+  __reducerSchema("ingest_gem_store_event", IngestGemStoreEventReducer),
   __reducerSchema("install_shard_player", InstallShardPlayerReducer),
   __reducerSchema("join_guild", JoinGuildReducer),
   __reducerSchema("join_virtual_player_load_test", JoinVirtualPlayerLoadTestReducer),
@@ -997,6 +1048,7 @@ const reducersSchema = __reducers(
   __reducerSchema("report_player", ReportPlayerReducer),
   __reducerSchema("report_social_message", ReportSocialMessageReducer),
   __reducerSchema("request_duel", RequestDuelReducer),
+  __reducerSchema("reserve_gem_purchase", ReserveGemPurchaseReducer),
   __reducerSchema("reset_player_progress", ResetPlayerProgressReducer),
   __reducerSchema("resume_session", ResumeSessionReducer),
   __reducerSchema("revoke_shard_player", RevokeShardPlayerReducer),

@@ -1,0 +1,24 @@
+{
+  "appId": "com.wildstatmmo.preview",
+  "appName": "WildStat Preview",
+  "webDir": "www",
+  "backgroundColor": "#000000",
+  "server": {
+    "hostname": "localhost",
+    "androidScheme": "https"
+  },
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": false
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_research",
+      "iconColor": "#ff9ed5",
+      "presentationOptions": []
+    }
+  }
+}

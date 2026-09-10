@@ -1,14 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import { Timestamp } from "spacetimedb";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
-import { BOSS_REWARD_CLAIM_BITS, IRONHORN_MAX_HP, DREADREAPER_MAX_HP, IRONHORN_REWARD_DAMAGE, DREADREAPER_REWARD_DAMAGE, VOLTWARDEN_MAX_HP, VOLTWARDEN_REWARD_DAMAGE } from "../../shared/rules";
+import { BOSS_REWARD_CLAIM_BITS, IRONHORN_MAX_HP, DREADREAPER_MAX_HP, IRONHORN_REWARD_DAMAGE, DREADREAPER_REWARD_DAMAGE, VOLTWARDEN_MAX_HP, VOLTWARDEN_REWARD_DAMAGE, GRAVEBLOOM_MAX_HP, GRAVEBLOOM_REWARD_DAMAGE } from "../../shared/rules";
 import { reducerParameters } from "../../tests/helpers/spacetime-module";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 const regions = [
   { map: "clockwork_ruins", boss: "ironhorn", unlock: "clockworkRuinsUnlocked", next: "duskfallOrchardUnlocked", maxHp: IRONHORN_MAX_HP, reward: IRONHORN_REWARD_DAMAGE, attack: server.damageIronhornFromPosition, respawn: server.respawnIronhorn },
   { map: "duskfall_orchard", boss: "dreadreaper", unlock: "duskfallOrchardUnlocked", next: "neonBastionUnlocked", maxHp: DREADREAPER_MAX_HP, reward: DREADREAPER_REWARD_DAMAGE, attack: server.damageDreadreaperFromPosition, respawn: server.respawnDreadreaper },
-  { map: "neon_bastion", boss: "voltwarden", unlock: "neonBastionUnlocked", next: null, maxHp: VOLTWARDEN_MAX_HP, reward: VOLTWARDEN_REWARD_DAMAGE, attack: server.damageVoltwardenFromPosition, respawn: server.respawnVoltwarden },
+  { map: "neon_bastion", boss: "voltwarden", unlock: "neonBastionUnlocked", next: "verdantCatacombsUnlocked", maxHp: VOLTWARDEN_MAX_HP, reward: VOLTWARDEN_REWARD_DAMAGE, attack: server.damageVoltwardenFromPosition, respawn: server.respawnVoltwarden },
+  { map: "verdant_catacombs", boss: "gravebloom", unlock: "verdantCatacombsUnlocked", next: null, maxHp: GRAVEBLOOM_MAX_HP, reward: GRAVEBLOOM_REWARD_DAMAGE, attack: server.damageGravebloomFromPosition, respawn: server.respawnGravebloom },
 ] as const;
 
 describe.each(regions)("$map authoritative boss", region => {
@@ -103,4 +104,25 @@ it("preserves old Dreadreaper clears and gates Neon Bastion behind its own unloc
   f.run(server.changeMap, { mapId: "duskfall_orchard", x: 360, y: 617 });
   f.patch("playerProgress", { neonBastionUnlocked: false });
   expect(() => f.run(server.changeMap, { mapId: "neon_bastion", x: 580, y: 617 })).toThrow("Dreadreaper");
+});
+
+
+it("backfills only Voltwarden victories and supports catacombs return travel", () => {
+  const f = crystalFixture();
+  f.seed("moduleMigrationState", { id: 0, version: 28 });
+  f.patch("playerProgress", { neonBastionUnlocked: true, bossRewardClaims: BOSS_REWARD_CLAIM_BITS.dreadreaper });
+  f.patch("player", { mapId: "neon_bastion" });
+  f.run(server.runMaintenance, {});
+  expect(f.db.playerProgress.identity.find(f.ctx.sender).verdantCatacombsUnlocked).toBe(false);
+  expect(() => f.run(server.changeMap, { mapId: "verdant_catacombs", x: 580, y: 617 })).toThrow("Voltwarden");
+  f.db.moduleMigrationState.id.update({ id: 0, version: 28 });
+  f.patch("playerProgress", { bossRewardClaims: BOSS_REWARD_CLAIM_BITS.voltwarden });
+  f.run(server.runMaintenance, {});
+  expect(f.db.playerProgress.identity.find(f.ctx.sender).verdantCatacombsUnlocked).toBe(true);
+  for (let repeat = 0; repeat < 3; repeat++) {
+    f.run(server.changeMap, { mapId: "verdant_catacombs", x: 580, y: 617 });
+    expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe("verdant_catacombs");
+    f.run(server.changeMap, { mapId: "neon_bastion", x: 360, y: 617 });
+    expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe("neon_bastion");
+  }
 });

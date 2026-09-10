@@ -1,3 +1,6 @@
+import { ingestStoreEvent } from "./gem-store-events";
+import { gemPurchaseTables } from "./gem-purchase-tables";
+import { createGemPurchaseService } from "./gem-purchase-service";
 import { rescaleEndgameProgress, rescaleRankingConflict, rescaleRankingStats } from "../../shared/endgame-power-rescale";
 import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_BENCH_POSITION, HOME_WORLD_SIZE } from "../../shared/home";
 import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./shard-snapshot-writes";
@@ -50,7 +53,7 @@ import {
   koiShogunBossTables,
   magmaliskBossTables,
   miremawBossTables,
-  prismshellBossTables, ironhornBossTables, dreadreaperBossTables, voltwardenBossTables,
+  prismshellBossTables, ironhornBossTables, dreadreaperBossTables, voltwardenBossTables, gravebloomBossTables,
   spiderBossTables,
   tempestKirinBossTables,
   tidewyrmBossTables,
@@ -178,17 +181,17 @@ import {
   MAP_DISPLAY_NAMES,
   MAP_IDS,
   MIREMAW_MAX_HP,
-  PRISMSHELL_MAX_HP, IRONHORN_MAX_HP, DREADREAPER_MAX_HP, VOLTWARDEN_MAX_HP,
+  PRISMSHELL_MAX_HP, IRONHORN_MAX_HP, DREADREAPER_MAX_HP, VOLTWARDEN_MAX_HP, GRAVEBLOOM_MAX_HP,
   MIREMAW_REWARD_ARMOR,
-  PRISMSHELL_REWARD_ARMOR, IRONHORN_REWARD_ARMOR, DREADREAPER_REWARD_ARMOR, VOLTWARDEN_REWARD_ARMOR,
+  PRISMSHELL_REWARD_ARMOR, IRONHORN_REWARD_ARMOR, DREADREAPER_REWARD_ARMOR, VOLTWARDEN_REWARD_ARMOR, GRAVEBLOOM_REWARD_ARMOR,
   MIREMAW_REWARD_DAMAGE,
-  PRISMSHELL_REWARD_DAMAGE, IRONHORN_REWARD_DAMAGE, DREADREAPER_REWARD_DAMAGE, VOLTWARDEN_REWARD_DAMAGE,
+  PRISMSHELL_REWARD_DAMAGE, IRONHORN_REWARD_DAMAGE, DREADREAPER_REWARD_DAMAGE, VOLTWARDEN_REWARD_DAMAGE, GRAVEBLOOM_REWARD_DAMAGE,
   MIREMAW_REWARD_HEALTH,
-  PRISMSHELL_REWARD_HEALTH, IRONHORN_REWARD_HEALTH, DREADREAPER_REWARD_HEALTH, VOLTWARDEN_REWARD_HEALTH,
+  PRISMSHELL_REWARD_HEALTH, IRONHORN_REWARD_HEALTH, DREADREAPER_REWARD_HEALTH, VOLTWARDEN_REWARD_HEALTH, GRAVEBLOOM_REWARD_HEALTH,
   MIREMAW_REWARD_REGEN,
-  PRISMSHELL_REWARD_REGEN, IRONHORN_REWARD_REGEN, DREADREAPER_REWARD_REGEN, VOLTWARDEN_REWARD_REGEN,
+  PRISMSHELL_REWARD_REGEN, IRONHORN_REWARD_REGEN, DREADREAPER_REWARD_REGEN, VOLTWARDEN_REWARD_REGEN, GRAVEBLOOM_REWARD_REGEN,
   MOONFEN_MAP_ID,
-  CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, NEON_BASTION_MAP_ID,
+  CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, NEON_BASTION_MAP_ID, VERDANT_CATACOMBS_MAP_ID,
   MAX_ARMOR,
   MAX_MOVEMENT_SPEED_OVERRIDE,
   MAX_PLAYER_STAT,
@@ -283,7 +286,7 @@ const DEFAULT_MAP_PORTALS = {
     { x: 360, y: 617, destination: CLOUDSPIRE_MAP_ID },
     { x: 580, y: 617, destination: CRYSTAL_HOLLOWS_MAP_ID },
   ],
-  [CRYSTAL_HOLLOWS_MAP_ID]: [{ x: 360, y: 617, destination: MOONFEN_MAP_ID }, { x: 580, y: 617, destination: CLOCKWORK_RUINS_MAP_ID }], [CLOCKWORK_RUINS_MAP_ID]: [{ x: 360, y: 617, destination: CRYSTAL_HOLLOWS_MAP_ID }, { x: 580, y: 617, destination: DUSKFALL_ORCHARD_MAP_ID }], [DUSKFALL_ORCHARD_MAP_ID]: [{ x: 360, y: 617, destination: CLOCKWORK_RUINS_MAP_ID }, { x: 580, y: 617, destination: NEON_BASTION_MAP_ID }], [NEON_BASTION_MAP_ID]: [{ x: 360, y: 617, destination: DUSKFALL_ORCHARD_MAP_ID }],
+  [CRYSTAL_HOLLOWS_MAP_ID]: [{ x: 360, y: 617, destination: MOONFEN_MAP_ID }, { x: 580, y: 617, destination: CLOCKWORK_RUINS_MAP_ID }], [CLOCKWORK_RUINS_MAP_ID]: [{ x: 360, y: 617, destination: CRYSTAL_HOLLOWS_MAP_ID }, { x: 580, y: 617, destination: DUSKFALL_ORCHARD_MAP_ID }], [DUSKFALL_ORCHARD_MAP_ID]: [{ x: 360, y: 617, destination: CLOCKWORK_RUINS_MAP_ID }, { x: 580, y: 617, destination: NEON_BASTION_MAP_ID }], [NEON_BASTION_MAP_ID]: [{ x: 360, y: 617, destination: DUSKFALL_ORCHARD_MAP_ID }, { x: 580, y: 617, destination: VERDANT_CATACOMBS_MAP_ID }], [VERDANT_CATACOMBS_MAP_ID]: [{ x: 360, y: 617, destination: NEON_BASTION_MAP_ID }],
 } as const;
 const DEFAULT_MAP_ARRIVALS = {
   [TUTORIAL_FOREST_MAP_ID]: { x: 190, y: 540 },
@@ -295,7 +298,7 @@ const DEFAULT_MAP_ARRIVALS = {
   [SAMURAI_GARDEN_MAP_ID]: { x: 580, y: 770 },
   [CLOUDSPIRE_MAP_ID]: { x: 580, y: 770 },
   [MOONFEN_MAP_ID]: { x: 580, y: 770 },
-  [CRYSTAL_HOLLOWS_MAP_ID]: { x: 580, y: 770 }, [CLOCKWORK_RUINS_MAP_ID]: { x: 580, y: 770 }, [DUSKFALL_ORCHARD_MAP_ID]: { x: 580, y: 770 }, [NEON_BASTION_MAP_ID]: { x: 580, y: 770 },
+  [CRYSTAL_HOLLOWS_MAP_ID]: { x: 580, y: 770 }, [CLOCKWORK_RUINS_MAP_ID]: { x: 580, y: 770 }, [DUSKFALL_ORCHARD_MAP_ID]: { x: 580, y: 770 }, [NEON_BASTION_MAP_ID]: { x: 580, y: 770 }, [VERDANT_CATACOMBS_MAP_ID]: { x: 580, y: 770 },
 } as const;
 const MAP_PORTALS: Record<string, { x: number; y: number; destination: string }[]> = Object.fromEntries(
   Object.entries(DEFAULT_MAP_PORTALS).map(([mapId, portals]) => {
@@ -326,7 +329,7 @@ const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const MOTION_DETAIL_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_DETAIL_FRAME_HZ);
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 28;
+const MODULE_MIGRATION_VERSION = 29;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 9;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -391,26 +394,31 @@ const PRISMSHELL_ID = 1;
 const IRONHORN_ID = 1;
 const DREADREAPER_ID = 1;
 const VOLTWARDEN_ID = 1;
+const GRAVEBLOOM_ID = 1;
 const MIREMAW_RADIUS = 170;
 const PRISMSHELL_RADIUS = 170;
 const IRONHORN_RADIUS = 170;
 const DREADREAPER_RADIUS = 170;
 const VOLTWARDEN_RADIUS = 170;
+const GRAVEBLOOM_RADIUS = 170;
 const MIREMAW_POSITION = editedBossPosition(MOONFEN_MAP_ID, { x: 4050, y: 4050 });
 const PRISMSHELL_POSITION = editedBossPosition(CRYSTAL_HOLLOWS_MAP_ID, { x: 4050, y: 4050 });
 const IRONHORN_POSITION = editedBossPosition(CLOCKWORK_RUINS_MAP_ID, { x: 4050, y: 4050 });
 const DREADREAPER_POSITION = editedBossPosition(DUSKFALL_ORCHARD_MAP_ID, { x: 4050, y: 4050 });
 const VOLTWARDEN_POSITION = editedBossPosition(NEON_BASTION_MAP_ID, { x: 4050, y: 4050 });
+const GRAVEBLOOM_POSITION = editedBossPosition(VERDANT_CATACOMBS_MAP_ID, { x: 4050, y: 4050 });
 const MIREMAW_HIT_RANGE_TOLERANCE = 60;
 const PRISMSHELL_HIT_RANGE_TOLERANCE = 60;
 const IRONHORN_HIT_RANGE_TOLERANCE = 60;
 const DREADREAPER_HIT_RANGE_TOLERANCE = 60;
 const VOLTWARDEN_HIT_RANGE_TOLERANCE = 60;
+const GRAVEBLOOM_HIT_RANGE_TOLERANCE = 60;
 const MIREMAW_RESPAWN_MICROS = 45_000_000n;
 const PRISMSHELL_RESPAWN_MICROS = 45_000_000n;
 const IRONHORN_RESPAWN_MICROS = 45_000_000n;
 const DREADREAPER_RESPAWN_MICROS = 45_000_000n;
 const VOLTWARDEN_RESPAWN_MICROS = 45_000_000n;
+const GRAVEBLOOM_RESPAWN_MICROS = 45_000_000n;
 const UPGRADE_BENCH_USE_RANGE = 150;
 const UPGRADE_BENCH_SLOT_ONE = 1;
 const UPGRADE_BENCH_SLOT_TWO = 2;
@@ -824,7 +832,7 @@ const playerProgress = table(
     // New region gates must stay after every previously published column.
     clockworkRuinsUnlocked: t.bool().default(false),
     duskfallOrchardUnlocked: t.bool().default(false),
-    neonBastionUnlocked: t.bool().default(false),
+    neonBastionUnlocked: t.bool().default(false), verdantCatacombsUnlocked: t.bool().default(false),
   },
 );
 
@@ -1643,6 +1651,14 @@ const voltwardenRespawnSchedule = table(
     encounter: t.u64(),
   },
 );
+const gravebloomRespawnSchedule = table(
+  { scheduled: (): any => respawnGravebloom },
+  {
+    scheduledId: t.u64().primaryKey().autoInc(),
+    scheduledAt: t.scheduleAt(),
+    encounter: t.u64(),
+  },
+);
 
 const forestRewardPrototype = table(
   { name: "forest_reward_prototype", public: false },
@@ -1658,6 +1674,7 @@ const shardCoordinatorSchedule = table(
   { scheduledId: t.u64().primaryKey(), scheduledAt: t.scheduleAt() },
 );
 const spacetimedb = schema({
+  ...gemPurchaseTables,
   homeReturnLocation,
   ...guildTables,
   ...socialTables,
@@ -1750,9 +1767,9 @@ const spacetimedb = schema({
   ...tempestKirinBossTables,
   tempestKirinRespawnSchedule,
   ...miremawBossTables,
-  ...prismshellBossTables, ...ironhornBossTables, ...dreadreaperBossTables, ...voltwardenBossTables,
+  ...prismshellBossTables, ...ironhornBossTables, ...dreadreaperBossTables, ...voltwardenBossTables, ...gravebloomBossTables,
   miremawRespawnSchedule,
-  prismshellRespawnSchedule, ironhornRespawnSchedule, dreadreaperRespawnSchedule, voltwardenRespawnSchedule,
+  prismshellRespawnSchedule, ironhornRespawnSchedule, dreadreaperRespawnSchedule, voltwardenRespawnSchedule, gravebloomRespawnSchedule,
 });
 export default spacetimedb;
 
@@ -2096,7 +2113,7 @@ function defaultPlayerProgress(identity: any) {
     samuraiUnlocked: false,
     cloudspireUnlocked: false,
     moonfenUnlocked: false,
-    crystalHollowsUnlocked: false, clockworkRuinsUnlocked: false, duskfallOrchardUnlocked: false, neonBastionUnlocked: false,
+    crystalHollowsUnlocked: false, clockworkRuinsUnlocked: false, duskfallOrchardUnlocked: false, neonBastionUnlocked: false, verdantCatacombsUnlocked: false,
     bossRewardClaims: 0,
     bowCount: 0,
     woodenArmorCount: 0,
@@ -2135,7 +2152,7 @@ const PLAYER_PROGRESS_VALUE_FIELDS = [
   "samuraiUnlocked",
   "cloudspireUnlocked",
   "moonfenUnlocked",
-  "crystalHollowsUnlocked", "clockworkRuinsUnlocked", "duskfallOrchardUnlocked", "neonBastionUnlocked",
+  "crystalHollowsUnlocked", "clockworkRuinsUnlocked", "duskfallOrchardUnlocked", "neonBastionUnlocked", "verdantCatacombsUnlocked",
   "bossRewardClaims",
   "bowCount",
   "woodenArmorCount",
@@ -2520,6 +2537,14 @@ function runPendingModuleMigrations(ctx: any) {
     for (const progress of (isMapShard(ctx) ? [] : ctx.db.playerProgress.iter()) as Iterable<any>) {
       if (!progress.neonBastionUnlocked && ((progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.dreadreaper) || contributedToLatestDreadreaper(ctx, progress.identity))) {
         updateSnapshotRow(ctx, "playerProgress", { ...progress, neonBastionUnlocked: true });
+      }
+    }
+  }
+  if (currentVersion < 29) {
+    if (!isMapShard(ctx) || ctx.db.shardRuntime.id.find(0)?.mapId === VERDANT_CATACOMBS_MAP_ID) ensureGravebloomBoss(ctx);
+    for (const progress of (isMapShard(ctx) ? [] : ctx.db.playerProgress.iter()) as Iterable<any>) {
+      if (!progress.verdantCatacombsUnlocked && ((progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.voltwarden) || contributedToLatestVoltwarden(ctx, progress.identity))) {
+        updateSnapshotRow(ctx, "playerProgress", { ...progress, verdantCatacombsUnlocked: true });
       }
     }
   }
@@ -3165,6 +3190,15 @@ function savedWorldLocation(ctx: any, identity: any, progress: any) {
             : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
               : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
                 : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
+  } else if (mapId === VERDANT_CATACOMBS_MAP_ID && !progress.verdantCatacombsUnlocked) {
+    mapId = progress.moonfenUnlocked ? MOONFEN_MAP_ID : progress.cloudspireUnlocked
+      ? CLOUDSPIRE_MAP_ID
+      : progress.samuraiUnlocked ? SAMURAI_GARDEN_MAP_ID
+        : progress.waterUnlocked ? WATER_REACH_MAP_ID
+          : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
+            : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
+              : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
+                : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
   } else if (mapId === NEON_BASTION_MAP_ID && !progress.neonBastionUnlocked) {
     mapId = progress.moonfenUnlocked ? MOONFEN_MAP_ID : progress.cloudspireUnlocked
       ? CLOUDSPIRE_MAP_ID
@@ -3648,6 +3682,9 @@ function contributedToLatestDreadreaper(ctx: any, identity: any) {
 function contributedToLatestVoltwarden(ctx: any, identity: any) {
   return resultIncludesContributor(ctx.db.voltwardenResult.id.find(VOLTWARDEN_ID), identity);
 }
+function contributedToLatestGravebloom(ctx: any, identity: any) {
+  return resultIncludesContributor(ctx.db.gravebloomResult.id.find(GRAVEBLOOM_ID), identity);
+}
 
 function forestItemCountForProgress(progress: any, itemId: string, field: "bowCount" | "woodenArmorCount") {
   const storedCount = Number.isInteger(progress?.[field]) ? progress[field] : 0;
@@ -4030,6 +4067,10 @@ function applyGemBalanceChange(ctx: any, input: {
   }
 
   if (input.delta === 0n) throw new SenderError("Gem amount must not be zero.");
+  if (input.delta < 0n && input.kind !== "gem_refund" &&
+      [...ctx.db.gemCommerceHold.byIdentity.filter(input.identity)].length) {
+    throw new SenderError("Gem spending is paused while a refunded purchase is reconciled.");
+  }
   const wallet = ensureGemWallet(ctx, input.identity);
   let balanceAfter: bigint;
   try {
@@ -4301,9 +4342,11 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
   if (ctx.db.tempestKirinAttackWindow.identity.find(identity)) ctx.db.tempestKirinAttackWindow.identity.delete(identity);
   if (ctx.db.miremawContribution.identity.find(identity)) ctx.db.miremawContribution.identity.delete(identity);
   if (ctx.db.voltwardenContribution.identity.find(identity)) ctx.db.voltwardenContribution.identity.delete(identity);
+  if (ctx.db.gravebloomContribution.identity.find(identity)) ctx.db.gravebloomContribution.identity.delete(identity);
   if (ctx.db.ironhornContribution.identity.find(identity)) ctx.db.ironhornContribution.identity.delete(identity); else if (ctx.db.dreadreaperContribution.identity.find(identity)) ctx.db.dreadreaperContribution.identity.delete(identity); else if (ctx.db.prismshellContribution.identity.find(identity)) ctx.db.prismshellContribution.identity.delete(identity);
   if (ctx.db.miremawAttackWindow.identity.find(identity)) ctx.db.miremawAttackWindow.identity.delete(identity);
   if (ctx.db.voltwardenAttackWindow.identity.find(identity)) ctx.db.voltwardenAttackWindow.identity.delete(identity);
+  if (ctx.db.gravebloomAttackWindow.identity.find(identity)) ctx.db.gravebloomAttackWindow.identity.delete(identity);
   if (ctx.db.ironhornAttackWindow.identity.find(identity)) ctx.db.ironhornAttackWindow.identity.delete(identity); else if (ctx.db.dreadreaperAttackWindow.identity.find(identity)) ctx.db.dreadreaperAttackWindow.identity.delete(identity); else if (ctx.db.prismshellAttackWindow.identity.find(identity)) ctx.db.prismshellAttackWindow.identity.delete(identity);
   if (ctx.db.leaderboardEntry.identity.find(identity)) ctx.db.leaderboardEntry.identity.delete(identity);
 
@@ -4394,9 +4437,11 @@ function removePlayerIdentityData(ctx: any, identity: any) {
   if (ctx.db.tempestKirinAttackWindow.identity.find(identity)) ctx.db.tempestKirinAttackWindow.identity.delete(identity);
   if (ctx.db.miremawContribution.identity.find(identity)) ctx.db.miremawContribution.identity.delete(identity);
   if (ctx.db.voltwardenContribution.identity.find(identity)) ctx.db.voltwardenContribution.identity.delete(identity);
+  if (ctx.db.gravebloomContribution.identity.find(identity)) ctx.db.gravebloomContribution.identity.delete(identity);
   if (ctx.db.ironhornContribution.identity.find(identity)) ctx.db.ironhornContribution.identity.delete(identity); else if (ctx.db.dreadreaperContribution.identity.find(identity)) ctx.db.dreadreaperContribution.identity.delete(identity); else if (ctx.db.prismshellContribution.identity.find(identity)) ctx.db.prismshellContribution.identity.delete(identity);
   if (ctx.db.miremawAttackWindow.identity.find(identity)) ctx.db.miremawAttackWindow.identity.delete(identity);
   if (ctx.db.voltwardenAttackWindow.identity.find(identity)) ctx.db.voltwardenAttackWindow.identity.delete(identity);
+  if (ctx.db.gravebloomAttackWindow.identity.find(identity)) ctx.db.gravebloomAttackWindow.identity.delete(identity);
   if (ctx.db.ironhornAttackWindow.identity.find(identity)) ctx.db.ironhornAttackWindow.identity.delete(identity); else if (ctx.db.dreadreaperAttackWindow.identity.find(identity)) ctx.db.dreadreaperAttackWindow.identity.delete(identity); else if (ctx.db.prismshellAttackWindow.identity.find(identity)) ctx.db.prismshellAttackWindow.identity.delete(identity);
   if (ctx.db.leaderboardEntry.identity.find(identity)) ctx.db.leaderboardEntry.identity.delete(identity);
 
@@ -4824,6 +4869,24 @@ function ensureVoltwardenBoss(ctx: any) {
     lastDamageAtMicros: 0n,
   });
 }
+function ensureGravebloomBoss(ctx: any) {
+  const existing = ctx.db.gravebloomBoss.id.find(GRAVEBLOOM_ID);
+  if (existing) {
+    const balanced = bossRowAtMaxHealth(existing, GRAVEBLOOM_MAX_HP);
+    if (balanced === existing) return existing;
+    ctx.db.gravebloomBoss.id.update(balanced);
+    return balanced;
+  }
+  return ctx.db.gravebloomBoss.insert({
+    id: GRAVEBLOOM_ID,
+    encounter: 1n,
+    hp: GRAVEBLOOM_MAX_HP,
+    maxHp: GRAVEBLOOM_MAX_HP,
+    alive: true,
+    respawnAtMicros: 0n,
+    lastDamageAtMicros: 0n,
+  });
+}
 
 
 function regenerateIdleBosses(ctx: any, mapId?: string) {
@@ -4852,6 +4915,7 @@ function regenerateIdleBosses(ctx: any, mapId?: string) {
   if (mapId === undefined || mapId === CRYSTAL_HOLLOWS_MAP_ID) regenerate(ensurePrismshellBoss(ctx), (next) => ctx.db.prismshellBoss.id.update(next));
   if (mapId === undefined || mapId === CLOCKWORK_RUINS_MAP_ID) regenerate(ensureIronhornBoss(ctx), (next) => ctx.db.ironhornBoss.id.update(next));
   if (mapId === undefined || mapId === NEON_BASTION_MAP_ID) regenerate(ensureVoltwardenBoss(ctx), (next) => ctx.db.voltwardenBoss.id.update(next));
+  if (mapId === undefined || mapId === VERDANT_CATACOMBS_MAP_ID) regenerate(ensureGravebloomBoss(ctx), (next) => ctx.db.gravebloomBoss.id.update(next));
   if (mapId === undefined || mapId === DUSKFALL_ORCHARD_MAP_ID) regenerate(ensureDreadreaperBoss(ctx), (next) => ctx.db.dreadreaperBoss.id.update(next));
 }
 
@@ -5185,6 +5249,12 @@ function clearVoltwardenCombatRows(ctx: any) {
   for (const identity of contributionIdentities) ctx.db.voltwardenContribution.identity.delete(identity);
   for (const identity of attackIdentities) ctx.db.voltwardenAttackWindow.identity.delete(identity);
 }
+function clearGravebloomCombatRows(ctx: any) {
+  const contributionIdentities = [...ctx.db.gravebloomContribution.iter()].map((row: any) => row.identity);
+  const attackIdentities = [...ctx.db.gravebloomAttackWindow.iter()].map((row: any) => row.identity);
+  for (const identity of contributionIdentities) ctx.db.gravebloomContribution.identity.delete(identity);
+  for (const identity of attackIdentities) ctx.db.gravebloomAttackWindow.identity.delete(identity);
+}
 
 function applyBossRepeatableReward(
   progress: any,
@@ -5382,7 +5452,30 @@ function rewardVoltwardenContributor(ctx: any, identity: any) {
     armor: VOLTWARDEN_REWARD_ARMOR,
     regen: VOLTWARDEN_REWARD_REGEN,
   });
-  const next = { ...reward, neonBastionUnlocked: true };
+  const next = { ...reward, neonBastionUnlocked: true, verdantCatacombsUnlocked: true };
+  updateSnapshotRow(ctx, "playerProgress", next);
+  const active = ctx.db.player.identity.find(identity);
+  if (active) {
+    const nextPlayer = {
+      ...active,
+      ...powerFieldsForProgress(ctx, next),
+    };
+    updateSnapshotRow(ctx, "player", nextPlayer);
+    syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
+  }
+}
+function rewardGravebloomContributor(ctx: any, identity: any) {
+  if (queueShardReward(ctx, identity, "gravebloom")) return;
+  const current = ctx.db.playerProgress.identity.find(identity);
+  if (!current) return;
+  const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+  const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.gravebloom, rewardMultiplier, {
+    damage: GRAVEBLOOM_REWARD_DAMAGE,
+    maxHp: GRAVEBLOOM_REWARD_HEALTH,
+    armor: GRAVEBLOOM_REWARD_ARMOR,
+    regen: GRAVEBLOOM_REWARD_REGEN,
+  });
+  const next = { ...reward, verdantCatacombsUnlocked: true };
   updateSnapshotRow(ctx, "playerProgress", next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
@@ -5661,6 +5754,39 @@ function finishVoltwardenEncounter(ctx: any, voltwarden: any) {
     scheduledId: 0n,
     scheduledAt: ScheduleAt.time(respawnAtMicros),
     encounter: voltwarden.encounter,
+  });
+}
+function finishGravebloomEncounter(ctx: any, gravebloom: any) {
+  const contributions = [...ctx.db.gravebloomContribution.iter()]
+    .filter((row: any) => row.encounter === gravebloom.encounter && row.damage > 0)
+    .sort((a: any, b: any) => b.damage - a.damage);
+  const totalDamage = contributions.reduce((sum: number, row: any) => sum + row.damage, 0);
+  const contributorsJson = JSON.stringify(contributions.map((row: any) => ({
+    identity: row.identity.toHexString(),
+    name: row.displayName,
+    gender: ctx.db.playerProfile.identity.find(row.identity)?.gender ?? PLAYER_GENDER_UNSET,
+    damage: row.damage,
+    percentage: totalDamage > 0 ? row.damage / totalDamage * 100 : 0,
+  })));
+
+  const result = {
+    id: GRAVEBLOOM_ID,
+    encounter: gravebloom.encounter,
+    totalDamage,
+    contributorsJson,
+    createdAt: ctx.timestamp,
+  };
+  if (ctx.db.gravebloomResult.id.find(GRAVEBLOOM_ID)) ctx.db.gravebloomResult.id.update(result);
+  else ctx.db.gravebloomResult.insert(result);
+
+  for (const row of contributions) rewardGravebloomContributor(ctx, row.identity);
+
+  const respawnAtMicros = ctx.timestamp.microsSinceUnixEpoch + GRAVEBLOOM_RESPAWN_MICROS;
+  ctx.db.gravebloomBoss.id.update({ ...gravebloom, hp: 0, alive: false, respawnAtMicros });
+  ctx.db.gravebloomRespawnSchedule.insert({
+    scheduledId: 0n,
+    scheduledAt: ScheduleAt.time(respawnAtMicros),
+    encounter: gravebloom.encounter,
   });
 }
 
@@ -6022,6 +6148,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     const isInCloudspire = existingPlayer?.mapId === CLOUDSPIRE_MAP_ID;
     const isInDuskfallOrchard = existingPlayer?.mapId === DUSKFALL_ORCHARD_MAP_ID || contributedToLatestIronhorn(ctx, ctx.sender) || contributedToLatestDreadreaper(ctx, ctx.sender);
 const isInNeonBastion = existingPlayer?.mapId === NEON_BASTION_MAP_ID || Boolean(existingProgress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.dreadreaper) || contributedToLatestDreadreaper(ctx, ctx.sender) || contributedToLatestVoltwarden(ctx, ctx.sender);
+const isInVerdantCatacombs = existingPlayer?.mapId === VERDANT_CATACOMBS_MAP_ID || Boolean(existingProgress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.voltwarden) || contributedToLatestVoltwarden(ctx, ctx.sender) || contributedToLatestGravebloom(ctx, ctx.sender);
     const isInClockworkRuins = existingPlayer?.mapId === CLOCKWORK_RUINS_MAP_ID || isInDuskfallOrchard || contributedToLatestPrismshell(ctx, ctx.sender) || Boolean(existingProgress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.prismshell);
     const isInCrystalHollows = existingPlayer?.mapId === CRYSTAL_HOLLOWS_MAP_ID || isInClockworkRuins;
     // A later server-owned location/clear also proves all earlier map gates.
@@ -6037,7 +6164,8 @@ const isInNeonBastion = existingPlayer?.mapId === NEON_BASTION_MAP_ID || Boolean
       (!existingProgress.crystalHollowsUnlocked && (isInCrystalHollows || latestMiremawContributor)) ||
       (!existingProgress.clockworkRuinsUnlocked && isInClockworkRuins) ||
       (!existingProgress.duskfallOrchardUnlocked && isInDuskfallOrchard) ||
-      (!existingProgress.neonBastionUnlocked && isInNeonBastion)) {
+      (!existingProgress.neonBastionUnlocked && isInNeonBastion) ||
+      (!existingProgress.verdantCatacombsUnlocked && isInVerdantCatacombs)) {
       existingProgress = {
         ...existingProgress,
         desertUnlocked: existingProgress.desertUnlocked || isInDesert || isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || isInMoonfen || latestDragonContributor || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor,
@@ -6049,6 +6177,7 @@ const isInNeonBastion = existingPlayer?.mapId === NEON_BASTION_MAP_ID || Boolean
         cloudspireUnlocked: existingProgress.cloudspireUnlocked || isInCloudspire || isInMoonfen || latestKoiShogunContributor || latestTempestKirinContributor,
         moonfenUnlocked: existingProgress.moonfenUnlocked || isInMoonfen || latestTempestKirinContributor,
         crystalHollowsUnlocked: existingProgress.crystalHollowsUnlocked || isInCrystalHollows || latestMiremawContributor, clockworkRuinsUnlocked: existingProgress.clockworkRuinsUnlocked || isInClockworkRuins, duskfallOrchardUnlocked: existingProgress.duskfallOrchardUnlocked || isInDuskfallOrchard, neonBastionUnlocked: existingProgress.neonBastionUnlocked || isInNeonBastion,
+        verdantCatacombsUnlocked: existingProgress.verdantCatacombsUnlocked || isInVerdantCatacombs,
       };
       updateSnapshotRow(ctx, "playerProgress", existingProgress);
     }
@@ -6657,6 +6786,23 @@ export const respawnVoltwarden = spacetimedb.reducer(
       ...voltwarden,
       encounter: voltwarden.encounter + 1n,
       hp: voltwarden.maxHp,
+      alive: true,
+      respawnAtMicros: 0n,
+      lastDamageAtMicros: 0n,
+    });
+  },
+);
+export const respawnGravebloom = spacetimedb.reducer(
+  { schedule: gravebloomRespawnSchedule.rowType },
+  (ctx, { schedule }) => {
+    const gravebloom = ensureGravebloomBoss(ctx);
+    if (gravebloom.alive || gravebloom.encounter !== schedule.encounter) return;
+    if (ctx.timestamp.microsSinceUnixEpoch < gravebloom.respawnAtMicros) return;
+    clearGravebloomCombatRows(ctx);
+    ctx.db.gravebloomBoss.id.update({
+      ...gravebloom,
+      encounter: gravebloom.encounter + 1n,
+      hp: gravebloom.maxHp,
       alive: true,
       respawnAtMicros: 0n,
       lastDamageAtMicros: 0n,
@@ -7609,6 +7755,74 @@ function applyVoltwardenDamage(ctx: any, requestedHits: number, clientPosition?:
   if (nextVoltwarden.hp <= 0) finishVoltwardenEncounter(ctx, nextVoltwarden);
   else ctx.db.voltwardenBoss.id.update(nextVoltwarden);
 }
+function applyGravebloomDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
+  requireMapWorkload(ctx);
+  if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
+  const activePlayer = requireControllingPlayer(ctx);
+  if (activeDuelFor(ctx, ctx.sender)) return;
+  if (activePlayer.mapId !== VERDANT_CATACOMBS_MAP_ID) return;
+  const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+  if (!progress) return;
+  const gravebloom = ensureGravebloomBoss(ctx);
+  if (!gravebloom.alive || gravebloom.hp <= 0) return;
+
+  if (clientPosition && ![clientPosition.x, clientPosition.y].every(Number.isFinite)) {
+    throw new SenderError("Boss attack position must be finite");
+  }
+  const actionX = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, clientPosition.x)) : activePlayer.x;
+  const actionY = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, clientPosition.y)) : activePlayer.y;
+  const centerDistance = Math.hypot(actionX - GRAVEBLOOM_POSITION.x, actionY - GRAVEBLOOM_POSITION.y);
+  if (centerDistance - GRAVEBLOOM_RADIUS > progress.attackRange + GRAVEBLOOM_HIT_RANGE_TOLERANCE) return;
+
+  const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
+  const now = ctx.timestamp.microsSinceUnixEpoch;
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(progress) * 1_000_000)));
+  const currentWindow = ctx.db.gravebloomAttackWindow.identity.find(ctx.sender);
+  const newWindow =
+    !currentWindow ||
+    currentWindow.encounter !== gravebloom.encounter ||
+    now - currentWindow.startedAtMicros >= intervalMicros;
+  const remainingHits = newWindow
+    ? progress.projectileCount
+    : Math.max(0, progress.projectileCount - currentWindow.hits);
+  const acceptedHits = Math.min(boundedHits, remainingHits);
+  if (acceptedHits <= 0) return;
+
+  if (newWindow) {
+    const nextWindow = {
+      identity: ctx.sender,
+      encounter: gravebloom.encounter,
+      startedAtMicros: now,
+      hits: acceptedHits,
+    };
+    if (currentWindow) ctx.db.gravebloomAttackWindow.identity.update(nextWindow);
+    else ctx.db.gravebloomAttackWindow.insert(nextWindow);
+  } else {
+    ctx.db.gravebloomAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
+  }
+
+  const damage = bossDamageWithCriticals(ctx, progress, acceptedHits, gravebloom.hp, VERDANT_CATACOMBS_MAP_ID, GRAVEBLOOM_POSITION);
+  const currentContribution = ctx.db.gravebloomContribution.identity.find(ctx.sender);
+  const continuingContribution = currentContribution?.encounter === gravebloom.encounter;
+  const displayName = continuingContribution
+    ? currentContribution.displayName
+    : ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "PLAYER";
+  const nextContribution = {
+    identity: ctx.sender,
+    encounter: gravebloom.encounter,
+    displayName,
+    damage: continuingContribution ? currentContribution.damage + damage : damage,
+  };
+  if (currentContribution) ctx.db.gravebloomContribution.identity.update(nextContribution);
+  else ctx.db.gravebloomContribution.insert(nextContribution);
+  const nextGravebloom = {
+    ...gravebloom,
+    hp: Math.max(0, gravebloom.hp - damage),
+    lastDamageAtMicros: ctx.timestamp.microsSinceUnixEpoch,
+  };
+  if (nextGravebloom.hp <= 0) finishGravebloomEncounter(ctx, nextGravebloom);
+  else ctx.db.gravebloomBoss.id.update(nextGravebloom);
+}
 
 export const damageMiremawFromPosition = spacetimedb.reducer(
   { hits: t.u32(), x: t.f64(), y: t.f64() },
@@ -7629,6 +7843,10 @@ export const damageDreadreaperFromPosition = spacetimedb.reducer(
 export const damageVoltwardenFromPosition = spacetimedb.reducer(
   { hits: t.u32(), x: t.f64(), y: t.f64() },
   (ctx, { hits, x, y }) => applyVoltwardenDamage(ctx, hits, { x, y }),
+);
+export const damageGravebloomFromPosition = spacetimedb.reducer(
+  { hits: t.u32(), x: t.f64(), y: t.f64() },
+  (ctx, { hits, x, y }) => applyGravebloomDamage(ctx, hits, { x, y }),
 );
 
 
@@ -8045,6 +8263,36 @@ for (const [contributionTable, attackWindowTable] of [
       [ctx.db.tempestKirinContribution, ctx.db.tempestKirinAttackWindow],
       [ctx.db.miremawContribution, ctx.db.miremawAttackWindow],
       [ctx.db.voltwardenContribution, ctx.db.voltwardenAttackWindow],
+    ] as any[]) {
+      const guestContribution = contributionTable.identity.find(link.guest);
+      const accountContribution = contributionTable.identity.find(ctx.sender);
+      if (guestContribution) {
+        const nextContribution = {
+          identity: ctx.sender,
+          encounter: guestContribution.encounter,
+          displayName: finalDisplayName,
+          damage: accountContribution?.encounter === guestContribution.encounter
+            ? accountContribution.damage + guestContribution.damage
+            : guestContribution.damage,
+        };
+        if (accountContribution) contributionTable.identity.update(nextContribution);
+        else contributionTable.insert(nextContribution);
+        contributionTable.identity.delete(link.guest);
+      }
+      if (attackWindowTable.identity.find(link.guest)) attackWindowTable.identity.delete(link.guest);
+      if (attackWindowTable.identity.find(ctx.sender)) attackWindowTable.identity.delete(ctx.sender);
+    }
+for (const [contributionTable, attackWindowTable] of [
+      [ctx.db.dragonContribution, ctx.db.dragonAttackWindow],
+      [ctx.db.spiderContribution, ctx.db.spiderAttackWindow],
+      [ctx.db.frostclawContribution, ctx.db.frostclawAttackWindow],
+      [ctx.db.magmaliskContribution, ctx.db.magmaliskAttackWindow],
+      [ctx.db.gloomrootContribution, ctx.db.gloomrootAttackWindow],
+      [ctx.db.tidewyrmContribution, ctx.db.tidewyrmAttackWindow],
+      [ctx.db.koiShogunContribution, ctx.db.koiShogunAttackWindow],
+      [ctx.db.tempestKirinContribution, ctx.db.tempestKirinAttackWindow],
+      [ctx.db.miremawContribution, ctx.db.miremawAttackWindow],
+      [ctx.db.gravebloomContribution, ctx.db.gravebloomAttackWindow],
     ] as any[]) {
       const guestContribution = contributionTable.identity.find(link.guest);
       const accountContribution = contributionTable.identity.find(ctx.sender);
@@ -8697,7 +8945,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       samuraiUnlocked: base.samuraiUnlocked,
       cloudspireUnlocked: base.cloudspireUnlocked,
       moonfenUnlocked: base.moonfenUnlocked,
-      crystalHollowsUnlocked: base.crystalHollowsUnlocked, clockworkRuinsUnlocked: base.clockworkRuinsUnlocked, duskfallOrchardUnlocked: base.duskfallOrchardUnlocked, neonBastionUnlocked: base.neonBastionUnlocked,
+      crystalHollowsUnlocked: base.crystalHollowsUnlocked, clockworkRuinsUnlocked: base.clockworkRuinsUnlocked, duskfallOrchardUnlocked: base.duskfallOrchardUnlocked, neonBastionUnlocked: base.neonBastionUnlocked, verdantCatacombsUnlocked: base.verdantCatacombsUnlocked,
       bossRewardClaims: base.bossRewardClaims ?? 0,
       bowCount: forestItemCountForProgress(base, STARTER_BOW, "bowCount"),
       woodenArmorCount: forestItemCountForProgress(base, WOODEN_ARMOR, "woodenArmorCount"),
@@ -9609,6 +9857,8 @@ export const changeMap = spacetimedb.reducer(
     }
     if (mapId === CLOCKWORK_RUINS_MAP_ID && !currentProgress?.clockworkRuinsUnlocked) {
       throw new SenderError(`Defeat Prismshell before entering ${MAP_DISPLAY_NAMES[CLOCKWORK_RUINS_MAP_ID]}.`);
+    } else if (mapId === VERDANT_CATACOMBS_MAP_ID && !currentProgress?.verdantCatacombsUnlocked) {
+      throw new SenderError(`Defeat Voltwarden before entering ${MAP_DISPLAY_NAMES[VERDANT_CATACOMBS_MAP_ID]}.`);
     } else if (mapId === NEON_BASTION_MAP_ID && !currentProgress?.neonBastionUnlocked) {
       throw new SenderError(`Defeat Dreadreaper before entering ${MAP_DISPLAY_NAMES[NEON_BASTION_MAP_ID]}.`);
     } else if (mapId === DUSKFALL_ORCHARD_MAP_ID && !currentProgress?.duskfallOrchardUnlocked) {
@@ -9815,7 +10065,7 @@ const shardRewardHandlers: Record<string, (ctx: any, identity: any) => void> = {
   dragon: rewardDragonContributor, spider: rewardSpiderContributor, frostclaw: rewardFrostclawContributor,
   magmalisk: rewardMagmaliskContributor, gloomroot: rewardGloomrootContributor, tidewyrm: rewardTidewyrmContributor,
   koiShogun: rewardKoiShogunContributor, tempestKirin: rewardTempestKirinContributor,
-  miremaw: rewardMiremawContributor, prismshell: rewardPrismshellContributor, ironhorn: rewardIronhornContributor, dreadreaper: rewardDreadreaperContributor, voltwarden: rewardVoltwardenContributor,
+  miremaw: rewardMiremawContributor, prismshell: rewardPrismshellContributor, ironhorn: rewardIronhornContributor, dreadreaper: rewardDreadreaperContributor, voltwarden: rewardVoltwardenContributor, gravebloom: rewardGravebloomContributor,
 };
 export const deliverShardReward = spacetimedb.reducer(
   { shardId: t.u64(), identity: t.identity(), boss: t.string(), encounter: t.u64() }, deliverShardRewardImpl);
@@ -10102,3 +10352,118 @@ export const reportSocialMessage = spacetimedb.reducer({ messageId: t.u64(), rea
     note: `[${row.channel === "dm" ? "Private message" : "Guild chat"} #${row.id}] ${row.message}`,
     status: "pending", reportedAt: ctx.timestamp });
 });
+
+
+// Checkout remains off until a dedicated server verifier is configured. Players
+// can reserve an allowance, but only that verifier can attest a paid receipt.
+export const configureGemCommerce = spacetimedb.reducer(
+  { verifier: t.identity(), enabled: t.bool() },
+  (ctx, { verifier, enabled }) => {
+    if (!isDatabaseOwnerIdentity(ctx.sender)) throw new SenderError("Database owner required.");
+    if (isMapShard(ctx)) throw new SenderError("Commerce belongs to the root database.");
+    const value = { id: 0, verifier, enabled };
+    if (ctx.db.gemCommerceConfig.id.find(0)) ctx.db.gemCommerceConfig.id.update(value);
+    else ctx.db.gemCommerceConfig.insert(value);
+  },
+);
+
+function purchaseService(ctx: ReducerCtx<InferSchema<typeof spacetimedb>>) {
+  return createGemPurchaseService({
+    get: (id) => {
+      const row = ctx.db.gemPurchase.reservationId.find(id);
+      return row ? { ...row, owner: row.identity.toHexString() } : null;
+    },
+    slot: (key) => ctx.db.gemPurchaseSlot.key.find(key)?.reservationId ?? null,
+    lock: (key, reservationId) => { ctx.db.gemPurchaseSlot.insert({ key, reservationId }); },
+    unlock: (key) => { ctx.db.gemPurchaseSlot.key.delete(key); },
+    save: (purchase) => {
+      const previous = ctx.db.gemPurchase.reservationId.find(purchase.reservationId);
+      const { owner, ...values } = purchase;
+      const row = { ...values, identity: Identity.fromString(owner), createdAt: previous?.createdAt ?? ctx.timestamp, updatedAt: ctx.timestamp };
+      if (previous) ctx.db.gemPurchase.reservationId.update(row);
+      else ctx.db.gemPurchase.insert(row);
+    },
+    credit: (purchase, gems, reference) => {
+      // Bind the global receipt to this exact reservation, including on retries.
+      const duplicate = ctx.db.gemTransaction.externalReference.find(reference);
+      if (duplicate && duplicate.note !== purchase.reservationId) throw new SenderError("Store receipt already used.");
+      applyGemBalanceChange(ctx, { identity: Identity.fromString(purchase.owner), delta: gems,
+        kind: "gem_purchase", note: purchase.reservationId, externalReference: reference });
+    },
+  });
+}
+
+function requireGemVerifier(ctx: ReducerCtx<InferSchema<typeof spacetimedb>>) {
+  const config = ctx.db.gemCommerceConfig.id.find(0);
+  // Disabling new checkout must still allow paid in-flight orders to settle.
+  if (isMapShard(ctx) || !config || !config.verifier.equals(ctx.sender)) throw new SenderError("Purchase verifier required.");
+}
+
+export const reserveGemPurchase = spacetimedb.reducer(
+  { packId: t.string(), reservationId: t.string() },
+  (ctx, { packId, reservationId }) => {
+    if (isMapShard(ctx) || !ctx.db.gemCommerceConfig.id.find(0)?.enabled) throw new SenderError("Purchases are not available yet.");
+    if (!hasSpacetimeAuthAccount(ctx)) throw new SenderError("Sign in to purchase Gems.");
+    purchaseService(ctx).reserve(ctx.sender.toHexString(), packId, reservationId, ctx.timestamp.microsSinceUnixEpoch);
+  },
+);
+
+export const fulfillGemPurchase = spacetimedb.reducer(
+  { reservationId: t.string(), identity: t.identity(), packId: t.string(), externalReference: t.string() },
+  (ctx, { reservationId, identity, packId, externalReference }) => {
+    requireGemVerifier(ctx);
+    purchaseService(ctx).fulfill(reservationId, identity.toHexString(), packId, externalReference);
+  },
+);
+
+export const cancelGemPurchase = spacetimedb.reducer(
+  { reservationId: t.string() },
+  (ctx, { reservationId }) => {
+    requireGemVerifier(ctx);
+    purchaseService(ctx).cancel(reservationId);
+  },
+);
+
+export const myGemPurchases = spacetimedb.view(
+  { name: "my_gem_purchases", public: true }, t.array(gemPurchaseTables.gemPurchase.rowType),
+  (ctx) => Array.from(ctx.db.gemPurchase.byIdentity.filter(ctx.sender)),
+);
+
+
+export const ingestGemStoreEvent = spacetimedb.reducer(
+  { eventId: t.string(), eventHash: t.string(), kind: t.string(), owner: t.string(), packId: t.string(), reference: t.string(), purchasedAtMs: t.f64() },
+  (ctx, event) => {
+    requireGemVerifier(ctx);
+    if (event.purchasedAtMs > Number(ctx.timestamp.microsSinceUnixEpoch / 1000n) + 300_000) throw new SenderError("Payment timestamp is in the future.");
+    ingestStoreEvent({
+      eventHash: (id) => ctx.db.gemStoreEvent.eventId.find(id)?.eventHash ?? null,
+      rememberEvent: (eventId, eventHash) => { ctx.db.gemStoreEvent.insert({ eventId, eventHash, receivedAt: ctx.timestamp }); },
+      receipt: (reference) => ctx.db.gemStoreReceipt.reference.find(reference),
+      saveReceipt: (receipt) => {
+        const row = { ...receipt, updatedAt: ctx.timestamp };
+        if (ctx.db.gemStoreReceipt.reference.find(row.reference)) ctx.db.gemStoreReceipt.reference.update(row);
+        else ctx.db.gemStoreReceipt.insert(row);
+      },
+      reservation: (owner, packId, day) => {
+        const slot = ctx.db.gemPurchaseSlot.key.find(`${owner}:${packId}:${day}`);
+        const row = slot && ctx.db.gemPurchase.reservationId.find(slot.reservationId);
+        return row ? { id: row.reservationId, createdAtMs: Number(row.createdAt.microsSinceUnixEpoch / 1000n), status: row.status } : null;
+      },
+      fulfill: (id, owner, packId, reference) => { purchaseService(ctx).fulfill(id, owner, packId, reference); },
+      balance: (owner) => ctx.db.playerGemWallet.identity.find(Identity.fromString(owner))?.balance ?? 0n,
+      debitRefund: (owner, amount, reference) => {
+        applyGemBalanceChange(ctx, { identity: Identity.fromString(owner), delta: -amount, kind: "gem_refund", note: reference, externalReference: `refund:${reference}` });
+      },
+      hold: (owner, reference, active) => {
+        if (active && !ctx.db.gemCommerceHold.reference.find(reference)) ctx.db.gemCommerceHold.insert({ reference, identity: Identity.fromString(owner) });
+        else if (!active) ctx.db.gemCommerceHold.reference.delete(reference);
+      },
+    }, event);
+  },
+);
+
+export const devGemPurchaseReview = spacetimedb.view(
+  { name: "dev_gem_purchase_review", public: true }, t.array(gemPurchaseTables.gemStoreReceipt.rowType),
+  (ctx) => isDeveloperIdentity(ctx.sender) || isDatabaseOwnerIdentity(ctx.sender)
+    ? [...ctx.db.gemStoreReceipt.iter()].filter(row => row.status === "review" || row.status === "refund_review") : [],
+);

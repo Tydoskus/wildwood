@@ -1,5 +1,7 @@
+import { drawVerdantAttacks } from "./verdant-attack-art";
 import { drawNeonAttacks } from "./neon-attack-art";
 import { drawVoltwardenArt, VOLTWARDEN_ART_TOP } from "./neon-boss-art";
+import { drawGravebloomArt, GRAVEBLOOM_ART_TOP } from "./verdant-boss-art";
 import { drawBossAtlasFrame } from "./boss-atlas-drawing";
 import {
   BOSS_CONE_HALF_ANGLE,
@@ -18,7 +20,7 @@ import {
   MAGMALISK_SPRITE_Y_OFFSET,
   MIREMAW_SPRITE_GROUND_OFFSET,
   MIREMAW_SPRITE_Y_OFFSET,
-  PRISMSHELL_SPRITE_Y_OFFSET, IRONHORN_SPRITE_Y_OFFSET, DREADREAPER_SPRITE_Y_OFFSET, VOLTWARDEN_SPRITE_Y_OFFSET,
+  PRISMSHELL_SPRITE_Y_OFFSET, IRONHORN_SPRITE_Y_OFFSET, DREADREAPER_SPRITE_Y_OFFSET, VOLTWARDEN_SPRITE_Y_OFFSET, GRAVEBLOOM_SPRITE_Y_OFFSET,
   MIREMAW_TONGUE_HALF_ANGLE,
   PRISMSHELL_SHATTER_HALF_ANGLE, IRONHORN_SHATTER_HALF_ANGLE, DREADREAPER_SHATTER_HALF_ANGLE,
   MIREMAW_TONGUE_RANGE,
@@ -58,13 +60,13 @@ import {
   MAGMALISK_REWARD_HEALTH,
   MAGMALISK_REWARD_REGEN,
   MIREMAW_REWARD_ARMOR,
-  PRISMSHELL_REWARD_ARMOR, IRONHORN_REWARD_ARMOR, DREADREAPER_REWARD_ARMOR, VOLTWARDEN_REWARD_ARMOR,
+  PRISMSHELL_REWARD_ARMOR, IRONHORN_REWARD_ARMOR, DREADREAPER_REWARD_ARMOR, VOLTWARDEN_REWARD_ARMOR, GRAVEBLOOM_REWARD_ARMOR,
   MIREMAW_REWARD_DAMAGE,
-  PRISMSHELL_REWARD_DAMAGE, IRONHORN_REWARD_DAMAGE, DREADREAPER_REWARD_DAMAGE, VOLTWARDEN_REWARD_DAMAGE,
+  PRISMSHELL_REWARD_DAMAGE, IRONHORN_REWARD_DAMAGE, DREADREAPER_REWARD_DAMAGE, VOLTWARDEN_REWARD_DAMAGE, GRAVEBLOOM_REWARD_DAMAGE,
   MIREMAW_REWARD_HEALTH,
-  PRISMSHELL_REWARD_HEALTH, IRONHORN_REWARD_HEALTH, DREADREAPER_REWARD_HEALTH, VOLTWARDEN_REWARD_HEALTH,
+  PRISMSHELL_REWARD_HEALTH, IRONHORN_REWARD_HEALTH, DREADREAPER_REWARD_HEALTH, VOLTWARDEN_REWARD_HEALTH, GRAVEBLOOM_REWARD_HEALTH,
   MIREMAW_REWARD_REGEN,
-  PRISMSHELL_REWARD_REGEN, IRONHORN_REWARD_REGEN, DREADREAPER_REWARD_REGEN, VOLTWARDEN_REWARD_REGEN,
+  PRISMSHELL_REWARD_REGEN, IRONHORN_REWARD_REGEN, DREADREAPER_REWARD_REGEN, VOLTWARDEN_REWARD_REGEN, GRAVEBLOOM_REWARD_REGEN,
   SPIDER_REWARD_DAMAGE,
   SPIDER_REWARD_HEALTH,
   TIDEWYRM_REWARD_ARMOR,
@@ -84,7 +86,7 @@ import {
   bossStatusLabelOffsets,
 } from "./boss-label-style";
 import { healthBarTextY } from "./health-bar-layout";
-import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, MiremawBogBurst, PrismshellCrystalBurst, IronhornCrystalBurst, DreadreaperCrystalBurst, VoltwardenCrystalBurst, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
+import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, MiremawBogBurst, PrismshellCrystalBurst, IronhornCrystalBurst, DreadreaperCrystalBurst, VoltwardenCrystalBurst, GravebloomCrystalBurst, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
 import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
 import { SCORPION_SPRITE, scorpionSpriteFrame } from "./scorpion-sprite";
 import { prismshellSpriteFrame } from "./prismshell-sprite";
@@ -115,6 +117,7 @@ export function createBossRenderer(options: {
   ironhornBoss: IronhornBossState;
   dreadreaperBoss: DreadreaperBossState;
   voltwardenBoss: VoltwardenBossState;
+  gravebloomBoss: GravebloomBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
@@ -128,6 +131,7 @@ export function createBossRenderer(options: {
   ironhornCrystalBursts: IronhornCrystalBurst[];
   dreadreaperCrystalBursts: DreadreaperCrystalBurst[];
   voltwardenCrystalBursts: VoltwardenCrystalBurst[];
+  gravebloomCrystalBursts: GravebloomCrystalBurst[];
   dragonSpriteCanvas: HTMLCanvasElement;
   spiderSpriteCanvas: HTMLCanvasElement;
   frostclawSpriteCanvas: HTMLCanvasElement;
@@ -141,6 +145,7 @@ export function createBossRenderer(options: {
   ironhornSpritePages: HTMLImageElement[];
   dreadreaperSpritePages: HTMLImageElement[];
   voltwardenSpritePages: HTMLImageElement[];
+  gravebloomSpritePages: HTMLImageElement[];
   dragonReady: () => boolean;
   spiderReady: () => boolean;
   frostclawReady: () => boolean;
@@ -154,6 +159,7 @@ export function createBossRenderer(options: {
   ironhornReady: () => boolean;
   dreadreaperReady: () => boolean;
   voltwardenReady: () => boolean;
+  gravebloomReady: () => boolean;
   gameTime: () => number;
   pixelCircle: PixelCircle;
   outlinedText: OutlinedText;
@@ -162,7 +168,7 @@ export function createBossRenderer(options: {
   spiderWebRange: number;
   rewardMultiplier: () => number;
 }) {
-  const { ctx, camera, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss } = options;
+  const { ctx, camera, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss } = options;
   const screenX = (worldX: number) => snapWorldRenderCoordinate(worldX - camera.x, camera.zoom, options.devicePixelRatio());
   const screenY = (worldY: number) => snapWorldRenderCoordinate(worldY - camera.y, camera.zoom, options.devicePixelRatio());
   const rewardText = (type: RewardType, baseAmount: number) => rewardLabel({
@@ -1231,6 +1237,9 @@ export function createBossRenderer(options: {
   function drawVoltwardenTelegraphs() {
     if (!voltwardenBoss.dead) drawNeonAttacks(ctx, voltwardenBoss, options.voltwardenCrystalBursts, camera);
   }
+  function drawGravebloomTelegraphs() {
+    if (!gravebloomBoss.dead) drawVerdantAttacks(ctx, gravebloomBoss, options.gravebloomCrystalBursts, camera);
+  }
 
   function drawMiremawBoss() {
     if (miremawBoss.dead) return;
@@ -1517,6 +1526,34 @@ export function createBossRenderer(options: {
       ],
     });
   }
+  function drawGravebloomBoss() {
+    if (gravebloomBoss.dead) return;
+    const x = screenX(gravebloomBoss.x);
+    const y = screenY(gravebloomBoss.y);
+    const visualY = y + GRAVEBLOOM_SPRITE_Y_OFFSET;
+    drawGravebloomArt(ctx, x, visualY, options.gameTime(), gravebloomBoss.shatter ? "laser" : options.gravebloomCrystalBursts.length > 0 ? "emp" : "idle",
+      gravebloomBoss.hurt, options.gravebloomReady() ? options.gravebloomSpritePages[0] : undefined);
+    drawBossStatus({
+      x,
+      spriteTopY: visualY + GRAVEBLOOM_ART_TOP,
+      barGap: 34,
+      barWidth: 330,
+      barHeight: 23,
+      hp: gravebloomBoss.hp,
+      maxHp: gravebloomBoss.maxHp,
+      hpLossFlashTimer: gravebloomBoss.hpLossFlashTimer,
+      hpLossFlashFrom: gravebloomBoss.hpLossFlashFrom,
+      backgroundColor: "#333149",
+      fillColor: "#35dae6",
+      name: { text: "GRAVEBLOOM", color: "#f1e9ff" },
+      rewards: [
+        { text: rewardText("damage", GRAVEBLOOM_REWARD_DAMAGE), color: "#ff655a" },
+        { text: rewardText("health", GRAVEBLOOM_REWARD_HEALTH), color: "#6fe48e" },
+        { text: rewardText("armor", GRAVEBLOOM_REWARD_ARMOR), color: REWARD_DATA.armor.color },
+        { text: rewardText("regen", GRAVEBLOOM_REWARD_REGEN), color: REWARD_DATA.regen.color },
+      ],
+    });
+  }
   return {
     drawBossTelegraphs,
     drawBoss,
@@ -1535,8 +1572,8 @@ export function createBossRenderer(options: {
     drawTempestKirinTelegraphs,
     drawTempestKirinBoss,
     drawMiremawTelegraphs,
-    drawPrismshellTelegraphs, drawIronhornTelegraphs, drawDreadreaperTelegraphs, drawVoltwardenTelegraphs,
+    drawPrismshellTelegraphs, drawIronhornTelegraphs, drawDreadreaperTelegraphs, drawVoltwardenTelegraphs, drawGravebloomTelegraphs,
     drawMiremawBoss,
-    drawPrismshellBoss, drawIronhornBoss, drawDreadreaperBoss, drawVoltwardenBoss,
+    drawPrismshellBoss, drawIronhornBoss, drawDreadreaperBoss, drawVoltwardenBoss, drawGravebloomBoss,
   };
 }

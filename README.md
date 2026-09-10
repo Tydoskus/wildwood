@@ -16,6 +16,8 @@ Found a bug? Use `/bug` in game or [open an issue](https://github.com/Tydoskus/w
 
 For local setup and development, see the [development guide](docs/development.md).
 
+For native iPhone and Android test builds, see the [phone preview guide](mobile/README.md).
+
 ## Repository layout
 
 - [launchers/](launchers/) — double-click tools for the map editor, sprite aligner, local game, and releases.

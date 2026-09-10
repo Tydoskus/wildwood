@@ -1,3 +1,4 @@
+import { verdantCryptAtlas } from "./enemy-atlases/verdant-crypt.mjs";
 import { neonSentryAtlas } from "./enemy-atlases/neon-sentry.mjs";
 import raptorAtlas from "./enemy-atlases/raptor-mechanic.mjs";
 import pumpkinAtlas from "./enemy-atlases/pumpkin-orange.mjs";
@@ -26,7 +27,7 @@ export const MAP_ENEMY_FAMILIES = {
   samurai_garden: "flower-tulip",
   cloudspire: "wingdemon-bee",
   moonfen: "fungus-rock",
-  crystal_hollows: "hornrabbit-crystal", clockwork_ruins: "raptor-mechanic", duskfall_orchard: "pumpkin-orange", neon_bastion: "neon-sentry",
+  crystal_hollows: "hornrabbit-crystal", clockwork_ruins: "raptor-mechanic", duskfall_orchard: "pumpkin-orange", neon_bastion: "neon-sentry", verdant_catacombs: "verdant-crypt",
 };
 
 const spriteSize = (elite) => elite ? ELITE_ENEMY_SPRITE_SIZE : REGULAR_ENEMY_SPRITE_SIZE;
@@ -150,13 +151,26 @@ const moonfen = (options) => animatedSprite("fungus-rock", fungusAtlas, options)
 const crystalHollows = (options) => animatedSprite("hornrabbit-crystal", crystalAtlas, options);
 const clockworkRuins = (options) => animatedSprite("raptor-mechanic", raptorAtlas, options);
 const duskfallOrchard = (options) => animatedSprite("pumpkin-orange", pumpkinAtlas, options);
-const neonBastion = (role, options) => {
-  const sprite = animatedSprite("neon-sentry", neonSentryAtlas(role), options);
+// One sword-sentry design for this region; the unused designs live in art-source.
+const neonBastion = (options) => {
+  const sprite = animatedSprite("neon-sentry", neonSentryAtlas("reaver"), options);
+  sprite.animation.sourceFacingX = 1;
+  return sprite;
+};
+const verdantCatacombs = (role, options) => {
+  const sprite = animatedSprite("verdant-crypt", verdantCryptAtlas(role), options);
   sprite.animation.sourceFacingX = 1;
   return sprite;
 };
 
 export const ENEMY_SPRITE_LAYOUTS = {
+  "Mossbound Stalker": verdantCatacombs("stalker"),
+  "Spore Slinger": verdantCatacombs("slinger", { ranged: true }),
+  "Mycelial Regent": verdantCatacombs("regent", { elite: true }),
+  "Ossuary Guardian": verdantCatacombs("guardian"),
+  "Briar Reaver": verdantCatacombs("reaver", { elite: true, ranged: true }),
+  "Crypt Oracle": verdantCatacombs("oracle", { elite: true }),
+
   Bramble: forest(),
   Needle: forest(),
   Mossback: forest({ armored: true }),
@@ -208,15 +222,15 @@ export const ENEMY_SPRITE_LAYOUTS = {
   "Thunder Reaper": cloudspire({ elite: true }),
   "Tempest Oracle": cloudspire({ elite: true }),
   "Fen Prowler": moonfen(),
-  "Shard Hopper": crystalHollows(), "Gear Prowler": clockworkRuins(), "Gourd Prowler": duskfallOrchard(), "Circuit Prowler": neonBastion("prowler"),
+  "Shard Hopper": crystalHollows(), "Gear Prowler": clockworkRuins(), "Gourd Prowler": duskfallOrchard(), "Circuit Prowler": neonBastion(),
   "Glowcap Archer": moonfen(),
   "Glowcap Regent": moonfen({ elite: true }),
-  "Crystal Spitter": crystalHollows(), "Rivet Spitter": clockworkRuins(), "Seed Spitter": duskfallOrchard(), "Pulse Spitter": neonBastion("spitter"),
-  "Crystal Regent": crystalHollows({ elite: true }), "Gear Regent": clockworkRuins({ elite: true }), "Harvest Regent": duskfallOrchard({ elite: true }), "Voltage Regent": neonBastion("regent", { elite: true }),
+  "Crystal Spitter": crystalHollows(), "Rivet Spitter": clockworkRuins(), "Seed Spitter": duskfallOrchard(), "Pulse Spitter": neonBastion(),
+  "Crystal Regent": crystalHollows({ elite: true }), "Gear Regent": clockworkRuins({ elite: true }), "Harvest Regent": duskfallOrchard({ elite: true }), "Voltage Regent": neonBastion({ elite: true }),
   "Bog Colossus": moonfen(),
-  "Geode Guardian": crystalHollows(), "Iron Guardian": clockworkRuins(), "Husk Guardian": duskfallOrchard(), "Relay Guardian": neonBastion("guardian"),
+  "Geode Guardian": crystalHollows(), "Iron Guardian": clockworkRuins(), "Husk Guardian": duskfallOrchard(), "Relay Guardian": neonBastion(),
   "Moonmire Reaper": moonfen({ elite: true }),
-  "Prism Reaver": crystalHollows({ elite: true }), "Scrap Reaver": clockworkRuins({ elite: true }), "Thorn Reaver": duskfallOrchard({ elite: true }), "Arc Reaver": neonBastion("reaver", { elite: true }),
+  "Prism Reaver": crystalHollows({ elite: true }), "Scrap Reaver": clockworkRuins({ elite: true }), "Thorn Reaver": duskfallOrchard({ elite: true }), "Arc Reaver": neonBastion({ elite: true }),
   "Wisp Oracle": moonfen({ elite: true }),
-  "Hollow Oracle": crystalHollows({ elite: true }), "Spark Oracle": clockworkRuins({ elite: true }), "Harvest Oracle": duskfallOrchard({ elite: true }), "Signal Oracle": neonBastion("oracle", { elite: true }),
+  "Hollow Oracle": crystalHollows({ elite: true }), "Spark Oracle": clockworkRuins({ elite: true }), "Harvest Oracle": duskfallOrchard({ elite: true }), "Signal Oracle": neonBastion({ elite: true }),
 };

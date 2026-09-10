@@ -1,0 +1,7 @@
+# Voltwarden three-frame sprite sheet
+
+Built-in ImageGen edit of the original Voltwarden design. Final asset: `public/assets/wildstat/voltwarden-boss-spritesheet-v1.png`, transparent PNG, 2172 × 724. Exactly three 724 × 724 frames total: idle, laser, EMP. Boss position remains stationary; combat state selects the pose. Original single-image reference retained.
+
+## Final prompt
+
+Use case: precise-object-edit. Make a THREE-FRAME TOTAL sprite sheet from this robot sheet. Output ONLY THREE robots arranged in ONE HORIZONTAL ROW, equal square cells, canvas aspect ratio exactly 3:1. Select exactly these existing poses: LEFT = top row first robot, neutral idle. MIDDLE = second row third robot, both fists thrust outward for laser firing. RIGHT = bottom row third robot, both hands open wide for EMP discharge. Remove every other pose entirely. Preserve the exact character design, thick black outlines, flat colors and all selected pose details. Each robot same scale, centered in its own cell, feet aligned to a shared baseline with 24px bottom margin and generous empty margin on all sides; don't crop the wide EMP hands. Exactly three frames TOTAL, not three rows, not three frames per animation. Genuinely transparent RGBA PNG background, ALPHA ZERO outside character shapes, no painted checkerboard, no background color, no shadows, no labels or borders. Keep full robot silhouettes isolated within their own cells. Three distinct poses, no redesign.

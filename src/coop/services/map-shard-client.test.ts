@@ -262,3 +262,41 @@ it("stops a mismatched account immediately and bounds repeated admission failure
   expect(s.client.ready()).toBe(false);
   s.client.clear();
 });
+
+
+it("rejects home arrival if the account was cleared before reducer acknowledgement", async () => {
+  const s = setup(); s.apply(); s.route(forest); await Promise.resolve(); await hydrateLatest();
+  let acknowledge!: () => void;
+  s.root.reducers.changeMap.mockImplementationOnce(() => new Promise<void>(resolve => { acknowledge = resolve; }));
+  const move = s.client.port.connection()!.reducers.changeMap({ mapId: "home_exterior", x: 2000, y: 2500 });
+  s.client.clear();
+  acknowledge();
+  await expect(move).rejects.toThrow("Map connection changed");
+});
+
+it("restores regional presence after repeated home visits and ignores departed connections", async () => {
+  const s = setup(); s.apply(); s.route(forest); await Promise.resolve();
+  let previous = await hydrateLatest();
+  for (let visit = 0; visit < 3; visit++) {
+    const home = { mapId: "home_exterior", x: 500, y: 700 };
+    s.root.db.player.iter = () => [home];
+    const move = s.client.port.connection()!.reducers.changeMap({ mapId: "home_exterior", x: 2000, y: 2500 });
+    await Promise.resolve(); s.route(null); await Promise.resolve(); await move;
+    expect(s.handlers.player).toHaveBeenLastCalledWith(home);
+    const back = s.client.port.connection()!.reducers.changeMap({ mapId: "home_exterior", x: 500, y: 700 });
+    await back;
+    s.route({ ...forest, generation: BigInt(visit + 2) }); await Promise.resolve();
+    expect(s.client.ready()).toBe(false);
+    s.handlers.player.mockClear();
+    previous.db.player.insert({}, { mapId: "stale" });
+    s.client.rootHandlers.player(home);
+    expect(s.handlers.player).not.toHaveBeenCalled();
+    const next = mock.connections[mock.connections.length - 1];
+    next.db.player.rows = [{ mapId: forest.mapId, x: 2000, y: 2500 }];
+    await hydrateLatest();
+    expect(s.handlers.player).toHaveBeenLastCalledWith({ mapId: forest.mapId, x: 2000, y: 2500 });
+    expect(s.client.ready()).toBe(true);
+    previous = next;
+  }
+  s.client.clear();
+});

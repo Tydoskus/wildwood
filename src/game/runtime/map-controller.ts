@@ -1,7 +1,7 @@
 import { beginHomeTeleport, endHomeTeleport } from "./home-teleport";
 import { createPortalCutscene } from "./cutscene";
 import { snapCameraToPlayer, type Camera } from "./camera";
-import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, MiremawBogBurst, PrismshellCrystalBurst, IronhornCrystalBurst, DreadreaperCrystalBurst, VoltwardenCrystalBurst, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, PlayerState, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
+import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, MiremawBogBurst, PrismshellCrystalBurst, IronhornCrystalBurst, DreadreaperCrystalBurst, VoltwardenCrystalBurst, GravebloomCrystalBurst, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, PlayerState, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
 import type { MapId, SpawnSite } from "../world";
 
 export type MapPortal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
@@ -9,6 +9,17 @@ export type MapPortal = { x: number; y: number; width: number; height: number; d
 type MapConfig = Record<MapId, { portal: MapPortal | null; arrival: { x: number; y: number }; secondaryPortal?: MapPortal }>;
 
 const PORTAL_TRIGGER_RADIUS = 48;
+
+async function withMapDeadline<T>(work: Promise<T>): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([work, new Promise<never>((_resolve, reject) => {
+      timeout = setTimeout(() => reject(new Error("Map transition timed out")), 30_000);
+    })]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 /** Loads lazy destination art beside the server move and waits before revealing the new map. */
 export async function prepareMapTransition(
@@ -99,6 +110,7 @@ export function createMapController(options: {
   ironhornCrystalBursts: IronhornCrystalBurst[];
   dreadreaperCrystalBursts: DreadreaperCrystalBurst[];
   voltwardenCrystalBursts: VoltwardenCrystalBurst[];
+  gravebloomCrystalBursts: GravebloomCrystalBurst[];
   boss: DragonBossState;
   spiderBoss: SpiderBossState;
   frostclawBoss: FrostclawBossState;
@@ -112,6 +124,7 @@ export function createMapController(options: {
   ironhornBoss: IronhornBossState;
   dreadreaperBoss: DreadreaperBossState;
   voltwardenBoss: VoltwardenBossState;
+  gravebloomBoss: GravebloomBossState;
   clearPendingBossHits: () => void;
   onCutsceneFinished: (wasPreview: boolean) => void;
 }): MapController {
@@ -120,7 +133,7 @@ export function createMapController(options: {
     getCurrentMapId, setCurrentMapId, player, camera, viewport, keys, stopTouchMove, cutsceneOverlay, resizeViewport,
     isDueling, running, localMapState, changeMap, syncStoppedPosition, resetPresentationState, fadeToWorld, mapUnlocked, syncMapMusic,
     rebuildWorld, spawnFromSite, enemies, spawnSites, clearTransientCombat,
-    bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, miremawBogBursts, prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, clearPendingBossHits, onCutsceneFinished,
+    bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, miremawBogBursts, prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, gravebloomCrystalBursts, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, clearPendingBossHits, onCutsceneFinished,
   } = options;
   const portalCutscene = createPortalCutscene();
   let mapTransitioning = false;
@@ -139,35 +152,47 @@ export function createMapController(options: {
   async function teleportHome() {
     if (!running() || player.hp <= 0 || isDueling() || mapTransitioning || portalCutscene.active) return false;
     mapTransitioning = true;
-    const attempt = mapLoadGeneration;
+    const attempt = ++mapLoadGeneration;
     const returning = getCurrentMapId() === "home_exterior";
-    keys.clear(); stopTouchMove(); player.moving = false;
-    syncStoppedPosition();
-    beginHomeTeleport();
-    let arrived = false;
+    let finished = false;
+    const current = () => !finished && attempt === mapLoadGeneration && running() && player.hp > 0;
     try {
-      await new Promise(resolve => setTimeout(resolve, 650));
-      if (attempt !== mapLoadGeneration || !running() || player.hp <= 0) return false;
-      const changed = await changeMap("home_exterior", player.x, player.y);
-      if (!changed) return false;
-      // The root owns the remembered region and position, including after reconnect.
-      let state = localMapState();
-      const deadline = performance.now() + 30_000;
-      while ((!state || (state.mapId === "home_exterior") === returning) && performance.now() < deadline) {
-        await new Promise(resolve => setTimeout(resolve, 25));
-        state = localMapState();
-      }
-      if (!state || !(state.mapId in mapConfig) || (state.mapId === "home_exterior") === returning || attempt !== mapLoadGeneration) return false;
-      await options.prepareMapAssets(state.mapId as MapId);
-      if (attempt !== mapLoadGeneration) return false;
-      loadMap(state.mapId as MapId, state.x, state.y, state.facing);
-      snapCameraToPlayer(camera, player, viewport()); resetPresentationState();
-      beginHomeTeleport(true);
-      arrived = true;
-      return true;
+      keys.clear(); stopTouchMove(); player.moving = false;
+      syncStoppedPosition();
+      beginHomeTeleport();
+      // Bound the whole operation, including reducer acknowledgement and art.
+      // A late completion may update server state, but must never revive this
+      // presentation; normal reconciliation handles the authoritative map.
+      const travel = async () => {
+        await new Promise(resolve => setTimeout(resolve, 650));
+        if (!current()) return false;
+        const changed = await changeMap("home_exterior", player.x, player.y);
+        if (!current() || !changed) return false;
+        let state = localMapState();
+        while (current() && (!state || (state.mapId === "home_exterior") === returning)) {
+          await new Promise(resolve => setTimeout(resolve, 25));
+          state = localMapState();
+        }
+        if (!current() || !state || !(state.mapId in mapConfig)) return false;
+        await options.prepareMapAssets(state.mapId as MapId);
+        if (!current()) return false;
+        // Re-read after loading: reconnect/reset may have replaced the arrival.
+        const latest = localMapState();
+        if (!latest || latest.mapId !== state.mapId) return false;
+        loadMap(latest.mapId as MapId, latest.x, latest.y, latest.facing);
+        snapCameraToPlayer(camera, player, viewport()); resetPresentationState();
+        beginHomeTeleport(true);
+        return true;
+      };
+      return await withMapDeadline(travel());
+    } catch {
+      return false;
     } finally {
-      if (!arrived) endHomeTeleport();
-      mapTransitioning = false;
+      finished = true;
+      if (attempt === mapLoadGeneration) {
+        endHomeTeleport();
+        mapTransitioning = false;
+      }
     }
   }
 
@@ -209,6 +234,7 @@ export function createMapController(options: {
 
   function loadMap(mapId: MapId, x: number, y: number, facing = 0) {
     mapLoadGeneration++;
+    endHomeTeleport();
     mapTransitioning = false;
     void options.prepareMapAssets(mapId);
     setCurrentMapId(mapId);
@@ -244,11 +270,13 @@ export function createMapController(options: {
     ironhornCrystalBursts.length = 0;
     dreadreaperCrystalBursts.length = 0;
     voltwardenCrystalBursts.length = 0;
+    gravebloomCrystalBursts.length = 0;
     miremawBoss.tongue = null;
     prismshellBoss.shatter = null;
     ironhornBoss.shatter = null;
     dreadreaperBoss.shatter = null;
     voltwardenBoss.shatter = null;
+    gravebloomBoss.shatter = null;
     rebuildWorld();
     for (const site of spawnSites) spawnFromSite(site);
   }
@@ -305,13 +333,17 @@ export function createMapController(options: {
     if (!(state.mapId in mapConfig)) return;
     mapTransitioning = true;
     const attempt = mapLoadGeneration;
-    void options.prepareMapAssets(state.mapId as MapId).then(() => {
+    void withMapDeadline(options.prepareMapAssets(state.mapId as MapId)).then(() => {
       if (attempt !== mapLoadGeneration) return;
       fadeToWorld(() => {
         if (attempt !== mapLoadGeneration) return;
         loadMap(state.mapId as MapId, state.x, state.y, state.facing);
+        snapCameraToPlayer(camera, player, viewport());
+        resetPresentationState();
         mapTransitioning = false;
       });
+    }).catch(() => {
+      if (attempt === mapLoadGeneration) mapTransitioning = false;
     });
   }
 

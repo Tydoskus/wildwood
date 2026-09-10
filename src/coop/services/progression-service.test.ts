@@ -50,7 +50,7 @@ function progress(): PlayerProgress {
     samuraiUnlocked: false,
     cloudspireUnlocked: false,
     moonfenUnlocked: false,
-    crystalHollowsUnlocked: false, clockworkRuinsUnlocked: false, duskfallOrchardUnlocked: false, neonBastionUnlocked: false,
+    crystalHollowsUnlocked: false, clockworkRuinsUnlocked: false, duskfallOrchardUnlocked: false, neonBastionUnlocked: false, verdantCatacombsUnlocked: false,
     bowCount: 0,
     woodenArmorCount: 0,
   };
@@ -70,7 +70,7 @@ function saveFrom(current: PlayerProgress, changes: Partial<ProgressSave> = {}):
     moonfenUnlocked: _moonfenUnlocked,
     crystalHollowsUnlocked: _crystalHollowsUnlocked,
     clockworkRuinsUnlocked: _clockworkRuinsUnlocked,
-    duskfallOrchardUnlocked: _duskfallOrchardUnlocked, neonBastionUnlocked: _neonBastionUnlocked,
+    duskfallOrchardUnlocked: _duskfallOrchardUnlocked, neonBastionUnlocked: _neonBastionUnlocked, verdantCatacombsUnlocked: _verdantCatacombsUnlocked,
     bowCount: _bowCount,
     woodenArmorCount: _woodenArmorCount,
     ...saved

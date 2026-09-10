@@ -149,7 +149,7 @@ describe("balance simulator", () => {
   });
 
   it("adds about 20 minutes per map after Desert with steady gear and research", () => {
-    const result = runBalanceSimulation({ strategy: "efficient", trials: 5, durationSeconds: 32 * 3600 });
+    const result = runBalanceSimulation({ strategy: "efficient", trials: 5, durationSeconds: 48 * 3600 });
     const progressionMaps = result.maps.slice(1);
 
     expect(progressionMaps.every((map) => map.reachedPercent >= 50)).toBe(true);

@@ -37,7 +37,10 @@
     "profile:crowds-motion": "tsx scripts/profiling/crowds-and-motion.ts",
     "sharding:build": "spacetime build --module-path spacetimedb-map",
     "sharding:configure": "tsx scripts/sharding/configure.ts",
-    "sharding:smoke": "tsx scripts/sharding/smoke-local.ts"
+    "sharding:smoke": "tsx scripts/sharding/smoke-local.ts",
+    "commerce:serve": "tsx services/gem-verifier/server.ts",
+    "commerce:typecheck": "tsc -p services/gem-verifier/tsconfig.json",
+    "commerce:test": "vitest run services/gem-verifier/handler.test.ts spacetimedb/src/gem-store-events.test.ts spacetimedb/src/gem-purchase-service.test.ts"
   },
   "dependencies": {
     "spacetimedb": "2.9.0"

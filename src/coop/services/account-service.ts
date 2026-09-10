@@ -1,4 +1,7 @@
+import { syncResearchNotification } from "../../app/native-research-notifications";
 import type { DbConnection } from "../../module_bindings";
+import { NATIVE_AUTH_CANCEL, NATIVE_AUTH_REDIRECT, nativeAuth } from "../../app/native-auth";
+import { isNativePreview } from "../../app/native-preview";
 import {
   PLAYER_GENDER_UNSET,
   isSelectedPlayerGender,
@@ -153,6 +156,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     try { return sessionStorage.getItem(keys.authReturnUiKey) === "true"; } catch { return false; }
   })();
   let outboundAuthNavigationPending = false;
+  let signInPreparing = false;
   let sessionApproved = returnPending || dependencies.updateResumeMode === "account";
   let updateResumePending = dependencies.updateResumeMode !== null;
   let lastPlayableSessionMode: UpdateResumeMode | null = null;
@@ -305,6 +309,8 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     return true;
   }
 
+  if (isNativePreview()) window.addEventListener?.(NATIVE_AUTH_CANCEL, cancelAbandonedSignIn);
+
   function randomUrlSafe(bytes = 32) {
     const values = new Uint8Array(bytes);
     crypto.getRandomValues(values);
@@ -383,7 +389,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
   }
 
   function redirectUri() {
-    return `${window.location.origin}${window.location.pathname}`;
+    return isNativePreview() ? NATIVE_AUTH_REDIRECT : `${window.location.origin}${window.location.pathname}`;
   }
 
   async function completeAccountCallback(): Promise<"none" | "success" | "failed"> {
@@ -465,34 +471,53 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
   }
 
   async function startAccountSignIn() {
-    try {
-      sessionStorage.setItem(keys.authReturnUiKey, "true");
-      returnPending = true;
-    } catch {}
-    const verifier = randomUrlSafe(48);
-    const state = randomUrlSafe(24);
-    const nonce = randomUrlSafe(24);
-    const challenge = await sha256UrlSafe(verifier);
-    writeTabValue(keys.authStateKey, state);
-    writeTabValue(keys.authVerifierKey, verifier);
-    writeTabValue(keys.authNonceKey, nonce);
-    const url = new URL(AUTHORIZATION_ENDPOINT);
-    url.search = new URLSearchParams({
-      client_id: SPACETIME_AUTH_CLIENT_ID,
-      redirect_uri: redirectUri(),
-      response_type: "code",
-      scope: AUTH_SCOPE,
-      state,
-      nonce,
-      code_challenge: challenge,
-      code_challenge_method: "S256",
-    }).toString();
+    // Lock before PKCE hashing yields, so startup and taps share one transaction.
+    if (outboundAuthNavigationPending || callbackPending) return;
     outboundAuthNavigationPending = true;
-    dependencies.notify();
-    window.location.assign(url.toString());
+    try {
+      try {
+        sessionStorage.setItem(keys.authReturnUiKey, "true");
+        returnPending = true;
+      } catch {}
+      const verifier = randomUrlSafe(48);
+      const state = randomUrlSafe(24);
+      const nonce = randomUrlSafe(24);
+      const challenge = await sha256UrlSafe(verifier);
+      writeTabValue(keys.authStateKey, state);
+      writeTabValue(keys.authVerifierKey, verifier);
+      writeTabValue(keys.authNonceKey, nonce);
+      const url = new URL(AUTHORIZATION_ENDPOINT);
+      url.search = new URLSearchParams({
+        client_id: SPACETIME_AUTH_CLIENT_ID,
+        redirect_uri: redirectUri(),
+        response_type: "code",
+        scope: AUTH_SCOPE,
+        state,
+        nonce,
+        code_challenge: challenge,
+        code_challenge_method: "S256",
+      }).toString();
+      dependencies.notify();
+      if (isNativePreview()) {
+        try {
+          const bridge = nativeAuth();
+          if (!bridge) throw new Error("Native sign-in unavailable");
+          await bridge.open(url.toString(), [keys.authStateKey, keys.authVerifierKey, keys.authNonceKey,
+            keys.authReturnUiKey, keys.accountLinkKey, keys.authTabKey, keys.authRetryKey]);
+        } catch (error) {
+          cancelAbandonedSignIn();
+          throw error;
+        }
+      } else window.location.assign(url.toString());
+    } catch (error) {
+      clearAccountReturnPending();
+      throw error;
+    }
   }
 
   async function restoreKnownAccount() {
+    const bridge = nativeAuth();
+    if (bridge && await bridge.ready) return;
     const callbackOutcome = await completeAccountCallback();
     // Callback failures and invalid/expired OAuth state must repaint the
     // lightweight sign-in shell instead of leaving it on "Verifying Sign-In".
@@ -568,62 +593,75 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       return currentGender ?? rememberedAccountGender();
     },
     async signIn() {
-      if (dependencies.protocolBlocked()) return { ok: false, error: "UPDATE REQUIRED" };
-      const connection = dependencies.connection();
-      if (connection?.isActive && dependencies.connectedSignedIn()) return { ok: true, redirecting: false };
-      clearTabValue(keys.authRetryKey);
-      if (accountToken() && hasKnownAccount()) {
-        sessionApproved = true;
-        notice = "OPENING CHARACTER";
-        dependencies.notify();
-        dependencies.connect();
-        return { ok: true, redirecting: false };
-      }
-      if (hasKnownAccount() && !connection) {
-        notice = "OPENING SIGN-IN";
-        dependencies.notify();
-        await startAccountSignIn();
+      if (signInPreparing || outboundAuthNavigationPending || callbackPending) {
         return { ok: true, redirecting: true };
       }
-      if (!connection) {
-        if (!guestToken()) {
-          notice = "OPENING REGISTRATION";
+      signInPreparing = true;
+      try {
+        if (isNativePreview() && !nativeAuth()) {
+          notice = "APP SIGN-IN UNAVAILABLE · USE GUEST LOGIN";
+          dependencies.notify();
+          return { ok: false, error: notice };
+        }
+        if (dependencies.protocolBlocked()) return { ok: false, error: "UPDATE REQUIRED" };
+        const connection = dependencies.connection();
+        if (connection?.isActive && dependencies.connectedSignedIn()) return { ok: true, redirecting: false };
+        clearTabValue(keys.authRetryKey);
+        if (accountToken() && hasKnownAccount()) {
+          sessionApproved = true;
+          notice = "OPENING CHARACTER";
+          dependencies.notify();
+          dependencies.connect();
+          return { ok: true, redirecting: false };
+        }
+        if (hasKnownAccount() && !connection) {
+          notice = "OPENING SIGN-IN";
           dependencies.notify();
           await startAccountSignIn();
           return { ok: true, redirecting: true };
         }
-        notice = "WAIT FOR SERVER";
+        if (!connection) {
+          if (!guestToken()) {
+            notice = "OPENING REGISTRATION";
+            dependencies.notify();
+            await startAccountSignIn();
+            return { ok: true, redirecting: true };
+          }
+          notice = "WAIT FOR SERVER";
+          dependencies.notify();
+          return { ok: false, error: "WAIT FOR SERVER" };
+        }
+        if (!await dependencies.requestWorldEntry()) {
+          notice = "PLAYER START FAILED · TRY AGAIN";
+          dependencies.notify();
+          return { ok: false, error: "PLAYER START FAILED" };
+        }
+        notice = "SAVING GUEST";
         dependencies.notify();
-        return { ok: false, error: "WAIT FOR SERVER" };
-      }
-      if (!await dependencies.requestWorldEntry()) {
-        notice = "PLAYER START FAILED · TRY AGAIN";
+        if (!await dependencies.drainPendingProgress()) {
+          notice = "GUEST SAVE FAILED · TRY AGAIN";
+          dependencies.notify();
+          return { ok: false, error: "GUEST SAVE FAILED" };
+        }
+        const code = randomUrlSafe(40);
+        writeAccountLinkTransaction({ code, guestIdentity: dependencies.localIdentity() });
+        try {
+          await dependencies.runWorldReducer(() => connection.reducers.beginAccountLink({ code }));
+        } catch (error) {
+          clearTabValue(keys.accountLinkKey);
+          notice = "SIGN-IN NOT READY";
+          dependencies.handleFailure("sign-in preparation", error);
+          dependencies.notify();
+          return { ok: false, error: "SIGN-IN NOT READY" };
+        }
+        markAccountMigrationPending();
+        notice = "PREPARING SIGN-IN";
         dependencies.notify();
-        return { ok: false, error: "PLAYER START FAILED" };
+        await startAccountSignIn();
+        return { ok: true, redirecting: true };
+      } finally {
+        signInPreparing = false;
       }
-      notice = "SAVING GUEST";
-      dependencies.notify();
-      if (!await dependencies.drainPendingProgress()) {
-        notice = "GUEST SAVE FAILED · TRY AGAIN";
-        dependencies.notify();
-        return { ok: false, error: "GUEST SAVE FAILED" };
-      }
-      const code = randomUrlSafe(40);
-      writeAccountLinkTransaction({ code, guestIdentity: dependencies.localIdentity() });
-      try {
-        await dependencies.runWorldReducer(() => connection.reducers.beginAccountLink({ code }));
-      } catch (error) {
-        clearTabValue(keys.accountLinkKey);
-        notice = "SIGN-IN NOT READY";
-        dependencies.handleFailure("sign-in preparation", error);
-        dependencies.notify();
-        return { ok: false, error: "SIGN-IN NOT READY" };
-      }
-      markAccountMigrationPending();
-      notice = "PREPARING SIGN-IN";
-      dependencies.notify();
-      await startAccountSignIn();
-      return { ok: true, redirecting: true };
     },
     async takeOverSession() {
       if (dependencies.protocolBlocked()) return { ok: false, error: "UPDATE REQUIRED" };
@@ -659,7 +697,9 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
         return { ok: false, error: message };
       }
     },
-    signOut() {
+    async signOut() {
+      await syncResearchNotification(null);
+      nativeAuth()?.cancel();
       dependencies.disconnectVirtualPlayers();
       try {
         localStorage.removeItem(keys.accountTokenKey);
@@ -671,6 +711,8 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       window.location.reload();
     },
     continueAsGuest() {
+      void syncResearchNotification(null);
+      nativeAuth()?.cancel();
       const mustChangeIdentity = Boolean(
         dependencies.connection()?.isActive && dependencies.connectedSignedIn(),
       ) || Boolean(accountToken());

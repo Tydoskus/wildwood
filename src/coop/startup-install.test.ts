@@ -57,6 +57,18 @@ const desktopNavigator = {
 };
 
 describe("startup install control", () => {
+  it("does not offer browser installation inside the native preview", () => {
+    const ui = elements();
+    const browser = Object.assign(new FakeWindow(), { WILDSTAT_NATIVE_PREVIEW: true });
+    const control = createStartupInstallControl({
+      windowValue: browser,
+      navigatorValue: { ...desktopNavigator, userAgent: "iPhone" },
+    }, ui.value);
+    expect(ui.button.hidden).toBe(true);
+    expect(ui.hint.hidden).toBe(true);
+    control.dispose();
+  });
+
   it("uses a captured browser install prompt once and hides after installation", async () => {
     const ui = elements();
     const browser = new FakeWindow();

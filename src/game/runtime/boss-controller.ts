@@ -1,3 +1,4 @@
+import { VERDANT_ROOTS, VERDANT_SPORES, verdantRootHits, verdantSporeHits, verdantSporeSites } from "../../../shared/verdant-attacks";
 import { NEON_LASER, NEON_EMP, neonLaserHits, neonEmpHits } from "../../../shared/neon-attacks";
 import {
   BOSS_AGGRO_RANGE,
@@ -18,7 +19,7 @@ import {
   MAGMALISK_BITE_HALF_ANGLE,
   MAGMALISK_BITE_RANGE,
   MIREMAW_AGGRO_RANGE,
-  PRISMSHELL_AGGRO_RANGE, IRONHORN_AGGRO_RANGE, DREADREAPER_AGGRO_RANGE, VOLTWARDEN_AGGRO_RANGE,
+  PRISMSHELL_AGGRO_RANGE, IRONHORN_AGGRO_RANGE, DREADREAPER_AGGRO_RANGE, VOLTWARDEN_AGGRO_RANGE, GRAVEBLOOM_AGGRO_RANGE,
   MIREMAW_TONGUE_HALF_ANGLE,
   PRISMSHELL_SHATTER_HALF_ANGLE, IRONHORN_SHATTER_HALF_ANGLE, DREADREAPER_SHATTER_HALF_ANGLE,
   MIREMAW_TONGUE_RANGE,
@@ -53,13 +54,13 @@ import {
   MAGMALISK_REWARD_HEALTH,
   MAGMALISK_REWARD_REGEN,
   MIREMAW_REWARD_ARMOR,
-  PRISMSHELL_REWARD_ARMOR, IRONHORN_REWARD_ARMOR, DREADREAPER_REWARD_ARMOR, VOLTWARDEN_REWARD_ARMOR,
+  PRISMSHELL_REWARD_ARMOR, IRONHORN_REWARD_ARMOR, DREADREAPER_REWARD_ARMOR, VOLTWARDEN_REWARD_ARMOR, GRAVEBLOOM_REWARD_ARMOR,
   MIREMAW_REWARD_DAMAGE,
-  PRISMSHELL_REWARD_DAMAGE, IRONHORN_REWARD_DAMAGE, DREADREAPER_REWARD_DAMAGE, VOLTWARDEN_REWARD_DAMAGE,
+  PRISMSHELL_REWARD_DAMAGE, IRONHORN_REWARD_DAMAGE, DREADREAPER_REWARD_DAMAGE, VOLTWARDEN_REWARD_DAMAGE, GRAVEBLOOM_REWARD_DAMAGE,
   MIREMAW_REWARD_HEALTH,
-  PRISMSHELL_REWARD_HEALTH, IRONHORN_REWARD_HEALTH, DREADREAPER_REWARD_HEALTH, VOLTWARDEN_REWARD_HEALTH,
+  PRISMSHELL_REWARD_HEALTH, IRONHORN_REWARD_HEALTH, DREADREAPER_REWARD_HEALTH, VOLTWARDEN_REWARD_HEALTH, GRAVEBLOOM_REWARD_HEALTH,
   MIREMAW_REWARD_REGEN,
-  PRISMSHELL_REWARD_REGEN, IRONHORN_REWARD_REGEN, DREADREAPER_REWARD_REGEN, VOLTWARDEN_REWARD_REGEN,
+  PRISMSHELL_REWARD_REGEN, IRONHORN_REWARD_REGEN, DREADREAPER_REWARD_REGEN, VOLTWARDEN_REWARD_REGEN, GRAVEBLOOM_REWARD_REGEN,
   SPIDER_REWARD_DAMAGE,
   SPIDER_REWARD_HEALTH,
   TIDEWYRM_REWARD_ARMOR,
@@ -90,9 +91,9 @@ import type {
   MagmaliskBossState,
   MagmaliskEruption,
   MiremawBogBurst,
-  PrismshellCrystalBurst, IronhornCrystalBurst, DreadreaperCrystalBurst, VoltwardenCrystalBurst,
+  PrismshellCrystalBurst, IronhornCrystalBurst, DreadreaperCrystalBurst, VoltwardenCrystalBurst, GravebloomCrystalBurst,
   MiremawBossState,
-  PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState,
+  PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState,
   PlayerState,
   SpiderBossState,
   SpiderVenomPool,
@@ -170,16 +171,19 @@ const PRISMSHELL_SHATTER_DAMAGE = BOSS_DAMAGE_PROFILES.prismshell.shatter;
 const IRONHORN_SHATTER_DAMAGE = BOSS_DAMAGE_PROFILES.ironhorn.shatter;
 const DREADREAPER_SHATTER_DAMAGE = BOSS_DAMAGE_PROFILES.dreadreaper.shatter;
 const VOLTWARDEN_SHATTER_DAMAGE = BOSS_DAMAGE_PROFILES.voltwarden.shatter;
+const GRAVEBLOOM_SHATTER_DAMAGE = BOSS_DAMAGE_PROFILES.gravebloom.shatter;
 const MIREMAW_BOG_BURST_DAMAGE = BOSS_DAMAGE_PROFILES.miremaw.bogBurst;
 const PRISMSHELL_CRYSTAL_BURST_DAMAGE = BOSS_DAMAGE_PROFILES.prismshell.crystalBurst;
 const IRONHORN_CRYSTAL_BURST_DAMAGE = BOSS_DAMAGE_PROFILES.ironhorn.crystalBurst;
 const DREADREAPER_CRYSTAL_BURST_DAMAGE = BOSS_DAMAGE_PROFILES.dreadreaper.crystalBurst;
 const VOLTWARDEN_CRYSTAL_BURST_DAMAGE = BOSS_DAMAGE_PROFILES.voltwarden.crystalBurst;
+const GRAVEBLOOM_CRYSTAL_BURST_DAMAGE = BOSS_DAMAGE_PROFILES.gravebloom.crystalBurst;
 const MIREMAW_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.miremaw.contact;
 const PRISMSHELL_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.prismshell.contact;
 const IRONHORN_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.ironhorn.contact;
 const DREADREAPER_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.dreadreaper.contact;
 const VOLTWARDEN_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.voltwarden.contact;
+const GRAVEBLOOM_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.gravebloom.contact;
 const DEATH_PARTICLE_COLOR = "#e53935";
 
 type SharedBossState = {
@@ -216,6 +220,7 @@ export type BossController = {
   resetIronhornBoss: () => void;
   resetDreadreaperBoss: () => void;
   resetVoltwardenBoss: () => void;
+  resetGravebloomBoss: () => void;
   syncDragonState: () => void;
   syncSpiderState: () => void;
   syncFrostclawState: () => void;
@@ -229,6 +234,7 @@ export type BossController = {
   syncIronhornState: () => void;
   syncDreadreaperState: () => void;
   syncVoltwardenState: () => void;
+  syncGravebloomState: () => void;
   updateBoss: (dt: number) => void;
   updateSpiderBoss: (dt: number) => void;
   updateFrostclawBoss: (dt: number) => void;
@@ -242,6 +248,7 @@ export type BossController = {
   updateIronhornBoss: (dt: number) => void;
   updateDreadreaperBoss: (dt: number) => void;
   updateVoltwardenBoss: (dt: number) => void;
+  updateGravebloomBoss: (dt: number) => void;
   resolveDragonCollision: () => void;
   resolveSpiderCollision: () => void;
   resolveFrostclawCollision: () => void;
@@ -255,6 +262,7 @@ export type BossController = {
   resolveIronhornCollision: () => void;
   resolveDreadreaperCollision: () => void;
   resolveVoltwardenCollision: () => void;
+  resolveGravebloomCollision: () => void;
   applyBossKnockback: (dt: number) => void;
   onPortalCutsceneFinished: (wasPreview: boolean) => void;
 };
@@ -277,6 +285,7 @@ export function createBossController(options: {
   ironhornBoss: IronhornBossState;
   dreadreaperBoss: DreadreaperBossState;
   voltwardenBoss: VoltwardenBossState;
+  gravebloomBoss: GravebloomBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
@@ -290,6 +299,7 @@ export function createBossController(options: {
   ironhornCrystalBursts: IronhornCrystalBurst[];
   dreadreaperCrystalBursts: DreadreaperCrystalBurst[];
   voltwardenCrystalBursts: VoltwardenCrystalBurst[];
+  gravebloomCrystalBursts: GravebloomCrystalBurst[];
   player: PlayerState;
   getDragonBoss: () => SharedBossState | null | undefined;
   getSpiderBoss: () => SharedBossState | null | undefined;
@@ -304,6 +314,7 @@ export function createBossController(options: {
   getIronhornBoss: () => SharedBossState | null | undefined;
   getDreadreaperBoss: () => SharedBossState | null | undefined;
   getVoltwardenBoss: () => SharedBossState | null | undefined;
+  getGravebloomBoss: () => SharedBossState | null | undefined;
   getDragonResult: () => BossResult | null | undefined;
   getSpiderResult: () => BossResult | null | undefined;
   getFrostclawResult: () => BossResult | null | undefined;
@@ -317,6 +328,7 @@ export function createBossController(options: {
   getIronhornResult: () => BossResult | null | undefined;
   getDreadreaperResult: () => BossResult | null | undefined;
   getVoltwardenResult: () => BossResult | null | undefined;
+  getGravebloomResult: () => BossResult | null | undefined;
   localIdentity: () => string | undefined;
   /** Estimated server clock used to keep boss abilities in one shared phase. */
   serverNowMs?: () => number;
@@ -335,6 +347,7 @@ export function createBossController(options: {
   currentMapIsClockworkRuins: () => boolean;
   currentMapIsDuskfallOrchard: () => boolean;
   currentMapIsNeonBastion: () => boolean;
+  currentMapIsVerdantCatacombs: () => boolean;
   portalCutsceneActive: () => boolean;
   hasSeenDragonPortalCutscene: () => boolean;
   hasSeenSnowlandsPortalCutscene: () => boolean;
@@ -358,9 +371,9 @@ export function createBossController(options: {
   rewardMultiplier?: () => number;
 }): BossController {
   const {
-    boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, miremawBogBursts, prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, player, elements,
-    getDragonBoss, getSpiderBoss, getFrostclawBoss, getMagmaliskBoss, getGloomrootBoss, getTidewyrmBoss, getKoiShogunBoss, getTempestKirinBoss, getMiremawBoss, getPrismshellBoss, getIronhornBoss, getDreadreaperBoss, getVoltwardenBoss, getDragonResult, getSpiderResult, getFrostclawResult, getMagmaliskResult, getGloomrootResult, getTidewyrmResult, getKoiShogunResult, getTempestKirinResult, getMiremawResult, getPrismshellResult, getIronhornResult, getDreadreaperResult, getVoltwardenResult,
-    localIdentity, running, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, currentMapIsWater, currentMapIsSamurai, currentMapIsCloudspire, currentMapIsMoonfen, currentMapIsCrystalHollows, currentMapIsClockworkRuins, currentMapIsDuskfallOrchard, currentMapIsNeonBastion, portalCutsceneActive,
+    boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, miremawBogBursts, prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, gravebloomCrystalBursts, player, elements,
+    getDragonBoss, getSpiderBoss, getFrostclawBoss, getMagmaliskBoss, getGloomrootBoss, getTidewyrmBoss, getKoiShogunBoss, getTempestKirinBoss, getMiremawBoss, getPrismshellBoss, getIronhornBoss, getDreadreaperBoss, getVoltwardenBoss, getGravebloomBoss, getDragonResult, getSpiderResult, getFrostclawResult, getMagmaliskResult, getGloomrootResult, getTidewyrmResult, getKoiShogunResult, getTempestKirinResult, getMiremawResult, getPrismshellResult, getIronhornResult, getDreadreaperResult, getVoltwardenResult, getGravebloomResult,
+    localIdentity, running, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, currentMapIsWater, currentMapIsSamurai, currentMapIsCloudspire, currentMapIsMoonfen, currentMapIsCrystalHollows, currentMapIsClockworkRuins, currentMapIsDuskfallOrchard, currentMapIsNeonBastion, currentMapIsVerdantCatacombs, portalCutsceneActive,
     hasSeenDragonPortalCutscene, hasSeenSnowlandsPortalCutscene, hasSeenLavaPortalCutscene, hasSeenInfernalPortalCutscene, hasSeenWaterPortalCutscene, hasSeenSamuraiPortalCutscene,
     startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene, startSamuraiPortalCutscene,
     renderPlayerName, spawnBurst, damagePlayer, logPickup, saveProgress,
@@ -409,21 +422,25 @@ export function createBossController(options: {
   let observedIronhornEncounter: bigint | null = null;
   let observedDreadreaperEncounter: bigint | null = null;
   let observedVoltwardenEncounter: bigint | null = null;
+  let observedGravebloomEncounter: bigint | null = null;
   let miremawWasAlive: boolean | null = null;
   let prismshellWasAlive: boolean | null = null;
   let ironhornWasAlive: boolean | null = null;
   let dreadreaperWasAlive: boolean | null = null;
   let voltwardenWasAlive: boolean | null = null;
+  let gravebloomWasAlive: boolean | null = null;
   let pendingMiremawResultEncounter: bigint | null = null;
   let pendingPrismshellResultEncounter: bigint | null = null;
   let pendingIronhornResultEncounter: bigint | null = null;
   let pendingDreadreaperResultEncounter: bigint | null = null;
   let pendingVoltwardenResultEncounter: bigint | null = null;
+  let pendingGravebloomResultEncounter: bigint | null = null;
   let shownMiremawResultEncounter: bigint | null = null;
   let shownPrismshellResultEncounter: bigint | null = null;
   let shownIronhornResultEncounter: bigint | null = null;
   let shownDreadreaperResultEncounter: bigint | null = null;
   let shownVoltwardenResultEncounter: bigint | null = null;
+  let shownGravebloomResultEncounter: bigint | null = null;
   const locallyRewardedDragonEncounters = new Set<string>();
   const locallyRewardedSpiderEncounters = new Set<string>();
   const locallyRewardedFrostclawEncounters = new Set<string>();
@@ -437,6 +454,7 @@ export function createBossController(options: {
   const locallyRewardedIronhornEncounters = new Set<string>();
   const locallyRewardedDreadreaperEncounters = new Set<string>();
   const locallyRewardedVoltwardenEncounters = new Set<string>();
+  const locallyRewardedGravebloomEncounters = new Set<string>();
   let dragonRainPatternIndex = 0;
   let spiderVenomPatternIndex = 0;
   let frostclawIcefallPatternIndex = 0;
@@ -805,6 +823,25 @@ function resetMiremawBoss() {
 
     resetAbilityTimeline("voltwarden");
   }
+  function resetGravebloomBoss() {
+    const shared = getGravebloomBoss();
+    if (shared) {
+      gravebloomBoss.encounter = shared.encounter;
+      gravebloomBoss.hp = shared.hp;
+      gravebloomBoss.maxHp = shared.maxHp;
+      gravebloomBoss.dead = !shared.alive;
+    }
+    gravebloomBoss.hurt = 0;
+    gravebloomBoss.hpLossFlashFrom = gravebloomBoss.hp;
+    gravebloomBoss.hpLossFlashTimer = 0;
+    gravebloomBoss.contactDamageClock = 0;
+    gravebloomBoss.attackClock = 3;
+    gravebloomBoss.nextAttack = "rootGrasp";
+    gravebloomBoss.shatter = null;
+    gravebloomCrystalBursts.length = 0;
+
+    resetAbilityTimeline("gravebloom");
+  }
 
 
   function showWorldResult(result: BossResult, heading: string) {
@@ -1134,6 +1171,30 @@ function showMiremawResult(result: BossResult | null | undefined) {
     const encounterKey = String(result.encounter);
     if (!locallyRewardedVoltwardenEncounters.has(encounterKey)) {
       locallyRewardedVoltwardenEncounters.add(encounterKey);
+      player.damage += damageReward.amount;
+      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplier?.() ?? 1);
+      player.armor += armorReward.amount;
+      player.regen += regenReward.amount;
+    }
+    logPickup(rewardLabel(damageReward), "#ff655a");
+    logPickup(rewardLabel(healthReward), "#6fe48e");
+    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
+    logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
+  }
+  function showGravebloomResult(result: BossResult | null | undefined) {
+    if (!result || shownGravebloomResultEncounter === result.encounter) return;
+    pendingGravebloomResultEncounter = null;
+    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
+    shownGravebloomResultEncounter = result.encounter;
+    showWorldResult(result, "GRAVEBLOOM DEFEATED");
+    if (!localContribution) return;
+    const damageReward = scaledReward("damage", GRAVEBLOOM_REWARD_DAMAGE);
+    const healthReward = scaledReward("health", GRAVEBLOOM_REWARD_HEALTH);
+    const armorReward = scaledReward("armor", GRAVEBLOOM_REWARD_ARMOR);
+    const regenReward = scaledReward("regen", GRAVEBLOOM_REWARD_REGEN);
+    const encounterKey = String(result.encounter);
+    if (!locallyRewardedGravebloomEncounters.has(encounterKey)) {
+      locallyRewardedGravebloomEncounters.add(encounterKey);
       player.damage += damageReward.amount;
       addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplier?.() ?? 1);
       player.armor += armorReward.amount;
@@ -1853,6 +1914,62 @@ function syncMiremawState() {
     if (pendingVoltwardenResultEncounter !== null) {
       const result = getVoltwardenResult();
       if (result?.encounter === pendingVoltwardenResultEncounter) showVoltwardenResult(result);
+    }
+  }
+  function syncGravebloomState() {
+    const shared = getGravebloomBoss();
+    if (!shared) return;
+    const initialized = observedGravebloomEncounter !== null;
+    const encounterChanged = initialized && observedGravebloomEncounter !== shared.encounter;
+    const previousHp = gravebloomBoss.hp;
+    if (!initialized || encounterChanged) {
+      observedGravebloomEncounter = shared.encounter;
+      gravebloomWasAlive = shared.alive;
+      gravebloomBoss.dead = !shared.alive;
+      gravebloomBoss.attackClock = 3;
+      gravebloomBoss.nextAttack = "rootGrasp";
+      gravebloomBoss.shatter = null;
+      gravebloomCrystalBursts.length = 0;
+
+      resetAbilityTimeline("gravebloom");
+      gravebloomBoss.hpLossFlashFrom = shared.hp;
+      gravebloomBoss.hpLossFlashTimer = 0;
+    } else if (gravebloomWasAlive && !shared.alive) {
+      gravebloomWasAlive = false;
+      gravebloomBoss.dead = true;
+      gravebloomBoss.shatter = null;
+      gravebloomCrystalBursts.length = 0;
+      pendingGravebloomResultEncounter = shared.encounter;
+      spawnBurst(gravebloomBoss.x, gravebloomBoss.y, "#c3a6ff", 120, 340);
+    } else if (!gravebloomWasAlive && shared.alive) {
+      gravebloomWasAlive = true;
+      gravebloomBoss.dead = false;
+      gravebloomBoss.attackClock = 3;
+      gravebloomBoss.nextAttack = "rootGrasp";
+
+      resetAbilityTimeline("gravebloom");
+    } else if (shared.alive && shared.hp < previousHp) {
+      gravebloomBoss.hpLossFlashFrom = gravebloomBoss.hpLossFlashTimer > 0
+        ? Math.max(gravebloomBoss.hpLossFlashFrom, previousHp)
+        : previousHp;
+      gravebloomBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
+    } else if (shared.hp > previousHp) {
+      gravebloomBoss.hpLossFlashFrom = shared.hp;
+      gravebloomBoss.hpLossFlashTimer = 0;
+    }
+    gravebloomBoss.encounter = shared.encounter;
+    gravebloomBoss.maxHp = shared.maxHp;
+    gravebloomBoss.hp = shared.hp;
+    if (!initialized && !shared.alive && currentMapIsVerdantCatacombs()) {
+      const result = getGravebloomResult();
+      if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
+        locallyRewardedGravebloomEncounters.add(String(result.encounter));
+        showGravebloomResult(result);
+      }
+    }
+    if (pendingGravebloomResultEncounter !== null) {
+      const result = getGravebloomResult();
+      if (result?.encounter === pendingGravebloomResultEncounter) showGravebloomResult(result);
     }
   }
 
@@ -2796,6 +2913,16 @@ function startMiremawTongue(elapsedSeconds = 0, target: Pick<BossAbilityTarget, 
     };
     voltwardenBoss.nextAttack = "empPulse";
   }
+  function startGravebloomShatter(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const elapsed = Math.max(0, elapsedSeconds);
+    gravebloomBoss.shatter = {
+      angle: Math.atan2(target.y - gravebloomBoss.y, target.x - gravebloomBoss.x),
+      windup: Math.max(0, VERDANT_ROOTS.windup - elapsed),
+      timer: Math.max(0, VERDANT_ROOTS.duration - Math.max(0, elapsed - VERDANT_ROOTS.windup)),
+      duration: VERDANT_ROOTS.duration, hitPlayer: false,
+    };
+    gravebloomBoss.nextAttack = "sporeBurst";
+  }
 
 
   function startTempestKirinThunder(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
@@ -2953,7 +3080,17 @@ function startMiremawBogBurst(elapsedSeconds = 0, deterministicPatternIndex?: nu
     voltwardenBoss.attackClock = 3.8;
     voltwardenBoss.nextAttack = "laserGrid";
   }
-
+function startGravebloomCrystalBurst(elapsedSeconds = 0, patternIndex = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const duration = VERDANT_SPORES.windup + VERDANT_SPORES.duration;
+    for (const site of verdantSporeSites(target.x, target.y, patternIndex)) {
+      const elapsed = elapsedSeconds - site.delay;
+      if (elapsed >= duration) continue;
+      gravebloomCrystalBursts.push({ x: clamp(site.x, 100, WORLD.w - 100), y: clamp(site.y, 100, WORLD.h - 100), r: VERDANT_SPORES.range,
+        timer: duration - elapsed, maxTimer: duration, hitPlayer: false });
+    }
+    gravebloomBoss.attackClock = 3.8;
+    gravebloomBoss.nextAttack = "rootGrasp";
+  }
 
   function updateTempestKirinBoss(dt: number) {
     tempestKirinBoss.hpLossFlashTimer = Math.max(0, tempestKirinBoss.hpLossFlashTimer - dt);
@@ -3354,9 +3491,51 @@ function updateMiremawBoss(dt: number) {
     if (voltwardenBoss.attackClock > 0 || Math.hypot(player.x - voltwardenBoss.x, player.y - voltwardenBoss.y) > VOLTWARDEN_AGGRO_RANGE) return;
     if (voltwardenBoss.nextAttack === "laserGrid") startVoltwardenShatter(); else startVoltwardenCrystalBurst();
   }
+  function updateGravebloomBoss(dt: number) {
+    gravebloomBoss.hpLossFlashTimer = Math.max(0, gravebloomBoss.hpLossFlashTimer - dt);
+    gravebloomBoss.contactDamageClock = Math.max(0, gravebloomBoss.contactDamageClock - dt);
+    if (gravebloomBoss.dead) return;
+    gravebloomBoss.hurt = Math.max(0, gravebloomBoss.hurt - dt);
+    const sharedTimeline = syncAbilityTimeline({
+      kind: "gravebloom", encounter: gravebloomBoss.encounter,
+      targetForAttack: (attackIndex) => selectAbilityTarget("gravebloom", gravebloomBoss.encounter, attackIndex, gravebloomBoss.x, gravebloomBoss.y, GRAVEBLOOM_AGGRO_RANGE),
+      clear: () => { gravebloomBoss.shatter = null; gravebloomCrystalBursts.length = 0; },
+      start: (ability, elapsedSeconds, attackIndex, target) => {
+        if (ability === "rootGrasp") startGravebloomShatter(elapsedSeconds, target);
+        else if (ability === "sporeBurst") startGravebloomCrystalBurst(elapsedSeconds, attackIndex, target);
+      },
+      setAttackClock: seconds => { gravebloomBoss.attackClock = seconds; },
+    });
+    for (let index = gravebloomCrystalBursts.length - 1; index >= 0; index--) {
+      const pulse = gravebloomCrystalBursts[index], previous = pulse.maxTimer - pulse.timer;
+      pulse.timer -= dt;
+      if (!pulse.hitPlayer && verdantSporeHits(Math.hypot(player.x - pulse.x, player.y - pulse.y), previous, pulse.maxTimer - pulse.timer, player.r)) {
+        pulse.hitPlayer = true; damagePlayer(GRAVEBLOOM_CRYSTAL_BURST_DAMAGE);
+        spawnBurst(player.x, player.y, "#8bf2c3", 24, 210);
+      }
+      if (pulse.timer <= 0) gravebloomCrystalBursts.splice(index, 1);
+    }
+    const laser = gravebloomBoss.shatter;
+    if (laser) {
+      const activeDt = Math.max(0, dt - Math.max(0, laser.windup));
+      laser.windup = Math.max(0, laser.windup - dt);
+      if (activeDt > 0) {
+        laser.timer -= activeDt;
+        if (!laser.hitPlayer && verdantRootHits(player.x - gravebloomBoss.x, player.y - gravebloomBoss.y, laser.angle, player.r)) {
+          laser.hitPlayer = true; damagePlayer(GRAVEBLOOM_SHATTER_DAMAGE);
+          spawnBurst(player.x, player.y, "#56f7ff", 24, 240);
+        }
+        if (laser.timer <= 0) { gravebloomBoss.shatter = null; gravebloomBoss.attackClock = 2.8; }
+      }
+    }
+    if (sharedTimeline || gravebloomBoss.shatter || gravebloomCrystalBursts.length) return;
+    gravebloomBoss.attackClock -= dt;
+    if (gravebloomBoss.attackClock > 0 || Math.hypot(player.x - gravebloomBoss.x, player.y - gravebloomBoss.y) > GRAVEBLOOM_AGGRO_RANGE) return;
+    if (gravebloomBoss.nextAttack === "rootGrasp") startGravebloomShatter(); else startGravebloomCrystalBurst();
+  }
 
 
-  function resolveCollision(target: DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState | KoiShogunBossState | TempestKirinBossState | MiremawBossState | PrismshellBossState | IronhornBossState | DreadreaperBossState | VoltwardenBossState, damage: number, cooldown: number) {
+  function resolveCollision(target: DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState | KoiShogunBossState | TempestKirinBossState | MiremawBossState | PrismshellBossState | IronhornBossState | DreadreaperBossState | VoltwardenBossState | GravebloomBossState, damage: number, cooldown: number) {
     if (target.dead) return;
     const dx = player.x - target.x;
     const dy = player.y - target.y;
@@ -3391,7 +3570,7 @@ function updateMiremawBoss(dt: number) {
     resetKoiShogunBoss,
     resetTempestKirinBoss,
     resetMiremawBoss,
-    resetPrismshellBoss, resetIronhornBoss, resetDreadreaperBoss, resetVoltwardenBoss,
+    resetPrismshellBoss, resetIronhornBoss, resetDreadreaperBoss, resetVoltwardenBoss, resetGravebloomBoss,
     syncDragonState,
     syncSpiderState,
     syncFrostclawState,
@@ -3401,7 +3580,7 @@ function updateMiremawBoss(dt: number) {
     syncKoiShogunState,
     syncTempestKirinState,
     syncMiremawState,
-    syncPrismshellState, syncIronhornState, syncDreadreaperState, syncVoltwardenState,
+    syncPrismshellState, syncIronhornState, syncDreadreaperState, syncVoltwardenState, syncGravebloomState,
     updateBoss,
     updateSpiderBoss,
     updateFrostclawBoss,
@@ -3411,7 +3590,7 @@ function updateMiremawBoss(dt: number) {
     updateKoiShogunBoss,
     updateTempestKirinBoss,
     updateMiremawBoss,
-    updatePrismshellBoss, updateIronhornBoss, updateDreadreaperBoss, updateVoltwardenBoss,
+    updatePrismshellBoss, updateIronhornBoss, updateDreadreaperBoss, updateVoltwardenBoss, updateGravebloomBoss,
     resolveDragonCollision: () => resolveCollision(boss, DRAGON_CONTACT_DAMAGE, DRAGON_CONTACT_DAMAGE_COOLDOWN),
     resolveSpiderCollision: () => resolveCollision(spiderBoss, SPIDER_CONTACT_DAMAGE, .75),
     resolveFrostclawCollision: () => resolveCollision(frostclawBoss, FROSTCLAW_CONTACT_DAMAGE, .75),
@@ -3421,7 +3600,7 @@ function updateMiremawBoss(dt: number) {
     resolveKoiShogunCollision: () => resolveCollision(koiShogunBoss, KOI_SHOGUN_CONTACT_DAMAGE, .75),
     resolveTempestKirinCollision: () => resolveCollision(tempestKirinBoss, TEMPEST_KIRIN_CONTACT_DAMAGE, .75),
     resolveMiremawCollision: () => resolveCollision(miremawBoss, MIREMAW_CONTACT_DAMAGE, .75),
-    resolvePrismshellCollision: () => resolveCollision(prismshellBoss, PRISMSHELL_CONTACT_DAMAGE, .75), resolveIronhornCollision: () => resolveCollision(ironhornBoss, IRONHORN_CONTACT_DAMAGE, .75), resolveDreadreaperCollision: () => resolveCollision(dreadreaperBoss, DREADREAPER_CONTACT_DAMAGE, .75), resolveVoltwardenCollision: () => resolveCollision(voltwardenBoss, VOLTWARDEN_CONTACT_DAMAGE, .75),
+    resolvePrismshellCollision: () => resolveCollision(prismshellBoss, PRISMSHELL_CONTACT_DAMAGE, .75), resolveIronhornCollision: () => resolveCollision(ironhornBoss, IRONHORN_CONTACT_DAMAGE, .75), resolveDreadreaperCollision: () => resolveCollision(dreadreaperBoss, DREADREAPER_CONTACT_DAMAGE, .75), resolveVoltwardenCollision: () => resolveCollision(voltwardenBoss, VOLTWARDEN_CONTACT_DAMAGE, .75), resolveGravebloomCollision: () => resolveCollision(gravebloomBoss, GRAVEBLOOM_CONTACT_DAMAGE, .75),
     applyBossKnockback,
     onPortalCutsceneFinished(wasPreview) {
       const dragon = queuedDragonResult;

@@ -1,14 +1,17 @@
 /** Shared presentation clock for the local player's departure and arrival. */
-let startedAt = 0;
+let startedAt: number | null = null;
 let arriving = false;
 export function beginHomeTeleport(arrival = false) {
   startedAt = performance.now();
   arriving = arrival;
 }
-export function endHomeTeleport() { startedAt = 0; }
+export function endHomeTeleport() { startedAt = null; }
 export function drawHomeTeleport(ctx: CanvasRenderingContext2D, x: number, y: number, drawPlayer: () => void) {
-  const progress = startedAt ? Math.min(1, (performance.now() - startedAt) / 650) : 1;
-  if (progress >= 1) { if (!startedAt || arriving) drawPlayer(); return; }
+  const elapsed = startedAt === null ? 0 : performance.now() - startedAt;
+  // Presentation must recover even if its owning transition is interrupted.
+  if (startedAt !== null && elapsed >= (arriving ? 650 : 30_000)) endHomeTeleport();
+  const progress = startedAt === null ? 1 : Math.min(1, elapsed / 650);
+  if (progress >= 1) { if (startedAt === null || arriving) drawPlayer(); return; }
   const strength = Math.sin(progress * Math.PI);
   ctx.save();
   ctx.strokeStyle = `rgba(143,241,255,${1 - progress * .5})`;

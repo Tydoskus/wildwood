@@ -4,7 +4,7 @@ import { MAP_IDS, PROTOCOL_VERSION, TUTORIAL_FOREST_MAP_ID } from "../../../shar
 import type { BaseSubscriptionHandlers } from "./base-subscription";
 import type { ReducerPort } from "../ports";
 
-const BOSSES = ["dragon", "spider", "frostclaw", "magmalisk", "gloomroot", "tidewyrm", "koiShogun", "tempestKirin", "miremaw", "prismshell", "ironhorn", "dreadreaper", "voltwarden"];
+const BOSSES = ["dragon", "spider", "frostclaw", "magmalisk", "gloomroot", "tidewyrm", "koiShogun", "tempestKirin", "miremaw", "prismshell", "ironhorn", "dreadreaper", "voltwarden", "gravebloom"];
 const REGIONAL_HANDLERS = new Set(["player", "removePlayer", "motionIdentity", "removeMotionIdentity", "motionFrame", "mapFrame", "deathFrame", "bossHitResult"]);
 type Route = { databaseName: string; mapId: string; generation: bigint; ready: boolean };
 export function createMapShardClient(options: {
@@ -31,7 +31,7 @@ export function createMapShardClient(options: {
     return new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => finish(new Error("Destination map connection timed out")), 30_000);
       const finish = (error?: Error) => {
-        if (!error && mapId === "home_exterior" && !route) { clearTimeout(timeout); mapWaiters.delete(finish); resolve(); return; }
+        if (!error && attachedRoot === root && root.isActive && routeKnown && mapId === "home_exterior" && !route) { clearTimeout(timeout); mapWaiters.delete(finish); resolve(); return; }
         if (!error && attachedRoot === root && (!hydrated || route?.mapId !== mapId || (previousGeneration !== undefined && route?.generation === previousGeneration))) return;
         clearTimeout(timeout);
         mapWaiters.delete(finish);
