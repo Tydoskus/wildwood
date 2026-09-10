@@ -1,4 +1,5 @@
 import { VERDANT_ROOTS, VERDANT_SPORES, verdantRootHits, verdantSporeHits, verdantSporeSites } from "../../../shared/verdant-attacks";
+import { ION_SWEEP, ION_BURSTS, ionSweepHits, ionBurstHits, ionBurstSites } from "../../../shared/ion-attacks";
 import { NEON_LASER, NEON_EMP, neonLaserHits, neonEmpHits } from "../../../shared/neon-attacks";
 import {
   BOSS_AGGRO_RANGE,
@@ -19,7 +20,7 @@ import {
   MAGMALISK_BITE_HALF_ANGLE,
   MAGMALISK_BITE_RANGE,
   MIREMAW_AGGRO_RANGE,
-  PRISMSHELL_AGGRO_RANGE, IRONHORN_AGGRO_RANGE, DREADREAPER_AGGRO_RANGE, VOLTWARDEN_AGGRO_RANGE, GRAVEBLOOM_AGGRO_RANGE,
+  PRISMSHELL_AGGRO_RANGE, IRONHORN_AGGRO_RANGE, DREADREAPER_AGGRO_RANGE, VOLTWARDEN_AGGRO_RANGE, GRAVEBLOOM_AGGRO_RANGE, AEGIS_PRIME_AGGRO_RANGE,
   MIREMAW_TONGUE_HALF_ANGLE,
   PRISMSHELL_SHATTER_HALF_ANGLE, IRONHORN_SHATTER_HALF_ANGLE, DREADREAPER_SHATTER_HALF_ANGLE,
   MIREMAW_TONGUE_RANGE,
@@ -54,13 +55,13 @@ import {
   MAGMALISK_REWARD_HEALTH,
   MAGMALISK_REWARD_REGEN,
   MIREMAW_REWARD_ARMOR,
-  PRISMSHELL_REWARD_ARMOR, IRONHORN_REWARD_ARMOR, DREADREAPER_REWARD_ARMOR, VOLTWARDEN_REWARD_ARMOR, GRAVEBLOOM_REWARD_ARMOR,
+  PRISMSHELL_REWARD_ARMOR, IRONHORN_REWARD_ARMOR, DREADREAPER_REWARD_ARMOR, VOLTWARDEN_REWARD_ARMOR, GRAVEBLOOM_REWARD_ARMOR, AEGIS_PRIME_REWARD_ARMOR,
   MIREMAW_REWARD_DAMAGE,
-  PRISMSHELL_REWARD_DAMAGE, IRONHORN_REWARD_DAMAGE, DREADREAPER_REWARD_DAMAGE, VOLTWARDEN_REWARD_DAMAGE, GRAVEBLOOM_REWARD_DAMAGE,
+  PRISMSHELL_REWARD_DAMAGE, IRONHORN_REWARD_DAMAGE, DREADREAPER_REWARD_DAMAGE, VOLTWARDEN_REWARD_DAMAGE, GRAVEBLOOM_REWARD_DAMAGE, AEGIS_PRIME_REWARD_DAMAGE,
   MIREMAW_REWARD_HEALTH,
-  PRISMSHELL_REWARD_HEALTH, IRONHORN_REWARD_HEALTH, DREADREAPER_REWARD_HEALTH, VOLTWARDEN_REWARD_HEALTH, GRAVEBLOOM_REWARD_HEALTH,
+  PRISMSHELL_REWARD_HEALTH, IRONHORN_REWARD_HEALTH, DREADREAPER_REWARD_HEALTH, VOLTWARDEN_REWARD_HEALTH, GRAVEBLOOM_REWARD_HEALTH, AEGIS_PRIME_REWARD_HEALTH,
   MIREMAW_REWARD_REGEN,
-  PRISMSHELL_REWARD_REGEN, IRONHORN_REWARD_REGEN, DREADREAPER_REWARD_REGEN, VOLTWARDEN_REWARD_REGEN, GRAVEBLOOM_REWARD_REGEN,
+  PRISMSHELL_REWARD_REGEN, IRONHORN_REWARD_REGEN, DREADREAPER_REWARD_REGEN, VOLTWARDEN_REWARD_REGEN, GRAVEBLOOM_REWARD_REGEN, AEGIS_PRIME_REWARD_REGEN,
   SPIDER_REWARD_DAMAGE,
   SPIDER_REWARD_HEALTH,
   TIDEWYRM_REWARD_ARMOR,
@@ -91,9 +92,9 @@ import type {
   MagmaliskBossState,
   MagmaliskEruption,
   MiremawBogBurst,
-  PrismshellCrystalBurst, IronhornCrystalBurst, DreadreaperCrystalBurst, VoltwardenCrystalBurst, GravebloomCrystalBurst,
+  PrismshellCrystalBurst, IronhornCrystalBurst, DreadreaperCrystalBurst, VoltwardenCrystalBurst, GravebloomCrystalBurst, AegisPrimeCrystalBurst,
   MiremawBossState,
-  PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState,
+  PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, AegisPrimeBossState,
   PlayerState,
   SpiderBossState,
   SpiderVenomPool,
@@ -172,18 +173,21 @@ const IRONHORN_SHATTER_DAMAGE = BOSS_DAMAGE_PROFILES.ironhorn.shatter;
 const DREADREAPER_SHATTER_DAMAGE = BOSS_DAMAGE_PROFILES.dreadreaper.shatter;
 const VOLTWARDEN_SHATTER_DAMAGE = BOSS_DAMAGE_PROFILES.voltwarden.shatter;
 const GRAVEBLOOM_SHATTER_DAMAGE = BOSS_DAMAGE_PROFILES.gravebloom.shatter;
+const AEGIS_PRIME_SHATTER_DAMAGE = BOSS_DAMAGE_PROFILES.aegisPrime.shatter;
 const MIREMAW_BOG_BURST_DAMAGE = BOSS_DAMAGE_PROFILES.miremaw.bogBurst;
 const PRISMSHELL_CRYSTAL_BURST_DAMAGE = BOSS_DAMAGE_PROFILES.prismshell.crystalBurst;
 const IRONHORN_CRYSTAL_BURST_DAMAGE = BOSS_DAMAGE_PROFILES.ironhorn.crystalBurst;
 const DREADREAPER_CRYSTAL_BURST_DAMAGE = BOSS_DAMAGE_PROFILES.dreadreaper.crystalBurst;
 const VOLTWARDEN_CRYSTAL_BURST_DAMAGE = BOSS_DAMAGE_PROFILES.voltwarden.crystalBurst;
 const GRAVEBLOOM_CRYSTAL_BURST_DAMAGE = BOSS_DAMAGE_PROFILES.gravebloom.crystalBurst;
+const AEGIS_PRIME_CRYSTAL_BURST_DAMAGE = BOSS_DAMAGE_PROFILES.aegisPrime.crystalBurst;
 const MIREMAW_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.miremaw.contact;
 const PRISMSHELL_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.prismshell.contact;
 const IRONHORN_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.ironhorn.contact;
 const DREADREAPER_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.dreadreaper.contact;
 const VOLTWARDEN_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.voltwarden.contact;
 const GRAVEBLOOM_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.gravebloom.contact;
+const AEGIS_PRIME_CONTACT_DAMAGE = BOSS_DAMAGE_PROFILES.aegisPrime.contact;
 const DEATH_PARTICLE_COLOR = "#e53935";
 
 type SharedBossState = {
@@ -221,6 +225,7 @@ export type BossController = {
   resetDreadreaperBoss: () => void;
   resetVoltwardenBoss: () => void;
   resetGravebloomBoss: () => void;
+  resetAegisPrimeBoss: () => void;
   syncDragonState: () => void;
   syncSpiderState: () => void;
   syncFrostclawState: () => void;
@@ -235,6 +240,7 @@ export type BossController = {
   syncDreadreaperState: () => void;
   syncVoltwardenState: () => void;
   syncGravebloomState: () => void;
+  syncAegisPrimeState: () => void;
   updateBoss: (dt: number) => void;
   updateSpiderBoss: (dt: number) => void;
   updateFrostclawBoss: (dt: number) => void;
@@ -249,6 +255,7 @@ export type BossController = {
   updateDreadreaperBoss: (dt: number) => void;
   updateVoltwardenBoss: (dt: number) => void;
   updateGravebloomBoss: (dt: number) => void;
+  updateAegisPrimeBoss: (dt: number) => void;
   resolveDragonCollision: () => void;
   resolveSpiderCollision: () => void;
   resolveFrostclawCollision: () => void;
@@ -263,6 +270,7 @@ export type BossController = {
   resolveDreadreaperCollision: () => void;
   resolveVoltwardenCollision: () => void;
   resolveGravebloomCollision: () => void;
+  resolveAegisPrimeCollision: () => void;
   applyBossKnockback: (dt: number) => void;
   onPortalCutsceneFinished: (wasPreview: boolean) => void;
 };
@@ -286,6 +294,7 @@ export function createBossController(options: {
   dreadreaperBoss: DreadreaperBossState;
   voltwardenBoss: VoltwardenBossState;
   gravebloomBoss: GravebloomBossState;
+  aegisPrimeBoss: AegisPrimeBossState;
   bossRain: BossRainStrike[];
   spiderVenom: SpiderVenomPool[];
   frostclawIcefalls: FrostclawIcefall[];
@@ -300,6 +309,7 @@ export function createBossController(options: {
   dreadreaperCrystalBursts: DreadreaperCrystalBurst[];
   voltwardenCrystalBursts: VoltwardenCrystalBurst[];
   gravebloomCrystalBursts: GravebloomCrystalBurst[];
+  aegisPrimeCrystalBursts: AegisPrimeCrystalBurst[];
   player: PlayerState;
   getDragonBoss: () => SharedBossState | null | undefined;
   getSpiderBoss: () => SharedBossState | null | undefined;
@@ -315,6 +325,7 @@ export function createBossController(options: {
   getDreadreaperBoss: () => SharedBossState | null | undefined;
   getVoltwardenBoss: () => SharedBossState | null | undefined;
   getGravebloomBoss: () => SharedBossState | null | undefined;
+  getAegisPrimeBoss: () => SharedBossState | null | undefined;
   getDragonResult: () => BossResult | null | undefined;
   getSpiderResult: () => BossResult | null | undefined;
   getFrostclawResult: () => BossResult | null | undefined;
@@ -329,6 +340,7 @@ export function createBossController(options: {
   getDreadreaperResult: () => BossResult | null | undefined;
   getVoltwardenResult: () => BossResult | null | undefined;
   getGravebloomResult: () => BossResult | null | undefined;
+  getAegisPrimeResult: () => BossResult | null | undefined;
   localIdentity: () => string | undefined;
   /** Estimated server clock used to keep boss abilities in one shared phase. */
   serverNowMs?: () => number;
@@ -348,6 +360,7 @@ export function createBossController(options: {
   currentMapIsDuskfallOrchard: () => boolean;
   currentMapIsNeonBastion: () => boolean;
   currentMapIsVerdantCatacombs: () => boolean;
+  currentMapIsIonCitadel: () => boolean;
   portalCutsceneActive: () => boolean;
   hasSeenDragonPortalCutscene: () => boolean;
   hasSeenSnowlandsPortalCutscene: () => boolean;
@@ -371,9 +384,9 @@ export function createBossController(options: {
   rewardMultiplier?: () => number;
 }): BossController {
   const {
-    boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, miremawBogBursts, prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, gravebloomCrystalBursts, player, elements,
-    getDragonBoss, getSpiderBoss, getFrostclawBoss, getMagmaliskBoss, getGloomrootBoss, getTidewyrmBoss, getKoiShogunBoss, getTempestKirinBoss, getMiremawBoss, getPrismshellBoss, getIronhornBoss, getDreadreaperBoss, getVoltwardenBoss, getGravebloomBoss, getDragonResult, getSpiderResult, getFrostclawResult, getMagmaliskResult, getGloomrootResult, getTidewyrmResult, getKoiShogunResult, getTempestKirinResult, getMiremawResult, getPrismshellResult, getIronhornResult, getDreadreaperResult, getVoltwardenResult, getGravebloomResult,
-    localIdentity, running, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, currentMapIsWater, currentMapIsSamurai, currentMapIsCloudspire, currentMapIsMoonfen, currentMapIsCrystalHollows, currentMapIsClockworkRuins, currentMapIsDuskfallOrchard, currentMapIsNeonBastion, currentMapIsVerdantCatacombs, portalCutsceneActive,
+    boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, miremawBogBursts, prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, gravebloomCrystalBursts, aegisPrimeCrystalBursts, player, elements,
+    getDragonBoss, getSpiderBoss, getFrostclawBoss, getMagmaliskBoss, getGloomrootBoss, getTidewyrmBoss, getKoiShogunBoss, getTempestKirinBoss, getMiremawBoss, getPrismshellBoss, getIronhornBoss, getDreadreaperBoss, getVoltwardenBoss, getGravebloomBoss, getAegisPrimeBoss, getDragonResult, getSpiderResult, getFrostclawResult, getMagmaliskResult, getGloomrootResult, getTidewyrmResult, getKoiShogunResult, getTempestKirinResult, getMiremawResult, getPrismshellResult, getIronhornResult, getDreadreaperResult, getVoltwardenResult, getGravebloomResult, getAegisPrimeResult,
+    localIdentity, running, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, currentMapIsWater, currentMapIsSamurai, currentMapIsCloudspire, currentMapIsMoonfen, currentMapIsCrystalHollows, currentMapIsClockworkRuins, currentMapIsDuskfallOrchard, currentMapIsNeonBastion, currentMapIsVerdantCatacombs, currentMapIsIonCitadel, portalCutsceneActive,
     hasSeenDragonPortalCutscene, hasSeenSnowlandsPortalCutscene, hasSeenLavaPortalCutscene, hasSeenInfernalPortalCutscene, hasSeenWaterPortalCutscene, hasSeenSamuraiPortalCutscene,
     startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene, startSamuraiPortalCutscene,
     renderPlayerName, spawnBurst, damagePlayer, logPickup, saveProgress,
@@ -423,24 +436,28 @@ export function createBossController(options: {
   let observedDreadreaperEncounter: bigint | null = null;
   let observedVoltwardenEncounter: bigint | null = null;
   let observedGravebloomEncounter: bigint | null = null;
+  let observedAegisPrimeEncounter: bigint | null = null;
   let miremawWasAlive: boolean | null = null;
   let prismshellWasAlive: boolean | null = null;
   let ironhornWasAlive: boolean | null = null;
   let dreadreaperWasAlive: boolean | null = null;
   let voltwardenWasAlive: boolean | null = null;
   let gravebloomWasAlive: boolean | null = null;
+  let aegisPrimeWasAlive: boolean | null = null;
   let pendingMiremawResultEncounter: bigint | null = null;
   let pendingPrismshellResultEncounter: bigint | null = null;
   let pendingIronhornResultEncounter: bigint | null = null;
   let pendingDreadreaperResultEncounter: bigint | null = null;
   let pendingVoltwardenResultEncounter: bigint | null = null;
   let pendingGravebloomResultEncounter: bigint | null = null;
+  let pendingAegisPrimeResultEncounter: bigint | null = null;
   let shownMiremawResultEncounter: bigint | null = null;
   let shownPrismshellResultEncounter: bigint | null = null;
   let shownIronhornResultEncounter: bigint | null = null;
   let shownDreadreaperResultEncounter: bigint | null = null;
   let shownVoltwardenResultEncounter: bigint | null = null;
   let shownGravebloomResultEncounter: bigint | null = null;
+  let shownAegisPrimeResultEncounter: bigint | null = null;
   const locallyRewardedDragonEncounters = new Set<string>();
   const locallyRewardedSpiderEncounters = new Set<string>();
   const locallyRewardedFrostclawEncounters = new Set<string>();
@@ -455,6 +472,7 @@ export function createBossController(options: {
   const locallyRewardedDreadreaperEncounters = new Set<string>();
   const locallyRewardedVoltwardenEncounters = new Set<string>();
   const locallyRewardedGravebloomEncounters = new Set<string>();
+  const locallyRewardedAegisPrimeEncounters = new Set<string>();
   let dragonRainPatternIndex = 0;
   let spiderVenomPatternIndex = 0;
   let frostclawIcefallPatternIndex = 0;
@@ -467,6 +485,7 @@ export function createBossController(options: {
   let prismshellCrystalBurstPatternIndex = 0;
   let ironhornCrystalBurstPatternIndex = 0;
   let dreadreaperCrystalBurstPatternIndex = 0;
+  let aegisPrimeBurstPatternIndex = 0;
 
   let bossKnockbackAngle = 0;
   let bossKnockbackTimeRemaining = 0;
@@ -842,6 +861,26 @@ function resetMiremawBoss() {
 
     resetAbilityTimeline("gravebloom");
   }
+  function resetAegisPrimeBoss() {
+    const shared = getAegisPrimeBoss();
+    if (shared) {
+      aegisPrimeBoss.encounter = shared.encounter;
+      aegisPrimeBoss.hp = shared.hp;
+      aegisPrimeBoss.maxHp = shared.maxHp;
+      aegisPrimeBoss.dead = !shared.alive;
+    }
+    aegisPrimeBoss.hurt = 0;
+    aegisPrimeBoss.hpLossFlashFrom = aegisPrimeBoss.hp;
+    aegisPrimeBoss.hpLossFlashTimer = 0;
+    aegisPrimeBoss.contactDamageClock = 0;
+    aegisPrimeBoss.attackClock = 3;
+    aegisPrimeBoss.nextAttack = "shieldSweep";
+    aegisPrimeBoss.shatter = null;
+    aegisPrimeCrystalBursts.length = 0;
+
+    aegisPrimeBurstPatternIndex = 0;
+      resetAbilityTimeline("aegisPrime");
+  }
 
 
   function showWorldResult(result: BossResult, heading: string) {
@@ -1195,6 +1234,30 @@ function showMiremawResult(result: BossResult | null | undefined) {
     const encounterKey = String(result.encounter);
     if (!locallyRewardedGravebloomEncounters.has(encounterKey)) {
       locallyRewardedGravebloomEncounters.add(encounterKey);
+      player.damage += damageReward.amount;
+      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplier?.() ?? 1);
+      player.armor += armorReward.amount;
+      player.regen += regenReward.amount;
+    }
+    logPickup(rewardLabel(damageReward), "#ff655a");
+    logPickup(rewardLabel(healthReward), "#6fe48e");
+    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
+    logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
+  }
+  function showAegisPrimeResult(result: BossResult | null | undefined) {
+    if (!result || shownAegisPrimeResultEncounter === result.encounter) return;
+    pendingAegisPrimeResultEncounter = null;
+    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
+    shownAegisPrimeResultEncounter = result.encounter;
+    showWorldResult(result, "AEGIS PRIME DEFEATED");
+    if (!localContribution) return;
+    const damageReward = scaledReward("damage", AEGIS_PRIME_REWARD_DAMAGE);
+    const healthReward = scaledReward("health", AEGIS_PRIME_REWARD_HEALTH);
+    const armorReward = scaledReward("armor", AEGIS_PRIME_REWARD_ARMOR);
+    const regenReward = scaledReward("regen", AEGIS_PRIME_REWARD_REGEN);
+    const encounterKey = String(result.encounter);
+    if (!locallyRewardedAegisPrimeEncounters.has(encounterKey)) {
+      locallyRewardedAegisPrimeEncounters.add(encounterKey);
       player.damage += damageReward.amount;
       addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplier?.() ?? 1);
       player.armor += armorReward.amount;
@@ -1970,6 +2033,64 @@ function syncMiremawState() {
     if (pendingGravebloomResultEncounter !== null) {
       const result = getGravebloomResult();
       if (result?.encounter === pendingGravebloomResultEncounter) showGravebloomResult(result);
+    }
+  }
+  function syncAegisPrimeState() {
+    const shared = getAegisPrimeBoss();
+    if (!shared) return;
+    const initialized = observedAegisPrimeEncounter !== null;
+    const encounterChanged = initialized && observedAegisPrimeEncounter !== shared.encounter;
+    const previousHp = aegisPrimeBoss.hp;
+    if (!initialized || encounterChanged) {
+      observedAegisPrimeEncounter = shared.encounter;
+      aegisPrimeWasAlive = shared.alive;
+      aegisPrimeBoss.dead = !shared.alive;
+      aegisPrimeBoss.attackClock = 3;
+      aegisPrimeBoss.nextAttack = "shieldSweep";
+      aegisPrimeBoss.shatter = null;
+      aegisPrimeCrystalBursts.length = 0;
+
+      aegisPrimeBurstPatternIndex = 0;
+      resetAbilityTimeline("aegisPrime");
+      aegisPrimeBoss.hpLossFlashFrom = shared.hp;
+      aegisPrimeBoss.hpLossFlashTimer = 0;
+    } else if (aegisPrimeWasAlive && !shared.alive) {
+      aegisPrimeWasAlive = false;
+      aegisPrimeBoss.dead = true;
+      aegisPrimeBoss.shatter = null;
+      aegisPrimeCrystalBursts.length = 0;
+      pendingAegisPrimeResultEncounter = shared.encounter;
+      spawnBurst(aegisPrimeBoss.x, aegisPrimeBoss.y, "#c3a6ff", 120, 340);
+    } else if (!aegisPrimeWasAlive && shared.alive) {
+      aegisPrimeWasAlive = true;
+      aegisPrimeBoss.dead = false;
+      aegisPrimeBoss.attackClock = 3;
+      aegisPrimeBoss.nextAttack = "shieldSweep";
+
+      aegisPrimeBurstPatternIndex = 0;
+      resetAbilityTimeline("aegisPrime");
+    } else if (shared.alive && shared.hp < previousHp) {
+      aegisPrimeBoss.hpLossFlashFrom = aegisPrimeBoss.hpLossFlashTimer > 0
+        ? Math.max(aegisPrimeBoss.hpLossFlashFrom, previousHp)
+        : previousHp;
+      aegisPrimeBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
+    } else if (shared.hp > previousHp) {
+      aegisPrimeBoss.hpLossFlashFrom = shared.hp;
+      aegisPrimeBoss.hpLossFlashTimer = 0;
+    }
+    aegisPrimeBoss.encounter = shared.encounter;
+    aegisPrimeBoss.maxHp = shared.maxHp;
+    aegisPrimeBoss.hp = shared.hp;
+    if (!initialized && !shared.alive && currentMapIsIonCitadel()) {
+      const result = getAegisPrimeResult();
+      if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
+        locallyRewardedAegisPrimeEncounters.add(String(result.encounter));
+        showAegisPrimeResult(result);
+      }
+    }
+    if (pendingAegisPrimeResultEncounter !== null) {
+      const result = getAegisPrimeResult();
+      if (result?.encounter === pendingAegisPrimeResultEncounter) showAegisPrimeResult(result);
     }
   }
 
@@ -2923,6 +3044,16 @@ function startMiremawTongue(elapsedSeconds = 0, target: Pick<BossAbilityTarget, 
     };
     gravebloomBoss.nextAttack = "sporeBurst";
   }
+  function startAegisPrimeShatter(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const elapsed = Math.max(0, elapsedSeconds);
+    aegisPrimeBoss.shatter = {
+      angle: Math.atan2(target.y - aegisPrimeBoss.y, target.x - aegisPrimeBoss.x),
+      windup: Math.max(0, ION_SWEEP.windup - elapsed),
+      timer: Math.max(0, ION_SWEEP.duration - Math.max(0, elapsed - ION_SWEEP.windup)),
+      duration: ION_SWEEP.duration, hitPlayer: false,
+    };
+    aegisPrimeBoss.nextAttack = "ionVolley";
+  }
 
 
   function startTempestKirinThunder(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
@@ -3090,6 +3221,18 @@ function startGravebloomCrystalBurst(elapsedSeconds = 0, patternIndex = 0, targe
     }
     gravebloomBoss.attackClock = 3.8;
     gravebloomBoss.nextAttack = "rootGrasp";
+  }
+function startAegisPrimeCrystalBurst(elapsedSeconds = 0, deterministicPatternIndex: number | undefined = undefined, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    const patternIndex = deterministicPatternIndex ?? aegisPrimeBurstPatternIndex++;
+    const duration = ION_BURSTS.windup + ION_BURSTS.duration;
+    for (const site of ionBurstSites(target.x, target.y, patternIndex, aegisPrimeBoss)) {
+      const elapsed = elapsedSeconds - site.delay;
+      if (elapsed >= duration) continue;
+      aegisPrimeCrystalBursts.push({ x: clamp(site.x, 100, WORLD.w - 100), y: clamp(site.y, 100, WORLD.h - 100), r: ION_BURSTS.range,
+        timer: duration - elapsed, maxTimer: duration, hitPlayer: false });
+    }
+    aegisPrimeBoss.attackClock = 3.8;
+    aegisPrimeBoss.nextAttack = "shieldSweep";
   }
 
   function updateTempestKirinBoss(dt: number) {
@@ -3533,9 +3676,51 @@ function updateMiremawBoss(dt: number) {
     if (gravebloomBoss.attackClock > 0 || Math.hypot(player.x - gravebloomBoss.x, player.y - gravebloomBoss.y) > GRAVEBLOOM_AGGRO_RANGE) return;
     if (gravebloomBoss.nextAttack === "rootGrasp") startGravebloomShatter(); else startGravebloomCrystalBurst();
   }
+  function updateAegisPrimeBoss(dt: number) {
+    aegisPrimeBoss.hpLossFlashTimer = Math.max(0, aegisPrimeBoss.hpLossFlashTimer - dt);
+    aegisPrimeBoss.contactDamageClock = Math.max(0, aegisPrimeBoss.contactDamageClock - dt);
+    if (aegisPrimeBoss.dead) return;
+    aegisPrimeBoss.hurt = Math.max(0, aegisPrimeBoss.hurt - dt);
+    const sharedTimeline = syncAbilityTimeline({
+      kind: "aegisPrime", encounter: aegisPrimeBoss.encounter,
+      targetForAttack: (attackIndex) => selectAbilityTarget("aegisPrime", aegisPrimeBoss.encounter, attackIndex, aegisPrimeBoss.x, aegisPrimeBoss.y, AEGIS_PRIME_AGGRO_RANGE),
+      clear: () => { aegisPrimeBoss.shatter = null; aegisPrimeCrystalBursts.length = 0; },
+      start: (ability, elapsedSeconds, attackIndex, target) => {
+        if (ability === "shieldSweep") startAegisPrimeShatter(elapsedSeconds, target);
+        else if (ability === "ionVolley") startAegisPrimeCrystalBurst(elapsedSeconds, Math.floor(attackIndex / 2), target);
+      },
+      setAttackClock: seconds => { aegisPrimeBoss.attackClock = seconds; },
+    });
+    for (let index = aegisPrimeCrystalBursts.length - 1; index >= 0; index--) {
+      const pulse = aegisPrimeCrystalBursts[index], previous = pulse.maxTimer - pulse.timer;
+      pulse.timer -= dt;
+      if (!pulse.hitPlayer && ionBurstHits(Math.hypot(player.x - pulse.x, player.y - pulse.y), previous, pulse.maxTimer - pulse.timer, player.r)) {
+        pulse.hitPlayer = true; damagePlayer(AEGIS_PRIME_CRYSTAL_BURST_DAMAGE);
+        spawnBurst(player.x, player.y, "#8bf2c3", 24, 210);
+      }
+      if (pulse.timer <= 0) aegisPrimeCrystalBursts.splice(index, 1);
+    }
+    const laser = aegisPrimeBoss.shatter;
+    if (laser) {
+      const activeDt = Math.max(0, dt - Math.max(0, laser.windup));
+      laser.windup = Math.max(0, laser.windup - dt);
+      if (activeDt > 0) {
+        laser.timer -= activeDt;
+        if (!laser.hitPlayer && ionSweepHits(player.x - aegisPrimeBoss.x, player.y - aegisPrimeBoss.y, laser.angle, player.r)) {
+          laser.hitPlayer = true; damagePlayer(AEGIS_PRIME_SHATTER_DAMAGE);
+          spawnBurst(player.x, player.y, "#56f7ff", 24, 240);
+        }
+        if (laser.timer <= 0) { aegisPrimeBoss.shatter = null; aegisPrimeBoss.attackClock = 2.8; }
+      }
+    }
+    if (sharedTimeline || aegisPrimeBoss.shatter || aegisPrimeCrystalBursts.length) return;
+    aegisPrimeBoss.attackClock -= dt;
+    if (aegisPrimeBoss.attackClock > 0 || Math.hypot(player.x - aegisPrimeBoss.x, player.y - aegisPrimeBoss.y) > AEGIS_PRIME_AGGRO_RANGE) return;
+    if (aegisPrimeBoss.nextAttack === "shieldSweep") startAegisPrimeShatter(); else startAegisPrimeCrystalBurst();
+  }
 
 
-  function resolveCollision(target: DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState | KoiShogunBossState | TempestKirinBossState | MiremawBossState | PrismshellBossState | IronhornBossState | DreadreaperBossState | VoltwardenBossState | GravebloomBossState, damage: number, cooldown: number) {
+  function resolveCollision(target: DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState | KoiShogunBossState | TempestKirinBossState | MiremawBossState | PrismshellBossState | IronhornBossState | DreadreaperBossState | VoltwardenBossState | GravebloomBossState | AegisPrimeBossState, damage: number, cooldown: number) {
     if (target.dead) return;
     const dx = player.x - target.x;
     const dy = player.y - target.y;
@@ -3570,7 +3755,7 @@ function updateMiremawBoss(dt: number) {
     resetKoiShogunBoss,
     resetTempestKirinBoss,
     resetMiremawBoss,
-    resetPrismshellBoss, resetIronhornBoss, resetDreadreaperBoss, resetVoltwardenBoss, resetGravebloomBoss,
+    resetPrismshellBoss, resetIronhornBoss, resetDreadreaperBoss, resetVoltwardenBoss, resetGravebloomBoss, resetAegisPrimeBoss,
     syncDragonState,
     syncSpiderState,
     syncFrostclawState,
@@ -3580,7 +3765,7 @@ function updateMiremawBoss(dt: number) {
     syncKoiShogunState,
     syncTempestKirinState,
     syncMiremawState,
-    syncPrismshellState, syncIronhornState, syncDreadreaperState, syncVoltwardenState, syncGravebloomState,
+    syncPrismshellState, syncIronhornState, syncDreadreaperState, syncVoltwardenState, syncGravebloomState, syncAegisPrimeState,
     updateBoss,
     updateSpiderBoss,
     updateFrostclawBoss,
@@ -3590,7 +3775,7 @@ function updateMiremawBoss(dt: number) {
     updateKoiShogunBoss,
     updateTempestKirinBoss,
     updateMiremawBoss,
-    updatePrismshellBoss, updateIronhornBoss, updateDreadreaperBoss, updateVoltwardenBoss, updateGravebloomBoss,
+    updatePrismshellBoss, updateIronhornBoss, updateDreadreaperBoss, updateVoltwardenBoss, updateGravebloomBoss, updateAegisPrimeBoss,
     resolveDragonCollision: () => resolveCollision(boss, DRAGON_CONTACT_DAMAGE, DRAGON_CONTACT_DAMAGE_COOLDOWN),
     resolveSpiderCollision: () => resolveCollision(spiderBoss, SPIDER_CONTACT_DAMAGE, .75),
     resolveFrostclawCollision: () => resolveCollision(frostclawBoss, FROSTCLAW_CONTACT_DAMAGE, .75),
@@ -3600,7 +3785,7 @@ function updateMiremawBoss(dt: number) {
     resolveKoiShogunCollision: () => resolveCollision(koiShogunBoss, KOI_SHOGUN_CONTACT_DAMAGE, .75),
     resolveTempestKirinCollision: () => resolveCollision(tempestKirinBoss, TEMPEST_KIRIN_CONTACT_DAMAGE, .75),
     resolveMiremawCollision: () => resolveCollision(miremawBoss, MIREMAW_CONTACT_DAMAGE, .75),
-    resolvePrismshellCollision: () => resolveCollision(prismshellBoss, PRISMSHELL_CONTACT_DAMAGE, .75), resolveIronhornCollision: () => resolveCollision(ironhornBoss, IRONHORN_CONTACT_DAMAGE, .75), resolveDreadreaperCollision: () => resolveCollision(dreadreaperBoss, DREADREAPER_CONTACT_DAMAGE, .75), resolveVoltwardenCollision: () => resolveCollision(voltwardenBoss, VOLTWARDEN_CONTACT_DAMAGE, .75), resolveGravebloomCollision: () => resolveCollision(gravebloomBoss, GRAVEBLOOM_CONTACT_DAMAGE, .75),
+    resolvePrismshellCollision: () => resolveCollision(prismshellBoss, PRISMSHELL_CONTACT_DAMAGE, .75), resolveIronhornCollision: () => resolveCollision(ironhornBoss, IRONHORN_CONTACT_DAMAGE, .75), resolveDreadreaperCollision: () => resolveCollision(dreadreaperBoss, DREADREAPER_CONTACT_DAMAGE, .75), resolveVoltwardenCollision: () => resolveCollision(voltwardenBoss, VOLTWARDEN_CONTACT_DAMAGE, .75), resolveGravebloomCollision: () => resolveCollision(gravebloomBoss, GRAVEBLOOM_CONTACT_DAMAGE, .75), resolveAegisPrimeCollision: () => resolveCollision(aegisPrimeBoss, AEGIS_PRIME_CONTACT_DAMAGE, .75),
     applyBossKnockback,
     onPortalCutsceneFinished(wasPreview) {
       const dragon = queuedDragonResult;

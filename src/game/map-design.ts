@@ -187,6 +187,13 @@ const DEFAULT_MAP_THEMES: Record<MapId, MapVisualTheme> = {
     ground: "#172d25",
     path: "#51655a", pathDetail: "rgba(195,223,189,.18)",
     decorColors: { glowMushroom: ["#76eec4", "#b9f1ab", "#5fcbd0"], rock: ["#4a6052", "#63766b", "#89937b"], tree: ["#274731", "#355c3a", "#53764a"] },
+  }, ion_citadel: {
+    ground: "#102832", path: "#345563", pathDetail: "rgba(105,255,177,.14)",
+    decorColors: {
+      skyShard: ["#69ffb1", "#a6ffd1", "#5dcde0"],
+      gear: ["#486e7d", "#385464", "#81a5ae"],
+      rock: ["#25424f", "#315563", "#42606c", "#284450"],
+    },
   },
 };
 

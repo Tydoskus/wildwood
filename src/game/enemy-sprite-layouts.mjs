@@ -1,3 +1,4 @@
+import { ionGuardianAtlas } from "./enemy-atlases/ion-guardian.mjs";
 import { verdantCryptAtlas } from "./enemy-atlases/verdant-crypt.mjs";
 import { neonSentryAtlas } from "./enemy-atlases/neon-sentry.mjs";
 import raptorAtlas from "./enemy-atlases/raptor-mechanic.mjs";
@@ -27,7 +28,7 @@ export const MAP_ENEMY_FAMILIES = {
   samurai_garden: "flower-tulip",
   cloudspire: "wingdemon-bee",
   moonfen: "fungus-rock",
-  crystal_hollows: "hornrabbit-crystal", clockwork_ruins: "raptor-mechanic", duskfall_orchard: "pumpkin-orange", neon_bastion: "neon-sentry", verdant_catacombs: "verdant-crypt",
+  crystal_hollows: "hornrabbit-crystal", clockwork_ruins: "raptor-mechanic", duskfall_orchard: "pumpkin-orange", neon_bastion: "neon-sentry", verdant_catacombs: "verdant-crypt", ion_citadel: "ion-guardian",
 };
 
 const spriteSize = (elite) => elite ? ELITE_ENEMY_SPRITE_SIZE : REGULAR_ENEMY_SPRITE_SIZE;
@@ -162,8 +163,19 @@ const verdantCatacombs = (role, options) => {
   sprite.animation.sourceFacingX = 1;
   return sprite;
 };
+const ionCitadel = (options) => {
+  const sprite = animatedSprite("ion-guardian", ionGuardianAtlas(), options);
+  sprite.animation.sourceFacingX = 1;
+  return sprite;
+};
 
 export const ENEMY_SPRITE_LAYOUTS = {
+  "Ion Patrol": ionCitadel(),
+  "Capacitor Gunner": ionCitadel({ ranged: true }),
+  "Citadel Marshal": ionCitadel({ elite: true }),
+  "Bastion Defender": ionCitadel(),
+  "Flux Enforcer": ionCitadel({ elite: true, ranged: true }),
+  "Reactor Warden": ionCitadel({ elite: true }),
   "Mossbound Stalker": verdantCatacombs("stalker"),
   "Spore Slinger": verdantCatacombs("slinger", { ranged: true }),
   "Mycelial Regent": verdantCatacombs("regent", { elite: true }),

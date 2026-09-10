@@ -6,16 +6,16 @@ import {
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   MOONFEN_MAP_ID,
-  CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, NEON_BASTION_MAP_ID, VERDANT_CATACOMBS_MAP_ID,
+  CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, NEON_BASTION_MAP_ID, VERDANT_CATACOMBS_MAP_ID, ION_CITADEL_MAP_ID,
   SAMURAI_GARDEN_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
   type MapId,
   type WorldDecor,
 } from "../world";
-import { FROSTCLAW_SPRITE_GROUND_OFFSET, FROSTCLAW_SPRITE_Y_OFFSET, GLOOMROOT_SPRITE_GROUND_OFFSET, GLOOMROOT_SPRITE_Y_OFFSET, KOI_SHOGUN_SPRITE_GROUND_OFFSET, KOI_SHOGUN_SPRITE_Y_OFFSET, MAGMALISK_SPRITE_GROUND_OFFSET, MAGMALISK_SPRITE_Y_OFFSET, MIREMAW_SPRITE_GROUND_OFFSET, PRISMSHELL_SPRITE_GROUND_OFFSET, IRONHORN_SPRITE_GROUND_OFFSET, DREADREAPER_SPRITE_GROUND_OFFSET, VOLTWARDEN_SPRITE_GROUND_OFFSET, GRAVEBLOOM_SPRITE_GROUND_OFFSET, MIREMAW_SPRITE_Y_OFFSET, PRISMSHELL_SPRITE_Y_OFFSET, IRONHORN_SPRITE_Y_OFFSET, DREADREAPER_SPRITE_Y_OFFSET, VOLTWARDEN_SPRITE_Y_OFFSET, GRAVEBLOOM_SPRITE_Y_OFFSET, TEMPEST_KIRIN_SPRITE_GROUND_OFFSET, TEMPEST_KIRIN_SPRITE_Y_OFFSET, TIDEWYRM_SPRITE_GROUND_OFFSET, TIDEWYRM_SPRITE_Y_OFFSET } from "../constants";
+import { FROSTCLAW_SPRITE_GROUND_OFFSET, FROSTCLAW_SPRITE_Y_OFFSET, GLOOMROOT_SPRITE_GROUND_OFFSET, GLOOMROOT_SPRITE_Y_OFFSET, KOI_SHOGUN_SPRITE_GROUND_OFFSET, KOI_SHOGUN_SPRITE_Y_OFFSET, MAGMALISK_SPRITE_GROUND_OFFSET, MAGMALISK_SPRITE_Y_OFFSET, MIREMAW_SPRITE_GROUND_OFFSET, PRISMSHELL_SPRITE_GROUND_OFFSET, IRONHORN_SPRITE_GROUND_OFFSET, DREADREAPER_SPRITE_GROUND_OFFSET, VOLTWARDEN_SPRITE_GROUND_OFFSET, GRAVEBLOOM_SPRITE_GROUND_OFFSET, AEGIS_PRIME_SPRITE_GROUND_OFFSET, MIREMAW_SPRITE_Y_OFFSET, PRISMSHELL_SPRITE_Y_OFFSET, IRONHORN_SPRITE_Y_OFFSET, DREADREAPER_SPRITE_Y_OFFSET, VOLTWARDEN_SPRITE_Y_OFFSET, GRAVEBLOOM_SPRITE_Y_OFFSET, AEGIS_PRIME_SPRITE_Y_OFFSET, TEMPEST_KIRIN_SPRITE_GROUND_OFFSET, TEMPEST_KIRIN_SPRITE_Y_OFFSET, TIDEWYRM_SPRITE_GROUND_OFFSET, TIDEWYRM_SPRITE_Y_OFFSET } from "../constants";
 import type { Camera } from "./camera";
-import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, PlayerState, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
+import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, AegisPrimeBossState, PlayerState, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
 
 type Viewport = { width: number; height: number };
 type TreeDecor = Extract<WorldDecor, { type: "tree" }>;
@@ -26,7 +26,7 @@ type CharredTreeDecor = Extract<WorldDecor, { type: "charredTree" }>;
 type TallDecor = TreeDecor | CactusDecor | SnowPineDecor | UpgradeBenchDecor | CharredTreeDecor;
 type Portal = { depth: number };
 type BootsPickup = { y: number; r: number; collected: boolean };
-type DepthLayerKind = "enemy" | "dragon" | "spider" | "frostclaw" | "magmalisk" | "gloomroot" | "tidewyrm" | "koiShogun" | "tempestKirin" | "miremaw" | "prismshell" | "ironhorn" | "dreadreaper" | "voltwarden" | "gravebloom" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
+type DepthLayerKind = "enemy" | "dragon" | "spider" | "frostclaw" | "magmalisk" | "gloomroot" | "tidewyrm" | "koiShogun" | "tempestKirin" | "miremaw" | "prismshell" | "ironhorn" | "dreadreaper" | "voltwarden" | "gravebloom" | "aegisPrime" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
 type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer; opacity: number };
 
 /**
@@ -54,6 +54,7 @@ export function createDepthWorldRenderer(options: {
   dreadreaperBoss: DreadreaperBossState;
   voltwardenBoss: VoltwardenBossState;
   gravebloomBoss: GravebloomBossState;
+  aegisPrimeBoss: AegisPrimeBossState;
   bootsPickup: BootsPickup;
   currentMapId: () => MapId;
   activePortal: () => Portal | null;
@@ -79,6 +80,7 @@ export function createDepthWorldRenderer(options: {
   drawDreadreaperBoss: () => void;
   drawVoltwardenBoss: () => void;
   drawGravebloomBoss: () => void;
+  drawAegisPrimeBoss: () => void;
   drawBootPickup: () => void;
   drawPortal: () => void;
   drawSecondaryPortal: () => void;
@@ -197,6 +199,7 @@ export function createDepthWorldRenderer(options: {
       case "ironhorn": options.drawIronhornBoss(); break;
       case "voltwarden": options.drawVoltwardenBoss(); break;
       case "gravebloom": options.drawGravebloomBoss(); break;
+      case "aegisPrime": options.drawAegisPrimeBoss(); break;
       case "dreadreaper": options.drawDreadreaperBoss(); break;
       case "boots": options.drawBootPickup(); break;
       case "portal": options.drawPortal(); break;
@@ -275,6 +278,8 @@ export function createDepthWorldRenderer(options: {
     }
     if (currentMapId === CLOCKWORK_RUINS_MAP_ID && bossVisible(options.ironhornBoss)) {
       queueLayer(options.ironhornBoss.y + IRONHORN_SPRITE_Y_OFFSET + IRONHORN_SPRITE_GROUND_OFFSET, 1, "ironhorn");
+    } else if (currentMapId === ION_CITADEL_MAP_ID && bossVisible(options.aegisPrimeBoss)) {
+      queueLayer(options.aegisPrimeBoss.y + AEGIS_PRIME_SPRITE_Y_OFFSET + AEGIS_PRIME_SPRITE_GROUND_OFFSET, 1, "aegisPrime");
     } else if (currentMapId === VERDANT_CATACOMBS_MAP_ID && bossVisible(options.gravebloomBoss)) {
       queueLayer(options.gravebloomBoss.y + GRAVEBLOOM_SPRITE_Y_OFFSET + GRAVEBLOOM_SPRITE_GROUND_OFFSET, 1, "gravebloom");
     } else if (currentMapId === NEON_BASTION_MAP_ID && bossVisible(options.voltwardenBoss)) {

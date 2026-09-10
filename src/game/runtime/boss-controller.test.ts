@@ -37,7 +37,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     koiShogunBoss: state.koiShogunBoss,
     tempestKirinBoss: state.tempestKirinBoss,
     miremawBoss: state.miremawBoss,
-    prismshellBoss: state.prismshellBoss, ironhornBoss: state.ironhornBoss, dreadreaperBoss: state.dreadreaperBoss, voltwardenBoss: state.voltwardenBoss, gravebloomBoss: state.gravebloomBoss,
+    prismshellBoss: state.prismshellBoss, ironhornBoss: state.ironhornBoss, dreadreaperBoss: state.dreadreaperBoss, voltwardenBoss: state.voltwardenBoss, gravebloomBoss: state.gravebloomBoss, aegisPrimeBoss: state.aegisPrimeBoss,
     bossRain: state.bossRain,
     spiderVenom: state.spiderVenom,
     frostclawIcefalls: state.frostclawIcefalls,
@@ -47,7 +47,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     koiShogunWhirlpools: state.koiShogunWhirlpools,
     tempestKirinThunderbolts: state.tempestKirinThunderbolts,
     miremawBogBursts: state.miremawBogBursts,
-    prismshellCrystalBursts: state.prismshellCrystalBursts, ironhornCrystalBursts: state.ironhornCrystalBursts, dreadreaperCrystalBursts: state.dreadreaperCrystalBursts, voltwardenCrystalBursts: state.voltwardenCrystalBursts, gravebloomCrystalBursts: state.gravebloomCrystalBursts,
+    prismshellCrystalBursts: state.prismshellCrystalBursts, ironhornCrystalBursts: state.ironhornCrystalBursts, dreadreaperCrystalBursts: state.dreadreaperCrystalBursts, voltwardenCrystalBursts: state.voltwardenCrystalBursts, gravebloomCrystalBursts: state.gravebloomCrystalBursts, aegisPrimeCrystalBursts: state.aegisPrimeCrystalBursts,
     player: state.player,
     getDragonBoss: () => null,
     getSpiderBoss: () => null,
@@ -58,7 +58,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     getKoiShogunBoss: () => null,
     getTempestKirinBoss: () => null,
     getMiremawBoss: () => null,
-    getPrismshellBoss: () => null, getIronhornBoss: () => null, getDreadreaperBoss: () => null, getVoltwardenBoss: () => null, getGravebloomBoss: () => null,
+    getPrismshellBoss: () => null, getIronhornBoss: () => null, getDreadreaperBoss: () => null, getVoltwardenBoss: () => null, getGravebloomBoss: () => null, getAegisPrimeBoss: () => null,
     getDragonResult: () => null,
     getSpiderResult: () => null,
     getFrostclawResult: () => null,
@@ -68,7 +68,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     getKoiShogunResult: () => null,
     getTempestKirinResult: () => null,
     getMiremawResult: () => null,
-    getPrismshellResult: () => null, getIronhornResult: () => null, getDreadreaperResult: () => null, getVoltwardenResult: () => null, getGravebloomResult: () => null,
+    getPrismshellResult: () => null, getIronhornResult: () => null, getDreadreaperResult: () => null, getVoltwardenResult: () => null, getGravebloomResult: () => null, getAegisPrimeResult: () => null,
     localIdentity: () => "local",
     running: () => true,
     currentMapIsDesert: () => false,
@@ -79,7 +79,7 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     currentMapIsSamurai: () => false,
     currentMapIsCloudspire: () => false,
     currentMapIsMoonfen: () => false,
-    currentMapIsCrystalHollows: () => false, currentMapIsClockworkRuins: () => false, currentMapIsDuskfallOrchard: () => false, currentMapIsNeonBastion: () => false, currentMapIsVerdantCatacombs: () => false,
+    currentMapIsCrystalHollows: () => false, currentMapIsClockworkRuins: () => false, currentMapIsDuskfallOrchard: () => false, currentMapIsNeonBastion: () => false, currentMapIsVerdantCatacombs: () => false, currentMapIsIonCitadel: () => false,
     portalCutsceneActive: () => false,
     hasSeenDragonPortalCutscene: () => true,
     hasSeenSnowlandsPortalCutscene: () => true,
@@ -698,4 +698,21 @@ it("runs Voltwarden's laser lanes and staggered EMP rings on the shared clock", 
   for (const pulse of h.voltwardenCrystalBursts) {
     expect(pulse.x).toBe(h.voltwardenBoss.x); expect(pulse.y).toBe(h.voltwardenBoss.y);
   }
+});
+
+it("alternates Aegis Prime's shared-clock volley direction and clears attacks on reset", () => {
+  let serverNowMs = 4900;
+  const h = createFrostclawHarness({ serverNowMs: () => serverNowMs, currentMapIsSnow: () => false, currentMapIsIonCitadel: () => true });
+  h.aegisPrimeBoss.dead = false;
+  h.player.x = h.aegisPrimeBoss.x - 400; h.player.y = h.aegisPrimeBoss.y;
+  h.controller.updateAegisPrimeBoss(.01);
+  expect(h.aegisPrimeCrystalBursts).toHaveLength(3);
+  expect(h.aegisPrimeCrystalBursts.every(p => Math.abs(p.y - h.player.y) < .001)).toBe(true);
+  serverNowMs += 9900;
+  h.controller.updateAegisPrimeBoss(.01);
+  expect(h.aegisPrimeCrystalBursts).toHaveLength(3);
+  expect(h.aegisPrimeCrystalBursts.every(p => Math.abs(p.x - h.player.x) < .001)).toBe(true);
+  h.controller.resetAegisPrimeBoss();
+  expect(h.aegisPrimeCrystalBursts).toHaveLength(0);
+  expect(h.aegisPrimeBoss.shatter).toBeNull();
 });

@@ -19,7 +19,7 @@ export type BossSimulationKind =
   | "koiShogun"
   | "tempestKirin"
   | "miremaw"
-  | "prismshell" | "ironhorn" | "dreadreaper" | "voltwarden" | "gravebloom";
+  | "prismshell" | "ironhorn" | "dreadreaper" | "voltwarden" | "gravebloom" | "aegisPrime";
 
 export type BossAbilityName =
   | "cone"
@@ -43,7 +43,7 @@ export type BossAbilityName =
   | "shatter"
   | "crystalBurst"
   | "laserGrid"
-  | "empPulse" | "rootGrasp" | "sporeBurst";
+  | "empPulse" | "rootGrasp" | "sporeBurst" | "shieldSweep" | "ionVolley";
 
 type BossAbilityDefinition = {
   ability: BossAbilityName;
@@ -109,6 +109,9 @@ const BOSS_ABILITY_CYCLES: Record<BossSimulationKind, readonly BossAbilityDefini
   ], gravebloom: [
     { ability: "rootGrasp", slotDurationMs: 4_900, activeDurationMs: 2_150 },
     { ability: "sporeBurst", slotDurationMs: 5_600, activeDurationMs: 2_650 },
+  ], aegisPrime: [
+    { ability: "shieldSweep", slotDurationMs: 4_800, activeDurationMs: 2_000 },
+    { ability: "ionVolley", slotDurationMs: 5_100, activeDurationMs: 2_230 },
   ],
 };
 

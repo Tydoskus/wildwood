@@ -8,9 +8,9 @@ export const BOSS_TARGET_SECONDS = 90;
 // changes real payouts, not only a diagnostic line in the lab.
 export const REGULAR_REWARD_CYCLE_SCALE = .6 * (52 * 60 / MAP_TARGET_SECONDS) * ((MAP_STAT_GROWTH - 1) / 2);
 // Desert, Snowlands, Lava, Infernal, Water, Samurai, Cloudspire, Moonfen,
-// Crystal Hollows, Clockwork Ruins, Duskfall Orchard, Neon Bastion, Verdant Catacombs. Match Desert's farming
+// Crystal Hollows, Clockwork Ruins, Duskfall Orchard, Neon Bastion, Verdant Catacombs, Ion Citadel. Match Desert's farming
 // time plus 20 minutes per later map, accounting for each map's camps, travel, equipment, and research.
-export const CAMPAIGN_ENEMY_REWARD_MULTIPLIERS: readonly number[] = [1.0, 5.415, 1.5, 0.975, 0.799, 0.648, 0.554, 0.417, 0.362, 0.332, 0.301, 0.275, 0.253];
+export const CAMPAIGN_ENEMY_REWARD_MULTIPLIERS: readonly number[] = [1.0, 5.415, 1.5, 0.975, 0.799, 0.648, 0.554, 0.417, 0.362, 0.332, 0.301, 0.275, 0.253, 0.232];
 export function campaignEnemyRewardMultiplier(mapIndex: number) {
   return CAMPAIGN_ENEMY_REWARD_MULTIPLIERS[mapIndex] ?? 1.16;
 }

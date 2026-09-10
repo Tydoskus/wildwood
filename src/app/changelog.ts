@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.652": [
+    "Added Ion Citadel after Verdant Catacombs, with five reactor camps using the original green shield sentry.",
+    "Defeat Gravebloom to unlock the new region and face Aegis Prime's shield sweeps and alternating ion volleys.",
+  ],
   "0.651": [
     "Added Verdant Catacombs after Neon Bastion, with five camps, six animated enemy types, and the Gravebloom boss.",
     "Defeat Voltwarden to unlock the catacombs and face telegraphed root attacks and staggered spore rings.",
@@ -1618,6 +1622,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
 };
 
 const RELEASE_DATES: Record<string, string> = {
+  "0.652": "2026-09-10",
   "0.651": "2026-09-10",
   "0.364": "AUG 13, 2026",
   "0.331": "AUG 13, 2026",

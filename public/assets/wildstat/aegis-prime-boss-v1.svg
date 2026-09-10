@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <g stroke="#081521" stroke-width="9" stroke-linejoin="round" stroke-linecap="round">
+    <!-- Capacitor pylons, then the wide, armored command chassis. -->
+    <path d="M147 172L130 70 160 55 192 158Z" fill="#254758"/>
+    <path d="M327 163L352 55 386 69 373 199Z" fill="#254758"/>
+    <path d="M145 83L164 77M149 106L173 99M155 130L181 122M353 79L374 85M347 103L370 110M342 129L365 136" stroke="#69ffb1" stroke-width="7"/>
+    <path d="M180 324L240 334 235 397 206 443 142 443 148 416 177 387Z" fill="#1d3347"/>
+    <path d="M263 329L328 326 352 394 375 418 371 446 297 446 278 406Z" fill="#1d3347"/>
+    <path d="M171 403L214 409 201 436 153 436Z" fill="#45687c"/>
+    <path d="M296 406L345 405 365 437 304 437Z" fill="#45687c"/>
+    <path d="M161 427H195M310 428H355" stroke="#69ffb1" stroke-width="6"/>
+    <path d="M160 179L214 151 311 157 368 210 343 312 293 359 199 350 145 295Z" fill="#27495b"/>
+    <path d="M185 197L229 175 298 181 333 215 315 281 273 318 207 302 173 262Z" fill="#3b6575"/>
+    <path d="M202 216L252 194 298 214 308 260 273 299 226 292 196 257Z" fill="#173842" stroke="#69ffb1" stroke-width="6"/>
+    <path d="M229 230L260 214 287 234 285 264 260 285 233 270Z" fill="#69ffb1" stroke="#d2ffe6" stroke-width="5"/>
+    <path d="M254 228L273 243 257 269 242 252Z" fill="#edfff5" stroke="none"/>
+    <path d="M206 167L205 115 231 87 297 87 324 117 308 177 254 189Z" fill="#315264"/>
+    <path d="M222 111L255 97 287 105 308 129 292 142 233 143 216 131Z" fill="#50798a"/>
+    <path d="M235 140L312 130 302 151 240 161Z" fill="#69ffb1" stroke-width="6"/>
+    <path d="M244 165L274 170 295 160" fill="none" stroke-width="5"/>
+    <path d="M219 104L199 67M294 97L314 63" stroke="#69ffb1" stroke-width="7"/>
+    <path d="M146 191L186 185 189 239 152 272 112 254 110 216Z" fill="#44697a"/>
+    <path d="M324 193L366 189 396 229 388 271 349 275 323 240Z" fill="#44697a"/>
+    <path d="M349 252L398 243 427 288 407 324 361 305Z" fill="#29495d"/>
+    <!-- A massive projecting shield distinguishes this guardian from Voltwarden. -->
+    <path d="M58 186L128 158 193 187 186 324 129 390 59 335 43 244Z" fill="#233f50"/>
+    <path d="M74 203L128 182 175 204 167 315 126 361 79 321 63 247Z" fill="#416c73" stroke="#69ffb1" stroke-width="7"/>
+    <path d="M99 220L131 205 153 223 148 289 126 322 103 296Z" fill="#163e42" stroke="#c1ffe0" stroke-width="5"/>
+    <path d="M127 226V298M108 254H147" stroke="#69ffb1" stroke-width="9"/>
+    <path d="M60 253L79 260M168 254L188 249M93 330L83 344M157 329L171 338" stroke="#69ffb1" stroke-width="5"/>
+    <!-- Ion cannon with a broad mint muzzle. -->
+    <path d="M368 271L454 259 474 283 470 311 387 328 365 309Z" fill="#193547"/>
+    <path d="M389 279L448 272 447 294 392 308Z" fill="#52798a"/>
+    <path d="M451 271L473 282 469 308 448 301Z" fill="#69ffb1" stroke-width="6"/>
+    <path d="M398 284L438 279M395 299L436 292" stroke="#a7ffd3" stroke-width="5"/>
+    <path d="M214 326L275 337 307 318" fill="none" stroke="#69ffb1" stroke-width="6"/>
+  </g>
+</svg>

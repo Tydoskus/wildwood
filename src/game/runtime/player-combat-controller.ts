@@ -5,7 +5,7 @@ import { ENEMY_TYPES, REWARD_DATA, rewardLabel, type EnemyKind } from "../enemie
 import { circlesOverlap, distanceSquared } from "../math";
 import type { ProjectileStore } from "./projectile-store";
 import { createSpatialGrid } from "./spatial-grid";
-import type { BossTarget, DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, PlayerState, RuntimeReward, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
+import type { BossTarget, DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, AegisPrimeBossState, PlayerState, RuntimeReward, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
 import type { SpawnSite } from "../world";
 import { equipmentDamageMultiplier, itemDefinition } from "../../../shared/items";
 import { addPlayerBaseMaxHealth } from "./player-health";
@@ -36,6 +36,7 @@ const IRONHORN_HIT_BATCH_DELAY = .1;
 const DREADREAPER_HIT_BATCH_DELAY = .1;
 const VOLTWARDEN_HIT_BATCH_DELAY = .1;
 const GRAVEBLOOM_HIT_BATCH_DELAY = .1;
+const AEGIS_PRIME_HIT_BATCH_DELAY = .1;
 const DEATH_PARTICLE_COLOR = "#e53935";
 const TARGET_GRID_CELL_SIZE = 160;
 const IDLE_TARGET_RECHECK_SECONDS = .08;
@@ -94,6 +95,7 @@ export function createPlayerCombatController(options: {
   dreadreaperBoss: DreadreaperBossState;
   voltwardenBoss: VoltwardenBossState;
   gravebloomBoss: GravebloomBossState;
+  aegisPrimeBoss: AegisPrimeBossState;
   nowSeconds: () => number;
   serverNowMs?: () => number;
   localIdentity?: () => string | undefined;
@@ -111,6 +113,7 @@ export function createPlayerCombatController(options: {
   isDuskfallOrchardMap: () => boolean;
   isNeonBastionMap: () => boolean;
   isVerdantCatacombsMap: () => boolean;
+  isIonCitadelMap: () => boolean;
   engageEnemy: (enemy: EnemyState) => void;
   researchDamageMultiplier: () => number;
   researchCriticalChance: () => number;
@@ -146,6 +149,7 @@ export function createPlayerCombatController(options: {
   damageDreadreaper: (hits: number) => void;
   damageVoltwarden: (hits: number) => void;
   damageGravebloom: (hits: number) => void;
+  damageAegisPrime: (hits: number) => void;
   spawnBurst: (x: number, y: number, color: string, count?: number, speed?: number) => void;
   spawnParticle: (x: number, y: number, vx: number, vy: number, life: number, maxLife: number, size: number, color: string) => void;
   spawnDamageNumber: (x: number, y: number, amount: number, critical?: boolean, damageTaken?: boolean) => void;
@@ -160,10 +164,10 @@ export function createPlayerCombatController(options: {
   endGame: () => void;
 }): PlayerCombatController {
   const {
-    player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss,
-    isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, isWaterMap, isSamuraiMap, isCloudspireMap, isMoonfenMap, isCrystalHollowsMap, isClockworkRuinsMap, isDuskfallOrchardMap, isNeonBastionMap, isVerdantCatacombsMap, engageEnemy, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
+    player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss,
+    isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, isWaterMap, isSamuraiMap, isCloudspireMap, isMoonfenMap, isCrystalHollowsMap, isClockworkRuinsMap, isDuskfallOrchardMap, isNeonBastionMap, isVerdantCatacombsMap, isIonCitadelMap, engageEnemy, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
     researchRewardMultiplier, minAttackInterval, effectiveArmor, isDueling, scheduleEnemyRespawn,
-    incrementKills, recordForestEnemyDefeat, recordDesertEnemyDefeat, recordSnowEnemyDefeat, recordLavaEnemyDefeat, damageDragon, damageSpider, damageFrostclaw, damageMagmalisk, damageGloomroot, damageTidewyrm, damageKoiShogun, damageTempestKirin, damageMiremaw, damagePrismshell, damageIronhorn, damageDreadreaper, damageVoltwarden, damageGravebloom, spawnBurst, spawnParticle,
+    incrementKills, recordForestEnemyDefeat, recordDesertEnemyDefeat, recordSnowEnemyDefeat, recordLavaEnemyDefeat, damageDragon, damageSpider, damageFrostclaw, damageMagmalisk, damageGloomroot, damageTidewyrm, damageKoiShogun, damageTempestKirin, damageMiremaw, damagePrismshell, damageIronhorn, damageDreadreaper, damageVoltwarden, damageGravebloom, damageAegisPrime, spawnBurst, spawnParticle,
     spawnDamageNumber, logPickup, saveProgress, setHitFlash, addScreenShake, recordDeath, endGame,
   } = options;
   const { projectiles, enemyShots } = projectileStore;
@@ -195,12 +199,14 @@ export function createPlayerCombatController(options: {
   let pendingDreadreaperHits = 0;
   let pendingVoltwardenHits = 0;
   let pendingGravebloomHits = 0;
+  let pendingAegisPrimeHits = 0;
   let miremawHitBatchTimer = 0;
   let prismshellHitBatchTimer = 0;
   let ironhornHitBatchTimer = 0;
   let dreadreaperHitBatchTimer = 0;
   let voltwardenHitBatchTimer = 0;
   let gravebloomHitBatchTimer = 0;
+  let aegisPrimeHitBatchTimer = 0;
 
   function activeMapBoss(): BossTarget | null {
     if (isTutorialMap()) return boss;
@@ -212,7 +218,7 @@ export function createPlayerCombatController(options: {
     if (isSamuraiMap()) return koiShogunBoss;
     if (isCloudspireMap()) return tempestKirinBoss;
     if (isMoonfenMap()) return miremawBoss;
-    if (isClockworkRuinsMap()) return ironhornBoss; else if (isVerdantCatacombsMap()) return gravebloomBoss; else if (isNeonBastionMap()) return voltwardenBoss; else if (isDuskfallOrchardMap()) return dreadreaperBoss; else if (isCrystalHollowsMap()) return prismshellBoss;
+    if (isClockworkRuinsMap()) return ironhornBoss; else if (isIonCitadelMap()) return aegisPrimeBoss; else if (isVerdantCatacombsMap()) return gravebloomBoss; else if (isNeonBastionMap()) return voltwardenBoss; else if (isDuskfallOrchardMap()) return dreadreaperBoss; else if (isCrystalHollowsMap()) return prismshellBoss;
     return null;
   }
 
@@ -542,6 +548,9 @@ export function createPlayerCombatController(options: {
           } else if ("bossKind" in target && target.bossKind === "voltwarden") {
             pendingVoltwardenHits += 1;
             voltwardenHitBatchTimer = VOLTWARDEN_HIT_BATCH_DELAY;
+          } else if ("bossKind" in target && target.bossKind === "aegisPrime") {
+            pendingAegisPrimeHits += 1;
+            aegisPrimeHitBatchTimer = AEGIS_PRIME_HIT_BATCH_DELAY;
           } else if ("bossKind" in target && target.bossKind === "gravebloom") {
             pendingGravebloomHits += 1;
             gravebloomHitBatchTimer = GRAVEBLOOM_HIT_BATCH_DELAY;
@@ -613,6 +622,9 @@ export function createPlayerCombatController(options: {
     if (isClockworkRuinsMap() && pendingIronhornHits > 0) {
       ironhornHitBatchTimer -= dt;
       if (ironhornHitBatchTimer <= 0) { damageIronhorn(pendingIronhornHits); pendingIronhornHits = 0; ironhornHitBatchTimer = 0; }
+    } else if (isIonCitadelMap() && pendingAegisPrimeHits > 0) {
+      aegisPrimeHitBatchTimer -= dt;
+      if (aegisPrimeHitBatchTimer <= 0) { damageAegisPrime(pendingAegisPrimeHits); pendingAegisPrimeHits = 0; aegisPrimeHitBatchTimer = 0; }
     } else if (isVerdantCatacombsMap() && pendingGravebloomHits > 0) {
       gravebloomHitBatchTimer -= dt;
       if (gravebloomHitBatchTimer <= 0) { damageGravebloom(pendingGravebloomHits); pendingGravebloomHits = 0; gravebloomHitBatchTimer = 0; }
@@ -662,12 +674,14 @@ export function createPlayerCombatController(options: {
       pendingDreadreaperHits = 0;
       pendingVoltwardenHits = 0;
       pendingGravebloomHits = 0;
+      pendingAegisPrimeHits = 0;
       miremawHitBatchTimer = 0;
       prismshellHitBatchTimer = 0;
       ironhornHitBatchTimer = 0;
       dreadreaperHitBatchTimer = 0;
       voltwardenHitBatchTimer = 0;
       gravebloomHitBatchTimer = 0;
+      aegisPrimeHitBatchTimer = 0;
     },
     clearPendingThrow: () => {
       pendingPlayerAttack = null;

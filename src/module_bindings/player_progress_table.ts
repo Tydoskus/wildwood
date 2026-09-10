@@ -51,4 +51,5 @@ export default __t.row({
   duskfallOrchardUnlocked: __t.bool().name("duskfall_orchard_unlocked"),
   neonBastionUnlocked: __t.bool().name("neon_bastion_unlocked"),
   verdantCatacombsUnlocked: __t.bool().name("verdant_catacombs_unlocked"),
+  ionCitadelUnlocked: __t.bool().name("ion_citadel_unlocked"),
 });

@@ -1,3 +1,4 @@
+import { createIonCitadelLayout } from "./ion-layout";
 import { createVerdantCatacombsLayout } from "./verdant-layout";
 import { createNeonBastionLayout } from "./neon-layout";
 import { HOME_EXTERIOR_MAP_ID, HOME_BENCH_POSITION, HOME_RESEARCH_POSITION } from "../../shared/home";
@@ -59,6 +60,7 @@ export const CLOCKWORK_RUINS_MAP_ID = "clockwork_ruins";
 export const DUSKFALL_ORCHARD_MAP_ID = "duskfall_orchard";
 export const NEON_BASTION_MAP_ID = "neon_bastion";
 export const VERDANT_CATACOMBS_MAP_ID = "verdant_catacombs";
+export const ION_CITADEL_MAP_ID = "ion_citadel";
 export const UPGRADE_BENCH_POSITION = HOME_BENCH_POSITION;
 export type MapId =
   | typeof HOME_EXTERIOR_MAP_ID
@@ -71,7 +73,7 @@ export type MapId =
   | typeof SAMURAI_GARDEN_MAP_ID
   | typeof CLOUDSPIRE_MAP_ID
   | typeof MOONFEN_MAP_ID
-  | typeof CRYSTAL_HOLLOWS_MAP_ID | typeof CLOCKWORK_RUINS_MAP_ID | typeof DUSKFALL_ORCHARD_MAP_ID | typeof NEON_BASTION_MAP_ID | typeof VERDANT_CATACOMBS_MAP_ID;
+  | typeof CRYSTAL_HOLLOWS_MAP_ID | typeof CLOCKWORK_RUINS_MAP_ID | typeof DUSKFALL_ORCHARD_MAP_ID | typeof NEON_BASTION_MAP_ID | typeof VERDANT_CATACOMBS_MAP_ID | typeof ION_CITADEL_MAP_ID;
 
 type SpawnFormation = "scatter" | "crescent" | "shoal" | "ranks";
 export type SpawnCamp = {
@@ -186,6 +188,13 @@ const VERDANT_CATACOMBS_CAMPS: SpawnCamp[] = [
   { name: "Ossuary Vault", x: 3570, y: 2350, minRadius: 220, radius: 390, count: 7, types: ["Ossuary Guardian"], formation: "crescent", rotation: 1.7 },
   { name: "Briar Sepulcher", x: 990, y: 3190, minRadius: 190, radius: 350, count: 7, types: ["Briar Reaver"], formation: "crescent", rotation: -.5 },
   { name: "Mycelium Sanctum", x: 2650, y: 3600, minRadius: 180, radius: 340, count: 4, types: ["Crypt Oracle"], formation: "ranks", rotation: .4 },
+];
+const ION_CITADEL_CAMPS: SpawnCamp[] = [
+  { name: "Shield Gate", x: 1100, y: 1350, minRadius: 190, radius: 340, count: 6, types: ["Ion Patrol"], formation: "ranks", rotation: 0 },
+  { name: "Capacitor Court", x: 2800, y: 1050, minRadius: 200, radius: 360, count: 6, types: ["Capacitor Gunner", "Capacitor Gunner", "Capacitor Gunner", "Capacitor Gunner", "Capacitor Gunner", "Citadel Marshal"], formation: "crescent", rotation: -.25 },
+  { name: "Armored Rampart", x: 3550, y: 2480, minRadius: 230, radius: 400, count: 7, types: ["Bastion Defender"], formation: "ranks", rotation: 1.57 },
+  { name: "Flux Assembly", x: 1020, y: 3150, minRadius: 200, radius: 360, count: 7, types: ["Flux Enforcer"], formation: "crescent", rotation: -.4 },
+  { name: "Reactor Annex", x: 2550, y: 3700, minRadius: 180, radius: 330, count: 4, types: ["Reactor Warden"], formation: "ranks", rotation: 0 },
 ];
 
 const CAMP_CLEARANCE = 160;
@@ -745,7 +754,7 @@ export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FO
   if (mapId === SAMURAI_GARDEN_MAP_ID) return createSamuraiGardenLayout();
   if (mapId === CLOUDSPIRE_MAP_ID) return createCloudspireLayout();
   if (mapId === MOONFEN_MAP_ID) return createMoonfenLayout();
-  if (mapId === CLOCKWORK_RUINS_MAP_ID) return createClockworkRuinsLayout(); else if (mapId === VERDANT_CATACOMBS_MAP_ID) return createVerdantCatacombsLayout(VERDANT_CATACOMBS_CAMPS); else if (mapId === NEON_BASTION_MAP_ID) return createNeonBastionLayout(NEON_BASTION_CAMPS); else if (mapId === DUSKFALL_ORCHARD_MAP_ID) return createDuskfallOrchardLayout(); else if (mapId === CRYSTAL_HOLLOWS_MAP_ID) return createCrystalHollowsLayout();
+  if (mapId === CLOCKWORK_RUINS_MAP_ID) return createClockworkRuinsLayout(); else if (mapId === ION_CITADEL_MAP_ID) return createIonCitadelLayout(ION_CITADEL_CAMPS); else if (mapId === VERDANT_CATACOMBS_MAP_ID) return createVerdantCatacombsLayout(VERDANT_CATACOMBS_CAMPS); else if (mapId === NEON_BASTION_MAP_ID) return createNeonBastionLayout(NEON_BASTION_CAMPS); else if (mapId === DUSKFALL_ORCHARD_MAP_ID) return createDuskfallOrchardLayout(); else if (mapId === CRYSTAL_HOLLOWS_MAP_ID) return createCrystalHollowsLayout();
   const decor: WorldDecor[] = [];
   const paths: WorldPath[] = [];
   const centerX = WORLD.w / 2;
@@ -829,7 +838,7 @@ export function mapSpawnCamps(mapId: MapId = TUTORIAL_FOREST_MAP_ID): readonly S
                   ? MOONFEN_CAMPS
                   : mapId === CRYSTAL_HOLLOWS_MAP_ID
                     ? CRYSTAL_HOLLOWS_CAMPS
-                    : mapId === CLOCKWORK_RUINS_MAP_ID ? CLOCKWORK_RUINS_CAMPS : mapId === VERDANT_CATACOMBS_MAP_ID ? VERDANT_CATACOMBS_CAMPS : mapId === NEON_BASTION_MAP_ID ? NEON_BASTION_CAMPS : mapId === DUSKFALL_ORCHARD_MAP_ID ? DUSKFALL_ORCHARD_CAMPS : CAMPS;
+                    : mapId === CLOCKWORK_RUINS_MAP_ID ? CLOCKWORK_RUINS_CAMPS : mapId === ION_CITADEL_MAP_ID ? ION_CITADEL_CAMPS : mapId === VERDANT_CATACOMBS_MAP_ID ? VERDANT_CATACOMBS_CAMPS : mapId === NEON_BASTION_MAP_ID ? NEON_BASTION_CAMPS : mapId === DUSKFALL_ORCHARD_MAP_ID ? DUSKFALL_ORCHARD_CAMPS : CAMPS;
 }
 
 export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID): SpawnSite[] {

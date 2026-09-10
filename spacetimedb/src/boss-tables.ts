@@ -59,6 +59,7 @@ const ironhorn = createBossTableSet();
 const dreadreaper = createBossTableSet();
 const voltwarden = createBossTableSet();
 const gravebloom = createBossTableSet();
+const aegisPrime = createBossTableSet();
 
 export const dragonBossTables = {
   dragonBoss: dragon.boss,
@@ -151,4 +152,10 @@ export const gravebloomBossTables = {
   gravebloomContribution: gravebloom.contribution,
   gravebloomAttackWindow: gravebloom.attackWindow,
   gravebloomResult: gravebloom.result,
+};
+export const aegisPrimeBossTables = {
+  aegisPrimeBoss: aegisPrime.boss,
+  aegisPrimeContribution: aegisPrime.contribution,
+  aegisPrimeAttackWindow: aegisPrime.attackWindow,
+  aegisPrimeResult: aegisPrime.result,
 };

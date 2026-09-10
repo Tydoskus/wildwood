@@ -54,6 +54,7 @@ import ConfigureGemCommerceReducer from "./configure_gem_commerce_reducer";
 import ConfigureShardCoordinatorReducer from "./configure_shard_coordinator_reducer";
 import ConfigureShardingReducer from "./configure_sharding_reducer";
 import CreateGuildReducer from "./create_guild_reducer";
+import DamageAegisPrimeFromPositionReducer from "./damage_aegis_prime_from_position_reducer";
 import DamageDragonReducer from "./damage_dragon_reducer";
 import DamageDragonBatchReducer from "./damage_dragon_batch_reducer";
 import DamageDragonFromPositionReducer from "./damage_dragon_from_position_reducer";
@@ -151,6 +152,8 @@ import * as SynchronizeMapShardProcedure from "./synchronize_map_shard_procedure
 import ActiveItemUpgradeRow from "./active_item_upgrade_table";
 import ActiveItemUpgradeSlotTwoRow from "./active_item_upgrade_slot_two_table";
 import ActiveResearchRow from "./active_research_table";
+import AegisPrimeBossRow from "./aegis_prime_boss_table";
+import AegisPrimeResultRow from "./aegis_prime_result_table";
 import BossAttackFrameRow from "./boss_attack_frame_table";
 import BossHitResultRow from "./boss_hit_result_table";
 import ChatMessageRow from "./chat_message_table";
@@ -256,6 +259,28 @@ const tablesSchema = __schema({
       { name: 'active_research_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, ActiveResearchRow),
+  aegisPrimeBoss: __table({
+    name: 'aegis_prime_boss',
+    indexes: [
+      { accessor: 'id', name: 'aegis_prime_boss_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'aegis_prime_boss_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, AegisPrimeBossRow),
+  aegisPrimeResult: __table({
+    name: 'aegis_prime_result',
+    indexes: [
+      { accessor: 'id', name: 'aegis_prime_result_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'aegis_prime_result_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, AegisPrimeResultRow),
   bossAttackFrame: __table({
     name: 'boss_attack_frame',
     indexes: [
@@ -994,6 +1019,7 @@ const reducersSchema = __reducers(
   __reducerSchema("configure_shard_coordinator", ConfigureShardCoordinatorReducer),
   __reducerSchema("configure_sharding", ConfigureShardingReducer),
   __reducerSchema("create_guild", CreateGuildReducer),
+  __reducerSchema("damage_aegis_prime_from_position", DamageAegisPrimeFromPositionReducer),
   __reducerSchema("damage_dragon", DamageDragonReducer),
   __reducerSchema("damage_dragon_batch", DamageDragonBatchReducer),
   __reducerSchema("damage_dragon_from_position", DamageDragonFromPositionReducer),

@@ -24,7 +24,7 @@ export const BOSS_DAMAGE_REFERENCE = {
   koiShogun: bossHeavyHitAt(5),
   tempestKirin: bossHeavyHitAt(6),
   miremaw: bossHeavyHitAt(7),
-  prismshell: bossHeavyHitAt(8), ironhorn: bossHeavyHitAt(9), dreadreaper: bossHeavyHitAt(10), voltwarden: bossHeavyHitAt(11), gravebloom: bossHeavyHitAt(12),
+  prismshell: bossHeavyHitAt(8), ironhorn: bossHeavyHitAt(9), dreadreaper: bossHeavyHitAt(10), voltwarden: bossHeavyHitAt(11), gravebloom: bossHeavyHitAt(12), aegisPrime: bossHeavyHitAt(13),
 } as const;
 
 export const BOSS_DAMAGE_PROFILES = {
@@ -37,5 +37,5 @@ export const BOSS_DAMAGE_PROFILES = {
   koiShogun: scaledProfile(BOSS_DAMAGE_REFERENCE.koiShogun, { slash: 1, whirlpool: .7, contact: .5 }),
   tempestKirin: scaledProfile(BOSS_DAMAGE_REFERENCE.tempestKirin, { charge: 1, thunder: .7, contact: .5 }),
   miremaw: scaledProfile(BOSS_DAMAGE_REFERENCE.miremaw, { tongue: 1, bogBurst: .7, contact: .5 }),
-  prismshell: scaledProfile(BOSS_DAMAGE_REFERENCE.prismshell, { shatter: 1, crystalBurst: .7, contact: .5 }), ironhorn: scaledProfile(BOSS_DAMAGE_REFERENCE.ironhorn, { shatter: 1, crystalBurst: .7, contact: .5 }), dreadreaper: scaledProfile(BOSS_DAMAGE_REFERENCE.dreadreaper, { shatter: 1, crystalBurst: .7, contact: .5 }), voltwarden: scaledProfile(BOSS_DAMAGE_REFERENCE.voltwarden, { shatter: 1, crystalBurst: .7, contact: .5 }), gravebloom: scaledProfile(BOSS_DAMAGE_REFERENCE.gravebloom, { shatter: 1, crystalBurst: .7, contact: .5 }),
+  prismshell: scaledProfile(BOSS_DAMAGE_REFERENCE.prismshell, { shatter: 1, crystalBurst: .7, contact: .5 }), ironhorn: scaledProfile(BOSS_DAMAGE_REFERENCE.ironhorn, { shatter: 1, crystalBurst: .7, contact: .5 }), dreadreaper: scaledProfile(BOSS_DAMAGE_REFERENCE.dreadreaper, { shatter: 1, crystalBurst: .7, contact: .5 }), voltwarden: scaledProfile(BOSS_DAMAGE_REFERENCE.voltwarden, { shatter: 1, crystalBurst: .7, contact: .5 }), gravebloom: scaledProfile(BOSS_DAMAGE_REFERENCE.gravebloom, { shatter: 1, crystalBurst: .7, contact: .5 }), aegisPrime: scaledProfile(BOSS_DAMAGE_REFERENCE.aegisPrime, { shatter: 1, crystalBurst: .7, contact: .5 }),
 } as const;

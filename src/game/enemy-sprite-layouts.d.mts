@@ -63,5 +63,6 @@ clockwork_ruins: string;
 duskfall_orchard: string;
 neon_bastion: string;
 verdant_catacombs: string;
+ion_citadel: string;
 };
 export const ENEMY_SPRITE_LAYOUTS: Record<string, EnemySpriteLayout>;

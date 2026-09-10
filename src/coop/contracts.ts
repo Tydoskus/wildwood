@@ -197,12 +197,14 @@ export type IronhornBossState = DragonBossState;
 export type DreadreaperBossState = DragonBossState;
 export type VoltwardenBossState = DragonBossState;
 export type GravebloomBossState = DragonBossState;
+export type AegisPrimeBossState = DragonBossState;
 export type MiremawResult = DragonResult;
 export type PrismshellResult = DragonResult;
 export type IronhornResult = DragonResult;
 export type DreadreaperResult = DragonResult;
 export type VoltwardenResult = DragonResult;
 export type GravebloomResult = DragonResult;
+export type AegisPrimeResult = DragonResult;
 
 export type DragonContributor = {
   identity: string;

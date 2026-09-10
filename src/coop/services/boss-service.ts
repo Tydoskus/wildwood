@@ -11,9 +11,9 @@ import type {
   MagmaliskBossState,
   MagmaliskResult,
   MiremawBossState,
-  PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState,
+  PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, AegisPrimeBossState,
   MiremawResult,
-  PrismshellResult, IronhornResult, DreadreaperResult, VoltwardenResult, GravebloomResult,
+  PrismshellResult, IronhornResult, DreadreaperResult, VoltwardenResult, GravebloomResult, AegisPrimeResult,
   SpiderBossState,
   SpiderResult,
   TempestKirinBossState,
@@ -112,12 +112,14 @@ export function createBossService(dependencies: BossServiceDependencies) {
   let dreadreaper: DreadreaperBossState | null = null;
   let voltwarden: VoltwardenBossState | null = null;
   let gravebloom: GravebloomBossState | null = null;
+  let aegisPrime: AegisPrimeBossState | null = null;
   let miremawResult: MiremawResult | null = null;
   let prismshellResult: PrismshellResult | null = null;
   let ironhornResult: IronhornResult | null = null;
   let dreadreaperResult: DreadreaperResult | null = null;
   let voltwardenResult: VoltwardenResult | null = null;
   let gravebloomResult: GravebloomResult | null = null;
+  let aegisPrimeResult: AegisPrimeResult | null = null;
 
   function damage(
     action: string,
@@ -206,6 +208,8 @@ export function createBossService(dependencies: BossServiceDependencies) {
         voltwarden = bossState(row);
       }, upsertGravebloom(row: BossRow) {
         gravebloom = bossState(row);
+      }, upsertAegisPrime(row: BossRow) {
+        aegisPrime = bossState(row);
       },
       upsertMiremawResult(row: BossResultRow) {
         miremawResult = bossResult(row);
@@ -225,6 +229,9 @@ export function createBossService(dependencies: BossServiceDependencies) {
         dependencies.notify();
       }, upsertGravebloomResult(row: BossResultRow) {
         gravebloomResult = bossResult(row);
+        dependencies.notify();
+      }, upsertAegisPrimeResult(row: BossResultRow) {
+        aegisPrimeResult = bossResult(row);
         dependencies.notify();
       },
     },
@@ -247,9 +254,9 @@ export function createBossService(dependencies: BossServiceDependencies) {
       tempestKirinBoss: () => tempestKirin ? { ...tempestKirin } : null,
       tempestKirinResult: () => copyResult(tempestKirinResult),
       miremawBoss: () => miremaw ? { ...miremaw } : null,
-      prismshellBoss: () => prismshell ? { ...prismshell } : null, ironhornBoss: () => ironhorn ? { ...ironhorn } : null, dreadreaperBoss: () => dreadreaper ? { ...dreadreaper } : null, voltwardenBoss: () => voltwarden ? { ...voltwarden } : null, gravebloomBoss: () => gravebloom ? { ...gravebloom } : null,
+      prismshellBoss: () => prismshell ? { ...prismshell } : null, ironhornBoss: () => ironhorn ? { ...ironhorn } : null, dreadreaperBoss: () => dreadreaper ? { ...dreadreaper } : null, voltwardenBoss: () => voltwarden ? { ...voltwarden } : null, gravebloomBoss: () => gravebloom ? { ...gravebloom } : null, aegisPrimeBoss: () => aegisPrime ? { ...aegisPrime } : null,
       miremawResult: () => copyResult(miremawResult),
-      prismshellResult: () => copyResult(prismshellResult), ironhornResult: () => copyResult(ironhornResult), dreadreaperResult: () => copyResult(dreadreaperResult), voltwardenResult: () => copyResult(voltwardenResult), gravebloomResult: () => copyResult(gravebloomResult),
+      prismshellResult: () => copyResult(prismshellResult), ironhornResult: () => copyResult(ironhornResult), dreadreaperResult: () => copyResult(dreadreaperResult), voltwardenResult: () => copyResult(voltwardenResult), gravebloomResult: () => copyResult(gravebloomResult), aegisPrimeResult: () => copyResult(aegisPrimeResult),
       damageDragon(hits = 1, x?: number, y?: number) {
         damage("dragon damage", (connection, count, px, py) => connection.reducers.damageDragonFromPosition({ hits: count, x: px, y: py }), hits, x, y);
       },
@@ -287,6 +294,8 @@ export function createBossService(dependencies: BossServiceDependencies) {
         damage("Voltwarden damage", (connection, count, px, py) => connection.reducers.damageVoltwardenFromPosition({ hits: count, x: px, y: py }), hits, x, y);
       }, damageGravebloom(hits = 1, x?: number, y?: number) {
         damage("Gravebloom damage", (connection, count, px, py) => connection.reducers.damageGravebloomFromPosition({ hits: count, x: px, y: py }), hits, x, y);
+      }, damageAegisPrime(hits = 1, x?: number, y?: number) {
+        damage("Aegis Prime damage", (connection, count, px, py) => connection.reducers.damageAegisPrimeFromPosition({ hits: count, x: px, y: py }), hits, x, y);
       },
     },
     resetSession() {
@@ -313,12 +322,14 @@ export function createBossService(dependencies: BossServiceDependencies) {
       dreadreaper = null;
       voltwarden = null;
       gravebloom = null;
+      aegisPrime = null;
       miremawResult = null;
       prismshellResult = null;
       ironhornResult = null;
       dreadreaperResult = null;
       voltwardenResult = null;
       gravebloomResult = null;
+      aegisPrimeResult = null;
     },
   };
 }

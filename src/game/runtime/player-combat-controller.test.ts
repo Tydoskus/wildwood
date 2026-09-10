@@ -26,7 +26,7 @@ function createCombatHarness(overrides: Partial<Parameters<typeof createPlayerCo
     koiShogunBoss: state.koiShogunBoss,
     tempestKirinBoss: state.tempestKirinBoss,
     miremawBoss: state.miremawBoss,
-    prismshellBoss: state.prismshellBoss, ironhornBoss: state.ironhornBoss, dreadreaperBoss: state.dreadreaperBoss, voltwardenBoss: state.voltwardenBoss, gravebloomBoss: state.gravebloomBoss,
+    prismshellBoss: state.prismshellBoss, ironhornBoss: state.ironhornBoss, dreadreaperBoss: state.dreadreaperBoss, voltwardenBoss: state.voltwardenBoss, gravebloomBoss: state.gravebloomBoss, aegisPrimeBoss: state.aegisPrimeBoss,
     nowSeconds: () => 1,
     isTutorialMap: () => true,
     isDesertMap: () => false,
@@ -37,7 +37,7 @@ function createCombatHarness(overrides: Partial<Parameters<typeof createPlayerCo
     isSamuraiMap: () => false,
     isCloudspireMap: () => false,
     isMoonfenMap: () => false,
-    isCrystalHollowsMap: () => false, isClockworkRuinsMap: () => false, isDuskfallOrchardMap: () => false, isNeonBastionMap: () => false, isVerdantCatacombsMap: () => false,
+    isCrystalHollowsMap: () => false, isClockworkRuinsMap: () => false, isDuskfallOrchardMap: () => false, isNeonBastionMap: () => false, isVerdantCatacombsMap: () => false, isIonCitadelMap: () => false,
     engageEnemy: noop,
     researchDamageMultiplier: () => 1,
     researchCriticalChance: () => 0,
@@ -65,7 +65,7 @@ function createCombatHarness(overrides: Partial<Parameters<typeof createPlayerCo
     damageKoiShogun: noop,
     damageTempestKirin: noop,
     damageMiremaw: noop,
-    damagePrismshell: noop, damageIronhorn: noop, damageDreadreaper: noop, damageVoltwarden: noop, damageGravebloom: noop,
+    damagePrismshell: noop, damageIronhorn: noop, damageDreadreaper: noop, damageVoltwarden: noop, damageGravebloom: noop, damageAegisPrime: noop,
     spawnBurst: noop,
     spawnParticle: noop,
     spawnDamageNumber: noop,
@@ -232,7 +232,7 @@ describe("player attack timing", () => {
       koiShogunBoss: state.koiShogunBoss,
       tempestKirinBoss: state.tempestKirinBoss,
       miremawBoss: state.miremawBoss,
-      prismshellBoss: state.prismshellBoss, ironhornBoss: state.ironhornBoss, dreadreaperBoss: state.dreadreaperBoss, voltwardenBoss: state.voltwardenBoss, gravebloomBoss: state.gravebloomBoss,
+      prismshellBoss: state.prismshellBoss, ironhornBoss: state.ironhornBoss, dreadreaperBoss: state.dreadreaperBoss, voltwardenBoss: state.voltwardenBoss, gravebloomBoss: state.gravebloomBoss, aegisPrimeBoss: state.aegisPrimeBoss,
       nowSeconds: () => 1,
       isTutorialMap: () => false,
       isDesertMap: () => false,
@@ -243,7 +243,7 @@ describe("player attack timing", () => {
       isSamuraiMap: () => false,
       isCloudspireMap: () => false,
       isMoonfenMap: () => false,
-      isCrystalHollowsMap: () => false, isClockworkRuinsMap: () => false, isDuskfallOrchardMap: () => false, isNeonBastionMap: () => false, isVerdantCatacombsMap: () => false,
+      isCrystalHollowsMap: () => false, isClockworkRuinsMap: () => false, isDuskfallOrchardMap: () => false, isNeonBastionMap: () => false, isVerdantCatacombsMap: () => false, isIonCitadelMap: () => false,
       engageEnemy: noop,
       researchDamageMultiplier: () => 1,
       researchCriticalChance: () => 0,
@@ -271,7 +271,7 @@ describe("player attack timing", () => {
       damageKoiShogun: noop,
       damageTempestKirin: noop,
       damageMiremaw: noop,
-      damagePrismshell: noop, damageIronhorn: noop, damageDreadreaper: noop, damageVoltwarden: noop, damageGravebloom: noop,
+      damagePrismshell: noop, damageIronhorn: noop, damageDreadreaper: noop, damageVoltwarden: noop, damageGravebloom: noop, damageAegisPrime: noop,
       spawnBurst: noop,
       spawnParticle: noop,
       spawnDamageNumber,
@@ -350,4 +350,19 @@ it("routes catacombs projectile hits exclusively to Gravebloom", () => {
   for (let i = 0; i < 30; i++) { now += .02; state.controller.updateProjectiles(.02); }
   expect(damageGravebloom).toHaveBeenCalled();
   expect(damageVoltwarden).not.toHaveBeenCalled();
+});
+
+it("routes Ion Citadel projectile hits exclusively to Aegis Prime", () => {
+  let now = 10;
+  const damageAegisPrime = vi.fn(), damageGravebloom = vi.fn();
+  const state = createCombatHarness({ nowSeconds: () => now, isTutorialMap: () => false,
+    isIonCitadelMap: () => true, damageAegisPrime, damageGravebloom });
+  state.enemies.length = 0;
+  Object.assign(state.player, { x: state.aegisPrimeBoss.x + state.aegisPrimeBoss.r + 25, y: state.aegisPrimeBoss.y });
+  state.controller.attackNearest();
+  now += .13;
+  state.controller.attackNearest();
+  for (let i = 0; i < 30; i++) { now += .02; state.controller.updateProjectiles(.02); }
+  expect(damageAegisPrime).toHaveBeenCalled();
+  expect(damageGravebloom).not.toHaveBeenCalled();
 });

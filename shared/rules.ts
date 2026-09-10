@@ -71,7 +71,7 @@ export const BOSS_REWARD_CLAIM_BITS = {
   koiShogun: 1 << 6,
   tempestKirin: 1 << 7,
   miremaw: 1 << 8,
-  prismshell: 1 << 9, ironhorn: 1 << 10, dreadreaper: 1 << 11, voltwarden: 1 << 12, gravebloom: 1 << 13,
+  prismshell: 1 << 9, ironhorn: 1 << 10, dreadreaper: 1 << 11, voltwarden: 1 << 12, gravebloom: 1 << 13, aegisPrime: 1 << 14,
 } as const;
 
 // Forest owns its tutorial boss; campaign bosses use Desert-relative tiers.
@@ -94,6 +94,7 @@ export const IRONHORN_MAX_HP = bossHealthAt(10);
 export const DREADREAPER_MAX_HP = bossHealthAt(11);
 export const VOLTWARDEN_MAX_HP = bossHealthAt(12);
 export const GRAVEBLOOM_MAX_HP = bossHealthAt(13);
+export const AEGIS_PRIME_MAX_HP = bossHealthAt(14);
 
 export const DRAGON_REWARD_DAMAGE = TUTORIAL_DRAGON_REWARD;
 export const SPIDER_REWARD_DAMAGE = bossRewardAt("damage", 1);
@@ -130,21 +131,25 @@ export const IRONHORN_REWARD_DAMAGE = bossRewardAt("damage", 10);
 export const DREADREAPER_REWARD_DAMAGE = bossRewardAt("damage", 11);
 export const VOLTWARDEN_REWARD_DAMAGE = bossRewardAt("damage", 12);
 export const GRAVEBLOOM_REWARD_DAMAGE = bossRewardAt("damage", 13);
+export const AEGIS_PRIME_REWARD_DAMAGE = bossRewardAt("damage", 14);
 export const PRISMSHELL_REWARD_HEALTH = bossRewardAt("health", 9);
 export const IRONHORN_REWARD_HEALTH = bossRewardAt("health", 10);
 export const DREADREAPER_REWARD_HEALTH = bossRewardAt("health", 11);
 export const VOLTWARDEN_REWARD_HEALTH = bossRewardAt("health", 12);
 export const GRAVEBLOOM_REWARD_HEALTH = bossRewardAt("health", 13);
+export const AEGIS_PRIME_REWARD_HEALTH = bossRewardAt("health", 14);
 export const PRISMSHELL_REWARD_ARMOR = bossRewardAt("armor", 9);
 export const IRONHORN_REWARD_ARMOR = bossRewardAt("armor", 10);
 export const DREADREAPER_REWARD_ARMOR = bossRewardAt("armor", 11);
 export const VOLTWARDEN_REWARD_ARMOR = bossRewardAt("armor", 12);
 export const GRAVEBLOOM_REWARD_ARMOR = bossRewardAt("armor", 13);
+export const AEGIS_PRIME_REWARD_ARMOR = bossRewardAt("armor", 14);
 export const PRISMSHELL_REWARD_REGEN = bossRewardAt("regen", 9);
 export const IRONHORN_REWARD_REGEN = bossRewardAt("regen", 10);
 export const DREADREAPER_REWARD_REGEN = bossRewardAt("regen", 11);
 export const VOLTWARDEN_REWARD_REGEN = bossRewardAt("regen", 12);
 export const GRAVEBLOOM_REWARD_REGEN = bossRewardAt("regen", 13);
+export const AEGIS_PRIME_REWARD_REGEN = bossRewardAt("regen", 14);
 
 export const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
 export const BEGINNER_DESERT_MAP_ID = "beginner_desert";
@@ -160,6 +165,7 @@ export const CLOCKWORK_RUINS_MAP_ID = "clockwork_ruins";
 export const DUSKFALL_ORCHARD_MAP_ID = "duskfall_orchard";
 export const NEON_BASTION_MAP_ID = "neon_bastion";
 export const VERDANT_CATACOMBS_MAP_ID = "verdant_catacombs";
+export const ION_CITADEL_MAP_ID = "ion_citadel";
 export const MAP_DISPLAY_NAMES = {
   home_exterior: "Home",
   [TUTORIAL_FOREST_MAP_ID]: "Tutorial Forest",
@@ -171,7 +177,7 @@ export const MAP_DISPLAY_NAMES = {
   [SAMURAI_GARDEN_MAP_ID]: "Samurai Garden",
   [CLOUDSPIRE_MAP_ID]: "Cloudspire",
   [MOONFEN_MAP_ID]: "Moonfen",
-  [CRYSTAL_HOLLOWS_MAP_ID]: "Crystal Hollows", [CLOCKWORK_RUINS_MAP_ID]: "Clockwork Ruins", [DUSKFALL_ORCHARD_MAP_ID]: "Duskfall Orchard", [NEON_BASTION_MAP_ID]: "Neon Bastion", [VERDANT_CATACOMBS_MAP_ID]: "Verdant Catacombs",
+  [CRYSTAL_HOLLOWS_MAP_ID]: "Crystal Hollows", [CLOCKWORK_RUINS_MAP_ID]: "Clockwork Ruins", [DUSKFALL_ORCHARD_MAP_ID]: "Duskfall Orchard", [NEON_BASTION_MAP_ID]: "Neon Bastion", [VERDANT_CATACOMBS_MAP_ID]: "Verdant Catacombs", [ION_CITADEL_MAP_ID]: "Ion Citadel",
 } as const;
 export const MAP_IDS: readonly string[] = [
   TUTORIAL_FOREST_MAP_ID,
@@ -183,10 +189,10 @@ export const MAP_IDS: readonly string[] = [
   SAMURAI_GARDEN_MAP_ID,
   CLOUDSPIRE_MAP_ID,
   MOONFEN_MAP_ID,
-  CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, NEON_BASTION_MAP_ID, VERDANT_CATACOMBS_MAP_ID,
+  CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, NEON_BASTION_MAP_ID, VERDANT_CATACOMBS_MAP_ID, ION_CITADEL_MAP_ID,
 ];
 
-export const PROTOCOL_VERSION = 99;
+export const PROTOCOL_VERSION = 100;
 export const SPACETIME_AUTH_ISSUER = "https://auth.spacetimedb.com/oidc";
 export const SPACETIME_AUTH_CLIENT_ID = "client_03426HMgkAEmdC23XTZRKZ";
 

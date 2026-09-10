@@ -54,7 +54,7 @@ import {
   INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   MOONFEN_MAP_ID,
-  CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, NEON_BASTION_MAP_ID, VERDANT_CATACOMBS_MAP_ID,
+  CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, NEON_BASTION_MAP_ID, VERDANT_CATACOMBS_MAP_ID, ION_CITADEL_MAP_ID,
   SAMURAI_GARDEN_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   UPGRADE_BENCH_POSITION,
@@ -182,9 +182,9 @@ import {
     tempestKirinBoss,
     tempestKirinThunderbolts,
     miremawBoss,
-    prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss,
+    prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss,
     miremawBogBursts,
-    prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, gravebloomCrystalBursts,
+    prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, gravebloomCrystalBursts, aegisPrimeCrystalBursts,
     tidewyrmBoss,
     tidewyrmWhirlpools,
     inventory,
@@ -201,8 +201,8 @@ import {
     startSpawn: START_SPAWN,
   } = bootstrap;
   const presentation = createPresentationInterpolator({
-    singletons: [camera, player, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss],
-    collections: [enemies, projectiles, enemyShots, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, miremawBogBursts, prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, gravebloomCrystalBursts, particles, damageNumbers],
+    singletons: [camera, player, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss],
+    collections: [enemies, projectiles, enemyShots, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, miremawBogBursts, prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, gravebloomCrystalBursts, aegisPrimeCrystalBursts, particles, damageNumbers],
   });
   const healthMultiplier = () => equipmentMaxHealthMultiplier(
     inventory.equippedHead,
@@ -470,7 +470,7 @@ import {
     [INFERNAL_DEPTHS_MAP_ID, gloomrootBoss], [WATER_REACH_MAP_ID, tidewyrmBoss],
     [SAMURAI_GARDEN_MAP_ID, koiShogunBoss], [CLOUDSPIRE_MAP_ID, tempestKirinBoss],
     [MOONFEN_MAP_ID, miremawBoss], [CRYSTAL_HOLLOWS_MAP_ID, prismshellBoss],
-    [CLOCKWORK_RUINS_MAP_ID, ironhornBoss], [DUSKFALL_ORCHARD_MAP_ID, dreadreaperBoss], [NEON_BASTION_MAP_ID, voltwardenBoss], [VERDANT_CATACOMBS_MAP_ID, gravebloomBoss],
+    [CLOCKWORK_RUINS_MAP_ID, ironhornBoss], [DUSKFALL_ORCHARD_MAP_ID, dreadreaperBoss], [NEON_BASTION_MAP_ID, voltwardenBoss], [VERDANT_CATACOMBS_MAP_ID, gravebloomBoss], [ION_CITADEL_MAP_ID, aegisPrimeBoss],
   ]);
   const farmUnavailable = () => {
     if (!session?.isRunning() || player.hp <= 0) return "Start your adventure to farm";
@@ -530,7 +530,7 @@ import {
                         ? { kind: "tempestKirin" as const, state: tempestKirinBoss }
                         : currentMapId === MOONFEN_MAP_ID
                           ? { kind: "miremaw" as const, state: miremawBoss }
-                          : currentMapId === CRYSTAL_HOLLOWS_MAP_ID ? { kind: "prismshell" as const, state: prismshellBoss } : currentMapId === CLOCKWORK_RUINS_MAP_ID ? { kind: "ironhorn" as const, state: ironhornBoss } : currentMapId === VERDANT_CATACOMBS_MAP_ID ? { kind: "gravebloom" as const, state: gravebloomBoss } : currentMapId === NEON_BASTION_MAP_ID ? { kind: "voltwarden" as const, state: voltwardenBoss } : currentMapId === DUSKFALL_ORCHARD_MAP_ID ? { kind: "dreadreaper" as const, state: dreadreaperBoss } : null;
+                          : currentMapId === CRYSTAL_HOLLOWS_MAP_ID ? { kind: "prismshell" as const, state: prismshellBoss } : currentMapId === CLOCKWORK_RUINS_MAP_ID ? { kind: "ironhorn" as const, state: ironhornBoss } : currentMapId === ION_CITADEL_MAP_ID ? { kind: "aegisPrime" as const, state: aegisPrimeBoss } : currentMapId === VERDANT_CATACOMBS_MAP_ID ? { kind: "gravebloom" as const, state: gravebloomBoss } : currentMapId === NEON_BASTION_MAP_ID ? { kind: "voltwarden" as const, state: voltwardenBoss } : currentMapId === DUSKFALL_ORCHARD_MAP_ID ? { kind: "dreadreaper" as const, state: dreadreaperBoss } : null;
         if (!target || target.state.encounter === null) return null;
         return {
           kind: target.kind,
@@ -591,7 +591,7 @@ import {
   });
 
   playerCombat = createPlayerCombatController({
-    player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss,
+    player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss,
     nowSeconds: () => session?.gameTime() ?? 0,
     serverNowMs: () => coop?.serverNowMs?.() ?? Date.now(),
     localIdentity: () => coop?.localIdentity?.(),
@@ -604,7 +604,7 @@ import {
     isSamuraiMap: () => currentMapId === SAMURAI_GARDEN_MAP_ID,
     isCloudspireMap: () => currentMapId === CLOUDSPIRE_MAP_ID,
     isMoonfenMap: () => currentMapId === MOONFEN_MAP_ID,
-    isCrystalHollowsMap: () => currentMapId === CRYSTAL_HOLLOWS_MAP_ID, isClockworkRuinsMap: () => currentMapId === CLOCKWORK_RUINS_MAP_ID, isDuskfallOrchardMap: () => currentMapId === DUSKFALL_ORCHARD_MAP_ID, isNeonBastionMap: () => currentMapId === NEON_BASTION_MAP_ID, isVerdantCatacombsMap: () => currentMapId === VERDANT_CATACOMBS_MAP_ID,
+    isCrystalHollowsMap: () => currentMapId === CRYSTAL_HOLLOWS_MAP_ID, isClockworkRuinsMap: () => currentMapId === CLOCKWORK_RUINS_MAP_ID, isDuskfallOrchardMap: () => currentMapId === DUSKFALL_ORCHARD_MAP_ID, isNeonBastionMap: () => currentMapId === NEON_BASTION_MAP_ID, isVerdantCatacombsMap: () => currentMapId === VERDANT_CATACOMBS_MAP_ID, isIonCitadelMap: () => currentMapId === ION_CITADEL_MAP_ID,
     engageEnemy: (enemy) => engageEnemy(
       enemy,
       coop?.localIdentity?.() || LOCAL_REGULAR_ENEMY_TARGET_ID,
@@ -641,7 +641,7 @@ import {
     damageKoiShogun: (hits) => coop?.damageKoiShogun?.(hits, player.x, player.y),
     damageTempestKirin: (hits) => coop?.damageTempestKirin?.(hits, player.x, player.y),
     damageMiremaw: (hits) => coop?.damageMiremaw?.(hits, player.x, player.y),
-    damagePrismshell: (hits) => coop?.damagePrismshell?.(hits, player.x, player.y), damageIronhorn: (hits) => coop?.damageIronhorn?.(hits, player.x, player.y), damageDreadreaper: (hits) => coop?.damageDreadreaper?.(hits, player.x, player.y), damageVoltwarden: (hits) => coop?.damageVoltwarden?.(hits, player.x, player.y), damageGravebloom: (hits) => coop?.damageGravebloom?.(hits, player.x, player.y),
+    damagePrismshell: (hits) => coop?.damagePrismshell?.(hits, player.x, player.y), damageIronhorn: (hits) => coop?.damageIronhorn?.(hits, player.x, player.y), damageDreadreaper: (hits) => coop?.damageDreadreaper?.(hits, player.x, player.y), damageVoltwarden: (hits) => coop?.damageVoltwarden?.(hits, player.x, player.y), damageGravebloom: (hits) => coop?.damageGravebloom?.(hits, player.x, player.y), damageAegisPrime: (hits) => coop?.damageAegisPrime?.(hits, player.x, player.y),
     spawnBurst,
     spawnParticle,
     spawnDamageNumber,
@@ -763,7 +763,7 @@ import {
           ? Boolean(coop?.savedProgress?.()?.cloudspireUnlocked)
         : mapId === MOONFEN_MAP_ID
           ? Boolean(coop?.savedProgress?.()?.moonfenUnlocked)
-                    : mapId === CRYSTAL_HOLLOWS_MAP_ID ? Boolean(coop?.savedProgress?.()?.crystalHollowsUnlocked) : mapId === CLOCKWORK_RUINS_MAP_ID ? Boolean(coop?.savedProgress?.()?.clockworkRuinsUnlocked) : mapId === VERDANT_CATACOMBS_MAP_ID ? Boolean(coop?.savedProgress?.()?.verdantCatacombsUnlocked) : mapId === NEON_BASTION_MAP_ID ? Boolean(coop?.savedProgress?.()?.neonBastionUnlocked) : mapId === DUSKFALL_ORCHARD_MAP_ID ? Boolean(coop?.savedProgress?.()?.duskfallOrchardUnlocked) : true,
+                    : mapId === CRYSTAL_HOLLOWS_MAP_ID ? Boolean(coop?.savedProgress?.()?.crystalHollowsUnlocked) : mapId === CLOCKWORK_RUINS_MAP_ID ? Boolean(coop?.savedProgress?.()?.clockworkRuinsUnlocked) : mapId === ION_CITADEL_MAP_ID ? Boolean(coop?.savedProgress?.()?.ionCitadelUnlocked) : mapId === VERDANT_CATACOMBS_MAP_ID ? Boolean(coop?.savedProgress?.()?.verdantCatacombsUnlocked) : mapId === NEON_BASTION_MAP_ID ? Boolean(coop?.savedProgress?.()?.neonBastionUnlocked) : mapId === DUSKFALL_ORCHARD_MAP_ID ? Boolean(coop?.savedProgress?.()?.duskfallOrchardUnlocked) : true,
     syncMapMusic,
     rebuildWorld: () => playerController.rebuildWorld(),
     spawnFromSite,
@@ -779,7 +779,7 @@ import {
     koiShogunWhirlpools,
     tempestKirinThunderbolts,
     miremawBogBursts,
-    prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, gravebloomCrystalBursts,
+    prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, gravebloomCrystalBursts, aegisPrimeCrystalBursts,
     boss,
     spiderBoss,
     frostclawBoss,
@@ -789,7 +789,7 @@ import {
     koiShogunBoss,
     tempestKirinBoss,
     miremawBoss,
-    prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss,
+    prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss,
     clearPendingBossHits: () => playerCombat.clearPendingBossHits(),
     onCutsceneFinished: (wasPreview) => bossController.onPortalCutsceneFinished(wasPreview),
   });
@@ -805,7 +805,7 @@ import {
     koiShogunBoss,
     tempestKirinBoss,
     miremawBoss,
-    prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss,
+    prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss,
     bossRain,
     spiderVenom,
     frostclawIcefalls,
@@ -815,7 +815,7 @@ import {
     koiShogunWhirlpools,
     tempestKirinThunderbolts,
     miremawBogBursts,
-    prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, gravebloomCrystalBursts,
+    prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, gravebloomCrystalBursts, aegisPrimeCrystalBursts,
     player,
     getDragonBoss: () => coop?.dragonBoss?.(),
     getSpiderBoss: () => coop?.spiderBoss?.(),
@@ -826,7 +826,7 @@ import {
     getKoiShogunBoss: () => coop?.koiShogunBoss?.(),
     getTempestKirinBoss: () => coop?.tempestKirinBoss?.(),
     getMiremawBoss: () => coop?.miremawBoss?.(),
-    getPrismshellBoss: () => coop?.prismshellBoss?.(), getIronhornBoss: () => coop?.ironhornBoss?.(), getDreadreaperBoss: () => coop?.dreadreaperBoss?.(), getVoltwardenBoss: () => coop?.voltwardenBoss?.(), getGravebloomBoss: () => coop?.gravebloomBoss?.(),
+    getPrismshellBoss: () => coop?.prismshellBoss?.(), getIronhornBoss: () => coop?.ironhornBoss?.(), getDreadreaperBoss: () => coop?.dreadreaperBoss?.(), getVoltwardenBoss: () => coop?.voltwardenBoss?.(), getGravebloomBoss: () => coop?.gravebloomBoss?.(), getAegisPrimeBoss: () => coop?.aegisPrimeBoss?.(),
     getDragonResult: () => coop?.dragonResult?.(),
     getSpiderResult: () => coop?.spiderResult?.(),
     getFrostclawResult: () => coop?.frostclawResult?.(),
@@ -836,7 +836,7 @@ import {
     getKoiShogunResult: () => coop?.koiShogunResult?.(),
     getTempestKirinResult: () => coop?.tempestKirinResult?.(),
     getMiremawResult: () => coop?.miremawResult?.(),
-    getPrismshellResult: () => coop?.prismshellResult?.(), getIronhornResult: () => coop?.ironhornResult?.(), getDreadreaperResult: () => coop?.dreadreaperResult?.(), getVoltwardenResult: () => coop?.voltwardenResult?.(), getGravebloomResult: () => coop?.gravebloomResult?.(),
+    getPrismshellResult: () => coop?.prismshellResult?.(), getIronhornResult: () => coop?.ironhornResult?.(), getDreadreaperResult: () => coop?.dreadreaperResult?.(), getVoltwardenResult: () => coop?.voltwardenResult?.(), getGravebloomResult: () => coop?.gravebloomResult?.(), getAegisPrimeResult: () => coop?.aegisPrimeResult?.(),
     localIdentity: () => coop?.localIdentity?.(),
     serverNowMs: () => coop?.serverNowMs?.() ?? Date.now(),
     bossTargets: () => {
@@ -868,7 +868,7 @@ import {
     currentMapIsSamurai: () => currentMapId === SAMURAI_GARDEN_MAP_ID,
     currentMapIsCloudspire: () => currentMapId === CLOUDSPIRE_MAP_ID,
     currentMapIsMoonfen: () => currentMapId === MOONFEN_MAP_ID,
-    currentMapIsCrystalHollows: () => currentMapId === CRYSTAL_HOLLOWS_MAP_ID, currentMapIsClockworkRuins: () => currentMapId === CLOCKWORK_RUINS_MAP_ID, currentMapIsDuskfallOrchard: () => currentMapId === DUSKFALL_ORCHARD_MAP_ID, currentMapIsNeonBastion: () => currentMapId === NEON_BASTION_MAP_ID, currentMapIsVerdantCatacombs: () => currentMapId === VERDANT_CATACOMBS_MAP_ID,
+    currentMapIsCrystalHollows: () => currentMapId === CRYSTAL_HOLLOWS_MAP_ID, currentMapIsClockworkRuins: () => currentMapId === CLOCKWORK_RUINS_MAP_ID, currentMapIsDuskfallOrchard: () => currentMapId === DUSKFALL_ORCHARD_MAP_ID, currentMapIsNeonBastion: () => currentMapId === NEON_BASTION_MAP_ID, currentMapIsVerdantCatacombs: () => currentMapId === VERDANT_CATACOMBS_MAP_ID, currentMapIsIonCitadel: () => currentMapId === ION_CITADEL_MAP_ID,
     portalCutsceneActive: () => mapController.isCutsceneActive(),
     hasSeenDragonPortalCutscene: worldProgression.hasSeenDragonPortalCutscene,
     hasSeenSnowlandsPortalCutscene: worldProgression.hasSeenSnowlandsPortalCutscene,
@@ -1010,7 +1010,7 @@ import {
     samuraiMapId: SAMURAI_GARDEN_MAP_ID,
     cloudspireMapId: CLOUDSPIRE_MAP_ID,
     moonfenMapId: MOONFEN_MAP_ID,
-    crystalHollowsMapId: CRYSTAL_HOLLOWS_MAP_ID, clockworkRuinsMapId: CLOCKWORK_RUINS_MAP_ID, duskfallOrchardMapId: DUSKFALL_ORCHARD_MAP_ID, neonBastionMapId: NEON_BASTION_MAP_ID, verdantCatacombsMapId: VERDANT_CATACOMBS_MAP_ID,
+    crystalHollowsMapId: CRYSTAL_HOLLOWS_MAP_ID, clockworkRuinsMapId: CLOCKWORK_RUINS_MAP_ID, duskfallOrchardMapId: DUSKFALL_ORCHARD_MAP_ID, neonBastionMapId: NEON_BASTION_MAP_ID, verdantCatacombsMapId: VERDANT_CATACOMBS_MAP_ID, ionCitadelMapId: ION_CITADEL_MAP_ID,
     paths,
     decor,
     enemies,
@@ -1025,7 +1025,7 @@ import {
     koiShogunBoss,
     tempestKirinBoss,
     miremawBoss,
-    prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss,
+    prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss,
     bossRain,
     spiderVenom,
     frostclawIcefalls,
@@ -1035,7 +1035,7 @@ import {
     koiShogunWhirlpools,
     tempestKirinThunderbolts,
     miremawBogBursts,
-    prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, gravebloomCrystalBursts,
+    prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, gravebloomCrystalBursts, aegisPrimeCrystalBursts,
     activePortal,
     cutscenePortal: () => mapController.cutscenePortal(),
     secondaryPortal,
@@ -1125,6 +1125,7 @@ import {
       bossController.resetDreadreaperBoss();
       bossController.resetVoltwardenBoss();
       bossController.resetGravebloomBoss();
+      bossController.resetAegisPrimeBoss();
     },
     onResetUI: () => {
       session.resetGameTime();
@@ -1145,7 +1146,7 @@ import {
     resolveKoiShogunCollision: () => bossController.resolveKoiShogunCollision(),
     resolveTempestKirinCollision: () => bossController.resolveTempestKirinCollision(),
     resolveMiremawCollision: () => bossController.resolveMiremawCollision(),
-    resolvePrismshellCollision: () => bossController.resolvePrismshellCollision(), resolveIronhornCollision: () => bossController.resolveIronhornCollision(), resolveDreadreaperCollision: () => bossController.resolveDreadreaperCollision(), resolveVoltwardenCollision: () => bossController.resolveVoltwardenCollision(), resolveGravebloomCollision: () => bossController.resolveGravebloomCollision(),
+    resolvePrismshellCollision: () => bossController.resolvePrismshellCollision(), resolveIronhornCollision: () => bossController.resolveIronhornCollision(), resolveDreadreaperCollision: () => bossController.resolveDreadreaperCollision(), resolveVoltwardenCollision: () => bossController.resolveVoltwardenCollision(), resolveGravebloomCollision: () => bossController.resolveGravebloomCollision(), resolveAegisPrimeCollision: () => bossController.resolveAegisPrimeCollision(),
     applyBossKnockback: (dt) => bossController.applyBossKnockback(dt),
     isTutorialMap: () => currentMapId === TUTORIAL_FOREST_MAP_ID,
     isDesertMap: () => currentMapId === BEGINNER_DESERT_MAP_ID,
@@ -1156,7 +1157,7 @@ import {
     isSamuraiMap: () => currentMapId === SAMURAI_GARDEN_MAP_ID,
     isCloudspireMap: () => currentMapId === CLOUDSPIRE_MAP_ID,
     isMoonfenMap: () => currentMapId === MOONFEN_MAP_ID,
-    isCrystalHollowsMap: () => currentMapId === CRYSTAL_HOLLOWS_MAP_ID, isClockworkRuinsMap: () => currentMapId === CLOCKWORK_RUINS_MAP_ID, isDuskfallOrchardMap: () => currentMapId === DUSKFALL_ORCHARD_MAP_ID, isNeonBastionMap: () => currentMapId === NEON_BASTION_MAP_ID, isVerdantCatacombsMap: () => currentMapId === VERDANT_CATACOMBS_MAP_ID,
+    isCrystalHollowsMap: () => currentMapId === CRYSTAL_HOLLOWS_MAP_ID, isClockworkRuinsMap: () => currentMapId === CLOCKWORK_RUINS_MAP_ID, isDuskfallOrchardMap: () => currentMapId === DUSKFALL_ORCHARD_MAP_ID, isNeonBastionMap: () => currentMapId === NEON_BASTION_MAP_ID, isVerdantCatacombsMap: () => currentMapId === VERDANT_CATACOMBS_MAP_ID, isIonCitadelMap: () => currentMapId === ION_CITADEL_MAP_ID,
     viewport: () => ({ ...canvasRuntime.viewport(), zoom: camera.zoom }),
     cameraPosition: () => camera,
     isConnected: () => Boolean(coop?.isConnected?.()),
@@ -1514,7 +1515,7 @@ import {
                     ? { x: tempestKirinBoss.x, y: tempestKirinBoss.y, name: "Tempest Kirin", dead: tempestKirinBoss.dead }
                     : currentMapId === MOONFEN_MAP_ID
                       ? { x: miremawBoss.x, y: miremawBoss.y, name: "Miremaw", dead: miremawBoss.dead }
-                      : currentMapId === CRYSTAL_HOLLOWS_MAP_ID ? { x: prismshellBoss.x, y: prismshellBoss.y, name: "Prismshell", dead: prismshellBoss.dead } : currentMapId === CLOCKWORK_RUINS_MAP_ID ? { x: ironhornBoss.x, y: ironhornBoss.y, name: "Ironhorn", dead: ironhornBoss.dead } : currentMapId === VERDANT_CATACOMBS_MAP_ID ? { x: gravebloomBoss.x, y: gravebloomBoss.y, name: "Gravebloom", dead: gravebloomBoss.dead } : currentMapId === NEON_BASTION_MAP_ID ? { x: voltwardenBoss.x, y: voltwardenBoss.y, name: "Voltwarden", dead: voltwardenBoss.dead } : currentMapId === DUSKFALL_ORCHARD_MAP_ID ? { x: dreadreaperBoss.x, y: dreadreaperBoss.y, name: "Dreadreaper", dead: dreadreaperBoss.dead } : null,
+                      : currentMapId === CRYSTAL_HOLLOWS_MAP_ID ? { x: prismshellBoss.x, y: prismshellBoss.y, name: "Prismshell", dead: prismshellBoss.dead } : currentMapId === CLOCKWORK_RUINS_MAP_ID ? { x: ironhornBoss.x, y: ironhornBoss.y, name: "Ironhorn", dead: ironhornBoss.dead } : currentMapId === ION_CITADEL_MAP_ID ? { x: aegisPrimeBoss.x, y: aegisPrimeBoss.y, name: "Aegis Prime", dead: aegisPrimeBoss.dead } : currentMapId === VERDANT_CATACOMBS_MAP_ID ? { x: gravebloomBoss.x, y: gravebloomBoss.y, name: "Gravebloom", dead: gravebloomBoss.dead } : currentMapId === NEON_BASTION_MAP_ID ? { x: voltwardenBoss.x, y: voltwardenBoss.y, name: "Voltwarden", dead: voltwardenBoss.dead } : currentMapId === DUSKFALL_ORCHARD_MAP_ID ? { x: dreadreaperBoss.x, y: dreadreaperBoss.y, name: "Dreadreaper", dead: dreadreaperBoss.dead } : null,
     portals: () => {
       const portals = [activePortal()];
       const secondary = secondaryPortal();
@@ -1588,7 +1589,7 @@ import {
 
   session = createGameSessionController({
     player, camera, viewport: canvasRuntime.viewport,
-    tutorialMapId: TUTORIAL_FOREST_MAP_ID, desertMapId: BEGINNER_DESERT_MAP_ID, snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID, lavaMapId: ADVANCED_LAVA_WASTES_MAP_ID, infernalMapId: INFERNAL_DEPTHS_MAP_ID, waterMapId: WATER_REACH_MAP_ID, samuraiMapId: SAMURAI_GARDEN_MAP_ID, cloudspireMapId: CLOUDSPIRE_MAP_ID, moonfenMapId: MOONFEN_MAP_ID, crystalHollowsMapId: CRYSTAL_HOLLOWS_MAP_ID, clockworkRuinsMapId: CLOCKWORK_RUINS_MAP_ID, duskfallOrchardMapId: DUSKFALL_ORCHARD_MAP_ID, neonBastionMapId: NEON_BASTION_MAP_ID, verdantCatacombsMapId: VERDANT_CATACOMBS_MAP_ID,
+    tutorialMapId: TUTORIAL_FOREST_MAP_ID, desertMapId: BEGINNER_DESERT_MAP_ID, snowMapId: INTERMEDIATE_SNOWLANDS_MAP_ID, lavaMapId: ADVANCED_LAVA_WASTES_MAP_ID, infernalMapId: INFERNAL_DEPTHS_MAP_ID, waterMapId: WATER_REACH_MAP_ID, samuraiMapId: SAMURAI_GARDEN_MAP_ID, cloudspireMapId: CLOUDSPIRE_MAP_ID, moonfenMapId: MOONFEN_MAP_ID, crystalHollowsMapId: CRYSTAL_HOLLOWS_MAP_ID, clockworkRuinsMapId: CLOCKWORK_RUINS_MAP_ID, duskfallOrchardMapId: DUSKFALL_ORCHARD_MAP_ID, neonBastionMapId: NEON_BASTION_MAP_ID, verdantCatacombsMapId: VERDANT_CATACOMBS_MAP_ID, ionCitadelMapId: ION_CITADEL_MAP_ID,
     validMapIds: Object.keys(MAP_CONFIG),
     getMapId: () => currentMapId, setMapId: (mapId) => { setCurrentMap(mapId as MapId); },
     serverMapId: () => coop?.localState?.()?.mapId,
@@ -1621,10 +1622,10 @@ import {
     resolvePortalCollision: mapController.resolvePortalCollision,
     mapMusicSync: syncMapMusic,
     isDueling, activeDuel,
-    syncDragon: bossController.syncDragonState, syncSpider: bossController.syncSpiderState, syncFrostclaw: bossController.syncFrostclawState, syncMagmalisk: bossController.syncMagmaliskState, syncGloomroot: bossController.syncGloomrootState, syncTidewyrm: bossController.syncTidewyrmState, syncKoiShogun: bossController.syncKoiShogunState, syncTempestKirin: bossController.syncTempestKirinState, syncMiremaw: bossController.syncMiremawState, syncPrismshell: bossController.syncPrismshellState, syncIronhorn: bossController.syncIronhornState, syncDreadreaper: bossController.syncDreadreaperState, syncVoltwarden: bossController.syncVoltwardenState, syncGravebloom: bossController.syncGravebloomState,
+    syncDragon: bossController.syncDragonState, syncSpider: bossController.syncSpiderState, syncFrostclaw: bossController.syncFrostclawState, syncMagmalisk: bossController.syncMagmaliskState, syncGloomroot: bossController.syncGloomrootState, syncTidewyrm: bossController.syncTidewyrmState, syncKoiShogun: bossController.syncKoiShogunState, syncTempestKirin: bossController.syncTempestKirinState, syncMiremaw: bossController.syncMiremawState, syncPrismshell: bossController.syncPrismshellState, syncIronhorn: bossController.syncIronhornState, syncDreadreaper: bossController.syncDreadreaperState, syncVoltwarden: bossController.syncVoltwardenState, syncGravebloom: bossController.syncGravebloomState, syncAegisPrime: bossController.syncAegisPrimeState,
     cutsceneActive: mapController.isCutsceneActive, updateCutscene: mapController.updatePortalCutscene,
     updatePlayer: (dt) => { if (!mapController.isMapTransitioning()) playerController.update(dt); }, updateUpgradeBench: updateHomeStations, updatePortal: mapController.updatePortal,
-    updateEnemies: enemySimulation.update, updateDragon: bossController.updateBoss, updateSpider: bossController.updateSpiderBoss, updateFrostclaw: bossController.updateFrostclawBoss, updateMagmalisk: bossController.updateMagmaliskBoss, updateGloomroot: bossController.updateGloomrootBoss, updateTidewyrm: bossController.updateTidewyrmBoss, updateKoiShogun: bossController.updateKoiShogunBoss, updateTempestKirin: bossController.updateTempestKirinBoss, updateMiremaw: bossController.updateMiremawBoss, updatePrismshell: bossController.updatePrismshellBoss, updateIronhorn: bossController.updateIronhornBoss, updateDreadreaper: bossController.updateDreadreaperBoss, updateVoltwarden: bossController.updateVoltwardenBoss, updateGravebloom: bossController.updateGravebloomBoss,
+    updateEnemies: enemySimulation.update, updateDragon: bossController.updateBoss, updateSpider: bossController.updateSpiderBoss, updateFrostclaw: bossController.updateFrostclawBoss, updateMagmalisk: bossController.updateMagmaliskBoss, updateGloomroot: bossController.updateGloomrootBoss, updateTidewyrm: bossController.updateTidewyrmBoss, updateKoiShogun: bossController.updateKoiShogunBoss, updateTempestKirin: bossController.updateTempestKirinBoss, updateMiremaw: bossController.updateMiremawBoss, updatePrismshell: bossController.updatePrismshellBoss, updateIronhorn: bossController.updateIronhornBoss, updateDreadreaper: bossController.updateDreadreaperBoss, updateVoltwarden: bossController.updateVoltwardenBoss, updateGravebloom: bossController.updateGravebloomBoss, updateAegisPrime: bossController.updateAegisPrimeBoss,
     updateProjectiles: playerCombat.updateProjectiles, updateRespawns,
     clearDuelCombat: () => { autoFarm.stop("Autofarm stopped for duel"); projectileStore.clear(); playerCombat.clearPendingBossHits(); },
     updateEffects: effects.update, updateHud: () => updateHud(),
@@ -1913,7 +1914,7 @@ import {
       if (currentMapId === SAMURAI_GARDEN_MAP_ID) bossController.syncKoiShogunState();
       if (currentMapId === CLOUDSPIRE_MAP_ID) bossController.syncTempestKirinState();
       if (currentMapId === MOONFEN_MAP_ID) bossController.syncMiremawState();
-      if (currentMapId === CLOCKWORK_RUINS_MAP_ID) bossController.syncIronhornState(); else if (currentMapId === VERDANT_CATACOMBS_MAP_ID) bossController.syncGravebloomState(); else if (currentMapId === NEON_BASTION_MAP_ID) bossController.syncVoltwardenState(); else if (currentMapId === DUSKFALL_ORCHARD_MAP_ID) bossController.syncDreadreaperState(); else if (currentMapId === CRYSTAL_HOLLOWS_MAP_ID) bossController.syncPrismshellState();
+      if (currentMapId === CLOCKWORK_RUINS_MAP_ID) bossController.syncIronhornState(); else if (currentMapId === ION_CITADEL_MAP_ID) bossController.syncAegisPrimeState(); else if (currentMapId === VERDANT_CATACOMBS_MAP_ID) bossController.syncGravebloomState(); else if (currentMapId === NEON_BASTION_MAP_ID) bossController.syncVoltwardenState(); else if (currentMapId === DUSKFALL_ORCHARD_MAP_ID) bossController.syncDreadreaperState(); else if (currentMapId === CRYSTAL_HOLLOWS_MAP_ID) bossController.syncPrismshellState();
     },
     finishStartup,
     updateProtocolGate,

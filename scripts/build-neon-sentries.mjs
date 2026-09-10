@@ -3,6 +3,8 @@ const root = new URL("../public/assets/wildstat/enemies/neon-sentry/", import.me
 const archive = new URL("../art-source/reserved/neon-sentries/", import.meta.url);
 await mkdir(root, { recursive: true });
 await mkdir(archive, { recursive: true });
+const ionRoot = new URL("../public/assets/wildstat/enemies/ion-guardian/", import.meta.url);
+await mkdir(ionRoot, { recursive: true });
 const roles = ["prowler", "spitter", "regent", "guardian", "reaver", "oracle"];
 const colors = ["#50f5ff", "#ff54d8", "#ffd866", "#69ffb1", "#ac86ff", "#ffa26d"];
 for (const [roleIndex, role] of roles.entries()) {
@@ -39,6 +41,8 @@ for (const [roleIndex, role] of roles.entries()) {
       </g></g>`);
   }
   parts.push("</svg>");
-  await writeFile(new URL(role + ".svg", role === "reaver" ? root : archive), parts.join("\n").split("\n").map(line => line.trimEnd()).join("\n"));
+  const sheet = parts.join("\n").split("\n").map(line => line.trimEnd()).join("\n") + "\n";
+  await writeFile(new URL(role + ".svg", role === "reaver" ? root : archive), sheet);
+  if (role === "guardian") await writeFile(new URL("guardian.svg", ionRoot), sheet);
 }
 console.log("Built six original neon sentry sheets: idle, walk and attack.");

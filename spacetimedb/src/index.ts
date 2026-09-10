@@ -53,7 +53,7 @@ import {
   koiShogunBossTables,
   magmaliskBossTables,
   miremawBossTables,
-  prismshellBossTables, ironhornBossTables, dreadreaperBossTables, voltwardenBossTables, gravebloomBossTables,
+  prismshellBossTables, ironhornBossTables, dreadreaperBossTables, voltwardenBossTables, gravebloomBossTables, aegisPrimeBossTables,
   spiderBossTables,
   tempestKirinBossTables,
   tidewyrmBossTables,
@@ -181,17 +181,17 @@ import {
   MAP_DISPLAY_NAMES,
   MAP_IDS,
   MIREMAW_MAX_HP,
-  PRISMSHELL_MAX_HP, IRONHORN_MAX_HP, DREADREAPER_MAX_HP, VOLTWARDEN_MAX_HP, GRAVEBLOOM_MAX_HP,
+  PRISMSHELL_MAX_HP, IRONHORN_MAX_HP, DREADREAPER_MAX_HP, VOLTWARDEN_MAX_HP, GRAVEBLOOM_MAX_HP, AEGIS_PRIME_MAX_HP,
   MIREMAW_REWARD_ARMOR,
-  PRISMSHELL_REWARD_ARMOR, IRONHORN_REWARD_ARMOR, DREADREAPER_REWARD_ARMOR, VOLTWARDEN_REWARD_ARMOR, GRAVEBLOOM_REWARD_ARMOR,
+  PRISMSHELL_REWARD_ARMOR, IRONHORN_REWARD_ARMOR, DREADREAPER_REWARD_ARMOR, VOLTWARDEN_REWARD_ARMOR, GRAVEBLOOM_REWARD_ARMOR, AEGIS_PRIME_REWARD_ARMOR,
   MIREMAW_REWARD_DAMAGE,
-  PRISMSHELL_REWARD_DAMAGE, IRONHORN_REWARD_DAMAGE, DREADREAPER_REWARD_DAMAGE, VOLTWARDEN_REWARD_DAMAGE, GRAVEBLOOM_REWARD_DAMAGE,
+  PRISMSHELL_REWARD_DAMAGE, IRONHORN_REWARD_DAMAGE, DREADREAPER_REWARD_DAMAGE, VOLTWARDEN_REWARD_DAMAGE, GRAVEBLOOM_REWARD_DAMAGE, AEGIS_PRIME_REWARD_DAMAGE,
   MIREMAW_REWARD_HEALTH,
-  PRISMSHELL_REWARD_HEALTH, IRONHORN_REWARD_HEALTH, DREADREAPER_REWARD_HEALTH, VOLTWARDEN_REWARD_HEALTH, GRAVEBLOOM_REWARD_HEALTH,
+  PRISMSHELL_REWARD_HEALTH, IRONHORN_REWARD_HEALTH, DREADREAPER_REWARD_HEALTH, VOLTWARDEN_REWARD_HEALTH, GRAVEBLOOM_REWARD_HEALTH, AEGIS_PRIME_REWARD_HEALTH,
   MIREMAW_REWARD_REGEN,
-  PRISMSHELL_REWARD_REGEN, IRONHORN_REWARD_REGEN, DREADREAPER_REWARD_REGEN, VOLTWARDEN_REWARD_REGEN, GRAVEBLOOM_REWARD_REGEN,
+  PRISMSHELL_REWARD_REGEN, IRONHORN_REWARD_REGEN, DREADREAPER_REWARD_REGEN, VOLTWARDEN_REWARD_REGEN, GRAVEBLOOM_REWARD_REGEN, AEGIS_PRIME_REWARD_REGEN,
   MOONFEN_MAP_ID,
-  CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, NEON_BASTION_MAP_ID, VERDANT_CATACOMBS_MAP_ID,
+  CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, NEON_BASTION_MAP_ID, VERDANT_CATACOMBS_MAP_ID, ION_CITADEL_MAP_ID,
   MAX_ARMOR,
   MAX_MOVEMENT_SPEED_OVERRIDE,
   MAX_PLAYER_STAT,
@@ -286,7 +286,7 @@ const DEFAULT_MAP_PORTALS = {
     { x: 360, y: 617, destination: CLOUDSPIRE_MAP_ID },
     { x: 580, y: 617, destination: CRYSTAL_HOLLOWS_MAP_ID },
   ],
-  [CRYSTAL_HOLLOWS_MAP_ID]: [{ x: 360, y: 617, destination: MOONFEN_MAP_ID }, { x: 580, y: 617, destination: CLOCKWORK_RUINS_MAP_ID }], [CLOCKWORK_RUINS_MAP_ID]: [{ x: 360, y: 617, destination: CRYSTAL_HOLLOWS_MAP_ID }, { x: 580, y: 617, destination: DUSKFALL_ORCHARD_MAP_ID }], [DUSKFALL_ORCHARD_MAP_ID]: [{ x: 360, y: 617, destination: CLOCKWORK_RUINS_MAP_ID }, { x: 580, y: 617, destination: NEON_BASTION_MAP_ID }], [NEON_BASTION_MAP_ID]: [{ x: 360, y: 617, destination: DUSKFALL_ORCHARD_MAP_ID }, { x: 580, y: 617, destination: VERDANT_CATACOMBS_MAP_ID }], [VERDANT_CATACOMBS_MAP_ID]: [{ x: 360, y: 617, destination: NEON_BASTION_MAP_ID }],
+  [CRYSTAL_HOLLOWS_MAP_ID]: [{ x: 360, y: 617, destination: MOONFEN_MAP_ID }, { x: 580, y: 617, destination: CLOCKWORK_RUINS_MAP_ID }], [CLOCKWORK_RUINS_MAP_ID]: [{ x: 360, y: 617, destination: CRYSTAL_HOLLOWS_MAP_ID }, { x: 580, y: 617, destination: DUSKFALL_ORCHARD_MAP_ID }], [DUSKFALL_ORCHARD_MAP_ID]: [{ x: 360, y: 617, destination: CLOCKWORK_RUINS_MAP_ID }, { x: 580, y: 617, destination: NEON_BASTION_MAP_ID }], [NEON_BASTION_MAP_ID]: [{ x: 360, y: 617, destination: DUSKFALL_ORCHARD_MAP_ID }, { x: 580, y: 617, destination: VERDANT_CATACOMBS_MAP_ID }], [VERDANT_CATACOMBS_MAP_ID]: [{ x: 360, y: 617, destination: NEON_BASTION_MAP_ID }, { x: 580, y: 617, destination: ION_CITADEL_MAP_ID }], [ION_CITADEL_MAP_ID]: [{ x: 360, y: 617, destination: VERDANT_CATACOMBS_MAP_ID }],
 } as const;
 const DEFAULT_MAP_ARRIVALS = {
   [TUTORIAL_FOREST_MAP_ID]: { x: 190, y: 540 },
@@ -298,7 +298,7 @@ const DEFAULT_MAP_ARRIVALS = {
   [SAMURAI_GARDEN_MAP_ID]: { x: 580, y: 770 },
   [CLOUDSPIRE_MAP_ID]: { x: 580, y: 770 },
   [MOONFEN_MAP_ID]: { x: 580, y: 770 },
-  [CRYSTAL_HOLLOWS_MAP_ID]: { x: 580, y: 770 }, [CLOCKWORK_RUINS_MAP_ID]: { x: 580, y: 770 }, [DUSKFALL_ORCHARD_MAP_ID]: { x: 580, y: 770 }, [NEON_BASTION_MAP_ID]: { x: 580, y: 770 }, [VERDANT_CATACOMBS_MAP_ID]: { x: 580, y: 770 },
+  [CRYSTAL_HOLLOWS_MAP_ID]: { x: 580, y: 770 }, [CLOCKWORK_RUINS_MAP_ID]: { x: 580, y: 770 }, [DUSKFALL_ORCHARD_MAP_ID]: { x: 580, y: 770 }, [NEON_BASTION_MAP_ID]: { x: 580, y: 770 }, [VERDANT_CATACOMBS_MAP_ID]: { x: 580, y: 770 }, [ION_CITADEL_MAP_ID]: { x: 580, y: 770 },
 } as const;
 const MAP_PORTALS: Record<string, { x: number; y: number; destination: string }[]> = Object.fromEntries(
   Object.entries(DEFAULT_MAP_PORTALS).map(([mapId, portals]) => {
@@ -329,7 +329,7 @@ const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const MOTION_DETAIL_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_DETAIL_FRAME_HZ);
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 29;
+const MODULE_MIGRATION_VERSION = 30;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 9;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -395,30 +395,35 @@ const IRONHORN_ID = 1;
 const DREADREAPER_ID = 1;
 const VOLTWARDEN_ID = 1;
 const GRAVEBLOOM_ID = 1;
+const AEGIS_PRIME_ID = 1;
 const MIREMAW_RADIUS = 170;
 const PRISMSHELL_RADIUS = 170;
 const IRONHORN_RADIUS = 170;
 const DREADREAPER_RADIUS = 170;
 const VOLTWARDEN_RADIUS = 170;
 const GRAVEBLOOM_RADIUS = 170;
+const AEGIS_PRIME_RADIUS = 170;
 const MIREMAW_POSITION = editedBossPosition(MOONFEN_MAP_ID, { x: 4050, y: 4050 });
 const PRISMSHELL_POSITION = editedBossPosition(CRYSTAL_HOLLOWS_MAP_ID, { x: 4050, y: 4050 });
 const IRONHORN_POSITION = editedBossPosition(CLOCKWORK_RUINS_MAP_ID, { x: 4050, y: 4050 });
 const DREADREAPER_POSITION = editedBossPosition(DUSKFALL_ORCHARD_MAP_ID, { x: 4050, y: 4050 });
 const VOLTWARDEN_POSITION = editedBossPosition(NEON_BASTION_MAP_ID, { x: 4050, y: 4050 });
 const GRAVEBLOOM_POSITION = editedBossPosition(VERDANT_CATACOMBS_MAP_ID, { x: 4050, y: 4050 });
+const AEGIS_PRIME_POSITION = editedBossPosition(ION_CITADEL_MAP_ID, { x: 4050, y: 4050 });
 const MIREMAW_HIT_RANGE_TOLERANCE = 60;
 const PRISMSHELL_HIT_RANGE_TOLERANCE = 60;
 const IRONHORN_HIT_RANGE_TOLERANCE = 60;
 const DREADREAPER_HIT_RANGE_TOLERANCE = 60;
 const VOLTWARDEN_HIT_RANGE_TOLERANCE = 60;
 const GRAVEBLOOM_HIT_RANGE_TOLERANCE = 60;
+const AEGIS_PRIME_HIT_RANGE_TOLERANCE = 60;
 const MIREMAW_RESPAWN_MICROS = 45_000_000n;
 const PRISMSHELL_RESPAWN_MICROS = 45_000_000n;
 const IRONHORN_RESPAWN_MICROS = 45_000_000n;
 const DREADREAPER_RESPAWN_MICROS = 45_000_000n;
 const VOLTWARDEN_RESPAWN_MICROS = 45_000_000n;
 const GRAVEBLOOM_RESPAWN_MICROS = 45_000_000n;
+const AEGIS_PRIME_RESPAWN_MICROS = 45_000_000n;
 const UPGRADE_BENCH_USE_RANGE = 150;
 const UPGRADE_BENCH_SLOT_ONE = 1;
 const UPGRADE_BENCH_SLOT_TWO = 2;
@@ -832,7 +837,7 @@ const playerProgress = table(
     // New region gates must stay after every previously published column.
     clockworkRuinsUnlocked: t.bool().default(false),
     duskfallOrchardUnlocked: t.bool().default(false),
-    neonBastionUnlocked: t.bool().default(false), verdantCatacombsUnlocked: t.bool().default(false),
+    neonBastionUnlocked: t.bool().default(false), verdantCatacombsUnlocked: t.bool().default(false), ionCitadelUnlocked: t.bool().default(false),
   },
 );
 
@@ -1659,6 +1664,14 @@ const gravebloomRespawnSchedule = table(
     encounter: t.u64(),
   },
 );
+const aegisPrimeRespawnSchedule = table(
+  { scheduled: (): any => respawnAegisPrime },
+  {
+    scheduledId: t.u64().primaryKey().autoInc(),
+    scheduledAt: t.scheduleAt(),
+    encounter: t.u64(),
+  },
+);
 
 const forestRewardPrototype = table(
   { name: "forest_reward_prototype", public: false },
@@ -1767,9 +1780,9 @@ const spacetimedb = schema({
   ...tempestKirinBossTables,
   tempestKirinRespawnSchedule,
   ...miremawBossTables,
-  ...prismshellBossTables, ...ironhornBossTables, ...dreadreaperBossTables, ...voltwardenBossTables, ...gravebloomBossTables,
+  ...prismshellBossTables, ...ironhornBossTables, ...dreadreaperBossTables, ...voltwardenBossTables, ...gravebloomBossTables, ...aegisPrimeBossTables,
   miremawRespawnSchedule,
-  prismshellRespawnSchedule, ironhornRespawnSchedule, dreadreaperRespawnSchedule, voltwardenRespawnSchedule, gravebloomRespawnSchedule,
+  prismshellRespawnSchedule, ironhornRespawnSchedule, dreadreaperRespawnSchedule, voltwardenRespawnSchedule, gravebloomRespawnSchedule, aegisPrimeRespawnSchedule,
 });
 export default spacetimedb;
 
@@ -2113,7 +2126,7 @@ function defaultPlayerProgress(identity: any) {
     samuraiUnlocked: false,
     cloudspireUnlocked: false,
     moonfenUnlocked: false,
-    crystalHollowsUnlocked: false, clockworkRuinsUnlocked: false, duskfallOrchardUnlocked: false, neonBastionUnlocked: false, verdantCatacombsUnlocked: false,
+    crystalHollowsUnlocked: false, clockworkRuinsUnlocked: false, duskfallOrchardUnlocked: false, neonBastionUnlocked: false, verdantCatacombsUnlocked: false, ionCitadelUnlocked: false,
     bossRewardClaims: 0,
     bowCount: 0,
     woodenArmorCount: 0,
@@ -2152,7 +2165,7 @@ const PLAYER_PROGRESS_VALUE_FIELDS = [
   "samuraiUnlocked",
   "cloudspireUnlocked",
   "moonfenUnlocked",
-  "crystalHollowsUnlocked", "clockworkRuinsUnlocked", "duskfallOrchardUnlocked", "neonBastionUnlocked", "verdantCatacombsUnlocked",
+  "crystalHollowsUnlocked", "clockworkRuinsUnlocked", "duskfallOrchardUnlocked", "neonBastionUnlocked", "verdantCatacombsUnlocked", "ionCitadelUnlocked",
   "bossRewardClaims",
   "bowCount",
   "woodenArmorCount",
@@ -2545,6 +2558,14 @@ function runPendingModuleMigrations(ctx: any) {
     for (const progress of (isMapShard(ctx) ? [] : ctx.db.playerProgress.iter()) as Iterable<any>) {
       if (!progress.verdantCatacombsUnlocked && ((progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.voltwarden) || contributedToLatestVoltwarden(ctx, progress.identity))) {
         updateSnapshotRow(ctx, "playerProgress", { ...progress, verdantCatacombsUnlocked: true });
+      }
+    }
+  }
+  if (currentVersion < 30) {
+    if (!isMapShard(ctx) || ctx.db.shardRuntime.id.find(0)?.mapId === ION_CITADEL_MAP_ID) ensureAegisPrimeBoss(ctx);
+    for (const progress of (isMapShard(ctx) ? [] : ctx.db.playerProgress.iter()) as Iterable<any>) {
+      if (!progress.ionCitadelUnlocked && ((progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.gravebloom) || contributedToLatestGravebloom(ctx, progress.identity))) {
+        updateSnapshotRow(ctx, "playerProgress", { ...progress, ionCitadelUnlocked: true });
       }
     }
   }
@@ -3190,6 +3211,15 @@ function savedWorldLocation(ctx: any, identity: any, progress: any) {
             : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
               : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
                 : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
+  } else if (mapId === ION_CITADEL_MAP_ID && !progress.ionCitadelUnlocked) {
+    mapId = progress.moonfenUnlocked ? MOONFEN_MAP_ID : progress.cloudspireUnlocked
+      ? CLOUDSPIRE_MAP_ID
+      : progress.samuraiUnlocked ? SAMURAI_GARDEN_MAP_ID
+        : progress.waterUnlocked ? WATER_REACH_MAP_ID
+          : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
+            : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
+              : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
+                : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
   } else if (mapId === VERDANT_CATACOMBS_MAP_ID && !progress.verdantCatacombsUnlocked) {
     mapId = progress.moonfenUnlocked ? MOONFEN_MAP_ID : progress.cloudspireUnlocked
       ? CLOUDSPIRE_MAP_ID
@@ -3684,6 +3714,9 @@ function contributedToLatestVoltwarden(ctx: any, identity: any) {
 }
 function contributedToLatestGravebloom(ctx: any, identity: any) {
   return resultIncludesContributor(ctx.db.gravebloomResult.id.find(GRAVEBLOOM_ID), identity);
+}
+function contributedToLatestAegisPrime(ctx: any, identity: any) {
+  return resultIncludesContributor(ctx.db.aegisPrimeResult.id.find(AEGIS_PRIME_ID), identity);
 }
 
 function forestItemCountForProgress(progress: any, itemId: string, field: "bowCount" | "woodenArmorCount") {
@@ -4343,10 +4376,12 @@ function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true,
   if (ctx.db.miremawContribution.identity.find(identity)) ctx.db.miremawContribution.identity.delete(identity);
   if (ctx.db.voltwardenContribution.identity.find(identity)) ctx.db.voltwardenContribution.identity.delete(identity);
   if (ctx.db.gravebloomContribution.identity.find(identity)) ctx.db.gravebloomContribution.identity.delete(identity);
+  if (ctx.db.aegisPrimeContribution.identity.find(identity)) ctx.db.aegisPrimeContribution.identity.delete(identity);
   if (ctx.db.ironhornContribution.identity.find(identity)) ctx.db.ironhornContribution.identity.delete(identity); else if (ctx.db.dreadreaperContribution.identity.find(identity)) ctx.db.dreadreaperContribution.identity.delete(identity); else if (ctx.db.prismshellContribution.identity.find(identity)) ctx.db.prismshellContribution.identity.delete(identity);
   if (ctx.db.miremawAttackWindow.identity.find(identity)) ctx.db.miremawAttackWindow.identity.delete(identity);
   if (ctx.db.voltwardenAttackWindow.identity.find(identity)) ctx.db.voltwardenAttackWindow.identity.delete(identity);
   if (ctx.db.gravebloomAttackWindow.identity.find(identity)) ctx.db.gravebloomAttackWindow.identity.delete(identity);
+  if (ctx.db.aegisPrimeAttackWindow.identity.find(identity)) ctx.db.aegisPrimeAttackWindow.identity.delete(identity);
   if (ctx.db.ironhornAttackWindow.identity.find(identity)) ctx.db.ironhornAttackWindow.identity.delete(identity); else if (ctx.db.dreadreaperAttackWindow.identity.find(identity)) ctx.db.dreadreaperAttackWindow.identity.delete(identity); else if (ctx.db.prismshellAttackWindow.identity.find(identity)) ctx.db.prismshellAttackWindow.identity.delete(identity);
   if (ctx.db.leaderboardEntry.identity.find(identity)) ctx.db.leaderboardEntry.identity.delete(identity);
 
@@ -4438,10 +4473,12 @@ function removePlayerIdentityData(ctx: any, identity: any) {
   if (ctx.db.miremawContribution.identity.find(identity)) ctx.db.miremawContribution.identity.delete(identity);
   if (ctx.db.voltwardenContribution.identity.find(identity)) ctx.db.voltwardenContribution.identity.delete(identity);
   if (ctx.db.gravebloomContribution.identity.find(identity)) ctx.db.gravebloomContribution.identity.delete(identity);
+  if (ctx.db.aegisPrimeContribution.identity.find(identity)) ctx.db.aegisPrimeContribution.identity.delete(identity);
   if (ctx.db.ironhornContribution.identity.find(identity)) ctx.db.ironhornContribution.identity.delete(identity); else if (ctx.db.dreadreaperContribution.identity.find(identity)) ctx.db.dreadreaperContribution.identity.delete(identity); else if (ctx.db.prismshellContribution.identity.find(identity)) ctx.db.prismshellContribution.identity.delete(identity);
   if (ctx.db.miremawAttackWindow.identity.find(identity)) ctx.db.miremawAttackWindow.identity.delete(identity);
   if (ctx.db.voltwardenAttackWindow.identity.find(identity)) ctx.db.voltwardenAttackWindow.identity.delete(identity);
   if (ctx.db.gravebloomAttackWindow.identity.find(identity)) ctx.db.gravebloomAttackWindow.identity.delete(identity);
+  if (ctx.db.aegisPrimeAttackWindow.identity.find(identity)) ctx.db.aegisPrimeAttackWindow.identity.delete(identity);
   if (ctx.db.ironhornAttackWindow.identity.find(identity)) ctx.db.ironhornAttackWindow.identity.delete(identity); else if (ctx.db.dreadreaperAttackWindow.identity.find(identity)) ctx.db.dreadreaperAttackWindow.identity.delete(identity); else if (ctx.db.prismshellAttackWindow.identity.find(identity)) ctx.db.prismshellAttackWindow.identity.delete(identity);
   if (ctx.db.leaderboardEntry.identity.find(identity)) ctx.db.leaderboardEntry.identity.delete(identity);
 
@@ -4887,6 +4924,24 @@ function ensureGravebloomBoss(ctx: any) {
     lastDamageAtMicros: 0n,
   });
 }
+function ensureAegisPrimeBoss(ctx: any) {
+  const existing = ctx.db.aegisPrimeBoss.id.find(AEGIS_PRIME_ID);
+  if (existing) {
+    const balanced = bossRowAtMaxHealth(existing, AEGIS_PRIME_MAX_HP);
+    if (balanced === existing) return existing;
+    ctx.db.aegisPrimeBoss.id.update(balanced);
+    return balanced;
+  }
+  return ctx.db.aegisPrimeBoss.insert({
+    id: AEGIS_PRIME_ID,
+    encounter: 1n,
+    hp: AEGIS_PRIME_MAX_HP,
+    maxHp: AEGIS_PRIME_MAX_HP,
+    alive: true,
+    respawnAtMicros: 0n,
+    lastDamageAtMicros: 0n,
+  });
+}
 
 
 function regenerateIdleBosses(ctx: any, mapId?: string) {
@@ -4916,6 +4971,7 @@ function regenerateIdleBosses(ctx: any, mapId?: string) {
   if (mapId === undefined || mapId === CLOCKWORK_RUINS_MAP_ID) regenerate(ensureIronhornBoss(ctx), (next) => ctx.db.ironhornBoss.id.update(next));
   if (mapId === undefined || mapId === NEON_BASTION_MAP_ID) regenerate(ensureVoltwardenBoss(ctx), (next) => ctx.db.voltwardenBoss.id.update(next));
   if (mapId === undefined || mapId === VERDANT_CATACOMBS_MAP_ID) regenerate(ensureGravebloomBoss(ctx), (next) => ctx.db.gravebloomBoss.id.update(next));
+  if (mapId === undefined || mapId === ION_CITADEL_MAP_ID) regenerate(ensureAegisPrimeBoss(ctx), (next) => ctx.db.aegisPrimeBoss.id.update(next));
   if (mapId === undefined || mapId === DUSKFALL_ORCHARD_MAP_ID) regenerate(ensureDreadreaperBoss(ctx), (next) => ctx.db.dreadreaperBoss.id.update(next));
 }
 
@@ -5255,6 +5311,12 @@ function clearGravebloomCombatRows(ctx: any) {
   for (const identity of contributionIdentities) ctx.db.gravebloomContribution.identity.delete(identity);
   for (const identity of attackIdentities) ctx.db.gravebloomAttackWindow.identity.delete(identity);
 }
+function clearAegisPrimeCombatRows(ctx: any) {
+  const contributionIdentities = [...ctx.db.aegisPrimeContribution.iter()].map((row: any) => row.identity);
+  const attackIdentities = [...ctx.db.aegisPrimeAttackWindow.iter()].map((row: any) => row.identity);
+  for (const identity of contributionIdentities) ctx.db.aegisPrimeContribution.identity.delete(identity);
+  for (const identity of attackIdentities) ctx.db.aegisPrimeAttackWindow.identity.delete(identity);
+}
 
 function applyBossRepeatableReward(
   progress: any,
@@ -5475,7 +5537,30 @@ function rewardGravebloomContributor(ctx: any, identity: any) {
     armor: GRAVEBLOOM_REWARD_ARMOR,
     regen: GRAVEBLOOM_REWARD_REGEN,
   });
-  const next = { ...reward, verdantCatacombsUnlocked: true };
+  const next = { ...reward, verdantCatacombsUnlocked: true, ionCitadelUnlocked: true };
+  updateSnapshotRow(ctx, "playerProgress", next);
+  const active = ctx.db.player.identity.find(identity);
+  if (active) {
+    const nextPlayer = {
+      ...active,
+      ...powerFieldsForProgress(ctx, next),
+    };
+    updateSnapshotRow(ctx, "player", nextPlayer);
+    syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
+  }
+}
+function rewardAegisPrimeContributor(ctx: any, identity: any) {
+  if (queueShardReward(ctx, identity, "aegisPrime")) return;
+  const current = ctx.db.playerProgress.identity.find(identity);
+  if (!current) return;
+  const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+  const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.aegisPrime, rewardMultiplier, {
+    damage: AEGIS_PRIME_REWARD_DAMAGE,
+    maxHp: AEGIS_PRIME_REWARD_HEALTH,
+    armor: AEGIS_PRIME_REWARD_ARMOR,
+    regen: AEGIS_PRIME_REWARD_REGEN,
+  });
+  const next = { ...reward, ionCitadelUnlocked: true };
   updateSnapshotRow(ctx, "playerProgress", next);
   const active = ctx.db.player.identity.find(identity);
   if (active) {
@@ -5787,6 +5872,39 @@ function finishGravebloomEncounter(ctx: any, gravebloom: any) {
     scheduledId: 0n,
     scheduledAt: ScheduleAt.time(respawnAtMicros),
     encounter: gravebloom.encounter,
+  });
+}
+function finishAegisPrimeEncounter(ctx: any, aegisPrime: any) {
+  const contributions = [...ctx.db.aegisPrimeContribution.iter()]
+    .filter((row: any) => row.encounter === aegisPrime.encounter && row.damage > 0)
+    .sort((a: any, b: any) => b.damage - a.damage);
+  const totalDamage = contributions.reduce((sum: number, row: any) => sum + row.damage, 0);
+  const contributorsJson = JSON.stringify(contributions.map((row: any) => ({
+    identity: row.identity.toHexString(),
+    name: row.displayName,
+    gender: ctx.db.playerProfile.identity.find(row.identity)?.gender ?? PLAYER_GENDER_UNSET,
+    damage: row.damage,
+    percentage: totalDamage > 0 ? row.damage / totalDamage * 100 : 0,
+  })));
+
+  const result = {
+    id: AEGIS_PRIME_ID,
+    encounter: aegisPrime.encounter,
+    totalDamage,
+    contributorsJson,
+    createdAt: ctx.timestamp,
+  };
+  if (ctx.db.aegisPrimeResult.id.find(AEGIS_PRIME_ID)) ctx.db.aegisPrimeResult.id.update(result);
+  else ctx.db.aegisPrimeResult.insert(result);
+
+  for (const row of contributions) rewardAegisPrimeContributor(ctx, row.identity);
+
+  const respawnAtMicros = ctx.timestamp.microsSinceUnixEpoch + AEGIS_PRIME_RESPAWN_MICROS;
+  ctx.db.aegisPrimeBoss.id.update({ ...aegisPrime, hp: 0, alive: false, respawnAtMicros });
+  ctx.db.aegisPrimeRespawnSchedule.insert({
+    scheduledId: 0n,
+    scheduledAt: ScheduleAt.time(respawnAtMicros),
+    encounter: aegisPrime.encounter,
   });
 }
 
@@ -6149,6 +6267,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false) {
     const isInDuskfallOrchard = existingPlayer?.mapId === DUSKFALL_ORCHARD_MAP_ID || contributedToLatestIronhorn(ctx, ctx.sender) || contributedToLatestDreadreaper(ctx, ctx.sender);
 const isInNeonBastion = existingPlayer?.mapId === NEON_BASTION_MAP_ID || Boolean(existingProgress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.dreadreaper) || contributedToLatestDreadreaper(ctx, ctx.sender) || contributedToLatestVoltwarden(ctx, ctx.sender);
 const isInVerdantCatacombs = existingPlayer?.mapId === VERDANT_CATACOMBS_MAP_ID || Boolean(existingProgress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.voltwarden) || contributedToLatestVoltwarden(ctx, ctx.sender) || contributedToLatestGravebloom(ctx, ctx.sender);
+const isInIonCitadel = existingPlayer?.mapId === ION_CITADEL_MAP_ID || Boolean(existingProgress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.gravebloom) || contributedToLatestGravebloom(ctx, ctx.sender) || contributedToLatestAegisPrime(ctx, ctx.sender);
     const isInClockworkRuins = existingPlayer?.mapId === CLOCKWORK_RUINS_MAP_ID || isInDuskfallOrchard || contributedToLatestPrismshell(ctx, ctx.sender) || Boolean(existingProgress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.prismshell);
     const isInCrystalHollows = existingPlayer?.mapId === CRYSTAL_HOLLOWS_MAP_ID || isInClockworkRuins;
     // A later server-owned location/clear also proves all earlier map gates.
@@ -6165,7 +6284,8 @@ const isInVerdantCatacombs = existingPlayer?.mapId === VERDANT_CATACOMBS_MAP_ID 
       (!existingProgress.clockworkRuinsUnlocked && isInClockworkRuins) ||
       (!existingProgress.duskfallOrchardUnlocked && isInDuskfallOrchard) ||
       (!existingProgress.neonBastionUnlocked && isInNeonBastion) ||
-      (!existingProgress.verdantCatacombsUnlocked && isInVerdantCatacombs)) {
+      (!existingProgress.verdantCatacombsUnlocked && isInVerdantCatacombs) ||
+      (!existingProgress.ionCitadelUnlocked && isInIonCitadel)) {
       existingProgress = {
         ...existingProgress,
         desertUnlocked: existingProgress.desertUnlocked || isInDesert || isInSnowlands || isInLavaWastes || isInInfernalDepths || isInWaterReach || isInSamuraiGarden || isInCloudspire || isInMoonfen || latestDragonContributor || latestFrostclawContributor || latestMagmaliskContributor || latestGloomrootContributor || latestTidewyrmContributor || latestKoiShogunContributor || latestTempestKirinContributor,
@@ -6177,7 +6297,7 @@ const isInVerdantCatacombs = existingPlayer?.mapId === VERDANT_CATACOMBS_MAP_ID 
         cloudspireUnlocked: existingProgress.cloudspireUnlocked || isInCloudspire || isInMoonfen || latestKoiShogunContributor || latestTempestKirinContributor,
         moonfenUnlocked: existingProgress.moonfenUnlocked || isInMoonfen || latestTempestKirinContributor,
         crystalHollowsUnlocked: existingProgress.crystalHollowsUnlocked || isInCrystalHollows || latestMiremawContributor, clockworkRuinsUnlocked: existingProgress.clockworkRuinsUnlocked || isInClockworkRuins, duskfallOrchardUnlocked: existingProgress.duskfallOrchardUnlocked || isInDuskfallOrchard, neonBastionUnlocked: existingProgress.neonBastionUnlocked || isInNeonBastion,
-        verdantCatacombsUnlocked: existingProgress.verdantCatacombsUnlocked || isInVerdantCatacombs,
+        verdantCatacombsUnlocked: existingProgress.verdantCatacombsUnlocked || isInVerdantCatacombs, ionCitadelUnlocked: existingProgress.ionCitadelUnlocked || isInIonCitadel,
       };
       updateSnapshotRow(ctx, "playerProgress", existingProgress);
     }
@@ -6803,6 +6923,23 @@ export const respawnGravebloom = spacetimedb.reducer(
       ...gravebloom,
       encounter: gravebloom.encounter + 1n,
       hp: gravebloom.maxHp,
+      alive: true,
+      respawnAtMicros: 0n,
+      lastDamageAtMicros: 0n,
+    });
+  },
+);
+export const respawnAegisPrime = spacetimedb.reducer(
+  { schedule: aegisPrimeRespawnSchedule.rowType },
+  (ctx, { schedule }) => {
+    const aegisPrime = ensureAegisPrimeBoss(ctx);
+    if (aegisPrime.alive || aegisPrime.encounter !== schedule.encounter) return;
+    if (ctx.timestamp.microsSinceUnixEpoch < aegisPrime.respawnAtMicros) return;
+    clearAegisPrimeCombatRows(ctx);
+    ctx.db.aegisPrimeBoss.id.update({
+      ...aegisPrime,
+      encounter: aegisPrime.encounter + 1n,
+      hp: aegisPrime.maxHp,
       alive: true,
       respawnAtMicros: 0n,
       lastDamageAtMicros: 0n,
@@ -7823,6 +7960,74 @@ function applyGravebloomDamage(ctx: any, requestedHits: number, clientPosition?:
   if (nextGravebloom.hp <= 0) finishGravebloomEncounter(ctx, nextGravebloom);
   else ctx.db.gravebloomBoss.id.update(nextGravebloom);
 }
+function applyAegisPrimeDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
+  requireMapWorkload(ctx);
+  if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
+  const activePlayer = requireControllingPlayer(ctx);
+  if (activeDuelFor(ctx, ctx.sender)) return;
+  if (activePlayer.mapId !== ION_CITADEL_MAP_ID) return;
+  const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+  if (!progress) return;
+  const aegisPrime = ensureAegisPrimeBoss(ctx);
+  if (!aegisPrime.alive || aegisPrime.hp <= 0) return;
+
+  if (clientPosition && ![clientPosition.x, clientPosition.y].every(Number.isFinite)) {
+    throw new SenderError("Boss attack position must be finite");
+  }
+  const actionX = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, clientPosition.x)) : activePlayer.x;
+  const actionY = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, clientPosition.y)) : activePlayer.y;
+  const centerDistance = Math.hypot(actionX - AEGIS_PRIME_POSITION.x, actionY - AEGIS_PRIME_POSITION.y);
+  if (centerDistance - AEGIS_PRIME_RADIUS > progress.attackRange + AEGIS_PRIME_HIT_RANGE_TOLERANCE) return;
+
+  const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
+  const now = ctx.timestamp.microsSinceUnixEpoch;
+  const intervalMicros = BigInt(Math.max(1, Math.round(attackIntervalForProgress(progress) * 1_000_000)));
+  const currentWindow = ctx.db.aegisPrimeAttackWindow.identity.find(ctx.sender);
+  const newWindow =
+    !currentWindow ||
+    currentWindow.encounter !== aegisPrime.encounter ||
+    now - currentWindow.startedAtMicros >= intervalMicros;
+  const remainingHits = newWindow
+    ? progress.projectileCount
+    : Math.max(0, progress.projectileCount - currentWindow.hits);
+  const acceptedHits = Math.min(boundedHits, remainingHits);
+  if (acceptedHits <= 0) return;
+
+  if (newWindow) {
+    const nextWindow = {
+      identity: ctx.sender,
+      encounter: aegisPrime.encounter,
+      startedAtMicros: now,
+      hits: acceptedHits,
+    };
+    if (currentWindow) ctx.db.aegisPrimeAttackWindow.identity.update(nextWindow);
+    else ctx.db.aegisPrimeAttackWindow.insert(nextWindow);
+  } else {
+    ctx.db.aegisPrimeAttackWindow.identity.update({ ...currentWindow, hits: currentWindow.hits + acceptedHits });
+  }
+
+  const damage = bossDamageWithCriticals(ctx, progress, acceptedHits, aegisPrime.hp, ION_CITADEL_MAP_ID, AEGIS_PRIME_POSITION);
+  const currentContribution = ctx.db.aegisPrimeContribution.identity.find(ctx.sender);
+  const continuingContribution = currentContribution?.encounter === aegisPrime.encounter;
+  const displayName = continuingContribution
+    ? currentContribution.displayName
+    : ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "PLAYER";
+  const nextContribution = {
+    identity: ctx.sender,
+    encounter: aegisPrime.encounter,
+    displayName,
+    damage: continuingContribution ? currentContribution.damage + damage : damage,
+  };
+  if (currentContribution) ctx.db.aegisPrimeContribution.identity.update(nextContribution);
+  else ctx.db.aegisPrimeContribution.insert(nextContribution);
+  const nextAegisPrime = {
+    ...aegisPrime,
+    hp: Math.max(0, aegisPrime.hp - damage),
+    lastDamageAtMicros: ctx.timestamp.microsSinceUnixEpoch,
+  };
+  if (nextAegisPrime.hp <= 0) finishAegisPrimeEncounter(ctx, nextAegisPrime);
+  else ctx.db.aegisPrimeBoss.id.update(nextAegisPrime);
+}
 
 export const damageMiremawFromPosition = spacetimedb.reducer(
   { hits: t.u32(), x: t.f64(), y: t.f64() },
@@ -7847,6 +8052,10 @@ export const damageVoltwardenFromPosition = spacetimedb.reducer(
 export const damageGravebloomFromPosition = spacetimedb.reducer(
   { hits: t.u32(), x: t.f64(), y: t.f64() },
   (ctx, { hits, x, y }) => applyGravebloomDamage(ctx, hits, { x, y }),
+);
+export const damageAegisPrimeFromPosition = spacetimedb.reducer(
+  { hits: t.u32(), x: t.f64(), y: t.f64() },
+  (ctx, { hits, x, y }) => applyAegisPrimeDamage(ctx, hits, { x, y }),
 );
 
 
@@ -8293,6 +8502,36 @@ for (const [contributionTable, attackWindowTable] of [
       [ctx.db.tempestKirinContribution, ctx.db.tempestKirinAttackWindow],
       [ctx.db.miremawContribution, ctx.db.miremawAttackWindow],
       [ctx.db.gravebloomContribution, ctx.db.gravebloomAttackWindow],
+    ] as any[]) {
+      const guestContribution = contributionTable.identity.find(link.guest);
+      const accountContribution = contributionTable.identity.find(ctx.sender);
+      if (guestContribution) {
+        const nextContribution = {
+          identity: ctx.sender,
+          encounter: guestContribution.encounter,
+          displayName: finalDisplayName,
+          damage: accountContribution?.encounter === guestContribution.encounter
+            ? accountContribution.damage + guestContribution.damage
+            : guestContribution.damage,
+        };
+        if (accountContribution) contributionTable.identity.update(nextContribution);
+        else contributionTable.insert(nextContribution);
+        contributionTable.identity.delete(link.guest);
+      }
+      if (attackWindowTable.identity.find(link.guest)) attackWindowTable.identity.delete(link.guest);
+      if (attackWindowTable.identity.find(ctx.sender)) attackWindowTable.identity.delete(ctx.sender);
+    }
+for (const [contributionTable, attackWindowTable] of [
+      [ctx.db.dragonContribution, ctx.db.dragonAttackWindow],
+      [ctx.db.spiderContribution, ctx.db.spiderAttackWindow],
+      [ctx.db.frostclawContribution, ctx.db.frostclawAttackWindow],
+      [ctx.db.magmaliskContribution, ctx.db.magmaliskAttackWindow],
+      [ctx.db.gloomrootContribution, ctx.db.gloomrootAttackWindow],
+      [ctx.db.tidewyrmContribution, ctx.db.tidewyrmAttackWindow],
+      [ctx.db.koiShogunContribution, ctx.db.koiShogunAttackWindow],
+      [ctx.db.tempestKirinContribution, ctx.db.tempestKirinAttackWindow],
+      [ctx.db.miremawContribution, ctx.db.miremawAttackWindow],
+      [ctx.db.aegisPrimeContribution, ctx.db.aegisPrimeAttackWindow],
     ] as any[]) {
       const guestContribution = contributionTable.identity.find(link.guest);
       const accountContribution = contributionTable.identity.find(ctx.sender);
@@ -8945,7 +9184,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       samuraiUnlocked: base.samuraiUnlocked,
       cloudspireUnlocked: base.cloudspireUnlocked,
       moonfenUnlocked: base.moonfenUnlocked,
-      crystalHollowsUnlocked: base.crystalHollowsUnlocked, clockworkRuinsUnlocked: base.clockworkRuinsUnlocked, duskfallOrchardUnlocked: base.duskfallOrchardUnlocked, neonBastionUnlocked: base.neonBastionUnlocked, verdantCatacombsUnlocked: base.verdantCatacombsUnlocked,
+      crystalHollowsUnlocked: base.crystalHollowsUnlocked, clockworkRuinsUnlocked: base.clockworkRuinsUnlocked, duskfallOrchardUnlocked: base.duskfallOrchardUnlocked, neonBastionUnlocked: base.neonBastionUnlocked, verdantCatacombsUnlocked: base.verdantCatacombsUnlocked, ionCitadelUnlocked: base.ionCitadelUnlocked,
       bossRewardClaims: base.bossRewardClaims ?? 0,
       bowCount: forestItemCountForProgress(base, STARTER_BOW, "bowCount"),
       woodenArmorCount: forestItemCountForProgress(base, WOODEN_ARMOR, "woodenArmorCount"),
@@ -9857,6 +10096,9 @@ export const changeMap = spacetimedb.reducer(
     }
     if (mapId === CLOCKWORK_RUINS_MAP_ID && !currentProgress?.clockworkRuinsUnlocked) {
       throw new SenderError(`Defeat Prismshell before entering ${MAP_DISPLAY_NAMES[CLOCKWORK_RUINS_MAP_ID]}.`);
+
+    } else if (mapId === ION_CITADEL_MAP_ID && !currentProgress?.ionCitadelUnlocked) {
+      throw new SenderError(`Defeat Gravebloom before entering ${MAP_DISPLAY_NAMES[ION_CITADEL_MAP_ID]}.`);
     } else if (mapId === VERDANT_CATACOMBS_MAP_ID && !currentProgress?.verdantCatacombsUnlocked) {
       throw new SenderError(`Defeat Voltwarden before entering ${MAP_DISPLAY_NAMES[VERDANT_CATACOMBS_MAP_ID]}.`);
     } else if (mapId === NEON_BASTION_MAP_ID && !currentProgress?.neonBastionUnlocked) {
@@ -10065,7 +10307,7 @@ const shardRewardHandlers: Record<string, (ctx: any, identity: any) => void> = {
   dragon: rewardDragonContributor, spider: rewardSpiderContributor, frostclaw: rewardFrostclawContributor,
   magmalisk: rewardMagmaliskContributor, gloomroot: rewardGloomrootContributor, tidewyrm: rewardTidewyrmContributor,
   koiShogun: rewardKoiShogunContributor, tempestKirin: rewardTempestKirinContributor,
-  miremaw: rewardMiremawContributor, prismshell: rewardPrismshellContributor, ironhorn: rewardIronhornContributor, dreadreaper: rewardDreadreaperContributor, voltwarden: rewardVoltwardenContributor, gravebloom: rewardGravebloomContributor,
+  miremaw: rewardMiremawContributor, prismshell: rewardPrismshellContributor, ironhorn: rewardIronhornContributor, dreadreaper: rewardDreadreaperContributor, voltwarden: rewardVoltwardenContributor, gravebloom: rewardGravebloomContributor, aegisPrime: rewardAegisPrimeContributor,
 };
 export const deliverShardReward = spacetimedb.reducer(
   { shardId: t.u64(), identity: t.identity(), boss: t.string(), encounter: t.u64() }, deliverShardRewardImpl);

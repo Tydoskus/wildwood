@@ -26,6 +26,7 @@ import ConfigureGemCommerceReducer from "../configure_gem_commerce_reducer";
 import ConfigureShardCoordinatorReducer from "../configure_shard_coordinator_reducer";
 import ConfigureShardingReducer from "../configure_sharding_reducer";
 import CreateGuildReducer from "../create_guild_reducer";
+import DamageAegisPrimeFromPositionReducer from "../damage_aegis_prime_from_position_reducer";
 import DamageDragonReducer from "../damage_dragon_reducer";
 import DamageDragonBatchReducer from "../damage_dragon_batch_reducer";
 import DamageDragonFromPositionReducer from "../damage_dragon_from_position_reducer";
@@ -133,6 +134,7 @@ export type ConfigureGemCommerceParams = __Infer<typeof ConfigureGemCommerceRedu
 export type ConfigureShardCoordinatorParams = __Infer<typeof ConfigureShardCoordinatorReducer>;
 export type ConfigureShardingParams = __Infer<typeof ConfigureShardingReducer>;
 export type CreateGuildParams = __Infer<typeof CreateGuildReducer>;
+export type DamageAegisPrimeFromPositionParams = __Infer<typeof DamageAegisPrimeFromPositionReducer>;
 export type DamageDragonParams = __Infer<typeof DamageDragonReducer>;
 export type DamageDragonBatchParams = __Infer<typeof DamageDragonBatchReducer>;
 export type DamageDragonFromPositionParams = __Infer<typeof DamageDragonFromPositionReducer>;

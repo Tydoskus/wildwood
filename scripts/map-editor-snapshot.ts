@@ -19,7 +19,7 @@ const bossByMap: Record<MapId, { x: number; y: number }> = {
   samurai_garden: bootstrap.koiShogunBoss,
   cloudspire: bootstrap.tempestKirinBoss,
   moonfen: bootstrap.miremawBoss,
-  crystal_hollows: bootstrap.prismshellBoss, clockwork_ruins: bootstrap.ironhornBoss, duskfall_orchard: bootstrap.dreadreaperBoss, neon_bastion: bootstrap.voltwardenBoss, verdant_catacombs: bootstrap.gravebloomBoss,
+  crystal_hollows: bootstrap.prismshellBoss, clockwork_ruins: bootstrap.ironhornBoss, duskfall_orchard: bootstrap.dreadreaperBoss, neon_bastion: bootstrap.voltwardenBoss, verdant_catacombs: bootstrap.gravebloomBoss, ion_citadel: bootstrap.aegisPrimeBoss,
 };
 
 const maps = (MAP_IDS as MapId[]).map((id): SavedMapDesign => {

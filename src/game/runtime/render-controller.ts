@@ -65,6 +65,7 @@ export function createRenderController(options: {
   drawDreadreaperTelegraphs: () => void;
   drawVoltwardenTelegraphs: () => void;
   drawGravebloomTelegraphs: () => void;
+  drawAegisPrimeTelegraphs: () => void;
   drawProjectile: (projectile: Projectile | EnemyShot, enemy: boolean) => void;
   drawDepthSortedWorld: (remotePlayers: RemotePlayer[], includePortal: boolean) => void;
   drawMinimap: (players: MapPlayerMarker[]) => void;
@@ -85,6 +86,7 @@ export function createRenderController(options: {
   currentMapIsDuskfallOrchard: () => boolean;
   currentMapIsNeonBastion: () => boolean;
   currentMapIsVerdantCatacombs: () => boolean;
+  currentMapIsIonCitadel: () => boolean;
   portalCutsceneActive: () => boolean;
   portalBlackoutOpacity: () => number;
   screenShake: () => number;
@@ -101,8 +103,8 @@ export function createRenderController(options: {
     isDueling, isArenaScene, isReplayActive, replayScene, liveScene, heldScene, duelResultHeld,
     setRenderedDuelScene, setDuelCountdown, drawProfileCharacterPreview, updateSpeechBubbles,
     drawGround, drawStaticWorld, drawDuelArena, drawDuelScene, drawDecor, drawBossTelegraphs,
-    drawSpiderTelegraphs, drawFrostclawTelegraphs, drawMagmaliskTelegraphs, drawGloomrootTelegraphs, drawTidewyrmTelegraphs, drawKoiShogunTelegraphs, drawTempestKirinTelegraphs, drawMiremawTelegraphs, drawPrismshellTelegraphs, drawIronhornTelegraphs, drawDreadreaperTelegraphs, drawVoltwardenTelegraphs, drawGravebloomTelegraphs, drawProjectile, drawDepthSortedWorld, drawMinimap, drawCutscenePortal,
-    drawParticles, drawDamageNumbers, currentMapIsTutorial, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, currentMapIsWater, currentMapIsSamurai, currentMapIsCloudspire, currentMapIsMoonfen, currentMapIsCrystalHollows, currentMapIsClockworkRuins, currentMapIsDuskfallOrchard, currentMapIsNeonBastion, currentMapIsVerdantCatacombs, portalCutsceneActive,
+    drawSpiderTelegraphs, drawFrostclawTelegraphs, drawMagmaliskTelegraphs, drawGloomrootTelegraphs, drawTidewyrmTelegraphs, drawKoiShogunTelegraphs, drawTempestKirinTelegraphs, drawMiremawTelegraphs, drawPrismshellTelegraphs, drawIronhornTelegraphs, drawDreadreaperTelegraphs, drawVoltwardenTelegraphs, drawGravebloomTelegraphs, drawAegisPrimeTelegraphs, drawProjectile, drawDepthSortedWorld, drawMinimap, drawCutscenePortal,
+    drawParticles, drawDamageNumbers, currentMapIsTutorial, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, currentMapIsWater, currentMapIsSamurai, currentMapIsCloudspire, currentMapIsMoonfen, currentMapIsCrystalHollows, currentMapIsClockworkRuins, currentMapIsDuskfallOrchard, currentMapIsNeonBastion, currentMapIsVerdantCatacombs, currentMapIsIonCitadel, portalCutsceneActive,
     portalBlackoutOpacity, screenShake, screenShakeEnabled, attackRangeVisible, flash, projectiles, enemyShots, webGLProjectileBatch, webGLParticleBatch,
   } = options;
 
@@ -268,7 +270,7 @@ export function createRenderController(options: {
     if (!isDueling() && currentMapIsSamurai()) drawKoiShogunTelegraphs();
     if (!isDueling() && currentMapIsCloudspire()) drawTempestKirinTelegraphs();
     if (!isDueling() && currentMapIsMoonfen()) drawMiremawTelegraphs();
-    if (!isDueling() && currentMapIsClockworkRuins()) drawIronhornTelegraphs(); else if (!isDueling() && currentMapIsVerdantCatacombs()) drawGravebloomTelegraphs(); else if (!isDueling() && currentMapIsNeonBastion()) drawVoltwardenTelegraphs(); else if (!isDueling() && currentMapIsDuskfallOrchard()) drawDreadreaperTelegraphs(); else if (!isDueling() && currentMapIsCrystalHollows()) drawPrismshellTelegraphs();
+    if (!isDueling() && currentMapIsClockworkRuins()) drawIronhornTelegraphs(); else if (!isDueling() && currentMapIsIonCitadel()) drawAegisPrimeTelegraphs(); else if (!isDueling() && currentMapIsVerdantCatacombs()) drawGravebloomTelegraphs(); else if (!isDueling() && currentMapIsNeonBastion()) drawVoltwardenTelegraphs(); else if (!isDueling() && currentMapIsDuskfallOrchard()) drawDreadreaperTelegraphs(); else if (!isDueling() && currentMapIsCrystalHollows()) drawPrismshellTelegraphs();
     drawAttackRange();
     if (!projectilesRenderedByWebGL) {
       for (const projectile of projectiles) drawProjectile(projectile, false);

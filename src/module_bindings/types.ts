@@ -50,6 +50,49 @@ export const ActiveResearch = __t.object("ActiveResearch", {
 });
 export type ActiveResearch = __Infer<typeof ActiveResearch>;
 
+export const AegisPrimeAttackWindow = __t.object("AegisPrimeAttackWindow", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  startedAtMicros: __t.u64(),
+  hits: __t.u32(),
+});
+export type AegisPrimeAttackWindow = __Infer<typeof AegisPrimeAttackWindow>;
+
+export const AegisPrimeBoss = __t.object("AegisPrimeBoss", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  hp: __t.f32(),
+  maxHp: __t.f32(),
+  alive: __t.bool(),
+  respawnAtMicros: __t.u64(),
+  lastDamageAtMicros: __t.u64(),
+});
+export type AegisPrimeBoss = __Infer<typeof AegisPrimeBoss>;
+
+export const AegisPrimeContribution = __t.object("AegisPrimeContribution", {
+  identity: __t.identity(),
+  encounter: __t.u64(),
+  displayName: __t.string(),
+  damage: __t.f32(),
+});
+export type AegisPrimeContribution = __Infer<typeof AegisPrimeContribution>;
+
+export const AegisPrimeRespawnSchedule = __t.object("AegisPrimeRespawnSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+  encounter: __t.u64(),
+});
+export type AegisPrimeRespawnSchedule = __Infer<typeof AegisPrimeRespawnSchedule>;
+
+export const AegisPrimeResult = __t.object("AegisPrimeResult", {
+  id: __t.u32(),
+  encounter: __t.u64(),
+  totalDamage: __t.f32(),
+  contributorsJson: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type AegisPrimeResult = __Infer<typeof AegisPrimeResult>;
+
 export const BalanceApologyNotice = __t.object("BalanceApologyNotice", {
   identity: __t.identity(),
   amount: __t.u64(),
@@ -1305,6 +1348,7 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   duskfallOrchardUnlocked: __t.bool(),
   neonBastionUnlocked: __t.bool(),
   verdantCatacombsUnlocked: __t.bool(),
+  ionCitadelUnlocked: __t.bool(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
 

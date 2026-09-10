@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { Timestamp } from "spacetimedb";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
-import { BOSS_REWARD_CLAIM_BITS, IRONHORN_MAX_HP, DREADREAPER_MAX_HP, IRONHORN_REWARD_DAMAGE, DREADREAPER_REWARD_DAMAGE, VOLTWARDEN_MAX_HP, VOLTWARDEN_REWARD_DAMAGE, GRAVEBLOOM_MAX_HP, GRAVEBLOOM_REWARD_DAMAGE } from "../../shared/rules";
+import { BOSS_REWARD_CLAIM_BITS, IRONHORN_MAX_HP, DREADREAPER_MAX_HP, IRONHORN_REWARD_DAMAGE, DREADREAPER_REWARD_DAMAGE, VOLTWARDEN_MAX_HP, VOLTWARDEN_REWARD_DAMAGE, GRAVEBLOOM_MAX_HP, GRAVEBLOOM_REWARD_DAMAGE, AEGIS_PRIME_MAX_HP, AEGIS_PRIME_REWARD_DAMAGE } from "../../shared/rules";
 import { reducerParameters } from "../../tests/helpers/spacetime-module";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
@@ -9,7 +9,8 @@ const regions = [
   { map: "clockwork_ruins", boss: "ironhorn", unlock: "clockworkRuinsUnlocked", next: "duskfallOrchardUnlocked", maxHp: IRONHORN_MAX_HP, reward: IRONHORN_REWARD_DAMAGE, attack: server.damageIronhornFromPosition, respawn: server.respawnIronhorn },
   { map: "duskfall_orchard", boss: "dreadreaper", unlock: "duskfallOrchardUnlocked", next: "neonBastionUnlocked", maxHp: DREADREAPER_MAX_HP, reward: DREADREAPER_REWARD_DAMAGE, attack: server.damageDreadreaperFromPosition, respawn: server.respawnDreadreaper },
   { map: "neon_bastion", boss: "voltwarden", unlock: "neonBastionUnlocked", next: "verdantCatacombsUnlocked", maxHp: VOLTWARDEN_MAX_HP, reward: VOLTWARDEN_REWARD_DAMAGE, attack: server.damageVoltwardenFromPosition, respawn: server.respawnVoltwarden },
-  { map: "verdant_catacombs", boss: "gravebloom", unlock: "verdantCatacombsUnlocked", next: null, maxHp: GRAVEBLOOM_MAX_HP, reward: GRAVEBLOOM_REWARD_DAMAGE, attack: server.damageGravebloomFromPosition, respawn: server.respawnGravebloom },
+  { map: "verdant_catacombs", boss: "gravebloom", unlock: "verdantCatacombsUnlocked", next: "ionCitadelUnlocked", maxHp: GRAVEBLOOM_MAX_HP, reward: GRAVEBLOOM_REWARD_DAMAGE, attack: server.damageGravebloomFromPosition, respawn: server.respawnGravebloom },
+  { map: "ion_citadel", boss: "aegisPrime", unlock: "ionCitadelUnlocked", next: null, maxHp: AEGIS_PRIME_MAX_HP, reward: AEGIS_PRIME_REWARD_DAMAGE, attack: server.damageAegisPrimeFromPosition, respawn: server.respawnAegisPrime },
 ] as const;
 
 describe.each(regions)("$map authoritative boss", region => {
@@ -125,4 +126,27 @@ it("backfills only Voltwarden victories and supports catacombs return travel", (
     f.run(server.changeMap, { mapId: "neon_bastion", x: 360, y: 617 });
     expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe("neon_bastion");
   }
+});
+
+it("requires Gravebloom for Ion Citadel and preserves the gate across return trips", () => {
+  const f = crystalFixture();
+  f.seed("moduleMigrationState", { id: 0, version: 29 });
+  f.patch("playerProgress", { verdantCatacombsUnlocked: true, bossRewardClaims: BOSS_REWARD_CLAIM_BITS.voltwarden });
+  f.patch("player", { mapId: "verdant_catacombs" });
+  f.run(server.runMaintenance, {});
+  expect(f.db.playerProgress.identity.find(f.ctx.sender).ionCitadelUnlocked).toBe(false);
+  expect(() => f.run(server.changeMap, { mapId: "ion_citadel", x: 580, y: 617 })).toThrow("Gravebloom");
+  f.db.moduleMigrationState.id.update({ id: 0, version: 29 });
+  f.patch("playerProgress", { bossRewardClaims: BOSS_REWARD_CLAIM_BITS.gravebloom });
+  f.run(server.runMaintenance, {});
+  expect(f.db.playerProgress.identity.find(f.ctx.sender).ionCitadelUnlocked).toBe(true);
+  for (let repeat = 0; repeat < 3; repeat++) {
+    f.run(server.changeMap, { mapId: "ion_citadel", x: 580, y: 617 });
+    expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe("ion_citadel");
+    f.run(server.changeMap, { mapId: "verdant_catacombs", x: 360, y: 617 });
+    expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe("verdant_catacombs");
+  }
+  f.run(server.changeMap, { mapId: "ion_citadel", x: 580, y: 617 });
+  f.run(server.onDisconnect);
+  expect(f.db.playerLastLocation.identity.find(f.ctx.sender).mapId).toBe("ion_citadel");
 });

@@ -72,12 +72,14 @@ export type BaseSubscriptionHandlers = {
   dreadreaperBoss: RowHandler;
   voltwardenBoss: RowHandler;
   gravebloomBoss: RowHandler;
+  aegisPrimeBoss: RowHandler;
   miremawResult: RowHandler;
   prismshellResult: RowHandler;
   ironhornResult: RowHandler;
   dreadreaperResult: RowHandler;
   voltwardenResult: RowHandler;
   gravebloomResult: RowHandler;
+  aegisPrimeResult: RowHandler;
   socialHub: RowHandler;
   removeSocialHub: RowHandler;
   socialMessage: RowHandler;
@@ -165,12 +167,14 @@ type BaseSubscriptionHandlerSources = {
     upsertDreadreaper: BaseSubscriptionHandlers["dreadreaperBoss"];
     upsertVoltwarden: BaseSubscriptionHandlers["voltwardenBoss"];
     upsertGravebloom: BaseSubscriptionHandlers["gravebloomBoss"];
+    upsertAegisPrime: BaseSubscriptionHandlers["aegisPrimeBoss"];
     upsertMiremawResult: BaseSubscriptionHandlers["miremawResult"];
     upsertPrismshellResult: BaseSubscriptionHandlers["prismshellResult"];
     upsertIronhornResult: BaseSubscriptionHandlers["ironhornResult"];
     upsertDreadreaperResult: BaseSubscriptionHandlers["dreadreaperResult"];
     upsertVoltwardenResult: BaseSubscriptionHandlers["voltwardenResult"];
     upsertGravebloomResult: BaseSubscriptionHandlers["gravebloomResult"];
+    upsertAegisPrimeResult: BaseSubscriptionHandlers["aegisPrimeResult"];
   };
   social?: { upsertHub: RowHandler; removeHub: RowHandler; upsertMessage: RowHandler; removeMessage: RowHandler };
   chat: { upsert: BaseSubscriptionHandlers["chatMessage"]; upsertBlock: RowHandler; removeBlock: RowHandler };
@@ -242,9 +246,9 @@ export function createBaseSubscriptionHandlers(sources: BaseSubscriptionHandlerS
     tempestKirinBoss: boss.upsertTempestKirin,
     tempestKirinResult: boss.upsertTempestKirinResult,
     miremawBoss: boss.upsertMiremaw,
-    prismshellBoss: boss.upsertPrismshell, ironhornBoss: boss.upsertIronhorn, dreadreaperBoss: boss.upsertDreadreaper, voltwardenBoss: boss.upsertVoltwarden, gravebloomBoss: boss.upsertGravebloom,
+    prismshellBoss: boss.upsertPrismshell, ironhornBoss: boss.upsertIronhorn, dreadreaperBoss: boss.upsertDreadreaper, voltwardenBoss: boss.upsertVoltwarden, gravebloomBoss: boss.upsertGravebloom, aegisPrimeBoss: boss.upsertAegisPrime,
     miremawResult: boss.upsertMiremawResult,
-    prismshellResult: boss.upsertPrismshellResult, ironhornResult: boss.upsertIronhornResult, dreadreaperResult: boss.upsertDreadreaperResult, voltwardenResult: boss.upsertVoltwardenResult, gravebloomResult: boss.upsertGravebloomResult,
+    prismshellResult: boss.upsertPrismshellResult, ironhornResult: boss.upsertIronhornResult, dreadreaperResult: boss.upsertDreadreaperResult, voltwardenResult: boss.upsertVoltwardenResult, gravebloomResult: boss.upsertGravebloomResult, aegisPrimeResult: boss.upsertAegisPrimeResult,
     socialHub: sources.social?.upsertHub ?? (() => {}),
     removeSocialHub: sources.social?.removeHub ?? (() => {}),
     socialMessage: sources.social?.upsertMessage ?? (() => {}),
@@ -390,24 +394,28 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   connection.db.dreadreaperBoss.onInsert((_ctx, row) => { if (shouldHandle()) handlers.dreadreaperBoss(row); });
   connection.db.voltwardenBoss.onInsert((_ctx, row) => { if (shouldHandle()) handlers.voltwardenBoss(row); });
   connection.db.gravebloomBoss.onInsert((_ctx, row) => { if (shouldHandle()) handlers.gravebloomBoss(row); });
+  connection.db.aegisPrimeBoss.onInsert((_ctx, row) => { if (shouldHandle()) handlers.aegisPrimeBoss(row); });
   connection.db.miremawBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.miremawBoss(row); });
   connection.db.prismshellBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.prismshellBoss(row); });
   connection.db.ironhornBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.ironhornBoss(row); });
   connection.db.dreadreaperBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.dreadreaperBoss(row); });
   connection.db.voltwardenBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.voltwardenBoss(row); });
   connection.db.gravebloomBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.gravebloomBoss(row); });
+  connection.db.aegisPrimeBoss.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.aegisPrimeBoss(row); });
   connection.db.miremawResult.onInsert((_ctx, row) => { if (shouldHandle()) handlers.miremawResult(row); });
   connection.db.prismshellResult.onInsert((_ctx, row) => { if (shouldHandle()) handlers.prismshellResult(row); });
   connection.db.ironhornResult.onInsert((_ctx, row) => { if (shouldHandle()) handlers.ironhornResult(row); });
   connection.db.dreadreaperResult.onInsert((_ctx, row) => { if (shouldHandle()) handlers.dreadreaperResult(row); });
   connection.db.voltwardenResult.onInsert((_ctx, row) => { if (shouldHandle()) handlers.voltwardenResult(row); });
   connection.db.gravebloomResult.onInsert((_ctx, row) => { if (shouldHandle()) handlers.gravebloomResult(row); });
+  connection.db.aegisPrimeResult.onInsert((_ctx, row) => { if (shouldHandle()) handlers.aegisPrimeResult(row); });
   connection.db.miremawResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.miremawResult(row); });
   connection.db.prismshellResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.prismshellResult(row); });
   connection.db.ironhornResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.ironhornResult(row); });
   connection.db.dreadreaperResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.dreadreaperResult(row); });
   connection.db.voltwardenResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.voltwardenResult(row); });
   connection.db.gravebloomResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.gravebloomResult(row); });
+  connection.db.aegisPrimeResult.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.aegisPrimeResult(row); });
   connection.db.mySocialHub.onInsert((_ctx, row) => { if (shouldHandle()) handlers.socialHub(row); });
   connection.db.mySocialHub.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.socialHub(row); });
   connection.db.mySocialHub.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeSocialHub(row); });
@@ -433,7 +441,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
     [tables.koiShogunBoss],
     [tables.tempestKirinBoss],
     [tables.miremawBoss],
-    [tables.prismshellBoss], [tables.ironhornBoss], [tables.dreadreaperBoss], [tables.voltwardenBoss], [tables.gravebloomBoss]
+    [tables.prismshellBoss], [tables.ironhornBoss], [tables.dreadreaperBoss], [tables.voltwardenBoss], [tables.gravebloomBoss], [tables.aegisPrimeBoss]
   ];
   return createSessionSubscriptions({
     isCurrent: dependencies.isCurrent,
@@ -481,7 +489,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.koiShogunResult,
       tables.tempestKirinResult,
       tables.miremawResult,
-            tables.prismshellResult, tables.ironhornResult, tables.dreadreaperResult, tables.voltwardenResult, tables.gravebloomResult,
+            tables.prismshellResult, tables.ironhornResult, tables.dreadreaperResult, tables.voltwardenResult, tables.gravebloomResult, tables.aegisPrimeResult,
       tables.mySocialHub,
       tables.mySocialMessages,
       tables.chatMessage,
@@ -537,12 +545,14 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
           for (const row of connection.db.dreadreaperBoss.iter()) handlers.dreadreaperBoss(row);
           for (const row of connection.db.voltwardenBoss.iter()) handlers.voltwardenBoss(row);
           for (const row of connection.db.gravebloomBoss.iter()) handlers.gravebloomBoss(row);
+          for (const row of connection.db.aegisPrimeBoss.iter()) handlers.aegisPrimeBoss(row);
           for (const row of connection.db.miremawResult.iter()) handlers.miremawResult(row);
           for (const row of connection.db.prismshellResult.iter()) handlers.prismshellResult(row);
           for (const row of connection.db.ironhornResult.iter()) handlers.ironhornResult(row);
           for (const row of connection.db.dreadreaperResult.iter()) handlers.dreadreaperResult(row);
           for (const row of connection.db.voltwardenResult.iter()) handlers.voltwardenResult(row);
           for (const row of connection.db.gravebloomResult.iter()) handlers.gravebloomResult(row);
+          for (const row of connection.db.aegisPrimeResult.iter()) handlers.aegisPrimeResult(row);
           for (const row of connection.db.myPlayerBlocks.iter()) handlers.playerBlock(row);
           for (const row of connection.db.mySocialHub.iter()) handlers.socialHub(row);
           for (const row of connection.db.mySocialMessages.iter()) handlers.socialMessage(row);
@@ -567,6 +577,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
           for (const row of connection.db.dreadreaperBoss.iter()) handlers.dreadreaperBoss(row);
           for (const row of connection.db.voltwardenBoss.iter()) handlers.voltwardenBoss(row);
           for (const row of connection.db.gravebloomBoss.iter()) handlers.gravebloomBoss(row);
+          for (const row of connection.db.aegisPrimeBoss.iter()) handlers.aegisPrimeBoss(row);
         });
         return;
       }
