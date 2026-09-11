@@ -29,10 +29,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            mobile/package-lock.json
 
       - name: Validate and build client
         run: |
           npm ci
+          # The shared unit suite includes native bridge tests.
+          npm ci --prefix mobile
           npm run check:release
           npm run typecheck:coop
           npm run test:unit
