@@ -329,7 +329,7 @@ const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const MOTION_DETAIL_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_DETAIL_FRAME_HZ);
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 30;
+const MODULE_MIGRATION_VERSION = 31;
 const LEADERBOARD_LIMIT = 100;
 const LEADERBOARD_REFRESH_VERSION = 9;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -1485,6 +1485,12 @@ const maintenanceSweepSchedule = table(
   },
 );
 
+// Diagnostic retention has its own cadence, separate from gameplay recovery.
+const startupTelemetryCleanupSchedule = table(
+  { scheduled: (): any => cleanupStartupTelemetry },
+  { scheduledId: t.u64().primaryKey(), scheduledAt: t.scheduleAt() },
+);
+
 const motionFrameSchedule = table(
   { scheduled: (): any => publishMotionFrames },
   {
@@ -1758,6 +1764,7 @@ const spacetimedb = schema({
   ...dragonBossTables,
   maintenanceSchedule,
   maintenanceSweepSchedule,
+  startupTelemetryCleanupSchedule,
   motionFrameSchedule,
   motionDetailFrameSchedule,
   mapFrameSchedule,
@@ -2568,6 +2575,10 @@ function runPendingModuleMigrations(ctx: any) {
         updateSnapshotRow(ctx, "playerProgress", { ...progress, ionCitadelUnlocked: true });
       }
     }
+  }
+  if (currentVersion < 31 && !isMapShard(ctx) && !ctx.db.startupTelemetryCleanupSchedule.scheduledId.find(0n)) {
+    ctx.db.startupTelemetryCleanupSchedule.insert({ scheduledId: 0n,
+      scheduledAt: ScheduleAt.interval(15n * MAINTENANCE_INTERVAL_MICROS) });
   }
   const next = { id: 0, version: MODULE_MIGRATION_VERSION };
   if (state) ctx.db.moduleMigrationState.id.update(next);
@@ -6174,14 +6185,13 @@ function clearExpiredHistory(ctx: any) {
   trimChatHistory(ctx);
 }
 
-function trimStartupTelemetry(ctx: ModuleReducerCtx, incomingRows = 0) {
+function trimStartupTelemetry(ctx: ModuleReducerCtx) {
   const rows = [...ctx.db.startupTelemetryEvent.iter()]
     .map((row) => ({ id: row.id, recordedAtMicros: row.recordedAt.microsSinceUnixEpoch }));
-  const retainedCapacity = Math.max(0, STARTUP_TELEMETRY_MAX_ROWS - incomingRows);
   for (const id of startupTelemetryIdsToDelete(
     rows,
     ctx.timestamp.microsSinceUnixEpoch,
-    retainedCapacity,
+    STARTUP_TELEMETRY_MAX_ROWS,
   )) {
     ctx.db.startupTelemetryEvent.id.delete(id);
   }
@@ -6549,8 +6559,6 @@ export const runMaintenanceSweep = spacetimedb.reducer(
       return;
     }
     clearExpiredHistory(ctx);
-    trimStartupTelemetry(ctx);
-    clearExpiredStartupTelemetryRateLimits(ctx);
     clearExpiredAccountLinks(ctx);
     clearOrphanPresence(ctx);
     clearOrphanRealtimeState(ctx);
@@ -6564,6 +6572,15 @@ export const runMaintenanceSweep = spacetimedb.reducer(
     for (const active of [...ctx.db.activeItemUpgradeSlotTwo.iter()] as any[]) {
       reconcileActiveItemUpgrade(ctx, active, UPGRADE_BENCH_SLOT_TWO);
     }
+  },
+);
+
+export const cleanupStartupTelemetry = spacetimedb.reducer(
+  { schedule: startupTelemetryCleanupSchedule.rowType },
+  (ctx, _args) => {
+    if (isMapShard(ctx)) return;
+    trimStartupTelemetry(ctx);
+    clearExpiredStartupTelemetryRateLimits(ctx);
   },
 );
 
@@ -8111,7 +8128,8 @@ export const recordStartupTelemetry = spacetimedb.reducer(
     if (currentRate) ctx.db.startupTelemetryRateLimit.sender.update(rateRow);
     else ctx.db.startupTelemetryRateLimit.insert(rateRow);
 
-    trimStartupTelemetry(ctx, nextRate.acceptedCount);
+    // Retention and the row cap are enforced by the 15-minute cleanup.
+    // Recording a startup batch must never scan the telemetry history.
     for (const sample of normalized.slice(0, nextRate.acceptedCount)) {
       ctx.db.startupTelemetryEvent.insert({
         id: 0n,
@@ -10336,11 +10354,12 @@ export const prepareWorldActionPosition = spacetimedb.reducer({ x: t.f64(), y: t
 });
 
 export const renewShardLease = spacetimedb.reducer({}, renewShardLeaseImpl);
-function renewShardLeaseImpl(ctx: any, options: { checkpoint?: boolean } = {}) {
+function renewShardLeaseImpl(ctx: any, options: { checkpoint?: boolean; enable?: boolean } = {}) {
   requireShardOperator(ctx);
   const runtime = ctx.db.shardRuntime.id.find(0);
   if (runtime?.role !== "map") throw new SenderError("Map database required");
-  ctx.db.shardRuntime.id.update({ ...runtime, leaseExpiresAtMicros: ctx.timestamp.microsSinceUnixEpoch + 45_000_000n });
+  ctx.db.shardRuntime.id.update({ ...runtime, enabled: options.enable ?? runtime.enabled,
+    leaseExpiresAtMicros: ctx.timestamp.microsSinceUnixEpoch + 45_000_000n });
   if (options.checkpoint === false) return;
   // One low-frequency checkpoint per admitted player; hot movement remains in
   // the region. The operator invokes this once per 15 seconds per database.
@@ -10416,9 +10435,9 @@ export const coordinateMapShard = spacetimedb.procedure(
 export const synchronizeMapShard = spacetimedb.procedure(
   { payload: t.string() }, t.string(), (ctx, { payload }) => {
     requireShardOperator(ctx);
-    return ctx.withTx(tx => {
+    const batch = decodeShardSnapshot(payload);
+    const reply = ctx.withTx(tx => {
       if (!isMapShard(tx)) throw new SenderError("Map database required");
-      const batch = decodeShardSnapshot(payload);
       const current = tx.db.shardReplicaState.id.find(0);
       if (!Array.isArray(batch.members) || batch.members.length > 10) throw new SenderError("Invalid admission batch");
       if (batch.expiresAt > tx.timestamp.microsSinceUnixEpoch && (!current || batch.sequence > current.sequence)) {
@@ -10432,9 +10451,12 @@ export const synchronizeMapShard = spacetimedb.procedure(
         const state = { id: 0, sequence: batch.sequence, checkpointAt: checkpoint ? tx.timestamp.microsSinceUnixEpoch : current.checkpointAt };
         if (current) tx.db.shardReplicaState.id.update(state);
         else tx.db.shardReplicaState.insert(state);
-        const runtime = tx.db.shardRuntime.id.find(0)!;
-        tx.db.shardRuntime.id.update({ ...runtime, enabled: Boolean(batch.enabled), leaseExpiresAtMicros: 0n });
-        if (batch.enabled) renewShardLeaseImpl(tx, { checkpoint });
+        if (batch.enabled) renewShardLeaseImpl(tx, { checkpoint, enable: true });
+        else {
+          const runtime = tx.db.shardRuntime.id.find(0)!;
+          if (runtime.enabled || runtime.leaseExpiresAtMicros !== 0n)
+            tx.db.shardRuntime.id.update({ ...runtime, enabled: false, leaseExpiresAtMicros: 0n });
+        }
       }
       const replica = tx.db.shardReplicaState.id.find(0);
       const rewards = [];
@@ -10442,7 +10464,7 @@ export const synchronizeMapShard = spacetimedb.procedure(
         rewards.push(reward);
         if (rewards.length === 100) break;
       }
-      return encodeShardSnapshot({ sequence: replica?.sequence,
+      return { sequence: replica?.sequence,
         admitted: [...tx.db.shardAdmission.iter()].filter(row => tx.db.player.identity.find(row.identity)),
         checkpointAt: replica?.checkpointAt ?? 0n,
         // Older roots omit the cursor and retain the original full reply.
@@ -10450,8 +10472,9 @@ export const synchronizeMapShard = spacetimedb.procedure(
         checkpoints: batch.checkpointAt === undefined || batch.checkpointAt !== replica?.checkpointAt
           ? [...tx.db.shardCheckpoint.iter()] : [],
         rewards,
-      });
+      };
     });
+    return encodeShardSnapshot(reply);
   },
 );
 export const acknowledgeShardRewards = spacetimedb.reducer({ keys: t.array(t.string()) }, (ctx, { keys }) => {

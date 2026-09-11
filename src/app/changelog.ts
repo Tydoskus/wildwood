@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.653": [
+    "Reduced background progress saves to every 30 seconds while keeping immediate saves for equipment and important actions.",
+    "Reduced map synchronization overhead and moved startup diagnostic cleanup to every 15 minutes.",
+  ],
   "0.652": [
     "Added Ion Citadel after Verdant Catacombs, with five reactor camps using the original green shield sentry.",
     "Defeat Gravebloom to unlock the new region and face Aegis Prime's shield sweeps and alternating ion volleys.",
@@ -1632,6 +1636,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.653": "2026-09-11",
   "0.650": "2026-09-08",
   "0.649": "2026-09-08",
   "0.648": "2026-09-08",

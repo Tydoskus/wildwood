@@ -3,6 +3,44 @@ import { SenderError } from "spacetimedb/server";
 import { decodeShardSnapshot, encodeShardSnapshot } from "../../shared/shard-wire";
 import { assignMapShard, rootShardingEnabled } from "./map-sharding";
 
+/** Capture the outgoing revision while acquiring the lease. Ready shards need
+ * no separate preparation transaction before their HTTP exchange. */
+function prepareShardBatch(tx: any, shardId: bigint, sequence: bigint, checkpointAt: bigint) {
+  const enabled = rootShardingEnabled(tx);
+  const members = [];
+  for (const member of enabled ? tx.db.mapShardMember.byShard.filter(shardId) : []) {
+    const barrier = tx.db.shardTransferBarrier.identity.find(member.identity);
+    if (barrier && barrier.expiresAt > tx.timestamp.microsSinceUnixEpoch) continue;
+    if (barrier) tx.db.shardTransferBarrier.identity.delete(member.identity);
+    let version = tx.db.shardSnapshotState.identity.find(member.identity);
+    if (version && version.shardId === shardId && version.generation === member.generation
+      && version.sentRevision === version.revision) {
+      members.push({ identity: member.identity, generation: member.generation, revision: version.revision, snapshot: "" });
+      continue;
+    }
+    const player = tx.db.player.identity.find(member.identity);
+    if (!player) continue;
+    if (!version || version.shardId !== shardId || version.generation !== member.generation) {
+      const next = { identity: member.identity, shardId, generation: member.generation, revision: 1n, sentRevision: 0n };
+      if (version) tx.db.shardSnapshotState.identity.update(next);
+      else tx.db.shardSnapshotState.insert(next);
+      version = next;
+      // Retire the legacy large comparison cache without reading its bytes.
+      tx.db.shardSentSnapshot.identity.delete(member.identity);
+    }
+    const snapshot = encodeShardSnapshot({ player,
+      playerProgress: tx.db.playerProgress.identity.find(member.identity),
+      playerProfile: tx.db.playerProfile.identity.find(member.identity),
+      playerResearch: tx.db.playerResearch.identity.find(member.identity),
+      playerAccountStatus: tx.db.playerAccountStatus.identity.find(member.identity),
+      playerItemUpgrade: [...tx.db.playerItemUpgrade.byIdentity.filter(member.identity)],
+      inDuel: [...tx.db.duel.byChallenger.filter(member.identity)].some((duel: any) => ["countdown", "active", "finishing"].includes(duel.status)),
+    });
+    members.push({ identity: member.identity, generation: member.generation, revision: version.revision, snapshot });
+  }
+  return { sequence, members, enabled, checkpointAt, expiresAt: tx.timestamp.microsSinceUnixEpoch + 15_000_000n };
+}
+
 /** Each scheduled invocation handles one database. HTTP yields the database
  * executor; only short withTx callbacks hold account-state transactions. */
 export function coordinateShard(ctx: any, shardId: bigint, hooks: {
@@ -29,7 +67,8 @@ export function coordinateShard(ctx: any, shardId: bigint, hooks: {
       checkpointAt: state?.checkpointAt ?? 0n };
     if (state) tx.db.shardSyncState.shardId.update(next);
     else tx.db.shardSyncState.insert(next);
-    return { config, shard, sequence: next.sequence, checkpointAt: next.checkpointAt };
+    return { config, shard, sequence: next.sequence, checkpointAt: next.checkpointAt,
+      batch: shard.state === "starting" ? null : prepareShardBatch(tx, shardId, next.sequence, next.checkpointAt) };
   });
   if (!work) return;
   const { config, shard, sequence, checkpointAt } = work;
@@ -61,59 +100,26 @@ export function coordinateShard(ctx: any, shardId: bigint, hooks: {
         }
       });
     }
-    const batch = ctx.withTx((tx: any) => {
-      const enabled = rootShardingEnabled(tx);
-      const members = [];
-      for (const member of enabled ? tx.db.mapShardMember.byShard.filter(shardId) : []) {
-        const barrier = tx.db.shardTransferBarrier.identity.find(member.identity);
-        if (barrier && barrier.expiresAt > tx.timestamp.microsSinceUnixEpoch) continue;
-        if (barrier) tx.db.shardTransferBarrier.identity.delete(member.identity);
-        let version = tx.db.shardSnapshotState.identity.find(member.identity);
-        if (version && version.shardId === shardId && version.generation === member.generation
-          && version.sentRevision === version.revision) {
-          members.push({ identity: member.identity, generation: member.generation, revision: version.revision, snapshot: "" });
-          continue;
-        }
-        const player = tx.db.player.identity.find(member.identity);
-        if (!player) continue;
-        if (!version || version.shardId !== shardId || version.generation !== member.generation) {
-          const next = { identity: member.identity, shardId, generation: member.generation, revision: 1n, sentRevision: 0n };
-          if (version) tx.db.shardSnapshotState.identity.update(next);
-          else tx.db.shardSnapshotState.insert(next);
-          version = next;
-          // Retire the legacy large comparison cache without reading its bytes.
-          tx.db.shardSentSnapshot.identity.delete(member.identity);
-        }
-        const snapshot = encodeShardSnapshot({ player,
-          playerProgress: tx.db.playerProgress.identity.find(member.identity),
-          playerProfile: tx.db.playerProfile.identity.find(member.identity),
-          playerResearch: tx.db.playerResearch.identity.find(member.identity),
-          playerAccountStatus: tx.db.playerAccountStatus.identity.find(member.identity),
-          playerItemUpgrade: [...tx.db.playerItemUpgrade.byIdentity.filter(member.identity)],
-          inDuel: [...tx.db.duel.byChallenger.filter(member.identity)].some((duel: any) => ["countdown", "active", "finishing"].includes(duel.status)),
-        });
-        members.push({ identity: member.identity, generation: member.generation, revision: version.revision, snapshot });
-      }
-      return { sequence, members, enabled, checkpointAt, expiresAt: tx.timestamp.microsSinceUnixEpoch + 15_000_000n };
-    });
+    const batch = work.batch ?? ctx.withTx((tx: any) => prepareShardBatch(tx, shardId, sequence, checkpointAt));
     if (!batch) return;
     phase = "exchange";
     const reply = decodeShardSnapshot(JSON.parse(request("/call/synchronize_map_shard", "POST", JSON.stringify([encodeShardSnapshot(batch)]))));
     if (reply.sequence !== sequence) throw new Error("Stale shard response");
+    const admittedGenerations = new Map<string, bigint>(reply.admitted.map((row: any) => [row.identity.toHexString(), row.generation]));
     canSleep = batch.members.length === 0 && reply.admitted.length === 0 && reply.rewards.length === 0;
     phase = "commit";
     const acknowledgments = ctx.withTx((tx: any) => {
       const state = tx.db.shardSyncState.shardId.find(shardId);
       if (!state || state.sequence !== sequence) return [];
       for (const barrier of tx.db.shardTransferBarrier.byShard.filter(shardId)) {
-        if (!reply.admitted.some((row: any) => row.identity.toHexString() === barrier.identity.toHexString() && row.generation === barrier.generation)) {
+        if (admittedGenerations.get(barrier.identity.toHexString()) !== barrier.generation) {
           tx.db.shardTransferBarrier.identity.delete(barrier.identity);
         }
       }
       for (const sent of batch.members) {
         const member = tx.db.mapShardMember.identity.find(sent.identity);
         if (!member || member.shardId !== shardId || member.generation !== sent.generation) continue;
-        const admitted = reply.admitted.some((row: any) => row.identity.toHexString() === sent.identity.toHexString() && row.generation === sent.generation);
+        const admitted = admittedGenerations.get(sent.identity.toHexString()) === sent.generation;
         if (!admitted) { tx.db.shardSnapshotState.identity.delete(sent.identity); continue; }
         if (sent.snapshot) {
           const version = tx.db.shardSnapshotState.identity.find(sent.identity);
@@ -125,7 +131,7 @@ export function coordinateShard(ctx: any, shardId: bigint, hooks: {
         if (!member.ready) tx.db.mapShardMember.identity.update({ ...member, ready: true });
       }
       for (const position of reply.checkpoints) hooks.checkpoint(tx, { ...position, shardId });
-      if (typeof reply.checkpointAt === "bigint")
+      if (typeof reply.checkpointAt === "bigint" && reply.checkpointAt !== state.checkpointAt)
         tx.db.shardSyncState.shardId.update({ ...state, checkpointAt: reply.checkpointAt });
       for (const reward of reply.rewards) hooks.reward(tx, { ...reward, shardId });
       return reply.rewards.map((reward: any) => reward.key);

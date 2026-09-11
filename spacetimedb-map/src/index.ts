@@ -3,6 +3,7 @@
 export { default,
   configureSharding,
   coordinateMapShard,
+  cleanupStartupTelemetry,
   synchronizeMapShard,
   acknowledgeShardRewards,
   renewShardLease,

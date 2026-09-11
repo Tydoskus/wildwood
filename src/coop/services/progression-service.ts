@@ -174,7 +174,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     if (!force && Date.now() < saveInFlightUntil) return Promise.resolve(false);
     const identity = dependencies.localIdentity();
     const snapshot = copyProgress(pendingProgress);
-    saveInFlightUntil = Date.now() + 4_000;
+    saveInFlightUntil = Date.now() + 30_000;
     savePromise = dependencies.reducers.runWorldReducer(() => connection.reducers.savePlayerProgress(snapshot))
       .then(() => {
         if (
@@ -408,7 +408,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   }
 
   const pageHide = () => flush(true);
-  const flushTimer = window.setInterval(() => flush(), 2_500);
+  const flushTimer = window.setInterval(() => flush(), 30_000);
   window.addEventListener("pagehide", pageHide);
 
   return {

@@ -118,8 +118,12 @@ describe("separate map database control plane", () => {
     sync(6n, [{ ...member, generation: 11n }]);
     expect(region.db.shardAdmission.count()).toBe(1n);
     sync(7n, [], 25_000_000n, false);
-    expect(region.db.shardRuntime.id.find(0).enabled).toBe(false);
+    expect(region.db.shardRuntime.id.find(0)).toMatchObject({ enabled: false, leaseExpiresAtMicros: 0n });
     expect(region.db.playerProgress.count()).toBe(0n);
+    sync(8n, [{ ...member, generation: 12n }]);
+    expect(region.db.shardRuntime.id.find(0)).toMatchObject({ enabled: true,
+      leaseExpiresAtMicros: region.ctx.timestamp.microsSinceUnixEpoch + 45_000_000n });
+    expect(region.db.shardAdmission.count()).toBe(1n);
   });
   it("rejects an eleventh direct admission and unauthorized coordinator execution", () => {
     const root = rootFixture(), region = regionFixture();
@@ -214,9 +218,14 @@ it("retries checkpoints until acknowledged and skips checkpoint reads between ca
   const first = sync(0n);
   expect(first.checkpoints).toHaveLength(1);
   expect(sync(0n).checkpoints).toEqual(first.checkpoints);
+  const runtimeWrites = vi.spyOn(region.db.shardRuntime.id, "update");
   const scan = vi.spyOn(region.db.shardCheckpoint, "iter");
   expect(sync(first.checkpointAt).checkpoints).toEqual([]);
   expect(scan).not.toHaveBeenCalled();
+  expect(runtimeWrites).toHaveBeenCalledTimes(1);
+  expect(region.db.shardRuntime.id.find(0)).toMatchObject({ enabled: true,
+    leaseExpiresAtMicros: region.ctx.timestamp.microsSinceUnixEpoch + 45_000_000n });
+  runtimeWrites.mockRestore();
   region.ctx.timestamp = new Timestamp(region.ctx.timestamp.microsSinceUnixEpoch + 15_000_000n);
   const next = sync(first.checkpointAt);
   expect(next.checkpointAt).toBeGreaterThan(first.checkpointAt);

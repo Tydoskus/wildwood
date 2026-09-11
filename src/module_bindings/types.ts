@@ -1678,6 +1678,12 @@ export const SpiderResult = __t.object("SpiderResult", {
 });
 export type SpiderResult = __Infer<typeof SpiderResult>;
 
+export const StartupTelemetryCleanupSchedule = __t.object("StartupTelemetryCleanupSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+});
+export type StartupTelemetryCleanupSchedule = __Infer<typeof StartupTelemetryCleanupSchedule>;
+
 export const StartupTelemetryEvent = __t.object("StartupTelemetryEvent", {
   id: __t.u64(),
   stage: __t.string(),

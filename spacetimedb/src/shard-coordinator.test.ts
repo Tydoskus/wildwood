@@ -15,7 +15,7 @@ it("replays an unacknowledged reward without duplicating it and sends unchanged 
   let acknowledgments = 0;
   const payloads: any[] = [];
   f.ctx.sender = identity("4"); f.ctx.connectionId = null;
-  const ctx = { ...f.ctx, withTx: (fn: any) => f.transaction(() => fn(f.ctx)), http: { fetch(url: string, args: any) {
+  const ctx = { ...f.ctx, withTx: vi.fn((fn: any) => f.transaction(() => fn(f.ctx))), http: { fetch(url: string, args: any) {
     if (url.endsWith("/acknowledge_shard_rewards")) return { status: ++acknowledgments === 1 ? 503 : 200, text: () => "" };
     const batch = decodeShardSnapshot(JSON.parse(args.body)[0]); payloads.push(batch);
     const reply = { sequence: batch.sequence, admitted: batch.members, checkpoints: [], rewards: [
@@ -51,17 +51,17 @@ function coordinatorFixture() {
   const payloads: any[] = [];
   let duringHttp = () => {};
   let admitted = true;
-  const ctx = { ...f.ctx, withTx: (fn: any) => f.transaction(() => fn(f.ctx)), http: { fetch(_url: string, args: any) {
+  const ctx = { ...f.ctx, withTx: vi.fn((fn: any) => f.transaction(() => fn(f.ctx))), http: { fetch(_url: string, args: any) {
     const batch = decodeShardSnapshot(JSON.parse(args.body)[0]); payloads.push(batch);
     duringHttp();
     return { status: 200, text: () => JSON.stringify(encodeShardSnapshot({ sequence: batch.sequence,
-      admitted: admitted ? batch.members : [], checkpoints: [], rewards: [] })) };
+      admitted: admitted ? batch.members : [], checkpointAt: 0n, checkpoints: [], rewards: [] })) };
   } } };
   const tick = () => {
     f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + 1_000_000n);
     coordinateShard(ctx, 1n, { reward: () => {}, checkpoint: () => {} });
   };
-  return { ...f, payloads, tick, duringHttp: (fn: () => void) => { duringHttp = fn; }, admit: (value: boolean) => { admitted = value; } };
+  return { ...f, payloads, tick, withTx: ctx.withTx, duringHttp: (fn: () => void) => { duringHttp = fn; }, admit: (value: boolean) => { admitted = value; } };
 }
 
 it("does not read account rows, equipment, or the old snapshot cache on unchanged heartbeats", () => {
@@ -97,4 +97,16 @@ it("resends a full snapshot when a region reports the admission missing", () => 
   expect(f.db.shardSnapshotState.identity.find(identity("1"))).toBeNull();
   f.admit(true); f.tick();
   expect(f.payloads[2].members[0].snapshot).not.toBe("");
+});
+
+it("uses three root transactions per ready-shard exchange and skips unchanged checkpoint writes", () => {
+  const f = coordinatorFixture(); f.tick();
+  f.withTx.mockClear();
+  const writes = vi.spyOn(f.db.shardSyncState.shardId, "update");
+  f.tick();
+  expect(f.withTx).toHaveBeenCalledTimes(3);
+  // Acquire and release the coordinator lease; no third cursor write.
+  expect(writes).toHaveBeenCalledTimes(2);
+  expect(f.payloads).toHaveLength(2);
+  writes.mockRestore();
 });
