@@ -29,6 +29,21 @@ function setup(snapshot = fixture(), socialApi?: SocialApi) {
 async function settled() { for (let i = 0; i < 10; i++) await Promise.resolve(); }
 
 describe("guild panel", () => {
+  it("toggles closed from the Guild toolbar button without reopening or refetching", async () => {
+    const h = setup();
+    const toggle = h.document.getElementById("guildBtn")!;
+    toggle.click(); await settled();
+    expect(h.document.getElementById("guildOverlay")!.hidden).toBe(false);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    toggle.click(); await settled();
+    expect(h.document.getElementById("guildOverlay")!.hidden).toBe(true);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(h.onClose).toHaveBeenCalledTimes(1);
+    expect(h.api.loadGuild).toHaveBeenCalledTimes(1);
+    toggle.click(); await settled();
+    expect(h.document.getElementById("guildOverlay")!.hidden).toBe(false);
+    expect(h.api.loadGuild).toHaveBeenCalledTimes(2);
+  });
   it("keeps navigation focused and reuses the loaded snapshot across sections", async () => {
     const h = setup(); h.panel.open(); await settled();
     expect([...h.document.querySelectorAll(".guild-tabs button")].map(node => node.textContent)).toEqual(["Guild", "Battles", "Rankings", "Friends"]);

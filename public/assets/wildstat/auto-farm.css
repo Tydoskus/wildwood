@@ -16,8 +16,8 @@
   height: 48px;
   border: 1px solid #c9ab64;
   border-radius: 50%;
-  background: linear-gradient(150deg, #34392ef2, #111b16f5);
-  box-shadow: 0 5px 18px #0007, inset 0 1px #ffffff18;
+  background: transparent;
+  box-shadow: none;
   pointer-events: auto;
   overflow: hidden;
   z-index: 7;
@@ -30,9 +30,9 @@
 .farm-floating .farm-stop-icon { display: none; fill: currentColor; stroke: none; }
 .farm-floating.is-farming .farm-toggle > svg { display: none; }
 .farm-floating.is-farming .farm-toggle > .farm-stop-icon { display: block; }
-.farm-floating.is-farming { border-color: #94e3a1; background: linear-gradient(150deg, #254831f5, #11291cf5); }
+.farm-floating.is-farming { border-color: #94e3a1; background: transparent; }
 .farm-floating.is-farming .farm-toggle > svg { color: #98efaa; }
-.farm-floating button:active { background: #ffffff14; }
+.farm-floating button:active { background: transparent; }
 .farm-floating button:focus-visible, .farm-sheet button:focus-visible { outline: 2px solid #e7cc83; outline-offset: -3px; }
 .farm-sheet {
   position: fixed;
@@ -46,7 +46,7 @@
   border: 1px solid #c4b58960;
   border-bottom: 0;
   border-radius: 25px 25px 0 0;
-  background: linear-gradient(165deg, #26322b, #111a16 70%);
+  background: #1b261f;
   color: #f2f1e9;
   box-shadow: 0 -12px 60px #0009;
   font-family: var(--chat-font);

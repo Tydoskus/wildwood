@@ -91,12 +91,15 @@ export function renderLeaderboardPodium(
   },
 ) {
   const rendered: RenderedLeaderboardPodiumPlayer[] = [];
+  podium.dataset.stat = stat;
   const slots = leaderboardPodiumEntries(stat, entries).map(({ rank, entry }) => {
     const slot = document.createElement("button");
     slot.type = "button";
     slot.className = `leaderboard-podium-player leaderboard-podium-rank-${rank}`;
     slot.dataset.rank = String(rank);
 
+    const value = document.createElement("span");
+    value.className = "leaderboard-podium-value";
     const name = document.createElement("span");
     name.className = "leaderboard-podium-name";
     const canvas = document.createElement("canvas");
@@ -116,6 +119,7 @@ export function renderLeaderboardPodium(
       slot.disabled = true;
       name.textContent = "—";
     } else {
+      value.textContent = `${stat.toUpperCase()} · ${leaderboardValueText(stat, entry)}`;
       appendPlayerNameTags(name, entry.identity, actions.isDeveloper(entry.identity));
       const nameText = document.createElement("span");
       nameText.className = "leaderboard-podium-name-text";
@@ -123,11 +127,11 @@ export function renderLeaderboardPodium(
       name.append(nameText);
       appendPlayerGenderIcon(name, entry.gender);
       name.title = entry.name;
-      slot.setAttribute("aria-label", `#${rank} ${entry.name}. View profile`);
+      slot.setAttribute("aria-label", `#${rank} ${entry.name}. ${value.textContent}. View profile`);
       slot.addEventListener("click", () => actions.openProfile(entry.identity, entry.name));
       rendered.push({ rank, entry, canvas });
     }
-    slot.append(name, canvas, pedestal);
+    slot.append(value, name, canvas, pedestal);
     return slot;
   });
   podium.replaceChildren(...slots);

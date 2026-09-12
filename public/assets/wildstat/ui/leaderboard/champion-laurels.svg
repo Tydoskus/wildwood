@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 70" fill="none">
+  <defs>
+    <linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#fff5a0"/>
+      <stop offset=".48" stop-color="#ffe258"/>
+      <stop offset="1" stop-color="#d4a82c"/>
+    </linearGradient>
+    <g id="branch">
+      <path d="M37 65C18 60 9 40 12 15" fill="none" stroke="#d9b13b" stroke-width="1.2" stroke-linecap="round"/>
+      <g fill="url(#leaf)">
+        <path d="M12 24C5 21 4 14 7 7 14 11 16 18 12 24Z"/>
+        <path d="M12 34C3 33 0 27 1 21 10 22 14 28 12 34Z"/>
+        <path d="M15 45C6 45 2 40 2 34 11 34 16 39 15 45Z"/>
+        <path d="M22 56C12 57 6 53 6 47 15 46 21 49 22 56Z"/>
+        <path d="M36 65C25 69 18 65 17 60 25 56 33 58 36 65Z"/>
+        <path d="M12 30C11 22 15 16 23 15 23 23 20 28 12 30Z"/>
+        <path d="M14 42C13 33 18 27 25 27 25 34 21 40 14 42Z"/>
+        <path d="M20 53C17 44 21 38 27 36 29 44 26 50 20 53Z"/>
+        <path d="M30 62C24 55 26 48 31 44 36 51 36 57 30 62Z"/>
+      </g>
+    </g>
+  </defs>
+  <use href="#branch"/>
+  <use href="#branch" transform="translate(140) scale(-1 1)"/>
+</svg>

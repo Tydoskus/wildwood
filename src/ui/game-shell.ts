@@ -148,7 +148,6 @@ const afterUpdateGateShell = String.raw`
       </dl>
     </section>
     <section id="profileStatsPanel" class="profile-panel" role="tabpanel" aria-labelledby="profileStatsTab">
-      <p class="profile-stat-hint">Select a stat for details.</p>
       <div id="profileStatGrid" class="profile-stat-grid"></div>
     </section>
     <div id="profileSafetyActions" class="profile-safety-actions" hidden>
@@ -194,7 +193,9 @@ const afterUpdateGateShell = String.raw`
 </div>
 
 <div id="leaderboard" hidden>
-  <div class="modal leaderboard-modal" role="dialog" aria-modal="true" aria-label="Leaderboard">
+  <div class="modal leaderboard-modal" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
+    <h2 id="leaderboardTitle" class="window-banner window-banner--gold"><span>Leaderboards</span></h2>
+    <section id="leaderboardPodium" class="leaderboard-podium" aria-label="Top three players" hidden></section>
     <div class="profile-tabs leaderboard-tabs" role="tablist" aria-label="Leaderboard stat">
       <button id="leaderboardPowerTab" class="profile-tab is-active" type="button" role="tab" aria-selected="true">POWER</button>
       <button id="leaderboardDamageTab" class="profile-tab" type="button" role="tab" aria-selected="false">DAMAGE</button>
@@ -203,7 +204,6 @@ const afterUpdateGateShell = String.raw`
       <button id="leaderboardRegenTab" class="profile-tab" type="button" role="tab" aria-selected="false">REGEN</button>
       <button id="leaderboardTimeTab" class="profile-tab" type="button" role="tab" aria-selected="false">TIME</button>
     </div>
-    <section id="leaderboardPodium" class="leaderboard-podium" aria-label="Top three players" hidden></section>
     <div class="leaderboard-column-headings" aria-hidden="true"><span>RANK · PLAYER</span><span id="leaderboardValueHeading">POWER</span></div>
     <ol id="leaderboardRows" class="leaderboard-rows"></ol>
     <div id="leaderboardLoading" class="leaderboard-loading" role="status" aria-label="Loading leaderboard" hidden><span class="leaderboard-spinner" aria-hidden="true"></span></div>

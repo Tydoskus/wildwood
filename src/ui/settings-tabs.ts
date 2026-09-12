@@ -67,6 +67,8 @@ export function installSettingsTabs(doc: Document) {
     panels.push(panel);
   }
   settings.prepend(tablist);
+  const title = doc.getElementById("settingsTitle");
+  if (title) settings.prepend(title);
   const status = doc.getElementById("connectionStatus")?.closest(".setting-row");
   status?.classList.add("settings-connection");
   // Only the body scrolls, keeping navigation and Back visible on short screens.

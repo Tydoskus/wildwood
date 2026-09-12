@@ -191,6 +191,7 @@ export function createGameActionsController(dependencies: GameActionsDependencie
   elements.closeInventoryButton.addEventListener("click", closeInventory);
 
   elements.shopButton.addEventListener("click", () => {
+    if (dependencies.shop.isOpen()) { dependencies.shop.close(); return; }
     dependencies.minimizeChat();
     closeSettings();
     closeInventory();

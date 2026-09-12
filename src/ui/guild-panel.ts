@@ -304,7 +304,9 @@ export function createGuildPanel(options: Options) {
     }
     const header = element("header", undefined, "guild-header");
     const title = element("div", undefined, "guild-heading");
-    const h2 = element("h2", section === "friends" ? "Friends" : snapshot?.guild?.name ?? "Guilds"); h2.id = "guildTitle"; title.append(h2);
+    const h2 = element("h2", undefined, "window-banner"); h2.id = "guildTitle";
+    h2.append(element("span", section === "friends" ? "Friends" : "Guilds")); dialog.append(h2);
+    if (snapshot?.guild && section !== "friends") title.append(element("strong", snapshot.guild.name));
     header.append(title);
     header.append(button("Refresh", () => void load(), "quiet")); dialog.append(header);
     const nav = element("nav", undefined, "guild-tabs"); nav.setAttribute("aria-label", "Guild sections");
@@ -391,7 +393,7 @@ export function createGuildPanel(options: Options) {
     finally { if (current(id)) { busy = false; render(); dialog.focus(); } }
   };
   doc.defaultView?.addEventListener("wildwood:open-guild-replay", openChatReplay);
-  const guildClick = () => open();
+  const guildClick = () => root.hidden ? open() : close();
   const friendsClick = () => open("friends");
   doc.defaultView?.addEventListener("wildwood:open-friends", friendsClick);
   doc.addEventListener("keydown", onKey, true);

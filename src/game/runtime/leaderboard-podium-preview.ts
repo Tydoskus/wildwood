@@ -38,8 +38,10 @@ export function createLeaderboardPodiumPreview(playerAppearanceAssets: PlayerApp
     ctx.imageSmoothingEnabled = false;
 
     const now = performance.now() / 1_000;
-    const widthScale = Math.max(.42, (width - 8) / 180);
-    const scale = Math.min(rank === 1 ? .62 : .57, widthScale + (rank === 1 ? .035 : 0));
+    // Match the responsive stage instead of capping characters at the old fixed preview size.
+    const widthScale = Math.max(.1, (width - 8) / 180);
+    const heightScale = height / (rank === 1 ? 88 : 84) * (rank === 1 ? .62 : .57);
+    const scale = Math.min(heightScale, widthScale + (rank === 1 ? .035 : 0));
     const groundY = height - 1;
 
     drawStartingPlayer(ctx, playerAppearanceAssets, {

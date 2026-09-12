@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 110" fill="none">
+  <defs>
+    <linearGradient id="gold" x2=".8" y2="1">
+      <stop stop-color="#fff38b"/><stop offset=".52" stop-color="#ffdd4c"/><stop offset="1" stop-color="#c89424"/>
+    </linearGradient>
+    <g id="branch" fill="url(#gold)">
+      <path d="M46 102C22 93 12 72 15 42" stroke="#e5be41" stroke-width="1.6"/>
+      <path d="M44 101C28 102 24 96 23 91 34 89 40 93 44 101ZM31 91C18 91 13 84 14 79 24 79 29 84 31 91ZM22 79C9 75 6 68 8 63 19 66 21 71 22 79ZM17 65C5 61 4 51 7 46 15 50 18 56 17 65ZM16 50C7 43 8 34 13 30 20 38 19 44 16 50ZM31 91C29 80 34 74 39 74 41 83 37 88 31 91ZM22 79C20 69 24 62 30 61 32 71 28 77 22 79ZM17 65C15 54 20 49 26 48 27 57 23 63 17 65ZM16 50C15 40 20 34 26 34 27 43 22 49 16 50Z"/>
+    </g>
+  </defs>
+  <use href="#branch"/>
+  <use href="#branch" transform="translate(140) scale(-1 1)"/>
+</svg>

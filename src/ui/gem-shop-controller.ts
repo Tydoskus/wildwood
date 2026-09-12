@@ -14,12 +14,16 @@ export function createGemShopController(options: {
   dialog.innerHTML = `
     <div class="gem-shop-content">
       <header class="gem-shop-header">
-        <h1 id="gemShopTitle">Shop</h1>
+        <h1 id="gemShopTitle" class="window-banner window-banner--purple"><span>Shop</span></h1>
         <p id="gemShopLimit">One of each pack per day · resets at 00:00 UTC</p>
       </header>
-      <div class="gem-shop-packs"></div>
-      <p class="gem-shop-notice">Purchases coming soon · Prices in USD</p>
-      <button class="gem-shop-back" type="button">Back</button>
+      <div class="gem-shop-scroll">
+        <div class="gem-shop-packs"></div>
+        <p class="gem-shop-notice">Purchases coming soon · Prices in USD</p>
+      </div>
+      <footer class="window-back-footer">
+        <button class="gem-shop-back window-back-button" type="button">Back</button>
+      </footer>
     </div>`;
   const testStore = nativeTestPurchases();
   const notice = dialog.querySelector<HTMLElement>('.gem-shop-notice')!;
@@ -88,7 +92,7 @@ export function createGemShopController(options: {
   dialog.addEventListener('close', () => {
     options.setOpen(false);
     options.button.setAttribute('aria-expanded', 'false');
-    options.button.focus();
+    if (dialog.contains(document.activeElement) || document.activeElement === document.body) options.button.focus();
   });
   // Do not let game keyboard shortcuts act on the world behind the modal.
   dialog.addEventListener('keydown', event => {
@@ -97,10 +101,16 @@ export function createGemShopController(options: {
   });
   dialog.addEventListener('keyup', event => event.stopPropagation());
   back.addEventListener('click', close);
+  // The catalog is a normal game window, so the toolbar can switch away from it.
+  options.button.closest('.settings-wrap')?.addEventListener('click', event => {
+    const button = (event.target as Element).closest('button');
+    if (button && button !== options.button) close();
+  }, true);
   return {
     open() {
       if (dialog.open) return;
-      dialog.showModal();
+      // Non-modal dialogs leave the shared bottom toolbar interactive.
+      dialog.show();
       options.setOpen(true);
       options.button.setAttribute('aria-expanded', 'true');
       back.focus();

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 200" fill="none">
+  <defs>
+    <path id="pine" d="M0 0-18 38H-10L-28 72H-17L-37 114H37L17 72H28L10 38H18Z"/>
+    <path id="bush" d="M0 30V13C0 3 12-2 19 7 19-6 39-8 43 5 55-6 68 3 66 15 81 7 88 18 86 30Z"/>
+  </defs>
+  <path fill="#365941" d="M0 0H460V200H0Z"/>
+  <path fill="#2d4c37" d="M0 43Q7 13 26 25C23 1 59-3 59 28 78 20 89 37 80 54 96 36 110 39 119 55 125 37 141 34 149 49 166 35 181 49 174 65L183 101H0ZM265 87Q270 54 287 56C288 33 308 28 320 43 317 22 337 14 350 27 359 9 381 8 387 29 400 17 416 22 418 35 426 3 450 9 449 22L460 11V141H265Z"/>
+  <g fill="#203f2d">
+    <use href="#pine" transform="translate(24 9) scale(.83)"/>
+    <use href="#pine" transform="translate(105 11) scale(.86)"/>
+    <use href="#pine" transform="translate(66 46) scale(.75)"/>
+    <use href="#pine" transform="translate(148 52) scale(.58)"/>
+    <use href="#pine" transform="translate(343 10) scale(.96)"/>
+    <use href="#pine" transform="translate(387 10) scale(.89)"/>
+    <use href="#pine" transform="translate(425 41) scale(.79)"/>
+    <use href="#pine" transform="translate(297 55) scale(.65)"/>
+  </g>
+  <g fill="#3d6636">
+    <use href="#bush" transform="translate(-12 99)"/>
+    <use href="#bush" transform="translate(49 121) scale(.75)"/>
+    <use href="#bush" transform="translate(277 130) scale(.8)"/>
+    <use href="#bush" transform="translate(341 119)"/>
+    <use href="#bush" transform="translate(415 110)"/>
+  </g>
+  <path fill="#526354" d="m87 137 13-20 18 2 16 24-5 15H85Z"/>
+  <path fill="#657265" d="m100 117 9 14-5 23-17-17Z"/>
+  <path fill="#435449" d="m109 131 9-12 16 24-5 15-25-4Z"/>
+  <g fill="#50793b" stroke="#102617" stroke-width="2.8">
+    <use href="#bush" transform="translate(-18 133)"/>
+    <use href="#bush" transform="translate(426 139)"/>
+  </g>
+  <path fill="#456c35" d="M0 156H460V187H0Z"/>
+  <g stroke="#111a14" stroke-width="3" stroke-linejoin="round">
+    <path fill="#7a8174" d="M-4 174Q-4 168 2 168H42Q48 168 48 174V190H-4Z"/>
+    <path fill="#626e60" d="M126 182Q126 175 133 175H163V192H126Z"/>
+    <path fill="#687564" d="M294 177H328V193H294Z"/>
+    <path fill="#7c8478" d="M421 174Q421 168 428 168H465V192H421Z"/>
+    <path fill="#727b6c" d="M-4 190H465V205H-4Z"/>
+  </g>
+  <path stroke="#9ca18d" stroke-width="2" d="M1 192H458M2 171H28M434 171H458"/>
+  <path stroke="#465346" stroke-width="2" d="M32 193V200M135 193V200M300 193V200M432 193V200"/>
+</svg>
