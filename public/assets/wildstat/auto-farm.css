@@ -20,7 +20,8 @@
   box-shadow: none;
   pointer-events: auto;
   overflow: hidden;
-  z-index: 7;
+  /* Inventory and Settings live inside the toolbar's layer-7 stacking context. */
+  z-index: 6;
 }
 .farm-floating[hidden], #hud:has(#chatPanel.is-large) .farm-floating { display: none; }
 #chatPanel[hidden] ~ .farm-floating { bottom: calc(var(--toolbar-height) + 12px); }
@@ -46,7 +47,7 @@
   border: 1px solid #c4b58960;
   border-bottom: 0;
   border-radius: 25px 25px 0 0;
-  background: #1b261f;
+  background: var(--window-surface-green);
   color: #f2f1e9;
   box-shadow: 0 -12px 60px #0009;
   font-family: var(--chat-font);
@@ -57,11 +58,9 @@
 .farm-sheet::backdrop { background: #030a07b8; }
 .farm-handle { width: 34px; height: 4px; background: #acb4a963; border-radius: 4px; margin: 0 auto 15px; flex-shrink: 0; }
 .farm-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.farm-eyebrow { color: #dfc67f; letter-spacing: .14em; font-size: 10px; font-weight: 800; }
 .farm-header h2 { margin: 4px 0 0; font-size: 24px; letter-spacing: -.04em; color: #f2f1e9; }
 .farm-sheet .farm-close { width: 44px; height: 44px; min-height: 44px; padding: 0; border: 1px solid #ffffff1f; border-radius: 50%; background: #ffffff08; font: 26px var(--chat-font); color: #d3dace; box-shadow: none; }
-#autoFarmDescription { font-size: 13px; color: #b7c3b6; margin: 10px 0 18px; line-height: 1.4; }
-.farm-map { padding-bottom: 10px; font-size: 11px; color: #a7b4a4; flex-shrink: 0; }
+.farm-map { padding: 8px 0 10px; font-size: 11px; color: #a7b4a4; flex-shrink: 0; }
 .farm-choices { display: grid; gap: 8px; overflow-y: auto; min-height: 0; overscroll-behavior: contain; padding: 2px; touch-action: pan-y; }
 .farm-sheet .farm-enemy { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 76px; padding: 11px 12px; background: #ffffff04; border: 1px solid #ffffff14; border-radius: 14px; box-shadow: none; text-align: left; color: #f2f1e9; text-shadow: none; }
 .farm-enemy[aria-pressed="true"] { background: #adc98513; border-color: #bcd393; }
@@ -69,14 +68,12 @@
 .farm-enemy-copy { flex: 1; min-width: 0; display: grid; gap: 3px; }
 .farm-enemy-copy strong { font-size: 14px; }
 .farm-reward { font-size: 11px; color: var(--farm-stat-color); }
-.farm-enemy-copy small { font-size: 10px; color: #aab8a8; font-weight: 400; }
 .farm-check { display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid #aab8a860; border-radius: 50%; color: transparent; flex-shrink: 0; }
 .farm-enemy[aria-pressed="true"] .farm-check { background: #c3d99f; border-color: #c3d99f; color: #172519; }
 .farm-footer { flex-shrink: 0; padding-top: 12px; }
 .farm-selection { min-height: 16px; margin: 0 0 9px; text-align: center; font-size: 11px; line-height: 1.4; color: #d3ddc9; }
 .farm-sheet .farm-start { width: 100%; min-height: 50px; border: 1px solid #d9e7b8; border-radius: 14px; background: linear-gradient(#d3e5b1, #b3cf88); color: #172a1a; font-size: 13px; font-weight: 900; letter-spacing: .05em; text-shadow: none; box-shadow: 0 3px 10px #0003; }
 .farm-sheet .farm-start:disabled { opacity: .4; cursor: default; }
-.farm-hint { margin: 10px 0 0; font-size: 10px; text-align: center; color: #a1af9e; line-height: 1.4; }
 .farm-empty { padding: 24px 12px; text-align: center; color: #bbc6b6; font-size: 14px; line-height: 1.6; }
 @media (max-height: 480px) {
   .farm-sheet { max-height: 96dvh; padding-top: 8px; }

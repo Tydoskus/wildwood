@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.656": [
+    "Unified banner proportions and near-black window themes, with cleaner Inventory and Profile layouts.",
+    "Improved leaderboard podium alignment, rank sizes, and toolbar colors.",
+    "Simplified Autofarm and fixed its button appearing above Inventory.",
+    "Equipment and Cosmetics now use four slots: head and armor on the left, weapon and feet on the right.",
+  ],
   "0.655": [
     "Leaderboard previews now show only the colored stat value above player names.",
   ],
@@ -1644,6 +1650,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.656": "2026-09-11",
   "0.655": "2026-09-11",
   "0.654": "2026-09-11",
   "0.653": "2026-09-11",

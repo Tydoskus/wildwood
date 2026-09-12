@@ -20,8 +20,7 @@ export function createAutoFarmPanel(options: {
   sheet.id = 'autoFarmSheet';
   sheet.className = 'farm-sheet';
   sheet.setAttribute('aria-labelledby', 'autoFarmTitle');
-  sheet.setAttribute('aria-describedby', 'autoFarmDescription');
-  sheet.innerHTML = `<div class="farm-handle" aria-hidden="true"></div><header class="farm-header"><div><span class="farm-eyebrow">AUTOFARM</span><h2 id="autoFarmTitle">Choose your target</h2></div><button type="button" class="farm-close" aria-label="Close autofarm">×</button></header><p id="autoFarmDescription">Move, attack, and repeat automatically.</p><div class="farm-map"></div><div class="farm-choices" role="group" aria-label="Enemy types"></div><footer class="farm-footer"><p class="farm-selection" aria-live="polite"></p><button type="button" class="farm-start">START FARMING</button><p class="farm-hint">Move freely. Autofarm resumes when you release.</p></footer>`;
+  sheet.innerHTML = `<div class="farm-handle" aria-hidden="true"></div><header class="farm-header"><h2 id="autoFarmTitle">Autofarm</h2><button type="button" class="farm-close" aria-label="Close autofarm">×</button></header><div class="farm-map"></div><div class="farm-choices" role="group" aria-label="Enemy types"></div><footer class="farm-footer"><p class="farm-selection" aria-live="polite"></p><button type="button" class="farm-start">START FARMING</button></footer>`;
   document.getElementById('hud')!.append(floating);
   document.body.append(sheet);
   const element = <T extends HTMLElement>(selector: string) => sheet.querySelector<T>(selector)!;
@@ -39,15 +38,16 @@ export function createAutoFarmPanel(options: {
     }
     const reason = options.unavailable();
     startButton.disabled = !draft || Boolean(reason);
-    selection.textContent = reason || (draft ? `${draft} · ${rewardLabel(ENEMY_TYPES[draft].reward)} per defeat` : 'Select an enemy above');
+    selection.textContent = reason || '';
+    selection.hidden = !reason;
   }
 
   function renderChoices() {
     const choices = options.farm.choices();
-    const key = `${options.mapName()}:${choices.map(c => `${c.type}:${c.alive}:${c.total}`).join('|')}`;
+    const key = `${options.mapName()}:${choices.map(c => `${c.type}:${c.total}`).join('|')}`;
     if (key !== choiceKey) {
       choiceKey = key;
-      element('.farm-map').textContent = `${options.mapName()} · ${choices.length} enemy types`;
+      element('.farm-map').textContent = options.mapName();
       const previousType = (document.activeElement as HTMLElement | null)?.dataset?.enemy;
       list.replaceChildren();
       if (draft && !choices.some(choice => choice.type === draft)) draft = null;
@@ -58,11 +58,10 @@ export function createAutoFarmPanel(options: {
         button.className = 'farm-enemy';
         button.dataset.enemy = choice.type;
         button.style.setProperty('--farm-stat-color', REWARD_DATA[definition.reward.type].color);
-        button.innerHTML = '<span class="farm-enemy-mark" aria-hidden="true"></span><span class="farm-enemy-copy"><strong></strong><span class="farm-reward"></span><small></small></span><span class="farm-check" aria-hidden="true">✓</span>';
-        button.querySelector('strong')!.textContent = choice.type;
+        button.innerHTML = '<span class="farm-enemy-mark" aria-hidden="true"></span><span class="farm-enemy-copy"><strong></strong><span class="farm-reward"></span></span><span class="farm-check" aria-hidden="true">✓</span>';
+        button.querySelector('strong')!.textContent = `${choice.total} × ${choice.type}`;
         button.querySelector('.farm-enemy-mark')!.textContent = ({ damage: '⚔', health: '♥', speed: '↗', armor: '◇', regen: '+' })[definition.reward.type];
         button.querySelector('.farm-reward')!.textContent = rewardLabel(definition.reward);
-        button.querySelector('small')!.textContent = `${choice.alive} / ${choice.total} alive · ${definition.elite ? 'Elite' : definition.ranged ? 'Ranged' : 'Melee'}`;
         button.addEventListener('click', () => { draft = choice.type; updateSelection(); });
         list.append(button);
         if (previousType === choice.type) button.focus();
@@ -70,7 +69,7 @@ export function createAutoFarmPanel(options: {
       if (!choices.length) {
         const empty = document.createElement('p');
         empty.className = 'farm-empty';
-        empty.textContent = 'No enemies here. Travel to an enemy map to start farming.';
+        empty.textContent = 'No enemies here.';
         list.append(empty);
       }
     }

@@ -139,17 +139,19 @@ const afterUpdateGateShell = String.raw`
       <button id="profileOverviewTab" class="profile-tab" type="button" role="tab" aria-selected="false" aria-controls="profileOverviewPanel">INFO</button>
     </div>
     <div id="playerProfileLoading" class="profile-loading">LOADING PLAYER…</div>
-    <section id="profileOverviewPanel" class="profile-panel" role="tabpanel" aria-labelledby="profileOverviewTab" hidden>
-      <dl class="profile-grid">
-        <div><dt>DATE JOINED</dt><dd id="profileJoined">—</dd></div>
-        <div><dt>TIME PLAYED</dt><dd id="profileTimePlayed">—</dd></div>
-        <div><dt>ENEMIES DEFEATED</dt><dd id="profileKills">—</dd></div>
-        <div><dt>STATUS</dt><dd id="profileOnline">—</dd></div>
-      </dl>
-    </section>
-    <section id="profileStatsPanel" class="profile-panel" role="tabpanel" aria-labelledby="profileStatsTab">
-      <div id="profileStatGrid" class="profile-stat-grid"></div>
-    </section>
+    <div class="profile-tab-panels">
+      <section id="profileOverviewPanel" class="profile-panel" role="tabpanel" aria-labelledby="profileOverviewTab" hidden>
+        <dl class="profile-grid">
+          <div><dt>DATE JOINED</dt><dd id="profileJoined">—</dd></div>
+          <div><dt>TIME PLAYED</dt><dd id="profileTimePlayed">—</dd></div>
+          <div><dt>ENEMIES DEFEATED</dt><dd id="profileKills">—</dd></div>
+          <div><dt>STATUS</dt><dd id="profileOnline">—</dd></div>
+        </dl>
+      </section>
+      <section id="profileStatsPanel" class="profile-panel" role="tabpanel" aria-labelledby="profileStatsTab">
+        <div id="profileStatGrid" class="profile-stat-grid"></div>
+      </section>
+    </div>
     <div id="profileSafetyActions" class="profile-safety-actions" hidden>
       <button id="profileReportBtn" type="button">Report Player</button>
       <button id="profileBlockBtn" type="button">Block Player</button>
@@ -194,7 +196,7 @@ const afterUpdateGateShell = String.raw`
 
 <div id="leaderboard" hidden>
   <div class="modal leaderboard-modal" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
-    <h2 id="leaderboardTitle" class="window-banner window-banner--gold"><span>Leaderboards</span></h2>
+    <h2 id="leaderboardTitle" class="window-banner window-banner--gold"><span>Leaderboard</span></h2>
     <section id="leaderboardPodium" class="leaderboard-podium" aria-label="Top three players" hidden></section>
     <div class="profile-tabs leaderboard-tabs" role="tablist" aria-label="Leaderboard stat">
       <button id="leaderboardPowerTab" class="profile-tab is-active" type="button" role="tab" aria-selected="true">POWER</button>

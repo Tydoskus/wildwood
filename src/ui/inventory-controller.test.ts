@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FROST_ARMOR, STARTER_BOW, STARTER_STONE } from "../game/inventory";
-import { inventoryMoveActions } from "./hud";
+import { inventoryMoveActions, inventoryWeaponSlot } from "./hud";
 import { clearInventorySelection } from "./inventory-controller";
 import { itemInspectionButtonLabel } from "./item-inspection-controller";
 
@@ -35,27 +35,36 @@ describe("inventory direct actions", () => {
     selectedItemLocation: "" as const,
   });
 
-  it("offers both hands for a bag weapon", () => {
+  it("offers one equip action for a bag weapon", () => {
     expect(inventoryMoveActions(inventory(), STARTER_BOW, "BAG")).toEqual([
-      { label: "EQUIP RIGHT", destination: "RIGHT_HAND", disabled: false },
-      { label: "EQUIP LEFT", destination: "LEFT_HAND", disabled: false },
+      { label: "EQUIP", destination: "RIGHT_HAND", disabled: false },
     ]);
   });
 
-  it("marks an already-equipped copy without hiding the other hand", () => {
+  it("marks the equipped weapon without offering another slot", () => {
     const state = inventory();
     state.equippedRightHand = STARTER_BOW;
     expect(inventoryMoveActions(state, STARTER_BOW, "BAG")).toEqual([
-      { label: "RIGHT HAND EQUIPPED", destination: "RIGHT_HAND", disabled: true },
-      { label: "EQUIP LEFT", destination: "LEFT_HAND", disabled: false },
+      { label: "EQUIPPED", destination: "RIGHT_HAND", disabled: true },
     ]);
   });
 
-  it("offers unequip and hand switching for an equipped weapon", () => {
+  it("offers only unequip for an equipped weapon", () => {
     expect(inventoryMoveActions(inventory(), STARTER_STONE, "RIGHT_HAND")).toEqual([
       { label: "UNEQUIP", destination: "BAG" },
-      { label: "MOVE TO LEFT", destination: "LEFT_HAND" },
     ]);
+  });
+
+  it("keeps a saved left-hand weapon accessible through the single weapon slot", () => {
+    const state = inventory();
+    state.equippedRightHand = "";
+    state.equippedLeftHand = STARTER_BOW;
+    expect(inventoryWeaponSlot(state, "EQUIPMENT")).toBe("LEFT_HAND");
+    expect(inventoryMoveActions(state, STARTER_STONE, "BAG")).toEqual([
+      { label: "EQUIP", destination: "LEFT_HAND", disabled: false },
+    ]);
+    state.cosmeticRightHand = STARTER_STONE;
+    expect(inventoryWeaponSlot(state, "COSMETICS")).toBe("RIGHT_HAND");
   });
 
   it("offers the matching armor slot", () => {
@@ -72,7 +81,6 @@ describe("inventory direct actions", () => {
     state.cosmeticRightHand = STARTER_BOW;
     expect(inventoryMoveActions(state, STARTER_BOW, "RIGHT_HAND", "COSMETICS")).toEqual([
       { label: "REMOVE COSMETIC", destination: "BAG" },
-      { label: "MOVE TO LEFT", destination: "LEFT_HAND" },
     ]);
   });
 });

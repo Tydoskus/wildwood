@@ -95,7 +95,6 @@ type InventoryElements = {
   equippedChest: HTMLElement;
   equippedFeet: HTMLElement;
   equippedRightHand: HTMLElement;
-  equippedLeftHand: HTMLElement;
 };
 
 type ItemDefinition = {
@@ -141,6 +140,15 @@ function statEquipmentItemId(inventory: InventoryViewState, slot: EquipmentSlot)
           : inventory.equippedLeftHand;
 }
 
+/** One visible weapon slot also supports older saves that use the left hand. */
+export function inventoryWeaponSlot(inventory: InventoryViewState, mode: InventoryMode): "RIGHT_HAND" | "LEFT_HAND" {
+  if (mode === "COSMETICS") {
+    if (inventory.cosmeticRightHand) return "RIGHT_HAND";
+    if (inventory.cosmeticLeftHand) return "LEFT_HAND";
+  }
+  return inventory.equippedRightHand || !inventory.equippedLeftHand ? "RIGHT_HAND" : "LEFT_HAND";
+}
+
 export function inventoryMoveActions(
   inventory: InventoryViewState,
   itemId: string,
@@ -150,25 +158,18 @@ export function inventoryMoveActions(
   const item = itemsById[itemId];
   if (!item || !location) return [];
   if (location !== "BAG") {
-    const actions: InventoryMoveAction[] = [{ label: mode === "COSMETICS" ? "REMOVE COSMETIC" : "UNEQUIP", destination: "BAG" }];
-    if (item.slot === "HAND") {
-      const opposite = location === "RIGHT_HAND" ? "LEFT_HAND" : "RIGHT_HAND";
-      actions.push({ label: opposite === "RIGHT_HAND" ? "MOVE TO RIGHT" : "MOVE TO LEFT", destination: opposite });
-    }
-    return actions;
+    return [{ label: mode === "COSMETICS" ? "REMOVE COSMETIC" : "UNEQUIP", destination: "BAG" }];
   }
   if (item.slot === "HAND") {
-    return (["RIGHT_HAND", "LEFT_HAND"] as const).map((destination) => ({
-      label: equipmentItemId(inventory, destination, mode) === itemId
-        ? mode === "COSMETICS"
-          ? destination === "RIGHT_HAND" ? "RIGHT LOOK ACTIVE" : "LEFT LOOK ACTIVE"
-          : destination === "RIGHT_HAND" ? "RIGHT HAND EQUIPPED" : "LEFT HAND EQUIPPED"
-        : mode === "COSMETICS"
-          ? destination === "RIGHT_HAND" ? "USE ON RIGHT" : "USE ON LEFT"
-          : destination === "RIGHT_HAND" ? "EQUIP RIGHT" : "EQUIP LEFT",
+    const destination = inventoryWeaponSlot(inventory, mode);
+    const alreadyEquipped = equipmentItemId(inventory, destination, mode) === itemId;
+    return [{
+      label: alreadyEquipped
+        ? mode === "COSMETICS" ? "COSMETIC ACTIVE" : "EQUIPPED"
+        : mode === "COSMETICS" ? "USE COSMETIC" : "EQUIP",
       destination,
-      disabled: equipmentItemId(inventory, destination, mode) === itemId,
-    }));
+      disabled: alreadyEquipped,
+    }];
   }
   const destination = item.slot;
   const alreadyEquipped = equipmentItemId(inventory, destination, mode) === itemId;
@@ -268,8 +269,7 @@ function updateEquipmentSlotSelection(
 function updateInventorySelection(elements: InventoryElements, inventory: InventoryViewState, mode: InventoryMode) {
   updateEquipmentSlotSelection(elements.equippedHead, inventory, "HEAD", mode);
   updateEquipmentSlotSelection(elements.equippedChest, inventory, "CHEST", mode);
-  updateEquipmentSlotSelection(elements.equippedRightHand, inventory, "RIGHT_HAND", mode);
-  updateEquipmentSlotSelection(elements.equippedLeftHand, inventory, "LEFT_HAND", mode);
+  updateEquipmentSlotSelection(elements.equippedRightHand, inventory, inventoryWeaponSlot(inventory, mode), mode);
   updateEquipmentSlotSelection(elements.equippedFeet, inventory, "FEET", mode);
   elements.items.querySelectorAll<HTMLButtonElement>(".inventory-item.is-filled").forEach((button) => {
     const selected = inventory.selectedItemLocation === "BAG" && inventory.selectedItemId === button.dataset.itemId;
@@ -298,8 +298,7 @@ export function renderInventoryView(
   elements.count.textContent = `${bagStacks.length} / ${actions.slotCapacity} ITEMS`;
   renderEquipmentSlot(elements.equippedHead, inventory, "HEAD", "HEAD", mode, actions.upgradeLevel);
   renderEquipmentSlot(elements.equippedChest, inventory, "CHEST", "ARMOR", mode, actions.upgradeLevel);
-  renderEquipmentSlot(elements.equippedRightHand, inventory, "RIGHT_HAND", "WEAPON", mode, actions.upgradeLevel);
-  renderEquipmentSlot(elements.equippedLeftHand, inventory, "LEFT_HAND", "WEAPON", mode, actions.upgradeLevel);
+  renderEquipmentSlot(elements.equippedRightHand, inventory, inventoryWeaponSlot(inventory, mode), "WEAPON", mode, actions.upgradeLevel);
   renderEquipmentSlot(elements.equippedFeet, inventory, "FEET", "BOOTS", mode, actions.upgradeLevel);
 
   for (let index = 0; index < actions.slotCapacity; index += 1) {

@@ -12,6 +12,10 @@ The original PSD is retained locally; it is not needed by the game build.
 The reusable `.window-banner` style in `public/assets/wildstat/game.css` supplies
 the art behind real HTML headings. Current assignments:
 
+All banner colors share a 1055:157 frame, capped at 300 px and 64% of the viewport
+width. Title text scales with that frame (7.3% of banner width), preserving the
+same text-to-ribbon proportions across windows and screen sizes.
+
 - Guilds / Friends: green.
 - Leaderboards: gold.
 - Inventory: brown, with the orange ribbon color-matched to the selected Inventory toolbar surface (`#543822`).

@@ -5,7 +5,7 @@ import {
 } from "../game/inventory";
 import { requiredElement } from "../game/runtime/dom";
 import { itemDefinition } from "../../shared/items";
-import { inventoryMoveActions, renderInventoryView, type InventoryMode } from "./hud";
+import { inventoryMoveActions, inventoryWeaponSlot, renderInventoryView, type InventoryMode } from "./hud";
 import type { ItemInspectionController } from "./item-inspection-controller";
 import { bindLongPress } from "./long-press";
 import { bindInventoryDrag } from "./inventory-drag";
@@ -47,7 +47,6 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   const equippedChest = requiredElement("equippedChestSlot");
   const equippedFeet = requiredElement("equippedFeetSlot");
   const equippedRightHand = requiredElement("equippedRightHandSlot");
-  const equippedLeftHand = requiredElement("equippedLeftHandSlot");
   const equipmentTab = requiredElement<HTMLButtonElement>("inventoryEquipmentTab");
   const cosmeticsTab = requiredElement<HTMLButtonElement>("inventoryCosmeticsTab");
   const content = requiredElement("inventoryContent");
@@ -63,7 +62,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     CHEST: equippedChest,
     FEET: equippedFeet,
     RIGHT_HAND: equippedRightHand,
-    LEFT_HAND: equippedLeftHand,
+    LEFT_HAND: equippedRightHand,
   };
   if (bagSection) bagSection.dataset.inventoryDrop = "BAG";
 
@@ -134,7 +133,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     const slotsUnlocked = dependencies.inventorySlotsUnlocked();
     const slotCapacity = inventorySlotCapacity(slotsUnlocked);
     renderInventoryView(
-      { items, count, equippedHead, equippedChest, equippedFeet, equippedRightHand, equippedLeftHand },
+      { items, count, equippedHead, equippedChest, equippedFeet, equippedRightHand },
       dependencies.inventory,
       mode,
       {
@@ -222,14 +221,18 @@ export function createInventoryController(dependencies: InventoryDependencies) {
 
   equippedHead.addEventListener("click", () => clickEquipment("HEAD", itemInSlot("HEAD")));
   equippedChest.addEventListener("click", () => clickEquipment("CHEST", itemInSlot("CHEST")));
-  equippedRightHand.addEventListener("click", () => clickEquipment("RIGHT_HAND", itemInSlot("RIGHT_HAND")));
-  equippedLeftHand.addEventListener("click", () => clickEquipment("LEFT_HAND", itemInSlot("LEFT_HAND")));
+  equippedRightHand.addEventListener("click", () => {
+    const destination = inventoryWeaponSlot(dependencies.inventory, mode);
+    clickEquipment(destination, itemInSlot(destination));
+  });
   equippedFeet.addEventListener("click", () => clickEquipment("FEET", itemInSlot("FEET")));
   for (const [destination, element] of Object.entries(equipmentElements) as Array<[EquipmentSlot, HTMLElement]>) {
+    if (destination === "LEFT_HAND") continue;
     bindLongPress(element, {
       onLongPress: () => {
-        const itemId = itemInSlot(destination);
-        if (itemDefinition(itemId)) inspect(itemId, destination);
+        const location = destination === "RIGHT_HAND" ? inventoryWeaponSlot(dependencies.inventory, mode) : destination;
+        const itemId = itemInSlot(location);
+        if (itemDefinition(itemId)) inspect(itemId, location);
       },
     });
   }

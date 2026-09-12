@@ -1,7 +1,7 @@
 /* Guilds use the same full-window shell, rounded font and Back control as the game. */
-.guild-overlay { position: fixed; inset: 0 0 var(--toolbar-height); z-index: 12; display: grid; overflow: hidden; background: #09100c; touch-action: manipulation; }
+.guild-overlay { position: fixed; inset: 0 0 var(--toolbar-height); z-index: 12; display: grid; overflow: hidden; background: var(--window-surface-green); touch-action: manipulation; }
 .guild-overlay[hidden] { display: none; }
-.guild-window { --guild-muted: var(--muted, #a7b8b0); --guild-line: #ffffff20; --guild-accent: var(--green, #65d66d); display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; overflow: hidden; background: #172019; color: var(--text, #fff); font: 700 12px/1.4 var(--font-rounded); text-align: left; }
+.guild-window { --guild-muted: var(--muted, #a7b8b0); --guild-line: #ffffff20; --guild-accent: var(--green, #65d66d); display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; overflow: hidden; background: var(--window-surface-green); color: var(--text, #fff); font: 700 12px/1.4 var(--font-rounded); text-align: left; }
 .guild-window *, .guild-window *::before, .guild-window *::after { box-sizing: border-box; }
 .guild-window h2, .guild-window h3, .guild-window p { margin: 0; }
 .guild-window h2 { font-size: 20px; overflow-wrap: anywhere; }
@@ -90,12 +90,12 @@
 
 .guild-report-summary { display: flex; align-items: center; gap: 10px; padding: 10px 0; }
 .guild-report-summary .guild-row-copy { flex: 1; }
-.guild-window--replay { background: #09100c; }
+.guild-window--replay { background: var(--window-surface-green); }
 .guild-replay { display: grid; grid-template-rows: auto auto auto minmax(0, 1fr) auto; gap: 6px; width: 100%; height: 100%; min-height: 0; padding-top: max(8px, env(safe-area-inset-top)); }
 .guild-replay h3, .guild-replay > p { padding-inline: 12px; text-align: center; overflow-wrap: anywhere; }
 .guild-replay h3 { font-size: 14px; }
 .guild-replay > p { font-size: 11px; }
-.guild-replay canvas { position: relative; inset: auto; display: block; width: 100%; height: 100%; min-height: 0; object-fit: contain; background: #09100c; image-rendering: auto; }
+.guild-replay canvas { position: relative; inset: auto; display: block; width: 100%; height: 100%; min-height: 0; object-fit: contain; background: var(--window-surface-green); image-rendering: auto; }
 .guild-replay-controls { display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap; padding: 0 10px; }
 .guild-replay-controls input { flex: 1; min-width: 90px; max-width: 320px; width: auto; accent-color: var(--guild-accent); }
 .guild-replay-controls[hidden] { display: none; }
