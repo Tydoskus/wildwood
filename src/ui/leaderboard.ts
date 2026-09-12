@@ -119,7 +119,7 @@ export function renderLeaderboardPodium(
       slot.disabled = true;
       name.textContent = "—";
     } else {
-      value.textContent = `${stat.toUpperCase()} · ${leaderboardValueText(stat, entry)}`;
+      value.textContent = leaderboardValueText(stat, entry);
       appendPlayerNameTags(name, entry.identity, actions.isDeveloper(entry.identity));
       const nameText = document.createElement("span");
       nameText.className = "leaderboard-podium-name-text";
@@ -127,7 +127,7 @@ export function renderLeaderboardPodium(
       name.append(nameText);
       appendPlayerGenderIcon(name, entry.gender);
       name.title = entry.name;
-      slot.setAttribute("aria-label", `#${rank} ${entry.name}. ${value.textContent}. View profile`);
+      slot.setAttribute("aria-label", `#${rank} ${entry.name}. ${stat}: ${value.textContent}. View profile`);
       slot.addEventListener("click", () => actions.openProfile(entry.identity, entry.name));
       rendered.push({ rank, entry, canvas });
     }

@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.655": [
+    "Leaderboard previews now show only the colored stat value above player names.",
+  ],
   "0.654": [
     "Refreshed window banners, flat panels, and consistent toolbar and Back button styling.",
     "Added a forest leaderboard podium with laurels, colored stat values, and two-row stat buttons.",
@@ -1641,6 +1644,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.655": "2026-09-11",
   "0.654": "2026-09-11",
   "0.653": "2026-09-11",
   "0.650": "2026-09-08",
