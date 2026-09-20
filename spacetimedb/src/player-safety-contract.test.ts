@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
-const section = (start: string, end: string) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)));
+// Identity removal bodies live beside the reducer module.
+const lifecycle = readFileSync(new URL("./account-lifecycle.ts", import.meta.url), "utf8");
+const section = (start: string, end: string, text = source) => text.slice(text.indexOf(start), text.indexOf(end, text.indexOf(start)));
 
 describe("player safety server wiring", () => {
   it("keeps raw blocks and reports private and exposes only caller-owned blocks", () => {
@@ -35,7 +37,7 @@ describe("player safety server wiring", () => {
     expect(transfer).toContain("byOwner.filter(guest)");
     expect(transfer).toContain("byTarget.filter(guest)");
     expect(transfer).toContain("sender: account");
-    expect(source).toContain("transferPlayerBlocks(ctx, link.guest, ctx.sender)");
-    expect(section("function removePlayerIdentityData", "function clearVirtualPlayersForOwner")).toContain("removePlayerSafetyData(ctx, identity)");
+    expect(lifecycle).toContain("transferPlayerBlocks(ctx, link.guest, ctx.sender)");
+    expect(section("function removePlayerIdentityData", "return {", lifecycle)).toContain("removePlayerSafetyData(ctx, identity)");
   });
 });
