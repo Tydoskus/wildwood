@@ -1,4 +1,5 @@
 import { expect, it, vi } from "vitest";
+import { ScheduleAt, Timestamp } from "spacetimedb";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { STARTER_BOW } from "../../shared/items";
 import { BOSS_REWARD_CLAIM_BITS } from "../../shared/rules";
@@ -142,4 +143,25 @@ it("widens the claim bound for perks that reach more enemies than the weapon can
   expect(accepted({ splitShot: PRESTIGE_PERK_MAX_RANK })).toBeGreaterThan(plain);
   expect(accepted({ riposte: PRESTIGE_PERK_MAX_RANK })).toBeGreaterThan(plain);
   expect(accepted({ doubleStrike: PRESTIGE_PERK_MAX_RANK })).toBeGreaterThanOrEqual(plain);
+});
+
+it("leaves a running research timer running, and it still completes after the prestige", () => {
+  const f = crystalFixture();
+  const completesAt = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + 60_000_000n);
+  f.seed("playerResearch", { identity: f.ctx.sender, foraging: 2 });
+  f.seed("activeResearch", { identity: f.ctx.sender, researchId: "foraging", targetRank: 3,
+    startedAt: f.ctx.timestamp, completesAt });
+  const schedule = f.seed("researchCompletionSchedule", { scheduledId: 0n, scheduledAt: ScheduleAt.time(completesAt.microsSinceUnixEpoch),
+    identity: f.ctx.sender, researchId: "foraging", targetRank: 3, completesAtMicros: completesAt.microsSinceUnixEpoch });
+  f.patch("playerProgress", { bossRewardClaims: CAMPAIGN_COMPLETE });
+
+  f.run(server.prestigeAccount, {});
+  expect(f.db.activeResearch.identity.find(f.ctx.sender)).toMatchObject({ researchId: "foraging", targetRank: 3 });
+  expect([...f.db.researchCompletionSchedule.iter()]).toHaveLength(1);
+
+  // The timer fires as it would have if the player had never prestiged.
+  f.ctx.timestamp = new Timestamp(completesAt.microsSinceUnixEpoch + 1n);
+  f.run(server.completeResearch, { schedule: f.db.researchCompletionSchedule.scheduledId.find(schedule.scheduledId) });
+  expect(f.db.playerResearch.identity.find(f.ctx.sender)).toMatchObject({ foraging: 3 });
+  expect(f.db.activeResearch.identity.find(f.ctx.sender)).toBeFalsy();
 });
