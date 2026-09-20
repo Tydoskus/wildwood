@@ -345,6 +345,7 @@ const afterUpdateGateShell = String.raw`
       <div><dt>PERK POINTS</dt><dd id="prestigePoints">—</dd></div>
       <div><dt>PEAK POWER</dt><dd id="prestigePeak">—</dd></div>
     </dl>
+    <div id="prestigePerks" class="prestige-perks" aria-label="Prestige perks"></div>
     <p id="prestigeCost" class="prestige-cost"></p>
     <div id="prestigeStatus" class="prestige-status" role="status" aria-live="polite"></div>
     <footer class="prestige-footer">

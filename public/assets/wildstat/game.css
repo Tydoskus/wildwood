@@ -2595,6 +2595,12 @@
   .prestige-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0; text-align: center; }
   .prestige-summary dt { color: #8c94a1; font-size: 9px; letter-spacing: .06em; }
   .prestige-summary dd { margin: 2px 0 0; color: #fff; font-size: 13px; }
+  .prestige-perks { display: grid; gap: 6px; }
+  .prestige-perk { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 8px; padding: 6px 8px; background: rgba(0,0,0,.25); border-radius: 6px; }
+  .prestige-perk-title { color: #fff; font-size: 12px; }
+  .prestige-perk-detail { grid-column: 1; color: #8c94a1; font-size: 10px; line-height: 1.4; }
+  .prestige-perk-spend { grid-column: 2; grid-row: 1 / span 2; min-height: 36px; padding: 0 12px; font-size: 11px; }
+  .prestige-perk-spend:disabled { filter: grayscale(.8); opacity: .5; }
   .prestige-cost { margin: 0; color: #c2c7ce; font-size: 11px; line-height: 1.5; text-align: center; }
   .prestige-status { min-height: 16px; color: #f0c674; font-size: 11px; text-align: center; }
   .prestige-footer { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }

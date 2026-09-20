@@ -111,6 +111,8 @@ export function createPlayerCombatController(options: {
   researchCriticalChance: () => number;
   researchCriticalDamageMultiplier: () => number;
   researchRewardMultiplier: () => number;
+  /** Chance for a hit to land a second time, from the Double Strike perk. */
+  prestigeDoubleStrike?: () => number;
   equippedWeapon: () => string;
   equippedWeaponUpgradeLevel?: () => number;
   equippedHead: () => string;
@@ -261,7 +263,10 @@ export function createPlayerCombatController(options: {
     const hit = raycastProjectile(player.x, player.y, player.x + Math.cos(angle) * attackRange(), player.y + Math.sin(angle) * attackRange(), 0);
     if (!hit) return;
     const critical = (!hit.enemy.isBoss || Boolean(options.hitPersonalBoss)) && Math.random() < researchCriticalChance();
-    applyPlayerHit(hit.enemy, weaponDamage(critical), critical, angle);
+    // Double Strike lands the same blow twice rather than hitting harder, so a
+    // second kill can come out of one swing.
+    const strikes = Math.random() < (options.prestigeDoubleStrike?.() ?? 0) ? 2 : 1;
+    for (let strike = 0; strike < strikes; strike++) applyPlayerHit(hit.enemy, weaponDamage(critical), critical, angle);
     spawnBurst(player.x + Math.cos(angle) * attackRange() * hit.t, player.y + Math.sin(angle) * attackRange() * hit.t, "#f3f7ff", 6, 55);
   }
 
@@ -283,7 +288,8 @@ export function createPlayerCombatController(options: {
       projectile.vx = Math.cos(angle) * player.projectileSpeed;
       projectile.vy = Math.sin(angle) * player.projectileSpeed;
       projectile.r = 6;
-      projectile.damage = weaponDamage(critical);
+      // Each arrow rolls its own second hit, landing as one heavier impact.
+      projectile.damage = weaponDamage(critical) * (Math.random() < (options.prestigeDoubleStrike?.() ?? 0) ? 2 : 1);
       projectile.critical = critical;
       projectile.hitLife = player.attackRange / player.projectileSpeed * projectileLifeBonus;
       projectile.life = (player.attackRange + PLAYER_PROJECTILE_VISUAL_TAIL) / player.projectileSpeed * projectileLifeBonus;

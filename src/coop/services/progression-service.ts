@@ -20,6 +20,7 @@ import type {
   ActiveResearch,
   PlayerLifetime,
   PlayerPrestige,
+  PlayerPrestigePerks,
   PlayerResearch,
   UpgradeBenchSlot,
 } from "../contracts";
@@ -127,6 +128,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   let localResearch: PlayerResearch = createEmptyResearchRanks();
   let activeResearch: ActiveResearch | null = null;
   let localPrestige: PlayerPrestige | null = null;
+  let localPrestigePerks: PlayerPrestigePerks | null = null;
   let gemBalance = 0n;
   let dailyGemBonusClaimable = false;
   const mailboxMessages = new Map<string, MailboxMessage>();
@@ -396,6 +398,29 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     dependencies.notify();
   }
 
+  function upsertPrestigePerk(row: {
+    identity: Identity;
+    keenEdge: number;
+    doubleStrike: number;
+    splitShot: number;
+    riposte: number;
+  }) {
+    if (row.identity.toHexString() !== dependencies.localIdentity()) return;
+    localPrestigePerks = {
+      keenEdge: row.keenEdge,
+      doubleStrike: row.doubleStrike,
+      splitShot: row.splitShot,
+      riposte: row.riposte,
+    };
+    dependencies.notify();
+  }
+
+  function removePrestigePerk(row: { identity: Identity }) {
+    if (row.identity.toHexString() !== dependencies.localIdentity()) return;
+    localPrestigePerks = null;
+    dependencies.notify();
+  }
+
   function upsertItemUpgrade(row: { identity: Identity; itemId: string; level: number }) {
     const identity = row.identity.toHexString();
     let levels = upgradeLevelsByIdentity.get(identity);
@@ -498,6 +523,8 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       removeActiveResearch,
       upsertPrestige,
       removePrestige,
+      upsertPrestigePerk,
+      removePrestigePerk,
       upsertItemUpgrade,
       removeItemUpgrade,
       upsertActiveItemUpgrade,
@@ -642,6 +669,9 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       research: () => ({ ...localResearch }),
       activeResearch: () => activeResearch ? { ...activeResearch } : null,
       prestige: () => localPrestige ? { ...localPrestige } : null,
+      prestigePerks: (): PlayerPrestigePerks => localPrestigePerks
+        ? { ...localPrestigePerks }
+        : { keenEdge: 0, doubleStrike: 0, splitShot: 0, riposte: 0 },
       itemUpgradeLevel(itemId: string, identity = dependencies.localIdentity()) {
         return upgradeLevelsByIdentity.get(identity)?.get(itemId) ?? 0;
       },
@@ -705,6 +735,9 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       },
       speedUpResearchWithGems: reducerResult("research speed-up", (connection) => connection.reducers.speedUpResearchWithGems({})),
       prestigeAccount: reducerResult("prestige", (connection) => connection.reducers.prestigeAccount({})),
+      spendPrestigePerkPoint(perk: string) {
+        return reducerResult("prestige perk point spend", (connection) => connection.reducers.spendPrestigePerkPoint({ perk }))();
+      },
       async startItemUpgrade(slot: UpgradeBenchSlot, itemId: string, position?: { x: number; y: number }) {
         if (dependencies.reducers.protocolBlocked()) return { ok: false, error: "UPDATE REQUIRED" };
         const connection = dependencies.reducers.connection();
@@ -875,6 +908,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       localResearch = createEmptyResearchRanks();
       activeResearch = null;
       localPrestige = null;
+      localPrestigePerks = null;
       activeItemUpgrades.clear();
       balanceApologyGiftAmount = 0n;
       itemGifts.clear();
@@ -911,6 +945,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       localResearch = createEmptyResearchRanks();
       activeResearch = null;
       localPrestige = null;
+      localPrestigePerks = null;
       activeItemUpgrades.clear();
       balanceApologyGiftAmount = 0n;
       itemGifts.clear();

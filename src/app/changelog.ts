@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.756": [
+    "Prestige perks are here. Open Prestige from your profile to spend a banked point: Keen Edge for critical chance, Double Strike for a chance to hit twice, and two more coming.",
+    "Keen Edge and Double Strike work against enemies, bosses and in duels.",
+  ],
   "0.755": [
     "Your profile's Stat Gain now counts prestige alongside tech, and opening it shows what each one contributes.",
     "Prestige no longer clears your lifetime kill count, and the leaderboard drops your old rank the moment you prestige instead of on the next sweep.",
@@ -2128,6 +2132,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.756": "2026-09-20",
   "0.755": "2026-09-20",
   "0.754": "2026-09-20",
   "0.753": "2026-09-20",

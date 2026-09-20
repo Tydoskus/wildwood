@@ -232,13 +232,18 @@ export function createBossCombat(deps: BossCombatDeps) {
 
   function bossDamageWithCriticals(ctx: any, progress: any, hits: number, hp: number, mapId: string, position: { x: number; y: number }) {
     const research = ctx.db.playerResearch.identity.find(ctx.sender);
-    const chance = Math.max(0, Math.min(100, research?.criticalChance ?? 0));
+    const ranks = prestigePerkRanks(ctx, ctx.sender);
+    // Keen Edge grants critical chance outside the tech tree, and Double Strike
+    // can land a second hit. Both roll here because boss damage is the server's.
+    const chance = Math.max(0, Math.min(100, (research?.criticalChance ?? 0) + prestigePerkValue(ranks, "keenEdge") * 100));
+    const doubleChance = Math.max(0, Math.min(100, prestigePerkValue(ranks, "doubleStrike") * 100));
     const multiplier = 1.05 + Math.max(0, research?.criticalDamage ?? 0) * .05;
     const baseDamage = Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage, progress, research));
-    let total = chance === 0 ? baseDamage * hits : 0, critical = false;
-    for (let hit = 0; chance > 0 && hit < hits; hit++) {
+    let total = chance === 0 && doubleChance === 0 ? baseDamage * hits : 0, critical = false;
+    for (let hit = 0; (chance > 0 || doubleChance > 0) && hit < hits; hit++) {
       const crit = chance > 0 && ctx.random.integerInRange(1, 100) <= chance;
       total += baseDamage * (crit ? multiplier : 1);
+      if (doubleChance > 0 && ctx.random.integerInRange(1, 100) <= doubleChance) total += baseDamage * (crit ? multiplier : 1);
       critical ||= crit;
     }
     const damage = Math.min(hp, total);

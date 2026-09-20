@@ -2,25 +2,27 @@ import { describe, expect, it, vi } from "vitest";
 import { parseHTML } from "linkedom";
 import { createPrestigeController, prestigeRewardLabel, type PrestigeRow } from "./prestige-panel";
 
-function setup(options: { row?: PrestigeRow | null; unlocked?: boolean; run?: () => Promise<any> } = {}) {
+function setup(options: { row?: PrestigeRow | null; unlocked?: boolean; run?: () => Promise<any>; perks?: any; spend?: () => Promise<any> } = {}) {
   const { document } = parseHTML(`<html><body>
     <div id="own" hidden><button id="open" disabled>Prestige</button></div>
     <div id="overlay" hidden>
       <div id="level"></div><div id="bonus"></div><div id="points"></div><div id="peak"></div>
-      <p id="cost"></p><div id="status"></div>
+      <div id="perks"></div><p id="cost"></p><div id="status"></div>
       <button id="confirm">Prestige</button><button id="close">Back</button>
     </div></body></html>`);
   const pick = (id: string) => document.getElementById(id) as any;
   const runPrestige = vi.fn(options.run ?? (async () => ({ ok: true })));
+  const spendPerk = vi.fn(options.spend ?? (async () => ({ ok: true })));
   const showMessage = vi.fn();
   const controller = createPrestigeController({
     openButton: pick("open"), ownActions: pick("own"), overlay: pick("overlay"),
     closeButton: pick("close"), confirmButton: pick("confirm"), level: pick("level"), bonus: pick("bonus"),
     points: pick("points"), peak: pick("peak"), cost: pick("cost"), status: pick("status"),
     prestige: () => options.row ?? null, unlocked: () => options.unlocked ?? false,
+    perkList: pick("perks"), perks: () => options.perks ?? null, spendPerk: spendPerk as any,
     runPrestige, showMessage,
   });
-  return { controller, pick, runPrestige, showMessage };
+  return { controller, pick, runPrestige, spendPerk, showMessage };
 }
 const click = (element: any) => element.click();
 
@@ -81,6 +83,33 @@ describe("prestige panel", () => {
     expect(s.pick("confirm").textContent).toBe("Prestige");
     click(s.pick("confirm"));
     expect(s.runPrestige).not.toHaveBeenCalled();
+  });
+
+  it("lists every perk with its rank, and only offers a spend when a point is banked", () => {
+    const none = setup({ unlocked: true, row: { level: 1, perkPoints: 0, peakPower: 0 }, perks: { keenEdge: 2 } });
+    none.controller.open();
+    const rows = () => [...none.pick("perks").children] as any[];
+    expect(rows()).toHaveLength(4);
+    expect(rows()[0].querySelector(".prestige-perk-title").textContent).toBe("Keen Edge 2/5");
+    expect(rows().every((row: any) => row.querySelector("button").disabled)).toBe(true);
+
+    const banked = setup({ unlocked: true, row: { level: 3, perkPoints: 1, peakPower: 0 }, perks: { riposte: 5 } });
+    banked.controller.open();
+    const perkRows = [...banked.pick("perks").children] as any[];
+    expect(perkRows[0].querySelector("button").disabled).toBe(false);
+    const maxed = perkRows.find((row: any) => row.dataset.perk === "riposte");
+    expect(maxed.querySelector("button").textContent).toBe("Maxed");
+    expect(maxed.querySelector("button").disabled).toBe(true);
+  });
+
+  it("spends a point on the perk whose button was pressed", async () => {
+    const s = setup({ unlocked: true, row: { level: 1, perkPoints: 1, peakPower: 0 }, perks: {} });
+    s.controller.open();
+    const row = [...s.pick("perks").children].find((entry: any) => entry.dataset.perk === "splitShot") as any;
+    row.querySelector("button").click();
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    expect(s.spendPerk).toHaveBeenCalledWith("splitShot");
+    expect(s.pick("status").textContent).toContain("rank 1");
   });
 
   it("keeps the window open and reports why when the server refuses", async () => {

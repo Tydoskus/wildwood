@@ -42,7 +42,8 @@ export function createPrestigePanel(d: Record<string, any>) {
   return createPrestigeController({ openButton: e.prestigeBtn, ownActions: e.profileOwnActions, overlay: e.prestigeOverlay,
     closeButton: e.closePrestigeBtn, confirmButton: e.prestigeConfirmBtn, level: e.prestigeLevel, bonus: e.prestigeBonus,
     points: e.prestigePoints, peak: e.prestigePeak, cost: e.prestigeCost, status: e.prestigeStatus,
-    prestige: d.prestige, unlocked: d.unlocked, runPrestige: d.runPrestige,
+    perkList: e.prestigePerks, prestige: d.prestige, unlocked: d.unlocked, runPrestige: d.runPrestige,
+    perks: d.perks, spendPerk: d.spendPerk,
     showMessage: d.showMessage, beforeOpen: d.beforeOpen });
 }
 

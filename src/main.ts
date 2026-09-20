@@ -22,6 +22,7 @@ import { createOnboardingTutorial } from "./ui/onboarding-tutorial";
 import { createItemGiftController } from "./ui/item-gift-controller";
 import { createReconnectRecovery } from "./ui/reconnect-recovery";
 import { isProceduralMap, proceduralMapId } from "../shared/procedural-maps";
+import { prestigePerkValue } from "../shared/prestige-perks";
 import { createProceduralBossController } from "./game/runtime/procedural-boss-controller";
 import { bindPlayerNameTags } from "./app/player-name-tags";
 import { bindAvatarFrames } from "./app/avatar-frames";
@@ -648,6 +649,7 @@ import {
   );
   const research = createResearchController({
     prestigeLevel: () => coop?.prestige?.()?.level ?? 0,
+    prestigePerks: () => coop?.prestigePerks?.(),
     player,
     getRanks: () => coop?.research?.(),
     isDueling,
@@ -721,6 +723,7 @@ import {
     researchCriticalChance,
     researchCriticalDamageMultiplier,
     researchRewardMultiplier,
+    prestigeDoubleStrike: () => prestigePerkValue(coop?.prestigePerks?.(), "doubleStrike"),
     equippedWeapon: () => inventory.equippedRightHand || inventory.equippedLeftHand,
     equippedWeaponUpgradeLevel: () => coop?.itemUpgradeLevel?.(inventory.equippedRightHand || inventory.equippedLeftHand) ?? 0,
     equippedHead: () => inventory.equippedHead,
@@ -1386,6 +1389,7 @@ import {
   }
   const prestigePanel = createPrestigePanel({
     e: gameElements, prestige: () => coop?.prestige?.() ?? null, showMessage,
+    perks: () => coop?.prestigePerks?.(), spendPerk: (perk: string) => coop?.spendPrestigePerkPoint?.(perk),
     unlocked: () => Boolean(coop?.proceduralMapUnlocked?.(proceduralMapId(1))),
     runPrestige: async () => coop?.prestigeAccount?.(),
   });

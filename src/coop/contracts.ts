@@ -108,6 +108,13 @@ export type PlayerPrestige = {
   prestigedAtMs: number;
 };
 
+export type PlayerPrestigePerks = {
+  keenEdge: number;
+  doubleStrike: number;
+  splitShot: number;
+  riposte: number;
+};
+
 export type UpgradeBenchSlot = 1 | 2;
 
 export type ActiveItemUpgrade = {

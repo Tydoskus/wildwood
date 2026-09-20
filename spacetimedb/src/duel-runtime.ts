@@ -16,6 +16,8 @@ import {
 } from "./presence-runtime";
 import { advanceDuelCombat, duelOutcome, DUEL_COMBAT_VERSION } from "../../shared/duel-combat";
 import { duelAnnouncementText } from "../../shared/duel-announcement";
+import { prestigePerkRanks } from "./prestige";
+import { prestigePerkValue, prestigeSwingMultiplier } from "../../shared/prestige-perks";
 
 export const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
 export const DUEL_REQUEST_TIMEOUT_MICROS = 30_000_000n;
@@ -100,12 +102,13 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
 
   function duelDamage(ctx: any, identity: any, damage: number) {
     const research = ctx.db.playerResearch.identity.find(identity);
+    const ranks = prestigePerkRanks(ctx, identity);
     const baseDamage = researchedDamage(ctx, identity, damage);
-    const criticalChance = (research?.criticalChance ?? 0) * .01;
+    const criticalChance = (research?.criticalChance ?? 0) * .01 + prestigePerkValue(ranks, "keenEdge");
     const criticalMultiplier = 1.05 + (research?.criticalDamage ?? 0) * .05;
-    // Duel simulation is deterministic. Fold random criticals into expected
-    // damage so the server snapshot still honors both critical technologies.
-    return baseDamage * (1 + criticalChance * (criticalMultiplier - 1));
+    // Duel simulation is deterministic and both sides replay it, so random
+    // rolls fold into expected damage. Criticals and Double Strike both do.
+    return baseDamage * (1 + criticalChance * (criticalMultiplier - 1)) * prestigeSwingMultiplier(ranks);
   }
 
   function finishDuel(ctx: any, current: any) {

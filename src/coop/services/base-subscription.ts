@@ -53,6 +53,8 @@ export type BaseSubscriptionHandlers = {
   removeActiveResearch: RowHandler;
   prestige: RowHandler;
   removePrestige: RowHandler;
+  prestigePerk: RowHandler;
+  removePrestigePerk: RowHandler;
   itemUpgrade: RowHandler;
   removeItemUpgrade: RowHandler;
   activeItemUpgrade: (row: any, slot: 1 | 2) => void;
@@ -101,6 +103,8 @@ type BaseSubscriptionHandlerSources = {
     removeActiveResearch: BaseSubscriptionHandlers["removeActiveResearch"];
     upsertPrestige: BaseSubscriptionHandlers["prestige"];
     removePrestige: BaseSubscriptionHandlers["removePrestige"];
+    upsertPrestigePerk: BaseSubscriptionHandlers["prestigePerk"];
+    removePrestigePerk: BaseSubscriptionHandlers["removePrestigePerk"];
     upsertItemUpgrade: BaseSubscriptionHandlers["itemUpgrade"];
     removeItemUpgrade: BaseSubscriptionHandlers["removeItemUpgrade"];
     upsertActiveItemUpgrade: BaseSubscriptionHandlers["activeItemUpgrade"];
@@ -195,6 +199,8 @@ export function createBaseSubscriptionHandlers(sources: BaseSubscriptionHandlerS
     removeActiveResearch: progression.removeActiveResearch,
     prestige: progression.upsertPrestige,
     removePrestige: progression.removePrestige,
+    prestigePerk: progression.upsertPrestigePerk,
+    removePrestigePerk: progression.removePrestigePerk,
     itemUpgrade: progression.upsertItemUpgrade,
     removeItemUpgrade: progression.removeItemUpgrade,
     activeItemUpgrade: progression.upsertActiveItemUpgrade,
@@ -318,6 +324,9 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   connection.db.playerPrestige.onInsert((_ctx, row) => { if (shouldHandle()) handlers.prestige(row); });
   connection.db.playerPrestige.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.prestige(row); });
   connection.db.playerPrestige.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removePrestige(row); });
+  connection.db.playerPrestigePerk.onInsert((_ctx, row) => { if (shouldHandle()) handlers.prestigePerk(row); });
+  connection.db.playerPrestigePerk.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.prestigePerk(row); });
+  connection.db.playerPrestigePerk.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removePrestigePerk(row); });
   connection.db.playerItemUpgrade.onInsert((_ctx, row) => { if (shouldHandle()) handlers.itemUpgrade(row); });
   connection.db.playerItemUpgrade.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.itemUpgrade(row); });
   connection.db.playerItemUpgrade.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeItemUpgrade(row); });
@@ -388,6 +397,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.playerResearch.where((research) => research.identity.eq(dependencies.identity)),
       tables.activeResearch.where((research) => research.identity.eq(dependencies.identity)),
       tables.playerPrestige.where((prestige) => prestige.identity.eq(dependencies.identity)),
+      tables.playerPrestigePerk.where((prestigePerk) => prestigePerk.identity.eq(dependencies.identity)),
       tables.playerItemUpgrade.where((upgrade) => upgrade.identity.eq(dependencies.identity)),
       tables.activeItemUpgrade.where((upgrade) => upgrade.identity.eq(dependencies.identity)),
       tables.activeItemUpgradeSlotTwo.where((upgrade) => upgrade.identity.eq(dependencies.identity)),
@@ -426,6 +436,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
           for (const row of connection.db.activeResearch.iter()) handlers.activeResearch(row);
           if (![...connection.db.activeResearch.iter()].some(row => row.identity.toHexString() === dependencies.identity.toHexString())) handlers.removeActiveResearch({ identity: dependencies.identity });
           for (const row of connection.db.playerPrestige.iter()) handlers.prestige(row);
+          for (const row of connection.db.playerPrestigePerk.iter()) handlers.prestigePerk(row);
           for (const row of connection.db.playerItemUpgrade.iter()) handlers.itemUpgrade(row);
           for (const row of connection.db.activeItemUpgrade.iter()) handlers.activeItemUpgrade(row, 1);
           for (const row of connection.db.activeItemUpgradeSlotTwo.iter()) handlers.activeItemUpgrade(row, 2);

@@ -119,6 +119,8 @@ type ExpectedApiKey =
   | "research"
   | "prestige"
   | "prestigeAccount"
+  | "prestigePerks"
+  | "spendPrestigePerkPoint"
   | "resetProgress"
   | "retryConnection"
   | "recordRegularEnemyDefeat"

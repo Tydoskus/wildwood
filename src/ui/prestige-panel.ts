@@ -1,5 +1,7 @@
 import { formatCompactNumber } from './number-format';
 import { PRESTIGE_STAT_GAIN_PER_LEVEL, prestigeStatMultiplier } from '../../shared/prestige';
+import { PRESTIGE_PERKS, PRESTIGE_PERK_IDS, PRESTIGE_PERK_MAX_RANK, prestigePerkRank,
+  type PrestigePerkId, type PrestigePerkRanks } from '../../shared/prestige-perks';
 
 export type PrestigeRow = { level: number; perkPoints: number; peakPower: number };
 type Result = { ok: boolean; error?: string } | boolean | undefined;
@@ -15,10 +17,12 @@ export function prestigeRewardLabel(level: number) {
 
 export function createPrestigeController(options: {
   openButton: HTMLButtonElement; ownActions: HTMLElement;
-  overlay: HTMLElement; closeButton: HTMLButtonElement; confirmButton: HTMLButtonElement;
+  overlay: HTMLElement; closeButton: HTMLButtonElement; confirmButton: HTMLButtonElement; perkList: HTMLElement;
   level: HTMLElement; bonus: HTMLElement; points: HTMLElement; peak: HTMLElement;
   cost: HTMLElement; status: HTMLElement;
   prestige: () => PrestigeRow | null;
+  perks: () => PrestigePerkRanks | null | undefined;
+  spendPerk: (perk: PrestigePerkId) => Promise<Result>;
   /** Whether the first Endless map is open, the clearance prestige shares. */
   unlocked: () => boolean;
   runPrestige: () => Promise<Result>;
@@ -36,6 +40,48 @@ export function createPrestigeController(options: {
     confirmButton.classList.remove('is-armed');
   }
 
+  /** One row per perk: what it does, the rank owned, and a button when a point is banked. */
+  function renderPerks(points: number) {
+    const ranks = options.perks();
+    // Build from the list's own document so the panel works wherever it is mounted.
+    const create = (tag: string) => options.perkList.ownerDocument.createElement(tag) as HTMLElement;
+    options.perkList.replaceChildren(...PRESTIGE_PERK_IDS.map(id => {
+      const rank = prestigePerkRank(ranks, id);
+      const row = create('div');
+      row.className = 'prestige-perk';
+      row.dataset.perk = id;
+      const maxed = rank >= PRESTIGE_PERK_MAX_RANK;
+      const title = create('div');
+      title.className = 'prestige-perk-title';
+      title.textContent = `${PRESTIGE_PERKS[id].title} ${rank}/${PRESTIGE_PERK_MAX_RANK}`;
+      const detail = create('div');
+      detail.className = 'prestige-perk-detail';
+      detail.textContent = PRESTIGE_PERKS[id].detail;
+      const spend = create('button') as HTMLButtonElement;
+      spend.type = 'button';
+      spend.className = 'prestige-perk-spend';
+      spend.textContent = maxed ? 'Maxed' : 'Spend';
+      spend.disabled = pending || maxed || points < 1;
+      spend.addEventListener('click', async () => {
+        if (spend.disabled) return;
+        pending = true; spend.disabled = true;
+        status.textContent = `Spending a point on ${PRESTIGE_PERKS[id].title}…`;
+        try {
+          const result = await options.spendPerk(id);
+          const ok = typeof result === 'boolean' ? result : result?.ok !== false;
+          status.textContent = ok ? `${PRESTIGE_PERKS[id].title} is now rank ${rank + 1}.`
+            : (typeof result === 'object' && result?.error) || "Couldn't spend that point.";
+        } catch {
+          status.textContent = "Couldn't spend that point.";
+        } finally {
+          pending = false; render();
+        }
+      });
+      row.append(title, detail, spend);
+      return row;
+    }));
+  }
+
   function render() {
     const row = options.prestige();
     const level = row?.level ?? 0;
@@ -44,6 +90,7 @@ export function createPrestigeController(options: {
     options.points.textContent = String(row?.perkPoints ?? 0);
     options.peak.textContent = row?.peakPower ? formatCompactNumber(row.peakPower) : '—';
     options.cost.textContent = `${COST} You would earn ${prestigeRewardLabel(level)}.`;
+    renderPerks(row?.perkPoints ?? 0);
     confirmButton.disabled = pending || !unlocked();
     if (!unlocked()) status.textContent = LOCKED_HINT;
   }
