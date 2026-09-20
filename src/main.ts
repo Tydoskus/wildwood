@@ -724,6 +724,7 @@ import {
     researchCriticalDamageMultiplier,
     researchRewardMultiplier,
     prestigeDoubleStrike: () => prestigePerkValue(coop?.prestigePerks?.(), "doubleStrike"),
+    prestigeSplitShot: () => prestigePerkValue(coop?.prestigePerks?.(), "splitShot"),
     equippedWeapon: () => inventory.equippedRightHand || inventory.equippedLeftHand,
     equippedWeaponUpgradeLevel: () => coop?.itemUpgradeLevel?.(inventory.equippedRightHand || inventory.equippedLeftHand) ?? 0,
     equippedHead: () => inventory.equippedHead,

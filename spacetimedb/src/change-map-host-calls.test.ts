@@ -10,8 +10,8 @@ vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module
 // The route row costs one write per leg (three on portal travel: drop the old
 // route, look up and insert the new one). It replaced a per-user view whose
 // re-evaluation for every player on the shard was the real cost.
-const HOME_TOGGLE_BUDGET = 38;
-const PORTAL_TRAVEL_BUDGET = 45;
+const HOME_TOGGLE_BUDGET = 42;
+const PORTAL_TRAVEL_BUDGET = 49;
 
 function countHostCalls(db: Record<string, any>) {
   let calls = 0;

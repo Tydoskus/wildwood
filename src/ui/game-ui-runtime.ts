@@ -85,6 +85,7 @@ export function createDevPanel(d: Record<string, any>) {
     loadModerationHistory: (beforeId) => coop?.moderationHistory?.(beforeId) ?? Promise.reject(new Error("Connect to view moderation history.")),
     getBugReports: () => coop?.bugReportEntries?.() ?? [],
     deleteBugReport: (id: bigint) => coop?.deleteBugReport?.(id),
+    loadAnalytics: (fromDayKey: string, toDayKey: string) => coop?.analyticsDashboard?.(fromDayKey, toDayKey) ?? Promise.reject(new Error("Connect to view analytics.")),
     getMetrics: d.getMetrics,
     closeCompetingWindows: d.closeCompetingWindows,
     showMessage: d.showMessage,

@@ -5,6 +5,7 @@ import { isDeveloperIdentity } from "../../app/developer";
 import type { AccessAuditEntry, BugReportEntry } from "../contracts";
 import type { ReducerPort } from "../ports";
 import type { ForestPrototypeAttack, ForestPrototypeState } from "../../../shared/forest-reward-prototype";
+import type { AnalyticsDashboard } from "./analytics-types";
 
 type DeveloperServiceDependencies = {
   reducers: ReducerPort;
@@ -145,6 +146,11 @@ export function createDeveloperService(dependencies: DeveloperServiceDependencie
           throw new Error("Session changed. Reopen moderation history.");
         }
         return JSON.parse(result) as ModerationHistoryPage;
+      },
+      async analyticsDashboard(fromDayKey: string, toDayKey: string): Promise<AnalyticsDashboard> {
+        const connection = dependencies.reducers.connection();
+        if (!connection || !hasAccess()) throw new Error("Developer access required.");
+        return JSON.parse(await connection.procedures.getAnalyticsDashboard({ fromDayKey, toDayKey })) as AnalyticsDashboard;
       },
       forestRewardPrototypeState: () => forestPrototype ? { ...forestPrototype } : null,
       async devForestRewardPrototype(action?: ForestPrototypeAttack) {

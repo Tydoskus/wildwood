@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WildStat — Play Store artwork</title>
+<style>
+@font-face{font-family:Nunito;src:url(source/nunito.woff2);font-weight:200 1000;font-display:block}
+*{box-sizing:border-box}html,body{margin:0;background:#071311;font-family:Nunito,Arial,sans-serif;color:#f4ffed}
+.poster{width:1080px;height:1920px;position:relative;overflow:hidden;isolation:isolate;background:radial-gradient(ellipse at 90% 37%,var(--glow),transparent 63%),linear-gradient(158deg,#142d2e,#071513 70%);--accent:#b3f234;--glow:#476823;--sub:#d0e2ca}
+.poster:before{content:"";position:absolute;inset:-260px -500px 0 550px;transform:rotate(28deg);border-left:3px solid #ffffff0a;background:#ffffff03;z-index:-1}
+.brand{position:absolute;left:65px;top:52px;display:flex;align-items:center;gap:17px;font-size:31px;font-weight:1000;letter-spacing:3px}.brand img{width:56px;height:56px;border-radius:13px}.brand span{color:#d6f8f2}
+.index{position:absolute;right:66px;top:67px;color:var(--accent);font-size:23px;font-weight:1000;letter-spacing:4px}
+h1{position:absolute;top:142px;left:62px;right:50px;margin:0;font-size:104px;font-weight:1000;line-height:1.01;letter-spacing:-4px;text-shadow:0 6px 0 #0006}h1 em{font-style:normal;color:var(--accent)}
+.capture{position:absolute;left:60px;top:429px;width:960px;overflow:hidden;border:3px solid #e9ffce70;border-radius:32px;background:#070d09;box-shadow:0 35px 100px #0008,0 0 70px color-mix(in srgb,var(--accent) 12%,transparent)}
+.capture img{position:absolute;max-width:none;display:block}
+.bottom{position:absolute;left:65px;right:65px;bottom:126px;text-align:center;font-size:47px;font-weight:1000;line-height:1.13;letter-spacing:-1px}.bottom small{display:block;margin-top:22px;color:var(--sub);font-weight:750;font-size:29px;letter-spacing:0}
+.rule{height:5px;width:82px;margin:0 auto 28px;border-radius:4px;background:var(--accent)}
+.foot{position:absolute;left:65px;bottom:48px;color:#b0c7bd;font-size:22px;font-weight:800;letter-spacing:4px}
+.hero .capture{height:1013px;top:465px}.hero .capture img{width:1102px;left:-73px;top:-317px}.hero .bottom{bottom:193px}
+.map{--accent:#56d5f6;--glow:#154b59;--sub:#c9e7ef}.map .capture{height:1089px;top:461px}.map .capture img{width:960px;left:-3px;top:-3px}.map .bottom{bottom:172px}
+.home{--accent:#efc47f;--glow:#596134;--sub:#e4ddc7}.home .capture{height:1090px;top:461px}.home .capture img{width:960px;left:-3px;top:-367px}.home .bottom{bottom:172px}
+.leader{--accent:#f0ce62;--glow:#594c1c;--sub:#e5e0c8}.leader .capture{height:1320px;top:423px}.leader .capture img{width:954px;left:0;top:0}.leader h1{font-size:112px}
+.feature{width:1024px;height:500px;position:relative;overflow:hidden;background:radial-gradient(ellipse at 75% 50%,#506924,#091c19 70%);color:#f5ffeb}.feature .brand{top:38px;left:38px;font-size:26px;gap:12px;letter-spacing:2px}.feature .brand img{width:50px;height:50px}.feature h1{left:36px;top:121px;font-size:68px;line-height:1.02;letter-spacing:-3px;right:auto}.feature h1 em{color:#d8eb70}.feature .podium{position:absolute;top:128px;left:430px;width:558px;height:270px;overflow:hidden;border:3px solid #d9e9a0;border-radius:22px;box-shadow:0 25px 40px #0008;transform:rotate(-2deg)}.feature .podium img{position:absolute;left:-13px;top:-75px;width:583px}.feature .caption{position:absolute;left:40px;bottom:45px;font-size:19px;font-weight:850;letter-spacing:3px;color:#b3d3b6}
+</style>
+<div id="root"></div>
+<script>
+const common='<div class="brand"><img src="icon-512x512.png" alt=""><span>WILDSTAT</span></div>';
+const views={
+  hero:{number:'01',title:'SMALL HERO.<br><em>BIG NUMBERS.</em>',source:'hero',bottom:'GEAR UP. GET STRONGER.',sub:'Find your gear. Shape your stats.'},
+  map:{number:'02',title:'PICK YOUR<br><em>NEXT GAIN.</em>',source:'world-map',bottom:'EVERY ZONE. A NEW GOAL.',sub:'Choose enemies for the stats you want.'},
+  home:{number:'03',title:'YOUR HOME.<br><em>MORE POWER.</em>',source:'home',bottom:'UPGRADE. RESEARCH. RETURN.',sub:'Prepare for your next adventure.'},
+  leader:{number:'04',title:'MAKE THE<br><em>CLIMB.</em>',source:'leaderboard'},
+};
+const view=new URLSearchParams(location.search).get('view')||'hero';
+if(view==='feature')document.querySelector('#root').innerHTML='<main class="feature">'+common+'<h1>HOW HIGH<br>CAN YOU<br><em>CLIMB?</em></h1><div class="podium"><img src="source/leaderboard.png" alt="WildStat leaderboard podium"></div><div class="caption">GROW STRONGER. GO FURTHER.</div></main>';
+else{const v=views[view];document.querySelector('#root').innerHTML='<main class="poster '+view+'">'+common+'<div class="index">'+v.number+' / 04</div><h1>'+v.title+'</h1><div class="capture"><img src="source/'+v.source+'.png" alt="Actual WildStat '+v.source+' screenshot"></div>'+(v.bottom?'<div class="bottom"><div class="rule"></div>'+v.bottom+'<small>'+v.sub+'</small></div>':'')+'<div class="foot">GROW STRONGER. GO FURTHER.</div></main>'}
+</script>
+</html>

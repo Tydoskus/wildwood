@@ -17,7 +17,7 @@ import {
 import { advanceDuelCombat, duelOutcome, DUEL_COMBAT_VERSION } from "../../shared/duel-combat";
 import { duelAnnouncementText } from "../../shared/duel-announcement";
 import { prestigePerkRanks } from "./prestige";
-import { prestigeCriticalDamageBonus, prestigePerkValue, prestigeSwingMultiplier } from "../../shared/prestige-perks";
+import { prestigeCriticalDamageBonus, prestigePerkValue, prestigeRiposteChance, prestigeSwingMultiplier } from "../../shared/prestige-perks";
 
 export const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
 export const DUEL_REQUEST_TIMEOUT_MICROS = 30_000_000n;
@@ -307,6 +307,11 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
       challengerOriginY: challenger.y,
       opponentOriginX: 0,
       opponentOriginY: 0,
+      // Both riposte chances and one seed, frozen with the duel so the fight
+      // resolves the same way however many times it is replayed.
+      challengerRiposte: prestigeRiposteChance(prestigePerkRanks(ctx, ctx.sender)),
+      opponentRiposte: prestigeRiposteChance(prestigePerkRanks(ctx, opponent)),
+      riposteSeed: ctx.timestamp.microsSinceUnixEpoch,
       challengerHp: challengerMaxHp,
       challengerMaxHp,
       challengerDamage: duelDamage(ctx, ctx.sender, challengerProgress.damage),

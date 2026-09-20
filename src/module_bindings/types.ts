@@ -100,6 +100,45 @@ export const AegisPrimeResult = __t.object("AegisPrimeResult", {
 });
 export type AegisPrimeResult = __Infer<typeof AegisPrimeResult>;
 
+export const AnalyticsConversion = __t.object("AnalyticsConversion", {
+  id: __t.u64(),
+  guestIdentity: __t.identity(),
+  accountIdentity: __t.identity(),
+  dayKey: __t.string(),
+});
+export type AnalyticsConversion = __Infer<typeof AnalyticsConversion>;
+
+export const AnalyticsDailyMapPlayer = __t.object("AnalyticsDailyMapPlayer", {
+  key: __t.string(),
+  identity: __t.identity(),
+  dayKey: __t.string(),
+  mapId: __t.string(),
+  releaseVersion: __t.string(),
+  sessions: __t.u32(),
+  sessionMicros: __t.u64(),
+});
+export type AnalyticsDailyMapPlayer = __Infer<typeof AnalyticsDailyMapPlayer>;
+
+export const AnalyticsDailyPlayer = __t.object("AnalyticsDailyPlayer", {
+  key: __t.string(),
+  identity: __t.identity(),
+  dayKey: __t.string(),
+  firstSeenDayKey: __t.string(),
+  isGuest: __t.bool(),
+  sessions: __t.u32(),
+  sessionMicros: __t.u64(),
+});
+export type AnalyticsDailyPlayer = __Infer<typeof AnalyticsDailyPlayer>;
+
+export const AnalyticsPlayer = __t.object("AnalyticsPlayer", {
+  identity: __t.identity(),
+  firstSeenDayKey: __t.string(),
+  firstKillDayKey: __t.string(),
+  firstBossDayKey: __t.string(),
+  firstPrestigeDayKey: __t.string(),
+});
+export type AnalyticsPlayer = __Infer<typeof AnalyticsPlayer>;
+
 export const BalanceApologyNotice = __t.object("BalanceApologyNotice", {
   identity: __t.identity(),
   amount: __t.u64(),
@@ -403,6 +442,9 @@ export const Duel = __t.object("Duel", {
   opponentDamage: __t.f32(),
   opponentArmor: __t.f32(),
   opponentAttackRate: __t.f32(),
+  challengerRiposte: __t.f32(),
+  opponentRiposte: __t.f32(),
+  riposteSeed: __t.u64(),
   startsAtMicros: __t.u64(),
   challengerRegen: __t.f32(),
   challengerAttacks: __t.u32(),
@@ -1829,6 +1871,8 @@ export const PlayerSession = __t.object("PlayerSession", {
   identity: __t.identity(),
   connectedAt: __t.timestamp(),
   protocolVersion: __t.u32(),
+  clientVersion: __t.string(),
+  analyticsStartedAtMicros: __t.u64(),
   lastInputSequence: __t.u32(),
   enteredWorld: __t.bool(),
   tabId: __t.string(),

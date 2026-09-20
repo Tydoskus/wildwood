@@ -22,7 +22,7 @@ import { describe, expect, it } from "vitest";
 // review table added its registration line. Bodies live in kill-gems.ts and
 // enemy-defeats.ts; the raise is the schema surface alone.
 // 6_879: duel replay sharing added one reducer declaration and its separator.
-const MAX_LINES = 6_914;
+const MAX_LINES = 6_970;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

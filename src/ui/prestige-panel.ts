@@ -1,6 +1,6 @@
 import { formatCompactNumber } from './number-format';
 import { PRESTIGE_STAT_GAIN_PER_LEVEL, prestigeStatMultiplier } from '../../shared/prestige';
-import { PRESTIGE_PERKS, PRESTIGE_PERK_IDS, PRESTIGE_PERK_MAX_RANK, prestigePerkRank,
+import { PRESTIGE_PERKS, PRESTIGE_PERK_IDS, PRESTIGE_PERK_MAX_RANK, prestigePerkEffectLabel, prestigePerkRank,
   type PrestigePerkId, type PrestigePerkRanks } from '../../shared/prestige-perks';
 
 export type PrestigeRow = { level: number; perkPoints: number; peakPower: number };
@@ -8,8 +8,8 @@ type Result = { ok: boolean; error?: string } | boolean | undefined;
 
 const LOCKED_HINT = 'Defeat Aegis Prime to unlock Prestige.';
 const AGAIN_HINT = 'Defeat Aegis Prime again to prestige. Your perk points keep.';
-const COST = 'Prestige resets your stats, research, equipment and every map unlock. '
-  + 'Your name, gems, bought slots and upgrade bench stay.';
+const COST = 'Prestige resets your stats, equipment and every map unlock. '
+  + 'Your tech research, lifetime kills, name, gems, bought slots and upgrade bench all stay.';
 
 /** What one more prestige is worth, as the panel words it. */
 export function prestigeRewardLabel(level: number) {
@@ -65,6 +65,12 @@ export function createPrestigeController(options: {
       const detail = create('div');
       detail.className = 'prestige-perk-detail';
       detail.textContent = PRESTIGE_PERKS[id].detail;
+      // What the rank owned is worth, and what one more point would buy.
+      const value = create('div');
+      value.className = 'prestige-perk-value';
+      value.textContent = maxed
+        ? `Now ${prestigePerkEffectLabel(id, rank)}`
+        : `Now ${prestigePerkEffectLabel(id, rank)} · Next ${prestigePerkEffectLabel(id, rank + 1)}`;
       const spend = create('button') as HTMLButtonElement;
       spend.type = 'button';
       spend.className = 'prestige-perk-spend';
@@ -85,7 +91,7 @@ export function createPrestigeController(options: {
           pending = false; render();
         }
       });
-      row.append(title, detail, spend);
+      row.append(title, detail, value, spend);
       return row;
     }));
   }

@@ -268,6 +268,7 @@ const afterUpdateGateShell = String.raw`
       <button id="devBugReportsTab" class="profile-tab" type="button" role="tab" aria-selected="false">Bug reports</button>
       <button id="devCutscenesTab" class="profile-tab" type="button" role="tab" aria-selected="false">Cutscenes</button>
       <button id="devPerformanceTab" class="profile-tab" type="button" role="tab" aria-selected="false">Performance</button>
+      <button id="devAnalyticsTab" class="profile-tab" type="button" role="tab" aria-selected="false">Analytics</button>
     </div>
     <section id="devBalancePanel" role="tabpanel" aria-labelledby="devBalanceTab" hidden></section>
     <section id="devModerationPanel" role="tabpanel" aria-labelledby="devModerationTab" hidden></section>
@@ -328,6 +329,7 @@ const afterUpdateGateShell = String.raw`
         <div><dt>SUBSCRIPTIONS</dt><dd id="perfSubscriptions">—</dd></div>
       </dl>
     </section>
+    <section id="devAnalyticsPanel" class="dev-analytics-panel" role="tabpanel" aria-labelledby="devAnalyticsTab" hidden></section>
     <footer class="window-back-footer">
       <button id="closeDevAuditBtn" class="window-back-button" type="button" aria-label="Back from developer tools">Back</button>
     </footer>

@@ -8,6 +8,7 @@ import { type Infer as __Infer } from "spacetimedb";
 // Import all procedure arg schemas
 import * as BeginPatreonLinkProcedure from "../begin_patreon_link_procedure";
 import * as DevTeleportToPlayerProcedure from "../dev_teleport_to_player_procedure";
+import * as GetAnalyticsDashboardProcedure from "../get_analytics_dashboard_procedure";
 import * as GetAvatarFramesProcedure from "../get_avatar_frames_procedure";
 import * as GetBalanceEditorProcedure from "../get_balance_editor_procedure";
 import * as GetChatHistoryProcedure from "../get_chat_history_procedure";
@@ -35,6 +36,8 @@ export type BeginPatreonLinkArgs = __Infer<typeof BeginPatreonLinkProcedure.para
 export type BeginPatreonLinkResult = __Infer<typeof BeginPatreonLinkProcedure.returnType>;
 export type DevTeleportToPlayerArgs = __Infer<typeof DevTeleportToPlayerProcedure.params>;
 export type DevTeleportToPlayerResult = __Infer<typeof DevTeleportToPlayerProcedure.returnType>;
+export type GetAnalyticsDashboardArgs = __Infer<typeof GetAnalyticsDashboardProcedure.params>;
+export type GetAnalyticsDashboardResult = __Infer<typeof GetAnalyticsDashboardProcedure.returnType>;
 export type GetAvatarFramesArgs = __Infer<typeof GetAvatarFramesProcedure.params>;
 export type GetAvatarFramesResult = __Infer<typeof GetAvatarFramesProcedure.returnType>;
 export type GetBalanceEditorArgs = __Infer<typeof GetBalanceEditorProcedure.params>;

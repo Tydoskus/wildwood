@@ -10,8 +10,9 @@ import {
   VIRTUAL_PLAYER_DEFAULT,
   normalizeVirtualPlayerCount,
 } from "../../shared/virtual-player-load-test";
+import type { AnalyticsDashboard } from "../coop/services/analytics-types";
 
-type DevPanelTab = "balance" | "moderation" | "controls" | "bugs" | "cutscenes" | "performance";
+type DevPanelTab = "balance" | "moderation" | "controls" | "bugs" | "cutscenes" | "performance" | "analytics";
 
 type BugReportEntry = {
   id: bigint;
@@ -57,6 +58,7 @@ type DevPanelDependencies = {
   loadModerationHistory: ModerationHistoryLoader;
   getBugReports: () => BugReportEntry[];
   deleteBugReport: (id: bigint) => Promise<{ ok?: boolean; error?: string } | undefined> | undefined;
+  loadAnalytics: (fromDayKey: string, toDayKey: string) => Promise<AnalyticsDashboard>;
   getMetrics: () => DevPanelMetrics;
   closeCompetingWindows: () => void;
   showMessage: (message: string, color: string) => void;
@@ -75,6 +77,7 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     moderation: requiredElement("devModerationTab"),
     cutscenes: requiredElement("devCutscenesTab"),
     performance: requiredElement("devPerformanceTab"),
+    analytics: requiredElement("devAnalyticsTab"),
   };
   const tabPanels: Record<DevPanelTab, HTMLElement> = {
     balance: requiredElement("devBalancePanel"),
@@ -83,6 +86,7 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     moderation: requiredElement("devModerationPanel"),
     cutscenes: requiredElement("devCutscenesPanel"),
     performance: requiredElement("devPerformancePanel"),
+    analytics: requiredElement("devAnalyticsPanel"),
   };
   const playerTravel = createPlayerTravelControl(tabPanels.controls, { allowed: dependencies.isDeveloper, travel: dependencies.teleportPlayer, showMessage: dependencies.showMessage });
   const ota = createOtaPanel(tabPanels.controls);
@@ -139,6 +143,7 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     if (tab === "controls") renderControls();
     if (tab === "bugs") renderBugReports();
     if (tab === "performance") renderPerformance();
+    if (tab === "analytics") void renderAnalytics();
   }
 
   function renderControls() {
@@ -221,6 +226,29 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     setValue(performanceValues.canvasSize, `${metrics.canvasWidth}×${metrics.canvasHeight}`);
     setValue(performanceValues.memory, megabytes);
     setValue(performanceValues.subscriptions, String(metrics.subscriptions));
+  }
+
+  let analyticsRequest = 0;
+  async function renderAnalytics() {
+    const panel = tabPanels.analytics;
+    const request = ++analyticsRequest;
+    panel.replaceChildren();
+    const loading = document.createElement("p");
+    loading.className = "dev-audit-help";
+    loading.textContent = "LOADING UTC ANALYTICS…";
+    panel.append(loading);
+    const today = Math.floor(Date.now() / 86_400_000);
+    try {
+      const dashboard = await dependencies.loadAnalytics(String(today - 29), String(today));
+      if (request !== analyticsRequest || panel.hidden) return;
+      panel.replaceChildren(renderAnalyticsDashboard(dashboard));
+    } catch (error) {
+      if (request !== analyticsRequest || panel.hidden) return;
+      const failure = document.createElement("p");
+      failure.className = "dev-audit-help dev-analytics-error";
+      failure.textContent = error instanceof Error ? error.message : "ANALYTICS UNAVAILABLE";
+      panel.replaceChildren(failure);
+    }
   }
 
   function open() {
@@ -323,3 +351,60 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
 function setValue(element: HTMLElement, value: string) {
   if (element.textContent !== value) element.textContent = value;
 }
+
+function renderAnalyticsDashboard(data: AnalyticsDashboard) {
+  const root = document.createElement("div");
+  root.className = "dev-analytics-dashboard";
+  const help = document.createElement("p");
+  help.className = "dev-audit-help";
+  help.textContent = `UTC · ${data.fromDayKey} → ${data.toDayKey} · collection starts with this release`;
+  root.append(help);
+  const latest = data.days[data.days.length - 1];
+  if (latest) root.append(renderAnalyticsCards(latest, data.conversion.total));
+  root.append(renderAnalyticsTable("DAILY ACTIVE / NEW / RETURNING", ["DAY", "DAU", "WAU", "MAU", "NEW", "RETURNING", "SESSIONS/PLAYER", "AVG SESSION"], data.days.map(day => [day.dayKey, day.dau, day.wau, day.mau, day.newPlayers, day.returningPlayers, formatNumber(day.sessionsPerPlayer), formatSeconds(day.averageSessionSeconds)])));
+  root.append(renderAnalyticsTable("RETENTION COHORTS", ["COHORT", "SIZE", "D1", "D7", "D30"], data.retention.map(cohort => [cohort.cohortDayKey, cohort.size, formatRate(cohort.d1, cohort.d1Rate), formatRate(cohort.d7, cohort.d7Rate), formatRate(cohort.d30, cohort.d30Rate)])));
+  root.append(renderAnalyticsTable("MAP / RELEASE ACTIVITY", ["MAP", "VERSION", "PLAYERS", "SESSIONS", "AVG SESSION"], data.activity.slice(0, 40).map(row => [row.mapId, row.releaseVersion, row.players, row.sessions, formatSeconds(row.averageSessionSeconds)])));
+  const conversion = document.createElement("p");
+  conversion.className = "dev-analytics-note";
+  conversion.textContent = `GUEST → ACCOUNT CONVERSIONS · ${data.conversion.total} in range`;
+  root.append(conversion);
+  const milestone = document.createElement("p");
+  milestone.className = "dev-analytics-note";
+  milestone.textContent = `MILESTONES · FIRST KILL ${sumCounts(data.milestones.firstKill)} · FIRST BOSS ${sumCounts(data.milestones.firstBoss)} · FIRST PRESTIGE ${sumCounts(data.milestones.firstPrestige)}`;
+  root.append(milestone);
+  return root;
+}
+
+function renderAnalyticsCards(day: AnalyticsDashboard["days"][number], conversions: number) {
+  const cards = document.createElement("div");
+  cards.className = "dev-analytics-cards";
+  for (const [label, value] of [["DAU", day.dau], ["WAU", day.wau], ["MAU", day.mau], ["AVG SESSION", formatSeconds(day.averageSessionSeconds)], ["CONVERSIONS", conversions]] as const) {
+    const card = document.createElement("div");
+    const title = document.createElement("span"); title.textContent = label;
+    const number = document.createElement("strong"); number.textContent = String(value);
+    card.append(title, number); cards.append(card);
+  }
+  return cards;
+}
+
+function renderAnalyticsTable(title: string, headings: string[], rows: Array<Array<string | number>>) {
+  const section = document.createElement("section");
+  section.className = "dev-analytics-section";
+  const heading = document.createElement("h3"); heading.textContent = title; section.append(heading);
+  const table = document.createElement("table"); table.className = "dev-analytics-table";
+  const header = document.createElement("tr");
+  for (const value of headings) { const cell = document.createElement("th"); cell.textContent = value; header.append(cell); }
+  table.append(header);
+  for (const row of rows) {
+    const tr = document.createElement("tr");
+    for (const value of row) { const cell = document.createElement("td"); cell.textContent = String(value); tr.append(cell); }
+    table.append(tr);
+  }
+  section.append(table);
+  return section;
+}
+
+function formatSeconds(value: number | null) { return value === null ? "—" : `${value.toFixed(1)}s`; }
+function formatNumber(value: number | null) { return value === null ? "—" : value.toFixed(2); }
+function formatRate(count: number | null, percentage: number | null) { return count === null ? "—" : `${count} · ${percentage}%`; }
+function sumCounts(values: Record<string, number>) { return Object.values(values).reduce((sum, count) => sum + count, 0); }

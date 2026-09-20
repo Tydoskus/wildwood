@@ -13,6 +13,7 @@ type ExpectedApiKey =
   | "guild"
   | "acceptLegalTerms"
   | "acceptDuel"
+  | "analyticsDashboard"
   | "accessAuditEntries"
   | "accountState"
   | "acknowledgeBalanceApologyGift"

@@ -1,0 +1,86 @@
+{
+  "format": "wildstat-character-alignment",
+  "version": 1,
+  "outfit": {
+    "headItem": "basic_paper_hat",
+    "chestItem": "wooden_armor",
+    "feetItem": "trailblazer_boots",
+    "rightHandItem": "vendor:2D Minimal - Character Parts Pack Vol.1 [Expansion]/Parts Pack Vol.1/Parts/HandRight/Sword/FA_WP_Main_Sword_025_Brown.png"
+  },
+  "skinTone": 3,
+  "adjustments": {
+    "frontLeg:base": {
+      "x": 0,
+      "y": -2,
+      "scale": 1
+    },
+    "backLeg:base": {
+      "x": 0,
+      "y": -2,
+      "scale": 1
+    },
+    "weapon:vendor:2D Minimal - Character Parts Pack Vol.1 [Expansion]/Parts Pack Vol.1/Parts/HandRight/Sword/FA_WP_Main_Sword_020_Black.png": {
+      "x": 61,
+      "y": -8,
+      "scale": 1,
+      "angle": -28,
+      "flipX": false,
+      "pivotX": 0.2120783942239344,
+      "pivotY": 0.5109876959261637
+    },
+    "helmet:basic_paper_hat": {
+      "x": 1.46,
+      "y": -0.77,
+      "scale": 1
+    },
+    "helmet:superior_golden_helmet": {
+      "x": 0,
+      "y": -3,
+      "scale": 1
+    },
+    "helmet:wood_full_helm": {
+      "x": 0,
+      "y": -3,
+      "scale": 1
+    },
+    "helmet:fire_metal_helmet": {
+      "x": 0,
+      "y": -3,
+      "scale": 1
+    },
+    "weapon:vendor:2D Minimal - Character Parts Pack Vol.1 [Expansion]/Parts Pack Vol.1/Parts/HandRight/Bow/FA_WP_Main_Bow_010_Gray.png": {
+      "x": 5,
+      "y": -0.8,
+      "scale": 1,
+      "angle": -15
+    },
+    "helmet:dark_metal_helmet": {
+      "x": 0,
+      "y": -3,
+      "scale": 1
+    },
+    "head:base": {
+      "x": 2,
+      "y": 0,
+      "scale": 1
+    },
+    "weapon:vendor:2D Minimal - Character Parts Pack Vol.1 [Expansion]/Parts Pack Vol.1/Parts/HandRight/Spear/FA_WP_Main_Spear_011_Gray.png": {
+      "x": 21.42295809851291,
+      "y": -1.7678735330062092,
+      "scale": 1,
+      "angle": -10,
+      "pivotX": 0.37949570107938335,
+      "pivotY": 0.513052685946119
+    },
+    "weapon:vendor:2D Minimal - Character Parts Pack Vol.1 [Expansion]/Parts Pack Vol.1/Parts/HandRight/Sword/FA_WP_Main_Sword_025_Brown.png": {
+      "x": 38.07,
+      "y": -3.97,
+      "scale": 1,
+      "angle": -28,
+      "flipX": false,
+      "pivotX": 0.2120783942239344,
+      "pivotY": 0.5109876959261637
+    }
+  },
+  "basis": "game"
+}

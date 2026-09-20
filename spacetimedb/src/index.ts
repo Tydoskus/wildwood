@@ -108,6 +108,7 @@ import {
 } from "./presence-runtime";
 import { createDuelRuntime, activeDuelFor, clearExpiredDuelRequests } from "./duel-runtime";
 import { createAccountLifecycle, hasSpacetimeAuthAccount, clearExpiredAccountLinks, dailyGemBonusClaimReference } from "./account-lifecycle";
+import { analyticsTables, finishAnalyticsSession, readAnalyticsDashboard, recordAnalyticsConversion, recordAnalyticsMapVisit, recordAnalyticsMilestone, recordAnalyticsSessionStart } from "./analytics";
 import {
   compressLegacyProgressionOutlier,
   compressLegacyTopFiveProgression,
@@ -1099,6 +1100,8 @@ const playerSession = table(
     identity: t.identity(),
     connectedAt: t.timestamp(),
     protocolVersion: t.u32().default(0),
+    clientVersion: t.string().default(""),
+    analyticsStartedAtMicros: t.u64().default(0n),
     lastInputSequence: t.u32().default(0),
     enteredWorld: t.bool().default(false),
     tabId: t.string().default(""),
@@ -1364,6 +1367,9 @@ const duel = table(
     opponentDamage: t.f32(),
     opponentArmor: t.f32(),
     opponentAttackRate: t.f32(),
+    // Riposte chances and the seed their rolls come from, stored so a replay
+    // throws back exactly what the server did.
+    challengerRiposte: t.f32().default(0), opponentRiposte: t.f32().default(0), riposteSeed: t.u64().default(0n),
     startsAtMicros: t.u64().default(0n),
     challengerRegen: t.f32().default(0),
     challengerAttacks: t.u32().default(0),
@@ -1757,6 +1763,7 @@ const spacetimedb = schema({
   ...connectionDiagnosticTables,
   startupTelemetryEvent,
   startupTelemetryRateLimit,
+  ...analyticsTables,
   duel,
   duelReplay,
   duelWireAccess,
@@ -3431,6 +3438,9 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
     const sameTab = controllerSession?.tabId && controllerSession.tabId === normalizedTabId;
     if (controllerSession?.enteredWorld && !sameTab) {
       if (!forceTakeover) throw new SenderError("Wildstat is active in another tab.");
+      if (!isMapShard(ctx) && controllerSession.analyticsStartedAtMicros) {
+        finishAnalyticsSession(ctx, controllerSession, ctx.db.player.identity.find(ctx.sender)?.mapId ?? TUTORIAL_FOREST_MAP_ID);
+      }
       ctx.db.playerSession.connectionId.update({ ...controllerSession, enteredWorld: false });
     }
     ctx.db.playerController.identity.update({ identity: ctx.sender, connectionId: ctx.connectionId });
@@ -3439,6 +3449,9 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
   }
 
   if (!session.enteredWorld || session.tabId !== normalizedTabId) {
+    if (session.enteredWorld && session.analyticsStartedAtMicros) {
+      finishAnalyticsSession(ctx, session, ctx.db.player.identity.find(ctx.sender)?.mapId ?? TUTORIAL_FOREST_MAP_ID);
+    }
     ctx.db.playerSession.connectionId.update({ ...session, enteredWorld: true, tabId: normalizedTabId });
   }
 
@@ -3501,6 +3514,13 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
   ensureCutsceneHistory(ctx, ctx.sender);
   researchForPlayer(ctx, ctx.sender);
   syncSenderAccountStatus(ctx);
+  if (!isMapShard(ctx) && !virtualRegistration && (!session.enteredWorld || session.tabId !== normalizedTabId)) {
+    const updatedSession = ctx.db.playerSession.connectionId.find(ctx.connectionId);
+    if (updatedSession) {
+      ctx.db.playerSession.connectionId.update({ ...updatedSession, analyticsStartedAtMicros: ctx.timestamp.microsSinceUnixEpoch });
+      recordAnalyticsSessionStart(ctx, ctx.db.player.identity.find(ctx.sender)?.mapId ?? TUTORIAL_FOREST_MAP_ID);
+    }
+  }
   touchPlayerAccessAudit(ctx, session.protocolVersion);
   backfillKnownAccessAudit(ctx);
 
@@ -3634,6 +3654,8 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
     identity: ctx.sender,
     connectedAt: ctx.timestamp,
     protocolVersion: 0,
+    clientVersion: "",
+    analyticsStartedAtMicros: 0n,
     lastInputSequence: 0,
     enteredWorld: false,
     tabId: "",
@@ -3647,6 +3669,9 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
   const session = ctx.db.playerSession.connectionId.find(ctx.connectionId);
   if (!session) return;
   if (session.enteredWorld) touchPlayerAccessAudit(ctx, session.protocolVersion);
+  if (!isMapShard(ctx) && session.enteredWorld) {
+    finishAnalyticsSession(ctx, session, ctx.db.player.identity.find(ctx.sender)?.mapId ?? TUTORIAL_FOREST_MAP_ID);
+  }
   ctx.db.playerSession.connectionId.delete(ctx.connectionId);
 
   const remainingSessions = [...ctx.db.playerSession.byIdentity.filter(ctx.sender) as Iterable<any>];
@@ -4262,6 +4287,15 @@ export const registerProtocol = spacetimedb.reducer(
     for (const { slot, active } of activeItemUpgradeEntriesFor(ctx, ctx.sender)) {
       reconcileActiveItemUpgrade(ctx, active, slot);
     }
+  },
+);
+
+export const registerClientVersion = spacetimedb.reducer(
+  { clientVersion: t.string() },
+  (ctx, { clientVersion }) => {
+    const session = requireSession(ctx);
+    if (!/^(?:unknown|\d{1,4}(?:\.\d{1,4}){1,3})$/.test(clientVersion)) return;
+    ctx.db.playerSession.connectionId.update({ ...session, clientVersion });
   },
 );
 
@@ -5561,6 +5595,10 @@ export const recordEnemyDefeats = spacetimedb.reducer(
     const lifetime = ensurePlayerLifetime(ctx);
     const enemyKills = lifetime.enemyKills + BigInt(accepted.count);
     ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills });
+    if (!isMapShard(ctx)) {
+      recordAnalyticsMilestone(ctx, "kill");
+      if (accepted.rewards.some(reward => reward.type === "boss")) recordAnalyticsMilestone(ctx, "boss");
+    }
     // Presence is the server's own signal for active play: hidden or idle
     // players earn at half rate, and nothing here is taken from the client.
     killGems.grantKillGems(ctx, ctx.sender, accepted.count, player.isVisible, enemyKills);
@@ -5688,7 +5726,12 @@ function resetProgressToDefaults(ctx: any, activePlayer: any, keep: { research?:
     // everyone else as a reset player still sitting at the top.
     refreshLeaderboard(ctx);
 }
-const prestige = createPrestige({ requireControllingPlayer, activeDuelFor, resetProgressToDefaults });
+const prestige = createPrestige({
+  requireControllingPlayer,
+  activeDuelFor,
+  resetProgressToDefaults,
+  recordPrestige: (ctx: any) => { if (!isMapShard(ctx)) recordAnalyticsMilestone(ctx, "prestige"); },
+});
 export const resetPlayerProgress = spacetimedb.reducer({}, (ctx) => {
   const activePlayer = requireControllingPlayer(ctx);
   if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel before resetting progress.");
@@ -5953,6 +5996,7 @@ function transitionPlayerMap(
   ensureRealtimeFrameSchedules(ctx);
   // Home has no enemies: nothing reads a pin there, and the old pin still fits on the way back.
   if (runtime?.role !== "map") { if (mapId !== HOME_EXTERIOR_MAP_ID) pinMapBalance(ctx, mapId); beginBossTimeBudget(ctx, mapId); }
+  if (!isMapShard(ctx)) recordAnalyticsMapVisit(ctx, mapId);
   return nextPlayer;
 }
 
@@ -6470,6 +6514,7 @@ const {
   removePlayerRealtimeState, removePlayerSafetyData, removeResearchCompletionSchedules,
   repairModeratedDisplayName, requireSupportedSessionProtocol, sameIdentity,
   syncDisplayNamePresentation, syncPlayerMotionIdentity, transferPlayerBlocks,
+  recordAnalyticsConversion,
 });
 
 // Presence and motion bodies live in presence-runtime.ts. Only these four still
@@ -6745,6 +6790,15 @@ export const getDeveloperTravelTarget = spacetimedb.procedure({ query: t.string(
   const target = findDeveloperTravelTarget(tx, query);
   return JSON.stringify({ identity: target.identity.toHexString(), displayName: target.displayName, mapId: target.mapId });
 }));
+
+export const getAnalyticsDashboard = spacetimedb.procedure(
+  { fromDayKey: t.string(), toDayKey: t.string() },
+  t.string(),
+  (ctx, { fromDayKey, toDayKey }) => ctx.withTx(tx => {
+    requireDeveloper(tx, "get_analytics_dashboard");
+    return readAnalyticsDashboard(tx, fromDayKey, toDayKey);
+  }),
+);
 
 export const devTeleportToPlayer = spacetimedb.procedure({ identity: t.identity(), mapId: t.string() }, t.string(), (ctx, args) => {
   const target = ctx.withTx(tx => {

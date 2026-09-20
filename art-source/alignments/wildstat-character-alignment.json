@@ -1,0 +1,42 @@
+{
+  "format": "wildstat-character-alignment",
+  "version": 1,
+  "outfit": {
+    "headItem": "basic_paper_hat",
+    "chestItem": "wooden_armor",
+    "feetItem": "trailblazer_boots",
+    "rightHandItem": "vendor:2D Minimal - Character Parts Pack Vol.1 [Expansion]/Parts Pack Vol.1/Parts/HandRight/Sword/FA_WP_Main_Sword_020_Black.png"
+  },
+  "skinTone": 3,
+  "adjustments": {
+    "frontLeg:base": {
+      "x": 0,
+      "y": -2,
+      "scale": 1
+    },
+    "backLeg:base": {
+      "x": 0,
+      "y": -2,
+      "scale": 1
+    },
+    "weapon:vendor:2D Minimal - Character Parts Pack Vol.1 [Expansion]/Parts Pack Vol.1/Parts/HandRight/Sword/FA_WP_Main_Sword_020_Black.png": {
+      "x": 61,
+      "y": -8,
+      "scale": 1,
+      "angle": -28,
+      "flipX": false,
+      "pivotX": 0.2120783942239344,
+      "pivotY": 0.5109876959261637
+    },
+    "helmet:basic_paper_hat": {
+      "x": 1,
+      "y": -4,
+      "scale": 1
+    },
+    "frontLeg:trailblazer_boots": {
+      "x": 0,
+      "y": 0,
+      "scale": 1
+    }
+  }
+}

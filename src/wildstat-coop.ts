@@ -729,6 +729,8 @@ function connect() {
       const protocolStartedAt = performance.now();
       void conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION }).then(async () => {
         if (generation !== connectionGeneration || connection !== conn) return;
+        await conn.reducers.registerClientVersion({ clientVersion: GAME_VERSION });
+        if (generation !== connectionGeneration || connection !== conn) return;
         protocolReadyGeneration = generation;
         accountService.clearRetry();
         recordLatency(protocolStartedAt);

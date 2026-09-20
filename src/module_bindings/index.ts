@@ -137,6 +137,7 @@ import RecordRegularEnemyDefeatsReducer from "./record_regular_enemy_defeats_red
 import RecordSnowEnemyDefeatReducer from "./record_snow_enemy_defeat_reducer";
 import RecordStartupTelemetryReducer from "./record_startup_telemetry_reducer";
 import RefreshDuelWireAccessReducer from "./refresh_duel_wire_access_reducer";
+import RegisterClientVersionReducer from "./register_client_version_reducer";
 import RegisterProtocolReducer from "./register_protocol_reducer";
 import RenewShardLeaseReducer from "./renew_shard_lease_reducer";
 import ReportChatMessageReducer from "./report_chat_message_reducer";
@@ -190,6 +191,7 @@ import UpdateMovementStateReducer from "./update_movement_state_reducer";
 // Import all procedure arg schemas
 import * as BeginPatreonLinkProcedure from "./begin_patreon_link_procedure";
 import * as DevTeleportToPlayerProcedure from "./dev_teleport_to_player_procedure";
+import * as GetAnalyticsDashboardProcedure from "./get_analytics_dashboard_procedure";
 import * as GetAvatarFramesProcedure from "./get_avatar_frames_procedure";
 import * as GetBalanceEditorProcedure from "./get_balance_editor_procedure";
 import * as GetChatHistoryProcedure from "./get_chat_history_procedure";
@@ -1364,6 +1366,7 @@ const reducersSchema = __reducers(
   __reducerSchema("record_snow_enemy_defeat", RecordSnowEnemyDefeatReducer),
   __reducerSchema("record_startup_telemetry", RecordStartupTelemetryReducer),
   __reducerSchema("refresh_duel_wire_access", RefreshDuelWireAccessReducer),
+  __reducerSchema("register_client_version", RegisterClientVersionReducer),
   __reducerSchema("register_protocol", RegisterProtocolReducer),
   __reducerSchema("renew_shard_lease", RenewShardLeaseReducer),
   __reducerSchema("report_chat_message", ReportChatMessageReducer),
@@ -1419,6 +1422,7 @@ const reducersSchema = __reducers(
 const proceduresSchema = __procedures(
   __procedureSchema("begin_patreon_link", BeginPatreonLinkProcedure.params, BeginPatreonLinkProcedure.returnType),
   __procedureSchema("dev_teleport_to_player", DevTeleportToPlayerProcedure.params, DevTeleportToPlayerProcedure.returnType),
+  __procedureSchema("get_analytics_dashboard", GetAnalyticsDashboardProcedure.params, GetAnalyticsDashboardProcedure.returnType),
   __procedureSchema("get_avatar_frames", GetAvatarFramesProcedure.params, GetAvatarFramesProcedure.returnType),
   __procedureSchema("get_balance_editor", GetBalanceEditorProcedure.params, GetBalanceEditorProcedure.returnType),
   __procedureSchema("get_chat_history", GetChatHistoryProcedure.params, GetChatHistoryProcedure.returnType),

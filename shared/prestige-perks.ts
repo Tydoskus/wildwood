@@ -13,7 +13,7 @@ export const PRESTIGE_PERKS = {
   splitShot: { title: "Split Shot", perRank: .05,
     detail: "Chance to strike a second enemy at the same time. Nothing to split against a boss." },
   riposte: { title: "Riposte", perRank: .06,
-    detail: "Share of the damage you take thrown back at whoever dealt it." },
+    detail: "Chance to throw half the damage you take back at whoever dealt it. Tells most in a duel." },
 } as const;
 
 /**
@@ -23,6 +23,17 @@ export const PRESTIGE_PERKS = {
  * that line. With both, it stands alone and still rewards the research.
  */
 export const KEEN_EDGE_CRITICAL_DAMAGE_PER_RANK = .12;
+
+/**
+ * Riposte is a chance to reflect, not a constant share, so a duel can turn on
+ * one of them. Half the damage taken is thrown back at the attacker.
+ */
+export const RIPOSTE_REFLECT_SHARE = .5;
+
+/** The chance a hit taken is thrown back, at this player's rank. */
+export function prestigeRiposteChance(ranks: Partial<PrestigePerkRanks> | null | undefined) {
+  return prestigePerkValue(ranks, "riposte");
+}
 
 export type PrestigePerkId = keyof typeof PRESTIGE_PERKS;
 export const PRESTIGE_PERK_IDS = Object.keys(PRESTIGE_PERKS) as PrestigePerkId[];
@@ -47,6 +58,20 @@ export function prestigePerkValue(ranks: Partial<PrestigePerkRanks> | null | und
  * of the time. Used both by the client's own rolls and by the server's bound on
  * what a kill claim could plausibly contain.
  */
+/**
+ * What a perk is worth at a given rank, in the words the panel shows. Built
+ * here so the numbers a player reads come from the same place combat uses.
+ */
+export function prestigePerkEffectLabel(perk: PrestigePerkId, rank: number) {
+  const percent = (value: number) => `${Math.round(value * 100)}%`;
+  const ranks = { [perk]: rank } as Partial<PrestigePerkRanks>;
+  const chance = percent(prestigePerkValue(ranks, perk));
+  if (perk === "keenEdge") return `+${chance} critical chance, +${percent(prestigeCriticalDamageBonus(ranks))} critical damage`;
+  if (perk === "doubleStrike") return `+${chance} chance to strike twice`;
+  if (perk === "splitShot") return `+${chance} chance to hit a second enemy`;
+  return `+${chance} chance to reflect ${percent(RIPOSTE_REFLECT_SHARE)} of the hit`;
+}
+
 /** Extra critical damage from Keen Edge, added to the research multiplier. */
 export function prestigeCriticalDamageBonus(ranks: Partial<PrestigePerkRanks> | null | undefined) {
   return prestigePerkRank(ranks, "keenEdge") * KEEN_EDGE_CRITICAL_DAMAGE_PER_RANK;
@@ -63,5 +88,7 @@ export function prestigeSwingMultiplier(ranks: Partial<PrestigePerkRanks> | null
  * claim bound has to widen by the same amount the client can actually earn.
  */
 export function prestigeReachMultiplier(ranks: Partial<PrestigePerkRanks> | null | undefined) {
-  return 1 + prestigePerkValue(ranks, "splitShot") + prestigePerkValue(ranks, "riposte");
+  // Riposte only reflects part of a hit, and only sometimes, so the claim bound
+  // widens by what it is worth on average rather than by its full chance.
+  return 1 + prestigePerkValue(ranks, "splitShot") + prestigeRiposteChance(ranks) * RIPOSTE_REFLECT_SHARE;
 }

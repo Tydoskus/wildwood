@@ -97,6 +97,7 @@ export type AccountLifecycleDeps = {
   syncDisplayNamePresentation: (ctx: any, identity: any, displayName: string) => void;
   syncPlayerMotionIdentity: (ctx: any, activePlayer: any) => void;
   transferPlayerBlocks: (ctx: any, guest: any, account: any) => void;
+  recordAnalyticsConversion: (ctx: any, guest: any, account: any) => void;
 };
 
 export function createAccountLifecycle(deps: AccountLifecycleDeps) {
@@ -112,7 +113,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
     removeItemUpgradeCompletionSchedules, removePlayerItemUpgradeData, removePlayerRealtimeState,
     removePlayerSafetyData, removeResearchCompletionSchedules, repairModeratedDisplayName,
     requireSupportedSessionProtocol, sameIdentity, syncDisplayNamePresentation,
-    syncPlayerMotionIdentity, transferPlayerBlocks,
+    syncPlayerMotionIdentity, transferPlayerBlocks, recordAnalyticsConversion,
   } = deps;
 
   function syncSenderAccountStatus(ctx: any) {
@@ -356,6 +357,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
     const linkedStatus = { identity: ctx.sender, isGuest: false };
     if (accountStatus) updateSnapshotRow(ctx, "playerAccountStatus", linkedStatus);
     else insertSnapshotRow(ctx, "playerAccountStatus", linkedStatus);
+    recordAnalyticsConversion(ctx, link.guest, ctx.sender);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, ctx.db.player.identity.find(ctx.sender)));
     guildService.mergeGuest(ctx, link.guest, ctx.sender);
     mergeSocialAccount(ctx, link.guest, ctx.sender);

@@ -29,10 +29,11 @@ export type PrestigeDeps = {
   requireControllingPlayer: (ctx: any) => any;
   activeDuelFor: (ctx: any, identity: any) => unknown;
   resetProgressToDefaults: (ctx: any, activePlayer: any, keep?: { research?: boolean; lifetimeKills?: boolean }) => void;
+  recordPrestige: (ctx: any) => void;
 };
 
 export function createPrestige(deps: PrestigeDeps) {
-  const { requireControllingPlayer, activeDuelFor, resetProgressToDefaults } = deps;
+  const { requireControllingPlayer, activeDuelFor, resetProgressToDefaults, recordPrestige } = deps;
 
   function prestigeAccount(ctx: any) {
     const activePlayer = requireControllingPlayer(ctx);
@@ -52,6 +53,7 @@ export function createPrestige(deps: PrestigeDeps) {
       prestigedAt: ctx.timestamp,
     };
     if (current) ctx.db.playerPrestige.identity.update(next); else ctx.db.playerPrestige.insert(next);
+    recordPrestige(ctx);
     resetProgressToDefaults(ctx, activePlayer, { research: true, lifetimeKills: true });
     return next;
   }

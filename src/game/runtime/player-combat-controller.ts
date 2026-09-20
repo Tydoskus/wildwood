@@ -113,6 +113,8 @@ export function createPlayerCombatController(options: {
   researchRewardMultiplier: () => number;
   /** Chance for a hit to land a second time, from the Double Strike perk. */
   prestigeDoubleStrike?: () => number;
+  /** Chance for a swing to also reach a second enemy, from the Split Shot perk. */
+  prestigeSplitShot?: () => number;
   equippedWeapon: () => string;
   equippedWeaponUpgradeLevel?: () => number;
   equippedHead: () => string;
@@ -257,6 +259,19 @@ export function createPlayerCombatController(options: {
       options.equippedHeadUpgradeLevel?.() ?? 0, options.equippedChestUpgradeLevel?.() ?? 0) *
       (critical ? researchCriticalDamageMultiplier() : 1);
   }
+  /** The nearest other enemy a Split Shot could also reach. Bosses stand alone. */
+  function splitShotTarget(primary: EnemyState | BossTarget | null) {
+    if (Math.random() >= (options.prestigeSplitShot?.() ?? 0)) return null;
+    const reach = attackRange();
+    let best: EnemyState | null = null, bestDistance = Infinity;
+    for (const enemy of enemies) {
+      if (enemy === primary || enemy.dead) continue;
+      const distance = Math.hypot(player.x - enemy.x, player.y - enemy.y) - enemy.r;
+      if (distance <= reach && distance < bestDistance) { best = enemy; bestDistance = distance; }
+    }
+    return best;
+  }
+
   function strikeMelee(target: AttackTarget) {
     rebuildTargetGrid();
     const angle = Math.atan2(target.y - player.y, target.x - player.x);
@@ -268,6 +283,8 @@ export function createPlayerCombatController(options: {
     const strikes = Math.random() < (options.prestigeDoubleStrike?.() ?? 0) ? 2 : 1;
     for (let strike = 0; strike < strikes; strike++) applyPlayerHit(hit.enemy, weaponDamage(critical), critical, angle);
     spawnBurst(player.x + Math.cos(angle) * attackRange() * hit.t, player.y + Math.sin(angle) * attackRange() * hit.t, "#f3f7ff", 6, 55);
+    const second = splitShotTarget(hit.enemy);
+    if (second) applyPlayerHit(second, weaponDamage(critical), critical, Math.atan2(second.y - player.y, second.x - player.x));
   }
 
   function launchPlayerStone(target: AttackTarget, releasedAtSeconds: number) {
@@ -276,8 +293,7 @@ export function createPlayerCombatController(options: {
     const distance = Math.hypot(dx, dy) || 1;
     const baseAngle = Math.atan2(dy, dx);
     const weaponItem = options.equippedWeapon();
-    for (let index = 0; index < player.projectileCount; index++) {
-      const angle = baseAngle + (index - (player.projectileCount - 1) / 2) * .13;
+    const fire = (angle: number) => {
       const projectileLifeBonus = 1.25;
       // Personal bosses use the same crit roll as ordinary enemies. Only the
       // legacy shared-boss path waits for server-confirmed critical damage.
@@ -295,7 +311,13 @@ export function createPlayerCombatController(options: {
       projectile.life = (player.attackRange + PLAYER_PROJECTILE_VISUAL_TAIL) / player.projectileSpeed * projectileLifeBonus;
       projectile.trail = 0;
       projectile.spawnedAtSeconds = releasedAtSeconds;
+    };
+    for (let index = 0; index < player.projectileCount; index++) {
+      fire(baseAngle + (index - (player.projectileCount - 1) / 2) * .13);
     }
+    // Split Shot sends one more arrow at whoever else is in range.
+    const second = splitShotTarget(target.isBoss ? null : target as EnemyState);
+    if (second) fire(Math.atan2(second.y - player.y, second.x - player.x));
     const projectileKind = itemDefinition(weaponItem)?.weapon?.projectile;
     if (projectileKind === "ARROW" || projectileKind === "ROCK") options.playBowAttackSound?.();
     spawnBurst(player.x + dx / distance * 17, player.y + dy / distance * 17, "#ffe36b", 4, 38);

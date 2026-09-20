@@ -105,6 +105,10 @@ describe("prestige panel", () => {
     const rows = () => [...none.pick("perks").children] as any[];
     expect(rows()).toHaveLength(4);
     expect(rows()[0].querySelector(".prestige-perk-title").textContent).toBe("Keen Edge 2/5");
+    // Both what the rank owned is worth and what one more point buys.
+    const value = rows()[0].querySelector(".prestige-perk-value").textContent;
+    expect(value).toContain("Now +10% critical chance, +24% critical damage");
+    expect(value).toContain("Next +15% critical chance, +36% critical damage");
     expect(rows().every((row: any) => row.querySelector("button").disabled)).toBe(true);
 
     const banked = setup({ unlocked: true, row: { level: 3, perkPoints: 1, peakPower: 0 }, perks: { riposte: 5 } });
@@ -113,6 +117,7 @@ describe("prestige panel", () => {
     expect(perkRows[0].querySelector("button").disabled).toBe(false);
     const maxed = perkRows.find((row: any) => row.dataset.perk === "riposte");
     expect(maxed.querySelector("button").textContent).toBe("Maxed");
+    expect(maxed.querySelector(".prestige-perk-value").textContent).not.toContain("Next");
     expect(maxed.querySelector("button").disabled).toBe(true);
   });
 

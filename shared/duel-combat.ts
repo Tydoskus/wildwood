@@ -1,8 +1,10 @@
 import { damageAfterArmor } from "./combat";
 import { duelAttackDelays, type DuelWeapons } from "./duel-approach";
+import { regularEnemySeededUnit } from "./regular-enemy-simulation";
+import { RIPOSTE_REFLECT_SHARE } from "./prestige-perks";
 
 export type DuelFighter = { maxHp: number; damage: number; armor: number; regen: number; attackRate: number };
-export const DUEL_COMBAT_VERSION = 2;
+export const DUEL_COMBAT_VERSION = 3;
 export function duelHitMultiplier(seconds: number, version = 0) {
   return version >= 1 ? 1 + Math.min(4, Math.max(0, seconds - 10) / 5) : 1;
 }
@@ -11,7 +13,21 @@ export type DuelCombat = DuelWeapons & {
   combatVersion?: number;
   challengerMaxHp: number; challengerDamage: number; challengerArmor: number; challengerRegen: number; challengerAttackRate: number;
   opponentMaxHp: number; opponentDamage: number; opponentArmor: number; opponentRegen: number; opponentAttackRate: number;
+  // Riposte chances and the seed their rolls come from. The seed is stored with
+  // the duel so a replay rolls exactly what the server rolled.
+  challengerRiposte?: number; opponentRiposte?: number; riposteSeed?: number;
 };
+
+/**
+ * Whether a hit is thrown back. Deterministic: the same duel, side and attack
+ * always answer the same, so the server and every replay agree without either
+ * carrying a list of rolls.
+ */
+export function duelRiposted(duel: DuelCombat, side: "challenger" | "opponent", attack: number) {
+  const chance = Math.max(0, Math.min(1, (side === "challenger" ? duel.challengerRiposte : duel.opponentRiposte) ?? 0));
+  if (chance <= 0) return false;
+  return regularEnemySeededUnit("duel-riposte", duel.riposteSeed ?? 0, side, attack) < chance;
+}
 export type DuelCombatState = {
   challengerHp: number; opponentHp: number; challengerAttacks: number; opponentAttacks: number;
   challengerDamageDealt: number; opponentDamageDealt: number; challengerRegened: number; opponentRegened: number;
@@ -60,6 +76,10 @@ export function advanceDuelCombat(
       const taken = Math.min(state.opponentHp, challengerHit);
       state.opponentHp -= taken; state.challengerDamageDealt += taken;
       state.opponentBlocked += Math.max(0, challengerDamage - challengerHit);
+      if (taken > 0 && duelRiposted(duel, "opponent", state.challengerAttacks)) {
+        const thrown = Math.min(state.challengerHp, taken * RIPOSTE_REFLECT_SHARE);
+        state.challengerHp -= thrown; state.opponentDamageDealt += thrown;
+      }
     }
     if (opponentNext === next) {
       const opponentDamage = duel.opponentDamage * multiplier;
@@ -68,6 +88,10 @@ export function advanceDuelCombat(
       const taken = Math.min(state.challengerHp, opponentHit);
       state.challengerHp -= taken; state.opponentDamageDealt += taken;
       state.challengerBlocked += Math.max(0, opponentDamage - opponentHit);
+      if (taken > 0 && duelRiposted(duel, "challenger", state.opponentAttacks)) {
+        const thrown = Math.min(state.opponentHp, taken * RIPOSTE_REFLECT_SHARE);
+        state.opponentHp -= thrown; state.challengerDamageDealt += thrown;
+      }
     }
   }
   return { ...state, resolvedMicros };

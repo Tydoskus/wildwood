@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.759": [
+    "Split Shot works now: a chance for a swing to also reach a second enemy in range.",
+    "Riposte works in duels: a chance to throw half the damage you take back at your opponent. Both duellists roll the same way, so a replay matches the fight.",
+    "The perk list shows what each rank is worth and what one more point would buy.",
+    "The Prestige window no longer claims it resets your tech research. It does not.",
+  ],
   "0.758": [
     "Keen Edge now makes your criticals hit harder as well as more often. It was close to worthless without a deep critical damage research line; it now stands on its own and still rewards that research.",
   ],
@@ -2138,6 +2144,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.759": "2026-09-20",
   "0.758": "2026-09-20",
   "0.757": "2026-09-20",
   "0.756": "2026-09-20",

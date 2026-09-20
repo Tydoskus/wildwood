@@ -109,6 +109,7 @@ import RecordRegularEnemyDefeatsReducer from "../record_regular_enemy_defeats_re
 import RecordSnowEnemyDefeatReducer from "../record_snow_enemy_defeat_reducer";
 import RecordStartupTelemetryReducer from "../record_startup_telemetry_reducer";
 import RefreshDuelWireAccessReducer from "../refresh_duel_wire_access_reducer";
+import RegisterClientVersionReducer from "../register_client_version_reducer";
 import RegisterProtocolReducer from "../register_protocol_reducer";
 import RenewShardLeaseReducer from "../renew_shard_lease_reducer";
 import ReportChatMessageReducer from "../report_chat_message_reducer";
@@ -262,6 +263,7 @@ export type RecordRegularEnemyDefeatsParams = __Infer<typeof RecordRegularEnemyD
 export type RecordSnowEnemyDefeatParams = __Infer<typeof RecordSnowEnemyDefeatReducer>;
 export type RecordStartupTelemetryParams = __Infer<typeof RecordStartupTelemetryReducer>;
 export type RefreshDuelWireAccessParams = __Infer<typeof RefreshDuelWireAccessReducer>;
+export type RegisterClientVersionParams = __Infer<typeof RegisterClientVersionReducer>;
 export type RegisterProtocolParams = __Infer<typeof RegisterProtocolReducer>;
 export type RenewShardLeaseParams = __Infer<typeof RenewShardLeaseReducer>;
 export type ReportChatMessageParams = __Infer<typeof ReportChatMessageReducer>;
