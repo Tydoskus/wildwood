@@ -140,6 +140,9 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   let resetPending = false;
   let restoredSave = false;
   let itemDropListener: ((drop: { itemId: string; alreadyOwned: boolean }) => void) | null = null;
+  let gemDropListener: ((drop: { amount: number }) => void) | null = null;
+  // Hydration replays the standing row; only a sequence we have not seen is a new drop.
+  let lastGemDropSequence = 0n;
   let itemUpgradeListener: ((upgrade: { itemId: string; level: number }) => void) | null = null;
 
   function upgradeLevelsFor(identity: string) {
@@ -562,6 +565,13 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
         if (row.identity.toHexString() !== dependencies.localIdentity() || !dependencies.hydrationReady()) return;
         itemDropListener?.({ itemId: row.itemId, alreadyOwned: row.alreadyOwned });
       },
+      upsertGemDrop(row: { identity: Identity; amount: number; sequence: bigint }) {
+        if (row.identity.toHexString() !== dependencies.localIdentity()) return;
+        if (row.sequence <= lastGemDropSequence) return;
+        lastGemDropSequence = row.sequence;
+        if (!dependencies.hydrationReady()) return;
+        gemDropListener?.({ amount: row.amount });
+      },
     },
     api: {
       ...createProceduralMapService(dependencies.reducers),
@@ -569,6 +579,9 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       markPortalCutsceneSeen: cutscenes.mark,
       setOnItemDrop(callback: ((drop: { itemId: string; alreadyOwned: boolean }) => void) | null) {
         itemDropListener = callback;
+      },
+      setOnGemDrop(callback: ((drop: { amount: number }) => void) | null) {
+        gemDropListener = callback;
       },
       setOnItemUpgrade(callback: ((upgrade: { itemId: string; level: number }) => void) | null) {
         itemUpgradeListener = callback;

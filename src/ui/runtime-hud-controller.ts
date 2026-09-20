@@ -16,6 +16,9 @@ import {
 } from "./stat-reward-toast";
 import type { PlayerGender } from "../../shared/player-gender";
 
+
+const GEM_DROP_ART = "assets/wildstat/gems/gem-icon-v2.webp";
+const GEM_FLIGHT_MS = 650;
 type RuntimeHudElements = {
   message: HTMLElement;
   pickupLog: HTMLElement;
@@ -155,6 +158,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
       itemDropTimer = null;
       entry.remove();
       itemDropActive = false;
+      details.onFinish?.();
       showNextItemDrop();
     };
     entry.addEventListener("animationend", (event) => {
@@ -166,6 +170,42 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
   function showItemDrop(details: ItemDropRevealDetails) {
     itemDropQueue.push(details);
     showNextItemDrop();
+  }
+
+  // A gem earned from kills pops the way an item does, then a copy of it flies
+  // to the wallet in the top bar so the counter change reads as the payoff.
+  function showGemDrop(amount: number) {
+    showItemDrop({
+      artSource: GEM_DROP_ART,
+      color: "#7fd7ff",
+      name: amount === 1 ? "+1 Gem" : `+${amount} Gems`,
+      stats: ["Earned from enemy kills"],
+      onFinish: () => flyGemToWallet(),
+    });
+  }
+
+  function flyGemToWallet() {
+    const wallet = document.getElementById("hudGemWallet");
+    const art = elements.itemDropReveal.querySelector<HTMLElement>(".item-drop-art");
+    if (!wallet) return;
+    const from = (art ?? elements.itemDropReveal).getBoundingClientRect();
+    const to = wallet.getBoundingClientRect();
+    const gem = document.createElement("span");
+    gem.className = "gem-drop-flight";
+    gem.style.backgroundImage = `url(${GEM_DROP_ART})`;
+    gem.style.left = `${from.left + from.width / 2}px`;
+    gem.style.top = `${from.top + from.height / 2}px`;
+    gem.style.setProperty("--gem-flight-x", `${to.left + to.width / 2 - (from.left + from.width / 2)}px`);
+    gem.style.setProperty("--gem-flight-y", `${to.top + to.height / 2 - (from.top + from.height / 2)}px`);
+    document.body.appendChild(gem);
+    const land = () => {
+      gem.remove();
+      wallet.classList.remove("is-gem-pulse");
+      void wallet.offsetWidth;
+      wallet.classList.add("is-gem-pulse");
+    };
+    gem.addEventListener("animationend", land, { once: true });
+    window.setTimeout(land, GEM_FLIGHT_MS + 100);
   }
 
   function clearTransientUi() {
@@ -299,6 +339,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
     clearTransientUi,
     logPickup,
     showItemDrop,
+    showGemDrop,
     setDuelCountdown,
     showDuelResult,
     showDuelResultUnavailable,

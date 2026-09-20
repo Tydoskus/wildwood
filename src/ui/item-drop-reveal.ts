@@ -5,6 +5,8 @@ export type ItemDropRevealDetails = {
   color: string;
   name: string;
   stats: readonly string[];
+  /** Runs once the card has left the screen; the gem flight starts here. */
+  onFinish?: () => void;
 };
 
 export function itemDropRevealName(name: string) {

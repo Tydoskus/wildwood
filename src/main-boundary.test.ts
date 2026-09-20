@@ -15,7 +15,9 @@ import { describe, expect, it } from "vitest";
 // the raise is the wiring alone. Growth without an extraction first is the
 // drift this guard exists to stop.
 // Do not satisfy it by minifying or removing useful comments/whitespace.
-const MAX_LINES = 2_172;
+// 2_173: one line wiring the gem-drop pop-up, the same shape as the item-drop
+// wiring beside it. Its logic lives in the HUD controller and the coop service.
+const MAX_LINES = 2_173;
 const TARGET_LINES = 1_000;
 
 describe("game composition boundary", () => {

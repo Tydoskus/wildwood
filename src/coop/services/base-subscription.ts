@@ -56,6 +56,7 @@ export type BaseSubscriptionHandlers = {
   activeItemUpgrade: (row: any, slot: 1 | 2) => void;
   removeActiveItemUpgrade: (row: any, slot: 1 | 2) => void;
   itemDrop: RowHandler;
+  gemDrop: RowHandler;
   lifetime: RowHandler;
   chatHearts: RowHandler;
   socialHub: RowHandler;
@@ -121,6 +122,7 @@ type BaseSubscriptionHandlerSources = {
     upsertCutsceneHistory: BaseSubscriptionHandlers["cutsceneHistory"];
     removeCutsceneHistory: BaseSubscriptionHandlers["removeCutsceneHistory"];
     upsertItemDrop: BaseSubscriptionHandlers["itemDrop"];
+    upsertGemDrop: BaseSubscriptionHandlers["gemDrop"];
   };
   developer: {
     upsertAccessAudit: BaseSubscriptionHandlers["accessAudit"];
@@ -192,6 +194,7 @@ export function createBaseSubscriptionHandlers(sources: BaseSubscriptionHandlerS
     activeItemUpgrade: progression.upsertActiveItemUpgrade,
     removeActiveItemUpgrade: progression.removeActiveItemUpgrade,
     itemDrop: progression.upsertItemDrop,
+    gemDrop: progression.upsertGemDrop,
     lifetime: progression.upsertLifetime,
     chatHearts: progression.upsertChatHearts,
     socialHub: sources.social?.upsertHub ?? (() => {}),
@@ -317,6 +320,8 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   connection.db.activeItemUpgradeSlotTwo.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeActiveItemUpgrade(row, 2); });
   connection.db.playerItemDrop.onInsert((_ctx, row) => { if (shouldHandle()) handlers.itemDrop(row); });
   connection.db.playerItemDrop.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.itemDrop(row); });
+  connection.db.playerGemDrop.onInsert((_ctx, row) => { if (shouldHandle()) handlers.gemDrop(row); });
+  connection.db.playerGemDrop.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.gemDrop(row); });
   connection.db.playerChatHearts.onInsert((_ctx, row) => { if (shouldHandle()) handlers.chatHearts(row); });
   connection.db.playerChatHearts.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.chatHearts(row); });
   connection.db.playerChatHearts.onDelete((_ctx, row) => { if (shouldHandle()) handlers.chatHearts({ ...row, chatHeartsReceived: 0n }); });
@@ -377,6 +382,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.activeItemUpgrade.where((upgrade) => upgrade.identity.eq(dependencies.identity)),
       tables.activeItemUpgradeSlotTwo.where((upgrade) => upgrade.identity.eq(dependencies.identity)),
       tables.playerItemDrop.where((drop) => drop.identity.eq(dependencies.identity)),
+      tables.playerGemDrop.where((drop) => drop.identity.eq(dependencies.identity)),
       tables.playerChatHearts.where(row => row.identity.eq(dependencies.identity)),
       tables.playerLifetime.where((lifetime) => lifetime.identity.eq(dependencies.identity)),
       tables.mySocialHub,
@@ -413,6 +419,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
           for (const row of connection.db.activeItemUpgrade.iter()) handlers.activeItemUpgrade(row, 1);
           for (const row of connection.db.activeItemUpgradeSlotTwo.iter()) handlers.activeItemUpgrade(row, 2);
           for (const row of connection.db.playerItemDrop.iter()) handlers.itemDrop(row);
+          for (const row of connection.db.playerGemDrop.iter()) handlers.gemDrop(row);
           for (const row of connection.db.playerChatHearts.iter()) handlers.chatHearts(row);
           for (const row of connection.db.playerLifetime.iter()) handlers.lifetime(row);
           for (const row of connection.db.playerMotionIdentity.iter()) handlers.motionIdentity(row);

@@ -145,6 +145,7 @@ type ExpectedApiKey =
   | "setGender"
   | "setOnChange"
   | "setOnItemDrop"
+  | "setOnGemDrop"
   | "setOnItemUpgrade"
   | "setPlayerSprite"
   | "setProfileIcon"

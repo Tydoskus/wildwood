@@ -2121,6 +2121,7 @@ import {
     refreshReconnectOverlay,
   });
   if (coop?.setOnChange) coop.setOnChange(coopSession.onChange);
+  coop?.setOnGemDrop?.(({ amount }) => runtimeHud.showGemDrop(amount));
   coop?.setOnItemDrop?.(({ itemId, alreadyOwned }) => {
     if (alreadyOwned) return;
     if (!setInventoryItemQuantity(inventory, itemId, 1)) return;

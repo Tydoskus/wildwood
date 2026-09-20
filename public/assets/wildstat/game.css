@@ -1260,6 +1260,29 @@
     100% { top: 26%; opacity: 0; transform: translate(-50%, -50%) translateY(-12px) scale(.96); }
   }
 
+  /* A gem earned from kills: the card above, then this copy flies to the wallet. */
+  .gem-drop-flight {
+    position: fixed;
+    z-index: 30;
+    width: 28px;
+    height: 28px;
+    margin: -14px 0 0 -14px;
+    background: center / contain no-repeat;
+    pointer-events: none;
+    filter: drop-shadow(0 0 6px rgba(127, 215, 255, .85));
+    animation: gem-drop-flight .65s cubic-bezier(.3, .7, .3, 1) forwards;
+  }
+  @keyframes gem-drop-flight {
+    0% { transform: translate(0, 0) scale(1.2); opacity: 1; }
+    100% { transform: translate(var(--gem-flight-x), var(--gem-flight-y)) scale(.6); opacity: .9; }
+  }
+  #hudGemWallet.is-gem-pulse { animation: gem-wallet-pulse .5s ease-out; }
+  @keyframes gem-wallet-pulse {
+    0% { transform: scale(1); filter: brightness(1); }
+    35% { transform: scale(1.18); filter: brightness(1.6); }
+    100% { transform: scale(1); filter: brightness(1); }
+  }
+
   @keyframes item-drop-glow {
     from { opacity: .4; transform: scale(.64); }
     to { opacity: .68; transform: scale(1); }
