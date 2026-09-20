@@ -1,5 +1,6 @@
 import type { PlayerProfileData, PlayerResearch } from "../wildstat-coop";
-import { createEmptyResearchRanks } from "../../shared/research";
+import { createEmptyResearchRanks, researchStatRewardMultiplier } from "../../shared/research";
+import { prestigeStatMultiplier } from "../../shared/prestige";
 import { effectivePlayerPower, effectivePlayerPowerStats } from "../../shared/player-power";
 import { equipmentDamageMultiplierBonus, equipmentMaxHealthMultiplierBonus, equipmentRegenerationMultiplierBonus } from "../../shared/items";
 import { formatCompactNumber } from "./number-format";
@@ -72,7 +73,7 @@ export function profilePower(profile: PlayerProfileData) {
 }
 
 export type ProfileStatDisplaySource = {
-  label: "Tech" | "Equipment";
+  label: "Tech" | "Equipment" | "Prestige";
   value: string;
 };
 
@@ -92,6 +93,7 @@ export function profileStatDisplayRows(
   armorReduction: (armor: number) => string,
   minAttackInterval: number,
   research?: PlayerResearch,
+  prestigeLevel = 0,
 ) {
   const { progress } = profile;
   const ranks = research ?? profile.research ?? createEmptyResearchRanks();
@@ -166,10 +168,17 @@ export function profileStatDisplayRows(
       sources: multiplierSources(speedResearchBonus),
     },
   ];
-  const statGain = ranks.foraging + ranks.prosperity * 2;
+  // Tech and prestige multiply each other, exactly as the server pays them, so
+  // the total is the product rather than the two percentages added together.
+  const techGain = researchStatRewardMultiplier(ranks), prestigeGain = prestigeStatMultiplier(prestigeLevel);
+  const percent = (multiplier: number) => `+${Math.round((multiplier - 1) * 100)}%`;
+  const statGain = percent(techGain * prestigeGain);
   stats.push({
-    kind: "stat-gain", label: "Stat Gain:", base: "0%", multiplier: `+${statGain}%`, total: `+${statGain}%`,
-    sources: statGain ? [{ label: "Tech", value: `+${statGain}%` }] : [],
+    kind: "stat-gain", label: "Stat Gain:", base: "0%", multiplier: statGain, total: statGain,
+    sources: [
+      ...(techGain > 1 ? [{ label: "Tech" as const, value: percent(techGain) }] : []),
+      ...(prestigeGain > 1 ? [{ label: "Prestige" as const, value: percent(prestigeGain) }] : []),
+    ],
   });
   stats.push({
     kind: "critical", label: "Critical Chance:", base: "0%", multiplier: `+${ranks.criticalChance}%`, total: `${ranks.criticalChance}%`,
@@ -190,8 +199,9 @@ export function renderProfileStats(
   armorReduction: (armor: number) => string,
   minAttackInterval: number,
   research?: PlayerResearch,
+  prestigeLevel = 0,
 ) {
-  const stats = profileStatDisplayRows(profile, armorReduction, minAttackInterval, research);
+  const stats = profileStatDisplayRows(profile, armorReduction, minAttackInterval, research, prestigeLevel);
   const expandedKinds = statGrid.dataset.identity === profile.identity
     ? new Set([...statGrid.querySelectorAll<HTMLElement>('[aria-expanded="true"]')].map((row) => row.dataset.stat))
     : new Set<string>();

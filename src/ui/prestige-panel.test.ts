@@ -93,3 +93,23 @@ describe("prestige panel", () => {
     expect(s.pick("status").textContent).toContain("duel");
   });
 });
+
+describe("profile stat gain breakdown", () => {
+  it("multiplies tech by prestige and names both sources", async () => {
+    const { profileStatDisplayRows } = await import("./profile");
+    const { createEmptyResearchRanks } = await import("../../shared/research");
+    const profile: any = { identity: "a", name: "A", progress: { maxHp: 100, damage: 10, attackRate: 1, armor: 0, regen: 0,
+      speed: 100, speedOverride: 0, projectileCount: 1, attackRange: 100, equippedHead: "", equippedChest: "", equippedFeet: "",
+      equippedRightHand: "", equippedLeftHand: "", inventoryJson: "[]" }, lifetime: {}, research: createEmptyResearchRanks() };
+    const gain = (ranks: any, level: number) =>
+      profileStatDisplayRows(profile, () => "0%", .38, ranks, level).find((row: any) => row.kind === "stat-gain");
+    const ranks = { ...createEmptyResearchRanks(), foraging: 10 };
+    expect(gain(ranks, 0)!.total).toBe("+10%");
+    expect(gain(createEmptyResearchRanks(), 2)!.total).toBe("+20%");
+    // 1.10 tech times 1.20 prestige is 32 percent, not 30.
+    const both = gain(ranks, 2)!;
+    expect(both.total).toBe("+32%");
+    expect(both.sources).toEqual([{ label: "Tech", value: "+10%" }, { label: "Prestige", value: "+20%" }]);
+    expect(gain(createEmptyResearchRanks(), 0)!.sources).toEqual([]);
+  });
+});

@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.755": [
+    "Your profile's Stat Gain now counts prestige alongside tech, and opening it shows what each one contributes.",
+    "Prestige no longer clears your lifetime kill count, and the leaderboard drops your old rank the moment you prestige instead of on the next sweep.",
+  ],
   "0.754": [
     "Your prestige bonus now shows on your profile, and the stat a kill pays includes it, so the number that pops matches what you actually earn.",
     "Research now survives a prestige. It costs real days and the rerun is meant to be faster, not the same climb twice.",
@@ -2124,6 +2128,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.755": "2026-09-20",
   "0.754": "2026-09-20",
   "0.753": "2026-09-20",
   "0.752": "2026-09-20",
