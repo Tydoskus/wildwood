@@ -475,7 +475,6 @@ function installLoadSubscriptions(bot: LoadBot, identity: Identity, config: Work
         tables.spiderResult,
         tables.frostclawBoss,
         tables.frostclawResult,
-        tables.chatMessage,
         tables.duel.where((row) => row.challenger.eq(identity)),
       ]);
     bot.subscriptions.push(core);

@@ -122,7 +122,7 @@ import {
 import { HIDDEN_COSMETIC_ITEM_ID, isHiddenCosmeticItem, resolveEquipmentAppearance } from "../../shared/equipment-appearance";
 import { migrateGuildTags } from "./player-name-tags";
 import { socialTables } from "./social-tables";
-import { createSocialService, socialSnapshot, visibleSocialMessages, latestSocialMessages, socialHistoryPage, removeSocialAccount, mergeSocialAccount } from "./social-service";
+import { createSocialService, socialSnapshot, visibleSocialMessages, latestSocialMessages, socialHistoryPage, pruneExpiredSocialMessages, removeSocialAccount, mergeSocialAccount } from "./social-service";
 import { guildTables } from "./guild-tables";
 import { createGuildService } from "./guild-service";
 import { GUILD_CREATION_MIN_POWER } from "../../shared/guilds";
@@ -1266,8 +1266,18 @@ const accountLink = table(
   },
 );
 
+// Clients read the public page through latest_chat_messages_with_reactions and
+// the history procedure, never the table, so it carries no client sync cost.
+// The indexes serve the sweep, account merge/erasure, and guild replay lookups
+// that used to scan every message.
 const chatMessage = table(
-  { public: true },
+  {
+    public: false,
+    indexes: [
+      { accessor: "bySender", algorithm: "btree", columns: ["sender"] as const },
+      { accessor: "byGuildReplay", algorithm: "btree", columns: ["guildReplayKey"] as const },
+    ],
+  },
   {
     id: t.u64().primaryKey().autoInc(),
     sender: t.identity(),
@@ -1965,8 +1975,8 @@ function transferPlayerBlocks(ctx: ModuleReducerCtx, guest: Identity, account: I
   }
   // The bounded public history must follow the new sender too; otherwise
   // transferring a block would reveal that guest's already-loaded messages.
-  for (const message of ctx.db.chatMessage.iter()) {
-    if (sameIdentity(message.sender, guest)) ctx.db.chatMessage.id.update({ ...message, sender: account, senderIsGuest: false });
+  for (const message of [...ctx.db.chatMessage.bySender.filter(guest)]) {
+    ctx.db.chatMessage.id.update({ ...message, sender: account, senderIsGuest: false });
   }
 }
 
@@ -4634,8 +4644,7 @@ function removePlayerIdentityData(ctx: any, identity: any) {
   for (const code of linkCodes) ctx.db.accountLink.code.delete(code);
 
   const removedMessageIds = new Set<bigint>();
-  for (const message of [...ctx.db.chatMessage.iter() as Iterable<any>]) {
-    if (!sameIdentity(message.sender, identity)) continue;
+  for (const message of [...ctx.db.chatMessage.bySender.filter(identity) as Iterable<any>]) {
     removedMessageIds.add(message.id);
     removeMessageReactions(ctx, "public", message.id);
     ctx.db.chatMessage.id.delete(message.id);
@@ -6318,8 +6327,22 @@ function clearExpiredHistory(ctx: any) {
   const staleMessageIds: bigint[] = [];
   const staleReplayIds: bigint[] = [];
 
-  for (const message of ctx.db.chatMessage.iter() as Iterable<any>) {
-    if (message.sentAt.microsSinceUnixEpoch < chatCutoff) staleMessageIds.push(message.id);
+  // Identifiers rise with time, so the expired messages are the oldest ones.
+  // Walking up from the cursor stops at the first survivor instead of reading
+  // the whole day, and it leaves the cursor correct without a second pass.
+  const cursor = ctx.db.publicChatCursor.id.find(0);
+  let firstLiveId = 0n;
+  if (cursor?.firstId) {
+    for (let id = cursor.firstId; id <= cursor.lastId; id++) {
+      const message = ctx.db.chatMessage.id.find(id) as any;
+      if (!message) continue;
+      if (message.sentAt.microsSinceUnixEpoch >= chatCutoff) { firstLiveId = id; break; }
+      staleMessageIds.push(id);
+    }
+  } else {
+    for (const message of ctx.db.chatMessage.iter() as Iterable<any>) {
+      if (message.sentAt.microsSinceUnixEpoch < chatCutoff) staleMessageIds.push(message.id);
+    }
   }
   for (const replay of ctx.db.duelReplay.iter() as Iterable<any>) {
     if (replay.createdAt.microsSinceUnixEpoch < replayCutoff) staleReplayIds.push(replay.id);
@@ -6327,7 +6350,9 @@ function clearExpiredHistory(ctx: any) {
 
   for (const id of staleMessageIds) { removeMessageReactions(ctx, "public", id); ctx.db.chatMessage.id.delete(id); }
   for (const id of staleReplayIds) ctx.db.duelReplay.id.delete(id);
-  updatePublicChatCursor(ctx);
+  pruneExpiredSocialMessages(ctx, ctx.timestamp.microsSinceUnixEpoch);
+  if (cursor?.firstId) ctx.db.publicChatCursor.id.update({ ...cursor, firstId: firstLiveId });
+  else updatePublicChatCursor(ctx);
 }
 
 function trimStartupTelemetry(ctx: ModuleReducerCtx) {
@@ -11129,7 +11154,7 @@ export const getGuildPreview = spacetimedb.procedure({ guildId: t.u64() }, t.str
 }));
 export const getGuildReplay = spacetimedb.procedure({ reportKey: t.string() }, t.string(), (ctx, { reportKey }) => ctx.withTx(tx => {
   requireGuildConnection(tx);
-  const announced = [...tx.db.chatMessage.iter()].some(row => row.guildReplayKey === reportKey);
+  const announced = !tx.db.chatMessage.byGuildReplay.filter(reportKey)[Symbol.iterator]().next().done;
   const report = announced ? tx.db.guildBattleReport.key.find(reportKey) : null;
   if (!report) throw new SenderError("This replay is no longer available.");
   return report.payload;

@@ -68,9 +68,12 @@ export function createMemoryDatabase(moduleSchema: { schemaType: { tables: Recor
       return values.every((value, i) => {
         if (value && typeof value === "object" && "from" in value && "to" in value) {
           const { from, to } = value;
-          const actual = row[columns[i]];
-          return (from.tag === "unbounded" || (from.tag === "included" ? actual >= from.value : actual > from.value)) &&
-            (to.tag === "unbounded" || (to.tag === "included" ? actual <= to.value : actual < to.value));
+          // Timestamps order by their micros on the server; plain `<` on the
+          // objects would compare nothing and quietly return an empty range.
+          const ordered = (candidate: any) => candidate instanceof Timestamp ? candidate.microsSinceUnixEpoch : candidate;
+          const actual = ordered(row[columns[i]]);
+          return (from.tag === "unbounded" || (from.tag === "included" ? actual >= ordered(from.value) : actual > ordered(from.value))) &&
+            (to.tag === "unbounded" || (to.tag === "included" ? actual <= ordered(to.value) : actual < ordered(to.value)));
         }
         return equal(row[columns[i]], value);
       });

@@ -24,15 +24,31 @@ export function updatePublicChatCursor(ctx: Pick<ModuleReducerCtx, "db">, insert
   else ctx.db.publicChatCursor.insert(row);
 }
 
+/**
+ * Identifiers are dense while nothing has been deleted, so walking back from
+ * the newest reads one row per message returned. Erasing an account punches
+ * holes in that range, and without a ceiling a single erased spammer would
+ * turn every page into one lookup per identifier they ever used. Past the
+ * budget the scan below is the cheaper read: it is bounded by retention
+ * rather than by the identifier range.
+ */
+const PROBE_BUDGET = CHAT_PAGE_SIZE * 20;
+
+function scanPublicChatPage(ctx: ReadContext, beforeId: bigint) {
+  return chatPage([...ctx.db.chatMessage.iter()].filter(row => row.senderName.length > 0), beforeId);
+}
+
 /** Read just a page plus one row instead of sorting the entire day's chat. */
 export function readPublicChatPage(ctx: ReadContext, beforeId = 0n) {
   const cursor = ctx.db.publicChatCursor.id.find(0);
   // Old databases remain readable before their first post-update message.
-  if (!cursor) return chatPage([...ctx.db.chatMessage.iter()].filter(row => row.senderName.length > 0), beforeId);
+  if (!cursor) return scanPublicChatPage(ctx, beforeId);
   const messages = [];
   if (cursor.firstId) {
     let id = beforeId > 0n && beforeId <= cursor.lastId ? beforeId - 1n : cursor.lastId;
+    let probes = 0;
     for (; id >= cursor.firstId && messages.length <= CHAT_PAGE_SIZE; id--) {
+      if (++probes > PROBE_BUDGET) return scanPublicChatPage(ctx, beforeId);
       const row = ctx.db.chatMessage.id.find(id);
       if (row?.senderName) messages.push(row);
     }

@@ -95,3 +95,15 @@ describe("private social interactions", () => {
     expect(f.visible()[0].replyToMessage).toBe("");
   });
 });
+
+it("ages private messages out after a year while keeping recent ones", () => {
+  const f = fixture();
+  f.actor("1"); f.friend();
+  f.actor("1"); f.send("dm", "Player 2", "Ancient message");
+  const old = [...f.db.socialMessage.iter()][0];
+  // A year and a day later the conversation continues, and only the old half goes.
+  f.ctx.timestamp = new Timestamp(old.sentAt.microsSinceUnixEpoch + 366n * 86_400_000_000n);
+  f.actor("1"); f.send("dm", "Player 2", "Recent message");
+  f.run(server.runMaintenanceSweep, { maintenance: {} });
+  expect([...f.db.socialMessage.iter()].map(row => row.message)).toEqual(["Recent message"]);
+});

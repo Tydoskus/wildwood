@@ -217,7 +217,6 @@ import AegisPrimeBossRow from "./aegis_prime_boss_table";
 import AegisPrimeResultRow from "./aegis_prime_result_table";
 import BossAttackFrameRow from "./boss_attack_frame_table";
 import BossHitResultRow from "./boss_hit_result_table";
-import ChatMessageRow from "./chat_message_table";
 import DevAccessAuditRow from "./dev_access_audit_table";
 import DevBugReportsRow from "./dev_bug_reports_table";
 import DevForestRewardPrototypeRow from "./dev_forest_reward_prototype_table";
@@ -382,17 +381,6 @@ const tablesSchema = __schema({
     ],
     event: true,
   }, BossHitResultRow),
-  chatMessage: __table({
-    name: 'chat_message',
-    indexes: [
-      { accessor: 'id', name: 'chat_message_id_idx_btree', algorithm: 'btree', columns: [
-        'id',
-      ] },
-    ],
-    constraints: [
-      { name: 'chat_message_id_key', constraint: 'unique', columns: ['id'] },
-    ],
-  }, ChatMessageRow),
   dragonBoss: __table({
     name: 'dragon_boss',
     indexes: [

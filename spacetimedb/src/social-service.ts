@@ -3,7 +3,7 @@ import { recordModerationAction } from "./moderation-history";
 import { Identity } from "spacetimedb";
 import { SenderError } from "spacetimedb/server";
 import type { ModuleReducerCtx, ModuleViewCtx } from "./index";
-import { SOCIAL_FRIEND_LIMIT, SOCIAL_REQUEST_LIMIT, SOCIAL_MESSAGE_LIMIT, type SocialConversation, type SocialSnapshot } from "../../shared/social";
+import { SOCIAL_FRIEND_LIMIT, SOCIAL_REQUEST_LIMIT, SOCIAL_MESSAGE_LIMIT, SOCIAL_MESSAGE_RETENTION_DAYS, type SocialConversation, type SocialSnapshot } from "../../shared/social";
 import { GUILD_MEMBER_LIMIT } from "../../shared/guilds";
 import { moderatePublicChatMessage, chatModerationReason, MODERATION_RULE_VERSION } from "./chat-moderation";
 import { chatPage } from "../../shared/chat-page";
@@ -180,7 +180,24 @@ export function createSocialService(deps: { joinGuild(ctx: Ctx, guildId: bigint)
     },
   };
 }
-// Private messages are retained indefinitely; only guild chat is automatically trimmed.
+const SOCIAL_MESSAGE_RETENTION_MICROS = BigInt(SOCIAL_MESSAGE_RETENTION_DAYS) * 86_400_000_000n;
+
+/**
+ * Guild chat is trimmed to a message count as it arrives. Private messages have
+ * no such ceiling, so they are aged out here instead: the per-recipient view
+ * rebuilds from every message a player has ever exchanged, and without this it
+ * got slower for as long as the account existed.
+ */
+export function pruneExpiredSocialMessages(ctx: Ctx, nowMicros: bigint) {
+  const cutoff = nowMicros - SOCIAL_MESSAGE_RETENTION_MICROS;
+  for (const row of [...ctx.db.socialMessage.iter()]) {
+    if (row.sentAt.microsSinceUnixEpoch >= cutoff) continue;
+    removeMessageReactions(ctx, "social", row.id);
+    ctx.db.socialMessage.id.delete(row.id);
+  }
+}
+
+// Guild chat is trimmed by count as it arrives; private messages age out above.
 function pruneGuildMessages(ctx: Ctx, conversation: string) {
   const history = [...ctx.db.socialMessage.conversation.filter(conversation)].sort((a, b) => a.id < b.id ? -1 : 1);
   for (const row of history.slice(0, Math.max(0, history.length - SOCIAL_MESSAGE_LIMIT))) { removeMessageReactions(ctx, "social", row.id); ctx.db.socialMessage.id.delete(row.id); }
