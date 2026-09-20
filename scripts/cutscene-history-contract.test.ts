@@ -2,12 +2,14 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const server = readFileSync(new URL("../spacetimedb/src/index.ts", import.meta.url), "utf8");
-function section(start: string, end: string) {
-  const from = server.indexOf(start);
-  const to = server.indexOf(end, from + start.length);
+// Guest claiming and identity removal bodies live beside the reducer module.
+const lifecycle = readFileSync(new URL("../spacetimedb/src/account-lifecycle.ts", import.meta.url), "utf8");
+function section(start: string, end: string, source = server) {
+  const from = source.indexOf(start);
+  const to = source.indexOf(end, from + start.length);
   expect(from).toBeGreaterThanOrEqual(0);
   expect(to).toBeGreaterThan(from);
-  return server.slice(from, to);
+  return source.slice(from, to);
 }
 
 describe("server-owned cutscene history wiring", () => {
@@ -33,12 +35,14 @@ describe("server-owned cutscene history wiring", () => {
   });
 
   it("transfers guest history, removes orphan rows, and resets only with character progress", () => {
-    const claim = section("export const claimGuestAccount =", "export const");
+    expect(section("export const claimGuestAccount =", "export const")).toContain("claimGuestAccountFor(ctx, code)");
+    const claim = section("function claimGuestAccountFor", "function removeIdentityPresence", lifecycle);
     expect(claim).toContain("accountCutscenes.seenMask | guestCutscenes.seenMask");
     expect(claim).toContain("playerCutsceneHistory.identity.delete(link.guest)");
     const reset = section("export const resetPlayerProgress =", "function sendPlayerChatMessage");
     expect(reset).toContain("seenMask: 0");
     expect(reset).toContain("generation: history.generation + 1");
-    expect(server.match(/playerCutsceneHistory.identity.delete\(identity\)/g)).toHaveLength(2);
+    expect(server.match(/playerCutsceneHistory.identity.delete\(identity\)/g)).toBeNull();
+    expect(lifecycle.match(/playerCutsceneHistory.identity.delete\(identity\)/g)).toHaveLength(2);
   });
 });
