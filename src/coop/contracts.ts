@@ -101,6 +101,13 @@ export type ActiveResearch = {
   completesAtMs: number;
 };
 
+export type PlayerPrestige = {
+  level: number;
+  perkPoints: number;
+  peakPower: number;
+  prestigedAtMs: number;
+};
+
 export type UpgradeBenchSlot = 1 | 2;
 
 export type ActiveItemUpgrade = {

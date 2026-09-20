@@ -161,6 +161,9 @@ const afterUpdateGateShell = String.raw`
         <div id="profileStatGrid" class="profile-stat-grid"></div>
       </section>
     </div>
+    <div id="profileOwnActions" class="profile-own-actions" hidden>
+      <button id="prestigeBtn" class="profile-prestige-button" type="button" disabled aria-disabled="true">Prestige</button>
+    </div>
     <div id="profileSafetyActions" class="profile-safety-actions" hidden>
       <button id="profileReportBtn" type="button">Report Player</button>
       <button id="profileBlockBtn" type="button">Block Player</button>
@@ -330,6 +333,25 @@ const afterUpdateGateShell = String.raw`
   </div>
 </div>
 
+<div id="prestigeOverlay" hidden>
+  <section class="prestige-window" role="dialog" aria-modal="true" aria-labelledby="prestigeTitle">
+    <header class="prestige-header">
+      <h2 id="prestigeTitle" class="window-banner window-banner--blue"><span>Prestige</span></h2>
+      <div id="prestigeLevel" class="prestige-level" aria-live="polite">PRESTIGE 0</div>
+    </header>
+    <dl class="prestige-summary">
+      <div><dt>STAT GAIN</dt><dd id="prestigeBonus">—</dd></div>
+      <div><dt>PERK POINTS</dt><dd id="prestigePoints">—</dd></div>
+      <div><dt>PEAK POWER</dt><dd id="prestigePeak">—</dd></div>
+    </dl>
+    <p id="prestigeCost" class="prestige-cost"></p>
+    <div id="prestigeStatus" class="prestige-status" role="status" aria-live="polite"></div>
+    <footer class="prestige-footer">
+      <button id="prestigeConfirmBtn" class="prestige-confirm" type="button">Prestige</button>
+      <button id="closePrestigeBtn" class="window-back-button" type="button" aria-label="Back from prestige">Back</button>
+    </footer>
+  </section>
+</div>
 <div id="techTreeOverlay" hidden>
   <section class="tech-tree-window" role="dialog" aria-modal="true" aria-labelledby="techTreeTitle">
     <header class="tech-tree-header">

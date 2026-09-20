@@ -11,6 +11,7 @@ import { createGameActionsController } from "./game-actions-controller";
 import { createLeaderboardController } from "./leaderboard-controller";
 import { createOverlaysController } from "./overlays-controller";
 import { createRuntimeHudController } from "./runtime-hud-controller";
+import { createPrestigeController } from "./prestige-panel";
 import { createTechTreeController } from "./tech-tree-controller";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -33,6 +34,16 @@ export function createGameRuntimeHud(d: Record<string, any>) {
   const controller = createRuntimeHudController({ elements: { message: e.messageEl, pickupLog: e.pickupLog, itemDropReveal: e.itemDropReveal, hpFill: e.hpFill, hpText: e.hpText, playerName: e.playerNameEl, playerPower: e.playerPowerEl, coopStatus: e.coopStatusEl, minimapPlayers: e.minimapPlayersEl, playerIcon: e.playerHudProfileIcon, duelControls: e.duelControls, duelStatus: e.duelStatusEl, duelRequest: e.duelRequestBtn, duelAccept: e.duelAcceptBtn, duelCountdown: e.duelCountdownEl, duelResult: e.duelResultEl, duelResultTitle: e.duelResultTitle, duelResultStats: e.duelResultStats, shareDuelBtn: e.shareDuelBtn, watchDuelReplay: e.watchDuelReplayBtn }, player: d.player, activeDuel: d.activeDuel, duelOpponentName: d.duelOpponentName, localDisplayName: () => coop?.localDisplayName?.() || "", localIdentity: () => coop?.localIdentity?.(), isGuest: (identity: string | undefined) => coop?.isGuest?.(identity) ?? false, playerGender: (identity: string | undefined) => coop?.playerGender?.(identity) ?? 0, remotePlayerCount: () => coop?.remotePlayerCount?.() ?? coop?.remotePlayers?.().length ?? 0, onlinePlayerCount: () => coop?.onlinePlayerCount?.() ?? null, connected: () => Boolean(coop?.isConnected?.()), isDeveloper: () => isDeveloperIdentity(coop?.localIdentity?.()), profileIcon: () => coop?.profileIcon?.() ?? 0, applyProfileIcon: d.applyProfileIcon, playerPower: d.playerPower, setDeveloperAccess: d.setDeveloperAccess, applyVitalityResearch: d.applyVitalityResearch, updateTechNotice: d.updateTechNotice, tickTechTree: d.tickTechTree, refreshAppStatus: d.refreshAppStatus, updateProfileDuelButton: d.updateProfileDuelButton, pulseDuel: () => { coop?.pulseDuel?.(); }, shareDuel: (id: bigint) => coop?.shareDuelReplay?.(id) ?? Promise.resolve({ ok: false, error: "NOT CONNECTED" }) });
   e.shareDuelBtn.addEventListener("click", () => { void controller.shareDuelResult(); });
   return controller;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createPrestigePanel(d: Record<string, any>) {
+  const e = d.e;
+  return createPrestigeController({ openButton: e.prestigeBtn, ownActions: e.profileOwnActions, overlay: e.prestigeOverlay,
+    closeButton: e.closePrestigeBtn, confirmButton: e.prestigeConfirmBtn, level: e.prestigeLevel, bonus: e.prestigeBonus,
+    points: e.prestigePoints, peak: e.prestigePeak, cost: e.prestigeCost, status: e.prestigeStatus,
+    prestige: d.prestige, unlocked: d.unlocked, runPrestige: d.runPrestige,
+    showMessage: d.showMessage, beforeOpen: d.beforeOpen });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

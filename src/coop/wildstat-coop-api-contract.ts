@@ -117,6 +117,8 @@ type ExpectedApiKey =
   | "requestDuel"
   | "shareDuelReplay"
   | "research"
+  | "prestige"
+  | "prestigeAccount"
   | "resetProgress"
   | "retryConnection"
   | "recordRegularEnemyDefeat"

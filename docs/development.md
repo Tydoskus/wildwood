@@ -306,8 +306,9 @@ Publishing the server is a separate production operation; pushing `main` only de
 ## Prestige invariants
 
 - Prestige opens when the campaign's last boss is down, the same clearance
-  Endless needs (`prestigeUnlocked`, `shared/prestige.ts`). The client greys the
-  profile button with that one helper; the reducer re-checks it server-side.
+  Endless needs. The reducer checks `prestigeUnlocked` in `shared/prestige.ts`;
+  the client greys the profile button from `proceduralMapUnlocked` for the first
+  Endless map, which resolves to the same condition. Keep them in step.
 - Prestige performs the ordinary progress reset, unlock flags and Endless
   progress included, so the next prestige is earned from the forest up. Both the
   reset button and prestige call `resetProgressToDefaults` in the server entry;

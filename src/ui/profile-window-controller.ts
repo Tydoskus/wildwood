@@ -25,6 +25,8 @@ export function createProfileWindowController(elements: {
   duel: HTMLButtonElement;
   settings?: HTMLElement; safetyActions: HTMLElement; report: HTMLButtonElement; block: HTMLButtonElement;
 }, api: {
+  /** Own-profile actions live outside this controller; prestige is the first. */
+  onOwnProfile?: (own: boolean) => void;
   localIdentity: () => string | undefined; localDisplayName: () => string | undefined; profileIcon: (identity?: string) => number; paintIcon: (element: HTMLElement, index: number) => void;
   renderName: (element: HTMLElement, identity: string, name: string, gender?: PlayerGender) => void; isGuest: (identity: string) => boolean; isOnline: (identity: string) => boolean; presenceText: (profile: Profile, online: boolean) => string;
   renderCharacter: (identity: string, progress: Profile["progress"] | null, visible: boolean) => void; skinTone: (identity?: string) => number; setSkinTone: (value: number) => Promise<{ ok?: boolean; error?: string } | undefined>;
@@ -135,6 +137,7 @@ export function createProfileWindowController(elements: {
     elements.duel.title = "Automatic duel using earned stats and equipped gear. Hits grow stronger after 10 seconds. Knockout wins; at 30 seconds, the higher percentage of health remaining wins.";
     const own = !identity || identity === api.localIdentity();
     elements.safetyActions.hidden = own;
+    api.onOwnProfile?.(own);
     elements.block.textContent = api.isBlocked(identity) ? "Unblock Player" : "Block Player";
     if (elements.duel.hidden) return;
     const remainingSeconds = Math.ceil(api.duelCooldownMs() / 1_000);

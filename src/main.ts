@@ -110,7 +110,7 @@ import { hasApprovedGameSession } from "./coop/startup-state-machine";
 import { createRewardedRespawnAdController } from "./ui/rewarded-respawn-ad-controller";
 import { createGameElements } from "./ui/game-elements";
 import { bindGameInteractionListeners } from "./ui/game-interaction-bindings";
-import { createDevPanel, createGameActionsRuntime, createGameOverlays, createGameRuntimeHud, createLeaderboardPanel, createTechTreePanel } from "./ui/game-ui-runtime";
+import { createDevPanel, createGameActionsRuntime, createGameOverlays, createGameRuntimeHud, createLeaderboardPanel, createPrestigePanel, createTechTreePanel } from "./ui/game-ui-runtime";
 import { formatCompactNumber, formatGemAmount } from "./ui/number-format";
 import { playerGenderIconPath } from "./ui/player-gender";
 import type { LeaderboardEntry } from "./wildstat-coop";
@@ -1383,6 +1383,11 @@ import {
     pendingProfileNameSave = request;
     return request.finally(() => { if (pendingProfileNameSave === request) pendingProfileNameSave = undefined; });
   }
+  const prestigePanel = createPrestigePanel({
+    e: gameElements, prestige: () => coop?.prestige?.() ?? null, showMessage,
+    unlocked: () => Boolean(coop?.proceduralMapUnlocked?.(proceduralMapId(1))),
+    runPrestige: async () => coop?.prestigeAccount?.(),
+  });
   const profileWindow = createProfileWindowController({
     window: playerProfileEl, name: playerProfileNameEl, guest: playerProfileGuestLabel, presence: playerProfilePresenceEl, power: playerProfilePowerEl, icon: playerProfileIcon, loading: playerProfileLoadingEl,
     overviewTab: profileOverviewTab, statsTab: profileStatsTab, overviewPanel: profileOverviewPanel, statsPanel: profileStatsPanel,
@@ -1394,6 +1399,7 @@ import {
   }, {
     isBlocked: (identity) => coop?.isPlayerBlocked?.(identity) ?? false,
     openSafety: playerSafety.open,
+    onOwnProfile: (own: boolean) => prestigePanel.refresh(own),
     localIdentity: () => coop?.localIdentity?.(), localDisplayName: () => coop?.localDisplayName?.(), profileIcon: (identity) => coop?.profileIcon?.(identity) ?? 0, paintIcon: applyProfileIcon,
     renderName: renderDomPlayerName,
     isGuest: (identity) => coop?.isGuest?.(identity) ?? false,
