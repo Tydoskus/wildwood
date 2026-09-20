@@ -1,6 +1,7 @@
 import { it, expect, vi } from 'vitest';
-import { balanceEditorState, saveMapBalance, pinMapBalance, pinnedMapBalance } from './map-balance';
+import { balanceEditorState, forgetBalanceCaches, saveMapBalance, pinMapBalance, pinnedMapBalance } from './map-balance';
 function fixture() {
+  forgetBalanceCaches();
   const sender = { toHexString: () => 'test' };
   const table = (field: string) => {
     const rows = new Map(); const key = (value: any) => value === sender ? 'test' : value;
@@ -58,4 +59,24 @@ it('negotiates new fields without switching balance revisions during a visit', (
   expect(pinnedMapBalance(ctx, ctx.sender, 'tutorial_forest')).toMatchObject({ revision: 0, configurationVersion: 2, regularRespawnSeconds: 20 });
   pinMapBalance(ctx, 'home_exterior'); pinMapBalance(ctx, 'tutorial_forest');
   expect(pinnedMapBalance(ctx, ctx.sender, 'tutorial_forest')).toMatchObject({ revision: 1, configurationVersion: 2, regularRespawnSeconds: 40 });
+});
+
+it('reuses a revision across players without serving it past the next save', () => {
+  const ctx = fixture();
+  pinMapBalance(ctx, 'tutorial_forest', true);
+  const before = pinnedMapBalance(ctx, ctx.sender, 'tutorial_forest')!;
+  const settings = balanceEditorState(ctx).settings;
+  settings.maps.tutorial_forest.bossHealth = 5;
+  saveMapBalance(ctx, 0, JSON.stringify(settings));
+
+  // Travelling away and back takes the new revision rather than a cached one.
+  pinMapBalance(ctx, 'home_exterior'); pinMapBalance(ctx, 'tutorial_forest');
+  const after = pinnedMapBalance(ctx, ctx.sender, 'tutorial_forest')!;
+  expect(after.revision).toBe(1);
+  expect(after.boss!.hp).toBe(before.boss!.hp * 5);
+
+  // A second player arriving at the same revision is served the same snapshot.
+  const other = { ...ctx, sender: { toHexString: () => 'other' } };
+  pinMapBalance(other, 'tutorial_forest', true);
+  expect(pinnedMapBalance(other, other.sender, 'tutorial_forest')).toEqual(after);
 });
