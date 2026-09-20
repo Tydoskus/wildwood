@@ -5,6 +5,7 @@ import { applyAvatarFrame } from "../app/avatar-frames";
 import type { PlayerProfileData } from "../wildstat-coop";
 import { PLAYER_GENDER_UNSET, isSelectedPlayerGender, playerGenderLabel, type PlayerGender } from "../../shared/player-gender";
 import { appendPlayerGenderIcon } from "./player-gender";
+import { PRESTIGE_STAT_GAIN_PER_LEVEL } from "../../shared/prestige";
 import type { ItemInspectionController, ItemInspectionAction } from "./item-inspection-controller";
 import {
   PROFILE_EQUIPMENT_SLOTS,
@@ -24,9 +25,11 @@ export function createProfileWindowController(elements: {
   skinEdit: HTMLButtonElement; skinChoices: HTMLDivElement; preview: HTMLElement; equipmentHead: HTMLButtonElement; equipmentChest: HTMLButtonElement; equipmentFeet: HTMLButtonElement; equipmentRightHand: HTMLButtonElement; previousSprite: HTMLElement; nextSprite: HTMLElement; genderSetting: HTMLElement; genderValue: HTMLElement; genderEdit: HTMLButtonElement; genderChoices: HTMLElement;
   duel: HTMLButtonElement;
   settings?: HTMLElement; safetyActions: HTMLElement; report: HTMLButtonElement; block: HTMLButtonElement;
+  prestigeRow: HTMLElement; prestige: HTMLElement;
 }, api: {
   /** Own-profile actions live outside this controller; prestige is the first. */
   onOwnProfile?: (own: boolean) => void;
+  prestigeLevel?: () => number;
   localIdentity: () => string | undefined; localDisplayName: () => string | undefined; profileIcon: (identity?: string) => number; paintIcon: (element: HTMLElement, index: number) => void;
   renderName: (element: HTMLElement, identity: string, name: string, gender?: PlayerGender) => void; isGuest: (identity: string) => boolean; isOnline: (identity: string) => boolean; presenceText: (profile: Profile, online: boolean) => string;
   renderCharacter: (identity: string, progress: Profile["progress"] | null, visible: boolean) => void; skinTone: (identity?: string) => number; setSkinTone: (value: number) => Promise<{ ok?: boolean; error?: string } | undefined>;
@@ -175,6 +178,10 @@ export function createProfileWindowController(elements: {
     const activeSeconds = online ? Math.max(0, (Date.now() - lifetime.sessionStartedAtMs) / 1000) : 0;
     elements.timePlayed.textContent = api.formatPlayedTime(lifetime.playedSeconds + activeSeconds); elements.kills.textContent = Math.round(lifetime.enemyKills).toLocaleString();
     elements.online.textContent = presence; elements.online.style.color = online ? "#72ef58" : "#b7c5b7";
+    // Only the local player's prestige is subscribed, so the line is theirs alone.
+    const prestigeLevel = own ? api.prestigeLevel?.() ?? 0 : 0;
+    elements.prestigeRow.hidden = !own || prestigeLevel <= 0;
+    elements.prestige.textContent = `${prestigeLevel} (+${Math.round(prestigeLevel * PRESTIGE_STAT_GAIN_PER_LEVEL * 100)}% stat gain)`;
     api.renderStats(profile, elements.statGrid);
     loading.hide();
     elements.overviewPanel.hidden = !elements.overviewTab.classList.contains("is-active");

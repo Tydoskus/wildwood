@@ -154,6 +154,7 @@ const afterUpdateGateShell = String.raw`
           <div><dt>DATE JOINED</dt><dd id="profileJoined">—</dd></div>
           <div><dt>TIME PLAYED</dt><dd id="profileTimePlayed">—</dd></div>
           <div><dt>ENEMIES DEFEATED</dt><dd id="profileKills">—</dd></div>
+          <div id="profilePrestigeRow" hidden><dt>PRESTIGE</dt><dd id="profilePrestige">—</dd></div>
           <div><dt>STATUS</dt><dd id="profileOnline">—</dd></div>
         </dl>
       </section>

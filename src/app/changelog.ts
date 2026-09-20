@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.754": [
+    "Your prestige bonus now shows on your profile, and the stat a kill pays includes it, so the number that pops matches what you actually earn.",
+    "Research now survives a prestige. It costs real days and the rerun is meant to be faster, not the same climb twice.",
+  ],
   "0.753": [
     "Prestige is here. Once Aegis Prime is down, trade your run for a permanent bonus: every prestige adds 10% to the stats each kill grants and banks a perk point.",
     "Prestige clears your stats, research, equipment and every map unlock, so the next one is earned from the forest up. Your name, gems, bought bag slots and upgrade bench stay.",
@@ -2120,6 +2124,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.754": "2026-09-20",
   "0.753": "2026-09-20",
   "0.752": "2026-09-20",
   "0.751": "2026-09-20",

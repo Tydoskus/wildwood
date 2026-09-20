@@ -9,7 +9,7 @@
 // append new steps, never reorder or renumber the old ones.
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { SenderError } from "spacetimedb/server";
-import { updateSnapshotRow } from "./shard-snapshot-writes";
+import { insertSnapshotRow, updateSnapshotRow } from "./shard-snapshot-writes";
 import { RESEARCH_DEFINITIONS, shouldBackfillLegacyRegeneration } from "../../shared/research";
 import { STARTER_BOW, STARTER_STONE, TRAILBLAZER_BOOTS, WOODEN_ARMOR } from "../../shared/items";
 import {
@@ -39,7 +39,7 @@ import { generateMap, isProceduralMap, proceduralMapId, proceduralMapNumber } fr
 import { balanceApologyTransactionReference, isBalanceApologyEligible } from "./balance-apology";
 import { BALANCE_APOLOGY_GEM_GIFT } from "../../shared/gems";
 
-export const MODULE_MIGRATION_VERSION = 34;
+export const MODULE_MIGRATION_VERSION = 35;
 
 export type ModuleMigrationDeps = {
   MAP_ARRIVALS: Record<string, { x: number; y: number }>;
@@ -502,9 +502,54 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     if (currentVersion < 33 && !isMapShard(ctx)) publishRebalanceMail(ctx);
     // 34: map_shard_route replaces the per-user route view; seat every current member once.
     if (currentVersion < 34 && !isMapShard(ctx)) for (const member of [...ctx.db.mapShardMember.iter()] as any[]) syncMapShardRoute(ctx, member.identity, member);
+    // 35: prestige originally cleared research before the keep-research fix
+    // shipped. The rebase archive contains the last complete research row for
+    // those players, so restore it without reducing any progress earned since.
+    if (currentVersion < 35 && !isMapShard(ctx)) restorePrestigeResearch(ctx);
     const next = { id: 0, version: MODULE_MIGRATION_VERSION };
     if (state) ctx.db.moduleMigrationState.id.update(next);
     else ctx.db.moduleMigrationState.insert(next);
+  }
+
+  function restorePrestigeResearch(ctx: any) {
+    const fields = ["warcraft", "foraging", "frontierMastery", "vitality", "precision", "criticalChance", "moveSpeed", "prosperity", "criticalDamage", "regeneration"] as const;
+    for (const prestige of ctx.db.playerPrestige.iter() as Iterable<any>) {
+      const backup = ctx.db.playerEndlessRebaseBackup.identity.find(prestige.identity);
+      if (!backup?.contextJson) continue;
+      let archivedResearch: any;
+      try { archivedResearch = JSON.parse(backup.contextJson).research; } catch { continue; }
+      if (!archivedResearch) continue;
+      const current = ctx.db.playerResearch.identity.find(prestige.identity);
+      const nextResearch: any = {
+        identity: prestige.identity,
+        ...Object.fromEntries(fields.map((field) => [field, Math.max(Number(current?.[field] ?? 0), Number(archivedResearch[field] ?? 0))])),
+      };
+      const changed = !current || fields.some((field) => Number(current[field] ?? 0) !== nextResearch[field]);
+      if (!changed) continue;
+      if (current) updateSnapshotRow(ctx, "playerResearch", nextResearch);
+      else insertSnapshotRow(ctx, "playerResearch", nextResearch);
+
+      const active = ctx.db.activeResearch.identity.find(prestige.identity);
+      if (active && Number(nextResearch[active.researchId] ?? 0) >= Number(active.targetRank)) {
+        ctx.db.activeResearch.identity.delete(prestige.identity);
+        for (const schedule of [...ctx.db.researchCompletionSchedule.iter()] as any[]) {
+          if (sameIdentity(schedule.identity, prestige.identity)) ctx.db.researchCompletionSchedule.scheduledId.delete(schedule.scheduledId);
+        }
+      }
+
+      const progress = ctx.db.playerProgress.identity.find(prestige.identity);
+      const player = ctx.db.player.identity.find(prestige.identity);
+      if (progress && player) {
+        const updated = {
+          ...player,
+          ...powerFieldsForProgress(ctx, progress),
+          speed: effectiveMovementSpeedForProgress(ctx, progress, nextResearch),
+          ...equipmentPresentationForProgress(progress),
+        };
+        updateSnapshotRow(ctx, "player", updated);
+        syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, updated));
+      }
+    }
   }
 
   function rebuildPlayerMotionMapState(ctx: any) {

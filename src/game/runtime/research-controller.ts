@@ -3,6 +3,7 @@ import type { PlayerState } from "./types";
 import { createEmptyResearchRanks, researchStatRewardMultiplier, type ResearchRanks } from "../../../shared/research";
 import { applyPlayerMaxHealthMultiplierBonus } from "./player-health";
 import { movementSpeedMultiplier } from "../../../shared/rules";
+import { prestigeStatMultiplier } from "../../../shared/prestige";
 
 export type { ResearchRanks } from "../../../shared/research";
 
@@ -13,6 +14,8 @@ type ResearchControllerOptions = {
   maxPlayerStat: number;
   saveProgress: () => void;
   healthMultiplierBonus?: () => number;
+  /** Prestige levels banked. Stat rewards carry it exactly as the server does. */
+  prestigeLevel?: () => number;
 };
 
 const EMPTY_RANKS = createEmptyResearchRanks();
@@ -26,7 +29,7 @@ export function createResearchController(options: ResearchControllerOptions) {
     ranks,
     damageMultiplier: () => 1 + ranks().warcraft * .02,
     movementSpeedMultiplier: () => movementSpeedMultiplier(ranks().moveSpeed),
-    rewardMultiplier: () => researchStatRewardMultiplier(ranks()),
+    rewardMultiplier: () => researchStatRewardMultiplier(ranks()) * prestigeStatMultiplier(options.prestigeLevel?.() ?? 0),
     effectiveArmor: () => options.player.armor * (1 + ranks().precision * .02),
     regenerationMultiplier: () => 1 + ranks().regeneration * .02,
     criticalChance: () => ranks().criticalChance * .01,
