@@ -588,6 +588,12 @@ export const GemCommerceHold = __t.object("GemCommerceHold", {
 });
 export type GemCommerceHold = __Infer<typeof GemCommerceHold>;
 
+export const GemKillProgress = __t.object("GemKillProgress", {
+  identity: __t.identity(),
+  credit: __t.u64(),
+});
+export type GemKillProgress = __Infer<typeof GemKillProgress>;
+
 export const GemPurchase = __t.object("GemPurchase", {
   reservationId: __t.string(),
   identity: __t.identity(),
@@ -1469,6 +1475,14 @@ export const PlayerEndlessRebaseBackup = __t.object("PlayerEndlessRebaseBackup",
   earnedSeconds: __t.f64(),
 });
 export type PlayerEndlessRebaseBackup = __Infer<typeof PlayerEndlessRebaseBackup>;
+
+export const PlayerGemDrop = __t.object("PlayerGemDrop", {
+  identity: __t.identity(),
+  amount: __t.u32(),
+  sequence: __t.u64(),
+  droppedAt: __t.timestamp(),
+});
+export type PlayerGemDrop = __Infer<typeof PlayerGemDrop>;
 
 export const PlayerGemWallet = __t.object("PlayerGemWallet", {
   identity: __t.identity(),

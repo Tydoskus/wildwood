@@ -66,6 +66,7 @@ import DevDeliverDisconnectCompensationReducer from "../dev_deliver_disconnect_c
 import DevDeliverEquipmentMailReducer from "../dev_deliver_equipment_mail_reducer";
 import DevDeliverOutageCompensationReducer from "../dev_deliver_outage_compensation_reducer";
 import DevGrantEquipmentReducer from "../dev_grant_equipment_reducer";
+import DevGrantRetroactiveKillGemsReducer from "../dev_grant_retroactive_kill_gems_reducer";
 import DevPublishMailboxLetterReducer from "../dev_publish_mailbox_letter_reducer";
 import DevRepairDisplayNameReducer from "../dev_repair_display_name_reducer";
 import DevRepairPlayerJoinedAtReducer from "../dev_repair_player_joined_at_reducer";
@@ -215,6 +216,7 @@ export type DevDeliverDisconnectCompensationParams = __Infer<typeof DevDeliverDi
 export type DevDeliverEquipmentMailParams = __Infer<typeof DevDeliverEquipmentMailReducer>;
 export type DevDeliverOutageCompensationParams = __Infer<typeof DevDeliverOutageCompensationReducer>;
 export type DevGrantEquipmentParams = __Infer<typeof DevGrantEquipmentReducer>;
+export type DevGrantRetroactiveKillGemsParams = __Infer<typeof DevGrantRetroactiveKillGemsReducer>;
 export type DevPublishMailboxLetterParams = __Infer<typeof DevPublishMailboxLetterReducer>;
 export type DevRepairDisplayNameParams = __Infer<typeof DevRepairDisplayNameReducer>;
 export type DevRepairPlayerJoinedAtParams = __Infer<typeof DevRepairPlayerJoinedAtReducer>;

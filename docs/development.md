@@ -251,6 +251,32 @@ Publishing the server is a separate production operation; pushing `main` only de
   ICU build. A digest that disagrees between a laptop and the runner fails every
   deploy while passing locally.
 
+## Kill gem invariants
+
+- Gems from kills are deterministic, not rolled. Every accepted defeat adds
+  credit — two while the player is visible in the world, one while hidden or
+  idle — and each 2,000 credits pays one gem (`shared/gem-drops.ts`). Two
+  players with the same kills earn the same gems.
+- "Active" is the server's own `player.isVisible`, taken from presence, never a
+  flag the client reports.
+- The grant runs inside `recordEnemyDefeats` on the root, from the same
+  `accepted.count` that advances lifetime kills, so the two can never drift.
+  Its ledger reference carries the lifetime kill count after the batch, which
+  only rises, so a replayed report cannot pay twice.
+- `dev_grant_retroactive_kill_gems` pays kills earned before this existed at
+  the idle rate (history has no record of who was active). A player is marked
+  done by their `gem_kill_progress` row, so running it twice pays nobody twice.
+- `player_gem_drop` is the client's pop-up signal, one row per player bumped
+  per grant, mirroring `player_item_drop`; the client ignores a sequence it has
+  already shown so hydration cannot replay it.
+
+## Guild name invariants
+
+- A guild's name is its four-letter tag, so `create` runs the display-name
+  rules and then a short profanity denylist (`guildNameModerationReason`).
+  The chat filter alone targets hate, solicitation, threats and scams, not
+  profanity, which is why the list exists.
+
 ## Boss combat invariants
 
 Boss combat is client-sided. `PERSONAL_BOSS_COMBAT` in `shared/personal-bosses.ts` is `true`, and `src/game/runtime/personal-bosses.ts` owns boss HP, alive/dead state, respawn timing, and the defeat result. Only the completed defeat is reported to the server, through `recordRegularEnemyDefeat`. See [engineering notes](ENGINEERING.md) for the retained server surface and what must not be deleted with it.

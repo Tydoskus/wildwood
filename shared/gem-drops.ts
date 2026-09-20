@@ -1,18 +1,26 @@
 /**
- * Gems drop from defeats the server has already accepted, so the roll inherits
- * the defeat budget and boss DPS validation rather than trusting a client.
+ * Gems are earned from defeats the server has already accepted, so the count
+ * inherits the defeat budget and boss DPS validation rather than trusting a
+ * client. There is no dice roll: every accepted kill adds credit, and each
+ * full block of credit is one gem. Two players with the same kills get the
+ * same gems.
  *
- * Active play pays double the idle rate. The server decides which applies from
- * its own record of the player's activity, never from a reported flag.
+ * Active play earns double. The server decides "active" from its own record
+ * of the player's presence, never from a reported flag.
  */
-export const GEM_DROP_ODDS_ACTIVE = 1_000;
-export const GEM_DROP_ODDS_IDLE = 2_000;
+export const GEM_KILL_CREDIT_PER_GEM = 2_000n;
+/** One gem per thousand kills while present in the world. */
+export const GEM_KILL_CREDIT_ACTIVE = 2n;
+/** One gem per two thousand kills while hidden or idle. */
+export const GEM_KILL_CREDIT_IDLE = 1n;
 
-/** One independent roll per accepted defeat; a batch can never beat its kills. */
-export function rollGemDrops(acceptedDefeats: number, active: boolean, random: () => number) {
-  if (!Number.isInteger(acceptedDefeats) || acceptedDefeats < 1) return 0;
-  const odds = active ? GEM_DROP_ODDS_ACTIVE : GEM_DROP_ODDS_IDLE;
-  let gems = 0;
-  for (let index = 0; index < acceptedDefeats; index += 1) if (random() * odds < 1) gems += 1;
-  return gems;
+export function gemKillCredit(acceptedDefeats: number, active: boolean): bigint {
+  if (!Number.isInteger(acceptedDefeats) || acceptedDefeats < 1) return 0n;
+  return BigInt(acceptedDefeats) * (active ? GEM_KILL_CREDIT_ACTIVE : GEM_KILL_CREDIT_IDLE);
+}
+
+/** Split accumulated credit into whole gems and the remainder carried forward. */
+export function settleGemKillCredit(credit: bigint) {
+  if (credit < 0n) return { gems: 0n, remainder: 0n };
+  return { gems: credit / GEM_KILL_CREDIT_PER_GEM, remainder: credit % GEM_KILL_CREDIT_PER_GEM };
 }

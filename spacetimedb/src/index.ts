@@ -31,6 +31,7 @@ import { moderateReportedMessage } from "./chat-report-moderation";
 import { PLAYER_SKIN_TONES } from "../../shared/player-skin-tones";
 import { leaderboardPageTables, writeLeaderboardPages, readLeaderboardWindow, readLeaderboardPage } from "./leaderboard-pages";
 import { publicChatCursor, updatePublicChatCursor, readPublicChatPage } from "./public-chat-history";
+import { createKillGems } from "./kill-gems";
 import { generateMap, generatedBossStats, isProceduralMap, proceduralMapId, PROCEDURAL_ENTRY_MAP, PROCEDURAL_ENTRY_BOSS } from "../../shared/procedural-maps";
 import { proceduralMapTables, proceduralBossKey, clearProceduralProgress, generatedMapUnlocked, ensureProceduralBoss } from "./procedural-maps";
 import { ingestStoreEvent } from "./gem-store-events";
@@ -880,6 +881,21 @@ const playerItemDrop = table(
   },
 );
 
+// Kill credit toward the next gem. Private: the client only ever sees the
+// resulting wallet change and the drop event below.
+const gemKillProgress = table(
+  { name: "gem_kill_progress", public: false },
+  { identity: t.identity().primaryKey(), credit: t.u64() },
+);
+
+// One row per player, bumped on each grant, so the client can pop the gem the
+// way it pops an item drop. The identity key is also the index the client's
+// per-player subscription uses.
+const playerGemDrop = table(
+  { name: "player_gem_drop", public: true, event: true },
+  { identity: t.identity().primaryKey(), amount: t.u32(), sequence: t.u64(), droppedAt: t.timestamp() },
+);
+
 // Shared periodic ranking snapshot. Clients fetch only server-selected rank
 // windows; this table stays outside all normal client subscriptions.
 const leaderboardEntry = table(
@@ -1643,6 +1659,8 @@ const spacetimedb = schema({
   mapBalanceVersion, mapBalanceHead, playerMapBalance,
   ...moderationTables,
   publicChatCursor,
+  gemKillProgress,
+  playerGemDrop,
   ...proceduralMapTables,
   ...leaderboardPageTables,
   ...gemPurchaseTables,
@@ -3092,6 +3110,8 @@ function ensureGemWallet(ctx: any, identity: any) {
   });
 }
 
+const killGems = createKillGems({ applyGemBalanceChange, isVirtualPlayer });
+
 function applyGemBalanceChange(ctx: any, input: {
   identity: any;
   delta: bigint;
@@ -4476,6 +4496,12 @@ export const setMultiplayerEnabled = spacetimedb.reducer({ enabled: t.bool() }, 
   ensureRealtimeFrameSchedules(ctx);
 });
 
+// Kill gems: bodies live in kill-gems.ts; this is the schema-facing declaration.
+export const devGrantRetroactiveKillGems = spacetimedb.reducer({}, (ctx) => {
+  if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_grant_retroactive_kill_gems");
+  killGems.grantRetroactiveKillGems(ctx);
+});
+
 // Development-only economy seeding. Production purchase credits will use
 // verified store/webhook references through a separate trusted server path.
 export const devAdjustGems = spacetimedb.reducer(
@@ -5516,7 +5542,11 @@ export const recordEnemyDefeats = spacetimedb.reducer(
       }
     }
     const lifetime = ensurePlayerLifetime(ctx);
-    ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: lifetime.enemyKills + BigInt(accepted.count) });
+    const enemyKills = lifetime.enemyKills + BigInt(accepted.count);
+    ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills });
+    // Presence is the server's own signal for active play: hidden or idle
+    // players earn at half rate, and nothing here is taken from the client.
+    killGems.grantKillGems(ctx, ctx.sender, accepted.count, player.isVisible, enemyKills);
     enforce();
   },
 );

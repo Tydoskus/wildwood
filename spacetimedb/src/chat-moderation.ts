@@ -167,3 +167,17 @@ export function moderatePublicChatMessage(message: string) {
     moderated,
   };
 }
+
+// Guild names are exactly four letters, so the profanity that slips past the
+// severe-content filters above is a short, finite list. Case is ignored.
+const BLOCKED_GUILD_NAMES = new Set([
+  "fuck", "cunt", "cock", "dick", "shit", "anus", "twat", "slut", "tits", "jizz", "cums", "wank", "arse", "piss",
+  "rape", "pedo", "nazi", "kike", "spic", "coon", "gook", "fags", "dyke", "homo", "nigs", "chin", "paki", "wogs",
+]);
+
+/** Guild names also carry the display-name rules; this adds the short profanity list. */
+export function guildNameModerationReason(name: string): string | null {
+  const reason = displayNameModerationReason(name);
+  if (reason) return reason;
+  return BLOCKED_GUILD_NAMES.has(normalizeModerationText(name).replace(/\s/g, "")) ? "Offensive guild name" : null;
+}

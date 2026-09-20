@@ -1,4 +1,5 @@
 import { removeMessageReactions } from "./chat-reactions";
+import { guildNameModerationReason } from "./chat-moderation";
 import { syncGuildTag } from "./player-name-tags";
 import type { Identity } from "spacetimedb";
 import { Range, SenderError } from "spacetimedb/server";
@@ -152,6 +153,8 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
       assertCanJoin(ctx);
       let normalized: ReturnType<typeof normalizeGuildName>;
       try { normalized = normalizeGuildName(value); } catch (error) { return fail((error as Error).message); }
+      const blocked = guildNameModerationReason(normalized.name);
+      if (blocked) fail("That guild name is not allowed.");
       if (ctx.db.guild.nameKey.find(normalized.nameKey)) fail("That guild name is already taken.");
       const guild = ctx.db.guild.insert({ id: 0n, directoryId: 0n, ...normalized, leader: ctx.sender, members: 1,
         champions: 0, week: guildWeek(now(ctx)), score: 0, wins: 0, battles: 0,

@@ -94,6 +94,7 @@ import DevDeliverDisconnectCompensationReducer from "./dev_deliver_disconnect_co
 import DevDeliverEquipmentMailReducer from "./dev_deliver_equipment_mail_reducer";
 import DevDeliverOutageCompensationReducer from "./dev_deliver_outage_compensation_reducer";
 import DevGrantEquipmentReducer from "./dev_grant_equipment_reducer";
+import DevGrantRetroactiveKillGemsReducer from "./dev_grant_retroactive_kill_gems_reducer";
 import DevPublishMailboxLetterReducer from "./dev_publish_mailbox_letter_reducer";
 import DevRepairDisplayNameReducer from "./dev_repair_display_name_reducer";
 import DevRepairPlayerJoinedAtReducer from "./dev_repair_player_joined_at_reducer";
@@ -271,6 +272,7 @@ import PlayerRow from "./player_table";
 import PlayerAccountStatusRow from "./player_account_status_table";
 import PlayerChatHeartsRow from "./player_chat_hearts_table";
 import PlayerDeathFrameRow from "./player_death_frame_table";
+import PlayerGemDropRow from "./player_gem_drop_table";
 import PlayerItemDropRow from "./player_item_drop_table";
 import PlayerItemUpgradeRow from "./player_item_upgrade_table";
 import PlayerLifetimeRow from "./player_lifetime_table";
@@ -707,6 +709,18 @@ const tablesSchema = __schema({
     ],
     event: true,
   }, PlayerDeathFrameRow),
+  playerGemDrop: __table({
+    name: 'player_gem_drop',
+    indexes: [
+      { accessor: 'identity', name: 'player_gem_drop_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_gem_drop_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+    event: true,
+  }, PlayerGemDropRow),
   playerItemDrop: __table({
     name: 'player_item_drop',
     indexes: [
@@ -1268,6 +1282,7 @@ const reducersSchema = __reducers(
   __reducerSchema("dev_deliver_equipment_mail", DevDeliverEquipmentMailReducer),
   __reducerSchema("dev_deliver_outage_compensation", DevDeliverOutageCompensationReducer),
   __reducerSchema("dev_grant_equipment", DevGrantEquipmentReducer),
+  __reducerSchema("dev_grant_retroactive_kill_gems", DevGrantRetroactiveKillGemsReducer),
   __reducerSchema("dev_publish_mailbox_letter", DevPublishMailboxLetterReducer),
   __reducerSchema("dev_repair_display_name", DevRepairDisplayNameReducer),
   __reducerSchema("dev_repair_player_joined_at", DevRepairPlayerJoinedAtReducer),
