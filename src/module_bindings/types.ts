@@ -442,9 +442,6 @@ export const Duel = __t.object("Duel", {
   opponentDamage: __t.f32(),
   opponentArmor: __t.f32(),
   opponentAttackRate: __t.f32(),
-  challengerRiposte: __t.f32(),
-  opponentRiposte: __t.f32(),
-  riposteSeed: __t.u64(),
   startsAtMicros: __t.u64(),
   challengerRegen: __t.f32(),
   challengerAttacks: __t.u32(),
@@ -535,6 +532,14 @@ export const DuelResolutionSchedule = __t.object("DuelResolutionSchedule", {
   duelId: __t.u64(),
 });
 export type DuelResolutionSchedule = __Infer<typeof DuelResolutionSchedule>;
+
+export const DuelRiposte = __t.object("DuelRiposte", {
+  duelId: __t.u64(),
+  challengerRiposte: __t.f32(),
+  opponentRiposte: __t.f32(),
+  riposteSeed: __t.u64(),
+});
+export type DuelRiposte = __Infer<typeof DuelRiposte>;
 
 export const DuelWireAccess = __t.object("DuelWireAccess", {
   key: __t.string(),
@@ -1871,13 +1876,18 @@ export const PlayerSession = __t.object("PlayerSession", {
   identity: __t.identity(),
   connectedAt: __t.timestamp(),
   protocolVersion: __t.u32(),
-  clientVersion: __t.string(),
-  analyticsStartedAtMicros: __t.u64(),
   lastInputSequence: __t.u32(),
   enteredWorld: __t.bool(),
   tabId: __t.string(),
 });
 export type PlayerSession = __Infer<typeof PlayerSession>;
+
+export const PlayerSessionAnalytics = __t.object("PlayerSessionAnalytics", {
+  connectionId: __t.connectionId(),
+  clientVersion: __t.string(),
+  analyticsStartedAtMicros: __t.u64(),
+});
+export type PlayerSessionAnalytics = __Infer<typeof PlayerSessionAnalytics>;
 
 export const PlayerUpgradeBench = __t.object("PlayerUpgradeBench", {
   identity: __t.identity(),

@@ -52,7 +52,7 @@ export function clearExpiredDuelRequests(ctx: any) {
       expiredIds.push(current.id);
     }
   }
-  for (const id of expiredIds) deleteSnapshotRow(ctx, "duel", id);
+  for (const id of expiredIds) { deleteSnapshotRow(ctx, "duel", id); ctx.db.duelRiposte.duelId.delete(id); }
 }
 
 export function returnDuelPlayer(ctx: any, identity: any, x: number, y: number) {
@@ -175,6 +175,7 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
     });
 
     deleteSnapshotRow(ctx, "duel", current.id);
+    ctx.db.duelRiposte.duelId.delete(current.id);
   }
 
   function publishDuelReplay(ctx: any, id: bigint) {
@@ -219,7 +220,8 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
     const resolutionMicros = current.endsAtMicros < ctx.timestamp.microsSinceUnixEpoch
       ? current.endsAtMicros
       : ctx.timestamp.microsSinceUnixEpoch;
-    const { resolvedMicros, ...combat } = advanceDuelCombat(current, current,
+    const riposte = ctx.db.duelRiposte.duelId.find(current.id);
+    const { resolvedMicros, ...combat } = advanceDuelCombat({ ...current, ...riposte }, current,
       Number(current.lastResolvedAt.microsSinceUnixEpoch - current.startsAtMicros),
       Number(resolutionMicros - current.startsAtMicros));
     const next = {
@@ -307,11 +309,6 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
       challengerOriginY: challenger.y,
       opponentOriginX: 0,
       opponentOriginY: 0,
-      // Both riposte chances and one seed, frozen with the duel so the fight
-      // resolves the same way however many times it is replayed.
-      challengerRiposte: prestigeRiposteChance(prestigePerkRanks(ctx, ctx.sender)),
-      opponentRiposte: prestigeRiposteChance(prestigePerkRanks(ctx, opponent)),
-      riposteSeed: ctx.timestamp.microsSinceUnixEpoch,
       challengerHp: challengerMaxHp,
       challengerMaxHp,
       challengerDamage: duelDamage(ctx, ctx.sender, challengerProgress.damage),
@@ -348,6 +345,14 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
       opponentName: opponentProfile.displayName,
       challengerGender: challengerProfile.gender,
       opponentGender: opponentProfile.gender,
+    });
+    // Both riposte chances and one seed, frozen beside the duel so the fight
+    // resolves the same way however many times it is replayed.
+    ctx.db.duelRiposte.insert({
+      duelId: insertedDuel.id,
+      challengerRiposte: prestigeRiposteChance(prestigePerkRanks(ctx, ctx.sender)),
+      opponentRiposte: prestigeRiposteChance(prestigePerkRanks(ctx, opponent)),
+      riposteSeed: ctx.timestamp.microsSinceUnixEpoch,
     });
     ctx.db.duelResolutionSchedule.insert({
       scheduledId: 0n,

@@ -303,6 +303,21 @@ Publishing the server is a separate production operation; pushing `main` only de
   mechanism with its own spec in `boss-defeat-limits.test.ts`. Boss kills are
   reported the moment they happen, so a one-minute bank is honest there.
 
+## Schema change invariants
+
+- **Never add a column to a table that already exists.** The publish preflight
+  refuses it: a column added mid-definition reads as `Reordering table ...
+  requires a manual migration`, and a column appended to the end still reports
+  `break_clients`, even on a private table. Both stop the whole publish,
+  including whatever else is in it. Put the new fields in a new table keyed the
+  same way and read the two together. `player_prestige_perk`, `duel_riposte` and
+  `player_session_analytics` all exist for this reason.
+- New tables, new reducers and new procedures are additive and pass cleanly.
+- `npm run spacetime:publish:live -- --preflight` checks without publishing. It
+  reports only that something failed; for the reason, POST the built bundle to
+  `/v1/database/<name>/pre_publish?host_type=Js` with the operator token and read
+  `ManualMigrate.reason` or `AutoMigrate.migrate_plan`.
+
 ## Prestige invariants
 
 - Prestige opens when the campaign's last boss is down, the same clearance

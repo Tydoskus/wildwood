@@ -233,6 +233,7 @@ import DreadreaperBossRow from "./dreadreaper_boss_table";
 import DreadreaperResultRow from "./dreadreaper_result_table";
 import DuelRow from "./duel_table";
 import DuelReplayRow from "./duel_replay_table";
+import DuelRiposteRow from "./duel_riposte_table";
 import DuelWireAccessRow from "./duel_wire_access_table";
 import FrostclawBossRow from "./frostclaw_boss_table";
 import FrostclawResultRow from "./frostclaw_result_table";
@@ -469,6 +470,17 @@ const tablesSchema = __schema({
       { name: 'duel_replay_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, DuelReplayRow),
+  duelRiposte: __table({
+    name: 'duel_riposte',
+    indexes: [
+      { accessor: 'duelId', name: 'duel_riposte_duel_id_idx_btree', algorithm: 'btree', columns: [
+        'duelId',
+      ] },
+    ],
+    constraints: [
+      { name: 'duel_riposte_duel_id_key', constraint: 'unique', columns: ['duelId'] },
+    ],
+  }, DuelRiposteRow),
   duelWireAccess: __table({
     name: 'duel_wire_access',
     indexes: [

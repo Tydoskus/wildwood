@@ -1100,13 +1100,33 @@ const playerSession = table(
     identity: t.identity(),
     connectedAt: t.timestamp(),
     protocolVersion: t.u32().default(0),
-    clientVersion: t.string().default(""),
-    analyticsStartedAtMicros: t.u64().default(0n),
     lastInputSequence: t.u32().default(0),
     enteredWorld: t.bool().default(false),
     tabId: t.string().default(""),
+    // Appended, never inserted: a column moved into the middle of a live table
+    // reads as a reordering and needs a manual migration.
   },
 );
+
+// What analytics needs to know about a live connection. Beside player_session
+// rather than in it: adding a column to a table that already exists breaks
+// every connected client, while a new table is additive. Rows follow the
+// session, so they are written and cleared with it.
+const playerSessionAnalytics = table({ name: "player_session_analytics", public: false }, {
+  connectionId: t.connectionId().primaryKey(),
+  clientVersion: t.string().default(""),
+  analyticsStartedAtMicros: t.u64().default(0n),
+});
+function sessionAnalytics(ctx: any, connectionId: any) {
+  return ctx.db.playerSessionAnalytics.connectionId.find(connectionId);
+}
+function writeSessionAnalytics(ctx: any, connectionId: any, changes: { clientVersion?: string; analyticsStartedAtMicros?: bigint }) {
+  const current = sessionAnalytics(ctx, connectionId);
+  const next = { connectionId, clientVersion: current?.clientVersion ?? "",
+    analyticsStartedAtMicros: current?.analyticsStartedAtMicros ?? 0n, ...changes };
+  if (current) ctx.db.playerSessionAnalytics.connectionId.update(next);
+  else ctx.db.playerSessionAnalytics.insert(next);
+}
 
 const playerController = table(
   { public: false },
@@ -1367,9 +1387,6 @@ const duel = table(
     opponentDamage: t.f32(),
     opponentArmor: t.f32(),
     opponentAttackRate: t.f32(),
-    // Riposte chances and the seed their rolls come from, stored so a replay
-    // throws back exactly what the server did.
-    challengerRiposte: t.f32().default(0), opponentRiposte: t.f32().default(0), riposteSeed: t.u64().default(0n),
     startsAtMicros: t.u64().default(0n),
     challengerRegen: t.f32().default(0),
     challengerAttacks: t.u32().default(0),
@@ -1400,6 +1417,14 @@ const duel = table(
     opponentWeaponItem: t.string().default(""),
   },
 );
+
+// Riposte chances and the seed their rolls come from, beside the duel rather
+// than in it: the duel row is public and shipped clients subscribe to it, so
+// its shape is frozen. A new table is additive and leaves them connected.
+const duelRiposte = table({ name: "duel_riposte", public: true }, {
+  duelId: t.u64().primaryKey(),
+  challengerRiposte: t.f32().default(0), opponentRiposte: t.f32().default(0), riposteSeed: t.u64().default(0n),
+});
 
 const duelReplay = table(
   { public: true },
@@ -1742,6 +1767,8 @@ const spacetimedb = schema({
   playerEndlessRebaseBackup,
   playerPrestige,
   playerPrestigePerk,
+  duelRiposte,
+  playerSessionAnalytics,
   developerPresencePreference,
   playerMovementDemand,
   playerAccessAudit,
@@ -3438,8 +3465,8 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
     const sameTab = controllerSession?.tabId && controllerSession.tabId === normalizedTabId;
     if (controllerSession?.enteredWorld && !sameTab) {
       if (!forceTakeover) throw new SenderError("Wildstat is active in another tab.");
-      if (!isMapShard(ctx) && controllerSession.analyticsStartedAtMicros) {
-        finishAnalyticsSession(ctx, controllerSession, ctx.db.player.identity.find(ctx.sender)?.mapId ?? TUTORIAL_FOREST_MAP_ID);
+      if (!isMapShard(ctx) && sessionAnalytics(ctx, controllerSession.connectionId)?.analyticsStartedAtMicros) {
+        finishAnalyticsSession(ctx, { ...controllerSession, ...sessionAnalytics(ctx, controllerSession.connectionId) }, ctx.db.player.identity.find(ctx.sender)?.mapId ?? TUTORIAL_FOREST_MAP_ID);
       }
       ctx.db.playerSession.connectionId.update({ ...controllerSession, enteredWorld: false });
     }
@@ -3449,8 +3476,8 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
   }
 
   if (!session.enteredWorld || session.tabId !== normalizedTabId) {
-    if (session.enteredWorld && session.analyticsStartedAtMicros) {
-      finishAnalyticsSession(ctx, session, ctx.db.player.identity.find(ctx.sender)?.mapId ?? TUTORIAL_FOREST_MAP_ID);
+    if (session.enteredWorld && sessionAnalytics(ctx, session.connectionId)?.analyticsStartedAtMicros) {
+      finishAnalyticsSession(ctx, { ...session, ...sessionAnalytics(ctx, session.connectionId) }, ctx.db.player.identity.find(ctx.sender)?.mapId ?? TUTORIAL_FOREST_MAP_ID);
     }
     ctx.db.playerSession.connectionId.update({ ...session, enteredWorld: true, tabId: normalizedTabId });
   }
@@ -3517,7 +3544,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
   if (!isMapShard(ctx) && !virtualRegistration && (!session.enteredWorld || session.tabId !== normalizedTabId)) {
     const updatedSession = ctx.db.playerSession.connectionId.find(ctx.connectionId);
     if (updatedSession) {
-      ctx.db.playerSession.connectionId.update({ ...updatedSession, analyticsStartedAtMicros: ctx.timestamp.microsSinceUnixEpoch });
+      writeSessionAnalytics(ctx, updatedSession.connectionId, { analyticsStartedAtMicros: ctx.timestamp.microsSinceUnixEpoch });
       recordAnalyticsSessionStart(ctx, ctx.db.player.identity.find(ctx.sender)?.mapId ?? TUTORIAL_FOREST_MAP_ID);
     }
   }
@@ -3654,8 +3681,6 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
     identity: ctx.sender,
     connectedAt: ctx.timestamp,
     protocolVersion: 0,
-    clientVersion: "",
-    analyticsStartedAtMicros: 0n,
     lastInputSequence: 0,
     enteredWorld: false,
     tabId: "",
@@ -3670,9 +3695,10 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
   if (!session) return;
   if (session.enteredWorld) touchPlayerAccessAudit(ctx, session.protocolVersion);
   if (!isMapShard(ctx) && session.enteredWorld) {
-    finishAnalyticsSession(ctx, session, ctx.db.player.identity.find(ctx.sender)?.mapId ?? TUTORIAL_FOREST_MAP_ID);
+    finishAnalyticsSession(ctx, { ...session, ...sessionAnalytics(ctx, session.connectionId) }, ctx.db.player.identity.find(ctx.sender)?.mapId ?? TUTORIAL_FOREST_MAP_ID);
   }
   ctx.db.playerSession.connectionId.delete(ctx.connectionId);
+  ctx.db.playerSessionAnalytics.connectionId.delete(ctx.connectionId);
 
   const remainingSessions = [...ctx.db.playerSession.byIdentity.filter(ctx.sender) as Iterable<any>];
   const controller = ctx.db.playerController.identity.find(ctx.sender);
@@ -4295,7 +4321,7 @@ export const registerClientVersion = spacetimedb.reducer(
   (ctx, { clientVersion }) => {
     const session = requireSession(ctx);
     if (!/^(?:unknown|\d{1,4}(?:\.\d{1,4}){1,3})$/.test(clientVersion)) return;
-    ctx.db.playerSession.connectionId.update({ ...session, clientVersion });
+    writeSessionAnalytics(ctx, session.connectionId, { clientVersion });
   },
 );
 

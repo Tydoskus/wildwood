@@ -83,8 +83,11 @@ function playerAnalyticsRow(ctx: any, identity: any, dayKey: string) {
 
 export function recordAnalyticsSessionStart(ctx: any, mapId: string) {
   if (!ctx.connectionId) return;
-  const session = ctx.db.playerSession.connectionId.find(ctx.connectionId);
-  if (!session || !session.enteredWorld) return;
+  // The client version lives beside the session rather than in it, so a live
+  // connection's analytics reads both rows as one.
+  const session = { ...ctx.db.playerSession.connectionId.find(ctx.connectionId),
+    ...ctx.db.playerSessionAnalytics.connectionId.find(ctx.connectionId) };
+  if (!session.enteredWorld) return;
   const dayKey = dayKeyFor(ctx);
   const identity = identityKey(ctx.sender);
   const player = playerAnalyticsRow(ctx, ctx.sender, dayKey);

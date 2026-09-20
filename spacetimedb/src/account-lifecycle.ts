@@ -632,7 +632,7 @@ for (const [contributionTable, attackWindowTable] of [
     transferPlayerBlocks(ctx, link.guest, ctx.sender);
 
     const guestSessions = [...ctx.db.playerSession.byIdentity.filter(link.guest) as Iterable<any>];
-    for (const session of guestSessions) ctx.db.playerSession.connectionId.delete(session.connectionId);
+    for (const session of guestSessions) { ctx.db.playerSession.connectionId.delete(session.connectionId); ctx.db.playerSessionAnalytics.connectionId.delete(session.connectionId); }
     const guestController = ctx.db.playerController.identity.find(link.guest);
     if (guestController) ctx.db.playerController.identity.delete(link.guest);
 
@@ -656,6 +656,7 @@ for (const [contributionTable, attackWindowTable] of [
           y: currentDuel.challengerOriginY,
         };
         deleteSnapshotRow(ctx, "duel", currentDuel.id);
+        ctx.db.duelRiposte.duelId.delete(currentDuel.id);
       }
     }
     const activePlayer = playerWithMotion(ctx, ctx.db.player.identity.find(identity));
@@ -749,6 +750,7 @@ for (const [contributionTable, attackWindowTable] of [
 
     for (const session of [...ctx.db.playerSession.byIdentity.filter(identity) as Iterable<any>]) {
       ctx.db.playerSession.connectionId.delete(session.connectionId);
+      ctx.db.playerSessionAnalytics.connectionId.delete(session.connectionId);
     }
     if (ctx.db.playerController.identity.find(identity)) ctx.db.playerController.identity.delete(identity);
 
@@ -860,6 +862,7 @@ for (const [contributionTable, attackWindowTable] of [
 
     for (const session of [...ctx.db.playerSession.byIdentity.filter(identity) as Iterable<any>]) {
       ctx.db.playerSession.connectionId.delete(session.connectionId);
+      ctx.db.playerSessionAnalytics.connectionId.delete(session.connectionId);
     }
     if (ctx.db.playerController.identity.find(identity)) ctx.db.playerController.identity.delete(identity);
 
@@ -892,6 +895,7 @@ for (const [contributionTable, attackWindowTable] of [
       if (!sameIdentity(current.challenger, identity) && !sameIdentity(current.opponent, identity)) continue;
       duelIds.add(current.id);
       deleteSnapshotRow(ctx, "duel", current.id);
+      ctx.db.duelRiposte.duelId.delete(current.id);
     }
     for (const schedule of [...ctx.db.duelResolutionSchedule.iter() as Iterable<any>]) {
       if (duelIds.has(schedule.duelId)) ctx.db.duelResolutionSchedule.scheduledId.delete(schedule.scheduledId);
