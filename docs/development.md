@@ -70,17 +70,30 @@ Alternatively, start `spacetime start` in one terminal, then run `npm run dev:lo
 
 When switching from the old launcher for the first time, stop its Python web-server terminal once to free port 8000. The database can remain running.
 
-### Native stat tracker
+### Stat tracker
 
-Enable **Settings → Game → Stat Tracker** to show current Power, Max HP, Damage,
-Armor, Regen and Kills with session gains and hourly rates. Values come from the
-loaded local character and canonical equipment/research calculations; opening a
-profile is unnecessary. The tracker is off by default to preserve mobile HUD space.
-Drag its header to move it, double-click the header (or press Home while focused)
-to restore its position, or use arrow keys to move it. Reset session changes only
-the tracker baselines. Sessions persist per character on this browser; elapsed
-time includes time away, and equipment changes count toward gains. A decrease in
-lifetime kills starts a new session after a character progress reset.
+Contributed by Kiira and shipped in 0.750. Enable **Settings → Game → Stat
+Tracker** to show current Power, Max HP, Damage, Armor, Regen and Kills with
+session gains and hourly rates. Values come from the loaded local character and
+canonical equipment/research calculations; opening a profile is unnecessary. The
+tracker is off by default to preserve mobile HUD space.
+
+Drag its header to move it, double-click the header (or press Home while
+focused) to restore its position, or use arrow keys to move it. Reset changes
+only the tracker baselines. Sessions persist per character on this browser;
+elapsed time includes time away. A decrease in lifetime kills starts a new
+session after a character progress reset.
+
+- Gains are floored at zero. Base stats only climb, so a figure below the
+  session baseline is a gear swap rather than progress; reporting the loss would
+  persist for the session and drag the hourly rate negative.
+- The footer slider sets panel opacity, from the profile HUD's translucency to
+  solid. It is per-browser, and it hides with the rest of the panel when the
+  tracker is collapsed.
+- The panel sits below every fullscreen window, so inventory and the profile
+  cover it rather than fighting it for the foreground.
+- Figures use `formatCompactNumber` at three significant digits, except values
+  below one, which keep their decimals so regeneration does not read as zero.
 
 ### Balance Lab
 
@@ -198,12 +211,55 @@ Publishing the server is a separate production operation; pushing `main` only de
 - Scheduled maintenance removes orphan public presence and duel state. Durable player progress and profiles are permanent.
 - Player profile details load by identity only when opened. Never add `player_progress` or `player_lifetime` back to a global client subscription.
 
-## Shared boss performance invariants
+## Chat and subscription invariants
 
-- Batch each attack's projectile hits through one boss-damage reducer; never restore one reducer call per projectile. Server validation caps accepted hits to the saved projectile count and attack interval.
-- Boss abilities, target selection, and hazard layouts use the versioned encounter simulation in `shared/boss-simulation.ts`. A hidden global server-time metronome controls ability phase; the seed varies targets and geometry without shifting the rhythm. Targets come from consensus-time player positions already available to the client, and both the real local throw and nearby observers use the same per-player boss attack slot. Keep `boss_attack_frame` inert: do not restore per-attack event inserts or subscriptions.
-- Boss-state subscriptions update only shared combat state. Do not trigger the global UI/auth/chat refresh callback for every HP update; the game loop consumes boss state directly.
-- Duel membership checks use the `duel.byChallenger` and `duel.byOpponent` indexes. Do not replace them with a full duel-table scan in the dragon damage path.
+- `chat_message` is private. Clients read the public page through the
+  `latest_chat_messages_with_reactions` view and the history procedure, never
+  the table. Do not make it public again to "fix" a chat display problem.
+- Reading a page walks identifiers down from the newest, which is one row read
+  per message returned only while identifiers are dense. Account erasure punches
+  holes, so the walk has a probe ceiling and falls back to a retention-bounded
+  scan. Keep the ceiling; without it one erased account degrades every page read.
+- Chat retention walks up from `public_chat_cursor` and stops at the first
+  message still inside the window, leaving the cursor correct as it goes. Do not
+  reintroduce the full rescan that used to follow it.
+- Sender and guild-replay-key lookups use the `bySender` and `byGuildReplay`
+  indexes. Never iterate the chat table to find one sender's messages.
+- Private messages age out after a year (`SOCIAL_MESSAGE_RETENTION_DAYS`). The
+  per-recipient view rebuilds from every message an account has exchanged, so
+  unbounded retention makes it slower for as long as the account exists.
+- Subscriptions must not filter with `ne`. An index cannot answer it, so the
+  server falls back to a sequential scan. The map presence query subscribes to
+  every visible player on the map and lets the handler recognise the local row,
+  which the base subscription delivers anyway.
+
+## Balance snapshot invariants
+
+- A saved balance revision is never rewritten, so `spacetimedb/src/map-balance.ts`
+  parses one once and shares the resolved snapshot between every player who
+  arrives on the same map at the same revision. Saving a revision clears both
+  caches; any new cache key must keep that guarantee.
+- The caches are keyed by revision alone. One module instance serves one
+  database in production, but a test process builds many fixtures behind the
+  same module, so tests call `forgetBalanceCaches()` when they build a fixture.
+
+## Release invariants
+
+- The shipped-artwork digest must not depend on the machine computing it. It
+  skips dot files, because `.DS_Store` is present locally and absent in CI, and
+  sorts by code unit rather than `localeCompare`, whose order varies with the
+  ICU build. A digest that disagrees between a laptop and the runner fails every
+  deploy while passing locally.
+
+## Boss combat invariants
+
+Boss combat is client-sided. `PERSONAL_BOSS_COMBAT` in `shared/personal-bosses.ts` is `true`, and `src/game/runtime/personal-bosses.ts` owns boss HP, alive/dead state, respawn timing, and the defeat result. Only the completed defeat is reported to the server, through `recordRegularEnemyDefeat`. See [engineering notes](ENGINEERING.md) for the retained server surface and what must not be deleted with it.
+
+- Boss abilities, target selection, and hazard layouts use the versioned encounter simulation in `shared/boss-simulation.ts`, which remains live and is now driven entirely client-side. A hidden global server-time metronome controls ability phase; the seed varies targets and geometry without shifting the rhythm. Targets come from consensus-time player positions already available to the client, and both the real local throw and nearby observers use the same per-player boss attack slot. Keep `boss_attack_frame` inert: do not restore per-attack event inserts or subscriptions.
+- Rewards stay server-owned even though damage is local. A defeat sends identities and counts only; `acceptEnemyDefeats` and `maximumBossCombatForProgress` bound what the server will grant. Never widen that wire format to carry client-computed reward values.
+- Do not reconnect the client to the shared-boss reducers. The `damage*FromPosition` call chain in `src/coop/services/boss-service.ts` and the `target.isBoss` branch in `player-combat-controller.ts` are unreachable because `hitPersonalBoss` intercepts first. Treat them as pending deletion, not as a fallback path.
+- The `boss:` subscription scope is never requested (`subscribeBosses` is hardcoded `false` at the sole call site in `src/wildstat-coop.ts`). Do not re-enable it to fix a boss display problem; the game loop reads local state.
+- Duel membership checks use the `duel.byChallenger` and `duel.byOpponent` indexes. Do not replace them with a full duel-table scan in any damage or presence path.
 - Contribution-table scans and combat-row cleanup belong only at encounter death or respawn, never on ordinary hits.
 
 ## Common diagnostics

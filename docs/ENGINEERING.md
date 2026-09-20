@@ -46,10 +46,29 @@ Keep static definitions and pure calculations outside `main.ts`. `main.ts` is a 
 
 ### Must address before a large public beta
 
-1. **Make progression server-authoritative.** `savePlayerProgress` currently accepts client-supplied upgraded stats up to broad limits. A modified client can grant itself health, damage, armor, regeneration, or boots. Replace arbitrary stat saves with server reducers for verified rewards, inventory grants, and boss/enemy completion.
-2. **Validate movement distance server-side.** Sequence and world bounds are enforced, but a modified client can still jump between arbitrary in-bounds coordinates. Add a server-clocked movement budget that accommodates network bursts and boss knockback.
-3. **Enforce progress privacy on the server.** `player_progress`, `player_research`, and `player_lifetime` are public tables even though the official client requests identity-scoped rows. Client filters are not access control. Replace direct table exposure with owner/profile views.
-4. **Load-test movement and reconnect storms.** Test 25, 50, and 100 clients with movement, reconnects, chat, research completion, and duel requests. Record reducer rate, egress, CPU, errors, and recovery time before raising the player cap.
+1. **Enforce progress privacy on the server.** `player_progress`, `player_research`, and `player_lifetime` are public tables even though the official client requests identity-scoped rows. Client filters are not access control. Replace direct table exposure with owner/profile views.
+2. **Load-test movement and reconnect storms.** Test 25, 50, and 100 clients with movement, reconnects, chat, research completion, and duel requests. Record reducer rate, egress, CPU, errors, and recovery time before raising the player cap.
+3. **Re-enable movement distance bans.** Speed violations already restrict the session immediately. Distance violations only reject the offending packet, because automatic banning is paused while the signal is validated against legitimate boss knockback (`applyMovementState`, `spacetimedb/src/index.ts`). Finish that validation and either enable the ban or document the rejection-only behavior as final.
+
+### Progression authority (implemented)
+
+Recorded here because the backlog above previously described the opposite, and the code is the source of truth.
+
+- `savePlayerProgress` declares client stat fields (`maxHp`, `damage`, `armor`, `regen`, `speed`, …) but **ignores every one of them**. The saved row is built from `base.*` — the server's existing stored progress — plus server constants. Only equipment and cosmetic slot selections cross the wire, and those are validated against owned inventory.
+- `recordEnemyDefeats` is the reward path: only enemy identities and counts are sent; all reward values are server-owned, bounded by `maximumBossCombatForProgress` and `acceptEnemyDefeats`, with violations routed to `restrictDefeatSession`.
+- `recordCombatCheckpoint` is retired and throws unconditionally. Never accept its supplied totals.
+- The unused stat fields in the `savePlayerProgress` signature are vestigial. Removing them is a reducer-signature change: it requires regenerated bindings and a matching client, so it belongs in a planned release, not a hotfix.
+
+### Boss combat ownership (client-sided)
+
+`PERSONAL_BOSS_COMBAT` in `shared/personal-bosses.ts` is `true`. Boss combat runs locally in `src/game/runtime/personal-bosses.ts`, which owns HP, alive/dead state, respawn timing, and the defeat result. The client reports only the completed defeat through `recordRegularEnemyDefeat`.
+
+Consequences to keep in mind before changing boss code:
+
+- The server's shared-boss surface is installed but unreached: the per-species `damage*FromPosition` reducers, the `respawn*` reducers and their scheduled tables, and the `*_boss` / `*_contribution` / `*_attack_window` / `*_result` table sets. The `boss:` subscription scope is never requested (`subscribeBosses` is hardcoded `false`), so those tables never deliver rows.
+- `reward*Contributor` and `applyBossRepeatableReward` are **not** dead. They still carry live reward logic reached through `shardRewardHandlers` from `recordEnemyDefeats` and `deliverShardReward`. Preserve them through any cleanup.
+- Schema tables are retained deliberately, not by oversight. `boss_attack_frame`, `boss_defeat_window`, `boss_map_defeat_window`, and the legacy procedural boss tables are inert because removing a populated table needs a destructive publish. See `docs/legacy-cleanup-audit-2026-08-30.md`.
+- Removing the dead reducers is a schema change that must go through the prepared rollout path with a `Compatible` preflight — never `release:live`.
 
 ### Next architectural work
 
@@ -57,6 +76,33 @@ Keep static definitions and pure calculations outside `main.ts`. `main.ts` is a 
 2. Split `spacetimedb/src/index.ts` by table/reducer domain where the SpacetimeDB module toolchain permits it: identity/profile, presence, progression, chat, and duels.
 3. Consider splitting the base-subscription registry into gameplay and account/UI ownership modules only if both still share one hydration boundary and preserve the SDK initial-callback suppression rule.
 4. Add automated tests for reset/account migration, identity-scoped pending saves, scheduled research repair, subscription cancellation, projectile collision, and boss hitbox range.
+
+### Known server costs (measured 2026-09-20)
+
+Measured against live Maincloud while the world held 268 players. Recorded so
+the next person starts from numbers rather than guesses.
+
+1. **Invisible players hold shard slots.** `assignMapShard` runs before any
+   visibility check, so a player with multiplayer off still occupies a slot and
+   a shard connection. Sampled occupancy: cloudspire 20 occupants / 1 visible,
+   advanced_lava_wastes 19 / 1, moonfen 19 / 1, beginner_desert 18 / 4 — roughly
+   90% of capacity held by players who can neither see nor be seen. This is why
+   the fleet needs so many shards for so few interacting players, and it is the
+   largest remaining cost. It is also the riskiest change: shard assignment
+   caused an outage on 2026-09-19, so treat it as its own piece of work.
+2. **`player_name_tag` is subscribed whole and unfiltered** in the base
+   subscription. It grows with every player who has ever set a guild or dev tag
+   and is scoped to neither the current map nor visible players.
+3. **`publishMapFrames` reads every `playerMotion` row** when any map has two or
+   more visible players. Measured as negligible — at most 20 rows at 1 Hz per
+   shard, and the shard only publishes while two players can see each other. The
+   comment in place already rejects an index here; adding one would cost writes
+   on a hot table to save nothing. Do not "fix" it without new measurements.
+
+What the eye already sheds, for reference: live steering collapses to one packet
+per 30 seconds, the motion-interest row is deleted, detail-frame publishing stops
+re-arming, the remote subscriptions are released, and `set_speed` is held until
+presence returns.
 
 ### Quality improvements
 
