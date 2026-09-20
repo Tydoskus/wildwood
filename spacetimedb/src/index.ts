@@ -5890,6 +5890,9 @@ function transitionPlayerMap(
     ctx.db.playerMotionInterest.identity.delete(current.identity);
   }
   const currentMotion = ctx.db.playerMotion.identity.find(current.identity);
+  // Rows read once here and handed to the presence helpers; each host call is paid for.
+  const runtime = ctx.db.shardRuntime.id.find(0), sharded = runtime?.role === "root" && runtime.enabled;
+  const member = sharded ? ctx.db.mapShardMember.identity.find(current.identity) : undefined;
   const nextPlayer = {
     ...current,
     mapId,
@@ -5907,11 +5910,12 @@ function transitionPlayerMap(
     lastInputAt: ctx.timestamp,
   };
   updateSnapshotRow(ctx, "player", nextPlayer);
-  syncPlayerMotion(ctx, nextPlayer);
-  syncPlayerMotionIdentity(ctx, nextPlayer);
+  const motion = syncPlayerMotion(ctx, nextPlayer, { sharded, motion: currentMotion });
+  syncPlayerMotionIdentity(ctx, nextPlayer, sharded ? { sharded, motion, member } : { sharded, motion });
   syncPlayerMapMarker(ctx, nextPlayer, true);
   ensureRealtimeFrameSchedules(ctx);
-  if (!isMapShard(ctx)) { pinMapBalance(ctx, mapId); beginBossTimeBudget(ctx, mapId); }
+  // Home has no enemies: nothing reads a pin there, and the old pin still fits on the way back.
+  if (runtime?.role !== "map") { if (mapId !== HOME_EXTERIOR_MAP_ID) pinMapBalance(ctx, mapId); beginBossTimeBudget(ctx, mapId); }
   return nextPlayer;
 }
 
@@ -5923,6 +5927,8 @@ export const changeMap = spacetimedb.reducer(
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish the duel before using a portal.");
     if (mapId === HOME_EXTERIOR_MAP_ID) {
       if (current.hp <= 0) throw new SenderError("Respawn before teleporting home.");
+      // Leaving Home on a sharded root persists the location while seating the player.
+      const persisted = current.mapId === HOME_EXTERIOR_MAP_ID && rootShardingEnabled(ctx);
       if (current.mapId === HOME_EXTERIOR_MAP_ID) {
         const saved = ctx.db.homeReturnLocation.identity.find(ctx.sender);
         // Recover already-linked accounts whose older client/server omitted
@@ -5945,7 +5951,7 @@ export const changeMap = spacetimedb.reducer(
         else ctx.db.homeReturnLocation.insert(saved);
         transitionPlayerMap(ctx, current, HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN);
       }
-      persistWorldLocation(ctx, ctx.db.player.identity.find(ctx.sender));
+      if (!persisted) persistWorldLocation(ctx, ctx.db.player.identity.find(ctx.sender));
       return;
     }
     if (!VALID_MAP_IDS.has(mapId) || mapId === current.mapId) throw new SenderError("Unsupported map destination.");
@@ -5954,13 +5960,8 @@ export const changeMap = spacetimedb.reducer(
       throw new SenderError("Portal position is outside the world.");
     }
     const currentProgress = ctx.db.playerProgress.identity.find(ctx.sender);
-    if (mapId === BEGINNER_DESERT_MAP_ID) {
-      const progress = ctx.db.playerProgress.identity.find(ctx.sender);
-      if (!progress?.desertUnlocked) throw new SenderError("Defeat the Dragon before entering Beginner Desert.");
-    }
-    if (mapId === INTERMEDIATE_SNOWLANDS_MAP_ID && !currentProgress?.snowlandsUnlocked) {
-      throw new SenderError("Defeat the Desert Spider before entering Intermediate Snowlands.");
-    }
+    if (mapId === BEGINNER_DESERT_MAP_ID && !currentProgress?.desertUnlocked) throw new SenderError("Defeat the Dragon before entering Beginner Desert.");
+    if (mapId === INTERMEDIATE_SNOWLANDS_MAP_ID && !currentProgress?.snowlandsUnlocked) throw new SenderError("Defeat the Desert Spider before entering Intermediate Snowlands.");
     if (mapId === ADVANCED_LAVA_WASTES_MAP_ID && !currentProgress?.lavaUnlocked) {
       throw new SenderError(`Defeat Frostclaw before entering ${MAP_DISPLAY_NAMES[ADVANCED_LAVA_WASTES_MAP_ID]}.`);
     }
@@ -5981,7 +5982,6 @@ export const changeMap = spacetimedb.reducer(
     }
     if (mapId === CLOCKWORK_RUINS_MAP_ID && !currentProgress?.clockworkRuinsUnlocked) {
       throw new SenderError(`Defeat Prismshell before entering ${MAP_DISPLAY_NAMES[CLOCKWORK_RUINS_MAP_ID]}.`);
-
     } else if (mapId === ION_CITADEL_MAP_ID && !currentProgress?.ionCitadelUnlocked) {
       throw new SenderError(`Defeat Gravebloom before entering ${MAP_DISPLAY_NAMES[ION_CITADEL_MAP_ID]}.`);
     } else if (mapId === VERDANT_CATACOMBS_MAP_ID && !currentProgress?.verdantCatacombsUnlocked) {

@@ -98,6 +98,20 @@ the next person starts from numbers rather than guesses.
    shard, and the shard only publishes while two players can see each other. The
    comment in place already rejects an index here; adding one would cost writes
    on a hot table to save nothing. Do not "fix" it without new measurements.
+4. **Reducer compute is paid per database call, not per line of code.** From
+   the dashboard exports on 2026-09-20 (368 online): `change_map` ran 37 times a
+   minute at ~24 ms each and was 30% of all reducer compute; `update_movement_state`
+   ran 600 times a minute at 0.5 ms. A CPU profile of the module code for a map
+   change is under 10 µs, and its rows are under 1 KB, so the difference is the
+   45–50 host calls a change made versus a handful. About a third of those were
+   the same row read again (`shard_runtime` five times, the shard membership
+   four, the motion row four). `transitionPlayerMap` now reads each once and
+   hands them to the presence and sharding helpers through their optional
+   `known` argument, Home no longer rewrites the 1.7 KB balance pin on either
+   leg, and schedule existence checks use `count()` instead of a scan.
+   `change-map-host-calls.test.ts` holds the count at 37 (Home toggle) and 42
+   (portal). Connect (`enter_world_with_tutorial`, ~100 ms) and disconnect
+   (~75 ms) are the next targets by the same measure; count their calls first.
 
 What the eye already sheds, for reference: live steering collapses to one packet
 per 30 seconds, the motion-interest row is deleted, detail-frame publishing stops

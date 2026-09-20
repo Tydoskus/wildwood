@@ -132,9 +132,10 @@ export function adjustPlayerMotionMapState(ctx: any, mapId: string, playerDelta:
   else ctx.db.playerMotionMapState.insert(next);
 }
 
-export function syncPlayerMotion(ctx: any, activePlayer: any) {
-  if (rootShardingEnabled(ctx) && activePlayer.mapId !== HOME_EXTERIOR_MAP_ID) return { ...activePlayer, networkId: 0 };
-  const current = ctx.db.playerMotion.identity.find(activePlayer.identity);
+/** `known` rows were read by the caller in this transaction; see assignMapShard. */
+export function syncPlayerMotion(ctx: any, activePlayer: any, known?: { sharded?: boolean; motion?: any }) {
+  if ((known?.sharded ?? rootShardingEnabled(ctx)) && activePlayer.mapId !== HOME_EXTERIOR_MAP_ID) return { ...activePlayer, networkId: 0 };
+  const current = known && "motion" in known ? known.motion : ctx.db.playerMotion.identity.find(activePlayer.identity);
   const moving = Boolean(activePlayer.moving);
   const isVisible = activePlayer.mapId !== HOME_EXTERIOR_MAP_ID && activePlayer.isVisible !== false;
   const hasStoredVelocity = Number.isFinite(activePlayer.vx) && Number.isFinite(activePlayer.vy) && (
@@ -183,18 +184,26 @@ export function syncPlayerMotion(ctx: any, activePlayer: any) {
   return stored;
 }
 
-export function syncPlayerMotionIdentity(ctx: any, activePlayer: any) {
-  if (activePlayer?.mapId === HOME_EXTERIOR_MAP_ID) releaseMapShard(ctx, activePlayer.identity);
-  if (rootShardingEnabled(ctx) && activePlayer?.mapId !== HOME_EXTERIOR_MAP_ID) {
-    const member = activePlayer && ctx.db.mapShardMember.identity.find(activePlayer.identity);
-    if (activePlayer && (!member || member.mapId !== activePlayer.mapId)) persistWorldLocation(ctx, activePlayer);
-    assignMapShard(ctx, activePlayer);
-    return;
+/**
+ * Returns whether the player's world location was persisted here, so a caller
+ * that would otherwise persist it again can skip the second round trip.
+ * `known` rows were read by the caller in this transaction; see assignMapShard.
+ */
+export function syncPlayerMotionIdentity(ctx: any, activePlayer: any, known?: { sharded?: boolean; motion?: any; member?: any }) {
+  const knownMember = known && "member" in known;
+  if (activePlayer?.mapId === HOME_EXTERIOR_MAP_ID) releaseMapShard(ctx, activePlayer.identity, knownMember ? known.member : undefined);
+  const sharded = known?.sharded ?? rootShardingEnabled(ctx);
+  if (sharded && activePlayer?.mapId !== HOME_EXTERIOR_MAP_ID) {
+    const member = activePlayer && (knownMember ? known.member : ctx.db.mapShardMember.identity.find(activePlayer.identity));
+    const persistedLocation = Boolean(activePlayer && (!member || member.mapId !== activePlayer.mapId));
+    if (persistedLocation) persistWorldLocation(ctx, activePlayer);
+    assignMapShard(ctx, activePlayer, undefined, { sharded, member });
+    return { persistedLocation };
   }
-  if (!activePlayer) return;
-  const motion = ctx.db.playerMotion.identity.find(activePlayer.identity) ?? syncPlayerMotion(ctx, activePlayer);
+  if (!activePlayer) return { persistedLocation: false };
+  const motion = (known && "motion" in known ? known.motion : null) ?? ctx.db.playerMotion.identity.find(activePlayer.identity) ?? syncPlayerMotion(ctx, activePlayer);
   const profile = ctx.db.playerProfile.identity.find(activePlayer.identity);
-  if (!profile) return;
+  if (!profile) return { persistedLocation: false };
   const current = ctx.db.playerMotionIdentity.identity.find(activePlayer.identity);
   const next = {
     networkId: motion.networkId,
@@ -219,12 +228,12 @@ export function syncPlayerMotionIdentity(ctx: any, activePlayer: any) {
   };
   if (!current) {
     ctx.db.playerMotionIdentity.insert(next);
-    return;
+    return { persistedLocation: false };
   }
   if (current.networkId !== next.networkId) {
     ctx.db.playerMotionIdentity.networkId.delete(current.networkId);
     ctx.db.playerMotionIdentity.insert(next);
-    return;
+    return { persistedLocation: false };
   }
   if (
     current.mapId !== next.mapId ||
@@ -243,6 +252,7 @@ export function syncPlayerMotionIdentity(ctx: any, activePlayer: any) {
     current.rightHandItem !== next.rightHandItem ||
     current.leftHandItem !== next.leftHandItem
   ) ctx.db.playerMotionIdentity.networkId.update(next);
+  return { persistedLocation: false };
 }
 
 export function hasSharedMap(ctx: any) {
@@ -252,19 +262,19 @@ export function hasSharedMap(ctx: any) {
   return false;
 }
 
+// Existence checks use count(): a scan deserialises every row it touches, a
+// count answers without reading any.
 export function ensureMotionDetailFrameSchedule(ctx: any) {
-  for (const _schedule of ctx.db.motionDetailFrameSchedule.iter()) return;
-  for (const _interest of ctx.db.playerMotionInterest.iter()) {
-    ctx.db.motionDetailFrameSchedule.insert({
-      scheduledId: 0n,
-      scheduledAt: ScheduleAt.time(ctx.timestamp.microsSinceUnixEpoch + MOTION_DETAIL_FRAME_INTERVAL_MICROS),
-    });
-    return;
-  }
+  if (Number(ctx.db.motionDetailFrameSchedule.count()) > 0) return;
+  if (Number(ctx.db.playerMotionInterest.count()) === 0) return;
+  ctx.db.motionDetailFrameSchedule.insert({
+    scheduledId: 0n,
+    scheduledAt: ScheduleAt.time(ctx.timestamp.microsSinceUnixEpoch + MOTION_DETAIL_FRAME_INTERVAL_MICROS),
+  });
 }
 
 export function ensureMapFrameSchedule(ctx: any) {
-  for (const _schedule of ctx.db.mapFrameSchedule.iter()) return;
+  if (Number(ctx.db.mapFrameSchedule.count()) > 0) return;
   if (!hasSharedMap(ctx)) return;
   ctx.db.mapFrameSchedule.insert({
     scheduledId: 0n,

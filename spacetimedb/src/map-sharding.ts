@@ -53,8 +53,11 @@ export function rootShardingEnabled(ctx: any) {
   return runtime?.role === "root" && runtime.enabled;
 }
 export function isMapShard(ctx: any) { return ctx.db.shardRuntime.id.find(0)?.role === "map"; }
-function wakeShard(ctx: any, shardId: bigint) {
-  if (shardId && ctx.db.shardCoordinatorConnection.id.find(0) && !ctx.db.shardCoordinatorSchedule.scheduledId.find(shardId)) {
+// Callers that touch several shards in one transaction pass one memoised
+// coordinator lookup, so the row is read once per reducer instead of per shard.
+function wakeShard(ctx: any, shardId: bigint, coordinatorConnected?: () => boolean) {
+  if (shardId && (coordinatorConnected ? coordinatorConnected() : ctx.db.shardCoordinatorConnection.id.find(0))
+    && !ctx.db.shardCoordinatorSchedule.scheduledId.find(shardId)) {
     ctx.db.shardCoordinatorSchedule.insert({ scheduledId: shardId, scheduledAt: ScheduleAt.interval(1_000_000n) });
   }
   const state = ctx.db.shardSyncState.shardId.find(shardId);
@@ -63,8 +66,8 @@ function wakeShard(ctx: any, shardId: bigint) {
 function candidates(ctx: any, mapId: string) {
   return [...ctx.db.mapShard.byMap.filter(mapId)].map((row: any) => ({ ...row, id: String(row.id) }));
 }
-export function warmMapShard(ctx: any, mapId: string) {
-  if (!shouldWarmMapShard(candidates(ctx, mapId), mapId)) return;
+export function warmMapShard(ctx: any, mapId: string, known?: ReturnType<typeof candidates>) {
+  if (!shouldWarmMapShard(known ?? candidates(ctx, mapId), mapId)) return;
   const row = ctx.db.mapShard.insert({ id: 0n, mapId, databaseName: "", state: "starting", occupants: 0 });
   const root = ctx.databaseIdentity ?? ctx.identity;
   ctx.db.mapShard.id.update({ ...row, databaseName: `wildstat-${root.toHexString().slice(-12)}-map-${row.id}` });
@@ -72,13 +75,14 @@ export function warmMapShard(ctx: any, mapId: string) {
     ctx.db.shardCoordinatorSchedule.insert({ scheduledId: row.id, scheduledAt: ScheduleAt.interval(1_000_000n) });
   }
 }
-export function releaseMapShard(ctx: any, identity: any) {
-  const member = ctx.db.mapShardMember.identity.find(identity);
+export function releaseMapShard(ctx: any, identity: any, member = ctx.db.mapShardMember.identity.find(identity), coordinatorConnected?: () => boolean) {
   if (!member) return;
   const shard = ctx.db.mapShard.id.find(member.shardId);
   if (shard) ctx.db.mapShard.id.update({ ...shard, occupants: Math.max(0, shard.occupants - 1) });
-  wakeShard(ctx, member.shardId);
-  if (member.shardId !== 0n && ctx.db.shardCoordinatorConnection.id.find(0)) {
+  let coordinator: boolean | undefined;
+  const connected = coordinatorConnected ?? (() => coordinator ??= Boolean(ctx.db.shardCoordinatorConnection.id.find(0)));
+  wakeShard(ctx, member.shardId, connected);
+  if (member.shardId !== 0n && connected()) {
     const barrier = { identity, shardId: member.shardId, generation: member.generation,
       // Longer than the regional lease plus the bounded HTTP request lifetime.
       expiresAt: ctx.timestamp.microsSinceUnixEpoch + 65_000_000n };
@@ -91,18 +95,28 @@ export function releaseMapShard(ctx: any, identity: any) {
   ctx.db.shardSnapshotState.identity.delete(identity);
   ctx.db.mapShardMember.identity.delete(identity);
 }
-export function assignMapShard(ctx: any, player: any, preferredShardId?: bigint) {
-  if (!rootShardingEnabled(ctx) || !player) return;
-  if (player.mapId === HOME_EXTERIOR_MAP_ID) { releaseMapShard(ctx, player.identity); return; }
-  const current = ctx.db.mapShardMember.identity.find(player.identity);
+/**
+ * `known` carries rows the caller already read in this transaction (the shard
+ * runtime flag and the player's membership). Each key is optional and, when
+ * present, is taken as the current value even if null; absent keys are read
+ * here. Every host call is paid for, so a map change reads each row once.
+ */
+export function assignMapShard(ctx: any, player: any, preferredShardId?: bigint, known?: { sharded?: boolean; member?: any }) {
+  if (!(known?.sharded ?? rootShardingEnabled(ctx)) || !player) return;
+  const current = known && "member" in known ? known.member : ctx.db.mapShardMember.identity.find(player.identity);
+  let coordinator: boolean | undefined;
+  const connected = () => coordinator ??= Boolean(ctx.db.shardCoordinatorConnection.id.find(0));
+  if (player.mapId === HOME_EXTERIOR_MAP_ID) { releaseMapShard(ctx, player.identity, current, connected); return; }
   if (current?.mapId === player.mapId && current.shardId !== 0n
     && (preferredShardId === undefined || current.shardId === preferredShardId)) return;
   const preferred = preferredShardId === undefined ? null : ctx.db.mapShard.id.find(preferredShardId);
   if (preferredShardId !== undefined && (!preferred || preferred.mapId !== player.mapId || preferred.state !== "ready"))
     throw new SenderError("Player's map is changing. Try again.");
   if (preferred && preferred.occupants >= MAP_SHARD_CAPACITY) throw new SenderError("Player's map instance is full.");
-  if (current && (current.mapId !== player.mapId || preferredShardId !== undefined)) releaseMapShard(ctx, player.identity);
-  const chosen = preferred ?? selectMapShard(candidates(ctx, player.mapId), player.mapId);
+  const released = Boolean(current && (current.mapId !== player.mapId || preferredShardId !== undefined));
+  if (released) releaseMapShard(ctx, player.identity, current, connected);
+  const shards = candidates(ctx, player.mapId);
+  const chosen = preferred ?? selectMapShard(shards, player.mapId);
   const member = {
     identity: player.identity, mapId: player.mapId, shardId: chosen ? BigInt(chosen.id) : 0n,
     generation: current?.mapId === player.mapId && preferredShardId === undefined ? current.generation : ctx.timestamp.microsSinceUnixEpoch,
@@ -111,12 +125,16 @@ export function assignMapShard(ctx: any, player: any, preferredShardId?: bigint)
   if (chosen) {
     const row = ctx.db.mapShard.id.find(BigInt(chosen.id));
     if (row.occupants >= MAP_SHARD_CAPACITY) throw new SenderError("Map shard is full");
-    ctx.db.mapShard.id.update({ ...row, occupants: row.occupants + 1 });
-    wakeShard(ctx, row.id);
+    const next = { ...row, occupants: row.occupants + 1 };
+    ctx.db.mapShard.id.update(next);
+    wakeShard(ctx, row.id, connected);
+    // The warm check sees the seat just taken, as it did when it re-read the table.
+    const i = shards.findIndex(shard => shard.id === String(row.id));
+    if (i >= 0) shards[i] = { ...next, id: String(next.id) };
   }
-  if (ctx.db.mapShardMember.identity.find(player.identity)) ctx.db.mapShardMember.identity.update(member);
+  if (current && !released) ctx.db.mapShardMember.identity.update(member);
   else ctx.db.mapShardMember.insert(member);
-  warmMapShard(ctx, player.mapId);
+  warmMapShard(ctx, player.mapId, shards);
 }
 export function validateShardMap(mapId: string) {
   if (!MAP_IDS.includes(mapId) && !isProceduralMap(mapId)) throw new SenderError("Unknown shard map");
