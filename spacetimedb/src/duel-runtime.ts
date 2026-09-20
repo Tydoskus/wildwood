@@ -247,8 +247,10 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your current duel first.");
 
     const cooldown = ctx.db.duelRequestCooldown.identity.find(ctx.sender);
-    const cooldownElapsed = cooldown
-      ? ctx.timestamp.microsSinceUnixEpoch - cooldown.requestedAt.microsSinceUnixEpoch
+    // ctx is untyped here, and `any - bigint` infers as number; both operands
+    // are bigints at runtime, so say so rather than let the branch widen.
+    const cooldownElapsed: bigint = cooldown
+      ? (ctx.timestamp.microsSinceUnixEpoch as bigint) - (cooldown.requestedAt.microsSinceUnixEpoch as bigint)
       : DUEL_REQUEST_COOLDOWN_MICROS;
     if (cooldownElapsed < DUEL_REQUEST_COOLDOWN_MICROS) {
       const remainingSeconds = Number((DUEL_REQUEST_COOLDOWN_MICROS - cooldownElapsed + 999_999n) / 1_000_000n);
