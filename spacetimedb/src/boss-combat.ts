@@ -108,7 +108,7 @@ import { PERSONAL_BOSS_COMBAT } from "../../shared/personal-bosses";
 import { PLAYER_GENDER_UNSET } from "../../shared/player-gender";
 import { applyEnemyRewards } from "../../shared/enemy-defeats";
 import { isProceduralMap, proceduralMapCore } from "../../shared/procedural-maps";
-import { researchStatRewardMultiplier } from "../../shared/research";
+import { statRewardMultiplier } from "./prestige";
 import { pinnedBossReward } from "./map-balance";
 import { isMapShard, queueShardReward } from "./map-sharding";
 import { damageProceduralBoss, proceduralBossKey } from "./procedural-maps";
@@ -249,7 +249,7 @@ export function createBossCombat(deps: BossCombatDeps) {
     const saved = ctx.db.playerProgress.identity.find(ctx.sender);
     if (!saved) return { dps: 0, attackInterval: 1 };
     const research = ctx.db.playerResearch.identity.find(ctx.sender);
-    const progress = earned.length ? applyEnemyRewards(saved, earned, researchStatRewardMultiplier(research)) : saved;
+    const progress = earned.length ? applyEnemyRewards(saved, earned, statRewardMultiplier(ctx, ctx.sender)) : saved;
     const weapon = equippedRightHandForProgress(progress) || equippedLeftHandForProgress(progress);
     const attackInterval = attackIntervalForProgress(progress);
     if (!weapon) return { dps: 0, attackInterval, projectiles: 1 };
@@ -591,7 +591,7 @@ export function createBossCombat(deps: BossCombatDeps) {
     if (queueShardReward(ctx, identity, "spider")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
-    const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+    const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.spider, rewardMultiplier, {
       damage: pinnedBossReward(ctx, identity, "beginner_desert", "damage", SPIDER_REWARD_DAMAGE),
       maxHp: pinnedBossReward(ctx, identity, "beginner_desert", "health", SPIDER_REWARD_HEALTH),
@@ -654,7 +654,7 @@ export function createBossCombat(deps: BossCombatDeps) {
     if (queueShardReward(ctx, identity, "frostclaw")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
-    const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+    const rewardMultiplier = statRewardMultiplier(ctx, identity);
     // Each boss item owns an independent roll, even when the player already has
     // that item. Successful duplicates become an explicit "Already owned" event.
     const frostBowDropped = ctx.random.integerInRange(1, SNOW_BOSS_ITEM_DROP_DENOMINATOR) === 1;
@@ -733,7 +733,7 @@ export function createBossCombat(deps: BossCombatDeps) {
     if (queueShardReward(ctx, identity, "magmalisk")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
-    const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+    const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const lavaBowDropped = ctx.random.integerInRange(1, LAVA_BOSS_ITEM_DROP_DENOMINATOR) === 1;
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.magmalisk, rewardMultiplier, {
       damage: pinnedBossReward(ctx, identity, "advanced_lava_wastes", "damage", MAGMALISK_REWARD_DAMAGE),
@@ -805,7 +805,7 @@ export function createBossCombat(deps: BossCombatDeps) {
     if (queueShardReward(ctx, identity, "gloomroot")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
-    const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+    const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.gloomroot, rewardMultiplier, {
       damage: pinnedBossReward(ctx, identity, "infernal_depths", "damage", GLOOMROOT_REWARD_DAMAGE),
       maxHp: pinnedBossReward(ctx, identity, "infernal_depths", "health", GLOOMROOT_REWARD_HEALTH),
@@ -948,7 +948,7 @@ export function createBossCombat(deps: BossCombatDeps) {
     if (queueShardReward(ctx, identity, "tidewyrm")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
-    const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+    const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.tidewyrm, rewardMultiplier, {
       damage: pinnedBossReward(ctx, identity, "water_reach", "damage", TIDEWYRM_REWARD_DAMAGE),
       maxHp: pinnedBossReward(ctx, identity, "water_reach", "health", TIDEWYRM_REWARD_HEALTH),
@@ -972,7 +972,7 @@ export function createBossCombat(deps: BossCombatDeps) {
     if (queueShardReward(ctx, identity, "koiShogun")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
-    const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+    const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.koiShogun, rewardMultiplier, {
       damage: pinnedBossReward(ctx, identity, "samurai_garden", "damage", KOI_SHOGUN_REWARD_DAMAGE),
       maxHp: pinnedBossReward(ctx, identity, "samurai_garden", "health", KOI_SHOGUN_REWARD_HEALTH),
@@ -996,7 +996,7 @@ export function createBossCombat(deps: BossCombatDeps) {
     if (queueShardReward(ctx, identity, "tempestKirin")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
-    const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+    const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.tempestKirin, rewardMultiplier, {
       damage: pinnedBossReward(ctx, identity, "cloudspire", "damage", TEMPEST_KIRIN_REWARD_DAMAGE),
       maxHp: pinnedBossReward(ctx, identity, "cloudspire", "health", TEMPEST_KIRIN_REWARD_HEALTH),
@@ -1020,7 +1020,7 @@ export function createBossCombat(deps: BossCombatDeps) {
     if (queueShardReward(ctx, identity, "miremaw")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
-    const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+    const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.miremaw, rewardMultiplier, {
       damage: pinnedBossReward(ctx, identity, "moonfen", "damage", MIREMAW_REWARD_DAMAGE),
       maxHp: pinnedBossReward(ctx, identity, "moonfen", "health", MIREMAW_REWARD_HEALTH),
@@ -1043,7 +1043,7 @@ export function createBossCombat(deps: BossCombatDeps) {
     if (queueShardReward(ctx, identity, "prismshell")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
-    const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+    const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.prismshell, rewardMultiplier, {
       damage: pinnedBossReward(ctx, identity, "crystal_hollows", "damage", PRISMSHELL_REWARD_DAMAGE),
       maxHp: pinnedBossReward(ctx, identity, "crystal_hollows", "health", PRISMSHELL_REWARD_HEALTH),
@@ -1066,7 +1066,7 @@ export function createBossCombat(deps: BossCombatDeps) {
     if (queueShardReward(ctx, identity, "ironhorn")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
-    const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+    const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.ironhorn, rewardMultiplier, {
       damage: pinnedBossReward(ctx, identity, "clockwork_ruins", "damage", IRONHORN_REWARD_DAMAGE),
       maxHp: pinnedBossReward(ctx, identity, "clockwork_ruins", "health", IRONHORN_REWARD_HEALTH),
@@ -1089,7 +1089,7 @@ export function createBossCombat(deps: BossCombatDeps) {
     if (queueShardReward(ctx, identity, "dreadreaper")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
-    const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+    const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.dreadreaper, rewardMultiplier, {
       damage: pinnedBossReward(ctx, identity, "duskfall_orchard", "damage", DREADREAPER_REWARD_DAMAGE),
       maxHp: pinnedBossReward(ctx, identity, "duskfall_orchard", "health", DREADREAPER_REWARD_HEALTH),
@@ -1112,7 +1112,7 @@ export function createBossCombat(deps: BossCombatDeps) {
     if (queueShardReward(ctx, identity, "voltwarden")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
-    const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+    const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.voltwarden, rewardMultiplier, {
       damage: pinnedBossReward(ctx, identity, "neon_bastion", "damage", VOLTWARDEN_REWARD_DAMAGE),
       maxHp: pinnedBossReward(ctx, identity, "neon_bastion", "health", VOLTWARDEN_REWARD_HEALTH),
@@ -1135,7 +1135,7 @@ export function createBossCombat(deps: BossCombatDeps) {
     if (queueShardReward(ctx, identity, "gravebloom")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
-    const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+    const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.gravebloom, rewardMultiplier, {
       damage: pinnedBossReward(ctx, identity, "verdant_catacombs", "damage", GRAVEBLOOM_REWARD_DAMAGE),
       maxHp: pinnedBossReward(ctx, identity, "verdant_catacombs", "health", GRAVEBLOOM_REWARD_HEALTH),
@@ -1158,7 +1158,7 @@ export function createBossCombat(deps: BossCombatDeps) {
     if (queueShardReward(ctx, identity, "aegisPrime")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
-    const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+    const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.aegisPrime, rewardMultiplier, {
       damage: pinnedBossReward(ctx, identity, "ion_citadel", "damage", AEGIS_PRIME_REWARD_DAMAGE),
       maxHp: pinnedBossReward(ctx, identity, "ion_citadel", "health", AEGIS_PRIME_REWARD_HEALTH),
@@ -1525,7 +1525,7 @@ export function createBossCombat(deps: BossCombatDeps) {
     if (queueShardReward(ctx, identity, "dragon")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
-    const rewardMultiplier = researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity));
+    const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.dragon, rewardMultiplier, {
       damage: pinnedBossReward(ctx, identity, "tutorial_forest", "damage", DRAGON_REWARD_DAMAGE),
     });
@@ -2637,7 +2637,7 @@ export function createBossCombat(deps: BossCombatDeps) {
       damage:(hits,hp) => bossDamageWithCriticals(ctx, progress, hits, hp, player.mapId, proceduralMapCore(player.mapId).boss),
       reward:(identity,rewards) => {
         const earned = ctx.db.playerProgress.identity.find(identity);
-        if (earned) writeProgressAndPresentation(ctx, applyEnemyRewards(earned, rewards.map(reward => ({ ...reward, count: 1 })), researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity))));
+        if (earned) writeProgressAndPresentation(ctx, applyEnemyRewards(earned, rewards.map(reward => ({ ...reward, count: 1 })), statRewardMultiplier(ctx, identity)));
       },
     });
   }

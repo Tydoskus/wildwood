@@ -39,9 +39,12 @@ describe("server-owned cutscene history wiring", () => {
     const claim = section("function claimGuestAccountFor", "function removeIdentityPresence", lifecycle);
     expect(claim).toContain("accountCutscenes.seenMask | guestCutscenes.seenMask");
     expect(claim).toContain("playerCutsceneHistory.identity.delete(link.guest)");
-    const reset = section("export const resetPlayerProgress =", "function sendPlayerChatMessage");
+    // The reset body is shared by the reset button and by prestige, so the
+    // guarantee is asserted where the body lives, not at the reducer.
+    const reset = section("function resetProgressToDefaults", "export const resetPlayerProgress =");
     expect(reset).toContain("seenMask: 0");
     expect(reset).toContain("generation: history.generation + 1");
+    expect(section("export const prestigeAccount =", "function sendPlayerChatMessage")).toContain("prestige.prestigeAccount(ctx)");
     expect(server.match(/playerCutsceneHistory.identity.delete\(identity\)/g)).toBeNull();
     expect(lifecycle.match(/playerCutsceneHistory.identity.delete\(identity\)/g)).toHaveLength(2);
   });

@@ -32,6 +32,7 @@ import { PLAYER_SKIN_TONES } from "../../shared/player-skin-tones";
 import { leaderboardPageTables, writeLeaderboardPages, readLeaderboardWindow, readLeaderboardPage } from "./leaderboard-pages";
 import { publicChatCursor, updatePublicChatCursor, readPublicChatPage } from "./public-chat-history";
 import { createKillGems } from "./kill-gems";
+import { createPrestige, statRewardMultiplier } from "./prestige";
 import { generateMap, generatedBossStats, isProceduralMap, proceduralMapId, PROCEDURAL_ENTRY_MAP, PROCEDURAL_ENTRY_BOSS } from "../../shared/procedural-maps";
 import { proceduralMapTables, proceduralBossKey, clearProceduralProgress, generatedMapUnlocked, ensureProceduralBoss } from "./procedural-maps";
 import { ingestStoreEvent } from "./gem-store-events";
@@ -62,7 +63,6 @@ import {
   isResearchId,
   researchDurationMs,
   researchPrerequisitesForNextRank,
-  researchStatRewardMultiplier,
   type ResearchId,
 } from "../../shared/research";
 import { VIRTUAL_PLAYER_LIMIT, isVirtualPlayerTicket } from "../../shared/virtual-player-load-test";
@@ -1027,6 +1027,13 @@ const playerEndgameRebaseBackup = table(
 );
 
 // Separate v9 archive: retain the original values even after future migrations.
+// Permanent account bonuses. A prestige reset clears progress and unlocks but
+// never this row: the level multiplies every stat reward a kill grants, and the
+// perk points buy prestige perks. Public like player_progress, read per player.
+const playerPrestige = table({ name: "player_prestige", public: true }, {
+  identity: t.identity().primaryKey(), level: t.u32().default(0), perkPoints: t.u32().default(0),
+  peakPower: t.f64().default(0), prestigedAt: t.timestamp(),
+});
 const playerEndlessRebaseBackup = table({ public: false }, {
   identity: t.identity().primaryKey(),
   maxHp: t.f32(), damage: t.f32(), armor: t.f32(), regen: t.f32(), attackRate: t.f32(),
@@ -1720,6 +1727,7 @@ const spacetimedb = schema({
   playerPowerRebaseBackup,
   playerEndgameRebaseBackup,
   playerEndlessRebaseBackup,
+  playerPrestige,
   developerPresencePreference,
   playerMovementDemand,
   playerAccessAudit,
@@ -5517,7 +5525,7 @@ export const recordEnemyDefeats = spacetimedb.reducer(
     if (!accepted.count) { enforce(); return; }
     const base = ctx.db.playerProgress.identity.find(ctx.sender) ?? defaultPlayerProgress(ctx.sender);
     if (accepted.rewards.some(reward => reward.type !== "boss")) {
-      const next = applyEnemyRewards(base, accepted.rewards, researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(ctx.sender)));
+      const next = applyEnemyRewards(base, accepted.rewards, statRewardMultiplier(ctx, ctx.sender));
       const rewarded = awardRegularEnemyLoot(ctx, batch.mapId, accepted.lootCount, { progress: next });
       updateSnapshotRow(ctx, "playerProgress", rewarded);
       const power = powerFieldsForProgress(ctx, rewarded);
@@ -5538,7 +5546,7 @@ export const recordEnemyDefeats = spacetimedb.reducer(
           const row = { identity: ctx.sender, completed: Math.max(previous?.completed ?? 0, map.number) };
           if (previous) ctx.db.proceduralProgress.identity.update(row); else ctx.db.proceduralProgress.insert(row);
           const progress = ctx.db.playerProgress.identity.find(ctx.sender)!;
-          writeProgressAndPresentation(ctx, applyEnemyRewards(progress, (pinnedMapBalance(ctx, ctx.sender, batch.mapId)?.boss ? Object.entries(pinnedMapBalance(ctx, ctx.sender, batch.mapId)!.boss!.rewards).map(([type, amount]) => ({ type, amount })) : generatedBossStats(map).rewards).map(reward => ({ ...reward, count: 1 })), researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(ctx.sender))));
+          writeProgressAndPresentation(ctx, applyEnemyRewards(progress, (pinnedMapBalance(ctx, ctx.sender, batch.mapId)?.boss ? Object.entries(pinnedMapBalance(ctx, ctx.sender, batch.mapId)!.boss!.rewards).map(([type, amount]) => ({ type, amount })) : generatedBossStats(map).rewards).map(reward => ({ ...reward, count: 1 })), statRewardMultiplier(ctx, ctx.sender)));
         }
       }
     }
@@ -5618,11 +5626,8 @@ export const beginAdventure = spacetimedb.reducer(
   },
 );
 
-export const resetPlayerProgress = spacetimedb.reducer(
-  {},
-  (ctx) => {
-    const activePlayer = requireControllingPlayer(ctx);
-    if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel before resetting progress.");
+/** The whole reset, shared by the player's own reset button and by prestige. */
+function resetProgressToDefaults(ctx: any, activePlayer: any) {
     clearProceduralProgress(ctx, ctx.sender);
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
     const next = defaultPlayerProgress(ctx.sender);
@@ -5661,8 +5666,15 @@ export const resetPlayerProgress = spacetimedb.reducer(
     releaseMapShard(ctx, ctx.sender);
     const respawned = transitionPlayerMap(ctx, nextPlayer, TUTORIAL_FOREST_MAP_ID, PLAYER_SPAWN, 0);
     persistWorldLocation(ctx, respawned);
-  },
-);
+}
+const prestige = createPrestige({ requireControllingPlayer, activeDuelFor, resetProgressToDefaults });
+export const resetPlayerProgress = spacetimedb.reducer({}, (ctx) => {
+  const activePlayer = requireControllingPlayer(ctx);
+  if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel before resetting progress.");
+  resetProgressToDefaults(ctx, activePlayer);
+});
+// Bodies live in prestige.ts; this is the schema-facing declaration.
+export const prestigeAccount = spacetimedb.reducer({}, (ctx) => { prestige.prestigeAccount(ctx); });
 
 function sendPlayerChatMessage(ctx: ModuleReducerCtx, message: string, replyToMessageId = 0n) {
   requireControllingPlayer(ctx);

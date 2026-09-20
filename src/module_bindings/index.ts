@@ -123,6 +123,7 @@ import LeaveGuildReducer from "./leave_guild_reducer";
 import MarkPortalCutsceneSeenReducer from "./mark_portal_cutscene_seen_reducer";
 import PrepareProceduralBossReducer from "./prepare_procedural_boss_reducer";
 import PrepareWorldActionPositionReducer from "./prepare_world_action_position_reducer";
+import PrestigeAccountReducer from "./prestige_account_reducer";
 import PulseDuelReducer from "./pulse_duel_reducer";
 import ReadMailboxLetterReducer from "./read_mailbox_letter_reducer";
 import RecordCombatCheckpointReducer from "./record_combat_checkpoint_reducer";
@@ -284,6 +285,7 @@ import PlayerMotionDetailFrameRow from "./player_motion_detail_frame_table";
 import PlayerMotionFrameRow from "./player_motion_frame_table";
 import PlayerMotionIdentityRow from "./player_motion_identity_table";
 import PlayerNameTagRow from "./player_name_tag_table";
+import PlayerPrestigeRow from "./player_prestige_table";
 import PlayerProfileRow from "./player_profile_table";
 import PlayerProgressRow from "./player_progress_table";
 import PlayerResearchRow from "./player_research_table";
@@ -855,6 +857,17 @@ const tablesSchema = __schema({
       { name: 'player_name_tag_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerNameTagRow),
+  playerPrestige: __table({
+    name: 'player_prestige',
+    indexes: [
+      { accessor: 'identity', name: 'player_prestige_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_prestige_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerPrestigeRow),
   playerProfile: __table({
     name: 'player_profile',
     indexes: [
@@ -1324,6 +1337,7 @@ const reducersSchema = __reducers(
   __reducerSchema("mark_portal_cutscene_seen", MarkPortalCutsceneSeenReducer),
   __reducerSchema("prepare_procedural_boss", PrepareProceduralBossReducer),
   __reducerSchema("prepare_world_action_position", PrepareWorldActionPositionReducer),
+  __reducerSchema("prestige_account", PrestigeAccountReducer),
   __reducerSchema("pulse_duel", PulseDuelReducer),
   __reducerSchema("read_mailbox_letter", ReadMailboxLetterReducer),
   __reducerSchema("record_combat_checkpoint", RecordCombatCheckpointReducer),

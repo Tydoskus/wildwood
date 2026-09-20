@@ -303,6 +303,28 @@ Publishing the server is a separate production operation; pushing `main` only de
   mechanism with its own spec in `boss-defeat-limits.test.ts`. Boss kills are
   reported the moment they happen, so a one-minute bank is honest there.
 
+## Prestige invariants
+
+- Prestige opens when the campaign's last boss is down, the same clearance
+  Endless needs (`prestigeUnlocked`, `shared/prestige.ts`). The client greys the
+  profile button with that one helper; the reducer re-checks it server-side.
+- Prestige performs the ordinary progress reset, unlock flags and Endless
+  progress included, so the next prestige is earned from the forest up. Both the
+  reset button and prestige call `resetProgressToDefaults` in the server entry;
+  changes to what a reset clears belong there and apply to both.
+- `player_prestige` survives that reset. Nothing else may be added to the reset
+  that would clear it.
+- The level multiplies every stat reward a kill grants, through
+  `statRewardMultiplier` in `spacetimedb/src/prestige.ts`. That helper is the
+  only caller of `researchStatRewardMultiplier` on the server: use it for any
+  new reward path, or prestige silently stops applying there.
+- The server's projection of a claim's rewards uses the same helper, so a
+  prestiged player's kill claims are bounded with the bonus included. A reward
+  multiplier that skips it would clip the most invested players and write review
+  flags against them. See **Kill claim invariants** above.
+- Perk points are banked one per level. Spending them is not implemented yet;
+  the column exists so the first prestige already pays one.
+
 ## Guild name invariants
 
 - A guild's name is its four-letter tag, so `create` runs the display-name

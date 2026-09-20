@@ -1723,6 +1723,15 @@ export const PlayerPowerRebaseBackup = __t.object("PlayerPowerRebaseBackup", {
 });
 export type PlayerPowerRebaseBackup = __Infer<typeof PlayerPowerRebaseBackup>;
 
+export const PlayerPrestige = __t.object("PlayerPrestige", {
+  identity: __t.identity(),
+  level: __t.u32(),
+  perkPoints: __t.u32(),
+  peakPower: __t.f64(),
+  prestigedAt: __t.timestamp(),
+});
+export type PlayerPrestige = __Infer<typeof PlayerPrestige>;
+
 export const PlayerProfile = __t.object("PlayerProfile", {
   identity: __t.identity(),
   displayName: __t.string(),
