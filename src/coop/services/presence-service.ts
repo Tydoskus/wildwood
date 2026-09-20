@@ -246,6 +246,8 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   let missingMotionDetailSince: number | null = null;
   let lastMotionDetailRecoveryAt = Number.NEGATIVE_INFINITY;
   let lastSentMovement: SentMovementState | null = null;
+  // Held while the eye is off; flushed the moment presence returns.
+  let deferredSpeed: number | null = null;
   let nextPositionSequence = 0;
   let localSimulationTick = 0;
   let localMotionEpoch = 0;
@@ -862,6 +864,28 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     });
   }
 
+  /** Reports whether the speed reached the wire, so a held one can be retried. */
+  function syncSpeed(speed: number): boolean {
+    if (
+      dependencies.reducers.protocolBlocked() ||
+      dependencies.reducers.worldEntryBlocked() ||
+      !dependencies.reducers.connection()
+    ) return false;
+    // A hidden player's stored speed is read only by movement validation, which
+    // allows the highest of the stored and progress-derived speeds. Holding it
+    // therefore cannot manufacture a violation, and it keeps equipment and
+    // combat churn off the wire for an invisible farmer.
+    if (dependencies.multiplayerEnabled?.() === false) { deferredSpeed = speed; return false; }
+    if (!speedSyncTracker.begin(speed, performance.now())) return false;
+    dependencies.reducers.sendReducer(
+      "speed sync",
+      (connection) => connection.reducers.setSpeed({ speed }),
+      () => speedSyncTracker.reject(speed, performance.now()),
+      () => speedSyncTracker.accept(speed, performance.now()),
+    );
+    return true;
+  }
+
   function syncMovementState(
     x: number,
     y: number,
@@ -877,6 +901,10 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     // Kept in the public signature for the renderer boundary; presentation is
     // stable for the whole map and no longer churns subscriptions with camera motion.
     void interestArea;
+    // The tracker makes a speed settle before sending, so a held one is offered
+    // each frame until it lands rather than dropped on the first refusal.
+    if (deferredSpeed !== null && dependencies.multiplayerEnabled?.() !== false
+      && syncSpeed(deferredSpeed)) deferredSpeed = null;
     const now = performance.now();
     const velocity = sanitizeMovementVelocity(vx, vy);
     if (!movementUpdateReason({ now, velocity, inputKind, lastSent: lastSentMovement, force,
@@ -947,20 +975,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       },
       releaseWindow: () => releaseWindow,
       localState: () => localState,
-      syncSpeed(speed: number) {
-        if (
-          dependencies.reducers.protocolBlocked() ||
-          dependencies.reducers.worldEntryBlocked() ||
-          !dependencies.reducers.connection() ||
-          !speedSyncTracker.begin(speed, performance.now())
-        ) return;
-        dependencies.reducers.sendReducer(
-          "speed sync",
-          (connection) => connection.reducers.setSpeed({ speed }),
-          () => speedSyncTracker.reject(speed, performance.now()),
-          () => speedSyncTracker.accept(speed, performance.now()),
-        );
-      },
+      syncSpeed,
       syncMovementState,
       correctMovementPosition(x: number, y: number, stop = false) {
         if (stop) advanceLocalMotionEpoch();

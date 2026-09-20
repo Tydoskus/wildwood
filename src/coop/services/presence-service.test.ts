@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { Identity } from "spacetimedb";
 import { bossTargetsFromMapSamples, createPresenceService } from "./presence-service";
+import { SPEED_SYNC_HOLD_MS } from "./speed-sync";
 
 describe("boss presence targets", () => {
   it("uses the live local position when the solo map snapshot has gone idle", () => {
@@ -147,4 +148,37 @@ it("defaults to no remote subscriptions and fences late data when visibility is 
   expect(setPlayerMotionInterest).toHaveBeenCalledTimes(3);
   presence.api.setRemotePlayersVisible(true);
   expect(subscriptions).toHaveLength(4);
+});
+
+it("holds speed changes off the wire while the eye is off and flushes once presence returns", () => {
+  const identity = new Identity("1".repeat(64));
+  const sent: string[] = [];
+  let multiplayerEnabled = false;
+  const presence = createPresenceService({
+    localIdentity: () => identity.toHexString(), localDbIdentity: () => identity,
+    multiplayerEnabled: () => multiplayerEnabled,
+    reducers: {
+      connection: () => ({ isActive: true, reducers: { setSpeed() {}, updateMovementState() {} } }),
+      protocolBlocked: () => false, worldEntryBlocked: () => false,
+      sendReducer: (label: string) => { sent.push(label); },
+    },
+    changes: { notify() {}, batch: (fn: () => void) => fn() },
+  } as any);
+
+  // An invisible farmer changing equipment must not pay for a reducer call.
+  presence.api.syncSpeed(205);
+  presence.api.syncSpeed(230);
+  expect(sent).toEqual([]);
+
+  // Turning the eye back on restores the server's stored speed once the value
+  // has settled, and keeps offering it until then rather than dropping it.
+  multiplayerEnabled = true;
+  const start = performance.now();
+  vi.spyOn(performance, "now").mockReturnValue(start);
+  presence.api.syncMovementState(100, 100, 0, 0, "keyboard", true);
+  expect(sent).not.toContain("speed sync");
+  vi.spyOn(performance, "now").mockReturnValue(start + SPEED_SYNC_HOLD_MS);
+  presence.api.syncMovementState(100, 100, 0, 0, "keyboard", true);
+  expect(sent).toContain("speed sync");
+  vi.restoreAllMocks();
 });
