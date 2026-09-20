@@ -270,6 +270,39 @@ Publishing the server is a separate production operation; pushing `main` only de
   per grant, mirroring `player_item_drop`; the client ignores a sequence it has
   already shown so hydration cannot replay it.
 
+## Kill claim invariants
+
+- The client reports kills; the server decides what they are worth. Two
+  bounds apply to a regular-enemy claim, and only the first restricts:
+  1. **Spawn wall** — a token bucket per player, map and species that refills at
+     the map's spawn rate and banks `DEFEAT_BUDGET_WINDOW_SECONDS` of it.
+     Claiming past it is a violation and restricts the session, as before.
+  2. **Plausibility** — a second bucket that refills at the most kills per
+     second this player's own combat can produce (one projectile kills at most
+     one enemy; each enemy needs a whole number of hits; every hit a maximum
+     critical; `PLAUSIBLE_KILL_TOLERANCE` on top). Claims above it are paid
+     only up to it and written to `enemy_defeat_review`. It never restricts,
+     because a report can outrun a progress save after an equipment change.
+     The estimate uses the stats the report itself grants (bounded by the spawn
+     wall): kill rewards raise damage as they land, and the client fought the
+     whole report with those gains while the saved row still shows the stats
+     from before it.
+- The bank is one client report. The client sends regular kills every
+  `REGULAR_KILL_REPORT_SECONDS` (300, `shared/rules.ts`), and both the client
+  delay and the server bank derive from that one constant. A smaller bank clips
+  honest players: at sixty seconds a five-minute report was paid at a fifth in
+  local testing. A longer one only lets a script claim more in one go than the
+  client could have gathered.
+- Position is not checked. A report lands up to five minutes after its first
+  kill, so where the player stands when it arrives says nothing about where
+  the kills happened. The map check (`Enemy defeats belong to another map`) is
+  the location bound, and it runs before any of this.
+- `enemy_defeat_review` keeps the last `DEFEAT_REVIEW_FLAGS_PER_PLAYER` rows
+  per player for a person to read. Nothing acts on it automatically.
+- The boss combat-time window (`BOSS_REWARD_WINDOW_SECONDS`, 60) is a separate
+  mechanism with its own spec in `boss-defeat-limits.test.ts`. Boss kills are
+  reported the moment they happen, so a one-minute bank is honest there.
+
 ## Guild name invariants
 
 - A guild's name is its four-letter tag, so `create` runs the display-name

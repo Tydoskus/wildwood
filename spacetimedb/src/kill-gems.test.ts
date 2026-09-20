@@ -17,12 +17,12 @@ it("pays a gem the moment idle kill credit completes a block, and carries the re
   clearBoss(f, 1n);
   expect(f.db.playerGemWallet.identity.find(f.ctx.sender)?.balance).toBe(1n);
   expect(f.db.gemKillProgress.identity.find(f.ctx.sender)?.credit).toBe(0n);
-  expect(f.db.playerGemDrop.identity.find(f.ctx.sender)).toMatchObject({ amount: 1, sequence: 1n });
+  expect(f.db.playerGemDrop.identity.find(f.ctx.sender)).toMatchObject({ amount: 1, sequence: f.ctx.timestamp.microsSinceUnixEpoch });
   // The next kill starts the next block; no gem, no drop event.
   clearBoss(f, 2n);
   expect(f.db.playerGemWallet.identity.find(f.ctx.sender)?.balance).toBe(1n);
   expect(f.db.gemKillProgress.identity.find(f.ctx.sender)?.credit).toBe(1n);
-  expect(f.db.playerGemDrop.identity.find(f.ctx.sender)?.sequence).toBe(1n);
+  expect(f.db.playerGemDrop.identity.find(f.ctx.sender)?.amount).toBe(1);
 });
 
 it("counts an active kill double", () => {

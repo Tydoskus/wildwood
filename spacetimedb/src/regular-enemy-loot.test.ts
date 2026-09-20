@@ -1,3 +1,4 @@
+import { STARTER_BOW } from "../../shared/items";
 import { Timestamp } from "spacetimedb";
 import { expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
@@ -15,7 +16,7 @@ it("awards Magma Armor for all seven winning outcomes, but not the next outcome"
     expect(drops.get("magma_armor") ?? 0).toBe(roll <= 7 ? 1 : 0);
   }
 });
-function fixture() { const f = crystalFixture(); f.patch("player", { mapId: batch.mapId }); return f; }
+function fixture() { const f = crystalFixture(); f.patch("player", { mapId: batch.mapId }); f.patch("playerProgress", { equippedRightHand: STARTER_BOW, inventoryJson: '["starter_bow"]', damage: 1e15 }); return f; }
 it("calculates stats and independent loot rolls once in one transaction", () => {
   const f = fixture(), base = f.db.playerProgress.identity.find(f.ctx.sender);
   f.ctx.random.integerInRange = vi.fn(() => 1);
@@ -58,7 +59,8 @@ it("rolls back reward, budget, receipt and loot if a write fails", () => {
 it("allows grouped kills and acknowledges excess without granting rewards across new streams", () => {
   const f = fixture(); f.ctx.random.integerInRange = (_min: number, max: number) => max;
   const definition = enemyDefeatDefinition(batch.mapId, enemy)!;
-  const capacity = Math.floor(defeatBudget(definition.population).capacity);
+  // Mirror the server's float tolerance: 6 + 1.8 * 60 is 113.99999999999999.
+  const capacity = Math.floor(defeatBudget(definition.population).capacity + 1e-6);
   let remaining = capacity, sequence = 1n;
   while (remaining) { const count = Math.min(100, remaining); f.run(server.recordEnemyDefeats, { ...batch, sequence: sequence++, enemies: [{ enemy, count }] }); remaining -= count; }
   const next = { ...batch, streamId: "another-stream-12345", enemies: [{ enemy, count: definition.population }] };
@@ -77,11 +79,12 @@ it.each(["recordCombatCheckpoint", "recordRegularEnemyDefeats", "recordForestEne
   expect(() => f.run((server as any)[reducer], { ...batch, count: 1, progress: { damage: 1e25 } })).toThrow("updated");
 });
 
-it("consumes a 100-kill Endless report exceeding the 91-kill capacity and blocks the session with its receipt committed", () => {
+it("consumes a 100-kill Endless report exceeding the one-site capacity and blocks the session with its receipt committed", () => {
   const f = fixture();
   f.patch("player", { mapId: "endless_1" });
   const definition = enemyDefeatDefinition("endless_1", "site:0")!;
   const capacity = Math.floor(defeatBudget(definition.population).capacity);
+  // One Endless spawn site banks nineteen kills a minute: the enemy present plus a minute of respawns.
   expect(capacity).toBe(91);
   const report = { ...batch, mapId: "endless_1", enemies: [{ enemy: "site:0", count: 100 }] };
   f.run(server.recordEnemyDefeats, report);

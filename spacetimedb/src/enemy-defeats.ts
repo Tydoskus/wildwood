@@ -1,7 +1,7 @@
 import { pinnedMapBalance } from "./map-balance";
 import { personalBossDefinition } from "../../shared/personal-bosses";
 import { SenderError, table, t } from "spacetimedb/server";
-import { defeatBudget, enemyDefeatDefinition, ENEMY_DEFEAT_BATCH_MAX, type EnemyDefeat } from "../../shared/enemy-defeats";
+import { defeatBudget, enemyDefeatDefinition, DEFEAT_BUDGET_WINDOW_SECONDS, ENEMY_DEFEAT_BATCH_MAX, type EnemyDefeat } from "../../shared/enemy-defeats";
 import { bossDefeatLimits, BOSS_REWARD_WINDOW_SECONDS } from "./boss-defeat-limits";
 import type { GameReducerContext } from "./index";
 
@@ -22,6 +22,41 @@ export const bossMapDefeatWindow = table({ name: "boss_map_defeat_window" }, {
 
 const bossTimeKey = (identity: { toHexString(): string }, mapId: string) => `${identity.toHexString()}:${mapId}:boss-time-v1`;
 
+// Claims the server accepted but a person should look at. Nothing here
+// restricts an account: an outrun progress save must never cost anyone their
+// session, so these rows are for review, and the payout is simply bounded to
+// what the player's own combat could have produced.
+export const enemyDefeatReview = table(
+  { name: "enemy_defeat_review", public: false, indexes: [{ accessor: "byIdentity", algorithm: "btree", columns: ["identity"] as const }] },
+  {
+    id: t.u64().primaryKey().autoInc(), identity: t.identity(), mapId: t.string(), enemy: t.string(), kind: t.string(),
+    requested: t.u32(), accepted: t.u32(), detail: t.string(), recordedAt: t.timestamp(),
+  },
+);
+export const DEFEAT_REVIEW_FLAGS_PER_PLAYER = 20;
+/** Every arrow landing a maximum critical still leaves this much headroom. */
+export const PLAUSIBLE_KILL_TOLERANCE = 1.25;
+
+/**
+ * The most kills per second this player's combat can produce against one
+ * species: one projectile kills at most one enemy, and each enemy needs a whole
+ * number of hits. An optimistic bound, like bossDefeatLimits, not a claim that
+ * combat happened.
+ */
+export function plausibleKillsPerSecond(hp: number, dps: number, attackInterval: number, projectiles = 1) {
+  if (![hp, dps, attackInterval, projectiles].every(Number.isFinite) || hp <= 0 || dps <= 0 || attackInterval <= 0 || projectiles < 1) return 0;
+  const hitDamage = dps * attackInterval / projectiles;
+  const hitsPerKill = Math.max(1, Math.ceil(hp / hitDamage - 1e-9));
+  return projectiles / attackInterval / hitsPerKill;
+}
+
+function flagForReview(ctx: BossRewardContext, flag: { mapId: string; enemy: string; kind: string; requested: number; accepted: number; detail: Record<string, unknown> }) {
+  const rows = [...ctx.db.enemyDefeatReview.byIdentity.filter(ctx.sender)].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  for (const old of rows.slice(0, Math.max(0, rows.length - DEFEAT_REVIEW_FLAGS_PER_PLAYER + 1))) ctx.db.enemyDefeatReview.id.delete(old.id);
+  ctx.db.enemyDefeatReview.insert({ id: 0n, identity: ctx.sender, mapId: flag.mapId, enemy: flag.enemy, kind: flag.kind,
+    requested: flag.requested, accepted: flag.accepted, detail: JSON.stringify(flag.detail), recordedAt: ctx.timestamp });
+}
+
 /** Called only on account-world entry/travel; reconnecting never resets credit. */
 export function beginBossTimeBudget(ctx: BossRewardContext, mapId: string) {
   const boss = personalBossDefinition(mapId);
@@ -33,7 +68,7 @@ export function beginBossTimeBudget(ctx: BossRewardContext, mapId: string) {
 }
 /** O(distinct species), independent of account count; one receipt per batch. */
 export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: string; sequence: bigint; mapId: string; enemies: EnemyDefeat[] }, activeMapId: string,
-  bossCombat: (earned: { type: string; amount: number; count: number }[]) => { dps: number; attackInterval: number }) {
+  bossCombat: (earned: { type: string; amount: number; count: number }[]) => { dps: number; attackInterval: number; projectiles?: number }) {
   if (!/^[a-zA-Z0-9-]{16,80}$/.test(batch.streamId) || batch.sequence < 1n || !batch.enemies.length)
     throw new SenderError("Invalid enemy defeat batch.");
   const key = `${ctx.sender.toHexString()}:${batch.streamId}`;
@@ -110,6 +145,33 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: st
         requested: entry.count, accepted: acceptedCount, capacity: budget.capacity,
       }));
       if (acceptedCount < entry.count) violations.push({ enemy: entry.enemy, requested: entry.count, accepted: acceptedCount });
+      // The spawn wall above is what a script hits when it asks for more than
+      // the map could ever produce, and it still restricts. This second bucket
+      // asks a quieter question: could this player's own combat have produced
+      // these kills? It refills at the player's plausible rate, so a backlog
+      // flushed after a dropped socket is honoured, and it never restricts:
+      // the payout is bounded and the overage is written down for a person.
+      // Kill rewards raise damage and attack speed as they land, and the
+      // client fought the whole report with those gains while the saved row
+      // still shows the stats from before it. Estimate with the stats this
+      // report grants (bounded by the spawn wall above), as the client had
+      // them by its last kill; anything less pays a fast-growing farmer at
+      // the rate they started the report with.
+      const combat = bossCombat([...rewards, { ...definition.reward, count: acceptedCount }]);
+      const plausibleRate = plausibleKillsPerSecond(definition.hp, combat.dps, combat.attackInterval, combat.projectiles ?? 1) * PLAUSIBLE_KILL_TOLERANCE;
+      const plausibleKey = `${budgetKey}:plausible`;
+      const plausiblePrevious = ctx.db.enemyDefeatBudget.key.find(plausibleKey);
+      const plausibleCapacity = plausibleRate * DEFEAT_BUDGET_WINDOW_SECONDS;
+      const plausibleElapsed = plausiblePrevious ? Math.max(0, Number(now - plausiblePrevious.updatedAtMicros) / 1e6) : 0;
+      const plausibleTokens = plausiblePrevious ? Math.min(plausibleCapacity, plausiblePrevious.tokens + plausibleElapsed * plausibleRate) : plausibleCapacity;
+      const plausible = Math.max(0, Math.floor(plausibleTokens + 1e-6));
+      if (acceptedCount > plausible) {
+        flagForReview(ctx, { mapId: batch.mapId, enemy: entry.enemy, kind: "damage", requested: acceptedCount, accepted: plausible,
+          detail: { hp: definition.hp, dps: combat.dps, attackInterval: combat.attackInterval, projectiles: combat.projectiles ?? 1, seconds: plausibleElapsed } });
+        acceptedCount = plausible;
+      }
+      const nextPlausible = { key: plausibleKey, identity: ctx.sender, tokens: Math.max(0, plausibleTokens - acceptedCount), updatedAtMicros: now };
+      if (plausiblePrevious) ctx.db.enemyDefeatBudget.key.update(nextPlausible); else ctx.db.enemyDefeatBudget.insert(nextPlausible);
       if (!acceptedCount) continue;
     }
     const next = { key: budgetKey, identity: ctx.sender, tokens: Math.max(0, tokens - acceptedCount), updatedAtMicros: now };

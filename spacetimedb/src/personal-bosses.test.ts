@@ -18,9 +18,10 @@ function strongBossFixture(mapId: string) {
 it('consumes an excessive boss backlog once and ends the session', () => {
   const f = strongBossFixture('endless_40');
   reportEnemy(f, 'boss', 100);
-  expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(6n);
+  // One minute of credit plus the 60-second respawn: two clears, the rest is excess.
+  expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(2n);
   expect(() => f.run(server.recordEnemyDefeats, { mapId: 'endless_40', streamId: 'test-defeats-stream-0001', sequence: 1n, enemies: [{ enemy: 'boss', count: 100 }] })).toThrow('DEFEAT_SESSION_COOLDOWN');
-  expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(6n);
+  expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(2n);
   expect(f.db.regularEnemyLootCursor.key.find(`${f.ctx.sender.toHexString()}:test-defeats-stream-0001`).sequence).toBe(1n);
   // Hot map reducers quietly drop retries from the invalidated connection so
   // queued packets do not flood the server with repeated cooldown errors.
@@ -34,13 +35,14 @@ it('uses each map combat-time budget instead of a global twenty-boss cutoff', ()
     f.patch('player', { mapId }); f.ctx.timestamp = new Timestamp(start + BigInt(seconds) * 1_000_000n);
     f.run(server.recordEnemyDefeats, { mapId, streamId: `different-browser-${++calls}`, sequence: 1n, enemies: [{ enemy: 'boss', count }] });
   };
-  claim('tutorial_forest', 7, 0); claim('beginner_desert', 7, 100); claim('intermediate_snowlands', 7, 200);
-  expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(21n);
-  claim('advanced_lava_wastes', 7, 299);
-  expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(28n);
+  // Each map's own credit pays two instant clears; the retired global cutoff never applies.
+  claim('tutorial_forest', 2, 0); claim('beginner_desert', 2, 100); claim('intermediate_snowlands', 2, 200);
+  expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(6n);
+  claim('advanced_lava_wastes', 2, 299);
+  expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(8n);
   expect(f.db.bossDefeatWindow.identity.find(f.ctx.sender)).toBeNull();
-  claim('infernal_depths', 7, 301);
-  expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(35n);
+  claim('infernal_depths', 2, 301);
+  expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(10n);
 });
 it.each(["endless_1", "endless_40"] as const)("awards all four scaled stats once for %s", mapId => {
   const f = strongBossFixture(mapId);

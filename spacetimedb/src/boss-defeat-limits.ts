@@ -1,4 +1,4 @@
-export const BOSS_REWARD_WINDOW_SECONDS = 300;
+export const BOSS_REWARD_WINDOW_SECONDS = 60;
 
 /** An optimistic combat bound, not proof that combat actually took place. */
 export function bossDefeatLimits(hp: number, dps: number, attackInterval: number, respawnSeconds: number) {

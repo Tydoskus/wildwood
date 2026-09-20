@@ -17,10 +17,11 @@ import { describe, expect, it } from "vitest";
 // had to be added to the schema surface, and the raise is that declaration
 // alone. Growth without an extraction first is the drift this guard stops.
 // Do not satisfy it by minifying or removing useful comments/whitespace.
-// 6_876: kill gems added two tables, one reducer declaration, the factory
-// instance and a three-line call inside recordEnemyDefeats. Their bodies are in
-// kill-gems.ts; the raise is the schema surface alone.
-const MAX_LINES = 6_876;
+// 6_877: kill gems added two tables, one reducer declaration, the factory
+// instance and a three-line call inside recordEnemyDefeats; the kill-claim
+// review table added its registration line. Bodies live in kill-gems.ts and
+// enemy-defeats.ts; the raise is the schema surface alone.
+const MAX_LINES = 6_877;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

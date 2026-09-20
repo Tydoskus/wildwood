@@ -1,3 +1,5 @@
+import { STARTER_BOW } from "../../shared/items";
+import { defeatBudget, enemyDefeatDefinition } from "../../shared/enemy-defeats";
 import { expect, it, vi } from "vitest";
 import { Timestamp } from "spacetimedb";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
@@ -6,9 +8,12 @@ import { requireAllowedDefeatSession } from "./defeat-session";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 const report = { streamId: "enforcement-stream-01", sequence: 1n, mapId: "endless_1", enemies: [{ enemy: "site:0", count: 100 }] };
+// One spawn site holds one enemy; a report can bank at most this many of its kills.
+const SITE_CAPACITY = BigInt(Math.floor(defeatBudget(enemyDefeatDefinition("endless_1", "site:0")!.population).capacity));
 function fixture(registered = false) {
   const f = crystalFixture();
   f.patch("player", { mapId: report.mapId });
+  f.patch("playerProgress", { equippedRightHand: STARTER_BOW, inventoryJson: '["starter_bow"]', damage: 1e15 });
   if (registered) f.ctx.senderAuth = { jwt: { issuer: SPACETIME_AUTH_ISSUER, audience: [SPACETIME_AUTH_CLIENT_ID],
     fullPayload: { auth_time: 1, iat: 5 } } } as any;
   return f;
@@ -20,7 +25,7 @@ it("commits the guest restriction, allowed rewards, receipt and private audit to
   expect(f.db.playerController.identity.find(f.ctx.sender)).toBeNull();
   expect(f.db.player.identity.find(f.ctx.sender)).toBeNull();
   expect(f.db.playerSession.connectionId.find(f.ctx.connectionId).enteredWorld).toBe(false);
-  expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(91n);
+  expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(SITE_CAPACITY);
   expect(f.db.playerProgress.identity.find(f.ctx.sender).inventoryJson).toBe(before.inventoryJson);
   expect([...f.db.moderationAction.iter()]).toMatchObject([{ action: "guest_connection_blocked", rule: "enemy_defeat_allowance" }]);
   expect([...f.db.regularEnemyLootCursor.iter()]).toMatchObject([{ sequence: 1n }]);
@@ -47,10 +52,12 @@ it("revokes existing and refreshed account tokens, while allowing a later verifi
   expect(() => requireAllowedDefeatSession(f.ctx as any)).toThrow("DEFEAT_SESSION_REAUTH");
 });
 it("does not punish legitimate duplicate delivery or grouped kills", () => {
-  const f = fixture(); const normal = { ...report, enemies: [{ enemy: "site:0", count: 20 }] };
+  // A grouped report that fits the one-minute window; the same report delivered twice pays once.
+  const grouped = Number(SITE_CAPACITY) - 4;
+  const f = fixture(); const normal = { ...report, enemies: [{ enemy: "site:0", count: grouped }] };
   f.run(server.recordEnemyDefeats, normal); f.run(server.recordEnemyDefeats, normal);
   expect(f.db.defeatSessionRestriction.identity.find(f.ctx.sender)).toBeNull();
-  expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(20n);
+  expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(BigInt(grouped));
 });
 it("does not admit a new connection during the guest cooldown", () => {
   const f = fixture();
@@ -108,7 +115,7 @@ it.each([false, true])("logs actual kill-limit enforcement with its durable audi
       displayName: "Test Player", action: registered ? "session_revoked" : "guest_connection_blocked",
       moderationId: audit.id.toString(), mapId: report.mapId, streamId: report.streamId, sequence: "1",
       requireSignIn: registered, blockedUntilMs: registered ? 0 : 40_000,
-      violations: [{ enemy: "site:0", requested: 100, accepted: 91 }] });
+      violations: [{ enemy: "site:0", requested: 100, accepted: Number(SITE_CAPACITY) }] });
     expect(event.violations).toEqual(JSON.parse(audit.before).violations);
     expect(f.db.player.identity.find(f.ctx.sender)).toBeNull();
     expect(event).not.toHaveProperty("jwt");

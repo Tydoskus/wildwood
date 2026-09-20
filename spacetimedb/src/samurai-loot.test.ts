@@ -9,6 +9,7 @@ vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module
 
 function samuraiFixture() {
   const f = crystalFixture();
+  f.patch("playerProgress", { equippedRightHand: "starter_stone", damage: 1e15 });
   f.patch("player", { mapId: SAMURAI_GARDEN_MAP_ID });
   f.ctx.random.integerInRange = vi.fn((_min, max) => max === SAMURAI_HAT_ITEM_DROP_DENOMINATOR ? 1 : max);
   return f;

@@ -1,3 +1,4 @@
+import { STARTER_BOW } from "../../shared/items";
 import { CAMPAIGN_UNLOCK_FIELDS } from "../../shared/equipment-access";
 import { MAP_IDS } from "../../shared/rules";
 import { expect, it, vi } from "vitest";
@@ -13,6 +14,7 @@ const maps = [...new Set(Object.values(CAMPAIGN_EQUIPMENT).map(entry => entry.ma
 it.each(maps)("awards, equips, and preserves the new %s drops through an authoritative save", mapId => {
   const f = crystalFixture();
   f.patch("player", { mapId });
+  f.patch("playerProgress", { equippedRightHand: STARTER_BOW, inventoryJson: '["starter_bow"]', damage: 1e15 });
   f.patch("playerProgress", Object.fromEntries(CAMPAIGN_UNLOCK_FIELDS.map((field, i) => [field, i < MAP_IDS.indexOf(mapId)])));
   f.ctx.random.integerInRange = () => 1;
   const enemy = Object.keys(ENEMY_TYPES).find(kind => enemyDefeatDefinition(mapId, kind))!;

@@ -16,6 +16,7 @@ it.each([
   ["samurai_garden", 2, 14, []],
 ] as const)("rolls independent loot in %s at boundaries %s / %s", (mapId, armorRoll, bowRoll, expected) => {
   const f = crystalFixture();
+  f.patch("playerProgress", { equippedRightHand: "starter_stone", damage: 1e15 });
   f.patch("player", { mapId });
   const armorMax = mapId === "water_reach" ? 100 : 125;
   const bowMax = mapId === "water_reach" ? 1000 : 2000;
@@ -33,6 +34,7 @@ it.each([
 
 it("keeps Water Reach equipment through reloads and repeat drops without duplicates", () => {
   const f = crystalFixture();
+  f.patch("playerProgress", { equippedRightHand: "starter_stone", damage: 1e15 });
   f.patch("player", { mapId: "water_reach" });
   f.ctx.random.integerInRange = () => 1;
   reportEnemy(f);
@@ -53,6 +55,7 @@ it("keeps Water Reach equipment through reloads and repeat drops without duplica
 
 it.each(["home_exterior", "crystal_hollows", "endless_1"])("does not roll these drops in %s", mapId => {
   const f = crystalFixture(); f.patch("player", { mapId });
+  f.patch("playerProgress", { equippedRightHand: "starter_stone", damage: 1e15 });
   f.ctx.random.integerInRange = vi.fn(() => 1);
   if (mapId === "home_exterior") expect(() => reportEnemy(f)).toThrow(); else reportEnemy(f);
   if (mapId === "crystal_hollows") {
@@ -67,6 +70,7 @@ it.each([
   ["moonfen", MOONFEN_ARMOR, 1000, 7, "CHEST"],
 ] as const)("awards and persists %s's %s at its exact drop boundary", (mapId, itemId, outcomes, wins, slot) => {
   const f = crystalFixture();
+  f.patch("playerProgress", { equippedRightHand: "starter_stone", damage: 1e15 });
   f.patch("player", { mapId });
   let roll = wins + 1;
   f.ctx.random.integerInRange = vi.fn((_min, max) => max === outcomes ? roll : max);
@@ -86,6 +90,7 @@ it.each([
 
 it("can grant all three Cloudspire items from independent successful rolls", () => {
   const f = crystalFixture(); f.patch("player", { mapId: "cloudspire" });
+  f.patch("playerProgress", { equippedRightHand: "starter_stone", damage: 1e15 });
   f.ctx.random.integerInRange = () => 1;
   reportEnemy(f);
   const saved = inventoryFromSave(f.db.playerProgress.identity.find(f.ctx.sender).inventoryJson, "", "", "", false);

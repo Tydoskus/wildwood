@@ -520,6 +520,19 @@ export const EnemyDefeatBudget = __t.object("EnemyDefeatBudget", {
 });
 export type EnemyDefeatBudget = __Infer<typeof EnemyDefeatBudget>;
 
+export const EnemyDefeatReview = __t.object("EnemyDefeatReview", {
+  id: __t.u64(),
+  identity: __t.identity(),
+  mapId: __t.string(),
+  enemy: __t.string(),
+  kind: __t.string(),
+  requested: __t.u32(),
+  accepted: __t.u32(),
+  detail: __t.string(),
+  recordedAt: __t.timestamp(),
+});
+export type EnemyDefeatReview = __Infer<typeof EnemyDefeatReview>;
+
 export const ForestRewardPrototype = __t.object("ForestRewardPrototype", {
   identity: __t.identity(),
   encounter: __t.u64(),

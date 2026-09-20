@@ -26,6 +26,13 @@ export const MOVEMENT_SPEED_EPSILON = .01;
 export const PLAYER_PROJECTILE_SPEED = 1_000;
 export const DEFAULT_ATTACK_RANGE = 200;
 export const DEFAULT_ATTACK_INTERVAL = 1.56;
+/**
+ * How often the client reports regular kills, and therefore how many seconds
+ * of kills one honest report can hold. The server banks exactly this much per
+ * species; a shorter bank clips honest reports, a longer one lets a script
+ * claim more in one go than the client could have gathered.
+ */
+export const REGULAR_KILL_REPORT_SECONDS = 300;
 export const MAX_BASE_ATTACKS_PER_SECOND = 2.625;
 export const MIN_ATTACK_INTERVAL = 1 / MAX_BASE_ATTACKS_PER_SECOND;
 export const BOSS_RESPAWN_SECONDS = 45;

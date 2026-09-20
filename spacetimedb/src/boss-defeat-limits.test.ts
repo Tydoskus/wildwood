@@ -1,3 +1,4 @@
+import { STARTER_BOW } from "../../shared/items";
 import { describe, expect, it, vi } from "vitest";
 import { Timestamp } from "spacetimedb";
 import { bossDefeatLimits } from "./boss-defeat-limits";
@@ -19,6 +20,7 @@ vi.mock("./enemy-defeats", async importOriginal => {
 function fixture(mapId = "tutorial_forest", fightSeconds = 100) {
   const f = crystalFixture();
   f.patch("player", { mapId });
+  f.patch("playerProgress", { equippedRightHand: STARTER_BOW, inventoryJson: '["starter_bow"]', damage: 1e15 });
   // Account for the equipped bow multiplier; one shot/s, one projectile. The first
   // shot allowance makes this exactly fightSeconds of required combat time.
   const stats = { damage: personalBossDefinition(mapId)!.hp / (fightSeconds + 1) / (1 + itemDamageMultiplierBonus("starter_bow")),
@@ -39,10 +41,12 @@ function fixture(mapId = "tutorial_forest", fightSeconds = 100) {
 }
 
 describe("boss time validation", () => {
-  it("bounds a five-minute batch using HP, DPS, and the actual respawn delay", () => {
-    expect(bossDefeatLimits(100_000, 1_000, 1, 45)?.windowKills).toBe(2);
-    expect(bossDefeatLimits(1, 1_000, 1, 45)?.windowKills).toBe(7);
-    expect(bossDefeatLimits(1, 1_000, 1, 60)?.windowKills).toBe(6);
+  it("bounds a one-minute batch using HP, DPS, and the actual respawn delay", () => {
+    // A 99-second fight plus a 45-second respawn does not fit one minute of credit; one kill is the floor.
+    expect(bossDefeatLimits(100_000, 1_000, 1, 45)?.windowKills).toBe(1);
+    // Instant kills: 105 seconds of credit over a 45-second cycle, then a 60-second one.
+    expect(bossDefeatLimits(1, 1_000, 1, 45)?.windowKills).toBe(2);
+    expect(bossDefeatLimits(1, 1_000, 1, 60)?.windowKills).toBe(2);
     for (const dps of [0, -1, NaN, Infinity]) expect(bossDefeatLimits(100, dps, 1, 45)).toBeNull();
   });
 
@@ -59,15 +63,16 @@ describe("boss time validation", () => {
   it("does not reset earned combat time between batches, fresh streams, and reconnects", () => {
     const f = fixture();
     f.begin(); f.at(300);
+    // Credit caps at one 145-second cycle, so a twenty-kill claim pays one.
     f.claim(20, true);
-    expect(f.kills()).toBe(2n);
+    expect(f.kills()).toBe(1n);
     // Restore this test's DPS after legitimate rewards to isolate time limits.
     f.patch("playerProgress", f.stats);
     f.begin(); f.claim(20, true);
+    expect(f.kills()).toBe(1n);
+    f.at(444); f.claim(20, true); expect(f.kills()).toBe(1n);
+    f.at(445); f.claim(20, true);
     expect(f.kills()).toBe(2n);
-    f.at(379); f.claim(20, true); expect(f.kills()).toBe(2n);
-    f.at(390); f.claim(20, true);
-    expect(f.kills()).toBe(3n);
   });
 
   it("requires elapsed combat time on a newly entered map", () => {
@@ -117,13 +122,13 @@ describe("boss time validation", () => {
   });
 
   it("honors server research, ranged volleys, and possible Endless criticals", () => {
-    const ranged = fixture("endless_11", 400);
+    const ranged = fixture("endless_11", 100);
     ranged.claim(); expect(ranged.kills()).toBe(0n);
     ranged.patch("playerProgress", { projectileCount: 2 });
     // Rejected claims retain the already-earned time, so the stronger build
-    // can now legitimately fit a kill into the available five-minute credit.
+    // can now legitimately fit a kill into the available one-minute credit.
     ranged.claim(); expect(ranged.kills()).toBe(1n);
-    const researched = fixture("endless_11", 600);
+    const researched = fixture("endless_11", 100);
     researched.claim(); expect(researched.kills()).toBe(0n);
     researched.seed("playerResearch", { identity: researched.ctx.sender, warcraft: 50,
       criticalChance: 1, criticalDamage: 20 });
@@ -140,9 +145,11 @@ describe("boss time validation", () => {
     const f = fixture();
     f.patch("playerProgress", { damage: 105 / (1 + itemDamageMultiplierBonus("starter_bow")) });
     f.claim(); expect(f.kills()).toBe(0n);
+    f.patch("playerProgress", { equippedRightHand: STARTER_BOW, inventoryJson: '["starter_bow"]', damage: 1e15 });
     f.run(server.recordEnemyDefeats, { mapId: "tutorial_forest", streamId: "mixed-boss-save-window-01", sequence: 1n,
-      enemies: [{ enemy: "boss", count: 1 }, { enemy: "Cindermaw", count: 99 }] });
-    expect(f.kills()).toBe(100n);
+      // Sixty Cindermaw sit inside what one projectile a second can plausibly kill in a minute.
+      enemies: [{ enemy: "boss", count: 1 }, { enemy: "Cindermaw", count: 60 }] });
+    expect(f.kills()).toBe(61n);
     expect(f.db.playerProgress.identity.find(f.ctx.sender).desertUnlocked).toBe(true);
   });
 });
@@ -157,7 +164,8 @@ it("rewards consecutive legitimate 100-second boss fights across save windows", 
   }
 });
 it("does not treat delayed batch receipt times as the times bosses actually died", () => {
-  const f = fixture(); f.begin();
+  // Five-second fights: two fit the 105 seconds of credit banked by t=300.
+  const f = fixture("tutorial_forest", 5); f.begin();
   f.at(300); f.claim(2); expect(f.kills()).toBe(2n); f.patch("playerProgress", f.stats);
   f.at(390); f.claim(); expect(f.kills()).toBe(3n); f.patch("playerProgress", f.stats);
   f.at(535); f.claim(); expect(f.kills()).toBe(4n);

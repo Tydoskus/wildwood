@@ -252,13 +252,13 @@ export function createBossCombat(deps: BossCombatDeps) {
     const progress = earned.length ? applyEnemyRewards(saved, earned, researchStatRewardMultiplier(research)) : saved;
     const weapon = equippedRightHandForProgress(progress) || equippedLeftHandForProgress(progress);
     const attackInterval = attackIntervalForProgress(progress);
-    if (!weapon) return { dps: 0, attackInterval };
+    if (!weapon) return { dps: 0, attackInterval, projectiles: 1 };
     // Every personal boss can receive criticals. Use the possible maximum so
     // legitimate lucky streaks do not cause first-clear rewards to be rejected.
     const critical = (research?.criticalChance ?? 0) > 0
       ? Math.max(1, 1.05 + (research?.criticalDamage ?? 0) * .05) : 1;
     const projectiles = itemDefinition(weapon)?.weapon?.mode === "MELEE" ? 1 : Math.max(1, progress.projectileCount);
-    return { attackInterval, dps: researchedDamage(ctx, ctx.sender, progress.damage, progress, research) * critical * projectiles / attackInterval };
+    return { attackInterval, projectiles, dps: researchedDamage(ctx, ctx.sender, progress.damage, progress, research) * critical * projectiles / attackInterval };
   }
 
   function bossRowAtMaxHealth(existing: any, maxHp: number) {

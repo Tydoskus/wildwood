@@ -7,6 +7,7 @@ import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixt
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 it("rolls black boots independently at 2% in Night Forest and keeps equipped feet on reload", () => {
   const f = crystalFixture(); f.patch("player", { mapId: INFERNAL_DEPTHS_MAP_ID });
+  f.patch("playerProgress", { equippedRightHand: "starter_stone", damage: 1e15 });
   f.ctx.random.integerInRange = vi.fn((_min, max) => max === BLACK_BOOTS_DROP_DENOMINATOR ? 1 : max);
   reportEnemy(f);
   const progress = f.db.playerProgress.identity.find(f.ctx.sender);
@@ -19,6 +20,7 @@ it("rolls black boots independently at 2% in Night Forest and keeps equipped fee
 });
 it("rejects unowned or cosmetic-only speed boosts and accepts the exact equipped bonus", () => {
   const f = crystalFixture();
+  f.patch("playerProgress", { equippedRightHand: "starter_stone", damage: 1e15 });
   expect(() => f.run(server.setSpeed, { speed: 205 })).toThrow("Unsupported player speed");
   f.patch("playerProgress", { inventoryJson: JSON.stringify([BLACK_BOOTS]), cosmeticFeet: BLACK_BOOTS });
   expect(() => f.run(server.setSpeed, { speed: 205 })).toThrow("Unsupported player speed");
@@ -40,6 +42,7 @@ it("rejects unowned or cosmetic-only speed boosts and accepts the exact equipped
 
 it("accepts the Black Boots bonus while a shard still has the base speed snapshot", () => {
   const f = crystalFixture();
+  f.patch("playerProgress", { equippedRightHand: "starter_stone", damage: 1e15 });
   f.patch("playerProgress", { inventoryJson: JSON.stringify([BLACK_BOOTS]), equippedFeet: BLACK_BOOTS, infernalUnlocked: true });
   // This is the brief root-to-shard lag that previously produced false
   // movement-speed warnings for legitimate Black Boots runners.
@@ -51,6 +54,7 @@ it("accepts the Black Boots bonus while a shard still has the base speed snapsho
 
 it("blocks a guest after an impossible movement speed packet", () => {
   const f = crystalFixture();
+  f.patch("playerProgress", { equippedRightHand: "starter_stone", damage: 1e15 });
   expect(() => f.run(server.updateMovementState, {
     x: 4050, y: 4050, vx: 540, vy: 0, simulationTick: 1, motionEpoch: 1, sequence: 1,
   })).not.toThrow();

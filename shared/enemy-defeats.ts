@@ -4,10 +4,19 @@ import { ENEMY_TYPES, type EnemyKind } from "./enemy-definitions";
 import * as camps from "./enemy-camps";
 import designs from "../src/game/map-designs.json";
 import { generateMap, generatedEnemyStats, isProceduralMap } from "./procedural-maps";
-import { MAX_ARMOR, MAX_PLAYER_STAT, MIN_ATTACK_INTERVAL } from "./rules";
+import { MAX_ARMOR, MAX_PLAYER_STAT, MIN_ATTACK_INTERVAL, REGULAR_KILL_REPORT_SECONDS } from "./rules";
 
 export type EnemyDefeat = { enemy: string; count: number };
 export const ENEMY_DEFEAT_BATCH_MAX = 100;
+/**
+ * How much unclaimed allowance a player can bank: one client report. The
+ * client sends regular kills every `REGULAR_KILL_REPORT_SECONDS`, so a smaller
+ * bank clips honest players (seen locally at sixty seconds: a five-minute
+ * report paid at a fifth). Autofarm stops when the socket drops, so there is
+ * no longer backlog to honour, and banking more only lets a script claim more
+ * than one report could hold.
+ */
+export const DEFEAT_BUDGET_WINDOW_SECONDS = REGULAR_KILL_REPORT_SECONDS;
 const CAMPS: Record<string, readonly camps.SpawnCamp[]> = {
   tutorial_forest: camps.CAMPS, beginner_desert: camps.DESERT_CAMPS,
   intermediate_snowlands: camps.SNOW_CAMPS, advanced_lava_wastes: camps.LAVA_CAMPS,
@@ -28,14 +37,18 @@ function generatedDefinition(mapId: `endless_${number}`) {
   return map;
 }
 export function enemyDefeatDefinition(mapId: string, enemy: string, balance?: MapBalanceSnapshot) {
-  if (enemy === "boss") return personalBossDefinition(mapId) ? { reward: { type: "boss", amount: 0 }, population: 1, loot: false } : null;
+  if (enemy === "boss") return personalBossDefinition(mapId) ? { reward: { type: "boss", amount: 0 }, hp: 0, population: 1, loot: false } : null;
   if (isProceduralMap(mapId)) {
     // Generated art is cosmetic. A stable spawn index identifies its actual reward lane.
     if (!/^site:\d+$/.test(enemy)) return null;
     let site = Number(enemy.slice(5));
     const map = generatedDefinition(mapId);
     for (const camp of map.camps) {
-      if (site < camp.count) return { reward: (balance?.lanes[camp.stat === "damage" && site >= 6 ? "Dread Warden" : camp.lane] ?? generatedEnemyStats(map, camp.stat === "damage" && site >= 6 ? "Dread Warden" : camp.lane)).reward, population: 1, loot: true };
+      if (site < camp.count) {
+        const lane = camp.stat === "damage" && site >= 6 ? "Dread Warden" : camp.lane;
+        const stats = balance?.lanes[lane] ?? generatedEnemyStats(map, lane);
+        return { reward: stats.reward, hp: stats.hp, population: 1, loot: true };
+      }
       site -= camp.count;
     }
     return null;
@@ -48,7 +61,7 @@ export function enemyDefeatDefinition(mapId: string, enemy: string, balance?: Ma
   const population = rows.reduce((sum, camp) => sum + Array.from({ length: camp.count }, (_, i) => camp.types[i % camp.types.length]).filter(type => type === enemy).length, 0);
   if (!population) return null;
   const definition = balance?.enemies[enemy] ?? ENEMY_TYPES[enemy as EnemyKind];
-  return { reward: definition.reward, population, loot: !(mapId === "beginner_desert" && definition.elite) };
+  return { reward: definition.reward, hp: definition.hp, population, loot: !(mapId === "beginner_desert" && definition.elite) };
 }
 export function combatMap(mapId: string) { return Object.prototype.hasOwnProperty.call(CAMPS, mapId) || isProceduralMap(mapId); }
 
@@ -58,7 +71,7 @@ export function combatMap(mapId: string) { return Object.prototype.hasOwnPropert
 export const DEFEAT_MIN_RESPAWN_SECONDS = 10 / 3;
 export function defeatBudget(population: number, minRespawnSeconds = DEFEAT_MIN_RESPAWN_SECONDS) {
   const perSecond = population / minRespawnSeconds;
-  return { capacity: population + perSecond * 300, perSecond };
+  return { capacity: population + perSecond * DEFEAT_BUDGET_WINDOW_SECONDS, perSecond };
 }
 export function applyEnemyRewards<T extends { damage: number; maxHp: number; attackRate: number; armor: number; regen: number }>(
   base: T, rewards: { type: string; amount: number; count: number }[], multiplier: number,
