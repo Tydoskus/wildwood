@@ -1,4 +1,11 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.751": [
+    "Kills now earn gems: two credits while you fight, one while idle, and a gem every 2,000. Past kills were paid retroactively.",
+    "A gem you earn pops on screen and flies to your wallet.",
+    "The stat tracker slider fades the background all the way out while the text stays readable.",
+    "Kill reports are checked against what your own gear could produce. Nothing happens to accounts automatically; flagged reports are reviewed by a person.",
+    "Guild names are filtered like display names.",
+  ],
   "0.750": [
     "Added Kiira's live stat tracker: enable it in Settings to watch Power, Max HP, Damage, Armor, Regen and Kills with session gains and hourly rates.",
     "The tracker matches the profile panel, sits behind open windows, and carries a slider for how solid it looks.",
@@ -2105,6 +2112,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.751": "2026-09-20",
   "0.750": "2026-09-19",
   "0.749": "2026-09-19",
   "0.748": "2026-09-19",
