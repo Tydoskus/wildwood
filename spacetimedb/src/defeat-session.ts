@@ -4,6 +4,9 @@ import { DEFEAT_COOLDOWN, DEFEAT_GUEST_BLOCK_SECONDS, DEFEAT_REAUTH, freshAuthen
 import { recordModerationAction } from "./moderation-history";
 import type { GameReducerContext } from "./index";
 
+
+/** 2100-01-01: far enough that a "permanent" suspension outlives the game. */
+export const PERMANENT_SUSPENSION_MICROS = 4_102_444_800_000_000n;
 export const defeatSessionRestriction = table({ name: "defeat_session_restriction", public: false }, {
   identity: t.identity().primaryKey(), revokedAtMicros: t.u64(), blockedUntilMicros: t.u64(), requireSignIn: t.bool(),
 });
@@ -29,18 +32,22 @@ export function suspendPlayerAccount(ctx: GameReducerContext, args: {
   const profile = ctx.db.playerProfile.identity.find(args.identity);
   const now = ctx.timestamp.microsSinceUnixEpoch;
   if (!profile || profile.displayName !== args.expectedDisplayName) throw new SenderError("Suspension target changed or was not found.");
-  if (args.untilMicros <= now || args.untilMicros > now + 7n * 86_400_000_000n || !args.reason.trim() || args.reason.length > 500)
-    throw new SenderError("Choose a suspension of at most seven days and a reason.");
+  // Zero means permanent: the seven-day rail guards against a typo in a date,
+  // and a deliberate zero is not a typo. It still needs a reason and is logged.
+  const permanent = args.untilMicros === 0n;
+  const untilMicros = permanent ? PERMANENT_SUSPENSION_MICROS : args.untilMicros;
+  if ((!permanent && (untilMicros <= now || untilMicros > now + 7n * 86_400_000_000n)) || !args.reason.trim() || args.reason.length > 500)
+    throw new SenderError("Choose a suspension of at most seven days, or zero for permanent, and a reason.");
   const prior = ctx.db.defeatSessionRestriction.identity.find(args.identity);
-  if (prior && prior.blockedUntilMicros >= args.untilMicros) return;
-  const next = { identity: args.identity, revokedAtMicros: now, requireSignIn: false, blockedUntilMicros: args.untilMicros };
+  if (prior && prior.blockedUntilMicros >= untilMicros) return;
+  const next = { identity: args.identity, revokedAtMicros: now, requireSignIn: false, blockedUntilMicros: untilMicros };
   if (prior) ctx.db.defeatSessionRestriction.identity.update(next); else ctx.db.defeatSessionRestriction.insert(next);
   for (const session of ctx.db.playerSession.byIdentity.filter(args.identity))
     ctx.db.playerSession.connectionId.update({ ...session, enteredWorld: false, protocolVersion: 0 });
   if (ctx.db.playerController.identity.find(args.identity)) ctx.db.playerController.identity.delete(args.identity);
   const json = (value: unknown) => JSON.stringify(value, (_key, value) => typeof value === "bigint" ? value.toString() : value);
   recordModerationAction(ctx, { targetIdentity: args.identity.toHexString(), targetName: profile.displayName,
-    channel: "account", action: "Account suspended", reason: args.reason, actorType: "owner", rule: "owner-account-suspension",
+    channel: "account", action: permanent ? "Account permanently suspended" : "Account suspended", reason: args.reason, actorType: "owner", rule: "owner-account-suspension",
     before: json(prior), after: json(next) });
 }
 
