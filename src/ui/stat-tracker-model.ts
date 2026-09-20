@@ -43,7 +43,10 @@ export function createStatTrackerModel(storage: Store, now = Date.now) {
     return {
       elapsedMs,
       rows: TRACKED_STATS.map(stat => {
-        const gain = values[stat] - session!.baseline[stat];
+        // Base stats only climb, so a figure below the baseline is a gear swap
+        // rather than progress. Report no gain instead of a loss, which would
+        // otherwise persist for the session and drag the hourly rate negative.
+        const gain = Math.max(0, values[stat] - session!.baseline[stat]);
         return { stat, current: values[stat], gain, perHour: elapsedMs >= 1000 ? gain * 3_600_000 / elapsedMs : 0 };
       }),
     };

@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.750": [
+    "Added Kiira's live stat tracker: enable it in Settings to watch Power, Max HP, Damage, Armor, Regen and Kills with session gains and hourly rates.",
+    "The tracker matches the profile panel, sits behind open windows, and carries a slider for how solid it looks.",
+    "Multiplayer now hides itself while an update lands, and comes back to whatever you had chosen.",
+  ],
   "0.749": [
     "The finished-upgrade marker now sits on the bag, not the button beside it.",
   ],
@@ -2100,6 +2105,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.750": "2026-09-19",
   "0.749": "2026-09-19",
   "0.748": "2026-09-19",
   "0.747": "2026-09-19",

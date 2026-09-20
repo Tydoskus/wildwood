@@ -26,11 +26,11 @@ describe('native stat tracker sessions', () => {
     const restored = createStatTrackerModel(env.storage, env.now);
     expect(restored.update('alice', { ...values, power: 1100 })!.rows[0].gain).toBe(100);
   });
-  it('resets only tracker baselines and keeps signed equipment changes', () => {
+  it('resets only tracker baselines and reports no loss from equipment changes', () => {
     const env = setup(), tracker = createStatTrackerModel(env.storage, env.now);
     tracker.update('alice', values);
     env.advance(1000);
-    expect(tracker.update('alice', { ...values, power: 900 })!.rows[0].gain).toBe(-100);
+    expect(tracker.update('alice', { ...values, power: 900 })!.rows[0]).toMatchObject({ current: 900, gain: 0 });
     tracker.reset();
     expect(tracker.update('alice', { ...values, power: 900 })!.rows[0]).toMatchObject({ current: 900, gain: 0, perHour: 0 });
     expect(values.power).toBe(1000);
@@ -48,5 +48,19 @@ describe('native stat tracker sessions', () => {
     const tracker = createStatTrackerModel({ getItem() { throw Error(); }, setItem() { throw Error(); } });
     expect(tracker.update('alice', values)!.rows[0].current).toBe(1000);
     expect(() => tracker.save()).not.toThrow();
+  });
+
+  it('reports no gain when a stat drops below the session baseline', () => {
+    const env = setup(), tracker = createStatTrackerModel(env.storage, env.now);
+    const row = (result: any, stat: string) => result.rows.find((entry: any) => entry.stat === stat);
+    tracker.update('alice', values);
+    env.advance(60_000);
+    // Swapping to weaker gear must not read as negative progress.
+    const weaker = tracker.update('alice', { ...values, damage: 90, power: 900 })!;
+    expect(row(weaker, 'damage')).toMatchObject({ current: 90, gain: 0, perHour: 0 });
+    expect(row(weaker, 'power')).toMatchObject({ current: 900, gain: 0, perHour: 0 });
+    // Climbing past the baseline again still counts from the baseline.
+    const better = tracker.update('alice', { ...values, damage: 120 })!;
+    expect(row(better, 'damage')).toMatchObject({ current: 120, gain: 20 });
   });
 });

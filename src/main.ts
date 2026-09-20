@@ -1,6 +1,6 @@
 import { runtimeMapBalance } from '../shared/map-balance-runtime';
 import { installStatTracker } from './ui/stat-tracker';
-import { effectivePlayerPowerStats, playerPowerForStats } from '../shared/player-power';
+import { createStatTrackerSource } from './ui/stat-tracker-source';
 import { refreshMapBalanceEnemies } from "./game/runtime/map-balance-enemies";
 import { createMapBalanceLoader } from "./game/runtime/map-balance-loader";
 import { installAccountDeletion } from "./ui/account-deletion-controller";
@@ -1759,20 +1759,9 @@ import {
   });
 
   let refreshDailyGemBonus = () => {};
-  installStatTracker({
-    storage: localStorage,
-    read: () => {
-      const identity = coop?.localIdentity?.();
-      if (!identity || !session.hasStarted() || !progress.isLoadedFor(identity) || !coop?.isConnected?.()
-        || !hasApprovedGameSession(coop?.accountState?.()) || inTutorial()) return null;
-      const stats = effectivePlayerPowerStats(displayedPlayerPowerProgress({
-        maxHp: player.baseMaxHp, damage: player.damage, attackRate: player.attackRate,
-        armor: player.armor, regen: player.regen,
-      }, inventory), researchRanks(), itemId => coop?.itemUpgradeLevel?.(itemId) ?? 0);
-      return { identity, values: { power: playerPowerForStats(stats), hp: stats.maxHp,
-        damage: stats.damage, armor: stats.armor, regen: stats.regen, kills: totalKills } };
-    },
-  });
+  installStatTracker({ storage: localStorage, read: createStatTrackerSource({ coop: () => coop, player, inventory,
+    hasStarted: session.hasStarted, isLoadedFor: progress.isLoadedFor, inTutorial, researchRanks, kills: () => totalKills,
+    displayedProgress: displayedPlayerPowerProgress }) });
   const mailbox = createGameMailbox(gameElements.mailboxToggle, gameElements.minimapVersionEl, coop,
     () => session.hasStarted() && !inTutorial());
 
