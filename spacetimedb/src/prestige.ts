@@ -2,6 +2,7 @@ import { SenderError } from "spacetimedb/server";
 import { researchStatRewardMultiplier } from "../../shared/research";
 import { playerPowerForStats } from "../../shared/player-power";
 import { PRESTIGE_PERK_POINTS_PER_LEVEL, prestigeStatMultiplier, prestigeUnlocked } from "../../shared/prestige";
+import { PRESTIGE_PERK_MAX_RANK, isPrestigePerkId, type PrestigePerkRanks } from "../../shared/prestige-perks";
 
 // Prestige bodies. The player_prestige table and the reducer declaration stay
 // in index.ts; this module owns what they call. The reset arrives through deps
@@ -18,10 +19,16 @@ export function statRewardMultiplier(ctx: any, identity: any) {
     * prestigeStatMultiplier(ctx.db.playerPrestige.identity.find(identity)?.level ?? 0);
 }
 
+/** The player's perk ranks, zero for anyone who has never prestiged. */
+export function prestigePerkRanks(ctx: any, identity: any): PrestigePerkRanks {
+  const row = ctx.db.playerPrestige.identity.find(identity);
+  return { keenEdge: row?.keenEdge ?? 0, doubleStrike: row?.doubleStrike ?? 0, splitShot: row?.splitShot ?? 0, riposte: row?.riposte ?? 0 };
+}
+
 export type PrestigeDeps = {
   requireControllingPlayer: (ctx: any) => any;
   activeDuelFor: (ctx: any, identity: any) => unknown;
-  resetProgressToDefaults: (ctx: any, activePlayer: any) => void;
+  resetProgressToDefaults: (ctx: any, activePlayer: any, keepResearch?: boolean) => void;
 };
 
 export function createPrestige(deps: PrestigeDeps) {
@@ -45,9 +52,19 @@ export function createPrestige(deps: PrestigeDeps) {
       prestigedAt: ctx.timestamp,
     };
     if (current) ctx.db.playerPrestige.identity.update(next); else ctx.db.playerPrestige.insert(next);
-    resetProgressToDefaults(ctx, activePlayer);
+    resetProgressToDefaults(ctx, activePlayer, true);
     return next;
   }
 
-  return { prestigeAccount };
+  /** Spend one banked point on one rank. Points never come back. */
+  function spendPerkPoint(ctx: any, perk: string) {
+    requireControllingPlayer(ctx);
+    if (!isPrestigePerkId(perk)) throw new SenderError("Unknown prestige perk.");
+    const current = ctx.db.playerPrestige.identity.find(ctx.sender);
+    if (!current || current.perkPoints < 1) throw new SenderError("No perk points to spend.");
+    if (current[perk] >= PRESTIGE_PERK_MAX_RANK) throw new SenderError("That perk is already at its highest rank.");
+    ctx.db.playerPrestige.identity.update({ ...current, perkPoints: current.perkPoints - 1, [perk]: current[perk] + 1 });
+  }
+
+  return { prestigeAccount, spendPerkPoint };
 }

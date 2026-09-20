@@ -1729,6 +1729,10 @@ export const PlayerPrestige = __t.object("PlayerPrestige", {
   perkPoints: __t.u32(),
   peakPower: __t.f64(),
   prestigedAt: __t.timestamp(),
+  keenEdge: __t.u32(),
+  doubleStrike: __t.u32(),
+  splitShot: __t.u32(),
+  riposte: __t.u32(),
 });
 export type PlayerPrestige = __Infer<typeof PlayerPrestige>;
 

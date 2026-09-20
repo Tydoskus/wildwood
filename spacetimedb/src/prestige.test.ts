@@ -3,6 +3,7 @@ import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixt
 import { STARTER_BOW } from "../../shared/items";
 import { BOSS_REWARD_CLAIM_BITS } from "../../shared/rules";
 import { PRESTIGE_STAT_GAIN_PER_LEVEL, prestigeStatMultiplier, prestigeUnlocked } from "../../shared/prestige";
+import { PRESTIGE_PERK_MAX_RANK } from "../../shared/prestige-perks";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 const CAMPAIGN_COMPLETE = BOSS_REWARD_CLAIM_BITS.aegisPrime;
@@ -59,6 +60,19 @@ it("stacks a second prestige and keeps the highest power ever reached", () => {
   expect(prestigeRow(f)).toMatchObject({ level: 2, perkPoints: 2, peakPower: 9_000_000 });
 });
 
+it("keeps research through a prestige but not through a plain reset", () => {
+  const prestiged = crystalFixture();
+  prestiged.seed("playerResearch", { identity: prestiged.ctx.sender, foraging: 4, warcraft: 3 });
+  prestiged.patch("playerProgress", { bossRewardClaims: CAMPAIGN_COMPLETE });
+  prestiged.run(server.prestigeAccount, {});
+  expect(prestiged.db.playerResearch.identity.find(prestiged.ctx.sender)).toMatchObject({ foraging: 4, warcraft: 3 });
+
+  const wiped = crystalFixture();
+  wiped.seed("playerResearch", { identity: wiped.ctx.sender, foraging: 4, warcraft: 3 });
+  wiped.run(server.resetPlayerProgress, {});
+  expect(wiped.db.playerResearch.identity.find(wiped.ctx.sender)).toBeFalsy();
+});
+
 it("survives the player's own progress reset", () => {
   const f = crystalFixture();
   f.seed("playerPrestige", { identity: f.ctx.sender, level: 2, perkPoints: 2, peakPower: 5, prestigedAt: f.ctx.timestamp });
@@ -85,4 +99,46 @@ it("never accepts fewer kills from a prestiged player than a plain one", () => {
   farmSpitters(plain, 60); farmSpitters(prestiged, 60);
   expect(kills(prestiged)).toBeGreaterThanOrEqual(kills(plain));
   expect([...prestiged.db.enemyDefeatReview.iter()]).toEqual([]);
+});
+
+it("spends a banked point on one rank and refuses anything it cannot pay for", () => {
+  const f = crystalFixture();
+  expect(() => f.run(server.spendPrestigePerkPoint, { perk: "keenEdge" })).toThrow("No perk points");
+  f.seed("playerPrestige", { identity: f.ctx.sender, level: 2, perkPoints: 2, peakPower: 0, prestigedAt: f.ctx.timestamp });
+  expect(() => f.run(server.spendPrestigePerkPoint, { perk: "nope" })).toThrow("Unknown prestige perk");
+  f.run(server.spendPrestigePerkPoint, { perk: "riposte" });
+  expect(prestigeRow(f)).toMatchObject({ perkPoints: 1, riposte: 1 });
+  f.run(server.spendPrestigePerkPoint, { perk: "riposte" });
+  expect(prestigeRow(f)).toMatchObject({ perkPoints: 0, riposte: 2 });
+  expect(() => f.run(server.spendPrestigePerkPoint, { perk: "riposte" })).toThrow("No perk points");
+});
+
+it("refuses to push a perk past its highest rank", () => {
+  const f = crystalFixture();
+  f.seed("playerPrestige", { identity: f.ctx.sender, level: 9, perkPoints: 3, peakPower: 0,
+    prestigedAt: f.ctx.timestamp, splitShot: PRESTIGE_PERK_MAX_RANK });
+  expect(() => f.run(server.spendPrestigePerkPoint, { perk: "splitShot" })).toThrow("highest rank");
+  expect(prestigeRow(f)).toMatchObject({ perkPoints: 3 });
+});
+
+it("widens the claim bound for perks that reach more enemies than the weapon can", () => {
+  // Split Shot and Riposte finish kills the weapon's own damage cannot account
+  // for. A bound blind to them would pay a perked player less than they earned.
+  const accepted = (ranks: Record<string, number>) => {
+    const f = farmer(0);
+    // One slow, single projectile per swing, so the bound is well under the
+    // claim and any widening of it is visible in what the server pays.
+    f.patch("playerProgress", { attackRate: 10, projectileCount: 1 });
+    if (Object.keys(ranks).length) {
+      f.seed("playerPrestige", { identity: f.ctx.sender, level: 5, perkPoints: 0, peakPower: 0, prestigedAt: f.ctx.timestamp, ...ranks });
+    }
+    farmSpitters(f, 100);
+    return Number(f.db.playerLifetime.identity.find(f.ctx.sender)?.enemyKills ?? 0n);
+  };
+  const plain = accepted({});
+  expect(plain).toBeGreaterThan(0);
+  expect(plain).toBeLessThan(100);
+  expect(accepted({ splitShot: PRESTIGE_PERK_MAX_RANK })).toBeGreaterThan(plain);
+  expect(accepted({ riposte: PRESTIGE_PERK_MAX_RANK })).toBeGreaterThan(plain);
+  expect(accepted({ doubleStrike: PRESTIGE_PERK_MAX_RANK })).toBeGreaterThanOrEqual(plain);
 });

@@ -176,6 +176,7 @@ import ShardReadyReducer from "./shard_ready_reducer";
 import ShareDuelReplayReducer from "./share_duel_replay_reducer";
 import SpeedUpItemUpgradeWithGemsReducer from "./speed_up_item_upgrade_with_gems_reducer";
 import SpeedUpResearchWithGemsReducer from "./speed_up_research_with_gems_reducer";
+import SpendPrestigePerkPointReducer from "./spend_prestige_perk_point_reducer";
 import StageShardProgramReducer from "./stage_shard_program_reducer";
 import StartItemUpgradeReducer from "./start_item_upgrade_reducer";
 import StartResearchReducer from "./start_research_reducer";
@@ -1390,6 +1391,7 @@ const reducersSchema = __reducers(
   __reducerSchema("share_duel_replay", ShareDuelReplayReducer),
   __reducerSchema("speed_up_item_upgrade_with_gems", SpeedUpItemUpgradeWithGemsReducer),
   __reducerSchema("speed_up_research_with_gems", SpeedUpResearchWithGemsReducer),
+  __reducerSchema("spend_prestige_perk_point", SpendPrestigePerkPointReducer),
   __reducerSchema("stage_shard_program", StageShardProgramReducer),
   __reducerSchema("start_item_upgrade", StartItemUpgradeReducer),
   __reducerSchema("start_research", StartResearchReducer),

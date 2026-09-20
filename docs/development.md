@@ -312,7 +312,9 @@ Publishing the server is a separate production operation; pushing `main` only de
 - Prestige performs the ordinary progress reset, unlock flags and Endless
   progress included, so the next prestige is earned from the forest up. Both the
   reset button and prestige call `resetProgressToDefaults` in the server entry;
-  changes to what a reset clears belong there and apply to both.
+  changes to what a reset clears belong there. Prestige passes `keepResearch`,
+  the one difference: research ranks and any running timer survive, because they
+  cost real days and the rerun is meant to be faster than the first climb.
 - `player_prestige` survives that reset. Nothing else may be added to the reset
   that would clear it.
 - The level multiplies every stat reward a kill grants, through

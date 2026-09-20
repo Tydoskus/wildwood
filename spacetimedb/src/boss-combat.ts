@@ -108,7 +108,8 @@ import { PERSONAL_BOSS_COMBAT } from "../../shared/personal-bosses";
 import { PLAYER_GENDER_UNSET } from "../../shared/player-gender";
 import { applyEnemyRewards } from "../../shared/enemy-defeats";
 import { isProceduralMap, proceduralMapCore } from "../../shared/procedural-maps";
-import { statRewardMultiplier } from "./prestige";
+import { statRewardMultiplier, prestigePerkRanks } from "./prestige";
+import { prestigePerkValue, prestigeReachMultiplier, prestigeSwingMultiplier } from "../../shared/prestige-perks";
 import { pinnedBossReward } from "./map-balance";
 import { isMapShard, queueShardReward } from "./map-sharding";
 import { damageProceduralBoss, proceduralBossKey } from "./procedural-maps";
@@ -255,10 +256,18 @@ export function createBossCombat(deps: BossCombatDeps) {
     if (!weapon) return { dps: 0, attackInterval, projectiles: 1 };
     // Every personal boss can receive criticals. Use the possible maximum so
     // legitimate lucky streaks do not cause first-clear rewards to be rejected.
-    const critical = (research?.criticalChance ?? 0) > 0
+    // Keen Edge grants crit on its own, so a player with no crit research can
+    // still be critting; the bound has to know that or it clips them.
+    const ranks = prestigePerkRanks(ctx, ctx.sender);
+    const critical = (research?.criticalChance ?? 0) > 0 || prestigePerkValue(ranks, "keenEdge") > 0
       ? Math.max(1, 1.05 + (research?.criticalDamage ?? 0) * .05) : 1;
     const projectiles = itemDefinition(weapon)?.weapon?.mode === "MELEE" ? 1 : Math.max(1, progress.projectileCount);
-    return { attackInterval, projectiles, dps: researchedDamage(ctx, ctx.sender, progress.damage, progress, research) * critical * projectiles / attackInterval };
+    // Double Strike is more damage per swing; Split Shot and Riposte are more
+    // enemies reached per swing. The first belongs in damage per second, the
+    // second in how many kills per second that damage can finish.
+    return { attackInterval, projectiles, reach: prestigeReachMultiplier(ranks),
+      dps: researchedDamage(ctx, ctx.sender, progress.damage, progress, research) * critical
+        * prestigeSwingMultiplier(ranks) * projectiles / attackInterval };
   }
 
   function bossRowAtMaxHealth(existing: any, maxHp: number) {

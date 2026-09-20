@@ -1033,6 +1033,7 @@ const playerEndgameRebaseBackup = table(
 const playerPrestige = table({ name: "player_prestige", public: true }, {
   identity: t.identity().primaryKey(), level: t.u32().default(0), perkPoints: t.u32().default(0),
   peakPower: t.f64().default(0), prestigedAt: t.timestamp(),
+  keenEdge: t.u32().default(0), doubleStrike: t.u32().default(0), splitShot: t.u32().default(0), riposte: t.u32().default(0),
 });
 const playerEndlessRebaseBackup = table({ public: false }, {
   identity: t.identity().primaryKey(),
@@ -5626,8 +5627,12 @@ export const beginAdventure = spacetimedb.reducer(
   },
 );
 
-/** The whole reset, shared by the player's own reset button and by prestige. */
-function resetProgressToDefaults(ctx: any, activePlayer: any) {
+/**
+ * The whole reset, shared by the player's own reset button and by prestige.
+ * Prestige keeps research: its ranks cost real days, and a rerun is meant to be
+ * faster than the first run, not the same climb with the timers restarted.
+ */
+function resetProgressToDefaults(ctx: any, activePlayer: any, keepResearch = false) {
     clearProceduralProgress(ctx, ctx.sender);
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
     const next = defaultPlayerProgress(ctx.sender);
@@ -5639,11 +5644,13 @@ function resetProgressToDefaults(ctx: any, activePlayer: any) {
     }
     if (current) updateSnapshotRow(ctx, "playerProgress", next);
     else insertSnapshotRow(ctx, "playerProgress", next);
-    const research = ctx.db.playerResearch.identity.find(ctx.sender);
-    if (research) deleteSnapshotRow(ctx, "playerResearch", ctx.sender);
-    const activeResearchRow = ctx.db.activeResearch.identity.find(ctx.sender);
-    if (activeResearchRow) ctx.db.activeResearch.identity.delete(ctx.sender);
-    removeResearchCompletionSchedules(ctx, ctx.sender);
+    if (!keepResearch) {
+      const research = ctx.db.playerResearch.identity.find(ctx.sender);
+      if (research) deleteSnapshotRow(ctx, "playerResearch", ctx.sender);
+      const activeResearchRow = ctx.db.activeResearch.identity.find(ctx.sender);
+      if (activeResearchRow) ctx.db.activeResearch.identity.delete(ctx.sender);
+      removeResearchCompletionSchedules(ctx, ctx.sender);
+    }
     removePlayerItemUpgradeData(ctx, ctx.sender, true);
     const lifetime = ensurePlayerLifetime(ctx);
     ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: 0n });
@@ -5675,6 +5682,8 @@ export const resetPlayerProgress = spacetimedb.reducer({}, (ctx) => {
 });
 // Bodies live in prestige.ts; this is the schema-facing declaration.
 export const prestigeAccount = spacetimedb.reducer({}, (ctx) => { prestige.prestigeAccount(ctx); });
+export const spendPrestigePerkPoint = spacetimedb.reducer({ perk: t.string() },
+  (ctx, { perk }) => { prestige.spendPerkPoint(ctx, perk); });
 
 function sendPlayerChatMessage(ctx: ModuleReducerCtx, message: string, replyToMessageId = 0n) {
   requireControllingPlayer(ctx);

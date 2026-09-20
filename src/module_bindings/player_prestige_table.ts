@@ -16,4 +16,8 @@ export default __t.row({
   perkPoints: __t.u32().name("perk_points"),
   peakPower: __t.f64().name("peak_power"),
   prestigedAt: __t.timestamp().name("prestiged_at"),
+  keenEdge: __t.u32().name("keen_edge"),
+  doubleStrike: __t.u32().name("double_strike"),
+  splitShot: __t.u32().name("split_shot"),
+  riposte: __t.u32(),
 });

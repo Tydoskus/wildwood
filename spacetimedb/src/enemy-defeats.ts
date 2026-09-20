@@ -68,7 +68,7 @@ export function beginBossTimeBudget(ctx: BossRewardContext, mapId: string) {
 }
 /** O(distinct species), independent of account count; one receipt per batch. */
 export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: string; sequence: bigint; mapId: string; enemies: EnemyDefeat[] }, activeMapId: string,
-  bossCombat: (earned: { type: string; amount: number; count: number }[]) => { dps: number; attackInterval: number; projectiles?: number }) {
+  bossCombat: (earned: { type: string; amount: number; count: number }[]) => { dps: number; attackInterval: number; projectiles?: number; reach?: number }) {
   if (!/^[a-zA-Z0-9-]{16,80}$/.test(batch.streamId) || batch.sequence < 1n || !batch.enemies.length)
     throw new SenderError("Invalid enemy defeat batch.");
   const key = `${ctx.sender.toHexString()}:${batch.streamId}`;
@@ -158,7 +158,8 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: st
       // them by its last kill; anything less pays a fast-growing farmer at
       // the rate they started the report with.
       const combat = bossCombat([...rewards, { ...definition.reward, count: acceptedCount }]);
-      const plausibleRate = plausibleKillsPerSecond(definition.hp, combat.dps, combat.attackInterval, combat.projectiles ?? 1) * PLAUSIBLE_KILL_TOLERANCE;
+      const plausibleRate = plausibleKillsPerSecond(definition.hp, combat.dps, combat.attackInterval, combat.projectiles ?? 1)
+        * (combat.reach ?? 1) * PLAUSIBLE_KILL_TOLERANCE;
       const plausibleKey = `${budgetKey}:plausible`;
       const plausiblePrevious = ctx.db.enemyDefeatBudget.key.find(plausibleKey);
       const plausibleCapacity = plausibleRate * DEFEAT_BUDGET_WINDOW_SECONDS;
@@ -167,7 +168,8 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: st
       const plausible = Math.max(0, Math.floor(plausibleTokens + 1e-6));
       if (acceptedCount > plausible) {
         flagForReview(ctx, { mapId: batch.mapId, enemy: entry.enemy, kind: "damage", requested: acceptedCount, accepted: plausible,
-          detail: { hp: definition.hp, dps: combat.dps, attackInterval: combat.attackInterval, projectiles: combat.projectiles ?? 1, seconds: plausibleElapsed } });
+          detail: { hp: definition.hp, dps: combat.dps, attackInterval: combat.attackInterval,
+            projectiles: combat.projectiles ?? 1, reach: combat.reach ?? 1, seconds: plausibleElapsed } });
         acceptedCount = plausible;
       }
       const nextPlausible = { key: plausibleKey, identity: ctx.sender, tokens: Math.max(0, plausibleTokens - acceptedCount), updatedAtMicros: now };
