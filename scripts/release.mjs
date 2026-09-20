@@ -27,7 +27,14 @@ const assetStampPath = resolve(root, "config/shipped-assets.json");
 async function shippedAssetDigest(directory) {
   const digest = createHash("sha256");
   const walk = async (dir) => {
-    for (const entry of (await readdir(dir, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
+    // Sort by code unit, not by locale: localeCompare orders differently under
+    // another ICU build, which made this machine and the runner disagree.
+    // Dot files are local clutter such as .DS_Store; they are ignored by git
+    // and never reach a player, so counting them did the same.
+    const entries = (await readdir(dir, { withFileTypes: true }))
+      .filter((entry) => !entry.name.startsWith("."))
+      .sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+    for (const entry of entries) {
       const path = join(dir, entry.name);
       if (entry.isDirectory()) await walk(path);
       else digest.update(`${relative(root, path)}:${(await stat(path)).size}\n`);
