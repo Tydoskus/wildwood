@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { parseHTML } from 'linkedom';
-import { installStatTracker } from './stat-tracker';
+import { DEFAULT_TRACKER_OPACITY, installStatTracker, trackerOpacityStyle } from './stat-tracker';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -76,4 +76,14 @@ it('restores collapse and does not expand after dragging', () => {
   fire('click', { detail: 1 });
   expect(handle.getAttribute('aria-expanded')).toBe('false');
   expect(JSON.parse(saved.get('wildstat-native-stat-tracker-position')!)).toEqual({ x: 95, y: 95 });
+});
+
+it('fades the backdrop to nothing while text and frame keep a quarter', () => {
+  expect(trackerOpacityStyle(0)).toEqual({ background: 0, ink: 0.25 });
+  expect(trackerOpacityStyle(50)).toEqual({ background: 0.5, ink: 1 });
+  expect(trackerOpacityStyle(100)).toEqual({ background: 1, ink: 1 });
+  // The untouched default is the pre-slider look: HUD translucency, solid ink.
+  expect(trackerOpacityStyle(DEFAULT_TRACKER_OPACITY)).toEqual({ background: 0.6, ink: 1 });
+  expect(trackerOpacityStyle(-20).background).toBe(0);
+  expect(trackerOpacityStyle(140).background).toBe(1);
 });

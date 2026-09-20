@@ -7,6 +7,20 @@ const ENABLED_KEY = 'wildstat-native-stat-tracker-enabled';
 const POSITION_KEY = 'wildstat-native-stat-tracker-position';
 const COLLAPSED_KEY = 'wildstat-native-stat-tracker-collapsed';
 
+/** Default slider position; reproduces the panel exactly as it looked before the slider existed. */
+export const DEFAULT_TRACKER_OPACITY = 60;
+
+/**
+ * Backdrop alpha follows the slider all the way to nothing. Text and frame
+ * follow it too but bottom out at a quarter and reach full a little past
+ * halfway, so a fully transparent tracker still reads and the default look
+ * (60) is solid ink over the profile HUD's translucency.
+ */
+export function trackerOpacityStyle(percent: number) {
+  const p = Math.min(100, Math.max(0, percent)) / 100;
+  return { background: p, ink: Math.min(1, 0.25 + p * 1.5) };
+}
+
 export function installStatTracker(options: {
   read: () => { identity: string; values: TrackerValues } | null;
   storage: Pick<Storage, 'getItem' | 'setItem'>;
@@ -22,12 +36,14 @@ export function installStatTracker(options: {
   const handle = panel.querySelector<HTMLButtonElement>('.stat-tracker-handle')!;
   const OPACITY_KEY = 'wildstat-stat-tracker-opacity';
   const opacity = panel.querySelector<HTMLInputElement>('.stat-tracker-opacity input')!;
-  // Zero leaves the panel as translucent as the profile HUD; one hundred is solid.
   function applyOpacity(percent: number) {
-    panel.style.setProperty('--stat-tracker-opacity', String(0.6 + percent / 100 * 0.4));
+    const style = trackerOpacityStyle(percent);
+    panel.style.setProperty('--stat-tracker-bg', String(style.background));
+    panel.style.setProperty('--stat-tracker-ink', String(style.ink));
   }
-  const savedOpacity = Number(options.storage.getItem(OPACITY_KEY));
-  opacity.valueAsNumber = Number.isFinite(savedOpacity) ? Math.min(100, Math.max(0, savedOpacity)) : 0;
+  const savedRaw = options.storage.getItem(OPACITY_KEY);
+  const savedOpacity = savedRaw === null ? DEFAULT_TRACKER_OPACITY : Number(savedRaw);
+  opacity.valueAsNumber = Number.isFinite(savedOpacity) ? Math.min(100, Math.max(0, savedOpacity)) : DEFAULT_TRACKER_OPACITY;
   applyOpacity(opacity.valueAsNumber);
   opacity.addEventListener('input', () => {
     applyOpacity(opacity.valueAsNumber);

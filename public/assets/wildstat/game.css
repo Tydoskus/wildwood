@@ -1,4 +1,7 @@
-  .stat-tracker { position: fixed; right: max(12px, env(safe-area-inset-right)); bottom: max(100px, calc(env(safe-area-inset-bottom) + 90px)); width: min(228px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto; z-index: 4; pointer-events: auto; background: rgba(18, 28, 22, var(--stat-tracker-opacity, .6)); color: var(--text, #f5f5e9); border: 2px solid var(--hud-frame); border-radius: var(--hud-radius); box-shadow: 0 2px 0 rgba(0,0,0,.42); font: 12px/1.3 "Wildstat Chat", sans-serif; font-variant-numeric: tabular-nums; }
+  .stat-tracker { position: fixed; right: max(12px, env(safe-area-inset-right)); bottom: max(100px, calc(env(safe-area-inset-bottom) + 90px)); width: min(228px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto; z-index: 4; pointer-events: auto; background: rgba(18, 28, 22, var(--stat-tracker-bg, .6)); color: var(--text, #f5f5e9); border: 2px solid var(--hud-frame); border-color: color-mix(in srgb, var(--hud-frame) calc(var(--stat-tracker-ink, 1) * 100%), transparent); border-radius: var(--hud-radius); box-shadow: 0 2px 0 rgba(0, 0, 0, calc(.42 * var(--stat-tracker-bg, .6))); font: 12px/1.3 "Wildstat Chat", sans-serif; font-variant-numeric: tabular-nums; }
+  /* The slider fades the backdrop to nothing but keeps everything readable:
+     text, frame and the slider itself bottom out at a quarter, never at zero. */
+  .stat-tracker > header, .stat-tracker > table, .stat-tracker > footer, .stat-tracker > .stat-tracker-opacity { opacity: var(--stat-tracker-ink, 1); }
   /* Above HUD controls (5–8), below full-screen windows (10+). */
   #hud > .stat-tracker { z-index: 6; }
   .stat-tracker.is-world-gesture, .stat-tracker.is-world-gesture * { pointer-events: none; }
