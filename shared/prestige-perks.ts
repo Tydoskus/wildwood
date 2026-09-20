@@ -6,8 +6,8 @@
 export const PRESTIGE_PERK_MAX_RANK = 5;
 
 export const PRESTIGE_PERKS = {
-  keenEdge: { title: "Keen Edge", perRank: .03,
-    detail: "Critical chance, on top of research." },
+  keenEdge: { title: "Keen Edge", perRank: .05,
+    detail: "Critical chance and harder criticals, on top of research." },
   doubleStrike: { title: "Double Strike", perRank: .04,
     detail: "Chance for a hit to land twice." },
   splitShot: { title: "Split Shot", perRank: .05,
@@ -15,6 +15,14 @@ export const PRESTIGE_PERKS = {
   riposte: { title: "Riposte", perRank: .06,
     detail: "Share of the damage you take thrown back at whoever dealt it." },
 } as const;
+
+/**
+ * Keen Edge grants critical damage as well as chance. Chance alone was close to
+ * worthless: a critical only lands for 1.05x until the critical damage research
+ * line is deep, so the perk did nothing for anyone who had not spent days on
+ * that line. With both, it stands alone and still rewards the research.
+ */
+export const KEEN_EDGE_CRITICAL_DAMAGE_PER_RANK = .12;
 
 export type PrestigePerkId = keyof typeof PRESTIGE_PERKS;
 export const PRESTIGE_PERK_IDS = Object.keys(PRESTIGE_PERKS) as PrestigePerkId[];
@@ -39,6 +47,11 @@ export function prestigePerkValue(ranks: Partial<PrestigePerkRanks> | null | und
  * of the time. Used both by the client's own rolls and by the server's bound on
  * what a kill claim could plausibly contain.
  */
+/** Extra critical damage from Keen Edge, added to the research multiplier. */
+export function prestigeCriticalDamageBonus(ranks: Partial<PrestigePerkRanks> | null | undefined) {
+  return prestigePerkRank(ranks, "keenEdge") * KEEN_EDGE_CRITICAL_DAMAGE_PER_RANK;
+}
+
 export function prestigeSwingMultiplier(ranks: Partial<PrestigePerkRanks> | null | undefined) {
   return 1 + prestigePerkValue(ranks, "doubleStrike");
 }

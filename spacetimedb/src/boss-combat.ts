@@ -109,7 +109,7 @@ import { PLAYER_GENDER_UNSET } from "../../shared/player-gender";
 import { applyEnemyRewards } from "../../shared/enemy-defeats";
 import { isProceduralMap, proceduralMapCore } from "../../shared/procedural-maps";
 import { statRewardMultiplier, prestigePerkRanks } from "./prestige";
-import { prestigePerkValue, prestigeReachMultiplier, prestigeSwingMultiplier } from "../../shared/prestige-perks";
+import { prestigeCriticalDamageBonus, prestigePerkValue, prestigeReachMultiplier, prestigeSwingMultiplier } from "../../shared/prestige-perks";
 import { pinnedBossReward } from "./map-balance";
 import { isMapShard, queueShardReward } from "./map-sharding";
 import { damageProceduralBoss, proceduralBossKey } from "./procedural-maps";
@@ -237,7 +237,7 @@ export function createBossCombat(deps: BossCombatDeps) {
     // can land a second hit. Both roll here because boss damage is the server's.
     const chance = Math.max(0, Math.min(100, (research?.criticalChance ?? 0) + prestigePerkValue(ranks, "keenEdge") * 100));
     const doubleChance = Math.max(0, Math.min(100, prestigePerkValue(ranks, "doubleStrike") * 100));
-    const multiplier = 1.05 + Math.max(0, research?.criticalDamage ?? 0) * .05;
+    const multiplier = 1.05 + Math.max(0, research?.criticalDamage ?? 0) * .05 + prestigeCriticalDamageBonus(ranks);
     const baseDamage = Math.max(1, researchedDamage(ctx, ctx.sender, progress.damage, progress, research));
     let total = chance === 0 && doubleChance === 0 ? baseDamage * hits : 0, critical = false;
     for (let hit = 0; (chance > 0 || doubleChance > 0) && hit < hits; hit++) {
@@ -265,7 +265,7 @@ export function createBossCombat(deps: BossCombatDeps) {
     // still be critting; the bound has to know that or it clips them.
     const ranks = prestigePerkRanks(ctx, ctx.sender);
     const critical = (research?.criticalChance ?? 0) > 0 || prestigePerkValue(ranks, "keenEdge") > 0
-      ? Math.max(1, 1.05 + (research?.criticalDamage ?? 0) * .05) : 1;
+      ? Math.max(1, 1.05 + (research?.criticalDamage ?? 0) * .05 + prestigeCriticalDamageBonus(ranks)) : 1;
     const projectiles = itemDefinition(weapon)?.weapon?.mode === "MELEE" ? 1 : Math.max(1, progress.projectileCount);
     // Double Strike is more damage per swing; Split Shot and Riposte are more
     // enemies reached per swing. The first belongs in damage per second, the

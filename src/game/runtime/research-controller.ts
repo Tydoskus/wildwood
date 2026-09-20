@@ -4,7 +4,7 @@ import { createEmptyResearchRanks, researchStatRewardMultiplier, type ResearchRa
 import { applyPlayerMaxHealthMultiplierBonus } from "./player-health";
 import { movementSpeedMultiplier } from "../../../shared/rules";
 import { prestigeStatMultiplier } from "../../../shared/prestige";
-import { prestigePerkValue, type PrestigePerkRanks } from "../../../shared/prestige-perks";
+import { prestigeCriticalDamageBonus, prestigePerkValue, type PrestigePerkRanks } from "../../../shared/prestige-perks";
 
 export type { ResearchRanks } from "../../../shared/research";
 
@@ -36,7 +36,7 @@ export function createResearchController(options: ResearchControllerOptions) {
     effectiveArmor: () => options.player.armor * (1 + ranks().precision * .02),
     regenerationMultiplier: () => 1 + ranks().regeneration * .02,
     criticalChance: () => ranks().criticalChance * .01 + prestigePerkValue(options.prestigePerks?.(), "keenEdge"),
-    criticalDamageMultiplier: () => 1.05 + ranks().criticalDamage * .05,
+    criticalDamageMultiplier: () => 1.05 + ranks().criticalDamage * .05 + prestigeCriticalDamageBonus(options.prestigePerks?.()),
     setAppliedVitalityRank: (rank: number) => { appliedVitalityRank = rank; },
     applyVitality() {
       if (options.isDueling()) return;

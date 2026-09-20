@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.758": [
+    "Keen Edge now makes your criticals hit harder as well as more often. It was close to worthless without a deep critical damage research line; it now stands on its own and still rewards that research.",
+  ],
   "0.757": [
     "Fixed being locked out of your own perk points: prestiging clears the campaign, which was greying out the button that opens the Prestige window. It now opens whenever you have prestiged or have a point to spend.",
   ],
@@ -2135,6 +2138,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.758": "2026-09-20",
   "0.757": "2026-09-20",
   "0.756": "2026-09-20",
   "0.755": "2026-09-20",
