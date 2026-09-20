@@ -2,8 +2,9 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
-// Identity removal bodies live beside the reducer module.
+// Identity removal and duel bodies live beside the reducer module.
 const lifecycle = readFileSync(new URL("./account-lifecycle.ts", import.meta.url), "utf8");
+const duelRuntime = readFileSync(new URL("./duel-runtime.ts", import.meta.url), "utf8");
 const section = (start: string, end: string, text = source) => text.slice(text.indexOf(start), text.indexOf(end, text.indexOf(start)));
 
 describe("player safety server wiring", () => {
@@ -29,7 +30,8 @@ describe("player safety server wiring", () => {
     const check = section("function playersBlocked", "export const setPlayerBlocked");
     expect(check).toContain("playerBlockKey(owner.toHexString(), target.toHexString())");
     expect(check).toContain("playerBlockKey(target.toHexString(), owner.toHexString())");
-    const duel = section("export const requestDuel", "export const acceptDuel");
+    expect(section("export const requestDuel", "export const acceptDuel")).toContain("startDuel(ctx, opponent)");
+    const duel = section("function startDuel", "return { duelDamage", duelRuntime);
     expect(duel.indexOf("playersBlocked(ctx, ctx.sender, opponent)")).toBeLessThan(duel.indexOf('insertSnapshotRow(ctx, "duel"'));
   });
   it("wires guest block transfer and full-account removal", () => {
