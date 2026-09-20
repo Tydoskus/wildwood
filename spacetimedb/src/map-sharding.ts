@@ -44,10 +44,32 @@ export const mapShardingTables = {
     key: t.string().primaryKey(), identity: t.identity(), boss: t.string(), encounter: t.u64(),
   }),
   shardRewardReceipt: table({ public: false }, { key: t.string().primaryKey(), receivedAt: t.timestamp() }),
+  // Each player's map database, kept by the reducers that seat and release
+  // them. Clients subscribe to their own row. This row changes only when the
+  // route does; the per-user view it replaced read map_shard directly, so
+  // every occupancy tick re-ran the view for everyone seated on that shard.
+  mapShardRoute: table({ name: "map_shard_route", public: true }, {
+    identity: t.identity().primaryKey(), databaseName: t.string(), mapId: t.string(), generation: t.u64(), ready: t.bool(),
+  }),
 };
 export const mapShardRouteType = t.row("MapShardRouteRow", {
   identity: t.identity().primaryKey(), databaseName: t.string(), mapId: t.string(), generation: t.u64(), ready: t.bool(),
 });
+/** Write the player's route from their membership and shard; pass rows already in hand. */
+export function syncMapShardRoute(ctx: any, identity: any, member = ctx.db.mapShardMember.identity.find(identity),
+  shard = member?.shardId ? ctx.db.mapShard.id.find(member.shardId) : null) {
+  if (!member) { ctx.db.mapShardRoute.identity.delete(identity); return; }
+  const next = { identity, databaseName: shard?.databaseName ?? "", mapId: member.mapId,
+    generation: member.generation, ready: Boolean(member.ready && shard?.state === "ready") };
+  const current = ctx.db.mapShardRoute.identity.find(identity);
+  if (!current) { ctx.db.mapShardRoute.insert(next); return; }
+  if (current.databaseName !== next.databaseName || current.mapId !== next.mapId
+    || current.generation !== next.generation || current.ready !== next.ready) ctx.db.mapShardRoute.identity.update(next);
+}
+/** A shard changed name or state: refresh every route that points at it. */
+export function syncMapShardRoutesForShard(ctx: any, shard: any) {
+  for (const member of ctx.db.mapShardMember.byShard.filter(shard.id)) syncMapShardRoute(ctx, member.identity, member, shard);
+}
 export function rootShardingEnabled(ctx: any) {
   const runtime = ctx.db.shardRuntime.id.find(0);
   return runtime?.role === "root" && runtime.enabled;
@@ -94,6 +116,7 @@ export function releaseMapShard(ctx: any, identity: any, member = ctx.db.mapShar
   ctx.db.shardSentSnapshot.identity.delete(identity);
   ctx.db.shardSnapshotState.identity.delete(identity);
   ctx.db.mapShardMember.identity.delete(identity);
+  ctx.db.mapShardRoute.identity.delete(identity);
 }
 /**
  * `known` carries rows the caller already read in this transaction (the shard
@@ -122,18 +145,20 @@ export function assignMapShard(ctx: any, player: any, preferredShardId?: bigint,
     generation: current?.mapId === player.mapId && preferredShardId === undefined ? current.generation : ctx.timestamp.microsSinceUnixEpoch,
     ready: false,
   };
+  let seat: any = null;
   if (chosen) {
     const row = ctx.db.mapShard.id.find(BigInt(chosen.id));
     if (row.occupants >= MAP_SHARD_CAPACITY) throw new SenderError("Map shard is full");
-    const next = { ...row, occupants: row.occupants + 1 };
-    ctx.db.mapShard.id.update(next);
+    seat = { ...row, occupants: row.occupants + 1 };
+    ctx.db.mapShard.id.update(seat);
     wakeShard(ctx, row.id, connected);
     // The warm check sees the seat just taken, as it did when it re-read the table.
     const i = shards.findIndex(shard => shard.id === String(row.id));
-    if (i >= 0) shards[i] = { ...next, id: String(next.id) };
+    if (i >= 0) shards[i] = { ...seat, id: String(seat.id) };
   }
   if (current && !released) ctx.db.mapShardMember.identity.update(member);
   else ctx.db.mapShardMember.insert(member);
+  syncMapShardRoute(ctx, player.identity, member, seat);
   warmMapShard(ctx, player.mapId, shards);
 }
 export function validateShardMap(mapId: string) {

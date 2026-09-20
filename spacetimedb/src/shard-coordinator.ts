@@ -1,7 +1,7 @@
 import { TimeDuration } from "spacetimedb";
 import { SenderError } from "spacetimedb/server";
 import { decodeShardSnapshot, encodeShardSnapshot } from "../../shared/shard-wire";
-import { assignMapShard, rootShardingEnabled } from "./map-sharding";
+import { assignMapShard, rootShardingEnabled, syncMapShardRoute, syncMapShardRoutesForShard } from "./map-sharding";
 
 /** Capture the outgoing revision while acquiring the lease. Ready shards need
  * no separate preparation transaction before their HTTP exchange. */
@@ -94,7 +94,9 @@ export function coordinateShard(ctx: any, shardId: bigint, hooks: {
       ctx.withTx((tx: any) => {
         const current = tx.db.mapShard.id.find(shardId);
         if (!current || !rootShardingEnabled(tx)) return;
-        tx.db.mapShard.id.update({ ...current, databaseName: shard.databaseName, state: "ready" });
+        const ready = { ...current, databaseName: shard.databaseName, state: "ready" };
+        tx.db.mapShard.id.update(ready);
+        syncMapShardRoutesForShard(tx, ready);
         for (const member of tx.db.mapShardMember.byMap.filter(shard.mapId)) {
           if (member.shardId === 0n) assignMapShard(tx, tx.db.player.identity.find(member.identity));
         }
@@ -128,7 +130,7 @@ export function coordinateShard(ctx: any, shardId: bigint, hooks: {
           if (version && version.shardId === shardId && version.generation === sent.generation)
             tx.db.shardSnapshotState.identity.update({ ...version, sentRevision: sent.revision });
         }
-        if (!member.ready) tx.db.mapShardMember.identity.update({ ...member, ready: true });
+        if (!member.ready) { const next = { ...member, ready: true }; tx.db.mapShardMember.identity.update(next); syncMapShardRoute(tx, member.identity, next); }
       }
       for (const position of reply.checkpoints) hooks.checkpoint(tx, { ...position, shardId });
       if (typeof reply.checkpointAt === "bigint" && reply.checkpointAt !== state.checkpointAt)

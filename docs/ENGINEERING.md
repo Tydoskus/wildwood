@@ -98,20 +98,35 @@ the next person starts from numbers rather than guesses.
    shard, and the shard only publishes while two players can see each other. The
    comment in place already rejects an index here; adding one would cost writes
    on a hot table to save nothing. Do not "fix" it without new measurements.
-4. **Reducer compute is paid per database call, not per line of code.** From
-   the dashboard exports on 2026-09-20 (368 online): `change_map` ran 37 times a
-   minute at ~24 ms each and was 30% of all reducer compute; `update_movement_state`
-   ran 600 times a minute at 0.5 ms. A CPU profile of the module code for a map
-   change is under 10 µs, and its rows are under 1 KB, so the difference is the
-   45–50 host calls a change made versus a handful. About a third of those were
-   the same row read again (`shard_runtime` five times, the shard membership
-   four, the motion row four). `transitionPlayerMap` now reads each once and
-   hands them to the presence and sharding helpers through their optional
-   `known` argument, Home no longer rewrites the 1.7 KB balance pin on either
-   leg, and schedule existence checks use `count()` instead of a scan.
-   `change-map-host-calls.test.ts` holds the count at 37 (Home toggle) and 42
-   (portal). Connect (`enter_world_with_tutorial`, ~100 ms) and disconnect
-   (~75 ms) are the next targets by the same measure; count their calls first.
+4. **Per-user view re-evaluation, not call count, drives expensive reducers.**
+   Dashboard exports 2026-09-20 (368 online): `change_map` 24 ms/call, 32–37
+   calls/min (~30% of all reducer compute); `enter_world_with_tutorial` ~60
+   ms/call; `on_disconnect` ~50 ms/call; `set_multiplayer_enabled` 0.5 ms/call
+   even though it writes the same four public presence rows as a map change;
+   `update_movement_state` 0.5 ms/call. Module JavaScript for a map change
+   profiles under 10 µs; rows under 1 KB. Reducing `change_map` from 45–50
+   database calls to 34–42 (commit 5ef0f24b) changed per-call cost by only 2.5%
+   (24.1 → 23.5 ms), so call count is not the driver. The three expensive
+   reducers share: they write `map_shard` (occupants) and `map_shard_member`,
+   read by the per-user view `myMapShardRoute`. SpacetimeDB re-evaluates a
+   per-user view for every subscriber whose read set changed (docs: "must
+   compute and track the view separately for each subscriber"), and every
+   player seated on a shard has that shard's row in their read set, so each
+   occupancy tick re-ran the view for everyone on the shard. Fix: public table
+   `map_shard_route` (one row per seated player, written by `assignMapShard`/
+   `releaseMapShard`, refreshed when a shard or member becomes ready;
+   backfilled by module migration 34). Clients subscribe to their own row. The
+   old view now reads only that one row; occupancy changes no longer touch
+   anything a client subscribes to. **Rule:** any table read by a per-user view
+   is expensive to write; prefer a reducer-maintained table plus filtered
+   subscription, or an anonymous view. Other audit targets in `spacetimedb/src/
+   index.ts`: `myPlayerBlocks`, `myGemWallet`, `myMailboxV2`, `myMailbox`,
+   `myBalanceApologyNotice`, `myUpgradeBench`, `myInventoryCapacity`,
+   `myCutsceneHistory`, `myItemGifts`, `myDefeatSessionRestriction`,
+   `myOnboarding`, `mySocialMessages`, `mySocialHub`, `myGemPurchases` —
+   verify which tables each reads. `change-map-host-calls.test.ts` guards the
+   call count (Home 38, portal 45); fewer calls is still cheaper despite not
+   being the main cost driver.
 
 What the eye already sheds, for reference: live steering collapses to one packet
 per 30 seconds, the motion-interest row is deleted, detail-frame publishing stops

@@ -1,3 +1,4 @@
+import { MODULE_MIGRATION_VERSION } from "./module-migrations";
 import { describe, expect, it, vi } from "vitest";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { rescaleEndgameProgress } from "../../shared/endgame-power-rescale";
@@ -25,7 +26,7 @@ describe("endgame account migration", () => {
     expect(f.db.playerProgress.identity.find(identity("3"))).toEqual({ ...next, identity: identity("3") });
     expect(f.db.playerProgress.identity.find(f.ctx.sender)).toEqual(low);
     expect(f.db.playerEndgameRebaseBackup.identity.find(identity("2"))).toMatchObject({ damage: original.damage, maxHp: original.maxHp });
-    expect(f.db.moduleMigrationState.id.find(0).version).toBe(33);
+    expect(f.db.moduleMigrationState.id.find(0).version).toBe(MODULE_MIGRATION_VERSION);
     expect(f.db.playerBalanceVersion.identity.find(identity("2")).version).toBe(9);
     f.patch("playerProgress", { damage: next.damage + 1000 }, identity("2"));
     f.run(server.onConnect);

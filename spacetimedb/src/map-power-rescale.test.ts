@@ -1,3 +1,4 @@
+import { MODULE_MIGRATION_VERSION } from "./module-migrations";
 import { rescaleEndgameProgress } from "../../shared/endgame-power-rescale";
 import { describe, expect, it, vi } from "vitest";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
@@ -26,7 +27,7 @@ describe("one-time live map power migration", () => {
     expect(f.db.playerPowerRebaseBackup.identity.find(identity("2"))).toMatchObject({ damage: 1e10, maxHp: 2e10, version: 7 });
     expect(f.db.playerPowerRebaseBackup.count()).toBe(3n);
     expect(f.db.playerBalanceVersion.identity.find(identity("2")).version).toBe(9);
-    expect(f.db.moduleMigrationState.id.find(0).version).toBe(33);
+    expect(f.db.moduleMigrationState.id.find(0).version).toBe(MODULE_MIGRATION_VERSION);
     f.patch("playerProgress", { damage: next.damage + 1000 }, identity("2"));
     f.run(server.onConnect);
     expect(f.db.playerProgress.identity.find(identity("2")).damage).toBe(next.damage + 1000);

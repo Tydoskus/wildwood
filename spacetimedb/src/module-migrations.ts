@@ -26,7 +26,7 @@ import {
   VERDANT_CATACOMBS_MAP_ID,
 } from "../../shared/rules";
 import { MAGMALISK_ID, TEMPEST_KIRIN_ID, MIREMAW_ID, DREADREAPER_ID, VOLTWARDEN_ID, GRAVEBLOOM_ID } from "./boss-combat";
-import { isMapShard, assignMapShard } from "./map-sharding";
+import { isMapShard, assignMapShard, syncMapShardRoute } from "./map-sharding";
 import { NAME_CHANGE_COOLDOWN_MS } from "../../shared/name-change";
 import { publishRebalanceMail } from "./mailbox";
 import { migrateGuildTags } from "./player-name-tags";
@@ -39,7 +39,7 @@ import { generateMap, isProceduralMap, proceduralMapId, proceduralMapNumber } fr
 import { balanceApologyTransactionReference, isBalanceApologyEligible } from "./balance-apology";
 import { BALANCE_APOLOGY_GEM_GIFT } from "../../shared/gems";
 
-export const MODULE_MIGRATION_VERSION = 33;
+export const MODULE_MIGRATION_VERSION = 34;
 
 export type ModuleMigrationDeps = {
   MAP_ARRIVALS: Record<string, { x: number; y: number }>;
@@ -500,6 +500,8 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
       refreshLeaderboard(ctx);
     }
     if (currentVersion < 33 && !isMapShard(ctx)) publishRebalanceMail(ctx);
+    // 34: map_shard_route replaces the per-user route view; seat every current member once.
+    if (currentVersion < 34 && !isMapShard(ctx)) for (const member of [...ctx.db.mapShardMember.iter()] as any[]) syncMapShardRoute(ctx, member.identity, member);
     const next = { id: 0, version: MODULE_MIGRATION_VERSION };
     if (state) ctx.db.moduleMigrationState.id.update(next);
     else ctx.db.moduleMigrationState.insert(next);

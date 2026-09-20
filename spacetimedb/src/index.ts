@@ -48,7 +48,7 @@ import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_TRAVEL_PORTAL, HOME_BEN
 import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./shard-snapshot-writes";
 import { decodeShardSnapshot, encodeShardSnapshot } from "../../shared/shard-wire";
 import { coordinateShard, validateCoordinatorConfig } from "./shard-coordinator";
-import { mapShardingTables, mapShardRouteType, rootShardingEnabled, isMapShard, assignMapShard, releaseMapShard, validateShardMap } from "./map-sharding";
+import { mapShardingTables, mapShardRouteType, rootShardingEnabled, isMapShard, assignMapShard, releaseMapShard, validateShardMap, syncMapShardRoute, syncMapShardRoutesForShard } from "./map-sharding";
 import { MAP_SHARD_CAPACITY } from "../../shared/map-sharding";
 import { compressLegacyMapPower } from "../../shared/map-power-rescale";
 import { createPlayerMotionFrameSampler } from "../../shared/player-motion-sample";
@@ -6109,7 +6109,9 @@ export const shardReady = spacetimedb.reducer({ shardId: t.u64() }, (ctx, { shar
   requireShardOperator(ctx);
   const shard = ctx.db.mapShard.id.find(shardId);
   if (!shard || shard.state === "draining") throw new SenderError("Unknown or draining shard");
-  ctx.db.mapShard.id.update({ ...shard, state: "ready" });
+  const ready = { ...shard, state: "ready" };
+  ctx.db.mapShard.id.update(ready);
+  syncMapShardRoutesForShard(ctx, ready);
   for (const member of ctx.db.mapShardMember.byMap.filter(shard.mapId)) {
     if (member.shardId === 0n) assignMapShard(ctx, ctx.db.player.identity.find(member.identity));
   }
@@ -6119,17 +6121,13 @@ export const shardMemberReady = spacetimedb.reducer(
     requireShardOperator(ctx);
     const member = ctx.db.mapShardMember.identity.find(args.identity);
     if (!member || member.generation !== args.generation || member.shardId !== args.shardId) return;
-    if (!member.ready) ctx.db.mapShardMember.identity.update({ ...member, ready: true });
+    if (!member.ready) { const next = { ...member, ready: true }; ctx.db.mapShardMember.identity.update(next); syncMapShardRoute(ctx, args.identity, next); }
   },
 );
+// Kept for clients built before map_shard_route existed; new clients subscribe to
+// their own row of that table. Reading the route row keeps the view's read set to one row.
 export const myMapShardRoute = spacetimedb.view(
-  { public: true }, t.option(mapShardRouteType), (ctx) => {
-    const member = ctx.db.mapShardMember.identity.find(ctx.sender);
-    if (!member) return undefined;
-    const shard = ctx.db.mapShard.id.find(member.shardId);
-    return { identity: member.identity, databaseName: shard?.databaseName ?? "", mapId: member.mapId,
-      generation: member.generation, ready: member.ready && shard?.state === "ready" };
-  },
+  { public: true }, t.option(mapShardRouteType), (ctx) => ctx.db.mapShardRoute.identity.find(ctx.sender) ?? undefined,
 );
 export const installShardPlayer = spacetimedb.reducer(
   { identity: t.identity(), generation: t.u64(), snapshot: t.string() }, installShardPlayerImpl);

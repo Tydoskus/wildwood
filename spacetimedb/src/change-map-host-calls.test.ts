@@ -7,8 +7,11 @@ vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module
 // Reducer compute on the host is paid per database call, not per line of
 // JavaScript: change_map ran ~24 ms with 45-50 calls while movement updates
 // with a handful ran in half a millisecond. These budgets hold the count.
-const HOME_TOGGLE_BUDGET = 37;
-const PORTAL_TRAVEL_BUDGET = 42;
+// The route row costs one write per leg (three on portal travel: drop the old
+// route, look up and insert the new one). It replaced a per-user view whose
+// re-evaluation for every player on the shard was the real cost.
+const HOME_TOGGLE_BUDGET = 38;
+const PORTAL_TRAVEL_BUDGET = 45;
 
 function countHostCalls(db: Record<string, any>) {
   let calls = 0;
@@ -54,6 +57,7 @@ it("keeps a Home round trip within its host-call budget and leaves the map's bal
   const back = meter.read();
   expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe("crystal_hollows");
   expect(f.db.mapShardMember.identity.find(f.ctx.sender)?.shardId).toBe(1n);
+  expect(f.db.mapShardRoute.identity.find(f.ctx.sender)).toMatchObject({ databaseName: "shard-1", mapId: "crystal_hollows", ready: false });
   expect(f.db.playerLastLocation.identity.find(f.ctx.sender)?.mapId).toBe("crystal_hollows");
   expect(toHome).toBeLessThanOrEqual(HOME_TOGGLE_BUDGET);
   expect(back).toBeLessThanOrEqual(HOME_TOGGLE_BUDGET);
@@ -69,5 +73,6 @@ it("keeps portal travel within its host-call budget and moves the shard seat", (
   expect(f.db.mapShardMember.identity.find(f.ctx.sender)?.shardId).toBe(2n);
   expect(f.db.mapShard.id.find(1n).occupants).toBe(2);
   expect(f.db.mapShard.id.find(2n).occupants).toBe(4);
+  expect(f.db.mapShardRoute.identity.find(f.ctx.sender)).toMatchObject({ databaseName: "shard-2", mapId: "clockwork_ruins" });
   expect(f.db.playerMapBalance.identity.find(f.ctx.sender).mapId).toBe("clockwork_ruins");
 });

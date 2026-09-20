@@ -247,6 +247,7 @@ import LocalMovementDemandRow from "./local_movement_demand_table";
 import MagmaliskBossRow from "./magmalisk_boss_table";
 import MagmaliskResultRow from "./magmalisk_result_table";
 import MapShardRow from "./map_shard_table";
+import MapShardRouteRow from "./map_shard_route_table";
 import MiremawBossRow from "./miremaw_boss_table";
 import MiremawResultRow from "./miremaw_result_table";
 import MyBalanceApologyNoticeRow from "./my_balance_apology_notice_table";
@@ -636,6 +637,17 @@ const tablesSchema = __schema({
       { name: 'map_shard_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, MapShardRow),
+  mapShardRoute: __table({
+    name: 'map_shard_route',
+    indexes: [
+      { accessor: 'identity', name: 'map_shard_route_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'map_shard_route_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, MapShardRouteRow),
   miremawBoss: __table({
     name: 'miremaw_boss',
     indexes: [

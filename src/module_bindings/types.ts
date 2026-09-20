@@ -1139,6 +1139,15 @@ export const MapShardMember = __t.object("MapShardMember", {
 });
 export type MapShardMember = __Infer<typeof MapShardMember>;
 
+export const MapShardRoute = __t.object("MapShardRoute", {
+  identity: __t.identity(),
+  databaseName: __t.string(),
+  mapId: __t.string(),
+  generation: __t.u64(),
+  ready: __t.bool(),
+});
+export type MapShardRoute = __Infer<typeof MapShardRoute>;
+
 export const MapShardRouteRow = __t.object("MapShardRouteRow", {
   identity: __t.identity(),
   databaseName: __t.string(),
