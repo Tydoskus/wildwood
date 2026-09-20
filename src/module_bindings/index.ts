@@ -287,6 +287,7 @@ import PlayerMotionFrameRow from "./player_motion_frame_table";
 import PlayerMotionIdentityRow from "./player_motion_identity_table";
 import PlayerNameTagRow from "./player_name_tag_table";
 import PlayerPrestigeRow from "./player_prestige_table";
+import PlayerPrestigePerkRow from "./player_prestige_perk_table";
 import PlayerProfileRow from "./player_profile_table";
 import PlayerProgressRow from "./player_progress_table";
 import PlayerResearchRow from "./player_research_table";
@@ -869,6 +870,17 @@ const tablesSchema = __schema({
       { name: 'player_prestige_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerPrestigeRow),
+  playerPrestigePerk: __table({
+    name: 'player_prestige_perk',
+    indexes: [
+      { accessor: 'identity', name: 'player_prestige_perk_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_prestige_perk_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerPrestigePerkRow),
   playerProfile: __table({
     name: 'player_profile',
     indexes: [

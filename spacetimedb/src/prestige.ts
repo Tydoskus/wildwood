@@ -21,7 +21,7 @@ export function statRewardMultiplier(ctx: any, identity: any) {
 
 /** The player's perk ranks, zero for anyone who has never prestiged. */
 export function prestigePerkRanks(ctx: any, identity: any): PrestigePerkRanks {
-  const row = ctx.db.playerPrestige.identity.find(identity);
+  const row = ctx.db.playerPrestigePerk.identity.find(identity);
   return { keenEdge: row?.keenEdge ?? 0, doubleStrike: row?.doubleStrike ?? 0, splitShot: row?.splitShot ?? 0, riposte: row?.riposte ?? 0 };
 }
 
@@ -62,8 +62,11 @@ export function createPrestige(deps: PrestigeDeps) {
     if (!isPrestigePerkId(perk)) throw new SenderError("Unknown prestige perk.");
     const current = ctx.db.playerPrestige.identity.find(ctx.sender);
     if (!current || current.perkPoints < 1) throw new SenderError("No perk points to spend.");
-    if (current[perk] >= PRESTIGE_PERK_MAX_RANK) throw new SenderError("That perk is already at its highest rank.");
-    ctx.db.playerPrestige.identity.update({ ...current, perkPoints: current.perkPoints - 1, [perk]: current[perk] + 1 });
+    const ranks = ctx.db.playerPrestigePerk.identity.find(ctx.sender);
+    if ((ranks?.[perk] ?? 0) >= PRESTIGE_PERK_MAX_RANK) throw new SenderError("That perk is already at its highest rank.");
+    const next = { identity: ctx.sender, ...prestigePerkRanks(ctx, ctx.sender), [perk]: (ranks?.[perk] ?? 0) + 1 };
+    if (ranks) ctx.db.playerPrestigePerk.identity.update(next); else ctx.db.playerPrestigePerk.insert(next);
+    ctx.db.playerPrestige.identity.update({ ...current, perkPoints: current.perkPoints - 1 });
   }
 
   return { prestigeAccount, spendPerkPoint };

@@ -1033,6 +1033,12 @@ const playerEndgameRebaseBackup = table(
 const playerPrestige = table({ name: "player_prestige", public: true }, {
   identity: t.identity().primaryKey(), level: t.u32().default(0), perkPoints: t.u32().default(0),
   peakPower: t.f64().default(0), prestigedAt: t.timestamp(),
+});
+// Perk ranks live apart from the level that bought them. player_prestige is
+// public and already subscribed by shipped clients, so its shape is frozen;
+// a new table is additive and leaves those clients connected.
+const playerPrestigePerk = table({ name: "player_prestige_perk", public: true }, {
+  identity: t.identity().primaryKey(),
   keenEdge: t.u32().default(0), doubleStrike: t.u32().default(0), splitShot: t.u32().default(0), riposte: t.u32().default(0),
 });
 const playerEndlessRebaseBackup = table({ public: false }, {
@@ -1729,6 +1735,7 @@ const spacetimedb = schema({
   playerEndgameRebaseBackup,
   playerEndlessRebaseBackup,
   playerPrestige,
+  playerPrestigePerk,
   developerPresencePreference,
   playerMovementDemand,
   playerAccessAudit,

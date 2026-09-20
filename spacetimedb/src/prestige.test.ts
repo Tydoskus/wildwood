@@ -8,6 +8,7 @@ vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module
 
 const CAMPAIGN_COMPLETE = BOSS_REWARD_CLAIM_BITS.aegisPrime;
 const prestigeRow = (f: ReturnType<typeof crystalFixture>) => f.db.playerPrestige.identity.find(f.ctx.sender);
+const perkRow = (f: ReturnType<typeof crystalFixture>) => f.db.playerPrestigePerk.identity.find(f.ctx.sender);
 
 /** A player standing in the forest who can one-shot Spitters, which pay damage. */
 function farmer(prestigeLevel = 0) {
@@ -107,16 +108,18 @@ it("spends a banked point on one rank and refuses anything it cannot pay for", (
   f.seed("playerPrestige", { identity: f.ctx.sender, level: 2, perkPoints: 2, peakPower: 0, prestigedAt: f.ctx.timestamp });
   expect(() => f.run(server.spendPrestigePerkPoint, { perk: "nope" })).toThrow("Unknown prestige perk");
   f.run(server.spendPrestigePerkPoint, { perk: "riposte" });
-  expect(prestigeRow(f)).toMatchObject({ perkPoints: 1, riposte: 1 });
+  expect(prestigeRow(f)).toMatchObject({ perkPoints: 1 });
+  expect(perkRow(f)).toMatchObject({ riposte: 1 });
   f.run(server.spendPrestigePerkPoint, { perk: "riposte" });
-  expect(prestigeRow(f)).toMatchObject({ perkPoints: 0, riposte: 2 });
+  expect(prestigeRow(f)).toMatchObject({ perkPoints: 0 });
+  expect(perkRow(f)).toMatchObject({ riposte: 2 });
   expect(() => f.run(server.spendPrestigePerkPoint, { perk: "riposte" })).toThrow("No perk points");
 });
 
 it("refuses to push a perk past its highest rank", () => {
   const f = crystalFixture();
-  f.seed("playerPrestige", { identity: f.ctx.sender, level: 9, perkPoints: 3, peakPower: 0,
-    prestigedAt: f.ctx.timestamp, splitShot: PRESTIGE_PERK_MAX_RANK });
+  f.seed("playerPrestige", { identity: f.ctx.sender, level: 9, perkPoints: 3, peakPower: 0, prestigedAt: f.ctx.timestamp });
+  f.seed("playerPrestigePerk", { identity: f.ctx.sender, splitShot: PRESTIGE_PERK_MAX_RANK });
   expect(() => f.run(server.spendPrestigePerkPoint, { perk: "splitShot" })).toThrow("highest rank");
   expect(prestigeRow(f)).toMatchObject({ perkPoints: 3 });
 });
@@ -129,9 +132,7 @@ it("widens the claim bound for perks that reach more enemies than the weapon can
     // One slow, single projectile per swing, so the bound is well under the
     // claim and any widening of it is visible in what the server pays.
     f.patch("playerProgress", { attackRate: 10, projectileCount: 1 });
-    if (Object.keys(ranks).length) {
-      f.seed("playerPrestige", { identity: f.ctx.sender, level: 5, perkPoints: 0, peakPower: 0, prestigedAt: f.ctx.timestamp, ...ranks });
-    }
+    if (Object.keys(ranks).length) f.seed("playerPrestigePerk", { identity: f.ctx.sender, ...ranks });
     farmSpitters(f, 100);
     return Number(f.db.playerLifetime.identity.find(f.ctx.sender)?.enemyKills ?? 0n);
   };

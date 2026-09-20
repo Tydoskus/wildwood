@@ -1729,12 +1729,17 @@ export const PlayerPrestige = __t.object("PlayerPrestige", {
   perkPoints: __t.u32(),
   peakPower: __t.f64(),
   prestigedAt: __t.timestamp(),
+});
+export type PlayerPrestige = __Infer<typeof PlayerPrestige>;
+
+export const PlayerPrestigePerk = __t.object("PlayerPrestigePerk", {
+  identity: __t.identity(),
   keenEdge: __t.u32(),
   doubleStrike: __t.u32(),
   splitShot: __t.u32(),
   riposte: __t.u32(),
 });
-export type PlayerPrestige = __Infer<typeof PlayerPrestige>;
+export type PlayerPrestigePerk = __Infer<typeof PlayerPrestigePerk>;
 
 export const PlayerProfile = __t.object("PlayerProfile", {
   identity: __t.identity(),
