@@ -1398,7 +1398,7 @@ import {
     renderName: renderDomPlayerName,
     isGuest: (identity) => coop?.isGuest?.(identity) ?? false,
     isOnline: (identity) => identity === coop?.localIdentity?.()
-      ? Boolean(coop?.isConnected?.()) && (!isDeveloperIdentity(identity) || coop?.developerPresenceVisible?.() === true)
+      ? Boolean(coop?.isConnected?.())
       : Boolean(coop?.activePlayerMap?.(identity)) || coop?.remotePlayers?.().some((other) => other.id === identity) === true,
     presenceText: (profile, online) => {
       const mapName = mapNameForPresence(profile.mapId);

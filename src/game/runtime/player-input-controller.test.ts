@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { JOYSTICK_DEAD_ZONE, JOYSTICK_MAXIMUM, radialJoystickInput } from "./player-input-controller";
+import { parseHTML } from "linkedom";
+import { JOYSTICK_DEAD_ZONE, JOYSTICK_MAXIMUM, radialJoystickInput, swallowsGameKeys } from "./player-input-controller";
 
 describe("radial touch joystick", () => {
   it("filters finger noise inside the dead zone", () => {
@@ -17,5 +18,28 @@ describe("radial touch joystick", () => {
     const input = radialJoystickInput(300, 400);
     expect(Math.hypot(input.x, input.y)).toBeCloseTo(1);
     expect(Math.hypot(input.stickX, input.stickY)).toBeCloseTo(JOYSTICK_MAXIMUM);
+  });
+});
+
+describe("keyboard ownership", () => {
+  const { document } = parseHTML("<div></div>");
+  const input = (type: string) => Object.assign(document.createElement("input"), { type });
+
+  it("leaves the whole keyboard to text entry", () => {
+    expect(swallowsGameKeys(input("text"), "KeyW")).toBe(true);
+    expect(swallowsGameKeys(document.createElement("textarea"), "KeyW")).toBe(true);
+  });
+
+  it("keeps a focused slider from stopping movement after its thumb is dragged", () => {
+    const slider = input("range");
+    for (const code of ["KeyW", "KeyA", "KeyS", "KeyD"]) expect(swallowsGameKeys(slider, code)).toBe(false);
+    // The keys the slider itself acts on still belong to it.
+    expect(swallowsGameKeys(slider, "ArrowLeft")).toBe(true);
+    expect(swallowsGameKeys(slider, "Home")).toBe(true);
+  });
+
+  it("gives the world every key when nothing focusable is typing", () => {
+    expect(swallowsGameKeys(document.createElement("canvas"), "KeyW")).toBe(false);
+    expect(swallowsGameKeys(null, "KeyW")).toBe(false);
   });
 });

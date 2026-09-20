@@ -50,6 +50,20 @@ export function radialJoystickInput(
   };
 }
 
+const SLIDER_KEYS = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"];
+
+/**
+ * Text fields own the whole keyboard; a slider owns only the keys it acts on.
+ * A range input keeps focus after its thumb is dragged, so treating it like a
+ * text field would leave a player unable to walk until they clicked elsewhere.
+ */
+export function swallowsGameKeys(target: EventTarget | null, code: string): boolean {
+  const element = target as HTMLInputElement | null;
+  if (element?.tagName === "TEXTAREA") return true;
+  if (element?.tagName !== "INPUT") return false;
+  return element.type === "range" ? SLIDER_KEYS.includes(code) : true;
+}
+
 /** Owns keyboard, desktop pointing, touch joystick, player taps, and zoom prevention. */
 export function createPlayerInputController(options: {
   canvas: HTMLCanvasElement;
@@ -124,7 +138,7 @@ export function createPlayerInputController(options: {
 
   window.addEventListener("keydown", (event) => {
     if (event.code === "Escape") { desktop?.clear(); if (onEscape()) return; }
-    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+    if (swallowsGameKeys(event.target, event.code)) return;
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(event.code)) event.preventDefault();
     keys.add(event.code);
     if (["KeyA", "KeyD", "KeyW", "KeyS", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.code)) desktop?.clear();

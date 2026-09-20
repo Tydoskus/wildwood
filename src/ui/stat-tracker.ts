@@ -33,6 +33,9 @@ export function installStatTracker(options: {
     applyOpacity(opacity.valueAsNumber);
     try { options.storage.setItem(OPACITY_KEY, String(opacity.valueAsNumber)); } catch {}
   });
+  // Hand the keyboard back to the world once the thumb is released, so arrow
+  // keys walk again. Tabbing to the slider still keeps focus for adjustment.
+  opacity.addEventListener('pointerup', () => opacity.blur());
   const reset = panel.querySelector<HTMLButtonElement>('.stat-tracker-reset')!;
 
   const clock = panel.querySelector<HTMLElement>('.stat-tracker-time')!;
