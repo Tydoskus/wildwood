@@ -1,5 +1,5 @@
 import { auditPrivilegedAccess, denyPrivilegedAccess } from "./privileged-access-audit";
-import { defeatSessionRestriction, defeatRestrictionError, requireAllowedDefeatSession, restrictDefeatSession, restrictMovementSession, suspendPlayerAccount } from "./defeat-session";
+import { defeatSessionRestriction, defeatRestrictionError, requireAllowedDefeatSession, restrictDefeatSession, suspendPlayerAccount } from "./defeat-session";
 import { findDeveloperTravelTarget, readDeveloperTravelTarget, readShardTravelPosition } from "./developer-travel";
 import { mapBalanceVersion, mapBalanceHead, playerMapBalance, balanceEditorState, saveMapBalance, pinMapBalance, pinnedMapBalance } from "./map-balance";
 import { resolveMapBalance, validateBalanceSettings } from "../../shared/map-balance";
@@ -43,7 +43,7 @@ import { allowedAvatarFrame } from "../../shared/avatar-frames";
 import { createGemPurchaseService } from "./gem-purchase-service";
 import { rescaleEndgameProgress } from "../../shared/endgame-power-rescale";
 import { CAMPAIGN_UNLOCK_FIELDS, equipmentMapRequirement } from "../../shared/equipment-access";
-import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_TRAVEL_PORTAL, HOME_BENCH_POSITION, HOME_WORLD_WIDTH, HOME_WORLD_HEIGHT } from "../../shared/home";
+import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_TRAVEL_PORTAL, HOME_BENCH_POSITION } from "../../shared/home";
 import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./shard-snapshot-writes";
 import { decodeShardSnapshot, encodeShardSnapshot } from "../../shared/shard-wire";
 import { coordinateShard, validateCoordinatorConfig } from "./shard-coordinator";
@@ -51,7 +51,7 @@ import { mapShardingTables, mapShardRouteType, rootShardingEnabled, isMapShard, 
 import { MAP_SHARD_CAPACITY } from "../../shared/map-sharding";
 import { compressLegacyMapPower } from "../../shared/map-power-rescale";
 import { advanceDuelCombat, duelOutcome, DUEL_COMBAT_VERSION } from "../../shared/duel-combat";
-import { createPlayerMotionFrameSampler, playerMotionSampleAt } from "../../shared/player-motion-sample";
+import { createPlayerMotionFrameSampler } from "../../shared/player-motion-sample";
 import { schema, SenderError, Router, table, t, type InferSchema, type ReducerCtx, type ViewCtx } from "spacetimedb/server";
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { attackForestPrototype, beginForestPrototype } from "./forest-reward-prototype";
@@ -101,6 +101,12 @@ import {
 } from "./boss-tables";
 import { createBossCombat, PRISMSHELL_ID } from "./boss-combat";
 import { createModuleMigrations } from "./module-migrations";
+import {
+  createPresenceRuntime, MOTION_DETAIL_FRAME_INTERVAL_MICROS, MAP_FRAME_INTERVAL_MICROS, playerZone,
+  playerWithMotion, stoppedMotionFields, adjustPlayerMotionMapState, syncPlayerMotion, syncPlayerMotionIdentity,
+  ensureMotionDetailFrameSchedule, ensureRealtimeFrameSchedules, motionSample, persistWorldLocation,
+  syncPlayerMapMarker, ensureWorldStatus, reconcileOnlinePlayers,
+} from "./presence-runtime";
 import { createAccountLifecycle, hasSpacetimeAuthAccount, clearExpiredAccountLinks, dailyGemBonusClaimReference } from "./account-lifecycle";
 import {
   compressLegacyProgressionOutlier,
@@ -149,19 +155,13 @@ import {
   WOODEN_ARMOR,
 } from "../../shared/items";
 import {
-  PLAYER_MAP_FRAME_HZ,
-  PLAYER_VELOCITY_SCALE,
   compactPlayerMapSamples,
   encodePlayerMapFrame,
   encodePlayerMotionFrame,
   type PlayerMapSample,
   type PlayerMotionSample,
 } from "../../shared/player-motion-frame";
-import {
-  PLAYER_MOTION_DETAIL_FRAME_HZ,
-  PLAYER_MOTION_INTEREST_LIMIT,
-} from "../../shared/player-motion-interest";
-import { analyticalPlayerMotionAt } from "../../shared/analytical-player-motion";
+import { PLAYER_MOTION_INTEREST_LIMIT } from "../../shared/player-motion-interest";
 import {
   ATTACK_BALANCE_VERSION,
   ADVANCED_LAVA_WASTES_MAP_ID,
@@ -211,17 +211,6 @@ const LEGACY_CLIENT_ERRORS = {
 } as const;
 
 const WORLD = { width: WORLD_WIDTH, height: WORLD_HEIGHT };
-const MAX_PACKED_PLAYER_VELOCITY = 0x7fff / PLAYER_VELOCITY_SCALE;
-// Movement packets are floats, so allow a tiny wire-format margin while
-// still rejecting a client-provided velocity that exceeds its server-owned
-// movement speed.  Position is still client-authored for smooth play, but a
-// packet may not jump farther than server time and the owned speed allow.
-const MOVEMENT_SPEED_PACKET_TOLERANCE = 1;
-// A short network/rendering margin covers a delayed mobile packet without
-// making a speed-hacked position useful.  The allowance grows with the real
-// server elapsed time between accepted movement packets.
-const MOVEMENT_POSITION_PACKET_TOLERANCE = 96;
-const PLAYER_ZONE_SIZE = 1_000;
 const VALID_MAP_IDS = { has: (id: string) => MAP_IDS.includes(id) || id === HOME_EXTERIOR_MAP_ID || isProceduralMap(id) };
 const LEGACY_FROSTWIND_EXPANSE_MAP_ID = "frostwind_expanse";
 
@@ -305,8 +294,6 @@ const CHAT_HISTORY_RETENTION_MICROS = 86_400_000_000n;
 const DUEL_REPLAY_RETENTION_MICROS = CHAT_HISTORY_RETENTION_MICROS;
 const MAINTENANCE_INTERVAL_MICROS = 60_000_000n;
 const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
-const MOTION_DETAIL_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_DETAIL_FRAME_HZ);
-const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
 const LEADERBOARD_REFRESH_VERSION = 11;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
@@ -2447,72 +2434,6 @@ function duelDamage(ctx: any, identity: any, damage: number) {
   return baseDamage * (1 + criticalChance * (criticalMultiplier - 1));
 }
 
-function playerZone(x: number, y: number) {
-  return {
-    zoneX: Math.floor(x / PLAYER_ZONE_SIZE),
-    zoneY: Math.floor(y / PLAYER_ZONE_SIZE),
-  };
-}
-
-function analyticalMotionAt(motion: any, sampledAtMicros: bigint) {
-  const sampled = analyticalPlayerMotionAt({
-    x: motion.x,
-    y: motion.y,
-    vx: motion.vx,
-    vy: motion.vy,
-    moving: motion.moving,
-    simulationTick: motion.simulationTick,
-    anchoredAtMicros: motion.lastInputAt.microsSinceUnixEpoch,
-  }, sampledAtMicros);
-  if (motion.mapId === HOME_EXTERIOR_MAP_ID) {
-    sampled.x = Math.max(PLAYER_RADIUS, Math.min(HOME_WORLD_WIDTH - PLAYER_RADIUS, sampled.x));
-    sampled.y = Math.max(PLAYER_RADIUS, Math.min(HOME_WORLD_HEIGHT - PLAYER_RADIUS, sampled.y));
-  }
-  return {
-    ...motion,
-    ...sampled,
-    facing: sampled.vx < 0 ? Math.PI : sampled.vx > 0 ? 0 : motion.facing,
-    ...playerZone(sampled.x, sampled.y),
-  };
-}
-
-function playerWithMotion(ctx: any, activePlayer: any) {
-  if (!activePlayer) return activePlayer;
-  const motion = ctx.db.playerMotion.identity.find(activePlayer.identity);
-  if (!motion || motion.mapId !== activePlayer.mapId) return activePlayer;
-  const sampled = analyticalMotionAt(motion, ctx.timestamp.microsSinceUnixEpoch);
-  return {
-    ...activePlayer,
-    x: sampled.x,
-    y: sampled.y,
-    facing: sampled.facing,
-    moving: sampled.moving,
-    dx: sampled.moving ? motion.dx : 0,
-    dy: sampled.moving ? motion.dy : 0,
-    vx: sampled.vx,
-    vy: sampled.vy,
-    simulationTick: sampled.simulationTick,
-    motionEpoch: sampled.motionEpoch,
-    lastInputAt: sampled.lastInputAt,
-    lastInputSequence: sampled.lastInputSequence,
-    zoneX: sampled.zoneX,
-    zoneY: sampled.zoneY,
-    mapId: sampled.mapId,
-  };
-}
-
-function stoppedMotionFields(current: any, advanceEpoch = false) {
-  return {
-    moving: false,
-    dx: 0,
-    dy: 0,
-    vx: 0,
-    vy: 0,
-    simulationTick: current.simulationTick ?? 0,
-    motionEpoch: ((current.motionEpoch ?? 0) + (advanceEpoch ? 1 : 0)) >>> 0,
-  };
-}
-
 function publishPlayerDeathFrame(ctx: any, activePlayer: any) {
   if (boundedMapPopulation(ctx, activePlayer.mapId) < 2) return;
   const motion = ctx.db.playerMotion.identity.find(activePlayer.identity);
@@ -2528,132 +2449,6 @@ function publishPlayerDeathFrame(ctx: any, activePlayer: any) {
   });
 }
 
-function adjustPlayerMotionMapState(ctx: any, mapId: string, playerDelta: number, visibleDelta: number) {
-  const current = ctx.db.playerMotionMapState.mapId.find(mapId);
-  const playerCount = Math.max(0, (current?.playerCount ?? 0) + playerDelta);
-  const visibleCount = Math.max(0, Math.min(playerCount, (current?.visibleCount ?? 0) + visibleDelta));
-  if (playerCount === 0) {
-    if (current) ctx.db.playerMotionMapState.mapId.delete(mapId);
-    return;
-  }
-  const next = { mapId, playerCount, visibleCount };
-  if (current) ctx.db.playerMotionMapState.mapId.update(next);
-  else ctx.db.playerMotionMapState.insert(next);
-}
-
-function syncPlayerMotion(ctx: any, activePlayer: any) {
-  if (rootShardingEnabled(ctx) && activePlayer.mapId !== HOME_EXTERIOR_MAP_ID) return { ...activePlayer, networkId: 0 };
-  const current = ctx.db.playerMotion.identity.find(activePlayer.identity);
-  const moving = Boolean(activePlayer.moving);
-  const isVisible = activePlayer.mapId !== HOME_EXTERIOR_MAP_ID && activePlayer.isVisible !== false;
-  const hasStoredVelocity = Number.isFinite(activePlayer.vx) && Number.isFinite(activePlayer.vy) && (
-    !moving || activePlayer.vx !== 0 || activePlayer.vy !== 0
-  );
-  const fallbackSpeed = Number.isFinite(activePlayer.speed) ? Math.max(0, activePlayer.speed) : 0;
-  const vx = moving
-    ? Math.max(-MAX_PACKED_PLAYER_VELOCITY, Math.min(MAX_PACKED_PLAYER_VELOCITY, hasStoredVelocity ? activePlayer.vx : (activePlayer.dx ?? 0) * fallbackSpeed))
-    : 0;
-  const vy = moving
-    ? Math.max(-MAX_PACKED_PLAYER_VELOCITY, Math.min(MAX_PACKED_PLAYER_VELOCITY, hasStoredVelocity ? activePlayer.vy : (activePlayer.dy ?? 0) * fallbackSpeed))
-    : 0;
-  const next = {
-    networkId: current?.networkId ?? 0,
-    identity: activePlayer.identity,
-    x: activePlayer.x,
-    y: activePlayer.y,
-    facing: activePlayer.facing,
-    moving,
-    lastInputAt: activePlayer.lastInputAt,
-    lastInputSequence: activePlayer.lastInputSequence,
-    // Physical compatibility column. No current client or publisher reads it.
-    inputIntervalMicros: 0n,
-    zoneX: activePlayer.zoneX,
-    zoneY: activePlayer.zoneY,
-    mapId: activePlayer.mapId,
-    dx: moving && Number.isFinite(activePlayer.dx) ? Math.max(-1, Math.min(1, activePlayer.dx)) : 0,
-    dy: moving && Number.isFinite(activePlayer.dy) ? Math.max(-1, Math.min(1, activePlayer.dy)) : 0,
-    isVisible,
-    vx,
-    vy,
-    simulationTick: Number.isFinite(activePlayer.simulationTick) ? Math.max(0, Math.min(0xffffffff, Math.floor(activePlayer.simulationTick))) : current?.simulationTick ?? 0,
-    motionEpoch: Number.isFinite(activePlayer.motionEpoch) ? Math.max(0, Math.min(0xffffffff, Math.floor(activePlayer.motionEpoch))) : current?.motionEpoch ?? 0,
-  };
-  const stored = current
-    ? ctx.db.playerMotion.networkId.update(next)
-    : ctx.db.playerMotion.insert(next);
-  if (!current) {
-    adjustPlayerMotionMapState(ctx, next.mapId, 1, isVisible ? 1 : 0);
-  } else if (current.mapId !== next.mapId) {
-    adjustPlayerMotionMapState(ctx, current.mapId, -1, current.isVisible ? -1 : 0);
-    adjustPlayerMotionMapState(ctx, next.mapId, 1, isVisible ? 1 : 0);
-  } else if (current.isVisible !== isVisible) {
-    adjustPlayerMotionMapState(ctx, next.mapId, 0, isVisible ? 1 : -1);
-  }
-  return stored;
-}
-
-function syncPlayerMotionIdentity(ctx: any, activePlayer: any) {
-  if (activePlayer?.mapId === HOME_EXTERIOR_MAP_ID) releaseMapShard(ctx, activePlayer.identity);
-  if (rootShardingEnabled(ctx) && activePlayer?.mapId !== HOME_EXTERIOR_MAP_ID) {
-    const member = activePlayer && ctx.db.mapShardMember.identity.find(activePlayer.identity);
-    if (activePlayer && (!member || member.mapId !== activePlayer.mapId)) persistWorldLocation(ctx, activePlayer);
-    assignMapShard(ctx, activePlayer);
-    return;
-  }
-  if (!activePlayer) return;
-  const motion = ctx.db.playerMotion.identity.find(activePlayer.identity) ?? syncPlayerMotion(ctx, activePlayer);
-  const profile = ctx.db.playerProfile.identity.find(activePlayer.identity);
-  if (!profile) return;
-  const current = ctx.db.playerMotionIdentity.identity.find(activePlayer.identity);
-  const next = {
-    networkId: motion.networkId,
-    identity: activePlayer.identity,
-    mapId: activePlayer.mapId,
-    isVisible: activePlayer.mapId !== HOME_EXTERIOR_MAP_ID && activePlayer.isVisible,
-    zoneX: activePlayer.zoneX,
-    zoneY: activePlayer.zoneY,
-    displayName: profile.displayName,
-    profileIcon: profile.profileIcon,
-    playerSprite: profile.playerSprite,
-    skinTone: profile.skinTone,
-    isGuest: ctx.db.playerAccountStatus.identity.find(activePlayer.identity)?.isGuest ?? false,
-    gender: profile.gender,
-    speed: Number.isFinite(activePlayer.speed) ? Math.max(0, activePlayer.speed) : PLAYER_SPEED,
-    powerLevel: Number.isFinite(activePlayer.powerLevel) ? Math.max(0, activePlayer.powerLevel) : 0,
-    feetItem: activePlayer.feetItem ?? "",
-    headItem: activePlayer.headItem ?? BASIC_PAPER_HAT,
-    chestItem: activePlayer.chestItem ?? "",
-    rightHandItem: activePlayer.rightHandItem ?? "",
-    leftHandItem: activePlayer.leftHandItem ?? "",
-  };
-  if (!current) {
-    ctx.db.playerMotionIdentity.insert(next);
-    return;
-  }
-  if (current.networkId !== next.networkId) {
-    ctx.db.playerMotionIdentity.networkId.delete(current.networkId);
-    ctx.db.playerMotionIdentity.insert(next);
-    return;
-  }
-  if (
-    current.mapId !== next.mapId ||
-    current.isVisible !== next.isVisible ||
-    current.displayName !== next.displayName ||
-    current.profileIcon !== next.profileIcon ||
-    current.playerSprite !== next.playerSprite ||
-    current.skinTone !== next.skinTone ||
-    current.isGuest !== next.isGuest ||
-    current.gender !== next.gender ||
-    current.speed !== next.speed ||
-    current.powerLevel !== next.powerLevel ||
-    current.feetItem !== next.feetItem ||
-    current.headItem !== next.headItem ||
-    current.chestItem !== next.chestItem ||
-    current.rightHandItem !== next.rightHandItem ||
-    current.leftHandItem !== next.leftHandItem
-  ) ctx.db.playerMotionIdentity.networkId.update(next);
-}
-
 function removePlayerRealtimeState(ctx: any, identity: any) {
   if (ctx.db.playerMotionInterest.identity.find(identity)) ctx.db.playerMotionInterest.identity.delete(identity);
   const motion = ctx.db.playerMotion.identity.find(identity);
@@ -2665,208 +2460,8 @@ function removePlayerRealtimeState(ctx: any, identity: any) {
   if (mapping) ctx.db.playerMotionIdentity.networkId.delete(mapping.networkId);
 }
 
-function hasSharedMap(ctx: any) {
-  for (const state of ctx.db.playerMotionMapState.iter() as Iterable<any>) {
-    if (state.mapId !== HOME_EXTERIOR_MAP_ID && state.visibleCount > 1) return true;
-  }
-  return false;
-}
-
 function boundedMapPopulation(ctx: any, mapId: string) {
   return ctx.db.playerMotionMapState.mapId.find(mapId)?.playerCount ?? 0;
-}
-
-function ensureMotionDetailFrameSchedule(ctx: any) {
-  for (const _schedule of ctx.db.motionDetailFrameSchedule.iter()) return;
-  for (const _interest of ctx.db.playerMotionInterest.iter()) {
-    ctx.db.motionDetailFrameSchedule.insert({
-      scheduledId: 0n,
-      scheduledAt: ScheduleAt.time(ctx.timestamp.microsSinceUnixEpoch + MOTION_DETAIL_FRAME_INTERVAL_MICROS),
-    });
-    return;
-  }
-}
-
-function ensureMapFrameSchedule(ctx: any) {
-  for (const _schedule of ctx.db.mapFrameSchedule.iter()) return;
-  if (!hasSharedMap(ctx)) return;
-  ctx.db.mapFrameSchedule.insert({
-    scheduledId: 0n,
-    scheduledAt: ScheduleAt.time(ctx.timestamp.microsSinceUnixEpoch + MAP_FRAME_INTERVAL_MICROS),
-  });
-}
-
-function ensureRealtimeFrameSchedules(ctx: any) {
-  ensureMotionDetailFrameSchedule(ctx);
-  ensureMapFrameSchedule(ctx);
-}
-
-function motionSample(motion: any, sampledAtMicros: bigint): PlayerMotionSample {
-  return playerMotionSampleAt(motion, sampledAtMicros);
-}
-
-function savedWorldLocation(ctx: any, identity: any, progress: any) {
-  const saved = ctx.db.playerLastLocation.identity.find(identity);
-  const requestedMap = VALID_MAP_IDS.has(saved?.mapId) ? saved.mapId : TUTORIAL_FOREST_MAP_ID;
-  let mapId = requestedMap;
-  if (mapId === MOONFEN_MAP_ID && !progress.moonfenUnlocked) {
-    mapId = progress.cloudspireUnlocked
-      ? CLOUDSPIRE_MAP_ID
-      : progress.samuraiUnlocked ? SAMURAI_GARDEN_MAP_ID
-        : progress.waterUnlocked ? WATER_REACH_MAP_ID
-          : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
-            : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
-              : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
-                : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-  }
-  if (mapId === CLOCKWORK_RUINS_MAP_ID && !progress.clockworkRuinsUnlocked) {
-    mapId = progress.moonfenUnlocked ? MOONFEN_MAP_ID : progress.cloudspireUnlocked
-      ? CLOUDSPIRE_MAP_ID
-      : progress.samuraiUnlocked ? SAMURAI_GARDEN_MAP_ID
-        : progress.waterUnlocked ? WATER_REACH_MAP_ID
-          : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
-            : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
-              : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
-                : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-  } else if (mapId === ION_CITADEL_MAP_ID && !progress.ionCitadelUnlocked) {
-    mapId = progress.moonfenUnlocked ? MOONFEN_MAP_ID : progress.cloudspireUnlocked
-      ? CLOUDSPIRE_MAP_ID
-      : progress.samuraiUnlocked ? SAMURAI_GARDEN_MAP_ID
-        : progress.waterUnlocked ? WATER_REACH_MAP_ID
-          : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
-            : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
-              : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
-                : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-  } else if (mapId === VERDANT_CATACOMBS_MAP_ID && !progress.verdantCatacombsUnlocked) {
-    mapId = progress.moonfenUnlocked ? MOONFEN_MAP_ID : progress.cloudspireUnlocked
-      ? CLOUDSPIRE_MAP_ID
-      : progress.samuraiUnlocked ? SAMURAI_GARDEN_MAP_ID
-        : progress.waterUnlocked ? WATER_REACH_MAP_ID
-          : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
-            : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
-              : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
-                : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-  } else if (mapId === NEON_BASTION_MAP_ID && !progress.neonBastionUnlocked) {
-    mapId = progress.moonfenUnlocked ? MOONFEN_MAP_ID : progress.cloudspireUnlocked
-      ? CLOUDSPIRE_MAP_ID
-      : progress.samuraiUnlocked ? SAMURAI_GARDEN_MAP_ID
-        : progress.waterUnlocked ? WATER_REACH_MAP_ID
-          : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
-            : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
-              : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
-                : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-  } else if (mapId === DUSKFALL_ORCHARD_MAP_ID && !progress.duskfallOrchardUnlocked) {
-    mapId = progress.moonfenUnlocked ? MOONFEN_MAP_ID : progress.cloudspireUnlocked
-      ? CLOUDSPIRE_MAP_ID
-      : progress.samuraiUnlocked ? SAMURAI_GARDEN_MAP_ID
-        : progress.waterUnlocked ? WATER_REACH_MAP_ID
-          : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
-            : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
-              : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
-                : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-  } else if (mapId === CRYSTAL_HOLLOWS_MAP_ID && !progress.crystalHollowsUnlocked) {
-    mapId = progress.moonfenUnlocked ? MOONFEN_MAP_ID : progress.cloudspireUnlocked
-      ? CLOUDSPIRE_MAP_ID
-      : progress.samuraiUnlocked ? SAMURAI_GARDEN_MAP_ID
-        : progress.waterUnlocked ? WATER_REACH_MAP_ID
-          : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
-            : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
-              : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
-                : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-  }
-  if (mapId === CLOUDSPIRE_MAP_ID && !progress.cloudspireUnlocked) {
-    mapId = progress.samuraiUnlocked
-      ? SAMURAI_GARDEN_MAP_ID
-      : progress.waterUnlocked ? WATER_REACH_MAP_ID
-        : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
-          : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
-            : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
-              : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-  }
-  if (mapId === SAMURAI_GARDEN_MAP_ID && !progress.samuraiUnlocked) {
-    mapId = progress.waterUnlocked
-      ? WATER_REACH_MAP_ID
-      : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
-        : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
-          : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
-            : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-  }
-  if (mapId === WATER_REACH_MAP_ID && !progress.waterUnlocked) {
-    mapId = progress.infernalUnlocked
-      ? INFERNAL_DEPTHS_MAP_ID
-      : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
-        : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
-          : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-  }
-  if (mapId === INFERNAL_DEPTHS_MAP_ID && !progress.infernalUnlocked) {
-    mapId = progress.lavaUnlocked
-      ? ADVANCED_LAVA_WASTES_MAP_ID
-      : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
-        : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-  }
-  if (mapId === ADVANCED_LAVA_WASTES_MAP_ID && !progress.lavaUnlocked) {
-    mapId = progress.snowlandsUnlocked
-      ? INTERMEDIATE_SNOWLANDS_MAP_ID
-      : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-  }
-  if (mapId === INTERMEDIATE_SNOWLANDS_MAP_ID && !progress.snowlandsUnlocked) {
-    mapId = progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-  }
-  if (mapId === BEGINNER_DESERT_MAP_ID && !progress.desertUnlocked) mapId = TUTORIAL_FOREST_MAP_ID;
-  if (isProceduralMap(mapId) && !hasEndlessTravelAccess(ctx, identity) && !generatedMapUnlocked(mapId, ctx.db.proceduralProgress.identity.find(identity)?.completed ?? 0, Boolean(progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS[PROCEDURAL_ENTRY_BOSS]))) mapId = TUTORIAL_FOREST_MAP_ID;
-  const fallback = isProceduralMap(mapId) ? generateMap(mapId).arrival : mapId === HOME_EXTERIOR_MAP_ID ? HOME_EXTERIOR_SPAWN : mapId === TUTORIAL_FOREST_MAP_ID ? PLAYER_SPAWN : MAP_ARRIVALS[mapId as keyof typeof MAP_ARRIVALS];
-  const useSavedPosition = mapId === requestedMap;
-  const x = useSavedPosition && Number.isFinite(saved?.x)
-    ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, saved.x))
-    : fallback.x;
-  const y = useSavedPosition && Number.isFinite(saved?.y)
-    ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, saved.y))
-    : fallback.y;
-  return { mapId, x, y, facing: useSavedPosition && Number.isFinite(saved?.facing) ? saved.facing : 0 };
-}
-
-function persistWorldLocation(ctx: any, activePlayer: any) {
-  if (ctx.db.virtualPlayer.identity.find(activePlayer.identity)) return;
-  const current = ctx.db.playerLastLocation.identity.find(activePlayer.identity);
-  const next = {
-    identity: activePlayer.identity,
-    mapId: activePlayer.mapId,
-    x: activePlayer.x,
-    y: activePlayer.y,
-    facing: activePlayer.facing,
-  };
-  if (
-    !current ||
-    current.mapId !== next.mapId ||
-    current.x !== next.x ||
-    current.y !== next.y ||
-    current.facing !== next.facing
-  ) {
-    if (current) ctx.db.playerLastLocation.identity.update(next);
-    else ctx.db.playerLastLocation.insert(next);
-  }
-}
-
-function syncPlayerMapMarker(ctx: any, activePlayer: any, force = false) {
-  if (!activePlayer) return;
-  const current = ctx.db.playerMapMarker.identity.find(activePlayer.identity);
-  const next = {
-    identity: activePlayer.identity,
-    x: activePlayer.x,
-    y: activePlayer.y,
-    mapId: activePlayer.mapId,
-    isVisible: activePlayer.mapId !== HOME_EXTERIOR_MAP_ID && activePlayer.isVisible,
-    updatedAt: ctx.timestamp,
-  };
-  if (!current) {
-    ctx.db.playerMapMarker.insert(next);
-    return;
-  }
-  // Physical compatibility row. New clients use player_map_frame; update this
-  // row only at lifecycle boundaries so old stored data stays coherent.
-  if (force || current.mapId !== next.mapId || current.isVisible !== next.isVisible) {
-    ctx.db.playerMapMarker.identity.update(next);
-  }
 }
 
 function refreshLeaderboard(ctx: any) {
@@ -3588,24 +3183,6 @@ function ensureDailyGemBonusState(ctx: any, identity: any) {
   return next;
 }
 
-function countOnlinePlayers(ctx: any) {
-  // One root presence row per online identity, across every map and shard.
-  // Table cardinality avoids scanning players or summing transient shard seats.
-  return Number(ctx.db.player.count());
-}
-
-function ensureWorldStatus(ctx: any) {
-  const current = ctx.db.worldStatus.id.find(0);
-  if (current) return current;
-  return ctx.db.worldStatus.insert({ id: 0, onlinePlayers: countOnlinePlayers(ctx) });
-}
-
-function reconcileOnlinePlayers(ctx: any) {
-  const current = ensureWorldStatus(ctx);
-  const onlinePlayers = countOnlinePlayers(ctx);
-  if (onlinePlayers !== current.onlinePlayers) ctx.db.worldStatus.id.update({ ...current, onlinePlayers });
-}
-
 function activeDuelFor(ctx: any, identity: any) {
   const isActive = (current: any) =>
     current.status === "requested" ||
@@ -3705,41 +3282,6 @@ function clearOrphanShardMembers(ctx: any) {
     stranded.push(member.identity);
   }
   for (const identity of stranded) releaseMapShard(ctx, identity);
-}
-
-function clearOrphanPresence(ctx: any) {
-  const sessionsByIdentity = new Map<string, any[]>();
-  for (const session of ctx.db.playerSession.iter() as Iterable<any>) {
-    const key = session.identity.toHexString();
-    const sessions = sessionsByIdentity.get(key) ?? [];
-    sessions.push(session);
-    sessionsByIdentity.set(key, sessions);
-  }
-
-  const invalidControllers: any[] = [];
-  for (const controller of ctx.db.playerController.iter() as Iterable<any>) {
-    const session = ctx.db.playerSession.connectionId.find(controller.connectionId);
-    if (!session || !sameIdentity(session.identity, controller.identity)) invalidControllers.push(controller.identity);
-  }
-  for (const identity of invalidControllers) ctx.db.playerController.identity.delete(identity);
-
-  for (const sessions of sessionsByIdentity.values()) {
-    const identity = sessions[0].identity;
-    if (!ctx.db.playerController.identity.find(identity)) {
-      const enteredSession = sessions.find((session: any) => session.enteredWorld);
-      if (enteredSession) ctx.db.playerController.insert({ identity, connectionId: enteredSession.connectionId });
-    }
-  }
-
-  const orphanIdentities: any[] = [];
-  for (const activePlayer of ctx.db.player.iter() as Iterable<any>) {
-    if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(activePlayer.identity)) continue;
-    if (!ctx.db.playerController.identity.find(activePlayer.identity)) orphanIdentities.push(activePlayer.identity);
-  }
-  for (const identity of orphanIdentities) {
-    finishLifetimeSession(ctx, identity);
-    removeIdentityPresence(ctx, identity);
-  }
 }
 
 function clearOrphanRealtimeState(ctx: any) {
@@ -6521,104 +6063,6 @@ export const pulseDuel = spacetimedb.reducer(
   },
 );
 
-function applyMovementState(
-  ctx: any,
-  x: number,
-  y: number,
-  vx: number,
-  vy: number,
-  simulationTick: number,
-  motionEpoch: number,
-  sequence: number,
-) {
-  requireMapWorkload(ctx);
-  if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
-  const current = requireControllingPlayer(ctx);
-  if (sequence <= current.lastInputSequence || ["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
-  if (![x, y, vx, vy, simulationTick, motionEpoch].every(Number.isFinite)) throw new SenderError("Movement state values must be finite");
-
-  const bounds = current.mapId === HOME_EXTERIOR_MAP_ID ? { width: HOME_WORLD_WIDTH, height: HOME_WORLD_HEIGHT } : WORLD;
-  const clampedX = Math.max(PLAYER_RADIUS, Math.min(bounds.width - PLAYER_RADIUS, x));
-  const clampedY = Math.max(PLAYER_RADIUS, Math.min(bounds.height - PLAYER_RADIUS, y));
-  const boundedVx = Math.max(-MAX_PACKED_PLAYER_VELOCITY, Math.min(MAX_PACKED_PLAYER_VELOCITY, vx));
-  const boundedVy = Math.max(-MAX_PACKED_PLAYER_VELOCITY, Math.min(MAX_PACKED_PLAYER_VELOCITY, vy));
-  const moving = Math.abs(boundedVx) > 1e-6 || Math.abs(boundedVy) > 1e-6;
-  const compatibilitySpeed = Math.max(1e-6, Number.isFinite(current.speed) ? current.speed : PLAYER_SPEED);
-  const requestedSpeed = Math.hypot(boundedVx, boundedVy);
-  // Map shards can briefly lag the root presentation row when equipment or
-  // research changes. Resolve the server-owned movement speeds from the
-  // progress snapshot as well, especially the temporary +25 Black Boots
-  // state, so legitimate clients are not recorded as speed violations.
-  const progress = ctx.db.playerProgress.identity.find(ctx.sender);
-  const expectedSpeed = progress ? effectiveMovementSpeedForProgress(ctx, progress) : compatibilitySpeed;
-  const blackBootsSpeed = progress && equippedFeetForProgress(progress) === BLACK_BOOTS
-    ? expectedSpeed + BLACK_BOOTS_SPEED_BONUS : expectedSpeed;
-  const allowedSpeed = Math.max(compatibilitySpeed, expectedSpeed, blackBootsSpeed);
-  if (moving && requestedSpeed > allowedSpeed + MOVEMENT_SPEED_PACKET_TOLERANCE) {
-    const evidence = { mapId: current.mapId, requestedSpeed, serverSpeed: compatibilitySpeed, allowedSpeed };
-    console.warn("Movement speed validation", JSON.stringify({
-      identity: ctx.sender.toHexString(),
-      displayName: ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "",
-      ...evidence,
-    }));
-    // Commit a short guest block (or registered-session revocation) before
-    // returning. Throwing here would roll the restriction back with the
-    // rejected packet, so the invalidated session receives the disconnect.
-    restrictMovementSession(ctx, evidence);
-    return;
-  }
-  const motion = ctx.db.playerMotion.identity.find(ctx.sender);
-  if (motion && motion.mapId === current.mapId && current.lastInputSequence > 0) {
-    const elapsedSeconds = Math.max(0,
-      Number(ctx.timestamp.microsSinceUnixEpoch - motion.lastInputAt.microsSinceUnixEpoch) / 1_000_000);
-    const expected = analyticalMotionAt(motion, ctx.timestamp.microsSinceUnixEpoch);
-    const distance = Math.hypot(clampedX - expected.x, clampedY - expected.y);
-    const maxDistance = compatibilitySpeed * elapsedSeconds + MOVEMENT_POSITION_PACKET_TOLERANCE;
-    if (distance > maxDistance) {
-      console.warn("Movement position validation", JSON.stringify({
-        identity: ctx.sender.toHexString(),
-        displayName: ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "",
-        mapId: current.mapId,
-        distance,
-        maxDistance,
-        elapsedSeconds,
-      }));
-      // Automatic bans are paused while this signal is validated against
-      // legitimate boss knockback. Reject only this packet for now.
-      throw new SenderError("Unsupported movement position");
-    }
-  }
-  const boundedTick = Math.max(0, Math.min(0xffffffff, Math.floor(simulationTick)));
-  const boundedEpoch = Math.max(0, Math.min(0xffffffff, Math.floor(motionEpoch)));
-  const facing = boundedVx < 0 ? Math.PI : boundedVx > 0 ? 0 : current.facing;
-  const nextPlayer = {
-    ...current,
-    x: clampedX,
-    y: clampedY,
-    ...playerZone(clampedX, clampedY),
-    facing,
-    moving,
-    // Retained only for physical compatibility with the older direction row.
-    dx: moving ? Math.max(-1, Math.min(1, boundedVx / compatibilitySpeed)) : 0,
-    dy: moving ? Math.max(-1, Math.min(1, boundedVy / compatibilitySpeed)) : 0,
-    vx: moving ? boundedVx : 0,
-    vy: moving ? boundedVy : 0,
-    simulationTick: boundedTick,
-    motionEpoch: boundedEpoch,
-    lastInputAt: ctx.timestamp,
-    lastInputSequence: sequence,
-  };
-  syncPlayerMotion(ctx, nextPlayer);
-
-  // The exact-own player row only needs lifecycle endpoints and idle
-  // corrections. Continuous coordinates and zone crossings stay private in
-  // the analytical anchor; remote subscribers never consume this row.
-  const staticStateChanged =
-    current.moving !== moving ||
-    !moving;
-  if (staticStateChanged) updateSnapshotRow(ctx, "player", nextPlayer);
-}
-
 export const updateMovementState = spacetimedb.reducer(
   {
     x: t.f64(),
@@ -6994,20 +6438,6 @@ function installShardPlayerImpl(ctx: any, args: any) {
     }
     ensureRealtimeFrameSchedules(ctx);
 }
-function enterShardPresence(ctx: any, tabId: string) {
-  requireMapWorkload(ctx);
-  const admission = ctx.db.shardAdmission.identity.find(ctx.sender);
-  if (!admission || admission.tabId !== tabId || !ctx.connectionId) throw new SenderError("Map admission unavailable");
-  const session = requireSupportedSessionProtocol(ctx);
-  ctx.db.playerSession.connectionId.update({ ...session, enteredWorld: true, tabId });
-  const controller = { identity: ctx.sender, connectionId: ctx.connectionId };
-  if (ctx.db.playerController.identity.find(ctx.sender)) ctx.db.playerController.identity.update(controller);
-  else ctx.db.playerController.insert(controller);
-  const player = ctx.db.player.identity.find(ctx.sender);
-  if (!player) throw new SenderError("Map admission is being restored");
-  syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, player));
-  ensureRealtimeFrameSchedules(ctx);
-}
 export const revokeShardPlayer = spacetimedb.reducer({ identity: t.identity(), generation: t.u64() }, revokeShardPlayerImpl);
 function revokeShardPlayerImpl(ctx: any, args: any) {
   requireShardOperator(ctx);
@@ -7265,6 +6695,15 @@ const {
   removePlayerRealtimeState, removePlayerSafetyData, removeResearchCompletionSchedules,
   repairModeratedDisplayName, requireSupportedSessionProtocol, sameIdentity,
   syncDisplayNamePresentation, syncPlayerMotionIdentity, transferPlayerBlocks,
+});
+
+// Presence and motion bodies live in presence-runtime.ts. Only these four still
+// borrow from index.ts; removeIdentityPresence comes from the lifecycle factory
+// above, so this has to follow it.
+const { savedWorldLocation, clearOrphanPresence, applyMovementState, enterShardPresence } = createPresenceRuntime({
+  WORLD, VALID_MAP_IDS, MAP_ARRIVALS, hasEndlessTravelAccess, sameIdentity, finishLifetimeSession,
+  removeIdentityPresence, requireMapWorkload, requireSupportedSessionProtocol, requireControllingPlayer,
+  activeDuelFor, effectiveMovementSpeedForProgress, equippedFeetForProgress,
 });
 
 export const createGuild = spacetimedb.reducer({ name: t.string() }, (ctx, { name }) => {
