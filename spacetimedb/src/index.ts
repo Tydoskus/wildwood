@@ -6145,7 +6145,12 @@ export const setSpeed = spacetimedb.reducer(
     // while checking ownership/equipment here and never saving a temporary bonus.
     const blackBootsEquipped = progress && feet === BLACK_BOOTS;
     const restingSpeed = expectedSpeed + (blackBootsEquipped ? BLACK_BOOTS_SPEED_BONUS : 0);
-    if (!movementSpeedsMatch(speed, expectedSpeed) && !movementSpeedsMatch(speed, restingSpeed)) throw new SenderError("Unsupported player speed");
+    if (!movementSpeedsMatch(speed, expectedSpeed) && !movementSpeedsMatch(speed, restingSpeed)) {
+      // Name the account in the log; the message alone says nothing about who
+      // sent it. The player-facing text stays put so the error still groups.
+      console.warn("Unsupported player speed", JSON.stringify({ identity: ctx.sender.toHexString(), speed, expectedSpeed, restingSpeed, feet, moveSpeedRank }));
+      throw new SenderError("Unsupported player speed");
+    }
 
     const nextPlayer = {
       ...current,

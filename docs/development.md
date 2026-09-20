@@ -185,6 +185,14 @@ npm run build:client
 
 Publishing the server is a separate production operation; pushing `main` only deploys the static site. Never use destructive database publish options in production.
 
+`DUEL_COMBAT_VERSION` in `shared/duel-combat.ts` is the duel wire format. A duel
+row is only delivered to a client whose identity holds a `duel_wire_access` row
+for that exact version, so `syncDuelWireAccess` must grant every version through
+the current one. It derives the range from the constant rather than listing it:
+0.759 bumped the version to 3 against a hardcoded `[0, 1, 2]`, and every duel
+fought after that publish was invisible to both duellists. The protocol check in
+that function, not the version list, is what keeps an old decoder out.
+
 ## Authentication and player saves
 
 - Guests receive a locally stored SpacetimeDB token and save progress to that guest identity.
@@ -343,8 +351,15 @@ Publishing the server is a separate production operation; pushing `main` only de
   prestiged player's kill claims are bounded with the bonus included. A reward
   multiplier that skips it would clip the most invested players and write review
   flags against them. See **Kill claim invariants** above.
-- Perk points are banked one per level. Spending them is not implemented yet;
-  the column exists so the first prestige already pays one.
+- Perk points are banked one per level and spent through `spend_prestige_perk_point`,
+  which writes `player_prestige_perk`. That table is separate from `player_prestige`
+  because adding a column to a live public table breaks every connected client;
+  see **Schema change invariants** above.
+- A perk that changes combat has to be paid in three places: the client's own
+  rolls, the server's bound on what a kill claim could contain
+  (`prestigeReachMultiplier` and `prestigeSwingMultiplier`), and the profile's
+  stat list. Skipping the bound clips the players who bought the perk; skipping
+  the stat list makes a bought perk look inert.
 
 ## Guild name invariants
 

@@ -1,6 +1,7 @@
 import type { PlayerProfileData, PlayerResearch } from "../wildstat-coop";
 import { createEmptyResearchRanks, researchStatRewardMultiplier } from "../../shared/research";
 import { prestigeStatMultiplier } from "../../shared/prestige";
+import { PRESTIGE_PERKS, RIPOSTE_REFLECT_SHARE, prestigeCriticalDamageBonus, prestigePerkValue, type PrestigePerkRanks } from "../../shared/prestige-perks";
 import { effectivePlayerPower, effectivePlayerPowerStats } from "../../shared/player-power";
 import { equipmentDamageMultiplierBonus, equipmentMaxHealthMultiplierBonus, equipmentRegenerationMultiplierBonus } from "../../shared/items";
 import { formatCompactNumber } from "./number-format";
@@ -94,6 +95,7 @@ export function profileStatDisplayRows(
   minAttackInterval: number,
   research?: PlayerResearch,
   prestigeLevel = 0,
+  perks?: Partial<PrestigePerkRanks> | null,
 ) {
   const { progress } = profile;
   const ranks = research ?? profile.research ?? createEmptyResearchRanks();
@@ -172,6 +174,7 @@ export function profileStatDisplayRows(
   // the total is the product rather than the two percentages added together.
   const techGain = researchStatRewardMultiplier(ranks), prestigeGain = prestigeStatMultiplier(prestigeLevel);
   const percent = (multiplier: number) => `+${Math.round((multiplier - 1) * 100)}%`;
+  const percentPoints = (fraction: number) => `${Math.round(fraction * 1000) / 10}%`;
   const statGain = percent(techGain * prestigeGain);
   stats.push({
     kind: "stat-gain", label: "Stat Gain:", base: "0%", multiplier: statGain, total: statGain,
@@ -180,16 +183,40 @@ export function profileStatDisplayRows(
       ...(prestigeGain > 1 ? [{ label: "Prestige" as const, value: percent(prestigeGain) }] : []),
     ],
   });
+  // Keen Edge pays critical chance and critical damage on top of research, so
+  // both rows read as combat rolls them rather than showing research alone.
+  const perkCritical = prestigePerkValue(perks, "keenEdge"), perkCriticalDamage = prestigeCriticalDamageBonus(perks);
+  const criticalChance = ranks.criticalChance * .01 + perkCritical;
   stats.push({
-    kind: "critical", label: "Critical Chance:", base: "0%", multiplier: `+${ranks.criticalChance}%`, total: `${ranks.criticalChance}%`,
-    sources: ranks.criticalChance ? [{ label: "Tech", value: `+${ranks.criticalChance}%` }] : [],
+    kind: "critical", label: "Critical Chance:", base: "0%", multiplier: `+${percentPoints(criticalChance)}`, total: percentPoints(criticalChance),
+    sources: [
+      ...(ranks.criticalChance ? [{ label: "Tech" as const, value: `+${ranks.criticalChance}%` }] : []),
+      ...(perkCritical ? [{ label: "Prestige" as const, value: `+${percentPoints(perkCritical)}` }] : []),
+    ],
   });
-  const criticalDamage = 1.05 + ranks.criticalDamage * .05;
-  const criticalDamageBonus = ranks.criticalDamage * .05;
+  const criticalDamageBonus = ranks.criticalDamage * .05 + perkCriticalDamage;
+  const criticalDamage = 1.05 + criticalDamageBonus;
   stats.push({
     kind: "critical-damage", label: "Critical Damage:", base: "1.05×", multiplier: `+${criticalDamageBonus.toFixed(2)}×`, total: `${criticalDamage.toFixed(2)}×`,
-    sources: criticalDamageBonus ? [{ label: "Tech", value: `+${criticalDamageBonus.toFixed(2)}×` }] : [],
+    sources: [
+      ...(ranks.criticalDamage ? [{ label: "Tech" as const, value: `+${(ranks.criticalDamage * .05).toFixed(2)}×` }] : []),
+      ...(perkCriticalDamage ? [{ label: "Prestige" as const, value: `+${perkCriticalDamage.toFixed(2)}×` }] : []),
+    ],
   });
+  // The remaining perks have no research behind them, so a row only appears
+  // once a point is spent rather than sitting at zero for every player.
+  const perkRow = (perk: keyof PrestigePerkRanks, kind: string, expandedDetail: string) => {
+    const chance = prestigePerkValue(perks, perk);
+    if (!chance) return;
+    stats.push({
+      kind, label: `${PRESTIGE_PERKS[perk].title}:`, base: "0%", multiplier: `+${percentPoints(chance)}`,
+      expandedDetail, total: percentPoints(chance),
+      sources: [{ label: "Prestige", value: `+${percentPoints(chance)}` }],
+    });
+  };
+  perkRow("doubleStrike", "double-strike", "(Chance a hit lands twice)");
+  perkRow("splitShot", "split-shot", "(Chance to strike a second enemy)");
+  perkRow("riposte", "riposte", `(Reflects ${percentPoints(RIPOSTE_REFLECT_SHARE)} of the hit taken)`);
   return stats;
 }
 
@@ -200,8 +227,9 @@ export function renderProfileStats(
   minAttackInterval: number,
   research?: PlayerResearch,
   prestigeLevel = 0,
+  perks?: Partial<PrestigePerkRanks> | null,
 ) {
-  const stats = profileStatDisplayRows(profile, armorReduction, minAttackInterval, research, prestigeLevel);
+  const stats = profileStatDisplayRows(profile, armorReduction, minAttackInterval, research, prestigeLevel, perks);
   const expandedKinds = statGrid.dataset.identity === profile.identity
     ? new Set([...statGrid.querySelectorAll<HTMLElement>('[aria-expanded="true"]')].map((row) => row.dataset.stat))
     : new Set<string>();

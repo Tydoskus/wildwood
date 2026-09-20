@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.760": [
+    "Fixed duels not showing up. Every duel fought since Riposte shipped was written in a format no client was cleared to receive, so neither duellist saw the fight.",
+    "Your profile's stat list now shows every perk you have spent a point on, and Keen Edge is counted in the Critical Chance and Critical Damage rows instead of research alone.",
+    "The stat list is tighter, so more of it fits without scrolling.",
+  ],
   "0.759": [
     "Split Shot works now: a chance for a swing to also reach a second enemy in range.",
     "Riposte works in duels: a chance to throw half the damage you take back at your opponent. Both duellists roll the same way, so a replay matches the fight.",
@@ -2144,6 +2149,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.760": "2026-09-20",
   "0.759": "2026-09-20",
   "0.758": "2026-09-20",
   "0.757": "2026-09-20",

@@ -198,3 +198,50 @@ it("displays helmet percentages and research as the same calculation used for co
     sources: [{label: "Tech", value: "+20%"}, {label: "Equipment", value: "+8.1%"}] });
   expect(effectiveProfileStats(profile.progress, profile.research, profile.itemUpgradeLevels).regen).toBeCloseTo(12.972);
 });
+
+describe("prestige perks in the stat panel", () => {
+  const perkProfile = () => {
+    const profile = { progress: progress(), research: createEmptyResearchRanks(), itemUpgradeLevels: {} };
+    return profile as unknown as Parameters<typeof profileStatDisplayRows>[0];
+  };
+
+  it("pays Keen Edge into the critical rows beside research, as combat rolls it", () => {
+    const research = { ...createEmptyResearchRanks(), criticalChance: 4, criticalDamage: 3 };
+    const rows = profileStatDisplayRows(perkProfile(), () => "0%", MIN_ATTACK_INTERVAL, research, 1, { keenEdge: 5 });
+
+    expect(rows.find((row) => row.kind === "critical")).toMatchObject({
+      total: "29%",
+      sources: [{ label: "Tech", value: "+4%" }, { label: "Prestige", value: "+25%" }],
+    });
+    expect(rows.find((row) => row.kind === "critical-damage")).toMatchObject({
+      total: "1.80×",
+      sources: [{ label: "Tech", value: "+0.15×" }, { label: "Prestige", value: "+0.60×" }],
+    });
+  });
+
+  it("gives every spent perk its own line and leaves unspent ones out", () => {
+    const rows = profileStatDisplayRows(perkProfile(), () => "0%", MIN_ATTACK_INTERVAL, undefined, 1,
+      { doubleStrike: 2, splitShot: 5 });
+
+    expect(rows.map((row) => row.kind)).toContain("double-strike");
+    expect(rows.find((row) => row.kind === "double-strike")).toMatchObject({
+      label: "Double Strike:", total: "8%", sources: [{ label: "Prestige", value: "+8%" }],
+    });
+    expect(rows.find((row) => row.kind === "split-shot")).toMatchObject({ label: "Split Shot:", total: "25%" });
+    expect(rows.find((row) => row.kind === "riposte")).toBeUndefined();
+  });
+
+  it("says what a Riposte rank is worth rather than the chance alone", () => {
+    const rows = profileStatDisplayRows(perkProfile(), () => "0%", MIN_ATTACK_INTERVAL, undefined, 1, { riposte: 3 });
+    expect(rows.find((row) => row.kind === "riposte"))
+      .toMatchObject({ total: "18%", expandedDetail: "(Reflects 50% of the hit taken)" });
+  });
+
+  it("leaves a profile with no perks exactly as it was", () => {
+    const research = { ...createEmptyResearchRanks(), criticalChance: 4 };
+    const withoutPerks = profileStatDisplayRows(perkProfile(), () => "0%", MIN_ATTACK_INTERVAL, research);
+    expect(withoutPerks.find((row) => row.kind === "critical"))
+      .toMatchObject({ total: "4%", sources: [{ label: "Tech", value: "+4%" }] });
+    expect(withoutPerks.some((row) => row.kind.startsWith("double"))).toBe(false);
+  });
+});
