@@ -7,7 +7,7 @@ import { accountDeletionRequest, queueAccountDeletion } from "./account-deletion
 import { mailboxEquipment, deliverEquipmentMail } from "./mailbox-equipment";
 import { gearClaimSpace } from "../../shared/mailbox-equipment";
 import { duelWireAccess, syncDuelWireAccess, DUEL_WIRE_FILTER, DUEL_REPLAY_WIRE_FILTER } from "./duel-wire-access";
-import { NAME_CHANGE_COOLDOWN_MS, nameChangeStatus } from "../../shared/name-change";
+import { nameChangeStatus } from "../../shared/name-change";
 import { validPatreonRedirect } from "./patreon-url";
 import { isValidProfileIcon } from "../../shared/profile-icons";
 import { releaseNotice, releaseAcknowledgement, writeReleaseWindow, acknowledgeReleaseWindow } from "./release-control";
@@ -24,14 +24,14 @@ import { canDestroyEquipment } from "../../shared/items";
 import { deliverDisconnectCompensation, deliverCombatUpdateGift, deliverOutageCompensation, announceOutageCompensation, deliverAutofarmTestGift } from "./disconnect-compensation";
 import { connectionDiagnosticTables, recordConnectionDiagnostics, cleanupConnectionDiagnostics } from "./connection-diagnostics";
 import { moderationTables, recordModerationAction, readModerationHistory } from "./moderation-history";
-import { mailboxLetter, mailboxReceipt, mailboxEntry, mailboxForPlayer, mailboxEntryV2, mailboxForPlayerV2, publishMailboxLetter, publishRebalanceMail, updateMailboxReceipt } from "./mailbox";
+import { mailboxLetter, mailboxReceipt, mailboxEntry, mailboxForPlayer, mailboxEntryV2, mailboxForPlayerV2, publishMailboxLetter, updateMailboxReceipt } from "./mailbox";
 import { rollbackPlayerProgression } from "./player-progression-rollback";
 import { playerItemGift, deliverAlphaTesterGifts, claimItemGift } from "./item-gifts";
 import { moderateReportedMessage } from "./chat-report-moderation";
 import { PLAYER_SKIN_TONES } from "../../shared/player-skin-tones";
 import { leaderboardPageTables, writeLeaderboardPages, readLeaderboardWindow, readLeaderboardPage } from "./leaderboard-pages";
 import { publicChatCursor, updatePublicChatCursor, readPublicChatPage } from "./public-chat-history";
-import { generateMap, generatedBossStats, isProceduralMap, proceduralMapId, proceduralMapNumber, PROCEDURAL_ENTRY_MAP, PROCEDURAL_ENTRY_BOSS } from "../../shared/procedural-maps";
+import { generateMap, generatedBossStats, isProceduralMap, proceduralMapId, PROCEDURAL_ENTRY_MAP, PROCEDURAL_ENTRY_BOSS } from "../../shared/procedural-maps";
 import { proceduralMapTables, proceduralBossKey, clearProceduralProgress, generatedMapUnlocked, ensureProceduralBoss } from "./procedural-maps";
 import { ingestStoreEvent } from "./gem-store-events";
 import { gemPurchaseTables } from "./gem-purchase-tables";
@@ -41,8 +41,7 @@ import { requestPatreonSupport } from "./patreon-support";
 import { DEVELOPER_IDENTITY as DEVELOPER_IDENTITY_HEX } from "../../shared/developer-identity";
 import { allowedAvatarFrame } from "../../shared/avatar-frames";
 import { createGemPurchaseService } from "./gem-purchase-service";
-import { rescaleEndgameProgress, rescaleRankingConflict, rescaleRankingStats } from "../../shared/endgame-power-rescale";
-import { rebaseProgressByEffort } from "../../shared/progression-rebase";
+import { rescaleEndgameProgress } from "../../shared/endgame-power-rescale";
 import { CAMPAIGN_UNLOCK_FIELDS, equipmentMapRequirement } from "../../shared/equipment-access";
 import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_TRAVEL_PORTAL, HOME_BENCH_POSITION, HOME_WORLD_WIDTH, HOME_WORLD_HEIGHT } from "../../shared/home";
 import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./shard-snapshot-writes";
@@ -64,7 +63,6 @@ import {
   researchDurationMs,
   researchPrerequisitesForNextRank,
   researchStatRewardMultiplier,
-  shouldBackfillLegacyRegeneration,
   type ResearchId,
 } from "../../shared/research";
 import { VIRTUAL_PLAYER_LIMIT, isVirtualPlayerTicket } from "../../shared/virtual-player-load-test";
@@ -79,7 +77,6 @@ import { isPublicDisplayNameAllowed, moderatePublicChatMessage, chatModerationRe
 import { isChatReportReason } from "../../shared/chat-report";
 import { TERMS_VERSION, isEligiblePlayerAgeBand } from "../../shared/legal";
 import { nextChatReportRateState } from "./chat-report-rate-limit";
-import { balanceApologyTransactionReference, isBalanceApologyEligible } from "./balance-apology";
 import {
   STARTUP_TELEMETRY_MAX_BATCH,
   normalizeStartupTelemetrySample,
@@ -102,7 +99,8 @@ import {
   tempestKirinBossTables,
   tidewyrmBossTables,
 } from "./boss-tables";
-import { createBossCombat, MAGMALISK_ID, TEMPEST_KIRIN_ID, MIREMAW_ID, PRISMSHELL_ID, DREADREAPER_ID, VOLTWARDEN_ID, GRAVEBLOOM_ID } from "./boss-combat";
+import { createBossCombat, PRISMSHELL_ID } from "./boss-combat";
+import { createModuleMigrations } from "./module-migrations";
 import { createAccountLifecycle, hasSpacetimeAuthAccount, clearExpiredAccountLinks, dailyGemBonusClaimReference } from "./account-lifecycle";
 import {
   compressLegacyProgressionOutlier,
@@ -111,7 +109,6 @@ import {
   rebalanceLegacyDamageHealth,
 } from "../../shared/progression-balance";
 import {
-  BALANCE_APOLOGY_GEM_GIFT,
   DAILY_LOGIN_GEM_BONUS,
   MAX_INVENTORY_SLOT_CAPACITY,
   UPGRADE_BENCH_SECOND_SLOT_GEM_COST,
@@ -122,7 +119,6 @@ import {
   researchSpeedUpGemCost,
 } from "../../shared/gems";
 import { HIDDEN_COSMETIC_ITEM_ID, isHiddenCosmeticItem, resolveEquipmentAppearance } from "../../shared/equipment-appearance";
-import { migrateGuildTags } from "./player-name-tags";
 import { socialTables } from "./social-tables";
 import { createSocialService, socialSnapshot, visibleSocialMessages, latestSocialMessages, socialHistoryPage, pruneExpiredSocialMessages } from "./social-service";
 import { guildTables } from "./guild-tables";
@@ -312,7 +308,6 @@ const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const MOTION_DETAIL_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MOTION_DETAIL_FRAME_HZ);
 const MAP_FRAME_INTERVAL_MICROS = 1_000_000n / BigInt(PLAYER_MAP_FRAME_HZ);
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const MODULE_MIGRATION_VERSION = 33;
 const LEADERBOARD_REFRESH_VERSION = 11;
 const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
 const DUEL_REQUEST_TIMEOUT_MICROS = 30_000_000n;
@@ -353,6 +348,25 @@ const {
 const UPGRADE_BENCH_USE_RANGE = 75;
 const UPGRADE_BENCH_SLOT_ONE = 1;
 const UPGRADE_BENCH_SLOT_TWO = 2;
+
+// One-time data migrations live in module-migrations.ts; connect and
+// runMaintenance keep calling runPendingModuleMigrations by name. Placed after
+// the boss factory and the bench slot consts, the last consts it reads.
+const { runPendingModuleMigrations, migratePlayerBalance } = createModuleMigrations({
+  MAP_ARRIVALS, MAINTENANCE_INTERVAL_MICROS, UPGRADE_BENCH_SLOT_ONE, inventoryForProgress,
+  equippedRightHandForProgress, equippedLeftHandForProgress, equippedFeetForProgress,
+  equipmentPresentationForProgress, forestItemCountForProgress, cancelActiveItemUpgrade,
+  itemUpgradeLevelFor, effectiveMovementSpeedForProgress, powerFieldsForProgress,
+  effectivePowerForProgress, effectivePowerStatsForProgress, playerWithMotion,
+  syncPlayerMotionIdentity, persistWorldLocation, transitionPlayerMap, refreshLeaderboard,
+  markPlayerBalanceCurrent, playerBalanceProgress, samePlayerProgressValues,
+  resultIncludesContributor, contributedToLatestPrismshell, isVirtualPlayer, sameIdentity,
+  applyGemBalanceChange, ensureDragonBoss, ensureSpiderBoss, ensureFrostclawBoss,
+  ensureMagmaliskBoss, ensureGloomrootBoss, ensureTidewyrmBoss, ensureKoiShogunBoss,
+  ensureTempestKirinBoss, ensureMiremawBoss, ensurePrismshellBoss, ensureIronhornBoss,
+  ensureDreadreaperBoss, ensureVoltwardenBoss, ensureGravebloomBoss, ensureAegisPrimeBoss,
+  ensureWorldStatus, ensureMaintenanceSweepSchedule,
+});
 
 // Exact-own lifecycle and physical compatibility row. Current clients never
 // subscribe to remote rows; continuous coordinates live in private analytical
@@ -2197,405 +2211,6 @@ function researchForPlayer(ctx: any, identity: any) {
   return next;
 }
 
-function runPendingModuleMigrations(ctx: any) {
-  const state = ctx.db.moduleMigrationState.id.find(0);
-  const currentVersion = state?.version ?? 0;
-  if (currentVersion >= MODULE_MIGRATION_VERSION) return;
-  if (currentVersion < 1) {
-    for (const research of ctx.db.playerResearch.iter() as Iterable<any>) {
-      if (research.frontierMastery !== 0) updateSnapshotRow(ctx, "playerResearch", { ...research, frontierMastery: 0 });
-    }
-  }
-  if (currentVersion < 2) {
-    for (const demand of [...ctx.db.playerMovementDemand.iter()] as any[]) {
-      ctx.db.playerMovementDemand.identity.delete(demand.identity);
-    }
-  }
-  if (currentVersion < 3) rebuildPlayerMotionMapState(ctx);
-  if (currentVersion < 4) {
-    for (const research of ctx.db.playerResearch.iter() as Iterable<any>) {
-      if (shouldBackfillLegacyRegeneration(research)) {
-        updateSnapshotRow(ctx, "playerResearch", {
-          ...research,
-          regeneration: RESEARCH_DEFINITIONS.regeneration.ranksPerBand,
-        });
-      }
-    }
-  }
-  if (currentVersion < 5) {
-    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
-      const inventoryJson = JSON.stringify(inventoryForProgress(progress));
-      const equippedRightHand = equippedRightHandForProgress(progress);
-      const equippedLeftHand = equippedRightHand ? "" : equippedLeftHandForProgress(progress);
-      if (progress.inventoryJson !== inventoryJson ||
-        progress.equippedRightHand !== equippedRightHand ||
-        progress.equippedLeftHand !== equippedLeftHand) {
-        updateSnapshotRow(ctx, "playerProgress", {
-          ...progress,
-          inventoryJson,
-          equippedRightHand,
-          equippedLeftHand,
-        });
-      }
-    }
-  }
-  if (currentVersion < 6) {
-    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
-      const restoredProgress = {
-        ...progress,
-        equippedRightHand: progress.equippedRightHand === STARTER_BOW ? STARTER_STONE : progress.equippedRightHand,
-        equippedLeftHand: progress.equippedLeftHand === STARTER_BOW ? STARTER_STONE : progress.equippedLeftHand,
-      };
-      const inventoryJson = JSON.stringify(inventoryForProgress(restoredProgress));
-      const normalizedProgress = { ...restoredProgress, inventoryJson };
-      const equippedRightHand = equippedRightHandForProgress(normalizedProgress);
-      const equippedLeftHand = equippedRightHand ? "" : equippedLeftHandForProgress(normalizedProgress);
-      updateSnapshotRow(ctx, "playerProgress", {
-        ...progress,
-        inventoryJson,
-        equippedRightHand,
-        equippedLeftHand,
-      });
-    }
-  }
-  if (currentVersion < 7) {
-    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
-      const normalizedProgress = {
-        ...progress,
-        bowCount: forestItemCountForProgress(progress, STARTER_BOW, "bowCount"),
-        woodenArmorCount: forestItemCountForProgress(progress, WOODEN_ARMOR, "woodenArmorCount"),
-      };
-      updateSnapshotRow(ctx, "playerProgress", {
-        ...normalizedProgress,
-        inventoryJson: JSON.stringify(inventoryForProgress(normalizedProgress)),
-      });
-    }
-  }
-  if (currentVersion < 8) {
-    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
-      const normalizedProgress = {
-        ...progress,
-        bowCount: Math.min(1, forestItemCountForProgress(progress, STARTER_BOW, "bowCount")),
-        woodenArmorCount: Math.min(1, forestItemCountForProgress(progress, WOODEN_ARMOR, "woodenArmorCount")),
-      };
-      updateSnapshotRow(ctx, "playerProgress", {
-        ...normalizedProgress,
-        inventoryJson: JSON.stringify([...new Set(inventoryForProgress(normalizedProgress))]),
-      });
-    }
-  }
-  if (currentVersion < 9) {
-    // v0.476 briefly supported paused upgrades. Cancellation now forfeits the
-    // unfinished timer, so return any item left in that legacy paused state.
-    for (const active of [...ctx.db.activeItemUpgrade.iter()] as any[]) {
-      if (active.paused) cancelActiveItemUpgrade(ctx, active, UPGRADE_BENCH_SLOT_ONE);
-    }
-  }
-  if (currentVersion < 10) {
-    // Preserve obvious developer-authored custom speeds while normalizing
-    // historical base values that predate the current 180/+25 equipment rule.
-    const legacyDerivedSpeeds = [175, 180, 200, 205];
-    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
-      const equipmentSpeed = playerBaseMovementSpeed(equippedFeetForProgress(progress) === TRAILBLAZER_BOOTS);
-      const storedSpeed = Number(progress.speed);
-      const existingOverride = Number(progress.speedOverride ?? 0);
-      const isLegacyDerivedSpeed = legacyDerivedSpeeds.some((speed) => movementSpeedsMatch(storedSpeed, speed));
-      const speedOverride = existingOverride > 0
-        ? Math.min(MAX_MOVEMENT_SPEED_OVERRIDE, existingOverride)
-        : Number.isFinite(storedSpeed) && storedSpeed > 0 && !isLegacyDerivedSpeed
-          ? Math.min(MAX_MOVEMENT_SPEED_OVERRIDE, storedSpeed)
-          : 0;
-      const nextProgress = { ...progress, speed: equipmentSpeed, speedOverride };
-      updateSnapshotRow(ctx, "playerProgress", nextProgress);
-      const active = ctx.db.player.identity.find(progress.identity);
-      if (active) {
-        updateSnapshotRow(ctx, "player", {
-          ...active,
-          speed: effectiveMovementSpeedForProgress(ctx, nextProgress),
-        });
-      }
-    }
-  }
-  if (currentVersion < 11) {
-    // Public player labels previously used raw save stats while profiles and
-    // rankings applied research, equipment, and item upgrades.
-    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
-      const active = ctx.db.player.identity.find(progress.identity);
-      if (active) updateSnapshotRow(ctx, "player", { ...active, ...powerFieldsForProgress(ctx, progress) });
-    }
-  }
-  if (currentVersion < 12) {
-    // Blocked damage belongs to the defender whose armor prevented it. Older
-    // duel simulation stored that amount on the attacker, so repair completed
-    // replays and any duel that was active during this deployment.
-    for (const replay of [...ctx.db.duelReplay.iter()] as any[]) {
-      ctx.db.duelReplay.id.update({
-        ...replay,
-        challengerBlocked: replay.opponentBlocked,
-        opponentBlocked: replay.challengerBlocked,
-      });
-    }
-    for (const activeDuel of [...ctx.db.duel.iter()] as any[]) {
-      updateSnapshotRow(ctx, "duel", {
-        ...activeDuel,
-        challengerBlocked: activeDuel.opponentBlocked,
-        opponentBlocked: activeDuel.challengerBlocked,
-      });
-    }
-  }
-  if (currentVersion < 13) {
-    // Preserve the unlock for players who contributed to the latest completed
-    // Magmalisk encounter before Infernal Depths existed.
-    const result = ctx.db.magmaliskResult.id.find(MAGMALISK_ID);
-    if (result) {
-      try {
-        const contributors = JSON.parse(result.contributorsJson);
-        if (Array.isArray(contributors)) {
-          for (const contributor of contributors) {
-            if (typeof contributor?.identity !== "string") continue;
-            const identity = new Identity(contributor.identity);
-            const progress = ctx.db.playerProgress.identity.find(identity);
-            if (progress && !progress.infernalUnlocked) {
-              updateSnapshotRow(ctx, "playerProgress", { ...progress, infernalUnlocked: true });
-            }
-          }
-        }
-      } catch {}
-    }
-  }
-  if (currentVersion < 14) {
-    // Backfill the stable map-wide presentation cache from active player rows.
-    // The physical identity table retains legacy zone columns for migration
-    // compatibility, but zone-only movement no longer updates its rows.
-    for (const active of ctx.db.player.iter() as Iterable<any>) {
-      syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, active));
-    }
-  }
-  if (currentVersion < 15) {
-    // Version 3 is deliberately narrow: only legacy saves beyond the measured
-    // endgame envelope are soft-compressed. The logarithmic transform keeps
-    // their ordering and veteran advantage while returning them to the curve.
-    let changedProgress = false;
-    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
-      const currentBalance = ctx.db.playerBalanceVersion.identity.find(progress.identity);
-      const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0, false);
-      if (!samePlayerProgressValues(progress, migrated)) {
-        updateSnapshotRow(ctx, "playerProgress", migrated);
-        changedProgress = true;
-        const active = ctx.db.player.identity.find(progress.identity);
-        if (active) {
-          const nextActive = { ...active, ...powerFieldsForProgress(ctx, migrated) };
-          updateSnapshotRow(ctx, "player", nextActive);
-          syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextActive));
-        }
-      }
-      markPlayerBalanceCurrent(ctx, progress.identity);
-    }
-    if (changedProgress) refreshLeaderboard(ctx);
-  }
-  if (currentVersion < 16) {
-    // Version 4 corrects the late-game damage/health divergence without
-    // changing an account's raw damage-plus-health power budget. Accounts
-    // already at or below the authored ratio remain byte-for-byte unchanged.
-    let changedProgress = false;
-    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
-      const currentBalance = ctx.db.playerBalanceVersion.identity.find(progress.identity);
-      const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0, false);
-      if (!samePlayerProgressValues(progress, migrated)) {
-        updateSnapshotRow(ctx, "playerProgress", migrated);
-        changedProgress = true;
-        const active = ctx.db.player.identity.find(progress.identity);
-        if (active) {
-          const nextActive = { ...active, ...powerFieldsForProgress(ctx, migrated) };
-          updateSnapshotRow(ctx, "player", nextActive);
-          syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextActive));
-        }
-      }
-      markPlayerBalanceCurrent(ctx, progress.identity);
-    }
-    if (changedProgress) refreshLeaderboard(ctx);
-  }
-  if (currentVersion < 17) grantBalanceApologyGifts(ctx);
-  if (currentVersion < 18) {
-    // Balance version 5 repairs only the five accounts separated from the
-    // campaign by the measured legacy power gap. The shared transform also
-    // migrates old pending browser saves, preventing them from restoring the
-    // pre-compression values on reconnect.
-    let changedProgress = false;
-    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
-      const currentBalance = ctx.db.playerBalanceVersion.identity.find(progress.identity);
-      const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0, false);
-      if (!samePlayerProgressValues(progress, migrated)) {
-        updateSnapshotRow(ctx, "playerProgress", migrated);
-        changedProgress = true;
-        const active = ctx.db.player.identity.find(progress.identity);
-        if (active) {
-          const nextActive = { ...active, ...powerFieldsForProgress(ctx, migrated) };
-          updateSnapshotRow(ctx, "player", nextActive);
-          syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextActive));
-        }
-      }
-      markPlayerBalanceCurrent(ctx, progress.identity);
-    }
-    if (changedProgress) refreshLeaderboard(ctx);
-  }
-  if (currentVersion < 19) {
-    // Balance version 6 corrects the short-lived v5 cohort from its cached
-    // pre-equipment anchor to the intended current-equipment map targets.
-    let changedProgress = false;
-    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
-      const currentBalance = ctx.db.playerBalanceVersion.identity.find(progress.identity);
-      const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0, false);
-      if (!samePlayerProgressValues(progress, migrated)) {
-        updateSnapshotRow(ctx, "playerProgress", migrated);
-        changedProgress = true;
-        const active = ctx.db.player.identity.find(progress.identity);
-        if (active) {
-          const nextActive = { ...active, ...powerFieldsForProgress(ctx, migrated) };
-          updateSnapshotRow(ctx, "player", nextActive);
-          syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextActive));
-        }
-      }
-      markPlayerBalanceCurrent(ctx, progress.identity);
-    }
-    if (changedProgress) refreshLeaderboard(ctx);
-  }
-  if (currentVersion < 20) {
-    // Players who cleared Tempest Kirin before Moonfen shipped keep the unlock
-    // they already earned when the new destination becomes available.
-    const result = ctx.db.tempestKirinResult.id.find(TEMPEST_KIRIN_ID);
-    if (result) {
-      try {
-        const contributors = JSON.parse(result.contributorsJson);
-        if (Array.isArray(contributors)) {
-          for (const contributor of contributors) {
-            if (typeof contributor?.identity !== "string") continue;
-            const identity = new Identity(contributor.identity);
-            const progress = ctx.db.playerProgress.identity.find(identity);
-            if (progress && !progress.moonfenUnlocked) {
-              updateSnapshotRow(ctx, "playerProgress", { ...progress, moonfenUnlocked: true });
-            }
-          }
-        }
-      } catch {}
-    }
-  }
-  if (currentVersion < 21) {
-    // Preserve the latest recorded Miremaw clear, without inferring a victory
-    // from stats or merely being present in Moonfen.
-    const result = ctx.db.miremawResult.id.find(MIREMAW_ID);
-    if (result) {
-      for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
-        if (!progress.crystalHollowsUnlocked && resultIncludesContributor(result, progress.identity)) {
-          updateSnapshotRow(ctx, "playerProgress", { ...progress, crystalHollowsUnlocked: true });
-        }
-      }
-    }
-  }
-  if (currentVersion < 22) {
-    // Existing map access proves the corresponding first-clear reward was
-    // already earned. Seed the append-only ledger before repeat encounters;
-    // Prismshell has no downstream unlock, so only its latest recorded
-    // contributor list is safe evidence for that bit. The ledger is metadata
-    // only: every clear pays the full authored reward.
-    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
-      let bossRewardClaims = Number(progress.bossRewardClaims ?? 0) >>> 0;
-      if (progress.desertUnlocked) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.dragon;
-      if (progress.snowlandsUnlocked) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.spider;
-      if (progress.lavaUnlocked) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.frostclaw;
-      if (progress.infernalUnlocked) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.magmalisk;
-      if (progress.waterUnlocked) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.gloomroot;
-      if (progress.samuraiUnlocked) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.tidewyrm;
-      if (progress.cloudspireUnlocked) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.koiShogun;
-      if (progress.moonfenUnlocked) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.tempestKirin;
-      if (progress.crystalHollowsUnlocked) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.miremaw;
-      if (contributedToLatestPrismshell(ctx, progress.identity)) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.prismshell;
-      if (bossRewardClaims !== Number(progress.bossRewardClaims ?? 0)) {
-        updateSnapshotRow(ctx, "playerProgress", { ...progress, bossRewardClaims });
-      }
-    }
-  }
-  if (currentVersion < 23) {
-    ensureDragonBoss(ctx);
-    ensureSpiderBoss(ctx);
-    ensureFrostclawBoss(ctx);
-    ensureMagmaliskBoss(ctx);
-    ensureGloomrootBoss(ctx);
-    ensureTidewyrmBoss(ctx);
-    ensureKoiShogunBoss(ctx);
-    ensureTempestKirinBoss(ctx);
-    ensureMiremawBoss(ctx);
-    ensurePrismshellBoss(ctx);
-    ensureIronhornBoss(ctx);
-    ensureDreadreaperBoss(ctx);
-    ensureWorldStatus(ctx);
-    ensureMaintenanceSweepSchedule(ctx);
-  }
-  if (currentVersion < 24) rebaseLegacyPlayersToMaps(ctx);
-  if (currentVersion < 25) {
-    ensureIronhornBoss(ctx);
-    ensureDreadreaperBoss(ctx);
-    // The existing claim ledger preserves every prior Prismshell victory.
-    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
-      if ((progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.prismshell) !== 0 || contributedToLatestPrismshell(ctx, progress.identity)) {
-        updateSnapshotRow(ctx, "playerProgress", { ...progress, clockworkRuinsUnlocked: true });
-      }
-    }
-  }
-  if (currentVersion < 26) rebasePlayersToEndgame(ctx);
-  if (currentVersion < 27) migrateGuildTags(ctx);
-  if (currentVersion < 28) {
-    if (!isMapShard(ctx) || ctx.db.shardRuntime.id.find(0)?.mapId === NEON_BASTION_MAP_ID) ensureVoltwardenBoss(ctx);
-    for (const progress of (isMapShard(ctx) ? [] : ctx.db.playerProgress.iter()) as Iterable<any>) {
-      if (!progress.neonBastionUnlocked && ((progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.dreadreaper) || contributedToLatestDreadreaper(ctx, progress.identity))) {
-        updateSnapshotRow(ctx, "playerProgress", { ...progress, neonBastionUnlocked: true });
-      }
-    }
-  }
-  if (currentVersion < 29) {
-    if (!isMapShard(ctx) || ctx.db.shardRuntime.id.find(0)?.mapId === VERDANT_CATACOMBS_MAP_ID) ensureGravebloomBoss(ctx);
-    for (const progress of (isMapShard(ctx) ? [] : ctx.db.playerProgress.iter()) as Iterable<any>) {
-      if (!progress.verdantCatacombsUnlocked && ((progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.voltwarden) || contributedToLatestVoltwarden(ctx, progress.identity))) {
-        updateSnapshotRow(ctx, "playerProgress", { ...progress, verdantCatacombsUnlocked: true });
-      }
-    }
-  }
-  if (currentVersion < 30) {
-    if (!isMapShard(ctx) || ctx.db.shardRuntime.id.find(0)?.mapId === ION_CITADEL_MAP_ID) ensureAegisPrimeBoss(ctx);
-    for (const progress of (isMapShard(ctx) ? [] : ctx.db.playerProgress.iter()) as Iterable<any>) {
-      if (!progress.ionCitadelUnlocked && ((progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.gravebloom) || contributedToLatestGravebloom(ctx, progress.identity))) {
-        updateSnapshotRow(ctx, "playerProgress", { ...progress, ionCitadelUnlocked: true });
-      }
-    }
-  }
-  if (currentVersion < 31 && !isMapShard(ctx) && !ctx.db.startupTelemetryCleanupSchedule.scheduledId.find(0n)) {
-    ctx.db.startupTelemetryCleanupSchedule.insert({ scheduledId: 0n,
-      scheduledAt: ScheduleAt.interval(15n * MAINTENANCE_INTERVAL_MICROS) });
-  }
-  if (currentVersion < 32 && !isMapShard(ctx)) {
-    // Reset only the wait, retaining whether the free name change was used.
-    const resetAt = new Timestamp(ctx.timestamp.microsSinceUnixEpoch - BigInt(NAME_CHANGE_COOLDOWN_MS) * 1000n);
-    for (const row of ctx.db.playerNameCooldown.iter()) {
-      ctx.db.playerNameCooldown.identity.update({ ...row, changedAt: resetAt });
-    }
-    for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
-      const next = rebaseEndlessPlayer(ctx, progress);
-      markPlayerBalanceCurrent(ctx, progress.identity);
-      const active = ctx.db.player.identity.find(progress.identity);
-      if (active) {
-        const updated = { ...active, ...powerFieldsForProgress(ctx, next), ...equipmentPresentationForProgress(next), speed: effectiveMovementSpeedForProgress(ctx, next) };
-        updateSnapshotRow(ctx, "player", updated);
-        syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, updated));
-      }
-    }
-    refreshLeaderboard(ctx);
-  }
-  if (currentVersion < 33 && !isMapShard(ctx)) publishRebalanceMail(ctx);
-  const next = { id: 0, version: MODULE_MIGRATION_VERSION };
-  if (state) ctx.db.moduleMigrationState.id.update(next);
-  else ctx.db.moduleMigrationState.insert(next);
-}
-
 function assertResearchAvailable(research: Record<ResearchId, number>, researchId: ResearchId) {
   const definition = RESEARCH_DEFINITIONS[researchId];
   if (research[researchId] >= definition.maxRank) throw new SenderError("Research already complete.");
@@ -2761,126 +2376,6 @@ function playerBalanceProgress(progress: any, version: number, includeMapRebase 
   return includeMapRebase && version < 8 ? rescaleEndgameProgress(mapBalanced) : mapBalanced;
 }
 
-function rebaseLegacyPlayersToMaps(ctx: any) {
-  const plans = [...ctx.db.playerProgress.iter() as Iterable<any>].map((progress) => {
-    const archived = ctx.db.playerPowerRebaseBackup.identity.find(progress.identity);
-    const next = archived ? progress : compressLegacyMapPower(progress);
-    return { progress, next, archived, before: effectivePowerForProgress(ctx, progress), after: effectivePowerForProgress(ctx, next) };
-  });
-  // Check the actual current population and Float32-rounded saved stats before
-  // writing anything. A changed cohort must be re-audited, never silently reordered.
-  const ranked = [...plans].sort((a, b) => a.before - b.before);
-  for (let i = 1; i < ranked.length; i++) {
-    const previous = ranked[i - 1], current = ranked[i];
-    if (Math.sign(previous.before - current.before) !== Math.sign(previous.after - current.after)) {
-      throw new SenderError("Player power rescale needs a fresh ranking audit; no stats changed.");
-    }
-  }
-  for (const { progress, next, archived, before, after } of plans) {
-    if (!archived) ctx.db.playerPowerRebaseBackup.insert({
-      identity: progress.identity, version: 7, maxHp: progress.maxHp, damage: progress.damage,
-      armor: progress.armor, regen: progress.regen, attackRate: progress.attackRate,
-      beforePower: before, afterPower: after, recordedAt: ctx.timestamp,
-    });
-    if (!samePlayerProgressValues(progress, next)) updateSnapshotRow(ctx, "playerProgress", next);
-    markPlayerBalanceCurrent(ctx, progress.identity);
-    const active = ctx.db.player.identity.find(progress.identity);
-    if (active) {
-      const updated = { ...active, ...powerFieldsForProgress(ctx, next) };
-      updateSnapshotRow(ctx, "player", updated);
-      syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, updated));
-    }
-  }
-  refreshLeaderboard(ctx);
-}
-
-function rebasePlayersToEndgame(ctx: any) {
-  const stats = (progress: any) => {
-    const effective = effectivePowerStatsForProgress(ctx, progress);
-    return rescaleRankingStats(effective);
-  };
-  const plans = [...ctx.db.playerProgress.iter() as Iterable<any>].map((progress) => {
-    const archived = ctx.db.playerEndgameRebaseBackup.identity.find(progress.identity);
-    const next = archived ? progress : rescaleEndgameProgress(progress);
-    return { progress, next, archived, before: stats(progress), after: stats(next) };
-  });
-  const displayedPlans = plans.flatMap((plan) => {
-    const entry = ctx.db.leaderboardEntry.identity.find(plan.progress.identity);
-    return entry ? [{ before: { ...entry, power: entry.powerLevel || entry.power }, after: plan.after }] : [];
-  });
-  const conflict = rescaleRankingConflict(plans) ?? rescaleRankingConflict(displayedPlans);
-  if (conflict) throw new SenderError(`Endgame rescale needs a fresh ${conflict} ranking audit; no stats changed.`);
-  for (const { progress, next, archived, before, after } of plans) {
-    if (!archived) ctx.db.playerEndgameRebaseBackup.insert({
-      identity: progress.identity, maxHp: progress.maxHp, damage: progress.damage,
-      armor: progress.armor, regen: progress.regen, attackRate: progress.attackRate,
-      beforePower: before.power, afterPower: after.power, recordedAt: ctx.timestamp,
-    });
-    if (!samePlayerProgressValues(progress, next)) updateSnapshotRow(ctx, "playerProgress", next);
-    markPlayerBalanceCurrent(ctx, progress.identity);
-    const active = ctx.db.player.identity.find(progress.identity);
-    if (active) {
-      const updated = { ...active, ...powerFieldsForProgress(ctx, next) };
-      updateSnapshotRow(ctx, "player", updated);
-      syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, updated));
-    }
-  }
-  refreshLeaderboard(ctx);
-}
-
-function rebaseEndlessPlayer(ctx: any, progress: any) {
-  if (ctx.db.playerEndlessRebaseBackup.identity.find(progress.identity)) return progress;
-  const procedural = ctx.db.proceduralProgress.identity.find(progress.identity);
-  const result = rebaseProgressByEffort(progress.desertUnlocked ? { ...progress, inventoryJson: JSON.stringify(inventoryForProgress(progress)) } : progress,
-    ctx.db.playerResearch.identity.find(progress.identity), id => itemUpgradeLevelFor(ctx, progress.identity, id), procedural?.completed ?? 0);
-  const next = result.progress;
-  const json = (value: unknown) => JSON.stringify(value, (_key, value) => typeof value === "bigint" ? value.toString() : value);
-  ctx.db.playerEndlessRebaseBackup.insert({ identity: progress.identity,
-    maxHp: progress.maxHp, damage: progress.damage, armor: progress.armor, regen: progress.regen, attackRate: progress.attackRate,
-    beforePower: result.beforePower, afterPower: result.afterPower, recordedAt: ctx.timestamp,
-    progressJson: json(progress), earnedSeconds: result.earnedSeconds,
-    contextJson: json({ procedural, location: ctx.db.playerLastLocation.identity.find(progress.identity),
-      homeReturn: ctx.db.homeReturnLocation.identity.find(progress.identity), cutscenes: ctx.db.playerCutsceneHistory.identity.find(progress.identity),
-      research: ctx.db.playerResearch.identity.find(progress.identity), upgrades: [...ctx.db.playerItemUpgrade.byIdentity.filter(progress.identity)] }) });
-  if (!samePlayerProgressValues(progress, next)) updateSnapshotRow(ctx, "playerProgress", next);
-  if (procedural && procedural.completed !== result.completedEndless) ctx.db.proceduralProgress.identity.update({ ...procedural, completed: result.completedEndless });
-  const history = ctx.db.playerCutsceneHistory.identity.find(progress.identity);
-  if (history) ctx.db.playerCutsceneHistory.identity.update({ ...history, seenMask: history.seenMask & unlockedPortalCutsceneMask(next), generation: history.generation + 1 });
-  const allowed = (mapId: string) => mapId === HOME_EXTERIOR_MAP_ID || mapId === "first_steps"
-    || (isProceduralMap(mapId) ? result.mapIndex === 15 && proceduralMapNumber(mapId)! <= result.completedEndless + 1
-      : MAP_IDS.indexOf(mapId) >= 0 && MAP_IDS.indexOf(mapId) <= result.mapIndex);
-  const fallbackMap = result.mapIndex === 15 ? proceduralMapId(result.completedEndless + 1) : MAP_IDS[result.mapIndex];
-  const fallback = isProceduralMap(fallbackMap) ? generateMap(fallbackMap).arrival : fallbackMap === TUTORIAL_FOREST_MAP_ID ? PLAYER_SPAWN : MAP_ARRIVALS[fallbackMap as keyof typeof MAP_ARRIVALS];
-  for (const table of [ctx.db.playerLastLocation, ctx.db.homeReturnLocation]) {
-    const saved = table.identity.find(progress.identity);
-    if (progress.desertUnlocked && saved && !allowed(saved.mapId)) table.identity.update({ ...saved, mapId: fallbackMap, ...fallback, facing: 0 });
-  }
-  const active = ctx.db.player.identity.find(progress.identity);
-  if (progress.desertUnlocked && active && !allowed(active.mapId)) {
-    // Moving home prevents a weakened character reconnecting into a hostile camp.
-    const moved = transitionPlayerMap({ ...ctx, sender: progress.identity }, active, HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN);
-    const homeReturn = { identity: progress.identity, mapId: fallbackMap, ...fallback, facing: 0 };
-    if (ctx.db.homeReturnLocation.identity.find(progress.identity)) ctx.db.homeReturnLocation.identity.update(homeReturn);
-    else ctx.db.homeReturnLocation.insert(homeReturn);
-    persistWorldLocation(ctx, moved); assignMapShard(ctx, moved);
-  }
-  // Old DPS/time credit must never validate kills after a stat reduction.
-  for (const row of ctx.db.enemyDefeatBudget.identity.filter(progress.identity)) ctx.db.enemyDefeatBudget.key.delete(row.key);
-  if (ctx.db.bossDefeatWindow.identity.find(progress.identity)) ctx.db.bossDefeatWindow.identity.delete(progress.identity);
-  if (ctx.db.bossMapDefeatWindow.identity.find(progress.identity)) ctx.db.bossMapDefeatWindow.identity.delete(progress.identity);
-  // Keep accepted-loot sequence cursors: deleting them would permit double rewards.
-  return next;
-}
-
-function migratePlayerBalance(ctx: any, progress: any) {
-  const current = ctx.db.playerBalanceVersion.identity.find(ctx.sender);
-  if ((current?.version ?? 0) >= ATTACK_BALANCE_VERSION) return progress;
-  const migrated = rebaseEndlessPlayer(ctx, playerBalanceProgress(progress, current?.version ?? 0));
-  updateSnapshotRow(ctx, "playerProgress", migrated);
-  markPlayerBalanceCurrent(ctx);
-  return migrated;
-}
-
 function powerForProgress(progress: { maxHp: number; damage: number; attackRate: number; armor: number; regen: number }) {
   return playerPowerForStats(progress);
 }
@@ -3044,28 +2539,6 @@ function adjustPlayerMotionMapState(ctx: any, mapId: string, playerDelta: number
   const next = { mapId, playerCount, visibleCount };
   if (current) ctx.db.playerMotionMapState.mapId.update(next);
   else ctx.db.playerMotionMapState.insert(next);
-}
-
-function rebuildPlayerMotionMapState(ctx: any) {
-  for (const state of [...ctx.db.playerMotionMapState.iter()] as any[]) {
-    ctx.db.playerMotionMapState.mapId.delete(state.mapId);
-  }
-  const counts = new Map<string, { playerCount: number; visibleCount: number }>();
-  for (const motion of [...ctx.db.playerMotion.iter()] as any[]) {
-    const mapping = ctx.db.playerMotionIdentity.networkId.find(motion.networkId);
-    const player = ctx.db.player.identity.find(motion.identity);
-    const isVisible = mapping?.isVisible ?? player?.isVisible ?? motion.isVisible;
-    if (motion.isVisible !== isVisible) {
-      ctx.db.playerMotion.networkId.update({ ...motion, isVisible });
-    }
-    const current = counts.get(motion.mapId) ?? { playerCount: 0, visibleCount: 0 };
-    current.playerCount += 1;
-    if (isVisible) current.visibleCount += 1;
-    counts.set(motion.mapId, current);
-  }
-  for (const [mapId, count] of counts) {
-    ctx.db.playerMotionMapState.insert({ mapId, ...count });
-  }
 }
 
 function syncPlayerMotion(ctx: any, activePlayer: any) {
@@ -3680,15 +3153,6 @@ function resultIncludesContributor(latest: any, identity: any) {
 function contributedToLatestPrismshell(ctx: any, identity: any) {
   return resultIncludesContributor(ctx.db.prismshellResult.id.find(PRISMSHELL_ID), identity);
 }
-function contributedToLatestDreadreaper(ctx: any, identity: any) {
-  return resultIncludesContributor(ctx.db.dreadreaperResult.id.find(DREADREAPER_ID), identity);
-}
-function contributedToLatestVoltwarden(ctx: any, identity: any) {
-  return resultIncludesContributor(ctx.db.voltwardenResult.id.find(VOLTWARDEN_ID), identity);
-}
-function contributedToLatestGravebloom(ctx: any, identity: any) {
-  return resultIncludesContributor(ctx.db.gravebloomResult.id.find(GRAVEBLOOM_ID), identity);
-}
 function forestItemCountForProgress(progress: any, itemId: string, field: "bowCount" | "woodenArmorCount") {
   const storedCount = Number.isInteger(progress?.[field]) ? progress[field] : 0;
   let legacyCount = 0;
@@ -4089,36 +3553,6 @@ function applyGemBalanceChange(ctx: any, input: {
     createdAt: ctx.timestamp,
   });
   return nextWallet;
-}
-
-function grantBalanceApologyGifts(ctx: any) {
-  const nowMicros = ctx.timestamp.microsSinceUnixEpoch;
-  for (const lifetime of ctx.db.playerLifetime.iter() as Iterable<any>) {
-    if (isVirtualPlayer(ctx, lifetime.identity)) continue;
-    const audit = ctx.db.playerAccessAudit.identity.find(lifetime.identity);
-    const currentlyActive = Boolean(ctx.db.player.identity.find(lifetime.identity)) ||
-      sameIdentity(lifetime.identity, ctx.sender);
-    if (!isBalanceApologyEligible(nowMicros, {
-      lastSeenAtMicros: audit?.lastSeenAt.microsSinceUnixEpoch,
-      sessionStartedAtMicros: lifetime.sessionStartedAt.microsSinceUnixEpoch,
-      currentlyActive,
-    })) continue;
-
-    applyGemBalanceChange(ctx, {
-      identity: lifetime.identity,
-      delta: BALANCE_APOLOGY_GEM_GIFT,
-      kind: "balance_apology_gift",
-      note: "One-time apology gift for the major balance changes.",
-      externalReference: balanceApologyTransactionReference(lifetime.identity.toHexString()),
-    });
-    if (!ctx.db.balanceApologyNotice.identity.find(lifetime.identity)) {
-      ctx.db.balanceApologyNotice.insert({
-        identity: lifetime.identity,
-        amount: BALANCE_APOLOGY_GEM_GIFT,
-        createdAt: ctx.timestamp,
-      });
-    }
-  }
 }
 
 const UTC_DAY_MICROS = 86_400_000_000n;
