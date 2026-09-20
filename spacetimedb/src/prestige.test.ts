@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { ScheduleAt, Timestamp } from "spacetimedb";
-import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
+import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { STARTER_BOW } from "../../shared/items";
 import { BOSS_REWARD_CLAIM_BITS } from "../../shared/rules";
 import { PRESTIGE_STAT_GAIN_PER_LEVEL, prestigeStatMultiplier, prestigeUnlocked } from "../../shared/prestige";
@@ -73,6 +73,21 @@ it("keeps research through a prestige but not through a plain reset", () => {
   wiped.seed("playerResearch", { identity: wiped.ctx.sender, foraging: 4, warcraft: 3 });
   wiped.run(server.resetPlayerProgress, {});
   expect(wiped.db.playerResearch.identity.find(wiped.ctx.sender)).toBeFalsy();
+});
+
+it("keeps the lifetime kill count through a prestige but not through a plain reset", () => {
+  const prestiged = crystalFixture();
+  prestiged.patch("playerProgress", { bossRewardClaims: CAMPAIGN_COMPLETE });
+  prestiged.seed("playerLifetime", { identity: prestiged.ctx.sender, enemyKills: 4_242n,
+    joinedAt: prestiged.ctx.timestamp, sessionStartedAt: prestiged.ctx.timestamp });
+  prestiged.run(server.prestigeAccount, {});
+  expect(prestiged.db.playerLifetime.identity.find(prestiged.ctx.sender).enemyKills).toBe(4_242n);
+
+  const wiped = crystalFixture();
+  wiped.seed("playerLifetime", { identity: wiped.ctx.sender, enemyKills: 4_242n,
+    joinedAt: wiped.ctx.timestamp, sessionStartedAt: wiped.ctx.timestamp });
+  wiped.run(server.resetPlayerProgress, {});
+  expect(wiped.db.playerLifetime.identity.find(wiped.ctx.sender).enemyKills).toBe(0n);
 });
 
 it("survives the player's own progress reset", () => {
@@ -164,4 +179,16 @@ it("leaves a running research timer running, and it still completes after the pr
   f.run(server.completeResearch, { schedule: f.db.researchCompletionSchedule.scheduledId.find(schedule.scheduledId) });
   expect(f.db.playerResearch.identity.find(f.ctx.sender)).toMatchObject({ foraging: 3 });
   expect(f.db.activeResearch.identity.find(f.ctx.sender)).toBeFalsy();
+});
+
+it("drops the player's leaderboard power the moment they prestige", () => {
+  // The board is rebuilt on a timer. Without an immediate refresh a reset
+  // player sits at the top of everyone else's leaderboard until the sweep.
+  const f = crystalFixture();
+  f.patch("playerProgress", { bossRewardClaims: CAMPAIGN_COMPLETE, damage: 5_000_000, maxHp: 900_000 });
+  f.seed("playerProfile", { identity: identity("9"), displayName: "Rival" });
+  f.run(server.prestigeAccount, {});
+  const entry = f.db.leaderboardEntry.identity.find(f.ctx.sender);
+  expect(entry?.powerLevel ?? 0).toBeLessThan(5_000_000);
+  expect(entry?.damage ?? 0).toBeLessThan(5_000_000);
 });

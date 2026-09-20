@@ -5636,10 +5636,13 @@ export const beginAdventure = spacetimedb.reducer(
 
 /**
  * The whole reset, shared by the player's own reset button and by prestige.
- * Prestige keeps research: its ranks cost real days, and a rerun is meant to be
- * faster than the first run, not the same climb with the timers restarted.
+ * Prestige keeps what a run cannot re-earn by playing again: research ranks
+ * cost real days, and lifetime kills are the count of everything the account
+ * has ever killed, which a rerun does not undo. Kill gems key their ledger
+ * reference off that count rising, so holding it steady also keeps a replayed
+ * batch from paying twice.
  */
-function resetProgressToDefaults(ctx: any, activePlayer: any, keepResearch = false) {
+function resetProgressToDefaults(ctx: any, activePlayer: any, keep: { research?: boolean; lifetimeKills?: boolean } = {}) {
     clearProceduralProgress(ctx, ctx.sender);
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
     const next = defaultPlayerProgress(ctx.sender);
@@ -5651,7 +5654,7 @@ function resetProgressToDefaults(ctx: any, activePlayer: any, keepResearch = fal
     }
     if (current) updateSnapshotRow(ctx, "playerProgress", next);
     else insertSnapshotRow(ctx, "playerProgress", next);
-    if (!keepResearch) {
+    if (!keep.research) {
       const research = ctx.db.playerResearch.identity.find(ctx.sender);
       if (research) deleteSnapshotRow(ctx, "playerResearch", ctx.sender);
       const activeResearchRow = ctx.db.activeResearch.identity.find(ctx.sender);
@@ -5660,7 +5663,7 @@ function resetProgressToDefaults(ctx: any, activePlayer: any, keepResearch = fal
     }
     removePlayerItemUpgradeData(ctx, ctx.sender, true);
     const lifetime = ensurePlayerLifetime(ctx);
-    ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: 0n });
+    if (!keep.lifetimeKills) ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: 0n });
     // Re-entry uses recent boss contributions to recover earned map unlocks.
     // A deliberate reset must remove that evidence along with the unlock flags.
     for (const boss of Object.keys(BOSS_REWARD_CLAIM_BITS)) {
@@ -5680,6 +5683,10 @@ function resetProgressToDefaults(ctx: any, activePlayer: any, keepResearch = fal
     releaseMapShard(ctx, ctx.sender);
     const respawned = transitionPlayerMap(ctx, nextPlayer, TUTORIAL_FOREST_MAP_ID, PLAYER_SPAWN, 0);
     persistWorldLocation(ctx, respawned);
+    // The board is built from saved stats on a timer, so without this the
+    // player keeps their old rank until the next sweep, which reads to
+    // everyone else as a reset player still sitting at the top.
+    refreshLeaderboard(ctx);
 }
 const prestige = createPrestige({ requireControllingPlayer, activeDuelFor, resetProgressToDefaults });
 export const resetPlayerProgress = spacetimedb.reducer({}, (ctx) => {

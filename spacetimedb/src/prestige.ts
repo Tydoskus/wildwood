@@ -28,7 +28,7 @@ export function prestigePerkRanks(ctx: any, identity: any): PrestigePerkRanks {
 export type PrestigeDeps = {
   requireControllingPlayer: (ctx: any) => any;
   activeDuelFor: (ctx: any, identity: any) => unknown;
-  resetProgressToDefaults: (ctx: any, activePlayer: any, keepResearch?: boolean) => void;
+  resetProgressToDefaults: (ctx: any, activePlayer: any, keep?: { research?: boolean; lifetimeKills?: boolean }) => void;
 };
 
 export function createPrestige(deps: PrestigeDeps) {
@@ -52,7 +52,7 @@ export function createPrestige(deps: PrestigeDeps) {
       prestigedAt: ctx.timestamp,
     };
     if (current) ctx.db.playerPrestige.identity.update(next); else ctx.db.playerPrestige.insert(next);
-    resetProgressToDefaults(ctx, activePlayer, true);
+    resetProgressToDefaults(ctx, activePlayer, { research: true, lifetimeKills: true });
     return next;
   }
 
