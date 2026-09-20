@@ -33,7 +33,7 @@ function setup() {
   let apply: any;
   let change: any;
   const rootTables = new Proxy({} as any, { get(target, key) { return target[key] ??= { iter: () => [] }; } });
-  rootTables.myMapShardRoute = {
+  rootTables.mapShardRoute = {
     identity: { find: () => route }, onInsert(fn: any) { change = fn; }, onUpdate() {}, onDelete() {},
   };
   const root: any = { isActive: true, token: "authenticated-root-token", identity: {}, reducers: { changeMap: vi.fn(async () => {}), setSpeed: vi.fn() }, db: rootTables,

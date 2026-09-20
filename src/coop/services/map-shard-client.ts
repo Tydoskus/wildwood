@@ -249,7 +249,7 @@ export function createMapShardClient(options: {
         if (attachedRoot !== root || rootRoutingRejected) return;
         const wasKnown = routeKnown;
         routeKnown = true;
-        const next = root.db.myMapShardRoute.identity.find(identity) ?? null;
+        const next = root.db.mapShardRoute.identity.find(identity) ?? null;
         update(next);
         if (!wasKnown && !next) {
           // Own/base rows can arrive before routing hydration. Replay them only
@@ -259,14 +259,13 @@ export function createMapShardClient(options: {
         }
         options.changed();
       };
-      // A view update may delete its old row before inserting the replacement.
-      // Observe the completed transaction, never its temporary missing route.
+      // Routes are observed after the completed transaction, not mid-update.
       const changed = () => queueMicrotask(apply);
-      root.db.myMapShardRoute.onInsert(changed);
-      root.db.myMapShardRoute.onUpdate(changed);
-      root.db.myMapShardRoute.onDelete(changed);
+      root.db.mapShardRoute.onInsert(changed);
+      root.db.mapShardRoute.onUpdate(changed);
+      root.db.mapShardRoute.onDelete(changed);
       root.subscriptionBuilder().onApplied(apply).onError(() => { if (attachedRoot === root) options.port.handleFailure("map routing", new Error("Map route subscription failed")); })
-        .subscribe(tables.myMapShardRoute);
+        .subscribe(tables.mapShardRoute.where(row => row.identity.eq(identity)));
     },
     clear() { failures = 0; routeError = null; rootRoutingRejected = false; attachedRoot = null; route = null; routeKnown = true; closeRegion(); notifyMapWaiters(new Error("Map connection closed")); },
   };
