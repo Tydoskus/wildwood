@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.757": [
+    "Fixed being locked out of your own perk points: prestiging clears the campaign, which was greying out the button that opens the Prestige window. It now opens whenever you have prestiged or have a point to spend.",
+  ],
   "0.756": [
     "Prestige perks are here. Open Prestige from your profile to spend a banked point: Keen Edge for critical chance, Double Strike for a chance to hit twice, and two more coming.",
     "Keen Edge and Double Strike work against enemies, bosses and in duels.",
@@ -2132,6 +2135,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.757": "2026-09-20",
   "0.756": "2026-09-20",
   "0.755": "2026-09-20",
   "0.754": "2026-09-20",

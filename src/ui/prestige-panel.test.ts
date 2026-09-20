@@ -42,6 +42,20 @@ describe("prestige panel", () => {
     expect(open.pick("open").textContent).toBe("Prestige 2");
   });
 
+  it("still opens after a prestige so the banked point can be spent", () => {
+    // Prestiging clears the campaign, so the unlock condition is false again.
+    const s = setup({ unlocked: false, row: { level: 1, perkPoints: 1, peakPower: 0 }, perks: {} });
+    s.controller.refresh(true);
+    expect(s.pick("open").disabled).toBe(false);
+    s.controller.open();
+    expect(s.pick("overlay").hidden).toBe(false);
+    const spend = [...s.pick("perks").children].map((row: any) => row.querySelector("button"));
+    expect(spend.some((button: any) => !button.disabled)).toBe(true);
+    // The reset itself stays gated until the campaign is finished again.
+    expect(s.pick("confirm").hidden).toBe(true);
+    expect(s.pick("status").textContent).toContain("again");
+  });
+
   it("refuses to open while locked and says why", () => {
     const s = setup({ unlocked: false });
     click(s.pick("open"));

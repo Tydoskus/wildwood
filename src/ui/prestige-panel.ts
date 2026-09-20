@@ -7,6 +7,7 @@ export type PrestigeRow = { level: number; perkPoints: number; peakPower: number
 type Result = { ok: boolean; error?: string } | boolean | undefined;
 
 const LOCKED_HINT = 'Defeat Aegis Prime to unlock Prestige.';
+const AGAIN_HINT = 'Defeat Aegis Prime again to prestige. Your perk points keep.';
 const COST = 'Prestige resets your stats, research, equipment and every map unlock. '
   + 'Your name, gems, bought slots and upgrade bench stay.';
 
@@ -33,6 +34,13 @@ export function createPrestigeController(options: {
   let armed = false, pending = false;
 
   const unlocked = () => options.unlocked();
+  // Prestiging clears the campaign, which would otherwise lock a player out of
+  // the window holding the point they just earned. Anyone who has prestiged,
+  // or has a point banked, can always open it; only the reset stays gated.
+  const canOpen = () => {
+    const row = options.prestige();
+    return unlocked() || (row?.level ?? 0) > 0 || (row?.perkPoints ?? 0) > 0;
+  };
 
   function disarm() {
     armed = false;
@@ -89,16 +97,19 @@ export function createPrestigeController(options: {
     options.bonus.textContent = `+${Math.round(level * PRESTIGE_STAT_GAIN_PER_LEVEL * 100)}%`;
     options.points.textContent = String(row?.perkPoints ?? 0);
     options.peak.textContent = row?.peakPower ? formatCompactNumber(row.peakPower) : '—';
-    options.cost.textContent = `${COST} You would earn ${prestigeRewardLabel(level)}.`;
+    options.cost.textContent = unlocked()
+      ? `${COST} You would earn ${prestigeRewardLabel(level)}.`
+      : `Spend the points you have banked. ${AGAIN_HINT}`;
     renderPerks(row?.perkPoints ?? 0);
     confirmButton.disabled = pending || !unlocked();
-    if (!unlocked()) status.textContent = LOCKED_HINT;
+    confirmButton.hidden = !unlocked();
+    if (!unlocked() && !status.textContent) status.textContent = level > 0 ? AGAIN_HINT : LOCKED_HINT;
   }
 
   /** Called whenever the profile window renders, so the button tracks progress. */
   function refresh(ownProfile: boolean) {
     options.ownActions.hidden = !ownProfile;
-    const open = unlocked();
+    const open = canOpen();
     openButton.disabled = !open;
     openButton.title = open ? 'Prestige' : LOCKED_HINT;
     openButton.setAttribute('aria-disabled', String(!open));
@@ -108,7 +119,7 @@ export function createPrestigeController(options: {
   }
 
   function open() {
-    if (!unlocked()) { options.showMessage?.(LOCKED_HINT); return; }
+    if (!canOpen()) { options.showMessage?.(LOCKED_HINT); return; }
     options.beforeOpen?.();
     disarm();
     status.textContent = '';
