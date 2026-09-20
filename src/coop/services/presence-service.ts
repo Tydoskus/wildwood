@@ -808,10 +808,14 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     const generation = ++mapSubscriptionGeneration;
     mapSubscriptionAreaKey = areaKey;
     mapPlayerSubscriptionTransitioning = true;
+    // Excluding our own row cost an index: map_id and is_visible are the
+    // leading columns of by_map_zone, but `ne` is not a predicate an index can
+    // answer, so the server fell back to a sequential scan on every one of
+    // these. The base subscription already holds our row and the handler
+    // already recognises it, so the client cache is unchanged either way.
     const mapPresentations = tables.playerMotionIdentity.where((row) => row
       .mapId.eq(mapId)
-      .and(row.isVisible.eq(true))
-      .and(row.identity.ne(selfIdentity)));
+      .and(row.isVisible.eq(true)));
     const mapPlayerDeaths = tables.playerDeathFrame.where((row) => row.mapId.eq(mapId));
 
     let next: SubscriptionHandle | null = null;
