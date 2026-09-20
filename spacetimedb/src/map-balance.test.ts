@@ -80,3 +80,26 @@ it('reuses a revision across players without serving it past the next save', () 
   pinMapBalance(other, 'tutorial_forest', true);
   expect(pinnedMapBalance(other, other.sender, 'tutorial_forest')).toEqual(after);
 });
+
+it('serves byte-identical snapshots whether or not the caches are warm', () => {
+  const maps = ['tutorial_forest', 'beginner_desert', 'crystal_hollows', 'endless_1', 'endless_97'];
+  const snapshotsFor = (cold: boolean) => {
+    const ctx = fixture();
+    // Two revisions, so the cache is exercised across a save as well as within one.
+    pinMapBalance(ctx, 'tutorial_forest', true);
+    const settings = balanceEditorState(ctx).settings;
+    settings.maps.endless.bossHealth = 3;
+    settings.endless.statStep = .2;
+    saveMapBalance(ctx, 0, JSON.stringify(settings));
+    const collected: Record<string, unknown> = {};
+    for (const mapId of maps) {
+      if (cold) forgetBalanceCaches();
+      pinMapBalance(ctx, 'home_exterior');
+      if (cold) forgetBalanceCaches();
+      pinMapBalance(ctx, mapId, true);
+      collected[mapId] = pinnedMapBalance(ctx, ctx.sender, mapId);
+    }
+    return collected;
+  };
+  expect(snapshotsFor(false)).toEqual(snapshotsFor(true));
+});
