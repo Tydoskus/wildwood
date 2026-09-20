@@ -326,7 +326,7 @@ const {
 // Duel bodies live in duel-runtime.ts; the duel reducers and the equipment
 // snapshot below keep calling the same names. Every dep is a hoisted function,
 // so this only has to precede the lifecycle factory that borrows finishDuel.
-const { duelDamage, finishDuel, resolveDuel, startDuel } = createDuelRuntime({
+const { duelDamage, finishDuel, resolveDuel, startDuel, publishDuelReplay } = createDuelRuntime({
   requireControllingPlayer, isSupportedProtocol, sameIdentity, playersBlocked, isVirtualPlayer,
   insertChatMessage, researchedDamage, researchedArmor, researchedRegen, maxHealthForProgress,
   attackIntervalForProgress, equippedRightHandForProgress, equippedLeftHandForProgress,
@@ -5785,6 +5785,8 @@ export const requestDuel = spacetimedb.reducer(
   { opponent: t.identity() },
   (ctx, { opponent }) => startDuel(ctx, opponent),
 );
+
+export const shareDuelReplay = spacetimedb.reducer({ id: t.u64() }, (ctx, { id }) => publishDuelReplay(ctx, id));
 
 export const acceptDuel = spacetimedb.reducer(
   { id: t.u64() },

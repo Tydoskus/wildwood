@@ -38,6 +38,7 @@ type RuntimeHudElements = {
   duelResult: HTMLElement;
   duelResultTitle: HTMLElement;
   duelResultStats: HTMLElement;
+  shareDuelBtn: HTMLButtonElement;
   watchDuelReplay: HTMLElement;
 };
 
@@ -64,6 +65,7 @@ type RuntimeHudDependencies = {
   refreshAppStatus: () => void;
   updateProfileDuelButton: () => void;
   pulseDuel: () => void;
+  shareDuel: (replayId: bigint) => Promise<{ ok?: boolean; error?: string } | undefined>;
 };
 
 type ActiveStatReward = {
@@ -243,7 +245,36 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
     );
     elements.duelResult.hidden = false;
     elements.duelResult.dataset.replayId = String(replay.id);
+    elements.shareDuelBtn.hidden = false;
+    elements.shareDuelBtn.disabled = false;
+    elements.shareDuelBtn.removeAttribute("aria-busy");
+    elements.shareDuelBtn.textContent = "SHARE TO CHAT";
     elements.watchDuelReplay.hidden = false;
+  }
+
+  async function shareDuelResult() {
+    const replayId = BigInt(elements.duelResult.dataset.replayId || "0");
+    if (replayId <= 0n || elements.shareDuelBtn.disabled) return;
+    elements.shareDuelBtn.disabled = true;
+    elements.shareDuelBtn.setAttribute("aria-busy", "true");
+    elements.shareDuelBtn.textContent = "SHARING…";
+    try {
+      const result = await dependencies.shareDuel(replayId);
+      if (result?.ok) {
+        elements.shareDuelBtn.removeAttribute("aria-busy");
+        elements.shareDuelBtn.textContent = "SHARED TO CHAT";
+        return;
+      }
+      elements.shareDuelBtn.disabled = false;
+      elements.shareDuelBtn.removeAttribute("aria-busy");
+      elements.shareDuelBtn.textContent = "SHARE TO CHAT";
+      showMessage(result?.error || "SHARE FAILED", "#ff9b91");
+    } catch (error) {
+      elements.shareDuelBtn.disabled = false;
+      elements.shareDuelBtn.removeAttribute("aria-busy");
+      elements.shareDuelBtn.textContent = "SHARE TO CHAT";
+      showMessage(error instanceof Error ? error.message : "SHARE FAILED", "#ff9b91");
+    }
   }
 
   function showDuelResultUnavailable() {
@@ -254,6 +285,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
     elements.duelResultStats.replaceChildren(unavailable);
     elements.duelResult.hidden = false;
     elements.duelResult.dataset.replayId = "0";
+    elements.shareDuelBtn.hidden = true;
     elements.watchDuelReplay.hidden = true;
   }
 
@@ -342,6 +374,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
     showGemDrop,
     setDuelCountdown,
     showDuelResult,
+    shareDuelResult,
     showDuelResultUnavailable,
     showMessage,
     updateDuelControls,

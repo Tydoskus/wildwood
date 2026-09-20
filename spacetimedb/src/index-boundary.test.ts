@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 // combat, guest claiming and identity removal, one-time migrations, presence
 // and motion sync, and duels into their own modules, leaving 6,846.
 //
-// What must remain is the schema surface: 172 reducers, 25 procedures, 27
+// What must remain is the schema surface: 173 reducers, 25 procedures, 27
 // views and 89 tables, the schema registration and the imports. Written as
 // thin declarations that is roughly 3,500 lines, which is the target below.
 // Everything between here and there is a body that belongs in a module.
@@ -21,7 +21,8 @@ import { describe, expect, it } from "vitest";
 // instance and a three-line call inside recordEnemyDefeats; the kill-claim
 // review table added its registration line. Bodies live in kill-gems.ts and
 // enemy-defeats.ts; the raise is the schema surface alone.
-const MAX_LINES = 6_877;
+// 6_879: duel replay sharing added one reducer declaration and its separator.
+const MAX_LINES = 6_879;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

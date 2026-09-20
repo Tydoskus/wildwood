@@ -1,7 +1,7 @@
 // Snapshot duels: the challenger-only arena fight behind requestDuel, the
 // deterministic combat resolution that pulseDuel, resolveScheduledDuel and
-// runMaintenance drive, the replay row and chat announcement written when a
-// duel finishes, and the expired-request sweep. The duel tables, the schema
+// runMaintenance drive, the replay row written when a duel finishes, the
+// optional chat announcement, and the expired-request sweep. The duel tables, the schema
 // registration and the requestDuel/acceptDuel/pulseDuel/resolveScheduledDuel
 // reducer declarations stay in index.ts; this module only owns the bodies they
 // call. Membership checks keep going through the duel.byChallenger index (see
@@ -171,17 +171,30 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
       opponentGender: current.opponentGender,
     });
 
-    const announcementOutcome = challengerWon
-      ? "CHALLENGER_WIN"
-      : opponentWon ? "OPPONENT_WIN" : "DRAW";
+    deleteSnapshotRow(ctx, "duel", current.id);
+  }
+
+  function publishDuelReplay(ctx: any, id: bigint) {
+    requireControllingPlayer(ctx);
+    const replay = ctx.db.duelReplay.id.find(id);
+    if (!replay) throw new SenderError("Duel replay unavailable.");
+    if (replay.challengerIdentity !== ctx.sender.toHexString()) {
+      throw new SenderError("Only the challenger can share this duel.");
+    }
+    for (const message of ctx.db.chatMessage.iter() as Iterable<any>) {
+      if (message.replayId === id && !message.moderated) return;
+    }
+    const announcementOutcome = replay.combatVersion >= 1
+      ? duelOutcome(replay, { challengerHp: replay.challengerFinalHp, opponentHp: replay.opponentFinalHp })
+      : replay.challengerFinalHp > replay.opponentFinalHp ? "CHALLENGER_WIN"
+        : replay.opponentFinalHp > replay.challengerFinalHp ? "OPPONENT_WIN" : "DRAW";
     insertChatMessage(
       ctx,
-      current.challenger,
-      challengerName,
-      duelAnnouncementText(challengerName, opponentName, announcementOutcome),
-      current.id,
+      ctx.sender,
+      replay.challengerName,
+      duelAnnouncementText(replay.challengerName, replay.opponentName, announcementOutcome),
+      id,
     );
-    deleteSnapshotRow(ctx, "duel", current.id);
   }
 
   function resolveDuel(ctx: any, current: any) {
@@ -348,5 +361,5 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
     ensureRealtimeFrameSchedules(ctx);
   }
 
-  return { duelDamage, finishDuel, resolveDuel, startDuel };
+  return { duelDamage, finishDuel, resolveDuel, startDuel, publishDuelReplay };
 }

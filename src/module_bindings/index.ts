@@ -172,6 +172,7 @@ import SetSkinToneReducer from "./set_skin_tone_reducer";
 import SetSpeedReducer from "./set_speed_reducer";
 import ShardMemberReadyReducer from "./shard_member_ready_reducer";
 import ShardReadyReducer from "./shard_ready_reducer";
+import ShareDuelReplayReducer from "./share_duel_replay_reducer";
 import SpeedUpItemUpgradeWithGemsReducer from "./speed_up_item_upgrade_with_gems_reducer";
 import SpeedUpResearchWithGemsReducer from "./speed_up_research_with_gems_reducer";
 import StageShardProgramReducer from "./stage_shard_program_reducer";
@@ -1360,6 +1361,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_speed", SetSpeedReducer),
   __reducerSchema("shard_member_ready", ShardMemberReadyReducer),
   __reducerSchema("shard_ready", ShardReadyReducer),
+  __reducerSchema("share_duel_replay", ShareDuelReplayReducer),
   __reducerSchema("speed_up_item_upgrade_with_gems", SpeedUpItemUpgradeWithGemsReducer),
   __reducerSchema("speed_up_research_with_gems", SpeedUpResearchWithGemsReducer),
   __reducerSchema("stage_shard_program", StageShardProgramReducer),

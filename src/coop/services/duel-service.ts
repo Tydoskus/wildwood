@@ -271,6 +271,19 @@ export function createDuelService(dependencies: DuelServiceDependencies) {
         if (dependencies.reducers.protocolBlocked() || !dependencies.reducers.connection()) return;
         dependencies.reducers.sendReducer("duel acceptance", (connection) => connection.reducers.acceptDuel({ id }));
       },
+      async shareDuelReplay(id: bigint) {
+        if (dependencies.reducers.protocolBlocked()) return { ok: false, error: "UPDATE REQUIRED" };
+        const connection = dependencies.reducers.connection();
+        if (!connection) return { ok: false, error: "NOT CONNECTED" };
+        try {
+          await dependencies.reducers.runWorldReducer(() => connection.reducers.shareDuelReplay({ id }));
+          return { ok: true };
+        } catch (error) {
+          const message = dependencies.reducers.errorMessage(error);
+          dependencies.reducers.handleFailure("duel share", error);
+          return { ok: false, error: message };
+        }
+      },
       pulseDuel() {
         if (dependencies.reducers.protocolBlocked() || !dependencies.reducers.connection()) return;
         const now = performance.now();

@@ -129,6 +129,12 @@ describe("functional stylesheet contracts (not visual QA)", () => {
     expect(declarations("#message")["pointer-events"]).toBe("none");
   });
 
+  it("keeps duel replays above fullscreen game windows", () => {
+    const layer = (selector: string) => Number(declarations(selector)["z-index"]);
+    expect(layer("#duelReplay")).toBeGreaterThan(layer("#techTreeOverlay"));
+    expect(layer("#duelReplay")).toBeGreaterThan(layer(".gem-shop"));
+  });
+
   it("keeps the profile frame stable and scrolls its content behind a fixed Back button", () => {
     expect(declarations("#profileStatsPanel")).toMatchObject({ height: "auto", "max-height": "none", overflow: "visible" });
     expect(declarations(".profile-stat-grid")["align-items"]).toBe("start");

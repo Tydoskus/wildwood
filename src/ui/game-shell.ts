@@ -84,6 +84,7 @@ const afterUpdateGateShell = String.raw`
   <div class="modal duel-modal" role="dialog" aria-modal="true">
     <h2 id="duelResultTitle" class="window-title">Duel Complete</h2>
     <div id="duelResultStats" class="duel-stats"></div>
+    <button id="shareDuelBtn" class="secondary-button" type="button" hidden>SHARE TO CHAT</button>
     <button id="watchDuelReplayBtn" type="button"><span class="duel-replay-play-icon" aria-hidden="true"></span><span>WATCH REPLAY</span></button>
     <button id="closeDuelResultBtn" class="secondary-button" type="button">CONTINUE</button>
   </div>

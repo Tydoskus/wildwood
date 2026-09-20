@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.752": [
+    "Duels are now optional to share in public chat, and duel replays appear above fullscreen windows.",
+  ],
   "0.751": [
     "Kills now earn gems: two credits while you fight, one while idle, and a gem every 2,000. Past kills were paid retroactively.",
     "A gem you earn pops on screen and flies to your wallet.",
@@ -2112,6 +2115,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.752": "2026-09-20",
   "0.751": "2026-09-20",
   "0.750": "2026-09-19",
   "0.749": "2026-09-19",

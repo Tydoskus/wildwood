@@ -2652,6 +2652,7 @@
   .duel-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 14px 0; text-align: left; font-size: 11px; }
   .duel-stat-row { padding: 8px; border: 1px solid rgba(255,255,255,.16); border-radius: 7px; background: rgba(0,0,0,.2); }
   .duel-stat-name, .duel-status-name { display: inline-flex; align-items: center; gap: 3px; color: var(--gold); font-weight: 900; }
+  #shareDuelBtn { display: block; width: 100%; margin-top: 8px; }
   #watchDuelReplayBtn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 34px; margin-top: 8px; padding: 3px 13px; border-color: transparent; background: transparent; font-size: 13px; line-height: 1; }
   .duel-replay-play-icon { display: block; width: 25px; height: 25px; background: center / contain no-repeat url("replay-play.svg"); -webkit-text-stroke: 0; text-shadow: none; }
   #dragonWorldNotice { position: fixed; top: 142px; left: 50%; z-index: 9; display: grid; gap: 3px; min-width: min(350px, calc(100vw - 30px)); padding: 10px 16px; border: 2px solid rgba(255,101,90,.68); border-radius: 9px; background: rgba(13,22,17,.94); color: #fff; text-align: center; pointer-events: none; transform: translateX(-50%); animation: dragon-world-notice 6s ease forwards; }
@@ -3181,7 +3182,7 @@
   .update-release li::marker { color: #fff; }
   .chat-name { cursor: pointer; }
   .chat-name:hover { filter: brightness(1.2); }
-  #duelReplay { position: fixed; inset: 0; z-index: 10; background: #42494b; }
+  #duelReplay { position: fixed; inset: 0; z-index: 22; background: #42494b; }
   #duelReplay[hidden] { display: none; }
   #duelReplayHud { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 12px); right: var(--hud-safe-right); left: var(--hud-safe-left); display: flex; justify-content: center; color: #eef1ee; font: 900 11px/1.5 var(--font-rounded); letter-spacing: .08em; text-align: center; }
   #duelReplayTitle { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }

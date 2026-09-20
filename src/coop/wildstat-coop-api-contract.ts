@@ -115,6 +115,7 @@ type ExpectedApiKey =
   | "setPlayerBlocked"
   | "blockedPlayers"
   | "requestDuel"
+  | "shareDuelReplay"
   | "research"
   | "resetProgress"
   | "retryConnection"
