@@ -1318,24 +1318,39 @@
     white-space: nowrap;
   }
 
-  /* Reads after the name and before the gender icon, matched to the power
-     sword beside it. The level is the digit inside, so the box is sized in the
-     badge's own em and the tight margins keep it against the name. The box is
-     1/.64 of the digit because the overhead tag draws the digit at .64 of the
-     shield, and the two have to agree; a wide level overhangs the sides rather
-     than shrinking to fit. */
+  /* Reads after the name and before the gender icon. The badge is one fixed
+     size everywhere rather than an em of whatever text surrounds it, because
+     the same badge is drawn on a canvas over the player's head and the two
+     have to match; PRESTIGE_BADGE_PX in shared/prestige.ts is the same number.
+     Everything else is a ratio of that size, each one measured against what
+     the canvas does:
+       - the digit is 1/1.5625 of the box, because the canvas draws it at .64
+         of the shield;
+       - padding-bottom lifts the digit onto the shield's own centre, which is
+         above the middle of the square because the crest tapers to a point;
+       - the stroke is .3 of the digit, matching the canvas, and far heavier
+         than the .08em the global text rule gives every other glyph;
+       - the shadow goes, because the canvas has none and its downward offset
+         read as the number sitting low on the shield.
+     The name rows are flex with a gap of their own, so the margins pull back
+     against it rather than adding to it. A wide level overhangs the sides
+     rather than shrinking to fit. */
   .player-prestige-badge {
     display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center;
-    width: 1.5625em; height: 1.5625em; margin: 0 .06em 0 .1em;
-    font-size: .876em; font-weight: 900; line-height: 1;
-    /* Keeps the global rounded face and black stroke, but not the global drop
-       shadow: it is offset down and right, and the overhead tag draws this
-       digit on a canvas with no shadow at all, so leaving it in made the same
-       number sit off-centre on the shield in chat and the HUD. */
+    box-sizing: border-box;
+    width: var(--prestige-badge-size, 16px); height: var(--prestige-badge-size, 16px);
+    padding-bottom: calc(var(--prestige-badge-size, 16px) * .111);
+    margin: 0 calc(var(--prestige-badge-size, 16px) * -.064);
+    font-size: calc(var(--prestige-badge-size, 16px) / 1.5625);
+    font-weight: 900; line-height: 1;
     color: #fff; letter-spacing: 0; text-shadow: none;
+    -webkit-text-stroke-width: calc(var(--prestige-badge-size, 16px) * .192);
     background: url("ui/prestige-shield.svg") center / contain no-repeat;
     vertical-align: .05em; pointer-events: none; user-select: none;
   }
+  /* The HUD card is drawn at transform: scale(.8), so the badge inside it is
+     set larger to land on the same screen pixels as every other one. */
+  .player-hud-card { --prestige-badge-size: 20px; }
   .player-gender-icon { display: inline-block; flex: 0 0 auto; width: 1.12em; height: 1.12em; object-fit: contain; vertical-align: -.16em; filter: drop-shadow(0 1px 0 rgba(0,0,0,.45)); pointer-events: none; user-select: none; }
   .player-hud-name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 

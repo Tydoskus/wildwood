@@ -22,3 +22,10 @@ export function prestigeStatMultiplier(level: number) {
 
 /** A flat mark, so it stays crisp at the twelve pixels a name tag allows. */
 export const PRESTIGE_BADGE_ASSET = "assets/wildstat/ui/prestige-shield.svg";
+/**
+ * One size for the badge wherever it appears: the tag over a player's head,
+ * chat, the HUD and the profile. The tag is drawn on a canvas and the rest are
+ * DOM, so without a shared number the two drift apart on every layout change.
+ * game.css carries the same value as --prestige-badge-size.
+ */
+export const PRESTIGE_BADGE_PX = 16;

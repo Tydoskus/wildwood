@@ -355,12 +355,13 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
     renderPlayerHud(
       { hpFill: elements.hpFill, hpText: elements.hpText, playerName: elements.playerName, playerPower: elements.playerPower, coopStatus: elements.coopStatus, minimapPlayers: elements.minimapPlayers },
       dependencies.player,
-      dependencies.isGuest(identity) ? `${displayName} (guest)` : displayName,
+      displayName,
       playerCount,
       dependencies.playerPower(dependencies.player),
       developer,
       dependencies.playerGender(identity),
       identity,
+      dependencies.isGuest(identity),
     );
     updateDuelControls();
     dependencies.refreshAppStatus();

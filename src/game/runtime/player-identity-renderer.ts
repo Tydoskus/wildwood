@@ -1,7 +1,7 @@
 import { drawPlayerPowerLabel } from "./player-power-label";
 import { applyProfileIcon, createProfileIconCanvasPainter } from "../../app/profile-icons";
 import { playerNamePrefix, appendPlayerNameTags, appendPrestigeBadge, playerPrestigeLevel } from "../../app/player-name-tags";
-import { PRESTIGE_BADGE_ASSET } from "../../../shared/prestige";
+import { PRESTIGE_BADGE_ASSET, PRESTIGE_BADGE_PX } from "../../../shared/prestige";
 import {
   playerPowerForStats,
   type PlayerPowerProgress,
@@ -33,8 +33,8 @@ const DEVELOPER_BADGE = "[dev]";
 const SPEECH_BUBBLE_DURATION_MS = 8_000;
 const SPEECH_BUBBLE_FADE_MS = 1_250;
 const SPEECH_BUBBLE_STACK_GAP = 5;
-/** The same 16px the power sword below the name uses. */
-const OVERHEAD_PRESTIGE_BADGE_SIZE = 16;
+/** The same size chat, the HUD and the profile give it. */
+const OVERHEAD_PRESTIGE_BADGE_SIZE = PRESTIGE_BADGE_PX;
 const OVERHEAD_GENDER_ICON_OFFSET_Y = -1;
 export const MAX_ACTIVE_SPEECH_BUBBLES_PER_PLAYER = 3;
 
@@ -320,11 +320,14 @@ export function createPlayerIdentityRenderer(options: {
       ctx.imageSmoothingEnabled = true;
       const badgeTop = nameBottom - badgeSize + 1;
       ctx.drawImage(prestigeBadge, badgeLeft, badgeTop, badgeSize, badgeSize);
-      // White with the same outline every other overhead label carries.
+      // White with the same outline every other overhead label carries. The
+      // digit is drawn at .515 rather than the middle because "middle" centres
+      // the font's em box, not the ink, and the shield's own centre is above
+      // the middle of its square; measured, the two land together there.
       ctx.font = `900 ${Math.round(badgeSize * .64)}px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      options.outlinedText(String(prestige), badgeLeft + badgeSize / 2, badgeTop + badgeSize * .55, "#ffffff", 3);
+      options.outlinedText(String(prestige), badgeLeft + badgeSize / 2, badgeTop + badgeSize * .515, "#ffffff", 3);
       ctx.textBaseline = "bottom";
       ctx.textAlign = "left";
       ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';

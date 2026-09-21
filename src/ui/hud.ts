@@ -9,7 +9,7 @@ import { PLAYER_GENDER_UNSET, type PlayerGender } from "../../shared/player-gend
 import { isHiddenCosmeticItem } from "../../shared/equipment-appearance";
 import { type ItemSlot, itemDefinition, isCosmeticOnlyItem, itemStats, itemDisplayName, normalizeItemUpgradeLevel } from "../../shared/items";
 
-import { appendPlayerNameTags, appendPrestigeBadge, playerNamePrefix } from "../app/player-name-tags";
+import { appendPlayerNameTags, appendPrestigeBadge, playerNamePrefix, playerPrestigeLevel } from "../app/player-name-tags";
 
 type PlayerHudState = {
   hp: number;
@@ -34,6 +34,7 @@ export function renderPlayerHud(
   isDeveloper = false,
   gender: PlayerGender = PLAYER_GENDER_UNSET,
   identity?: string,
+  guest = false,
 ) {
   const hpRatio = Math.max(0, Math.min(1, player.hp / player.maxHp));
   const hpWidth = `${(hpRatio * 100).toFixed(1)}%`;
@@ -42,7 +43,7 @@ export function renderPlayerHud(
   if (elements.hpText.textContent !== hpText) elements.hpText.textContent = hpText;
   if (elements.playerName) {
     const name = displayName || "WANDERER";
-    const nameKey = `${playerNamePrefix(identity, isDeveloper)}:${name}:${gender}`;
+    const nameKey = `${playerNamePrefix(identity, isDeveloper)}:${name}:${gender}:${guest}:${playerPrestigeLevel(identity)}`;
     if (elements.playerName.dataset.renderedName !== nameKey) {
       const nameText = document.createElement("span");
       nameText.className = "player-hud-name-text";
@@ -52,6 +53,9 @@ export function renderPlayerHud(
       elements.playerName.append(nameText);
       appendPrestigeBadge(elements.playerName, identity);
       appendPlayerGenderIcon(elements.playerName, gender);
+      // The guest note follows the marks, the way chat orders them, so the
+      // badge stays against the name it belongs to instead of after the note.
+      if (guest) elements.playerName.append(document.createTextNode(" (guest)"));
       elements.playerName.dataset.renderedName = nameKey;
     }
   }
