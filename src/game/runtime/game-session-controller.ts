@@ -169,6 +169,9 @@ export function createGameSessionController(dependencies: SessionDependencies) {
   let running = false;
   let hasStarted = false;
   let paused = false;
+  // Set when the game started before the server's copy of this player had
+  // arrived, so the position it was asked to restore could not be read yet.
+  let awaitingServerPosition = false;
   let gameTime = 0;
   let lastFrameAt = performance.now();
   let lastRenderedAt = lastFrameAt;
@@ -229,7 +232,29 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     updateCamera(dependencies.camera, dependencies.player, dependencies.viewport(), dependencies.isDueling() ? DUEL_ARENA : null, dt);
   }
 
+  function applyLateServerPosition() {
+    const serverState = dependencies.serverPlayerState();
+    if (!serverState) return;
+    awaitingServerPosition = false;
+    const serverMapId = dependencies.serverMapId();
+    if (serverMapId && serverMapId !== dependencies.getMapId()
+      && (dependencies.validMapIds.includes(serverMapId) || isProceduralMap(serverMapId))) {
+      dependencies.setMapId(serverMapId);
+      dependencies.mapMusicSync();
+      dependencies.resetPlayer(true);
+    }
+    if (serverMapId === dependencies.getMapId()) {
+      dependencies.player.x = serverState.x;
+      dependencies.player.y = serverState.y;
+      dependencies.player.facing = serverState.facing;
+      snapCameraToPlayer(dependencies.camera, dependencies.player, dependencies.viewport());
+      dependencies.resolvePortalCollision();
+    }
+    if (dependencies.connected()) dependencies.syncStoppedPosition();
+  }
+
   function update(dt: number) {
+    if (awaitingServerPosition) applyLateServerPosition();
     dependencies.capturePresentationState();
     syncSharedWorldState();
     simulate(dt);
@@ -325,13 +350,20 @@ export function createGameSessionController(dependencies: SessionDependencies) {
       dependencies.player.facing = serverState.facing;
       snapCameraToPlayer(dependencies.camera, dependencies.player, dependencies.viewport());
     }
+    // The game can start before the server's row for this player has arrived,
+    // most often when everyone reloads at once after a publish. The player then
+    // stands at the map's spawn while the server has them where they really
+    // were; reporting that spawn as their position made every later packet look
+    // like a teleport, and the server refused them for as long as they moved.
+    // Say nothing until the row arrives, then start from where the server says.
+    awaitingServerPosition = restoreServerPosition && !serverState;
     // Settle restored/spawned positions before input can move through a portal
     // collider on the first simulation frame.
     dependencies.resolvePortalCollision();
     hasStarted = true;
     running = true;
     if (markIntro) dependencies.beginAdventure();
-    if (dependencies.connected()) dependencies.syncStoppedPosition();
+    if (dependencies.connected() && !awaitingServerPosition) dependencies.syncStoppedPosition();
     refreshFrameClock();
     dependencies.ensureMusicPlaying();
   }

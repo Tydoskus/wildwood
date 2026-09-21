@@ -90,6 +90,36 @@ describe("game session frame scheduling", () => {
       expect(updateProjectiles).not.toHaveBeenCalled();
     } finally { vi.unstubAllGlobals(); }
   });
+  it("starts from the server's position even when the server's row arrives after the game has started", () => {
+    vi.stubGlobal("document", { addEventListener: vi.fn() });
+    try {
+      let serverState: { x: number; y: number; facing: number } | undefined;
+      const player = { x: 0, y: 0, facing: 0, moving: false }, camera = { x: 0, y: 0 };
+      const syncStoppedPosition = vi.fn();
+      const noop = vi.fn();
+      const session = createGameSessionController({
+        hideStart: noop, hideGameOver: noop, mapMusicSync: noop, beginAdventure: noop, ensureMusicPlaying: noop,
+        resetPresentationState: noop, tutorialMapId: "t", desertMapId: "d", snowMapId: "s", lavaMapId: "l", infernalMapId: "i", waterMapId: "w",
+        resolvePortalCollision: noop, capturePresentationState: noop, updateHud: noop, updateVisuals: noop, updateMessage: noop,
+        resetPlayer: () => { player.x = 100; player.y = 100; },                    // the map's spawn
+        serverMapId: () => serverState ? "test" : undefined, serverPlayerState: () => serverState,
+        getMapId: () => "test", setMapId: noop, validMapIds: ["test"], viewport: () => ({ width: 800, height: 600 }),
+        player, camera, connected: () => true, syncStoppedPosition,
+        cutsceneActive: () => true, updateCutscene: noop, isDueling: () => false,
+      } as any);
+      session.start(false, true);
+      expect(player).toMatchObject({ x: 100, y: 100 });
+      expect(syncStoppedPosition).not.toHaveBeenCalled();     // never report the spawn as where the player is
+      session.update(1 / 60);
+      expect(syncStoppedPosition).not.toHaveBeenCalled();
+      serverState = { x: 3_200, y: 1_450, facing: Math.PI };
+      session.update(1 / 60);
+      expect(player).toMatchObject({ x: 3_200, y: 1_450, facing: Math.PI });
+      expect(syncStoppedPosition).toHaveBeenCalledOnce();
+      session.update(1 / 60);
+      expect(syncStoppedPosition).toHaveBeenCalledOnce();     // applied once, not every frame
+    } finally { vi.unstubAllGlobals(); }
+  });
   it("keeps another frame scheduled when drawing throws", () => {
     vi.stubGlobal("document", { hidden: false, addEventListener: vi.fn() });
     const schedule = vi.fn(); vi.stubGlobal("requestAnimationFrame", schedule);
