@@ -52,3 +52,38 @@ export function enforceLatestVersion(version: string, onUpdateDetected?: UpdateD
     .catch(() => {})
     .finally(() => { versionCheckInFlight = false; });
 }
+
+/**
+ * How long a session the server has refused may wait for a newer build before
+ * it concludes it is the one that is stale.
+ */
+export const STALE_SESSION_RELOAD_AFTER_MS = 30_000;
+/** A second automatic reload inside this window would be a loop, not a recovery. */
+export const STALE_SESSION_RELOAD_COOLDOWN_MS = 120_000;
+const STALE_SESSION_RELOAD_KEY = "wildstat-stale-session-reload-at";
+
+/**
+ * The server refuses a session that began before its last publish and tells the
+ * client to refresh. The client used to refresh only for a build newer than its
+ * own, which is right when the build is old and wrong when the build is already
+ * current: a tab that loaded the new client shortly before the server publish
+ * was refused like any other, then waited for a newer version that did not
+ * exist, for ever. Once the refusal has outlasted the grace a newer deploy would
+ * need, the build is current and only the session is stale, so reload it once.
+ */
+export function shouldReloadStaleSession(blockedForMs: number, lastReloadAtMs: number, nowMs: number) {
+  return blockedForMs >= STALE_SESSION_RELOAD_AFTER_MS
+    && (!Number.isFinite(lastReloadAtMs) || nowMs - lastReloadAtMs >= STALE_SESSION_RELOAD_COOLDOWN_MS);
+}
+
+export function reloadStaleSession(blockedForMs: number, storage: Pick<Storage, "getItem" | "setItem"> = sessionStorage,
+  reload: () => void = () => window.location.reload(), nowMs = Date.now()) {
+  if (reloadScheduled) return false;
+  let last = Number.NaN;
+  try { last = Number(storage.getItem(STALE_SESSION_RELOAD_KEY) ?? Number.NaN); } catch {}
+  if (!shouldReloadStaleSession(blockedForMs, last, nowMs)) return false;
+  try { storage.setItem(STALE_SESSION_RELOAD_KEY, String(nowMs)); } catch {}
+  reloadScheduled = true;
+  reload();
+  return true;
+}

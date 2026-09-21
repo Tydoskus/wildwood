@@ -64,3 +64,20 @@ describe("acknowledged update navigation", () => {
     vi.useRealTimers();
   });
 });
+
+describe("a session the server refuses on a build that is already current", () => {
+  it("waits out the grace a newer deploy would need, then reloads once and not again inside the cooldown", async () => {
+    const { reloadStaleSession, shouldReloadStaleSession, STALE_SESSION_RELOAD_AFTER_MS, STALE_SESSION_RELOAD_COOLDOWN_MS } = await import("./version");
+    expect(shouldReloadStaleSession(STALE_SESSION_RELOAD_AFTER_MS - 1, Number.NaN, 1_000_000)).toBe(false);
+    expect(shouldReloadStaleSession(STALE_SESSION_RELOAD_AFTER_MS, Number.NaN, 1_000_000)).toBe(true);
+    expect(shouldReloadStaleSession(STALE_SESSION_RELOAD_AFTER_MS, 1_000_000 - STALE_SESSION_RELOAD_COOLDOWN_MS + 1, 1_000_000)).toBe(false);
+    expect(shouldReloadStaleSession(STALE_SESSION_RELOAD_AFTER_MS, 1_000_000 - STALE_SESSION_RELOAD_COOLDOWN_MS, 1_000_000)).toBe(true);
+    const data = new Map<string, string>();
+    const storage = { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => { data.set(key, value); } };
+    const reload = vi.fn();
+    expect(reloadStaleSession(5_000, storage, reload, 2_000_000)).toBe(false);
+    expect(reloadStaleSession(STALE_SESSION_RELOAD_AFTER_MS, storage, reload, 2_000_000)).toBe(true);
+    expect(reload).toHaveBeenCalledOnce();
+    expect(reloadStaleSession(STALE_SESSION_RELOAD_AFTER_MS, storage, reload, 2_000_001)).toBe(false);
+  });
+});

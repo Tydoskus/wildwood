@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.767": [
+    "If the game updates while you have it open, a tab that was already on the newest version no longer waits on the updating screen for ever: it starts a fresh session by itself within half a minute.",
+  ],
   "0.766": [
     "Every map now runs on one server instead of a hundred small ones. Updates that used to take most of an hour take seconds, which means fixes reach you faster. You will be reconnected once when this lands.",
     "Each prestige asks for one Endless stage more than the last: the first for Aegis Prime, the second for Endless 1 as well, and so on. The Prestige window names the stage that stands in the way.",
@@ -2176,6 +2179,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.767": "2026-09-21",
   "0.766": "2026-09-21",
   "0.765": "2026-09-21",
   "0.764": "2026-09-20",

@@ -1,5 +1,5 @@
 import { recordConnectionDiagnostic } from "../coop/services/connection-diagnostic-runtime";
-import { enforceLatestVersion } from "../app/version";
+import { enforceLatestVersion, reloadStaleSession } from "../app/version";
 import {
   createStartupStateMachine,
   type StartupAccountSnapshot,
@@ -175,8 +175,14 @@ export function createStartupCoordinator(dependencies: StartupCoordinatorDepende
   function startVersionPolling() {
     enforceLatestVersion(dependencies.version, showGameUpdating, dependencies.updateHandoff);
     window.setInterval(() => enforceLatestVersion(dependencies.version, showGameUpdating, dependencies.updateHandoff), 120_000);
+    let updatingSince = 0;
     window.setInterval(() => {
-      if (dependencies.accountState()?.updating) enforceLatestVersion(dependencies.version, showGameUpdating, dependencies.updateHandoff);
+      if (!dependencies.accountState()?.updating) { updatingSince = 0; return; }
+      updatingSince ||= Date.now();
+      enforceLatestVersion(dependencies.version, showGameUpdating, dependencies.updateHandoff);
+      // No newer build has appeared: this build is current and only its session
+      // is stale (it began before the server's last publish). Start a fresh one.
+      reloadStaleSession(Date.now() - updatingSince);
     }, 5_000);
   }
 
