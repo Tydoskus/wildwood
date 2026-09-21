@@ -1,4 +1,4 @@
-import type { AvatarFrame } from "../../shared/avatar-frames";
+import { AVATAR_FRAME_RANK, type AvatarFrame } from "../../shared/avatar-frames";
 
 type Resource = { id?: string; type?: string; attributes?: Record<string, unknown>; relationships?: Record<string, { data?: unknown }> };
 const resource = (value: unknown): Resource => value && typeof value === "object" && !Array.isArray(value) ? value as Resource : {};
@@ -26,7 +26,7 @@ export function patreonPaidThroughMs(attributes: Record<string, unknown> | undef
 
 /** Require the authenticated user's membership in our exact campaign and tier.
  * Amount alone cannot distinguish a paid tier from a custom donation elsewhere. */
-export function verifyPatreonIdentity(payload: unknown, config: { campaignId: string; silverTierId: string; goldTierId: string }, nowMs = Date.now()): { userId: string; tier: AvatarFrame; paidThroughMs: number } {
+export function verifyPatreonIdentity(payload: unknown, config: { campaignId: string; silverTierId: string; goldTierId: string; diamondTierId?: string }, nowMs = Date.now()): { userId: string; tier: AvatarFrame; paidThroughMs: number } {
   const body = payload as { data?: unknown; included?: unknown[] } | null;
   const user = resource(body?.data);
   if (user.type !== "user" || !user.id || !/^\d+$/.test(user.id)) throw new Error("Invalid Patreon identity");
@@ -47,8 +47,14 @@ export function verifyPatreonIdentity(payload: unknown, config: { campaignId: st
     const entitled = member.relationships?.currently_entitled_tiers?.data;
     if (!Array.isArray(entitled)) continue;
     const tiers = new Set(entitled.map(relatedId));
-    if (tiers.has(config.goldTierId)) { tier = "gold"; paidThroughMs = Math.max(paidThroughMs, through); }
-    else if (tier !== "gold" && tiers.has(config.silverTierId)) { tier = "silver"; paidThroughMs = Math.max(paidThroughMs, through); }
+    // A member may hold several memberships; keep the best one they pay for.
+    // An unconfigured tier id is empty, which no real entitlement matches.
+    const matched: AvatarFrame = config.diamondTierId && tiers.has(config.diamondTierId) ? "diamond"
+      : tiers.has(config.goldTierId) ? "gold" : tiers.has(config.silverTierId) ? "silver" : "none";
+    if (matched !== "none" && AVATAR_FRAME_RANK[matched] >= AVATAR_FRAME_RANK[tier]) {
+      tier = matched;
+      paidThroughMs = Math.max(paidThroughMs, through);
+    }
   }
   return { userId: user.id, tier, paidThroughMs };
 }

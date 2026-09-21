@@ -1,4 +1,4 @@
-import { AVATAR_FRAME_ASSET, type AvatarFrameState } from "../../shared/avatar-frames";
+import { avatarFrameAsset, type AvatarFrameState } from "../../shared/avatar-frames";
 import { createAvatarFrameGlow } from "./avatar-frame-glow";
 import { preloadImages } from "./image-preload";
 
@@ -24,12 +24,16 @@ function paint(element: HTMLElement) {
   let overlay = element.querySelector<HTMLImageElement>(":scope > .avatar-frame-art");
   let glow = element.querySelector<HTMLElement>(":scope > .avatar-frame-glow");
   if (frame === "none") { overlay?.remove(); glow?.remove(); return; }
-  void preloadImages([AVATAR_FRAME_ASSET]);
+  const asset = avatarFrameAsset(frame);
+  void preloadImages([asset]);
   if (!overlay) {
     overlay = document.createElement("img"); overlay.className = "avatar-frame-art";
-    overlay.src = AVATAR_FRAME_ASSET; overlay.alt = ""; overlay.setAttribute("aria-hidden", "true");
+    overlay.alt = ""; overlay.setAttribute("aria-hidden", "true");
     element.append(overlay);
   }
+  // Each tier has its own artwork, so a silver-to-gold change swaps the image;
+  // setting src only on create would leave the old tier's frame painted.
+  if (overlay.getAttribute("src") !== asset) overlay.src = asset;
   if (!glow) {
     glow = createAvatarFrameGlow(); element.append(glow);
   }

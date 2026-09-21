@@ -394,6 +394,22 @@ that function, not the version list, is what keeps an old decoder out.
   stat list. Skipping the bound clips the players who bought the perk; skipping
   the stat list makes a bought perk look inert.
 
+## Supporter frame invariants
+
+- Tiers are a ladder (`AVATAR_FRAME_RANK` in `shared/avatar-frames.ts`): a
+  supporter may wear their own frame or any below it. Adding a tier means adding
+  it to the rank, the order, the asset map, a `patreon_config` tier id, and a
+  `--avatar-frame-overhang` plus glow colour and mask in `game.css`.
+- **Diamond is wired through but locked.** `patreon_config.diamond_tier_id`
+  defaults to empty, which no real Patreon entitlement can match, so the picker
+  shows the frame disabled until `configure_patreon` is called with a real tier
+  id. Developers can still preview it, because the developer preview reports the
+  top tier.
+- A supporter's lease runs to the end of the period they paid for, not to the
+  next check. See **Kill claim invariants** for the shape of the mistake that
+  came from the other choice: a six-hour lease meant a supporter who had not
+  logged in that day lost their frame and dropped off the ticker.
+
 ## Guild name invariants
 
 - A guild's name is its four-letter tag, so `create` runs the display-name

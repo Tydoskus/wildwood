@@ -1,7 +1,7 @@
-import { expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { validSupporterNames } from "../../shared/patreon-ticker";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
-import { beginPatreonLink, patreonCallback, patreonStatus, refreshPatreon } from "./patreon";
+import { beginPatreonLink, patreonCallback, patreonStatus, refreshPatreon, patreonLinksDueRefresh, PATREON_SWEEP_BATCH } from "./patreon";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 function fixture() {
@@ -171,4 +171,36 @@ it("streams only real memberships, uses current names, expires leases and remove
   f.run(server.disconnectPatreon);
   f.seed("patreonPreview", { identity: f.ctx.sender, frame: "gold" });
   expect(rows()).toEqual([]);
+});
+
+describe("keeping memberships current without the player", () => {
+  const link = (over = {}) => ({ userId: "1", attemptedAtMs: 0, validUntilMs: 0, ...over });
+  const now = 1_000 * 60 * 60 * 24 * 400;
+
+  it("picks up a lease about to lapse, soonest first", () => {
+    const soon = link({ validUntilMs: now + 60_000 });
+    const later = link({ validUntilMs: now + 30 * 60 * 60 * 1000 });
+    const due = patreonLinksDueRefresh([later, soon], now);
+    expect(due).toEqual([soon, later]);
+  });
+
+  it("leaves a lease with weeks to run alone, so the sweep stays cheap", () => {
+    expect(patreonLinksDueRefresh([link({ validUntilMs: now + 20 * 24 * 60 * 60 * 1000 })], now)).toEqual([]);
+  });
+
+  it("does not ask Patreon about the same account twice in an hour", () => {
+    const justTried = link({ validUntilMs: now + 60_000, attemptedAtMs: now - 60_000 });
+    expect(patreonLinksDueRefresh([justTried], now)).toEqual([]);
+    expect(patreonLinksDueRefresh([{ ...justTried, attemptedAtMs: now - 2 * 60 * 60 * 1000 }], now)).toHaveLength(1);
+  });
+
+  it("skips a row that was never linked, and caps the batch", () => {
+    expect(patreonLinksDueRefresh([link({ userId: "", validUntilMs: now })], now)).toEqual([]);
+    const many = Array.from({ length: PATREON_SWEEP_BATCH + 4 }, (_, i) => link({ validUntilMs: now + i }));
+    expect(patreonLinksDueRefresh(many, now)).toHaveLength(PATREON_SWEEP_BATCH);
+  });
+
+  it("re-checks an expired lease, which is how a stale supporter recovers", () => {
+    expect(patreonLinksDueRefresh([link({ validUntilMs: now - 60 * 60 * 1000 })], now)).toHaveLength(1);
+  });
 });

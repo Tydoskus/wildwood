@@ -8,6 +8,10 @@ export const patreonTables = {
   patreonConfig: table({ name: "patreon_config", public: false }, {
     id: t.u8().primaryKey(), clientId: t.string(), clientSecret: t.string(),
     campaignId: t.string(), silverTierId: t.string(), goldTierId: t.string(), redirectUri: t.string(),
+    // Appended last with a default: a column may only be added at the end of an
+    // existing table, and doing so disconnects every client. Empty means the tier
+    // is not offered yet, which no real entitlement can match.
+    diamondTierId: t.string().default(""),
   }),
   patreonLink: table({ name: "patreon_link", public: false }, {
     identity: t.identity().primaryKey(), userId: t.string(), accessToken: t.string(), refreshToken: t.string(),

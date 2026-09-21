@@ -38,10 +38,10 @@ import { proceduralMapTables, proceduralBossKey, clearProceduralProgress, genera
 import { ingestStoreEvent } from "./gem-store-events";
 import { gemPurchaseTables } from "./gem-purchase-tables";
 import { patreonTables } from "./patreon-tables";
-import { beginPatreonLink as beginSupporterLink, refreshPatreon, patreonStatus, unlinkPatreon, patreonCallback } from "./patreon";
+import { beginPatreonLink as beginSupporterLink, refreshPatreon, sweepPatreonLinks, patreonStatus, unlinkPatreon, patreonCallback } from "./patreon";
 import { requestPatreonSupport } from "./patreon-support";
 import { DEVELOPER_IDENTITY as DEVELOPER_IDENTITY_HEX } from "../../shared/developer-identity";
-import { allowedAvatarFrame } from "../../shared/avatar-frames";
+import { allowedAvatarFrame, isAvatarFrame } from "../../shared/avatar-frames";
 import { createGemPurchaseService } from "./gem-purchase-service";
 import { rescaleEndgameProgress } from "../../shared/endgame-power-rescale";
 import { CAMPAIGN_UNLOCK_FIELDS, equipmentMapRequirement } from "../../shared/equipment-access";
@@ -1690,6 +1690,12 @@ const shardCoordinatorSchedule = table(
   { scheduled: (): any => coordinateMapShard },
   { scheduledId: t.u64().primaryKey(), scheduledAt: t.scheduleAt() },
 );
+// Supporter memberships are re-checked on the server's own clock, so a frame
+// and a ticker entry never depend on the supporter logging in.
+const patreonSweepSchedule = table(
+  { scheduled: (): any => sweepPatreonMemberships },
+  { scheduledId: t.u64().primaryKey(), scheduledAt: t.scheduleAt() },
+);
 const spacetimedb = schema({
   defeatSessionRestriction,
   mapBalanceVersion, mapBalanceHead, playerMapBalance,
@@ -1705,6 +1711,7 @@ const spacetimedb = schema({
   ...guildTables,
   ...socialTables,
   shardCoordinatorSchedule,
+  patreonSweepSchedule,
   ...mapShardingTables,
   forestRewardPrototype,
   player,
@@ -3331,6 +3338,12 @@ function ensureMaintenanceSchedule(ctx: any) {
   });
 }
 
+const PATREON_SWEEP_INTERVAL_MICROS = 10n * 60n * 1_000_000n;
+function ensurePatreonSweepSchedule(ctx: any) {
+  for (const _task of ctx.db.patreonSweepSchedule.iter()) return;
+  ctx.db.patreonSweepSchedule.insert({ scheduledId: 0n, scheduledAt: ScheduleAt.interval(PATREON_SWEEP_INTERVAL_MICROS) });
+}
+
 function ensureMaintenanceSweepSchedule(ctx: any) {
   for (const _task of ctx.db.maintenanceSweepSchedule.iter()) return;
   ctx.db.maintenanceSweepSchedule.insert({
@@ -3648,6 +3661,7 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
   // guest token and creating a new guest account.
   if (defeatRestrictionError(ctx)) return;
   ensureMaintenanceSchedule(ctx);
+  ensurePatreonSweepSchedule(ctx);
   // Initialization and balance reconciliation run once per module version.
   runPendingModuleMigrations(ctx);
 
@@ -6924,9 +6938,13 @@ export const getSocialChatHistoryWithReactions = spacetimedb.procedure(
   }),
 );
 
-export const configurePatreon = spacetimedb.reducer({ clientId: t.string(), clientSecret: t.string(), campaignId: t.string(), silverTierId: t.string(), goldTierId: t.string(), redirectUri: t.string() }, (ctx, config) => {
+export const configurePatreon = spacetimedb.reducer({ clientId: t.string(), clientSecret: t.string(), campaignId: t.string(), silverTierId: t.string(), goldTierId: t.string(), redirectUri: t.string(), diamondTierId: t.string() }, (ctx, config) => {
   if (!isDatabaseOwnerIdentity(ctx.sender) || isMapShard(ctx)) denyPrivilegedAccess(ctx, "configure_patreon", "Database owner required.");
   if (!config.clientId || !config.clientSecret || !/^\d+$/.test(config.campaignId) || !/^\d+$/.test(config.silverTierId) || !/^\d+$/.test(config.goldTierId) || config.silverTierId === config.goldTierId) throw new SenderError("Invalid Patreon configuration.");
+  // Diamond is optional so the campaign can run without it, but an id that is
+  // given must be real and must not double as another tier.
+  if (config.diamondTierId && (!/^\d+$/.test(config.diamondTierId) || config.diamondTierId === config.goldTierId || config.diamondTierId === config.silverTierId))
+    throw new SenderError("Invalid Patreon configuration.");
   if (!validPatreonRedirect(config.redirectUri)) throw new SenderError("Use the database's Patreon callback URL.");
   const row = { id: 0, ...config };
   if (ctx.db.patreonConfig.id.find(0)) ctx.db.patreonConfig.id.update(row); else ctx.db.patreonConfig.insert(row);
@@ -6936,6 +6954,16 @@ export const beginPatreonLink = spacetimedb.procedure({ state: t.string() }, t.s
   return beginSupporterLink(tx, state);
 }));
 export const refreshPatreonMembership = spacetimedb.procedure({}, t.string(), ctx => refreshPatreon(ctx));
+export const sweepPatreonMemberships = spacetimedb.procedure(
+  { arg: patreonSweepSchedule.rowType }, t.unit(), (ctx, { arg }) => {
+    // Only the scheduler may invoke this: a client cannot make the server spend
+    // Patreon API calls on demand.
+    if (!sameIdentity(ctx.sender, ctx.databaseIdentity)) throw new SenderError("Scheduler required");
+    void arg;
+    sweepPatreonLinks(ctx);
+    return {};
+  },
+);
 export const getPatreonStatus = spacetimedb.procedure({}, t.string(), ctx => ctx.withTx(tx => JSON.stringify(patreonStatus(tx, ctx.sender))));
 // One shared materialization, refreshed by membership/profile changes rather
 // than one procedure call per sign-in. Never expose Patreon IDs or credentials.
@@ -6943,7 +6971,7 @@ export const patreonTickerSupporters = spacetimedb.anonymousView(
   { name: "patreon_ticker_supporters", public: true },
   t.array(t.row("PatreonTickerSupporter", { identity: t.identity().primaryKey(), name: t.string(), validUntilMs: t.f64() })),
   ctx => [...ctx.db.patreonLink.iter()].flatMap(link => {
-    if (!link.userId || (link.tier !== "silver" && link.tier !== "gold")) return [];
+    if (!link.userId || link.tier === "none" || !isAvatarFrame(link.tier)) return [];
     const profile = ctx.db.playerProfile.identity.find(link.identity);
     return profile ? [{ identity: link.identity, name: profile.displayName, validUntilMs: link.validUntilMs }] : [];
   }),

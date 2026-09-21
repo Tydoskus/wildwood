@@ -1,7 +1,7 @@
 import { SenderError, SyncResponse, type InferSchema, type ReducerCtx, type ProcedureCtx, type HandlerContext } from "spacetimedb/server";
 import { TimeDuration, type Identity } from "spacetimedb";
 import type database from "./index";
-import { allowedAvatarFrame, PATREON_PAGE, type AvatarFrame, type PatreonStatus } from "../../shared/avatar-frames";
+import { allowedAvatarFrame, isAvatarFrame, PATREON_PAGE, type AvatarFrame, type PatreonStatus } from "../../shared/avatar-frames";
 import { isDeveloperIdentity } from "../../shared/developer-identity";
 import { encodePatreonForm, patreonCallbackParams } from "./patreon-url";
 import { verifyPatreonIdentity } from "./patreon-verification";
@@ -14,11 +14,13 @@ type Config = NonNullable<ReturnType<Tx["db"]["patreonConfig"]["id"]["find"]>>;
 const LEASE_MS = 6 * 60 * 60 * 1000;
 const REFRESH_MS = 60 * 1000;
 const nowMs = (ctx: { timestamp: { microsSinceUnixEpoch: bigint } }) => Number(ctx.timestamp.microsSinceUnixEpoch / 1000n);
-const frameTier = (value: string): AvatarFrame => value === "gold" || value === "silver" ? value : "none";
+const frameTier = (value: string): AvatarFrame => isAvatarFrame(value) ? value : "none";
 
 export function patreonStatus(ctx: Tx, identity: Identity): PatreonStatus {
   const row = ctx.db.patreonLink.identity.find(identity);
   if (isDeveloperIdentity(identity.toHexString())) {
+    // The preview sits at the top tier that is actually offered, so a developer
+    // sees what a supporter sees rather than a frame nobody can buy yet.
     const chosen = ctx.db.patreonPreview.identity.find(identity)?.frame ?? "gold";
     return { configured: Boolean(ctx.db.patreonConfig.id.find(0)), linked: Boolean(row?.userId),
       tier: "gold", frame: allowedAvatarFrame("gold", chosen) ? chosen : "gold", validUntilMs: nowMs(ctx) + LEASE_MS, preview: true };
@@ -88,37 +90,66 @@ function saveMembership(ctx: Tx, identity: Identity, tokens: { accessToken: stri
   announcePatreonSupport(ctx, identity, membership.userId, membership.tier);
 }
 
-export function refreshPatreon(ctx: ProcedureCtx<Schema>) {
+function refreshPatreonLink(ctx: ProcedureCtx<Schema>, identity: Identity, minIntervalMs: number) {
   const input = ctx.withTx(tx => {
-    const config = tx.db.patreonConfig.id.find(0), link = tx.db.patreonLink.identity.find(tx.sender);
-    if (!config || !link || nowMs(tx) - link.attemptedAtMs < REFRESH_MS) return null;
+    const config = tx.db.patreonConfig.id.find(0), link = tx.db.patreonLink.identity.find(identity);
+    if (!config || !link || nowMs(tx) - link.attemptedAtMs < minIntervalMs) return null;
     tx.db.patreonLink.identity.update({ ...link, attemptedAtMs: nowMs(tx) });
     return { config, link };
   });
-  if (input) {
-    let tokens = { accessToken: input.link.accessToken, refreshToken: input.link.refreshToken };
-    try {
-      let membership;
-      try { membership = membershipRequest(ctx, input.config, tokens.accessToken); }
-      catch {
-        tokens = tokenRequest(ctx, input.config, { grant_type: "refresh_token", refresh_token: tokens.refreshToken });
-        // Persist rotated credentials before a second network call can fail.
-        ctx.withTx(tx => {
-          const current = tx.db.patreonLink.identity.find(ctx.sender);
-          if (current?.refreshToken === input.link.refreshToken) tx.db.patreonLink.identity.update({ ...current, ...tokens });
-        });
-        membership = membershipRequest(ctx, input.config, tokens.accessToken);
-      }
+  if (!input) return;
+  let tokens = { accessToken: input.link.accessToken, refreshToken: input.link.refreshToken };
+  try {
+    let membership;
+    try { membership = membershipRequest(ctx, input.config, tokens.accessToken); }
+    catch {
+      tokens = tokenRequest(ctx, input.config, { grant_type: "refresh_token", refresh_token: tokens.refreshToken });
+      // Persist rotated credentials before a second network call can fail.
       ctx.withTx(tx => {
-        const current = tx.db.patreonLink.identity.find(ctx.sender);
-        if (current?.userId === input.link.userId && (current.refreshToken === input.link.refreshToken || current.refreshToken === tokens.refreshToken)) {
-          if (membership.userId !== current.userId) throw new SenderError("Patreon identity changed. Link again.");
-          saveMembership(tx, ctx.sender, tokens, membership);
-        }
+        const current = tx.db.patreonLink.identity.find(identity);
+        if (current?.refreshToken === input.link.refreshToken) tx.db.patreonLink.identity.update({ ...current, ...tokens });
       });
-    } catch { /* Keep the last successful lease, never extend it on an API failure. */ }
-  }
+      membership = membershipRequest(ctx, input.config, tokens.accessToken);
+    }
+    ctx.withTx(tx => {
+      const current = tx.db.patreonLink.identity.find(identity);
+      if (current?.userId === input.link.userId && (current.refreshToken === input.link.refreshToken || current.refreshToken === tokens.refreshToken)) {
+        if (membership.userId !== current.userId) throw new SenderError("Patreon identity changed. Link again.");
+        saveMembership(tx, identity, tokens, membership);
+      }
+    });
+  } catch { /* Keep the last successful lease, never extend it on an API failure. */ }
+}
+
+export function refreshPatreon(ctx: ProcedureCtx<Schema>) {
+  refreshPatreonLink(ctx, ctx.sender, REFRESH_MS);
   return ctx.withTx(tx => JSON.stringify(patreonStatus(tx, ctx.sender)));
+}
+
+/**
+ * A supporter's frame must not depend on them logging in. Patreon is the record
+ * of what they pay for, so the server asks Patreon on its own schedule: a
+ * membership that lapses stops at the end of the period it bought, and one that
+ * renews carries straight on, whether or not the player has been online.
+ */
+export const PATREON_SWEEP_LEAD_MS = 36 * 60 * 60 * 1000;
+export const PATREON_SWEEP_MIN_ATTEMPT_MS = 60 * 60 * 1000;
+export const PATREON_SWEEP_BATCH = 5;
+export function patreonLinksDueRefresh<T extends { userId: string; attemptedAtMs: number; validUntilMs: number }>(links: T[], nowMs: number, batch = PATREON_SWEEP_BATCH) {
+  return links
+    .filter(link => link.userId
+      && nowMs - link.attemptedAtMs >= PATREON_SWEEP_MIN_ATTEMPT_MS
+      && link.validUntilMs - nowMs < PATREON_SWEEP_LEAD_MS)
+    // Soonest to lapse first, so nobody waits behind a lease with weeks to run.
+    .sort((left, right) => left.validUntilMs - right.validUntilMs)
+    .slice(0, batch);
+}
+export function sweepPatreonLinks(ctx: ProcedureCtx<Schema>) {
+  const due = ctx.withTx(tx => {
+    if (!tx.db.patreonConfig.id.find(0)) return [];
+    return patreonLinksDueRefresh([...tx.db.patreonLink.iter()], nowMs(tx)).map(link => link.identity);
+  });
+  for (const identity of due) refreshPatreonLink(ctx, identity, PATREON_SWEEP_MIN_ATTEMPT_MS);
 }
 
 export function unlinkPatreon(ctx: Tx, identity = ctx.sender) {

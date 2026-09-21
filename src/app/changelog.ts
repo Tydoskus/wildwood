@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.763": [
+    "Supporter frames have their own artwork for each tier, and silver reads clearly against the world instead of washing out.",
+    "Your supporter frame and your name in the ticker now last as long as the membership you paid for. The server keeps them current on its own, so they no longer disappear on a day you do not log in, and a cancelled membership keeps its frame until the period it bought runs out.",
+  ],
   "0.762": [
     "The gear beside your power now opens your profile, the same as tapping the card. Settings keeps its own gear inside that window, and opening Settings closes the profile behind it.",
     "Buttons no longer jump down when you press them.",
@@ -2158,6 +2162,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.763": "2026-09-20",
   "0.762": "2026-09-20",
   "0.761": "2026-09-20",
   "0.760": "2026-09-20",

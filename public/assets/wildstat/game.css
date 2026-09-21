@@ -2694,7 +2694,10 @@
   }
   #playerProfile { z-index: 9; padding: max(5px, env(safe-area-inset-top)) max(5px, env(safe-area-inset-right)) max(5px, env(safe-area-inset-bottom)) max(5px, env(safe-area-inset-left)); }
   .modal.player-profile-modal { --window-back-bottom-gap: 9px; display: flex; flex-direction: column; background: var(--window-surface); border-color: #080808; width: var(--game-window-width); height: min(560px, calc(100dvh - max(5px, env(safe-area-inset-top)) - max(5px, env(safe-area-inset-bottom)))); max-height: 100%; padding: 8px; overflow: hidden; text-align: left; transform: none; }
-  .player-profile-scroll { flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+  /* A framed portrait reaches past its own box, and this scroller clips: the
+     header icon sits flush against the left edge, so the frame lost its outer
+     rim there. The gutter is the widest overhang a frame can have. */
+  .player-profile-scroll { flex: 1 1 0; min-height: 0; padding-inline: 9px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
   .player-profile-scroll::-webkit-scrollbar { display: none; }
   .profile-settings-button { flex: 0 0 44px; align-self: flex-start; display: grid; place-items: center; width: 44px; height: 44px; margin: 0; padding: 7px; border: 1px solid transparent; border-radius: 7px; background: transparent; box-shadow: none; }
   .profile-settings-button[hidden] { display: none; }
@@ -3829,44 +3832,80 @@
 .avatar-frame-portrait.chat-profile-icon { --avatar-portrait-border: 1px; }
 .avatar-frame-portrait[data-avatar-frame="gold"],
 .avatar-frame-portrait[data-avatar-frame="silver"],
+.avatar-frame-portrait[data-avatar-frame="diamond"],
 #chatPanel.is-large .avatar-frame-portrait[data-avatar-frame="gold"],
-#chatPanel.is-large .avatar-frame-portrait[data-avatar-frame="silver"] {
+#chatPanel.is-large .avatar-frame-portrait[data-avatar-frame="silver"],
+#chatPanel.is-large .avatar-frame-portrait[data-avatar-frame="diamond"] {
   overflow: visible; border-color: transparent; border-radius: 10%;
 }
-/* The artwork's rim is about 10% thick. A 111% overlay centers that rim
-   across the portrait edge; compensate for the existing border without
-   changing its box, grid track, spacing, or click target. */
+/* Each frame's metal has to straddle the portrait edge, but the artwork carries
+   a baked glow around it, and how much differs between the two. The overhang is how far
+   past the portrait the image reaches on each side, measured per frame so the
+   metal lands where the retired single frame's did. Recompute it if the art
+   changes: overhang = (108.67% / metal span - 1) / 2. Compensate for the existing border
+   without changing its box, grid track, spacing, or click target. */
+.avatar-frame-portrait { --avatar-frame-overhang: 5.5%; }
+.avatar-frame-portrait[data-avatar-frame="silver"] { --avatar-frame-overhang: 12.5%; }
+.avatar-frame-portrait[data-avatar-frame="gold"] { --avatar-frame-overhang: 12.8%; }
+.avatar-frame-portrait[data-avatar-frame="diamond"] { --avatar-frame-overhang: 12.5%; }
+.avatar-frame-choices [data-frame="silver"] { --avatar-frame-overhang: 12.5%; }
+.avatar-frame-choices [data-frame="gold"] { --avatar-frame-overhang: 12.8%; }
+.avatar-frame-choices [data-frame="diamond"] { --avatar-frame-overhang: 12.5%; }
 .avatar-frame-art {
   position: absolute;
-  inset: calc(-5.5% - var(--avatar-portrait-border, 0px));
-  width: calc(111% + 2 * var(--avatar-portrait-border, 0px));
-  height: calc(111% + 2 * var(--avatar-portrait-border, 0px));
+  inset: calc(-1 * var(--avatar-frame-overhang) - var(--avatar-portrait-border, 0px));
+  width: calc(100% + 2 * var(--avatar-frame-overhang) + 2 * var(--avatar-portrait-border, 0px));
+  height: calc(100% + 2 * var(--avatar-frame-overhang) + 2 * var(--avatar-portrait-border, 0px));
   max-width: none; margin: 0; padding: 0; border: 0; object-fit: fill;
   pointer-events: none; z-index: 1;
 }
 [data-avatar-frame="gold"] > .avatar-frame-art,
 .avatar-frame-summary[data-frame="gold"] img,
 .avatar-frame-choices [data-frame="gold"] img { filter: drop-shadow(0 0 2px rgba(255, 201, 93, .32)); }
+/* Chrome on its own washes out against the world's green and the window blue.
+   A dark rim gives it an edge to sit on and the contrast brings the bevels
+   back; the tint stays neutral so the blue reads as the tier above it. */
 [data-avatar-frame="silver"] > .avatar-frame-art,
 .avatar-frame-summary[data-frame="silver"] img,
-.avatar-frame-choices [data-frame="silver"] img { filter: grayscale(1) brightness(1.65) contrast(1.08) drop-shadow(0 0 2px rgba(245, 248, 255, .48)); }
+.avatar-frame-choices [data-frame="silver"] img {
+  filter: contrast(1.2) drop-shadow(0 0 1px rgba(6, 10, 16, .95)) drop-shadow(0 0 3px rgba(190, 222, 255, .45));
+}
+[data-avatar-frame="diamond"] > .avatar-frame-art,
+.avatar-frame-summary[data-frame="diamond"] img,
+.avatar-frame-choices [data-frame="diamond"] img { filter: drop-shadow(0 0 2px rgba(150, 214, 255, .55)); }
 /* Mask the moving light on a child, then cast its halo from the outer layer.
    A filter on the masked child itself gets clipped to the artwork. */
 [data-avatar-frame="gold"], .avatar-frame-choices [data-frame="gold"] { --avatar-glow-color: #ffe1a0; --avatar-glow-halo: rgba(255, 211, 117, .7); }
 [data-avatar-frame="silver"], .avatar-frame-choices [data-frame="silver"] { --avatar-glow-color: #f5faff; --avatar-glow-halo: rgba(237, 246, 255, .8); }
+[data-avatar-frame="diamond"], .avatar-frame-choices [data-frame="diamond"] { --avatar-glow-color: #d8f2ff; --avatar-glow-halo: rgba(126, 203, 255, .85); }
 .avatar-frame-glow {
   position: absolute;
-  inset: calc(-5.5% - var(--avatar-portrait-border, 0px));
-  width: calc(111% + 2 * var(--avatar-portrait-border, 0px));
-  height: calc(111% + 2 * var(--avatar-portrait-border, 0px));
+  inset: calc(-1 * var(--avatar-frame-overhang) - var(--avatar-portrait-border, 0px));
+  width: calc(100% + 2 * var(--avatar-frame-overhang) + 2 * var(--avatar-portrait-border, 0px));
+  height: calc(100% + 2 * var(--avatar-frame-overhang) + 2 * var(--avatar-portrait-border, 0px));
   display: block; overflow: visible;
   filter: drop-shadow(0 0 2px var(--avatar-glow-halo));
   pointer-events: none; z-index: 2;
 }
 .avatar-frame-glow-mask {
   display: block; position: absolute; inset: 0; overflow: hidden;
-  -webkit-mask: url("avatar-frames/supporter.webp") center / 100% 100% no-repeat;
-  mask: url("avatar-frames/supporter.webp") center / 100% 100% no-repeat;
+  -webkit-mask: center / 100% 100% no-repeat;
+  mask: center / 100% 100% no-repeat;
+}
+[data-avatar-frame="gold"] .avatar-frame-glow-mask,
+.avatar-frame-choices [data-frame="gold"] .avatar-frame-glow-mask {
+  -webkit-mask-image: url("avatar-frames/patreon_gold.webp");
+  mask-image: url("avatar-frames/patreon_gold.webp");
+}
+[data-avatar-frame="silver"] .avatar-frame-glow-mask,
+.avatar-frame-choices [data-frame="silver"] .avatar-frame-glow-mask {
+  -webkit-mask-image: url("avatar-frames/patreon_silver.webp");
+  mask-image: url("avatar-frames/patreon_silver.webp");
+}
+[data-avatar-frame="diamond"] .avatar-frame-glow-mask,
+.avatar-frame-choices [data-frame="diamond"] .avatar-frame-glow-mask {
+  -webkit-mask-image: url("avatar-frames/patreon_diamond.webp");
+  mask-image: url("avatar-frames/patreon_diamond.webp");
 }
 .avatar-frame-glow-mask::before {
   content: ""; display: block; position: absolute; inset: -25%;
