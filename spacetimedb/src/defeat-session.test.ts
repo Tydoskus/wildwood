@@ -85,16 +85,12 @@ it("pays a clipped report its bounded share, writes it down, and leaves the sess
   expect([...f.db.enemyDefeatReview.iter()]).toMatchObject([
     { enemy: "site:0", kind: "spawn", requested: 100, accepted: Number(SITE_CAPACITY) }]);
 });
-it("bounds a boss claim the earned-time clock cannot pay without taking the session or the shard seat", () => {
+it("bounds a boss claim the earned-time clock cannot pay without taking the session", () => {
   // A portal round-trip re-presents a personal boss before the clock has paid
   // for it. The claim earns nothing and is flagged; the player keeps playing.
   const f = fixture(); f.patch("playerProgress", { equippedRightHand: "", damage: 1 });
-  f.seed("shardRuntime", { id: 0, role: "root", enabled: true, mapId: "", shardId: 0n });
-  f.seed("mapShard", { id: 1n, mapId: report.mapId, databaseName: "test-shard", state: "ready", occupants: 1 });
-  f.seed("mapShardMember", { identity: f.ctx.sender, mapId: report.mapId, shardId: 1n, generation: 1n, ready: true });
   f.run(server.recordEnemyDefeats, { ...report, enemies: [{ enemy: "boss", count: 1 }] });
   expect(f.db.defeatSessionRestriction.identity.find(f.ctx.sender)).toBeNull();
-  expect(f.db.mapShardMember.identity.find(f.ctx.sender)).not.toBeNull();
   expect(f.db.player.identity.find(f.ctx.sender)).not.toBeNull();
   expect(f.db.proceduralProgress.identity.find(f.ctx.sender)).toBeNull();
   expect([...f.db.enemyDefeatReview.iter()]).toMatchObject([{ enemy: "boss", kind: "boss-time", requested: 1, accepted: 0 }]);

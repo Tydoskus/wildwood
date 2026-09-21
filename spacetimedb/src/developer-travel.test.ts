@@ -43,50 +43,7 @@ it.each(["offline", "home", "changed"])("rejects unavailable target: %s", state 
   expect(() => f.jump()).toThrow(state === "offline" ? /offline/ : state === "home" ? /private map/ : /changed maps/);
   expect(f.db.player.identity.find(f.who).mapId).toBe("tutorial_forest");
 });
-function sharded() {
-  const f = fixture();
-  f.seed("shardRuntime", { id: 0, role: "root", enabled: true, mapId: "", shardId: 0n });
-  f.seed("mapShard", { id: 1n, mapId: "crystal_hollows", databaseName: "target-shard", state: "ready", occupants: 1 });
-  f.seed("mapShard", { id: 2n, mapId: "crystal_hollows", databaseName: "other-shard", state: "ready", occupants: 5 });
-  f.seed("mapShardMember", { identity: f.target, mapId: "crystal_hollows", shardId: 1n, generation: 5n, ready: true });
-  f.seed("shardCoordinatorConnection", { id: 0, host: "https://example.invalid", token: "test" });
-  f.fetch.mockReturnValue({ status: 200, text: () => JSON.stringify([{ rows: [[1200, 1300, "crystal_hollows"]] }]) });
-  return f;
-}
-it("reads regional position once and joins the target instance instead of the fuller default instance", () => {
-  const f = sharded();
-  expect(JSON.parse(f.jump())).toMatchObject({ x: 1200, y: 1300 });
-  expect(f.db.mapShardMember.identity.find(f.who).shardId).toBe(1n);
-  expect(f.db.mapShard.id.find(1n).occupants).toBe(2);
-  expect(f.fetch).toHaveBeenCalledOnce();
-});
-it("revalidates the target after regional I/O, leaving the developer unmoved if target disconnects", () => {
-  const f = sharded();
-  f.fetch.mockImplementation(() => { f.db.playerController.identity.delete(f.target); return { status: 200, text: () => JSON.stringify([{ rows: [[1200, 1300, "crystal_hollows"]] }]) }; });
-  expect(() => f.jump()).toThrow(/offline/);
-  expect(f.db.player.identity.find(f.who).mapId).toBe("tutorial_forest");
-});
-it("refuses a full target instance without moving either player", () => {
-  const f = sharded(); const shard = f.db.mapShard.id.find(1n);
-  f.db.mapShard.id.update({ ...shard, occupants: 1000 });
-  expect(() => f.jump()).toThrow(/full/);
-  expect(f.db.player.identity.find(f.who).mapId).toBe("tutorial_forest");
-});
-it("switches instances on the same map without keeping the old membership", () => {
-  const f = sharded(); f.patch("player", { mapId: "crystal_hollows" }, f.who);
-  f.seed("mapShardMember", { identity: f.who, mapId: "crystal_hollows", shardId: 2n, generation: 4n, ready: true });
-  f.jump();
-  expect(f.db.mapShardMember.identity.find(f.who)).toMatchObject({ shardId: 1n, ready: false });
-  expect(f.db.mapShard.id.find(2n).occupants).toBe(4);
-  expect(f.db.shardTransferBarrier.identity.find(f.who).shardId).toBe(2n);
-});
 it("does not expose locations to a developer identity without authenticated credentials", () => {
   const f = fixture(); f.ctx.senderAuth.jwt = undefined;
   expect(() => f.lookup()).toThrow(/Developer access/);
-});
-it("rejects a moved map or corrupt position returned by a shard", () => {
-  const f = sharded();
-  f.fetch.mockReturnValue({ status: 200, text: () => JSON.stringify([{ rows: [[1200, 1300, "moonfen"]] }]) });
-  expect(() => f.jump()).toThrow(/position is unavailable/);
-  expect(f.db.player.identity.find(f.who).mapId).toBe("tutorial_forest");
 });

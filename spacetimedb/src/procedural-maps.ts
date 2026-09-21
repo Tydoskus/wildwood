@@ -5,7 +5,6 @@ import {
   isProceduralMap,
   proceduralMapNumber,
 } from "../../shared/procedural-maps";
-import { rootShardingEnabled, isMapShard } from "./map-sharding";
 import type { GameViewContext, GameReducerContext } from "./index";
 
 export const proceduralMapTables = {
@@ -86,19 +85,15 @@ export function generatedMapUnlocked(
   const number = proceduralMapNumber(mapId);
   return number !== null && campaignComplete && number <= completed + 1;
 }
-/** A root-authoritative boss is shared only by players admitted to the same instance. */
+/**
+ * Every player on a generated map shares its one boss. The `:root` suffix is
+ * left over from per-instance bosses and is kept because live rows carry it.
+ */
 export function proceduralBossKey(
-  ctx: GameViewContext | GameReducerContext,
+  _ctx: GameViewContext | GameReducerContext,
   mapId: string,
 ): string | null {
-  if (!isProceduralMap(mapId) || isMapShard(ctx)) return null;
-  if (!rootShardingEnabled(ctx)) return `${mapId}:root`;
-  const member = ctx.db.mapShardMember.identity.find(ctx.sender);
-  if (!member?.ready || member.mapId !== mapId) return null;
-  const shard = ctx.db.mapShard.id.find(member.shardId);
-  return shard?.state === "ready" && shard.mapId === mapId
-    ? `${mapId}:${shard.databaseName}`
-    : null;
+  return isProceduralMap(mapId) ? `${mapId}:root` : null;
 }
 export function ensureProceduralBoss(
   ctx: GameReducerContext,
@@ -107,8 +102,7 @@ export function ensureProceduralBoss(
 ) {
   if (!isProceduralMap(mapId)) throw new SenderError("Unknown generated map");
   let current = ctx.db.proceduralInstanceBoss.key.find(key);
-  // Preserve an in-progress unsharded fight once. A formerly global fight
-  // cannot be attributed to one regional instance, so those start fresh.
+  // Preserve a fight that was in progress in the older per-map table, once.
   if (!current && key === `${mapId}:root`) {
     const legacy = ctx.db.proceduralBoss.mapId.find(mapId);
     if (legacy) {

@@ -38,8 +38,6 @@ import AcceptDuelReducer from "./accept_duel_reducer";
 import AcceptTermsReducer from "./accept_terms_reducer";
 import AcknowledgeBalanceApologyGiftReducer from "./acknowledge_balance_apology_gift_reducer";
 import AcknowledgeReleaseReducer from "./acknowledge_release_reducer";
-import AcknowledgeShardRewardReducer from "./acknowledge_shard_reward_reducer";
-import AcknowledgeShardRewardsReducer from "./acknowledge_shard_rewards_reducer";
 import AttackForestRewardPrototypeReducer from "./attack_forest_reward_prototype_reducer";
 import BeginAccountLinkReducer from "./begin_account_link_reducer";
 import BeginAdventureReducer from "./begin_adventure_reducer";
@@ -49,7 +47,6 @@ import CancelItemUpgradeReducer from "./cancel_item_upgrade_reducer";
 import ChallengeGuildReducer from "./challenge_guild_reducer";
 import ChangeDisplayNameReducer from "./change_display_name_reducer";
 import ChangeMapReducer from "./change_map_reducer";
-import CheckpointShardLocationReducer from "./checkpoint_shard_location_reducer";
 import ClaimDailyGemBonusReducer from "./claim_daily_gem_bonus_reducer";
 import ClaimDeveloperItemGiftReducer from "./claim_developer_item_gift_reducer";
 import ClaimGuestAccountReducer from "./claim_guest_account_reducer";
@@ -57,8 +54,6 @@ import ClaimMailboxGiftReducer from "./claim_mailbox_gift_reducer";
 import CompleteOnboardingStepReducer from "./complete_onboarding_step_reducer";
 import ConfigureGemCommerceReducer from "./configure_gem_commerce_reducer";
 import ConfigurePatreonReducer from "./configure_patreon_reducer";
-import ConfigureShardCoordinatorReducer from "./configure_shard_coordinator_reducer";
-import ConfigureShardingReducer from "./configure_sharding_reducer";
 import CreateGuildReducer from "./create_guild_reducer";
 import DamageAegisPrimeFromPositionReducer from "./damage_aegis_prime_from_position_reducer";
 import DamageDragonReducer from "./damage_dragon_reducer";
@@ -78,7 +73,6 @@ import DamageSpiderFromPositionReducer from "./damage_spider_from_position_reduc
 import DamageTempestKirinFromPositionReducer from "./damage_tempest_kirin_from_position_reducer";
 import DamageTidewyrmFromPositionReducer from "./damage_tidewyrm_from_position_reducer";
 import DamageVoltwardenFromPositionReducer from "./damage_voltwarden_from_position_reducer";
-import DeliverShardRewardReducer from "./deliver_shard_reward_reducer";
 import DestroyEquipmentReducer from "./destroy_equipment_reducer";
 import DevAdjustGemsReducer from "./dev_adjust_gems_reducer";
 import DevAnnounceOutageCompensationReducer from "./dev_announce_outage_compensation_reducer";
@@ -106,7 +100,6 @@ import DevSuspendPlayerAccountReducer from "./dev_suspend_player_account_reducer
 import DevTeleportEndlessReducer from "./dev_teleport_endless_reducer";
 import DevUpdatePlayerSaveReducer from "./dev_update_player_save_reducer";
 import DisconnectPatreonReducer from "./disconnect_patreon_reducer";
-import EnterRegionalWorldReducer from "./enter_regional_world_reducer";
 import EnterWorldReducer from "./enter_world_reducer";
 import EnterWorldWithTutorialReducer from "./enter_world_with_tutorial_reducer";
 import FriendActionReducer from "./friend_action_reducer";
@@ -115,7 +108,6 @@ import GuildInviteActionReducer from "./guild_invite_action_reducer";
 import HitProceduralBossReducer from "./hit_procedural_boss_reducer";
 import HitProceduralBossBatchReducer from "./hit_procedural_boss_batch_reducer";
 import IngestGemStoreEventReducer from "./ingest_gem_store_event_reducer";
-import InstallShardPlayerReducer from "./install_shard_player_reducer";
 import JoinGuildReducer from "./join_guild_reducer";
 import JoinVirtualPlayerLoadTestReducer from "./join_virtual_player_load_test_reducer";
 import KickGuildMemberReducer from "./kick_guild_member_reducer";
@@ -139,7 +131,6 @@ import RecordStartupTelemetryReducer from "./record_startup_telemetry_reducer";
 import RefreshDuelWireAccessReducer from "./refresh_duel_wire_access_reducer";
 import RegisterClientVersionReducer from "./register_client_version_reducer";
 import RegisterProtocolReducer from "./register_protocol_reducer";
-import RenewShardLeaseReducer from "./renew_shard_lease_reducer";
 import ReportChatMessageReducer from "./report_chat_message_reducer";
 import ReportPlayerReducer from "./report_player_reducer";
 import ReportSocialMessageReducer from "./report_social_message_reducer";
@@ -150,7 +141,6 @@ import ReserveGemPurchaseReducer from "./reserve_gem_purchase_reducer";
 import ResetPlayerProgressReducer from "./reset_player_progress_reducer";
 import RestoreMapBalanceReducer from "./restore_map_balance_reducer";
 import ResumeSessionReducer from "./resume_session_reducer";
-import RevokeShardPlayerReducer from "./revoke_shard_player_reducer";
 import SavePlayerProgressReducer from "./save_player_progress_reducer";
 import SeedTemporaryGuildReducer from "./seed_temporary_guild_reducer";
 import SendChatMessageReducer from "./send_chat_message_reducer";
@@ -172,13 +162,10 @@ import SetProfileIconReducer from "./set_profile_icon_reducer";
 import SetReleaseWindowReducer from "./set_release_window_reducer";
 import SetSkinToneReducer from "./set_skin_tone_reducer";
 import SetSpeedReducer from "./set_speed_reducer";
-import ShardMemberReadyReducer from "./shard_member_ready_reducer";
-import ShardReadyReducer from "./shard_ready_reducer";
 import ShareDuelReplayReducer from "./share_duel_replay_reducer";
 import SpeedUpItemUpgradeWithGemsReducer from "./speed_up_item_upgrade_with_gems_reducer";
 import SpeedUpResearchWithGemsReducer from "./speed_up_research_with_gems_reducer";
 import SpendPrestigePerkPointReducer from "./spend_prestige_perk_point_reducer";
-import StageShardProgramReducer from "./stage_shard_program_reducer";
 import StartItemUpgradeReducer from "./start_item_upgrade_reducer";
 import StartResearchReducer from "./start_research_reducer";
 import SyncPositionReducer from "./sync_position_reducer";
@@ -213,7 +200,6 @@ import * as GetSocialChatHistoryWithReactionsProcedure from "./get_social_chat_h
 import * as GetSocialHubProcedure from "./get_social_hub_procedure";
 import * as PreviewMapBalanceProcedure from "./preview_map_balance_procedure";
 import * as RefreshPatreonMembershipProcedure from "./refresh_patreon_membership_procedure";
-import * as SynchronizeMapShardProcedure from "./synchronize_map_shard_procedure";
 
 // Import all table schema definitions
 import ActiveItemUpgradeRow from "./active_item_upgrade_table";
@@ -250,8 +236,6 @@ import LatestChatMessagesWithReactionsRow from "./latest_chat_messages_with_reac
 import LeaderboardEntryRow from "./leaderboard_entry_table";
 import MagmaliskBossRow from "./magmalisk_boss_table";
 import MagmaliskResultRow from "./magmalisk_result_table";
-import MapShardRow from "./map_shard_table";
-import MapShardRouteRow from "./map_shard_route_table";
 import MiremawBossRow from "./miremaw_boss_table";
 import MiremawResultRow from "./miremaw_result_table";
 import MyBalanceApologyNoticeRow from "./my_balance_apology_notice_table";
@@ -264,7 +248,6 @@ import MyGemWalletRow from "./my_gem_wallet_table";
 import MyInventoryCapacityRow from "./my_inventory_capacity_table";
 import MyItemGiftsRow from "./my_item_gifts_table";
 import MyMailboxV2Row from "./my_mailbox_v_2_table";
-import MyMapShardRouteRow from "./my_map_shard_route_table";
 import MyOnboardingRow from "./my_onboarding_table";
 import MyPlayerBlocksRow from "./my_player_blocks_table";
 import MyProceduralBossRow from "./my_procedural_boss_table";
@@ -639,31 +622,6 @@ const tablesSchema = __schema({
       { name: 'magmalisk_result_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, MagmaliskResultRow),
-  mapShard: __table({
-    name: 'map_shard',
-    indexes: [
-      { accessor: 'id', name: 'map_shard_id_idx_btree', algorithm: 'btree', columns: [
-        'id',
-      ] },
-      { accessor: 'byMap', name: 'map_shard_map_id_idx_btree', algorithm: 'btree', columns: [
-        'mapId',
-      ] },
-    ],
-    constraints: [
-      { name: 'map_shard_id_key', constraint: 'unique', columns: ['id'] },
-    ],
-  }, MapShardRow),
-  mapShardRoute: __table({
-    name: 'map_shard_route',
-    indexes: [
-      { accessor: 'identity', name: 'map_shard_route_identity_idx_btree', algorithm: 'btree', columns: [
-        'identity',
-      ] },
-    ],
-    constraints: [
-      { name: 'map_shard_route_identity_key', constraint: 'unique', columns: ['identity'] },
-    ],
-  }, MapShardRouteRow),
   miremawBoss: __table({
     name: 'miremaw_boss',
     indexes: [
@@ -1198,13 +1156,6 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyMailboxV2Row),
-  myMapShardRoute: __table({
-    name: 'my_map_shard_route',
-    indexes: [
-    ],
-    constraints: [
-    ],
-  }, MyMapShardRouteRow),
   myOnboarding: __table({
     name: 'my_onboarding',
     indexes: [
@@ -1269,8 +1220,6 @@ const reducersSchema = __reducers(
   __reducerSchema("accept_terms", AcceptTermsReducer),
   __reducerSchema("acknowledge_balance_apology_gift", AcknowledgeBalanceApologyGiftReducer),
   __reducerSchema("acknowledge_release", AcknowledgeReleaseReducer),
-  __reducerSchema("acknowledge_shard_reward", AcknowledgeShardRewardReducer),
-  __reducerSchema("acknowledge_shard_rewards", AcknowledgeShardRewardsReducer),
   __reducerSchema("attack_forest_reward_prototype", AttackForestRewardPrototypeReducer),
   __reducerSchema("begin_account_link", BeginAccountLinkReducer),
   __reducerSchema("begin_adventure", BeginAdventureReducer),
@@ -1280,7 +1229,6 @@ const reducersSchema = __reducers(
   __reducerSchema("challenge_guild", ChallengeGuildReducer),
   __reducerSchema("change_display_name", ChangeDisplayNameReducer),
   __reducerSchema("change_map", ChangeMapReducer),
-  __reducerSchema("checkpoint_shard_location", CheckpointShardLocationReducer),
   __reducerSchema("claim_daily_gem_bonus", ClaimDailyGemBonusReducer),
   __reducerSchema("claim_developer_item_gift", ClaimDeveloperItemGiftReducer),
   __reducerSchema("claim_guest_account", ClaimGuestAccountReducer),
@@ -1288,8 +1236,6 @@ const reducersSchema = __reducers(
   __reducerSchema("complete_onboarding_step", CompleteOnboardingStepReducer),
   __reducerSchema("configure_gem_commerce", ConfigureGemCommerceReducer),
   __reducerSchema("configure_patreon", ConfigurePatreonReducer),
-  __reducerSchema("configure_shard_coordinator", ConfigureShardCoordinatorReducer),
-  __reducerSchema("configure_sharding", ConfigureShardingReducer),
   __reducerSchema("create_guild", CreateGuildReducer),
   __reducerSchema("damage_aegis_prime_from_position", DamageAegisPrimeFromPositionReducer),
   __reducerSchema("damage_dragon", DamageDragonReducer),
@@ -1309,7 +1255,6 @@ const reducersSchema = __reducers(
   __reducerSchema("damage_tempest_kirin_from_position", DamageTempestKirinFromPositionReducer),
   __reducerSchema("damage_tidewyrm_from_position", DamageTidewyrmFromPositionReducer),
   __reducerSchema("damage_voltwarden_from_position", DamageVoltwardenFromPositionReducer),
-  __reducerSchema("deliver_shard_reward", DeliverShardRewardReducer),
   __reducerSchema("destroy_equipment", DestroyEquipmentReducer),
   __reducerSchema("dev_adjust_gems", DevAdjustGemsReducer),
   __reducerSchema("dev_announce_outage_compensation", DevAnnounceOutageCompensationReducer),
@@ -1337,7 +1282,6 @@ const reducersSchema = __reducers(
   __reducerSchema("dev_teleport_endless", DevTeleportEndlessReducer),
   __reducerSchema("dev_update_player_save", DevUpdatePlayerSaveReducer),
   __reducerSchema("disconnect_patreon", DisconnectPatreonReducer),
-  __reducerSchema("enter_regional_world", EnterRegionalWorldReducer),
   __reducerSchema("enter_world", EnterWorldReducer),
   __reducerSchema("enter_world_with_tutorial", EnterWorldWithTutorialReducer),
   __reducerSchema("friend_action", FriendActionReducer),
@@ -1346,7 +1290,6 @@ const reducersSchema = __reducers(
   __reducerSchema("hit_procedural_boss", HitProceduralBossReducer),
   __reducerSchema("hit_procedural_boss_batch", HitProceduralBossBatchReducer),
   __reducerSchema("ingest_gem_store_event", IngestGemStoreEventReducer),
-  __reducerSchema("install_shard_player", InstallShardPlayerReducer),
   __reducerSchema("join_guild", JoinGuildReducer),
   __reducerSchema("join_virtual_player_load_test", JoinVirtualPlayerLoadTestReducer),
   __reducerSchema("kick_guild_member", KickGuildMemberReducer),
@@ -1370,7 +1313,6 @@ const reducersSchema = __reducers(
   __reducerSchema("refresh_duel_wire_access", RefreshDuelWireAccessReducer),
   __reducerSchema("register_client_version", RegisterClientVersionReducer),
   __reducerSchema("register_protocol", RegisterProtocolReducer),
-  __reducerSchema("renew_shard_lease", RenewShardLeaseReducer),
   __reducerSchema("report_chat_message", ReportChatMessageReducer),
   __reducerSchema("report_player", ReportPlayerReducer),
   __reducerSchema("report_social_message", ReportSocialMessageReducer),
@@ -1381,7 +1323,6 @@ const reducersSchema = __reducers(
   __reducerSchema("reset_player_progress", ResetPlayerProgressReducer),
   __reducerSchema("restore_map_balance", RestoreMapBalanceReducer),
   __reducerSchema("resume_session", ResumeSessionReducer),
-  __reducerSchema("revoke_shard_player", RevokeShardPlayerReducer),
   __reducerSchema("save_player_progress", SavePlayerProgressReducer),
   __reducerSchema("seed_temporary_guild", SeedTemporaryGuildReducer),
   __reducerSchema("send_chat_message", SendChatMessageReducer),
@@ -1403,13 +1344,10 @@ const reducersSchema = __reducers(
   __reducerSchema("set_release_window", SetReleaseWindowReducer),
   __reducerSchema("set_skin_tone", SetSkinToneReducer),
   __reducerSchema("set_speed", SetSpeedReducer),
-  __reducerSchema("shard_member_ready", ShardMemberReadyReducer),
-  __reducerSchema("shard_ready", ShardReadyReducer),
   __reducerSchema("share_duel_replay", ShareDuelReplayReducer),
   __reducerSchema("speed_up_item_upgrade_with_gems", SpeedUpItemUpgradeWithGemsReducer),
   __reducerSchema("speed_up_research_with_gems", SpeedUpResearchWithGemsReducer),
   __reducerSchema("spend_prestige_perk_point", SpendPrestigePerkPointReducer),
-  __reducerSchema("stage_shard_program", StageShardProgramReducer),
   __reducerSchema("start_item_upgrade", StartItemUpgradeReducer),
   __reducerSchema("start_research", StartResearchReducer),
   __reducerSchema("sync_position", SyncPositionReducer),
@@ -1446,7 +1384,6 @@ const proceduresSchema = __procedures(
   __procedureSchema("get_social_hub", GetSocialHubProcedure.params, GetSocialHubProcedure.returnType),
   __procedureSchema("preview_map_balance", PreviewMapBalanceProcedure.params, PreviewMapBalanceProcedure.returnType),
   __procedureSchema("refresh_patreon_membership", RefreshPatreonMembershipProcedure.params, RefreshPatreonMembershipProcedure.returnType),
-  __procedureSchema("synchronize_map_shard", SynchronizeMapShardProcedure.params, SynchronizeMapShardProcedure.returnType),
 );
 
 /** The remote SpacetimeDB module schema, both runtime and type information. */

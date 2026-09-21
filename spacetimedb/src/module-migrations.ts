@@ -9,24 +9,20 @@
 // append new steps, never reorder or renumber the old ones.
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { SenderError } from "spacetimedb/server";
-import { insertSnapshotRow, updateSnapshotRow } from "./shard-snapshot-writes";
+import { insertSnapshotRow, updateSnapshotRow } from "./snapshot-row-writes";
 import { RESEARCH_DEFINITIONS, shouldBackfillLegacyRegeneration } from "../../shared/research";
 import { STARTER_BOW, STARTER_STONE, TRAILBLAZER_BOOTS, WOODEN_ARMOR } from "../../shared/items";
 import {
   ATTACK_BALANCE_VERSION,
   BOSS_REWARD_CLAIM_BITS,
-  ION_CITADEL_MAP_ID,
   MAP_IDS,
   MAX_MOVEMENT_SPEED_OVERRIDE,
   movementSpeedsMatch,
-  NEON_BASTION_MAP_ID,
   PLAYER_SPAWN,
   playerBaseMovementSpeed,
   TUTORIAL_FOREST_MAP_ID,
-  VERDANT_CATACOMBS_MAP_ID,
 } from "../../shared/rules";
 import { MAGMALISK_ID, TEMPEST_KIRIN_ID, MIREMAW_ID, DREADREAPER_ID, VOLTWARDEN_ID, GRAVEBLOOM_ID } from "./boss-combat";
-import { isMapShard, assignMapShard, syncMapShardRoute } from "./map-sharding";
 import { NAME_CHANGE_COOLDOWN_MS } from "../../shared/name-change";
 import { publishRebalanceMail } from "./mailbox";
 import { migrateGuildTags } from "./player-name-tags";
@@ -454,34 +450,34 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     if (currentVersion < 26) rebasePlayersToEndgame(ctx);
     if (currentVersion < 27) migrateGuildTags(ctx);
     if (currentVersion < 28) {
-      if (!isMapShard(ctx) || ctx.db.shardRuntime.id.find(0)?.mapId === NEON_BASTION_MAP_ID) ensureVoltwardenBoss(ctx);
-      for (const progress of (isMapShard(ctx) ? [] : ctx.db.playerProgress.iter()) as Iterable<any>) {
+      ensureVoltwardenBoss(ctx);
+      for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
         if (!progress.neonBastionUnlocked && ((progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.dreadreaper) || contributedToLatestDreadreaper(ctx, progress.identity))) {
           updateSnapshotRow(ctx, "playerProgress", { ...progress, neonBastionUnlocked: true });
         }
       }
     }
     if (currentVersion < 29) {
-      if (!isMapShard(ctx) || ctx.db.shardRuntime.id.find(0)?.mapId === VERDANT_CATACOMBS_MAP_ID) ensureGravebloomBoss(ctx);
-      for (const progress of (isMapShard(ctx) ? [] : ctx.db.playerProgress.iter()) as Iterable<any>) {
+      ensureGravebloomBoss(ctx);
+      for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
         if (!progress.verdantCatacombsUnlocked && ((progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.voltwarden) || contributedToLatestVoltwarden(ctx, progress.identity))) {
           updateSnapshotRow(ctx, "playerProgress", { ...progress, verdantCatacombsUnlocked: true });
         }
       }
     }
     if (currentVersion < 30) {
-      if (!isMapShard(ctx) || ctx.db.shardRuntime.id.find(0)?.mapId === ION_CITADEL_MAP_ID) ensureAegisPrimeBoss(ctx);
-      for (const progress of (isMapShard(ctx) ? [] : ctx.db.playerProgress.iter()) as Iterable<any>) {
+      ensureAegisPrimeBoss(ctx);
+      for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
         if (!progress.ionCitadelUnlocked && ((progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.gravebloom) || contributedToLatestGravebloom(ctx, progress.identity))) {
           updateSnapshotRow(ctx, "playerProgress", { ...progress, ionCitadelUnlocked: true });
         }
       }
     }
-    if (currentVersion < 31 && !isMapShard(ctx) && !ctx.db.startupTelemetryCleanupSchedule.scheduledId.find(0n)) {
+    if (currentVersion < 31 && !ctx.db.startupTelemetryCleanupSchedule.scheduledId.find(0n)) {
       ctx.db.startupTelemetryCleanupSchedule.insert({ scheduledId: 0n,
         scheduledAt: ScheduleAt.interval(15n * MAINTENANCE_INTERVAL_MICROS) });
     }
-    if (currentVersion < 32 && !isMapShard(ctx)) {
+    if (currentVersion < 32) {
       // Reset only the wait, retaining whether the free name change was used.
       const resetAt = new Timestamp(ctx.timestamp.microsSinceUnixEpoch - BigInt(NAME_CHANGE_COOLDOWN_MS) * 1000n);
       for (const row of ctx.db.playerNameCooldown.iter()) {
@@ -499,13 +495,12 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
       }
       refreshLeaderboard(ctx);
     }
-    if (currentVersion < 33 && !isMapShard(ctx)) publishRebalanceMail(ctx);
-    // 34: map_shard_route replaces the per-user route view; seat every current member once.
-    if (currentVersion < 34 && !isMapShard(ctx)) for (const member of [...ctx.db.mapShardMember.iter()] as any[]) syncMapShardRoute(ctx, member.identity, member);
+    if (currentVersion < 33) publishRebalanceMail(ctx);
+    // 34 seated map-shard members in a route table. Sharding is gone; the number stays spent.
     // 35: prestige originally cleared research before the keep-research fix
     // shipped. The rebase archive contains the last complete research row for
     // those players, so restore it without reducing any progress earned since.
-    if (currentVersion < 35 && !isMapShard(ctx)) restorePrestigeResearch(ctx);
+    if (currentVersion < 35) restorePrestigeResearch(ctx);
     const next = { id: 0, version: MODULE_MIGRATION_VERSION };
     if (state) ctx.db.moduleMigrationState.id.update(next);
     else ctx.db.moduleMigrationState.insert(next);
@@ -715,7 +710,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
       const homeReturn = { identity: progress.identity, mapId: fallbackMap, ...fallback, facing: 0 };
       if (ctx.db.homeReturnLocation.identity.find(progress.identity)) ctx.db.homeReturnLocation.identity.update(homeReturn);
       else ctx.db.homeReturnLocation.insert(homeReturn);
-      persistWorldLocation(ctx, moved); assignMapShard(ctx, moved);
+      persistWorldLocation(ctx, moved);
     }
     // Old DPS/time credit must never validate kills after a stat reduction.
     for (const row of ctx.db.enemyDefeatBudget.identity.filter(progress.identity)) ctx.db.enemyDefeatBudget.key.delete(row.key);

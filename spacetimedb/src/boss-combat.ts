@@ -111,9 +111,8 @@ import { isProceduralMap, proceduralMapCore } from "../../shared/procedural-maps
 import { statRewardMultiplier, prestigePerkRanks } from "./prestige";
 import { prestigeCriticalDamageBonus, prestigePerkValue, prestigeReachMultiplier, prestigeSwingMultiplier } from "../../shared/prestige-perks";
 import { pinnedBossReward } from "./map-balance";
-import { isMapShard, queueShardReward } from "./map-sharding";
 import { damageProceduralBoss, proceduralBossKey } from "./procedural-maps";
-import { updateSnapshotRow } from "./shard-snapshot-writes";
+import { updateSnapshotRow } from "./snapshot-row-writes";
 import type { ModuleReducerCtx } from "./index";
 
 type GameReducerContext = ModuleReducerCtx;
@@ -204,7 +203,6 @@ export const BOSS_REGEN_FRACTION_PER_MAINTENANCE = .05;
 export type BossCombatDeps = {
   WORLD: { width: number; height: number };
   requireControllingPlayer: (ctx: any) => any;
-  requireMapWorkload: (ctx: any) => void;
   activeDuelFor: (ctx: any, identity: any) => any;
   playerWithMotion: (ctx: any, activePlayer: any) => any;
   syncPlayerMotionIdentity: (ctx: any, activePlayer: any) => void;
@@ -222,7 +220,7 @@ export type BossCombatDeps = {
 
 export function createBossCombat(deps: BossCombatDeps) {
   const {
-    WORLD, requireControllingPlayer, requireMapWorkload, activeDuelFor, playerWithMotion,
+    WORLD, requireControllingPlayer, activeDuelFor, playerWithMotion,
     syncPlayerMotionIdentity, powerFieldsForProgress, attackIntervalForProgress, playerOwnsItem,
     publishItemDrop, restoreItemToProgress, researchedDamage, inventoryForProgress,
     equippedRightHandForProgress, equippedLeftHandForProgress, writeProgressAndPresentation,
@@ -602,7 +600,6 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardSpiderContributor(ctx: any, identity: any) {
-    if (queueShardReward(ctx, identity, "spider")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
@@ -665,7 +662,6 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardFrostclawContributor(ctx: any, identity: any) {
-    if (queueShardReward(ctx, identity, "frostclaw")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
@@ -744,7 +740,6 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardMagmaliskContributor(ctx: any, identity: any) {
-    if (queueShardReward(ctx, identity, "magmalisk")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
@@ -816,7 +811,6 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardGloomrootContributor(ctx: any, identity: any) {
-    if (queueShardReward(ctx, identity, "gloomroot")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
@@ -959,7 +953,6 @@ export function createBossCombat(deps: BossCombatDeps) {
 
 
   function rewardTidewyrmContributor(ctx: any, identity: any) {
-    if (queueShardReward(ctx, identity, "tidewyrm")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
@@ -983,7 +976,6 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardKoiShogunContributor(ctx: any, identity: any) {
-    if (queueShardReward(ctx, identity, "koiShogun")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
@@ -1007,7 +999,6 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardTempestKirinContributor(ctx: any, identity: any) {
-    if (queueShardReward(ctx, identity, "tempestKirin")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
@@ -1031,7 +1022,6 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardMiremawContributor(ctx: any, identity: any) {
-    if (queueShardReward(ctx, identity, "miremaw")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
@@ -1054,7 +1044,6 @@ export function createBossCombat(deps: BossCombatDeps) {
     }
   }
   function rewardPrismshellContributor(ctx: any, identity: any) {
-    if (queueShardReward(ctx, identity, "prismshell")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
@@ -1077,7 +1066,6 @@ export function createBossCombat(deps: BossCombatDeps) {
     }
   }
   function rewardIronhornContributor(ctx: any, identity: any) {
-    if (queueShardReward(ctx, identity, "ironhorn")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
@@ -1100,7 +1088,6 @@ export function createBossCombat(deps: BossCombatDeps) {
     }
   }
   function rewardDreadreaperContributor(ctx: any, identity: any) {
-    if (queueShardReward(ctx, identity, "dreadreaper")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
@@ -1123,7 +1110,6 @@ export function createBossCombat(deps: BossCombatDeps) {
     }
   }
   function rewardVoltwardenContributor(ctx: any, identity: any) {
-    if (queueShardReward(ctx, identity, "voltwarden")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
@@ -1146,7 +1132,6 @@ export function createBossCombat(deps: BossCombatDeps) {
     }
   }
   function rewardGravebloomContributor(ctx: any, identity: any) {
-    if (queueShardReward(ctx, identity, "gravebloom")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
@@ -1169,7 +1154,6 @@ export function createBossCombat(deps: BossCombatDeps) {
     }
   }
   function rewardAegisPrimeContributor(ctx: any, identity: any) {
-    if (queueShardReward(ctx, identity, "aegisPrime")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
@@ -1536,7 +1520,6 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardDragonContributor(ctx: any, identity: any) {
-    if (queueShardReward(ctx, identity, "dragon")) return;
     const current = ctx.db.playerProgress.identity.find(identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
@@ -1597,8 +1580,6 @@ export function createBossCombat(deps: BossCombatDeps) {
 
   function applyDragonDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
     if (PERSONAL_BOSS_COMBAT) throw new SenderError("WildStat updated. Refresh to continue.");
-    requireMapWorkload(ctx);
-    if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
     const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) return;
     if (activePlayer.mapId !== TUTORIAL_FOREST_MAP_ID) return;
@@ -1667,8 +1648,6 @@ export function createBossCombat(deps: BossCombatDeps) {
 
   function applySpiderDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
     if (PERSONAL_BOSS_COMBAT) throw new SenderError("WildStat updated. Refresh to continue.");
-    requireMapWorkload(ctx);
-    if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
     const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) return;
     if (activePlayer.mapId !== BEGINNER_DESERT_MAP_ID) return;
@@ -1737,8 +1716,6 @@ export function createBossCombat(deps: BossCombatDeps) {
 
   function applyFrostclawDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
     if (PERSONAL_BOSS_COMBAT) throw new SenderError("WildStat updated. Refresh to continue.");
-    requireMapWorkload(ctx);
-    if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
     const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) return;
     if (activePlayer.mapId !== INTERMEDIATE_SNOWLANDS_MAP_ID) return;
@@ -1807,8 +1784,6 @@ export function createBossCombat(deps: BossCombatDeps) {
 
   function applyMagmaliskDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
     if (PERSONAL_BOSS_COMBAT) throw new SenderError("WildStat updated. Refresh to continue.");
-    requireMapWorkload(ctx);
-    if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
     const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) return;
     if (activePlayer.mapId !== ADVANCED_LAVA_WASTES_MAP_ID) return;
@@ -1877,8 +1852,6 @@ export function createBossCombat(deps: BossCombatDeps) {
 
   function applyGloomrootDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
     if (PERSONAL_BOSS_COMBAT) throw new SenderError("WildStat updated. Refresh to continue.");
-    requireMapWorkload(ctx);
-    if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
     const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) return;
     if (activePlayer.mapId !== INFERNAL_DEPTHS_MAP_ID) return;
@@ -1947,8 +1920,6 @@ export function createBossCombat(deps: BossCombatDeps) {
 
   function applyTidewyrmDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
     if (PERSONAL_BOSS_COMBAT) throw new SenderError("WildStat updated. Refresh to continue.");
-    requireMapWorkload(ctx);
-    if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
     const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) return;
     if (activePlayer.mapId !== WATER_REACH_MAP_ID) return;
@@ -2017,8 +1988,6 @@ export function createBossCombat(deps: BossCombatDeps) {
 
   function applyKoiShogunDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
     if (PERSONAL_BOSS_COMBAT) throw new SenderError("WildStat updated. Refresh to continue.");
-    requireMapWorkload(ctx);
-    if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
     const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) return;
     if (activePlayer.mapId !== SAMURAI_GARDEN_MAP_ID) return;
@@ -2087,8 +2056,6 @@ export function createBossCombat(deps: BossCombatDeps) {
 
   function applyTempestKirinDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
     if (PERSONAL_BOSS_COMBAT) throw new SenderError("WildStat updated. Refresh to continue.");
-    requireMapWorkload(ctx);
-    if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
     const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) return;
     if (activePlayer.mapId !== CLOUDSPIRE_MAP_ID) return;
@@ -2157,8 +2124,6 @@ export function createBossCombat(deps: BossCombatDeps) {
 
   function applyMiremawDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
     if (PERSONAL_BOSS_COMBAT) throw new SenderError("WildStat updated. Refresh to continue.");
-    requireMapWorkload(ctx);
-    if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
     const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) return;
     if (activePlayer.mapId !== MOONFEN_MAP_ID) return;
@@ -2226,8 +2191,6 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
   function applyPrismshellDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
     if (PERSONAL_BOSS_COMBAT) throw new SenderError("WildStat updated. Refresh to continue.");
-    requireMapWorkload(ctx);
-    if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
     const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) return;
     if (activePlayer.mapId !== CRYSTAL_HOLLOWS_MAP_ID) return;
@@ -2295,8 +2258,6 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
   function applyIronhornDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
     if (PERSONAL_BOSS_COMBAT) throw new SenderError("WildStat updated. Refresh to continue.");
-    requireMapWorkload(ctx);
-    if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
     const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) return;
     if (activePlayer.mapId !== CLOCKWORK_RUINS_MAP_ID) return;
@@ -2364,8 +2325,6 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
   function applyDreadreaperDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
     if (PERSONAL_BOSS_COMBAT) throw new SenderError("WildStat updated. Refresh to continue.");
-    requireMapWorkload(ctx);
-    if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
     const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) return;
     if (activePlayer.mapId !== DUSKFALL_ORCHARD_MAP_ID) return;
@@ -2433,8 +2392,6 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
   function applyVoltwardenDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
     if (PERSONAL_BOSS_COMBAT) throw new SenderError("WildStat updated. Refresh to continue.");
-    requireMapWorkload(ctx);
-    if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
     const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) return;
     if (activePlayer.mapId !== NEON_BASTION_MAP_ID) return;
@@ -2502,8 +2459,6 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
   function applyGravebloomDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
     if (PERSONAL_BOSS_COMBAT) throw new SenderError("WildStat updated. Refresh to continue.");
-    requireMapWorkload(ctx);
-    if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
     const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) return;
     if (activePlayer.mapId !== VERDANT_CATACOMBS_MAP_ID) return;
@@ -2571,8 +2526,6 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
   function applyAegisPrimeDamage(ctx: any, requestedHits: number, clientPosition?: { x: number; y: number }) {
     if (PERSONAL_BOSS_COMBAT) throw new SenderError("WildStat updated. Refresh to continue.");
-    requireMapWorkload(ctx);
-    if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
     const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) return;
     if (activePlayer.mapId !== ION_CITADEL_MAP_ID) return;
