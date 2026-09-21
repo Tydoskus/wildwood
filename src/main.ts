@@ -142,7 +142,7 @@ import {
 
   const gameElements = createGameElements({ names: PLAYER_SKIN_TONE_NAMES, colors: PLAYER_SKIN_TONES });
   const {
-    canvas, gameOverEl, deathCountdownEl, hpText, playerHudProfileIcon, hudGemWallet, hudGemBalance,
+    canvas, gameOverEl, deathCountdownEl, hpText, playerHudProfileIcon, playerHudProfileGear, hudGemWallet, hudGemBalance,
     minimapButton, enemyRespawnAdBtn, enemyRespawnAdStatus, enemyRespawnBoostStatus, enemyRespawnBoostTimer, enemyRespawnAdPrompt, enemyRespawnAdConfirm, enemyRespawnAdCancel, browserRewardedAd, browserRewardedAdTimer,
     toolbar, settingsBtn, inventoryBtn, settingsPanel, inventoryPanel, inventoryCharacterCanvas, itemInspectionPanel, itemInspectionTitle, itemInspectionContent, itemInspectionBack, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
     duelCountdownEl, duelResultEl, watchDuelReplayBtn, duelReplayEl, duelReplayTitle, sceneFadeEl, cutsceneOverlayEl,
@@ -1401,7 +1401,7 @@ import {
     close: closePlayerProfileBtn, editName: editPlayerNameBtn, nameEditor: profileNameEditorEl, nameForm: profileNameEditorForm, nameInput: profileNameInput, saveName: savePlayerNameBtn,
     skinEdit: profileSkinToneEdit, skinChoices: profileSkinToneControl, preview: profileCharacterPreviewEl, equipmentHead: profileEquippedHeadSlot, equipmentChest: profileEquippedChestSlot, equipmentFeet: profileEquippedFeetSlot, equipmentRightHand: profileEquippedRightHandSlot, previousSprite: previousPlayerSpriteBtn, nextSprite: nextPlayerSpriteBtn, genderSetting: gameElements.profileGenderSetting, genderValue: gameElements.profileGenderValue, genderEdit: gameElements.profileGenderEdit, genderChoices: gameElements.profileGenderChoices,
     duel: profileDuelBtn,
-    safetyActions: gameElements.profileSafetyActions, report: gameElements.profileReportBtn, block: gameElements.profileBlockBtn,
+    settings: settingsBtn, safetyActions: gameElements.profileSafetyActions, report: gameElements.profileReportBtn, block: gameElements.profileBlockBtn,
     prestigeRow: gameElements.profilePrestigeRow, prestige: gameElements.profilePrestige,
   }, {
     isBlocked: (identity) => coop?.isPlayerBlocked?.(identity) ?? false,
@@ -1991,6 +1991,7 @@ import {
     hpText,
     watchDuelReplay: watchDuelReplayBtn,
     playerHudProfile: playerHudProfileIcon,
+    playerHudProfileGear,
     playerProfileIcon,
     closeProfileIconPicker: closeProfileIconPickerBtn,
     onDragonCutscene: () => {
@@ -2060,7 +2061,7 @@ import {
     e: gameElements, inventory, renderInventory, logPickup, showMessage, leaveDuelResult,
     itemInspectionController,
     minimizeChat: minimizeMaximizedChat,
-    closeCompetingWindows: () => { guildPanel?.close(); mapGuide.close(); upgradeBenchController.close(); closeLeaderboard(); devPanel.close(); techTree.close(); },
+    closeCompetingWindows: () => { profileWindow.close(); guildPanel?.close(); mapGuide.close(); upgradeBenchController.close(); closeLeaderboard(); devPanel.close(); techTree.close(); },
     closeDuelReplay: duelRuntime.closeReplayWindow, closeBootUpgrade: worldProgression.closeBootUpgrade,
     resetServerProgress: async () => await coop?.resetProgress?.() ?? { ok: false, error: "Connect to your character before resetting." },
     setResetPending: (pending: boolean) => setGameplayPause("reset-progress", pending),

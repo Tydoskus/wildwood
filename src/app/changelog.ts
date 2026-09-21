@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.762": [
+    "The gear beside your power now opens your profile, the same as tapping the card. Settings keeps its own gear inside that window, and opening Settings closes the profile behind it.",
+    "Buttons no longer jump down when you press them.",
+  ],
   "0.761": [
     "A settings gear now sits beside your power in the player HUD, so it is clear the card is a button. Tapping the card still opens your profile.",
     "Tapping your own character no longer opens your profile. It sat right where you were trying to walk. You can turn it back on in Settings.",
@@ -2154,6 +2158,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.762": "2026-09-20",
   "0.761": "2026-09-20",
   "0.760": "2026-09-20",
   "0.759": "2026-09-20",

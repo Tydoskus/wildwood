@@ -37,15 +37,19 @@ describe("installed interface structure", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("puts the settings gear in the player HUD, right of power", () => {
-    const gear = doc.getElementById("settingsBtn")!;
+  it("puts a gear in the player HUD right of power, and leaves settings its own inside the profile", () => {
+    const gear = doc.getElementById("playerHudProfileGear")!;
     expect(gear.previousElementSibling?.id).toBe("playerPower");
     expect(gear.closest(".player-summary")).not.toBeNull();
-    expect(gear.closest("#playerProfile")).toBeNull();
-    // The card opens the profile; the gear is what says so, and must not also
-    // open it. Only the byte budget keeps it out of the entry page.
     expect(gear.hidden).toBe(false);
-    expect(entryHtml).not.toContain("settingsBtn");
+    // Only the entry page's byte budget keeps it out of index.html.
+    expect(entryHtml).not.toContain("playerHudProfileGear");
+    // The settings gear stays where it was, inside the profile window.
+    expect(doc.getElementById("settingsBtn")!.closest("#playerProfile")).not.toBeNull();
+    // No button moves under a press any more, and the HUD least of all: the
+    // guard stays so a reintroduced drop cannot reach it.
+    expect(declarations(".hud-settings-button:active").transform).toBe("none");
+    expect(declarations("button").transform).toBeUndefined();
   });
 
   it("provides real targets for accessibility labels and tab controls", () => {

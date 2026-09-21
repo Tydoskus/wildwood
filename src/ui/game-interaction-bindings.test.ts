@@ -7,7 +7,7 @@ function bind() {
     <div class="card player-hud-card">
       <button id="playerHudProfileIcon"></button>
       <div class="player-summary"><div id="playerPower">30</div>
-        <button id="settingsBtn"><img id="gearIcon"></button></div>
+        <button id="playerHudProfileGear"><img id="gearIcon"></button></div>
       <div id="hpText">30 / 30</div>
     </div>
     <button id="dragon"></button><button id="snow"></button><button id="lava"></button>
@@ -18,6 +18,7 @@ function bind() {
   bindGameInteractionListeners({
     triggerDragonCutscene: element("dragon"), triggerSnowlandsCutscene: element("snow"), triggerLavaCutscene: element("lava"),
     hpText: element("hpText"), watchDuelReplay: element("replay"), playerHudProfile: element("playerHudProfileIcon"),
+    playerHudProfileGear: element("playerHudProfileGear"),
     playerProfileIcon: element("profileIcon"), closeProfileIconPicker: element("closePicker"),
     onDragonCutscene: vi.fn(), onSnowlandsCutscene: vi.fn(), onLavaCutscene: vi.fn(), onOpenOwnProfile,
     replayId: () => 0n, onWatchReplay: vi.fn(), canOpenProfileIconPicker: () => false,
@@ -33,11 +34,14 @@ describe("the player HUD card", () => {
     expect(h.onOpenOwnProfile).toHaveBeenCalledTimes(1);
   });
 
-  it("leaves the settings gear to settings, including a tap that lands on its icon", () => {
+  it("opens the profile from the gear too, including a tap that lands on its icon", () => {
+    // The gear is the sign that the card is a button, so it does what the card
+    // does. Settings keeps its own gear inside the profile window.
     const h = bind();
-    h.click("settingsBtn");
+    h.click("playerHudProfileGear");
+    expect(h.onOpenOwnProfile).toHaveBeenCalledTimes(1);
     h.click("gearIcon");
-    expect(h.onOpenOwnProfile).not.toHaveBeenCalled();
+    expect(h.onOpenOwnProfile).toHaveBeenCalledTimes(2);
   });
 
   it("still opens the profile from the icon button, which is what it is for", () => {

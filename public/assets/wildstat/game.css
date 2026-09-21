@@ -2699,12 +2699,12 @@
   .profile-settings-button { flex: 0 0 44px; align-self: flex-start; display: grid; place-items: center; width: 44px; height: 44px; margin: 0; padding: 7px; border: 1px solid transparent; border-radius: 7px; background: transparent; box-shadow: none; }
   .profile-settings-button[hidden] { display: none; }
   .profile-settings-button img { width: 28px; height: 28px; object-fit: contain; }
-  /* The gear rides the player HUD's summary row, beside power. It is the visible
-     sign that the card itself is a button, and it keeps the profile off the one
-     tap people make by accident: their own sprite, standing where they walk. */
-  .hud-settings-button { flex: 0 0 auto; align-self: center; width: 30px; height: 30px; min-height: 0; padding: 4px; border-radius: 6px; }
-  .hud-settings-button img { width: 22px; height: 22px; }
-  .hud-settings-button:active { background: rgba(255,255,255,.14); }
+  /* The gear rides the player HUD's summary row, beside power. It opens the same
+     profile window the card does, and is the visible sign that the card is a
+     button at all. */
+  .hud-settings-button { flex: 0 0 auto; align-self: center; display: grid; place-items: center; width: 30px; height: 30px; min-height: 0; margin: 0; padding: 4px; border: 1px solid transparent; border-radius: 6px; background: transparent; box-shadow: none; }
+  .hud-settings-button img { width: 22px; height: 22px; object-fit: contain; }
+  .hud-settings-button:active { transform: none; }
   .player-summary #playerPower { margin-left: auto; }
   .player-profile-header { display: flex; align-items: center; gap: 10px; }
   .player-profile-title-row { min-width: 0; flex: 1; display: flex; align-items: center; gap: 10px; }
@@ -3365,10 +3365,6 @@
     margin-top: 12px;
     cursor: pointer;
     text-shadow: var(--text-shadow);
-  }
-
-  button:active {
-    transform: translateY(3px);
   }
 
   :fullscreen,

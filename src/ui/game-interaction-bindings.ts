@@ -6,6 +6,7 @@ export function bindGameInteractionListeners(options: {
   hpText: HTMLElement;
   watchDuelReplay: HTMLElement;
   playerHudProfile: HTMLElement;
+  playerHudProfileGear: HTMLElement;
   playerProfileIcon: HTMLElement;
   closeProfileIconPicker: HTMLElement;
   onDragonCutscene: () => void;
@@ -31,10 +32,12 @@ export function bindGameInteractionListeners(options: {
     const replayId = options.replayId();
     if (replayId > 0n) options.onWatchReplay(replayId);
   });
-  options.playerHudProfile.addEventListener("click", (event) => {
-    event.stopPropagation();
-    options.onOpenOwnProfile();
-  });
+  for (const button of [options.playerHudProfile, options.playerHudProfileGear]) {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      options.onOpenOwnProfile();
+    });
+  }
   options.playerProfileIcon.addEventListener("click", () => {
     if (options.canOpenProfileIconPicker()) options.openProfileIconPicker();
   });
