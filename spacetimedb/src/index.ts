@@ -14,6 +14,7 @@ import { releaseNotice, releaseAcknowledgement, writeReleaseWindow, acknowledgeR
 import { PERSONAL_BOSS_COMBAT, personalBossDefinition } from "../../shared/personal-bosses";
 import { playerMultiplayerPreference, writeMultiplayerPreference } from "./multiplayer-preference";
 import { enemyDefeatBudget, bossDefeatWindow, bossMapDefeatWindow, acceptEnemyDefeats, beginBossTimeBudget, enemyDefeatReview, permittedDefeatMaps } from "./enemy-defeats";
+import { grantVirtualPlayerConsent, revokeVirtualPlayerConsent } from "./virtual-player-consent";
 import { applyEnemyRewards } from "../../shared/enemy-defeats";
 import { LOADOUT_FIELDS } from "../../shared/combat-progress";
 import { chatHeartAllowance, chatReactionCooldown, chatReactionSummary, playerChatHearts, reactionCountsFor, chatReaction, readChatReactions, setChatReaction, removeMessageReactions, removeAccountReactions } from "./chat-reactions";
@@ -3262,7 +3263,7 @@ function clearVirtualPlayersForOwner(ctx: any, owner: any) {
     if (ctx.db.virtualPlayerLoad.owner.find(owner)) ctx.db.virtualPlayerLoad.owner.delete(owner);
     return false;
   }
-  for (const identity of identities) removeVirtualPlayerData(ctx, identity, false, false);
+  for (const identity of identities) { removeVirtualPlayerData(ctx, identity, false, false); revokeVirtualPlayerConsent(ctx, identity); }
   if (ctx.db.virtualPlayerLoad.owner.find(owner)) ctx.db.virtualPlayerLoad.owner.delete(owner);
   reconcileOnlinePlayers(ctx);
   refreshLeaderboard(ctx);
@@ -4693,6 +4694,7 @@ export const joinVirtualPlayerLoadTest = spacetimedb.reducer(
       ctx.db.virtualPlayer.insert(registration);
       adjustVirtualPlayerCount(ctx, owner, 1);
     }
+    grantVirtualPlayerConsent(ctx, owner);
   },
 );
 
