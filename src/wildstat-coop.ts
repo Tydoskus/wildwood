@@ -7,7 +7,6 @@ import { enterWorldAfterConsent } from "./coop/services/world-entry-consent";
 import { accountStorageKeys } from "./coop/services/account-storage-keys";
 import { createCommunityServices } from "./coop/services/community-services";
 import { createConnectionStatusApi } from "./coop/services/connection-status-api";
-import { createMapShardClient } from "./coop/services/map-shard-client";
 import "./ui/game-shell";
 import { DbConnection, type ErrorContext } from "./module_bindings";
 import type { Identity } from "spacetimedb";
@@ -93,7 +92,6 @@ let connecting = false;
 let connectionGeneration = 0;
 let sessionGeneration = 0;
 let hydrationReady = false;
-let mapShardClient: ReturnType<typeof createMapShardClient>;
 let sessionSubscriptions: ReturnType<typeof startBaseSubscription> | null = null;
 let connectedSignedIn = false;
 let lastServerActivityAt = performance.now();
@@ -343,12 +341,6 @@ const reducerPort: ReducerPort = {
   handleFailure: handleReducerFailure,
 };
 
-const mapReducerPort: ReducerPort = {
-  ...reducerPort,
-  connection: () => mapShardClient ? mapShardClient.port.connection() : connection,
-  sendReducer: (...args) => mapShardClient ? mapShardClient.port.sendReducer(...args) : reducerPort.sendReducer(...args),
-};
-
 const bossService = createBossService();
 
 let chatService!: ChatService;
@@ -412,8 +404,6 @@ const progressionService = createProgressionService({
   hydrationReady: () => hydrationReady,
   activeProfileIdentity: () => playerProfileService?.activeIdentity() ?? "",
   completeAccountReturn: () => accountService.completeAccountReturnWhenReady(),
-  presentDeath: () => mapShardClient.presentDeath(),
-  prepareResetRoute: () => mapShardClient.prepareResetRoute(),
   reserveStoppedMotion: () => presenceService.reserveStoppedMotion(),
   commitStoppedPosition: (position, sequence) => presenceService.commitStoppedPosition(position, sequence),
   storage: localStorage,
@@ -440,7 +430,7 @@ const remoteCombatStatsService = createRemoteCombatStatsService({
 presenceService = createPresenceService({
   multiplayerEnabled: multiplayerSync.enabled,
   drainEnemyLoot: progressionService.drainEnemyLoot,
-  reducers: mapReducerPort,
+  reducers: reducerPort,
   changes: { notify: onChange, batch: batchChanges },
   localIdentity: () => localIdentity,
   localDbIdentity: () => localDbIdentity,
@@ -513,7 +503,6 @@ const duelService = createDuelService({
   localIdentity: () => localIdentity,
   identityFor: profileDirectory.identityFor,
   drainPendingProgress: progressionService.drainPendingProgress,
-  preparePosition: () => mapShardClient.prepareDuelPosition(presenceService.localState()),
   storage: localStorage,
 });
 const { guildService, socialService } = createCommunityServices({
@@ -532,16 +521,8 @@ const baseSubscriptionHandlers = createBaseSubscriptionHandlers({
   duel: duelService.tables,
 });
 
-mapShardClient = createMapShardClient({
-  host, root: () => connection, port: reducerPort, handlers: baseSubscriptionHandlers, resolveToken: accountService.connectionToken,
-  tabId: () => accountService.tabId(), changed: onChange, recoverSession: () => { retryConnection(); },
-  resetWorld: () => { presenceService.clearSession(true); presenceService.beginSession(false); bossService.resetSession(); },
-  worldReady: () => presenceService.activateSubscriptions(),
-});
-
 function clearRealtimeCaches() {
   multiplayerSync.reset();
-  mapShardClient?.clear();
   sessionSubscriptions = null;
   remoteCombatStatsService.clearSession();
   playerProfileService.clearSession();
@@ -666,7 +647,7 @@ function setNetworkReconnectVisible(visible: boolean) {
 const wakeRecovery = createWakeRecovery({
   now: () => Date.now(), hidden: () => document.hidden,
   blocked: () => protocolBlocked || worldEntryBlocked, connecting: () => connecting,
-  connection: () => connection, needsRouteRecovery: () => mapShardClient.needsRouteRecovery(),
+  connection: () => connection,
   activityAge: () => performance.now() - lastServerActivityAt,
   refreshWatchdog: () => reconnectWatchdog.refresh(), clearOverlay: () => setWakeReconnectVisible(false),
   clearNetworkOverlay: () => setNetworkReconnectVisible(false), changed: onChange,
@@ -761,7 +742,6 @@ function connect() {
 
         startupTelemetryRuntime.advanceConnection("hydrating", generation);
         connectionLifecycle.transition("hydrating", SUBSCRIPTION_HYDRATION_TIMEOUT_MS);
-        mapShardClient.attach(conn, identity);
         sessionSubscriptions = startBaseSubscription({
           connection: conn,
           identity,
@@ -773,7 +753,7 @@ function connect() {
           isCurrent: isCurrentConnection,
           isPresenceSubscriptionTransitioning: presenceService.isSubscriptionTransitioning,
           batch: batchChanges,
-          handlers: mapShardClient.rootHandlers,
+          handlers: baseSubscriptionHandlers,
           onHydrated: () => {
             recordConnectionDiagnostic("reconnected");
             hydrationReady = true;
@@ -863,7 +843,7 @@ export const wildstatCoop = {
   ...progressionService.api,
   ...createConnectionStatusApi({
     lifecycle: connectionLifecycle, reconnect: reconnectScheduler,
-    connected: () => Boolean(connection?.isActive && hydrationReady && mapShardClient.ready()),
+    connected: () => Boolean(connection?.isActive && hydrationReady),
     flags: () => [protocolBlocked, wakeReconnectVisible, networkReconnectVisible],
     latency: () => latencyMs,
   }),

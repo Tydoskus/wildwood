@@ -7,7 +7,7 @@ function fixture() {
   let identity = owner; let available = false; const storage = memory();
   const submit = vi.fn(async (_payload: string) => {});
   const options = { storage, storageKey: "test", now: () => 10000,
-    snapshot: () => ({ owner: identity, clientVersion: "0.685", mapId: "samurai_garden", transport: "map" }),
+    snapshot: () => ({ owner: identity, clientVersion: "0.685", mapId: "samurai_garden", transport: "account" }),
     submit: () => available ? submit : null };
   return { options, submit, setOwner: (v: string) => { identity = v; }, connect: () => { available = true; } };
 }

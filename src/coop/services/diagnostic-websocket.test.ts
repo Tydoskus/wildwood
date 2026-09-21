@@ -93,7 +93,7 @@ it("renews credentials before connecting and retries a 401 once without exposing
   const { record } = setup(); const resolve = vi.fn().mockResolvedValueOnce("current-id").mockResolvedValueOnce("renewed-id");
   const fetch = vi.fn().mockResolvedValueOnce({ ok: false, status: 401 }).mockResolvedValueOnce({ ok: true, json: async () => ({ token: "temporary" }) });
   vi.stubGlobal("fetch", fetch);
-  await diagnosticWebSocket(record, { transport: "map", database: "test-db" }, resolve)({ ...args, authToken: "old-id" });
+  await diagnosticWebSocket(record, { transport: "account", database: "test-db" }, resolve)({ ...args, authToken: "old-id" });
   expect(resolve.mock.calls).toEqual([["old-id", false], ["current-id", true]]);
   expect(fetch.mock.calls[1][1].headers.Authorization).toBe("Bearer renewed-id");
   expect(FakeSocket.latest.url).toContain("token=temporary");
@@ -104,7 +104,7 @@ it("cancels a stale portal connection while credential renewal is pending", asyn
   setup(); let current = true; let finish!: (token: string) => void;
   const resolve = () => new Promise<string>(r => { finish = r; });
   const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
-  const pending = diagnosticWebSocket(vi.fn(), { transport: "map", database: "test-db", isCurrent: () => current }, resolve)({ ...args, authToken: "old" });
+  const pending = diagnosticWebSocket(vi.fn(), { transport: "account", database: "test-db", isCurrent: () => current }, resolve)({ ...args, authToken: "old" });
   current = false; finish("renewed");
   await expect(pending).rejects.toThrow("superseded"); expect(fetch).not.toHaveBeenCalled();
 });

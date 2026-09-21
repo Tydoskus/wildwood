@@ -440,7 +440,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   function upsertPlayer(row: PlayerRow) {
     const id = row.identity.toHexString();
     if (id === dependencies.localIdentity()) {
-      // A shard reconnect can restore an existing input watermark. Starting
+      // A reconnect can restore an existing input watermark. Starting
       // again at sequence 1 would silently discard movement until it catches up.
       nextPositionSequence = Math.max(nextPositionSequence, row.lastInputSequence);
       localMotionEpoch = row.motionEpoch & 0xffff;

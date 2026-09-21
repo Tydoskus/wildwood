@@ -7,7 +7,7 @@ type WakeConnection = { isActive: boolean; reducers: { resumeSession: (args: {})
  * for the grace period; longer absences get one bounded health check. */
 export function createWakeRecovery<T extends WakeConnection>(options: {
   now: () => number; hidden: () => boolean; blocked: () => boolean; connecting: () => boolean;
-  connection: () => T | null; needsRouteRecovery: () => boolean; activityAge: () => number;
+  connection: () => T | null; activityAge: () => number;
   refreshWatchdog: () => void; clearOverlay: () => void; clearNetworkOverlay: () => void;
   changed: () => void; touchActivity: () => void; restart: () => void;
   failure: (error: unknown) => void;
@@ -32,8 +32,8 @@ export function createWakeRecovery<T extends WakeConnection>(options: {
     if (force && (options.connecting() || probing)) { restart("page-restored", hiddenForMs); return; }
     if (options.connecting() || probing) return;
     const conn = options.connection();
-    if (force || options.needsRouteRecovery() || !conn?.isActive) {
-      restart(force ? "page-restored" : !conn?.isActive ? "socket-inactive" : "map-route-rejected", hiddenForMs);
+    if (force || !conn?.isActive) {
+      restart(force ? "page-restored" : "socket-inactive", hiddenForMs);
       return;
     }
     if (hiddenForMs > 0 && hiddenForMs < TAB_AWAY_GRACE_MS) {

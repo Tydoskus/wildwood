@@ -160,17 +160,17 @@ describe("generated map subscription lifecycle", () => {
     h.api.proceduralMapState("endless_2");
     h.subscriptions[0].applied();
     h.bosses.set("boss", {
-      key: "endless_2:shardA",
+      key: "endless_2:root",
       mapId: "endless_2",
       encounter: 3n,
       hp: 100,
     });
-    h.api.hitProceduralBoss("endless_2", "endless_2:shardB", 3n, 1, 4050, 4050);
+    h.api.hitProceduralBoss("endless_2", "endless_2:stale", 3n, 1, 4050, 4050);
     expect(h.hit).not.toHaveBeenCalled();
-    h.api.hitProceduralBoss("endless_2", "endless_2:shardA", 3n, 1, 4050, 4050);
+    h.api.hitProceduralBoss("endless_2", "endless_2:root", 3n, 1, 4050, 4050);
     expect(h.hit).toHaveBeenCalledExactlyOnceWith({
       mapId: "endless_2",
-      bossKey: "endless_2:shardA",
+      bossKey: "endless_2:root",
       encounter: 3n,
       hits: 1,
       x: 4050,

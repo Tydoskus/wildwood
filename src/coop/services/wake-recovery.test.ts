@@ -4,7 +4,7 @@ function fixture() {
   vi.useFakeTimers();
   const conn = { isActive: true, reducers: { resumeSession: vi.fn(async () => {}) } };
   const options = { now: () => Date.now(), hidden: () => false, blocked: () => false, connecting: () => false,
-    connection: () => conn, needsRouteRecovery: () => false, activityAge: () => 100000,
+    connection: () => conn, activityAge: () => 100000,
     refreshWatchdog: vi.fn(), clearOverlay: vi.fn(), clearNetworkOverlay: vi.fn(), changed: vi.fn(), touchActivity: vi.fn(),
     restart: vi.fn(), failure: vi.fn(), diagnostic: vi.fn(),
     schedule: (callback: () => void, delay: number) => setTimeout(callback, delay) as unknown as number,
@@ -19,11 +19,9 @@ it("keeps a quiet but connected session for brief switches and duplicate focus e
   expect(f.conn.reducers.resumeSession).not.toHaveBeenCalled(); expect(f.options.restart).not.toHaveBeenCalled();
   expect(f.options.diagnostic).toHaveBeenCalledWith("wake-resume", "short-return-kept-connection", 4000);
 });
-it("grace never delays recovery for a genuinely closed socket or rejected map route", () => {
+it("grace never delays recovery for a genuinely closed socket", () => {
   const f = fixture(); f.conn.isActive = false; f.recovery.resume(false, 1000);
   expect(f.options.restart).toHaveBeenCalledOnce();
-  f.conn.isActive = true; f.options.needsRouteRecovery = () => true; f.recovery.resume(false, 1000);
-  expect(f.options.restart).toHaveBeenCalledTimes(2);
 });
 it("checks a long absence once and keeps the connection when its session responds", async () => {
   const f = fixture(); f.recovery.resume(false, TAB_AWAY_GRACE_MS); f.recovery.resume();
