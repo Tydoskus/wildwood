@@ -151,11 +151,23 @@ export function ensurePatreonSweep(ctx: any, scheduleAt: unknown) {
   for (const _task of ctx.db.patreonSweepSchedule.iter()) return;
   ctx.db.patreonSweepSchedule.insert({ scheduledId: 0n, scheduledAt: scheduleAt });
 }
+function sweepDiagnostics(ctx: ProcedureCtx<Schema>) {
+  return ctx.withTx(tx => {
+    const links = [...tx.db.patreonLink.iter()];
+    return { now: nowMs(tx), configured: Boolean(tx.db.patreonConfig.id.find(0)), links: links.length,
+      linked: links.filter(l => l.userId).length,
+      expired: links.filter(l => l.validUntilMs < nowMs(tx)).length };
+  });
+}
 export function sweepPatreonLinks(ctx: ProcedureCtx<Schema>) {
   const due = ctx.withTx(tx => {
     if (!tx.db.patreonConfig.id.find(0)) return [];
     return patreonLinksDueRefresh([...tx.db.patreonLink.iter()], nowMs(tx)).map(link => link.identity);
   });
+  // Say so on every tick. A sweep that silently selects nobody looks exactly
+  // like a sweep that never ran, and telling those apart from the outside cost
+  // an evening.
+  console.warn("Patreon sweep", JSON.stringify({ due: due.length, ...sweepDiagnostics(ctx) }));
   for (const identity of due) refreshPatreonLink(ctx, identity, PATREON_SWEEP_MIN_ATTEMPT_MS);
 }
 
