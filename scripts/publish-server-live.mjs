@@ -13,6 +13,10 @@ const preflightOnly = process.argv.includes("--preflight");
 // Every player is disconnected and reconnects. One reconnect covers any number
 // of schema changes, so batch schema debt into a single flagged release.
 const allowClientBreak = process.argv.includes("--allow-client-break");
+// With map sharding switched off every player is on the root, and the ready
+// shards are dark: publishing them is a hundred uploads that change nothing a
+// player can see. Skip them unless asked, and always when the switch is off.
+const rootOnlyFlag = process.argv.includes("--root-only");
 
 function fail(message) {
   throw new Error(message);
@@ -51,9 +55,13 @@ async function main() {
     maps: await loadProgram("spacetimedb-map/dist/bundle.js", "Map server"),
   };
   const api = createReleaseApi({ host, database, token, allowClientBreak });
-  const maps = (await api.sql("SELECT database_name FROM map_shard WHERE state = 'ready'")).map(row => row[0]);
+  const shardingOn = (await api.sql("SELECT enabled FROM shard_runtime WHERE id = 0"))[0]?.[0] === true;
+  const rootOnly = rootOnlyFlag || !shardingOn;
+  const maps = rootOnly ? [] : (await api.sql("SELECT database_name FROM map_shard WHERE state = 'ready'")).map(row => row[0]);
 
-  console.log(`Checking root server and ${maps.length} ready map server${maps.length === 1 ? "" : "s"}...`);
+  console.log(rootOnly
+    ? `Checking root server only (${rootOnlyFlag ? "--root-only" : "map sharding is off; shards are dark"})...`
+    : `Checking root server and ${maps.length} ready map server${maps.length === 1 ? "" : "s"}...`);
   await api.preflight(database, programs.root);
   // Check every map before giving up on any: one shed upload out of a hundred
   // used to discard the eighty-eight good answers that came before it.
@@ -77,10 +85,12 @@ async function main() {
   console.log("Publishing root server...");
   await api.publish(database, programs.root);
   console.log("Root server published.");
-  console.log("Staging map server for new shards...");
-  await api.stageMapProgram(programs.maps);
-  const currentMaps = (await api.sql("SELECT database_name FROM map_shard WHERE state = 'ready'")).map(row => row[0]);
-  console.log(`Publishing ${currentMaps.length} ready map server${currentMaps.length === 1 ? "" : "s"}...`);
+  const currentMaps = rootOnly ? [] : (await api.sql("SELECT database_name FROM map_shard WHERE state = 'ready'")).map(row => row[0]);
+  if (!rootOnly) {
+    console.log("Staging map server for new shards...");
+    await api.stageMapProgram(programs.maps);
+    console.log(`Publishing ${currentMaps.length} ready map server${currentMaps.length === 1 ? "" : "s"}...`);
+  }
   await mapLimit(currentMaps, 3, async name => {
     await api.publish(name, programs.maps);
     console.log(`  published: ${name}`);

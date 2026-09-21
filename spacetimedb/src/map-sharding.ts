@@ -1,3 +1,4 @@
+import { Timestamp } from "spacetimedb";
 import { isProceduralMap } from "../../shared/procedural-maps";
 import { HOME_EXTERIOR_MAP_ID } from "../../shared/home";
 import { table, t, SenderError } from "spacetimedb/server";
@@ -171,4 +172,18 @@ export function queueShardReward(ctx: any, identity: any, boss: string) {
   const key = `${boss}:${encounter}:${identity.toHexString()}`;
   if (!ctx.db.shardRewardOutbox.key.find(key)) ctx.db.shardRewardOutbox.insert({ key, identity, boss, encounter });
   return true;
+}
+
+/**
+ * Turning sharding off moves every player from a shard back to the root at
+ * whatever position the root last saw, which can be minutes and a map's width
+ * behind where the player really is. Their next movement packet is measured
+ * from that stale point, so it was refused, and kept being refused for as long
+ * as they kept moving away from it. Stamping the motion clock this far back
+ * makes the first packet after a relocation land inside the allowance once;
+ * validation is back to normal from the next one.
+ */
+export const RELOCATION_GRACE_MICROS = 120n * 1_000_000n;
+export function relocatedInputClock(ctx: { timestamp: { microsSinceUnixEpoch: bigint } }) {
+  return new Timestamp(ctx.timestamp.microsSinceUnixEpoch - RELOCATION_GRACE_MICROS);
 }

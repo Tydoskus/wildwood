@@ -50,7 +50,7 @@ import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_TRAVEL_PORTAL, HOME_BEN
 import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./shard-snapshot-writes";
 import { decodeShardSnapshot, encodeShardSnapshot } from "../../shared/shard-wire";
 import { coordinateShard, validateCoordinatorConfig } from "./shard-coordinator";
-import { mapShardingTables, mapShardRouteType, rootShardingEnabled, isMapShard, assignMapShard, releaseMapShard, validateShardMap, syncMapShardRoute, syncMapShardRoutesForShard } from "./map-sharding";
+import { mapShardingTables, mapShardRouteType, rootShardingEnabled, isMapShard, assignMapShard, releaseMapShard, validateShardMap, syncMapShardRoute, syncMapShardRoutesForShard, relocatedInputClock } from "./map-sharding";
 import { MAP_SHARD_CAPACITY } from "../../shared/map-sharding";
 import { compressLegacyMapPower } from "../../shared/map-power-rescale";
 import { createPlayerMotionFrameSampler } from "../../shared/player-motion-sample";
@@ -6185,9 +6185,9 @@ export const configureSharding = spacetimedb.reducer(
       for (const member of ctx.db.mapShardMember.iter()) releaseMapShard(ctx, member.identity);
       for (const player of ctx.db.player.iter()) {
         const saved = ctx.db.playerLastLocation.identity.find(player.identity);
-        const restored = saved?.mapId === player.mapId && !activeDuelFor(ctx, player.identity)
-          ? { ...player, x: saved.x, y: saved.y, facing: saved.facing } : player;
-        if (restored !== player) updateSnapshotRow(ctx, "player", restored);
+        const restored = { ...player, lastInputAt: relocatedInputClock(ctx), ...(saved?.mapId === player.mapId && !activeDuelFor(ctx, player.identity)
+          ? { x: saved.x, y: saved.y, facing: saved.facing } : {}) };
+        updateSnapshotRow(ctx, "player", restored);
         syncPlayerMotion(ctx, restored); syncPlayerMotionIdentity(ctx, restored);
       }
       ensureRealtimeFrameSchedules(ctx);
