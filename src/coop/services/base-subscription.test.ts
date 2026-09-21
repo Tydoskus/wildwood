@@ -40,9 +40,9 @@ function fixture() {
   return { requests, rows, handled, bound, ready, subscription };
 }
 
-/** Every table a map shard binds. The root must bind them too, and must not
- * pull them for anyone but us: the per-map rows are the presence service's. */
-const SHARD_BOUND_TABLES = ["player", "playerMotionIdentity", "playerMotionDetailFrame", "playerMapFrame", "playerDeathFrame", "bossHitResult"];
+/** Every world table the connection binds handlers to. It must not pull them
+ * for anyone but us: the per-map rows are the presence service's. */
+const WORLD_BOUND_TABLES = ["player", "playerMotionIdentity", "playerMotionDetailFrame", "playerMapFrame", "playerDeathFrame", "bossHitResult"];
 const PER_MAP_TABLES = ["playerMotionDetailFrame", "playerMapFrame", "playerDeathFrame", "bossHitResult", "bossAttackFrame"];
 
 describe("account and gameplay query scopes", () => {
@@ -67,10 +67,10 @@ describe("account and gameplay query scopes", () => {
 });
 
 describe("world state on the root connection", () => {
-  it("binds every table a map shard binds, so the root can be the world when there is no shard", () => {
+  it("binds a handler to every world table, so the map subscription's rows reach the game", () => {
     const f = fixture();
     f.subscription.refresh(true, "tutorial_forest", false);
-    for (const table of SHARD_BOUND_TABLES) expect(f.bound.has(table), table).toBe(true);
+    for (const table of WORLD_BOUND_TABLES) expect(f.bound.has(table), table).toBe(true);
   });
 
   it("takes only our own player rows and leaves the per-map tables to the map subscription", () => {

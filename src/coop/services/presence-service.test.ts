@@ -183,8 +183,7 @@ it("holds speed changes off the wire while the eye is off and flushes once prese
   vi.restoreAllMocks();
 });
 
-/** The world tables a map shard binds. On the root, presence owns the per-map
- * ones; the base subscription holds our own player/motion-identity rows. */
+/** The per-map world tables. Presence owns their map-scoped subscription; the base subscription holds our own player/motion-identity rows. */
 const MAP_WORLD_QUERY_TABLES = ["player_motion_identity", "player_death_frame", "player_map_frame", "player_motion_detail_frame"];
 
 function rootConnectionFixture() {

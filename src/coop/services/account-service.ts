@@ -860,7 +860,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     markPlayable(signedIn: boolean) {
       lastPlayableSessionMode = signedIn ? "account" : "guest";
       // Keep an already admitted account in the game while transport recovers.
-      // Otherwise a restored-token login falls back to sign-in on shard retry.
+      // Otherwise a restored-token login falls back to sign-in on retry.
       if (signedIn) sessionApproved = true;
     },
     prepareUpdateReload(version: string) {

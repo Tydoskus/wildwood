@@ -46,8 +46,6 @@ type ProgressionServiceDependencies = {
   hydrationReady: () => boolean;
   activeProfileIdentity: () => string;
   completeAccountReturn: () => void;
-  presentDeath?: () => void;
-  prepareResetRoute?: () => () => Promise<void>;
   reserveStoppedMotion: () => { sequence: number; simulationTick: number; motionEpoch: number };
   commitStoppedPosition: (position: { x: number; y: number }, sequence: number) => void;
   storage: Storage;
@@ -811,7 +809,6 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
         return result;
       },
       async recordPlayerDeath() {
-        dependencies.presentDeath?.();
         if (dependencies.reducers.protocolBlocked() || !dependencies.reducers.connection()) return;
         try {
           const connection = dependencies.reducers.connection();
@@ -846,7 +843,6 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
           if (identity !== dependencies.localIdentity() || connection !== dependencies.reducers.connection()) {
             return { ok: false, error: "Your session changed. Reopen Settings to reset this character." };
           }
-          const finishRoute = dependencies.prepareResetRoute?.();
           const result = await reducerResult("progress reset", (active) => active.reducers.resetPlayerProgress({}))();
           if (result.ok) clearPending(identity);
           if (identity !== dependencies.localIdentity()) {
@@ -861,11 +857,6 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
             void syncResearchNotification(null);
             enemyLoot.reset();
             cutscenes.reset();
-            let restartError: string | undefined;
-            try { await finishRoute?.(); }
-            catch (error) { restartError = dependencies.reducers.errorMessage(error); }
-            if (identity !== dependencies.localIdentity()) return { ok: false, error: "Your character changed. Reopen Settings before resetting again." };
-            if (restartError) return { ok: true, restartError };
           }
           return result;
         } finally { resetPending = false; }

@@ -78,7 +78,7 @@ function saveFrom(current: PlayerProgress, changes: Partial<ProgressSave> = {}):
   return { ...saved, enemyKills: 1, ...changes };
 }
 
-function setup(prepareResetRoute?: () => () => Promise<void>) {
+function setup() {
   vi.stubGlobal("window", {
     setInterval: vi.fn(() => 1),
     clearInterval: vi.fn(),
@@ -114,7 +114,6 @@ function setup(prepareResetRoute?: () => () => Promise<void>) {
     commitStoppedPosition: vi.fn(),
     storage: new MemoryStorage(),
     pendingProgressKey: "pending-progress",
-    prepareResetRoute,
   });
   return { recordEnemyDefeats, notify, savePlayerProgress, resetPlayerProgress, service, entry, claimDeveloperItemGift, destroyEquipment };
 }
@@ -209,15 +208,6 @@ describe("local progression profile snapshots", () => {
     expect(await reset).toEqual({ ok: true });
     expect(await service.drainPendingProgress()).toBe(true);
     expect(savePlayerProgress).toHaveBeenCalledTimes(1);
-    service.dispose();
-  });
-
-  it("discards old saves after a committed reset even if tutorial admission fails", async () => {
-    const { service, savePlayerProgress } = setup(() => async () => { throw new Error("Tutorial connection timed out"); });
-    service.api.saveProgress(saveFrom(progress(), { damage: 100 }));
-    expect(await service.api.resetProgress()).toMatchObject({ ok: true, restartError: expect.stringContaining("timed out") });
-    expect(await service.drainPendingProgress()).toBe(true);
-    expect(savePlayerProgress).not.toHaveBeenCalled();
     service.dispose();
   });
 
