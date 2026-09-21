@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.765": [
+    "A prestige shield with your level now follows your name over your head, in chat, in the HUD and in your profile, sized like the power sword beside it.",
+    "Kill rewards reach the server every thirty seconds instead of every five minutes, and the moment you hide or leave the tab, so tabbing out no longer risks the last few minutes of stats.",
+    "Kills earned just before a portal Home are honoured when the report arrives after you, instead of being thrown away, and a tab you closed mid-fight hands its unsent kills to the next one you open.",
+  ],
   "0.764": [
     "Supporter frames use the squared artwork, and two highlights now travel around opposite sides of the frame instead of one.",
   ],
@@ -2165,6 +2170,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.765": "2026-09-21",
   "0.764": "2026-09-20",
   "0.763": "2026-09-20",
   "0.762": "2026-09-20",
