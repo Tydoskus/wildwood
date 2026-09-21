@@ -384,3 +384,17 @@ it("does not acknowledge a newer session with an old checkpoint response", async
   expect(h.savePlayerProgress).not.toHaveBeenCalled();
   h.service.dispose();
 });
+
+it("keeps every player's prestige level for the badge, and the full record only for the local player", () => {
+  const h = setup();
+  const row = (id: string, level: number) => ({ identity: { toHexString: () => id }, level, perkPoints: 1, peakPower: 5, prestigedAt: { microsSinceUnixEpoch: 1_000n } }) as never;
+  h.service.tables.upsertPrestige(row("someone-else", 3));
+  expect(h.service.api.prestigeLevelFor("someone-else")).toBe(3);
+  expect(h.service.api.prestige()).toBeNull();
+  h.service.tables.upsertPrestige(row(identity, 1));
+  expect(h.service.api.prestigeLevelFor(identity)).toBe(1);
+  expect(h.service.api.prestige()?.level).toBe(1);
+  h.service.tables.removePrestige({ identity: { toHexString: () => "someone-else" } } as never);
+  expect(h.service.api.prestigeLevelFor("someone-else")).toBe(0);
+  h.service.dispose();
+});

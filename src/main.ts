@@ -163,7 +163,7 @@ import {
   });
   const { ctx, outlinedWorldText, fillWorldText, pixelCircle, roundRect, drawActorShadow } = canvasRuntime;
   const coop = window.wildstatCoop ?? window.wildwoodCoop ?? null;
-  if (coop) bindPlayerNameTags({ prefix: (identity) => coop.playerNamePrefix(identity), revision: () => coop.playerNameTagsRevision(), prestigeLevel: (identity) => identity === coop.localIdentity?.() ? coop.prestige?.()?.level ?? 0 : 0 });
+  if (coop) bindPlayerNameTags({ prefix: (identity) => coop.playerNamePrefix(identity), revision: () => coop.playerNameTagsRevision(), prestigeLevel: (identity) => (identity && coop.prestigeLevelFor?.(identity)) || 0 });
   if (coop) bindAvatarFrames(coop.applyAvatarFrame);
   const gameplayReadyTelemetry = coop?.beginStartupTelemetryStage?.("gameplay-ready");
   let gameplayReadyRecorded = false;

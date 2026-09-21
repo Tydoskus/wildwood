@@ -381,6 +381,9 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     dependencies.notify();
   }
 
+  // Every prestiged player's level, so the badge beside a name resolves for
+  // anyone on screen, not only for the local player whose full record we keep.
+  const prestigeLevelByIdentity = new Map<string, number>();
   function upsertPrestige(row: {
     identity: Identity;
     level: number;
@@ -388,7 +391,9 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     peakPower: number;
     prestigedAt: { microsSinceUnixEpoch: bigint };
   }) {
-    if (row.identity.toHexString() !== dependencies.localIdentity()) return;
+    const identity = row.identity.toHexString();
+    if (row.level > 0) prestigeLevelByIdentity.set(identity, row.level); else prestigeLevelByIdentity.delete(identity);
+    if (identity !== dependencies.localIdentity()) { dependencies.notify(); return; }
     localPrestige = {
       level: row.level,
       perkPoints: row.perkPoints,
@@ -399,7 +404,9 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   }
 
   function removePrestige(row: { identity: Identity }) {
-    if (row.identity.toHexString() !== dependencies.localIdentity()) return;
+    const identity = row.identity.toHexString();
+    prestigeLevelByIdentity.delete(identity);
+    if (identity !== dependencies.localIdentity()) { dependencies.notify(); return; }
     localPrestige = null;
     dependencies.notify();
   }
@@ -675,6 +682,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       research: () => ({ ...localResearch }),
       activeResearch: () => activeResearch ? { ...activeResearch } : null,
       prestige: () => localPrestige ? { ...localPrestige } : null,
+      prestigeLevelFor: (identity: string) => prestigeLevelByIdentity.get(identity) ?? 0,
       prestigePerks: (): PlayerPrestigePerks => localPrestigePerks
         ? { ...localPrestigePerks }
         : { keenEdge: 0, doubleStrike: 0, splitShot: 0, riposte: 0 },
@@ -914,6 +922,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       localResearch = createEmptyResearchRanks();
       activeResearch = null;
       localPrestige = null;
+      prestigeLevelByIdentity.clear();
       localPrestigePerks = null;
       activeItemUpgrades.clear();
       balanceApologyGiftAmount = 0n;
@@ -951,6 +960,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       localResearch = createEmptyResearchRanks();
       activeResearch = null;
       localPrestige = null;
+      prestigeLevelByIdentity.clear();
       localPrestigePerks = null;
       activeItemUpgrades.clear();
       balanceApologyGiftAmount = 0n;

@@ -119,6 +119,7 @@ type ExpectedApiKey =
   | "shareDuelReplay"
   | "research"
   | "prestige"
+  | "prestigeLevelFor"
   | "prestigeAccount"
   | "prestigePerks"
   | "spendPrestigePerkPoint"

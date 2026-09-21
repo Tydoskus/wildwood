@@ -396,7 +396,9 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.playerProgress.where((progress) => progress.identity.eq(dependencies.identity)),
       tables.playerResearch.where((research) => research.identity.eq(dependencies.identity)),
       tables.activeResearch.where((research) => research.identity.eq(dependencies.identity)),
-      tables.playerPrestige.where((prestige) => prestige.identity.eq(dependencies.identity)),
+      // Whole table, not only our row: the level badge beside every name needs
+      // everyone's. One small row per prestiged player.
+      tables.playerPrestige,
       tables.playerPrestigePerk.where((prestigePerk) => prestigePerk.identity.eq(dependencies.identity)),
       tables.playerItemUpgrade.where((upgrade) => upgrade.identity.eq(dependencies.identity)),
       tables.activeItemUpgrade.where((upgrade) => upgrade.identity.eq(dependencies.identity)),
