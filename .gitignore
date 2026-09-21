@@ -53,6 +53,3 @@ art-source/unity-workspace/**
 # Local profiling exports and machine-specific test captures #
 #############################################################
 local-data/**
-
-# Local sharding inspection bindings
-scripts/sharding/bindings/

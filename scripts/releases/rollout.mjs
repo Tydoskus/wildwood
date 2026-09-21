@@ -1,20 +1,9 @@
 import { setTimeout as delay } from "node:timers/promises";
 
-export async function mapLimit(values, limit, run) {
-  let next = 0, failure;
-  await Promise.all(Array.from({ length: Math.min(limit, values.length) }, async () => {
-    while (!failure && next < values.length) {
-      const index = next++;
-      try { await run(values[index], index); } catch (error) { failure ??= error; }
-    }
-  }));
-  if (failure) throw failure;
-}
-
 export function createReleaseApi({ host, database, token, fetchImpl = fetch, allowClientBreak = false, sleep = delay }) {
   if (!token || !database) throw new Error("Set WILDSTAT_ROOT_DATABASE and WILDSTAT_SHARD_OPERATOR_TOKEN.");
   const endpoint = name => `${host}/v1/database/${encodeURIComponent(name)}`;
-  // A rollout uploads a five-megabyte bundle to a hundred databases, twice, and
+  // A publish uploads a five-megabyte bundle twice (check, then publish), and
   // the gateway sheds one now and then: a 502 here came back 200 on a direct
   // retry seconds later. Retry the host's own failures (5xx, timeouts) with
   // room to ride out a busy spell; a 4xx is the module's considered answer and
@@ -62,8 +51,8 @@ export function createReleaseApi({ host, database, token, fetchImpl = fetch, all
       const result = await this.preflight(name, program);
       // Compatible refuses a plan that breaks clients however the caller feels
       // about it; BreakClients is the acknowledgement, and the token from the
-      // recheck above is its proof. Escalate per database, so a map whose own
-      // plan is compatible still publishes under the stricter policy.
+      // recheck above is its proof. Ask for it only when the plan needs it, so
+      // a compatible plan still publishes under the stricter policy.
       const policy = result.break_clients ? "BreakClients" : "Compatible";
       await request(name, `?host_type=Js&clear=false&policy=${policy}&token=${encodeURIComponent(result.token)}`, { method: "PUT", body: program });
     },
@@ -75,11 +64,6 @@ export function createReleaseApi({ host, database, token, fetchImpl = fetch, all
       ]);
       const acknowledged = new Set(ready.map(row => String(row[0])));
       return players.filter(row => !acknowledged.has(String(row[0]))).length;
-    },
-    async stageMapProgram(program) {
-      const size = 150_000, count = Math.ceil(program.length / size);
-      for (let part = 0; part < count; part++) await call("stage_shard_program", [part, count, program.slice(part * size, (part + 1) * size)]);
-      await call("configure_shard_coordinator", [host, token, ""]);
     },
   };
 }

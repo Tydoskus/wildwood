@@ -33,18 +33,18 @@ This is an operator workflow requiring authorized database and authentication
 administration. Do not label a request complete just because the email arrived.
 
 - Identify the registered identity and any linked guest identities. Prevent a live
-  session, map lease, or queued shard result from restoring deleted account state.
+  session or pending save from restoring deleted account state.
 - Remove the authentication account through SpacetimeAuth administration and
   revoke its active access. Do not delete the player's separate Google account.
-- Remove associated player data from the root database and every applicable map
-  shard: profile, progress, inventory, research, currency, saved locations,
+- Remove associated player data from the root database (and from any retired
+  map-shard database that still exists on Maincloud): profile, progress, inventory, research, currency, saved locations,
   rankings, social/guild associations, messages/reply evidence, reports, sessions,
   diagnostics, purchase-service records, and identity-linked migration backups.
 - Request corresponding deletion from providers where the developer cannot
   directly remove the data. Record and communicate any legitimate retention
   exception and its period. Do not invent a provider backup-expiration deadline.
 - Verify absence through owner-authorized queries and check that reconnecting or
-  replaying old shard messages does not restore the account. Preserve other
+  replaying a pending save does not restore the account. Preserve other
   players' independent records and shared guilds.
 - Notify the requester when complete and state any remaining retention exception.
   A minimal support record may be retained while needed for the request or a
@@ -56,7 +56,7 @@ The `removePlayerIdentityData` server helper is not a complete standalone accoun
 deletion API. Its exposed `devDeleteLegacyPlayer` caller intentionally refuses
 normal registered accounts. Do not remove those legacy safety checks or use
 Reset Progress as account deletion. A verified request for a normal account needs
-an owner-authorized targeted maintenance operation, including the provider and
-map-shard steps above. Test that operation on fixtures before touching live data.
+an owner-authorized targeted maintenance operation, including the provider
+steps above. Test that operation on fixtures before touching live data.
 
 No real player data was deleted as part of creating the policy/request pages.

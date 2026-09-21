@@ -69,6 +69,12 @@ bounded and send it only when membership changes.
 
 ## Follow-up decisions
 
+Every player is on one database (see "One database" in
+[SPACETIME.md](SPACETIME.md)), so the `map` and `capped` lanes are bounded by
+the per-map subscription filter (`WHERE map_id = <current map>` on indexed
+tables), not by a separate map database. Measured 2026-09-21: 350 realistic
+players on one map cost about 0.15-0.20 cores locally.
+
 If steady traffic remains above 2 KB/s, use the isolation result:
 
 1. High `core`: trim global/core subscriptions or large self-row updates.

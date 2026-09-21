@@ -29,13 +29,14 @@ will postpone rather than assume they saved.
 The prepared web artifact is tested once, retained for seven days, and deployed
 without repeating installation, tests, or compilation. Server artifacts are
 copied and SHA-256 checked before use. The last released commit is required so
-client-only edits leave every server alone. All shared/server code participates
-in both server bundles, so those changes conservatively update root and maps.
+client-only edits leave the server alone. Any change under `shared/` or
+`spacetimedb/` republishes the one database.
 
 ## Announce and roll out
 
 Set `WILDSTAT_ROOT_DATABASE` and `WILDSTAT_SHARD_OPERATOR_TOKEN` in the environment
-(the same operator credentials as shard configuration). Do not put tokens in
+(the database owner's credential; the variable name predates the single-database
+model and is kept so existing shells keep working). Do not put tokens in
 arguments, source, or the plan file.
 
 ```
@@ -52,8 +53,7 @@ an explicit time must still be at least 30 seconds ahead after those checks.
   reward batches, cutscene rewards, and loadout saves, then acknowledge the release.
   Online players must acknowledge within 30 seconds or the rollout postpones.
 - Changed servers publish without clearing data, with client compatibility enforced.
-  Map publishes use at most three concurrent requests and update the template for
-  newly provisioned maps too. Failed/manual/client-breaking migrations stop the run.
+  There is one database to publish. Failed/manual/client-breaking migrations stop the run.
 - Server releases publish backend changes before a client can request new tables.
   Existing compatible clients resume as soon as server work finishes; web artifact
   distribution happens afterward and does not extend their pause. Client-only

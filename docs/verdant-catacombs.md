@@ -16,6 +16,6 @@ Connected burial galleries, mossy stone floors, overgrown ruins, and luminous mu
 
 Gravebloom alternates three telegraphed root arms with six staggered spore pods around its target. Gaps between the roots and the center of the pod ring allow movement-based avoidance. Shared ability timing synchronizes multiplayer attacks.
 
-The map is included in asset loading, the guide, auto-farm target selection, home return travel, map editing, balance tools, and map-shard boss exports.
+The map is included in asset loading, the guide, auto-farm target selection, home return travel, map editing, and balance tools.
 
-This update uses protocol 99 and requires matching root/map server modules and client assets when released. Visual review is performed by the user.
+This update uses protocol 99 and requires the matching server module and client assets when released. Visual review is performed by the user.

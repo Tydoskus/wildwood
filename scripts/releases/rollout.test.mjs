@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createReleaseApi, executeRollout, mapLimit } from "./rollout.mjs";
+import { createReleaseApi, executeRollout } from "./rollout.mjs";
 import { releaseScope } from "./cli.mjs";
 function fixture() {
   let clock = 0;
@@ -16,7 +16,7 @@ describe("prepared release orchestration", () => {
     expect(timing.interruptionMs).toBe(1200);
   });
   it("resumes compatible clients before distributing a backend-dependent web build", async () => {
-    const f = fixture(); f.plan.scope = { root: true, maps: true };
+    const f = fixture(); f.plan.scope = { root: true };
     await executeRollout(f.plan, f.d);
     const completionIndex = f.d.phase.mock.calls.findIndex(args => args[1] === "complete");
     expect(f.d.deployServers.mock.invocationCallOrder[0]).toBeLessThan(f.d.phase.mock.invocationCallOrder[completionIndex]);
@@ -32,31 +32,25 @@ describe("prepared release orchestration", () => {
     await expect(executeRollout(f.plan, f.d)).rejects.toThrow("failed"); expect(f.d.deployServers).not.toHaveBeenCalled();
     expect(f.d.phase.mock.calls.at(-1)[1]).toBe("cancelled");
   });
-  it("leaves every server alone for client-only changes", () => {
-    expect(releaseScope(["src/main.ts", "public/assets/wildstat/game.css"])).toEqual({ root: false, maps: false });
-    expect(releaseScope(["shared/rules.ts"]).maps).toBe(true);
+  it("leaves the server alone for client-only changes", () => {
+    expect(releaseScope(["src/main.ts", "public/assets/wildstat/game.css"])).toEqual({ root: false });
+    expect(releaseScope(["shared/rules.ts"]).root).toBe(true);
+    expect(releaseScope(["spacetimedb/src/index.ts"]).root).toBe(true);
   });
   it("rejects destructive or client-breaking plans before publishing", async () => {
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ AutoMigrate: { token: "t", break_clients: true } }) }));
     const api = createReleaseApi({ host: "https://example.test", database: "game", token: "fake", fetchImpl });
-    await expect(api.publish("map", "code")).rejects.toThrow("client-compatibility"); expect(fetchImpl).toHaveBeenCalledOnce();
+    await expect(api.publish("game", "code")).rejects.toThrow("client-compatibility"); expect(fetchImpl).toHaveBeenCalledOnce();
   });
   it("uses compatible publishing with clear=false", async () => {
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ AutoMigrate: { token: "t", break_clients: false } }) }));
     const api = createReleaseApi({ host: "https://example.test", database: "game", token: "fake", fetchImpl });
-    await api.publish("map", "code");
+    await api.publish("game", "code");
     expect(fetchImpl.mock.calls[1][0]).toContain("clear=false&policy=Compatible");
-  });
-  it("bounds simultaneous map publishes and stops scheduling work after failure", async () => {
-    let active = 0, peak = 0;
-    await mapLimit([1,2,3,4,5], 2, async () => { active++; peak = Math.max(peak, active); await Promise.resolve(); active--; });
-    expect(peak).toBe(2);
-    const run = vi.fn(async () => { throw new Error("failed"); });
-    await expect(mapLimit([1,2,3,4,5], 2, run)).rejects.toThrow("failed"); expect(run).toHaveBeenCalledTimes(2);
   });
 });
 
-describe("transient host failures during a hundred-database rollout", () => {
+describe("transient host failures during a publish", () => {
   const ok = body => ({ ok: true, status: 200, json: async () => body });
   function api(responses) {
     const calls = [];
@@ -65,27 +59,27 @@ describe("transient host failures during a hundred-database rollout", () => {
   }
   const passing = ok({ AutoMigrate: { break_clients: false, token: "x" } });
 
-  it("retries a 502 rather than abandoning the remaining databases", async () => {
+  it("retries a 502 rather than abandoning the publish", async () => {
     const f = api([{ ok: false, status: 502 }, passing]);
-    await expect(f.api.preflight("shard", "program")).resolves.toMatchObject({ break_clients: false });
+    await expect(f.api.preflight("db", "program")).resolves.toMatchObject({ break_clients: false });
     expect(f.calls).toHaveLength(2);
   });
 
   it("retries a dropped connection", async () => {
     const f = api([new Error("fetch failed"), passing]);
-    await expect(f.api.preflight("shard", "program")).resolves.toMatchObject({ break_clients: false });
+    await expect(f.api.preflight("db", "program")).resolves.toMatchObject({ break_clients: false });
     expect(f.calls).toHaveLength(2);
   });
 
   it("does not retry a 4xx, which is the module's own answer", async () => {
     const f = api([{ ok: false, status: 401 }]);
-    await expect(f.api.preflight("shard", "program")).rejects.toThrow("HTTP 401");
+    await expect(f.api.preflight("db", "program")).rejects.toThrow("HTTP 401");
     expect(f.calls).toHaveLength(1);
   });
 
   it("gives up after five attempts and names the last failure", async () => {
     const f = api(Array.from({ length: 5 }, () => ({ ok: false, status: 503 })));
-    await expect(f.api.preflight("shard", "program")).rejects.toThrow("HTTP 503");
+    await expect(f.api.preflight("db", "program")).rejects.toThrow("HTTP 503");
     expect(f.calls).toHaveLength(5);
   });
 
@@ -122,7 +116,7 @@ describe("the policy a publish is sent under", () => {
     expect(put).toContain("token=0xabc");
   });
 
-  it("keeps the stricter policy for a database whose own plan is compatible", async () => {
+  it("keeps the stricter policy for a compatible plan even when a break is allowed", async () => {
     const f = publisher(false, true);
     await f.api.publish("db", "program");
     expect(f.urls.find(url => url.startsWith("PUT "))).toContain("policy=Compatible");

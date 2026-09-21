@@ -1,5 +1,7 @@
 # Home travel cost review — September 15, 2026
 
+> Note (2026-09-21): written while each map ran as its own shard database. Map sharding has since been removed and every player runs on the root, so mentions of shards, admissions and shard routing below are historical. See "Why sharding was removed" in [SPACETIME.md](SPACETIME.md).
+
 ## Current path
 
 The client drains pending enemy rewards before change_map. Home saves the departure point and takes the normal transitionPlayerMap path: player snapshot update, motion reset, identity/marker updates, and schedule checks. Entering Home releases the combat shard, adjusts its occupant count, invalidates admission/snapshot state and installs a transfer barrier. Returning allocates/adopts a shard admission again, and the client waits for its connection, protocol registration, admission and hydration. Home movement is handled by the root even though no other player sees it.

@@ -5,7 +5,7 @@ import { readFile, writeFile, mkdir, copyFile } from "node:fs/promises";
 import { resolve, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
-import { createReleaseApi, executeRollout, mapLimit } from "./rollout.mjs";
+import { createReleaseApi, executeRollout } from "./rollout.mjs";
 import { compareVersions } from "../release-live.mjs";
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const digest = bytes => createHash("sha256").update(bytes).digest("hex");
@@ -19,8 +19,7 @@ async function run(command, args, capture = false) {
   });
 }
 export function releaseScope(paths) {
-  const server = paths.some(path => /^(shared\/|spacetimedb\/|spacetimedb-map\/)/.test(path));
-  return { root: server, maps: server };
+  return { root: paths.some(path => /^(shared\/|spacetimedb\/)/.test(path)) };
 }
 async function workflow(name, fields, ticket) {
   await run("gh", ["workflow", "run", name, ...Object.entries({ ...fields, ticket }).flatMap(([key, value]) => ["-f", `${key}=${value}`])]);
@@ -79,8 +78,6 @@ async function prepare(options) {
     await run("npx", ["tsc", "--noEmit", "-p", "spacetimedb/tsconfig.json"]);
     await run("spacetime", ["build", "--module-path", "spacetimedb"]);
     await artifact("root", resolve(root, "spacetimedb/dist/bundle.js"));
-    await run("spacetime", ["build", "--module-path", "spacetimedb-map"]);
-    await artifact("maps", resolve(root, "spacetimedb-map/dist/bundle.js"));
   }
   for (const platform of ["android", "ios"]) {
     if (!options[platform]) continue;
@@ -95,7 +92,7 @@ async function prepare(options) {
   await artifact("webVersion", resolve(directory, "web/version.json"));
   const file = resolve(directory, "plan.json");
   await writeFile(file, JSON.stringify(plan, null, 2));
-  console.log(`Ready: ${file}\nServer changes: ${plan.scope.root ? "root and maps" : "none"}. No update has been announced.`);
+  console.log(`Ready: ${file}\nServer changes: ${plan.scope.root ? "yes" : "none"}. No update has been announced.`);
 }
 async function rollout(options) {
   if (!options.plan) throw new Error("Pass --plan from release:prepare.");
@@ -104,12 +101,9 @@ async function rollout(options) {
   const host = process.env.WILDSTAT_RELEASE_HOST ?? "https://maincloud.spacetimedb.com";
   const database = process.env.WILDSTAT_ROOT_DATABASE;
   const api = createReleaseApi({ host, database, token: process.env.WILDSTAT_SHARD_OPERATOR_TOKEN });
-  const programs = {};
-  for (const key of ["root", "maps"]) if (plan.artifacts[key]) programs[key] = await readFile(plan.artifacts[key].path, "utf8");
-  // Every currently ready map is checked before the countdown starts.
-  const maps = plan.scope.maps ? (await api.sql("SELECT database_name FROM map_shard WHERE state = 'ready'")).map(row => row[0]) : [];
-  if (programs.root) await api.preflight(database, programs.root);
-  await mapLimit(maps, 3, name => api.preflight(name, programs.maps));
+  const program = plan.artifacts.root ? await readFile(plan.artifacts.root.path, "utf8") : null;
+  // The server is checked before the countdown starts.
+  if (program) await api.preflight(database, program);
   plan.startsAt = options.at ? Date.parse(options.at) : Date.now() + 5 * 60_000;
   if (!Number.isFinite(plan.startsAt) || plan.startsAt < Date.now() + 30_000) throw new Error("Update time must be at least 30 seconds in the future.");
   await writeFile(file, JSON.stringify(plan, null, 2));
@@ -125,13 +119,9 @@ async function rollout(options) {
       if (!response.ok || (await response.json()).version !== plan.version) throw new Error("The prepared client is not available yet. Client distribution needs a retry; compatible server sessions can continue.");
     },
     async deployServers() {
-      if (!programs.root) return;
-      console.log("Saved progress confirmed. Updating server programs.");
-      await api.publish(database, programs.root);
-      // Update the template too, so newly provisioned maps use this same build.
-      await api.stageMapProgram(programs.maps);
-      const currentMaps = (await api.sql("SELECT database_name FROM map_shard WHERE state = 'ready'")).map(row => row[0]);
-      await mapLimit(currentMaps, 3, name => api.publish(name, programs.maps));
+      if (!program) return;
+      console.log("Saved progress confirmed. Updating the server.");
+      await api.publish(database, program);
     },
   });
   await writeFile(resolve(file, "../timings.json"), JSON.stringify(timings, null, 2));

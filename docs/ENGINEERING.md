@@ -36,7 +36,7 @@ Keep static definitions and pure calculations outside `main.ts`. `main.ts` is a 
 - Run `npm run typecheck:coop`, `npm run test:unit`, `npm run build:client`, `npm run check:release`, and `git diff --check` before release.
 - Run `npm run test:unit` when changing combat, inventory, duel replay, or progress persistence rules.
 - Use the prepared countdown flow in [scheduled-releases.md](scheduled-releases.md) for planned releases after its one-time activation. `npm run release:live` remains the immediate client-only hotfix path. Use `npm run release -- <version>` only when preparing release/cache versions manually, then add the matching entry in `src/app/changelog.ts`.
-- For incompatible server changes, update the shared protocol constant, publish Maincloud and matching map shards, regenerate bindings when reducer/schema signatures change, then deploy the matching client.
+- For incompatible server changes, update the shared protocol constant, publish the one Maincloud database (`npm run spacetime:publish:live`), regenerate bindings when reducer/schema signatures change, then deploy the matching client.
 - Never publish production with destructive database flags.
 - Keep pending saves scoped to player identity. Never share browser-pending progress across guest and account identities.
 - Never reuse `player_research.frontier_mastery`. It is a zeroed, migration-only column retained because Maincloud cannot remove it non-destructively; no client or gameplay rule may read it.
@@ -82,20 +82,17 @@ Consequences to keep in mind before changing boss code:
 Measured against live Maincloud while the world held 268 players. Recorded so
 the next person starts from numbers rather than guesses.
 
-1. **Invisible players hold shard slots.** `assignMapShard` runs before any
-   visibility check, so a player with multiplayer off still occupies a slot and
-   a shard connection. Sampled occupancy: cloudspire 20 occupants / 1 visible,
-   advanced_lava_wastes 19 / 1, moonfen 19 / 1, beginner_desert 18 / 4 — roughly
-   90% of capacity held by players who can neither see nor be seen. This is why
-   the fleet needs so many shards for so few interacting players, and it is the
-   largest remaining cost. It is also the riskiest change: shard assignment
-   caused an outage on 2026-09-19, so treat it as its own piece of work.
+1. **Map sharding was the largest cost and is gone (2026-09-21).** Invisible
+   players held shard slots (cloudspire 20 occupants / 1 visible), so 99 shard
+   databases ran at 17% occupancy. Every player now runs on the root; see "Why
+   sharding was removed" in [SPACETIME.md](SPACETIME.md).
 2. **`player_name_tag` is subscribed whole and unfiltered** in the base
    subscription. It grows with every player who has ever set a guild or dev tag
    and is scoped to neither the current map nor visible players.
 3. **`publishMapFrames` reads every `playerMotion` row** when any map has two or
    more visible players. Measured as negligible — at most 20 rows at 1 Hz per
-   shard, and the shard only publishes while two players can see each other. The
+   map when measured, and a map only publishes while two players can see each
+   other. The
    comment in place already rejects an index here; adding one would cost writes
    on a hot table to save nothing. Do not "fix" it without new measurements.
 4. **Per-user view re-evaluation, not call count, drives expensive reducers.**
@@ -107,17 +104,12 @@ the next person starts from numbers rather than guesses.
    profiles under 10 µs; rows under 1 KB. Reducing `change_map` from 45–50
    database calls to 34–42 (commit 5ef0f24b) changed per-call cost by only 2.5%
    (24.1 → 23.5 ms), so call count is not the driver. The three expensive
-   reducers share: they write `map_shard` (occupants) and `map_shard_member`,
-   read by the per-user view `myMapShardRoute`. SpacetimeDB re-evaluates a
-   per-user view for every subscriber whose read set changed (docs: "must
-   compute and track the view separately for each subscriber"), and every
-   player seated on a shard has that shard's row in their read set, so each
-   occupancy tick re-ran the view for everyone on the shard. Fix: public table
-   `map_shard_route` (one row per seated player, written by `assignMapShard`/
-   `releaseMapShard`, refreshed when a shard or member becomes ready;
-   backfilled by module migration 34). Clients subscribe to their own row. The
-   old view now reads only that one row; occupancy changes no longer touch
-   anything a client subscribes to. **Rule:** any table read by a per-user view
+   reducers shared writes to the (since removed) shard occupancy tables, which
+   a per-user view read. SpacetimeDB re-evaluates a per-user view for every
+   subscriber whose read set changed (docs: "must compute and track the view
+   separately for each subscriber"), so each occupancy tick re-ran the view for
+   everyone seated beside the writer. Removing sharding removed those tables
+   and that view. **Rule:** any table read by a per-user view
    is expensive to write; prefer a reducer-maintained table plus filtered
    subscription, or an anonymous view. Other audit targets in `spacetimedb/src/
    index.ts`: `myPlayerBlocks`, `myGemWallet`, `myMailboxV2`, `myMailbox`,
