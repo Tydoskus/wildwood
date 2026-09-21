@@ -4,18 +4,19 @@ import type { Identity } from "spacetimedb";
 import { startBaseSubscription, type BaseSubscriptionHandlers } from "./base-subscription";
 
 vi.mock("../../module_bindings", () => ({ tables: new Proxy({}, {
-  get: (_target, name) => ({ name, where: () => ({ name }) }),
+  get: (_target, name) => ({ name, where: () => ({ name, filtered: true }) }),
 }) }));
 
 function fixture() {
-  const requests: { queries: { name: string }[]; applied: () => void }[] = [];
+  const requests: { queries: { name: string; filtered?: boolean }[]; applied: () => void }[] = [];
   const rows: Record<string, unknown[]> = {};
   const handled: string[] = [];
+  const bound = new Set<string>();
   const handlers = new Proxy({}, { get: (_target, name) => () => handled.push(String(name)) }) as BaseSubscriptionHandlers;
   const connection = {
     db: new Proxy({}, { get: (_target, name) => ({
       iter: () => rows[String(name)] ?? [],
-      onInsert() {}, onUpdate() {}, onDelete() {},
+      onInsert() { bound.add(String(name)); }, onUpdate() {}, onDelete() {},
     }) }),
     subscriptionBuilder() {
       let applied = () => {};
@@ -36,8 +37,13 @@ function fixture() {
     onLoading() {}, isCurrent: () => true, isPresenceSubscriptionTransitioning: () => false,
     batch: fn => fn(), handlers, onHydrated: ready, onError: error => { throw error; }, afterHydrated() {},
   });
-  return { requests, rows, handled, ready, subscription };
+  return { requests, rows, handled, bound, ready, subscription };
 }
+
+/** Every table a map shard binds. The root must bind them too, and must not
+ * pull them for anyone but us: the per-map rows are the presence service's. */
+const SHARD_BOUND_TABLES = ["player", "playerMotionIdentity", "playerMotionDetailFrame", "playerMapFrame", "playerDeathFrame", "bossHitResult"];
+const PER_MAP_TABLES = ["playerMotionDetailFrame", "playerMapFrame", "playerDeathFrame", "bossHitResult", "bossAttackFrame"];
 
 describe("account and gameplay query scopes", () => {
   it("loads only the saved character/account on the sign-in screen", () => {
@@ -56,6 +62,31 @@ describe("account and gameplay query scopes", () => {
     expect(f.handled).toContain("cutsceneHistory");
     expect(f.ready).toHaveBeenCalledOnce();
     f.subscription.refresh(true, "water_reach", false);
+    expect(f.requests).toHaveLength(1);
+  });
+});
+
+describe("world state on the root connection", () => {
+  it("binds every table a map shard binds, so the root can be the world when there is no shard", () => {
+    const f = fixture();
+    f.subscription.refresh(true, "tutorial_forest", false);
+    for (const table of SHARD_BOUND_TABLES) expect(f.bound.has(table), table).toBe(true);
+  });
+
+  it("takes only our own player rows and leaves the per-map tables to the map subscription", () => {
+    const f = fixture();
+    f.subscription.refresh(true, "tutorial_forest", false);
+    const game = f.requests[0].queries;
+    // An unfiltered player or motion-identity query here would grow with every
+    // player online, not the ones on our map.
+    for (const name of ["player", "playerMotionIdentity"]) {
+      const queries = game.filter(q => q.name === name);
+      expect(queries.length, name).toBeGreaterThan(0);
+      expect(queries.every(q => q.filtered), name).toBe(true);
+    }
+    expect(game.filter(q => PER_MAP_TABLES.includes(q.name))).toEqual([]);
+    // A map change swaps the presence service's queries, not this set.
+    f.subscription.refresh(true, "beginner_desert", false);
     expect(f.requests).toHaveLength(1);
   });
 });

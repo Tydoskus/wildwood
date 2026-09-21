@@ -449,3 +449,35 @@ it("restores regional presence after repeated home visits and ignores departed c
   }
   s.client.clear();
 });
+
+it("lets the root carry a map change when sharding is off: no shard socket, no world reset", async () => {
+  const s = setup(); s.apply();
+  expect(s.client.enabled()).toBe(false);
+  expect(s.client.port.connection()).toBe(s.root);
+  // Our own player row moving maps is the whole signal on the root; the presence
+  // service swaps its per-map queries from it on this same connection.
+  for (const mapId of ["tutorial_forest", "beginner_desert", "home_exterior", "tutorial_forest"]) {
+    const row = { mapId, identity: {} };
+    s.root.db.player.iter = () => [row];
+    s.client.rootHandlers.player(row);
+    expect(s.handlers.player).toHaveBeenLastCalledWith(row);
+    await Promise.resolve();
+  }
+  expect(mock.connections).toHaveLength(0);
+  expect(s.root.reducers.changeMap).not.toHaveBeenCalled();
+  expect(s.resetWorld).not.toHaveBeenCalled();
+  expect(s.recoverSession).not.toHaveBeenCalled();
+  expect(s.client.port.connection()).toBe(s.root);
+  expect(s.client.ready()).toBe(true);
+  s.client.clear();
+});
+
+it("binds the same world tables on a shard that the root binds without one", async () => {
+  const s = setup(); s.apply(); s.route(forest); await Promise.resolve();
+  const shard = await hydrateLatest();
+  const boundOnShard = Object.keys(shard.db).filter(table => typeof shard.db[table].insert === "function").sort();
+  // Keep in step with SHARD_BOUND_TABLES in base-subscription.test.ts, which
+  // proves the root binds each of these too.
+  expect(boundOnShard).toEqual(["bossHitResult", "player", "playerDeathFrame", "playerMapFrame", "playerMotionDetailFrame", "playerMotionIdentity"]);
+  s.client.clear();
+});

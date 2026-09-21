@@ -182,3 +182,91 @@ it("holds speed changes off the wire while the eye is off and flushes once prese
   expect(sent).toContain("speed sync");
   vi.restoreAllMocks();
 });
+
+/** The world tables a map shard binds. On the root, presence owns the per-map
+ * ones; the base subscription holds our own player/motion-identity rows. */
+const MAP_WORLD_QUERY_TABLES = ["player_motion_identity", "player_death_frame", "player_map_frame", "player_motion_detail_frame"];
+
+function rootConnectionFixture() {
+  const subscriptions: any[] = [];
+  const connection = {
+    isActive: true, reducers: { setPlayerMotionInterest: vi.fn() },
+    db: { playerMotionIdentity: { iter: () => [] } },
+    subscriptionBuilder() {
+      const handle: any = {
+        active: false, ended: false, isActive: () => handle.active, isEnded: () => handle.ended,
+        unsubscribe: vi.fn(() => { handle.active = false; handle.ended = true; }),
+        unsubscribeThen: vi.fn((next: () => void) => { handle.active = false; handle.ended = true; next(); }),
+        onApplied(fn: () => void) { handle.applied = () => { handle.active = true; fn(); }; return handle; },
+        onError() { return handle; },
+        subscribe(queries: { toSql(): string }[]) { handle.sql = queries.map(query => query.toSql()); subscriptions.push(handle); return handle; },
+      };
+      return handle;
+    },
+  };
+  return { connection, subscriptions };
+}
+
+it("swaps the map's world queries on the one root connection when the player changes map", () => {
+  const identity = new Identity("1".repeat(64));
+  const { connection, subscriptions } = rootConnectionFixture();
+  const connectionLookups = vi.fn(() => connection);
+  const presence = createPresenceService({
+    localIdentity: () => identity.toHexString(), localDbIdentity: () => identity,
+    hydrationReady: () => true, worldEntryReady: () => true, sessionConflict: () => false, authTabId: () => "tab",
+    developer: { api: { developerPresenceVisible: () => true }, observePresence() {} },
+    directory: { api: { playerDisplayName: () => "" }, tables: { upsertProfile() {}, removeProfile() {}, upsertAccountStatus() {}, removeAccountStatus() {} } },
+    reducers: { connection: connectionLookups, protocolBlocked: () => false, worldEntryBlocked: () => false,
+      sendReducer: (_name: string, run: any, _reject: any, accept: any) => { run(connection); accept?.(); } },
+    changes: { notify() {}, batch: (run: () => void) => run() },
+  } as any);
+  const ownRow = (mapId: string) => ({
+    identity, mapId, x: 100, y: 100, speed: 180, facing: 0, moving: false, motionEpoch: 1,
+    lastInputSequence: 1, isVisible: true, controllerTabId: "tab",
+  });
+  presence.tables.upsertPlayer(ownRow("tutorial_forest"));
+  presence.api.setRemotePlayersVisible(true);
+  expect(subscriptions).toHaveLength(2);
+  for (const handle of subscriptions) handle.applied();
+  const forest = subscriptions.flatMap(handle => handle.sql);
+  expect(forest.filter(sql => sql.includes("'tutorial_forest'"))).toHaveLength(3);
+
+  // The server moved us: our own player row now names the destination map.
+  presence.tables.upsertPlayer(ownRow("beginner_desert"));
+  expect(subscriptions).toHaveLength(4);
+  // Motion identities end the forest query set before the desert one starts
+  // (cache reference counts); the frame tables overlap and drop forest once
+  // the desert set is applied, so the minimap never goes dark.
+  expect(subscriptions[0].unsubscribeThen).toHaveBeenCalledOnce();
+  expect(subscriptions[1].unsubscribe).not.toHaveBeenCalled();
+  subscriptions[2].applied();
+  subscriptions[3].applied();
+  expect(subscriptions[1].unsubscribe).toHaveBeenCalledOnce();
+  const desert = subscriptions.slice(2).flatMap(handle => handle.sql);
+  expect(desert.join("\n")).not.toContain("tutorial_forest");
+  expect(desert.filter(sql => sql.includes(`"map_id" = 'beginner_desert'`))).toHaveLength(3);
+  expect(desert.map(sql => sql.match(/FROM "([a-z_]+)"/)![1]).sort()).toEqual([...MAP_WORLD_QUERY_TABLES].sort());
+  expect(presence.activeSubscriptionCount()).toBe(2);
+  // Every subscription rode the connection we already had; nothing asked for another.
+  expect(connectionLookups.mock.results.every(result => result.value === connection)).toBe(true);
+});
+
+it("never subscribes to world state without a map or recipient filter", () => {
+  const identity = new Identity("2".repeat(64));
+  const { connection, subscriptions } = rootConnectionFixture();
+  const presence = createPresenceService({
+    localIdentity: () => identity.toHexString(), localDbIdentity: () => identity,
+    hydrationReady: () => true, worldEntryReady: () => true,
+    reducers: { connection: () => connection, protocolBlocked: () => false, worldEntryBlocked: () => false,
+      sendReducer: (_name: string, run: any, _reject: any, accept: any) => { run(connection); accept?.(); } },
+    changes: { notify() {}, batch: (run: () => void) => run() },
+  } as any);
+  presence.api.setRemotePlayersVisible(true);
+  const queries = subscriptions.flatMap(handle => handle.sql as string[]);
+  expect(queries.map(sql => sql.match(/FROM "([a-z_]+)"/)![1]).sort()).toEqual([...MAP_WORLD_QUERY_TABLES].sort());
+  for (const sql of queries) {
+    // A query that scales with every player online, not the ones on our map,
+    // is the egress bomb this guards against.
+    expect(sql).toMatch(new RegExp(`WHERE .*("map_id" = 'tutorial_forest'|"recipient" = 0x${"2".repeat(64)})`));
+  }
+});
