@@ -67,3 +67,22 @@ it("blocks a guest after an impossible movement speed packet", () => {
     x: 4050, y: 4050, vx: 540, vy: 0, simulationTick: 2, motionEpoch: 1, sequence: 2,
   })).not.toThrow();
 });
+
+it("accepts the speed of the rank a player has just finished, which their client is still sending", () => {
+  // Every speed rejection on live was this: Move Speed research completes, the
+  // server's rank moves on, and the client's next packet still carries the
+  // previous rank's speed. It is slower than allowed, so it is not an exploit.
+  const f = crystalFixture();
+  f.seed("playerResearch", { identity: f.ctx.sender, moveSpeed: 6 });
+  const atRank = (rank: number) => 180 * (1 + rank * 0.02);
+
+  expect(() => f.run(server.setSpeed, { speed: atRank(6) })).not.toThrow();
+  expect(() => f.run(server.setSpeed, { speed: atRank(5) })).not.toThrow();
+  expect(f.db.player.identity.find(f.ctx.sender).speed).toBeCloseTo(atRank(5), 5);
+  // Several ranks behind is still only slower, and so is a standstill.
+  expect(() => f.run(server.setSpeed, { speed: atRank(0) })).not.toThrow();
+  expect(() => f.run(server.setSpeed, { speed: 0 })).not.toThrow();
+  // Faster than the rank allows remains refused, which is the whole point.
+  expect(() => f.run(server.setSpeed, { speed: atRank(7) })).toThrow("Unsupported player speed");
+  expect(() => f.run(server.setSpeed, { speed: -5 })).toThrow("Unsupported player speed");
+});

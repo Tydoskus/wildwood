@@ -144,6 +144,13 @@ export function patreonLinksDueRefresh<T extends { userId: string; attemptedAtMs
     .sort((left, right) => left.validUntilMs - right.validUntilMs)
     .slice(0, batch);
 }
+/** Ten minutes: often enough that a lapse is noticed the same hour, rarely
+ *  enough that a handful of links never troubles Patreon's rate limits. */
+export const PATREON_SWEEP_INTERVAL_MICROS = 10n * 60n * 1_000_000n;
+export function ensurePatreonSweep(ctx: any, scheduleAt: unknown) {
+  for (const _task of ctx.db.patreonSweepSchedule.iter()) return;
+  ctx.db.patreonSweepSchedule.insert({ scheduledId: 0n, scheduledAt: scheduleAt });
+}
 export function sweepPatreonLinks(ctx: ProcedureCtx<Schema>) {
   const due = ctx.withTx(tx => {
     if (!tx.db.patreonConfig.id.find(0)) return [];

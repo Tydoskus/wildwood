@@ -22,7 +22,11 @@ import { describe, expect, it } from "vitest";
 // review table added its registration line. Bodies live in kill-gems.ts and
 // enemy-defeats.ts; the raise is the schema surface alone.
 // 6_879: duel replay sharing added one reducer declaration and its separator.
-const MAX_LINES = 7_000;
+// 7_005: keeping supporter memberships current needs a schedule the server owns,
+// so the patreon_sweep_schedule table and the sweep_patreon_memberships
+// procedure had to join the schema surface. Both bodies live in patreon.ts,
+// including the row that seeds the schedule; the raise is the declarations alone.
+const MAX_LINES = 7_005;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

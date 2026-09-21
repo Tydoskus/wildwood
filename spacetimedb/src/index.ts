@@ -38,7 +38,7 @@ import { proceduralMapTables, proceduralBossKey, clearProceduralProgress, genera
 import { ingestStoreEvent } from "./gem-store-events";
 import { gemPurchaseTables } from "./gem-purchase-tables";
 import { patreonTables } from "./patreon-tables";
-import { beginPatreonLink as beginSupporterLink, refreshPatreon, sweepPatreonLinks, patreonStatus, unlinkPatreon, patreonCallback } from "./patreon";
+import { beginPatreonLink as beginSupporterLink, refreshPatreon, sweepPatreonLinks, ensurePatreonSweep, PATREON_SWEEP_INTERVAL_MICROS, patreonStatus, unlinkPatreon, patreonCallback } from "./patreon";
 import { requestPatreonSupport } from "./patreon-support";
 import { DEVELOPER_IDENTITY as DEVELOPER_IDENTITY_HEX } from "../../shared/developer-identity";
 import { allowedAvatarFrame, isAvatarFrame } from "../../shared/avatar-frames";
@@ -183,6 +183,7 @@ import {
   MAX_PLAYER_STAT,
   MIN_ATTACK_INTERVAL,
   movementSpeedsMatch,
+  MOVEMENT_SPEED_EPSILON,
   NAME_ADJECTIVES,
   NAME_CREATURES,
   PLAYER_BASE_HP,
@@ -3338,12 +3339,6 @@ function ensureMaintenanceSchedule(ctx: any) {
   });
 }
 
-const PATREON_SWEEP_INTERVAL_MICROS = 10n * 60n * 1_000_000n;
-function ensurePatreonSweepSchedule(ctx: any) {
-  for (const _task of ctx.db.patreonSweepSchedule.iter()) return;
-  ctx.db.patreonSweepSchedule.insert({ scheduledId: 0n, scheduledAt: ScheduleAt.interval(PATREON_SWEEP_INTERVAL_MICROS) });
-}
-
 function ensureMaintenanceSweepSchedule(ctx: any) {
   for (const _task of ctx.db.maintenanceSweepSchedule.iter()) return;
   ctx.db.maintenanceSweepSchedule.insert({
@@ -3661,7 +3656,7 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
   // guest token and creating a new guest account.
   if (defeatRestrictionError(ctx)) return;
   ensureMaintenanceSchedule(ctx);
-  ensurePatreonSweepSchedule(ctx);
+  ensurePatreonSweep(ctx, ScheduleAt.interval(PATREON_SWEEP_INTERVAL_MICROS));
   // Initialization and balance reconciliation run once per module version.
   runPendingModuleMigrations(ctx);
 
@@ -6134,10 +6129,16 @@ export const setSpeed = spacetimedb.reducer(
     // while checking ownership/equipment here and never saving a temporary bonus.
     const blackBootsEquipped = progress && feet === BLACK_BOOTS;
     const restingSpeed = expectedSpeed + (blackBootsEquipped ? BLACK_BOOTS_SPEED_BONUS : 0);
-    if (!movementSpeedsMatch(speed, expectedSpeed) && !movementSpeedsMatch(speed, restingSpeed)) {
+    // Bound the maximum rather than demanding one of two exact values. A Move
+    // Speed rank that has just finished leaves the client a beat behind: its
+    // next packet still carries the previous rank's speed, which is lower than
+    // the server now expects, and every rejection on live was exactly that.
+    // Asking to move slower than you are entitled to is not an exploit.
+    const maximumSpeed = Math.max(expectedSpeed, restingSpeed);
+    if (!Number.isFinite(speed) || speed < 0 || speed > maximumSpeed + MOVEMENT_SPEED_EPSILON) {
       // Name the account in the log; the message alone says nothing about who
       // sent it. The player-facing text stays put so the error still groups.
-      console.warn("Unsupported player speed", JSON.stringify({ identity: ctx.sender.toHexString(), speed, expectedSpeed, restingSpeed, feet, moveSpeedRank }));
+      console.warn("Unsupported player speed", JSON.stringify({ identity: ctx.sender.toHexString(), speed, expectedSpeed, restingSpeed, maximumSpeed, feet, moveSpeedRank }));
       throw new SenderError("Unsupported player speed");
     }
 
