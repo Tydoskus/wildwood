@@ -1320,17 +1320,19 @@
 
   /* Reads after the name and before the gender icon, matched to the power
      sword beside it. The level is the digit inside, so the box is sized in the
-     badge's own em and the tight margins keep it against the name. The padding
-     drops the digit onto the shield's body rather than its bounding box, which
-     sits high because the crest tapers to a point; a wide level simply
-     overhangs the sides rather than shrinking to fit. */
+     badge's own em and the tight margins keep it against the name. The box is
+     1/.64 of the digit because the overhead tag draws the digit at .64 of the
+     shield, and the two have to agree; a wide level overhangs the sides rather
+     than shrinking to fit. */
   .player-prestige-badge {
     display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center;
-    box-sizing: border-box; width: 1.9em; height: 1.9em; padding-top: .2em;
-    margin: 0 .12em 0 .18em; font-size: .72em; font-weight: 900; line-height: 1;
-    /* White on the game's own outline, inherited: the global rule already gives
-       every glyph the rounded face and a black stroke, so this sets neither. */
-    color: #fff; letter-spacing: 0;
+    width: 1.5625em; height: 1.5625em; margin: 0 .06em 0 .1em;
+    font-size: .876em; font-weight: 900; line-height: 1;
+    /* Keeps the global rounded face and black stroke, but not the global drop
+       shadow: it is offset down and right, and the overhead tag draws this
+       digit on a canvas with no shadow at all, so leaving it in made the same
+       number sit off-centre on the shield in chat and the HUD. */
+    color: #fff; letter-spacing: 0; text-shadow: none;
     background: url("ui/prestige-shield.svg") center / contain no-repeat;
     vertical-align: .05em; pointer-events: none; user-select: none;
   }

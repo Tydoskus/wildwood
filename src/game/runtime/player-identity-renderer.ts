@@ -300,7 +300,7 @@ export function createPlayerIdentityRenderer(options: {
     const showBadge = prestige > 0
       && Boolean(prestigeBadge.complete && prestigeBadge.naturalWidth > 0 && prestigeBadge.naturalHeight > 0);
     const badgeSize = showBadge ? OVERHEAD_PRESTIGE_BADGE_SIZE : 0;
-    const badgeGap = showBadge ? 2 : 0;
+    const badgeGap = showBadge ? 1 : 0;
     const labelWidth = nameWidth + badgeGap + badgeSize + genderIconGap + genderIconWidth;
     const textLeft = centerX - labelWidth / 2;
     const badgeLeft = textLeft + nameWidth + badgeGap;
