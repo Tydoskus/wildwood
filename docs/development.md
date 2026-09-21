@@ -281,10 +281,11 @@ that function, not the version list, is what keeps an old decoder out.
 ## Kill claim invariants
 
 - The client reports kills; the server decides what they are worth. Two
-  bounds apply to a regular-enemy claim, and only the first restricts:
+  bounds apply to a regular-enemy claim, and **neither restricts the session**:
   1. **Spawn wall** — a token bucket per player, map and species that refills at
      the map's spawn rate and banks `DEFEAT_BUDGET_WINDOW_SECONDS` of it.
-     Claiming past it is a violation and restricts the session, as before.
+     Claims above it are paid only up to it and written to
+     `enemy_defeat_review`.
   2. **Plausibility** — a second bucket that refills at the most kills per
      second this player's own combat can produce (one projectile kills at most
      one enemy; each enemy needs a whole number of hits; every hit a maximum
@@ -305,8 +306,21 @@ that function, not the version list, is what keeps an old decoder out.
   kill, so where the player stands when it arrives says nothing about where
   the kills happened. The map check (`Enemy defeats belong to another map`) is
   the location bound, and it runs before any of this.
+- **Only a report no real client could have sent restricts a session**: more
+  than `ENEMY_DEFEAT_BATCH_MAX` kills in one batch, which the client's own
+  `REGULAR_ENEMY_LOOT_BATCH_MAX` seal makes impossible. Everything else is
+  bounded and written down. Restricting on any violation kicked honest players:
+  every automatic revocation on live was `boss requested 1, accepted 0`, mostly
+  at sequence 1 or 2 — the first report of a fresh stream, which is exactly what
+  a portal round-trip produces. Bosses are personal (`PERSONAL_BOSS_COMBAT`), so
+  travelling back to a map re-presents one the earned-time clock has not paid
+  for yet; the claim earning nothing is the enforcement, and taking the session
+  on top of it was the bug. The same applies to a map round-trip starting a
+  fresh stream against a bucket the last visit drained.
 - `enemy_defeat_review` keeps the last `DEFEAT_REVIEW_FLAGS_PER_PLAYER` rows
-  per player for a person to read. Nothing acts on it automatically.
+  per player for a person to read. Nothing acts on it automatically. Both
+  bounds write there; `kind` says which one clipped (`spawn`, `damage`,
+  `boss-time`).
 - The boss combat-time window (`BOSS_REWARD_WINDOW_SECONDS`, 60) is a separate
   mechanism with its own spec in `boss-defeat-limits.test.ts`. Boss kills are
   reported the moment they happen, so a one-minute bank is honest there.

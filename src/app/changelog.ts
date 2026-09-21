@@ -3,6 +3,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "Fixed duels not showing up. Every duel fought since Riposte shipped was written in a format no client was cleared to receive, so neither duellist saw the fight.",
     "Your profile's stat list now shows every perk you have spent a point on, and Keen Edge is counted in the Critical Chance and Critical Damage rows instead of research alone.",
     "The stat list is tighter, so more of it fits without scrolling.",
+    "Fixed being kicked out with a \"kill report exceeded the server allowance\" message after a portal trip. A claim the server cannot pay for still earns nothing, but it no longer costs you your session.",
   ],
   "0.759": [
     "Split Shot works now: a chance for a swing to also reach a second enemy in range.",

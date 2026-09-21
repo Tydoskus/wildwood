@@ -5583,7 +5583,10 @@ export const recordEnemyDefeats = spacetimedb.reducer(
     const accepted = acceptEnemyDefeats(ctx, batch, player.mapId, earned => maximumBossCombatForProgress(ctx, earned));
     if (!accepted) return;
     const enforce = () => {
-      if (!accepted.violations.length) return;
+      // Only a report no real client could have sent. A clipped claim is
+      // already bounded and flagged for review; taking the session as well
+      // kicked honest players off a portal round-trip. See enemy-defeats.ts.
+      if (!accepted.restrict) return;
       const restriction = restrictDefeatSession(ctx, { mapId: batch.mapId, streamId: batch.streamId,
         sequence: batch.sequence.toString(), violations: accepted.violations });
       finishLifetimeSession(ctx, ctx.sender);

@@ -70,16 +70,19 @@ it("allows grouped kills and acknowledges excess without granting rewards across
   // A retry of the consumed report cannot later turn excess claims into rewards.
 
   f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + 4_000_000n);
-  expect(() => f.run(server.recordEnemyDefeats, next)).toThrow("DEFEAT_SESSION_COOLDOWN");
+  expect(() => f.run(server.recordEnemyDefeats, next)).not.toThrow();
   expect(f.db.playerProgress.identity.find(f.ctx.sender).damage).toBe(before);
-  expect(f.db.playerController.identity.find(f.ctx.sender)).toBeNull();
+  // Bounding the payout is the whole enforcement. Taking the session as well
+  // kicked honest players whose map round-trip outran the refilling bucket.
+  expect(f.db.defeatSessionRestriction.identity.find(f.ctx.sender)).toBeNull();
+  expect(f.db.playerController.identity.find(f.ctx.sender)).not.toBeNull();
 });
 it.each(["recordCombatCheckpoint", "recordRegularEnemyDefeats", "recordForestEnemyDefeat", "recordDesertEnemyDefeat", "recordSnowEnemyDefeat", "recordLavaEnemyDefeat"])("closes obsolete reward endpoint %s", reducer => {
   const f = fixture();
   expect(() => f.run((server as any)[reducer], { ...batch, count: 1, progress: { damage: 1e25 } })).toThrow("updated");
 });
 
-it("consumes a 100-kill Endless report exceeding the one-site capacity and blocks the session with its receipt committed", () => {
+it("consumes a 100-kill Endless report exceeding the one-site capacity and keeps the session with its receipt committed", () => {
   const f = fixture();
   f.patch("player", { mapId: "endless_1" });
   const definition = enemyDefeatDefinition("endless_1", "site:0")!;
@@ -89,8 +92,9 @@ it("consumes a 100-kill Endless report exceeding the one-site capacity and block
   const report = { ...batch, mapId: "endless_1", enemies: [{ enemy: "site:0", count: 100 }] };
   f.run(server.recordEnemyDefeats, report);
   expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(BigInt(capacity));
-  expect(() => f.run(server.recordEnemyDefeats, report)).toThrow("DEFEAT_SESSION_COOLDOWN");
+  expect(() => f.run(server.recordEnemyDefeats, report)).not.toThrow();
   expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(BigInt(capacity));
+  expect(f.db.defeatSessionRestriction.identity.find(f.ctx.sender)).toBeNull();
   expect(f.db.regularEnemyLootCursor.key.find(`${f.ctx.sender.toHexString()}:${report.streamId}`).sequence).toBe(1n);
 });
 
