@@ -6185,8 +6185,8 @@ export const configureSharding = spacetimedb.reducer(
       for (const member of ctx.db.mapShardMember.iter()) releaseMapShard(ctx, member.identity);
       for (const player of ctx.db.player.iter()) {
         const saved = ctx.db.playerLastLocation.identity.find(player.identity);
-        // Stop the row too: the allowance is measured from where the stored velocity would have carried this stale position.
-        const restored = { ...player, moving: false, dx: 0, dy: 0, vx: 0, vy: 0, lastInputAt: relocatedInputClock(ctx), ...(saved?.mapId === player.mapId
+        // Stop the row and forget its input sequence: the validator skips a player with no input yet, so whichever packet comes first anchors their true position.
+        const restored = { ...player, moving: false, dx: 0, dy: 0, vx: 0, vy: 0, lastInputSequence: 0, lastInputAt: relocatedInputClock(ctx), ...(saved?.mapId === player.mapId
           && !activeDuelFor(ctx, player.identity) ? { x: saved.x, y: saved.y, facing: saved.facing } : {}) };
         updateSnapshotRow(ctx, "player", restored); syncPlayerMotion(ctx, restored); syncPlayerMotionIdentity(ctx, restored);
       }
