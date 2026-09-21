@@ -327,13 +327,32 @@ that function, not the version list, is what keeps an old decoder out.
 
 ## Schema change invariants
 
-- **Never add a column to a table that already exists.** The publish preflight
-  refuses it: a column added mid-definition reads as `Reordering table ...
-  requires a manual migration`, and a column appended to the end still reports
-  `break_clients`, even on a private table. Both stop the whole publish,
-  including whatever else is in it. Put the new fields in a new table keyed the
-  same way and read the two together. `player_prestige_perk`, `duel_riposte` and
-  `player_session_analytics` all exist for this reason.
+- **Adding a column to a live table costs every player a reload, so we do not
+  do it in an ordinary release.** SpacetimeDB itself allows one, but only at the
+  end of the table and only with a default value; it automigrates and reports
+  `break_clients: true`, meaning clients that have not reloaded do not know the
+  column. A column added mid-definition or without a default is genuinely
+  refused (`Reordering table ... requires a manual migration`). See the
+  [automatic migrations docs](https://spacetimedb.com/docs/databases/automatic-migrations/)
+  for the full supported/forbidden list.
+- The wall is ours, not the engine's: `preflight` in `scripts/releases/rollout.mjs`
+  throws on `break_clients !== false`, so an appended column stops the whole
+  publish, including whatever else is in it, private tables included. Pass
+  `--allow-client-break` to `npm run spacetime:publish:live` to waive it. A
+  manual migration is never waivable.
+- **`break_clients` is a cost per release, not per change.** Every player is
+  disconnected and reconnects, once, however many schema changes ride along. So
+  batch schema debt — removals, new columns — into one flagged publish rather
+  than paying the reconnect twice.
+- Removing anything from the schema breaks clients, including **a view nobody
+  subscribes to**: removing `local_movement_demand` and `my_mailbox` alone
+  reported `break_clients: true`. Removing a table auto-migrates cleanly
+  (`Removed table: motion_frame_schedule`), despite the docs listing that as
+  forbidden — their list is behind this server version. Read the real plan, do
+  not infer it.
+- The cheap way round is a new table keyed the same way, read alongside the old
+  one. `player_prestige_perk`, `duel_riposte` and `player_session_analytics` all
+  exist for this reason.
 - New tables, new reducers and new procedures are additive and pass cleanly.
 - `npm run spacetime:publish:live -- --preflight` checks without publishing. It
   reports only that something failed; for the reason, POST the built bundle to

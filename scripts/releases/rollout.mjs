@@ -11,7 +11,7 @@ export async function mapLimit(values, limit, run) {
   if (failure) throw failure;
 }
 
-export function createReleaseApi({ host, database, token, fetchImpl = fetch }) {
+export function createReleaseApi({ host, database, token, fetchImpl = fetch, allowClientBreak = false }) {
   if (!token || !database) throw new Error("Set WILDSTAT_ROOT_DATABASE and WILDSTAT_SHARD_OPERATOR_TOKEN.");
   const endpoint = name => `${host}/v1/database/${encodeURIComponent(name)}`;
   async function request(name, suffix, init = {}) {
@@ -29,8 +29,12 @@ export function createReleaseApi({ host, database, token, fetchImpl = fetch }) {
     sql, call,
     async preflight(name, program) {
       const result = await (await request(name, "/pre_publish?host_type=Js", { method: "POST", body: program })).json();
-      if (!result.AutoMigrate || result.AutoMigrate.break_clients !== false) {
-        throw new Error(`${name}: requires manual migration or a separate client-compatibility release. Nothing was cleared.`);
+      // A manual migration is never waivable: it needs data moved by hand.
+      if (!result.AutoMigrate) throw new Error(`${name}: requires a manual migration. Nothing was cleared.`);
+      // Disconnecting every player is waivable, but only deliberately: the cost
+      // is one reconnect per release, not per change, so batch schema debt.
+      if (result.AutoMigrate.break_clients !== false && !allowClientBreak) {
+        throw new Error(`${name}: requires a separate client-compatibility release, or --allow-client-break to disconnect every player. Nothing was cleared.`);
       }
       return result.AutoMigrate;
     },

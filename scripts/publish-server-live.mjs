@@ -10,6 +10,9 @@ const database = process.env.WILDSTAT_ROOT_DATABASE ?? "wildwood-coop";
 const host = process.env.WILDSTAT_RELEASE_HOST ?? "https://maincloud.spacetimedb.com";
 const spacetimeBin = process.env.WILDSTAT_SPACETIME_BIN ?? "spacetime";
 const preflightOnly = process.argv.includes("--preflight");
+// Every player is disconnected and reconnects. One reconnect covers any number
+// of schema changes, so batch schema debt into a single flagged release.
+const allowClientBreak = process.argv.includes("--allow-client-break");
 
 function fail(message) {
   throw new Error(message);
@@ -47,7 +50,7 @@ async function main() {
     root: await loadProgram("spacetimedb/dist/bundle.js", "Root server"),
     maps: await loadProgram("spacetimedb-map/dist/bundle.js", "Map server"),
   };
-  const api = createReleaseApi({ host, database, token });
+  const api = createReleaseApi({ host, database, token, allowClientBreak });
   const maps = (await api.sql("SELECT database_name FROM map_shard WHERE state = 'ready'")).map(row => row[0]);
 
   console.log(`Checking root server and ${maps.length} ready map server${maps.length === 1 ? "" : "s"}...`);
@@ -56,7 +59,9 @@ async function main() {
     await api.preflight(name, programs.maps);
     console.log(`  compatible: ${name}`);
   });
-  console.log("Preflight passed: no manual migration, client break, or data deletion is required.");
+  console.log(allowClientBreak
+    ? "Preflight passed. A client break is ALLOWED: publishing disconnects every player, who then reconnects."
+    : "Preflight passed: no manual migration, client break, or data deletion is required.");
   if (preflightOnly) return;
 
   console.log("Publishing root server...");

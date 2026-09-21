@@ -24,7 +24,7 @@ import { canDestroyEquipment } from "../../shared/items";
 import { deliverDisconnectCompensation, deliverCombatUpdateGift, deliverOutageCompensation, announceOutageCompensation, deliverAutofarmTestGift } from "./disconnect-compensation";
 import { connectionDiagnosticTables, recordConnectionDiagnostics, cleanupConnectionDiagnostics } from "./connection-diagnostics";
 import { moderationTables, recordModerationAction, readModerationHistory } from "./moderation-history";
-import { mailboxLetter, mailboxReceipt, mailboxEntry, mailboxForPlayer, mailboxEntryV2, mailboxForPlayerV2, publishMailboxLetter, updateMailboxReceipt } from "./mailbox";
+import { mailboxLetter, mailboxReceipt, mailboxEntryV2, mailboxForPlayerV2, publishMailboxLetter, updateMailboxReceipt } from "./mailbox";
 import { rollbackPlayerProgression } from "./player-progression-rollback";
 import { playerItemGift, deliverAlphaTesterGifts, claimItemGift } from "./item-gifts";
 import { moderateReportedMessage } from "./chat-report-moderation";
@@ -1498,15 +1498,6 @@ const startupTelemetryCleanupSchedule = table(
   { scheduledId: t.u64().primaryKey(), scheduledAt: t.scheduleAt() },
 );
 
-const motionFrameSchedule = table(
-  { scheduled: (): any => publishMotionFrames },
-  {
-    scheduledId: t.u64().primaryKey().autoInc(),
-    scheduledAt: t.scheduleAt(),
-    previousTickMicros: t.u64(),
-  },
-);
-
 const motionDetailFrameSchedule = table(
   { scheduled: (): any => publishMotionDetailFrames },
   {
@@ -1798,7 +1789,6 @@ const spacetimedb = schema({
   maintenanceSchedule,
   maintenanceSweepSchedule,
   startupTelemetryCleanupSchedule,
-  motionFrameSchedule,
   motionDetailFrameSchedule,
   mapFrameSchedule,
   researchCompletionSchedule,
@@ -1973,15 +1963,6 @@ export const devBugReports = spacetimedb.view(
   },
 );
 
-export const localMovementDemand = spacetimedb.view(
-  { name: "local_movement_demand", public: true },
-  t.array(playerMovementDemand.rowType),
-  (ctx) => {
-    const row = ctx.db.playerMovementDemand.identity.find(ctx.sender);
-    return row ? [row] : [];
-  },
-);
-
 export const myGemWallet = spacetimedb.view(
   { name: "my_gem_wallet", public: true },
   t.array(playerGemWallet.rowType),
@@ -2003,10 +1984,6 @@ export const myDailyGemBonus = spacetimedb.view(
 export const myMailboxV2 = spacetimedb.view(
   { name: "my_mailbox_v2", public: true }, t.array(mailboxEntryV2), mailboxForPlayerV2,
 );
-export const myMailbox = spacetimedb.view(
-  { name: "my_mailbox", public: true }, t.array(mailboxEntry), mailboxForPlayer,
-);
-
 export const myBalanceApologyNotice = spacetimedb.view(
   { name: "my_balance_apology_notice", public: true },
   t.array(balanceApologyNotice.rowType),
@@ -3807,11 +3784,6 @@ export const cleanupStartupTelemetry = spacetimedb.reducer(
     trimStartupTelemetry(ctx);
     clearExpiredStartupTelemetryRateLimits(ctx);
   },
-);
-
-export const publishMotionFrames = spacetimedb.reducer(
-  { schedule: motionFrameSchedule.rowType },
-  (_ctx, { schedule }) => { void schedule; },
 );
 
 export const publishMotionDetailFrames = spacetimedb.reducer(
