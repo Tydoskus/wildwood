@@ -215,7 +215,7 @@ export function patreonCallback(ctx: HandlerContext<Schema>, uri: string) {
       });
       ok = true;
       needsMembership = membership.tier === "none";
-      message = membership.tier === "none" ? "Patreon connected. An active paid Silver or Gold membership automatically applies its frame. Return to WildStat." : "Your supporter frame is applied. Return to WildStat. Thank you!";
+      message = membership.tier === "none" ? "Patreon connected. An active paid Silver, Gold or Diamond membership automatically applies its frame. Return to WildStat." : "Your supporter frame is applied. Return to WildStat. Thank you!";
     } catch { message = "Couldn't link Patreon. It may already belong to another character. Return to WildStat and try again."; }
   }
   return new SyncResponse(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WildStat Patreon</title><style>body{margin:0;background:#111;color:#fff;font:18px/1.5 system-ui;text-align:center;min-height:100vh;display:grid;place-items:center}main{max-width:440px;padding:28px}h1{font-size:28px}a{display:block;padding:14px 20px;border-radius:8px;background:#f0c75e;color:#171717;font-weight:700;text-decoration:none}p{color:#ddd}</style><body><main><h1>${ok ? "Patreon connected" : "Link not completed"}</h1><p>${message}</p>${needsMembership ? `<a href="${PATREON_PAGE}" rel="noreferrer">Continue to memberships</a><p>Choose Silver or Gold, then return to the game. Your frame applies automatically.</p>` : '<p>You can close this tab and return to the game.</p>'}</main></body></html>`, {

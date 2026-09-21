@@ -1322,6 +1322,12 @@ export const PatreonConfig = __t.object("PatreonConfig", {
 });
 export type PatreonConfig = __Infer<typeof PatreonConfig>;
 
+export const PatreonDiamondAnnouncement = __t.object("PatreonDiamondAnnouncement", {
+  userId: __t.string(),
+  announcedAtMs: __t.f64(),
+});
+export type PatreonDiamondAnnouncement = __Infer<typeof PatreonDiamondAnnouncement>;
+
 export const PatreonLink = __t.object("PatreonLink", {
   identity: __t.identity(),
   userId: __t.string(),

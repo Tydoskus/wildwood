@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { announcePatreonSupport } from "./patreon-announcement";
 import { validSupporterNames } from "../../shared/patreon-ticker";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { beginPatreonLink, patreonCallback, patreonStatus, refreshPatreon, patreonLinksDueRefresh, PATREON_SWEEP_BATCH } from "./patreon";
@@ -258,4 +259,27 @@ describe("how often the sweep asks Patreon", () => {
     const nearly = link({ tier: "none", validUntilMs: now + 60 * 60 * 1000 });
     expect(patreonLinksDueRefresh([nearly], now)).toHaveLength(1);
   });
+});
+
+it("thanks a supporter by their real tier, once on the way up and never on the way down", () => {
+  const f = fixture();
+  const messages = () => [...f.db.chatMessage.iter()].map((row: any) => row.message);
+  const thank = (tier: "silver" | "gold" | "diamond") => announcePatreonSupport(f.ctx as never, f.ctx.sender, "patreon-user-9", tier);
+  thank("gold"); thank("gold");
+  expect(messages()).toEqual(["Became a Gold supporter on Patreon. Thank you for supporting WildStat! ♥"]);
+  thank("diamond"); thank("diamond");
+  expect(messages()).toHaveLength(2);
+  expect(messages()[1]).toBe("Became a Diamond supporter on Patreon. Thank you for supporting WildStat! ♥");
+  thank("gold"); thank("silver"); thank("diamond");
+  expect(messages()).toHaveLength(2);
+});
+
+it("thanks someone who joins straight at Diamond as Diamond, and stays quiet if they later drop a tier", () => {
+  const f = fixture();
+  const messages = () => [...f.db.chatMessage.iter()].map((row: any) => row.message);
+  announcePatreonSupport(f.ctx as never, f.ctx.sender, "patreon-user-10", "diamond");
+  expect(messages()).toEqual(["Became a Diamond supporter on Patreon. Thank you for supporting WildStat! ♥"]);
+  announcePatreonSupport(f.ctx as never, f.ctx.sender, "patreon-user-10", "gold");
+  announcePatreonSupport(f.ctx as never, f.ctx.sender, "patreon-user-10", "silver");
+  expect(messages()).toHaveLength(1);
 });
