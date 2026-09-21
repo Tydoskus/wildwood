@@ -11,15 +11,34 @@ export async function mapLimit(values, limit, run) {
   if (failure) throw failure;
 }
 
-export function createReleaseApi({ host, database, token, fetchImpl = fetch, allowClientBreak = false }) {
+export function createReleaseApi({ host, database, token, fetchImpl = fetch, allowClientBreak = false, sleep = delay }) {
   if (!token || !database) throw new Error("Set WILDSTAT_ROOT_DATABASE and WILDSTAT_SHARD_OPERATOR_TOKEN.");
   const endpoint = name => `${host}/v1/database/${encodeURIComponent(name)}`;
-  async function request(name, suffix, init = {}) {
-    const response = await fetchImpl(endpoint(name) + suffix, {
-      ...init, headers: { Authorization: `Bearer ${token}`, ...init.headers }, signal: AbortSignal.timeout(60_000),
-    });
-    if (!response.ok) throw new Error(`${name}${suffix.split("?")[0]}: HTTP ${response.status}`);
-    return response;
+  // A rollout uploads a five-megabyte bundle to a hundred databases, twice, and
+  // the gateway sheds one now and then: a 502 here came back 200 on a direct
+  // retry seconds later. Retry the host's own failures (5xx, timeouts) with
+  // room to ride out a busy spell; a 4xx is the module's considered answer and
+  // will not change on a second ask.
+  async function request(name, suffix, init = {}, attempts = 5) {
+    let failure;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      let response;
+      try {
+        response = await fetchImpl(endpoint(name) + suffix, {
+          ...init, headers: { Authorization: `Bearer ${token}`, ...init.headers }, signal: AbortSignal.timeout(60_000),
+        });
+      } catch (error) {
+        failure = error;
+        if (attempt === attempts) break;
+        await sleep(attempt * 3_000);
+        continue;
+      }
+      if (response.ok) return response;
+      failure = new Error(`${name}${suffix.split("?")[0]}: HTTP ${response.status}`);
+      if (response.status < 500 || attempt === attempts) break;
+      await sleep(attempt * 3_000);
+    }
+    throw failure;
   }
   const sql = async query => (await (await request(database, "/sql", { method: "POST", body: query })).json()).flatMap(result => result.rows);
   const call = async (name, args) => { await request(database, `/call/${name}`, {
@@ -41,7 +60,12 @@ export function createReleaseApi({ host, database, token, fetchImpl = fetch, all
     async publish(name, program) {
       // Recheck against the current schema; another deployment may have intervened.
       const result = await this.preflight(name, program);
-      await request(name, `?host_type=Js&clear=false&policy=Compatible&token=${encodeURIComponent(result.token)}`, { method: "PUT", body: program });
+      // Compatible refuses a plan that breaks clients however the caller feels
+      // about it; BreakClients is the acknowledgement, and the token from the
+      // recheck above is its proof. Escalate per database, so a map whose own
+      // plan is compatible still publishes under the stricter policy.
+      const policy = result.break_clients ? "BreakClients" : "Compatible";
+      await request(name, `?host_type=Js&clear=false&policy=${policy}&token=${encodeURIComponent(result.token)}`, { method: "PUT", body: program });
     },
     async phase(plan, phase) { await call("set_release_window", [plan.id, plan.version, phase, plan.startsAt, plan.reload]); },
     async missingAcknowledgements(id) {

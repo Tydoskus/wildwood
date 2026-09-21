@@ -55,10 +55,20 @@ async function main() {
 
   console.log(`Checking root server and ${maps.length} ready map server${maps.length === 1 ? "" : "s"}...`);
   await api.preflight(database, programs.root);
+  // Check every map before giving up on any: one shed upload out of a hundred
+  // used to discard the eighty-eight good answers that came before it.
+  const unchecked = [];
   await mapLimit(maps, 3, async name => {
-    await api.preflight(name, programs.maps);
-    console.log(`  compatible: ${name}`);
+    try {
+      await api.preflight(name, programs.maps);
+      console.log(`  compatible: ${name}`);
+    } catch (error) {
+      unchecked.push(`${name}: ${error instanceof Error ? error.message : String(error)}`);
+    }
   });
+  if (unchecked.length) {
+    fail(`${unchecked.length} of ${maps.length} map servers could not be checked. Nothing was published.\n  ${unchecked.join("\n  ")}`);
+  }
   console.log(allowClientBreak
     ? "Preflight passed. A client break is ALLOWED: publishing disconnects every player, who then reconnects."
     : "Preflight passed: no manual migration, client break, or data deletion is required.");

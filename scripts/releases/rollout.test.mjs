@@ -55,3 +55,82 @@ describe("prepared release orchestration", () => {
     await expect(mapLimit([1,2,3,4,5], 2, run)).rejects.toThrow("failed"); expect(run).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("transient host failures during a hundred-database rollout", () => {
+  const ok = body => ({ ok: true, status: 200, json: async () => body });
+  function api(responses) {
+    const calls = [];
+    const fetchImpl = async url => { calls.push(url); const next = responses.shift(); if (next instanceof Error) throw next; return next; };
+    return { calls, api: createReleaseApi({ host: "https://h", database: "db", token: "t", fetchImpl, sleep: async () => {} }) };
+  }
+  const passing = ok({ AutoMigrate: { break_clients: false, token: "x" } });
+
+  it("retries a 502 rather than abandoning the remaining databases", async () => {
+    const f = api([{ ok: false, status: 502 }, passing]);
+    await expect(f.api.preflight("shard", "program")).resolves.toMatchObject({ break_clients: false });
+    expect(f.calls).toHaveLength(2);
+  });
+
+  it("retries a dropped connection", async () => {
+    const f = api([new Error("fetch failed"), passing]);
+    await expect(f.api.preflight("shard", "program")).resolves.toMatchObject({ break_clients: false });
+    expect(f.calls).toHaveLength(2);
+  });
+
+  it("does not retry a 4xx, which is the module's own answer", async () => {
+    const f = api([{ ok: false, status: 401 }]);
+    await expect(f.api.preflight("shard", "program")).rejects.toThrow("HTTP 401");
+    expect(f.calls).toHaveLength(1);
+  });
+
+  it("gives up after five attempts and names the last failure", async () => {
+    const f = api(Array.from({ length: 5 }, () => ({ ok: false, status: 503 })));
+    await expect(f.api.preflight("shard", "program")).rejects.toThrow("HTTP 503");
+    expect(f.calls).toHaveLength(5);
+  });
+
+  it("still refuses a client break unless the release asked for one", async () => {
+    const breaking = () => ok({ AutoMigrate: { break_clients: true, token: "x" } });
+    const strict = createReleaseApi({ host: "https://h", database: "db", token: "t", fetchImpl: async () => breaking() });
+    await expect(strict.preflight("db", "program")).rejects.toThrow("--allow-client-break");
+    const waived = createReleaseApi({ host: "https://h", database: "db", token: "t", fetchImpl: async () => breaking(), allowClientBreak: true });
+    await expect(waived.preflight("db", "program")).resolves.toMatchObject({ break_clients: true });
+  });
+
+  it("never waives a manual migration", async () => {
+    const waived = createReleaseApi({ host: "https://h", database: "db", token: "t", allowClientBreak: true,
+      fetchImpl: async () => ok({ ManualMigrate: { reason: "Reordering table player" } }) });
+    await expect(waived.preflight("db", "program")).rejects.toThrow("manual migration");
+  });
+});
+
+describe("the policy a publish is sent under", () => {
+  function publisher(breakClients, allowClientBreak) {
+    const urls = [];
+    const fetchImpl = async (url, init) => {
+      urls.push(`${init?.method ?? "GET"} ${url}`);
+      return { ok: true, status: 200, json: async () => ({ AutoMigrate: { break_clients: breakClients, token: "0xabc" } }) };
+    };
+    return { urls, api: createReleaseApi({ host: "https://h", database: "db", token: "t", fetchImpl, allowClientBreak, sleep: async () => {} }) };
+  }
+
+  it("asks for BreakClients when the plan breaks clients, carrying the token as proof", async () => {
+    const f = publisher(true, true);
+    await f.api.publish("db", "program");
+    const put = f.urls.find(url => url.startsWith("PUT "));
+    expect(put).toContain("policy=BreakClients");
+    expect(put).toContain("token=0xabc");
+  });
+
+  it("keeps the stricter policy for a database whose own plan is compatible", async () => {
+    const f = publisher(false, true);
+    await f.api.publish("db", "program");
+    expect(f.urls.find(url => url.startsWith("PUT "))).toContain("policy=Compatible");
+  });
+
+  it("never reaches a breaking publish without the flag", async () => {
+    const f = publisher(true, false);
+    await expect(f.api.publish("db", "program")).rejects.toThrow("--allow-client-break");
+    expect(f.urls.some(url => url.startsWith("PUT "))).toBe(false);
+  });
+});
