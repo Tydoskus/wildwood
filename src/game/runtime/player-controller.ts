@@ -84,7 +84,7 @@ export function createPlayerController(options: {
   movementSpeedMultiplier: () => number;
   regenerationPerSecond: () => number;
   healthMultiplierBonus?: () => number;
-  syncMovementState: (x: number, y: number, vx: number, vy: number, inputSource: "keyboard" | "touch", force: boolean, interestArea?: PlayerInterestArea) => void;
+  syncMovementState: (x: number, y: number, vx: number, vy: number, inputSource: "keyboard" | "touch" | "steer", force: boolean, interestArea?: PlayerInterestArea) => void;
   autoAttack: () => void;
   isAutoAttackEnabled: () => boolean;
   activeDuel: () => RuntimeDuelState | null;
@@ -227,7 +227,7 @@ export function createPlayerController(options: {
         player.y,
         player.moving ? mx * movementSpeed : 0,
         player.moving ? my * movementSpeed : 0,
-        source === "keyboard" ? "keyboard" : "touch",
+        source === "none" ? "keyboard" : source,
         started,
         {
           left: camera.x,

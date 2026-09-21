@@ -3,7 +3,7 @@ import { parseHTML } from 'linkedom';
 import { createBalanceApologyGiftController } from '../../ui/balance-apology-gift-controller';
 import { createGameBootstrap } from './game-bootstrap';
 import { createEnemyLifecycle } from './enemy-lifecycle';
-import { createAutoFarmController } from './auto-farm-controller';
+import { createAutoFarmController, AUTO_FARM_DEFEAT_LIMIT, AUTO_FARM_DEFEAT_WINDOW_MS } from './auto-farm-controller';
 import { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 import type { SpawnSite } from '../world';
 import type { EnemyKind } from '../enemies';
@@ -205,6 +205,31 @@ describe('autofarm', () => {
     expect(s.farm.state()).toMatchObject({ active: true, status: 'Paused' });
     s.setPaused(false);
     expect(s.tick().x).toBeGreaterThan(0);
+  });
+
+  it('keeps farming through a death: holds while the player is down and picks the camp up again after the respawn', () => {
+    const s = setup(); s.add('Bramble', 1500, 500); s.farm.start('Bramble');
+    expect(s.tick().x).toBeGreaterThan(0);
+    s.farm.defeated(); s.setConnection('recovering'); s.farm.refresh();      // the session stops running while dead
+    expect(s.farm.state().active).toBe(true);
+    expect(s.tick()).toEqual(idle);
+    s.setConnection('ready'); s.farm.refresh(); s.advance(1_000); s.farm.refresh();
+    expect(s.farm.state().active).toBe(true);
+    expect(s.tick().x).toBeGreaterThan(0);
+  });
+
+  it('ends a farm that keeps dying, so an unattended player cannot die in a loop all night', () => {
+    const s = setup(); s.add('Bramble', 1500, 500); s.farm.start('Bramble');
+    for (let death = 1; death < AUTO_FARM_DEFEAT_LIMIT; death += 1) { s.farm.defeated(); s.advance(20_000); }
+    expect(s.farm.state().active).toBe(true);
+    s.farm.defeated();
+    expect(s.farm.state()).toMatchObject({ active: false, status: `Autofarm stopped after ${AUTO_FARM_DEFEAT_LIMIT} defeats in a row` });
+  });
+
+  it('forgets old defeats, so dying now and then over a long session never ends the farm', () => {
+    const s = setup(); s.add('Bramble', 1500, 500); s.farm.start('Bramble');
+    for (let death = 0; death < AUTO_FARM_DEFEAT_LIMIT * 3; death += 1) { s.farm.defeated(); s.advance(AUTO_FARM_DEFEAT_WINDOW_MS / 2); }
+    expect(s.farm.state().active).toBe(true);
   });
 
   it('stops on map changes, unavailable gameplay, and rejects enemies absent from the map', () => {

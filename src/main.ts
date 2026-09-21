@@ -1724,7 +1724,7 @@ import {
     hideGameOver: () => { localPlayerDeath = null; deathScreen.hide(); },
     showGameOver: () => {
       bossFightMemory.flush();
-      autoFarm.stop("Autofarm stopped after defeat");
+      autoFarm.defeated();
       localPlayerDeath = {
         id: coop?.localIdentity?.() ?? "local-player",
         x: player.x,
@@ -2116,7 +2116,7 @@ import {
         player.y,
         movement.x * movementSpeed,
         movement.y * movementSpeed,
-        movement.source === "keyboard" ? "keyboard" : "touch",
+        movement.source === "none" ? "keyboard" : movement.source,
         true,
       );
     },

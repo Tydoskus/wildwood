@@ -911,10 +911,10 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       && syncSpeed(deferredSpeed)) deferredSpeed = null;
     const now = performance.now();
     const velocity = sanitizeMovementVelocity(vx, vy);
-    if (!movementUpdateReason({ now, velocity, inputKind, lastSent: lastSentMovement, force,
+    if (!movementUpdateReason({ now, velocity, inputKind, lastSent: lastSentMovement, force, position: { x, y },
       multiplayerEnabled: dependencies.multiplayerEnabled?.() ?? true })) return;
 
-    lastSentMovement = { ...velocity, sentAt: now };
+    lastSentMovement = { ...velocity, sentAt: now, x, y };
     const sequence = ++nextPositionSequence;
     if (localState) {
       localState.x = x;

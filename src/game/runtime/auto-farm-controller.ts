@@ -11,6 +11,8 @@ import type { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 
 export type AutoFarmController = ReturnType<typeof createAutoFarmController>;
 const idle = (): Movement => ({ x: 0, y: 0, source: 'none' });
+export const AUTO_FARM_DEFEAT_LIMIT = 5;
+export const AUTO_FARM_DEFEAT_WINDOW_MS = 180_000;
 
 export function createAutoFarmController(options: {
   player: PlayerState;
@@ -69,6 +71,23 @@ export function createAutoFarmController(options: {
       if (choice) choice.alive++;
     }
     return [...counts.values()];
+  }
+
+  /**
+   * Death does not end a farm: the session stops running while the player is
+   * down, which refresh() already treats as a recovery, keeping the chosen camp
+   * and picking it up again after the respawn. What death must not become is a
+   * loop. A player farming a camp that is too strong for them would die, walk
+   * back and die again all night, each death a server call and a broadcast, so
+   * this many defeats inside the window ends the farm.
+   */
+  let defeats: number[] = [];
+  function defeated() {
+    if (!active && !pendingResume) return;
+    const at = now();
+    defeats = defeats.filter(previous => at - previous < AUTO_FARM_DEFEAT_WINDOW_MS);
+    defeats.push(at);
+    if (defeats.length >= AUTO_FARM_DEFEAT_LIMIT) { defeats = []; stop(`Autofarm stopped after ${AUTO_FARM_DEFEAT_LIMIT} defeats in a row`); }
   }
 
   function stop(reason = 'Autofarm stopped') {
@@ -209,7 +228,7 @@ export function createAutoFarmController(options: {
     return { x: (waypoint.x - player.x) / length * magnitude, y: (waypoint.y - player.y) / length * magnitude, source: 'steer' };
   }
 
-  return { start, stop, refresh, choices, movement,
+  return { start, stop, defeated, refresh, choices, movement,
     state: () => ({ active, selected, selectedLabel, status: active && !recovering && options.paused() ? 'Paused' : status }),
     targetType: () => active && !manualControl ? selectedType : null,
     targetCamp: () => active && !manualControl ? selectedCamp : null,

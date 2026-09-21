@@ -4,6 +4,8 @@ import {
   SOLO_MOVEMENT_CHECKPOINT_MS,
   TOUCH_MOVEMENT_DIRECTION_SECTORS,
   TOUCH_MOVEMENT_MIN_INTERVAL_MS,
+  STEER_MOVEMENT_HEARTBEAT_MS,
+  STEER_MOVEMENT_MIN_INTERVAL_MS,
   movementUpdateReason,
   sanitizeMovementVelocity,
   type SentMovementState,
@@ -62,22 +64,40 @@ describe("sparse movement sender", () => {
 });
 
 describe("movement the game or the mouse aims", () => {
-  /** One second of 60 Hz frames walking a gentle curve, as autofarm does on the way to a waypoint. */
-  function packetsInOneSecond(inputKind: "keyboard" | "touch") {
-    let lastSent: { vx: number; vy: number; moving: boolean; sentAt: number } | null = null;
-    let sent = 0;
-    for (let frame = 0; frame < 60; frame += 1) {
-      const now = frame * (1000 / 60);
-      const angle = frame * (Math.PI / 180) * .25;                       // a quarter of a degree per frame
-      const velocity = sanitizeMovementVelocity(Math.cos(angle) * 200, Math.sin(angle) * 200);
-      if (movementUpdateReason({ now, velocity, inputKind, lastSent })) { sent += 1; lastSent = { ...velocity, sentAt: now }; }
+  /** Frames at 60 Hz for `seconds`, the heading given per frame; returns the packets sent. */
+  function packets(inputKind: "keyboard" | "touch" | "steer", seconds: number, headingAt: (frame: number) => number) {
+    let lastSent: SentMovementState | null = null;
+    let x = 1_000, y = 1_000, sent = 0;
+    for (let frame = 0; frame < seconds * 60; frame += 1) {
+      const now = frame * (1000 / 60), heading = headingAt(frame);
+      const velocity = sanitizeMovementVelocity(Math.cos(heading) * 200, Math.sin(heading) * 200);
+      if (movementUpdateReason({ now, velocity, inputKind, lastSent, position: { x, y } })) { sent += 1; lastSent = { ...velocity, sentAt: now, x, y }; }
+      x += velocity.vx / 60; y += velocity.vy / 60;
     }
     return sent;
   }
-  it("sends a packet on nearly every frame if it is reported as keyboard input", () => {
-    expect(packetsInOneSecond("keyboard")).toBeGreaterThanOrEqual(55);
+  const gentleCurve = (frame: number) => frame * (Math.PI / 180) * .25;   // a quarter of a degree per frame
+
+  it("sent a packet on nearly every frame while it was reported as keyboard input", () => {
+    expect(packets("keyboard", 1, gentleCurve)).toBeGreaterThanOrEqual(55);
   });
-  it("sends a handful a second once it is rate-limited like touch", () => {
-    expect(packetsInOneSecond("touch")).toBeLessThanOrEqual(4);
+  it("walks a straight leg of a route on its first packet and the slow heartbeat alone", () => {
+    expect(packets("steer", 10, () => 0)).toBe(1 + Math.floor(9_999 / STEER_MOVEMENT_HEARTBEAT_MS));   // the start, and one heartbeat at five seconds
+  });
+  it("speaks up only when the last packet's prediction has drifted, so a gentle curve costs about a packet a second", () => {
+    const sent = packets("steer", 10, gentleCurve);
+    expect(sent).toBeGreaterThanOrEqual(5);
+    expect(sent).toBeLessThanOrEqual(14);
+  });
+  it("corrects a sharp turn at a waypoint within a third of a second", () => {
+    let lastSent: SentMovementState | null = { vx: 200, vy: 0, moving: true, sentAt: 0, x: 0, y: 0 };
+    let x = 0, y = 0, correctedAt = -1;
+    for (let frame = 1; frame <= 60 && correctedAt < 0; frame += 1) {
+      const now = frame * (1000 / 60);
+      y += 200 / 60;                                                        // turned ninety degrees at the waypoint
+      if (movementUpdateReason({ now, velocity: { vx: 0, vy: 200, moving: true }, inputKind: "steer", lastSent, position: { x, y } })) correctedAt = now;
+    }
+    expect(correctedAt).toBeGreaterThanOrEqual(STEER_MOVEMENT_MIN_INTERVAL_MS);
+    expect(correctedAt).toBeLessThanOrEqual(340);
   });
 });

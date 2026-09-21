@@ -1,6 +1,18 @@
 export const MOVEMENT_HEARTBEAT_MS = 500;
 export const SOLO_MOVEMENT_CHECKPOINT_MS = 30_000;
 export const TOUCH_MOVEMENT_MIN_INTERVAL_MS = 100;
+/**
+ * Steered movement (autofarm walking a route, click-to-move) is left to dead
+ * reckoning. The server and every other client already extrapolate a player
+ * from the position and velocity of their last packet, so a packet is only
+ * worth sending once that prediction has gone wrong: the player has drifted
+ * this far from where the last packet says they should be. Walking a straight
+ * leg of a route sends nothing between its start and its end.
+ */
+export const STEER_MOVEMENT_DRIFT_PX = 64;
+export const STEER_MOVEMENT_MIN_INTERVAL_MS = 250;
+/** Long enough to be nearly free, short enough that a lost packet is corrected before anyone notices. */
+export const STEER_MOVEMENT_HEARTBEAT_MS = 5_000;
 export const TOUCH_MOVEMENT_VECTOR_THRESHOLD = .12;
 export const TOUCH_MOVEMENT_DIRECTION_SECTORS = 24;
 
@@ -9,9 +21,10 @@ const TOUCH_DIRECTION_COSINE = Math.cos(Math.PI * 2 / TOUCH_MOVEMENT_DIRECTION_S
 const TOUCH_DIRECTION_COSINE_SQUARED = TOUCH_DIRECTION_COSINE * TOUCH_DIRECTION_COSINE;
 const TOUCH_MAGNITUDE_RETAINED_SQUARED = (1 - TOUCH_MOVEMENT_VECTOR_THRESHOLD) ** 2;
 
-export type MovementInputKind = "keyboard" | "touch";
+export type MovementInputKind = "keyboard" | "touch" | "steer";
 export type MovementVelocity = { vx: number; vy: number; moving: boolean };
-export type SentMovementState = MovementVelocity & { sentAt: number };
+/** `x`/`y` are where the player was when the packet was sent; steered movement measures its drift from them. */
+export type SentMovementState = MovementVelocity & { sentAt: number; x?: number; y?: number };
 export type MovementUpdateReason = "forced" | "start" | "stop" | "direction" | "heartbeat";
 
 export function sanitizeMovementVelocity(vx: number, vy: number): MovementVelocity {
@@ -25,6 +38,8 @@ export function movementUpdateReason(options: {
   velocity: MovementVelocity;
   inputKind: MovementInputKind;
   lastSent: SentMovementState | null;
+  /** Where the player is now; only steered movement needs it. */
+  position?: { x: number; y: number };
   force?: boolean;
   multiplayerEnabled?: boolean;
 }): MovementUpdateReason | null {
@@ -38,6 +53,12 @@ export function movementUpdateReason(options: {
   if (!velocity.moving) return null;
 
   const elapsed = Math.max(0, now - lastSent.sentAt);
+  if (inputKind === "steer" && options.position && lastSent.x !== undefined && lastSent.y !== undefined) {
+    if (elapsed < STEER_MOVEMENT_MIN_INTERVAL_MS) return null;
+    const predictedX = lastSent.x + lastSent.vx * elapsed / 1_000, predictedY = lastSent.y + lastSent.vy * elapsed / 1_000;
+    if (Math.hypot(options.position.x - predictedX, options.position.y - predictedY) > STEER_MOVEMENT_DRIFT_PX) return "direction";
+    return elapsed >= STEER_MOVEMENT_HEARTBEAT_MS ? "heartbeat" : null;
+  }
   const deltaX = velocity.vx - lastSent.vx;
   const deltaY = velocity.vy - lastSent.vy;
   if (inputKind === "keyboard" && (Math.abs(deltaX) > VECTOR_EPSILON || Math.abs(deltaY) > VECTOR_EPSILON)) return "direction";
@@ -49,7 +70,7 @@ export function movementUpdateReason(options: {
   const maximumSpeedSquared = Math.max(1, speedSquared, lastSpeedSquared);
   const magnitudeChanged = minimumSpeedSquared <= maximumSpeedSquared * TOUCH_MAGNITUDE_RETAINED_SQUARED;
   if (
-    inputKind === "touch" &&
+    inputKind !== "keyboard" &&
     (directionChanged || magnitudeChanged) &&
     elapsed >= TOUCH_MOVEMENT_MIN_INTERVAL_MS
   ) return "direction";
