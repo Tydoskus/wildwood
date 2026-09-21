@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.766": [
+    "Every map now runs on one server instead of a hundred small ones. Updates that used to take most of an hour take seconds, which means fixes reach you faster. You will be reconnected once when this lands.",
+    "Each prestige asks for one Endless stage more than the last: the first for Aegis Prime, the second for Endless 1 as well, and so on. The Prestige window names the stage that stands in the way.",
+    "Patreon supporters of any tier skip the ad: the 2× enemy respawn boost is theirs on tap. A Diamond tier and frame join Silver and Gold.",
+    "Characters and monsters whose artwork failed to load come back on their own instead of staying invisible until the browser is closed. The first bow shot and the first death are audible, and keyboard players get sound from their first key press.",
+  ],
   "0.765": [
     "A prestige shield with your level now follows your name over your head, in chat, in the HUD and in your profile, sized like the power sword beside it.",
     "Kill rewards reach the server every thirty seconds instead of every five minutes, and the moment you hide or leave the tab, so tabbing out no longer risks the last few minutes of stats.",
@@ -2170,6 +2176,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.766": "2026-09-21",
   "0.765": "2026-09-21",
   "0.764": "2026-09-20",
   "0.763": "2026-09-20",

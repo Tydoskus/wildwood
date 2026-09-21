@@ -66,7 +66,7 @@ Recorded here because the backlog above previously described the opposite, and t
 Consequences to keep in mind before changing boss code:
 
 - The server's shared-boss surface is installed but unreached: the per-species `damage*FromPosition` reducers, the `respawn*` reducers and their scheduled tables, and the `*_boss` / `*_contribution` / `*_attack_window` / `*_result` table sets. The `boss:` subscription scope is never requested (`subscribeBosses` is hardcoded `false`), so those tables never deliver rows.
-- `reward*Contributor` and `applyBossRepeatableReward` are **not** dead. They still carry live reward logic reached through `shardRewardHandlers` from `recordEnemyDefeats` and `deliverShardReward`. Preserve them through any cleanup.
+- `reward*Contributor` and `applyBossRepeatableReward` are **not** dead. They still carry live reward logic reached through `bossRewardHandlers` from `recordEnemyDefeats` and `deliverShardReward`. Preserve them through any cleanup.
 - Schema tables are retained deliberately, not by oversight. `boss_attack_frame`, `boss_defeat_window`, `boss_map_defeat_window`, and the legacy procedural boss tables are inert because removing a populated table needs a destructive publish. See `docs/legacy-cleanup-audit-2026-08-30.md`.
 - Removing the dead reducers is a schema change that must go through the prepared rollout path with a `Compatible` preflight — never `release:live`.
 

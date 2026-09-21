@@ -32,7 +32,7 @@ export function proceduralMapId(index: number): ProceduralMapId {
     throw new RangeError("Invalid generated map number");
   return `endless_${index}`;
 }
-/** Integer-only RNG: identical layouts in browser, server, and map shards. */
+/** Integer-only RNG: identical layouts in the browser and on the server. */
 export function mapRandom(seed: number) {
   let state = seed >>> 0;
   return () => {
