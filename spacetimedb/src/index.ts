@@ -1,6 +1,6 @@
 import { auditPrivilegedAccess, denyPrivilegedAccess } from "./privileged-access-audit";
 import { defeatSessionRestriction, defeatRestrictionError, requireAllowedDefeatSession, restrictDefeatSession, suspendPlayerAccount } from "./defeat-session";
-import { findDeveloperTravelTarget, readDeveloperTravelTarget, readShardTravelPosition } from "./developer-travel";
+import { findDeveloperTravelTarget, readDeveloperTravelTarget } from "./developer-travel";
 import { mapBalanceVersion, mapBalanceHead, playerMapBalance, balanceEditorState, saveMapBalance, pinMapBalance, pinnedMapBalance } from "./map-balance";
 import { resolveMapBalance, validateBalanceSettings } from "../../shared/map-balance";
 import { accountDeletionRequest, queueAccountDeletion } from "./account-deletion";
@@ -47,11 +47,7 @@ import { createGemPurchaseService } from "./gem-purchase-service";
 import { rescaleEndgameProgress } from "../../shared/endgame-power-rescale";
 import { CAMPAIGN_UNLOCK_FIELDS, equipmentMapRequirement } from "../../shared/equipment-access";
 import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_TRAVEL_PORTAL, HOME_BENCH_POSITION } from "../../shared/home";
-import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./shard-snapshot-writes";
-import { decodeShardSnapshot, encodeShardSnapshot } from "../../shared/shard-wire";
-import { coordinateShard, validateCoordinatorConfig } from "./shard-coordinator";
-import { mapShardingTables, mapShardRouteType, rootShardingEnabled, isMapShard, assignMapShard, releaseMapShard, validateShardMap, syncMapShardRoute, syncMapShardRoutesForShard, relocatedInputClock } from "./map-sharding";
-import { MAP_SHARD_CAPACITY } from "../../shared/map-sharding";
+import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./snapshot-row-writes";
 import { compressLegacyMapPower } from "../../shared/map-power-rescale";
 import { createPlayerMotionFrameSampler } from "../../shared/player-motion-sample";
 import { schema, SenderError, Router, table, t, type InferSchema, type ReducerCtx, type ViewCtx } from "spacetimedb/server";
@@ -321,7 +317,7 @@ const {
   applyPrismshellDamage, applyIronhornDamage, applyDreadreaperDamage, applyVoltwardenDamage,
   applyGravebloomDamage, applyAegisPrimeDamage, applyProceduralBossHit,
 } = createBossCombat({
-  WORLD, requireControllingPlayer, requireMapWorkload, activeDuelFor, playerWithMotion,
+  WORLD, requireControllingPlayer, activeDuelFor, playerWithMotion,
   syncPlayerMotionIdentity, powerFieldsForProgress, attackIntervalForProgress, playerOwnsItem,
   publishItemDrop, restoreItemToProgress, researchedDamage, inventoryForProgress,
   equippedRightHandForProgress, equippedLeftHandForProgress, writeProgressAndPresentation,
@@ -1690,10 +1686,10 @@ const forestRewardPrototype = table(
   },
 );
 
-const shardCoordinatorSchedule = table(
-  { scheduled: (): any => coordinateMapShard },
-  { scheduledId: t.u64().primaryKey(), scheduledAt: t.scheduleAt() },
-);
+// The last trace of map sharding. The live publish tooling still reads the
+// operator token from this table, so it stays until that tooling has another
+// source; nothing in the module reads or writes it.
+const shardCoordinatorConnection = table({ public: false }, { id: t.u32().primaryKey(), host: t.string(), token: t.string() });
 // Supporter memberships are re-checked on the server's own clock, so a frame
 // and a ticker entry never depend on the supporter logging in.
 const patreonSweepSchedule = table(
@@ -1714,9 +1710,8 @@ const spacetimedb = schema({
   homeReturnLocation,
   ...guildTables,
   ...socialTables,
-  shardCoordinatorSchedule,
   patreonSweepSchedule,
-  ...mapShardingTables,
+  shardCoordinatorConnection,
   forestRewardPrototype,
   player,
   playerMapMarker,
@@ -2661,9 +2656,6 @@ function requireControllingPlayer(ctx: any) {
   if (!ctx.connectionId || !controller || !sameConnection(controller.connectionId, ctx.connectionId)) {
     throw new SenderError("Wildstat is active in another tab.");
   }
-  if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.tabId !== sessionForContext(ctx)?.tabId) {
-    throw new SenderError("Map admission belongs to another tab.");
-  }
   return current;
 }
 
@@ -3301,25 +3293,6 @@ function clearOrphanVirtualPlayers(ctx: any) {
   reconcileOnlinePlayers(ctx);
 }
 
-/**
- * Occupancy drives both admission and whether an instance may go dormant, so a
- * seat held by an account that is no longer present keeps an empty instance
- * counted as busy and warms further instances nobody stands in. Release seats
- * whose account has gone, skipping a handoff that is still in flight.
- */
-function clearOrphanShardMembers(ctx: any) {
-  if (isMapShard(ctx) || !rootShardingEnabled(ctx)) return;
-  const now = ctx.timestamp.microsSinceUnixEpoch;
-  const stranded: any[] = [];
-  for (const member of ctx.db.mapShardMember.iter() as Iterable<any>) {
-    if (ctx.db.player.identity.find(member.identity)) continue;
-    const barrier = ctx.db.shardTransferBarrier.identity.find(member.identity);
-    if (barrier && barrier.expiresAt > now) continue;
-    stranded.push(member.identity);
-  }
-  for (const identity of stranded) releaseMapShard(ctx, identity);
-}
-
 function clearOrphanRealtimeState(ctx: any) {
   const orphanIdentities: any[] = [];
   for (const motion of ctx.db.playerMotion.iter() as Iterable<any>) {
@@ -3453,7 +3426,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
     const sameTab = controllerSession?.tabId && controllerSession.tabId === normalizedTabId;
     if (controllerSession?.enteredWorld && !sameTab) {
       if (!forceTakeover) throw new SenderError("Wildstat is active in another tab.");
-      if (!isMapShard(ctx) && sessionAnalytics(ctx, controllerSession.connectionId)?.analyticsStartedAtMicros) {
+      if (sessionAnalytics(ctx, controllerSession.connectionId)?.analyticsStartedAtMicros) {
         finishAnalyticsSession(ctx, { ...controllerSession, ...sessionAnalytics(ctx, controllerSession.connectionId) }, ctx.db.player.identity.find(ctx.sender)?.mapId ?? TUTORIAL_FOREST_MAP_ID);
       }
       ctx.db.playerSession.connectionId.update({ ...controllerSession, enteredWorld: false });
@@ -3529,7 +3502,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
   ensureCutsceneHistory(ctx, ctx.sender);
   researchForPlayer(ctx, ctx.sender);
   syncSenderAccountStatus(ctx);
-  if (!isMapShard(ctx) && !virtualRegistration && (!session.enteredWorld || session.tabId !== normalizedTabId)) {
+  if (!virtualRegistration && (!session.enteredWorld || session.tabId !== normalizedTabId)) {
     const updatedSession = ctx.db.playerSession.connectionId.find(ctx.connectionId);
     if (updatedSession) {
       writeSessionAnalytics(ctx, updatedSession.connectionId, { analyticsStartedAtMicros: ctx.timestamp.microsSinceUnixEpoch });
@@ -3683,7 +3656,7 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
   const session = ctx.db.playerSession.connectionId.find(ctx.connectionId);
   if (!session) return;
   if (session.enteredWorld) touchPlayerAccessAudit(ctx, session.protocolVersion);
-  if (!isMapShard(ctx) && session.enteredWorld) {
+  if (session.enteredWorld) {
     finishAnalyticsSession(ctx, { ...session, ...sessionAnalytics(ctx, session.connectionId) }, ctx.db.player.identity.find(ctx.sender)?.mapId ?? TUTORIAL_FOREST_MAP_ID);
   }
   ctx.db.playerSession.connectionId.delete(ctx.connectionId);
@@ -3718,20 +3691,6 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
   }
   ctx.db.playerController.identity.delete(ctx.sender);
 
-  if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)) {
-    // The account coordinator owns admission lifetime. Deleting this row on a
-    // transient socket loss strands retries: the unchanged snapshot is not sent
-    // again, while enterShardPresence still requires its admitted player row.
-    const currentPlayer = playerWithMotion(ctx, ctx.db.player.identity.find(ctx.sender));
-    if (currentPlayer) {
-      const stopped = { ...currentPlayer, ...stoppedMotionFields(currentPlayer, true), lastInputAt: ctx.timestamp };
-      updateSnapshotRow(ctx, "player", stopped);
-      syncPlayerMotion(ctx, stopped);
-      syncPlayerMotionIdentity(ctx, stopped);
-    }
-    return;
-  }
-
   if (isDeveloperIdentity(ctx.sender)) clearVirtualPlayersForOwner(ctx, ctx.sender);
   finishLifetimeSession(ctx, ctx.sender);
   removeIdentityPresence(ctx, ctx.sender);
@@ -3741,12 +3700,6 @@ export const runMaintenance = spacetimedb.reducer(
   { maintenance: maintenanceSchedule.rowType },
   (ctx, { maintenance }) => {
     void maintenance;
-    if (isMapShard(ctx)) {
-      ensureMotionDetailFrameSchedule(ctx);
-      runPendingModuleMigrations(ctx);
-      regenerateIdleBosses(ctx, ctx.db.shardRuntime.id.find(0)!.mapId);
-      return;
-    }
     const finishedDuels = [...ctx.db.duel.iter()].filter((current: any) =>
       current.status === "finishing" && ctx.timestamp.microsSinceUnixEpoch >= current.endsAtMicros
     );
@@ -3755,7 +3708,7 @@ export const runMaintenance = spacetimedb.reducer(
     ensureMotionDetailFrameSchedule(ctx);
     runPendingModuleMigrations(ctx);
     refreshLeaderboardIfDue(ctx);
-    if (!rootShardingEnabled(ctx)) regenerateIdleBosses(ctx);
+    regenerateIdleBosses(ctx);
   },
 );
 
@@ -3765,16 +3718,10 @@ export const runMaintenanceSweep = spacetimedb.reducer(
   { maintenance: maintenanceSweepSchedule.rowType },
   (ctx, { maintenance }) => {
     void maintenance;
-    if (isMapShard(ctx)) {
-      clearOrphanPresence(ctx);
-      clearOrphanRealtimeState(ctx);
-      return;
-    }
     clearExpiredHistory(ctx);
     clearExpiredAccountLinks(ctx);
     clearOrphanPresence(ctx);
     clearOrphanRealtimeState(ctx);
-    clearOrphanShardMembers(ctx);
     clearOrphanVirtualPlayers(ctx);
     clearExpiredVirtualPlayerRuns(ctx);
     reconcileOnlinePlayers(ctx);
@@ -3791,7 +3738,6 @@ export const runMaintenanceSweep = spacetimedb.reducer(
 export const cleanupStartupTelemetry = spacetimedb.reducer(
   { schedule: startupTelemetryCleanupSchedule.rowType },
   (ctx, _args) => {
-    if (isMapShard(ctx)) return;
     cleanupConnectionDiagnostics(ctx);
     trimStartupTelemetry(ctx);
     clearExpiredStartupTelemetryRateLimits(ctx);
@@ -3857,9 +3803,8 @@ export const publishMapFrames = spacetimedb.reducer(
       // Keep a final single/empty frame to clear dots after a departure or hide.
       maps.set(state.mapId, []);
     }
-    // Regional databases already contain one map. A second index on this hot
-    // movement table would add write cost without narrowing those scans.
-    // The root's private-home-only case never reads motion rows at all.
+    // A map index on this hot movement table would add write cost to every
+    // packet. The private-home-only case never reads motion rows at all.
     if (sampleVisiblePlayers) {
       for (const motion of ctx.db.playerMotion.iter() as Iterable<any>) {
         if (motion.isVisible) maps.get(motion.mapId)?.push(motionSample(motion, ctx.timestamp.microsSinceUnixEpoch));
@@ -4380,18 +4325,14 @@ export const acceptTerms = spacetimedb.reducer(
 
 export const enterWorld = spacetimedb.reducer({ tabId: t.string() }, (ctx, { tabId }) => {
   requireSupportedSessionProtocol(ctx);
-  if (isMapShard(ctx)) enterShardPresence(ctx, tabId);
-  else {
-    enterWorldPresence(ctx, tabId);
-    pinMapBalance(ctx, ctx.db.player.identity.find(ctx.sender)?.mapId ?? "");
-    beginBossTimeBudget(ctx, ctx.db.player.identity.find(ctx.sender)?.mapId ?? "");
-  }
+  enterWorldPresence(ctx, tabId);
+  pinMapBalance(ctx, ctx.db.player.identity.find(ctx.sender)?.mapId ?? "");
+  beginBossTimeBudget(ctx, ctx.db.player.identity.find(ctx.sender)?.mapId ?? "");
 });
 
 /** Only tutorial-capable clients use this additive entry point. */
 export const enterWorldWithTutorial = spacetimedb.reducer({ tabId: t.string(), forceTakeover: t.bool() }, (ctx, { tabId, forceTakeover }) => {
   requireSupportedSessionProtocol(ctx);
-  if (isMapShard(ctx)) throw new SenderError("Connect to the account database.");
   enterWorldPresence(ctx, tabId, forceTakeover, true);
   pinMapBalance(ctx, ctx.db.player.identity.find(ctx.sender)?.mapId ?? "");
     beginBossTimeBudget(ctx, ctx.db.player.identity.find(ctx.sender)?.mapId ?? "");
@@ -4543,7 +4484,6 @@ export const setDeveloperPresence = spacetimedb.reducer(
 
 export const setMultiplayerEnabled = spacetimedb.reducer({ enabled: t.bool() }, (ctx, { enabled }) => {
   const player = requireControllingPlayer(ctx);
-  if (isMapShard(ctx)) throw new SenderError("Use your account connection for multiplayer settings.");
   writeMultiplayerPreference(ctx, enabled);
   const visible = enabled && !needsOnboarding(ctx, ctx.sender) && (!isDeveloperIdentity(ctx.sender)
     || (ctx.db.developerPresencePreference.identity.find(ctx.sender)?.visible ?? false));
@@ -4893,7 +4833,7 @@ export const setSkinTone = spacetimedb.reducer(
 export const devSuspendPlayerAccount = spacetimedb.reducer(
   { identity: t.identity(), expectedDisplayName: t.string(), untilMicros: t.u64(), reason: t.string() },
   (ctx, args) => {
-    if (!isDatabaseOwnerIdentity(ctx.sender) || isMapShard(ctx)) denyPrivilegedAccess(ctx, "dev_suspend_player_account", "Account database owner required.");
+    if (!isDatabaseOwnerIdentity(ctx.sender)) denyPrivilegedAccess(ctx, "dev_suspend_player_account", "Account database owner required.");
     suspendPlayerAccount(ctx, args);
     finishLifetimeSession(ctx, args.identity);
     removeIdentityPresence(ctx, args.identity);
@@ -4904,7 +4844,7 @@ export const devRollbackPlayerProgression = spacetimedb.reducer(
   { identity: t.identity(), expectedDisplayName: t.string(), operationId: t.string(), baselineJson: t.string(), reason: t.string() },
   (ctx, args) => rollbackPlayerProgression(ctx, args, {
     requireOwner: () => {
-      if (!isDatabaseOwnerIdentity(ctx.sender) || isMapShard(ctx)) denyPrivilegedAccess(ctx, "dev_rollback_player_progression", "Account database owner required.");
+      if (!isDatabaseOwnerIdentity(ctx.sender)) denyPrivilegedAccess(ctx, "dev_rollback_player_progression", "Account database owner required.");
       if (activeDuelFor(ctx, args.identity)) throw new SenderError("Wait for this player's duel to finish.");
     },
     apply: (progress, mapIndex) => {
@@ -4931,7 +4871,6 @@ export const devRollbackPlayerProgression = spacetimedb.reducer(
         const moved = transitionPlayerMap({ ...ctx, sender: args.identity }, { ...active, maxHp, hp: maxHp }, HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN);
         persistWorldLocation(ctx, moved);
       } else {
-        releaseMapShard(ctx, args.identity);
         const location = { identity: args.identity, mapId: HOME_EXTERIOR_MAP_ID, ...HOME_EXTERIOR_SPAWN, facing: 0 };
         if (ctx.db.playerLastLocation.identity.find(args.identity)) ctx.db.playerLastLocation.identity.update(location);
         else ctx.db.playerLastLocation.insert(location);
@@ -5239,7 +5178,6 @@ export const myItemGifts = spacetimedb.view(
 export const devGrantEquipment = spacetimedb.reducer(
   { identity: t.identity(), itemId: t.string(), equip: t.bool() }, (ctx, { identity, itemId, equip }) => {
     if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_grant_equipment");
-    if (isMapShard(ctx)) throw new SenderError("Use the world connection.");
     const item = itemDefinition(itemId);
     const progress = ctx.db.playerProgress.identity.find(identity);
     if (!item || !progress) throw new SenderError("Player or equipment unavailable.");
@@ -5254,14 +5192,12 @@ export const devGrantEquipment = spacetimedb.reducer(
 export const devDeliverAlphaTesterGifts = spacetimedb.reducer(
   { recipients: t.array(t.identity()) }, (ctx, { recipients }) => {
     if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_deliver_alpha_tester_gifts");
-    if (isMapShard(ctx)) throw new SenderError("Use the world connection.");
     deliverAlphaTesterGifts(ctx, recipients);
   },
 );
 
 export const claimDeveloperItemGift = spacetimedb.reducer({ key: t.string() }, (ctx, { key }) => {
   requireControllingPlayer(ctx);
-  if (isMapShard(ctx)) throw new SenderError("Use the world connection.");
   claimItemGift(ctx, key, itemId => {
     const progress = ctx.db.playerProgress.identity.find(ctx.sender);
     if (!progress) throw new SenderError("Player unavailable.");
@@ -5272,7 +5208,6 @@ export const claimDeveloperItemGift = spacetimedb.reducer({ key: t.string() }, (
 export const devDeliverDisconnectCompensation = spacetimedb.reducer(
   { recipients: t.array(t.identity()) }, (ctx, { recipients }) => {
     if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_deliver_disconnect_compensation");
-    if (isMapShard(ctx)) throw new SenderError("Use the world connection.");
     deliverDisconnectCompensation(ctx, recipients, input => { applyGemBalanceChange(ctx, input); });
   },
 );
@@ -5280,7 +5215,6 @@ export const devDeliverDisconnectCompensation = spacetimedb.reducer(
 export const devDeliverCombatUpdateGift = spacetimedb.reducer(
   { recipients: t.array(t.identity()) }, (ctx, { recipients }) => {
     if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_deliver_combat_update_gift");
-    if (isMapShard(ctx)) throw new SenderError("Use the world connection.");
     deliverCombatUpdateGift(ctx, recipients, input => { applyGemBalanceChange(ctx, input); });
   },
 );
@@ -5288,20 +5222,17 @@ export const devDeliverCombatUpdateGift = spacetimedb.reducer(
 export const devDeliverOutageCompensation = spacetimedb.reducer(
   { recipients: t.array(t.identity()) }, (ctx, { recipients }) => {
     if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_deliver_outage_compensation");
-    if (isMapShard(ctx)) throw new SenderError("Use the world connection.");
     deliverOutageCompensation(ctx, recipients, input => { applyGemBalanceChange(ctx, input); });
   },
 );
 export const devDeliverAutofarmTestGift = spacetimedb.reducer(
   { recipients: t.array(t.identity()) }, (ctx, { recipients }) => {
     if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_deliver_autofarm_test_gift");
-    if (isMapShard(ctx)) throw new SenderError("Use the world connection.");
     deliverAutofarmTestGift(ctx, recipients, input => { applyGemBalanceChange(ctx, input); });
   },
 );
 export const devAnnounceOutageCompensation = spacetimedb.reducer({}, ctx => {
   if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_announce_outage_compensation");
-  if (isMapShard(ctx)) throw new SenderError("Use the world connection.");
   announceOutageCompensation(ctx, message => { insertChatMessage(ctx, ctx.sender, "DEVELOPER", message); });
 });
 
@@ -5335,21 +5266,18 @@ export const claimMailboxGift = spacetimedb.reducer({ id: t.string() }, (ctx, { 
   });
 });
 export const requestAccountDeletion = spacetimedb.reducer({ confirmation: t.string() }, (ctx, { confirmation }) => {
-  if (isMapShard(ctx)) throw new SenderError("Use the world connection.");
   requireControllingPlayer(ctx);
   queueAccountDeletion(ctx, confirmation);
 });
 export const devDeliverEquipmentMail = spacetimedb.reducer(
   { recipients: t.array(t.identity()) }, (ctx, { recipients }) => {
     if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_deliver_equipment_mail");
-    if (isMapShard(ctx)) throw new SenderError("Use the world connection.");
     deliverEquipmentMail(ctx, recipients);
   },
 );
 export const devPublishMailboxLetter = spacetimedb.reducer(
   { id: t.string(), title: t.string(), body: t.string(), gems: t.u64() }, (ctx, letter) => {
     if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_publish_mailbox_letter");
-    if (isMapShard(ctx)) throw new SenderError("Use the world connection.");
     publishMailboxLetter(ctx, letter);
   },
 );
@@ -5530,7 +5458,6 @@ export const recordPlayerDeath = spacetimedb.reducer(
       });
     }
     publishPlayerDeathFrame(ctx, activePlayer);
-    if (isMapShard(ctx)) return;
     const lifetime = ensurePlayerLifetime(ctx);
     ctx.db.playerLifetime.identity.update({ ...lifetime, deathCount: lifetime.deathCount + 1n });
   },
@@ -5564,7 +5491,7 @@ export const recordEnemyDefeats = spacetimedb.reducer(
   { streamId: t.string(), sequence: t.u64(), mapId: t.string(), enemies: t.array(t.object("EnemyDefeat", { enemy: t.string(), count: t.u16() })) },
   (ctx, batch) => {
     const player = requireControllingPlayer(ctx);
-    if (isMapShard(ctx) || activeDuelFor(ctx, ctx.sender)) throw new SenderError("Enemy rewards require your account world connection.");
+    if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Enemy rewards require your account world connection.");
     const accepted = acceptEnemyDefeats(ctx, batch, permittedDefeatMaps(ctx, player, HOME_EXTERIOR_MAP_ID), earned => maximumBossCombatForProgress(ctx, earned));
     if (!accepted) return;
     const enforce = () => {
@@ -5595,7 +5522,7 @@ export const recordEnemyDefeats = spacetimedb.reducer(
       if (reward.type !== "boss") continue;
       const boss = personalBossDefinition(batch.mapId)!;
       for (let clear = 0; clear < reward.count; clear++) {
-        if (boss.kind !== "procedural") shardRewardHandlers[boss.kind](ctx, ctx.sender);
+        if (boss.kind !== "procedural") bossRewardHandlers[boss.kind](ctx, ctx.sender);
         else {
           const map = generateMap(batch.mapId as `endless_${number}`);
           const previous = ctx.db.proceduralProgress.identity.find(ctx.sender);
@@ -5609,10 +5536,8 @@ export const recordEnemyDefeats = spacetimedb.reducer(
     const lifetime = ensurePlayerLifetime(ctx);
     const enemyKills = lifetime.enemyKills + BigInt(accepted.count);
     ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills });
-    if (!isMapShard(ctx)) {
-      recordAnalyticsMilestone(ctx, "kill");
-      if (accepted.rewards.some(reward => reward.type === "boss")) recordAnalyticsMilestone(ctx, "boss");
-    }
+    recordAnalyticsMilestone(ctx, "kill");
+    if (accepted.rewards.some(reward => reward.type === "boss")) recordAnalyticsMilestone(ctx, "boss");
     // Presence is the server's own signal for active play: hidden or idle
     // players earn at half rate, and nothing here is taken from the client.
     killGems.grantKillGems(ctx, ctx.sender, accepted.count, player.isVisible, enemyKills);
@@ -5662,7 +5587,6 @@ export const myOnboarding = spacetimedb.view(
 
 export const completeOnboardingStep = spacetimedb.reducer({ step: t.u8() }, (ctx, { step }) => {
   requireControllingPlayer(ctx);
-  if (isMapShard(ctx)) throw new SenderError("Use your account connection for the tutorial.");
   advanceOnboarding(ctx, step, progress => writeProgressAndPresentation(ctx, progress));
   if (step === 6) {
     const player = ctx.db.player.identity.find(ctx.sender)!;
@@ -5730,9 +5654,6 @@ function resetProgressToDefaults(ctx: any, activePlayer: any, keep: { research?:
       speed: effectiveMovementSpeedForProgress(ctx, next),
       ...equipmentPresentationForProgress(next),
     };
-    // Rotate the regional admission even when already in Tutorial Forest;
-    // otherwise an existing replica preserves its old position on snapshot sync.
-    releaseMapShard(ctx, ctx.sender);
     const respawned = transitionPlayerMap(ctx, nextPlayer, TUTORIAL_FOREST_MAP_ID, PLAYER_SPAWN, 0);
     persistWorldLocation(ctx, respawned);
     // The board is built from saved stats on a timer, so without this the
@@ -5744,7 +5665,7 @@ const prestige = createPrestige({
   requireControllingPlayer,
   activeDuelFor,
   resetProgressToDefaults,
-  recordPrestige: (ctx: any) => { if (!isMapShard(ctx)) recordAnalyticsMilestone(ctx, "prestige"); },
+  recordPrestige: (ctx: any) => { recordAnalyticsMilestone(ctx, "prestige"); },
 });
 export const resetPlayerProgress = spacetimedb.reducer({}, (ctx) => {
   const activePlayer = requireControllingPlayer(ctx);
@@ -5984,9 +5905,6 @@ function transitionPlayerMap(
     ctx.db.playerMotionInterest.identity.delete(current.identity);
   }
   const currentMotion = ctx.db.playerMotion.identity.find(current.identity);
-  // Rows read once here and handed to the presence helpers; each host call is paid for.
-  const runtime = ctx.db.shardRuntime.id.find(0), sharded = runtime?.role === "root" && runtime.enabled;
-  const member = sharded ? ctx.db.mapShardMember.identity.find(current.identity) : undefined;
   const nextPlayer = {
     ...current,
     mapId,
@@ -6004,13 +5922,15 @@ function transitionPlayerMap(
     lastInputAt: ctx.timestamp,
   };
   updateSnapshotRow(ctx, "player", nextPlayer);
-  const motion = syncPlayerMotion(ctx, nextPlayer, { sharded, motion: currentMotion });
-  syncPlayerMotionIdentity(ctx, nextPlayer, sharded ? { sharded, motion, member } : { sharded, motion });
+  // The motion row read above is handed to the presence helpers; each host call is paid for.
+  const motion = syncPlayerMotion(ctx, nextPlayer, { motion: currentMotion });
+  syncPlayerMotionIdentity(ctx, nextPlayer, { motion });
   syncPlayerMapMarker(ctx, nextPlayer, true);
   ensureRealtimeFrameSchedules(ctx);
   // Home has no enemies: nothing reads a pin there, and the old pin still fits on the way back.
-  if (runtime?.role !== "map") { if (mapId !== HOME_EXTERIOR_MAP_ID) pinMapBalance(ctx, mapId); beginBossTimeBudget(ctx, mapId); }
-  if (!isMapShard(ctx)) recordAnalyticsMapVisit(ctx, mapId);
+  if (mapId !== HOME_EXTERIOR_MAP_ID) pinMapBalance(ctx, mapId);
+  beginBossTimeBudget(ctx, mapId);
+  recordAnalyticsMapVisit(ctx, mapId);
   return nextPlayer;
 }
 
@@ -6022,8 +5942,6 @@ export const changeMap = spacetimedb.reducer(
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish the duel before using a portal.");
     if (mapId === HOME_EXTERIOR_MAP_ID) {
       if (current.hp <= 0) throw new SenderError("Respawn before teleporting home.");
-      // Leaving Home on a sharded root persists the location while seating the player.
-      const persisted = current.mapId === HOME_EXTERIOR_MAP_ID && rootShardingEnabled(ctx);
       if (current.mapId === HOME_EXTERIOR_MAP_ID) {
         const saved = ctx.db.homeReturnLocation.identity.find(ctx.sender);
         // Recover already-linked accounts whose older client/server omitted
@@ -6046,7 +5964,7 @@ export const changeMap = spacetimedb.reducer(
         else ctx.db.homeReturnLocation.insert(saved);
         transitionPlayerMap(ctx, current, HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN);
       }
-      if (!persisted) persistWorldLocation(ctx, ctx.db.player.identity.find(ctx.sender));
+      persistWorldLocation(ctx, ctx.db.player.identity.find(ctx.sender));
       return;
     }
     if (!VALID_MAP_IDS.has(mapId) || mapId === current.mapId) throw new SenderError("Unsupported map destination.");
@@ -6156,173 +6074,17 @@ export const setSpeed = spacetimedb.reducer(
   },
 );
 
-// Map databases export only the realtime reducers from this module (see
-// spacetimedb-map/src/index.ts). Durable account writes stay on the root.
-function requireShardOperator(ctx: any) {
+/** The database owner, or the module calling itself from a schedule. */
+function requireOperator(ctx: any) {
   const internal = !ctx.connectionId && sameIdentity(ctx.sender, ctx.databaseIdentity);
-  if (!internal && !isDatabaseOwnerIdentity(ctx.sender)) throw new SenderError("Shard operator required");
+  if (!internal && !isDatabaseOwnerIdentity(ctx.sender)) throw new SenderError("Database operator required");
 }
-function requireMapWorkload(ctx: any) {
-  if (rootShardingEnabled(ctx) && ctx.db.player.identity.find(ctx.sender)?.mapId !== HOME_EXTERIOR_MAP_ID) throw new SenderError("Connect to the assigned map shard");
-  const runtime = ctx.db.shardRuntime.id.find(0);
-  if (runtime?.role === "map" && (!runtime.enabled || runtime.leaseExpiresAtMicros <= ctx.timestamp.microsSinceUnixEpoch)) {
-    throw new SenderError("Map shard is reconnecting to the account service");
-  }
-}
-export const configureSharding = spacetimedb.reducer(
-  { role: t.string(), enabled: t.bool(), mapId: t.string(), shardId: t.u64() },
-  (ctx, args) => {
-    requireShardOperator(ctx);
-    if (args.role !== "root" && args.role !== "map") throw new SenderError("Invalid shard role");
-    if (args.role === "map") validateShardMap(args.mapId);
-    const current = ctx.db.shardRuntime.id.find(0);
-    if (current && (current.role !== args.role || current.mapId !== args.mapId || current.shardId !== args.shardId)) {
-      throw new SenderError("A database cannot change shard identity");
-    }
-    if (current) ctx.db.shardRuntime.id.update({ ...current, ...args });
-    else ctx.db.shardRuntime.insert({ id: 0, ...args, leaseExpiresAtMicros: 0n });
-    if (args.role === "root" && !args.enabled) {
-      for (const member of ctx.db.mapShardMember.iter()) releaseMapShard(ctx, member.identity);
-      for (const player of ctx.db.player.iter()) {
-        const saved = ctx.db.playerLastLocation.identity.find(player.identity);
-        // Stop the row and forget its input sequence: the validator skips a player with no input yet, so whichever packet comes first anchors their true position.
-        const restored = { ...player, moving: false, dx: 0, dy: 0, vx: 0, vy: 0, lastInputSequence: 0, lastInputAt: relocatedInputClock(ctx), ...(saved?.mapId === player.mapId
-          && !activeDuelFor(ctx, player.identity) ? { x: saved.x, y: saved.y, facing: saved.facing } : {}) };
-        updateSnapshotRow(ctx, "player", restored); syncPlayerMotion(ctx, restored); syncPlayerMotionIdentity(ctx, restored);
-      }
-      ensureRealtimeFrameSchedules(ctx);
-    }
-    if (args.role === "root" && args.enabled) {
-      for (const member of ctx.db.mapShardMember.iter()) {
-        if (!ctx.db.player.identity.find(member.identity)) releaseMapShard(ctx, member.identity);
-      }
-      reconcileOnlinePlayers(ctx);
-      for (const shard of ctx.db.mapShard.iter()) {
-        if (ctx.db.shardCoordinatorConnection.id.find(0) && !ctx.db.shardCoordinatorSchedule.scheduledId.find(shard.id)) {
-          ctx.db.shardCoordinatorSchedule.insert({ scheduledId: shard.id, scheduledAt: ScheduleAt.interval(1_000_000n) });
-        }
-      }
-      for (const player of ctx.db.player.iter()) {
-        removePlayerRealtimeState(ctx, player.identity);
-        assignMapShard(ctx, player);
-      }
-    }
-  },
-);
-export const shardReady = spacetimedb.reducer({ shardId: t.u64() }, (ctx, { shardId }) => {
-  requireShardOperator(ctx);
-  const shard = ctx.db.mapShard.id.find(shardId);
-  if (!shard || shard.state === "draining") throw new SenderError("Unknown or draining shard");
-  const ready = { ...shard, state: "ready" };
-  ctx.db.mapShard.id.update(ready);
-  syncMapShardRoutesForShard(ctx, ready);
-  for (const member of ctx.db.mapShardMember.byMap.filter(shard.mapId)) {
-    if (member.shardId === 0n) assignMapShard(ctx, ctx.db.player.identity.find(member.identity));
-  }
-});
-export const shardMemberReady = spacetimedb.reducer(
-  { identity: t.identity(), generation: t.u64(), shardId: t.u64() }, (ctx, args) => {
-    requireShardOperator(ctx);
-    const member = ctx.db.mapShardMember.identity.find(args.identity);
-    if (!member || member.generation !== args.generation || member.shardId !== args.shardId) return;
-    if (!member.ready) { const next = { ...member, ready: true }; ctx.db.mapShardMember.identity.update(next); syncMapShardRoute(ctx, args.identity, next); }
-  },
-);
-// Kept for clients built before map_shard_route existed; new clients subscribe to
-// their own row of that table. Reading the route row keeps the view's read set to one row.
-export const myMapShardRoute = spacetimedb.view(
-  { public: true }, t.option(mapShardRouteType), (ctx) => ctx.db.mapShardRoute.identity.find(ctx.sender) ?? undefined,
-);
-export const installShardPlayer = spacetimedb.reducer(
-  { identity: t.identity(), generation: t.u64(), snapshot: t.string() }, installShardPlayerImpl);
-function installShardPlayerImpl(ctx: any, args: any) {
-    requireShardOperator(ctx);
-    if (!isMapShard(ctx)) throw new SenderError("Map database required");
-    const data = decodeShardSnapshot(args.snapshot);
-    const runtime = ctx.db.shardRuntime.id.find(0)!;
-    if (!data.player || data.player.mapId !== runtime.mapId || !sameIdentity(data.player.identity, args.identity)) throw new SenderError("Wrong map snapshot");
-    const admission = ctx.db.shardAdmission.identity.find(args.identity);
-    const fence = ctx.db.shardAdmissionFence.identity.find(args.identity);
-    if ((fence && fence.generation >= args.generation) || (admission && admission.generation > args.generation)) return;
-    if (!admission && ctx.db.shardAdmission.count() >= BigInt(MAP_SHARD_CAPACITY)) throw new SenderError("Map shard is full");
-    const nextAdmission = { identity: args.identity, generation: args.generation, tabId: data.player.controllerTabId, inDuel: Boolean(data.inDuel) };
-    if (admission) ctx.db.shardAdmission.identity.update(nextAdmission);
-    else ctx.db.shardAdmission.insert(nextAdmission);
-    for (const name of ["playerProgress", "playerProfile", "playerResearch", "playerAccountStatus"] as const) {
-      const row = data[name];
-      if (row && !sameIdentity(row.identity, args.identity)) throw new SenderError("Snapshot identity mismatch");
-      const table = (ctx.db as any)[name];
-      if (row) {
-        if (table.identity.find(args.identity)) table.identity.update(row);
-        else table.insert(row);
-      } else if (table.identity.find(args.identity)) table.identity.delete(args.identity);
-    }
-    for (const row of ctx.db.playerItemUpgrade.byIdentity.filter(args.identity)) deleteSnapshotRow(ctx, "playerItemUpgrade", row.key);
-    for (const row of data.playerItemUpgrade ?? []) {
-      if (!sameIdentity(row.identity, args.identity)) throw new SenderError("Upgrade identity mismatch");
-      insertSnapshotRow(ctx, "playerItemUpgrade", row);
-    }
-    markPlayerBalanceCurrent(ctx, args.identity);
-    const active = ctx.db.player.identity.find(args.identity);
-    // Snapshot refreshes preserve regional motion. A new reservation gets its
-    // root-validated portal arrival, never a stale position from the old shard.
-    const nextPlayer = active && admission?.generation === args.generation
-      ? { ...active, ...powerFieldsForProgress(ctx, data.playerProgress), ...equipmentPresentationForProgress(data.playerProgress),
-        speed: data.player.speed, isVisible: data.player.isVisible, controllerTabId: data.player.controllerTabId }
-      : { ...data.player, lastInputAt: ctx.timestamp, moving: false, vx: 0, vy: 0 };
-    if (active) updateSnapshotRow(ctx, "player", nextPlayer);
-    else insertSnapshotRow(ctx, "player", nextPlayer);
-    const regionalPlayer = playerWithMotion(ctx, nextPlayer);
-    // Replicated eye changes must update both presentation and frame eligibility
-    // immediately, even while the invisible client sends only coarse checkpoints.
-    syncPlayerMotion(ctx, regionalPlayer);
-    syncPlayerMotionIdentity(ctx, regionalPlayer);
-    if (!nextPlayer.isVisible && ctx.db.playerMotionInterest.identity.find(args.identity)) {
-      ctx.db.playerMotionInterest.identity.delete(args.identity);
-    }
-    ensureRealtimeFrameSchedules(ctx);
-}
-export const revokeShardPlayer = spacetimedb.reducer({ identity: t.identity(), generation: t.u64() }, revokeShardPlayerImpl);
-function revokeShardPlayerImpl(ctx: any, args: any) {
-  requireShardOperator(ctx);
-  const admission = ctx.db.shardAdmission.identity.find(args.identity);
-  if (!admission || admission.generation !== args.generation) return;
-  ctx.db.shardAdmission.identity.delete(args.identity);
-  const fence = { identity: args.identity, generation: args.generation };
-  if (ctx.db.shardAdmissionFence.identity.find(args.identity)) ctx.db.shardAdmissionFence.identity.update(fence);
-  else ctx.db.shardAdmissionFence.insert(fence);
-  // Read models are disposable. The durable source remains on the root.
-  for (const name of ["playerProgress", "playerProfile", "playerResearch", "playerAccountStatus", "playerBalanceVersion", "shardCheckpoint"] as const) {
-    const table = (ctx.db as any)[name];
-    if (table.identity.find(args.identity)) table.identity.delete(args.identity);
-  }
-  for (const row of ctx.db.playerItemUpgrade.byIdentity.filter(args.identity)) deleteSnapshotRow(ctx, "playerItemUpgrade", row.key);
-  // No global duel resolution in a region: the root owns the duel lifecycle.
-  deleteSnapshotRow(ctx, "player", args.identity);
-  removePlayerRealtimeState(ctx, args.identity);
-  if (ctx.db.playerController.identity.find(args.identity)) ctx.db.playerController.identity.delete(args.identity);
-}
-const shardRewardHandlers: Record<string, (ctx: any, identity: any) => void> = {
+const bossRewardHandlers: Record<string, (ctx: any, identity: any) => void> = {
   dragon: rewardDragonContributor, spider: rewardSpiderContributor, frostclaw: rewardFrostclawContributor,
   magmalisk: rewardMagmaliskContributor, gloomroot: rewardGloomrootContributor, tidewyrm: rewardTidewyrmContributor,
   koiShogun: rewardKoiShogunContributor, tempestKirin: rewardTempestKirinContributor,
   miremaw: rewardMiremawContributor, prismshell: rewardPrismshellContributor, ironhorn: rewardIronhornContributor, dreadreaper: rewardDreadreaperContributor, voltwarden: rewardVoltwardenContributor, gravebloom: rewardGravebloomContributor, aegisPrime: rewardAegisPrimeContributor,
 };
-export const deliverShardReward = spacetimedb.reducer(
-  { shardId: t.u64(), identity: t.identity(), boss: t.string(), encounter: t.u64() }, deliverShardRewardImpl);
-function deliverShardRewardImpl(ctx: any, args: any) {
-    requireShardOperator(ctx);
-    if (isMapShard(ctx) || !ctx.db.mapShard.id.find(args.shardId) || !shardRewardHandlers[args.boss]) throw new SenderError("Invalid reward source");
-    const key = `${args.shardId}:${args.boss}:${args.encounter}:${args.identity.toHexString()}`;
-    if (ctx.db.shardRewardReceipt.key.find(key)) return;
-    shardRewardHandlers[args.boss](ctx, args.identity);
-    ctx.db.shardRewardReceipt.insert({ key, receivedAt: ctx.timestamp });
-}
-export const acknowledgeShardReward = spacetimedb.reducer({ key: t.string() }, (ctx, { key }) => {
-  requireShardOperator(ctx);
-  ctx.db.shardRewardOutbox.key.delete(key);
-});
-
 export const prepareWorldActionPosition = spacetimedb.reducer({ x: t.f64(), y: t.f64() }, (ctx, { x, y }) => {
   const player = requireControllingPlayer(ctx);
   if (![x, y].every(Number.isFinite) || x < PLAYER_RADIUS || y < PLAYER_RADIUS || x > WORLD.width - PLAYER_RADIUS || y > WORLD.height - PLAYER_RADIUS) {
@@ -6334,141 +6096,9 @@ export const prepareWorldActionPosition = spacetimedb.reducer({ x: t.f64(), y: t
   syncPlayerMotion(ctx, next);
 });
 
-export const renewShardLease = spacetimedb.reducer({}, renewShardLeaseImpl);
-function renewShardLeaseImpl(ctx: any, options: { checkpoint?: boolean; enable?: boolean } = {}) {
-  requireShardOperator(ctx);
-  const runtime = ctx.db.shardRuntime.id.find(0);
-  if (runtime?.role !== "map") throw new SenderError("Map database required");
-  ctx.db.shardRuntime.id.update({ ...runtime, enabled: options.enable ?? runtime.enabled,
-    leaseExpiresAtMicros: ctx.timestamp.microsSinceUnixEpoch + 45_000_000n });
-  if (options.checkpoint === false) return;
-  // One low-frequency checkpoint per admitted player; hot movement remains in
-  // the region. The operator invokes this once per 15 seconds per database.
-  for (const admission of ctx.db.shardAdmission.iter()) {
-    const player = playerWithMotion(ctx, ctx.db.player.identity.find(admission.identity));
-    if (!player || admission.inDuel) continue;
-    const next = { identity: admission.identity, generation: admission.generation, mapId: player.mapId, x: player.x, y: player.y };
-    const current = ctx.db.shardCheckpoint.identity.find(admission.identity);
-    if (current && current.x === next.x && current.y === next.y && current.generation === next.generation) continue;
-    if (current) ctx.db.shardCheckpoint.identity.update(next);
-    else ctx.db.shardCheckpoint.insert(next);
-  }
-}
-export const checkpointShardLocation = spacetimedb.reducer(
-  { identity: t.identity(), shardId: t.u64(), generation: t.u64(), x: t.f64(), y: t.f64() }, checkpointShardLocationImpl);
-function checkpointShardLocationImpl(ctx: any, args: any) {
-    requireShardOperator(ctx);
-    const member = ctx.db.mapShardMember.identity.find(args.identity);
-    const player = ctx.db.player.identity.find(args.identity);
-    if (!member || !player || member.shardId !== args.shardId || member.generation !== args.generation || activeDuelFor(ctx, args.identity)) return;
-    if (![args.x, args.y].every(Number.isFinite)) throw new SenderError("Invalid shard position");
-    persistWorldLocation(ctx, { ...player, x: args.x, y: args.y });
-}
-
-export const enterRegionalWorld = spacetimedb.reducer({ tabId: t.string() }, (ctx, { tabId }) => {
-  if (!isMapShard(ctx)) throw new SenderError("Map database is not configured");
-  enterShardPresence(ctx, tabId);
-});
-
-export const configureShardCoordinator = spacetimedb.reducer(
-  { host: t.string(), token: t.string(), program: t.string() }, (ctx, args) => {
-    requireShardOperator(ctx);
-    if (isMapShard(ctx)) throw new SenderError("Account database required");
-    let program = args.program;
-    if (!program) {
-      const parts = [...ctx.db.shardProgramPart.iter()].sort((a, b) => a.part - b.part);
-      if (!parts.length || parts.some((row, i) => row.part !== i || row.total !== parts.length)) throw new SenderError("Incomplete map program upload");
-      program = parts.map(row => row.source).join("");
-    }
-    validateCoordinatorConfig(args.host, args.token, program);
-    const row = { id: 0, ...args, program };
-    const connection = { id: 0, host: args.host, token: args.token };
-    if (ctx.db.shardCoordinatorConnection.id.find(0)) ctx.db.shardCoordinatorConnection.id.update(connection);
-    else ctx.db.shardCoordinatorConnection.insert(connection);
-    if (ctx.db.shardCoordinatorConfig.id.find(0)) ctx.db.shardCoordinatorConfig.id.update(row);
-    else ctx.db.shardCoordinatorConfig.insert(row);
-    for (const part of ctx.db.shardProgramPart.iter()) ctx.db.shardProgramPart.part.delete(part.part);
-    for (const shard of ctx.db.mapShard.iter()) {
-      if (!ctx.db.shardCoordinatorSchedule.scheduledId.find(shard.id)) {
-        ctx.db.shardCoordinatorSchedule.insert({ scheduledId: shard.id, scheduledAt: ScheduleAt.interval(1_000_000n) });
-      }
-    }
-  },
-);
-export const stageShardProgram = spacetimedb.reducer(
-  { part: t.u32(), total: t.u32(), source: t.string() }, (ctx, args) => {
-    requireShardOperator(ctx);
-    if (isMapShard(ctx) || args.total < 1 || args.total > 64 || args.part >= args.total || args.source.length > 200_000) throw new SenderError("Invalid map program part");
-    if (args.part === 0) for (const row of ctx.db.shardProgramPart.iter()) ctx.db.shardProgramPart.part.delete(row.part);
-    if (ctx.db.shardProgramPart.part.find(args.part)) ctx.db.shardProgramPart.part.update(args);
-    else ctx.db.shardProgramPart.insert(args);
-  },
-);
-export const coordinateMapShard = spacetimedb.procedure(
-  { arg: shardCoordinatorSchedule.rowType }, t.unit(), (ctx, { arg }) => {
-    // Only the scheduler may invoke this: clients cannot spawn extra jobs or
-    // keep leases alive after the account service has disabled sharding.
-    if (!sameIdentity(ctx.sender, ctx.databaseIdentity)) throw new SenderError("Scheduler required");
-    coordinateShard(ctx, arg.scheduledId, { reward: deliverShardRewardImpl, checkpoint: checkpointShardLocationImpl });
-    return {};
-  },
-);
-export const synchronizeMapShard = spacetimedb.procedure(
-  { payload: t.string() }, t.string(), (ctx, { payload }) => {
-    requireShardOperator(ctx);
-    const batch = decodeShardSnapshot(payload);
-    const reply = ctx.withTx(tx => {
-      if (!isMapShard(tx)) throw new SenderError("Map database required");
-      const current = tx.db.shardReplicaState.id.find(0);
-      if (!Array.isArray(batch.members) || batch.members.length > MAP_SHARD_CAPACITY) throw new SenderError("Invalid admission batch");
-      if (batch.expiresAt > tx.timestamp.microsSinceUnixEpoch && (!current || batch.sequence > current.sequence)) {
-        const desired = new Map(batch.members.map((row: any) => [row.identity.toHexString(), row]));
-        for (const admission of tx.db.shardAdmission.iter()) {
-          const next: any = desired.get(admission.identity.toHexString());
-          if (!next || next.generation !== admission.generation) revokeShardPlayerImpl(tx, admission);
-        }
-        for (const member of batch.members) if (member.snapshot) installShardPlayerImpl(tx, member);
-        const checkpoint = !current || tx.timestamp.microsSinceUnixEpoch - current.checkpointAt >= 15_000_000n;
-        const state = { id: 0, sequence: batch.sequence, checkpointAt: checkpoint ? tx.timestamp.microsSinceUnixEpoch : current.checkpointAt };
-        if (current) tx.db.shardReplicaState.id.update(state);
-        else tx.db.shardReplicaState.insert(state);
-        if (batch.enabled) renewShardLeaseImpl(tx, { checkpoint, enable: true });
-        else {
-          const runtime = tx.db.shardRuntime.id.find(0)!;
-          if (runtime.enabled || runtime.leaseExpiresAtMicros !== 0n)
-            tx.db.shardRuntime.id.update({ ...runtime, enabled: false, leaseExpiresAtMicros: 0n });
-        }
-      }
-      const replica = tx.db.shardReplicaState.id.find(0);
-      const rewards = [];
-      for (const reward of tx.db.shardRewardOutbox.iter()) {
-        rewards.push(reward);
-        if (rewards.length === 100) break;
-      }
-      return { sequence: replica?.sequence,
-        admitted: [...tx.db.shardAdmission.iter()].filter(row => tx.db.player.identity.find(row.identity)),
-        checkpointAt: replica?.checkpointAt ?? 0n,
-        // Older roots omit the cursor and retain the original full reply.
-        // New roots acknowledge only after their checkpoint transaction commits.
-        checkpoints: batch.checkpointAt === undefined || batch.checkpointAt !== replica?.checkpointAt
-          ? [...tx.db.shardCheckpoint.iter()] : [],
-        rewards,
-      };
-    });
-    return encodeShardSnapshot(reply);
-  },
-);
-export const acknowledgeShardRewards = spacetimedb.reducer({ keys: t.array(t.string()) }, (ctx, { keys }) => {
-  requireShardOperator(ctx);
-  if (keys.length > 100) throw new SenderError("Reward batch too large");
-  for (const key of keys) ctx.db.shardRewardOutbox.key.delete(key);
-});
-
-// Guild mutations belong exclusively to the root. Regional modules
-// deliberately do not export these reducers or snapshot procedures.
 function requireGuildConnection(ctx: ModuleReducerCtx) {
   requireControllingPlayer(ctx);
-  if (isMapShard(ctx) || isVirtualPlayer(ctx, ctx.sender)) throw new SenderError("Use your main character connection.");
+  if (isVirtualPlayer(ctx, ctx.sender)) throw new SenderError("Use your main character connection.");
   if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel first.");
 }
 
@@ -6542,12 +6172,12 @@ const {
   recordAnalyticsConversion,
 });
 
-// Presence and motion bodies live in presence-runtime.ts. Only these four still
+// Presence and motion bodies live in presence-runtime.ts. Only these three still
 // borrow from index.ts; removeIdentityPresence comes from the lifecycle factory
 // above, so this has to follow it.
-const { savedWorldLocation, clearOrphanPresence, applyMovementState, enterShardPresence } = createPresenceRuntime({
+const { savedWorldLocation, clearOrphanPresence, applyMovementState } = createPresenceRuntime({
   WORLD, VALID_MAP_IDS, MAP_ARRIVALS, hasEndlessTravelAccess, sameIdentity, finishLifetimeSession,
-  removeIdentityPresence, requireMapWorkload, requireSupportedSessionProtocol, requireControllingPlayer,
+  removeIdentityPresence, requireControllingPlayer,
   activeDuelFor, effectiveMovementSpeedForProgress, equippedFeetForProgress,
 });
 
@@ -6585,8 +6215,7 @@ export const getGuildReplay = spacetimedb.procedure({ reportKey: t.string() }, t
 /** One-shot operator setup for the requested temporary opponent. Never runs on
  * login or startup, and never moves somebody out of an existing guild. */
 export const seedTemporaryGuild = spacetimedb.reducer((ctx) => {
-  requireShardOperator(ctx);
-  if (isMapShard(ctx)) throw new SenderError("Use the root database.");
+  requireOperator(ctx);
   const existing = ctx.db.guild.nameKey.find("temp");
   if (existing) {
     if (existing.members === 20) return;
@@ -6618,7 +6247,7 @@ export const mySocialHub = spacetimedb.view(
 const socialService = createSocialService({ joinGuild: (ctx, id) => guildService.join(ctx, id) });
 function requireSocialPlayer(ctx: ModuleReducerCtx) {
   requireControllingPlayer(ctx);
-  if (isMapShard(ctx) || isVirtualPlayer(ctx, ctx.sender)) throw new SenderError("Use your main character connection.");
+  if (isVirtualPlayer(ctx, ctx.sender)) throw new SenderError("Use your main character connection.");
 }
 export const getChatMessageReactions = spacetimedb.procedure(
   { channel: t.string(), messageId: t.u64() }, t.string(), (ctx, { channel, messageId }) => ctx.withTx(tx => {
@@ -6680,7 +6309,6 @@ export const configureGemCommerce = spacetimedb.reducer(
   { verifier: t.identity(), enabled: t.bool() },
   (ctx, { verifier, enabled }) => {
     if (!isDatabaseOwnerIdentity(ctx.sender)) denyPrivilegedAccess(ctx, "configure_gem_commerce", "Database owner required.");
-    if (isMapShard(ctx)) throw new SenderError("Commerce belongs to the root database.");
     const value = { id: 0, verifier, enabled };
     if (ctx.db.gemCommerceConfig.id.find(0)) ctx.db.gemCommerceConfig.id.update(value);
     else ctx.db.gemCommerceConfig.insert(value);
@@ -6716,13 +6344,13 @@ function purchaseService(ctx: ReducerCtx<InferSchema<typeof spacetimedb>>) {
 function requireGemVerifier(ctx: ReducerCtx<InferSchema<typeof spacetimedb>>) {
   const config = ctx.db.gemCommerceConfig.id.find(0);
   // Disabling new checkout must still allow paid in-flight orders to settle.
-  if (isMapShard(ctx) || !config || !config.verifier.equals(ctx.sender)) throw new SenderError("Purchase verifier required.");
+  if (!config || !config.verifier.equals(ctx.sender)) throw new SenderError("Purchase verifier required.");
 }
 
 export const reserveGemPurchase = spacetimedb.reducer(
   { packId: t.string(), reservationId: t.string() },
   (ctx, { packId, reservationId }) => {
-    if (isMapShard(ctx) || !ctx.db.gemCommerceConfig.id.find(0)?.enabled) throw new SenderError("Purchases are not available yet.");
+    if (!ctx.db.gemCommerceConfig.id.find(0)?.enabled) throw new SenderError("Purchases are not available yet.");
     if (!hasSpacetimeAuthAccount(ctx)) throw new SenderError("Sign in to purchase Gems.");
     purchaseService(ctx).reserve(ctx.sender.toHexString(), packId, reservationId, ctx.timestamp.microsSinceUnixEpoch);
   },
@@ -6803,7 +6431,6 @@ export const myEndlessTravelAccess = spacetimedb.view(
 export const devSetEndlessTravelAccess = spacetimedb.reducer(
   { identity: t.identity(), enabled: t.bool() }, (ctx, { identity, enabled }) => {
     if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_set_endless_travel_access");
-    if (isMapShard(ctx)) throw new SenderError("Use the world connection.");
     const existing = ctx.db.endlessTravelAccess.identity.find(identity);
     if (enabled && !existing) ctx.db.endlessTravelAccess.insert({ identity });
     else if (!enabled && existing) ctx.db.endlessTravelAccess.identity.delete(identity);
@@ -6825,36 +6452,22 @@ export const getAnalyticsDashboard = spacetimedb.procedure(
   }),
 );
 
-export const devTeleportToPlayer = spacetimedb.procedure({ identity: t.identity(), mapId: t.string() }, t.string(), (ctx, args) => {
-  const target = ctx.withTx(tx => {
-    requireDeveloper(tx, "dev_teleport_to_player");
-    if (activeDuelFor(tx, tx.sender)) throw new SenderError("Finish the duel before teleporting.");
-    if (activeDuelFor(tx, args.identity)) throw new SenderError("Player is in a duel. Try again afterward.");
-    return readDeveloperTravelTarget(tx, args.identity, args.mapId);
-  });
-  const position = readShardTravelPosition(ctx, target);
-  return ctx.withTx(tx => {
-    requireDeveloper(tx, "dev_teleport_to_player");
-    const current = requireControllingPlayer(tx);
-    if (current.hp <= 0 || activeDuelFor(tx, tx.sender)) throw new SenderError("Teleport unavailable while dead or dueling.");
-    if (activeDuelFor(tx, args.identity)) throw new SenderError("Player is in a duel. Try again afterward.");
-    const latest = readDeveloperTravelTarget(tx, args.identity, args.mapId);
-    if (latest.shardId !== target.shardId || latest.generation !== target.generation)
-      throw new SenderError("Player moved to another instance. Try again.");
-    // Choose their instance before the normal transition assigns one for us.
-    if (latest.shardId !== undefined) assignMapShard(tx, { ...current, mapId: latest.mapId }, latest.shardId);
-    const moved = transitionPlayerMap(tx, current, latest.mapId, position ?? latest, latest.facing);
-    persistWorldLocation(tx, moved);
-    return JSON.stringify({ mapId: moved.mapId, x: moved.x, y: moved.y, facing: moved.facing });
-  });
-});
+export const devTeleportToPlayer = spacetimedb.procedure({ identity: t.identity(), mapId: t.string() }, t.string(), (ctx, args) => ctx.withTx(tx => {
+  requireDeveloper(tx, "dev_teleport_to_player");
+  const current = requireControllingPlayer(tx);
+  if (current.hp <= 0 || activeDuelFor(tx, tx.sender)) throw new SenderError("Teleport unavailable while dead or dueling.");
+  if (activeDuelFor(tx, args.identity)) throw new SenderError("Player is in a duel. Try again afterward.");
+  const target = readDeveloperTravelTarget(tx, args.identity, args.mapId);
+  const moved = transitionPlayerMap(tx, current, target.mapId, target, target.facing);
+  persistWorldLocation(tx, moved);
+  return JSON.stringify({ mapId: moved.mapId, x: moved.x, y: moved.y, facing: moved.facing });
+}));
 
 export const devTeleportEndless = spacetimedb.reducer(
   { number: t.f64() }, (ctx, { number }) => {
     const player = requireControllingPlayer(ctx);
     if (!hasEndlessTravelAccess(ctx, ctx.sender)) denyPrivilegedAccess(ctx, "dev_teleport_endless", "Developer travel access required.");
     if (isDeveloperIdentity(ctx.sender)) requireDeveloper(ctx, "dev_teleport_endless");
-    if (isMapShard(ctx)) throw new SenderError("Use the world connection.");
     if (!Number.isSafeInteger(number) || number < 1) throw new SenderError("Enter a positive whole map number.");
     if (player.hp <= 0) throw new SenderError("Respawn before teleporting.");
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish the duel before teleporting.");
@@ -6944,7 +6557,7 @@ export const getSocialChatHistoryWithReactions = spacetimedb.procedure(
 );
 
 export const configurePatreon = spacetimedb.reducer({ clientId: t.string(), clientSecret: t.string(), campaignId: t.string(), silverTierId: t.string(), goldTierId: t.string(), redirectUri: t.string(), diamondTierId: t.string() }, (ctx, config) => {
-  if (!isDatabaseOwnerIdentity(ctx.sender) || isMapShard(ctx)) denyPrivilegedAccess(ctx, "configure_patreon", "Database owner required.");
+  if (!isDatabaseOwnerIdentity(ctx.sender)) denyPrivilegedAccess(ctx, "configure_patreon", "Database owner required.");
   if (!config.clientId || !config.clientSecret || !/^\d+$/.test(config.campaignId) || !/^\d+$/.test(config.silverTierId) || !/^\d+$/.test(config.goldTierId) || config.silverTierId === config.goldTierId) throw new SenderError("Invalid Patreon configuration.");
   // Diamond is optional so the campaign can run without it, but an id that is
   // given must be real and must not double as another tier.
@@ -6955,7 +6568,7 @@ export const configurePatreon = spacetimedb.reducer({ clientId: t.string(), clie
   if (ctx.db.patreonConfig.id.find(0)) ctx.db.patreonConfig.id.update(row); else ctx.db.patreonConfig.insert(row);
 });
 export const beginPatreonLink = spacetimedb.procedure({ state: t.string() }, t.string(), (ctx, { state }) => ctx.withTx(tx => {
-  if (isMapShard(tx) || !hasSpacetimeAuthAccount(tx)) throw new SenderError("Sign in to link Patreon.");
+  if (!hasSpacetimeAuthAccount(tx)) throw new SenderError("Sign in to link Patreon.");
   return beginSupporterLink(tx, state);
 }));
 export const refreshPatreonMembership = spacetimedb.procedure({}, t.string(), ctx => refreshPatreon(ctx));

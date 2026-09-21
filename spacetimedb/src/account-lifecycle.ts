@@ -21,11 +21,10 @@ import { isPublicDisplayNameAllowed } from "./chat-moderation";
 import { mergeAccountReactions, removeMessageReactions } from "./chat-reactions";
 import { mergeItemGifts, removeItemGifts } from "./item-gifts";
 import { mergeMailboxReceipts, removeMailboxReceipts } from "./mailbox";
-import { releaseMapShard, rootShardingEnabled } from "./map-sharding";
 import { mergeOnboarding } from "./onboarding";
 import { unlinkPatreon } from "./patreon";
 import { clearProceduralProgress, mergeProceduralProgress } from "./procedural-maps";
-import { deleteSnapshotRow, insertSnapshotRow, updateSnapshotRow } from "./shard-snapshot-writes";
+import { deleteSnapshotRow, insertSnapshotRow, updateSnapshotRow } from "./snapshot-row-writes";
 import { mergeSocialAccount, removeSocialAccount } from "./social-service";
 
 export const ACCOUNT_LINK_LIFETIME_MICROS = 600_000_000n;
@@ -579,10 +578,6 @@ for (const [contributionTable, attackWindowTable] of [
     // reconnect with the pre-migration name and stats.
     const guestActivePlayer = ctx.db.player.identity.find(link.guest);
     if (guestActivePlayer) {
-      // The guest's seat goes with its player row. Every other teardown path
-      // releases it; holding it leaves the instance counted as occupied for
-      // good, which warms new instances nobody is standing in.
-      releaseMapShard(ctx, link.guest);
       deleteSnapshotRow(ctx, "player", link.guest);
       reconcileOnlinePlayers(ctx);
     }
@@ -644,7 +639,6 @@ for (const [contributionTable, attackWindowTable] of [
   }
 
   function removeIdentityPresence(ctx: any, identity: any) {
-    releaseMapShard(ctx, identity);
     const currentDuel = activeDuelFor(ctx, identity);
     let disconnectedDuelOrigin: { x: number; y: number } | null = null;
     if (currentDuel) {
@@ -663,7 +657,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (activePlayer) {
       // Duel actors live outside world bounds. A disconnect must save their
       // pre-duel origin, not clamp arena coordinates into a map corner.
-      if (!rootShardingEnabled(ctx)) persistWorldLocation(ctx, disconnectedDuelOrigin
+      persistWorldLocation(ctx, disconnectedDuelOrigin
         ? { ...activePlayer, ...disconnectedDuelOrigin }
         : activePlayer);
       deleteSnapshotRow(ctx, "player", identity);
@@ -681,7 +675,6 @@ for (const [contributionTable, attackWindowTable] of [
     removeSocialAccount(ctx, identity);
     guildService.removeAccount(ctx, identity);
     ctx.db.playerNameTag.identity.delete(identity);
-    releaseMapShard(ctx, identity);
     removePlayerSafetyData(ctx, identity);
 
     const activePlayer = ctx.db.player.identity.find(identity);
@@ -782,8 +775,6 @@ for (const [contributionTable, attackWindowTable] of [
     guildService.removeAccount(ctx, identity);
     ctx.db.playerNameTag.identity.delete(identity);
     removePlayerSafetyData(ctx, identity);
-    // A no-op without a membership, so this is safe on an already offline account.
-    releaseMapShard(ctx, identity);
     const activePlayer = ctx.db.player.identity.find(identity);
     if (activePlayer) deleteSnapshotRow(ctx, "player", identity);
     removePlayerRealtimeState(ctx, identity);

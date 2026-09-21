@@ -97,10 +97,6 @@ describe("guild root reducer integration", () => {
     f.actor("1");
     f.ctx.connectionId = null;
     expect(() => createTestGuild(f, "Rose")).toThrow();
-    f.actor("1");
-    f.seed("shardRuntime", { id: 0, role: "map", enabled: true });
-    f.seed("shardAdmission", { identity: f.ctx.sender, generation: 1n, tabId: "test", inDuel: false });
-    expect(() => createTestGuild(f, "Rose")).toThrow("main character");
     expect(f.db.guild.count()).toBe(0n);
     expect(f.db.guildAccount.count()).toBe(1n);
   });

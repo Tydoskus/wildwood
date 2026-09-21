@@ -30,7 +30,6 @@ import * as GetSocialChatHistoryWithReactionsProcedure from "../get_social_chat_
 import * as GetSocialHubProcedure from "../get_social_hub_procedure";
 import * as PreviewMapBalanceProcedure from "../preview_map_balance_procedure";
 import * as RefreshPatreonMembershipProcedure from "../refresh_patreon_membership_procedure";
-import * as SynchronizeMapShardProcedure from "../synchronize_map_shard_procedure";
 
 export type BeginPatreonLinkArgs = __Infer<typeof BeginPatreonLinkProcedure.params>;
 export type BeginPatreonLinkResult = __Infer<typeof BeginPatreonLinkProcedure.returnType>;
@@ -80,6 +79,4 @@ export type PreviewMapBalanceArgs = __Infer<typeof PreviewMapBalanceProcedure.pa
 export type PreviewMapBalanceResult = __Infer<typeof PreviewMapBalanceProcedure.returnType>;
 export type RefreshPatreonMembershipArgs = __Infer<typeof RefreshPatreonMembershipProcedure.params>;
 export type RefreshPatreonMembershipResult = __Infer<typeof RefreshPatreonMembershipProcedure.returnType>;
-export type SynchronizeMapShardArgs = __Infer<typeof SynchronizeMapShardProcedure.params>;
-export type SynchronizeMapShardResult = __Infer<typeof SynchronizeMapShardProcedure.returnType>;
 

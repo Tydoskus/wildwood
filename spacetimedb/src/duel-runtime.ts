@@ -9,7 +9,7 @@
 // createDuelRuntime's deps so the moved code reads exactly as it did.
 import { ScheduleAt, Timestamp } from "spacetimedb";
 import { SenderError } from "spacetimedb/server";
-import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./shard-snapshot-writes";
+import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./snapshot-row-writes";
 import {
   playerZone, playerWithMotion, stoppedMotionFields, syncPlayerMotion, syncPlayerMotionIdentity,
   syncPlayerMapMarker, ensureRealtimeFrameSchedules,

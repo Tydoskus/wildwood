@@ -26,7 +26,10 @@ import { describe, expect, it } from "vitest";
 // so the patreon_sweep_schedule table and the sweep_patreon_memberships
 // procedure had to join the schema surface. Both bodies live in patreon.ts,
 // including the row that seeds the schedule; the raise is the declarations alone.
-const MAX_LINES = 7_005;
+// 6_623: map sharding was deleted outright (2026-09-21). Its 13 reducers, two
+// procedures, one view, 17 tables and every shard-only branch left with it, so
+// the schema-surface counts above are that much smaller too.
+const MAX_LINES = 6_623;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

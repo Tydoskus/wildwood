@@ -13,8 +13,7 @@ import { ScheduleAt } from "spacetimedb";
 import { SenderError } from "spacetimedb/server";
 import { restrictMovementSession } from "./defeat-session";
 import { generatedMapUnlocked } from "./procedural-maps";
-import { rootShardingEnabled, isMapShard, assignMapShard, releaseMapShard } from "./map-sharding";
-import { updateSnapshotRow } from "./shard-snapshot-writes";
+import { updateSnapshotRow } from "./snapshot-row-writes";
 import { generateMap, isProceduralMap, PROCEDURAL_ENTRY_BOSS } from "../../shared/procedural-maps";
 import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_WORLD_WIDTH, HOME_WORLD_HEIGHT } from "../../shared/home";
 import { BASIC_PAPER_HAT, BLACK_BOOTS, BLACK_BOOTS_SPEED_BONUS } from "../../shared/items";
@@ -132,9 +131,12 @@ export function adjustPlayerMotionMapState(ctx: any, mapId: string, playerDelta:
   else ctx.db.playerMotionMapState.insert(next);
 }
 
-/** `known` rows were read by the caller in this transaction; see assignMapShard. */
-export function syncPlayerMotion(ctx: any, activePlayer: any, known?: { sharded?: boolean; motion?: any }) {
-  if ((known?.sharded ?? rootShardingEnabled(ctx)) && activePlayer.mapId !== HOME_EXTERIOR_MAP_ID) return { ...activePlayer, networkId: 0 };
+/**
+ * `known` carries a row the caller already read in this transaction. When the
+ * key is present it is taken as the current value even if null; every host
+ * call is paid for, so a map change reads the motion row once.
+ */
+export function syncPlayerMotion(ctx: any, activePlayer: any, known?: { motion?: any }) {
   const current = known && "motion" in known ? known.motion : ctx.db.playerMotion.identity.find(activePlayer.identity);
   const moving = Boolean(activePlayer.moving);
   const isVisible = activePlayer.mapId !== HOME_EXTERIOR_MAP_ID && activePlayer.isVisible !== false;
@@ -187,19 +189,9 @@ export function syncPlayerMotion(ctx: any, activePlayer: any, known?: { sharded?
 /**
  * Returns whether the player's world location was persisted here, so a caller
  * that would otherwise persist it again can skip the second round trip.
- * `known` rows were read by the caller in this transaction; see assignMapShard.
+ * `known` rows were read by the caller in this transaction; see syncPlayerMotion.
  */
-export function syncPlayerMotionIdentity(ctx: any, activePlayer: any, known?: { sharded?: boolean; motion?: any; member?: any }) {
-  const knownMember = known && "member" in known;
-  if (activePlayer?.mapId === HOME_EXTERIOR_MAP_ID) releaseMapShard(ctx, activePlayer.identity, knownMember ? known.member : undefined);
-  const sharded = known?.sharded ?? rootShardingEnabled(ctx);
-  if (sharded && activePlayer?.mapId !== HOME_EXTERIOR_MAP_ID) {
-    const member = activePlayer && (knownMember ? known.member : ctx.db.mapShardMember.identity.find(activePlayer.identity));
-    const persistedLocation = Boolean(activePlayer && (!member || member.mapId !== activePlayer.mapId));
-    if (persistedLocation) persistWorldLocation(ctx, activePlayer);
-    assignMapShard(ctx, activePlayer, undefined, { sharded, member });
-    return { persistedLocation };
-  }
+export function syncPlayerMotionIdentity(ctx: any, activePlayer: any, known?: { motion?: any }) {
   if (!activePlayer) return { persistedLocation: false };
   const motion = (known && "motion" in known ? known.motion : null) ?? ctx.db.playerMotion.identity.find(activePlayer.identity) ?? syncPlayerMotion(ctx, activePlayer);
   const profile = ctx.db.playerProfile.identity.find(activePlayer.identity);
@@ -336,8 +328,8 @@ export function syncPlayerMapMarker(ctx: any, activePlayer: any, force = false) 
 }
 
 export function countOnlinePlayers(ctx: any) {
-  // One root presence row per online identity, across every map and shard.
-  // Table cardinality avoids scanning players or summing transient shard seats.
+  // One presence row per online identity, across every map; table
+  // cardinality avoids scanning players.
   return Number(ctx.db.player.count());
 }
 
@@ -363,8 +355,6 @@ export type PresenceRuntimeDeps = {
   sameIdentity: (left: any, right: any) => boolean;
   finishLifetimeSession: (ctx: any, identity: any) => void;
   removeIdentityPresence: (ctx: any, identity: any) => void;
-  requireMapWorkload: (ctx: any) => void;
-  requireSupportedSessionProtocol: (ctx: any) => any;
   requireControllingPlayer: (ctx: any) => any;
   activeDuelFor: (ctx: any, identity: any) => any;
   effectiveMovementSpeedForProgress: (ctx: any, progress: any) => number;
@@ -374,7 +364,7 @@ export type PresenceRuntimeDeps = {
 export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
   const {
     WORLD, VALID_MAP_IDS, MAP_ARRIVALS, hasEndlessTravelAccess, sameIdentity, finishLifetimeSession,
-    removeIdentityPresence, requireMapWorkload, requireSupportedSessionProtocol, requireControllingPlayer,
+    removeIdentityPresence, requireControllingPlayer,
     activeDuelFor, effectiveMovementSpeedForProgress, equippedFeetForProgress,
   } = deps;
 
@@ -524,7 +514,6 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
 
     const orphanIdentities: any[] = [];
     for (const activePlayer of ctx.db.player.iter() as Iterable<any>) {
-      if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(activePlayer.identity)) continue;
       if (!ctx.db.playerController.identity.find(activePlayer.identity)) orphanIdentities.push(activePlayer.identity);
     }
     for (const identity of orphanIdentities) {
@@ -543,8 +532,6 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
     motionEpoch: number,
     sequence: number,
   ) {
-    requireMapWorkload(ctx);
-    if (isMapShard(ctx) && ctx.db.shardAdmission.identity.find(ctx.sender)?.inDuel) return;
     const current = requireControllingPlayer(ctx);
     if (sequence <= current.lastInputSequence || ["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
     if (![x, y, vx, vy, simulationTick, motionEpoch].every(Number.isFinite)) throw new SenderError("Movement state values must be finite");
@@ -557,8 +544,7 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
     const moving = Math.abs(boundedVx) > 1e-6 || Math.abs(boundedVy) > 1e-6;
     const compatibilitySpeed = Math.max(1e-6, Number.isFinite(current.speed) ? current.speed : PLAYER_SPEED);
     const requestedSpeed = Math.hypot(boundedVx, boundedVy);
-    // Map shards can briefly lag the root presentation row when equipment or
-    // research changes. Resolve the server-owned movement speeds from the
+    // Resolve the server-owned movement speeds from the
     // progress snapshot as well, especially the temporary +25 Black Boots
     // state, so legitimate clients are not recorded as speed violations.
     const progress = ctx.db.playerProgress.identity.find(ctx.sender);
@@ -631,20 +617,5 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
     if (staticStateChanged) updateSnapshotRow(ctx, "player", nextPlayer);
   }
 
-  function enterShardPresence(ctx: any, tabId: string) {
-    requireMapWorkload(ctx);
-    const admission = ctx.db.shardAdmission.identity.find(ctx.sender);
-    if (!admission || admission.tabId !== tabId || !ctx.connectionId) throw new SenderError("Map admission unavailable");
-    const session = requireSupportedSessionProtocol(ctx);
-    ctx.db.playerSession.connectionId.update({ ...session, enteredWorld: true, tabId });
-    const controller = { identity: ctx.sender, connectionId: ctx.connectionId };
-    if (ctx.db.playerController.identity.find(ctx.sender)) ctx.db.playerController.identity.update(controller);
-    else ctx.db.playerController.insert(controller);
-    const player = ctx.db.player.identity.find(ctx.sender);
-    if (!player) throw new SenderError("Map admission is being restored");
-    syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, player));
-    ensureRealtimeFrameSchedules(ctx);
-  }
-
-  return { savedWorldLocation, clearOrphanPresence, applyMovementState, enterShardPresence };
+  return { savedWorldLocation, clearOrphanPresence, applyMovementState };
 }

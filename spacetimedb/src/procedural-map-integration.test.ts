@@ -81,28 +81,7 @@ describe("production generated map reducers", () => {
     f.run(server.changeMap, { mapId: "endless_2", x: 580, y: 617 });
     expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe("endless_2");
   });
-  it("admits generated maps through the existing shard directory", () => {
-    const f = fixture();
-    f.ctx.sender = new (
-      identity("1").constructor as typeof import("spacetimedb").Identity
-    )("c200383520521c925f3cf6deafb20cd6a7d6168d1c31cb3c0ddb731c197a2d79");
-    (f.ctx as any).databaseIdentity = identity("4");
-    f.run(server.configureSharding, {
-      role: "root",
-      enabled: true,
-      mapId: "",
-      shardId: 0n,
-    });
-    f.ctx.sender = identity("1");
-    f.run(server.changeMap, { mapId: "endless_1", x: 580, y: 617 });
-    expect(f.db.mapShardMember.identity.find(f.ctx.sender).mapId).toBe(
-      "endless_1",
-    );
-    expect(
-      [...f.db.mapShard.iter()].some((row: any) => row.mapId === "endless_1"),
-    ).toBe(true);
-  });
-  it("shares bosses within an admitted instance and rejects attacks after an instance transfer", () => {
+  it("shares one boss between every player on a generated map", () => {
     const f = fixture();
     const view = (sender = f.ctx.sender) =>
       server.myProceduralBoss({
@@ -110,64 +89,25 @@ describe("production generated map reducers", () => {
         sender,
       } as unknown as import("./index").GameViewContext);
     f.patch("player", { mapId: "endless_1" });
-    f.seed("shardRuntime", { id: 0, role: "root", enabled: true });
-    f.seed("mapShard", {
-      id: 1n,
-      mapId: "endless_1",
-      databaseName: "map-a",
-      state: "ready",
-    });
-    f.seed("mapShard", {
-      id: 2n,
-      mapId: "endless_1",
-      databaseName: "map-b",
-      state: "ready",
-    });
     f.run(server.prepareProceduralBoss, { mapId: "endless_1" });
-    expect([...f.db.proceduralInstanceBoss.iter()]).toHaveLength(0);
-    f.seed("mapShardMember", {
-      identity: f.ctx.sender,
+    const boss = view()!;
+    expect(boss.key).toBe("endless_1:root");
+    f.patch("playerProgress", { damage: boss.maxHp / 4 });
+    f.run(server.hitProceduralBoss, {
       mapId: "endless_1",
-      shardId: 1n,
-      generation: 1n,
-      ready: false,
-    });
-    expect(view()).toBeUndefined();
-    f.patch("mapShardMember", { ready: true });
-    f.run(server.prepareProceduralBoss, { mapId: "endless_1" });
-    const bossA = view()!;
-    f.patch("playerProgress", { damage: bossA.maxHp / 4 });
-    const attack = {
-      mapId: "endless_1",
-      bossKey: bossA.key,
-      encounter: bossA.encounter,
+      bossKey: boss.key,
+      encounter: boss.encounter,
       hits: 1,
       x: 4050,
       y: 4050,
-    };
-    f.run(server.hitProceduralBoss, attack);
-    const damagedA = view()!;
-    expect(damagedA.hp).toBeLessThan(bossA.hp);
+    });
+    const damaged = view()!;
+    expect(damaged.hp).toBeLessThan(boss.hp);
     f.seed("player", {
       ...f.db.player.identity.find(f.ctx.sender),
       identity: identity("2"),
     });
-    f.seed("mapShardMember", {
-      identity: identity("2"),
-      mapId: "endless_1",
-      shardId: 1n,
-      generation: 1n,
-      ready: true,
-    });
-    expect(view(identity("2"))).toEqual(damagedA);
-    f.patch("mapShardMember", { shardId: 2n });
-    f.run(server.prepareProceduralBoss, { mapId: "endless_1" });
-    const bossB = view()!;
-    expect(bossB.key).not.toBe(bossA.key);
-    expect(bossB.hp).toBe(bossB.maxHp);
-    f.run(server.hitProceduralBoss, attack);
-    expect(f.db.proceduralInstanceBoss.key.find(bossA.key)).toEqual(damagedA);
-    expect(view()).toEqual(bossB);
+    expect(view(identity("2"))).toEqual(damaged);
   });
   it("retains the deployed layouts and adopts a legacy local fight exactly once", () => {
     const tables = server.default.schemaType.tables;
