@@ -179,7 +179,7 @@ describe("keeping memberships current without the player", () => {
 
   it("picks up a lease about to lapse, soonest first", () => {
     const soon = link({ validUntilMs: now + 60_000 });
-    const later = link({ validUntilMs: now + 30 * 60 * 60 * 1000 });
+    const later = link({ validUntilMs: now + 2 * 60 * 60 * 1000 });
     const due = patreonLinksDueRefresh([later, soon], now);
     expect(due).toEqual([soon, later]);
   });
@@ -235,5 +235,27 @@ describe("who the sweep spends its batch on", () => {
     const soon = link({ tier: "gold", validUntilMs: now - 100 });
     const sooner = link({ tier: "silver", validUntilMs: now - 100_000 });
     expect(patreonLinksDueRefresh([soon, sooner], now)).toEqual([sooner, soon]);
+  });
+});
+
+describe("how often the sweep asks Patreon", () => {
+  const link = (over = {}) => ({ userId: "1", tier: "gold", attemptedAtMs: 0, validUntilMs: 0, ...over });
+  const now = 1_000 * 60 * 60 * 24 * 400;
+
+  it("keeps the lead under the floor lease, or every link is due forever", async () => {
+    const { PATREON_SWEEP_LEAD_MS } = await import("./patreon");
+    // A linked account with no membership gets the floor lease and nothing
+    // longer, so a lead at or above it means the sweep never goes idle.
+    expect(PATREON_SWEEP_LEAD_MS).toBeLessThan(6 * 60 * 60 * 1000);
+  });
+
+  it("leaves a fresh lease alone rather than re-asking every tick", () => {
+    const fresh = link({ tier: "none", validUntilMs: now + 6 * 60 * 60 * 1000 });
+    expect(patreonLinksDueRefresh([fresh], now)).toEqual([]);
+  });
+
+  it("picks a lease up once it is genuinely close to lapsing", () => {
+    const nearly = link({ tier: "none", validUntilMs: now + 60 * 60 * 1000 });
+    expect(patreonLinksDueRefresh([nearly], now)).toHaveLength(1);
   });
 });

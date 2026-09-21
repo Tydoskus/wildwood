@@ -132,7 +132,15 @@ export function refreshPatreon(ctx: ProcedureCtx<Schema>) {
  * membership that lapses stops at the end of the period it bought, and one that
  * renews carries straight on, whether or not the player has been online.
  */
-export const PATREON_SWEEP_LEAD_MS = 36 * 60 * 60 * 1000;
+/**
+ * How close to lapsing a lease must be before the sweep re-checks it. This has
+ * to stay well under LEASE_MS or every link qualifies forever: a linked account
+ * with no membership gets the floor lease, so a thirty-six hour window held all
+ * fifty-nine of them permanently due and pinned the sweep at its batch cap,
+ * spending the whole budget asking Patreon about people who are not members.
+ * Three hours is eighteen chances to catch a lease at a ten-minute cadence.
+ */
+export const PATREON_SWEEP_LEAD_MS = 3 * 60 * 60 * 1000;
 export const PATREON_SWEEP_MIN_ATTEMPT_MS = 60 * 60 * 1000;
 export const PATREON_SWEEP_BATCH = 5;
 export function patreonLinksDueRefresh<T extends { userId: string; tier: string; attemptedAtMs: number; validUntilMs: number }>(links: T[], nowMs: number, batch = PATREON_SWEEP_BATCH) {
