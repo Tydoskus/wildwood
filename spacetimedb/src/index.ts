@@ -5446,17 +5446,14 @@ export const recordPlayerDeath = spacetimedb.reducer(
   (ctx) => {
     const activePlayer = playerWithMotion(ctx, requireControllingPlayer(ctx));
     const motion = ctx.db.playerMotion.identity.find(ctx.sender);
-    if (motion && (motion.moving || motion.dx !== 0 || motion.dy !== 0)) {
-      ctx.db.playerMotion.networkId.update({
-        ...motion,
-        dx: 0,
-        dy: 0,
-        vx: 0,
-        vy: 0,
-        moving: false,
-        lastInputAt: ctx.timestamp,
-      });
-    }
+    // The client respawns a dead player somewhere the server never saw them
+    // walk to. Stop them and forget the input sequence, as world entry does, so
+    // the first packet after the respawn re-anchors them instead of being
+    // refused as a teleport for as long as they keep running. The sequence the
+    // movement check reads lives on the motion row; the player row mirrors it.
+    if (motion) ctx.db.playerMotion.networkId.update({ ...motion, dx: 0, dy: 0, vx: 0, vy: 0, moving: false, lastInputAt: ctx.timestamp, lastInputSequence: 0 });
+    const dead = ctx.db.player.identity.find(ctx.sender);
+    if (dead && dead.lastInputSequence > 0) updateSnapshotRow(ctx, "player", { ...dead, lastInputSequence: 0 });
     publishPlayerDeathFrame(ctx, activePlayer);
     const lifetime = ensurePlayerLifetime(ctx);
     ctx.db.playerLifetime.identity.update({ ...lifetime, deathCount: lifetime.deathCount + 1n });
