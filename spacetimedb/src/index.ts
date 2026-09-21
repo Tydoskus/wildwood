@@ -16,7 +16,7 @@ import { playerMultiplayerPreference, writeMultiplayerPreference } from "./multi
 import { enemyDefeatBudget, bossDefeatWindow, bossMapDefeatWindow, acceptEnemyDefeats, beginBossTimeBudget, enemyDefeatReview } from "./enemy-defeats";
 import { applyEnemyRewards } from "../../shared/enemy-defeats";
 import { LOADOUT_FIELDS } from "../../shared/combat-progress";
-import { chatHeartAllowance, chatReactionSummary, playerChatHearts, reactionCountsFor, chatReaction, readChatReactions, setChatReaction, removeMessageReactions, removeAccountReactions } from "./chat-reactions";
+import { chatHeartAllowance, chatReactionCooldown, chatReactionSummary, playerChatHearts, reactionCountsFor, chatReaction, readChatReactions, setChatReaction, removeMessageReactions, removeAccountReactions } from "./chat-reactions";
 import { regularEnemyLootCursor, rollRegularEnemyLoot } from "./regular-enemy-loot";
 import { BLACK_BOOTS, BLACK_BOOTS_SPEED_BONUS } from "../../shared/items";
 import { playerOnboarding, advanceOnboarding, needsOnboarding } from "./onboarding";
@@ -1738,7 +1738,7 @@ const spacetimedb = schema({
   regularEnemyLootCursor, enemyDefeatBudget, bossDefeatWindow, bossMapDefeatWindow,
   enemyDefeatReview,
   playerMultiplayerPreference,
-  chatReaction, chatHeartAllowance, chatReactionSummary, playerChatHearts,
+  chatReaction, chatHeartAllowance, chatReactionCooldown, chatReactionSummary, playerChatHearts,
   playerUpgradeBench,
   playerInventoryCapacity,
   playerCutsceneHistory,
