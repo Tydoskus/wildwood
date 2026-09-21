@@ -17,6 +17,10 @@ const BOW_ATTACK_SOUND_FADE_SECONDS = .09;
 const BOW_ATTACK_SOUND_ATTACK_SECONDS = .008;
 const BOW_ATTACK_SOUND_MIN_GAP_SECONDS = .055;
 const BOW_ATTACK_SOUND_MAX_VOICES = 3;
+/** A shot fired while the clip is still decoding plays once it arrives, if that is soon enough to still feel like the shot. */
+export const BOW_ATTACK_SOUND_LATE_PLAY_MS = 300;
+/** Soundtracks are kept as Blob URLs for the map you are on and the one you left; older ones are released. */
+const MUSIC_OBJECT_URL_KEEP = 2;
 
 type WebkitAudioWindow = Window & typeof globalThis & {
   webkitAudioContext?: typeof AudioContext;
@@ -101,7 +105,21 @@ export function createMapMusicController(
   let sfxGainNode: GainNode | null = null;
   let bowAttackBuffer: AudioBuffer | null = null;
   let bowAttackBufferPromise: Promise<AudioBuffer | null> | null = null;
+  let deathBuffer: AudioBuffer | null = null;
+  let deathBufferPromise: Promise<AudioBuffer | null> | null = null;
+  let bowAttackRequestedAt = Number.NEGATIVE_INFINITY;
   let lastBowAttackAt = Number.NEGATIVE_INFINITY;
+  // The encoded clips need no AudioContext to download, and the first shot or
+  // death used to be silent because their download only began at the first
+  // pointer press. Fetch now; decode once a context exists.
+  const fetchEncoded = (source: string) => fetch(source)
+    .then((response) => {
+      if (!response.ok) throw new Error(`Audio request failed: ${response.status}`);
+      return response.arrayBuffer();
+    })
+    .catch(() => null);
+  const encodedBowAttack = fetchEncoded(BOW_ATTACK_SOUND_SOURCE);
+  const encodedDeath = fetchEncoded(DEATH_SOUND_SOURCE);
   const activeBowAttackVoices: BowAttackVoice[] = [];
   const musicObjectUrls = new Map<string, string>();
   let requestedMusicSource = SIGN_IN_MUSIC_SOURCE;
@@ -133,6 +151,12 @@ export function createMapMusicController(
       .then((blob) => {
         const objectUrl = URL.createObjectURL(blob);
         musicObjectUrls.set(source, objectUrl);
+        while (musicObjectUrls.size > MUSIC_OBJECT_URL_KEEP) {
+          const [oldestSource, oldestUrl] = musicObjectUrls.entries().next().value as [string, string];
+          if (oldestSource === attachedMusicSource) break;
+          musicObjectUrls.delete(oldestSource);
+          try { URL.revokeObjectURL?.(oldestUrl); } catch {}
+        }
         return objectUrl;
       })
       .catch(() => null)
@@ -151,22 +175,33 @@ export function createMapMusicController(
     if (playbackRequested && volume > 0) void audio.play().catch(() => {});
   }
 
+  function decodeClip(context: AudioContext, encoded: Promise<ArrayBuffer | null>) {
+    return encoded
+      .then((bytes) => bytes ? context.decodeAudioData(bytes.slice(0)) : null)
+      .catch(() => null);
+  }
+
   function preloadBowAttackSound(context: AudioContext) {
     if (bowAttackBuffer) return Promise.resolve(bowAttackBuffer);
     if (bowAttackBufferPromise) return bowAttackBufferPromise;
-    bowAttackBufferPromise = fetch(BOW_ATTACK_SOUND_SOURCE, { cache: "no-cache" })
-      .then((response) => {
-        if (!response.ok) throw new Error(`Bow attack audio request failed: ${response.status}`);
-        return response.arrayBuffer();
-      })
-      .then((encodedAudio) => context.decodeAudioData(encodedAudio))
+    bowAttackBufferPromise = decodeClip(context, encodedBowAttack)
       .then((decodedAudio) => {
         bowAttackBuffer = decodedAudio;
+        // A shot that arrived while this was decoding still deserves its sound.
+        if (decodedAudio && performance.now() - bowAttackRequestedAt <= BOW_ATTACK_SOUND_LATE_PLAY_MS) playBowAttackSound();
         return decodedAudio;
       })
-      .catch(() => null)
       .finally(() => { bowAttackBufferPromise = null; });
     return bowAttackBufferPromise;
+  }
+
+  function preloadDeathSound(context: AudioContext) {
+    if (deathBuffer) return Promise.resolve(deathBuffer);
+    if (deathBufferPromise) return deathBufferPromise;
+    deathBufferPromise = decodeClip(context, encodedDeath)
+      .then((decodedAudio) => { deathBuffer = decodedAudio; return decodedAudio; })
+      .finally(() => { deathBufferPromise = null; });
+    return deathBufferPromise;
   }
 
   function ensureAudioGraph() {
@@ -233,6 +268,7 @@ export function createMapMusicController(
     if (context) {
       resumeAudioContext(context);
       void preloadBowAttackSound(context);
+      void preloadDeathSound(context);
     }
     playbackRequested = allowed && volume > 0;
     if (!playbackRequested) return;
@@ -255,6 +291,17 @@ export function createMapMusicController(
     if (sfxVolume <= 0) return;
     const context = ensureAudioGraph();
     resumeAudioContext(context);
+    // A decoded buffer starts on the audio clock the instant it is asked for,
+    // and does not depend on a media element that a suspended or interrupted
+    // context can leave silent. Without a context the element still works.
+    if (context && sfxGainNode && deathBuffer) {
+      const source = context.createBufferSource();
+      source.buffer = deathBuffer;
+      source.connect(sfxGainNode);
+      source.onended = () => source.disconnect();
+      try { source.start(); return; } catch { source.disconnect(); }
+    }
+    if (context) void preloadDeathSound(context);
     deathAudio.currentTime = 0;
     void deathAudio.play().catch(() => {});
   }
@@ -265,6 +312,7 @@ export function createMapMusicController(
     if (!context || !sfxGainNode) return;
     resumeAudioContext(context);
     if (!bowAttackBuffer) {
+      bowAttackRequestedAt = performance.now();
       void preloadBowAttackSound(context);
       return;
     }

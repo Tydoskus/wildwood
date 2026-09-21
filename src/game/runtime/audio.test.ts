@@ -78,14 +78,16 @@ describe("map music", () => {
     expect(music.pause).toHaveBeenCalledOnce();
     expect(music.load).not.toHaveBeenCalled();
     await vi.waitFor(() => expect(music.src).toBe("blob:forest-soundtrack"));
-    expect(fetchMusic).toHaveBeenCalledOnce();
+    // The short clips are fetched up front too; the soundtrack itself is fetched once.
+    const musicFetches = () => fetchMusic.mock.calls.filter((call) => (call as unknown as [string])[0] === "assets/wildstat/audio/forest.mp3");
+    expect(musicFetches()).toHaveLength(1);
     expect(fetchMusic).toHaveBeenCalledWith("assets/wildstat/audio/forest.mp3", expect.objectContaining({ cache: "force-cache" }));
     expect(createObjectURL).toHaveBeenCalledOnce();
     expect(music.play).toHaveBeenCalledOnce();
     expect(music.loop).toBe(true);
 
     controller.syncMap(TUTORIAL_FOREST_MAP_ID);
-    expect(fetchMusic).toHaveBeenCalledOnce();
+    expect(musicFetches()).toHaveLength(1);
     expect(music.play).toHaveBeenCalledOnce();
   });
 
@@ -184,7 +186,7 @@ describe("map music", () => {
       "test-sfx-volume",
     );
     controller.ensurePlaying(false);
-    await vi.waitFor(() => expect(context.decodeAudioData).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(context.decodeAudioData).toHaveBeenCalledTimes(2)); // bow clip and death sting
     controller.setSfxVolume(.4);
     controller.playBowAttackSound();
 
@@ -196,9 +198,43 @@ describe("map music", () => {
     expect(context.gains[2]?.gain.setValueAtTime).toHaveBeenCalledWith(
       BOW_ATTACK_SOUND_GAIN, context.currentTime + playbackDuration - Math.min(.09, playbackDuration * .25),
     );
-    expect(fetch).toHaveBeenCalledWith(BOW_ATTACK_SOUND_SOURCE, { cache: "no-cache" });
+    expect(fetch).toHaveBeenCalledWith(BOW_ATTACK_SOUND_SOURCE);
     expect(context.gains[1]?.gain.value).toBe(.4);
     expect(context.gains[2]?.gain.linearRampToValueAtTime).toHaveBeenCalledWith(BOW_ATTACK_SOUND_GAIN, context.currentTime + .008);
+  });
+  it("plays a shot that was fired while the clip was still decoding, if it arrives in time", async () => {
+    const context = new FakeAudioContext();
+    const finishDecode: ((buffer: { duration: number }) => void)[] = [];
+    context.decodeAudioData.mockImplementation(() => new Promise((resolve) => { finishDecode.push(resolve); }));
+    vi.stubGlobal("Audio", FakeAudio);
+    vi.stubGlobal("window", { AudioContext: class { constructor() { return context; } } });
+    vi.stubGlobal("localStorage", { getItem: () => null });
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(4) })));
+    const controller = createMapMusicController("test-volume", BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, "test-sfx-volume");
+    controller.ensurePlaying(false);
+    await vi.waitFor(() => expect(context.decodeAudioData).toHaveBeenCalled());
+    controller.playBowAttackSound();                 // fired before the clip exists
+    expect(context.sources).toHaveLength(0);
+    finishDecode[0]!({ duration: 1.872 });           // the bow clip is decoded first
+    await vi.waitFor(() => expect(context.sources).toHaveLength(1));
+  });
+
+  it("plays the death sting as a decoded voice once the graph is up, and from the element before that", async () => {
+    const context = new FakeAudioContext();
+    context.decodeAudioData.mockResolvedValue({ duration: 4 });
+    const instances: FakeAudio[] = [];
+    vi.stubGlobal("Audio", class extends FakeAudio { constructor(source = "") { super(source); instances.push(this); } });
+    vi.stubGlobal("window", { AudioContext: class { constructor() { return context; } } });
+    vi.stubGlobal("localStorage", { getItem: () => null });
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(4) })));
+    const controller = createMapMusicController("test-volume", BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, "test-sfx-volume");
+    controller.playDeathSound();                     // graph just created, nothing decoded yet
+    expect(instances[1]?.play).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(context.decodeAudioData).toHaveBeenCalledOnce());
+    controller.playDeathSound();
+    expect(context.sources).toHaveLength(1);
+    expect(context.sources[0]?.start).toHaveBeenCalledOnce();
+    expect(instances[1]?.play).toHaveBeenCalledOnce(); // the element was not asked again
   });
 });
 
