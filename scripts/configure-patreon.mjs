@@ -12,6 +12,9 @@ if (process.platform !== "win32" && (info.mode & 0o077)) throw new Error("Privat
 const config = JSON.parse(await readFile(file, "utf8"));
 const keys = ["clientId", "clientSecret", "campaignId", "silverTierId", "goldTierId", "redirectUri"];
 if (keys.some(key => typeof config[key] !== "string" || !config[key].trim())) throw new Error("Complete all six Patreon configuration fields.");
+// Diamond is optional: leave it out or empty until the tier exists on Patreon. Given, it must be a real, distinct tier id.
+const diamondTierId = typeof config.diamondTierId === "string" ? config.diamondTierId.trim() : "";
+if (diamondTierId && (!/^\d+$/.test(diamondTierId) || diamondTierId === config.goldTierId || diamondTierId === config.silverTierId)) throw new Error("The diamond tier id must be a distinct numeric Patreon tier id.");
 if (["campaignId", "silverTierId", "goldTierId"].some(key => !/^\d+$/.test(config[key])) || config.silverTierId === config.goldTierId) throw new Error("Use the campaign ID and distinct Silver/Gold tier IDs from Patreon.");
 const database = process.env.WILDSTAT_ROOT_DATABASE;
 if (!database || !/^[a-zA-Z0-9_-]+$/.test(database)) throw new Error("Set WILDSTAT_ROOT_DATABASE to the root database name.");
