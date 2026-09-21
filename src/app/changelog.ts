@@ -1,5 +1,6 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.767": [
+    "Players can no longer run away from updates.",
     "If the game updates while you have it open, a tab that was already on the newest version no longer waits on the updating screen for ever: it starts a fresh session by itself within half a minute.",
   ],
   "0.766": [
