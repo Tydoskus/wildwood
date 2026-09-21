@@ -19,3 +19,6 @@ export function prestigeUnlocked(bossRewardClaims: number) {
 export function prestigeStatMultiplier(level: number) {
   return 1 + Math.max(0, Math.floor(Number.isFinite(level) ? level : 0)) * PRESTIGE_STAT_GAIN_PER_LEVEL;
 }
+
+/** A flat mark, so it stays crisp at the twelve pixels a name tag allows. */
+export const PRESTIGE_BADGE_ASSET = "assets/wildstat/ui/prestige-shield.svg";

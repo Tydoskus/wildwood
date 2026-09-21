@@ -17,7 +17,11 @@ import { describe, expect, it } from "vitest";
 // Do not satisfy it by minifying or removing useful comments/whitespace.
 // 2_173: one line wiring the gem-drop pop-up, the same shape as the item-drop
 // wiring beside it. Its logic lives in the HUD controller and the coop service.
-const MAX_LINES = 2_190;
+// 2_193: the prestige badge's level lookup, which only the composition root can
+// answer because it reads the coop session. The badge image, its measurement
+// and both draw paths live in the identity renderer, which loads the asset
+// itself rather than being handed it.
+const MAX_LINES = 2_193;
 const TARGET_LINES = 1_000;
 
 describe("game composition boundary", () => {

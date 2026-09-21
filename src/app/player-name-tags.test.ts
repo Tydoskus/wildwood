@@ -34,7 +34,7 @@ it("reads live tags across the separately built networking and game modules", as
   const networking = await import("./player-name-tags");
   vi.resetModules();
   const game = await import("./player-name-tags");
-  game.bindPlayerNameTags({ prefix: networking.playerNamePrefix, revision: networking.playerNameTagsRevision });
+  game.bindPlayerNameTags({ prefix: networking.playerNamePrefix, revision: networking.playerNameTagsRevision, prestigeLevel: () => 0 });
   networking.updatePlayerNameTag(DEVELOPER_IDENTITY, { guildTag: "TheG", showDevTag: true });
   expect(game.playerNamePrefix(DEVELOPER_IDENTITY)).toBe("[dev][TheG]");
   const before = game.playerNameTagsRevision();
@@ -42,4 +42,32 @@ it("reads live tags across the separately built networking and game modules", as
   expect(game.playerNamePrefix(DEVELOPER_IDENTITY)).toBe("[TheG]");
   expect(game.playerNameTagsRevision()).toBeGreaterThan(before);
   networking.clearPlayerNameTags();
+});
+
+it("puts the prestige shield after the name, carrying the level inside it", async () => {
+  const { parseHTML } = await import("linkedom");
+  const { document } = parseHTML("<html><body></body></html>");
+  (globalThis as { document?: unknown }).document = document;
+  vi.resetModules();
+  const tags = await import("./player-name-tags");
+  let level = 0;
+  tags.bindPlayerNameTags({ prefix: () => "[GUILD]", revision: () => 0, prestigeLevel: () => level });
+
+  // The tag slot no longer carries it: the shield is its own call, made after
+  // the name so it can never land past the "(guest)" suffix.
+  const tagsOnly = document.createElement("span");
+  tags.appendPlayerNameTags(tagsOnly, DEVELOPER_IDENTITY);
+  expect(tagsOnly.querySelector(".player-prestige-badge")).toBeNull();
+
+  const unprestiged = document.createElement("span");
+  expect(tags.appendPrestigeBadge(unprestiged, DEVELOPER_IDENTITY)).toBeNull();
+  expect(unprestiged.children).toHaveLength(0);
+
+  level = 7;
+  const badged = document.createElement("span");
+  const shield = tags.appendPrestigeBadge(badged, DEVELOPER_IDENTITY);
+  // The level is the digit inside the shield, not a second element beside it.
+  expect(shield?.textContent).toBe("7");
+  expect(shield?.getAttribute("aria-label")).toBe("Prestige 7");
+  expect([...badged.children].map(child => child.className)).toEqual(["player-prestige-badge"]);
 });

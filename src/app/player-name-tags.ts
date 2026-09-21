@@ -2,11 +2,14 @@ import { isDeveloperIdentity } from "./developer";
 
 type NameTag = { guildTag: string; showDevTag: boolean };
 let revision = 0;
-let provider: { prefix: (identity?: string) => string; revision: () => number } | null = null;
+let provider: { prefix: (identity?: string) => string; revision: () => number; prestigeLevel: (identity?: string) => number } | null = null;
 // Networking and rendering are separate browser bundles. Bind to the co-op API
 // so both read the same live tags rather than maintaining isolated module caches.
 export function bindPlayerNameTags(source: NonNullable<typeof provider>) { provider = source; }
 export const playerNameTagsRevision = () => provider ? provider.revision() : revision;
+/** Zero means no badge. Only the local player resolves until prestige level
+ *  travels on a public table; everyone else reads as unprestiged. */
+export const playerPrestigeLevel = (identity?: string) => provider?.prestigeLevel(identity) ?? 0;
 const tags = new Map<string, NameTag>();
 const key = (identity?: string) => identity?.replace(/^0x/i, "").toLowerCase() ?? "";
 export function updatePlayerNameTag(identity: string, tag: NameTag) {
@@ -32,4 +35,20 @@ export function appendPlayerNameTags(element: HTMLElement, identity?: string, de
     badge.append(dev, document.createTextNode(prefix.slice(5)));
   } else badge.textContent = prefix;
   element.append(badge);
+}
+
+/**
+ * Reads after the name and before the gender icon. The level is the digit
+ * inside the shield, so the badge says which prestige rather than just that
+ * there was one.
+ */
+export function appendPrestigeBadge(element: HTMLElement, identity?: string) {
+  const level = playerPrestigeLevel(identity);
+  if (level <= 0) return null;
+  const badge = document.createElement("span");
+  badge.className = "player-prestige-badge";
+  badge.textContent = String(level);
+  badge.setAttribute("aria-label", `Prestige ${level}`);
+  element.append(badge);
+  return badge;
 }

@@ -1,6 +1,7 @@
 import { drawPlayerPowerLabel } from "./player-power-label";
 import { applyProfileIcon, createProfileIconCanvasPainter } from "../../app/profile-icons";
-import { playerNamePrefix, appendPlayerNameTags } from "../../app/player-name-tags";
+import { playerNamePrefix, appendPlayerNameTags, appendPrestigeBadge, playerPrestigeLevel } from "../../app/player-name-tags";
+import { PRESTIGE_BADGE_ASSET } from "../../../shared/prestige";
 import {
   playerPowerForStats,
   type PlayerPowerProgress,
@@ -32,6 +33,8 @@ const DEVELOPER_BADGE = "[dev]";
 const SPEECH_BUBBLE_DURATION_MS = 8_000;
 const SPEECH_BUBBLE_FADE_MS = 1_250;
 const SPEECH_BUBBLE_STACK_GAP = 5;
+/** The same 16px the power sword below the name uses. */
+const OVERHEAD_PRESTIGE_BADGE_SIZE = 16;
 const OVERHEAD_GENDER_ICON_OFFSET_Y = -1;
 export const MAX_ACTIVE_SPEECH_BUBBLES_PER_PLAYER = 3;
 
@@ -85,6 +88,8 @@ export function createPlayerIdentityRenderer(options: {
   roundRect: RoundRect;
   healthBarHeight: number;
 }) {
+  const prestigeBadge = new Image();
+  prestigeBadge.src = PRESTIGE_BADGE_ASSET;
   const bubbles = new Map<string, SpeechBubble[]>();
   const speechBubbleLayoutCache = new Map<bigint, SpeechBubble>();
   let renderedSpeechBubbleRevision = -1;
@@ -102,6 +107,7 @@ export function createPlayerIdentityRenderer(options: {
     element.replaceChildren();
     appendPlayerNameTags(element, identity, options.isDeveloper(identity));
     element.append(document.createTextNode(baseName));
+    appendPrestigeBadge(element, identity);
     appendPlayerGenderIcon(element, gender);
     if (options.isGuest(identity)) {
       const guest = document.createElement("span");
@@ -288,8 +294,16 @@ export function createPlayerIdentityRenderer(options: {
       ? genderIconHeight * genderIcon.naturalWidth / genderIcon.naturalHeight
       : 0;
     const genderIconGap = hasGenderIcon ? 3 : 0;
-    const labelWidth = nameWidth + genderIconGap + genderIconWidth;
+    // After the name, before the gender icon, at the same size as the power
+    // sword below it. Its width joins the label so the whole stays centred.
+    const prestige = playerPrestigeLevel(identity);
+    const showBadge = prestige > 0
+      && Boolean(prestigeBadge.complete && prestigeBadge.naturalWidth > 0 && prestigeBadge.naturalHeight > 0);
+    const badgeSize = showBadge ? OVERHEAD_PRESTIGE_BADGE_SIZE : 0;
+    const badgeGap = showBadge ? 2 : 0;
+    const labelWidth = nameWidth + badgeGap + badgeSize + genderIconGap + genderIconWidth;
     const textLeft = centerX - labelWidth / 2;
+    const badgeLeft = textLeft + nameWidth + badgeGap;
     const nameBottom = powerValue ? bottom - 18 : bottom;
     const developerPrefix = DEVELOPER_BADGE;
     if (displayName.startsWith(developerPrefix)) {
@@ -302,11 +316,24 @@ export function createPlayerIdentityRenderer(options: {
       ctx.textAlign = "left";
       options.outlinedText(displayName, textLeft, nameBottom, color, 4);
     }
+    if (showBadge) {
+      ctx.imageSmoothingEnabled = true;
+      const badgeTop = nameBottom - badgeSize + 1;
+      ctx.drawImage(prestigeBadge, badgeLeft, badgeTop, badgeSize, badgeSize);
+      // White with the same outline every other overhead label carries.
+      ctx.font = `900 ${Math.round(badgeSize * .64)}px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      options.outlinedText(String(prestige), badgeLeft + badgeSize / 2, badgeTop + badgeSize * .55, "#ffffff", 3);
+      ctx.textBaseline = "bottom";
+      ctx.textAlign = "left";
+      ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+    }
     if (hasGenderIcon && genderIcon) {
       ctx.imageSmoothingEnabled = true;
       ctx.drawImage(
         genderIcon,
-        textLeft + nameWidth + genderIconGap,
+        textLeft + nameWidth + badgeGap + badgeSize + genderIconGap,
         nameBottom - genderIconHeight + OVERHEAD_GENDER_ICON_OFFSET_Y,
         Math.round(genderIconWidth),
         genderIconHeight,

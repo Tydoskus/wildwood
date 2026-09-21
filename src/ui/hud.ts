@@ -9,7 +9,7 @@ import { PLAYER_GENDER_UNSET, type PlayerGender } from "../../shared/player-gend
 import { isHiddenCosmeticItem } from "../../shared/equipment-appearance";
 import { type ItemSlot, itemDefinition, isCosmeticOnlyItem, itemStats, itemDisplayName, normalizeItemUpgradeLevel } from "../../shared/items";
 
-import { appendPlayerNameTags, playerNamePrefix } from "../app/player-name-tags";
+import { appendPlayerNameTags, appendPrestigeBadge, playerNamePrefix } from "../app/player-name-tags";
 
 type PlayerHudState = {
   hp: number;
@@ -50,6 +50,7 @@ export function renderPlayerHud(
       elements.playerName.replaceChildren();
       appendPlayerNameTags(elements.playerName, identity, isDeveloper);
       elements.playerName.append(nameText);
+      appendPrestigeBadge(elements.playerName, identity);
       appendPlayerGenderIcon(elements.playerName, gender);
       elements.playerName.dataset.renderedName = nameKey;
     }

@@ -5,7 +5,7 @@ import { applyProfileIcon } from "../app/profile-icons";
 import { normalizeProfileIcon } from "../../shared/profile-icons";
 import { appendChatReactions } from "./chat-reactions";
 import type { ChatReaction, ChatReactionState } from "../../shared/chat-reactions";
-import { appendPlayerNameTags, playerNamePrefix } from "../app/player-name-tags";
+import { appendPlayerNameTags, appendPrestigeBadge, playerNamePrefix } from "../app/player-name-tags";
 import {
   duelReplayIsInteractive,
   formatChatReplyPreview,
@@ -550,6 +550,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       nameText.className = "chat-name-text";
       nameText.textContent = displayName;
       nameCore.append(nameText);
+      appendPrestigeBadge(nameCore, displayIdentity);
       appendPlayerGenderIcon(nameCore, displayedGender);
       if (guest) nameCore.append(document.createTextNode(" (guest)"));
       name.appendChild(nameCore);
