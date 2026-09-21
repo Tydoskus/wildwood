@@ -34,6 +34,7 @@ import {
   type ProgressSave,
 } from "./progress";
 import { createProgressStore } from "./progress-store";
+import { recordConnectionDiagnostic } from "./connection-diagnostic-runtime";
 import { createCutsceneHistory } from "./cutscene-history";
 
 type ProgressionServiceDependencies = {
@@ -242,7 +243,12 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     const result = await reducerResult("enemy defeats", connection => withRequestDeadline(connection.reducers.recordEnemyDefeats({
       streamId: request.streamId, sequence: request.sequence, mapId: request.mapId, enemies: request.enemies,
     }), ENEMY_DEFEAT_ACK_TIMEOUT_MS))();
-    if (!result.ok && /Enemy defeats belong to another map|Invalid enemy for this map/.test(result.error ?? "")) return "discard";
+    if (!result.ok && /Enemy defeats belong to another map|Invalid enemy for this map/.test(result.error ?? "")) {
+      // These kills are gone. Write down how many and where, so a loss that
+      // used to be invisible can be counted and its cause found.
+      recordConnectionDiagnostic("rewards-discarded", { detail: `${request.mapId}: ${request.count} kills: ${result.error}` });
+      return "discard";
+    }
     if (!result.ok && /Enemy rewards are catching up/.test(result.error ?? "")) return "throttled";
     return result.ok;
   }

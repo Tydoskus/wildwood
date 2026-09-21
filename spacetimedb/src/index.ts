@@ -13,7 +13,7 @@ import { isValidProfileIcon } from "../../shared/profile-icons";
 import { releaseNotice, releaseAcknowledgement, writeReleaseWindow, acknowledgeReleaseWindow } from "./release-control";
 import { PERSONAL_BOSS_COMBAT, personalBossDefinition } from "../../shared/personal-bosses";
 import { playerMultiplayerPreference, writeMultiplayerPreference } from "./multiplayer-preference";
-import { enemyDefeatBudget, bossDefeatWindow, bossMapDefeatWindow, acceptEnemyDefeats, beginBossTimeBudget, enemyDefeatReview } from "./enemy-defeats";
+import { enemyDefeatBudget, bossDefeatWindow, bossMapDefeatWindow, acceptEnemyDefeats, beginBossTimeBudget, enemyDefeatReview, permittedDefeatMaps } from "./enemy-defeats";
 import { applyEnemyRewards } from "../../shared/enemy-defeats";
 import { LOADOUT_FIELDS } from "../../shared/combat-progress";
 import { chatHeartAllowance, chatReactionCooldown, chatReactionSummary, playerChatHearts, reactionCountsFor, chatReaction, readChatReactions, setChatReaction, removeMessageReactions, removeAccountReactions } from "./chat-reactions";
@@ -5561,7 +5561,7 @@ export const recordEnemyDefeats = spacetimedb.reducer(
   (ctx, batch) => {
     const player = requireControllingPlayer(ctx);
     if (isMapShard(ctx) || activeDuelFor(ctx, ctx.sender)) throw new SenderError("Enemy rewards require your account world connection.");
-    const accepted = acceptEnemyDefeats(ctx, batch, player.mapId, earned => maximumBossCombatForProgress(ctx, earned));
+    const accepted = acceptEnemyDefeats(ctx, batch, permittedDefeatMaps(ctx, player, HOME_EXTERIOR_MAP_ID), earned => maximumBossCombatForProgress(ctx, earned));
     if (!accepted) return;
     const enforce = () => {
       // Only a report no real client could have sent. A clipped claim is

@@ -32,7 +32,10 @@ export const DEFAULT_ATTACK_INTERVAL = 1.56;
  * species; a shorter bank clips honest reports, a longer one lets a script
  * claim more in one go than the client could have gathered.
  */
-export const REGULAR_KILL_REPORT_SECONDS = 300;
+// Kills are only real once the server has the report; until then they live in
+// one browser tab. Thirty seconds bounds what a closed tab can lose to half a
+// minute, and the per-player cost of the report is small next to a view.
+export const REGULAR_KILL_REPORT_SECONDS = 30;
 export const MAX_BASE_ATTACKS_PER_SECOND = 2.625;
 export const MIN_ATTACK_INTERVAL = 1 / MAX_BASE_ATTACKS_PER_SECOND;
 export const BOSS_RESPAWN_SECONDS = 45;

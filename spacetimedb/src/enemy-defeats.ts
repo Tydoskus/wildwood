@@ -66,15 +66,29 @@ export function beginBossTimeBudget(ctx: BossRewardContext, mapId: string) {
     key, identity: ctx.sender, tokens: boss.respawnSeconds, updatedAtMicros: ctx.timestamp.microsSinceUnixEpoch,
   });
 }
+/**
+ * The maps a report may be for: where the player stands, and, while they stand
+ * at Home, the combat map they left to get there. A report is sealed on the
+ * map it was earned on; a portal drains it first, but a drain that times out or
+ * a tab hidden mid-trip leaves it queued while the player is already Home.
+ * Rejecting it there threw those kills away. Every budget below is keyed by
+ * the report's own map, so honouring the departed map pays no more than
+ * staying on it would have.
+ */
+export function permittedDefeatMaps(ctx: BossRewardContext, player: { mapId: string }, homeMapId: string): string[] {
+  if (player.mapId !== homeMapId) return [player.mapId];
+  const left = ctx.db.homeReturnLocation.identity.find(ctx.sender)?.mapId;
+  return left && left !== homeMapId ? [player.mapId, left] : [player.mapId];
+}
 /** O(distinct species), independent of account count; one receipt per batch. */
-export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: string; sequence: bigint; mapId: string; enemies: EnemyDefeat[] }, activeMapId: string,
+export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: string; sequence: bigint; mapId: string; enemies: EnemyDefeat[] }, activeMapIds: string | readonly string[],
   bossCombat: (earned: { type: string; amount: number; count: number }[]) => { dps: number; attackInterval: number; projectiles?: number; reach?: number }) {
   if (!/^[a-zA-Z0-9-]{16,80}$/.test(batch.streamId) || batch.sequence < 1n || !batch.enemies.length)
     throw new SenderError("Invalid enemy defeat batch.");
   const key = `${ctx.sender.toHexString()}:${batch.streamId}`;
   const prior = ctx.db.regularEnemyLootCursor.key.find(key);
   if (batch.sequence <= (prior?.sequence ?? 0n)) return null;
-  if (batch.mapId !== activeMapId) throw new SenderError("Enemy defeats belong to another map.");
+  if (!(typeof activeMapIds === "string" ? [activeMapIds] : activeMapIds).includes(batch.mapId)) throw new SenderError("Enemy defeats belong to another map.");
   if (batch.sequence !== (prior?.sequence ?? 0n) + 1n) throw new SenderError("Enemy defeat batches must arrive in order.");
   const total = batch.enemies.reduce((sum, entry) => sum + entry.count, 0);
   if (batch.enemies.every(entry => Number.isInteger(entry.count) && entry.count > 0)

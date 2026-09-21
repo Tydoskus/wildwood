@@ -1,6 +1,7 @@
 import { watchDefeatSession } from "./coop/services/defeat-session-watch";
 import { consumeUpdateResumeMode } from "./coop/services/update-resume-browser";
 import { configureConnectionDiagnostics, recordConnectionDiagnostic, flushConnectionDiagnostics } from "./coop/services/connection-diagnostic-runtime";
+import { bindProgressFlushOnHide } from "./coop/services/flush-on-hide";
 import { diagnosticWebSocket } from "./coop/services/diagnostic-websocket";
 import { enterWorldAfterConsent } from "./coop/services/world-entry-consent";
 import { accountStorageKeys } from "./coop/services/account-storage-keys";
@@ -923,6 +924,7 @@ export const wildstatCoop = {
 
 runtime.wildstatCoop = wildstatCoop;
 runtime.wildwoodCoop = wildstatCoop; // Compatibility for existing browser integrations.
+bindProgressFlushOnHide(document, window, force => progressionService.flushPendingProgress(force));
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     pageWakeTracker.hide();

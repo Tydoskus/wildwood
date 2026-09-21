@@ -4,19 +4,22 @@ import { ENEMY_TYPES, type EnemyKind } from "./enemy-definitions";
 import * as camps from "./enemy-camps";
 import designs from "../src/game/map-designs.json";
 import { generateMap, generatedEnemyStats, isProceduralMap } from "./procedural-maps";
-import { MAX_ARMOR, MAX_PLAYER_STAT, MIN_ATTACK_INTERVAL, REGULAR_KILL_REPORT_SECONDS } from "./rules";
+import { MAX_ARMOR, MAX_PLAYER_STAT, MIN_ATTACK_INTERVAL } from "./rules";
 
 export type EnemyDefeat = { enemy: string; count: number };
 export const ENEMY_DEFEAT_BATCH_MAX = 100;
 /**
- * How much unclaimed allowance a player can bank: one client report. The
- * client sends regular kills every `REGULAR_KILL_REPORT_SECONDS`, so a smaller
- * bank clips honest players (seen locally at sixty seconds: a five-minute
- * report paid at a fifth). Autofarm stops when the socket drops, so there is
- * no longer backlog to honour, and banking more only lets a script claim more
- * than one report could hold.
+ * How much unclaimed allowance a player can bank: one client report at the
+ * longest cadence any live client still uses. A bank smaller than a report
+ * clips honest players (seen locally at sixty seconds: a five-minute report
+ * paid at a fifth), and clients move to a new cadence on their own schedule,
+ * so this stays at the old five minutes while `REGULAR_KILL_REPORT_SECONDS`
+ * drops to thirty. Banking more than one report only lets a script burst what
+ * it could have claimed anyway; the rate is unchanged and the plausibility
+ * bucket still bounds the payout. Lower this toward the report cadence once
+ * no client on the old one remains.
  */
-export const DEFEAT_BUDGET_WINDOW_SECONDS = REGULAR_KILL_REPORT_SECONDS;
+export const DEFEAT_BUDGET_WINDOW_SECONDS = 300;
 const CAMPS: Record<string, readonly camps.SpawnCamp[]> = {
   tutorial_forest: camps.CAMPS, beginner_desert: camps.DESERT_CAMPS,
   intermediate_snowlands: camps.SNOW_CAMPS, advanced_lava_wastes: camps.LAVA_CAMPS,

@@ -18,8 +18,12 @@ it("bounds kills per second by what the player's own combat can produce", () => 
   expect(plausibleKillsPerSecond(100, 0, 1, 1)).toBe(0);
 });
 
-it("banks exactly one client report, so an honest five-minute report is never clipped for its size", () => {
-  expect(DEFEAT_BUDGET_WINDOW_SECONDS * 1000).toBe(REGULAR_ENEMY_LOOT_DELAY_MS);
+it("banks at least one client report, so an honest report is never clipped for its size", () => {
+  // Clients report every thirty seconds now, but the bank stays sized to the
+  // five-minute report a client on the old cadence still sends. Shrinking it
+  // below any live cadence pays that report at a fraction (see shared/enemy-defeats.ts).
+  expect(DEFEAT_BUDGET_WINDOW_SECONDS * 1000).toBeGreaterThanOrEqual(REGULAR_ENEMY_LOOT_DELAY_MS);
+  expect(DEFEAT_BUDGET_WINDOW_SECONDS).toBe(300);
 });
 
 it("pays a weak player only what they could have killed, flags it, and does not restrict them", () => {

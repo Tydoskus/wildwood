@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createGameBootstrap } from "../../game/runtime/game-bootstrap";
 import type { ReducerPort } from "../ports";
 import type { PlayerProgress, ProgressSave } from "./progress";
-import { createProgressionService } from "./progression-service";
+import { createProgressionService, PROGRESS_SAVE_INTERVAL_MS } from "./progression-service";
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();
@@ -362,9 +362,10 @@ describe("server-calculated defeat batches", () => {
     } finally { vi.useRealTimers(); }
   });
 
-  it("schedules ordinary progress and loot batches every five minutes", () => {
+  it("schedules ordinary progress and loot batches every thirty seconds", () => {
     const h = setup();
-    expect(window.setInterval).toHaveBeenCalledWith(expect.any(Function), 300_000);
+    expect(window.setInterval).toHaveBeenCalledWith(expect.any(Function), PROGRESS_SAVE_INTERVAL_MS);
+    expect(PROGRESS_SAVE_INTERVAL_MS).toBe(30_000);
     h.service.dispose();
   });
 });

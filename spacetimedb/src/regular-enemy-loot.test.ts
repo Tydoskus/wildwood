@@ -41,9 +41,19 @@ it.each([
   expect([...f.db.regularEnemyLootCursor.iter()]).toHaveLength(0);
   expect([...f.db.enemyDefeatBudget.iter()]).toHaveLength(0);
 });
-it("rejects an unaccepted old-map report even when the map is unlocked", () => {
+it("honours a report for the map the player left for Home, paid by that map's budget", () => {
+  const f = fixture(), base = f.db.playerProgress.identity.find(f.ctx.sender);
+  f.patch("player", { mapId: "home_exterior" });
+  f.db.homeReturnLocation.insert({ identity: f.ctx.sender, mapId: batch.mapId, x: 1, y: 1, facing: 0 });
+  f.run(server.recordEnemyDefeats, batch);
+  expect(f.db.playerProgress.identity.find(f.ctx.sender).damage).toBeCloseTo(base.damage + enemyDefeatDefinition(batch.mapId, enemy)!.reward.amount * 20);
+  expect([...f.db.enemyDefeatBudget.iter()].every(row => row.key.includes(`:${batch.mapId}:`))).toBe(true);
+});
+it("still rejects a report for a map the player did not come Home from, even when unlocked", () => {
   const f = fixture(); f.patch("player", { mapId: "home_exterior" }); f.patch("playerProgress", { waterUnlocked: true });
+  f.db.homeReturnLocation.insert({ identity: f.ctx.sender, mapId: "cloudspire", x: 1, y: 1, facing: 0 });
   expect(() => f.run(server.recordEnemyDefeats, batch)).toThrow("another map");
+  expect([...f.db.regularEnemyLootCursor.iter()]).toHaveLength(0);
 });
 it("rolls back reward, budget, receipt and loot if a write fails", () => {
   const f = fixture(), base = f.db.playerProgress.identity.find(f.ctx.sender);
