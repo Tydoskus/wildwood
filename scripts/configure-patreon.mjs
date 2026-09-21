@@ -5,7 +5,7 @@ import { readFile, stat } from "node:fs/promises";
 const args = process.argv.slice(2);
 const file = args[0];
 if (!file || args.some((arg, index) => index > 0 && arg !== "--apply")) {
-  throw new Error("Usage: node scripts/configure-patreon.mjs <private-config.json> [--apply]");
+  throw new Error("Usage: node scripts/configure-patreon.mjs <private-config.json> [--apply]  (config may include diamondTierId)");
 }
 const info = await stat(file);
 if (process.platform !== "win32" && (info.mode & 0o077)) throw new Error("Private configuration must have mode 600 (owner access only).");
@@ -24,7 +24,7 @@ if (!args.includes("--apply")) {
   if (!token) throw new Error("Set WILDSTAT_SHARD_OPERATOR_TOKEN to the database owner's token.");
   const response = await fetch(`${host}/v1/database/${database}/call/configure_patreon`, {
     method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify(keys.map(key => config[key])), signal: AbortSignal.timeout(15_000),
+    body: JSON.stringify([...keys.map(key => config[key]), diamondTierId]), signal: AbortSignal.timeout(15_000),
   });
   // Do not echo a server response that could contain credentials from the request.
   if (!response.ok) throw new Error(`Patreon configuration failed (HTTP ${response.status}). Check database owner access and deployed module version.`);

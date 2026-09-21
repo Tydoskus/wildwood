@@ -58,3 +58,12 @@ it("ignores a membership response arriving after sign-out and does not restart p
   expect(updateAvatarFrame).not.toHaveBeenCalled();
   expect(refresh).toHaveBeenCalledTimes(2);
 });
+
+it("reports the last verified tier synchronously, and none once the session is cleared", async () => {
+  const { service } = setup();
+  expect(service.api.supporterTier()).toBe("none");
+  await vi.advanceTimersByTimeAsync(1);            // the sync's status check resolves; the 30-minute refresh is left ticking
+  expect(service.api.supporterTier()).toBe("silver");
+  service.clear();
+  expect(service.api.supporterTier()).toBe("none");
+});

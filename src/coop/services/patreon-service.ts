@@ -12,6 +12,9 @@ export function createPatreonService(reducers: ReducerPort, localIdentity: () =>
   let checkingReturn = false;
   let sessionGeneration = 0;
   let linked = false, linkPendingUntil = 0;
+  // The tier the last status check reported, so a synchronous caller (the ad
+  // gate) can ask without a round trip. Unknown until the first check lands.
+  let supporterTier: AvatarFrame = "none";
   function onReturn() {
     if ((!linked && Date.now() >= linkPendingUntil) || typeof document !== "undefined" && document.hidden || !autoIdentity || !reducers.connection()?.isActive || checkingReturn || Date.now() - lastReturnCheck < 5_000) return;
     lastReturnCheck = Date.now();
@@ -47,6 +50,7 @@ export function createPatreonService(reducers: ReducerPort, localIdentity: () =>
     const result = JSON.parse(await (refresh ? active.procedures.refreshPatreonMembership({}) : active.procedures.getPatreonStatus({}))) as PatreonStatus;
     if (generation !== sessionGeneration || active !== reducers.connection() || identity !== localIdentity()) throw new Error("Account changed. Open your profile again.");
     linked = result.linked;
+    supporterTier = result.tier;
     if (linked) linkPendingUntil = 0;
     updateAvatarFrame({ identity, ...result });
     if (result.linked && !refreshTimer) refreshTimer = setInterval(() => { if (reducers.connection()?.isActive) void status(true).catch(() => {}); }, 30 * 60_000);
@@ -62,6 +66,8 @@ export function createPatreonService(reducers: ReducerPort, localIdentity: () =>
   const api = {
     applyAvatarFrame,
     patreonStatus: () => status(false), refreshPatreon: () => status(true),
+    /** Membership as last verified; "none" for anyone unlinked, lapsed or not yet checked. */
+    supporterTier: () => supporterTier,
     beginPatreonLink: async () => {
       const active = connection(), generation = sessionGeneration;
       const state = Array.from(crypto.getRandomValues(new Uint8Array(32)), byte => byte.toString(16).padStart(2, "0")).join("");
@@ -84,7 +90,7 @@ export function createPatreonService(reducers: ReducerPort, localIdentity: () =>
     },
     clear() {
       sessionGeneration++; checkingReturn = false;
-      linked = false; linkPendingUntil = 0;
+      linked = false; linkPendingUntil = 0; supporterTier = "none";
       autoIdentity = ""; clearInterval(refreshTimer); refreshTimer = undefined;
       clearTimeout(returnRetry); returnRetry = undefined; lastReturnCheck = -Infinity;
       if (watchingReturns) {

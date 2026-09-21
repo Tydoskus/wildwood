@@ -1675,6 +1675,7 @@ import {
     browserAdTimer: browserRewardedAdTimer,
   }, {
     getNativeBridge: () => nativeBridgeForRuntime(window),
+    isSupporter: () => (coop?.supporterTier?.() ?? "none") !== "none",
     activateBoost: activateRewardedRespawnBoost,
     isBoostActive: regularEnemyRespawnBoost.isActive,
     boostRemainingMs: regularEnemyRespawnBoost.remainingMs,

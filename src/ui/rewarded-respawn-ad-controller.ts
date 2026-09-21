@@ -19,6 +19,8 @@ type RewardedRespawnAdElements = {
 
 type RewardedRespawnAdDependencies = {
   getNativeBridge: () => unknown;
+  /** A Patreon supporter is not shown ads: the boost is theirs for the tap. */
+  isSupporter?: () => boolean;
   activateBoost: () => boolean;
   isBoostActive: () => boolean;
   boostRemainingMs: () => number;
@@ -63,8 +65,15 @@ export function createRewardedRespawnAdController(
     }
   }
 
+  function grantSupporterBoost() {
+    dependencies.activateBoost();
+    renderActive();
+    dependencies.showMessage("SUPPORTER · 2× ENEMY RESPAWN ACTIVE", "#72ef58");
+  }
+
   function openPrompt() {
     if (promptOpen || showingAd || elements.button.disabled || dependencies.isBoostActive()) return;
+    if (dependencies.isSupporter?.()) { grantSupporterBoost(); return; }
     promptOpen = true;
     elements.prompt.hidden = false;
     elements.button.setAttribute("aria-expanded", "true");
@@ -114,6 +123,12 @@ export function createRewardedRespawnAdController(
     if (showingAd) return;
     if (dependencies.isBoostActive()) {
       renderActive();
+      return;
+    }
+
+    if (dependencies.isSupporter?.()) {
+      render("ready", "BOOST", false);
+      elements.button.title = "Supporters halve regular enemy respawn time without watching an ad";
       return;
     }
 

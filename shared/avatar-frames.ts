@@ -19,11 +19,12 @@ export const PATREON_PAGE = "https://www.patreon.com/c/wildstat/membership";
 export const AVATAR_FRAME_RANK = { none: 0, silver: 1, gold: 2, diamond: 3 } as const;
 export const AVATAR_FRAME_ORDER = ["none", "silver", "gold", "diamond"] as const;
 /**
- * What the picker shows. Diamond is wired through the tier ladder, the assets
- * and the Patreon config, but is not sold yet, so it stays out of the list
- * until its tier id is configured. Add it here to offer it.
+ * What the picker shows: every tier. A frame whose tier the player does not
+ * hold is shown disabled with the membership it needs, so the ladder is visible
+ * to everyone; until patreon_config names a tier's Patreon id, no entitlement
+ * can match it and it simply stays locked.
  */
-export const AVATAR_FRAME_OFFERED = ["none", "silver", "gold"] as const;
+export const AVATAR_FRAME_OFFERED = ["none", "silver", "gold", "diamond"] as const;
 export function isAvatarFrame(value: string): value is AvatarFrame {
   return Object.prototype.hasOwnProperty.call(AVATAR_FRAME_RANK, value);
 }

@@ -143,6 +143,7 @@ type ExpectedApiKey =
   | "getNameChangeStatus"
   | "setDisplayName"
   | "patreonStatus"
+  | "supporterTier"
   | "patreonSupporterNames"
   | "applyAvatarFrame"
   | "refreshPatreon"
