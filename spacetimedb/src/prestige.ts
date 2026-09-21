@@ -1,7 +1,7 @@
 import { SenderError } from "spacetimedb/server";
 import { researchStatRewardMultiplier } from "../../shared/research";
 import { playerPowerForStats } from "../../shared/player-power";
-import { PRESTIGE_PERK_POINTS_PER_LEVEL, prestigeStatMultiplier, prestigeUnlocked } from "../../shared/prestige";
+import { PRESTIGE_PERK_POINTS_PER_LEVEL, campaignComplete, prestigeEndlessRequirement, prestigeStatMultiplier, prestigeUnlocked } from "../../shared/prestige";
 import { PRESTIGE_PERK_MAX_RANK, isPrestigePerkId, type PrestigePerkRanks } from "../../shared/prestige-perks";
 
 // Prestige bodies. The player_prestige table and the reducer declaration stay
@@ -39,10 +39,15 @@ export function createPrestige(deps: PrestigeDeps) {
     const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel before prestiging.");
     const progress = ctx.db.playerProgress.identity.find(ctx.sender);
-    if (!progress || !prestigeUnlocked(progress.bossRewardClaims)) {
-      throw new SenderError("Defeat Aegis Prime before prestiging.");
-    }
     const current = ctx.db.playerPrestige.identity.find(ctx.sender);
+    const nextLevel = (current?.level ?? 0) + 1;
+    const completedEndless = ctx.db.proceduralProgress.identity.find(ctx.sender)?.completed ?? 0;
+    if (!progress || !prestigeUnlocked(progress.bossRewardClaims, completedEndless, nextLevel)) {
+      // The campaign first, then one Endless stage more than the last prestige asked for.
+      throw new SenderError(progress && campaignComplete(progress.bossRewardClaims)
+        ? `Clear Endless ${prestigeEndlessRequirement(nextLevel)} before prestiging.`
+        : "Defeat Aegis Prime before prestiging.");
+    }
     // The peak is kept for the player to see what they traded away; it only
     // ever rises, so a weaker later run cannot erase a stronger earlier one.
     const next = {

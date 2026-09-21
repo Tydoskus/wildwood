@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { parseHTML } from "linkedom";
 import { createPrestigeController, prestigeRewardLabel, type PrestigeRow } from "./prestige-panel";
 
-function setup(options: { row?: PrestigeRow | null; unlocked?: boolean; run?: () => Promise<any>; perks?: any; spend?: () => Promise<any> } = {}) {
+function setup(options: { row?: PrestigeRow | null; unlocked?: boolean; completed?: number; run?: () => Promise<any>; perks?: any; spend?: () => Promise<any> } = {}) {
   const { document } = parseHTML(`<html><body>
     <div id="own" hidden><button id="open" disabled>Prestige</button></div>
     <div id="overlay" hidden>
@@ -18,7 +18,7 @@ function setup(options: { row?: PrestigeRow | null; unlocked?: boolean; run?: ()
     openButton: pick("open"), ownActions: pick("own"), overlay: pick("overlay"),
     closeButton: pick("close"), confirmButton: pick("confirm"), level: pick("level"), bonus: pick("bonus"),
     points: pick("points"), peak: pick("peak"), cost: pick("cost"), status: pick("status"),
-    prestige: () => options.row ?? null, unlocked: () => options.unlocked ?? false,
+    prestige: () => options.row ?? null, unlocked: () => options.unlocked ?? false, completed: () => options.completed ?? 0,
     perkList: pick("perks"), perks: () => options.perks ?? null, spendPerk: spendPerk as any,
     runPrestige, showMessage,
   });
@@ -64,7 +64,7 @@ describe("prestige panel", () => {
   });
 
   it("shows the standing bonus and what the next prestige pays", () => {
-    const s = setup({ unlocked: true, row: { level: 3, perkPoints: 1, peakPower: 2_000_000 } });
+    const s = setup({ completed: 3,  unlocked: true, row: { level: 3, perkPoints: 1, peakPower: 2_000_000 } });
     click(s.pick("open"));
     expect(s.pick("overlay").hidden).toBe(false);
     expect(s.pick("level").textContent).toBe("PRESTIGE 3");
@@ -159,5 +159,26 @@ describe("profile stat gain breakdown", () => {
     expect(both.total).toBe("+32%");
     expect(both.sources).toEqual([{ label: "Tech", value: "+10%" }, { label: "Prestige", value: "+20%" }]);
     expect(gain(createEmptyResearchRanks(), 0)!.sources).toEqual([]);
+  });
+});
+
+describe("each prestige asks for one Endless stage more", () => {
+  it("keeps the second prestige shut until Endless 1 is cleared this run, and says so", () => {
+    const short = setup({ unlocked: true, completed: 0, row: { level: 1, perkPoints: 1, peakPower: 5 } });
+    short.controller.refresh(true);
+    click(short.pick("open"));
+    expect(short.pick("confirm").hidden).toBe(true);
+    expect(short.pick("status").textContent).toContain("Clear Endless 1");
+    const ready = setup({ unlocked: true, completed: 1, row: { level: 1, perkPoints: 1, peakPower: 5 } });
+    ready.controller.refresh(true);
+    click(ready.pick("open"));
+    expect(ready.pick("confirm").hidden).toBe(false);
+    expect(ready.pick("cost").textContent).toContain("You would earn");
+  });
+  it("still asks for Aegis Prime first, however many stages an old run cleared", () => {
+    const s = setup({ unlocked: false, completed: 6, row: { level: 3, perkPoints: 0, peakPower: 5 } });
+    s.controller.refresh(true);
+    click(s.pick("open"));
+    expect(s.pick("status").textContent).toContain("Aegis Prime again");
   });
 });

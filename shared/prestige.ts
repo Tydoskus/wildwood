@@ -10,9 +10,31 @@ export const PRESTIGE_STAT_GAIN_PER_LEVEL = .1;
 /** One perk point per level, so a rerun plays differently and not merely faster. */
 export const PRESTIGE_PERK_POINTS_PER_LEVEL = 1;
 
-/** The clearance Endless needs: the campaign's last boss is down. */
-export function prestigeUnlocked(bossRewardClaims: number) {
+/** The campaign's last boss is down: the clearance Endless itself needs. */
+export function campaignComplete(bossRewardClaims: number) {
   return Boolean(bossRewardClaims & BOSS_REWARD_CLAIM_BITS[PROCEDURAL_ENTRY_BOSS]);
+}
+
+/**
+ * Each prestige asks for one stage more than the last: the first for the
+ * campaign, the second for Endless 1 as well, the third for Endless 2, and so
+ * on. Endless progress resets with everything else, so every run has to
+ * actually reach its stage rather than lean on an earlier one.
+ */
+export function prestigeEndlessRequirement(nextLevel: number) {
+  return Math.max(0, Math.floor(Number.isFinite(nextLevel) ? nextLevel : 1) - 1);
+}
+
+/** Whether a run has earned its next prestige: `nextLevel` is the level it would reach. */
+export function prestigeUnlocked(bossRewardClaims: number, completedEndless = 0, nextLevel = 1) {
+  return campaignComplete(bossRewardClaims) && completedEndless >= prestigeEndlessRequirement(nextLevel);
+}
+
+/** What still stands between this run and its next prestige, in the player's words; empty when nothing does. */
+export function prestigeRequirementHint(campaignDone: boolean, completedEndless: number, nextLevel: number) {
+  if (!campaignDone) return nextLevel > 1 ? "Defeat Aegis Prime again to prestige. Your perk points keep." : "Defeat Aegis Prime to unlock Prestige.";
+  const stage = prestigeEndlessRequirement(nextLevel);
+  return completedEndless >= stage ? "" : `Clear Endless ${stage} to prestige: each prestige asks for one stage more than the last.`;
 }
 
 /** What one kill's stat reward is worth after `level` prestiges. */

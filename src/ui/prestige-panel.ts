@@ -1,5 +1,5 @@
 import { formatCompactNumber } from './number-format';
-import { PRESTIGE_STAT_GAIN_PER_LEVEL, prestigeStatMultiplier } from '../../shared/prestige';
+import { PRESTIGE_STAT_GAIN_PER_LEVEL, prestigeEndlessRequirement, prestigeRequirementHint, prestigeStatMultiplier } from '../../shared/prestige';
 import { PRESTIGE_PERKS, PRESTIGE_PERK_IDS, PRESTIGE_PERK_MAX_RANK, prestigePerkEffectLabel, prestigePerkRank,
   type PrestigePerkId, type PrestigePerkRanks } from '../../shared/prestige-perks';
 
@@ -7,7 +7,6 @@ export type PrestigeRow = { level: number; perkPoints: number; peakPower: number
 type Result = { ok: boolean; error?: string } | boolean | undefined;
 
 const LOCKED_HINT = 'Defeat Aegis Prime to unlock Prestige.';
-const AGAIN_HINT = 'Defeat Aegis Prime again to prestige. Your perk points keep.';
 const COST = 'Prestige resets your stats, equipment and every map unlock. '
   + 'Your tech research, lifetime kills, name, gems, bought slots and upgrade bench all stay.';
 
@@ -24,8 +23,10 @@ export function createPrestigeController(options: {
   prestige: () => PrestigeRow | null;
   perks: () => PrestigePerkRanks | null | undefined;
   spendPerk: (perk: PrestigePerkId) => Promise<Result>;
-  /** Whether the first Endless map is open, the clearance prestige shares. */
+  /** Whether the first Endless map is open: the campaign is complete. */
   unlocked: () => boolean;
+  /** Endless stages cleared this run; the second prestige needs one, the third two, and so on. */
+  completed?: () => number;
   runPrestige: () => Promise<Result>;
   showMessage?: (text: string) => void;
   beforeOpen?: () => void;
@@ -33,7 +34,11 @@ export function createPrestigeController(options: {
   const { openButton, overlay, confirmButton, status } = options;
   let armed = false, pending = false;
 
-  const unlocked = () => options.unlocked();
+  const nextLevel = () => (options.prestige()?.level ?? 0) + 1;
+  const completed = () => options.completed?.() ?? 0;
+  // The campaign, then one Endless stage more than the last prestige asked for.
+  const unlocked = () => options.unlocked() && completed() >= prestigeEndlessRequirement(nextLevel());
+  const hint = () => prestigeRequirementHint(options.unlocked(), completed(), nextLevel());
   // Prestiging clears the campaign, which would otherwise lock a player out of
   // the window holding the point they just earned. Anyone who has prestiged,
   // or has a point banked, can always open it; only the reset stays gated.
@@ -105,11 +110,11 @@ export function createPrestigeController(options: {
     options.peak.textContent = row?.peakPower ? formatCompactNumber(row.peakPower) : '—';
     options.cost.textContent = unlocked()
       ? `${COST} You would earn ${prestigeRewardLabel(level)}.`
-      : `Spend the points you have banked. ${AGAIN_HINT}`;
+      : `Spend the points you have banked. ${hint()}`;
     renderPerks(row?.perkPoints ?? 0);
     confirmButton.disabled = pending || !unlocked();
     confirmButton.hidden = !unlocked();
-    if (!unlocked() && !status.textContent) status.textContent = level > 0 ? AGAIN_HINT : LOCKED_HINT;
+    if (!unlocked() && !status.textContent) status.textContent = hint();
   }
 
   /** Called whenever the profile window renders, so the button tracks progress. */
@@ -117,7 +122,7 @@ export function createPrestigeController(options: {
     options.ownActions.hidden = !ownProfile;
     const open = canOpen();
     openButton.disabled = !open;
-    openButton.title = open ? 'Prestige' : LOCKED_HINT;
+    openButton.title = open ? 'Prestige' : hint() || LOCKED_HINT;
     openButton.setAttribute('aria-disabled', String(!open));
     const row = options.prestige();
     openButton.textContent = row?.level ? `Prestige ${row.level}` : 'Prestige';
@@ -125,7 +130,7 @@ export function createPrestigeController(options: {
   }
 
   function open() {
-    if (!canOpen()) { options.showMessage?.(LOCKED_HINT); return; }
+    if (!canOpen()) { options.showMessage?.(hint() || LOCKED_HINT); return; }
     options.beforeOpen?.();
     disarm();
     status.textContent = '';

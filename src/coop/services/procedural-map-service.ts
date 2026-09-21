@@ -104,6 +104,11 @@ export function createProceduralMapService(port: ReducerPort) {
             : null,
       };
     },
+    /** How many Endless stages this run has cleared; prestige asks for one more each time. */
+    proceduralCompleted() {
+      const conn = port.connection();
+      return conn?.identity ? (conn.db.proceduralProgress.identity.find(conn.identity)?.completed ?? 0) : 0;
+    },
     proceduralMapUnlocked(mapId: string) {
       const number = proceduralMapNumber(mapId);
       const conn = port.connection();

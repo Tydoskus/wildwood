@@ -8,6 +8,7 @@ type ExpectedApiKey =
   | "getMapBalance" | "balanceEditor" | "previewBalance" | "saveBalance" | "restoreBalance"
   | "proceduralMapState"
   | "proceduralMapUnlocked"
+  | "proceduralCompleted"
   | "hitProceduralBoss"
   | "social"
   | "guild"

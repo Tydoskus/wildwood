@@ -1393,7 +1393,7 @@ import {
   const prestigePanel = createPrestigePanel({
     e: gameElements, prestige: () => coop?.prestige?.() ?? null, showMessage,
     perks: () => coop?.prestigePerks?.(), spendPerk: (perk: string) => coop?.spendPrestigePerkPoint?.(perk),
-    unlocked: () => Boolean(coop?.proceduralMapUnlocked?.(proceduralMapId(1))),
+    unlocked: () => Boolean(coop?.proceduralMapUnlocked?.(proceduralMapId(1))), completed: () => coop?.proceduralCompleted?.() ?? 0,
     runPrestige: async () => coop?.prestigeAccount?.(),
   });
   const profileWindow = createProfileWindowController({

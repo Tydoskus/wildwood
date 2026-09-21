@@ -22,10 +22,15 @@ function farmer(prestigeLevel = 0) {
 const farmSpitters = (f: ReturnType<typeof crystalFixture>, count = 10) =>
   f.run(server.recordEnemyDefeats, { streamId: "prestige-stream-01", sequence: 1n, mapId: "tutorial_forest", enemies: [{ enemy: "Spitter", count }] });
 
-it("opens only once the campaign's last boss is down", () => {
+it("opens only once the campaign's last boss is down, and one Endless stage further each prestige", () => {
   expect(prestigeUnlocked(0)).toBe(false);
   expect(prestigeUnlocked(CAMPAIGN_COMPLETE - 1)).toBe(false);
   expect(prestigeUnlocked(CAMPAIGN_COMPLETE)).toBe(true);
+  expect(prestigeUnlocked(CAMPAIGN_COMPLETE, 0, 2)).toBe(false);   // second prestige wants Endless 1
+  expect(prestigeUnlocked(CAMPAIGN_COMPLETE, 1, 2)).toBe(true);
+  expect(prestigeUnlocked(CAMPAIGN_COMPLETE, 3, 5)).toBe(false);   // fifth wants Endless 4
+  expect(prestigeUnlocked(CAMPAIGN_COMPLETE, 4, 5)).toBe(true);
+  expect(prestigeUnlocked(0, 9, 2)).toBe(false);                   // Endless alone never opens it
   expect(prestigeStatMultiplier(0)).toBe(1);
   expect(prestigeStatMultiplier(3)).toBeCloseTo(1 + 3 * PRESTIGE_STAT_GAIN_PER_LEVEL);
 });
@@ -58,8 +63,23 @@ it("stacks a second prestige and keeps the highest power ever reached", () => {
   const f = crystalFixture();
   f.seed("playerPrestige", { identity: f.ctx.sender, level: 1, perkPoints: 1, peakPower: 9_000_000, prestigedAt: f.ctx.timestamp });
   f.patch("playerProgress", { bossRewardClaims: CAMPAIGN_COMPLETE, damage: 10 });
+  f.seed("proceduralProgress", { identity: f.ctx.sender, completed: 1 });
   f.run(server.prestigeAccount, {});
   expect(prestigeRow(f)).toMatchObject({ level: 2, perkPoints: 2, peakPower: 9_000_000 });
+});
+
+it("asks each prestige for one Endless stage more than the last", () => {
+  const f = crystalFixture();
+  f.seed("playerPrestige", { identity: f.ctx.sender, level: 2, perkPoints: 2, peakPower: 1, prestigedAt: f.ctx.timestamp });
+  f.patch("playerProgress", { bossRewardClaims: CAMPAIGN_COMPLETE });
+  f.seed("proceduralProgress", { identity: f.ctx.sender, completed: 1 });
+  expect(() => f.run(server.prestigeAccount, {})).toThrow("Clear Endless 2 before prestiging.");
+  expect(prestigeRow(f)!.level).toBe(2);
+  f.patch("proceduralProgress", { completed: 2 });
+  f.run(server.prestigeAccount, {});
+  expect(prestigeRow(f)!.level).toBe(3);
+  // The stage is gone with the rest of the run: the fourth prestige starts from the forest again.
+  expect(f.db.proceduralProgress.identity.find(f.ctx.sender)).toBeFalsy();
 });
 
 it("keeps research through a prestige but not through a plain reset", () => {
