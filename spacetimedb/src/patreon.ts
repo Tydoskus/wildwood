@@ -57,15 +57,15 @@ function tokenRequest(ctx: Context, config: Config, grant: Record<string, string
 
 function membershipRequest(ctx: Context, config: Config, accessToken: string) {
   const query = encodePatreonForm({ include: "memberships.currently_entitled_tiers,memberships.campaign",
-    "fields[member]": "patron_status,last_charge_status,is_free_trial" });
+    "fields[member]": "patron_status,last_charge_status,is_free_trial,next_charge_date,last_charge_date" });
   const response = ctx.http.fetch(`https://www.patreon.com/api/oauth2/v2/identity?${query}`, {
     headers: { authorization: `Bearer ${accessToken}` }, timeout: new TimeDuration(10_000_000n),
   });
   if (response.status < 200 || response.status >= 300) throw new Error("Patreon membership check failed");
-  return verifyPatreonIdentity(JSON.parse(response.text()), config);
+  return verifyPatreonIdentity(JSON.parse(response.text()), config, nowMs(ctx));
 }
 
-function saveMembership(ctx: Tx, identity: Identity, tokens: { accessToken: string; refreshToken: string }, membership: { userId: string; tier: AvatarFrame }) {
+function saveMembership(ctx: Tx, identity: Identity, tokens: { accessToken: string; refreshToken: string }, membership: { userId: string; tier: AvatarFrame; paidThroughMs: number }) {
   const owner = ctx.db.patreonOwner.userId.find(membership.userId);
   if (owner && !owner.identity.equals(identity)) throw new SenderError("This Patreon is already linked to another WildStat character.");
   const previous = ctx.db.patreonLink.identity.find(identity);
@@ -76,7 +76,14 @@ function saveMembership(ctx: Tx, identity: Identity, tokens: { accessToken: stri
   // Routine renewals keep an intentional selection (including None).
   const frame = previous?.userId === membership.userId && previous.tier === membership.tier && allowedAvatarFrame(membership.tier, previous.frame)
     ? previous.frame : membership.tier;
-  const row = { identity, ...tokens, ...membership, frame, validUntilMs: now + LEASE_MS, checkedAtMs: now, attemptedAtMs: now };
+  // The lease is how long a supporter keeps their frame and their place on the
+  // ticker without us asking Patreon again. Six hours meant a supporter who had
+  // not played today simply vanished from both; the month they paid for is the
+  // honest window. The short lease stays as the floor when Patreon tells us
+  // nothing about dates.
+  const { paidThroughMs, ...saved } = membership;
+  const validUntilMs = Math.max(now + LEASE_MS, paidThroughMs);
+  const row = { identity, ...tokens, ...saved, frame, validUntilMs, checkedAtMs: now, attemptedAtMs: now };
   if (previous) ctx.db.patreonLink.identity.update(row); else ctx.db.patreonLink.insert(row);
   announcePatreonSupport(ctx, identity, membership.userId, membership.tier);
 }
