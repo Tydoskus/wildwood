@@ -135,13 +135,18 @@ export function refreshPatreon(ctx: ProcedureCtx<Schema>) {
 export const PATREON_SWEEP_LEAD_MS = 36 * 60 * 60 * 1000;
 export const PATREON_SWEEP_MIN_ATTEMPT_MS = 60 * 60 * 1000;
 export const PATREON_SWEEP_BATCH = 5;
-export function patreonLinksDueRefresh<T extends { userId: string; attemptedAtMs: number; validUntilMs: number }>(links: T[], nowMs: number, batch = PATREON_SWEEP_BATCH) {
+export function patreonLinksDueRefresh<T extends { userId: string; tier: string; attemptedAtMs: number; validUntilMs: number }>(links: T[], nowMs: number, batch = PATREON_SWEEP_BATCH) {
+  // Someone paying comes first. Most linked accounts hold no membership, and
+  // sorting by lease alone spent the whole batch re-checking them while
+  // supporters queued behind: of sixteen lapsed links, eleven granted nothing.
+  // They are still swept, just after, so a new subscription is still noticed.
+  const paying = (link: T) => link.tier && link.tier !== "none" ? 0 : 1;
   return links
     .filter(link => link.userId
       && nowMs - link.attemptedAtMs >= PATREON_SWEEP_MIN_ATTEMPT_MS
       && link.validUntilMs - nowMs < PATREON_SWEEP_LEAD_MS)
-    // Soonest to lapse first, so nobody waits behind a lease with weeks to run.
-    .sort((left, right) => left.validUntilMs - right.validUntilMs)
+    // Then soonest to lapse, so nobody waits behind a lease with weeks to run.
+    .sort((left, right) => paying(left) - paying(right) || left.validUntilMs - right.validUntilMs)
     .slice(0, batch);
 }
 /** Ten minutes: often enough that a lapse is noticed the same hour, rarely
@@ -154,9 +159,10 @@ export function ensurePatreonSweep(ctx: any, scheduleAt: unknown) {
 function sweepDiagnostics(ctx: ProcedureCtx<Schema>) {
   return ctx.withTx(tx => {
     const links = [...tx.db.patreonLink.iter()];
+    const lapsed = links.filter(l => l.validUntilMs < nowMs(tx));
     return { now: nowMs(tx), configured: Boolean(tx.db.patreonConfig.id.find(0)), links: links.length,
-      linked: links.filter(l => l.userId).length,
-      expired: links.filter(l => l.validUntilMs < nowMs(tx)).length };
+      linked: links.filter(l => l.userId).length, expired: lapsed.length,
+      expiredPaying: lapsed.filter(l => l.tier && l.tier !== "none").length };
   });
 }
 export function sweepPatreonLinks(ctx: ProcedureCtx<Schema>) {

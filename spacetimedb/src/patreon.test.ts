@@ -174,7 +174,7 @@ it("streams only real memberships, uses current names, expires leases and remove
 });
 
 describe("keeping memberships current without the player", () => {
-  const link = (over = {}) => ({ userId: "1", attemptedAtMs: 0, validUntilMs: 0, ...over });
+  const link = (over = {}) => ({ userId: "1", tier: "gold", attemptedAtMs: 0, validUntilMs: 0, ...over });
   const now = 1_000 * 60 * 60 * 24 * 400;
 
   it("picks up a lease about to lapse, soonest first", () => {
@@ -202,5 +202,38 @@ describe("keeping memberships current without the player", () => {
 
   it("re-checks an expired lease, which is how a stale supporter recovers", () => {
     expect(patreonLinksDueRefresh([link({ validUntilMs: now - 60 * 60 * 1000 })], now)).toHaveLength(1);
+  });
+});
+
+describe("who the sweep spends its batch on", () => {
+  const link = (over = {}) => ({ userId: "1", tier: "gold", attemptedAtMs: 0, validUntilMs: 0, ...over });
+  const now = 1_000 * 60 * 60 * 24 * 400;
+
+  it("re-checks a paying supporter before a link that grants nothing", () => {
+    // The live sweep took the five oldest leases and eleven of sixteen lapsed
+    // links held no membership, so supporters queued behind people with no frame.
+    const freeloader = link({ tier: "none", validUntilMs: now - 10 * 60 * 60 * 1000 });
+    const supporter = link({ tier: "silver", validUntilMs: now - 60_000 });
+    expect(patreonLinksDueRefresh([freeloader, supporter], now)).toEqual([supporter, freeloader]);
+  });
+
+  it("fills the batch with supporters first, then the rest", () => {
+    const none = Array.from({ length: 8 }, (_, i) => link({ tier: "none", validUntilMs: now - 90_000_000 - i }));
+    const paying = Array.from({ length: 3 }, (_, i) => link({ tier: "gold", validUntilMs: now - i }));
+    const due = patreonLinksDueRefresh([...none, ...paying], now);
+    expect(due).toHaveLength(PATREON_SWEEP_BATCH);
+    expect(due.slice(0, 3).every(l => l.tier === "gold")).toBe(true);
+    expect(due.slice(3).every(l => l.tier === "none")).toBe(true);
+  });
+
+  it("still sweeps unpaid links, so a new subscription is noticed while away", () => {
+    const only = link({ tier: "none", validUntilMs: now - 60_000 });
+    expect(patreonLinksDueRefresh([only], now)).toEqual([only]);
+  });
+
+  it("orders supporters among themselves by who lapses soonest", () => {
+    const soon = link({ tier: "gold", validUntilMs: now - 100 });
+    const sooner = link({ tier: "silver", validUntilMs: now - 100_000 });
+    expect(patreonLinksDueRefresh([soon, sooner], now)).toEqual([sooner, soon]);
   });
 });
