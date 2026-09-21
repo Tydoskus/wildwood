@@ -50,11 +50,10 @@ change, not a client save-copy operation:
 - Bind a new verified email to its first character atomically. Repeated login is
   idempotent. Existing populated-account collisions require explicit recovery.
 - Resolve canonical character ownership consistently in reducers, procedures,
-  private views, duel visibility, session takeover, and shard admission.
+  private views, duel visibility, and session takeover.
 - Keep transport identity distinct from character identity on the client. Resolve
   the character before subscribing to account data or claiming guest progress.
-- Transfer the authorized mapping through the root-to-shard admission path; never
-  accept a client-supplied canonical identity as proof of access.
+- Never accept a client-supplied canonical identity as proof of access.
 - Preserve token refresh and sign-out semantics. Do not introduce permanent
   shared bearer credentials or weaken existing subject checks.
 
@@ -70,4 +69,3 @@ and portal/Home travel using either login method.
 - `src/coop/services/account-service.ts`
 - `src/coop/security/oidc-id-token.ts`
 - `spacetimedb/src/index.ts` (`hasSpacetimeAuthAccount`, `claimGuestAccount`)
-- `src/coop/services/map-shard-client.ts`

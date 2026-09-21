@@ -31,9 +31,8 @@ clear
 print "WILDSTAT SERVER PUBLISH"
 print "Folder: $PROJECT_DIR"
 print ""
-print "This builds the root and map server modules, checks compatibility,"
-print "then publishes without clearing data or allowing manual migrations."
-print "Ready map shards are updated and newly created shards use the same build."
+print "This builds the server module, checks compatibility, then publishes"
+print "the one database without clearing data or allowing manual migrations."
 print ""
 
 if [[ "${1:-}" == "--check" ]]; then
@@ -57,10 +56,8 @@ fi
 
 print "Checking server TypeScript..."
 "$NPM_BIN" run typecheck:coop || fail "Server typecheck failed."
-print "Building root server..."
-"$NPM_BIN" run spacetime:build || fail "Root server build failed."
-print "Building map server..."
-"$NPM_BIN" run sharding:build || fail "Map server build failed."
+print "Building server..."
+"$NPM_BIN" run spacetime:build || fail "Server build failed."
 print ""
 
 export WILDSTAT_SPACETIME_BIN="$SPACETIME_BIN"

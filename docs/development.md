@@ -185,6 +185,8 @@ npm run build:client
 
 Publishing the server is a separate production operation; pushing `main` only deploys the static site. Never use destructive database publish options in production.
 
+There is one server database. Every player runs on `wildwood-coop`, and the client scopes what it receives by subscribing per map (`WHERE map_id = <current map>`) rather than by connecting to a per-map database. `npm run spacetime:publish:live` is the checked path to it: preflight, then one upload that takes seconds. Map sharding was removed on 2026-09-21; the model, the measurements behind it and the reasons are in [SPACETIME.md](SPACETIME.md#one-database).
+
 `DUEL_COMBAT_VERSION` in `shared/duel-combat.ts` is the duel wire format. A duel
 row is only delivered to a client whose identity holds a `duel_wire_access` row
 for that exact version, so `syncDuelWireAccess` must grant every version through
@@ -452,4 +454,4 @@ Boss combat is client-sided. `PERSONAL_BOSS_COMBAT` in `shared/personal-bosses.t
 
 ## Planned updates
 
-Use [scheduled releases](scheduled-releases.md) to prepare artifacts before a five-minute in-game countdown, wait for progress acknowledgements, and publish only changed servers. The immediate release helper above remains available for urgent hotfixes.
+Use [scheduled releases](scheduled-releases.md) to prepare artifacts before a five-minute in-game countdown, wait for progress acknowledgements, and publish the server only when `shared/` or `spacetimedb/` changed. The immediate release helper above remains available for urgent hotfixes.

@@ -1,1 +1,0 @@
-{"extends":"../spacetimedb/tsconfig.json","include":["src/**/*.ts"]}

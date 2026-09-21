@@ -32,6 +32,53 @@ Deployed WildStat pages automatically use `wss://maincloud.spacetimedb.com`; loc
 
 Do not use `--delete-data=always` outside local development. It destroys the selected database contents.
 
+## One database
+
+Every player runs on the root database, `wildwood-coop`. There is no per-map
+database, no coordinator and no second server module: `spacetimedb/` is the
+whole server.
+
+- **Interest is a subscription filter, not a database boundary.** The client
+  subscribes per map with `WHERE map_id = <current map>` on indexed public
+  tables and re-subscribes on a map change. `playerMotionIdentity` and
+  `playerDeathFrame` carry a single-column `mapId` index for this. Under the
+  SpacetimeDB 2.9 planner a composite index never serves a single-column
+  filter, and only AND-filters need a single-column index at all, so add one
+  only when a new filter is an AND over that column.
+- **Measured cost, 2026-09-21.** 350 realistic virtual players on ONE map on
+  one local database cost about 0.15-0.20 cores. The live root averages about
+  0.07 cores. One database has room to spare; re-measure with
+  `npm run loadtest:virtual` before assuming otherwise.
+- **Publishing is one upload and takes seconds.**
+  `npm run spacetime:publish:live` checks the built bundle against the live
+  schema (`pre_publish`), then publishes `wildwood-coop` with `clear=false`
+  under the `Compatible` policy, or `BreakClients` only with
+  `--allow-client-break`. `-- --preflight` stops after the check. It reads the
+  deployment credential from the root table `shard_coordinator_connection`
+  through the logged-in CLI, or from `WILDSTAT_SHARD_OPERATOR_TOKEN`. Both
+  names predate this model and are kept on purpose: the table so the publish
+  script keeps working, the variable so nobody's shell setup breaks.
+
+### Why sharding was removed (2026-09-21)
+
+Until 2026-09-21 each map ran as its own SpacetimeDB database ("map shards"),
+provisioned and fed by a coordinator on the root. It was switched off on live
+that day and the code and tooling were deleted afterwards.
+
+- 99 shard databases sat at 17% occupancy. Every server publish was a
+  30-45 minute loop of 100 uploads, each able to fail on its own.
+- Shard databases showed no metrics on the Maincloud dashboard, so the cost
+  they were meant to contain could not be seen there.
+- The measurements above showed one database carries the load many times over.
+- The flip to off was one reducer call and needed one fix: a player relocated
+  to the root kept a stale motion reference, so the relocation now stops the
+  motion, backdates its clock and resets the input sequence, and the first
+  packet re-anchors the player. See the movement validator notes before
+  touching that path.
+
+Do not reintroduce per-map databases to solve a load problem without a
+measurement showing one database cannot carry it.
+
 ## SpacetimeAuth
 
 WildStat uses SpacetimeAuth Magic Link with public client ID `client_03426HMgkAEmdC23XTZRKZ`.

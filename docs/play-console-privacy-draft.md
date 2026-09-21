@@ -88,7 +88,7 @@ any retained records and retention periods, and the expected processing time.
 `devDeleteLegacyPlayer`, is restricted to qualifying legacy players and refuses
 normal registered accounts. It is not a general account-deletion service.
 Implement and verify a workflow covering the authentication identity, root game
-database, map shards, and applicable retained records before claiming deletion
+database, any retired map-shard databases, and applicable retained records before claiming deletion
 support in Play Console. Do not loosen the legacy maintenance reducer as a shortcut.
 
 ## Console status

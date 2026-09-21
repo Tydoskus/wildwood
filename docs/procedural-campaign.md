@@ -1,5 +1,7 @@
 # Procedural campaign maps
 
+> Note (2026-09-21): written while each map ran as its own shard database. Map sharding has since been removed and every player runs on the root, so mentions of shards, admissions and shard routing below are historical. See "Why sharding was removed" in [SPACETIME.md](SPACETIME.md).
+
 The authored campaign connects from Ion Citadel to **Endless - 1**, then continues through numbered generated maps. A player must defeat Aegis Prime first. Each generated boss clear permanently unlocks the next map. Ordinary deaths retain map access and stats, just like the authored campaign.
 
 ## Definition and extension points
@@ -27,7 +29,7 @@ Generated progress merges when a guest account is linked, and clears on an expli
 
 ## Developer travel
 
-In Settings, **ENDLESS · DEV** accepts a positive whole map number and a Go action. The root reducer uses the normal motion/shard transition and persists the arrival without awarding stats or boss clears. Developers have access automatically. The database owner can grant/revoke only this capability for a local guest with `dev_set_endless_travel_access(identity, enabled)`. Grants are private; the caller-scoped view exposes only the current player's permission. Do not seed local guest grants into production. Authorized saves can restore an unearned Endless destination after reconnect.
+In Settings, **ENDLESS · DEV** accepts a positive whole map number and a Go action. The root reducer uses the normal map transition and persists the arrival without awarding stats or boss clears. Developers have access automatically. The database owner can grant/revoke only this capability for a local guest with `dev_set_endless_travel_access(identity, enabled)`. Grants are private; the caller-scoped view exposes only the current player's permission. Do not seed local guest grants into production. Authorized saves can restore an unearned Endless destination after reconnect.
 
 ## Verification
 

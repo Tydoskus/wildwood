@@ -7,6 +7,6 @@ On macOS, double-click the tool you need:
 - **Open Unity Sprite Exporter.command** — open a local Unity workspace to turn animated sprite prefabs into PNG sheets, preview them, and make a WebP bundle. [Guide](../tools/unity-sprite-exporter/README.md).
 - **Run Wildstat Local.command** — start the local database and live development server. Leave it open: CSS updates in place, code edits rebuild and refresh the tab, and server edits republish locally.
 - **Release Wildstat.command** — run the guided production release workflow, including checks, commit, and push.
-- **Publish Server.command** — build and publish the root and map server modules after a compatibility preflight; data is never cleared.
+- **Publish Server.command** — build and publish the server module after a compatibility preflight; data is never cleared.
 
 Keep these files inside this folder so they can find the project one level up. You can make a Finder alias for a tool you use often. Documentation is in [the development guide](../docs/development.md) and [map editor guide](../tools/map-editor/README.md).
