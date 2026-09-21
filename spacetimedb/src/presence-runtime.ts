@@ -22,21 +22,13 @@ import { PLAYER_MOTION_DETAIL_FRAME_HZ } from "../../shared/player-motion-intere
 import { analyticalPlayerMotionAt } from "../../shared/analytical-player-motion";
 import { playerMotionSampleAt } from "../../shared/player-motion-sample";
 import {
-  ADVANCED_LAVA_WASTES_MAP_ID,
   BOSS_REWARD_CLAIM_BITS,
-  BEGINNER_DESERT_MAP_ID,
-  CLOUDSPIRE_MAP_ID,
-  INFERNAL_DEPTHS_MAP_ID,
-  INTERMEDIATE_SNOWLANDS_MAP_ID,
-  MOONFEN_MAP_ID,
-  CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, NEON_BASTION_MAP_ID, VERDANT_CATACOMBS_MAP_ID, ION_CITADEL_MAP_ID,
   PLAYER_RADIUS,
   PLAYER_SPAWN,
   PLAYER_SPEED,
-  SAMURAI_GARDEN_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
-  WATER_REACH_MAP_ID,
 } from "../../shared/rules";
+import { accessibleCampaignMap } from "../../shared/equipment-access";
 
 const MAX_PACKED_PLAYER_VELOCITY = 0x7fff / PLAYER_VELOCITY_SCALE;
 // Movement packets are floats, so allow a tiny wire-format margin while
@@ -372,110 +364,7 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
     const saved = ctx.db.playerLastLocation.identity.find(identity);
     const requestedMap = VALID_MAP_IDS.has(saved?.mapId) ? saved.mapId : TUTORIAL_FOREST_MAP_ID;
     let mapId = requestedMap;
-    if (mapId === MOONFEN_MAP_ID && !progress.moonfenUnlocked) {
-      mapId = progress.cloudspireUnlocked
-        ? CLOUDSPIRE_MAP_ID
-        : progress.samuraiUnlocked ? SAMURAI_GARDEN_MAP_ID
-          : progress.waterUnlocked ? WATER_REACH_MAP_ID
-            : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
-              : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
-                : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
-                  : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-    }
-    if (mapId === CLOCKWORK_RUINS_MAP_ID && !progress.clockworkRuinsUnlocked) {
-      mapId = progress.moonfenUnlocked ? MOONFEN_MAP_ID : progress.cloudspireUnlocked
-        ? CLOUDSPIRE_MAP_ID
-        : progress.samuraiUnlocked ? SAMURAI_GARDEN_MAP_ID
-          : progress.waterUnlocked ? WATER_REACH_MAP_ID
-            : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
-              : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
-                : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
-                  : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-    } else if (mapId === ION_CITADEL_MAP_ID && !progress.ionCitadelUnlocked) {
-      mapId = progress.moonfenUnlocked ? MOONFEN_MAP_ID : progress.cloudspireUnlocked
-        ? CLOUDSPIRE_MAP_ID
-        : progress.samuraiUnlocked ? SAMURAI_GARDEN_MAP_ID
-          : progress.waterUnlocked ? WATER_REACH_MAP_ID
-            : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
-              : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
-                : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
-                  : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-    } else if (mapId === VERDANT_CATACOMBS_MAP_ID && !progress.verdantCatacombsUnlocked) {
-      mapId = progress.moonfenUnlocked ? MOONFEN_MAP_ID : progress.cloudspireUnlocked
-        ? CLOUDSPIRE_MAP_ID
-        : progress.samuraiUnlocked ? SAMURAI_GARDEN_MAP_ID
-          : progress.waterUnlocked ? WATER_REACH_MAP_ID
-            : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
-              : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
-                : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
-                  : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-    } else if (mapId === NEON_BASTION_MAP_ID && !progress.neonBastionUnlocked) {
-      mapId = progress.moonfenUnlocked ? MOONFEN_MAP_ID : progress.cloudspireUnlocked
-        ? CLOUDSPIRE_MAP_ID
-        : progress.samuraiUnlocked ? SAMURAI_GARDEN_MAP_ID
-          : progress.waterUnlocked ? WATER_REACH_MAP_ID
-            : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
-              : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
-                : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
-                  : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-    } else if (mapId === DUSKFALL_ORCHARD_MAP_ID && !progress.duskfallOrchardUnlocked) {
-      mapId = progress.moonfenUnlocked ? MOONFEN_MAP_ID : progress.cloudspireUnlocked
-        ? CLOUDSPIRE_MAP_ID
-        : progress.samuraiUnlocked ? SAMURAI_GARDEN_MAP_ID
-          : progress.waterUnlocked ? WATER_REACH_MAP_ID
-            : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
-              : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
-                : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
-                  : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-    } else if (mapId === CRYSTAL_HOLLOWS_MAP_ID && !progress.crystalHollowsUnlocked) {
-      mapId = progress.moonfenUnlocked ? MOONFEN_MAP_ID : progress.cloudspireUnlocked
-        ? CLOUDSPIRE_MAP_ID
-        : progress.samuraiUnlocked ? SAMURAI_GARDEN_MAP_ID
-          : progress.waterUnlocked ? WATER_REACH_MAP_ID
-            : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
-              : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
-                : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
-                  : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-    }
-    if (mapId === CLOUDSPIRE_MAP_ID && !progress.cloudspireUnlocked) {
-      mapId = progress.samuraiUnlocked
-        ? SAMURAI_GARDEN_MAP_ID
-        : progress.waterUnlocked ? WATER_REACH_MAP_ID
-          : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
-            : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
-              : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
-                : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-    }
-    if (mapId === SAMURAI_GARDEN_MAP_ID && !progress.samuraiUnlocked) {
-      mapId = progress.waterUnlocked
-        ? WATER_REACH_MAP_ID
-        : progress.infernalUnlocked ? INFERNAL_DEPTHS_MAP_ID
-          : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
-            : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
-              : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-    }
-    if (mapId === WATER_REACH_MAP_ID && !progress.waterUnlocked) {
-      mapId = progress.infernalUnlocked
-        ? INFERNAL_DEPTHS_MAP_ID
-        : progress.lavaUnlocked ? ADVANCED_LAVA_WASTES_MAP_ID
-          : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
-            : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-    }
-    if (mapId === INFERNAL_DEPTHS_MAP_ID && !progress.infernalUnlocked) {
-      mapId = progress.lavaUnlocked
-        ? ADVANCED_LAVA_WASTES_MAP_ID
-        : progress.snowlandsUnlocked ? INTERMEDIATE_SNOWLANDS_MAP_ID
-          : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-    }
-    if (mapId === ADVANCED_LAVA_WASTES_MAP_ID && !progress.lavaUnlocked) {
-      mapId = progress.snowlandsUnlocked
-        ? INTERMEDIATE_SNOWLANDS_MAP_ID
-        : progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-    }
-    if (mapId === INTERMEDIATE_SNOWLANDS_MAP_ID && !progress.snowlandsUnlocked) {
-      mapId = progress.desertUnlocked ? BEGINNER_DESERT_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-    }
-    if (mapId === BEGINNER_DESERT_MAP_ID && !progress.desertUnlocked) mapId = TUTORIAL_FOREST_MAP_ID;
+    mapId = accessibleCampaignMap(mapId, progress);
     if (isProceduralMap(mapId) && !hasEndlessTravelAccess(ctx, identity) && !generatedMapUnlocked(mapId, ctx.db.proceduralProgress.identity.find(identity)?.completed ?? 0, Boolean(progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS[PROCEDURAL_ENTRY_BOSS]))) mapId = TUTORIAL_FOREST_MAP_ID;
     const fallback = isProceduralMap(mapId) ? generateMap(mapId).arrival : mapId === HOME_EXTERIOR_MAP_ID ? HOME_EXTERIOR_SPAWN : mapId === TUTORIAL_FOREST_MAP_ID ? PLAYER_SPAWN : MAP_ARRIVALS[mapId as keyof typeof MAP_ARRIVALS];
     const useSavedPosition = mapId === requestedMap;

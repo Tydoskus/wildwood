@@ -11,6 +11,18 @@ export function highestCampaignMap(progress: CampaignAccess) {
   return CAMPAIGN_UNLOCK_FIELDS.reduce((highest, field, index) => progress[field] ? index + 1 : highest, 0);
 }
 
+/**
+ * Campaign map the player may actually stand on. MAP_IDS is the ladder in
+ * order and CAMPAIGN_UNLOCK_FIELDS holds the flag for each rung above the
+ * first, so a map they have not earned sends them to their highest rung.
+ * Maps outside the ladder (home, procedural) are left for their own checks.
+ */
+export function accessibleCampaignMap(mapId: string, progress: CampaignAccess): string {
+  const rung = MAP_IDS.indexOf(mapId);
+  if (rung <= 0 || progress[CAMPAIGN_UNLOCK_FIELDS[rung - 1]]) return mapId;
+  return MAP_IDS[highestCampaignMap(progress)];
+}
+
 export function equipmentMapRequirement(itemId: string, progress: CampaignAccess | null | undefined): string | null {
   const tier = itemTier(canonicalItemId(itemId) ?? itemId);
   if (!tier || tier <= 1 || progress?.[CAMPAIGN_UNLOCK_FIELDS[tier - 2]]) return null;
