@@ -206,7 +206,7 @@ export function createAutoFarmController(options: {
     status = threat ? 'Moving to attacker' : target ? 'Moving to enemy' : 'Moving to spawn';
     const length = distance(waypoint);
     const magnitude = Math.min(1, length / Math.max(1, options.speed() * dt));
-    return { x: (waypoint.x - player.x) / length * magnitude, y: (waypoint.y - player.y) / length * magnitude, source: 'keyboard' };
+    return { x: (waypoint.x - player.x) / length * magnitude, y: (waypoint.y - player.y) / length * magnitude, source: 'steer' };
   }
 
   return { start, stop, refresh, choices, movement,

@@ -60,3 +60,24 @@ describe("sparse movement sender", () => {
     expect(sanitizeMovementVelocity(266.5, -188.4)).toEqual({ vx: 266.5, vy: -188.4, moving: true });
   });
 });
+
+describe("movement the game or the mouse aims", () => {
+  /** One second of 60 Hz frames walking a gentle curve, as autofarm does on the way to a waypoint. */
+  function packetsInOneSecond(inputKind: "keyboard" | "touch") {
+    let lastSent: { vx: number; vy: number; moving: boolean; sentAt: number } | null = null;
+    let sent = 0;
+    for (let frame = 0; frame < 60; frame += 1) {
+      const now = frame * (1000 / 60);
+      const angle = frame * (Math.PI / 180) * .25;                       // a quarter of a degree per frame
+      const velocity = sanitizeMovementVelocity(Math.cos(angle) * 200, Math.sin(angle) * 200);
+      if (movementUpdateReason({ now, velocity, inputKind, lastSent })) { sent += 1; lastSent = { ...velocity, sentAt: now }; }
+    }
+    return sent;
+  }
+  it("sends a packet on nearly every frame if it is reported as keyboard input", () => {
+    expect(packetsInOneSecond("keyboard")).toBeGreaterThanOrEqual(55);
+  });
+  it("sends a handful a second once it is rate-limited like touch", () => {
+    expect(packetsInOneSecond("touch")).toBeLessThanOrEqual(4);
+  });
+});

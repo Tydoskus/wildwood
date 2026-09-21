@@ -2116,7 +2116,7 @@ import {
         player.y,
         movement.x * movementSpeed,
         movement.y * movementSpeed,
-        movement.source === "touch" ? "touch" : "keyboard",
+        movement.source === "keyboard" ? "keyboard" : "touch",
         true,
       );
     },

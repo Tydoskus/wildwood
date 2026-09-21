@@ -1,7 +1,7 @@
 import { WORLD } from "../constants";
 import { clamp } from "../math";
 import { createSpawnSites, createWorldLayout, type MapId, type SpawnSite, type WorldDecor, type WorldPath } from "../world";
-import type { Movement, MovementInputSource } from "./player-input-controller";
+import type { Movement } from "./player-input-controller";
 import type { DragonBossState, EnemyState, PlayerState, DuelScene, RuntimeDuelReplay, RuntimeDuelState } from "./types";
 import { setPlayerBaseMaxHealth } from "./player-health";
 
@@ -84,7 +84,7 @@ export function createPlayerController(options: {
   movementSpeedMultiplier: () => number;
   regenerationPerSecond: () => number;
   healthMultiplierBonus?: () => number;
-  syncMovementState: (x: number, y: number, vx: number, vy: number, inputSource: Exclude<MovementInputSource, "none">, force: boolean, interestArea?: PlayerInterestArea) => void;
+  syncMovementState: (x: number, y: number, vx: number, vy: number, inputSource: "keyboard" | "touch", force: boolean, interestArea?: PlayerInterestArea) => void;
   autoAttack: () => void;
   isAutoAttackEnabled: () => boolean;
   activeDuel: () => RuntimeDuelState | null;
@@ -227,7 +227,7 @@ export function createPlayerController(options: {
         player.y,
         player.moving ? mx * movementSpeed : 0,
         player.moving ? my * movementSpeed : 0,
-        source === "touch" ? "touch" : "keyboard",
+        source === "keyboard" ? "keyboard" : "touch",
         started,
         {
           left: camera.x,

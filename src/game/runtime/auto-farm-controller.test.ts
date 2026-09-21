@@ -102,7 +102,7 @@ describe('autofarm', () => {
     s.spawnSites.pop(); // Bosses are not regular respawning camp sites.
     expect(s.farm.choices()).toHaveLength(1);
     s.farm.start(s.farm.choices()[0].key);
-    expect(s.tick()).toEqual({ x: 1, y: 0, source: 'keyboard' });
+    expect(s.tick()).toEqual({ x: 1, y: 0, source: 'steer' });
     target.dead = true;
     expect(s.tick().y).toBe(0);
   });
@@ -113,7 +113,7 @@ describe('autofarm', () => {
     s.add('Bramble', 1500, 500);
     expect(s.farm.start('Bramble')).toBe(true);
     const first = s.tick();
-    expect(first).toEqual({ x: 1, y: 0, source: 'keyboard' });
+    expect(first).toEqual({ x: 1, y: 0, source: 'steer' });
     for (let i = 0; i < 300; i++) s.tick();
     expect(s.player.x).toBeCloseTo(1344);
     expect(s.player.y).toBe(500);
@@ -240,7 +240,7 @@ describe('autofarm', () => {
     expect(s.tick()).toEqual(idle);
     expect(s.farm.state().status).toBe('Paused');
     s.setPaused(false);
-    expect(s.tick()).toEqual({ x: 0, y: 1, source: 'keyboard' });
+    expect(s.tick()).toEqual({ x: 0, y: 1, source: 'steer' });
   });
 
   it('waits for a stable connection and never runs movement during recovery', () => {

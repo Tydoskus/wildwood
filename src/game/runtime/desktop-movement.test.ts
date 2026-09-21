@@ -31,7 +31,7 @@ function fixture() {
 
 it("walks to a world-space click through canvas offsets, scaling, and camera motion without overshooting", () => {
   const f = fixture(); f.click();
-  expect(f.input.movement(1 / 60)).toEqual({ x: 1, y: 0, source: "keyboard" });
+  expect(f.input.movement(1 / 60)).toEqual({ x: 1, y: 0, source: "steer" });
   f.camera.x = 300;
   f.player.x = 198;
   const step = f.input.movement(1 / 60);

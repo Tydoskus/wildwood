@@ -1,6 +1,13 @@
 import { createDesktopMovement, type DesktopMovementOptions } from "./desktop-movement";
 
-export type MovementInputSource = "keyboard" | "touch" | "none";
+/**
+ * "keyboard" is eight-way WASD: the vector only changes when a key does, so a
+ * change is sent at once. "touch" and "steer" turn continuously; "steer" is
+ * movement the game or the mouse aims (autofarm walking a route, click-to-move),
+ * whose vector turns a little every frame. Reported as "keyboard" it sent a
+ * packet on every one of those frames; it is rate-limited like touch instead.
+ */
+export type MovementInputSource = "keyboard" | "touch" | "steer" | "none";
 export type Movement = { x: number; y: number; source: MovementInputSource };
 
 export type PlayerInputController = {
@@ -172,8 +179,8 @@ export function createPlayerInputController(options: {
       if (keyboard || touch.active) desktop?.clear();
       const pointing = !keyboard && !touch.active ? desktop?.movement(dt) : undefined;
       if (pointing && (pointing.x || pointing.y)) {
-        // Reuse the existing desktop movement protocol; no extra network messages.
-        return { ...pointing, source: "keyboard" };
+        // The pointer aims a continuously turning vector: see MovementInputSource.
+        return { ...pointing, source: "steer" };
       }
       return {
         x: (right ? 1 : 0) - (left ? 1 : 0) + touch.x,
