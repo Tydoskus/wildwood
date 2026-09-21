@@ -248,7 +248,6 @@ import KoiShogunResultRow from "./koi_shogun_result_table";
 import LatestChatMessagesRow from "./latest_chat_messages_table";
 import LatestChatMessagesWithReactionsRow from "./latest_chat_messages_with_reactions_table";
 import LeaderboardEntryRow from "./leaderboard_entry_table";
-import LocalMovementDemandRow from "./local_movement_demand_table";
 import MagmaliskBossRow from "./magmalisk_boss_table";
 import MagmaliskResultRow from "./magmalisk_result_table";
 import MapShardRow from "./map_shard_table";
@@ -264,7 +263,6 @@ import MyGemPurchasesRow from "./my_gem_purchases_table";
 import MyGemWalletRow from "./my_gem_wallet_table";
 import MyInventoryCapacityRow from "./my_inventory_capacity_table";
 import MyItemGiftsRow from "./my_item_gifts_table";
-import MyMailboxRow from "./my_mailbox_table";
 import MyMailboxV2Row from "./my_mailbox_v_2_table";
 import MyMapShardRouteRow from "./my_map_shard_route_table";
 import MyOnboardingRow from "./my_onboarding_table";
@@ -730,6 +728,9 @@ const tablesSchema = __schema({
   playerDeathFrame: __table({
     name: 'player_death_frame',
     indexes: [
+      { accessor: 'byMap', name: 'player_death_frame_map_id_idx_btree', algorithm: 'btree', columns: [
+        'mapId',
+      ] },
       { accessor: 'byMapZone', name: 'player_death_frame_map_id_zone_x_zone_y_idx_btree', algorithm: 'btree', columns: [
         'mapId',
         'zoneX',
@@ -846,6 +847,9 @@ const tablesSchema = __schema({
     indexes: [
       { accessor: 'identity', name: 'player_motion_identity_identity_idx_btree', algorithm: 'btree', columns: [
         'identity',
+      ] },
+      { accessor: 'byMap', name: 'player_motion_identity_map_id_idx_btree', algorithm: 'btree', columns: [
+        'mapId',
       ] },
       { accessor: 'byMapZone', name: 'player_motion_identity_map_id_is_visible_zone_x_zone_y_idx_btree', algorithm: 'btree', columns: [
         'mapId',
@@ -1124,13 +1128,6 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, LatestChatMessagesWithReactionsRow),
-  localMovementDemand: __table({
-    name: 'local_movement_demand',
-    indexes: [
-    ],
-    constraints: [
-    ],
-  }, LocalMovementDemandRow),
   myBalanceApologyNotice: __table({
     name: 'my_balance_apology_notice',
     indexes: [
@@ -1194,13 +1191,6 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyItemGiftsRow),
-  myMailbox: __table({
-    name: 'my_mailbox',
-    indexes: [
-    ],
-    constraints: [
-    ],
-  }, MyMailboxRow),
   myMailboxV2: __table({
     name: 'my_mailbox_v2',
     indexes: [

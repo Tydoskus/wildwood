@@ -17,4 +17,5 @@ export default {
   silverTierId: __t.string(),
   goldTierId: __t.string(),
   redirectUri: __t.string(),
+  diamondTierId: __t.string(),
 };

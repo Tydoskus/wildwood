@@ -260,6 +260,12 @@ export const ChatReaction = __t.object("ChatReaction", {
 });
 export type ChatReaction = __Infer<typeof ChatReaction>;
 
+export const ChatReactionCooldown = __t.object("ChatReactionCooldown", {
+  identity: __t.identity(),
+  lastAtMicros: __t.u64(),
+});
+export type ChatReactionCooldown = __Infer<typeof ChatReactionCooldown>;
+
 export const ChatReactionSummary = __t.object("ChatReactionSummary", {
   key: __t.string(),
   countsJson: __t.string(),
@@ -1035,9 +1041,6 @@ export const LeaderboardSize = __t.object("LeaderboardSize", {
 });
 export type LeaderboardSize = __Infer<typeof LeaderboardSize>;
 
-export const LocalMovementDemand = __t.object("LocalMovementDemand", {});
-export type LocalMovementDemand = __Infer<typeof LocalMovementDemand>;
-
 export const MagmaliskAttackWindow = __t.object("MagmaliskAttackWindow", {
   identity: __t.identity(),
   encounter: __t.u64(),
@@ -1080,17 +1083,6 @@ export const MagmaliskResult = __t.object("MagmaliskResult", {
   createdAt: __t.timestamp(),
 });
 export type MagmaliskResult = __Infer<typeof MagmaliskResult>;
-
-export const MailboxEntry = __t.object("MailboxEntry", {
-  id: __t.string(),
-  title: __t.string(),
-  body: __t.string(),
-  gems: __t.u64(),
-  createdAt: __t.timestamp(),
-  read: __t.bool(),
-  claimed: __t.bool(),
-});
-export type MailboxEntry = __Infer<typeof MailboxEntry>;
 
 export const MailboxEntryV2 = __t.object("MailboxEntryV2", {
   id: __t.string(),
@@ -1285,13 +1277,6 @@ export const MotionDetailFrameSchedule = __t.object("MotionDetailFrameSchedule",
 });
 export type MotionDetailFrameSchedule = __Infer<typeof MotionDetailFrameSchedule>;
 
-export const MotionFrameSchedule = __t.object("MotionFrameSchedule", {
-  scheduledId: __t.u64(),
-  scheduledAt: __t.scheduleAt(),
-  previousTickMicros: __t.u64(),
-});
-export type MotionFrameSchedule = __Infer<typeof MotionFrameSchedule>;
-
 export const MyBalanceApologyNotice = __t.object("MyBalanceApologyNotice", {});
 export type MyBalanceApologyNotice = __Infer<typeof MyBalanceApologyNotice>;
 
@@ -1318,9 +1303,6 @@ export type MyInventoryCapacity = __Infer<typeof MyInventoryCapacity>;
 
 export const MyItemGifts = __t.object("MyItemGifts", {});
 export type MyItemGifts = __Infer<typeof MyItemGifts>;
-
-export const MyMailbox = __t.object("MyMailbox", {});
-export type MyMailbox = __Infer<typeof MyMailbox>;
 
 export const MyMailboxV2 = __t.object("MyMailboxV2", {});
 export type MyMailboxV2 = __Infer<typeof MyMailboxV2>;
@@ -1375,6 +1357,7 @@ export const PatreonConfig = __t.object("PatreonConfig", {
   silverTierId: __t.string(),
   goldTierId: __t.string(),
   redirectUri: __t.string(),
+  diamondTierId: __t.string(),
 });
 export type PatreonConfig = __Infer<typeof PatreonConfig>;
 
@@ -1409,6 +1392,12 @@ export const PatreonPreview = __t.object("PatreonPreview", {
   frame: __t.string(),
 });
 export type PatreonPreview = __Infer<typeof PatreonPreview>;
+
+export const PatreonSweepSchedule = __t.object("PatreonSweepSchedule", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+});
+export type PatreonSweepSchedule = __Infer<typeof PatreonSweepSchedule>;
 
 export const PatreonTickerSupporter = __t.object("PatreonTickerSupporter", {
   identity: __t.identity(),
