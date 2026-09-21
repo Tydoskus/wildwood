@@ -3845,11 +3845,11 @@
    changes: overhang = (108.67% / metal span - 1) / 2. Compensate for the existing border
    without changing its box, grid track, spacing, or click target. */
 .avatar-frame-portrait { --avatar-frame-overhang: 5.5%; }
-.avatar-frame-portrait[data-avatar-frame="silver"] { --avatar-frame-overhang: 12.5%; }
-.avatar-frame-portrait[data-avatar-frame="gold"] { --avatar-frame-overhang: 12.8%; }
+.avatar-frame-portrait[data-avatar-frame="silver"] { --avatar-frame-overhang: 12.8%; }
+.avatar-frame-portrait[data-avatar-frame="gold"] { --avatar-frame-overhang: 10.3%; }
 .avatar-frame-portrait[data-avatar-frame="diamond"] { --avatar-frame-overhang: 12.5%; }
-.avatar-frame-choices [data-frame="silver"] { --avatar-frame-overhang: 12.5%; }
-.avatar-frame-choices [data-frame="gold"] { --avatar-frame-overhang: 12.8%; }
+.avatar-frame-choices [data-frame="silver"] { --avatar-frame-overhang: 12.8%; }
+.avatar-frame-choices [data-frame="gold"] { --avatar-frame-overhang: 10.3%; }
 .avatar-frame-choices [data-frame="diamond"] { --avatar-frame-overhang: 12.5%; }
 .avatar-frame-art {
   position: absolute;
@@ -3909,7 +3909,16 @@
 }
 .avatar-frame-glow-mask::before {
   content: ""; display: block; position: absolute; inset: -25%;
-  background: conic-gradient(transparent 0deg 255deg, var(--avatar-glow-color) 300deg, white 312deg 325deg, transparent 350deg 360deg);
+  /* Two highlights, half a turn apart, so opposite sides of the frame catch the
+     light at once. The second band is the first shifted back 180 degrees. */
+  background: conic-gradient(
+    transparent 0deg 75deg,
+    var(--avatar-glow-color) 120deg,
+    white 132deg 145deg,
+    transparent 170deg 255deg,
+    var(--avatar-glow-color) 300deg,
+    white 312deg 325deg,
+    transparent 350deg 360deg);
   opacity: .9;
   transform: rotate(0deg);
   animation: avatar-frame-glow-orbit 10s linear infinite;

@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.764": [
+    "Supporter frames use the squared artwork, and two highlights now travel around opposite sides of the frame instead of one.",
+  ],
   "0.763": [
     "Supporter frames have their own artwork for each tier, and silver reads clearly against the world instead of washing out.",
     "Your supporter frame and your name in the ticker now last as long as the membership you paid for. The server keeps them current on its own, so they no longer disappear on a day you do not log in, and a cancelled membership keeps its frame until the period it bought runs out.",
@@ -2162,6 +2165,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.764": "2026-09-20",
   "0.763": "2026-09-20",
   "0.762": "2026-09-20",
   "0.761": "2026-09-20",
