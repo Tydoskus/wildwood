@@ -8,7 +8,16 @@ export const ENEMY_DEFEAT_ACK_TIMEOUT_MS = 15_000;
 export const ENEMY_DEFEAT_BATCH_TIMEOUT_MS = 25_000;
 
 type Batch = { sequence: number; mapId: string; count: number; sealed: boolean; enemies: EnemyDefeat[] };
-type State = { streamId: string; nextSequence: number; batches: Batch[]; retryAtMs?: number };
+type State = { streamId: string; nextSequence: number; batches: Batch[]; retryAtMs?: number; touchedAtMs?: number };
+/**
+ * A queue is keyed by tab so two open tabs cannot claim one stream twice, but
+ * a closed tab's queue stayed behind with its kills forever. A sibling queue
+ * for the same identity that nothing has touched for this long has no live
+ * tab behind it, and this tab adopts it: sent as its own stream, so a report
+ * whose acknowledgement was lost is still deduplicated by the server cursor.
+ */
+export const ORPHAN_QUEUE_AFTER_MS = 120_000;
+const QUEUE_KEY_PREFIX = "wildstat-enemy-defeats-v2:";
 export type EnemyLootRequest = { streamId: string; sequence: bigint; mapId: string; count: number; enemies: EnemyDefeat[] };
 
 /** Persist before sending and retry the same sequence after an interrupted reply. */
@@ -20,6 +29,7 @@ export function createRegularEnemyLootQueue(options: {
 }) {
   let owner = "", key = "", epoch = 0;
   let state: State | null = null;
+  let adopted: { key: string; state: State }[] = [];
   let inFlight: Promise<boolean> | null = null;
   let bossRetryTimer: ReturnType<typeof setTimeout> | null = null;
   let bossRetryDelay = 2_000;
@@ -43,26 +53,49 @@ export function createRegularEnemyLootQueue(options: {
     }, Math.max(bossRetryDelay, throttleDelay));
   }
   const empty = (): State => ({ streamId: crypto.randomUUID(), nextSequence: 1, batches: [] });
+  function write(storageKey: string, value: State) {
+    value.touchedAtMs = Date.now();
+    try { options.storage.setItem(storageKey, JSON.stringify(value)); } catch {}
+  }
   function persist() {
-    if (key && state) { try { options.storage.setItem(key, JSON.stringify(state)); } catch {} }
+    if (key && state) write(key, state);
+  }
+  function readState(storageKey: string): State | null {
+    try {
+      const saved = JSON.parse(options.storage.getItem(storageKey) ?? "null") as State | null;
+      if (saved && typeof saved.streamId === "string" && Number.isSafeInteger(saved.nextSequence) &&
+          saved.nextSequence > 0 && Array.isArray(saved.batches) && saved.batches.every(batch =>
+            Number.isSafeInteger(batch.sequence) && batch.sequence > 0 && combatMap(batch.mapId) &&
+            Number.isInteger(batch.count) && batch.count > 0 && batch.count <= REGULAR_ENEMY_LOOT_BATCH_MAX &&
+            (Array.isArray(batch.enemies) && batch.enemies.every(entry => typeof entry.enemy === "string" && Number.isInteger(entry.count) && entry.count > 0) && batch.enemies.reduce((sum, entry) => sum + entry.count, 0) === batch.count))) return saved;
+    } catch {}
+    return null;
+  }
+  function adoptOrphans() {
+    adopted = [];
+    const prefix = `${QUEUE_KEY_PREFIX}${owner}:`, now = Date.now();
+    const siblings: string[] = [];
+    try { for (let index = 0; index < options.storage.length; index++) { const candidate = options.storage.key(index); if (candidate && candidate.startsWith(prefix) && candidate !== key) siblings.push(candidate); } } catch {}
+    for (const sibling of siblings) {
+      const orphan = readState(sibling);
+      if (!orphan) continue;
+      if (!orphan.batches.length) { try { options.storage.removeItem(sibling); } catch {} continue; }
+      if (now - (orphan.touchedAtMs ?? 0) < ORPHAN_QUEUE_AFTER_MS) continue;
+      // Stamp it now so a second tab opening in the same moment leaves it to us.
+      write(sibling, orphan);
+      adopted.push({ key: sibling, state: orphan });
+    }
   }
   function begin() {
     cancelBossRetry(); bossRetryDelay = 2_000;
     epoch++;
     inFlight = null;
     owner = options.identity();
-    key = owner ? `wildstat-enemy-defeats-v2:${owner}:${options.tabId()}` : "";
-    state = null;
+    key = owner ? `${QUEUE_KEY_PREFIX}${owner}:${options.tabId()}` : "";
+    state = null; adopted = [];
     if (!owner) return;
-    try {
-      const saved = JSON.parse(options.storage.getItem(key) ?? "null") as State | null;
-      if (saved && typeof saved.streamId === "string" && Number.isSafeInteger(saved.nextSequence) &&
-          saved.nextSequence > 0 && Array.isArray(saved.batches) && saved.batches.every(batch =>
-            Number.isSafeInteger(batch.sequence) && batch.sequence > 0 && combatMap(batch.mapId) &&
-            Number.isInteger(batch.count) && batch.count > 0 && batch.count <= REGULAR_ENEMY_LOOT_BATCH_MAX &&
-            (Array.isArray(batch.enemies) && batch.enemies.every(entry => typeof entry.enemy === "string" && Number.isInteger(entry.count) && entry.count > 0) && batch.enemies.reduce((sum, entry) => sum + entry.count, 0) === batch.count))) state = saved;
-    } catch {}
-    state ??= empty();
+    state = readState(key) ?? empty();
+    adoptOrphans();
     scheduleBossRetry();
   }
   function flush(drain = false): Promise<boolean> {
@@ -71,38 +104,48 @@ export function createRegularEnemyLootQueue(options: {
       const runEpoch = epoch;
       return drain ? inFlight.then(ok => ok && epoch === runEpoch ? flush(true) : false) : inFlight;
     }
-    if (!owner || !state?.batches.length) { cancelBossRetry(); return Promise.resolve(true); }
+    if (!owner || !state || (!state.batches.length && !adopted.length)) { cancelBossRetry(); return Promise.resolve(true); }
     // Even forced portal/save drains respect a known server throttle. Persist it
     // so rapid refreshes cannot turn the same rejected report into a request loop.
     if (Number.isFinite(state.retryAtMs) && state.retryAtMs! > Date.now() && state.retryAtMs! <= Date.now() + 30_000) { scheduleBossRetry(); return Promise.resolve(false); }
     const current = state, runEpoch = epoch, runOwner = owner;
     const batchLimit = current.batches.length;
-    const run = async () => {
+    // One stream at a time, oldest first: adopted queues before this tab's own.
+    const sendStream = async (stream: State, storageKey: string, limit: number) => {
       let sent = 0;
-      while (current.batches.length && (drain || sent < batchLimit)) {
-        const batch = current.batches[0];
+      while (stream.batches.length && (drain || sent < limit)) {
+        const batch = stream.batches[0];
         if (!batch.sealed) {
           batch.sealed = true;
         }
-        persist();
+        write(storageKey, stream);
         let accepted: boolean | "discard" | "throttled" = false;
-        try { accepted = await withRequestDeadline(options.send({ streamId: current.streamId, sequence: BigInt(batch.sequence), mapId: batch.mapId, count: batch.count, enemies: batch.enemies }), ENEMY_DEFEAT_BATCH_TIMEOUT_MS); } catch {}
+        try { accepted = await withRequestDeadline(options.send({ streamId: stream.streamId, sequence: BigInt(batch.sequence), mapId: batch.mapId, count: batch.count, enemies: batch.enemies }), ENEMY_DEFEAT_BATCH_TIMEOUT_MS); } catch {}
         if (epoch !== runEpoch || options.identity() !== runOwner) return false;
-        if (accepted === "throttled") { current.retryAtMs = Date.now() + 30_000; persist(); return false; }
+        if (accepted === "throttled") { stream.retryAtMs = Date.now() + 30_000; write(storageKey, stream); return false; }
         if (!accepted) return false;
-        current.retryAtMs = 0;
-        current.batches.shift();
+        stream.retryAtMs = 0;
+        stream.batches.shift();
         if (accepted === "discard") {
           // A forced map change can invalidate unaccepted reports. Start a fresh
           // ordered stream so that rejection cannot block future valid rewards.
-          current.streamId = crypto.randomUUID();
-          current.batches.forEach((remaining, index) => { remaining.sequence = index + 1; });
-          current.nextSequence = current.batches.length + 1;
+          stream.streamId = crypto.randomUUID();
+          stream.batches.forEach((remaining, index) => { remaining.sequence = index + 1; });
+          stream.nextSequence = stream.batches.length + 1;
         }
         sent++;
-        persist();
+        write(storageKey, stream);
       }
       return true;
+    };
+    const run = async () => {
+      while (adopted.length) {
+        const orphan = adopted[0];
+        if (!await sendStream(orphan.state, orphan.key, orphan.state.batches.length)) return false;
+        try { options.storage.removeItem(orphan.key); } catch {}
+        adopted.shift();
+      }
+      return sendStream(current, key, batchLimit);
     };
     cancelBossRetry();
     inFlight = run().finally(() => {
@@ -117,7 +160,7 @@ export function createRegularEnemyLootQueue(options: {
   }
   return {
     begin, flush,
-    hasPending: () => Boolean(state?.batches.length),
+    hasPending: () => Boolean(state?.batches.length || adopted.length),
     record(mapId: string, enemy: string) {
       if (owner !== options.identity()) begin();
       if (!owner || !state || !combatMap(mapId) || !enemy) return;
@@ -131,6 +174,6 @@ export function createRegularEnemyLootQueue(options: {
       persist();
     },
     reset() { cancelBossRetry(); bossRetryDelay = 2_000; epoch++; inFlight = null; if (owner) { state = empty(); persist(); } },
-    clear() { cancelBossRetry(); bossRetryDelay = 2_000; epoch++; owner = ""; state = null; key = ""; inFlight = null; },
+    clear() { cancelBossRetry(); bossRetryDelay = 2_000; epoch++; owner = ""; state = null; adopted = []; key = ""; inFlight = null; },
   };
 }

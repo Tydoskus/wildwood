@@ -1,8 +1,9 @@
 import { expect, it, vi } from "vitest";
-import { createRegularEnemyLootQueue, ENEMY_DEFEAT_BATCH_TIMEOUT_MS, type EnemyLootRequest } from "./regular-enemy-loot-queue";
+import { createRegularEnemyLootQueue, ENEMY_DEFEAT_BATCH_TIMEOUT_MS, ORPHAN_QUEUE_AFTER_MS, type EnemyLootRequest } from "./regular-enemy-loot-queue";
 function fixture() {
   const data = new Map<string, string>();
-  const storage = { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => data.set(key, value) } as unknown as Storage;
+  const storage = { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => data.set(key, value),
+    removeItem: (key: string) => data.delete(key), get length() { return data.size; }, key: (index: number) => [...data.keys()][index] ?? null } as unknown as Storage;
   let identity = "alice";
   const send = vi.fn(async (_request: EnemyLootRequest) => true);
   const options = { identity: () => identity, tabId: () => "tab", storage, send };
@@ -173,4 +174,39 @@ it('restores pending boss retries, backs off while offline, and cancels on sign-
     reload.clear(); await vi.advanceTimersByTimeAsync(300_000);
     expect(f.send).toHaveBeenCalledTimes(3);
   } finally { reload.clear(); vi.useRealTimers(); }
+});
+
+it("adopts a closed tab's untouched queue as its own stream and forgets it once sent", async () => {
+  vi.useFakeTimers();
+  try {
+    const f = fixture();
+    const old = createRegularEnemyLootQueue({ ...f.options, tabId: () => "closed-tab", send: async () => false });
+    old.record("water_reach", "Spitter"); old.record("water_reach", "Spitter");
+    await old.flush();                                   // sealed, sent, never acknowledged
+    const orphan = f.send.mock.calls.length;             // (the old tab used its own send)
+    vi.advanceTimersByTime(ORPHAN_QUEUE_AFTER_MS + 1);
+    const fresh = createRegularEnemyLootQueue(f.options); fresh.begin();
+    expect(fresh.hasPending()).toBe(true);
+    expect(await fresh.flush(true)).toBe(true);
+    const sent = f.send.mock.calls.slice(orphan).map(([r]) => r);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ mapId: "water_reach", count: 2, sequence: 1n });
+    expect(sent[0].streamId).not.toBe("");             // sent under the closed tab's own stream
+    expect((f.options.storage as Storage).getItem("wildstat-enemy-defeats-v2:alice:closed-tab")).toBeNull();
+    expect(fresh.hasPending()).toBe(false);
+  } finally { vi.useRealTimers(); }
+});
+it("leaves a sibling queue alone while another tab is still touching it", async () => {
+  vi.useFakeTimers();
+  try {
+    const f = fixture();
+    const live = createRegularEnemyLootQueue({ ...f.options, tabId: () => "other-live-tab", send: async () => false });
+    live.record("water_reach", "Spitter"); await live.flush();
+    vi.advanceTimersByTime(ORPHAN_QUEUE_AFTER_MS - 1);
+    const fresh = createRegularEnemyLootQueue(f.options); fresh.begin();
+    expect(fresh.hasPending()).toBe(false);
+    expect(await fresh.flush(true)).toBe(true);
+    expect(f.send).not.toHaveBeenCalled();
+    expect((f.options.storage as Storage).getItem("wildstat-enemy-defeats-v2:alice:other-live-tab")).not.toBeNull();
+  } finally { vi.useRealTimers(); }
 });
