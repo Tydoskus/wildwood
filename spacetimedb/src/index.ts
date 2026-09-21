@@ -465,6 +465,7 @@ const playerMotionIdentity = table(
     public: true,
     indexes: [
       { accessor: "byMapZone", algorithm: "btree", columns: ["mapId", "isVisible", "zoneX", "zoneY"] as const },
+      { accessor: "byMap", algorithm: "btree", columns: ["mapId"] as const },
     ],
   },
   {
@@ -595,6 +596,7 @@ const playerDeathFrame = table(
     event: true,
     indexes: [
       { accessor: "byMapZone", algorithm: "btree", columns: ["mapId", "zoneX", "zoneY"] as const },
+      { accessor: "byMap", algorithm: "btree", columns: ["mapId"] as const },
     ],
   },
   {
