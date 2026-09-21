@@ -13,6 +13,14 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- From Android 15 the system bars are drawn over the app with no
+             background of their own, and this theme is DayNight: on a phone set
+             to light mode the bars would ask for dark icons and put them on top
+             of a black game. The world is always dark, so the icons are always
+             light. These are the WindowInsetsController-backed attributes, not
+             the statusBarColor pair Android 15 deprecated. -->
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
     </style>
 
 
