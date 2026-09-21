@@ -44,3 +44,16 @@ describe("damage and toolbar feedback preferences", () => {
     expect(settings.haptic).toHaveBeenCalledOnce();
   });
 });
+
+describe("tapping your own sprite", () => {
+  it("is off until the player asks for it, and remembers the answer", () => {
+    const values = new Map<string, string>();
+    const first = setup(values);
+    // Your sprite stands where you are trying to walk, so the tap opened the
+    // profile by accident. The HUD card, with its gear, is the deliberate way.
+    expect(first.selfProfileTapEnabled()).toBe(false);
+    first.click("selfProfileTapToggle");
+    expect(first.selfProfileTapEnabled()).toBe(true);
+    expect(setup(values).selfProfileTapEnabled()).toBe(true);
+  });
+});

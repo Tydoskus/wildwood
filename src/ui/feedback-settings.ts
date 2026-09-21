@@ -23,7 +23,9 @@ export function installFeedbackSettings(doc: Document, storage: Pick<Storage, "g
   }
   const damageFlashEnabled = toggle("damageFlashToggle", DAMAGE_FLASH_KEY, false);
   const toolbarHapticsEnabled = toggle("toolbarHapticsToggle", TOOLBAR_HAPTICS_KEY, true);
-  const selfProfileTapEnabled = toggle("selfProfileTapToggle", SELF_PROFILE_TAP_KEY, true);
+  // Off by default: the player sprite sits where you are trying to walk, so the
+  // tap opened the profile by accident. The HUD card is the deliberate target.
+  const selfProfileTapEnabled = toggle("selfProfileTapToggle", SELF_PROFILE_TAP_KEY, false);
   // Capture before navigation; only direct toolbar buttons, not settings inside it.
   doc.addEventListener("click", event => {
     const target = event.target as Element | null;
@@ -41,7 +43,7 @@ export function installFeedbackControls(doc: Document) {
   for (const [id, label, enabled] of [
     ["damageFlashToggle", "DAMAGE FLASH", false],
     ["toolbarHapticsToggle", "TOOLBAR HAPTICS", true],
-    ["selfProfileTapToggle", "TAP SELF TO OPEN PROFILE", true],
+    ["selfProfileTapToggle", "TAP SELF TO OPEN PROFILE", false],
     ["keepScreenOnToggle", "KEEP SCREEN ON", false],
     ["gameTickerToggle", "GAME TIPS", true],
   ] as const) {

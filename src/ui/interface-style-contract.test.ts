@@ -37,6 +37,17 @@ describe("installed interface structure", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
+  it("puts the settings gear in the player HUD, right of power", () => {
+    const gear = doc.getElementById("settingsBtn")!;
+    expect(gear.previousElementSibling?.id).toBe("playerPower");
+    expect(gear.closest(".player-summary")).not.toBeNull();
+    expect(gear.closest("#playerProfile")).toBeNull();
+    // The card opens the profile; the gear is what says so, and must not also
+    // open it. Only the byte budget keeps it out of the entry page.
+    expect(gear.hidden).toBe(false);
+    expect(entryHtml).not.toContain("settingsBtn");
+  });
+
   it("provides real targets for accessibility labels and tab controls", () => {
     for (const element of doc.querySelectorAll("[aria-controls], [aria-labelledby], [aria-describedby]")) {
       for (const attribute of ["aria-controls", "aria-labelledby", "aria-describedby"]) {

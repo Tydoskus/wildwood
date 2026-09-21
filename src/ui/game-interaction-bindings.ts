@@ -21,7 +21,12 @@ export function bindGameInteractionListeners(options: {
   options.triggerDragonCutscene.addEventListener("click", options.onDragonCutscene);
   options.triggerSnowlandsCutscene.addEventListener("click", options.onSnowlandsCutscene);
   options.triggerLavaCutscene.addEventListener("click", options.onLavaCutscene);
-  options.hpText.closest(".card")?.addEventListener("click", options.onOpenOwnProfile);
+  // The whole HUD card opens your profile, which is what the gear beside your
+  // power is there to advertise. Buttons inside it act on their own.
+  options.hpText.closest(".card")?.addEventListener("click", (event) => {
+    if ((event.target as Element | null)?.closest?.("button")) return;
+    options.onOpenOwnProfile();
+  });
   options.watchDuelReplay.addEventListener("click", () => {
     const replayId = options.replayId();
     if (replayId > 0n) options.onWatchReplay(replayId);

@@ -1401,7 +1401,7 @@ import {
     close: closePlayerProfileBtn, editName: editPlayerNameBtn, nameEditor: profileNameEditorEl, nameForm: profileNameEditorForm, nameInput: profileNameInput, saveName: savePlayerNameBtn,
     skinEdit: profileSkinToneEdit, skinChoices: profileSkinToneControl, preview: profileCharacterPreviewEl, equipmentHead: profileEquippedHeadSlot, equipmentChest: profileEquippedChestSlot, equipmentFeet: profileEquippedFeetSlot, equipmentRightHand: profileEquippedRightHandSlot, previousSprite: previousPlayerSpriteBtn, nextSprite: nextPlayerSpriteBtn, genderSetting: gameElements.profileGenderSetting, genderValue: gameElements.profileGenderValue, genderEdit: gameElements.profileGenderEdit, genderChoices: gameElements.profileGenderChoices,
     duel: profileDuelBtn,
-    settings: settingsBtn, safetyActions: gameElements.profileSafetyActions, report: gameElements.profileReportBtn, block: gameElements.profileBlockBtn,
+    safetyActions: gameElements.profileSafetyActions, report: gameElements.profileReportBtn, block: gameElements.profileBlockBtn,
     prestigeRow: gameElements.profilePrestigeRow, prestige: gameElements.profilePrestige,
   }, {
     isBlocked: (identity) => coop?.isPlayerBlocked?.(identity) ?? false,

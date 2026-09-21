@@ -113,7 +113,6 @@ const afterUpdateGateShell = String.raw`
           <div id="playerProfilePresence" class="player-profile-presence">CHECKING STATUS</div>
         </div>
       </div>
-      <button id="settingsBtn" class="profile-settings-button" type="button" aria-label="Open settings" aria-expanded="false" aria-controls="settingsPanel" title="Settings" hidden><img src="assets/wildstat/icons/Icon_Settings.webp" alt="" aria-hidden="true"></button>
     </header>
     <div id="profileGenderSetting" class="profile-gender-setting" hidden>
       <span class="profile-gender-label">GENDER</span>
@@ -393,6 +392,12 @@ const afterUpdateGateShell = String.raw`
 `;
 
 export function installGameShell(doc: Document = document) {
+  // The gear sits beside power in the player HUD, where it advertises that the
+  // card itself opens your profile. Injected rather than written into the entry
+  // page so the startup shell keeps its byte budget.
+  if (!doc.getElementById("settingsBtn")) {
+    doc.getElementById("playerPower")?.insertAdjacentHTML("afterend", `<button id="settingsBtn" class="profile-settings-button hud-settings-button" type="button" aria-label="Open settings" aria-expanded="false" aria-controls="settingsPanel" title="Settings"><img src="assets/wildstat/icons/Icon_Settings.webp" alt="" aria-hidden="true"></button>`);
+  }
   if (!doc.getElementById("playerVisibilityToggle")) {
     doc.getElementById("hudGemWallet")?.insertAdjacentHTML("afterend", `<button id="playerVisibilityToggle" class="player-visibility-toggle" type="button" aria-label="Show other players" aria-pressed="false"></button>`);
   }
