@@ -3,6 +3,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import {
   ENEMY_TYPES,
   createMapScopedEnemySpriteAssets,
+  ENEMY_SPRITE_RETRY_DELAYS_MS,
   enemySpriteAssetSources,
   loadEnemySprites,
   rewardLabel,
@@ -281,7 +282,7 @@ describe("enemy sprite loading", () => {
     expect(onSettled).toHaveBeenCalledTimes(images.length);
   });
 
-  it("unblocks after a failed image exhausts two cache-busting retries", () => {
+  it("unblocks after a failed image exhausts the cache-busting retry ladder", () => {
     vi.useFakeTimers();
     const images: FakeImage[] = [];
     class FakeImage extends EventTarget {
@@ -299,15 +300,43 @@ describe("enemy sprite loading", () => {
     const failedImage = images[0];
     images.slice(1).forEach((image) => image.dispatchEvent(new Event("load")));
 
-    failedImage.dispatchEvent(new Event("error"));
-    vi.advanceTimersByTime(500);
-    expect(failedImage.src).toContain("?asset-retry=1");
-    failedImage.dispatchEvent(new Event("error"));
-    vi.advanceTimersByTime(1_000);
-    expect(failedImage.src).toContain("?asset-retry=2");
-    expect(assets.ready()).toBe(false);
+    for (let attempt = 1; attempt <= ENEMY_SPRITE_RETRY_DELAYS_MS.length; attempt++) {
+      failedImage.dispatchEvent(new Event("error"));
+      vi.advanceTimersByTime(ENEMY_SPRITE_RETRY_DELAYS_MS[attempt - 1]);
+      expect(failedImage.src).toContain(`?asset-retry=${attempt}`);
+      expect(assets.ready()).toBe(false);
+    }
     failedImage.dispatchEvent(new Event("error"));
     expect(assets.ready()).toBe(true);
     expect(assets.mapSpriteLoadFailed("all")).toBe(true);
+  });
+});
+
+describe("an enemy sprite that keeps failing", () => {
+  afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
+  it("retries down the ladder, and a later visit to the map starts it over instead of staying failed", async () => {
+    vi.useFakeTimers();
+    const images: FakeImage[] = [];
+    class FakeImage extends EventTarget {
+      decoding = "auto";
+      src = "";
+      constructor() { super(); images.push(this); }
+    }
+    vi.stubGlobal("Image", FakeImage);
+    const assets = createMapScopedEnemySpriteAssets({ forestEnemy: { src: "forest-enemy.webp", size: 40 } } satisfies Record<"forestEnemy", EnemySpriteSource>, { forest: ["forestEnemy"] });
+    const ready = assets.ensureMapSprites("forest");
+    const image = images[0];
+    for (let attempt = 1; attempt <= ENEMY_SPRITE_RETRY_DELAYS_MS.length; attempt++) {
+      image.dispatchEvent(new Event("error"));
+      vi.advanceTimersByTime(ENEMY_SPRITE_RETRY_DELAYS_MS[attempt - 1]);
+      expect(image.src).toBe(`forest-enemy.webp?asset-retry=${attempt}`);
+    }
+    image.dispatchEvent(new Event("error"));                 // past the ladder: settled as failed
+    await ready;
+    expect(assets.mapSpriteLoadFailed("forest")).toBe(true);
+    void assets.ensureMapSprites("forest");                  // coming back to the map re-arms it
+    expect(assets.mapSpriteLoadFailed("forest")).toBe(false);
+    vi.advanceTimersByTime(ENEMY_SPRITE_RETRY_DELAYS_MS[0]);
+    expect(image.src).toBe("forest-enemy.webp?asset-retry=1");
   });
 });

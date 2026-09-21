@@ -81,10 +81,28 @@ function cachedPlayerBody(
   return canvas;
 }
 
+/**
+ * How often a body-part sprite that failed to load is asked for again. A part
+ * that fails once used to stay broken for the life of the page: the body was
+ * drawn without it, and a plain reload could be handed the same failed answer
+ * from the browser's cache, so only closing the browser brought the character
+ * back. The query string makes every retry a fresh request; the delays grow so
+ * a real outage is not hammered, and the last one repeats until it works.
+ */
+export const PLAYER_PART_RETRY_DELAYS_MS = [500, 1_000, 2_000, 4_000, 8_000, 30_000] as const;
+
 function image(source: string, settled: () => void) {
   const asset = new Image();
+  let retry = 0;
   asset.addEventListener("load", settled, { once: true });
-  asset.addEventListener("error", settled, { once: true });
+  asset.addEventListener("error", () => {
+    const delay = PLAYER_PART_RETRY_DELAYS_MS[Math.min(retry, PLAYER_PART_RETRY_DELAYS_MS.length - 1)];
+    retry += 1;
+    // The first failure still counts the asset as settled so the world is not
+    // held back for one sprite; the retries bring the part in when they can.
+    if (retry === 1) settled();
+    globalThis.setTimeout(() => { asset.src = `${source}?asset-retry=${retry}`; }, delay);
+  });
   asset.src = source;
   return asset;
 }

@@ -1,10 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { FROST_ARMOR, STARTER_BOW } from "./inventory";
 import {
   bowHeldAlignment,
   bowHeldAnchorX,
   bowHeldRotationRadians,
   drawStartingPlayer,
+  loadPlayerAppearanceAssets,
+  PLAYER_PART_RETRY_DELAYS_MS,
   heldWeaponRunMotion,
   type PlayerAppearanceAssets,
 } from "./player-appearance";
@@ -88,5 +90,37 @@ describe("held weapon running motion", () => {
         expect(draws.indexOf("weapon"), `${hand} hand facing ${facing}`).toBeGreaterThan(draws.indexOf("chest"));
       }
     }
+  });
+});
+
+describe("body-part sprites that fail to load", () => {
+  afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
+  it("are asked for again with a fresh request instead of staying broken for the page", () => {
+    vi.useFakeTimers();
+    const images: FakeImage[] = [];
+    class FakeImage extends EventTarget {
+      src = "";
+      constructor() { super(); images.push(this); }
+    }
+    vi.stubGlobal("Image", FakeImage);
+    const settled = vi.fn();
+    loadPlayerAppearanceAssets(settled);
+    const leg = images.find((image) => image.src.endsWith("basic-leg-front.webp"))!;
+    for (const image of images) if (image !== leg) image.dispatchEvent(new Event("load"));
+    expect(settled).not.toHaveBeenCalled();
+    leg.dispatchEvent(new Event("error"));
+    expect(settled).toHaveBeenCalledTimes(1);           // the world is not held back for one sprite
+    vi.advanceTimersByTime(PLAYER_PART_RETRY_DELAYS_MS[0]);
+    expect(leg.src).toContain("basic-leg-front.webp?asset-retry=1");
+    leg.dispatchEvent(new Event("error"));
+    vi.advanceTimersByTime(PLAYER_PART_RETRY_DELAYS_MS[1]);
+    expect(leg.src).toContain("?asset-retry=2");
+    for (let attempt = 3; attempt <= PLAYER_PART_RETRY_DELAYS_MS.length + 2; attempt++) {
+      leg.dispatchEvent(new Event("error"));
+      vi.advanceTimersByTime(PLAYER_PART_RETRY_DELAYS_MS[PLAYER_PART_RETRY_DELAYS_MS.length - 1]);
+    }
+    expect(leg.src).toContain(`?asset-retry=${PLAYER_PART_RETRY_DELAYS_MS.length + 2}`); // the last delay repeats
+    leg.dispatchEvent(new Event("load"));
+    expect(settled).toHaveBeenCalledTimes(2);           // a late arrival redraws
   });
 });

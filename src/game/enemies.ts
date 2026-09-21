@@ -47,6 +47,19 @@ export const REWARD_DATA: Record<RewardType, { color: string }> = {
 };
 
 
+/**
+ * Retry delays for an enemy sprite that fails to load. Two quick retries and
+ * then giving up for good left a monster, and the stats drawn with it, missing
+ * until the browser was closed; the later, slower retries keep asking while
+ * the player is still on the map.
+ */
+export const ENEMY_SPRITE_RETRY_DELAYS_MS = [500, 1_000, 2_000, 4_000, 8_000, 16_000] as const;
+
+function retryEnemyImage(image: HTMLImageElement, source: string, retry: number) {
+  const delay = ENEMY_SPRITE_RETRY_DELAYS_MS[Math.min(retry - 1, ENEMY_SPRITE_RETRY_DELAYS_MS.length - 1)];
+  globalThis.setTimeout(() => { image.src = `${source}?asset-retry=${retry}`; }, delay);
+}
+
 function loadEnemyImage(source: string, onSettled: () => void) {
   const image = new Image();
   image.decoding = "async";
@@ -59,14 +72,12 @@ function loadEnemyImage(source: string, onSettled: () => void) {
   };
   image.addEventListener("load", settle, { once: true });
   image.addEventListener("error", () => {
-    if (retry >= 2) {
+    if (retry >= ENEMY_SPRITE_RETRY_DELAYS_MS.length) {
       settle();
       return;
     }
     retry += 1;
-    globalThis.setTimeout(() => {
-      image.src = `${source}?asset-retry=${retry}`;
-    }, retry * 500);
+    retryEnemyImage(image, source, retry);
   });
   image.src = source;
   return image;
@@ -96,15 +107,13 @@ function createLazyEnemyImage(source: string, onSettled: () => void): LazyEnemyI
   };
   image.addEventListener("load", settle, { once: true });
   image.addEventListener("error", () => {
-    if (retry >= 2) {
+    if (retry >= ENEMY_SPRITE_RETRY_DELAYS_MS.length) {
       didFail = true;
       settle();
       return;
     }
     retry += 1;
-    globalThis.setTimeout(() => {
-      image.src = `${source}?asset-retry=${retry}`;
-    }, retry * 500);
+    retryEnemyImage(image, source, retry);
   });
   return {
     image,
@@ -112,6 +121,12 @@ function createLazyEnemyImage(source: string, onSettled: () => void): LazyEnemyI
       if (!started) {
         started = true;
         image.src = source;
+      } else if (didFail) {
+        // Asked for again after giving up (the player came back to this map):
+        // start the retry ladder over rather than stay failed for the session.
+        didFail = false;
+        retry = 1;
+        retryEnemyImage(image, source, retry);
       }
       return promise;
     },
