@@ -24,6 +24,19 @@ describe("sparse movement sender", () => {
     expect(movementUpdateReason({ ...input, force: true })).toBe("forced");
     expect(movementUpdateReason({ ...input, multiplayerEnabled: true })).toBe("direction");
   });
+
+  it("still reports where an invisible player came to a halt", () => {
+    // Without this the server's last word on a solo player could be thirty
+    // seconds old, so a reload put them back at that checkpoint — frequently
+    // the arrival point they had just walked away from.
+    const stop = { now: movingRight.sentAt + 1_000, velocity: sanitizeMovementVelocity(0, 0),
+      inputKind: "keyboard" as const, lastSent: movingRight, multiplayerEnabled: false };
+    expect(movementUpdateReason(stop)).toBe("stop");
+    // Only the halt: setting off again, and standing still afterwards, stay quiet.
+    const stopped: SentMovementState = { vx: 0, vy: 0, moving: false, sentAt: movingRight.sentAt };
+    expect(movementUpdateReason({ ...stop, lastSent: stopped })).toBeNull();
+    expect(movementUpdateReason({ ...stop, velocity: sanitizeMovementVelocity(180, 0), lastSent: stopped })).toBeNull();
+  });
   it("sends every keyboard state transition immediately", () => {
     expect(movementUpdateReason({ now: 1_001, velocity: sanitizeMovementVelocity(127, -127), inputKind: "keyboard", lastSent: movingRight })).toBe("direction");
     expect(movementUpdateReason({ now: 1_001, velocity: sanitizeMovementVelocity(0, 0), inputKind: "keyboard", lastSent: movingRight })).toBe("stop");

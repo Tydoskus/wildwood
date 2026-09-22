@@ -1881,7 +1881,7 @@ import {
     now: () => Date.now(), release: () => coop?.releaseWindow?.() ?? null,
     forcedUpdateRequired: () => coop?.accountState?.().updating === true,
     playing: () => session.hasStarted(), pause: paused => setGameplayPause("scheduled-update", paused),
-    save: () => saveProgress(true), drain: async () => await coop?.drainForUpdate?.() ?? true,
+    save: () => { saveProgress(true); coop?.syncMovementState?.(player.x, player.y, 0, 0, "keyboard", true); }, drain: async () => await coop?.drainForUpdate?.() ?? true,
     acknowledge: async id => { await coop?.acknowledgeRelease?.(id); },
     rememberSession: version => coop?.prepareUpdateReload?.(version) ?? false,
     render: createScheduledUpdateView(),

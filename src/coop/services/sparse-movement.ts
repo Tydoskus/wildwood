@@ -48,7 +48,16 @@ export function movementUpdateReason(options: {
   if (!lastSent) return velocity.moving ? "start" : null;
   // Invisible autofarm needs location checkpoints, not live steering updates.
   // Forced travel, reconnect, profile/bench and duel positions remain immediate.
-  if (options.multiplayerEnabled === false && now - lastSent.sentAt < SOLO_MOVEMENT_CHECKPOINT_MS) return null;
+  //
+  // Coming to a halt is the exception. It is one packet per walk, and it is the
+  // only one that says where the player actually ended up: without it the
+  // server's last word on a solo player can be half a minute old, so a reload
+  // put them back wherever the last checkpoint caught them — often the arrival
+  // point they had just walked away from, which reads as being dropped at a
+  // portal. Starting to move again stays suppressed; the halt is what is worth
+  // a packet.
+  const stopping = lastSent.moving && !velocity.moving;
+  if (options.multiplayerEnabled === false && !stopping && now - lastSent.sentAt < SOLO_MOVEMENT_CHECKPOINT_MS) return null;
   if (velocity.moving !== lastSent.moving) return velocity.moving ? "start" : "stop";
   if (!velocity.moving) return null;
 
