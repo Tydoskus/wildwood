@@ -67,6 +67,16 @@ export const VOLTWARDEN_SPRITE_Y_OFFSET = 0;
 export const GRAVEBLOOM_SPRITE_Y_OFFSET = 0;
 export const AEGIS_PRIME_SPRITE_Y_OFFSET = 0;
 export const MIREMAW_SPRITE_GROUND_OFFSET = 220;
+/**
+ * Where the creature's own pixels start inside its cell, measured from the
+ * sprite's centre. The status bar hangs off this rather than the cell's top
+ * edge: a squat boss leaves most of its cell transparent, which had its name
+ * and reward lines floating a long way above its head.
+ *
+ * Measured by `node scripts/check-boss-hitboxes.mjs`.
+ */
+export const MIREMAW_ART_TOP = -123;
+export const KOI_SHOGUN_ART_TOP = -168;
 export const PRISMSHELL_SPRITE_GROUND_OFFSET = 170;
 export const IRONHORN_SPRITE_GROUND_OFFSET = 170;
 export const DREADREAPER_SPRITE_GROUND_OFFSET = 170;

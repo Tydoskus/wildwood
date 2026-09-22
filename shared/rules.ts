@@ -47,8 +47,11 @@ export const ENEMY_TOP_CHASE_SPEED = MAX_PLAYER_MOVEMENT_SPEED + ENEMY_CHASE_SPE
 export function enemyChaseSpeed(authoredSpeed: number, playerMovementSpeed: number) {
   if (!Number.isFinite(playerMovementSpeed) || playerMovementSpeed <= 0) return authoredSpeed;
   if (!Number.isFinite(authoredSpeed) || authoredSpeed <= 0) return 0;
-  const share = Math.max(0, Math.min(1, authoredSpeed / ENEMY_TOP_CHASE_SPEED));
-  return Math.max(1, share * (playerMovementSpeed + ENEMY_CHASE_SPEED_MARGIN));
+  // Every chaser moves at the player's pace plus the margin. This used to be
+  // scaled by the enemy's share of the top speed, which meant only an enemy
+  // authored at the very top actually kept up and everything else chased
+  // slower than the player it was chasing.
+  return Math.max(1, playerMovementSpeed + ENEMY_CHASE_SPEED_MARGIN);
 }
 export const MAX_MOVEMENT_SPEED_OVERRIDE = 2_000;
 export const MOVEMENT_SPEED_EPSILON = .01;

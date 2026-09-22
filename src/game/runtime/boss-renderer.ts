@@ -20,8 +20,10 @@ import {
   MAGMALISK_BITE_RANGE,
   MAGMALISK_SPRITE_GROUND_OFFSET,
   MAGMALISK_SPRITE_Y_OFFSET,
+  MIREMAW_ART_TOP,
   MIREMAW_SPRITE_GROUND_OFFSET,
   MIREMAW_SPRITE_Y_OFFSET,
+  KOI_SHOGUN_ART_TOP,
   PRISMSHELL_SPRITE_Y_OFFSET, IRONHORN_SPRITE_Y_OFFSET, DREADREAPER_SPRITE_Y_OFFSET, VOLTWARDEN_SPRITE_Y_OFFSET, GRAVEBLOOM_SPRITE_Y_OFFSET, AEGIS_PRIME_SPRITE_Y_OFFSET,
   MIREMAW_TONGUE_HALF_ANGLE,
   PRISMSHELL_SHATTER_HALF_ANGLE, IRONHORN_SHATTER_HALF_ANGLE, DREADREAPER_SHATTER_HALF_ANGLE,
@@ -853,7 +855,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY - drawH / 2,
+      spriteTopY: visualY + KOI_SHOGUN_ART_TOP,
       barGap: 34,
       barWidth: 310,
       barHeight: 23,
@@ -1293,7 +1295,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY - drawH / 2,
+      spriteTopY: visualY + MIREMAW_ART_TOP,
       barGap: 34,
       barWidth: 330,
       barHeight: 23,

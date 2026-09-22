@@ -66,6 +66,38 @@ async function sheetExtent(path, { frames, drawWidth, groundOffset, groundBaseli
   };
 }
 
+/**
+ * A boss drawn as a strip of equal cells, scaled into drawWidth x drawHeight
+ * centred on the anchor plus its Y offset. The cell usually has transparent
+ * margin, which is why the status bar floats: it hangs off the cell's top edge
+ * rather than the top of the creature.
+ */
+async function cellExtent(path, { frames, rows = 1, drawWidth, drawHeight, offsetY }) {
+  const { data, info } = await sharp(path).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const cellWidth = Math.floor(info.width / frames);
+  const cellHeight = Math.floor(info.height / rows);
+  let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
+  for (let y = 0; y < info.height; y += 1) {
+    for (let x = 0; x < info.width; x += 1) {
+      if (data[(y * info.width + x) * 4 + 3] < 16) continue;
+      const withinX = x % cellWidth, withinY = y % cellHeight;
+      if (withinX < left) left = withinX;
+      if (withinX > right) right = withinX;
+      if (withinY < top) top = withinY;
+      if (withinY > bottom) bottom = withinY;
+    }
+  }
+  const scaleX = drawWidth / cellWidth, scaleY = drawHeight / cellHeight;
+  return {
+    left: (left - cellWidth / 2) * scaleX,
+    right: (right + 1 - cellWidth / 2) * scaleX,
+    top: offsetY + (top - cellHeight / 2) * scaleY,
+    bottom: offsetY + (bottom + 1 - cellHeight / 2) * scaleY,
+    // What the status bar is currently anchored to, for comparison.
+    cellTop: offsetY - drawHeight / 2,
+  };
+}
+
 const round = (value, width = 5) => String(Math.round(value)).padStart(width);
 
 function report(name, radius, extent) {
@@ -95,6 +127,25 @@ report("spider", radii.SPIDER, await sheetExtent(
   { frames: 4, drawWidth: 330, groundOffset: 55, groundBaseline: 0.88 },
 ));
 
-console.log("\nNot measured here (drawn with canvas primitives, not artwork):");
-console.log("  dragon, frostclaw, magmalisk, gloomroot, tidewyrm, koi shogun,");
-console.log("  tempest kirin, miremaw, voltwarden, gravebloom, aegis prime");
+const SHEETS = [
+  ["frostclaw", "FROSTCLAW", "frostclaw-boss-spritesheet.webp", { frames: 4, drawWidth: 330, drawHeight: 440, offsetY: -12 }],
+  ["magmalisk", "MAGMALISK", "magmalisk-boss-spritesheet.webp", { frames: 4, drawWidth: 390, drawHeight: 520, offsetY: -8 }],
+  ["gloomroot", "GLOOMROOT", "gloomroot-boss-spritesheet-v1.webp", { frames: 2, rows: 2, drawWidth: 430, drawHeight: 430, offsetY: -18 }],
+  ["tidewyrm", "TIDEWYRM", "tidewyrm-boss-spritesheet-v1.webp", { frames: 4, drawWidth: 440, drawHeight: 440, offsetY: -28 }],
+  ["koi shogun", "KOI_SHOGUN", "koi-shogun-boss-spritesheet-v1.webp", { frames: 4, drawWidth: 330, drawHeight: 440, offsetY: -30 }],
+  ["tempest kirin", "TEMPEST_KIRIN", "tempest-kirin-boss-spritesheet-v1.webp", { frames: 4, drawWidth: 356, drawHeight: 542, offsetY: -42 }],
+  ["miremaw", "MIREMAW", "miremaw-boss-spritesheet-v1.webp", { frames: 4, drawWidth: 470, drawHeight: 532, offsetY: -45 }],
+];
+
+console.log("");
+for (const [name, key, file, geometry] of SHEETS) {
+  const extent = await cellExtent(`public/assets/wildstat/${file}`, geometry);
+  report(name, radii[key], extent);
+  const halfHeight = Math.max(Math.abs(extent.top), Math.abs(extent.bottom));
+  console.log(
+    `${"".padEnd(12)} half-height ${round(halfHeight, 4)} vs radius ${round(radii[key], 4)}` +
+    `  status bar floats ${round(extent.top - extent.cellTop, 4)}px above the artwork`,
+  );
+}
+
+console.log("\nNot measured here: dragon, voltwarden, gravebloom, aegis prime");

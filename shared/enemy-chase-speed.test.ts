@@ -31,19 +31,17 @@ describe("chase speed tracks the player in front of the enemy", () => {
     }
   });
 
-  it("lands on the authored numbers once research is finished", () => {
-    // Late game is unchanged: this only slows enemies down for players who
-    // have not earned the speed to outrun them yet.
+  it("puts the fastest chaser at the ceiling once research is finished", () => {
     expect(enemyChaseSpeed(ENEMY_TOP_CHASE_SPEED, MAX_PLAYER_MOVEMENT_SPEED)).toBeCloseTo(ENEMY_TOP_CHASE_SPEED, 6);
-    expect(enemyChaseSpeed(205, MAX_PLAYER_MOVEMENT_SPEED)).toBeCloseTo(205, 6);
   });
 
-  it("leaves a slower enemy its share of the pace", () => {
+  it("gives a slow-authored enemy the same pace as a fast one", () => {
+    // The authored number used to scale the chase, so only an enemy written at
+    // the very ceiling actually kept up and everything else chased slower than
+    // the player it was chasing. A chaser is a chaser: it gains by the margin.
     const player = researched(20);
-    const ranged = enemyChaseSpeed(205, player);
-    const melee = enemyChaseSpeed(ENEMY_TOP_CHASE_SPEED, player);
-    expect(ranged).toBeLessThan(melee);
-    expect(ranged / melee).toBeCloseTo(205 / ENEMY_TOP_CHASE_SPEED, 6);
+    expect(enemyChaseSpeed(205, player)).toBeCloseTo(player + 10, 6);
+    expect(enemyChaseSpeed(205, player)).toBeCloseTo(enemyChaseSpeed(ENEMY_TOP_CHASE_SPEED, player), 6);
   });
 
   it("ignores speed boots, which are what buy the last step back", () => {
