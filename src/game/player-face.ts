@@ -60,11 +60,6 @@ export function eyeGeometry(width: number, height: number, spacing = 1) {
 }
 
 const EYE_INK = "#0d0d0d";
-/** In head units, so the outline holds its weight at every draw size. */
-const EYE_OUTLINE_WIDTH = 1.4;
-const EYE_PUPIL_SCALE = 0.5;
-/** Off-centre towards the nose side, so the face reads as looking ahead. */
-const EYE_PUPIL_OFFSET_X = 1;
 
 export function drawPlayerEyes(
   ctx: CanvasRenderingContext2D, width: number, height: number, adjustment?: LayerAdjustment,
@@ -72,27 +67,12 @@ export function drawPlayerEyes(
 ) {
   const eye = eyeGeometry(width, height, adjustment?.spacing);
   const sx = width / PLAYER_HEAD_SIZE.width, sy = height / PLAYER_HEAD_SIZE.height;
-  // A white eye with a black pupil and a black outline, rather than the solid
-  // dark almond the vendor artwork shipped with.
+  // The solid dark almond the vendor artwork shipped with. A white eye with a
+  // pupil was tried and read worse at the size the character is actually seen.
   const draw = () => {
-    const outline = Math.max(0.5, EYE_OUTLINE_WIDTH * Math.min(sx, sy));
-    ctx.lineJoin = "round";
-    ctx.lineWidth = outline;
-    ctx.strokeStyle = EYE_INK;
-    ctx.fillStyle = "#fff";
-    traceFacePath(ctx, VENDOR_LEFT_EYE_PATH, sx, sy, eye.left - 26.05594 * sx, eye.y - 35.05619 * sy);
-    ctx.fill(); ctx.stroke();
-    traceFacePath(ctx, VENDOR_RIGHT_EYE_PATH, sx, sy, eye.right - 49.39983 * sx, eye.y - 35.05619 * sy);
-    ctx.fill(); ctx.stroke();
-    // The pupil is the eye's own outline at half size, so it keeps the shape
-    // the artwork was drawn with instead of a plain circle inside it.
     ctx.fillStyle = EYE_INK;
-    const pupilX = sx * EYE_PUPIL_SCALE, pupilY = sy * EYE_PUPIL_SCALE;
-    const nudge = EYE_PUPIL_OFFSET_X * sx;
-    traceFacePath(ctx, VENDOR_LEFT_EYE_PATH, pupilX, pupilY,
-      eye.left - 26.05594 * pupilX + nudge, eye.y - 35.05619 * pupilY); ctx.fill();
-    traceFacePath(ctx, VENDOR_RIGHT_EYE_PATH, pupilX, pupilY,
-      eye.right - 49.39983 * pupilX + nudge, eye.y - 35.05619 * pupilY); ctx.fill();
+    traceFacePath(ctx, VENDOR_LEFT_EYE_PATH, sx, sy, eye.left - 26.05594 * sx, eye.y - 35.05619 * sy); ctx.fill();
+    traceFacePath(ctx, VENDOR_RIGHT_EYE_PATH, sx, sy, eye.right - 49.39983 * sx, eye.y - 35.05619 * sy); ctx.fill();
   };
   if (!adjustment && !onBounds) { draw(); return; }
   drawAlignedPlayerLayer(ctx, "eyes", {

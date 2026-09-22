@@ -2,7 +2,6 @@ export const RELEASE_NOTES: Record<string, string[]> = {
   "0.782": [
     "Slot upgrades survive a prestige. The tier belongs to the slot, not to whatever is sitting in it, so a prestige takes your gear and leaves the bench work \u2014 the way it already leaves your research. Anything running on the bench keeps running.",
     "Nobody stands around bare-chested. A character with no armour equipped wears a plain body instead of nothing, and your skin tone now reaches your legs exactly: they were tinted through the artwork's own colour, so they never quite matched the rest of you.",
-    "Eyes are white with a black pupil and an outline, rather than solid dark.",
     "Enemies that chase you actually keep up. Every chaser was supposed to gain on you by ten, but the speed was scaled down by how fast that enemy was written to be, so all but the very fastest chased slower than the player they were chasing.",
     "Miremaw, the Koi Shogun and the Tempest Kirin are hit where you can see them. All three were hit as a circle as tall as it was wide, which for a squat toad reached well above its head \u2014 arrows counted as hits while they were still in open air. Each now has a shape measured from the creature.",
     "Miremaw's and the Koi Shogun's names and health no longer float a long way above them.",
