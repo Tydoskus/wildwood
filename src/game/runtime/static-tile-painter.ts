@@ -252,7 +252,12 @@ export function paintStaticTile(
     const x = Math.round(decor.x - originX);
     const y = Math.round(decor.y - originY);
     if (decor.type === "tree" && scene.treeShadowsVisible) {
-      const source = scene.treeBounds[decor.variant % 16];
+      // Wrap on however many variants this map's sheet actually has, the way
+      // the tree itself is drawn. Sixteen was the forest sheet's count; the
+      // cherry sheet holds four, so twelve of every sixteen samurai trees
+      // looked up nothing here and stood without a shadow.
+      if (scene.treeBounds.length === 0) continue;
+      const source = scene.treeBounds[Math.abs(Math.trunc(decor.variant)) % scene.treeBounds.length];
       if (!source || source.h <= 0) continue;
       const drawSize = Math.round(154 * decor.s);
       const scale = drawSize / source.h;

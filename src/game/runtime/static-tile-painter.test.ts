@@ -45,6 +45,26 @@ describe("static tree shadows", () => {
     paintStaticTile(visible.context, treeScene(true), 0, 0, {} as CanvasImageSource);
     expect(visible.drawImage).toHaveBeenCalledTimes(1);
   });
+
+  it("wraps the variant on the sheet this map actually has", () => {
+    // The samurai garden's cherry sheet holds four variants while the layout
+    // numbers its trees up to fifteen. Wrapping on a hard sixteen looked up
+    // nothing for twelve of every sixteen, and those trees stood with no
+    // shadow at all.
+    const scene = treeScene(true);
+    scene.decor = [0, 4, 9, 15].map((variant, index) => ({ type: "tree" as const, x: 100 + index * 40, y: 120, s: 1, variant }));
+    const { context, drawImage } = tileContext();
+    paintStaticTile(context, scene, 0, 0, {} as CanvasImageSource);
+    expect(drawImage).toHaveBeenCalledTimes(4);
+  });
+
+  it("skips the shadow rather than throwing when a sheet has not measured yet", () => {
+    const scene = treeScene(true);
+    scene.treeBounds = [];
+    const { context, drawImage } = tileContext();
+    paintStaticTile(context, scene, 0, 0, {} as CanvasImageSource);
+    expect(drawImage).not.toHaveBeenCalled();
+  });
 });
 
 describe("crystal tile boundaries", () => {
