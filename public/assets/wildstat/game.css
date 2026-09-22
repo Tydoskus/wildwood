@@ -2811,7 +2811,7 @@
   .profile-name-edit[hidden] { display: none; }
   .player-profile-presence { margin-top: 4px; color: var(--muted); font-size: 8px; letter-spacing: .08em; }
   .player-profile-presence.is-online { color: #72ef58; }
-  #playerProfilePower { position: absolute; z-index: 2; top: 6px; left: 62px; right: 62px; display: flex; align-items: center; justify-content: center; gap: 3px; color: #fff; font: 900 18px/1 var(--player-name-font); white-space: nowrap; -webkit-text-stroke: var(--text-outline-width) #000; paint-order: stroke fill; text-shadow: var(--text-shadow); pointer-events: none; }
+  #playerProfilePower { position: absolute; z-index: 2; top: 2px; left: 62px; right: 62px; display: flex; align-items: center; justify-content: center; gap: 3px; color: #fff; font: 900 18px/1 var(--player-name-font); white-space: nowrap; -webkit-text-stroke: var(--text-outline-width) #000; paint-order: stroke fill; text-shadow: var(--text-shadow); pointer-events: none; }
   #playerProfilePower .power-icon { width: 18px; height: 18px; }
   #playerProfileName { --prestige-badge-size: 18px; }
   .power-label { color: var(--gold); }
