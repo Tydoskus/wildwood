@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.774": [
+    "Switching to another window no longer interrupts you so quickly. A hidden tab is given two minutes rather than twenty seconds before returning to it counts as waking from a long absence, so a glance at something else comes back to the game exactly as you left it. A connection that has genuinely dropped is still picked up immediately.",
+  ],
   "0.773": [
     "Fixed Prestige refusing a prestige you had earned. If the window had not yet received your Endless progress it read zero stages and greyed the button out, telling you to clear a boss you had already beaten. It asks the server again instead.",
   ],
@@ -2219,6 +2222,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.774": "2026-09-22",
   "0.773": "2026-09-22",
   "0.772": "2026-09-22",
   "0.771": "2026-09-22",
