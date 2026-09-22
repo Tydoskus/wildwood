@@ -12,7 +12,7 @@ export const leaderboardPageTables = {
   }),
   leaderboardSize: table({ public: false }, { id: t.u8().primaryKey(), total: t.u32() }),
 };
-type Candidate = { identity: Identity; identityKey: string; displayName: string;
+type Candidate = { identity: Identity; identityKey: string; displayName: string; prestige: number;
   power: number; damage: number; maxHp: number; armor: number; regen: number; playedMicros: bigint };
 
 /** Built once with the shared periodic snapshot, never in a viewer's request. */
@@ -22,9 +22,19 @@ export function writeLeaderboardPages(ctx: GameReducerContext, candidates: Candi
   const fields = ["power", "damage", "maxHp", "armor", "regen", "playedMicros"] as const;
   for (const [statIndex, stat] of LEADERBOARD_STATS.entries()) {
     const field = fields[statIndex];
+    // Prestige groups the stat boards: the top of the list is the best of the
+    // highest prestige, and scrolling past them begins the next prestige, down
+    // to the players who have never prestiged. Within a group the board's own
+    // stat orders it.
+    //
+    // Time played is the exception. It is a record of hours, not of power, and
+    // prestige does not make an hour bigger.
+    const byPrestige = stat !== "time";
     const sorted = [...candidates].sort((a, b) => {
+      const prestige = byPrestige ? b.prestige - a.prestige : 0;
       const av = a[field], bv = b[field];
-      return (av > bv ? -1 : av < bv ? 1 : 0) || a.displayName.localeCompare(b.displayName) || a.identityKey.localeCompare(b.identityKey);
+      return prestige || (av > bv ? -1 : av < bv ? 1 : 0)
+        || a.displayName.localeCompare(b.displayName) || a.identityKey.localeCompare(b.identityKey);
     });
     sorted.forEach((row, index) => { positions.get(row.identityKey)!.ranks[statIndex] = index + 1; });
     for (let offset = 0; offset < sorted.length; offset += LEADERBOARD_PAGE_SIZE) {

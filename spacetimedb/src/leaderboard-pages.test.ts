@@ -44,7 +44,7 @@ describe("indexed leaderboard windows", () => {
   it("keeps stat-specific ranks, breaks identical ties by identity, and removes deleted players", () => {
     const f = crystalFixture();
     const candidates = ["2", "1", "3"].map(digit => ({ identity: identity(digit), identityKey: identity(digit).toHexString(),
-      displayName: "Same", power: 1, damage: Number(digit), maxHp: 10, armor: 0, regen: 0, playedMicros: 0n }));
+      displayName: "Same", prestige: 0, power: 1, damage: Number(digit), maxHp: 10, armor: 0, regen: 0, playedMicros: 0n }));
     for (const row of candidates) f.seed("leaderboardEntry", row);
     writeLeaderboardPages(f.ctx as never, candidates);
     expect(readLeaderboardWindow(f.ctx as never, "power").map(row => row.entry.identity.toHexString())).toEqual([identity("1"), identity("2"), identity("3")].map(id => id.toHexString()));

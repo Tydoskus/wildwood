@@ -23,8 +23,11 @@ export function drawPlayerPowerLabel(
     ctx.imageSmoothingEnabled = true;
       // Centred on the digits rather than sitting on their baseline: the glyphs
     // are cap-height, so the icon's middle belongs a little above the bottom.
+    // The two pixels back down are measured against the drawn artwork, whose
+    // ink sits high in its own square.
     const textHeight = 12;
-    ctx.drawImage(icon, left + textWidth + iconGap, bottom - textHeight / 2 - iconSize / 2, iconSize, iconSize);
+    const opticalDrop = 1;
+    ctx.drawImage(icon, left + textWidth + iconGap, bottom - textHeight / 2 - iconSize / 2 + opticalDrop, iconSize, iconSize);
   }
   ctx.restore();
 }

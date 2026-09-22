@@ -29,10 +29,12 @@ import { describe, expect, it } from "vitest";
 // so only the composition root can hand it the coop session, and only the HUD
 // tick knows when a subscription has changed it. The button, its busy state
 // and its rendering live in offline-progress-setting.ts.
-// 2_203: the upgrade bench's two slot-tier lookups. Tiers belong to equipment
+// 2_202: the leaderboard's locked state. Only the composition root knows both
+// the toolbar controller and whether this save has the Dragon's credit.
+// 2_204: the upgrade bench's two slot-tier lookups. Tiers belong to equipment
 // slots now, and only the composition root can say which coop session holds
 // them and what is equipped in each slot. The bench's own logic is unchanged.
-const MAX_LINES = 2_203;
+const MAX_LINES = 2_204;
 const TARGET_LINES = 1_000;
 
 describe("game composition boundary", () => {

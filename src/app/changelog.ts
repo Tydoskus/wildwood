@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.780": [
+    "The leaderboard is grouped by prestige. The best of the highest prestige are at the top; scroll past them and the next prestige begins, down to the players who have not prestiged. Time Played is left alone \u2014 prestige does not make an hour bigger.",
+    "The leaderboard now opens when you defeat the Dragon. Until then the toolbar shows it locked, rather than a board you cannot appear on.",
+    "The plate above a player is tidier: a shorter health bar with softened corners, its numbers centred in it exactly, the whole thing lifted clear of your head, a space after your guild tag, and the power sword lined up with its number.",
+  ],
   "0.779": [
     "Multiplayer now starts off every time you sign in or reconnect, and stays off until you tap the eye. Most sessions never look at another player, and presence is the most expensive thing the server does \u2014 so it waits for you to ask. Finishing the tutorial is the one exception: you come out of it able to see the other new players around you.",
     "The overhead health bar is back to its old height. Rounding its ends made the taller version read as about double the bar it replaced.",
@@ -2242,6 +2247,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.780": "2026-09-22",
   "0.779": "2026-09-22",
   "0.778": "2026-09-22",
   "0.777": "2026-09-22",
