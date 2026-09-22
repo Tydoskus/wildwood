@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.781": [
+    "Upgrades belong to your equipment slots now, not to individual items. Each slot \u2014 Weapon, Helmet, Armor \u2014 has its own track running to tier 35, and whatever you equip there gets the tier the slot has earned. Finding a better weapon is an upgrade rather than a reason to start again, and the item stays in your bag while the slot works.",
+    "Everything you had already put into an item came with you: each slot starts at the highest level any item in it had reached.",
+    "Item stats now grow with the map they come from. The first map is unchanged and the fifteenth is worth twice what it was, so late gear is a real step up rather than a rounding error next to the stats you earned getting there.",
+    "Tier numbers are gone from items. The only number is the one on the slot, which is the thing that actually has a tier.",
+  ],
   "0.780": [
     "The leaderboard is grouped by prestige. The best of the highest prestige are at the top; scroll past them and the next prestige begins, down to the players who have not prestiged. Time Played is left alone \u2014 prestige does not make an hour bigger.",
     "The leaderboard now opens when you defeat the Dragon. Until then the toolbar shows it locked, rather than a board you cannot appear on.",
@@ -2247,6 +2253,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.781": "2026-09-22",
   "0.780": "2026-09-22",
   "0.779": "2026-09-22",
   "0.778": "2026-09-22",

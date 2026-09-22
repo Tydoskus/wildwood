@@ -270,7 +270,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     button.replaceChildren(name);
     const badge = document.createElement("span");
     badge.className = "inventory-upgrade-level";
-    badge.textContent = `T${level}`;
+    badge.textContent = `+${level}`;
     button.append(badge);
   }
 

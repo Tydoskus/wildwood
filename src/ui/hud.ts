@@ -1,6 +1,5 @@
 import { formatEquipmentAmount } from "./equipment-stat-format";
 import { itemTier } from "../../shared/item-tier";
-import { appendItemTierLabel } from "./item-tier-label";
 import { cosmeticInventoryStacks, bagInventoryStacks, ITEM_DEFINITIONS, type EquipmentSlot } from "../game/inventory";
 import { itemArtMarkup } from "../game/item-presentation";
 import { formatCompactNumber } from "./number-format";
@@ -246,7 +245,6 @@ function renderEquipmentSlot(
   name.className = "equipment-slot-name";
   name.textContent = item?.name ?? (cosmeticHidden ? "NOTHING" : inheritedItem ? "GEAR VISIBLE" : mode === "COSMETICS" ? "NOTHING" : "EMPTY");
   element.replaceChildren(slotLabel, art, name);
-  if (item && mode === "EQUIPMENT") appendItemTierLabel(element, itemId);
   if (level > 0) {
     const badge = document.createElement("span");
     badge.className = "inventory-upgrade-level";
@@ -299,7 +297,6 @@ export function renderInventoryView(
       art.className = "inventory-item-art-wrap";
       art.innerHTML = itemArt(itemId);
       button.append(art);
-      if (!cosmetics) appendItemTierLabel(button, itemId);
       if (!cosmetics) {
         const bonuses = document.createElement("span");
         bonuses.className = "inventory-item-bonuses";
@@ -315,12 +312,6 @@ export function renderInventoryView(
           bonuses.append(value);
         }
         button.append(bonuses);
-      }
-      if (level > 0) {
-        const badge = document.createElement("span");
-        badge.className = "inventory-upgrade-level";
-        badge.textContent = `+${level}`;
-        button.appendChild(badge);
       }
       button.addEventListener("click", () => actions.onInspect(itemId, "BAG"));
     } else {

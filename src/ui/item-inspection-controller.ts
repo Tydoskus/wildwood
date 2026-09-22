@@ -1,5 +1,4 @@
 import { formatEquipmentStat } from "./equipment-stat-format";
-import { appendItemTierLabel } from "./item-tier-label";
 import { itemArtMarkup, itemInventoryRotation, itemPresentation } from "../game/item-presentation";
 import {
   itemDefinition,
@@ -82,13 +81,6 @@ export function createItemInspectionController(elements: ItemInspectionElements)
     preview.append(elements.title);
     const metadata = document.createElement("div");
     metadata.className = "item-inspection-metadata";
-    appendItemTierLabel(metadata, item.id);
-    if (level > 0) {
-      const upgrade = document.createElement("span");
-      upgrade.className = "inventory-upgrade-level";
-      upgrade.textContent = `+${level}`;
-      metadata.append(upgrade);
-    }
     if (metadata.childElementCount) preview.append(metadata);
     preview.append(icon);
 
