@@ -21,10 +21,13 @@ export function createGameOverlays(d: Record<string, any>) {
     supporter: coop,
     releases: () => recentReleaseNotes(2), connected: () => Boolean(coop?.isConnected?.()), selectedIcon: () => coop?.profileIcon?.() ?? 0, setIcon: async (index: number) => coop?.setProfileIcon?.(index), paintIcon: d.applyProfileIcon, afterIconSet: d.afterIconSet, showMessage: d.showMessage,
   });
-  e.signinVersionButton.textContent = `v${d.version}`;
-  e.signinVersionButton.setAttribute("aria-label", `WildStat version ${d.version}. Toggle release notes`);
-  e.minimapVersionEl.textContent = `v${d.version}`;
-  e.minimapVersionEl.setAttribute("aria-label", `Game version ${d.version}. Open release notes`);
+  // The game says it is in beta on the sign-in screen and in the bug prompt;
+  // the version label is where a player looks for it while playing.
+  const versionLabel = `alpha v${d.version}`;
+  e.signinVersionButton.textContent = versionLabel;
+  e.signinVersionButton.setAttribute("aria-label", `WildStat alpha version ${d.version}. Toggle release notes`);
+  e.minimapVersionEl.textContent = versionLabel;
+  e.minimapVersionEl.setAttribute("aria-label", `Game alpha version ${d.version}. Open release notes`);
   return overlays;
 }
 

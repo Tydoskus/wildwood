@@ -25,7 +25,10 @@ describe("installed interface structure", () => {
   it("keeps startup small and installs the deferred shell exactly once", () => {
     // Allow the explicit mailbox stylesheet link and the settings row each
     // toggleable feature needs; keep the startup shell bounded.
-    expect(Buffer.byteLength(entryHtml)).toBeLessThan(24_448);
+    // Raised by 32 bytes for the "alpha" the three version labels now carry.
+    // They are in the markup rather than set from script so the label is right
+    // on the first paint, which is exactly when a new player reads it.
+    expect(Buffer.byteLength(entryHtml)).toBeLessThan(24_480);
     for (const id of ["start", "gameUpdateGate", "dailyGemBonus", "gameOver", "playerProfile", "techTreeOverlay", "guildBtn"]) {
       expect(doc.getElementById(id), id).not.toBeNull();
     }
