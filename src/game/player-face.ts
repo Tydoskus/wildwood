@@ -63,6 +63,8 @@ const EYE_INK = "#0d0d0d";
 /** In head units, so the outline holds its weight at every draw size. */
 const EYE_OUTLINE_WIDTH = 1.4;
 const EYE_PUPIL_SCALE = 0.5;
+/** Off-centre towards the nose side, so the face reads as looking ahead. */
+const EYE_PUPIL_OFFSET_X = 1;
 
 export function drawPlayerEyes(
   ctx: CanvasRenderingContext2D, width: number, height: number, adjustment?: LayerAdjustment,
@@ -86,10 +88,11 @@ export function drawPlayerEyes(
     // the artwork was drawn with instead of a plain circle inside it.
     ctx.fillStyle = EYE_INK;
     const pupilX = sx * EYE_PUPIL_SCALE, pupilY = sy * EYE_PUPIL_SCALE;
+    const nudge = EYE_PUPIL_OFFSET_X * sx;
     traceFacePath(ctx, VENDOR_LEFT_EYE_PATH, pupilX, pupilY,
-      eye.left - 26.05594 * pupilX, eye.y - 35.05619 * pupilY); ctx.fill();
+      eye.left - 26.05594 * pupilX + nudge, eye.y - 35.05619 * pupilY); ctx.fill();
     traceFacePath(ctx, VENDOR_RIGHT_EYE_PATH, pupilX, pupilY,
-      eye.right - 49.39983 * pupilX, eye.y - 35.05619 * pupilY); ctx.fill();
+      eye.right - 49.39983 * pupilX + nudge, eye.y - 35.05619 * pupilY); ctx.fill();
   };
   if (!adjustment && !onBounds) { draw(); return; }
   drawAlignedPlayerLayer(ctx, "eyes", {

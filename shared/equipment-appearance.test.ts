@@ -10,13 +10,10 @@ const regular = {
 };
 
 describe("equipment appearance", () => {
-  it("dresses a bare chest in the default body", () => {
-    // Nobody spawns naked: an empty chest draws the wooden armour. This is
-    // appearance only — the player owns and equips nothing extra.
-    expect(resolveEquipmentAppearance({ ...regular, equippedChest: "" }).chestItem).toBe("wooden_armor");
-  });
-
-  it("still shows nothing when the player hid the chest", () => {
+  it("leaves a bare chest empty for the renderer to dress", () => {
+    // The default body is a sprite the renderer lays over the bare torso, not
+    // an item, so nothing is invented here and no stats come with it.
+    expect(resolveEquipmentAppearance({ ...regular, equippedChest: "" }).chestItem).toBe("");
     expect(resolveEquipmentAppearance({
       ...regular,
       equippedChest: "",

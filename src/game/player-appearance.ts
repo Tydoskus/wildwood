@@ -10,11 +10,15 @@ import { PLAYER_WORLD_SCALE } from "./player-render-scale";
 import { PLAYER_SKIN_TONES, DEFAULT_SKIN_TONE } from "../../shared/player-skin-tones";
 export { PLAYER_SKIN_TONES, PLAYER_SKIN_TONE_NAMES, DEFAULT_SKIN_TONE } from "../../shared/player-skin-tones";
 const BOW_SOURCE_DOWN_ANGLE_DEGREES = 90;
+/** Same frame as every chest sprite, so the default body sits where armour does. */
+const DEFAULT_CHEST = { source: "assets/wildstat/player-parts/default-chest.webp", width: 76, height: 68, top: 100 };
 const DEGREES_TO_RADIANS = Math.PI / 180;
 
 export type PlayerAppearanceAssets = {
   basicFrontLeg: HTMLImageElement;
   basicBackLeg: HTMLImageElement;
+  /** The default body, drawn over the bare torso when no chest armour is worn. */
+  defaultChest?: HTMLImageElement;
   equipment: Record<string, {
     sprite?: HTMLImageElement;
     frontLeg?: HTMLImageElement;
@@ -115,7 +119,7 @@ function image(source: string, settled: () => void) {
 }
 
 export function loadPlayerAppearanceAssets(settled: () => void): PlayerAppearanceAssets {
-  const expectedAssetCount = 2 + Object.values(ITEM_PRESENTATIONS).reduce((count, presentation) =>
+  const expectedAssetCount = 3 + Object.values(ITEM_PRESENTATIONS).reduce((count, presentation) =>
     count + (presentation.world?.kind === "LEGS" ? 2 : presentation.world ? 1 : 0), 0);
   let settledAssetCount = 0;
   const markAssetSettled = () => {
@@ -135,6 +139,7 @@ export function loadPlayerAppearanceAssets(settled: () => void): PlayerAppearanc
   return {
     basicFrontLeg: image("assets/wildstat/player-parts/basic-leg-front.webp", markAssetSettled),
     basicBackLeg: image("assets/wildstat/player-parts/basic-leg-back.webp", markAssetSettled),
+    defaultChest: image(DEFAULT_CHEST.source, markAssetSettled),
     equipment,
   };
 }
@@ -163,11 +168,32 @@ export function skinTonedLeg(leg: HTMLImageElement, tone: string): PlayerLayerAs
   const context = canvas.getContext("2d");
   if (!context) return leg;
   context.drawImage(leg, 0, 0);
-  context.globalCompositeOperation = "multiply";
-  context.fillStyle = tone;
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  context.globalCompositeOperation = "destination-in";
-  context.drawImage(leg, 0, 0);
+  // Multiplying the tone straight onto the art carried the art's own hue and
+  // saturation through, so a bare leg never landed on the flat colour the body
+  // is filled with. Take the artwork's luminance only, and normalise it so its
+  // lightest pixel is exactly the tone.
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+  const data = pixels.data;
+  const rgb = [1, 3, 5].map((start) => parseInt(tone.slice(start, start + 2), 16));
+  // Normalise against the flat fill the art is mostly made of, not its
+  // brightest pixel: that is an antialiased edge, and scaling to it left the
+  // leg a few percent short of the body's colour.
+  const histogram = new Uint32Array(256);
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] < 250) continue;
+    const value = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+    if (value > 40) histogram[value] += 1;
+  }
+  let fill = 0;
+  for (let value = 41; value < 256; value += 1) if (histogram[value] > histogram[fill]) fill = value;
+  const scale = fill > 0 ? 1 / fill : 0;
+  for (let i = 0; i < data.length; i += 4) {
+    const value = Math.min(1, (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114) * scale);
+    data[i] = rgb[0] * value;
+    data[i + 1] = rgb[1] * value;
+    data[i + 2] = rgb[2] * value;
+  }
+  context.putImageData(pixels, 0, 0);
   if (tintedLegs.size > 32) tintedLegs.clear();
   tintedLegs.set(key, canvas);
   return canvas;
@@ -363,7 +389,15 @@ export function drawStartingPlayer(
     const y = presentation.top ?? (presentation.bottom ?? height) - height + gaitY;
     drawLayer(target, asset, 90 - width / 2, y, width, height, layer === "HEAD" ? "helmet" : "chest", report);
   };
-  const bodyAssetsReady = readyImage(backLeg) && readyImage(frontLeg) && [
+  // Only one of the two draws: armour covers the default body rather than
+  // stacking on top of it.
+  const chestSpriteDrawn = (() => {
+    if (!options.chestItem) return false;
+    const presentation = options.presentationOverrides?.[options.chestItem] ?? itemPresentation(options.chestItem)?.world;
+    return presentation?.kind === "SPRITE" && presentation.layer === "CHEST";
+  })();
+  const defaultChest = chestSpriteDrawn ? undefined : assets.defaultChest;
+  const bodyAssetsReady = readyImage(backLeg) && readyImage(frontLeg) && (!defaultChest || readyImage(defaultChest)) && [
     { itemId: options.chestItem, layer: "CHEST" as const },
     { itemId: headItem, layer: "HEAD" as const },
   ].every(({ itemId, layer }) => {
@@ -383,6 +417,9 @@ export function drawStartingPlayer(
       drawEgg(target, body.width, body.height, 0, "#000");
       drawEgg(target, body.width, body.height, 3, skinToneColor(options.skinTone));
     }, report ? options.onLayerBounds : undefined);
+    if (defaultChest) {
+      drawLayer(target, defaultChest, 90 - DEFAULT_CHEST.width / 2, DEFAULT_CHEST.top, DEFAULT_CHEST.width, DEFAULT_CHEST.height);
+    }
     drawEquippedSprite(target, options.chestItem, "CHEST", 0, report);
     const head = { ...EXPANSION_HEAD_FRAME, y: EXPANSION_HEAD_FRAME.y + gait.head };
     drawAlignedPlayerLayer(target, "head", head, options.alignment?.head ?? DEFAULT_HEAD_ALIGNMENT, () => {
