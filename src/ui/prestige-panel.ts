@@ -112,8 +112,12 @@ export function createPrestigeController(options: {
       ? `${COST} You would earn ${prestigeRewardLabel(level)}.`
       : `Spend the points you have banked. ${hint()}`;
     renderPerks(row?.perkPoints ?? 0);
-    confirmButton.disabled = pending || !unlocked();
-    confirmButton.hidden = !unlocked();
+    // The button stays put whatever this client believes. Hiding it was how a
+    // view that had not caught up refused a prestige the server would have
+    // allowed: there was nothing left to press. The server owns the decision
+    // and names what is missing, so the press has to be able to reach it.
+    confirmButton.disabled = pending;
+    confirmButton.hidden = false;
     if (!unlocked() && !status.textContent) status.textContent = hint();
   }
 

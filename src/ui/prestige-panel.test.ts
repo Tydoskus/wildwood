@@ -51,8 +51,8 @@ describe("prestige panel", () => {
     expect(s.pick("overlay").hidden).toBe(false);
     const spend = [...s.pick("perks").children].map((row: any) => row.querySelector("button"));
     expect(spend.some((button: any) => !button.disabled)).toBe(true);
-    // The reset itself stays gated until the campaign is finished again.
-    expect(s.pick("confirm").hidden).toBe(true);
+    // The button stays reachable; what is missing is said, not enforced here.
+    expect(s.pick("confirm").hidden).toBe(false);
     expect(s.pick("status").textContent).toContain("again");
   });
 
@@ -181,7 +181,10 @@ describe("each prestige asks for one Endless stage more", () => {
     const short = setup({ unlocked: true, completed: 0, row: { level: 1, perkPoints: 1, peakPower: 5 } });
     short.controller.refresh(true);
     click(short.pick("open"));
-    expect(short.pick("confirm").hidden).toBe(true);
+    // Reachable, and the requirement is spelled out beside it. The server is
+    // what refuses a prestige, so this client never hides the press.
+    expect(short.pick("confirm").hidden).toBe(false);
+    expect(short.pick("confirm").disabled).toBe(false);
     expect(short.pick("status").textContent).toContain("Clear Endless 1");
     const ready = setup({ unlocked: true, completed: 1, row: { level: 1, perkPoints: 1, peakPower: 5 } });
     ready.controller.refresh(true);
@@ -189,6 +192,20 @@ describe("each prestige asks for one Endless stage more", () => {
     expect(ready.pick("confirm").hidden).toBe(false);
     expect(ready.pick("cost").textContent).toContain("You would earn");
   });
+  it("reaches the server for a second prestige even when this client reads zero stages", () => {
+    // Teus had cleared Endless 1 and the server would have prestiged him, but
+    // the row saying so was not subscribed here, so the window read zero and
+    // hid the button. There was nothing left to press, and no error either.
+    const run = vi.fn(async () => ({ ok: true }));
+    const s = setup({ unlocked: true, completed: 0, run, row: { level: 1, perkPoints: 0, peakPower: 5 } });
+    s.controller.refresh(true);
+    click(s.pick("open"));
+    expect(s.pick("confirm").hidden).toBe(false);
+    click(s.pick("confirm"));
+    click(s.pick("confirm"));
+    expect(run).toHaveBeenCalled();
+  });
+
   it("still asks for Aegis Prime first, however many stages an old run cleared", () => {
     const s = setup({ unlocked: false, completed: 6, row: { level: 3, perkPoints: 0, peakPower: 5 } });
     s.controller.refresh(true);
