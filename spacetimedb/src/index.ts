@@ -5598,6 +5598,19 @@ export const myOfflineProgress = spacetimedb.view(
   ctx => { const row = ctx.db.offlineProgress.identity.find(ctx.sender); return row?.pending ? [row] : []; },
 );
 
+/**
+ * The account's own consent row.
+ *
+ * Acceptance is per account and already lives on the server, but the client
+ * decided whether to ask from a token-scoped localStorage entry, so the same
+ * account was asked its age again on every new device and after every token
+ * change. This lets the client read what the account already agreed to.
+ */
+export const myLegalConsent = spacetimedb.view(
+  { name: "my_legal_consent", public: true }, t.array(playerLegalConsent.rowType),
+  ctx => { const row = ctx.db.playerLegalConsent.identity.find(ctx.sender); return row ? [row] : []; },
+);
+
 export const myOfflinePreference = spacetimedb.view(
   { name: "my_offline_preference", public: true }, t.array(playerOfflinePreference.rowType),
   ctx => { const row = ctx.db.playerOfflinePreference.identity.find(ctx.sender); return row ? [row] : []; },

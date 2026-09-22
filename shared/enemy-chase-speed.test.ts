@@ -12,8 +12,10 @@ it("keeps early enemies approachable and ramps later-map speed to a fixed cap", 
   expect(campaignMeleeChaseSpeed(100)).toBe(ENEMY_TOP_CHASE_SPEED);
 });
 
-it("tops every chase out one step under a fully researched runner", () => {
-  expect(ENEMY_TOP_CHASE_SPEED).toBe(MAX_PLAYER_MOVEMENT_SPEED - 10);
+it("tops every chase out one step above a fully researched runner", () => {
+  // Running is no longer a free escape: the fastest chasers gain on even a
+  // finished build, and speed boots are what buy the last step back.
+  expect(ENEMY_TOP_CHASE_SPEED).toBe(MAX_PLAYER_MOVEMENT_SPEED + 10);
   const overtaking = (Object.keys(ENEMY_TYPES) as EnemyKind[])
     .filter(kind => ENEMY_TYPES[kind].speed > ENEMY_TOP_CHASE_SPEED);
   expect(overtaking).toEqual([]);
@@ -22,10 +24,10 @@ it("tops every chase out one step under a fully researched runner", () => {
 describe("chase speed tracks the player in front of the enemy", () => {
   const researched = (rank: number) => PLAYER_SPEED * (1 + rank * .02);
 
-  it("keeps the fastest enemies exactly the margin behind, at every rank", () => {
+  it("keeps the fastest enemies exactly the margin ahead, at every rank", () => {
     for (const rank of [0, 1, 5, 10, 15, 20]) {
       const player = researched(rank);
-      expect(enemyChaseSpeed(ENEMY_TOP_CHASE_SPEED, player)).toBeCloseTo(player - 10, 6);
+      expect(enemyChaseSpeed(ENEMY_TOP_CHASE_SPEED, player)).toBeCloseTo(player + 10, 6);
     }
   });
 
@@ -44,11 +46,11 @@ describe("chase speed tracks the player in front of the enemy", () => {
     expect(ranged / melee).toBeCloseTo(205 / ENEMY_TOP_CHASE_SPEED, 6);
   });
 
-  it("ignores speed boots, which are bought to widen the gap", () => {
-    // The reference is the researched speed, so the +25 stays an advantage
-    // rather than being matched away.
+  it("ignores speed boots, which are what buy the last step back", () => {
+    // The reference is the researched speed, so the +25 is a real escape from
+    // a chase that would otherwise be gaining by ten.
     const player = researched(20);
-    expect(player + 25 - enemyChaseSpeed(ENEMY_TOP_CHASE_SPEED, player)).toBeCloseTo(35, 6);
+    expect(player + 25 - enemyChaseSpeed(ENEMY_TOP_CHASE_SPEED, player)).toBeCloseTo(15, 6);
   });
 
   it("falls back to the authored speed without a reference", () => {
@@ -68,8 +70,7 @@ it.each([
   const rows = saved?.status === "live" && saved.spawnCamps.length ? saved.spawnCamps : fallback;
   const enemies = rows.flatMap(camp => Array.from({ length: camp.count }, (_, index) => ENEMY_TYPES[camp.types[index % camp.types.length] as EnemyKind]));
   const melee = enemies.filter(enemy => !enemy.ranged);
-  // A late map chases at the ceiling, so a maxed runner keeps its last step
-  // and everyone still building loses ground.
+  // A late map chases at the ceiling, which gains on even a maxed runner.
   expect(melee.filter(enemy => enemy.speed === ENEMY_TOP_CHASE_SPEED).length).toBeGreaterThanOrEqual(melee.length / 2);
-  expect(enemies.every(enemy => enemy.speed < MAX_PLAYER_MOVEMENT_SPEED)).toBe(true);
+  expect(enemies.every(enemy => enemy.speed <= ENEMY_TOP_CHASE_SPEED)).toBe(true);
 });

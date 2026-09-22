@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.776": [
+    "Enemies chasing you are now slightly faster than you are, rather than slightly slower. Running is no longer a free escape from a fight you started \u2014 Speed Boots are what buy you the last step back.",
+    "Your age confirmation now follows your account. Signing in on another device no longer asks you again for something you have already answered.",
+    "The tutorial's arrow points up at your Profile HUD instead of away from it, and sits under the portrait rather than off to the side.",
+  ],
   "0.775": [
     "The game now notices that the server has been answering you while you play, so coming back to the window interrupts you even less often. It was only ever recording that while connecting, which made the check that decides whether to bother you useless after the first half minute.",
   ],
@@ -2225,6 +2230,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.776": "2026-09-22",
   "0.775": "2026-09-22",
   "0.774": "2026-09-22",
   "0.773": "2026-09-22",

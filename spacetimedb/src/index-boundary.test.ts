@@ -38,7 +38,11 @@ import { describe, expect, it } from "vitest";
 // caller-scoped view that lets a client read its own setting, and the reducer
 // that writes it. The row, its default and the write live in
 // offline-preference.ts; the raise is the schema surface alone.
-const MAX_LINES = 6_666;
+// 6_679: the account's own legal-consent view. Acceptance already lived on the
+// server, but the client decided whether to ask from a token-scoped cache, so
+// the same account was asked its age again on every new device. Reading it
+// needs a caller-scoped view; the raise is that declaration alone.
+const MAX_LINES = 6_679;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

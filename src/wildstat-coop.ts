@@ -720,6 +720,7 @@ function connect() {
       lastLatencyProbeStartedAt = 0;
       clearRealtimeCaches();
       if (!signedIn) accountService.storeGuestToken(token);
+      accountService.watchLegalConsent(conn);
       watchDefeatSession(conn, accountService.connectionCredential(), () => generation === connectionGeneration && connection === conn, message => accountService.handleDefeatRestriction(message));
       watchOfflineProgress(conn, () => generation === connectionGeneration && connection === conn, summary => {
         pendingOfflineProgress = summary;

@@ -66,8 +66,13 @@ export function createOnboardingTutorial(o: Options) {
     const box = target?.getBoundingClientRect();
     pointer.hidden = !box || box.width === 0;
     if (!box || box.width === 0) return;
-    pointer.style.left = `${box.left + box.width / 2}px`;
-    pointer.style.top = `${box.bottom + 12}px`;
+    // Centred under the portrait, and kept on screen: the HUD sits near the
+    // left edge, so a naive centre put half the arrow outside the viewport.
+    const width = pointer.offsetWidth || 38;
+    const centred = box.left + box.width / 2 - width / 2;
+    const maxLeft = Math.max(8, (pointer.ownerDocument.defaultView?.innerWidth ?? 0) - width - 8);
+    pointer.style.left = `${Math.max(8, Math.min(maxLeft, centred))}px`;
+    pointer.style.top = `${box.bottom + 10}px`;
   }
   function labels() {
     showText(step === S.move ? "moveTitle" : step === S.profile ? "profileTitle" : step === S.spitter ? "firstEnemyTitle" : step === S.regen ? "regenEnemyTitle" : step === S.death ? "deathTitle" : "completeTitle",

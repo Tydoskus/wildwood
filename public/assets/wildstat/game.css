@@ -3840,11 +3840,13 @@
   .is-onboarding.is-onboarding-profile #hud { visibility: visible; pointer-events: auto; }
   /* A white arrow with a heavy black outline, under the portrait it points at.
      Its position is written from the portrait's own box each frame. */
-  .onboarding-pointer { position: fixed; z-index: 36; width: 42px; height: 56px; margin: 0 0 0 -21px; pointer-events: none; animation: onboarding-pointer-bob 1s ease-in-out infinite alternate; }
+  /* Sits below the portrait and points up at it. The left/top written by the
+     tutorial are the arrow's own top-left corner, already centred there. */
+  .onboarding-pointer { position: fixed; z-index: 36; width: 38px; height: 46px; pointer-events: none; animation: onboarding-pointer-bob 1s ease-in-out infinite alternate; }
   .onboarding-pointer[hidden] { display: none; }
-  .onboarding-pointer svg { width: 100%; height: 100%; transform: rotate(180deg); overflow: visible; filter: drop-shadow(0 3px 4px rgba(0,0,0,.55)); }
+  .onboarding-pointer svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 3px 4px rgba(0,0,0,.55)); }
   .onboarding-pointer path { fill: #fff; stroke: #000; stroke-width: 6; stroke-linejoin: round; paint-order: stroke fill; }
-  @keyframes onboarding-pointer-bob { from { transform: translateY(0); } to { transform: translateY(7px); } }
+  @keyframes onboarding-pointer-bob { from { transform: translateY(6px); } to { transform: translateY(0); } }
   @media (prefers-reduced-motion: reduce) { .onboarding-pointer { animation: none; } }
   @media (max-height: 480px) { .onboarding-tutorial header { padding-top: 0; gap: 4px; } .onboarding-instruction { font-size: 20px; } }
   .onboarding-progress { width: 76px; height: 3px; margin: 0 auto; border-radius: 3px; background: #ffffff35; overflow: hidden; }

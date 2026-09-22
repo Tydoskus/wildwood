@@ -1268,6 +1268,9 @@ export type MyInventoryCapacity = __Infer<typeof MyInventoryCapacity>;
 export const MyItemGifts = __t.object("MyItemGifts", {});
 export type MyItemGifts = __Infer<typeof MyItemGifts>;
 
+export const MyLegalConsent = __t.object("MyLegalConsent", {});
+export type MyLegalConsent = __Infer<typeof MyLegalConsent>;
+
 export const MyMailboxV2 = __t.object("MyMailboxV2", {});
 export type MyMailboxV2 = __Infer<typeof MyMailboxV2>;
 
