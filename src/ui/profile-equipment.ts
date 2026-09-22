@@ -153,7 +153,9 @@ export function renderProfileEquipmentSlot(
   }
   const state = document.createElement("span");
   state.className = "equipment-slot-name";
-  state.textContent = cosmetic ? "LOOK" : hidden ? "HIDDEN" : item ? "GEAR" : "EMPTY";
+  // The same banner the inventory's slots carry: a filled equipment slot reads
+  // as its upgrade level. "GEAR" said nothing the artwork had not already.
+  state.textContent = cosmetic ? "LOOK" : hidden ? "HIDDEN" : item ? `Lvl: +${level}` : "EMPTY";
   element.replaceChildren(label, art, state);
   if (item && !cosmetic) appendItemTierLabel(element, item.id);
 
