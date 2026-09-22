@@ -1,3 +1,4 @@
+import { appendItemTierLabel } from "./item-tier-label";
 import type { PlayerProgress } from "../coop/services/progress";
 import { itemArtMarkup } from "../game/item-presentation";
 import { isHiddenCosmeticItem } from "../../shared/equipment-appearance";
@@ -154,6 +155,7 @@ export function renderProfileEquipmentSlot(
   state.className = "equipment-slot-name";
   state.textContent = cosmetic ? "LOOK" : hidden ? "HIDDEN" : item ? "GEAR" : "EMPTY";
   element.replaceChildren(label, art, state);
+  if (item && !cosmetic) appendItemTierLabel(element, item.id);
 
   if (level > 0) {
     const badge = document.createElement("span");

@@ -510,6 +510,12 @@
   .inventory-item[data-item-id="starter_stone"] .inventory-item-art { width: min(30px, 48%); height: min(30px, 48%); }
   .inventory-item-art-wrap .boot-pixel-icon { transform: scale(1.35); }
   .equipment-slot .inventory-item-art { width: var(--equipped-art-width, 34px); height: var(--equipped-art-height, 34px); }
+  /* The map an item came from. In an equipped slot it takes the corner, where
+     the slot's own name is not; on a loose item it sits centred over the art. */
+  .item-tier-label { position: absolute; top: 5px; left: 5px; right: auto; z-index: 1; color: #c0c9c3; font: 800 9px/11px var(--font-rounded); text-align: left; -webkit-text-stroke: 2px #080b08; paint-order: stroke fill; text-shadow: none; pointer-events: none; }
+  .item-tier-label.is-above { left: 50%; right: auto; top: 2px; transform: translateX(-50%); text-align: center; }
+  .profile-equipment-slot > .item-tier-label { top: 3px; left: 2px; font-size: 7px; line-height: 9px; }
+  .item-inspection-metadata > .item-tier-label { position: static; font-size: 13px; line-height: 16px; }
   .inventory-upgrade-level { position: absolute; top: 5px; right: 5px; z-index: 2; min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #c0c9c3; font: 800 9px/11px var(--font-rounded); text-align: center; -webkit-text-stroke: 2px #080b08; paint-order: stroke fill; text-shadow: none; pointer-events: none; }
   .inventory-item > .inventory-upgrade-level, .upgrade-bench-slot > .inventory-upgrade-level { top: 5px; right: 5px; }
   .inventory-loadout .equipment-slot-name { display: none; }

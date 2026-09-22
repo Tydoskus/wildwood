@@ -1,5 +1,6 @@
 import { formatEquipmentAmount } from "./equipment-stat-format";
 import { itemTier } from "../../shared/item-tier";
+import { appendItemTierLabel } from "./item-tier-label";
 import { cosmeticInventoryStacks, bagInventoryStacks, ITEM_DEFINITIONS, type EquipmentSlot } from "../game/inventory";
 import { itemArtMarkup } from "../game/item-presentation";
 import { formatCompactNumber } from "./number-format";
@@ -245,6 +246,7 @@ function renderEquipmentSlot(
   name.className = "equipment-slot-name";
   name.textContent = item?.name ?? (cosmeticHidden ? "NOTHING" : inheritedItem ? "GEAR VISIBLE" : mode === "COSMETICS" ? "NOTHING" : "EMPTY");
   element.replaceChildren(slotLabel, art, name);
+  if (item && mode === "EQUIPMENT") appendItemTierLabel(element, itemId);
   if (level > 0) {
     const badge = document.createElement("span");
     badge.className = "inventory-upgrade-level";
@@ -297,6 +299,7 @@ export function renderInventoryView(
       art.className = "inventory-item-art-wrap";
       art.innerHTML = itemArt(itemId);
       button.append(art);
+      if (!cosmetics) appendItemTierLabel(button, itemId, "above");
       if (!cosmetics) {
         const bonuses = document.createElement("span");
         bonuses.className = "inventory-item-bonuses";
@@ -313,6 +316,9 @@ export function renderInventoryView(
         }
         button.append(bonuses);
       }
+      // No +N on a loose item: the number belongs to the slot it goes in, and
+      // showing it here made every weapon in the bag claim the weapon slot's
+      // tier as its own.
       button.addEventListener("click", () => actions.onInspect(itemId, "BAG"));
     } else {
       button.setAttribute("aria-label", `Empty bag slot ${index + 1}`);
