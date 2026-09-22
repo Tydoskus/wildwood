@@ -574,7 +574,7 @@
   .upgrade-bench-back[hidden] { display: none; }
   .upgrade-bench-picker { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; padding: 16px; background: rgba(4,8,6,.76); }
   .upgrade-bench-picker[hidden] { display: none; }
-  .upgrade-bench-picker-sheet { display: grid; grid-template-rows: auto minmax(0, 388px) auto; gap: 10px; width: min(100%, 360px); max-height: min(calc(100dvh - var(--window-bottom-inset) - 32px), 520px); padding: 12px; overflow: hidden; border: 2px solid rgba(255,255,255,.22); border-radius: 10px; background: var(--window-surface-brown); box-shadow: 0 10px 30px rgba(0,0,0,.55); }
+  .upgrade-bench-picker-sheet { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; min-height: 0; gap: 10px; width: min(100%, 360px); height: min(calc(100dvh - var(--window-bottom-inset) - 32px), 520px); max-height: min(calc(100dvh - var(--window-bottom-inset) - 32px), 520px); padding: 12px; overflow: hidden; border: 2px solid rgba(255,255,255,.22); border-radius: 10px; background: var(--window-surface-brown); box-shadow: 0 10px 30px rgba(0,0,0,.55); }
   .upgrade-bench-picker-heading { color: #f4f3e8; font-size: var(--font-readable-label); font-weight: 900; letter-spacing: .05em; text-align: center; }
   .upgrade-bench-picker-items { display: grid; align-content: start; gap: 7px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
   .upgrade-bench-picker-items::-webkit-scrollbar { display: none; }
@@ -587,7 +587,8 @@
   /* The tier badge is absolutely positioned over artwork everywhere else; in
      this row it is a word beside the name. */
   .upgrade-bench-picker-title > .item-tier-label { position: static; flex: none; color: #f3cf70; font-size: var(--font-readable-min); line-height: 1.2; -webkit-text-stroke: 0; }
-  .upgrade-bench-picker-filters { gap: 2px; margin: 0 0 8px; }
+  /* The sheet's own gap spaces this; a margin here would double it. */
+  .upgrade-bench-picker-filters { gap: 2px; margin: 0; }
   .upgrade-bench-picker-filters .profile-tab { flex: 1 1 0; min-width: 0; height: 34px; min-height: 34px; padding: 6px 4px; font-size: 9px; }
   .upgrade-bench-picker-stats { display: grid; gap: 0; min-width: 0; }
   .upgrade-bench-picker-stat { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; color: #d7dfd8; font-size: var(--font-readable-min); line-height: 1.05; }

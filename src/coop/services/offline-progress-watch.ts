@@ -43,3 +43,15 @@ export function watchOfflineProgress(
     for (const row of connection.db.myOfflineProgress.iter()) apply(row);
   }).subscribe([tables.myOfflineProgress]);
 }
+
+/**
+ * The account's opt-out. A missing row means on, which is the default and what
+ * almost every account will have, so nothing was migrated to add it.
+ */
+export function watchOfflineProgressPreference(connection: DbConnection, present: (enabled: boolean) => void) {
+  const read = () => present([...connection.db.myOfflinePreference.iter()][0]?.enabled ?? true);
+  connection.db.myOfflinePreference.onInsert(read);
+  connection.db.myOfflinePreference.onUpdate(read);
+  connection.db.myOfflinePreference.onDelete(read);
+  connection.subscriptionBuilder().onApplied(read).subscribe([tables.myOfflinePreference]);
+}

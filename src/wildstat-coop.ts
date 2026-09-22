@@ -1,5 +1,5 @@
 import { watchDefeatSession } from "./coop/services/defeat-session-watch";
-import { watchOfflineProgress, type OfflineProgressSummary } from "./coop/services/offline-progress-watch";
+import { watchOfflineProgress, watchOfflineProgressPreference, type OfflineProgressSummary } from "./coop/services/offline-progress-watch";
 import { consumeUpdateResumeMode } from "./coop/services/update-resume-browser";
 import { configureConnectionDiagnostics, recordConnectionDiagnostic, flushConnectionDiagnostics } from "./coop/services/connection-diagnostic-runtime";
 import { bindProgressFlushOnHide } from "./coop/services/flush-on-hide";
@@ -88,6 +88,8 @@ let connection: DbConnection | null = null;
 let localIdentity = "";
 /** Held until the UI has shown it; the server keeps its own copy until then. */
 let pendingOfflineProgress: OfflineProgressSummary | null = null;
+/** The account setting, mirrored so settings can render before a row arrives. */
+let offlineProgressEnabled = true;
 let localDbIdentity: Identity | null = null;
 let latencyMs: number | null = null;
 let lastLatencyProbeStartedAt = 0;
@@ -715,6 +717,11 @@ function connect() {
         pendingOfflineProgress = summary;
         onChange();
       });
+      watchOfflineProgressPreference(conn, enabled => {
+        if (generation !== connectionGeneration || connection !== conn) return;
+        offlineProgressEnabled = enabled;
+        onChange();
+      });
       const protocolStartedAt = performance.now();
       void conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION }).then(async () => {
         if (generation !== connectionGeneration || connection !== conn) return;
@@ -891,6 +898,15 @@ export const wildstatCoop = {
     return localIdentity;
   },
   pendingOfflineProgress: () => pendingOfflineProgress,
+  offlineProgressEnabled: () => offlineProgressEnabled,
+  async setOfflineProgressEnabled(enabled: boolean) {
+    if (!connection?.isActive) return false;
+    // Shown immediately; the subscription corrects it if the server disagrees.
+    offlineProgressEnabled = enabled;
+    onChange();
+    await connection.reducers.setOfflineProgressEnabled({ enabled });
+    return true;
+  },
   async acknowledgeOfflineProgress() {
     pendingOfflineProgress = null;
     if (!connection?.isActive) return;

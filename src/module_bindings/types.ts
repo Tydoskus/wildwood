@@ -1271,6 +1271,9 @@ export type MyItemGifts = __Infer<typeof MyItemGifts>;
 export const MyMailboxV2 = __t.object("MyMailboxV2", {});
 export type MyMailboxV2 = __Infer<typeof MyMailboxV2>;
 
+export const MyOfflinePreference = __t.object("MyOfflinePreference", {});
+export type MyOfflinePreference = __Infer<typeof MyOfflinePreference>;
+
 export const MyOfflineProgress = __t.object("MyOfflineProgress", {});
 export type MyOfflineProgress = __Infer<typeof MyOfflineProgress>;
 
@@ -1725,6 +1728,12 @@ export const PlayerNameTag = __t.object("PlayerNameTag", {
   showDevTag: __t.bool(),
 });
 export type PlayerNameTag = __Infer<typeof PlayerNameTag>;
+
+export const PlayerOfflinePreference = __t.object("PlayerOfflinePreference", {
+  identity: __t.identity(),
+  enabled: __t.bool(),
+});
+export type PlayerOfflinePreference = __Infer<typeof PlayerOfflinePreference>;
 
 export const PlayerOnboarding = __t.object("PlayerOnboarding", {
   identity: __t.identity(),

@@ -17,6 +17,7 @@ import { enemyDefeatBudget, bossDefeatWindow, bossMapDefeatWindow, acceptEnemyDe
 import { grantVirtualPlayerConsent, revokeVirtualPlayerConsent } from "./virtual-player-consent";
 import { applyEnemyRewards } from "../../shared/enemy-defeats";
 import { offlineProgressTables, beginOfflineWindow, grantOfflineProgress, acknowledgeOfflineProgress, setSimulatedTimeAway } from "./offline-progress";
+import { playerOfflinePreference, writeOfflinePreference } from "./offline-preference";
 import { LOADOUT_FIELDS } from "../../shared/combat-progress";
 import { chatHeartAllowance, chatReactionCooldown, chatReactionSummary, playerChatHearts, reactionCountsFor, chatReaction, readChatReactions, setChatReaction, removeMessageReactions, removeAccountReactions } from "./chat-reactions";
 import { regularEnemyLootCursor, rollRegularEnemyLoot } from "./regular-enemy-loot";
@@ -1699,6 +1700,7 @@ const patreonSweepSchedule = table(
 );
 const spacetimedb = schema({
   ...offlineProgressTables,
+  playerOfflinePreference,
   defeatSessionRestriction,
   mapBalanceVersion, mapBalanceHead, playerMapBalance,
   ...moderationTables,
@@ -5595,6 +5597,20 @@ export const myOfflineProgress = spacetimedb.view(
   { name: "my_offline_progress", public: true }, t.array(offlineProgressTables.offlineProgress.rowType),
   ctx => { const row = ctx.db.offlineProgress.identity.find(ctx.sender); return row?.pending ? [row] : []; },
 );
+
+export const myOfflinePreference = spacetimedb.view(
+  { name: "my_offline_preference", public: true }, t.array(playerOfflinePreference.rowType),
+  ctx => { const row = ctx.db.playerOfflinePreference.identity.find(ctx.sender); return row ? [row] : []; },
+);
+
+/**
+ * Opt out of being paid for time away. On by default, so an account with no
+ * row here is unaffected and nothing needed migrating.
+ */
+export const setOfflineProgressEnabled = spacetimedb.reducer({ enabled: t.bool() }, (ctx, { enabled }) => {
+  requireControllingPlayer(ctx);
+  writeOfflinePreference(ctx, enabled);
+});
 
 /** The summary has been shown. Nothing else about the window changes. */
 export const acknowledgeOfflineSummary = spacetimedb.reducer({}, (ctx) => {

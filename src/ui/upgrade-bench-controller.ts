@@ -1,6 +1,7 @@
 import { formatRemaining } from "./format-remaining";
 import { formatEquipmentStat } from "./equipment-stat-format";
 import { appendItemTierLabel } from "./item-tier-label";
+import { itemTier } from "../../shared/item-tier";
 import {
   UPGRADE_BENCH_SECOND_SLOT_GEM_COST,
   itemUpgradeSpeedUpGemCost,
@@ -178,7 +179,11 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     return ownedInventoryStacks(dependencies.inventory)
       .map(({ itemId }) => itemId)
       .filter((itemId) => !unavailable.has(itemId) && isUpgradeableItem(itemId) &&
-        dependencies.upgradeLevel(itemId) < MAX_ITEM_UPGRADE_LEVEL);
+        dependencies.upgradeLevel(itemId) < MAX_ITEM_UPGRADE_LEVEL)
+      // Best first: the item worth upgrading is almost always the highest tier
+      // owned, so it should not be somewhere down a scrolling list.
+      .sort((left, right) => (itemTier(right) ?? 0) - (itemTier(left) ?? 0)
+        || itemDisplayName(left, 0).localeCompare(itemDisplayName(right, 0)));
   }
 
   function closePicker() {

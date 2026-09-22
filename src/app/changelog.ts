@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.772": [
+    "Fixed the Upgrade Bench item list: the filter tabs were stretched down the window and the Back button had fallen off the bottom of it.",
+    "The Upgrade Bench list is sorted by tier, highest first.",
+    "Settings \u203a Account has an OFFLINE PROGRESS switch. It is on by default; turning it off means time away pays nothing, and turning it back on starts counting from then rather than paying for the whole absence.",
+    "Fixed being put back at a portal after an update. With multiplayer off the game only reported your position every thirty seconds and never reported where you stopped walking, so a reload restored you to whatever it last heard \u2014 often the spot a map change had written.",
+  ],
   "0.771": [
     "Confirmations are the game's own window now, not the browser's. Upgrading, destroying an item, spending Gems and resetting your character all ask in a WildStat frame with OK and Cancel, and it opens over whatever window you asked from.",
     "Gem prompts show the arithmetic: what it costs, what you hold, and what you are left with. No more closing the prompt to go and check your balance.",
@@ -2210,6 +2216,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.772": "2026-09-22",
   "0.771": "2026-09-22",
   "0.770": "2026-09-22",
   "0.769": "2026-09-22",

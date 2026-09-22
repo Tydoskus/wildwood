@@ -1,3 +1,4 @@
+import { installOfflineProgressSetting } from "./ui/offline-progress-setting";
 import { runtimeMapBalance } from '../shared/map-balance-runtime';
 import { installStatTracker } from './ui/stat-tracker';
 import { createStatTrackerSource } from './ui/stat-tracker-source';
@@ -1357,9 +1358,11 @@ import {
   let observedCoopSessionGeneration = 0;
 
   let offlineProgressSummary: ReturnType<typeof createOfflineProgressSummary> | undefined;
+  let offlineProgressSetting: { refresh: () => void } | undefined;
   function updateHud(force = false) {
     runtimeHud.updateHud(force);
     offlineProgressSummary?.showPending();
+    offlineProgressSetting?.refresh();
   }
 
   let minimizeMaximizedChat = () => {};
@@ -1878,7 +1881,7 @@ import {
     now: () => Date.now(), release: () => coop?.releaseWindow?.() ?? null,
     forcedUpdateRequired: () => coop?.accountState?.().updating === true,
     playing: () => session.hasStarted(), pause: paused => setGameplayPause("scheduled-update", paused),
-    save: () => saveProgress(true), drain: async () => await coop?.drainForUpdate?.() ?? true,
+    save: () => { saveProgress(true); coop?.syncMovementState?.(player.x, player.y, 0, 0, "keyboard", true); }, drain: async () => await coop?.drainForUpdate?.() ?? true,
     acknowledge: async id => { await coop?.acknowledgeRelease?.(id); },
     rememberSession: version => coop?.prepareUpdateReload?.(version) ?? false,
     render: createScheduledUpdateView(),
@@ -2045,6 +2048,7 @@ import {
   });
   chatRuntime.init();
   installGameTicker(gameElements.chatPanel, localStorage, () => coop?.patreonSupporterNames?.() ?? []);
+  offlineProgressSetting = installOfflineProgressSetting(document, () => coop);
   minimizeMaximizedChat = chatRuntime.minimize;
 
   createAutoFarmPanel({

@@ -25,7 +25,11 @@ import { describe, expect, it } from "vitest";
 // composition root can supply with the coop session, the pause registry and
 // whether the world is playable yet. Its formatting, its dialog and its
 // show-once rule live in offline-progress-summary.ts.
-const MAX_LINES = 2_197;
+// 2_201: the offline-progress setting's wiring. It is an account preference,
+// so only the composition root can hand it the coop session, and only the HUD
+// tick knows when a subscription has changed it. The button, its busy state
+// and its rendering live in offline-progress-setting.ts.
+const MAX_LINES = 2_201;
 const TARGET_LINES = 1_000;
 
 describe("game composition boundary", () => {
