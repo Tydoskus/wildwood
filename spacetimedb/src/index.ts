@@ -18,6 +18,7 @@ import { grantVirtualPlayerConsent, revokeVirtualPlayerConsent } from "./virtual
 import { applyEnemyRewards } from "../../shared/enemy-defeats";
 import { offlineProgressTables, beginOfflineWindow, grantOfflineProgress, acknowledgeOfflineProgress, setSimulatedTimeAway } from "./offline-progress";
 import { playerOfflinePreference, writeOfflinePreference } from "./offline-preference";
+import { ERASURE_ROW_BUDGET, eraseIdentityRows, linkedIdentities, requireErasureConfirmation } from "./account-erasure";
 import { LOADOUT_FIELDS } from "../../shared/combat-progress";
 import { chatHeartAllowance, chatReactionCooldown, chatReactionSummary, playerChatHearts, reactionCountsFor, chatReaction, readChatReactions, setChatReaction, removeMessageReactions, removeAccountReactions } from "./chat-reactions";
 import { regularEnemyLootCursor, rollRegularEnemyLoot } from "./regular-enemy-loot";
@@ -5624,6 +5625,51 @@ export const setOfflineProgressEnabled = spacetimedb.reducer({ enabled: t.bool()
   requireControllingPlayer(ctx);
   writeOfflinePreference(ctx, enabled);
 });
+
+/**
+ * Erase every trace of an account, for a verified deletion request.
+ *
+ * Resumable on purpose: a reducer's execution budget will not carry the larger
+ * tables in one pass, so this deletes what it can and says whether anything is
+ * left. Run it until `complete` is true and the row count reaches zero. It is
+ * the same work each time, so a repeat is harmless.
+ *
+ * A guest half of the account goes with it — analytics_conversion says which
+ * identities are the same person, and leaving one behind is not erasure.
+ *
+ * What this cannot do: remove the SpacetimeAuth account itself, or anything
+ * held by a provider. Those are separate administrative steps, and a request
+ * is not finished until they are done. The queue row is deleted here only
+ * because it is one of this account's rows; that is not a claim the wider
+ * workflow is complete.
+ */
+export const devEraseAccount = spacetimedb.reducer(
+  { identityHex: t.string(), confirmation: t.string(), reason: t.string() },
+  (ctx, { identityHex, confirmation, reason }) => {
+    if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_erase_account");
+    requireErasureConfirmation(confirmation);
+    if (!reason.trim() || reason.length > 500) throw new SenderError("Record why this account is being erased.");
+    let target: any;
+    try { target = Identity.fromString(identityHex); }
+    catch { throw new SenderError("That is not an identity."); }
+    if (isDeveloperIdentity(target)) throw new SenderError("Refusing to erase a developer identity.");
+
+    const identities = linkedIdentities(ctx, target);
+    const displayName = ctx.db.playerProfile.identity.find(target)?.displayName ?? "";
+    const result = eraseIdentityRows(ctx, identities, ERASURE_ROW_BUDGET);
+
+    // Written before the sweep's own audit row could be caught by a later
+    // pass, and outside the erased account's rows, so the record survives it.
+    recordModerationAction(ctx, {
+      targetIdentity: identityHex, targetName: displayName,
+      channel: "account", action: result.complete ? "Account erased" : "Account erasure in progress",
+      reason, actorType: "owner", rule: "privacy-erasure",
+      before: JSON.stringify({ identities: identities.map((id: any) => id.toHexString()) }),
+      after: JSON.stringify({ deleted: result.deleted, complete: result.complete, remaining: result.remaining }),
+    });
+    console.warn("Account erasure", JSON.stringify({ identityHex, ...result }));
+  },
+);
 
 /** The summary has been shown. Nothing else about the window changes. */
 export const acknowledgeOfflineSummary = spacetimedb.reducer({}, (ctx) => {
