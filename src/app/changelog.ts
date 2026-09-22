@@ -1,5 +1,6 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.768": [
+    "Regular enemies give triple the armour and double the health they did. Farming the camps that drop them is now worth doing instead of waiting on a boss.",
     "Fixed Prestige telling you to clear an Endless stage you had already cleared. The window was reading your Endless progress only while you stood on an Endless map, and zero from everywhere else.",
     "Black Boots are a flat +25 move speed, in combat as well as out of it. No more waiting five seconds after a fight to get your speed back.",
     "Enemies get back up to full chase speed twice as quickly, and every chaser now tops out at 242: just under a fully researched runner, instead of a different speed per enemy.",
@@ -68,7 +69,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
   ],
   "0.753": [
     "Prestige is here. Once Aegis Prime is down, trade your run for a permanent bonus: every prestige adds 10% to the stats each kill grants and banks a perk point.",
-    "Prestige clears your stats, research, equipment and every map unlock, so the next one is earned from the forest up. Your name, gems, bought bag slots and upgrade bench stay.",
+    "Prestige clears your stats, equipment and every map unlock, so the next one is earned from the forest up. Your tech research, name, gems, bought bag slots and upgrade bench stay.",
     "The Prestige button sits in your profile and stays greyed out until the first Endless map is open.",
   ],
   "0.752": [

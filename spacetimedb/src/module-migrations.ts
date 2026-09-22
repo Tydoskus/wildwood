@@ -25,6 +25,8 @@ import {
 import { MAGMALISK_ID, TEMPEST_KIRIN_ID, MIREMAW_ID, DREADREAPER_ID, VOLTWARDEN_ID, GRAVEBLOOM_ID } from "./boss-combat";
 import { NAME_CHANGE_COOLDOWN_MS } from "../../shared/name-change";
 import { publishRebalanceMail } from "./mailbox";
+import { forgetBalanceCaches } from "./map-balance";
+import { defaultBalanceSettings } from "../../shared/map-balance";
 import { migrateGuildTags } from "./player-name-tags";
 import { compressLegacyMapPower } from "../../shared/map-power-rescale";
 import { rescaleEndgameProgress, rescaleRankingConflict, rescaleRankingStats } from "../../shared/endgame-power-rescale";
@@ -35,7 +37,7 @@ import { generateMap, isProceduralMap, proceduralMapId, proceduralMapNumber } fr
 import { balanceApologyTransactionReference, isBalanceApologyEligible } from "./balance-apology";
 import { BALANCE_APOLOGY_GEM_GIFT } from "../../shared/gems";
 
-export const MODULE_MIGRATION_VERSION = 35;
+export const MODULE_MIGRATION_VERSION = 36;
 
 export type ModuleMigrationDeps = {
   MAP_ARRIVALS: Record<string, { x: number; y: number }>;
@@ -501,9 +503,31 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     // shipped. The rebase archive contains the last complete research row for
     // those players, so restore it without reducing any progress earned since.
     if (currentVersion < 35) restorePrestigeResearch(ctx);
+    // 36: the balance panel's own multipliers are now base values, so a stored
+    // revision still holding them would apply each one a second time. Land a
+    // fresh all-defaults revision with the publish that bakes them, not after.
+    if (currentVersion < 36) resetBalanceToBakedDefaults(ctx);
     const next = { id: 0, version: MODULE_MIGRATION_VERSION };
     if (state) ctx.db.moduleMigrationState.id.update(next);
     else ctx.db.moduleMigrationState.insert(next);
+  }
+
+  /**
+   * Every tuned multiplier the panel carried has been folded into the base
+   * numbers, so the live configuration has to go back to 1 in the same publish.
+   * Saved revisions are kept: they are the record of what was live when, and
+   * rolling back to one would knowingly re-apply its factors.
+   */
+  function resetBalanceToBakedDefaults(ctx: any) {
+    const head = ctx.db.mapBalanceHead.id.find(0);
+    if (!head) return;
+    const revision = head.revision + 1;
+    ctx.db.mapBalanceVersion.insert({
+      revision, settingsJson: JSON.stringify(defaultBalanceSettings()),
+      editor: ctx.sender, createdAt: ctx.timestamp,
+    });
+    ctx.db.mapBalanceHead.id.update({ id: 0, revision });
+    forgetBalanceCaches();
   }
 
   function restorePrestigeResearch(ctx: any) {

@@ -39,13 +39,18 @@ it.each(["tutorial_forest", "beginner_desert", "ion_citadel", "endless_40"])("re
   expect(f.bosses.state(mapId)!.encounter).not.toBe(before.encounter);
 });
 
-it.each(["tutorial_forest", "beginner_desert", "ion_citadel", "endless_40"])("regenerates %s at 0.1 percent of max HP per second without reviving defeated bosses", map => {
+it.each([
+  ["tutorial_forest", .0002],
+  ["beginner_desert", .001],
+  ["ion_citadel", .001],
+  ["endless_40", .001],
+] as const)("regenerates %s at its own fraction of max HP per second without reviving defeated bosses", (map, fraction) => {
   const f = fixture(); f.map(map);
   const maxHp = f.bosses.state(map)!.hp;
   f.bosses.hit(map, maxHp / 2);
   for (let i = 0; i < 10; i++) f.bosses.update(.1);
-  expect(f.bosses.state(map)!.hp / maxHp).toBeCloseTo(.501, 8);
-  f.bosses.update(1_000);
+  expect(f.bosses.state(map)!.hp / maxHp).toBeCloseTo(.5 + fraction, 8);
+  f.bosses.update(1 / fraction);
   expect(f.bosses.state(map)!.hp).toBe(maxHp);
   f.bosses.hit(map, maxHp); f.bosses.update(1);
   expect(f.bosses.state(map)).toMatchObject({ alive: false, hp: 0 });

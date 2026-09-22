@@ -88,7 +88,7 @@ it("persists gradual regeneration and clears stale damage after a full heal", ()
   const f = fixture(), first = f.create(), map = "tutorial_forest";
   const hp = first.bosses.state(map)!.hp;
   first.bosses.hit(map, hp / 2); first.bosses.update(10); first.memory.flush();
-  expect(f.create().bosses.state(map)!.hp / hp).toBeCloseTo(.51);
-  first.bosses.update(1_000);
+  expect(f.create().bosses.state(map)!.hp / hp).toBeCloseTo(.502);
+  first.bosses.update(5_000);
   expect(f.create().bosses.state(map)!.hp).toBe(hp);
 });

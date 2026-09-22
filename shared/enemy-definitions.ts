@@ -1,5 +1,5 @@
 import { ENEMY_TOP_CHASE_SPEED } from "./rules";
-import { CURRENT_ROLE_LANES, SNOWLANDS_TUNING, laneCombatValue, laneRewardValue,
+import { CURRENT_ROLE_LANES, SNOWLANDS_TUNING, campaignEnemyHealthScale, laneCombatValue, laneRewardValue,
   desertLaneCombatValue, desertLaneRewardValue, type ForestProgressionLane,
 } from "./progression";
 
@@ -49,7 +49,7 @@ function postForestLaneBalance(role: PostForestRole, mapIndex: number): Pick<Ene
     ...combat,
     ...(mapIndex >= 3 && ["raider", "guardian", "oracle"].includes(role)
       ? { speed: campaignMeleeChaseSpeed(mapIndex) } : {}),
-    hp: combat.hp * (mapIndex === 1 ? .05 : mapIndex === 2 ? SNOWLANDS_TUNING.enemyHealth : 1),
+    hp: combat.hp * campaignEnemyHealthScale(mapIndex),
     damage: combat.damage * (mapIndex === 2 ? SNOWLANDS_TUNING.enemyDamage : 1),
     reward: desertLaneRewardValue(lane, mapIndex - 1),
   };
@@ -60,7 +60,7 @@ function healthEliteBalance(mapIndex: number): Pick<EnemyDefinition, "hp" | "dam
   return {
     ...combat,
     ...(mapIndex >= 3 ? { speed: campaignMeleeChaseSpeed(mapIndex) } : {}),
-    hp: combat.hp * (mapIndex === 1 ? .05 : mapIndex === 2 ? SNOWLANDS_TUNING.enemyHealth : 1),
+    hp: combat.hp * campaignEnemyHealthScale(mapIndex),
     damage: combat.damage * (mapIndex === 2 ? SNOWLANDS_TUNING.enemyDamage : 1),
     reward: desertLaneRewardValue("King Slime", mapIndex - 1),
   };

@@ -1,5 +1,5 @@
 import { regularMapLoot } from './regular-map-loot';
-import { BOSS_REGEN_FRACTION_PER_SECOND } from './boss-regeneration';
+import { bossRegenFractionFor } from './boss-regeneration';
 import { generatedEnemyArt } from "./procedural-enemy-art";
 import * as rules from './rules';
 import { ENEMY_TYPES, type EnemyKind } from './enemy-definitions';
@@ -107,7 +107,7 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
     }));
     if (result.boss) {
       result.boss.respawnSeconds *= factors.bossRespawn ?? 1;
-      result.boss.regenFraction = BOSS_REGEN_FRACTION_PER_SECOND * (factors.bossRegen ?? 1);
+      result.boss.regenFraction = bossRegenFractionFor(mapId) * (factors.bossRegen ?? 1);
     }
   }
   for (const n of [result.boss?.hp, result.boss?.damage, ...Object.values(result.boss?.rewards ?? {}), ...Object.values(result.lanes).flatMap(row => [row.hp, row.damage, row.reward.amount])]) {

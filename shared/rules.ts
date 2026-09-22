@@ -8,6 +8,7 @@ import {
   DRAGON_REWARD_DAMAGE as TUTORIAL_DRAGON_REWARD,
   MAP_STAT_GROWTH, MAP_TARGET_SECONDS, BOSS_TARGET_SECONDS,
   SNOWLANDS_TUNING,
+  TUTORIAL_BOSS_HEALTH_SCALE,
 } from "./progression";
 
 export const WORLD_WIDTH = 4800;
@@ -106,7 +107,7 @@ const bossHealthAt = (mapIndex: number) => mapIndex === 0 ? BOSS_BASE_MAX_HP : d
 const bossRewardAt = (stat: "damage" | "health" | "armor" | "regen", mapIndex: number) =>
   bossRewardValue(stat, mapIndex - 1);
 
-export let DRAGON_MAX_HP = bossHealthAt(0);
+export let DRAGON_MAX_HP = bossHealthAt(0) * TUTORIAL_BOSS_HEALTH_SCALE;
 export let SPIDER_MAX_HP = 160_000;
 export let FROSTCLAW_MAX_HP = bossHealthAt(2) * SNOWLANDS_TUNING.bossHealth;
 export let MAGMALISK_MAX_HP = bossHealthAt(3);

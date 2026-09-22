@@ -1,4 +1,4 @@
-import {desertBossHealthAt, bossRewardValue, BOSS_BASE_MAX_HP, SNOWLANDS_TUNING} from "../../../shared/progression";
+import {desertBossHealthAt, bossRewardValue, BOSS_BASE_MAX_HP, SNOWLANDS_TUNING, TUTORIAL_BOSS_HEALTH_SCALE} from "../../../shared/progression";
 import {afterEach, describe, expect, it, vi} from "vitest";
 import {createGameBootstrap} from "./game-bootstrap";
 import {BOSS_AREA_KNOCKBACK_DURATION, SPIDER_WEB_RANGE, bossAreaKnockbackDistance, createBossController} from "./boss-controller";
@@ -12,7 +12,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe("Dragon boss", () => {
   it("starts at the shared tutorial health balance", () => {
     const { boss } = createGameBootstrap();
-    expect(DRAGON_MAX_HP).toBe(BOSS_BASE_MAX_HP);
+    expect(DRAGON_MAX_HP).toBe(BOSS_BASE_MAX_HP * TUTORIAL_BOSS_HEALTH_SCALE);
     expect(boss.maxHp).toBe(DRAGON_MAX_HP);
     expect(boss.hp).toBe(DRAGON_MAX_HP);
   });

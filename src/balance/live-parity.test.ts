@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { defaultBalanceSettings, resolveMapBalance } from "../../shared/map-balance";
+import { bossRegenFractionFor } from "../../shared/boss-regeneration";
 import { ENEMY_TYPES } from "../../shared/enemy-definitions";
 import { createEmptyResearchRanks } from "../../shared/research";
-import { BOSS_REGEN_FRACTION_PER_SECOND, bossHitsToDefeat } from "../../shared/boss-regeneration";
+import { bossHitsToDefeat } from "../../shared/boss-regeneration";
 import { LIVE_BALANCE } from "./live-balance";
 import { createMapDefinitions, createSites, simulateExistingPlayer, type ExistingPlayerSimulation } from "./simulator";
 import { minimumReadinessKills } from "./kill-budget";
@@ -37,7 +38,7 @@ describe("Balance Lab uses the game's resolved balance contract", () => {
     expect(tuned.boss!.rewards[0].amount).toBe(base.boss!.rewards[0].amount * .3);
     expect(tuned.balance!.regularRespawnSeconds).toBe(40);
     expect(tuned.balance!.boss!.respawnSeconds).toBe(base.balance!.boss!.respawnSeconds * 3);
-    expect(tuned.balance!.boss!.regenFraction).toBe(BOSS_REGEN_FRACTION_PER_SECOND * 4);
+    expect(tuned.balance!.boss!.regenFraction).toBe(bossRegenFractionFor("tutorial_forest") * 4);
     const drop = tuned.regularDrops[0], original = base.regularDrops[0];
     expect(drop.numerator! / drop.denominator).toBeCloseTo(original.numerator! / original.denominator * 2);
     expect(createSites(tuned)[0].definition!.hp).toBe(createSites(base)[0].definition!.hp * 2);

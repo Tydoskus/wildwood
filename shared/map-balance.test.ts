@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { defaultBalanceSettings, resolveMapBalance, validateBalanceSettings, BALANCE_MAPS } from './map-balance';
+import { bossRegenFractionFor } from './boss-regeneration';
 import { enemyDefeatDefinition } from './enemy-defeats';
 import { personalBossDefinition } from './personal-bosses';
 import { installMapBalance } from './map-balance-runtime';
@@ -45,7 +46,7 @@ it('version 2 carries resolved respawn, regeneration and loot while legacy clien
   expect(legacy.regularRespawnSeconds).toBeUndefined(); expect(legacy.loot).toBeUndefined();
   expect(current.regularRespawnSeconds).toBe(40);
   expect(current.boss!.respawnSeconds).toBe(legacy.boss!.respawnSeconds * 3);
-  expect(current.boss!.regenFraction).toBe(.0005);
+  expect(current.boss!.regenFraction).toBe(bossRegenFractionFor('tutorial_forest') * .5);
   const base = resolveMapBalance('tutorial_forest', defaultBalanceSettings(), 0);
   expect(current.loot!.map(d => d.wins / d.outcomes)).toEqual(base.loot!.map(d => d.wins / d.outcomes * 2));
   installMapBalance(current);

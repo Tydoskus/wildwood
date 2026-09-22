@@ -1,15 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { damageAfterArmor } from "./combat";
 import { desertLaneCombatValue, desertLaneRewardValue, referenceBuildForMap, ENCOUNTER_PROFILES,
-  DESERT_REFERENCE, FOREST_LANE_BASES, desertBossHealthAt, bossHeavyHitAt, MAP_STAT_GROWTH, CAMPAIGN_ENEMY_REWARD_MULTIPLIERS, CURRENT_ROLE_LANES, campaignEnemyRewardMultiplier } from "./progression";
+  DESERT_REFERENCE, FOREST_LANE_BASES, desertBossHealthAt, bossHeavyHitAt, MAP_STAT_GROWTH, CAMPAIGN_ENEMY_REWARD_MULTIPLIERS, CURRENT_ROLE_LANES, campaignEnemyRewardMultiplier, regularRewardStatScale } from "./progression";
 
 describe("encounter experience contract", () => {
-  it("awards 36 health for a Desert regent", () => {
-    expect(desertLaneRewardValue("King Slime", 0)).toEqual({ type: "health", amount: 36 });
+  it("awards 72 health for a Desert regent", () => {
+    expect(desertLaneRewardValue("King Slime", 0)).toEqual({ type: "health", amount: 72 });
   });
-  it("awards 18 health for Desert archers and 2 armor for guards", () => {
-    expect(desertLaneRewardValue("Bramble", 0)).toEqual({ type: "health", amount: 18 });
-    expect(desertLaneRewardValue("Mossback", 0)).toEqual({ type: "armor", amount: 2 });
+  it("awards 36 health for Desert archers and 6 armor for guards", () => {
+    expect(desertLaneRewardValue("Bramble", 0)).toEqual({ type: "health", amount: 36 });
+    expect(desertLaneRewardValue("Mossback", 0)).toEqual({ type: "armor", amount: 6 });
+  });
+  it("leaves damage and regen lanes where they were", () => {
+    // Only the two stats bosses were outclassing move; the rest of the lap
+    // keeps its value, so the comparison between camps stays meaningful.
+    expect(regularRewardStatScale("damage")).toBe(1);
+    expect(regularRewardStatScale("regen")).toBe(1);
+    expect(regularRewardStatScale("speed")).toBe(1);
+    expect(regularRewardStatScale("armor")).toBe(3);
+    expect(regularRewardStatScale("health")).toBe(2);
   });
   it("awards 6 damage for a Desert raider", () => {
     expect(desertLaneRewardValue("Cindermaw", 0)).toEqual({ type: "damage", amount: 6 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createGameBootstrap } from "./runtime/game-bootstrap";
 import { createWorldLayout, createSpawnSites, mapSpawnCamps } from "./world";
+import { campaignEnemyHealthScale } from "../../shared/progression";
 import { ENEMY_TYPES } from "./enemies";
 import { mapVisualTheme } from "./map-design";
 import { MAP_ASSET_GROUPS } from "./runtime/map-asset-groups";
@@ -14,7 +15,8 @@ describe("Verdant Catacombs", () => {
     expect(mapConfig.verdant_catacombs.portal.destination).toBe("neon_bastion");
     expect(GRAVEBLOOM_MAX_HP / VOLTWARDEN_MAX_HP).toBeCloseTo(3);
     expect(BOSS_DAMAGE_REFERENCE.gravebloom).toBeGreaterThan(BOSS_DAMAGE_REFERENCE.voltwarden);
-    expect(ENEMY_TYPES["Mossbound Stalker"].hp / ENEMY_TYPES["Circuit Prowler"].hp).toBeCloseTo(3);
+    expect(ENEMY_TYPES["Mossbound Stalker"].hp / ENEMY_TYPES["Circuit Prowler"].hp)
+      .toBeCloseTo(3 * campaignEnemyHealthScale(13) / campaignEnemyHealthScale(12));
   });
   it("has connected roads, five complete camps and a clear boss arena", () => {
     const map = "verdant_catacombs";

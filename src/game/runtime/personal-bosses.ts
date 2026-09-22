@@ -1,5 +1,5 @@
 import { runtimeMapBalance } from '../../../shared/map-balance-runtime';
-import { BOSS_REGEN_FRACTION_PER_SECOND } from "../../../shared/boss-regeneration";
+import { bossRegenFractionFor } from "../../../shared/boss-regeneration";
 import { personalBossDefinition } from "../../../shared/personal-bosses";
 import type { RespawnMemory } from './respawn-memory';
 import type { BossFightMemory } from './boss-fight-memory';
@@ -58,7 +58,7 @@ export function createPersonalBosses(options: {
       const current = state(options.mapId());
       if (!current?.alive || current.hp >= current.maxHp) return;
       const row = states.get(current.mapId)!;
-      row.hp = Math.min(row.maxHp, row.hp + row.maxHp * (runtimeMapBalance(row.mapId)?.boss?.regenFraction ?? BOSS_REGEN_FRACTION_PER_SECOND) * dt);
+      row.hp = Math.min(row.maxHp, row.hp + row.maxHp * (runtimeMapBalance(row.mapId)?.boss?.regenFraction ?? bossRegenFractionFor(row.mapId)) * dt);
       if (row.hp >= row.maxHp) options.fights?.clear();
       else options.fights?.remember(row.mapId, row.hp, row.maxHp);
     },

@@ -11,7 +11,23 @@ export const REGULAR_REWARD_CYCLE_SCALE = .6 * (52 * 60 / MAP_TARGET_SECONDS) * 
 // Crystal Hollows, Clockwork Ruins, Duskfall Orchard, Neon Bastion, Verdant Catacombs, Ion Citadel. Match Desert's farming
 // time with authored camp density; CAMPAIGN_REWARD_PACING below applies the current duration target.
 // Snowlands gets a modest catch-up bonus, still below Lava's per-role payouts.
-export const CAMPAIGN_ENEMY_REWARD_MULTIPLIERS: readonly number[] = [1.0, 1.25, 1.5, 0.975, 0.799, 0.648, 0.554, 0.417, 0.362, 0.332, 0.301, 0.275, 0.253, 0.232];
+// Indexed by desert-relative tier: 0 Desert, 1 Snowlands, 2 Lava, and so on.
+// Tiers 2 to 6 carry what the live balance panel was multiplying on top of
+// them, so the panel now reads 1 everywhere and these are the only numbers.
+export const CAMPAIGN_ENEMY_REWARD_MULTIPLIERS: readonly number[] = [1.0, 1.25, 3.0, 1.95, 1.1985, 0.972, 0.831, 0.417, 0.362, 0.332, 0.301, 0.275, 0.253, 0.232];
+/**
+ * Indexed by campaign map: 1 Desert, 2 Snowlands, ... 12 Neon Bastion. Desert's
+ * fights are deliberately short, and the rest are the panel's own health
+ * multipliers folded in, so a fresh configuration starts at 1.
+ */
+export const CAMPAIGN_ENEMY_HEALTH_SCALE: readonly number[] = [
+  1, .1, .26, 1, 1, 1, .5, 1, 1, 1, 1, 1, .7, 1, 1,
+];
+export function campaignEnemyHealthScale(mapIndex: number) {
+  return CAMPAIGN_ENEMY_HEALTH_SCALE[mapIndex] ?? 1;
+}
+/** The first boss anyone meets, fought without a built stat line behind it. */
+export const TUTORIAL_BOSS_HEALTH_SCALE = 2;
 // Calibrated with flat equipment and balanced research for about 128 active
 // solo hours through Ion. Forest/Desert remain unchanged; later maps carry the
 // extra time. These affect regular AND boss payouts, preventing a boss-farm bypass.
@@ -82,9 +98,20 @@ export function laneCombatValue(lane: ForestProgressionLane, mapIndex: number) {
   const scale = combatMultiplierForMap(mapIndex);
   return { hp: base.hp * scale, damage: base.damage * scale };
 }
+/**
+ * A boss capstone was outpacing the camps that drop armour and health, so
+ * nobody cleared them: the armour lane and both health lanes were skipped on
+ * every lap. These raise the two stats regular enemies are the only source of.
+ * Boss rewards are untouched, which is what closes the gap.
+ */
+export const REGULAR_REWARD_STAT_SCALE: Partial<Record<RewardStat, number>> = { armor: 3, health: 2 };
+export function regularRewardStatScale(stat: RewardStat) {
+  return REGULAR_REWARD_STAT_SCALE[stat] ?? 1;
+}
+
 export function laneRewardValue(lane: ForestProgressionLane, mapIndex: number) {
   const base = FOREST_LANE_BASES[lane].reward;
-  return { ...base, amount: base.amount * (base.type === "speed" ? 1 : rewardMultiplierForMaps(mapIndex)) };
+  return { ...base, amount: base.amount * (base.type === "speed" ? 1 : rewardMultiplierForMaps(mapIndex)) * regularRewardStatScale(base.type) };
 }
 export function desertLaneCombatValue(lane: ForestProgressionLane, mapIndex: number) {
   const build = referenceBuildForMap(mapIndex);
@@ -104,7 +131,7 @@ export function desertLaneRewardValue(lane: ForestProgressionLane, mapIndex: num
   }
   const damageSitesBudget = roster.raider * ENCOUNTER_PROFILES.Cindermaw.rewardShare + roster.reaper * ENCOUNTER_PROFILES["Dread Warden"].rewardShare;
   const density = profile.stat === "damage" ? damageBudget / damageSitesBudget : 1;
-  return { type: profile.stat, amount: base * profile.rewardShare * REGULAR_REWARD_CYCLE_SCALE * density * campaignEnemyRewardMultiplier(mapIndex) };
+  return { type: profile.stat, amount: base * profile.rewardShare * REGULAR_REWARD_CYCLE_SCALE * density * campaignEnemyRewardMultiplier(mapIndex) * regularRewardStatScale(profile.stat) };
 }
 export const DESERT_LANE_BASES = Object.fromEntries(Object.keys(ENCOUNTER_PROFILES).map(key => {
   const lane = key as ForestProgressionLane;
