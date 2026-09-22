@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.775": [
+    "The game now notices that the server has been answering you while you play, so coming back to the window interrupts you even less often. It was only ever recording that while connecting, which made the check that decides whether to bother you useless after the first half minute.",
+  ],
   "0.774": [
     "Switching to another window no longer interrupts you so quickly. A hidden tab is given two minutes rather than twenty seconds before returning to it counts as waking from a long absence, so a glance at something else comes back to the game exactly as you left it. A connection that has genuinely dropped is still picked up immediately.",
   ],
@@ -2222,6 +2225,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.775": "2026-09-22",
   "0.774": "2026-09-22",
   "0.773": "2026-09-22",
   "0.772": "2026-09-22",
