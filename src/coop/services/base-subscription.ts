@@ -400,6 +400,11 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       // everyone's. One small row per prestiged player.
       tables.playerPrestige,
       tables.playerPrestigePerk.where((prestigePerk) => prestigePerk.identity.eq(dependencies.identity)),
+      // Prestige asks for a number of cleared Endless stages, and the window
+      // that says so opens anywhere. Subscribing this only while standing on
+      // an Endless map left the panel reading zero from everywhere else, so a
+      // player who had cleared the stage was told to go and clear it.
+      tables.proceduralProgress.where((row) => row.identity.eq(dependencies.identity)),
       tables.playerItemUpgrade.where((upgrade) => upgrade.identity.eq(dependencies.identity)),
       tables.activeItemUpgrade.where((upgrade) => upgrade.identity.eq(dependencies.identity)),
       tables.activeItemUpgradeSlotTwo.where((upgrade) => upgrade.identity.eq(dependencies.identity)),

@@ -81,5 +81,6 @@ export const ATTACK_RANGE_ZOOM_REFERENCE = 155;
 export const MIN_CAMERA_ZOOM = 0.5;
 export const REGULAR_ENEMY_AGGRO_PADDING = 15;
 export const ENEMY_HIT_MIN_MOVE_SPEED = 1;
-export const ENEMY_HIT_SPEED_RECOVERY_SECONDS = 3;
+/** Enemies climb back to full chase speed in half the time they used to. */
+export const ENEMY_HIT_SPEED_RECOVERY_SECONDS = 1.5;
 export const RANGED_PROJECTILE_SPEED = 165 * 3;

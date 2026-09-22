@@ -1320,8 +1320,7 @@ function travelSeconds(
   pathingMultiplier: number,
 ) {
   const approachDistance = Math.max(0, Math.hypot(to.x - from.x, to.y - from.y) - DEFAULT_ATTACK_RANGE * .72);
-  return simulationTravelSeconds(approachDistance * pathingMultiplier, state.research.moveSpeed, state.bootsEquipped,
-    state.time - (state.lastCombatAt ?? -Infinity));
+  return simulationTravelSeconds(approachDistance * pathingMultiplier, state.research.moveSpeed, state.bootsEquipped);
 }
 
 function projectedRewardPowerGain(

@@ -1,5 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.768": [
+    "Fixed Prestige telling you to clear an Endless stage you had already cleared. The window was reading your Endless progress only while you stood on an Endless map, and zero from everywhere else.",
+    "Black Boots are a flat +25 move speed, in combat as well as out of it. No more waiting five seconds after a fight to get your speed back.",
+    "Enemies get back up to full chase speed twice as quickly, and every chaser now tops out at 242: just under a fully researched runner, instead of a different speed per enemy.",
     "Samurai Garden has new cherry trees, and they cast a shadow like every other map's trees do.",
     "Samurai Garden runs as smoothly as the other maps. Its trees were the only ones drawn stroke by stroke every frame, which is why zone 7 felt heavier than the rest, especially on Firefox and older phones.",
   ],

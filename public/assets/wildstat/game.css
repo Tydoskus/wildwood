@@ -2823,7 +2823,7 @@
   .profile-stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 0; overflow: hidden; border: 0; border-radius: 6px; background: transparent; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
   .profile-stat-column { display: block; min-width: 0; margin: 0; }
   .profile-stat-column:first-child { border-right: 0; }
-  .profile-stat-column > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .7fr); grid-template-rows: minmax(26px, auto); column-gap: 6px; align-content: start; align-items: center; min-width: 0; min-height: 26px; padding: 0 8px; border: 0; border-bottom: 0; border-radius: 0; background: transparent; cursor: pointer; }
+  .profile-stat-column > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .7fr); grid-template-rows: minmax(20px, auto); column-gap: 6px; align-content: start; align-items: center; min-width: 0; min-height: 20px; padding: 0 8px; border: 0; border-bottom: 0; border-radius: 0; background: transparent; cursor: pointer; }
   .profile-stat-column > div.is-expanded { background: transparent; }
   .profile-stat-column > div:hover { background: transparent; }
   .profile-stat-column > div:focus-visible { z-index: 1; outline: 2px solid rgba(105,229,111,.8); outline-offset: -2px; }

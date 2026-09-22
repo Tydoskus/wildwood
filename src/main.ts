@@ -698,7 +698,6 @@ import {
   });
 
   playerCombat = createPlayerCombatController({
-    onCombat: travelSpeed.markCombat,
     onEnemyDefeated: () => onboarding?.enemyDefeated() ?? false,
     player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss,
     nowSeconds: () => session?.gameTime() ?? 0,

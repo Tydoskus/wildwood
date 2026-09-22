@@ -5,6 +5,7 @@ import { ENEMY_CROWD_SPACING_RATIO, separateEnemyCrowd } from "./enemy-crowd-sep
 import { createEnemyLifecycle } from "./enemy-lifecycle";
 import { createEnemySimulation } from "./enemy-simulation";
 import { ENEMY_TYPES } from "../enemies";
+import { ENEMY_TOP_CHASE_SPEED, MAX_PLAYER_MOVEMENT_SPEED } from "../../../shared/rules";
 import type { EnemyState, PlayerState } from "./types";
 
 function playerAt(x: number, y: number): PlayerState {
@@ -595,28 +596,53 @@ it("uses the ramp on the very first aggro frame without restarting it on repeate
   expect(ramp).toBe(.5);
 });
 
-it.each([30, 60, 120])("Duskfall melee narrowly catches a 252-speed player at %i fps", fps => {
+it.each([30, 60, 120])("Duskfall melee holds its ceiling but never catches a maxed runner at %i fps", fps => {
   const definition = ENEMY_TYPES["Gourd Prowler"];
+  expect(definition.speed).toBe(ENEMY_TOP_CHASE_SPEED);
   const enemy = { ...idleEnemyAt(500, 1000), type: "Gourd Prowler" as const,
     speed: definition.speed, r: definition.r, leashRange: 420 };
   const player = playerAt(650, 1000);
   const lifecycle = createEnemyLifecycle([enemy], [], () => {});
-  // Already pursuing: first aggro is covered above; verify final speed and
-  // the normal leash, without artificially extending the chase range.
+  // Already pursuing: first aggro is covered above; verify the sustained speed
+  // and that a fully researched runner keeps its last step.
   engage(enemy, "local-player");
-  let hits = 0, travel = 0;
+  let hits = 0, travel = 0, fastest = 0;
   const sim = createEnemySimulation([enemy], () => {}, player,
     () => ({ width: 800, height: 800, zoom: 1 }), lifecycle.engageEnemy,
     () => { hits++; return true; });
   // Translate both actors back together to avoid testing the world boundary.
   for (let i = 0; i < fps * 80 && !hits; i++) {
-    player.x += 252 / fps;
+    player.x += MAX_PLAYER_MOVEMENT_SPEED / fps;
     sim.update(1 / fps);
-    travel += 252 / fps;
+    travel += MAX_PLAYER_MOVEMENT_SPEED / fps;
     if (player.x > 3000) { player.x -= 2000; enemy.x -= 2000; }
-    expect(Math.hypot(enemy.vx, enemy.vy)).toBeLessThanOrEqual(260.0001);
+    const speed = Math.hypot(enemy.vx, enemy.vy);
+    expect(speed).toBeLessThanOrEqual(ENEMY_TOP_CHASE_SPEED + .0001);
+    fastest = Math.max(fastest, speed);
   }
-  expect(travel).toBeGreaterThan(252 * 3);
+  expect(travel).toBeGreaterThan(MAX_PLAYER_MOVEMENT_SPEED * 3);
+  expect(hits).toBe(0);
+  // It does reach its ceiling while pursuing, rather than stalling below it,
+  // and still loses the runner: outpaced, it leashes home instead of catching.
+  expect(fastest).toBeGreaterThan(ENEMY_TOP_CHASE_SPEED - 1);
+});
+
+it("catches a runner who has not finished their move speed research", () => {
+  const definition = ENEMY_TYPES["Gourd Prowler"];
+  const enemy = { ...idleEnemyAt(500, 1000), type: "Gourd Prowler" as const,
+    speed: definition.speed, r: definition.r, leashRange: 100_000 };
+  const player = playerAt(650, 1000);
+  const lifecycle = createEnemyLifecycle([enemy], [], () => {});
+  engage(enemy, "local-player");
+  let hits = 0;
+  const sim = createEnemySimulation([enemy], () => {}, player,
+    () => ({ width: 800, height: 800, zoom: 1 }), lifecycle.engageEnemy,
+    () => { hits++; return true; });
+  const fps = 60;
+  for (let i = 0; i < fps * 200 && !hits; i++) {
+    player.x += (ENEMY_TOP_CHASE_SPEED - 20) / fps;
+    sim.update(1 / fps);
+    if (player.x > 3000) { player.x -= 2000; enemy.x -= 2000; }
+  }
   expect(hits).toBe(1);
-  expect(enemy.moveSpeedRecovery).toBe(0);
 });

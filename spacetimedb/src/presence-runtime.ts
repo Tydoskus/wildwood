@@ -433,14 +433,14 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
     const moving = Math.abs(boundedVx) > 1e-6 || Math.abs(boundedVy) > 1e-6;
     const compatibilitySpeed = Math.max(1e-6, Number.isFinite(current.speed) ? current.speed : PLAYER_SPEED);
     const requestedSpeed = Math.hypot(boundedVx, boundedVy);
-    // Resolve the server-owned movement speeds from the
-    // progress snapshot as well, especially the temporary +25 Black Boots
-    // state, so legitimate clients are not recorded as speed violations.
+    // Black Boots are a flat bonus, so a wearer has one speed rather than an
+    // in-combat and an out-of-combat one. The saved row can still lag a rank
+    // that just finished, so the bound is the highest of what we know.
     const progress = ctx.db.playerProgress.identity.find(ctx.sender);
     const expectedSpeed = progress ? effectiveMovementSpeedForProgress(ctx, progress) : compatibilitySpeed;
-    const blackBootsSpeed = progress && equippedFeetForProgress(progress) === BLACK_BOOTS
+    const bootedSpeed = progress && equippedFeetForProgress(progress) === BLACK_BOOTS
       ? expectedSpeed + BLACK_BOOTS_SPEED_BONUS : expectedSpeed;
-    const allowedSpeed = Math.max(compatibilitySpeed, expectedSpeed, blackBootsSpeed);
+    const allowedSpeed = Math.max(compatibilitySpeed, expectedSpeed, bootedSpeed);
     if (moving && requestedSpeed > allowedSpeed + MOVEMENT_SPEED_PACKET_TOLERANCE) {
       const evidence = { mapId: current.mapId, requestedSpeed, serverSpeed: compatibilitySpeed, allowedSpeed };
       console.warn("Movement speed validation", JSON.stringify({

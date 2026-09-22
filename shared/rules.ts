@@ -21,6 +21,17 @@ export const PLAYER_BASE_REGEN = 0.2;
 export const PLAYER_SPEED = 180;
 export const BOOTS_SPEED_BONUS = 0;
 export const MOVE_SPEED_RESEARCH_BONUS_PER_RANK = .02;
+/** Move Speed research: five ranks per band across four bands. */
+export const MAX_MOVE_SPEED_RESEARCH_RANK = 20;
+/** A fully researched build wearing no speed boots. */
+export const MAX_PLAYER_MOVEMENT_SPEED = Math.round(PLAYER_SPEED * (1 + MAX_MOVE_SPEED_RESEARCH_RANK * MOVE_SPEED_RESEARCH_BONUS_PER_RANK));
+/**
+ * Every chasing enemy tops out just under a maxed runner, so the chase stays
+ * tense and a finished build always keeps the last step. Speed boots widen
+ * that gap further, which is what they are for.
+ */
+export const ENEMY_CHASE_SPEED_MARGIN = 10;
+export const ENEMY_TOP_CHASE_SPEED = MAX_PLAYER_MOVEMENT_SPEED - ENEMY_CHASE_SPEED_MARGIN;
 export const MAX_MOVEMENT_SPEED_OVERRIDE = 2_000;
 export const MOVEMENT_SPEED_EPSILON = .01;
 export const PLAYER_PROJECTILE_SPEED = 1_000;

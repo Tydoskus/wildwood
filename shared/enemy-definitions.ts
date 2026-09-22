@@ -1,3 +1,4 @@
+import { ENEMY_TOP_CHASE_SPEED } from "./rules";
 import { CURRENT_ROLE_LANES, SNOWLANDS_TUNING, laneCombatValue, laneRewardValue,
   desertLaneCombatValue, desertLaneRewardValue, type ForestProgressionLane,
 } from "./progression";
@@ -31,9 +32,14 @@ function forestLaneBalance(lane: ForestProgressionLane): Pick<EnemyDefinition, "
   };
 }
 
-/** Fixed progression, never rubber-banded to the current player's speed. */
+/**
+ * Fixed progression, never rubber-banded to the current player's speed. The
+ * climb reaches its ceiling early so mid-campaign maps already feel chased,
+ * and the ceiling itself sits a step under a maxed runner.
+ */
+export const CHASE_SPEED_RAMP_PER_MAP = 5;
 export function campaignMeleeChaseSpeed(mapIndex: number): number {
-  return mapIndex < 3 ? 205 : Math.min(275, 220 + (mapIndex - 3) * 5);
+  return mapIndex < 3 ? 205 : Math.min(ENEMY_TOP_CHASE_SPEED, 230 + (mapIndex - 3) * CHASE_SPEED_RAMP_PER_MAP);
 }
 
 function postForestLaneBalance(role: PostForestRole, mapIndex: number): Pick<EnemyDefinition, "hp" | "damage" | "reward"> & { speed?: number } {
@@ -42,7 +48,7 @@ function postForestLaneBalance(role: PostForestRole, mapIndex: number): Pick<Ene
   return {
     ...combat,
     ...(mapIndex >= 3 && ["raider", "guardian", "oracle"].includes(role)
-      ? { speed: Math.max(role === "raider" ? 230 : role === "oracle" ? 220 : 205, campaignMeleeChaseSpeed(mapIndex)) } : {}),
+      ? { speed: campaignMeleeChaseSpeed(mapIndex) } : {}),
     hp: combat.hp * (mapIndex === 1 ? .05 : mapIndex === 2 ? SNOWLANDS_TUNING.enemyHealth : 1),
     damage: combat.damage * (mapIndex === 2 ? SNOWLANDS_TUNING.enemyDamage : 1),
     reward: desertLaneRewardValue(lane, mapIndex - 1),

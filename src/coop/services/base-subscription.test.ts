@@ -89,4 +89,15 @@ describe("world state on the root connection", () => {
     f.subscription.refresh(true, "beginner_desert", false);
     expect(f.requests).toHaveLength(1);
   });
+
+  it("carries the windows that open away from their own map", () => {
+    const f = fixture();
+    f.subscription.refresh(true, "tutorial_forest", false);
+    const game = f.requests[0].queries;
+    // Prestige asks for cleared Endless stages and opens from anywhere, so
+    // reading that count must not depend on standing on an Endless map.
+    for (const name of ["proceduralProgress", "playerPrestige"]) {
+      expect(game.some(q => q.name === name), name).toBe(true);
+    }
+  });
 });

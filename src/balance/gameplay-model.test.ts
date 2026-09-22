@@ -26,11 +26,10 @@ describe("simulator parity with gameplay", () => {
   });
 
   it("only gives Black Boots' flat speed bonus after five seconds without combat", () => {
-    expect(simulationTravelSeconds(900, 0, true, 0)).toBe(5);
-    expect(simulationTravelSeconds(1105, 0, true, 0)).toBe(6);
-    expect(simulationTravelSeconds(205, 0, true, 5)).toBe(1);
-    expect(simulationTravelSeconds(205, 0, false, 100)).toBeCloseTo(205 / 180);
-    // Research scales base speed; it does not multiply the flat boots bonus.
-    expect(simulationTravelSeconds(241, 10, true, 5)).toBe(1);
+    // Black Boots are flat now: 205/s with them, 180/s without.
+    expect(simulationTravelSeconds(205, 0, true)).toBeCloseTo(1);
+    expect(simulationTravelSeconds(900, 0, true)).toBeCloseTo(900 / 205);
+    expect(simulationTravelSeconds(205, 0, false)).toBeCloseTo(205 / 180);
+    expect(simulationTravelSeconds(241, 10, true)).toBeCloseTo(241 / (180 * 1.2 + 25));
   });
 });
