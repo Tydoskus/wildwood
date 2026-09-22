@@ -66,9 +66,9 @@ describe("prestige panel", () => {
     expect(s.pick("status").textContent).toContain("Aegis Prime");
   });
 
-  it("does not send a prestige it can see has not been earned, and says what is missing", () => {
-    // The button is present and the requirement is beside it, rather than a
-    // press that reaches the server only to come back refused.
+  it("holds back only while the campaign itself is unfinished", () => {
+    // The campaign is the one requirement this client can be sure of, because
+    // it reads it from its own progress row.
     const run = vi.fn(async () => ({ ok: false, error: "Clear Endless 2 before prestiging." }));
     const s = setup({ unlocked: false, run, row: { level: 1, perkPoints: 0, peakPower: 5 } });
     click(s.pick("open"));
@@ -78,6 +78,19 @@ describe("prestige panel", () => {
     click(s.pick("confirm"));
     expect(run).not.toHaveBeenCalled();
     expect(s.pick("status").textContent).toBeTruthy();
+  });
+
+  it("sends a prestige the server may yet allow when its own Endless count lags", () => {
+    // Toephu had cleared Endless 1 and the server agreed, but this window read
+    // zero and greyed the button out. An unknown count must not refuse.
+    const run = vi.fn(async () => ({ ok: true }));
+    const s = setup({ unlocked: true, completed: 0, run, row: { level: 1, perkPoints: 0, peakPower: 5 } });
+    s.controller.refresh(true);
+    click(s.pick("open"));
+    expect(s.pick("confirm").disabled).toBe(false);
+    click(s.pick("confirm"));
+    click(s.pick("confirm"));
+    expect(run).toHaveBeenCalled();
   });
 
   it("shows the standing bonus and what the next prestige pays", () => {
@@ -201,10 +214,11 @@ describe("each prestige asks for one Endless stage more", () => {
     const short = setup({ unlocked: true, completed: 0, row: { level: 1, perkPoints: 1, peakPower: 5 } });
     short.controller.refresh(true);
     click(short.pick("open"));
-    // Present and explained, but not pressable: the stage it needs is right
-    // there in the status line rather than behind a press that fails.
+    // Explained, and still pressable. A client that reads zero stages may
+    // simply not have the row yet, and refusing on that reading is what told
+    // Toephu to clear a boss he had already beaten. The server decides.
     expect(short.pick("confirm").hidden).toBe(false);
-    expect(short.pick("confirm").disabled).toBe(true);
+    expect(short.pick("confirm").disabled).toBe(false);
     expect(short.pick("status").textContent).toContain("Endless 1 boss");
     const ready = setup({ unlocked: true, completed: 1, row: { level: 1, perkPoints: 1, peakPower: 5 } });
     ready.controller.refresh(true);

@@ -28,7 +28,6 @@ export const BLACK_BOOTS = "black_boots";
 export const BLACK_BOOTS_DROP_DENOMINATOR = 50;
 export const BLACK_BOOTS_SPEED_BONUS = 25;
 export const BLACK_BOOTS_COMBAT_DELAY_MS = 5_000;
-export const TRAILBLAZER_BOOTS = "trailblazer_boots";
 export const STARTER_STONE = "starter_stone";
 export const STARTER_BOW = "starter_bow";
 export const IRON_BOW = "iron_bow";
@@ -41,6 +40,8 @@ export const FROST_ARMOR = "frost_armor";
 export const MAGMA_ARMOR = "magma_armor";
 export const WOODEN_ARMOR = "wooden_armor";
 export const FOREST_ITEM_DROP_DENOMINATOR = 25;
+/** The paper hat is a one-in-a-hundred find, not starting equipment. */
+export const PAPER_HAT_DROP_DENOMINATOR = 100;
 export const DESERT_ITEM_DROP_DENOMINATOR = 50;
 export const SNOW_ITEM_DROP_DENOMINATOR = 50;
 // Per-enemy odds match the later-map equipment range, independent of kill batching.
@@ -125,7 +126,8 @@ export const ITEM_DEFINITIONS = {
     cosmeticOnly: true,
     name: "BASIC PAPER HAT",
     slot: "HEAD",
-    acquisition: "STARTER",
+    // A rare find in the forest rather than something everyone opens with.
+    acquisition: "FOREST_DROP",
     description: "A folded brown paper hat. No stats, just style.",
     stats: ["NO STATS"],
   },
@@ -177,15 +179,6 @@ export const ITEM_DEFINITIONS = {
     slot: "CHEST",
     acquisition: "DEVELOPER",
     description: "White gold plate with a legendary gleam. Cosmetic only.",
-    stats: ["COSMETIC · NO STATS"],
-  },
-  [TRAILBLAZER_BOOTS]: {
-    id: TRAILBLAZER_BOOTS,
-    cosmeticOnly: true,
-    name: "TRAILBLAZER BOOTS",
-    slot: "FEET",
-    acquisition: "PROGRESSION",
-    description: "Your starting leather boots. No stats, just style.",
     stats: ["COSMETIC · NO STATS"],
   },
   [BLACK_BOOTS]: {

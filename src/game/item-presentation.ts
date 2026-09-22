@@ -26,7 +26,6 @@ import {
   STARTER_BOW,
   STARTER_STONE,
   SUPERIOR_GOLDEN_HELMET,
-  TRAILBLAZER_BOOTS,
   WOOD_FULL_HELM,
   WOODEN_ARMOR,
   type ItemId,
@@ -155,14 +154,6 @@ export const ITEM_PRESENTATIONS: Partial<Record<ItemId, ItemPresentation>> = {
   [MAGMA_ARMOR]: {
     inventory: { source: `${PLAYER_PARTS}/magma-armor.webp`, equippedWidth: 34, equippedHeight: 31 },
     world: { kind: "SPRITE", source: `${PLAYER_PARTS}/magma-armor.webp`, layer: "CHEST", width: 76, height: 68, top: 100 },
-  },
-  [TRAILBLAZER_BOOTS]: {
-    inventory: { fallback: "BOOTS" },
-    world: {
-      kind: "LEGS",
-      frontSource: `${PLAYER_PARTS}/boots-leg-front.webp`,
-      backSource: `${PLAYER_PARTS}/boots-leg-back.webp`,
-    },
   },
   [BLACK_BOOTS]: {
     inventory: { fallback: "BOOTS" },

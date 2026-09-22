@@ -3,7 +3,7 @@ import { type ConnectionId } from "spacetimedb";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { BOSS_REWARD_CLAIM_BITS, MAP_IDS, PLAYER_BASE_HP, PLAYER_SPAWN, PROTOCOL_VERSION, TUTORIAL_FOREST_MAP_ID } from "../../shared/rules";
 import { AGE_BAND_ADULT, TERMS_VERSION } from "../../shared/legal";
-import { TRAILBLAZER_BOOTS, SUPERIOR_GOLDEN_HELMET } from "../../shared/items";
+import { STARTER_STONE, SUPERIOR_GOLDEN_HELMET } from "../../shared/items";
 
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 const spawn = { mapId: TUTORIAL_FOREST_MAP_ID, ...PLAYER_SPAWN };
@@ -16,9 +16,10 @@ describe("progress reset returns the character to the tutorial", () => {
     for (let visit = 0; visit < 2; visit++) {
       f.run(server.enterWorld, { tabId: "starter-test-tab" });
       const progress = f.db.playerProgress.identity.find(f.ctx.sender);
-      expect(progress.equippedFeet).toBe(TRAILBLAZER_BOOTS);
+      // Nobody starts shod any more: Trailblazer Boots are gone entirely.
+      expect(progress.equippedFeet).toBe("");
       expect(progress.speed).toBe(180);
-      expect(JSON.parse(progress.inventoryJson)).toContain(TRAILBLAZER_BOOTS);
+      expect(JSON.parse(progress.inventoryJson)).toEqual([STARTER_STONE]);
       expect(JSON.parse(progress.inventoryJson)).not.toContain(SUPERIOR_GOLDEN_HELMET);
     }
   });
@@ -61,9 +62,9 @@ describe("progress reset returns the character to the tutorial", () => {
     expect(f.db.playerProgress.identity.find(f.ctx.sender)).toMatchObject({ introComplete: false,
       desertUnlocked: false, crystalHollowsUnlocked: false, maxHp: PLAYER_BASE_HP, bossRewardClaims: 0 });
     const progress = f.db.playerProgress.identity.find(f.ctx.sender);
-    expect(progress.equippedFeet).toBe(TRAILBLAZER_BOOTS);
+    expect(progress.equippedFeet).toBe("");
     expect(progress.bootsCollected).toBe(true);
-    expect(JSON.parse(progress.inventoryJson)).toContain(TRAILBLAZER_BOOTS);
+    expect(JSON.parse(progress.inventoryJson)).toEqual([STARTER_STONE]);
     expect(JSON.parse(progress.inventoryJson)).not.toContain(SUPERIOR_GOLDEN_HELMET);
   });
 

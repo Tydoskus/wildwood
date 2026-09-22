@@ -35,7 +35,9 @@ const SPEECH_BUBBLE_FADE_MS = 1_250;
 const SPEECH_BUBBLE_STACK_GAP = 5;
 /** The same size chat, the HUD and the profile give it. */
 const OVERHEAD_PRESTIGE_BADGE_SIZE = PRESTIGE_BADGE_PX;
-const OVERHEAD_GENDER_ICON_OFFSET_Y = -1;
+const OVERHEAD_GENDER_ICON_OFFSET_Y = 1;
+/** Tucked back towards the name, which reads tighter than a full gap. */
+const OVERHEAD_GENDER_ICON_OFFSET_X = -2;
 export const MAX_ACTIVE_SPEECH_BUBBLES_PER_PLAYER = 3;
 
 type DisplayedPlayerPowerEquipment = {
@@ -246,15 +248,27 @@ export function createPlayerIdentityRenderer(options: {
       const barX = centerX - Math.floor(barW / 2);
       const barY = -50;
       const fillWidth = Math.round(barW * clamp(hp / maxHp, 0, 1));
+      // A pill: the frame, the empty channel and the fill all share the same
+      // corner radius, so the bar reads as one rounded shape rather than a
+      // rectangle with a border painted round it.
+      const frameRadius = (barH + 4) / 2;
       ctx.fillStyle = "rgba(0,0,0,.88)";
-      ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
+      options.roundRect(barX - 2, barY - 2, barW + 4, barH + 4, frameRadius);
+      ctx.fill();
       ctx.fillStyle = "#402326";
-      ctx.fillRect(barX, barY, barW, barH);
-      ctx.fillStyle = fillColor;
-      ctx.fillRect(barX, barY, fillWidth, barH);
+      options.roundRect(barX, barY, barW, barH, barH / 2);
+      ctx.fill();
       if (fillWidth > 0) {
+        ctx.save();
+        // Clip to the channel so a part-full bar keeps the rounded left end
+        // and stops square against the clip, instead of bulging at the join.
+        options.roundRect(barX, barY, barW, barH, barH / 2);
+        ctx.clip();
+        ctx.fillStyle = fillColor;
+        ctx.fillRect(barX, barY, fillWidth, barH);
         ctx.fillStyle = "rgba(255,255,255,.25)";
         ctx.fillRect(barX, barY, fillWidth, 1);
+        ctx.restore();
       }
       ctx.save();
       ctx.font = '900 10px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
@@ -336,7 +350,7 @@ export function createPlayerIdentityRenderer(options: {
       ctx.imageSmoothingEnabled = true;
       ctx.drawImage(
         genderIcon,
-        textLeft + nameWidth + badgeGap + badgeSize + genderIconGap,
+        textLeft + nameWidth + badgeGap + badgeSize + genderIconGap + OVERHEAD_GENDER_ICON_OFFSET_X,
         nameBottom - genderIconHeight + OVERHEAD_GENDER_ICON_OFFSET_Y,
         Math.round(genderIconWidth),
         genderIconHeight,

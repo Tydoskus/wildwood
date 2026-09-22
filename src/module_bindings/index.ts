@@ -250,6 +250,7 @@ import MyGemPurchasesRow from "./my_gem_purchases_table";
 import MyGemWalletRow from "./my_gem_wallet_table";
 import MyInventoryCapacityRow from "./my_inventory_capacity_table";
 import MyItemGiftsRow from "./my_item_gifts_table";
+import MyLegalConsentRow from "./my_legal_consent_table";
 import MyMailboxV2Row from "./my_mailbox_v_2_table";
 import MyOfflinePreferenceRow from "./my_offline_preference_table";
 import MyOfflineProgressRow from "./my_offline_progress_table";
@@ -1154,6 +1155,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyItemGiftsRow),
+  myLegalConsent: __table({
+    name: 'my_legal_consent',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyLegalConsentRow),
   myMailboxV2: __table({
     name: 'my_mailbox_v2',
     indexes: [

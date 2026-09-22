@@ -1,4 +1,4 @@
-export const GAME_VERSION = "0.772";
+export const GAME_VERSION = "0.778";
 export const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
 export const SCREEN_SHAKE_ENABLED_KEY = "wildwood-screen-shake-enabled-v1";
 export const LOW_PERFORMANCE_MODE_KEY = "wildwood-low-performance-mode-v1";
@@ -40,5 +40,6 @@ export const INFERNAL_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-infernal-portal-cutsc
 export const WATER_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-water-portal-cutscene-v1";
 export const SAMURAI_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-samurai-portal-cutscene-v1";
 // Pixel-aligned height keeps floating HP text centered and crisp.
-export const WORLD_HEALTH_BAR_HEIGHT = 13;
+/** Taller and pill-shaped, so the numbers inside it have room to breathe. */
+export const WORLD_HEALTH_BAR_HEIGHT = 16;
 export const ENEMY_TEXT_CULL_MIN_DISTANCE = 600;

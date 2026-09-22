@@ -843,6 +843,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     shouldEnterWorld: (signedIn: boolean) => signedIn || guestSessionExplicit,
     legalConsentAccepted: legalConsent.accepted,
     syncLegalConsent: legalConsent.syncConnection,
+    watchLegalConsent: legalConsent.watch,
     tabId: authTabId,
     notice: () => notice,
     setNotice(value: string) { notice = value; },

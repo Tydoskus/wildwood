@@ -18,6 +18,7 @@ import { grantVirtualPlayerConsent, revokeVirtualPlayerConsent } from "./virtual
 import { applyEnemyRewards } from "../../shared/enemy-defeats";
 import { offlineProgressTables, beginOfflineWindow, grantOfflineProgress, acknowledgeOfflineProgress, setSimulatedTimeAway } from "./offline-progress";
 import { playerOfflinePreference, writeOfflinePreference } from "./offline-preference";
+import { ERASURE_ROW_BUDGET, eraseIdentityRows, linkedIdentities, requireErasureConfirmation } from "./account-erasure";
 import { LOADOUT_FIELDS } from "../../shared/combat-progress";
 import { chatHeartAllowance, chatReactionCooldown, chatReactionSummary, playerChatHearts, reactionCountsFor, chatReaction, readChatReactions, setChatReaction, removeMessageReactions, removeAccountReactions } from "./chat-reactions";
 import { regularEnemyLootCursor, rollRegularEnemyLoot } from "./regular-enemy-loot";
@@ -151,7 +152,6 @@ import {
   STARTER_STONE,
   STARTER_ITEM_IDS,
   SUPERIOR_GOLDEN_HELMET,
-  TRAILBLAZER_BOOTS,
   WOODEN_ARMOR,
 } from "../../shared/items";
 import {
@@ -386,7 +386,7 @@ const player = table(
     zoneY: t.i32().default(0),
     mapId: t.string().default(TUTORIAL_FOREST_MAP_ID),
     controllerTabId: t.string().default(""),
-    headItem: t.string().default(BASIC_PAPER_HAT),
+    headItem: t.string().default(""),
     chestItem: t.string().default(""),
     isVisible: t.bool().default(true),
     dx: t.f32().default(0),
@@ -485,7 +485,7 @@ const playerMotionIdentity = table(
     speed: t.f32().default(PLAYER_SPEED),
     powerLevel: t.f64().default(95),
     feetItem: t.string().default(""),
-    headItem: t.string().default(BASIC_PAPER_HAT),
+    headItem: t.string().default(""),
     chestItem: t.string().default(""),
     rightHandItem: t.string().default(STARTER_STONE),
     leftHandItem: t.string().default(""),
@@ -726,7 +726,7 @@ const playerProgress = table(
     inventoryJson: t.string().default("[]"),
     equippedFeet: t.string().default(""),
     desertUnlocked: t.bool().default(false),
-    equippedHead: t.string().default(BASIC_PAPER_HAT),
+    equippedHead: t.string().default(""),
     equippedChest: t.string().default(""),
     snowlandsUnlocked: t.bool().default(false),
     equippedRightHand: t.string().default(""),
@@ -926,7 +926,7 @@ const leaderboardEntry = table(
     powerLevel: t.f64().default(0),
     gender: t.u8().default(PLAYER_GENDER_UNSET),
     skinTone: t.u32().default(3),
-    headItem: t.string().default(BASIC_PAPER_HAT),
+    headItem: t.string().default(""),
     chestItem: t.string().default(""),
     feetItem: t.string().default(""),
     rightHandItem: t.string().default(STARTER_STONE),
@@ -2175,10 +2175,10 @@ function defaultPlayerProgress(identity: any) {
     regen: PLAYER_BASE_REGEN,
     speed: PLAYER_SPEED,
     bootsCollected: true,
-    inventoryJson: JSON.stringify([BASIC_PAPER_HAT, STARTER_STONE, TRAILBLAZER_BOOTS]),
-    equippedHead: BASIC_PAPER_HAT,
+    inventoryJson: JSON.stringify([STARTER_STONE]),
+    equippedHead: "",
     equippedChest: "",
-    equippedFeet: TRAILBLAZER_BOOTS,
+    equippedFeet: "",
     equippedRightHand: STARTER_STONE,
     equippedLeftHand: "",
     introComplete: false,
@@ -2396,7 +2396,7 @@ function earlierTimestamp(first: Timestamp, second: Timestamp) {
 
 function effectiveMovementSpeedForProgress(ctx: any, progress: any, research?: any) {
   return effectivePlayerMovementSpeed(
-    equippedFeetForProgress(progress) === TRAILBLAZER_BOOTS,
+    false,
     (research ?? ctx.db.playerResearch.identity.find(progress.identity))?.moveSpeed ?? 0,
     progress.speedOverride ?? 0,
   );
@@ -2820,7 +2820,6 @@ function inventoryForProgress(progress: any) {
   return [
     ...STARTER_ITEM_IDS,
     ...(developer ? DEVELOPER_ITEM_IDS : DEVELOPER_ITEM_IDS.filter(id => owned.has(id))),
-    ...(progress.bootsCollected ? [TRAILBLAZER_BOOTS] : []),
     ...Array(forestCount(STARTER_BOW, "bowCount")).fill(STARTER_BOW),
     ...Array(forestCount(WOODEN_ARMOR, "woodenArmorCount")).fill(WOODEN_ARMOR),
     ...OWNED_EQUIPMENT_DROP_IDS.filter(id => owned.has(id)),
@@ -3503,7 +3502,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
     const equippedLeftHand = equippedRightHand ? "" : equippedLeftHandForProgress(existingProgress);
     const inventoryJson = JSON.stringify(inventoryForProgress(existingProgress));
     const cosmeticEquipment = cosmeticEquipmentForProgress({ ...existingProgress, inventoryJson });
-    const speed = playerBaseMovementSpeed(equippedFeet === TRAILBLAZER_BOOTS);
+    const speed = playerBaseMovementSpeed(false);
     const maxHp = Math.max(PLAYER_BASE_HP, existingProgress.maxHp);
     if (existingProgress.maxHp !== maxHp || existingProgress.attackRange !== DEFAULT_ATTACK_RANGE || existingProgress.speed !== speed || existingProgress.inventoryJson !== inventoryJson || existingProgress.equippedHead !== equippedHead || existingProgress.equippedChest !== equippedChest || existingProgress.equippedFeet !== equippedFeet || existingProgress.equippedRightHand !== equippedRightHand || existingProgress.equippedLeftHand !== equippedLeftHand || existingProgress.cosmeticHead !== cosmeticEquipment.cosmeticHead || existingProgress.cosmeticChest !== cosmeticEquipment.cosmeticChest || existingProgress.cosmeticFeet !== cosmeticEquipment.cosmeticFeet || existingProgress.cosmeticRightHand !== cosmeticEquipment.cosmeticRightHand || existingProgress.cosmeticLeftHand !== cosmeticEquipment.cosmeticLeftHand) {
       const migratedProgress = {
@@ -4947,7 +4946,7 @@ export const devUpdatePlayerSave = spacetimedb.reducer(
       return value;
     };
     const requestedSpeed = bounded(update.speed, 0, MAX_MOVEMENT_SPEED_OVERRIDE, "Move speed");
-    const equipmentSpeed = playerBaseMovementSpeed(equippedFeetForProgress(progress) === TRAILBLAZER_BOOTS);
+    const equipmentSpeed = playerBaseMovementSpeed(false);
     const nextProgress = {
       ...progress,
       maxHp: bounded(update.maxHp, 1, MAX_PLAYER_STAT, "Max HP"),
@@ -5067,7 +5066,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       attackRange: DEFAULT_ATTACK_RANGE,
       armor: base.armor,
       regen: base.regen,
-      speed: playerBaseMovementSpeed(equippedFeet === TRAILBLAZER_BOOTS),
+      speed: playerBaseMovementSpeed(false),
       speedOverride: base.speedOverride ?? 0,
       bootsCollected,
       inventoryJson,
@@ -5617,6 +5616,19 @@ export const myOfflineProgress = spacetimedb.view(
   ctx => { const row = ctx.db.offlineProgress.identity.find(ctx.sender); return row?.pending ? [row] : []; },
 );
 
+/**
+ * The account's own consent row.
+ *
+ * Acceptance is per account and already lives on the server, but the client
+ * decided whether to ask from a token-scoped localStorage entry, so the same
+ * account was asked its age again on every new device and after every token
+ * change. This lets the client read what the account already agreed to.
+ */
+export const myLegalConsent = spacetimedb.view(
+  { name: "my_legal_consent", public: true }, t.array(playerLegalConsent.rowType),
+  ctx => { const row = ctx.db.playerLegalConsent.identity.find(ctx.sender); return row ? [row] : []; },
+);
+
 export const myOfflinePreference = spacetimedb.view(
   { name: "my_offline_preference", public: true }, t.array(playerOfflinePreference.rowType),
   ctx => { const row = ctx.db.playerOfflinePreference.identity.find(ctx.sender); return row ? [row] : []; },
@@ -5630,6 +5642,51 @@ export const setOfflineProgressEnabled = spacetimedb.reducer({ enabled: t.bool()
   requireControllingPlayer(ctx);
   writeOfflinePreference(ctx, enabled);
 });
+
+/**
+ * Erase every trace of an account, for a verified deletion request.
+ *
+ * Resumable on purpose: a reducer's execution budget will not carry the larger
+ * tables in one pass, so this deletes what it can and says whether anything is
+ * left. Run it until `complete` is true and the row count reaches zero. It is
+ * the same work each time, so a repeat is harmless.
+ *
+ * A guest half of the account goes with it — analytics_conversion says which
+ * identities are the same person, and leaving one behind is not erasure.
+ *
+ * What this cannot do: remove the SpacetimeAuth account itself, or anything
+ * held by a provider. Those are separate administrative steps, and a request
+ * is not finished until they are done. The queue row is deleted here only
+ * because it is one of this account's rows; that is not a claim the wider
+ * workflow is complete.
+ */
+export const devEraseAccount = spacetimedb.reducer(
+  { identityHex: t.string(), confirmation: t.string(), reason: t.string() },
+  (ctx, { identityHex, confirmation, reason }) => {
+    if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_erase_account");
+    requireErasureConfirmation(confirmation);
+    if (!reason.trim() || reason.length > 500) throw new SenderError("Record why this account is being erased.");
+    let target: any;
+    try { target = Identity.fromString(identityHex); }
+    catch { throw new SenderError("That is not an identity."); }
+    if (isDeveloperIdentity(target)) throw new SenderError("Refusing to erase a developer identity.");
+
+    const identities = linkedIdentities(ctx, target);
+    const displayName = ctx.db.playerProfile.identity.find(target)?.displayName ?? "";
+    const result = eraseIdentityRows(ctx, identities, ERASURE_ROW_BUDGET);
+
+    // Written before the sweep's own audit row could be caught by a later
+    // pass, and outside the erased account's rows, so the record survives it.
+    recordModerationAction(ctx, {
+      targetIdentity: identityHex, targetName: displayName,
+      channel: "account", action: result.complete ? "Account erased" : "Account erasure in progress",
+      reason, actorType: "owner", rule: "privacy-erasure",
+      before: JSON.stringify({ identities: identities.map((id: any) => id.toHexString()) }),
+      after: JSON.stringify({ deleted: result.deleted, complete: result.complete, remaining: result.remaining }),
+    });
+    console.warn("Account erasure", JSON.stringify({ identityHex, ...result }));
+  },
+);
 
 /** The summary has been shown. Nothing else about the window changes. */
 export const acknowledgeOfflineSummary = spacetimedb.reducer({}, (ctx) => {
@@ -6111,7 +6168,7 @@ export const setSpeed = spacetimedb.reducer(
     const progress = ctx.db.playerProgress.identity.find(ctx.sender);
     const research = ctx.db.playerResearch.identity.find(ctx.sender);
     const feet = progress ? equippedFeetForProgress(progress) : current.feetItem;
-    const bootsEquipped = feet === TRAILBLAZER_BOOTS;
+    const bootsEquipped = false;
     const moveSpeedRank = research?.moveSpeed ?? 0;
     const expectedSpeed = effectivePlayerMovementSpeed(bootsEquipped, moveSpeedRank, progress?.speedOverride ?? 0);
     // Regular-enemy combat runs locally. Permit its two exact movement states,

@@ -1,6 +1,16 @@
 import { reducerErrorMessage } from "./reducer-errors";
 
-export const TAB_AWAY_GRACE_MS = 20_000;
+/**
+ * How long a tab may be hidden before returning to it is treated as waking
+ * from a long absence: the overlay, and a session health check.
+ *
+ * Two minutes, raised from twenty seconds on 2026-09-22. A healthy socket
+ * survives a tab switch perfectly well, and the old window meant anyone who
+ * glanced at another window for half a minute came back to a reconnect notice
+ * for a connection that was fine. A dead transport is still caught at once, by
+ * the isActive check above this grace period rather than by waiting it out.
+ */
+export const TAB_AWAY_GRACE_MS = 120_000;
 type WakeConnection = { isActive: boolean; reducers: { resumeSession: (args: {}) => Promise<unknown> } };
 
 /** A short tab switch preserves healthy transports. A dead transport never waits

@@ -53,4 +53,4 @@ export const PRESTIGE_BADGE_ASSET = "assets/wildstat/ui/prestige-shield.svg";
  * DOM, so without a shared number the two drift apart on every layout change.
  * game.css carries the same value as --prestige-badge-size.
  */
-export const PRESTIGE_BADGE_PX = 16;
+export const PRESTIGE_BADGE_PX = 19;

@@ -1,4 +1,25 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.778": [
+    "Tidied the overhead name plate: the health bar is a taller rounded pill, the prestige shield is bigger, the gender mark sits closer to your name, and the power sword lines up with the number beside it.",
+  ],
+  "0.777": [
+    "The Basic Paper Hat is no longer handed to everyone at the start. It is a one-in-a-hundred find from forest enemies instead, so wearing one means you found one. Anyone who already has it keeps it.",
+    "Trailblazer Boots have been removed. They were cosmetic and gave no speed, and bare feet now take your character's skin tone rather than a fixed pale pair.",
+  ],
+  "0.776": [
+    "Enemies chasing you are now slightly faster than you are, rather than slightly slower. Running is no longer a free escape from a fight you started \u2014 Speed Boots are what buy you the last step back.",
+    "Your age confirmation now follows your account. Signing in on another device no longer asks you again for something you have already answered.",
+    "The tutorial's arrow points up at your Profile HUD instead of away from it, and sits under the portrait rather than off to the side.",
+  ],
+  "0.775": [
+    "The game now notices that the server has been answering you while you play, so coming back to the window interrupts you even less often. It was only ever recording that while connecting, which made the check that decides whether to bother you useless after the first half minute.",
+  ],
+  "0.774": [
+    "Switching to another window no longer interrupts you so quickly. A hidden tab is given two minutes rather than twenty seconds before returning to it counts as waking from a long absence, so a glance at something else comes back to the game exactly as you left it. A connection that has genuinely dropped is still picked up immediately.",
+  ],
+  "0.773": [
+    "Fixed Prestige refusing a prestige you had earned. If the window had not yet received your Endless progress it read zero stages and greyed the button out, telling you to clear a boss you had already beaten. It asks the server again instead.",
+  ],
   "0.772": [
     "Fixed the Upgrade Bench item list: the filter tabs were stretched down the window and the Back button had fallen off the bottom of it.",
     "The Upgrade Bench list is sorted by tier, highest first.",
@@ -2216,6 +2237,12 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.778": "2026-09-22",
+  "0.777": "2026-09-22",
+  "0.776": "2026-09-22",
+  "0.775": "2026-09-22",
+  "0.774": "2026-09-22",
+  "0.773": "2026-09-22",
   "0.772": "2026-09-22",
   "0.771": "2026-09-22",
   "0.770": "2026-09-22",

@@ -596,7 +596,7 @@ it("uses the ramp on the very first aggro frame without restarting it on repeate
   expect(ramp).toBe(.5);
 });
 
-it.each([30, 60, 120])("Duskfall melee holds its ceiling but never catches a maxed runner at %i fps", fps => {
+it.each([30, 60, 120])("Duskfall melee holds its ceiling and gains on a maxed runner at %i fps", fps => {
   const definition = ENEMY_TYPES["Gourd Prowler"];
   expect(definition.speed).toBe(ENEMY_TOP_CHASE_SPEED);
   const enemy = { ...idleEnemyAt(500, 1000), type: "Gourd Prowler" as const,
@@ -604,7 +604,7 @@ it.each([30, 60, 120])("Duskfall melee holds its ceiling but never catches a max
   const player = playerAt(650, 1000);
   const lifecycle = createEnemyLifecycle([enemy], [], () => {});
   // Already pursuing: first aggro is covered above; verify the sustained speed
-  // and that a fully researched runner keeps its last step.
+  // and that it runs down even a fully researched runner. Boots are the escape.
   engage(enemy, "local-player");
   let hits = 0, travel = 0, fastest = 0;
   const sim = createEnemySimulation([enemy], () => {}, player,
@@ -621,13 +621,13 @@ it.each([30, 60, 120])("Duskfall melee holds its ceiling but never catches a max
     fastest = Math.max(fastest, speed);
   }
   expect(travel).toBeGreaterThan(MAX_PLAYER_MOVEMENT_SPEED * 3);
-  expect(hits).toBe(0);
-  // It does reach its ceiling while pursuing, rather than stalling below it,
-  // and still loses the runner: outpaced, it leashes home instead of catching.
+  // It reaches its ceiling while pursuing rather than stalling below it, and
+  // that ceiling is above the runner, so the chase closes and it connects.
   expect(fastest).toBeGreaterThan(ENEMY_TOP_CHASE_SPEED - 1);
+  expect(hits).toBeGreaterThan(0);
 });
 
-it("chases a beginner a step behind their own speed, not at its authored pace", () => {
+it("chases a beginner a step ahead of their own speed, not at its authored pace", () => {
   // The same enemy against a fresh player: it must not run at the late-game
   // number a finished build is measured against.
   const definition = ENEMY_TYPES["Gourd Prowler"];
@@ -647,9 +647,10 @@ it("chases a beginner a step behind their own speed, not at its authored pace", 
     if (player.x > 3000) { player.x -= 2000; enemy.x -= 2000; }
     fastest = Math.max(fastest, Math.hypot(enemy.vx, enemy.vy));
   }
-  expect(fastest).toBeGreaterThan(beginner - 11);
-  expect(fastest).toBeLessThan(beginner - 9);
-  // Well under the ceiling a maxed runner is measured against.
+  expect(fastest).toBeGreaterThan(beginner + 9);
+  expect(fastest).toBeLessThan(beginner + 11);
+  // Well under the ceiling a maxed runner is measured against: a beginner is
+  // chased a step faster than they move, not at the late game's number.
   expect(fastest).toBeLessThan(ENEMY_TOP_CHASE_SPEED - 50);
 });
 

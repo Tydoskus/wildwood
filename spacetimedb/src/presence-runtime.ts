@@ -15,7 +15,7 @@ import { generatedMapUnlocked } from "./procedural-maps";
 import { updateSnapshotRow } from "./snapshot-row-writes";
 import { generateMap, isProceduralMap, PROCEDURAL_ENTRY_BOSS } from "../../shared/procedural-maps";
 import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_WORLD_WIDTH, HOME_WORLD_HEIGHT } from "../../shared/home";
-import { BASIC_PAPER_HAT, BLACK_BOOTS, BLACK_BOOTS_SPEED_BONUS } from "../../shared/items";
+import { BLACK_BOOTS, BLACK_BOOTS_SPEED_BONUS } from "../../shared/items";
 import { PLAYER_MAP_FRAME_HZ, PLAYER_VELOCITY_SCALE, type PlayerMotionSample } from "../../shared/player-motion-frame";
 import { PLAYER_MOTION_DETAIL_FRAME_HZ } from "../../shared/player-motion-interest";
 import { analyticalPlayerMotionAt } from "../../shared/analytical-player-motion";
@@ -204,7 +204,7 @@ export function syncPlayerMotionIdentity(ctx: any, activePlayer: any, known?: { 
     speed: Number.isFinite(activePlayer.speed) ? Math.max(0, activePlayer.speed) : PLAYER_SPEED,
     powerLevel: Number.isFinite(activePlayer.powerLevel) ? Math.max(0, activePlayer.powerLevel) : 0,
     feetItem: activePlayer.feetItem ?? "",
-    headItem: activePlayer.headItem ?? BASIC_PAPER_HAT,
+    headItem: activePlayer.headItem ?? "",
     chestItem: activePlayer.chestItem ?? "",
     rightHandItem: activePlayer.rightHandItem ?? "",
     leftHandItem: activePlayer.leftHandItem ?? "",

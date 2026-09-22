@@ -11,7 +11,7 @@ import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { SenderError } from "spacetimedb/server";
 import { deleteSnapshotRow, insertSnapshotRow, updateSnapshotRow } from "./snapshot-row-writes";
 import { RESEARCH_DEFINITIONS, shouldBackfillLegacyRegeneration } from "../../shared/research";
-import { STARTER_BOW, STARTER_STONE, TRAILBLAZER_BOOTS, WOODEN_ARMOR } from "../../shared/items";
+import { STARTER_BOW, STARTER_STONE, WOODEN_ARMOR } from "../../shared/items";
 import { normalizeSlotTier, upgradeSlotForItem } from "../../shared/slot-upgrades";
 import {
   ATTACK_BALANCE_VERSION,
@@ -91,8 +91,7 @@ export type ModuleMigrationDeps = {
 export function createModuleMigrations(deps: ModuleMigrationDeps) {
   const {
     MAP_ARRIVALS, MAINTENANCE_INTERVAL_MICROS, UPGRADE_BENCH_SLOT_ONE, inventoryForProgress,
-    equippedRightHandForProgress, equippedLeftHandForProgress, equippedFeetForProgress,
-    equipmentPresentationForProgress, forestItemCountForProgress, cancelActiveItemUpgrade,
+    equippedRightHandForProgress, equippedLeftHandForProgress,     equipmentPresentationForProgress, forestItemCountForProgress, cancelActiveItemUpgrade,
     itemUpgradeLevelFor, effectiveMovementSpeedForProgress, powerFieldsForProgress,
     effectivePowerForProgress, effectivePowerStatsForProgress, playerWithMotion,
     syncPlayerMotionIdentity, persistWorldLocation, transitionPlayerMap, refreshLeaderboard,
@@ -204,7 +203,8 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
       // historical base values that predate the current 180/+25 equipment rule.
       const legacyDerivedSpeeds = [175, 180, 200, 205];
       for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
-        const equipmentSpeed = playerBaseMovementSpeed(equippedFeetForProgress(progress) === TRAILBLAZER_BOOTS);
+        // Trailblazer Boots never granted speed, and no longer exist.
+        const equipmentSpeed = playerBaseMovementSpeed(false);
         const storedSpeed = Number(progress.speed);
         const existingOverride = Number(progress.speedOverride ?? 0);
         const isLegacyDerivedSpeed = legacyDerivedSpeeds.some((speed) => movementSpeedsMatch(storedSpeed, speed));

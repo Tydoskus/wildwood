@@ -21,7 +21,10 @@ export function drawPlayerPowerLabel(
   outlinedText(value, left, bottom, "#ffffff", 4);
   if (hasIcon) {
     ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(icon, left + textWidth + iconGap, bottom - iconSize + 1, iconSize, iconSize);
+      // Centred on the digits rather than sitting on their baseline: the glyphs
+    // are cap-height, so the icon's middle belongs a little above the bottom.
+    const textHeight = 12;
+    ctx.drawImage(icon, left + textWidth + iconGap, bottom - textHeight / 2 - iconSize / 2, iconSize, iconSize);
   }
   ctx.restore();
 }

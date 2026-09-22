@@ -1,4 +1,4 @@
-import type { DbConnection } from "../../module_bindings";
+import { tables, type DbConnection } from "../../module_bindings";
 import {
   TERMS_VERSION,
   isEligiblePlayerAgeBand,
@@ -40,6 +40,37 @@ export function createLegalConsentService(dependencies: LegalConsentDependencies
     catch { return null; }
   })();
 
+  /**
+   * What the account itself agreed to, read from the server.
+   *
+   * Local storage is a cache and it is keyed by token, so on another device,
+   * or after a token change, it is empty and the player was asked their age
+   * again for an account that had already answered. The server's row is the
+   * truth; this adopts it.
+   */
+  function adoptServerConsent(connection: DbConnection) {
+    // A connection may be mid-setup, or a test double without this view.
+    const row = [...(connection.db?.myLegalConsent?.iter?.() ?? [])][0];
+    if (!row || row.termsVersion !== TERMS_VERSION || !isEligiblePlayerAgeBand(row.ageBand)) return;
+    const next = { termsVersion: TERMS_VERSION, ageBand: row.ageBand } satisfies StoredLegalConsent;
+    if (consent?.termsVersion === next.termsVersion && consent.ageBand === next.ageBand) return;
+    // Record it as already synced, so adopting the account's own answer does
+    // not send it straight back as a fresh acceptance.
+    synced.set(connection, { key: `${next.termsVersion}:${next.ageBand}`, pending: Promise.resolve() });
+    store(next);
+    dependencies.notify();
+  }
+
+  /** Watch the row, so a session that connects before it arrives catches up. */
+  function watch(connection: DbConnection) {
+    const read = () => adoptServerConsent(connection);
+    const table = connection.db?.myLegalConsent;
+    if (!table) return;
+    table.onInsert(read);
+    table.onUpdate(read);
+    connection.subscriptionBuilder().onApplied(read).subscribe([tables.myLegalConsent]);
+  }
+
   function store(next: StoredLegalConsent) {
     consent = next;
     try { dependencies.storage.setItem(dependencies.storageKey, JSON.stringify(next)); } catch {}
@@ -61,6 +92,7 @@ export function createLegalConsentService(dependencies: LegalConsentDependencies
   }
 
   async function syncConnection(connection: DbConnection) {
+    adoptServerConsent(connection);
     if (!consent) return false;
     try {
       await sendToServer(connection, consent);
@@ -111,6 +143,7 @@ export function createLegalConsentService(dependencies: LegalConsentDependencies
     acceptAge,
     accepted: () => consent?.termsVersion === TERMS_VERSION,
     syncConnection,
+    watch,
   };
 }
 
