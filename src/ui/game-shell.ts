@@ -162,14 +162,14 @@ const afterUpdateGateShell = String.raw`
           <div id="profilePrestigeRow" hidden><dt>PRESTIGE</dt><dd id="profilePrestige">—</dd></div>
           <div><dt>STATUS</dt><dd id="profileOnline">—</dd></div>
         </dl>
+        <div id="profileSafetyActions" class="profile-safety-actions" hidden>
+          <button id="profileReportBtn" type="button">Report</button>
+          <button id="profileBlockBtn" type="button">Block</button>
+        </div>
       </section>
       <section id="profileStatsPanel" class="profile-panel" role="tabpanel" aria-labelledby="profileStatsTab">
         <div id="profileStatGrid" class="profile-stat-grid"></div>
       </section>
-    </div>
-    <div id="profileSafetyActions" class="profile-safety-actions" hidden>
-      <button id="profileReportBtn" type="button">Report Player</button>
-      <button id="profileBlockBtn" type="button">Block Player</button>
     </div>
     </div>
     <footer class="window-back-footer">

@@ -3,19 +3,35 @@ import { MULTIPLAYER_TOGGLE_COOLDOWN_MS as COOLDOWN_MS } from "../../shared/mult
 
 const STORAGE_KEY = "wildstat-show-other-players";
 
-/** Keep the chosen mode separate from temporary idle hiding. */
+/**
+ * Multiplayer starts off, every session.
+ *
+ * Presence is the expensive thing the server does, and most sessions never
+ * look at another player. Signing in, reconnecting and reloading all begin
+ * with the eye off, and anyone who wants to be seen taps it — one tap, and it
+ * stays on for as long as they keep playing.
+ *
+ * The one exception is finishing the tutorial: a brand new player should walk
+ * out of it and see the other new players around them, so `enableForTutorial`
+ * turns it on once at that moment.
+ *
+ * The stored preference is therefore no longer read at startup. It is still
+ * written, because the idle and update paths read it to tell an explicit "off"
+ * from a temporary one.
+ */
 export function createPlayerVisibilityToggle(options: {
   button: HTMLButtonElement;
   setVisible: (visible: boolean) => void;
   storage?: Pick<Storage, "getItem" | "setItem">;
 }) {
-  let enabled = true;
-  let visible = true;
+  let enabled = false;
+  let visible = false;
+  /** The tutorial's one automatic switch-on, which never fires twice. */
+  let tutorialEnabled = false;
   let cooldownUntil = 0;
   let suspended = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  try { enabled = options.storage?.getItem(STORAGE_KEY) !== "false"; } catch { /* Storage may be unavailable. */ }
-  visible = enabled;
+  try { options.storage?.setItem(STORAGE_KEY, "false"); } catch { /* Storage may be unavailable. */ }
   options.button.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="player-visibility-slash" d="m4 3 16 18"/></svg><span class="player-visibility-idle" aria-hidden="true"></span><span class="player-visibility-countdown" aria-hidden="true"></span>`;
   const countdown = options.button.querySelector<HTMLElement>(".player-visibility-countdown")!;
   const idleLabel = options.button.querySelector<HTMLElement>(".player-visibility-idle")!;
@@ -71,6 +87,21 @@ export function createPlayerVisibilityToggle(options: {
       idle.setEnabled(false);
       refresh();
       options.setVisible(false);
+    },
+    /**
+     * The tutorial has just been completed. This is the only thing that turns
+     * multiplayer on without the player asking, so someone stepping out of
+     * their first fight sees the others doing the same.
+     */
+    enableForTutorial() {
+      if (suspended || tutorialEnabled || enabled) return;
+      tutorialEnabled = true;
+      enabled = true;
+      visible = true;
+      try { options.storage?.setItem(STORAGE_KEY, "true"); } catch { /* Keep the session value. */ }
+      idle.setEnabled(true);
+      refresh();
+      options.setVisible(true);
     },
     noteManualMovement() {
       if (suspended || !enabled || options.button.ownerDocument.hidden) return;

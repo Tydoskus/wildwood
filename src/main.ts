@@ -1931,6 +1931,9 @@ import {
     if (onboarding?.isActive()) return;
     if (onboarding?.required()) {
       onboarding.start(() => {
+        // The one automatic switch-on: a new player leaves their first fight
+        // and sees the others doing the same. Everyone else taps the eye.
+        playerVisibility.enableForTutorial();
         canvasRuntime.resize();
         setCurrentMap(TUTORIAL_FOREST_MAP_ID);
         loadProgress();
