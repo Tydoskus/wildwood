@@ -1,3 +1,5 @@
+import { WOODEN_ARMOR } from "./items";
+
 export type EquipmentAppearanceInput = {
   equippedHead: string;
   equippedChest: string;
@@ -38,7 +40,12 @@ export function resolveEquipmentAppearance(equipment: EquipmentAppearanceInput):
   const hasCosmeticHand = Boolean(cosmeticRightHand || cosmeticLeftHand);
   return {
     headItem: resolvedSlotAppearance(equipment.cosmeticHead, equipment.equippedHead),
-    chestItem: resolvedSlotAppearance(equipment.cosmeticChest, equipment.equippedChest),
+    // The wooden armour is the default body: a character with no chest reads
+    // as dressed rather than bare. A hidden cosmetic still shows nothing,
+    // because that is a choice the player made.
+    chestItem: isHiddenCosmeticItem(equipment.cosmeticChest)
+      ? ""
+      : equipment.cosmeticChest || equipment.equippedChest || WOODEN_ARMOR,
     feetItem: resolvedSlotAppearance(equipment.cosmeticFeet, equipment.equippedFeet),
     rightHandItem: hasCosmeticHand ? resolvedSlotAppearance(cosmeticRightHand, "") : equipment.equippedRightHand,
     leftHandItem: hasCosmeticHand ? resolvedSlotAppearance(cosmeticLeftHand, "") : equipment.equippedLeftHand,
