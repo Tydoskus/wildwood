@@ -5,11 +5,18 @@ Maincloud (`wildwood-coop`, one database — sharding was removed in 0.766).
 
 ## Shipping a version
 
+**Ryan runs the command that ships. Every time.** Claude works on a branch, gets it
+green, hands over the exact command and stops. That covers committing to `main`
+(the post-commit hook pushes and deploys straight to players), the server publish,
+and any production `spacetime sql` write. Ryan can waive it for one change by
+saying so; the waiver does not carry to the next one.
+
 The client and the server deploy by completely separate routes. A commit ships the
 client by itself; it never touches the server.
 
-**Client (automatic).** Committing to `main` auto-pushes — `.githooks/post-commit`,
-main only, not branches. The push triggers `.github/workflows/pages.yml`, which runs
+**Client (Ryan commits).** Committing to `main` auto-pushes — `.githooks/post-commit`,
+main only, not branches. That is why Claude does not commit there: the commit *is*
+the deploy. The push triggers `.github/workflows/pages.yml`, which runs
 `check:release`, `typecheck:coop`, `test:unit`, `build:client` and deploys to GitHub
 Pages. That is the only deploy this repository performs, and the live site it is
 checked against is `https://tydoskus.github.io/wildwood/version.json`.
@@ -56,6 +63,10 @@ release flow, not the web version bump. `spacetime:publish:cloud` is the raw CLI
 publish with no preflight — prefer `spacetime:publish:live`.
 
 ## Verification
+
+Before handing anything over, run all of these, and say plainly what they do not
+cover — none of them sees layout, feel or a running game. `npm run dev:local`
+serves the client against the local `wildwood-balance-local` database for that.
 
 There is no `npm run typecheck`. Use:
 
