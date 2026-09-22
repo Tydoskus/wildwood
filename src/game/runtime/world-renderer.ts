@@ -176,6 +176,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     }
   })();
   let staticTileWorkerEnabled = Boolean(staticTileWorker);
+  /** Tree-bounds count the cached tiles were baked with; -1 before any bake. */
+  let bakedTreeBoundsCount = -1;
   let staticTileGeneration = 0;
   let configuredWorkerGeneration = -1;
   let sceneGeneration = -1;
@@ -410,12 +412,25 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     return tile;
   }
 
+  /**
+   * A sheet's per-variant bounds are measured off-thread, so they arrive after
+   * the image loads and can miss the first bake of a map, leaving its trees
+   * with no ground shadow. Rebake when the count changes.
+   */
+  function syncStaticTreeBounds() {
+    const count = treeSheet().bounds.length;
+    if (count === bakedTreeBoundsCount) return;
+    bakedTreeBoundsCount = count;
+    invalidateStaticWorld();
+  }
+
   function drawStaticWorld(
     offsetX = 0,
     offsetY = 0,
     extraSprites: readonly StaticWorldSpriteFrame[] = [],
     colorQuads: readonly StaticWorldColorQuadFrame[] = [],
   ) {
+    syncStaticTreeBounds();
     lavaRocksRenderedByWebGL = false;
     if (options.isArenaScene()) {
       options.staticWorldLayer?.hide();
@@ -521,6 +536,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
 
   /** Builds the visible spawn tiles first, then lets the movement ring finish in the background. */
   async function warmStaticWorld() {
+    syncStaticTreeBounds();
     if (!options.staticWorldLayer?.active() || options.isArenaScene()) return;
     const visible = visibleSize();
     const range = staticWorldTileRange(camera.x, camera.y, visible.width, visible.height);

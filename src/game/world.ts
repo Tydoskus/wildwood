@@ -441,13 +441,15 @@ function createSamuraiGardenLayout() {
   const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 350;
   const placedTrees: { x: number; y: number; radius: number }[] = [];
 
-  for (let index = 0; placedTrees.length < 148 && index < 8_000; index += 1) {
+  // The cherry artwork reads far wider than the trunk it stands on, so these
+  // are sparser and stand further off the path than the old painted trees.
+  for (let index = 0; placedTrees.length < 86 && index < 8_000; index += 1) {
     const x = 80 + seededUnit(index, 71) * (WORLD.w - 160);
     const y = 95 + seededUnit(index, 72) * (WORLD.h - 190);
     const s = .7 + seededUnit(index, 73) * .48;
-    const radius = 45 * s;
-    if (isOnPath(x, y, 68) || isNearArrival(x, y) || isNearSpawnCamp(SAMURAI_CAMPS, x, y, 115)) continue;
-    if (placedTrees.some((tree) => Math.hypot(x - tree.x, y - tree.y) < radius + tree.radius + 16)) continue;
+    const radius = 62 * s;
+    if (isOnPath(x, y, 132) || isNearArrival(x, y) || isNearSpawnCamp(SAMURAI_CAMPS, x, y, 132)) continue;
+    if (placedTrees.some((tree) => Math.hypot(x - tree.x, y - tree.y) < radius + tree.radius + 26)) continue;
     placedTrees.push({ x, y, radius });
     decor.push({ type: "tree", x: Math.round(x), y: Math.round(y), s, variant: placedTrees.length % 16 });
   }

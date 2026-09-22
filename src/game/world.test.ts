@@ -123,7 +123,15 @@ describe("Advanced Lava Lake", () => {
     expect(sites.every((site) => Math.hypot(site.x - 4050, site.y - 4050) >= 900)).toBe(true);
     expect(first).toEqual(second);
     expect(first.paths.length).toBeGreaterThanOrEqual(10);
-    expect(first.decor.filter((item) => item.type === "tree")).toHaveLength(148);
+    const cherries = first.decor.filter((item) => item.type === "tree");
+    expect(cherries).toHaveLength(86);
+    // The cherry artwork spreads well past its trunk, so every tree has to
+    // stand clear of the walking route rather than crowding its edge.
+    const clearance = (x: number, y: number) => Math.min(...first.paths.map((path) => Math.hypot(
+      Math.max(path.x - x, 0, x - (path.x + path.w)),
+      Math.max(path.y - y, 0, y - (path.y + path.h)),
+    )));
+    expect(Math.min(...cherries.map((tree) => clearance(tree.x, tree.y)))).toBeGreaterThan(120);
     expect(first.decor.some((item) => item.type === "cherryPetal")).toBe(true);
   });
 
