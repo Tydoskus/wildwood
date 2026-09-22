@@ -252,7 +252,8 @@ function renderEquipmentSlot(
     ? `Lvl: +${level}`
     : item?.name ?? (cosmeticHidden ? "NOTHING" : inheritedItem ? "GEAR VISIBLE" : mode === "COSMETICS" ? "NOTHING" : "EMPTY");
   element.replaceChildren(slotLabel, art, name);
-  if (item && mode === "EQUIPMENT") appendItemTierLabel(element, itemId);
+  element.classList.toggle("is-filled", Boolean(equipped));
+  if (equipped) appendItemTierLabel(element, itemId);
   if (level > 0) {
     const badge = document.createElement("span");
     badge.className = "inventory-upgrade-level";

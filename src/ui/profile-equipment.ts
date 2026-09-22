@@ -157,6 +157,7 @@ export function renderProfileEquipmentSlot(
   // as its upgrade level. "GEAR" said nothing the artwork had not already.
   state.textContent = cosmetic ? "LOOK" : hidden ? "HIDDEN" : item ? `Lvl: +${level}` : "EMPTY";
   element.replaceChildren(label, art, state);
+  element.classList.toggle("is-filled", Boolean(item && !cosmetic));
   if (item && !cosmetic) appendItemTierLabel(element, item.id);
 
   if (level > 0) {

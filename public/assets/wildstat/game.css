@@ -446,7 +446,13 @@
   .equipment-slot-art { display: grid; min-width: 0; min-height: 0; place-items: center; pointer-events: none; }
   /* A banner across the foot of the slot, divided from the artwork above it
      and shaded a little darker, so the level reads as a label on the tile. */
-  .equipment-slot-name { align-self: stretch; justify-self: stretch; max-width: 100%; margin: 2px -4px -4px; padding: 3px 4px 4px; overflow: hidden; border-top: 1px solid rgba(255,255,255,.18); background: rgba(0,0,0,.22); color: #eef2ed; font-size: var(--font-readable-min); font-weight: 900; line-height: var(--line-height-readable); text-align: center; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
+  .equipment-slot-name { align-self: stretch; justify-self: stretch; display: grid; place-items: center; max-width: 100%; margin: 1px -4px -4px; padding: 0 4px 2px; overflow: hidden; border-top: 1px solid rgba(255,255,255,.18); background: rgba(0,0,0,.22); color: #eef2ed; font-size: var(--font-readable-min); font-weight: 900; line-height: 1; text-align: center; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
+  /* A filled equipment slot names itself in the banner, so the heading above
+     would only collide with the tier badge that sits in that corner. */
+  .equipment-slot.is-filled > .equipment-slot-label { visibility: hidden; }
+  /* The banner already carries the level; a second copy in the corner was the
+     same number twice. */
+  .equipment-slot > .inventory-upgrade-level { display: none; }
   .equipment-slot-empty { color: #758178; font: 500 18px/1 Arial, sans-serif; }
   .equipment-slot.is-equipped { color: var(--inventory-ink); }
   .equipment-slot.is-cosmetic-inherited { cursor: pointer; }
