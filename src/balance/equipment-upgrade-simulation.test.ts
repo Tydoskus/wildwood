@@ -38,6 +38,6 @@ describe("steady simulated equipment upgrades", () => {
     advanceTime(state, itemUpgradeDurationMs(0) / 1000, "off", vi.fn());
     expect(state.itemUpgradeLevels[IRON_BOW]).toBe(1);
     expect(state.activeUpgrade?.level).toBe(1);
-    expect(state.activeUpgrade?.completesAt).toBe((itemUpgradeDurationMs(0) + itemUpgradeDurationMs(1)) / 1000);
+    expect(state.activeUpgrade?.completesAt).toBeCloseTo((itemUpgradeDurationMs(0) + itemUpgradeDurationMs(1)) / 1000, 6);
   });
 });

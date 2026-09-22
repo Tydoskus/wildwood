@@ -92,9 +92,9 @@ describe("map guide", () => {
     expect(mapGuideItemStats(MAGMA_ARMOR)).toEqual(["Max Health +15.18%"]);
     expect(mapGuideItemStats(FIRE_METAL_HELMET)).toEqual(["Regen +15.18%"]);
     expect(mapGuideItemStats(FIRE_METAL_BOW)).toEqual(["Damage +19.29%"]);
-    expect(mapGuideItemStats(SNOW_BOW)).toEqual(["Damage +8.5%"]);
-    expect(mapGuideItemStats(NIGHT_BOW)).toEqual(["Damage +12.75%"]);
-    expect(mapGuideItemStats(DARK_METAL_HELMET)).toEqual(["Regen +15%"]);
+    expect(mapGuideItemStats(SNOW_BOW)).toEqual(["Damage +9.71%"]);
+    expect(mapGuideItemStats(NIGHT_BOW)).toEqual(["Damage +16.39%"]);
+    expect(mapGuideItemStats(DARK_METAL_HELMET)).toEqual(["Regen +19.29%"]);
   });
 
   it("groups live forest spawns into compact reward zones", () => {

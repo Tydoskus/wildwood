@@ -23,14 +23,17 @@ describe("equipment mailbox", () => {
   });
   it("claims once at +9, preserves +10, does not auto-equip, and cannot grant again after destroying gear", () => {
     const f = fixture();
-    const key = `${f.ctx.sender.toHexString()}:starter_bow`;
+    // Keyed by the slot the gift's items go in, not by the items.
+    const key = `${f.ctx.sender.toHexString()}:HAND`;
     f.seed("playerItemUpgrade", { key, identity: f.ctx.sender, itemId: "starter_bow", level: 10 });
     f.run(server.claimMailboxGift, { id: GEAR_MAIL_ID });
     const progress = f.db.playerProgress.identity.find(f.ctx.sender);
     expect(JSON.parse(progress.inventoryJson)).toEqual(expect.arrayContaining(["forest_cap", "wooden_armor", "starter_bow"]));
     expect(progress.equippedRightHand).toBe("");
+    // The gift raises the slots its items belong to: the weapon track keeps
+    // the higher tier it already had, and the helmet track takes the gift's.
     expect(f.db.playerItemUpgrade.key.find(key).level).toBe(10);
-    expect(f.db.playerItemUpgrade.key.find(`${f.ctx.sender.toHexString()}:forest_cap`).level).toBe(9);
+    expect(f.db.playerItemUpgrade.key.find(`${f.ctx.sender.toHexString()}:HEAD`).level).toBe(9);
     expect(f.db.gemTransaction.count()).toBe(0n);
     f.patch("playerProgress", { inventoryJson: "[]", bowCount: 0, woodenArmorCount: 0 });
     f.run(server.claimMailboxGift, { id: GEAR_MAIL_ID });

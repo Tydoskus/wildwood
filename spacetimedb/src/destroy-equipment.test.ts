@@ -12,7 +12,9 @@ it("destroys owned equipment, cosmetic references and upgrade levels together", 
   expect(JSON.parse(progress.inventoryJson)).not.toContain(SAMURAI_HAT);
   expect(JSON.parse(progress.inventoryJson)).toContain(STARTER_BOW);
   expect(progress.equippedHead).toBe(""); expect(progress.cosmeticHead).toBe("");
-  expect([...f.db.playerItemUpgrade.iter()]).toHaveLength(0);
+  // Destroying an item leaves its slot's tier alone: the tier was never the
+  // item's to take away.
+  expect([...f.db.playerItemUpgrade.iter()]).toHaveLength(1);
   expect(() => f.run(server.destroyEquipment, { itemId: SAMURAI_HAT })).toThrow("not in your inventory");
 });
 

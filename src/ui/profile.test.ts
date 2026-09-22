@@ -159,7 +159,7 @@ describe("profile stat display", () => {
       multiplier: "1.23",
       total: "111",
       sources: [
-        { label: "Tech", value: "+11.43%" },
+        { label: "Tech", value: "+10%" },
         { label: "Equipment", value: "+11.43%" },
       ],
     });
@@ -168,7 +168,7 @@ describe("profile stat display", () => {
       label: "Damage:",
       base: "20",
       equationOperator: "×",
-      multiplier: "1.19",
+      multiplier: "1.20",
       total: "24",
       sources: [
         { label: "Tech", value: "+8%" },

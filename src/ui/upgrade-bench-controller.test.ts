@@ -34,12 +34,19 @@ describe("upgrade bench touch latch", () => {
     );
   });
 
-  it("previews every stat change before an item is selected", () => {
-    expect(upgradePickerPreview(FROST_BOW, 0)).toEqual({
-      name: "FROST BOW",
+  it("previews the tier a track is about to gain, measured on the gear in it", () => {
+    // Upgrades belong to the slot now, so the preview names the track and its
+    // next tier, and reads the numbers off whatever is equipped there.
+    expect(upgradePickerPreview("HAND", 0, FROST_BOW)).toEqual({
+      name: "WEAPON \u00b7 TIER 0 \u2192 1",
+      equippedItemId: FROST_BOW,
       changes: [
-        { label: "DAMAGE", current: "+10%", next: "+10.8%" },
+        { label: "DAMAGE", current: "+11.43%", next: "+11.89%" },
       ],
+    });
+    // An empty slot still shows the tier; there is nothing to measure.
+    expect(upgradePickerPreview("HEAD", 4)).toEqual({
+      name: "HELMET \u00b7 TIER 4 \u2192 5", equippedItemId: "", changes: [],
     });
   });
 

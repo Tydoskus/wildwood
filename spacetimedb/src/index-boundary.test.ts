@@ -49,7 +49,10 @@ import { describe, expect, it } from "vitest";
 // 6_729: the leaderboard's Dragon gate and the prestige it now ranks by. Both
 // are reads inside refreshLeaderboard, which is the schema-facing snapshot
 // builder; the ordering itself lives in leaderboard-pages.ts.
-const MAX_LINES = 6_729;
+// 6_748: slot upgrade tiers. The table's comment, the key/tier helpers and the
+// start reducer's slot handling are the schema surface; the tier track, the
+// sweep and the migration live in their own modules.
+const MAX_LINES = 6_748;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

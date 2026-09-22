@@ -47,10 +47,10 @@ it("keeps Water Reach equipment through reloads and repeat drops without duplica
   expect(inventoryItemQuantity(reloaded, WATER_ARMOR)).toBe(1);
   expect(inventoryItemQuantity(reloaded, SKY_BOW)).toBe(1);
   expect([...f.db.playerItemDrop.iter()].every((row: any) => row.alreadyOwned)).toBe(true);
-  expect(itemMaxHealthMultiplierBonus(WATER_ARMOR)).toBe(.175);
+  expect(itemMaxHealthMultiplierBonus(WATER_ARMOR)).toBeCloseTo(.2375, 4);
   expect(itemRegenerationMultiplierBonus(WATER_ARMOR)).toBe(0);
-  expect(itemDamageMultiplierBonus(SKY_BOW)).toBe(.175);
-  expect(itemDamageMultiplierBonus(SAMURAI_BOW)).toBe(.2);
+  expect(itemDamageMultiplierBonus(SKY_BOW)).toBeCloseTo(.2375, 4);
+  expect(itemDamageMultiplierBonus(SAMURAI_BOW)).toBeCloseTo(.2857, 4);
 });
 
 it.each(["home_exterior", "crystal_hollows", "endless_1"])("does not roll these drops in %s", mapId => {
@@ -95,11 +95,11 @@ it("can grant all three Cloudspire items from independent successful rolls", () 
   reportEnemy(f);
   const saved = inventoryFromSave(f.db.playerProgress.identity.find(f.ctx.sender).inventoryJson, "", "", "", false);
   for (const id of [CLOUDSPIRE_HELMET, CLOUDSPIRE_BOW, CLOUDSPIRE_ARMOR]) expect(inventoryItemQuantity(saved, id)).toBe(1);
-  expect(itemDamageMultiplierBonus(CLOUDSPIRE_BOW)).toBe(.225);
+  expect(itemDamageMultiplierBonus(CLOUDSPIRE_BOW)).toBeCloseTo(.3375, 4);
   expect(itemMaxHealthMultiplierBonus(CLOUDSPIRE_HELMET)).toBe(0);
-  expect(itemRegenerationMultiplierBonus(CLOUDSPIRE_HELMET)).toBe(.225);
-  expect(itemMaxHealthMultiplierBonus(CLOUDSPIRE_ARMOR)).toBe(.225);
+  expect(itemRegenerationMultiplierBonus(CLOUDSPIRE_HELMET)).toBeCloseTo(.3375, 4);
+  expect(itemMaxHealthMultiplierBonus(CLOUDSPIRE_ARMOR)).toBeCloseTo(.3375, 4);
   expect(itemRegenerationMultiplierBonus(CLOUDSPIRE_ARMOR)).toBe(0);
-  expect(itemMaxHealthMultiplierBonus(MOONFEN_ARMOR)).toBe(.25);
+  expect(itemMaxHealthMultiplierBonus(MOONFEN_ARMOR)).toBeCloseTo(.3929, 4);
   expect(itemRegenerationMultiplierBonus(MOONFEN_ARMOR)).toBe(0);
 });
