@@ -526,7 +526,10 @@
   .item-inspection-metadata > .item-tier-label { position: static; font-size: 13px; line-height: 16px; }
   .inventory-upgrade-level { position: absolute; top: 5px; right: 5px; z-index: 2; min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #c0c9c3; font: 800 9px/11px var(--font-rounded); text-align: center; -webkit-text-stroke: 2px #080b08; paint-order: stroke fill; text-shadow: none; pointer-events: none; }
   .inventory-item > .inventory-upgrade-level, .upgrade-bench-slot > .inventory-upgrade-level { top: 5px; right: 5px; }
-  .inventory-loadout .equipment-slot-name { display: none; }
+  /* The loadout hid this because it held the item's name, which the artwork
+     already showed. It carries the slot's level now, so a filled slot keeps
+     its banner and only an empty one goes back to hiding it. */
+  .inventory-loadout .equipment-slot:not(.is-filled) .equipment-slot-name { display: none; }
   .inventory-loadout .equipment-slot-art { width: 100%; height: 100%; place-self: stretch; }
   .inventory-loadout .equipment-slot .inventory-item-art { width: 88%; height: 88%; max-width: none; max-height: none; }
   .inventory-loadout .equipment-slot[data-item-id="starter_stone"] .inventory-item-art { width: min(30px, 48%); height: min(30px, 48%); }
