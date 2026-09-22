@@ -131,13 +131,14 @@ export function createPrestigeController(options: {
       ? `${COST} You would earn ${prestigeRewardLabel(level)}.`
       : `Spend the points you have banked. ${hint()}`;
     renderPerks(row?.perkPoints ?? 0);
-    // Shown whatever this client believes, because hiding it was how a view
-    // that had not caught up refused a prestige the server would have allowed:
-    // there was nothing left to press. It is disabled rather than absent while
-    // the requirement is unmet, so the reason beside it is what the player
-    // reads instead of a press that does nothing. The Endless row this reads
-    // is subscribed now, which is what made the old view wrong.
-    confirmButton.disabled = pending || !unlocked();
+    // Enabled whenever the campaign is done, even if this client reads fewer
+    // Endless stages than the server has. A missing procedural_progress row
+    // and a genuine zero look identical here, so refusing on that reading
+    // blocks players who have cleared the stage: it did it to Teus, and to
+    // Toephu on 2026-09-22, whose window said to clear a boss he had already
+    // beaten. The requirement is still spelled out beside the button; the
+    // server owns the decision and names exactly what is missing.
+    confirmButton.disabled = pending || !options.unlocked();
     confirmButton.hidden = false;
     if (!unlocked() && !status.textContent) status.textContent = hint();
   }
@@ -168,9 +169,10 @@ export function createPrestigeController(options: {
   openButton.addEventListener('click', open);
   options.closeButton.addEventListener('click', close);
   confirmButton.addEventListener('click', async () => {
-    // The server still owns the decision and names exactly what is missing.
-    // This only declines to send a request it can see is not yet earned.
-    if (pending || !unlocked()) {
+    // Only the campaign gate is enforced here, because it is the one this
+    // client can be certain of. An Endless count that has not arrived yet must
+    // not swallow the press; the server refuses and says why.
+    if (pending || !options.unlocked()) {
       if (!pending) status.textContent = hint() || LOCKED_HINT;
       return;
     }

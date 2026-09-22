@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.773": [
+    "Fixed Prestige refusing a prestige you had earned. If the window had not yet received your Endless progress it read zero stages and greyed the button out, telling you to clear a boss you had already beaten. It asks the server again instead.",
+  ],
   "0.772": [
     "Fixed the Upgrade Bench item list: the filter tabs were stretched down the window and the Back button had fallen off the bottom of it.",
     "The Upgrade Bench list is sorted by tier, highest first.",
@@ -2216,6 +2219,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.773": "2026-09-22",
   "0.772": "2026-09-22",
   "0.771": "2026-09-22",
   "0.770": "2026-09-22",
