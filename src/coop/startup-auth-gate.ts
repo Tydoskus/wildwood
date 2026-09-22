@@ -1,6 +1,7 @@
 import { createLegalGateController, legalGateElements, type LegalGateElements } from "../ui/legal-gate";
 import { enforceLatestVersion } from "../app/version";
 import { GAME_VERSION } from "../game/runtime/game-settings";
+import { createDiscordLink } from "../ui/discord-link";
 import {
   createStartupStateMachine,
   type StartupAccountSnapshot,
@@ -56,7 +57,7 @@ function startupElements(documentValue: Document): StartupAuthElements {
     const hint = documentValue.createElement("p");
     hint.id = "accountSignInHint"; hint.className = "account-sign-in-hint";
     const detail = documentValue.createElement("span");
-    detail.textContent = "Google and email links can open different characters.";
+    detail.textContent = "Google and Spacetime Email links can open different characters.";
     hint.replaceChildren("Already have an account? Use your original sign-in method.", detail);
     // Inside the card with the rest of the sign-in copy. Before it existed
     // this sat loose above the button, which is where it lands if the markup
@@ -65,6 +66,12 @@ function startupElements(documentValue: Document): StartupAuthElements {
     if (card) card.append(hint);
     else signInButton.before(hint);
     signInButton.setAttribute("aria-describedby", hint.id);
+  }
+  const muteButton = documentValue.getElementById("signInMuteButton");
+  if (muteButton && !documentValue.getElementById("signInDiscordLink")) {
+    const discord = createDiscordLink(documentValue, "signin-mute-button signin-discord-link");
+    discord.id = "signInDiscordLink";
+    muteButton.after(discord);
   }
   function requireElement<T extends HTMLElement>(id: string) {
     const element = documentValue.getElementById(id);

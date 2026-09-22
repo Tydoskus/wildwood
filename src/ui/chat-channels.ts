@@ -1,6 +1,7 @@
 import { applyAvatarFrame } from "../app/avatar-frames";
 import { applyProfileIcon } from "../app/profile-icons";
 import { formatChatUnreadCount, type ChatUnreadCounts } from "./chat-unread";
+import { createDiscordLink } from "./discord-link";
 
 export type ChatChannel = "public" | "guild" | "private";
 export type ChatConversation = import("../../shared/social").SocialConversation;
@@ -89,14 +90,7 @@ export function createChatChannelPicker(onChange: (channel: ChatChannel, usernam
   status.setAttribute("aria-live", "polite");
   const navigation = document.createElement("div");
   navigation.className = "chat-channel-navigation";
-  const discord = document.createElement("a");
-  discord.className = "chat-discord-link";
-  discord.href = "https://discord.gg/mcS226NbG4";
-  discord.target = "_blank";
-  discord.rel = "noopener noreferrer";
-  discord.setAttribute("aria-label", "Join the WildStat Discord (opens in a new tab)");
-  discord.title = "Join Discord";
-  discord.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M20.3 4.4a19.8 19.8 0 0 0-4.9-1.5l-.6 1.2a18.3 18.3 0 0 0-5.5 0l-.6-1.2a19.9 19.9 0 0 0-4.9 1.5C.7 9 .0 13.5.3 17.9a19.8 19.8 0 0 0 6 3l1.2-2a12.7 12.7 0 0 1-1.9-.9l.5-.4a14.1 14.1 0 0 0 11.8 0l.5.4a13.2 13.2 0 0 1-1.9.9l1.2 2a19.7 19.7 0 0 0 6-3c.5-5.1-.8-9.5-3.4-13.5ZM8 15.2c-1.2 0-2.1-1.1-2.1-2.4s.9-2.4 2.1-2.4 2.2 1.1 2.1 2.4c0 1.3-.9 2.4-2.1 2.4Zm8 0c-1.2 0-2.1-1.1-2.1-2.4s.9-2.4 2.1-2.4 2.2 1.1 2.1 2.4c0 1.3-.9 2.4-2.1 2.4Z"/></svg>`;
+  const discord = createDiscordLink(document, "chat-discord-link");
   navigation.append(tabs, discord);
   root.append(navigation, picker, conversationHeader, status);
 

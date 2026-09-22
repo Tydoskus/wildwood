@@ -2401,14 +2401,25 @@
      drop the other panels sit on. The sign-in copy was floating loose over the
      artwork, which is the only text in the game that did. */
   .account-choice-modal .account-note-card {
-    margin: 10px auto 0;
+    margin: 10px auto 22px;
     padding: 9px 14px 11px;
-    border: 2px solid #000;
-    border-radius: 9px;
-    background: var(--window-surface-neutral);
-    box-shadow: 0 3px 0 rgba(0,0,0,.45);
+    border: 2px solid var(--hud-frame);
+    border-radius: var(--hud-radius);
+    /* The player HUD's colour, carried heavier: the HUD sits over the muted
+       world and this sits over bright sign-in artwork, where .60 left the
+       trees reading straight through the text. */
+    background: rgba(18, 28, 22, .84);
+    box-shadow: 0 2px 0 rgba(0,0,0,.42);
     text-align: center;
   }
+
+  /* Beside the mute button, same size and frame, one gap to its left. */
+  .signin-discord-link {
+    right: calc(max(12px, env(safe-area-inset-right)) + 56px);
+    text-decoration: none;
+  }
+
+  .signin-discord-link svg { width: 26px; height: 26px; }
 
   .account-choice-modal p.account-beta-note { color: #fff; font-size: 14px; }
 
@@ -2423,6 +2434,7 @@
 
   html.wildstat-legacy-host .account-choice-modal p.account-move-note { display: block; }
 
+  .account-choice-modal .account-beta-note a,
   .account-choice-modal .account-move-note a {
     color: #baff91;
     text-underline-offset: 2px;

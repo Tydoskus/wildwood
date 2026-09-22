@@ -29,8 +29,11 @@ describe("installed interface structure", () => {
     // They are in the markup rather than set from script so the label is right
     // on the first paint, which is exactly when a new player reads it.
     // Raised again by one element: the card the sign-in copy sits in. Three
-    // paragraphs cannot share a background without something to draw it on.
-    expect(Buffer.byteLength(entryHtml)).toBeLessThan(24_528);
+    // paragraphs cannot share a background without something to draw it on,
+    // and the Discord invite in that copy is a link rather than a word. The
+    // icon beside the mute button is built in script, where its path costs the
+    // startup shell nothing.
+    expect(Buffer.byteLength(entryHtml)).toBeLessThan(24_672);
     for (const id of ["start", "gameUpdateGate", "dailyGemBonus", "gameOver", "playerProfile", "techTreeOverlay", "guildBtn"]) {
       expect(doc.getElementById(id), id).not.toBeNull();
     }

@@ -21,8 +21,8 @@ export function createGameOverlays(d: Record<string, any>) {
     supporter: coop,
     releases: () => recentReleaseNotes(2), connected: () => Boolean(coop?.isConnected?.()), selectedIcon: () => coop?.profileIcon?.() ?? 0, setIcon: async (index: number) => coop?.setProfileIcon?.(index), paintIcon: d.applyProfileIcon, afterIconSet: d.afterIconSet, showMessage: d.showMessage,
   });
-  // The game says it is in beta on the sign-in screen and in the bug prompt;
-  // the version label is where a player looks for it while playing.
+  // The game says it is in alpha on the sign-in screen; the version label is
+  // where a player looks for it while playing.
   const versionLabel = `alpha v${d.version}`;
   e.signinVersionButton.textContent = versionLabel;
   e.signinVersionButton.setAttribute("aria-label", `WildStat alpha version ${d.version}. Toggle release notes`);
