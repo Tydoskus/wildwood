@@ -33,6 +33,23 @@ export const MAX_PLAYER_MOVEMENT_SPEED = Math.round(PLAYER_SPEED * (1 + MAX_MOVE
  */
 export const ENEMY_CHASE_SPEED_MARGIN = 10;
 export const ENEMY_TOP_CHASE_SPEED = MAX_PLAYER_MOVEMENT_SPEED - ENEMY_CHASE_SPEED_MARGIN;
+/**
+ * The speed an enemy actually chases at, against the player in front of it.
+ * The fastest enemies stay a step behind whatever that player has researched,
+ * rather than a fixed number that outruns a beginner and is outrun by a
+ * finished build. Slower enemies keep their share of that pace, so ranged
+ * kiters stay relatively slower and the balance panel's enemy speed still
+ * means something.
+ *
+ * Speed boots are deliberately not part of the reference: they are bought to
+ * widen this gap, so folding them in would cancel what they are for.
+ */
+export function enemyChaseSpeed(authoredSpeed: number, playerMovementSpeed: number) {
+  if (!Number.isFinite(playerMovementSpeed) || playerMovementSpeed <= 0) return authoredSpeed;
+  if (!Number.isFinite(authoredSpeed) || authoredSpeed <= 0) return 0;
+  const share = Math.max(0, Math.min(1, authoredSpeed / ENEMY_TOP_CHASE_SPEED));
+  return Math.max(1, share * (playerMovementSpeed - ENEMY_CHASE_SPEED_MARGIN));
+}
 export const MAX_MOVEMENT_SPEED_OVERRIDE = 2_000;
 export const MOVEMENT_SPEED_EPSILON = .01;
 export const PLAYER_PROJECTILE_SPEED = 1_000;

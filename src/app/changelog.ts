@@ -1,5 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.768": [
+    "Chasing enemies now keep pace with the speed you have actually researched, staying a step behind it, instead of running at a fixed speed that outran a beginner and was outrun by a finished build. Speed boots still put you clear.",
+    "Prestige asks the server instead of deciding for itself, so a window that had not caught up can no longer refuse a prestige you had earned. It also opens while locked and tells you what is missing.",
     "Movement no longer disconnects anyone or refuses a step. A position the server cannot account for is corrected instead, so knockback, a respawn or a lag spike stops costing you your footing.",
     "Regular enemies give triple the armour and double the health they did. Farming the camps that drop them is now worth doing instead of waiting on a boss.",
     "Fixed Prestige telling you to clear an Endless stage you had already cleared. The window was reading your Endless progress only while you stood on an Endless map, and zero from everywhere else.",

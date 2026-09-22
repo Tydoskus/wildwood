@@ -161,6 +161,20 @@ it("refuses to push a perk past its highest rank", () => {
   expect(prestigeRow(f)).toMatchObject({ perkPoints: 3 });
 });
 
+it("prestiges a player who has cleared the campaign and one Endless stage", () => {
+  // Teus's exact live state: every campaign boss claimed, Endless 1 cleared,
+  // one prestige already taken. The window was refusing this and the server
+  // was not, so the gate is asserted here on both sides.
+  const f = farmer(1);
+  f.patch("playerProgress", { bossRewardClaims: 32767 });
+  f.seed("proceduralProgress", { identity: f.ctx.sender, completed: 1 });
+  expect(prestigeUnlocked(32767, 1, 2)).toBe(true);
+  expect(() => f.run(server.prestigeAccount, {})).not.toThrow();
+  expect(prestigeRow(f)).toMatchObject({ level: 2, perkPoints: 2 });
+  // The reset takes the campaign with it, so the next one starts from there.
+  expect(() => f.run(server.prestigeAccount, {})).toThrow("Defeat Aegis Prime");
+});
+
 it("widens the claim bound for perks that reach more enemies than the weapon can", () => {
   // Split Shot and Riposte finish kills the weapon's own damage cannot account
   // for. A bound blind to them would pay a perked player less than they earned.

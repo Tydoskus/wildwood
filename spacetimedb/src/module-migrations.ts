@@ -26,7 +26,7 @@ import { MAGMALISK_ID, TEMPEST_KIRIN_ID, MIREMAW_ID, DREADREAPER_ID, VOLTWARDEN_
 import { NAME_CHANGE_COOLDOWN_MS } from "../../shared/name-change";
 import { publishRebalanceMail } from "./mailbox";
 import { forgetBalanceCaches } from "./map-balance";
-import { defaultBalanceSettings } from "../../shared/map-balance";
+import { defaultBalanceSettings, validateBalanceSettings } from "../../shared/map-balance";
 import { migrateGuildTags } from "./player-name-tags";
 import { compressLegacyMapPower } from "../../shared/map-power-rescale";
 import { rescaleEndgameProgress, rescaleRankingConflict, rescaleRankingStats } from "../../shared/endgame-power-rescale";
@@ -37,7 +37,7 @@ import { generateMap, isProceduralMap, proceduralMapId, proceduralMapNumber } fr
 import { balanceApologyTransactionReference, isBalanceApologyEligible } from "./balance-apology";
 import { BALANCE_APOLOGY_GEM_GIFT } from "../../shared/gems";
 
-export const MODULE_MIGRATION_VERSION = 36;
+export const MODULE_MIGRATION_VERSION = 37;
 
 export type ModuleMigrationDeps = {
   MAP_ARRIVALS: Record<string, { x: number; y: number }>;
@@ -507,6 +507,11 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     // revision still holding them would apply each one a second time. Land a
     // fresh all-defaults revision with the publish that bakes them, not after.
     if (currentVersion < 36) resetBalanceToBakedDefaults(ctx);
+    // 37 repairs 36. The map factors were the multipliers that needed folding
+    // in; the Endless block is a curve the panel is resolved against, not a set
+    // of multipliers, and 36 reset it to the authored reference along with
+    // them. That changed Endless for everyone, so put the live curve back.
+    if (currentVersion < 37) restoreLiveEndlessCurve(ctx);
     const next = { id: 0, version: MODULE_MIGRATION_VERSION };
     if (state) ctx.db.moduleMigrationState.id.update(next);
     else ctx.db.moduleMigrationState.insert(next);
@@ -518,6 +523,30 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
    * Saved revisions are kept: they are the record of what was live when, and
    * rolling back to one would knowingly re-apply its factors.
    */
+  /**
+   * The Endless curve that was live at revision 58, before migration 36 reset
+   * it. Held literally because it is a one-time repair of a specific mistake,
+   * not a value anyone should tune from here.
+   */
+  const ENDLESS_LIVE_CURVE = {
+    rewardMultiplier: 2, statStep: .6, enduranceStep: .06, enduranceExponent: 1, rewardPerHealth: 1,
+  } as const;
+
+  function restoreLiveEndlessCurve(ctx: any) {
+    const head = ctx.db.mapBalanceHead.id.find(0);
+    if (!head) return;
+    const current = ctx.db.mapBalanceVersion.revision.find(head.revision);
+    if (!current) return;
+    const settings = validateBalanceSettings(JSON.parse(current.settingsJson));
+    settings.endless = { ...ENDLESS_LIVE_CURVE };
+    const revision = head.revision + 1;
+    ctx.db.mapBalanceVersion.insert({
+      revision, settingsJson: JSON.stringify(settings), editor: ctx.sender, createdAt: ctx.timestamp,
+    });
+    ctx.db.mapBalanceHead.id.update({ id: 0, revision });
+    forgetBalanceCaches();
+  }
+
   function resetBalanceToBakedDefaults(ctx: any) {
     const head = ctx.db.mapBalanceHead.id.find(0);
     if (!head) return;

@@ -1,6 +1,14 @@
 export const ENDLESS_FIRST_TIER = 14;
 // A tenfold drop in payout rate starts the long-term grind immediately at Endless 1.
 // Apply equally to regular enemies and bosses so repeat bosses cannot bypass it.
+//
+// These are the authored reference the panel's Endless curve is resolved
+// against, not multipliers, so "1" means nothing here and they are deliberately
+// left alone. Folding the live curve into them looks tidier but is not
+// equivalent: enemy damage carries an armour compensation that is non-linear in
+// the stat step, so the ratio does not cancel and Endless damage would move by
+// three to eleven per cent with depth. See ENDLESS_LIVE_CURVE in
+// spacetimedb/src/module-migrations.ts for the curve itself.
 export const ENDLESS_REWARD_MULTIPLIER = .1;
 export const ENDLESS_STAT_STEP = .2;
 export const ENDLESS_ENDURANCE_STEP = .1;

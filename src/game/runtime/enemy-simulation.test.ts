@@ -627,6 +627,32 @@ it.each([30, 60, 120])("Duskfall melee holds its ceiling but never catches a max
   expect(fastest).toBeGreaterThan(ENEMY_TOP_CHASE_SPEED - 1);
 });
 
+it("chases a beginner a step behind their own speed, not at its authored pace", () => {
+  // The same enemy against a fresh player: it must not run at the late-game
+  // number a finished build is measured against.
+  const definition = ENEMY_TYPES["Gourd Prowler"];
+  const enemy = { ...idleEnemyAt(500, 1000), type: "Gourd Prowler" as const,
+    speed: definition.speed, r: definition.r, leashRange: 100_000 };
+  const player = playerAt(900, 1000);
+  const lifecycle = createEnemyLifecycle([enemy], [], () => {});
+  engage(enemy, "local-player");
+  const beginner = 180;
+  const sim = createEnemySimulation([enemy], () => {}, player,
+    () => ({ width: 800, height: 800, zoom: 1 }), lifecycle.engageEnemy, () => true,
+    { playerMovementSpeed: () => beginner });
+  let fastest = 0;
+  for (let i = 0; i < 600; i++) {
+    player.x += beginner / 60;
+    sim.update(1 / 60);
+    if (player.x > 3000) { player.x -= 2000; enemy.x -= 2000; }
+    fastest = Math.max(fastest, Math.hypot(enemy.vx, enemy.vy));
+  }
+  expect(fastest).toBeGreaterThan(beginner - 11);
+  expect(fastest).toBeLessThan(beginner - 9);
+  // Well under the ceiling a maxed runner is measured against.
+  expect(fastest).toBeLessThan(ENEMY_TOP_CHASE_SPEED - 50);
+});
+
 it("catches a runner who has not finished their move speed research", () => {
   const definition = ENEMY_TYPES["Gourd Prowler"];
   const enemy = { ...idleEnemyAt(500, 1000), type: "Gourd Prowler" as const,

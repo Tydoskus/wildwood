@@ -1,3 +1,4 @@
+import { enemyChaseSpeed } from "../../../shared/rules";
 import {
   BASE_ATTACK_RANGE,
   ENEMY_HIT_MIN_MOVE_SPEED,
@@ -28,9 +29,9 @@ const RANGED_APPROACH_DEAD_BAND = 5;
 const RANGED_RETREAT_DEAD_BAND = 20;
 export const LOCAL_REGULAR_ENEMY_TARGET_ID = "local-player";
 
-function recoverySpeed(enemy: EnemyState) {
-  const minimum = Math.min(enemy.speed, ENEMY_HIT_MIN_MOVE_SPEED);
-  return minimum + (enemy.speed - minimum) * enemy.moveSpeedRecovery / ENEMY_HIT_SPEED_RECOVERY_SECONDS;
+function recoverySpeed(enemy: EnemyState, chaseSpeed: number) {
+  const minimum = Math.min(chaseSpeed, ENEMY_HIT_MIN_MOVE_SPEED);
+  return minimum + (chaseSpeed - minimum) * enemy.moveSpeedRecovery / ENEMY_HIT_SPEED_RECOVERY_SECONDS;
 }
 
 type Viewport = { width: number; height: number; zoom: number };
@@ -42,6 +43,8 @@ export type EnemySimulationSharedOptions = {
   serverNowMs?: () => number;
   localIdentity?: () => string | undefined;
   remotePlayers?: () => readonly RemotePlayer[];
+  /** The player's researched movement speed, which chase speed tracks. */
+  playerMovementSpeed?: () => number;
   remoteCombatStats?: (identity: string) => RemoteCombatStats | null | undefined;
   remoteBoss?: () => RemoteBossSimulationTarget | null | undefined;
   spawnDamageNumber?: (x: number, y: number, amount: number, critical?: boolean, damageTaken?: boolean) => void;
@@ -71,6 +74,11 @@ export function createEnemySimulation(
     spawnDamageNumber: shared.spawnDamageNumber ?? (() => {}),
     spawnBurst: shared.spawnBurst,
   });
+
+  /** Chase speed tracks the player in front of the enemy, a step behind them. */
+  function chaseSpeedFor(enemy: EnemyState) {
+    return enemyChaseSpeed(enemy.speed, shared.playerMovementSpeed?.() ?? Number.NaN);
+  }
 
   function currentServerNowMs() {
     const serverNow = shared.serverNowMs?.();
@@ -239,7 +247,7 @@ export function createEnemySimulation(
       }
 
       if (enemy.leashing) {
-        const homeDistance = moveToward(enemy, enemy.homeX, enemy.homeY, recoverySpeed(enemy), dt);
+        const homeDistance = moveToward(enemy, enemy.homeX, enemy.homeY, recoverySpeed(enemy, chaseSpeedFor(enemy)), dt);
         if (homeDistance < 10) {
           enemy.leashing = false;
           enemy.x = ambient.x;
@@ -291,7 +299,7 @@ export function createEnemySimulation(
           } else {
             enemy.combatTargetX = target.x;
             enemy.combatTargetY = target.y;
-            moveEngagedEnemy(enemy, target, recoverySpeed(enemy), dt, Boolean(base.ranged));
+            moveEngagedEnemy(enemy, target, recoverySpeed(enemy, chaseSpeedFor(enemy)), dt, Boolean(base.ranged));
 
             const actualDx = player.x - enemy.x;
             const actualDy = player.y - enemy.y;

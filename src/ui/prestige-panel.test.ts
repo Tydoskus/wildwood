@@ -56,11 +56,25 @@ describe("prestige panel", () => {
     expect(s.pick("status").textContent).toContain("again");
   });
 
-  it("refuses to open while locked and says why", () => {
+  it("opens while locked and says what is missing inside", () => {
+    // Refusing to open put the window's own explanation behind the very gate
+    // it was explaining, and a client view behind the server's locked out a
+    // player who had actually earned the prestige.
     const s = setup({ unlocked: false });
     click(s.pick("open"));
-    expect(s.pick("overlay").hidden).toBe(true);
-    expect(s.showMessage).toHaveBeenCalledWith(expect.stringContaining("Aegis Prime"));
+    expect(s.pick("overlay").hidden).toBe(false);
+    expect(s.pick("status").textContent).toContain("Aegis Prime");
+  });
+
+  it("asks the server even when its own view says locked", () => {
+    // The server owns the decision and names what is missing, so the press has
+    // to reach it rather than being swallowed.
+    const run = vi.fn(async () => ({ ok: false, error: "Clear Endless 2 before prestiging." }));
+    const s = setup({ unlocked: false, run, row: { level: 1, perkPoints: 0, peakPower: 5 } });
+    click(s.pick("open"));
+    click(s.pick("confirm"));
+    click(s.pick("confirm"));
+    expect(run).toHaveBeenCalled();
   });
 
   it("shows the standing bonus and what the next prestige pays", () => {

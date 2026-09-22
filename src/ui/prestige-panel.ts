@@ -130,10 +130,11 @@ export function createPrestigeController(options: {
   }
 
   function open() {
-    if (!canOpen()) { options.showMessage?.(hint() || LOCKED_HINT); return; }
     options.beforeOpen?.();
     disarm();
-    status.textContent = '';
+    // Whatever still stands in the way is shown inside, where the requirement
+    // is spelled out, rather than used to keep the window shut.
+    status.textContent = canOpen() ? '' : hint() || LOCKED_HINT;
     overlay.hidden = false;
     render();
   }
@@ -142,7 +143,11 @@ export function createPrestigeController(options: {
   openButton.addEventListener('click', open);
   options.closeButton.addEventListener('click', close);
   confirmButton.addEventListener('click', async () => {
-    if (pending || !unlocked()) return;
+    // The server owns this decision and names exactly what is missing, so the
+    // window never refuses on its behalf. It used to, and a client whose view
+    // of a row was behind the server's silently blocked a player who had in
+    // fact earned it: the press did nothing and said nothing.
+    if (pending) return;
     // Losing every map unlock deserves a second press, not a single tap.
     if (!armed) {
       armed = true;
