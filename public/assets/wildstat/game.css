@@ -424,6 +424,10 @@
     z-index: 1;
     display: grid;
     grid-template-rows: 14px minmax(0, 1fr) 20px;
+    /* One column the full width of the tile. Without it the implicit column is
+       sized to its widest child, so the banner had nothing to stretch to and
+       stopped short of the right edge. */
+    grid-template-columns: minmax(0, 1fr);
     place-items: center;
     gap: 1px;
     width: 100%;
@@ -446,7 +450,7 @@
   .equipment-slot-art { display: grid; min-width: 0; min-height: 0; place-items: center; pointer-events: none; }
   /* A banner across the foot of the slot, divided from the artwork above it
      and shaded a little darker, so the level reads as a label on the tile. */
-  .equipment-slot-name { align-self: stretch; justify-self: stretch; display: grid; place-items: center; max-width: 100%; margin: 2px -4px -4px; padding: 0 4px 2px; overflow: hidden; border-top: 1px solid rgba(255,255,255,.22); background: rgba(0,0,0,.26); color: #f4f7f2; font: 900 13px/1 var(--font-rounded); letter-spacing: .01em; text-align: center; text-overflow: ellipsis; white-space: nowrap; -webkit-text-stroke: var(--text-outline-width) #000; paint-order: stroke fill; text-shadow: var(--text-shadow); pointer-events: none; }
+  .equipment-slot-name { align-self: stretch; justify-self: stretch; display: grid; place-items: center; max-width: 100%; margin: 2px -3px -3px; padding: 0 4px 1px; overflow: hidden; border-top: 1px solid rgba(255,255,255,.22); background: rgba(0,0,0,.26); color: #f4f7f2; font: 900 13px/1 var(--font-rounded); letter-spacing: .01em; text-align: center; text-overflow: ellipsis; white-space: nowrap; -webkit-text-stroke: var(--text-outline-width) #000; paint-order: stroke fill; text-shadow: var(--text-shadow); pointer-events: none; }
   /* A filled equipment slot names itself in the banner, so the heading above
      would only collide with the tier badge that sits in that corner. */
   .equipment-slot.is-filled > .equipment-slot-label { visibility: hidden; }
