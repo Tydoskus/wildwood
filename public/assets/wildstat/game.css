@@ -1058,17 +1058,32 @@
 
   .respawn-boost-status {
     position: absolute;
-    top: calc(var(--hud-safe-top) + var(--hud-map-size) + 39px);
+    top: calc(var(--hud-safe-top) + var(--hud-map-size) + 33px);
     right: calc(var(--hud-safe-right) + 4px);
     z-index: 4;
     width: calc(var(--hud-map-size) - 8px);
+    min-height: 0;
+    margin: 0;
+    padding: 4px 2px;
+    border: 1px solid #72ef5866;
+    border-radius: 6px;
+    background: rgba(12,26,14,.62);
+    box-shadow: none;
     color: #72ef58;
     font: 900 9px/1.2 var(--font-rounded);
     letter-spacing: .025em;
     text-align: center;
     text-shadow: 1px 2px 0 #000;
-    pointer-events: none;
   }
+
+  /* A paused bank keeps its time and says so by going quiet, not by leaving. */
+  .respawn-boost-status[data-state="off"] {
+    border-color: #ffffff30;
+    color: #cfd6cb;
+  }
+
+  .respawn-boost-status:hover,
+  .respawn-boost-status:focus-visible { filter: brightness(1.15); }
 
   .respawn-boost-status[hidden] { display: none; }
   .respawn-boost-status span { font-variant-numeric: tabular-nums; text-shadow: inherit; }
@@ -2587,6 +2602,7 @@
   #bootUpgrade[hidden] { display: none; }
 
   #duelResult,
+  #offlineProgress,
   #playerProfile,
   #leaderboard,
   #devAudit,
@@ -2601,6 +2617,7 @@
   }
 
   #duelResult[hidden],
+  #offlineProgress[hidden],
   #playerProfile[hidden],
   #leaderboard[hidden],
   #devAudit[hidden],
@@ -4014,18 +4031,30 @@
 .game-ticker-text { position: absolute; left: 100%; top: 2px; width: max-content; white-space: nowrap; color: #fff; font: 900 var(--mini-chat-font-size)/1.4 var(--player-name-font); -webkit-text-stroke: var(--text-outline-width) #000; paint-order: stroke fill; text-shadow: var(--text-shadow); will-change: transform; animation: game-tip-scroll var(--ticker-duration, 30s) linear; }
 @keyframes game-tip-scroll { from { transform: translateX(0); } to { transform: translateX(calc(-100% - 100vw)); } }
 
-.home-travel-dialog { width: min(380px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); padding: 18px; border: 3px solid #080808; border-radius: 12px; background: #131413; color: #fff; font-family: var(--font-rounded); overflow-y: auto; scrollbar-width: none; }
-.home-travel-dialog::backdrop { background: #0009; }
-.home-travel-dialog::-webkit-scrollbar { display: none; }
-.home-travel-dialog h2 { text-align: center; margin: 0 0 12px; }
-.home-travel-maps { display: grid; gap: 5px; }
-.home-travel-map { padding: 12px; border: 1px solid #444; border-radius: 6px; background: #ffffff08; color: #fff; font: 700 14px var(--font-rounded); text-align: left; }
-.home-travel-map:hover, .home-travel-map:focus-visible { background: #ffffff18; }
-.home-travel-endless:not([hidden]) { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; gap: 8px; }
-.home-travel-endless input { width: 80px; padding: 8px; background: #222; color: #fff; border: 1px solid #555; border-radius: 5px; }
-.home-travel-status { margin: 10px 0; font-size: 12px; color: #ffbc91; }
 
 .dev-player-travel { flex-wrap: wrap; gap: 8px; }
 .dev-player-travel-actions { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
 .dev-player-travel-actions input { flex: 1 1 150px; min-width: 0; min-height: 36px; padding: 6px 8px; border: 1px solid #565956; border-radius: 4px; color: var(--cream); background: #131413; font: inherit; }
 .dev-player-travel-actions button { flex: 0 0 auto; }
+
+/* The overlay and frame the duel result and profile windows use. */
+.offline-progress-modal { width: var(--game-window-width); max-height: calc(100dvh - 40px); overflow-y: auto; border-color: rgba(198,208,210,.56); }
+.offline-progress-modal h2 { margin: 0; color: #eef1ee; font-size: clamp(19px, 5vw, 28px); }
+.offline-progress-lead { margin: 12px 0 0; color: #d8e4d4; font-size: 12px; line-height: 1.5; }
+.offline-progress-stats { display: grid; gap: 6px; margin: 14px 0; }
+.offline-progress-stats:empty { display: none; }
+.offline-progress-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 8px; border: 1px solid rgba(255,255,255,.16); border-radius: 7px; background: rgba(0,0,0,.2); font-size: 11px; text-align: left; }
+.offline-progress-stat-name { color: var(--offline-stat-color, var(--gold)); font-weight: 900; }
+.offline-progress-stat-value { color: var(--offline-stat-color, #72ef58); font-weight: 900; text-align: right; font-variant-numeric: tabular-nums; }
+/* The profile window's palette, so a stat reads the same colour everywhere. */
+.offline-progress-row[data-stat-kind="health"] { --offline-stat-color: #72ef58; }
+.offline-progress-row[data-stat-kind="damage"] { --offline-stat-color: #ff8b77; }
+.offline-progress-row[data-stat-kind="armor"] { --offline-stat-color: var(--stat-armor); }
+.offline-progress-row[data-stat-kind="regen"] { --offline-stat-color: var(--stat-regen); }
+.offline-progress-row[data-stat-kind="attack"] { --offline-stat-color: #ffe05d; }
+.offline-progress-note { margin: 14px 0; color: #9fa89b; font-size: 11px; line-height: 1.45; }
+
+.dev-offline-progress { flex-wrap: wrap; gap: 8px; }
+.dev-offline-progress-actions { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+.dev-offline-progress-actions input { flex: 1 1 100px; min-width: 0; min-height: 36px; padding: 6px 8px; border: 1px solid #565956; border-radius: 4px; color: var(--cream); background: #131413; font: inherit; }
+.dev-offline-progress-actions button { flex: 0 0 auto; }

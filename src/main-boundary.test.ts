@@ -21,7 +21,11 @@ import { describe, expect, it } from "vitest";
 // answer because it reads the coop session. The badge image, its measurement
 // and both draw paths live in the identity renderer, which loads the asset
 // itself rather than being handed it.
-const MAX_LINES = 2_193;
+// 2_197: the offline-progress summary's construction, which only the
+// composition root can supply with the coop session, the pause registry and
+// whether the world is playable yet. Its formatting, its dialog and its
+// show-once rule live in offline-progress-summary.ts.
+const MAX_LINES = 2_197;
 const TARGET_LINES = 1_000;
 
 describe("game composition boundary", () => {

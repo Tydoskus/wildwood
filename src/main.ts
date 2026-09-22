@@ -4,12 +4,12 @@ import { createStatTrackerSource } from './ui/stat-tracker-source';
 import { refreshMapBalanceEnemies } from "./game/runtime/map-balance-enemies";
 import { createMapBalanceLoader } from "./game/runtime/map-balance-loader";
 import { installAccountDeletion } from "./ui/account-deletion-controller";
-import { createHomeTravelController } from "./ui/home-travel-controller";
 import { MAP_IDS as CAMPAIGN_MAP_IDS } from "../shared/rules";
 import { weaponAttackRange } from "./game/weapon-combat";
 import { createPlayerVisibilityToggle } from "./ui/player-visibility-toggle";
 import { createPanelCoordinator } from "./ui/panel-coordinator";
 import { createInventoryNotice } from "./ui/inventory-notice";
+import { createOfflineProgressSummary } from "./ui/offline-progress-summary";
 import { createFullscreenMovementGate } from "./ui/fullscreen-movement";
 import { installGameTicker } from "./ui/game-ticker";
 import { createScheduledUpdateController, createScheduledUpdateView } from "./ui/scheduled-update-controller";
@@ -59,7 +59,7 @@ import type { PlayerDeathAnimationState } from "./game/runtime/player-death-anim
 import { createDuelRuntime } from "./game/runtime/duel-runtime";
 import { createDuelSessionController } from "./game/runtime/duel-session-controller";
 import { createCanvasRuntime, gameplayBottomInset } from "./game/runtime/canvas-runtime";
-import { ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_TEXT_CULL_MIN_DISTANCE, FPS_VISIBLE_KEY, GAME_VERSION, INFERNAL_PORTAL_CUTSCENE_SEEN_KEY, LATENCY_VISIBLE_KEY, LAVA_PORTAL_CUTSCENE_SEEN_KEY, LOW_PERFORMANCE_MODE_KEY, MUSIC_VOLUME_KEY, REWARDED_RESPAWN_BOOST_EXPIRES_KEY, SAMURAI_PORTAL_CUTSCENE_SEEN_KEY, SCREEN_SHAKE_ENABLED_KEY, SFX_VOLUME_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WATER_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT } from "./game/runtime/game-settings";
+import { ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_TEXT_CULL_MIN_DISTANCE, FPS_VISIBLE_KEY, GAME_VERSION, INFERNAL_PORTAL_CUTSCENE_SEEN_KEY, LATENCY_VISIBLE_KEY, LAVA_PORTAL_CUTSCENE_SEEN_KEY, LOW_PERFORMANCE_MODE_KEY, MUSIC_VOLUME_KEY, readRespawnBoostBank, writeRespawnBoostBank, SAMURAI_PORTAL_CUTSCENE_SEEN_KEY, SCREEN_SHAKE_ENABLED_KEY, SFX_VOLUME_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WATER_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT } from "./game/runtime/game-settings";
 import { createWorldProgressionController } from "./game/runtime/world-progression-controller";
 import { BOSS_HP_LOSS_FLASH_DURATION, createBossController, SPIDER_WEB_RANGE } from "./game/runtime/boss-controller";
 import { createMapController } from "./game/runtime/map-controller";
@@ -326,36 +326,35 @@ import {
     applyGameplayPauseState();
   }
 
-  function readRespawnBoostExpiry() {
-    try {
-      const expiresAt = Number(localStorage.getItem(REWARDED_RESPAWN_BOOST_EXPIRES_KEY));
-      if (Number.isFinite(expiresAt) && expiresAt > Date.now()) return expiresAt;
-      localStorage.removeItem(REWARDED_RESPAWN_BOOST_EXPIRES_KEY);
-    } catch {}
-    return 0;
-  }
-
   const regularEnemyRespawnBoost = createRegularEnemyRespawnBoost(
     spawnSites,
     () => session.gameTime(),
-    Date.now,
-    readRespawnBoostExpiry(),
+    readRespawnBoostBank(),
     localTestMultiplier,
     () => runtimeMapBalance(currentMapId)?.regularRespawnSeconds ?? 20,
+    writeRespawnBoostBank,
   );
 
-  function activateRewardedRespawnBoost() {
-    const activated = regularEnemyRespawnBoost.activate();
-    if (activated) for (const site of spawnSites) {
-      if (!site.alive && site.respawnAt > session.gameTime()) respawnMemory.remember(enemyRespawnKey(site), (site.respawnAt - session.gameTime()) * 1000);
+  window.addEventListener("pagehide", regularEnemyRespawnBoost.flush);
+  document.addEventListener("visibilitychange", () => { if (document.hidden) regularEnemyRespawnBoost.flush(); });
+
+  /** Switching the bank rewrites pending timers, so the saved ones follow it. */
+  function rememberPendingRespawns() {
+    for (const site of spawnSites) {
+      if (!site.alive && site.respawnAt > session.gameTime()) {
+        respawnMemory.remember(enemyRespawnKey(site), (site.respawnAt - session.gameTime()) * 1000);
+      }
     }
-    if (!activated) return false;
-    try { localStorage.setItem(REWARDED_RESPAWN_BOOST_EXPIRES_KEY, String(regularEnemyRespawnBoost.activeUntilMs())); } catch {}
-    return true;
   }
 
-  function clearExpiredRespawnBoost() {
-    try { localStorage.removeItem(REWARDED_RESPAWN_BOOST_EXPIRES_KEY); } catch {}
+  function toggleRewardedRespawnBoost() {
+    const enabled = regularEnemyRespawnBoost.toggle();
+    rememberPendingRespawns();
+    return enabled;
+  }
+
+  function grantRewardedRespawnBoost() {
+    return regularEnemyRespawnBoost.grant();
   }
 
   const duelSession = createDuelSessionController({
@@ -819,7 +818,6 @@ import {
 
   let playerController: PlayerController;
   const mapController = createMapController({
-    openHomeTravel: () => homeTravel.open(),
     onTravelStarted: () => autoFarm.stop("Map changed · choose an enemy"),
     markPortalCutsceneSeen: (cutscene) => coop?.markPortalCutsceneSeen?.(cutscene),
     mapConfig: MAP_CONFIG,
@@ -903,13 +901,6 @@ import {
     prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss,
     clearPendingBossHits: () => playerCombat.clearPendingBossHits(),
     onCutsceneFinished: (wasPreview) => bossController.onPortalCutsceneFinished(wasPreview),
-  });
-  const homeTravel = createHomeTravelController({
-    progress: () => coop?.savedProgress?.(),
-    endlessUnlocked: mapId => Boolean(coop?.proceduralMapUnlocked(mapId)),
-    pause: paused => setGameplayPause("home-travel", paused),
-    travel: destination => mapController.teleportToMap(destination,
-      async () => Boolean(await coop?.changeMap(destination, player.x, player.y))),
   });
   const { activePortal, secondaryPortal, portalIsUnlocked, startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene, startSamuraiPortalCutscene } = mapController;
 
@@ -1365,8 +1356,10 @@ import {
 
   let observedCoopSessionGeneration = 0;
 
+  let offlineProgressSummary: ReturnType<typeof createOfflineProgressSummary> | undefined;
   function updateHud(force = false) {
     runtimeHud.updateHud(force);
+    offlineProgressSummary?.showPending();
   }
 
   let minimizeMaximizedChat = () => {};
@@ -1507,6 +1500,7 @@ import {
 
   const devPanel = createDevPanel({
     coop,
+    simulateTimeAway: async (seconds: number) => Boolean(await coop?.simulateTimeAway?.(seconds)),
     teleportPlayer: async (query: string) => {
       if (!coop?.isDeveloper?.()) throw new Error("Developer access required.");
       const target = await coop.findTeleportPlayer(query);
@@ -1666,8 +1660,8 @@ import {
   const rewardedRespawnAd = createRewardedRespawnAdController({
     button: enemyRespawnAdBtn,
     status: enemyRespawnAdStatus,
-    activeStatus: enemyRespawnBoostStatus,
-    activeTimer: enemyRespawnBoostTimer,
+    bankButton: enemyRespawnBoostStatus,
+    bankTimer: enemyRespawnBoostTimer,
     prompt: enemyRespawnAdPrompt,
     confirmButton: enemyRespawnAdConfirm,
     cancelButton: enemyRespawnAdCancel,
@@ -1676,10 +1670,10 @@ import {
   }, {
     getNativeBridge: () => nativeBridgeForRuntime(window),
     isSupporter: () => (coop?.supporterTier?.() ?? "none") !== "none",
-    activateBoost: activateRewardedRespawnBoost,
-    isBoostActive: regularEnemyRespawnBoost.isActive,
+    grantBoost: grantRewardedRespawnBoost,
+    toggleBoost: toggleRewardedRespawnBoost,
+    isBoostEnabled: regularEnemyRespawnBoost.isEnabled,
     boostRemainingMs: regularEnemyRespawnBoost.remainingMs,
-    onBoostExpired: clearExpiredRespawnBoost,
     setPromptActive: (active) => setGameplayPause("rewarded-ad-prompt", active),
     setAdPlaybackActive: (active) => {
       setGameplayPause("rewarded-ad", active);
@@ -1756,7 +1750,11 @@ import {
     updateProjectiles: playerCombat.updateProjectiles, updateRespawns: time => { if (!inTutorial()) updateRespawns(time); },
     clearDuelCombat: () => { autoFarm.stop("Autofarm stopped for duel"); projectileStore.clear(); playerCombat.clearPendingBossHits(); },
     updateEffects: effects.update, updateHud: () => updateHud(),
-    updateVisuals: (dt) => { onboarding?.update(dt); flash = Math.max(0, flash - dt); screenShake *= Math.pow(.01, dt); },
+    updateVisuals: (dt) => {
+      // The bank buys faster camps, so it is only spent where camps exist.
+      if (!inTutorial() && currentMapId !== "home_exterior") regularEnemyRespawnBoost.drain(dt * 1_000);
+      onboarding?.update(dt); flash = Math.max(0, flash - dt); screenShake *= Math.pow(.01, dt);
+    },
     updateMessage: runtimeHud.updateMessage,
     capturePresentationState: presentation.capture,
     resetPresentationState: presentation.reset,
@@ -2139,6 +2137,12 @@ import {
     updateDuelControls,
     refreshAppStatus: appShell.refreshStatus,
     refreshReconnectOverlay,
+  });
+  offlineProgressSummary = createOfflineProgressSummary({
+    acknowledge: () => { void coop?.acknowledgeOfflineProgress?.(); },
+    pause: paused => setGameplayPause("offline-progress", paused),
+    pending: () => coop?.pendingOfflineProgress?.(),
+    readyToShow: () => !inTutorial() && Boolean(session?.isRunning()),
   });
   if (coop?.setOnChange) coop.setOnChange(coopSession.onChange);
   coop?.setOnGemDrop?.(({ amount }) => runtimeHud.showGemDrop(amount));

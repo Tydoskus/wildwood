@@ -278,10 +278,10 @@ describe("reset map presentation", () => {
 });
 
 describe("Home teleport", () => {
-  it("has a Home travel portal without triggering it from the spawn point", () => {
+  it("has no portal in Home, so walking the courtyard never travels", () => {
     const h = portalArrivalHarness({ x: 300, y: 400 });
     h.controller.loadMap("home_exterior", 500, 700);
-    expect(h.controller.activePortal()).toMatchObject({ label: "Travel" });
+    expect(h.controller.activePortal()).toBeNull();
     h.controller.resolvePortalCollision();
     h.controller.updatePortal(1);
     expect(h.player).toMatchObject({ x: 500, y: 700 });

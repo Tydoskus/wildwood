@@ -37,6 +37,7 @@ import {
 import AcceptDuelReducer from "./accept_duel_reducer";
 import AcceptTermsReducer from "./accept_terms_reducer";
 import AcknowledgeBalanceApologyGiftReducer from "./acknowledge_balance_apology_gift_reducer";
+import AcknowledgeOfflineSummaryReducer from "./acknowledge_offline_summary_reducer";
 import AcknowledgeReleaseReducer from "./acknowledge_release_reducer";
 import AttackForestRewardPrototypeReducer from "./attack_forest_reward_prototype_reducer";
 import BeginAccountLinkReducer from "./begin_account_link_reducer";
@@ -163,6 +164,7 @@ import SetReleaseWindowReducer from "./set_release_window_reducer";
 import SetSkinToneReducer from "./set_skin_tone_reducer";
 import SetSpeedReducer from "./set_speed_reducer";
 import ShareDuelReplayReducer from "./share_duel_replay_reducer";
+import SimulateTimeAwayReducer from "./simulate_time_away_reducer";
 import SpeedUpItemUpgradeWithGemsReducer from "./speed_up_item_upgrade_with_gems_reducer";
 import SpeedUpResearchWithGemsReducer from "./speed_up_research_with_gems_reducer";
 import SpendPrestigePerkPointReducer from "./spend_prestige_perk_point_reducer";
@@ -248,6 +250,7 @@ import MyGemWalletRow from "./my_gem_wallet_table";
 import MyInventoryCapacityRow from "./my_inventory_capacity_table";
 import MyItemGiftsRow from "./my_item_gifts_table";
 import MyMailboxV2Row from "./my_mailbox_v_2_table";
+import MyOfflineProgressRow from "./my_offline_progress_table";
 import MyOnboardingRow from "./my_onboarding_table";
 import MyPlayerBlocksRow from "./my_player_blocks_table";
 import MyProceduralBossRow from "./my_procedural_boss_table";
@@ -1156,6 +1159,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyMailboxV2Row),
+  myOfflineProgress: __table({
+    name: 'my_offline_progress',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyOfflineProgressRow),
   myOnboarding: __table({
     name: 'my_onboarding',
     indexes: [
@@ -1219,6 +1229,7 @@ const reducersSchema = __reducers(
   __reducerSchema("accept_duel", AcceptDuelReducer),
   __reducerSchema("accept_terms", AcceptTermsReducer),
   __reducerSchema("acknowledge_balance_apology_gift", AcknowledgeBalanceApologyGiftReducer),
+  __reducerSchema("acknowledge_offline_summary", AcknowledgeOfflineSummaryReducer),
   __reducerSchema("acknowledge_release", AcknowledgeReleaseReducer),
   __reducerSchema("attack_forest_reward_prototype", AttackForestRewardPrototypeReducer),
   __reducerSchema("begin_account_link", BeginAccountLinkReducer),
@@ -1345,6 +1356,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_skin_tone", SetSkinToneReducer),
   __reducerSchema("set_speed", SetSpeedReducer),
   __reducerSchema("share_duel_replay", ShareDuelReplayReducer),
+  __reducerSchema("simulate_time_away", SimulateTimeAwayReducer),
   __reducerSchema("speed_up_item_upgrade_with_gems", SpeedUpItemUpgradeWithGemsReducer),
   __reducerSchema("speed_up_research_with_gems", SpeedUpResearchWithGemsReducer),
   __reducerSchema("spend_prestige_perk_point", SpendPrestigePerkPointReducer),

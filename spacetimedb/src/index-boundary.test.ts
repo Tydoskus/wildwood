@@ -29,7 +29,12 @@ import { describe, expect, it } from "vitest";
 // 6_623: map sharding was deleted outright (2026-09-21). Its 13 reducers, two
 // procedures, one view, 17 tables and every shard-only branch left with it, so
 // the schema-surface counts above are that much smaller too.
-const MAX_LINES = 6_623;
+// 6_650: offline progress added one table registration, the my_offline_progress
+// view, the acknowledge_offline_summary and simulate_time_away reducers, and
+// the port object naming the four entry-module helpers the payout reads. Every
+// body — the window stamp, the grant, the developer backdate — lives in
+// offline-progress.ts, and the model itself in shared/offline-progress.ts.
+const MAX_LINES = 6_650;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

@@ -66,6 +66,7 @@ export function createDevPanel(d: Record<string, any>) {
   document.getElementById("developerSettingsRow")!.after(travel.element);
   const panel = createDevPanelController({
     teleportPlayer: d.teleportPlayer,
+    simulateTimeAway: d.simulateTimeAway,
     balance: {
       load: () => coop.balanceEditor(), preview: (map, settings) => coop.previewBalance(map, settings),
       save: (revision, settings) => coop.saveBalance(revision, settings), restore: (expected, revision) => coop.restoreBalance(expected, revision),

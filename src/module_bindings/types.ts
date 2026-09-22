@@ -1271,6 +1271,9 @@ export type MyItemGifts = __Infer<typeof MyItemGifts>;
 export const MyMailboxV2 = __t.object("MyMailboxV2", {});
 export type MyMailboxV2 = __Infer<typeof MyMailboxV2>;
 
+export const MyOfflineProgress = __t.object("MyOfflineProgress", {});
+export type MyOfflineProgress = __Infer<typeof MyOfflineProgress>;
+
 export const MyOnboarding = __t.object("MyOnboarding", {});
 export type MyOnboarding = __Infer<typeof MyOnboarding>;
 
@@ -1299,6 +1302,23 @@ export const NameChangeStatus = __t.object("NameChangeStatus", {
   balance: __t.f64(),
 });
 export type NameChangeStatus = __Infer<typeof NameChangeStatus>;
+
+export const OfflineProgress = __t.object("OfflineProgress", {
+  identity: __t.identity(),
+  awaySinceMicros: __t.u64(),
+  mapId: __t.string(),
+  seconds: __t.u32(),
+  kills: __t.u32(),
+  damage: __t.f64(),
+  health: __t.f64(),
+  armor: __t.f64(),
+  regen: __t.f64(),
+  attackSpeed: __t.f64(),
+  blocked: __t.bool(),
+  grantedAtMicros: __t.u64(),
+  pending: __t.bool(),
+});
+export type OfflineProgress = __Infer<typeof OfflineProgress>;
 
 export const PatreonAnnouncement = __t.object("PatreonAnnouncement", {
   userId: __t.string(),

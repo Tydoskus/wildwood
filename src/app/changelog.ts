@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.769": [
+    "Time away now pays. Come back after a break and you collect up to thirty minutes of farming on the hardest map you can actually hold — with a window telling you which map it used and what it earned you. A map that would have killed you is skipped for the one below it, and if nothing you have unlocked is survivable yet, it says so instead of paying you for a fight you would have lost.",
+    "The 2× enemy respawn reward is now a thirty-minute bank instead of a countdown. Watching an ad fills it, and it only runs down while you switch it on — so it keeps until you are somewhere worth spending it, and pausing it saves the rest for later.",
+    "The Travel pad is gone from Home. The Home button in the toolbar still takes you there and brings you back to the exact spot you left, which is now the only way in and out.",
+  ],
   "0.768": [
     "Chasing enemies now keep pace with the speed you have actually researched, staying a step behind it, instead of running at a fixed speed that outran a beginner and was outrun by a finished build. Speed boots still put you clear.",
     "Prestige asks the server instead of deciding for itself, so a window that had not caught up can no longer refuse a prestige you had earned. It also opens while locked and tells you what is missing.",
@@ -2191,6 +2196,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.769": "2026-09-22",
   "0.768": "2026-09-21",
   "0.767": "2026-09-21",
   "0.766": "2026-09-21",

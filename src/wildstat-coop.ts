@@ -1,4 +1,5 @@
 import { watchDefeatSession } from "./coop/services/defeat-session-watch";
+import { watchOfflineProgress, type OfflineProgressSummary } from "./coop/services/offline-progress-watch";
 import { consumeUpdateResumeMode } from "./coop/services/update-resume-browser";
 import { configureConnectionDiagnostics, recordConnectionDiagnostic, flushConnectionDiagnostics } from "./coop/services/connection-diagnostic-runtime";
 import { bindProgressFlushOnHide } from "./coop/services/flush-on-hide";
@@ -85,6 +86,8 @@ const updateResumeStore = createUpdateResumeStore(sessionStorage, updateResumeKe
 const updateResumeMode = consumeUpdateResumeMode({ version: GAME_VERSION, store: updateResumeStore, consumedKey: updateResumeConsumedKey, tabKey: authTabKey, tokenKey: accountTokenKey });
 let connection: DbConnection | null = null;
 let localIdentity = "";
+/** Held until the UI has shown it; the server keeps its own copy until then. */
+let pendingOfflineProgress: OfflineProgressSummary | null = null;
 let localDbIdentity: Identity | null = null;
 let latencyMs: number | null = null;
 let lastLatencyProbeStartedAt = 0;
@@ -708,6 +711,10 @@ function connect() {
       clearRealtimeCaches();
       if (!signedIn) accountService.storeGuestToken(token);
       watchDefeatSession(conn, accountService.connectionCredential(), () => generation === connectionGeneration && connection === conn, message => accountService.handleDefeatRestriction(message));
+      watchOfflineProgress(conn, () => generation === connectionGeneration && connection === conn, summary => {
+        pendingOfflineProgress = summary;
+        onChange();
+      });
       const protocolStartedAt = performance.now();
       void conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION }).then(async () => {
         if (generation !== connectionGeneration || connection !== conn) return;
@@ -882,6 +889,17 @@ export const wildstatCoop = {
   },
   localIdentity() {
     return localIdentity;
+  },
+  pendingOfflineProgress: () => pendingOfflineProgress,
+  async acknowledgeOfflineProgress() {
+    pendingOfflineProgress = null;
+    if (!connection?.isActive) return;
+    await connection.reducers.acknowledgeOfflineSummary({});
+  },
+  async simulateTimeAway(seconds: number) {
+    if (!connection?.isActive || !isDeveloperIdentity(localIdentity)) return false;
+    await connection.reducers.simulateTimeAway({ seconds });
+    return true;
   },
   sessionGeneration() {
     return sessionGeneration;

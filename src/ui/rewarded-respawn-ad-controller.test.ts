@@ -27,8 +27,8 @@ describe("rewarded respawn countdown", () => {
     });
     vi.stubGlobal("window", runtime);
     const elements = {
-      button: fakeElement(true), status: fakeElement(), activeStatus: fakeElement(true),
-      activeTimer: fakeElement(), prompt: fakeElement(true), confirmButton: fakeElement(),
+      button: fakeElement(true), status: fakeElement(), bankButton: fakeElement(true),
+      bankTimer: fakeElement(), prompt: fakeElement(true), confirmButton: fakeElement(),
       cancelButton: fakeElement(), browserAd: fakeElement(true), browserAdTimer: fakeElement(),
     };
     const isReady = failure === "rejected"
@@ -39,8 +39,8 @@ describe("rewarded respawn countdown", () => {
     const activateBoost = vi.fn(() => true);
     const controller = createRewardedRespawnAdController(elements as unknown as Parameters<typeof createRewardedRespawnAdController>[0], {
       getNativeBridge: () => ({ platform: "ios", rewardedAds: { isReady, show } }),
-      activateBoost, isBoostActive: () => false, boostRemainingMs: () => 0,
-      onBoostExpired: vi.fn(), setPromptActive: vi.fn(), setAdPlaybackActive: vi.fn(), showMessage: vi.fn(),
+      grantBoost: activateBoost, toggleBoost: () => true, isBoostEnabled: () => false, boostRemainingMs: () => 0,
+      setPromptActive: vi.fn(), setAdPlaybackActive: vi.fn(), showMessage: vi.fn(),
     });
     controller.init();
     await vi.waitFor(() => expect(elements.status.textContent).toBe("RETRY AD"));
@@ -58,15 +58,15 @@ describe("rewarded respawn countdown", () => {
     runtime.dispatchEvent(new Event("online"));
     expect(isReady).toHaveBeenCalledTimes(3);
   });
-  it("gives a supporter the boost on tap with no prompt and no ad", async () => {
+  it("banks a supporter boost on tap with no prompt and no ad", async () => {
     const runtime = Object.assign(new EventTarget(), {
       requestAnimationFrame: (callback: FrameRequestCallback) => { callback(0); return 1; },
       setTimeout: vi.fn(() => 1), clearTimeout: vi.fn(),
     });
     vi.stubGlobal("window", runtime);
     const elements = {
-      button: fakeElement(true), status: fakeElement(), activeStatus: fakeElement(true),
-      activeTimer: fakeElement(), prompt: fakeElement(true), confirmButton: fakeElement(),
+      button: fakeElement(true), status: fakeElement(), bankButton: fakeElement(true),
+      bankTimer: fakeElement(), prompt: fakeElement(true), confirmButton: fakeElement(),
       cancelButton: fakeElement(), browserAd: fakeElement(true), browserAdTimer: fakeElement(),
     };
     const show = vi.fn(async () => ({ rewarded: true }));
@@ -76,8 +76,9 @@ describe("rewarded respawn countdown", () => {
     const controller = createRewardedRespawnAdController(elements as unknown as Parameters<typeof createRewardedRespawnAdController>[0], {
       getNativeBridge: () => ({ platform: "ios", rewardedAds: { isReady: vi.fn(async () => true), show } }),
       isSupporter: () => true,
-      activateBoost: () => { boosted = true; return activateBoost(); }, isBoostActive: () => boosted, boostRemainingMs: () => 60_000,
-      onBoostExpired: vi.fn(), setPromptActive: vi.fn(), setAdPlaybackActive: vi.fn(), showMessage,
+      grantBoost: () => { boosted = true; return activateBoost(); }, toggleBoost: () => true,
+      isBoostEnabled: () => boosted, boostRemainingMs: () => boosted ? 30 * 60 * 1_000 : 0,
+      setPromptActive: vi.fn(), setAdPlaybackActive: vi.fn(), showMessage,
     });
     controller.init();
     await vi.waitFor(() => expect(elements.status.textContent).toBe("BOOST"));
@@ -120,8 +121,8 @@ describe("rewarded respawn countdown", () => {
     const controller = createRewardedRespawnAdController({
       button,
       status: fakeElement(),
-      activeStatus: fakeElement(true),
-      activeTimer: fakeElement(),
+      bankButton: fakeElement(true),
+      bankTimer: fakeElement(),
       prompt,
       confirmButton,
       cancelButton,
@@ -129,10 +130,10 @@ describe("rewarded respawn countdown", () => {
       browserAdTimer: fakeElement(),
     } as unknown as Parameters<typeof createRewardedRespawnAdController>[0], {
       getNativeBridge: () => null,
-      activateBoost,
-      isBoostActive: () => false,
+      grantBoost: activateBoost,
+      toggleBoost: () => true,
+      isBoostEnabled: () => false,
       boostRemainingMs: () => 0,
-      onBoostExpired: vi.fn(),
       setPromptActive,
       setAdPlaybackActive,
       showMessage: vi.fn(),
@@ -154,6 +155,57 @@ describe("rewarded respawn countdown", () => {
     expect(setPromptActive).toHaveBeenLastCalledWith(false);
     expect(setAdPlaybackActive).toHaveBeenCalledWith(true);
     expect(activateBoost).not.toHaveBeenCalled();
+    controller.destroy();
+  });
+
+  it("shows the bank as a switch once it holds time, and spends nothing to flip it", () => {
+    vi.stubGlobal("window", {
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      requestAnimationFrame: (callback: FrameRequestCallback) => { callback(0); return 1; },
+      setTimeout: vi.fn(() => 1),
+      clearTimeout: vi.fn(),
+    });
+
+    const button = fakeElement(false);
+    const bankButton = fakeElement(true);
+    const bankTimer = fakeElement();
+    const showMessage = vi.fn();
+    let enabled = false;
+    const controller = createRewardedRespawnAdController({
+      button, status: fakeElement(), bankButton, bankTimer,
+      prompt: fakeElement(true), confirmButton: fakeElement(), cancelButton: fakeElement(),
+      browserAd: fakeElement(true), browserAdTimer: fakeElement(),
+    } as unknown as Parameters<typeof createRewardedRespawnAdController>[0], {
+      getNativeBridge: () => null,
+      grantBoost: vi.fn(() => true),
+      toggleBoost: () => { enabled = !enabled; return enabled; },
+      isBoostEnabled: () => enabled,
+      boostRemainingMs: () => 12 * 60 * 1_000,
+      setPromptActive: vi.fn(),
+      setAdPlaybackActive: vi.fn(),
+      showMessage,
+    });
+
+    controller.init();
+
+    expect(button.hidden).toBe(true);
+    expect(bankButton.hidden).toBe(false);
+    expect(bankTimer.textContent).toBe("12:00");
+    expect(bankButton.getAttribute("aria-pressed")).toBe("false");
+
+    bankButton.dispatchEvent(new Event("click"));
+
+    expect(enabled).toBe(true);
+    expect(bankButton.getAttribute("aria-pressed")).toBe("true");
+    expect(bankButton.dataset.state).toBe("on");
+    expect(showMessage).toHaveBeenLastCalledWith("2\u00d7 ENEMY RESPAWN ON", expect.any(String));
+
+    bankButton.dispatchEvent(new Event("click"));
+
+    expect(enabled).toBe(false);
+    expect(bankTimer.textContent).toBe("12:00");
+    expect(showMessage).toHaveBeenLastCalledWith("2\u00d7 ENEMY RESPAWN PAUSED", expect.any(String));
     controller.destroy();
   });
 });

@@ -69,7 +69,6 @@ export type MapController = {
 
 /** Owns map travel, portal collisions, and cinematic portal state. */
 export function createMapController(options: {
-  openHomeTravel?: () => void;
   onTravelStarted?: () => void;
   mapConfig: MapConfig;
   tutorialMapId: MapId;
@@ -324,12 +323,6 @@ export function createMapController(options: {
       playerIsInsidePortal(candidate),
     );
     if (!portal || !portalIsUnlocked(portal)) return;
-    if (getCurrentMapId() === "home_exterior" && options.openHomeTravel) {
-      portalExitGuard = portal;
-      keys.clear(); stopTouchMove(); player.moving = false;
-      options.openHomeTravel();
-      return;
-    }
     options.onTravelStarted?.();
     mapTransitioning = true;
     keys.clear();

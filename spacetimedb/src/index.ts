@@ -16,6 +16,7 @@ import { playerMultiplayerPreference, writeMultiplayerPreference } from "./multi
 import { enemyDefeatBudget, bossDefeatWindow, bossMapDefeatWindow, acceptEnemyDefeats, beginBossTimeBudget, enemyDefeatReview, permittedDefeatMaps } from "./enemy-defeats";
 import { grantVirtualPlayerConsent, revokeVirtualPlayerConsent } from "./virtual-player-consent";
 import { applyEnemyRewards } from "../../shared/enemy-defeats";
+import { offlineProgressTables, beginOfflineWindow, grantOfflineProgress, acknowledgeOfflineProgress, setSimulatedTimeAway } from "./offline-progress";
 import { LOADOUT_FIELDS } from "../../shared/combat-progress";
 import { chatHeartAllowance, chatReactionCooldown, chatReactionSummary, playerChatHearts, reactionCountsFor, chatReaction, readChatReactions, setChatReaction, removeMessageReactions, removeAccountReactions } from "./chat-reactions";
 import { regularEnemyLootCursor, rollRegularEnemyLoot } from "./regular-enemy-loot";
@@ -46,7 +47,7 @@ import { allowedAvatarFrame, isAvatarFrame } from "../../shared/avatar-frames";
 import { createGemPurchaseService } from "./gem-purchase-service";
 import { rescaleEndgameProgress } from "../../shared/endgame-power-rescale";
 import { CAMPAIGN_UNLOCK_FIELDS, equipmentMapRequirement } from "../../shared/equipment-access";
-import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_TRAVEL_PORTAL, HOME_BENCH_POSITION } from "../../shared/home";
+import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_BENCH_POSITION } from "../../shared/home";
 import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./snapshot-row-writes";
 import { compressLegacyMapPower } from "../../shared/map-power-rescale";
 import { createPlayerMotionFrameSampler } from "../../shared/player-motion-sample";
@@ -1697,6 +1698,7 @@ const patreonSweepSchedule = table(
   { scheduledId: t.u64().primaryKey(), scheduledAt: t.scheduleAt() },
 );
 const spacetimedb = schema({
+  ...offlineProgressTables,
   defeatSessionRestriction,
   mapBalanceVersion, mapBalanceHead, playerMapBalance,
   ...moderationTables,
@@ -2875,6 +2877,11 @@ function restoreItemToProgress(progress: any, itemId: string) {
   return next;
 }
 
+/** What offline-progress.ts needs from this module, wired once. */
+const OFFLINE_GRANT_PORTS = { effectiveStats: effectivePowerStatsForProgress, pinnedBalance: pinnedMapBalance,
+  statMultiplier: statRewardMultiplier, endlessClaimBit: BOSS_REWARD_CLAIM_BITS[PROCEDURAL_ENTRY_BOSS],
+  writeProgress: (ctx: any, progress: any) => writeProgressAndPresentation(ctx, progress) };
+
 function writeProgressAndPresentation(ctx: any, progress: any) {
   const current = ctx.db.playerProgress.identity.find(progress.identity);
   if (current) updateSnapshotRow(ctx, "playerProgress", progress);
@@ -3502,6 +3509,10 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
   ensureCutsceneHistory(ctx, ctx.sender);
   researchForPlayer(ctx, ctx.sender);
   syncSenderAccountStatus(ctx);
+  // After research exists, so effective stats are the real ones, and before the
+  // player row is written, so the entry snapshot carries the payout. A player
+  // still in the tutorial has no map to have been farming.
+  if (!virtualRegistration && !needsOnboarding(ctx, ctx.sender)) existingProgress = grantOfflineProgress(ctx, existingProgress, OFFLINE_GRANT_PORTS);
   if (!virtualRegistration && (!session.enteredWorld || session.tabId !== normalizedTabId)) {
     const updatedSession = ctx.db.playerSession.connectionId.find(ctx.connectionId);
     if (updatedSession) {
@@ -3693,6 +3704,9 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
 
   if (isDeveloperIdentity(ctx.sender)) clearVirtualPlayersForOwner(ctx, ctx.sender);
   finishLifetimeSession(ctx, ctx.sender);
+  // The account's last session just ended, so the unattended clock starts here.
+  // A virtual player has no account to pay out, so it never opens one.
+  if (!isVirtualPlayer(ctx, ctx.sender)) beginOfflineWindow(ctx, ctx.sender);
   removeIdentityPresence(ctx, ctx.sender);
 });
 
@@ -5577,6 +5591,26 @@ export const myDefeatSessionRestriction = spacetimedb.view(
   ctx => { const row = ctx.db.defeatSessionRestriction.identity.find(ctx.sender); return row ? [row] : []; },
 );
 
+export const myOfflineProgress = spacetimedb.view(
+  { name: "my_offline_progress", public: true }, t.array(offlineProgressTables.offlineProgress.rowType),
+  ctx => { const row = ctx.db.offlineProgress.identity.find(ctx.sender); return row?.pending ? [row] : []; },
+);
+
+/** The summary has been shown. Nothing else about the window changes. */
+export const acknowledgeOfflineSummary = spacetimedb.reducer({}, (ctx) => {
+  requireControllingPlayer(ctx);
+  acknowledgeOfflineProgress(ctx, ctx.sender);
+});
+
+/**
+ * Developer-only: backdate the unattended window so the next world entry pays
+ * out without waiting. Offline progress is otherwise untestable in one sitting.
+ */
+export const simulateTimeAway = spacetimedb.reducer({ seconds: t.u32() }, (ctx, { seconds }) => {
+  requireDeveloper(ctx, "simulate_time_away");
+  setSimulatedTimeAway(ctx, seconds, OFFLINE_GRANT_PORTS);
+});
+
 export const myOnboarding = spacetimedb.view(
   { name: "my_onboarding", public: true }, t.array(playerOnboarding.rowType),
   ctx => { const state = ctx.db.playerOnboarding.identity.find(ctx.sender); return state ? [state] : []; },
@@ -6009,9 +6043,10 @@ export const changeMap = spacetimedb.reducer(
       Boolean(currentProgress && (currentProgress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS[PROCEDURAL_ENTRY_BOSS])))) {
       throw new SenderError("Defeat the previous map's boss first.");
     }
-    const sourcePortals = current.mapId === HOME_EXTERIOR_MAP_ID
-      ? [{ ...HOME_TRAVEL_PORTAL, y: HOME_TRAVEL_PORTAL.y - HOME_TRAVEL_PORTAL.height * .32, destination: mapId }]
-      : isProceduralMap(current.mapId)
+    // Home no longer has a travel pad. Leaving Home is the toolbar teleport's
+    // return leg, which is the home_exterior branch above, not a portal walk.
+    if (current.mapId === HOME_EXTERIOR_MAP_ID) throw new SenderError("Maps are not connected.");
+    const sourcePortals = isProceduralMap(current.mapId)
       ? generateMap(current.mapId).portals.map(portal => ({ ...portal, y:portal.y-portal.height*.32 }))
       : [...(MAP_PORTALS[current.mapId as keyof typeof MAP_PORTALS] ?? []),
         ...(current.mapId === PROCEDURAL_ENTRY_MAP ? [{x:580,y:617,destination:proceduralMapId(1)}] : [])];
