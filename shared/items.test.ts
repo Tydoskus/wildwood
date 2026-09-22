@@ -74,10 +74,10 @@ describe("equipment catalog", () => {
   });
 
   it("keeps regular and boss equipment in their own acquisition groups", () => {
-    expect(STARTER_ITEM_IDS).toEqual([BASIC_PAPER_HAT, STARTER_STONE]);
+    expect(STARTER_ITEM_IDS).toEqual([STARTER_STONE]);
     expect(DEVELOPER_ITEM_IDS).not.toContain(STARTER_BOW);
     expect(STARTER_ITEM_IDS).not.toContain(STARTER_BOW);
-    expect(FOREST_DROP_ITEM_IDS).toEqual([STARTER_BOW, WOODEN_ARMOR]);
+    expect(FOREST_DROP_ITEM_IDS).toEqual([BASIC_PAPER_HAT, STARTER_BOW, WOODEN_ARMOR]);
     expect(DESERT_DROP_ITEM_IDS).toEqual([WOOD_FULL_HELM, IRON_BOW]);
     expect(SNOW_DROP_ITEM_IDS).toEqual([SNOW_BOW]);
     expect(SNOW_BOSS_DROP_ITEM_IDS).toEqual([FROST_BOW, FROST_ARMOR]);

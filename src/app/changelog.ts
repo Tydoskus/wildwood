@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.777": [
+    "The Basic Paper Hat is no longer handed to everyone at the start. It is a one-in-a-hundred find from forest enemies instead, so wearing one means you found one. Anyone who already has it keeps it.",
+    "Trailblazer Boots have been removed. They were cosmetic and gave no speed, and bare feet now take your character's skin tone rather than a fixed pale pair.",
+  ],
   "0.776": [
     "Enemies chasing you are now slightly faster than you are, rather than slightly slower. Running is no longer a free escape from a fight you started \u2014 Speed Boots are what buy you the last step back.",
     "Your age confirmation now follows your account. Signing in on another device no longer asks you again for something you have already answered.",
@@ -2230,6 +2234,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.777": "2026-09-22",
   "0.776": "2026-09-22",
   "0.775": "2026-09-22",
   "0.774": "2026-09-22",

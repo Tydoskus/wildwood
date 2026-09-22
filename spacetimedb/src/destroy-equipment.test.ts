@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { SAMURAI_HAT, STARTER_BOW, STARTER_STONE, TRAILBLAZER_BOOTS, WOODEN_ARMOR } from "../../shared/items";
+import { SAMURAI_HAT, STARTER_BOW, STARTER_STONE, WOODEN_ARMOR } from "../../shared/items";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
@@ -25,7 +25,7 @@ it.each([[STARTER_BOW, "bowCount"], [WOODEN_ARMOR, "woodenArmorCount"]])("remove
   expect(JSON.parse(progress.inventoryJson)).not.toContain(itemId);
 });
 
-it.each([STARTER_STONE, TRAILBLAZER_BOOTS, "unknown"])("rejects destruction of permanent or invalid item %s", (itemId) => {
+it.each([STARTER_STONE, "unknown"])("rejects destruction of permanent or invalid item %s", (itemId) => {
   const f = crystalFixture();
   expect(() => f.run(server.destroyEquipment, { itemId })).toThrow("cannot be destroyed");
 });

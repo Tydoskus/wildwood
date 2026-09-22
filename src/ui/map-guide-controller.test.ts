@@ -39,6 +39,7 @@ describe("map guide", () => {
     expect(mapGuideDrops(TUTORIAL_FOREST_MAP_ID).map(({ itemId, denominator }) => [itemId, denominator])).toEqual([
       [STARTER_BOW, 25],
       [WOODEN_ARMOR, 25],
+      ["basic_paper_hat", 100],
       ["forest_cap", 25],
     ]);
     expect(mapGuideDrops(BEGINNER_DESERT_MAP_ID).map(({ itemId, denominator }) => [itemId, denominator])).toEqual([

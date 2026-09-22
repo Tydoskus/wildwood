@@ -40,7 +40,7 @@ import {
 } from "./game/constants";
 import { distanceSquared } from "./game/math";
 import { formatArmorReduction } from "./game/combat";
-import { type InventoryState, DARK_METAL_HELMET, equipmentAppearance, FIRE_METAL_BOW, FIRE_METAL_HELMET, FROST_ARMOR, FROST_BOW, IRON_BOW, moveCosmeticInventoryItem, moveInventoryItem, NIGHT_BOW, setInventoryItemQuantity, SNOW_BOW, STARTER_BOW, toggleCosmeticEquipmentVisibility, TRAILBLAZER_BOOTS } from "./game/inventory";
+import { type InventoryState, DARK_METAL_HELMET, equipmentAppearance, FIRE_METAL_BOW, FIRE_METAL_HELMET, FROST_ARMOR, FROST_BOW, IRON_BOW, moveCosmeticInventoryItem, moveInventoryItem, NIGHT_BOW, setInventoryItemQuantity, SNOW_BOW, STARTER_BOW, toggleCosmeticEquipmentVisibility } from "./game/inventory";
 import { itemPresentation } from "./game/item-presentation";
 import { createMapMusicController } from "./game/runtime/audio";
 import { createCamera } from "./game/runtime/camera";
@@ -472,7 +472,7 @@ import {
       const moves = bestEquipmentMoves(inventory, powerForEquipment, itemId => !equipmentMapRequirement(itemId, coop?.savedProgress?.()));
       if (!moves.length) return false;
       for (const { itemId, destination } of moves) moveInventoryItem(inventory, itemId, destination);
-      player.speed = progress.movementSpeedForEquipment(inventory.equippedFeet === TRAILBLAZER_BOOTS) * localTestMultiplier;
+      player.speed = progress.movementSpeedForEquipment(false) * localTestMultiplier;
       applyPlayerMaxHealthMultiplierBonus(player, healthMultiplierBonus());
       saveProgress(true);
       showMessage("BEST EQUIPMENT EQUIPPED", "#72ef58");
@@ -495,7 +495,7 @@ import {
       const requiredMap = equipmentMapRequirement(itemId, coop?.savedProgress?.());
       if (destination !== "BAG" && requiredMap) { showMessage(`REACH ${requiredMap.toUpperCase()} TO EQUIP`, "#ff9b91"); return false; }
       if (!moveInventoryItem(inventory, itemId, destination)) return false;
-      player.speed = progress.movementSpeedForEquipment(inventory.equippedFeet === TRAILBLAZER_BOOTS) * localTestMultiplier;
+      player.speed = progress.movementSpeedForEquipment(false) * localTestMultiplier;
       applyPlayerMaxHealthMultiplierBonus(player, healthMultiplierBonus());
       const hasWeapon = isWeaponItem(inventory.equippedRightHand || inventory.equippedLeftHand);
       saveProgress(true);
@@ -528,12 +528,9 @@ import {
     player,
     bootsPickup,
     movementSpeedForBoots: (bootsEquipped) => progress.movementSpeedForEquipment(bootsEquipped),
-    collectBoots: () => {
-      inventory.itemIds = [...new Set([...inventory.itemIds, TRAILBLAZER_BOOTS])];
-      inventory.cosmeticFeet = TRAILBLAZER_BOOTS;
-      inventory.selectedItemId = TRAILBLAZER_BOOTS;
-      inventory.selectedItemLocation = "FEET";
-    },
+    // The boots this pickup once gave are gone; the pickup itself is already
+    // marked collected for every save, so nothing is left to hand over.
+    collectBoots: () => {},
     saveProgress: () => saveProgress(),
     renderInventory,
     pause: () => setGameplayPause("boot-upgrade", true),
@@ -1598,7 +1595,7 @@ import {
         inventory.selectedItemId = "";
         inventory.selectedItemLocation = "";
       }
-      player.speed = progress.movementSpeedForEquipment(inventory.equippedFeet === TRAILBLAZER_BOOTS) * localTestMultiplier;
+      player.speed = progress.movementSpeedForEquipment(false) * localTestMultiplier;
       applyPlayerMaxHealthMultiplierBonus(player, healthMultiplierBonus());
       renderInventory();
       saveProgress(true);

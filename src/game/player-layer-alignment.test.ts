@@ -106,7 +106,7 @@ describe("optional alignment instrumentation", () => {
       equipment: { basic_paper_hat: { sprite: image("hat") }, starter_stone: { sprite: image("stone") } },
     };
     for (const facing of [0, Math.PI]) for (const moving of [false, true]) for (const gameTime of [0, .13, .25, .7]) {
-      const options = { x: 12, y: 50, facing, moving, gameTime };
+      const options = { x: 12, y: 50, facing, moving, gameTime, headItem: "basic_paper_hat" };
       const game = recordingContext(), editor = recordingContext();
       drawStartingPlayer(game.ctx, assets, options);
       const layers: string[] = [];

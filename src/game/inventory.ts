@@ -1,5 +1,4 @@
 import {
-  BASIC_PAPER_HAT,
   canonicalItemId,
   DEVELOPER_ITEM_IDS,
   EQUIPMENT_DROP_ITEM_IDS,
@@ -9,7 +8,6 @@ import {
   MAX_FOREST_ITEM_COUNT,
   STARTER_STONE,
   STARTER_ITEM_IDS,
-  TRAILBLAZER_BOOTS,
   type EquipmentSlot,
 } from "../../shared/items";
 import {
@@ -39,7 +37,6 @@ export {
   STARTER_BOW,
   STARTER_STONE,
   SUPERIOR_GOLDEN_HELMET,
-  TRAILBLAZER_BOOTS,
   WOOD_FULL_HELM,
   WOODEN_ARMOR,
   type EquipmentSlot,
@@ -252,14 +249,16 @@ export function equipmentAppearance(inventory: Pick<InventoryState,
 
 export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equippedHead: unknown, equippedChest: unknown, ownsBoots: boolean, ownsDeveloperCosmetics = false, equippedRightHand: unknown = "", equippedLeftHand: unknown = "", cosmeticHead: unknown = "", cosmeticChest: unknown = "", cosmeticFeet: unknown = "", cosmeticRightHand: unknown = "", cosmeticLeftHand: unknown = ""): InventoryState {
   const requested = Array.isArray(itemIds) ? itemIds : [];
-  const hasBoots = ownsBoots || requested.includes(TRAILBLAZER_BOOTS);
+  // Trailblazer Boots are gone. `ownsBoots` is kept in the signature because
+  // saved rows still carry the flag; it no longer grants anything.
+  void ownsBoots;
   const handStateWasSaved = requested.some((itemId) => itemDefinition(itemId)?.slot === "HAND");
   const developerItems = ownsDeveloperCosmetics
     ? DEVELOPER_ITEM_IDS
     : DEVELOPER_ITEM_IDS.filter(id => requested.includes(id));
   const requestedDrops = new Set(requested.map(canonicalItemId));
   const dropItems = EQUIPMENT_DROP_ITEM_IDS.filter(itemId => requestedDrops.has(itemId));
-  const items = [...STARTER_ITEM_IDS, ...developerItems, ...(hasBoots ? [TRAILBLAZER_BOOTS] : []), ...dropItems];
+  const items: string[] = [...STARTER_ITEM_IDS, ...developerItems, ...dropItems];
   const headItems = items.filter((itemId) => itemDefinition(itemId)?.slot === "HEAD");
   const chestItems = items.filter((itemId) => itemDefinition(itemId)?.slot === "CHEST");
   const handItems = items.filter((itemId) => itemDefinition(itemId)?.slot === "HAND");
@@ -267,9 +266,10 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
   const savedRightItem = canonicalItemId(equippedRightHand);
   const savedLeftHand = savedLeftItem && handItems.includes(savedLeftItem) ? savedLeftItem : "";
   const savedRightHand = savedRightItem && handItems.includes(savedRightItem) ? savedRightItem : "";
-  const savedHead = equippedHead === ""
-    ? ""
-    : typeof equippedHead === "string" && headItems.includes(equippedHead) ? equippedHead : BASIC_PAPER_HAT;
+  // Bare-headed when the saved hat is not owned. It used to fall back to the
+  // paper hat, which everyone was given; it is a rare forest drop now, so that
+  // fallback would put one on a player who has never found it.
+  const savedHead = typeof equippedHead === "string" && headItems.includes(equippedHead) ? equippedHead : "";
   const savedChest = typeof equippedChest === "string" && chestItems.includes(equippedChest) ? equippedChest : "";
   const savedFeet = typeof equippedFeet === "string" && items.includes(equippedFeet) && itemDefinition(equippedFeet)?.slot === "FEET" ? equippedFeet : "";
   const resolvedRightHand = savedRightHand || (!handStateWasSaved && !savedLeftHand ? STARTER_STONE : "");

@@ -22,7 +22,7 @@ it("converts online and offline accounts once, backs up stats, gates gear and re
   f.ctx.connectionId = null;
   f.patch("playerProgress", { damage: 1e20, maxHp: 2e20, armor: 1e19, regen: 1e18 });
   const original = f.progress(identity("2"), { damage: 1e22, maxHp: 2e22, armor: 1e21, regen: 1e20,
-    ...Object.fromEntries(CAMPAIGN_UNLOCK_FIELDS.map(field => [field, true])), bossRewardClaims: 32767, inventoryJson: '["basic_paper_hat","starter_stone","starter_bow"]', equippedRightHand: "starter_bow" });
+    ...Object.fromEntries(CAMPAIGN_UNLOCK_FIELDS.map(field => [field, true])), bossRewardClaims: 32767, inventoryJson: '["starter_stone","starter_bow","basic_paper_hat"]', equippedRightHand: "starter_bow" });
   f.seed("regularEnemyLootCursor", { key: "receipt", identity: identity("2"), sequence: 12n });
   f.run(server.onConnect);
   const next = f.db.playerProgress.identity.find(identity("2"));

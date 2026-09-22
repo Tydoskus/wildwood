@@ -3,7 +3,7 @@ import { defaultWeaponAlignment } from "./equipment-alignment";
 import { EXPANSION_HEAD_FRAME, DEFAULT_HEAD_ALIGNMENT } from "./player-head-template";
 import { drawPlayerHead, drawPlayerEyes } from "./player-face";
 import { drawAlignedPlayerLayer, type PlayerLayer, type PlayerLayerAlignment, type LayerBounds } from "./player-layer-alignment";
-import { BASIC_PAPER_HAT, STARTER_STONE } from "./inventory";
+import { STARTER_STONE } from "./inventory";
 import { ITEM_PRESENTATIONS, itemPresentation, type WorldSpritePresentation } from "./item-presentation";
 import { PLAYER_WORLD_SCALE } from "./player-render-scale";
 
@@ -36,8 +36,15 @@ const PLAYER_BODY_HEIGHT = 171;
 const PLAYER_BODY_CACHE_LIMIT = 128;
 const playerBodyCaches = new WeakMap<PlayerAppearanceAssets, Map<string, HTMLCanvasElement>>();
 
-function readyImage(asset: HTMLImageElement | undefined) {
-  return Boolean(asset?.complete && asset.naturalWidth > 0 && asset.naturalHeight > 0);
+/** A layer is either loaded artwork or a canvas we tinted from it. */
+export type PlayerLayerAsset = HTMLImageElement | HTMLCanvasElement;
+const assetWidth = (asset: PlayerLayerAsset) => "naturalWidth" in asset ? asset.naturalWidth : asset.width;
+const assetHeight = (asset: PlayerLayerAsset) => "naturalHeight" in asset ? asset.naturalHeight : asset.height;
+
+function readyImage(asset: PlayerLayerAsset | undefined) {
+  if (!asset) return false;
+  if ("complete" in asset && !asset.complete) return false;
+  return assetWidth(asset) > 0 && assetHeight(asset) > 0;
 }
 
 function playerBodyCache(assets: PlayerAppearanceAssets) {
@@ -130,6 +137,40 @@ export function loadPlayerAppearanceAssets(settled: () => void): PlayerAppearanc
     basicBackLeg: image("assets/wildstat/player-parts/basic-leg-back.webp", markAssetSettled),
     equipment,
   };
+}
+
+/**
+ * The bare legs, in the player's own skin tone.
+ *
+ * The art is one neutral pair, so without this a dark-skinned character walked
+ * around on pale feet the moment they had no boots — which is now the default,
+ * since Trailblazer Boots are gone. Multiply keeps the shading in the artwork
+ * and takes its colour from the tone; the second draw restores the alpha the
+ * fill would otherwise have squared off.
+ *
+ * Cached per image and tone: this runs inside the body composite, which is
+ * itself cached, but a tone change must not repaint on every frame.
+ */
+const tintedLegs = new Map<string, HTMLCanvasElement>();
+export function skinTonedLeg(leg: HTMLImageElement, tone: string): PlayerLayerAsset {
+  if (typeof document === "undefined" || !leg.complete || !leg.naturalWidth) return leg;
+  const key = `${leg.src}|${tone}`;
+  const cached = tintedLegs.get(key);
+  if (cached) return cached;
+  const canvas = document.createElement("canvas");
+  canvas.width = leg.naturalWidth;
+  canvas.height = leg.naturalHeight;
+  const context = canvas.getContext("2d");
+  if (!context) return leg;
+  context.drawImage(leg, 0, 0);
+  context.globalCompositeOperation = "multiply";
+  context.fillStyle = tone;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.globalCompositeOperation = "destination-in";
+  context.drawImage(leg, 0, 0);
+  if (tintedLegs.size > 32) tintedLegs.clear();
+  tintedLegs.set(key, canvas);
+  return canvas;
 }
 
 export function skinToneColor(value: number | undefined) {
@@ -298,10 +339,12 @@ export function drawStartingPlayer(
   heldX += runMotion.x;
   heldY += runMotion.y;
   const feetAssets = options.feetItem ? assets.equipment[options.feetItem] : undefined;
-  const backLeg = feetAssets?.backLeg ?? assets.basicBackLeg;
-  const frontLeg = feetAssets?.frontLeg ?? assets.basicFrontLeg;
-  const headItem = options.headItem === undefined ? BASIC_PAPER_HAT : options.headItem;
-  const drawLayer = (target: CanvasRenderingContext2D, asset: HTMLImageElement, x: number, y: number, width = asset.naturalWidth, height = asset.naturalHeight, layer?: PlayerLayer, report = false) => {
+  // Boots are artwork of their own; bare legs take the character's skin tone.
+  const skin = skinToneColor(options.skinTone);
+  const backLeg = feetAssets?.backLeg ?? skinTonedLeg(assets.basicBackLeg, skin);
+  const frontLeg = feetAssets?.frontLeg ?? skinTonedLeg(assets.basicFrontLeg, skin);
+  const headItem = options.headItem ?? "";
+  const drawLayer = (target: CanvasRenderingContext2D, asset: PlayerLayerAsset, x: number, y: number, width = assetWidth(asset), height = assetHeight(asset), layer?: PlayerLayer, report = false) => {
     if (!readyImage(asset)) return;
     if (!layer) { target.drawImage(asset, x, y, width, height); return; }
     drawAlignedPlayerLayer(target, layer, { x, y, width, height }, options.alignment?.[layer] ?? (layer === "weapon" ? defaultWeaponAlignment(heldSpritePresentation) : undefined),
@@ -330,8 +373,10 @@ export function drawStartingPlayer(
     return readyImage(assets.equipment[itemId]?.sprite);
   });
   const drawBody = (target: CanvasRenderingContext2D, report = false) => {
-    drawLayer(target, backLeg, 90 - backLeg.naturalWidth / 2 - 8 + gait.back.x, 171 - backLeg.naturalHeight + gait.back.y, backLeg.naturalWidth, backLeg.naturalHeight, "backLeg", report);
-    drawLayer(target, frontLeg, 90 - frontLeg.naturalWidth / 2 + 8 + gait.front.x, 171 - frontLeg.naturalHeight + gait.front.y, frontLeg.naturalWidth, frontLeg.naturalHeight, "frontLeg", report);
+    const backSize = { width: assetWidth(backLeg), height: assetHeight(backLeg) };
+    const frontSize = { width: assetWidth(frontLeg), height: assetHeight(frontLeg) };
+    drawLayer(target, backLeg, 90 - backSize.width / 2 - 8 + gait.back.x, 171 - backSize.height + gait.back.y, backSize.width, backSize.height, "backLeg", report);
+    drawLayer(target, frontLeg, 90 - frontSize.width / 2 + 8 + gait.front.x, 171 - frontSize.height + gait.front.y, frontSize.width, frontSize.height, "frontLeg", report);
     const body = { x: 90 - 41.4675 / 2, y: 157 - 45.315, width: 41.4675, height: 45.315 };
     drawAlignedPlayerLayer(target, "body", body, options.alignment?.body, () => {
       target.translate(body.x, body.y);

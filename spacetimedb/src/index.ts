@@ -152,7 +152,6 @@ import {
   STARTER_STONE,
   STARTER_ITEM_IDS,
   SUPERIOR_GOLDEN_HELMET,
-  TRAILBLAZER_BOOTS,
   WOODEN_ARMOR,
 } from "../../shared/items";
 import {
@@ -387,7 +386,7 @@ const player = table(
     zoneY: t.i32().default(0),
     mapId: t.string().default(TUTORIAL_FOREST_MAP_ID),
     controllerTabId: t.string().default(""),
-    headItem: t.string().default(BASIC_PAPER_HAT),
+    headItem: t.string().default(""),
     chestItem: t.string().default(""),
     isVisible: t.bool().default(true),
     dx: t.f32().default(0),
@@ -486,7 +485,7 @@ const playerMotionIdentity = table(
     speed: t.f32().default(PLAYER_SPEED),
     powerLevel: t.f64().default(95),
     feetItem: t.string().default(""),
-    headItem: t.string().default(BASIC_PAPER_HAT),
+    headItem: t.string().default(""),
     chestItem: t.string().default(""),
     rightHandItem: t.string().default(STARTER_STONE),
     leftHandItem: t.string().default(""),
@@ -727,7 +726,7 @@ const playerProgress = table(
     inventoryJson: t.string().default("[]"),
     equippedFeet: t.string().default(""),
     desertUnlocked: t.bool().default(false),
-    equippedHead: t.string().default(BASIC_PAPER_HAT),
+    equippedHead: t.string().default(""),
     equippedChest: t.string().default(""),
     snowlandsUnlocked: t.bool().default(false),
     equippedRightHand: t.string().default(""),
@@ -918,7 +917,7 @@ const leaderboardEntry = table(
     powerLevel: t.f64().default(0),
     gender: t.u8().default(PLAYER_GENDER_UNSET),
     skinTone: t.u32().default(3),
-    headItem: t.string().default(BASIC_PAPER_HAT),
+    headItem: t.string().default(""),
     chestItem: t.string().default(""),
     feetItem: t.string().default(""),
     rightHandItem: t.string().default(STARTER_STONE),
@@ -2167,10 +2166,10 @@ function defaultPlayerProgress(identity: any) {
     regen: PLAYER_BASE_REGEN,
     speed: PLAYER_SPEED,
     bootsCollected: true,
-    inventoryJson: JSON.stringify([BASIC_PAPER_HAT, STARTER_STONE, TRAILBLAZER_BOOTS]),
-    equippedHead: BASIC_PAPER_HAT,
+    inventoryJson: JSON.stringify([STARTER_STONE]),
+    equippedHead: "",
     equippedChest: "",
-    equippedFeet: TRAILBLAZER_BOOTS,
+    equippedFeet: "",
     equippedRightHand: STARTER_STONE,
     equippedLeftHand: "",
     introComplete: false,
@@ -2388,7 +2387,7 @@ function earlierTimestamp(first: Timestamp, second: Timestamp) {
 
 function effectiveMovementSpeedForProgress(ctx: any, progress: any, research?: any) {
   return effectivePlayerMovementSpeed(
-    equippedFeetForProgress(progress) === TRAILBLAZER_BOOTS,
+    false,
     (research ?? ctx.db.playerResearch.identity.find(progress.identity))?.moveSpeed ?? 0,
     progress.speedOverride ?? 0,
   );
@@ -2812,7 +2811,6 @@ function inventoryForProgress(progress: any) {
   return [
     ...STARTER_ITEM_IDS,
     ...(developer ? DEVELOPER_ITEM_IDS : DEVELOPER_ITEM_IDS.filter(id => owned.has(id))),
-    ...(progress.bootsCollected ? [TRAILBLAZER_BOOTS] : []),
     ...Array(forestCount(STARTER_BOW, "bowCount")).fill(STARTER_BOW),
     ...Array(forestCount(WOODEN_ARMOR, "woodenArmorCount")).fill(WOODEN_ARMOR),
     ...OWNED_EQUIPMENT_DROP_IDS.filter(id => owned.has(id)),
@@ -3488,7 +3486,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
     const equippedLeftHand = equippedRightHand ? "" : equippedLeftHandForProgress(existingProgress);
     const inventoryJson = JSON.stringify(inventoryForProgress(existingProgress));
     const cosmeticEquipment = cosmeticEquipmentForProgress({ ...existingProgress, inventoryJson });
-    const speed = playerBaseMovementSpeed(equippedFeet === TRAILBLAZER_BOOTS);
+    const speed = playerBaseMovementSpeed(false);
     const maxHp = Math.max(PLAYER_BASE_HP, existingProgress.maxHp);
     if (existingProgress.maxHp !== maxHp || existingProgress.attackRange !== DEFAULT_ATTACK_RANGE || existingProgress.speed !== speed || existingProgress.inventoryJson !== inventoryJson || existingProgress.equippedHead !== equippedHead || existingProgress.equippedChest !== equippedChest || existingProgress.equippedFeet !== equippedFeet || existingProgress.equippedRightHand !== equippedRightHand || existingProgress.equippedLeftHand !== equippedLeftHand || existingProgress.cosmeticHead !== cosmeticEquipment.cosmeticHead || existingProgress.cosmeticChest !== cosmeticEquipment.cosmeticChest || existingProgress.cosmeticFeet !== cosmeticEquipment.cosmeticFeet || existingProgress.cosmeticRightHand !== cosmeticEquipment.cosmeticRightHand || existingProgress.cosmeticLeftHand !== cosmeticEquipment.cosmeticLeftHand) {
       const migratedProgress = {
@@ -4932,7 +4930,7 @@ export const devUpdatePlayerSave = spacetimedb.reducer(
       return value;
     };
     const requestedSpeed = bounded(update.speed, 0, MAX_MOVEMENT_SPEED_OVERRIDE, "Move speed");
-    const equipmentSpeed = playerBaseMovementSpeed(equippedFeetForProgress(progress) === TRAILBLAZER_BOOTS);
+    const equipmentSpeed = playerBaseMovementSpeed(false);
     const nextProgress = {
       ...progress,
       maxHp: bounded(update.maxHp, 1, MAX_PLAYER_STAT, "Max HP"),
@@ -5052,7 +5050,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       attackRange: DEFAULT_ATTACK_RANGE,
       armor: base.armor,
       regen: base.regen,
-      speed: playerBaseMovementSpeed(equippedFeet === TRAILBLAZER_BOOTS),
+      speed: playerBaseMovementSpeed(false),
       speedOverride: base.speedOverride ?? 0,
       bootsCollected,
       inventoryJson,
@@ -6151,7 +6149,7 @@ export const setSpeed = spacetimedb.reducer(
     const progress = ctx.db.playerProgress.identity.find(ctx.sender);
     const research = ctx.db.playerResearch.identity.find(ctx.sender);
     const feet = progress ? equippedFeetForProgress(progress) : current.feetItem;
-    const bootsEquipped = feet === TRAILBLAZER_BOOTS;
+    const bootsEquipped = false;
     const moveSpeedRank = research?.moveSpeed ?? 0;
     const expectedSpeed = effectivePlayerMovementSpeed(bootsEquipped, moveSpeedRank, progress?.speedOverride ?? 0);
     // Regular-enemy combat runs locally. Permit its two exact movement states,
