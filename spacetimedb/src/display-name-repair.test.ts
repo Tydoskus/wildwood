@@ -9,6 +9,9 @@ it("repairs an offline name and public presentation without changing the save", 
   const f = crystalFixture(), target = f.ctx.sender;
   const name = "A naked little boy";
   f.patch("playerProfile", { displayName: name });
+  // The board only carries players who have beaten the Dragon, and the repair
+  // has to reach their row there.
+  f.patch("playerProgress", { desertUnlocked: true });
   f.db.player.identity.delete(target);
   f.seed("leaderboardEntry", { identity: target, displayName: name });
   f.seed("guildMember", { identity: target, guildId: 1n, name });

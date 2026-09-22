@@ -2513,6 +2513,11 @@ function refreshLeaderboard(ctx: any) {
   const candidates: any[] = [];
   for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
     if (ctx.db.virtualPlayer.identity.find(progress.identity)) continue;
+    // The board opens at the Dragon. Before that a save is a few minutes old
+    // and its owner is still in the tutorial forest, so it says nothing worth
+    // ranking. Desert access is the Dragon's permanent credit, which is why
+    // autofarm reads the same flag rather than the boss's own state.
+    if (!progress.desertUnlocked) continue;
     const profile = ctx.db.playerProfile.identity.find(progress.identity);
     if (!profile) continue;
     const current = ctx.db.leaderboardEntry.identity.find(progress.identity);
@@ -2526,6 +2531,7 @@ function refreshLeaderboard(ctx: any) {
       identity: progress.identity,
       identityKey: progress.identity.toHexString(),
       displayName: profile.displayName,
+      prestige: ctx.db.playerPrestige.identity.find(progress.identity)?.level ?? 0,
       power: powerForProgress(effectiveStats),
       profileIcon: profile.profileIcon,
       gender: profile.gender,

@@ -192,8 +192,26 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
     window.addEventListener("resize", () => { podiumDirty = true; }, { passive: true });
   }
   scroller.addEventListener("scroll", onScroll, { passive: true });
-  elements.button.addEventListener("click", () => { if (elements.overlay.hidden) void open(); else close(); });
+  /**
+   * The board opens at the Dragon, so the toolbar says so rather than opening
+   * a window the player cannot appear in. Called whenever progress changes.
+   */
+  function setUnlocked(unlocked: boolean) {
+    const button = elements.button as HTMLButtonElement;
+    const label = button.querySelector<HTMLElement>(".toolbar-label");
+    button.classList.toggle("is-locked", !unlocked);
+    button.setAttribute("aria-disabled", String(!unlocked));
+    button.title = unlocked ? "Leaderboard" : "Defeat the Dragon to unlock the leaderboard";
+    button.setAttribute("aria-label", unlocked ? "Open leaderboard" : "Leaderboard locked until you defeat the Dragon");
+    if (label) label.textContent = unlocked ? "Leaderboard" : "Locked";
+    if (!unlocked && !elements.overlay.hidden) close();
+  }
+
+  elements.button.addEventListener("click", () => {
+    if ((elements.button as HTMLButtonElement).getAttribute("aria-disabled") === "true") return;
+    if (elements.overlay.hidden) void open(); else close();
+  });
   elements.closeButton.addEventListener("click", close);
   for (const [name, tab] of Object.entries(elements.tabs)) tab.addEventListener("click", () => { void select(name); });
-  return { close, drawPodium, open, render, select, loadMore, isOpen: () => !elements.overlay.hidden };
+  return { close, drawPodium, open, render, select, loadMore, setUnlocked, isOpen: () => !elements.overlay.hidden };
 }

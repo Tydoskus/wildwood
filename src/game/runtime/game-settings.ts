@@ -1,4 +1,4 @@
-export const GAME_VERSION = "0.779";
+export const GAME_VERSION = "0.780";
 export const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
 export const SCREEN_SHAKE_ENABLED_KEY = "wildwood-screen-shake-enabled-v1";
 export const LOW_PERFORMANCE_MODE_KEY = "wildwood-low-performance-mode-v1";
@@ -41,9 +41,11 @@ export const WATER_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-water-portal-cutscene-v1
 export const SAMURAI_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-samurai-portal-cutscene-v1";
 // Pixel-aligned height keeps floating HP text centered and crisp.
 /**
- * Back to 13 after 16 read as roughly twice the bar it replaced. A pill is a
- * much heavier shape than the thin rectangle it took over from, so the extra
- * three pixels compounded with the rounding rather than just adding to it.
+ * Eleven, with softened corners rather than fully rounded ends. A pill is a
+ * much heavier shape than the rectangle it replaced, which is why 16 read as
+ * about twice the old bar despite being only three pixels taller.
  */
-export const WORLD_HEALTH_BAR_HEIGHT = 13;
+export const WORLD_HEALTH_BAR_HEIGHT = 11;
+/** Softened, not pilled: a fraction of the height rather than half of it. */
+export const WORLD_HEALTH_BAR_RADIUS = 3.5;
 export const ENEMY_TEXT_CULL_MIN_DISTANCE = 600;

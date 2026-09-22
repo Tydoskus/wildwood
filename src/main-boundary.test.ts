@@ -29,7 +29,9 @@ import { describe, expect, it } from "vitest";
 // so only the composition root can hand it the coop session, and only the HUD
 // tick knows when a subscription has changed it. The button, its busy state
 // and its rendering live in offline-progress-setting.ts.
-const MAX_LINES = 2_201;
+// 2_202: the leaderboard's locked state. Only the composition root knows both
+// the toolbar controller and whether this save has the Dragon's credit.
+const MAX_LINES = 2_202;
 const TARGET_LINES = 1_000;
 
 describe("game composition boundary", () => {

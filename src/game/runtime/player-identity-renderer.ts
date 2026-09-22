@@ -35,9 +35,9 @@ const SPEECH_BUBBLE_FADE_MS = 1_250;
 const SPEECH_BUBBLE_STACK_GAP = 5;
 /** The same size chat, the HUD and the profile give it. */
 const OVERHEAD_PRESTIGE_BADGE_SIZE = PRESTIGE_BADGE_PX;
-const OVERHEAD_GENDER_ICON_OFFSET_Y = 1;
+const OVERHEAD_GENDER_ICON_OFFSET_Y = 0;
 /** Tucked back towards the name, which reads tighter than a full gap. */
-const OVERHEAD_GENDER_ICON_OFFSET_X = -2;
+const OVERHEAD_GENDER_ICON_OFFSET_X = -1;
 export const MAX_ACTIVE_SPEECH_BUBBLES_PER_PLAYER = 3;
 
 type DisplayedPlayerPowerEquipment = {
@@ -89,6 +89,7 @@ export function createPlayerIdentityRenderer(options: {
   fillText: FillText;
   roundRect: RoundRect;
   healthBarHeight: number;
+  healthBarRadius: number;
 }) {
   const prestigeBadge = new Image();
   prestigeBadge.src = PRESTIGE_BADGE_ASSET;
@@ -101,7 +102,10 @@ export function createPlayerIdentityRenderer(options: {
   function publicPlayerName(identity: string | undefined, name: string | undefined) {
     const baseName = name || "PLAYER";
     const guestName = options.isGuest(identity) ? `${baseName} (guest)` : baseName;
-    return `${playerNamePrefix(identity, options.isDeveloper(identity))}${guestName}`;
+    // A space after the tags, so "[dev][TheG]rymel" reads as a name with
+    // badges rather than one run-on word.
+    const prefix = playerNamePrefix(identity, options.isDeveloper(identity));
+    return prefix ? `${prefix} ${guestName}` : guestName;
   }
 
   function renderDomPlayerName(element: HTMLElement, identity: string | undefined, name: string | undefined, gender = options.playerGender(identity)) {
@@ -246,7 +250,9 @@ export function createPlayerIdentityRenderer(options: {
       const barW = 80;
       const barH = options.healthBarHeight;
       const barX = centerX - Math.floor(barW / 2);
-      const barY = -50;
+      // Four pixels clear of where it used to sit, so the plate is not
+      // resting on the character's head.
+      const barY = -54;
       const fillWidth = Math.round(barW * clamp(hp / maxHp, 0, 1));
       // A pill: the frame, the empty channel and the fill all share the same
       // corner radius, so the bar reads as one rounded shape rather than a
@@ -254,18 +260,18 @@ export function createPlayerIdentityRenderer(options: {
       // A slimmer frame than the old square one: at two pixels the rounded
       // outline alone made the whole bar look twice the size.
       const framePad = 1.5;
-      const frameRadius = (barH + framePad * 2) / 2;
+      const frameRadius = options.healthBarRadius + framePad;
       ctx.fillStyle = "rgba(0,0,0,.88)";
       options.roundRect(barX - framePad, barY - framePad, barW + framePad * 2, barH + framePad * 2, frameRadius);
       ctx.fill();
       ctx.fillStyle = "#402326";
-      options.roundRect(barX, barY, barW, barH, barH / 2);
+      options.roundRect(barX, barY, barW, barH, options.healthBarRadius);
       ctx.fill();
       if (fillWidth > 0) {
         ctx.save();
         // Clip to the channel so a part-full bar keeps the rounded left end
         // and stops square against the clip, instead of bulging at the join.
-        options.roundRect(barX, barY, barW, barH, barH / 2);
+        options.roundRect(barX, barY, barW, barH, options.healthBarRadius);
         ctx.clip();
         ctx.fillStyle = fillColor;
         ctx.fillRect(barX, barY, fillWidth, barH);
@@ -321,7 +327,7 @@ export function createPlayerIdentityRenderer(options: {
     const labelWidth = nameWidth + badgeGap + badgeSize + genderIconGap + genderIconWidth;
     const textLeft = centerX - labelWidth / 2;
     const badgeLeft = textLeft + nameWidth + badgeGap;
-    const nameBottom = powerValue ? bottom - 18 : bottom;
+    const nameBottom = powerValue ? bottom - 16 : bottom;
     const developerPrefix = DEVELOPER_BADGE;
     if (displayName.startsWith(developerPrefix)) {
       const playerName = displayName.slice(developerPrefix.length);

@@ -46,7 +46,10 @@ import { describe, expect, it } from "vitest";
 // validation and audit that must happen in the same transaction as the sweep;
 // the table list, the row budget and the sweep itself live in
 // account-erasure.ts.
-const MAX_LINES = 6_725;
+// 6_729: the leaderboard's Dragon gate and the prestige it now ranks by. Both
+// are reads inside refreshLeaderboard, which is the schema-facing snapshot
+// builder; the ordering itself lives in leaderboard-pages.ts.
+const MAX_LINES = 6_729;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {
