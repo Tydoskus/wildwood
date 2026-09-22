@@ -1156,6 +1156,7 @@ import {
     },
     enemySprites: ENEMY_SPRITES,
     rewardMultiplier: researchRewardMultiplier,
+    showBossHitboxes: () => devPanel.bossHitboxesVisible(),
     enemyTextVisible: (enemy) => {
       const { width, height } = canvasRuntime.viewport();
       const screenRadius = Math.hypot(width, height) / (2 * camera.zoom);

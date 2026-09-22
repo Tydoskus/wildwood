@@ -4,6 +4,7 @@ export const SCREEN_SHAKE_ENABLED_KEY = "wildwood-screen-shake-enabled-v1";
 export const LOW_PERFORMANCE_MODE_KEY = "wildwood-low-performance-mode-v1";
 export const FPS_VISIBLE_KEY = "wildwood-fps-visible-v1";
 export const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
+export const BOSS_HITBOX_VISIBLE_KEY = "wildwood-boss-hitbox-visible-v1";
 export const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
 export const SFX_VOLUME_KEY = "wildwood-sfx-volume-v1";
 /**

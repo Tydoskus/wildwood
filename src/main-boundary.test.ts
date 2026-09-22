@@ -34,7 +34,11 @@ import { describe, expect, it } from "vitest";
 // 2_204: the upgrade bench's two slot-tier lookups. Tiers belong to equipment
 // slots now, and only the composition root can say which coop session holds
 // them and what is equipped in each slot. The bench's own logic is unchanged.
-const MAX_LINES = 2_204;
+// 2_205: one line asking the developer panel whether to draw boss hitboxes.
+// The toggle, its storage and its row live in boss-hitbox-overlay-control.ts
+// and the drawing lives in the boss renderer; only the composition root holds
+// both the panel and the render runtime.
+const MAX_LINES = 2_205;
 const TARGET_LINES = 1_000;
 
 describe("game composition boundary", () => {

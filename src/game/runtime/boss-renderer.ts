@@ -5,6 +5,7 @@ import { drawVoltwardenArt, VOLTWARDEN_ART_TOP } from "./neon-boss-art";
 import { drawGravebloomArt, GRAVEBLOOM_ART_TOP } from "./verdant-boss-art";
 import { drawAegisPrimeArt, AEGIS_PRIME_ART_TOP } from "./ion-boss-art";
 import { drawBossAtlasFrame } from "./boss-atlas-drawing";
+import { bossVerticalRadius } from "../../../shared/boss-hitbox";
 import {
   BOSS_CONE_HALF_ANGLE,
   BOSS_CONE_RANGE,
@@ -172,6 +173,8 @@ export function createBossRenderer(options: {
   pixelCircle: PixelCircle;
   outlinedText: OutlinedText;
   drawShadow: DrawShadow;
+  /** Developer overlay: draw each boss's collision shape over its artwork. */
+  showBossHitboxes?: () => boolean;
   hpLossFlashDuration: number;
   spiderWebRange: number;
   rewardMultiplier: () => number;
@@ -179,6 +182,46 @@ export function createBossRenderer(options: {
   const { ctx, camera, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss } = options;
   const screenX = (worldX: number) => snapWorldRenderCoordinate(worldX - camera.x, camera.zoom, options.devicePixelRatio());
   const screenY = (worldY: number) => snapWorldRenderCoordinate(worldY - camera.y, camera.zoom, options.devicePixelRatio());
+  /**
+   * The collision shape the server hits a boss with, drawn over its artwork.
+   *
+   * A boss is hit as an ellipse around its position: `r` across, and `ry`
+   * down when the boss carries one. Nothing lines these two up automatically,
+   * so the only way to see whether a hitbox matches what a player can see is
+   * to draw it. Developer overlay; off by default.
+   */
+  function drawBossHitboxes() {
+    if (!options.showBossHitboxes?.()) return;
+    const bosses = [
+      options.boss, options.spiderBoss, options.frostclawBoss, options.magmaliskBoss,
+      options.gloomrootBoss, options.tidewyrmBoss, options.koiShogunBoss, options.tempestKirinBoss,
+      options.miremawBoss, options.prismshellBoss, options.ironhornBoss, options.dreadreaperBoss,
+      options.voltwardenBoss, options.gravebloomBoss, options.aegisPrimeBoss,
+    ];
+    ctx.save();
+    ctx.lineWidth = 3;
+    for (const boss of bosses) {
+      if (!boss || boss.dead || !(boss.r > 0)) continue;
+      const x = screenX(boss.x);
+      const y = screenY(boss.y);
+      const horizontal = boss.r;
+      const vertical = bossVerticalRadius(boss.r, (boss as { ry?: number }).ry);
+      const centreY = y + ((boss as { hitboxOffsetY?: number }).hitboxOffsetY ?? 0);
+      ctx.strokeStyle = "rgba(255, 64, 160, .95)";
+      ctx.beginPath();
+      ctx.ellipse(x, centreY, horizontal, vertical, 0, 0, TAU);
+      ctx.stroke();
+      // A cross at the anchor: the position the server measures from, which is
+      // not always where the artwork's middle looks like it is.
+      ctx.strokeStyle = "rgba(255, 255, 255, .9)";
+      ctx.beginPath();
+      ctx.moveTo(x - 10, y); ctx.lineTo(x + 10, y);
+      ctx.moveTo(x, y - 10); ctx.lineTo(x, y + 10);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   const rewardText = (type: RewardType, baseAmount: number) => rewardLabel({
     type,
     amount: baseAmount * options.rewardMultiplier(),
@@ -1614,5 +1657,6 @@ export function createBossRenderer(options: {
     drawPrismshellTelegraphs, drawIronhornTelegraphs, drawDreadreaperTelegraphs, drawVoltwardenTelegraphs, drawGravebloomTelegraphs, drawAegisPrimeTelegraphs,
     drawMiremawBoss,
     drawPrismshellBoss, drawIronhornBoss, drawDreadreaperBoss, drawVoltwardenBoss, drawGravebloomBoss, drawAegisPrimeBoss,
+    drawBossHitboxes,
   };
 }

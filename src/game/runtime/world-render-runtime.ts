@@ -157,6 +157,8 @@ export type WorldRenderRuntimeOptions = {
   equipmentForIdentity: (identity: string | undefined) => { headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string };
   enemySprites: Record<string, LoadedEnemySprite>;
   rewardMultiplier: () => number;
+  /** Developer overlay: draw each boss's collision shape over its artwork. */
+  showBossHitboxes?: () => boolean;
   enemyTextVisible: (enemy: EnemyState) => boolean;
   drawStatus: (status: ActorStatus) => void;
   drawIdentity: (identity: string | undefined, name: string, power: number | null, centerX: number, bottom: number, color: string, gender?: PlayerGender) => void;
@@ -268,6 +270,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     gameTime: options.gameTime, pixelCircle: options.pixelCircle, outlinedText: options.outlinedText,
     drawShadow: drawEntityShadow, hpLossFlashDuration: options.bossHpLossFlashDuration, spiderWebRange: options.spiderWebRange,
     rewardMultiplier: options.rewardMultiplier,
+    showBossHitboxes: options.showBossHitboxes,
   });
   const actor = createActorRenderer({
     ctx: options.ctx,
@@ -436,6 +439,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawKoiShogunBoss: boss.drawKoiShogunBoss,
       drawTempestKirinBoss: boss.drawTempestKirinBoss,
       drawMiremawBoss: boss.drawMiremawBoss,
+      drawBossHitboxes: boss.drawBossHitboxes,
       drawPrismshellBoss: boss.drawPrismshellBoss, drawIronhornBoss: boss.drawIronhornBoss, drawDreadreaperBoss: boss.drawDreadreaperBoss, drawVoltwardenBoss: boss.drawVoltwardenBoss, drawGravebloomBoss: boss.drawGravebloomBoss, drawAegisPrimeBoss: boss.drawAegisPrimeBoss,
       drawBootPickup: () => renderer.drawBootPickup(),
       drawPortal: world.drawPortal,

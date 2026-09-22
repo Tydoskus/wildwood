@@ -75,6 +75,8 @@ export function createDepthWorldRenderer(options: {
   drawKoiShogunBoss: () => void;
   drawTempestKirinBoss: () => void;
   drawMiremawBoss: () => void;
+  /** Developer overlay, drawn over the finished world. */
+  drawBossHitboxes?: () => void;
   drawPrismshellBoss: () => void;
   drawIronhornBoss: () => void;
   drawDreadreaperBoss: () => void;
@@ -324,6 +326,7 @@ export function createDepthWorldRenderer(options: {
         staticIndex += 1;
       }
     }
+    options.drawBossHitboxes?.();
   }
 
   return { drawDepthSortedWorld, invalidateDepthOrder };

@@ -1,5 +1,6 @@
 import { createPlayerTravelControl } from "./player-travel-control";
 import { createOfflineProgressTestControl } from "./offline-progress-test-control";
+import { createBossHitboxOverlayControl } from "./boss-hitbox-overlay-control";
 import { createOtaPanel } from './ota-panel';
 import { createBalanceEditorPanel, type BalanceEditorDependencies } from "./balance-editor-panel";
 import { createModerationHistoryPanel, type ModerationHistoryLoader } from "./moderation-history-panel";
@@ -94,6 +95,7 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
   const offlineProgressTest = createOfflineProgressTestControl(tabPanels.controls, {
     allowed: dependencies.isDeveloper, simulate: dependencies.simulateTimeAway, showMessage: dependencies.showMessage,
   });
+  const bossHitboxes = createBossHitboxOverlayControl(tabPanels.controls, { allowed: dependencies.isDeveloper });
   const ota = createOtaPanel(tabPanels.controls);
   const balance = createBalanceEditorPanel(tabPanels.balance, dependencies.balance);
   const moderation = createModerationHistoryPanel(tabPanels.moderation, dependencies.loadModerationHistory);
@@ -343,6 +345,7 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
   return {
     close,
     isOpen: () => !panel.hidden,
+    bossHitboxesVisible: () => bossHitboxes.visible(),
     isPerformanceVisible: () => !tabPanels.performance.hidden,
     refresh: () => {
       if (panel.hidden) return;
