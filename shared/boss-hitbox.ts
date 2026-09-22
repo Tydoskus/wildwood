@@ -47,12 +47,15 @@ export function bossSurfaceDistance(
 
 /**
  * Miremaw is a toad: wide, low, and sitting below the point the server
- * measures from. Its circle reached 140 units above the creature's head, so an
+ * measures from. Its circle reached well above the creature's head, so an
  * arrow was counted as a hit while it was still in open air.
  *
- * Measured by `node scripts/check-boss-hitboxes.mjs`.
+ * Measured across the poses it holds — still, and both tongue frames. The bog
+ * burst rears the toad up out of its own body, and sizing the hitbox to that
+ * would hand back the reach this is removing for every frame it is not doing
+ * it. Measured by `node scripts/check-boss-hitboxes.mjs`.
  */
-export const MIREMAW_VERTICAL_RADIUS = 95;
+export const MIREMAW_VERTICAL_RADIUS = 101;
 /** Its width, unchanged; kept here so the geometry can be tested on its own. */
 export const MIREMAW_RADIUS_REFERENCE = 170;
-export const MIREMAW_HITBOX_OFFSET_Y = 65;
+export const MIREMAW_HITBOX_OFFSET_Y = 57;

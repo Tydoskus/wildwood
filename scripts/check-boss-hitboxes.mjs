@@ -72,14 +72,16 @@ async function sheetExtent(path, { frames, drawWidth, groundOffset, groundBaseli
  * margin, which is why the status bar floats: it hangs off the cell's top edge
  * rather than the top of the creature.
  */
-async function cellExtent(path, { frames, rows = 1, drawWidth, drawHeight, offsetY }) {
+async function cellExtent(path, { frames, rows = 1, drawWidth, drawHeight, offsetY, measureFrames }) {
   const { data, info } = await sharp(path).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const cellWidth = Math.floor(info.width / frames);
   const cellHeight = Math.floor(info.height / rows);
+  const wanted = measureFrames ? new Set(measureFrames) : null;
   let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
   for (let y = 0; y < info.height; y += 1) {
     for (let x = 0; x < info.width; x += 1) {
       if (data[(y * info.width + x) * 4 + 3] < 16) continue;
+      if (wanted && !wanted.has(Math.floor(x / cellWidth))) continue;
       const withinX = x % cellWidth, withinY = y % cellHeight;
       if (withinX < left) left = withinX;
       if (withinX > right) right = withinX;
@@ -105,17 +107,25 @@ async function cellExtent(path, { frames, rows = 1, drawWidth, drawHeight, offse
  * least 60% as wide as the widest one are the body, which is what a player
  * aims at and what the hitbox should cover.
  */
-async function bodyExtent(path, { frames, rows = 1, drawWidth, drawHeight, offsetY }) {
+async function bodyExtent(path, { frames, rows = 1, drawWidth, drawHeight, offsetY, measureFrames }) {
   const { data, info } = await sharp(path).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const cellWidth = Math.floor(info.width / frames);
   const cellHeight = Math.floor(info.height / rows);
+  // Only the poses the hitbox should answer for. A wind-up that throws the
+  // creature across its cell would otherwise set the body's size for every
+  // frame, including the one it stands still in.
+  const poses = measureFrames ?? Array.from({ length: frames }, (_, index) => index);
   const widths = [];
   for (let y = 0; y < cellHeight; y += 1) {
     let left = Infinity, right = -Infinity;
-    for (let x = 0; x < cellWidth; x += 1) {
-      if (data[(y * info.width + x) * 4 + 3] < 16) continue;
-      if (x < left) left = x;
-      if (x > right) right = x;
+    for (const pose of poses) {
+      const base = pose * cellWidth;
+      for (let x = base; x < base + cellWidth; x += 1) {
+        if (data[(y * info.width + x) * 4 + 3] < 16) continue;
+        const within = x - base;
+        if (within < left) left = within;
+        if (within > right) right = within;
+      }
     }
     widths.push(right < 0 ? 0 : right - left + 1);
   }
@@ -164,7 +174,9 @@ const SHEETS = [
   ["tidewyrm", "TIDEWYRM", "tidewyrm-boss-spritesheet-v1.webp", { frames: 4, drawWidth: 440, drawHeight: 440, offsetY: -28 }],
   ["koi shogun", "KOI_SHOGUN", "koi-shogun-boss-spritesheet-v1.webp", { frames: 4, drawWidth: 330, drawHeight: 440, offsetY: -30 }],
   ["tempest kirin", "TEMPEST_KIRIN", "tempest-kirin-boss-spritesheet-v1.webp", { frames: 4, drawWidth: 356, drawHeight: 542, offsetY: -42 }],
-  ["miremaw", "MIREMAW", "miremaw-boss-spritesheet-v1.webp", { frames: 4, drawWidth: 470, drawHeight: 532, offsetY: -45 }],
+  // Frame 3 is the bog burst, which rears the toad up out of its own body.
+  // The hitbox answers for the poses it holds: still, and the tongue.
+  ["miremaw", "MIREMAW", "miremaw-boss-spritesheet-v1.webp", { frames: 4, drawWidth: 470, drawHeight: 532, offsetY: -45, measureFrames: [0, 1, 2] }],
 ];
 
 console.log("");
