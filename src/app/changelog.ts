@@ -1,4 +1,14 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.782": [
+    "Slot upgrades survive a prestige. The tier belongs to the slot, not to whatever is sitting in it, so a prestige takes your gear and leaves the bench work \u2014 the way it already leaves your research. Anything running on the bench keeps running.",
+    "Nobody stands around bare-chested. A character with no armour equipped wears a plain body instead of nothing, and your skin tone now reaches your legs exactly: they were tinted through the artwork's own colour, so they never quite matched the rest of you.",
+    "Eyes are white with a black pupil and an outline, rather than solid dark.",
+    "Enemies that chase you actually keep up. Every chaser was supposed to gain on you by ten, but the speed was scaled down by how fast that enemy was written to be, so all but the very fastest chased slower than the player they were chasing.",
+    "Miremaw, the Koi Shogun and the Tempest Kirin are hit where you can see them. All three were hit as a circle as tall as it was wide, which for a squat toad reached well above its head \u2014 arrows counted as hits while they were still in open air. Each now has a shape measured from the creature.",
+    "Miremaw's and the Koi Shogun's names and health no longer float a long way above them.",
+    "Every tree in the Samurai Garden has its shadow back. Twelve of every sixteen were standing on nothing.",
+    "The sign-in screen says alpha, puts its text on one of the game's own cards, links the Discord next to the volume button, and names Spacetime Email so it is clear which sign-in opens which character.",
+  ],
   "0.781": [
     "Upgrades belong to your equipment slots now, not to individual items. Each slot \u2014 Weapon, Helmet, Armor \u2014 has its own track running to tier 35, and whatever you equip there gets the tier the slot has earned. Finding a better weapon is an upgrade rather than a reason to start again, and the item stays in your bag while the slot works.",
     "Everything you had already put into an item came with you: each slot starts at the highest level any item in it had reached.",
@@ -2253,6 +2263,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.782": "2026-09-22",
   "0.781": "2026-09-22",
   "0.780": "2026-09-22",
   "0.779": "2026-09-22",

@@ -52,7 +52,10 @@ import { describe, expect, it } from "vitest";
 // 6_748: slot upgrade tiers. The table's comment, the key/tier helpers and the
 // start reducer's slot handling are the schema surface; the tier track, the
 // sweep and the migration live in their own modules.
-const MAX_LINES = 6_748;
+// 6_756: splitting the item-drop sweep out of the upgrade wipe so a prestige
+// can keep slot tiers while still taking the gear, and the comment that says
+// why the old line destroyed something it was never written to destroy.
+const MAX_LINES = 6_756;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

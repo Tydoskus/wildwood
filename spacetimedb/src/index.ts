@@ -3084,6 +3084,12 @@ function removeItemUpgradeCompletionSchedules(ctx: any, identity: any, slot?: nu
   for (const scheduledId of scheduledIds) ctx.db.itemUpgradeCompletionSchedule.scheduledId.delete(scheduledId);
 }
 
+function removePlayerItemDrops(ctx: any, identity: any) {
+  for (const drop of [...ctx.db.playerItemDrop.byIdentity.filter(identity) as Iterable<any>]) {
+    ctx.db.playerItemDrop.key.delete(drop.key);
+  }
+}
+
 function removePlayerItemUpgradeData(ctx: any, identity: any, removeDrops = false) {
   if (ctx.db.activeItemUpgrade.identity.find(identity)) ctx.db.activeItemUpgrade.identity.delete(identity);
   if (ctx.db.activeItemUpgradeSlotTwo.identity.find(identity)) ctx.db.activeItemUpgradeSlotTwo.identity.delete(identity);
@@ -3091,11 +3097,7 @@ function removePlayerItemUpgradeData(ctx: any, identity: any, removeDrops = fals
   for (const upgrade of [...ctx.db.playerItemUpgrade.byIdentity.filter(identity) as Iterable<any>]) {
     deleteSnapshotRow(ctx, "playerItemUpgrade", upgrade.key);
   }
-  if (removeDrops) {
-    for (const drop of [...ctx.db.playerItemDrop.byIdentity.filter(identity) as Iterable<any>]) {
-      ctx.db.playerItemDrop.key.delete(drop.key);
-    }
-  }
+  if (removeDrops) removePlayerItemDrops(ctx, identity);
 }
 
 function ensureItemUpgradeCompletionSchedule(ctx: any, active: any, slot: number) {
@@ -5747,7 +5749,7 @@ export const beginAdventure = spacetimedb.reducer(
  * reference off that count rising, so holding it steady also keeps a replayed
  * batch from paying twice.
  */
-function resetProgressToDefaults(ctx: any, activePlayer: any, keep: { research?: boolean; lifetimeKills?: boolean } = {}) {
+function resetProgressToDefaults(ctx: any, activePlayer: any, keep: { research?: boolean; lifetimeKills?: boolean; slotTiers?: boolean } = {}) {
     clearProceduralProgress(ctx, ctx.sender);
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
     const next = defaultPlayerProgress(ctx.sender);
@@ -5766,7 +5768,13 @@ function resetProgressToDefaults(ctx: any, activePlayer: any, keep: { research?:
       if (activeResearchRow) ctx.db.activeResearch.identity.delete(ctx.sender);
       removeResearchCompletionSchedules(ctx, ctx.sender);
     }
-    removePlayerItemUpgradeData(ctx, ctx.sender, true);
+    // A tier belongs to the slot, not to whatever is sitting in it. Prestige
+    // takes the gear and leaves the bench work, the way it leaves research;
+    // this line predates slot tiers, when it only destroyed levels that were
+    // attached to items a prestige took anyway. A deliberate account reset
+    // still clears the lot.
+    if (keep.slotTiers) removePlayerItemDrops(ctx, ctx.sender);
+    else removePlayerItemUpgradeData(ctx, ctx.sender, true);
     const lifetime = ensurePlayerLifetime(ctx);
     if (!keep.lifetimeKills) ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: 0n });
     // Re-entry uses recent boss contributions to recover earned map unlocks.
