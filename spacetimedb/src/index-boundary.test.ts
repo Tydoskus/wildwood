@@ -34,7 +34,11 @@ import { describe, expect, it } from "vitest";
 // the port object naming the four entry-module helpers the payout reads. Every
 // body — the window stamp, the grant, the developer backdate — lives in
 // offline-progress.ts, and the model itself in shared/offline-progress.ts.
-const MAX_LINES = 6_650;
+// 6_666: the offline-progress opt-out added its table registration, the
+// caller-scoped view that lets a client read its own setting, and the reducer
+// that writes it. The row, its default and the write live in
+// offline-preference.ts; the raise is the schema surface alone.
+const MAX_LINES = 6_666;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

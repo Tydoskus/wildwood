@@ -46,6 +46,9 @@ export function installFeedbackControls(doc: Document) {
     ["selfProfileTapToggle", "TAP SELF TO OPEN PROFILE", false],
     ["keepScreenOnToggle", "KEEP SCREEN ON", false],
     ["gameTickerToggle", "GAME TIPS", true],
+    // Account-scoped and server-backed, so this only builds the row; the
+    // binding lives with the connection that owns the preference.
+    ["offlineProgressToggle", "OFFLINE PROGRESS", true],
   ] as const) {
     if (doc.getElementById(id)) continue;
     const row = doc.createElement("div");

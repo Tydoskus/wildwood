@@ -166,3 +166,20 @@ it("opens the window when the account's last session ends", () => {
   expect(fixture.db.offlineProgress.identity.find(fixture.ctx.sender).awaySinceMicros)
     .toBe(fixture.ctx.timestamp.microsSinceUnixEpoch);
 });
+
+it("pays nothing to an account that switched offline progress off, and closes the window anyway", () => {
+  const fixture = away(OFFLINE_WINDOW_SECONDS);
+  fixture.seed("playerOfflinePreference", { identity: fixture.ctx.sender, enabled: false });
+  const before = fixture.db.playerProgress.identity.find(fixture.ctx.sender);
+
+  enter(fixture);
+
+  const after = fixture.db.playerProgress.identity.find(fixture.ctx.sender);
+  expect(after.damage).toBe(before.damage);
+  expect(after.maxHp).toBe(before.maxHp);
+  const row = fixture.db.offlineProgress.identity.find(fixture.ctx.sender);
+  // Nothing to show, and no banked absence waiting to be paid if the setting
+  // is switched back on: the window reopens from now, as a login always does.
+  expect(row.pending).toBe(false);
+  expect(row.awaySinceMicros).toBe(0n);
+});

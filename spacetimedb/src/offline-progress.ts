@@ -1,4 +1,5 @@
 import { table, t } from "spacetimedb/server";
+import { offlineProgressEnabled } from "./offline-preference";
 import {
   OFFLINE_MINIMUM_SECONDS,
   OFFLINE_WINDOW_SECONDS,
@@ -186,6 +187,12 @@ export type OfflineGrantPorts = {
 export function grantOfflineProgress(ctx: any, progress: any, ports: OfflineGrantPorts) {
   const row: OfflineProgressRow | undefined = ctx.db.offlineProgress.identity.find(ctx.sender);
   if (!row) return progress;
+  // Switched off in settings: close the window without paying it, so turning
+  // the setting back on pays for the time since, not for the months before.
+  if (!offlineProgressEnabled(ctx, ctx.sender)) {
+    storeOfflineGrant(ctx, ctx.sender, null, { damage: 0, health: 0, armor: 0, regen: 0, attackSpeed: 0 });
+    return progress;
+  }
   const grant = resolveOfflineGrant(ctx.timestamp.microsSinceUnixEpoch, row.awaySinceMicros, {
     stats: ports.effectiveStats(ctx, progress),
     progress,

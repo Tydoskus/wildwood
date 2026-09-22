@@ -156,6 +156,7 @@ import SetGenderReducer from "./set_gender_reducer";
 import SetGuildVicePresidentReducer from "./set_guild_vice_president_reducer";
 import SetMapBalanceReducer from "./set_map_balance_reducer";
 import SetMultiplayerEnabledReducer from "./set_multiplayer_enabled_reducer";
+import SetOfflineProgressEnabledReducer from "./set_offline_progress_enabled_reducer";
 import SetPlayerBlockedReducer from "./set_player_blocked_reducer";
 import SetPlayerMotionInterestReducer from "./set_player_motion_interest_reducer";
 import SetPlayerSpriteReducer from "./set_player_sprite_reducer";
@@ -250,6 +251,7 @@ import MyGemWalletRow from "./my_gem_wallet_table";
 import MyInventoryCapacityRow from "./my_inventory_capacity_table";
 import MyItemGiftsRow from "./my_item_gifts_table";
 import MyMailboxV2Row from "./my_mailbox_v_2_table";
+import MyOfflinePreferenceRow from "./my_offline_preference_table";
 import MyOfflineProgressRow from "./my_offline_progress_table";
 import MyOnboardingRow from "./my_onboarding_table";
 import MyPlayerBlocksRow from "./my_player_blocks_table";
@@ -1159,6 +1161,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyMailboxV2Row),
+  myOfflinePreference: __table({
+    name: 'my_offline_preference',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyOfflinePreferenceRow),
   myOfflineProgress: __table({
     name: 'my_offline_progress',
     indexes: [
@@ -1348,6 +1357,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_guild_vice_president", SetGuildVicePresidentReducer),
   __reducerSchema("set_map_balance", SetMapBalanceReducer),
   __reducerSchema("set_multiplayer_enabled", SetMultiplayerEnabledReducer),
+  __reducerSchema("set_offline_progress_enabled", SetOfflineProgressEnabledReducer),
   __reducerSchema("set_player_blocked", SetPlayerBlockedReducer),
   __reducerSchema("set_player_motion_interest", SetPlayerMotionInterestReducer),
   __reducerSchema("set_player_sprite", SetPlayerSpriteReducer),

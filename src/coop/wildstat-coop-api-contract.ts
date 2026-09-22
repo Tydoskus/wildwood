@@ -139,6 +139,8 @@ type ExpectedApiKey =
   | "setAccessAuditLabel"
   | "setDeveloperPresence"
   | "setMultiplayerEnabled"
+  | "offlineProgressEnabled"
+  | "setOfflineProgressEnabled"
   | "developerNameTagVisible"
   | "setDeveloperNameTag"
   | "playerNamePrefix"
