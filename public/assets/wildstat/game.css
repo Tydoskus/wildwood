@@ -3197,10 +3197,12 @@
   .dev-forest-prototype-actions button { margin: 0; min-height: 44px; font-size: 12px; }
   .profile-duel-button.is-cooling-down { background: linear-gradient(#676f70, #454b4c); color: #d1d7d5; cursor: not-allowed; }
   .profile-duel-button[hidden] { display: none; }
-  .profile-safety-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; margin-bottom: 12px; }
+  /* Half the height and roughly half the width of the full-size pair they
+     replaced: these are rarely used, and they live inside the INFO tab now. */
+  .profile-safety-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 12px; margin-bottom: 2px; }
   .profile-safety-actions[hidden], .setting-support[hidden] { display: none; }
-  .profile-safety-actions button, .player-safety-dialog button, #blockedPlayersList button { min-height: 44px; font-size: 12px; }
-  .profile-safety-actions button { margin: 0; border-color: #67272b; background: linear-gradient(#c85050, #842f34); color: #fff; }
+  .player-safety-dialog button, #blockedPlayersList button { min-height: 44px; font-size: 12px; }
+  .profile-safety-actions button { width: auto; min-width: 72px; height: 33px; min-height: 33px; margin: 0; padding: 0 10px 2px; border-color: #67272b; border-radius: 6px; background: linear-gradient(#c85050, #842f34); box-shadow: 0 2px 0 #3d1512; color: #fff; font-size: 9px; }
   .setting-support { display: grid; gap: 7px; padding: 12px 0; font-size: 12px; text-align: left; }
   .setting-support a, .player-safety-dialog a { color: #bce7ff; overflow-wrap: anywhere; }
   .setting-support small { font-size: 11px; line-height: 1.5; color: var(--muted); }

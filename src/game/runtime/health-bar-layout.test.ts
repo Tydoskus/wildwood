@@ -4,11 +4,9 @@ import { HEALTH_BAR_TEXT_OPTICAL_OFFSET_Y, healthBarTextY } from "./health-bar-l
 
 describe("healthBarTextY", () => {
   it("keeps player and regular-enemy bars at one pill height", () => {
-    // Raised from 13 so the digits inside have room and the rounded ends read
-    // as a pill rather than a rectangle with its corners shaved.
-    expect(WORLD_HEALTH_BAR_HEIGHT).toBe(16);
-    // Even, so the text centres on a whole pixel and stays crisp.
-    expect(WORLD_HEALTH_BAR_HEIGHT % 2).toBe(0);
+    // 16 read as about twice the old bar once the ends were rounded, because a
+    // pill is a heavier shape than the rectangle it replaced.
+    expect(WORLD_HEALTH_BAR_HEIGHT).toBe(13);
   });
 
   it("centers floating HP digits on the geometric midpoint", () => {

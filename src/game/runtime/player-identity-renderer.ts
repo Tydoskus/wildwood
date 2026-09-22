@@ -251,9 +251,12 @@ export function createPlayerIdentityRenderer(options: {
       // A pill: the frame, the empty channel and the fill all share the same
       // corner radius, so the bar reads as one rounded shape rather than a
       // rectangle with a border painted round it.
-      const frameRadius = (barH + 4) / 2;
+      // A slimmer frame than the old square one: at two pixels the rounded
+      // outline alone made the whole bar look twice the size.
+      const framePad = 1.5;
+      const frameRadius = (barH + framePad * 2) / 2;
       ctx.fillStyle = "rgba(0,0,0,.88)";
-      options.roundRect(barX - 2, barY - 2, barW + 4, barH + 4, frameRadius);
+      options.roundRect(barX - framePad, barY - framePad, barW + framePad * 2, barH + framePad * 2, frameRadius);
       ctx.fill();
       ctx.fillStyle = "#402326";
       options.roundRect(barX, barY, barW, barH, barH / 2);
