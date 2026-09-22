@@ -59,3 +59,13 @@ export const MIREMAW_VERTICAL_RADIUS = 101;
 /** Its width, unchanged; kept here so the geometry can be tested on its own. */
 export const MIREMAW_RADIUS_REFERENCE = 170;
 export const MIREMAW_HITBOX_OFFSET_Y = 57;
+
+/**
+ * The Koi Shogun's banners and the Kirin's mane both read as part of the
+ * creature and neither is a body a player can aim at. Same measurement as
+ * Miremaw, over the poses each one holds rather than its summoned attack.
+ */
+export const KOI_SHOGUN_VERTICAL_RADIUS = 116;
+export const KOI_SHOGUN_HITBOX_OFFSET_Y = -13;
+export const TEMPEST_KIRIN_VERTICAL_RADIUS = 140;
+export const TEMPEST_KIRIN_HITBOX_OFFSET_Y = 32;

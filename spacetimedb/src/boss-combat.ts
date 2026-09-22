@@ -94,7 +94,12 @@ import {
   VOLTWARDEN_REWARD_REGEN,
   WATER_REACH_MAP_ID,
 } from "../../shared/rules";
-import { bossSurfaceDistance, MIREMAW_HITBOX_OFFSET_Y, MIREMAW_VERTICAL_RADIUS } from "../../shared/boss-hitbox";
+import {
+  bossSurfaceDistance,
+  KOI_SHOGUN_HITBOX_OFFSET_Y, KOI_SHOGUN_VERTICAL_RADIUS,
+  MIREMAW_HITBOX_OFFSET_Y, MIREMAW_VERTICAL_RADIUS,
+  TEMPEST_KIRIN_HITBOX_OFFSET_Y, TEMPEST_KIRIN_VERTICAL_RADIUS,
+} from "../../shared/boss-hitbox";
 import {
   FROST_ARMOR,
   FROST_BOW,
@@ -2002,8 +2007,11 @@ export function createBossCombat(deps: BossCombatDeps) {
     }
     const actionX = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, clientPosition.x)) : activePlayer.x;
     const actionY = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, clientPosition.y)) : activePlayer.y;
-    const centerDistance = Math.hypot(actionX - KOI_SHOGUN_POSITION.x, actionY - KOI_SHOGUN_POSITION.y);
-    if (centerDistance - KOI_SHOGUN_RADIUS > progress.attackRange + KOI_SHOGUN_HIT_RANGE_TOLERANCE) return;
+    // An ellipse, not a circle: see shared/boss-hitbox.ts.
+    const centerDistance = bossSurfaceDistance(
+      actionX - KOI_SHOGUN_POSITION.x, actionY - KOI_SHOGUN_POSITION.y,
+      KOI_SHOGUN_RADIUS, KOI_SHOGUN_VERTICAL_RADIUS, KOI_SHOGUN_HITBOX_OFFSET_Y);
+    if (centerDistance > progress.attackRange + KOI_SHOGUN_HIT_RANGE_TOLERANCE) return;
 
     const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
     const now = ctx.timestamp.microsSinceUnixEpoch;
@@ -2070,8 +2078,11 @@ export function createBossCombat(deps: BossCombatDeps) {
     }
     const actionX = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, clientPosition.x)) : activePlayer.x;
     const actionY = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, clientPosition.y)) : activePlayer.y;
-    const centerDistance = Math.hypot(actionX - TEMPEST_KIRIN_POSITION.x, actionY - TEMPEST_KIRIN_POSITION.y);
-    if (centerDistance - TEMPEST_KIRIN_RADIUS > progress.attackRange + TEMPEST_KIRIN_HIT_RANGE_TOLERANCE) return;
+    // An ellipse, not a circle: see shared/boss-hitbox.ts.
+    const centerDistance = bossSurfaceDistance(
+      actionX - TEMPEST_KIRIN_POSITION.x, actionY - TEMPEST_KIRIN_POSITION.y,
+      TEMPEST_KIRIN_RADIUS, TEMPEST_KIRIN_VERTICAL_RADIUS, TEMPEST_KIRIN_HITBOX_OFFSET_Y);
+    if (centerDistance > progress.attackRange + TEMPEST_KIRIN_HIT_RANGE_TOLERANCE) return;
 
     const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
     const now = ctx.timestamp.microsSinceUnixEpoch;

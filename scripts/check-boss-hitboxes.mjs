@@ -172,8 +172,10 @@ const SHEETS = [
   ["magmalisk", "MAGMALISK", "magmalisk-boss-spritesheet.webp", { frames: 4, drawWidth: 390, drawHeight: 520, offsetY: -8 }],
   ["gloomroot", "GLOOMROOT", "gloomroot-boss-spritesheet-v1.webp", { frames: 2, rows: 2, drawWidth: 430, drawHeight: 430, offsetY: -18 }],
   ["tidewyrm", "TIDEWYRM", "tidewyrm-boss-spritesheet-v1.webp", { frames: 4, drawWidth: 440, drawHeight: 440, offsetY: -28 }],
-  ["koi shogun", "KOI_SHOGUN", "koi-shogun-boss-spritesheet-v1.webp", { frames: 4, drawWidth: 330, drawHeight: 440, offsetY: -30 }],
-  ["tempest kirin", "TEMPEST_KIRIN", "tempest-kirin-boss-spritesheet-v1.webp", { frames: 4, drawWidth: 356, drawHeight: 542, offsetY: -42 }],
+  // Frame 3 is each one's summoned attack — the whirlpools and the
+  // thunderbolts — which throws the creature out of the shape it holds.
+  ["koi shogun", "KOI_SHOGUN", "koi-shogun-boss-spritesheet-v1.webp", { frames: 4, drawWidth: 330, drawHeight: 440, offsetY: -30, measureFrames: [0, 1, 2] }],
+  ["tempest kirin", "TEMPEST_KIRIN", "tempest-kirin-boss-spritesheet-v1.webp", { frames: 4, drawWidth: 356, drawHeight: 542, offsetY: -42, measureFrames: [0, 1, 2] }],
   // Frame 3 is the bog burst, which rears the toad up out of its own body.
   // The hitbox answers for the poses it holds: still, and the tongue.
   ["miremaw", "MIREMAW", "miremaw-boss-spritesheet-v1.webp", { frames: 4, drawWidth: 470, drawHeight: 532, offsetY: -45, measureFrames: [0, 1, 2] }],

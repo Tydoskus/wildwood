@@ -1,5 +1,9 @@
 import { HOME_EXTERIOR_SPAWN } from "../../../shared/home";
-import { MIREMAW_HITBOX_OFFSET_Y, MIREMAW_VERTICAL_RADIUS } from "../../../shared/boss-hitbox";
+import {
+  KOI_SHOGUN_HITBOX_OFFSET_Y, KOI_SHOGUN_VERTICAL_RADIUS,
+  MIREMAW_HITBOX_OFFSET_Y, MIREMAW_VERTICAL_RADIUS,
+  TEMPEST_KIRIN_HITBOX_OFFSET_Y, TEMPEST_KIRIN_VERTICAL_RADIUS,
+} from "../../../shared/boss-hitbox";
 import { ONBOARDING_MAP_ID, ONBOARDING_WORLD } from "../../../shared/onboarding";
 import { generateMap, proceduralMapId, PROCEDURAL_ENTRY_MAP } from "../../../shared/procedural-maps";
 import { withGeneratedMaps } from "../procedural-maps";
@@ -324,6 +328,8 @@ export function createGameBootstrap() {
     x: koiShogunPosition.x,
     y: koiShogunPosition.y,
     r: 175,
+    ry: KOI_SHOGUN_VERTICAL_RADIUS,
+    hitboxOffsetY: KOI_SHOGUN_HITBOX_OFFSET_Y,
     maxHp: KOI_SHOGUN_MAX_HP,
     hp: KOI_SHOGUN_MAX_HP,
     dead: false,
@@ -343,6 +349,8 @@ export function createGameBootstrap() {
     x: tempestKirinPosition.x,
     y: tempestKirinPosition.y,
     r: 180,
+    ry: TEMPEST_KIRIN_VERTICAL_RADIUS,
+    hitboxOffsetY: TEMPEST_KIRIN_HITBOX_OFFSET_Y,
     maxHp: TEMPEST_KIRIN_MAX_HP,
     hp: TEMPEST_KIRIN_MAX_HP,
     dead: false,

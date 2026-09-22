@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   bossSurfaceDistance,
   bossVerticalRadius,
+  KOI_SHOGUN_HITBOX_OFFSET_Y,
+  KOI_SHOGUN_VERTICAL_RADIUS,
   MIREMAW_HITBOX_OFFSET_Y,
   MIREMAW_RADIUS_REFERENCE,
   MIREMAW_VERTICAL_RADIUS,
+  TEMPEST_KIRIN_HITBOX_OFFSET_Y,
+  TEMPEST_KIRIN_VERTICAL_RADIUS,
 } from "./boss-hitbox";
 
 describe("boss hitbox", () => {
@@ -29,6 +33,22 @@ describe("boss hitbox", () => {
     expect(above).toBeCloseTo(0, 6);
     expect(bossSurfaceDistance(0, -150, radius)).toBeLessThan(0);
     expect(bossSurfaceDistance(0, -150, radius, MIREMAW_VERTICAL_RADIUS, MIREMAW_HITBOX_OFFSET_Y)).toBeGreaterThan(0);
+  });
+
+  it("narrows the two bosses that share Miremaw's fault, and nothing else", () => {
+    // Each was a circle as tall as it was wide, reaching into the banners and
+    // the mane above a body a player can actually aim at.
+    for (const [radius, vertical, offset] of [
+      [175, KOI_SHOGUN_VERTICAL_RADIUS, KOI_SHOGUN_HITBOX_OFFSET_Y],
+      [180, TEMPEST_KIRIN_VERTICAL_RADIUS, TEMPEST_KIRIN_HITBOX_OFFSET_Y],
+    ]) {
+      expect(vertical).toBeLessThan(radius);
+      // Unchanged across: the width was never the complaint.
+      expect(bossSurfaceDistance(radius, offset, radius, vertical, offset)).toBeCloseTo(0, 9);
+      // The top of the body, not the top of the sprite.
+      expect(bossSurfaceDistance(0, offset - vertical, radius, vertical, offset)).toBeCloseTo(0, 9);
+      expect(bossSurfaceDistance(0, -radius, radius, vertical, offset)).toBeGreaterThan(0);
+    }
   });
 
   it("measures from the body's middle, not the anchor", () => {
