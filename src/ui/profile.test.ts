@@ -194,8 +194,15 @@ it("displays helmet percentages and research as the same calculation used for co
     research: { ...createEmptyResearchRanks(), regeneration: 10 },
     itemUpgradeLevels: { [WOOD_FULL_HELM]: 1 } } as unknown as Parameters<typeof profileStatDisplayRows>[0];
   const row = profileStatDisplayRows(profile, () => "0%", MIN_ATTACK_INTERVAL).find(row => row.kind === "regen");
+  // Equipment is the gear alone and the bench's share is listed beside it, so
+  // a slot upgrade is visible rather than buried in one number. 8.04 + 0.32
+  // is the 8.36 the two used to be shown as together.
   expect(row).toMatchObject({ base: "10.0/s", multiplier: "1.30", total: "13.0/s",
-    sources: [{label: "Tech", value: "+20%"}, {label: "Equipment", value: "+8.36%"}] });
+    sources: [
+      { label: "Tech", value: "+20%" },
+      { label: "Equipment", value: "+8.04%" },
+      { label: "Slot Tiers", value: "+0.32%" },
+    ] });
   expect(effectiveProfileStats(profile.progress, profile.research, profile.itemUpgradeLevels).regen).toBeCloseTo(13.0032);
 });
 

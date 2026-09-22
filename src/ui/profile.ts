@@ -38,11 +38,16 @@ export function effectiveProfileStats(
   const chestUpgradeLevel = itemUpgradeLevels[progress.equippedChest] ?? 0;
   const weaponUpgradeLevel = itemUpgradeLevels[weaponItem] ?? 0;
   const healthEquipmentBonus = equipmentMaxHealthMultiplierBonus(progress.equippedHead, progress.equippedChest, headUpgradeLevel, chestUpgradeLevel);
+  // The same gear with no slot tiers behind it. The difference is what the
+  // bench has paid for, which is otherwise invisible inside one Equipment line.
+  const bareHealthBonus = equipmentMaxHealthMultiplierBonus(progress.equippedHead, progress.equippedChest, 0, 0);
   const damageResearchMultiplier = multiplier(research.warcraft, 2);
   const damageEquipmentBonus = equipmentDamageMultiplierBonus(weaponItem, progress.equippedHead, progress.equippedChest, weaponUpgradeLevel, headUpgradeLevel, chestUpgradeLevel);
+  const bareDamageBonus = equipmentDamageMultiplierBonus(weaponItem, progress.equippedHead, progress.equippedChest, 0, 0, 0);
   const armorMultiplier = multiplier(research.precision, 2);
   const regenResearchMultiplier = multiplier(research.regeneration, 2);
   const regenEquipmentBonus = equipmentRegenerationMultiplierBonus(progress.equippedHead, progress.equippedChest, headUpgradeLevel, chestUpgradeLevel);
+  const bareRegenBonus = equipmentRegenerationMultiplierBonus(progress.equippedHead, progress.equippedChest, 0, 0);
   const speedMultiplier = multiplier(research.moveSpeed, 2);
   const baseSpeed = progress.speedOverride > 0 ? progress.speedOverride : progress.speed;
   const powerStats = effectivePlayerPowerStats(
@@ -54,6 +59,12 @@ export function effectiveProfileStats(
     ...powerStats,
     speed: baseSpeed * speedMultiplier,
     equipment: { health: healthEquipmentBonus, damage: damageEquipmentBonus, regen: regenEquipmentBonus },
+    gear: { health: bareHealthBonus, damage: bareDamageBonus, regen: bareRegenBonus },
+    slotTiers: {
+      health: Math.max(0, healthEquipmentBonus - bareHealthBonus),
+      damage: Math.max(0, damageEquipmentBonus - bareDamageBonus),
+      regen: Math.max(0, regenEquipmentBonus - bareRegenBonus),
+    },
     multipliers: {
       healthResearch: healthResearchMultiplier,
       damageResearch: damageResearchMultiplier,
@@ -74,7 +85,7 @@ export function profilePower(profile: PlayerProfileData) {
 }
 
 export type ProfileStatDisplaySource = {
-  label: "Tech" | "Equipment" | "Prestige";
+  label: "Tech" | "Equipment" | "Slot Tiers" | "Prestige";
   value: string;
 };
 
@@ -104,11 +115,16 @@ export function profileStatDisplayRows(
   const researchBonus = (rank = 0, percentPerRank = 0) => rank * percentPerRank;
   const multiplierValue = (value: number) => value.toFixed(2);
   const equipmentBonusValue = (value: number) => `+${Math.round(value * 10000) / 100}%`;
-  const multiplierSources = (researchPercent?: number, equipmentBonus?: number): ProfileStatDisplaySource[] => {
+  const multiplierSources = (researchPercent?: number, equipmentBonus?: number, slotTierBonus?: number): ProfileStatDisplaySource[] => {
     const sources: ProfileStatDisplaySource[] = [];
     if (researchPercent) sources.push({ label: "Tech", value: `+${researchPercent}%` });
     if (equipmentBonus !== undefined && equipmentBonus > 0) {
       sources.push({ label: "Equipment", value: equipmentBonusValue(equipmentBonus) });
+    }
+    // What the bench has paid for, listed on its own. Folded into Equipment it
+    // was impossible to tell a slot upgrade had done anything at all.
+    if (slotTierBonus !== undefined && slotTierBonus > 0) {
+      sources.push({ label: "Slot Tiers", value: equipmentBonusValue(slotTierBonus) });
     }
     return sources;
   };
@@ -129,13 +145,13 @@ export function profileStatDisplayRows(
       equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.healthResearch * (1 + effective.equipment.health)),
       total: statValue(effective.maxHp),
-      sources: multiplierSources(healthResearchBonus, effective.equipment.health),
+      sources: multiplierSources(healthResearchBonus, effective.gear.health, effective.slotTiers.health),
     },
     {
       kind: "damage", label: "Damage:", base: statValue(progress.damage),
       equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.damageResearch * (1 + effective.equipment.damage)), total: statValue(effective.damage),
-      sources: multiplierSources(damageResearchBonus, effective.equipment.damage),
+      sources: multiplierSources(damageResearchBonus, effective.gear.damage, effective.slotTiers.damage),
     },
     {
       kind: "armor", label: "Armor:", base: statValue(progress.armor),
@@ -161,7 +177,7 @@ export function profileStatDisplayRows(
       base: progress.regen >= 1_000_000 ? `${formatCompactNumber(progress.regen)}/s` : `${progress.regen.toFixed(1)}/s`,
       equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.regenResearch * (1 + effective.equipment.regen)), total: regen,
-      sources: multiplierSources(regenResearchBonus, effective.equipment.regen),
+      sources: multiplierSources(regenResearchBonus, effective.gear.regen, effective.slotTiers.regen),
     },
     {
       kind: "speed", label: "Move Speed:", base: statValue(progress.speedOverride > 0 ? progress.speedOverride : progress.speed),
