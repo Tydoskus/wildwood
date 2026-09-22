@@ -33,9 +33,8 @@ describe("regular enemy respawn boost", () => {
 
     gameTime = 20;
     expect(boost.grant()).toBe(true);
-    // A filled bank is not a running one.
-    expect(boost.isActive()).toBe(false);
-    expect(boost.setEnabled(true)).toBe(true);
+    // The ad has just been watched, so the bank is already spending.
+    expect(boost.isActive()).toBe(true);
     boost.schedule(second);
     expect(second).toMatchObject({ alive: false, respawnAt: gameTime + REWARDED_REGULAR_ENEMY_RESPAWN_SECONDS });
     expect(boost.respawnSeconds()).toBe(REWARDED_REGULAR_ENEMY_RESPAWN_SECONDS);
@@ -90,16 +89,28 @@ describe("regular enemy respawn boost", () => {
     expect(boost.grant()).toBe(false);
   });
 
-  it("spends the bank only while it is switched on", () => {
+  it("spends a granted bank straight away, and stops when it is switched off", () => {
     const boost = createRegularEnemyRespawnBoost([], () => 0);
     boost.grant();
 
-    boost.drain(60_000);
-    expect(boost.remainingMs()).toBe(REWARDED_RESPAWN_BOOST_BANK_MS);
-
-    boost.setEnabled(true);
+    // Granted means running: the player watched the ad to start it, not to be
+    // handed a switch they still have to find.
+    expect(boost.isActive()).toBe(true);
     boost.drain(60_000);
     expect(boost.remainingMs()).toBe(REWARDED_RESPAWN_BOOST_BANK_MS - 60_000);
+
+    // The toggle still saves the rest for later.
+    expect(boost.setEnabled(false)).toBe(false);
+    boost.drain(60_000);
+    expect(boost.remainingMs()).toBe(REWARDED_RESPAWN_BOOST_BANK_MS - 60_000);
+    expect(boost.isActive()).toBe(false);
+  });
+
+  it("starts a bank that was reloaded paused when the player claims another", () => {
+    const boost = createRegularEnemyRespawnBoost([], () => 0, { remainingMs: 60_000, enabled: false });
+    expect(boost.isActive()).toBe(false);
+    // Nothing was deposited, because the bank was not empty enough to refill.
+    expect(boost.grant()).toBe(true);
     expect(boost.isActive()).toBe(true);
   });
 

@@ -32,8 +32,15 @@ export function prestigeUnlocked(bossRewardClaims: number, completedEndless = 0,
 
 /** What still stands between this run and its next prestige, in the player's words; empty when nothing does. */
 export function prestigeRequirementHint(campaignDone: boolean, completedEndless: number, nextLevel: number) {
-  if (!campaignDone) return nextLevel > 1 ? "Defeat Aegis Prime again to prestige. Your perk points keep." : "Defeat Aegis Prime to unlock Prestige.";
   const stage = prestigeEndlessRequirement(nextLevel);
+  // Prestiging resets the campaign, so every prestige after the first reads
+  // this branch for the whole of its run. Naming only Aegis Prime here hid the
+  // Endless stage until the campaign had already been cleared a second time,
+  // which is the last moment it is useful to know about.
+  if (!campaignDone) {
+    if (!stage) return "Defeat Aegis Prime to unlock Prestige.";
+    return `Defeat Aegis Prime again, then clear Endless ${stage}, to prestige. Your perk points keep.`;
+  }
   return completedEndless >= stage ? "" : `Clear Endless ${stage} to prestige: each prestige asks for one stage more than the last.`;
 }
 

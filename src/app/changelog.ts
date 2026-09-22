@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.770": [
+    "The Prestige window now tells you the whole requirement while you are still working on it. After your first prestige it names the Endless stage you will need alongside beating Aegis Prime again, instead of mentioning it only once the campaign was already re-cleared.",
+    "The 2× enemy respawn reward now starts running the moment you claim it. It used to arrive switched off, which read as the ad not having paid out. The toggle still pauses it whenever you want to save the rest of the bank.",
+  ],
   "0.769": [
     "Time away now pays. Come back after a break and you collect up to thirty minutes of farming on the hardest map you can actually hold — with a window telling you which map it used and what it earned you. A map that would have killed you is skipped for the one below it, and if nothing you have unlocked is survivable yet, it says so instead of paying you for a fight you would have lost.",
     "The 2× enemy respawn reward is now a thirty-minute bank instead of a countdown. Watching an ad fills it, and it only runs down while you switch it on — so it keeps until you are somewhere worth spending it, and pausing it saves the rest for later.",
@@ -2196,6 +2200,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.770": "2026-09-22",
   "0.769": "2026-09-22",
   "0.768": "2026-09-21",
   "0.767": "2026-09-21",

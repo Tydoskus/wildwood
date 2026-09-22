@@ -206,6 +206,17 @@ describe("each prestige asks for one Endless stage more", () => {
     expect(run).toHaveBeenCalled();
   });
 
+  it("names the Endless stage while the campaign is still the nearer requirement", () => {
+    // After a prestige the campaign resets, so this is what every run after the
+    // first reads for most of its length. Saying only "Aegis Prime again" left
+    // players to discover the Endless stage after re-clearing the whole game.
+    const s = setup({ unlocked: false, completed: 0, row: { level: 1, perkPoints: 0, peakPower: 5 } });
+    s.controller.refresh(true);
+    click(s.pick("open"));
+    expect(s.pick("status").textContent).toContain("Aegis Prime again");
+    expect(s.pick("status").textContent).toContain("Endless 1");
+  });
+
   it("still asks for Aegis Prime first, however many stages an old run cleared", () => {
     const s = setup({ unlocked: false, completed: 6, row: { level: 3, perkPoints: 0, peakPower: 5 } });
     s.controller.refresh(true);

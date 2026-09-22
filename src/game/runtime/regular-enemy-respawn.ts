@@ -114,10 +114,15 @@ export function createRegularEnemyRespawnBoost(
   }
 
   function grant() {
-    if (bankMs >= REWARDED_RESPAWN_BOOST_BANK_MS) return false;
-    bankMs = REWARDED_RESPAWN_BOOST_BANK_MS;
-    publish();
-    return true;
+    const filled = bankMs < REWARDED_RESPAWN_BOOST_BANK_MS;
+    if (filled) bankMs = REWARDED_RESPAWN_BOOST_BANK_MS;
+    // Claiming the reward starts spending it. A freshly filled bank left paused
+    // read as the ad not having paid out; the toggle is there to save the rest
+    // once the player has seen it running.
+    const started = !enabled && bankMs > 0;
+    if (started) { enabled = true; rescaleTimers(true); }
+    if (filled || started) publish();
+    return filled;
   }
 
   function drain(elapsedMs: number) {
