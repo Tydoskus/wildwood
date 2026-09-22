@@ -206,6 +206,10 @@ export type FrostclawRift = {
 
 type BossStateBase = Circle & {
   isBoss: true;
+  /** Half the body's height, when it differs from the radius. */
+  ry?: number;
+  /** Where the body's middle sits relative to the anchor, positive downward. */
+  hitboxOffsetY?: number;
   maxHp: number;
   hp: number;
   dead: boolean;

@@ -44,3 +44,15 @@ export function bossSurfaceDistance(
   // on the diagonal, which is the forgiving direction for a player to be wrong.
   return Math.hypot(dx, fromCentre * radius / vertical) - radius;
 }
+
+/**
+ * Miremaw is a toad: wide, low, and sitting below the point the server
+ * measures from. Its circle reached 140 units above the creature's head, so an
+ * arrow was counted as a hit while it was still in open air.
+ *
+ * Measured by `node scripts/check-boss-hitboxes.mjs`.
+ */
+export const MIREMAW_VERTICAL_RADIUS = 95;
+/** Its width, unchanged; kept here so the geometry can be tested on its own. */
+export const MIREMAW_RADIUS_REFERENCE = 170;
+export const MIREMAW_HITBOX_OFFSET_Y = 65;

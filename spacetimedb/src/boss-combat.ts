@@ -94,6 +94,7 @@ import {
   VOLTWARDEN_REWARD_REGEN,
   WATER_REACH_MAP_ID,
 } from "../../shared/rules";
+import { bossSurfaceDistance, MIREMAW_HITBOX_OFFSET_Y, MIREMAW_VERTICAL_RADIUS } from "../../shared/boss-hitbox";
 import {
   FROST_ARMOR,
   FROST_BOW,
@@ -2137,8 +2138,11 @@ export function createBossCombat(deps: BossCombatDeps) {
     }
     const actionX = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, clientPosition.x)) : activePlayer.x;
     const actionY = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, clientPosition.y)) : activePlayer.y;
-    const centerDistance = Math.hypot(actionX - MIREMAW_POSITION.x, actionY - MIREMAW_POSITION.y);
-    if (centerDistance - MIREMAW_RADIUS > progress.attackRange + MIREMAW_HIT_RANGE_TOLERANCE) return;
+    // An ellipse, not a circle: see shared/boss-hitbox.ts.
+    const centerDistance = bossSurfaceDistance(
+      actionX - MIREMAW_POSITION.x, actionY - MIREMAW_POSITION.y,
+      MIREMAW_RADIUS, MIREMAW_VERTICAL_RADIUS, MIREMAW_HITBOX_OFFSET_Y);
+    if (centerDistance > progress.attackRange + MIREMAW_HIT_RANGE_TOLERANCE) return;
 
     const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
     const now = ctx.timestamp.microsSinceUnixEpoch;

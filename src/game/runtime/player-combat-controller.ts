@@ -1,5 +1,6 @@
 import { isMeleeWeapon, weaponAttackRange, segmentCircleHit } from "../weapon-combat";
 import { isProceduralMap } from "../../../shared/procedural-maps";
+import { bossSurfaceDistance } from "../../../shared/boss-hitbox";
 import { isEnemyAttackingPlayer } from "./enemy-threat";
 import { PLAYER_KNOCKBACK_FORCE, WORLD } from "../constants";
 import { damageAfterArmor } from "../combat";
@@ -251,8 +252,17 @@ export function createPlayerCombatController(options: {
   }
 
   const attackRange = () => weaponAttackRange(options.equippedWeapon(), player.attackRange);
-  const targetDistance = (target: EnemyState | BossTarget) => Math.max(0,
-    Math.hypot(player.x - target.x, player.y - target.y) - (target.isBoss || isMeleeWeapon(options.equippedWeapon()) ? target.r : 0));
+  const targetDistance = (target: EnemyState | BossTarget) => {
+    const dx = player.x - target.x, dy = player.y - target.y;
+    // A boss is an ellipse when it carries one; everything else is the circle
+    // this always was. Prediction has to agree with the server or a shot the
+    // client counts is rejected.
+    if (target.isBoss) {
+      const boss = target as BossTarget & { ry?: number; hitboxOffsetY?: number };
+      return Math.max(0, bossSurfaceDistance(dx, dy, boss.r, boss.ry, boss.hitboxOffsetY));
+    }
+    return Math.max(0, Math.hypot(dx, dy) - (isMeleeWeapon(options.equippedWeapon()) ? target.r : 0));
+  };
   function weaponDamage(critical: boolean) {
     return equipmentDamage(player.damage, options.equippedWeapon(), options.equippedHead(), options.equippedChest(),
       researchDamageMultiplier(), options.equippedWeaponUpgradeLevel?.() ?? 0,

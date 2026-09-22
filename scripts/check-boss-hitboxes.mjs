@@ -98,6 +98,36 @@ async function cellExtent(path, { frames, rows = 1, drawWidth, drawHeight, offse
   };
 }
 
+/**
+ * The creature's body, as opposed to everything its sprite contains.
+ *
+ * Horns, tails and weapons are narrow; the body is the wide part. Rows at
+ * least 60% as wide as the widest one are the body, which is what a player
+ * aims at and what the hitbox should cover.
+ */
+async function bodyExtent(path, { frames, rows = 1, drawWidth, drawHeight, offsetY }) {
+  const { data, info } = await sharp(path).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const cellWidth = Math.floor(info.width / frames);
+  const cellHeight = Math.floor(info.height / rows);
+  const widths = [];
+  for (let y = 0; y < cellHeight; y += 1) {
+    let left = Infinity, right = -Infinity;
+    for (let x = 0; x < cellWidth; x += 1) {
+      if (data[(y * info.width + x) * 4 + 3] < 16) continue;
+      if (x < left) left = x;
+      if (x > right) right = x;
+    }
+    widths.push(right < 0 ? 0 : right - left + 1);
+  }
+  const widest = Math.max(...widths);
+  const scaleY = drawHeight / cellHeight;
+  const toWorld = (y) => offsetY + (y - cellHeight / 2) * scaleY;
+  const body = widths.map((width, y) => ({ width, y })).filter((row) => row.width >= widest * 0.6);
+  if (!body.length) return null;
+  const top = toWorld(body[0].y), bottom = toWorld(body[body.length - 1].y + 1);
+  return { top, bottom, verticalRadius: (bottom - top) / 2, offsetY: (top + bottom) / 2 };
+}
+
 const round = (value, width = 5) => String(Math.round(value)).padStart(width);
 
 function report(name, radius, extent) {
@@ -139,13 +169,33 @@ const SHEETS = [
 
 console.log("");
 for (const [name, key, file, geometry] of SHEETS) {
-  const extent = await cellExtent(`public/assets/wildstat/${file}`, geometry);
+  const path = `public/assets/wildstat/${file}`;
+  const extent = await cellExtent(path, geometry);
   report(name, radii[key], extent);
   const halfHeight = Math.max(Math.abs(extent.top), Math.abs(extent.bottom));
-  console.log(
-    `${"".padEnd(12)} half-height ${round(halfHeight, 4)} vs radius ${round(radii[key], 4)}` +
-    `  status bar floats ${round(extent.top - extent.cellTop, 4)}px above the artwork`,
-  );
+  const body = await bodyExtent(path, geometry);
+  const float = extent.top - extent.cellTop;
+  const notes = [];
+  if (body) {
+    // Positive means the hitbox reaches past the body into open air, which is
+    // the Miremaw fault: a shot lands before it touches the creature. Negative
+    // means the hitbox stops short of the artwork, which is the opposite
+    // complaint and not what we are hunting here.
+    const above = body.top - -radii[key];
+    const below = radii[key] - body.bottom;
+    if (above > 40 || below > 40) {
+      notes.push(`reaches past the body: ${round(above, 0)} above, ${round(below, 0)} below`);
+    } else if (above < -40 || below < -40) {
+      notes.push(`stops short of the artwork: ${round(-above, 0)} above, ${round(-below, 0)} below`);
+    }
+    console.log(
+      `${"".padEnd(12)} body y[${round(body.top)},${round(body.bottom)}]` +
+      `  suggests verticalRadius ${round(body.verticalRadius, 4)} offsetY ${round(body.offsetY, 4)}`,
+    );
+  }
+  if (float > 20) notes.push(`status bar floats ${round(float, 0)}px above the artwork`);
+  for (const note of notes) console.log(`${"".padEnd(12)} ! ${note}`);
+  console.log(`${"".padEnd(12)}   half-height ${round(halfHeight, 4)} vs radius ${round(radii[key], 4)}`);
 }
 
 console.log("\nNot measured here: dragon, voltwarden, gravebloom, aegis prime");

@@ -1,0 +1,39 @@
+import { describe, expect, it } from "vitest";
+import {
+  bossSurfaceDistance,
+  bossVerticalRadius,
+  MIREMAW_HITBOX_OFFSET_Y,
+  MIREMAW_RADIUS_REFERENCE,
+  MIREMAW_VERTICAL_RADIUS,
+} from "./boss-hitbox";
+
+describe("boss hitbox", () => {
+  it("is the circle it always was when a boss carries nothing extra", () => {
+    // Every boss that already plays correctly must come out bit for bit the
+    // same, which is the whole reason the extras are optional.
+    for (const [dx, dy, radius] of [[0, 0, 170], [300, 0, 170], [120, 160, 125], [-40, 90, 150]]) {
+      expect(bossSurfaceDistance(dx, dy, radius)).toBeCloseTo(Math.hypot(dx, dy) - radius, 9);
+    }
+    expect(bossVerticalRadius(170, undefined)).toBe(170);
+    expect(bossVerticalRadius(170, 0)).toBe(170);
+  });
+
+  it("keeps the width it had while pulling the top down to Miremaw's head", () => {
+    const radius = MIREMAW_RADIUS_REFERENCE;
+    // Straight out to the side is unchanged: the complaint was height only.
+    expect(bossSurfaceDistance(radius, MIREMAW_HITBOX_OFFSET_Y, radius, MIREMAW_VERTICAL_RADIUS, MIREMAW_HITBOX_OFFSET_Y))
+      .toBeCloseTo(0, 9);
+    // The artwork's top is 30 above the anchor. A shot level with the anchor
+    // used to count as a hit 170 out; it now has to reach the body.
+    const above = bossSurfaceDistance(0, -30, radius, MIREMAW_VERTICAL_RADIUS, MIREMAW_HITBOX_OFFSET_Y);
+    expect(above).toBeCloseTo(0, 6);
+    expect(bossSurfaceDistance(0, -150, radius)).toBeLessThan(0);
+    expect(bossSurfaceDistance(0, -150, radius, MIREMAW_VERTICAL_RADIUS, MIREMAW_HITBOX_OFFSET_Y)).toBeGreaterThan(0);
+  });
+
+  it("measures from the body's middle, not the anchor", () => {
+    const radius = MIREMAW_RADIUS_REFERENCE;
+    const inside = bossSurfaceDistance(0, MIREMAW_HITBOX_OFFSET_Y, radius, MIREMAW_VERTICAL_RADIUS, MIREMAW_HITBOX_OFFSET_Y);
+    expect(inside).toBeCloseTo(-radius, 9);
+  });
+});

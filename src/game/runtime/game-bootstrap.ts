@@ -1,4 +1,5 @@
 import { HOME_EXTERIOR_SPAWN } from "../../../shared/home";
+import { MIREMAW_HITBOX_OFFSET_Y, MIREMAW_VERTICAL_RADIUS } from "../../../shared/boss-hitbox";
 import { ONBOARDING_MAP_ID, ONBOARDING_WORLD } from "../../../shared/onboarding";
 import { generateMap, proceduralMapId, PROCEDURAL_ENTRY_MAP } from "../../../shared/procedural-maps";
 import { withGeneratedMaps } from "../procedural-maps";
@@ -367,6 +368,8 @@ export function createGameBootstrap() {
     x: miremawPosition.x,
     y: miremawPosition.y,
     r: 170,
+    ry: MIREMAW_VERTICAL_RADIUS,
+    hitboxOffsetY: MIREMAW_HITBOX_OFFSET_Y,
     maxHp: MIREMAW_MAX_HP,
     hp: MIREMAW_MAX_HP,
     dead: false,
