@@ -251,7 +251,7 @@ export function createPlayerIdentityRenderer(options: {
       const barH = options.healthBarHeight;
       const barX = centerX - Math.floor(barW / 2);
       // Clear of the character's head without floating away from it.
-      const barY = -50;
+      const barY = -47;
       const fillWidth = Math.round(barW * clamp(hp / maxHp, 0, 1));
       // A pill: the frame, the empty channel and the fill all share the same
       // corner radius, so the bar reads as one rounded shape rather than a
