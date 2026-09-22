@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { parseHTML } from "linkedom";
 import type { LeaderboardEntry } from "../wildstat-coop";
-import { leaderboardPodiumEntries, leaderboardValueText, sortedLeaderboardEntries } from "./leaderboard";
+import { leaderboardPodiumEntries, leaderboardValueText, renderLeaderboard, sortedLeaderboardEntries } from "./leaderboard";
+import { bindPlayerNameTags } from "../app/player-name-tags";
 
 function entry(identity: string, name: string, values: Partial<LeaderboardEntry> = {}): LeaderboardEntry {
   return {
@@ -53,5 +55,36 @@ describe("leaderboard podium", () => {
   it("formats podium values with the same rules as leaderboard rows", () => {
     expect(leaderboardValueText("regen", entry("r", "Regen", { regen: 12.345 }))).toBe("12.35/s");
     expect(leaderboardValueText("time", entry("t", "Time", { playedSeconds: 9_000 }))).toBe("2h 30m");
+  });
+});
+
+describe("prestige badges on the board", () => {
+  const { document } = parseHTML("<!doctype html><body></body>");
+  beforeEach(() => { (globalThis as { document?: Document }).document = document as unknown as Document; });
+  afterEach(() => { delete (globalThis as { document?: Document }).document; });
+
+  it("puts a prestiged player's level between their name and their gender icon", () => {
+    // player_prestige is public and subscribed unfiltered, so the level is
+    // known for every player on the board, not only the local one.
+    bindPlayerNameTags({
+      prefix: () => "",
+      revision: () => 1,
+      prestigeLevel: (identity) => identity === "aaa" ? 3 : 0,
+    });
+    const rows = document.createElement("ul");
+    const empty = document.createElement("p");
+    renderLeaderboard(
+      { rows, empty } as unknown as Parameters<typeof renderLeaderboard>[0],
+      "power",
+      [entry("aaa", "Prestiged"), entry("bbb", "Fresh")],
+      "bbb",
+      { isDeveloper: () => false, paintProfileIcon: () => {}, openProfile: () => {} },
+    );
+
+    const badges = [...rows.querySelectorAll(".player-prestige-badge")];
+    expect(badges).toHaveLength(1);
+    expect(badges[0].textContent).toBe("3");
+    const name = badges[0].parentElement;
+    expect(name?.querySelector(".leaderboard-name-text")?.textContent).toBe("Prestiged");
   });
 });

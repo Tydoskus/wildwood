@@ -1,5 +1,5 @@
 import { applyAvatarFrame } from "../app/avatar-frames";
-import { appendPlayerNameTags } from "../app/player-name-tags";
+import { appendPlayerNameTags, appendPrestigeBadge } from "../app/player-name-tags";
 import { formatCompactNumber } from "./number-format";
 import type { LeaderboardEntry } from "../wildstat-coop";
 import { appendPlayerGenderIcon } from "./player-gender";
@@ -128,6 +128,7 @@ export function renderLeaderboardPodium(
       nameText.className = "leaderboard-podium-name-text";
       nameText.textContent = entry.name;
       name.append(nameText);
+      appendPrestigeBadge(name, entry.identity);
       appendPlayerGenderIcon(name, entry.gender);
       name.title = entry.name;
       slot.setAttribute("aria-label", `#${rank} ${entry.name}. ${stat}: ${value.textContent}. View profile`);
@@ -175,6 +176,10 @@ export function renderLeaderboard(
     nameText.className = "leaderboard-name-text";
     nameText.textContent = entry.name;
     name.append(nameText);
+    // After the name and before the gender icon, the way it reads everywhere
+    // else. player_prestige is public and subscribed unfiltered, so every
+    // player on the board resolves, not only the one holding the client.
+    appendPrestigeBadge(name, entry.identity);
     appendPlayerGenderIcon(name, entry.gender);
     if (entry.isGuest) {
       const guest = document.createElement("span");
