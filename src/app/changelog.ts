@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.768": [
+    "Samurai Garden has new cherry trees, and they cast a shadow like every other map's trees do.",
+    "Samurai Garden runs as smoothly as the other maps. Its trees were the only ones drawn stroke by stroke every frame, which is why zone 7 felt heavier than the rest, especially on Firefox and older phones.",
+  ],
   "0.767": [
     "Players can no longer run away from updates.",
     "If the game updates while you have it open, a tab that was already on the newest version no longer waits on the updating screen for ever: it starts a fresh session by itself within half a minute.",
@@ -2180,6 +2184,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.768": "2026-09-21",
   "0.767": "2026-09-21",
   "0.766": "2026-09-21",
   "0.765": "2026-09-21",

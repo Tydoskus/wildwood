@@ -25,6 +25,7 @@ export type MapArtAssetGroup =
   | "lavaDecor"
   | "nightBoss"
   | "nightDecor"
+  | "cherryDecor"
   | "waterBoss"
   | "samuraiBoss"
   | "cloudspireBoss"
@@ -68,7 +69,7 @@ const AUTHORED_MAP_ASSET_GROUPS = {
     enemies: ["Tide Raider", "Reef Archer", "Reef Regent", "Coral Colossus", "Drowned Reaper", "Tidal Oracle"],
   },
   [SAMURAI_GARDEN_MAP_ID]: {
-    art: ["samuraiBoss"],
+    art: ["samuraiBoss", "cherryDecor"],
     enemies: ["Sakura Ronin", "Petal Archer", "Petal Regent", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle"],
   },
   [CLOUDSPIRE_MAP_ID]: {

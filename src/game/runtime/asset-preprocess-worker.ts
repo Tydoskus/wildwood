@@ -7,6 +7,8 @@ type BoundsRequest = {
   requestId: number;
   width: number;
   height: number;
+  /** Grid columns; sheets are square, so this is also the row count. */
+  columns: number;
   pixels: ArrayBuffer;
 };
 
@@ -27,12 +29,12 @@ const workerScope = self as unknown as {
   postMessage: (message: unknown, transfer: Transferable[]) => void;
 };
 
-function treeBounds(width: number, height: number, pixels: Uint8ClampedArray): TreeSpriteBound[] {
-  const cellW = width / 4;
-  const cellH = height / 4;
-  return Array.from({ length: 16 }, (_, variant) => {
-    const cellX = Math.floor((variant % 4) * cellW);
-    const cellY = Math.floor(Math.floor(variant / 4) * cellH);
+function treeBounds(width: number, height: number, columns: number, pixels: Uint8ClampedArray): TreeSpriteBound[] {
+  const cellW = width / columns;
+  const cellH = height / columns;
+  return Array.from({ length: columns * columns }, (_, variant) => {
+    const cellX = Math.floor((variant % columns) * cellW);
+    const cellY = Math.floor(Math.floor(variant / columns) * cellH);
     const cellWidth = Math.ceil(cellW);
     const cellHeight = Math.ceil(cellH);
     let left = cellWidth, top = cellHeight, right = 0, bottom = 0;
@@ -67,7 +69,7 @@ function treeBounds(width: number, height: number, pixels: Uint8ClampedArray): T
 
 workerScope.onmessage = ({ data }) => {
   if (data.type === "treeBounds") {
-    const bounds = treeBounds(data.width, data.height, new Uint8ClampedArray(data.pixels));
+    const bounds = treeBounds(data.width, data.height, data.columns, new Uint8ClampedArray(data.pixels));
     workerScope.postMessage({ type: "treeBounds", requestId: data.requestId, bounds }, []);
     return;
   }

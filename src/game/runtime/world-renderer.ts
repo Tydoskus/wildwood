@@ -20,15 +20,6 @@ import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
 import { nightGroundShadowsVisible } from "./night-visibility";
 import { createTintedImageCanvas } from "./image-tint";
 import { decorPaletteColor, mapVisualTheme } from "../map-design";
-import {
-  CHERRY_TREE_BASE_SIZE,
-  CHERRY_TREE_BLOSSOM_FALLBACK,
-  cherryTreeColors,
-  cherryTreeSourceScale,
-  cherryTreeSpriteBox,
-  paintCherryTree,
-  type CherryTreeColors,
-} from "./cherry-tree-sprite";
 
 export { snapWorldRenderCoordinate } from "./render-space";
 
@@ -47,19 +38,6 @@ type CharredTreeDecor = Extract<WorldDecor, { type: "charredTree" }>;
 
 const STATIC_TILE_SIZE = 640;
 const PORTAL_TINTED_SHEET_SIZE = 768;
-/** Device scale is rounded up to this step so a smooth zoom keeps its sprites. */
-const CHERRY_TREE_RENDER_STEP = .5;
-const CHERRY_TREE_MAX_RENDER_SCALE = 3;
-/** Two source bands times three drifts, with room for editor-recoloured trees. */
-const CHERRY_TREE_SPRITE_LIMIT = 24;
-
-/** Rounds up so a cached cherry sprite is never sampled larger than it was painted. */
-export function cherryTreeRenderScale(zoom: number, devicePixelRatio: number) {
-  const scale = zoom * devicePixelRatio;
-  if (!Number.isFinite(scale) || scale <= 0) return 1;
-  return Math.min(CHERRY_TREE_MAX_RENDER_SCALE, Math.max(1, Math.ceil(scale / CHERRY_TREE_RENDER_STEP) * CHERRY_TREE_RENDER_STEP));
-}
-
 export function staticWorldTileRange(
   cameraX: number,
   cameraY: number,
@@ -146,8 +124,10 @@ export type WorldRendererOptions = {
   treeSpritesheet: HTMLImageElement;
   nightTreeSpritesheet: HTMLImageElement;
   actorShadowSprite: HTMLImageElement;
+  cherryTreeSpritesheet: HTMLImageElement;
   treeSpriteBounds: () => TreeSpriteBounds[];
   nightTreeSpriteBounds: () => TreeSpriteBounds[];
+  cherryTreeSpriteBounds: () => TreeSpriteBounds[];
   portalArch: HTMLImageElement;
   portalSwirl: HTMLImageElement;
   snowPine: HTMLImageElement;
@@ -195,9 +175,6 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       return null;
     }
   })();
-  const cherryTreeSprites = new Map<string, { canvas: HTMLCanvasElement; box: ReturnType<typeof cherryTreeSpriteBox>; sourceDrawSize: number }>();
-  let cherryTreeSpriteGeneration = -1;
-  let cherryTreeSpriteScale = 0;
   let staticTileWorkerEnabled = Boolean(staticTileWorker);
   let staticTileGeneration = 0;
   let configuredWorkerGeneration = -1;
@@ -250,9 +227,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       colors: mapColors(),
       paths: options.paths,
       decor: lavaRocks ? options.decor.filter((decor) => decor.type !== "lavaRock") : options.decor,
-      treeBounds: options.getMapId() === options.infernalMapId
-        ? options.nightTreeSpriteBounds()
-        : options.treeSpriteBounds(),
+      treeBounds: treeSheet().bounds,
       treeShadowsVisible: nightGroundShadowsVisible(options.getMapId(), options.infernalMapId),
       snowPineAspect: options.snowPine.naturalWidth > 0
         ? options.snowPine.naturalWidth / options.snowPine.naturalHeight
@@ -590,9 +565,6 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     cachedStaticScene = null;
     lavaRockBuckets.clear();
     lavaRockBucketGeneration = -1;
-    for (const sprite of cherryTreeSprites.values()) { sprite.canvas.width = 0; sprite.canvas.height = 0; }
-    cherryTreeSprites.clear();
-    cherryTreeSpriteGeneration = -1;
     minimapCacheKey = "";
     nextMinimapFrameAt = 0;
   }
@@ -651,67 +623,16 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     }
   }
 
-  /**
-   * Samurai Garden paints its cherry trees instead of blitting a spritesheet,
-   * which cost ten filled ellipses and a stroked branch path per visible tree
-   * per frame. Each distinct tree is painted once into an offscreen canvas at
-   * the current device scale, then blitted like every other map's trees.
-   */
-  function cherryTreeSprite(tree: TreeDecor) {
-    const renderScale = cherryTreeRenderScale(camera.zoom, options.getDevicePixelRatio());
-    if (cherryTreeSpriteGeneration !== staticTileGeneration || cherryTreeSpriteScale !== renderScale) {
-      cherryTreeSprites.clear();
-      cherryTreeSpriteGeneration = staticTileGeneration;
-      cherryTreeSpriteScale = renderScale;
+  /** Which spritesheet and per-variant bounds the active map's trees use. */
+  function treeSheet() {
+    const mapId = options.getMapId();
+    if (mapId === SAMURAI_GARDEN_MAP_ID) {
+      return { spritesheet: options.cherryTreeSpritesheet, bounds: options.cherryTreeSpriteBounds() };
     }
-    const sourceScale = cherryTreeSourceScale(tree.s);
-    const colors: CherryTreeColors = cherryTreeColors(
-      index => decorPaletteColor(mapColors(), "tree", index, CHERRY_TREE_BLOSSOM_FALLBACK),
-      tree.color,
-    );
-    const key = `${sourceScale}|${tree.variant % 3}|${colors.shadow}|${colors.clusters.join(",")}`;
-    const cached = cherryTreeSprites.get(key);
-    if (cached) return cached;
-    const sourceDrawSize = Math.max(1, Math.round(CHERRY_TREE_BASE_SIZE * sourceScale * renderScale));
-    const box = cherryTreeSpriteBox(sourceDrawSize);
-    const canvas = document.createElement("canvas");
-    canvas.width = box.width;
-    canvas.height = box.height;
-    const spriteContext = canvas.getContext("2d");
-    if (!spriteContext) return null;
-    paintCherryTree(spriteContext, box.originX, box.originY, sourceDrawSize, tree.variant, colors);
-    const sprite = { canvas, box, sourceDrawSize };
-    if (cherryTreeSprites.size >= CHERRY_TREE_SPRITE_LIMIT) cherryTreeSprites.clear();
-    cherryTreeSprites.set(key, sprite);
-    return sprite;
-  }
-
-  function drawCherryTree(tree: TreeDecor, x: number, y: number, drawSize: number) {
-    const sprite = cherryTreeSprite(tree);
-    if (!sprite) {
-      const colors = cherryTreeColors(
-        index => decorPaletteColor(mapColors(), "tree", index, CHERRY_TREE_BLOSSOM_FALLBACK),
-        tree.color,
-      );
-      paintCherryTree(ctx, x, y, drawSize, tree.variant, colors);
-      return;
+    if (mapId === options.infernalMapId) {
+      return { spritesheet: options.nightTreeSpritesheet, bounds: options.nightTreeSpriteBounds() };
     }
-    // Source pixels to world pixels: the band the sprite was painted for is
-    // always at least this tree's size, so this only ever samples down.
-    const k = drawSize / sprite.sourceDrawSize;
-    // The world canvas keeps smoothing off for pixel art, which would leave
-    // these soft blossom edges jagged. Blossoms are the one thing here that
-    // wants a filtered downscale, so turn it on for the blit and put it back.
-    const smoothing = ctx.imageSmoothingEnabled;
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(
-      sprite.canvas,
-      x - sprite.box.originX * k,
-      y - sprite.box.originY * k,
-      sprite.box.width * k,
-      sprite.box.height * k,
-    );
-    ctx.imageSmoothingEnabled = smoothing;
+    return { spritesheet: options.treeSpritesheet, bounds: options.treeSpriteBounds() };
   }
 
   function drawTree(tree: TreeDecor) {
@@ -722,14 +643,9 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     const halfWidth = Math.ceil(drawSize / 2);
     const cullPadding = drawSize + 32;
     if (x + halfWidth < -cullPadding || x - halfWidth > visible.width + cullPadding || y < -cullPadding || y - drawSize > visible.height + cullPadding) return;
-    if (options.getMapId() === SAMURAI_GARDEN_MAP_ID) {
-      drawCherryTree(tree, x, y, drawSize);
-      return;
-    }
-    const night = options.getMapId() === options.infernalMapId;
-    const spritesheet = night ? options.nightTreeSpritesheet : options.treeSpritesheet;
-    if (!spritesheet.complete || spritesheet.naturalWidth <= 0) return;
-    const source = (night ? options.nightTreeSpriteBounds() : options.treeSpriteBounds())[tree.variant % 16];
+    const { spritesheet, bounds } = treeSheet();
+    if (!spritesheet.complete || spritesheet.naturalWidth <= 0 || bounds.length === 0) return;
+    const source = bounds[Math.abs(Math.trunc(tree.variant)) % bounds.length];
     if (!source) return;
     const drawWidth = Math.round(drawSize * source.w / source.h);
     ctx.drawImage(spritesheet, source.x, source.y, source.w, source.h, x - drawWidth / 2, y - drawSize, drawWidth, drawSize);

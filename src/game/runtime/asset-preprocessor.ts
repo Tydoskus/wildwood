@@ -25,6 +25,13 @@ export type TreeSpriteBound = {
   canopyWidth: number;
 };
 
+/** The forest and night sheets pack sixteen trees into a 4x4 grid. */
+const TREE_SHEET_COLUMNS = 4;
+/** Samurai Garden's cherries are four larger trees in a 2x2 grid. */
+export const CHERRY_TREE_SHEET_COLUMNS = 2;
+export const CHERRY_TREE_SHEET_SOURCE = "assets/wildstat/cherry-tree-spritesheet-v1.webp";
+export const CHERRY_TREE_VARIANTS = CHERRY_TREE_SHEET_COLUMNS * CHERRY_TREE_SHEET_COLUMNS;
+
 type PreprocessResult =
   | { type: "removeGreen"; requestId: number; pixels: ArrayBuffer }
   | { type: "treeBounds"; requestId: number; bounds: TreeSpriteBound[] };
@@ -280,6 +287,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   const preprocessTreeBounds = (
     spritesheet: HTMLImageElement,
     finish: (bounds?: TreeSpriteBound[]) => void,
+    columns = TREE_SHEET_COLUMNS,
   ) => {
     if (spritesheet.naturalWidth <= 0) {
       finish();
@@ -290,7 +298,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     canvas.height = spritesheet.naturalHeight;
     const context = canvas.getContext("2d", { willReadFrequently: true });
     if (!context || !worker) {
-      void yieldToUser().then(() => finish(measureTreeSpriteBounds(spritesheet)));
+      void yieldToUser().then(() => finish(measureTreeSpriteBounds(spritesheet, columns)));
       return;
     }
     context.drawImage(spritesheet, 0, 0);
@@ -300,7 +308,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
       if (result.type === "treeBounds") finish(result.bounds);
     });
     scheduleBackgroundTask(() => {
-      worker.postMessage({ type: "treeBounds", requestId, width: canvas.width, height: canvas.height, pixels: pixels.data.buffer }, [pixels.data.buffer]);
+      worker.postMessage({ type: "treeBounds", requestId, width: canvas.width, height: canvas.height, columns, pixels: pixels.data.buffer }, [pixels.data.buffer]);
     });
   };
 
@@ -318,6 +326,14 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
       nightTreeBounds = bounds;
       settle();
     });
+  });
+
+  let cherryTreeBounds: TreeSpriteBound[] = [];
+  const cherryTreeAsset = createLazyImageAsset(CHERRY_TREE_SHEET_SOURCE, (image, settle) => {
+    preprocessTreeBounds(image, (bounds = []) => {
+      cherryTreeBounds = bounds;
+      settle();
+    }, CHERRY_TREE_SHEET_COLUMNS);
   });
 
   const duelSpaceAsset = createLazyImageAsset(DUEL_SPACE_BACKGROUND_SOURCE);
@@ -346,6 +362,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     lavaDecor: lavaAssets,
     nightBoss: [gloomrootAsset],
     nightDecor: [nightTreeAsset],
+    cherryDecor: [cherryTreeAsset],
     waterBoss: [tidewyrmAsset],
     samuraiBoss: [koiShogunAsset],
     cloudspireBoss: [tempestKirinAsset],
@@ -395,6 +412,8 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     magmaliskSpriteCanvas,
     nightTreeSpriteBounds: () => nightTreeBounds,
     nightTreeSpritesheet: nightTreeAsset.image,
+    cherryTreeSpriteBounds: () => cherryTreeBounds,
+    cherryTreeSpritesheet: cherryTreeAsset.image,
     snowPine: snowPineAsset.image,
     upgradeBench: upgradeBenchAsset.image,
     spiderReady: () => spiderReady,
@@ -424,18 +443,18 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   };
 }
 
-function measureTreeSpriteBounds(treeSpritesheet: HTMLImageElement): TreeSpriteBound[] {
+function measureTreeSpriteBounds(treeSpritesheet: HTMLImageElement, columns = TREE_SHEET_COLUMNS): TreeSpriteBound[] {
   const canvas = document.createElement("canvas");
   canvas.width = treeSpritesheet.naturalWidth;
   canvas.height = treeSpritesheet.naturalHeight;
   const context = canvas.getContext("2d", { willReadFrequently: true });
   if (!context) return [];
   context.drawImage(treeSpritesheet, 0, 0);
-  const cellWidth = treeSpritesheet.naturalWidth / 4;
-  const cellHeight = treeSpritesheet.naturalHeight / 4;
-  return Array.from({ length: 16 }, (_, variant) => {
-    const cellX = Math.floor((variant % 4) * cellWidth);
-    const cellY = Math.floor(Math.floor(variant / 4) * cellHeight);
+  const cellWidth = treeSpritesheet.naturalWidth / columns;
+  const cellHeight = treeSpritesheet.naturalHeight / columns;
+  return Array.from({ length: columns * columns }, (_, variant) => {
+    const cellX = Math.floor((variant % columns) * cellWidth);
+    const cellY = Math.floor(Math.floor(variant / columns) * cellHeight);
     const width = Math.ceil(cellWidth);
     const height = Math.ceil(cellHeight);
     const pixels = context.getImageData(cellX, cellY, width, height).data;
