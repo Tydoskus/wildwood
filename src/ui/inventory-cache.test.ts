@@ -16,7 +16,7 @@ it("keeps slots mounted until inventory, upgrades, or selection changes", () => 
   controller.render();
   expect(items.querySelector(".inventory-item-bonuses")!.textContent).toBe("+5%");
   level = 10; controller.render();
-  expect(items.querySelector(".inventory-item-bonuses")!.textContent).toBe("+9%");
+  expect(items.querySelector(".inventory-item-bonuses")!.textContent).toBe("+7%");
   level = 0; controller.render();
   let first = items.firstElementChild;
   controller.prepareOpen(); controller.render();

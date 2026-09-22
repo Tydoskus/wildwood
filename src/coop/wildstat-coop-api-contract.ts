@@ -70,6 +70,7 @@ type ExpectedApiKey =
   | "isReconnectingAfterWake"
   | "itemUpgradeLevel"
   | "itemUpgradeLevels"
+  | "slotUpgradeTier"
   | "knownCharacter"
   | "knownCharacterGender"
   | "latencyMs"

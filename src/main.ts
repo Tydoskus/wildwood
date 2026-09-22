@@ -1586,6 +1586,8 @@ import {
     secondSlotUnlocked: () => coop?.secondUpgradeSlotUnlocked?.() ?? false,
     gemBalance: () => coop?.gemBalance?.() ?? 0n,
     upgradeLevel: (itemId) => coop?.itemUpgradeLevel?.(itemId) ?? 0,
+    slotTier: (track) => coop?.slotUpgradeTier?.(track) ?? 0,
+    equippedIn: track => track === "HAND" ? (inventory.equippedRightHand || inventory.equippedLeftHand) : track === "HEAD" ? inventory.equippedHead : inventory.equippedChest,
     storage: localStorage, startUpgrade: async (slot, itemId, position) => coop?.startItemUpgrade?.(slot, itemId, position),
     cancelUpgrade: async (slot) => coop?.cancelItemUpgrade?.(slot),
     speedUpUpgrade: async (slot) => coop?.speedUpItemUpgradeWithGems?.(slot),

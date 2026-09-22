@@ -65,7 +65,7 @@ describe("player power", () => {
       equippedHead: WOOD_FULL_HELM,
       equippedChest: FROST_ARMOR,
     });
-    expect(effective.maxHp).toBeCloseTo(110);
+    expect(effective.maxHp).toBeCloseTo(111.43);
   });
 
   it("bounds malformed totals", () => {

@@ -35,7 +35,7 @@ import {
   NIGHT_FOREST_HELMET_ITEM_DROP_DENOMINATOR,
   NIGHT_FOREST_BOW_ITEM_DROP_DENOMINATOR,
   NIGHT_BOW,
-  MAX_ITEM_UPGRADE_LEVEL,
+  MAX_SLOT_UPGRADE_TIER,
   LAVA_DROP_ITEM_IDS,
   LAVA_BOSS_DROP_ITEM_IDS,
   LAVA_BOSS_ITEM_DROP_DENOMINATOR,
@@ -127,27 +127,27 @@ describe("equipment catalog", () => {
       for (const research of [1, 1.2, 3]) {
         expect(equipmentDamage(base, STARTER_BOW, "", "", research) - base * research).toBeCloseTo(base * .05 * research);
         expect(equipmentMaxHealth(base, WOOD_FULL_HELM, WOODEN_ARMOR, research) - base * research).toBeCloseTo(base * .05 * research);
-        expect(equipmentRegeneration(base, FIRE_METAL_HELMET, MAGMA_ARMOR, research) - base * research).toBeCloseTo(base * .125 * research);
+        expect(equipmentRegeneration(base, FIRE_METAL_HELMET, MAGMA_ARMOR, research) - base * research).toBeCloseTo(base * .1518 * research);
       }
     }
   });
 
   it("gives each map a larger percentage while preserving the stronger rare bows", () => {
     expect(itemDamageMultiplierBonus(STARTER_BOW)).toBe(.05);
-    expect(itemDamageMultiplierBonus(IRON_BOW)).toBe(.075);
-    expect(itemDamageMultiplierBonus(SNOW_BOW)).toBe(.085);
-    expect(itemDamageMultiplierBonus(FROST_BOW)).toBe(.1);
-    expect(itemDamageMultiplierBonus(LAVA_BOW)).toBe(.125);
-    expect(itemDamageMultiplierBonus(NIGHT_BOW)).toBe(.1275);
-    expect(itemDamageMultiplierBonus(FIRE_METAL_BOW)).toBe(.15);
+    expect(itemDamageMultiplierBonus(IRON_BOW)).toBeCloseTo(.0804, 6);
+    expect(itemDamageMultiplierBonus(SNOW_BOW)).toBe(.0971);
+    expect(itemDamageMultiplierBonus(FROST_BOW)).toBe(.1143);
+    expect(itemDamageMultiplierBonus(LAVA_BOW)).toBe(.1518);
+    expect(itemDamageMultiplierBonus(NIGHT_BOW)).toBeCloseTo(.1639, 6);
+    expect(itemDamageMultiplierBonus(FIRE_METAL_BOW)).toBeCloseTo(.1929, 6);
     expect(itemDamageMultiplierBonus(FIRE_METAL_HELMET)).toBe(0);
-    expect(itemStats(MAGMA_ARMOR)).toEqual(["MAX HEALTH +12.5%"]);
-    expect(itemStats(DARK_METAL_HELMET)).toEqual(["REGEN +15%"]);
+    expect(itemStats(MAGMA_ARMOR)).toEqual(["MAX HEALTH +15.18%"]);
+    expect(itemStats(DARK_METAL_HELMET)).toEqual(["REGEN +19.29%"]);
   });
 
   it("requires earned regeneration for helmet percentage bonuses", () => {
     expect(equipmentRegeneration(0, WOOD_FULL_HELM, FROST_ARMOR)).toBe(0);
-    expect(itemMaxHealthMultiplierBonus(FROST_ARMOR)).toBe(.1);
+    expect(itemMaxHealthMultiplierBonus(FROST_ARMOR)).toBe(.1143);
     expect(itemRegenerationMultiplierBonus(FROST_ARMOR)).toBe(0);
     expect(itemFitsEquipmentSlot(FROST_ARMOR, "CHEST")).toBe(true);
     expect(itemFitsEquipmentSlot(FROST_ARMOR, "HEAD")).toBe(false);
@@ -158,10 +158,13 @@ describe("equipment catalog", () => {
     expect(inventoryJsonItemQuantity("not json", FROST_BOW)).toBe(0);
   });
 
-  it("uses a three-minute upgrade timer that grows forty percent per level", () => {
+  it("uses a three-minute first tier that grows toward three hundred hours a slot", () => {
     expect(itemUpgradeDurationMs(0)).toBe(180_000);
-    expect(itemUpgradeDurationMs(1)).toBe(252_000);
-    expect(itemUpgradeDurationMs(MAX_ITEM_UPGRADE_LEVEL + 99)).toBe(itemUpgradeDurationMs(MAX_ITEM_UPGRADE_LEVEL));
+    expect(itemUpgradeDurationMs(1)).toBe(221_292);
+    expect(itemUpgradeDurationMs(MAX_SLOT_UPGRADE_TIER + 99)).toBe(itemUpgradeDurationMs(MAX_SLOT_UPGRADE_TIER));
+    let total = 0;
+    for (let tier = 0; tier < MAX_SLOT_UPGRADE_TIER; tier += 1) total += itemUpgradeDurationMs(tier);
+    expect(total / 3.6e6).toBeCloseTo(300, 0);
   });
 
   it("only upgrades stat-bearing weapons and armor", () => {
@@ -182,29 +185,30 @@ describe("equipment catalog", () => {
     expect(isUpgradeableItem(BASIC_PAPER_HAT)).toBe(false);
   });
 
-  it("upgrades the base item bonus and keeps existing upgrade levels", () => {
-    expect(itemDamageMultiplierBonus(FROST_BOW, 10)).toBe(.18);
-    expect(itemMaxHealthMultiplierBonus(FROST_ARMOR, 10)).toBe(.18);
-    expect(itemRegenerationMultiplierBonus(WOOD_FULL_HELM, 10)).toBe(.135);
-    expect(itemDamageMultiplierBonus(STARTER_BOW, 10)).toBe(.09);
-    expect(itemMaxHealthMultiplierBonus(WOODEN_ARMOR, 10)).toBe(.09);
+  // A finished slot is +140% of whatever the item brings by itself.
+  it("adds the slot's tiers on top of the item's own bonus", () => {
+    expect(itemDamageMultiplierBonus(FROST_BOW, MAX_SLOT_UPGRADE_TIER)).toBe(.2743);
+    expect(itemMaxHealthMultiplierBonus(FROST_ARMOR, MAX_SLOT_UPGRADE_TIER)).toBe(.2743);
+    expect(itemRegenerationMultiplierBonus(WOOD_FULL_HELM, MAX_SLOT_UPGRADE_TIER)).toBe(.193);
+    expect(itemDamageMultiplierBonus(STARTER_BOW, MAX_SLOT_UPGRADE_TIER)).toBe(.12);
+    expect(itemMaxHealthMultiplierBonus(WOODEN_ARMOR, MAX_SLOT_UPGRADE_TIER)).toBe(.12);
     expect(itemRegenerationMultiplierBonus(WOODEN_ARMOR, 10)).toBe(0);
     expect(itemDisplayName(FROST_BOW, 1)).toBe("FROST BOW +1");
-    expect(itemStats(STARTER_BOW, 1)).toEqual(["DAMAGE +5.4%"]);
+    expect(itemStats(STARTER_BOW, 1)).toEqual(["DAMAGE +5.2%"]);
     expect(itemUpgradeStatChanges(STARTER_BOW, 0)).toEqual([
-      { label: "DAMAGE", current: "+5%", next: "+5.4%" },
+      { label: "DAMAGE", current: "+5%", next: "+5.2%" },
     ]);
-    expect(equipmentDamage(100, STARTER_BOW, "", "", 1.4, 10)).toBeCloseTo(152.6);
+    expect(equipmentDamage(100, STARTER_BOW, "", "", 1.4, MAX_SLOT_UPGRADE_TIER)).toBeCloseTo(156.8);
   });
 });
 
 
 it("shows percentage health and regen upgrade previews with fractional precision", () => {
   expect(itemUpgradeStatChanges(WOODEN_ARMOR, 0)).toEqual([
-    { label: "MAX HEALTH", current: "+5%", next: "+5.4%" },
+    { label: "MAX HEALTH", current: "+5%", next: "+5.2%" },
   ]);
   expect(itemUpgradeStatChanges(WOOD_FULL_HELM, 0)).toEqual([
-    { label: "REGEN", current: "+7.5%", next: "+8.1%" },
+    { label: "REGEN", current: "+8.04%", next: "+8.36%" },
   ]);
-  expect(itemRegenerationMultiplierBonus(WOOD_FULL_HELM, 1)).toBe(.081);
+  expect(itemRegenerationMultiplierBonus(WOOD_FULL_HELM, 1)).toBe(.0836);
 });

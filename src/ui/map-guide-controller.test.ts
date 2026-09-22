@@ -87,10 +87,10 @@ describe("map guide", () => {
   });
 
   it("summarizes the stats players need when evaluating a drop", () => {
-    expect(mapGuideItemStats(IRON_BOW)).toEqual(["Damage +7.5%"]);
-    expect(mapGuideItemStats(MAGMA_ARMOR)).toEqual(["Max Health +12.5%"]);
-    expect(mapGuideItemStats(FIRE_METAL_HELMET)).toEqual(["Regen +12.5%"]);
-    expect(mapGuideItemStats(FIRE_METAL_BOW)).toEqual(["Damage +15%"]);
+    expect(mapGuideItemStats(IRON_BOW)).toEqual(["Damage +8.04%"]);
+    expect(mapGuideItemStats(MAGMA_ARMOR)).toEqual(["Max Health +15.18%"]);
+    expect(mapGuideItemStats(FIRE_METAL_HELMET)).toEqual(["Regen +15.18%"]);
+    expect(mapGuideItemStats(FIRE_METAL_BOW)).toEqual(["Damage +19.29%"]);
     expect(mapGuideItemStats(SNOW_BOW)).toEqual(["Damage +8.5%"]);
     expect(mapGuideItemStats(NIGHT_BOW)).toEqual(["Damage +12.75%"]);
     expect(mapGuideItemStats(DARK_METAL_HELMET)).toEqual(["Regen +15%"]);

@@ -13,7 +13,8 @@ import { createProceduralMapService } from "./procedural-map-service";
 import { syncResearchNotification } from "../../app/native-research-notifications";
 import type { Identity } from "spacetimedb";
 import { normalizedInventorySlotsUnlocked } from "../../../shared/gems";
-import { itemUpgradeDurationMs, normalizeItemUpgradeLevel } from "../../../shared/items";
+import { itemUpgradeDurationMs, type UpgradeSlot } from "../../../shared/items";
+import { normalizeSlotTier, upgradeSlotForItem } from "../../../shared/slot-upgrades";
 import { createEmptyResearchRanks, RESEARCH_DEFINITIONS, isResearchId, type ResearchId } from "../../../shared/research";
 import type {
   ActiveItemUpgrade,
@@ -432,6 +433,11 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     dependencies.notify();
   }
 
+  /**
+   * Rows are keyed by upgrade slot now, not by item: `itemId` carries "HAND",
+   * "HEAD" or "CHEST" and `level` is that slot's tier. The cache shape is
+   * unchanged; only what the key means moved.
+   */
   function upsertItemUpgrade(row: { identity: Identity; itemId: string; level: number }) {
     const identity = row.identity.toHexString();
     let levels = upgradeLevelsByIdentity.get(identity);
@@ -440,7 +446,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       upgradeLevelsByIdentity.set(identity, levels);
     }
     const previousLevel = levels.get(row.itemId) ?? 0;
-    const level = normalizeItemUpgradeLevel(row.level);
+    const level = normalizeSlotTier(row.level);
     levels.set(row.itemId, level);
     if (identity === dependencies.localIdentity() && dependencies.hydrationReady() && level > previousLevel) {
       itemUpgradeListener?.({ itemId: row.itemId, level });
@@ -470,8 +476,8 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     activeItemUpgrades.set(slot, {
       slot,
       itemId: row.itemId,
-      currentLevel: normalizeItemUpgradeLevel(row.currentLevel),
-      targetLevel: normalizeItemUpgradeLevel(row.targetLevel),
+      currentLevel: normalizeSlotTier(row.currentLevel),
+      targetLevel: normalizeSlotTier(row.targetLevel),
       startedAtMs: Number(row.startedAt.microsSinceUnixEpoch / 1_000n),
       completesAtMs: Number(row.completesAt.microsSinceUnixEpoch / 1_000n),
       paused: row.paused,
@@ -684,8 +690,13 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       prestigePerks: (): PlayerPrestigePerks => localPrestigePerks
         ? { ...localPrestigePerks }
         : { keenEdge: 0, doubleStrike: 0, splitShot: 0, riposte: 0 },
+      /** The tier that applies to an item: whatever its slot has earned. */
       itemUpgradeLevel(itemId: string, identity = dependencies.localIdentity()) {
-        return upgradeLevelsByIdentity.get(identity)?.get(itemId) ?? 0;
+        const slot = upgradeSlotForItem(itemId);
+        return slot ? upgradeLevelsByIdentity.get(identity)?.get(slot) ?? 0 : 0;
+      },
+      slotUpgradeTier(slot: UpgradeSlot, identity = dependencies.localIdentity()) {
+        return upgradeLevelsByIdentity.get(identity)?.get(slot) ?? 0;
       },
       itemUpgradeLevels(identity = dependencies.localIdentity()) {
         return upgradeLevelsFor(identity);

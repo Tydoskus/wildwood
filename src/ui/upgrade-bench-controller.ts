@@ -1,23 +1,18 @@
 import { formatRemaining } from "./format-remaining";
 import { formatEquipmentStat } from "./equipment-stat-format";
-import { appendItemTierLabel } from "./item-tier-label";
-import { itemTier } from "../../shared/item-tier";
+import { isUpgradeSlot, normalizeSlotTier, UPGRADE_SLOT_LABELS } from "../../shared/slot-upgrades";
 import {
   UPGRADE_BENCH_SECOND_SLOT_GEM_COST,
   itemUpgradeSpeedUpGemCost,
 } from "../../shared/gems";
 import {
-  MAX_ITEM_UPGRADE_LEVEL,
-  isUpgradeableItem,
-  itemDefinition,
-  type ItemSlot,
-  itemDisplayName,
+  MAX_SLOT_UPGRADE_TIER,
+  UPGRADE_SLOTS as UPGRADE_TRACKS,
+  type UpgradeSlot,
   itemUpgradeDurationMs,
   itemUpgradeStatChanges,
-  normalizeItemUpgradeLevel,
 } from "../../shared/items";
 import {
-  ownedInventoryStacks,
   setInventoryItemQuantity,
   type InventoryState,
 } from "../game/inventory";
@@ -53,6 +48,10 @@ type UpgradeBenchDependencies = {
   secondSlotUnlocked: () => boolean;
   gemBalance: () => bigint;
   upgradeLevel: (itemId: string) => number;
+  /** The tier a track has reached. */
+  slotTier: (track: UpgradeSlot) => number;
+  /** The item worn in a track's slot, for showing what a tier is worth. */
+  equippedIn: (track: UpgradeSlot) => string;
   startUpgrade: (slot: UpgradeBenchSlot, itemId: string, position: { x: number; y: number }) => Promise<UpgradeResult>;
   cancelUpgrade: (slot: UpgradeBenchSlot) => Promise<UpgradeResult>;
   speedUpUpgrade: (slot: UpgradeBenchSlot) => Promise<UpgradeResult>;
@@ -98,11 +97,19 @@ export function playerTouchesUpgradeBench(
     dy * dy / (UPGRADE_BENCH_TOUCH_RADIUS_Y * UPGRADE_BENCH_TOUCH_RADIUS_Y) <= 1;
 }
 
-export function upgradePickerPreview(itemId: string, upgradeLevel: unknown) {
-  const level = normalizeItemUpgradeLevel(upgradeLevel);
+/**
+ * What advancing a track buys, read off the item currently in that slot.
+ *
+ * The tier belongs to the slot, so the numbers are shown against whatever is
+ * equipped there: that is the gear the tier will actually be scaling. With the
+ * slot empty there is nothing to measure, so only the tier itself is shown.
+ */
+export function upgradePickerPreview(track: UpgradeSlot, tier: unknown, equippedItemId = "") {
+  const level = normalizeSlotTier(tier);
   return {
-    name: itemDisplayName(itemId, level),
-    changes: itemUpgradeStatChanges(itemId, level),
+    name: `${UPGRADE_SLOT_LABELS[track]} \u00b7 TIER ${level} \u2192 ${level + 1}`,
+    changes: equippedItemId ? itemUpgradeStatChanges(equippedItemId, level) : [],
+    equippedItemId,
   };
 }
 
@@ -150,9 +157,8 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
   const confirmCancel = dependencies.confirmCancel ?? gameConfirm;
   const confirmGemSpend = dependencies.confirmGemSpend ?? gameConfirm;
   const confirmUnlock = dependencies.confirmUnlock ?? confirmGemSpend;
-  const selectedItems = new Map<UpgradeBenchSlot, string>();
-  /** Only HAND, HEAD and CHEST can be upgraded, so these are every kind there is. */
-  let pickerFilter: "ALL" | ItemSlot = "ALL";
+  /** Which track each bench slot is set to advance, before it is started. */
+  const selectedItems = new Map<UpgradeBenchSlot, UpgradeSlot>();
   let selectedSlot: UpgradeBenchSlot | null = null;
   let touchingBench = false;
   let busy = false;
@@ -171,19 +177,19 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     return slot === 1 || dependencies.secondSlotUnlocked();
   }
 
-  function eligibleItems(slot: UpgradeBenchSlot) {
+  /**
+   * The tracks a bench slot may take: the three equipment slots, minus any the
+   * other bench slot is already working on or has queued, minus any already at
+   * the last tier. There are no items in this list — a tier belongs to the
+   * slot, so what is held in it does not matter.
+   */
+  function eligibleItems(slot: UpgradeBenchSlot): UpgradeSlot[] {
     const unavailable = new Set(activeUpgrades().map((job) => job.itemId));
-    for (const [selectedInSlot, itemId] of selectedItems) {
-      if (selectedInSlot !== slot) unavailable.add(itemId);
+    for (const [selectedInSlot, track] of selectedItems) {
+      if (selectedInSlot !== slot) unavailable.add(track);
     }
-    return ownedInventoryStacks(dependencies.inventory)
-      .map(({ itemId }) => itemId)
-      .filter((itemId) => !unavailable.has(itemId) && isUpgradeableItem(itemId) &&
-        dependencies.upgradeLevel(itemId) < MAX_ITEM_UPGRADE_LEVEL)
-      // Best first: the item worth upgrading is almost always the highest tier
-      // owned, so it should not be somewhere down a scrolling list.
-      .sort((left, right) => (itemTier(right) ?? 0) - (itemTier(left) ?? 0)
-        || itemDisplayName(left, 0).localeCompare(itemDisplayName(right, 0)));
+    return UPGRADE_TRACKS.filter(track =>
+      !unavailable.has(track) && dependencies.slotTier(track) < MAX_SLOT_UPGRADE_TIER);
   }
 
   function closePicker() {
@@ -245,31 +251,34 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
       return;
     }
 
-    button.setAttribute("aria-label", itemId
-      ? `${itemDisplayName(itemId, level)} in upgrade slot ${slot}`
-      : `Choose an item for upgrade slot ${slot}`);
-    if (!itemId) {
+    const track = isUpgradeSlot(itemId) ? itemId : null;
+    button.setAttribute("aria-label", track
+      ? `${UPGRADE_SLOT_LABELS[track]} tier ${level} in upgrade slot ${slot}`
+      : `Choose what to upgrade in slot ${slot}`);
+    if (!track) {
       const empty = document.createElement("span");
       empty.className = "inventory-item-empty-mark";
       empty.textContent = "+";
       button.replaceChildren(empty);
       return;
     }
-    const art = document.createElement("span");
-    art.className = "inventory-item-art-wrap";
-    art.innerHTML = itemArtMarkup(itemId);
-    button.replaceChildren(art);
-    appendItemTierLabel(button, itemId);
-    if (level > 0) {
-      const badge = document.createElement("span");
-      badge.className = "inventory-upgrade-level";
-      badge.textContent = `+${level}`;
-      button.append(badge);
-    }
+    // A track has no artwork of its own, so the slot reads as words: what is
+    // being upgraded and how far it has got.
+    const name = document.createElement("span");
+    name.className = "upgrade-bench-track-name";
+    name.textContent = UPGRADE_SLOT_LABELS[track];
+    button.replaceChildren(name);
+    const badge = document.createElement("span");
+    badge.className = "inventory-upgrade-level";
+    badge.textContent = `T${level}`;
+    button.append(badge);
   }
 
   function renderStatGain(itemId: string, level: number) {
-    const rows = itemId ? itemUpgradeStatChanges(itemId, level).map((change) => {
+    // Measured against whatever is equipped in that slot: the tier scales the
+    // gear actually being worn, so those are the numbers worth showing.
+    const equipped = isUpgradeSlot(itemId) ? dependencies.equippedIn(itemId) : "";
+    const rows = equipped ? itemUpgradeStatChanges(equipped, level).map((change) => {
       const row = document.createElement("div");
       row.className = "upgrade-bench-stat-row";
       if (/^REGEN\b/.test(change.label)) row.dataset.statKind = "regen";
@@ -319,14 +328,14 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
 
     if (!dependencies.secondSlotUnlocked()) selectedItems.delete(2);
     for (const slot of UPGRADE_SLOTS) {
-      const selectedItem = selectedItems.get(slot);
-      if (selectedItem && !eligibleItems(slot).includes(selectedItem)) selectedItems.delete(slot);
+      const selectedTrack = selectedItems.get(slot);
+      if (selectedTrack && !eligibleItems(slot).includes(selectedTrack)) selectedItems.delete(slot);
     }
 
     const selectedJob = selectedSlot ? jobs.find((job) => job.slot === selectedSlot) ?? null : null;
     const selectedItemId = selectedSlot ? selectedItems.get(selectedSlot) ?? "" : "";
     const itemId = selectedJob?.itemId ?? selectedItemId;
-    const level = selectedJob?.currentLevel ?? normalizeItemUpgradeLevel(dependencies.upgradeLevel(itemId));
+    const level = selectedJob?.currentLevel ?? (isUpgradeSlot(itemId) ? dependencies.slotTier(itemId) : 0);
     const remaining = selectedJob ? remainingFor(selectedJob) : 0;
     const speedUpCost = selectedJob && remaining > 0 ? itemUpgradeSpeedUpGemCost(remaining) : 0n;
     const candidateKey = UPGRADE_SLOTS.map((slot) => eligibleItems(slot).join(",")).join(";");
@@ -348,14 +357,16 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     const slotTwoJob = jobs.find((job) => job.slot === 2) ?? null;
     const slotOneItem = slotOneJob?.itemId ?? selectedItems.get(1) ?? "";
     const slotTwoItem = slotTwoJob?.itemId ?? selectedItems.get(2) ?? "";
-    renderSlot(elements.slot, 1, slotOneItem, slotOneJob?.currentLevel ?? dependencies.upgradeLevel(slotOneItem), false, Boolean(slotOneJob));
-    renderSlot(elements.slotTwo, 2, slotTwoItem, slotTwoJob?.currentLevel ?? dependencies.upgradeLevel(slotTwoItem), !dependencies.secondSlotUnlocked(), Boolean(slotTwoJob));
+    const tierOf = (track: string) => isUpgradeSlot(track) ? dependencies.slotTier(track) : 0;
+    renderSlot(elements.slot, 1, slotOneItem, slotOneJob?.currentLevel ?? tierOf(slotOneItem), false, Boolean(slotOneJob));
+    renderSlot(elements.slotTwo, 2, slotTwoItem, slotTwoJob?.currentLevel ?? tierOf(slotTwoItem), !dependencies.secondSlotUnlocked(), Boolean(slotTwoJob));
     renderStatGain(itemId, level);
 
+    const trackName = isUpgradeSlot(itemId) ? UPGRADE_SLOT_LABELS[itemId] : "";
     if (!selectedSlot) elements.prompt.textContent = "Choose an upgrade slot";
-    else if (selectedJob) elements.prompt.textContent = `Upgrading ${itemDisplayName(itemId, level)}`;
-    else if (itemId) elements.prompt.textContent = `${itemDisplayName(itemId, level)} → +${level + 1}`;
-    else elements.prompt.textContent = `Add weapon or armor to slot ${selectedSlot}`;
+    else if (selectedJob) elements.prompt.textContent = `Upgrading ${trackName} to tier ${level + 1}`;
+    else if (trackName) elements.prompt.textContent = `${trackName} · tier ${level} → ${level + 1}`;
+    else elements.prompt.textContent = `Choose what to upgrade in slot ${selectedSlot}`;
 
     elements.timer.hidden = !itemId;
     elements.timer.textContent = selectedJob
@@ -364,7 +375,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     elements.action.classList.toggle("is-cancel", Boolean(selectedJob));
     elements.action.textContent = selectedJob ? "Cancel" : "Upgrade";
     elements.action.hidden = !itemId;
-    elements.action.disabled = busy || !itemId || (!selectedJob && level >= MAX_ITEM_UPGRADE_LEVEL);
+    elements.action.disabled = busy || !itemId || (!selectedJob && level >= MAX_SLOT_UPGRADE_TIER);
     elements.speedUp.hidden = !selectedJob || remaining <= 0;
     if (selectedJob && remaining > 0) {
       renderSpeedUp(speedUpCost);
@@ -374,62 +385,16 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     elements.back.disabled = busy;
   }
 
-  /**
-   * Built here rather than in the startup shell, which is size-bounded and has
-   * no business carrying a control only the bench uses.
-   */
-  const PICKER_FILTERS: readonly { id: "ALL" | ItemSlot; label: string }[] = [
-    { id: "ALL", label: "ALL" }, { id: "HAND", label: "WEAPON" },
-    { id: "HEAD", label: "HELMET" }, { id: "CHEST", label: "ARMOR" },
-  ];
-  let filterButtons: HTMLButtonElement[] = [];
-
-  function buildPickerFilters() {
-    if (filterButtons.length) return;
-    const bar = elements.pickerItems.ownerDocument.createElement("div");
-    bar.className = "profile-tabs upgrade-bench-picker-filters";
-    bar.setAttribute("role", "tablist");
-    bar.setAttribute("aria-label", "Filter upgradeable items");
-    filterButtons = PICKER_FILTERS.map(({ id, label }) => {
-      const button = elements.pickerItems.ownerDocument.createElement("button");
-      button.type = "button";
-      button.className = "profile-tab";
-      button.setAttribute("role", "tab");
-      button.dataset.filter = id;
-      button.textContent = label;
-      button.addEventListener("click", () => {
-        if (pickerFilter === id) return;
-        pickerFilter = id;
-        if (selectedSlot !== null && !elements.picker.hidden) renderPicker(selectedSlot);
-        else syncPickerFilters();
-      });
-      bar.append(button);
-      return button;
-    });
-    elements.pickerItems.before(bar);
-  }
-
-  function syncPickerFilters() {
-    for (const button of filterButtons) {
-      const active = button.dataset.filter === pickerFilter;
-      button.classList.toggle("is-active", active);
-      button.setAttribute("aria-selected", String(active));
-    }
-  }
-
   function renderPicker(slot: UpgradeBenchSlot) {
-    buildPickerFilters();
-    syncPickerFilters();
-    const candidates = eligibleItems(slot).filter(itemId =>
-      pickerFilter === "ALL" || itemDefinition(itemId)?.slot === pickerFilter);
-    const rows = candidates.map((itemId) => {
-      const level = normalizeItemUpgradeLevel(dependencies.upgradeLevel(itemId));
-      const preview = upgradePickerPreview(itemId, level);
+    const rows = eligibleItems(slot).map((track) => {
+      const level = dependencies.slotTier(track);
+      const preview = upgradePickerPreview(track, level, dependencies.equippedIn(track));
       const button = document.createElement("button");
       button.type = "button";
       button.className = "upgrade-bench-picker-item";
       const art = document.createElement("span");
-      art.innerHTML = itemArtMarkup(itemId);
+      // The gear the tier will scale, so the row is not three words on a slab.
+      art.innerHTML = preview.equippedItemId ? itemArtMarkup(preview.equippedItemId) : "";
       const copy = document.createElement("span");
       copy.className = "upgrade-bench-picker-copy";
       const title = document.createElement("span");
@@ -437,8 +402,6 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
       const name = document.createElement("strong");
       name.textContent = preview.name;
       title.append(name);
-      // The same tier badge the item inspector shows, so the two agree.
-      appendItemTierLabel(title, itemId);
       const stats = document.createElement("span");
       stats.className = "upgrade-bench-picker-stats";
       for (const change of preview.changes) {
@@ -457,7 +420,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
       button.append(art, copy);
       button.addEventListener("click", () => {
         selectedSlot = slot;
-        selectedItems.set(slot, itemId);
+        selectedItems.set(slot, track);
         closePicker();
         lastRenderKey = "";
         render();
@@ -469,7 +432,8 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     if (rows.length === 0) {
       const empty = document.createElement("div");
       empty.className = "upgrade-bench-picker-heading";
-      empty.textContent = pickerFilter === "ALL" ? "NO ELIGIBLE ITEMS" : "NONE OF THIS KIND";
+      // Every track is either finished or already being worked on.
+      empty.textContent = "EVERY SLOT IS AT ITS LAST TIER";
       elements.pickerItems.append(empty);
     }
   }
@@ -546,20 +510,18 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     if (job) {
       const result = await dependencies.cancelUpgrade(slot);
       if (result?.ok) {
-        setInventoryItemQuantity(dependencies.inventory, itemId, 1);
-        dependencies.onInventoryChanged();
         selectedSlot = null;
         selectedItems.delete(slot);
-        dependencies.showMessage("UPGRADE CANCELED · ITEM RETURNED", "#f3cf70");
+        dependencies.showMessage("UPGRADE CANCELED", "#f3cf70");
       } else {
         dependencies.showMessage(result?.error ?? "COULD NOT CANCEL UPGRADE", "#ff7a7a");
       }
     } else {
+      // `itemId` is the track: the reducer takes the slot name here, and the
+      // bag is untouched because a tier is not the item.
       const result = await dependencies.startUpgrade(slot, itemId, dependencies.playerPosition());
       if (result?.ok) {
         selectedItems.delete(slot);
-        setInventoryItemQuantity(dependencies.inventory, itemId, 0);
-        dependencies.onInventoryChanged();
         dependencies.showMessage("UPGRADE STARTED", "#72ef58");
       } else {
         dependencies.showMessage(result?.error ?? "COULD NOT START UPGRADE", "#ff7a7a");
