@@ -13,7 +13,9 @@ const report = { streamId: "enforcement-stream-01", sequence: 1n, mapId: "endles
 // sent is bounded and written down instead; see enemy-defeats.ts.
 const oversized = { ...report, enemies: [{ enemy: "site:0", count: 101 }] };
 // One spawn site holds one enemy; a report can bank at most this many of its kills.
-const SITE_CAPACITY = BigInt(Math.floor(defeatBudget(enemyDefeatDefinition("endless_1", "site:0")!.population).capacity));
+const SITE_BUDGET = defeatBudget(enemyDefeatDefinition("endless_1", "site:0")!.population);
+/** What a first report on a map can earn: the enemy there plus one report window. */
+const SITE_CAPACITY = BigInt(Math.floor(SITE_BUDGET.initial));
 function fixture(registered = false) {
   const f = crystalFixture();
   f.patch("player", { mapId: report.mapId });
@@ -56,8 +58,8 @@ it("revokes existing and refreshed account tokens, while allowing a later verifi
   expect(() => requireAllowedDefeatSession(f.ctx as any)).toThrow("DEFEAT_SESSION_REAUTH");
 });
 it("does not punish legitimate duplicate delivery or grouped kills", () => {
-  // A grouped report that fits the one-minute window; the same report delivered twice pays once.
-  const grouped = Number(SITE_CAPACITY) - 4;
+  // A grouped report that fits the arrival bank; the same report twice pays once.
+  const grouped = Math.max(1, Number(SITE_CAPACITY) - 1);
   const f = fixture(); const normal = { ...report, enemies: [{ enemy: "site:0", count: grouped }] };
   f.run(server.recordEnemyDefeats, normal); f.run(server.recordEnemyDefeats, normal);
   expect(f.db.defeatSessionRestriction.identity.find(f.ctx.sender)).toBeNull();
@@ -76,24 +78,24 @@ it("also restricts an oversized batch instead of throwing away the restriction t
   expect(f.db.defeatSessionRestriction.identity.find(f.ctx.sender)).not.toBeNull();
   expect(f.db.playerLifetime.identity.find(f.ctx.sender)?.enemyKills ?? 0n).toBe(0n);
 });
-it("pays a clipped report its bounded share, writes it down, and leaves the session alone", () => {
+it("pays a clipped report its bounded share and leaves the session alone", () => {
   const f = fixture();
   f.run(server.recordEnemyDefeats, report);
   expect(f.db.defeatSessionRestriction.identity.find(f.ctx.sender)).toBeNull();
   expect(f.db.player.identity.find(f.ctx.sender)).not.toBeNull();
   expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(SITE_CAPACITY);
-  expect([...f.db.enemyDefeatReview.iter()]).toMatchObject([
-    { enemy: "site:0", kind: "spawn", requested: 100, accepted: Number(SITE_CAPACITY) }]);
+  // Nothing is queued for a person: the claim is simply paid what it earned.
+  expect([...f.db.enemyDefeatReview.iter()]).toEqual([]);
 });
 it("bounds a boss claim the earned-time clock cannot pay without taking the session", () => {
   // A portal round-trip re-presents a personal boss before the clock has paid
-  // for it. The claim earns nothing and is flagged; the player keeps playing.
+  // for it. The claim earns nothing and the player keeps playing.
   const f = fixture(); f.patch("playerProgress", { equippedRightHand: "", damage: 1 });
   f.run(server.recordEnemyDefeats, { ...report, enemies: [{ enemy: "boss", count: 1 }] });
   expect(f.db.defeatSessionRestriction.identity.find(f.ctx.sender)).toBeNull();
   expect(f.db.player.identity.find(f.ctx.sender)).not.toBeNull();
   expect(f.db.proceduralProgress.identity.find(f.ctx.sender)).toBeNull();
-  expect([...f.db.enemyDefeatReview.iter()]).toMatchObject([{ enemy: "boss", kind: "boss-time", requested: 1, accepted: 0 }]);
+  expect([...f.db.enemyDefeatReview.iter()]).toEqual([]);
 });
 
 it("only lets the owner suspend the named account and enforces the entire week even with fresh authentication", async () => {

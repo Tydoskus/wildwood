@@ -1,5 +1,6 @@
 import { regularMapLoot } from './regular-map-loot';
 import { bossRegenFractionFor } from './boss-regeneration';
+import { REGULAR_ENEMY_RESPAWN_SECONDS } from './rules';
 import { generatedEnemyArt } from "./procedural-enemy-art";
 import * as rules from './rules';
 import { ENEMY_TYPES, type EnemyKind } from './enemy-definitions';
@@ -100,7 +101,7 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
   }
   if (configurationVersion === 2) {
     result.configurationVersion = 2;
-    result.regularRespawnSeconds = 20 * (factors.enemyRespawn ?? 1);
+    result.regularRespawnSeconds = REGULAR_ENEMY_RESPAWN_SECONDS * (factors.enemyRespawn ?? 1);
     result.loot = regularMapLoot(mapId, true).map(drop => (factors.enemyDrops ?? 1) === 1 ? { ...drop } : ({
       itemId: drop.itemId, outcomes: 1_000_000,
       wins: Math.min(1_000_000, Math.round(drop.wins / drop.outcomes * (factors.enemyDrops ?? 1) * 1_000_000)),

@@ -1,7 +1,7 @@
 import type { SpawnSite } from "../world";
 
-export const REGULAR_ENEMY_RESPAWN_SECONDS = 20;
-export const REWARDED_REGULAR_ENEMY_RESPAWN_SECONDS = 10;
+export { REGULAR_ENEMY_RESPAWN_SECONDS, REWARDED_REGULAR_ENEMY_RESPAWN_SECONDS } from "../../../shared/rules";
+import { REGULAR_ENEMY_RESPAWN_SECONDS } from "../../../shared/rules";
 export const REWARDED_RESPAWN_BOOST_DURATION_MS = 30 * 60 * 1_000;
 
 export type RegularEnemyRespawnBoost = {

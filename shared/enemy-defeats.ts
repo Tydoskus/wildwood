@@ -4,20 +4,17 @@ import { ENEMY_TYPES, type EnemyKind } from "./enemy-definitions";
 import * as camps from "./enemy-camps";
 import designs from "../src/game/map-designs.json";
 import { generateMap, generatedEnemyStats, isProceduralMap } from "./procedural-maps";
-import { MAX_ARMOR, MAX_PLAYER_STAT, MIN_ATTACK_INTERVAL } from "./rules";
+import { MAX_ARMOR, MAX_PLAYER_STAT, MIN_ATTACK_INTERVAL, REGULAR_KILL_REPORT_SECONDS, REWARDED_REGULAR_ENEMY_RESPAWN_SECONDS } from "./rules";
 
 export type EnemyDefeat = { enemy: string; count: number };
 export const ENEMY_DEFEAT_BATCH_MAX = 100;
 /**
- * How much unclaimed allowance a player can bank: one client report at the
- * longest cadence any live client still uses. A bank smaller than a report
- * clips honest players (seen locally at sixty seconds: a five-minute report
- * paid at a fifth), and clients move to a new cadence on their own schedule,
- * so this stays at the old five minutes while `REGULAR_KILL_REPORT_SECONDS`
- * drops to thirty. Banking more than one report only lets a script burst what
- * it could have claimed anyway; the rate is unchanged and the plausibility
- * bucket still bounds the payout. Lower this toward the report cadence once
- * no client on the old one remains.
+ * How much unclaimed allowance a player can bank. This stays generous on
+ * purpose: a bank smaller than one report clips honest players, and a report
+ * can carry a hundred kills after a dropped socket or a tab left hidden. It is
+ * not the anti-script lever either way, because a single report can never
+ * claim more than ENEMY_DEFEAT_BATCH_MAX. The sustained ceiling below is what
+ * bounds a script, and that is the number worth tuning.
  */
 export const DEFEAT_BUDGET_WINDOW_SECONDS = 300;
 const CAMPS: Record<string, readonly camps.SpawnCamp[]> = {
@@ -68,13 +65,41 @@ export function enemyDefeatDefinition(mapId: string, enemy: string, balance?: Ma
 }
 export function combatMap(mapId: string) { return Object.prototype.hasOwnProperty.call(CAMPS, mapId) || isProceduralMap(mapId); }
 
-// Each species can clear its entire population immediately. Five minutes of
-// capacity tolerate periodic save batches. Refill allows the fastest rewarded
-// respawn plus the local test multiplier (10 / 3 seconds), never a ban.
-export const DEFEAT_MIN_RESPAWN_SECONDS = 10 / 3;
+/**
+ * Nobody can kill a species faster than it comes back, and the fastest it
+ * comes back is the ad-boosted respawn. A whole map is thirty enemies, so this
+ * ceiling is three kills a second against a lap that really takes about
+ * twenty-eight: room for a fast player, and nowhere near enough for a script.
+ *
+ * This is the bound that matters. It holds however fast a client claims to
+ * move or hit, which is why movement checks can stay loose enough never to
+ * trouble an honest player.
+ */
+export const DEFEAT_MIN_RESPAWN_SECONDS = REWARDED_REGULAR_ENEMY_RESPAWN_SECONDS;
+/**
+ * The ceiling basis for a map whose respawn has been tuned. The rewarded ad
+ * halves the wait, and that is the fastest a camp can legitimately come back.
+ * Every player carrying a pinned balance snapshot resolves through here, so it
+ * has to agree with DEFEAT_MIN_RESPAWN_SECONDS or the ceiling only applies to
+ * the handful of accounts without one.
+ */
+export function defeatMinRespawnSeconds(regularRespawnSeconds: number) {
+  return Math.max(1e-6, regularRespawnSeconds) / 2;
+}
 export function defeatBudget(population: number, minRespawnSeconds = DEFEAT_MIN_RESPAWN_SECONDS) {
   const perSecond = population / minRespawnSeconds;
-  return { capacity: population + perSecond * DEFEAT_BUDGET_WINDOW_SECONDS, perSecond };
+  return {
+    capacity: population + perSecond * DEFEAT_BUDGET_WINDOW_SECONDS,
+    /**
+     * What the first sight of a species is worth: everything standing there
+     * plus one report window of respawns. The full bank has to be earned by
+     * staying, because the budget is keyed per map and a full bank on arrival
+     * is farmable by hopping between maps. The boss clock has always worked
+     * this way; regular enemies now match it.
+     */
+    initial: population + perSecond * REGULAR_KILL_REPORT_SECONDS,
+    perSecond,
+  };
 }
 export function applyEnemyRewards<T extends { damage: number; maxHp: number; attackRate: number; armor: number; regen: number }>(
   base: T, rewards: { type: string; amount: number; count: number }[], multiplier: number,

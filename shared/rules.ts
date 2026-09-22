@@ -48,6 +48,13 @@ export const DEFAULT_ATTACK_INTERVAL = 1.56;
 // one browser tab. Thirty seconds bounds what a closed tab can lose to half a
 // minute, and the per-player cost of the report is small next to a view.
 export const REGULAR_KILL_REPORT_SECONDS = 30;
+/**
+ * How long a cleared camp takes to come back, and how long with the rewarded
+ * ad boost. Both the client's respawn clock and the server's kill ceiling are
+ * derived from these, so they have to agree.
+ */
+export const REGULAR_ENEMY_RESPAWN_SECONDS = 20;
+export const REWARDED_REGULAR_ENEMY_RESPAWN_SECONDS = REGULAR_ENEMY_RESPAWN_SECONDS / 2;
 export const MAX_BASE_ATTACKS_PER_SECOND = 2.625;
 export const MIN_ATTACK_INTERVAL = 1 / MAX_BASE_ATTACKS_PER_SECOND;
 export const BOSS_RESPAWN_SECONDS = 45;

@@ -52,17 +52,20 @@ it("accepts the Black Boots bonus while the player row still has the base speed"
   })).not.toThrow();
 });
 
-it("blocks a guest after an impossible movement speed packet", () => {
+it("clamps an impossible movement speed instead of taking the session", () => {
+  // Movement is not where cheating pays, so an impossible packet is corrected.
+  // Farming throughput is capped where it is earned, in the kill budget.
   const f = crystalFixture();
   f.patch("playerProgress", { equippedRightHand: "starter_stone", damage: 1e15 });
   expect(() => f.run(server.updateMovementState, {
     x: 4050, y: 4050, vx: 540, vy: 0, simulationTick: 1, motionEpoch: 1, sequence: 1,
   })).not.toThrow();
-  const restriction = f.db.defeatSessionRestriction.identity.find(f.ctx.sender);
-  expect(restriction?.requireSignIn).toBe(false);
-  expect(restriction?.blockedUntilMicros).toBeGreaterThan(f.ctx.timestamp.microsSinceUnixEpoch);
-  expect(f.db.playerController.identity.find(f.ctx.sender)).toBeNull();
-  // Queued packets from the invalidated connection are silently discarded.
+  expect(f.db.defeatSessionRestriction.identity.find(f.ctx.sender)).toBeNull();
+  expect(f.db.playerController.identity.find(f.ctx.sender)).not.toBeNull();
+  const motion = f.db.playerMotion.identity.find(f.ctx.sender)!;
+  expect(motion.vx).toBeGreaterThan(0);
+  expect(motion.vx).toBeLessThan(540);
+  // The player keeps playing, and the next packet is taken the same way.
   expect(() => f.run(server.updateMovementState, {
     x: 4050, y: 4050, vx: 540, vy: 0, simulationTick: 2, motionEpoch: 1, sequence: 2,
   })).not.toThrow();

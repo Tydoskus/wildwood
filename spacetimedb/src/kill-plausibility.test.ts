@@ -1,7 +1,8 @@
+import { fillDefeatBudget } from "../../tests/helpers/enemy-defeat";
 import { expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { STARTER_BOW } from "../../shared/items";
-import { DEFEAT_BUDGET_WINDOW_SECONDS, enemyDefeatDefinition } from "../../shared/enemy-defeats";
+import { DEFEAT_BUDGET_WINDOW_SECONDS, DEFEAT_MIN_RESPAWN_SECONDS, enemyDefeatDefinition } from "../../shared/enemy-defeats";
 import { REGULAR_ENEMY_LOOT_DELAY_MS } from "../../shared/regular-map-loot";
 import { PLAUSIBLE_KILL_TOLERANCE, plausibleKillsPerSecond } from "./enemy-defeats";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
@@ -19,19 +20,23 @@ it("bounds kills per second by what the player's own combat can produce", () => 
 });
 
 it("banks at least one client report, so an honest report is never clipped for its size", () => {
-  // Clients report every thirty seconds now, but the bank stays sized to the
-  // five-minute report a client on the old cadence still sends. Shrinking it
-  // below any live cadence pays that report at a fraction (see shared/enemy-defeats.ts).
+  // The bank stays generous: a report can carry a hundred kills after a
+  // dropped socket, and a bank below that pays it at a fraction. What bounds a
+  // script is the refill rate, not this (see shared/enemy-defeats.ts).
   expect(DEFEAT_BUDGET_WINDOW_SECONDS * 1000).toBeGreaterThanOrEqual(REGULAR_ENEMY_LOOT_DELAY_MS);
   expect(DEFEAT_BUDGET_WINDOW_SECONDS).toBe(300);
+  // A whole map is thirty enemies and the fastest respawn is ten seconds, so
+  // nobody sustains more than three kills a second however they claim to move.
+  expect(30 / DEFEAT_MIN_RESPAWN_SECONDS).toBe(3);
 });
 
-it("pays a weak player only what they could have killed, flags it, and does not restrict them", () => {
+it("pays a weak player only what they could have killed and does not restrict them", () => {
   const f = crystalFixture();
   f.patch("playerProgress", { equippedRightHand: STARTER_BOW, damage: 1 });
   f.run(server.recordEnemyDefeats, claim(50));
   expect(kills(f)).toBeLessThan(50n);
-  expect(flags(f)).toEqual(["damage"]);
+  // Bounded, not reported: there is no queue for anyone to read.
+  expect(flags(f)).toEqual([]);
   expect(restricted(f)).toBe(false);
 });
 
@@ -56,6 +61,9 @@ it("estimates with the stats the report itself grants, as the client had them by
   const f = crystalFixture();
   f.patch("player", { mapId: "tutorial_forest" });
   f.patch("playerProgress", { equippedRightHand: STARTER_BOW, inventoryJson: '["starter_bow"]', damage: 1e15, attackRate: INTERVAL, projectileCount: 1 });
+  // The damage bound is what this test measures, so bank the spawn allowance a
+  // player on the map would already have.
+  fillDefeatBudget(f, "tutorial_forest", "Needle");
   f.run(server.recordEnemyDefeats, { streamId: "plausibility-stream-02", sequence: 1n, mapId: "tutorial_forest", enemies: [{ enemy: "Needle", count: CLAIM }] });
   expect(kills(f)).toBe(BigInt(CLAIM));
   expect(flags(f)).toEqual([]);

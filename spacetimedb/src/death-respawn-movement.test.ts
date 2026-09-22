@@ -9,15 +9,21 @@ const later = (f: ReturnType<typeof crystalFixture>, seconds: number) => {
   f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + BigInt(Math.round(seconds * 1_000_000)));
 };
 
-it("refuses a position the player could not have walked to", () => {
+it("pulls a position the player could not have walked to back to the edge of what they could", () => {
   const f = crystalFixture();
   move(f, 4050, 4050, 1);
   move(f, 4060, 4050, 2);
   later(f, 3.85);
-  expect(() => move(f, 600, 600, 3, 180)).toThrow("Unsupported movement position");
+  // Refusing this used to cost honest players their footing after knockback or
+  // a lag spike. It is corrected now, and no error reaches the client.
+  expect(() => move(f, 600, 600, 3, 180)).not.toThrow();
+  const moved = f.db.player.identity.find(f.ctx.sender);
+  expect(moved.x).toBeLessThan(4060);
+  expect(moved.x).toBeGreaterThan(600);
+  expect(Math.hypot(moved.x - 4060, moved.y - 4050)).toBeLessThanOrEqual(180 * 3.85 + 96 + 1);
 });
 
-it("lets a player who died move again from wherever they respawn, then checks them as before", () => {
+it("lets a player who died move again from wherever they respawn", () => {
   const f = crystalFixture();
   move(f, 4050, 4050, 1);
   move(f, 4060, 4050, 2);
@@ -27,5 +33,7 @@ it("lets a player who died move again from wherever they respawn, then checks th
   expect(() => move(f, 600, 600, 3, 180)).not.toThrow();    // the map's spawn, a map away from the death
   expect(f.db.player.identity.find(f.ctx.sender)).toMatchObject({ x: 600, y: 600, lastInputSequence: 3 });
   later(f, 0.5);
-  expect(() => move(f, 4000, 4000, 4, 180)).toThrow("Unsupported movement position");   // the check is armed again
+  // Armed again: a jump from there is corrected rather than taken whole.
+  expect(() => move(f, 4000, 4000, 4, 180)).not.toThrow();
+  expect(f.db.player.identity.find(f.ctx.sender).x).toBeLessThan(4000);
 });

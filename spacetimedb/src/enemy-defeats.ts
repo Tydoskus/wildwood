@@ -1,7 +1,7 @@
 import { pinnedMapBalance } from "./map-balance";
 import { personalBossDefinition } from "../../shared/personal-bosses";
 import { SenderError, table, t } from "spacetimedb/server";
-import { defeatBudget, enemyDefeatDefinition, DEFEAT_BUDGET_WINDOW_SECONDS, ENEMY_DEFEAT_BATCH_MAX, type EnemyDefeat } from "../../shared/enemy-defeats";
+import { defeatBudget, defeatMinRespawnSeconds, enemyDefeatDefinition, DEFEAT_BUDGET_WINDOW_SECONDS, ENEMY_DEFEAT_BATCH_MAX, type EnemyDefeat } from "../../shared/enemy-defeats";
 import { bossDefeatLimits, BOSS_REWARD_WINDOW_SECONDS } from "./boss-defeat-limits";
 import type { GameReducerContext } from "./index";
 
@@ -22,10 +22,10 @@ export const bossMapDefeatWindow = table({ name: "boss_map_defeat_window" }, {
 
 const bossTimeKey = (identity: { toHexString(): string }, mapId: string) => `${identity.toHexString()}:${mapId}:boss-time-v1`;
 
-// Claims the server accepted but a person should look at. Nothing here
-// restricts an account: an outrun progress save must never cost anyone their
-// session, so these rows are for review, and the payout is simply bounded to
-// what the player's own combat could have produced.
+// Retained for non-destructive schema compatibility. Nothing writes here any
+// more: a clipped claim is simply paid what it earned, which needs no queue and
+// no person. Payouts are bounded by the respawn ceiling and the damage budget,
+// and neither ever costs anyone their session.
 export const enemyDefeatReview = table(
   { name: "enemy_defeat_review", public: false, indexes: [{ accessor: "byIdentity", algorithm: "btree", columns: ["identity"] as const }] },
   {
@@ -33,7 +33,6 @@ export const enemyDefeatReview = table(
     requested: t.u32(), accepted: t.u32(), detail: t.string(), recordedAt: t.timestamp(),
   },
 );
-export const DEFEAT_REVIEW_FLAGS_PER_PLAYER = 20;
 /** Every arrow landing a maximum critical still leaves this much headroom. */
 export const PLAUSIBLE_KILL_TOLERANCE = 1.25;
 
@@ -48,13 +47,6 @@ export function plausibleKillsPerSecond(hp: number, dps: number, attackInterval:
   const hitDamage = dps * attackInterval / projectiles;
   const hitsPerKill = Math.max(1, Math.ceil(hp / hitDamage - 1e-9));
   return projectiles / attackInterval / hitsPerKill;
-}
-
-function flagForReview(ctx: BossRewardContext, flag: { mapId: string; enemy: string; kind: string; requested: number; accepted: number; detail: Record<string, unknown> }) {
-  const rows = [...ctx.db.enemyDefeatReview.byIdentity.filter(ctx.sender)].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  for (const old of rows.slice(0, Math.max(0, rows.length - DEFEAT_REVIEW_FLAGS_PER_PLAYER + 1))) ctx.db.enemyDefeatReview.id.delete(old.id);
-  ctx.db.enemyDefeatReview.insert({ id: 0n, identity: ctx.sender, mapId: flag.mapId, enemy: flag.enemy, kind: flag.kind,
-    requested: flag.requested, accepted: flag.accepted, detail: JSON.stringify(flag.detail), recordedAt: ctx.timestamp });
 }
 
 /** Called only on account-world entry/travel; reconnecting never resets credit. */
@@ -113,12 +105,12 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: st
       throw new SenderError("Invalid enemy for this map.");
     seen.add(entry.enemy);
     const boss = entry.enemy === "boss" ? balance?.boss ?? personalBossDefinition(batch.mapId) : null;
-    const budget = boss ? { capacity: 1 + Math.ceil(300 / boss.respawnSeconds), perSecond: 1 / boss.respawnSeconds } : defeatBudget(definition.population, balance?.regularRespawnSeconds === undefined ? undefined : balance.regularRespawnSeconds / 6);
+    const budget = boss ? { capacity: 1 + Math.ceil(300 / boss.respawnSeconds), perSecond: 1 / boss.respawnSeconds } : defeatBudget(definition.population, balance?.regularRespawnSeconds === undefined ? undefined : defeatMinRespawnSeconds(balance.regularRespawnSeconds));
     const budgetKey = `${ctx.sender.toHexString()}:${batch.mapId}:${entry.enemy}`;
     const previous = ctx.db.enemyDefeatBudget.key.find(budgetKey);
     const now = ctx.timestamp.microsSinceUnixEpoch;
     const elapsed = previous ? Math.max(0, Number(now - previous.updatedAtMicros) / 1e6) : 0;
-    const tokens = previous ? Math.min(budget.capacity, previous.tokens + elapsed * budget.perSecond) : budget.capacity;
+    const tokens = previous ? Math.min(budget.capacity, previous.tokens + elapsed * budget.perSecond) : ((budget as { initial?: number }).initial ?? budget.capacity);
     let acceptedCount = entry.count;
     if (boss) {
       const combat = bossCombat(rewards);
@@ -135,15 +127,6 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: st
       // rolling per-map window rejects valid boundary kills and delayed saves.
       acceptedCount = limits ? Math.max(0, Math.min(entry.count, Math.floor(tokens + 1e-6),
         Math.floor(credit / limits.cycleSeconds + 1e-9))) : 0;
-      if (acceptedCount < entry.count) {
-        console.warn("Boss defeat validation", JSON.stringify({
-          identity: ctx.sender.toHexString(), mapId: batch.mapId, requested: entry.count, accepted: acceptedCount,
-          hp: boss.hp, dps: combat.dps, attackInterval: combat.attackInterval, creditSeconds: credit,
-          cycleSeconds: limits?.cycleSeconds ?? null,
-        }));
-        flagForReview(ctx, { mapId: batch.mapId, enemy: entry.enemy, kind: "boss-time", requested: entry.count, accepted: acceptedCount,
-          detail: { hp: boss.hp, dps: combat.dps, attackInterval: combat.attackInterval, creditSeconds: credit, cycleSeconds: limits?.cycleSeconds ?? null } });
-      }
       const nextClock = { key: timeKey, identity: ctx.sender,
         tokens: Math.max(0, credit - acceptedCount * (limits?.cycleSeconds ?? 0)), updatedAtMicros: now };
       if (clock) ctx.db.enemyDefeatBudget.key.update(nextClock); else ctx.db.enemyDefeatBudget.insert(nextClock);
@@ -158,15 +141,7 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: st
       // it cannot permanently block saving or travel. Retrying a new stream
       // cannot restore the spent allowance.
       acceptedCount = Math.max(0, Math.min(entry.count, Math.floor(tokens + 1e-6)));
-      if (acceptedCount < entry.count) {
-        console.warn("Enemy defeat validation", JSON.stringify({
-          identity: ctx.sender.toHexString(), mapId: batch.mapId, enemy: entry.enemy,
-          requested: entry.count, accepted: acceptedCount, capacity: budget.capacity,
-        }));
-        flagForReview(ctx, { mapId: batch.mapId, enemy: entry.enemy, kind: "spawn", requested: entry.count, accepted: acceptedCount,
-          detail: { capacity: budget.capacity, perSecond: budget.perSecond, tokens, seconds: elapsed } });
-        violations.push({ enemy: entry.enemy, requested: entry.count, accepted: acceptedCount });
-      }
+      if (acceptedCount < entry.count) violations.push({ enemy: entry.enemy, requested: entry.count, accepted: acceptedCount });
       // The spawn wall above is what a script hits when it asks for more than
       // the map could ever produce, and it still restricts. This second bucket
       // asks a quieter question: could this player's own combat have produced
@@ -188,12 +163,7 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: st
       const plausibleElapsed = plausiblePrevious ? Math.max(0, Number(now - plausiblePrevious.updatedAtMicros) / 1e6) : 0;
       const plausibleTokens = plausiblePrevious ? Math.min(plausibleCapacity, plausiblePrevious.tokens + plausibleElapsed * plausibleRate) : plausibleCapacity;
       const plausible = Math.max(0, Math.floor(plausibleTokens + 1e-6));
-      if (acceptedCount > plausible) {
-        flagForReview(ctx, { mapId: batch.mapId, enemy: entry.enemy, kind: "damage", requested: acceptedCount, accepted: plausible,
-          detail: { hp: definition.hp, dps: combat.dps, attackInterval: combat.attackInterval,
-            projectiles: combat.projectiles ?? 1, reach: combat.reach ?? 1, seconds: plausibleElapsed } });
-        acceptedCount = plausible;
-      }
+      if (acceptedCount > plausible) acceptedCount = plausible;
       const nextPlausible = { key: plausibleKey, identity: ctx.sender, tokens: Math.max(0, plausibleTokens - acceptedCount), updatedAtMicros: now };
       if (plausiblePrevious) ctx.db.enemyDefeatBudget.key.update(nextPlausible); else ctx.db.enemyDefeatBudget.insert(nextPlausible);
       if (!acceptedCount) continue;

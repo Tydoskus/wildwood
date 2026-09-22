@@ -1,5 +1,6 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.768": [
+    "Movement no longer disconnects anyone or refuses a step. A position the server cannot account for is corrected instead, so knockback, a respawn or a lag spike stops costing you your footing.",
     "Regular enemies give triple the armour and double the health they did. Farming the camps that drop them is now worth doing instead of waiting on a boss.",
     "Fixed Prestige telling you to clear an Endless stage you had already cleared. The window was reading your Endless progress only while you stood on an Endless map, and zero from everywhere else.",
     "Black Boots are a flat +25 move speed, in combat as well as out of it. No more waiting five seconds after a fight to get your speed back.",

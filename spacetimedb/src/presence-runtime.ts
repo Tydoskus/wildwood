@@ -11,7 +11,6 @@
 // as it did.
 import { ScheduleAt } from "spacetimedb";
 import { SenderError } from "spacetimedb/server";
-import { restrictMovementSession } from "./defeat-session";
 import { generatedMapUnlocked } from "./procedural-maps";
 import { updateSnapshotRow } from "./snapshot-row-writes";
 import { generateMap, isProceduralMap, PROCEDURAL_ENTRY_BOSS } from "../../shared/procedural-maps";
@@ -441,55 +440,50 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
     const bootedSpeed = progress && equippedFeetForProgress(progress) === BLACK_BOOTS
       ? expectedSpeed + BLACK_BOOTS_SPEED_BONUS : expectedSpeed;
     const allowedSpeed = Math.max(compatibilitySpeed, expectedSpeed, bootedSpeed);
-    if (moving && requestedSpeed > allowedSpeed + MOVEMENT_SPEED_PACKET_TOLERANCE) {
-      const evidence = { mapId: current.mapId, requestedSpeed, serverSpeed: compatibilitySpeed, allowedSpeed };
-      console.warn("Movement speed validation", JSON.stringify({
-        identity: ctx.sender.toHexString(),
-        displayName: ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "",
-        ...evidence,
-      }));
-      // Commit a short guest block (or registered-session revocation) before
-      // returning. Throwing here would roll the restriction back with the
-      // rejected packet, so the invalidated session receives the disconnect.
-      restrictMovementSession(ctx, evidence);
-      return;
-    }
+    // Movement is not where cheating pays. What a speed hack buys is farming
+    // throughput, and that is capped where it is earned: no account can be paid
+    // for more kills than the map can respawn (DEFEAT_MIN_RESPAWN_SECONDS).
+    // So an impossible packet is corrected rather than punished. This used to
+    // revoke the session on speed and reject the packet on position, which cost
+    // honest players their footing after boss knockback, a respawn or a lag
+    // spike, and logged a warning for every one of them.
+    const speedScale = moving && requestedSpeed > allowedSpeed + MOVEMENT_SPEED_PACKET_TOLERANCE
+      ? allowedSpeed / requestedSpeed : 1;
+    const correctedVx = boundedVx * speedScale;
+    const correctedVy = boundedVy * speedScale;
+    let acceptedX = clampedX;
+    let acceptedY = clampedY;
     const motion = ctx.db.playerMotion.identity.find(ctx.sender);
     if (motion && motion.mapId === current.mapId && current.lastInputSequence > 0) {
       const elapsedSeconds = Math.max(0,
         Number(ctx.timestamp.microsSinceUnixEpoch - motion.lastInputAt.microsSinceUnixEpoch) / 1_000_000);
       const expected = analyticalMotionAt(motion, ctx.timestamp.microsSinceUnixEpoch);
       const distance = Math.hypot(clampedX - expected.x, clampedY - expected.y);
-      const maxDistance = compatibilitySpeed * elapsedSeconds + MOVEMENT_POSITION_PACKET_TOLERANCE;
-      if (distance > maxDistance) {
-        console.warn("Movement position validation", JSON.stringify({
-          identity: ctx.sender.toHexString(),
-          displayName: ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "",
-          mapId: current.mapId,
-          distance,
-          maxDistance,
-          elapsedSeconds,
-        }));
-        // Automatic bans are paused while this signal is validated against
-        // legitimate boss knockback. Reject only this packet for now.
-        throw new SenderError("Unsupported movement position");
+      const maxDistance = allowedSpeed * elapsedSeconds + MOVEMENT_POSITION_PACKET_TOLERANCE;
+      // Pull an unreachable position back onto the edge of what was reachable
+      // instead of refusing it. The client keeps moving and the server keeps a
+      // position it can defend.
+      if (distance > maxDistance && distance > 0) {
+        const reachable = maxDistance / distance;
+        acceptedX = expected.x + (clampedX - expected.x) * reachable;
+        acceptedY = expected.y + (clampedY - expected.y) * reachable;
       }
     }
     const boundedTick = Math.max(0, Math.min(0xffffffff, Math.floor(simulationTick)));
     const boundedEpoch = Math.max(0, Math.min(0xffffffff, Math.floor(motionEpoch)));
-    const facing = boundedVx < 0 ? Math.PI : boundedVx > 0 ? 0 : current.facing;
+    const facing = correctedVx < 0 ? Math.PI : correctedVx > 0 ? 0 : current.facing;
     const nextPlayer = {
       ...current,
-      x: clampedX,
-      y: clampedY,
-      ...playerZone(clampedX, clampedY),
+      x: acceptedX,
+      y: acceptedY,
+      ...playerZone(acceptedX, acceptedY),
       facing,
       moving,
       // Retained only for physical compatibility with the older direction row.
-      dx: moving ? Math.max(-1, Math.min(1, boundedVx / compatibilitySpeed)) : 0,
-      dy: moving ? Math.max(-1, Math.min(1, boundedVy / compatibilitySpeed)) : 0,
-      vx: moving ? boundedVx : 0,
-      vy: moving ? boundedVy : 0,
+      dx: moving ? Math.max(-1, Math.min(1, correctedVx / compatibilitySpeed)) : 0,
+      dy: moving ? Math.max(-1, Math.min(1, correctedVy / compatibilitySpeed)) : 0,
+      vx: moving ? correctedVx : 0,
+      vy: moving ? correctedVy : 0,
       simulationTick: boundedTick,
       motionEpoch: boundedEpoch,
       lastInputAt: ctx.timestamp,

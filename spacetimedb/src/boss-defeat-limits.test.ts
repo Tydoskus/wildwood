@@ -1,3 +1,4 @@
+import { fillDefeatBudget } from "../../tests/helpers/enemy-defeat";
 import { STARTER_BOW } from "../../shared/items";
 import { describe, expect, it, vi } from "vitest";
 import { Timestamp } from "spacetimedb";
@@ -146,6 +147,9 @@ describe("boss time validation", () => {
     f.patch("playerProgress", { damage: 105 / (1 + itemDamageMultiplierBonus("starter_bow")) });
     f.claim(); expect(f.kills()).toBe(0n);
     f.patch("playerProgress", { equippedRightHand: STARTER_BOW, inventoryJson: '["starter_bow"]', damage: 1e15 });
+    // A player who has been on this map long enough to bank the allowance; the
+    // arrival bank is not what this test is about.
+    fillDefeatBudget(f, "tutorial_forest", "Cindermaw");
     f.run(server.recordEnemyDefeats, { mapId: "tutorial_forest", streamId: "mixed-boss-save-window-01", sequence: 1n,
       // Sixty Cindermaw sit inside what one projectile a second can plausibly kill in a minute.
       enemies: [{ enemy: "boss", count: 1 }, { enemy: "Cindermaw", count: 60 }] });

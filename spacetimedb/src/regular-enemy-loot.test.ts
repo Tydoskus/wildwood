@@ -96,9 +96,11 @@ it("consumes a 100-kill Endless report exceeding the one-site capacity and keeps
   const f = fixture();
   f.patch("player", { mapId: "endless_1" });
   const definition = enemyDefeatDefinition("endless_1", "site:0")!;
-  const capacity = Math.floor(defeatBudget(definition.population).capacity);
-  // One Endless spawn site banks nineteen kills a minute: the enemy present plus a minute of respawns.
-  expect(capacity).toBe(91);
+  const capacity = Math.floor(defeatBudget(definition.population).initial);
+  // Arriving at an Endless site banks the enemy standing there plus one report
+  // window of respawns. A hundred kills of one site would take a quarter of an
+  // hour, so a report claiming them is paid only what it earned.
+  expect(capacity).toBe(4);
   const report = { ...batch, mapId: "endless_1", enemies: [{ enemy: "site:0", count: 100 }] };
   f.run(server.recordEnemyDefeats, report);
   expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(BigInt(capacity));

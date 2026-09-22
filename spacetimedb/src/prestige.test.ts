@@ -1,3 +1,4 @@
+import { fillDefeatBudget } from "../../tests/helpers/enemy-defeat";
 import { expect, it, vi } from "vitest";
 import { ScheduleAt, Timestamp } from "spacetimedb";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
@@ -169,6 +170,9 @@ it("widens the claim bound for perks that reach more enemies than the weapon can
     // claim and any widening of it is visible in what the server pays.
     f.patch("playerProgress", { attackRate: 10, projectileCount: 1 });
     if (Object.keys(ranks).length) f.seed("playerPrestigePerk", { identity: f.ctx.sender, ...ranks });
+    // The perk-widened damage bound is the subject here, so bank the spawn
+    // allowance rather than letting the arrival bank clip first and hide it.
+    fillDefeatBudget(f, "tutorial_forest", "Spitter");
     farmSpitters(f, 100);
     return Number(f.db.playerLifetime.identity.find(f.ctx.sender)?.enemyKills ?? 0n);
   };
