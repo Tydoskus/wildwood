@@ -36,7 +36,7 @@ export function createOnboardingTutorial(o: Options) {
   let afterHold: "enemy" | "death-intro" | "complete" | "fade" = "enemy";
   let host: HTMLElement | null = null;
   let naming = false, profileSeen = false, abort = new AbortController();
-  let instruction: HTMLElement, hint: HTMLElement, progress: HTMLElement, retry: HTMLButtonElement;
+  let instruction: HTMLElement, hint: HTMLElement, progress: HTMLElement, retry: HTMLButtonElement, pointer: HTMLElement;
   let copy = DEFAULT_TUTORIAL_COPY, titleKey = "moveTitle", hintKey = "moveTouchHint", textValues: Record<string, number> = {};
   function showText(title: string, detail: string, values: Record<string, number> = {}) {
     titleKey = title; hintKey = detail; textValues = values;
@@ -48,7 +48,27 @@ export function createOnboardingTutorial(o: Options) {
     return Math.max(minimum, .8 + words / 3);
   }
   function clearEnemy() { o.enemies.length = 0; o.sites.length = 0; o.clearCombat(); }
-  function dispose() { active = false; abort.abort(); host?.remove(); host = null; document.body.classList.remove("is-onboarding"); }
+  function dispose() {
+    active = false; abort.abort(); host?.remove(); host = null;
+    document.body.classList.remove("is-onboarding", "is-onboarding-profile");
+  }
+
+  /**
+   * The lesson used to say "tap yourself", which a setting can now switch off,
+   * and the HUD it points at instead is hidden for the rest of the tutorial.
+   * Reveal it for this step only and put an arrow under the portrait, tracking
+   * it rather than guessing where the HUD sits on this screen.
+   */
+  function aimPointer(show: boolean) {
+    document.body.classList.toggle("is-onboarding-profile", show);
+    if (!pointer) return;
+    const target = show ? document.getElementById("playerHudProfileIcon") : null;
+    const box = target?.getBoundingClientRect();
+    pointer.hidden = !box || box.width === 0;
+    if (!box || box.width === 0) return;
+    pointer.style.left = `${box.left + box.width / 2}px`;
+    pointer.style.top = `${box.bottom + 12}px`;
+  }
   function labels() {
     showText(step === S.move ? "moveTitle" : step === S.profile ? "profileTitle" : step === S.spitter ? "firstEnemyTitle" : step === S.regen ? "regenEnemyTitle" : step === S.death ? "deathTitle" : "completeTitle",
       step === S.move ? (navigator.maxTouchPoints > 0 ? "moveTouchHint" : "moveKeyboardHint") : step === S.profile ? "profileHint" : step < S.death ? "combatHint" : step === S.death ? "deathHint" : "completeHint");
@@ -129,9 +149,10 @@ export function createOnboardingTutorial(o: Options) {
       active = true; owner = o.identity(); step = o.step(); finish = onComplete;
       hold = pending = walked = 0; saving = failed = profileSeen = naming = false; afterHold = "enemy"; deadFor = -1; abort = new AbortController();
       host = document.createElement("section"); host.className = "onboarding-tutorial"; host.setAttribute("aria-label", "First adventure tutorial");
-      host.innerHTML = '<header><div class="onboarding-progress" role="progressbar" aria-label="Tutorial progress" aria-valuemin="1" aria-valuemax="5"></div><p class="onboarding-instruction" role="status"></p><p class="onboarding-hint"></p><button type="button" class="window-back-button" hidden>Retry</button></header><button type="button" class="onboarding-skip-tutorial">Skip tutorial</button>';
+      host.innerHTML = '<header><div class="onboarding-progress" role="progressbar" aria-label="Tutorial progress" aria-valuemin="1" aria-valuemax="5"></div><p class="onboarding-instruction" role="status"></p><p class="onboarding-hint"></p><button type="button" class="window-back-button" hidden>Retry</button></header><button type="button" class="onboarding-skip-tutorial">Skip tutorial</button><div class="onboarding-pointer" hidden aria-hidden="true"><svg viewBox="0 0 48 64" role="presentation"><path d="M24 5 L44 31 H33 V59 H15 V31 H4 Z" /></svg></div>';
       instruction = host.querySelector(".onboarding-instruction")!; hint = host.querySelector(".onboarding-hint")!;
       progress = host.querySelector(".onboarding-progress")!;
+      pointer = host.querySelector(".onboarding-pointer")!;
       retry = host.querySelector("button")!;
       retry.addEventListener("click", () => { void saveStep(); });
       host.querySelector(".onboarding-skip-tutorial")!.addEventListener("click", showUsername);
@@ -164,6 +185,7 @@ export function createOnboardingTutorial(o: Options) {
       if (!o.connected()) { o.clearInput(); hint.textContent = "Reconnecting…"; return; }
       const profileOpen = o.profileOpen();
       if (host) host.hidden = profileOpen || step >= S.complete;
+      aimPointer(step === S.profile && !profileOpen && !pending);
       if (step === S.profile) {
         if (profileOpen) profileSeen = true;
         else if (profileSeen && !pending) { profileSeen = false; queueStep(S.spitter); }

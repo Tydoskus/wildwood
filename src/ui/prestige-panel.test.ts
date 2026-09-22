@@ -51,9 +51,9 @@ describe("prestige panel", () => {
     expect(s.pick("overlay").hidden).toBe(false);
     const spend = [...s.pick("perks").children].map((row: any) => row.querySelector("button"));
     expect(spend.some((button: any) => !button.disabled)).toBe(true);
-    // The button stays reachable; what is missing is said, not enforced here.
+    // The button stays reachable; what is missing is said beside it.
     expect(s.pick("confirm").hidden).toBe(false);
-    expect(s.pick("status").textContent).toContain("again");
+    expect(s.pick("status").textContent).toContain("Endless 1 boss");
   });
 
   it("opens while locked and says what is missing inside", () => {
@@ -66,15 +66,18 @@ describe("prestige panel", () => {
     expect(s.pick("status").textContent).toContain("Aegis Prime");
   });
 
-  it("asks the server even when its own view says locked", () => {
-    // The server owns the decision and names what is missing, so the press has
-    // to reach it rather than being swallowed.
+  it("does not send a prestige it can see has not been earned, and says what is missing", () => {
+    // The button is present and the requirement is beside it, rather than a
+    // press that reaches the server only to come back refused.
     const run = vi.fn(async () => ({ ok: false, error: "Clear Endless 2 before prestiging." }));
     const s = setup({ unlocked: false, run, row: { level: 1, perkPoints: 0, peakPower: 5 } });
     click(s.pick("open"));
+    expect(s.pick("confirm").hidden).toBe(false);
+    expect(s.pick("confirm").disabled).toBe(true);
     click(s.pick("confirm"));
     click(s.pick("confirm"));
-    expect(run).toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
+    expect(s.pick("status").textContent).toBeTruthy();
   });
 
   it("shows the standing bonus and what the next prestige pays", () => {
@@ -94,7 +97,7 @@ describe("prestige panel", () => {
     click(s.pick("open"));
     click(s.pick("confirm"));
     expect(s.runPrestige).not.toHaveBeenCalled();
-    expect(s.pick("confirm").textContent).toBe("Yes, reset everything");
+    expect(s.pick("confirm").textContent).toBe("Yes, prestige");
     expect(s.pick("status").textContent).toContain("cannot be undone");
     click(s.pick("confirm"));
     await Promise.resolve(); await Promise.resolve();
@@ -145,6 +148,23 @@ describe("prestige panel", () => {
     expect(s.pick("status").textContent).toContain("rank 1");
   });
 
+  it("keeps the same perk buttons across renders, so a press is not replaced mid-tap", async () => {
+    // Rebuilding the list on every render swapped the button out between the
+    // press and its click, which is why spending a point took several taps.
+    const s = setup({ unlocked: true, row: { level: 1, perkPoints: 1, peakPower: 0 }, perks: {} });
+    s.controller.open();
+    const button = () => ([...s.pick("perks").children]
+      .find((entry: any) => entry.dataset.perk === "splitShot") as any).querySelector("button");
+    const before = button();
+    s.controller.refresh(true);
+    s.controller.render();
+    expect(button()).toBe(before);
+
+    before.click();
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    expect(s.spendPerk).toHaveBeenCalledWith("splitShot");
+  });
+
   it("keeps the window open and reports why when the server refuses", async () => {
     const s = setup({ unlocked: true, row: { level: 0, perkPoints: 0, peakPower: 0 },
       run: async () => ({ ok: false, error: "Finish your duel before prestiging." }) });
@@ -181,46 +201,54 @@ describe("each prestige asks for one Endless stage more", () => {
     const short = setup({ unlocked: true, completed: 0, row: { level: 1, perkPoints: 1, peakPower: 5 } });
     short.controller.refresh(true);
     click(short.pick("open"));
-    // Reachable, and the requirement is spelled out beside it. The server is
-    // what refuses a prestige, so this client never hides the press.
+    // Present and explained, but not pressable: the stage it needs is right
+    // there in the status line rather than behind a press that fails.
     expect(short.pick("confirm").hidden).toBe(false);
-    expect(short.pick("confirm").disabled).toBe(false);
-    expect(short.pick("status").textContent).toContain("Clear Endless 1");
+    expect(short.pick("confirm").disabled).toBe(true);
+    expect(short.pick("status").textContent).toContain("Endless 1 boss");
     const ready = setup({ unlocked: true, completed: 1, row: { level: 1, perkPoints: 1, peakPower: 5 } });
     ready.controller.refresh(true);
     click(ready.pick("open"));
     expect(ready.pick("confirm").hidden).toBe(false);
     expect(ready.pick("cost").textContent).toContain("You would earn");
   });
-  it("reaches the server for a second prestige even when this client reads zero stages", () => {
-    // Teus had cleared Endless 1 and the server would have prestiged him, but
-    // the row saying so was not subscribed here, so the window read zero and
-    // hid the button. There was nothing left to press, and no error either.
+  it("prestiges as soon as the cleared stage this client reads meets the requirement", () => {
+    // Teus's window read zero stages because the row saying otherwise was not
+    // subscribed, and the press was swallowed with no error. The subscription
+    // is what fixed that; the gate below is safe only because of it, so this
+    // covers the case that used to be wrong.
     const run = vi.fn(async () => ({ ok: true }));
-    const s = setup({ unlocked: true, completed: 0, run, row: { level: 1, perkPoints: 0, peakPower: 5 } });
+    const s = setup({ unlocked: true, completed: 1, run, row: { level: 1, perkPoints: 0, peakPower: 5 } });
     s.controller.refresh(true);
     click(s.pick("open"));
     expect(s.pick("confirm").hidden).toBe(false);
+    expect(s.pick("confirm").disabled).toBe(false);
     click(s.pick("confirm"));
     click(s.pick("confirm"));
     expect(run).toHaveBeenCalled();
   });
 
-  it("names the Endless stage while the campaign is still the nearer requirement", () => {
-    // After a prestige the campaign resets, so this is what every run after the
-    // first reads for most of its length. Saying only "Aegis Prime again" left
-    // players to discover the Endless stage after re-clearing the whole game.
+  it("names only the Endless boss once one is required", () => {
+    // The maps are one ladder: tier 15 is Aegis Prime and tier 16 is Endless 1,
+    // so a run that reaches the required stage has cleared everything under it
+    // and naming the earlier boss as well is noise.
     const s = setup({ unlocked: false, completed: 0, row: { level: 1, perkPoints: 0, peakPower: 5 } });
     s.controller.refresh(true);
     click(s.pick("open"));
-    expect(s.pick("status").textContent).toContain("Aegis Prime again");
-    expect(s.pick("status").textContent).toContain("Endless 1");
+    expect(s.pick("status").textContent).toBe("Clear the Endless 1 boss to prestige.");
   });
 
-  it("still asks for Aegis Prime first, however many stages an old run cleared", () => {
-    const s = setup({ unlocked: false, completed: 6, row: { level: 3, perkPoints: 0, peakPower: 5 } });
-    s.controller.refresh(true);
-    click(s.pick("open"));
-    expect(s.pick("status").textContent).toContain("Aegis Prime again");
+  it("asks for Aegis Prime only for the very first prestige", () => {
+    const first = setup({ unlocked: false, completed: 0, row: { level: 0, perkPoints: 0, peakPower: 5 } });
+    first.controller.refresh(true);
+    first.controller.open();
+    expect(first.pick("status").textContent).toContain("Aegis Prime");
+
+    // A later run is measured by its Endless stage alone, whatever an earlier
+    // run reached, because progress resets with the prestige.
+    const later = setup({ unlocked: false, completed: 0, row: { level: 3, perkPoints: 0, peakPower: 5 } });
+    later.controller.refresh(true);
+    click(later.pick("open"));
+    expect(later.pick("status").textContent).toBe("Clear the Endless 3 boss to prestige.");
   });
 });

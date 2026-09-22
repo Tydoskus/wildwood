@@ -55,16 +55,18 @@ export function createPlayerVisibilityToggle(options: {
   idle.setEnabled(visible);
   return {
     /**
-     * Hide for an update without recording a choice. An update disconnects
-     * everyone at once, and presence for a player who is about to reload is
-     * traffic nobody sees; the stored preference is left alone so the next
-     * start comes back exactly as the player left it.
+     * Turn multiplayer off for an update, and record it. An update reconnects
+     * every client at once, so coming back visible puts that whole crowd into
+     * presence in the same moment. The eye starts the next session off and the
+     * player turns it back on when they want to be seen.
      */
     suspend() {
       // Holds until the reload; movement must not bring presence back for a
       // client that is on its way out.
       suspended = true;
-      if (!visible) return;
+      enabled = false;
+      try { options.storage?.setItem(STORAGE_KEY, "false"); } catch { /* Keep the session preference. */ }
+      if (!visible) { refresh(); return; }
       visible = false;
       idle.setEnabled(false);
       refresh();

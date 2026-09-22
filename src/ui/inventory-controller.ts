@@ -12,7 +12,8 @@ import {
   inventorySlotCapacity,
   inventorySlotUnlockCost,
 } from "../../shared/gems";
-import { gemSpendConfirmationText } from "./gem-spend-confirmation";
+import { gemSpendConfirmation } from "./gem-spend-confirmation";
+import { gameConfirm, type ConfirmPrompt, type ConfirmRequest } from "./confirm-dialog";
 
 type InventoryLocation = EquipmentSlot | "BAG" | "";
 type SelectableInventory = InventoryState & { selectedItemId: string; selectedItemLocation?: InventoryLocation };
@@ -30,7 +31,8 @@ type InventoryDependencies = {
   gemBalance: () => bigint;
   destroyEquipment: (itemId: string) => Promise<{ ok: boolean; error?: string } | undefined>;
   unlockInventorySlot: () => Promise<{ ok: boolean; error?: string } | undefined>;
-  confirmGemSpend?: (message: string) => boolean;
+  confirmGemSpend?: ConfirmPrompt;
+  confirmDestroy?: ConfirmPrompt;
   showMessage: (message: string, color?: string) => void;
 };
 
@@ -90,7 +92,17 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   let renderedState = "";
   let mode: InventoryMode = "EQUIPMENT";
   let unlockingSlot = false;
-  const confirmGemSpend = dependencies.confirmGemSpend ?? ((message: string) => confirm(message));
+  // A prompt is awaited, so the pending flags below are not yet set while it is
+  // open. Without this a second click opens a second prompt over the first and
+  // both answers act. window.confirm used to block the page and hide the gap.
+  let confirming = false;
+  async function ask(prompt: ConfirmPrompt, request: ConfirmRequest) {
+    if (confirming) return false;
+    confirming = true;
+    try { return await prompt(request); } finally { confirming = false; }
+  }
+  const confirmGemSpend = dependencies.confirmGemSpend ?? gameConfirm;
+  const confirmDestroy = dependencies.confirmDestroy ?? gameConfirm;
 
   const equipmentElements: Record<EquipmentSlot, HTMLElement> = {
     HEAD: equippedHead,
@@ -148,7 +160,11 @@ export function createInventoryController(dependencies: InventoryDependencies) {
       label: "Destroy item",
       kind: "DESTROY" as const,
       onActivate: async () => {
-        if (!confirm(`Destroy ${itemDisplayName(itemId, dependencies.upgradeLevel(itemId))} permanently?`)) return;
+        if (!await ask(confirmDestroy, {
+          message: `Destroy ${itemDisplayName(itemId, dependencies.upgradeLevel(itemId))} permanently?`,
+          details: [{ label: "This cannot be undone", value: "No refund" }],
+          confirmLabel: "Destroy", danger: true,
+        })) return;
         dependencies.itemInspection.close();
         const result = await dependencies.destroyEquipment(itemId);
         if (result?.ok) {
@@ -209,7 +225,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
       dependencies.showMessage(`NOT ENOUGH GEMS · NEED ${cost}`, "#ff9b91");
       return;
     }
-    if (!confirmGemSpend(gemSpendConfirmationText(`permanently unlock Bag slot ${capacity + 1}`, cost))) return;
+    if (!await ask(confirmGemSpend, gemSpendConfirmation(`permanently unlock Bag slot ${capacity + 1}`, cost, dependencies.gemBalance()))) return;
     unlockingSlot = true;
     render();
     const result = await dependencies.unlockInventorySlot();

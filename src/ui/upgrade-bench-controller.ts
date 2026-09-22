@@ -8,6 +8,8 @@ import {
 import {
   MAX_ITEM_UPGRADE_LEVEL,
   isUpgradeableItem,
+  itemDefinition,
+  type ItemSlot,
   itemDisplayName,
   itemUpgradeDurationMs,
   itemUpgradeStatChanges,
@@ -20,7 +22,8 @@ import {
 } from "../game/inventory";
 import { itemArtMarkup } from "../game/item-presentation";
 import type { ActiveItemUpgrade, UpgradeBenchSlot } from "../wildstat-coop";
-import { gemSpendConfirmationText } from "./gem-spend-confirmation";
+import { gemSpendConfirmation, gemSpendConfirmationText } from "./gem-spend-confirmation";
+import { gameConfirm, type ConfirmPrompt, type ConfirmRequest } from "./confirm-dialog";
 
 type UpgradeBenchElements = {
   panel: HTMLElement;
@@ -53,9 +56,9 @@ type UpgradeBenchDependencies = {
   cancelUpgrade: (slot: UpgradeBenchSlot) => Promise<UpgradeResult>;
   speedUpUpgrade: (slot: UpgradeBenchSlot) => Promise<UpgradeResult>;
   unlockSecondSlot: () => Promise<UpgradeResult>;
-  confirmCancel?: (message: string) => boolean;
-  confirmUnlock?: (message: string) => boolean;
-  confirmGemSpend?: (message: string) => boolean;
+  confirmCancel?: ConfirmPrompt;
+  confirmUnlock?: ConfirmPrompt;
+  confirmGemSpend?: ConfirmPrompt;
   beforeOpen: () => void;
   setPaused: (paused: boolean) => void;
   clearPlayerInput: () => void;
@@ -66,8 +69,9 @@ type UpgradeBenchDependencies = {
 };
 
 export const UPGRADE_CANCEL_CONFIRMATION = "Are you sure you want to cancel? You will lose current progress to the next upgrade.";
+export const UPGRADE_SLOT_UNLOCK_ACTION = "permanently unlock the second Upgrade Bench slot";
 export const UPGRADE_SLOT_UNLOCK_CONFIRMATION = gemSpendConfirmationText(
-  "permanently unlock the second Upgrade Bench slot",
+  UPGRADE_SLOT_UNLOCK_ACTION,
   UPGRADE_BENCH_SECOND_SLOT_GEM_COST,
 );
 export const UPGRADE_BENCH_TOUCH_OFFSET_Y = -36;
@@ -133,10 +137,21 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     finishedWaiting = waiting;
     try { dependencies.storage?.setItem(FINISHED_KEY, String(waiting)); } catch { /* Keep the session value. */ }
   }
-  const confirmCancel = dependencies.confirmCancel ?? ((message: string) => confirm(message));
-  const confirmGemSpend = dependencies.confirmGemSpend ?? ((message: string) => confirm(message));
+  // A prompt is awaited, so the busy flags below are not yet set while it is
+  // open. Without this a second click opens a second prompt over the first and
+  // both answers act. window.confirm used to block the page and hide the gap.
+  let confirming = false;
+  async function ask(prompt: ConfirmPrompt, request: ConfirmRequest) {
+    if (confirming) return false;
+    confirming = true;
+    try { return await prompt(request); } finally { confirming = false; }
+  }
+  const confirmCancel = dependencies.confirmCancel ?? gameConfirm;
+  const confirmGemSpend = dependencies.confirmGemSpend ?? gameConfirm;
   const confirmUnlock = dependencies.confirmUnlock ?? confirmGemSpend;
   const selectedItems = new Map<UpgradeBenchSlot, string>();
+  /** Only HAND, HEAD and CHEST can be upgraded, so these are every kind there is. */
+  let pickerFilter: "ALL" | ItemSlot = "ALL";
   let selectedSlot: UpgradeBenchSlot | null = null;
   let touchingBench = false;
   let busy = false;
@@ -354,8 +369,54 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     elements.back.disabled = busy;
   }
 
+  /**
+   * Built here rather than in the startup shell, which is size-bounded and has
+   * no business carrying a control only the bench uses.
+   */
+  const PICKER_FILTERS: readonly { id: "ALL" | ItemSlot; label: string }[] = [
+    { id: "ALL", label: "ALL" }, { id: "HAND", label: "WEAPON" },
+    { id: "HEAD", label: "HELMET" }, { id: "CHEST", label: "ARMOR" },
+  ];
+  let filterButtons: HTMLButtonElement[] = [];
+
+  function buildPickerFilters() {
+    if (filterButtons.length) return;
+    const bar = elements.pickerItems.ownerDocument.createElement("div");
+    bar.className = "profile-tabs upgrade-bench-picker-filters";
+    bar.setAttribute("role", "tablist");
+    bar.setAttribute("aria-label", "Filter upgradeable items");
+    filterButtons = PICKER_FILTERS.map(({ id, label }) => {
+      const button = elements.pickerItems.ownerDocument.createElement("button");
+      button.type = "button";
+      button.className = "profile-tab";
+      button.setAttribute("role", "tab");
+      button.dataset.filter = id;
+      button.textContent = label;
+      button.addEventListener("click", () => {
+        if (pickerFilter === id) return;
+        pickerFilter = id;
+        if (selectedSlot !== null && !elements.picker.hidden) renderPicker(selectedSlot);
+        else syncPickerFilters();
+      });
+      bar.append(button);
+      return button;
+    });
+    elements.pickerItems.before(bar);
+  }
+
+  function syncPickerFilters() {
+    for (const button of filterButtons) {
+      const active = button.dataset.filter === pickerFilter;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-selected", String(active));
+    }
+  }
+
   function renderPicker(slot: UpgradeBenchSlot) {
-    const candidates = eligibleItems(slot);
+    buildPickerFilters();
+    syncPickerFilters();
+    const candidates = eligibleItems(slot).filter(itemId =>
+      pickerFilter === "ALL" || itemDefinition(itemId)?.slot === pickerFilter);
     const rows = candidates.map((itemId) => {
       const level = normalizeItemUpgradeLevel(dependencies.upgradeLevel(itemId));
       const preview = upgradePickerPreview(itemId, level);
@@ -371,6 +432,8 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
       const name = document.createElement("strong");
       name.textContent = preview.name;
       title.append(name);
+      // The same tier badge the item inspector shows, so the two agree.
+      appendItemTierLabel(title, itemId);
       const stats = document.createElement("span");
       stats.className = "upgrade-bench-picker-stats";
       for (const change of preview.changes) {
@@ -401,7 +464,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     if (rows.length === 0) {
       const empty = document.createElement("div");
       empty.className = "upgrade-bench-picker-heading";
-      empty.textContent = "NO ELIGIBLE ITEMS";
+      empty.textContent = pickerFilter === "ALL" ? "NO ELIGIBLE ITEMS" : "NONE OF THIS KIND";
       elements.pickerItems.append(empty);
     }
   }
@@ -429,12 +492,12 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
   }
 
   async function unlockSecondSlot() {
-    if (busy || dependencies.secondSlotUnlocked()) return;
+    if (busy || confirming || dependencies.secondSlotUnlocked()) return;
     if (dependencies.gemBalance() < UPGRADE_BENCH_SECOND_SLOT_GEM_COST) {
       dependencies.showMessage(`NOT ENOUGH GEMS · NEED ${UPGRADE_BENCH_SECOND_SLOT_GEM_COST}`, "#ff9b91");
       return;
     }
-    if (!confirmUnlock(UPGRADE_SLOT_UNLOCK_CONFIRMATION)) return;
+    if (!await ask(confirmUnlock, gemSpendConfirmation(UPGRADE_SLOT_UNLOCK_ACTION, UPGRADE_BENCH_SECOND_SLOT_GEM_COST, dependencies.gemBalance()))) return;
     busy = true;
     render(true);
     const result = await dependencies.unlockSecondSlot();
@@ -467,12 +530,12 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
   }
 
   async function useAction() {
-    if (busy || !selectedSlot) return;
+    if (busy || confirming || !selectedSlot) return;
     const slot = selectedSlot;
     const job = activeUpgradeForSlot(slot);
     const itemId = job?.itemId ?? selectedItems.get(slot) ?? "";
     if (!itemId) return;
-    if (job && !confirmCancel(UPGRADE_CANCEL_CONFIRMATION)) return;
+    if (job && !await ask(confirmCancel, { message: UPGRADE_CANCEL_CONFIRMATION, danger: true })) return;
     busy = true;
     render(true);
     if (job) {
@@ -503,7 +566,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
   }
 
   async function useSpeedUp() {
-    if (busy || !selectedSlot) return;
+    if (busy || confirming || !selectedSlot) return;
     const slot = selectedSlot;
     const job = activeUpgradeForSlot(slot);
     if (!job) return;
@@ -512,7 +575,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
       dependencies.showMessage(`NOT ENOUGH GEMS · NEED ${cost}`, "#ff9b91");
       return;
     }
-    if (!confirmGemSpend(gemSpendConfirmationText("finish this item upgrade now", cost))) return;
+    if (!await ask(confirmGemSpend, gemSpendConfirmation("finish this item upgrade now", cost, dependencies.gemBalance()))) return;
     busy = true;
     render(true);
     const result = await dependencies.speedUpUpgrade(slot);

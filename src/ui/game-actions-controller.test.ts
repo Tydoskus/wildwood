@@ -24,8 +24,10 @@ function setup() {
     setResetPending: vi.fn(), clearProgressState: vi.fn(() => { events.push("clear"); }), setTotalKills: vi.fn(), setBootsCollected: vi.fn(), clearPlayerInput: vi.fn(),
     resetGame: vi.fn(async () => { events.push("tutorial"); }), stopGame: vi.fn(() => { events.push("stop"); }), restartStartup: vi.fn(() => { events.push("startup"); }), hideGameOver: vi.fn(), refreshFrameClock: vi.fn(),
     escapeWindows: {} as Dependencies["escapeWindows"],
+    // The game's own prompt, answered directly: the reset flow under test
+    // starts after the player has already said yes.
+    confirmReset: vi.fn(async () => true),
   } satisfies Dependencies;
-  vi.stubGlobal("confirm", vi.fn(() => true));
   createGameActionsController(deps);
   return { deps, events, click: () => elements.resetProgressButton.dispatchEvent(new document.defaultView!.Event("click")) };
 }

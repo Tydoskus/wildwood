@@ -1,4 +1,14 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.771": [
+    "Confirmations are the game's own window now, not the browser's. Upgrading, destroying an item, spending Gems and resetting your character all ask in a WildStat frame with OK and Cancel, and it opens over whatever window you asked from.",
+    "Gem prompts show the arithmetic: what it costs, what you hold, and what you are left with. No more closing the prompt to go and check your balance.",
+    "The Upgrade Bench item list shows each item's tier, and has ALL / WEAPON / HELMET / ARMOR tabs for finding the one you meant.",
+    "The Prestige button moved up beside STATS and INFO, anchored to the right of the row, and now matches the other buttons. It stays greyed out until you have actually cleared the Endless boss it needs, with that boss named beside it.",
+    "Prestige asks \u201cYes, prestige\u201d rather than \u201cYes, reset everything\u201d, and the requirement names only the Endless boss you need \u2014 the maps below it come with it.",
+    "Fixed spending a prestige perk point sometimes needing several taps. The buttons were being rebuilt underneath your finger.",
+    "The first-adventure tutorial points at your Profile HUD with an arrow instead of asking you to tap your character, which a setting can switch off.",
+    "Multiplayer now starts off after an update. Everyone reconnects at the same moment, so it waits for you to tap the eye rather than putting the whole crowd on screen at once.",
+  ],
   "0.770": [
     "The Prestige window now tells you the whole requirement while you are still working on it. After your first prestige it names the Endless stage you will need alongside beating Aegis Prime again, instead of mentioning it only once the campaign was already re-cleared.",
     "The 2× enemy respawn reward now starts running the moment you claim it. It used to arrive switched off, which read as the ad not having paid out. The toggle still pauses it whenever you want to save the rest of the bank.",
@@ -2200,6 +2210,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.771": "2026-09-22",
   "0.770": "2026-09-22",
   "0.769": "2026-09-22",
   "0.768": "2026-09-21",

@@ -143,9 +143,14 @@ const afterUpdateGateShell = String.raw`
       <button id="profileEquippedFeetSlot" class="equipment-slot profile-equipment-slot slot-feet" type="button" data-slot="feet"><span>BOOTS</span></button>
     </div>
     <button id="profileDuelBtn" class="profile-duel-button" type="button" hidden>DUEL</button>
-    <div class="profile-tabs" role="tablist" aria-label="Player profile sections">
-      <button id="profileStatsTab" class="profile-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="profileStatsPanel">STATS</button>
-      <button id="profileOverviewTab" class="profile-tab" type="button" role="tab" aria-selected="false" aria-controls="profileOverviewPanel">INFO</button>
+    <div class="profile-tabs profile-tabs-with-action">
+      <div class="profile-tab-list" role="tablist" aria-label="Player profile sections">
+        <button id="profileStatsTab" class="profile-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="profileStatsPanel">STATS</button>
+        <button id="profileOverviewTab" class="profile-tab" type="button" role="tab" aria-selected="false" aria-controls="profileOverviewPanel">INFO</button>
+      </div>
+      <div id="profileOwnActions" class="profile-own-actions" hidden>
+        <button id="prestigeBtn" class="window-back-button profile-prestige-button" type="button" disabled aria-disabled="true">Prestige</button>
+      </div>
     </div>
     <div class="profile-tab-panels">
       <div id="playerProfileLoading" class="profile-loading" role="status" hidden></div>
@@ -161,9 +166,6 @@ const afterUpdateGateShell = String.raw`
       <section id="profileStatsPanel" class="profile-panel" role="tabpanel" aria-labelledby="profileStatsTab">
         <div id="profileStatGrid" class="profile-stat-grid"></div>
       </section>
-    </div>
-    <div id="profileOwnActions" class="profile-own-actions" hidden>
-      <button id="prestigeBtn" class="profile-prestige-button" type="button" disabled aria-disabled="true">Prestige</button>
     </div>
     <div id="profileSafetyActions" class="profile-safety-actions" hidden>
       <button id="profileReportBtn" type="button">Report Player</button>

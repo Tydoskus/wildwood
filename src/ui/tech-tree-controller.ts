@@ -11,7 +11,8 @@ import {
 } from "../../shared/research";
 import { researchSpeedUpGemCost } from "../../shared/gems";
 import { createTechTreeLayout, type TechTreeNode } from "./tech-tree-layout";
-import { gemSpendConfirmationText } from "./gem-spend-confirmation";
+import { gemSpendConfirmation } from "./gem-spend-confirmation";
+import { gameConfirm, type ConfirmPrompt, type ConfirmRequest } from "./confirm-dialog";
 
 export type ResearchRanks = SharedResearchRanks;
 export type ActiveResearch = {
@@ -41,7 +42,7 @@ export type TechTreeControllerHooks = {
   startResearch: (researchId: ResearchId) => Promise<ResearchResult>;
   gemBalance: () => bigint;
   speedUpResearch: () => Promise<ResearchResult>;
-  confirmGemSpend?: (message: string) => boolean;
+  confirmGemSpend?: ConfirmPrompt;
   showMessage: (message: string, color: string) => void;
   beforeOpen: () => void;
   nowMs: () => number;
@@ -88,7 +89,16 @@ export function centerResearchNode(viewport: HTMLElement, node: HTMLElement) {
 
 export function createTechTreeController(elements: TechTreeControllerElements, hooks: TechTreeControllerHooks) {
   const { notice, overlay, closeButton, active, canvas, map, detail, detailContent, closeDetailButton } = elements;
-  const confirmGemSpend = hooks.confirmGemSpend ?? ((message: string) => confirm(message));
+  // A prompt is awaited, so the pending flags below are not yet set while it is
+  // open. Without this a second click opens a second prompt over the first and
+  // both answers act. window.confirm used to block the page and hide the gap.
+  let confirming = false;
+  async function ask(prompt: ConfirmPrompt, request: ConfirmRequest) {
+    if (confirming) return false;
+    confirming = true;
+    try { return await prompt(request); } finally { confirming = false; }
+  }
+  const confirmGemSpend = hooks.confirmGemSpend ?? gameConfirm;
   const layout = createTechTreeLayout();
   const nodesById = new Map(layout.nodes.map((node) => [node.id, node]));
   map.replaceChildren(canvas);
@@ -312,7 +322,7 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
       current.completesAtMs > now;
     if (speedingUp) {
       const cost = researchSpeedUpGemCost(current.completesAtMs - now);
-      if (!confirmGemSpend(gemSpendConfirmationText("finish this research now", cost))) return;
+      if (!await ask(confirmGemSpend, gemSpendConfirmation("finish this research now", cost, hooks.gemBalance()))) return;
     }
     researchRequestPending = true;
     render();

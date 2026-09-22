@@ -127,8 +127,8 @@ it("hides for an update without recording a choice, and stays hidden until the r
 
   state.toggle.suspend();
   expect(state.setVisible).toHaveBeenLastCalledWith(false);
-  // The player never chose this, so nothing is written.
-  expect(state.storage.setItem).not.toHaveBeenCalled();
+  // An update reconnects everyone at once, so the next start comes back off.
+  expect(state.storage.setItem).toHaveBeenCalledWith("wildstat-show-other-players", "false");
 
   // Moving must not bring presence back for a client on its way out.
   state.setVisible.mockClear();
@@ -136,14 +136,14 @@ it("hides for an update without recording a choice, and stays hidden until the r
   expect(state.setVisible).not.toHaveBeenCalled();
 });
 
-it("comes back to the saved preference on the next start after an update", () => {
+it("starts the session after an update with multiplayer off", () => {
   const first = setup(null);
   first.toggle.suspend();
   expect(first.setVisible).toHaveBeenLastCalledWith(false);
-  // A fresh start reads the stored preference, which the update never touched.
-  const next = setup(null);
-  expect(next.setVisible.mock.calls).toEqual([[true]]);
-  // A player who had chosen off still comes back off.
-  const chosenOff = setup("false");
-  expect(chosenOff.setVisible.mock.calls).toEqual([[false]]);
+  expect(first.storage.setItem).toHaveBeenCalledWith("wildstat-show-other-players", "false");
+  // The next start reads what the update wrote, so the reconnecting crowd does
+  // not all arrive visible at once. One tap puts it back.
+  const next = setup("false");
+  expect(next.setVisible.mock.calls).toEqual([[false]]);
+  expect(next.button.dataset.state).toBe("off");
 });

@@ -1,3 +1,4 @@
+import { gameConfirm, type ConfirmPrompt } from "./confirm-dialog";
 import {
   BASIC_PAPER_HAT,
   LEGENDARY_WHITE_GOLD_ARMOR,
@@ -69,11 +70,13 @@ type GameActionsDependencies = {
   hideGameOver: () => void;
   refreshFrameClock: () => void;
   escapeWindows: EscapeWindows;
+  confirmReset?: ConfirmPrompt;
 };
 
 /** Low-coupling gameplay-window actions and their DOM event bindings. */
 export function createGameActionsController(dependencies: GameActionsDependencies) {
   const { elements } = dependencies;
+  const confirmReset = dependencies.confirmReset ?? gameConfirm;
 
   function closeSettings() {
     elements.settingsPanel.hidden = true;
@@ -89,9 +92,17 @@ export function createGameActionsController(dependencies: GameActionsDependencie
   let resetPending = false;
   async function resetProgress() {
     if (resetPending) return;
-    if (!confirm("Erase all saved WildStat progress and start over?")) return;
-
+    // Claim the guard before the prompt, not after. The prompt is awaited, so
+    // leaving it until the answer arrives lets a second click through the gap
+    // and resets twice; window.confirm used to close that gap by blocking.
     resetPending = true;
+    const erase = await confirmReset({
+      message: "Erase all saved WildStat progress and start over?",
+      details: [{ label: "This cannot be undone", value: "Everything resets" }],
+      confirmLabel: "Erase", danger: true,
+    });
+    if (!erase) { resetPending = false; return; }
+
     let committed = false;
     elements.resetProgressButton.setAttribute("disabled", "");
     elements.resetProgressButton.setAttribute("aria-busy", "true");

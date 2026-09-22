@@ -53,36 +53,37 @@ export function createPrestigeController(options: {
     confirmButton.classList.remove('is-armed');
   }
 
-  /** One row per perk: what it does, the rank owned, and a button when a point is banked. */
-  function renderPerks(points: number) {
-    const ranks = options.perks();
+  /**
+   * One row per perk: what it does, the rank owned, and a button when a point
+   * is banked. The rows are built once and then updated in place. Rebuilding
+   * them on every render replaced the button between a press and its click,
+   * which is why spending a point sometimes took several taps.
+   */
+  const perkRows = new Map<PrestigePerkId, { title: HTMLElement; value: HTMLElement; spend: HTMLButtonElement }>();
+
+  function buildPerkRows() {
     // Build from the list's own document so the panel works wherever it is mounted.
     const create = (tag: string) => options.perkList.ownerDocument.createElement(tag) as HTMLElement;
     options.perkList.replaceChildren(...PRESTIGE_PERK_IDS.map(id => {
-      const rank = prestigePerkRank(ranks, id);
       const row = create('div');
       row.className = 'prestige-perk';
       row.dataset.perk = id;
-      const maxed = rank >= PRESTIGE_PERK_MAX_RANK;
       const title = create('div');
       title.className = 'prestige-perk-title';
-      title.textContent = `${PRESTIGE_PERKS[id].title} ${rank}/${PRESTIGE_PERK_MAX_RANK}`;
       const detail = create('div');
       detail.className = 'prestige-perk-detail';
       detail.textContent = PRESTIGE_PERKS[id].detail;
       // What the rank owned is worth, and what one more point would buy.
       const value = create('div');
       value.className = 'prestige-perk-value';
-      value.textContent = maxed
-        ? `Now ${prestigePerkEffectLabel(id, rank)}`
-        : `Now ${prestigePerkEffectLabel(id, rank)} · Next ${prestigePerkEffectLabel(id, rank + 1)}`;
       const spend = create('button') as HTMLButtonElement;
       spend.type = 'button';
       spend.className = 'prestige-perk-spend';
-      spend.textContent = maxed ? 'Maxed' : 'Spend';
-      spend.disabled = pending || maxed || points < 1;
       spend.addEventListener('click', async () => {
         if (spend.disabled) return;
+        // Read the rank now rather than closing over the one this row was
+        // built with, which a rank bought since would have left stale.
+        const rank = prestigePerkRank(options.perks(), id);
         pending = true; spend.disabled = true;
         status.textContent = `Spending a point on ${PRESTIGE_PERKS[id].title}…`;
         try {
@@ -97,8 +98,26 @@ export function createPrestigeController(options: {
         }
       });
       row.append(title, detail, value, spend);
+      perkRows.set(id, { title, value, spend });
       return row;
     }));
+  }
+
+  function renderPerks(points: number) {
+    if (!perkRows.size) buildPerkRows();
+    const ranks = options.perks();
+    for (const id of PRESTIGE_PERK_IDS) {
+      const row = perkRows.get(id);
+      if (!row) continue;
+      const rank = prestigePerkRank(ranks, id);
+      const maxed = rank >= PRESTIGE_PERK_MAX_RANK;
+      row.title.textContent = `${PRESTIGE_PERKS[id].title} ${rank}/${PRESTIGE_PERK_MAX_RANK}`;
+      row.value.textContent = maxed
+        ? `Now ${prestigePerkEffectLabel(id, rank)}`
+        : `Now ${prestigePerkEffectLabel(id, rank)} · Next ${prestigePerkEffectLabel(id, rank + 1)}`;
+      row.spend.textContent = maxed ? 'Maxed' : 'Spend';
+      row.spend.disabled = pending || maxed || points < 1;
+    }
   }
 
   function render() {
@@ -112,11 +131,13 @@ export function createPrestigeController(options: {
       ? `${COST} You would earn ${prestigeRewardLabel(level)}.`
       : `Spend the points you have banked. ${hint()}`;
     renderPerks(row?.perkPoints ?? 0);
-    // The button stays put whatever this client believes. Hiding it was how a
-    // view that had not caught up refused a prestige the server would have
-    // allowed: there was nothing left to press. The server owns the decision
-    // and names what is missing, so the press has to be able to reach it.
-    confirmButton.disabled = pending;
+    // Shown whatever this client believes, because hiding it was how a view
+    // that had not caught up refused a prestige the server would have allowed:
+    // there was nothing left to press. It is disabled rather than absent while
+    // the requirement is unmet, so the reason beside it is what the player
+    // reads instead of a press that does nothing. The Endless row this reads
+    // is subscribed now, which is what made the old view wrong.
+    confirmButton.disabled = pending || !unlocked();
     confirmButton.hidden = false;
     if (!unlocked() && !status.textContent) status.textContent = hint();
   }
@@ -147,15 +168,16 @@ export function createPrestigeController(options: {
   openButton.addEventListener('click', open);
   options.closeButton.addEventListener('click', close);
   confirmButton.addEventListener('click', async () => {
-    // The server owns this decision and names exactly what is missing, so the
-    // window never refuses on its behalf. It used to, and a client whose view
-    // of a row was behind the server's silently blocked a player who had in
-    // fact earned it: the press did nothing and said nothing.
-    if (pending) return;
+    // The server still owns the decision and names exactly what is missing.
+    // This only declines to send a request it can see is not yet earned.
+    if (pending || !unlocked()) {
+      if (!pending) status.textContent = hint() || LOCKED_HINT;
+      return;
+    }
     // Losing every map unlock deserves a second press, not a single tap.
     if (!armed) {
       armed = true;
-      confirmButton.textContent = 'Yes, reset everything';
+      confirmButton.textContent = 'Yes, prestige';
       confirmButton.classList.add('is-armed');
       status.textContent = 'This cannot be undone.';
       return;

@@ -584,6 +584,11 @@
   .upgrade-bench-picker-title { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
   .upgrade-bench-picker-title strong { overflow: hidden; font-size: var(--font-readable-label); text-overflow: ellipsis; white-space: nowrap; }
   .upgrade-bench-picker-title small { flex: none; color: #f3cf70; font-size: var(--font-readable-min); }
+  /* The tier badge is absolutely positioned over artwork everywhere else; in
+     this row it is a word beside the name. */
+  .upgrade-bench-picker-title > .item-tier-label { position: static; flex: none; color: #f3cf70; font-size: var(--font-readable-min); line-height: 1.2; -webkit-text-stroke: 0; }
+  .upgrade-bench-picker-filters { gap: 2px; margin: 0 0 8px; }
+  .upgrade-bench-picker-filters .profile-tab { flex: 1 1 0; min-width: 0; height: 34px; min-height: 34px; padding: 6px 4px; font-size: 9px; }
   .upgrade-bench-picker-stats { display: grid; gap: 0; min-width: 0; }
   .upgrade-bench-picker-stat { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; color: #d7dfd8; font-size: var(--font-readable-min); line-height: 1.05; }
   .upgrade-bench-picker-stat span:last-child { color: #8deb94; font-weight: 900; white-space: nowrap; }
@@ -2663,8 +2668,13 @@
   .prestige-confirm:disabled { filter: grayscale(.7); opacity: .6; }
   .profile-own-actions { display: flex; justify-content: center; margin-top: 10px; }
   .profile-own-actions[hidden] { display: none; }
-  .profile-prestige-button { min-height: 44px; font-size: 12px; border-color: #3d5686; background: linear-gradient(#5f7fc0, #35508a); color: #fff; }
+  /* The back button's shape, in the tab row's own blue. It is the one action on
+     the row, so it anchors right while STATS and INFO stay left. */
+  .profile-prestige-button { width: auto; min-width: 96px; height: 38px; min-height: 38px; margin: 0; padding: 0 14px 2px; border-color: #24365a; background: linear-gradient(#5f7fc0, #35508a); box-shadow: 0 3px 0 #1b2b47; }
   .profile-prestige-button:disabled { filter: grayscale(.8); opacity: .55; }
+  .profile-tabs-with-action { align-items: flex-end; }
+  .profile-tab-list { display: flex; gap: 7px; min-width: 0; }
+  .profile-tabs-with-action .profile-own-actions { margin: 0 0 6px auto; }
   #techTreeOverlay { z-index: 12; padding: 0; background: rgba(0,0,0,.78); }
   .tech-tree-window { position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; width: 100%; height: 100%; overflow: hidden; background: var(--window-surface-blue); border: 2px solid #000; border-bottom: 0; color: var(--text); text-align: left; }
   .tech-tree-header { z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 62px; padding: 10px max(14px, env(safe-area-inset-right)) 10px max(14px, env(safe-area-inset-left)); border-bottom: 0; background: transparent; }
@@ -3824,6 +3834,17 @@
   .onboarding-tutorial button[hidden] { display: none; }
   .is-onboarding #hud { visibility: hidden; pointer-events: none; }
   .is-onboarding #pickupLog { visibility: visible; }
+  /* The profile lesson is the one step that needs the HUD, so it comes back
+     for that step alone and can be tapped. */
+  .is-onboarding.is-onboarding-profile #hud { visibility: visible; pointer-events: auto; }
+  /* A white arrow with a heavy black outline, under the portrait it points at.
+     Its position is written from the portrait's own box each frame. */
+  .onboarding-pointer { position: fixed; z-index: 36; width: 42px; height: 56px; margin: 0 0 0 -21px; pointer-events: none; animation: onboarding-pointer-bob 1s ease-in-out infinite alternate; }
+  .onboarding-pointer[hidden] { display: none; }
+  .onboarding-pointer svg { width: 100%; height: 100%; transform: rotate(180deg); overflow: visible; filter: drop-shadow(0 3px 4px rgba(0,0,0,.55)); }
+  .onboarding-pointer path { fill: #fff; stroke: #000; stroke-width: 6; stroke-linejoin: round; paint-order: stroke fill; }
+  @keyframes onboarding-pointer-bob { from { transform: translateY(0); } to { transform: translateY(7px); } }
+  @media (prefers-reduced-motion: reduce) { .onboarding-pointer { animation: none; } }
   @media (max-height: 480px) { .onboarding-tutorial header { padding-top: 0; gap: 4px; } .onboarding-instruction { font-size: 20px; } }
   .onboarding-progress { width: 76px; height: 3px; margin: 0 auto; border-radius: 3px; background: #ffffff35; overflow: hidden; }
   .onboarding-progress::before { content: ""; display: block; width: var(--lesson-progress, 25%); height: 100%; border-radius: inherit; background: #fff; transition: width .3s ease; }
@@ -4053,6 +4074,30 @@
 .offline-progress-row[data-stat-kind="regen"] { --offline-stat-color: var(--stat-regen); }
 .offline-progress-row[data-stat-kind="attack"] { --offline-stat-color: #ffe05d; }
 .offline-progress-note { margin: 14px 0; color: #9fa89b; font-size: 11px; line-height: 1.45; }
+
+/* The game's own yes/no prompt, in the frame every other window uses. It is
+   always raised from another window, so it clears every one of them: the item
+   inspector (15), the daily gem gift (18), the prestige window (13) and the
+   tutorial (35). It stops below the reconnect overlay (40), the rewarded ad,
+   game over and the update gate, which should cover a prompt rather than sit
+   under one. */
+#gameConfirm { position: fixed; inset: 0; z-index: 39; display: grid; place-items: center; padding: 13px; background: transparent; }
+#gameConfirm[hidden] { display: none; }
+.game-confirm-modal { width: min(340px, 100%); border-color: rgba(198,208,210,.56); }
+.game-confirm-modal.is-danger { border-color: rgba(255,155,145,.66); }
+.game-confirm-message { margin: 0; color: #eef1ee; font-size: 13px; line-height: 1.45; }
+.game-confirm-details { display: grid; gap: 6px; margin: 14px 0 0; }
+.game-confirm-details:empty { display: none; }
+.game-confirm-detail { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 7px 8px; border: 1px solid rgba(255,255,255,.16); border-radius: 7px; background: rgba(0,0,0,.2); font-size: 11px; text-align: left; }
+.game-confirm-detail-label { color: #d8e4d4; font-weight: 900; }
+.game-confirm-detail-value { color: var(--confirm-detail-color, var(--gold)); font-weight: 900; text-align: right; font-variant-numeric: tabular-nums; }
+.game-confirm-detail[data-detail-kind="cost"] { --confirm-detail-color: #ff9b91; }
+.game-confirm-detail[data-detail-kind="balance"] { --confirm-detail-color: var(--gold); }
+.game-confirm-detail[data-detail-kind="after"] { --confirm-detail-color: #72ef58; }
+.game-confirm-actions { display: flex; justify-content: center; gap: 10px; margin: 16px 0 0; }
+.game-confirm-actions .window-back-button { width: auto; min-width: 104px; flex: 0 1 auto; margin: 0; }
+.game-confirm-cancel { border-color: #29302c; background: linear-gradient(#5d6a61, #37423b); box-shadow: 0 3px 0 #212824; }
+.game-confirm-modal.is-danger .game-confirm-accept { border-color: #4a1414; background: linear-gradient(#d9544a, #8f2b25); box-shadow: 0 3px 0 #3d1512; }
 
 .dev-offline-progress { flex-wrap: wrap; gap: 8px; }
 .dev-offline-progress-actions { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
