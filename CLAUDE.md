@@ -11,12 +11,18 @@ client by itself; it never touches the server.
 **Client (automatic).** Committing to `main` auto-pushes — `.githooks/post-commit`,
 main only, not branches. The push triggers `.github/workflows/pages.yml`, which runs
 `check:release`, `typecheck:coop`, `test:unit`, `build:client` and deploys to GitHub
-Pages. Cloudflare Pages builds from the same push through its own git integration
-(no workflow file, no wrangler, no token here); `build:client` generates its
-`_headers`. Nothing else is needed, and there is no manual deploy step.
+Pages. That is the only deploy this repository performs, and the live site it is
+checked against is `https://tydoskus.github.io/wildwood/version.json`.
 
-After a push to main, confirm `gh run list --limit 2` is green. A failed Pages run
-is silent on Cloudflare — nine consecutive deploys failed unnoticed on 2026-09-20.
+Nothing here deploys to Cloudflare. There is no workflow, no `wrangler.toml` and no
+worker in the repository, and there never has been. The only Cloudflare artifact is
+the `_headers` file `scripts/fingerprint-client.mjs` writes into `dist` — a
+Cloudflare Pages convention that is carried in the bundle whether or not anything
+consumes it. If a Cloudflare Pages project is serving this game it is wired up in
+the Cloudflare dashboard against the GitHub repository, which is invisible from
+here; do not claim it deployed without checking that dashboard.
+
+After a push to main, confirm `gh run list --limit 2` is green.
 
 **Server (Ryan runs it).** Changes under `spacetimedb/` do nothing until:
 
@@ -26,7 +32,16 @@ Ryan runs that himself in his terminal — never run it from an agent session, a
 never publish to `wildwood-coop`, `wildwood-balance-local`, or maincloud from a
 worktree. End any report that touched `spacetimedb/` by handing him that command.
 
-**Version bump.** `npm run release -- <version>` rewrites GAME_VERSION,
+**Version bump.** For a client-only release the one-shot helper is:
+
+    npm run release:live
+
+It suggests the next version, takes one note per line, runs every check, commits,
+pushes main, and then waits until the live site reports the new version. It refuses
+to run when the diff touches `shared/`, `spacetimedb/` or `src/module_bindings/`,
+because those need the server publish above.
+
+The pieces underneath it: `npm run release -- <version>` rewrites GAME_VERSION,
 `public/index.html`, `public/version.json`, the changelog release day, and the
 artwork stamp in `config/shipped-assets.json`. Write the release notes in
 `src/app/changelog.ts` before committing. `npm run check:release` (also run in CI)
