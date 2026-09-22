@@ -11,6 +11,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { createMapDefinitions, createSites } from "../src/balance/simulator";
+import { personalBossDefinition } from "../shared/personal-bosses";
 import { LIVE_BALANCE } from "../src/balance/live-balance";
 import { researchStatRewardMultiplier, RESEARCH_IDS, RESEARCH_DEFINITIONS } from "../shared/research";
 import { prestigeStatMultiplier } from "../shared/prestige";
@@ -61,6 +62,22 @@ function bestRewardPerKill(endlessDepth: number) {
     for (const reward of map.boss?.rewards ?? []) {
       best[`boss:${reward.type}`] = Math.max(best[`boss:${reward.type}`] ?? 0, reward.amount);
     }
+  }
+  return best;
+}
+
+
+/**
+ * The fastest the game can pay out permanent damage anywhere: the best boss
+ * reward divided by its respawn. Repeat boss clears pay in full, so this is the
+ * real ceiling on earned damage, and it does not care how anyone farmed.
+ */
+function bestDamagePerSecond(endlessDepth: number) {
+  let best = 0;
+  for (const map of createMapDefinitions(endlessDepth, LIVE_BALANCE.settings)) {
+    const boss = personalBossDefinition(map.id);
+    const damage = map.boss?.rewards.find(reward => reward.type === "damage")?.amount ?? 0;
+    if (boss && damage) best = Math.max(best, damage / boss.respawnSeconds);
   }
   return best;
 }
@@ -125,10 +142,18 @@ function audit(target: string) {
 
   const damage = Number(progress.damage ?? 0);
   const health = Number(progress.max_hp ?? 0);
+  const perSecond = bestDamagePerSecond(endlessDepth);
+  const hoursNeeded = perSecond > 0 ? damage / perSecond / 3600 : Infinity;
+  const hoursPlayed = playedSeconds / 3600;
+  const ratio = hoursPlayed > 0 ? hoursNeeded / hoursPlayed : Infinity;
+  console.log(`\nCould the clock pay for the damage?`);
+  console.log(`  ${compact(damage)} damage needs ${hoursNeeded.toFixed(1)}h of killing the best boss on cooldown`);
+  console.log(`  this account has played ${hoursPlayed.toFixed(1)}h  ->  ${ratio.toFixed(2)}x`
+    + (ratio > 1 ? `  <-- IMPOSSIBLE: more damage than the game can pay out in its whole playtime` : ""));
   console.log(`\ndamage per credited kill ${compact(kills ? damage / kills : 0)}`
     + ` · damage-to-health ${health ? (damage / health).toFixed(2) : "—"}x`);
-  console.log(`  Health rewards outnumber damage rewards, so an ordinary build carries more health`);
-  console.log(`  than damage. A ratio well above 1 means the account only ever farmed damage.`);
+  console.log(`  Repeat boss clears pay full rewards and count as kills, so a boss farmer reads`);
+  console.log(`  high here honestly. The clock bound above is the one that cannot be argued with.`);
 
   const speedRank = ranks.moveSpeed ?? 0;
   const speed = effectivePlayerMovementSpeed(false, speedRank, Number(progress.speed_override ?? 0));
@@ -147,9 +172,11 @@ function audit(target: string) {
     }
   }
 
-  console.log(worst > 1
-    ? `\nUNEXPLAINED: stats exceed what this account's own kills could buy, by up to ${worst.toFixed(1)}x.`
-    : `\nExplained: every stat fits inside what these kills could have paid for.`);
+  console.log(ratio > 1
+    ? `\nIMPOSSIBLE: this account holds more damage than its playtime can pay for.`
+    : worst > 1
+      ? `\nUNEXPLAINED: stats exceed what this account's own kills could buy, by up to ${worst.toFixed(1)}x.`
+      : `\nWithin what the clock and the kills allow.`);
 }
 
 /**
