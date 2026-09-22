@@ -28,7 +28,9 @@ describe("installed interface structure", () => {
     // Raised by 32 bytes for the "alpha" the three version labels now carry.
     // They are in the markup rather than set from script so the label is right
     // on the first paint, which is exactly when a new player reads it.
-    expect(Buffer.byteLength(entryHtml)).toBeLessThan(24_480);
+    // Raised again by one element: the card the sign-in copy sits in. Three
+    // paragraphs cannot share a background without something to draw it on.
+    expect(Buffer.byteLength(entryHtml)).toBeLessThan(24_528);
     for (const id of ["start", "gameUpdateGate", "dailyGemBonus", "gameOver", "playerProfile", "techTreeOverlay", "guildBtn"]) {
       expect(doc.getElementById(id), id).not.toBeNull();
     }

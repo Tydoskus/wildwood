@@ -2397,6 +2397,19 @@
     line-height: 1.55;
   }
 
+  /* The game's own card: a dark surface inside a black frame with the solid
+     drop the other panels sit on. The sign-in copy was floating loose over the
+     artwork, which is the only text in the game that did. */
+  .account-choice-modal .account-note-card {
+    margin: 10px auto 0;
+    padding: 9px 14px 11px;
+    border: 2px solid #000;
+    border-radius: 9px;
+    background: var(--window-surface-neutral);
+    box-shadow: 0 3px 0 rgba(0,0,0,.45);
+    text-align: center;
+  }
+
   .account-choice-modal p.account-beta-note { color: #fff; font-size: 14px; }
 
   .account-choice-modal p.account-move-note {
@@ -2416,7 +2429,7 @@
   }
 
   .account-choice-modal p.account-character {
-    margin: 16px 0 4px;
+    margin: 8px 0 0;
     color: #fff;
     font-size: 13px;
     font-weight: 900;

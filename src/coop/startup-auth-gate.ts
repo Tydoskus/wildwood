@@ -58,7 +58,12 @@ function startupElements(documentValue: Document): StartupAuthElements {
     const detail = documentValue.createElement("span");
     detail.textContent = "Google and email links can open different characters.";
     hint.replaceChildren("Already have an account? Use your original sign-in method.", detail);
-    signInButton.before(hint);
+    // Inside the card with the rest of the sign-in copy. Before it existed
+    // this sat loose above the button, which is where it lands if the markup
+    // ever drops the card.
+    const card = documentValue.querySelector(".account-note-card");
+    if (card) card.append(hint);
+    else signInButton.before(hint);
     signInButton.setAttribute("aria-describedby", hint.id);
   }
   function requireElement<T extends HTMLElement>(id: string) {
