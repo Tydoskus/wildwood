@@ -55,7 +55,10 @@ import { describe, expect, it } from "vitest";
 // 6_756: splitting the item-drop sweep out of the upgrade wipe so a prestige
 // can keep slot tiers while still taking the gear, and the comment that says
 // why the old line destroyed something it was never written to destroy.
-const MAX_LINES = 6_756;
+// 6_764: reconciling a running upgrade against its slot rather than against an
+// item id it no longer holds, which is what was cancelling every upgrade, and
+// the note recording it. Both are guards on the same rekeyed table.
+const MAX_LINES = 6_764;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

@@ -3,7 +3,8 @@ import { GEAR_MAIL_ID } from "../../shared/mailbox-equipment";
 import { table, t, SenderError } from "spacetimedb/server";
 import type { Identity } from "spacetimedb";
 import type { ModuleReducerCtx, ModuleViewCtx } from "./index";
-import { REBALANCE_MAIL_ID, REBALANCE_MAIL_GEMS, REBALANCE_MAIL_TITLE, REBALANCE_MAIL_BODY } from "../../shared/mailbox";
+import { REBALANCE_MAIL_ID, REBALANCE_MAIL_GEMS, REBALANCE_MAIL_TITLE, REBALANCE_MAIL_BODY,
+  SLOT_UPGRADE_MAIL_ID, SLOT_UPGRADE_MAIL_GEMS, SLOT_UPGRADE_MAIL_TITLE, SLOT_UPGRADE_MAIL_BODY } from "../../shared/mailbox";
 
 // One shared letter; per-account state is written only on read or claim.
 export const mailboxLetter = table({ name: "mailbox_letter", public: false }, {
@@ -66,6 +67,10 @@ export function publishMailboxLetter(ctx: ModuleReducerCtx, letter: { id: string
 
 export function publishRebalanceMail(ctx: ModuleReducerCtx) {
   publishMailboxLetter(ctx, { id: REBALANCE_MAIL_ID, title: REBALANCE_MAIL_TITLE, body: REBALANCE_MAIL_BODY, gems: REBALANCE_MAIL_GEMS });
+}
+
+export function publishSlotUpgradeMail(ctx: ModuleReducerCtx) {
+  publishMailboxLetter(ctx, { id: SLOT_UPGRADE_MAIL_ID, title: SLOT_UPGRADE_MAIL_TITLE, body: SLOT_UPGRADE_MAIL_BODY, gems: SLOT_UPGRADE_MAIL_GEMS });
 }
 
 export function updateMailboxReceipt(ctx: ModuleReducerCtx, id: string, claim: boolean, credit: (amount: bigint, reference: string, title: string) => void, grantEquipment?: (items: string[], level: number) => void) {

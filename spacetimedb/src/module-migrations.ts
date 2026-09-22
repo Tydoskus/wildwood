@@ -25,7 +25,7 @@ import {
 } from "../../shared/rules";
 import { MAGMALISK_ID, TEMPEST_KIRIN_ID, MIREMAW_ID, DREADREAPER_ID, VOLTWARDEN_ID, GRAVEBLOOM_ID } from "./boss-combat";
 import { NAME_CHANGE_COOLDOWN_MS } from "../../shared/name-change";
-import { publishRebalanceMail } from "./mailbox";
+import { publishRebalanceMail, publishSlotUpgradeMail } from "./mailbox";
 import { forgetBalanceCaches } from "./map-balance";
 import { defaultBalanceSettings, validateBalanceSettings } from "../../shared/map-balance";
 import { migrateGuildTags } from "./player-name-tags";
@@ -38,7 +38,7 @@ import { generateMap, isProceduralMap, proceduralMapId, proceduralMapNumber } fr
 import { balanceApologyTransactionReference, isBalanceApologyEligible } from "./balance-apology";
 import { BALANCE_APOLOGY_GEM_GIFT } from "../../shared/gems";
 
-export const MODULE_MIGRATION_VERSION = 38;
+export const MODULE_MIGRATION_VERSION = 39;
 
 export type ModuleMigrationDeps = {
   MAP_ARRIVALS: Record<string, { x: number; y: number }>;
@@ -514,6 +514,9 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     // them. That changed Endless for everyone, so put the live curve back.
     if (currentVersion < 37) restoreLiveEndlessCurve(ctx);
     if (currentVersion < 38) convertItemUpgradesToSlotTiers(ctx);
+    // 39: a make-good for the slot upgrades a prestige wiped, and for the
+    // ones a sweep threw away while they were still running.
+    if (currentVersion < 39) publishSlotUpgradeMail(ctx);
     const next = { id: 0, version: MODULE_MIGRATION_VERSION };
     if (state) ctx.db.moduleMigrationState.id.update(next);
     else ctx.db.moduleMigrationState.insert(next);

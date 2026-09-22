@@ -143,7 +143,6 @@ import {
   equipmentMaxHealth,
   equipmentRegeneration,
   itemDefinition,
-  isUpgradeableItem,
   itemFitsEquipmentSlot,
   itemUpgradeDurationMs,
   MAX_FOREST_ITEM_COUNT,
@@ -3133,18 +3132,27 @@ function completeActiveItemUpgrade(ctx: any, active: any, slot: number) {
 }
 
 function cancelActiveItemUpgrade(ctx: any, active: any, slot: number) {
-  const progress = ctx.db.playerProgress.identity.find(active.identity) ?? defaultPlayerProgress(active.identity);
-  writeProgressAndPresentation(ctx, restoreItemToProgress(progress, active.itemId));
+  // A slot upgrade takes nothing from the bag, so there is nothing to hand
+  // back. A row left over from when upgrades belonged to items still names an
+  // item, and that one is still returned.
+  if (!isUpgradeSlot(active.itemId)) {
+    const progress = ctx.db.playerProgress.identity.find(active.identity) ?? defaultPlayerProgress(active.identity);
+    writeProgressAndPresentation(ctx, restoreItemToProgress(progress, active.itemId));
+  }
   deleteActiveItemUpgrade(ctx, active.identity, slot);
   removeItemUpgradeCompletionSchedules(ctx, active.identity, slot);
 }
 
 function reconcileActiveItemUpgrade(ctx: any, active: any, slot: number) {
-  if (!isUpgradeableItem(active.itemId) || active.currentLevel !== itemUpgradeLevelFor(ctx, active.identity, active.itemId) || active.targetLevel !== active.currentLevel + 1) {
-    const progress = ctx.db.playerProgress.identity.find(active.identity) ?? defaultPlayerProgress(active.identity);
-    writeProgressAndPresentation(ctx, restoreItemToProgress(progress, active.itemId));
-    deleteActiveItemUpgrade(ctx, active.identity, slot);
-    removeItemUpgradeCompletionSchedules(ctx, active.identity, slot);
+  // itemId holds the slot now. Checking it with isUpgradeableItem answered
+  // false for every running slot upgrade, so the next maintenance sweep,
+  // sign-in or completion threw it away — which is why a slot never moved past
+  // the tier the migration handed it.
+  const upgradeSlot = isUpgradeSlot(active.itemId) ? active.itemId : upgradeSlotForItem(active.itemId);
+  if (!upgradeSlot
+    || active.currentLevel !== slotUpgradeTierFor(ctx, active.identity, upgradeSlot)
+    || active.targetLevel !== active.currentLevel + 1) {
+    cancelActiveItemUpgrade(ctx, active, slot);
     return;
   }
   if (active.paused) {
