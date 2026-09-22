@@ -3,6 +3,7 @@ import { watchOfflineProgress, watchOfflineProgressPreference, type OfflineProgr
 import { consumeUpdateResumeMode } from "./coop/services/update-resume-browser";
 import { configureConnectionDiagnostics, recordConnectionDiagnostic, flushConnectionDiagnostics } from "./coop/services/connection-diagnostic-runtime";
 import { bindProgressFlushOnHide } from "./coop/services/flush-on-hide";
+import { createLatencySamples } from "./coop/services/latency-samples";
 import { diagnosticWebSocket } from "./coop/services/diagnostic-websocket";
 import { enterWorldAfterConsent } from "./coop/services/world-entry-consent";
 import { accountStorageKeys } from "./coop/services/account-storage-keys";
@@ -62,9 +63,8 @@ type WildStatRuntime = Window & {
   WILDWOOD_SPACETIMEDB_HOST?: string;
   WILDWOOD_SPACETIMEDB_DB_NAME?: string;
 };
-
 const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
-const LATENCY_SMOOTHING = .25;
+const latencySamples = createLatencySamples();
 // Allow normal connection/session deadlines to recover before restarting a stalled attempt.
 const WAKE_RECONNECT_WATCHDOG_MS = 45_000;
 const CONNECTION_OPEN_TIMEOUT_MS = 15_000;
@@ -216,10 +216,8 @@ function touchServerActivity() {
 }
 
 function recordLatency(startedAt: number) {
-  const sample = Math.max(0, performance.now() - startedAt);
-  latencyMs = latencyMs === null
-    ? sample
-    : latencyMs + (sample - latencyMs) * LATENCY_SMOOTHING;
+  latencySamples.record(Math.max(0, performance.now() - startedAt));
+  latencyMs = latencySamples.value();
 }
 
 function handleReducerFailure(action: string, error: unknown) {
@@ -563,6 +561,7 @@ function abandonConnection(disconnectTransport: boolean) {
   worldEntryPromise = null;
   worldEntryGeneration = 0;
   latencyMs = null;
+  latencySamples.reset();
   lastLatencyProbeStartedAt = 0;
   connectionGeneration += 1;
   virtualPlayerLoadTest.disconnectLocal();
@@ -717,6 +716,7 @@ function connect() {
       progressionService.beginSession(identityChanged);
       presenceService.beginSession(identityChanged);
       latencyMs = null;
+      latencySamples.reset();
       lastLatencyProbeStartedAt = 0;
       clearRealtimeCaches();
       if (!signedIn) accountService.storeGuestToken(token);
