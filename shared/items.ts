@@ -58,11 +58,33 @@ export const MAX_OWNED_ITEM_COUNT = 1;
 // Kept as a compatibility export for older client/server call sites. Wildstat
 // equipment is unique now, so every durable quantity is clamped to one.
 export const MAX_FOREST_ITEM_COUNT = MAX_OWNED_ITEM_COUNT;
-export const MAX_ITEM_UPGRADE_LEVEL = 10;
-// Each level adds this share of the item's level-zero bonus.
-export const ITEM_UPGRADE_STAT_BONUS = .08;
+/**
+ * Upgrades belong to an equipment slot, not to the item in it.
+ *
+ * A tier earned on the Weapon slot applies to whatever weapon is held, so a
+ * better drop is an upgrade rather than a reason to start again. The track is
+ * long on purpose: thirty-five tiers is an endgame goal, where ten was
+ * something the next map's drop could make pointless overnight.
+ */
+export const MAX_SLOT_UPGRADE_TIER = 35;
+/** The slots with a tier track. Both hands share the weapon's. */
+export const UPGRADE_SLOTS = ["HAND", "HEAD", "CHEST"] as const;
+export type UpgradeSlot = typeof UPGRADE_SLOTS[number];
+export const MAX_ITEM_UPGRADE_LEVEL = MAX_SLOT_UPGRADE_TIER;
+/**
+ * Each tier adds this share of the item's tier-zero bonus. Less per tier than
+ * the old ten-level track's .08, over three and a half times as many tiers: a
+ * finished slot is +140% where a finished item was +80%.
+ */
+export const ITEM_UPGRADE_STAT_BONUS = .04;
 export const ITEM_UPGRADE_BASE_DURATION_MS = 3 * 60 * 1_000;
-export const ITEM_UPGRADE_DURATION_GROWTH = 1.4;
+/**
+ * Growth per tier, set so a finished slot is about three hundred hours: the
+ * early tiers still land in minutes, tier 20 takes a couple of hours and the
+ * last one takes a couple of days. The old 1.4 cannot stretch from ten tiers
+ * to thirty-five — it would ask for years on the final tier alone.
+ */
+export const ITEM_UPGRADE_DURATION_GROWTH = 1.2294;
 
 export type ItemSlot = "HEAD" | "CHEST" | "FEET" | "HAND";
 export type EquipmentSlot = "HEAD" | "CHEST" | "FEET" | "RIGHT_HAND" | "LEFT_HAND";

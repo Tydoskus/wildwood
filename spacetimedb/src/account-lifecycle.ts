@@ -78,7 +78,7 @@ export type AccountLifecycleDeps = {
   hasFreshProgress: (progress: any) => boolean;
   insertActiveItemUpgrade: (ctx: any, slot: number, active: any) => void;
   isGeneratedDisplayName: (displayName: string) => boolean;
-  itemUpgradeKey: (identity: any, itemId: string) => string;
+  slotUpgradeKey: (identity: any, slot: string) => string;
   leaderboardAppearanceForProgress: (progress: any, profile: any) => any;
   persistWorldLocation: (ctx: any, activePlayer: any) => void;
   playerWithMotion: (ctx: any, activePlayer: any) => any;
@@ -106,7 +106,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
     earlierTimestamp, effectiveMovementSpeedForProgress, ensureCutsceneHistory, ensureGemWallet,
     ensureItemUpgradeCompletionSchedule, ensureResearchCompletionSchedule,
     equipmentPresentationForProgress, finishDuel, generatedDisplayName, hasFreshProgress,
-    insertActiveItemUpgrade, isGeneratedDisplayName, itemUpgradeKey,
+    insertActiveItemUpgrade, isGeneratedDisplayName, slotUpgradeKey,
     leaderboardAppearanceForProgress, persistWorldLocation, playerWithMotion,
     powerFieldsForProgress, reconcileOnlinePlayers, refreshLeaderboard,
     removeItemUpgradeCompletionSchedules, removePlayerItemUpgradeData, removePlayerRealtimeState,
@@ -243,7 +243,9 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
     }
 
     for (const guestUpgrade of [...ctx.db.playerItemUpgrade.byIdentity.filter(link.guest) as Iterable<any>]) {
-      const key = itemUpgradeKey(ctx.sender, guestUpgrade.itemId);
+      // Rows are keyed by slot now, so this merges a guest's tiers into
+      // the account's, keeping whichever went further on each track.
+      const key = slotUpgradeKey(ctx.sender, guestUpgrade.itemId);
       const accountUpgrade = ctx.db.playerItemUpgrade.key.find(key);
       const transferred = {
         key,

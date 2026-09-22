@@ -24,6 +24,7 @@ import { regularEnemyLootCursor, rollRegularEnemyLoot } from "./regular-enemy-lo
 import { BLACK_BOOTS, BLACK_BOOTS_SPEED_BONUS } from "../../shared/items";
 import { playerOnboarding, advanceOnboarding, needsOnboarding } from "./onboarding";
 import { canDestroyEquipment } from "../../shared/items";
+import { isUpgradeSlot, normalizeSlotTier, upgradeSlotForItem, UPGRADE_SLOT_LABELS } from "../../shared/slot-upgrades";
 import { deliverDisconnectCompensation, deliverCombatUpdateGift, deliverOutageCompensation, announceOutageCompensation, deliverAutofarmTestGift } from "./disconnect-compensation";
 import { connectionDiagnosticTables, recordConnectionDiagnostics, cleanupConnectionDiagnostics } from "./connection-diagnostics";
 import { moderationTables, recordModerationAction, readModerationHistory } from "./moderation-history";
@@ -145,8 +146,7 @@ import {
   itemFitsEquipmentSlot,
   itemUpgradeDurationMs,
   MAX_FOREST_ITEM_COUNT,
-  MAX_ITEM_UPGRADE_LEVEL,
-  normalizeItemUpgradeLevel,
+  MAX_SLOT_UPGRADE_TIER,
   STARTER_BOW,
   STARTER_STONE,
   STARTER_ITEM_IDS,
@@ -821,6 +821,15 @@ const activeResearch = table(
 
 // Completed levels are stored independently from the inventory payload so an
 // upgrade cannot be overwritten by a delayed client save.
+/**
+ * One row per account per upgrade slot: the tier that slot has reached.
+ *
+ * It used to be one row per item. Tiers moved to the slot so a better drop
+ * inherits the work already done instead of starting again, and the rows were
+ * rewritten in place by module migration 38. The columns carry their original
+ * names because adding or renaming one would make every player reload:
+ * `itemId` holds the slot ("HAND", "HEAD", "CHEST") and `level` its tier.
+ */
 const playerItemUpgrade = table(
   {
     public: true,
@@ -2827,14 +2836,19 @@ function inventoryWithBetaHelmet(progress: any, grant: boolean) {
   return inventory;
 }
 
-function itemUpgradeKey(identity: any, itemId: string) {
-  return `${identity.toHexString()}:${itemId}`;
+function slotUpgradeKey(identity: any, slot: string) {
+  return `${identity.toHexString()}:${slot}`;
 }
 
+/** The tier a slot has reached, zero when it has never been upgraded. */
+function slotUpgradeTierFor(ctx: any, identity: any, slot: string | null) {
+  if (!slot) return 0;
+  return normalizeSlotTier(ctx.db.playerItemUpgrade.key.find(slotUpgradeKey(identity, slot))?.level ?? 0);
+}
+
+/** The tier that applies to an item: whatever its slot has earned. */
 function itemUpgradeLevelFor(ctx: any, identity: any, itemId: unknown) {
-  const canonical = canonicalItemId(itemId);
-  if (!canonical) return 0;
-  return normalizeItemUpgradeLevel(ctx.db.playerItemUpgrade.key.find(itemUpgradeKey(identity, canonical))?.level ?? 0);
+  return slotUpgradeTierFor(ctx, identity, upgradeSlotForItem(itemId));
 }
 
 function progressHasItem(progress: any, itemId: string) {
@@ -2903,7 +2917,7 @@ function writeProgressAndPresentation(ctx: any, progress: any) {
 }
 
 function publishItemDrop(ctx: any, identity: any, itemId: string, alreadyOwned: boolean, quantity = 1) {
-  const key = itemUpgradeKey(identity, itemId);
+  const key = `${identity.toHexString()}:${itemId}`;
   const current = ctx.db.playerItemDrop.key.find(key);
   const next = {
     key,
@@ -3095,16 +3109,18 @@ function ensureItemUpgradeCompletionSchedule(ctx: any, active: any, slot: number
 }
 
 function completeActiveItemUpgrade(ctx: any, active: any, slot: number) {
-  const currentLevel = itemUpgradeLevelFor(ctx, active.identity, active.itemId);
-  const progress = ctx.db.playerProgress.identity.find(active.identity) ?? defaultPlayerProgress(active.identity);
-  if (currentLevel === active.currentLevel && active.targetLevel === currentLevel + 1 && active.targetLevel <= MAX_ITEM_UPGRADE_LEVEL) {
-    const key = itemUpgradeKey(active.identity, active.itemId);
+  // The tier lands by itself the moment the schedule fires, online or not.
+  // Nothing is returned to the bag, because nothing was taken from it.
+  const currentLevel = slotUpgradeTierFor(ctx, active.identity, active.itemId);
+  if (currentLevel === active.currentLevel && active.targetLevel === currentLevel + 1 && active.targetLevel <= MAX_SLOT_UPGRADE_TIER) {
+    const key = slotUpgradeKey(active.identity, active.itemId);
     const current = ctx.db.playerItemUpgrade.key.find(key);
     const completed = { key, identity: active.identity, itemId: active.itemId, level: active.targetLevel };
     if (current) updateSnapshotRow(ctx, "playerItemUpgrade", completed);
     else insertSnapshotRow(ctx, "playerItemUpgrade", completed);
+    const progress = ctx.db.playerProgress.identity.find(active.identity);
+    if (progress) writeProgressAndPresentation(ctx, progress);
   }
-  writeProgressAndPresentation(ctx, restoreItemToProgress(progress, active.itemId));
   deleteActiveItemUpgrade(ctx, active.identity, slot);
   removeItemUpgradeCompletionSchedules(ctx, active.identity, slot);
 }
@@ -5271,10 +5287,10 @@ export const claimMailboxGift = spacetimedb.reducer({ id: t.string() }, (ctx, { 
     if (slotsToFree) throw new SenderError(`Free ${slotsToFree} inventory slot${slotsToFree === 1 ? "" : "s"}, then claim your gear. Your gift will stay in Mail.`);
     let next = progress;
     for (const id of missing) next = restoreItemToProgress(next, id);
-    for (const itemId of items) {
-      const key = itemUpgradeKey(ctx.sender, itemId), current = ctx.db.playerItemUpgrade.key.find(key);
+    for (const slotName of new Set(items.map(upgradeSlotForItem).filter(Boolean) as string[])) {
+      const key = slotUpgradeKey(ctx.sender, slotName), current = ctx.db.playerItemUpgrade.key.find(key);
       if ((current?.level ?? 0) >= level) continue;
-      const upgraded = { key, identity: ctx.sender, itemId, level };
+      const upgraded = { key, identity: ctx.sender, itemId: slotName, level };
       if (current) updateSnapshotRow(ctx, "playerItemUpgrade", upgraded);
       else insertSnapshotRow(ctx, "playerItemUpgrade", upgraded);
     }
@@ -5364,28 +5380,33 @@ export const startItemUpgrade = spacetimedb.reducer(
     if (slot === UPGRADE_BENCH_SLOT_TWO && !secondUpgradeSlotUnlockedFor(ctx, ctx.sender)) {
       throw new SenderError("Unlock the second upgrade slot first.");
     }
-    const canonical = canonicalItemId(itemId);
-    if (!canonical || !isUpgradeableItem(canonical)) throw new SenderError("Choose a weapon or armor with stats.");
+    // `itemId` carries the upgrade slot now: "HAND", "HEAD" or "CHEST". The
+    // parameter keeps its name so the reducer signature is unchanged and no
+    // client is broken by the move from per-item levels to per-slot tiers.
+    const upgradeSlot = itemId;
+    if (!isUpgradeSlot(upgradeSlot)) throw new SenderError("Choose a weapon, helmet or armor slot.");
 
     const existing = activeItemUpgradeForSlot(ctx, ctx.sender, slot);
     if (existing) reconcileActiveItemUpgrade(ctx, existing, slot);
     const active = activeItemUpgradeForSlot(ctx, ctx.sender, slot);
     if (active) throw new SenderError("That upgrade slot is already in use.");
-    if (activeItemUpgradeEntriesFor(ctx, ctx.sender).some(({ active: other }) => other.itemId === canonical)) {
-      throw new SenderError("That item is already being upgraded.");
+    if (activeItemUpgradeEntriesFor(ctx, ctx.sender).some(({ active: other }) => other.itemId === upgradeSlot)) {
+      throw new SenderError(`Your ${UPGRADE_SLOT_LABELS[upgradeSlot]} slot is already upgrading.`);
     }
 
-    const progress = ctx.db.playerProgress.identity.find(ctx.sender) ?? defaultPlayerProgress(ctx.sender);
-    if (!progressHasItem(progress, canonical)) throw new SenderError("That item is not in your inventory.");
-    const currentLevel = itemUpgradeLevelFor(ctx, ctx.sender, canonical);
-    if (currentLevel >= MAX_ITEM_UPGRADE_LEVEL) throw new SenderError("That item is already +10.");
+    // The bag is untouched: a slot tier is not the item, so nothing is taken
+    // away while it runs and nothing has to be handed back when it finishes.
+    const currentLevel = slotUpgradeTierFor(ctx, ctx.sender, upgradeSlot);
+    if (currentLevel >= MAX_SLOT_UPGRADE_TIER) {
+      throw new SenderError(`Your ${UPGRADE_SLOT_LABELS[upgradeSlot]} slot is already at tier ${MAX_SLOT_UPGRADE_TIER}.`);
+    }
 
     const durationMicros = BigInt(itemUpgradeDurationMs(currentLevel)) * 1_000n;
     const safeDurationMicros = durationMicros > 0n ? durationMicros : 1n;
     const completesAt = new Timestamp(ctx.timestamp.microsSinceUnixEpoch + safeDurationMicros);
     const nextActive = {
       identity: ctx.sender,
-      itemId: canonical,
+      itemId: upgradeSlot,
       currentLevel,
       targetLevel: currentLevel + 1,
       startedAt: ctx.timestamp,
@@ -5394,7 +5415,6 @@ export const startItemUpgrade = spacetimedb.reducer(
       remainingMicros: safeDurationMicros,
     };
     insertActiveItemUpgrade(ctx, slot, nextActive);
-    writeProgressAndPresentation(ctx, removeItemFromProgress(progress, canonical));
     ensureItemUpgradeCompletionSchedule(ctx, nextActive, slot);
   },
 );
@@ -5412,8 +5432,7 @@ export const destroyEquipment = spacetimedb.reducer(
     }
     const progress = ctx.db.playerProgress.identity.find(ctx.sender);
     if (!progress || !progressHasItem(progress, canonical)) throw new SenderError("That item is not in your inventory.");
-    const key = itemUpgradeKey(ctx.sender, canonical);
-    if (ctx.db.playerItemUpgrade.key.find(key)) deleteSnapshotRow(ctx, "playerItemUpgrade", key);
+    // The slot's tier survives: it was never this item's to take away.
     writeProgressAndPresentation(ctx, removeItemFromProgress(progress, canonical));
   },
 );
@@ -6211,7 +6230,7 @@ const {
   effectiveMovementSpeedForProgress, ensureCutsceneHistory, ensureGemWallet,
   ensureItemUpgradeCompletionSchedule, ensureResearchCompletionSchedule,
   equipmentPresentationForProgress, finishDuel, generatedDisplayName, hasFreshProgress,
-  insertActiveItemUpgrade, isGeneratedDisplayName, itemUpgradeKey, leaderboardAppearanceForProgress,
+  insertActiveItemUpgrade, isGeneratedDisplayName, slotUpgradeKey, leaderboardAppearanceForProgress,
   persistWorldLocation, playerWithMotion, powerFieldsForProgress, reconcileOnlinePlayers,
   refreshLeaderboard, removeItemUpgradeCompletionSchedules, removePlayerItemUpgradeData,
   removePlayerRealtimeState, removePlayerSafetyData, removeResearchCompletionSchedules,

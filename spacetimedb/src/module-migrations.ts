@@ -9,9 +9,10 @@
 // append new steps, never reorder or renumber the old ones.
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { SenderError } from "spacetimedb/server";
-import { insertSnapshotRow, updateSnapshotRow } from "./snapshot-row-writes";
+import { deleteSnapshotRow, insertSnapshotRow, updateSnapshotRow } from "./snapshot-row-writes";
 import { RESEARCH_DEFINITIONS, shouldBackfillLegacyRegeneration } from "../../shared/research";
 import { STARTER_BOW, STARTER_STONE, TRAILBLAZER_BOOTS, WOODEN_ARMOR } from "../../shared/items";
+import { normalizeSlotTier, upgradeSlotForItem } from "../../shared/slot-upgrades";
 import {
   ATTACK_BALANCE_VERSION,
   BOSS_REWARD_CLAIM_BITS,
@@ -37,7 +38,7 @@ import { generateMap, isProceduralMap, proceduralMapId, proceduralMapNumber } fr
 import { balanceApologyTransactionReference, isBalanceApologyEligible } from "./balance-apology";
 import { BALANCE_APOLOGY_GEM_GIFT } from "../../shared/gems";
 
-export const MODULE_MIGRATION_VERSION = 37;
+export const MODULE_MIGRATION_VERSION = 38;
 
 export type ModuleMigrationDeps = {
   MAP_ARRIVALS: Record<string, { x: number; y: number }>;
@@ -512,6 +513,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     // of multipliers, and 36 reset it to the authored reference along with
     // them. That changed Endless for everyone, so put the live curve back.
     if (currentVersion < 37) restoreLiveEndlessCurve(ctx);
+    if (currentVersion < 38) convertItemUpgradesToSlotTiers(ctx);
     const next = { id: 0, version: MODULE_MIGRATION_VERSION };
     if (state) ctx.db.moduleMigrationState.id.update(next);
     else ctx.db.moduleMigrationState.insert(next);
@@ -531,6 +533,37 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
   const ENDLESS_LIVE_CURVE = {
     rewardMultiplier: 2, statStep: .6, enduranceStep: .06, enduranceExponent: 1, rewardPerHealth: 1,
   } as const;
+
+  /**
+   * Upgrades moved from the item to the slot it goes in.
+   *
+   * Every account keeps what it earned: each slot starts at the highest level
+   * any item in it had reached, so a +10 helmet becomes a HEAD track at tier
+   * 10 and the work is not lost. The per-item rows are rewritten in place,
+   * keyed by slot, because a new table would strand the ones already written.
+   *
+   * A job running when this lands is left alone. Its row names an item rather
+   * than a slot, so it can no longer complete into a tier; cancelling it is
+   * the player's to do, and its target was one tier either way.
+   */
+  function convertItemUpgradesToSlotTiers(ctx: any) {
+    const best = new Map<string, { identity: any; slot: string; tier: number }>();
+    const stale: string[] = [];
+    for (const row of ctx.db.playerItemUpgrade.iter() as Iterable<any>) {
+      stale.push(row.key);
+      const slot = upgradeSlotForItem(row.itemId);
+      if (!slot) continue;
+      const key = `${row.identity.toHexString()}:${slot}`;
+      const tier = normalizeSlotTier(row.level);
+      const current = best.get(key);
+      if (!current || tier > current.tier) best.set(key, { identity: row.identity, slot, tier });
+    }
+    for (const key of stale) deleteSnapshotRow(ctx, "playerItemUpgrade", key);
+    for (const [key, { identity, slot, tier }] of best) {
+      if (tier <= 0) continue;
+      insertSnapshotRow(ctx, "playerItemUpgrade", { key, identity, itemId: slot, level: tier });
+    }
+  }
 
   function restoreLiveEndlessCurve(ctx: any) {
     const head = ctx.db.mapBalanceHead.id.find(0);
