@@ -444,7 +444,9 @@
 
   .equipment-slot-label { align-self: start; color: #d6dfd7; font-size: var(--font-readable-min); letter-spacing: .03em; pointer-events: none; }
   .equipment-slot-art { display: grid; min-width: 0; min-height: 0; place-items: center; pointer-events: none; }
-  .equipment-slot-name { align-self: end; max-width: 100%; overflow: hidden; color: #eef2ed; font-size: var(--font-readable-min); line-height: var(--line-height-readable); text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
+  /* A banner across the foot of the slot, divided from the artwork above it
+     and shaded a little darker, so the level reads as a label on the tile. */
+  .equipment-slot-name { align-self: stretch; justify-self: stretch; max-width: 100%; margin: 2px -4px -4px; padding: 3px 4px 4px; overflow: hidden; border-top: 1px solid rgba(255,255,255,.18); background: rgba(0,0,0,.22); color: #eef2ed; font-size: var(--font-readable-min); font-weight: 900; line-height: var(--line-height-readable); text-align: center; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
   .equipment-slot-empty { color: #758178; font: 500 18px/1 Arial, sans-serif; }
   .equipment-slot.is-equipped { color: var(--inventory-ink); }
   .equipment-slot.is-cosmetic-inherited { cursor: pointer; }

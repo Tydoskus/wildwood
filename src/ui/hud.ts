@@ -244,7 +244,13 @@ function renderEquipmentSlot(
   }
   const name = document.createElement("span");
   name.className = "equipment-slot-name";
-  name.textContent = item?.name ?? (cosmeticHidden ? "NOTHING" : inheritedItem ? "GEAR VISIBLE" : mode === "COSMETICS" ? "NOTHING" : "EMPTY");
+  // A filled equipment slot reads as its upgrade level rather than the item's
+  // name: the name is on the artwork, and the level is the thing this panel is
+  // for. Cosmetic slots have no level, so they keep saying what is in them.
+  const equipped = item && mode === "EQUIPMENT";
+  name.textContent = equipped
+    ? `Lvl: +${level}`
+    : item?.name ?? (cosmeticHidden ? "NOTHING" : inheritedItem ? "GEAR VISIBLE" : mode === "COSMETICS" ? "NOTHING" : "EMPTY");
   element.replaceChildren(slotLabel, art, name);
   if (item && mode === "EQUIPMENT") appendItemTierLabel(element, itemId);
   if (level > 0) {
