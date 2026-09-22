@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.778": [
+    "Tidied the overhead name plate: the health bar is a taller rounded pill, the prestige shield is bigger, the gender mark sits closer to your name, and the power sword lines up with the number beside it.",
+  ],
   "0.777": [
     "The Basic Paper Hat is no longer handed to everyone at the start. It is a one-in-a-hundred find from forest enemies instead, so wearing one means you found one. Anyone who already has it keeps it.",
     "Trailblazer Boots have been removed. They were cosmetic and gave no speed, and bare feet now take your character's skin tone rather than a fixed pale pair.",
@@ -2234,6 +2237,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.778": "2026-09-22",
   "0.777": "2026-09-22",
   "0.776": "2026-09-22",
   "0.775": "2026-09-22",
