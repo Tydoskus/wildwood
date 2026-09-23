@@ -34,10 +34,11 @@ export function createDesktopMovement(canvas: HTMLCanvasElement, options: Deskto
     event.preventDefault();
     target = worldPoint(event.clientX, event.clientY);
     held = { id: event.pointerId, x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY, at: performance.now(), dragged: false };
+    canvas.setPointerCapture(event.pointerId);
   });
   window.addEventListener("pointermove", event => {
     if (!held || event.pointerId !== held.id) return;
-    if (!(event.buttons & 1) || event.target !== canvas) { clear(); return; }
+    if (!(event.buttons & 1)) { clear(); return; }
     held.x = event.clientX; held.y = event.clientY;
     held.dragged ||= Math.hypot(held.x - held.startX, held.y - held.startY) > 5;
   });
@@ -49,7 +50,6 @@ export function createDesktopMovement(canvas: HTMLCanvasElement, options: Deskto
     held = null;
   });
   window.addEventListener("pointercancel", clear);
-  canvas.addEventListener("pointerleave", () => { if (held) clear(); });
 
   return {
     clear,
