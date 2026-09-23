@@ -4,7 +4,8 @@ import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixt
 import { STARTER_BOW } from "../../shared/items";
 import { DEFEAT_BUDGET_WINDOW_SECONDS, DEFEAT_MIN_RESPAWN_SECONDS, enemyDefeatDefinition } from "../../shared/enemy-defeats";
 import { REGULAR_ENEMY_LOOT_DELAY_MS } from "../../shared/regular-map-loot";
-import { PLAUSIBLE_KILL_TOLERANCE, plausibleKillsPerSecond } from "./enemy-defeats";
+import { PLAUSIBLE_KILL_TOLERANCE, combatTimeKey, plausibleKillsPerSecond } from "./enemy-defeats";
+import { ENEMY_TYPES } from "../../shared/enemy-definitions";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 const ENEMY = "Shard Hopper";
@@ -67,4 +68,20 @@ it("estimates with the stats the report itself grants, as the client had them by
   f.run(server.recordEnemyDefeats, { streamId: "plausibility-stream-02", sequence: 1n, mapId: "tutorial_forest", enemies: [{ enemy: "Needle", count: CLAIM }] });
   expect(kills(f)).toBe(BigInt(CLAIM));
   expect(flags(f)).toEqual([]);
+});
+
+it("shares one combat clock across species, so claiming several at once earns no more", () => {
+  // One arrow a second, one-shotting: 1.25 kills a second of banked time,
+  // whichever species they land on. Per-species banks paid each species that
+  // rate separately, so a report naming every species multiplied it.
+  const species = Object.keys(ENEMY_TYPES).filter(kind => enemyDefeatDefinition("crystal_hollows", kind)).slice(0, 2);
+  expect(species).toHaveLength(2);
+  const f = crystalFixture();
+  f.patch("playerProgress", { equippedRightHand: STARTER_BOW, inventoryJson: '["starter_bow"]', damage: 1e15, attackRate: 1, projectileCount: 1 });
+  for (const kind of species) fillDefeatBudget(f, "crystal_hollows", kind);
+  f.seed("enemyDefeatBudget", { key: combatTimeKey(f.ctx.sender), identity: f.ctx.sender, tokens: 10, updatedAtMicros: f.ctx.timestamp.microsSinceUnixEpoch });
+  f.run(server.recordEnemyDefeats, { streamId: "plausibility-stream-03", sequence: 1n, mapId: "crystal_hollows",
+    enemies: species.map(enemy => ({ enemy, count: 10 })) });
+  expect(kills(f)).toBe(BigInt(Math.floor(10 * PLAUSIBLE_KILL_TOLERANCE)));
+  expect(restricted(f)).toBe(false);
 });

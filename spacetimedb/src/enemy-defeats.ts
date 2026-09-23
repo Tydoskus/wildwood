@@ -23,6 +23,8 @@ export const bossMapDefeatWindow = table({ name: "boss_map_defeat_window" }, {
 });
 
 const bossTimeKey = (identity: { toHexString(): string }, mapId: string) => `${identity.toHexString()}:${mapId}:boss-time-v1`;
+/** Seconds of regular-enemy combat the player has banked, across every map and species. */
+export const combatTimeKey = (identity: { toHexString(): string }) => `${identity.toHexString()}:combat-time-v1`;
 
 // Retained for non-destructive schema compatibility. Nothing writes here any
 // more: a clipped claim is simply paid what it earned, which needs no queue and
@@ -35,6 +37,10 @@ export const enemyDefeatReview = table(
     requested: t.u32(), accepted: t.u32(), detail: t.string(), recordedAt: t.timestamp(),
   },
 );
+/** Combat time a report may draw on at once. Per-species banks held five
+ * minutes each, so a player fighting several species could deliver a longer
+ * backlog after a dropped socket; one shared bank needs the longer window. */
+export const COMBAT_TIME_BANK_SECONDS = 3 * DEFEAT_BUDGET_WINDOW_SECONDS;
 /** Every arrow landing a maximum critical still leaves this much headroom. */
 export const PLAUSIBLE_KILL_TOLERANCE = 1.25;
 
@@ -95,6 +101,16 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: st
   const utility = ctx.db.playerResearch.identity.find(ctx.sender);
   const seen = new Set<string>();
   let count = 0, lootCount = 0, submittedCount = 0;
+  const now = ctx.timestamp.microsSinceUnixEpoch;
+  // One clock for the whole account: a kill spends the seconds this player
+  // needs to make it. Per-species buckets let a script claim every species on
+  // every map at the full rate at once, each from its own bank.
+  const clockKey = combatTimeKey(ctx.sender);
+  const clockPrevious = ctx.db.enemyDefeatBudget.key.find(clockKey);
+  let combatSeconds = clockPrevious
+    ? Math.min(COMBAT_TIME_BANK_SECONDS, clockPrevious.tokens + Math.max(0, Number(now - clockPrevious.updatedAtMicros) / 1e6))
+    : COMBAT_TIME_BANK_SECONDS;
+  let clockSpent = false;
   const rewards = [];
   const violations: { enemy: string; requested: number; accepted: number }[] = [];
   // A save can contain regular kills that already raised the client's DPS.
@@ -113,7 +129,6 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: st
     const budget = boss ? { capacity: 1 + Math.ceil(300 / boss.respawnSeconds), perSecond: 1 / boss.respawnSeconds } : defeatBudget(definition.population, defeatMinRespawnSeconds(regularRespawn));
     const budgetKey = `${ctx.sender.toHexString()}:${batch.mapId}:${entry.enemy}`;
     const previous = ctx.db.enemyDefeatBudget.key.find(budgetKey);
-    const now = ctx.timestamp.microsSinceUnixEpoch;
     const elapsed = previous ? Math.max(0, Number(now - previous.updatedAtMicros) / 1e6) : 0;
     const tokens = previous ? Math.min(budget.capacity, previous.tokens + elapsed * budget.perSecond) : ((budget as { initial?: number }).initial ?? budget.capacity);
     let acceptedCount = entry.count;
@@ -162,15 +177,10 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: st
       const combat = bossCombat([...rewards, { ...definition.reward, count: acceptedCount }]);
       const plausibleRate = plausibleKillsPerSecond(definition.hp, combat.dps, combat.attackInterval, combat.projectiles ?? 1)
         * (combat.reach ?? 1) * PLAUSIBLE_KILL_TOLERANCE;
-      const plausibleKey = `${budgetKey}:plausible`;
-      const plausiblePrevious = ctx.db.enemyDefeatBudget.key.find(plausibleKey);
-      const plausibleCapacity = plausibleRate * DEFEAT_BUDGET_WINDOW_SECONDS;
-      const plausibleElapsed = plausiblePrevious ? Math.max(0, Number(now - plausiblePrevious.updatedAtMicros) / 1e6) : 0;
-      const plausibleTokens = plausiblePrevious ? Math.min(plausibleCapacity, plausiblePrevious.tokens + plausibleElapsed * plausibleRate) : plausibleCapacity;
-      const plausible = Math.max(0, Math.floor(plausibleTokens + 1e-6));
+      const plausible = plausibleRate > 0 ? Math.max(0, Math.floor(combatSeconds * plausibleRate + 1e-6)) : 0;
       if (acceptedCount > plausible) acceptedCount = plausible;
-      const nextPlausible = { key: plausibleKey, identity: ctx.sender, tokens: Math.max(0, plausibleTokens - acceptedCount), updatedAtMicros: now };
-      if (plausiblePrevious) ctx.db.enemyDefeatBudget.key.update(nextPlausible); else ctx.db.enemyDefeatBudget.insert(nextPlausible);
+      if (acceptedCount) combatSeconds = Math.max(0, combatSeconds - acceptedCount / plausibleRate);
+      clockSpent = true;
       if (!acceptedCount) continue;
     }
     const next = { key: budgetKey, identity: ctx.sender, tokens: Math.max(0, tokens - acceptedCount), updatedAtMicros: now };
@@ -178,6 +188,10 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: st
     count += acceptedCount;
     rewards.push({ ...definition.reward, count: acceptedCount });
     if (definition.loot) lootCount += acceptedCount;
+  }
+  if (clockSpent) {
+    const clock = { key: clockKey, identity: ctx.sender, tokens: combatSeconds, updatedAtMicros: now };
+    if (clockPrevious) ctx.db.enemyDefeatBudget.key.update(clock); else ctx.db.enemyDefeatBudget.insert(clock);
   }
   const receipt = { key, identity: ctx.sender, sequence: batch.sequence };
   if (prior) ctx.db.regularEnemyLootCursor.key.update(receipt); else ctx.db.regularEnemyLootCursor.insert(receipt);

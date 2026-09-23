@@ -3,6 +3,7 @@ import { Timestamp } from "spacetimedb";
 import { expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { enemyDefeatDefinition, defeatBudget } from "../../shared/enemy-defeats";
+import { combatTimeKey } from "./enemy-defeats";
 import { ENEMY_TYPES } from "../../shared/enemy-definitions";
 import { rollRegularEnemyLoot } from "./regular-enemy-loot";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
@@ -47,7 +48,9 @@ it("honours a report for the map the player left for Home, paid by that map's bu
   f.db.homeReturnLocation.insert({ identity: f.ctx.sender, mapId: batch.mapId, x: 1, y: 1, facing: 0 });
   f.run(server.recordEnemyDefeats, batch);
   expect(f.db.playerProgress.identity.find(f.ctx.sender).damage).toBeCloseTo(base.damage + enemyDefeatDefinition(batch.mapId, enemy)!.reward.amount * 20);
-  expect([...f.db.enemyDefeatBudget.iter()].every(row => row.key.includes(`:${batch.mapId}:`))).toBe(true);
+  // Spawn budgets are the map's own; the account-wide combat clock has no map.
+  expect([...f.db.enemyDefeatBudget.iter()].filter(row => row.key !== combatTimeKey(f.ctx.sender))
+    .every(row => row.key.includes(`:${batch.mapId}:`))).toBe(true);
 });
 it("still rejects a report for a map the player did not come Home from, even when unlocked", () => {
   const f = fixture(); f.patch("player", { mapId: "home_exterior" }); f.patch("playerProgress", { waterUnlocked: true });

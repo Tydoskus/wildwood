@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { DEFEAT_MIN_RESPAWN_SECONDS, ENEMY_DEFEAT_BATCH_MAX, defeatMinRespawnSeconds, enemyDefeatDefinition } from "../../shared/enemy-defeats";
 import { ENEMY_TYPES } from "../../shared/enemy-definitions";
-import { REGULAR_ENEMY_RESPAWN_SECONDS, REGULAR_KILL_REPORT_SECONDS } from "../../shared/rules";
+import { MIN_ATTACK_INTERVAL, REGULAR_ENEMY_RESPAWN_SECONDS, REGULAR_KILL_REPORT_SECONDS } from "../../shared/rules";
+import { STARTER_BOW } from "../../shared/items";
 import { defaultBalanceSettings, resolveMapBalance } from "../../shared/map-balance";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
@@ -28,9 +29,11 @@ function player(options: { lapSeconds: number; minutes: number; reportSeconds?: 
     f.seed("playerMapBalance", { identity: f.ctx.sender, mapId: MAP,
       snapshotJson: JSON.stringify(resolveMapBalance(MAP, defaultBalanceSettings(), 1, 2)) });
   }
-  // A build that one-shots everything, so damage is never the binding limit
-  // and the respawn ceiling is what the simulation is actually measuring.
-  f.patch("playerProgress", { equippedRightHand: "starter_stone", damage: 1e18, attackRate: 2, projectileCount: 2 });
+  // A build that one-shots everything at the fastest attack speed with a
+  // ranged volley, so combat is never the binding limit and the respawn
+  // ceiling is what the simulation is actually measuring. (Each projectile
+  // kills at most one enemy, and the combat clock is shared across species.)
+  f.patch("playerProgress", { equippedRightHand: STARTER_BOW, inventoryJson: `["${STARTER_BOW}"]`, damage: 1e18, attackRate: MIN_ATTACK_INTERVAL, projectileCount: 3 });
   f.patch("player", { mapId: MAP });
 
   const reportSeconds = options.reportSeconds ?? REGULAR_KILL_REPORT_SECONDS;

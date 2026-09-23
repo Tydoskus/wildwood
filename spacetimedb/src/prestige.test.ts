@@ -224,7 +224,7 @@ it("widens the claim bound for perks that reach more enemies than the weapon can
     const f = farmer(0);
     // One slow, single projectile per swing, so the bound is well under the
     // claim and any widening of it is visible in what the server pays.
-    f.patch("playerProgress", { attackRate: 10, projectileCount: 1 });
+    f.patch("playerProgress", { attackRate: 30, projectileCount: 1 });
     if (Object.keys(ranks).length) f.seed("playerPrestigePerk", { identity: f.ctx.sender, ...ranks });
     // The perk-widened damage bound is the subject here, so bank the spawn
     // allowance rather than letting the arrival bank clip first and hide it.
