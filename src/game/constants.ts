@@ -101,7 +101,7 @@ export const SPIDER_ART_TOP = -294;
 export const SPIDER_SPRITE_GROUND_OFFSET = 3;
 
 /** Where Frostclaw's pixels start, which the status bar hangs from. */
-export const FROSTCLAW_ART_TOP = -211;
+export const FROSTCLAW_ART_TOP = -182;
 
 /** Where Magmalisk's pixels start, which the status bar hangs from. */
 export const MAGMALISK_ART_TOP = -150;
@@ -110,7 +110,7 @@ export const MAGMALISK_ART_TOP = -150;
 export const GLOOMROOT_ART_TOP = -187;
 
 /** Where Tidewyrm's pixels start, which the status bar hangs from. */
-export const TIDEWYRM_ART_TOP = -175;
+export const TIDEWYRM_ART_TOP = -148;
 
 /** Where Tempest Kirin's pixels start, which the status bar hangs from. */
 export const TEMPEST_KIRIN_ART_TOP = -73;
@@ -124,7 +124,7 @@ export const TEMPEST_KIRIN_ART_TOP = -73;
  * the two were the same, so the order is unchanged.
  */
 export const DRAGON_DEPTH_OFFSET = 93;
-export const SPIDER_DEPTH_OFFSET = -15;
+export const SPIDER_DEPTH_OFFSET = -3;
 /**
  * Where the scorpion's feet stand. Its artwork is placed from its feet rather
  * than from a centre, so this is its sprite position; it was the same number

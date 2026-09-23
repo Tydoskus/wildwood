@@ -16,23 +16,6 @@
       "offsetY": -1
     }
   },
-  "FROSTCLAW": {
-    "0": {
-      "offsetX": -10
-    },
-    "1": {
-      "offsetX": -7,
-      "sourceX": 25
-    },
-    "2": {
-      "sourceX": 31,
-      "offsetX": -10
-    },
-    "3": {
-      "sourceX": 27,
-      "offsetX": 15
-    }
-  },
   "MAGMALISK": {
     "0": {
       "sourceX": -17
@@ -106,6 +89,16 @@
       "sourceWidth": 117,
       "sourceX": -76,
       "statusOffsetY": -90
+    }
+  },
+  "TIDEWYRM": {
+    "0": {
+      "offsetX": -12
+    },
+    "1": {
+      "offsetX": 20,
+      "sourceWidth": -90,
+      "sourceX": -5
     }
   }
 }
