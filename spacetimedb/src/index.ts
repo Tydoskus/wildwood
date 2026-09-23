@@ -30,7 +30,7 @@ import { isUpgradeSlot, normalizeSlotTier, upgradeSlotForItem, UPGRADE_SLOT_LABE
 import { deliverDisconnectCompensation, deliverCombatUpdateGift, deliverOutageCompensation, announceOutageCompensation, deliverAutofarmTestGift } from "./disconnect-compensation";
 import { connectionDiagnosticTables, recordConnectionDiagnostics, cleanupConnectionDiagnostics } from "./connection-diagnostics";
 import { moderationTables, recordModerationAction, readModerationHistory } from "./moderation-history";
-import { mailboxLetter, mailboxReceipt, mailboxEntryV2, mailboxForPlayerV2, publishMailboxLetter, updateMailboxReceipt } from "./mailbox";
+import { mailboxLetter, mailboxReceipt, mailboxEntryV2, mailboxForPlayerV2, playerJoinDate, publishMailboxLetter, syncPlayerJoinDate, updateMailboxReceipt } from "./mailbox";
 import { rollbackPlayerProgression } from "./player-progression-rollback";
 import { playerItemGift, deliverAlphaTesterGifts, claimItemGift } from "./item-gifts";
 import { moderateReportedMessage } from "./chat-report-moderation";
@@ -1780,7 +1780,7 @@ const spacetimedb = schema({
   dailyGemBonus,
   balanceApologyNotice,
   playerItemGift,
-  mailboxLetter, mailboxReceipt, mailboxEquipment, accountDeletionRequest,
+  mailboxLetter, mailboxReceipt, playerJoinDate, mailboxEquipment, accountDeletionRequest,
   playerOnboarding,
   regularEnemyLootCursor, enemyDefeatBudget, bossDefeatWindow, bossMapDefeatWindow,
   enemyDefeatReview,
@@ -2413,6 +2413,7 @@ function ensurePlayerLifetime(ctx: any) {
     deathCount: 0n,
   };
   ctx.db.playerLifetime.insert(next);
+  syncPlayerJoinDate(ctx, ctx.sender, next.joinedAt);
   return next;
 }
 
@@ -4745,6 +4746,7 @@ export const devRepairPlayerJoinedAt = spacetimedb.reducer(
     const joinedAt = earlierTimestamp(targetLifetime.joinedAt, sourceLifetime.joinedAt);
     if (joinedAt.microsSinceUnixEpoch === targetLifetime.joinedAt.microsSinceUnixEpoch) return;
     ctx.db.playerLifetime.identity.update({ ...targetLifetime, joinedAt });
+    syncPlayerJoinDate(ctx, identity, joinedAt);
   },
 );
 

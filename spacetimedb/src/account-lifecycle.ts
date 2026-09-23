@@ -7,6 +7,7 @@
 // Helpers that still live in index.ts arrive through createAccountLifecycle's
 // deps so the moved code reads exactly as it did.
 import { SenderError } from "spacetimedb/server";
+import { removePlayerJoinDate, syncPlayerJoinDate } from "./mailbox";
 import {
   ATTACK_BALANCE_VERSION,
   DEFAULT_ATTACK_INTERVAL,
@@ -324,6 +325,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
       };
       if (accountLifetime) ctx.db.playerLifetime.identity.update(nextLifetime);
       else ctx.db.playerLifetime.insert(nextLifetime);
+      syncPlayerJoinDate(ctx, ctx.sender, nextLifetime.joinedAt);
     }
 
     const guestProfile = ctx.db.playerProfile.identity.find(link.guest);
@@ -615,6 +617,7 @@ for (const [contributionTable, attackWindowTable] of [
     removePlayerItemUpgradeData(ctx, link.guest, true);
     if (guestProfile) deleteSnapshotRow(ctx, "playerProfile", link.guest);
     if (guestLifetime) ctx.db.playerLifetime.identity.delete(link.guest);
+    removePlayerJoinDate(ctx, link.guest);
     const guestNameCooldown = ctx.db.playerNameCooldown.identity.find(link.guest);
     if (guestNameCooldown) ctx.db.playerNameCooldown.identity.delete(link.guest);
     const guestChatCooldown = ctx.db.chatCooldown.identity.find(link.guest);
@@ -717,6 +720,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.defeatSessionRestriction.identity.find(identity)) ctx.db.defeatSessionRestriction.identity.delete(identity);
     if (ctx.db.playerLegalConsent.identity.find(identity)) ctx.db.playerLegalConsent.identity.delete(identity);
     if (ctx.db.playerLifetime.identity.find(identity)) ctx.db.playerLifetime.identity.delete(identity);
+    removePlayerJoinDate(ctx, identity);
     if (ctx.db.playerNameCooldown.identity.find(identity)) ctx.db.playerNameCooldown.identity.delete(identity);
     if (ctx.db.playerBalanceVersion.identity.find(identity)) ctx.db.playerBalanceVersion.identity.delete(identity);
     if (ctx.db.playerGemWallet.identity.find(identity)) ctx.db.playerGemWallet.identity.delete(identity);
@@ -818,6 +822,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.defeatSessionRestriction.identity.find(identity)) ctx.db.defeatSessionRestriction.identity.delete(identity);
     if (ctx.db.playerLegalConsent.identity.find(identity)) ctx.db.playerLegalConsent.identity.delete(identity);
     if (ctx.db.playerLifetime.identity.find(identity)) ctx.db.playerLifetime.identity.delete(identity);
+    removePlayerJoinDate(ctx, identity);
     if (ctx.db.playerNameCooldown.identity.find(identity)) ctx.db.playerNameCooldown.identity.delete(identity);
     if (ctx.db.playerBalanceVersion.identity.find(identity)) ctx.db.playerBalanceVersion.identity.delete(identity);
     if (ctx.db.playerGemWallet.identity.find(identity)) ctx.db.playerGemWallet.identity.delete(identity);

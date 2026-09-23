@@ -39,8 +39,9 @@ import { balanceApologyTransactionReference, isBalanceApologyEligible } from "./
 import { BALANCE_APOLOGY_GEM_GIFT } from "../../shared/gems";
 import { grantGemHeartUnlock } from "./chat-reactions";
 import { GEM_KILL_CREDIT_PER_GEM } from "../../shared/gem-drops";
+import { syncPlayerJoinDate } from "./mailbox";
 
-export const MODULE_MIGRATION_VERSION = 41;
+export const MODULE_MIGRATION_VERSION = 42;
 
 export type ModuleMigrationDeps = {
   MAP_ARRIVALS: Record<string, { x: number; y: number }>;
@@ -530,6 +531,10 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
       for (const progress of ctx.db.gemKillProgress.iter() as Iterable<any>) {
         ctx.db.gemKillProgress.identity.update({ ...progress, credit: progress.credit * (GEM_KILL_CREDIT_PER_GEM / 2_000n) });
       }
+    }
+    // 42: copy every join date out of player_lifetime for the mailbox view.
+    if (currentVersion < 42) {
+      for (const lifetime of ctx.db.playerLifetime.iter() as Iterable<any>) syncPlayerJoinDate(ctx, lifetime.identity, lifetime.joinedAt);
     }
     const next = { id: 0, version: MODULE_MIGRATION_VERSION };
     if (state) ctx.db.moduleMigrationState.id.update(next);

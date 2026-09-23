@@ -66,3 +66,21 @@ describe("mailbox", () => {
     expect(() => f.transaction(() => publishMailboxLetter(f.ctx as never, { ...letter, gems: 500n }))).toThrow(/already in use/);
   });
 });
+
+describe("mailbox join date", () => {
+  it("reads the join date from its own row, so kill reports never re-run the view", () => {
+    const f = fixture();
+    f.seed("playerJoinDate", { identity: f.ctx.sender, joinedAt: new Timestamp(1n) });
+    const lifetimeReads = vi.spyOn(f.db.playerLifetime.identity, "find");
+    expect(server.myMailboxV2(f.ctx as never)).toHaveLength(1);
+    expect(lifetimeReads).not.toHaveBeenCalled();
+    lifetimeReads.mockRestore();
+  });
+  it("backfills every existing join date once", () => {
+    const f = fixture();
+    f.seed("moduleMigrationState", { id: 0, version: 41 });
+    f.ctx.connectionId = null;
+    f.run(server.onConnect);
+    expect(f.db.playerJoinDate.identity.find(f.ctx.sender)?.joinedAt.microsSinceUnixEpoch).toBe(1n);
+  });
+});
