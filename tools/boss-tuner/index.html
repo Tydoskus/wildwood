@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WildStat Boss Tuner</title>
+<style>
+  :root { color-scheme: dark; --ink: #e9eeea; --muted: #97a39a; --line: #2c3a30; --panel: #151d18; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0d120f; color: var(--ink); font: 14px/1.45 -apple-system, "Segoe UI", system-ui, sans-serif; }
+  header { display: flex; align-items: baseline; gap: 14px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  h1 { margin: 0; font-size: 16px; letter-spacing: .04em; }
+  header p { margin: 0; color: var(--muted); font-size: 12px; }
+  #shell { display: grid; grid-template-columns: 200px minmax(0, 1fr) 300px; height: calc(100vh - 54px); }
+  #list { overflow: auto; border-right: 1px solid var(--line); }
+  #list button { display: block; width: 100%; padding: 10px 14px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+  #list button.is-active { background: var(--panel); box-shadow: inset 3px 0 0 #6fd08c; }
+  #list button span { display: block; color: var(--muted); font-size: 11px; }
+  #stage { display: grid; place-items: center; overflow: auto; background: #17301f; }
+  #controls { padding: 14px; overflow: auto; border-left: 1px solid var(--line); }
+  .field { margin-bottom: 12px; }
+  .field label { display: flex; justify-content: space-between; margin-bottom: 3px; color: var(--muted); font-size: 12px; }
+  .field output { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .field input[type=range] { width: 100%; }
+  fieldset { margin: 0 0 14px; padding: 10px 12px 4px; border: 1px solid var(--line); border-radius: 7px; }
+  legend { padding: 0 5px; color: #9fe0b2; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+  .legend-key { display: flex; gap: 12px; padding: 8px 18px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+  .legend-key i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border-radius: 2px; vertical-align: -1px; }
+  .actions { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+  button.primary { padding: 8px 14px; border: 0; border-radius: 6px; background: #4aa568; color: #06170d; font: 600 13px inherit; cursor: pointer; }
+  button.ghost { padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--ink); font: inherit; cursor: pointer; }
+  #status { color: var(--muted); font-size: 12px; }
+  canvas { display: block; cursor: grab; }
+  canvas.is-dragging { cursor: grabbing; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Boss Tuner</h1>
+  <p>Drag the pink ring to move the body, its edges to resize. Saving writes the constants.</p>
+</header>
+<div class="legend-key">
+  <span><i style="background:#ff40a0"></i>hitbox</span>
+  <span><i style="background:#ffffff"></i>anchor</span>
+  <span><i style="background:#ffd24a"></i>status bar</span>
+  <span><i style="background:#6fd0ff"></i>shadow</span>
+</div>
+<div id="shell">
+  <nav id="list" aria-label="Bosses"></nav>
+  <div id="stage"><canvas id="view" width="700" height="700"></canvas></div>
+  <div id="controls"></div>
+</div>
+<script type="module" src="./boss-tuner.js"></script>
+</body>
+</html>
