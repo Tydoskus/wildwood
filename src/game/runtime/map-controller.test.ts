@@ -500,12 +500,12 @@ it("waits for the authoritative unlock before showing a dragon portal cinematic"
   vi.stubGlobal("document", { body: { classList: { add: vi.fn(), remove: vi.fn() } } });
   const h = portalArrivalHarness({ x: 300, y: 400 });
   h.setUnlocked(false);
-  h.controller.startDragonPortalCutscene();
+  expect(h.controller.startDragonPortalCutscene()).toBe(false);
   expect(h.controller.isCutsceneActive()).toBe(false);
   expect(h.prepareMapAssets).not.toHaveBeenCalled();
   expect(h.markPortalCutsceneSeen).not.toHaveBeenCalled();
   h.setUnlocked(true);
-  h.controller.startDragonPortalCutscene();
+  expect(h.controller.startDragonPortalCutscene()).toBe(true);
   expect(h.controller.isCutsceneActive()).toBe(true);
 });
 

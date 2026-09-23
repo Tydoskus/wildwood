@@ -109,6 +109,36 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
 
 type BossHarness = ReturnType<typeof createFrostclawHarness>;
 
+it.each([
+  ["Desert", "currentMapIsDesert", "getSpiderBoss", "getSpiderResult", "hasSeenSnowlandsPortalCutscene", "startSnowlandsPortalCutscene", "syncSpiderState"],
+  ["Snowlands", "currentMapIsSnow", "getFrostclawBoss", "getFrostclawResult", "hasSeenLavaPortalCutscene", "startLavaPortalCutscene", "syncFrostclawState"],
+  ["Lava", "currentMapIsLava", "getMagmaliskBoss", "getMagmaliskResult", "hasSeenInfernalPortalCutscene", "startInfernalPortalCutscene", "syncMagmaliskState"],
+  ["Infernal", "currentMapIsInfernal", "getGloomrootBoss", "getGloomrootResult", "hasSeenWaterPortalCutscene", "startWaterPortalCutscene", "syncGloomrootState"],
+  ["Water", "currentMapIsWater", "getTidewyrmBoss", "getTidewyrmResult", "hasSeenSamuraiPortalCutscene", "startSamuraiPortalCutscene", "syncTidewyrmState"],
+] as const)("retries the %s first-kill reveal after the server unlock arrives", (_zone, mapCheck, bossGetter, resultGetter, seenGetter, starter, syncName) => {
+  let shared = { encounter: 83n, hp: 100, maxHp: 100, alive: true };
+  const startCutscene = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true);
+  const overrides = {
+    currentMapIsSnow: () => false,
+    [mapCheck]: () => true,
+    [bossGetter]: () => shared,
+    [resultGetter]: () => ({ encounter: 83n, totalDamage: 100,
+      contributors: [{ identity: "local", name: "Local", gender: 0, damage: 100, percentage: 100 }] }),
+    [seenGetter]: () => false,
+    [starter]: startCutscene,
+  } as Partial<Parameters<typeof createBossController>[0]>;
+  const { controller } = createFrostclawHarness(overrides);
+  const sync = controller[syncName];
+  sync();
+  shared = { ...shared, hp: 0, alive: false };
+  sync();
+  expect(startCutscene).toHaveBeenCalledTimes(1);
+  sync();
+  expect(startCutscene).toHaveBeenCalledTimes(2);
+  sync();
+  expect(startCutscene).toHaveBeenCalledTimes(2);
+});
+
 const areaKnockbackBosses: Array<{
   name: string;
   range: number;

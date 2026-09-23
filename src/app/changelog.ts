@@ -1,6 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.793": [
     "The leaderboard stays unlocked and keeps your new rank after you prestige.",
+    "First boss kills in Zones 2–6 now reveal their next portal after the unlock arrives.",
   ],
   "0.792": [
     "Offline farming now earns rewards for up to one hour away.",

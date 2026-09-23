@@ -325,11 +325,11 @@ export function createBossController(options: {
   hasSeenWaterPortalCutscene: () => boolean;
   hasSeenSamuraiPortalCutscene: () => boolean;
   startDragonPortalCutscene: () => void;
-  startSnowlandsPortalCutscene: () => void;
-  startLavaPortalCutscene: () => void;
-  startInfernalPortalCutscene: () => void;
-  startWaterPortalCutscene: () => void;
-  startSamuraiPortalCutscene: () => void;
+  startSnowlandsPortalCutscene: () => boolean | void;
+  startLavaPortalCutscene: () => boolean | void;
+  startInfernalPortalCutscene: () => boolean | void;
+  startWaterPortalCutscene: () => boolean | void;
+  startSamuraiPortalCutscene: () => boolean | void;
   elements: NoticeElements;
   renderPlayerName: (element: HTMLElement, identity: string, name: string, gender?: PlayerGender) => void;
   spawnBurst: (x: number, y: number, color: string, count: number, speed: number) => void;
@@ -864,13 +864,14 @@ function resetMiremawBoss() {
 
   function showSpiderResult(result: BossResult | null | undefined) {
     if (!result || shownSpiderResultEncounter === result.encounter || (portalCutsceneActive() && queuedSpiderResult?.encounter === result.encounter)) return;
-    pendingSpiderResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
     if (localContribution && currentMapIsDesert() && !hasSeenSnowlandsPortalCutscene()) {
+      if (startSnowlandsPortalCutscene() === false) return;
+      pendingSpiderResultEncounter = null;
       queuedSpiderResult = result;
-      startSnowlandsPortalCutscene();
       return;
     }
+    pendingSpiderResultEncounter = null;
     shownSpiderResultEncounter = result.encounter;
     showWorldResult(result, "DESERT SCORPION DEFEATED");
     if (!localContribution) return;
@@ -891,13 +892,14 @@ function resetMiremawBoss() {
 
   function showFrostclawResult(result: BossResult | null | undefined) {
     if (!result || shownFrostclawResultEncounter === result.encounter || (portalCutsceneActive() && queuedFrostclawResult?.encounter === result.encounter)) return;
-    pendingFrostclawResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
     if (localContribution && currentMapIsSnow() && !hasSeenLavaPortalCutscene()) {
+      if (startLavaPortalCutscene() === false) return;
+      pendingFrostclawResultEncounter = null;
       queuedFrostclawResult = result;
-      startLavaPortalCutscene();
       return;
     }
+    pendingFrostclawResultEncounter = null;
     shownFrostclawResultEncounter = result.encounter;
     showWorldResult(result, "FROSTCLAW DEFEATED");
     if (!localContribution) return;
@@ -918,13 +920,14 @@ function resetMiremawBoss() {
 
   function showMagmaliskResult(result: BossResult | null | undefined) {
     if (!result || shownMagmaliskResultEncounter === result.encounter || (portalCutsceneActive() && queuedMagmaliskResult?.encounter === result.encounter)) return;
-    pendingMagmaliskResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
     if (localContribution && currentMapIsLava() && !hasSeenInfernalPortalCutscene()) {
+      if (startInfernalPortalCutscene() === false) return;
+      pendingMagmaliskResultEncounter = null;
       queuedMagmaliskResult = result;
-      startInfernalPortalCutscene();
       return;
     }
+    pendingMagmaliskResultEncounter = null;
     shownMagmaliskResultEncounter = result.encounter;
     showWorldResult(result, "MAGMALISK DEFEATED");
     if (!localContribution) return;
@@ -948,13 +951,14 @@ function resetMiremawBoss() {
 
   function showGloomrootResult(result: BossResult | null | undefined) {
     if (!result || shownGloomrootResultEncounter === result.encounter || (portalCutsceneActive() && queuedGloomrootResult?.encounter === result.encounter)) return;
-    pendingGloomrootResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
     if (localContribution && currentMapIsInfernal() && !hasSeenWaterPortalCutscene()) {
+      if (startWaterPortalCutscene() === false) return;
+      pendingGloomrootResultEncounter = null;
       queuedGloomrootResult = result;
-      startWaterPortalCutscene();
       return;
     }
+    pendingGloomrootResultEncounter = null;
     shownGloomrootResultEncounter = result.encounter;
     showWorldResult(result, "GLOOMROOT DEFEATED");
     if (!localContribution) return;
@@ -978,13 +982,14 @@ function resetMiremawBoss() {
 
   function showTidewyrmResult(result: BossResult | null | undefined) {
     if (!result || shownTidewyrmResultEncounter === result.encounter || (portalCutsceneActive() && queuedTidewyrmResult?.encounter === result.encounter)) return;
-    pendingTidewyrmResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
     if (localContribution && currentMapIsWater() && !hasSeenSamuraiPortalCutscene()) {
+      if (startSamuraiPortalCutscene() === false) return;
+      pendingTidewyrmResultEncounter = null;
       queuedTidewyrmResult = result;
-      startSamuraiPortalCutscene();
       return;
     }
+    pendingTidewyrmResultEncounter = null;
     shownTidewyrmResultEncounter = result.encounter;
     showWorldResult(result, "TIDEWYRM DEFEATED");
     if (!localContribution) return;

@@ -52,12 +52,12 @@ export type MapController = {
   reconcileMapFromServer: () => void;
   queuePortalReveal: (mapId: MapId) => void;
   startProceduralPortalCutscene: () => boolean;
-  startDragonPortalCutscene: (preview?: boolean) => void;
-  startSnowlandsPortalCutscene: (preview?: boolean) => void;
-  startLavaPortalCutscene: (preview?: boolean) => void;
-  startInfernalPortalCutscene: (preview?: boolean) => void;
-  startWaterPortalCutscene: (preview?: boolean) => void;
-  startSamuraiPortalCutscene: (preview?: boolean) => void;
+  startDragonPortalCutscene: (preview?: boolean) => boolean;
+  startSnowlandsPortalCutscene: (preview?: boolean) => boolean;
+  startLavaPortalCutscene: (preview?: boolean) => boolean;
+  startInfernalPortalCutscene: (preview?: boolean) => boolean;
+  startWaterPortalCutscene: (preview?: boolean) => boolean;
+  startSamuraiPortalCutscene: (preview?: boolean) => boolean;
   updatePortalCutscene: (dt: number) => boolean;
   isCutsceneActive: () => boolean;
   isMapTransitioning: () => boolean;
@@ -380,7 +380,7 @@ export function createMapController(options: {
   }
 
   function startMapPortalCutscene(mapId: MapId, preview = false, portal = mapConfig[mapId].portal, seenKey = dragonCutsceneSeenKey) {
-    if (!portal || (!preview && !mapUnlocked(portal.destination))) return;
+    if (!portal || portalCutscene.active || (!preview && !mapUnlocked(portal.destination))) return false;
     // A local boss death is provisional until its reward unlock is acknowledged.
     // Warming destination art must not turn a failed request into an unhandled rejection.
     void options.prepareMapAssets(portal.destination).catch(() => {});
@@ -396,28 +396,29 @@ export function createMapController(options: {
     keys.clear();
     stopTouchMove();
     cutsceneOverlay.hidden = false;
+    return true;
   }
 
-  function startDragonPortalCutscene(preview = false) { startMapPortalCutscene(tutorialMapId, preview); }
+  function startDragonPortalCutscene(preview = false) { return startMapPortalCutscene(tutorialMapId, preview); }
   function startSnowlandsPortalCutscene(preview = false) {
     const portal = mapConfig[desertMapId].secondaryPortal;
-    if (portal) startMapPortalCutscene(desertMapId, preview, portal, snowlandsCutsceneSeenKey);
+    return portal ? startMapPortalCutscene(desertMapId, preview, portal, snowlandsCutsceneSeenKey) : false;
   }
   function startLavaPortalCutscene(preview = false) {
     const portal = mapConfig[snowMapId].secondaryPortal;
-    if (portal) startMapPortalCutscene(snowMapId, preview, portal, lavaCutsceneSeenKey);
+    return portal ? startMapPortalCutscene(snowMapId, preview, portal, lavaCutsceneSeenKey) : false;
   }
   function startInfernalPortalCutscene(preview = false) {
     const portal = mapConfig[lavaMapId].secondaryPortal;
-    if (portal) startMapPortalCutscene(lavaMapId, preview, portal, infernalCutsceneSeenKey);
+    return portal ? startMapPortalCutscene(lavaMapId, preview, portal, infernalCutsceneSeenKey) : false;
   }
   function startWaterPortalCutscene(preview = false) {
     const portal = mapConfig[infernalMapId].secondaryPortal;
-    if (portal) startMapPortalCutscene(infernalMapId, preview, portal, waterCutsceneSeenKey);
+    return portal ? startMapPortalCutscene(infernalMapId, preview, portal, waterCutsceneSeenKey) : false;
   }
   function startSamuraiPortalCutscene(preview = false) {
     const portal = mapConfig[waterMapId].secondaryPortal;
-    if (portal) startMapPortalCutscene(waterMapId, preview, portal, samuraiCutsceneSeenKey);
+    return portal ? startMapPortalCutscene(waterMapId, preview, portal, samuraiCutsceneSeenKey) : false;
   }
 
   function updatePortalCutscene(dt: number) {
@@ -463,8 +464,7 @@ export function createMapController(options: {
       const mapId = getCurrentMapId();
       const portal = mapConfig[mapId].secondaryPortal;
       if (!mapId.startsWith("endless_") || !portal) return false;
-      startMapPortalCutscene(mapId, false, portal, "");
-      return true;
+      return startMapPortalCutscene(mapId, false, portal, "");
     },
     startDragonPortalCutscene,
     startSnowlandsPortalCutscene,
