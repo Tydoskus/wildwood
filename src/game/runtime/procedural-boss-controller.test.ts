@@ -59,6 +59,10 @@ function harness() {
       now += ms;
       controller.update(ms / 1000);
     },
+    adjustServerClock: (ms: number) => {
+      now += ms;
+      controller.update(0);
+    },
   };
 }
 describe("generic boss runtime", () => {
@@ -119,7 +123,7 @@ describe("generic boss runtime", () => {
     h.advance(260);
     expect(h.hit).not.toHaveBeenCalled();
   });
-  it("requires a full visible windup after entry, suspension, and clock corrections", () => {
+  it("keeps local windup through server clock corrections and animates each attack", () => {
     const h = harness();
     h.controller.update(0.016);
     const boss = h.controller.boss()!;
@@ -130,14 +134,19 @@ describe("generic boss runtime", () => {
     expect(h.damagePlayer).not.toHaveBeenCalled();
     h.advance(100);
     expect(h.damagePlayer).toHaveBeenCalledTimes(1);
-    h.advance(15_000);
+    expect(boss.attackAnimationElapsed).toBe(0);
+    h.adjustServerClock(15_000);
     expect(h.damagePlayer).toHaveBeenCalledTimes(1);
-    for (let i = 0; i < 13; i++) h.advance(100);
+    h.advance(100);
+    expect(boss.attackAnimationElapsed).toBeCloseTo(.1);
+    h.advance(100);
+    expect(h.shot).toHaveBeenCalledTimes(1);
+    expect(boss.attackAnimationElapsed).toBe(0);
+    h.adjustServerClock(-20_000);
+    for (let i = 0; i < 44; i++) h.advance(100);
+    expect(h.damagePlayer).toHaveBeenCalledTimes(1);
+    for (let i = 0; i < 15; i++) h.advance(100);
     expect(h.damagePlayer).toHaveBeenCalledTimes(2);
-    h.advance(-20_000);
-    expect(h.damagePlayer).toHaveBeenCalledTimes(2);
-    for (let i = 0; i < 14; i++) h.advance(100);
-    expect(h.damagePlayer).toHaveBeenCalledTimes(3);
   });
 });
 

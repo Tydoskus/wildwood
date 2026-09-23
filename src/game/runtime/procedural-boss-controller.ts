@@ -56,8 +56,7 @@ export function createProceduralBossController(options: {
     bossKey = "";
   let attackElapsed = 0,
     pulseFired = false,
-    shotElapsed = 0,
-    lastUpdateAt: number | null = null;
+    shotElapsed = 0;
   let pendingHits = 0,
     flushAt = 0;
   let observedCompleted: number | null = null, pendingReveal = false;
@@ -65,7 +64,7 @@ export function createProceduralBossController(options: {
   function resetAttacks() {
     attackElapsed = shotElapsed = 0;
     pulseFired = false;
-    lastUpdateAt = null;
+    if (boss) boss.attackAnimationElapsed = undefined;
   }
   function discardBoss() {
     if (boss) boss.dead = true;
@@ -143,11 +142,6 @@ export function createProceduralBossController(options: {
       return;
     }
     const now = options.serverNow() / 1000;
-    const gap = lastUpdateAt === null ? 0 : now - lastUpdateAt;
-    if (gap < 0 || gap > 0.5 || dt > 0.5) {
-      pendingHits = 0;
-      resetAttacks();
-    }
     if (pendingHits && now >= flushAt) {
       options.hit(
         mapId,
@@ -170,10 +164,10 @@ export function createProceduralBossController(options: {
     }
     boss.engaged = true;
     boss.facingX = options.player.x < boss.x ? -1 : 1;
-    // Simulation time drives both warning and impact. A suspended tab or a clock
-    // correction restarts the warning instead of delivering a catch-up attack.
-    lastUpdateAt = now;
+    // The fight is local. A network clock adjustment must not restart its windup.
     const step = Math.max(0, Math.min(dt, 0.1));
+    if (boss.attackAnimationElapsed !== undefined)
+      boss.attackAnimationElapsed += step;
     attackElapsed += step;
     shotElapsed += step;
     if (attackElapsed >= 6) {
@@ -182,6 +176,7 @@ export function createProceduralBossController(options: {
     }
     if (attackElapsed >= 1.4 && !pulseFired) {
       pulseFired = true;
+      boss.attackAnimationElapsed = 0;
       if (distance < 330 + options.player.r) options.damagePlayer(boss.damage);
     }
     if (shotElapsed >= 1.6) {
@@ -201,8 +196,6 @@ export function createProceduralBossController(options: {
         4,
       );
     }
-    if (boss.attackAnimationElapsed !== undefined)
-      boss.attackAnimationElapsed += dt;
     if (distance < boss.r + options.player.r) {
       const angle = Math.atan2(
         options.player.y - boss.y,

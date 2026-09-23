@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.788": [
+    "Endless bosses keep their attack windups and animations in sync during local fights.",
+  ],
   "0.787": [
     "Shots and sword strikes now hit Miremaw's tuned body shape instead of the old circle above it.",
     "Attacks aim at the center of Miremaw's body.",
@@ -2284,6 +2287,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.788": "2026-09-22",
   "0.787": "2026-09-22",
   "0.786": "2026-09-22",
   "0.785": "2026-09-22",
