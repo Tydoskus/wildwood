@@ -38,6 +38,20 @@ it("persists utility ranks and speeds up the next research timer", () => {
     .toBe(BigInt(researchDurationMs("foraging", 0, 1)) * 1_000n);
 });
 
+it("shortens research already in progress when the speed rank rises", () => {
+  const f = crystalFixture();
+  f.seed("playerResearch", { identity: f.ctx.sender, frontierMastery: 0, ...createEmptyResearchRanks() });
+  f.run(server.startResearch, { researchId: "foraging" });
+  const before = f.db.activeResearch.identity.find(f.ctx.sender);
+  f.patch("playerResearch", { researchSpeed: 1 });
+  f.run(server.runMaintenanceSweep);
+  const after = f.db.activeResearch.identity.find(f.ctx.sender);
+  expect(after.completesAt.microsSinceUnixEpoch).toBe(
+    before.startedAt.microsSinceUnixEpoch + BigInt(researchDurationMs("foraging", 0, 1)) * 1_000n,
+  );
+  expect([...f.db.researchCompletionSchedule.iter()][0].completesAtMicros).toBe(after.completesAt.microsSinceUnixEpoch);
+});
+
 it("keeps existing Power research and its completion schedule through the new-tree migration", () => {
   const f = crystalFixture();
   f.seed("moduleMigrationState", { id: 0, version: 39 });

@@ -1,4 +1,4 @@
-import { GEM_KILL_CREDIT_PER_GEM, gemKillCredit, settleGemKillCredit } from "../../shared/gem-drops";
+import { GEM_KILL_CREDIT_LEGACY_IDLE, GEM_KILL_CREDIT_PER_GEM, gemKillCredit, settleGemKillCredit } from "../../shared/gem-drops";
 
 // Gems paid for enemy kills. The gem_kill_progress and player_gem_drop tables,
 // the schema registration and the dev_grant_retroactive_kill_gems reducer
@@ -19,8 +19,8 @@ export function createKillGems(deps: KillGemsDeps) {
    * carries the lifetime kill count after this batch, which only ever rises, so
    * a replayed batch cannot pay twice.
    */
-  function grantKillGems(ctx: any, identity: any, acceptedDefeats: number, active: boolean, lifetimeKillsAfter: bigint) {
-    const earned = gemKillCredit(acceptedDefeats, active);
+  function grantKillGems(ctx: any, identity: any, acceptedDefeats: number, autoFarm: boolean, lifetimeKillsAfter: bigint) {
+    const earned = gemKillCredit(acceptedDefeats, autoFarm);
     if (earned === 0n) return 0n;
     const progress = ctx.db.gemKillProgress.identity.find(identity);
     const settled = settleGemKillCredit((progress?.credit ?? 0n) + earned);
@@ -40,8 +40,8 @@ export function createKillGems(deps: KillGemsDeps) {
   }
 
   // One-time catch-up for kills earned before gems were paid for them. History
-  // carries no record of who was active, so every past kill counts at the idle
-  // rate. Completion is the retro ledger entry itself, so running this twice
+  // carries no record of how each kill was earned, so historical kills retain
+  // their original conservative rate. Completion is the retro ledger entry itself, so running this twice
   // pays nobody twice. A player who already has a progress row was killing
   // while the live path was up: their post-launch kills are credited there, so
   // only the kills before it are paid, and their live remainder is left alone.
@@ -55,26 +55,25 @@ export function createKillGems(deps: KillGemsDeps) {
       const progress = ctx.db.gemKillProgress.identity.find(lifetime.identity);
       let owed: bigint;
       if (!progress) {
-        const settled = settleGemKillCredit(lifetime.enemyKills);
+        const settled = settleGemKillCredit(lifetime.enemyKills * GEM_KILL_CREDIT_LEGACY_IDLE);
         ctx.db.gemKillProgress.insert({ identity: lifetime.identity, credit: settled.remainder });
         owed = settled.gems;
       } else {
-        // Live credits so far, read back as kills at the idle rate: that is the
-        // conservative side, since an active kill was worth two credits.
+        // Treat paid credit as historical idle kills to avoid repaying them.
         let liveGems = 0n;
         for (const tx of ctx.db.gemTransaction.byIdentity.filter(lifetime.identity) as Iterable<any>) {
           if (tx.kind === "enemy_kills" && !String(tx.externalReference).includes(":retro:")) liveGems += tx.delta;
         }
-        const liveKills = liveGems * GEM_KILL_CREDIT_PER_GEM + progress.credit;
+        const liveKills = (liveGems * GEM_KILL_CREDIT_PER_GEM + progress.credit) / GEM_KILL_CREDIT_LEGACY_IDLE;
         const enemyKills = lifetime.enemyKills as bigint;
-        owed = settleGemKillCredit(enemyKills > liveKills ? enemyKills - liveKills : 0n).gems;
+        owed = settleGemKillCredit((enemyKills > liveKills ? enemyKills - liveKills : 0n) * GEM_KILL_CREDIT_LEGACY_IDLE).gems;
       }
       if (owed === 0n) continue;
       applyGemBalanceChange(ctx, { identity: lifetime.identity, delta: owed, kind: "enemy_kills",
         note: "Gems for enemy kills before kill gems existed", externalReference: reference });
       paid += 1; gems += owed;
     }
-    console.log(`Retroactive kill gems: ${players} players considered, ${paid} paid, ${gems} gems at 1 per ${GEM_KILL_CREDIT_PER_GEM} kills`);
+    console.log(`Retroactive kill gems: ${players} players considered, ${paid} paid, ${gems} gems at 1 per ${GEM_KILL_CREDIT_PER_GEM / GEM_KILL_CREDIT_LEGACY_IDLE} historical kills`);
     return { players, paid, gems };
   }
 

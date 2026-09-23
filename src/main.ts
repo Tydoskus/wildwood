@@ -735,7 +735,7 @@ import {
       regularEnemyRespawnBoost.schedule(site);
       respawnMemory.remember(enemyRespawnKey(site), (site.respawnAt - session.gameTime()) * 1000);
     },
-    recordRegularEnemyDefeat: (mapId, enemy) => coop?.recordRegularEnemyDefeat?.(mapId, enemy),
+    recordRegularEnemyDefeat: (mapId, enemy) => coop?.recordRegularEnemyDefeat?.(mapId, enemy, Boolean(autoFarm.targetType())),
     incrementKills: () => { totalKills += 1; },
     drainBossHitResults: () => coop?.drainBossHitResults?.() ?? [],
     currentMapId: () => currentMapId,

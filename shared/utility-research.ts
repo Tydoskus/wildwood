@@ -4,7 +4,7 @@ function rank(value: unknown, max: number) {
   return Number.isFinite(value) ? Math.min(max, Math.max(0, Math.floor(Number(value)))) : 0;
 }
 
-/** Utility research affects new timers; a timer already running keeps its finish time. */
+/** The server also reapplies this duration to running slot upgrades. */
 export function slotUpgradeDurationWithResearch(baseMs: number, speedRank: number) {
   return Math.max(1_000, Math.round(baseMs / (1 + rank(speedRank, 5) * .01)));
 }

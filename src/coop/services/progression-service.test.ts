@@ -86,13 +86,14 @@ function setup() {
     removeEventListener: vi.fn(),
   });
   const recordEnemyDefeats = vi.fn(async (_request: any): Promise<void> => {});
+  const recordAutoFarmEnemyDefeats = vi.fn(async (_request: any): Promise<void> => {});
   const savePlayerProgress = vi.fn(async (): Promise<void> => {});
   const resetPlayerProgress = vi.fn(async (): Promise<void> => {});
   const prestigeAccount = vi.fn(async (): Promise<void> => {});
   const claimDeveloperItemGift = vi.fn(async (): Promise<void> => {});
   const entry = { ready: true, blocked: false, hydrated: true };
   const destroyEquipment = vi.fn(async () => {});
-  const connection = { reducers: { recordEnemyDefeats, savePlayerProgress, resetPlayerProgress, prestigeAccount, claimDeveloperItemGift, destroyEquipment } };
+  const connection = { reducers: { recordEnemyDefeats, recordAutoFarmEnemyDefeats, savePlayerProgress, resetPlayerProgress, prestigeAccount, claimDeveloperItemGift, destroyEquipment } };
   const reducers = {
     connection: () => connection,
     protocolBlocked: () => false,
@@ -116,7 +117,7 @@ function setup() {
     storage: new MemoryStorage(),
     pendingProgressKey: "pending-progress",
   });
-  return { recordEnemyDefeats, notify, savePlayerProgress, resetPlayerProgress, prestigeAccount, service, entry, claimDeveloperItemGift, destroyEquipment };
+  return { recordEnemyDefeats, recordAutoFarmEnemyDefeats, notify, savePlayerProgress, resetPlayerProgress, prestigeAccount, service, entry, claimDeveloperItemGift, destroyEquipment };
 }
 
 describe("local progression profile snapshots", () => {
@@ -302,6 +303,17 @@ describe("server-calculated defeat batches", () => {
     expect(h.savePlayerProgress).not.toHaveBeenCalled();
     expect(h.service.progressFor(identity)?.damage).toBe(base.damage);
     expect(h.recordEnemyDefeats.mock.calls[0][0]).not.toHaveProperty("progress");
+    h.service.dispose();
+  });
+
+  it("routes Auto Farm kills to the Auto Farm reward reducer", async () => {
+    const h = setup();
+    h.service.api.recordRegularEnemyDefeat("water_reach", "Tide Raider", true);
+    expect(await h.service.drainEnemyLoot()).toBe(true);
+    expect(h.recordAutoFarmEnemyDefeats).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      enemies: [{ enemy: "Tide Raider", count: 1 }],
+    }));
+    expect(h.recordEnemyDefeats).not.toHaveBeenCalled();
     h.service.dispose();
   });
 

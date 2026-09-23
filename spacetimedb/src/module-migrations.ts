@@ -38,8 +38,9 @@ import { generateMap, isProceduralMap, proceduralMapId, proceduralMapNumber } fr
 import { balanceApologyTransactionReference, isBalanceApologyEligible } from "./balance-apology";
 import { BALANCE_APOLOGY_GEM_GIFT } from "../../shared/gems";
 import { grantGemHeartUnlock } from "./chat-reactions";
+import { GEM_KILL_CREDIT_PER_GEM } from "../../shared/gem-drops";
 
-export const MODULE_MIGRATION_VERSION = 40;
+export const MODULE_MIGRATION_VERSION = 41;
 
 export type ModuleMigrationDeps = {
   MAP_ARRIVALS: Record<string, { x: number; y: number }>;
@@ -522,6 +523,13 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     if (currentVersion < 40) {
       const skittle = Identity.fromString("c2000fe3ee7c17481d5dcb88ae9d09af8a28a6f0d63643e59ed75a3fc3c80a8e");
       grantGemHeartUnlock(ctx, skittle, true);
+    }
+    // Scale the previous 2,000-credit ledger exactly into the new 6,000-credit
+    // unit before any defeat is credited at the Auto Farm rate.
+    if (currentVersion < 41) {
+      for (const progress of ctx.db.gemKillProgress.iter() as Iterable<any>) {
+        ctx.db.gemKillProgress.identity.update({ ...progress, credit: progress.credit * (GEM_KILL_CREDIT_PER_GEM / 2_000n) });
+      }
     }
     const next = { id: 0, version: MODULE_MIGRATION_VERSION };
     if (state) ctx.db.moduleMigrationState.id.update(next);

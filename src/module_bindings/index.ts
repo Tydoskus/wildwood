@@ -121,6 +121,7 @@ import PrepareWorldActionPositionReducer from "./prepare_world_action_position_r
 import PrestigeAccountReducer from "./prestige_account_reducer";
 import PulseDuelReducer from "./pulse_duel_reducer";
 import ReadMailboxLetterReducer from "./read_mailbox_letter_reducer";
+import RecordAutoFarmEnemyDefeatsReducer from "./record_auto_farm_enemy_defeats_reducer";
 import RecordCombatCheckpointReducer from "./record_combat_checkpoint_reducer";
 import RecordConnectionDiagnosticReducer from "./record_connection_diagnostic_reducer";
 import RecordDesertEnemyDefeatReducer from "./record_desert_enemy_defeat_reducer";
@@ -1353,6 +1354,7 @@ const reducersSchema = __reducers(
   __reducerSchema("prestige_account", PrestigeAccountReducer),
   __reducerSchema("pulse_duel", PulseDuelReducer),
   __reducerSchema("read_mailbox_letter", ReadMailboxLetterReducer),
+  __reducerSchema("record_auto_farm_enemy_defeats", RecordAutoFarmEnemyDefeatsReducer),
   __reducerSchema("record_combat_checkpoint", RecordCombatCheckpointReducer),
   __reducerSchema("record_connection_diagnostic", RecordConnectionDiagnosticReducer),
   __reducerSchema("record_desert_enemy_defeat", RecordDesertEnemyDefeatReducer),

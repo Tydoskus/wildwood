@@ -1,4 +1,7 @@
 import { SenderError } from "spacetimedb/server";
+import { Timestamp } from "spacetimedb";
+import { itemUpgradeDurationMs } from "../../shared/items";
+import { slotUpgradeDurationWithResearch } from "../../shared/utility-research";
 
 export const UPGRADE_BENCH_SLOT_ONE = 1;
 export const UPGRADE_BENCH_SLOT_TWO = 2;
@@ -55,4 +58,23 @@ export function secondUpgradeSlotUnlockedFor(ctx: any, identity: any) {
 export function thirdUpgradeSlotUnlockedFor(ctx: any, identity: any) {
   const bench = ctx.db.playerUpgradeBench.identity.find(identity);
   return bench?.secondSlotUnlocked === true && Boolean(ctx.db.playerUpgradeBenchThirdSlot.identity.find(identity));
+}
+
+/** Apply a newly earned speed rank to an in-flight job without extending it. */
+export function rebaseActiveItemUpgradeTimer(ctx: any, active: any, slot: number) {
+  const duration = BigInt(slotUpgradeDurationWithResearch(
+    itemUpgradeDurationMs(active.currentLevel), ctx.db.playerResearch.identity.find(active.identity)?.slotUpgradeSpeed ?? 0,
+  )) * 1_000n;
+  const expectedFinish = active.startedAt.microsSinceUnixEpoch + duration;
+  if (expectedFinish >= active.completesAt.microsSinceUnixEpoch) return active;
+  const next = { ...active, completesAt: new Timestamp(expectedFinish), remainingMicros: duration };
+  if (ctx.timestamp.microsSinceUnixEpoch >= expectedFinish) return next;
+  if (slot === UPGRADE_BENCH_SLOT_THREE) ctx.db.activeItemUpgradeSlotThree.identity.update(next);
+  else if (slot === UPGRADE_BENCH_SLOT_TWO) ctx.db.activeItemUpgradeSlotTwo.identity.update(next);
+  else ctx.db.activeItemUpgrade.identity.update(next);
+  return next;
+}
+
+export function refreshActiveSlotUpgrades(ctx: any, identity: any, reconcile: (ctx: any, active: any, slot: number) => void) {
+  for (const { slot, active } of activeItemUpgradeEntriesFor(ctx, identity)) reconcile(ctx, active, slot);
 }

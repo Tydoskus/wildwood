@@ -21,6 +21,16 @@ it("combines kills, keeps source maps separate, and bounds batches", async () =>
   await f.queue.flush(true);
   expect(f.send.mock.calls.slice(2).map(([r]) => r.count)).toEqual([100, 100, 5]);
 });
+it("keeps manual and Auto Farm kills in separate retryable batches", async () => {
+  const f = fixture();
+  f.queue.record("cloudspire", "Spitter", false);
+  f.queue.record("cloudspire", "Spitter", true);
+  f.queue.record("cloudspire", "Spitter", true);
+  f.queue.record("cloudspire", "Spitter", false);
+  await f.queue.flush(true);
+  expect(f.send.mock.calls.map(([request]) => [request.autoFarm, request.count]))
+    .toEqual([[false, 1], [true, 2], [false, 1]]);
+});
 it("persists an unacknowledged batch and never adds kills to a retry", async () => {
   const f = fixture(); f.send.mockResolvedValue(false);
   f.queue.record("water_reach", "Spitter");

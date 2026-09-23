@@ -7,7 +7,7 @@ import { REGULAR_ENEMY_LOOT_BATCH_MAX } from "../../../shared/regular-map-loot";
 export const ENEMY_DEFEAT_ACK_TIMEOUT_MS = 15_000;
 export const ENEMY_DEFEAT_BATCH_TIMEOUT_MS = 25_000;
 
-type Batch = { sequence: number; mapId: string; count: number; sealed: boolean; enemies: EnemyDefeat[] };
+type Batch = { sequence: number; mapId: string; count: number; sealed: boolean; enemies: EnemyDefeat[]; autoFarm?: boolean };
 type State = { streamId: string; nextSequence: number; batches: Batch[]; retryAtMs?: number; touchedAtMs?: number };
 /**
  * A queue is keyed by tab so two open tabs cannot claim one stream twice, but
@@ -18,7 +18,7 @@ type State = { streamId: string; nextSequence: number; batches: Batch[]; retryAt
  */
 export const ORPHAN_QUEUE_AFTER_MS = 120_000;
 const QUEUE_KEY_PREFIX = "wildstat-enemy-defeats-v2:";
-export type EnemyLootRequest = { streamId: string; sequence: bigint; mapId: string; count: number; enemies: EnemyDefeat[] };
+export type EnemyLootRequest = { streamId: string; sequence: bigint; mapId: string; count: number; enemies: EnemyDefeat[]; autoFarm: boolean };
 
 /** Persist before sending and retry the same sequence after an interrupted reply. */
 export function createRegularEnemyLootQueue(options: {
@@ -120,7 +120,7 @@ export function createRegularEnemyLootQueue(options: {
         }
         write(storageKey, stream);
         let accepted: boolean | "discard" | "throttled" = false;
-        try { accepted = await withRequestDeadline(options.send({ streamId: stream.streamId, sequence: BigInt(batch.sequence), mapId: batch.mapId, count: batch.count, enemies: batch.enemies }), ENEMY_DEFEAT_BATCH_TIMEOUT_MS); } catch {}
+        try { accepted = await withRequestDeadline(options.send({ streamId: stream.streamId, sequence: BigInt(batch.sequence), mapId: batch.mapId, count: batch.count, enemies: batch.enemies, autoFarm: Boolean(batch.autoFarm) }), ENEMY_DEFEAT_BATCH_TIMEOUT_MS); } catch {}
         if (epoch !== runEpoch || options.identity() !== runOwner) return false;
         if (accepted === "throttled") { stream.retryAtMs = Date.now() + 30_000; write(storageKey, stream); return false; }
         if (!accepted) return false;
@@ -161,16 +161,16 @@ export function createRegularEnemyLootQueue(options: {
   return {
     begin, flush,
     hasPending: () => Boolean(state?.batches.length || adopted.length),
-    record(mapId: string, enemy: string) {
+    record(mapId: string, enemy: string, autoFarm = false) {
       if (owner !== options.identity()) begin();
       if (!owner || !state || !combatMap(mapId) || !enemy) return;
       const tail = state.batches.at(-1);
-      if (tail && !tail.sealed && tail.mapId === mapId && tail.count < REGULAR_ENEMY_LOOT_BATCH_MAX) {
+      if (tail && !tail.sealed && tail.mapId === mapId && Boolean(tail.autoFarm) === autoFarm && tail.count < REGULAR_ENEMY_LOOT_BATCH_MAX) {
         tail.count++;
         const entry = tail.enemies.find(entry => entry.enemy === enemy);
         if (entry) entry.count++; else tail.enemies.push({ enemy, count: 1 });
       }
-      else state.batches.push({ sequence: state.nextSequence++, mapId, count: 1, enemies: [{ enemy, count: 1 }], sealed: false });
+      else state.batches.push({ sequence: state.nextSequence++, mapId, count: 1, enemies: [{ enemy, count: 1 }], sealed: false, autoFarm });
       persist();
     },
     reset() { cancelBossRetry(); bossRetryDelay = 2_000; epoch++; inFlight = null; if (owner) { state = empty(); persist(); } },

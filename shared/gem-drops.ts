@@ -5,18 +5,18 @@
  * full block of credit is one gem. Two players with the same kills get the
  * same gems.
  *
- * Active play earns double. The server decides "active" from its own record
- * of the player's presence, never from a reported flag.
+ * Manual kills earn the same credit whether the player is visible or hidden.
+ * Auto Farm earns two thirds as much credit per kill.
  */
-export const GEM_KILL_CREDIT_PER_GEM = 2_000n;
-/** One gem per thousand kills while present in the world. */
-export const GEM_KILL_CREDIT_ACTIVE = 2n;
-/** One gem per two thousand kills while hidden or idle. */
-export const GEM_KILL_CREDIT_IDLE = 1n;
+export const GEM_KILL_CREDIT_PER_GEM = 6_000n;
+export const GEM_KILL_CREDIT_MANUAL = 6n;
+export const GEM_KILL_CREDIT_AUTO_FARM = 4n;
+/** Credit for a pre-migration kill valued at the previous hidden rate. */
+export const GEM_KILL_CREDIT_LEGACY_IDLE = 3n;
 
-export function gemKillCredit(acceptedDefeats: number, active: boolean): bigint {
+export function gemKillCredit(acceptedDefeats: number, autoFarm: boolean): bigint {
   if (!Number.isInteger(acceptedDefeats) || acceptedDefeats < 1) return 0n;
-  return BigInt(acceptedDefeats) * (active ? GEM_KILL_CREDIT_ACTIVE : GEM_KILL_CREDIT_IDLE);
+  return BigInt(acceptedDefeats) * (autoFarm ? GEM_KILL_CREDIT_AUTO_FARM : GEM_KILL_CREDIT_MANUAL);
 }
 
 /** Split accumulated credit into whole gems and the remainder carried forward. */
