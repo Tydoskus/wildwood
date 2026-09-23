@@ -12,7 +12,7 @@ export const FROSTCLAW_ROAR_RANGE = 820;
 export const FROSTCLAW_RIFT_RANGE = 920;
 export const FROSTCLAW_RIFT_HALF_ANGLE = .075;
 export const FROSTCLAW_SPRITE_Y_OFFSET = -12;
-export const FROSTCLAW_SPRITE_GROUND_OFFSET = 174;
+export const FROSTCLAW_SPRITE_GROUND_OFFSET = 190;
 export const MAGMALISK_AGGRO_RANGE = 650;
 export const MAGMALISK_BITE_RANGE = 760;
 export const MAGMALISK_BITE_HALF_ANGLE = .42;
@@ -98,7 +98,7 @@ export const RANGED_PROJECTILE_SPEED = 165 * 3;
 /** Where Spider's pixels start, which the status bar hangs from. */
 export const SPIDER_ART_TOP = -294;
 
-export const SPIDER_SPRITE_GROUND_OFFSET = -15;
+export const SPIDER_SPRITE_GROUND_OFFSET = 3;
 
 /** Where Frostclaw's pixels start, which the status bar hangs from. */
 export const FROSTCLAW_ART_TOP = -211;
@@ -131,13 +131,13 @@ export const SPIDER_DEPTH_OFFSET = -15;
  * as its shadow's until the two were separated.
  */
 export const SPIDER_STAND_OFFSET = 55;
-export const FROSTCLAW_DEPTH_OFFSET = 205;
+export const FROSTCLAW_DEPTH_OFFSET = 178;
 export const MAGMALISK_DEPTH_OFFSET = 142;
-export const GLOOMROOT_DEPTH_OFFSET = 184;
+export const GLOOMROOT_DEPTH_OFFSET = 160;
 export const TIDEWYRM_DEPTH_OFFSET = 79;
 export const KOI_SHOGUN_DEPTH_OFFSET = 90;
 export const TEMPEST_KIRIN_DEPTH_OFFSET = 171;
-export const MIREMAW_DEPTH_OFFSET = 220;
+export const MIREMAW_DEPTH_OFFSET = 142;
 export const PRISMSHELL_DEPTH_OFFSET = 170;
 export const IRONHORN_DEPTH_OFFSET = 170;
 export const DREADREAPER_DEPTH_OFFSET = 170;
