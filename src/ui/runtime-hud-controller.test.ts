@@ -105,6 +105,20 @@ it("keeps the account-wide online count through a regional handoff, then clears 
 });
 
 describe("runtime reward notifications", () => {
+  it("shows research and both bench-slot completions as separate reward-style cards", () => {
+    const { controller, pickupLog } = setupHud();
+    controller.showProgressCompletion("Research", "WARCRAFT Lv 6", "⚔", "#f3a6ce");
+    controller.showProgressCompletion("Upgrade", "WEAPON +1", "◆", "#f3cf70");
+    controller.showProgressCompletion("Upgrade", "HELMET +2", "◆", "#f3cf70");
+    expect(pickupLog.children).toHaveLength(3);
+    expect(pickupLog.children.map((entry) => entry.getAttribute("aria-label"))).toEqual([
+      "Research complete: WARCRAFT Lv 6", "Upgrade complete: WEAPON +1", "Upgrade complete: HELMET +2",
+    ]);
+    expect(pickupLog.children.every((entry) => entry.className.includes("stat-reward-toast"))).toBe(true);
+    vi.advanceTimersByTime(2_400);
+    expect(pickupLog.children).toHaveLength(0);
+  });
+
   it("changes an existing attack-speed popup to Capped and keeps repeated capped rewards there", () => {
     const { controller, pickupLog, player } = setupHud();
     controller.logPickup("+0.25 ATK/SEC", "#fff");

@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.783": [
+    "Inventory marks a finished upgrade from either bench slot with a red dot.",
+    "Research and slot upgrades show a reward card when they finish.",
+    "Loadout Upgrades names the bench, and your stats show what a slot tier adds.",
+    "Prestige badges show on the leaderboard.",
+  ],
   "0.782": [
     "Slot upgrades survive a prestige.",
     "Nobody stands bare-chested, and bare legs match your skin tone.",
@@ -2262,6 +2268,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.783": "2026-09-22",
   "0.782": "2026-09-22",
   "0.781": "2026-09-22",
   "0.780": "2026-09-22",

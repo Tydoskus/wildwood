@@ -1,4 +1,5 @@
 import { createGemShopController } from "./gem-shop-controller";
+import { HOME_RESEARCH_POSITION } from "../../shared/home";
 import { recentReleaseNotes } from "../app/changelog";
 import { isDeveloperIdentity } from "../app/developer";
 import {
@@ -13,6 +14,21 @@ import { createOverlaysController } from "./overlays-controller";
 import { createRuntimeHudController } from "./runtime-hud-controller";
 import { createPrestigeController } from "./prestige-panel";
 import { createTechTreeController } from "./tech-tree-controller";
+
+export function createHomeStationTouchHandler(
+  isHome: () => boolean,
+  player: { x: number; y: number },
+  openResearch: () => void,
+  updateBench: () => void,
+) {
+  let touchingResearch = false;
+  return () => {
+    const touching = isHome() && Math.hypot(player.x - HOME_RESEARCH_POSITION.x, player.y - (HOME_RESEARCH_POSITION.y - 36)) < 42.5;
+    if (touching && !touchingResearch) openResearch();
+    touchingResearch = touching;
+    updateBench();
+  };
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createGameOverlays(d: Record<string, any>) {
@@ -54,7 +70,7 @@ export function createPrestigePanel(d: Record<string, any>) {
 export function createTechTreePanel(d: Record<string, any>) {
   const e = d.e;
   return createTechTreeController({ notice: e.techTreeNotice, overlay: e.techTreeOverlay, closeButton: e.closeTechTreeBtn, active: e.techTreeActive, canvas: e.techTreeCanvas, map: e.techTreeMap, detail: e.techTreeDetail, detailContent: e.techTreeDetailContent, closeDetailButton: e.closeTechTreeDetailBtn }, {
-    researchRanks: d.researchRanks, activeResearch: d.activeResearch, startResearch: d.startResearch, gemBalance: d.gemBalance, speedUpResearch: d.speedUpResearch, showMessage: d.showMessage, beforeOpen: d.beforeOpen, nowMs: () => Date.now(),
+    researchRanks: d.researchRanks, activeResearch: d.activeResearch, startResearch: d.startResearch, gemBalance: d.gemBalance, speedUpResearch: d.speedUpResearch, showMessage: d.showMessage, localIdentity: d.localIdentity, isConnected: d.isConnected, onResearchFinished: d.onResearchFinished, beforeOpen: d.beforeOpen, nowMs: () => Date.now(),
   });
 }
 

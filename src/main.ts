@@ -9,7 +9,7 @@ import { MAP_IDS as CAMPAIGN_MAP_IDS } from "../shared/rules";
 import { weaponAttackRange } from "./game/weapon-combat";
 import { createPlayerVisibilityToggle } from "./ui/player-visibility-toggle";
 import { createPanelCoordinator } from "./ui/panel-coordinator";
-import { createInventoryNotice } from "./ui/inventory-notice";
+import { createProgressCompletionNotices } from "./ui/progress-completion-notices";
 import { createOfflineProgressSummary } from "./ui/offline-progress-summary";
 import { createFullscreenMovementGate } from "./ui/fullscreen-movement";
 import { installGameTicker } from "./ui/game-ticker";
@@ -27,7 +27,7 @@ import { prestigePerkValue } from "../shared/prestige-perks";
 import { createProceduralBossController } from "./game/runtime/procedural-boss-controller";
 import { bindPlayerNameTags } from "./app/player-name-tags";
 import { bindAvatarFrames } from "./app/avatar-frames";
-import { HOME_RESEARCH_POSITION, HOME_WORLD_WIDTH, HOME_WORLD_HEIGHT } from "../shared/home";
+import { HOME_WORLD_WIDTH, HOME_WORLD_HEIGHT } from "../shared/home";
 import { WORLD_WIDTH, WORLD_HEIGHT } from "../shared/rules";
 import { createGuildPanel } from "./ui/guild-panel";
 import { bindHomeTeleportButton } from "./ui/home-teleport-button";
@@ -112,7 +112,7 @@ import { hasApprovedGameSession } from "./coop/startup-state-machine";
 import { createRewardedRespawnAdController } from "./ui/rewarded-respawn-ad-controller";
 import { createGameElements } from "./ui/game-elements";
 import { bindGameInteractionListeners } from "./ui/game-interaction-bindings";
-import { createDevPanel, createGameActionsRuntime, createGameOverlays, createGameRuntimeHud, createLeaderboardPanel, createPrestigePanel, createTechTreePanel } from "./ui/game-ui-runtime";
+import { createDevPanel, createGameActionsRuntime, createGameOverlays, createGameRuntimeHud, createHomeStationTouchHandler, createLeaderboardPanel, createPrestigePanel, createTechTreePanel } from "./ui/game-ui-runtime";
 import { formatCompactNumber, formatGemAmount } from "./ui/number-format";
 import { playerGenderIconPath } from "./ui/player-gender";
 import type { LeaderboardEntry } from "./wildstat-coop";
@@ -1453,6 +1453,10 @@ import {
     settingsPanel, inventoryPanel, settingsBtn, inventoryBtn,
   });
 
+  const progressNotices = createProgressCompletionNotices(
+    gameElements.inventoryBtn, () => coop,
+    (kind, detail, icon, color) => runtimeHud.showProgressCompletion(kind, detail, icon, color),
+  );
   const techTree = createTechTreePanel({
     e: gameElements,
     researchRanks,
@@ -1460,6 +1464,7 @@ import {
     startResearch: async (id: ResearchId) => coop?.startResearch?.(id),
     gemBalance: () => coop?.gemBalance?.() ?? 0n,
     speedUpResearch: async () => coop?.speedUpResearchWithGems?.(),
+    ...progressNotices.researchHooks,
     showMessage,
     beforeOpen: () => panels.closeAllExcept("techTree"),
   });
@@ -1552,16 +1557,10 @@ import {
     teleport: () => inTutorial() ? Promise.resolve(false) : mapController.teleportHome(),
     showFailure: failed => showMessage(failed ? "TELEPORT FAILED · TRY AGAIN" : "TELEPORT UNAVAILABLE", "#ffbc91"),
   });
-  let touchingResearch = false;
-  const inventoryNotice = createInventoryNotice(gameElements.inventoryBtn);
-  function updateHomeStations() {
-    const home = currentMapId === "home_exterior";
-    const touching = home && !mapController.isMapTransitioning() && Math.hypot(player.x - HOME_RESEARCH_POSITION.x, player.y - (HOME_RESEARCH_POSITION.y - 36)) < 42.5;
-    if (touching && !touchingResearch) { playerInput.clear(); techTree.open(); }
-    touchingResearch = touching;
-    upgradeBenchController.updateTouch();
-    inventoryNotice.set(upgradeBenchController.finishedUpgradeWaiting(!gameElements.inventoryPanel.hidden));
-  }
+  const updateHomeStations = createHomeStationTouchHandler(
+    () => currentMapId === "home_exterior" && !mapController.isMapTransitioning(), player,
+    () => { playerInput.clear(); techTree.open(); }, () => upgradeBenchController.updateTouch(),
+  );
   upgradeBenchController = createUpgradeBenchController({
     panel: gameElements.upgradeBenchPanel,
     prompt: gameElements.upgradeBenchPrompt,
@@ -1576,7 +1575,6 @@ import {
     pickerItems: gameElements.upgradeBenchPickerItems,
     closePicker: gameElements.closeUpgradeBenchPickerBtn,
   }, {
-    inventory,
     playerPosition: () => player,
     currentMapId: () => currentMapId,
     benchMapId: "home_exterior",
@@ -1604,6 +1602,7 @@ import {
       renderInventory();
       saveProgress(true);
     },
+    onUpgradeFinished: progressNotices.onUpgradeFinished,
     showMessage,
   });
 
@@ -1763,6 +1762,7 @@ import {
     capturePresentationState: presentation.capture,
     resetPresentationState: presentation.reset,
     render: (interpolationAlpha) => presentation.render(interpolationAlpha, () => {
+      progressNotices.poll(techTree, upgradeBenchController, !inventoryPanel.hidden);
       upgradeBenchController.tick();
       guildPanel?.tick();
       if (activeDuel() || isArenaScene()) void assets.ensureDuelAssets();
