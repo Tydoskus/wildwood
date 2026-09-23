@@ -1,4 +1,5 @@
 import { wildstatCoop } from "../../wildstat-coop";
+import { createFrameCoalescer, type FrameCoalescerScheduler } from "./frame-coalescer";
 
 type CoopClient = typeof wildstatCoop;
 type AccountState = ReturnType<CoopClient["accountState"]>;
@@ -26,15 +27,40 @@ type CoopSessionDependencies = {
   updateDuelControls: () => void;
   refreshAppStatus: () => void;
   refreshReconnectOverlay: () => void;
+  scheduler?: FrameCoalescerScheduler;
 };
 
-/** Applies a server-table change to the local gameplay and account session. */
+/**
+ * Applies a server-table change to the local gameplay and account session.
+ *
+ * Every kill, presence row and profile row notifies, so a busy map asks for
+ * this many times a frame. Steady-state changes share one pass per frame. A
+ * new session or a changed identity still runs at once: movement sync, the
+ * protocol gate and startup must not see one frame of the previous session.
+ */
 export function createCoopSessionController(dependencies: CoopSessionDependencies) {
+  let refreshedIdentity = "";
+  const coalescer = createFrameCoalescer(refresh, dependencies.scheduler);
+
   function onChange() {
+    const coop = dependencies.coop;
+    if (!coop) return;
+    const sessionChanged = (coop.sessionGeneration?.() || 0) !== dependencies.observedSessionGeneration();
+    if (sessionChanged || (coop.localIdentity?.() || "") !== refreshedIdentity) refreshNow();
+    else coalescer.request();
+  }
+
+  function refreshNow() {
+    coalescer.cancel();
+    refresh();
+  }
+
+  function refresh() {
     const coop = dependencies.coop;
     if (!coop) return;
 
     const identity = coop.localIdentity?.() || "";
+    refreshedIdentity = identity;
     dependencies.syncLifetimeKills(identity);
     dependencies.refreshGemCounter();
     dependencies.refreshOpenProfile();
@@ -64,5 +90,5 @@ export function createCoopSessionController(dependencies: CoopSessionDependencie
     dependencies.refreshReconnectOverlay();
   }
 
-  return { onChange };
+  return { onChange, refreshNow };
 }
