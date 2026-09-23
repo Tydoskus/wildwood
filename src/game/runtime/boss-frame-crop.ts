@@ -55,14 +55,19 @@ export function drawBossSheetFrame(
     columns?: number;
     drawWidth: number;
     drawHeight: number;
+    /** Draw from this top edge instead of centring, for a boss placed by its feet. */
+    top?: number;
+    /** Already-resolved source origin, for a sheet read by something else. */
+    sourceX?: number;
+    sourceY?: number;
   },
 ) {
   const columns = options.columns ?? 0;
   const crop = bossFrameCrop(options.bossId, options.frame);
   const column = columns > 0 ? options.frame % columns : options.frame;
   const row = columns > 0 ? Math.floor(options.frame / columns) : 0;
-  const sourceX = column * options.cellWidth + (crop.sourceX ?? 0);
-  const sourceY = row * options.cellHeight + (crop.sourceY ?? 0);
+  const sourceX = (options.sourceX ?? column * options.cellWidth) + (crop.sourceX ?? 0);
+  const sourceY = (options.sourceY ?? row * options.cellHeight) + (crop.sourceY ?? 0);
   const sourceWidth = options.cellWidth + (crop.sourceWidth ?? 0);
   const sourceHeight = options.cellHeight + (crop.sourceHeight ?? 0);
   if (sourceWidth <= 0 || sourceHeight <= 0) return;
@@ -71,8 +76,9 @@ export function drawBossSheetFrame(
   const scale = 1 + (crop.scale ?? 0);
   const width = options.drawWidth * (sourceWidth / options.cellWidth) * scale;
   const height = options.drawHeight * (sourceHeight / options.cellHeight) * scale;
+  const top = options.top ?? -height / 2;
   ctx.drawImage(
     sheet, sourceX, sourceY, sourceWidth, sourceHeight,
-    -width / 2 + (crop.offsetX ?? 0), -height / 2 + (crop.offsetY ?? 0), width, height,
+    -width / 2 + (crop.offsetX ?? 0), top + (crop.offsetY ?? 0), width, height,
   );
 }

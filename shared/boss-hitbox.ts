@@ -71,10 +71,10 @@ export const TEMPEST_KIRIN_VERTICAL_RADIUS = 139;
 export const TEMPEST_KIRIN_HITBOX_OFFSET_Y = 32;
 
 /** Spider's body height. Tuned in tools/boss-tuner. */
-export const SPIDER_VERTICAL_RADIUS = 109;
+export const SPIDER_VERTICAL_RADIUS = 103;
 
 /** Where Spider's body sits relative to its anchor. */
-export const SPIDER_HITBOX_OFFSET_Y = -38;
+export const SPIDER_HITBOX_OFFSET_Y = -43;
 
 /** Frostclaw's body height. Tuned in tools/boss-tuner. */
 export const FROSTCLAW_VERTICAL_RADIUS = 191;

@@ -26,6 +26,7 @@ import {
   GLOOMROOT_ART_TOP,
   MAGMALISK_ART_TOP,
   MIREMAW_ART_TOP,
+  SPIDER_SPRITE_GROUND_OFFSET,
   TEMPEST_KIRIN_ART_TOP,
   TIDEWYRM_ART_TOP,
   MIREMAW_SPRITE_GROUND_OFFSET,
@@ -99,7 +100,7 @@ import {
 import { healthBarTextY } from "./health-bar-layout";
 import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, MiremawBogBurst, PrismshellCrystalBurst, IronhornCrystalBurst, DreadreaperCrystalBurst, VoltwardenCrystalBurst, GravebloomCrystalBurst, AegisPrimeCrystalBurst, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, AegisPrimeBossState, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
 import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
-import { SCORPION_SPRITE, scorpionSpriteFrame } from "./scorpion-sprite";
+import { scorpionSpriteFrame } from "./scorpion-sprite";
 import { prismshellSpriteFrame } from "./prismshell-sprite";
 import { ironhornSpriteFrame } from "./ironhorn-sprite";
 import { dreadreaperSpriteFrame } from "./dreadreaper-sprite";
@@ -336,9 +337,18 @@ export function createBossRenderer(options: {
     const x = screenX(spiderBoss.x);
     const y = screenY(spiderBoss.y);
     const spriteTopY = y + frame.topOffset;
-    options.drawShadow(x, y + SCORPION_SPRITE.groundOffset, 220, .24);
-    ctx.drawImage(canvas, frame.sourceX, frame.sourceY, frame.sourceWidth, frame.sourceHeight,
-      x - frame.drawWidth / 2, spriteTopY, frame.drawWidth, frame.drawHeight);
+    options.drawShadow(x, y + SPIDER_SPRITE_GROUND_OFFSET, 220, .24);
+    // Through the same path as every other sheet boss, so its frames can be
+    // corrected too. The scorpion is placed from its feet, hence the top.
+    ctx.save();
+    ctx.translate(x, 0);
+    drawBossSheetFrame(ctx, canvas, {
+      bossId: "SPIDER", frame: frame.index,
+      sourceX: frame.sourceX, sourceY: frame.sourceY,
+      cellWidth: frame.sourceWidth, cellHeight: frame.sourceHeight,
+      drawWidth: frame.drawWidth, drawHeight: frame.drawHeight, top: spriteTopY,
+    });
+    ctx.restore();
     drawBossStatus({
       x,
       spriteTopY,

@@ -96,15 +96,15 @@ export const ENEMY_HIT_SPEED_RECOVERY_SECONDS = 1.5;
 export const RANGED_PROJECTILE_SPEED = 165 * 3;
 
 /** Where Spider's pixels start, which the status bar hangs from. */
-export const SPIDER_ART_TOP = -306;
+export const SPIDER_ART_TOP = -294;
 
-export const SPIDER_SPRITE_GROUND_OFFSET = 51;
+export const SPIDER_SPRITE_GROUND_OFFSET = -15;
 
 /** Where Frostclaw's pixels start, which the status bar hangs from. */
 export const FROSTCLAW_ART_TOP = -211;
 
 /** Where Magmalisk's pixels start, which the status bar hangs from. */
-export const MAGMALISK_ART_TOP = -155;
+export const MAGMALISK_ART_TOP = -150;
 
 /** Where Gloomroot's pixels start, which the status bar hangs from. */
 export const GLOOMROOT_ART_TOP = -187;

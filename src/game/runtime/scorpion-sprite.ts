@@ -15,6 +15,7 @@ export function scorpionSpriteFrame(time: number, sheetWidth: number, sheetHeigh
   const frame = Math.floor(Math.max(0, time) * SCORPION_SPRITE.framesPerSecond) % SCORPION_SPRITE.frames;
   const drawHeight = SCORPION_SPRITE.drawWidth * sheetHeight / sourceWidth;
   return {
+    index: frame,
     sourceX: frame * sourceWidth,
     sourceY: 0,
     sourceWidth,

@@ -1,1 +1,74 @@
-{}
+{
+  "SPIDER": {
+    "1": {
+      "offsetX": 5
+    },
+    "2": {
+      "offsetX": 4,
+      "sourceX": -7
+    },
+    "3": {
+      "offsetX": 14,
+      "offsetY": -1
+    }
+  },
+  "FROSTCLAW": {
+    "0": {
+      "offsetX": -10
+    },
+    "1": {
+      "offsetX": -7,
+      "sourceX": 25
+    },
+    "2": {
+      "sourceX": 31,
+      "offsetX": -10
+    },
+    "3": {
+      "sourceX": 27,
+      "offsetX": 15
+    }
+  },
+  "MAGMALISK": {
+    "0": {
+      "sourceX": -17
+    },
+    "1": {
+      "sourceX": -23,
+      "sourceWidth": -13,
+      "sourceHeight": -115,
+      "offsetY": -60,
+      "offsetX": 4
+    },
+    "2": {
+      "sourceX": -42,
+      "offsetX": 12
+    }
+  },
+  "GLOOMROOT": {
+    "0": {
+      "offsetY": -5
+    },
+    "1": {
+      "offsetX": 18,
+      "offsetY": -2
+    },
+    "3": {
+      "offsetX": 10,
+      "sourceX": -36,
+      "sourceWidth": 28,
+      "offsetY": 25
+    }
+  },
+  "MIREMAW": {
+    "0": {
+      "offsetX": -1
+    },
+    "1": {
+      "offsetX": -10
+    },
+    "2": {
+      "offsetX": -81
+    }
+  }
+}
