@@ -13,7 +13,7 @@ import {
   type MapId,
   type WorldDecor,
 } from "../world";
-import { FROSTCLAW_SPRITE_GROUND_OFFSET, FROSTCLAW_SPRITE_Y_OFFSET, GLOOMROOT_SPRITE_GROUND_OFFSET, GLOOMROOT_SPRITE_Y_OFFSET, KOI_SHOGUN_SPRITE_GROUND_OFFSET, KOI_SHOGUN_SPRITE_Y_OFFSET, MAGMALISK_SPRITE_GROUND_OFFSET, MAGMALISK_SPRITE_Y_OFFSET, MIREMAW_SPRITE_GROUND_OFFSET, PRISMSHELL_SPRITE_GROUND_OFFSET, IRONHORN_SPRITE_GROUND_OFFSET, DREADREAPER_SPRITE_GROUND_OFFSET, VOLTWARDEN_SPRITE_GROUND_OFFSET, GRAVEBLOOM_SPRITE_GROUND_OFFSET, AEGIS_PRIME_SPRITE_GROUND_OFFSET, MIREMAW_SPRITE_Y_OFFSET, PRISMSHELL_SPRITE_Y_OFFSET, IRONHORN_SPRITE_Y_OFFSET, DREADREAPER_SPRITE_Y_OFFSET, VOLTWARDEN_SPRITE_Y_OFFSET, GRAVEBLOOM_SPRITE_Y_OFFSET, AEGIS_PRIME_SPRITE_Y_OFFSET, TEMPEST_KIRIN_SPRITE_GROUND_OFFSET, TEMPEST_KIRIN_SPRITE_Y_OFFSET, TIDEWYRM_SPRITE_GROUND_OFFSET, TIDEWYRM_SPRITE_Y_OFFSET } from "../constants";
+import { DRAGON_DEPTH_OFFSET, SPIDER_DEPTH_OFFSET, FROSTCLAW_DEPTH_OFFSET, MAGMALISK_DEPTH_OFFSET, GLOOMROOT_DEPTH_OFFSET, TIDEWYRM_DEPTH_OFFSET, KOI_SHOGUN_DEPTH_OFFSET, TEMPEST_KIRIN_DEPTH_OFFSET, MIREMAW_DEPTH_OFFSET, PRISMSHELL_DEPTH_OFFSET, IRONHORN_DEPTH_OFFSET, DREADREAPER_DEPTH_OFFSET, VOLTWARDEN_DEPTH_OFFSET, GRAVEBLOOM_DEPTH_OFFSET, AEGIS_PRIME_DEPTH_OFFSET } from "../constants";
 import type { Camera } from "./camera";
 import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, AegisPrimeBossState, PlayerState, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
 
@@ -252,44 +252,44 @@ export function createDepthWorldRenderer(options: {
       && boss.y >= camera.y - 600 && boss.y <= camera.y + visibleH + 600;
     const currentMapId = options.currentMapId();
     if (currentMapId === TUTORIAL_FOREST_MAP_ID && bossVisible(options.boss)) {
-      queueLayer(options.boss.y + 93, 1, "dragon");
+      queueLayer(options.boss.y + DRAGON_DEPTH_OFFSET, 1, "dragon");
     }
     if (currentMapId === BEGINNER_DESERT_MAP_ID && bossVisible(options.spiderBoss)) {
-      queueLayer(options.spiderBoss.y + 55, 1, "spider");
+      queueLayer(options.spiderBoss.y + SPIDER_DEPTH_OFFSET, 1, "spider");
     }
     if (currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID && bossVisible(options.frostclawBoss)) {
-      queueLayer(options.frostclawBoss.y + FROSTCLAW_SPRITE_Y_OFFSET + FROSTCLAW_SPRITE_GROUND_OFFSET, 1, "frostclaw");
+      queueLayer(options.frostclawBoss.y + FROSTCLAW_DEPTH_OFFSET, 1, "frostclaw");
     }
     if (currentMapId === ADVANCED_LAVA_WASTES_MAP_ID && bossVisible(options.magmaliskBoss)) {
-      queueLayer(options.magmaliskBoss.y + MAGMALISK_SPRITE_Y_OFFSET + MAGMALISK_SPRITE_GROUND_OFFSET, 1, "magmalisk");
+      queueLayer(options.magmaliskBoss.y + MAGMALISK_DEPTH_OFFSET, 1, "magmalisk");
     }
     if (currentMapId === INFERNAL_DEPTHS_MAP_ID && bossVisible(options.gloomrootBoss)) {
-      queueLayer(options.gloomrootBoss.y + GLOOMROOT_SPRITE_Y_OFFSET + GLOOMROOT_SPRITE_GROUND_OFFSET, 1, "gloomroot");
+      queueLayer(options.gloomrootBoss.y + GLOOMROOT_DEPTH_OFFSET, 1, "gloomroot");
     }
     if (currentMapId === WATER_REACH_MAP_ID && bossVisible(options.tidewyrmBoss)) {
-      queueLayer(options.tidewyrmBoss.y + TIDEWYRM_SPRITE_Y_OFFSET + TIDEWYRM_SPRITE_GROUND_OFFSET, 1, "tidewyrm");
+      queueLayer(options.tidewyrmBoss.y + TIDEWYRM_DEPTH_OFFSET, 1, "tidewyrm");
     }
     if (currentMapId === SAMURAI_GARDEN_MAP_ID && bossVisible(options.koiShogunBoss)) {
-      queueLayer(options.koiShogunBoss.y + KOI_SHOGUN_SPRITE_Y_OFFSET + KOI_SHOGUN_SPRITE_GROUND_OFFSET, 1, "koiShogun");
+      queueLayer(options.koiShogunBoss.y + KOI_SHOGUN_DEPTH_OFFSET, 1, "koiShogun");
     }
     if (currentMapId === CLOUDSPIRE_MAP_ID && bossVisible(options.tempestKirinBoss)) {
-      queueLayer(options.tempestKirinBoss.y + TEMPEST_KIRIN_SPRITE_Y_OFFSET + TEMPEST_KIRIN_SPRITE_GROUND_OFFSET, 1, "tempestKirin");
+      queueLayer(options.tempestKirinBoss.y + TEMPEST_KIRIN_DEPTH_OFFSET, 1, "tempestKirin");
     }
     if (currentMapId === MOONFEN_MAP_ID && bossVisible(options.miremawBoss)) {
-      queueLayer(options.miremawBoss.y + MIREMAW_SPRITE_Y_OFFSET + MIREMAW_SPRITE_GROUND_OFFSET, 1, "miremaw");
+      queueLayer(options.miremawBoss.y + MIREMAW_DEPTH_OFFSET, 1, "miremaw");
     }
     if (currentMapId === CLOCKWORK_RUINS_MAP_ID && bossVisible(options.ironhornBoss)) {
-      queueLayer(options.ironhornBoss.y + IRONHORN_SPRITE_Y_OFFSET + IRONHORN_SPRITE_GROUND_OFFSET, 1, "ironhorn");
+      queueLayer(options.ironhornBoss.y + IRONHORN_DEPTH_OFFSET, 1, "ironhorn");
     } else if (currentMapId === ION_CITADEL_MAP_ID && bossVisible(options.aegisPrimeBoss)) {
-      queueLayer(options.aegisPrimeBoss.y + AEGIS_PRIME_SPRITE_Y_OFFSET + AEGIS_PRIME_SPRITE_GROUND_OFFSET, 1, "aegisPrime");
+      queueLayer(options.aegisPrimeBoss.y + AEGIS_PRIME_DEPTH_OFFSET, 1, "aegisPrime");
     } else if (currentMapId === VERDANT_CATACOMBS_MAP_ID && bossVisible(options.gravebloomBoss)) {
-      queueLayer(options.gravebloomBoss.y + GRAVEBLOOM_SPRITE_Y_OFFSET + GRAVEBLOOM_SPRITE_GROUND_OFFSET, 1, "gravebloom");
+      queueLayer(options.gravebloomBoss.y + GRAVEBLOOM_DEPTH_OFFSET, 1, "gravebloom");
     } else if (currentMapId === NEON_BASTION_MAP_ID && bossVisible(options.voltwardenBoss)) {
-      queueLayer(options.voltwardenBoss.y + VOLTWARDEN_SPRITE_Y_OFFSET + VOLTWARDEN_SPRITE_GROUND_OFFSET, 1, "voltwarden");
+      queueLayer(options.voltwardenBoss.y + VOLTWARDEN_DEPTH_OFFSET, 1, "voltwarden");
     } else if (currentMapId === DUSKFALL_ORCHARD_MAP_ID && bossVisible(options.dreadreaperBoss)) {
-      queueLayer(options.dreadreaperBoss.y + DREADREAPER_SPRITE_Y_OFFSET + DREADREAPER_SPRITE_GROUND_OFFSET, 1, "dreadreaper");
+      queueLayer(options.dreadreaperBoss.y + DREADREAPER_DEPTH_OFFSET, 1, "dreadreaper");
     } else if (currentMapId === CRYSTAL_HOLLOWS_MAP_ID && bossVisible(options.prismshellBoss)) {
-      queueLayer(options.prismshellBoss.y + PRISMSHELL_SPRITE_Y_OFFSET + PRISMSHELL_SPRITE_GROUND_OFFSET, 1, "prismshell");
+      queueLayer(options.prismshellBoss.y + PRISMSHELL_DEPTH_OFFSET, 1, "prismshell");
     }
     const portal = options.activePortal();
     if (includePortal && portal) queueLayer(portal.depth, 2, "portal");

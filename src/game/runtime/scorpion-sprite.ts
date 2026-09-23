@@ -1,3 +1,5 @@
+import { SPIDER_STAND_OFFSET } from "../constants";
+
 /** Art-only replacement: the desert encounter keeps its existing server identity. */
 export const SCORPION_SPRITE = {
   source: "assets/wildstat/desert-scorpion-boss-spritesheet-v1.webp",
@@ -19,6 +21,6 @@ export function scorpionSpriteFrame(time: number, sheetWidth: number, sheetHeigh
     sourceHeight: sheetHeight,
     drawWidth: SCORPION_SPRITE.drawWidth,
     drawHeight,
-    topOffset: SCORPION_SPRITE.groundOffset - drawHeight * SCORPION_SPRITE.groundBaseline,
+    topOffset: SPIDER_STAND_OFFSET - drawHeight * SCORPION_SPRITE.groundBaseline,
   };
 }

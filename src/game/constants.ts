@@ -98,10 +98,10 @@ export const RANGED_PROJECTILE_SPEED = 165 * 3;
 /** Where Spider's pixels start, which the status bar hangs from. */
 export const SPIDER_ART_TOP = -306;
 
-export const SPIDER_SPRITE_GROUND_OFFSET = 59;
+export const SPIDER_SPRITE_GROUND_OFFSET = 51;
 
 /** Where Frostclaw's pixels start, which the status bar hangs from. */
-export const FROSTCLAW_ART_TOP = -192;
+export const FROSTCLAW_ART_TOP = -211;
 
 /** Where Magmalisk's pixels start, which the status bar hangs from. */
 export const MAGMALISK_ART_TOP = -155;
@@ -114,3 +114,33 @@ export const TIDEWYRM_ART_TOP = -175;
 
 /** Where Tempest Kirin's pixels start, which the status bar hangs from. */
 export const TEMPEST_KIRIN_ART_TOP = -119;
+
+/**
+ * Where a boss sorts against the player, measured from its anchor.
+ *
+ * This used to be the shadow's offset, so nudging a shadow silently changed
+ * whether the boss drew in front of or behind someone standing beside it.
+ * They are separate numbers now; these are the values the shadows held when
+ * the two were the same, so the order is unchanged.
+ */
+export const DRAGON_DEPTH_OFFSET = 93;
+export const SPIDER_DEPTH_OFFSET = 55;
+/**
+ * Where the scorpion's feet stand. Its artwork is placed from its feet rather
+ * than from a centre, so this is its sprite position; it was the same number
+ * as its shadow's until the two were separated.
+ */
+export const SPIDER_STAND_OFFSET = 55;
+export const FROSTCLAW_DEPTH_OFFSET = 205;
+export const MAGMALISK_DEPTH_OFFSET = 170;
+export const GLOOMROOT_DEPTH_OFFSET = 184;
+export const TIDEWYRM_DEPTH_OFFSET = 112;
+export const KOI_SHOGUN_DEPTH_OFFSET = 120;
+export const TEMPEST_KIRIN_DEPTH_OFFSET = 215;
+export const MIREMAW_DEPTH_OFFSET = 220;
+export const PRISMSHELL_DEPTH_OFFSET = 170;
+export const IRONHORN_DEPTH_OFFSET = 170;
+export const DREADREAPER_DEPTH_OFFSET = 170;
+export const VOLTWARDEN_DEPTH_OFFSET = 170;
+export const GRAVEBLOOM_DEPTH_OFFSET = 170;
+export const AEGIS_PRIME_DEPTH_OFFSET = 170;

@@ -33,7 +33,7 @@ const CROPS_FILE = "src/game/boss-frame-crops.json";
  * wrong if they drift, which the sheet's own dimensions make obvious.
  */
 const BOSSES = [
-  { id: "SPIDER", name: "Spider", sheet: "desert-scorpion-boss-spritesheet-v1.webp", frames: 4, drawWidth: 330, drawHeight: 0, groundBaseline: 0.88, spriteY: 0, shadowWidth: 220, defaultGroundOffset: 55, groundMovesSprite: true, frameNames: ['walk 1', 'walk 2', 'walk 3', 'walk 4'], frameNote: "Walk cycle: every frame plays, always." },
+  { id: "SPIDER", name: "Spider", sheet: "desert-scorpion-boss-spritesheet-v1.webp", frames: 4, drawWidth: 330, drawHeight: 0, groundBaseline: 0.88, spriteY: 0, shadowWidth: 220, defaultGroundOffset: 55, spriteYConstant: "SPIDER_STAND_OFFSET", frameNames: ['walk 1', 'walk 2', 'walk 3', 'walk 4'], frameNote: "Walk cycle: every frame plays, always." },
   { id: "FROSTCLAW", name: "Frostclaw", sheet: "frostclaw-boss-spritesheet.webp", frames: 4, drawWidth: 330, drawHeight: 440, spriteY: -12, shadowWidth: 210 , frameNames: ['idle 1 / —', 'idle 2 / rift', 'idle 3 / roar', 'idle 4 / icefall'], frameNote: "Idle cycles through all four; the same frames double as rift, roar and icefall." },
   { id: "MAGMALISK", name: "Magmalisk", sheet: "magmalisk-boss-spritesheet.webp", frames: 4, drawWidth: 390, drawHeight: 520, spriteY: -8, shadowWidth: 240 , frameNames: ['idle', 'bite', 'erupt', 'never drawn'], frameNote: "Only three frames are ever chosen." },
   { id: "GLOOMROOT", name: "Gloomroot", sheet: "gloomroot-boss-spritesheet-v1.webp", frames: 2, rows: 2, drawWidth: 430, drawHeight: 430, spriteY: -18, shadowWidth: 250 , frameNames: ['idle', 'sweep', 'never drawn', 'bloom'], frameNote: "Frame 2 is never chosen." },
@@ -67,6 +67,8 @@ async function loadBosses() {
     verticalRadius: readNumber(hitbox, `${boss.id}_VERTICAL_RADIUS`),
     hitboxOffsetY: readNumber(hitbox, `${boss.id}_HITBOX_OFFSET_Y`) ?? 0,
     artTop: readNumber(constants, `${boss.id}_ART_TOP`),
+    spriteY: readNumber(constants, boss.spriteYConstant ?? `${boss.id}_SPRITE_Y_OFFSET`) ?? boss.spriteY,
+    depthOffset: readNumber(constants, `${boss.id}_DEPTH_OFFSET`) ?? 0,
     groundOffset: readNumber(constants, `${boss.id}_SPRITE_GROUND_OFFSET`) ?? boss.defaultGroundOffset ?? 0,
   }));
 }
@@ -88,6 +90,10 @@ async function saveBosses(edits) {
     constants = writeNumber(constants, `${boss.id}_ART_TOP`, round(edit.artTop),
       `Where ${boss.name}'s pixels start, which the status bar hangs from.`);
     constants = writeNumber(constants, `${boss.id}_SPRITE_GROUND_OFFSET`, round(edit.groundOffset));
+    constants = writeNumber(constants, boss.spriteYConstant ?? `${boss.id}_SPRITE_Y_OFFSET`, round(edit.spriteY),
+      `Where ${boss.name}'s artwork sits, apart from its shadow and its depth.`);
+    constants = writeNumber(constants, `${boss.id}_DEPTH_OFFSET`, round(edit.depthOffset),
+      `Where ${boss.name} sorts against a player beside it.`);
     changed.push(boss.id);
   }
   // Frame corrections are data, not constants: only the frames a boss has

@@ -25,8 +25,10 @@ const FIELDS = [
   { group: "Hitbox", key: "radius", label: "Width (radius)", min: 40, max: 320 },
   { group: "Hitbox", key: "verticalRadius", label: "Height (radius)", min: 20, max: 320 },
   { group: "Hitbox", key: "hitboxOffsetY", label: "Centre, down from anchor", min: -160, max: 220 },
+  { group: "Sprite", key: "spriteY", label: "Artwork height", min: -320, max: 320 },
   { group: "Floating HUD", key: "artTop", label: "Status bar anchor", min: -400, max: 40 },
   { group: "Shadow", key: "groundOffset", label: "Shadow height", min: -60, max: 320 },
+  { group: "Depth", key: "depthOffset", label: "Sorts against players at", min: -60, max: 400 },
 ];
 
 const boss = () => bosses[current];
@@ -69,12 +71,12 @@ function spriteBox(row, image) {
   const cellW = image.naturalWidth / columns;
   const cellH = image.naturalHeight / rows;
   const height = row.drawHeight || row.drawWidth * cellH / cellW;
-  // The scorpion is sized from its width and stands on a baseline, and the
-  // constant that plants it is the same one that places its shadow. Every
-  // other boss is drawn into a fixed box that the shadow does not touch.
-  const top = row.groundMovesSprite
-    ? row.groundOffset - height * (row.groundBaseline ?? 0.88)
-    : row.spriteY - height / 2;
+  // The scorpion is sized from its width and placed from its feet; every other
+  // boss is drawn into a fixed box centred on its own offset. Either way the
+  // artwork answers to its own number and nothing else.
+  const top = row.drawHeight
+    ? row.spriteY - height / 2
+    : row.spriteY - height * (row.groundBaseline ?? 0.88);
   return { cellW, cellH, width: row.drawWidth, height, top };
 }
 
@@ -120,6 +122,17 @@ function draw() {
   ctx.strokeStyle = "rgba(255,255,255,.1)";
   ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(view.width, groundY); ctx.stroke();
+
+  // Where the boss sorts. A player whose feet are above this line draws behind
+  // it, and one below draws in front.
+  const [, depthY] = toScreen(0, row.depthOffset);
+  ctx.strokeStyle = "rgba(160,140,255,.55)";
+  ctx.setLineDash([10, 6]);
+  ctx.beginPath(); ctx.moveTo(0, depthY); ctx.lineTo(view.width, depthY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "rgba(160,140,255,.9)";
+  ctx.font = "600 11px system-ui";
+  ctx.fillText("depth", 8, depthY - 5);
 
   drawBoss(row);
 
@@ -222,16 +235,10 @@ function renderControls() {
       input.addEventListener("input", () => apply(input.value));
       number.addEventListener("input", () => apply(number.value));
       wrap.append(label, input);
-      if (field.key === "groundOffset") {
-        const depth = document.createElement("p");
-        depth.className = "hint";
-        depth.textContent = "This is also the boss's depth key: a boss is sorted on where its feet are, so moving the shadow changes whether it draws in front of or behind a player standing beside it.";
-        wrap.append(depth);
-      }
-      if (field.key === "groundOffset" && row.groundMovesSprite) {
+      if (field.key === "depthOffset") {
         const hint = document.createElement("p");
         hint.className = "hint";
-        hint.textContent = "This boss stands on its shadow: the same constant plants the sprite, so moving it moves the artwork too.";
+        hint.textContent = "Whether the boss draws in front of or behind a player standing beside it. It used to share a number with the shadow, so nudging one moved the other.";
         wrap.append(hint);
       }
       set.append(wrap);

@@ -16,9 +16,12 @@ press **Save all**.
 - **Floating HUD** — where the name and health bar hang from. Anchored to the
   top of the artwork rather than the top of the sprite's cell, which on a short
   boss is mostly empty air.
-- **Shadow** — how far down the ground shadow sits. It is also the boss's
-  depth key, so moving it changes whether the boss draws in front of or behind
-  a player standing beside it.
+- **Sprite** — where the artwork sits, on its own. Moving it moves nothing
+  else.
+- **Shadow** — how far down the ground shadow sits, and nothing more.
+- **Depth** — whether the boss draws in front of or behind a player standing
+  beside it. This shared a number with the shadow until they were separated,
+  which is why nudging a shadow used to change draw order.
 - **Frame** — a correction for the frame on screen: where its crop sits in the
   cell, how big that crop is, where the frame lands, and its scale. Every field
   is a correction from zero, so an untouched frame draws exactly as it did
@@ -32,8 +35,10 @@ four, which is why its names read as pairs.
 
 Saving writes each value back to the constant it came from:
 `*_RADIUS` in `spacetimedb/src/boss-combat.ts`, `*_VERTICAL_RADIUS` and
-`*_HITBOX_OFFSET_Y` in `shared/boss-hitbox.ts`, and `*_ART_TOP` and
-`*_SPRITE_GROUND_OFFSET` in `src/game/constants.ts`. A boss with no constant
+`*_HITBOX_OFFSET_Y` in `shared/boss-hitbox.ts`, and `*_ART_TOP`,
+`*_SPRITE_Y_OFFSET`, `*_SPRITE_GROUND_OFFSET` and `*_DEPTH_OFFSET` in
+`src/game/constants.ts`. The Spider stands from `SPIDER_STAND_OFFSET`, because
+its artwork is placed from its feet rather than from a centre. A boss with no constant
 yet gets one appended. Nothing else in those files is touched.
 
 Radii are server-side, so a change to a hitbox needs
