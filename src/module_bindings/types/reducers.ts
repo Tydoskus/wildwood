@@ -93,6 +93,7 @@ import PrepareWorldActionPositionReducer from "../prepare_world_action_position_
 import PrestigeAccountReducer from "../prestige_account_reducer";
 import PulseDuelReducer from "../pulse_duel_reducer";
 import ReadMailboxLetterReducer from "../read_mailbox_letter_reducer";
+import RecordAutoFarmEnemyDefeatsReducer from "../record_auto_farm_enemy_defeats_reducer";
 import RecordCombatCheckpointReducer from "../record_combat_checkpoint_reducer";
 import RecordConnectionDiagnosticReducer from "../record_connection_diagnostic_reducer";
 import RecordDesertEnemyDefeatReducer from "../record_desert_enemy_defeat_reducer";
@@ -240,6 +241,7 @@ export type PrepareWorldActionPositionParams = __Infer<typeof PrepareWorldAction
 export type PrestigeAccountParams = __Infer<typeof PrestigeAccountReducer>;
 export type PulseDuelParams = __Infer<typeof PulseDuelReducer>;
 export type ReadMailboxLetterParams = __Infer<typeof ReadMailboxLetterReducer>;
+export type RecordAutoFarmEnemyDefeatsParams = __Infer<typeof RecordAutoFarmEnemyDefeatsReducer>;
 export type RecordCombatCheckpointParams = __Infer<typeof RecordCombatCheckpointReducer>;
 export type RecordConnectionDiagnosticParams = __Infer<typeof RecordConnectionDiagnosticReducer>;
 export type RecordDesertEnemyDefeatParams = __Infer<typeof RecordDesertEnemyDefeatReducer>;

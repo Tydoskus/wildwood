@@ -106,7 +106,7 @@ import {
 } from "./boss-tables";
 import { createBossCombat, PRISMSHELL_ID } from "./boss-combat";
 import { createModuleMigrations } from "./module-migrations";
-import { UPGRADE_BENCH_SLOT_ONE, UPGRADE_BENCH_SLOT_TWO, UPGRADE_BENCH_SLOT_THREE, normalizeUpgradeBenchSlot, requireUpgradeBenchSlot, activeItemUpgradeForSlot, activeItemUpgradeEntriesFor, insertActiveItemUpgrade, deleteActiveItemUpgrade, secondUpgradeSlotUnlockedFor, thirdUpgradeSlotUnlockedFor } from "./upgrade-bench-slots";
+import { UPGRADE_BENCH_SLOT_ONE, UPGRADE_BENCH_SLOT_TWO, UPGRADE_BENCH_SLOT_THREE, normalizeUpgradeBenchSlot, requireUpgradeBenchSlot, activeItemUpgradeForSlot, activeItemUpgradeEntriesFor, insertActiveItemUpgrade, deleteActiveItemUpgrade, secondUpgradeSlotUnlockedFor, thirdUpgradeSlotUnlockedFor, rebaseActiveItemUpgradeTimer, refreshActiveSlotUpgrades } from "./upgrade-bench-slots";
 import {
   createPresenceRuntime, MOTION_DETAIL_FRAME_INTERVAL_MICROS, MAP_FRAME_INTERVAL_MICROS, playerZone,
   playerWithMotion, stoppedMotionFields, adjustPlayerMotionMapState, syncPlayerMotion, syncPlayerMotionIdentity,
@@ -2341,6 +2341,7 @@ function completeActiveResearch(ctx: any, active: any) {
   }
   const nextResearch = { ...research, [active.researchId]: active.targetRank };
   updateSnapshotRow(ctx, "playerResearch", nextResearch);
+  if (active.researchId === "slotUpgradeSpeed") refreshActiveSlotUpgrades(ctx, active.identity, reconcileActiveItemUpgrade);
   const progress = ctx.db.playerProgress.identity.find(active.identity);
   const player = ctx.db.player.identity.find(active.identity);
   if (progress && player) {
@@ -3146,11 +3147,12 @@ function reconcileActiveItemUpgrade(ctx: any, active: any, slot: number) {
     cancelActiveItemUpgrade(ctx, active, slot);
     return;
   }
-  if (ctx.timestamp.microsSinceUnixEpoch >= active.completesAt.microsSinceUnixEpoch) {
-    completeActiveItemUpgrade(ctx, active, slot);
+  const nextActive = rebaseActiveItemUpgradeTimer(ctx, active, slot);
+  if (ctx.timestamp.microsSinceUnixEpoch >= nextActive.completesAt.microsSinceUnixEpoch) {
+    completeActiveItemUpgrade(ctx, nextActive, slot);
     return;
   }
-  ensureItemUpgradeCompletionSchedule(ctx, active, slot);
+  ensureItemUpgradeCompletionSchedule(ctx, nextActive, slot);
 }
 
 function sameIdentity(a: any, b: any) {
@@ -5542,9 +5544,8 @@ function awardRegularEnemyLoot(ctx: ReducerCtx<InferSchema<typeof spacetimedb>>,
 }
 
 /** Only enemy identities/counts cross the wire; all reward values are server-owned. */
-export const recordEnemyDefeats = spacetimedb.reducer(
-  { streamId: t.string(), sequence: t.u64(), mapId: t.string(), enemies: t.array(t.object("EnemyDefeat", { enemy: t.string(), count: t.u16() })) },
-  (ctx, batch) => {
+const enemyDefeatArgs = { streamId: t.string(), sequence: t.u64(), mapId: t.string(), enemies: t.array(t.object("EnemyDefeat", { enemy: t.string(), count: t.u16() })) };
+function recordEnemyDefeatsForMode(ctx: any, batch: { streamId: string; sequence: bigint; mapId: string; enemies: { enemy: string; count: number }[] }, autoFarm: boolean) {
     const player = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Enemy rewards require your account world connection.");
     const accepted = acceptEnemyDefeats(ctx, batch, permittedDefeatMaps(ctx, player, HOME_EXTERIOR_MAP_ID), earned => maximumBossCombatForProgress(ctx, earned));
@@ -5597,12 +5598,11 @@ export const recordEnemyDefeats = spacetimedb.reducer(
     ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills });
     recordAnalyticsMilestone(ctx, "kill");
     if (accepted.rewards.some(reward => reward.type === "boss")) recordAnalyticsMilestone(ctx, "boss");
-    // Presence is the server's own signal for active play: hidden or idle
-    // players earn at half rate, and nothing here is taken from the client.
-    killGems.grantKillGems(ctx, ctx.sender, accepted.count, player.isVisible, enemyKills);
+    killGems.grantKillGems(ctx, ctx.sender, accepted.count, autoFarm, enemyKills);
     enforce();
-  },
-);
+}
+export const recordEnemyDefeats = spacetimedb.reducer(enemyDefeatArgs, (ctx, batch) => recordEnemyDefeatsForMode(ctx, batch, false));
+export const recordAutoFarmEnemyDefeats = spacetimedb.reducer(enemyDefeatArgs, (ctx, batch) => recordEnemyDefeatsForMode(ctx, batch, true));
 
 /** Retained wire shape: obsolete clients must update before submitting rewards. */
 export const recordRegularEnemyDefeats = spacetimedb.reducer(

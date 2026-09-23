@@ -263,18 +263,19 @@ that function, not the version list, is what keeps an old decoder out.
 
 ## Kill gem invariants
 
-- Gems from kills are deterministic, not rolled. Every accepted defeat adds
-  credit — two while the player is visible in the world, one while hidden or
-  idle — and each 2,000 credits pays one gem (`shared/gem-drops.ts`). Two
-  players with the same kills earn the same gems.
-- "Active" is the server's own `player.isVisible`, taken from presence, never a
-  flag the client reports.
-- The grant runs inside `recordEnemyDefeats` on the root, from the same
+- Gems from kills are deterministic, not rolled. Every accepted manual defeat
+  adds six credits, whether the player is visible or hidden. An Auto Farm kill
+  adds four credits. Each 6,000 credits pays one gem: 1 per 1,000 manual kills
+  or 1 per 1,500 Auto Farm kills (`shared/gem-drops.ts`).
+- The client records Auto Farm status with each persisted defeat batch. The
+  server validates accepted kills and uses the matching reducer to apply the
+  lower Auto Farm credit rate. Older clients use the manual reducer.
+- The grant runs inside the root defeat reducer, from the same
   `accepted.count` that advances lifetime kills, so the two can never drift.
   Its ledger reference carries the lifetime kill count after the batch, which
   only rises, so a replayed report cannot pay twice.
 - `dev_grant_retroactive_kill_gems` pays kills earned before this existed at
-  the idle rate (history has no record of who was active). A player is marked
+  the historical 1-per-2,000 rate. A player is marked
   done by their `gem_kill_progress` row, so running it twice pays nobody twice.
 - `player_gem_drop` is the client's pop-up signal, one row per player bumped
   per grant, mirroring `player_item_drop`; the client ignores a sequence it has

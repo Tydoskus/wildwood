@@ -241,7 +241,9 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       && (!localProgress || LOADOUT_FIELDS.some(field => pendingProgress![field] !== localProgress![field]))) {
       if (!await flushAsync(true, true)) return false;
     }
-    const result = await reducerResult("enemy defeats", connection => withRequestDeadline(connection.reducers.recordEnemyDefeats({
+    const result = await reducerResult("enemy defeats", connection => withRequestDeadline((request.autoFarm
+      ? connection.reducers.recordAutoFarmEnemyDefeats
+      : connection.reducers.recordEnemyDefeats)({
       streamId: request.streamId, sequence: request.sequence, mapId: request.mapId, enemies: request.enemies,
     }), ENEMY_DEFEAT_ACK_TIMEOUT_MS))();
     if (!result.ok && /Enemy defeats belong to another map|Invalid enemy for this map/.test(result.error ?? "")) {
@@ -857,9 +859,9 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
           dependencies.reducers.handleFailure("death tracking", error);
         }
       },
-      recordRegularEnemyDefeat(mapId: string, enemy: string) {
+      recordRegularEnemyDefeat(mapId: string, enemy: string, autoFarm = false) {
         if (resetPending || dependencies.reducers.protocolBlocked() || dependencies.reducers.worldEntryBlocked()) return;
-        enemyLoot.record(mapId, enemy);
+        enemyLoot.record(mapId, enemy, autoFarm);
         if (enemy === "boss") void enemyLoot.flush(true);
       },
       saveProgress(progress: ProgressSave, immediate = false) {

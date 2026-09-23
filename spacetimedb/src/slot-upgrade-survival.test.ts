@@ -4,6 +4,7 @@ import { HOME_BENCH_POSITION } from "../../shared/home";
 import { itemUpgradeDurationMs } from "../../shared/items";
 import { slotUpgradeDurationWithResearch } from "../../shared/utility-research";
 import { UPGRADE_BENCH_THIRD_SLOT_GEM_COST } from "../../shared/gems";
+import { createEmptyResearchRanks } from "../../shared/research";
 import { Timestamp } from "spacetimedb";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
@@ -61,6 +62,29 @@ it("starts new slot upgrades at the researched speed", () => {
   const active = f.db.activeItemUpgrade.identity.find(f.ctx.sender);
   expect(active.completesAt.microsSinceUnixEpoch - active.startedAt.microsSinceUnixEpoch)
     .toBe(BigInt(slotUpgradeDurationWithResearch(itemUpgradeDurationMs(0), 5)) * 1_000n);
+});
+
+it("shortens every running slot timer when Slot Speed research completes", () => {
+  const f = crystalFixture();
+  f.patch("player", { mapId: "home_exterior", x: HOME_BENCH_POSITION.x, y: HOME_BENCH_POSITION.y });
+  f.seed("playerResearch", { identity: f.ctx.sender, ...createEmptyResearchRanks(), researchSpeed: 1 });
+  f.seed("playerUpgradeBench", { identity: f.ctx.sender, secondSlotUnlocked: true });
+  f.run(server.startItemUpgrade, { slot: 1, itemId: "HAND" });
+  f.run(server.startItemUpgrade, { slot: 2, itemId: "HEAD" });
+  const before = f.db.activeItemUpgrade.identity.find(f.ctx.sender);
+  f.run(server.startResearch, { researchId: "slotUpgradeSpeed" });
+  const research = f.db.activeResearch.identity.find(f.ctx.sender);
+  const schedule = [...f.db.researchCompletionSchedule.iter()][0];
+  f.ctx.timestamp = research.completesAt;
+  f.run(server.completeResearch, { schedule });
+  const duration = BigInt(slotUpgradeDurationWithResearch(itemUpgradeDurationMs(0), 1)) * 1_000n;
+  const slotOne = f.db.activeItemUpgrade.identity.find(f.ctx.sender);
+  const slotTwo = f.db.activeItemUpgradeSlotTwo.identity.find(f.ctx.sender);
+  expect(f.db.playerResearch.identity.find(f.ctx.sender)?.slotUpgradeSpeed).toBe(1);
+  expect(slotOne.completesAt.microsSinceUnixEpoch).toBe(before.startedAt.microsSinceUnixEpoch + duration);
+  expect(slotTwo.completesAt.microsSinceUnixEpoch).toBe(before.startedAt.microsSinceUnixEpoch + duration);
+  expect([...f.db.itemUpgradeCompletionSchedule.iter()].map((row: any) => row.completesAtMicros))
+    .toEqual([slotOne.completesAt.microsSinceUnixEpoch, slotTwo.completesAt.microsSinceUnixEpoch]);
 });
 
 it("requires slot two, charges 200 Gems once, and completes slot three beside two running jobs", () => {
