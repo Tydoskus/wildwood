@@ -26,6 +26,7 @@ import {
   GLOOMROOT_ART_TOP,
   MAGMALISK_ART_TOP,
   MIREMAW_ART_TOP,
+  SPIDER_ART_TOP,
   SPIDER_SPRITE_GROUND_OFFSET,
   TEMPEST_KIRIN_ART_TOP,
   TIDEWYRM_ART_TOP,
@@ -351,7 +352,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY,
+      spriteTopY: y + SPIDER_ART_TOP,
       barGap: 32,
       barWidth: 250,
       barHeight: 22,
