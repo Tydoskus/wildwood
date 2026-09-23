@@ -352,7 +352,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: y + SPIDER_ART_TOP,
+      spriteTopY: y + SPIDER_ART_TOP + (bossFrameCrop("SPIDER", frame.index).statusOffsetY ?? 0),
       barGap: 32,
       barWidth: 250,
       barHeight: 22,
@@ -471,7 +471,7 @@ export function createBossRenderer(options: {
     drawBossSheetFrame(ctx, canvas, { bossId: "FROSTCLAW", frame, cellWidth: cellW, cellHeight: canvas.height, drawWidth: drawW, drawHeight: drawH }); ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY + FROSTCLAW_ART_TOP,
+      spriteTopY: visualY + FROSTCLAW_ART_TOP + (bossFrameCrop("FROSTCLAW", frame).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 270,
       barHeight: 22,
@@ -558,7 +558,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY + MAGMALISK_ART_TOP,
+      spriteTopY: visualY + MAGMALISK_ART_TOP + (bossFrameCrop("MAGMALISK", frame).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 290,
       barHeight: 23,
@@ -684,7 +684,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY + GLOOMROOT_ART_TOP,
+      spriteTopY: visualY + GLOOMROOT_ART_TOP + (bossFrameCrop("GLOOMROOT", frame).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 300,
       barHeight: 23,
@@ -800,7 +800,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY + TIDEWYRM_ART_TOP,
+      spriteTopY: visualY + TIDEWYRM_ART_TOP + (bossFrameCrop("TIDEWYRM", frame).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 310,
       barHeight: 23,
@@ -913,7 +913,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY + KOI_SHOGUN_ART_TOP,
+      spriteTopY: visualY + KOI_SHOGUN_ART_TOP + (bossFrameCrop("KOI_SHOGUN", frame).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 310,
       barHeight: 23,
@@ -1353,7 +1353,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY + MIREMAW_ART_TOP,
+      spriteTopY: visualY + MIREMAW_ART_TOP + (bossFrameCrop("MIREMAW", frame).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 330,
       barHeight: 23,
