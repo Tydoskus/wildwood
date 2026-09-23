@@ -663,6 +663,7 @@ import {
     criticalDamageMultiplier: researchCriticalDamageMultiplier,
     applyVitality: applyVitalityResearch,
   } = research;
+  const displayedRewardMultiplier = () => appShell.showBaseStatRewards() ? 1 : researchRewardMultiplier();
   const travelSpeed = createOutOfCombatSpeed();
   const movementMultiplier = () => researchMovementSpeedMultiplier()
     + travelSpeed.bonus(inventory.equippedFeet, isDueling()) / Math.max(1, player.speed);
@@ -1152,7 +1153,7 @@ import {
       return remote ? { headItem: remote.headItem, chestItem: remote.chestItem, feetItem: remote.feetItem, rightHandItem: remote.rightHandItem, leftHandItem: remote.leftHandItem } : {};
     },
     enemySprites: ENEMY_SPRITES,
-    rewardMultiplier: researchRewardMultiplier,
+    rewardMultiplier: displayedRewardMultiplier,
     showBossHitboxes: () => devPanel.bossHitboxesVisible(),
     enemyTextVisible: (enemy) => {
       const { width, height } = canvasRuntime.viewport();
