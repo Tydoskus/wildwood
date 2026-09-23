@@ -17,10 +17,45 @@
  */
 import sharp from "sharp";
 import { readFile } from "node:fs/promises";
+import ts from "typescript";
+
+// Load the same pure pixel transforms the client applies before drawing the
+// boss sheets. Measuring their raw green backgrounds reports entire cells as
+// bodies and gives misleading hitbox and status-bar recommendations.
+const pixelSource = await readFile("src/game/runtime/sprite-pixels.ts", "utf8");
+const pixelModule = ts.transpileModule(pixelSource, {
+  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
+}).outputText;
+const { removeGreenPixels, keepLargestFrameComponents, centerFramesOnGround, repackLargestComponentsIntoFrames } =
+  await import(`data:text/javascript;base64,${Buffer.from(pixelModule).toString("base64")}`);
+const processedSheets = new Map();
+async function processedSheet(path) {
+  if (processedSheets.has(path)) return processedSheets.get(path);
+  const { data, info } = await sharp(path).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const pixels = new Uint8ClampedArray(data.buffer, data.byteOffset, data.length);
+  const spider = path.includes("desert-scorpion");
+  if (spider || /frostclaw|magmalisk|gloomroot|tidewyrm|koi-shogun/.test(path)) {
+    removeGreenPixels(pixels, spider ? 135 : 145, spider ? 1.35 : 1.45);
+    if (path.includes("magmalisk")) repackLargestComponentsIntoFrames(pixels, info.width, info.height, 4);
+    else if (/desert-scorpion|frostclaw|tidewyrm|koi-shogun/.test(path)) {
+      keepLargestFrameComponents(pixels, info.width, info.height, 4);
+      centerFramesOnGround(pixels, info.width, info.height, 4);
+    }
+  }
+  const sheet = { data: pixels, info };
+  processedSheets.set(path, sheet);
+  return sheet;
+}
 
 const RADIUS = /export const (\w+)_RADIUS = (\d+);/g;
 const source = await readFile("spacetimedb/src/boss-combat.ts", "utf8");
 const radii = Object.fromEntries([...source.matchAll(RADIUS)].map((m) => [m[1], Number(m[2])]));
+const hitboxSource = await readFile("shared/boss-hitbox.ts", "utf8");
+const constantsSource = await readFile("src/game/constants.ts", "utf8");
+const readNumber = (source, name) => {
+  const match = source.match(new RegExp(`export const ${name} = (-?[\\d.]+);`));
+  return match ? Number(match[1]) : undefined;
+};
 
 /** The opaque extent of an atlas animation, in world units around the anchor. */
 function atlasExtent(atlas, spriteHeight, animation = "idle") {
@@ -42,7 +77,7 @@ function atlasExtent(atlas, spriteHeight, animation = "idle") {
 
 /** The same, for a boss drawn from a strip of equal frames. */
 async function sheetExtent(path, { frames, drawWidth, groundOffset, groundBaseline }) {
-  const { data, info } = await sharp(path).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const { data, info } = await processedSheet(path);
   const frameWidth = Math.floor(info.width / frames);
   let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
   for (let y = 0; y < info.height; y += 1) {
@@ -73,7 +108,7 @@ async function sheetExtent(path, { frames, drawWidth, groundOffset, groundBaseli
  * rather than the top of the creature.
  */
 async function cellExtent(path, { frames, rows = 1, drawWidth, drawHeight, offsetY, measureFrames }) {
-  const { data, info } = await sharp(path).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const { data, info } = await processedSheet(path);
   const cellWidth = Math.floor(info.width / frames);
   const cellHeight = Math.floor(info.height / rows);
   const wanted = measureFrames ? new Set(measureFrames) : null;
@@ -108,7 +143,7 @@ async function cellExtent(path, { frames, rows = 1, drawWidth, drawHeight, offse
  * aims at and what the hitbox should cover.
  */
 async function bodyExtent(path, { frames, rows = 1, drawWidth, drawHeight, offsetY, measureFrames }) {
-  const { data, info } = await sharp(path).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const { data, info } = await processedSheet(path);
   const cellWidth = Math.floor(info.width / frames);
   const cellHeight = Math.floor(info.height / rows);
   // Only the poses the hitbox should answer for. A wind-up that throws the
@@ -185,19 +220,24 @@ const SHEETS = [
 console.log("");
 for (const [name, key, file, geometry] of SHEETS) {
   const path = `public/assets/wildstat/${file}`;
-  const extent = await cellExtent(path, geometry);
+  const currentGeometry = { ...geometry, offsetY: readNumber(constantsSource, `${key}_SPRITE_Y_OFFSET`) ?? geometry.offsetY };
+  const extent = await cellExtent(path, currentGeometry);
   report(name, radii[key], extent);
   const halfHeight = Math.max(Math.abs(extent.top), Math.abs(extent.bottom));
-  const body = await bodyExtent(path, geometry);
-  const float = extent.top - extent.cellTop;
+  const body = await bodyExtent(path, currentGeometry);
+  const verticalRadius = readNumber(hitboxSource, `${key}_VERTICAL_RADIUS`) ?? radii[key];
+  const hitboxOffsetY = readNumber(hitboxSource, `${key}_HITBOX_OFFSET_Y`) ?? 0;
+  const artTop = readNumber(constantsSource, `${key}_ART_TOP`);
+  const statusAnchor = currentGeometry.offsetY + (artTop ?? -currentGeometry.drawHeight / 2);
+  const float = extent.top - statusAnchor;
   const notes = [];
   if (body) {
     // Positive means the hitbox reaches past the body into open air, which is
     // the Miremaw fault: a shot lands before it touches the creature. Negative
     // means the hitbox stops short of the artwork, which is the opposite
     // complaint and not what we are hunting here.
-    const above = body.top - -radii[key];
-    const below = radii[key] - body.bottom;
+    const above = body.top - (hitboxOffsetY - verticalRadius);
+    const below = hitboxOffsetY + verticalRadius - body.bottom;
     if (above > 40 || below > 40) {
       notes.push(`reaches past the body: ${round(above, 0)} above, ${round(below, 0)} below`);
     } else if (above < -40 || below < -40) {
@@ -208,7 +248,7 @@ for (const [name, key, file, geometry] of SHEETS) {
       `  suggests verticalRadius ${round(body.verticalRadius, 4)} offsetY ${round(body.offsetY, 4)}`,
     );
   }
-  if (float > 20) notes.push(`status bar floats ${round(float, 0)}px above the artwork`);
+  if (float > 45) notes.push(`status anchor sits ${round(float, 0)}px above the artwork`);
   for (const note of notes) console.log(`${"".padEnd(12)} ! ${note}`);
   console.log(`${"".padEnd(12)}   half-height ${round(halfHeight, 4)} vs radius ${round(radii[key], 4)}`);
 }

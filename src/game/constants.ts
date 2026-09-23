@@ -12,12 +12,12 @@ export const FROSTCLAW_ROAR_RANGE = 820;
 export const FROSTCLAW_RIFT_RANGE = 920;
 export const FROSTCLAW_RIFT_HALF_ANGLE = .075;
 export const FROSTCLAW_SPRITE_Y_OFFSET = -12;
-export const FROSTCLAW_SPRITE_GROUND_OFFSET = 174;
+export const FROSTCLAW_SPRITE_GROUND_OFFSET = 190;
 export const MAGMALISK_AGGRO_RANGE = 650;
 export const MAGMALISK_BITE_RANGE = 760;
 export const MAGMALISK_BITE_HALF_ANGLE = .42;
 export const MAGMALISK_SPRITE_Y_OFFSET = -8;
-export const MAGMALISK_SPRITE_GROUND_OFFSET = 129;
+export const MAGMALISK_SPRITE_GROUND_OFFSET = 152;
 export const GLOOMROOT_AGGRO_RANGE = 675;
 export const GLOOMROOT_SWEEP_RANGE = 820;
 export const GLOOMROOT_SWEEP_HALF_ANGLE = .5;
@@ -37,7 +37,7 @@ export const TEMPEST_KIRIN_AGGRO_RANGE = 750;
 export const TEMPEST_KIRIN_CHARGE_RANGE = 940;
 export const TEMPEST_KIRIN_CHARGE_HALF_ANGLE = .42;
 export const TEMPEST_KIRIN_SPRITE_Y_OFFSET = -42;
-export const TEMPEST_KIRIN_SPRITE_GROUND_OFFSET = 155;
+export const TEMPEST_KIRIN_SPRITE_GROUND_OFFSET = 198;
 export const MIREMAW_AGGRO_RANGE = 775;
 export const PRISMSHELL_AGGRO_RANGE = 775;
 export const IRONHORN_AGGRO_RANGE = 775;
@@ -75,7 +75,7 @@ export const MIREMAW_SPRITE_GROUND_OFFSET = 141;
  *
  * Measured by `node scripts/check-boss-hitboxes.mjs`.
  */
-export const MIREMAW_ART_TOP = -85;
+export const MIREMAW_ART_TOP = -45;
 export const KOI_SHOGUN_ART_TOP = -150;
 export const PRISMSHELL_SPRITE_GROUND_OFFSET = 170;
 export const IRONHORN_SPRITE_GROUND_OFFSET = 170;
@@ -96,15 +96,15 @@ export const ENEMY_HIT_SPEED_RECOVERY_SECONDS = 1.5;
 export const RANGED_PROJECTILE_SPEED = 165 * 3;
 
 /** Where Spider's pixels start, which the status bar hangs from. */
-export const SPIDER_ART_TOP = -306;
+export const SPIDER_ART_TOP = -294;
 
-export const SPIDER_SPRITE_GROUND_OFFSET = 59;
+export const SPIDER_SPRITE_GROUND_OFFSET = 3;
 
 /** Where Frostclaw's pixels start, which the status bar hangs from. */
-export const FROSTCLAW_ART_TOP = -192;
+export const FROSTCLAW_ART_TOP = -211;
 
 /** Where Magmalisk's pixels start, which the status bar hangs from. */
-export const MAGMALISK_ART_TOP = -155;
+export const MAGMALISK_ART_TOP = -150;
 
 /** Where Gloomroot's pixels start, which the status bar hangs from. */
 export const GLOOMROOT_ART_TOP = -187;
@@ -113,4 +113,34 @@ export const GLOOMROOT_ART_TOP = -187;
 export const TIDEWYRM_ART_TOP = -175;
 
 /** Where Tempest Kirin's pixels start, which the status bar hangs from. */
-export const TEMPEST_KIRIN_ART_TOP = -119;
+export const TEMPEST_KIRIN_ART_TOP = -73;
+
+/**
+ * Where a boss sorts against the player, measured from its anchor.
+ *
+ * This used to be the shadow's offset, so nudging a shadow silently changed
+ * whether the boss drew in front of or behind someone standing beside it.
+ * They are separate numbers now; these are the values the shadows held when
+ * the two were the same, so the order is unchanged.
+ */
+export const DRAGON_DEPTH_OFFSET = 93;
+export const SPIDER_DEPTH_OFFSET = -15;
+/**
+ * Where the scorpion's feet stand. Its artwork is placed from its feet rather
+ * than from a centre, so this is its sprite position; it was the same number
+ * as its shadow's until the two were separated.
+ */
+export const SPIDER_STAND_OFFSET = 55;
+export const FROSTCLAW_DEPTH_OFFSET = 178;
+export const MAGMALISK_DEPTH_OFFSET = 142;
+export const GLOOMROOT_DEPTH_OFFSET = 160;
+export const TIDEWYRM_DEPTH_OFFSET = 79;
+export const KOI_SHOGUN_DEPTH_OFFSET = 90;
+export const TEMPEST_KIRIN_DEPTH_OFFSET = 171;
+export const MIREMAW_DEPTH_OFFSET = 142;
+export const PRISMSHELL_DEPTH_OFFSET = 170;
+export const IRONHORN_DEPTH_OFFSET = 170;
+export const DREADREAPER_DEPTH_OFFSET = 170;
+export const VOLTWARDEN_DEPTH_OFFSET = 170;
+export const GRAVEBLOOM_DEPTH_OFFSET = 170;
+export const AEGIS_PRIME_DEPTH_OFFSET = 170;

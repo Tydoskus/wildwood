@@ -68,13 +68,13 @@ export const MIREMAW_HITBOX_OFFSET_Y = 63;
 export const KOI_SHOGUN_VERTICAL_RADIUS = 116;
 export const KOI_SHOGUN_HITBOX_OFFSET_Y = -13;
 export const TEMPEST_KIRIN_VERTICAL_RADIUS = 139;
-export const TEMPEST_KIRIN_HITBOX_OFFSET_Y = 32;
+export const TEMPEST_KIRIN_HITBOX_OFFSET_Y = 42;
 
 /** Spider's body height. Tuned in tools/boss-tuner. */
-export const SPIDER_VERTICAL_RADIUS = 109;
+export const SPIDER_VERTICAL_RADIUS = 103;
 
 /** Where Spider's body sits relative to its anchor. */
-export const SPIDER_HITBOX_OFFSET_Y = -38;
+export const SPIDER_HITBOX_OFFSET_Y = -43;
 
 /** Frostclaw's body height. Tuned in tools/boss-tuner. */
 export const FROSTCLAW_VERTICAL_RADIUS = 191;
@@ -83,10 +83,10 @@ export const FROSTCLAW_VERTICAL_RADIUS = 191;
 export const FROSTCLAW_HITBOX_OFFSET_Y = 0;
 
 /** Magmalisk's body height. Tuned in tools/boss-tuner. */
-export const MAGMALISK_VERTICAL_RADIUS = 110;
+export const MAGMALISK_VERTICAL_RADIUS = 143;
 
 /** Where Magmalisk's body sits relative to its anchor. */
-export const MAGMALISK_HITBOX_OFFSET_Y = 37;
+export const MAGMALISK_HITBOX_OFFSET_Y = 17;
 
 /** Gloomroot's body height. Tuned in tools/boss-tuner. */
 export const GLOOMROOT_VERTICAL_RADIUS = 154;

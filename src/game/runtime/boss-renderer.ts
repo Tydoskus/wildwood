@@ -5,6 +5,7 @@ import { drawVoltwardenArt, VOLTWARDEN_ART_TOP } from "./neon-boss-art";
 import { drawGravebloomArt, GRAVEBLOOM_ART_TOP } from "./verdant-boss-art";
 import { drawAegisPrimeArt, AEGIS_PRIME_ART_TOP } from "./ion-boss-art";
 import { drawBossAtlasFrame } from "./boss-atlas-drawing";
+import { bossFrameCrop, drawBossSheetFrame } from "./boss-frame-crop";
 import { bossVerticalRadius } from "../../../shared/boss-hitbox";
 import {
   BOSS_CONE_HALF_ANGLE,
@@ -25,6 +26,8 @@ import {
   GLOOMROOT_ART_TOP,
   MAGMALISK_ART_TOP,
   MIREMAW_ART_TOP,
+  SPIDER_ART_TOP,
+  SPIDER_SPRITE_GROUND_OFFSET,
   TEMPEST_KIRIN_ART_TOP,
   TIDEWYRM_ART_TOP,
   MIREMAW_SPRITE_GROUND_OFFSET,
@@ -98,7 +101,7 @@ import {
 import { healthBarTextY } from "./health-bar-layout";
 import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, MiremawBogBurst, PrismshellCrystalBurst, IronhornCrystalBurst, DreadreaperCrystalBurst, VoltwardenCrystalBurst, GravebloomCrystalBurst, AegisPrimeCrystalBurst, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, AegisPrimeBossState, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
 import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
-import { SCORPION_SPRITE, scorpionSpriteFrame } from "./scorpion-sprite";
+import { scorpionSpriteFrame } from "./scorpion-sprite";
 import { prismshellSpriteFrame } from "./prismshell-sprite";
 import { ironhornSpriteFrame } from "./ironhorn-sprite";
 import { dreadreaperSpriteFrame } from "./dreadreaper-sprite";
@@ -335,12 +338,21 @@ export function createBossRenderer(options: {
     const x = screenX(spiderBoss.x);
     const y = screenY(spiderBoss.y);
     const spriteTopY = y + frame.topOffset;
-    options.drawShadow(x, y + SCORPION_SPRITE.groundOffset, 220, .24);
-    ctx.drawImage(canvas, frame.sourceX, frame.sourceY, frame.sourceWidth, frame.sourceHeight,
-      x - frame.drawWidth / 2, spriteTopY, frame.drawWidth, frame.drawHeight);
+    options.drawShadow(x, y + SPIDER_SPRITE_GROUND_OFFSET, 220, .24);
+    // Through the same path as every other sheet boss, so its frames can be
+    // corrected too. The scorpion is placed from its feet, hence the top.
+    ctx.save();
+    ctx.translate(x, 0);
+    drawBossSheetFrame(ctx, canvas, {
+      bossId: "SPIDER", frame: frame.index,
+      sourceX: frame.sourceX, sourceY: frame.sourceY,
+      cellWidth: frame.sourceWidth, cellHeight: frame.sourceHeight,
+      drawWidth: frame.drawWidth, drawHeight: frame.drawHeight, top: spriteTopY,
+    });
+    ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY,
+      spriteTopY: y + SPIDER_ART_TOP + (bossFrameCrop("SPIDER", frame.index).statusOffsetY ?? 0),
       barGap: 32,
       barWidth: 250,
       barHeight: 22,
@@ -456,10 +468,10 @@ export function createBossRenderer(options: {
     const pulse = frostclawBoss.roar ? 1 + Math.sin(options.gameTime() * 15) * .018 : 1;
     options.drawShadow(x, visualY + FROSTCLAW_SPRITE_GROUND_OFFSET, 215, .27);
     ctx.save(); ctx.translate(x, visualY + 2); ctx.scale(pulse, pulse);
-    ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH); ctx.restore();
+    drawBossSheetFrame(ctx, canvas, { bossId: "FROSTCLAW", frame, cellWidth: cellW, cellHeight: canvas.height, drawWidth: drawW, drawHeight: drawH }); ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY + FROSTCLAW_ART_TOP,
+      spriteTopY: visualY + FROSTCLAW_ART_TOP + (bossFrameCrop("FROSTCLAW", frame).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 270,
       barHeight: 22,
@@ -542,11 +554,11 @@ export function createBossRenderer(options: {
     ctx.save();
     ctx.translate(x, visualY);
     ctx.scale(pulse, pulse);
-    ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH);
+    drawBossSheetFrame(ctx, canvas, { bossId: "MAGMALISK", frame, cellWidth: cellW, cellHeight: canvas.height, drawWidth: drawW, drawHeight: drawH });
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY + MAGMALISK_ART_TOP,
+      spriteTopY: visualY + MAGMALISK_ART_TOP + (bossFrameCrop("MAGMALISK", frame).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 290,
       barHeight: 23,
@@ -646,10 +658,8 @@ export function createBossRenderer(options: {
     if (options.gloomrootReady() && canvas.width >= 2 && canvas.height >= 2) {
       const cellW = canvas.width / 2;
       const cellH = canvas.height / 2;
-      const sourceX = frame % 2 * cellW;
-      const sourceY = Math.floor(frame / 2) * cellH;
       ctx.filter = "brightness(1.22) contrast(1.08) drop-shadow(0 0 12px rgba(88,238,240,.72))";
-      ctx.drawImage(canvas, sourceX, sourceY, cellW, cellH, -drawW / 2, -drawH / 2, drawW, drawH);
+      drawBossSheetFrame(ctx, canvas, { bossId: "GLOOMROOT", frame, cellWidth: cellW, cellHeight: cellH, columns: 2, drawWidth: drawW, drawHeight: drawH });
     } else {
       ctx.fillStyle = "#172c3d";
       ctx.strokeStyle = "#65eee9";
@@ -674,7 +684,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY + GLOOMROOT_ART_TOP,
+      spriteTopY: visualY + GLOOMROOT_ART_TOP + (bossFrameCrop("GLOOMROOT", frame).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 300,
       barHeight: 23,
@@ -765,7 +775,7 @@ export function createBossRenderer(options: {
     ctx.scale(pulse, pulse);
     if (options.tidewyrmReady() && canvas.width >= 4 && canvas.height >= 2) {
       const cellW = canvas.width / 4;
-      ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH);
+      drawBossSheetFrame(ctx, canvas, { bossId: "TIDEWYRM", frame, cellWidth: cellW, cellHeight: canvas.height, drawWidth: drawW, drawHeight: drawH });
     } else {
       ctx.fillStyle = "#147f9d";
       ctx.strokeStyle = "#b9f8ff";
@@ -790,7 +800,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY + TIDEWYRM_ART_TOP,
+      spriteTopY: visualY + TIDEWYRM_ART_TOP + (bossFrameCrop("TIDEWYRM", frame).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 310,
       barHeight: 23,
@@ -882,7 +892,7 @@ export function createBossRenderer(options: {
     ctx.scale(flipHorizontally ? -pulse : pulse, pulse);
     if (options.koiShogunReady() && canvas.width >= 4 && canvas.height >= 2) {
       const cellW = canvas.width / 4;
-      ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH);
+      drawBossSheetFrame(ctx, canvas, { bossId: "KOI_SHOGUN", frame, cellWidth: cellW, cellHeight: canvas.height, drawWidth: drawW, drawHeight: drawH });
     } else {
       ctx.fillStyle = "#d87825";
       ctx.strokeStyle = "#4c2917";
@@ -903,7 +913,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY + KOI_SHOGUN_ART_TOP,
+      spriteTopY: visualY + KOI_SHOGUN_ART_TOP + (bossFrameCrop("KOI_SHOGUN", frame).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 310,
       barHeight: 23,
@@ -994,7 +1004,7 @@ export function createBossRenderer(options: {
     ctx.scale(pulse, pulse);
     if (options.tempestKirinReady() && canvas.width >= 4 && canvas.height >= 2) {
       const cellW = canvas.width / 4;
-      ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH);
+      drawBossSheetFrame(ctx, canvas, { bossId: "TEMPEST_KIRIN", frame, cellWidth: cellW, cellHeight: canvas.height, drawWidth: drawW, drawHeight: drawH });
     } else {
       ctx.fillStyle = "#ecfaff";
       ctx.strokeStyle = "#23466e";
@@ -1015,7 +1025,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY + TEMPEST_KIRIN_ART_TOP,
+      spriteTopY: visualY + TEMPEST_KIRIN_ART_TOP + (bossFrameCrop("TEMPEST_KIRIN", frame).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 320,
       barHeight: 23,
@@ -1320,7 +1330,7 @@ export function createBossRenderer(options: {
     ctx.scale(pulse, pulse);
     if (options.miremawReady() && canvas.width >= 4 && canvas.height >= 2) {
       const cellW = canvas.width / 4;
-      ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH);
+      drawBossSheetFrame(ctx, canvas, { bossId: "MIREMAW", frame, cellWidth: cellW, cellHeight: canvas.height, drawWidth: drawW, drawHeight: drawH });
     } else {
       ctx.fillStyle = "#3caa86";
       ctx.strokeStyle = "#102b27";
@@ -1343,7 +1353,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY + MIREMAW_ART_TOP,
+      spriteTopY: visualY + MIREMAW_ART_TOP + (bossFrameCrop("MIREMAW", frame).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 330,
       barHeight: 23,
