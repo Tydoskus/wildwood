@@ -40,14 +40,14 @@ four, which is why its names read as pairs.
 
 Saving sends only edited bosses and writes their values back to the constants
 they came from:
-`*_RADIUS` in `spacetimedb/src/boss-combat.ts`, `*_VERTICAL_RADIUS` and
-`*_HITBOX_OFFSET_Y` in `shared/boss-hitbox.ts`, and `*_ART_TOP`,
+`*_RADIUS`, `*_VERTICAL_RADIUS`, and `*_HITBOX_OFFSET_Y` in
+`shared/boss-hitbox.ts`; `*_ART_TOP`,
 `*_SPRITE_Y_OFFSET`, `*_SPRITE_GROUND_OFFSET` and `*_DEPTH_OFFSET` in
 `src/game/constants.ts`. The Spider stands from `SPIDER_STAND_OFFSET`, because
 its artwork is placed from its feet rather than from a centre. A boss with no constant
 yet gets one appended. Nothing else in those files is touched.
 
-Radii are server-side, so a change to a hitbox needs
+Radii are shared with the server, so a change to a hitbox needs
 `npm run spacetime:publish:live` as well as the client push.
 
 `node scripts/check-boss-hitboxes.mjs` measures the artwork and prints what the

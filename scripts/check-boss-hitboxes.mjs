@@ -4,10 +4,8 @@
  * hits it with, so a hitbox that does not match what a player can see shows up
  * as a number rather than as a complaint.
  *
- * The server hits a boss as a circle of RADIUS centred on its position. The
- * client draws the boss from an atlas or a sheet, anchored at that same
- * position. Those two are authored in different files and nothing has ever
- * compared them, which is how a flat 170 ended up on seven different bosses.
+ * The client draws each boss from an atlas or sheet. Compare the opaque art
+ * with its shared hitbox, or the server constant for bosses without a sheet.
  *
  * Only the bosses drawn from artwork are measured here. The rest are drawn
  * with canvas primitives, so their extent is code rather than pixels and has
@@ -47,10 +45,10 @@ async function processedSheet(path) {
   return sheet;
 }
 
-const RADIUS = /export const (\w+)_RADIUS = (\d+);/g;
-const source = await readFile("spacetimedb/src/boss-combat.ts", "utf8");
-const radii = Object.fromEntries([...source.matchAll(RADIUS)].map((m) => [m[1], Number(m[2])]));
 const hitboxSource = await readFile("shared/boss-hitbox.ts", "utf8");
+const combatSource = await readFile("spacetimedb/src/boss-combat.ts", "utf8");
+const RADIUS = /export const (\w+)_RADIUS = (\d+);/g;
+const radii = Object.fromEntries([...combatSource.matchAll(RADIUS), ...hitboxSource.matchAll(RADIUS)].map((m) => [m[1], Number(m[2])]));
 const constantsSource = await readFile("src/game/constants.ts", "utf8");
 const readNumber = (source, name) => {
   const match = source.match(new RegExp(`export const ${name} = (-?[\\d.]+);`));

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { GLOOMROOT_RADIUS, KOI_SHOGUN_RADIUS, MAGMALISK_RADIUS, MIREMAW_RADIUS, TEMPEST_KIRIN_RADIUS, TIDEWYRM_RADIUS } from "../../shared/boss-hitbox";
 import { GLOOMROOT_MAX_HP, KOI_SHOGUN_MAX_HP, MAGMALISK_MAX_HP, MIREMAW_MAX_HP, PRISMSHELL_MAX_HP, TEMPEST_KIRIN_MAX_HP, TIDEWYRM_MAX_HP } from "../../shared/rules";
 import { ENEMY_TYPES } from "./enemies";
 import { createGameBootstrap } from "./runtime/game-bootstrap";
@@ -80,7 +81,7 @@ describe("Advanced Lava Lake", () => {
     expect(config[ADVANCED_LAVA_WASTES_MAP_ID].name).toBe("Advanced Lava Lake - 4");
     expect(config[INTERMEDIATE_SNOWLANDS_MAP_ID].secondaryPortal.destination).toBe(ADVANCED_LAVA_WASTES_MAP_ID);
     expect(config[ADVANCED_LAVA_WASTES_MAP_ID].portal.destination).toBe(INTERMEDIATE_SNOWLANDS_MAP_ID);
-    expect(createGameBootstrap().magmaliskBoss).toMatchObject({ x: 4050, y: 4050, r: 165, maxHp: MAGMALISK_MAX_HP });
+    expect(createGameBootstrap().magmaliskBoss).toMatchObject({ x: 4050, y: 4050, r: MAGMALISK_RADIUS, maxHp: MAGMALISK_MAX_HP });
   });
 
   it("connects Gloomroot's Night Forest gate to deterministic Water Reach camps", () => {
@@ -93,8 +94,8 @@ describe("Advanced Lava Lake", () => {
     expect(bootstrap.mapConfig[INFERNAL_DEPTHS_MAP_ID].secondaryPortal.destination).toBe(WATER_REACH_MAP_ID);
     expect(bootstrap.mapConfig[WATER_REACH_MAP_ID].portal.destination).toBe(INFERNAL_DEPTHS_MAP_ID);
     expect(bootstrap.mapConfig[WATER_REACH_MAP_ID].name).toBe("Water Reach - 6");
-    expect(bootstrap.gloomrootBoss).toMatchObject({ x: 4050, y: 4050, r: 175, maxHp: GLOOMROOT_MAX_HP });
-    expect(bootstrap.tidewyrmBoss).toMatchObject({ x: 4050, y: 4050, r: 175, maxHp: TIDEWYRM_MAX_HP });
+    expect(bootstrap.gloomrootBoss).toMatchObject({ x: 4050, y: 4050, r: GLOOMROOT_RADIUS, maxHp: GLOOMROOT_MAX_HP });
+    expect(bootstrap.tidewyrmBoss).toMatchObject({ x: 4050, y: 4050, r: TIDEWYRM_RADIUS, maxHp: TIDEWYRM_MAX_HP });
     expect(sites).toHaveLength(30);
     expect(sites.every((site) => waterKinds.has(site.type))).toBe(true);
     expect(sites.every((site) => Math.hypot(site.x - 4050, site.y - 4050) >= 900)).toBe(true);
@@ -117,7 +118,7 @@ describe("Advanced Lava Lake", () => {
     expect(bootstrap.mapConfig[WATER_REACH_MAP_ID].secondaryPortal.destination).toBe(SAMURAI_GARDEN_MAP_ID);
     expect(bootstrap.mapConfig[SAMURAI_GARDEN_MAP_ID].portal.destination).toBe(WATER_REACH_MAP_ID);
     expect(bootstrap.mapConfig[SAMURAI_GARDEN_MAP_ID].name).toBe("Samurai Garden - 7");
-    expect(bootstrap.koiShogunBoss).toMatchObject({ x: 4050, y: 4050, r: 175, maxHp: KOI_SHOGUN_MAX_HP });
+    expect(bootstrap.koiShogunBoss).toMatchObject({ x: 4050, y: 4050, r: KOI_SHOGUN_RADIUS, maxHp: KOI_SHOGUN_MAX_HP });
     expect(sites).toHaveLength(30);
     expect(sites.every((site) => samuraiKinds.has(site.type))).toBe(true);
     expect(sites.every((site) => Math.hypot(site.x - 4050, site.y - 4050) >= 900)).toBe(true);
@@ -145,7 +146,7 @@ describe("Advanced Lava Lake", () => {
     expect(bootstrap.mapConfig[SAMURAI_GARDEN_MAP_ID].secondaryPortal.destination).toBe(CLOUDSPIRE_MAP_ID);
     expect(bootstrap.mapConfig[CLOUDSPIRE_MAP_ID].portal.destination).toBe(SAMURAI_GARDEN_MAP_ID);
     expect(bootstrap.mapConfig[CLOUDSPIRE_MAP_ID].name).toBe("Cloudspire - 8");
-    expect(bootstrap.tempestKirinBoss).toMatchObject({ x: 4050, y: 4050, r: 180, maxHp: TEMPEST_KIRIN_MAX_HP });
+    expect(bootstrap.tempestKirinBoss).toMatchObject({ x: 4050, y: 4050, r: TEMPEST_KIRIN_RADIUS, maxHp: TEMPEST_KIRIN_MAX_HP });
     expect(sites).toHaveLength(30);
     expect(sites.every((site) => cloudspireKinds.has(site.type))).toBe(true);
     expect(sites.every((site) => Math.hypot(site.x - 4050, site.y - 4050) >= 900)).toBe(true);
@@ -165,7 +166,7 @@ describe("Advanced Lava Lake", () => {
     expect(bootstrap.mapConfig[CLOUDSPIRE_MAP_ID].secondaryPortal.destination).toBe(MOONFEN_MAP_ID);
     expect(bootstrap.mapConfig[MOONFEN_MAP_ID].portal.destination).toBe(CLOUDSPIRE_MAP_ID);
     expect(bootstrap.mapConfig[MOONFEN_MAP_ID].name).toBe("Moonfen - 9");
-    expect(bootstrap.miremawBoss).toMatchObject({ x: 4050, y: 4050, r: 170, maxHp: MIREMAW_MAX_HP });
+    expect(bootstrap.miremawBoss).toMatchObject({ x: 4050, y: 4050, r: MIREMAW_RADIUS, maxHp: MIREMAW_MAX_HP });
     expect(sites).toHaveLength(30);
     expect(sites.every((site) => moonfenKinds.has(site.type))).toBe(true);
     expect(sites.every((site) => Math.hypot(site.x - 4050, site.y - 4050) >= 900)).toBe(true);

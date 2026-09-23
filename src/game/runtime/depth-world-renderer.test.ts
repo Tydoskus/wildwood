@@ -117,10 +117,9 @@ describe("depth world renderer", () => {
 
     depth.drawDepthSortedWorld([], false);
 
-    // Sorted on its own depth offset rather than on its shadow, so tuning the
-    // shadow leaves the order alone. This flipped while the two were the same
-    // number and Tidewyrm's shadow moved.
-    expect(calls).toEqual(["player", "tidewyrm"]);
+    // At equal depth, the boss is queued before the player. Shadow placement
+    // does not determine actor draw order.
+    expect(calls).toEqual(["tidewyrm", "player"]);
   });
 
   it("queues Miremaw in Moonfen depth order", () => {

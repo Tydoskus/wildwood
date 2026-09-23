@@ -1,3 +1,4 @@
+import { bossVerticalRadius } from "../../../shared/boss-hitbox";
 import { VERDANT_ROOTS, VERDANT_SPORES, verdantRootHits, verdantSporeHits, verdantSporeSites } from "../../../shared/verdant-attacks";
 import { ION_SWEEP, ION_BURSTS, ionSweepHits, ionBurstHits, ionBurstSites } from "../../../shared/ion-attacks";
 import { NEON_LASER, NEON_EMP, neonLaserHits, neonEmpHits } from "../../../shared/neon-attacks";
@@ -3679,16 +3680,18 @@ function updateMiremawBoss(dt: number) {
   function resolveCollision(target: DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState | KoiShogunBossState | TempestKirinBossState | MiremawBossState | PrismshellBossState | IronhornBossState | DreadreaperBossState | VoltwardenBossState | GravebloomBossState | AegisPrimeBossState, damage: number, cooldown: number) {
     if (target.dead) return;
     const dx = player.x - target.x;
-    const dy = player.y - target.y;
-    const minimumDistance = player.r + target.r;
-    const distanceSquared = dx * dx + dy * dy;
-    if (distanceSquared >= minimumDistance * minimumDistance) return;
+    const hitbox = target as typeof target & { ry?: number; hitboxOffsetY?: number };
+    const centreY = target.y + (hitbox.hitboxOffsetY ?? 0);
+    const dy = player.y - centreY;
+    const horizontal = target.r + player.r;
+    const vertical = bossVerticalRadius(target.r, hitbox.ry) + player.r;
+    // Expand the tuned ellipse by the player's radius for body contact.
+    // The old circle pushed players away from empty air above short bosses.
+    const scaledDistance = Math.hypot(dx / horizontal, dy / vertical);
+    if (scaledDistance >= 1) return;
     if (target.contactDamageClock <= 0) { damagePlayer(damage); target.contactDamageClock = cooldown; }
-    const distance = Math.sqrt(distanceSquared);
-    const nx = distance > .001 ? dx / distance : 1;
-    const ny = distance > .001 ? dy / distance : 0;
-    player.x = target.x + nx * minimumDistance;
-    player.y = target.y + ny * minimumDistance;
+    player.x = target.x + (scaledDistance > .001 ? dx / scaledDistance : horizontal);
+    player.y = centreY + (scaledDistance > .001 ? dy / scaledDistance : 0);
   }
 
   function applyBossKnockback(dt: number) {

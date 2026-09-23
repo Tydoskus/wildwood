@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.786": [
+    "Enemy bow sprites now aim from the grip toward their target.",
+    "Boss positions, crops, status bars and hitboxes use the saved tuner adjustments.",
+    "Miremaw's in-game hitbox and body contact match the tuned shape.",
+  ],
   "0.785": [
     "Regular, elite and ranged enemies accelerate to ten movement speed above your actual speed, including Black Boots.",
     "Chasers keep pursuing through their acceleration ramp instead of dropping aggro before they catch up.",
@@ -2275,6 +2280,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.786": "2026-09-22",
   "0.785": "2026-09-22",
   "0.784": "2026-09-22",
   "0.783": "2026-09-22",

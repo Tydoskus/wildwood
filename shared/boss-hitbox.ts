@@ -20,6 +20,16 @@ export type BossHitbox = {
   offsetY?: number;
 };
 
+/** Sheet-boss horizontal radii are shared by the tuner, client, and server. */
+export const SPIDER_RADIUS = 146;
+export const FROSTCLAW_RADIUS = 150;
+export const MAGMALISK_RADIUS = 151;
+export const GLOOMROOT_RADIUS = 137;
+export const TIDEWYRM_RADIUS = 156;
+export const KOI_SHOGUN_RADIUS = 103;
+export const TEMPEST_KIRIN_RADIUS = 136;
+export const MIREMAW_RADIUS = 119;
+
 export function bossVerticalRadius(radius: number, verticalRadius?: number) {
   return Number.isFinite(verticalRadius) && (verticalRadius as number) > 0 ? verticalRadius as number : radius;
 }
@@ -56,8 +66,6 @@ export function bossSurfaceDistance(
  * Measured by `node scripts/check-boss-hitboxes.mjs`.
  */
 export const MIREMAW_VERTICAL_RADIUS = 95;
-/** Its width, unchanged; kept here so the geometry can be tested on its own. */
-export const MIREMAW_RADIUS_REFERENCE = 170;
 export const MIREMAW_HITBOX_OFFSET_Y = 63;
 
 /**

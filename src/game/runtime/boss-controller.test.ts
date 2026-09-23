@@ -587,6 +587,23 @@ describe("Tempest Kirin boss", () => {
 });
 
 describe("Miremaw boss", () => {
+  it("uses the tuned body edge for contact damage", () => {
+    const { controller, miremawBoss, player, damagePlayer } = createFrostclawHarness();
+    expect(miremawBoss.ry).toBe(95);
+    expect(miremawBoss.hitboxOffsetY).toBe(63);
+    const top = miremawBoss.y + (miremawBoss.hitboxOffsetY ?? 0) - (miremawBoss.ry ?? miremawBoss.r) - player.r;
+    player.x = miremawBoss.x;
+    player.y = top - 1;
+    controller.resolveMiremawCollision();
+    expect(damagePlayer).not.toHaveBeenCalled();
+    expect(player.y).toBe(top - 1);
+
+    player.y = top + 1;
+    controller.resolveMiremawCollision();
+    expect(damagePlayer).toHaveBeenCalledOnce();
+    expect(player.y).toBeCloseTo(top);
+  });
+
   it("caps Moonfen with the next repeatable late-map reward", () => {
     expect(MIREMAW_MAX_HP).toBe(desertBossHealthAt(7));
     expect(MIREMAW_REWARD_DAMAGE).toBe(bossRewardValue("damage", 7));

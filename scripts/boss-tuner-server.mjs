@@ -3,7 +3,7 @@
  * The local editor behind tools/boss-tuner.
  *
  * A boss's presentation is spread across four files: the collision radius is a
- * server constant, its ellipse lives in shared/, the status bar's anchor and
+ * shared constant, its ellipse lives in shared/, the status bar's anchor and
  * the shadow are client constants, and the draw size is a literal inside the
  * renderer. Tuning any of it meant editing numbers in different places and
  * reloading the game to see what they did.
@@ -28,7 +28,6 @@ const editorVersion = createHash("sha256").update((await Promise.all(editorFiles
 
 const HITBOX_FILE = "shared/boss-hitbox.ts";
 const CONSTANTS_FILE = "src/game/constants.ts";
-const COMBAT_FILE = "spacetimedb/src/boss-combat.ts";
 const CROPS_FILE = "src/game/boss-frame-crops.json";
 
 /**
@@ -98,14 +97,14 @@ function validateEdits(edits) {
 }
 
 async function loadBosses() {
-  const [hitbox, constants, combat, cropsJson] = await Promise.all(
-    [HITBOX_FILE, CONSTANTS_FILE, COMBAT_FILE, CROPS_FILE].map((file) => readFile(join(root, file), "utf8")),
+  const [hitbox, constants, cropsJson] = await Promise.all(
+    [HITBOX_FILE, CONSTANTS_FILE, CROPS_FILE].map((file) => readFile(join(root, file), "utf8")),
   );
   const crops = JSON.parse(cropsJson || "{}");
   return BOSSES.map((boss) => ({
     crops: crops[boss.id] ?? {},
     ...boss,
-    radius: readNumber(combat, `${boss.id}_RADIUS`) ?? 170,
+    radius: readNumber(hitbox, `${boss.id}_RADIUS`) ?? 170,
     verticalRadius: readNumber(hitbox, `${boss.id}_VERTICAL_RADIUS`),
     hitboxOffsetY: readNumber(hitbox, `${boss.id}_HITBOX_OFFSET_Y`) ?? 0,
     artTop: readNumber(constants, `${boss.id}_ART_TOP`),
@@ -120,13 +119,12 @@ async function saveBosses(edits) {
   if (!edits.length) return [];
   let hitbox = await readFile(join(root, HITBOX_FILE), "utf8");
   let constants = await readFile(join(root, CONSTANTS_FILE), "utf8");
-  let combat = await readFile(join(root, COMBAT_FILE), "utf8");
   const crops = JSON.parse(await readFile(join(root, CROPS_FILE), "utf8"));
   const changed = [];
   for (const edit of edits) {
     const boss = BOSSES.find((row) => row.id === edit.id);
     const round = (value) => Math.round(Number(value));
-    combat = writeNumber(combat, `${boss.id}_RADIUS`, round(edit.radius));
+    hitbox = writeNumber(hitbox, `${boss.id}_RADIUS`, round(edit.radius));
     hitbox = writeNumber(hitbox, `${boss.id}_VERTICAL_RADIUS`, round(edit.verticalRadius),
       `${boss.name}'s body height. Tuned in tools/boss-tuner.`);
     hitbox = writeNumber(hitbox, `${boss.id}_HITBOX_OFFSET_Y`, round(edit.hitboxOffsetY),
@@ -154,7 +152,6 @@ async function saveBosses(edits) {
   await Promise.all([
     writeFile(join(root, HITBOX_FILE), hitbox),
     writeFile(join(root, CONSTANTS_FILE), constants),
-    writeFile(join(root, COMBAT_FILE), combat),
     writeFile(join(root, CROPS_FILE), `${JSON.stringify(crops, null, 2)}\n`),
   ]);
   return changed;
