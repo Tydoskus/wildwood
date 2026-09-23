@@ -8,7 +8,7 @@ import { CAMPAIGN_UNLOCK_FIELDS, type CampaignAccess } from "./equipment-access"
 import type { PlayerPowerStats } from "./player-power";
 
 /** The most farming one absence is worth, however long the player was gone. */
-export const OFFLINE_WINDOW_SECONDS = 30 * 60;
+export const OFFLINE_WINDOW_SECONDS = 60 * 60;
 /**
  * Below this there is nothing to report: a reconnect, a tab reload, or a
  * dropped socket should not open a summary for four seconds of loot.

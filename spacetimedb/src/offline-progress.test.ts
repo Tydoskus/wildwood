@@ -10,7 +10,7 @@ import { Identity } from "../../tests/helpers/spacetime-memory-db";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 /** A build that can hold Snowlands, standing in Home after the window opened. */
-/** Far enough past the epoch that half an hour can be subtracted from it. */
+/** Far enough past the epoch that an hour can be subtracted from it. */
 const CLOCK_MICROS = 1_790_000_000_000_000n;
 
 function away(secondsAway: number, overrides: Record<string, unknown> = {}) {
@@ -66,7 +66,7 @@ it("pays out the highest map the build can hold, and closes the window behind it
 it("caps a long absence at the window", () => {
   const fixture = away(OFFLINE_WINDOW_SECONDS * 20);
   enter(fixture);
-  expect(fixture.db.offlineProgress.identity.find(fixture.ctx.sender).seconds).toBe(OFFLINE_WINDOW_SECONDS);
+  expect(fixture.db.offlineProgress.identity.find(fixture.ctx.sender).seconds).toBe(60 * 60);
 });
 
 it("pays nothing for a reconnect", () => {

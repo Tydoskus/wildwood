@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.792": [
+    "Offline farming now earns rewards for up to one hour away.",
+  ],
   "0.791": [
     "Tech and slot countdowns use the game HUD style and show seconds only in the final minute.",
     "Settings can hide the Tech, Slot 1 and Slot 2 timers independently.",
@@ -2300,6 +2303,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.792": "2026-09-23",
   "0.791": "2026-09-22",
   "0.790": "2026-09-22",
   "0.789": "2026-09-22",

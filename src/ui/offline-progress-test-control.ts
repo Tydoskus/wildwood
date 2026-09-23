@@ -2,7 +2,7 @@ import { OFFLINE_WINDOW_SECONDS } from "../../shared/offline-progress";
 
 /**
  * Developer-only: backdate the unattended window and reconnect, so offline
- * progress can be checked in a minute instead of half an hour.
+ * progress can be checked in a minute instead of waiting an hour.
  *
  * It reaches the same code path a real absence does — the server still decides
  * the map, the survivability and the payout — so what it shows is what a real
