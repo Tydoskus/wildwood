@@ -1566,7 +1566,8 @@ const researchCompletionSchedule = table(
   {
     scheduledId: t.u64().primaryKey().autoInc(),
     scheduledAt: t.scheduleAt(),
-    identity: t.identity(),
+    // Indexed: maintenance and every connect look up one player's schedule.
+    identity: t.identity().index("btree"),
     researchId: t.string(),
     targetRank: t.u32(),
     completesAtMicros: t.u64().default(0n),
@@ -1578,7 +1579,7 @@ const itemUpgradeCompletionSchedule = table(
   {
     scheduledId: t.u64().primaryKey().autoInc(),
     scheduledAt: t.scheduleAt(),
-    identity: t.identity(),
+    identity: t.identity().index("btree"),
     itemId: t.string(),
     targetLevel: t.u8(),
     completesAtMicros: t.u64(),
@@ -2318,8 +2319,7 @@ function activeResearchCanComplete(research: Record<ResearchId, number>, active:
 }
 
 function removeResearchCompletionSchedules(ctx: any, identity: any) {
-  const scheduledIds = [...ctx.db.researchCompletionSchedule.iter() as Iterable<any>]
-    .filter((scheduled: any) => sameIdentity(scheduled.identity, identity))
+  const scheduledIds = [...ctx.db.researchCompletionSchedule.identity.filter(identity) as Iterable<any>]
     .map((scheduled: any) => scheduled.scheduledId);
   for (const scheduledId of scheduledIds) ctx.db.researchCompletionSchedule.scheduledId.delete(scheduledId);
 }
@@ -2356,8 +2356,7 @@ function completeActiveResearch(ctx: any, active: any) {
 
 function ensureResearchCompletionSchedule(ctx: any, active: any) {
   const completesAtMicros = active.completesAt.microsSinceUnixEpoch;
-  for (const scheduled of ctx.db.researchCompletionSchedule.iter() as Iterable<any>) {
-    if (!sameIdentity(scheduled.identity, active.identity)) continue;
+  for (const scheduled of [...ctx.db.researchCompletionSchedule.identity.filter(active.identity) as Iterable<any>]) {
     if (scheduled.researchId === active.researchId && scheduled.targetRank === active.targetRank && scheduled.completesAtMicros === completesAtMicros) return;
     ctx.db.researchCompletionSchedule.scheduledId.delete(scheduled.scheduledId);
   }
@@ -3044,9 +3043,8 @@ function maxHealthForProgress(ctx: any, identity: any, progress: any) {
 }
 
 function removeItemUpgradeCompletionSchedules(ctx: any, identity: any, slot?: number) {
-  const scheduledIds = [...ctx.db.itemUpgradeCompletionSchedule.iter() as Iterable<any>]
-    .filter((scheduled: any) => sameIdentity(scheduled.identity, identity) &&
-      (slot === undefined || normalizeUpgradeBenchSlot(scheduled.slot) === slot))
+  const scheduledIds = [...ctx.db.itemUpgradeCompletionSchedule.identity.filter(identity) as Iterable<any>]
+    .filter((scheduled: any) => slot === undefined || normalizeUpgradeBenchSlot(scheduled.slot) === slot)
     .map((scheduled: any) => scheduled.scheduledId);
   for (const scheduledId of scheduledIds) ctx.db.itemUpgradeCompletionSchedule.scheduledId.delete(scheduledId);
 }
@@ -3069,9 +3067,14 @@ function removePlayerItemUpgradeData(ctx: any, identity: any, removeDrops = fals
 }
 
 function ensureItemUpgradeCompletionSchedule(ctx: any, active: any, slot: number) {
+  const completesAtMicros = active.completesAt.microsSinceUnixEpoch;
+  // The sweep calls this for every running upgrade; leave a correct schedule alone.
+  const existing = [...ctx.db.itemUpgradeCompletionSchedule.identity.filter(active.identity) as Iterable<any>]
+    .filter((scheduled: any) => normalizeUpgradeBenchSlot(scheduled.slot) === slot);
+  if (!active.paused && existing.length === 1 && existing[0].itemId === active.itemId
+    && existing[0].targetLevel === active.targetLevel && existing[0].completesAtMicros === completesAtMicros) return;
   removeItemUpgradeCompletionSchedules(ctx, active.identity, slot);
   if (active.paused) return;
-  const completesAtMicros = active.completesAt.microsSinceUnixEpoch;
   ctx.db.itemUpgradeCompletionSchedule.insert({
     scheduledId: 0n,
     scheduledAt: ScheduleAt.time(completesAtMicros),

@@ -120,3 +120,13 @@ it("requires slot two, charges 200 Gems once, and completes slot three beside tw
   expect(f.db.activeItemUpgrade.identity.find(f.ctx.sender)?.itemId).toBe("HAND");
   expect(f.db.activeItemUpgradeSlotTwo.identity.find(f.ctx.sender)?.itemId).toBe("HEAD");
 });
+
+it("keeps a correct completion schedule instead of rewriting it every sweep", () => {
+  const f = crystalFixture();
+  seedRunningSlotUpgrade(f, "HAND", 10);
+  f.run(server.runMaintenanceSweep);
+  const [first] = [...f.db.itemUpgradeCompletionSchedule.iter()];
+  expect(first).toBeTruthy();
+  f.run(server.runMaintenanceSweep);
+  expect([...f.db.itemUpgradeCompletionSchedule.iter()].map(row => row.scheduledId)).toEqual([first.scheduledId]);
+});
