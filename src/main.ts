@@ -594,7 +594,7 @@ import {
     connection: () => farmConnection === 'ready' && (!coop?.isConnected?.() || !session?.isRunning()
       || mapController.isMapTransitioning() || mapController.isCutsceneActive()) ? 'recovering' : farmConnection,
     unavailable: farmUnavailable,
-    paused: () => Boolean(session?.isPaused()) || document.hidden,
+    paused: () => Boolean(session?.isPaused()),
     speed: () => player.speed * movementMultiplier(),
     obstacles: () => {
       const config = MAP_CONFIG[currentMapId];

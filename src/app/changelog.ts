@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.784": [
+    "Gameplay and autofarm keep advancing when the browser tab is in the background.",
+  ],
   "0.783": [
     "Inventory marks a finished upgrade from either bench slot with a red dot.",
     "Research and slot upgrades show a reward card when they finish.",
@@ -2268,6 +2271,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.784": "2026-09-22",
   "0.783": "2026-09-22",
   "0.782": "2026-09-22",
   "0.781": "2026-09-22",
