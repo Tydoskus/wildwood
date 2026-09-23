@@ -1,6 +1,10 @@
 export const LEADERBOARD_STATS = ["power", "damage", "health", "armor", "regen", "time"] as const;
 export type LeaderboardStat = typeof LEADERBOARD_STATS[number];
 export const LEADERBOARD_PAGE_SIZE = 100;
+/** Dragon access is reset by prestige, but a prestige level proves the player beat it. */
+export function leaderboardEligible(desertUnlocked: boolean | undefined, prestigeLevel: number | undefined): boolean {
+  return Boolean(desertUnlocked || (prestigeLevel ?? 0) > 0);
+}
 export function leaderboardStat(value: string): LeaderboardStat {
   if (!(LEADERBOARD_STATS as readonly string[]).includes(value)) throw new Error("Unknown leaderboard stat");
   return value as LeaderboardStat;

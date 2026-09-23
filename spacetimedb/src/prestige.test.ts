@@ -258,14 +258,17 @@ it("leaves a running research timer running, and it still completes after the pr
   expect(f.db.activeResearch.identity.find(f.ctx.sender)).toBeFalsy();
 });
 
-it("drops the player's leaderboard power the moment they prestige", () => {
+it("keeps a prestiged player on the leaderboard at their reset power", () => {
   // The board is rebuilt on a timer. Without an immediate refresh a reset
   // player sits at the top of everyone else's leaderboard until the sweep.
   const f = crystalFixture();
-  f.patch("playerProgress", { bossRewardClaims: CAMPAIGN_COMPLETE, damage: 5_000_000, maxHp: 900_000 });
+  f.patch("playerProgress", { bossRewardClaims: CAMPAIGN_COMPLETE, desertUnlocked: true, damage: 5_000_000, maxHp: 900_000 });
   f.seed("playerProfile", { identity: identity("9"), displayName: "Rival" });
   f.run(server.prestigeAccount, {});
   const entry = f.db.leaderboardEntry.identity.find(f.ctx.sender);
-  expect(entry?.powerLevel ?? 0).toBeLessThan(5_000_000);
-  expect(entry?.damage ?? 0).toBeLessThan(5_000_000);
+  expect(f.db.playerProgress.identity.find(f.ctx.sender).desertUnlocked).toBe(false);
+  expect(entry).toBeTruthy();
+  expect(entry.powerLevel).toBeLessThan(5_000_000);
+  expect(entry.damage).toBeLessThan(5_000_000);
+  expect(f.db.leaderboardPosition.identity.find(f.ctx.sender)?.ranks[0]).toBeGreaterThan(0);
 });

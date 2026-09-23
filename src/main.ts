@@ -25,6 +25,7 @@ import { createItemGiftController } from "./ui/item-gift-controller";
 import { createReconnectRecovery } from "./ui/reconnect-recovery";
 import { isProceduralMap, proceduralMapId } from "../shared/procedural-maps";
 import { prestigePerkValue } from "../shared/prestige-perks";
+import { leaderboardEligible } from "../shared/leaderboard-window";
 import { createProceduralBossController } from "./game/runtime/procedural-boss-controller";
 import { bindPlayerNameTags } from "./app/player-name-tags";
 import { bindAvatarFrames } from "./app/avatar-frames";
@@ -2099,7 +2100,10 @@ import {
       const profile = coop?.playerProfile?.(identity);
       if (profile) profileWindow.render(profile);
     },
-    refreshLeaderboard: () => leaderboard.setUnlocked(farmUnlocked()),
+    refreshLeaderboard: () => leaderboard.setUnlocked(leaderboardEligible(
+      coop?.savedProgress?.()?.desertUnlocked,
+      coop?.prestige?.()?.level,
+    )),
     refreshDevPanel: devPanel.refresh,
     loadProgress,
     observedSessionGeneration: () => observedCoopSessionGeneration,

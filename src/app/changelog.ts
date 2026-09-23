@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.793": [
+    "The leaderboard stays unlocked and keeps your new rank after you prestige.",
+  ],
   "0.792": [
     "Offline farming now earns rewards for up to one hour away.",
   ],
@@ -2303,6 +2306,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.793": "2026-09-23",
   "0.792": "2026-09-23",
   "0.791": "2026-09-22",
   "0.790": "2026-09-22",

@@ -36,6 +36,7 @@ import { playerItemGift, deliverAlphaTesterGifts, claimItemGift } from "./item-g
 import { moderateReportedMessage } from "./chat-report-moderation";
 import { PLAYER_SKIN_TONES } from "../../shared/player-skin-tones";
 import { leaderboardPageTables, writeLeaderboardPages, readLeaderboardWindow, readLeaderboardPage } from "./leaderboard-pages";
+import { leaderboardEligible } from "../../shared/leaderboard-window";
 import { publicChatCursor, updatePublicChatCursor, readPublicChatPage } from "./public-chat-history";
 import { createKillGems } from "./kill-gems";
 import { createPrestige, statRewardMultiplier } from "./prestige";
@@ -296,7 +297,7 @@ const DUEL_REPLAY_RETENTION_MICROS = CHAT_HISTORY_RETENTION_MICROS;
 const MAINTENANCE_INTERVAL_MICROS = 60_000_000n;
 const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const LEADERBOARD_REFRESH_VERSION = 11;
+const LEADERBOARD_REFRESH_VERSION = 12;
 // Shared-boss combat bodies live in boss-combat.ts; the reducers below keep
 // calling the same names. Placed after WORLD, the one const the factory reads.
 const {
@@ -2522,11 +2523,10 @@ function refreshLeaderboard(ctx: any) {
   const candidates: any[] = [];
   for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
     if (ctx.db.virtualPlayer.identity.find(progress.identity)) continue;
-    // The board opens at the Dragon. Before that a save is a few minutes old
-    // and its owner is still in the tutorial forest, so it says nothing worth
-    // ranking. Desert access is the Dragon's permanent credit, which is why
-    // autofarm reads the same flag rather than the boss's own state.
-    if (!progress.desertUnlocked) continue;
+    // First runs join after the Dragon; a prestige level retains that credit
+    // when the reset clears the current run's Desert access.
+    const prestigeLevel = ctx.db.playerPrestige.identity.find(progress.identity)?.level ?? 0;
+    if (!leaderboardEligible(progress.desertUnlocked, prestigeLevel)) continue;
     const profile = ctx.db.playerProfile.identity.find(progress.identity);
     if (!profile) continue;
     const current = ctx.db.leaderboardEntry.identity.find(progress.identity);
@@ -2540,7 +2540,7 @@ function refreshLeaderboard(ctx: any) {
       identity: progress.identity,
       identityKey: progress.identity.toHexString(),
       displayName: profile.displayName,
-      prestige: ctx.db.playerPrestige.identity.find(progress.identity)?.level ?? 0,
+      prestige: prestigeLevel,
       power: powerForProgress(effectiveStats),
       profileIcon: profile.profileIcon,
       gender: profile.gender,
