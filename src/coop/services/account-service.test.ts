@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAccountService } from "./account-service";
+import { recordCarriedConnectionDiagnostic } from "./connection-diagnostic-runtime";
+vi.mock("./connection-diagnostic-runtime", () => ({ recordConnectionDiagnostic: vi.fn(), recordCarriedConnectionDiagnostic: vi.fn() }));
 import { createUpdateResumeStore } from "./update-resume-store";
 import { inspectSpacetimeIdToken, OidcIdTokenError } from "../security/oidc-id-token";
 import { SPACETIME_AUTH_CLIENT_ID, SPACETIME_AUTH_ISSUER } from "../../../shared/rules";
@@ -46,6 +48,7 @@ const keys = {
   authStateKey: "auth-state",
   authVerifierKey: "auth-verifier",
   authNonceKey: "auth-nonce",
+  authTripKey: "auth-trip",
   authRetryKey: "auth-retry",
   knownAccountKey: "known-account",
   knownAccountCharacterKey: "known-account-character",
@@ -707,6 +710,32 @@ it("stores a refresh grant after a verified callback and removes it on switching
   expect(JSON.parse(local.getItem(`${keys.accountTokenKey}:refresh`)!)).toMatchObject({ subject: "account-subject", token: "refresh-grant", nonce: "expected-nonce" });
   service.api.continueAsGuest();
   expect(local.getItem(`${keys.accountTokenKey}:refresh`)).toBeNull();
+});
+
+describe("sign-in round trips", () => {
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.mocked(recordCarriedConnectionDiagnostic).mockClear(); });
+  it("reuses the provider session for a returning account instead of forcing a new login", async () => {
+    const f = setup({ knownAccount: true });
+    await f.service.api.signIn();
+    const url = new URL(f.assign.mock.calls[0][0]);
+    expect(url.searchParams.get("prompt")).toBeNull();
+    // Any max_age puts auth_time in every token; a year never forces a login.
+    expect(url.searchParams.get("max_age")).toBe(String(365 * 86_400));
+    expect(url.searchParams.get("scope")).toContain("offline_access");
+  });
+  it("reports why the player left and how long the trip took once they return", async () => {
+    vi.useFakeTimers({ now: 1_000_000 });
+    const f = setup({ knownAccount: true });
+    await f.service.api.signIn();
+    const state = f.session.getItem(keys.authStateKey)!;
+    vi.setSystemTime(1_042_000);
+    f.session.setItem(keys.authNonceKey, "expected-nonce");
+    stubTokenRequest(new FakeTokenRequest(200, { id_token: accountToken(), refresh_token: "grant" }));
+    window.location.href = `https://wildstat.example/game?code=one&state=${state}`;
+    await f.service.restoreKnownAccount();
+    expect(recordCarriedConnectionDiagnostic).toHaveBeenCalledWith("session-blocked", { detail: "sign-in-return:success:known-account:silent:42s" });
+    expect(f.session.getItem(keys.authTripKey)).toBeNull();
+  });
 });
 
 describe("kill-report session enforcement", () => {

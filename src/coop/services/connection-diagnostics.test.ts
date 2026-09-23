@@ -26,6 +26,15 @@ describe("connection diagnostic delivery", () => {
     expect(f.submit).not.toHaveBeenCalled(); expect(collector.pending()).toBe(1);
     f.setOwner(owner); await collector.flush(); expect(f.submit).toHaveBeenCalledOnce();
   });
+  it("delivers a carried event with whichever player connects next, through a reload", async () => {
+    const f = fixture(); f.setOwner(""); const collector = createConnectionDiagnostics(f.options);
+    collector.record("session-blocked", { detail: "sign-in-return:success" }, true);
+    collector.record("page-hidden");
+    expect(collector.pending()).toBe(1);
+    f.setOwner("b".repeat(64)); f.connect();
+    await createConnectionDiagnostics(f.options).flush();
+    expect(JSON.parse(f.submit.mock.calls[0][0])).toMatchObject([{ detail: "sign-in-return:success" }]);
+  });
   it("keeps failed uploads and retries with the same event IDs", async () => {
     const f = fixture(); const collector = createConnectionDiagnostics(f.options); f.connect();
     collector.record("socket-close"); f.submit.mockRejectedValueOnce(new Error("offline"));

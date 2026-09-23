@@ -2,7 +2,7 @@ import { DEFEAT_REAUTH } from "../../../shared/defeat-session";
 import { AccountRenewalRequired, createAccountTokenRenewal } from "./account-token-renewal";
 import { accountLogoutUrl } from "./account-logout";
 import { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
-import { recordConnectionDiagnostic } from "./connection-diagnostic-runtime";
+import { recordCarriedConnectionDiagnostic, recordConnectionDiagnostic } from "./connection-diagnostic-runtime";
 import { syncResearchNotification } from "../../app/native-research-notifications";
 import type { DbConnection } from "../../module_bindings";
 import { NATIVE_AUTH_CANCEL, NATIVE_AUTH_REDIRECT, nativeAuth } from "../../app/native-auth";
@@ -39,6 +39,7 @@ type AccountKeys = {
   authStateKey: string;
   authVerifierKey: string;
   authNonceKey: string;
+  authTripKey: string;
   authRetryKey: string;
   knownAccountKey: string;
   knownAccountCharacterKey: string;
@@ -85,6 +86,14 @@ type AccountLinkTransaction = { code: string; guestIdentity: string };
 const AUTHORIZATION_ENDPOINT = `${SPACETIME_AUTH_ISSUER}/auth`;
 const TOKEN_ENDPOINT = `${SPACETIME_AUTH_ISSUER}/token`;
 const AUTH_SCOPE = "openid profile email offline_access";
+// Asking for any max_age makes SpacetimeAuth put auth_time in every ID token,
+// refreshed ones included; the kill-report re-auth check reads it. A year
+// never forces a login on its own.
+const AUTH_MAX_AGE_SECONDS = String(365 * 86_400);
+
+/** Why a player was sent to SpacetimeAuth, reported when they come back. */
+type SignInReason = "known-account" | "register" | "guest-link" | "update-resume"
+  | "renewal-no-grant" | "renewal-grant-rejected" | "token-rejected" | "defeat-reauth";
 const TOKEN_EXCHANGE_TIMEOUT_MS = 15_000;
 
 type TokenResponse = {
@@ -225,6 +234,20 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     clearTabValue(keys.authNonceKey);
   }
 
+  // The round trip's length separates a silent return (a second or two) from
+  // one where the player had to log in, which for email means a magic link.
+  function finishSignInTrip(outcome: "success" | "failed" | "abandoned") {
+    const saved = readTabValue(keys.authTripKey);
+    clearTabValue(keys.authTripKey);
+    let trip: { reason?: unknown; prompt?: unknown; at?: unknown } = {};
+    try { trip = JSON.parse(saved ?? "{}"); } catch {}
+    if (typeof trip.reason !== "string" || typeof trip.at !== "number") return;
+    const seconds = Math.max(0, Math.round((Date.now() - trip.at) / 1000));
+    recordCarriedConnectionDiagnostic("session-blocked", {
+      detail: `sign-in-return:${outcome}:${trip.reason}:${trip.prompt ? "prompt" : "silent"}:${seconds}s`,
+    });
+  }
+
   function readAccountLinkTransaction(): AccountLinkTransaction | null {
     const stored = readTabValue(keys.accountLinkKey);
     if (!stored) return null;
@@ -309,6 +332,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     if (readAccountLinkTransaction()) clearAccountMigrationPending();
     clearAccountReturnPending();
     clearAuthTransaction();
+    finishSignInTrip("abandoned");
     sessionApproved = false;
     updateResumePending = false;
     notice = "";
@@ -486,7 +510,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     return outcome;
   }
 
-  async function startAccountSignIn(forceLogin = false) {
+  async function startAccountSignIn(reason: SignInReason, forceLogin = false) {
     // Lock before PKCE hashing yields, so startup and taps share one transaction.
     if (signingOut || outboundAuthNavigationPending || callbackPending) return;
     outboundAuthNavigationPending = true;
@@ -503,6 +527,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       writeTabValue(keys.authStateKey, state);
       writeTabValue(keys.authVerifierKey, verifier);
       writeTabValue(keys.authNonceKey, nonce);
+      writeTabValue(keys.authTripKey, JSON.stringify({ reason, prompt: forceLogin, at: Date.now() }));
       const url = new URL(AUTHORIZATION_ENDPOINT);
       url.search = new URLSearchParams({
         client_id: SPACETIME_AUTH_CLIENT_ID,
@@ -513,16 +538,20 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
         nonce,
         code_challenge: challenge,
         code_challenge_method: "S256",
+        max_age: AUTH_MAX_AGE_SECONDS,
       }).toString();
-      // Explicit sign-in must let the player choose email or Google again.
-      // Automatic token renewal keeps the existing provider session seamless.
+      // A new account or guest link lets the player choose email or Google;
+      // the kill-report re-auth needs a login newer than the revocation. Any
+      // prompt also makes SpacetimeAuth drop offline_access, so a forced login
+      // returns no refresh token. Everything else reuses the provider session,
+      // which for an email account is the difference from a magic link.
       if (forceLogin) { url.searchParams.set("prompt", "login"); url.searchParams.set("max_age", "0"); }
       dependencies.notify();
       if (isNativePreview()) {
         try {
           const bridge = nativeAuth();
           if (!bridge) throw new Error("Native sign-in unavailable");
-          await bridge.open(url.toString(), [keys.authStateKey, keys.authVerifierKey, keys.authNonceKey,
+          await bridge.open(url.toString(), [keys.authStateKey, keys.authVerifierKey, keys.authNonceKey, keys.authTripKey,
             keys.authReturnUiKey, keys.accountLinkKey, keys.authTabKey, keys.authRetryKey]);
         } catch (error) {
           cancelAbandonedSignIn();
@@ -539,6 +568,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     const bridge = nativeAuth();
     if (bridge && await bridge.ready) return;
     const callbackOutcome = await completeAccountCallback();
+    if (callbackOutcome !== "none") finishSignInTrip(callbackOutcome);
     if (signingOut) return;
     // Callback failures and invalid/expired OAuth state must repaint the
     // lightweight sign-in shell instead of leaving it on "Verifying Sign-In".
@@ -550,7 +580,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
         notice = "REOPENING SIGN-IN";
         dependencies.notify();
         try {
-          await startAccountSignIn();
+          await startAccountSignIn("update-resume");
         } catch (error) {
           updateResumePending = false;
           sessionApproved = false;
@@ -583,7 +613,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     catch (error) {
       if (error instanceof AccountRenewalRequired && sessionApproved && !outboundAuthNavigationPending) {
         notice = "RESTORING SIGN-IN";
-        await startAccountSignIn();
+        await startAccountSignIn(`renewal-${error.reason}`);
       }
       throw error;
     }
@@ -701,14 +731,15 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
         if (hasKnownAccount() && !connection) {
           notice = "OPENING SIGN-IN";
           dependencies.notify();
-          await startAccountSignIn(true);
+          // Same account continuing: only the kill-report re-auth must log in.
+          await startAccountSignIn(defeatSignInBlocked ? "defeat-reauth" : "known-account", defeatSignInBlocked);
           return { ok: true, redirecting: true };
         }
         if (!connection) {
           if (!guestToken()) {
             notice = "OPENING REGISTRATION";
             dependencies.notify();
-            await startAccountSignIn(true);
+            await startAccountSignIn("register", true);
             return { ok: true, redirecting: true };
           }
           notice = "WAIT FOR SERVER";
@@ -741,7 +772,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
         markAccountMigrationPending();
         notice = "PREPARING SIGN-IN";
         dependencies.notify();
-        await startAccountSignIn(true);
+        await startAccountSignIn("guest-link", true);
         return { ok: true, redirecting: true };
       } finally {
         signInPreparing = false;
@@ -964,7 +995,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
         if (sessionApproved && !alreadyRetried) {
           writeTabValue(keys.authRetryKey, "true");
           notice = "REOPENING SIGN-IN";
-          void startAccountSignIn().catch((signInError) => {
+          void startAccountSignIn("token-rejected").catch((signInError) => {
             clearAccountReturnPending();
             sessionApproved = false;
             notice = "SIGN-IN FAILED · TRY AGAIN";

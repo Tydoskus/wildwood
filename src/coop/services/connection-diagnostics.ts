@@ -1,6 +1,8 @@
 import { CONNECTION_DIAGNOSTIC_BATCH_LIMIT, CONNECTION_DIAGNOSTIC_QUEUE_LIMIT, normalizeConnectionDiagnostic, type ConnectionDiagnostic, type ConnectionEventKind } from "../../../shared/connection-diagnostics";
 
 type StoragePort = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+/** An empty owner means "whoever connects next in this tab", for events that
+ * happen before any identity exists, such as a trip to the sign-in page. */
 type Queued = { owner: string; sample: ConnectionDiagnostic };
 export function createConnectionDiagnostics(options: {
   snapshot: () => Partial<ConnectionDiagnostic> & { owner: string };
@@ -19,7 +21,7 @@ export function createConnectionDiagnostics(options: {
     const saved = JSON.parse(storage?.getItem(options.storageKey) ?? "[]");
     if (Array.isArray(saved)) queue = saved.slice(-CONNECTION_DIAGNOSTIC_QUEUE_LIMIT).flatMap(row => {
       const sample = normalizeConnectionDiagnostic(row?.sample);
-      return sample && typeof row.owner === "string" && /^[0-9a-f]{64}$/i.test(row.owner) && now() - sample.occurredAtMs < 7 * 864e5 ? [{ owner: row.owner, sample }] : [];
+      return sample && typeof row.owner === "string" && /^(?:[0-9a-f]{64})?$/i.test(row.owner) && now() - sample.occurredAtMs < 7 * 864e5 ? [{ owner: row.owner, sample }] : [];
     });
   } catch {}
   function flush() {
@@ -28,7 +30,7 @@ export function createConnectionDiagnostics(options: {
     if (!submit || !owner) return Promise.resolve();
     flushing = (async () => {
       // Bound work per flush. A busy connection must not create a send loop.
-      const batch = queue.filter(row => row.owner === owner).slice(0, CONNECTION_DIAGNOSTIC_BATCH_LIMIT);
+      const batch = queue.filter(row => row.owner === owner || !row.owner).slice(0, CONNECTION_DIAGNOSTIC_BATCH_LIMIT);
       if (!batch.length) return;
       inFlight = new Set(batch.map(row => row.sample.eventId));
       try {
@@ -40,10 +42,11 @@ export function createConnectionDiagnostics(options: {
     })().finally(() => { flushing = null; });
     return flushing;
   }
-  function record(kind: ConnectionEventKind, extra: Partial<ConnectionDiagnostic> = {}) {
+  function record(kind: ConnectionEventKind, extra: Partial<ConnectionDiagnostic> = {}, carry = false) {
     try {
-      const { owner, ...context } = options.snapshot();
-      if (!owner || !/^[0-9a-f]{64}$/i.test(owner)) return;
+      const { owner: current, ...context } = options.snapshot();
+      const owner = carry ? "" : current;
+      if (!carry && (!owner || !/^[0-9a-f]{64}$/i.test(owner))) return;
       const eventKey = `${kind}:${extra.transport ?? context.transport}:${extra.detail ?? ""}`;
       if (eventKey === lastEvent && now() - lastEventAt < 1000) return;
       lastEvent = eventKey; lastEventAt = now();

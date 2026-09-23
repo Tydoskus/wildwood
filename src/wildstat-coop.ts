@@ -77,7 +77,7 @@ const host = runtime.WILDWOOD_SPACETIMEDB_HOST ?? defaultHost;
 const databaseName = runtime.WILDWOOD_SPACETIMEDB_DB_NAME ?? "wildwood-coop";
 const {
   tokenKey, guestTokenKey, accountTokenKey, accountLinkKey, accountMigrationPendingKey,
-  authStateKey, authVerifierKey, authNonceKey, authRetryKey, knownAccountKey,
+  authStateKey, authVerifierKey, authNonceKey, authTripKey, authRetryKey, knownAccountKey,
   knownAccountCharacterKey, knownAccountGenderKey, knownGuestCharacterKey, authReturnUiKey,
   updateResumeKey, updateResumeConsumedKey, authTabKey, pendingProgressKey, legalConsentKey,
 } = accountStorageKeys(host, databaseName);
@@ -469,7 +469,7 @@ accountService = createAccountService({
     accountMigrationPendingKey,
     authStateKey,
     authVerifierKey,
-    authNonceKey,
+    authNonceKey, authTripKey,
     authRetryKey,
     knownAccountKey,
     knownAccountCharacterKey,

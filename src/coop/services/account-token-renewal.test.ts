@@ -76,6 +76,29 @@ describe("account credential renewal", () => {
     await expect(s.renewal.resolve(s.old)).rejects.toBeInstanceOf(AccountRenewalRequired);
     expect(s.storage.getItem("account:refresh")).toBeNull(); expect(s.renewal.stored()).toBe(s.old);
   });
+  it("keeps the rotated grant when the answer arrives after the connection stopped waiting", async () => {
+    vi.useFakeTimers({ now: Date.now() });
+    const s = setup(); const updated = fresh(); let answer!: (v: unknown) => void;
+    const fetch = vi.fn(() => new Promise(resolve => { answer = resolve; }));
+    vi.stubGlobal("fetch", fetch);
+    const first = s.renewal.resolve(s.old);
+    const timedOut = expect(first).rejects.toThrow("timed out");
+    await vi.advanceTimersByTimeAsync(15_000); await timedOut;
+    // A retry joins the request in flight rather than spending the old grant again.
+    const retry = s.renewal.resolve(s.old);
+    answer({ ok: true, json: async () => ({ id_token: updated, refresh_token: "refresh-rotated" }) });
+    expect(await retry).toBe(updated);
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(s.storage.getItem("account:refresh")).toContain("refresh-rotated");
+    vi.useRealTimers();
+  });
+  it("names why renewal needs a new sign-in", async () => {
+    const s = setup(); s.renewal.clear();
+    await expect(s.renewal.resolve(s.old)).rejects.toMatchObject({ reason: "no-grant" });
+    s.storage.setItem("account:refresh", JSON.stringify({ subject: "player-a", token: "spent" }));
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 400, json: async () => ({ error: "invalid_grant" }) })));
+    await expect(s.renewal.resolve(s.old)).rejects.toMatchObject({ reason: "grant-rejected" });
+  });
   it("never permits expired tokens through the normal ID token validator", () => {
     expect(() => inspectSpacetimeIdToken(expired())).toThrow();
   });
