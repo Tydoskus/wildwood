@@ -117,7 +117,11 @@ describe("depth world renderer", () => {
 
     depth.drawDepthSortedWorld([], false);
 
-    expect(calls).toEqual(["player", "tidewyrm"]);
+    // A boss is sorted on where its feet are, which is its ground offset — the
+    // same constant that places its shadow. Moving the shadow up moves the
+    // boss earlier in the order, so this flipped when Tidewyrm's was tuned
+    // from 112 to 90. Worth knowing before nudging a shadow.
+    expect(calls).toEqual(["tidewyrm", "player"]);
   });
 
   it("queues Miremaw in Moonfen depth order", () => {

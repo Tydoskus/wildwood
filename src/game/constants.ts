@@ -12,32 +12,32 @@ export const FROSTCLAW_ROAR_RANGE = 820;
 export const FROSTCLAW_RIFT_RANGE = 920;
 export const FROSTCLAW_RIFT_HALF_ANGLE = .075;
 export const FROSTCLAW_SPRITE_Y_OFFSET = -12;
-export const FROSTCLAW_SPRITE_GROUND_OFFSET = 205;
+export const FROSTCLAW_SPRITE_GROUND_OFFSET = 174;
 export const MAGMALISK_AGGRO_RANGE = 650;
 export const MAGMALISK_BITE_RANGE = 760;
 export const MAGMALISK_BITE_HALF_ANGLE = .42;
 export const MAGMALISK_SPRITE_Y_OFFSET = -8;
-export const MAGMALISK_SPRITE_GROUND_OFFSET = 170;
+export const MAGMALISK_SPRITE_GROUND_OFFSET = 129;
 export const GLOOMROOT_AGGRO_RANGE = 675;
 export const GLOOMROOT_SWEEP_RANGE = 820;
 export const GLOOMROOT_SWEEP_HALF_ANGLE = .5;
 export const GLOOMROOT_SPRITE_Y_OFFSET = -18;
-export const GLOOMROOT_SPRITE_GROUND_OFFSET = 184;
+export const GLOOMROOT_SPRITE_GROUND_OFFSET = 162;
 export const TIDEWYRM_AGGRO_RANGE = 700;
 export const TIDEWYRM_SURGE_RANGE = 880;
 export const TIDEWYRM_SURGE_HALF_ANGLE = .56;
 export const TIDEWYRM_SPRITE_Y_OFFSET = -28;
-export const TIDEWYRM_SPRITE_GROUND_OFFSET = 112;
+export const TIDEWYRM_SPRITE_GROUND_OFFSET = 90;
 export const KOI_SHOGUN_AGGRO_RANGE = 725;
 export const KOI_SHOGUN_SLASH_RANGE = 900;
 export const KOI_SHOGUN_SLASH_HALF_ANGLE = .54;
 export const KOI_SHOGUN_SPRITE_Y_OFFSET = -30;
-export const KOI_SHOGUN_SPRITE_GROUND_OFFSET = 120;
+export const KOI_SHOGUN_SPRITE_GROUND_OFFSET = 90;
 export const TEMPEST_KIRIN_AGGRO_RANGE = 750;
 export const TEMPEST_KIRIN_CHARGE_RANGE = 940;
 export const TEMPEST_KIRIN_CHARGE_HALF_ANGLE = .42;
 export const TEMPEST_KIRIN_SPRITE_Y_OFFSET = -42;
-export const TEMPEST_KIRIN_SPRITE_GROUND_OFFSET = 215;
+export const TEMPEST_KIRIN_SPRITE_GROUND_OFFSET = 155;
 export const MIREMAW_AGGRO_RANGE = 775;
 export const PRISMSHELL_AGGRO_RANGE = 775;
 export const IRONHORN_AGGRO_RANGE = 775;
@@ -66,7 +66,7 @@ export const DREADREAPER_SPRITE_Y_OFFSET = 0;
 export const VOLTWARDEN_SPRITE_Y_OFFSET = 0;
 export const GRAVEBLOOM_SPRITE_Y_OFFSET = 0;
 export const AEGIS_PRIME_SPRITE_Y_OFFSET = 0;
-export const MIREMAW_SPRITE_GROUND_OFFSET = 220;
+export const MIREMAW_SPRITE_GROUND_OFFSET = 141;
 /**
  * Where the creature's own pixels start inside its cell, measured from the
  * sprite's centre. The status bar hangs off this rather than the cell's top
@@ -75,8 +75,8 @@ export const MIREMAW_SPRITE_GROUND_OFFSET = 220;
  *
  * Measured by `node scripts/check-boss-hitboxes.mjs`.
  */
-export const MIREMAW_ART_TOP = -123;
-export const KOI_SHOGUN_ART_TOP = -168;
+export const MIREMAW_ART_TOP = -85;
+export const KOI_SHOGUN_ART_TOP = -150;
 export const PRISMSHELL_SPRITE_GROUND_OFFSET = 170;
 export const IRONHORN_SPRITE_GROUND_OFFSET = 170;
 export const DREADREAPER_SPRITE_GROUND_OFFSET = 170;
@@ -94,3 +94,23 @@ export const ENEMY_HIT_MIN_MOVE_SPEED = 1;
 /** Enemies climb back to full chase speed in half the time they used to. */
 export const ENEMY_HIT_SPEED_RECOVERY_SECONDS = 1.5;
 export const RANGED_PROJECTILE_SPEED = 165 * 3;
+
+/** Where Spider's pixels start, which the status bar hangs from. */
+export const SPIDER_ART_TOP = -306;
+
+export const SPIDER_SPRITE_GROUND_OFFSET = 59;
+
+/** Where Frostclaw's pixels start, which the status bar hangs from. */
+export const FROSTCLAW_ART_TOP = -192;
+
+/** Where Magmalisk's pixels start, which the status bar hangs from. */
+export const MAGMALISK_ART_TOP = -155;
+
+/** Where Gloomroot's pixels start, which the status bar hangs from. */
+export const GLOOMROOT_ART_TOP = -187;
+
+/** Where Tidewyrm's pixels start, which the status bar hangs from. */
+export const TIDEWYRM_ART_TOP = -175;
+
+/** Where Tempest Kirin's pixels start, which the status bar hangs from. */
+export const TEMPEST_KIRIN_ART_TOP = -119;

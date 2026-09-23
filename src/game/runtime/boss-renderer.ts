@@ -21,7 +21,12 @@ import {
   MAGMALISK_BITE_RANGE,
   MAGMALISK_SPRITE_GROUND_OFFSET,
   MAGMALISK_SPRITE_Y_OFFSET,
+  FROSTCLAW_ART_TOP,
+  GLOOMROOT_ART_TOP,
+  MAGMALISK_ART_TOP,
   MIREMAW_ART_TOP,
+  TEMPEST_KIRIN_ART_TOP,
+  TIDEWYRM_ART_TOP,
   MIREMAW_SPRITE_GROUND_OFFSET,
   MIREMAW_SPRITE_Y_OFFSET,
   KOI_SHOGUN_ART_TOP,
@@ -454,7 +459,7 @@ export function createBossRenderer(options: {
     ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH); ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY - drawH / 2,
+      spriteTopY: visualY + FROSTCLAW_ART_TOP,
       barGap: 34,
       barWidth: 270,
       barHeight: 22,
@@ -541,7 +546,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY - drawH / 2,
+      spriteTopY: visualY + MAGMALISK_ART_TOP,
       barGap: 34,
       barWidth: 290,
       barHeight: 23,
@@ -669,7 +674,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY - drawH / 2,
+      spriteTopY: visualY + GLOOMROOT_ART_TOP,
       barGap: 34,
       barWidth: 300,
       barHeight: 23,
@@ -785,7 +790,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY - drawH / 2,
+      spriteTopY: visualY + TIDEWYRM_ART_TOP,
       barGap: 34,
       barWidth: 310,
       barHeight: 23,
@@ -1010,7 +1015,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY - drawH / 2,
+      spriteTopY: visualY + TEMPEST_KIRIN_ART_TOP,
       barGap: 34,
       barWidth: 320,
       barHeight: 23,

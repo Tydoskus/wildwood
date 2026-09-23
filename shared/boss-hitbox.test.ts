@@ -27,12 +27,15 @@ describe("boss hitbox", () => {
     // Straight out to the side is unchanged: the complaint was height only.
     expect(bossSurfaceDistance(radius, MIREMAW_HITBOX_OFFSET_Y, radius, MIREMAW_VERTICAL_RADIUS, MIREMAW_HITBOX_OFFSET_Y))
       .toBeCloseTo(0, 9);
-    // The idle toad's top is 31 above the anchor. A shot level with the anchor
-    // used to count as a hit 170 out; it now has to reach the creature.
-    const above = bossSurfaceDistance(0, -31, radius, MIREMAW_VERTICAL_RADIUS, MIREMAW_HITBOX_OFFSET_Y);
+    // The top of the body, wherever the tuner last put it. Deriving it keeps
+    // this about the geometry rather than about one saved number.
+    const bodyTop = MIREMAW_HITBOX_OFFSET_Y - MIREMAW_VERTICAL_RADIUS;
+    const above = bossSurfaceDistance(0, bodyTop, radius, MIREMAW_VERTICAL_RADIUS, MIREMAW_HITBOX_OFFSET_Y);
     expect(above).toBeCloseTo(0, 6);
-    expect(bossSurfaceDistance(0, -150, radius)).toBeLessThan(0);
-    expect(bossSurfaceDistance(0, -150, radius, MIREMAW_VERTICAL_RADIUS, MIREMAW_HITBOX_OFFSET_Y)).toBeGreaterThan(0);
+    // Level with the anchor and well short of the body: inside the old circle,
+    // outside the ellipse.
+    expect(bossSurfaceDistance(0, bodyTop - 40, radius)).toBeLessThan(0);
+    expect(bossSurfaceDistance(0, bodyTop - 40, radius, MIREMAW_VERTICAL_RADIUS, MIREMAW_HITBOX_OFFSET_Y)).toBeGreaterThan(0);
   });
 
   it("narrows the two bosses that share Miremaw's fault, and nothing else", () => {

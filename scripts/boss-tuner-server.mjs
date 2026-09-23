@@ -32,14 +32,14 @@ const COMBAT_FILE = "spacetimedb/src/boss-combat.ts";
  * wrong if they drift, which the sheet's own dimensions make obvious.
  */
 const BOSSES = [
-  { id: "SPIDER", name: "Spider", sheet: "desert-scorpion-boss-spritesheet-v1.webp", frames: 4, drawWidth: 330, drawHeight: 0, groundBaseline: 0.88, spriteY: 0, shadowWidth: 220, defaultGroundOffset: 55 },
-  { id: "FROSTCLAW", name: "Frostclaw", sheet: "frostclaw-boss-spritesheet.webp", frames: 4, drawWidth: 330, drawHeight: 440, spriteY: -12, shadowWidth: 210 },
-  { id: "MAGMALISK", name: "Magmalisk", sheet: "magmalisk-boss-spritesheet.webp", frames: 4, drawWidth: 390, drawHeight: 520, spriteY: -8, shadowWidth: 240 },
-  { id: "GLOOMROOT", name: "Gloomroot", sheet: "gloomroot-boss-spritesheet-v1.webp", frames: 2, rows: 2, drawWidth: 430, drawHeight: 430, spriteY: -18, shadowWidth: 250 },
-  { id: "TIDEWYRM", name: "Tidewyrm", sheet: "tidewyrm-boss-spritesheet-v1.webp", frames: 4, drawWidth: 440, drawHeight: 440, spriteY: -28, shadowWidth: 255 },
-  { id: "KOI_SHOGUN", name: "Koi Shogun", sheet: "koi-shogun-boss-spritesheet-v1.webp", frames: 4, drawWidth: 330, drawHeight: 440, spriteY: -30, shadowWidth: 210 },
-  { id: "TEMPEST_KIRIN", name: "Tempest Kirin", sheet: "tempest-kirin-boss-spritesheet-v1.webp", frames: 4, drawWidth: 356, drawHeight: 542, spriteY: -42, shadowWidth: 230 },
-  { id: "MIREMAW", name: "Miremaw", sheet: "miremaw-boss-spritesheet-v1.webp", frames: 4, drawWidth: 470, drawHeight: 532, spriteY: -45, shadowWidth: 285 },
+  { id: "SPIDER", name: "Spider", sheet: "desert-scorpion-boss-spritesheet-v1.webp", frames: 4, drawWidth: 330, drawHeight: 0, groundBaseline: 0.88, spriteY: 0, shadowWidth: 220, defaultGroundOffset: 55, groundMovesSprite: true, frameNames: ["walk 1", "walk 2", "walk 3", "walk 4"] },
+  { id: "FROSTCLAW", name: "Frostclaw", sheet: "frostclaw-boss-spritesheet.webp", frames: 4, drawWidth: 330, drawHeight: 440, spriteY: -12, shadowWidth: 210 , frameNames: ["idle", "windup", "swipe", "roar"] },
+  { id: "MAGMALISK", name: "Magmalisk", sheet: "magmalisk-boss-spritesheet.webp", frames: 4, drawWidth: 390, drawHeight: 520, spriteY: -8, shadowWidth: 240 , frameNames: ["idle", "windup", "bite", "erupt"] },
+  { id: "GLOOMROOT", name: "Gloomroot", sheet: "gloomroot-boss-spritesheet-v1.webp", frames: 2, rows: 2, drawWidth: 430, drawHeight: 430, spriteY: -18, shadowWidth: 250 , frameNames: ["idle", "windup", "sweep", "bloom"] },
+  { id: "TIDEWYRM", name: "Tidewyrm", sheet: "tidewyrm-boss-spritesheet-v1.webp", frames: 4, drawWidth: 440, drawHeight: 440, spriteY: -28, shadowWidth: 255 , frameNames: ["idle", "windup", "surge", "whirlpool"] },
+  { id: "KOI_SHOGUN", name: "Koi Shogun", sheet: "koi-shogun-boss-spritesheet-v1.webp", frames: 4, drawWidth: 330, drawHeight: 440, spriteY: -30, shadowWidth: 210 , frameNames: ["idle", "slash", "windup", "whirlpool"] },
+  { id: "TEMPEST_KIRIN", name: "Tempest Kirin", sheet: "tempest-kirin-boss-spritesheet-v1.webp", frames: 4, drawWidth: 356, drawHeight: 542, spriteY: -42, shadowWidth: 230 , frameNames: ["idle", "windup", "charge", "thunderbolt"] },
+  { id: "MIREMAW", name: "Miremaw", sheet: "miremaw-boss-spritesheet-v1.webp", frames: 4, drawWidth: 470, drawHeight: 532, spriteY: -45, shadowWidth: 285 , frameNames: ["idle", "tongue windup", "tongue", "bog burst"] },
 ];
 
 const readNumber = (source, name) => {

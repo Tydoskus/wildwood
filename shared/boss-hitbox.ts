@@ -58,7 +58,7 @@ export function bossSurfaceDistance(
 export const MIREMAW_VERTICAL_RADIUS = 95;
 /** Its width, unchanged; kept here so the geometry can be tested on its own. */
 export const MIREMAW_RADIUS_REFERENCE = 170;
-export const MIREMAW_HITBOX_OFFSET_Y = 64;
+export const MIREMAW_HITBOX_OFFSET_Y = 63;
 
 /**
  * The Koi Shogun's banners and the Kirin's mane both read as part of the
@@ -67,5 +67,35 @@ export const MIREMAW_HITBOX_OFFSET_Y = 64;
  */
 export const KOI_SHOGUN_VERTICAL_RADIUS = 116;
 export const KOI_SHOGUN_HITBOX_OFFSET_Y = -13;
-export const TEMPEST_KIRIN_VERTICAL_RADIUS = 140;
+export const TEMPEST_KIRIN_VERTICAL_RADIUS = 139;
 export const TEMPEST_KIRIN_HITBOX_OFFSET_Y = 32;
+
+/** Spider's body height. Tuned in tools/boss-tuner. */
+export const SPIDER_VERTICAL_RADIUS = 109;
+
+/** Where Spider's body sits relative to its anchor. */
+export const SPIDER_HITBOX_OFFSET_Y = -38;
+
+/** Frostclaw's body height. Tuned in tools/boss-tuner. */
+export const FROSTCLAW_VERTICAL_RADIUS = 191;
+
+/** Where Frostclaw's body sits relative to its anchor. */
+export const FROSTCLAW_HITBOX_OFFSET_Y = 0;
+
+/** Magmalisk's body height. Tuned in tools/boss-tuner. */
+export const MAGMALISK_VERTICAL_RADIUS = 110;
+
+/** Where Magmalisk's body sits relative to its anchor. */
+export const MAGMALISK_HITBOX_OFFSET_Y = 37;
+
+/** Gloomroot's body height. Tuned in tools/boss-tuner. */
+export const GLOOMROOT_VERTICAL_RADIUS = 154;
+
+/** Where Gloomroot's body sits relative to its anchor. */
+export const GLOOMROOT_HITBOX_OFFSET_Y = 29;
+
+/** Tidewyrm's body height. Tuned in tools/boss-tuner. */
+export const TIDEWYRM_VERTICAL_RADIUS = 119;
+
+/** Where Tidewyrm's body sits relative to its anchor. */
+export const TIDEWYRM_HITBOX_OFFSET_Y = -12;

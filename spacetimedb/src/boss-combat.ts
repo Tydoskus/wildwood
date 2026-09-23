@@ -96,9 +96,14 @@ import {
 } from "../../shared/rules";
 import {
   bossSurfaceDistance,
+  FROSTCLAW_HITBOX_OFFSET_Y, FROSTCLAW_VERTICAL_RADIUS,
+  GLOOMROOT_HITBOX_OFFSET_Y, GLOOMROOT_VERTICAL_RADIUS,
   KOI_SHOGUN_HITBOX_OFFSET_Y, KOI_SHOGUN_VERTICAL_RADIUS,
+  MAGMALISK_HITBOX_OFFSET_Y, MAGMALISK_VERTICAL_RADIUS,
   MIREMAW_HITBOX_OFFSET_Y, MIREMAW_VERTICAL_RADIUS,
+  SPIDER_HITBOX_OFFSET_Y, SPIDER_VERTICAL_RADIUS,
   TEMPEST_KIRIN_HITBOX_OFFSET_Y, TEMPEST_KIRIN_VERTICAL_RADIUS,
+  TIDEWYRM_HITBOX_OFFSET_Y, TIDEWYRM_VERTICAL_RADIUS,
 } from "../../shared/boss-hitbox";
 import {
   FROST_ARMOR,
@@ -132,7 +137,7 @@ export function editedBossPosition(mapId: string, fallback: { x: number; y: numb
 export const DRAGON_HIT_RANGE_TOLERANCE = 60;
 export const DRAGON_RESPAWN_MICROS = 45_000_000n;
 export const SPIDER_ID = 1;
-export const SPIDER_RADIUS = 125;
+export const SPIDER_RADIUS = 146;
 export const SPIDER_POSITION = editedBossPosition(BEGINNER_DESERT_MAP_ID, { x: 4050, y: 4050 });
 export const SPIDER_HIT_RANGE_TOLERANCE = 60;
 export const SPIDER_RESPAWN_MICROS = 45_000_000n;
@@ -142,27 +147,27 @@ export const FROSTCLAW_POSITION = editedBossPosition(INTERMEDIATE_SNOWLANDS_MAP_
 export const FROSTCLAW_HIT_RANGE_TOLERANCE = 60;
 export const FROSTCLAW_RESPAWN_MICROS = 45_000_000n;
 export const MAGMALISK_ID = 1;
-export const MAGMALISK_RADIUS = 165;
+export const MAGMALISK_RADIUS = 151;
 export const MAGMALISK_POSITION = editedBossPosition(ADVANCED_LAVA_WASTES_MAP_ID, { x: 4050, y: 4050 });
 export const MAGMALISK_HIT_RANGE_TOLERANCE = 60;
 export const MAGMALISK_RESPAWN_MICROS = 45_000_000n;
 export const GLOOMROOT_ID = 1;
-export const GLOOMROOT_RADIUS = 175;
+export const GLOOMROOT_RADIUS = 137;
 export const GLOOMROOT_POSITION = editedBossPosition(INFERNAL_DEPTHS_MAP_ID, { x: 4050, y: 4050 });
 export const GLOOMROOT_HIT_RANGE_TOLERANCE = 60;
 export const GLOOMROOT_RESPAWN_MICROS = 45_000_000n;
 export const TIDEWYRM_ID = 1;
-export const TIDEWYRM_RADIUS = 175;
+export const TIDEWYRM_RADIUS = 156;
 export const TIDEWYRM_POSITION = editedBossPosition(WATER_REACH_MAP_ID, { x: 4050, y: 4050 });
 export const TIDEWYRM_HIT_RANGE_TOLERANCE = 60;
 export const TIDEWYRM_RESPAWN_MICROS = 45_000_000n;
 export const KOI_SHOGUN_ID = 1;
-export const KOI_SHOGUN_RADIUS = 175;
+export const KOI_SHOGUN_RADIUS = 103;
 export const KOI_SHOGUN_POSITION = editedBossPosition(SAMURAI_GARDEN_MAP_ID, { x: 4050, y: 4050 });
 export const KOI_SHOGUN_HIT_RANGE_TOLERANCE = 60;
 export const KOI_SHOGUN_RESPAWN_MICROS = 45_000_000n;
 export const TEMPEST_KIRIN_ID = 1;
-export const TEMPEST_KIRIN_RADIUS = 180;
+export const TEMPEST_KIRIN_RADIUS = 136;
 export const TEMPEST_KIRIN_POSITION = editedBossPosition(CLOUDSPIRE_MAP_ID, { x: 4050, y: 4050 });
 export const TEMPEST_KIRIN_HIT_RANGE_TOLERANCE = 60;
 export const TEMPEST_KIRIN_RESPAWN_MICROS = 45_000_000n;
@@ -173,7 +178,7 @@ export const DREADREAPER_ID = 1;
 export const VOLTWARDEN_ID = 1;
 export const GRAVEBLOOM_ID = 1;
 export const AEGIS_PRIME_ID = 1;
-export const MIREMAW_RADIUS = 170;
+export const MIREMAW_RADIUS = 119;
 export const PRISMSHELL_RADIUS = 170;
 export const IRONHORN_RADIUS = 170;
 export const DREADREAPER_RADIUS = 170;
@@ -1667,8 +1672,11 @@ export function createBossCombat(deps: BossCombatDeps) {
     }
     const actionX = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, clientPosition.x)) : activePlayer.x;
     const actionY = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, clientPosition.y)) : activePlayer.y;
-    const centerDistance = Math.hypot(actionX - SPIDER_POSITION.x, actionY - SPIDER_POSITION.y);
-    if (centerDistance - SPIDER_RADIUS > progress.attackRange + SPIDER_HIT_RANGE_TOLERANCE) return;
+    // An ellipse, not a circle: see shared/boss-hitbox.ts.
+    const centerDistance = bossSurfaceDistance(
+      actionX - SPIDER_POSITION.x, actionY - SPIDER_POSITION.y,
+      SPIDER_RADIUS, SPIDER_VERTICAL_RADIUS, SPIDER_HITBOX_OFFSET_Y);
+    if (centerDistance > progress.attackRange + SPIDER_HIT_RANGE_TOLERANCE) return;
 
     const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
     const now = ctx.timestamp.microsSinceUnixEpoch;
@@ -1735,8 +1743,11 @@ export function createBossCombat(deps: BossCombatDeps) {
     }
     const actionX = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, clientPosition.x)) : activePlayer.x;
     const actionY = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, clientPosition.y)) : activePlayer.y;
-    const centerDistance = Math.hypot(actionX - FROSTCLAW_POSITION.x, actionY - FROSTCLAW_POSITION.y);
-    if (centerDistance - FROSTCLAW_RADIUS > progress.attackRange + FROSTCLAW_HIT_RANGE_TOLERANCE) return;
+    // An ellipse, not a circle: see shared/boss-hitbox.ts.
+    const centerDistance = bossSurfaceDistance(
+      actionX - FROSTCLAW_POSITION.x, actionY - FROSTCLAW_POSITION.y,
+      FROSTCLAW_RADIUS, FROSTCLAW_VERTICAL_RADIUS, FROSTCLAW_HITBOX_OFFSET_Y);
+    if (centerDistance > progress.attackRange + FROSTCLAW_HIT_RANGE_TOLERANCE) return;
 
     const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
     const now = ctx.timestamp.microsSinceUnixEpoch;
@@ -1803,8 +1814,11 @@ export function createBossCombat(deps: BossCombatDeps) {
     }
     const actionX = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, clientPosition.x)) : activePlayer.x;
     const actionY = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, clientPosition.y)) : activePlayer.y;
-    const centerDistance = Math.hypot(actionX - MAGMALISK_POSITION.x, actionY - MAGMALISK_POSITION.y);
-    if (centerDistance - MAGMALISK_RADIUS > progress.attackRange + MAGMALISK_HIT_RANGE_TOLERANCE) return;
+    // An ellipse, not a circle: see shared/boss-hitbox.ts.
+    const centerDistance = bossSurfaceDistance(
+      actionX - MAGMALISK_POSITION.x, actionY - MAGMALISK_POSITION.y,
+      MAGMALISK_RADIUS, MAGMALISK_VERTICAL_RADIUS, MAGMALISK_HITBOX_OFFSET_Y);
+    if (centerDistance > progress.attackRange + MAGMALISK_HIT_RANGE_TOLERANCE) return;
 
     const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
     const now = ctx.timestamp.microsSinceUnixEpoch;
@@ -1871,8 +1885,11 @@ export function createBossCombat(deps: BossCombatDeps) {
     }
     const actionX = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, clientPosition.x)) : activePlayer.x;
     const actionY = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, clientPosition.y)) : activePlayer.y;
-    const centerDistance = Math.hypot(actionX - GLOOMROOT_POSITION.x, actionY - GLOOMROOT_POSITION.y);
-    if (centerDistance - GLOOMROOT_RADIUS > progress.attackRange + GLOOMROOT_HIT_RANGE_TOLERANCE) return;
+    // An ellipse, not a circle: see shared/boss-hitbox.ts.
+    const centerDistance = bossSurfaceDistance(
+      actionX - GLOOMROOT_POSITION.x, actionY - GLOOMROOT_POSITION.y,
+      GLOOMROOT_RADIUS, GLOOMROOT_VERTICAL_RADIUS, GLOOMROOT_HITBOX_OFFSET_Y);
+    if (centerDistance > progress.attackRange + GLOOMROOT_HIT_RANGE_TOLERANCE) return;
 
     const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
     const now = ctx.timestamp.microsSinceUnixEpoch;
@@ -1939,8 +1956,11 @@ export function createBossCombat(deps: BossCombatDeps) {
     }
     const actionX = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, clientPosition.x)) : activePlayer.x;
     const actionY = clientPosition ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, clientPosition.y)) : activePlayer.y;
-    const centerDistance = Math.hypot(actionX - TIDEWYRM_POSITION.x, actionY - TIDEWYRM_POSITION.y);
-    if (centerDistance - TIDEWYRM_RADIUS > progress.attackRange + TIDEWYRM_HIT_RANGE_TOLERANCE) return;
+    // An ellipse, not a circle: see shared/boss-hitbox.ts.
+    const centerDistance = bossSurfaceDistance(
+      actionX - TIDEWYRM_POSITION.x, actionY - TIDEWYRM_POSITION.y,
+      TIDEWYRM_RADIUS, TIDEWYRM_VERTICAL_RADIUS, TIDEWYRM_HITBOX_OFFSET_Y);
+    if (centerDistance > progress.attackRange + TIDEWYRM_HIT_RANGE_TOLERANCE) return;
 
     const boundedHits = Math.max(1, Math.min(20, Math.floor(requestedHits)));
     const now = ctx.timestamp.microsSinceUnixEpoch;

@@ -1,8 +1,13 @@
 import { HOME_EXTERIOR_SPAWN } from "../../../shared/home";
 import {
+  FROSTCLAW_HITBOX_OFFSET_Y, FROSTCLAW_VERTICAL_RADIUS,
+  GLOOMROOT_HITBOX_OFFSET_Y, GLOOMROOT_VERTICAL_RADIUS,
   KOI_SHOGUN_HITBOX_OFFSET_Y, KOI_SHOGUN_VERTICAL_RADIUS,
+  MAGMALISK_HITBOX_OFFSET_Y, MAGMALISK_VERTICAL_RADIUS,
   MIREMAW_HITBOX_OFFSET_Y, MIREMAW_VERTICAL_RADIUS,
+  SPIDER_HITBOX_OFFSET_Y, SPIDER_VERTICAL_RADIUS,
   TEMPEST_KIRIN_HITBOX_OFFSET_Y, TEMPEST_KIRIN_VERTICAL_RADIUS,
+  TIDEWYRM_HITBOX_OFFSET_Y, TIDEWYRM_VERTICAL_RADIUS,
 } from "../../../shared/boss-hitbox";
 import { ONBOARDING_MAP_ID, ONBOARDING_WORLD } from "../../../shared/onboarding";
 import { generateMap, proceduralMapId, PROCEDURAL_ENTRY_MAP } from "../../../shared/procedural-maps";
@@ -232,6 +237,8 @@ export function createGameBootstrap() {
     x: spiderPosition.x,
     y: spiderPosition.y,
     r: 125,
+    ry: SPIDER_VERTICAL_RADIUS,
+    hitboxOffsetY: SPIDER_HITBOX_OFFSET_Y,
     maxHp: SPIDER_MAX_HP,
     hp: SPIDER_MAX_HP,
     dead: false,
@@ -251,6 +258,8 @@ export function createGameBootstrap() {
     x: frostclawPosition.x,
     y: frostclawPosition.y,
     r: 150,
+    ry: FROSTCLAW_VERTICAL_RADIUS,
+    hitboxOffsetY: FROSTCLAW_HITBOX_OFFSET_Y,
     maxHp: FROSTCLAW_MAX_HP,
     hp: FROSTCLAW_MAX_HP,
     dead: false,
@@ -271,6 +280,8 @@ export function createGameBootstrap() {
     x: magmaliskPosition.x,
     y: magmaliskPosition.y,
     r: 165,
+    ry: MAGMALISK_VERTICAL_RADIUS,
+    hitboxOffsetY: MAGMALISK_HITBOX_OFFSET_Y,
     maxHp: MAGMALISK_MAX_HP,
     hp: MAGMALISK_MAX_HP,
     dead: false,
@@ -290,6 +301,8 @@ export function createGameBootstrap() {
     x: gloomrootPosition.x,
     y: gloomrootPosition.y,
     r: 175,
+    ry: GLOOMROOT_VERTICAL_RADIUS,
+    hitboxOffsetY: GLOOMROOT_HITBOX_OFFSET_Y,
     maxHp: GLOOMROOT_MAX_HP,
     hp: GLOOMROOT_MAX_HP,
     dead: false,
@@ -309,6 +322,8 @@ export function createGameBootstrap() {
     x: tidewyrmPosition.x,
     y: tidewyrmPosition.y,
     r: 175,
+    ry: TIDEWYRM_VERTICAL_RADIUS,
+    hitboxOffsetY: TIDEWYRM_HITBOX_OFFSET_Y,
     maxHp: TIDEWYRM_MAX_HP,
     hp: TIDEWYRM_MAX_HP,
     dead: false,

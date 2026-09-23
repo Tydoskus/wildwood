@@ -7,14 +7,17 @@ const view = document.getElementById("view");
 const ctx = view.getContext("2d");
 const listEl = document.getElementById("list");
 const controlsEl = document.getElementById("controls");
+const frameBarEl = document.getElementById("frames");
 
-const SCALE = 0.8;
-const CENTRE = { x: view.width / 2, y: view.height / 2 + 60 };
+const SCALE = 0.78;
+const CENTRE = { x: view.width / 2, y: view.height / 2 + 70 };
 const toScreen = (x, y) => [CENTRE.x + x * SCALE, CENTRE.y + y * SCALE];
 const toWorld = (x, y) => [(x - CENTRE.x) / SCALE, (y - CENTRE.y) / SCALE];
 
 let bosses = [];
 let current = 0;
+let frame = 0;
+let playing = true;
 let sheets = new Map();
 let drag = null;
 
@@ -26,7 +29,7 @@ const FIELDS = [
   { group: "Shadow", key: "groundOffset", label: "Shadow height", min: -60, max: 320 },
 ];
 
-function boss() { return bosses[current]; }
+const boss = () => bosses[current];
 
 function sheetFor(row) {
   if (sheets.has(row.id)) return sheets.get(row.id);
@@ -37,22 +40,42 @@ function sheetFor(row) {
   return image;
 }
 
-function drawBoss(row) {
-  const image = sheetFor(row);
-  if (!image.complete || !image.naturalWidth) return;
+/** Where the sprite's box lands, in world units around the anchor. */
+function spriteBox(row, image) {
   const columns = row.frames;
   const rows = row.rows ?? 1;
   const cellW = image.naturalWidth / columns;
   const cellH = image.naturalHeight / rows;
-  // The spider is sized from its width and stands on a baseline; the rest are
-  // drawn into a fixed box. Both are what the renderer does.
-  const drawH = row.drawHeight || row.drawWidth * cellH / cellW;
-  const top = row.drawHeight
-    ? row.spriteY - drawH / 2
-    : row.groundOffset - drawH * (row.groundBaseline ?? 0.88);
-  const [x, y] = toScreen(-row.drawWidth / 2, top);
+  const height = row.drawHeight || row.drawWidth * cellH / cellW;
+  // The scorpion is sized from its width and stands on a baseline, and the
+  // constant that plants it is the same one that places its shadow. Every
+  // other boss is drawn into a fixed box that the shadow does not touch.
+  const top = row.groundMovesSprite
+    ? row.groundOffset - height * (row.groundBaseline ?? 0.88)
+    : row.spriteY - height / 2;
+  return { cellW, cellH, width: row.drawWidth, height, top };
+}
+
+function drawBoss(row) {
+  const image = sheetFor(row);
+  if (!image.complete || !image.naturalWidth) return null;
+  const box = spriteBox(row, image);
+  const columns = row.frames;
+  const index = frame % (columns * (row.rows ?? 1));
+  const sourceX = (index % columns) * box.cellW;
+  const sourceY = Math.floor(index / columns) * box.cellH;
+  const [x, y] = toScreen(-box.width / 2, box.top);
   ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(image, 0, 0, cellW, cellH, x, y, row.drawWidth * SCALE, drawH * SCALE);
+  ctx.drawImage(image, sourceX, sourceY, box.cellW, box.cellH, x, y, box.width * SCALE, box.height * SCALE);
+
+  // The cell the artwork is drawn into, so the empty air above a short boss is
+  // visible rather than something you have to infer from the bar floating.
+  ctx.strokeStyle = "rgba(255,255,255,.1)";
+  ctx.setLineDash([3, 4]);
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x, y, box.width * SCALE, box.height * SCALE);
+  ctx.setLineDash([]);
+  return box;
 }
 
 function draw() {
@@ -61,24 +84,22 @@ function draw() {
   ctx.fillRect(0, 0, view.width, view.height);
   if (!row) return;
 
-  // Ground line, so the shadow and the feet have something to sit against.
   const [, groundY] = toScreen(0, row.groundOffset);
-  ctx.strokeStyle = "rgba(255,255,255,.12)";
+  ctx.strokeStyle = "rgba(255,255,255,.1)";
   ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(view.width, groundY); ctx.stroke();
 
   drawBoss(row);
 
-  // Shadow.
   const [shadowX, shadowY] = toScreen(0, row.groundOffset);
   ctx.strokeStyle = "#6fd0ff";
+  ctx.lineWidth = 2;
   ctx.setLineDash([6, 5]);
   ctx.beginPath();
   ctx.ellipse(shadowX, shadowY, row.shadowWidth / 2 * SCALE, row.shadowWidth / 6 * SCALE, 0, 0, Math.PI * 2);
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Hitbox.
   const [hitX, hitY] = toScreen(0, row.hitboxOffsetY);
   ctx.strokeStyle = "#ff40a0";
   ctx.lineWidth = 2;
@@ -86,7 +107,6 @@ function draw() {
   ctx.ellipse(hitX, hitY, row.radius * SCALE, (row.verticalRadius ?? row.radius) * SCALE, 0, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Anchor: the point the server measures from.
   const [ax, ay] = toScreen(0, 0);
   ctx.strokeStyle = "#fff";
   ctx.beginPath();
@@ -94,16 +114,36 @@ function draw() {
   ctx.moveTo(ax, ay - 9); ctx.lineTo(ax, ay + 9);
   ctx.stroke();
 
-  // Status bar, drawn where the real one sits above the artwork.
-  const barTop = (row.artTop ?? row.spriteY - (row.drawHeight || 0) / 2) + row.spriteY * 0;
-  const [barX, barY] = toScreen(-165, barTop - 34);
+  const [barX, barY] = toScreen(-165, row.artTop - 34);
   ctx.fillStyle = "rgba(0,0,0,.85)";
   ctx.fillRect(barX, barY, 330 * SCALE, 23 * SCALE);
   ctx.fillStyle = "#ffd24a";
   ctx.fillRect(barX, barY, 330 * SCALE * 0.72, 23 * SCALE);
-  ctx.fillStyle = "#ffd24a";
   ctx.font = "600 12px system-ui";
   ctx.fillText(row.name.toUpperCase(), barX, barY - 6);
+}
+
+function renderFrames() {
+  const row = boss();
+  frameBarEl.replaceChildren();
+  if (!row) return;
+  const play = document.createElement("button");
+  play.className = "ghost";
+  play.textContent = playing ? "Pause" : "Play";
+  play.addEventListener("click", () => { playing = !playing; renderFrames(); });
+  frameBarEl.append(play);
+  const total = row.frames * (row.rows ?? 1);
+  for (let index = 0; index < total; index += 1) {
+    const button = document.createElement("button");
+    button.className = index === frame % total ? "chip is-active" : "chip";
+    button.textContent = row.frameNames?.[index] ?? `frame ${index}`;
+    button.addEventListener("click", () => { playing = false; frame = index; renderFrames(); draw(); });
+    frameBarEl.append(button);
+  }
+  const note = document.createElement("span");
+  note.className = "frame-note";
+  note.textContent = "Size the hitbox to the pose the boss holds, not the one it reaches in.";
+  frameBarEl.append(note);
 }
 
 function renderControls() {
@@ -126,21 +166,39 @@ function renderControls() {
       const label = document.createElement("label");
       const text = document.createElement("span");
       text.textContent = field.label;
-      const out = document.createElement("output");
-      const value = row[field.key] ?? (field.key === "verticalRadius" ? row.radius : 0);
-      out.textContent = Math.round(value);
-      label.append(text, out);
+      const number = document.createElement("input");
+      number.type = "number";
+      number.className = "number";
+      label.append(text, number);
       const input = document.createElement("input");
       input.type = "range";
       input.min = String(field.min);
       input.max = String(field.max);
-      input.value = String(Math.round(value));
-      input.addEventListener("input", () => {
-        row[field.key] = Number(input.value);
-        out.textContent = input.value;
+      const value = Math.round(row[field.key] ?? 0);
+      input.value = String(value);
+      number.value = String(value);
+      const apply = (next) => {
+        row[field.key] = Number(next);
+        input.value = String(next);
+        number.value = String(next);
+        renderList();
         draw();
-      });
+      };
+      input.addEventListener("input", () => apply(input.value));
+      number.addEventListener("input", () => apply(number.value));
       wrap.append(label, input);
+      if (field.key === "groundOffset") {
+        const depth = document.createElement("p");
+        depth.className = "hint";
+        depth.textContent = "This is also the boss's depth key: a boss is sorted on where its feet are, so moving the shadow changes whether it draws in front of or behind a player standing beside it.";
+        wrap.append(depth);
+      }
+      if (field.key === "groundOffset" && row.groundMovesSprite) {
+        const hint = document.createElement("p");
+        hint.className = "hint";
+        hint.textContent = "This boss stands on its shadow: the same constant plants the sprite, so moving it moves the artwork too.";
+        wrap.append(hint);
+      }
       set.append(wrap);
     }
     controlsEl.append(set);
@@ -177,12 +235,14 @@ function renderList() {
     const detail = document.createElement("span");
     detail.textContent = `${Math.round(row.radius)} x ${Math.round(row.verticalRadius ?? row.radius)}`;
     button.append(title, detail);
-    button.addEventListener("click", () => { current = index; renderList(); renderControls(); draw(); });
+    button.addEventListener("click", () => {
+      current = index; frame = 0;
+      renderList(); renderControls(); renderFrames(); draw();
+    });
     listEl.append(button);
   });
 }
 
-// Dragging the ring moves the body; dragging near its edge resizes.
 view.addEventListener("pointerdown", (event) => {
   const row = boss();
   if (!row) return;
@@ -214,12 +274,28 @@ const endDrag = () => { drag = null; view.classList.remove("is-dragging"); };
 view.addEventListener("pointerup", endDrag);
 view.addEventListener("pointercancel", endDrag);
 
+// Frames run at the pace the sheets were authored for: slow enough to read.
+let last = 0;
+function tick(now) {
+  if (playing && now - last > 320) {
+    last = now;
+    frame += 1;
+    renderFrames();
+    draw();
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
 async function load() {
   bosses = await (await fetch("/api/bosses")).json();
-  for (const row of bosses) if (row.verticalRadius === null) row.verticalRadius = row.radius;
-  for (const row of bosses) if (row.artTop === null) row.artTop = row.spriteY - (row.drawHeight || 440) / 2;
+  for (const row of bosses) {
+    if (row.verticalRadius === null) row.verticalRadius = row.radius;
+    if (row.artTop === null) row.artTop = row.spriteY - (row.drawHeight || 440) / 2;
+  }
   renderList();
   renderControls();
+  renderFrames();
   draw();
 }
 
