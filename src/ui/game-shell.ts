@@ -456,7 +456,7 @@ export function installGameShell(doc: Document = document) {
   if (!doc.getElementById("baseStatRewardsToggle")) {
     doc.getElementById("statTrackerToggle")?.closest(".setting-row")?.insertAdjacentHTML("afterend", `
       <div class="setting-row"><span>BASE STAT REWARDS</span>
-      <button id="baseStatRewardsToggle" class="setting-toggle" type="button" aria-label="Show base stat rewards in autofarm and reward popups" aria-pressed="false">OFF</button></div>`);
+      <button id="baseStatRewardsToggle" class="setting-toggle" type="button" aria-label="Show base stat rewards under enemies, in autofarm and reward popups" aria-pressed="false">OFF</button></div>`);
   }
   if (!doc.getElementById("upgradeBenchSlotThree")) {
     doc.getElementById("upgradeBenchSlotTwo")?.insertAdjacentHTML("afterend", `

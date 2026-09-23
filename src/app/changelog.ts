@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.797": [
+    "Stat reward popups remain visible while Developer Tools is open.",
+    "The saved map stat reward boosts are reflected in Balance Lab.",
+  ],
   "0.795": [
     "Auto Farm and stat reward popups show total gains by default, with a setting to show base gains.",
     "A third concurrent slot upgrade unlocks for 200 Gems after slot two, with its own timer and Inventory notification.",
@@ -2316,6 +2320,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.797": "2026-09-23",
   "0.796": "2026-09-23",
   "0.795": "2026-09-23",
   "0.794": "2026-09-23",
