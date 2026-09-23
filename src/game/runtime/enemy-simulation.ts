@@ -43,7 +43,7 @@ export type EnemySimulationSharedOptions = {
   serverNowMs?: () => number;
   localIdentity?: () => string | undefined;
   remotePlayers?: () => readonly RemotePlayer[];
-  /** The player's researched movement speed, which chase speed tracks. */
+  /** The player's actual movement speed, including equipment bonuses. */
   playerMovementSpeed?: () => number;
   remoteCombatStats?: (identity: string) => RemoteCombatStats | null | undefined;
   remoteBoss?: () => RemoteBossSimulationTarget | null | undefined;
@@ -75,7 +75,7 @@ export function createEnemySimulation(
     spawnBurst: shared.spawnBurst,
   });
 
-  /** Chase speed tracks the player in front of the enemy, a step behind them. */
+  /** Chase speed tracks the player in front of the enemy, a step ahead of them. */
   function chaseSpeedFor(enemy: EnemyState) {
     return enemyChaseSpeed(enemy.speed, shared.playerMovementSpeed?.() ?? Number.NaN);
   }
@@ -98,7 +98,14 @@ export function createEnemySimulation(
 
   function regularRetainRadius(enemy: EnemyState) {
     const authoredLeash = enemy.leashRange;
-    return regularEnemyAggroRetainRadius(regularAggroRadius(enemy), authoredLeash);
+    const base = regularEnemyAggroRetainRadius(regularAggroRadius(enemy), authoredLeash);
+    // A runner opens a temporary gap while a newly alerted enemy accelerates.
+    // Keep that gap inside the leash so the enemy gets to reach chase speed.
+    const playerSpeed = shared.playerMovementSpeed?.() ?? 0;
+    const rampGap = Number.isFinite(playerSpeed)
+      ? Math.max(0, playerSpeed - ENEMY_HIT_MIN_MOVE_SPEED) * ENEMY_HIT_SPEED_RECOVERY_SECONDS / 2
+      : 0;
+    return base + rampGap;
   }
 
   function moveToward(enemy: EnemyState, targetX: number, targetY: number, speed: number, dt: number, stopDistance = 0) {

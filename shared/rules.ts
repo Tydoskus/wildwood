@@ -26,31 +26,18 @@ export const MOVE_SPEED_RESEARCH_BONUS_PER_RANK = .02;
 export const MAX_MOVE_SPEED_RESEARCH_RANK = 20;
 /** A fully researched build wearing no speed boots. */
 export const MAX_PLAYER_MOVEMENT_SPEED = Math.round(PLAYER_SPEED * (1 + MAX_MOVE_SPEED_RESEARCH_RANK * MOVE_SPEED_RESEARCH_BONUS_PER_RANK));
-/**
- * Every chasing enemy tops out just above a maxed runner, so running away is
- * not a free escape and a fight has to be finished or outplayed. Speed boots
- * are what buy the last step back, which is what they are for.
- */
+/** Baseline chase speed against a fully researched player without equipment. */
 export const ENEMY_CHASE_SPEED_MARGIN = 10;
 export const ENEMY_TOP_CHASE_SPEED = MAX_PLAYER_MOVEMENT_SPEED + ENEMY_CHASE_SPEED_MARGIN;
 /**
  * The speed an enemy actually chases at, against the player in front of it.
- * The fastest enemies stay a step ahead of whatever that player has
- * researched, rather than a fixed number that outruns a beginner and is
- * outrun by a finished build. Slower enemies keep their share of that pace,
- * so ranged kiters stay relatively slower and the balance panel's enemy speed
- * still means something.
- *
- * Speed boots are deliberately not part of the reference: they are bought to
- * widen this gap, so folding them in would cancel what they are for.
+ * Every regular, elite, and ranged chaser reaches the target player's actual
+ * movement speed plus the margin, including equipment bonuses and overrides.
+ * Authored speed remains the fallback when no player speed is available.
  */
 export function enemyChaseSpeed(authoredSpeed: number, playerMovementSpeed: number) {
   if (!Number.isFinite(playerMovementSpeed) || playerMovementSpeed <= 0) return authoredSpeed;
   if (!Number.isFinite(authoredSpeed) || authoredSpeed <= 0) return 0;
-  // Every chaser moves at the player's pace plus the margin. This used to be
-  // scaled by the enemy's share of the top speed, which meant only an enemy
-  // authored at the very top actually kept up and everything else chased
-  // slower than the player it was chasing.
   return Math.max(1, playerMovementSpeed + ENEMY_CHASE_SPEED_MARGIN);
 }
 export const MAX_MOVEMENT_SPEED_OVERRIDE = 2_000;

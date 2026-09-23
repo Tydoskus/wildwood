@@ -412,6 +412,34 @@ describe("deterministic enemy simulation", () => {
     expect(simulation.remoteCombatGhosts()[0].aggroTargetId).toBe(remote.id);
   });
 
+  it("shows remote enemy chasers moving ten faster than the target's synced speed", () => {
+    const enemy = idleEnemyAt(500, 1000);
+    enemy.damage = 0;
+    enemy.maxHp = 1000;
+    enemy.hp = 1000;
+    const remote = remotePlayerAt(650, 1000);
+    remote.speed = MAX_PLAYER_MOVEMENT_SPEED + 25;
+    let now = 1_800_000_000_000;
+    const simulation = createEnemySimulation(
+      [enemy], () => {}, playerAt(900, 1000),
+      () => ({ width: 800, height: 800, zoom: 1 }), engage, () => false,
+      { serverNowMs: () => now, remotePlayers: () => [remote],
+        remoteCombatStats: () => ({ ...remoteCombatStats, damage: 0, attackInterval: 1000 }) },
+    );
+    simulation.update(1 / 60);
+    expect(simulation.remoteCombatGhosts()).toHaveLength(1);
+    let firstSecondX = 0;
+    for (let frame = 1; frame <= 120; frame++) {
+      now += 1000 / 60;
+      remote.x += remote.speed / 60;
+      remote.simulationX = remote.x;
+      simulation.update(1 / 60);
+      if (frame === 60) firstSecondX = simulation.remoteCombatGhosts()[0].x;
+    }
+    const ghost = simulation.remoteCombatGhosts()[0];
+    expect(ghost.x - firstSecondX).toBeCloseTo(remote.speed + 10, 0);
+  });
+
   it("starts a later independent ghost engagement at full displayed player health", () => {
     const firstEnemy = idleEnemyAt(100, 100);
     firstEnemy.damage = 1_000;
@@ -653,6 +681,31 @@ it("chases a beginner a step ahead of their own speed, not at its authored pace"
   // chased a step faster than they move, not at the late game's number.
   expect(fastest).toBeLessThan(ENEMY_TOP_CHASE_SPEED - 50);
 });
+
+it.each(["Bramble", "King Slime", "Dune Archer", "Dune Regent"] as const)(
+  "%s ramps to ten speed above a booted runner", (type) => {
+    const definition = ENEMY_TYPES[type];
+    const enemy = { ...idleEnemyAt(500, 1000), type, speed: definition.speed,
+      r: definition.r, aggroRadius: definition.aggro ?? 0, leashRange: 420 };
+    const player = playerAt(800, 1000);
+    const lifecycle = createEnemyLifecycle([enemy], [], () => {});
+    const playerSpeed = MAX_PLAYER_MOVEMENT_SPEED + 25;
+    lifecycle.engageEnemy(enemy, "local-player");
+    const simulation = createEnemySimulation([enemy], () => {}, player,
+      () => ({ width: 800, height: 800, zoom: 1 }), lifecycle.engageEnemy, () => false,
+      { playerMovementSpeed: () => playerSpeed });
+    let peakSpeed = 0;
+    for (let frame = 0; frame < 60 * 5; frame++) {
+      player.x += playerSpeed / 60;
+      simulation.update(1 / 60);
+      peakSpeed = Math.max(peakSpeed, Math.hypot(enemy.vx, enemy.vy));
+      if (!enemy.engaged) break;
+    }
+    expect(enemy.engaged).toBe(true);
+    expect(peakSpeed).toBeGreaterThan(playerSpeed + 9);
+    expect(peakSpeed).toBeLessThan(playerSpeed + 11);
+  },
+);
 
 it("catches a runner who has not finished their move speed research", () => {
   const definition = ENEMY_TYPES["Gourd Prowler"];

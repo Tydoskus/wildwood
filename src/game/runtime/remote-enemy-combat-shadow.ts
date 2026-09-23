@@ -8,6 +8,7 @@ import {
   type RegularEnemyAggroCandidate,
   type RegularEnemyAmbientPose,
 } from "../../../shared/regular-enemy-simulation";
+import { enemyChaseSpeed } from "../../../shared/rules";
 import { damageAfterArmor } from "../combat";
 import { clamp } from "../math";
 import { WORLD } from "../constants";
@@ -111,19 +112,20 @@ function moveGhost(
   targetX: number,
   targetY: number,
   targetAttackRange: number,
+  speed: number,
   dt: number,
 ) {
   const dx = targetX - ghost.x;
   const dy = targetY - ghost.y;
   const distance = Math.hypot(dx, dy) || 1;
   if (!base.ranged) {
-    moveToward(ghost, targetX, targetY, ghost.speed, dt, ghost.r + 16);
+    moveToward(ghost, targetX, targetY, speed, dt, ghost.r + 16);
   } else {
     const preferredDistance = rangedEnemyPreferredDistance(targetAttackRange, ghost.r + 21);
     if (distance > preferredDistance + 5) {
-      moveToward(ghost, targetX, targetY, ghost.speed, dt, preferredDistance);
+      moveToward(ghost, targetX, targetY, speed, dt, preferredDistance);
     } else if (distance < preferredDistance - 20) {
-      const retreat = Math.min(ghost.speed * dt, preferredDistance - distance);
+      const retreat = Math.min(speed * dt, preferredDistance - distance);
       ghost.x -= dx / distance * retreat;
       ghost.y -= dy / distance * retreat;
       if (Math.abs(dx) > .5) ghost.facingX = dx < 0 ? -1 : 1;
@@ -442,7 +444,8 @@ export function createRemoteEnemyCombatShadows(options: {
 
     const targetX = shadow.lastTargetX;
     const targetY = shadow.lastTargetY;
-    moveGhost(ghost, shadow.base, targetX, targetY, shadow.stats.attackRange, frameDt);
+    const chaseSpeed = enemyChaseSpeed(ghost.speed, target?.speed ?? Number.NaN);
+    moveGhost(ghost, shadow.base, targetX, targetY, shadow.stats.attackRange, chaseSpeed, frameDt);
     ghost.combatTargetX = targetX;
     ghost.combatTargetY = targetY;
     const dx = ghost.x - targetX;

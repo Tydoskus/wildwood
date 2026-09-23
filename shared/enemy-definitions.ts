@@ -33,9 +33,8 @@ function forestLaneBalance(lane: ForestProgressionLane): Pick<EnemyDefinition, "
 }
 
 /**
- * Fixed progression, never rubber-banded to the current player's speed. The
- * climb reaches its ceiling early so mid-campaign maps already feel chased,
- * and the ceiling itself sits a step under a maxed runner.
+ * Authored movement speed for map balance and for times without a player
+ * target. Active chases track the target player's movement speed separately.
  */
 export const CHASE_SPEED_RAMP_PER_MAP = 5;
 export function campaignMeleeChaseSpeed(mapIndex: number): number {

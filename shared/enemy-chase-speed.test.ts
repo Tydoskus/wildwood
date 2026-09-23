@@ -44,11 +44,9 @@ describe("chase speed tracks the player in front of the enemy", () => {
     expect(enemyChaseSpeed(205, player)).toBeCloseTo(enemyChaseSpeed(ENEMY_TOP_CHASE_SPEED, player), 6);
   });
 
-  it("ignores speed boots, which are what buy the last step back", () => {
-    // The reference is the researched speed, so the +25 is a real escape from
-    // a chase that would otherwise be gaining by ten.
+  it("stays ten ahead when equipment boosts the player's actual speed", () => {
     const player = researched(20);
-    expect(player + 25 - enemyChaseSpeed(ENEMY_TOP_CHASE_SPEED, player)).toBeCloseTo(15, 6);
+    expect(enemyChaseSpeed(205, player + 25)).toBeCloseTo(player + 35, 6);
   });
 
   it("falls back to the authored speed without a reference", () => {
