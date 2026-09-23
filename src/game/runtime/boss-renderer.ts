@@ -5,7 +5,7 @@ import { drawVoltwardenArt, VOLTWARDEN_ART_TOP } from "./neon-boss-art";
 import { drawGravebloomArt, GRAVEBLOOM_ART_TOP } from "./verdant-boss-art";
 import { drawAegisPrimeArt, AEGIS_PRIME_ART_TOP } from "./ion-boss-art";
 import { drawBossAtlasFrame } from "./boss-atlas-drawing";
-import { drawBossSheetFrame } from "./boss-frame-crop";
+import { bossFrameCrop, drawBossSheetFrame } from "./boss-frame-crop";
 import { bossVerticalRadius } from "../../../shared/boss-hitbox";
 import {
   BOSS_CONE_HALF_ANGLE,
@@ -1025,7 +1025,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY + TEMPEST_KIRIN_ART_TOP,
+      spriteTopY: visualY + TEMPEST_KIRIN_ART_TOP + (bossFrameCrop("TEMPEST_KIRIN", frame).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 320,
       barHeight: 23,

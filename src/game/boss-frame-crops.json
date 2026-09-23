@@ -1,11 +1,15 @@
 {
   "SPIDER": {
+    "0": {
+      "offsetX": -3
+    },
     "1": {
       "offsetX": 5
     },
     "2": {
-      "offsetX": 4,
-      "sourceX": -7
+      "offsetX": 5,
+      "sourceX": -7,
+      "offsetY": 1
     },
     "3": {
       "offsetX": 14,
@@ -37,12 +41,14 @@
       "sourceX": -23,
       "sourceWidth": -13,
       "sourceHeight": -115,
-      "offsetY": -60,
+      "offsetY": -45,
       "offsetX": 4
     },
     "2": {
-      "sourceX": -42,
-      "offsetX": 12
+      "sourceX": 0,
+      "offsetX": 16,
+      "sourceHeight": -120,
+      "offsetY": -40
     }
   },
   "GLOOMROOT": {
@@ -69,6 +75,37 @@
     },
     "2": {
       "offsetX": -81
+    }
+  },
+  "KOI_SHOGUN": {
+    "1": {
+      "offsetX": 18,
+      "offsetY": 4
+    },
+    "2": {
+      "offsetX": 24
+    }
+  },
+  "TEMPEST_KIRIN": {
+    "0": {
+      "sourceX": -26
+    },
+    "1": {
+      "sourceWidth": 28,
+      "offsetX": 10,
+      "sourceX": -25
+    },
+    "2": {
+      "sourceX": 35,
+      "sourceWidth": -119,
+      "offsetY": -6,
+      "offsetX": 39,
+      "statusOffsetY": -132
+    },
+    "3": {
+      "sourceWidth": 117,
+      "sourceX": -76,
+      "statusOffsetY": -90
     }
   }
 }

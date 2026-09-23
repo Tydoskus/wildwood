@@ -19,10 +19,11 @@ import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { extname, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
+import ts from "typescript";
 
 const root = resolve(import.meta.dirname, "..");
 let port = Number(process.env.BOSS_TUNER_PORT ?? 8765);
-const editorFiles = ["scripts/boss-tuner-server.mjs", "tools/boss-tuner/index.html", "tools/boss-tuner/boss-tuner.js", "tools/boss-tuner/boss-tuner.css"];
+const editorFiles = ["scripts/boss-tuner-server.mjs", "tools/boss-tuner/index.html", "tools/boss-tuner/boss-tuner.js", "tools/boss-tuner/boss-tuner.css", "src/game/runtime/sprite-pixels.ts"];
 const editorVersion = createHash("sha256").update((await Promise.all(editorFiles.map((file) => readFile(join(root, file))))).map((bytes) => bytes.toString("utf8")).join("\n")).digest("hex");
 
 const HITBOX_FILE = "shared/boss-hitbox.ts";
@@ -66,6 +67,7 @@ const FIELD_LIMITS = {
 const CROP_LIMITS = {
   sourceX: [-200, 200], sourceY: [-200, 200], sourceWidth: [-400, 400], sourceHeight: [-400, 400],
   offsetX: [-200, 200], offsetY: [-200, 200], scale: [-0.6, 0.6],
+  statusOffsetY: [-200, 200],
 };
 class InputError extends Error {}
 
@@ -169,6 +171,12 @@ const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", `http://127.0.0.1:${port}`);
     if (url.pathname === "/api/meta") return send(200, JSON.stringify({ root, editorVersion }));
     if (url.pathname === "/api/bosses") return send(200, JSON.stringify(await loadBosses()));
+    if (url.pathname === "/sprite-pixels.js") {
+      const source = await readFile(join(root, "src/game/runtime/sprite-pixels.ts"), "utf8");
+      return send(200, ts.transpileModule(source, {
+        compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
+      }).outputText, "text/javascript");
+    }
     if (url.pathname === "/api/save" && request.method === "POST") {
       const chunks = [];
       for await (const chunk of request) chunks.push(chunk);

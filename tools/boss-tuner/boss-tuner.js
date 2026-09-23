@@ -1,3 +1,5 @@
+import { centerFramesOnGround, keepLargestFrameComponents, removeGreenPixels, repackLargestComponentsIntoFrames } from "/sprite-pixels.js";
+
 // The preview mirrors boss-renderer: the sheet is drawn at drawWidth x
 // drawHeight centred on the anchor plus the sprite's Y offset, the hitbox is
 // an ellipse around that anchor, the status bar hangs off the artwork's top,
@@ -89,6 +91,7 @@ const CROP_FIELDS = [
   { key: "offsetX", label: "Move across", min: -200, max: 200 },
   { key: "offsetY", label: "Move down", min: -200, max: 200 },
   { key: "scale", label: "Scale", min: -0.6, max: 0.6, step: 0.01 },
+  { key: "statusOffsetY", label: "Move status bar", min: -200, max: 200 },
 ];
 
 /** Every field defaults to zero, so an untouched frame draws as it always did. */
@@ -106,10 +109,30 @@ function setCrop(row, index, key, value) {
 function sheetFor(row) {
   if (sheets.has(row.id)) return sheets.get(row.id);
   const image = new Image();
-  image.src = `/assets/wildstat/${row.sheet}`;
-  image.onload = () => draw();
+  image.onload = () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    context.drawImage(image, 0, 0);
+    // Use the game's exact preprocessing so the crop and hit area guides sit
+    // around the pixels players actually see, including its frame recentering.
+    if (["SPIDER", "FROSTCLAW", "MAGMALISK", "GLOOMROOT", "TIDEWYRM", "KOI_SHOGUN"].includes(row.id)) {
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+      removeGreenPixels(pixels.data, row.id === "SPIDER" ? 135 : 145, row.id === "SPIDER" ? 1.35 : 1.45);
+      if (row.id === "MAGMALISK") repackLargestComponentsIntoFrames(pixels.data, canvas.width, canvas.height, 4);
+      else if (["SPIDER", "FROSTCLAW", "TIDEWYRM", "KOI_SHOGUN"].includes(row.id)) {
+        keepLargestFrameComponents(pixels.data, canvas.width, canvas.height, 4);
+        centerFramesOnGround(pixels.data, canvas.width, canvas.height, 4);
+      }
+      context.putImageData(pixels, 0, 0);
+    }
+    sheets.set(row.id, canvas);
+    draw();
+  };
   image.onerror = () => setStatus(`Could not load ${row.sheet}.`, true);
   sheets.set(row.id, image);
+  image.src = `/assets/wildstat/${row.sheet}`;
   return image;
 }
 
@@ -117,8 +140,8 @@ function sheetFor(row) {
 function spriteBox(row, image) {
   const columns = row.frames;
   const rows = row.rows ?? 1;
-  const cellW = image.naturalWidth / columns;
-  const cellH = image.naturalHeight / rows;
+  const cellW = image.width / columns;
+  const cellH = image.height / rows;
   const height = row.drawHeight || row.drawWidth * cellH / cellW;
   // The scorpion is sized from its width and placed from its feet; every other
   // boss is drawn into a fixed box centred on its own offset. Either way the
@@ -131,7 +154,7 @@ function spriteBox(row, image) {
 
 function drawBoss(row) {
   const image = sheetFor(row);
-  if (!image.complete || !image.naturalWidth) return null;
+  if (!(image instanceof HTMLCanvasElement)) return null;
   const box = spriteBox(row, image);
   const columns = row.frames;
   const index = frame % (columns * (row.rows ?? 1));
@@ -215,7 +238,7 @@ function draw() {
   ctx.moveTo(ax, ay - 9); ctx.lineTo(ax, ay + 9);
   ctx.stroke();
 
-  const statusAnchor = row.artTop + (row.statusFollowsSprite ? row.spriteY : 0);
+  const statusAnchor = row.artTop + (row.statusFollowsSprite ? row.spriteY : 0) + cropFor(row, frame).statusOffsetY;
   const [barX, barY] = toScreen(-row.barWidth / 2, statusAnchor - row.barGap);
   ctx.fillStyle = "rgba(0,0,0,.85)";
   ctx.fillRect(barX, barY, row.barWidth * SCALE, row.barHeight * SCALE);

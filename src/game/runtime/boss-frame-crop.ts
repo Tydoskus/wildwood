@@ -24,6 +24,8 @@ export type BossFrameCrop = {
   offsetY?: number;
   /** Scales the frame about its own centre. 0 means no change. */
   scale?: number;
+  /** Moves the status bar for a pose that rises above its idle artwork. */
+  statusOffsetY?: number;
 };
 
 const EMPTY: BossFrameCrop = {};

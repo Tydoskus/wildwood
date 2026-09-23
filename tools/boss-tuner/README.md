@@ -29,7 +29,8 @@ The preview starts paused so its frame controls stay stable while you edit.
 - **Frame** — a correction for the frame on screen: where its crop sits in the
   cell, how big that crop is, where the frame lands, and its scale. Every field
   is a correction from zero, so an untouched frame draws exactly as it did
-  before. These are written to `src/game/boss-frame-crops.json`, and only the
+  before. Move status bar handles poses taller than idle. These are written to
+  `src/game/boss-frame-crops.json`, and only the
   frames actually nudged appear in it.
 
 Frame names come from the rule the renderer picks by, not from a guess, so a
@@ -51,7 +52,9 @@ Radii are server-side, so a change to a hitbox needs
 
 `node scripts/check-boss-hitboxes.mjs` measures the artwork and prints what the
 numbers ought to be, which is the quickest way to find a boss worth opening
-here. The server only listens on `127.0.0.1`.
+here. The preview and checker apply the same green removal and frame alignment
+as the game before showing or measuring the artwork. The server only listens
+on `127.0.0.1`.
 
 The draw sizes, health bar sizes, and guide offsets in
 `scripts/boss-tuner-server.mjs` mirror `boss-renderer.ts`. If a boss is redrawn
