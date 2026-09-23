@@ -96,18 +96,23 @@ function cachedEnemyLayerPlan(sprite: LoadedEnemySprite) {
 export function enemyWeaponAimRotation(
   enemy: Pick<EnemyState, "x" | "y" | "facingX">,
   target: Pick<PlayerState, "x" | "y">,
+  pivot = { x: 0, y: -ENEMY_SPRITE_Y_OFFSET },
 ) {
   // Enemy art is assembled facing right. Convert the world-space target into
-  // that local coordinate system before the whole actor is mirrored.
-  return Math.atan2(target.y - enemy.y, (target.x - enemy.x) * enemy.facingX);
+  // that local coordinate system before the whole actor is mirrored. Aim from
+  // the bow's grip, not the actor's centre, to avoid a near-target angle error.
+  const dx = (target.x - enemy.x) * enemy.facingX - pivot.x;
+  const dy = target.y - enemy.y - pivot.y - ENEMY_SPRITE_Y_OFFSET;
+  return Math.atan2(dy, dx);
 }
 
 export function enemyWeaponLayerRotation(
   enemy: Pick<EnemyState, "x" | "y" | "facingX" | "engaged">,
   target: Pick<PlayerState, "x" | "y">,
   sourceOffsetRadians = 0,
+  pivot?: { x: number; y: number },
 ) {
-  return sourceOffsetRadians + (enemy.engaged ? enemyWeaponAimRotation(enemy, target) : 0);
+  return enemy.engaged ? sourceOffsetRadians + enemyWeaponAimRotation(enemy, target, pivot) : 0;
 }
 
 export function drawableEnemyLayers(layers: LoadedSpriteLayer[] | undefined) {
@@ -693,7 +698,7 @@ export function createActorRenderer(options: {
           if (!pivot) continue;
           ctx.save();
           ctx.translate(pivot.x, pivot.y + ENEMY_SPRITE_Y_OFFSET);
-          ctx.rotate(enemyWeaponLayerRotation(enemy, combatTarget, layer.aimOffsetRadians));
+          ctx.rotate(enemyWeaponLayerRotation(enemy, combatTarget, layer.aimOffsetRadians, pivot));
           ctx.drawImage(
             tintedEnemyLayerImage(layer),
             layer.x - pivot.x,
@@ -710,7 +715,7 @@ export function createActorRenderer(options: {
           if (layer.aimPivot) {
             ctx.save();
             ctx.translate(layer.aimPivot.x, layer.aimPivot.y + ENEMY_SPRITE_Y_OFFSET);
-            ctx.rotate(enemyWeaponLayerRotation(enemy, combatTarget, layer.aimOffsetRadians));
+            ctx.rotate(enemyWeaponLayerRotation(enemy, combatTarget, layer.aimOffsetRadians, layer.aimPivot));
             ctx.drawImage(
               tintedEnemyLayerImage(layer),
               layer.x - layer.aimPivot.x,

@@ -42,7 +42,37 @@ describe("enemy weapon aiming", () => {
   it("keeps the authored bow angle before tracking an engaged target", () => {
     const enemy = { x: 10, y: 10, facingX: 1 as const, engaged: false };
     expect(enemyWeaponLayerRotation(enemy, { x: 30, y: 10 }, ENEMY_BOW_AIM_OFFSET_RADIANS)).toBeCloseTo(0);
-    expect(enemyWeaponLayerRotation({ ...enemy, engaged: true }, { x: 30, y: 30 }, ENEMY_BOW_AIM_OFFSET_RADIANS)).toBeCloseTo(Math.PI / 4);
+    expect(enemyWeaponLayerRotation({ ...enemy, engaged: true }, { x: 30, y: 30 }, ENEMY_BOW_AIM_OFFSET_RADIANS)).toBeCloseTo(-Math.PI / 4);
+  });
+
+  it("points the source-down bow from its grip toward targets on either side", () => {
+    for (const facingX of [-1, 1] as const) {
+      const enemy = { x: 100, y: 100, facingX, engaged: true };
+      const pivot = { x: 20, y: 8 };
+      for (const target of [
+        { x: 100 + facingX * 150, y: 100 },
+        { x: 100 + facingX * 120, y: 60 },
+        { x: 100 + facingX * 120, y: 160 },
+      ]) {
+        const rotation = enemyWeaponLayerRotation(enemy, target, ENEMY_BOW_AIM_OFFSET_RADIANS, pivot);
+        const firedX = -Math.sin(rotation) * facingX;
+        const firedY = Math.cos(rotation);
+        const dx = target.x - (enemy.x + pivot.x * facingX);
+        const dy = target.y - (enemy.y + pivot.y - 3);
+        const distance = Math.hypot(dx, dy);
+        expect(firedX).toBeCloseTo(dx / distance, 6);
+        expect(firedY).toBeCloseTo(dy / distance, 6);
+      }
+    }
+  });
+
+  it("calibrates every loose enemy bow to the same source-down firing axis", () => {
+    for (const sprite of Object.values(ENEMY_SPRITE_LAYOUTS)) {
+      for (const layer of sprite.layers.filter((part) => part.src.endsWith("/bow.webp"))) {
+        expect(layer.aimPivot).toBeDefined();
+        expect(layer.aimOffsetRadians).toBe(ENEMY_BOW_AIM_OFFSET_RADIANS);
+      }
+    }
   });
 });
 

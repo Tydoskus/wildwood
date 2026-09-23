@@ -12,7 +12,9 @@ import crystalAtlas from "./enemy-atlases/hornrabbit-crystal.mjs";
  * Keep this browser JavaScript: the local layer aligner imports it directly.
  * Names/roles remain gameplay identities; this table only selects their art.
  */
-export const ENEMY_BOW_AIM_OFFSET_RADIANS = 0;
+// These loose bow sprites fire down in their source pose. Turn that axis
+// toward actor-local right when a ranged enemy tracks a target.
+export const ENEMY_BOW_AIM_OFFSET_RADIANS = -Math.PI / 2;
 export const REGULAR_ENEMY_SPRITE_SIZE = 54;
 export const ELITE_ENEMY_SPRITE_SIZE = 78;
 const PARTS = "assets/wildstat/2D Character - Casual Monsters/_PNG";
@@ -36,7 +38,7 @@ const spriteHeight = (size) => Math.round(size * 70 / 74);
 function bowLayer(elite) {
   const w = elite ? 54 : 42;
   const h = Math.round(w * 40 / 66);
-  return { src: SHARED_BOW, x: -w * .54, y: 0, w, h, aimPivot: { x: 0, y: h * .6 }, aimOffsetRadians: 0 };
+  return { src: SHARED_BOW, x: -w * .54, y: 0, w, h, aimPivot: { x: 0, y: h * .6 }, aimOffsetRadians: ENEMY_BOW_AIM_OFFSET_RADIANS };
 }
 
 function slimeSprite(color, { elite = false, ranged = false, armored = false } = {}) {
@@ -78,7 +80,7 @@ function goblinSprite(green, { elite = false, ranged = false } = {}) {
     { file: "leg2", x: 1, y: 22, w: 15, h: 16 },
     { file: "body", x: -25, y: -31, w: 50, h: 58 },
     { file: "hat", x: -32, y: -43, w: 64, h: 39 },
-    { file: "bow", x: -27, y: 0, w: 50, h: 30, aimPivot: { x: 0, y: 18 }, aimOffsetRadians: 0 },
+    { file: "bow", x: -27, y: 0, w: 50, h: 30, aimPivot: { x: 0, y: 18 }, aimOffsetRadians: ENEMY_BOW_AIM_OFFSET_RADIANS },
   ] : [
     { file: "leg", x: -15, y: 23, w: 17, h: 15 },
     { file: "leg2", x: 1, y: 23, w: 17, h: 15 },
@@ -97,7 +99,7 @@ function skeletonSprite(poison, { elite = false, ranged = false, armored = false
     { file: "leg2", x: 1, y: 19, w: 17, h: 22 },
     { file: "body", x: -20, y: -5, w: 40, h: 40 },
     { file: "head", x: -32, y: -37, w: 64, h: 46 },
-    { file: "bow", x: 15, y: -6, w: 43, h: 33, aimPivot: { x: 20, y: 8 }, aimOffsetRadians: Math.PI / 2 },
+    { file: "bow", x: 15, y: -6, w: 43, h: 33, aimPivot: { x: 20, y: 8 }, aimOffsetRadians: ENEMY_BOW_AIM_OFFSET_RADIANS },
   ] : armored ? [
     { file: "leg", x: -16, y: 24, w: 18, h: 26 },
     { file: "leg2", x: 1, y: 27, w: 17, h: 23 },
