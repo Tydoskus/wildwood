@@ -124,6 +124,7 @@ import { regularEnemySimulationTick } from "../shared/regular-enemy-simulation";
 import { effectivePlayerPower } from "../shared/player-power";
 import { equipmentMaxHealthMultiplierBonus, isWeaponItem, itemDisplayName, itemStats } from "../shared/items";
 import { createRewardDisplay, playerRegenerationPerSecond } from "./game/runtime/reward-display";
+import { createInventoryCommerceActions } from "./game/runtime/inventory-commerce";
 import {
   DEFAULT_ATTACK_INTERVAL as STARTING_ATTACK_INTERVAL,
   MAX_PLAYER_STAT,
@@ -462,6 +463,8 @@ import {
     content: itemInspectionContent,
     back: itemInspectionBack,
   });
+  const inventoryCommerce = createInventoryCommerceActions({ inventory, player, coop: () => coop,
+    healthMultiplierBonus, movementSpeed: () => progress.movementSpeedForEquipment(false) * localTestMultiplier });
   const inventoryController = createInventoryController({
     inventory,
     itemInspection: itemInspectionController,
@@ -480,14 +483,7 @@ import {
     inventorySlotsUnlocked: () => coop?.inventorySlotsUnlocked?.() ?? 0,
     gemBalance: () => coop?.gemBalance?.() ?? 0n,
     unlockInventorySlot: async () => coop?.unlockInventorySlot?.(),
-    destroyEquipment: async (itemId) => {
-      const result = await coop?.destroyEquipment?.(itemId);
-      if (result?.ok) {
-        setInventoryItemQuantity(inventory, itemId, 0);
-        applyPlayerMaxHealthMultiplierBonus(player, healthMultiplierBonus());
-      }
-      return result;
-    },
+    ...inventoryCommerce,
     showMessage,
     move: (itemId, destination) => {
       const requiredMap = equipmentMapRequirement(itemId, coop?.savedProgress?.());

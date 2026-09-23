@@ -181,6 +181,7 @@ type ExpectedApiKey =
   | "takeOverSession"
   | "unlockInventorySlot"
   | "destroyEquipment"
+  | "convertItemToCosmetic"
   | "unlockSecondUpgradeSlot"
   | "unlockThirdUpgradeSlot"
   | "updatePlayerSave"

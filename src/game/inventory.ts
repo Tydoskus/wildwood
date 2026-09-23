@@ -16,6 +16,7 @@ import {
   resolveEquipmentAppearance,
   type EquipmentAppearance,
 } from "../../shared/equipment-appearance";
+import { cosmeticUnlocks } from "../../shared/cosmetic-conversion";
 
 export {
   BASIC_PAPER_HAT,
@@ -45,6 +46,7 @@ export {
 
 export type InventoryState = {
   itemIds: string[];
+  cosmeticItemIds?: string[];
   equippedHead: string;
   equippedChest: string;
   equippedFeet: string;
@@ -86,6 +88,7 @@ export function setInventoryItemQuantity(inventory: InventoryState, itemId: stri
   inventory.itemIds = withoutItem;
   if (nextQuantity === 0) {
     for (const field of SLOTTED_ITEM_FIELDS) {
+      if (field.startsWith("cosmetic") && inventory.cosmeticItemIds?.includes(itemId)) continue;
       if (inventory[field] === itemId) inventory[field] = "";
     }
   }
@@ -117,7 +120,10 @@ export function bagInventoryStacks(inventory: InventoryState): InventoryStack[] 
 
 /** Cosmetic ownership is a separate, uncapped collection; active looks stay selectable. */
 export function cosmeticInventoryStacks(inventory: InventoryState): InventoryStack[] {
-  return ownedInventoryStacks(inventory).filter(({ itemId }) => isCosmeticOnlyItem(itemId));
+  return [...new Set([
+    ...ownedInventoryStacks(inventory).filter(({ itemId }) => isCosmeticOnlyItem(itemId)).map(({ itemId }) => itemId),
+    ...(inventory.cosmeticItemIds ?? []),
+  ])].map(itemId => ({ itemId, quantity: 1 }));
 }
 
 /** Move old cosmetic-only equipment into appearance slots without losing ownership or hiding choices. */
@@ -179,7 +185,7 @@ export function moveInventoryItem(inventory: InventoryState, itemId: string, des
 /** Assigns an owned item as a visual override without moving or consuming it. */
 export function moveCosmeticInventoryItem(inventory: InventoryState, itemId: string, destination: EquipmentSlot | "BAG") {
   const item = itemDefinition(itemId);
-  if (!item || !inventory.itemIds.includes(itemId)) return false;
+  if (!item || !(inventory.itemIds.includes(itemId) || inventory.cosmeticItemIds?.includes(itemId))) return false;
   const clearItem = () => {
     let changed = false;
     for (const slot of COSMETIC_ITEM_FIELDS) {
@@ -190,7 +196,7 @@ export function moveCosmeticInventoryItem(inventory: InventoryState, itemId: str
     return changed;
   };
   if (destination === "BAG") return clearItem();
-  if (!isCosmeticOnlyItem(itemId)) return false;
+  if (!isCosmeticOnlyItem(itemId) && !inventory.cosmeticItemIds?.includes(itemId)) return false;
   if (!itemFitsEquipmentSlot(item.id, destination)) return false;
   const target = destination === "HEAD" ? "cosmeticHead"
     : destination === "CHEST" ? "cosmeticChest"
@@ -247,7 +253,7 @@ export function equipmentAppearance(inventory: Pick<InventoryState,
   return resolveEquipmentAppearance(inventory);
 }
 
-export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equippedHead: unknown, equippedChest: unknown, ownsBoots: boolean, ownsDeveloperCosmetics = false, equippedRightHand: unknown = "", equippedLeftHand: unknown = "", cosmeticHead: unknown = "", cosmeticChest: unknown = "", cosmeticFeet: unknown = "", cosmeticRightHand: unknown = "", cosmeticLeftHand: unknown = ""): InventoryState {
+export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equippedHead: unknown, equippedChest: unknown, ownsBoots: boolean, ownsDeveloperCosmetics = false, equippedRightHand: unknown = "", equippedLeftHand: unknown = "", cosmeticHead: unknown = "", cosmeticChest: unknown = "", cosmeticFeet: unknown = "", cosmeticRightHand: unknown = "", cosmeticLeftHand: unknown = "", cosmeticItemsJson: unknown = "[]"): InventoryState {
   const requested = Array.isArray(itemIds) ? itemIds : [];
   // Trailblazer Boots are gone. `ownsBoots` is kept in the signature because
   // saved rows still carry the flag; it no longer grants anything.
@@ -274,7 +280,8 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
   const savedFeet = typeof equippedFeet === "string" && items.includes(equippedFeet) && itemDefinition(equippedFeet)?.slot === "FEET" ? equippedFeet : "";
   const resolvedRightHand = savedRightHand || (!handStateWasSaved && !savedLeftHand ? STARTER_STONE : "");
   const resolvedLeftHand = savedRightHand ? "" : savedLeftHand;
-  const ownedItemIds = new Set(items);
+  const cosmeticItemIds = cosmeticUnlocks(cosmeticItemsJson);
+  const ownedItemIds = new Set([...items, ...cosmeticItemIds]);
   const cosmeticItem = (requestedItem: unknown, slot: EquipmentSlot) => {
     if (isHiddenCosmeticItem(requestedItem)) return HIDDEN_COSMETIC_ITEM_ID;
     const itemId = canonicalItemId(requestedItem);
@@ -287,6 +294,7 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
   const savedCosmeticLeftHand = savedCosmeticRightHand ? "" : cosmeticItem(cosmeticLeftHand, "LEFT_HAND");
   return separateCosmeticLoadout({
     itemIds: items,
+    cosmeticItemIds,
     equippedHead: savedHead,
     equippedChest: savedChest,
     equippedFeet: savedFeet,
@@ -300,12 +308,12 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
   });
 }
 
-export function inventoryFromSave(inventoryJson: unknown, equippedFeet: unknown, equippedHead: unknown, equippedChest: unknown, ownsBoots: boolean, ownsDeveloperCosmetics = false, equippedRightHand: unknown = "", equippedLeftHand: unknown = "", cosmeticHead: unknown = "", cosmeticChest: unknown = "", cosmeticFeet: unknown = "", cosmeticRightHand: unknown = "", cosmeticLeftHand: unknown = ""): InventoryState {
+export function inventoryFromSave(inventoryJson: unknown, equippedFeet: unknown, equippedHead: unknown, equippedChest: unknown, ownsBoots: boolean, ownsDeveloperCosmetics = false, equippedRightHand: unknown = "", equippedLeftHand: unknown = "", cosmeticHead: unknown = "", cosmeticChest: unknown = "", cosmeticFeet: unknown = "", cosmeticRightHand: unknown = "", cosmeticLeftHand: unknown = "", cosmeticItemsJson: unknown = "[]"): InventoryState {
   let itemIds: unknown = [];
   if (typeof inventoryJson === "string") {
     try { itemIds = JSON.parse(inventoryJson); } catch {}
   }
-  return normaliseInventory(itemIds, equippedFeet, equippedHead, equippedChest, ownsBoots, ownsDeveloperCosmetics, equippedRightHand, equippedLeftHand, cosmeticHead, cosmeticChest, cosmeticFeet, cosmeticRightHand, cosmeticLeftHand);
+  return normaliseInventory(itemIds, equippedFeet, equippedHead, equippedChest, ownsBoots, ownsDeveloperCosmetics, equippedRightHand, equippedLeftHand, cosmeticHead, cosmeticChest, cosmeticFeet, cosmeticRightHand, cosmeticLeftHand, cosmeticItemsJson);
 }
 
 export function serialiseInventory(inventory: InventoryState) {

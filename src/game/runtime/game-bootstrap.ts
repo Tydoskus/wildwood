@@ -517,6 +517,7 @@ export function createGameBootstrap() {
   const bootsPickup = { x: editedBootsPickup?.x ?? 940, y: editedBootsPickup?.y ?? 3660, r: 18, collected: true };
   const inventory: BootstrapInventory = {
     itemIds: [STARTER_STONE],
+    cosmeticItemIds: [],
     equippedHead: "",
     equippedChest: "",
     equippedFeet: "",

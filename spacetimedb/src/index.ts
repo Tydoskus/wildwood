@@ -41,6 +41,8 @@ import { effectiveMovementSpeedForProgress } from "./player-speed";
 import { earlierTimestamp } from "./timestamp-utils";
 import { attackRangeWithResearch, slotUpgradeDurationWithResearch } from "../../shared/utility-research";
 import { createResearchState } from "./research-state";
+import { createCosmeticConversion } from "./cosmetic-conversion";
+import { cosmeticUnlocks } from "../../shared/cosmetic-conversion";
 import { publicChatCursor, updatePublicChatCursor, readPublicChatPage } from "./public-chat-history";
 import { createKillGems } from "./kill-gems";
 import { createPrestige, statRewardMultiplier } from "./prestige";
@@ -777,6 +779,8 @@ const playerProgress = table(
     clockworkRuinsUnlocked: t.bool().default(false),
     duskfallOrchardUnlocked: t.bool().default(false),
     neonBastionUnlocked: t.bool().default(false), verdantCatacombsUnlocked: t.bool().default(false), ionCitadelUnlocked: t.bool().default(false),
+    // Gem-purchased looks survive equipment loss and prestige.
+    cosmeticItemsJson: t.string().default("[]"),
   },
 );
 
@@ -2242,6 +2246,7 @@ function defaultPlayerProgress(identity: any) {
     cosmeticFeet: "",
     cosmeticRightHand: "",
     cosmeticLeftHand: "",
+    cosmeticItemsJson: "[]",
     speedOverride: 0,
   };
 }
@@ -2281,6 +2286,7 @@ const PLAYER_PROGRESS_VALUE_FIELDS = [
   "cosmeticFeet",
   "cosmeticRightHand",
   "cosmeticLeftHand",
+  "cosmeticItemsJson",
   "speedOverride",
 ] as const;
 
@@ -2884,25 +2890,6 @@ function playerOwnsItem(ctx: any, identity: any, itemId: string) {
   return activeItemUpgradeEntriesFor(ctx, identity).some(({ active }) => active.itemId === itemId);
 }
 
-function clearItemFromProgressSlots(progress: any, itemId: string) {
-  const next = { ...progress };
-  for (const field of [
-    "equippedHead", "equippedChest", "equippedFeet", "equippedRightHand", "equippedLeftHand",
-    "cosmeticHead", "cosmeticChest", "cosmeticFeet", "cosmeticRightHand", "cosmeticLeftHand",
-  ] as const) {
-    if (next[field] === itemId) next[field] = "";
-  }
-  return next;
-}
-
-function removeItemFromProgress(progress: any, itemId: string) {
-  let next = clearItemFromProgressSlots(progress, itemId);
-  if (itemId === STARTER_BOW) next = { ...next, bowCount: 0 };
-  if (itemId === WOODEN_ARMOR) next = { ...next, woodenArmorCount: 0 };
-  next.inventoryJson = JSON.stringify(inventoryForProgress(next).filter((savedItemId) => savedItemId !== itemId));
-  return next;
-}
-
 function restoreItemToProgress(progress: any, itemId: string) {
   let next = { ...progress };
   if (itemId === STARTER_BOW) next.bowCount = 1;
@@ -2938,6 +2925,9 @@ function writeProgressAndPresentation(ctx: any, progress: any) {
   }
   // Ranking snapshots refresh in maintenance, never in the combat/reward path.
 }
+
+const cosmeticConversion = createCosmeticConversion({ requireControllingPlayer, activeDuelFor,
+  inventoryForProgress, writeProgressAndPresentation, applyGemBalanceChange });
 
 function publishItemDrop(ctx: any, identity: any, itemId: string, alreadyOwned: boolean, quantity = 1) {
   const key = `${identity.toHexString()}:${itemId}`;
@@ -2999,7 +2989,7 @@ function equippedLeftHandForProgress(progress: any, inventory = inventoryForProg
 }
 
 function cosmeticEquipmentForProgress(progress: any, inventory = inventoryForProgress(progress)) {
-  const ownedItemIds = new Set(inventory);
+  const ownedItemIds = new Set([...inventory, ...cosmeticUnlocks(progress.cosmeticItemsJson)]);
   const itemFor = (field: "cosmeticHead" | "cosmeticChest" | "cosmeticFeet" | "cosmeticRightHand" | "cosmeticLeftHand", slot: "HEAD" | "CHEST" | "FEET" | "RIGHT_HAND" | "LEFT_HAND") => {
     if (isHiddenCosmeticItem(progress[field])) return HIDDEN_COSMETIC_ITEM_ID;
     const itemId = canonicalItemId(progress[field]);
@@ -5075,6 +5065,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       equippedRightHand,
       equippedLeftHand,
       ...cosmeticEquipment,
+      cosmeticItemsJson: base.cosmeticItemsJson ?? "[]",
       introComplete: base.introComplete,
       desertUnlocked: base.desertUnlocked,
       snowlandsUnlocked: base.snowlandsUnlocked,
@@ -5449,8 +5440,12 @@ export const destroyEquipment = spacetimedb.reducer(
     const progress = ctx.db.playerProgress.identity.find(ctx.sender);
     if (!progress || !progressHasItem(progress, canonical)) throw new SenderError("That item is not in your inventory.");
     // The slot's tier survives: it was never this item's to take away.
-    writeProgressAndPresentation(ctx, removeItemFromProgress(progress, canonical));
+    writeProgressAndPresentation(ctx, cosmeticConversion.removeItemFromProgress(progress, canonical));
   },
+);
+
+export const convertItemToCosmetic = spacetimedb.reducer(
+  { itemId: t.string() }, (ctx, { itemId }) => cosmeticConversion.convertItemToCosmetic(ctx, itemId),
 );
 
 export const cancelItemUpgrade = spacetimedb.reducer(
@@ -5764,6 +5759,7 @@ function resetProgressToDefaults(ctx: any, activePlayer: any, keep: { research?:
     clearProceduralProgress(ctx, ctx.sender);
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
     const next = defaultPlayerProgress(ctx.sender);
+    if (current) next.cosmeticItemsJson = current.cosmeticItemsJson;
     if (keep.research) next.attackRange = attackRangeWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.utilityAttackRange ?? 0);
     const history = ctx.db.playerCutsceneHistory.identity.find(ctx.sender);
     if (history) ctx.db.playerCutsceneHistory.identity.update({ ...history, seenMask: 0, generation: history.generation + 1 });

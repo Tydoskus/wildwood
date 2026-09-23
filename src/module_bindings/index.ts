@@ -55,6 +55,7 @@ import ClaimMailboxGiftReducer from "./claim_mailbox_gift_reducer";
 import CompleteOnboardingStepReducer from "./complete_onboarding_step_reducer";
 import ConfigureGemCommerceReducer from "./configure_gem_commerce_reducer";
 import ConfigurePatreonReducer from "./configure_patreon_reducer";
+import ConvertItemToCosmeticReducer from "./convert_item_to_cosmetic_reducer";
 import CreateGuildReducer from "./create_guild_reducer";
 import DamageAegisPrimeFromPositionReducer from "./damage_aegis_prime_from_position_reducer";
 import DamageDragonReducer from "./damage_dragon_reducer";
@@ -1288,6 +1289,7 @@ const reducersSchema = __reducers(
   __reducerSchema("complete_onboarding_step", CompleteOnboardingStepReducer),
   __reducerSchema("configure_gem_commerce", ConfigureGemCommerceReducer),
   __reducerSchema("configure_patreon", ConfigurePatreonReducer),
+  __reducerSchema("convert_item_to_cosmetic", ConvertItemToCosmeticReducer),
   __reducerSchema("create_guild", CreateGuildReducer),
   __reducerSchema("damage_aegis_prime_from_position", DamageAegisPrimeFromPositionReducer),
   __reducerSchema("damage_dragon", DamageDragonReducer),

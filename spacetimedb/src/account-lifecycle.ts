@@ -15,6 +15,7 @@ import {
   SPACETIME_AUTH_ISSUER,
 } from "../../shared/rules";
 import { HOME_EXTERIOR_MAP_ID } from "../../shared/home";
+import { cosmeticUnlocks } from "../../shared/cosmetic-conversion";
 import { PLAYER_GENDER_UNSET } from "../../shared/player-gender";
 import { PLAYER_SKIN_TONES } from "../../shared/player-skin-tones";
 import { isPublicDisplayNameAllowed } from "./chat-moderation";
@@ -201,6 +202,10 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
       ...guestProgress,
       identity: ctx.sender,
       attackRate: Math.max(MIN_ATTACK_INTERVAL, Math.min(DEFAULT_ATTACK_INTERVAL, guestAttackRate)),
+      cosmeticItemsJson: JSON.stringify([...new Set([
+        ...cosmeticUnlocks(accountProgress?.cosmeticItemsJson),
+        ...cosmeticUnlocks(guestProgress.cosmeticItemsJson),
+      ])]),
     };
     if (accountProgress) updateSnapshotRow(ctx, "playerProgress", nextProgress);
     else insertSnapshotRow(ctx, "playerProgress", nextProgress);

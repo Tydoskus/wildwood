@@ -8,6 +8,7 @@ import { createRegularEnemyLootQueue, ENEMY_DEFEAT_ACK_TIMEOUT_MS } from "./regu
 import { REGULAR_ENEMY_LOOT_DELAY_MS } from "../../../shared/regular-map-loot";
 import { ONBOARDING_DAMAGE_REWARD, ONBOARDING_REGEN_REWARD, ONBOARDING_STEP } from "../../../shared/onboarding";
 import { withoutDestroyedEquipment } from "./destroyed-equipment";
+import { cosmeticUnlocks } from "../../../shared/cosmetic-conversion";
 import type { PendingItemGift } from "../../../shared/item-gifts";
 import { createProceduralMapService } from "./procedural-map-service";
 import { syncResearchNotification } from "../../app/native-research-notifications";
@@ -286,6 +287,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       speedOverride: Math.max(0, row.speedOverride ?? 0),
       bootsCollected: row.bootsCollected,
       inventoryJson: row.inventoryJson,
+      cosmeticItemsJson: row.cosmeticItemsJson ?? "[]",
       equippedHead: row.equippedHead,
       equippedChest: row.equippedChest,
       equippedFeet: row.equippedFeet,
@@ -740,12 +742,28 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
         const result = await reducerResult("destroy equipment", (connection) => connection.reducers.destroyEquipment({ itemId }))();
         if (result.ok && identity !== dependencies.localIdentity()) return { ok: false, error: "ACCOUNT CHANGED" };
         if (result.ok) {
+          const keepCosmetic = cosmeticUnlocks(localProgress?.cosmeticItemsJson).includes(itemId);
           if (localProgress) {
-            localProgress = withoutDestroyedEquipment(localProgress, itemId);
+            localProgress = withoutDestroyedEquipment(localProgress, itemId, keepCosmetic);
             progressByIdentity.set(identity, localProgress);
           }
-          if (pendingProgress) pendingProgress = store.write(identity, withoutDestroyedEquipment(pendingProgress, itemId));
+          if (pendingProgress) pendingProgress = store.write(identity, withoutDestroyedEquipment(pendingProgress, itemId, keepCosmetic));
           upgradeLevelsByIdentity.get(identity)?.delete(itemId);
+          dependencies.notify();
+        }
+        return result;
+      },
+      async convertItemToCosmetic(itemId: string) {
+        const identity = dependencies.localIdentity();
+        const result = await reducerResult("cosmetic conversion", (connection) => connection.reducers.convertItemToCosmetic({ itemId }))();
+        if (result.ok && identity !== dependencies.localIdentity()) return { ok: false, error: "ACCOUNT CHANGED" };
+        if (result.ok) {
+          if (localProgress) {
+            const unlocked = cosmeticUnlocks(localProgress.cosmeticItemsJson);
+            localProgress = { ...localProgress,
+              cosmeticItemsJson: JSON.stringify([...new Set([...unlocked, itemId])]) };
+            progressByIdentity.set(identity, localProgress);
+          }
           dependencies.notify();
         }
         return result;

@@ -79,6 +79,7 @@ export function renderPlayerHud(
 
 type InventoryViewState = {
   itemIds: string[];
+  cosmeticItemIds?: string[];
   equippedHead: string;
   equippedChest: string;
   equippedFeet: string;
@@ -167,7 +168,8 @@ export function inventoryMoveActions(
   if (location !== "BAG") {
     return [{ label: mode === "COSMETICS" ? "REMOVE COSMETIC" : "UNEQUIP", destination: "BAG" }];
   }
-  if (isCosmeticOnlyItem(itemId) !== (mode === "COSMETICS")) return [];
+  const appearanceOwned = isCosmeticOnlyItem(itemId) || inventory.cosmeticItemIds?.includes(itemId);
+  if (mode === "COSMETICS" ? !appearanceOwned : isCosmeticOnlyItem(itemId)) return [];
   if (item.slot === "HAND") {
     const destination = inventoryWeaponSlot(inventory, mode);
     const alreadyEquipped = equipmentItemId(inventory, destination, mode) === itemId;

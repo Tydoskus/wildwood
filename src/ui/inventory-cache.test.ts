@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { parseHTML } from "linkedom";
 import { createInventoryController } from "./inventory-controller";
+import type { ConfirmRequest } from "./confirm-dialog";
 import { SUPERIOR_GOLDEN_HELMET, STARTER_BOW, STARTER_STONE, FROST_ARMOR } from "../game/inventory";
 afterEach(() => vi.unstubAllGlobals());
 it("keeps slots mounted until inventory, upgrades, or selection changes", () => {
@@ -81,6 +82,32 @@ it("opens inspection on the first tap and only equips from its action", () => {
   expect(document.querySelector<HTMLParagraphElement>(".inventory-cosmetics-note")!.hidden).toBe(false);
   document.querySelector<HTMLButtonElement>(`#inventoryItems [data-item-id="${SUPERIOR_GOLDEN_HELMET}"]`)!.click();
   expect(open.mock.lastCall![0]).toMatchObject({ itemId: SUPERIOR_GOLDEN_HELMET, actions: [expect.objectContaining({ label: "USE COSMETIC" })] });
+});
+
+it("offers a 10 Gem appearance unlock while retaining the equipped item", async () => {
+  const ids = ["inventoryPanel", "inventoryItems", "inventoryCount", "equippedHeadSlot", "equippedChestSlot", "equippedFeetSlot", "equippedRightHandSlot", "inventoryEquipmentTab", "inventoryCosmeticsTab", "inventoryContent"];
+  const { document, window } = parseHTML(`<html><body>${ids.map(id => `<div id="${id}"></div>`).join("")}</body></html>`);
+  vi.stubGlobal("document", document); vi.stubGlobal("window", window);
+  const inventory = { itemIds: [STARTER_STONE, STARTER_BOW], cosmeticItemIds: [] as string[], equippedHead: "", equippedChest: "", equippedFeet: "", equippedRightHand: STARTER_BOW, equippedLeftHand: "", cosmeticHead: "", cosmeticChest: "", cosmeticFeet: "", cosmeticRightHand: "", cosmeticLeftHand: "", selectedItemId: "", selectedItemLocation: "" as const };
+  const open = vi.fn(), confirm = vi.fn(async (_request: ConfirmRequest) => true);
+  const convert = vi.fn(async (itemId: string) => { inventory.cosmeticItemIds.push(itemId); return { ok: true }; });
+  const controller = createInventoryController({ inventory, move: () => false, moveCosmetic: () => false, toggleCosmeticVisibility: () => false,
+    upgradeLevel: () => 0, itemInspection: { close() {}, open } as any, inventorySlotsUnlocked: () => 0, gemBalance: () => 20n,
+    destroyEquipment: async () => undefined, convertItemToCosmetic: convert, unlockInventorySlot: async () => undefined,
+    confirmGemSpend: confirm, showMessage() {} });
+  controller.render();
+  document.getElementById("equippedRightHandSlot")!.click();
+  const action = open.mock.lastCall![0].actions.find((entry: any) => entry.label.includes("Convert to Cosmetic"));
+  expect(action.label).toContain("10 Gems");
+  await action.onActivate();
+  expect(confirm).toHaveBeenCalledOnce();
+  expect(JSON.stringify(confirm.mock.lastCall![0])).not.toContain("consume");
+  expect(confirm.mock.lastCall![0].details).toContainEqual({ label: "Item", value: "Kept in inventory" });
+  expect(convert).toHaveBeenCalledWith(STARTER_BOW);
+  expect(inventory.itemIds).toContain(STARTER_BOW);
+  expect(inventory.equippedRightHand).toBe(STARTER_BOW);
+  document.getElementById("equippedRightHandSlot")!.click();
+  expect(open.mock.lastCall![0].actions.some((entry: any) => entry.label.includes("Convert to Cosmetic"))).toBe(false);
 });
 
 it("filters the bag without changing capacity and applies best equipment once", () => {

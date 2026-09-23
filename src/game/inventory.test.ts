@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { cosmeticInventoryStacks, bagInventoryStacks, BASIC_PAPER_HAT, DARK_METAL_HELMET, equipmentAppearance, FIRE_METAL_BOW, FROST_ARMOR, FROST_BOW, HIDDEN_COSMETIC_ITEM_ID, inventoryFromSave, inventoryItemQuantity, IRON_BOW, LEGENDARY_WHITE_GOLD_ARMOR, moveCosmeticInventoryItem, moveInventoryItem, NIGHT_BOW, normaliseInventory, serialiseInventory, setInventoryItemQuantity, SNOW_BOW, STARTER_BOW, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, toggleCosmeticEquipmentVisibility, WOOD_FULL_HELM, WOODEN_ARMOR } from "./inventory";
 
 const emptyCosmetics = {
+  cosmeticItemIds: [],
   cosmeticHead: "",
   cosmeticChest: "",
   cosmeticFeet: "",
@@ -10,6 +11,21 @@ const emptyCosmetics = {
 };
 
 describe("inventory rules", () => {
+  it("keeps a converted look selectable after its original item is lost", () => {
+    const inventory = inventoryFromSave(
+      JSON.stringify([STARTER_BOW]), "", "", "", false, false,
+      STARTER_BOW, "", "", "", "", "", "", JSON.stringify([STARTER_BOW]),
+    );
+    expect(inventory.itemIds).toContain(STARTER_BOW);
+    expect(inventory.cosmeticItemIds).toEqual([STARTER_BOW]);
+    expect(setInventoryItemQuantity(inventory, STARTER_BOW, 0)).toBe(true);
+    expect(inventory.itemIds).not.toContain(STARTER_BOW);
+    expect(cosmeticInventoryStacks(inventory)).toContainEqual({ itemId: STARTER_BOW, quantity: 1 });
+    expect(moveCosmeticInventoryItem(inventory, STARTER_BOW, "RIGHT_HAND")).toBe(true);
+    expect(inventory.cosmeticRightHand).toBe(STARTER_BOW);
+    expect(inventory.equippedRightHand).toBe("");
+  });
+
   it("rejects malformed inventory and starts a new player with only the stone", () => {
     // Nobody is given boots or a paper hat now: the boots are gone and the hat
     // is a one-in-a-hundred forest drop.

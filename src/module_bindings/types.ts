@@ -1849,6 +1849,7 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   neonBastionUnlocked: __t.bool(),
   verdantCatacombsUnlocked: __t.bool(),
   ionCitadelUnlocked: __t.bool(),
+  cosmeticItemsJson: __t.string(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
 

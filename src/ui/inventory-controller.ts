@@ -5,6 +5,7 @@ import {
 } from "../game/inventory";
 import { requiredElement } from "../game/runtime/dom";
 import { canDestroyEquipment, itemDefinition, itemDisplayName } from "../../shared/items";
+import { COSMETIC_CONVERSION_GEM_COST, canConvertToCosmetic } from "../../shared/cosmetic-conversion";
 import { inventoryMoveActions, inventoryWeaponSlot, renderInventoryView, type InventoryMode } from "./hud";
 import type { ItemInspectionController } from "./item-inspection-controller";
 import {
@@ -30,6 +31,7 @@ type InventoryDependencies = {
   inventorySlotsUnlocked: () => number;
   gemBalance: () => bigint;
   destroyEquipment: (itemId: string) => Promise<{ ok: boolean; error?: string } | undefined>;
+  convertItemToCosmetic?: (itemId: string) => Promise<{ ok: boolean; error?: string } | undefined>;
   unlockInventorySlot: () => Promise<{ ok: boolean; error?: string } | undefined>;
   confirmGemSpend?: ConfirmPrompt;
   confirmDestroy?: ConfirmPrompt;
@@ -65,7 +67,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   if (countRow) items.after(countRow);
   const cosmeticsNote = document.createElement("p");
   cosmeticsNote.className = "inventory-cosmetics-note";
-  cosmeticsNote.textContent = "In progress — coming soon: use Gems to turn equipment into cosmetics.";
+  cosmeticsNote.textContent = "Permanent looks change appearance only. Unlock an owned item's look for 10 Gems; keep the item.";
   cosmeticsNote.hidden = true;
   items.before(cosmeticsNote);
   function syncSlotSizes() {
@@ -150,8 +152,40 @@ export function createInventoryController(dependencies: InventoryDependencies) {
         onActivate: () => {
           if (move(itemId, action.destination)) dependencies.itemInspection.close();
         },
-      })), ...destructionActions(itemId)],
+      })), ...conversionActions(itemId), ...destructionActions(itemId)],
     });
+  }
+
+  function conversionActions(itemId: string) {
+    if (mode !== "EQUIPMENT" || !dependencies.convertItemToCosmetic ||
+        !dependencies.inventory.itemIds.includes(itemId) || !canConvertToCosmetic(itemId) ||
+        dependencies.inventory.cosmeticItemIds?.includes(itemId)) return [];
+    return [{
+      label: `Convert to Cosmetic · ${COSMETIC_CONVERSION_GEM_COST} Gems`,
+      kind: "SECONDARY" as const,
+      onActivate: async () => {
+        const balance = dependencies.gemBalance();
+        if (balance < COSMETIC_CONVERSION_GEM_COST) {
+          dependencies.showMessage(`NOT ENOUGH GEMS · NEED ${COSMETIC_CONVERSION_GEM_COST}`, "#ff9b91");
+          return;
+        }
+        const confirmation = gemSpendConfirmation(
+          `permanently unlock ${itemDisplayName(itemId)} as a cosmetic`, COSMETIC_CONVERSION_GEM_COST, balance,
+        );
+        if (!await ask(confirmGemSpend, {
+          ...confirmation,
+          details: [{ label: "Item", value: "Kept in inventory" }, ...(confirmation.details ?? [])],
+          confirmLabel: "Convert",
+        })) return;
+        const result = await dependencies.convertItemToCosmetic?.(itemId);
+        if (result?.ok) {
+          dependencies.itemInspection.close();
+          clearInventorySelection(dependencies.inventory);
+          render();
+          dependencies.showMessage("COSMETIC UNLOCKED", "#f0c66b");
+        } else dependencies.showMessage(result?.error ?? "NOT CONNECTED", "#ff9b91");
+      },
+    }];
   }
 
   function destructionActions(itemId: string) {

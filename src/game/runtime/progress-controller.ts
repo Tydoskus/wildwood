@@ -1,4 +1,5 @@
 import { canonicalItemId, itemDefinition } from "../../../shared/items";
+import { cosmeticUnlocks } from "../../../shared/cosmetic-conversion";
 import { equipmentMapRequirement, EQUIPMENT_ACCESS_FIELDS, withoutLockedEquipment } from "../../../shared/equipment-access";
 import { BASE_ATTACK_RANGE, BASE_PROJECTILE_SPEED } from "../constants";
 import { clamp } from "../math";
@@ -51,6 +52,8 @@ export function createProgressController(dependencies: ProgressDependencies) {
   let movementSpeedOverride = 0;
   let ownershipJson = "";
   let ownedItems: string[] = [];
+  let cosmeticOwnershipJson = "";
+  let ownedCosmetics: string[] = [];
 
   function reconcileInventory(saved: PlayerProgress) {
     // Cache decoding, but compare the current bag too: reconnect hydration can
@@ -62,9 +65,16 @@ export function createProgressController(dependencies: ProgressDependencies) {
       ownedItems = parsed.map(canonicalItemId).filter(item => item !== undefined);
       ownershipJson = saved.inventoryJson;
     }
+    const cosmeticJson = saved.cosmeticItemsJson ?? "[]";
+    if (cosmeticOwnershipJson !== cosmeticJson) {
+      ownedCosmetics = cosmeticUnlocks(cosmeticJson);
+      cosmeticOwnershipJson = cosmeticJson;
+    }
     const inventory = dependencies.inventory;
     const sameOwnership = inventory.itemIds.length === ownedItems.length &&
-      inventory.itemIds.every((item, index) => item === ownedItems[index]);
+      inventory.itemIds.every((item, index) => item === ownedItems[index]) &&
+      (inventory.cosmeticItemIds ?? []).length === ownedCosmetics.length &&
+      (inventory.cosmeticItemIds ?? []).every((item, index) => item === ownedCosmetics[index]);
     let removedLocked = false;
     for (const field of EQUIPMENT_ACCESS_FIELDS) {
       if (inventory[field] && equipmentMapRequirement(inventory[field], saved)) {
@@ -74,11 +84,13 @@ export function createProgressController(dependencies: ProgressDependencies) {
     }
     if (sameOwnership && !removedLocked) return;
     inventory.itemIds = [...ownedItems];
+    inventory.cosmeticItemIds = [...ownedCosmetics];
     // Keep local loadout choices. Server ownership still determines what can
     // be equipped; upgrading/destroying an item must not leave ghost equipment.
     for (const field of ["equippedHead", "equippedChest", "equippedFeet", "equippedRightHand", "equippedLeftHand",
       "cosmeticHead", "cosmeticChest", "cosmeticFeet", "cosmeticRightHand", "cosmeticLeftHand"] as const) {
-      if (itemDefinition(inventory[field]) && !ownedItems.includes(inventory[field])) inventory[field] = "";
+      if (itemDefinition(inventory[field]) && !ownedItems.includes(inventory[field]) &&
+          !(field.startsWith("cosmetic") && ownedCosmetics.includes(inventory[field]))) inventory[field] = "";
     }
     applyPlayerMaxHealthMultiplierBonus(dependencies.player, dependencies.healthMultiplierBonus());
     dependencies.renderInventory();
@@ -184,8 +196,10 @@ export function createProgressController(dependencies: ProgressDependencies) {
       source.cosmeticFeet,
       source.cosmeticRightHand,
       source.cosmeticLeftHand,
+      source.cosmeticItemsJson,
     );
     inventory.itemIds = savedInventory.itemIds;
+    inventory.cosmeticItemIds = savedInventory.cosmeticItemIds;
     inventory.equippedHead = savedInventory.equippedHead;
     inventory.equippedChest = savedInventory.equippedChest;
     inventory.equippedFeet = savedInventory.equippedFeet;
