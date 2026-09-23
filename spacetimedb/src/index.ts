@@ -4255,10 +4255,10 @@ export const registerProtocol = spacetimedb.reducer(
     }
     const session = requireSession(ctx);
     syncDuelWireAccess(ctx, protocolVersion);
-    ctx.db.playerSession.connectionId.update({ ...session, protocolVersion });
+    if (session.protocolVersion !== protocolVersion) ctx.db.playerSession.connectionId.update({ ...session, protocolVersion });
     const current = ctx.db.player.identity.find(ctx.sender);
     const controller = ctx.db.playerController.identity.find(ctx.sender);
-    if (current && ctx.connectionId && controller && sameConnection(controller.connectionId, ctx.connectionId)) {
+    if (current && current.protocolVersion !== protocolVersion && ctx.connectionId && controller && sameConnection(controller.connectionId, ctx.connectionId)) {
       updateSnapshotRow(ctx, "player", { ...current, protocolVersion });
     }
     const activeResearch = ctx.db.activeResearch.identity.find(ctx.sender);

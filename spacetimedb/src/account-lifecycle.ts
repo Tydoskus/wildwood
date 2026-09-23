@@ -121,8 +121,8 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
   function syncSenderAccountStatus(ctx: any) {
     const current = ctx.db.playerAccountStatus.identity.find(ctx.sender);
     const next = { identity: ctx.sender, isGuest: !hasSpacetimeAuthAccount(ctx) };
-    if (current) updateSnapshotRow(ctx, "playerAccountStatus", next);
-    else insertSnapshotRow(ctx, "playerAccountStatus", next);
+    if (!current) insertSnapshotRow(ctx, "playerAccountStatus", next);
+    else if (current.isGuest !== next.isGuest) updateSnapshotRow(ctx, "playerAccountStatus", next);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, ctx.db.player.identity.find(ctx.sender)));
   }
 

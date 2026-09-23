@@ -54,3 +54,13 @@ it("records disconnect time after hidden autofarming without movement heartbeats
   expect(f.db.player.identity.find(f.ctx.sender)).toBeNull();
   expect(f.db.playerLifetime.identity.find(f.ctx.sender)).toMatchObject({ sessionStartedAt: f.ctx.timestamp, playedMicros: 600_000_000n });
 });
+it("leaves an unchanged grant alone on reconnect, since every client's duel filter joins this table", () => {
+  const f = crystalFixture();
+  f.transaction(() => syncDuelWireAccess(f.ctx, PROTOCOL_VERSION));
+  const deletes = vi.spyOn(f.db.duelWireAccess.key, "delete");
+  const inserts = vi.spyOn(f.db.duelWireAccess, "insert");
+  f.transaction(() => syncDuelWireAccess(f.ctx, PROTOCOL_VERSION));
+  expect(deletes).not.toHaveBeenCalled();
+  expect(inserts).not.toHaveBeenCalled();
+  expect([...f.db.duelWireAccess.iter()]).toHaveLength(DUEL_COMBAT_VERSION + 1);
+});
