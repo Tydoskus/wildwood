@@ -207,9 +207,10 @@ export function createAppShellController(dependencies: AppShellDependencies) {
     ensureMusicPlaying();
   }, { capture: true });
   // Browsers unlock audio on any user gesture, and a keyboard player may never
-  // press the pointer at all: their first WASD press is the gesture.
-  document.addEventListener("keydown", (event) => { if (!event.repeat) ensureMusicPlaying(); }, { capture: true });
+  // press the pointer at all: their first WASD press is the gesture. A held
+  // movement key repeats about 30 times a second; only the press counts.
   document.addEventListener("keydown", (event) => {
+    if (event.repeat) return;
     if (event.target instanceof Element && event.target.closest("#signInMuteButton")) return;
     ensureMusicPlaying();
   }, { capture: true });
