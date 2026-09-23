@@ -123,8 +123,18 @@ const server = createServer(async (request, response) => {
   }
 });
 
+const address = `http://127.0.0.1:${port}/`;
+const open = () => { if (!process.argv.includes("--no-open")) spawn("open", [address], { stdio: "ignore" }); };
+
+// A tuner left running from earlier is the common case, and a stack trace is
+// no way to say so: point the browser at the one that is already up.
+server.on("error", (error) => {
+  if (error?.code !== "EADDRINUSE") throw error;
+  console.log(`A boss tuner is already running on ${address} — opening that one.`);
+  open();
+});
+
 server.listen(port, "127.0.0.1", () => {
-  const address = `http://127.0.0.1:${port}/`;
   console.log(`Boss tuner: ${address}\nEdits write straight to the constants. Control-C stops it.`);
-  if (!process.argv.includes("--no-open")) spawn("open", [address], { stdio: "ignore" });
+  open();
 });
