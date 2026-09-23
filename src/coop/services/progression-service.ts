@@ -105,6 +105,13 @@ type LifetimeRow = {
   deathCount: bigint;
 };
 export const PROGRESS_SAVE_INTERVAL_MS = REGULAR_ENEMY_LOOT_DELAY_MS;
+/**
+ * How long a kill's optimistic progress may wait before it is copied to local
+ * storage. The loot queue already stores each kill as the durable claim; this
+ * copy only restores the prediction after a reload, so it is written at most
+ * this often, and at once when the page hides or the store is read back.
+ */
+export const PROGRESS_STORE_WRITE_DELAY_MS = 2_000;
 
 export function createProgressionService(dependencies: ProgressionServiceDependencies) {
   const store = createProgressStore(dependencies.storage, dependencies.pendingProgressKey);
@@ -141,6 +148,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   let inventorySlotsUnlocked = 0;
   let onboardingStep = 0;
   let pendingProgress: ProgressSave | null = null;
+  let deferredStoreWrite: { identity: string; progress: ProgressSave; timer: ReturnType<typeof setTimeout> } | null = null;
   let saveInFlightUntil = 0;
   let nextPeriodicSaveAt = Date.now() + PROGRESS_SAVE_INTERVAL_MS;
   let savePromise: Promise<boolean> | null = null;
@@ -161,14 +169,42 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       pendingProgress = null;
       saveInFlightUntil = 0;
     }
+    cancelStoreWrite(identity);
     store.clear(identity);
   }
 
-  function persistPending(progress: ProgressSave) {
+  function cancelStoreWrite(identity?: string) {
+    if (!deferredStoreWrite || (identity !== undefined && deferredStoreWrite.identity !== identity)) return;
+    clearTimeout(deferredStoreWrite.timer);
+    deferredStoreWrite = null;
+  }
+
+  function flushStoreWrite() {
+    const write = deferredStoreWrite;
+    if (!write) return;
+    cancelStoreWrite();
+    store.write(write.identity, write.progress);
+  }
+
+  /** Writes now, superseding a deferred write of the same identity's older snapshot. */
+  function writeStore(identity: string, progress: ProgressSave) {
+    cancelStoreWrite(identity);
+    return store.write(identity, progress);
+  }
+
+  function deferStoreWrite(identity: string, progress: ProgressSave) {
+    if (deferredStoreWrite && deferredStoreWrite.identity !== identity) flushStoreWrite();
+    // Throttle, not debounce: continuous auto-farm kills must still land.
+    if (deferredStoreWrite) deferredStoreWrite.progress = progress;
+    else deferredStoreWrite = { identity, progress, timer: setTimeout(flushStoreWrite, PROGRESS_STORE_WRITE_DELAY_MS) };
+  }
+
+  function persistPending(progress: ProgressSave, immediate: boolean) {
     if (resetPending) return;
     pendingProgress = copyProgress(progress);
     const identity = dependencies.localIdentity();
-    if (identity) pendingProgress = store.write(identity, pendingProgress);
+    if (identity && immediate) pendingProgress = writeStore(identity, pendingProgress);
+    else if (identity) deferStoreWrite(identity, pendingProgress);
     // Local regular-enemy rewards are optimistic. Publish that snapshot now so
     // an open own-profile view does not wait for the throttled reducer and its
     // subscribed row to make the same progress visible.
@@ -258,12 +294,14 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   }
 
   function flush(force = false) {
+    flushStoreWrite();
     void enemyLoot.flush(force);
     void cutscenes.flush();
     void flushAsync(force);
   }
 
   async function drain() {
+    flushStoreWrite();
     if (!await enemyLoot.flush(true)) return false;
     if (!await cutscenes.flush()) return false;
     for (let attempt = 0; attempt < 3 && pendingProgress; attempt += 1) {
@@ -747,7 +785,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
             localProgress = withoutDestroyedEquipment(localProgress, itemId, keepCosmetic);
             progressByIdentity.set(identity, localProgress);
           }
-          if (pendingProgress) pendingProgress = store.write(identity, withoutDestroyedEquipment(pendingProgress, itemId, keepCosmetic));
+          if (pendingProgress) pendingProgress = writeStore(identity, withoutDestroyedEquipment(pendingProgress, itemId, keepCosmetic));
           upgradeLevelsByIdentity.get(identity)?.delete(itemId);
           dependencies.notify();
         }
@@ -884,7 +922,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
         if (enemy === "boss") void enemyLoot.flush(true);
       },
       saveProgress(progress: ProgressSave, immediate = false) {
-        persistPending(progress);
+        persistPending(progress, immediate);
         if (immediate) {
           saveInFlightUntil = 0;
           flush(true);
@@ -965,6 +1003,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     beginSession(identityChanged: boolean) {
       enemyLoot.begin();
       cutscenes.begin();
+      flushStoreWrite();
       pendingProgress = store.read(dependencies.localIdentity());
       restoredSave = true;
       saveInFlightUntil = 0;
@@ -1026,7 +1065,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       inventorySlotsUnlocked = 0;
     },
     dispose() {
-
+      flushStoreWrite();
       enemyLoot.clear();
       window.clearInterval(flushTimer);
       window.removeEventListener("pagehide", pageHide);

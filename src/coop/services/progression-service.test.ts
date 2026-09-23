@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createGameBootstrap } from "../../game/runtime/game-bootstrap";
 import type { ReducerPort } from "../ports";
 import type { PlayerProgress, ProgressSave } from "./progress";
-import { createProgressionService, PROGRESS_SAVE_INTERVAL_MS } from "./progression-service";
+import { createProgressionService, PROGRESS_SAVE_INTERVAL_MS, PROGRESS_STORE_WRITE_DELAY_MS } from "./progression-service";
+import { bindProgressFlushOnHide } from "./flush-on-hide";
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();
@@ -103,6 +104,7 @@ function setup() {
     handleFailure: vi.fn(),
   } as unknown as ReducerPort;
   const notify = vi.fn();
+  const storage = new MemoryStorage();
   const service = createProgressionService({
     reducers,
     notify,
@@ -113,10 +115,10 @@ function setup() {
     completeAccountReturn: vi.fn(),
     reserveStoppedMotion: () => ({ sequence: 1, simulationTick: 1, motionEpoch: 1 }),
     commitStoppedPosition: vi.fn(),
-    storage: new MemoryStorage(),
+    storage,
     pendingProgressKey: "pending-progress",
   });
-  return { recordEnemyDefeats, recordAutoFarmEnemyDefeats, notify, savePlayerProgress, resetPlayerProgress, service, entry, claimDeveloperItemGift, destroyEquipment };
+  return { recordEnemyDefeats, recordAutoFarmEnemyDefeats, notify, savePlayerProgress, resetPlayerProgress, service, entry, claimDeveloperItemGift, destroyEquipment, storage };
 }
 
 describe("local progression profile snapshots", () => {
@@ -399,4 +401,89 @@ it("keeps every player's prestige level for the badge, and the full record only 
   h.service.tables.removePrestige({ identity: { toHexString: () => "someone-else" } } as never);
   expect(h.service.api.prestigeLevelFor("someone-else")).toBe(0);
   h.service.dispose();
+});
+
+describe("local progress store writes on the kill path", () => {
+  const key = `pending-progress/${identity}`;
+  const storedDamage = (storage: Storage) => JSON.parse(storage.getItem(key) ?? "null")?.progress?.damage;
+
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+
+  it("writes a burst of kills at most once per interval, with the latest snapshot", () => {
+    vi.useFakeTimers();
+    const h = setup(); const base = progress();
+    h.service.tables.upsertProgress({ ...base, identity: { toHexString: () => identity } } as never);
+    const setItem = vi.spyOn(h.storage, "setItem");
+    for (let kill = 1; kill <= 25; kill += 1) h.service.api.saveProgress(saveFrom(base, { damage: 4 + kill }));
+    expect(setItem.mock.calls.filter(([written]) => written === key)).toHaveLength(0);
+    // The optimistic prediction is still visible without the store.
+    expect(h.service.api.savedProgress()?.damage).toBe(29);
+    vi.advanceTimersByTime(PROGRESS_STORE_WRITE_DELAY_MS);
+    expect(setItem.mock.calls.filter(([written]) => written === key)).toHaveLength(1);
+    expect(storedDamage(h.storage)).toBe(29);
+    h.service.dispose();
+  });
+
+  it("keeps writing during continuous kills instead of waiting for a pause", () => {
+    vi.useFakeTimers();
+    const h = setup(); const base = progress();
+    h.service.tables.upsertProgress({ ...base, identity: { toHexString: () => identity } } as never);
+    for (let kill = 1; kill <= 10; kill += 1) {
+      h.service.api.saveProgress(saveFrom(base, { damage: 4 + kill }));
+      vi.advanceTimersByTime(500);
+    }
+    expect(storedDamage(h.storage)).toBeGreaterThanOrEqual(11);
+    h.service.dispose();
+  });
+
+  it("writes the pending snapshot when the page hides", () => {
+    vi.useFakeTimers();
+    const h = setup(); const base = progress();
+    h.service.tables.upsertProgress({ ...base, identity: { toHexString: () => identity } } as never);
+    h.service.api.saveProgress(saveFrom(base, { damage: 40 }));
+    // A kill also queues its claim, which keeps the snapshot pending until the server answers.
+    h.service.api.recordRegularEnemyDefeat("water_reach", "Tide Raider");
+    expect(storedDamage(h.storage)).toBeUndefined();
+    const listeners = new Map<string, () => void>();
+    const doc = { hidden: false, addEventListener: (type: string, listener: () => void) => listeners.set(`doc:${type}`, listener) };
+    const win = { addEventListener: (type: string, listener: () => void) => listeners.set(`win:${type}`, listener) };
+    bindProgressFlushOnHide(doc as never, win as never, force => h.service.flushPendingProgress(force));
+    listeners.get("win:pagehide")!();
+    expect(storedDamage(h.storage)).toBe(40);
+    h.service.dispose();
+  });
+
+  it("writes the pending snapshot before a new session reads the store back", () => {
+    vi.useFakeTimers();
+    const h = setup(); const base = progress();
+    h.service.tables.upsertProgress({ ...base, identity: { toHexString: () => identity } } as never);
+    h.service.api.saveProgress(saveFrom(base, { damage: 40 }));
+    h.service.beginSession(false);
+    expect(storedDamage(h.storage)).toBe(40);
+    h.service.dispose();
+  });
+
+  it("writes an immediate save at once, and never lets an older deferred snapshot overwrite it", () => {
+    vi.useFakeTimers();
+    const h = setup(); const base = progress();
+    h.service.tables.upsertProgress({ ...base, identity: { toHexString: () => identity } } as never);
+    h.service.api.saveProgress(saveFrom(base, { damage: 40 }));
+    h.service.api.recordRegularEnemyDefeat("water_reach", "Tide Raider");
+    h.service.api.saveProgress(saveFrom(base, { damage: 41 }), true);
+    expect(storedDamage(h.storage)).toBe(41);
+    vi.advanceTimersByTime(PROGRESS_STORE_WRITE_DELAY_MS);
+    expect(storedDamage(h.storage)).toBe(41);
+    h.service.dispose();
+  });
+
+  it("does not resurrect a cleared snapshot from a deferred write", () => {
+    vi.useFakeTimers();
+    const h = setup(); const base = progress();
+    h.service.tables.upsertProgress({ ...base, identity: { toHexString: () => identity } } as never);
+    h.service.api.saveProgress(saveFrom(base, { damage: 40 }));
+    h.service.clearPendingProgress(identity);
+    vi.advanceTimersByTime(PROGRESS_STORE_WRITE_DELAY_MS);
+    expect(h.storage.getItem(key)).toBeNull();
+    h.service.dispose();
+  });
 });
