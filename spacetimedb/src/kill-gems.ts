@@ -19,8 +19,8 @@ export function createKillGems(deps: KillGemsDeps) {
    * carries the lifetime kill count after this batch, which only ever rises, so
    * a replayed batch cannot pay twice.
    */
-  function grantKillGems(ctx: any, identity: any, acceptedDefeats: number, autoFarm: boolean, lifetimeKillsAfter: bigint) {
-    const earned = gemKillCredit(acceptedDefeats, autoFarm);
+  function grantKillGems(ctx: any, identity: any, acceptedDefeats: number, lifetimeKillsAfter: bigint) {
+    const earned = gemKillCredit(acceptedDefeats);
     if (earned === 0n) return 0n;
     const progress = ctx.db.gemKillProgress.identity.find(identity);
     const settled = settleGemKillCredit((progress?.credit ?? 0n) + earned);

@@ -5531,7 +5531,7 @@ function awardRegularEnemyLoot(ctx: ReducerCtx<InferSchema<typeof spacetimedb>>,
 
 /** Only enemy identities/counts cross the wire; all reward values are server-owned. */
 const enemyDefeatArgs = { streamId: t.string(), sequence: t.u64(), mapId: t.string(), enemies: t.array(t.object("EnemyDefeat", { enemy: t.string(), count: t.u16() })) };
-function recordEnemyDefeatsForMode(ctx: any, batch: { streamId: string; sequence: bigint; mapId: string; enemies: { enemy: string; count: number }[] }, autoFarm: boolean) {
+function recordEnemyDefeatsFor(ctx: any, batch: { streamId: string; sequence: bigint; mapId: string; enemies: { enemy: string; count: number }[] }) {
     const player = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Enemy rewards require your account world connection.");
     const accepted = acceptEnemyDefeats(ctx, batch, permittedDefeatMaps(ctx, player, HOME_EXTERIOR_MAP_ID), earned => maximumBossCombatForProgress(ctx, earned));
@@ -5584,11 +5584,12 @@ function recordEnemyDefeatsForMode(ctx: any, batch: { streamId: string; sequence
     ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills });
     recordAnalyticsMilestone(ctx, "kill");
     if (accepted.rewards.some(reward => reward.type === "boss")) recordAnalyticsMilestone(ctx, "boss");
-    killGems.grantKillGems(ctx, ctx.sender, accepted.count, autoFarm, enemyKills);
+    killGems.grantKillGems(ctx, ctx.sender, accepted.count, enemyKills);
     enforce();
 }
-export const recordEnemyDefeats = spacetimedb.reducer(enemyDefeatArgs, (ctx, batch) => recordEnemyDefeatsForMode(ctx, batch, false));
-export const recordAutoFarmEnemyDefeats = spacetimedb.reducer(enemyDefeatArgs, (ctx, batch) => recordEnemyDefeatsForMode(ctx, batch, true));
+export const recordEnemyDefeats = spacetimedb.reducer(enemyDefeatArgs, (ctx, batch) => recordEnemyDefeatsFor(ctx, batch));
+// Same reward as recordEnemyDefeats: which reducer a client calls is its own claim.
+export const recordAutoFarmEnemyDefeats = spacetimedb.reducer(enemyDefeatArgs, (ctx, batch) => recordEnemyDefeatsFor(ctx, batch));
 
 /** Retained wire shape: obsolete clients must update before submitting rewards. */
 export const recordRegularEnemyDefeats = spacetimedb.reducer(

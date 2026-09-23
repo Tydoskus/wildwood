@@ -14,7 +14,7 @@ function clearBoss(f: ReturnType<typeof crystalFixture>, sequence: bigint, autoF
 it("pays a gem for a hidden manual kill when its credit completes a block", () => {
   const f = crystalFixture();
   f.patch("player", { isVisible: false });
-  f.seed("gemKillProgress", { identity: f.ctx.sender, credit: GEM_KILL_CREDIT_PER_GEM - 6n });
+  f.seed("gemKillProgress", { identity: f.ctx.sender, credit: GEM_KILL_CREDIT_PER_GEM - 5n });
   clearBoss(f, 1n);
   expect(f.db.playerGemWallet.identity.find(f.ctx.sender)?.balance).toBe(1n);
   expect(f.db.gemKillProgress.identity.find(f.ctx.sender)?.credit).toBe(0n);
@@ -22,32 +22,30 @@ it("pays a gem for a hidden manual kill when its credit completes a block", () =
   // The next kill starts the next block; no gem, no drop event.
   clearBoss(f, 2n);
   expect(f.db.playerGemWallet.identity.find(f.ctx.sender)?.balance).toBe(1n);
-  expect(f.db.gemKillProgress.identity.find(f.ctx.sender)?.credit).toBe(6n);
+  expect(f.db.gemKillProgress.identity.find(f.ctx.sender)?.credit).toBe(5n);
   expect(f.db.playerGemDrop.identity.find(f.ctx.sender)?.amount).toBe(1);
 });
 
 it("counts a visible manual kill the same as a hidden one", () => {
   const f = crystalFixture();
   f.patch("player", { isVisible: true });
-  f.seed("gemKillProgress", { identity: f.ctx.sender, credit: GEM_KILL_CREDIT_PER_GEM - 6n });
+  f.seed("gemKillProgress", { identity: f.ctx.sender, credit: GEM_KILL_CREDIT_PER_GEM - 5n });
   clearBoss(f, 1n);
   expect(f.db.playerGemWallet.identity.find(f.ctx.sender)?.balance).toBe(1n);
   expect(f.db.gemKillProgress.identity.find(f.ctx.sender)?.credit).toBe(0n);
 });
 
-it("counts an Auto Farm kill at the 1,500-kill rate", () => {
-  const f = crystalFixture();
-  f.patch("player", { isVisible: false });
-  f.seed("gemKillProgress", { identity: f.ctx.sender, credit: GEM_KILL_CREDIT_PER_GEM - 4n });
-  clearBoss(f, 1n, true);
-  expect(f.db.playerGemWallet.identity.find(f.ctx.sender)?.balance).toBe(1n);
-  expect(f.db.gemKillProgress.identity.find(f.ctx.sender)?.credit).toBe(0n);
+it("pays an Auto Farm report exactly what a manual report pays", () => {
+  const manual = crystalFixture(); const farm = crystalFixture();
+  clearBoss(manual, 1n); clearBoss(farm, 1n, true);
+  expect(farm.db.gemKillProgress.identity.find(farm.ctx.sender)?.credit)
+    .toBe(manual.db.gemKillProgress.identity.find(manual.ctx.sender)?.credit);
 });
 
 it("never pays twice for a replayed report", () => {
   const f = crystalFixture();
   f.patch("player", { isVisible: false });
-  f.seed("gemKillProgress", { identity: f.ctx.sender, credit: GEM_KILL_CREDIT_PER_GEM - 6n });
+  f.seed("gemKillProgress", { identity: f.ctx.sender, credit: GEM_KILL_CREDIT_PER_GEM - 5n });
   clearBoss(f, 1n);
   // Same sequence again is rejected before rewards; the wallet is untouched.
   f.patch("playerProgress", { damage: 1e15 });
