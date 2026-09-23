@@ -3320,7 +3320,7 @@
   .signin-update-scroll::-webkit-scrollbar { display: none; }
   .signin-update-history {
     display: grid;
-    gap: 16px;
+    gap: 22px;
     margin: 13px 0 0;
     padding: 0;
     color: #e9eeea;
@@ -3328,7 +3328,10 @@
     line-height: 1.45;
     list-style: none;
   }
+  /* A rule between versions. Run together the history read as one wall of
+     text and there was no telling where a release ended. */
   .update-release { margin: 0; padding: 0; }
+  .update-release + .update-release { padding-top: 22px; border-top: 1px solid rgba(255,255,255,.16); }
   .update-release-heading { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
   .update-release-heading strong { color: #fff; font-size: 13px; font-weight: 900; }
   .update-release-heading time { margin-left: auto; color: #c8d0ca; font-size: 10px; font-style: normal; letter-spacing: .06em; text-align: right; }
