@@ -115,7 +115,7 @@ export type PlayerPrestigePerks = {
   riposte: number;
 };
 
-export type UpgradeBenchSlot = 1 | 2;
+export type UpgradeBenchSlot = 1 | 2 | 3;
 
 export type ActiveItemUpgrade = {
   slot: UpgradeBenchSlot;

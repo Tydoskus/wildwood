@@ -1,7 +1,7 @@
 import { createCommunityLinks } from './community-links';
 
 const SETTINGS_GROUPS = [
-  { id: "game", label: "Game", selectors: ["#screenShakeToggle", "#damageFlashToggle", "#toolbarHapticsToggle", "#selfProfileTapToggle", "#attackRangeToggle", "#chatToggle", "#statTrackerToggle", "#gameTickerToggle", "#fullscreenToggle", "#keepScreenOnToggle", "#lowPerformanceToggle", "#fpsToggle", "#latencyToggle"] },
+  { id: "game", label: "Game", selectors: ["#screenShakeToggle", "#damageFlashToggle", "#toolbarHapticsToggle", "#selfProfileTapToggle", "#attackRangeToggle", "#chatToggle", "#statTrackerToggle", "#baseStatRewardsToggle", "#gameTickerToggle", "#fullscreenToggle", "#keepScreenOnToggle", "#lowPerformanceToggle", "#fpsToggle", "#latencyToggle"] },
   { id: "audio", label: "Audio", selectors: ["#musicVolume", "#sfxVolume"] },
   { id: "account", label: "Account", selectors: ["#offlineProgressToggle", "#accountButton", "#accountStatus", ".setting-support", ".setting-legal", "#developerSettingsRow", ".setting-reset"] },
 ] as const;

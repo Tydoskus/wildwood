@@ -11,6 +11,8 @@ export function createAutoFarmPanel(options: {
   unavailable: () => string | null;
   setPaused: (paused: boolean) => void;
   clearInput: () => void;
+  rewardMultiplier: () => number;
+  showBaseStatRewards: () => boolean;
 }) {
   const floating = document.createElement('div');
   floating.className = 'farm-floating';
@@ -44,7 +46,8 @@ export function createAutoFarmPanel(options: {
 
   function renderChoices() {
     const choices = options.farm.choices();
-    const key = `${options.mapName()}:${choices.map(c => `${c.key}:${c.total}:${c.reward?.amount}:${c.maxReward}`).join('|')}`;
+    const multiplier = options.showBaseStatRewards() ? 1 : options.rewardMultiplier();
+    const key = `${options.mapName()}:${multiplier}:${choices.map(c => `${c.key}:${c.total}:${c.reward?.amount}:${c.maxReward}`).join('|')}`;
     if (key !== choiceKey) {
       choiceKey = key;
       element('.farm-map').textContent = options.mapName();
@@ -61,9 +64,10 @@ export function createAutoFarmPanel(options: {
         button.innerHTML = '<span class="farm-enemy-mark" aria-hidden="true"></span><span class="farm-enemy-copy"><strong></strong><span class="farm-reward"></span></span><span class="farm-check" aria-hidden="true">✓</span>';
         button.querySelector('strong')!.textContent = `${choice.total} × ${choice.type}`;
         button.querySelector('.farm-enemy-mark')!.textContent = ({ damage: '⚔', health: '♥', speed: '↗', armor: '◇', regen: '+' })[reward.type];
+        const displayedReward = { ...reward, amount: reward.amount * multiplier };
         button.querySelector('.farm-reward')!.textContent = choice.maxReward && choice.maxReward > reward.amount
-          ? `${rewardAmountLabel(reward)}–${rewardAmountLabel({ ...reward, amount: choice.maxReward }).slice(1)} ${rewardStatLabel(reward)}`
-          : rewardLabel(reward);
+          ? `${rewardAmountLabel(displayedReward)}–${rewardAmountLabel({ ...displayedReward, amount: choice.maxReward * multiplier }).slice(1)} ${rewardStatLabel(reward)}`
+          : rewardLabel(displayedReward);
         button.addEventListener('click', () => { draft = choice.key; updateSelection(); });
         list.append(button);
         if (previousType === choice.key) button.focus();

@@ -62,7 +62,7 @@ import type { PlayerDeathAnimationState } from "./game/runtime/player-death-anim
 import { createDuelRuntime } from "./game/runtime/duel-runtime";
 import { createDuelSessionController } from "./game/runtime/duel-session-controller";
 import { createCanvasRuntime, gameplayBottomInset } from "./game/runtime/canvas-runtime";
-import { ATTACK_RANGE_VISIBLE_KEY, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_TEXT_CULL_MIN_DISTANCE, FPS_VISIBLE_KEY, GAME_VERSION, INFERNAL_PORTAL_CUTSCENE_SEEN_KEY, LATENCY_VISIBLE_KEY, LAVA_PORTAL_CUTSCENE_SEEN_KEY, LOW_PERFORMANCE_MODE_KEY, MUSIC_VOLUME_KEY, readRespawnBoostBank, writeRespawnBoostBank, SAMURAI_PORTAL_CUTSCENE_SEEN_KEY, SCREEN_SHAKE_ENABLED_KEY, SFX_VOLUME_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WATER_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT, WORLD_HEALTH_BAR_RADIUS } from "./game/runtime/game-settings";
+import { APP_SHELL_STORAGE_KEYS, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_TEXT_CULL_MIN_DISTANCE, GAME_VERSION, INFERNAL_PORTAL_CUTSCENE_SEEN_KEY, LAVA_PORTAL_CUTSCENE_SEEN_KEY, MUSIC_VOLUME_KEY, readRespawnBoostBank, writeRespawnBoostBank, SAMURAI_PORTAL_CUTSCENE_SEEN_KEY, SFX_VOLUME_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WATER_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT, WORLD_HEALTH_BAR_RADIUS } from "./game/runtime/game-settings";
 import { createWorldProgressionController } from "./game/runtime/world-progression-controller";
 import { BOSS_HP_LOSS_FLASH_DURATION, createBossController, SPIDER_WEB_RANGE } from "./game/runtime/boss-controller";
 import { createMapController } from "./game/runtime/map-controller";
@@ -392,15 +392,7 @@ import {
 
   const appShell = createAppShellController({
     mapMusic,
-    storageKeys: {
-      attackRange: ATTACK_RANGE_VISIBLE_KEY,
-      fps: FPS_VISIBLE_KEY,
-      lowPerformance: LOW_PERFORMANCE_MODE_KEY,
-      latency: LATENCY_VISIBLE_KEY,
-      musicVolume: MUSIC_VOLUME_KEY,
-      screenShake: SCREEN_SHAKE_ENABLED_KEY,
-      sfxVolume: SFX_VOLUME_KEY,
-    },
+    storageKeys: APP_SHELL_STORAGE_KEYS,
     connected: () => Boolean(coop?.isConnected?.()),
     latencyMs: () => coop?.latencyMs?.(),
     accountState: () => coop?.accountState?.(),
@@ -1355,8 +1347,9 @@ import {
     runtimeHud.showMessage(text, color);
   }
 
-  function logPickup(text: string, color: string) {
-    runtimeHud.logPickup(text, color);
+  function logPickup(text: string, color: string, baseText?: string) {
+    const showBase = appShell.showBaseStatRewards();
+    runtimeHud.logPickup(showBase && baseText ? baseText : text, color, showBase ? "base" : "total");
   }
 
   let observedCoopSessionGeneration = 0;
@@ -1571,6 +1564,7 @@ import {
     prompt: gameElements.upgradeBenchPrompt,
     slot: gameElements.upgradeBenchSlot,
     slotTwo: gameElements.upgradeBenchSlotTwo,
+    slotThree: gameElements.upgradeBenchSlotThree,
     statGain: gameElements.upgradeBenchStatGain,
     timer: gameElements.upgradeBenchTimer,
     action: gameElements.upgradeBenchAction,
@@ -1586,6 +1580,7 @@ import {
     benchPosition: UPGRADE_BENCH_POSITION,
     activeUpgrades: () => coop?.activeItemUpgrades?.() ?? [],
     secondSlotUnlocked: () => coop?.secondUpgradeSlotUnlocked?.() ?? false,
+    thirdSlotUnlocked: () => coop?.thirdUpgradeSlotUnlocked?.() ?? false,
     gemBalance: () => coop?.gemBalance?.() ?? 0n,
     upgradeLevel: (itemId) => coop?.itemUpgradeLevel?.(itemId) ?? 0,
     slotTier: (track) => coop?.slotUpgradeTier?.(track) ?? 0,
@@ -1596,6 +1591,7 @@ import {
     cancelUpgrade: async (slot) => coop?.cancelItemUpgrade?.(slot),
     speedUpUpgrade: async (slot) => coop?.speedUpItemUpgradeWithGems?.(slot),
     unlockSecondSlot: async () => coop?.unlockSecondUpgradeSlot?.(),
+    unlockThirdSlot: async () => coop?.unlockThirdUpgradeSlot?.(),
     beforeOpen: () => panels.closeAllExcept("upgradeBench"),
     setPaused: (paused) => setGameplayPause("upgrade-bench", paused),
     clearPlayerInput: playerInput.clear,
@@ -2056,6 +2052,8 @@ import {
 
   createAutoFarmPanel({
     farm: autoFarm, mapName: () => MAP_CONFIG[currentMapId].name,
+    rewardMultiplier: researchRewardMultiplier,
+    showBaseStatRewards: appShell.showBaseStatRewards,
     visible: () => farmUnlocked() && currentMapId !== "home_exterior" && Boolean(session?.isRunning()) && player.hp > 0 && !isDueling() && !mapController.isMapTransitioning() && !mapController.isCutsceneActive(),
     unavailable: farmUnavailable,
     setPaused: (paused) => setGameplayPause("autofarm-picker", paused),
@@ -2176,7 +2174,7 @@ import {
     runtimeHud.showItemDrop({
       artSource: itemPresentation(itemId)?.inventory.source ?? "",
       color: pickupColor,
-      name: itemDisplayName(itemId, level),
+      name: itemDisplayName(itemId),
       stats: itemStats(itemId, level),
     });
   });

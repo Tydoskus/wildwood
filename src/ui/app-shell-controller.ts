@@ -45,6 +45,7 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   installKeepScreenOnSettings(document, window, feedbackStorage, dependencies.showMessage);
   const screenShakeToggle = requiredElement<HTMLButtonElement>("screenShakeToggle");
   const attackRangeToggle = requiredElement<HTMLButtonElement>("attackRangeToggle");
+  const baseStatRewardsToggle = requiredElement<HTMLButtonElement>("baseStatRewardsToggle");
   const lowPerformanceToggle = requiredElement<HTMLButtonElement>("lowPerformanceToggle");
   const fpsToggle = requiredElement<HTMLButtonElement>("fpsToggle");
   const fpsStatus = requiredElement("fpsStatus");
@@ -63,6 +64,7 @@ export function createAppShellController(dependencies: AppShellDependencies) {
 
   let screenShakeEnabled = readBoolean(dependencies.storageKeys.screenShake, true);
   let attackRangeVisible = readBoolean(dependencies.storageKeys.attackRange, true);
+  let showBaseStatRewards = readBoolean("wildstat-show-base-stat-rewards-v1", false);
   let lowPerformanceMode = readBoolean(dependencies.storageKeys.lowPerformance, false);
   let fpsVisible = readBoolean(dependencies.storageKeys.fps, false);
   let latencyVisible = readBoolean(dependencies.storageKeys.latency, false);
@@ -79,6 +81,7 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   function refreshSettings() {
     renderBooleanSetting(screenShakeToggle, screenShakeEnabled);
     renderBooleanSetting(attackRangeToggle, attackRangeVisible);
+    renderBooleanSetting(baseStatRewardsToggle, showBaseStatRewards);
     renderBooleanSetting(lowPerformanceToggle, lowPerformanceMode);
     renderBooleanSetting(fpsToggle, fpsVisible);
     gameFpsStatus.hidden = !fpsVisible;
@@ -130,6 +133,11 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   attackRangeToggle.addEventListener("click", () => {
     attackRangeVisible = !attackRangeVisible;
     writeBoolean(dependencies.storageKeys.attackRange, attackRangeVisible);
+    refreshSettings();
+  });
+  baseStatRewardsToggle.addEventListener("click", () => {
+    showBaseStatRewards = !showBaseStatRewards;
+    writeBoolean("wildstat-show-base-stat-rewards-v1", showBaseStatRewards);
     refreshSettings();
   });
   lowPerformanceToggle.addEventListener("click", () => {
@@ -212,6 +220,7 @@ export function createAppShellController(dependencies: AppShellDependencies) {
 
   return {
     attackRangeVisible: () => attackRangeVisible,
+    showBaseStatRewards: () => showBaseStatRewards,
     fpsVisible: () => fpsVisible,
     lowPerformanceMode: () => lowPerformanceMode,
     screenShakeEnabled: () => screenShakeEnabled,

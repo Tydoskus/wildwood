@@ -178,6 +178,7 @@ import TakeOverSessionReducer from "./take_over_session_reducer";
 import TransferGuildLeadershipReducer from "./transfer_guild_leadership_reducer";
 import UnlockInventorySlotReducer from "./unlock_inventory_slot_reducer";
 import UnlockSecondUpgradeSlotReducer from "./unlock_second_upgrade_slot_reducer";
+import UnlockThirdUpgradeSlotReducer from "./unlock_third_upgrade_slot_reducer";
 import UpdateMovementStateReducer from "./update_movement_state_reducer";
 
 // Import all procedure arg schemas
@@ -208,6 +209,7 @@ import * as RefreshPatreonMembershipProcedure from "./refresh_patreon_membership
 
 // Import all table schema definitions
 import ActiveItemUpgradeRow from "./active_item_upgrade_table";
+import ActiveItemUpgradeSlotThreeRow from "./active_item_upgrade_slot_three_table";
 import ActiveItemUpgradeSlotTwoRow from "./active_item_upgrade_slot_two_table";
 import ActiveResearchRow from "./active_research_table";
 import AegisPrimeBossRow from "./aegis_prime_boss_table";
@@ -263,6 +265,7 @@ import MySocialHubRow from "./my_social_hub_table";
 import MySocialMessagesRow from "./my_social_messages_table";
 import MySocialMessagesWithReactionsRow from "./my_social_messages_with_reactions_table";
 import MyUpgradeBenchRow from "./my_upgrade_bench_table";
+import MyUpgradeBenchThirdSlotRow from "./my_upgrade_bench_third_slot_table";
 import PatreonTickerSupportersRow from "./patreon_ticker_supporters_table";
 import PlayerRow from "./player_table";
 import PlayerAccountStatusRow from "./player_account_status_table";
@@ -313,6 +316,17 @@ const tablesSchema = __schema({
       { name: 'active_item_upgrade_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, ActiveItemUpgradeRow),
+  activeItemUpgradeSlotThree: __table({
+    name: 'active_item_upgrade_slot_three',
+    indexes: [
+      { accessor: 'identity', name: 'active_item_upgrade_slot_three_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'active_item_upgrade_slot_three_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, ActiveItemUpgradeSlotThreeRow),
   activeItemUpgradeSlotTwo: __table({
     name: 'active_item_upgrade_slot_two',
     indexes: [
@@ -1234,6 +1248,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyUpgradeBenchRow),
+  myUpgradeBenchThirdSlot: __table({
+    name: 'my_upgrade_bench_third_slot',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyUpgradeBenchThirdSlotRow),
   patreonTickerSupporters: __table({
     name: 'patreon_ticker_supporters',
     indexes: [
@@ -1389,6 +1410,7 @@ const reducersSchema = __reducers(
   __reducerSchema("transfer_guild_leadership", TransferGuildLeadershipReducer),
   __reducerSchema("unlock_inventory_slot", UnlockInventorySlotReducer),
   __reducerSchema("unlock_second_upgrade_slot", UnlockSecondUpgradeSlotReducer),
+  __reducerSchema("unlock_third_upgrade_slot", UnlockThirdUpgradeSlotReducer),
   __reducerSchema("update_movement_state", UpdateMovementStateReducer),
 );
 

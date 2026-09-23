@@ -4,6 +4,9 @@ import { createAutoFarmPanel } from './auto-farm-panel';
 import { createAutoFarmController } from '../game/runtime/auto-farm-controller';
 import { createSpawnSites } from '../game/world';
 import { createGameBootstrap } from '../game/runtime/game-bootstrap';
+import { ENEMY_TYPES, rewardLabel } from '../game/enemies';
+import { researchStatRewardMultiplier } from '../../shared/research';
+import { prestigeStatMultiplier } from '../../shared/prestige';
 
 let destroy: (() => void) | undefined;
 afterEach(() => { destroy?.(); destroy = undefined; vi.unstubAllGlobals(); });
@@ -15,16 +18,20 @@ function setup(empty = false, map = "forest") {
   state.spawnSites.length = 0;
   if (!empty) state.spawnSites.push({ id: 1, type: 'Bramble', x: 1200, y: 500, campName: 'Test', leashRange: 500, alive: false, respawnAt: 50 });
   let unavailable: string | null = null, visible = true;
+  let showBase = false;
+  let rewardMultiplier = 1;
   const farm = createAutoFarmController({ ...state, mapId: () => map, unavailable: () => unavailable, paused: () => false, speed: () => 300, obstacles: () => [] });
   const pause = vi.fn(), clearInput = vi.fn();
   const panel = createAutoFarmPanel({ farm, mapName: () => 'Tutorial Forest', visible: () => visible,
-    unavailable: () => unavailable, setPaused: pause, clearInput });
+    unavailable: () => unavailable, setPaused: pause, clearInput,
+    rewardMultiplier: () => rewardMultiplier, showBaseStatRewards: () => showBase });
   destroy = panel.destroy;
   const sheet = document.querySelector<HTMLDialogElement>('dialog')!;
   Object.assign(sheet, { showModal() { sheet.open = true; }, close() { sheet.open = false; } });
   const click = (selector: string) => document.querySelector(selector)!.dispatchEvent(new window.Event('click', { bubbles: true }));
   return { ...state, farm, panel, document, window, sheet, pause, clearInput, click,
-    setUnavailable: (value: string | null) => { unavailable = value; }, setVisible: (value: boolean) => { visible = value; } };
+    setUnavailable: (value: string | null) => { unavailable = value; }, setVisible: (value: boolean) => { visible = value; },
+    setShowBase: (value: boolean) => { showBase = value; }, setRewardMultiplier: (value: number) => { rewardMultiplier = value; } };
 }
 it('opens the picker, requires a selection, starts farming, and stops from the floating button', () => {
   const s = setup();
@@ -77,4 +84,20 @@ it('shows four reward camp choices for a generated map with one species', () => 
   damage.dispatchEvent(new s.window.Event('click', { bubbles: true }));
   s.click('.farm-start');
   expect(s.farm.targetCamp()).toBe('Damage Camp');
+});
+
+it('shows earned research and prestige rewards by default, then base rewards when selected', () => {
+  const s = setup();
+  const base = ENEMY_TYPES.Bramble.reward;
+  const multiplier = researchStatRewardMultiplier({ foraging: 5, prosperity: 4 }) * prestigeStatMultiplier(2);
+  s.setRewardMultiplier(multiplier);
+  s.click('.farm-toggle');
+  const displayedReward = () => s.document.querySelector('.farm-reward')!.textContent;
+  expect(displayedReward()).toBe(rewardLabel({ ...base, amount: base.amount * multiplier }));
+  s.setShowBase(true);
+  s.panel.refresh();
+  expect(displayedReward()).toBe(rewardLabel(base));
+  s.setShowBase(false);
+  s.panel.refresh();
+  expect(displayedReward()).toBe(rewardLabel({ ...base, amount: base.amount * multiplier }));
 });

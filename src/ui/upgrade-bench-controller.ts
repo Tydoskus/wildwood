@@ -3,6 +3,7 @@ import { formatEquipmentStat } from "./equipment-stat-format";
 import { isUpgradeSlot, normalizeSlotTier, UPGRADE_SLOT_LABELS } from "../../shared/slot-upgrades";
 import {
   UPGRADE_BENCH_SECOND_SLOT_GEM_COST,
+  UPGRADE_BENCH_THIRD_SLOT_GEM_COST,
   itemUpgradeSpeedUpGemCost,
 } from "../../shared/gems";
 import {
@@ -23,6 +24,7 @@ type UpgradeBenchElements = {
   prompt: HTMLElement;
   slot: HTMLButtonElement;
   slotTwo: HTMLButtonElement;
+  slotThree: HTMLButtonElement;
   statGain: HTMLElement;
   timer: HTMLElement;
   action: HTMLButtonElement;
@@ -42,6 +44,7 @@ type UpgradeBenchDependencies = {
   benchPosition: { x: number; y: number };
   activeUpgrades: () => ActiveItemUpgrade[];
   secondSlotUnlocked: () => boolean;
+  thirdSlotUnlocked: () => boolean;
   gemBalance: () => bigint;
   upgradeLevel: (itemId: string) => number;
   /** The tier a track has reached. */
@@ -53,6 +56,7 @@ type UpgradeBenchDependencies = {
   cancelUpgrade: (slot: UpgradeBenchSlot) => Promise<UpgradeResult>;
   speedUpUpgrade: (slot: UpgradeBenchSlot) => Promise<UpgradeResult>;
   unlockSecondSlot: () => Promise<UpgradeResult>;
+  unlockThirdSlot: () => Promise<UpgradeResult>;
   confirmCancel?: ConfirmPrompt;
   confirmUnlock?: ConfirmPrompt;
   confirmGemSpend?: ConfirmPrompt;
@@ -76,7 +80,7 @@ export const UPGRADE_SLOT_UNLOCK_CONFIRMATION = gemSpendConfirmationText(
 export const UPGRADE_BENCH_TOUCH_OFFSET_Y = -36;
 const UPGRADE_BENCH_TOUCH_RADIUS_X = 54;
 const UPGRADE_BENCH_TOUCH_RADIUS_Y = 39;
-const UPGRADE_SLOTS = [1, 2] as const;
+const UPGRADE_SLOTS = [1, 2, 3] as const;
 
 export function upgradeBenchTouchTransition(wasTouching: boolean, touching: boolean) {
   return { touching, shouldOpen: touching && !wasTouching };
@@ -112,7 +116,7 @@ export function upgradePickerPreview(track: UpgradeSlot, tier: unknown, equipped
   };
 }
 
-/** Fullscreen two-slot upgrade interaction plus enter/leave collision latch. */
+/** Fullscreen upgrade interaction plus enter/leave collision latch. */
 /**
  * The server grants a finished upgrade and removes it on its own, so there is
  * no waiting-to-collect state to read. A job that disappears once its time has
@@ -156,7 +160,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
       const saved = JSON.parse(raw) as { waiting?: boolean; jobs?: ActiveItemUpgrade[] };
       finishedWaiting = Boolean(saved.waiting);
       for (const job of saved.jobs ?? []) {
-        if ((job.slot === 1 || job.slot === 2) && isUpgradeSlot(job.itemId)) tracked.set(job.slot, job);
+        if (UPGRADE_SLOTS.includes(job.slot) && isUpgradeSlot(job.itemId)) tracked.set(job.slot, job);
       }
     } catch {
       try { finishedWaiting = dependencies.storage?.getItem(snapshotKey()) === "true"; } catch { /* Storage may be unavailable. */ }
@@ -203,12 +207,13 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
   }
 
   function isSlotUnlocked(slot: UpgradeBenchSlot) {
-    return slot === 1 || dependencies.secondSlotUnlocked();
+    return slot === 1 || slot === 2 && dependencies.secondSlotUnlocked() ||
+      slot === 3 && dependencies.secondSlotUnlocked() && dependencies.thirdSlotUnlocked();
   }
 
   /**
    * The tracks a bench slot may take: the three equipment slots, minus any the
-   * other bench slot is already working on or has queued, minus any already at
+   * other bench slots are already working on or have queued, minus any already at
    * the last tier. There are no items in this list — a tier belongs to the
    * slot, so what is held in it does not matter.
    */
@@ -246,23 +251,23 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     render();
   }
 
-  function renderLockedSlot(button: HTMLButtonElement) {
+  function renderLockedSlot(button: HTMLButtonElement, cost: bigint) {
     const lock = document.createElement("span");
     lock.className = "upgrade-bench-lock-symbol";
     lock.textContent = "🔒";
     lock.setAttribute("aria-hidden", "true");
 
-    const cost = document.createElement("span");
-    cost.className = "upgrade-bench-slot-cost";
+    const costLabel = document.createElement("span");
+    costLabel.className = "upgrade-bench-slot-cost";
     const icon = document.createElement("img");
     icon.src = "assets/wildstat/gems/gem-icon-v2.webp";
     icon.alt = "";
     icon.setAttribute("aria-hidden", "true");
     icon.draggable = false;
     const amount = document.createElement("strong");
-    amount.textContent = UPGRADE_BENCH_SECOND_SLOT_GEM_COST.toString();
-    cost.append(icon, amount);
-    button.replaceChildren(lock, cost);
+    amount.textContent = cost.toString();
+    costLabel.append(icon, amount);
+    button.replaceChildren(lock, costLabel);
   }
 
   function renderSlot(button: HTMLButtonElement, slot: UpgradeBenchSlot, itemId: string, level: number, locked: boolean, active: boolean) {
@@ -275,8 +280,9 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     button.disabled = busy;
 
     if (locked) {
-      button.setAttribute("aria-label", `Unlock second upgrade slot for ${UPGRADE_BENCH_SECOND_SLOT_GEM_COST} Gems`);
-      renderLockedSlot(button);
+      const cost = slot === 2 ? UPGRADE_BENCH_SECOND_SLOT_GEM_COST : UPGRADE_BENCH_THIRD_SLOT_GEM_COST;
+      button.setAttribute("aria-label", `Unlock ${slot === 2 ? "second" : "third"} upgrade slot for ${cost} Gems`);
+      renderLockedSlot(button, cost);
       return;
     }
 
@@ -356,6 +362,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     renderedActiveSlots = activeSlots;
 
     if (!dependencies.secondSlotUnlocked()) selectedItems.delete(2);
+    if (!dependencies.thirdSlotUnlocked()) selectedItems.delete(3);
     for (const slot of UPGRADE_SLOTS) {
       const selectedTrack = selectedItems.get(slot);
       if (selectedTrack && !eligibleItems(slot).includes(selectedTrack)) selectedItems.delete(slot);
@@ -373,7 +380,9 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
       selectedSlot ?? 0,
       selectedItems.get(1) ?? "",
       selectedItems.get(2) ?? "",
+      selectedItems.get(3) ?? "",
       dependencies.secondSlotUnlocked(),
+      dependencies.thirdSlotUnlocked(),
       dependencies.gemBalance(),
       selectedJob ? Math.ceil(remaining / 1_000) : 0,
       candidateKey,
@@ -384,11 +393,15 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
 
     const slotOneJob = jobs.find((job) => job.slot === 1) ?? null;
     const slotTwoJob = jobs.find((job) => job.slot === 2) ?? null;
+    const slotThreeJob = jobs.find((job) => job.slot === 3) ?? null;
     const slotOneItem = slotOneJob?.itemId ?? selectedItems.get(1) ?? "";
     const slotTwoItem = slotTwoJob?.itemId ?? selectedItems.get(2) ?? "";
+    const slotThreeItem = slotThreeJob?.itemId ?? selectedItems.get(3) ?? "";
     const tierOf = (track: string) => isUpgradeSlot(track) ? dependencies.slotTier(track) : 0;
     renderSlot(elements.slot, 1, slotOneItem, slotOneJob?.currentLevel ?? tierOf(slotOneItem), false, Boolean(slotOneJob));
     renderSlot(elements.slotTwo, 2, slotTwoItem, slotTwoJob?.currentLevel ?? tierOf(slotTwoItem), !dependencies.secondSlotUnlocked(), Boolean(slotTwoJob));
+    elements.slotThree.hidden = !dependencies.secondSlotUnlocked();
+    if (!elements.slotThree.hidden) renderSlot(elements.slotThree, 3, slotThreeItem, slotThreeJob?.currentLevel ?? tierOf(slotThreeItem), !dependencies.thirdSlotUnlocked(), Boolean(slotThreeJob));
     renderStatGain(itemId, level);
 
     const trackName = isUpgradeSlot(itemId) ? UPGRADE_SLOT_LABELS[itemId] : "";
@@ -511,9 +524,36 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     }
   }
 
+  async function unlockThirdSlot() {
+    if (busy || confirming || !dependencies.secondSlotUnlocked() || dependencies.thirdSlotUnlocked()) return;
+    if (dependencies.gemBalance() < UPGRADE_BENCH_THIRD_SLOT_GEM_COST) {
+      dependencies.showMessage(`NOT ENOUGH GEMS · NEED ${UPGRADE_BENCH_THIRD_SLOT_GEM_COST}`, "#ff9b91");
+      return;
+    }
+    const action = "permanently unlock a third upgrade bench, so three loadout slots can upgrade at once";
+    if (!await ask(confirmUnlock, gemSpendConfirmation(action, UPGRADE_BENCH_THIRD_SLOT_GEM_COST, dependencies.gemBalance()))) return;
+    busy = true;
+    render(true);
+    const result = await dependencies.unlockThirdSlot();
+    busy = false;
+    lastRenderKey = "";
+    if (result?.ok) {
+      dependencies.showMessage("THIRD UPGRADE SLOT UNLOCKED", "#f3a6ce");
+      render();
+      openPicker(3);
+    } else {
+      dependencies.showMessage(result?.error ?? "COULD NOT UNLOCK SLOT", "#ff7a7a");
+      render();
+    }
+  }
+
   function selectSlot(slot: UpgradeBenchSlot) {
     if (slot === 2 && !dependencies.secondSlotUnlocked()) {
       void unlockSecondSlot();
+      return;
+    }
+    if (slot === 3 && !dependencies.thirdSlotUnlocked()) {
+      void unlockThirdSlot();
       return;
     }
     const job = activeUpgradeForSlot(slot);
@@ -553,7 +593,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
         loadSnapshot();
         const runningSlots = new Set(activeUpgrades().map((active) => active.slot));
         runningSlots.add(slot);
-        if (runningSlots.size >= (dependencies.secondSlotUnlocked() ? 2 : 1)) rememberFinished(false);
+        if (runningSlots.size >= (dependencies.thirdSlotUnlocked() ? 3 : dependencies.secondSlotUnlocked() ? 2 : 1)) rememberFinished(false);
         selectedItems.delete(slot);
         dependencies.showMessage("UPGRADE STARTED", "#72ef58");
       } else {
@@ -610,6 +650,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
   elements.back.addEventListener("click", close);
   elements.slot.addEventListener("click", () => selectSlot(1));
   elements.slotTwo.addEventListener("click", () => selectSlot(2));
+  elements.slotThree.addEventListener("click", () => selectSlot(3));
   elements.action.addEventListener("click", () => { void useAction(); });
   elements.speedUp.addEventListener("click", () => { void useSpeedUp(); });
   elements.closePicker.addEventListener("click", returnFromPicker);

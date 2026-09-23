@@ -150,6 +150,7 @@ import TakeOverSessionReducer from "../take_over_session_reducer";
 import TransferGuildLeadershipReducer from "../transfer_guild_leadership_reducer";
 import UnlockInventorySlotReducer from "../unlock_inventory_slot_reducer";
 import UnlockSecondUpgradeSlotReducer from "../unlock_second_upgrade_slot_reducer";
+import UnlockThirdUpgradeSlotReducer from "../unlock_third_upgrade_slot_reducer";
 import UpdateMovementStateReducer from "../update_movement_state_reducer";
 
 export type AcceptDuelParams = __Infer<typeof AcceptDuelReducer>;
@@ -296,5 +297,6 @@ export type TakeOverSessionParams = __Infer<typeof TakeOverSessionReducer>;
 export type TransferGuildLeadershipParams = __Infer<typeof TransferGuildLeadershipReducer>;
 export type UnlockInventorySlotParams = __Infer<typeof UnlockInventorySlotReducer>;
 export type UnlockSecondUpgradeSlotParams = __Infer<typeof UnlockSecondUpgradeSlotReducer>;
+export type UnlockThirdUpgradeSlotParams = __Infer<typeof UnlockThirdUpgradeSlotReducer>;
 export type UpdateMovementStateParams = __Infer<typeof UpdateMovementStateReducer>;
 

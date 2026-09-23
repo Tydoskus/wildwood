@@ -63,7 +63,7 @@ describe("upgrade bench touch latch", () => {
 });
 
 describe("finished upgrade notification", () => {
-  const job = (slot: 1 | 2, completesAtMs: number, itemId = "HAND"): ActiveItemUpgrade => ({
+  const job = (slot: 1 | 2 | 3, completesAtMs: number, itemId = "HAND"): ActiveItemUpgrade => ({
     slot, itemId, currentLevel: 0, targetLevel: 1, startedAtMs: 100,
     completesAtMs, paused: false, remainingMs: completesAtMs - 100,
   });
@@ -82,12 +82,13 @@ describe("finished upgrade notification", () => {
     expect(upgradesFinishedSinceLastPoll(jobs(job(1, 500)), jobs(job(1, 500)), 900)).toEqual([]);
   });
 
-  it("reports either slot independently, including when both finish together", () => {
+  it("reports all three slots independently, including when they finish together", () => {
     const first = job(1, 500);
     const second = job(2, 600, "HEAD");
-    expect(upgradesFinishedSinceLastPoll(jobs(first, second), jobs(second), 600)).toEqual([first]);
-    expect(upgradesFinishedSinceLastPoll(jobs(first, second), jobs(first), 600)).toEqual([second]);
-    expect(upgradesFinishedSinceLastPoll(jobs(first, second), new Map(), 600)).toEqual([first, second]);
+    const third = job(3, 600, "CHEST");
+    expect(upgradesFinishedSinceLastPoll(jobs(first, second, third), jobs(second, third), 600)).toEqual([first]);
+    expect(upgradesFinishedSinceLastPoll(jobs(first, second, third), jobs(first, third), 600)).toEqual([second]);
+    expect(upgradesFinishedSinceLastPoll(jobs(first, second, third), new Map(), 600)).toEqual([first, second, third]);
   });
 
   it("notices a completed job when its bench slot immediately starts another", () => {
@@ -102,15 +103,16 @@ describe("finished upgrade notification", () => {
     expect(upgradesFinishedSinceLastPoll(new Map(), jobs(job(1, 500)), 600)).toEqual([]);
   });
 
-  it("keeps the inventory red dot when the inventory opens after either bench slot finishes", () => {
-    const names = ["inventory", "slot", "slotTwo", "action", "speedUp", "back", "closePicker"];
+  it("keeps the inventory red dot when the inventory opens after any bench slot finishes", () => {
+    const names = ["inventory", "slot", "slotTwo", "slotThree", "action", "speedUp", "back", "closePicker"];
     const others = ["panel", "prompt", "statGain", "timer", "picker", "pickerItems"];
     const { document } = parseHTML(`<html><body>${names.map((name) => `<button id="${name}"></button>`).join("")}${others.map((name) => `<div id="${name}"></div>`).join("")}</body></html>`);
     vi.stubGlobal("document", document);
     const element = (name: string) => document.getElementById(name)!;
     const first = job(1, 500);
     const second = job(2, 700, "HEAD");
-    let active = [first, second];
+    const third = job(3, 900, "CHEST");
+    let active = [first, second, third];
     let now = 100;
     const finished = vi.fn();
     const controller = createUpgradeBenchController(Object.fromEntries([...names, ...others].map((name) => [name, element(name)])) as never, {
@@ -122,7 +124,7 @@ describe("finished upgrade notification", () => {
     notice.set(controller.finishedUpgradeWaiting());
     expect(dot.hidden).toBe(true);
 
-    now = 600; active = [second];
+    now = 600; active = [second, third];
     notice.set(controller.finishedUpgradeWaiting());
     expect(dot.hidden).toBe(false);
     expect(finished).toHaveBeenCalledWith(first);
@@ -130,15 +132,20 @@ describe("finished upgrade notification", () => {
     element("inventory").click();
     notice.set(controller.finishedUpgradeWaiting());
     expect(dot.hidden).toBe(false);
-    now = 800; active = [];
+    now = 800; active = [third];
     notice.set(controller.finishedUpgradeWaiting());
     expect(dot.hidden).toBe(false);
     expect(finished).toHaveBeenCalledWith(second);
     expect(finished).toHaveBeenCalledTimes(2);
+    now = 1_000; active = [];
+    notice.set(controller.finishedUpgradeWaiting());
+    expect(dot.hidden).toBe(false);
+    expect(finished).toHaveBeenCalledWith(third);
+    expect(finished).toHaveBeenCalledTimes(3);
   });
 
   it("restores a finished job after the game was closed and scopes the dot to its player", () => {
-    const names = ["inventory", "slot", "slotTwo", "action", "speedUp", "back", "closePicker"];
+    const names = ["inventory", "slot", "slotTwo", "slotThree", "action", "speedUp", "back", "closePicker"];
     const others = ["panel", "prompt", "statGain", "timer", "picker", "pickerItems"];
     const { document } = parseHTML(`<html><body>${names.map((name) => `<button id="${name}"></button>`).join("")}${others.map((name) => `<div id="${name}"></div>`).join("")}</body></html>`);
     vi.stubGlobal("document", document);
@@ -168,7 +175,7 @@ describe("finished upgrade notification", () => {
   });
 
   it("marks a server-confirmed tier even if its active job was never observed", () => {
-    const names = ["slot", "slotTwo", "action", "speedUp", "back", "closePicker"];
+    const names = ["slot", "slotTwo", "slotThree", "action", "speedUp", "back", "closePicker"];
     const others = ["panel", "prompt", "statGain", "timer", "picker", "pickerItems"];
     const { document } = parseHTML(`<html><body>${names.map((name) => `<button id="${name}"></button>`).join("")}${others.map((name) => `<div id="${name}"></div>`).join("")}</body></html>`);
     vi.stubGlobal("document", document);
@@ -182,7 +189,7 @@ describe("finished upgrade notification", () => {
   });
 
   it("clears the red dot only after another upgrade fills every bench slot", async () => {
-    const names = ["inventory", "slot", "slotTwo", "action", "speedUp", "back", "closePicker"];
+    const names = ["inventory", "slot", "slotTwo", "slotThree", "action", "speedUp", "back", "closePicker"];
     const others = ["panel", "prompt", "statGain", "timer", "picker", "pickerItems"];
     const { document } = parseHTML(`<html><body>${names.map((name) => `<button id="${name}"></button>`).join("")}${others.map((name) => `<div id="${name}"></div>`).join("")}</body></html>`);
     vi.stubGlobal("document", document);
@@ -196,7 +203,7 @@ describe("finished upgrade notification", () => {
       return { ok: true };
     });
     const controller = createUpgradeBenchController(Object.fromEntries([...names, ...others].map((name) => [name, element(name)])) as never, {
-      activeUpgrades: () => active, slotTier: () => 1, secondSlotUnlocked: () => true,
+      activeUpgrades: () => active, slotTier: () => 1, secondSlotUnlocked: () => true, thirdSlotUnlocked: () => false,
       gemBalance: () => 0n, equippedIn: () => "", localIdentity: () => "player",
       playerPosition: () => ({ x: 0, y: 0 }), startUpgrade,
       beforeOpen: vi.fn(), clearPlayerInput: vi.fn(), setPaused: vi.fn(), showMessage: vi.fn(),
@@ -216,6 +223,47 @@ describe("finished upgrade notification", () => {
     (element("pickerItems").querySelector("button") as HTMLElement).click();
     element("action").click();
     await vi.waitFor(() => expect(startUpgrade).toHaveBeenCalledTimes(3));
+    expect(controller.finishedUpgradeWaiting()).toBe(false);
+  });
+
+  it("offers slot three for 200 Gems only after slot two, then clears the dot when all three run", async () => {
+    const names = ["inventory", "slot", "slotTwo", "slotThree", "action", "speedUp", "back", "closePicker"];
+    const others = ["panel", "prompt", "statGain", "timer", "picker", "pickerItems"];
+    const { document } = parseHTML(`<html><body>${names.map((name) => `<button id="${name}"></button>`).join("")}${others.map((name) => `<div id="${name}"></div>`).join("")}</body></html>`);
+    vi.stubGlobal("document", document);
+    const element = (name: string) => document.getElementById(name)!;
+    element("panel").hidden = true;
+    let secondUnlocked = false;
+    let thirdUnlocked = false;
+    let active: ActiveItemUpgrade[] = [job(1, 1_000, "HAND"), job(2, 1_000, "HEAD")];
+    const confirmUnlock = vi.fn(async () => true);
+    const unlockThirdSlot = vi.fn(async () => { thirdUnlocked = true; return { ok: true }; });
+    const startUpgrade = vi.fn(async (slot: 1 | 2 | 3, itemId: string) => {
+      active = [...active, job(slot, 1_000, itemId)];
+      return { ok: true };
+    });
+    const controller = createUpgradeBenchController(Object.fromEntries([...names, ...others].map((name) => [name, element(name)])) as never, {
+      activeUpgrades: () => active, slotTier: () => 0,
+      secondSlotUnlocked: () => secondUnlocked, thirdSlotUnlocked: () => thirdUnlocked,
+      gemBalance: () => 200n, equippedIn: () => "", localIdentity: () => "player",
+      playerPosition: () => ({ x: 0, y: 0 }), startUpgrade, unlockThirdSlot,
+      confirmUnlock, beforeOpen: vi.fn(), clearPlayerInput: vi.fn(), setPaused: vi.fn(), showMessage: vi.fn(),
+    } as never);
+    controller.open();
+    expect(element("slotThree").hidden).toBe(true);
+    secondUnlocked = true;
+    controller.render();
+    expect(element("slotThree").hidden).toBe(false);
+    expect(element("slotThree").getAttribute("aria-label")).toContain("200 Gems");
+    controller.observeUpgradeTier("CHEST", 1);
+    expect(controller.finishedUpgradeWaiting()).toBe(true);
+    element("slotThree").click();
+    await vi.waitFor(() => expect(unlockThirdSlot).toHaveBeenCalledOnce());
+    expect(confirmUnlock).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining("200 Gems") }));
+    expect(element("picker").hidden).toBe(false);
+    (element("pickerItems").querySelector("button") as HTMLElement).click();
+    element("action").click();
+    await vi.waitFor(() => expect(startUpgrade).toHaveBeenCalledWith(3, "CHEST", expect.anything()));
     expect(controller.finishedUpgradeWaiting()).toBe(false);
   });
 });

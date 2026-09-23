@@ -96,9 +96,11 @@ describe("progress reset returns the character to the tutorial", () => {
     const f = crystalFixture();
     const wallet = f.seed("playerGemWallet", { identity: f.ctx.sender, balance: 250n });
     const bench = f.seed("playerUpgradeBench", { identity: f.ctx.sender, secondSlotUnlocked: true });
+    const thirdSlot = f.seed("playerUpgradeBenchThirdSlot", { identity: f.ctx.sender });
     f.run(server.resetPlayerProgress);
     expect(f.db.playerGemWallet.identity.find(f.ctx.sender)).toEqual(wallet);
     expect(f.db.playerUpgradeBench.identity.find(f.ctx.sender)).toEqual(bench);
+    expect(f.db.playerUpgradeBenchThirdSlot.identity.find(f.ctx.sender)).toEqual(thirdSlot);
   });
 
   it("rejects a reset during a duel before deleting progress or moving the player", () => {

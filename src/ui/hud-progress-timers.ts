@@ -5,13 +5,14 @@ type TimerElements = {
   research: HTMLElement;
   slotOne: HTMLElement;
   slotTwo: HTMLElement;
+  slotThree: HTMLElement;
 };
 
 type TimerSources = {
   connected: () => boolean;
   research: () => ActiveResearch | null;
   upgrades: () => ActiveItemUpgrade[];
-  visible: () => { research: boolean; slotOne: boolean; slotTwo: boolean };
+  visible: () => { research: boolean; slotOne: boolean; slotTwo: boolean; slotThree: boolean };
   nowMs?: () => number;
 };
 
@@ -33,7 +34,7 @@ export function hudProgressTimers(
   nowMs: number,
 ) {
   const active = connected ? upgrades : [];
-  const slot = (number: 1 | 2) => {
+  const slot = (number: 1 | 2 | 3) => {
     const job = active.find((upgrade) => upgrade.slot === number);
     if (!job) return null;
     const remaining = job.paused ? job.remainingMs : job.completesAtMs - nowMs;
@@ -43,6 +44,7 @@ export function hudProgressTimers(
     research: connected && research ? formatHudRemaining(research.completesAtMs - nowMs) : null,
     slotOne: slot(1),
     slotTwo: slot(2),
+    slotThree: slot(3),
   };
 }
 
@@ -62,6 +64,7 @@ export function createHudProgressTimers(elements: TimerElements, sources: TimerS
     render(elements.research, "Tech", visible.research ? timers.research : null);
     render(elements.slotOne, "Slot 1", visible.slotOne ? timers.slotOne?.remaining ?? null : null, timers.slotOne?.paused);
     render(elements.slotTwo, "Slot 2", visible.slotTwo ? timers.slotTwo?.remaining ?? null : null, timers.slotTwo?.paused);
+    render(elements.slotThree, "Slot 3", visible.slotThree ? timers.slotThree?.remaining ?? null : null, timers.slotThree?.paused);
   }
 
   tick();

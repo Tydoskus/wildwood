@@ -334,7 +334,7 @@ export function createBossController(options: {
   renderPlayerName: (element: HTMLElement, identity: string, name: string, gender?: PlayerGender) => void;
   spawnBurst: (x: number, y: number, color: string, count: number, speed: number) => void;
   damagePlayer: (amount: number) => boolean;
-  logPickup: (text: string, color: string) => void;
+  logPickup: (text: string, color: string, baseText?: string) => void;
   saveProgress: () => void;
   healthMultiplierBonus?: () => number;
   rewardMultiplier?: () => number;
@@ -527,7 +527,12 @@ export function createBossController(options: {
     return {
       type,
       amount: baseAmount * (Number.isFinite(multiplier) && multiplier >= 0 ? multiplier : 1),
+      baseAmount,
     };
+  }
+
+  function logReward(reward: ReturnType<typeof scaledReward>, color: string) {
+    logPickup(rewardLabel(reward), color, rewardLabel({ type: reward.type, amount: reward.baseAmount }));
   }
 
   function queueBossAreaKnockback(sourceX: number, sourceY: number, attackRange: number, bossRadius: number) {
@@ -886,8 +891,8 @@ function resetMiremawBoss() {
       player.damage += damageReward.amount;
       addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplierBonus?.() ?? 0);
     }
-    logPickup(rewardLabel(damageReward), "#ff655a");
-    logPickup(rewardLabel(healthReward), "#6fe48e");
+    logReward(damageReward, "#ff655a");
+    logReward(healthReward, "#6fe48e");
   }
 
   function showFrostclawResult(result: BossResult | null | undefined) {
@@ -913,9 +918,9 @@ function resetMiremawBoss() {
       addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplierBonus?.() ?? 0);
       player.armor += armorReward.amount;
     }
-    logPickup(rewardLabel(damageReward), "#ff655a");
-    logPickup(rewardLabel(healthReward), "#6fe48e");
-    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
+    logReward(damageReward, "#ff655a");
+    logReward(healthReward, "#6fe48e");
+    logReward(armorReward, REWARD_DATA.armor.color);
   }
 
   function showMagmaliskResult(result: BossResult | null | undefined) {
@@ -943,10 +948,10 @@ function resetMiremawBoss() {
       player.armor += armorReward.amount;
       player.regen += regenReward.amount;
     }
-    logPickup(rewardLabel(damageReward), "#ff655a");
-    logPickup(rewardLabel(healthReward), "#6fe48e");
-    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
-    logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
+    logReward(damageReward, "#ff655a");
+    logReward(healthReward, "#6fe48e");
+    logReward(armorReward, REWARD_DATA.armor.color);
+    logReward(regenReward, REWARD_DATA.regen.color);
   }
 
   function showGloomrootResult(result: BossResult | null | undefined) {
@@ -974,10 +979,10 @@ function resetMiremawBoss() {
       player.armor += armorReward.amount;
       player.regen += regenReward.amount;
     }
-    logPickup(rewardLabel(damageReward), "#ff655a");
-    logPickup(rewardLabel(healthReward), "#6fe48e");
-    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
-    logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
+    logReward(damageReward, "#ff655a");
+    logReward(healthReward, "#6fe48e");
+    logReward(armorReward, REWARD_DATA.armor.color);
+    logReward(regenReward, REWARD_DATA.regen.color);
   }
 
   function showTidewyrmResult(result: BossResult | null | undefined) {
@@ -1005,10 +1010,10 @@ function resetMiremawBoss() {
       player.armor += armorReward.amount;
       player.regen += regenReward.amount;
     }
-    logPickup(rewardLabel(damageReward), "#ff655a");
-    logPickup(rewardLabel(healthReward), "#6fe48e");
-    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
-    logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
+    logReward(damageReward, "#ff655a");
+    logReward(healthReward, "#6fe48e");
+    logReward(armorReward, REWARD_DATA.armor.color);
+    logReward(regenReward, REWARD_DATA.regen.color);
   }
 
   function showKoiShogunResult(result: BossResult | null | undefined) {
@@ -1030,10 +1035,10 @@ function resetMiremawBoss() {
       player.armor += armorReward.amount;
       player.regen += regenReward.amount;
     }
-    logPickup(rewardLabel(damageReward), "#ff655a");
-    logPickup(rewardLabel(healthReward), "#6fe48e");
-    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
-    logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
+    logReward(damageReward, "#ff655a");
+    logReward(healthReward, "#6fe48e");
+    logReward(armorReward, REWARD_DATA.armor.color);
+    logReward(regenReward, REWARD_DATA.regen.color);
   }
 
   function showTempestKirinResult(result: BossResult | null | undefined) {
@@ -1055,10 +1060,10 @@ function resetMiremawBoss() {
       player.armor += armorReward.amount;
       player.regen += regenReward.amount;
     }
-    logPickup(rewardLabel(damageReward), "#ff655a");
-    logPickup(rewardLabel(healthReward), "#6fe48e");
-    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
-    logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
+    logReward(damageReward, "#ff655a");
+    logReward(healthReward, "#6fe48e");
+    logReward(armorReward, REWARD_DATA.armor.color);
+    logReward(regenReward, REWARD_DATA.regen.color);
   }
 
 function showMiremawResult(result: BossResult | null | undefined) {
@@ -1080,10 +1085,10 @@ function showMiremawResult(result: BossResult | null | undefined) {
       player.armor += armorReward.amount;
       player.regen += regenReward.amount;
     }
-    logPickup(rewardLabel(damageReward), "#ff655a");
-    logPickup(rewardLabel(healthReward), "#6fe48e");
-    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
-    logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
+    logReward(damageReward, "#ff655a");
+    logReward(healthReward, "#6fe48e");
+    logReward(armorReward, REWARD_DATA.armor.color);
+    logReward(regenReward, REWARD_DATA.regen.color);
   }
 
   function showPrismshellResult(result: BossResult | null | undefined) {
@@ -1105,10 +1110,10 @@ function showMiremawResult(result: BossResult | null | undefined) {
       player.armor += armorReward.amount;
       player.regen += regenReward.amount;
     }
-    logPickup(rewardLabel(damageReward), "#ff655a");
-    logPickup(rewardLabel(healthReward), "#6fe48e");
-    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
-    logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
+    logReward(damageReward, "#ff655a");
+    logReward(healthReward, "#6fe48e");
+    logReward(armorReward, REWARD_DATA.armor.color);
+    logReward(regenReward, REWARD_DATA.regen.color);
   }
   function showIronhornResult(result: BossResult | null | undefined) {
     if (!result || shownIronhornResultEncounter === result.encounter) return;
@@ -1129,10 +1134,10 @@ function showMiremawResult(result: BossResult | null | undefined) {
       player.armor += armorReward.amount;
       player.regen += regenReward.amount;
     }
-    logPickup(rewardLabel(damageReward), "#ff655a");
-    logPickup(rewardLabel(healthReward), "#6fe48e");
-    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
-    logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
+    logReward(damageReward, "#ff655a");
+    logReward(healthReward, "#6fe48e");
+    logReward(armorReward, REWARD_DATA.armor.color);
+    logReward(regenReward, REWARD_DATA.regen.color);
   }
   function showDreadreaperResult(result: BossResult | null | undefined) {
     if (!result || shownDreadreaperResultEncounter === result.encounter) return;
@@ -1153,10 +1158,10 @@ function showMiremawResult(result: BossResult | null | undefined) {
       player.armor += armorReward.amount;
       player.regen += regenReward.amount;
     }
-    logPickup(rewardLabel(damageReward), "#ff655a");
-    logPickup(rewardLabel(healthReward), "#6fe48e");
-    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
-    logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
+    logReward(damageReward, "#ff655a");
+    logReward(healthReward, "#6fe48e");
+    logReward(armorReward, REWARD_DATA.armor.color);
+    logReward(regenReward, REWARD_DATA.regen.color);
   }
   function showVoltwardenResult(result: BossResult | null | undefined) {
     if (!result || shownVoltwardenResultEncounter === result.encounter) return;
@@ -1177,10 +1182,10 @@ function showMiremawResult(result: BossResult | null | undefined) {
       player.armor += armorReward.amount;
       player.regen += regenReward.amount;
     }
-    logPickup(rewardLabel(damageReward), "#ff655a");
-    logPickup(rewardLabel(healthReward), "#6fe48e");
-    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
-    logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
+    logReward(damageReward, "#ff655a");
+    logReward(healthReward, "#6fe48e");
+    logReward(armorReward, REWARD_DATA.armor.color);
+    logReward(regenReward, REWARD_DATA.regen.color);
   }
   function showGravebloomResult(result: BossResult | null | undefined) {
     if (!result || shownGravebloomResultEncounter === result.encounter) return;
@@ -1201,10 +1206,10 @@ function showMiremawResult(result: BossResult | null | undefined) {
       player.armor += armorReward.amount;
       player.regen += regenReward.amount;
     }
-    logPickup(rewardLabel(damageReward), "#ff655a");
-    logPickup(rewardLabel(healthReward), "#6fe48e");
-    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
-    logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
+    logReward(damageReward, "#ff655a");
+    logReward(healthReward, "#6fe48e");
+    logReward(armorReward, REWARD_DATA.armor.color);
+    logReward(regenReward, REWARD_DATA.regen.color);
   }
   function showAegisPrimeResult(result: BossResult | null | undefined) {
     if (!result || shownAegisPrimeResultEncounter === result.encounter) return;
@@ -1225,10 +1230,10 @@ function showMiremawResult(result: BossResult | null | undefined) {
       player.armor += armorReward.amount;
       player.regen += regenReward.amount;
     }
-    logPickup(rewardLabel(damageReward), "#ff655a");
-    logPickup(rewardLabel(healthReward), "#6fe48e");
-    logPickup(rewardLabel(armorReward), REWARD_DATA.armor.color);
-    logPickup(rewardLabel(regenReward), REWARD_DATA.regen.color);
+    logReward(damageReward, "#ff655a");
+    logReward(healthReward, "#6fe48e");
+    logReward(armorReward, REWARD_DATA.armor.color);
+    logReward(regenReward, REWARD_DATA.regen.color);
   }
 
 
@@ -1266,7 +1271,7 @@ function showMiremawResult(result: BossResult | null | undefined) {
     if (!options.serverOwnsRewards && !locallyRewardedDragonEncounters.has(encounterKey)) {
       locallyRewardedDragonEncounters.add(encounterKey);
       player.damage += damageReward.amount;
-      logPickup(rewardLabel(damageReward), "#ff655a");
+      logReward(damageReward, "#ff655a");
       saveProgress();
     }
   }

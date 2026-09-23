@@ -10,7 +10,7 @@ export type ItemDropRevealDetails = {
 };
 
 export function itemDropRevealName(name: string) {
-  return name;
+  return name.replace(/\s+\+\d+$/, "");
 }
 
 export function createItemDropReveal(details: ItemDropRevealDetails) {
