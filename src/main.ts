@@ -10,6 +10,7 @@ import { weaponAttackRange } from "./game/weapon-combat";
 import { createPlayerVisibilityToggle } from "./ui/player-visibility-toggle";
 import { createPanelCoordinator } from "./ui/panel-coordinator";
 import { createProgressCompletionNotices } from "./ui/progress-completion-notices";
+import { createItemUpgradeFeedback } from "./ui/item-upgrade-feedback";
 import { createOfflineProgressSummary } from "./ui/offline-progress-summary";
 import { createFullscreenMovementGate } from "./ui/fullscreen-movement";
 import { installGameTicker } from "./ui/game-ticker";
@@ -1586,6 +1587,7 @@ import {
     slotTier: (track) => coop?.slotUpgradeTier?.(track) ?? 0,
     equippedIn: track => track === "HAND" ? (inventory.equippedRightHand || inventory.equippedLeftHand) : track === "HEAD" ? inventory.equippedHead : inventory.equippedChest,
     storage: localStorage, startUpgrade: async (slot, itemId, position) => coop?.startItemUpgrade?.(slot, itemId, position),
+    localIdentity: () => coop?.localIdentity?.() ?? "",
     cancelUpgrade: async (slot) => coop?.cancelItemUpgrade?.(slot),
     speedUpUpgrade: async (slot) => coop?.speedUpItemUpgradeWithGems?.(slot),
     unlockSecondSlot: async () => coop?.unlockSecondUpgradeSlot?.(),
@@ -1762,7 +1764,7 @@ import {
     capturePresentationState: presentation.capture,
     resetPresentationState: presentation.reset,
     render: (interpolationAlpha) => presentation.render(interpolationAlpha, () => {
-      progressNotices.poll(techTree, upgradeBenchController, !inventoryPanel.hidden);
+      progressNotices.poll(techTree, upgradeBenchController);
       upgradeBenchController.tick();
       guildPanel?.tick();
       if (activeDuel() || isArenaScene()) void assets.ensureDuelAssets();
@@ -2178,12 +2180,10 @@ import {
       stats: itemStats(itemId, level),
     });
   });
-  coop?.setOnItemUpgrade?.(({ itemId, level }) => {
-    setInventoryItemQuantity(inventory, itemId, 1);
-    applyPlayerMaxHealthMultiplierBonus(player, healthMultiplierBonus());
-    renderInventory();
-    saveProgress(true);
-    showMessage(`${itemDisplayName(itemId, level)} COMPLETE`, "#72ef58");
+  const showItemUpgrade = createItemUpgradeFeedback({ inventory, player, healthMultiplierBonus, renderInventory, saveProgress, showMessage });
+  coop?.setOnItemUpgrade?.((upgrade) => {
+    upgradeBenchController.observeUpgradeTier(upgrade.itemId, upgrade.level);
+    showItemUpgrade(upgrade);
   });
   refreshReconnectOverlay();
   updateDuelControls();

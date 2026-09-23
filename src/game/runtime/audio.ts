@@ -5,6 +5,19 @@ const DESERT_MUSIC_SOURCE = "assets/wildstat/audio/desert.mp3";
 const SNOW_MUSIC_SOURCE = "assets/wildstat/audio/snow.mp3";
 const LAVA_MUSIC_SOURCE = "assets/wildstat/audio/lava.mp3";
 const NIGHT_FOREST_MUSIC_SOURCE = "assets/wildstat/audio/night-forest.mp3";
+// Measured integrated loudness of the shipped MP3s. Preserve each track's
+// dynamics while bringing map music to the same perceived level (-20 LUFS).
+const MAP_MUSIC_LOUDNESS_LUFS: Record<string, number> = {
+  [FOREST_MUSIC_SOURCE]: -12.4,
+  [DESERT_MUSIC_SOURCE]: -26.8,
+  [SNOW_MUSIC_SOURCE]: -27.7,
+  [LAVA_MUSIC_SOURCE]: -31.8,
+  [NIGHT_FOREST_MUSIC_SOURCE]: -36.7,
+};
+export function musicGainForSource(source: string) {
+  const loudness = MAP_MUSIC_LOUDNESS_LUFS[source];
+  return loudness === undefined ? 1 : 10 ** ((-20 - loudness) / 20);
+}
 export const SIGN_IN_MUSIC_SOURCE = "assets/wildstat/audio/signin.mp3";
 export const DEATH_SOUND_SOURCE = "assets/wildstat/audio/death.mp3";
 export const BOW_ATTACK_SOUND_SOURCE = "assets/wildstat/audio/bow-release.mp3";
@@ -214,7 +227,7 @@ export function createMapMusicController(
       const deathSource = audioContext.createMediaElementSource(deathAudio);
       musicGainNode = audioContext.createGain();
       sfxGainNode = audioContext.createGain();
-      musicGainNode.gain.value = volume;
+      musicGainNode.gain.value = volume * musicGainForSource(requestedMusicSource);
       sfxGainNode.gain.value = sfxVolume;
       source.connect(musicGainNode);
       deathSource.connect(sfxGainNode);
@@ -229,7 +242,7 @@ export function createMapMusicController(
       audioContext = null;
       musicGainNode = null;
       sfxGainNode = null;
-      audio.volume = volume;
+      audio.volume = Math.min(1, volume * musicGainForSource(requestedMusicSource));
       deathAudio.volume = sfxVolume;
       return null;
     }
@@ -237,8 +250,13 @@ export function createMapMusicController(
 
   function setVolume(nextVolume: number) {
     volume = Math.min(1, Math.max(0, nextVolume));
-    if (musicGainNode) musicGainNode.gain.value = volume;
-    else audio.volume = volume;
+    applyMusicVolume();
+  }
+
+  function applyMusicVolume() {
+    const adjusted = volume * musicGainForSource(requestedMusicSource);
+    if (musicGainNode) musicGainNode.gain.value = adjusted;
+    else audio.volume = Math.min(1, adjusted);
   }
 
   function setSfxVolume(nextVolume: number) {
@@ -257,6 +275,7 @@ export function createMapMusicController(
     if (requestedMusicSource === nextSource) return;
     playbackRequested = playbackRequested || !audio.paused;
     requestedMusicSource = nextSource;
+    applyMusicVolume();
     audio.pause();
     // Fetch the complete encoded track without blocking the map transition.
     // Looping the resulting Blob URL cannot trigger another HTTP range request.

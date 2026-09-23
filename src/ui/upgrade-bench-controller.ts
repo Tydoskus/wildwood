@@ -62,6 +62,7 @@ type UpgradeBenchDependencies = {
   showMessage: (message: string, color?: string) => void;
   nowMs?: () => number;
   storage?: Pick<Storage, "getItem" | "setItem">;
+  localIdentity?: () => string;
 };
 
 export const UPGRADE_CANCEL_CONFIRMATION = "Are you sure you want to cancel? You will lose current progress to the next upgrade.";
@@ -136,11 +137,40 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
   const FINISHED_KEY = "wildstat-upgrade-finished";
   const tracked = new Map<UpgradeBenchSlot, ActiveItemUpgrade>();
   let finishedWaiting = false;
-  try { finishedWaiting = dependencies.storage?.getItem(FINISHED_KEY) === "true"; } catch { /* Storage may be unavailable. */ }
+  let trackedIdentity = "";
+  let savedSnapshot = "";
+  function snapshotKey() {
+    const identity = dependencies.localIdentity?.() ?? "";
+    return identity ? `${FINISHED_KEY}:${identity}` : FINISHED_KEY;
+  }
+  function loadSnapshot() {
+    const identity = dependencies.localIdentity?.() ?? "";
+    if (trackedIdentity === identity && savedSnapshot) return;
+    trackedIdentity = identity;
+    tracked.clear();
+    finishedWaiting = false;
+    try {
+      const raw = dependencies.storage?.getItem(snapshotKey()) ?? "";
+      const saved = JSON.parse(raw) as { waiting?: boolean; jobs?: ActiveItemUpgrade[] };
+      finishedWaiting = Boolean(saved.waiting);
+      for (const job of saved.jobs ?? []) {
+        if ((job.slot === 1 || job.slot === 2) && isUpgradeSlot(job.itemId)) tracked.set(job.slot, job);
+      }
+    } catch {
+      try { finishedWaiting = dependencies.storage?.getItem(snapshotKey()) === "true"; } catch { /* Storage may be unavailable. */ }
+    }
+    savedSnapshot = JSON.stringify({ waiting: finishedWaiting, jobs: [...tracked.values()] });
+  }
+  function saveSnapshot() {
+    const snapshot = JSON.stringify({ waiting: finishedWaiting, jobs: [...tracked.values()] });
+    if (snapshot === savedSnapshot) return;
+    savedSnapshot = snapshot;
+    try { dependencies.storage?.setItem(snapshotKey(), snapshot); } catch { /* Keep the session value. */ }
+  }
   function rememberFinished(waiting: boolean) {
     if (waiting === finishedWaiting) return;
     finishedWaiting = waiting;
-    try { dependencies.storage?.setItem(FINISHED_KEY, String(waiting)); } catch { /* Keep the session value. */ }
+    saveSnapshot();
   }
   // A prompt is awaited, so the busy flags below are not yet set while it is
   // open. Without this a second click opens a second prompt over the first and
@@ -518,6 +548,10 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
       // bag is untouched because a tier is not the item.
       const result = await dependencies.startUpgrade(slot, itemId, dependencies.playerPosition());
       if (result?.ok) {
+        loadSnapshot();
+        const runningSlots = new Set(activeUpgrades().map((active) => active.slot));
+        runningSlots.add(slot);
+        if (runningSlots.size >= (dependencies.secondSlotUnlocked() ? 2 : 1)) rememberFinished(false);
         selectedItems.delete(slot);
         dependencies.showMessage("UPGRADE STARTED", "#72ef58");
       } else {
@@ -544,9 +578,6 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     render(true);
     const result = await dependencies.speedUpUpgrade(slot);
     if (result?.ok) {
-      tracked.delete(slot);
-      rememberFinished(true);
-      dependencies.onUpgradeFinished?.(job);
       dependencies.onInventoryChanged();
       selectedSlot = null;
       selectedItems.delete(slot);
@@ -597,24 +628,44 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     /**
      * A completed tier is auto-granted. Poll each UI frame so the badge and
      * completion card still appear while gameplay is paused by a panel.
-     * Opening the bag acknowledges the badge.
+     * Starting another upgrade acknowledges the badge.
      */
-    finishedUpgradeWaiting(acknowledged = false, connected = true) {
-      if (!connected) {
-        tracked.clear();
-        if (acknowledged) rememberFinished(false);
-        return finishedWaiting;
-      }
+    finishedUpgradeWaiting(connected = true) {
+      loadSnapshot();
+      if (!connected) return finishedWaiting;
       const current = new Map(activeUpgrades().map((job) => [job.slot, job] as const));
-      for (const job of upgradesFinishedSinceLastPoll(tracked, current, nowMs())) {
-        rememberFinished(true);
-        dependencies.onUpgradeFinished?.(job);
+      for (const [slot, job] of tracked) {
+        const running = current.get(slot);
+        if (running?.startedAtMs === job.startedAtMs && running?.targetLevel === job.targetLevel) continue;
+        const confirmed = isUpgradeSlot(job.itemId) && typeof dependencies.slotTier === "function" &&
+          dependencies.slotTier(job.itemId) >= job.targetLevel;
+        if (confirmed || (!dependencies.localIdentity && nowMs() >= job.completesAtMs && !job.paused)) {
+          tracked.delete(slot);
+          rememberFinished(true);
+          dependencies.onUpgradeFinished?.(job);
+        } else if (nowMs() < job.completesAtMs || job.paused) {
+          tracked.delete(slot);
+        }
       }
-      tracked.clear();
-      for (const [slot, job] of current) tracked.set(slot, job);
-      if (acknowledged) rememberFinished(false);
+      for (const [slot, job] of current) {
+        if (isUpgradeSlot(job.itemId) && typeof dependencies.slotTier === "function" &&
+          dependencies.slotTier(job.itemId) >= job.targetLevel) continue;
+        tracked.set(slot, job);
+      }
+      saveSnapshot();
       return finishedWaiting;
     },
-    acknowledgeFinishedUpgrade: () => rememberFinished(false),
+    observeUpgradeTier(itemId: string, level: number) {
+      loadSnapshot();
+      if (!isUpgradeSlot(itemId)) return;
+      const job = [...tracked.values()].find((candidate) => candidate.itemId === itemId && candidate.targetLevel <= level);
+      if (job) tracked.delete(job.slot);
+      rememberFinished(true);
+      dependencies.onUpgradeFinished?.(job ?? {
+        slot: 1, itemId, currentLevel: level - 1, targetLevel: level,
+        startedAtMs: nowMs(), completesAtMs: nowMs(), paused: false, remainingMs: 0,
+      });
+      saveSnapshot();
+    },
   };
 }

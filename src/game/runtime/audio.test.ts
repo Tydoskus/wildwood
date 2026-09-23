@@ -8,6 +8,7 @@ import {
   bowAttackPlaybackRate,
   createMapMusicController,
   DEATH_SOUND_SOURCE,
+  musicGainForSource,
   musicSourceForMap,
   SIGN_IN_MUSIC_SOURCE,
 } from "./audio";
@@ -164,6 +165,23 @@ describe("map music", () => {
     controller.playBowAttackSound();
     expect(context.resume).toHaveBeenCalledTimes(state === "suspended" || state === "interrupted" ? 3 : 0);
     expect(context.gains).toHaveLength(2);
+  });
+
+  it("balances the shipped map tracks when the map or music slider changes", () => {
+    const context = new FakeAudioContext();
+    vi.stubGlobal("Audio", FakeAudio);
+    vi.stubGlobal("window", { AudioContext: class { constructor() { return context; } } });
+    vi.stubGlobal("localStorage", { getItem: () => null });
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false })));
+    const controller = createMapMusicController("test-volume", BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID);
+    controller.ensurePlaying(false);
+    controller.syncMap(TUTORIAL_FOREST_MAP_ID);
+    expect(context.gains[0]?.gain.value).toBeCloseTo(.35 * musicGainForSource("assets/wildstat/audio/forest.mp3"));
+    controller.syncMap(BEGINNER_DESERT_MAP_ID);
+    expect(context.gains[0]?.gain.value).toBeCloseTo(.35 * musicGainForSource("assets/wildstat/audio/desert.mp3"));
+    controller.setVolume(.2);
+    expect(context.gains[0]?.gain.value).toBeCloseTo(.2 * musicGainForSource("assets/wildstat/audio/desert.mp3"));
+    expect(musicGainForSource(SIGN_IN_MUSIC_SOURCE)).toBe(1);
   });
 
   it.each([1.872, .08])("plays a quietly mixed release voice with a %s-second source", async (duration) => {

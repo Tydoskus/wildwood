@@ -32,11 +32,10 @@ export function createProgressCompletionNotices(
     },
     poll(
       techTree: { updateNotice: () => void },
-      upgradeBench: { finishedUpgradeWaiting: (acknowledged: boolean, connected: boolean) => boolean },
-      inventoryOpen: boolean,
+      upgradeBench: { finishedUpgradeWaiting: (connected: boolean) => boolean },
     ) {
       techTree.updateNotice();
-      inventoryNotice.set(upgradeBench.finishedUpgradeWaiting(inventoryOpen, Boolean(session()?.isConnected?.())));
+      inventoryNotice.set(upgradeBench.finishedUpgradeWaiting(Boolean(session()?.isConnected?.())));
     },
   };
 }
