@@ -8,6 +8,7 @@ import { appendPlayerGenderIcon } from "./player-gender";
 import { PRESTIGE_STAT_GAIN_PER_LEVEL } from "../../shared/prestige";
 import type { ItemInspectionController, ItemInspectionAction } from "./item-inspection-controller";
 import { slotUpgradeLevelFor } from "./profile";
+import { renderBooleanSetting } from "./settings";
 import {
   PROFILE_EQUIPMENT_SLOTS,
   profileEquipmentPresentation,
@@ -17,6 +18,23 @@ import {
 
 export type ProfileTab = "overview" | "stats";
 type Profile = PlayerProfileData;
+
+const COMPARE_VISIBLE_KEY = "wildwood-profile-compare-visible-v1";
+
+function readCompareVisible() {
+  try {
+    const value = localStorage.getItem(COMPARE_VISIBLE_KEY);
+    return value === null || value === "true";
+  } catch {
+    return true;
+  }
+}
+
+function writeCompareVisible(visible: boolean) {
+  try {
+    localStorage.setItem(COMPARE_VISIBLE_KEY, String(visible));
+  } catch {}
+}
 
 export function createProfileWindowController(elements: {
   window: HTMLElement; name: HTMLElement; guest: HTMLElement; presence: HTMLElement; power: HTMLElement; icon: HTMLButtonElement; loading: HTMLElement;
@@ -55,6 +73,35 @@ export function createProfileWindowController(elements: {
     FEET: elements.equipmentFeet,
     WEAPON: elements.equipmentRightHand,
   };
+  const compareControl = elements.window.querySelector<HTMLElement>("#profileCompareControl");
+  const compareToggle = elements.window.querySelector<HTMLButtonElement>("#profileCompareToggle");
+  let compareVisible = readCompareVisible();
+  let compareAvailable = false;
+
+  function updateCompareControl() {
+    if (!compareControl) {
+      return;
+    }
+    compareControl.hidden = !identity || identity === api.localIdentity();
+    compareControl.classList.toggle("is-reserved", !compareAvailable || !elements.statsTab.classList.contains("is-active"));
+  }
+
+  function renderStatGrid(profile: Profile, own: boolean) {
+    const viewerIdentity = own ? undefined : api.localIdentity();
+    const viewer = viewerIdentity ? api.profile(viewerIdentity) ?? null : null;
+    compareAvailable = viewer !== null;
+    api.renderStats(profile, elements.statGrid, compareVisible ? viewer : null);
+    updateCompareControl();
+  }
+
+  function toggleCompare(toggle: HTMLButtonElement) {
+    compareVisible = !compareVisible;
+    writeCompareVisible(compareVisible);
+    renderBooleanSetting(toggle, compareVisible);
+    if (profileData) {
+      renderStatGrid(profileData, profileData.identity === api.localIdentity());
+    }
+  }
 
   function selectTab(tab: ProfileTab) {
     const overview = tab === "overview";
@@ -62,6 +109,7 @@ export function createProfileWindowController(elements: {
     elements.overviewTab.classList.toggle("is-active", overview); elements.statsTab.classList.toggle("is-active", stats);
     elements.overviewTab.setAttribute("aria-selected", String(overview)); elements.statsTab.setAttribute("aria-selected", String(stats));
     elements.overviewPanel.hidden = !overview; elements.statsPanel.hidden = !stats;
+    updateCompareControl();
   }
 
   function renderPower(value: string) {
@@ -183,8 +231,7 @@ export function createProfileWindowController(elements: {
     const prestigeLevel = own ? api.prestigeLevel?.() ?? 0 : 0;
     elements.prestigeRow.hidden = !own || prestigeLevel <= 0;
     elements.prestige.textContent = `${prestigeLevel} (+${Math.round(prestigeLevel * PRESTIGE_STAT_GAIN_PER_LEVEL * 100)}% stat gain)`;
-    const viewerIdentity = own ? undefined : api.localIdentity();
-    api.renderStats(profile, elements.statGrid, viewerIdentity ? api.profile(viewerIdentity) ?? null : null);
+    renderStatGrid(profile, own);
     loading.hide();
     elements.overviewPanel.hidden = !elements.overviewTab.classList.contains("is-active");
     elements.statsPanel.hidden = !elements.statsTab.classList.contains("is-active");
@@ -197,6 +244,7 @@ export function createProfileWindowController(elements: {
     const hearts = elements.window.querySelector<HTMLElement>("#playerProfileHearts");
     if (hearts) hearts.textContent = "0";
     identity = nextIdentity; profileData = null; elements.duel.hidden = nextIdentity === api.localIdentity(); elements.duel.dataset.identity = nextIdentity; updateDuelButton();
+    compareAvailable = false;
     elements.window.hidden = false; api.renderName(elements.name, nextIdentity, fallbackName, api.playerGender(nextIdentity)); elements.guest.hidden = !api.isGuest(nextIdentity);
     const online = api.isOnline(nextIdentity); elements.presence.textContent = online ? "Online" : "CHECKING LAST SEEN"; elements.presence.classList.toggle("is-online", online);
     api.paintIcon(elements.icon, api.profileIcon(nextIdentity)); applyAvatarFrame(elements.icon, nextIdentity); const own = nextIdentity === api.localIdentity(); elements.icon.classList.toggle("is-editable", own); elements.icon.disabled = !own; elements.editName.hidden = !own; elements.genderSetting.hidden = !own; closeGenderChoices(); if (own) updateGenderChoices(api.playerGender(nextIdentity));
@@ -252,6 +300,10 @@ export function createProfileWindowController(elements: {
     api.renderName(elements.name, identity, profileData?.name || api.localDisplayName() || "PLAYER", gender);
     api.showMessage("GENDER UPDATED", "#72ef58");
   });
+  if (compareToggle) {
+    renderBooleanSetting(compareToggle, compareVisible);
+    compareToggle.addEventListener("click", () => toggleCompare(compareToggle));
+  }
   elements.duel.addEventListener("click", () => { const opponent = elements.duel.dataset.identity || ""; if (!opponent || elements.duel.disabled) return; elements.duel.disabled = true; void api.requestDuel(opponent).then((result) => { if (!result?.ok) api.showMessage(result?.error || "DUEL FAILED", "#ff9b91"); else close(); updateDuelButton(); }); });
   return { selectTab, render, open, close, drawPreview, openNameEditor, closeNameEditor, updateDuelButton, isOpen: () => !elements.window.hidden, isNameEditorOpen: () => !elements.nameEditor.hidden, identity: () => identity, profile: () => profileData };
 }

@@ -151,6 +151,10 @@ const afterUpdateGateShell = String.raw`
       <div id="profileOwnActions" class="profile-own-actions" hidden>
         <button id="prestigeBtn" class="window-back-button profile-prestige-button" type="button" disabled aria-disabled="true">Prestige</button>
       </div>
+      <div id="profileCompareControl" class="profile-compare-control is-reserved" hidden>
+        <span class="profile-compare-label" aria-hidden="true">COMPARE</span>
+        <button id="profileCompareToggle" class="setting-toggle profile-compare-toggle" type="button" aria-label="Compare with your stats" aria-pressed="true">ON</button>
+      </div>
     </div>
     <div class="profile-tab-panels">
       <div id="playerProfileLoading" class="profile-loading" role="status" hidden></div>

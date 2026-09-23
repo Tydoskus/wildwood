@@ -2749,6 +2749,11 @@
   .profile-tabs-with-action { align-items: flex-end; }
   .profile-tab-list { display: flex; gap: 7px; min-width: 0; }
   .profile-tabs-with-action .profile-own-actions { margin: 0 0 6px auto; }
+  .profile-compare-control { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .profile-compare-control[hidden] { display: none; }
+  .profile-compare-control.is-reserved { visibility: hidden; }
+  .profile-compare-label { color: var(--muted); font-size: var(--font-readable-min); font-weight: 900; letter-spacing: .07em; }
+  .profile-compare-toggle { min-height: 44px; }
   #techTreeOverlay { z-index: 12; padding: 0; background: rgba(0,0,0,.78); }
   .tech-tree-window { position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; width: 100%; height: 100%; overflow: hidden; background: var(--window-surface-blue); border: 2px solid #000; border-bottom: 0; color: var(--text); text-align: left; }
   .tech-tree-header { z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 62px; padding: 10px max(14px, env(safe-area-inset-right)) 10px max(14px, env(safe-area-inset-left)); border-bottom: 0; background: transparent; }
@@ -2961,7 +2966,6 @@
   .profile-stat-grid.is-comparing .profile-stat-sources { grid-row: 3; }
   .profile-stat-grid .profile-stat-viewer-label { grid-column: 1; grid-row: 2; color: var(--muted); text-align: right; }
   .profile-stat-grid .profile-stat-viewer-value { grid-column: 2; grid-row: 2; display: flex; justify-content: flex-end; gap: 5px; color: var(--muted); }
-  /* Invisible copy of the summary chevron, so the You value lines up under the total. */
   .profile-stat-viewer-value::after { content: "\25B8"; flex: none; font-size: 10px; line-height: 1; visibility: hidden; }
   .profile-stat-equation { display: flex; flex-wrap: wrap; flex-basis: 100%; justify-content: center; gap: 4px; }
   .profile-stat-sources[hidden] { display: none; }
