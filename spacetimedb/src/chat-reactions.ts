@@ -2,6 +2,9 @@ import { table, t, SenderError } from "spacetimedb/server";
 import type { Identity } from "spacetimedb";
 import type { ModuleReducerCtx, ModuleViewCtx } from "./index";
 import { CHAT_REACTIONS, chatReactionCounts, isChatReaction } from "../../shared/chat-reactions";
+export const chatReactionUnlock = table({ name: "chat_reaction_unlock", public: false }, {
+  identity: t.identity().primaryKey(), gemHeart: t.bool().default(false),
+});
 export const chatReaction = table({ name: "chat_reaction" }, {
   key: t.string().primaryKey(), messageKey: t.string().index("btree"),
   actor: t.identity().index("btree"), reaction: t.string(),
@@ -61,6 +64,16 @@ function writeCounts(ctx: ModuleReducerCtx, key: string, counts: ReturnType<type
   else ctx.db.chatReactionSummary.insert(next);
 }
 type ReadContext = Pick<ModuleViewCtx, "db" | "sender">;
+function gemHeartUnlocked(ctx: ReadContext) {
+  return Boolean(ctx.db.chatReactionUnlock.identity.find(ctx.sender)?.gemHeart);
+}
+export function grantGemHeartUnlock(ctx: ModuleReducerCtx, identity: Identity, enabled: boolean) {
+  const existing = ctx.db.chatReactionUnlock.identity.find(identity);
+  if (!enabled) { if (existing) ctx.db.chatReactionUnlock.identity.delete(identity); return; }
+  const next = { identity, gemHeart: true };
+  if (existing) ctx.db.chatReactionUnlock.identity.update(next);
+  else ctx.db.chatReactionUnlock.insert(next);
+}
 const messageKey = (channel: string, id: bigint) => `${channel}:${id}`;
 function readableMessage(ctx: ReadContext, channel: string, id: bigint) {
   if (channel !== "public" && channel !== "social") throw new SenderError("Unknown chat channel.");
@@ -80,9 +93,10 @@ export function readChatReactions(ctx: ReadContext, channel: string, id: bigint)
   readableMessage(ctx, channel, id);
   const prefix = `${messageKey(channel, id)}:${ctx.sender.toHexString()}:`;
   return { counts: chatReactionCounts(reactionCountsFor(ctx, channel, id)), selected: CHAT_REACTIONS
-    .filter(reaction => ctx.db.chatReaction.key.find(prefix + reaction.id)?.active).map(reaction => reaction.id) };
+    .filter(reaction => ctx.db.chatReaction.key.find(prefix + reaction.id)?.active).map(reaction => reaction.id),
+    ...(gemHeartUnlocked(ctx) ? { gemHeartUnlocked: true } : {}) };
 }
-/** Four indexed lookups keep switching atomic without scanning other players. */
+/** Indexed lookups keep switching atomic without scanning other players. */
 function clearOtherReactions(ctx: ModuleReducerCtx, target: string, actor: Identity, keep: string,
   counts: ReturnType<typeof chatReactionCounts>) {
   let changed = false;
@@ -98,6 +112,7 @@ function clearOtherReactions(ctx: ModuleReducerCtx, target: string, actor: Ident
 }
 export function setChatReaction(ctx: ModuleReducerCtx, channel: string, id: bigint, reaction: string, active: boolean) {
   if (!isChatReaction(reaction)) throw new SenderError("Unknown reaction.");
+  if (reaction === "gemHeart" && active && !gemHeartUnlocked(ctx)) throw new SenderError("Gem heart reaction is locked.");
   const row = readableMessage(ctx, channel, id);
   if (active && row.sender.equals(ctx.sender)) throw new SenderError("You cannot react to your own message.");
   const target = messageKey(channel, id), key = `${target}:${ctx.sender.toHexString()}:${reaction}`;

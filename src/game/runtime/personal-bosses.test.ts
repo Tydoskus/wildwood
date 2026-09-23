@@ -39,6 +39,18 @@ it.each(["tutorial_forest", "beginner_desert", "ion_citadel", "endless_40"])("re
   expect(f.bosses.state(mapId)!.encounter).not.toBe(before.encounter);
 });
 
+it("shortens only the owner's future boss respawns after utility research", () => {
+  let now = 1_000, rank = 5;
+  const bosses = createPersonalBosses({ now: () => now, mapId: () => "tutorial_forest", identity: () => "alice",
+    alive: () => true, bossRespawnRank: () => rank, defeated: () => {} });
+  const hp = bosses.state("tutorial_forest")!.hp;
+  bosses.hit("tutorial_forest", hp);
+  expect(bosses.state("tutorial_forest")!.respawnAtMs).toBe(41_000);
+  rank = 0;
+  now = 41_000;
+  expect(bosses.state("tutorial_forest")!.alive).toBe(true);
+});
+
 it.each([
   ["tutorial_forest", .0002],
   ["beginner_desert", .001],

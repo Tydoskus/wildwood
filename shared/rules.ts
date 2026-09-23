@@ -1,6 +1,7 @@
 // Browser- and server-safe values. Keep this module free of DOM, Node, and
 // SpacetimeDB imports so both runtime targets use one gameplay contract.
 import { MAP_EDITOR_GAMEPLAY_OVERRIDES } from "./map-editor-overrides";
+import { utilityMovementSpeedBonus } from "./research";
 import {
   BOSS_BASE_MAX_HP,
   bossRewardValue,
@@ -239,7 +240,7 @@ export function numberedMapName(mapId: string, name: string) {
   return index < 0 ? name : `${name.replace(/ - \d+$/, "")} - ${index + 1}`;
 }
 
-export const PROTOCOL_VERSION = 106;
+export const PROTOCOL_VERSION = 107;
 // Add a previous version only after reviewing wire/schema and security compatibility.
 // Flat equipment changes combat DPS and boss-claim validation. Percentage-based
 // clients must update together with the servers, even though the wire is unchanged.
@@ -263,8 +264,8 @@ export function movementSpeedMultiplier(moveSpeedRank: number) {
   return 1 + rank * MOVE_SPEED_RESEARCH_BONUS_PER_RANK;
 }
 
-export function effectivePlayerMovementSpeed(bootsEquipped: boolean, moveSpeedRank: number, speedOverride = 0) {
-  return playerBaseMovementSpeed(bootsEquipped, speedOverride) * movementSpeedMultiplier(moveSpeedRank);
+export function effectivePlayerMovementSpeed(bootsEquipped: boolean, moveSpeedRank: number, speedOverride = 0, utilityMoveSpeedRank = 0) {
+  return playerBaseMovementSpeed(bootsEquipped, speedOverride) * movementSpeedMultiplier(moveSpeedRank) + utilityMovementSpeedBonus(utilityMoveSpeedRank);
 }
 
 export function movementSpeedsMatch(left: number | null | undefined, right: number | null | undefined) {

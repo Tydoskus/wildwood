@@ -75,6 +75,22 @@ describe("chat channels", () => {
     expect(loadChatHistory).not.toHaveBeenCalled();
     expect(h.showMessage).not.toHaveBeenCalled();
   });
+  it("shows an unlocked gem heart disabled alongside the other reactions on your own message", async () => {
+    const h = setup();
+    const own = { ...h.coop.chatMessages()[0], sender: "me", senderName: "Me" };
+    h.coop.chatMessages = () => [own];
+    h.coop.chatRevision = () => 2;
+    const loadChatMessageReactions = vi.fn(async () => ({ counts: {}, selected: [], gemHeartUnlocked: true }));
+    Object.assign(h.coop, { loadChatMessageReactions });
+    h.chat.refresh();
+    h.document.getElementById("chatSizeToggle")!.click();
+    h.document.querySelector<HTMLElement>(".chat-text")!.click();
+    await settle();
+    expect(loadChatMessageReactions).toHaveBeenCalledWith("public", 1n);
+    const buttons = [...h.document.querySelectorAll<HTMLButtonElement>("#chatMessageReactions button")];
+    expect(buttons).toHaveLength(5);
+    expect(buttons.every(button => button.disabled && !button.hidden)).toBe(true);
+  });
   it("changes only the matching sender's portraits and retains other players' pictures", () => {
     const h = setup();
     const first = h.coop.chatMessages()[0];

@@ -21,7 +21,7 @@ import { offlineProgressTables, beginOfflineWindow, grantOfflineProgress, acknow
 import { playerOfflinePreference, writeOfflinePreference } from "./offline-preference";
 import { ERASURE_ROW_BUDGET, eraseIdentityRows, linkedIdentities, requireErasureConfirmation } from "./account-erasure";
 import { LOADOUT_FIELDS } from "../../shared/combat-progress";
-import { chatHeartAllowance, chatReactionCooldown, chatReactionSummary, playerChatHearts, reactionCountsFor, chatReaction, readChatReactions, setChatReaction, removeMessageReactions, removeAccountReactions } from "./chat-reactions";
+import { chatHeartAllowance, chatReactionCooldown, chatReactionSummary, chatReactionUnlock, playerChatHearts, reactionCountsFor, chatReaction, readChatReactions, setChatReaction, grantGemHeartUnlock, removeMessageReactions, removeAccountReactions } from "./chat-reactions";
 import { regularEnemyLootCursor, rollRegularEnemyLoot } from "./regular-enemy-loot";
 import { BLACK_BOOTS, BLACK_BOOTS_SPEED_BONUS } from "../../shared/items";
 import { playerOnboarding, advanceOnboarding, needsOnboarding } from "./onboarding";
@@ -37,6 +37,9 @@ import { moderateReportedMessage } from "./chat-report-moderation";
 import { PLAYER_SKIN_TONES } from "../../shared/player-skin-tones";
 import { leaderboardPageTables, writeLeaderboardPages, readLeaderboardWindow, readLeaderboardPage } from "./leaderboard-pages";
 import { leaderboardEligible } from "../../shared/leaderboard-window";
+import { effectiveMovementSpeedForProgress } from "./player-speed";
+import { earlierTimestamp } from "./timestamp-utils";
+import { slotUpgradeDurationWithResearch } from "../../shared/utility-research";
 import { publicChatCursor, updatePublicChatCursor, readPublicChatPage } from "./public-chat-history";
 import { createKillGems } from "./kill-gems";
 import { createPrestige, statRewardMultiplier } from "./prestige";
@@ -65,7 +68,7 @@ import {
   RESEARCH_DEFINITIONS,
   isResearchId,
   researchDurationMs,
-  researchPrerequisitesForNextRank,
+  researchIsAvailable,
   type ResearchId,
 } from "../../shared/research";
 import { VIRTUAL_PLAYER_LIMIT, isVirtualPlayerTicket } from "../../shared/virtual-player-load-test";
@@ -806,6 +809,12 @@ const playerResearch = table(
     prosperity: t.u32().default(0),
     criticalDamage: t.u32().default(0),
     regeneration: t.u32().default(0),
+    researchSpeed: t.u32().default(0),
+    slotUpgradeSpeed: t.u32().default(0),
+    enemyRespawn: t.u32().default(0),
+    bossRespawn: t.u32().default(0),
+    offlineWindow: t.u32().default(0),
+    utilityMoveSpeed: t.u32().default(0),
   },
 );
 
@@ -1750,7 +1759,7 @@ const spacetimedb = schema({
   regularEnemyLootCursor, enemyDefeatBudget, bossDefeatWindow, bossMapDefeatWindow,
   enemyDefeatReview,
   playerMultiplayerPreference,
-  chatReaction, chatHeartAllowance, chatReactionCooldown, chatReactionSummary, playerChatHearts,
+  chatReaction, chatHeartAllowance, chatReactionCooldown, chatReactionSummary, chatReactionUnlock, playerChatHearts,
   playerUpgradeBench,
   playerInventoryCapacity,
   playerCutsceneHistory,
@@ -2247,7 +2256,8 @@ function samePlayerProgressValues(left: any, right: any) {
 }
 
 function defaultPlayerResearch(identity: any) {
-  return { identity, warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, regeneration: 0, criticalChance: 0, criticalDamage: 0, moveSpeed: 0, prosperity: 0 };
+  return { identity, warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, regeneration: 0, criticalChance: 0, criticalDamage: 0, moveSpeed: 0, prosperity: 0,
+    researchSpeed: 0, slotUpgradeSpeed: 0, enemyRespawn: 0, bossRespawn: 0, offlineWindow: 0, utilityMoveSpeed: 0 };
 }
 
 function researchForPlayer(ctx: any, identity: any) {
@@ -2266,9 +2276,7 @@ function researchForPlayer(ctx: any, identity: any) {
 function assertResearchAvailable(research: Record<ResearchId, number>, researchId: ResearchId) {
   const definition = RESEARCH_DEFINITIONS[researchId];
   if (research[researchId] >= definition.maxRank) throw new SenderError("Research already complete.");
-  for (const [requiredId, requiredRank] of Object.entries(researchPrerequisitesForNextRank(researchId, research[researchId]))) {
-    if (research[requiredId as ResearchId] < requiredRank!) throw new SenderError("Research prerequisites not met.");
-  }
+  if (!researchIsAvailable(researchId, research)) throw new SenderError("Research prerequisites not met.");
 }
 
 function activeResearchIsAvailable(research: Record<ResearchId, number>, active: any) {
@@ -2348,7 +2356,7 @@ function reconcileActiveResearch(ctx: any, active: any) {
   }
   const researchId = active.researchId as ResearchId;
   const expectedCompletesAtMicros = active.startedAt.microsSinceUnixEpoch +
-    BigInt(researchDurationMs(researchId, active.targetRank - 1)) * 1_000n;
+    BigInt(researchDurationMs(researchId, active.targetRank - 1, research.researchSpeed)) * 1_000n;
   const storedCompletesAtMicros = active.completesAt.microsSinceUnixEpoch;
   const completesAtMicros = storedCompletesAtMicros < expectedCompletesAtMicros
     ? storedCompletesAtMicros
@@ -2389,18 +2397,6 @@ function finishLifetimeSession(ctx: any, identity: any) {
     playedMicros: lifetime.playedMicros + (elapsed > 0n ? elapsed : 0n),
     sessionStartedAt: ctx.timestamp,
   });
-}
-
-function earlierTimestamp(first: Timestamp, second: Timestamp) {
-  return first.microsSinceUnixEpoch <= second.microsSinceUnixEpoch ? first : second;
-}
-
-function effectiveMovementSpeedForProgress(ctx: any, progress: any, research?: any) {
-  return effectivePlayerMovementSpeed(
-    false,
-    (research ?? ctx.db.playerResearch.identity.find(progress.identity))?.moveSpeed ?? 0,
-    progress.speedOverride ?? 0,
-  );
 }
 
 function markPlayerBalanceCurrent(ctx: any, identity = ctx.sender) {
@@ -5161,7 +5157,7 @@ export const startResearch = spacetimedb.reducer(
     }
     assertResearchAvailable(research, researchId);
     const targetRank = research[researchId] + 1;
-    const durationMicros = BigInt(researchDurationMs(researchId, research[researchId])) * 1_000n;
+    const durationMicros = BigInt(researchDurationMs(researchId, research[researchId], research.researchSpeed)) * 1_000n;
     const completesAtMicros = ctx.timestamp.microsSinceUnixEpoch + durationMicros;
     ctx.db.activeResearch.insert({
       identity: ctx.sender,
@@ -5417,7 +5413,7 @@ export const startItemUpgrade = spacetimedb.reducer(
       throw new SenderError(`Your ${UPGRADE_SLOT_LABELS[upgradeSlot]} slot is already at tier ${MAX_SLOT_UPGRADE_TIER}.`);
     }
 
-    const durationMicros = BigInt(itemUpgradeDurationMs(currentLevel)) * 1_000n;
+    const durationMicros = BigInt(slotUpgradeDurationWithResearch(itemUpgradeDurationMs(currentLevel), ctx.db.playerResearch.identity.find(ctx.sender)?.slotUpgradeSpeed ?? 0)) * 1_000n;
     const safeDurationMicros = durationMicros > 0n ? durationMicros : 1n;
     const completesAt = new Timestamp(ctx.timestamp.microsSinceUnixEpoch + safeDurationMicros);
     const nextActive = {
@@ -6197,7 +6193,7 @@ export const setSpeed = spacetimedb.reducer(
     const feet = progress ? equippedFeetForProgress(progress) : current.feetItem;
     const bootsEquipped = false;
     const moveSpeedRank = research?.moveSpeed ?? 0;
-    const expectedSpeed = effectivePlayerMovementSpeed(bootsEquipped, moveSpeedRank, progress?.speedOverride ?? 0);
+    const expectedSpeed = effectivePlayerMovementSpeed(bootsEquipped, moveSpeedRank, progress?.speedOverride ?? 0, research?.utilityMoveSpeed ?? 0);
     // Regular-enemy combat runs locally. Permit its two exact movement states,
     // while checking ownership/equipment here and never saving a temporary bonus.
     const blackBootsEquipped = progress && feet === BLACK_BOOTS;
@@ -6410,6 +6406,10 @@ export const setChatMessageReaction = spacetimedb.reducer(
   (ctx, { channel, messageId, reaction, active }) => {
     requireSocialPlayer(ctx); setChatReaction(ctx, channel, messageId, reaction, active);
   },
+);
+export const devGrantGemHeart = spacetimedb.reducer(
+  { identity: t.identity(), enabled: t.bool() },
+  (ctx, { identity, enabled }) => { if (!isDatabaseOwnerIdentity(ctx.sender)) throw new SenderError("Database owner required."); grantGemHeartUnlock(ctx, identity, enabled); },
 );
 export const getSocialHub = spacetimedb.procedure({}, t.string(), ctx => ctx.withTx(tx => {
   requireSocialPlayer(tx); return JSON.stringify(socialSnapshot(tx, hasSpacetimeAuthAccount(tx)));

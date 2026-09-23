@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   RESEARCH_DEFINITIONS,
   RESEARCH_IDS,
+  POWER_RESEARCH_IDS,
   RESEARCH_RANK_BAND_COUNT,
   createEmptyResearchRanks,
   researchDurationMs,
@@ -27,6 +28,35 @@ describe("research timer curve", () => {
     expect(researchDurationMs("regeneration", 0)).toBe(60_000);
     expect(researchDurationMs("criticalChance", 0)).toBe(120_000);
     expect(researchDurationMs("criticalChance", 50)).toBe(72 * 60 * 60 * 1_000);
+  });
+
+  it("unlocks each Utility row after one rank in the preceding row", () => {
+    const ranks = createEmptyResearchRanks();
+    expect(researchIsAvailable("researchSpeed", ranks)).toBe(true);
+    expect(researchIsAvailable("slotUpgradeSpeed", ranks)).toBe(false);
+    expect(researchIsAvailable("enemyRespawn", ranks)).toBe(false);
+    expect(researchIsAvailable("bossRespawn", ranks)).toBe(false);
+    expect(researchIsAvailable("offlineWindow", ranks)).toBe(false);
+    expect(researchIsAvailable("utilityMoveSpeed", ranks)).toBe(false);
+
+    ranks.researchSpeed = 1;
+    expect(researchIsAvailable("slotUpgradeSpeed", ranks)).toBe(true);
+    expect(researchIsAvailable("enemyRespawn", ranks)).toBe(true);
+    expect(researchIsAvailable("bossRespawn", ranks)).toBe(false);
+    ranks.enemyRespawn = 1;
+    expect(researchIsAvailable("bossRespawn", ranks)).toBe(true);
+    ranks.enemyRespawn = 0;
+    ranks.slotUpgradeSpeed = 1;
+    expect(researchIsAvailable("bossRespawn", ranks)).toBe(true);
+    ranks.bossRespawn = 1;
+    expect(researchIsAvailable("offlineWindow", ranks)).toBe(true);
+    expect(researchIsAvailable("utilityMoveSpeed", ranks)).toBe(true);
+
+    ranks.researchSpeed = 5;
+    ranks.offlineWindow = 3;
+    expect(researchIsAvailable("researchSpeed", ranks)).toBe(false);
+    expect(researchIsAvailable("offlineWindow", ranks)).toBe(false);
+    expect(researchPrerequisitesForNextRank("foraging", 5)).not.toHaveProperty("researchSpeed");
   });
 
   it("repeats every technology through four five-rank bands", () => {
@@ -71,7 +101,7 @@ describe("research timer curve", () => {
   });
 
   it("requires a complete tier before its next foundation node", () => {
-    const previousTier = Object.fromEntries(RESEARCH_IDS.map((id) => [id, 5]));
+    const previousTier = Object.fromEntries(POWER_RESEARCH_IDS.map((id) => [id, 5]));
     expect(researchPrerequisitesForNextRank("foraging", 5)).toEqual(previousTier);
 
     const incomplete = { ...createEmptyResearchRanks(), ...previousTier, regeneration: 4 };

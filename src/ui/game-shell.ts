@@ -364,7 +364,11 @@ const afterUpdateGateShell = String.raw`
       <h2 id="techTreeTitle" class="window-banner window-banner--blue"><span>Tech Research</span></h2>
       <div id="techTreeActive" class="tech-tree-active" aria-live="polite">NO RESEARCH ACTIVE</div>
     </header>
-    <div class="tech-tree-viewport">
+    <div id="techTreeCategories" class="tech-tree-categories" aria-label="Choose a research tree">
+      <button class="tech-tree-choice" type="button" data-research-tree="power"><span class="tech-tree-choice-icon" aria-hidden="true">⚔</span><strong>Power</strong><span>Combat and stat research</span><small class="tech-tree-choice-progress"></small></button>
+      <button class="tech-tree-choice" type="button" data-research-tree="utility"><span class="tech-tree-choice-icon" aria-hidden="true">✧</span><strong>Utility</strong><span>Timers, respawns and movement</span><small class="tech-tree-choice-progress"></small></button>
+    </div>
+    <div id="techTreeViewport" class="tech-tree-viewport" hidden>
       <div id="techTreeMap" class="tech-tree-map" aria-label="Technology tree">
         <canvas id="techTreeCanvas" aria-hidden="true"></canvas>
       </div>

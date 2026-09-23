@@ -69,6 +69,13 @@ it("caps a long absence at the window", () => {
   expect(fixture.db.offlineProgress.identity.find(fixture.ctx.sender).seconds).toBe(60 * 60);
 });
 
+it("credits ninety minutes to a player with all three offline-time ranks", () => {
+  const fixture = away(3 * OFFLINE_WINDOW_SECONDS);
+  fixture.seed("playerResearch", { identity: fixture.ctx.sender, offlineWindow: 3 });
+  enter(fixture);
+  expect(fixture.db.offlineProgress.identity.find(fixture.ctx.sender).seconds).toBe(90 * 60);
+});
+
 it("pays nothing for a reconnect", () => {
   const fixture = away(OFFLINE_MINIMUM_SECONDS - 1);
   const before = fixture.db.playerProgress.identity.find(fixture.ctx.sender).damage;

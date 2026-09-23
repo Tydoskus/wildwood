@@ -117,6 +117,7 @@ export function createChatMessageActionsController({
   showMessage,
 }: ChatMessageActionsOptions) {
   let selectedReactions: ChatReaction[] = [];
+  let gemHeartUnlocked = false;
   let reactionPending = false;
   let selectedMessage: ChatMessageActionTarget | null = null;
   let selectedReason: ChatReportReason | null = null;
@@ -218,12 +219,14 @@ export function createChatMessageActionsController({
     elements.layer.hidden = false;
     showActionMenu();
     selectedReactions = [];
+    gemHeartUnlocked = false;
     reactionPending = true;
     updateReactions();
     const openedRevision = presentationRevision;
-    if (canReactToMessage(target, getLocalIdentity())) void loadReactions(target).then(state => {
+    if (target.sender && getLocalIdentity() && !target.moderated) void loadReactions(target).then(state => {
       if (openedRevision !== presentationRevision) return;
       selectedReactions = state.selected;
+      gemHeartUnlocked = state.gemHeartUnlocked === true;
       reactionPending = false;
       updateReactions();
     }).catch(() => {
@@ -256,15 +259,21 @@ export function createChatMessageActionsController({
 
   function updateReactions() {
     for (const button of elements.reactions.querySelectorAll<HTMLButtonElement>("button")) {
-      button.disabled = reactionPending;
+      button.hidden = button.dataset.reaction === "gemHeart" && !gemHeartUnlocked;
+      button.disabled = reactionPending || !selectedMessage || !canReactToMessage(selectedMessage, getLocalIdentity());
       button.setAttribute("aria-pressed", String(selectedReactions.includes(button.dataset.reaction as ChatReaction)));
     }
   }
 
   function init() {
-    elements.reactions.replaceChildren(...CHAT_REACTIONS.map(({ id, emoji, label }) => {
+    elements.reactions.replaceChildren(...CHAT_REACTIONS.map(({ id, emoji, image, label }) => {
       const button = document.createElement("button");
-      button.type = "button"; button.textContent = emoji; button.dataset.reaction = id;
+      button.type = "button"; button.dataset.reaction = id;
+      if (image) {
+        const icon = document.createElement("img");
+        icon.src = image; icon.alt = ""; icon.draggable = false;
+        button.append(icon);
+      } else button.textContent = emoji;
       button.setAttribute("aria-label", label); button.setAttribute("aria-pressed", "false");
       button.addEventListener("click", async () => {
         if (!selectedMessage || reactionPending || !canReactToMessage(selectedMessage, getLocalIdentity())) return;

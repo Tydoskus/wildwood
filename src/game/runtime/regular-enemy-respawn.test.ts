@@ -155,3 +155,10 @@ it('uses the current map configuration and halves it for rewarded respawns', () 
   boost.setEnabled(true); expect(target.respawnAt).toBe(30);
   seconds = 60; expect(boost.respawnSeconds()).toBe(30);
 });
+
+it("applies the owner's enemy respawn research before the ad boost", () => {
+  const boost = createRegularEnemyRespawnBoost([], () => 0, { remainingMs: 60_000 }, 1, () => 20, () => {}, () => 5);
+  expect(boost.respawnSeconds()).toBe(17.5);
+  boost.setEnabled(true);
+  expect(boost.respawnSeconds()).toBe(8.75);
+});

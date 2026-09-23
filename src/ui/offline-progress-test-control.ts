@@ -1,4 +1,5 @@
 import { OFFLINE_WINDOW_SECONDS } from "../../shared/offline-progress";
+import { offlineWindowSecondsWithResearch } from "../../shared/utility-research";
 
 /**
  * Developer-only: backdate the unattended window and reconnect, so offline
@@ -11,6 +12,7 @@ import { OFFLINE_WINDOW_SECONDS } from "../../shared/offline-progress";
 export function createOfflineProgressTestControl(parent: HTMLElement, dependencies: {
   allowed: () => boolean;
   simulate: (seconds: number) => Promise<boolean>;
+  offlineWindowRank?: () => number;
   showMessage: (message: string, color: string) => void;
 }) {
   const form = document.createElement("form");
@@ -25,6 +27,9 @@ export function createOfflineProgressTestControl(parent: HTMLElement, dependenci
   let pending = false;
 
   function render() {
+    const maxMinutes = offlineWindowSecondsWithResearch(dependencies.offlineWindowRank?.() ?? 0) / 60;
+    if (input.value === input.max) input.value = String(maxMinutes);
+    input.max = String(maxMinutes);
     form.hidden = !dependencies.allowed();
     input.disabled = button.disabled = pending || form.hidden;
     button.textContent = pending ? "Applying…" : "Apply";
@@ -40,7 +45,7 @@ export function createOfflineProgressTestControl(parent: HTMLElement, dependenci
     }
     pending = true; render();
     try {
-      const applied = await dependencies.simulate(Math.min(OFFLINE_WINDOW_SECONDS, minutes * 60));
+      const applied = await dependencies.simulate(Math.min(offlineWindowSecondsWithResearch(dependencies.offlineWindowRank?.() ?? 0), minutes * 60));
       dependencies.showMessage(
         applied ? "TIME AWAY SET · RELOAD TO COLLECT" : "DEVELOPER CONNECTION REQUIRED",
         applied ? "#72ef58" : "#ffbc91",

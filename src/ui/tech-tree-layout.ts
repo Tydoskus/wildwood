@@ -1,8 +1,11 @@
 import {
   RESEARCH_RANK_BAND_COUNT,
+  RESEARCH_DEFINITIONS,
+  UTILITY_RESEARCH_IDS,
   researchRankBandEnd,
   researchRankBandStart,
   type ResearchId,
+  type ResearchTree,
 } from "../../shared/research";
 
 export type TechTreeNode = {
@@ -41,7 +44,24 @@ function nodeId(researchId: ResearchId, rankBandIndex: number) {
   return `tech-${rankBandIndex + 1}-${researchId}`;
 }
 
-export function createTechTreeLayout(): TechTreeLayout {
+export function createTechTreeLayout(tree: ResearchTree = "power"): TechTreeLayout {
+  if (tree === "utility") {
+    const node = (researchId: typeof UTILITY_RESEARCH_IDS[number]): TechTreeNode => ({
+      id: `tech-utility-${researchId}`, researchId, rankBandIndex: 0,
+      startRank: 0, endRank: RESEARCH_DEFINITIONS[researchId].maxRank,
+    });
+    const rows: TechTreeNode[][] = [
+      [node("researchSpeed")],
+      [node("slotUpgradeSpeed"), node("enemyRespawn")],
+      [node("bossRespawn")],
+      [node("offlineWindow"), node("utilityMoveSpeed")],
+    ];
+    const paths: TechTreeLayout["paths"] = [];
+    for (let row = 0; row < rows.length - 1; row += 1) {
+      for (const from of rows[row]) for (const to of rows[row + 1]) paths.push([from.id, to.id]);
+    }
+    return { rows, nodes: rows.flat(), paths };
+  }
   const rows: TechTreeNode[][] = [];
   const paths: Array<[string, string]> = [];
   for (let rankBandIndex = 0; rankBandIndex < RESEARCH_RANK_BAND_COUNT; rankBandIndex += 1) {

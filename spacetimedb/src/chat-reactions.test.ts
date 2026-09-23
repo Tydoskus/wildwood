@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { Timestamp } from "spacetimedb";
+import { Identity, Timestamp } from "spacetimedb";
 import { crystalFixture, server, identity } from "../../tests/helpers/crystal-hollows-fixture";
 import { readChatReactions, setChatReaction, removeMessageReactions, mergeAccountReactions } from "./chat-reactions";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
@@ -31,6 +31,28 @@ it("counts distinct reactions and credits each received heart only once", () => 
   removeMessageReactions(f.ctx as any, "public", 1n);
   expect([...f.db.chatReaction.iter()]).toHaveLength(0);
   expect(f.db.playerChatHearts.identity.find(f.author).chatHeartsReceived).toBe(2n);
+});
+it("counts gem hearts separately without increasing ordinary lifetime hearts", () => {
+  const f = fixture();
+  expect(() => f.react("gemHeart")).toThrow("Gem heart reaction is locked.");
+  f.seed("chatReactionUnlock", { identity: f.ctx.sender, gemHeart: true });
+  f.react("gemHeart");
+  expect(readChatReactions(f.ctx as any, "public", 1n)).toEqual({ counts: { gemHeart: 1 }, selected: ["gemHeart"], gemHeartUnlocked: true });
+  expect(f.db.playerChatHearts.identity.find(f.author)).toBeNull();
+  f.react("heart");
+  expect(readChatReactions(f.ctx as any, "public", 1n)).toEqual({ counts: { heart: 1 }, selected: ["heart"], gemHeartUnlocked: true });
+  expect(f.db.playerChatHearts.identity.find(f.author).chatHeartsReceived).toBe(1n);
+});
+it("lets only the database owner grant or revoke the gem heart", () => {
+  const f = fixture();
+  const recipient = f.ctx.sender;
+  expect(() => f.run(server.devGrantGemHeart, { identity: recipient, enabled: true })).toThrow("Database owner required.");
+  expect(f.db.chatReactionUnlock.identity.find(recipient)).toBeNull();
+  f.ctx.sender = Identity.fromString("c200383520521c925f3cf6deafb20cd6a7d6168d1c31cb3c0ddb731c197a2d79");
+  f.run(server.devGrantGemHeart, { identity: recipient, enabled: true });
+  expect(f.db.chatReactionUnlock.identity.find(recipient).gemHeart).toBe(true);
+  f.run(server.devGrantGemHeart, { identity: recipient, enabled: false });
+  expect(f.db.chatReactionUnlock.identity.find(recipient)).toBeNull();
 });
 it("rejects self reactions without changing counts or lifetime hearts", () => {
   const f = fixture();

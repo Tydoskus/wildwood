@@ -219,13 +219,13 @@ export function resolveOfflineFarming(
   orderedMapIds: readonly string[],
   stats: PlayerPowerStats,
   windowSeconds: number,
-  options: { balanceFor?: (mapId: string) => MapBalanceSnapshot | undefined; respawnSeconds?: number } = {},
+  options: { balanceFor?: (mapId: string) => MapBalanceSnapshot | undefined; respawnSeconds?: number; respawnSecondsFor?: (mapId: string) => number } = {},
 ): OfflineFarmOutcome | null {
   let best: OfflineFarmOutcome | null = null;
   for (const mapId of orderedMapIds) {
     const outcome = simulateOfflineFarming(mapId, stats, windowSeconds, {
       balance: options.balanceFor?.(mapId),
-      respawnSeconds: options.respawnSeconds,
+      respawnSeconds: options.respawnSecondsFor?.(mapId) ?? options.respawnSeconds,
     });
     if (outcome.survivable && outcome.kills > 0) return outcome;
     // Remember how far they got, so a player who survives nowhere still learns

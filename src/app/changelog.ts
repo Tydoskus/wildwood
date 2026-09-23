@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.794": [
+    "Power and Utility research now have separate tech trees. Utility adds faster research and slot upgrades, shorter respawns, a longer offline reward window, and movement speed.",
+    "Unlocked players can use an amethyst gem heart reaction in chat.",
+  ],
   "0.793": [
     "The leaderboard stays unlocked and keeps your new rank after you prestige.",
     "First boss kills in Zones 2–6 now reveal their next portal after the unlock arrives.",
@@ -2307,6 +2311,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.794": "2026-09-23",
   "0.793": "2026-09-23",
   "0.792": "2026-09-23",
   "0.791": "2026-09-22",

@@ -288,6 +288,8 @@ import {
     preloadAdjacentMapAssets(mapId);
     const atBase = mapId === "home_exterior";
     gameElements.techTreeBtn.setAttribute("aria-label", atBase ? "Return to enemy map" : "Teleport home");
+    const toolbarIcon = gameElements.techTreeBtn.querySelector<HTMLImageElement>(".toolbar-icon");
+    if (toolbarIcon) toolbarIcon.src = atBase ? "assets/wildstat/icons/Icon_AutoFarm.svg" : "assets/wildstat/icons/Icon_Home.svg";
     // The button always leaves the current map, so it names the destination.
     const toolbarLabel = gameElements.techTreeBtn.querySelector(".toolbar-label");
     if (toolbarLabel) toolbarLabel.textContent = atBase ? "Fight" : "Base";
@@ -336,6 +338,7 @@ import {
     localTestMultiplier,
     () => runtimeMapBalance(currentMapId)?.regularRespawnSeconds ?? 20,
     writeRespawnBoostBank,
+    () => coop?.research?.()?.enemyRespawn ?? 0,
   );
 
   window.addEventListener("pagehide", regularEnemyRespawnBoost.flush);
@@ -612,7 +615,7 @@ import {
     respawns: respawnMemory,
     fights: bossFightMemory,
     ready: () => mapBalance.ready(currentMapId) && Boolean(session?.isRunning() && coop?.isConnected?.()) && !mapController.isMapTransitioning(),
-    mapId: () => currentMapId, identity: () => coop?.localIdentity?.() ?? "local-player",
+    mapId: () => currentMapId, identity: () => coop?.localIdentity?.() ?? "local-player", bossRespawnRank: () => coop?.research?.()?.bossRespawn ?? 0,
     alive: () => player.hp > 0, now: () => Date.now(),
     defeated: mapId => {
       // Early bosses retain their saved cinematic/result flow. Later campaign and Endless
@@ -1509,7 +1512,7 @@ import {
 
   const devPanel = createDevPanel({
     coop,
-    simulateTimeAway: async (seconds: number) => Boolean(await coop?.simulateTimeAway?.(seconds)),
+    simulateTimeAway: async (seconds: number) => Boolean(await coop?.simulateTimeAway?.(seconds)), offlineWindowRank: () => coop?.research?.()?.offlineWindow ?? 0,
     teleportPlayer: async (query: string) => {
       if (!coop?.isDeveloper?.()) throw new Error("Developer access required.");
       const target = await coop.findTeleportPlayer(query);
@@ -1586,6 +1589,7 @@ import {
     gemBalance: () => coop?.gemBalance?.() ?? 0n,
     upgradeLevel: (itemId) => coop?.itemUpgradeLevel?.(itemId) ?? 0,
     slotTier: (track) => coop?.slotUpgradeTier?.(track) ?? 0,
+    slotUpgradeSpeedRank: () => coop?.research?.()?.slotUpgradeSpeed ?? 0,
     equippedIn: track => track === "HAND" ? (inventory.equippedRightHand || inventory.equippedLeftHand) : track === "HEAD" ? inventory.equippedHead : inventory.equippedChest,
     storage: localStorage, startUpgrade: async (slot, itemId, position) => coop?.startItemUpgrade?.(slot, itemId, position),
     localIdentity: () => coop?.localIdentity?.() ?? "",
