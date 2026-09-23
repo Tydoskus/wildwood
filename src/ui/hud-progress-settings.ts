@@ -1,10 +1,11 @@
 import { renderBooleanSetting } from "./settings";
 
-export type HudTimerKind = "research" | "slotOne" | "slotTwo";
+export type HudTimerKind = "research" | "slotOne" | "slotTwo" | "slotThree";
 const SETTINGS: readonly { kind: HudTimerKind; label: string; key: string }[] = [
   { kind: "research", label: "TECH TIMER", key: "wildstat-hud-tech-timer-visible" },
   { kind: "slotOne", label: "SLOT 1 TIMER", key: "wildstat-hud-slot-one-timer-visible" },
   { kind: "slotTwo", label: "SLOT 2 TIMER", key: "wildstat-hud-slot-two-timer-visible" },
+  { kind: "slotThree", label: "SLOT 3 TIMER", key: "wildstat-hud-slot-three-timer-visible" },
 ];
 
 /** Each countdown has its own saved visibility switch in Settings. */

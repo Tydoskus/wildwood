@@ -6,6 +6,7 @@ import {BOSS_DAMAGE_PROFILES} from "../boss-damage";
 import {BOSS_CONE_RANGE, FROSTCLAW_ROAR_RANGE, GLOOMROOT_SWEEP_RANGE, KOI_SHOGUN_SLASH_RANGE, MAGMALISK_BITE_RANGE, MIREMAW_TONGUE_RANGE, PRISMSHELL_SHATTER_RANGE, TEMPEST_KIRIN_CHARGE_RANGE, TIDEWYRM_SURGE_RANGE} from "../constants";
 import {DRAGON_MAX_HP, FROSTCLAW_MAX_HP, FROSTCLAW_REWARD_ARMOR, FROSTCLAW_REWARD_DAMAGE, FROSTCLAW_REWARD_HEALTH, GLOOMROOT_MAX_HP, GLOOMROOT_REWARD_ARMOR, GLOOMROOT_REWARD_DAMAGE, GLOOMROOT_REWARD_HEALTH, GLOOMROOT_REWARD_REGEN, KOI_SHOGUN_MAX_HP, KOI_SHOGUN_REWARD_ARMOR, KOI_SHOGUN_REWARD_DAMAGE, KOI_SHOGUN_REWARD_HEALTH, KOI_SHOGUN_REWARD_REGEN, MAGMALISK_MAX_HP, MAGMALISK_REWARD_ARMOR, MAGMALISK_REWARD_DAMAGE, MAGMALISK_REWARD_HEALTH, MAGMALISK_REWARD_REGEN, MIREMAW_MAX_HP, PRISMSHELL_MAX_HP, MIREMAW_REWARD_ARMOR, PRISMSHELL_REWARD_ARMOR, MIREMAW_REWARD_DAMAGE, PRISMSHELL_REWARD_DAMAGE, MIREMAW_REWARD_HEALTH, PRISMSHELL_REWARD_HEALTH, MIREMAW_REWARD_REGEN, PRISMSHELL_REWARD_REGEN, TEMPEST_KIRIN_MAX_HP, TEMPEST_KIRIN_REWARD_ARMOR, TEMPEST_KIRIN_REWARD_DAMAGE, TEMPEST_KIRIN_REWARD_HEALTH, TEMPEST_KIRIN_REWARD_REGEN, TIDEWYRM_MAX_HP, TIDEWYRM_REWARD_ARMOR, TIDEWYRM_REWARD_DAMAGE, TIDEWYRM_REWARD_HEALTH, TIDEWYRM_REWARD_REGEN} from "../../../shared/rules";
 import {bossAbilityTimelineAt} from "../../../shared/boss-simulation";
+import {rewardLabel} from "../enemies";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -233,6 +234,7 @@ describe("Boss defeat presentation", () => {
         worldNoticeDetail: worldNoticeDetail as unknown as HTMLElement,
       },
       logPickup,
+      rewardMultiplier: () => 1.2,
     });
 
     controller.syncFrostclawState();
@@ -243,6 +245,11 @@ describe("Boss defeat presentation", () => {
     expect(noticeTitle.textContent).toBe("FROSTCLAW DEFEATED");
     expect(worldNoticeDetail.children).toHaveLength(1);
     expect(logPickup).toHaveBeenCalledTimes(3);
+    expect(logPickup).toHaveBeenCalledWith(
+      rewardLabel({ type: "damage", amount: FROSTCLAW_REWARD_DAMAGE * 1.2 }),
+      "#ff655a",
+      rewardLabel({ type: "damage", amount: FROSTCLAW_REWARD_DAMAGE }),
+    );
   });
 });
 

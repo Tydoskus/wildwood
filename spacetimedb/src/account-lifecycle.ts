@@ -59,6 +59,7 @@ export type AccountLifecycleDeps = {
   LEGACY_CLIENT_ERRORS: { existingAccountProgress: string };
   UPGRADE_BENCH_SLOT_ONE: number;
   UPGRADE_BENCH_SLOT_TWO: number;
+  UPGRADE_BENCH_SLOT_THREE: number;
   guildService: {
     removeAccount: (ctx: any, identity: any) => void;
     mergeGuest: (ctx: any, guest: any, accountIdentity: any) => void;
@@ -101,7 +102,7 @@ export type AccountLifecycleDeps = {
 
 export function createAccountLifecycle(deps: AccountLifecycleDeps) {
   const {
-    LEGACY_CLIENT_ERRORS, UPGRADE_BENCH_SLOT_ONE, UPGRADE_BENCH_SLOT_TWO, guildService,
+    LEGACY_CLIENT_ERRORS, UPGRADE_BENCH_SLOT_ONE, UPGRADE_BENCH_SLOT_TWO, UPGRADE_BENCH_SLOT_THREE, guildService,
     activeDuelFor, activeItemUpgradeForSlot, adjustVirtualPlayerCount, applyGemBalanceChange,
     earlierTimestamp, effectiveMovementSpeedForProgress, ensureCutsceneHistory, ensureGemWallet,
     ensureItemUpgradeCompletionSchedule, ensureResearchCompletionSchedule,
@@ -264,7 +265,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
       if (accountUpgrade) updateSnapshotRow(ctx, "playerItemUpgrade", transferred);
       else insertSnapshotRow(ctx, "playerItemUpgrade", transferred);
     }
-    for (const slot of [UPGRADE_BENCH_SLOT_ONE, UPGRADE_BENCH_SLOT_TWO]) {
+    for (const slot of [UPGRADE_BENCH_SLOT_ONE, UPGRADE_BENCH_SLOT_TWO, UPGRADE_BENCH_SLOT_THREE]) {
       const guestActiveItemUpgrade = activeItemUpgradeForSlot(ctx, link.guest, slot);
       const accountActiveItemUpgrade = activeItemUpgradeForSlot(ctx, ctx.sender, slot);
       if (guestActiveItemUpgrade && !accountActiveItemUpgrade) {
@@ -279,11 +280,18 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
 
     const guestUpgradeBench = ctx.db.playerUpgradeBench.identity.find(link.guest);
     const accountUpgradeBench = ctx.db.playerUpgradeBench.identity.find(ctx.sender);
-    if (guestUpgradeBench?.secondSlotUnlocked && !accountUpgradeBench?.secondSlotUnlocked) {
-      const transferred = { identity: ctx.sender, secondSlotUnlocked: true, updatedAt: ctx.timestamp };
+    const guestThirdSlot = ctx.db.playerUpgradeBenchThirdSlot.identity.find(link.guest);
+    const accountThirdSlot = ctx.db.playerUpgradeBenchThirdSlot.identity.find(ctx.sender);
+    if ((guestUpgradeBench?.secondSlotUnlocked || guestThirdSlot) && !accountUpgradeBench?.secondSlotUnlocked) {
+      const transferred = {
+        identity: ctx.sender,
+        secondSlotUnlocked: true,
+        updatedAt: ctx.timestamp,
+      };
       if (accountUpgradeBench) ctx.db.playerUpgradeBench.identity.update(transferred);
       else ctx.db.playerUpgradeBench.insert(transferred);
     }
+    if (guestThirdSlot && !accountThirdSlot) ctx.db.playerUpgradeBenchThirdSlot.insert({ identity: ctx.sender, updatedAt: ctx.timestamp });
     const guestInventoryCapacity = ctx.db.playerInventoryCapacity.identity.find(link.guest);
     const accountInventoryCapacity = ctx.db.playerInventoryCapacity.identity.find(ctx.sender);
     if (guestInventoryCapacity) {
@@ -632,6 +640,7 @@ for (const [contributionTable, attackWindowTable] of [
     const guestGemWallet = ctx.db.playerGemWallet.identity.find(link.guest);
     if (guestGemWallet) ctx.db.playerGemWallet.identity.delete(link.guest);
     if (ctx.db.playerUpgradeBench.identity.find(link.guest)) ctx.db.playerUpgradeBench.identity.delete(link.guest);
+    if (ctx.db.playerUpgradeBenchThirdSlot.identity.find(link.guest)) ctx.db.playerUpgradeBenchThirdSlot.identity.delete(link.guest);
     if (ctx.db.playerInventoryCapacity.identity.find(link.guest)) ctx.db.playerInventoryCapacity.identity.delete(link.guest);
     ctx.db.playerCutsceneHistory.identity.delete(link.guest);
     transferPlayerBlocks(ctx, link.guest, ctx.sender);
@@ -718,6 +727,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.playerOnboarding.identity.find(identity)) ctx.db.playerOnboarding.identity.delete(identity);
     if (ctx.db.playerMapBalance.identity.find(identity)) ctx.db.playerMapBalance.identity.delete(identity);
     if (ctx.db.playerUpgradeBench.identity.find(identity)) ctx.db.playerUpgradeBench.identity.delete(identity);
+    if (ctx.db.playerUpgradeBenchThirdSlot.identity.find(identity)) ctx.db.playerUpgradeBenchThirdSlot.identity.delete(identity);
     if (ctx.db.playerInventoryCapacity.identity.find(identity)) ctx.db.playerInventoryCapacity.identity.delete(identity);
     if (ctx.db.playerCutsceneHistory.identity.find(identity)) ctx.db.playerCutsceneHistory.identity.delete(identity);
     if (ctx.db.playerAccessAudit.identity.find(identity)) ctx.db.playerAccessAudit.identity.delete(identity);
@@ -819,6 +829,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.playerOnboarding.identity.find(identity)) ctx.db.playerOnboarding.identity.delete(identity);
     if (ctx.db.playerMapBalance.identity.find(identity)) ctx.db.playerMapBalance.identity.delete(identity);
     if (ctx.db.playerUpgradeBench.identity.find(identity)) ctx.db.playerUpgradeBench.identity.delete(identity);
+    if (ctx.db.playerUpgradeBenchThirdSlot.identity.find(identity)) ctx.db.playerUpgradeBenchThirdSlot.identity.delete(identity);
     if (ctx.db.playerInventoryCapacity.identity.find(identity)) ctx.db.playerInventoryCapacity.identity.delete(identity);
     if (ctx.db.playerCutsceneHistory.identity.find(identity)) ctx.db.playerCutsceneHistory.identity.delete(identity);
     if (ctx.db.playerAccessAudit.identity.find(identity)) ctx.db.playerAccessAudit.identity.delete(identity);

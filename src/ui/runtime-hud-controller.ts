@@ -87,6 +87,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
   let itemDropActive = false;
   let itemDropTimer: number | null = null;
   const activeStatRewards = new Map<string, ActiveStatReward>();
+  let rewardDisplayMode: "total" | "base" = "total";
   let completionToastId = 0;
 
   function showMessage(text: string, color = "#fff") {
@@ -116,7 +117,17 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
     }, 2_400);
   }
 
-  function logPickup(text: string, color: string) {
+  function logPickup(text: string, color: string, mode: "total" | "base" = "total") {
+    if (mode !== rewardDisplayMode) {
+      for (const [key, reward] of activeStatRewards) {
+        if (key.startsWith("completion:")) continue;
+        window.clearTimeout(reward.fadeTimer);
+        window.clearTimeout(reward.removeTimer);
+        reward.entry.remove();
+        activeStatRewards.delete(key);
+      }
+      rewardDisplayMode = mode;
+    }
     const attackSpeedCapped = dependencies.player.attackRate <= MIN_ATTACK_INTERVAL + 1e-7;
     const model = statRewardToastModel(text, attackSpeedCapped);
     const active = model ? activeStatRewards.get(model.stat) : undefined;

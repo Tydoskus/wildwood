@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.795": [
+    "Auto Farm and stat reward popups show total gains by default, with a setting to show base gains.",
+    "A third concurrent slot upgrade unlocks for 200 Gems after slot two, with its own timer and Inventory notification.",
+    "Item received popups show the item name without a slot upgrade tier.",
+  ],
   "0.794": [
     "Power and Utility research now have separate tech trees. Utility adds faster research and slot upgrades, shorter respawns, a longer offline reward window, and movement speed.",
     "Unlocked players can use an amethyst gem heart reaction in chat.",
@@ -2311,6 +2316,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.795": "2026-09-23",
   "0.794": "2026-09-23",
   "0.793": "2026-09-23",
   "0.792": "2026-09-23",

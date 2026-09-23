@@ -449,6 +449,15 @@ export function installGameShell(doc: Document = document) {
   const settingsPanel = doc.getElementById("settingsPanel");
   if (settingsPanel && settingsPanel.parentElement !== doc.body) doc.body.append(settingsPanel);
   installFeedbackControls(doc);
+  if (!doc.getElementById("baseStatRewardsToggle")) {
+    doc.getElementById("statTrackerToggle")?.closest(".setting-row")?.insertAdjacentHTML("afterend", `
+      <div class="setting-row"><span>BASE STAT REWARDS</span>
+      <button id="baseStatRewardsToggle" class="setting-toggle" type="button" aria-label="Show base stat rewards in autofarm and reward popups" aria-pressed="false">OFF</button></div>`);
+  }
+  if (!doc.getElementById("upgradeBenchSlotThree")) {
+    doc.getElementById("upgradeBenchSlotTwo")?.insertAdjacentHTML("afterend", `
+      <button id="upgradeBenchSlotThree" class="inventory-item upgrade-bench-slot is-locked" type="button" aria-label="Unlock a third upgrade slot for 200 Gems" aria-pressed="false" hidden></button>`);
+  }
   installSettingsTabs(doc);
   const start = doc.getElementById("start");
   if (!start) throw new Error("WildStat startup shell is missing #start");

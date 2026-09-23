@@ -1,4 +1,4 @@
-export const GAME_VERSION = "0.794";
+export const GAME_VERSION = "0.795";
 export const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
 export const SCREEN_SHAKE_ENABLED_KEY = "wildwood-screen-shake-enabled-v1";
 export const LOW_PERFORMANCE_MODE_KEY = "wildwood-low-performance-mode-v1";
@@ -7,6 +7,15 @@ export const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
 export const BOSS_HITBOX_VISIBLE_KEY = "wildwood-boss-hitbox-visible-v1";
 export const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
 export const SFX_VOLUME_KEY = "wildwood-sfx-volume-v1";
+export const APP_SHELL_STORAGE_KEYS = {
+  attackRange: ATTACK_RANGE_VISIBLE_KEY,
+  fps: FPS_VISIBLE_KEY,
+  lowPerformance: LOW_PERFORMANCE_MODE_KEY,
+  latency: LATENCY_VISIBLE_KEY,
+  musicVolume: MUSIC_VOLUME_KEY,
+  screenShake: SCREEN_SHAKE_ENABLED_KEY,
+  sfxVolume: SFX_VOLUME_KEY,
+} as const;
 /**
  * The reward became a bank the player spends, so the stored shape changed from
  * an expiry instant to remaining milliseconds plus the switch position. A new

@@ -32,6 +32,8 @@ export type BaseSubscriptionHandlers = {
   removeBalanceApologyNotice: RowHandler;
   upgradeBench: RowHandler;
   removeUpgradeBench: RowHandler;
+  upgradeBenchThirdSlot: RowHandler;
+  removeUpgradeBenchThirdSlot: RowHandler;
   inventoryCapacity: RowHandler;
   removeInventoryCapacity: RowHandler;
   cutsceneHistory: RowHandler;
@@ -57,8 +59,8 @@ export type BaseSubscriptionHandlers = {
   removePrestigePerk: RowHandler;
   itemUpgrade: RowHandler;
   removeItemUpgrade: RowHandler;
-  activeItemUpgrade: (row: any, slot: 1 | 2) => void;
-  removeActiveItemUpgrade: (row: any, slot: 1 | 2) => void;
+  activeItemUpgrade: (row: any, slot: 1 | 2 | 3) => void;
+  removeActiveItemUpgrade: (row: any, slot: 1 | 2 | 3) => void;
   itemDrop: RowHandler;
   gemDrop: RowHandler;
   lifetime: RowHandler;
@@ -125,6 +127,8 @@ type BaseSubscriptionHandlerSources = {
     removeBalanceApologyNotice: BaseSubscriptionHandlers["removeBalanceApologyNotice"];
     upsertUpgradeBench: BaseSubscriptionHandlers["upgradeBench"];
     removeUpgradeBench: BaseSubscriptionHandlers["removeUpgradeBench"];
+    upsertUpgradeBenchThirdSlot: BaseSubscriptionHandlers["upgradeBenchThirdSlot"];
+    removeUpgradeBenchThirdSlot: BaseSubscriptionHandlers["removeUpgradeBenchThirdSlot"];
     upsertInventoryCapacity: BaseSubscriptionHandlers["inventoryCapacity"];
     removeInventoryCapacity: BaseSubscriptionHandlers["removeInventoryCapacity"];
     upsertCutsceneHistory: BaseSubscriptionHandlers["cutsceneHistory"];
@@ -178,6 +182,8 @@ export function createBaseSubscriptionHandlers(sources: BaseSubscriptionHandlerS
     removeBalanceApologyNotice: progression.removeBalanceApologyNotice,
     upgradeBench: progression.upsertUpgradeBench,
     removeUpgradeBench: progression.removeUpgradeBench,
+    upgradeBenchThirdSlot: progression.upsertUpgradeBenchThirdSlot,
+    removeUpgradeBenchThirdSlot: progression.removeUpgradeBenchThirdSlot,
     inventoryCapacity: progression.upsertInventoryCapacity,
     removeInventoryCapacity: progression.removeInventoryCapacity,
     cutsceneHistory: progression.upsertCutsceneHistory,
@@ -291,6 +297,8 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   connection.db.myUpgradeBench.onInsert((_ctx, row) => { if (shouldHandle()) handlers.upgradeBench(row); });
   connection.db.myUpgradeBench.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.upgradeBench(row); });
   connection.db.myUpgradeBench.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeUpgradeBench(row); });
+  connection.db.myUpgradeBenchThirdSlot.onInsert((_ctx, row) => { if (shouldHandle()) handlers.upgradeBenchThirdSlot(row); });
+  connection.db.myUpgradeBenchThirdSlot.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeUpgradeBenchThirdSlot(row); });
   connection.db.myInventoryCapacity.onInsert((_ctx, row) => { if (shouldHandle()) handlers.inventoryCapacity(row); });
   connection.db.myInventoryCapacity.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.inventoryCapacity(row); });
   connection.db.myInventoryCapacity.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeInventoryCapacity(row); });
@@ -336,6 +344,9 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   connection.db.activeItemUpgradeSlotTwo.onInsert((_ctx, row) => { if (shouldHandle()) handlers.activeItemUpgrade(row, 2); });
   connection.db.activeItemUpgradeSlotTwo.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.activeItemUpgrade(row, 2); });
   connection.db.activeItemUpgradeSlotTwo.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeActiveItemUpgrade(row, 2); });
+  connection.db.activeItemUpgradeSlotThree.onInsert((_ctx, row) => { if (shouldHandle()) handlers.activeItemUpgrade(row, 3); });
+  connection.db.activeItemUpgradeSlotThree.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.activeItemUpgrade(row, 3); });
+  connection.db.activeItemUpgradeSlotThree.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeActiveItemUpgrade(row, 3); });
   connection.db.playerItemDrop.onInsert((_ctx, row) => { if (shouldHandle()) handlers.itemDrop(row); });
   connection.db.playerItemDrop.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.itemDrop(row); });
   connection.db.playerGemDrop.onInsert((_ctx, row) => { if (shouldHandle()) handlers.gemDrop(row); });
@@ -387,6 +398,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.myMailboxV2,
       tables.myOnboarding,
       tables.myUpgradeBench,
+      tables.myUpgradeBenchThirdSlot,
       tables.myInventoryCapacity,
       tables.myCutsceneHistory,
       ...(dependencies.includeDeveloperTables ? [tables.devAccessAudit, tables.devBugReports, tables.devForestRewardPrototype] : []),
@@ -408,6 +420,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.playerItemUpgrade.where((upgrade) => upgrade.identity.eq(dependencies.identity)),
       tables.activeItemUpgrade.where((upgrade) => upgrade.identity.eq(dependencies.identity)),
       tables.activeItemUpgradeSlotTwo.where((upgrade) => upgrade.identity.eq(dependencies.identity)),
+      tables.activeItemUpgradeSlotThree.where((upgrade) => upgrade.identity.eq(dependencies.identity)),
       tables.playerItemDrop.where((drop) => drop.identity.eq(dependencies.identity)),
       tables.playerGemDrop.where((drop) => drop.identity.eq(dependencies.identity)),
       tables.playerChatHearts.where(row => row.identity.eq(dependencies.identity)),
@@ -430,6 +443,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
           for (const row of connection.db.myItemGifts.iter()) handlers.itemGift(row);
           for (const row of connection.db.myOnboarding.iter()) handlers.onboarding(row);
           for (const row of connection.db.myUpgradeBench.iter()) handlers.upgradeBench(row);
+          for (const row of connection.db.myUpgradeBenchThirdSlot.iter()) handlers.upgradeBenchThirdSlot(row);
           for (const row of connection.db.myInventoryCapacity.iter()) handlers.inventoryCapacity(row);
           for (const row of connection.db.myCutsceneHistory.iter()) handlers.cutsceneHistory(row);
           for (const row of connection.db.devAccessAudit.iter()) handlers.accessAudit(row);
@@ -447,6 +461,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
           for (const row of connection.db.playerItemUpgrade.iter()) handlers.itemUpgrade(row);
           for (const row of connection.db.activeItemUpgrade.iter()) handlers.activeItemUpgrade(row, 1);
           for (const row of connection.db.activeItemUpgradeSlotTwo.iter()) handlers.activeItemUpgrade(row, 2);
+          for (const row of connection.db.activeItemUpgradeSlotThree.iter()) handlers.activeItemUpgrade(row, 3);
           for (const row of connection.db.playerItemDrop.iter()) handlers.itemDrop(row);
           for (const row of connection.db.playerGemDrop.iter()) handlers.gemDrop(row);
           for (const row of connection.db.playerChatHearts.iter()) handlers.chatHearts(row);

@@ -9,4 +9,9 @@ describe("item drop reveal", () => {
   it("preserves other unique equipment names", () => {
     expect(itemDropRevealName("WOODEN ARMOR")).toBe("WOODEN ARMOR");
   });
+
+  it("omits an upgrade tier from an item received popup", () => {
+    expect(itemDropRevealName("FROST BOW +3")).toBe("FROST BOW");
+    expect(itemDropRevealName("+2 Gems")).toBe("+2 Gems");
+  });
 });

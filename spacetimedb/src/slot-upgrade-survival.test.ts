@@ -3,6 +3,8 @@ import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixt
 import { HOME_BENCH_POSITION } from "../../shared/home";
 import { itemUpgradeDurationMs } from "../../shared/items";
 import { slotUpgradeDurationWithResearch } from "../../shared/utility-research";
+import { UPGRADE_BENCH_THIRD_SLOT_GEM_COST } from "../../shared/gems";
+import { Timestamp } from "spacetimedb";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 /** A slot upgrade part-way through, as startItemUpgrade writes it. */
@@ -59,4 +61,38 @@ it("starts new slot upgrades at the researched speed", () => {
   const active = f.db.activeItemUpgrade.identity.find(f.ctx.sender);
   expect(active.completesAt.microsSinceUnixEpoch - active.startedAt.microsSinceUnixEpoch)
     .toBe(BigInt(slotUpgradeDurationWithResearch(itemUpgradeDurationMs(0), 5)) * 1_000n);
+});
+
+it("requires slot two, charges 200 Gems once, and completes slot three beside two running jobs", () => {
+  const f = crystalFixture();
+  f.patch("player", { mapId: "home_exterior", x: HOME_BENCH_POSITION.x, y: HOME_BENCH_POSITION.y });
+  f.seed("playerGemWallet", { identity: f.ctx.sender, balance: UPGRADE_BENCH_THIRD_SLOT_GEM_COST });
+  expect(() => f.run(server.unlockThirdUpgradeSlot)).toThrow("second upgrade slot first");
+  f.seed("playerUpgradeBench", { identity: f.ctx.sender, secondSlotUnlocked: true });
+  expect(() => f.run(server.startItemUpgrade, { slot: 3, itemId: "CHEST" })).toThrow("third upgrade slot first");
+  f.patch("playerGemWallet", { balance: UPGRADE_BENCH_THIRD_SLOT_GEM_COST - 1n });
+  expect(() => f.run(server.unlockThirdUpgradeSlot)).toThrow("Not enough Gems");
+  expect(f.db.playerUpgradeBenchThirdSlot.identity.find(f.ctx.sender)).toBeNull();
+  f.patch("playerGemWallet", { balance: UPGRADE_BENCH_THIRD_SLOT_GEM_COST });
+  f.run(server.unlockThirdUpgradeSlot);
+  expect(f.db.playerGemWallet.identity.find(f.ctx.sender)?.balance).toBe(0n);
+  expect(f.db.playerUpgradeBenchThirdSlot.identity.find(f.ctx.sender)).not.toBeNull();
+  f.run(server.unlockThirdUpgradeSlot);
+  expect(f.db.playerGemWallet.identity.find(f.ctx.sender)?.balance).toBe(0n);
+
+  f.run(server.startItemUpgrade, { slot: 1, itemId: "HAND" });
+  f.run(server.startItemUpgrade, { slot: 2, itemId: "HEAD" });
+  f.run(server.startItemUpgrade, { slot: 3, itemId: "CHEST" });
+  expect(f.db.activeItemUpgrade.identity.find(f.ctx.sender)?.itemId).toBe("HAND");
+  expect(f.db.activeItemUpgradeSlotTwo.identity.find(f.ctx.sender)?.itemId).toBe("HEAD");
+  const third = f.db.activeItemUpgradeSlotThree.identity.find(f.ctx.sender);
+  expect(third?.itemId).toBe("CHEST");
+  const schedule = [...f.db.itemUpgradeCompletionSchedule.iter()].find((row: any) => row.slot === 3);
+  expect(schedule).toBeDefined();
+  f.ctx.timestamp = new Timestamp(third.completesAt.microsSinceUnixEpoch);
+  f.run(server.completeItemUpgrade, { schedule });
+  expect(f.db.activeItemUpgradeSlotThree.identity.find(f.ctx.sender)).toBeNull();
+  expect(f.db.playerItemUpgrade.key.find(`${f.ctx.sender.toHexString()}:CHEST`)?.level).toBe(1);
+  expect(f.db.activeItemUpgrade.identity.find(f.ctx.sender)?.itemId).toBe("HAND");
+  expect(f.db.activeItemUpgradeSlotTwo.identity.find(f.ctx.sender)?.itemId).toBe("HEAD");
 });

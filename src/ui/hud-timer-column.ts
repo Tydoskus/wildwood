@@ -36,8 +36,9 @@ export function createHudTimerColumn(elements: Elements, dependencies: Dependenc
   const researchTimer = timer("tech", "Tech");
   const slotOneTimer = timer("slot", "Slot 1");
   const slotTwoTimer = timer("slot", "Slot 2");
+  const slotThreeTimer = timer("slot", "Slot 3");
   elements.enemyRespawnAdBtn.before(column);
-  column.append(researchTimer, slotOneTimer, slotTwoTimer, elements.enemyRespawnBoostStatus, elements.enemyRespawnAdBtn);
+  column.append(researchTimer, slotOneTimer, slotTwoTimer, slotThreeTimer, elements.enemyRespawnBoostStatus, elements.enemyRespawnAdBtn);
 
   const rewardedRespawnAd = createRewardedRespawnAdController({
     button: elements.enemyRespawnAdBtn,
@@ -59,10 +60,12 @@ export function createHudTimerColumn(elements: Elements, dependencies: Dependenc
     research: researchTimer,
     slotOne: slotOneTimer,
     slotTwo: slotTwoTimer,
+    slotThree: slotThreeTimer,
   }, { ...dependencies, visible: () => ({
     research: settings.visible("research"),
     slotOne: settings.visible("slotOne"),
     slotTwo: settings.visible("slotTwo"),
+    slotThree: settings.visible("slotThree"),
   }) });
   window.setInterval(timers.tick, 1_000);
   document.addEventListener("visibilitychange", timers.tick);

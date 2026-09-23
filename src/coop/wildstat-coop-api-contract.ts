@@ -135,6 +135,7 @@ type ExpectedApiKey =
   | "savedProgress"
   | "serverNowMs"
   | "secondUpgradeSlotUnlocked"
+  | "thirdUpgradeSlotUnlocked"
   | "sendChatMessage"
   | "sessionGeneration"
   | "setAccessAuditLabel"
@@ -181,6 +182,7 @@ type ExpectedApiKey =
   | "unlockInventorySlot"
   | "destroyEquipment"
   | "unlockSecondUpgradeSlot"
+  | "unlockThirdUpgradeSlot"
   | "updatePlayerSave"
   | "virtualPlayerLoadTestState";
 

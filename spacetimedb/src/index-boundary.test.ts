@@ -61,7 +61,10 @@ import { describe, expect, it } from "vitest";
 // 6_769: record_enemy_defeats writes the public player row only when the
 // compact power a player sees would change, and the note saying why. It was
 // broadcasting to everyone on the map on nearly every kill report.
-const MAX_LINES = 6_769;
+// 6_780: the third paid upgrade slot adds a private unlock table, an
+// identity-scoped view and a reducer declaration. The separate table keeps
+// the live bench row unchanged so older clients remain connected.
+const MAX_LINES = 6_780;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

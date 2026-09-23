@@ -36,6 +36,18 @@ export const ActiveItemUpgrade = __t.object("ActiveItemUpgrade", {
 });
 export type ActiveItemUpgrade = __Infer<typeof ActiveItemUpgrade>;
 
+export const ActiveItemUpgradeSlotThree = __t.object("ActiveItemUpgradeSlotThree", {
+  identity: __t.identity(),
+  itemId: __t.string(),
+  currentLevel: __t.u8(),
+  targetLevel: __t.u8(),
+  startedAt: __t.timestamp(),
+  completesAt: __t.timestamp(),
+  paused: __t.bool(),
+  remainingMicros: __t.u64(),
+});
+export type ActiveItemUpgradeSlotThree = __Infer<typeof ActiveItemUpgradeSlotThree>;
+
 export const ActiveItemUpgradeSlotTwo = __t.object("ActiveItemUpgradeSlotTwo", {
   identity: __t.identity(),
   itemId: __t.string(),
@@ -1307,6 +1319,9 @@ export type MySocialMessagesWithReactions = __Infer<typeof MySocialMessagesWithR
 export const MyUpgradeBench = __t.object("MyUpgradeBench", {});
 export type MyUpgradeBench = __Infer<typeof MyUpgradeBench>;
 
+export const MyUpgradeBenchThirdSlot = __t.object("MyUpgradeBenchThirdSlot", {});
+export type MyUpgradeBenchThirdSlot = __Infer<typeof MyUpgradeBenchThirdSlot>;
+
 export const NameChangeStatus = __t.object("NameChangeStatus", {
   cost: __t.u32(),
   availableAtMs: __t.f64(),
@@ -1895,6 +1910,12 @@ export const PlayerUpgradeBench = __t.object("PlayerUpgradeBench", {
   updatedAt: __t.timestamp(),
 });
 export type PlayerUpgradeBench = __Infer<typeof PlayerUpgradeBench>;
+
+export const PlayerUpgradeBenchThirdSlot = __t.object("PlayerUpgradeBenchThirdSlot", {
+  identity: __t.identity(),
+  updatedAt: __t.timestamp(),
+});
+export type PlayerUpgradeBenchThirdSlot = __Infer<typeof PlayerUpgradeBenchThirdSlot>;
 
 export const PresenceChatCooldown = __t.object("PresenceChatCooldown", {
   identity: __t.identity(),

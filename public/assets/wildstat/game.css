@@ -567,6 +567,7 @@
   .upgrade-bench-prompt { margin: 0; color: #f6f3e7; font-size: var(--font-readable-body); font-weight: 900; line-height: var(--line-height-readable); letter-spacing: .03em; }
   .upgrade-bench-slots { display: flex; align-items: center; justify-content: center; gap: 16px; }
   .inventory-item.upgrade-bench-slot { display: grid; grid-template-rows: 1fr; place-items: center; width: clamp(60px, 18.75vw, 76px); min-width: clamp(60px, 18.75vw, 76px); height: clamp(60px, 18.75vw, 76px); min-height: clamp(60px, 18.75vw, 76px); aspect-ratio: 1; padding: 5px; }
+  .inventory-item.upgrade-bench-slot[hidden] { display: none; }
   .inventory-item.upgrade-bench-slot.is-selected { border-color: #b8f29d; box-shadow: 0 0 0 2px rgba(126,220,119,.42), inset 0 -3px 0 rgba(0,0,0,.32); }
   .inventory-item.upgrade-bench-slot.is-active { background: linear-gradient(#3c321f, #211a10); }
   .inventory-item.upgrade-bench-slot.is-locked { grid-template-rows: 1fr auto; gap: 1px; border-color: #70536a; background: linear-gradient(#332832, #1b161b); color: #f0d8e6; }

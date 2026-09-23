@@ -8,6 +8,9 @@ import { createGameBootstrap } from "./game-bootstrap";
 import { bossPlayerAttackCycle } from "../../../shared/boss-simulation";
 import { remoteBossAttackFrame } from "../../coop/services/remote-boss-attack";
 import { createEnemyLifecycle } from "./enemy-lifecycle";
+import { rewardLabel } from "../enemies";
+import { researchStatRewardMultiplier } from "../../../shared/research";
+import { prestigeStatMultiplier } from "../../../shared/prestige";
 
 function createCombatHarness(overrides: Partial<Parameters<typeof createPlayerCombatController>[0]> = {}) {
   const state = createGameBootstrap();
@@ -68,6 +71,25 @@ function createCombatHarness(overrides: Partial<Parameters<typeof createPlayerCo
 }
 
 describe("player attack timing", () => {
+  it("reports both earned and base stat rewards after research and prestige", () => {
+    const logPickup = vi.fn();
+    const multiplier = researchStatRewardMultiplier({ foraging: 5, prosperity: 4 }) * prestigeStatMultiplier(2);
+    let now = 0;
+    const state = createCombatHarness({ nowSeconds: () => now, researchRewardMultiplier: () => multiplier, logPickup });
+    state.boss.dead = true;
+    Object.assign(state.player, { x: 500, y: 500, damage: 100, attackRange: 200 });
+    createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Spitter", x: 550, y: 500,
+      campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
+    const enemy = state.enemies[0];
+    enemy.hp = enemy.maxHp = 1;
+    const reward = { ...enemy.reward };
+    const before = state.player.damage;
+    for (let i = 0; i < 180 && !enemy.dead; i++) { now += 1 / 60; state.controller.attackNearest(); state.controller.updateProjectiles(1 / 60); }
+    expect(enemy.dead).toBe(true);
+    expect(logPickup).toHaveBeenCalledWith(rewardLabel({ ...reward, amount: reward.amount * multiplier }), expect.any(String), rewardLabel(reward));
+    if (reward.type === "damage") expect(state.player.damage - before).toBeCloseTo(reward.amount * multiplier);
+  });
+
   it("routes a tutorial kill to its acknowledgement without ordinary loot, stats, or respawns", () => {
     const saveProgress = vi.fn(), loot = vi.fn(), schedule = vi.fn(), killed = vi.fn(() => true);
     let now = 0;

@@ -5,6 +5,7 @@ import {
   MAX_GEM_BALANCE,
   RESEARCH_SPEED_UP_MS_PER_GEM,
   UPGRADE_BENCH_SECOND_SLOT_GEM_COST,
+  UPGRADE_BENCH_THIRD_SLOT_GEM_COST,
   gemBalanceAfter,
   itemUpgradeSpeedUpGemCost,
   inventorySlotCapacity,
@@ -29,6 +30,7 @@ describe("Gem balance rules", () => {
 
   it("prices the permanent second upgrade slot at 150 Gems", () => {
     expect(UPGRADE_BENCH_SECOND_SLOT_GEM_COST).toBe(150n);
+    expect(UPGRADE_BENCH_THIRD_SLOT_GEM_COST).toBe(200n);
   });
 
   it("prices consecutive inventory slots at one, two, three Gems and expands the free 20 slots", () => {

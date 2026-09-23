@@ -136,6 +136,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   let balanceApologyGiftAmount = 0n;
   const itemGifts = new Map<string, PendingItemGift>();
   let secondUpgradeSlotUnlocked = false;
+  let thirdUpgradeSlotUnlocked = false;
   let inventorySlotsUnlocked = 0;
   let onboardingStep = 0;
   let pendingProgress: ProgressSave | null = null;
@@ -627,6 +628,17 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       removeUpgradeBench(row: { identity: Identity }) {
         if (row.identity.toHexString() !== dependencies.localIdentity()) return;
         secondUpgradeSlotUnlocked = false;
+        thirdUpgradeSlotUnlocked = false;
+        dependencies.notify();
+      },
+      upsertUpgradeBenchThirdSlot(row: { identity: Identity }) {
+        if (row.identity.toHexString() !== dependencies.localIdentity()) return;
+        thirdUpgradeSlotUnlocked = true;
+        dependencies.notify();
+      },
+      removeUpgradeBenchThirdSlot(row: { identity: Identity }) {
+        if (row.identity.toHexString() !== dependencies.localIdentity()) return;
+        thirdUpgradeSlotUnlocked = false;
         dependencies.notify();
       },
       upsertInventoryCapacity(row: { identity: Identity; slotsUnlocked: number }) {
@@ -718,6 +730,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
           .map((active) => ({ ...active }));
       },
       secondUpgradeSlotUnlocked: () => secondUpgradeSlotUnlocked,
+      thirdUpgradeSlotUnlocked: () => thirdUpgradeSlotUnlocked,
       inventorySlotsUnlocked: () => inventorySlotsUnlocked,
       async destroyEquipment(itemId: string) {
         const identity = dependencies.localIdentity();
@@ -756,6 +769,15 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
         const result = await reducerResult("second upgrade slot unlock", (connection) => connection.reducers.unlockSecondUpgradeSlot({}))();
         if (result.ok) {
           secondUpgradeSlotUnlocked = true;
+          dependencies.notify();
+        }
+        return result;
+      },
+      async unlockThirdUpgradeSlot() {
+        if (!secondUpgradeSlotUnlocked) return { ok: false, error: "UNLOCK SLOT 2 FIRST" };
+        const result = await reducerResult("third upgrade slot unlock", (connection) => connection.reducers.unlockThirdUpgradeSlot({}))();
+        if (result.ok) {
+          thirdUpgradeSlotUnlocked = true;
           dependencies.notify();
         }
         return result;
@@ -939,6 +961,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       mailboxMessages.clear();
       onboardingStep = 0;
       secondUpgradeSlotUnlocked = false;
+      thirdUpgradeSlotUnlocked = false;
       inventorySlotsUnlocked = 0;
     },
     clearProfile(identity: string) {
@@ -958,6 +981,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       mailboxMessages.clear();
       onboardingStep = 0;
       secondUpgradeSlotUnlocked = false;
+      thirdUpgradeSlotUnlocked = false;
       inventorySlotsUnlocked = 0;
       progressByIdentity.clear();
       researchByIdentity.clear();
@@ -977,6 +1001,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       mailboxMessages.clear();
       onboardingStep = 0;
       secondUpgradeSlotUnlocked = false;
+      thirdUpgradeSlotUnlocked = false;
       inventorySlotsUnlocked = 0;
     },
     dispose() {

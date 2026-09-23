@@ -159,6 +159,18 @@ describe("runtime reward notifications", () => {
     expect(vi.getTimerCount()).toBe(2);
   });
 
+  it("keeps base and total rewards from combining when the setting changes", () => {
+    const { controller, pickupLog } = setupHud();
+    controller.logPickup("+1.36 DAMAGE", "#ff655a", "total");
+    const totalCard = pickupLog.children[0];
+    controller.logPickup("+1 DAMAGE", "#ff655a", "base");
+    expect(totalCard.remove).toHaveBeenCalledOnce();
+    expect(pickupLog.children).toHaveLength(1);
+    expect(pickupLog.children[0].querySelector(".stat-reward-value")?.textContent).toBe("+1");
+    controller.logPickup("+1 DAMAGE", "#ff655a", "base");
+    expect(pickupLog.children[0].querySelector(".stat-reward-value")?.textContent).toBe("+2");
+  });
+
   it("extends the steady hold, then fades and removes the card after the last reward", () => {
     const { controller, pickupLog } = setupHud();
     controller.logPickup("+1 DAMAGE", "#ff655a");
