@@ -22,6 +22,7 @@ import { mergeAccountReactions, removeMessageReactions } from "./chat-reactions"
 import { mergeItemGifts, removeItemGifts } from "./item-gifts";
 import { mergeMailboxReceipts, removeMailboxReceipts } from "./mailbox";
 import { mergeOnboarding } from "./onboarding";
+import { mergeLinkedPrestige } from "./prestige-transfer";
 import { unlinkPatreon } from "./patreon";
 import { clearProceduralProgress, mergeProceduralProgress } from "./procedural-maps";
 import { deleteSnapshotRow, insertSnapshotRow, updateSnapshotRow } from "./snapshot-row-writes";
@@ -204,6 +205,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
     if (accountProgress) updateSnapshotRow(ctx, "playerProgress", nextProgress);
     else insertSnapshotRow(ctx, "playerProgress", nextProgress);
 
+    mergeLinkedPrestige(ctx, link.guest, ctx.sender);
     mergeProceduralProgress(ctx, link.guest);
     const guestLocation = ctx.db.playerLastLocation.identity.find(link.guest);
     const accountLocation = ctx.db.playerLastLocation.identity.find(ctx.sender);

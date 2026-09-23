@@ -1013,10 +1013,11 @@
   .hud-progress-timer {
     box-sizing: border-box;
     padding: 4px 2px;
-    border: 1px solid currentColor;
-    border-radius: 6px;
-    background: rgba(12, 23, 28, .78);
-    font: 900 9px/1.2 var(--font-rounded);
+    border: 2px solid var(--hud-frame);
+    border-radius: var(--hud-radius-small);
+    background: var(--hud-surface);
+    box-shadow: 0 2px 0 rgba(0,0,0,.42);
+    font: 900 var(--font-readable-min)/1.2 var(--font-rounded);
     letter-spacing: .025em;
     text-align: center;
     text-shadow: 1px 2px 0 #000;

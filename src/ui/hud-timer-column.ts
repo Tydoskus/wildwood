@@ -2,6 +2,7 @@ import type { ActiveItemUpgrade } from "../wildstat-coop";
 import type { ActiveResearch } from "./tech-tree-controller";
 import type { createGameElements } from "./game-elements";
 import { createHudProgressTimers } from "./hud-progress-timers";
+import { installHudProgressSettings } from "./hud-progress-settings";
 import { createRewardedRespawnAdController } from "./rewarded-respawn-ad-controller";
 
 type Elements = ReturnType<typeof createGameElements>;
@@ -32,9 +33,9 @@ export function createHudTimerColumn(elements: Elements, dependencies: Dependenc
     element.hidden = true;
     return element;
   };
-  const researchTimer = timer("tech", "TECH");
-  const slotOneTimer = timer("slot", "SLOT 1");
-  const slotTwoTimer = timer("slot", "SLOT 2");
+  const researchTimer = timer("tech", "Tech");
+  const slotOneTimer = timer("slot", "Slot 1");
+  const slotTwoTimer = timer("slot", "Slot 2");
   elements.enemyRespawnAdBtn.before(column);
   column.append(researchTimer, slotOneTimer, slotTwoTimer, elements.enemyRespawnBoostStatus, elements.enemyRespawnAdBtn);
 
@@ -51,11 +52,18 @@ export function createHudTimerColumn(elements: Elements, dependencies: Dependenc
   }, dependencies);
   rewardedRespawnAd.init();
 
+  let storage: Storage | null = null;
+  try { storage = window.localStorage; } catch { /* Continue with session choices. */ }
+  const settings = installHudProgressSettings(elements.settingsPanel, () => timers.tick(), storage);
   const timers = createHudProgressTimers({
     research: researchTimer,
     slotOne: slotOneTimer,
     slotTwo: slotTwoTimer,
-  }, dependencies);
+  }, { ...dependencies, visible: () => ({
+    research: settings.visible("research"),
+    slotOne: settings.visible("slotOne"),
+    slotTwo: settings.visible("slotTwo"),
+  }) });
   window.setInterval(timers.tick, 1_000);
   document.addEventListener("visibilitychange", timers.tick);
   return rewardedRespawnAd;

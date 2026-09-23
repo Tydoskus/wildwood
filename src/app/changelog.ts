@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.791": [
+    "Tech and slot countdowns use the game HUD style and show seconds only in the final minute.",
+    "Settings can hide the Tech, Slot 1 and Slot 2 timers independently.",
+    "Linking a guest save now carries prestige levels and unspent perk points into the account.",
+  ],
   "0.790": [
     "Tech research and both slot upgrades show live countdowns beside the 2× respawn timer.",
     "The ad reward moves down while those timers are visible.",
@@ -2295,6 +2300,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.791": "2026-09-22",
   "0.790": "2026-09-22",
   "0.789": "2026-09-22",
   "0.788": "2026-09-22",

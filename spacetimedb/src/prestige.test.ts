@@ -3,7 +3,7 @@ import { expect, it, vi } from "vitest";
 import { ScheduleAt, Timestamp } from "spacetimedb";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { STARTER_BOW } from "../../shared/items";
-import { BOSS_REWARD_CLAIM_BITS } from "../../shared/rules";
+import { ATTACK_BALANCE_VERSION, BOSS_REWARD_CLAIM_BITS, SPACETIME_AUTH_CLIENT_ID, SPACETIME_AUTH_ISSUER } from "../../shared/rules";
 import { PRESTIGE_STAT_GAIN_PER_LEVEL, prestigeStatMultiplier, prestigeUnlocked } from "../../shared/prestige";
 import { PRESTIGE_PERK_MAX_RANK } from "../../shared/prestige-perks";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
@@ -67,6 +67,45 @@ it("stacks a second prestige and keeps the highest power ever reached", () => {
   f.seed("proceduralProgress", { identity: f.ctx.sender, completed: 1 });
   f.run(server.prestigeAccount, {});
   expect(prestigeRow(f)).toMatchObject({ level: 2, perkPoints: 2, peakPower: 9_000_000 });
+});
+
+it("carries guest prestige and unspent points into a linked account", () => {
+  const f = crystalFixture();
+  const guest = identity("2");
+  f.db.playerProgress.identity.delete(f.ctx.sender);
+  f.progress(guest);
+  f.seed("playerBalanceVersion", { identity: guest, version: ATTACK_BALANCE_VERSION });
+  f.seed("playerPrestige", { identity: guest, level: 1, perkPoints: 1, peakPower: 9_000, prestigedAt: f.ctx.timestamp });
+  f.seed("playerPrestige", { identity: f.ctx.sender, level: 1, perkPoints: 0, peakPower: 7_000, prestigedAt: f.ctx.timestamp });
+  f.seed("playerPrestigePerk", { identity: f.ctx.sender, keenEdge: 1 });
+  f.seed("accountLink", { code: "prestige-link", guest, createdAt: f.ctx.timestamp });
+  f.ctx.senderAuth = { jwt: { issuer: SPACETIME_AUTH_ISSUER, audience: [SPACETIME_AUTH_CLIENT_ID] } };
+
+  f.run(server.claimGuestAccount, { code: "prestige-link" });
+
+  expect(prestigeRow(f)).toMatchObject({ level: 2, perkPoints: 1, peakPower: 9_000 });
+  expect(perkRow(f)).toMatchObject({ keenEdge: 1 });
+  expect(f.db.playerPrestige.identity.find(guest)).toBeNull();
+});
+
+it("merges guest perk ranks and refunds any ranks above the cap", () => {
+  const f = crystalFixture();
+  const guest = identity("2");
+  f.db.playerProgress.identity.delete(f.ctx.sender);
+  f.progress(guest);
+  f.seed("playerBalanceVersion", { identity: guest, version: ATTACK_BALANCE_VERSION });
+  f.seed("playerPrestige", { identity: guest, level: 4, perkPoints: 0, peakPower: 9_000, prestigedAt: f.ctx.timestamp });
+  f.seed("playerPrestige", { identity: f.ctx.sender, level: 3, perkPoints: 1, peakPower: 7_000, prestigedAt: f.ctx.timestamp });
+  f.seed("playerPrestigePerk", { identity: guest, keenEdge: 4 });
+  f.seed("playerPrestigePerk", { identity: f.ctx.sender, keenEdge: 2 });
+  f.seed("accountLink", { code: "perks-link", guest, createdAt: f.ctx.timestamp });
+  f.ctx.senderAuth = { jwt: { issuer: SPACETIME_AUTH_ISSUER, audience: [SPACETIME_AUTH_CLIENT_ID] } };
+
+  f.run(server.claimGuestAccount, { code: "perks-link" });
+
+  expect(prestigeRow(f)).toMatchObject({ level: 7, perkPoints: 2 });
+  expect(perkRow(f)).toMatchObject({ keenEdge: PRESTIGE_PERK_MAX_RANK });
+  expect(f.db.playerPrestigePerk.identity.find(guest)).toBeNull();
 });
 
 it("asks each prestige for one Endless stage more than the last", () => {
