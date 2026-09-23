@@ -63,18 +63,4 @@ describe('native stat tracker sessions', () => {
     const better = tracker.update('alice', { ...values, damage: 120 })!;
     expect(row(better, 'damage')).toMatchObject({ current: 120, gain: 20 });
   });
-
-  it('starts a fresh session when the prestige level rises, but not when it reads lower while loading', () => {
-    const env = setup(), tracker = createStatTrackerModel(env.storage, env.now);
-    const row = (result: any, stat: string) => result.rows.find((entry: any) => entry.stat === stat);
-    tracker.update('alice', { ...values, power: 5_000 }, 2);
-    env.advance(60_000);
-    const loading = tracker.update('alice', { ...values, power: 5_200 }, 0)!;
-    expect(row(loading, 'power')).toMatchObject({ current: 5_200, gain: 200 });
-    const prestiged = tracker.update('alice', { ...values, power: 100, kills: 60 }, 3)!;
-    expect(prestiged.elapsedMs).toBe(0);
-    expect(prestiged.rows.every(entry => entry.gain === 0)).toBe(true);
-    env.advance(60_000);
-    expect(row(tracker.update('alice', { ...values, power: 150, kills: 70 }, 3), 'power')).toMatchObject({ current: 150, gain: 50 });
-  });
 });

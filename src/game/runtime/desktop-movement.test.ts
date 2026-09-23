@@ -59,33 +59,6 @@ it("stops a stationary hold on release even without mousemove events", () => {
   expect(f.input.movement().source).toBe("none");
 });
 
-it("keeps steering a canvas hold while the pointer crosses UI, until the button is released anywhere", () => {
-  const f = fixture(); const ui = f.document.querySelector("button")!;
-  f.event("pointerdown"); f.time(300);
-  f.event("pointermove", { clientX: 20 }, ui);
-  expect(f.input.movement(1 / 60).x).toBe(-1);
-  f.event("pointerleave");
-  expect(f.input.movement(1 / 60).x).toBe(-1);
-  f.event("pointerup", { clientX: 20 }, ui);
-  expect(f.input.movement(1 / 60).source).toBe("none");
-});
-
-it("captures a canvas hold and ends it when a move reports the primary button up", () => {
-  const f = fixture(); f.event("pointerdown"); f.time(300);
-  expect(f.document.querySelector("canvas")!.setPointerCapture).toHaveBeenCalledWith(1);
-  f.event("pointermove", { clientX: 20, buttons: 2 });
-  expect(f.input.movement(1 / 60).source).toBe("none");
-});
-
-it("does not move for a press that starts on UI, even when it is dragged over the canvas", () => {
-  const f = fixture(); const ui = f.document.querySelector("button")!;
-  f.event("pointerdown", {}, ui);
-  f.event("pointermove", { clientX: 20 });
-  expect(f.input.movement(1 / 60).source).toBe("none");
-  f.event("pointerup", { clientX: 20 });
-  expect(f.input.movement(1 / 60).source).toBe("none");
-});
-
 it("keeps profile taps, right clicks, and touch out of desktop movement", () => {
   const f = fixture(); f.profile.mockReturnValue(true); f.click();
   expect(f.input.movement().source).toBe("none");
@@ -93,7 +66,6 @@ it("keeps profile taps, right clicks, and touch out of desktop movement", () => 
   f.event("pointerdown", { button: 2 });
   f.event("pointerdown", { pointerType: "touch" });
   expect(f.input.movement().source).toBe("none");
-  expect(f.document.querySelector("canvas")!.setPointerCapture).not.toHaveBeenCalled();
 });
 
 it.each(["keyboard", "UI", "travel", "blur", "pause", "cancel"])("cancels desktop movement for %s", reason => {

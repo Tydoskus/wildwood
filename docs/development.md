@@ -82,7 +82,7 @@ Drag its header to move it, double-click the header (or press Home while
 focused) to restore its position, or use arrow keys to move it. Reset changes
 only the tracker baselines. Sessions persist per character on this browser;
 elapsed time includes time away. A decrease in lifetime kills starts a new
-session after a character progress reset. A prestige also starts a new session.
+session after a character progress reset.
 
 - Gains are floored at zero. Base stats only climb, so a figure below the
   session baseline is a gear swap rather than progress; reporting the loss would

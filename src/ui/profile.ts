@@ -100,7 +100,7 @@ export type ProfileStatDisplayRow = {
   kind: string;
   label: string;
   base: string;
-  equationOperator: "×" | "+";
+  equationOperator?: "×" | "+";
   multiplier: string;
   equationTotal?: string;
   hideEquation?: boolean;
@@ -311,7 +311,7 @@ export function renderProfileStats(
     totalGroup.className = "profile-stat-total-group";
     total.className = "profile-stat-total";
     base.textContent = stat.base;
-    multiplyOperator.textContent = stat.equationOperator;
+    multiplyOperator.textContent = stat.equationOperator ?? "";
     multiplyOperator.setAttribute("aria-hidden", "true");
     multiplier.textContent = stat.multiplier;
     equalsOperator.textContent = "=";
@@ -381,7 +381,7 @@ export function renderProfileStats(
     const breakdownText = [stat.sources.length > 0 ? sourceText : "", stat.expandedDetail ?? ""]
       .filter(Boolean)
       .join(". ") || sourceText;
-    const summaryText = `${stat.label} Base ${stat.base}. Calculation ${stat.base} ${stat.equationOperator} ${stat.multiplier}. Total ${stat.total}.`;
+    const summaryText = `${stat.label} Base ${stat.base}. Calculation ${stat.base} ${stat.equationOperator ?? ""} ${stat.multiplier}. Total ${stat.total}.`;
     const viewerText = viewerTotal === undefined ? "" : ` You: ${viewerTotal}.`;
     const expandedText = stat.spokenBreakdown
       ? `${stat.label} ${stat.total}. ${stat.spokenBreakdown}.`
