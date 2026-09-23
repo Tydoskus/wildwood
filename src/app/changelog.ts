@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.790": [
+    "Tech research and both slot upgrades show live countdowns beside the 2× respawn timer.",
+    "The ad reward moves down while those timers are visible.",
+  ],
   "0.789": [
     "Finished slot upgrades keep the Inventory red dot through reconnects and game restarts, until the upgrade bench is full again.",
     "Map music plays at a more consistent volume across soundtracks.",
@@ -2291,6 +2295,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.790": "2026-09-22",
   "0.789": "2026-09-22",
   "0.788": "2026-09-22",
   "0.787": "2026-09-22",

@@ -995,26 +995,53 @@
   .minimap-button:focus-visible .minimap-help-mark { background: rgba(43,91,61,.48); transform: scale(1.08); }
   body:is(.is-dueling, .is-replaying) .minimap-button,
   body:is(.is-dueling, .is-replaying) .minimap-meta,
-  body:is(.is-dueling, .is-replaying) .respawn-ad-button,
-  body:is(.is-dueling, .is-replaying) .respawn-boost-status { visibility: hidden; pointer-events: none; }
+  body:is(.is-dueling, .is-replaying) .hud-timer-column { visibility: hidden; pointer-events: none; }
 
-  .respawn-ad-button {
+  .hud-timer-column {
     position: absolute;
-    top: calc(var(--hud-safe-top) + var(--hud-map-size) + 37px);
+    top: calc(var(--hud-safe-top) + var(--hud-map-size) + 33px);
     right: calc(var(--hud-safe-right) + 4px);
     z-index: 4;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    width: calc(var(--hud-map-size) - 8px);
+    pointer-events: none;
+  }
+
+  .hud-progress-timer {
+    box-sizing: border-box;
+    padding: 4px 2px;
+    border: 1px solid currentColor;
+    border-radius: 6px;
+    background: rgba(12, 23, 28, .78);
+    font: 900 9px/1.2 var(--font-rounded);
+    letter-spacing: .025em;
+    text-align: center;
+    text-shadow: 1px 2px 0 #000;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .hud-progress-timer[hidden] { display: none; }
+  .hud-progress-timer-tech { color: #77caff; }
+  .hud-progress-timer-slot { color: #ffd367; }
+
+  .respawn-ad-button {
     display: grid;
+    align-self: flex-end;
     width: 42px;
     height: 34px;
     min-height: 0;
     place-items: center;
-    margin: 0;
+    margin: 4px 0 0;
     padding: 0;
     border: 0;
     border-radius: 0;
     background: transparent;
     box-shadow: none;
     color: #fff;
+    pointer-events: auto;
   }
 
   .respawn-ad-button[hidden] { display: none; }
@@ -1083,11 +1110,7 @@
   }
 
   .respawn-boost-status {
-    position: absolute;
-    top: calc(var(--hud-safe-top) + var(--hud-map-size) + 33px);
-    right: calc(var(--hud-safe-right) + 4px);
-    z-index: 4;
-    width: calc(var(--hud-map-size) - 8px);
+    width: 100%;
     min-height: 0;
     margin: 0;
     padding: 4px 2px;
@@ -1100,6 +1123,7 @@
     letter-spacing: .025em;
     text-align: center;
     text-shadow: 1px 2px 0 #000;
+    pointer-events: auto;
   }
 
   /* A paused bank keeps its time and says so by going quiet, not by leaving. */
@@ -3574,6 +3598,7 @@
   #sfxVolumeValue,
   .account-button,
   .account-status,
+  .hud-progress-timer,
   .respawn-boost-status,
   #duelStatus,
   .item-drop-stats,

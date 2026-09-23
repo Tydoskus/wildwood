@@ -110,7 +110,7 @@ import { createGameMailbox } from "./ui/game-mailbox";
 import { createMapGuideController } from "./ui/map-guide-controller";
 import { createStartupCoordinator } from "./ui/startup-coordinator";
 import { hasApprovedGameSession } from "./coop/startup-state-machine";
-import { createRewardedRespawnAdController } from "./ui/rewarded-respawn-ad-controller";
+import { createHudTimerColumn } from "./ui/hud-timer-column";
 import { createGameElements } from "./ui/game-elements";
 import { bindGameInteractionListeners } from "./ui/game-interaction-bindings";
 import { createDevPanel, createGameActionsRuntime, createGameOverlays, createGameRuntimeHud, createHomeStationTouchHandler, createLeaderboardPanel, createPrestigePanel, createTechTreePanel } from "./ui/game-ui-runtime";
@@ -145,7 +145,7 @@ import {
   const gameElements = createGameElements({ names: PLAYER_SKIN_TONE_NAMES, colors: PLAYER_SKIN_TONES });
   const {
     canvas, gameOverEl, deathCountdownEl, hpText, playerHudProfileIcon, playerHudProfileGear, hudGemWallet, hudGemBalance,
-    minimapButton, enemyRespawnAdBtn, enemyRespawnAdStatus, enemyRespawnBoostStatus, enemyRespawnBoostTimer, enemyRespawnAdPrompt, enemyRespawnAdConfirm, enemyRespawnAdCancel, browserRewardedAd, browserRewardedAdTimer,
+    minimapButton,
     toolbar, settingsBtn, inventoryBtn, settingsPanel, inventoryPanel, inventoryCharacterCanvas, itemInspectionPanel, itemInspectionTitle, itemInspectionContent, itemInspectionBack, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
     duelCountdownEl, duelResultEl, watchDuelReplayBtn, duelReplayEl, duelReplayTitle, sceneFadeEl, cutsceneOverlayEl,
     dragonWorldNoticeEl, dragonWorldNoticeDetailEl,
@@ -1662,17 +1662,7 @@ import {
     tickTechTree: techTree.tick, refreshAppStatus: appShell.refreshStatus, updateProfileDuelButton: profileWindow.updateDuelButton,
   });
 
-  const rewardedRespawnAd = createRewardedRespawnAdController({
-    button: enemyRespawnAdBtn,
-    status: enemyRespawnAdStatus,
-    bankButton: enemyRespawnBoostStatus,
-    bankTimer: enemyRespawnBoostTimer,
-    prompt: enemyRespawnAdPrompt,
-    confirmButton: enemyRespawnAdConfirm,
-    cancelButton: enemyRespawnAdCancel,
-    browserAd: browserRewardedAd,
-    browserAdTimer: browserRewardedAdTimer,
-  }, {
+  const rewardedRespawnAd = createHudTimerColumn(gameElements, {
     getNativeBridge: () => nativeBridgeForRuntime(window),
     isSupporter: () => (coop?.supporterTier?.() ?? "none") !== "none",
     grantBoost: grantRewardedRespawnBoost,
@@ -1686,8 +1676,10 @@ import {
       else appShell.ensureMusicPlaying();
     },
     showMessage,
+    connected: () => Boolean(coop?.isConnected?.()),
+    research: () => coop?.activeResearch?.() ?? null,
+    upgrades: () => coop?.activeItemUpgrades?.() ?? [],
   });
-  rewardedRespawnAd.init();
 
   function showCurrentUpdateNotice() {
     overlays.showUpdateNotice();
