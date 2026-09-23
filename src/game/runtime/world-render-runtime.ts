@@ -6,7 +6,7 @@ import { createDepthWorldRenderer } from "./depth-world-renderer";
 import { createRenderController, type RenderController } from "./render-controller";
 import { createWorldRenderer, type MinimapBounds } from "./world-renderer";
 import { DEFAULT_SKIN_TONE, drawStartingPlayer, type PlayerAppearanceAssets } from "../player-appearance";
-import type { LoadedEnemySprite } from "../enemies";
+import type { LoadedEnemySprite, RewardType } from "../enemies";
 import type { MapId, WorldDecor, WorldPath } from "../world";
 import type { MapPlayerMarker, RemotePlayer } from "../../wildstat-coop";
 import type { PlayerGender } from "../../../shared/player-gender";
@@ -157,6 +157,7 @@ export type WorldRenderRuntimeOptions = {
   equipmentForIdentity: (identity: string | undefined) => { headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string };
   enemySprites: Record<string, LoadedEnemySprite>;
   rewardMultiplier: () => number;
+  rewardAmount?: (type: RewardType, amount: number) => number;
   /** Developer overlay: draw each boss's collision shape over its artwork. */
   showBossHitboxes?: () => boolean;
   enemyTextVisible: (enemy: EnemyState) => boolean;
@@ -270,6 +271,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     gameTime: options.gameTime, pixelCircle: options.pixelCircle, outlinedText: options.outlinedText,
     drawShadow: drawEntityShadow, hpLossFlashDuration: options.bossHpLossFlashDuration, spiderWebRange: options.spiderWebRange,
     rewardMultiplier: options.rewardMultiplier,
+    rewardAmount: options.rewardAmount,
     showBossHitboxes: options.showBossHitboxes,
   });
   const actor = createActorRenderer({
@@ -321,6 +323,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     duelPlatformArt: options.assets.duelPlatformArt,
     player: options.player,
     rewardMultiplier: options.rewardMultiplier,
+    rewardAmount: options.rewardAmount,
     enemyTextVisible: options.enemyTextVisible,
     pixelCircle: options.pixelCircle,
     outlinedText: options.outlinedText,

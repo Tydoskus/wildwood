@@ -39,7 +39,8 @@ import { leaderboardPageTables, writeLeaderboardPages, readLeaderboardWindow, re
 import { leaderboardEligible } from "../../shared/leaderboard-window";
 import { effectiveMovementSpeedForProgress } from "./player-speed";
 import { earlierTimestamp } from "./timestamp-utils";
-import { slotUpgradeDurationWithResearch } from "../../shared/utility-research";
+import { attackRangeWithResearch, slotUpgradeDurationWithResearch } from "../../shared/utility-research";
+import { createResearchState } from "./research-state";
 import { publicChatCursor, updatePublicChatCursor, readPublicChatPage } from "./public-chat-history";
 import { createKillGems } from "./kill-gems";
 import { createPrestige, statRewardMultiplier } from "./prestige";
@@ -821,6 +822,7 @@ const playerResearch = table(
     bossRespawn: t.u32().default(0),
     offlineWindow: t.u32().default(0),
     utilityMoveSpeed: t.u32().default(0),
+    utilityAttackRange: t.u32().default(0),
   },
 );
 
@@ -2286,23 +2288,7 @@ function samePlayerProgressValues(left: any, right: any) {
   return PLAYER_PROGRESS_VALUE_FIELDS.every((field) => left[field] === right[field]);
 }
 
-function defaultPlayerResearch(identity: any) {
-  return { identity, warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, regeneration: 0, criticalChance: 0, criticalDamage: 0, moveSpeed: 0, prosperity: 0,
-    researchSpeed: 0, slotUpgradeSpeed: 0, enemyRespawn: 0, bossRespawn: 0, offlineWindow: 0, utilityMoveSpeed: 0 };
-}
-
-function researchForPlayer(ctx: any, identity: any) {
-  const existing = ctx.db.playerResearch.identity.find(identity);
-  if (existing) {
-    if (existing.frontierMastery === 0) return existing;
-    const wiped = { ...existing, frontierMastery: 0 };
-    updateSnapshotRow(ctx, "playerResearch", wiped);
-    return wiped;
-  }
-  const next = defaultPlayerResearch(identity);
-  insertSnapshotRow(ctx, "playerResearch", next);
-  return next;
-}
+const researchForPlayer = createResearchState({ updateSnapshotRow, insertSnapshotRow });
 
 function assertResearchAvailable(research: Record<ResearchId, number>, researchId: ResearchId) {
   const definition = RESEARCH_DEFINITIONS[researchId];
@@ -2342,7 +2328,11 @@ function completeActiveResearch(ctx: any, active: any) {
   const nextResearch = { ...research, [active.researchId]: active.targetRank };
   updateSnapshotRow(ctx, "playerResearch", nextResearch);
   if (active.researchId === "slotUpgradeSpeed") refreshActiveSlotUpgrades(ctx, active.identity, reconcileActiveItemUpgrade);
-  const progress = ctx.db.playerProgress.identity.find(active.identity);
+  let progress = ctx.db.playerProgress.identity.find(active.identity);
+  if (progress && active.researchId === "utilityAttackRange") {
+    progress = { ...progress, attackRange: attackRangeWithResearch(nextResearch.utilityAttackRange) };
+    updateSnapshotRow(ctx, "playerProgress", progress);
+  }
   const player = ctx.db.player.identity.find(active.identity);
   if (progress && player) {
     const nextPlayer = {
@@ -3507,11 +3497,12 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
     const cosmeticEquipment = cosmeticEquipmentForProgress({ ...existingProgress, inventoryJson });
     const speed = playerBaseMovementSpeed(false);
     const maxHp = Math.max(PLAYER_BASE_HP, existingProgress.maxHp);
-    if (existingProgress.maxHp !== maxHp || existingProgress.attackRange !== DEFAULT_ATTACK_RANGE || existingProgress.speed !== speed || existingProgress.inventoryJson !== inventoryJson || existingProgress.equippedHead !== equippedHead || existingProgress.equippedChest !== equippedChest || existingProgress.equippedFeet !== equippedFeet || existingProgress.equippedRightHand !== equippedRightHand || existingProgress.equippedLeftHand !== equippedLeftHand || existingProgress.cosmeticHead !== cosmeticEquipment.cosmeticHead || existingProgress.cosmeticChest !== cosmeticEquipment.cosmeticChest || existingProgress.cosmeticFeet !== cosmeticEquipment.cosmeticFeet || existingProgress.cosmeticRightHand !== cosmeticEquipment.cosmeticRightHand || existingProgress.cosmeticLeftHand !== cosmeticEquipment.cosmeticLeftHand) {
+    const attackRange = attackRangeWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.utilityAttackRange ?? 0);
+    if (existingProgress.maxHp !== maxHp || existingProgress.attackRange !== attackRange || existingProgress.speed !== speed || existingProgress.inventoryJson !== inventoryJson || existingProgress.equippedHead !== equippedHead || existingProgress.equippedChest !== equippedChest || existingProgress.equippedFeet !== equippedFeet || existingProgress.equippedRightHand !== equippedRightHand || existingProgress.equippedLeftHand !== equippedLeftHand || existingProgress.cosmeticHead !== cosmeticEquipment.cosmeticHead || existingProgress.cosmeticChest !== cosmeticEquipment.cosmeticChest || existingProgress.cosmeticFeet !== cosmeticEquipment.cosmeticFeet || existingProgress.cosmeticRightHand !== cosmeticEquipment.cosmeticRightHand || existingProgress.cosmeticLeftHand !== cosmeticEquipment.cosmeticLeftHand) {
       const migratedProgress = {
         ...existingProgress,
         maxHp,
-        attackRange: DEFAULT_ATTACK_RANGE,
+        attackRange,
         speed,
         inventoryJson,
         equippedHead,
@@ -5071,7 +5062,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       attackRate: base.attackRate,
       projectileSpeed: PLAYER_PROJECTILE_SPEED,
       projectileCount: base.projectileCount,
-      attackRange: DEFAULT_ATTACK_RANGE,
+      attackRange: attackRangeWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.utilityAttackRange ?? 0),
       armor: base.armor,
       regen: base.regen,
       speed: playerBaseMovementSpeed(false),
@@ -5773,6 +5764,7 @@ function resetProgressToDefaults(ctx: any, activePlayer: any, keep: { research?:
     clearProceduralProgress(ctx, ctx.sender);
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
     const next = defaultPlayerProgress(ctx.sender);
+    if (keep.research) next.attackRange = attackRangeWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.utilityAttackRange ?? 0);
     const history = ctx.db.playerCutsceneHistory.identity.find(ctx.sender);
     if (history) ctx.db.playerCutsceneHistory.identity.update({ ...history, seenMask: 0, generation: history.generation + 1 });
     else ctx.db.playerCutsceneHistory.insert({ identity: ctx.sender, seenMask: 0, generation: 0 });

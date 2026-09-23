@@ -186,8 +186,8 @@ export const ITEM_DEFINITIONS = {
     name: "BLACK BOOTS",
     slot: "FEET",
     acquisition: "INFERNAL_DROP",
-    description: "Quiet boots from Night Forest. Speed returns after 5 seconds without attacking or taking a hit.",
-    stats: ["OUT OF COMBAT MOVE SPEED +25", "REACTIVATES AFTER 5 SECONDS"],
+    description: "Quiet boots from Night Forest that increase movement speed.",
+    stats: ["MOVE SPEED +25"],
   },
   [STARTER_STONE]: {
     id: STARTER_STONE,

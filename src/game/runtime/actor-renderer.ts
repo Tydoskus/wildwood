@@ -197,6 +197,7 @@ export function createActorRenderer(options: {
   duelPlatformArt: HTMLImageElement;
   player: PlayerState;
   rewardMultiplier: () => number;
+  rewardAmount?: (type: EnemyDefinition["reward"]["type"], amount: number) => number;
   enemyTextVisible: (enemy: EnemyState) => boolean;
   pixelCircle: PixelCircle;
   outlinedText: OutlinedText;
@@ -771,7 +772,8 @@ export function createActorRenderer(options: {
       ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
 
       ctx.textAlign = "center";
-      const labels = enemyLabels(enemy.displayName ?? (enemy.generatedBoss ? enemy.campName : enemy.type), { ...enemy.reward, amount: enemy.reward.amount * options.rewardMultiplier() });
+      const displayAmount = (reward: EnemyDefinition["reward"]) => options.rewardAmount?.(reward.type, reward.amount) ?? reward.amount * options.rewardMultiplier();
+      const labels = enemyLabels(enemy.displayName ?? (enemy.generatedBoss ? enemy.campName : enemy.type), { ...enemy.reward, amount: displayAmount(enemy.reward) });
       ctx.drawImage(labels.name.canvas, -labels.name.width / 2, barY - 4 - labels.name.anchorY, labels.name.width, labels.name.height);
 
       ctx.font = '900 10px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
@@ -779,7 +781,7 @@ export function createActorRenderer(options: {
       options.outlinedText(hpLabel, barCenterX, healthBarTextY(barY, barH), "#ffffff", 2);
 
       if (!enemy.remoteCombatGhost) {
-        const rewards = enemy.bossRewards?.map(reward => enemyLabels(enemy.displayName ?? enemy.campName, { ...reward, amount: reward.amount * options.rewardMultiplier() }).reward) ?? [labels.reward];
+        const rewards = enemy.bossRewards?.map(reward => enemyLabels(enemy.displayName ?? enemy.campName, { ...reward, amount: displayAmount(reward) }).reward) ?? [labels.reward];
         for (const [index, label] of rewards.entries()) {
           ctx.drawImage(label.canvas, -label.width / 2, rewardY + index * 19 - label.anchorY, label.width, label.height);
         }

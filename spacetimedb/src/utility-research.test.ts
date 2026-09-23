@@ -20,6 +20,9 @@ it("enforces Utility row unlocks in the research reducer", () => {
   expect(startWithRanks("offlineWindow", { researchSpeed: 1, enemyRespawn: 1 })).toThrow("Research prerequisites not met.");
   expect(startWithRanks("offlineWindow", { bossRespawn: 1 })).not.toThrow();
   expect(startWithRanks("utilityMoveSpeed", { bossRespawn: 1 })).not.toThrow();
+  expect(startWithRanks("utilityAttackRange", { bossRespawn: 1 })).toThrow("Research prerequisites not met.");
+  expect(startWithRanks("utilityAttackRange", { offlineWindow: 1 })).not.toThrow();
+  expect(startWithRanks("utilityAttackRange", { utilityMoveSpeed: 1 })).not.toThrow();
 });
 
 it("persists utility ranks and speeds up the next research timer", () => {
@@ -36,6 +39,22 @@ it("persists utility ranks and speeds up the next research timer", () => {
   const next = f.db.activeResearch.identity.find(f.ctx.sender);
   expect(next.completesAt.microsSinceUnixEpoch - next.startedAt.microsSinceUnixEpoch)
     .toBe(BigInt(researchDurationMs("foraging", 0, 1)) * 1_000n);
+});
+
+it("adds attack range when research completes and preserves it through a normal save", () => {
+  const f = crystalFixture();
+  f.seed("playerResearch", { identity: f.ctx.sender, frontierMastery: 0,
+    ...createEmptyResearchRanks(), utilityMoveSpeed: 1 });
+  f.run(server.startResearch, { researchId: "utilityAttackRange" });
+  const active = f.db.activeResearch.identity.find(f.ctx.sender);
+  const scheduled = [...f.db.researchCompletionSchedule.iter()][0];
+  f.ctx.timestamp = active.completesAt;
+  f.run(server.completeResearch, { schedule: scheduled });
+  expect(f.db.playerResearch.identity.find(f.ctx.sender).utilityAttackRange).toBe(1);
+  expect(f.db.playerProgress.identity.find(f.ctx.sender).attackRange).toBe(210);
+  const progress = f.db.playerProgress.identity.find(f.ctx.sender);
+  f.run(server.savePlayerProgress, { ...progress, attackRange: 200 });
+  expect(f.db.playerProgress.identity.find(f.ctx.sender).attackRange).toBe(210);
 });
 
 it("shortens research already in progress when the speed rank rises", () => {

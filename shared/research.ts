@@ -18,6 +18,7 @@ export const UTILITY_RESEARCH_IDS = [
   "bossRespawn",
   "offlineWindow",
   "utilityMoveSpeed",
+  "utilityAttackRange",
 ] as const;
 export const RESEARCH_IDS = [...POWER_RESEARCH_IDS, ...UTILITY_RESEARCH_IDS] as const;
 export type ResearchId = typeof RESEARCH_IDS[number];
@@ -32,7 +33,7 @@ export type ResearchDefinition = {
   maxRank: number;
   effect: string;
   valuePerRank: number;
-  unit?: "%" | "s" | "min" | "speed";
+  unit?: "%" | "s" | "min" | "speed" | "range";
   durationStartMs: number;
   /** Ranks required from connected technologies inside the same rank band. */
   prerequisites?: Partial<Record<ResearchId, number>>;
@@ -92,6 +93,9 @@ export const RESEARCH_DEFINITIONS: Record<ResearchId, ResearchDefinition> = {
     effect: "OFFLINE REWARD TIME", valuePerRank: 10, unit: "min", durationStartMs: 90_000, prerequisites: { bossRespawn: 1 } },
   utilityMoveSpeed: { id: "utilityMoveSpeed", title: "SWIFTNESS", icon: "➜", ranksPerBand: 5, maxRank: 5,
     effect: "MOVE SPEED", valuePerRank: 3, unit: "speed", durationStartMs: 60_000, prerequisites: { bossRespawn: 1 } },
+  utilityAttackRange: { id: "utilityAttackRange", title: "ATTACK RANGE", icon: "◎", ranksPerBand: 5, maxRank: 5,
+    effect: "ATTACK RANGE", valuePerRank: 10, unit: "range", durationStartMs: 120_000,
+    prerequisiteAny: ["offlineWindow", "utilityMoveSpeed"] },
 };
 
 export function researchTreeFor(researchId: ResearchId): ResearchTree {

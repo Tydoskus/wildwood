@@ -44,7 +44,8 @@ it("refuses to prestige an unfinished campaign", () => {
 
 it("banks a level and a perk point, then sends the player back to the forest with nothing", () => {
   const f = crystalFixture();
-  f.patch("playerProgress", { bossRewardClaims: CAMPAIGN_COMPLETE, damage: 5_000, maxHp: 900, desertUnlocked: true, snowlandsUnlocked: true });
+  f.seed("playerResearch", { identity: f.ctx.sender, utilityAttackRange: 3 });
+  f.patch("playerProgress", { bossRewardClaims: CAMPAIGN_COMPLETE, damage: 5_000, maxHp: 900, attackRange: 230, desertUnlocked: true, snowlandsUnlocked: true });
   f.seed("proceduralProgress", { identity: f.ctx.sender, completed: 4 });
   f.run(server.prestigeAccount, {});
   const banked = prestigeRow(f);
@@ -54,6 +55,8 @@ it("banks a level and a perk point, then sends the player back to the forest wit
   expect(progress.damage).toBeLessThan(5_000);
   expect(progress.bossRewardClaims).toBe(0);
   expect(progress.desertUnlocked).toBe(false);
+  expect(progress.attackRange).toBe(230);
+  expect(f.db.playerResearch.identity.find(f.ctx.sender).utilityAttackRange).toBe(3);
   expect(f.db.proceduralProgress.identity.find(f.ctx.sender)).toBeFalsy();
   expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe("tutorial_forest");
   // The button must go dark again: the next prestige is earned from here up.

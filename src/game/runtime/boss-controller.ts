@@ -338,6 +338,7 @@ export function createBossController(options: {
   saveProgress: () => void;
   healthMultiplierBonus?: () => number;
   rewardMultiplier?: () => number;
+  displayRewardAmount?: (type: RewardType, baseAmount: number) => number;
 }): BossController {
   const {
     boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, miremawBogBursts, prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, gravebloomCrystalBursts, aegisPrimeCrystalBursts, player, elements,
@@ -532,7 +533,7 @@ export function createBossController(options: {
   }
 
   function logReward(reward: ReturnType<typeof scaledReward>, color: string) {
-    logPickup(rewardLabel(reward), color, rewardLabel({ type: reward.type, amount: reward.baseAmount }));
+    logPickup(rewardLabel({ ...reward, amount: options.displayRewardAmount?.(reward.type, reward.baseAmount) ?? reward.amount }), color, rewardLabel({ type: reward.type, amount: reward.baseAmount }));
   }
 
   function queueBossAreaKnockback(sourceX: number, sourceY: number, attackRange: number, bossRadius: number) {

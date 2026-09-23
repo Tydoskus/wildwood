@@ -78,7 +78,8 @@ export function copyProgress(progress: ProgressSave): ProgressSave {
     projectileCount: Number.isInteger(progress.projectileCount)
       ? Math.max(1, Math.min(20, progress.projectileCount))
       : 1,
-    attackRange: DEFAULT_ATTACK_RANGE,
+    attackRange: Number.isFinite(progress.attackRange) && progress.attackRange >= DEFAULT_ATTACK_RANGE && progress.attackRange <= DEFAULT_ATTACK_RANGE + 50
+      ? progress.attackRange : DEFAULT_ATTACK_RANGE,
     armor: bounded(progress.armor, 0, MAX_ARMOR, 0),
     regen: bounded(progress.regen, 0, MAX_PLAYER_STAT, 0),
     speed: bounded(progress.speed, 1, 2_000, PLAYER_SPEED),
@@ -151,7 +152,7 @@ export function progressCovers(saved: PlayerProgress, pending: ProgressSave) {
     saved.attackRate <= pending.attackRate + epsilon &&
     saved.projectileSpeed >= pending.projectileSpeed &&
     saved.projectileCount >= pending.projectileCount &&
-    Math.abs(saved.attackRange - pending.attackRange) <= epsilon &&
+    saved.attackRange + epsilon >= pending.attackRange &&
     saved.armor >= pending.armor &&
     saved.regen >= pending.regen &&
     movementSpeedsMatch(savedMovementBase, pending.speed) &&

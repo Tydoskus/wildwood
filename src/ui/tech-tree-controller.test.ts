@@ -48,7 +48,7 @@ it("opens Power and Utility from separate nodes and returns to the chooser", asy
   expect(element("categories").hidden).toBe(false);
   click('[data-research-tree="utility"]');
   expect(element("viewport").hidden).toBe(false);
-  expect(map.querySelectorAll("[data-tech-node]")).toHaveLength(6);
+  expect(map.querySelectorAll("[data-tech-node]")).toHaveLength(7);
   click('[data-tech-node="tech-utility-bossRespawn"]');
   expect(element("content").textContent).toContain("SLOT UPGRADE SPEED 1/5 OR ENEMY RESPAWN 1/5");
   expect(document.querySelector<HTMLButtonElement>(".tech-tree-action")?.disabled).toBe(true);

@@ -38,6 +38,7 @@ describe("research timer curve", () => {
     expect(researchIsAvailable("bossRespawn", ranks)).toBe(false);
     expect(researchIsAvailable("offlineWindow", ranks)).toBe(false);
     expect(researchIsAvailable("utilityMoveSpeed", ranks)).toBe(false);
+    expect(researchIsAvailable("utilityAttackRange", ranks)).toBe(false);
 
     ranks.researchSpeed = 1;
     expect(researchIsAvailable("slotUpgradeSpeed", ranks)).toBe(true);
@@ -51,6 +52,12 @@ describe("research timer curve", () => {
     ranks.bossRespawn = 1;
     expect(researchIsAvailable("offlineWindow", ranks)).toBe(true);
     expect(researchIsAvailable("utilityMoveSpeed", ranks)).toBe(true);
+    expect(researchIsAvailable("utilityAttackRange", ranks)).toBe(false);
+    ranks.utilityMoveSpeed = 1;
+    expect(researchIsAvailable("utilityAttackRange", ranks)).toBe(true);
+    ranks.utilityMoveSpeed = 0;
+    ranks.offlineWindow = 1;
+    expect(researchIsAvailable("utilityAttackRange", ranks)).toBe(true);
 
     ranks.researchSpeed = 5;
     ranks.offlineWindow = 3;

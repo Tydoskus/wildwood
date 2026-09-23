@@ -1,12 +1,13 @@
 import { itemDefinition } from "../../shared/items";
+import { DEFAULT_ATTACK_RANGE } from "../../shared/rules";
 
 export function isMeleeWeapon(itemId: string | undefined) {
   return itemDefinition(itemId)?.weapon?.mode === "MELEE";
 }
-/** Weapon reach never changes saved player stats or camera zoom. */
+/** Apply a saved range bonus to either a ranged weapon or a melee weapon's reach. */
 export function weaponAttackRange(itemId: string | undefined, rangedRange: number) {
   const weapon = itemDefinition(itemId)?.weapon;
-  return weapon?.mode === "MELEE" ? weapon.range ?? 75 : rangedRange;
+  return weapon?.mode === "MELEE" ? (weapon.range ?? 75) + Math.max(0, rangedRange - DEFAULT_ATTACK_RANGE) : rangedRange;
 }
 
 /** First intersection, including circles whose near edge crosses the segment end. */

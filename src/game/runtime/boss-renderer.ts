@@ -186,6 +186,7 @@ export function createBossRenderer(options: {
   hpLossFlashDuration: number;
   spiderWebRange: number;
   rewardMultiplier: () => number;
+  rewardAmount?: (type: RewardType, amount: number) => number;
 }) {
   const { ctx, camera, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss } = options;
   const screenX = (worldX: number) => snapWorldRenderCoordinate(worldX - camera.x, camera.zoom, options.devicePixelRatio());
@@ -232,7 +233,7 @@ export function createBossRenderer(options: {
 
   const rewardText = (type: RewardType, baseAmount: number) => rewardLabel({
     type,
-    amount: baseAmount * options.rewardMultiplier(),
+    amount: options.rewardAmount?.(type, baseAmount) ?? baseAmount * options.rewardMultiplier(),
   });
   function drawBossStatus(options_: {
     x: number;

@@ -1883,6 +1883,7 @@ export const PlayerResearch = __t.object("PlayerResearch", {
   bossRespawn: __t.u32(),
   offlineWindow: __t.u32(),
   utilityMoveSpeed: __t.u32(),
+  utilityAttackRange: __t.u32(),
 });
 export type PlayerResearch = __Infer<typeof PlayerResearch>;
 

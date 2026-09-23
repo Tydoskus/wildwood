@@ -28,4 +28,5 @@ export default __t.row({
   bossRespawn: __t.u32().name("boss_respawn"),
   offlineWindow: __t.u32().name("offline_window"),
   utilityMoveSpeed: __t.u32().name("utility_move_speed"),
+  utilityAttackRange: __t.u32().name("utility_attack_range"),
 });

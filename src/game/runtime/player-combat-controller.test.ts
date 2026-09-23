@@ -75,7 +75,8 @@ describe("player attack timing", () => {
     const logPickup = vi.fn();
     const multiplier = researchStatRewardMultiplier({ foraging: 5, prosperity: 4 }) * prestigeStatMultiplier(2);
     let now = 0;
-    const state = createCombatHarness({ nowSeconds: () => now, researchRewardMultiplier: () => multiplier, logPickup });
+    const state = createCombatHarness({ nowSeconds: () => now, researchRewardMultiplier: () => multiplier,
+      displayRewardAmount: (type, amount) => amount * multiplier * (type === "damage" ? 1.75 : 1), logPickup });
     state.boss.dead = true;
     Object.assign(state.player, { x: 500, y: 500, damage: 100, attackRange: 200 });
     createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Spitter", x: 550, y: 500,
@@ -86,7 +87,7 @@ describe("player attack timing", () => {
     const before = state.player.damage;
     for (let i = 0; i < 180 && !enemy.dead; i++) { now += 1 / 60; state.controller.attackNearest(); state.controller.updateProjectiles(1 / 60); }
     expect(enemy.dead).toBe(true);
-    expect(logPickup).toHaveBeenCalledWith(rewardLabel({ ...reward, amount: reward.amount * multiplier }), expect.any(String), rewardLabel(reward));
+    expect(logPickup).toHaveBeenCalledWith(rewardLabel({ ...reward, amount: reward.amount * multiplier * 1.75 }), expect.any(String), rewardLabel(reward));
     if (reward.type === "damage") expect(state.player.damage - before).toBeCloseTo(reward.amount * multiplier);
   });
 

@@ -145,6 +145,8 @@ export function profileStatDisplayRows(
   const armorResearchBonus = researchBonus(ranks.precision, 2);
   const regenResearchBonus = researchBonus(ranks.regeneration, 2);
   const speedResearchBonus = researchBonus(ranks.moveSpeed, 2);
+  const rangeResearchBonus = Math.min(5, Math.max(0, ranks.utilityAttackRange ?? 0)) * 10;
+  const baseRange = Math.max(1, progress.attackRange - rangeResearchBonus);
   const stats: ProfileStatDisplayRow[] = [
     {
       kind: "health", label: "Max Hp:",
@@ -175,9 +177,10 @@ export function profileStatDisplayRows(
       sources: [],
     },
     {
-      kind: "range", label: "Attack Range:", base: Math.round(progress.attackRange).toLocaleString(),
+      kind: "range", label: "Attack Range:", base: statValue(baseRange),
       equationOperator: "×",
-      multiplier: multiplierValue(1), total: Math.round(progress.attackRange).toLocaleString(), sources: [],
+      multiplier: multiplierValue(progress.attackRange / baseRange), total: statValue(progress.attackRange),
+      sources: rangeResearchBonus ? [{ label: "Tech", value: `+${rangeResearchBonus} range` }] : [],
     },
     {
       kind: "regen", label: "Regen:",

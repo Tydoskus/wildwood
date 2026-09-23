@@ -55,6 +55,7 @@ export function createTechTreeLayout(tree: ResearchTree = "power"): TechTreeLayo
       [node("slotUpgradeSpeed"), node("enemyRespawn")],
       [node("bossRespawn")],
       [node("offlineWindow"), node("utilityMoveSpeed")],
+      [node("utilityAttackRange")],
     ];
     const paths: TechTreeLayout["paths"] = [];
     for (let row = 0; row < rows.length - 1; row += 1) {

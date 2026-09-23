@@ -17,7 +17,7 @@ describe("tech tree layout", () => {
   it("shows each utility technology once with its own rank cap", () => {
     const layout = createTechTreeLayout("utility");
     expect(layout.nodes.map(node => node.researchId)).toEqual([...UTILITY_RESEARCH_IDS]);
-    expect(layout.rows.map(row => row.length)).toEqual([1, 2, 1, 2]);
+    expect(layout.rows.map(row => row.length)).toEqual([1, 2, 1, 2, 1]);
     expect(layout.nodes.map(node => node.endRank)).toEqual(UTILITY_RESEARCH_IDS.map(id => RESEARCH_DEFINITIONS[id].maxRank));
     expect(layout.paths).toEqual([
       ["tech-utility-researchSpeed", "tech-utility-slotUpgradeSpeed"],
@@ -26,6 +26,8 @@ describe("tech tree layout", () => {
       ["tech-utility-enemyRespawn", "tech-utility-bossRespawn"],
       ["tech-utility-bossRespawn", "tech-utility-offlineWindow"],
       ["tech-utility-bossRespawn", "tech-utility-utilityMoveSpeed"],
+      ["tech-utility-offlineWindow", "tech-utility-utilityAttackRange"],
+      ["tech-utility-utilityMoveSpeed", "tech-utility-utilityAttackRange"],
     ]);
   });
 

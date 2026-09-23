@@ -20,18 +20,21 @@ function setup(empty = false, map = "forest") {
   let unavailable: string | null = null, visible = true;
   let showBase = false;
   let rewardMultiplier = 1;
+  let damageBonus = 1;
   const farm = createAutoFarmController({ ...state, mapId: () => map, unavailable: () => unavailable, paused: () => false, speed: () => 300, obstacles: () => [] });
   const pause = vi.fn(), clearInput = vi.fn();
   const panel = createAutoFarmPanel({ farm, mapName: () => 'Tutorial Forest', visible: () => visible,
     unavailable: () => unavailable, setPaused: pause, clearInput,
-    rewardMultiplier: () => rewardMultiplier, showBaseStatRewards: () => showBase });
+    rewardMultiplier: () => rewardMultiplier, showBaseStatRewards: () => showBase,
+    rewardAmount: (type, amount) => showBase ? amount : amount * rewardMultiplier * (type === 'damage' ? damageBonus : 1) });
   destroy = panel.destroy;
   const sheet = document.querySelector<HTMLDialogElement>('dialog')!;
   Object.assign(sheet, { showModal() { sheet.open = true; }, close() { sheet.open = false; } });
   const click = (selector: string) => document.querySelector(selector)!.dispatchEvent(new window.Event('click', { bubbles: true }));
   return { ...state, farm, panel, document, window, sheet, pause, clearInput, click,
     setUnavailable: (value: string | null) => { unavailable = value; }, setVisible: (value: boolean) => { visible = value; },
-    setShowBase: (value: boolean) => { showBase = value; }, setRewardMultiplier: (value: number) => { rewardMultiplier = value; } };
+    setShowBase: (value: boolean) => { showBase = value; }, setRewardMultiplier: (value: number) => { rewardMultiplier = value; },
+    setDamageBonus: (value: number) => { damageBonus = value; } };
 }
 it('opens the picker, requires a selection, starts farming, and stops from the floating button', () => {
   const s = setup();
@@ -100,4 +103,17 @@ it('shows earned research and prestige rewards by default, then base rewards whe
   s.setShowBase(false);
   s.panel.refresh();
   expect(displayedReward()).toBe(rewardLabel({ ...base, amount: base.amount * multiplier }));
+});
+
+it('shows damage rewards after a 75% damage bonus when base rewards are off', () => {
+  const s = setup();
+  s.spawnSites[0].type = 'Spitter';
+  s.setRewardMultiplier(1.2);
+  s.setDamageBonus(1.75);
+  s.click('.farm-toggle');
+  const reward = ENEMY_TYPES.Spitter.reward;
+  expect(s.document.querySelector('.farm-reward')!.textContent).toBe(rewardLabel({ ...reward, amount: reward.amount * 1.2 * 1.75 }));
+  s.setShowBase(true);
+  s.panel.refresh();
+  expect(s.document.querySelector('.farm-reward')!.textContent).toBe(rewardLabel(reward));
 });

@@ -14,4 +14,6 @@ it("hits only the actual finite segment including a circle overlapping its endpo
   expect(segmentCircleHit(40, 21, 75, 0, 20)).toBeNull();
   expect(weaponAttackRange("wooden_sword", 200)).toBe(75);
   expect(weaponAttackRange("starter_bow", 200)).toBe(200);
+  expect(weaponAttackRange("wooden_sword", 250)).toBe(125);
+  expect(weaponAttackRange("starter_bow", 250)).toBe(250);
 });

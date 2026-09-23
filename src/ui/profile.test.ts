@@ -142,6 +142,19 @@ describe("effective profile equipment stats", () => {
 });
 
 describe("profile stat display", () => {
+  it("shows the Utility attack range bonus in the range breakdown", () => {
+    const profile = {
+      progress: { ...progress(), attackRange: 230 },
+      research: { ...createEmptyResearchRanks(), utilityAttackRange: 3 },
+      itemUpgradeLevels: {},
+    } as Parameters<typeof profileStatDisplayRows>[0];
+    const range = profileStatDisplayRows(profile, () => "0%", MIN_ATTACK_INTERVAL).find((row) => row.kind === "range");
+    expect(range).toMatchObject({
+      base: "200", multiplier: "1.15", total: "230",
+      sources: [{ label: "Tech", value: "+30 range" }],
+    });
+  });
+
   it("clamps a legacy saved attack rate and places the short max marker beside it", () => {
     const profile = {
       progress: { ...progress(FROST_BOW), attackRate: .32 },

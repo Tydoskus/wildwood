@@ -122,7 +122,8 @@ import type { ResearchId } from "../shared/research";
 import { PLAYER_GENDER_FEMALE, PLAYER_GENDER_MALE } from "../shared/player-gender";
 import { regularEnemySimulationTick } from "../shared/regular-enemy-simulation";
 import { effectivePlayerPower } from "../shared/player-power";
-import { equipmentMaxHealthMultiplierBonus, equipmentRegeneration, isWeaponItem, itemDisplayName, itemStats } from "../shared/items";
+import { equipmentMaxHealthMultiplierBonus, isWeaponItem, itemDisplayName, itemStats } from "../shared/items";
+import { createRewardDisplay, playerRegenerationPerSecond } from "./game/runtime/reward-display";
 import {
   DEFAULT_ATTACK_INTERVAL as STARTING_ATTACK_INTERVAL,
   MAX_PLAYER_STAT,
@@ -663,17 +664,13 @@ import {
     criticalDamageMultiplier: researchCriticalDamageMultiplier,
     applyVitality: applyVitalityResearch,
   } = research;
-  const displayedRewardMultiplier = () => appShell.showBaseStatRewards() ? 1 : researchRewardMultiplier();
+  const rewardDisplay = createRewardDisplay(researchRewardMultiplier, researchRanks, appShell.showBaseStatRewards,
+    () => inventory, itemId => coop?.itemUpgradeLevel?.(itemId) ?? 0);
   const travelSpeed = createOutOfCombatSpeed();
   const movementMultiplier = () => researchMovementSpeedMultiplier()
     + travelSpeed.bonus(inventory.equippedFeet, isDueling()) / Math.max(1, player.speed);
-  const regenerationPerSecond = () => equipmentRegeneration(player.regen,
-    inventory.equippedHead,
-    inventory.equippedChest,
-    researchRegenerationMultiplier(),
-    coop?.itemUpgradeLevel?.(inventory.equippedHead) ?? 0,
-    coop?.itemUpgradeLevel?.(inventory.equippedChest) ?? 0,
-  );
+  const regenerationPerSecond = () => playerRegenerationPerSecond(player.regen, inventory, researchRegenerationMultiplier(),
+    itemId => coop?.itemUpgradeLevel?.(itemId) ?? 0);
   progress = createProgressController({
     player,
     inventory,
@@ -718,6 +715,7 @@ import {
     researchCriticalChance,
     researchCriticalDamageMultiplier,
     researchRewardMultiplier,
+    displayRewardAmount: rewardDisplay.totalAmount,
     prestigeDoubleStrike: () => prestigePerkValue(coop?.prestigePerks?.(), "doubleStrike"),
     prestigeSplitShot: () => prestigePerkValue(coop?.prestigePerks?.(), "splitShot"),
     equippedWeapon: () => inventory.equippedRightHand || inventory.equippedLeftHand,
@@ -981,6 +979,7 @@ import {
     saveProgress,
     healthMultiplierBonus,
     rewardMultiplier: researchRewardMultiplier,
+    displayRewardAmount: rewardDisplay.totalAmount,
   });
 
   let playerSpriteReady = false;
@@ -1153,7 +1152,8 @@ import {
       return remote ? { headItem: remote.headItem, chestItem: remote.chestItem, feetItem: remote.feetItem, rightHandItem: remote.rightHandItem, leftHandItem: remote.leftHandItem } : {};
     },
     enemySprites: ENEMY_SPRITES,
-    rewardMultiplier: displayedRewardMultiplier,
+    rewardMultiplier: rewardDisplay.displayedMultiplier,
+    rewardAmount: rewardDisplay.displayedAmount,
     showBossHitboxes: () => devPanel.bossHitboxesVisible(),
     enemyTextVisible: (enemy) => {
       const { width, height } = canvasRuntime.viewport();
@@ -2055,6 +2055,7 @@ import {
     farm: autoFarm, mapName: () => MAP_CONFIG[currentMapId].name,
     rewardMultiplier: researchRewardMultiplier,
     showBaseStatRewards: appShell.showBaseStatRewards,
+    rewardAmount: rewardDisplay.displayedAmount,
     visible: () => farmUnlocked() && currentMapId !== "home_exterior" && Boolean(session?.isRunning()) && player.hp > 0 && !isDueling() && !mapController.isMapTransitioning() && !mapController.isCutsceneActive(),
     unavailable: farmUnavailable,
     setPaused: (paused) => setGameplayPause("autofarm-picker", paused),

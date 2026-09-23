@@ -50,6 +50,7 @@ describe("progress persistence rules", () => {
       attackRange: DEFAULT_ATTACK_RANGE,
       enemyKills: 0,
     });
+    expect(copyProgress({ ...pending, attackRange: 230 }).attackRange).toBe(230);
   });
 
   it("preserves undecillion combat stats while retaining speed caps", () => {
@@ -184,6 +185,7 @@ describe("progress persistence rules", () => {
     expect(merged.damage).toBe(20);
     expect(merged.bootsCollected).toBe(true);
     expect(progressCovers(merged, pending)).toBe(true);
+    expect(progressCovers({ ...merged, attackRange: 230 }, pending)).toBe(true);
     expect(progressCovers({ ...merged, inventoryJson: "[]" }, pending)).toBe(false);
     expect(progressCovers({ ...merged, cosmeticHead: "different" }, pending)).toBe(false);
   });

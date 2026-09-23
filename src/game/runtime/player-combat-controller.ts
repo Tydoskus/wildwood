@@ -112,6 +112,7 @@ export function createPlayerCombatController(options: {
   researchCriticalChance: () => number;
   researchCriticalDamageMultiplier: () => number;
   researchRewardMultiplier: () => number;
+  displayRewardAmount?: (type: RuntimeReward["type"], baseAmount: number) => number;
   /** Chance for a hit to land a second time, from the Double Strike perk. */
   prestigeDoubleStrike?: () => number;
   /** Chance for a swing to also reach a second enemy, from the Split Shot perk. */
@@ -437,7 +438,7 @@ export function createPlayerCombatController(options: {
       case "regen": player.regen += enhanced.amount; break;
     }
     const data = REWARD_DATA[enhanced.type];
-    logPickup(rewardLabel(enhanced), data.color, rewardLabel(reward));
+    logPickup(rewardLabel({ ...enhanced, amount: options.displayRewardAmount?.(reward.type, reward.amount) ?? enhanced.amount }), data.color, rewardLabel(reward));
     spawnBurst(x, y, DEATH_PARTICLE_COLOR, 16, 110);
     saveProgress();
   }

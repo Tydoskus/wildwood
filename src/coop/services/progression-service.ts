@@ -347,6 +347,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       bossRespawn: row.bossRespawn ?? 0,
       offlineWindow: row.offlineWindow ?? 0,
       utilityMoveSpeed: row.utilityMoveSpeed ?? 0,
+      utilityAttackRange: row.utilityAttackRange ?? 0,
     };
     researchByIdentity.set(identity, research);
     if (identity !== dependencies.localIdentity()) {

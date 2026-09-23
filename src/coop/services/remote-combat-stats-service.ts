@@ -2,6 +2,7 @@ import type { Identity } from "spacetimedb";
 import { tables, type DbConnection } from "../../module_bindings";
 import { effectivePlayerPowerStats } from "../../../shared/player-power";
 import { itemDefinition, normalizeItemUpgradeLevel } from "../../../shared/items";
+import { guildWeaponRange } from "../../../shared/guild-combat";
 import type { RemoteCombatStats } from "../contracts";
 
 const LOAD_TIMEOUT_MS = 5_000;
@@ -87,7 +88,7 @@ export function remoteCombatStatsFromRows(
     projectileCount: melee ? 1 : Number.isInteger(progress.projectileCount)
       ? Math.max(1, Math.min(20, progress.projectileCount))
       : 1,
-    attackRange: melee ? weapon?.range ?? 75 : finitePositive(progress.attackRange, 155),
+    attackRange: guildWeaponRange(progress.equippedRightHand || progress.equippedLeftHand, finitePositive(progress.attackRange, 200)),
     criticalChance: Math.max(0, Math.min(1, criticalChanceRank * .01)),
     criticalDamageMultiplier: 1.05 + criticalDamageRank * .05,
   };

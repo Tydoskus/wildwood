@@ -113,6 +113,8 @@ it("uses melee reach only for melee weapons and saved range for bows", async () 
   const { guildWeaponRange } = await import("./guild-combat");
   expect(guildWeaponRange("wooden_sword", 200)).toBe(75);
   expect(guildWeaponRange("starter_bow", 200)).toBe(200);
+  expect(guildWeaponRange("wooden_sword", 250)).toBe(125);
+  expect(guildWeaponRange("starter_bow", 250)).toBe(250);
   const fighters = [...team(1), ...team(1, "b")].map((f, i) => ({ ...f, range: i ? 75 : 200, moveSpeed: 180 }));
   const initial = initialGuildCombat(fighters.slice(0, 1), fighters.slice(1));
   initial.actors[0].x = 0; initial.actors[1].x = 150;

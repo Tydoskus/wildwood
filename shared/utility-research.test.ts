@@ -2,6 +2,7 @@ import { expect, it } from "vitest";
 import { researchDurationMs } from "./research";
 import { effectivePlayerMovementSpeed } from "./rules";
 import {
+  attackRangeWithResearch,
   bossRespawnSecondsWithResearch,
   enemyRespawnSecondsWithResearch,
   offlineWindowSecondsWithResearch,
@@ -17,4 +18,8 @@ it("applies capped utility ranks to new timers and movement", () => {
   expect(effectivePlayerMovementSpeed(false, 5, 0, 5)).toBeCloseTo(213);
   expect(offlineWindowSecondsWithResearch(100)).toBe(90 * 60);
   expect(bossRespawnSecondsWithResearch(3, 5)).toBe(1);
+  expect(attackRangeWithResearch(0)).toBe(200);
+  expect(attackRangeWithResearch(1)).toBe(210);
+  expect(attackRangeWithResearch(5)).toBe(250);
+  expect(attackRangeWithResearch(100)).toBe(250);
 });

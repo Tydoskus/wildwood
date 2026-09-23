@@ -516,7 +516,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "Leaderboards open around your rank and load more players as you scroll.",
     "Endless bosses now show nearby player attacks and reveal newly unlocked portals, with less server work per hit.",
     "Your own body remains on the map for two minutes after death, including after you respawn.",
-    "Night Forest enemies can drop Black Boots: +25 movement speed after five seconds out of combat.",
+    "Night Forest enemies can drop Black Boots: +25 movement speed.",
     "New equipment drops in Water Reach, Samurai Gardens, Cloudspire, and Moonfen.",
   ],
   "0.689": [

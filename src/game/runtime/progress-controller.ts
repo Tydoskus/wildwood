@@ -135,6 +135,7 @@ export function createProgressController(dependencies: ProgressDependencies) {
         player.attackRate = boundedProgressValue(saved.attackRate, player.attackRate, MIN_ATTACK_INTERVAL, 10);
         player.regen = boundedProgressValue(saved.regen, player.regen, 0, MAX_PLAYER_STAT);
         player.projectileCount = saved.projectileCount;
+        player.attackRange = boundedProgressValue(saved.attackRange, player.attackRange, BASE_ATTACK_RANGE, BASE_ATTACK_RANGE + 50);
         if (player.baseMaxHp !== saved.maxHp) setPlayerBaseMaxHealth(player, saved.maxHp, dependencies.healthMultiplierBonus());
         reconcileInventory(saved);
         applyMovementSpeed(saved, false);
@@ -164,7 +165,7 @@ export function createProgressController(dependencies: ProgressDependencies) {
     player.attackRate = boundedProgressValue(source.attackRate, player.attackRate, MIN_ATTACK_INTERVAL, 10);
     player.projectileSpeed = BASE_PROJECTILE_SPEED;
     player.projectileCount = Math.floor(boundedProgressValue(source.projectileCount, player.projectileCount, 1, 20));
-    player.attackRange = BASE_ATTACK_RANGE;
+    player.attackRange = boundedProgressValue(source.attackRange, BASE_ATTACK_RANGE, BASE_ATTACK_RANGE, BASE_ATTACK_RANGE + 50);
     player.armor = boundedProgressValue(source.armor, player.armor, 0, MAX_ARMOR);
     player.regen = boundedProgressValue(source.regen, player.regen, 0, MAX_PLAYER_STAT);
     bootsPickup.collected = source.bootsCollected === true;

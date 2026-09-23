@@ -2,6 +2,7 @@ import { buildGuildEntrance, GUILD_MOVE_SPEED } from "./guild-entrance";
 import { damageAfterArmor } from "./combat";
 import { duelHitMultiplier, type DuelFighter } from "./duel-combat";
 import { itemDefinition } from "./items";
+import { DEFAULT_ATTACK_RANGE } from "./rules";
 
 export const GUILD_COMBAT_VERSION = 4;
 export const GUILD_COMBAT_STEP = .1;
@@ -11,7 +12,7 @@ export type GuildFighter = { identity: string; name: string; fighter: DuelFighte
 /** Freeze real equipment reach separately from its cosmetic appearance. */
 export function guildWeaponRange(item: string | undefined, rangedRange: number) {
   const weapon = itemDefinition(item)?.weapon;
-  return weapon?.mode === "MELEE" ? weapon.range ?? 75 : rangedRange;
+  return weapon?.mode === "MELEE" ? (weapon.range ?? 75) + Math.max(0, rangedRange - DEFAULT_ATTACK_RANGE) : rangedRange;
 }
 export type GuildActorState = { x: number; y: number; hp: number; target: number; cooldown: number; attacks: number; hitAt: number };
 export type GuildCombatFrame = { time: number; actors: GuildActorState[] };
@@ -25,7 +26,7 @@ function validateTeam(team: GuildFighter[]) {
   if (!team.length || team.length > 20) throw new Error("Each guild needs 1–20 members.");
   for (const { fighter: f, range, moveSpeed } of team) {
     if (moveSpeed !== undefined && (!Number.isFinite(moveSpeed) || moveSpeed <= 0 || moveSpeed > 1000)) throw new Error("A member's movement speed is unavailable.");
-    if (Object.values(f).some(value => !Number.isFinite(value) || value < 0) || f.maxHp <= 0 || f.attackRate < .05 || (range !== undefined && (!Number.isFinite(range) || range < 40 || range > 240))) throw new Error("A member's combat stats are unavailable.");
+    if (Object.values(f).some(value => !Number.isFinite(value) || value < 0) || f.maxHp <= 0 || f.attackRate < .05 || (range !== undefined && (!Number.isFinite(range) || range < 40 || range > 250))) throw new Error("A member's combat stats are unavailable.");
   }
 }
 export function initialGuildCombat(attackers: GuildFighter[], defenders: GuildFighter[]): GuildCombatFrame {

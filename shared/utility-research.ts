@@ -1,4 +1,5 @@
 import { OFFLINE_WINDOW_SECONDS } from "./offline-progress";
+import { DEFAULT_ATTACK_RANGE } from "./rules";
 
 function rank(value: unknown, max: number) {
   return Number.isFinite(value) ? Math.min(max, Math.max(0, Math.floor(Number(value)))) : 0;
@@ -19,4 +20,8 @@ export function bossRespawnSecondsWithResearch(baseSeconds: number, respawnRank:
 
 export function offlineWindowSecondsWithResearch(offlineRank: number) {
   return OFFLINE_WINDOW_SECONDS + rank(offlineRank, 3) * 10 * 60;
+}
+
+export function attackRangeWithResearch(rangeRank: number) {
+  return DEFAULT_ATTACK_RANGE + rank(rangeRank, 5) * 10;
 }
