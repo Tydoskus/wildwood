@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { RESEARCH_DEFINITIONS, RESEARCH_IDS } from "../../shared/research";
 import {
   hasAvailableResearch,
+  createResearchCompletionTracker,
   centerResearchNode,
   researchFocusNode,
   researchElapsedRatio,
@@ -17,6 +18,28 @@ function ranks(overrides: Partial<ResearchRanks> = {}): ResearchRanks {
     ...overrides,
   };
 }
+
+describe("research completion notifications", () => {
+  const job = { researchId: "warcraft" as const, targetRank: 6, startedAtMs: 100, completesAtMs: 500 };
+
+  it("waits for the confirmed rank, including when the active row is removed first", () => {
+    const tracker = createResearchCompletionTracker();
+    expect(tracker.poll("player", true, null, ranks({ warcraft: 5 }))).toEqual([]);
+    expect(tracker.poll("player", true, job, ranks({ warcraft: 5 }))).toEqual([]);
+    expect(tracker.poll("player", true, null, ranks({ warcraft: 5 }))).toEqual([]);
+    expect(tracker.poll("player", true, null, ranks({ warcraft: 6 }))).toEqual([job]);
+    expect(tracker.poll("player", true, null, ranks({ warcraft: 6 }))).toEqual([]);
+  });
+
+  it("does not announce an old account's research after switching players", () => {
+    const tracker = createResearchCompletionTracker();
+    tracker.poll("first", true, job, ranks({ warcraft: 5 }));
+    expect(tracker.poll("second", true, null, ranks({ warcraft: 6 }))).toEqual([]);
+    tracker.poll("second", true, job, ranks({ warcraft: 5 }));
+    expect(tracker.poll("second", false, null, ranks())).toEqual([]);
+    expect(tracker.poll("second", true, null, ranks({ warcraft: 6 }))).toEqual([]);
+  });
+});
 
 describe("hasAvailableResearch", () => {
   it("centers the active rank band ahead of any available earlier node", () => {

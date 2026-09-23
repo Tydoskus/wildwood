@@ -12,6 +12,7 @@ export const SIMULATION_HZ = 60;
 export const SIMULATION_STEP_SECONDS = 1 / SIMULATION_HZ;
 export const MAX_SIMULATION_STEPS_PER_FRAME = 8;
 export const MAX_SIMULATION_CATCH_UP_SECONDS = SIMULATION_STEP_SECONDS * MAX_SIMULATION_STEPS_PER_FRAME;
+export const MAX_BACKGROUND_SIMULATION_STEPS = SIMULATION_HZ;
 export const IDLE_PRESENTATION_DELAY_MS = 2_000;
 
 export type FixedSimulationClock = {
@@ -49,13 +50,13 @@ export function presentationCombatActive(
  * Eight catch-up steps preserve game speed through a frame near 9 FPS, while
  * longer stalls are treated as pauses instead of causing a large burst.
  */
-export function advanceFixedSimulationClock(accumulatorSeconds: number, elapsedSeconds: number): FixedSimulationClock {
+export function advanceFixedSimulationClock(accumulatorSeconds: number, elapsedSeconds: number, maxSteps = MAX_SIMULATION_STEPS_PER_FRAME): FixedSimulationClock {
   const previous = Number.isFinite(accumulatorSeconds) ? Math.max(0, accumulatorSeconds) : 0;
   const elapsed = Number.isFinite(elapsedSeconds) ? Math.max(0, elapsedSeconds) : 0;
   const total = previous + elapsed;
-  const retained = Math.min(total, MAX_SIMULATION_CATCH_UP_SECONDS);
+  const retained = Math.min(total, SIMULATION_STEP_SECONDS * maxSteps);
   const steps = Math.min(
-    MAX_SIMULATION_STEPS_PER_FRAME,
+    maxSteps,
     Math.floor((retained + SIMULATION_STEP_SECONDS * 1e-7) / SIMULATION_STEP_SECONDS),
   );
   const nextAccumulator = Math.max(0, retained - steps * SIMULATION_STEP_SECONDS);
@@ -178,6 +179,8 @@ export function createGameSessionController(dependencies: SessionDependencies) {
   let nextFrameAt = lastFrameAt;
   let lastPresentationActivityAt = lastFrameAt;
   let simulationAccumulatorSeconds = 0;
+  let backgroundTimer: number | undefined;
+  let lastBackgroundAt = 0;
   let nextPerformancePanelUpdateAt = 0;
   let fading = false;
 
@@ -261,8 +264,8 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     dependencies.updateHud();
   }
 
-  function updateFixedSimulation(elapsedSeconds: number) {
-    const clock = advanceFixedSimulationClock(simulationAccumulatorSeconds, elapsedSeconds);
+  function updateFixedSimulation(elapsedSeconds: number, maxSteps = MAX_SIMULATION_STEPS_PER_FRAME) {
+    const clock = advanceFixedSimulationClock(simulationAccumulatorSeconds, elapsedSeconds, maxSteps);
     simulationAccumulatorSeconds = clock.accumulatorSeconds;
     for (let step = 0; step < clock.steps; step += 1) {
       if (!running || paused || dependencies.accountInConflict()) {
@@ -286,10 +289,28 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     dependencies.resetPresentationState();
   }
 
-  // Browsers can suspend animation frames for an arbitrary amount of time.
-  // Returning to the page starts a fresh foreground clock instead of turning
-  // background time into movement or queued combat.
-  document.addEventListener("visibilitychange", refreshFrameClock);
+  // requestAnimationFrame stops in hidden tabs. A timer keeps the simulation
+  // and autofarm advancing while the browser still lets the page run; drawing
+  // remains paused until it is visible again. Cap each wake to one second so a
+  // suspended tab cannot send a burst of stale combat when it resumes.
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      if (backgroundTimer !== undefined) return;
+      lastBackgroundAt = performance.now();
+      backgroundTimer = window.setInterval(() => {
+        const now = performance.now();
+        const elapsed = Math.max(0, (now - lastBackgroundAt) / 1_000);
+        lastBackgroundAt = now;
+        if (running && !paused && !dependencies.accountInConflict()) {
+          updateFixedSimulation(elapsed, MAX_BACKGROUND_SIMULATION_STEPS);
+        }
+      }, 250);
+    } else {
+      if (backgroundTimer !== undefined) window.clearInterval(backgroundTimer);
+      backgroundTimer = undefined;
+      refreshFrameClock();
+    }
+  });
 
   function loop(now: number) {
     // A failed draw must not cancel the only scheduled frame and strand the player.

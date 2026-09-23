@@ -10,6 +10,7 @@ import {
   type ItemDropRevealDetails,
 } from "./item-drop-reveal";
 import {
+  createProgressCompletionToast,
   createStatRewardToast,
   formatStatRewardToastAmount,
   statRewardToastModel,
@@ -86,6 +87,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
   let itemDropActive = false;
   let itemDropTimer: number | null = null;
   const activeStatRewards = new Map<string, ActiveStatReward>();
+  let completionToastId = 0;
 
   function showMessage(text: string, color = "#fff") {
     elements.message.textContent = text;
@@ -142,6 +144,15 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
     };
     activeStatRewards.set(model.stat, reward);
     refreshStatRewardLifetime(model.stat, reward);
+  }
+
+  function showProgressCompletion(kind: "Research" | "Upgrade", detail: string, icon: string, color: string) {
+    const entry = createProgressCompletionToast(kind, detail, icon, color);
+    elements.pickupLog.appendChild(entry);
+    const key = `completion:${++completionToastId}`;
+    const reward = { entry, total: 0, fadeTimer: 0, removeTimer: 0 };
+    activeStatRewards.set(key, reward);
+    refreshStatRewardLifetime(key, reward);
   }
 
   function showNextItemDrop() {
@@ -371,6 +382,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
   return {
     clearTransientUi,
     logPickup,
+    showProgressCompletion,
     showItemDrop,
     showGemDrop,
     setDuelCountdown,

@@ -202,6 +202,45 @@ describe("game session frame scheduling", () => {
       expect(capturePresentationState).not.toHaveBeenCalled();
     } finally { vi.unstubAllGlobals(); }
   });
+  it("continues simulation without rendering while the tab is hidden", () => {
+    let hidden = false;
+    let now = 0;
+    let visibilityChanged = () => {};
+    let backgroundTick = () => {};
+    const clearInterval = vi.fn();
+    vi.stubGlobal("document", {
+      get hidden() { return hidden; },
+      addEventListener: (_name: string, callback: () => void) => { visibilityChanged = callback; },
+    });
+    vi.stubGlobal("window", { setInterval: (callback: () => void) => { backgroundTick = callback; return 1; }, clearInterval });
+    vi.stubGlobal("performance", { now: () => now });
+    vi.stubGlobal("requestAnimationFrame", vi.fn());
+    const updateCutscene = vi.fn();
+    const render = vi.fn();
+    const noop = () => {};
+    try {
+      const session = createGameSessionController({
+        player: { moving: false }, camera: {}, getMapId: () => "test", validMapIds: ["test"],
+        hideStart: noop, hideGameOver: noop, mapMusicSync: noop, resetPlayer: noop,
+        serverMapId: () => undefined, serverPlayerState: () => ({ x: 0, y: 0, facing: 0 }),
+        resolvePortalCollision: noop, connected: () => false, beginAdventure: noop,
+        ensureMusicPlaying: noop, resetPresentationState: noop, accountInConflict: () => false,
+        capturePresentationState: noop, updateVisuals: noop, updateMessage: noop,
+        cutsceneActive: () => true, updateCutscene, updateHud: noop, render,
+      } as any);
+      session.start(false);
+      hidden = true;
+      visibilityChanged();
+      now = 250;
+      backgroundTick();
+      expect(updateCutscene).toHaveBeenCalledTimes(15);
+      session.loop(now);
+      expect(render).not.toHaveBeenCalled();
+      hidden = false;
+      visibilityChanged();
+      expect(clearInterval).toHaveBeenCalledWith(1);
+    } finally { vi.unstubAllGlobals(); }
+  });
   it("does not collapse 60 Hz rendering to every other callback when timestamps arrive slightly early", () => {
     const interval = 1_000 / 60;
     const callbacks = Array.from({ length: 120 }, (_, index) =>

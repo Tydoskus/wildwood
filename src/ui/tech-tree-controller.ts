@@ -44,6 +44,9 @@ export type TechTreeControllerHooks = {
   speedUpResearch: () => Promise<ResearchResult>;
   confirmGemSpend?: ConfirmPrompt;
   showMessage: (message: string, color: string) => void;
+  localIdentity: () => string;
+  isConnected: () => boolean;
+  onResearchFinished?: (research: ActiveResearch) => void;
   beforeOpen: () => void;
   nowMs: () => number;
 };
@@ -75,6 +78,35 @@ export function researchFocusNode(nodes: TechTreeNode[], ranks: ResearchRanks, c
     ranks[node.researchId] < node.endRank && researchIsAvailable(node.researchId, ranks))
     || nodes.find((node) => ranks[node.researchId] < node.endRank)
     || nodes[nodes.length - 1];
+}
+
+/** Waits for a server-confirmed rank, even if the active row disappears first. */
+export function createResearchCompletionTracker() {
+  let owner = "";
+  const pending = new Map<string, ActiveResearch>();
+  return {
+    poll(identity: string, connected: boolean, current: ActiveResearch | null, ranks: ResearchRanks) {
+      if (!connected || !identity) {
+        owner = "";
+        pending.clear();
+        return [];
+      }
+      if (owner !== identity) {
+        owner = identity;
+        pending.clear();
+      }
+      const completed: ActiveResearch[] = [];
+      for (const [key, research] of pending) {
+        if (ranks[research.researchId] < research.targetRank) continue;
+        completed.push(research);
+        pending.delete(key);
+      }
+      if (current && ranks[current.researchId] < current.targetRank) {
+        pending.set(`${current.researchId}:${current.targetRank}`, current);
+      }
+      return completed;
+    },
+  };
 }
 
 export function centerResearchNode(viewport: HTMLElement, node: HTMLElement) {
@@ -127,6 +159,7 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
   let selectedNodeId = layout.nodes[0]?.id ?? "";
   let researchRequestPending = false;
   let nextRenderAt = 0;
+  const completionTracker = createResearchCompletionTracker();
 
   function formatResearchTime(milliseconds: number) {
     const seconds = Math.max(0, Math.ceil(milliseconds / 1_000));
@@ -201,7 +234,11 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
 
   function updateNotice() {
     const current = hooks.activeResearch();
-    notice.hidden = Boolean(current) || !hasAvailableResearch(hooks.researchRanks());
+    const ranks = hooks.researchRanks();
+    for (const finished of completionTracker.poll(hooks.localIdentity(), hooks.isConnected(), current, ranks)) {
+      hooks.onResearchFinished?.(finished);
+    }
+    notice.hidden = Boolean(current) || !hasAvailableResearch(ranks);
   }
 
   function render() {
@@ -332,7 +369,6 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
         : await hooks.startResearch(selected.researchId);
     researchRequestPending = false;
     if (!result?.ok) hooks.showMessage(result?.error ?? "RESEARCH UNAVAILABLE", "#ff9b91");
-    else if (speedingUp) hooks.showMessage("RESEARCH COMPLETED WITH GEMS", "#ff9fd2");
     render();
   }
 

@@ -100,3 +100,25 @@ export function createStatRewardToast(text: string, color: string, attackSpeedCa
   entry.append(icon, label, amount, arrow);
   return entry;
 }
+
+/** Uses the enemy reward card for completed account progression. */
+export function createProgressCompletionToast(kind: "Research" | "Upgrade", detail: string, iconText: string, color: string) {
+  const entry = document.createElement("div");
+  entry.className = "pickup stat-reward-toast progress-completion-toast";
+  entry.style.setProperty("--stat-reward-accent", color);
+  entry.setAttribute("role", "status");
+  entry.setAttribute("aria-label", `${kind} complete: ${detail}`);
+
+  const icon = document.createElement("span");
+  icon.className = "stat-reward-icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = iconText;
+  const label = document.createElement("span");
+  label.className = "stat-reward-label";
+  label.textContent = `${kind} complete`;
+  const value = document.createElement("strong");
+  value.className = "stat-reward-value";
+  value.textContent = detail;
+  entry.append(icon, label, value);
+  return entry;
+}

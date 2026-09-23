@@ -12,10 +12,6 @@ import {
   itemUpgradeDurationMs,
   itemUpgradeStatChanges,
 } from "../../shared/items";
-import {
-  setInventoryItemQuantity,
-  type InventoryState,
-} from "../game/inventory";
 import { itemArtMarkup } from "../game/item-presentation";
 import type { ActiveItemUpgrade, UpgradeBenchSlot } from "../wildstat-coop";
 import { gemSpendConfirmation, gemSpendConfirmationText } from "./gem-spend-confirmation";
@@ -39,7 +35,6 @@ type UpgradeBenchElements = {
 type UpgradeResult = { ok: boolean; error?: string } | undefined;
 
 type UpgradeBenchDependencies = {
-  inventory: InventoryState;
   playerPosition: () => { x: number; y: number };
   currentMapId: () => string;
   benchMapId: string;
@@ -63,6 +58,7 @@ type UpgradeBenchDependencies = {
   setPaused: (paused: boolean) => void;
   clearPlayerInput: () => void;
   onInventoryChanged: () => void;
+  onUpgradeFinished?: (job: ActiveItemUpgrade) => void;
   showMessage: (message: string, color?: string) => void;
   nowMs?: () => number;
   storage?: Pick<Storage, "getItem" | "setItem">;
@@ -119,15 +115,16 @@ export function upgradePickerPreview(track: UpgradeSlot, tier: unknown, equipped
  * no waiting-to-collect state to read. A job that disappears once its time has
  * passed was granted; one that disappears before then was cancelled.
  */
-export function upgradeFinishedSinceLastPoll(
-  tracked: ReadonlyMap<UpgradeBenchSlot, number>,
-  active: ReadonlyMap<UpgradeBenchSlot, number>,
+export function upgradesFinishedSinceLastPoll(
+  tracked: ReadonlyMap<UpgradeBenchSlot, ActiveItemUpgrade>,
+  active: ReadonlyMap<UpgradeBenchSlot, ActiveItemUpgrade>,
   nowMs: number,
 ) {
-  for (const [slot, completesAtMs] of tracked) {
-    if (!active.has(slot) && nowMs >= completesAtMs) return true;
-  }
-  return false;
+  return [...tracked.values()].filter((job) => {
+    const current = active.get(job.slot);
+    const stillRunning = current?.startedAtMs === job.startedAtMs && current?.targetLevel === job.targetLevel;
+    return !stillRunning && !job.paused && nowMs >= job.completesAtMs;
+  });
 }
 
 export function createUpgradeBenchController(elements: UpgradeBenchElements, dependencies: UpgradeBenchDependencies) {
@@ -137,7 +134,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
   // no waiting-to-collect state to read. Notice the moment a job that had reached
   // its completion time disappears, and hold that until the bag is opened.
   const FINISHED_KEY = "wildstat-upgrade-finished";
-  const tracked = new Map<UpgradeBenchSlot, number>();
+  const tracked = new Map<UpgradeBenchSlot, ActiveItemUpgrade>();
   let finishedWaiting = false;
   try { finishedWaiting = dependencies.storage?.getItem(FINISHED_KEY) === "true"; } catch { /* Storage may be unavailable. */ }
   function rememberFinished(waiting: boolean) {
@@ -547,7 +544,9 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     render(true);
     const result = await dependencies.speedUpUpgrade(slot);
     if (result?.ok) {
-      setInventoryItemQuantity(dependencies.inventory, job.itemId, 1);
+      tracked.delete(slot);
+      rememberFinished(true);
+      dependencies.onUpgradeFinished?.(job);
       dependencies.onInventoryChanged();
       selectedSlot = null;
       selectedItems.delete(slot);
@@ -595,17 +594,25 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
       if (!job) return null;
       return { itemId: job.itemId, level: job.currentLevel, timer: formatRemaining(remainingFor(job)) };
     },
-    /** A finished upgrade stays on the bench until it is collected into the bag. */
     /**
-     * Poll each frame: a job that vanishes after its time was granted. Opening
-     * the bag is the acknowledgement, whichever control opened it.
+     * A completed tier is auto-granted. Poll each UI frame so the badge and
+     * completion card still appear while gameplay is paused by a panel.
+     * Opening the bag acknowledges the badge.
      */
-    finishedUpgradeWaiting(acknowledged = false) {
-      if (acknowledged) rememberFinished(false);
-      const current = new Map(activeUpgrades().map((job) => [job.slot, job.completesAtMs] as const));
-      if (upgradeFinishedSinceLastPoll(tracked, current, nowMs())) rememberFinished(true);
+    finishedUpgradeWaiting(acknowledged = false, connected = true) {
+      if (!connected) {
+        tracked.clear();
+        if (acknowledged) rememberFinished(false);
+        return finishedWaiting;
+      }
+      const current = new Map(activeUpgrades().map((job) => [job.slot, job] as const));
+      for (const job of upgradesFinishedSinceLastPoll(tracked, current, nowMs())) {
+        rememberFinished(true);
+        dependencies.onUpgradeFinished?.(job);
+      }
       tracked.clear();
-      for (const [slot, completesAtMs] of current) tracked.set(slot, completesAtMs);
+      for (const [slot, job] of current) tracked.set(slot, job);
+      if (acknowledged) rememberFinished(false);
       return finishedWaiting;
     },
     acknowledgeFinishedUpgrade: () => rememberFinished(false),

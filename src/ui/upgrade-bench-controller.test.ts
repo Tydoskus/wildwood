@@ -1,6 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { parseHTML } from "linkedom";
 import { FROST_BOW } from "../../shared/items";
-import { UPGRADE_BENCH_TOUCH_OFFSET_Y, UPGRADE_CANCEL_CONFIRMATION, playerTouchesUpgradeBench, upgradeBenchTouchTransition, upgradePickerPreview, upgradeSlotAfterPickerDismiss, upgradeFinishedSinceLastPoll } from "./upgrade-bench-controller";
+import { UPGRADE_BENCH_TOUCH_OFFSET_Y, UPGRADE_CANCEL_CONFIRMATION, createUpgradeBenchController, playerTouchesUpgradeBench, upgradeBenchTouchTransition, upgradePickerPreview, upgradeSlotAfterPickerDismiss, upgradesFinishedSinceLastPoll } from "./upgrade-bench-controller";
+import type { ActiveItemUpgrade } from "../wildstat-coop";
+import { createInventoryNotice } from "./inventory-notice";
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("upgrade bench touch latch", () => {
   it("requires leaving before a closed bench can open again", () => {
@@ -58,27 +63,76 @@ describe("upgrade bench touch latch", () => {
 });
 
 describe("finished upgrade notification", () => {
-  const job = (slot: 1 | 2, completesAtMs: number) => new Map([[slot, completesAtMs]] as const);
+  const job = (slot: 1 | 2, completesAtMs: number, itemId = "HAND"): ActiveItemUpgrade => ({
+    slot, itemId, currentLevel: 0, targetLevel: 1, startedAtMs: 100,
+    completesAtMs, paused: false, remainingMs: completesAtMs - 100,
+  });
+  const jobs = (...entries: ActiveItemUpgrade[]) => new Map(entries.map((entry) => [entry.slot, entry] as const));
 
   it("notices a job that disappears after its time", () => {
-    expect(upgradeFinishedSinceLastPoll(job(1, 500), new Map(), 500)).toBe(true);
-    expect(upgradeFinishedSinceLastPoll(job(1, 500), new Map(), 900)).toBe(true);
+    expect(upgradesFinishedSinceLastPoll(jobs(job(1, 500)), new Map(), 500)).toEqual([job(1, 500)]);
+    expect(upgradesFinishedSinceLastPoll(jobs(job(1, 500)), new Map(), 900)).toEqual([job(1, 500)]);
   });
 
   it("ignores a job cancelled before its time", () => {
-    expect(upgradeFinishedSinceLastPoll(job(1, 500), new Map(), 499)).toBe(false);
+    expect(upgradesFinishedSinceLastPoll(jobs(job(1, 500)), new Map(), 499)).toEqual([]);
   });
 
   it("ignores a job that is still running", () => {
-    expect(upgradeFinishedSinceLastPoll(job(1, 500), job(1, 500), 900)).toBe(false);
+    expect(upgradesFinishedSinceLastPoll(jobs(job(1, 500)), jobs(job(1, 500)), 900)).toEqual([]);
   });
 
-  it("reports the finished slot while another keeps going", () => {
-    const tracked = new Map([[1, 500], [2, 9_000]] as const);
-    expect(upgradeFinishedSinceLastPoll(tracked, new Map([[2, 9_000]] as const), 600)).toBe(true);
+  it("reports either slot independently, including when both finish together", () => {
+    const first = job(1, 500);
+    const second = job(2, 600, "HEAD");
+    expect(upgradesFinishedSinceLastPoll(jobs(first, second), jobs(second), 600)).toEqual([first]);
+    expect(upgradesFinishedSinceLastPoll(jobs(first, second), jobs(first), 600)).toEqual([second]);
+    expect(upgradesFinishedSinceLastPoll(jobs(first, second), new Map(), 600)).toEqual([first, second]);
   });
 
-  it("has nothing to report on the first poll", () => {
-    expect(upgradeFinishedSinceLastPoll(new Map(), job(1, 500), 600)).toBe(false);
+  it("notices a completed job when its bench slot immediately starts another", () => {
+    const first = job(1, 500);
+    const next = { ...first, startedAtMs: 550, targetLevel: 2 };
+    expect(upgradesFinishedSinceLastPoll(jobs(first), jobs(next), 600)).toEqual([first]);
+  });
+
+  it("does not report a paused job or a job never observed", () => {
+    const paused = { ...job(2, 500), paused: true };
+    expect(upgradesFinishedSinceLastPoll(jobs(paused), new Map(), 900)).toEqual([]);
+    expect(upgradesFinishedSinceLastPoll(new Map(), jobs(job(1, 500)), 600)).toEqual([]);
+  });
+
+  it("keeps the inventory red dot until opened after either bench slot finishes", () => {
+    const names = ["inventory", "slot", "slotTwo", "action", "speedUp", "back", "closePicker"];
+    const others = ["panel", "prompt", "statGain", "timer", "picker", "pickerItems"];
+    const { document } = parseHTML(`<html><body>${names.map((name) => `<button id="${name}"></button>`).join("")}${others.map((name) => `<div id="${name}"></div>`).join("")}</body></html>`);
+    vi.stubGlobal("document", document);
+    const element = (name: string) => document.getElementById(name)!;
+    const first = job(1, 500);
+    const second = job(2, 700, "HEAD");
+    let active = [first, second];
+    let now = 100;
+    const finished = vi.fn();
+    const controller = createUpgradeBenchController(Object.fromEntries([...names, ...others].map((name) => [name, element(name)])) as never, {
+      activeUpgrades: () => active, nowMs: () => now, onUpgradeFinished: finished,
+      storage: { getItem: () => null, setItem: vi.fn() },
+    } as never);
+    const notice = createInventoryNotice(element("inventory"));
+    const dot = element("inventory").querySelector<HTMLElement>(".inventory-notice")!;
+    notice.set(controller.finishedUpgradeWaiting());
+    expect(dot.hidden).toBe(true);
+
+    now = 600; active = [second];
+    notice.set(controller.finishedUpgradeWaiting());
+    expect(dot.hidden).toBe(false);
+    expect(finished).toHaveBeenCalledWith(first);
+
+    notice.set(controller.finishedUpgradeWaiting(true));
+    expect(dot.hidden).toBe(true);
+    now = 800; active = [];
+    notice.set(controller.finishedUpgradeWaiting());
+    expect(dot.hidden).toBe(false);
+    expect(finished).toHaveBeenCalledWith(second);
+    expect(finished).toHaveBeenCalledTimes(2);
   });
 });
