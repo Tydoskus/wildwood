@@ -16,7 +16,19 @@ press **Save all**.
 - **Floating HUD** — where the name and health bar hang from. Anchored to the
   top of the artwork rather than the top of the sprite's cell, which on a short
   boss is mostly empty air.
-- **Shadow** — how far down the ground shadow sits.
+- **Shadow** — how far down the ground shadow sits. It is also the boss's
+  depth key, so moving it changes whether the boss draws in front of or behind
+  a player standing beside it.
+- **Frame** — a correction for the frame on screen: where its crop sits in the
+  cell, how big that crop is, where the frame lands, and its scale. Every field
+  is a correction from zero, so an untouched frame draws exactly as it did
+  before. These are written to `src/game/boss-frame-crops.json`, and only the
+  frames actually nudged appear in it.
+
+Frame names come from the rule the renderer picks by, not from a guess, so a
+frame the game never draws says "never drawn" rather than inviting work on it.
+Magmalisk has one and so does Gloomroot; Frostclaw's idle cycles through all
+four, which is why its names read as pairs.
 
 Saving writes each value back to the constant it came from:
 `*_RADIUS` in `spacetimedb/src/boss-combat.ts`, `*_VERTICAL_RADIUS` and

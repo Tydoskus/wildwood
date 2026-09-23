@@ -31,6 +31,28 @@ const FIELDS = [
 
 const boss = () => bosses[current];
 
+const CROP_FIELDS = [
+  { key: "sourceX", label: "Crop left", min: -200, max: 200 },
+  { key: "sourceY", label: "Crop top", min: -200, max: 200 },
+  { key: "sourceWidth", label: "Crop width", min: -400, max: 400 },
+  { key: "sourceHeight", label: "Crop height", min: -400, max: 400 },
+  { key: "offsetX", label: "Move across", min: -200, max: 200 },
+  { key: "offsetY", label: "Move down", min: -200, max: 200 },
+  { key: "scale", label: "Scale", min: -0.6, max: 0.6, step: 0.01 },
+];
+
+/** Every field defaults to zero, so an untouched frame draws as it always did. */
+function cropFor(row, index) {
+  const saved = row.crops?.[String(index)] ?? {};
+  return Object.fromEntries(CROP_FIELDS.map((field) => [field.key, Number(saved[field.key] ?? 0)]));
+}
+
+function setCrop(row, index, key, value) {
+  row.crops ??= {};
+  row.crops[String(index)] ??= {};
+  row.crops[String(index)][key] = Number(value);
+}
+
 function sheetFor(row) {
   if (sheets.has(row.id)) return sheets.get(row.id);
   const image = new Image();
@@ -62,18 +84,28 @@ function drawBoss(row) {
   const box = spriteBox(row, image);
   const columns = row.frames;
   const index = frame % (columns * (row.rows ?? 1));
-  const sourceX = (index % columns) * box.cellW;
-  const sourceY = Math.floor(index / columns) * box.cellH;
-  const [x, y] = toScreen(-box.width / 2, box.top);
+  // Mirrors drawBossSheetFrame: the source window moves and grows inside the
+  // cell, and the draw box keeps its proportions rather than stretching.
+  const crop = cropFor(row, index);
+  const sourceX = (index % columns) * box.cellW + crop.sourceX;
+  const sourceY = Math.floor(index / columns) * box.cellH + crop.sourceY;
+  const sourceW = box.cellW + crop.sourceWidth;
+  const sourceH = box.cellH + crop.sourceHeight;
+  if (sourceW <= 0 || sourceH <= 0) return box;
+  const scale = 1 + crop.scale;
+  const width = box.width * (sourceW / box.cellW) * scale;
+  const height = box.height * (sourceH / box.cellH) * scale;
+  const [x, y] = toScreen(-width / 2 + crop.offsetX, box.top + (box.height - height) / 2 + crop.offsetY);
   ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(image, sourceX, sourceY, box.cellW, box.cellH, x, y, box.width * SCALE, box.height * SCALE);
+  ctx.drawImage(image, sourceX, sourceY, sourceW, sourceH, x, y, width * SCALE, height * SCALE);
 
   // The cell the artwork is drawn into, so the empty air above a short boss is
   // visible rather than something you have to infer from the bar floating.
+  const [cellX, cellY] = toScreen(-box.width / 2, box.top);
   ctx.strokeStyle = "rgba(255,255,255,.1)";
   ctx.setLineDash([3, 4]);
   ctx.lineWidth = 1;
-  ctx.strokeRect(x, y, box.width * SCALE, box.height * SCALE);
+  ctx.strokeRect(cellX, cellY, box.width * SCALE, box.height * SCALE);
   ctx.setLineDash([]);
   return box;
 }
@@ -135,14 +167,17 @@ function renderFrames() {
   const total = row.frames * (row.rows ?? 1);
   for (let index = 0; index < total; index += 1) {
     const button = document.createElement("button");
-    button.className = index === frame % total ? "chip is-active" : "chip";
-    button.textContent = row.frameNames?.[index] ?? `frame ${index}`;
-    button.addEventListener("click", () => { playing = false; frame = index; renderFrames(); draw(); });
+    const name = row.frameNames?.[index] ?? `frame ${index}`;
+    const unused = /never drawn/.test(name);
+    button.className = `chip${index === frame % total ? " is-active" : ""}${unused ? " is-unused" : ""}`;
+    button.textContent = name;
+    button.addEventListener("click", () => { playing = false; frame = index; renderFrames(); renderControls(); draw(); });
     frameBarEl.append(button);
   }
   const note = document.createElement("span");
   note.className = "frame-note";
-  note.textContent = "Size the hitbox to the pose the boss holds, not the one it reaches in.";
+  note.textContent = row.frameNote
+    ?? "Size the hitbox to the pose the boss holds, not the one it reaches in.";
   frameBarEl.append(note);
 }
 
@@ -203,6 +238,54 @@ function renderControls() {
     }
     controlsEl.append(set);
   }
+
+  // This frame's own correction, below the boss-wide numbers.
+  const cropSet = document.createElement("fieldset");
+  const cropLegend = document.createElement("legend");
+  const total = row.frames * (row.rows ?? 1);
+  const index = frame % total;
+  cropLegend.textContent = `Frame: ${row.frameNames?.[index] ?? index}`;
+  cropSet.append(cropLegend);
+  const crop = cropFor(row, index);
+  for (const field of CROP_FIELDS) {
+    const wrap = document.createElement("div");
+    wrap.className = "field";
+    const label = document.createElement("label");
+    const text = document.createElement("span");
+    text.textContent = field.label;
+    const number = document.createElement("input");
+    number.type = "number";
+    number.className = "number";
+    number.step = String(field.step ?? 1);
+    number.value = String(crop[field.key]);
+    label.append(text, number);
+    const input = document.createElement("input");
+    input.type = "range";
+    input.min = String(field.min);
+    input.max = String(field.max);
+    input.step = String(field.step ?? 1);
+    input.value = String(crop[field.key]);
+    const apply = (next) => {
+      setCrop(row, index, field.key, next);
+      input.value = String(next);
+      number.value = String(next);
+      draw();
+    };
+    input.addEventListener("input", () => apply(input.value));
+    number.addEventListener("input", () => apply(number.value));
+    wrap.append(label, input);
+    cropSet.append(wrap);
+  }
+  const reset = document.createElement("button");
+  reset.className = "ghost";
+  reset.textContent = "Reset this frame";
+  reset.addEventListener("click", () => {
+    if (row.crops) delete row.crops[String(index)];
+    renderControls();
+    draw();
+  });
+  cropSet.append(reset);
+  controlsEl.append(cropSet);
 
   const actions = document.createElement("div");
   actions.className = "actions";
@@ -281,6 +364,7 @@ function tick(now) {
     last = now;
     frame += 1;
     renderFrames();
+    renderControls();
     draw();
   }
   requestAnimationFrame(tick);

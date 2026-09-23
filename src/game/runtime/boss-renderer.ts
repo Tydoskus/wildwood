@@ -5,6 +5,7 @@ import { drawVoltwardenArt, VOLTWARDEN_ART_TOP } from "./neon-boss-art";
 import { drawGravebloomArt, GRAVEBLOOM_ART_TOP } from "./verdant-boss-art";
 import { drawAegisPrimeArt, AEGIS_PRIME_ART_TOP } from "./ion-boss-art";
 import { drawBossAtlasFrame } from "./boss-atlas-drawing";
+import { drawBossSheetFrame } from "./boss-frame-crop";
 import { bossVerticalRadius } from "../../../shared/boss-hitbox";
 import {
   BOSS_CONE_HALF_ANGLE,
@@ -456,7 +457,7 @@ export function createBossRenderer(options: {
     const pulse = frostclawBoss.roar ? 1 + Math.sin(options.gameTime() * 15) * .018 : 1;
     options.drawShadow(x, visualY + FROSTCLAW_SPRITE_GROUND_OFFSET, 215, .27);
     ctx.save(); ctx.translate(x, visualY + 2); ctx.scale(pulse, pulse);
-    ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH); ctx.restore();
+    drawBossSheetFrame(ctx, canvas, { bossId: "FROSTCLAW", frame, cellWidth: cellW, cellHeight: canvas.height, drawWidth: drawW, drawHeight: drawH }); ctx.restore();
     drawBossStatus({
       x,
       spriteTopY: visualY + FROSTCLAW_ART_TOP,
@@ -542,7 +543,7 @@ export function createBossRenderer(options: {
     ctx.save();
     ctx.translate(x, visualY);
     ctx.scale(pulse, pulse);
-    ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH);
+    drawBossSheetFrame(ctx, canvas, { bossId: "MAGMALISK", frame, cellWidth: cellW, cellHeight: canvas.height, drawWidth: drawW, drawHeight: drawH });
     ctx.restore();
     drawBossStatus({
       x,
@@ -646,10 +647,8 @@ export function createBossRenderer(options: {
     if (options.gloomrootReady() && canvas.width >= 2 && canvas.height >= 2) {
       const cellW = canvas.width / 2;
       const cellH = canvas.height / 2;
-      const sourceX = frame % 2 * cellW;
-      const sourceY = Math.floor(frame / 2) * cellH;
       ctx.filter = "brightness(1.22) contrast(1.08) drop-shadow(0 0 12px rgba(88,238,240,.72))";
-      ctx.drawImage(canvas, sourceX, sourceY, cellW, cellH, -drawW / 2, -drawH / 2, drawW, drawH);
+      drawBossSheetFrame(ctx, canvas, { bossId: "GLOOMROOT", frame, cellWidth: cellW, cellHeight: cellH, columns: 2, drawWidth: drawW, drawHeight: drawH });
     } else {
       ctx.fillStyle = "#172c3d";
       ctx.strokeStyle = "#65eee9";
@@ -765,7 +764,7 @@ export function createBossRenderer(options: {
     ctx.scale(pulse, pulse);
     if (options.tidewyrmReady() && canvas.width >= 4 && canvas.height >= 2) {
       const cellW = canvas.width / 4;
-      ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH);
+      drawBossSheetFrame(ctx, canvas, { bossId: "TIDEWYRM", frame, cellWidth: cellW, cellHeight: canvas.height, drawWidth: drawW, drawHeight: drawH });
     } else {
       ctx.fillStyle = "#147f9d";
       ctx.strokeStyle = "#b9f8ff";
@@ -882,7 +881,7 @@ export function createBossRenderer(options: {
     ctx.scale(flipHorizontally ? -pulse : pulse, pulse);
     if (options.koiShogunReady() && canvas.width >= 4 && canvas.height >= 2) {
       const cellW = canvas.width / 4;
-      ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH);
+      drawBossSheetFrame(ctx, canvas, { bossId: "KOI_SHOGUN", frame, cellWidth: cellW, cellHeight: canvas.height, drawWidth: drawW, drawHeight: drawH });
     } else {
       ctx.fillStyle = "#d87825";
       ctx.strokeStyle = "#4c2917";
@@ -994,7 +993,7 @@ export function createBossRenderer(options: {
     ctx.scale(pulse, pulse);
     if (options.tempestKirinReady() && canvas.width >= 4 && canvas.height >= 2) {
       const cellW = canvas.width / 4;
-      ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH);
+      drawBossSheetFrame(ctx, canvas, { bossId: "TEMPEST_KIRIN", frame, cellWidth: cellW, cellHeight: canvas.height, drawWidth: drawW, drawHeight: drawH });
     } else {
       ctx.fillStyle = "#ecfaff";
       ctx.strokeStyle = "#23466e";
@@ -1320,7 +1319,7 @@ export function createBossRenderer(options: {
     ctx.scale(pulse, pulse);
     if (options.miremawReady() && canvas.width >= 4 && canvas.height >= 2) {
       const cellW = canvas.width / 4;
-      ctx.drawImage(canvas, frame * cellW, 0, cellW, canvas.height, -drawW / 2, -drawH / 2, drawW, drawH);
+      drawBossSheetFrame(ctx, canvas, { bossId: "MIREMAW", frame, cellWidth: cellW, cellHeight: canvas.height, drawWidth: drawW, drawHeight: drawH });
     } else {
       ctx.fillStyle = "#3caa86";
       ctx.strokeStyle = "#102b27";
