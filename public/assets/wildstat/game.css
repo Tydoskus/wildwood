@@ -1231,7 +1231,8 @@
     top: 20%;
     left: 50%;
     bottom: auto;
-    z-index: 6;
+    /* Developer Tools allows combat behind it; keep earned rewards visible. */
+    z-index: 9;
     display: grid;
     justify-items: center;
     gap: 8px;
