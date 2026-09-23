@@ -100,23 +100,23 @@ export type ProfileStatDisplayRow = {
   kind: string;
   label: string;
   base: string;
-  equationOperator?: "×";
+  equationOperator: "×" | "+";
   multiplier: string;
+  equationTotal?: string;
+  hideEquation?: boolean;
   expandedDetail?: string;
+  spokenBreakdown?: string;
   total: string;
   sources: ProfileStatDisplaySource[];
 };
 
-export function profileStatDisplayRows(
+function progressStatDisplayRows(
   profile: PlayerProfileData,
   armorReduction: (armor: number) => string,
   minAttackInterval: number,
-  research?: PlayerResearch,
-  prestigeLevel = 0,
-  perks?: Partial<PrestigePerkRanks> | null,
+  ranks: PlayerResearch,
 ) {
   const { progress } = profile;
-  const ranks = research ?? profile.research ?? createEmptyResearchRanks();
   const statValue = (value: number) => Math.abs(value) >= 1_000_000 ? formatCompactNumber(value) : Math.round(value).toLocaleString();
   const effective = effectiveProfileStats(progress, ranks, profile.itemUpgradeLevels);
   const researchBonus = (rank = 0, percentPerRank = 0) => rank * percentPerRank;
@@ -193,25 +193,42 @@ export function profileStatDisplayRows(
       sources: [...multiplierSources(speedResearchBonus), ...(ranks.utilityMoveSpeed > 0 ? [{ label: "Tech" as const, value: `+${utilityMovementSpeedBonus(ranks.utilityMoveSpeed)} speed` }] : [])],
     },
   ];
+  return stats;
+}
+
+export function profileStatDisplayRows(
+  profile: PlayerProfileData,
+  armorReduction: (armor: number) => string,
+  minAttackInterval: number,
+  research?: PlayerResearch,
+  prestigeLevel = 0,
+  perks?: Partial<PrestigePerkRanks> | null,
+) {
+  const ranks = research ?? profile.research ?? createEmptyResearchRanks();
+  const stats = progressStatDisplayRows(profile, armorReduction, minAttackInterval, ranks);
   // Tech and prestige multiply each other, exactly as the server pays them, so
   // the total is the product rather than the two percentages added together.
   const techGain = researchStatRewardMultiplier(ranks), prestigeGain = prestigeStatMultiplier(prestigeLevel);
-  const percent = (multiplier: number) => `+${Math.round((multiplier - 1) * 100)}%`;
+  const statGainPercent = Math.round((techGain * prestigeGain - 1) * 100);
   const percentPoints = (fraction: number) => `${Math.round(fraction * 1000) / 10}%`;
-  const statGain = percent(techGain * prestigeGain);
+  const factor = (multiplier: number) => `${multiplier.toFixed(2)}×`;
+  const statGain = `+${statGainPercent}%`;
+  const statGainSources = [
+    ...(techGain > 1 ? [{ label: "Tech" as const, value: factor(techGain) }] : []),
+    ...(prestigeGain > 1 ? [{ label: "Prestige" as const, value: factor(prestigeGain) }] : []),
+  ];
   stats.push({
-    kind: "stat-gain", label: "Stat Gain:", base: "0%", multiplier: statGain, total: statGain,
-    sources: [
-      ...(techGain > 1 ? [{ label: "Tech" as const, value: percent(techGain) }] : []),
-      ...(prestigeGain > 1 ? [{ label: "Prestige" as const, value: percent(prestigeGain) }] : []),
-    ],
+    kind: "stat-gain", label: "Stat Gain:", base: techGain.toFixed(2), equationOperator: "×", multiplier: prestigeGain.toFixed(2),
+    equationTotal: factor(1 + statGainPercent / 100), hideEquation: techGain <= 1 || prestigeGain <= 1, total: statGain,
+    spokenBreakdown: statGainSources.length > 0 ? statGainSources.map((source) => `${source.label} ${source.value}`).join(" multiplied by ") : "No bonuses",
+    sources: statGainSources,
   });
   // Keen Edge pays critical chance and critical damage on top of research, so
   // both rows read as combat rolls them rather than showing research alone.
   const perkCritical = prestigePerkValue(perks, "keenEdge"), perkCriticalDamage = prestigeCriticalDamageBonus(perks);
   const criticalChance = ranks.criticalChance * .01 + perkCritical;
   stats.push({
-    kind: "critical", label: "Critical Chance:", base: "0%", multiplier: `+${percentPoints(criticalChance)}`, total: percentPoints(criticalChance),
+    kind: "critical", label: "Critical Chance:", base: "0%", equationOperator: "+", multiplier: percentPoints(criticalChance), total: percentPoints(criticalChance),
     sources: [
       ...(ranks.criticalChance ? [{ label: "Tech" as const, value: `+${ranks.criticalChance}%` }] : []),
       ...(perkCritical ? [{ label: "Prestige" as const, value: `+${percentPoints(perkCritical)}` }] : []),
@@ -220,7 +237,7 @@ export function profileStatDisplayRows(
   const criticalDamageBonus = ranks.criticalDamage * .05 + perkCriticalDamage;
   const criticalDamage = 1.05 + criticalDamageBonus;
   stats.push({
-    kind: "critical-damage", label: "Critical Damage:", base: "1.05×", multiplier: `+${criticalDamageBonus.toFixed(2)}×`, total: `${criticalDamage.toFixed(2)}×`,
+    kind: "critical-damage", label: "Critical Damage:", base: "1.05×", equationOperator: "+", multiplier: `${criticalDamageBonus.toFixed(2)}×`, total: `${criticalDamage.toFixed(2)}×`,
     sources: [
       ...(ranks.criticalDamage ? [{ label: "Tech" as const, value: `+${(ranks.criticalDamage * .05).toFixed(2)}×` }] : []),
       ...(perkCriticalDamage ? [{ label: "Prestige" as const, value: `+${perkCriticalDamage.toFixed(2)}×` }] : []),
@@ -232,7 +249,7 @@ export function profileStatDisplayRows(
     const chance = prestigePerkValue(perks, perk);
     if (!chance) return;
     stats.push({
-      kind, label: `${PRESTIGE_PERKS[perk].title}:`, base: "0%", multiplier: `+${percentPoints(chance)}`,
+      kind, label: `${PRESTIGE_PERKS[perk].title}:`, base: "0%", equationOperator: "+", multiplier: percentPoints(chance),
       expandedDetail, total: percentPoints(chance),
       sources: [{ label: "Prestige", value: `+${percentPoints(chance)}` }],
     });
@@ -251,12 +268,17 @@ export function renderProfileStats(
   research?: PlayerResearch,
   prestigeLevel = 0,
   perks?: Partial<PrestigePerkRanks> | null,
+  viewer?: PlayerProfileData | null,
 ) {
   const stats = profileStatDisplayRows(profile, armorReduction, minAttackInterval, research, prestigeLevel, perks);
+  const viewerTotals = viewer
+    ? new Map(progressStatDisplayRows(viewer, armorReduction, minAttackInterval, viewer.research).map((row) => [row.kind, row.total]))
+    : null;
   const expandedKinds = statGrid.dataset.identity === profile.identity
     ? new Set([...statGrid.querySelectorAll<HTMLElement>('[aria-expanded="true"]')].map((row) => row.dataset.stat))
     : new Set<string>();
   statGrid.dataset.identity = profile.identity;
+  statGrid.classList.toggle("is-comparing", viewerTotals !== null);
   statGrid.replaceChildren();
   const columns = [0, 1].map(() => {
     const column = document.createElement("dl");
@@ -289,7 +311,7 @@ export function renderProfileStats(
     totalGroup.className = "profile-stat-total-group";
     total.className = "profile-stat-total";
     base.textContent = stat.base;
-    multiplyOperator.textContent = stat.equationOperator ?? "";
+    multiplyOperator.textContent = stat.equationOperator;
     multiplyOperator.setAttribute("aria-hidden", "true");
     multiplier.textContent = stat.multiplier;
     equalsOperator.textContent = "=";
@@ -297,14 +319,27 @@ export function renderProfileStats(
     total.textContent = stat.total;
     totalGroup.append(total);
     summary.append(totalGroup);
+    const viewerTotal = viewerTotals?.get(stat.kind);
+    const viewerCells: HTMLElement[] = [];
+    if (viewerTotal !== undefined) {
+      const viewerLabel = document.createElement("dd");
+      viewerLabel.className = "profile-stat-viewer-label";
+      viewerLabel.textContent = "You:";
+      const viewerValue = document.createElement("dd");
+      viewerValue.className = "profile-stat-viewer-value";
+      viewerValue.textContent = viewerTotal;
+      viewerCells.push(viewerLabel, viewerValue);
+    }
     sources.className = "profile-stat-sources";
     sources.hidden = true;
     const equation = document.createElement("span");
     equation.className = "profile-stat-equation";
     const detailedTotal = document.createElement("span");
-    detailedTotal.textContent = stat.total;
+    detailedTotal.textContent = stat.equationTotal ?? stat.total;
     equation.append(base, multiplyOperator, multiplier, equalsOperator, detailedTotal);
-    sources.append(equation);
+    if (!stat.hideEquation) {
+      sources.append(equation);
+    }
     if (stat.sources.length === 0 && !stat.expandedDetail) {
       const empty = document.createElement("span");
       empty.className = "profile-stat-source-empty";
@@ -346,13 +381,17 @@ export function renderProfileStats(
     const breakdownText = [stat.sources.length > 0 ? sourceText : "", stat.expandedDetail ?? ""]
       .filter(Boolean)
       .join(". ") || sourceText;
-    const summaryText = `${stat.label} Base ${stat.base}. Calculation ${stat.base} ${stat.equationOperator ?? ""} ${stat.multiplier}. Total ${stat.total}.`;
+    const summaryText = `${stat.label} Base ${stat.base}. Calculation ${stat.base} ${stat.equationOperator} ${stat.multiplier}. Total ${stat.total}.`;
+    const viewerText = viewerTotal === undefined ? "" : ` You: ${viewerTotal}.`;
+    const expandedText = stat.spokenBreakdown
+      ? `${stat.label} ${stat.total}. ${stat.spokenBreakdown}.`
+      : `${summaryText}${viewerText} Breakdown: ${breakdownText}.`;
     const setExpanded = (expanded: boolean) => {
       item.classList.toggle("is-expanded", expanded);
       item.setAttribute("aria-expanded", String(expanded));
       item.setAttribute("aria-label", expanded
-        ? `${summaryText} Breakdown: ${breakdownText}. Activate to collapse.`
-        : `${stat.label} ${stat.total}. Activate to show detailed stats.`);
+        ? `${expandedText} Activate to collapse.`
+        : `${stat.label} ${stat.total}.${viewerText} Activate to show detailed stats.`);
       sources.hidden = !expanded;
     };
     item.addEventListener("click", () => setExpanded(item.getAttribute("aria-expanded") !== "true"));
@@ -362,7 +401,7 @@ export function renderProfileStats(
       setExpanded(item.getAttribute("aria-expanded") !== "true");
     });
     setExpanded(expandedKinds.has(stat.kind));
-    item.append(term, summary, sources);
+    item.append(term, summary, ...viewerCells, sources);
     columns[index % columns.length].append(item);
   }
 }

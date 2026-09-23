@@ -2956,6 +2956,11 @@
   .profile-stat-total-group { display: block; min-width: 0; }
   .profile-stat-total { min-width: 0; text-align: left; }
   .profile-stat-sources { grid-column: 1 / -1; grid-row: 2; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 7px; padding: 5px 0; border-top: 0; color: #d4ddd5; text-align: center; }
+  .profile-stat-grid.is-comparing .profile-stat-column > div { grid-template-rows: minmax(20px, auto) minmax(calc(var(--font-readable-min) * 1.35), auto); padding-bottom: 4px; }
+  .profile-stat-grid.is-comparing .profile-stat-sources { grid-row: 3; }
+  .profile-stat-grid .profile-stat-viewer-label { grid-column: 1; grid-row: 2; color: var(--muted); text-align: right; }
+  .profile-stat-grid .profile-stat-viewer-value { grid-column: 2; grid-row: 2; display: flex; justify-content: flex-end; gap: 5px; color: var(--muted); }
+  .profile-stat-viewer-value::after { content: "\25B8"; flex: none; font-size: 10px; line-height: 1; visibility: hidden; }
   .profile-stat-equation { display: flex; flex-wrap: wrap; flex-basis: 100%; justify-content: center; gap: 4px; }
   .profile-stat-sources[hidden] { display: none; }
   .profile-stat-source strong { color: #fff; }

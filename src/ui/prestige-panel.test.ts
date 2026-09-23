@@ -204,7 +204,7 @@ describe("profile stat gain breakdown", () => {
     // 1.10 tech times 1.20 prestige is 32 percent, not 30.
     const both = gain(ranks, 2)!;
     expect(both.total).toBe("+32%");
-    expect(both.sources).toEqual([{ label: "Tech", value: "+10%" }, { label: "Prestige", value: "+20%" }]);
+    expect(both.sources).toEqual([{ label: "Tech", value: "1.10×" }, { label: "Prestige", value: "1.20×" }]);
     expect(gain(createEmptyResearchRanks(), 0)!.sources).toEqual([]);
   });
 });

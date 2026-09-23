@@ -35,7 +35,7 @@ export function createProfileWindowController(elements: {
   renderName: (element: HTMLElement, identity: string, name: string, gender?: PlayerGender) => void; isGuest: (identity: string) => boolean; isOnline: (identity: string) => boolean; presenceText: (profile: Profile, online: boolean) => string;
   renderCharacter: (identity: string, progress: Profile["progress"] | null, visible: boolean) => void; skinTone: (identity?: string) => number; setSkinTone: (value: number) => Promise<{ ok?: boolean; error?: string } | undefined>;
   playerGender: (identity?: string) => PlayerGender; setGender: (value: PlayerGender) => Promise<{ ok?: boolean; error?: string } | undefined>;
-  renderStats: (profile: Profile, element: HTMLElement) => void; formatPower: (profile: Profile) => string; formatPlayedTime: (seconds: number) => string;
+  renderStats: (profile: Profile, element: HTMLElement, viewer: Profile | null) => void; formatPower: (profile: Profile) => string; formatPlayedTime: (seconds: number) => string;
   profile: (identity: string) => Profile | null | undefined; loadProfile: (identity: string) => Promise<Profile | null | undefined>; releaseProfile: () => void;
   isDueling: () => boolean; duelCooldownMs: () => number; requestDuel: (identity: string) => Promise<{ ok?: boolean; error?: string } | undefined>;
   getNameChangeStatus: () => Promise<NameChangeStatus | undefined>;
@@ -183,7 +183,8 @@ export function createProfileWindowController(elements: {
     const prestigeLevel = own ? api.prestigeLevel?.() ?? 0 : 0;
     elements.prestigeRow.hidden = !own || prestigeLevel <= 0;
     elements.prestige.textContent = `${prestigeLevel} (+${Math.round(prestigeLevel * PRESTIGE_STAT_GAIN_PER_LEVEL * 100)}% stat gain)`;
-    api.renderStats(profile, elements.statGrid);
+    const viewerIdentity = own ? undefined : api.localIdentity();
+    api.renderStats(profile, elements.statGrid, viewerIdentity ? api.profile(viewerIdentity) ?? null : null);
     loading.hide();
     elements.overviewPanel.hidden = !elements.overviewTab.classList.contains("is-active");
     elements.statsPanel.hidden = !elements.statsTab.classList.contains("is-active");
