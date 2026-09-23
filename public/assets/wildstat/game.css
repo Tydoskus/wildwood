@@ -2960,6 +2960,7 @@
   .profile-stat-grid.is-comparing .profile-stat-sources { grid-row: 3; }
   .profile-stat-grid .profile-stat-viewer-label { grid-column: 1; grid-row: 2; color: var(--muted); text-align: right; }
   .profile-stat-grid .profile-stat-viewer-value { grid-column: 2; grid-row: 2; display: flex; justify-content: flex-end; gap: 5px; color: var(--muted); }
+  /* Invisible copy of the summary chevron, so the You value lines up under the total. */
   .profile-stat-viewer-value::after { content: "\25B8"; flex: none; font-size: 10px; line-height: 1; visibility: hidden; }
   .profile-stat-equation { display: flex; flex-wrap: wrap; flex-basis: 100%; justify-content: center; gap: 4px; }
   .profile-stat-sources[hidden] { display: none; }
