@@ -466,6 +466,45 @@ const personalBossCases = [
   ['isVerdantCatacombsMap', 'gravebloomBoss'], ['isIonCitadelMap', 'aegisPrimeBoss'],
 ] as const;
 
+it("only hits Miremaw where its tuned oval reaches", () => {
+  const hit = vi.fn();
+  const state = createCombatHarness({
+    isTutorialMap: () => false,
+    isMoonfenMap: () => true,
+    hitPersonalBoss: hit,
+  });
+  state.enemies.length = 0;
+  Object.assign(state.miremawBoss, { x: 500, y: 500, dead: false });
+  const fireAcross = (y: number) => {
+    const projectile = state.projectileStore.acquirePlayerProjectile();
+    Object.assign(projectile, {
+      x: 300, y, vx: 1_000, vy: 0, r: 6, damage: 1,
+      critical: false, hitLife: 1, life: 1, trail: 1,
+    });
+    state.controller.updateProjectiles(.3);
+    state.projectileStore.clear();
+  };
+
+  // The old circle reached to y=381. The tuned oval starts at y=468.
+  fireAcross(420);
+  expect(hit).not.toHaveBeenCalled();
+
+  fireAcross(563);
+  expect(hit).toHaveBeenCalledOnce();
+  expect(hit.mock.calls[0]?.[2]).toBe(563);
+});
+
+it("aims at Miremaw's body instead of the anchor above it", () => {
+  const state = createCombatHarness({ isTutorialMap: () => false, isMoonfenMap: () => true });
+  state.enemies.length = 0;
+  Object.assign(state.miremawBoss, { x: 500, y: 500, dead: false });
+  Object.assign(state.player, { x: 300, y: 500, attackRange: 300 });
+
+  state.controller.attackNearest();
+
+  expect(state.player.combatFacing).toBeCloseTo(Math.atan2(63, 200));
+});
+
 it.each(personalBossCases)('applies ranged and sword criticals to %s', (flag, key) => {
   for (const weapon of ['starter_stone', 'wooden_sword']) {
     let now = 1;

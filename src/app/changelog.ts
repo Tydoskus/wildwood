@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.787": [
+    "Shots and sword strikes now hit Miremaw's tuned body shape instead of the old circle above it.",
+    "Attacks aim at the center of Miremaw's body.",
+  ],
   "0.786": [
     "Enemy bow sprites now aim from the grip toward their target.",
     "Boss positions, crops, status bars and hitboxes use the saved tuner adjustments.",
@@ -2280,6 +2284,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.787": "2026-09-22",
   "0.786": "2026-09-22",
   "0.785": "2026-09-22",
   "0.784": "2026-09-22",

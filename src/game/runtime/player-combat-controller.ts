@@ -1,6 +1,6 @@
-import { isMeleeWeapon, weaponAttackRange, segmentCircleHit } from "../weapon-combat";
+import { isMeleeWeapon, weaponAttackRange, segmentCircleHit, segmentEllipseHit } from "../weapon-combat";
 import { isProceduralMap } from "../../../shared/procedural-maps";
-import { bossSurfaceDistance } from "../../../shared/boss-hitbox";
+import { bossSurfaceDistance, bossVerticalRadius } from "../../../shared/boss-hitbox";
 import { isEnemyAttackingPlayer } from "./enemy-threat";
 import { PLAYER_KNOCKBACK_FORCE, WORLD } from "../constants";
 import { damageAfterArmor } from "../combat";
@@ -183,10 +183,13 @@ export function createPlayerCombatController(options: {
     return null;
   }
 
+  const targetAimY = (target: AttackTarget) =>
+    target.y + (target.isBoss ? (target as BossTarget).hitboxOffsetY ?? 0 : 0);
+
   function faceTarget(target: AttackTarget) {
     const dx = target.x - player.x;
     // Keep the body/held-weapon mirror stable when aiming almost vertically.
-    if (Math.abs(dx) > FACING_HORIZONTAL_DEAD_ZONE) player.facing = Math.atan2(target.y - player.y, dx);
+    if (Math.abs(dx) > FACING_HORIZONTAL_DEAD_ZONE) player.facing = Math.atan2(targetAimY(target) - player.y, dx);
   }
 
   function fireAt(
@@ -284,7 +287,7 @@ export function createPlayerCombatController(options: {
 
   function strikeMelee(target: AttackTarget) {
     rebuildTargetGrid();
-    const angle = Math.atan2(target.y - player.y, target.x - player.x);
+    const angle = Math.atan2(targetAimY(target) - player.y, target.x - player.x);
     const hit = raycastProjectile(player.x, player.y, player.x + Math.cos(angle) * attackRange(), player.y + Math.sin(angle) * attackRange(), 0);
     if (!hit) return;
     const critical = (!hit.enemy.isBoss || Boolean(options.hitPersonalBoss)) && Math.random() < researchCriticalChance();
@@ -299,7 +302,7 @@ export function createPlayerCombatController(options: {
 
   function launchPlayerStone(target: AttackTarget, releasedAtSeconds: number) {
     const dx = target.x - player.x;
-    const dy = target.y - player.y;
+    const dy = targetAimY(target) - player.y;
     const distance = Math.hypot(dx, dy) || 1;
     const baseAngle = Math.atan2(dy, dx);
     const weaponItem = options.equippedWeapon();
@@ -411,7 +414,7 @@ export function createPlayerCombatController(options: {
       searchedBossAlive = bossAlive;
     }
     const target = retainedTarget;
-    player.combatFacing = target ? Math.atan2(target.y - player.y, target.x - player.x) : null;
+    player.combatFacing = target ? Math.atan2(targetAimY(target) - player.y, target.x - player.x) : null;
     if (target) faceTarget(target);
     if (!target) {
       nextAttackAtSeconds = attackReadyAtWithoutTarget(nextAttackAtSeconds, nowSeconds);
@@ -506,8 +509,10 @@ export function createPlayerCombatController(options: {
     for (const target of targetCandidates as Array<EnemyState | BossTarget>) {
       if (target.dead) continue;
       const ex = target.x - startX;
-      const ey = target.y - startY;
-      const t = segmentCircleHit(ex, ey, dx, dy, radius + target.r);
+      const t = target.isBoss
+        ? segmentEllipseHit(ex, target.y + (target.hitboxOffsetY ?? 0) - startY, dx, dy,
+          target.r + radius, bossVerticalRadius(target.r, target.ry) + radius)
+        : segmentCircleHit(ex, target.y - startY, dx, dy, radius + target.r);
       if (t === null) continue;
       if (t < closestT) { closestT = t; closest = target; }
     }
@@ -528,7 +533,7 @@ export function createPlayerCombatController(options: {
     if (!target.isBoss && !target.generatedBoss) spawnDamageNumber(target.x, target.y, damage, critical);
     target.hurt = .12;
     if (target.isBoss && options.hitPersonalBoss) {
-      options.hitPersonalBoss(damage, target.x, target.y, critical === true);
+      options.hitPersonalBoss(damage, target.x, target.y + (target.hitboxOffsetY ?? 0), critical === true);
     } else if (target.isBoss) {
       // No personal-boss handler is wired up (never happens in production,
       // where main.ts always supplies hitPersonalBoss for boss targets).

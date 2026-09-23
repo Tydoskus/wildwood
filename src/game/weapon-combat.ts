@@ -21,3 +21,8 @@ export function segmentCircleHit(ex: number, ey: number, dx: number, dy: number,
   const t = (dot - Math.sqrt(discriminant)) / lengthSq;
   return t >= 0 && t <= 1 ? t : null;
 }
+
+/** First intersection with an axis-aligned oval, including a start inside it. */
+export function segmentEllipseHit(ex: number, ey: number, dx: number, dy: number, horizontalRadius: number, verticalRadius: number) {
+  return segmentCircleHit(ex / horizontalRadius, ey / verticalRadius, dx / horizontalRadius, dy / verticalRadius, 1);
+}
