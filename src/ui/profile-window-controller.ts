@@ -7,6 +7,7 @@ import { PLAYER_GENDER_UNSET, isSelectedPlayerGender, playerGenderLabel, type Pl
 import { appendPlayerGenderIcon } from "./player-gender";
 import { PRESTIGE_STAT_GAIN_PER_LEVEL } from "../../shared/prestige";
 import type { ItemInspectionController, ItemInspectionAction } from "./item-inspection-controller";
+import { slotUpgradeLevelFor } from "./profile";
 import {
   PROFILE_EQUIPMENT_SLOTS,
   profileEquipmentPresentation,
@@ -110,7 +111,7 @@ export function createProfileWindowController(elements: {
       renderProfileEquipmentSlot(
         equipmentElements[slot],
         presentation,
-        presentation.inspectionItemId ? profile?.itemUpgradeLevels[presentation.inspectionItemId] ?? 0 : 0,
+        presentation.inspectionItemId ? slotUpgradeLevelFor(profile?.itemUpgradeLevels ?? {}, presentation.inspectionItemId) : 0,
       );
     }
   }
@@ -121,7 +122,7 @@ export function createProfileWindowController(elements: {
     if (!presentation.inspectionItemId) return;
     api.itemInspection.open({
       itemId: presentation.inspectionItemId,
-      upgradeLevel: profileData.itemUpgradeLevels[presentation.inspectionItemId] ?? 0,
+      upgradeLevel: slotUpgradeLevelFor(profileData.itemUpgradeLevels, presentation.inspectionItemId),
       context: presentation.context,
       actions: identity === api.localIdentity() ? api.destructionActions?.(presentation.inspectionItemId) : undefined,
     });

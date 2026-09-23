@@ -5,6 +5,7 @@ import { PRESTIGE_PERKS, RIPOSTE_REFLECT_SHARE, prestigeCriticalDamageBonus, pre
 import { effectivePlayerPower, effectivePlayerPowerStats } from "../../shared/player-power";
 import { equipmentDamageMultiplierBonus, equipmentMaxHealthMultiplierBonus, equipmentRegenerationMultiplierBonus } from "../../shared/items";
 import { formatCompactNumber } from "./number-format";
+import { upgradeSlotForItem } from "../../shared/slot-upgrades";
 
 export function formatPlayedTime(seconds: number) {
   const wholeMinutes = Math.max(0, Math.floor(seconds / 60));
@@ -34,9 +35,13 @@ export function effectiveProfileStats(
   const multiplier = (rank = 0, percentPerRank = 0) => 1 + rank * percentPerRank / 100;
   const weaponItem = progress.equippedRightHand || progress.equippedLeftHand;
   const healthResearchMultiplier = multiplier(research.vitality, 2);
-  const headUpgradeLevel = itemUpgradeLevels[progress.equippedHead] ?? 0;
-  const chestUpgradeLevel = itemUpgradeLevels[progress.equippedChest] ?? 0;
-  const weaponUpgradeLevel = itemUpgradeLevels[weaponItem] ?? 0;
+  // The levels are keyed by slot, not by item: a tier belongs to the slot and
+  // whatever is in it inherits the tier. Looking one up by item id missed
+  // every time, so the panel showed the gear with no upgrades behind it.
+  const slotUpgradeLevel = (itemId: string) => slotUpgradeLevelFor(itemUpgradeLevels, itemId);
+  const headUpgradeLevel = slotUpgradeLevel(progress.equippedHead);
+  const chestUpgradeLevel = slotUpgradeLevel(progress.equippedChest);
+  const weaponUpgradeLevel = slotUpgradeLevel(weaponItem);
   const healthEquipmentBonus = equipmentMaxHealthMultiplierBonus(progress.equippedHead, progress.equippedChest, headUpgradeLevel, chestUpgradeLevel);
   // The same gear with no slot tiers behind it. The difference is what the
   // bench has paid for, which is otherwise invisible inside one Equipment line.
@@ -50,11 +55,7 @@ export function effectiveProfileStats(
   const bareRegenBonus = equipmentRegenerationMultiplierBonus(progress.equippedHead, progress.equippedChest, 0, 0);
   const speedMultiplier = multiplier(research.moveSpeed, 2);
   const baseSpeed = progress.speedOverride > 0 ? progress.speedOverride : progress.speed;
-  const powerStats = effectivePlayerPowerStats(
-    progress,
-    research,
-    (itemId) => itemUpgradeLevels[itemId] ?? 0,
-  );
+  const powerStats = effectivePlayerPowerStats(progress, research, slotUpgradeLevel);
   return {
     ...powerStats,
     speed: baseSpeed * speedMultiplier,
@@ -76,16 +77,21 @@ export function effectiveProfileStats(
   };
 }
 
+/** A tier is the slot's, so resolve the item to its slot before looking up. */
+export function slotUpgradeLevelFor(itemUpgradeLevels: Record<string, number>, itemId: string) {
+  return itemUpgradeLevels[upgradeSlotForItem(itemId) ?? ""] ?? 0;
+}
+
 export function profilePower(profile: PlayerProfileData) {
   return effectivePlayerPower(
     profile.progress,
     profile.research,
-    (itemId) => profile.itemUpgradeLevels[itemId] ?? 0,
+    (itemId) => slotUpgradeLevelFor(profile.itemUpgradeLevels, itemId),
   );
 }
 
 export type ProfileStatDisplaySource = {
-  label: "Tech" | "Equipment" | "Slot Tiers" | "Prestige";
+  label: "Tech" | "Equipment" | "Slot Upgrade" | "Prestige";
   value: string;
 };
 
@@ -124,7 +130,7 @@ export function profileStatDisplayRows(
     // What the bench has paid for, listed on its own. Folded into Equipment it
     // was impossible to tell a slot upgrade had done anything at all.
     if (slotTierBonus !== undefined && slotTierBonus > 0) {
-      sources.push({ label: "Slot Tiers", value: equipmentBonusValue(slotTierBonus) });
+      sources.push({ label: "Slot Upgrade", value: equipmentBonusValue(slotTierBonus) });
     }
     return sources;
   };

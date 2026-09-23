@@ -27,9 +27,9 @@ describe("boss hitbox", () => {
     // Straight out to the side is unchanged: the complaint was height only.
     expect(bossSurfaceDistance(radius, MIREMAW_HITBOX_OFFSET_Y, radius, MIREMAW_VERTICAL_RADIUS, MIREMAW_HITBOX_OFFSET_Y))
       .toBeCloseTo(0, 9);
-    // The body's top is 44 above the anchor. A shot level with the anchor used
-    // to count as a hit 170 out; it now has to reach the toad.
-    const above = bossSurfaceDistance(0, -44, radius, MIREMAW_VERTICAL_RADIUS, MIREMAW_HITBOX_OFFSET_Y);
+    // The idle toad's top is 31 above the anchor. A shot level with the anchor
+    // used to count as a hit 170 out; it now has to reach the creature.
+    const above = bossSurfaceDistance(0, -31, radius, MIREMAW_VERTICAL_RADIUS, MIREMAW_HITBOX_OFFSET_Y);
     expect(above).toBeCloseTo(0, 6);
     expect(bossSurfaceDistance(0, -150, radius)).toBeLessThan(0);
     expect(bossSurfaceDistance(0, -150, radius, MIREMAW_VERTICAL_RADIUS, MIREMAW_HITBOX_OFFSET_Y)).toBeGreaterThan(0);

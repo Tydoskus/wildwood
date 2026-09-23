@@ -181,7 +181,7 @@ export function drawHomeStationSign(c: CanvasRenderingContext2D, x: number, y: n
   c.font = '900 15px "Arial Rounded MT Bold", Arial, sans-serif';
   c.textAlign = "center"; c.textBaseline = "middle"; c.lineJoin = "round";
   c.strokeStyle = "#171810"; c.lineWidth = 4; c.fillStyle = "#fff1d2";
-  const label = research ? "Tech Research" : "Equipment Upgrades";
+  const label = research ? "Tech Research" : "Loadout Upgrades";
   c.strokeText(label, x, y - 157, 174); c.fillText(label, x, y - 157, 174);
   if (timer) { c.font = '900 12px Arial'; c.strokeText(timer, x, y - 187); c.fillStyle = "#a4edf2"; c.fillText(timer, x, y - 187); }
   c.restore();

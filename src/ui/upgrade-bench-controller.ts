@@ -69,7 +69,7 @@ type UpgradeBenchDependencies = {
 };
 
 export const UPGRADE_CANCEL_CONFIRMATION = "Are you sure you want to cancel? You will lose current progress to the next upgrade.";
-export const UPGRADE_SLOT_UNLOCK_ACTION = "permanently unlock the second Upgrade Bench slot";
+export const UPGRADE_SLOT_UNLOCK_ACTION = "permanently unlock a second upgrade bench, so two loadout slots can upgrade at once";
 export const UPGRADE_SLOT_UNLOCK_CONFIRMATION = gemSpendConfirmationText(
   UPGRADE_SLOT_UNLOCK_ACTION,
   UPGRADE_BENCH_SECOND_SLOT_GEM_COST,
@@ -542,7 +542,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
       dependencies.showMessage(`NOT ENOUGH GEMS · NEED ${cost}`, "#ff9b91");
       return;
     }
-    if (!await ask(confirmGemSpend, gemSpendConfirmation("finish this item upgrade now", cost, dependencies.gemBalance()))) return;
+    if (!await ask(confirmGemSpend, gemSpendConfirmation("finish this slot upgrade now", cost, dependencies.gemBalance()))) return;
     busy = true;
     render(true);
     const result = await dependencies.speedUpUpgrade(slot);

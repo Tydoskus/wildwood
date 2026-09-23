@@ -114,13 +114,21 @@ describe("effective profile equipment stats", () => {
     expect(stats.regen).toBeCloseTo(2.3036);
   });
 
-  it("includes completed item upgrade levels in profile stats", () => {
-    const bow = effectiveProfileStats(progress(FROST_BOW), createEmptyResearchRanks(), { [FROST_BOW]: 1 });
+  it("includes completed slot upgrade levels in profile stats", () => {
+    // Keyed by slot, the way the coop session hands them over. Keyed by item
+    // the lookup missed every time and the panel showed bare gear.
+    const bow = effectiveProfileStats(progress(FROST_BOW), createEmptyResearchRanks(), { HAND: 1 });
     expect(bow.damage).toBeCloseTo(22.378);
     expect(bow.attackRate).toBeCloseTo(1);
-    const armor = effectiveProfileStats(progress("", FROST_ARMOR), createEmptyResearchRanks(), { [FROST_ARMOR]: 1 });
+    const armor = effectiveProfileStats(progress("", FROST_ARMOR), createEmptyResearchRanks(), { CHEST: 1 });
     expect(armor.maxHp).toBeCloseTo(111.89);
     expect(armor.regen).toBeCloseTo(2);
+  });
+
+  it("reads nothing from a map still keyed by item id", () => {
+    const stale = effectiveProfileStats(progress(FROST_BOW), createEmptyResearchRanks(), { [FROST_BOW]: 1 });
+    const bare = effectiveProfileStats(progress(FROST_BOW), createEmptyResearchRanks(), {});
+    expect(stale.damage).toBeCloseTo(bare.damage);
   });
 });
 
@@ -192,7 +200,7 @@ describe("profile stat display", () => {
 it("displays helmet percentages and research as the same calculation used for combat", () => {
   const profile = { progress: { ...progress(), regen: 10, equippedHead: WOOD_FULL_HELM },
     research: { ...createEmptyResearchRanks(), regeneration: 10 },
-    itemUpgradeLevels: { [WOOD_FULL_HELM]: 1 } } as unknown as Parameters<typeof profileStatDisplayRows>[0];
+    itemUpgradeLevels: { HEAD: 1 } } as unknown as Parameters<typeof profileStatDisplayRows>[0];
   const row = profileStatDisplayRows(profile, () => "0%", MIN_ATTACK_INTERVAL).find(row => row.kind === "regen");
   // Equipment is the gear alone and the bench's share is listed beside it, so
   // a slot upgrade is visible rather than buried in one number. 8.04 + 0.32
@@ -201,7 +209,7 @@ it("displays helmet percentages and research as the same calculation used for co
     sources: [
       { label: "Tech", value: "+20%" },
       { label: "Equipment", value: "+8.04%" },
-      { label: "Slot Tiers", value: "+0.32%" },
+      { label: "Slot Upgrade", value: "+0.32%" },
     ] });
   expect(effectiveProfileStats(profile.progress, profile.research, profile.itemUpgradeLevels).regen).toBeCloseTo(13.0032);
 });

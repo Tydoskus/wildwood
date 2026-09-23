@@ -452,7 +452,7 @@
      and shaded a little darker, so the level reads as a label on the tile. */
   /* max-width capped this at the grid area, which is why the negative margins
      never widened it and the banner stopped short of both edges. */
-  .equipment-slot-name { align-self: stretch; justify-self: stretch; display: grid; place-items: center; margin: 2px -3px -3px; padding: 3px 4px 4px; overflow: hidden; border-top: 1px solid rgba(255,255,255,.28); background: rgba(0,0,0,.26); color: #fff; font: 700 8px/1 Arial, Helvetica, sans-serif; letter-spacing: .04em; text-align: center; text-overflow: ellipsis; white-space: nowrap; text-shadow: none; pointer-events: none; }
+  .equipment-slot-name { align-self: stretch; justify-self: stretch; display: grid; place-items: center; margin: 2px -3px -3px; padding: 3px 4px 4px; overflow: hidden; border-top: 1px solid rgba(255,255,255,.28); background: rgba(0,0,0,.46); color: #fff; font: 800 9px/1 Arial, Helvetica, sans-serif; letter-spacing: .04em; text-align: center; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 0 rgba(0,0,0,.7); pointer-events: none; }
   /* A filled equipment slot names itself in the banner, so the heading above
      would only collide with the tier badge that sits in that corner. */
   .equipment-slot.is-filled > .equipment-slot-label { visibility: hidden; }

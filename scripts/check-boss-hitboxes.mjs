@@ -176,9 +176,10 @@ const SHEETS = [
   // thunderbolts — which throws the creature out of the shape it holds.
   ["koi shogun", "KOI_SHOGUN", "koi-shogun-boss-spritesheet-v1.webp", { frames: 4, drawWidth: 330, drawHeight: 440, offsetY: -30, measureFrames: [0, 1, 2] }],
   ["tempest kirin", "TEMPEST_KIRIN", "tempest-kirin-boss-spritesheet-v1.webp", { frames: 4, drawWidth: 356, drawHeight: 542, offsetY: -42, measureFrames: [0, 1, 2] }],
-  // Frame 3 is the bog burst, which rears the toad up out of its own body.
-  // The hitbox answers for the poses it holds: still, and the tongue.
-  ["miremaw", "MIREMAW", "miremaw-boss-spritesheet-v1.webp", { frames: 4, drawWidth: 470, drawHeight: 532, offsetY: -45, measureFrames: [0, 1, 2] }],
+  // The idle frame alone. The tongue reaches and the bog burst rears the toad
+  // up out of its own body; sizing the hitbox to either hands back the reach
+  // this is removing for every frame it is not doing it.
+  ["miremaw", "MIREMAW", "miremaw-boss-spritesheet-v1.webp", { frames: 4, drawWidth: 470, drawHeight: 532, offsetY: -45, measureFrames: [0] }],
 ];
 
 console.log("");

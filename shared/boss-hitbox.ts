@@ -50,15 +50,15 @@ export function bossSurfaceDistance(
  * measures from. Its circle reached well above the creature's head, so an
  * arrow was counted as a hit while it was still in open air.
  *
- * Measured across the poses it holds — still, and both tongue frames. The bog
- * burst rears the toad up out of its own body, and sizing the hitbox to that
- * would hand back the reach this is removing for every frame it is not doing
- * it. Measured by `node scripts/check-boss-hitboxes.mjs`.
+ * Measured from the idle frame alone. The tongue reaches and the bog burst
+ * rears the toad up out of its own body; sizing the hitbox to either hands
+ * back the reach this is removing for every frame it is not doing it.
+ * Measured by `node scripts/check-boss-hitboxes.mjs`.
  */
-export const MIREMAW_VERTICAL_RADIUS = 101;
+export const MIREMAW_VERTICAL_RADIUS = 95;
 /** Its width, unchanged; kept here so the geometry can be tested on its own. */
 export const MIREMAW_RADIUS_REFERENCE = 170;
-export const MIREMAW_HITBOX_OFFSET_Y = 57;
+export const MIREMAW_HITBOX_OFFSET_Y = 64;
 
 /**
  * The Koi Shogun's banners and the Kirin's mane both read as part of the
