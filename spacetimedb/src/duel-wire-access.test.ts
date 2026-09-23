@@ -2,12 +2,13 @@ import { expect, it, vi } from "vitest";
 import { Timestamp } from "spacetimedb";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { syncDuelWireAccess } from "./duel-wire-access";
-import { COMPATIBLE_PROTOCOL_VERSIONS } from "../../shared/rules";
+import { COMPATIBLE_PROTOCOL_VERSIONS, PROTOCOL_VERSION } from "../../shared/rules";
 import { DUEL_COMBAT_VERSION } from "../../shared/duel-combat";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 it("requires flat-stat combat clients so boss validation uses matching DPS", () => {
-  expect(COMPATIBLE_PROTOCOL_VERSIONS).toContain(106);
+  expect(COMPATIBLE_PROTOCOL_VERSIONS).toContain(PROTOCOL_VERSION);
+  expect(COMPATIBLE_PROTOCOL_VERSIONS).not.toContain(106);
   expect(COMPATIBLE_PROTOCOL_VERSIONS).not.toContain(104);
   expect(COMPATIBLE_PROTOCOL_VERSIONS).not.toContain(105);
   expect(COMPATIBLE_PROTOCOL_VERSIONS).not.toContain(103);
@@ -16,12 +17,12 @@ it("grants all recorded duel formats only to current clients and revokes on old-
   const f = crystalFixture();
   syncDuelWireAccess(f.ctx, 104);
   expect([...f.db.duelWireAccess.iter()]).toHaveLength(0);
-  syncDuelWireAccess(f.ctx, 106);
+  syncDuelWireAccess(f.ctx, PROTOCOL_VERSION);
   // Through the current version, not a frozen list: a duel written at a version
   // nobody was granted never reached either duellist.
   const granted = [...Array(DUEL_COMBAT_VERSION + 1).keys()];
   expect([...f.db.duelWireAccess.iter()].map((r: any) => r.combatVersion)).toEqual(granted);
-  syncDuelWireAccess(f.ctx, 106);
+  syncDuelWireAccess(f.ctx, PROTOCOL_VERSION);
   expect([...f.db.duelWireAccess.iter()]).toHaveLength(granted.length);
   syncDuelWireAccess(f.ctx, 104);
   expect([...f.db.duelWireAccess.iter()]).toHaveLength(0);

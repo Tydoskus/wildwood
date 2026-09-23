@@ -69,7 +69,7 @@ export function createPrestigePanel(d: Record<string, any>) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createTechTreePanel(d: Record<string, any>) {
   const e = d.e;
-  return createTechTreeController({ notice: e.techTreeNotice, overlay: e.techTreeOverlay, closeButton: e.closeTechTreeBtn, active: e.techTreeActive, canvas: e.techTreeCanvas, map: e.techTreeMap, detail: e.techTreeDetail, detailContent: e.techTreeDetailContent, closeDetailButton: e.closeTechTreeDetailBtn }, {
+  return createTechTreeController({ notice: e.techTreeNotice, overlay: e.techTreeOverlay, title: e.techTreeTitle, categories: e.techTreeCategories, viewport: e.techTreeViewport, closeButton: e.closeTechTreeBtn, active: e.techTreeActive, canvas: e.techTreeCanvas, map: e.techTreeMap, detail: e.techTreeDetail, detailContent: e.techTreeDetailContent, closeDetailButton: e.closeTechTreeDetailBtn }, {
     researchRanks: d.researchRanks, activeResearch: d.activeResearch, startResearch: d.startResearch, gemBalance: d.gemBalance, speedUpResearch: d.speedUpResearch, showMessage: d.showMessage, localIdentity: d.localIdentity, isConnected: d.isConnected, onResearchFinished: d.onResearchFinished, beforeOpen: d.beforeOpen, nowMs: () => Date.now(),
   });
 }
@@ -85,7 +85,7 @@ export function createDevPanel(d: Record<string, any>) {
   document.getElementById("developerSettingsRow")!.after(travel.element);
   const panel = createDevPanelController({
     teleportPlayer: d.teleportPlayer,
-    simulateTimeAway: d.simulateTimeAway,
+    simulateTimeAway: d.simulateTimeAway, offlineWindowRank: d.offlineWindowRank,
     balance: {
       load: () => coop.balanceEditor(), preview: (map, settings) => coop.previewBalance(map, settings),
       save: (revision, settings) => coop.saveBalance(revision, settings), restore: (expected, revision) => coop.restoreBalance(expected, revision),

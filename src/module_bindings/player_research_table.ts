@@ -22,4 +22,10 @@ export default __t.row({
   prosperity: __t.u32(),
   criticalDamage: __t.u32().name("critical_damage"),
   regeneration: __t.u32(),
+  researchSpeed: __t.u32().name("research_speed"),
+  slotUpgradeSpeed: __t.u32().name("slot_upgrade_speed"),
+  enemyRespawn: __t.u32().name("enemy_respawn"),
+  bossRespawn: __t.u32().name("boss_respawn"),
+  offlineWindow: __t.u32().name("offline_window"),
+  utilityMoveSpeed: __t.u32().name("utility_move_speed"),
 });

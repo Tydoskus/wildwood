@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { parseHTML } from "linkedom";
 import { RESEARCH_DEFINITIONS, RESEARCH_IDS } from "../../shared/research";
 import {
   hasAvailableResearch,
@@ -8,9 +9,60 @@ import {
   researchElapsedRatio,
   researchIsAvailable,
   researchProgressLabel,
+  createTechTreeController,
   type ResearchRanks,
 } from "./tech-tree-controller";
 import { createTechTreeLayout } from "./tech-tree-layout";
+
+afterEach(() => vi.unstubAllGlobals());
+
+it("opens Power and Utility from separate nodes and returns to the chooser", async () => {
+  const { document, window } = parseHTML(`<html><body>
+    <span id="notice"></span><div id="overlay" hidden><h2 id="title"><span>Tech Research</span></h2>
+    <div id="categories"><button data-research-tree="power"><small class="tech-tree-choice-progress"></small></button><button data-research-tree="utility"><small class="tech-tree-choice-progress"></small></button></div>
+    <div id="viewport" hidden><div id="map"><canvas id="canvas"></canvas></div></div>
+    <div id="active"></div><button id="back"></button><div id="detail" hidden><div id="content"></div><button id="detailBack"></button></div></div>
+  </body></html>`);
+  vi.stubGlobal("document", document);
+  vi.stubGlobal("window", window);
+  vi.stubGlobal("addEventListener", () => {});
+  vi.stubGlobal("requestAnimationFrame", () => 0);
+  const element = (id: string) => document.getElementById(id)! as HTMLElement;
+  const map = element("map");
+  map.getBoundingClientRect = () => ({ width: 0, height: 0 } as DOMRect);
+  const startResearch = vi.fn(async () => ({ ok: true }));
+  const currentRanks = ranks({ researchSpeed: 1 });
+  const controller = createTechTreeController({
+    notice: element("notice"), overlay: element("overlay"), title: element("title"), categories: element("categories"),
+    viewport: element("viewport"), closeButton: element("back"), active: element("active"),
+    canvas: element("canvas") as HTMLCanvasElement, map, detail: element("detail"),
+    detailContent: element("content"), closeDetailButton: element("detailBack"),
+  }, {
+    researchRanks: () => currentRanks, activeResearch: () => null, startResearch, gemBalance: () => 0n,
+    speedUpResearch: async () => ({ ok: true }), showMessage: () => {}, localIdentity: () => "alice",
+    isConnected: () => true, beforeOpen: () => {}, nowMs: () => 0,
+  });
+  const click = (selector: string) => document.querySelector(selector)!.dispatchEvent(new window.Event("click", { bubbles: true }));
+
+  controller.open();
+  expect(element("categories").hidden).toBe(false);
+  click('[data-research-tree="utility"]');
+  expect(element("viewport").hidden).toBe(false);
+  expect(map.querySelectorAll("[data-tech-node]")).toHaveLength(6);
+  click('[data-tech-node="tech-utility-bossRespawn"]');
+  expect(element("content").textContent).toContain("SLOT UPGRADE SPEED 1/5 OR ENEMY RESPAWN 1/5");
+  expect(document.querySelector<HTMLButtonElement>(".tech-tree-action")?.disabled).toBe(true);
+  click('[data-tech-node="tech-utility-enemyRespawn"]');
+  expect(element("detail").hidden).toBe(false);
+  expect(element("content").textContent).toContain("-0.5s PER RANK");
+  click(".tech-tree-action");
+  await Promise.resolve();
+  expect(startResearch).toHaveBeenCalledWith("enemyRespawn");
+  click("#back");
+  expect(element("categories").hidden).toBe(false);
+  click('[data-research-tree="power"]');
+  expect(map.querySelectorAll("[data-tech-node]")).toHaveLength(36);
+});
 
 function ranks(overrides: Partial<ResearchRanks> = {}): ResearchRanks {
   return {

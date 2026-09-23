@@ -1,7 +1,7 @@
 import { ENEMY_TYPES, REWARD_DATA, rewardLabel, rewardAmountLabel, rewardStatLabel } from '../game/enemies';
 import type { AutoFarmController } from '../game/runtime/auto-farm-controller';
 
-const farmIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3l14 14-2 2L3 5V3h2zm14 0L5 17l2 2L21 5V3h-2zM3 16l5 5m8 0l5-5M4 20l-1 1m17-1l1 1"/></svg>';
+const farmIcon = '<img class="farm-swords-icon" src="assets/wildstat/icons/Icon_AutoFarm.svg" alt="" aria-hidden="true">';
 
 /** Compact HUD control and a native modal sheet with built-in focus trapping. */
 export function createAutoFarmPanel(options: {

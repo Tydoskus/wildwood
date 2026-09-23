@@ -60,7 +60,9 @@ import DevDeliverCombatUpdateGiftReducer from "../dev_deliver_combat_update_gift
 import DevDeliverDisconnectCompensationReducer from "../dev_deliver_disconnect_compensation_reducer";
 import DevDeliverEquipmentMailReducer from "../dev_deliver_equipment_mail_reducer";
 import DevDeliverOutageCompensationReducer from "../dev_deliver_outage_compensation_reducer";
+import DevEraseAccountReducer from "../dev_erase_account_reducer";
 import DevGrantEquipmentReducer from "../dev_grant_equipment_reducer";
+import DevGrantGemHeartReducer from "../dev_grant_gem_heart_reducer";
 import DevGrantRetroactiveKillGemsReducer from "../dev_grant_retroactive_kill_gems_reducer";
 import DevPublishMailboxLetterReducer from "../dev_publish_mailbox_letter_reducer";
 import DevRepairDisplayNameReducer from "../dev_repair_display_name_reducer";
@@ -204,7 +206,9 @@ export type DevDeliverCombatUpdateGiftParams = __Infer<typeof DevDeliverCombatUp
 export type DevDeliverDisconnectCompensationParams = __Infer<typeof DevDeliverDisconnectCompensationReducer>;
 export type DevDeliverEquipmentMailParams = __Infer<typeof DevDeliverEquipmentMailReducer>;
 export type DevDeliverOutageCompensationParams = __Infer<typeof DevDeliverOutageCompensationReducer>;
+export type DevEraseAccountParams = __Infer<typeof DevEraseAccountReducer>;
 export type DevGrantEquipmentParams = __Infer<typeof DevGrantEquipmentReducer>;
+export type DevGrantGemHeartParams = __Infer<typeof DevGrantGemHeartReducer>;
 export type DevGrantRetroactiveKillGemsParams = __Infer<typeof DevGrantRetroactiveKillGemsReducer>;
 export type DevPublishMailboxLetterParams = __Infer<typeof DevPublishMailboxLetterReducer>;
 export type DevRepairDisplayNameParams = __Infer<typeof DevRepairDisplayNameReducer>;

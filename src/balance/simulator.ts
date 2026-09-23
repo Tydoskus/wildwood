@@ -48,7 +48,7 @@ import { effectivePlayerPowerStats, playerPowerForStats, type PlayerPowerStats }
 import { LATE_MAP_DAMAGE_TIER, lateMapReferenceBuild, type LateDamageMap } from "../../shared/incoming-damage";
 import {
   RESEARCH_DEFINITIONS,
-  RESEARCH_IDS,
+  POWER_RESEARCH_IDS,
   createEmptyResearchRanks,
   researchDurationMs,
   researchIsAvailable,
@@ -1199,7 +1199,7 @@ function rewardAmount(state: MutableSimulationState, baseAmount: number, mapRewa
 function nextResearch(state: MutableSimulationState, plan: ResearchPlan) {
   if (plan === "off") return null;
   const order = plan === "damage-first" ? damageResearchOrder : balancedResearchOrder;
-  const available = RESEARCH_IDS.filter((id) => researchIsAvailable(id, state.research));
+  const available = POWER_RESEARCH_IDS.filter((id) => researchIsAvailable(id, state.research));
   if (!available.length) return null;
   if (plan === "damage-first") {
     return [...available].sort((left, right) => order.indexOf(left) - order.indexOf(right))[0];

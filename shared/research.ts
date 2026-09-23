@@ -1,6 +1,6 @@
 export const RESEARCH_RANK_BAND_COUNT = 4;
 
-export const RESEARCH_IDS = [
+export const POWER_RESEARCH_IDS = [
   "warcraft",
   "moveSpeed",
   "foraging",
@@ -11,8 +11,18 @@ export const RESEARCH_IDS = [
   "criticalChance",
   "criticalDamage",
 ] as const;
+export const UTILITY_RESEARCH_IDS = [
+  "researchSpeed",
+  "slotUpgradeSpeed",
+  "enemyRespawn",
+  "bossRespawn",
+  "offlineWindow",
+  "utilityMoveSpeed",
+] as const;
+export const RESEARCH_IDS = [...POWER_RESEARCH_IDS, ...UTILITY_RESEARCH_IDS] as const;
 export type ResearchId = typeof RESEARCH_IDS[number];
 export type ResearchRanks = Record<ResearchId, number>;
+export type ResearchTree = "power" | "utility";
 
 export type ResearchDefinition = {
   id: ResearchId;
@@ -22,9 +32,12 @@ export type ResearchDefinition = {
   maxRank: number;
   effect: string;
   valuePerRank: number;
+  unit?: "%" | "s" | "min" | "speed";
   durationStartMs: number;
   /** Ranks required from connected technologies inside the same rank band. */
   prerequisites?: Partial<Record<ResearchId, number>>;
+  /** One rank in any listed technology unlocks this node. */
+  prerequisiteAny?: ResearchId[];
 };
 
 function repeatedDefinition(definition: Omit<ResearchDefinition, "maxRank">): ResearchDefinition {
@@ -67,7 +80,27 @@ export const RESEARCH_DEFINITIONS: Record<ResearchId, ResearchDefinition> = {
     id: "criticalDamage", title: "CRITICAL DAMAGE", icon: "✹", ranksPerBand: 5, effect: "CRITICAL DAMAGE", valuePerRank: 5, durationStartMs: 120_000,
     prerequisites: { prosperity: 1 },
   }),
+  researchSpeed: { id: "researchSpeed", title: "RESEARCH SPEED", icon: "⏱", ranksPerBand: 5, maxRank: 5,
+    effect: "RESEARCH SPEED", valuePerRank: 1, unit: "%", durationStartMs: 45_000 },
+  slotUpgradeSpeed: { id: "slotUpgradeSpeed", title: "SLOT SPEED", icon: "⚒", ranksPerBand: 5, maxRank: 5,
+    effect: "SLOT UPGRADE SPEED", valuePerRank: 1, unit: "%", durationStartMs: 45_000, prerequisites: { researchSpeed: 1 } },
+  enemyRespawn: { id: "enemyRespawn", title: "ENEMY RESPAWN", icon: "↻", ranksPerBand: 5, maxRank: 5,
+    effect: "ENEMY RESPAWN", valuePerRank: .5, unit: "s", durationStartMs: 60_000, prerequisites: { researchSpeed: 1 } },
+  bossRespawn: { id: "bossRespawn", title: "BOSS RESPAWN", icon: "♛", ranksPerBand: 5, maxRank: 5,
+    effect: "BOSS RESPAWN", valuePerRank: 1, unit: "s", durationStartMs: 60_000, prerequisiteAny: ["slotUpgradeSpeed", "enemyRespawn"] },
+  offlineWindow: { id: "offlineWindow", title: "OFFLINE TIME", icon: "☾", ranksPerBand: 3, maxRank: 3,
+    effect: "OFFLINE REWARD TIME", valuePerRank: 10, unit: "min", durationStartMs: 90_000, prerequisites: { bossRespawn: 1 } },
+  utilityMoveSpeed: { id: "utilityMoveSpeed", title: "SWIFTNESS", icon: "➜", ranksPerBand: 5, maxRank: 5,
+    effect: "MOVE SPEED", valuePerRank: 3, unit: "speed", durationStartMs: 60_000, prerequisites: { bossRespawn: 1 } },
 };
+
+export function researchTreeFor(researchId: ResearchId): ResearchTree {
+  return (UTILITY_RESEARCH_IDS as readonly string[]).includes(researchId) ? "utility" : "power";
+}
+
+export function utilityMovementSpeedBonus(moveSpeedRank: number) {
+  return Math.min(5, normalizedResearchRank(moveSpeedRank)) * 3;
+}
 
 export function createEmptyResearchRanks(): ResearchRanks {
   return Object.fromEntries(RESEARCH_IDS.map((id) => [id, 0])) as ResearchRanks;
@@ -124,7 +157,7 @@ export function researchPrerequisitesForNextRank(researchId: ResearchId, complet
     requirements[id] = researchRankBandStart(id, rankBandIndex) + Number(requiredRank);
   }
   if (researchId === "foraging" && rankBandIndex > 0) {
-    for (const id of RESEARCH_IDS) requirements[id] = researchRankBandEnd(id, rankBandIndex - 1);
+    for (const id of POWER_RESEARCH_IDS) requirements[id] = researchRankBandEnd(id, rankBandIndex - 1);
   }
   return requirements;
 }
@@ -132,18 +165,20 @@ export function researchPrerequisitesForNextRank(researchId: ResearchId, complet
 export function researchIsAvailable(researchId: ResearchId, ranks: ResearchRanks) {
   const definition = RESEARCH_DEFINITIONS[researchId];
   if (ranks[researchId] >= definition.maxRank) return false;
-  return Object.entries(researchPrerequisitesForNextRank(researchId, ranks[researchId]))
-    .every(([id, rank]) => ranks[id as ResearchId] >= Number(rank));
+  if (!Object.entries(researchPrerequisitesForNextRank(researchId, ranks[researchId]))
+    .every(([id, rank]) => ranks[id as ResearchId] >= Number(rank))) return false;
+  return !definition.prerequisiteAny?.length || definition.prerequisiteAny.some(id => ranks[id] >= 1);
 }
 
 export const RESEARCH_DURATION_CAP_MS = 72 * 60 * 60 * 1_000;
 
 /** Every research grows 40% per rank; deeper nodes start at longer server timers. */
-export function researchDurationMs(researchId: ResearchId, completedRanks: number) {
-  return Math.min(
+export function researchDurationMs(researchId: ResearchId, completedRanks: number, researchSpeedRank = 0) {
+  const base = Math.min(
     RESEARCH_DURATION_CAP_MS,
     Math.round(RESEARCH_DEFINITIONS[researchId].durationStartMs * 1.4 ** Math.max(0, completedRanks)),
   );
+  return Math.max(1_000, Math.round(base / (1 + Math.min(5, normalizedResearchRank(researchSpeedRank)) * .01)));
 }
 
 export function isResearchId(value: string): value is ResearchId {

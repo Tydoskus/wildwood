@@ -65,6 +65,15 @@ describe("effective profile equipment stats", () => {
     expect(effectiveProfileStats({ ...progress(), speedOverride: 262.5 }, research).speed).toBeCloseTo(341.25);
   });
 
+  it("shows the flat Utility movement bonus in the profile speed", () => {
+    const research = { ...createEmptyResearchRanks(), moveSpeed: 5, utilityMoveSpeed: 5 };
+    expect(effectiveProfileStats(progress(), research).speed).toBeCloseTo(progress().speed * 1.1 + 15);
+    const profile = { progress: progress(), research, itemUpgradeLevels: {} } as Parameters<typeof profileStatDisplayRows>[0];
+    const speed = profileStatDisplayRows(profile, () => "0%", .25).find(row => row.kind === "speed");
+    expect(speed?.total).toBe(Math.round(progress().speed * 1.1 + 15).toLocaleString());
+    expect(speed?.sources).toContainEqual({ label: "Tech", value: "+15 speed" });
+  });
+
   it("ignores cosmetic overrides when calculating stats", () => {
     const cosmeticOnly = { ...progress(), cosmeticRightHand: FROST_BOW, cosmeticChest: FROST_ARMOR };
     const stats = effectiveProfileStats(cosmeticOnly);

@@ -48,6 +48,7 @@ type VirtualPlayerLoadTestState = {
 type DevPanelDependencies = {
   teleportPlayer: (query: string) => Promise<void>;
   simulateTimeAway: (seconds: number) => Promise<boolean>;
+  offlineWindowRank?: () => number;
   balance: BalanceEditorDependencies;
   forestPrototype: ForestPrototypePanelDependencies;
   isDeveloper: () => boolean;
@@ -93,7 +94,7 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
   };
   const playerTravel = createPlayerTravelControl(tabPanels.controls, { allowed: dependencies.isDeveloper, travel: dependencies.teleportPlayer, showMessage: dependencies.showMessage });
   const offlineProgressTest = createOfflineProgressTestControl(tabPanels.controls, {
-    allowed: dependencies.isDeveloper, simulate: dependencies.simulateTimeAway, showMessage: dependencies.showMessage,
+    allowed: dependencies.isDeveloper, simulate: dependencies.simulateTimeAway, offlineWindowRank: dependencies.offlineWindowRank, showMessage: dependencies.showMessage,
   });
   const bossHitboxes = createBossHitboxOverlayControl(tabPanels.controls, { allowed: dependencies.isDeveloper });
   const ota = createOtaPanel(tabPanels.controls);

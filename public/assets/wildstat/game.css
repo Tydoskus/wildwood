@@ -2753,7 +2753,15 @@
   .tech-tree-header { z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 62px; padding: 10px max(14px, env(safe-area-inset-right)) 10px max(14px, env(safe-area-inset-left)); border-bottom: 0; background: transparent; }
   .tech-tree-active { min-width: 0; margin: 0 auto; color: #c2c7ce; font-size: clamp(7px, 1.7vw, 10px); letter-spacing: .06em; text-align: center; }
   .tech-tree-viewport { position: relative; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: none; }
+  .tech-tree-viewport[hidden], .tech-tree-categories[hidden] { display: none; }
   .tech-tree-viewport::-webkit-scrollbar { display: none; }
+  .tech-tree-categories { display: grid; align-content: center; justify-items: center; gap: 18px; min-height: 0; padding: 24px; overflow: auto; }
+  .tech-tree-choice { display: grid; grid-template-columns: 48px minmax(0, 1fr); column-gap: 16px; align-items: center; width: min(100%, 370px); min-height: 112px; padding: 15px 18px; border: 2px solid #858d98; border-radius: 14px; background: linear-gradient(145deg, #37404a, #171d24); color: var(--text); text-align: left; box-shadow: inset 0 0 0 2px rgba(0,0,0,.45), 0 6px 0 rgba(0,0,0,.38); }
+  .tech-tree-choice:hover, .tech-tree-choice:focus-visible { border-color: #e2ebf4; background: linear-gradient(145deg, #485564, #202a34); outline: 0; }
+  .tech-tree-choice-icon { grid-row: span 3; color: #e9c969; font-size: 35px; text-align: center; }
+  .tech-tree-choice strong { font-size: 20px; line-height: 1; }
+  .tech-tree-choice > span:not(.tech-tree-choice-icon) { color: #cbd3dc; font-size: 10px; }
+  .tech-tree-choice small { color: #e9c969; font-size: 10px; }
   #techTreeCanvas { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; background: transparent; image-rendering: auto; pointer-events: none; }
   .tech-tree-map { position: relative; z-index: 1; display: grid; grid-auto-rows: 168px; min-width: 420px; min-height: calc(var(--tech-tree-row-count, 1) * 168px + var(--tech-tree-edge-space, 22px) * 2); height: auto; padding: var(--tech-tree-edge-space, 22px) clamp(24px, 7vw, 112px); }
   .tech-tree-tier { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; justify-self: center; width: min(372px, 100%); gap: 56px; }
@@ -3955,11 +3963,13 @@
 /* Compact reaction chips sit beneath the bubble without changing message layout. */
 .chat-message-reaction-picker { grid-row: 3; display: flex; align-items: center; justify-content: space-around; gap: 8px; padding: 2px 4px 10px; }
 .chat-message-reaction-picker button { width: 48px; height: 44px; padding: 0; border: 0; border-radius: 10px; background: transparent; box-shadow: none; font-size: 26px; line-height: 1; }
+.chat-message-reaction-picker button img { display: block; width: 34px; height: 34px; margin: auto; object-fit: contain; }
 .chat-message-reaction-picker button[aria-pressed="true"] { background: rgba(255,255,255,.16); }
 .chat-message-reaction-picker button:disabled { opacity: .45; }
 #chatPanel.is-large .chat-text.has-reactions { position: relative; overflow: visible; }
 .chat-bubble-reactions { position: absolute; top: calc(100% + 4px); left: 2px; right: auto; display: flex; flex-direction: row; direction: ltr; align-items: center; gap: 3px; padding: 0; line-height: 1; white-space: nowrap; pointer-events: none; }
-.chat-bubble-reaction { display: inline-flex; align-items: center; justify-content: center; gap: 3px; height: 19px; padding: 0 4px; border: 1px solid rgba(255,255,255,.4); border-radius: 3px; background: transparent; box-shadow: 0 0 3px .25px rgba(255,244,214,.45), 0 0 5px rgba(255,235,190,.2), inset 0 0 3px rgba(255,244,214,.18); box-sizing: border-box; font-size: 15px; -webkit-text-stroke: 0; text-shadow: none; }
+.chat-bubble-reaction { display: inline-flex; align-items: center; justify-content: center; gap: 1px; height: 19px; padding: 0 4px; border: 1px solid rgba(255,255,255,.4); border-radius: 3px; background: transparent; box-shadow: 0 0 3px .25px rgba(255,244,214,.45), 0 0 5px rgba(255,235,190,.2), inset 0 0 3px rgba(255,244,214,.18); box-sizing: border-box; font-size: 15px; -webkit-text-stroke: 0; text-shadow: none; }
+.chat-bubble-reaction img { display: block; width: 16px; height: 16px; object-fit: contain; }
 .chat-reaction-count { color: #fff; font-family: var(--player-name-font); font-size: 10px; font-weight: 900; line-height: 1; }
 
 .profile-avatar-column { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 0 0 auto; }

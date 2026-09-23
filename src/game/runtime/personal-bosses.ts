@@ -1,6 +1,7 @@
 import { runtimeMapBalance } from '../../../shared/map-balance-runtime';
 import { bossRegenFractionFor } from "../../../shared/boss-regeneration";
 import { personalBossDefinition } from "../../../shared/personal-bosses";
+import { bossRespawnSecondsWithResearch } from "../../../shared/utility-research";
 import type { RespawnMemory } from './respawn-memory';
 import type { BossFightMemory } from './boss-fight-memory';
 
@@ -11,6 +12,7 @@ export function createPersonalBosses(options: {
   respawns?: RespawnMemory;
   fights?: BossFightMemory;
   ready?: () => boolean;
+  bossRespawnRank?: () => number;
 }) {
   type State = { key: string; mapId: string; encounter: bigint; hp: number; maxHp: number; alive: boolean; respawnAtMs: number; respawnAtMicros: bigint };
   type Result = { encounter: bigint; totalDamage: number; createdAtMs: number; contributors: { identity: string; name: string; gender: 0; damage: number; percentage: number }[] };
@@ -72,7 +74,7 @@ export function createPersonalBosses(options: {
       if (row.hp > 0) { options.fights?.remember(mapId, row.hp, row.maxHp); return; }
       options.fights?.clear();
       row.alive = false;
-      row.respawnAtMs = options.now() + personalBossDefinition(mapId)!.respawnSeconds * 1000;
+      row.respawnAtMs = options.now() + bossRespawnSecondsWithResearch(personalBossDefinition(mapId)!.respawnSeconds, options.bossRespawnRank?.() ?? 0) * 1000;
       row.respawnAtMicros = BigInt(Math.round(row.respawnAtMs * 1000));
       options.respawns?.remember(`boss:${mapId}`, row.respawnAtMs - options.now());
       results.set(mapId, { encounter: row.encounter, totalDamage: row.maxHp, createdAtMs: options.now(),

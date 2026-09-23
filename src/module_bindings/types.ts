@@ -272,6 +272,12 @@ export const ChatReactionSummary = __t.object("ChatReactionSummary", {
 });
 export type ChatReactionSummary = __Infer<typeof ChatReactionSummary>;
 
+export const ChatReactionUnlock = __t.object("ChatReactionUnlock", {
+  identity: __t.identity(),
+  gemHeart: __t.bool(),
+});
+export type ChatReactionUnlock = __Infer<typeof ChatReactionUnlock>;
+
 export const CombatProgressCheckpoint = __t.object("CombatProgressCheckpoint", {
   maxHp: __t.f64(),
   damage: __t.f64(),
@@ -1856,6 +1862,12 @@ export const PlayerResearch = __t.object("PlayerResearch", {
   prosperity: __t.u32(),
   criticalDamage: __t.u32(),
   regeneration: __t.u32(),
+  researchSpeed: __t.u32(),
+  slotUpgradeSpeed: __t.u32(),
+  enemyRespawn: __t.u32(),
+  bossRespawn: __t.u32(),
+  offlineWindow: __t.u32(),
+  utilityMoveSpeed: __t.u32(),
 });
 export type PlayerResearch = __Infer<typeof PlayerResearch>;
 

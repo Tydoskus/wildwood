@@ -16,6 +16,7 @@ import { itemArtMarkup } from "../game/item-presentation";
 import type { ActiveItemUpgrade, UpgradeBenchSlot } from "../wildstat-coop";
 import { gemSpendConfirmation, gemSpendConfirmationText } from "./gem-spend-confirmation";
 import { gameConfirm, type ConfirmPrompt, type ConfirmRequest } from "./confirm-dialog";
+import { slotUpgradeDurationWithResearch } from "../../shared/utility-research";
 
 type UpgradeBenchElements = {
   panel: HTMLElement;
@@ -45,6 +46,7 @@ type UpgradeBenchDependencies = {
   upgradeLevel: (itemId: string) => number;
   /** The tier a track has reached. */
   slotTier: (track: UpgradeSlot) => number;
+  slotUpgradeSpeedRank?: () => number;
   /** The item worn in a track's slot, for showing what a tier is worth. */
   equippedIn: (track: UpgradeSlot) => string;
   startUpgrade: (slot: UpgradeBenchSlot, itemId: string, position: { x: number; y: number }) => Promise<UpgradeResult>;
@@ -398,7 +400,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     elements.timer.hidden = !itemId;
     elements.timer.textContent = selectedJob
       ? `UPGRADING · ${formatRemaining(remaining)}`
-      : itemId ? `UPGRADE TIME · ${formatRemaining(itemUpgradeDurationMs(level))}` : "";
+      : itemId ? `UPGRADE TIME · ${formatRemaining(slotUpgradeDurationWithResearch(itemUpgradeDurationMs(level), dependencies.slotUpgradeSpeedRank?.() ?? 0))}` : "";
     elements.action.classList.toggle("is-cancel", Boolean(selectedJob));
     elements.action.textContent = selectedJob ? "Cancel" : "Upgrade";
     elements.action.hidden = !itemId;

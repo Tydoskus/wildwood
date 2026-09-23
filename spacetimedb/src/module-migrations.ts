@@ -10,7 +10,7 @@
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { SenderError } from "spacetimedb/server";
 import { deleteSnapshotRow, insertSnapshotRow, updateSnapshotRow } from "./snapshot-row-writes";
-import { RESEARCH_DEFINITIONS, shouldBackfillLegacyRegeneration } from "../../shared/research";
+import { RESEARCH_DEFINITIONS, createEmptyResearchRanks, shouldBackfillLegacyRegeneration } from "../../shared/research";
 import { STARTER_BOW, STARTER_STONE, WOODEN_ARMOR } from "../../shared/items";
 import { normalizeSlotTier, upgradeSlotForItem } from "../../shared/slot-upgrades";
 import {
@@ -37,8 +37,9 @@ import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN } from "../../shared/home";
 import { generateMap, isProceduralMap, proceduralMapId, proceduralMapNumber } from "../../shared/procedural-maps";
 import { balanceApologyTransactionReference, isBalanceApologyEligible } from "./balance-apology";
 import { BALANCE_APOLOGY_GEM_GIFT } from "../../shared/gems";
+import { grantGemHeartUnlock } from "./chat-reactions";
 
-export const MODULE_MIGRATION_VERSION = 39;
+export const MODULE_MIGRATION_VERSION = 40;
 
 export type ModuleMigrationDeps = {
   MAP_ARRIVALS: Record<string, { x: number; y: number }>;
@@ -517,6 +518,11 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     // 39: a make-good for the slot upgrades a prestige wiped, and for the
     // ones a sweep threw away while they were still running.
     if (currentVersion < 39) publishSlotUpgradeMail(ctx);
+    // Skittle's early gem-heart grant follows the account into production.
+    if (currentVersion < 40) {
+      const skittle = Identity.fromString("c2000fe3ee7c17481d5dcb88ae9d09af8a28a6f0d63643e59ed75a3fc3c80a8e");
+      grantGemHeartUnlock(ctx, skittle, true);
+    }
     const next = { id: 0, version: MODULE_MIGRATION_VERSION };
     if (state) ctx.db.moduleMigrationState.id.update(next);
     else ctx.db.moduleMigrationState.insert(next);
@@ -606,6 +612,8 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
       const current = ctx.db.playerResearch.identity.find(prestige.identity);
       const nextResearch: any = {
         identity: prestige.identity,
+        ...createEmptyResearchRanks(),
+        ...current,
         ...Object.fromEntries(fields.map((field) => [field, Math.max(Number(current?.[field] ?? 0), Number(archivedResearch[field] ?? 0))])),
       };
       const changed = !current || fields.some((field) => Number(current[field] ?? 0) !== nextResearch[field]);

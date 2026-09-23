@@ -1,5 +1,5 @@
 import type { PlayerProfileData, PlayerResearch } from "../wildstat-coop";
-import { createEmptyResearchRanks, researchStatRewardMultiplier } from "../../shared/research";
+import { createEmptyResearchRanks, researchStatRewardMultiplier, utilityMovementSpeedBonus } from "../../shared/research";
 import { prestigeStatMultiplier } from "../../shared/prestige";
 import { PRESTIGE_PERKS, RIPOSTE_REFLECT_SHARE, prestigeCriticalDamageBonus, prestigePerkValue, type PrestigePerkRanks } from "../../shared/prestige-perks";
 import { effectivePlayerPower, effectivePlayerPowerStats } from "../../shared/player-power";
@@ -55,10 +55,11 @@ export function effectiveProfileStats(
   const bareRegenBonus = equipmentRegenerationMultiplierBonus(progress.equippedHead, progress.equippedChest, 0, 0);
   const speedMultiplier = multiplier(research.moveSpeed, 2);
   const baseSpeed = progress.speedOverride > 0 ? progress.speedOverride : progress.speed;
+  const utilitySpeed = utilityMovementSpeedBonus(research.utilityMoveSpeed);
   const powerStats = effectivePlayerPowerStats(progress, research, slotUpgradeLevel);
   return {
     ...powerStats,
-    speed: baseSpeed * speedMultiplier,
+    speed: baseSpeed * speedMultiplier + utilitySpeed,
     equipment: { health: healthEquipmentBonus, damage: damageEquipmentBonus, regen: regenEquipmentBonus },
     gear: { health: bareHealthBonus, damage: bareDamageBonus, regen: bareRegenBonus },
     slotTiers: {
@@ -72,7 +73,7 @@ export function effectiveProfileStats(
       attackSpeed: 1,
       armor: armorMultiplier,
       regenResearch: regenResearchMultiplier,
-      speed: speedMultiplier,
+      speed: speedMultiplier + utilitySpeed / Math.max(1, baseSpeed),
     },
   };
 }
@@ -189,7 +190,7 @@ export function profileStatDisplayRows(
       kind: "speed", label: "Move Speed:", base: statValue(progress.speedOverride > 0 ? progress.speedOverride : progress.speed),
       equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.speed), total: statValue(effective.speed),
-      sources: multiplierSources(speedResearchBonus),
+      sources: [...multiplierSources(speedResearchBonus), ...(ranks.utilityMoveSpeed > 0 ? [{ label: "Tech" as const, value: `+${utilityMovementSpeedBonus(ranks.utilityMoveSpeed)} speed` }] : [])],
     },
   ];
   // Tech and prestige multiply each other, exactly as the server pays them, so

@@ -232,6 +232,13 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
       if (accountResearch) updateSnapshotRow(ctx, "playerResearch", nextResearch);
       else insertSnapshotRow(ctx, "playerResearch", nextResearch);
     }
+    const guestReactionUnlock = ctx.db.chatReactionUnlock.identity.find(link.guest);
+    if (guestReactionUnlock) {
+      const accountReactionUnlock = ctx.db.chatReactionUnlock.identity.find(ctx.sender);
+      const next = { identity: ctx.sender, gemHeart: Boolean(guestReactionUnlock.gemHeart || accountReactionUnlock?.gemHeart) };
+      if (accountReactionUnlock) ctx.db.chatReactionUnlock.identity.update(next);
+      else ctx.db.chatReactionUnlock.insert(next);
+    }
     const guestActiveResearch = ctx.db.activeResearch.identity.find(link.guest);
     const accountActiveResearch = ctx.db.activeResearch.identity.find(ctx.sender);
     if (guestActiveResearch && !accountActiveResearch) {
@@ -590,6 +597,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.playerLegalConsent.identity.find(link.guest)) ctx.db.playerLegalConsent.identity.delete(link.guest);
     if (guestLocation) ctx.db.playerLastLocation.identity.delete(link.guest);
     if (guestResearch) deleteSnapshotRow(ctx, "playerResearch", link.guest);
+    if (guestReactionUnlock) ctx.db.chatReactionUnlock.identity.delete(link.guest);
     if (guestActiveResearch) ctx.db.activeResearch.identity.delete(link.guest);
     removePlayerItemUpgradeData(ctx, link.guest, true);
     if (guestProfile) deleteSnapshotRow(ctx, "playerProfile", link.guest);
@@ -687,6 +695,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.playerProgress.identity.find(identity)) deleteSnapshotRow(ctx, "playerProgress", identity);
     if (ctx.db.playerLastLocation.identity.find(identity)) ctx.db.playerLastLocation.identity.delete(identity);
     if (ctx.db.playerResearch.identity.find(identity)) deleteSnapshotRow(ctx, "playerResearch", identity);
+    if (ctx.db.chatReactionUnlock.identity.find(identity)) ctx.db.chatReactionUnlock.identity.delete(identity);
     if (ctx.db.activeResearch.identity.find(identity)) ctx.db.activeResearch.identity.delete(identity);
     removeResearchCompletionSchedules(ctx, identity);
     removePlayerItemUpgradeData(ctx, identity, true);
@@ -785,6 +794,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.playerProgress.identity.find(identity)) deleteSnapshotRow(ctx, "playerProgress", identity);
     if (ctx.db.playerLastLocation.identity.find(identity)) ctx.db.playerLastLocation.identity.delete(identity);
     if (ctx.db.playerResearch.identity.find(identity)) deleteSnapshotRow(ctx, "playerResearch", identity);
+    if (ctx.db.chatReactionUnlock.identity.find(identity)) ctx.db.chatReactionUnlock.identity.delete(identity);
     if (ctx.db.activeResearch.identity.find(identity)) ctx.db.activeResearch.identity.delete(identity);
     removeResearchCompletionSchedules(ctx, identity);
     removePlayerItemUpgradeData(ctx, identity, true);

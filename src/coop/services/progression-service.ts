@@ -14,6 +14,7 @@ import { syncResearchNotification } from "../../app/native-research-notification
 import type { Identity } from "spacetimedb";
 import { normalizedInventorySlotsUnlocked } from "../../../shared/gems";
 import { itemUpgradeDurationMs, type UpgradeSlot } from "../../../shared/items";
+import { slotUpgradeDurationWithResearch } from "../../../shared/utility-research";
 import { normalizeSlotTier, upgradeSlotForItem } from "../../../shared/slot-upgrades";
 import { createEmptyResearchRanks, RESEARCH_DEFINITIONS, isResearchId, type ResearchId } from "../../../shared/research";
 import type {
@@ -337,6 +338,12 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       regeneration: row.regeneration ?? 0,
       criticalChance: row.criticalChance ?? 0,
       criticalDamage: row.criticalDamage ?? 0,
+      researchSpeed: row.researchSpeed ?? 0,
+      slotUpgradeSpeed: row.slotUpgradeSpeed ?? 0,
+      enemyRespawn: row.enemyRespawn ?? 0,
+      bossRespawn: row.bossRespawn ?? 0,
+      offlineWindow: row.offlineWindow ?? 0,
+      utilityMoveSpeed: row.utilityMoveSpeed ?? 0,
     };
     researchByIdentity.set(identity, research);
     if (identity !== dependencies.localIdentity()) {
@@ -791,7 +798,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
           });
           if (position && stoppedMotion) dependencies.commitStoppedPosition(position, stoppedMotion.sequence);
           const currentLevel = upgradeLevelsByIdentity.get(dependencies.localIdentity())?.get(itemId) ?? 0;
-          const remainingMs = itemUpgradeDurationMs(currentLevel);
+          const remainingMs = slotUpgradeDurationWithResearch(itemUpgradeDurationMs(currentLevel), localResearch.slotUpgradeSpeed);
           const startedAtMs = Date.now();
           activeItemUpgrades.set(slot, {
             slot,

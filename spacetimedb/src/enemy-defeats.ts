@@ -3,6 +3,8 @@ import { personalBossDefinition } from "../../shared/personal-bosses";
 import { SenderError, table, t } from "spacetimedb/server";
 import { defeatBudget, defeatMinRespawnSeconds, enemyDefeatDefinition, DEFEAT_BUDGET_WINDOW_SECONDS, ENEMY_DEFEAT_BATCH_MAX, type EnemyDefeat } from "../../shared/enemy-defeats";
 import { bossDefeatLimits, BOSS_REWARD_WINDOW_SECONDS } from "./boss-defeat-limits";
+import { bossRespawnSecondsWithResearch, enemyRespawnSecondsWithResearch } from "../../shared/utility-research";
+import { REGULAR_ENEMY_RESPAWN_SECONDS } from "../../shared/rules";
 import type { GameReducerContext } from "./index";
 
 type BossRewardContext = Pick<GameReducerContext, "db" | "sender" | "timestamp">;
@@ -90,6 +92,7 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: st
     return { rewards: [], count: 0, lootCount: 0, restrict: true, violations: [{ enemy: "batch", requested: total, accepted: 0 }] };
   }
   const balance = pinnedMapBalance(ctx, ctx.sender, batch.mapId);
+  const utility = ctx.db.playerResearch.identity.find(ctx.sender);
   const seen = new Set<string>();
   let count = 0, lootCount = 0, submittedCount = 0;
   const rewards = [];
@@ -104,8 +107,10 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: st
     if (!definition || seen.has(entry.enemy) || !Number.isInteger(entry.count) || entry.count < 1 || (submittedCount += entry.count) > ENEMY_DEFEAT_BATCH_MAX)
       throw new SenderError("Invalid enemy for this map.");
     seen.add(entry.enemy);
-    const boss = entry.enemy === "boss" ? balance?.boss ?? personalBossDefinition(batch.mapId) : null;
-    const budget = boss ? { capacity: 1 + Math.ceil(300 / boss.respawnSeconds), perSecond: 1 / boss.respawnSeconds } : defeatBudget(definition.population, balance?.regularRespawnSeconds === undefined ? undefined : defeatMinRespawnSeconds(balance.regularRespawnSeconds));
+    const bossDefinition = entry.enemy === "boss" ? balance?.boss ?? personalBossDefinition(batch.mapId) : null;
+    const boss = bossDefinition && { ...bossDefinition, respawnSeconds: bossRespawnSecondsWithResearch(bossDefinition.respawnSeconds, utility?.bossRespawn ?? 0) };
+    const regularRespawn = enemyRespawnSecondsWithResearch(balance?.regularRespawnSeconds ?? REGULAR_ENEMY_RESPAWN_SECONDS, utility?.enemyRespawn ?? 0);
+    const budget = boss ? { capacity: 1 + Math.ceil(300 / boss.respawnSeconds), perSecond: 1 / boss.respawnSeconds } : defeatBudget(definition.population, defeatMinRespawnSeconds(regularRespawn));
     const budgetKey = `${ctx.sender.toHexString()}:${batch.mapId}:${entry.enemy}`;
     const previous = ctx.db.enemyDefeatBudget.key.find(budgetKey);
     const now = ctx.timestamp.microsSinceUnixEpoch;

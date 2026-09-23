@@ -1,12 +1,15 @@
 import { formatRemaining } from "./format-remaining";
 import {
   RESEARCH_DEFINITIONS,
+  POWER_RESEARCH_IDS,
+  UTILITY_RESEARCH_IDS,
   researchDurationMs,
   researchIsAvailable as sharedResearchIsAvailable,
   researchPrerequisitesForNextRank,
   researchRankBandEnd,
   researchRankBandStart,
   type ResearchId,
+  type ResearchTree,
   type ResearchRanks as SharedResearchRanks,
 } from "../../shared/research";
 import { researchSpeedUpGemCost } from "../../shared/gems";
@@ -27,6 +30,9 @@ type ResearchResult = { ok: boolean; error?: string } | undefined;
 export type TechTreeControllerElements = {
   notice: HTMLElement;
   overlay: HTMLElement;
+  title: HTMLElement;
+  categories: HTMLElement;
+  viewport: HTMLElement;
   closeButton: HTMLElement;
   active: HTMLElement;
   canvas: HTMLCanvasElement;
@@ -120,7 +126,7 @@ export function centerResearchNode(viewport: HTMLElement, node: HTMLElement) {
 }
 
 export function createTechTreeController(elements: TechTreeControllerElements, hooks: TechTreeControllerHooks) {
-  const { notice, overlay, closeButton, active, canvas, map, detail, detailContent, closeDetailButton } = elements;
+  const { notice, overlay, title, categories, viewport, closeButton, active, canvas, map, detail, detailContent, closeDetailButton } = elements;
   // A prompt is awaited, so the pending flags below are not yet set while it is
   // open. Without this a second click opens a second prompt over the first and
   // both answers act. window.confirm used to block the page and hide the gap.
@@ -131,32 +137,51 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     try { return await prompt(request); } finally { confirming = false; }
   }
   const confirmGemSpend = hooks.confirmGemSpend ?? gameConfirm;
-  const layout = createTechTreeLayout();
-  const nodesById = new Map(layout.nodes.map((node) => [node.id, node]));
-  map.replaceChildren(canvas);
-  map.style.setProperty("--tech-tree-row-count", String(layout.rows.length));
+  const layouts = { power: createTechTreeLayout("power"), utility: createTechTreeLayout("utility") };
+  let tree: ResearchTree | null = null;
+  let layout = layouts.power;
+  let nodesById = new Map(layout.nodes.map((node) => [node.id, node]));
+  let selectedNodeId = "";
 
-  for (const row of layout.rows) {
-    const tier = document.createElement("div");
-    tier.className = `tech-tree-tier${row.length > 1 ? " tech-tree-tier-bottom" : ""}`;
-    for (const layoutNode of row) {
-      const definition = RESEARCH_DEFINITIONS[layoutNode.researchId];
-      const node = document.createElement("button");
-      node.className = "tech-tree-node";
-      node.type = "button";
-      node.dataset.techNode = layoutNode.id;
-      node.setAttribute("aria-label", definition.effect);
-      const title = document.createElement("strong");
-      title.textContent = definition.effect;
-      const progress = document.createElement("small");
-      progress.textContent = researchProgressLabel(layoutNode.researchId, 0, layoutNode.rankBandIndex);
-      node.append(title, progress);
-      tier.append(node);
+  function buildTree(nextTree: ResearchTree) {
+    tree = nextTree;
+    layout = layouts[nextTree];
+    nodesById = new Map(layout.nodes.map(node => [node.id, node]));
+    map.replaceChildren(canvas);
+    map.style.setProperty("--tech-tree-row-count", String(layout.rows.length));
+    for (const row of layout.rows) {
+      const tier = document.createElement("div");
+      tier.className = `tech-tree-tier${row.length > 1 ? " tech-tree-tier-bottom" : ""}`;
+      for (const layoutNode of row) {
+        const definition = RESEARCH_DEFINITIONS[layoutNode.researchId];
+        const node = document.createElement("button");
+        node.className = "tech-tree-node";
+        node.type = "button";
+        node.dataset.techNode = layoutNode.id;
+        node.setAttribute("aria-label", definition.effect);
+        const nodeTitle = document.createElement("strong");
+        nodeTitle.textContent = definition.effect;
+        const progress = document.createElement("small");
+        progress.textContent = researchProgressLabel(layoutNode.researchId, 0, layoutNode.rankBandIndex);
+        node.append(nodeTitle, progress);
+        tier.append(node);
+      }
+      map.append(tier);
     }
-    map.append(tier);
+    linksSize = "";
+    categories.hidden = true;
+    viewport.hidden = false;
+    (title.querySelector("span") ?? title).textContent = nextTree === "power" ? "Power Research" : "Utility Research";
+    const focusNode = researchFocusNode(layout.nodes, hooks.researchRanks(), hooks.activeResearch());
+    selectedNodeId = focusNode?.id ?? "";
+    sizeTreeEdges();
+    render();
+    requestAnimationFrame(() => {
+      if (overlay.hidden || tree !== nextTree) return;
+      const element = map.querySelector<HTMLElement>(`[data-tech-node="${selectedNodeId}"]`);
+      if (element) centerResearchNode(viewport, element);
+    });
   }
-
-  let selectedNodeId = layout.nodes[0]?.id ?? "";
   let researchRequestPending = false;
   let nextRenderAt = 0;
   const completionTracker = createResearchCompletionTracker();
@@ -181,6 +206,10 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
   }
 
   function requirementText(researchId: ResearchId, ranks: ResearchRanks) {
+    const any = RESEARCH_DEFINITIONS[researchId].prerequisiteAny;
+    if (any?.length && !any.some(id => ranks[id] >= 1)) {
+      return any.map(id => `${RESEARCH_DEFINITIONS[id].effect} 1/${RESEARCH_DEFINITIONS[id].ranksPerBand}`).join(" OR ");
+    }
     const completedRanks = ranks[researchId];
     const requirements = Object.entries(researchPrerequisitesForNextRank(researchId, completedRanks))
       .filter(([id, rank]) => ranks[id as ResearchId] < Number(rank));
@@ -197,6 +226,7 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
 
   let linksSize = "";
   function drawLinks() {
+    if (!tree) return;
     const bounds = map.getBoundingClientRect();
     const scale = Math.min(2, window.devicePixelRatio || 1);
     if (bounds.width <= 0 || bounds.height <= 0) return;
@@ -252,6 +282,16 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
         : `${RESEARCH_DEFINITIONS[current.researchId].effect} · FINALIZING`
       : "NO RESEARCH ACTIVE";
 
+    if (!tree) {
+      for (const [name, ids] of [["power", POWER_RESEARCH_IDS], ["utility", UTILITY_RESEARCH_IDS]] as const) {
+        const choice = categories.querySelector<HTMLButtonElement>(`[data-research-tree="${name}"]`);
+        const progress = choice?.querySelector<HTMLElement>(".tech-tree-choice-progress");
+        if (progress) progress.textContent = `${ids.reduce((total, id) => total + Math.min(ranks[id], RESEARCH_DEFINITIONS[id].maxRank), 0)} / ${ids.reduce((total, id) => total + RESEARCH_DEFINITIONS[id].maxRank, 0)} RANKS`;
+        choice?.classList.toggle("is-ready", ids.some(id => researchIsAvailable(id, ranks)));
+      }
+      return;
+    }
+
     for (const element of map.querySelectorAll<HTMLButtonElement>("[data-tech-node]")) {
       const node = nodesById.get(element.dataset.techNode ?? "");
       if (!node) continue;
@@ -274,17 +314,21 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     const progress = techProgress(selected, ranks);
     const selectedActive = current?.researchId === selected.researchId &&
       current.targetRank > selected.startRank && current.targetRank <= selected.endRank;
-    const duration = researchDurationMs(selected.researchId, progress.rank);
+    const duration = researchDurationMs(selected.researchId, progress.rank, ranks.researchSpeed);
     const canStart = !current && progress.isCurrent && researchIsAvailable(selected.researchId, ranks);
     detailContent.replaceChildren();
     const title = document.createElement("strong");
     title.textContent = `${definition.icon} ${definition.effect} · ${researchProgressLabel(selected.researchId, progress.rank, selected.rankBandIndex)}`;
     const description = document.createElement("span");
-    description.textContent = `${definition.valuePerRank}% PER RANK`;
+    const value = definition.unit === "s" ? `-${definition.valuePerRank}s`
+      : definition.unit === "min" ? `+${definition.valuePerRank} MIN`
+        : definition.unit === "speed" ? `+${definition.valuePerRank} SPEED`
+          : `+${definition.valuePerRank}%`;
+    description.textContent = `${value} PER RANK`;
     detailContent.append(title, description);
     const effectValue = document.createElement("div");
     effectValue.className = "tech-tree-effect-value";
-    effectValue.textContent = `+${definition.valuePerRank}%`;
+    effectValue.textContent = value;
     detailContent.append(effectValue);
 
     if (progress.isCurrent) {
@@ -383,16 +427,11 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     overlay.hidden = false;
     detail.hidden = true;
     hooks.beforeOpen();
-    const focusNode = researchFocusNode(layout.nodes, hooks.researchRanks(), hooks.activeResearch());
-    if (focusNode) selectedNodeId = focusNode.id;
-    sizeTreeEdges();
+    tree = null;
+    categories.hidden = false;
+    viewport.hidden = true;
+    (title.querySelector("span") ?? title).textContent = "Tech Research";
     render();
-    requestAnimationFrame(() => {
-      if (overlay.hidden) return;
-      const element = map.querySelector<HTMLElement>(`[data-tech-node="${selectedNodeId}"]`);
-      const viewport = map.parentElement;
-      if (element && viewport) centerResearchNode(viewport, element);
-    });
   }
 
   function close() {
@@ -401,18 +440,30 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
   }
 
 
-  closeButton.addEventListener("click", close);
+  closeButton.addEventListener("click", () => {
+    if (!tree) { close(); return; }
+    tree = null;
+    detail.hidden = true;
+    categories.hidden = false;
+    viewport.hidden = true;
+    (title.querySelector("span") ?? title).textContent = "Tech Research";
+    render();
+  });
   closeDetailButton.addEventListener("click", () => { detail.hidden = true; });
-  addEventListener("resize", () => { if (!overlay.hidden) { sizeTreeEdges(); drawLinks(); } });
-  for (const element of map.querySelectorAll<HTMLButtonElement>("[data-tech-node]")) {
-    element.addEventListener("click", () => {
-      const node = nodesById.get(element.dataset.techNode ?? "");
-      if (!node) return;
-      selectedNodeId = node.id;
-      detail.hidden = false;
-      render();
-    });
-  }
+  addEventListener("resize", () => { if (!overlay.hidden && tree) { sizeTreeEdges(); drawLinks(); } });
+  categories.addEventListener("click", event => {
+    const button = (event.target as Element).closest<HTMLButtonElement>("[data-research-tree]");
+    const next = button?.dataset.researchTree;
+    if (next === "power" || next === "utility") buildTree(next);
+  });
+  map.addEventListener("click", event => {
+    const button = (event.target as Element).closest<HTMLButtonElement>("[data-tech-node]");
+    const node = nodesById.get(button?.dataset.techNode ?? "");
+    if (!node) return;
+    selectedNodeId = node.id;
+    detail.hidden = false;
+    render();
+  });
 
   return {
     open,

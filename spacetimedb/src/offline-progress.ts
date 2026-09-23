@@ -8,6 +8,8 @@ import {
   type OfflineFarmOutcome,
 } from "../../shared/offline-progress";
 import { applyEnemyRewards } from "../../shared/enemy-defeats";
+import { enemyRespawnSecondsWithResearch, offlineWindowSecondsWithResearch } from "../../shared/utility-research";
+import { REGULAR_ENEMY_RESPAWN_SECONDS } from "../../shared/rules";
 import type { PlayerPowerStats } from "../../shared/player-power";
 import type { MapBalanceSnapshot } from "../../shared/map-balance-types";
 
@@ -88,11 +90,11 @@ export function beginOfflineWindow(ctx: any, identity: any) {
 }
 
 /** Seconds of farming an account has earned, capped at the window. */
-export function offlineSecondsEarned(nowMicros: bigint, awaySinceMicros: bigint) {
+export function offlineSecondsEarned(nowMicros: bigint, awaySinceMicros: bigint, windowSeconds = OFFLINE_WINDOW_SECONDS) {
   if (awaySinceMicros <= 0n || nowMicros <= awaySinceMicros) return 0;
   const seconds = Number((nowMicros - awaySinceMicros) / MICROS_PER_SECOND);
   if (seconds < OFFLINE_MINIMUM_SECONDS) return 0;
-  return Math.min(OFFLINE_WINDOW_SECONDS, seconds);
+  return Math.min(windowSeconds, seconds);
 }
 
 export type OfflineGrantDependencies = {
@@ -100,6 +102,8 @@ export type OfflineGrantDependencies = {
   progress: Record<string, unknown>;
   endless: { completed: number; unlocked: boolean };
   balanceFor?: (mapId: string) => MapBalanceSnapshot | undefined;
+  offlineWindowRank?: number;
+  enemyRespawnRank?: number;
 };
 
 export type OfflineGrant = {
@@ -119,11 +123,17 @@ export function resolveOfflineGrant(
   awaySinceMicros: bigint,
   dependencies: OfflineGrantDependencies,
 ): OfflineGrant | null {
-  const seconds = offlineSecondsEarned(nowMicros, awaySinceMicros);
+  const seconds = offlineSecondsEarned(nowMicros, awaySinceMicros, offlineWindowSecondsWithResearch(dependencies.offlineWindowRank ?? 0));
   if (!seconds) return null;
   const maps = offlineFarmableMaps(dependencies.progress as any, dependencies.endless);
   if (!maps.length) return null;
-  const outcome = resolveOfflineFarming(maps, dependencies.stats, seconds, { balanceFor: dependencies.balanceFor });
+  const outcome = resolveOfflineFarming(maps, dependencies.stats, seconds, {
+    balanceFor: dependencies.balanceFor,
+    respawnSecondsFor: mapId => enemyRespawnSecondsWithResearch(
+      dependencies.balanceFor?.(mapId)?.regularRespawnSeconds ?? REGULAR_ENEMY_RESPAWN_SECONDS,
+      dependencies.enemyRespawnRank ?? 0,
+    ),
+  });
   return outcome ? { seconds, outcome } : null;
 }
 
@@ -194,6 +204,8 @@ export function grantOfflineProgress(ctx: any, progress: any, ports: OfflineGran
     return progress;
   }
   const grant = resolveOfflineGrant(ctx.timestamp.microsSinceUnixEpoch, row.awaySinceMicros, {
+    offlineWindowRank: ctx.db.playerResearch.identity.find(ctx.sender)?.offlineWindow ?? 0,
+    enemyRespawnRank: ctx.db.playerResearch.identity.find(ctx.sender)?.enemyRespawn ?? 0,
     stats: ports.effectiveStats(ctx, progress),
     progress,
     endless: {
@@ -231,7 +243,7 @@ export function grantOfflineProgress(ctx: any, progress: any, ports: OfflineGran
  * window at now — which would erase the very backdate being tested.
  */
 export function setSimulatedTimeAway(ctx: any, seconds: number, ports: OfflineGrantPorts) {
-  const bounded = Math.min(OFFLINE_WINDOW_SECONDS, Math.max(0, seconds));
+  const bounded = Math.min(offlineWindowSecondsWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.offlineWindow ?? 0), Math.max(0, seconds));
   // Zero is the "never disconnected" sentinel, so a clock too close to the
   // epoch to subtract from must still land on a real instant.
   const backdated = ctx.timestamp.microsSinceUnixEpoch - BigInt(bounded) * MICROS_PER_SECOND;

@@ -2,6 +2,7 @@ import type { SpawnSite } from "../world";
 
 export { REGULAR_ENEMY_RESPAWN_SECONDS, REWARDED_REGULAR_ENEMY_RESPAWN_SECONDS } from "../../../shared/rules";
 import { REGULAR_ENEMY_RESPAWN_SECONDS } from "../../../shared/rules";
+import { enemyRespawnSecondsWithResearch } from "../../../shared/utility-research";
 /** One ad fills the bank. It holds thirty minutes and no more. */
 export const REWARDED_RESPAWN_BOOST_BANK_MS = 30 * 60 * 1_000;
 /** How much spending may go unsaved between writes. */
@@ -49,6 +50,7 @@ export function createRegularEnemyRespawnBoost(
   respawnSpeedMultiplier = 1,
   baseRespawnSeconds = () => REGULAR_ENEMY_RESPAWN_SECONDS,
   onChanged: (bank: RespawnBoostBank) => void = () => {},
+  enemyRespawnRank: () => number = () => 0,
 ): RegularEnemyRespawnBoost {
   let bankMs = sanitizeRemaining(initialBank.remainingMs);
   let enabled = Boolean(initialBank.enabled) && bankMs > 0;
@@ -56,7 +58,7 @@ export function createRegularEnemyRespawnBoost(
   const speedMultiplier = Number.isFinite(respawnSpeedMultiplier)
     ? Math.max(1, respawnSpeedMultiplier)
     : 1;
-  const regularRespawnSeconds = () => baseRespawnSeconds() / speedMultiplier;
+  const regularRespawnSeconds = () => enemyRespawnSecondsWithResearch(baseRespawnSeconds() / speedMultiplier, enemyRespawnRank());
   const rewardedRespawnSeconds = () => regularRespawnSeconds() / 2;
 
   function snapshot(): RespawnBoostBank {
