@@ -3296,9 +3296,8 @@ function clearVirtualPlayersForOwner(ctx: any, owner: any) {
     if (ctx.db.virtualPlayerLoad.owner.find(owner)) ctx.db.virtualPlayerLoad.owner.delete(owner);
     return false;
   }
-  for (const identity of identities) { removeVirtualPlayerData(ctx, identity, false, false); revokeVirtualPlayerConsent(ctx, identity); }
+  for (const identity of identities) { removeVirtualPlayerData(ctx, identity, false); revokeVirtualPlayerConsent(ctx, identity); }
   if (ctx.db.virtualPlayerLoad.owner.find(owner)) ctx.db.virtualPlayerLoad.owner.delete(owner);
-  reconcileOnlinePlayers(ctx);
   refreshLeaderboard(ctx);
   return true;
 }
@@ -3330,8 +3329,7 @@ function clearOrphanVirtualPlayers(ctx: any) {
     if (!ownerActive || !hasSession) orphaned.push(registration.identity);
   }
   if (!orphaned.length) return;
-  for (const identity of orphaned) removeVirtualPlayerData(ctx, identity, false);
-  reconcileOnlinePlayers(ctx);
+  for (const identity of orphaned) removeVirtualPlayerData(ctx, identity);
 }
 
 function clearOrphanRealtimeState(ctx: any) {
@@ -3668,7 +3666,6 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
   syncPlayerMotionIdentity(ctx, insertedPlayer);
   syncPlayerMapMarker(ctx, insertedPlayer, true);
   ensureRealtimeFrameSchedules(ctx);
-  reconcileOnlinePlayers(ctx);
 }
 
 export const onConnect = spacetimedb.clientConnected((ctx) => {
@@ -3755,6 +3752,9 @@ export const runMaintenance = spacetimedb.reducer(
     clearExpiredDuelRequests(ctx);
     ensureMotionDetailFrameSchedule(ctx);
     runPendingModuleMigrations(ctx);
+    // The online count lives here only: every client subscribes to it, so a
+    // refresh per connect and disconnect made a mass reload players-squared.
+    reconcileOnlinePlayers(ctx);
     refreshLeaderboardIfDue(ctx);
     regenerateIdleBosses(ctx);
   },
@@ -6315,7 +6315,7 @@ const {
   ensureItemUpgradeCompletionSchedule, ensureResearchCompletionSchedule,
   equipmentPresentationForProgress, finishDuel, generatedDisplayName, hasFreshProgress,
   insertActiveItemUpgrade, isGeneratedDisplayName, slotUpgradeKey, leaderboardAppearanceForProgress,
-  persistWorldLocation, playerWithMotion, powerFieldsForProgress, reconcileOnlinePlayers,
+  persistWorldLocation, playerWithMotion, powerFieldsForProgress,
   refreshLeaderboard, removeItemUpgradeCompletionSchedules, removePlayerItemUpgradeData,
   removePlayerRealtimeState, removePlayerSafetyData, removeResearchCompletionSchedules,
   repairModeratedDisplayName, requireSupportedSessionProtocol, sameIdentity,

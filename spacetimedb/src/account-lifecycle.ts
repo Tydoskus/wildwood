@@ -84,7 +84,6 @@ export type AccountLifecycleDeps = {
   persistWorldLocation: (ctx: any, activePlayer: any) => void;
   playerWithMotion: (ctx: any, activePlayer: any) => any;
   powerFieldsForProgress: (ctx: any, progress: any) => { power: number; powerLevel: number };
-  reconcileOnlinePlayers: (ctx: any) => void;
   refreshLeaderboard: (ctx: any) => void;
   removeItemUpgradeCompletionSchedules: (ctx: any, identity: any, slot?: number) => void;
   removePlayerItemUpgradeData: (ctx: any, identity: any, removeDrops?: boolean) => void;
@@ -109,7 +108,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
     equipmentPresentationForProgress, finishDuel, generatedDisplayName, hasFreshProgress,
     insertActiveItemUpgrade, isGeneratedDisplayName, slotUpgradeKey,
     leaderboardAppearanceForProgress, persistWorldLocation, playerWithMotion,
-    powerFieldsForProgress, reconcileOnlinePlayers, refreshLeaderboard,
+    powerFieldsForProgress, refreshLeaderboard,
     removeItemUpgradeCompletionSchedules, removePlayerItemUpgradeData, removePlayerRealtimeState,
     removePlayerSafetyData, removeResearchCompletionSchedules, repairModeratedDisplayName,
     requireSupportedSessionProtocol, sameIdentity, syncDisplayNamePresentation,
@@ -583,7 +582,6 @@ for (const [contributionTable, attackWindowTable] of [
     const guestActivePlayer = ctx.db.player.identity.find(link.guest);
     if (guestActivePlayer) {
       deleteSnapshotRow(ctx, "player", link.guest);
-      reconcileOnlinePlayers(ctx);
     }
     removePlayerRealtimeState(ctx, link.guest);
     if (ctx.db.playerMapMarker.identity.find(link.guest)) ctx.db.playerMapMarker.identity.delete(link.guest);
@@ -667,13 +665,12 @@ for (const [contributionTable, attackWindowTable] of [
       deleteSnapshotRow(ctx, "player", identity);
       if (ctx.db.playerMapMarker.identity.find(identity)) ctx.db.playerMapMarker.identity.delete(identity);
       if (ctx.db.playerMovementDemand.identity.find(identity)) ctx.db.playerMovementDemand.identity.delete(identity);
-      reconcileOnlinePlayers(ctx);
     }
     removePlayerRealtimeState(ctx, identity);
   }
 
   /** Erases every durable and realtime row owned by one simulated client. */
-  function removeVirtualPlayerData(ctx: any, identity: any, adjustPresence = true, adjustOwnerCount = true) {
+  function removeVirtualPlayerData(ctx: any, identity: any, adjustOwnerCount = true) {
     const registration = ctx.db.virtualPlayer.identity.find(identity);
     if (!registration) return false;
     removeSocialAccount(ctx, identity);
@@ -763,7 +760,6 @@ for (const [contributionTable, attackWindowTable] of [
 
     ctx.db.virtualPlayer.identity.delete(identity);
     if (adjustOwnerCount) adjustVirtualPlayerCount(ctx, registration.owner, -1);
-    if (adjustPresence && activePlayer) reconcileOnlinePlayers(ctx);
     return Boolean(activePlayer?.isVisible);
   }
 
@@ -903,7 +899,6 @@ for (const [contributionTable, attackWindowTable] of [
       if (challengerHex === identityHex || opponentHex === identityHex) ctx.db.duelReplay.id.delete(replay.id);
     }
 
-    reconcileOnlinePlayers(ctx);
     refreshLeaderboard(ctx);
   }
 
