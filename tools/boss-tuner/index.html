@@ -50,6 +50,18 @@
   <div id="stage"><canvas id="view" width="700" height="700"></canvas></div>
   <div id="controls"></div>
 </div>
+<script>
+  // Opened straight from disk, a module will not load and fetch has no origin,
+  // so the page would sit blank behind a console error. Say what to run.
+  if (location.protocol === "file:") {
+    document.body.innerHTML = '<div style="max-width:560px;margin:80px auto;padding:0 20px">'
+      + '<h1 style="font-size:17px">Run the tuner from its server</h1>'
+      + '<p style="color:#97a39a">This page reads the boss constants and the artwork over HTTP. '
+      + 'Opened as a file it has no origin, so the browser blocks both.</p>'
+      + '<pre style="padding:12px 14px;border:1px solid #2c3a30;border-radius:7px;background:#151d18">npm run boss:tuner</pre>'
+      + '<p style="color:#97a39a">That starts it on 127.0.0.1 and opens it for you.</p></div>';
+  }
+</script>
 <script type="module" src="./boss-tuner.js"></script>
 </body>
 </html>
