@@ -757,7 +757,15 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
         return reducerResult("research start", (connection) => connection.reducers.startResearch({ researchId }))();
       },
       speedUpResearchWithGems: reducerResult("research speed-up", (connection) => connection.reducers.speedUpResearchWithGems({})),
-      prestigeAccount: reducerResult("prestige", (connection) => connection.reducers.prestigeAccount({})),
+      async prestigeAccount() {
+        const identity = dependencies.localIdentity();
+        const result = await reducerResult("prestige", (connection) => connection.reducers.prestigeAccount({}))();
+        if (result.ok) {
+          clearPending(identity);
+          dependencies.notify();
+        }
+        return result;
+      },
       spendPrestigePerkPoint(perk: string) {
         return reducerResult("prestige perk point spend", (connection) => connection.reducers.spendPrestigePerkPoint({ perk }))();
       },

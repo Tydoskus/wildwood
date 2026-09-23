@@ -22,7 +22,7 @@ export function trackerOpacityStyle(percent: number) {
 }
 
 export function installStatTracker(options: {
-  read: () => { identity: string; values: TrackerValues } | null;
+  read: () => { identity: string; values: TrackerValues; prestige?: number } | null;
   storage: Pick<Storage, 'getItem' | 'setItem'>;
 }) {
   const model = createStatTrackerModel(options.storage);
@@ -89,7 +89,7 @@ export function installStatTracker(options: {
   function refresh() {
     const snapshot = options.read();
     // Keep session tracking independent of visibility; hiding does not reset it.
-    const result = snapshot ? model.update(snapshot.identity, snapshot.values) : null;
+    const result = snapshot ? model.update(snapshot.identity, snapshot.values, snapshot.prestige) : null;
     const wasHidden = panel.hidden;
     panel.hidden = !enabled || !result;
     if (result && Date.now() - lastSave >= 10_000) { model.save(); lastSave = Date.now(); }

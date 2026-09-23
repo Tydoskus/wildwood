@@ -1,7 +1,7 @@
 export const TRACKED_STATS = ['power', 'hp', 'damage', 'armor', 'regen', 'kills'] as const;
 export type TrackedStat = typeof TRACKED_STATS[number];
 export type TrackerValues = Record<TrackedStat, number>;
-type Session = { startedAt: number; baseline: TrackerValues; lastKills: number };
+type Session = { startedAt: number; baseline: TrackerValues; lastKills: number; prestige?: number };
 type Store = Pick<Storage, 'getItem' | 'setItem'>;
 
 function validValues(value: unknown): value is TrackerValues {
@@ -13,17 +13,17 @@ function validValues(value: unknown): value is TrackerValues {
 
 /** Exact own-character values; elapsed time includes time away, as in tracker v2.8. */
 export function createStatTrackerModel(storage: Store, now = Date.now) {
-  let identity = '', session: Session | null = null, current: TrackerValues | null = null;
+  let identity = '', session: Session | null = null, current: TrackerValues | null = null, prestige = 0;
   const key = () => `wildstat-native-stat-tracker-v1:${identity}`;
   function save() {
     if (identity && session) try { storage.setItem(key(), JSON.stringify(session)); } catch {}
   }
   function reset() {
     if (!current) return;
-    session = { startedAt: now(), baseline: { ...current }, lastKills: current.kills };
+    session = { startedAt: now(), baseline: { ...current }, lastKills: current.kills, prestige };
     save();
   }
-  function update(nextIdentity: string, values: TrackerValues) {
+  function update(nextIdentity: string, values: TrackerValues, prestigeLevel = 0) {
     if (!nextIdentity || !validValues(values)) return null;
     if (identity !== nextIdentity) {
       save();
@@ -32,12 +32,14 @@ export function createStatTrackerModel(storage: Store, now = Date.now) {
       try {
         const saved = JSON.parse(storage.getItem(key()) || 'null');
         if (saved && Number.isFinite(saved.startedAt) && saved.startedAt >= 0 && saved.startedAt <= now()
-          && validValues(saved.baseline) && Number.isFinite(saved.lastKills) && saved.lastKills >= 0) session = saved;
+          && validValues(saved.baseline) && Number.isFinite(saved.lastKills) && saved.lastKills >= 0
+          && (saved.prestige === undefined || (Number.isInteger(saved.prestige) && saved.prestige >= 0))) session = saved;
       } catch {}
     }
     current = { ...values };
+    prestige = prestigeLevel;
     // A character progress reset starts a fresh session instead of negative lifetime kills.
-    if (!session || values.kills < session.lastKills) reset();
+    if (!session || values.kills < session.lastKills || prestigeLevel > (session.prestige ?? 0)) reset();
     session!.lastKills = values.kills;
     const elapsedMs = Math.max(0, now() - session!.startedAt);
     return {

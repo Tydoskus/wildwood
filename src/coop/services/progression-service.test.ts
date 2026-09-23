@@ -88,10 +88,11 @@ function setup() {
   const recordEnemyDefeats = vi.fn(async (_request: any): Promise<void> => {});
   const savePlayerProgress = vi.fn(async (): Promise<void> => {});
   const resetPlayerProgress = vi.fn(async (): Promise<void> => {});
+  const prestigeAccount = vi.fn(async (): Promise<void> => {});
   const claimDeveloperItemGift = vi.fn(async (): Promise<void> => {});
   const entry = { ready: true, blocked: false, hydrated: true };
   const destroyEquipment = vi.fn(async () => {});
-  const connection = { reducers: { recordEnemyDefeats, savePlayerProgress, resetPlayerProgress, claimDeveloperItemGift, destroyEquipment } };
+  const connection = { reducers: { recordEnemyDefeats, savePlayerProgress, resetPlayerProgress, prestigeAccount, claimDeveloperItemGift, destroyEquipment } };
   const reducers = {
     connection: () => connection,
     protocolBlocked: () => false,
@@ -115,7 +116,7 @@ function setup() {
     storage: new MemoryStorage(),
     pendingProgressKey: "pending-progress",
   });
-  return { recordEnemyDefeats, notify, savePlayerProgress, resetPlayerProgress, service, entry, claimDeveloperItemGift, destroyEquipment };
+  return { recordEnemyDefeats, notify, savePlayerProgress, resetPlayerProgress, prestigeAccount, service, entry, claimDeveloperItemGift, destroyEquipment };
 }
 
 describe("local progression profile snapshots", () => {
@@ -173,6 +174,23 @@ describe("local progression profile snapshots", () => {
     if (!success) resetPlayerProgress.mockRejectedValueOnce(new Error("offline"));
     await service.api.resetProgress();
     expect(service.api.hasSeenPortalCutscene(cutscene)).toBe(!success);
+    service.dispose();
+  });
+
+  it.each([true, false])("replaces predicted stats with the reset row only after an acknowledged prestige: success=%s", async (success) => {
+    const { notify, prestigeAccount, service } = setup();
+    const row = (value: PlayerProgress) => ({ ...value, identity: { toHexString: () => identity } }) as never;
+    let damageAtLastNotify = Number.NaN;
+    notify.mockImplementation(() => { damageAtLastNotify = service.api.savedProgress()?.damage ?? Number.NaN; });
+    const server = { ...progress(), damage: 9_000 };
+    service.tables.upsertProgress(row(server));
+    service.api.saveProgress(saveFrom(server, { damage: 9_003 }));
+    if (success) prestigeAccount.mockImplementationOnce(async () => { service.tables.upsertProgress(row(progress())); });
+    else prestigeAccount.mockRejectedValueOnce(new Error("Defeat Aegis Prime before prestiging."));
+    expect(await service.api.prestigeAccount()).toMatchObject({ ok: success });
+    const expected = success ? progress().damage : 9_003;
+    expect(service.api.savedProgress()!.damage).toBe(expected);
+    expect(damageAtLastNotify).toBe(expected);
     service.dispose();
   });
 
