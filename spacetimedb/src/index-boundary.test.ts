@@ -58,7 +58,10 @@ import { describe, expect, it } from "vitest";
 // 6_764: reconciling a running upgrade against its slot rather than against an
 // item id it no longer holds, which is what was cancelling every upgrade, and
 // the note recording it. Both are guards on the same rekeyed table.
-const MAX_LINES = 6_764;
+// 6_769: record_enemy_defeats writes the public player row only when the
+// compact power a player sees would change, and the note saying why. It was
+// broadcasting to everyone on the map on nearly every kill report.
+const MAX_LINES = 6_769;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

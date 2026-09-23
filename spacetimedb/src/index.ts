@@ -1,3 +1,4 @@
+import { compactNumberChanged } from "../../shared/compact-number";
 import { auditPrivilegedAccess, denyPrivilegedAccess } from "./privileged-access-audit";
 import { defeatSessionRestriction, defeatRestrictionError, requireAllowedDefeatSession, restrictDefeatSession, suspendPlayerAccount } from "./defeat-session";
 import { findDeveloperTravelTarget, readDeveloperTravelTarget } from "./developer-travel";
@@ -5559,7 +5560,11 @@ export const recordEnemyDefeats = spacetimedb.reducer(
       const rewarded = awardRegularEnemyLoot(ctx, batch.mapId, accepted.lootCount, { progress: next });
       updateSnapshotRow(ctx, "playerProgress", rewarded);
       const power = powerFieldsForProgress(ctx, rewarded);
-      if (player.power !== power.power || player.powerLevel !== power.powerLevel) {
+      // Both rows below are broadcast to everyone on the map, and kills move
+      // power on nearly every report. The plate shows only the compact figure,
+      // so write when that changes; the row is exact when written and never
+      // more than one displayed step behind.
+      if (compactNumberChanged(player.powerLevel, power.powerLevel)) {
         const nextPlayer = { ...player, ...power };
         updateSnapshotRow(ctx, "player", nextPlayer);
         syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
