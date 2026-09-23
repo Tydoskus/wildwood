@@ -6,6 +6,7 @@ import { drawGravebloomArt, GRAVEBLOOM_ART_TOP } from "./verdant-boss-art";
 import { drawAegisPrimeArt, AEGIS_PRIME_ART_TOP } from "./ion-boss-art";
 import { drawBossAtlasFrame } from "./boss-atlas-drawing";
 import { bossFrameCrop, drawBossSheetFrame } from "./boss-frame-crop";
+import { createGloomrootSpriteCache, GLOOMROOT_SPRITE_FILTER, paintGloomrootAura } from "./gloomroot-sprite-cache";
 import { bossVerticalRadius } from "../../../shared/boss-hitbox";
 import {
   BOSS_CONE_HALF_ANGLE,
@@ -191,6 +192,7 @@ export function createBossRenderer(options: {
   const { ctx, camera, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss } = options;
   const screenX = (worldX: number) => snapWorldRenderCoordinate(worldX - camera.x, camera.zoom, options.devicePixelRatio());
   const screenY = (worldY: number) => snapWorldRenderCoordinate(worldY - camera.y, camera.zoom, options.devicePixelRatio());
+  const gloomrootSprites = createGloomrootSpriteCache();
   /**
    * The collision shape the server hits a boss with, drawn over its artwork.
    *
@@ -642,26 +644,23 @@ export function createBossRenderer(options: {
 
     // A soft moon-sap aura separates the dark treant from the Night Forest,
     // while the fallback guarantees a visible target if its art fails to load.
-    ctx.save();
-    const aura = ctx.createRadialGradient(x, visualY + 45, 22, x, visualY + 55, 205);
-    aura.addColorStop(0, "rgba(92,247,244,.3)");
-    aura.addColorStop(.55, "rgba(35,154,173,.13)");
-    aura.addColorStop(1, "rgba(14,45,65,0)");
-    ctx.fillStyle = aura;
-    ctx.beginPath();
-    ctx.arc(x, visualY + 55, 205, 0, TAU);
-    ctx.fill();
-    ctx.restore();
+    // The aura and the filtered frames are baked once and copied each frame.
+    if (!gloomrootSprites.drawAura(ctx, x, visualY)) paintGloomrootAura(ctx, x, visualY);
 
     ctx.save();
     ctx.translate(x, visualY);
-    ctx.scale(pulse, pulse);
     if (options.gloomrootReady() && canvas.width >= 2 && canvas.height >= 2) {
       const cellW = canvas.width / 2;
       const cellH = canvas.height / 2;
-      ctx.filter = "brightness(1.22) contrast(1.08) drop-shadow(0 0 12px rgba(88,238,240,.72))";
-      drawBossSheetFrame(ctx, canvas, { bossId: "GLOOMROOT", frame, cellWidth: cellW, cellHeight: cellH, columns: 2, drawWidth: drawW, drawHeight: drawH });
+      const sheetFrame = { bossId: "GLOOMROOT", frame, cellWidth: cellW, cellHeight: cellH, columns: 2, drawWidth: drawW, drawHeight: drawH };
+      if (!gloomrootSprites.drawFrame(ctx, canvas, sheetFrame, pulse)) {
+        ctx.scale(pulse, pulse);
+        ctx.filter = GLOOMROOT_SPRITE_FILTER;
+        drawBossSheetFrame(ctx, canvas, sheetFrame);
+      }
     } else {
+      gloomrootSprites.reset();
+      ctx.scale(pulse, pulse);
       ctx.fillStyle = "#172c3d";
       ctx.strokeStyle = "#65eee9";
       ctx.lineWidth = 9;
