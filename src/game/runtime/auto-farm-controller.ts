@@ -1,18 +1,53 @@
 import { isMeleeWeapon, weaponAttackRange } from "../weapon-combat";
 import { isProceduralMap } from '../../../shared/procedural-maps';
 import { WORLD } from '../constants';
-import type { EnemyDefinition, EnemyKind } from '../enemies';
+import { ENEMY_TYPES, type EnemyDefinition, type EnemyKind } from '../enemies';
 import type { SpawnSite } from '../world';
 import type { Circle, EnemyState, PlayerState, Position } from './types';
 import type { Movement } from './player-input-controller';
 import { isEnemyAttackingPlayer } from './enemy-threat';
 import { farmRoute } from './auto-farm-navigation';
+import { rangedEnemyHoldBand } from './ranged-enemy-range';
 import type { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 
 export type AutoFarmController = ReturnType<typeof createAutoFarmController>;
 const idle = (): Movement => ({ x: 0, y: 0, source: 'none' });
 export const AUTO_FARM_DEFEAT_LIMIT = 5;
 export const AUTO_FARM_DEFEAT_WINDOW_MS = 180_000;
+/** Clearance kept outside a ranged enemy's back-away distance when standing to shoot it. */
+export const AUTO_FARM_RANGED_STANDOFF_MARGIN = 10;
+
+/**
+ * Where autofarm stops walking (`stop`) and how far the destination may then
+ * drift before it walks again (`resume`). Both sit inside the weapon's reach.
+ *
+ * A ranged enemy backs away from a player closer than its hold band, and the
+ * band scales with the player's attack range while the plain 78% stop does
+ * not keep pace: past the base range the stop point lands inside the band, so
+ * the enemy retreats one step, the player follows one step, and the walk
+ * flickers on and off every few frames. Standing just outside the band, and
+ * not walking again until the destination is well past the stop point, keeps
+ * both sides still.
+ */
+export function autoFarmStandoff(options: {
+  weaponRange: number;
+  playerAttackRange: number;
+  melee: boolean;
+  playerRadius: number;
+  destination: Position & { r?: number; type?: EnemyKind; definition?: EnemyDefinition };
+  enemy: boolean;
+}) {
+  const reachPadding = options.melee && options.enemy ? options.destination.r ?? 0 : 0;
+  const reach = Math.max(8, options.weaponRange) + reachPadding;
+  let stop = Math.max(8, options.weaponRange * .78) + reachPadding;
+  const kind = options.enemy ? options.destination.type : undefined;
+  const ranged = kind !== undefined && (options.destination.definition ?? ENEMY_TYPES[kind])?.ranged;
+  if (ranged && !options.melee) {
+    const band = rangedEnemyHoldBand(options.playerAttackRange, options.playerRadius + (options.destination.r ?? 0) + 4);
+    stop = Math.min(reach, Math.max(stop, band.retreatBelow + AUTO_FARM_RANGED_STANDOFF_MARGIN));
+  }
+  return { stop, resume: stop + (reach - stop) / 2 };
+}
 
 export function createAutoFarmController(options: {
   player: PlayerState;
@@ -46,6 +81,8 @@ export function createAutoFarmController(options: {
   let route: Position[] = [];
   let routeClock = 0;
   let lastGoal: Position | null = null;
+  // True while standing in range; walking resumes only past the resume distance.
+  let holding = false;
   const { player, enemies, spawnSites } = options;
   const distance = (point: Position) => Math.hypot(point.x - player.x, point.y - player.y);
   const validEnemy = (enemy: EnemyState) => !enemy.dead && !enemy.remoteCombatGhost && !enemy.generatedBoss && enemy.type === selectedType && (!selectedCamp || enemy.campName === selectedCamp) && enemy.hp > 0;
@@ -100,6 +137,7 @@ export function createAutoFarmController(options: {
     target = null;
     route = [];
     lastGoal = null;
+    holding = false;
     status = reason;
   }
 
@@ -111,7 +149,7 @@ export function createAutoFarmController(options: {
     if (connection === 'recovering') {
       // Keep only the player's intent; old targets and paths may belong to a
       // discarded world snapshot. No retries or server work belong here.
-      if (!recovering) { target = null; route = []; lastGoal = null; routeClock = 0; }
+      if (!recovering) { target = null; route = []; lastGoal = null; routeClock = 0; holding = false; }
       recovering = true;
       readySince = null;
       status = 'Reconnecting · farming will resume';
@@ -163,6 +201,7 @@ export function createAutoFarmController(options: {
     route = [];
     routeClock = 0;
     lastGoal = null;
+    holding = false;
     status = 'Finding enemy';
     return true;
   }
@@ -177,6 +216,7 @@ export function createAutoFarmController(options: {
         route = [];
         lastGoal = null;
         routeClock = 0;
+        holding = false;
       }
       return manual;
     }
@@ -196,10 +236,19 @@ export function createAutoFarmController(options: {
     }
     if (!destination) { stop('No matching enemies in this map'); return idle(); }
     const weapon = options.equippedWeapon?.();
-    const range = Math.max(8, weaponAttackRange(weapon, player.attackRange) * .78) +
-      (isMeleeWeapon(weapon) ? (threat ?? target)?.r ?? 0 : 0);
+    const enemy = threat ?? target;
+    const standoff = autoFarmStandoff({
+      weaponRange: weaponAttackRange(weapon, player.attackRange),
+      playerAttackRange: player.attackRange,
+      melee: isMeleeWeapon(weapon),
+      playerRadius: player.r,
+      destination: enemy ?? destination,
+      enemy: Boolean(enemy),
+    });
+    const range = standoff.stop;
     const remaining = distance(destination);
-    if (remaining <= range) {
+    holding = remaining <= (holding ? standoff.resume : standoff.stop);
+    if (holding) {
       status = threat ? 'Defending' : target ? 'Farming' : 'Waiting for respawn';
       route = [];
       routeClock = 0;

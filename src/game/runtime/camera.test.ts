@@ -1,5 +1,6 @@
 import { ONBOARDING_WORLD } from "../../../shared/onboarding";
-import { WORLD } from "../constants";
+import { MIN_CAMERA_ZOOM, WORLD } from "../constants";
+import { attackRangeWithResearch } from "../../../shared/utility-research";
 import { HOME_WORLD_WIDTH, HOME_WORLD_HEIGHT } from "../../../shared/home";
 import { describe, expect, it } from "vitest";
 import {
@@ -133,5 +134,25 @@ describe("runtime camera", () => {
   it("does not zoom smaller phones out by more than requested", () => {
     expect(targetCameraZoom(155, { width: 375, height: 667 }))
       .toBeCloseTo(targetCameraZoom(155, MOBILE_CAMERA_REFERENCE_VIEWPORT), 10);
+  });
+
+  describe("attack-range research", () => {
+    // The pre-research curve: (1 - (range / 155 - 1) * .5) * .85.
+    const legacyZoom = (range: number) => (1 - (range / 155 - 1) * .5) * .85;
+    const phone = MOBILE_CAMERA_REFERENCE_VIEWPORT;
+    const desktop = { width: 1920, height: 1080 };
+
+    it("keeps the unresearched zoom exactly where it was", () => {
+      expect(targetCameraZoom(attackRangeWithResearch(0), phone))
+        .toBeCloseTo(legacyZoom(200) * MOBILE_CAMERA_ZOOM_MULTIPLIER, 12);
+    });
+
+    it("extends the reach without moving the camera at any rank", () => {
+      for (const viewport of [phone, desktop]) {
+        const base = targetCameraZoom(attackRangeWithResearch(0), viewport);
+        for (let rank = 1; rank <= 5; rank++) expect(targetCameraZoom(attackRangeWithResearch(rank), viewport)).toBe(base);
+      }
+      expect(targetCameraZoom(attackRangeWithResearch(5), phone)).toBeGreaterThan(MIN_CAMERA_ZOOM);
+    });
   });
 });

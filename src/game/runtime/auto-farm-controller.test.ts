@@ -3,7 +3,10 @@ import { parseHTML } from 'linkedom';
 import { createBalanceApologyGiftController } from '../../ui/balance-apology-gift-controller';
 import { createGameBootstrap } from './game-bootstrap';
 import { createEnemyLifecycle } from './enemy-lifecycle';
-import { createAutoFarmController, AUTO_FARM_DEFEAT_LIMIT, AUTO_FARM_DEFEAT_WINDOW_MS } from './auto-farm-controller';
+import { createAutoFarmController, autoFarmStandoff, AUTO_FARM_DEFEAT_LIMIT, AUTO_FARM_DEFEAT_WINDOW_MS } from './auto-farm-controller';
+import { createEnemySimulation } from './enemy-simulation';
+import { rangedEnemyHoldBand } from './ranged-enemy-range';
+import { attackRangeWithResearch } from '../../../shared/utility-research';
 import { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 import type { SpawnSite } from '../world';
 import type { EnemyKind } from '../enemies';
@@ -361,4 +364,66 @@ it("closes to sword reach without changing the player camera range", () => {
   for (let i = 0; i < 300; i++) s.tick();
   expect(Math.hypot(enemy.x - s.player.x, enemy.y - s.player.y) - enemy.r).toBeLessThan(75);
   expect(s.player.attackRange).toBe(200);
+});
+
+describe("autofarm against a ranged enemy with researched attack range", () => {
+  // Drives the real enemy simulation: a hit engages the enemy, and an engaged
+  // ranged enemy backs away from a player standing inside its hold band.
+  function farmBrood(attackRange: number) {
+    const s = setup();
+    s.player.attackRange = attackRange;
+    const brood = s.add("Brood", 1500, 500);
+    brood.hp = brood.maxHp = 1e9;
+    const lifecycle = createEnemyLifecycle(s.enemies, s.spawnSites, () => {});
+    let serverNow = 0;
+    const simulation = createEnemySimulation(s.enemies, () => {}, s.player,
+      () => ({ width: 1200, height: 800, zoom: 1 }), lifecycle.engageEnemy, () => false,
+      { playerMovementSpeed: () => s.player.speed, serverNowMs: () => serverNow, currentMapId: () => "forest" });
+    s.farm.start("Brood");
+    let arrived = false, walkStarts = 0, walking = true;
+    for (let frame = 0; frame < 600; frame++) {
+      serverNow += 1000 / 60;
+      const movement = s.tick();
+      const nowWalking = Boolean(movement.x || movement.y);
+      if (!nowWalking) arrived = true;
+      if (arrived && nowWalking && !walking) walkStarts++;
+      walking = nowWalking;
+      // Standing in weapon range means the player is shooting it.
+      if (Math.hypot(brood.x - s.player.x, brood.y - s.player.y) <= attackRange && !brood.engaged) {
+        lifecycle.engageEnemy(brood, "local-player");
+      }
+      simulation.update(1 / 60);
+    }
+    return { walkStarts, distance: Math.hypot(brood.x - s.player.x, brood.y - s.player.y), brood };
+  }
+
+  it.each([1, 2, 3, 4, 5])("stands still instead of stepping after a retreating enemy at range rank %i", rank => {
+    const range = attackRangeWithResearch(rank);
+    const { walkStarts, distance, brood } = farmBrood(range);
+    const band = rangedEnemyHoldBand(range, 18 + brood.r + 4);
+    expect(brood.engaged).toBe(true);
+    expect(walkStarts).toBeLessThanOrEqual(1);
+    expect(distance).toBeGreaterThanOrEqual(band.retreatBelow);
+    expect(distance).toBeLessThanOrEqual(range);
+  });
+
+  it("stops outside the ranged enemy's retreat distance and holds until it walks back in", () => {
+    for (let rank = 0; rank <= 5; rank++) {
+      const range = attackRangeWithResearch(rank);
+      const destination = { x: 0, y: 0, r: 16, type: "Brood" as EnemyKind };
+      const standoff = autoFarmStandoff({ weaponRange: range, playerAttackRange: range, melee: false, playerRadius: 18, destination, enemy: true });
+      const band = rangedEnemyHoldBand(range, 18 + 16 + 4);
+      expect(standoff.stop).toBeGreaterThan(band.retreatBelow);
+      expect(standoff.resume).toBeGreaterThan(band.approachAbove);
+      expect(standoff.resume).toBeLessThan(range);
+    }
+  });
+
+  it("keeps the base stop distance for melee enemies", () => {
+    const standoff = autoFarmStandoff({ weaponRange: 250, playerAttackRange: 250, melee: false, playerRadius: 18,
+      destination: { x: 0, y: 0, r: 16, type: "Bramble" }, enemy: true });
+    expect(standoff.stop).toBeCloseTo(250 * .78);
+    expect(standoff.resume).toBeGreaterThan(standoff.stop);
+    expect(standoff.resume).toBeLessThan(250);
+  });
 });

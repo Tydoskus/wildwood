@@ -1,4 +1,4 @@
-import { ATTACK_RANGE_ZOOM_REFERENCE, MIN_CAMERA_ZOOM, WORLD } from "../constants";
+import { ATTACK_RANGE_ZOOM_REFERENCE, BASE_ATTACK_RANGE, MIN_CAMERA_ZOOM, WORLD } from "../constants";
 import { clamp } from "../math";
 
 export type Camera = { x: number; y: number; zoom: number };
@@ -17,6 +17,14 @@ export const MOBILE_CAMERA_REFERENCE_VIEWPORT = { width: 390, height: 780 } as c
 const MOBILE_CAMERA_MAX_SHORT_SIDE = 600;
 const MOBILE_CAMERA_MAX_AREA = 450_000;
 const MAX_CAMERA_ZOOM = 2;
+/**
+ * Zoom before the viewport multiplier. Range above the base comes only from
+ * the attack-range research, which extends the reach without moving the
+ * camera, so the curve stops at the base range.
+ */
+function attackRangeZoom(attackRange: number) {
+  return (1 - (Math.min(attackRange, BASE_ATTACK_RANGE) / ATTACK_RANGE_ZOOM_REFERENCE - 1) * .5) * BASE_CAMERA_ZOOM;
+}
 
 export function createCamera(): Camera {
   return { x: 0, y: 0, zoom: 1 };
@@ -36,8 +44,6 @@ function isPhoneViewport(viewport: Viewport) {
  * zooming beyond the equivalent square framing.
  */
 export function targetCameraZoom(attackRange: number, viewport: Viewport) {
-  const rangeIncrease = attackRange / ATTACK_RANGE_ZOOM_REFERENCE - 1;
-  const attackRangeZoom = (1 - rangeIncrease * .5) * BASE_CAMERA_ZOOM;
   const width = Math.max(1, viewport.width);
   const height = Math.max(1, viewport.height);
   const squareViewportArea = Math.min(width, height) ** 2;
@@ -45,7 +51,7 @@ export function targetCameraZoom(attackRange: number, viewport: Viewport) {
   const viewportMultiplier = isPhoneViewport(viewport)
     ? MOBILE_CAMERA_ZOOM_MULTIPLIER
     : MOBILE_CAMERA_ZOOM_MULTIPLIER * Math.sqrt(squareViewportArea / referenceArea);
-  return clamp(attackRangeZoom * viewportMultiplier, MIN_CAMERA_ZOOM, MAX_CAMERA_ZOOM);
+  return clamp(attackRangeZoom(attackRange) * viewportMultiplier, MIN_CAMERA_ZOOM, MAX_CAMERA_ZOOM);
 }
 
 function targetPosition(

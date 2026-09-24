@@ -20,13 +20,11 @@ import {
 import type { RemoteCombatStats, RemotePlayer } from "../../wildstat-coop";
 import { separateEnemyCrowd } from "./enemy-crowd-separation";
 import { createRemoteEnemyCombatShadows } from "./remote-enemy-combat-shadow";
-import { rangedEnemyAttackRange, rangedEnemyPreferredDistance } from "./ranged-enemy-range";
+import { rangedEnemyAttackRange, rangedEnemyHoldBand } from "./ranged-enemy-range";
 import type { RemoteBossSimulationTarget } from "../../coop/services/remote-boss-attack";
 import type { EnemyState, PlayerState } from "./types";
 
 const FULL_SIMULATION_MARGIN = 220;
-const RANGED_APPROACH_DEAD_BAND = 5;
-const RANGED_RETREAT_DEAD_BAND = 20;
 export const LOCAL_REGULAR_ENEMY_TARGET_ID = "local-player";
 
 function recoverySpeed(enemy: EnemyState, chaseSpeed: number) {
@@ -133,14 +131,11 @@ export function createEnemySimulation(
     const distance = Math.hypot(dx, dy) || 1;
     let direction = 1;
     if (ranged) {
-      const preferredDistance = rangedEnemyPreferredDistance(
-        player.attackRange,
-        player.r + enemy.r + 4,
-      );
+      const band = rangedEnemyHoldBand(player.attackRange, player.r + enemy.r + 4);
       let rangedMove = 0;
-      if (distance > preferredDistance + RANGED_APPROACH_DEAD_BAND) {
+      if (distance > band.approachAbove) {
         rangedMove = 1;
-      } else if (distance < preferredDistance - RANGED_RETREAT_DEAD_BAND) {
+      } else if (distance < band.retreatBelow) {
         rangedMove = -1;
       }
       direction = rangedMove;
