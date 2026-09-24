@@ -3,7 +3,9 @@ import type { Identity } from "spacetimedb";
 import { NO_BOW_SKILLS, isSkillBow, rollBowSkills, type BowSkillRoll } from "../../shared/bow-skills";
 
 /**
- * Each player's bow skill rolls, one row per bow id they have ever held.
+ * Each player's bow skill rolls, one row per bow id obtained since skills were
+ * added. A bow held before then has no row and no skills: it counts as having
+ * failed all three appearance rolls, and nothing rolls it later.
  *
  * Inventory stores item ids, so a roll belongs to (player, bow id) and every
  * copy of that bow shares it. Rows are written once and never re-rolled: a bow

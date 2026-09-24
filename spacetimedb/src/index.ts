@@ -2932,7 +2932,7 @@ const cosmeticConversion = createCosmeticConversion({ requireControllingPlayer, 
   inventoryForProgress, writeProgressAndPresentation, applyGemBalanceChange });
 
 function publishItemDrop(ctx: any, identity: any, itemId: string, alreadyOwned: boolean, quantity = 1) {
-  ensureBowSkillRoll(ctx, identity, itemId); // Every drop, boss drop and grant passes here.
+  if (!alreadyOwned) ensureBowSkillRoll(ctx, identity, itemId); // Only a bow entering the bag rolls.
   const key = `${identity.toHexString()}:${itemId}`;
   const current = ctx.db.playerItemDrop.key.find(key);
   const next = {
@@ -3514,8 +3514,6 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
     }
   }
 
-  // Safety net: any bow held without a roll (a grant path that missed it) gets one.
-  if (!virtualRegistration) ensureBowSkillRolls(ctx, ctx.sender, inventoryForProgress(existingProgress));
   ensureCutsceneHistory(ctx, ctx.sender);
   researchForPlayer(ctx, ctx.sender);
   syncSenderAccountStatus(ctx);
@@ -5232,7 +5230,8 @@ export const claimDeveloperItemGift = spacetimedb.reducer({ key: t.string() }, (
   claimItemGift(ctx, key, itemId => {
     const progress = ctx.db.playerProgress.identity.find(ctx.sender);
     if (!progress) throw new SenderError("Player unavailable.");
-    if (!playerOwnsItem(ctx, ctx.sender, itemId)) updateSnapshotRow(ctx, "playerProgress", restoreItemToProgress(progress, itemId));
+    if (playerOwnsItem(ctx, ctx.sender, itemId)) return;
+    updateSnapshotRow(ctx, "playerProgress", restoreItemToProgress(progress, itemId));
     ensureBowSkillRoll(ctx, ctx.sender, itemId);
   });
 });

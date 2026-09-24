@@ -6,7 +6,6 @@ import { fillDefeatBudget, reportEnemy } from "../../tests/helpers/enemy-defeat"
 import { eraseIdentityRows } from "./account-erasure";
 import { bowSkillKey } from "./bow-skills";
 import { combatTimeKey, PLAUSIBLE_KILL_TOLERANCE } from "./enemy-defeats";
-import { MODULE_MIGRATION_VERSION } from "./module-migrations";
 import { bowSkillChanceRangeTenths, bowSkillReachMultiplier } from "../../shared/bow-skills";
 import { ATTACK_BALANCE_VERSION, SPACETIME_AUTH_CLIENT_ID, SPACETIME_AUTH_ISSUER } from "../../shared/rules";
 import { STARTER_BOW } from "../../shared/items";
@@ -60,36 +59,13 @@ it("rolls a gifted bow when the gift is claimed", () => {
   expect(rowFor(f, STARTER_BOW)).toMatchObject({ arrowStorm: 1.2, ricochet: 1.2, piercingShot: 1.2 });
 });
 
-it("backfills every bow players already hold, once, and leaves existing rolls alone", () => {
-  const f = crystalFixture();
-  f.seed("moduleMigrationState", { id: 0, version: MODULE_MIGRATION_VERSION - 1 });
-  f.ctx.connectionId = null;
-  luckyRandom(f);
-  const other = identity("2");
-  f.progress(other, { inventoryJson: '["starter_stone","iron_bow","wooden_armor","clockwork_bow"]', bowCount: 1 });
-  f.patch("playerProgress", { inventoryJson: '["starter_stone","night_bow"]' });
-  seedRoll(f, "night_bow", { arrowStorm: 9, ricochet: 0, piercingShot: 0 });
-  f.run(server.onConnect);
-  expect(f.db.moduleMigrationState.id.find(0).version).toBe(MODULE_MIGRATION_VERSION);
-  expect(rows(f, other).map(row => row.itemId).sort()).toEqual(["clockwork_bow", "iron_bow", "starter_bow"]);
-  expect(rowFor(f, "night_bow")).toMatchObject({ arrowStorm: 9, ricochet: 0, piercingShot: 0 });
-  // The starter stone and armor are not skill bows.
-  expect(rowFor(f, "starter_stone", other)).toBeNull();
-  // Running maintenance again at the current version rolls nothing new.
-  luckyRandom(f, .9);
-  const before = [...f.db.playerBowSkill.iter()];
-  f.run(server.onConnect);
-  expect([...f.db.playerBowSkill.iter()]).toEqual(before);
-});
-
-it("rolls any bow still missing one when the player enters the world", () => {
+it("never rolls a bow held before skills existed: world entry, duels and duplicate drops leave it without skills", () => {
   const f = crystalFixture();
   luckyRandom(f);
   f.patch("playerProgress", { inventoryJson: '["starter_stone","iron_bow"]' });
   f.seed("playerLegalConsent", { identity: f.ctx.sender, termsVersion: TERMS_VERSION, ageBand: 2, acceptedAt: f.ctx.timestamp });
   f.run(server.enterWorld, { tabId: "testtabid" });
-  expect(rowFor(f, "iron_bow")).toMatchObject({ arrowStorm: expect.any(Number) });
-  expect(rowFor(f, "iron_bow")!.arrowStorm).toBeGreaterThan(0);
+  expect(rowFor(f, "iron_bow")).toBeNull();
 });
 
 it("serves a player only their own rolls through my_bow_skills", () => {
@@ -219,8 +195,8 @@ function duelAfter(seconds: number, roll?: typeof TOP) {
 
 it("fights a duel with the challenger's equipped bow skills, read from their rolls", () => {
   const plain = duelAfter(5);
-  // Starting the duel rolled the bow nobody had rolled yet.
-  expect(rowFor(plain.f, STARTER_BOW)).not.toBeNull();
+  // A bow held before skills existed has no roll, and a duel does not give it one.
+  expect(rowFor(plain.f, STARTER_BOW)).toBeNull();
   expect(plain.duel.combatVersion).toBe(DUEL_COMBAT_VERSION);
   const storm = duelAfter(5, { arrowStorm: 100, ricochet: 0, piercingShot: 0 });
   expect(storm.duel.challengerAttacks).toBe(plain.duel.challengerAttacks);

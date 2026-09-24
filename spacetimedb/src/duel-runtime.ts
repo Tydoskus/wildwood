@@ -18,7 +18,7 @@ import { advanceDuelCombat, duelOutcome, DUEL_COMBAT_VERSION } from "../../share
 import { duelAnnouncementText } from "../../shared/duel-announcement";
 import { prestigePerkRanks } from "./prestige";
 import { prestigeCriticalDamageBonus, prestigePerkValue, prestigeRiposteChance, prestigeSwingMultiplier } from "../../shared/prestige-perks";
-import { duelBowSkillFields, ensureBowSkillRoll } from "./bow-skills";
+import { duelBowSkillFields } from "./bow-skills";
 
 export const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
 export const DUEL_REQUEST_TIMEOUT_MICROS = 30_000_000n;
@@ -292,9 +292,6 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
     const opponentRightHandItem = equippedRightHandForProgress(opponentProgress);
     const challengerLeftHandItem = challengerRightHandItem ? "" : equippedLeftHandForProgress(challengerProgress);
     const opponentLeftHandItem = opponentRightHandItem ? "" : equippedLeftHandForProgress(opponentProgress);
-    // A bow must have its roll before the first resolution reads it.
-    ensureBowSkillRoll(ctx, ctx.sender, challengerRightHandItem || challengerLeftHandItem);
-    ensureBowSkillRoll(ctx, opponent, opponentRightHandItem || opponentLeftHandItem);
     const challengerAppearance = equipmentPresentationForProgress(challengerProgress);
     const opponentAppearance = equipmentPresentationForProgress(opponentProgress);
     const challengerMaxHp = maxHealthForProgress(ctx, ctx.sender, challengerProgress);

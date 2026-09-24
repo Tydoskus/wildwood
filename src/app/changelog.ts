@@ -2,7 +2,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
   "0.801": [
     "Bows can roll Arrow Storm, Ricochet and Piercing Shot skills, each with its own chance to trigger.",
     "Higher-tier bows roll higher skill chances: 1–3% on early bows, up to 7–15% on the best.",
-    "Bows you already own have been rolled, and bow skills also work in duels.",
+    "Skills roll on bows you get from now on, and they also work in duels.",
     "Everyone gets 10 more inventory slots, and the slot limit rose by 10.",
   ],
   "0.800": [

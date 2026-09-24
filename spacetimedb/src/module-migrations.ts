@@ -40,9 +40,8 @@ import { BALANCE_APOLOGY_GEM_GIFT } from "../../shared/gems";
 import { grantGemHeartUnlock } from "./chat-reactions";
 import { GEM_KILL_CREDIT_PER_GEM } from "../../shared/gem-drops";
 import { syncPlayerJoinDate } from "./mailbox";
-import { ensureBowSkillRolls } from "./bow-skills";
 
-export const MODULE_MIGRATION_VERSION = 43;
+export const MODULE_MIGRATION_VERSION = 42;
 
 export type ModuleMigrationDeps = {
   MAP_ARRIVALS: Record<string, { x: number; y: number }>;
@@ -536,11 +535,6 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     // 42: copy every join date out of player_lifetime for the mailbox view.
     if (currentVersion < 42) {
       for (const lifetime of ctx.db.playerLifetime.iter() as Iterable<any>) syncPlayerJoinDate(ctx, lifetime.identity, lifetime.joinedAt);
-    }
-    // 43: bow skills. Every bow a player already holds gets its one roll now,
-    // the same roll a new drop gets; world entry catches anything missed.
-    if (currentVersion < 43) {
-      for (const progress of [...ctx.db.playerProgress.iter()] as any[]) ensureBowSkillRolls(ctx, progress.identity, inventoryForProgress(progress));
     }
     const next = { id: 0, version: MODULE_MIGRATION_VERSION };
     if (state) ctx.db.moduleMigrationState.id.update(next);
