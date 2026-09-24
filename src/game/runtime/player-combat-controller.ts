@@ -9,9 +9,11 @@ import { ENEMY_TYPES, REWARD_DATA, rewardLabel, type EnemyKind } from "../enemie
 import { circlesOverlap } from "../math";
 import type { ProjectileStore } from "./projectile-store";
 import { createSpatialGrid } from "./spatial-grid";
-import type { BossTarget, DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, AegisPrimeBossState, PlayerState, RuntimeReward, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
+import type { BossTarget, DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, AegisPrimeBossState, PlayerState, Projectile, RuntimeReward, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
 import type { SpawnSite } from "../world";
 import { equipmentDamage, itemDefinition } from "../../../shared/items";
+import { ARROW_STORM_DAMAGE_SHARE, RICOCHET_DAMAGE_SHARE, hasBowSkills, rollArrowSkillProcs, type BowSkillRoll } from "../../../shared/bow-skills";
+import { arrowPassesThrough, rainArrowStorm, ricochetChain } from "./bow-skill-procs";
 import { addPlayerBaseMaxHealth } from "./player-health";
 import {
   absoluteAttackTimestamps,
@@ -34,6 +36,7 @@ const TARGET_SEARCH_INTERVAL_SECONDS = .08;
 const FACING_HORIZONTAL_DEAD_ZONE = 3;
 const IDLE_TARGET_RECHECK_SECONDS = .08;
 const MAX_SCHEDULE_LATE_SECONDS = .05;
+const PIERCE_ONLY = Object.freeze({ arrowStorm: false, ricochet: false, piercingShot: true });
 
 type AttackTarget = { x: number; y: number; isBoss?: boolean };
 type PendingPlayerAttack = {
@@ -118,6 +121,10 @@ export function createPlayerCombatController(options: {
   prestigeDoubleStrike?: () => number;
   /** Chance for a swing to also reach a second enemy, from the Split Shot perk. */
   prestigeSplitShot?: () => number;
+  /** The equipped bow's skill roll (Arrow Storm, Ricochet, Piercing Shot), if it has one. */
+  bowSkills?: () => Partial<BowSkillRoll> | null | undefined;
+  /** Random source for bow skill procs; tests inject a fixed sequence. */
+  random?: () => number;
   equippedWeapon: () => string;
   equippedWeaponUpgradeLevel?: () => number;
   equippedHead: () => string;
@@ -156,6 +163,7 @@ export function createPlayerCombatController(options: {
     spawnDamageNumber, logPickup, saveProgress, setHitFlash, addScreenShake, recordDeath, endGame,
   } = options;
   const { projectiles, enemyShots } = projectileStore;
+  const random = options.random ?? Math.random;
   const targetGrid = createSpatialGrid<EnemyState>(TARGET_GRID_CELL_SIZE, WORLD.w, WORLD.h);
   const targetCandidates: EnemyState[] = [];
   let retainedTarget: EnemyState | BossTarget | null = null;
@@ -309,6 +317,8 @@ export function createPlayerCombatController(options: {
     const distance = Math.hypot(dx, dy) || 1;
     const baseAngle = Math.atan2(dy, dx);
     const weaponItem = options.equippedWeapon();
+    const bowSkills = options.bowSkills?.();
+    const skilled = hasBowSkills(bowSkills);
     const fire = (angle: number) => {
       const projectileLifeBonus = 1.25;
       // Personal bosses use the same crit roll as ordinary enemies. Only the
@@ -327,6 +337,9 @@ export function createPlayerCombatController(options: {
       projectile.life = (player.attackRange + PLAYER_PROJECTILE_VISUAL_TAIL) / player.projectileSpeed * projectileLifeBonus;
       projectile.trail = 0;
       projectile.spawnedAtSeconds = releasedAtSeconds;
+      // Every arrow, the Split Shot one included, rolls each bow skill itself.
+      projectile.skills = skilled ? rollArrowSkillProcs(bowSkills, random) : null;
+      projectile.pierced = null;
     };
     for (let index = 0; index < player.projectileCount; index++) {
       fire(baseAngle + (index - (player.projectileCount - 1) / 2) * .13);
@@ -502,7 +515,7 @@ export function createPlayerCombatController(options: {
     return true;
   }
 
-  function raycastProjectile(startX: number, startY: number, endX: number, endY: number, radius: number) {
+  function raycastProjectile(startX: number, startY: number, endX: number, endY: number, radius: number, exclude?: ReadonlySet<object> | null) {
     const dx = endX - startX;
     const dy = endY - startY;
     const lengthSq = dx * dx + dy * dy;
@@ -520,7 +533,7 @@ export function createPlayerCombatController(options: {
     );
     if (mapBoss && !mapBoss.dead) targetCandidates.push(mapBoss as unknown as EnemyState);
     for (const target of targetCandidates as Array<EnemyState | BossTarget>) {
-      if (target.dead) continue;
+      if (target.dead || exclude?.has(target)) continue;
       const ex = target.x - startX;
       const t = target.isBoss
         ? segmentEllipseHit(ex, target.y + (target.hitboxOffsetY ?? 0) - startY, dx, dy,
@@ -564,6 +577,43 @@ export function createPlayerCombatController(options: {
     }
   }
 
+  /** A few motionless sparks along a line, so a bounce reads as a streak. */
+  function streak(fromX: number, fromY: number, toX: number, toY: number, color: string) {
+    for (let step = 1; step <= 5; step++) {
+      spawnParticle(fromX + (toX - fromX) * step / 5, fromY + (toY - fromY) * step / 5, 0, 0, .18, .18, 3, color);
+    }
+  }
+
+  /**
+   * An arrow striking something: its own hit, then the Arrow Storm and
+   * Ricochet it rolled, which fire once, at its first impact. A Piercing Shot
+   * arrow keeps flying, so only that flag survives the first impact.
+   */
+  function arrowImpact(projectile: Projectile, target: EnemyState | BossTarget, x: number, y: number) {
+    const critical = projectile.critical === true;
+    applyPlayerHit(target, projectile.damage, critical, Math.atan2(projectile.vy, projectile.vx));
+    spawnBurst(x, y, "#fff0a1", 5, 52);
+    const procs = projectile.skills;
+    if (!procs?.arrowStorm && !procs?.ricochet) return;
+    projectile.skills = procs.piercingShot ? PIERCE_ONLY : null;
+    if (procs.arrowStorm) {
+      rainArrowStorm({ x, y }, target, enemies as Array<EnemyState | BossTarget>, random, (struck, landX, landY) => {
+        spawnParticle(landX, landY - 70, 0, 420, .16, .16, 3, "#ffd957");
+        spawnBurst(landX, landY, "#ffe9a6", 3, 40);
+        if (struck) applyPlayerHit(struck, projectile.damage * ARROW_STORM_DAMAGE_SHARE, critical, Math.PI / 2);
+      });
+    }
+    if (procs.ricochet) {
+      let from: { x: number; y: number } = target;
+      for (const next of ricochetChain(target, enemies)) {
+        streak(from.x, from.y, next.x, next.y, "#8fe3ff");
+        spawnBurst(next.x, next.y, "#8fe3ff", 4, 50);
+        applyPlayerHit(next, projectile.damage * RICOCHET_DAMAGE_SHARE, critical, Math.atan2(next.y - from.y, next.x - from.x));
+        from = next;
+      }
+    }
+  }
+
   function updateProjectiles(dt: number) {
     for (const hit of options.drainBossHitResults?.() ?? []) {
       if (hit.mapId === options.currentMapId?.()) spawnDamageNumber(hit.x, hit.y, hit.damage, hit.critical);
@@ -580,17 +630,23 @@ export function createPlayerCombatController(options: {
       const endX = startX + projectile.vx * travelTime;
       const endY = startY + projectile.vy * travelTime;
       const hitTravelTime = Math.min(travelTime, Math.max(0, projectile.hitLife ?? projectile.life));
-      const hit = hitTravelTime > 0 ? raycastProjectile(startX, startY, startX + projectile.vx * hitTravelTime, startY + projectile.vy * hitTravelTime, projectile.r) : null;
+      const hitEndX = startX + projectile.vx * hitTravelTime, hitEndY = startY + projectile.vy * hitTravelTime;
+      let hit = hitTravelTime > 0 ? raycastProjectile(startX, startY, hitEndX, hitEndY, projectile.r, projectile.pierced) : null;
       projectile.life -= projectileStepSeconds;
       if (projectile.hitLife !== undefined) projectile.hitLife -= projectileStepSeconds;
       projectile.trail -= projectileStepSeconds;
+      // Piercing Shot carries the arrow on through regular enemies in its line.
+      while (hit && arrowPassesThrough(projectile.skills, hit.enemy, projectile.pierced?.size ?? 0)) {
+        arrowImpact(projectile, hit.enemy, startX + (endX - startX) * hit.t, startY + (endY - startY) * hit.t);
+        (projectile.pierced ??= new Set()).add(hit.enemy);
+        spawnBurst(hit.enemy.x, hit.enemy.y, "#f5b3ff", 6, 70);
+        hit = raycastProjectile(startX, startY, hitEndX, hitEndY, projectile.r, projectile.pierced);
+      }
       if (hit) {
         projectile.x = startX + (endX - startX) * hit.t;
         projectile.y = startY + (endY - startY) * hit.t;
-        const target = hit.enemy;
         projectile.life = 0;
-        applyPlayerHit(target, projectile.damage, projectile.critical === true, Math.atan2(projectile.vy, projectile.vx));
-        spawnBurst(projectile.x, projectile.y, "#fff0a1", 5, 52);
+        arrowImpact(projectile, hit.enemy, projectile.x, projectile.y);
       } else { projectile.x = endX; projectile.y = endY; }
       if (projectile.trail <= 0) {
         projectile.trail = .035;

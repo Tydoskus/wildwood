@@ -1,5 +1,6 @@
 import type { EnemyDefinition, EnemyKind, RewardType } from "../enemies";
 import type { PlayerGender } from "../../../shared/player-gender";
+import type { ArrowSkillProcs } from "../../../shared/bow-skills";
 
 /** Shared position used by collision, projectiles, and world actors. */
 export type Position = {
@@ -44,6 +45,10 @@ export type Projectile = Circle & {
   hitLife?: number;
   life: number;
   trail: number;
+  /** Bow skills this arrow rolled when fired; cleared as each is spent. */
+  skills?: ArrowSkillProcs | null;
+  /** Enemies a Piercing Shot arrow has already passed through. */
+  pierced?: Set<object> | null;
 };
 
 export type EnemyShot = Circle & {

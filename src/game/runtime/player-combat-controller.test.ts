@@ -594,3 +594,77 @@ describe("autofarm target priority", () => {
     expect(aimedAt(h.state, h.wounded)).toBe(true);
   });
 });
+
+describe("bow skills", () => {
+  const NO_PROCS = { arrowStorm: false, ricochet: false, piercingShot: false };
+  const sequence = (...values: number[]) => { let index = 0; return () => values[index++ % values.length]; };
+  function field(xs: number[], overrides: Parameters<typeof createCombatHarness>[0] = {}) {
+    const state = createCombatHarness(overrides);
+    state.boss.dead = true;
+    state.enemies.length = 0;
+    const lifecycle = createEnemyLifecycle(state.enemies, state.spawnSites, () => {});
+    xs.forEach((x, id) => lifecycle.spawnFromSite({ id, type: "Spitter", x, y: 500, campName: "Test", leashRange: 500, alive: false, respawnAt: 0 }));
+    for (const enemy of state.enemies) enemy.hp = enemy.maxHp = 1e9;
+    return state;
+  }
+  const taken = (state: ReturnType<typeof field>) => state.enemies.map(enemy => enemy.maxHp - enemy.hp);
+  function shoot(state: ReturnType<typeof field>, skills: typeof NO_PROCS) {
+    const projectile = state.projectileStore.acquirePlayerProjectile();
+    Object.assign(projectile, { x: 300, y: 500, vx: 1_000, vy: 0, r: 6, damage: 10, critical: false, hitLife: 1, life: 1, trail: 1, skills, pierced: null });
+    state.controller.updateProjectiles(.6);
+    return projectile;
+  }
+
+  it("carries a Piercing Shot through four more enemies at full damage, then stops", () => {
+    const state = field([560, 600, 640, 680, 720, 760]);
+    const arrow = shoot(state, { ...NO_PROCS, piercingShot: true });
+    expect(taken(state)).toEqual([10, 10, 10, 10, 10, 0]);
+    expect(arrow.life).toBe(0);
+    // Without the skill the first enemy stops the arrow.
+    const plain = field([560, 600, 640]);
+    shoot(plain, NO_PROCS);
+    expect(taken(plain)).toEqual([10, 0, 0]);
+  });
+
+  it("rains Arrow Storm's five half-damage arrows on the enemies around the one hit", () => {
+    const state = field([560, 620, 800], { random: sequence(0, .99, 0, .99, 0) });
+    shoot(state, { ...NO_PROCS, arrowStorm: true });
+    expect(taken(state)).toEqual([10 + 3 * 5, 2 * 5, 0]);
+  });
+
+  it("bounces a Ricochet to the next two enemies in reach at 60% damage", () => {
+    const state = field([560, 650, 760, 1_000]);
+    shoot(state, { ...NO_PROCS, ricochet: true });
+    expect(taken(state)).toEqual([10, 6, 6, 0]);
+  });
+
+  it("puts every Arrow Storm arrow on a boss, and nothing bounces off it", () => {
+    const hit = vi.fn();
+    const state = createCombatHarness({ isTutorialMap: () => false, isMoonfenMap: () => true, hitPersonalBoss: hit });
+    state.enemies.length = 0;
+    Object.assign(state.miremawBoss, { x: 700, y: 500, dead: false });
+    const projectile = state.projectileStore.acquirePlayerProjectile();
+    Object.assign(projectile, { x: 300, y: 500, vx: 1_000, vy: 0, r: 6, damage: 10, critical: false, hitLife: 1, life: 1, trail: 1,
+      skills: { arrowStorm: true, ricochet: true, piercingShot: true }, pierced: null });
+    state.controller.updateProjectiles(.6);
+    expect(hit.mock.calls.map(call => call[0])).toEqual([10, 5, 5, 5, 5, 5]);
+    expect(projectile.life).toBe(0);
+  });
+
+  it("rolls the equipped bow's skills on every arrow it fires, and none without a roll", () => {
+    let now = 0;
+    const fire = (bowSkills: () => { arrowStorm: number; ricochet: number; piercingShot: number } | null) => {
+      const state = field([560], { nowSeconds: () => now, equippedWeapon: () => "starter_bow", bowSkills, random: () => 0 });
+      Object.assign(state.player, { x: 500, y: 500, attackRange: 400, projectileCount: 1 });
+      const seen: unknown[] = [];
+      for (let i = 0; i < 60 && !seen.length; i++) {
+        now += 1 / 60;
+        state.controller.attackNearest();
+        for (const projectile of state.projectileStore.projectiles) seen.push(projectile.skills);
+      }
+      return seen[0];
+    };
+    expect(fire(() => ({ arrowStorm: 0, ricochet: 0, piercingShot: 100 }))).toEqual({ arrowStorm: false, ricochet: false, piercingShot: true });
+    expect(fire(() => null)).toBeNull();
+  });
+});

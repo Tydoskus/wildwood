@@ -143,7 +143,6 @@ export function createMapController(options: {
   voltwardenBoss: VoltwardenBossState;
   gravebloomBoss: GravebloomBossState;
   aegisPrimeBoss: AegisPrimeBossState;
-  clearPendingBossHits: () => void;
   onCutsceneFinished: (wasPreview: boolean) => void;
 }): MapController {
   const {
@@ -151,7 +150,7 @@ export function createMapController(options: {
     getCurrentMapId, setCurrentMapId, player, camera, viewport, keys, stopTouchMove, cutsceneOverlay, resizeViewport,
     isDueling, running, localMapState, changeMap, syncStoppedPosition, resetPresentationState, fadeToWorld, mapUnlocked, syncMapMusic,
     rebuildWorld, spawnFromSite, enemies, spawnSites, clearTransientCombat,
-    bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, miremawBogBursts, prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, gravebloomCrystalBursts, aegisPrimeCrystalBursts, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss, clearPendingBossHits, onCutsceneFinished,
+    bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, miremawBogBursts, prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, gravebloomCrystalBursts, aegisPrimeCrystalBursts, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss, onCutsceneFinished,
   } = options;
   const portalCutscene = createPortalCutscene();
   let mapTransitioning = false;
@@ -277,7 +276,6 @@ export function createMapController(options: {
     enemies.length = 0;
     spawnSites.length = 0;
     clearTransientCombat();
-    clearPendingBossHits();
     bossRain.length = 0;
     boss.cone = null;
     spiderVenom.length = 0;

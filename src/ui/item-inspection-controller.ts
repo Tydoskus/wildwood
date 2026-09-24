@@ -7,6 +7,7 @@ import {
   itemStats,
   normalizeItemUpgradeLevel,
 } from "../../shared/items";
+import { bowSkillLines, type BowSkillRoll } from "../../shared/bow-skills";
 
 export type ItemInspectionAction = {
   label: string;
@@ -21,6 +22,8 @@ export type ItemInspectionRequest = {
   context?: string;
   description?: string;
   actions?: readonly ItemInspectionAction[];
+  /** The item is this player's own, so its bow skill roll (if any) is shown. */
+  ownItem?: boolean;
 };
 
 export type ItemInspectionController = ReturnType<typeof createItemInspectionController>;
@@ -30,7 +33,14 @@ type ItemInspectionElements = {
   title: HTMLElement;
   content: HTMLElement;
   back: HTMLButtonElement;
+  /** This account's roll on one of its bows. */
+  bowSkills?: (itemId: string) => Partial<BowSkillRoll> | null | undefined;
 };
+
+/** A bow's stat lines followed by its skills, title case ("Arrow Storm 2.4%"). */
+export function itemStatsWithBowSkills(itemId: string, level: number, roll: Partial<BowSkillRoll> | null | undefined) {
+  return [...itemStats(itemId, level), ...bowSkillLines(roll)];
+}
 
 export function itemInspectionButtonLabel(label: string) {
   const trimmed = label.trim();
@@ -109,6 +119,13 @@ export function createItemInspectionController(elements: ItemInspectionElements)
       if (/^MAX HEALTH\b/.test(stat)) value.dataset.statKind = "health";
       if (/^REGEN\b/.test(stat)) value.dataset.statKind = "regen";
       if (/^ARMOR\b/.test(stat)) value.dataset.statKind = "armor";
+      stats.append(value);
+    }
+    // Skill names are written in title case and shown exactly as written.
+    for (const line of request.ownItem ? bowSkillLines(elements.bowSkills?.(item.id)) : []) {
+      const value = document.createElement("span");
+      value.textContent = line;
+      value.dataset.statKind = "skill";
       stats.append(value);
     }
     copy.append(stats);

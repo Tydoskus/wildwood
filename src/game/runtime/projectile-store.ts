@@ -4,7 +4,7 @@ export const MAX_PLAYER_PROJECTILES = 256;
 export const MAX_ENEMY_SHOTS = 192;
 
 function blankProjectile(): Projectile {
-  return { x: 0, y: 0, vx: 0, vy: 0, r: 0, damage: 0, critical: false, hitLife: 0, life: 0, trail: 0 };
+  return { x: 0, y: 0, vx: 0, vy: 0, r: 0, damage: 0, critical: false, hitLife: 0, life: 0, trail: 0, skills: null, pierced: null };
 }
 
 function blankEnemyShot(): EnemyShot {

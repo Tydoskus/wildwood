@@ -95,7 +95,6 @@ function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
     tempestKirinBoss: {} as never,
     miremawBoss: {} as never,
     prismshellBoss: bootstrap.prismshellBoss, ironhornBoss: bootstrap.ironhornBoss, dreadreaperBoss: bootstrap.dreadreaperBoss, voltwardenBoss: bootstrap.voltwardenBoss, gravebloomBoss: bootstrap.gravebloomBoss, aegisPrimeBoss: bootstrap.aegisPrimeBoss,
-    clearPendingBossHits: vi.fn(),
     onCutsceneFinished: vi.fn(),
   } as unknown as Parameters<typeof createMapController>[0]);
   return {

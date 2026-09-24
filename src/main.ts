@@ -100,7 +100,7 @@ import { createChatRuntimeController } from "./ui/chat-runtime-controller";
 import { createPlayerSafetyController } from "./ui/player-safety-controller";
 import { bestEquipmentMoves } from "./game/equip-best";
 import { createInventoryController } from "./ui/inventory-controller";
-import { createItemInspectionController } from "./ui/item-inspection-controller";
+import { createItemInspectionController, itemStatsWithBowSkills } from "./ui/item-inspection-controller";
 import { createUpgradeBenchController } from "./ui/upgrade-bench-controller";
 import { createProfileWindowController } from "./ui/profile-window-controller";
 import { formatPlayedTime, profilePower, profilePresenceText, renderProfileStats } from "./ui/profile";
@@ -123,7 +123,7 @@ import type { ResearchId } from "../shared/research";
 import { PLAYER_GENDER_FEMALE, PLAYER_GENDER_MALE } from "../shared/player-gender";
 import { regularEnemySimulationTick } from "../shared/regular-enemy-simulation";
 import { effectivePlayerPower } from "../shared/player-power";
-import { equipmentMaxHealthMultiplierBonus, isWeaponItem, itemDisplayName, itemStats } from "../shared/items";
+import { equipmentMaxHealthMultiplierBonus, isWeaponItem, itemDisplayName } from "../shared/items";
 import { createRewardDisplay, playerRegenerationPerSecond } from "./game/runtime/reward-display";
 import { createInventoryCommerceActions } from "./game/runtime/inventory-commerce";
 import {
@@ -385,7 +385,6 @@ import {
   });
   const { activeDuel, isDueling, isArenaScene, showDuelResult, showDuelResultUnavailable, fadeToWorld, leaveDuelResult, openPlayerAtScreenPoint, duelOpponentName } = duelSession;
 
-
   let pageLoadComplete = document.readyState === "complete";
 
   const appShell = createAppShellController({
@@ -456,6 +455,7 @@ import {
     title: itemInspectionTitle,
     content: itemInspectionContent,
     back: itemInspectionBack,
+    bowSkills: (itemId) => coop?.bowSkills?.(itemId),
   });
   const inventoryCommerce = createInventoryCommerceActions({ inventory, player, coop: () => coop,
     healthMultiplierBonus, movementSpeed: () => progress.movementSpeedForEquipment(false) * localTestMultiplier });
@@ -707,6 +707,7 @@ import {
     displayRewardAmount: rewardDisplay.totalAmount,
     prestigeDoubleStrike: () => prestigePerkValue(coop?.prestigePerks?.(), "doubleStrike"),
     prestigeSplitShot: () => prestigePerkValue(coop?.prestigePerks?.(), "splitShot"),
+    bowSkills: () => coop?.bowSkills?.(inventory.equippedRightHand || inventory.equippedLeftHand),
     equippedWeapon: () => inventory.equippedRightHand || inventory.equippedLeftHand,
     equippedWeaponUpgradeLevel: () => coop?.itemUpgradeLevel?.(inventory.equippedRightHand || inventory.equippedLeftHand) ?? 0,
     equippedHead: () => inventory.equippedHead,
@@ -884,7 +885,6 @@ import {
     tempestKirinBoss,
     miremawBoss,
     prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss,
-    clearPendingBossHits: () => playerCombat.clearPendingBossHits(),
     onCutsceneFinished: (wasPreview) => bossController.onPortalCutsceneFinished(wasPreview),
   });
   const homeTravel = createHomeTravelController({ source: () => coop, travel: mapController.travelFromHome, departure: mapController.homeDeparture, atHome: () => currentMapId === "home_exterior", pause: paused => setGameplayPause("home-travel", paused), clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id].name });
@@ -2167,7 +2167,7 @@ import {
       artSource: itemPresentation(itemId)?.inventory.source ?? "",
       color: pickupColor,
       name: itemDisplayName(itemId),
-      stats: itemStats(itemId, level),
+      stats: itemStatsWithBowSkills(itemId, level, coop?.bowSkills?.(itemId)),
     });
   });
   const showItemUpgrade = createItemUpgradeFeedback({ inventory, player, healthMultiplierBonus, renderInventory, saveProgress, showMessage });

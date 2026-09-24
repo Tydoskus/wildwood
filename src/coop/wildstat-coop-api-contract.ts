@@ -144,6 +144,7 @@ type ExpectedApiKey =
   | "offlineProgressEnabled"
   | "setOfflineProgressEnabled"
   | "accountAudio"
+  | "bowSkills"
   | "developerNameTagVisible"
   | "setDeveloperNameTag"
   | "playerNamePrefix"

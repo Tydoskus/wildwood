@@ -143,6 +143,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     dependencies.itemInspection.open({
       itemId,
       upgradeLevel: dependencies.upgradeLevel(itemId),
+      ownItem: mode === "EQUIPMENT",
       ...(mode === "COSMETICS" ? { context: "Cosmetic · Appearance only" } : {}),
       ...(requiredMap ? { context: `Reach ${requiredMap} to equip` } : {}),
       actions: [...inventoryMoveActions(dependencies.inventory, itemId, location, mode).map((action) => ({

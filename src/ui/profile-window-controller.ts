@@ -126,6 +126,7 @@ export function createProfileWindowController(elements: {
       itemId: presentation.inspectionItemId,
       upgradeLevel: slotUpgradeLevelFor(profileData.itemUpgradeLevels, presentation.inspectionItemId),
       context: presentation.context,
+      ownItem: identity === api.localIdentity(),
       actions: identity === api.localIdentity() ? api.destructionActions?.(presentation.inspectionItemId) : undefined,
     });
   }
