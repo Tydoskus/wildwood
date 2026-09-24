@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.803": [
+    "New Loot filter in the map window: pick which items you pick up.",
+    "Turn off a whole slot (like Armor) to stop it dropping on every map, or turn off single items.",
+    "Filtered items are tagged in the map's drop list.",
+  ],
   "0.802": [
     "Gear you already own now asks Keep or Ignore, showing both copies' skills side by side.",
     "Unanswered duplicates are ignored after 5 minutes.",
@@ -2358,6 +2363,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.803": "2026-09-23",
   "0.802": "2026-09-23",
   "0.801": "2026-09-23",
   "0.800": "2026-09-23",
