@@ -35,7 +35,7 @@ import { playerOnboarding, advanceOnboarding, needsOnboarding } from "./onboardi
 import { isUpgradeSlot, normalizeSlotTier, upgradeSlotForItem, UPGRADE_SLOT_LABELS } from "../../shared/slot-upgrades";
 import { deliverDisconnectCompensation, deliverCombatUpdateGift, deliverOutageCompensation, announceOutageCompensation, deliverAutofarmTestGift } from "./disconnect-compensation";
 import { connectionDiagnosticTables, recordConnectionDiagnostics, cleanupConnectionDiagnostics } from "./connection-diagnostics";
-import { moderationTables, recordModerationAction, readModerationHistory } from "./moderation-history";
+import { moderationTables, recordModerationAction, readModerationHistory, readPlayerModerationHistory } from "./moderation-history";
 import { mailboxLetter, mailboxReceipt, mailboxEntryV2, mailboxForPlayerV2, playerJoinDate, publishMailboxLetter, syncPlayerJoinDate, updateMailboxReceipt } from "./mailbox";
 import { rollbackPlayerProgression } from "./player-progression-rollback";
 import { playerItemGift, deliverAlphaTesterGifts, claimItemGift } from "./item-gifts";
@@ -72,7 +72,7 @@ import { compressLegacyMapPower } from "../../shared/map-power-rescale";
 import { createPlayerMotionFrameSampler } from "../../shared/player-motion-sample";
 import { schema, SenderError, Router, table, t, type InferSchema, type ReducerCtx, type ViewCtx } from "spacetimedb/server";
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
-import { attackForestPrototype, beginForestPrototype } from "./forest-reward-prototype";
+import { devReviewTables, findDevPlayers, liftPlayerSuspension, readDevReviewQueue, recordBugDeletion, reviewBug, reviewReport } from "./dev-review";
 import { portalCutsceneBit, unlockedPortalCutsceneMask } from "../../shared/portal-cutscenes";
 import { playerBlockKey, playerReportValidationError } from "../../shared/player-safety";
 import {
@@ -1746,7 +1746,7 @@ const spacetimedb = schema({
   playerOfflinePreference, playerAudioSetting,
   defeatSessionRestriction,
   mapBalanceVersion, mapBalanceHead, playerMapBalance,
-  ...moderationTables,
+  ...moderationTables, ...devReviewTables,
   publicChatCursor,
   gemKillProgress,
   playerGemDrop,
@@ -1883,38 +1883,12 @@ export const devForestRewardPrototype = spacetimedb.view(
   (ctx) => isDeveloperIdentity(ctx.sender) ? ctx.db.forestRewardPrototype.identity.find(ctx.sender) ?? undefined : undefined,
 );
 
-function requireForestPrototypeAccess(ctx: ModuleReducerCtx, action: string) {
-  requireDeveloper(ctx, action);
-  const player = ctx.db.player.identity.find(ctx.sender);
-  if (player?.mapId !== TUTORIAL_FOREST_MAP_ID || activeDuelFor(ctx, ctx.sender)) {
-    throw new SenderError("Run the reward prototype in the forest, outside a duel.");
-  }
-}
-
-export const beginForestRewardPrototype = spacetimedb.reducer({}, (ctx) => {
-  requireForestPrototypeAccess(ctx, "begin_forest_reward_prototype");
-  const previous = ctx.db.forestRewardPrototype.identity.find(ctx.sender);
-  try {
-    const next = beginForestPrototype(previous, ctx.timestamp.microsSinceUnixEpoch);
-    if (next === previous) return;
-    const row = { ...next, identity: ctx.sender };
-    if (previous) ctx.db.forestRewardPrototype.identity.update(row);
-    else ctx.db.forestRewardPrototype.insert(row);
-  } catch (error) { throw new SenderError(error instanceof Error ? error.message : "Prototype start failed."); }
-});
-
-export const attackForestRewardPrototype = spacetimedb.reducer(
-  { encounter: t.u64(), firstAttack: t.u64(), count: t.u8() },
-  (ctx, action) => {
-    requireForestPrototypeAccess(ctx, "attack_forest_reward_prototype");
-    const previous = ctx.db.forestRewardPrototype.identity.find(ctx.sender);
-    if (!previous) throw new SenderError("Start the reward prototype first.");
-    try {
-      const next = attackForestPrototype(previous, action, ctx.timestamp.microsSinceUnixEpoch);
-      if (next !== previous) ctx.db.forestRewardPrototype.identity.update({ ...next, identity: ctx.sender });
-    } catch (error) { throw new SenderError(error instanceof Error ? error.message : "Prototype attack failed."); }
-  },
-);
+// The Tutorial Forest reward prototype left the developer tools. Its table and
+// view stay so a developer tab still open on the old client keeps its
+// subscription; the two reducers only refuse.
+export const beginForestRewardPrototype = spacetimedb.reducer({}, () => { throw new SenderError("WildStat updated. Refresh to continue."); });
+export const attackForestRewardPrototype = spacetimedb.reducer({ encounter: t.u64(), firstAttack: t.u64(), count: t.u8() },
+  () => { throw new SenderError("WildStat updated. Refresh to continue."); });
 
 export const myPlayerBlocks = spacetimedb.view(
   { name: "my_player_blocks", public: true },
@@ -4360,6 +4334,7 @@ export const devDeleteBugReport = spacetimedb.reducer(
   (ctx, { id }) => {
     requireDeveloper(ctx, "dev_delete_bug_report");
     if (!ctx.db.bugReport.id.find(id)) throw new SenderError("Bug report not found.");
+    recordBugDeletion(ctx, id);
     ctx.db.bugReport.id.delete(id);
   },
 );
@@ -4370,9 +4345,7 @@ export const devDeleteBugReport = spacetimedb.reducer(
 export const devDeleteLegacyPlayer = spacetimedb.reducer(
   { identity: t.identity(), expectedDisplayName: t.string() },
   (ctx, { identity, expectedDisplayName }) => {
-    if (!isDeveloperIdentity(ctx.sender) && !isDatabaseOwnerIdentity(ctx.sender)) {
-      denyPrivilegedAccess(ctx, "dev_delete_legacy_player", "Developer access required.");
-    }
+    if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_delete_legacy_player");
     if (isDeveloperIdentity(identity) || isDatabaseOwnerIdentity(identity)) {
       throw new SenderError("Protected identity cannot be deleted.");
     }
@@ -4405,15 +4378,13 @@ export const devDeleteLegacyPlayer = spacetimedb.reducer(
 );
 
 // Maintenance-only correction for legacy account links created before all
-// lifetime metadata was reliably transferred. This intentionally does not
-// require a live player controller so the developer can run it through the
-// authenticated SpacetimeDB CLI. It can only move a join date earlier.
+// lifetime metadata was reliably transferred. The CLI runs it as the database
+// owner; the developer account needs its signed-in game session like every
+// other developer tool. It can only move a join date earlier.
 export const devRepairPlayerJoinedAt = spacetimedb.reducer(
   { identity: t.identity(), sourceIdentity: t.identity() },
   (ctx, { identity, sourceIdentity }) => {
-    if (!isDeveloperIdentity(ctx.sender) && !isDatabaseOwnerIdentity(ctx.sender)) {
-      denyPrivilegedAccess(ctx, "dev_repair_player_joined_at", "Developer access required.");
-    }
+    if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_repair_player_joined_at");
     if (sameIdentity(identity, sourceIdentity)) throw new SenderError("Source and target must differ.");
     const targetLifetime = ctx.db.playerLifetime.identity.find(identity);
     const sourceLifetime = ctx.db.playerLifetime.identity.find(sourceIdentity);
@@ -4432,9 +4403,7 @@ export const devRepairPlayerJoinedAt = spacetimedb.reducer(
 export const devCopyPlayerCombatStats = spacetimedb.reducer(
   { sourceIdentity: t.identity(), targetIdentity: t.identity() },
   (ctx, { sourceIdentity, targetIdentity }) => {
-    if (!isDeveloperIdentity(ctx.sender) && !isDatabaseOwnerIdentity(ctx.sender)) {
-      denyPrivilegedAccess(ctx, "dev_copy_player_combat_stats", "Developer access required.");
-    }
+    if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_copy_player_combat_stats");
     if (sameIdentity(sourceIdentity, targetIdentity)) throw new SenderError("Source and target must differ.");
     const source = ctx.db.playerProgress.identity.find(sourceIdentity);
     const target = ctx.db.playerProgress.identity.find(targetIdentity);
@@ -4531,7 +4500,8 @@ export const setSkinTone = spacetimedb.reducer(
 export const devSuspendPlayerAccount = spacetimedb.reducer(
   { identity: t.identity(), expectedDisplayName: t.string(), untilMicros: t.u64(), reason: t.string() },
   (ctx, args) => {
-    if (!isDatabaseOwnerIdentity(ctx.sender)) denyPrivilegedAccess(ctx, "dev_suspend_player_account", "Account database owner required.");
+    if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_suspend_player_account");
+    if (isDeveloperIdentity(args.identity) || isDatabaseOwnerIdentity(args.identity)) throw new SenderError("Protected identity cannot be suspended.");
     suspendPlayerAccount(ctx, args);
     finishLifetimeSession(ctx, args.identity);
     removeIdentityPresence(ctx, args.identity);
@@ -5365,9 +5335,10 @@ export const myChatMute = spacetimedb.view(
   { name: "my_chat_mute", public: true }, t.array(playerChatMute.rowType),
   ctx => { const row = ctx.db.playerChatMute.identity.find(ctx.sender); return row ? [row] : []; },
 );
-/** Owner tool: mute an account's chat for `minutes`, or lift the mute with 0. Body: chat-mute.ts. */
+/** Owner or signed-in developer: mute an account's chat for `minutes`, or lift it with 0. Body: chat-mute.ts. */
 export const devSetChatMute = spacetimedb.reducer({ identity: t.identity(), minutes: t.u32() }, (ctx, { identity, minutes }) => {
-  if (!isDatabaseOwnerIdentity(ctx.sender)) denyPrivilegedAccess(ctx, "dev_set_chat_mute", "Database owner required.");
+  if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_set_chat_mute");
+  if (isDeveloperIdentity(identity) || isDatabaseOwnerIdentity(identity)) throw new SenderError("Protected identity cannot be muted.");
   setChatMute(ctx, identity, minutes);
 });
 export const myAudioSettings = spacetimedb.view(
@@ -6136,7 +6107,7 @@ export const setChatMessageReaction = spacetimedb.reducer(
 );
 export const devGrantGemHeart = spacetimedb.reducer(
   { identity: t.identity(), enabled: t.bool() },
-  (ctx, { identity, enabled }) => { if (!isDatabaseOwnerIdentity(ctx.sender)) throw new SenderError("Database owner required."); grantGemHeartUnlock(ctx, identity, enabled); },
+  (ctx, { identity, enabled }) => { if (!isDatabaseOwnerIdentity(ctx.sender)) denyPrivilegedAccess(ctx, "dev_grant_gem_heart", "Database owner required."); grantGemHeartUnlock(ctx, identity, enabled); },
 );
 export const getSocialHub = spacetimedb.procedure({}, t.string(), ctx => ctx.withTx(tx => {
   requireSocialPlayer(tx); return JSON.stringify(socialSnapshot(tx, hasSpacetimeAuthAccount(tx)));
@@ -6409,6 +6380,32 @@ export const getModerationHistory = spacetimedb.procedure({ beforeId: t.u64() },
     return JSON.stringify(readModerationHistory(tx, beforeId));
   }),
 );
+// Developer triage: every open report and bug, then the recent reviewed ones, and
+// the decisions that close them. Bodies live in dev-review.ts.
+export const getDevReviewQueue = spacetimedb.procedure({}, t.string(), ctx => ctx.withTx(tx => {
+  if (!isDatabaseOwnerIdentity(tx.sender)) requireDeveloperSession(tx, "get_dev_review_queue");
+  return JSON.stringify(readDevReviewQueue(tx));
+}));
+export const getPlayerModerationHistory = spacetimedb.procedure({ identity: t.identity() }, t.string(), (ctx, { identity }) => ctx.withTx(tx => {
+  if (!isDatabaseOwnerIdentity(tx.sender)) requireDeveloperSession(tx, "get_player_moderation_history");
+  return JSON.stringify(readPlayerModerationHistory(tx, identity.toHexString()));
+}));
+export const devFindPlayers = spacetimedb.procedure({ query: t.string() }, t.string(), (ctx, { query }) => ctx.withTx(tx => {
+  if (!isDatabaseOwnerIdentity(tx.sender)) requireDeveloperSession(tx, "dev_find_players");
+  return JSON.stringify(findDevPlayers(tx, query));
+}));
+export const devReviewReport = spacetimedb.reducer({ reportKey: t.string(), decision: t.string(), note: t.string() }, (ctx, args) => {
+  if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_review_report");
+  reviewReport(ctx, args);
+});
+export const devReviewBug = spacetimedb.reducer({ id: t.u64(), decision: t.string(), note: t.string() }, (ctx, args) => {
+  if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_review_bug");
+  reviewBug(ctx, args);
+});
+export const devLiftPlayerSuspension = spacetimedb.reducer({ identity: t.identity(), reason: t.string() }, (ctx, { identity, reason }) => {
+  if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_lift_player_suspension");
+  liftPlayerSuspension(ctx, identity, reason);
+});
 
 // New clients subscribe to extended views; existing app schemas remain unchanged.
 const publicChatWithReactions = t.row("PublicChatWithReactions", { ...chatMessage.rowType.row, reactionCountsJson: t.string() });

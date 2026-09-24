@@ -56,12 +56,12 @@ export type MapController = {
   reconcileMapFromServer: () => void;
   queuePortalReveal: (mapId: MapId) => void;
   startProceduralPortalCutscene: () => boolean;
-  startDragonPortalCutscene: (preview?: boolean) => boolean;
-  startSnowlandsPortalCutscene: (preview?: boolean) => boolean;
-  startLavaPortalCutscene: (preview?: boolean) => boolean;
-  startInfernalPortalCutscene: (preview?: boolean) => boolean;
-  startWaterPortalCutscene: (preview?: boolean) => boolean;
-  startSamuraiPortalCutscene: (preview?: boolean) => boolean;
+  startDragonPortalCutscene: () => boolean;
+  startSnowlandsPortalCutscene: () => boolean;
+  startLavaPortalCutscene: () => boolean;
+  startInfernalPortalCutscene: () => boolean;
+  startWaterPortalCutscene: () => boolean;
+  startSamuraiPortalCutscene: () => boolean;
   updatePortalCutscene: (dt: number) => boolean;
   isCutsceneActive: () => boolean;
   isMapTransitioning: () => boolean;
@@ -143,7 +143,7 @@ export function createMapController(options: {
   voltwardenBoss: VoltwardenBossState;
   gravebloomBoss: GravebloomBossState;
   aegisPrimeBoss: AegisPrimeBossState;
-  onCutsceneFinished: (wasPreview: boolean) => void;
+  onCutsceneFinished: () => void;
 }): MapController {
   const {
     mapConfig, tutorialMapId, desertMapId, snowMapId, lavaMapId, infernalMapId, waterMapId, dragonCutsceneSeenKey, snowlandsCutsceneSeenKey, lavaCutsceneSeenKey, infernalCutsceneSeenKey, waterCutsceneSeenKey, samuraiCutsceneSeenKey,
@@ -161,7 +161,6 @@ export function createMapController(options: {
   let portalCutsceneIntensity = -1;
   let portalCutsceneBlackoutOpacity = 0;
   let portalCutsceneDestinationOpacity = 0;
-  let portalCutscenePreview = false;
   let pendingPortalReveal: { mapId: MapId; portal: MapPortal } | null = null;
   let portalCutsceneSeenKey = dragonCutsceneSeenKey;
   const initialPortal = mapConfig[tutorialMapId].portal;
@@ -317,7 +316,7 @@ export function createMapController(options: {
       && mapUnlocked(pendingPortalReveal.portal.destination)) {
       const reveal = pendingPortalReveal;
       pendingPortalReveal = null;
-      startMapPortalCutscene(reveal.mapId, false, reveal.portal, "");
+      startMapPortalCutscene(reveal.mapId, reveal.portal, "");
     }
     portalCooldown = Math.max(0, portalCooldown - dt);
     if (mapTransitioning || portalCutscene.active || portalCooldown > 0 || isDueling()) return;
@@ -393,8 +392,8 @@ export function createMapController(options: {
     });
   }
 
-  function startMapPortalCutscene(mapId: MapId, preview = false, portal = mapConfig[mapId].portal, seenKey = dragonCutsceneSeenKey) {
-    if (!portal || portalCutscene.active || (!preview && !mapUnlocked(portal.destination))) return false;
+  function startMapPortalCutscene(mapId: MapId, portal = mapConfig[mapId].portal, seenKey = dragonCutsceneSeenKey) {
+    if (!portal || portalCutscene.active || !mapUnlocked(portal.destination)) return false;
     // A local boss death is provisional until its reward unlock is acknowledged.
     // Warming destination art must not turn a failed request into an unhandled rejection.
     void options.prepareMapAssets(portal.destination).catch(() => {});
@@ -404,7 +403,6 @@ export function createMapController(options: {
     portalCutsceneIntensity = 0;
     portalCutsceneBlackoutOpacity = 0;
     portalCutsceneDestinationOpacity = 0;
-    portalCutscenePreview = preview;
     portalCutscenePortal = portal;
     portalCutsceneSeenKey = seenKey;
     keys.clear();
@@ -413,26 +411,26 @@ export function createMapController(options: {
     return true;
   }
 
-  function startDragonPortalCutscene(preview = false) { return startMapPortalCutscene(tutorialMapId, preview); }
-  function startSnowlandsPortalCutscene(preview = false) {
+  function startDragonPortalCutscene() { return startMapPortalCutscene(tutorialMapId); }
+  function startSnowlandsPortalCutscene() {
     const portal = mapConfig[desertMapId].secondaryPortal;
-    return portal ? startMapPortalCutscene(desertMapId, preview, portal, snowlandsCutsceneSeenKey) : false;
+    return portal ? startMapPortalCutscene(desertMapId, portal, snowlandsCutsceneSeenKey) : false;
   }
-  function startLavaPortalCutscene(preview = false) {
+  function startLavaPortalCutscene() {
     const portal = mapConfig[snowMapId].secondaryPortal;
-    return portal ? startMapPortalCutscene(snowMapId, preview, portal, lavaCutsceneSeenKey) : false;
+    return portal ? startMapPortalCutscene(snowMapId, portal, lavaCutsceneSeenKey) : false;
   }
-  function startInfernalPortalCutscene(preview = false) {
+  function startInfernalPortalCutscene() {
     const portal = mapConfig[lavaMapId].secondaryPortal;
-    return portal ? startMapPortalCutscene(lavaMapId, preview, portal, infernalCutsceneSeenKey) : false;
+    return portal ? startMapPortalCutscene(lavaMapId, portal, infernalCutsceneSeenKey) : false;
   }
-  function startWaterPortalCutscene(preview = false) {
+  function startWaterPortalCutscene() {
     const portal = mapConfig[infernalMapId].secondaryPortal;
-    return portal ? startMapPortalCutscene(infernalMapId, preview, portal, waterCutsceneSeenKey) : false;
+    return portal ? startMapPortalCutscene(infernalMapId, portal, waterCutsceneSeenKey) : false;
   }
-  function startSamuraiPortalCutscene(preview = false) {
+  function startSamuraiPortalCutscene() {
     const portal = mapConfig[waterMapId].secondaryPortal;
-    return portal ? startMapPortalCutscene(waterMapId, preview, portal, samuraiCutsceneSeenKey) : false;
+    return portal ? startMapPortalCutscene(waterMapId, portal, samuraiCutsceneSeenKey) : false;
   }
 
   function updatePortalCutscene(dt: number) {
@@ -450,10 +448,8 @@ export function createMapController(options: {
     cutsceneOverlay.hidden = true;
     document.body.classList.remove("is-cutscene");
     resizeViewport();
-    const wasPreview = portalCutscenePreview;
-    portalCutscenePreview = false;
-    if (!wasPreview && portalCutsceneSeenKey) options.markPortalCutsceneSeen(portalCutsceneSeenKey);
-    onCutsceneFinished(wasPreview);
+    if (portalCutsceneSeenKey) options.markPortalCutsceneSeen(portalCutsceneSeenKey);
+    onCutsceneFinished();
     return false;
   }
 
@@ -481,7 +477,7 @@ export function createMapController(options: {
       const mapId = getCurrentMapId();
       const portal = mapConfig[mapId].secondaryPortal;
       if (!mapId.startsWith("endless_") || !portal) return false;
-      return startMapPortalCutscene(mapId, false, portal, "");
+      return startMapPortalCutscene(mapId, portal, "");
     },
     startDragonPortalCutscene,
     startSnowlandsPortalCutscene,

@@ -25,7 +25,7 @@ export function createModerationHistoryPanel(container: HTMLElement, load: Moder
       const page = await load(reset ? "0" : beforeId);
       if (request !== generation) return;
       if (reset) rows.replaceChildren();
-      for (const entry of page.entries) rows.append(renderEntry(entry));
+      for (const entry of page.entries) rows.append(renderModerationHistoryEntry(entry));
       beforeId = page.beforeId; older.hidden = !page.hasMore;
       status.textContent = rows.childElementCount ? "" : "No moderation actions recorded yet.";
     } catch (error) {
@@ -44,12 +44,13 @@ export function createModerationHistoryPanel(container: HTMLElement, load: Moder
   return { open: () => { clear(); void fetchPage(true); }, clear };
 }
 
-function renderEntry(entry: ModerationHistoryEntry) {
+/** One action, collapsed to who/what/why; the evidence opens underneath. */
+export function renderModerationHistoryEntry(entry: ModerationHistoryEntry) {
   const details = document.createElement("details"); details.className = "moderation-history-entry";
   const summary = document.createElement("summary");
   const heading = document.createElement("strong"); heading.textContent = `${entry.targetName} · ${entry.action}`;
   const meta = document.createElement("span"); meta.className = "moderation-history-meta";
-  const channel = ({ world: "World", dm: "Private chat", guild: "Guild chat", profile: "Profile" } as Record<string, string>)[entry.channel] ?? entry.channel;
+  const channel = ({ world: "World", dm: "Private chat", guild: "Guild chat", profile: "Profile", account: "Account", game: "Game" } as Record<string, string>)[entry.channel] ?? entry.channel;
   meta.textContent = `${new Date(entry.recordedAtMs).toLocaleString()} · ${channel} · ${entry.actorType === "automatic" ? "Automatic" : entry.actorName}`;
   const reason = document.createElement("span"); reason.textContent = entry.reason;
   summary.append(heading, meta, reason); details.append(summary);

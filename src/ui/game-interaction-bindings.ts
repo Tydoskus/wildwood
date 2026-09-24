@@ -1,17 +1,11 @@
-/** Binds small HUD, replay, profile, and developer world interactions. */
+/** Binds small HUD, replay, and profile interactions. */
 export function bindGameInteractionListeners(options: {
-  triggerDragonCutscene: HTMLElement;
-  triggerSnowlandsCutscene: HTMLElement;
-  triggerLavaCutscene: HTMLElement;
   hpText: HTMLElement;
   watchDuelReplay: HTMLElement;
   playerHudProfile: HTMLElement;
   playerHudProfileGear: HTMLElement;
   playerProfileIcon: HTMLElement;
   closeProfileIconPicker: HTMLElement;
-  onDragonCutscene: () => void;
-  onSnowlandsCutscene: () => void;
-  onLavaCutscene: () => void;
   onOpenOwnProfile: () => void;
   replayId: () => bigint;
   onWatchReplay: (replayId: bigint) => void;
@@ -19,9 +13,6 @@ export function bindGameInteractionListeners(options: {
   openProfileIconPicker: () => void;
   closeIconPicker: () => void;
 }) {
-  options.triggerDragonCutscene.addEventListener("click", options.onDragonCutscene);
-  options.triggerSnowlandsCutscene.addEventListener("click", options.onSnowlandsCutscene);
-  options.triggerLavaCutscene.addEventListener("click", options.onLavaCutscene);
   // The whole HUD card opens your profile, which is what the gear beside your
   // power is there to advertise. Buttons inside it act on their own.
   options.hpText.closest(".card")?.addEventListener("click", (event) => {

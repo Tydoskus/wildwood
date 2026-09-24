@@ -7,6 +7,7 @@ import { type Infer as __Infer } from "spacetimedb";
 
 // Import all procedure arg schemas
 import * as BeginPatreonLinkProcedure from "../begin_patreon_link_procedure";
+import * as DevFindPlayersProcedure from "../dev_find_players_procedure";
 import * as DevTeleportToPlayerProcedure from "../dev_teleport_to_player_procedure";
 import * as GetAnalyticsDashboardProcedure from "../get_analytics_dashboard_procedure";
 import * as GetAvatarFramesProcedure from "../get_avatar_frames_procedure";
@@ -14,6 +15,7 @@ import * as GetBalanceEditorProcedure from "../get_balance_editor_procedure";
 import * as GetChatHistoryProcedure from "../get_chat_history_procedure";
 import * as GetChatHistoryWithReactionsProcedure from "../get_chat_history_with_reactions_procedure";
 import * as GetChatMessageReactionsProcedure from "../get_chat_message_reactions_procedure";
+import * as GetDevReviewQueueProcedure from "../get_dev_review_queue_procedure";
 import * as GetDeveloperTravelTargetProcedure from "../get_developer_travel_target_procedure";
 import * as GetGuildHubProcedure from "../get_guild_hub_procedure";
 import * as GetGuildPreviewProcedure from "../get_guild_preview_procedure";
@@ -25,6 +27,7 @@ import * as GetMapConfigurationProcedure from "../get_map_configuration_procedur
 import * as GetModerationHistoryProcedure from "../get_moderation_history_procedure";
 import * as GetNameChangeStatusProcedure from "../get_name_change_status_procedure";
 import * as GetPatreonStatusProcedure from "../get_patreon_status_procedure";
+import * as GetPlayerModerationHistoryProcedure from "../get_player_moderation_history_procedure";
 import * as GetPrestigeLeaderboardPageProcedure from "../get_prestige_leaderboard_page_procedure";
 import * as GetSocialChatHistoryProcedure from "../get_social_chat_history_procedure";
 import * as GetSocialChatHistoryWithReactionsProcedure from "../get_social_chat_history_with_reactions_procedure";
@@ -34,6 +37,8 @@ import * as RefreshPatreonMembershipProcedure from "../refresh_patreon_membershi
 
 export type BeginPatreonLinkArgs = __Infer<typeof BeginPatreonLinkProcedure.params>;
 export type BeginPatreonLinkResult = __Infer<typeof BeginPatreonLinkProcedure.returnType>;
+export type DevFindPlayersArgs = __Infer<typeof DevFindPlayersProcedure.params>;
+export type DevFindPlayersResult = __Infer<typeof DevFindPlayersProcedure.returnType>;
 export type DevTeleportToPlayerArgs = __Infer<typeof DevTeleportToPlayerProcedure.params>;
 export type DevTeleportToPlayerResult = __Infer<typeof DevTeleportToPlayerProcedure.returnType>;
 export type GetAnalyticsDashboardArgs = __Infer<typeof GetAnalyticsDashboardProcedure.params>;
@@ -48,6 +53,8 @@ export type GetChatHistoryWithReactionsArgs = __Infer<typeof GetChatHistoryWithR
 export type GetChatHistoryWithReactionsResult = __Infer<typeof GetChatHistoryWithReactionsProcedure.returnType>;
 export type GetChatMessageReactionsArgs = __Infer<typeof GetChatMessageReactionsProcedure.params>;
 export type GetChatMessageReactionsResult = __Infer<typeof GetChatMessageReactionsProcedure.returnType>;
+export type GetDevReviewQueueArgs = __Infer<typeof GetDevReviewQueueProcedure.params>;
+export type GetDevReviewQueueResult = __Infer<typeof GetDevReviewQueueProcedure.returnType>;
 export type GetDeveloperTravelTargetArgs = __Infer<typeof GetDeveloperTravelTargetProcedure.params>;
 export type GetDeveloperTravelTargetResult = __Infer<typeof GetDeveloperTravelTargetProcedure.returnType>;
 export type GetGuildHubArgs = __Infer<typeof GetGuildHubProcedure.params>;
@@ -70,6 +77,8 @@ export type GetNameChangeStatusArgs = __Infer<typeof GetNameChangeStatusProcedur
 export type GetNameChangeStatusResult = __Infer<typeof GetNameChangeStatusProcedure.returnType>;
 export type GetPatreonStatusArgs = __Infer<typeof GetPatreonStatusProcedure.params>;
 export type GetPatreonStatusResult = __Infer<typeof GetPatreonStatusProcedure.returnType>;
+export type GetPlayerModerationHistoryArgs = __Infer<typeof GetPlayerModerationHistoryProcedure.params>;
+export type GetPlayerModerationHistoryResult = __Infer<typeof GetPlayerModerationHistoryProcedure.returnType>;
 export type GetPrestigeLeaderboardPageArgs = __Infer<typeof GetPrestigeLeaderboardPageProcedure.params>;
 export type GetPrestigeLeaderboardPageResult = __Infer<typeof GetPrestigeLeaderboardPageProcedure.returnType>;
 export type GetSocialChatHistoryArgs = __Infer<typeof GetSocialChatHistoryProcedure.params>;

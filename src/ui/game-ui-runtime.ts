@@ -7,6 +7,7 @@ import {
   VIRTUAL_PLAYER_SAVE_INTERVAL_MS,
 } from "../../shared/virtual-player-load-test";
 import { createDevPanelController } from "./dev-panel-controller";
+import { gameConfirm } from "./confirm-dialog";
 import { createEndlessTravelControl } from "./endless-travel-control";
 import { createGameActionsController } from "./game-actions-controller";
 import { createLeaderboardController } from "./leaderboard-controller";
@@ -117,10 +118,9 @@ export function createDevPanel(d: Record<string, any>) {
       load: () => coop.balanceEditor(), preview: (map, settings) => coop.previewBalance(map, settings),
       save: (revision, settings) => coop.saveBalance(revision, settings), restore: (expected, revision) => coop.restoreBalance(expected, revision),
     },
-    forestPrototype: {
-      state: () => coop?.forestRewardPrototypeState?.() ?? null,
-      send: (action) => coop?.devForestRewardPrototype?.(action),
-    },
+    review: () => coop?.devModeration ?? null,
+    confirm: gameConfirm,
+    localIdentity: () => coop?.localIdentity?.() ?? "",
     isDeveloper: () => isDeveloperIdentity(coop?.localIdentity?.()),
     getNameTagVisible: () => coop?.developerNameTagVisible?.() !== false,
     setNameTagVisible: (visible: boolean) => coop?.setDeveloperNameTag?.(visible),

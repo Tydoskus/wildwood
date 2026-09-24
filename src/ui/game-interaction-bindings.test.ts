@@ -10,17 +10,15 @@ function bind() {
         <button id="playerHudProfileGear"><img id="gearIcon"></button></div>
       <div id="hpText">30 / 30</div>
     </div>
-    <button id="dragon"></button><button id="snow"></button><button id="lava"></button>
     <button id="replay"></button><button id="profileIcon"></button><button id="closePicker"></button>
   </body></html>`);
   const element = (id: string) => document.getElementById(id)! as unknown as HTMLElement;
   const onOpenOwnProfile = vi.fn();
   bindGameInteractionListeners({
-    triggerDragonCutscene: element("dragon"), triggerSnowlandsCutscene: element("snow"), triggerLavaCutscene: element("lava"),
     hpText: element("hpText"), watchDuelReplay: element("replay"), playerHudProfile: element("playerHudProfileIcon"),
     playerHudProfileGear: element("playerHudProfileGear"),
     playerProfileIcon: element("profileIcon"), closeProfileIconPicker: element("closePicker"),
-    onDragonCutscene: vi.fn(), onSnowlandsCutscene: vi.fn(), onLavaCutscene: vi.fn(), onOpenOwnProfile,
+    onOpenOwnProfile,
     replayId: () => 0n, onWatchReplay: vi.fn(), canOpenProfileIconPicker: () => false,
     openProfileIconPicker: vi.fn(), closeIconPicker: vi.fn(),
   });

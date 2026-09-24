@@ -262,18 +262,23 @@ const afterUpdateGateShell = String.raw`
 
 <div id="devAudit" hidden>
   <div class="modal dev-audit-modal" role="dialog" aria-modal="true" aria-label="Developer tools">
-    <div class="dev-audit-tabs" role="tablist" aria-label="Developer tools">
-      <button id="devControlsTab" class="profile-tab is-active" type="button" role="tab" aria-selected="true">Controls</button>
+    <p id="devAccessGate" class="dev-access-gate" role="status" hidden></p>
+    <div id="devAuditTabs" class="dev-audit-tabs" role="tablist" aria-label="Developer tools">
+      <button id="devReportsTab" class="profile-tab is-active" type="button" role="tab" aria-selected="true">Reports</button>
+      <button id="devBugReportsTab" class="profile-tab" type="button" role="tab" aria-selected="false">Bugs</button>
+      <button id="devPlayersTab" class="profile-tab" type="button" role="tab" aria-selected="false">Players</button>
+      <button id="devModerationTab" class="profile-tab" type="button" role="tab" aria-selected="false">Moderation log</button>
+      <button id="devControlsTab" class="profile-tab" type="button" role="tab" aria-selected="false">Controls</button>
       <button id="devBalanceTab" class="profile-tab" type="button" role="tab" aria-selected="false">Balance</button>
-      <button id="devModerationTab" class="profile-tab" type="button" role="tab" aria-selected="false">Moderation</button>
-      <button id="devBugReportsTab" class="profile-tab" type="button" role="tab" aria-selected="false">Bug reports</button>
-      <button id="devCutscenesTab" class="profile-tab" type="button" role="tab" aria-selected="false">Cutscenes</button>
       <button id="devPerformanceTab" class="profile-tab" type="button" role="tab" aria-selected="false">Performance</button>
       <button id="devAnalyticsTab" class="profile-tab" type="button" role="tab" aria-selected="false">Analytics</button>
     </div>
+    <section id="devReportsPanel" class="dev-review-panel" role="tabpanel" aria-labelledby="devReportsTab"></section>
+    <section id="devBugReportsPanel" class="dev-review-panel" role="tabpanel" aria-labelledby="devBugReportsTab" hidden></section>
+    <section id="devPlayersPanel" class="dev-review-panel" role="tabpanel" aria-labelledby="devPlayersTab" hidden></section>
     <section id="devBalancePanel" role="tabpanel" aria-labelledby="devBalanceTab" hidden></section>
     <section id="devModerationPanel" role="tabpanel" aria-labelledby="devModerationTab" hidden></section>
-    <section id="devControlsPanel" role="tabpanel" aria-labelledby="devControlsTab">
+    <section id="devControlsPanel" role="tabpanel" aria-labelledby="devControlsTab" hidden>
       <div class="setting-row">
         <span>DEVELOPER NAME TAG</span>
         <button id="devNameTagToggle" class="secondary-button" type="button" aria-pressed="true">HIDE [dev]</button>
@@ -297,17 +302,6 @@ const afterUpdateGateShell = String.raw`
           <button id="devVirtualPlayerToggle" class="secondary-button" type="button">START TEST</button>
         </div>
       </div>
-    </section>
-    <section id="devBugReportsPanel" role="tabpanel" aria-labelledby="devBugReportsTab" hidden>
-      <p class="dev-audit-help">PRIVATE QUEUE · /BUG REPORTS</p>
-      <div id="devBugReportRows" class="dev-bug-report-rows"></div>
-      <div id="devBugReportEmpty" class="profile-loading">NO OPEN BUG REPORTS</div>
-    </section>
-    <section id="devCutscenesPanel" role="tabpanel" aria-labelledby="devCutscenesTab" hidden>
-      <p class="dev-audit-help">LOCAL PREVIEW · MAP-SPECIFIC</p>
-      <button id="triggerDragonCutsceneBtn" class="dev-cutscene-trigger" type="button">PLAY DRAGON PORTAL CUTSCENE</button>
-      <button id="triggerSnowlandsCutsceneBtn" class="dev-cutscene-trigger" type="button">PLAY SNOWLANDS PORTAL CUTSCENE</button>
-      <button id="triggerLavaCutsceneBtn" class="dev-cutscene-trigger" type="button">PLAY LAVA PORTAL CUTSCENE</button>
     </section>
     <section id="devPerformancePanel" class="dev-performance-panel" role="tabpanel" aria-labelledby="devPerformanceTab" hidden>
       <p class="dev-audit-help">LOCAL · LIVE FRAME AND RUNTIME STATS</p>

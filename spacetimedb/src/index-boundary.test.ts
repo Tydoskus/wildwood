@@ -118,7 +118,13 @@ import { describe, expect, it } from "vitest";
 // the strike after a filtered message. The table, the strike and escalation
 // rules, the owner tool, the guest merge and removal live in chat-mute.ts and
 // shared/chat-mute.ts; the raise is the schema surface and those calls alone.
-const MAX_LINES = 6_501;
+// 6_498: developer triage adds the get_dev_review_queue, get_player_moderation_history
+// and dev_find_players procedures and the dev_review_report, dev_review_bug and
+// dev_lift_player_suspension reducers, registering dev_report_review on the
+// moderation line. Retiring the Tutorial Forest reward prototype to two stubs and
+// folding three two-branch guards into the owner-or-developer line paid for them;
+// the queue, the decisions and the lookup live in dev-review.ts.
+const MAX_LINES = 6_498;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

@@ -41,6 +41,7 @@ import {
 import { createChatService, type ChatService } from "./coop/services/chat-service";
 import { createDuelService } from "./coop/services/duel-service";
 import { createDeveloperService } from "./coop/services/developer-service";
+import { createDevModerationService } from "./coop/services/dev-moderation";
 import { createProfileDirectory } from "./coop/services/profile-directory";
 import { createProgressionService } from "./coop/services/progression-service";
 import {
@@ -398,6 +399,7 @@ const developerService = createDeveloperService({
   localDbIdentity: () => localDbIdentity,
   profileIdentityFor: profileDirectory.identityFor,
 });
+const devModerationService = createDevModerationService({ reducers: reducerPort, localIdentity: () => localIdentity });
 
 chatService = createChatService({
   reducers: reducerPort,
@@ -929,6 +931,7 @@ export const wildstatCoop = {
   ...duelService.api,
   guild: guildService.api,
   social: socialService.api,
+  devModeration: devModerationService.api,
   subscriptionCount() {
     if (!connection?.isActive) return 0;
     return 1 + presenceService.activeSubscriptionCount() + playerProfileService.activeSubscriptionCount() + remoteCombatStatsService.activeSubscriptionCount() + duelService.activeReplayLoadCount();

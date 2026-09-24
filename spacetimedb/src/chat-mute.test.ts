@@ -179,11 +179,11 @@ it("ends on time", () => {
   expect([...f.db.chatMessage.iter()].at(-1)).toMatchObject({ message: "Hello", moderated: false });
 });
 
-it("lets only the database owner set and lift a mute, and logs both", () => {
+it("refuses a player, lets the database owner set and lift a mute, and logs both", () => {
   const f = fixture();
   const target = f.ctx.sender;
   const player = { sender: target, connectionId: f.ctx.connectionId };
-  expect(() => f.run(server.devSetChatMute, { identity: target, minutes: 90 })).toThrow("Database owner required.");
+  expect(() => f.run(server.devSetChatMute, { identity: target, minutes: 90 })).toThrow("Developer access required.");
   expect(row(f, target)).toBeNull();
 
   f.ctx.sender = owner; f.ctx.connectionId = null;

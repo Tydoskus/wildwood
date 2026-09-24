@@ -2,7 +2,8 @@ import { MODERATED_CHAT_MESSAGE } from "../../shared/chat-message";
 import type { GameReducerContext } from "./index";
 import { recordModerationAction } from "./moderation-history";
 
-/** Called only after the report reducer verifies the authenticated developer.
+/** Called only after the report reducer or dev_review_report verifies the
+ * authenticated developer (or, for dev_review_report, the database owner).
  * Keep the original evidence in the private report; redact displayed copies. */
 export function moderateReportedMessage(ctx: GameReducerContext, channel: "public" | "social", id: bigint,
   reason: string, reportTable: string, reportId: string) {

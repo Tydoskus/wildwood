@@ -98,11 +98,11 @@ it("bounds a boss claim the earned-time clock cannot pay without taking the sess
   expect([...f.db.enemyDefeatReview.iter()]).toEqual([]);
 });
 
-it("only lets the owner suspend the named account and enforces the entire week even with fresh authentication", async () => {
+it("refuses a player, lets the owner suspend the named account and enforces the entire week even with fresh authentication", async () => {
   const { Identity } = await import("spacetimedb");
   const f = fixture(true), target = f.ctx.sender;
   const args = { identity: target, expectedDisplayName: "Test Player", untilMicros: 604_810_000_000n, reason: "Owner-requested exploit suspension" };
-  expect(() => f.run(server.devSuspendPlayerAccount, args)).toThrow("owner");
+  expect(() => f.run(server.devSuspendPlayerAccount, args)).toThrow("Developer access required");
   f.ctx.sender = new Identity("c200383520521c925f3cf6deafb20cd6a7d6168d1c31cb3c0ddb731c197a2d79");
   expect(() => f.run(server.devSuspendPlayerAccount, { ...args, expectedDisplayName: "wrong" })).toThrow("target");
   f.run(server.devSuspendPlayerAccount, args);

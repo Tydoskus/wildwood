@@ -61,7 +61,9 @@ import { describe, expect, it } from "vitest";
 // ad's Gem claim is three dependency lines handed to the HUD timer column.
 // 2_167: the shared-boss client code went: the boss hit-result drain and the
 // no-op clearPendingBossHits calls. Personal bosses were already wired apart.
-const MAX_LINES = 2_167;
+// 2_134: the developer cutscene buttons went, with their three map-gated
+// handlers, the preview flag they threaded through and their element wiring.
+const MAX_LINES = 2_134;
 const TARGET_LINES = 1_000;
 
 describe("game composition boundary", () => {

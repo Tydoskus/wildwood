@@ -1,6 +1,7 @@
 import { SenderError, table, t } from "spacetimedb/server";
 import { SPACETIME_AUTH_CLIENT_ID, SPACETIME_AUTH_ISSUER } from "../../shared/rules";
 import { DEFEAT_COOLDOWN, DEFEAT_GUEST_BLOCK_SECONDS, DEFEAT_REAUTH, freshAuthentication } from "../../shared/defeat-session";
+import { isDeveloperIdentity } from "../../shared/developer-identity";
 import { recordModerationAction } from "./moderation-history";
 import type { GameReducerContext } from "./index";
 
@@ -47,7 +48,8 @@ export function suspendPlayerAccount(ctx: GameReducerContext, args: {
   if (ctx.db.playerController.identity.find(args.identity)) ctx.db.playerController.identity.delete(args.identity);
   const json = (value: unknown) => JSON.stringify(value, (_key, value) => typeof value === "bigint" ? value.toString() : value);
   recordModerationAction(ctx, { targetIdentity: args.identity.toHexString(), targetName: profile.displayName,
-    channel: "account", action: permanent ? "Account permanently suspended" : "Account suspended", reason: args.reason, actorType: "owner", rule: "owner-account-suspension",
+    channel: "account", action: permanent ? "Account permanently suspended" : "Account suspended", reason: args.reason,
+    actorType: isDeveloperIdentity(ctx.sender.toHexString()) ? "developer" : "owner", rule: "owner-account-suspension",
     before: json(prior), after: json(next) });
 }
 

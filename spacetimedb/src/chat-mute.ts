@@ -11,6 +11,7 @@ import {
   mergeChatMuteRecords,
   type ChatMuteRecord,
 } from "../../shared/chat-mute";
+import { isDeveloperIdentity } from "../../shared/developer-identity";
 import { recordModerationAction } from "./moderation-history";
 
 /**
@@ -91,7 +92,7 @@ export function recordChatStrike(ctx: Ctx, channel: string, displayName: string)
 }
 
 /**
- * The owner's tool: mute an account for `minutes`, or lift its mute with 0.
+ * The owner's and developer's tool: mute an account for `minutes`, or lift its mute with 0.
  * A set mute counts like an automatic one (it clears strikes and is the
  * "previous mute" the next automatic one escalates from); lifting only ends
  * the current mute. Both are logged.
@@ -110,14 +111,15 @@ export function setChatMute(ctx: Ctx, identity: any, minutes: number) {
     ? { ...before, mutedUntilMs: now }
     : { strikeAtMs: [], mutedUntilMs: now + minutes * 60_000, lastMuteAtMs: now, muteCount: before.muteCount + 1 };
   write(ctx, identity, record, Boolean(previous));
+  const actor = isDeveloperIdentity(ctx.sender.toHexString()) ? "developer" : "owner";
   const describe = (value: ChatMuteRecord) => chatMuteRemainingMs(value, now) > 0
     ? `Muted for ${formatChatMuteRemaining(chatMuteRemainingMs(value, now))} · ${value.strikeAtMs.length} strikes · ${value.muteCount} mutes`
     : `Not muted · ${value.strikeAtMs.length} strikes · ${value.muteCount} mutes`;
   recordModerationAction(ctx as any, {
     targetIdentity: identity.toHexString(), targetName: profile.displayName, channel: "account",
     action: lifting ? "Chat mute lifted" : "Chat muted",
-    reason: lifting ? "Lifted by owner" : `Set by owner · ${minutes} min`,
-    actorType: "owner", rule: "owner-chat-mute",
+    reason: lifting ? `Lifted by ${actor}` : `Set by ${actor} · ${minutes} min`,
+    actorType: actor, rule: "owner-chat-mute",
     before: describe(before), after: describe(record),
   });
 }

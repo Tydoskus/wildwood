@@ -153,14 +153,13 @@ describe("developer direct travel", () => {
 });
 
 describe("cutscene completion", () => {
-  it.each([false, true])("persists normal completion but not developer previews: preview=%s", (preview) => {
+  it("persists the cutscene as seen once it finishes", () => {
     vi.stubGlobal("document", { body: { classList: { add: vi.fn(), remove: vi.fn() } } });
     const { controller, markPortalCutsceneSeen } = portalArrivalHarness({ x: 300, y: 400 });
-    controller.startDragonPortalCutscene(preview);
+    controller.startDragonPortalCutscene();
     expect(markPortalCutsceneSeen).not.toHaveBeenCalled();
     controller.updatePortalCutscene(20);
-    if (preview) expect(markPortalCutsceneSeen).not.toHaveBeenCalled();
-    else expect(markPortalCutsceneSeen).toHaveBeenCalledExactlyOnceWith("dragon");
+    expect(markPortalCutsceneSeen).toHaveBeenCalledExactlyOnceWith("dragon");
   });
 });
 

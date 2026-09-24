@@ -6,7 +6,9 @@ import { createOtaPanel } from './ota-panel';
 import { createBalanceEditorPanel, type BalanceEditorDependencies } from "./balance-editor-panel";
 import { createModerationHistoryPanel, type ModerationHistoryLoader } from "./moderation-history-panel";
 import { requiredElement } from "../game/runtime/dom";
-import { createForestRewardPrototypePanel, type ForestPrototypePanelDependencies } from "./forest-reward-prototype-panel";
+import { createDevReviewPanel, type DevReviewApi } from "./dev-review-panel";
+import { createDevPlayerPanel, type DevPlayerApi } from "./dev-player-panel";
+import type { ConfirmPrompt } from "./confirm-dialog";
 import type { PerformanceSnapshot } from "../game/runtime/performance-monitor";
 import {
   BROWSER_VIRTUAL_PLAYER_LIMIT,
@@ -15,15 +17,9 @@ import {
 } from "../../shared/virtual-player-load-test";
 import type { AnalyticsDashboard } from "../coop/services/analytics-types";
 
-type DevPanelTab = "balance" | "moderation" | "controls" | "bugs" | "cutscenes" | "performance" | "analytics";
+type DevPanelTab = "reports" | "bugs" | "players" | "moderation" | "controls" | "balance" | "performance" | "analytics";
 
-type BugReportEntry = {
-  id: bigint;
-  reportedAtMs: number;
-  reporterName: string;
-  protocolVersion: number;
-  message: string;
-};
+type BugReportEntry = { id: bigint };
 
 type DevPanelMetrics = {
   performance: PerformanceSnapshot;
@@ -53,7 +49,11 @@ type DevPanelDependencies = {
   /** Opens the "Prestige N unlocked" window without beating a boss. */
   previewPrestigeUnlock?: () => void;
   balance: BalanceEditorDependencies;
-  forestPrototype: ForestPrototypePanelDependencies;
+  /** Server calls for the triage tabs; null while disconnected. */
+  review: () => (DevReviewApi & DevPlayerApi) | null;
+  confirm: ConfirmPrompt;
+  /** The server-assigned identity the connection authenticated as. */
+  localIdentity: () => string;
   isDeveloper: () => boolean;
   getNameTagVisible: () => boolean;
   setNameTagVisible: (visible: boolean) => Promise<{ ok?: boolean; error?: string } | undefined> | undefined;
@@ -77,21 +77,25 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
   const settingsRow = requiredElement("developerSettingsRow");
   const panel = requiredElement("devAudit");
   const closeButton = requiredElement("closeDevAuditBtn");
+  const gate = requiredElement("devAccessGate");
+  const tabList = requiredElement("devAuditTabs");
   const tabs: Record<DevPanelTab, HTMLElement> = {
-    balance: requiredElement("devBalanceTab"),
-    controls: requiredElement("devControlsTab"),
+    reports: requiredElement("devReportsTab"),
     bugs: requiredElement("devBugReportsTab"),
+    players: requiredElement("devPlayersTab"),
     moderation: requiredElement("devModerationTab"),
-    cutscenes: requiredElement("devCutscenesTab"),
+    controls: requiredElement("devControlsTab"),
+    balance: requiredElement("devBalanceTab"),
     performance: requiredElement("devPerformanceTab"),
     analytics: requiredElement("devAnalyticsTab"),
   };
   const tabPanels: Record<DevPanelTab, HTMLElement> = {
-    balance: requiredElement("devBalancePanel"),
-    controls: requiredElement("devControlsPanel"),
+    reports: requiredElement("devReportsPanel"),
     bugs: requiredElement("devBugReportsPanel"),
+    players: requiredElement("devPlayersPanel"),
     moderation: requiredElement("devModerationPanel"),
-    cutscenes: requiredElement("devCutscenesPanel"),
+    controls: requiredElement("devControlsPanel"),
+    balance: requiredElement("devBalancePanel"),
     performance: requiredElement("devPerformancePanel"),
     analytics: requiredElement("devAnalyticsPanel"),
   };
@@ -108,6 +112,26 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
   const ota = createOtaPanel(tabPanels.controls);
   const balance = createBalanceEditorPanel(tabPanels.balance, dependencies.balance);
   const moderation = createModerationHistoryPanel(tabPanels.moderation, dependencies.loadModerationHistory);
+  const players = createDevPlayerPanel(tabPanels.players, {
+    api: dependencies.review, confirm: dependencies.confirm, showMessage: dependencies.showMessage, onAccessDenied: denyAccess,
+  });
+  const reviews = createDevReviewPanel({ reports: tabPanels.reports, bugs: tabPanels.bugs }, {
+    api: dependencies.review,
+    deleteBug: dependencies.deleteBugReport,
+    confirm: dependencies.confirm,
+    showMessage: dependencies.showMessage,
+    onCounts: ({ reports, bugs }) => {
+      tabs.reports.textContent = reports ? `Reports (${reports})` : "Reports";
+      tabs.bugs.textContent = bugs ? `Bugs (${bugs})` : "Bugs";
+    },
+    openPlayer: (identity, displayName) => { setTab("players"); players.open(identity, displayName); },
+  });
+  // Identity the server has confirmed for this panel; "" until a developer-gated
+  // read succeeds. The button is only a hint: nothing renders until then.
+  let confirmedIdentity = "";
+  let openGeneration = 0;
+  let bugSignature = "";
+  let lastBugReload = 0;
   const nameTagToggle = requiredElement<HTMLButtonElement>("devNameTagToggle");
   const presenceStatus = requiredElement("devPresenceStatus");
   const presenceToggle = requiredElement<HTMLButtonElement>("devPresenceToggle");
@@ -117,9 +141,6 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
   virtualPlayerCount.max = String(BROWSER_VIRTUAL_PLAYER_LIMIT);
   virtualPlayerCount.setAttribute("aria-label", `Browser virtual player count, 1 to ${BROWSER_VIRTUAL_PLAYER_LIMIT}`);
   virtualPlayerCount.value = String(VIRTUAL_PLAYER_DEFAULT);
-  const bugRows = requiredElement("devBugReportRows");
-  const bugEmpty = requiredElement("devBugReportEmpty");
-  const forestPrototype = createForestRewardPrototypePanel(tabPanels.controls, dependencies.forestPrototype);
   const performanceValues = {
     fps: requiredElement("perfFps"),
     workFps: requiredElement("perfWorkFps"),
@@ -139,11 +160,11 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     subscriptions: requiredElement("perfSubscriptions"),
   };
 
-  function setTab(tab: DevPanelTab) {
+  function setTab(tab: DevPanelTab, reloadQueue = true) {
     // The server is authoritative, but keep a stale or manually-unhidden
     // client panel from even attempting developer actions after access is
-    // revoked or the identity changes.
-    if (!dependencies.isDeveloper()) {
+    // revoked or the identity changes, or before the server has confirmed it.
+    if (!dependencies.isDeveloper() || confirmedIdentity !== dependencies.localIdentity()) {
       close();
       return;
     }
@@ -157,13 +178,12 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
       tabPanels[name].hidden = !selected;
     }
     if (tab === "controls") renderControls();
-    if (tab === "bugs") renderBugReports();
+    if (reloadQueue && (tab === "reports" || tab === "bugs")) void reviews.load().then(result => { if (result.state === "denied") denyAccess(); });
     if (tab === "performance") renderPerformance();
     if (tab === "analytics") void renderAnalytics();
   }
 
   function renderControls() {
-    forestPrototype.render();
     nameTagToggle.textContent = dependencies.getNameTagVisible() ? "HIDE [dev]" : "SHOW [dev]";
     nameTagToggle.setAttribute("aria-pressed", String(dependencies.getNameTagVisible()));
     const visible = dependencies.getPresenceVisible();
@@ -184,40 +204,6 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     virtualPlayerToggle.disabled = loadTest.phase === "stopping";
     virtualPlayerToggle.textContent = loadTest.phase === "idle" ? "START TEST" : loadTest.phase === "stopping" ? "STOPPING…" : "STOP + ERASE";
     virtualPlayerToggle.setAttribute("aria-pressed", String(loadTest.phase !== "idle"));
-  }
-
-  function renderBugReports() {
-    const entries = dependencies.getBugReports()
-      .sort((a, b) => b.reportedAtMs - a.reportedAtMs || Number(b.id - a.id));
-    bugRows.replaceChildren();
-    for (const entry of entries) {
-      const row = document.createElement("div");
-      row.className = "dev-bug-report";
-      const content = document.createElement("div");
-      const meta = document.createElement("div");
-      meta.className = "dev-bug-report-meta";
-      meta.textContent = `[${new Date(entry.reportedAtMs).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}] ${entry.reporterName} · P${entry.protocolVersion}`;
-      const message = document.createElement("div");
-      message.className = "dev-bug-report-message";
-      message.textContent = `> ${entry.message}`;
-      content.append(meta, message);
-      const clear = document.createElement("button");
-      clear.type = "button";
-      clear.className = "dev-bug-report-clear";
-      clear.textContent = "CLEAR";
-      clear.addEventListener("click", async () => {
-        clear.disabled = true;
-        const result = await dependencies.deleteBugReport(entry.id);
-        if (!result?.ok) {
-          clear.disabled = false;
-          dependencies.showMessage(result?.error || "BUG REPORT DELETE FAILED", "#ff9b91");
-        }
-      });
-      row.append(content, clear);
-      bugRows.appendChild(row);
-    }
-    bugEmpty.hidden = entries.length > 0;
-    bugRows.hidden = entries.length === 0;
   }
 
   function renderPerformance() {
@@ -267,15 +253,51 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     }
   }
 
-  function open() {
+  function showGate(message: string | null) {
+    gate.hidden = message === null;
+    gate.textContent = message ?? "";
+    tabList.hidden = message !== null;
+    if (message !== null) for (const element of Object.values(tabPanels)) element.hidden = true;
+  }
+
+  /**
+   * Opens on the pending report queue. That read is developer-gated on the
+   * server, so it doubles as the access check: until it succeeds for this
+   * identity, no tab renders, whatever local state says.
+   */
+  async function open() {
     if (!dependencies.isDeveloper()) return;
+    const request = ++openGeneration;
     panel.hidden = false;
     button.setAttribute("aria-expanded", "true");
     dependencies.closeCompetingWindows();
-    setTab("controls");
+    const identity = dependencies.localIdentity();
+    bugSignature = liveBugSignature();
+    if (confirmedIdentity === identity) { showGate(null); setTab("reports"); return; }
+    showGate("Checking developer access…");
+    const result = await reviews.load();
+    if (request !== openGeneration || panel.hidden) return;
+    if (result.state === "denied") { denyAccess(); return; }
+    if (result.state === "failed") { showGate(`${result.error} Close and reopen to retry.`); return; }
+    confirmedIdentity = identity;
+    showGate(null);
+    setTab("reports", false);
+  }
+
+  function liveBugSignature() {
+    return dependencies.getBugReports().map(entry => entry.id.toString()).sort().join(",");
+  }
+
+  function denyAccess() {
+    confirmedIdentity = "";
+    reviews.clear();
+    players.clear();
+    close();
+    dependencies.showMessage("Developer access required.", "#ff9b91");
   }
 
   function close() {
+    openGeneration++;
     balance.close();
     moderation.clear();
     panel.hidden = true;
@@ -289,11 +311,17 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     prestigeUnlockPreview.render();
     settingsRow.hidden = !developer;
     button.hidden = !developer;
-    if (!developer) { close(); forestPrototype.clear(); }
+    if (developer) return;
+    close();
+    // Drop the triage data once, on the way out, not on every HUD refresh.
+    if (!confirmedIdentity) return;
+    confirmedIdentity = "";
+    reviews.clear();
+    players.clear();
   }
 
   button.addEventListener("click", () => {
-    if (panel.hidden) open();
+    if (panel.hidden) void open();
     else close();
   });
   closeButton.addEventListener("click", close);
@@ -360,7 +388,15 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     refresh: () => {
       if (panel.hidden) return;
       renderControls();
-      renderBugReports();
+      // A new /bug report arrives on the live developer view; re-read the queue
+      // for it, at most every few seconds, while a triage tab is showing.
+      const signature = liveBugSignature();
+      const triageVisible = !tabPanels.reports.hidden || !tabPanels.bugs.hidden;
+      if (signature !== bugSignature && triageVisible && performance.now() - lastBugReload > 5_000) {
+        bugSignature = signature;
+        lastBugReload = performance.now();
+        void reviews.load();
+      }
     },
     renderPerformance,
     setDeveloperAccess,

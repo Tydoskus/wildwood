@@ -222,7 +222,7 @@ type BossController = {
   resolveGravebloomCollision: () => void;
   resolveAegisPrimeCollision: () => void;
   applyBossKnockback: (dt: number) => void;
-  onPortalCutsceneFinished: (wasPreview: boolean) => void;
+  onPortalCutsceneFinished: () => void;
 };
 
 /**
@@ -3708,25 +3708,25 @@ function updateMiremawBoss(dt: number) {
     resolveMiremawCollision: () => resolveCollision(miremawBoss, BOSS_DAMAGE_PROFILES.miremaw.contact, .75),
     resolvePrismshellCollision: () => resolveCollision(prismshellBoss, BOSS_DAMAGE_PROFILES.prismshell.contact, .75), resolveIronhornCollision: () => resolveCollision(ironhornBoss, BOSS_DAMAGE_PROFILES.ironhorn.contact, .75), resolveDreadreaperCollision: () => resolveCollision(dreadreaperBoss, BOSS_DAMAGE_PROFILES.dreadreaper.contact, .75), resolveVoltwardenCollision: () => resolveCollision(voltwardenBoss, BOSS_DAMAGE_PROFILES.voltwarden.contact, .75), resolveGravebloomCollision: () => resolveCollision(gravebloomBoss, BOSS_DAMAGE_PROFILES.gravebloom.contact, .75), resolveAegisPrimeCollision: () => resolveCollision(aegisPrimeBoss, BOSS_DAMAGE_PROFILES.aegisPrime.contact, .75),
     applyBossKnockback,
-    onPortalCutsceneFinished(wasPreview) {
+    onPortalCutsceneFinished() {
       const dragon = queuedDragonResult;
       queuedDragonResult = null;
-      if (dragon && !wasPreview) showDragonResult(dragon);
+      if (dragon) showDragonResult(dragon);
       const spider = queuedSpiderResult;
       queuedSpiderResult = null;
-      if (spider && !wasPreview) showSpiderResult(spider);
+      if (spider) showSpiderResult(spider);
       const frostclaw = queuedFrostclawResult;
       queuedFrostclawResult = null;
-      if (frostclaw && !wasPreview) showFrostclawResult(frostclaw);
+      if (frostclaw) showFrostclawResult(frostclaw);
       const magmalisk = queuedMagmaliskResult;
       queuedMagmaliskResult = null;
-      if (magmalisk && !wasPreview) showMagmaliskResult(magmalisk);
+      if (magmalisk) showMagmaliskResult(magmalisk);
       const gloomroot = queuedGloomrootResult;
       queuedGloomrootResult = null;
-      if (gloomroot && !wasPreview) showGloomrootResult(gloomroot);
+      if (gloomroot) showGloomrootResult(gloomroot);
       const tidewyrm = queuedTidewyrmResult;
       queuedTidewyrmResult = null;
-      if (tidewyrm && !wasPreview) showTidewyrmResult(tidewyrm);
+      if (tidewyrm) showTidewyrmResult(tidewyrm);
     },
   };
 }

@@ -3369,16 +3369,15 @@
   .dev-audit-tabs .profile-tab { flex: 1 1 0; min-width: max-content; }
   .dev-audit-modal > section[role="tabpanel"]:not([hidden]) { flex: 1 1 auto; min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   .dev-audit-modal > section[role="tabpanel"]:not([hidden])::-webkit-scrollbar { display: none; }
-  #devControlsPanel > *, #devCutscenesPanel > *, #devPerformancePanel > * { min-width: 0; max-width: 100%; }
+  #devControlsPanel > *, #devPerformancePanel > * { min-width: 0; max-width: 100%; }
   .dev-presence-control > div { min-width: 0; }
   .dev-presence-control small { overflow-wrap: anywhere; }
-  #devControlsPanel[hidden], #devCutscenesPanel[hidden] { display: none; }
+  #devControlsPanel[hidden] { display: none; }
   #devPerformancePanel[hidden] { display: none; }
   .dev-performance-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; margin: 0; }
   .dev-performance-stats > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; align-items: center; min-height: 28px; padding: 4px 6px; border: 1px solid rgba(145,207,160,.2); border-radius: 4px; background: rgba(0,0,0,.22); }
   .dev-performance-stats dt { min-width: 0; color: var(--muted); font-size: 7px; letter-spacing: .06em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .dev-performance-stats dd { margin: 0; color: #b8f4be; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 9px; text-align: right; white-space: nowrap; }
-  .dev-cutscene-trigger { width: 100%; min-height: 48px; margin: 8px 0 2px; border-color: rgba(255,216,91,.52); color: var(--gold); font-size: 10px; }
   .dev-presence-control { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 54px; padding: 8px; border: 1px solid rgba(145,207,160,.24); border-radius: 5px; background: rgba(0,0,0,.22); }
   .dev-presence-control > div { display: grid; gap: 4px; }
   .dev-presence-control strong { color: var(--cream); font-size: 9px; }
@@ -3391,17 +3390,7 @@
   .dev-load-test-actions input { width: 66px; min-height: 32px; padding: 0 6px; border: 1px solid rgba(145,207,160,.32); border-radius: 4px; color: var(--cream); background: #111a13; font: inherit; font-size: 8px; }
   .dev-load-test-actions input:disabled { opacity: .5; }
   .dev-audit-help { margin: 4px 0 9px; font-size: 8px; }
-  .dev-bug-report-rows { max-height: min(68vh, 520px); overflow-y: auto; background: #09110d; border: 2px solid #000; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-  .dev-bug-report { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; padding: 8px; border-bottom: 1px solid #254132; color: #b8f4be; font-size: 9px; line-height: 1.45; }
-  .dev-bug-report:last-child { border-bottom: 0; }
-  .dev-bug-report-meta { color: #75a982; font-size: 7px; }
-  .dev-bug-report-message { margin-top: 3px; color: #fff; overflow-wrap: anywhere; }
-  .dev-bug-report-clear { align-self: start; min-width: 48px; height: 25px; margin: 0; padding: 2px 5px; border-color: #72ef58; color: #72ef58; background: #102517; font-size: 7px; }
   .profile-duel-button { display: block; min-width: 112px; margin: 7px auto 0; padding: 7px 12px; font-size: 10px; }
-  .dev-forest-prototype { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.18); font-size: 12px; line-height: 1.5; }
-  .dev-forest-prototype p { margin: 8px 0; overflow-wrap: anywhere; }
-  .dev-forest-prototype-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-  .dev-forest-prototype-actions button { margin: 0; min-height: 44px; font-size: 12px; }
   .profile-duel-button.is-cooling-down { background: linear-gradient(#676f70, #454b4c); color: #d1d7d5; cursor: not-allowed; }
   .profile-duel-button[hidden] { display: none; }
   /* Half the height and roughly half the width of the full-size pair they
@@ -3768,16 +3757,12 @@
   .dev-audit-button,
   .dev-performance-stats dt,
   .dev-performance-stats dd,
-  .dev-cutscene-trigger,
   .dev-presence-control strong,
   .dev-presence-control small,
   .dev-presence-control button,
   .dev-load-test-actions label,
   .dev-load-test-actions input,
   .dev-audit-help,
-  .dev-bug-report,
-  .dev-bug-report-meta,
-  .dev-bug-report-clear,
   .profile-duel-button,
   .update-release-heading time,
   #playerProfilePower,
@@ -3800,8 +3785,7 @@
   .chat-text,
   .game-update-modal p,
   .loading-detail,
-  .session-takeover-note,
-  .dev-bug-report {
+  .session-takeover-note {
     line-height: var(--line-height-readable);
   }
 
@@ -4323,3 +4307,65 @@
 .dev-offline-progress-actions { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
 .dev-offline-progress-actions input { flex: 1 1 100px; min-width: 0; min-height: 36px; padding: 6px 8px; border: 1px solid #565956; border-radius: 4px; color: var(--cream); background: #131413; font: inherit; }
 .dev-offline-progress-actions button { flex: 0 0 auto; }
+
+/* Developer triage: reports, bugs and player lookup. The pending queue is the
+   first thing on screen; everything wraps inside the window at 375px wide and
+   scrolls inside its tab at 375px tall, with no sideways page scroll. */
+.dev-access-gate { margin: 18px 4px; color: #d8e4d4; font-size: 12px; line-height: 1.5; text-align: center; }
+.dev-access-gate[hidden], .dev-audit-tabs[hidden], .dev-review-panel[hidden] { display: none; }
+#devAudit .dev-audit-modal:has(.dev-review-panel:not([hidden])) { width: min(560px, calc(100vw - 26px)); }
+.dev-review-panel { display: grid; align-content: start; gap: 8px; min-width: 0; color: #eef1ee; font-size: 12px; line-height: 1.4; }
+.dev-review-panel > * { min-width: 0; }
+.dev-review-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.dev-review-filter { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; color: #d8e4d4; font-weight: 900; cursor: pointer; }
+.dev-review-filter input { width: 20px; height: 20px; margin: 0; accent-color: var(--green); }
+.dev-review-count { flex: 1 1 auto; min-width: 0; color: var(--muted); font-size: 11px; }
+.dev-review-toolbar .dev-review-refresh { flex: 0 0 auto; width: auto; min-height: 36px; margin: 0; padding: 6px 12px; border-width: 2px; border-radius: 8px; font-size: 12px; }
+.dev-review-status { margin: 0; color: var(--muted); font-size: 12px; }
+.dev-review-status:empty { display: none; }
+.dev-review-list { display: grid; gap: 8px; min-width: 0; }
+.dev-review-card { display: grid; gap: 7px; min-width: 0; padding: 10px; border: 1px solid rgba(145,207,160,.24); border-radius: 7px; background: rgba(0,0,0,.24); overflow-wrap: anywhere; }
+.dev-review-card[data-status="open"] { border-color: rgba(255,216,91,.5); }
+.dev-review-card.is-busy { opacity: .6; pointer-events: none; }
+.dev-review-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 8px; font-size: 11px; }
+.dev-review-card-head time { margin-left: auto; color: var(--muted); }
+.dev-review-pill { padding: 2px 7px; border-radius: 999px; background: #333a3f; color: #c9d1d6; font-size: 10px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
+.dev-review-pill[data-status="open"] { background: #6b5316; color: #ffe07a; }
+.dev-review-pill[data-status="resolved"] { background: #1f4a26; color: #9ff29b; }
+.dev-review-channel { color: #b9d6ff; font-weight: 900; }
+.dev-review-who { margin: 0; color: #d8e4d4; }
+.dev-review-who strong { color: #fff; }
+.dev-review-text { display: block; box-sizing: border-box; width: 100%; min-height: 36px; margin: 0; padding: 8px; border: 1px solid rgba(255,255,255,.14); border-radius: 6px; background: rgba(0,0,0,.3); box-shadow: none; color: #fff; font: 500 13px/1.4 var(--font-rounded); text-align: left; text-shadow: none; white-space: pre-wrap; overflow-wrap: anywhere; cursor: pointer; }
+.dev-review-text > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.dev-review-text.is-expanded > span { display: block; -webkit-line-clamp: unset; overflow: visible; }
+.dev-review-flag { margin: 0; color: #9ff29b; font-size: 11px; }
+.dev-review-decisions { display: grid; gap: 3px; margin: 0; padding: 0 0 0 16px; color: var(--muted); font-size: 11px; }
+.dev-review-note, .dev-player-search input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 40px; padding: 6px 9px; border: 1px solid rgba(145,207,160,.32); border-radius: 6px; background: #111a13; color: var(--cream); font: 13px var(--font-rounded); }
+.dev-review-actions { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 6px; }
+.dev-review-action { min-width: 0; min-height: 40px; margin: 0; padding: 6px 8px; border-width: 2px; border-radius: 8px; font-size: 12px; line-height: 1.15; }
+.dev-review-action.is-plain { background: linear-gradient(170deg, #676969 0%, #505d5e 52%, #425052 100%); }
+.dev-review-action.is-danger { border-color: #4a1414; background: linear-gradient(#d9544a, #8f2b25); }
+.dev-review-action:disabled { opacity: .45; cursor: default; }
+.dev-review-ban-choices { padding-top: 7px; border-top: 1px dashed rgba(255,155,145,.45); }
+.dev-player-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+.dev-player-search .dev-review-action { padding: 6px 14px; }
+.dev-player-results { display: grid; gap: 6px; }
+.dev-player-results:empty { display: none; }
+.dev-player-result { display: grid; gap: 2px; box-sizing: border-box; width: 100%; min-height: 44px; margin: 0; padding: 7px 10px; border: 1px solid rgba(145,207,160,.24); border-radius: 7px; background: rgba(0,0,0,.24); box-shadow: none; color: #fff; font-size: 13px; text-align: left; text-shadow: none; }
+.dev-player-result span { color: var(--muted); font-size: 11px; font-weight: 500; }
+.dev-player-card { display: grid; gap: 7px; min-width: 0; padding: 10px; border: 1px solid rgba(255,216,91,.4); border-radius: 7px; background: rgba(0,0,0,.28); }
+.dev-player-card[hidden] { display: none; }
+.dev-player-card h3 { margin: 0; color: #fff; font-size: 16px; overflow-wrap: anywhere; }
+.dev-player-card h4 { margin: 4px 0 0; color: var(--muted); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+.dev-player-id { margin: 0; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.dev-player-state { margin: 0; font-weight: 900; }
+.dev-player-state[data-tone="warn"] { color: #ff9b91; }
+.dev-player-state[data-tone="ok"] { color: #9ff29b; }
+.dev-player-history { max-height: none; overflow: visible; }
+@media (max-width: 420px) {
+  .dev-review-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-height: 480px) {
+  .modal.dev-audit-modal { padding: 8px; }
+  .dev-audit-tabs .profile-tab { height: 38px; min-height: 38px; padding: 4px 10px; }
+}

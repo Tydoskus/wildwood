@@ -351,6 +351,17 @@ export type DevForestRewardPrototype = __Infer<typeof DevForestRewardPrototype>;
 export const DevGemPurchaseReview = __t.object("DevGemPurchaseReview", {});
 export type DevGemPurchaseReview = __Infer<typeof DevGemPurchaseReview>;
 
+export const DevReportReview = __t.object("DevReportReview", {
+  id: __t.u64(),
+  reportKey: __t.string(),
+  decision: __t.string(),
+  note: __t.string(),
+  reviewerIdentity: __t.string(),
+  reviewerName: __t.string(),
+  reviewedAt: __t.timestamp(),
+});
+export type DevReportReview = __Infer<typeof DevReportReview>;
+
 export const DeveloperPresencePreference = __t.object("DeveloperPresencePreference", {
   identity: __t.identity(),
   visible: __t.bool(),

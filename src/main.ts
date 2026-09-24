@@ -158,7 +158,7 @@ import {
     playerProfileEl, playerProfileNameEl, playerProfileGuestLabel, playerProfilePresenceEl, playerProfilePowerEl, playerProfileIcon, editPlayerNameBtn, profileCharacterPreviewEl, profileCharacterCanvas, profileEquippedHeadSlot, profileEquippedChestSlot, profileEquippedFeetSlot, profileEquippedRightHandSlot, previousPlayerSpriteBtn, nextPlayerSpriteBtn, profileSkinToneEdit, profileSkinToneControl,
     playerProfileLoadingEl, profileOverviewTab, profileStatsTab, profileOverviewPanel, profileStatsPanel, profileJoinedEl, profileTimePlayedEl, profileKillsEl, profileOnlineEl, profileStatGrid, closePlayerProfileBtn, profileDuelBtn, profileNameEditorEl, profileNameEditorForm, profileNameInput, savePlayerNameBtn,
     mapGuideEl, mapGuideTitle, mapGuideCanvas, mapGuideZoneLabels, mapGuideDropItems, mapGuideBack,
-    triggerDragonCutsceneBtn, triggerSnowlandsCutsceneBtn, triggerLavaCutsceneBtn, closeProfileIconPickerBtn, gameUpdateGateEl, reconnectOverlayEl, reconnectDetailEl, reconnectRetryBtn,
+    closeProfileIconPickerBtn, gameUpdateGateEl, reconnectOverlayEl, reconnectDetailEl, reconnectRetryBtn,
   } = gameElements;
   let actorShadowSprite!: HTMLImageElement;
   const staticWorldLayer = createWebGLStaticWorldLayer(canvas);
@@ -868,7 +868,7 @@ import {
     tempestKirinBoss,
     miremawBoss,
     prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss,
-    onCutsceneFinished: (wasPreview) => bossController.onPortalCutsceneFinished(wasPreview),
+    onCutsceneFinished: () => bossController.onPortalCutsceneFinished(),
   });
   const homeTravel = createHomeTravelController({ source: () => coop, travel: mapController.travelFromHome, departure: mapController.homeDeparture, atHome: () => currentMapId === "home_exterior", pause: paused => setGameplayPause("home-travel", paused), clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id].name });
   const { activePortal, secondaryPortal, portalIsUnlocked, startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene, startSamuraiPortalCutscene } = mapController;
@@ -1960,45 +1960,12 @@ import {
   }
 
   bindGameInteractionListeners({
-    triggerDragonCutscene: triggerDragonCutsceneBtn,
-    triggerSnowlandsCutscene: triggerSnowlandsCutsceneBtn,
-    triggerLavaCutscene: triggerLavaCutsceneBtn,
     hpText,
     watchDuelReplay: watchDuelReplayBtn,
     playerHudProfile: playerHudProfileIcon,
     playerHudProfileGear,
     playerProfileIcon,
     closeProfileIconPicker: closeProfileIconPickerBtn,
-    onDragonCutscene: () => {
-      if (!isDeveloperIdentity(coop?.localIdentity?.())) return;
-      if (currentMapId !== TUTORIAL_FOREST_MAP_ID) {
-        showMessage("Dragon cutscene: Tutorial Forest only", "#ff9b91");
-        return;
-      }
-      if (mapController.isCutsceneActive()) return;
-      devPanel.close();
-      startDragonPortalCutscene(true);
-    },
-    onSnowlandsCutscene: () => {
-      if (!isDeveloperIdentity(coop?.localIdentity?.())) return;
-      if (currentMapId !== BEGINNER_DESERT_MAP_ID) {
-        showMessage("Snowlands cutscene: Beginner Desert only", "#ff9b91");
-        return;
-      }
-      if (mapController.isCutsceneActive()) return;
-      devPanel.close();
-      startSnowlandsPortalCutscene(true);
-    },
-    onLavaCutscene: () => {
-      if (!isDeveloperIdentity(coop?.localIdentity?.())) return;
-      if (currentMapId !== INTERMEDIATE_SNOWLANDS_MAP_ID) {
-        showMessage("Lava cutscene: Intermediate Snowlands only", "#ff9b91");
-        return;
-      }
-      if (mapController.isCutsceneActive()) return;
-      devPanel.close();
-      startLavaPortalCutscene(true);
-    },
     onOpenOwnProfile: () => {
       const identity = coop?.localIdentity?.();
       if (identity) void profileWindow.open(identity, coop?.localDisplayName?.() || "PLAYER");
