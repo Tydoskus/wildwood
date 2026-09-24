@@ -27,7 +27,7 @@ function harness(initialStages: [string, boolean, number][]) {
     accountState: () => undefined, connected: () => true, knownCharacter: () => "",
     knownCharacterGender: () => 0, defaultPlayerName: () => "WANDERER",
     getLoadingStages: () => stages, onLoadingComplete: completed,
-    onShowAccountChoice() {}, onShowConnecting() {}, acceptLegalTerms: async () => ({ ok: true }),
+    onShowAccountChoice() {}, acceptLegalTerms: async () => ({ ok: true }),
     onLegalAccepted() {}, onContinueGuest: () => ({}), onBeginAdventure() {},
     signIn: () => undefined, takeOverSession: () => undefined,
     onAccountActionStarted() {}, onAccountActionCompleted() {}, onAccountActionFailed() {},

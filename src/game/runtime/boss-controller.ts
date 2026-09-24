@@ -158,11 +158,6 @@ type BossResult = {
   contributors: Array<{ identity: string; name: string; gender: PlayerGender; damage: number; percentage: number }>;
 };
 
-type NoticeElements = {
-  worldNotice: HTMLElement;
-  worldNoticeDetail: HTMLElement;
-};
-
 type BossAbilityTarget = { id: string; x: number; y: number };
 
 type BossController = {
@@ -330,8 +325,6 @@ export function createBossController(options: {
   startInfernalPortalCutscene: () => boolean | void;
   startWaterPortalCutscene: () => boolean | void;
   startSamuraiPortalCutscene: () => boolean | void;
-  elements: NoticeElements;
-  renderPlayerName: (element: HTMLElement, identity: string, name: string, gender?: PlayerGender) => void;
   spawnBurst: (x: number, y: number, color: string, count: number, speed: number) => void;
   damagePlayer: (amount: number) => boolean;
   logPickup: (text: string, color: string, baseText?: string) => void;
@@ -341,14 +334,13 @@ export function createBossController(options: {
   displayRewardAmount?: (type: RewardType, baseAmount: number) => number;
 }): BossController {
   const {
-    boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, miremawBogBursts, prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, gravebloomCrystalBursts, aegisPrimeCrystalBursts, player, elements,
+    boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, miremawBogBursts, prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, gravebloomCrystalBursts, aegisPrimeCrystalBursts, player,
     getDragonBoss, getSpiderBoss, getFrostclawBoss, getMagmaliskBoss, getGloomrootBoss, getTidewyrmBoss, getKoiShogunBoss, getTempestKirinBoss, getMiremawBoss, getPrismshellBoss, getIronhornBoss, getDreadreaperBoss, getVoltwardenBoss, getGravebloomBoss, getAegisPrimeBoss, getDragonResult, getSpiderResult, getFrostclawResult, getMagmaliskResult, getGloomrootResult, getTidewyrmResult, getKoiShogunResult, getTempestKirinResult, getMiremawResult, getPrismshellResult, getIronhornResult, getDreadreaperResult, getVoltwardenResult, getGravebloomResult, getAegisPrimeResult,
     localIdentity, running, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, currentMapIsWater, currentMapIsSamurai, currentMapIsCloudspire, currentMapIsMoonfen, currentMapIsCrystalHollows, currentMapIsClockworkRuins, currentMapIsDuskfallOrchard, currentMapIsNeonBastion, currentMapIsVerdantCatacombs, currentMapIsIonCitadel, portalCutsceneActive,
     hasSeenDragonPortalCutscene, hasSeenSnowlandsPortalCutscene, hasSeenLavaPortalCutscene, hasSeenInfernalPortalCutscene, hasSeenWaterPortalCutscene, hasSeenSamuraiPortalCutscene,
     startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene, startSamuraiPortalCutscene,
-    renderPlayerName, spawnBurst, damagePlayer, logPickup, saveProgress,
+    spawnBurst, damagePlayer, logPickup, saveProgress,
   } = options;
-  let dragonWorldNoticeTimer: number | null = null;
   let observedDragonEncounter: bigint | null = null;
   let dragonWasAlive: boolean | null = null;
   let pendingDragonResultEncounter: bigint | null = null;
@@ -845,29 +837,6 @@ function resetMiremawBoss() {
   }
 
 
-  function showWorldResult(result: BossResult, heading: string) {
-    const title = elements.worldNotice.querySelector("strong");
-    if (title) title.textContent = heading;
-    elements.worldNoticeDetail.replaceChildren();
-    for (const contributor of result.contributors) {
-      const row = document.createElement("div");
-      row.className = "dragon-world-notice-row";
-      const name = document.createElement("span");
-      // An unset gender means the row carries none of its own; fall back to the profile lookup.
-      renderPlayerName(name, contributor.identity, contributor.name, contributor.gender || undefined);
-      const percentage = document.createElement("span");
-      percentage.textContent = `${Math.round(contributor.percentage)}%`;
-      row.append(name, percentage);
-      elements.worldNoticeDetail.appendChild(row);
-    }
-    elements.worldNotice.hidden = false;
-    if (dragonWorldNoticeTimer !== null) window.clearTimeout(dragonWorldNoticeTimer);
-    dragonWorldNoticeTimer = window.setTimeout(() => {
-      elements.worldNotice.hidden = true;
-      dragonWorldNoticeTimer = null;
-    }, 6_000);
-  }
-
   function showSpiderResult(result: BossResult | null | undefined) {
     if (!result || shownSpiderResultEncounter === result.encounter || (portalCutsceneActive() && queuedSpiderResult?.encounter === result.encounter)) return;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
@@ -879,7 +848,6 @@ function resetMiremawBoss() {
     }
     pendingSpiderResultEncounter = null;
     shownSpiderResultEncounter = result.encounter;
-    showWorldResult(result, "DESERT SCORPION DEFEATED");
     if (!localContribution) return;
     const damageReward = scaledReward("damage", SPIDER_REWARD_DAMAGE);
     const healthReward = scaledReward("health", SPIDER_REWARD_HEALTH);
@@ -907,7 +875,6 @@ function resetMiremawBoss() {
     }
     pendingFrostclawResultEncounter = null;
     shownFrostclawResultEncounter = result.encounter;
-    showWorldResult(result, "FROSTCLAW DEFEATED");
     if (!localContribution) return;
     const damageReward = scaledReward("damage", FROSTCLAW_REWARD_DAMAGE);
     const healthReward = scaledReward("health", FROSTCLAW_REWARD_HEALTH);
@@ -935,7 +902,6 @@ function resetMiremawBoss() {
     }
     pendingMagmaliskResultEncounter = null;
     shownMagmaliskResultEncounter = result.encounter;
-    showWorldResult(result, "MAGMALISK DEFEATED");
     if (!localContribution) return;
     const damageReward = scaledReward("damage", MAGMALISK_REWARD_DAMAGE);
     const healthReward = scaledReward("health", MAGMALISK_REWARD_HEALTH);
@@ -966,7 +932,6 @@ function resetMiremawBoss() {
     }
     pendingGloomrootResultEncounter = null;
     shownGloomrootResultEncounter = result.encounter;
-    showWorldResult(result, "GLOOMROOT DEFEATED");
     if (!localContribution) return;
     const damageReward = scaledReward("damage", GLOOMROOT_REWARD_DAMAGE);
     const healthReward = scaledReward("health", GLOOMROOT_REWARD_HEALTH);
@@ -997,7 +962,6 @@ function resetMiremawBoss() {
     }
     pendingTidewyrmResultEncounter = null;
     shownTidewyrmResultEncounter = result.encounter;
-    showWorldResult(result, "TIDEWYRM DEFEATED");
     if (!localContribution) return;
     const damageReward = scaledReward("damage", TIDEWYRM_REWARD_DAMAGE);
     const healthReward = scaledReward("health", TIDEWYRM_REWARD_HEALTH);
@@ -1022,7 +986,6 @@ function resetMiremawBoss() {
     pendingKoiShogunResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
     shownKoiShogunResultEncounter = result.encounter;
-    showWorldResult(result, "KOI SHOGUN DEFEATED");
     if (!localContribution) return;
     const damageReward = scaledReward("damage", KOI_SHOGUN_REWARD_DAMAGE);
     const healthReward = scaledReward("health", KOI_SHOGUN_REWARD_HEALTH);
@@ -1047,7 +1010,6 @@ function resetMiremawBoss() {
     pendingTempestKirinResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
     shownTempestKirinResultEncounter = result.encounter;
-    showWorldResult(result, "TEMPEST KIRIN DEFEATED");
     if (!localContribution) return;
     const damageReward = scaledReward("damage", TEMPEST_KIRIN_REWARD_DAMAGE);
     const healthReward = scaledReward("health", TEMPEST_KIRIN_REWARD_HEALTH);
@@ -1072,7 +1034,6 @@ function showMiremawResult(result: BossResult | null | undefined) {
     pendingMiremawResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
     shownMiremawResultEncounter = result.encounter;
-    showWorldResult(result, "MIREMAW DEFEATED");
     if (!localContribution) return;
     const damageReward = scaledReward("damage", MIREMAW_REWARD_DAMAGE);
     const healthReward = scaledReward("health", MIREMAW_REWARD_HEALTH);
@@ -1097,7 +1058,6 @@ function showMiremawResult(result: BossResult | null | undefined) {
     pendingPrismshellResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
     shownPrismshellResultEncounter = result.encounter;
-    showWorldResult(result, "PRISMSHELL DEFEATED");
     if (!localContribution) return;
     const damageReward = scaledReward("damage", PRISMSHELL_REWARD_DAMAGE);
     const healthReward = scaledReward("health", PRISMSHELL_REWARD_HEALTH);
@@ -1121,7 +1081,6 @@ function showMiremawResult(result: BossResult | null | undefined) {
     pendingIronhornResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
     shownIronhornResultEncounter = result.encounter;
-    showWorldResult(result, "IRONHORN DEFEATED");
     if (!localContribution) return;
     const damageReward = scaledReward("damage", IRONHORN_REWARD_DAMAGE);
     const healthReward = scaledReward("health", IRONHORN_REWARD_HEALTH);
@@ -1145,7 +1104,6 @@ function showMiremawResult(result: BossResult | null | undefined) {
     pendingDreadreaperResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
     shownDreadreaperResultEncounter = result.encounter;
-    showWorldResult(result, "DREADREAPER DEFEATED");
     if (!localContribution) return;
     const damageReward = scaledReward("damage", DREADREAPER_REWARD_DAMAGE);
     const healthReward = scaledReward("health", DREADREAPER_REWARD_HEALTH);
@@ -1169,7 +1127,6 @@ function showMiremawResult(result: BossResult | null | undefined) {
     pendingVoltwardenResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
     shownVoltwardenResultEncounter = result.encounter;
-    showWorldResult(result, "VOLTWARDEN DEFEATED");
     if (!localContribution) return;
     const damageReward = scaledReward("damage", VOLTWARDEN_REWARD_DAMAGE);
     const healthReward = scaledReward("health", VOLTWARDEN_REWARD_HEALTH);
@@ -1193,7 +1150,6 @@ function showMiremawResult(result: BossResult | null | undefined) {
     pendingGravebloomResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
     shownGravebloomResultEncounter = result.encounter;
-    showWorldResult(result, "GRAVEBLOOM DEFEATED");
     if (!localContribution) return;
     const damageReward = scaledReward("damage", GRAVEBLOOM_REWARD_DAMAGE);
     const healthReward = scaledReward("health", GRAVEBLOOM_REWARD_HEALTH);
@@ -1217,7 +1173,6 @@ function showMiremawResult(result: BossResult | null | undefined) {
     pendingAegisPrimeResultEncounter = null;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
     shownAegisPrimeResultEncounter = result.encounter;
-    showWorldResult(result, "AEGIS PRIME DEFEATED");
     if (!localContribution) return;
     const damageReward = scaledReward("damage", AEGIS_PRIME_REWARD_DAMAGE);
     const healthReward = scaledReward("health", AEGIS_PRIME_REWARD_HEALTH);
@@ -1262,10 +1217,6 @@ function showMiremawResult(result: BossResult | null | undefined) {
     }
     shownDragonResultEncounter = result.encounter;
     pendingDragonResultEncounter = null;
-    showWorldResult(result, "DRAGON DEFEATED");
-    elements.worldNotice.style.animation = "none";
-    void elements.worldNotice.offsetWidth;
-    elements.worldNotice.style.animation = "";
     if (!localContribution) return;
     const damageReward = scaledReward("damage", DRAGON_REWARD_DAMAGE);
     const encounterKey = String(result.encounter);

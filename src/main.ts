@@ -151,7 +151,6 @@ import {
     minimapButton,
     toolbar, settingsBtn, inventoryBtn, settingsPanel, inventoryPanel, inventoryCharacterCanvas, itemInspectionPanel, itemInspectionTitle, itemInspectionContent, itemInspectionBack, bootUpgradeEl, bootUpgradeClose, joystickEl, stickEl,
     duelCountdownEl, duelResultEl, watchDuelReplayBtn, duelReplayEl, duelReplayTitle, sceneFadeEl, cutsceneOverlayEl,
-    dragonWorldNoticeEl, dragonWorldNoticeDetailEl,
     playerProfileEl, playerProfileNameEl, playerProfileGuestLabel, playerProfilePresenceEl, playerProfilePowerEl, playerProfileIcon, editPlayerNameBtn, profileCharacterPreviewEl, profileCharacterCanvas, profileEquippedHeadSlot, profileEquippedChestSlot, profileEquippedFeetSlot, profileEquippedRightHandSlot, previousPlayerSpriteBtn, nextPlayerSpriteBtn, profileSkinToneEdit, profileSkinToneControl,
     playerProfileLoadingEl, profileOverviewTab, profileStatsTab, profileOverviewPanel, profileStatsPanel, profileJoinedEl, profileTimePlayedEl, profileKillsEl, profileOnlineEl, profileStatGrid, closePlayerProfileBtn, profileDuelBtn, profileNameEditorEl, profileNameEditorForm, profileNameInput, savePlayerNameBtn,
     mapGuideEl, mapGuideTitle, mapGuideCanvas, mapGuideZoneLabels, mapGuideDropItems, mapGuideBack,
@@ -430,9 +429,6 @@ import {
     ],
     onLoadingComplete: finishStartup,
     onShowAccountChoice: showCurrentUpdateNotice,
-    onShowConnecting: () => {
-      dragonWorldNoticeEl.hidden = true;
-    },
     acceptLegalTerms: (age) => coop?.acceptLegalTerms?.(age),
     onLegalAccepted: finishStartup,
     onContinueGuest: () => coop?.continueAsGuest?.(),
@@ -964,11 +960,6 @@ import {
     startInfernalPortalCutscene,
     startWaterPortalCutscene,
     startSamuraiPortalCutscene,
-    elements: {
-      worldNotice: dragonWorldNoticeEl,
-      worldNoticeDetail: dragonWorldNoticeDetailEl,
-    },
-    renderPlayerName: renderDomPlayerName,
     spawnBurst,
     damagePlayer: (amount) => playerCombat.damagePlayer(amount),
     logPickup,

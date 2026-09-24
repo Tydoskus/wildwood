@@ -130,10 +130,8 @@ describe("installed interface structure", () => {
     }
   });
 
-  it("keeps boss defeats as nonblocking status notices", () => {
-    const notice = doc.getElementById("dragonWorldNotice")!;
-    expect(notice.getAttribute("role")).toBe("status");
-    expect(notice.querySelector('[role="dialog"]')).toBeNull();
+  it("announces boss defeats through the stat reward popups, with no banner or dialog", () => {
+    expect(doc.getElementById("dragonWorldNotice")).toBeNull();
     expect(doc.getElementById("dragonResult")).toBeNull();
   });
 });

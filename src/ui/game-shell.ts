@@ -90,11 +90,6 @@ const afterUpdateGateShell = String.raw`
   </div>
 </div>
 
-<div id="dragonWorldNotice" role="status" aria-live="polite" hidden>
-  <strong>DRAGON DEFEATED</strong>
-  <div id="dragonWorldNoticeDetail" class="dragon-world-notice-detail"></div>
-</div>
-
 <div id="playerProfile" hidden>
   <div class="modal player-profile-modal" role="dialog" aria-modal="true" aria-labelledby="playerProfileName">
     <div class="player-profile-scroll">

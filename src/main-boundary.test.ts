@@ -42,7 +42,8 @@ import { describe, expect, it } from "vitest";
 // slack below it. Its construction, the HUD-tick poll and the developer
 // preview hook need the coop session, the pause registry and the dev panel,
 // which only the composition root holds; the logic is prestige-unlock-popup.ts.
-const MAX_LINES = 2_205;
+// 2_196: the boss-defeated banner and its wiring were removed.
+const MAX_LINES = 2_196;
 const TARGET_LINES = 1_000;
 
 describe("game composition boundary", () => {

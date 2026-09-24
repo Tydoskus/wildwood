@@ -2846,17 +2846,6 @@
   #shareDuelBtn { display: block; width: 100%; margin-top: 8px; }
   #watchDuelReplayBtn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 34px; margin-top: 8px; padding: 3px 13px; border-color: transparent; background: transparent; font-size: 13px; line-height: 1; }
   .duel-replay-play-icon { display: block; width: 25px; height: 25px; background: center / contain no-repeat url("replay-play.svg"); -webkit-text-stroke: 0; text-shadow: none; }
-  #dragonWorldNotice { position: fixed; top: 142px; left: 50%; z-index: 9; display: grid; gap: 3px; min-width: min(350px, calc(100vw - 30px)); padding: 10px 16px; border: 2px solid rgba(255,101,90,.68); border-radius: 9px; background: rgba(13,22,17,.94); color: #fff; text-align: center; pointer-events: none; transform: translateX(-50%); animation: dragon-world-notice 6s ease forwards; }
-  #dragonWorldNotice[hidden] { display: none; }
-  #dragonWorldNotice strong { color: #ff8a65; font-size: 14px; }
-  .dragon-world-notice-detail { display: grid; gap: 2px; width: min(260px, calc(100vw - 70px)); margin: 1px auto 0; }
-  .dragon-world-notice-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; color: var(--gold); font-size: 10px; text-align: left; }
-  .dragon-world-notice-row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .dragon-world-notice-row span:last-child { color: #72ef58; text-align: right; }
-  @keyframes dragon-world-notice {
-    0%, 78% { opacity: 1; transform: translate(-50%, 0); }
-    100% { opacity: 0; transform: translate(-50%, -8px); }
-  }
   #playerProfile { z-index: 9; padding: max(5px, env(safe-area-inset-top)) max(5px, env(safe-area-inset-right)) max(5px, env(safe-area-inset-bottom)) max(5px, env(safe-area-inset-left)); }
   .modal.player-profile-modal { --window-back-bottom-gap: 9px; display: flex; flex-direction: column; background: var(--window-surface); border-color: #080808; width: var(--game-window-width); height: min(560px, calc(100dvh - max(5px, env(safe-area-inset-top)) - max(5px, env(safe-area-inset-bottom)))); max-height: 100%; padding: 8px; overflow: hidden; text-align: left; transform: none; }
   /* A framed portrait reaches past its own box, and this scroller clips: the
@@ -3649,7 +3638,6 @@
   .tech-tree-research-time span,
   .tech-tree-timer-label,
   .tech-tree-action,
-  .dragon-world-notice-row,
   .player-profile-presence,
   .profile-gender-label,
   .profile-gender-value,

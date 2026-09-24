@@ -35,7 +35,6 @@ type StartupDependencies = {
   getLoadingStages: () => LoadingStage[];
   onLoadingComplete: () => void;
   onShowAccountChoice: () => void;
-  onShowConnecting: () => void;
   acceptLegalTerms: (age: number) => Promise<{ ok?: boolean; error?: string } | undefined> | undefined;
   onLegalAccepted: () => void;
   onContinueGuest: () => Promise<{ ok?: boolean; error?: string } | undefined> | { ok?: boolean; error?: string } | undefined;
@@ -97,7 +96,6 @@ export function createStartupController(dependencies: StartupDependencies) {
     sessionTakeoverNote.hidden = true;
     connectionRetryButton.hidden = true;
     connectionRetryButton.disabled = false;
-    dependencies.onShowConnecting();
     refreshLoading();
   }
 

@@ -27,7 +27,6 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
   state.player.maxHp = 1_000_000_000;
   state.frostclawBoss.attackClock = 0;
   const damagePlayer = vi.fn(() => true);
-  const ignoredElement = {} as HTMLElement;
   const controller = createBossController({
     boss: state.boss,
     spiderBoss: state.spiderBoss,
@@ -94,11 +93,6 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     startInfernalPortalCutscene: () => undefined,
     startWaterPortalCutscene: () => undefined,
     startSamuraiPortalCutscene: () => undefined,
-    elements: {
-      worldNotice: ignoredElement,
-      worldNoticeDetail: ignoredElement,
-    },
-    renderPlayerName: () => undefined,
     spawnBurst: () => undefined,
     damagePlayer,
     logPickup: () => undefined,
@@ -185,7 +179,7 @@ describe("Boss area knockback", () => {
 });
 
 describe("Boss defeat presentation", () => {
-  it("shows participants the compact world notice and only one reward channel", () => {
+  it("pays participants through the stat reward popups alone", () => {
     type FakeElement = {
       className: string;
       hidden: boolean;
@@ -213,10 +207,6 @@ describe("Boss defeat presentation", () => {
       };
       return element;
     };
-    const noticeTitle = fakeElement();
-    const worldNotice = fakeElement();
-    worldNotice.querySelector = () => noticeTitle;
-    const worldNoticeDetail = fakeElement();
     vi.stubGlobal("document", { createElement: () => fakeElement() });
     vi.stubGlobal("window", { setTimeout: vi.fn(() => 1), clearTimeout: vi.fn() });
 
@@ -229,10 +219,6 @@ describe("Boss defeat presentation", () => {
         totalDamage: 100,
         contributors: [{ identity: "local", name: "Local", gender: 0, damage: 100, percentage: 100 }],
       }),
-      elements: {
-        worldNotice: worldNotice as unknown as HTMLElement,
-        worldNoticeDetail: worldNoticeDetail as unknown as HTMLElement,
-      },
       logPickup,
       rewardMultiplier: () => 1.2,
     });
@@ -241,9 +227,6 @@ describe("Boss defeat presentation", () => {
     shared = { ...shared, hp: 0, alive: false };
     controller.syncFrostclawState();
 
-    expect(worldNotice.hidden).toBe(false);
-    expect(noticeTitle.textContent).toBe("FROSTCLAW DEFEATED");
-    expect(worldNoticeDetail.children).toHaveLength(1);
     expect(logPickup).toHaveBeenCalledTimes(3);
     expect(logPickup).toHaveBeenCalledWith(
       rewardLabel({ type: "damage", amount: FROSTCLAW_REWARD_DAMAGE * 1.2 }),
