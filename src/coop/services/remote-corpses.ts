@@ -16,7 +16,7 @@ export function createRemoteCorpses() {
       const id = `corpse:${++sequence}:${player.id}`;
       bodies.set(id, {
         player: { ...player, skinTone, id, identity: player.id, x: death.x, y: death.y, facing: death.facing,
-          moving: false, bossAttack: undefined, regularEnemyCombat: undefined, throwClock: undefined },
+          moving: false, regularEnemyCombat: undefined, throwClock: undefined },
         death: { ...death, id },
       });
     },

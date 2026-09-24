@@ -11,7 +11,6 @@ export type BaseSubscriptionHandlers = {
   motionFrame: RowHandler;
   mapFrame: RowHandler;
   deathFrame: RowHandler;
-  bossHitResult: RowHandler;
   motionIdentity: RowHandler;
   removeMotionIdentity: RowHandler;
   nameTag: RowHandler;
@@ -144,9 +143,6 @@ type BaseSubscriptionHandlerSources = {
     upsertForestPrototype: BaseSubscriptionHandlers["forestPrototype"];
     removeForestPrototype: BaseSubscriptionHandlers["removeForestPrototype"];
   };
-  boss: {
-    upsertHitResult: BaseSubscriptionHandlers["bossHitResult"];
-  };
   social?: { upsertHub: RowHandler; removeHub: RowHandler; upsertMessage: RowHandler; removeMessage: RowHandler };
   chat: { upsert: BaseSubscriptionHandlers["chatMessage"]; upsertBlock: RowHandler; removeBlock: RowHandler; remove: RowHandler };
   duel: { upsert: BaseSubscriptionHandlers["duel"]; remove: BaseSubscriptionHandlers["removeDuel"] };
@@ -154,14 +150,13 @@ type BaseSubscriptionHandlerSources = {
 
 /** Adapts service-owned table handlers to the subscription's table names. */
 export function createBaseSubscriptionHandlers(sources: BaseSubscriptionHandlerSources): BaseSubscriptionHandlers {
-  const { presence, profile, progression, developer, boss, chat, duel } = sources;
+  const { presence, profile, progression, developer, chat, duel } = sources;
   return {
     player: presence.upsertPlayer,
     removePlayer: presence.removePlayer,
     motionFrame: presence.upsertPlayerMotionFrame,
     mapFrame: presence.upsertPlayerMapFrame,
     deathFrame: presence.upsertPlayerDeathFrame,
-    bossHitResult: boss.upsertHitResult,
     motionIdentity: presence.upsertMotionIdentity,
     removeMotionIdentity: presence.removeMotionIdentity,
     nameTag: profile.upsertNameTag,
@@ -263,7 +258,6 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   // intentionally do not trigger application-wide UI fanout.
   connection.db.playerMotionDetailFrame.onInsert((_ctx, row) => { if (shouldHandle()) handlers.motionFrame(row); });
   connection.db.playerMapFrame.onInsert((_ctx, row) => { if (shouldHandle()) handlers.mapFrame(row); });
-  connection.db.bossHitResult.onInsert((_ctx, row) => { if (shouldHandle()) handlers.bossHitResult(row); });
   connection.db.playerDeathFrame.onInsert((_ctx, row) => { if (shouldHandle()) handlers.deathFrame(row); });
   connection.db.playerMotionIdentity.onInsert((_ctx, row) => { if (shouldHandle()) handlers.motionIdentity(row); });
   connection.db.playerMotionIdentity.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.motionIdentity(row); });
@@ -379,9 +373,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
     subscribe: (scope, applied) => connection.subscriptionBuilder()
       .onApplied(applied)
       .onError((ctx) => { if (dependencies.isCurrent()) dependencies.onError(ctx.event); })
-      .subscribe(scope.startsWith("boss:")
-        ? []
-        : scope === "account" ? [
+      .subscribe(scope === "account" ? [
       tables.playerProfile.where((profile) => profile.identity.eq(dependencies.identity)),
       tables.playerProgress.where((progress) => progress.identity.eq(dependencies.identity)),
       tables.playerAccountStatus.where((status) => status.identity.eq(dependencies.identity)),
@@ -431,54 +423,48 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.myPlayerBlocks,
       tables.duel.where((duel) => duel.challenger.eq(dependencies.identity)),
 ]),
-    hydrate: (scope) => {
-      if (!scope.startsWith("boss:")) {
-        dependencies.batch(() => {
-          for (const row of connection.db.playerNameTag.iter()) handlers.nameTag(row);
-          for (const row of connection.db.playerProfile.iter()) handlers.profile(row);
-          for (const row of connection.db.myGemWallet.iter()) handlers.gemWallet(row);
-          for (const row of connection.db.myDailyGemBonus.iter()) handlers.dailyGemBonus(row);
-          for (const row of connection.db.myBalanceApologyNotice.iter()) handlers.balanceApologyNotice(row);
-          for (const row of connection.db.myMailboxV2.iter()) handlers.mailbox(row);
-          for (const row of connection.db.myItemGifts.iter()) handlers.itemGift(row);
-          for (const row of connection.db.myOnboarding.iter()) handlers.onboarding(row);
-          for (const row of connection.db.myUpgradeBench.iter()) handlers.upgradeBench(row);
-          for (const row of connection.db.myUpgradeBenchThirdSlot.iter()) handlers.upgradeBenchThirdSlot(row);
-          for (const row of connection.db.myInventoryCapacity.iter()) handlers.inventoryCapacity(row);
-          for (const row of connection.db.myCutsceneHistory.iter()) handlers.cutsceneHistory(row);
-          for (const row of connection.db.devAccessAudit.iter()) handlers.accessAudit(row);
-          for (const row of connection.db.devBugReports.iter()) handlers.bugReport(row);
-          for (const row of connection.db.devForestRewardPrototype.iter()) handlers.forestPrototype(row);
-          for (const row of connection.db.playerAccountStatus.iter()) handlers.accountStatus(row);
-          for (const row of connection.db.worldStatus.iter()) handlers.worldStatus(row);
-          for (const row of connection.db.releaseNotice.iter()) handlers.releaseNotice(row);
-          for (const row of connection.db.playerProgress.iter()) handlers.progress(row);
-          for (const row of connection.db.playerResearch.iter()) handlers.research(row);
-          for (const row of connection.db.activeResearch.iter()) handlers.activeResearch(row);
-          if (![...connection.db.activeResearch.iter()].some(row => row.identity.toHexString() === dependencies.identity.toHexString())) handlers.removeActiveResearch({ identity: dependencies.identity });
-          for (const row of connection.db.playerPrestige.iter()) handlers.prestige(row);
-          for (const row of connection.db.playerPrestigePerk.iter()) handlers.prestigePerk(row);
-          for (const row of connection.db.playerItemUpgrade.iter()) handlers.itemUpgrade(row);
-          for (const row of connection.db.activeItemUpgrade.iter()) handlers.activeItemUpgrade(row, 1);
-          for (const row of connection.db.activeItemUpgradeSlotTwo.iter()) handlers.activeItemUpgrade(row, 2);
-          for (const row of connection.db.activeItemUpgradeSlotThree.iter()) handlers.activeItemUpgrade(row, 3);
-          for (const row of connection.db.playerItemDrop.iter()) handlers.itemDrop(row);
-          for (const row of connection.db.playerGemDrop.iter()) handlers.gemDrop(row);
-          for (const row of connection.db.playerChatHearts.iter()) handlers.chatHearts(row);
-          for (const row of connection.db.playerLifetime.iter()) handlers.lifetime(row);
-          for (const row of connection.db.playerMotionIdentity.iter()) handlers.motionIdentity(row);
-          for (const row of connection.db.player.iter()) handlers.player(row);
-          for (const row of connection.db.myPlayerBlocks.iter()) handlers.playerBlock(row);
-          for (const row of connection.db.mySocialHub.iter()) handlers.socialHub(row);
-          for (const row of connection.db.mySocialMessagesWithReactions.iter()) handlers.socialMessage(row);
-          for (const row of connection.db.latestChatMessagesWithReactions.iter()) handlers.chatMessage(row);
-          for (const row of connection.db.duel.iter()) handlers.duel(row);
-        });
-        return;
-      }
-      // The "boss:" scope no longer has any tables to subscribe to or hydrate
-      // (the shared/server-authoritative boss system was removed; bosses are
-      // now client-side and per-player). Nothing to do here.
+    hydrate: () => {
+      dependencies.batch(() => {
+        for (const row of connection.db.playerNameTag.iter()) handlers.nameTag(row);
+        for (const row of connection.db.playerProfile.iter()) handlers.profile(row);
+        for (const row of connection.db.myGemWallet.iter()) handlers.gemWallet(row);
+        for (const row of connection.db.myDailyGemBonus.iter()) handlers.dailyGemBonus(row);
+        for (const row of connection.db.myBalanceApologyNotice.iter()) handlers.balanceApologyNotice(row);
+        for (const row of connection.db.myMailboxV2.iter()) handlers.mailbox(row);
+        for (const row of connection.db.myItemGifts.iter()) handlers.itemGift(row);
+        for (const row of connection.db.myOnboarding.iter()) handlers.onboarding(row);
+        for (const row of connection.db.myUpgradeBench.iter()) handlers.upgradeBench(row);
+        for (const row of connection.db.myUpgradeBenchThirdSlot.iter()) handlers.upgradeBenchThirdSlot(row);
+        for (const row of connection.db.myInventoryCapacity.iter()) handlers.inventoryCapacity(row);
+        for (const row of connection.db.myCutsceneHistory.iter()) handlers.cutsceneHistory(row);
+        for (const row of connection.db.devAccessAudit.iter()) handlers.accessAudit(row);
+        for (const row of connection.db.devBugReports.iter()) handlers.bugReport(row);
+        for (const row of connection.db.devForestRewardPrototype.iter()) handlers.forestPrototype(row);
+        for (const row of connection.db.playerAccountStatus.iter()) handlers.accountStatus(row);
+        for (const row of connection.db.worldStatus.iter()) handlers.worldStatus(row);
+        for (const row of connection.db.releaseNotice.iter()) handlers.releaseNotice(row);
+        for (const row of connection.db.playerProgress.iter()) handlers.progress(row);
+        for (const row of connection.db.playerResearch.iter()) handlers.research(row);
+        for (const row of connection.db.activeResearch.iter()) handlers.activeResearch(row);
+        if (![...connection.db.activeResearch.iter()].some(row => row.identity.toHexString() === dependencies.identity.toHexString())) handlers.removeActiveResearch({ identity: dependencies.identity });
+        for (const row of connection.db.playerPrestige.iter()) handlers.prestige(row);
+        for (const row of connection.db.playerPrestigePerk.iter()) handlers.prestigePerk(row);
+        for (const row of connection.db.playerItemUpgrade.iter()) handlers.itemUpgrade(row);
+        for (const row of connection.db.activeItemUpgrade.iter()) handlers.activeItemUpgrade(row, 1);
+        for (const row of connection.db.activeItemUpgradeSlotTwo.iter()) handlers.activeItemUpgrade(row, 2);
+        for (const row of connection.db.activeItemUpgradeSlotThree.iter()) handlers.activeItemUpgrade(row, 3);
+        for (const row of connection.db.playerItemDrop.iter()) handlers.itemDrop(row);
+        for (const row of connection.db.playerGemDrop.iter()) handlers.gemDrop(row);
+        for (const row of connection.db.playerChatHearts.iter()) handlers.chatHearts(row);
+        for (const row of connection.db.playerLifetime.iter()) handlers.lifetime(row);
+        for (const row of connection.db.playerMotionIdentity.iter()) handlers.motionIdentity(row);
+        for (const row of connection.db.player.iter()) handlers.player(row);
+        for (const row of connection.db.myPlayerBlocks.iter()) handlers.playerBlock(row);
+        for (const row of connection.db.mySocialHub.iter()) handlers.socialHub(row);
+        for (const row of connection.db.mySocialMessagesWithReactions.iter()) handlers.socialMessage(row);
+        for (const row of connection.db.latestChatMessagesWithReactions.iter()) handlers.chatMessage(row);
+        for (const row of connection.db.duel.iter()) handlers.duel(row);
+      });
     },
     ready: () => {
       dependencies.batch(dependencies.onHydrated);

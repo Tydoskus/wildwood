@@ -1,27 +1,11 @@
-// Pre-cutover shared boss regression coverage. Current personal combat is tested separately.
-vi.mock("../../shared/personal-bosses", async (original) => ({ ...await original<typeof import("../../shared/personal-bosses")>(), PERSONAL_BOSS_COMBAT: false }));
 import { describe, expect, it, vi } from "vitest";
 import { Identity } from "spacetimedb";
-import { ATTACK_BALANCE_VERSION, BOSS_REWARD_CLAIM_BITS, MIREMAW_MAX_HP, TEMPEST_KIRIN_MAX_HP, SPACETIME_AUTH_ISSUER, SPACETIME_AUTH_CLIENT_ID } from "../../shared/rules";
+import { ATTACK_BALANCE_VERSION, BOSS_REWARD_CLAIM_BITS, SPACETIME_AUTH_ISSUER, SPACETIME_AUTH_CLIENT_ID } from "../../shared/rules";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
 
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 describe("Crystal Hollows unlock and identity lifecycle", () => {
-  it("earns the unlock from Miremaw, not a high stat or the preceding Kirin", () => {
-    const f = crystalFixture();
-    f.patch("playerProgress", { damage: 1e15 });
-    expect(f.db.playerProgress.identity.find(f.ctx.sender).crystalHollowsUnlocked).toBe(false);
-    f.patch("player", { mapId: "cloudspire" });
-    f.seed("tempestKirinBoss", { id: 1, encounter: 1n, maxHp: TEMPEST_KIRIN_MAX_HP, hp: 1, alive: true });
-    f.run(server.damageTempestKirinFromPosition, { hits: 1, x: 4050, y: 4050 });
-    expect(f.db.playerProgress.identity.find(f.ctx.sender)).toMatchObject({ moonfenUnlocked: true, crystalHollowsUnlocked: false });
-    f.run(server.changeMap, { mapId: "moonfen", x: 580, y: 617 });
-    f.seed("miremawBoss", { id: 1, encounter: 1n, maxHp: MIREMAW_MAX_HP, hp: 1, alive: true });
-    f.run(server.damageMiremawFromPosition, { hits: 1, x: 4050, y: 4050 });
-    expect(f.db.playerProgress.identity.find(f.ctx.sender).crystalHollowsUnlocked).toBe(true);
-  });
-
   it("backfills recorded Miremaw contributors once without altering their stats", () => {
     const f = crystalFixture();
     const bystander = f.progress(identity("2"), { maxHp: 100, damage: 100 });
@@ -75,7 +59,7 @@ describe("Crystal Hollows unlock and identity lifecycle", () => {
 
   it("renames the contributor without changing credited damage", () => {
     const f = crystalFixture();
-    f.attack();
+    f.seed("prismshellContribution", { identity: f.ctx.sender, encounter: 7n, damage: 1_000, displayName: "Test Player" });
     f.run(server.setDisplayName, { displayName: "New Name" });
     expect(f.db.prismshellContribution.identity.find(f.ctx.sender)).toMatchObject({ displayName: "New Name", damage: 1_000 });
   });
@@ -84,7 +68,8 @@ describe("Crystal Hollows unlock and identity lifecycle", () => {
     const f = crystalFixture();
     const peer = identity("2");
     f.seed("virtualPlayer", { identity: f.ctx.sender, owner: peer, mapId: "crystal_hollows", createdAt: f.ctx.timestamp });
-    f.attack();
+    f.seed("prismshellContribution", { identity: f.ctx.sender, encounter: 7n, damage: 1_000, displayName: "Test Player" });
+    f.seed("prismshellAttackWindow", { identity: f.ctx.sender, encounter: 7n, hits: 1, startedAtMicros: f.ctx.timestamp.microsSinceUnixEpoch });
     f.seed("prismshellContribution", { identity: peer, encounter: 7n, damage: 22, displayName: "Peer" });
     f.run(server.onDisconnect);
     expect(f.db.prismshellContribution.identity.find(f.ctx.sender)).toBeNull();

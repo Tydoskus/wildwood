@@ -19,10 +19,6 @@ import type {
   RemotePlayer,
   RemoteRegularEnemyCombatVisual,
 } from "../../wildstat-coop";
-import {
-  remoteBossAttackFrame,
-  type RemoteBossSimulationTarget,
-} from "../../coop/services/remote-boss-attack";
 import { REGULAR_ENEMY_RESPAWN_SECONDS } from "./regular-enemy-respawn";
 import { separateEnemyCrowd } from "./enemy-crowd-separation";
 import { rangedEnemyAttackRange, rangedEnemyPreferredDistance } from "./ranged-enemy-range";
@@ -31,7 +27,6 @@ import type { EnemyState } from "./types";
 const PROJECTILE_RADIUS = 6;
 const PROJECTILE_SPREAD_RADIANS = .13;
 const GHOST_OPPONENT_DEATH_HOLD_MS = 850;
-const REMOTE_BOSS_STATS_INTEREST_RADIUS = 1_400;
 export const REMOTE_GHOST_DEATH_ANIMATION_MS = 620;
 export const REMOTE_GHOST_TARGET_MISSING_GRACE_MS = 2_000;
 
@@ -181,8 +176,6 @@ export function createRemoteEnemyCombatShadows(options: {
   let targets: RemotePlayer[] = [];
   let targetById = new Map<string, RemotePlayer>();
   const targetStats = new Map<string, RemoteCombatStats | null | undefined>();
-  let statsForCurrentFrame: (identity: string) => RemoteCombatStats | null | undefined = () => null;
-  let bossTarget: RemoteBossSimulationTarget | null = null;
 
   function clearState() {
     shadows.clear();
@@ -194,7 +187,6 @@ export function createRemoteEnemyCombatShadows(options: {
     ghostBuffer.length = 0;
     activeGhostCrowd.length = 0;
     targetStats.clear();
-    bossTarget = null;
   }
 
   function combatStatsFor(
@@ -498,8 +490,6 @@ export function createRemoteEnemyCombatShadows(options: {
     nowMs: number,
     dt: number,
     remotePlayers: readonly RemotePlayer[],
-    statsFor: (identity: string) => RemoteCombatStats | null | undefined,
-    currentBoss: RemoteBossSimulationTarget | null,
   ) {
     if (currentMapId !== mapId) {
       clearState();
@@ -509,8 +499,6 @@ export function createRemoteEnemyCombatShadows(options: {
     frameDt = Math.max(0, Math.min(.1, Number.isFinite(dt) ? dt : 0));
     targets = [...remotePlayers];
     targetById = new Map(targets.map((target) => [target.id, target]));
-    statsForCurrentFrame = statsFor;
-    bossTarget = currentBoss?.alive ? currentBoss : null;
     targetStats.clear();
     visuals.clear();
     updateFighters();
@@ -598,42 +586,6 @@ export function createRemoteEnemyCombatShadows(options: {
     renderBuffer.length = 0;
     for (const player of players) {
       const regularEnemyCombat = visuals.get(player.id)?.visual;
-      const bossDistance = bossTarget
-        ? Math.hypot(
-          (player.simulationX ?? player.x) - bossTarget.x,
-          (player.simulationY ?? player.y) - bossTarget.y,
-        )
-        : Number.POSITIVE_INFINITY;
-      const shouldEvaluateBoss = Boolean(
-        bossTarget &&
-        targetById.has(player.id) &&
-        bossDistance <= bossTarget.radius + REMOTE_BOSS_STATS_INTEREST_RADIUS,
-      );
-      const stats = shouldEvaluateBoss
-        ? combatStatsFor(player.id, statsForCurrentFrame)
-        : null;
-      const bossAttack = bossTarget && stats
-        ? remoteBossAttackFrame({
-          boss: bossTarget,
-          playerId: player.id,
-          playerX: player.simulationX ?? player.x,
-          playerY: player.simulationY ?? player.y,
-          attackInterval: stats.attackInterval,
-          attackRange: stats.attackRange,
-          projectileCount: stats.projectileCount,
-          serverNowMs,
-        })
-        : null;
-      if (bossAttack) {
-        renderBuffer.push({
-          ...player,
-          facing: bossAttack.facing,
-          throwClock: bossAttack.throwClock,
-          bossAttack: bossAttack.visual,
-          regularEnemyCombat,
-        });
-        continue;
-      }
       if (!regularEnemyCombat) {
         renderBuffer.push(player);
         continue;

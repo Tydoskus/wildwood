@@ -42,26 +42,26 @@ function fixture() {
 
 /** Every world table the connection binds handlers to. It must not pull them
  * for anyone but us: the per-map rows are the presence service's. */
-const WORLD_BOUND_TABLES = ["player", "playerMotionIdentity", "playerMotionDetailFrame", "playerMapFrame", "playerDeathFrame", "bossHitResult"];
-const PER_MAP_TABLES = ["playerMotionDetailFrame", "playerMapFrame", "playerDeathFrame", "bossHitResult", "bossAttackFrame"];
+const WORLD_BOUND_TABLES = ["player", "playerMotionIdentity", "playerMotionDetailFrame", "playerMapFrame", "playerDeathFrame"];
+const PER_MAP_TABLES = ["playerMotionDetailFrame", "playerMapFrame", "playerDeathFrame"];
 
 describe("account and gameplay query scopes", () => {
   it("loads only the saved character/account on the sign-in screen", () => {
     const f = fixture();
-    f.subscription.refresh(false, "tutorial_forest");
+    f.subscription.refresh(false);
     expect(f.requests).toHaveLength(1);
     expect(f.requests[0].queries.map(q => q.name)).toEqual(["playerProfile", "playerProgress", "playerAccountStatus"]);
   });
 
   it("hydrates private history without shared boss subscriptions", () => {
     const f = fixture();
-    f.subscription.refresh(true, "beginner_desert", false);
+    f.subscription.refresh(true);
     expect(f.requests).toHaveLength(1);
     expect(f.requests[0].queries.some(q => /Boss|Result/.test(q.name))).toBe(false);
     f.rows.myCutsceneHistory = [{}]; f.requests[0].applied();
     expect(f.handled).toContain("cutsceneHistory");
     expect(f.ready).toHaveBeenCalledOnce();
-    f.subscription.refresh(true, "water_reach", false);
+    f.subscription.refresh(true);
     expect(f.requests).toHaveLength(1);
   });
 });
@@ -69,13 +69,13 @@ describe("account and gameplay query scopes", () => {
 describe("world state on the root connection", () => {
   it("binds a handler to every world table, so the map subscription's rows reach the game", () => {
     const f = fixture();
-    f.subscription.refresh(true, "tutorial_forest", false);
+    f.subscription.refresh(true);
     for (const table of WORLD_BOUND_TABLES) expect(f.bound.has(table), table).toBe(true);
   });
 
   it("takes only our own player rows and leaves the per-map tables to the map subscription", () => {
     const f = fixture();
-    f.subscription.refresh(true, "tutorial_forest", false);
+    f.subscription.refresh(true);
     const game = f.requests[0].queries;
     // An unfiltered player or motion-identity query here would grow with every
     // player online, not the ones on our map.
@@ -86,13 +86,13 @@ describe("world state on the root connection", () => {
     }
     expect(game.filter(q => PER_MAP_TABLES.includes(q.name))).toEqual([]);
     // A map change swaps the presence service's queries, not this set.
-    f.subscription.refresh(true, "beginner_desert", false);
+    f.subscription.refresh(true);
     expect(f.requests).toHaveLength(1);
   });
 
   it("carries the windows that open away from their own map", () => {
     const f = fixture();
-    f.subscription.refresh(true, "tutorial_forest", false);
+    f.subscription.refresh(true);
     const game = f.requests[0].queries;
     // Prestige asks for cleared Endless stages and opens from anywhere, so
     // reading that count must not depend on standing on an Endless map.

@@ -12,7 +12,7 @@ import { nameChangeStatus } from "../../shared/name-change";
 import { validPatreonRedirect } from "./patreon-url";
 import { isValidProfileIcon } from "../../shared/profile-icons";
 import { releaseNotice, releaseAcknowledgement, writeReleaseWindow, acknowledgeReleaseWindow } from "./release-control";
-import { PERSONAL_BOSS_COMBAT, personalBossDefinition } from "../../shared/personal-bosses";
+import { personalBossDefinition } from "../../shared/personal-bosses";
 import { playerMultiplayerPreference, writeMultiplayerPreference } from "./multiplayer-preference";
 import { enemyDefeatBudget, bossDefeatWindow, bossMapDefeatWindow, acceptEnemyDefeats, beginBossTimeBudget, enemyDefeatReview, permittedDefeatMaps, pruneIdleDefeatBudgets } from "./enemy-defeats";
 import { grantVirtualPlayerConsent, revokeVirtualPlayerConsent } from "./virtual-player-consent";
@@ -54,7 +54,7 @@ import { publicChatCursor, updatePublicChatCursor, readPublicChatPage } from "./
 import { createKillGems } from "./kill-gems";
 import { createPrestige, statRewardMultiplier } from "./prestige";
 import { generateMap, generatedBossStats, isProceduralMap, proceduralMapId, PROCEDURAL_ENTRY_MAP, PROCEDURAL_ENTRY_BOSS } from "../../shared/procedural-maps";
-import { proceduralMapTables, proceduralBossKey, clearProceduralProgress, generatedMapUnlocked, ensureProceduralBoss } from "./procedural-maps";
+import { proceduralMapTables, proceduralBossKey, clearProceduralProgress, generatedMapUnlocked } from "./procedural-maps";
 import { ingestStoreEvent } from "./gem-store-events";
 import { gemPurchaseTables } from "./gem-purchase-tables";
 import { patreonTables } from "./patreon-tables";
@@ -316,32 +316,20 @@ const LEADERBOARD_REFRESH_VERSION = 13;
 // Auto equip (auto-equip.ts) borrows only hoisted functions, so it exists
 // before the boss rewards that call it.
 const autoEquip = createAutoEquip({ inventoryForProgress, itemUpgradeLevelFor, writeProgressAndPresentation });
-// Shared-boss combat bodies live in boss-combat.ts; the reducers below keep
-// calling the same names. Placed after WORLD, the one const the factory reads.
+// Boss kill bounds and clear rewards live in boss-combat.ts; kill validation
+// and bossRewardHandlers below call these names. Placed after autoEquip, whose
+// equipNewUpgrades the rewards borrow.
 const {
-  maximumBossCombatForProgress, ensureDragonBoss, ensureSpiderBoss, ensureFrostclawBoss,
-  ensureMagmaliskBoss, ensureGloomrootBoss, ensureTidewyrmBoss, ensureKoiShogunBoss,
-  ensureTempestKirinBoss, ensureMiremawBoss, ensurePrismshellBoss, ensureIronhornBoss,
-  ensureDreadreaperBoss, ensureVoltwardenBoss, ensureGravebloomBoss, ensureAegisPrimeBoss,
-  regenerateIdleBosses, clearSpiderCombatRows, rewardSpiderContributor, clearFrostclawCombatRows,
-  rewardFrostclawContributor, clearMagmaliskCombatRows, rewardMagmaliskContributor,
-  clearGloomrootCombatRows, rewardGloomrootContributor, clearTidewyrmCombatRows,
-  clearKoiShogunCombatRows, clearTempestKirinCombatRows, clearMiremawCombatRows,
-  clearPrismshellCombatRows, clearIronhornCombatRows, clearDreadreaperCombatRows,
-  clearVoltwardenCombatRows, clearGravebloomCombatRows, clearAegisPrimeCombatRows,
+  maximumBossCombatForProgress, rewardDragonContributor, rewardSpiderContributor,
+  rewardFrostclawContributor, rewardMagmaliskContributor, rewardGloomrootContributor,
   rewardTidewyrmContributor, rewardKoiShogunContributor, rewardTempestKirinContributor,
   rewardMiremawContributor, rewardPrismshellContributor, rewardIronhornContributor,
   rewardDreadreaperContributor, rewardVoltwardenContributor, rewardGravebloomContributor,
-  rewardAegisPrimeContributor, clearDragonCombatRows, rewardDragonContributor, applyDragonDamage,
-  applySpiderDamage, applyFrostclawDamage, applyMagmaliskDamage, applyGloomrootDamage,
-  applyTidewyrmDamage, applyKoiShogunDamage, applyTempestKirinDamage, applyMiremawDamage,
-  applyPrismshellDamage, applyIronhornDamage, applyDreadreaperDamage, applyVoltwardenDamage,
-  applyGravebloomDamage, applyAegisPrimeDamage, applyProceduralBossHit,
+  rewardAegisPrimeContributor,
 } = createBossCombat({
-  WORLD, requireControllingPlayer, activeDuelFor, playerWithMotion,
-  syncPlayerMotionIdentity, powerFieldsForProgress, attackIntervalForProgress, playerOwnsItem,
-  publishItemDrop, restoreItemToProgress, researchedDamage, inventoryForProgress,
-  equippedRightHandForProgress, equippedLeftHandForProgress, writeProgressAndPresentation,
+  playerWithMotion, syncPlayerMotionIdentity, powerFieldsForProgress, attackIntervalForProgress,
+  playerOwnsItem, publishItemDrop, restoreItemToProgress, researchedDamage, inventoryForProgress,
+  equippedRightHandForProgress, equippedLeftHandForProgress,
   equipNewUpgrades: autoEquip.equipNewUpgrades,
 });
 // Duel bodies live in duel-runtime.ts; the duel reducers and the equipment
@@ -367,11 +355,7 @@ const { runPendingModuleMigrations, migratePlayerBalance } = createModuleMigrati
   syncPlayerMotionIdentity, persistWorldLocation, transitionPlayerMap, refreshLeaderboard,
   markPlayerBalanceCurrent, playerBalanceProgress, samePlayerProgressValues,
   resultIncludesContributor, contributedToLatestPrismshell, isVirtualPlayer, sameIdentity,
-  applyGemBalanceChange, ensureDragonBoss, ensureSpiderBoss, ensureFrostclawBoss,
-  ensureMagmaliskBoss, ensureGloomrootBoss, ensureTidewyrmBoss, ensureKoiShogunBoss,
-  ensureTempestKirinBoss, ensureMiremawBoss, ensurePrismshellBoss, ensureIronhornBoss,
-  ensureDreadreaperBoss, ensureVoltwardenBoss, ensureGravebloomBoss, ensureAegisPrimeBoss,
-  ensureWorldStatus, ensureMaintenanceSweepSchedule,
+  applyGemBalanceChange, ensureWorldStatus, ensureMaintenanceSweepSchedule,
 });
 
 // Exact-own lifecycle and physical compatibility row. Current clients never
@@ -573,7 +557,8 @@ const playerMapFrame = table(
   },
 );
 
-// Confirmed damage for the attacking player's hit-number presentation.
+// Inert schema-compatibility table. It carried confirmed shared-boss hit
+// numbers; bosses are personal now and nothing inserts into it.
 const bossHitResult = table(
   { public: true, event: true, indexes: [{ accessor: "byIdentity", algorithm: "btree", columns: ["identity"] as const }] },
   { identity: t.identity(), mapId: t.string(), x: t.f64(), y: t.f64(), damage: t.f64(), critical: t.bool() },
@@ -3715,7 +3700,6 @@ export const runMaintenance = spacetimedb.reducer(
     // refresh per connect and disconnect made a mass reload players-squared.
     reconcileOnlinePlayers(ctx);
     refreshLeaderboardIfDue(ctx);
-    regenerateIdleBosses(ctx);
     expireEquipmentOffers(ctx);
   },
 );
@@ -3868,351 +3852,51 @@ export const resolveScheduledDuel = spacetimedb.reducer(
   },
 );
 
-export const respawnDragon = spacetimedb.reducer(
-  { schedule: dragonRespawnSchedule.rowType },
-  (ctx, { schedule }) => {
-    const dragon = ensureDragonBoss(ctx);
-    if (dragon.alive || dragon.encounter !== schedule.encounter) return;
-    if (ctx.timestamp.microsSinceUnixEpoch < dragon.respawnAtMicros) return;
-    clearDragonCombatRows(ctx);
-    ctx.db.dragonBoss.id.update({
-      ...dragon,
-      encounter: dragon.encounter + 1n,
-      hp: dragon.maxHp,
-      alive: true,
-      respawnAtMicros: 0n,
-      lastDamageAtMicros: 0n,
-    });
-  },
-);
+// Retired shared-boss respawns. Each schedule table names its reducer, so the
+// reducer stays for as long as the table does; nothing inserts a schedule row
+// any more, and a one-shot row still pending is removed by the host once this
+// runs. The tables go in the release that drops the shared-boss tables.
+export const respawnDragon = spacetimedb.reducer({ schedule: dragonRespawnSchedule.rowType }, () => {});
+export const respawnSpider = spacetimedb.reducer({ schedule: spiderRespawnSchedule.rowType }, () => {});
+export const respawnFrostclaw = spacetimedb.reducer({ schedule: frostclawRespawnSchedule.rowType }, () => {});
+export const respawnMagmalisk = spacetimedb.reducer({ schedule: magmaliskRespawnSchedule.rowType }, () => {});
+export const respawnGloomroot = spacetimedb.reducer({ schedule: gloomrootRespawnSchedule.rowType }, () => {});
+export const respawnTidewyrm = spacetimedb.reducer({ schedule: tidewyrmRespawnSchedule.rowType }, () => {});
+export const respawnKoiShogun = spacetimedb.reducer({ schedule: koiShogunRespawnSchedule.rowType }, () => {});
+export const respawnTempestKirin = spacetimedb.reducer({ schedule: tempestKirinRespawnSchedule.rowType }, () => {});
+export const respawnMiremaw = spacetimedb.reducer({ schedule: miremawRespawnSchedule.rowType }, () => {});
+export const respawnPrismshell = spacetimedb.reducer({ schedule: prismshellRespawnSchedule.rowType }, () => {});
+export const respawnIronhorn = spacetimedb.reducer({ schedule: ironhornRespawnSchedule.rowType }, () => {});
+export const respawnDreadreaper = spacetimedb.reducer({ schedule: dreadreaperRespawnSchedule.rowType }, () => {});
+export const respawnVoltwarden = spacetimedb.reducer({ schedule: voltwardenRespawnSchedule.rowType }, () => {});
+export const respawnGravebloom = spacetimedb.reducer({ schedule: gravebloomRespawnSchedule.rowType }, () => {});
+export const respawnAegisPrime = spacetimedb.reducer({ schedule: aegisPrimeRespawnSchedule.rowType }, () => {});
 
-export const respawnSpider = spacetimedb.reducer(
-  { schedule: spiderRespawnSchedule.rowType },
-  (ctx, { schedule }) => {
-    const spider = ensureSpiderBoss(ctx);
-    if (spider.alive || spider.encounter !== schedule.encounter) return;
-    if (ctx.timestamp.microsSinceUnixEpoch < spider.respawnAtMicros) return;
-    clearSpiderCombatRows(ctx);
-    ctx.db.spiderBoss.id.update({
-      ...spider,
-      encounter: spider.encounter + 1n,
-      hp: spider.maxHp,
-      alive: true,
-      respawnAtMicros: 0n,
-      lastDamageAtMicros: 0n,
-    });
-  },
-);
-
-export const respawnFrostclaw = spacetimedb.reducer(
-  { schedule: frostclawRespawnSchedule.rowType },
-  (ctx, { schedule }) => {
-    const frostclaw = ensureFrostclawBoss(ctx);
-    if (frostclaw.alive || frostclaw.encounter !== schedule.encounter) return;
-    if (ctx.timestamp.microsSinceUnixEpoch < frostclaw.respawnAtMicros) return;
-    clearFrostclawCombatRows(ctx);
-    ctx.db.frostclawBoss.id.update({
-      ...frostclaw,
-      encounter: frostclaw.encounter + 1n,
-      hp: frostclaw.maxHp,
-      alive: true,
-      respawnAtMicros: 0n,
-      lastDamageAtMicros: 0n,
-    });
-  },
-);
-
-export const respawnMagmalisk = spacetimedb.reducer(
-  { schedule: magmaliskRespawnSchedule.rowType },
-  (ctx, { schedule }) => {
-    const magmalisk = ensureMagmaliskBoss(ctx);
-    if (magmalisk.alive || magmalisk.encounter !== schedule.encounter) return;
-    if (ctx.timestamp.microsSinceUnixEpoch < magmalisk.respawnAtMicros) return;
-    clearMagmaliskCombatRows(ctx);
-    ctx.db.magmaliskBoss.id.update({
-      ...magmalisk,
-      encounter: magmalisk.encounter + 1n,
-      hp: magmalisk.maxHp,
-      alive: true,
-      respawnAtMicros: 0n,
-      lastDamageAtMicros: 0n,
-    });
-  },
-);
-
-export const respawnGloomroot = spacetimedb.reducer(
-  { schedule: gloomrootRespawnSchedule.rowType },
-  (ctx, { schedule }) => {
-    const gloomroot = ensureGloomrootBoss(ctx);
-    if (gloomroot.alive || gloomroot.encounter !== schedule.encounter) return;
-    if (ctx.timestamp.microsSinceUnixEpoch < gloomroot.respawnAtMicros) return;
-    clearGloomrootCombatRows(ctx);
-    ctx.db.gloomrootBoss.id.update({
-      ...gloomroot,
-      encounter: gloomroot.encounter + 1n,
-      hp: gloomroot.maxHp,
-      alive: true,
-      respawnAtMicros: 0n,
-      lastDamageAtMicros: 0n,
-    });
-  },
-);
-
-export const respawnTidewyrm = spacetimedb.reducer(
-  { schedule: tidewyrmRespawnSchedule.rowType },
-  (ctx, { schedule }) => {
-    const tidewyrm = ensureTidewyrmBoss(ctx);
-    if (tidewyrm.alive || tidewyrm.encounter !== schedule.encounter) return;
-    if (ctx.timestamp.microsSinceUnixEpoch < tidewyrm.respawnAtMicros) return;
-    clearTidewyrmCombatRows(ctx);
-    ctx.db.tidewyrmBoss.id.update({
-      ...tidewyrm,
-      encounter: tidewyrm.encounter + 1n,
-      hp: tidewyrm.maxHp,
-      alive: true,
-      respawnAtMicros: 0n,
-      lastDamageAtMicros: 0n,
-    });
-  },
-);
-
-export const respawnKoiShogun = spacetimedb.reducer(
-  { schedule: koiShogunRespawnSchedule.rowType },
-  (ctx, { schedule }) => {
-    const koiShogun = ensureKoiShogunBoss(ctx);
-    if (koiShogun.alive || koiShogun.encounter !== schedule.encounter) return;
-    if (ctx.timestamp.microsSinceUnixEpoch < koiShogun.respawnAtMicros) return;
-    clearKoiShogunCombatRows(ctx);
-    ctx.db.koiShogunBoss.id.update({
-      ...koiShogun,
-      encounter: koiShogun.encounter + 1n,
-      hp: koiShogun.maxHp,
-      alive: true,
-      respawnAtMicros: 0n,
-      lastDamageAtMicros: 0n,
-    });
-  },
-);
-
-export const respawnTempestKirin = spacetimedb.reducer(
-  { schedule: tempestKirinRespawnSchedule.rowType },
-  (ctx, { schedule }) => {
-    const tempestKirin = ensureTempestKirinBoss(ctx);
-    if (tempestKirin.alive || tempestKirin.encounter !== schedule.encounter) return;
-    if (ctx.timestamp.microsSinceUnixEpoch < tempestKirin.respawnAtMicros) return;
-    clearTempestKirinCombatRows(ctx);
-    ctx.db.tempestKirinBoss.id.update({
-      ...tempestKirin,
-      encounter: tempestKirin.encounter + 1n,
-      hp: tempestKirin.maxHp,
-      alive: true,
-      respawnAtMicros: 0n,
-      lastDamageAtMicros: 0n,
-    });
-  },
-);
-export const respawnMiremaw = spacetimedb.reducer(
-  { schedule: miremawRespawnSchedule.rowType },
-  (ctx, { schedule }) => {
-    const miremaw = ensureMiremawBoss(ctx);
-    if (miremaw.alive || miremaw.encounter !== schedule.encounter) return;
-    if (ctx.timestamp.microsSinceUnixEpoch < miremaw.respawnAtMicros) return;
-    clearMiremawCombatRows(ctx);
-    ctx.db.miremawBoss.id.update({
-      ...miremaw,
-      encounter: miremaw.encounter + 1n,
-      hp: miremaw.maxHp,
-      alive: true,
-      respawnAtMicros: 0n,
-      lastDamageAtMicros: 0n,
-    });
-  },
-);
-export const respawnPrismshell = spacetimedb.reducer(
-  { schedule: prismshellRespawnSchedule.rowType },
-  (ctx, { schedule }) => {
-    const prismshell = ensurePrismshellBoss(ctx);
-    if (prismshell.alive || prismshell.encounter !== schedule.encounter) return;
-    if (ctx.timestamp.microsSinceUnixEpoch < prismshell.respawnAtMicros) return;
-    clearPrismshellCombatRows(ctx);
-    ctx.db.prismshellBoss.id.update({
-      ...prismshell,
-      encounter: prismshell.encounter + 1n,
-      hp: prismshell.maxHp,
-      alive: true,
-      respawnAtMicros: 0n,
-      lastDamageAtMicros: 0n,
-    });
-  },
-);
-export const respawnIronhorn = spacetimedb.reducer(
-  { schedule: ironhornRespawnSchedule.rowType },
-  (ctx, { schedule }) => {
-    const ironhorn = ensureIronhornBoss(ctx);
-    if (ironhorn.alive || ironhorn.encounter !== schedule.encounter) return;
-    if (ctx.timestamp.microsSinceUnixEpoch < ironhorn.respawnAtMicros) return;
-    clearIronhornCombatRows(ctx);
-    ctx.db.ironhornBoss.id.update({
-      ...ironhorn,
-      encounter: ironhorn.encounter + 1n,
-      hp: ironhorn.maxHp,
-      alive: true,
-      respawnAtMicros: 0n,
-      lastDamageAtMicros: 0n,
-    });
-  },
-);
-export const respawnDreadreaper = spacetimedb.reducer(
-  { schedule: dreadreaperRespawnSchedule.rowType },
-  (ctx, { schedule }) => {
-    const dreadreaper = ensureDreadreaperBoss(ctx);
-    if (dreadreaper.alive || dreadreaper.encounter !== schedule.encounter) return;
-    if (ctx.timestamp.microsSinceUnixEpoch < dreadreaper.respawnAtMicros) return;
-    clearDreadreaperCombatRows(ctx);
-    ctx.db.dreadreaperBoss.id.update({
-      ...dreadreaper,
-      encounter: dreadreaper.encounter + 1n,
-      hp: dreadreaper.maxHp,
-      alive: true,
-      respawnAtMicros: 0n,
-      lastDamageAtMicros: 0n,
-    });
-  },
-);
-export const respawnVoltwarden = spacetimedb.reducer(
-  { schedule: voltwardenRespawnSchedule.rowType },
-  (ctx, { schedule }) => {
-    const voltwarden = ensureVoltwardenBoss(ctx);
-    if (voltwarden.alive || voltwarden.encounter !== schedule.encounter) return;
-    if (ctx.timestamp.microsSinceUnixEpoch < voltwarden.respawnAtMicros) return;
-    clearVoltwardenCombatRows(ctx);
-    ctx.db.voltwardenBoss.id.update({
-      ...voltwarden,
-      encounter: voltwarden.encounter + 1n,
-      hp: voltwarden.maxHp,
-      alive: true,
-      respawnAtMicros: 0n,
-      lastDamageAtMicros: 0n,
-    });
-  },
-);
-export const respawnGravebloom = spacetimedb.reducer(
-  { schedule: gravebloomRespawnSchedule.rowType },
-  (ctx, { schedule }) => {
-    const gravebloom = ensureGravebloomBoss(ctx);
-    if (gravebloom.alive || gravebloom.encounter !== schedule.encounter) return;
-    if (ctx.timestamp.microsSinceUnixEpoch < gravebloom.respawnAtMicros) return;
-    clearGravebloomCombatRows(ctx);
-    ctx.db.gravebloomBoss.id.update({
-      ...gravebloom,
-      encounter: gravebloom.encounter + 1n,
-      hp: gravebloom.maxHp,
-      alive: true,
-      respawnAtMicros: 0n,
-      lastDamageAtMicros: 0n,
-    });
-  },
-);
-export const respawnAegisPrime = spacetimedb.reducer(
-  { schedule: aegisPrimeRespawnSchedule.rowType },
-  (ctx, { schedule }) => {
-    const aegisPrime = ensureAegisPrimeBoss(ctx);
-    if (aegisPrime.alive || aegisPrime.encounter !== schedule.encounter) return;
-    if (ctx.timestamp.microsSinceUnixEpoch < aegisPrime.respawnAtMicros) return;
-    clearAegisPrimeCombatRows(ctx);
-    ctx.db.aegisPrimeBoss.id.update({
-      ...aegisPrime,
-      encounter: aegisPrime.encounter + 1n,
-      hp: aegisPrime.maxHp,
-      alive: true,
-      respawnAtMicros: 0n,
-      lastDamageAtMicros: 0n,
-    });
-  },
-);
-
-
-// Legacy one-projectile reducer remains available while cached clients drain.
-export const damageDragon = spacetimedb.reducer({}, (ctx) => applyDragonDamage(ctx, 1));
-
-export const damageDragonBatch = spacetimedb.reducer(
-  { hits: t.u32() },
-  (ctx, { hits }) => applyDragonDamage(ctx, hits),
-);
-
-export const damageDragonFromPosition = spacetimedb.reducer(
-  { hits: t.u32(), x: t.f64(), y: t.f64() },
-  (ctx, { hits, x, y }) => applyDragonDamage(ctx, hits, { x, y }),
-);
-
-export const damageSpiderBatch = spacetimedb.reducer(
-  { hits: t.u32() },
-  (ctx, { hits }) => applySpiderDamage(ctx, hits),
-);
-
-export const damageSpiderFromPosition = spacetimedb.reducer(
-  { hits: t.u32(), x: t.f64(), y: t.f64() },
-  (ctx, { hits, x, y }) => applySpiderDamage(ctx, hits, { x, y }),
-);
-
-export const damageFrostclawFromPosition = spacetimedb.reducer(
-  { hits: t.u32(), x: t.f64(), y: t.f64() },
-  (ctx, { hits, x, y }) => applyFrostclawDamage(ctx, hits, { x, y }),
-);
-
-export const damageMagmaliskFromPosition = spacetimedb.reducer(
-  { hits: t.u32(), x: t.f64(), y: t.f64() },
-  (ctx, { hits, x, y }) => applyMagmaliskDamage(ctx, hits, { x, y }),
-);
-
-export const damageGloomrootFromPosition = spacetimedb.reducer(
-  { hits: t.u32(), x: t.f64(), y: t.f64() },
-  (ctx, { hits, x, y }) => applyGloomrootDamage(ctx, hits, { x, y }),
-);
-
-export const damageTidewyrmFromPosition = spacetimedb.reducer(
-  { hits: t.u32(), x: t.f64(), y: t.f64() },
-  (ctx, { hits, x, y }) => applyTidewyrmDamage(ctx, hits, { x, y }),
-);
-
-export const damageKoiShogunFromPosition = spacetimedb.reducer(
-  { hits: t.u32(), x: t.f64(), y: t.f64() },
-  (ctx, { hits, x, y }) => applyKoiShogunDamage(ctx, hits, { x, y }),
-);
-
-export const damageTempestKirinFromPosition = spacetimedb.reducer(
-  { hits: t.u32(), x: t.f64(), y: t.f64() },
-  (ctx, { hits, x, y }) => applyTempestKirinDamage(ctx, hits, { x, y }),
-);
-export const damageMiremawFromPosition = spacetimedb.reducer(
-  { hits: t.u32(), x: t.f64(), y: t.f64() },
-  (ctx, { hits, x, y }) => applyMiremawDamage(ctx, hits, { x, y }),
-);
-export const damagePrismshellFromPosition = spacetimedb.reducer(
-  { hits: t.u32(), x: t.f64(), y: t.f64() },
-  (ctx, { hits, x, y }) => applyPrismshellDamage(ctx, hits, { x, y }),
-);
-export const damageIronhornFromPosition = spacetimedb.reducer(
-  { hits: t.u32(), x: t.f64(), y: t.f64() },
-  (ctx, { hits, x, y }) => applyIronhornDamage(ctx, hits, { x, y }),
-);
-export const damageDreadreaperFromPosition = spacetimedb.reducer(
-  { hits: t.u32(), x: t.f64(), y: t.f64() },
-  (ctx, { hits, x, y }) => applyDreadreaperDamage(ctx, hits, { x, y }),
-);
-export const damageVoltwardenFromPosition = spacetimedb.reducer(
-  { hits: t.u32(), x: t.f64(), y: t.f64() },
-  (ctx, { hits, x, y }) => applyVoltwardenDamage(ctx, hits, { x, y }),
-);
-export const damageGravebloomFromPosition = spacetimedb.reducer(
-  { hits: t.u32(), x: t.f64(), y: t.f64() },
-  (ctx, { hits, x, y }) => applyGravebloomDamage(ctx, hits, { x, y }),
-);
-export const damageAegisPrimeFromPosition = spacetimedb.reducer(
-  { hits: t.u32(), x: t.f64(), y: t.f64() },
-  (ctx, { hits, x, y }) => applyAegisPrimeDamage(ctx, hits, { x, y }),
-);
-
+// Retired shared-boss hits. Boss fights are personal and settle through
+// record_enemy_defeats; these keep their wire shapes so a stale tab gets an
+// explicit update error instead of an unknown reducer.
+const retiredBossHitArgs = { hits: t.u32(), x: t.f64(), y: t.f64() };
+function refuseRetiredBossHit(): never {
+  throw new SenderError("WildStat updated. Refresh to continue.");
+}
+export const damageDragon = spacetimedb.reducer({}, () => refuseRetiredBossHit());
+export const damageDragonBatch = spacetimedb.reducer({ hits: t.u32() }, () => refuseRetiredBossHit());
+export const damageDragonFromPosition = spacetimedb.reducer(retiredBossHitArgs, () => refuseRetiredBossHit());
+export const damageSpiderBatch = spacetimedb.reducer({ hits: t.u32() }, () => refuseRetiredBossHit());
+export const damageSpiderFromPosition = spacetimedb.reducer(retiredBossHitArgs, () => refuseRetiredBossHit());
+export const damageFrostclawFromPosition = spacetimedb.reducer(retiredBossHitArgs, () => refuseRetiredBossHit());
+export const damageMagmaliskFromPosition = spacetimedb.reducer(retiredBossHitArgs, () => refuseRetiredBossHit());
+export const damageGloomrootFromPosition = spacetimedb.reducer(retiredBossHitArgs, () => refuseRetiredBossHit());
+export const damageTidewyrmFromPosition = spacetimedb.reducer(retiredBossHitArgs, () => refuseRetiredBossHit());
+export const damageKoiShogunFromPosition = spacetimedb.reducer(retiredBossHitArgs, () => refuseRetiredBossHit());
+export const damageTempestKirinFromPosition = spacetimedb.reducer(retiredBossHitArgs, () => refuseRetiredBossHit());
+export const damageMiremawFromPosition = spacetimedb.reducer(retiredBossHitArgs, () => refuseRetiredBossHit());
+export const damagePrismshellFromPosition = spacetimedb.reducer(retiredBossHitArgs, () => refuseRetiredBossHit());
+export const damageIronhornFromPosition = spacetimedb.reducer(retiredBossHitArgs, () => refuseRetiredBossHit());
+export const damageDreadreaperFromPosition = spacetimedb.reducer(retiredBossHitArgs, () => refuseRetiredBossHit());
+export const damageVoltwardenFromPosition = spacetimedb.reducer(retiredBossHitArgs, () => refuseRetiredBossHit());
+export const damageGravebloomFromPosition = spacetimedb.reducer(retiredBossHitArgs, () => refuseRetiredBossHit());
+export const damageAegisPrimeFromPosition = spacetimedb.reducer(retiredBossHitArgs, () => refuseRetiredBossHit());
 
 // Release control stays on the account database; no map publish is needed for notices.
 export const setReleaseWindow = spacetimedb.reducer(
@@ -6667,16 +6351,13 @@ export const myProceduralBoss = spacetimedb.view(
   },
 );
 
-export const prepareProceduralBoss = spacetimedb.reducer({ mapId:t.string() }, (ctx, {mapId}) => {
-  if (PERSONAL_BOSS_COMBAT) return;
-  const player = requireControllingPlayer(ctx);
-  if (player.mapId !== mapId) return;
-  const key = proceduralBossKey(ctx, mapId);
-  if (key) ensureProceduralBoss(ctx, mapId, key);
-});
+// Retired shared Endless boss endpoints. Endless bosses are personal and settle
+// through record_enemy_defeats. Preparing was already a silent no-op for
+// current clients, so it stays one; the hits refuse like the map bosses above.
+export const prepareProceduralBoss = spacetimedb.reducer({ mapId:t.string() }, () => {});
 const proceduralHitArgs = { mapId:t.string(), bossKey:t.string(), encounter:t.u64(), hits:t.u32(), x:t.f64(), y:t.f64() };
-export const hitProceduralBoss = spacetimedb.reducer(proceduralHitArgs, (ctx, action) => applyProceduralBossHit(ctx, action));
-export const hitProceduralBossBatch = spacetimedb.reducer(proceduralHitArgs, (ctx, action) => applyProceduralBossHit(ctx, action));
+export const hitProceduralBoss = spacetimedb.reducer(proceduralHitArgs, () => refuseRetiredBossHit());
+export const hitProceduralBossBatch = spacetimedb.reducer(proceduralHitArgs, () => refuseRetiredBossHit());
 
 const rankedLeaderboardPlayer = t.object("RankedLeaderboardPlayer", { rank: t.u32(), entry: leaderboardEntry.rowType });
 export const getLeaderboardWindow = spacetimedb.procedure(

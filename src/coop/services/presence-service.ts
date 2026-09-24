@@ -91,19 +91,6 @@ type RemotePlayerTarget = RemotePlayer & {
 
 type PlayerInterestArea = { left: number; top: number; right: number; bottom: number };
 
-/** Keeps solo boss targeting live after the low-cost map snapshot publisher goes idle. */
-export function bossTargetsFromMapSamples(
-  samples: readonly PlayerMapSample[],
-  localNetworkId: number | null,
-  localPosition: { x: number; y: number } | null,
-) {
-  return samples.map((sample) => ({
-    id: `network:${sample.networkId}`,
-    x: sample.networkId === localNetworkId && localPosition ? localPosition.x : sample.x,
-    y: sample.networkId === localNetworkId && localPosition ? localPosition.y : sample.y,
-  }));
-}
-
 type PresenceServiceDependencies = {
   multiplayerEnabled?: () => boolean;
   drainEnemyLoot?: () => Promise<boolean>;
@@ -1031,7 +1018,6 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
           player.simulationX = simulationMotion.x;
           player.simulationY = simulationMotion.y;
           player.throwClock = undefined;
-          player.bossAttack = undefined;
           result.push(player);
         }
         return result;
@@ -1041,11 +1027,6 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       },
       serverNowMs: () => estimatedServerNowMs(),
       regularEnemyLocalPosition: () => regularEnemyLocalPosition(),
-      bossTargets: () => bossTargetsFromMapSamples(
-        latestMapSamples,
-        localMotionNetworkId,
-        regularEnemyLocalPosition(),
-      ),
       remotePlayerCorpses: () => remotePlayersVisible ? corpses.players(currentMapId, performance.now()) : [],
       remotePlayerDeath(identity: string) {
         const corpse = corpses.death(identity, currentMapId, performance.now());

@@ -72,21 +72,6 @@ export type ModuleMigrationDeps = {
   isVirtualPlayer: (ctx: any, identity: any) => boolean;
   sameIdentity: (a: any, b: any) => boolean;
   applyGemBalanceChange: (ctx: any, input: any) => any;
-  ensureDragonBoss: (ctx: any) => any;
-  ensureSpiderBoss: (ctx: any) => any;
-  ensureFrostclawBoss: (ctx: any) => any;
-  ensureMagmaliskBoss: (ctx: any) => any;
-  ensureGloomrootBoss: (ctx: any) => any;
-  ensureTidewyrmBoss: (ctx: any) => any;
-  ensureKoiShogunBoss: (ctx: any) => any;
-  ensureTempestKirinBoss: (ctx: any) => any;
-  ensureMiremawBoss: (ctx: any) => any;
-  ensurePrismshellBoss: (ctx: any) => any;
-  ensureIronhornBoss: (ctx: any) => any;
-  ensureDreadreaperBoss: (ctx: any) => any;
-  ensureVoltwardenBoss: (ctx: any) => any;
-  ensureGravebloomBoss: (ctx: any) => any;
-  ensureAegisPrimeBoss: (ctx: any) => any;
   ensureWorldStatus: (ctx: any) => void;
   ensureMaintenanceSweepSchedule: (ctx: any) => void;
 };
@@ -100,11 +85,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     syncPlayerMotionIdentity, persistWorldLocation, transitionPlayerMap, refreshLeaderboard,
     markPlayerBalanceCurrent, playerBalanceProgress, samePlayerProgressValues,
     resultIncludesContributor, contributedToLatestPrismshell, isVirtualPlayer, sameIdentity,
-    applyGemBalanceChange, ensureDragonBoss, ensureSpiderBoss, ensureFrostclawBoss,
-    ensureMagmaliskBoss, ensureGloomrootBoss, ensureTidewyrmBoss, ensureKoiShogunBoss,
-    ensureTempestKirinBoss, ensureMiremawBoss, ensurePrismshellBoss, ensureIronhornBoss,
-    ensureDreadreaperBoss, ensureVoltwardenBoss, ensureGravebloomBoss, ensureAegisPrimeBoss,
-    ensureWorldStatus, ensureMaintenanceSweepSchedule,
+    applyGemBalanceChange, ensureWorldStatus, ensureMaintenanceSweepSchedule,
   } = deps;
 
   function runPendingModuleMigrations(ctx: any) {
@@ -427,25 +408,13 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
       }
     }
     if (currentVersion < 23) {
-      ensureDragonBoss(ctx);
-      ensureSpiderBoss(ctx);
-      ensureFrostclawBoss(ctx);
-      ensureMagmaliskBoss(ctx);
-      ensureGloomrootBoss(ctx);
-      ensureTidewyrmBoss(ctx);
-      ensureKoiShogunBoss(ctx);
-      ensureTempestKirinBoss(ctx);
-      ensureMiremawBoss(ctx);
-      ensurePrismshellBoss(ctx);
-      ensureIronhornBoss(ctx);
-      ensureDreadreaperBoss(ctx);
+      // This step also seeded the shared-boss rows. Bosses are personal now and
+      // nothing reads those rows, so a fresh database no longer creates them.
       ensureWorldStatus(ctx);
       ensureMaintenanceSweepSchedule(ctx);
     }
     if (currentVersion < 24) rebaseLegacyPlayersToMaps(ctx);
     if (currentVersion < 25) {
-      ensureIronhornBoss(ctx);
-      ensureDreadreaperBoss(ctx);
       // The existing claim ledger preserves every prior Prismshell victory.
       for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
         if ((progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.prismshell) !== 0 || contributedToLatestPrismshell(ctx, progress.identity)) {
@@ -456,7 +425,6 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     if (currentVersion < 26) rebasePlayersToEndgame(ctx);
     if (currentVersion < 27) migrateGuildTags(ctx);
     if (currentVersion < 28) {
-      ensureVoltwardenBoss(ctx);
       for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
         if (!progress.neonBastionUnlocked && ((progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.dreadreaper) || contributedToLatestDreadreaper(ctx, progress.identity))) {
           updateSnapshotRow(ctx, "playerProgress", { ...progress, neonBastionUnlocked: true });
@@ -464,7 +432,6 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
       }
     }
     if (currentVersion < 29) {
-      ensureGravebloomBoss(ctx);
       for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
         if (!progress.verdantCatacombsUnlocked && ((progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.voltwarden) || contributedToLatestVoltwarden(ctx, progress.identity))) {
           updateSnapshotRow(ctx, "playerProgress", { ...progress, verdantCatacombsUnlocked: true });
@@ -472,7 +439,6 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
       }
     }
     if (currentVersion < 30) {
-      ensureAegisPrimeBoss(ctx);
       for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
         if (!progress.ionCitadelUnlocked && ((progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.gravebloom) || contributedToLatestGravebloom(ctx, progress.identity))) {
           updateSnapshotRow(ctx, "playerProgress", { ...progress, ionCitadelUnlocked: true });

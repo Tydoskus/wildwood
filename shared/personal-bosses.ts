@@ -1,6 +1,4 @@
 import { runtimeMapBalance } from "./map-balance-runtime";
-/** Kept explicit while old reducer schemas remain installed for safe migrations. */
-export const PERSONAL_BOSS_COMBAT = true;
 import * as rules from "./rules";
 import { generateMap, generatedBossStats, isProceduralMap } from "./procedural-maps";
 

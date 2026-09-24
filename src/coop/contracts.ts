@@ -1,7 +1,6 @@
 import type { PlayerGender } from "../../shared/player-gender";
 import type { ResearchId } from "../../shared/research";
 import type { PlayerProgress } from "./services/progress";
-import type { RemoteBossAttackVisual } from "./services/remote-boss-attack";
 import type { RemoteEquipment } from "./services/remote-equipment";
 
 export type RemoteRegularEnemyCombatVisual = {
@@ -45,7 +44,6 @@ export type RemotePlayer = RemoteEquipment & {
   simulationX?: number;
   simulationY?: number;
   throwClock?: number;
-  bossAttack?: RemoteBossAttackVisual;
   regularEnemyCombat?: RemoteRegularEnemyCombatVisual;
 };
 

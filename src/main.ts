@@ -590,9 +590,8 @@ import {
     },
   });
   const proceduralBoss = createProceduralBossController({
-    mapId: () => currentMapId, state: mapId => ({ ...coop?.proceduralMapState(mapId), boss: personalBosses.proceduralState(mapId) }),
-    serverNow: () => coop?.serverNowMs?.() ?? Date.now(), enemies, player, spawn: spawnFromSite,
-    hit: () => {},
+    mapId: () => currentMapId, state: mapId => ({ ...coop?.proceduralMapState(), boss: personalBosses.proceduralState(mapId) }),
+    enemies, player, spawn: spawnFromSite,
     damagePlayer: damage => playerCombat.damagePlayer(damage), burst: spawnBurst, shot: projectileStore.spawnEnemyShot,
   });
   const enemySimulation = createEnemySimulation(
@@ -708,7 +707,6 @@ import {
     },
     recordRegularEnemyDefeat: (mapId, enemy) => coop?.recordRegularEnemyDefeat?.(mapId, enemy, Boolean(autoFarm.targetType())),
     incrementKills: () => { totalKills += 1; },
-    drainBossHitResults: () => coop?.drainBossHitResults?.() ?? [],
     currentMapId: () => currentMapId,
     spawnBurst,
     spawnParticle,
@@ -1172,7 +1170,7 @@ import {
     initialStats: { maxHp: BASE_PLAYER_HP, damage: PLAYER_BASE_DAMAGE, attackRate: STARTING_ATTACK_INTERVAL, projectileSpeed: BASE_PROJECTILE_SPEED, projectileCount: 1, attackRange: BASE_ATTACK_RANGE, armor: 0, regen: PLAYER_BASE_REGEN, speed: BASE_PLAYER_SPEED * localTestMultiplier },
     invalidateStaticWorld,
     spawnFromSite,
-    clearPlayerCombat: () => { playerCombat.clearPendingThrow(); playerCombat.clearPendingBossHits(); },
+    clearPlayerCombat: () => { playerCombat.clearPendingThrow(); },
     resetBosses: () => {
       bossController.resetBoss();
       bossController.resetSpiderBoss();
@@ -1722,7 +1720,7 @@ import {
     updatePlayer: (dt) => { if (!mapController.isMapTransitioning() && !(inTutorial() && player.hp <= 0)) playerController.update(dt); }, updateUpgradeBench: updateHomeStations, updatePortal: mapController.updatePortal,
     updateEnemies: (dt) => { personalBosses.update(dt); proceduralBoss.update(dt); enemySimulation.update(dt); }, updateDragon: bossController.updateBoss, updateSpider: bossController.updateSpiderBoss, updateFrostclaw: bossController.updateFrostclawBoss, updateMagmalisk: bossController.updateMagmaliskBoss, updateGloomroot: bossController.updateGloomrootBoss, updateTidewyrm: bossController.updateTidewyrmBoss, updateKoiShogun: bossController.updateKoiShogunBoss, updateTempestKirin: bossController.updateTempestKirinBoss, updateMiremaw: bossController.updateMiremawBoss, updatePrismshell: bossController.updatePrismshellBoss, updateIronhorn: bossController.updateIronhornBoss, updateDreadreaper: bossController.updateDreadreaperBoss, updateVoltwarden: bossController.updateVoltwardenBoss, updateGravebloom: bossController.updateGravebloomBoss, updateAegisPrime: bossController.updateAegisPrimeBoss,
     updateProjectiles: playerCombat.updateProjectiles, updateRespawns: time => { if (!inTutorial()) updateRespawns(time); },
-    clearDuelCombat: () => { autoFarm.stop("Autofarm stopped for duel"); projectileStore.clear(); playerCombat.clearPendingBossHits(); },
+    clearDuelCombat: () => { autoFarm.stop("Autofarm stopped for duel"); projectileStore.clear(); },
     updateEffects: effects.update, updateHud: () => updateHud(),
     updateVisuals: (dt) => {
       onboarding?.update(dt); flash = Math.max(0, flash - dt); screenShake *= Math.pow(.01, dt);

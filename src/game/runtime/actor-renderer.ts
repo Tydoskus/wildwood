@@ -556,8 +556,8 @@ export function createActorRenderer(options: {
     if (death && drawDeadPlayer({ ...other, ...equipment }, death, 1)) return;
 
     const regularEnemyCombat = other.regularEnemyCombat;
-    const attack = other.bossAttack ?? regularEnemyCombat;
-    const attackCritical = !other.bossAttack && regularEnemyCombat?.critical;
+    const attack = regularEnemyCombat;
+    const attackCritical = regularEnemyCombat?.critical;
     if (attack && !isMeleeWeapon(equipment.rightHandItem || equipment.leftHandItem) && attack.projectileProgress > 0 && attack.projectileProgress < 1) {
       const dx = attack.targetX - other.x;
       const dy = attack.targetY - other.y;

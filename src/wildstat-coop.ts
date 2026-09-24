@@ -38,7 +38,6 @@ import {
   PROTOCOL_VERSION,
   TUTORIAL_FOREST_MAP_ID,
 } from "../shared/rules";
-import { createBossService } from "./coop/services/boss-service";
 import { createChatService, type ChatService } from "./coop/services/chat-service";
 import { createDuelService } from "./coop/services/duel-service";
 import { createDeveloperService } from "./coop/services/developer-service";
@@ -140,7 +139,7 @@ function onChange() {
     batchedChangePending = true;
     return;
   }
-  sessionSubscriptions?.refresh(worldEntryGeneration === connectionGeneration && worldEntryGeneration !== 0, presenceService.currentMapId(), false);
+  sessionSubscriptions?.refresh(worldEntryGeneration === connectionGeneration && worldEntryGeneration !== 0);
   changeListener?.();
   startupChangeListener?.();
 }
@@ -356,8 +355,6 @@ const reducerPort: ReducerPort = {
   handleFailure: handleReducerFailure,
 };
 
-const bossService = createBossService();
-
 let chatService!: ChatService;
 let playerProfileService!: PlayerProfileService;
 const profileDirectory = createProfileDirectory({
@@ -530,7 +527,6 @@ const baseSubscriptionHandlers = createBaseSubscriptionHandlers({
   profile: profileDirectory.tables,
   progression: progressionService.tables,
   developer: developerService.tables,
-  boss: bossService.tables,
   chat: chatService.tables,
   social: socialService.tables,
   duel: duelService.tables,
@@ -549,7 +545,6 @@ function clearRealtimeCaches() {
   duelService.resetSession();
   guildService.resetSession();
   socialService.resetSession();
-  bossService.resetSession();
 }
 
 function abandonConnection(disconnectTransport: boolean) {
@@ -930,7 +925,6 @@ export const wildstatCoop = {
   ...developerService.api,
   ...playerProfileService.api,
   ...remoteCombatStatsService.api,
-  ...bossService.api,
   ...chatService.api,
   ...duelService.api,
   guild: guildService.api,

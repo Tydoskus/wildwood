@@ -21,7 +21,6 @@ import type { RemoteCombatStats, RemotePlayer } from "../../wildstat-coop";
 import { separateEnemyCrowd } from "./enemy-crowd-separation";
 import { createRemoteEnemyCombatShadows } from "./remote-enemy-combat-shadow";
 import { rangedEnemyAttackRange, rangedEnemyHoldBand } from "./ranged-enemy-range";
-import type { RemoteBossSimulationTarget } from "../../coop/services/remote-boss-attack";
 import type { EnemyState, PlayerState } from "./types";
 
 const FULL_SIMULATION_MARGIN = 220;
@@ -44,7 +43,6 @@ export type EnemySimulationSharedOptions = {
   /** The player's actual movement speed, including equipment bonuses. */
   playerMovementSpeed?: () => number;
   remoteCombatStats?: (identity: string) => RemoteCombatStats | null | undefined;
-  remoteBoss?: () => RemoteBossSimulationTarget | null | undefined;
   spawnDamageNumber?: (x: number, y: number, amount: number, critical?: boolean, damageTaken?: boolean) => void;
   spawnBurst?: (x: number, y: number, color: string, count?: number, speed?: number) => void;
 };
@@ -202,14 +200,7 @@ export function createEnemySimulation(
       local: true,
     };
     const remotePlayers = [...(shared.remotePlayers?.() ?? [])];
-    remoteCombat.beginFrame(
-      mapId,
-      serverNowMs,
-      dt,
-      remotePlayers,
-      shared.remoteCombatStats ?? (() => null),
-      shared.remoteBoss?.() ?? null,
-    );
+    remoteCombat.beginFrame(mapId, serverNowMs, dt, remotePlayers);
     activeCrowd.length = 0;
 
     for (const enemy of enemies) {

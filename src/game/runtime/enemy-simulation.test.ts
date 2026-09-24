@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import type { RemotePlayer } from "../../wildstat-coop";
-import { remoteBossAttackStartedAtMs } from "../../coop/services/remote-boss-attack";
 import { ENEMY_CROWD_SPACING_RATIO, separateEnemyCrowd } from "./enemy-crowd-separation";
 import { createEnemyLifecycle } from "./enemy-lifecycle";
 import { createEnemySimulation } from "./enemy-simulation";
@@ -249,53 +248,6 @@ describe("deterministic enemy simulation", () => {
     expect(second.y).toBeCloseTo(first.y, 8);
     expect(second.phase).toBeCloseTo(first.phase, 8);
     expect(second.facingX).toBe(first.facingX);
-  });
-
-  it("reconstructs nearby remote boss attacks without a server attack event", () => {
-    const local = playerAt(1_000, 1_000);
-    const remote = remotePlayerAt(300, 500);
-    const sharedBoss = {
-      kind: "dragon" as const,
-      encounter: 8n,
-      alive: true,
-      x: 500,
-      y: 500,
-      radius: 100,
-    };
-    let now = 20_000;
-    now = remoteBossAttackStartedAtMs({
-      boss: sharedBoss,
-      playerId: remote.id,
-      attackInterval: remoteCombatStats.attackInterval,
-      serverNowMs: now,
-    }) + 50;
-    const simulation = createEnemySimulation(
-      [],
-      () => {},
-      local,
-      () => ({ width: 800, height: 800, zoom: 1 }),
-      engage,
-      () => false,
-      {
-        currentMapId: () => "tutorial_forest",
-        serverNowMs: () => now,
-        remotePlayers: () => [remote],
-        remoteCombatStats: () => remoteCombatStats,
-        remoteBoss: () => sharedBoss,
-      },
-    );
-
-    simulation.update(1 / 60);
-
-    expect(simulation.renderRemotePlayers([remote])[0]).toMatchObject({
-      facing: 0,
-      bossAttack: {
-        targetX: sharedBoss.x,
-        targetY: sharedBoss.y,
-        targetRadius: sharedBoss.radius,
-        hits: remoteCombatStats.projectileCount,
-      },
-    });
   });
 
   it("creates an independent remote ghost without taking over the local enemy", () => {

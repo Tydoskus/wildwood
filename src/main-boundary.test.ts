@@ -59,7 +59,9 @@ import { describe, expect, it } from "vitest";
 // 2_169: the rewarded respawn boost went (0.807). Its bank, its drain, its
 // save-on-hide and the pending-timer rewrite for the switch left with it; the
 // ad's Gem claim is three dependency lines handed to the HUD timer column.
-const MAX_LINES = 2_169;
+// 2_167: the shared-boss client code went: the boss hit-result drain and the
+// no-op clearPendingBossHits calls. Personal bosses were already wired apart.
+const MAX_LINES = 2_167;
 const TARGET_LINES = 1_000;
 
 describe("game composition boundary", () => {

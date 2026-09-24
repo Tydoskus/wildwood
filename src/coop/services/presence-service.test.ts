@@ -1,22 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { expect, it, vi } from "vitest";
 import { Identity } from "spacetimedb";
-import { bossTargetsFromMapSamples, createPresenceService } from "./presence-service";
+import { createPresenceService } from "./presence-service";
 import { SPEED_SYNC_HOLD_MS } from "./speed-sync";
-
-describe("boss presence targets", () => {
-  it("uses the live local position when the solo map snapshot has gone idle", () => {
-    const targets = bossTargetsFromMapSamples([
-      { networkId: 4, x: 500, y: 700 },
-      { networkId: 9, x: 900, y: 1_100 },
-    ], 4, { x: 4_220, y: 4_080 });
-
-    expect(targets).toEqual([
-      { id: "network:4", x: 4_220, y: 4_080 },
-      { id: "network:9", x: 900, y: 1_100 },
-    ]);
-  });
-});
-
 
 it("preserves the global online total through map handoffs and resets it on account disconnect", () => {
   const presence = createPresenceService({ changes: { notify() {} } } as any);

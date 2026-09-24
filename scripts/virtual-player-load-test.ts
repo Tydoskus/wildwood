@@ -469,12 +469,6 @@ function installLoadSubscriptions(bot: LoadBot, identity: Identity, config: Work
         tables.playerResearch.where((row) => row.identity.eq(identity)),
         tables.activeResearch.where((row) => row.identity.eq(identity)),
         tables.playerLifetime.where((row) => row.identity.eq(identity)),
-        tables.dragonBoss,
-        tables.dragonResult,
-        tables.spiderBoss,
-        tables.spiderResult,
-        tables.frostclawBoss,
-        tables.frostclawResult,
         tables.duel.where((row) => row.challenger.eq(identity)),
       ]);
     bot.subscriptions.push(core);

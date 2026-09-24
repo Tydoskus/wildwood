@@ -315,7 +315,7 @@ that function, not the version list, is what keeps an old decoder out.
   bounded and written down. Restricting on any violation kicked honest players:
   every automatic revocation on live was `boss requested 1, accepted 0`, mostly
   at sequence 1 or 2 — the first report of a fresh stream, which is exactly what
-  a portal round-trip produces. Bosses are personal (`PERSONAL_BOSS_COMBAT`), so
+  a portal round-trip produces. Bosses are personal (client-side), so
   travelling back to a map re-presents one the earned-time clock has not paid
   for yet; the claim earning nothing is the enforcement, and taking the session
   on top of it was the bug. The same applies to a map round-trip starting a
@@ -428,14 +428,12 @@ that function, not the version list, is what keeps an old decoder out.
 
 ## Boss combat invariants
 
-Boss combat is client-sided. `PERSONAL_BOSS_COMBAT` in `shared/personal-bosses.ts` is `true`, and `src/game/runtime/personal-bosses.ts` owns boss HP, alive/dead state, respawn timing, and the defeat result. Only the completed defeat is reported to the server, through `recordRegularEnemyDefeat`. See [engineering notes](ENGINEERING.md) for the retained server surface and what must not be deleted with it.
+Boss combat is client-sided. `src/game/runtime/personal-bosses.ts` owns boss HP, alive/dead state, respawn timing, and the defeat result. Only the completed defeat is reported to the server, through `recordRegularEnemyDefeat`. See [engineering notes](ENGINEERING.md) for the retained server surface and what must not be deleted with it.
 
 - Boss abilities, target selection, and hazard layouts use the versioned encounter simulation in `shared/boss-simulation.ts`, which remains live and is now driven entirely client-side. A hidden global server-time metronome controls ability phase; the seed varies targets and geometry without shifting the rhythm. Targets come from consensus-time player positions already available to the client, and both the real local throw and nearby observers use the same per-player boss attack slot. Keep `boss_attack_frame` inert: do not restore per-attack event inserts or subscriptions.
 - Rewards stay server-owned even though damage is local. A defeat sends identities and counts only; `acceptEnemyDefeats` and `maximumBossCombatForProgress` bound what the server will grant. Never widen that wire format to carry client-computed reward values.
-- Do not reconnect the client to the shared-boss reducers. The `damage*FromPosition` call chain in `src/coop/services/boss-service.ts` and the `target.isBoss` branch in `player-combat-controller.ts` are unreachable because `hitPersonalBoss` intercepts first. Treat them as pending deletion, not as a fallback path.
-- The `boss:` subscription scope is never requested (`subscribeBosses` is hardcoded `false` at the sole call site in `src/wildstat-coop.ts`). Do not re-enable it to fix a boss display problem; the game loop reads local state.
+- The shared-boss client code (the `boss:` subscription scope, the boss hit-result feed, remote boss attack reconstruction, the Endless boss hit batching) was deleted. The server keeps the old reducers only as stubs that refuse; do not reconnect the client to them. The game loop reads local state.
 - Duel membership checks use the `duel.byChallenger` and `duel.byOpponent` indexes. Do not replace them with a full duel-table scan in any damage or presence path.
-- Contribution-table scans and combat-row cleanup belong only at encounter death or respawn, never on ordinary hits.
 
 ## Common diagnostics
 

@@ -6,7 +6,7 @@ import {
 } from "./player-combat-controller";
 import { createGameBootstrap } from "./game-bootstrap";
 import { bossPlayerAttackCycle } from "../../../shared/boss-simulation";
-import { remoteBossAttackFrame } from "../../coop/services/remote-boss-attack";
+import { absoluteAttackTimestamps, attackAnimationClockAt } from "../attack-timeline";
 import { createEnemyLifecycle } from "./enemy-lifecycle";
 import { rewardLabel } from "../enemies";
 import { researchStatRewardMultiplier } from "../../../shared/research";
@@ -222,7 +222,7 @@ describe("player attack timing", () => {
     expect(attackReadyAtWithoutTarget(9.8, 10.08)).toBe(9.8);
   });
 
-  it("uses the same boss throw phase locally and on a remote observer", () => {
+  it("takes the local boss throw phase from the seeded boss attack cycle", () => {
     const encounter = 22n;
     const identity = "shared-player";
     const preview = createGameBootstrap();
@@ -251,26 +251,18 @@ describe("player attack timing", () => {
     };
     const first = create(10);
     const second = create(9_000);
-    const remote = remoteBossAttackFrame({
-      boss: {
-        kind: "dragon",
-        encounter,
-        alive: true,
-        x: first.boss.x,
-        y: first.boss.y,
-        radius: first.boss.r,
-      },
+    // The throw clock any observer derives from the same cycle and server time.
+    const startedAtMs = bossPlayerAttackCycle({
+      kind: "dragon",
+      encounter,
       playerId: identity,
-      playerX: first.player.x,
-      playerY: first.player.y,
       attackInterval,
-      attackRange: first.player.attackRange,
-      projectileCount: first.player.projectileCount,
       serverNowMs,
-    });
+    }).startedAtMs;
+    const expected = attackAnimationClockAt(absoluteAttackTimestamps(startedAtMs / 1_000, attackInterval), serverNowMs / 1_000);
 
-    expect(remote).not.toBeNull();
-    expect(first.player.throwClock).toBeCloseTo(remote?.throwClock ?? -1, 5);
+    expect(expected).toBeGreaterThan(0);
+    expect(first.player.throwClock).toBeCloseTo(expected, 5);
     expect(second.player.throwClock).toBeCloseTo(first.player.throwClock, 5);
   });
 
@@ -336,21 +328,6 @@ describe("player attack timing", () => {
   });
 });
 
-
-it("shows confirmed boss critical damage once and discards events from another map", () => {
-  const spawnDamageNumber = vi.fn();
-  let hits = [
-    { mapId: "tutorial_forest", x: 4000, y: 4200, damage: 1550, critical: true },
-    { mapId: "beginner_desert", x: 4050, y: 4050, damage: 1000, critical: false },
-  ];
-  const { controller } = createCombatHarness({
-    spawnDamageNumber, currentMapId: () => "tutorial_forest",
-    drainBossHitResults: () => { const current = hits; hits = []; return current; },
-  });
-  controller.updateProjectiles(.01);
-  controller.updateProjectiles(.01);
-  expect(spawnDamageNumber).toHaveBeenCalledExactlyOnceWith(4000, 4200, 1550, true);
-});
 
 describe("stable player combat aim", () => {
   function aimHarness() {

@@ -199,7 +199,7 @@ export function bossAbilityTimelineAt(options: {
 
 /** Shared absolute cadence for one player's attacks against a boss. */
 export function bossPlayerAttackCycle(options: {
-  kind: BossSimulationKind | `procedural:${string}`;
+  kind: BossSimulationKind;
   encounter: bigint;
   playerId: string;
   attackInterval: number;

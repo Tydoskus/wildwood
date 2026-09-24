@@ -106,7 +106,12 @@ import { describe, expect, it } from "vitest";
 // four-a-day rules, the payout, the guest merge and removal live in
 // ad-gem-reward.ts and shared/ad-gem-reward.ts; the raise is the schema
 // surface alone.
-const MAX_LINES = 6_808;
+// 6_489: the shared-boss combat code went. The boss tables, the respawn
+// schedules and every reducer name stay in the schema, but the respawn and
+// damage reducers are one-line stubs now, maintenance drops its already inert
+// boss regeneration call, and the factory hands out only the live kill bound
+// and clear rewards.
+const MAX_LINES = 6_489;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

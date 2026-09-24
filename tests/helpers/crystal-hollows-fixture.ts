@@ -1,6 +1,6 @@
 import { ConnectionId, Identity, Timestamp } from "spacetimedb";
 import * as server from "../../spacetimedb/src/index";
-import { ATTACK_BALANCE_VERSION, PRISMSHELL_MAX_HP, PROTOCOL_VERSION } from "../../shared/rules";
+import { ATTACK_BALANCE_VERSION, PROTOCOL_VERSION } from "../../shared/rules";
 import { createMemoryDatabase } from "./spacetime-memory-db";
 
 export { server };
@@ -32,12 +32,10 @@ export function crystalFixture() {
     enteredWorld: true, protocolVersion: PROTOCOL_VERSION, connectedAt: ctx.timestamp, tabId: "test" });
   seed("playerController", { identity: ctx.sender, connectionId: ctx.connectionId });
   seed("playerBalanceVersion", { identity: ctx.sender, version: ATTACK_BALANCE_VERSION });
-  seed("prismshellBoss", { id: 1, encounter: 7n, maxHp: PRISMSHELL_MAX_HP, hp: 10_000, alive: true });
   const run = (reducer: (...args: any[]) => unknown, args: Record<string, unknown> = {}) =>
     storage.transaction(() => reducer(ctx, args));
   const patch = (table: string, changes: Record<string, unknown>, who = ctx.sender) => {
     db[table].identity.update({ ...db[table].identity.find(who), ...changes });
   };
-  const attack = (hits = 1, position = { x: 4050, y: 4050 }) => run(server.damagePrismshellFromPosition, { hits, ...position });
-  return { ...storage, ctx, seed, progress, run, patch, attack };
+  return { ...storage, ctx, seed, progress, run, patch };
 }

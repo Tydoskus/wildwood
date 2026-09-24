@@ -23,7 +23,6 @@ The original extraction was behavior-preserving. Later realtime protocol work ch
 | `src/coop/services/progression-service.ts` | Identity-scoped pending saves, progress/research/upgrades/Gems/lifetime state, save cadence, drops, and progression reducers. |
 | `src/coop/services/chat-service.ts` | Chat cache, presentation revision, send/reply/report reducers, and chat API methods. |
 | `src/coop/services/duel-service.ts` | Duel state, cooldown, snapshot drain, replay loads/cancellation, pulse, and duel API methods. |
-| `src/coop/services/boss-service.ts` | Shared boss/result state and boss damage reducers. |
 | `src/coop/services/developer-service.ts` | Access audit, bug reports, visibility, save/Gem administration, and developer API methods. |
 
 ## Boundaries that must remain intact

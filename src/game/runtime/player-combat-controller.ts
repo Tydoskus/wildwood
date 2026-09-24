@@ -73,7 +73,6 @@ export type PlayerCombatController = {
   attackNearest: (enemyType?: EnemyKind | null, campName?: string | null, priority?: AutoFarmPriority) => void;
   updateProjectiles: (dt: number) => void;
   damagePlayer: (amount: number) => boolean;
-  clearPendingBossHits: () => void;
   clearPendingThrow: () => void;
 };
 
@@ -154,7 +153,6 @@ export function createPlayerCombatController(options: {
     spawnSkillStreak: (x: number, y: number, toX: number, toY: number, color: string, width?: number, life?: number, jagged?: boolean) => void;
     spawnSkillRing: (x: number, y: number, color: string, radius?: number, life?: number) => void;
   };
-  drainBossHitResults?: () => { mapId: string; x: number; y: number; damage: number; critical: boolean }[];
   currentMapId?: () => string;
   onEnemyDefeated?: (enemy: EnemyState) => boolean;
   onCombat?: () => void;
@@ -668,9 +666,6 @@ export function createPlayerCombatController(options: {
   }
 
   function updateProjectiles(dt: number) {
-    for (const hit of options.drainBossHitResults?.() ?? []) {
-      if (hit.mapId === options.currentMapId?.()) spawnDamageNumber(hit.x, hit.y, hit.damage, hit.critical);
-    }
     const nowSeconds = options.nowSeconds();
     if (stormHits.length) landStormHits(nowSeconds);
     syncAttackTimeline(nowSeconds);
@@ -730,10 +725,6 @@ export function createPlayerCombatController(options: {
     attackNearest,
     updateProjectiles,
     damagePlayer,
-    // No shared-boss hit batching remains to clear; personal bosses apply
-    // damage immediately via options.hitPersonalBoss. Kept as a no-op so
-    // callers (e.g. map transitions) don't need to know that.
-    clearPendingBossHits: () => {},
     clearPendingThrow: () => {
       retainedTarget = null;
       nextTargetSearchAt = 0;

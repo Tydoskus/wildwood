@@ -20,18 +20,9 @@ export function createProceduralBossController(options: {
   mapId: () => string;
   state: (mapId: string) => { boss: BossRow | null; ready?: boolean; completed?: number };
   revealPortal?: () => boolean;
-  serverNow: () => number;
   enemies: EnemyState[];
   player: PlayerState;
   spawn: (site: SpawnSite) => void;
-  hit: (
-    mapId: string,
-    bossKey: string,
-    encounter: bigint,
-    hits: number,
-    x: number,
-    y: number,
-  ) => void;
   damagePlayer: (damage: number) => boolean;
   burst: (
     x: number,
@@ -57,8 +48,6 @@ export function createProceduralBossController(options: {
   let attackElapsed = 0,
     pulseFired = false,
     shotElapsed = 0;
-  let pendingHits = 0,
-    flushAt = 0;
   let observedCompleted: number | null = null, pendingReveal = false;
   let definition: ReturnType<typeof generateMap> | null = null;
   function resetAttacks() {
@@ -69,7 +58,6 @@ export function createProceduralBossController(options: {
   function discardBoss() {
     if (boss) boss.dead = true;
     boss = null;
-    pendingHits = 0;
     resetAttacks();
   }
   function update(dt: number) {
@@ -129,7 +117,6 @@ export function createProceduralBossController(options: {
       boss.bossRewards = stats.rewards;
       encounter = row.encounter;
       bossKey = row.key;
-      pendingHits = 0;
       resetAttacks();
     }
     boss.hp = row.hp;
@@ -138,20 +125,7 @@ export function createProceduralBossController(options: {
     if (row.hp <= 0) {
       if (!boss.dead) options.burst(boss.x, boss.y, "#f7edce", 35, 150);
       boss.dead = true;
-      pendingHits = 0;
       return;
-    }
-    const now = options.serverNow() / 1000;
-    if (pendingHits && now >= flushAt) {
-      options.hit(
-        mapId,
-        bossKey,
-        encounter,
-        pendingHits,
-        options.player.x,
-        options.player.y,
-      );
-      pendingHits = 0;
     }
     const distance = Math.hypot(
       options.player.x - boss.x,
@@ -207,19 +181,7 @@ export function createProceduralBossController(options: {
   }
   return {
     update,
-    remoteTarget: () => boss && options.mapId() === mapId ? {
-      kind: `procedural:${bossKey}` as const, encounter, alive: !boss.dead,
-      x: boss.x, y: boss.y, radius: boss.r,
-    } : null,
     boss: () => (boss && !boss.dead && options.mapId() === mapId ? boss : null),
-    hit(enemy: EnemyState) {
-      if (!enemy.generatedBoss) return false;
-      if (enemy === boss && !boss.dead && options.mapId() === mapId) {
-        pendingHits = Math.min(100, pendingHits + 1);
-        if (pendingHits === 1) flushAt = options.serverNow() / 1000 + 0.25;
-      }
-      return true;
-    },
     draw(ctx: CanvasRenderingContext2D, camera: { x: number; y: number }) {
       if (
         !boss ||

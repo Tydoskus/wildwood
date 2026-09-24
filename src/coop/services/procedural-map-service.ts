@@ -2,7 +2,6 @@ import { BOSS_REWARD_CLAIM_BITS } from "../../../shared/rules";
 import { tables, type DbConnection } from "../../module_bindings";
 import {
   PROCEDURAL_ENTRY_BOSS,
-  isProceduralMap,
   proceduralMapNumber,
 } from "../../../shared/procedural-maps";
 import type { ReducerPort } from "../ports";
@@ -19,9 +18,8 @@ export function createProceduralMapService(port: ReducerPort) {
     ready: boolean;
   } | null = null;
   let nextSubscribe = 0;
-  let prepareMap = "";
   const blocked = () => port.protocolBlocked() || port.worldEntryBlocked();
-  function refresh(mapId: string) {
+  function refresh() {
     const conn = port.connection();
     if (conn !== connection || !conn?.isActive) {
       unsubscribeIfActive(subscription?.handle ?? null);
@@ -64,9 +62,6 @@ export function createProceduralMapService(port: ReducerPort) {
         failed(error);
       }
     }
-    if (prepareMap !== mapId) {
-      prepareMap = mapId;
-    }
     return conn;
   }
   return {
@@ -86,23 +81,14 @@ export function createProceduralMapService(port: ReducerPort) {
         return { ok: false, error: port.errorMessage(error) };
       }
     },
-    proceduralMapState(mapId: string) {
-      const conn = refresh(mapId);
+    proceduralMapState() {
+      const conn = refresh();
       const ready = Boolean(conn && subscription?.ready);
       const completed = conn?.identity
         ? (conn.db.proceduralProgress.identity.find(conn.identity)?.completed ??
           0)
         : 0;
-      return {
-        ready,
-        completed,
-        boss:
-          ready && isProceduralMap(mapId)
-            ? ([...conn!.db.myProceduralBoss.iter()].find(
-                (row) => row.mapId === mapId,
-              ) ?? null)
-            : null,
-      };
+      return { ready, completed };
     },
     /** How many Endless stages this run has cleared; prestige asks for one more each time. */
     proceduralCompleted() {
@@ -123,36 +109,6 @@ export function createProceduralMapService(port: ReducerPort) {
           BOSS_REWARD_CLAIM_BITS[PROCEDURAL_ENTRY_BOSS],
       );
       return campaignComplete && number !== null && number <= completed + 1;
-    },
-    hitProceduralBoss(
-      mapId: string,
-      bossKey: string,
-      encounter: bigint,
-      hits: number,
-      x: number,
-      y: number,
-    ) {
-      if (blocked() || !connection?.isActive || !subscription?.ready) return;
-      const boss = [...connection.db.myProceduralBoss.iter()].find(
-        (row) => row.key === bossKey,
-      );
-      if (
-        !boss ||
-        boss.mapId !== mapId ||
-        boss.encounter !== encounter ||
-        boss.hp <= 0
-      )
-        return;
-      port.sendReducer("generated boss hit", (conn) =>
-        conn.reducers.hitProceduralBossBatch({
-          mapId,
-          bossKey,
-          encounter,
-          hits,
-          x,
-          y,
-        }),
-      );
     },
   };
 }

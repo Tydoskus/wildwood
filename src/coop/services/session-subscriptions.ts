@@ -1,9 +1,9 @@
 import type { ActiveSubscription } from "./subscription-handoff";
 
-export type SessionSubscriptionScope = "account" | "game" | `boss:${string}`;
+export type SessionSubscriptionScope = "account" | "game";
 
-/** Serializes query replacements, including map changes while a subscription
- * is still pending. Never unsubscribe a pending SDK handle. */
+/** Serializes query replacements, including a world entry while the account
+ * subscription is still pending. Never unsubscribe a pending SDK handle. */
 export function createSessionSubscriptions(options: {
   isCurrent: () => boolean;
   subscribe: (scope: SessionSubscriptionScope, applied: () => void) => ActiveSubscription;
@@ -32,8 +32,7 @@ export function createSessionSubscriptions(options: {
             if (!options.isCurrent()) return;
             applied = true;
             busy = false;
-            // Boss history must not run before private cutscene history is loaded.
-            if (!scope.startsWith("boss:") || primary.ready()) options.hydrate(scope);
+            options.hydrate(scope);
             pump();
             checkReady();
           });
@@ -53,26 +52,22 @@ export function createSessionSubscriptions(options: {
     };
   }
   const primary = slot();
-  const boss = slot();
   let game = false;
-  let needsBoss = true;
   let configured = false;
   let notified: boolean | null = null;
   function checkReady() {
-    if (!configured || !primary.ready() || (game && needsBoss && !boss.ready()) || notified === game) return;
+    if (!configured || !primary.ready() || notified === game) return;
     notified = game;
     options.ready();
   }
   return {
-    refresh(enteredWorld: boolean, mapId: string, subscribeBosses = true) {
-      needsBoss = subscribeBosses;
+    refresh(enteredWorld: boolean) {
       // World entry is monotonic within a connection. Disconnect creates a new controller.
       const nextGame = game || enteredWorld;
       if (!configured || nextGame !== game) options.loading();
       game = nextGame;
       configured = true;
       primary.set(game ? "game" : "account");
-      if (game) boss.set(needsBoss ? `boss:${mapId}` : null);
       checkReady();
     },
   };
