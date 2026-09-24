@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.802": [
+    "Gear you already own now asks Keep or Ignore, showing both copies' skills side by side.",
+    "Unanswered duplicates are ignored after 5 minutes.",
+    "Kept copies keep their own bow skills, and each copy can be equipped or destroyed.",
+  ],
   "0.801": [
     "Bows can roll Arrow Storm, Ricochet and Piercing Shot skills, each with its own chance to trigger.",
     "Higher-tier bows roll higher skill chances: 1–3% on early bows, up to 7–15% on the best.",
@@ -2353,6 +2358,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.802": "2026-09-23",
   "0.801": "2026-09-23",
   "0.800": "2026-09-23",
   "0.799": "2026-09-23",
