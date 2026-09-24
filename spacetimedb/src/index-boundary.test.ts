@@ -74,7 +74,12 @@ import { describe, expect, it } from "vitest";
 // without passing publishItemDrop (a claimed gift, claimed mail gear) plus the
 // world-entry safety net and its note. The table, the roll, the backfill, the
 // guest merge, removal and the duel fields live in bow-skills.ts.
-const MAX_LINES = 6_796;
+// 6_784: duplicate equipment adds two table registrations, the
+// my_equipment_copies and my_equipment_offers views, three reducer
+// declarations and the factory instance; publish_item_drop and the
+// destroy_equipment body moved out to equipment-copies.ts with the tables, the
+// offer lifecycle, the guest merge and removal, which more than paid for them.
+const MAX_LINES = 6_784;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

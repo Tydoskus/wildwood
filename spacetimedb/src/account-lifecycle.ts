@@ -23,6 +23,7 @@ import { isPublicDisplayNameAllowed } from "./chat-moderation";
 import { mergeAccountReactions, removeMessageReactions } from "./chat-reactions";
 import { mergeItemGifts, removeItemGifts } from "./item-gifts";
 import { mergeBowSkills, removeBowSkills } from "./bow-skills";
+import { mergeEquipmentCopies } from "./equipment-copies";
 import { mergeMailboxReceipts, removeMailboxReceipts } from "./mailbox";
 import { mergeOnboarding } from "./onboarding";
 import { mergeAudioSettings, removeAudioSettings } from "./audio-settings";
@@ -197,6 +198,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
     mergeBalanceApologyNotice(ctx, link.guest, ctx.sender);
     mergeItemGifts(ctx, link.guest, ctx.sender);
     mergeBowSkills(ctx, link.guest, ctx.sender);
+    mergeEquipmentCopies(ctx, link.guest, ctx.sender);
     mergeMailboxReceipts(ctx, link.guest, ctx.sender);
     mergeOnboarding(ctx, link.guest, ctx.sender);
     mergeAudioSettings(ctx, link.guest, ctx.sender);

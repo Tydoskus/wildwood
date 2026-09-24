@@ -26,7 +26,6 @@ import { chatHeartAllowance, chatReactionCooldown, chatReactionSummary, chatReac
 import { regularEnemyLootCursor, rollRegularEnemyLoot } from "./regular-enemy-loot";
 import { BLACK_BOOTS, BLACK_BOOTS_SPEED_BONUS } from "../../shared/items";
 import { playerOnboarding, advanceOnboarding, needsOnboarding } from "./onboarding";
-import { canDestroyEquipment } from "../../shared/items";
 import { isUpgradeSlot, normalizeSlotTier, upgradeSlotForItem, UPGRADE_SLOT_LABELS } from "../../shared/slot-upgrades";
 import { deliverDisconnectCompensation, deliverCombatUpdateGift, deliverOutageCompensation, announceOutageCompensation, deliverAutofarmTestGift } from "./disconnect-compensation";
 import { connectionDiagnosticTables, recordConnectionDiagnostics, cleanupConnectionDiagnostics } from "./connection-diagnostics";
@@ -35,6 +34,7 @@ import { mailboxLetter, mailboxReceipt, mailboxEntryV2, mailboxForPlayerV2, play
 import { rollbackPlayerProgression } from "./player-progression-rollback";
 import { playerItemGift, deliverAlphaTesterGifts, claimItemGift } from "./item-gifts";
 import { playerBowSkill, ensureBowSkillRoll, ensureBowSkillRolls } from "./bow-skills";
+import { playerEquipmentCopy, pendingEquipmentOffer, createEquipmentCopies, publishItemDrop, offerDuplicateEquipment, expireEquipmentOffers, removeEquipmentCopies } from "./equipment-copies";
 import { moderateReportedMessage } from "./chat-report-moderation";
 import { PLAYER_SKIN_TONES } from "../../shared/player-skin-tones";
 import { leaderboardPageTables, writeLeaderboardPages, readLeaderboardWindow, readLeaderboardPage } from "./leaderboard-pages";
@@ -914,8 +914,8 @@ const activeItemUpgradeSlotThree = table(
   },
 );
 
-// Explicit loot events let the client reveal successful duplicate rolls as
-// "Already owned" without manufacturing another copy of the item.
+// Explicit loot events let the client reveal each drop. A duplicate of held
+// equipment is flagged alreadyOwned and waits as a pending_equipment_offer.
 const playerItemDrop = table(
   {
     public: true,
@@ -1782,7 +1782,7 @@ const spacetimedb = schema({
   gemTransaction,
   dailyGemBonus,
   balanceApologyNotice,
-  playerItemGift, playerBowSkill,
+  playerItemGift, playerBowSkill, playerEquipmentCopy, pendingEquipmentOffer,
   mailboxLetter, mailboxReceipt, playerJoinDate, mailboxEquipment, accountDeletionRequest,
   playerOnboarding,
   regularEnemyLootCursor, enemyDefeatBudget, bossDefeatWindow, bossMapDefeatWindow,
@@ -2931,21 +2931,8 @@ function writeProgressAndPresentation(ctx: any, progress: any) {
 const cosmeticConversion = createCosmeticConversion({ requireControllingPlayer, activeDuelFor,
   inventoryForProgress, writeProgressAndPresentation, applyGemBalanceChange });
 
-function publishItemDrop(ctx: any, identity: any, itemId: string, alreadyOwned: boolean, quantity = 1) {
-  if (!alreadyOwned) ensureBowSkillRoll(ctx, identity, itemId); // Only a bow entering the bag rolls.
-  const key = `${identity.toHexString()}:${itemId}`;
-  const current = ctx.db.playerItemDrop.key.find(key);
-  const next = {
-    key,
-    identity,
-    itemId,
-    alreadyOwned,
-    sequence: (current?.sequence ?? 0n) + BigInt(quantity),
-    droppedAt: ctx.timestamp,
-  };
-  if (current) ctx.db.playerItemDrop.key.update(next);
-  else ctx.db.playerItemDrop.insert(next);
-}
+const equipmentCopies = createEquipmentCopies({ requireControllingPlayer, activeDuelFor, inventoryForProgress,
+  restoreItemToProgress, removeItemFromProgress: cosmeticConversion.removeItemFromProgress, writeProgressAndPresentation });
 
 
 function equippedHeadForProgress(progress: any, inventory = inventoryForProgress(progress)) {
@@ -3056,6 +3043,7 @@ function removePlayerItemDrops(ctx: any, identity: any) {
   for (const drop of [...ctx.db.playerItemDrop.byIdentity.filter(identity) as Iterable<any>]) {
     ctx.db.playerItemDrop.key.delete(drop.key);
   }
+  removeEquipmentCopies(ctx, identity); // Kept copies and waiting offers are gear too.
 }
 
 function removePlayerItemUpgradeData(ctx: any, identity: any, removeDrops = false) {
@@ -3733,6 +3721,7 @@ export const runMaintenance = spacetimedb.reducer(
     reconcileOnlinePlayers(ctx);
     refreshLeaderboardIfDue(ctx);
     regenerateIdleBosses(ctx);
+    expireEquipmentOffers(ctx);
   },
 );
 
@@ -5230,7 +5219,7 @@ export const claimDeveloperItemGift = spacetimedb.reducer({ key: t.string() }, (
   claimItemGift(ctx, key, itemId => {
     const progress = ctx.db.playerProgress.identity.find(ctx.sender);
     if (!progress) throw new SenderError("Player unavailable.");
-    if (playerOwnsItem(ctx, ctx.sender, itemId)) return;
+    if (playerOwnsItem(ctx, ctx.sender, itemId)) return offerDuplicateEquipment(ctx, ctx.sender, itemId);
     updateSnapshotRow(ctx, "playerProgress", restoreItemToProgress(progress, itemId));
     ensureBowSkillRoll(ctx, ctx.sender, itemId);
   });
@@ -5437,23 +5426,15 @@ export const startItemUpgrade = spacetimedb.reducer(
   },
 );
 
-/** Inventory ownership is authoritative; a stale client save cannot restore deleted gear. */
+/** Inventory ownership is authoritative; a stale client save cannot restore deleted gear. Bodies: equipment-copies.ts. */
 export const destroyEquipment = spacetimedb.reducer(
-  { itemId: t.string() },
-  (ctx, { itemId }) => {
-    requireControllingPlayer(ctx);
-    if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel first.");
-    const canonical = canonicalItemId(itemId);
-    if (!canonical || !canDestroyEquipment(canonical)) throw new SenderError("This item cannot be destroyed.");
-    if (activeItemUpgradeEntriesFor(ctx, ctx.sender).some(({ active }) => active.itemId === canonical)) {
-      throw new SenderError("Cancel this item's upgrade first.");
-    }
-    const progress = ctx.db.playerProgress.identity.find(ctx.sender);
-    if (!progress || !progressHasItem(progress, canonical)) throw new SenderError("That item is not in your inventory.");
-    // The slot's tier survives: it was never this item's to take away.
-    writeProgressAndPresentation(ctx, cosmeticConversion.removeItemFromProgress(progress, canonical));
-  },
+  { itemId: t.string() }, (ctx, { itemId }) => equipmentCopies.destroy(ctx, itemId, 0n),
 );
+export const destroyEquipmentCopy = spacetimedb.reducer(
+  { itemId: t.string(), copyId: t.u64() }, (ctx, { itemId, copyId }) => equipmentCopies.destroy(ctx, itemId, copyId),
+);
+export const selectEquipmentCopy = spacetimedb.reducer({ copyId: t.u64() }, (ctx, { copyId }) => equipmentCopies.select(ctx, copyId));
+export const resolveEquipmentOffer = spacetimedb.reducer({ id: t.u64(), keep: t.bool() }, (ctx, args) => equipmentCopies.resolveOffer(ctx, args));
 
 export const convertItemToCosmetic = spacetimedb.reducer(
   { itemId: t.string() }, (ctx, { itemId }) => cosmeticConversion.convertItemToCosmetic(ctx, itemId),
@@ -5672,6 +5653,14 @@ export const setOfflineProgressEnabled = spacetimedb.reducer({ enabled: t.bool()
 export const myBowSkills = spacetimedb.view(
   { name: "my_bow_skills", public: true }, t.array(playerBowSkill.rowType),
   ctx => [...ctx.db.playerBowSkill.identity.filter(ctx.sender)],
+);
+export const myEquipmentCopies = spacetimedb.view(
+  { name: "my_equipment_copies", public: true }, t.array(playerEquipmentCopy.rowType),
+  ctx => [...ctx.db.playerEquipmentCopy.identity.filter(ctx.sender)],
+);
+export const myEquipmentOffers = spacetimedb.view(
+  { name: "my_equipment_offers", public: true }, t.array(pendingEquipmentOffer.rowType),
+  ctx => [...ctx.db.pendingEquipmentOffer.identity.filter(ctx.sender)],
 );
 export const myAudioSettings = spacetimedb.view(
   { name: "my_audio_settings", public: true }, t.array(playerAudioSetting.rowType),

@@ -7,10 +7,13 @@ import { NO_BOW_SKILLS, isSkillBow, rollBowSkills, type BowSkillRoll } from "../
  * added. A bow held before then has no row and no skills: it counts as having
  * failed all three appearance rolls, and nothing rolls it later.
  *
- * Inventory stores item ids, so a roll belongs to (player, bow id) and every
- * copy of that bow shares it. Rows are written once and never re-rolled: a bow
- * that is destroyed, converted or taken by a prestige keeps its roll for when
- * it drops again, so throwing a bow away is never a way to roll it afresh.
+ * Inventory stores item ids, so this row is the roll of the bow's first copy,
+ * the one an equipment slot holds; further copies a player kept carry their
+ * own rolls in player_equipment_copy. Equipping another copy, or destroying
+ * the first while another is kept, moves that copy's roll in here. Otherwise
+ * rows are never re-rolled: a bow that is destroyed or taken by a prestige
+ * keeps its roll for when it drops again, so throwing the last copy away is
+ * never a way to roll it afresh.
  *
  * Its own private table, read through the caller-scoped my_bow_skills view,
  * rather than columns on player_progress: a column on a table every session

@@ -462,6 +462,25 @@
     "my_endless_travel_access": [
       "identity"
     ],
+    "my_equipment_copies": [
+      "id",
+      "identity",
+      "itemId",
+      "arrowStorm",
+      "ricochet",
+      "piercingShot",
+      "acquiredAt"
+    ],
+    "my_equipment_offers": [
+      "id",
+      "identity",
+      "itemId",
+      "arrowStorm",
+      "ricochet",
+      "piercingShot",
+      "createdAt",
+      "expiresAt"
+    ],
     "my_gem_purchases": [
       "reservationId",
       "identity",

@@ -76,6 +76,7 @@ import DamageTempestKirinFromPositionReducer from "./damage_tempest_kirin_from_p
 import DamageTidewyrmFromPositionReducer from "./damage_tidewyrm_from_position_reducer";
 import DamageVoltwardenFromPositionReducer from "./damage_voltwarden_from_position_reducer";
 import DestroyEquipmentReducer from "./destroy_equipment_reducer";
+import DestroyEquipmentCopyReducer from "./destroy_equipment_copy_reducer";
 import DevAdjustGemsReducer from "./dev_adjust_gems_reducer";
 import DevAnnounceOutageCompensationReducer from "./dev_announce_outage_compensation_reducer";
 import DevBeginVirtualPlayerLoadTestReducer from "./dev_begin_virtual_player_load_test_reducer";
@@ -144,10 +145,12 @@ import RequestDuelReducer from "./request_duel_reducer";
 import RequestPatreonHelpReducer from "./request_patreon_help_reducer";
 import ReserveGemPurchaseReducer from "./reserve_gem_purchase_reducer";
 import ResetPlayerProgressReducer from "./reset_player_progress_reducer";
+import ResolveEquipmentOfferReducer from "./resolve_equipment_offer_reducer";
 import RestoreMapBalanceReducer from "./restore_map_balance_reducer";
 import ResumeSessionReducer from "./resume_session_reducer";
 import SavePlayerProgressReducer from "./save_player_progress_reducer";
 import SeedTemporaryGuildReducer from "./seed_temporary_guild_reducer";
+import SelectEquipmentCopyReducer from "./select_equipment_copy_reducer";
 import SendChatMessageReducer from "./send_chat_message_reducer";
 import SendChatReplyReducer from "./send_chat_reply_reducer";
 import SendSocialMessageReducer from "./send_social_message_reducer";
@@ -255,6 +258,8 @@ import MyCutsceneHistoryRow from "./my_cutscene_history_table";
 import MyDailyGemBonusRow from "./my_daily_gem_bonus_table";
 import MyDefeatSessionRestrictionRow from "./my_defeat_session_restriction_table";
 import MyEndlessTravelAccessRow from "./my_endless_travel_access_table";
+import MyEquipmentCopiesRow from "./my_equipment_copies_table";
+import MyEquipmentOffersRow from "./my_equipment_offers_table";
 import MyGemPurchasesRow from "./my_gem_purchases_table";
 import MyGemWalletRow from "./my_gem_wallet_table";
 import MyInventoryCapacityRow from "./my_inventory_capacity_table";
@@ -1162,6 +1167,20 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyEndlessTravelAccessRow),
+  myEquipmentCopies: __table({
+    name: 'my_equipment_copies',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyEquipmentCopiesRow),
+  myEquipmentOffers: __table({
+    name: 'my_equipment_offers',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyEquipmentOffersRow),
   myGemPurchases: __table({
     name: 'my_gem_purchases',
     indexes: [
@@ -1327,6 +1346,7 @@ const reducersSchema = __reducers(
   __reducerSchema("damage_tidewyrm_from_position", DamageTidewyrmFromPositionReducer),
   __reducerSchema("damage_voltwarden_from_position", DamageVoltwardenFromPositionReducer),
   __reducerSchema("destroy_equipment", DestroyEquipmentReducer),
+  __reducerSchema("destroy_equipment_copy", DestroyEquipmentCopyReducer),
   __reducerSchema("dev_adjust_gems", DevAdjustGemsReducer),
   __reducerSchema("dev_announce_outage_compensation", DevAnnounceOutageCompensationReducer),
   __reducerSchema("dev_begin_virtual_player_load_test", DevBeginVirtualPlayerLoadTestReducer),
@@ -1395,10 +1415,12 @@ const reducersSchema = __reducers(
   __reducerSchema("request_patreon_help", RequestPatreonHelpReducer),
   __reducerSchema("reserve_gem_purchase", ReserveGemPurchaseReducer),
   __reducerSchema("reset_player_progress", ResetPlayerProgressReducer),
+  __reducerSchema("resolve_equipment_offer", ResolveEquipmentOfferReducer),
   __reducerSchema("restore_map_balance", RestoreMapBalanceReducer),
   __reducerSchema("resume_session", ResumeSessionReducer),
   __reducerSchema("save_player_progress", SavePlayerProgressReducer),
   __reducerSchema("seed_temporary_guild", SeedTemporaryGuildReducer),
+  __reducerSchema("select_equipment_copy", SelectEquipmentCopyReducer),
   __reducerSchema("send_chat_message", SendChatMessageReducer),
   __reducerSchema("send_chat_reply", SendChatReplyReducer),
   __reducerSchema("send_social_message", SendSocialMessageReducer),

@@ -1280,6 +1280,12 @@ export type MyDefeatSessionRestriction = __Infer<typeof MyDefeatSessionRestricti
 export const MyEndlessTravelAccess = __t.object("MyEndlessTravelAccess", {});
 export type MyEndlessTravelAccess = __Infer<typeof MyEndlessTravelAccess>;
 
+export const MyEquipmentCopies = __t.object("MyEquipmentCopies", {});
+export type MyEquipmentCopies = __Infer<typeof MyEquipmentCopies>;
+
+export const MyEquipmentOffers = __t.object("MyEquipmentOffers", {});
+export type MyEquipmentOffers = __Infer<typeof MyEquipmentOffers>;
+
 export const MyGemPurchases = __t.object("MyGemPurchases", {});
 export type MyGemPurchases = __Infer<typeof MyGemPurchases>;
 
@@ -1429,6 +1435,18 @@ export type PatreonTickerSupporter = __Infer<typeof PatreonTickerSupporter>;
 export const PatreonTickerSupporters = __t.object("PatreonTickerSupporters", {});
 export type PatreonTickerSupporters = __Infer<typeof PatreonTickerSupporters>;
 
+export const PendingEquipmentOffer = __t.object("PendingEquipmentOffer", {
+  id: __t.u64(),
+  identity: __t.identity(),
+  itemId: __t.string(),
+  arrowStorm: __t.f32(),
+  ricochet: __t.f32(),
+  piercingShot: __t.f32(),
+  createdAt: __t.timestamp(),
+  expiresAt: __t.timestamp(),
+});
+export type PendingEquipmentOffer = __Infer<typeof PendingEquipmentOffer>;
+
 export const Player = __t.object("Player", {
   identity: __t.identity(),
   x: __t.f64(),
@@ -1571,6 +1589,17 @@ export const PlayerEndlessRebaseBackup = __t.object("PlayerEndlessRebaseBackup",
   earnedSeconds: __t.f64(),
 });
 export type PlayerEndlessRebaseBackup = __Infer<typeof PlayerEndlessRebaseBackup>;
+
+export const PlayerEquipmentCopy = __t.object("PlayerEquipmentCopy", {
+  id: __t.u64(),
+  identity: __t.identity(),
+  itemId: __t.string(),
+  arrowStorm: __t.f32(),
+  ricochet: __t.f32(),
+  piercingShot: __t.f32(),
+  acquiredAt: __t.timestamp(),
+});
+export type PlayerEquipmentCopy = __Infer<typeof PlayerEquipmentCopy>;
 
 export const PlayerGemDrop = __t.object("PlayerGemDrop", {
   identity: __t.identity(),

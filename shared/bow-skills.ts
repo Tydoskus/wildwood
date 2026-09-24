@@ -5,9 +5,10 @@ import { itemDefinition } from "./items";
  *
  * Every ranged bow may carry up to three skills. Each one independently
  * appears on a bow one time in three; a skill that appears gets a trigger
- * chance rolled in its bow tier's range. The roll belongs to the player and the
- * bow id, not to a copy: inventory stores ids, so every copy of the same bow
- * shares one roll. The server rolls once, keeps the row and never re-rolls it.
+ * chance rolled in its bow tier's range. The first copy of a bow a player
+ * holds keeps its roll in the row for (player, bow id); each further copy they
+ * keep carries its own (see equipment-copies.ts). The server never re-rolls a
+ * copy it has rolled.
  *
  * Chances are stored and passed around as percentages (2.4 means 2.4%), which
  * is what a player reads and what a `spacetime sql` line sets. Zero means the
