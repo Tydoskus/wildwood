@@ -55,3 +55,32 @@ export function watchOfflineProgressPreference(connection: DbConnection, present
   connection.db.myOfflinePreference.onDelete(read);
   connection.subscriptionBuilder().onApplied(read).subscribe([tables.myOfflinePreference]);
 }
+
+/**
+ * The opt-out as the coop API serves it: mirrored so settings can render
+ * before a row arrives, and shown immediately when changed, with the
+ * subscription correcting it if the server disagrees.
+ */
+export function createOfflineProgressPreference(connection: () => DbConnection | null, notify: () => void) {
+  let enabled = true;
+  return {
+    watch(current: DbConnection, isCurrent: () => boolean) {
+      watchOfflineProgressPreference(current, next => {
+        if (!isCurrent()) return;
+        enabled = next;
+        notify();
+      });
+    },
+    api: {
+      offlineProgressEnabled: () => enabled,
+      async setOfflineProgressEnabled(next: boolean) {
+        const current = connection();
+        if (!current?.isActive) return false;
+        enabled = next;
+        notify();
+        await current.reducers.setOfflineProgressEnabled({ enabled: next });
+        return true;
+      },
+    },
+  };
+}

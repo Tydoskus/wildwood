@@ -7,6 +7,13 @@ export const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
 export const BOSS_HITBOX_VISIBLE_KEY = "wildwood-boss-hitbox-visible-v1";
 export const MUSIC_VOLUME_KEY = "wildwood-music-volume-v1";
 export const SFX_VOLUME_KEY = "wildwood-sfx-volume-v1";
+/**
+ * Which volumes were changed on this device and not yet confirmed by the
+ * account ("music", "sfx" or both). Kept in storage so a change made offline,
+ * or on the sign-in screen before the game loads, still wins over the
+ * account's copy on the next login instead of being overwritten by it.
+ */
+export const AUDIO_UNSYNCED_KEY = "wildwood-audio-unsynced-v1";
 export const APP_SHELL_STORAGE_KEYS = {
   attackRange: ATTACK_RANGE_VISIBLE_KEY,
   fps: FPS_VISIBLE_KEY,
@@ -15,6 +22,7 @@ export const APP_SHELL_STORAGE_KEYS = {
   musicVolume: MUSIC_VOLUME_KEY,
   screenShake: SCREEN_SHAKE_ENABLED_KEY,
   sfxVolume: SFX_VOLUME_KEY,
+  audioUnsynced: AUDIO_UNSYNCED_KEY,
 } as const;
 /**
  * The reward became a bank the player spends, so the stored shape changed from

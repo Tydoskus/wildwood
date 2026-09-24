@@ -64,6 +64,15 @@ describe("startup music toggle", () => {
     expect(ui.toggle.getAttribute("aria-pressed")).toBe("false");
   });
 
+  it("marks the music volume as changed here so the account's copy does not overwrite it", () => {
+    const ui = elements();
+    const storage = new FakeStorage();
+    createStartupMusicToggle({ storageKey: "music", unsyncedKey: "unsynced", storage }, ui);
+    expect(storage.getItem("unsynced")).toBeNull();
+    ui.toggle.click();
+    expect(storage.getItem("unsynced")).toBe("music");
+  });
+
   it("uses the default audible volume when a returning player starts muted", () => {
     const ui = elements();
     const storage = new FakeStorage();

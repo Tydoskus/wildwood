@@ -143,6 +143,7 @@ type ExpectedApiKey =
   | "setMultiplayerEnabled"
   | "offlineProgressEnabled"
   | "setOfflineProgressEnabled"
+  | "accountAudio"
   | "developerNameTagVisible"
   | "setDeveloperNameTag"
   | "playerNamePrefix"

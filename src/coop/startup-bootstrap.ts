@@ -1,6 +1,6 @@
 import { signalNativeBootReady } from '../app/native-updates';
 import { recentReleaseNotes } from "../app/changelog";
-import { MUSIC_VOLUME_KEY } from "../game/runtime/game-settings";
+import { AUDIO_UNSYNCED_KEY, MUSIC_VOLUME_KEY } from "../game/runtime/game-settings";
 import {
   createStartupAuthGate,
   loadDeferredGameBundle,
@@ -30,7 +30,7 @@ export function startStartupBootstrap(dependencies: StartupBootstrapDependencies
   const artworkReveal = startStartupArtworkReveal();
   let gameBundleRequested = false;
   const installControl = createStartupInstallControl();
-  const musicToggle = createStartupMusicToggle({ storageKey: MUSIC_VOLUME_KEY });
+  const musicToggle = createStartupMusicToggle({ storageKey: MUSIC_VOLUME_KEY, unsyncedKey: AUDIO_UNSYNCED_KEY });
   const releaseNotes = createStartupReleaseNotes({
     releases: () => recentReleaseNotes(2),
   });

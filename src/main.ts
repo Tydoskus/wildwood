@@ -395,6 +395,7 @@ import {
   const appShell = createAppShellController({
     mapMusic,
     storageKeys: APP_SHELL_STORAGE_KEYS,
+    accountAudio: coop?.accountAudio,
     connected: () => Boolean(coop?.isConnected?.()),
     latencyMs: () => coop?.latencyMs?.(),
     accountState: () => coop?.accountState?.(),

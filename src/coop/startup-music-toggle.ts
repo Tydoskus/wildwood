@@ -1,3 +1,5 @@
+import { markUnsyncedAudio } from "../ui/account-audio-sync";
+
 type StartupMusicStorage = Pick<Storage, "getItem" | "setItem">;
 
 export type StartupMusicToggleElements = {
@@ -6,6 +8,8 @@ export type StartupMusicToggleElements = {
 
 type StartupMusicToggleHooks = {
   storageKey: string;
+  /** Marks the music volume as changed here, so the account's copy does not overwrite it. */
+  unsyncedKey?: string;
   storage?: StartupMusicStorage;
   defaultVolume?: number;
 };
@@ -58,6 +62,7 @@ export function createStartupMusicToggle(
       volume = lastAudibleVolume;
     }
     try { storage?.setItem(hooks.storageKey, String(volume)); } catch {}
+    if (hooks.unsyncedKey) markUnsyncedAudio(hooks.unsyncedKey, "music", storage);
     render();
   }
 

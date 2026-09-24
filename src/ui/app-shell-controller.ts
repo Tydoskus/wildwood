@@ -1,6 +1,8 @@
 import { installKeepScreenOnSettings } from "./keep-screen-on-settings";
 import { installFeedbackSettings } from "./feedback-settings";
 import type { MapMusicController } from "../game/runtime/audio";
+import type { AccountAudioRemote } from "../coop/services/account-audio-settings";
+import { createAccountAudioSync } from "./account-audio-sync";
 import { requiredElement } from "../game/runtime/dom";
 import {
   renderAccountStatus,
@@ -23,7 +25,10 @@ type AppShellDependencies = {
     musicVolume: string;
     screenShake: string;
     sfxVolume: string;
+    audioUnsynced: string;
   };
+  /** The account's copy of the volumes, when a coop connection exists. */
+  accountAudio?: AccountAudioRemote | null;
   connected: () => boolean;
   latencyMs: () => number | null | undefined;
   accountState: () => AccountState | undefined;
@@ -169,6 +174,8 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   };
   musicVolumeInput.addEventListener("input", applyMusicVolume);
   musicVolumeInput.addEventListener("change", applyMusicVolume);
+  musicVolumeInput.addEventListener("input", () => accountAudio.localEditing("music"));
+  musicVolumeInput.addEventListener("change", () => accountAudio.localChanged("music"));
   const applySfxVolume = () => {
     const volume = Math.min(1, Math.max(0, Number(sfxVolumeInput.value) / 100));
     dependencies.mapMusic.setSfxVolume(volume);
@@ -178,6 +185,8 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   };
   sfxVolumeInput.addEventListener("input", applySfxVolume);
   sfxVolumeInput.addEventListener("change", applySfxVolume);
+  sfxVolumeInput.addEventListener("input", () => accountAudio.localEditing("sfx"));
+  sfxVolumeInput.addEventListener("change", () => accountAudio.localChanged("sfx"));
   signInMuteButton.addEventListener("click", () => {
     const nextVolume = dependencies.mapMusic.volume > 0 ? 0 : lastAudibleMusicVolume;
     if (dependencies.mapMusic.volume > 0) lastAudibleMusicVolume = dependencies.mapMusic.volume;
@@ -186,6 +195,7 @@ export function createAppShellController(dependencies: AppShellDependencies) {
     renderVolume(musicVolumeInput, musicVolumeValue, nextVolume);
     renderSignInMuteButton();
     if (nextVolume > 0) ensureMusicPlaying();
+    accountAudio.localChanged("music");
   });
   accountButton.addEventListener("click", () => {
     if (dependencies.accountState()?.signedIn) dependencies.signOut();
@@ -214,6 +224,22 @@ export function createAppShellController(dependencies: AppShellDependencies) {
     if (event.target instanceof Element && event.target.closest("#signInMuteButton")) return;
     ensureMusicPlaying();
   }, { capture: true });
+
+  // Declared after the listeners above, which only reach it from user events.
+  const accountAudio = createAccountAudioSync({
+    remote: dependencies.accountAudio,
+    local: () => ({ musicVolume: dependencies.mapMusic.volume, sfxVolume: dependencies.mapMusic.sfxVolume }),
+    apply: ({ musicVolume, sfxVolume }) => {
+      // Settings only: nothing here reports back as a local change.
+      writeString(dependencies.storageKeys.musicVolume, String(musicVolume));
+      writeString(dependencies.storageKeys.sfxVolume, String(sfxVolume));
+      dependencies.mapMusic.setVolume(musicVolume);
+      dependencies.mapMusic.setSfxVolume(sfxVolume);
+      if (musicVolume > 0) lastAudibleMusicVolume = musicVolume;
+      refreshSettings();
+    },
+    unsyncedKey: dependencies.storageKeys.audioUnsynced,
+  });
 
   refreshSettings();
   refreshStatus();
