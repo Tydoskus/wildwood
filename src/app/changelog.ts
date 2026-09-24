@@ -3,6 +3,9 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "Repeated filtered chat messages now mute chat for an hour, then 24 hours for repeat offenders.",
     "Muted players can still read chat but can't send or react until the mute ends.",
     "You'll get a mailbox letter when your bug report or player report is reviewed.",
+    "A failed prestige no longer resets your stats.",
+    "The stat tracker starts a fresh session after you prestige.",
+    "Holding click to move keeps going when the cursor leaves the game.",
   ],
   "0.808": [
     "Enemy name and health labels draw faster in busy mob groups.",

@@ -63,7 +63,10 @@ import { describe, expect, it } from "vitest";
 // no-op clearPendingBossHits calls. Personal bosses were already wired apart.
 // 2_134: the developer cutscene buttons went, with their three map-gated
 // handlers, the preview flag they threaded through and their element wiring.
-const MAX_LINES = 2_134;
+// 2_140: runPrestige, shared by the prestige panel and the unlock popup, reloads
+// progress only after the prestige reducer succeeds, so a failed prestige keeps
+// the player's unsaved stats.
+const MAX_LINES = 2_140;
 const TARGET_LINES = 1_000;
 
 describe("game composition boundary", () => {
