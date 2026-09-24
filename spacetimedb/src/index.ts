@@ -59,7 +59,7 @@ import { allowedAvatarFrame, isAvatarFrame } from "../../shared/avatar-frames";
 import { createGemPurchaseService } from "./gem-purchase-service";
 import { rescaleEndgameProgress } from "../../shared/endgame-power-rescale";
 import { CAMPAIGN_UNLOCK_FIELDS, equipmentMapRequirement } from "../../shared/equipment-access";
-import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_BENCH_POSITION } from "../../shared/home";
+import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_TRAVEL_PORTAL, HOME_BENCH_POSITION } from "../../shared/home";
 import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./snapshot-row-writes";
 import { compressLegacyMapPower } from "../../shared/map-power-rescale";
 import { createPlayerMotionFrameSampler } from "../../shared/player-motion-sample";
@@ -6175,10 +6175,10 @@ export const changeMap = spacetimedb.reducer(
       Boolean(currentProgress && (currentProgress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS[PROCEDURAL_ENTRY_BOSS])))) {
       throw new SenderError("Defeat the previous map's boss first.");
     }
-    // Home no longer has a travel pad. Leaving Home is the toolbar teleport's
-    // return leg, which is the home_exterior branch above, not a portal walk.
-    if (current.mapId === HOME_EXTERIOR_MAP_ID) throw new SenderError("Maps are not connected.");
-    const sourcePortals = isProceduralMap(current.mapId)
+    // Home's travel portal reaches every map the checks above allow, from beside the pad.
+    const sourcePortals = current.mapId === HOME_EXTERIOR_MAP_ID
+      ? [{ ...HOME_TRAVEL_PORTAL, y: HOME_TRAVEL_PORTAL.y - HOME_TRAVEL_PORTAL.height * .32, destination: mapId }]
+      : isProceduralMap(current.mapId)
       ? generateMap(current.mapId).portals.map(portal => ({ ...portal, y:portal.y-portal.height*.32 }))
       : [...(MAP_PORTALS[current.mapId as keyof typeof MAP_PORTALS] ?? []),
         ...(current.mapId === PROCEDURAL_ENTRY_MAP ? [{x:580,y:617,destination:proceduralMapId(1)}] : [])];
