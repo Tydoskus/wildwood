@@ -22,9 +22,11 @@ import {
   type ChatMessageActionTarget,
 } from "./chat-message-actions";
 
-import { createChatUnreadTracker, formatChatUnreadCount } from "./chat-unread";
+import { createChatUnreadTracker, formatChatUnreadCount, type ChatUnreadCounts } from "./chat-unread";
 import { createChatHistory, type ChatHistoryPage } from "./chat-history";
 import { createChatChannelPicker, type ChatChannel, type ChatConversation } from "./chat-channels";
+import { createChatInputSizer } from "./chat-input-size";
+import { chatListFingerprint, createChatInputMemo, sameChatRows, setChatAttribute, setChatHidden, setChatText } from "./chat-refresh-cache";
 
 const CHAT_ENABLED_KEY = "wildwood-chat-enabled-v1";
 const CHAT_DISPLAY_TTL_MS = 86_400_000;
@@ -120,6 +122,11 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
   const reactionOverrides = new Map<string, { source: string | undefined; value: string }>();
   let renderedRevision = "", metadataRevision = "";
   let renderedRows = new Map<string, { signature: string; element: HTMLDivElement }>();
+  // What the last full render drew, so a refresh can prove nothing changed
+  // before it touches layout.
+  let renderedViewKey = "", renderedSource: readonly ChatMessage[] = [], renderedMessages: readonly ChatMessage[] = [];
+  let unreadInputs = "", unreadCounts: ChatUnreadCounts | null = null;
+  const pickerInputs = createChatInputMemo();
   let channel: ChatChannel = "public";
   let privatePeer = "";
   let privatePeerIdentity = "";
@@ -170,8 +177,8 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
   }
   function refreshLatestButton() {
     const distance = elements.messages.scrollHeight - elements.messages.clientHeight - elements.messages.scrollTop;
-    latestButton.hidden = !large || !enabled || (channel === "private" && !privatePeer) || (distance <= 80 && !history.state().detached);
-    latestButton.disabled = history.state().loading;
+    setChatHidden(latestButton, !large || !enabled || (channel === "private" && !privatePeer) || (distance <= 80 && !history.state().detached));
+    if (latestButton.disabled !== history.state().loading) latestButton.disabled = history.state().loading;
   }
   const channelPicker = createChatChannelPicker((nextChannel, username, identity) => {
     scrollIdle.reset();
@@ -390,6 +397,25 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     return NAME_COLORS[(hash >>> 0) % NAME_COLORS.length];
   }
 
+  /** Everything a drawn row shows. An unchanged signature keeps its element. */
+  function presentMessage(coop: CoopClient | null, identity: string, message: ChatMessage) {
+    const cachedGender = normalizePlayerGender(coop?.playerGender?.(message.sender));
+    const displayedGender = cachedGender !== PLAYER_GENDER_UNSET ? cachedGender : message.senderGender;
+    const guest = !!coop?.isGuest?.(message.sender);
+    const iconIndex = normalizeProfileIcon(coop?.profileIcon?.(message.sender) ?? 0);
+    const reactionChannel: "public" | "social" = channel === "public" ? "public" : "social";
+    const reactionOverride = reactionOverrides.get(`${reactionChannel}:${message.id}`);
+    const reactionCountsJson = reactionOverride?.source === message.reactionCountsJson ? reactionOverride?.value : message.reactionCountsJson;
+    const rowKey = `${identity}:${conversationKey()}:${large}:${message.id}`;
+    const signature = JSON.stringify([
+      message.sender, message.senderName, message.message, String(message.replayId), message.guildReplayKey,
+      message.powerLevel, displayedGender, message.moderated, String(message.replyToMessageId),
+      message.replyToSenderName, message.replyToMessage, message.sentAtMs, guest, iconIndex,
+      playerNamePrefix(message.sender), large ? reactionCountsJson : "",
+    ]);
+    return { displayedGender, guest, iconIndex, reactionChannel, reactionCountsJson, rowKey, signature };
+  }
+
   function refresh() {
     const coop = getCoop();
     const identity = coop?.localIdentity?.() ?? "";
@@ -397,6 +423,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       sessionIdentity = identity;
       reactionOverrides.clear();
       unread.reset();
+      unreadInputs = "";
       submissionGeneration++;
       submitting = false;
       elements.input.value = "";
@@ -409,6 +436,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     const nextGuildContext = String(coop?.social?.currentGuild()?.id ?? "");
     if (nextGuildContext !== guildContext) {
       unread.resetGuild();
+      unreadInputs = "";
       drafts.delete(`guild:${guildContext}`);
       guildContext = nextGuildContext;
       if (channel === "guild") {
@@ -423,7 +451,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     const now = Date.now();
     history.select(`${identity}:${conversationKey()}:${coop?.social?.historyRevision?.() ?? 0}:${coop?.chatHistoryRevision?.() ?? 0}:${large}`);
     const historyState = history.state();
-    historySpinner.hidden = !large || !enabled || !historyState.loading;
+    setChatHidden(historySpinner, !large || !enabled || !historyState.loading);
 
     const readingLatest = enabled && large && document.visibilityState !== "hidden"
       && (renderedRevision === "" || (!historyState.frozen && atLatest));
@@ -434,21 +462,55 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     if (metadata !== metadataRevision || renderedRevision === "") {
       metadataRevision = metadata;
       const conversations = coop?.social?.privateConversations() ?? [];
+      const friends = coop?.social?.friends() ?? [];
       if (privatePeer && !privatePeerIdentity) {
-        privatePeerIdentity = [...(coop?.social?.friends() ?? []), ...conversations]
+        privatePeerIdentity = [...friends, ...conversations]
           .find(person => person.name.toLowerCase() === privatePeer.toLowerCase())?.identity ?? "";
       }
-      const eligibleUnread = (rows: ChatMessage[]) => rows.filter(message => !coop?.isPlayerBlocked?.(message.sender));
-      const unreadCounts = unread.refresh(identity, eligibleUnread(coop?.social?.guildMessages() ?? []),
-        new Map(conversations.map(person => [person.identity, eligibleUnread(coop?.social?.privateMessages(person.identity) ?? [])])),
-        readingLatest ? channel === "public" ? "world" : channel === "guild" ? "guild"
-          : privatePeer ? `private:${privatePeerIdentity || privatePeer}` : null : null,
-        eligibleUnread(coop?.chatMessages?.() ?? []).filter(message => shouldShowGlobalChatMessage(message.senderName)));
+      const readConversation = readingLatest ? channel === "public" ? "world" : channel === "guild" ? "guild"
+        : privatePeer ? `private:${privatePeerIdentity || privatePeer}` : null : null;
+      const guildRows = coop?.social?.guildMessages() ?? [], worldRows = coop?.chatMessages?.() ?? [];
+      const privateRows = conversations.map(person => [person.identity, coop?.social?.privateMessages(person.identity) ?? []] as const);
+      // Counting walks every live row of every channel, yet most revisions
+      // here are profile, portrait or hub rows that cannot move a count. Only
+      // a new or removed row, the channel being read, or a block can.
+      const unreadKey = [identity, readConversation, coop?.chatHistoryRevision?.() ?? 0, chatListFingerprint(guildRows), chatListFingerprint(worldRows),
+        ...privateRows.map(([person, rows]) => `${person}=${chatListFingerprint(rows)}`)].join("|");
+      if (unreadKey !== unreadInputs || !unreadCounts) {
+        unreadInputs = unreadKey;
+        const eligibleUnread = (rows: ChatMessage[]) => rows.filter(message => !coop?.isPlayerBlocked?.(message.sender));
+        unreadCounts = unread.refresh(identity, eligibleUnread(guildRows),
+          new Map(privateRows.map(([person, rows]) => [person, eligibleUnread(rows)])),
+          readConversation,
+          eligibleUnread(worldRows).filter(message => shouldShowGlobalChatMessage(message.senderName)));
+      }
       const unreadTotal = unreadCounts.world + unreadCounts.guild + unreadCounts.private;
-      unreadBadge.textContent = formatChatUnreadCount(unreadTotal);
-      unreadBadge.hidden = large || unreadTotal === 0;
-      unreadBadge.setAttribute("aria-label", `${unreadTotal} unread messages`);
-      channelPicker.refresh(coop?.social?.friends() ?? [], conversations, coop?.social?.currentGuild()?.name ?? "", unreadCounts);
+      setChatText(unreadBadge, formatChatUnreadCount(unreadTotal));
+      setChatHidden(unreadBadge, large || unreadTotal === 0);
+      setChatAttribute(unreadBadge, "aria-label", `${unreadTotal} unread messages`);
+      const guildName = coop?.social?.currentGuild()?.name ?? "";
+      if (pickerInputs.changed([unreadCounts, friends, conversations, guildName]) || renderedRevision === "") {
+        channelPicker.refresh(friends, conversations, guildName, unreadCounts);
+      }
+    }
+    const channelMessages = history.messages(currentMessages());
+    const allMessages = (channelMessages ?? []).filter((message) =>
+      (channel === "private" || now - message.sentAtMs < CHAT_DISPLAY_TTL_MS) && !coop?.isPlayerBlocked?.(message.sender)
+      && (channel !== "public" || shouldShowGlobalChatMessage(message.senderName))
+    );
+    const expiresAt = channel !== "private" && allMessages.length > 0 ? allMessages[0].sentAtMs + CHAT_DISPLAY_TTL_MS : Number.POSITIVE_INFINITY;
+    // Profile, portrait, hub, other-channel and minute ticks all land here
+    // without changing a drawn row. Prove that from data alone: reading scroll
+    // metrics forces a page layout, and typing keeps the page dirty.
+    const viewKey = `${viewportRevision}:${readingLatest}:${conversationKey()}:${identity}:${enabled}:${large}:${historyState.revision}`;
+    if (renderedRevision !== "" && originalTarget === null && viewKey === renderedViewKey && sameChatRows(renderedSource, allMessages)
+      && renderedMessages.every(message => {
+        const row = presentMessage(coop, identity, message);
+        return renderedRows.get(row.rowKey)?.signature === row.signature;
+      })) {
+      renderedRevision = revision;
+      nextExpiryAt = expiresAt;
+      return;
     }
     const context = `${identity}:${conversationKey()}:${large}`;
     if (context !== viewportContext) { viewportContext = context; viewport.reset(); }
@@ -468,11 +530,6 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     const visibleAnchor = viewportBounds && [...renderedRows.values()].map(row => ({
       element: row.element, bounds: row.element.getBoundingClientRect(),
     })).find(row => row.bounds.height > 0 && row.bounds.bottom > viewportBounds.top && row.bounds.top < viewportBounds.bottom);
-    const channelMessages = history.messages(currentMessages());
-    const allMessages = (channelMessages ?? []).filter((message) =>
-      (channel === "private" || now - message.sentAtMs < CHAT_DISPLAY_TTL_MS) && !coop?.isPlayerBlocked?.(message.sender)
-      && (channel !== "public" || shouldShowGlobalChatMessage(message.senderName))
-    );
     // Do not rely on scrolling hidden rows in compact mode. Its DOM contains
     // exactly the newest two rows in the same oldest-to-newest order as the
     // expanded view.
@@ -492,25 +549,13 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     const showHistoryRow = hasHistoryRow && windowRange.start === 0;
     if (large) setSpacers(windowRange);
     renderedRevision = revision;
-    nextExpiryAt = channel !== "private" && allMessages.length > 0 ? allMessages[0].sentAtMs + CHAT_DISPLAY_TTL_MS : Number.POSITIVE_INFINITY;
+    nextExpiryAt = expiresAt;
+    renderedViewKey = viewKey; renderedSource = allMessages; renderedMessages = messages;
     // Social refreshes and incoming messages must not detach unchanged image
     // elements: recreating them makes gender/power icons flash while repainting.
     const nextRows = new Map<string, { signature: string; element: HTMLDivElement }>();
     for (const message of messages) {
-      const cachedGender = normalizePlayerGender(coop?.playerGender?.(message.sender));
-      const displayedGender = cachedGender !== PLAYER_GENDER_UNSET ? cachedGender : message.senderGender;
-      const guest = !!coop?.isGuest?.(message.sender);
-      const iconIndex = normalizeProfileIcon(coop?.profileIcon?.(message.sender) ?? 0);
-      const reactionChannel = channel === "public" ? "public" : "social";
-      const reactionOverride = reactionOverrides.get(`${reactionChannel}:${message.id}`);
-      const reactionCountsJson = reactionOverride?.source === message.reactionCountsJson ? reactionOverride?.value : message.reactionCountsJson;
-      const rowKey = `${identity}:${conversationKey()}:${large}:${message.id}`;
-      const signature = JSON.stringify([
-        message.sender, message.senderName, message.message, String(message.replayId), message.guildReplayKey,
-        message.powerLevel, displayedGender, message.moderated, String(message.replyToMessageId),
-        message.replyToSenderName, message.replyToMessage, message.sentAtMs, guest, iconIndex,
-        playerNamePrefix(message.sender), large ? reactionCountsJson : "",
-      ]);
+      const { displayedGender, guest, iconIndex, reactionChannel, reactionCountsJson, rowKey, signature } = presentMessage(coop, identity, message);
       const previous = renderedRows.get(rowKey);
       if (previous?.signature === signature) { nextRows.set(rowKey, previous); continue; }
       const line = document.createElement("div");
@@ -692,10 +737,14 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     messageActions.init();
     // Capture scrolling from messages and the conversation list, including
     // momentum after the finger lifts. No layout reads or per-event timers.
+    // Keystrokes are left out on purpose: this lifts the game canvas behind
+    // chat from its idle 30fps to 60fps, which only scrolling needs. Typed
+    // text is drawn by the browser, and on a slow phone a full canvas frame
+    // on every vsync competes with the keyboard for the main thread.
     const noteInteraction = () => {
       if (large && enabled) interactionUntil = performance.now() + 2_000;
     };
-    for (const event of ["scroll", "wheel", "touchmove", "pointerdown", "keydown", "input"]) {
+    for (const event of ["scroll", "wheel", "touchmove", "pointerdown"]) {
       elements.panel.addEventListener(event, noteInteraction, { capture: true, passive: true });
     }
     elements.panel.insertBefore(channelPicker.root, elements.messages);
@@ -827,6 +876,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       elements.form.requestSubmit();
     });
     let sizingInput = false;
+    const sizeInput = createChatInputSizer(elements.input);
     elements.input.addEventListener("input", (event) => {
       if (event instanceof InputEvent && !event.isComposing && !composing && (event.inputType === "insertLineBreak" || event.inputType === "insertParagraph")) {
         elements.input.value = elements.input.value.replace(/\n$/, "");
@@ -836,8 +886,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       sizingInput = true;
       requestAnimationFrame(() => {
         sizingInput = false;
-        elements.input.style.height = "auto";
-        elements.input.style.height = `${Math.min(elements.input.scrollHeight, 54)}px`;
+        sizeInput();
       });
     });
     updateVisibility();

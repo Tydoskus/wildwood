@@ -2,6 +2,7 @@ import { applyAvatarFrame } from "../app/avatar-frames";
 import { applyProfileIcon } from "../app/profile-icons";
 import { formatChatUnreadCount, type ChatUnreadCounts } from "./chat-unread";
 import { createDiscordLink } from "./discord-link";
+import { setChatAttribute, setChatHidden, setChatText } from "./chat-refresh-cache";
 
 export type ChatChannel = "public" | "guild" | "private";
 export type ChatConversation = import("../../shared/social").SocialConversation;
@@ -126,9 +127,11 @@ export function createChatChannelPicker(onChange: (channel: ChatChannel, usernam
       const count = channel === "guild" ? unread.guild : channel === "private" ? unread.private : unread.world;
       const label = channel[0].toUpperCase() + channel.slice(1);
       const badge = badges.get(channel)!;
-      badge.textContent = formatChatUnreadCount(count);
-      badge.hidden = count === 0;
-      button.setAttribute("aria-label", count ? `${label}, ${count} unread messages` : label);
+      // Unchanged values are skipped: each write dirties layout for chat's
+      // next scroll read, and this runs on every social or message update.
+      setChatText(badge, formatChatUnreadCount(count));
+      setChatHidden(badge, count === 0);
+      setChatAttribute(button, "aria-label", count ? `${label}, ${count} unread messages` : label);
     }
     const signature = JSON.stringify([people, [...unread.conversations]]);
     if (!contacts.hidden && signature !== contactSignature) {
@@ -172,10 +175,10 @@ export function createChatChannelPicker(onChange: (channel: ChatChannel, usernam
         contacts.append(row);
       }
     }
-    status.textContent = selected === "guild" ? (guildName ? `Guild: ${guildName}` : "Join or create a guild to chat with members.")
-      : "";
-    status.hidden = selected !== "guild";
-    conversationHeader.textContent = peer;
+    setChatText(status, selected === "guild" ? (guildName ? `Guild: ${guildName}` : "Join or create a guild to chat with members.")
+      : "");
+    setChatHidden(status, selected !== "guild");
+    setChatText(conversationHeader, peer);
   }
   update();
   return { root, conversations: contacts, select, refresh };

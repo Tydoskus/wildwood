@@ -575,7 +575,7 @@ describe("chat work scheduling", () => {
   });
 });
 
-it("keeps chat interaction active through momentum and typing, then releases idle pacing", () => {
+it("keeps chat interaction active through momentum, but not typing, then releases idle pacing", () => {
   const h = setup();
   let now = 10_000;
   vi.spyOn(performance, "now").mockImplementation(() => now);
@@ -591,7 +591,10 @@ it("keeps chat interaction active through momentum and typing, then releases idl
     expect(h.chat.isInteracting()).toBe(true);
     now += 501;
     expect(h.chat.isInteracting()).toBe(false);
-    panel.dispatchEvent(new h.window.Event("input"));
+    // Keystrokes leave the canvas behind chat at its idle frame rate.
+    for (const type of ["keydown", "input"]) panel.dispatchEvent(new h.window.Event(type));
+    expect(h.chat.isInteracting()).toBe(false);
+    panel.dispatchEvent(new h.window.Event("pointerdown"));
     expect(h.chat.isInteracting()).toBe(true);
     h.chat.minimize();
     expect(h.chat.isInteracting()).toBe(false);
