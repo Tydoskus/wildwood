@@ -123,6 +123,7 @@ import { statRewardMultiplier, prestigePerkRanks } from "./prestige";
 import { prestigeCriticalDamageBonus, prestigePerkValue, prestigeReachMultiplier, prestigeSwingMultiplier } from "../../shared/prestige-perks";
 import { pinnedBossReward } from "./map-balance";
 import { bowSkillRollFor } from "./bow-skills";
+import { isDropIgnored } from "./ignored-drops";
 import { bowSkillBossDamageMultiplier, bowSkillReachMultiplier } from "../../shared/bow-skills";
 import { damageProceduralBoss, proceduralBossKey } from "./procedural-maps";
 import { updateSnapshotRow } from "./snapshot-row-writes";
@@ -686,12 +687,13 @@ export function createBossCombat(deps: BossCombatDeps) {
       armor: pinnedBossReward(ctx, identity, "intermediate_snowlands", "armor", FROSTCLAW_REWARD_ARMOR),
     });
     let next = { ...reward, lavaUnlocked: true };
-    if (frostBowDropped) {
+    // The rolls above always happen; the loot filter only decides what is kept.
+    if (frostBowDropped && !isDropIgnored(ctx, identity, FROST_BOW)) {
       const alreadyOwned = playerOwnsItem(ctx, identity, FROST_BOW);
       publishItemDrop(ctx, identity, FROST_BOW, alreadyOwned);
       if (!alreadyOwned) next = restoreItemToProgress(next, FROST_BOW);
     }
-    if (frostArmorDropped) {
+    if (frostArmorDropped && !isDropIgnored(ctx, identity, FROST_ARMOR)) {
       const alreadyOwned = playerOwnsItem(ctx, identity, FROST_ARMOR);
       publishItemDrop(ctx, identity, FROST_ARMOR, alreadyOwned);
       if (!alreadyOwned) next = restoreItemToProgress(next, FROST_ARMOR);
@@ -762,7 +764,7 @@ export function createBossCombat(deps: BossCombatDeps) {
       regen: pinnedBossReward(ctx, identity, "advanced_lava_wastes", "regen", MAGMALISK_REWARD_REGEN),
     });
     let next = { ...reward, infernalUnlocked: true };
-    if (lavaBowDropped) {
+    if (lavaBowDropped && !isDropIgnored(ctx, identity, LAVA_BOW)) {
       const alreadyOwned = playerOwnsItem(ctx, identity, LAVA_BOW);
       publishItemDrop(ctx, identity, LAVA_BOW, alreadyOwned);
       if (!alreadyOwned) next = restoreItemToProgress(next, LAVA_BOW);

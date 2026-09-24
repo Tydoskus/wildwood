@@ -20,7 +20,7 @@ import { applyEnemyRewards } from "../../shared/enemy-defeats";
 import { offlineProgressTables, beginOfflineWindow, grantOfflineProgress, acknowledgeOfflineProgress, setSimulatedTimeAway } from "./offline-progress";
 import { playerOfflinePreference, writeOfflinePreference } from "./offline-preference";
 import { playerAudioSetting, writeAudioSettings } from "./audio-settings";
-import { playerIgnoredDrop, writeIgnoredDrops } from "./ignored-drops";
+import { keepWantedDrops, playerIgnoredDrop, writeIgnoredDrops } from "./ignored-drops";
 import { ERASURE_ROW_BUDGET, eraseIdentityRows, linkedIdentities, requireErasureConfirmation } from "./account-erasure";
 import { LOADOUT_FIELDS } from "../../shared/combat-progress";
 import { chatHeartAllowance, chatReactionCooldown, chatReactionSummary, chatReactionUnlock, playerChatHearts, reactionCountsFor, chatReaction, readChatReactions, setChatReaction, grantGemHeartUnlock, removeMessageReactions, removeAccountReactions } from "./chat-reactions";
@@ -5500,7 +5500,7 @@ export const recordPlayerDeath = spacetimedb.reducer(
 );
 
 function awardRegularEnemyLoot(ctx: ReducerCtx<InferSchema<typeof spacetimedb>>, mapId: string, count: number, checkpoint?: { progress: any }) {
-  const drops = rollRegularEnemyLoot(ctx, mapId, count, pinnedMapBalance(ctx, ctx.sender, mapId)?.loot);
+  const drops = keepWantedDrops(ctx, ctx.sender, rollRegularEnemyLoot(ctx, mapId, count, pinnedMapBalance(ctx, ctx.sender, mapId)?.loot));
   if (!drops.size) return checkpoint?.progress;
   const current = checkpoint?.progress ?? ctx.db.playerProgress.identity.find(ctx.sender);
   let next = current ?? defaultPlayerProgress(ctx.sender);
@@ -5667,7 +5667,7 @@ export const myIgnoredDrops = spacetimedb.view(
   { name: "my_ignored_drops", public: true }, t.array(playerIgnoredDrop.rowType),
   ctx => [...ctx.db.playerIgnoredDrop.identity.filter(ctx.sender)],
 );
-/** Equipment whose copies are ignored on arrival, set from the map window. Body: ignored-drops.ts. */
+/** The loot filter: slots and items that never drop for the caller, set from the map window. Body: ignored-drops.ts. */
 export const setIgnoredDrops = spacetimedb.reducer({ itemIds: t.array(t.string()), ignored: t.bool() }, (ctx, args) => {
   requireControllingPlayer(ctx);
   writeIgnoredDrops(ctx, args);
