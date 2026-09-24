@@ -686,6 +686,22 @@ describe("bow skills", () => {
     expect(fire(() => ({ arrowStorm: 0, ricochet: 0, piercingShot: 100 }))).toEqual({ arrowStorm: false, ricochet: false, piercingShot: true });
     expect(fire(() => null)).toBeNull();
   });
+
+  it("sends a Piercing Shot twice as far as a plain arrow, then on off screen", () => {
+    let now = 0;
+    const flight = (piercingShot: number) => {
+      const state = field([560], { nowSeconds: () => now, equippedWeapon: () => "starter_bow", random: () => 0,
+        bowSkills: () => ({ arrowStorm: 0, ricochet: 0, piercingShot }) });
+      Object.assign(state.player, { x: 500, y: 500, attackRange: 400, projectileCount: 1 });
+      for (let i = 0; i < 60 && !state.projectileStore.projectiles.length; i++) { now += 1 / 60; state.controller.attackNearest(); }
+      const [arrow] = state.projectileStore.projectiles;
+      return { reach: arrow.hitLife! * state.player.projectileSpeed, flight: arrow.life * state.player.projectileSpeed };
+    };
+    const plain = flight(0), piercing = flight(100);
+    expect(piercing.reach).toBeCloseTo(plain.reach * 2);
+    expect(piercing.flight).toBeGreaterThanOrEqual(1_600);
+    expect(plain.flight).toBeLessThan(1_600);
+  });
 });
 
 describe("enemy health bar loss chunk", () => {
