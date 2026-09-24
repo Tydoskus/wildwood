@@ -163,6 +163,7 @@ import SetDisplayNameReducer from "./set_display_name_reducer";
 import SetGenderReducer from "./set_gender_reducer";
 import SetGuildVicePresidentReducer from "./set_guild_vice_president_reducer";
 import SetIgnoredDropsReducer from "./set_ignored_drops_reducer";
+import SetLootSettingsReducer from "./set_loot_settings_reducer";
 import SetMapBalanceReducer from "./set_map_balance_reducer";
 import SetMultiplayerEnabledReducer from "./set_multiplayer_enabled_reducer";
 import SetOfflineProgressEnabledReducer from "./set_offline_progress_enabled_reducer";
@@ -267,6 +268,7 @@ import MyIgnoredDropsRow from "./my_ignored_drops_table";
 import MyInventoryCapacityRow from "./my_inventory_capacity_table";
 import MyItemGiftsRow from "./my_item_gifts_table";
 import MyLegalConsentRow from "./my_legal_consent_table";
+import MyLootSettingsRow from "./my_loot_settings_table";
 import MyMailboxV2Row from "./my_mailbox_v_2_table";
 import MyOfflinePreferenceRow from "./my_offline_preference_table";
 import MyOfflineProgressRow from "./my_offline_progress_table";
@@ -1225,6 +1227,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyLegalConsentRow),
+  myLootSettings: __table({
+    name: 'my_loot_settings',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyLootSettingsRow),
   myMailboxV2: __table({
     name: 'my_mailbox_v2',
     indexes: [
@@ -1442,6 +1451,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_gender", SetGenderReducer),
   __reducerSchema("set_guild_vice_president", SetGuildVicePresidentReducer),
   __reducerSchema("set_ignored_drops", SetIgnoredDropsReducer),
+  __reducerSchema("set_loot_settings", SetLootSettingsReducer),
   __reducerSchema("set_map_balance", SetMapBalanceReducer),
   __reducerSchema("set_multiplayer_enabled", SetMultiplayerEnabledReducer),
   __reducerSchema("set_offline_progress_enabled", SetOfflineProgressEnabledReducer),

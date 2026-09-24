@@ -50,7 +50,13 @@ import { describe, expect, it } from "vitest";
 // 2_188: one line handing the map window the coop session for its Loot
 // filter window. The chips, the switches and their saving live in
 // loot-filter-window.ts; only the composition root holds the session.
-const MAX_LINES = 2_188;
+// 2_193: auto equip. Two lines construct and import the feedback that takes
+// gear the server put on into the local bag (auto-equip-feedback.ts holds the
+// logic); only the composition root holds the coop session, the bag and the
+// player. Three more let Equip best rank bows by their skills: the local
+// power function takes the coop session's rolls when comparing, and says so.
+// The comparison itself lives in shared/equip-best.ts.
+const MAX_LINES = 2_193;
 const TARGET_LINES = 1_000;
 
 describe("game composition boundary", () => {

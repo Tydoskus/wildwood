@@ -1304,6 +1304,9 @@ export type MyItemGifts = __Infer<typeof MyItemGifts>;
 export const MyLegalConsent = __t.object("MyLegalConsent", {});
 export type MyLegalConsent = __Infer<typeof MyLegalConsent>;
 
+export const MyLootSettings = __t.object("MyLootSettings", {});
+export type MyLootSettings = __Infer<typeof MyLootSettings>;
+
 export const MyMailboxV2 = __t.object("MyMailboxV2", {});
 export type MyMailboxV2 = __Infer<typeof MyMailboxV2>;
 
@@ -1694,6 +1697,14 @@ export const PlayerLifetime = __t.object("PlayerLifetime", {
   deathCount: __t.u64(),
 });
 export type PlayerLifetime = __Infer<typeof PlayerLifetime>;
+
+export const PlayerLootSetting = __t.object("PlayerLootSetting", {
+  identity: __t.identity(),
+  autoKeepBest: __t.bool(),
+  autoEquipBest: __t.bool(),
+  updatedAt: __t.timestamp(),
+});
+export type PlayerLootSetting = __Infer<typeof PlayerLootSetting>;
 
 export const PlayerMapBalance = __t.object("PlayerMapBalance", {
   identity: __t.identity(),

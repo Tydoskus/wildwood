@@ -10,9 +10,11 @@ import { canDestroyEquipment, isCosmeticOnlyItem, itemDefinition } from "./items
  * one a slot equips: equipping another copy swaps the two rolls, so
  * everything that reads the equipped bow's roll by item id keeps working.
  *
- * A drop of equipment the player already owns becomes an offer they Keep or
+ * A drop of equipment the player already owns is settled by Auto keep best
+ * (on by default: the better skill roll becomes the first copy, the rest is
+ * thrown away), or, with that turned off, becomes an offer they Keep or
  * Ignore. An offer nobody answers is ignored after five minutes, on the
- * server, so it happens with the tab closed too.
+ * server, so it happens with the tab closed too. Gifts and mail always offer.
  */
 export const EQUIPMENT_OFFER_LIFETIME_MS = 5 * 60_000;
 /** Farming cannot pile offers up: past this many, the oldest is ignored. */

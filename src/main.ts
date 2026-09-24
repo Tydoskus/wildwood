@@ -11,6 +11,7 @@ import { createPlayerVisibilityToggle } from "./ui/player-visibility-toggle";
 import { createPanelCoordinator } from "./ui/panel-coordinator";
 import { createProgressCompletionNotices } from "./ui/progress-completion-notices";
 import { createItemUpgradeFeedback } from "./ui/item-upgrade-feedback";
+import { createAutoEquipFeedback } from "./ui/auto-equip-feedback";
 import { createOfflineProgressSummary } from "./ui/offline-progress-summary";
 import { createFullscreenMovementGate } from "./ui/fullscreen-movement";
 import { installGameTicker } from "./ui/game-ticker";
@@ -124,7 +125,7 @@ import type { LeaderboardEntry } from "./wildstat-coop";
 import type { ResearchId } from "../shared/research";
 import { PLAYER_GENDER_FEMALE, PLAYER_GENDER_MALE } from "../shared/player-gender";
 import { regularEnemySimulationTick } from "../shared/regular-enemy-simulation";
-import { effectivePlayerPower } from "../shared/player-power";
+import { equipComparisonPower } from "../shared/equip-best";
 import { equipmentMaxHealthMultiplierBonus, isWeaponItem, itemDisplayName } from "../shared/items";
 import { createRewardDisplay, playerRegenerationPerSecond } from "./game/runtime/reward-display";
 import { createInventoryCommerceActions } from "./game/runtime/inventory-commerce";
@@ -466,7 +467,7 @@ import {
     itemInspection: itemInspectionController,
     equipmentRequirement: (itemId) => equipmentMapRequirement(itemId, coop?.savedProgress?.()),
     equipBest: () => {
-      const moves = bestEquipmentMoves(inventory, powerForEquipment, itemId => !equipmentMapRequirement(itemId, coop?.savedProgress?.()));
+      const moves = bestEquipmentMoves(inventory, candidate => powerForEquipment(candidate, true), itemId =>!equipmentMapRequirement(itemId, coop?.savedProgress?.()));
       if (!moves.length) return false;
       for (const { itemId, destination } of moves) moveInventoryItem(inventory, itemId, destination);
       player.speed = progress.movementSpeedForEquipment(false) * localTestMultiplier;
@@ -784,8 +785,9 @@ import {
     drawPlayerIdentity,
   } = playerIdentityRenderer;
   const playerPower: typeof playerIdentityRenderer.playerPower = () => powerForEquipment(inventory);
-  function powerForEquipment(equipment: InventoryState) {
-    return effectivePlayerPower(
+  /** Displayed power, or with `compare` the unrounded figure Equip best ranks gear by, bow skills included. */
+  function powerForEquipment(equipment: InventoryState, compare = false) {
+    const power = equipComparisonPower(
       displayedPlayerPowerProgress({
         maxHp: player.baseMaxHp,
         damage: player.damage,
@@ -800,7 +802,9 @@ import {
       }),
       researchRanks(),
       (itemId) => coop?.itemUpgradeLevel?.(itemId) ?? 0,
+      compare ? (itemId) => coop?.bowSkills?.(itemId) : undefined,
     );
+    return compare ? power : Math.round(power);
   }
 
   let playerController: PlayerController;
@@ -2149,7 +2153,7 @@ import {
   });
   if (coop?.setOnChange) coop.setOnChange(coopSession.onChange);
   coop?.setOnGemDrop?.(({ amount }) => runtimeHud.showGemDrop(amount));
-  // A duplicate of held equipment is not revealed here: it arrives as a Keep/Ignore offer.
+  // A duplicate of held equipment is not revealed here: Auto keep best or a Keep/Ignore offer settles it.
   createEquipmentOfferPrompt({ coop, inventory, renderInventory, showMessage, ready: () => Boolean(session?.isRunning()) });
   coop?.setOnItemDrop?.(({ itemId, alreadyOwned }) => {
     if (alreadyOwned) return;
@@ -2164,6 +2168,7 @@ import {
     });
   });
   const showItemUpgrade = createItemUpgradeFeedback({ inventory, player, healthMultiplierBonus, renderInventory, saveProgress, showMessage });
+  createAutoEquipFeedback({ coop, inventory, player, healthMultiplierBonus, renderInventory, showMessage });
   coop?.setOnItemUpgrade?.((upgrade) => {
     upgradeBenchController.observeUpgradeTier(upgrade.itemId, upgrade.level);
     showItemUpgrade(upgrade);

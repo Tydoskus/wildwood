@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { parseHTML } from "linkedom";
-import { createEquipmentOfferPrompt, type EquipmentOfferPort } from "./equipment-offer-prompt";
+import { betterRollMessage, createEquipmentOfferPrompt, type EquipmentOfferPort } from "./equipment-offer-prompt";
 
 const globals = globalThis as unknown as Record<string, unknown>;
 const saved = { document: globals.document, HTMLElement: globals.HTMLElement };
@@ -17,12 +17,14 @@ function harness(offers: Offer[], options: { itemIds?: string[]; copies?: { id: 
   let now = 1_000;
   const answers: Array<[bigint, boolean]> = [];
   let refusal: string | null = null;
+  let betterRoll: ((kept: { itemId: string; before: number; after: number }) => void) | null = null;
   const list = [...offers];
   const coop: EquipmentOfferPort = {
     equipmentOffers: () => list,
     equipmentCopies: () => options.copies ?? [],
     bowSkills: itemId => itemId === "iron_bow" ? { arrowStorm: 2.4, ricochet: 0, piercingShot: 0 } : null,
     serverNowMs: () => now,
+    setOnBetterRollKept: callback => { betterRoll = callback; },
     resolveEquipmentOffer: async (id, keep) => {
       if (refusal) return { ok: false, error: refusal };
       answers.push([id, keep]);
@@ -41,7 +43,7 @@ function harness(offers: Offer[], options: { itemIds?: string[]; copies?: { id: 
   const lines = (which: "is-yours" | "is-new") => [...card.querySelectorAll(`.${which} .equipment-offer-lines span`)].map(span => span.textContent);
   const click = (selector: string) => (card.querySelector(selector) as HTMLButtonElement).click();
   return {
-    document, window, prompt, card, text, lines, click, answers, messages, renderInventory, list,
+    document, window, prompt, card, text, lines, click, answers, messages, renderInventory, list, betterRoll: () => betterRoll,
     setNow: (ms: number) => { now = ms; }, refuse: (message: string | null) => { refusal = message; },
     badge: () => document.querySelector(".equipment-offer-badge") as HTMLElement,
     review: () => document.querySelector(".equipment-offer-review") as HTMLButtonElement,
@@ -57,8 +59,8 @@ it("shows the new copy's skills beside the one the player has, with the time lef
   expect(view.card.hidden).toBe(false);
   expect(view.text(".equipment-offer-name")).toBe("Iron Bow");
   expect(view.text(".equipment-offer-note")).toBe("You already have this");
-  expect(view.lines("is-yours")).toEqual(["Arrow Storm 2.4%"]);
-  expect(view.lines("is-new")).toEqual(["Ricochet 3.1%"]);
+  expect(view.lines("is-yours")).toEqual(["Arrow Storm 2.4%", "Skills: +6.0% dmg"]);
+  expect(view.lines("is-new")).toEqual(["Ricochet 3.1%", "Skills: +3.7% dmg"]);
   expect(view.text(".equipment-offer-timer")).toBe("Ignored in 5:00");
   view.setNow(61_000);
   vi.advanceTimersByTime(1_000);
@@ -69,7 +71,7 @@ it("shows the new copy's skills beside the one the player has, with the time lef
 it("says No skills for a roll without any, and compares nothing for gear without rolls", () => {
   const view = harness([bowOffer(1n, NONE), { id: 2n, itemId: "samurai_hat", roll: NONE, expiresAtMs: 301_000 }],
     { copies: [{ id: 9n, itemId: "samurai_hat" }] });
-  expect(view.lines("is-new")).toEqual(["No skills"]);
+  expect(view.lines("is-new")).toEqual(["No skills", "Skills: +0.0% dmg"]);
   expect(view.text(".equipment-offer-timer")).toBe("Ignored in 5:00 · 1 of 2");
   view.click(".equipment-offer-ignore");
   return flush().then(() => {
@@ -151,4 +153,12 @@ it("redraws the inventory when the kept copies change", () => {
   view.prompt.refresh();
   view.prompt.refresh();
   expect(view.renderInventory).toHaveBeenCalledOnce();
+});
+
+it("says when Auto keep best kept a better roll, with both scores to one decimal", () => {
+  const view = harness([]);
+  expect(betterRollMessage("iron_bow", 4.75, 7.5)).toBe("Better Iron Bow kept (Skills +4.8% → +7.5%)");
+  view.betterRoll()!({ itemId: "iron_bow", before: 4.75, after: 7.5 });
+  expect(view.messages).toEqual(["Better Iron Bow kept (Skills +4.8% → +7.5%)"]);
+  expect(view.card.hidden).toBe(true);
 });

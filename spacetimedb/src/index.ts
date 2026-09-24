@@ -21,6 +21,9 @@ import { offlineProgressTables, beginOfflineWindow, grantOfflineProgress, acknow
 import { playerOfflinePreference, writeOfflinePreference } from "./offline-preference";
 import { playerAudioSetting, writeAudioSettings } from "./audio-settings";
 import { keepWantedDrops, playerIgnoredDrop, writeIgnoredDrops } from "./ignored-drops";
+import { playerLootSetting, writeLootSettings } from "./loot-settings";
+import { createAutoEquip } from "./auto-equip";
+import { allowedLoadout, canonicalSavedHand, savedInventoryHasHandItem } from "./loadout";
 import { ERASURE_ROW_BUDGET, eraseIdentityRows, linkedIdentities, requireErasureConfirmation } from "./account-erasure";
 import { LOADOUT_FIELDS } from "../../shared/combat-progress";
 import { chatHeartAllowance, chatReactionCooldown, chatReactionSummary, chatReactionUnlock, playerChatHearts, reactionCountsFor, chatReaction, readChatReactions, setChatReaction, grantGemHeartUnlock, removeMessageReactions, removeAccountReactions } from "./chat-reactions";
@@ -35,7 +38,7 @@ import { mailboxLetter, mailboxReceipt, mailboxEntryV2, mailboxForPlayerV2, play
 import { rollbackPlayerProgression } from "./player-progression-rollback";
 import { playerItemGift, deliverAlphaTesterGifts, claimItemGift } from "./item-gifts";
 import { playerBowSkill, ensureBowSkillRoll, ensureBowSkillRolls } from "./bow-skills";
-import { playerEquipmentCopy, pendingEquipmentOffer, createEquipmentCopies, publishItemDrop, offerDuplicateEquipment, expireEquipmentOffers, removeEquipmentCopies } from "./equipment-copies";
+import { playerEquipmentCopy, pendingEquipmentOffer, createEquipmentCopies, publishItemDrop, offerDuplicateEquipment, expireEquipmentOffers, removeEquipmentCopies, removeEquipmentOffers } from "./equipment-copies";
 import { moderateReportedMessage } from "./chat-report-moderation";
 import { PLAYER_SKIN_TONES } from "../../shared/player-skin-tones";
 import { leaderboardPageTables, writeLeaderboardPages, readLeaderboardWindow, readLeaderboardPage } from "./leaderboard-pages";
@@ -309,6 +312,9 @@ const MAINTENANCE_INTERVAL_MICROS = 60_000_000n;
 const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
 const LEADERBOARD_REFRESH_VERSION = 12;
+// Auto equip (auto-equip.ts) borrows only hoisted functions, so it exists
+// before the boss rewards that call it.
+const autoEquip = createAutoEquip({ inventoryForProgress, itemUpgradeLevelFor, writeProgressAndPresentation });
 // Shared-boss combat bodies live in boss-combat.ts; the reducers below keep
 // calling the same names. Placed after WORLD, the one const the factory reads.
 const {
@@ -335,6 +341,7 @@ const {
   syncPlayerMotionIdentity, powerFieldsForProgress, attackIntervalForProgress, playerOwnsItem,
   publishItemDrop, restoreItemToProgress, researchedDamage, inventoryForProgress,
   equippedRightHandForProgress, equippedLeftHandForProgress, writeProgressAndPresentation,
+  equipNewUpgrades: autoEquip.equipNewUpgrades,
 });
 // Duel bodies live in duel-runtime.ts; the duel reducers and the equipment
 // snapshot below keep calling the same names. Every dep is a hoisted function,
@@ -1783,7 +1790,7 @@ const spacetimedb = schema({
   gemTransaction,
   dailyGemBonus,
   balanceApologyNotice,
-  playerItemGift, playerBowSkill, playerEquipmentCopy, pendingEquipmentOffer, playerIgnoredDrop,
+  playerItemGift, playerBowSkill, playerEquipmentCopy, pendingEquipmentOffer, playerIgnoredDrop, playerLootSetting,
   mailboxLetter, mailboxReceipt, playerJoinDate, mailboxEquipment, accountDeletionRequest,
   playerOnboarding,
   regularEnemyLootCursor, enemyDefeatBudget, bossDefeatWindow, bossMapDefeatWindow,
@@ -2952,22 +2959,6 @@ function equippedFeetForProgress(progress: any, inventory = inventoryForProgress
   return inventory.includes(progress.equippedFeet) ? progress.equippedFeet : "";
 }
 
-function savedInventoryHasHandItem(progress: any) {
-  try {
-    const itemIds = JSON.parse(progress.inventoryJson ?? "[]");
-    return Array.isArray(itemIds) && itemIds.some((itemId) => itemDefinition(itemId)?.slot === "HAND");
-  } catch {
-    return false;
-  }
-}
-
-function canonicalSavedHand(progress: any, field: "equippedRightHand" | "equippedLeftHand") {
-  const itemId = canonicalItemId(progress[field]);
-  return itemId && itemFitsEquipmentSlot(itemId, field === "equippedRightHand" ? "RIGHT_HAND" : "LEFT_HAND")
-    ? itemId
-    : "";
-}
-
 function equippedRightHandForProgress(progress: any, inventory = inventoryForProgress(progress)) {
   const saved = canonicalSavedHand(progress, "equippedRightHand");
   if (saved && inventory.includes(saved) && !equipmentMapRequirement(saved, progress)) return saved;
@@ -3040,11 +3031,12 @@ function removeItemUpgradeCompletionSchedules(ctx: any, identity: any, slot?: nu
   for (const scheduledId of scheduledIds) ctx.db.itemUpgradeCompletionSchedule.scheduledId.delete(scheduledId);
 }
 
-function removePlayerItemDrops(ctx: any, identity: any) {
+function removePlayerItemDrops(ctx: any, identity: any, keepCopies = false) {
   for (const drop of [...ctx.db.playerItemDrop.byIdentity.filter(identity) as Iterable<any>]) {
     ctx.db.playerItemDrop.key.delete(drop.key);
   }
-  removeEquipmentCopies(ctx, identity); // Kept copies and waiting offers are gear too.
+  if (keepCopies) removeEquipmentOffers(ctx, identity); // Prestige keeps the bag, kept copies included.
+  else removeEquipmentCopies(ctx, identity); // Kept copies and waiting offers are gear too.
 }
 
 function removePlayerItemUpgradeData(ctx: any, identity: any, removeDrops = false) {
@@ -5016,19 +5008,8 @@ export const savePlayerProgress = spacetimedb.reducer(
     const inventorySource = { ...base, identity: ctx.sender, bootsCollected };
     const inventory = inventoryForProgress(inventorySource);
     const inventoryJson = JSON.stringify(inventory);
-    const equippedHead = progress.equippedHead === ""
-      ? ""
-      : inventory.includes(progress.equippedHead) ? progress.equippedHead : BASIC_PAPER_HAT;
-    const equippedChest = inventory.includes(progress.equippedChest) ? progress.equippedChest : "";
-    const equippedFeet = inventory.includes(progress.equippedFeet) ? progress.equippedFeet : "";
-    const requestedRightHand = canonicalItemId(progress.equippedRightHand);
-    const requestedLeftHand = canonicalItemId(progress.equippedLeftHand);
-    const equippedRightHand = requestedRightHand && inventory.includes(requestedRightHand) && itemFitsEquipmentSlot(requestedRightHand, "RIGHT_HAND")
-      ? requestedRightHand
-      : "";
-    const equippedLeftHand = !equippedRightHand && requestedLeftHand && inventory.includes(requestedLeftHand) && itemFitsEquipmentSlot(requestedLeftHand, "LEFT_HAND")
-      ? requestedLeftHand
-      : "";
+    // The ownership and hand rules live in loadout.ts, which auto equip checks too.
+    const { equippedHead, equippedChest, equippedFeet, equippedRightHand, equippedLeftHand } = allowedLoadout(progress, inventory);
     const cosmeticEquipment = cosmeticEquipmentForProgress({
       ...base,
       inventoryJson,
@@ -5572,6 +5553,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: { streamId: string; sequence: bi
         }
       }
     }
+    autoEquip.equipNewUpgrades(ctx, ctx.sender, base); // New loot, and gear a boss's map unlock made usable.
     const lifetime = ensurePlayerLifetime(ctx);
     const enemyKills = lifetime.enemyKills + BigInt(accepted.count);
     ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills });
@@ -5671,6 +5653,15 @@ export const myIgnoredDrops = spacetimedb.view(
 export const setIgnoredDrops = spacetimedb.reducer({ itemIds: t.array(t.string()), ignored: t.bool() }, (ctx, args) => {
   requireControllingPlayer(ctx);
   writeIgnoredDrops(ctx, args);
+});
+export const myLootSettings = spacetimedb.view(
+  { name: "my_loot_settings", public: true }, t.array(playerLootSetting.rowType),
+  ctx => { const row = ctx.db.playerLootSetting.identity.find(ctx.sender); return row ? [row] : []; },
+);
+/** Auto keep best and Auto equip upgrades, from the top of the Loot Filter window. Body: loot-settings.ts. */
+export const setLootSettings = spacetimedb.reducer({ autoKeepBest: t.bool(), autoEquipBest: t.bool() }, (ctx, settings) => {
+  requireControllingPlayer(ctx);
+  writeLootSettings(ctx, settings);
 });
 export const myAudioSettings = spacetimedb.view(
   { name: "my_audio_settings", public: true }, t.array(playerAudioSetting.rowType),
@@ -5779,9 +5770,10 @@ export const beginAdventure = spacetimedb.reducer(
  * cost real days, and lifetime kills are the count of everything the account
  * has ever killed, which a rerun does not undo. Kill gems key their ledger
  * reference off that count rising, so holding it steady also keeps a replayed
- * batch from paying twice.
+ * batch from paying twice. It keeps the bag too; each tier is usable again
+ * once its map is reached (auto-equip.ts puts on what can be used now).
  */
-function resetProgressToDefaults(ctx: any, activePlayer: any, keep: { research?: boolean; lifetimeKills?: boolean; slotTiers?: boolean } = {}) {
+function resetProgressToDefaults(ctx: any, activePlayer: any, keep: { research?: boolean; lifetimeKills?: boolean; slotTiers?: boolean; items?: boolean } = {}) {
     clearProceduralProgress(ctx, ctx.sender);
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
     const next = defaultPlayerProgress(ctx.sender);
@@ -5790,6 +5782,7 @@ function resetProgressToDefaults(ctx: any, activePlayer: any, keep: { research?:
     const history = ctx.db.playerCutsceneHistory.identity.find(ctx.sender);
     if (history) ctx.db.playerCutsceneHistory.identity.update({ ...history, seenMask: 0, generation: history.generation + 1 });
     else ctx.db.playerCutsceneHistory.insert({ identity: ctx.sender, seenMask: 0, generation: 0 });
+    if (current && keep.items) Object.assign(next, autoEquip.keepBagThroughPrestige(ctx, next, current));
     if (current && inventoryForProgress(current).includes(SUPERIOR_GOLDEN_HELMET)) {
       next.inventoryJson = JSON.stringify(inventoryWithBetaHelmet(next, true));
     }
@@ -5803,11 +5796,11 @@ function resetProgressToDefaults(ctx: any, activePlayer: any, keep: { research?:
       removeResearchCompletionSchedules(ctx, ctx.sender);
     }
     // A tier belongs to the slot, not to whatever is sitting in it. Prestige
-    // takes the gear and leaves the bench work, the way it leaves research;
+    // leaves the bench work, the way it leaves research and now the gear;
     // this line predates slot tiers, when it only destroyed levels that were
     // attached to items a prestige took anyway. A deliberate account reset
     // still clears the lot.
-    if (keep.slotTiers) removePlayerItemDrops(ctx, ctx.sender);
+    if (keep.slotTiers) removePlayerItemDrops(ctx, ctx.sender, keep.items);
     else removePlayerItemUpgradeData(ctx, ctx.sender, true);
     const lifetime = ensurePlayerLifetime(ctx);
     if (!keep.lifetimeKills) ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: 0n });

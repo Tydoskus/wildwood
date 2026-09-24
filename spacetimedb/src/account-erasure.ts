@@ -129,6 +129,7 @@ export const ERASURE_TARGETS: readonly ErasureTarget[] = [
   { table: "playerLastLocation", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerLegalConsent", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerLifetime", columns: ["identity"], pk: "identity", mode: "key" },
+  { table: "playerLootSetting", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerMapBalance", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerMapMarker", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerMotion", columns: ["identity"], pk: "network_id", mode: "index", index: "identity" },

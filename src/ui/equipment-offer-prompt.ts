@@ -1,4 +1,4 @@
-import { bowSkillLines, isSkillBow, type BowSkillRoll } from "../../shared/bow-skills";
+import { bowSkillLines, bowSkillScoreLine, formatBowSkillScore, isSkillBow, type BowSkillRoll } from "../../shared/bow-skills";
 import { itemDisplayName } from "../../shared/items";
 import { itemArtMarkup } from "../game/item-presentation";
 import type { InventoryState } from "../game/inventory";
@@ -16,6 +16,8 @@ export type EquipmentOfferPort = {
   bowSkills?: (itemId: string) => Partial<BowSkillRoll> | null | undefined;
   resolveEquipmentOffer?: (id: bigint, keep: boolean) => Promise<Result>;
   serverNowMs?: () => number;
+  /** Auto keep best settles duplicates without an offer; this says when one was better. */
+  setOnBetterRollKept?: (callback: ((kept: { itemId: string; before: number; after: number }) => void) | null) => void;
 };
 
 export type EquipmentOfferPromptOptions = {
@@ -30,10 +32,17 @@ export type EquipmentOfferPromptOptions = {
   tickMs?: number;
 };
 
+/** A roll's skills, then what they add up to, so the two sides compare at a glance. */
 const skillList = (roll: Partial<BowSkillRoll> | null | undefined) => {
   const lines = bowSkillLines(roll);
-  return lines.length ? lines : ["No skills"];
+  return [...(lines.length ? lines : ["No skills"]), bowSkillScoreLine(roll)];
 };
+
+/** The toast when Auto keep best replaced a bow's roll with a better one. */
+export function betterRollMessage(itemId: string, before: number, after: number) {
+  const name = itemInspectionButtonLabel(itemDisplayName(itemId));
+  return `Better ${name} kept (Skills ${formatBowSkillScore(before)} → ${formatBowSkillScore(after)})`;
+}
 
 /**
  * The Keep / Ignore window for duplicate equipment drops.
@@ -108,6 +117,7 @@ export function createEquipmentOfferPrompt(options: EquipmentOfferPromptOptions)
     target.replaceChildren(...lines.map(line => {
       const span = doc.createElement("span");
       span.textContent = line;
+      if (line.startsWith("Skills: ")) span.className = "equipment-offer-score";
       return span;
     }));
   }
@@ -205,6 +215,12 @@ export function createEquipmentOfferPrompt(options: EquipmentOfferPromptOptions)
     event.stopImmediatePropagation();
     close(true);
   }, true);
+  // With Auto keep best on there is no card: a better copy simply becomes the
+  // one in the slot, and a toast says so. A worse copy goes without a word.
+  options.coop?.setOnBetterRollKept?.(({ itemId, before, after }) => {
+    options.showMessage(betterRollMessage(itemId, before, after), "#72ef58");
+    options.renderInventory();
+  });
   const timerId = setInterval(refresh, options.tickMs ?? 1_000);
   refresh();
 

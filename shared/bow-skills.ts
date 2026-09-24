@@ -144,3 +144,41 @@ export function rollArrowSkillProcs(roll: Partial<BowSkillRoll> | null | undefin
     piercingShot: random() < bowSkillChance(roll, "piercingShot"),
   };
 }
+
+// Skill score: what a roll adds to one arrow on average, as extra damage in
+// percent of that arrow. Each weight is the damage one trigger adds, counted
+// in whole arrows, so a chance in percent times its weight is a percentage.
+// Arrow Storm: five extra arrows at half damage each.
+export const ARROW_STORM_SCORE_WEIGHT = ARROW_STORM_ARROWS * ARROW_STORM_DAMAGE_SHARE;
+// Piercing Shot: full damage to each enemy behind the first. It can reach
+// PIERCING_SHOT_MAX_EXTRA_TARGETS, but a line that long is rare in play; two
+// is what a pierce realistically finds.
+export const PIERCING_SHOT_SCORE_WEIGHT = 2;
+// Ricochet: two bounces at 60% damage each.
+export const RICOCHET_SCORE_WEIGHT = RICOCHET_MAX_BOUNCES * RICOCHET_DAMAGE_SHARE;
+
+/**
+ * Expected extra damage per arrow from a roll, in percent: 7.5 means an arrow
+ * from this bow is worth 7.5% more than one with no skills. It decides which
+ * copy of a bow is better (Auto keep best, Equip best, auto equip) and is what
+ * the item windows show. No roll, or a malformed one, scores 0.
+ */
+export function bowSkillScore(roll: Partial<BowSkillRoll> | null | undefined) {
+  const score = bowSkillChance(roll, "arrowStorm") * 100 * ARROW_STORM_SCORE_WEIGHT
+    + bowSkillChance(roll, "piercingShot") * 100 * PIERCING_SHOT_SCORE_WEIGHT
+    + bowSkillChance(roll, "ricochet") * 100 * RICOCHET_SCORE_WEIGHT;
+  // Rounded past anything a roll can express, so two rolls worth the same
+  // never compare as "better" through floating-point noise.
+  return Math.round(score * 1e6) / 1e6;
+}
+
+/** A score as it is written everywhere: one decimal, with its sign. "+7.5%". */
+export function formatBowSkillScore(score: number) {
+  const tenths = Math.round((Number.isFinite(score) ? Math.max(0, score) : 0) * 10);
+  return `+${(tenths / 10).toFixed(1)}%`;
+}
+
+/** The line an item window shows with a bow's skills: "Skills: +7.5% dmg". */
+export function bowSkillScoreLine(roll: Partial<BowSkillRoll> | null | undefined) {
+  return `Skills: ${formatBowSkillScore(bowSkillScore(roll))} dmg`;
+}

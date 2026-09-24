@@ -521,6 +521,12 @@
       "ageBand",
       "acceptedAt"
     ],
+    "my_loot_settings": [
+      "identity",
+      "autoKeepBest",
+      "autoEquipBest",
+      "updatedAt"
+    ],
     "my_mailbox": [
       "id",
       "title",

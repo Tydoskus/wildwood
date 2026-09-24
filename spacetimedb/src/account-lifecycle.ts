@@ -27,6 +27,7 @@ import { mergeEquipmentCopies } from "./equipment-copies";
 import { mergeMailboxReceipts, removeMailboxReceipts } from "./mailbox";
 import { mergeOnboarding } from "./onboarding";
 import { mergeAudioSettings, removeAudioSettings } from "./audio-settings";
+import { mergeLootSettings, removeLootSettings } from "./loot-settings";
 import { mergeIgnoredDrops, removeIgnoredDrops } from "./ignored-drops";
 import { mergeLinkedPrestige } from "./prestige-transfer";
 import { unlinkPatreon } from "./patreon";
@@ -203,6 +204,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
     mergeMailboxReceipts(ctx, link.guest, ctx.sender);
     mergeOnboarding(ctx, link.guest, ctx.sender);
     mergeAudioSettings(ctx, link.guest, ctx.sender);
+    mergeLootSettings(ctx, link.guest, ctx.sender);
     mergeIgnoredDrops(ctx, link.guest, ctx.sender);
     const guestBalance = ctx.db.playerBalanceVersion.identity.find(link.guest);
     const guestBalanceVersion = guestBalance?.version ?? 0;
@@ -742,6 +744,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.bossMapDefeatWindow.identity.find(identity)) ctx.db.bossMapDefeatWindow.identity.delete(identity);
     if (ctx.db.playerMultiplayerPreference.identity.find(identity)) ctx.db.playerMultiplayerPreference.identity.delete(identity);
     removeAudioSettings(ctx, identity);
+    removeLootSettings(ctx, identity);
     removeIgnoredDrops(ctx, identity);
     for (const cursor of ctx.db.regularEnemyLootCursor.identity.filter(identity)) ctx.db.regularEnemyLootCursor.key.delete(cursor.key);
     if (ctx.db.playerOnboarding.identity.find(identity)) ctx.db.playerOnboarding.identity.delete(identity);
@@ -848,6 +851,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.bossMapDefeatWindow.identity.find(identity)) ctx.db.bossMapDefeatWindow.identity.delete(identity);
     if (ctx.db.playerMultiplayerPreference.identity.find(identity)) ctx.db.playerMultiplayerPreference.identity.delete(identity);
     removeAudioSettings(ctx, identity);
+    removeLootSettings(ctx, identity);
     removeIgnoredDrops(ctx, identity);
     for (const cursor of ctx.db.regularEnemyLootCursor.identity.filter(identity)) ctx.db.regularEnemyLootCursor.key.delete(cursor.key);
     if (ctx.db.playerOnboarding.identity.find(identity)) ctx.db.playerOnboarding.identity.delete(identity);

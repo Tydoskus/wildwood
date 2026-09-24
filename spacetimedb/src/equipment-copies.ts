@@ -1,12 +1,13 @@
 import { SenderError, table, t } from "spacetimedb/server";
 import { Timestamp, type Identity } from "spacetimedb";
-import { NO_BOW_SKILLS, isSkillBow, rollBowSkills, type BowSkillRoll } from "../../shared/bow-skills";
+import { NO_BOW_SKILLS, bowSkillScore, isSkillBow, rollBowSkills, type BowSkillRoll } from "../../shared/bow-skills";
 import { canDestroyEquipment, canonicalItemId } from "../../shared/items";
 import { inventorySlotCapacity } from "../../shared/gems";
 import {
   EQUIPMENT_OFFER_LIFETIME_MS, MAX_PENDING_EQUIPMENT_OFFERS, bagSlotsUsed, isDuplicateOfferItem,
 } from "../../shared/equipment-copies";
 import { bowSkillKey, bowSkillRollFor, ensureBowSkillRoll } from "./bow-skills";
+import { lootSettingsFor } from "./loot-settings";
 
 /**
  * Copies of an item beyond the first, one row per copy a player chose to keep.
@@ -93,13 +94,51 @@ export function offerDuplicateEquipment(ctx: Ctx, identity: Identity, itemId: st
 }
 
 /**
+ * Auto keep best: `count` duplicate copies settled on the spot, no offer.
+ *
+ * Each copy rolls like any new bow and is compared, by skill score, with the
+ * best copy the player has: the first copy, or a kept extra copy when one of
+ * those is better. A copy strictly better than all of them becomes the first
+ * copy: its roll replaces the first copy's in player_bow_skill, so the bow in
+ * the slot improves with nothing to press and kill bounds and duels read it at
+ * once. The old first roll is gone. Anything else is thrown away, as Ignore
+ * does. Kept extra copies are never touched. Copies of an item without skills
+ * are identical, so they are always thrown away.
+ */
+export function keepBestCopies(ctx: Ctx, identity: Identity, itemId: string, count = 1) {
+  const canonical = canonicalItemId(itemId);
+  if (!canonical || !isDuplicateOfferItem(canonical) || !isSkillBow(canonical)) return;
+  const copies = Math.min(MAX_PENDING_EQUIPMENT_OFFERS, Math.max(0, Math.floor(count)));
+  for (let copy = 0; copy < copies; copy += 1) {
+    const roll = rollBowSkills(canonical, () => ctx.random()) ?? NO_BOW_SKILLS;
+    const best = Math.max(
+      bowSkillScore(bowSkillRollFor(ctx, identity, canonical)),
+      ...extraCopiesOf(ctx, identity, canonical).map(row => bowSkillScore(rollOf(row))),
+    );
+    if (bowSkillScore(roll) > best) setFirstCopyRoll(ctx, identity, canonical, roll);
+  }
+}
+
+/**
+ * Duplicates from loot. With the player's Auto keep best on (the default)
+ * they are settled at once by keepBestCopies; off, each becomes a Keep/Ignore
+ * offer. Gifts and mail do not come through here and always offer.
+ */
+export function receiveDuplicateEquipment(ctx: Ctx, identity: Identity, itemId: string, count = 1) {
+  if (Math.floor(count) < 1) return;
+  if (lootSettingsFor(ctx, identity).autoKeepBest) keepBestCopies(ctx, identity, itemId, count);
+  else offerDuplicateEquipment(ctx, identity, itemId, count);
+}
+
+/**
  * Announces a drop to its player. The first copy of an item enters the bag and
  * rolls; a drop of equipment already held, and every copy past the first in
- * one batch, becomes a Keep/Ignore offer instead of being thrown away.
+ * one batch, is settled by Auto keep best or becomes a Keep/Ignore offer,
+ * whichever the player chose, instead of being thrown away unseen.
  */
 export function publishItemDrop(ctx: Ctx, identity: Identity, itemId: string, alreadyOwned: boolean, quantity = 1) {
   if (!alreadyOwned) ensureBowSkillRoll(ctx, identity, itemId); // Only a bow entering the bag rolls.
-  offerDuplicateEquipment(ctx, identity, itemId, alreadyOwned ? quantity : quantity - 1);
+  receiveDuplicateEquipment(ctx, identity, itemId, alreadyOwned ? quantity : quantity - 1);
   const key = `${identity.toHexString()}:${itemId}`;
   const current = ctx.db.playerItemDrop.key.find(key);
   const next = {
@@ -122,9 +161,14 @@ export function expireEquipmentOffers(ctx: Ctx) {
   }
 }
 
-/** Wherever a player's gear goes (prestige, reset, deletion), their extra copies and pending offers go with it. */
+/** Wherever a player's gear goes (reset, deletion), their extra copies and pending offers go with it. */
 export function removeEquipmentCopies(ctx: Ctx, identity: Identity) {
   for (const row of extraCopiesOf(ctx, identity)) ctx.db.playerEquipmentCopy.id.delete(row.id);
+  removeEquipmentOffers(ctx, identity);
+}
+
+/** Prestige keeps the bag and its kept copies; only the offers still waiting are cleared. */
+export function removeEquipmentOffers(ctx: Ctx, identity: Identity) {
   for (const offer of pendingOffersOf(ctx, identity)) ctx.db.pendingEquipmentOffer.id.delete(offer.id);
 }
 

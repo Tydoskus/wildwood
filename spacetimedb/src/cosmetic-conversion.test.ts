@@ -50,12 +50,15 @@ it("keeps the unlocked look after the original item is destroyed", () => {
   expect(f.db.playerProgress.identity.find(f.ctx.sender).cosmeticRightHand).toBe(STARTER_BOW);
 });
 
-it("retains the permanent appearance after prestige takes the equipment", () => {
-  const f = equippedFixture(10n);
-  f.run(server.convertItemToCosmetic, { itemId: STARTER_BOW });
-  f.patch("playerProgress", { bossRewardClaims: BOSS_REWARD_CLAIM_BITS.aegisPrime });
-  f.run(server.prestigeAccount, {});
-  const progress = f.db.playerProgress.identity.find(f.ctx.sender);
-  expect(JSON.parse(progress.inventoryJson)).not.toContain(STARTER_BOW);
-  expect(JSON.parse(progress.cosmeticItemsJson)).toContain(STARTER_BOW);
+it("retains the permanent appearance through prestige, which keeps the item, and a reset, which takes it", () => {
+  for (const [reducer, keepsItem] of [["prestigeAccount", true], ["resetPlayerProgress", false]] as const) {
+    const f = equippedFixture(10n);
+    f.run(server.convertItemToCosmetic, { itemId: STARTER_BOW });
+    f.patch("playerProgress", { bossRewardClaims: BOSS_REWARD_CLAIM_BITS.aegisPrime });
+    f.seed("proceduralProgress", { identity: f.ctx.sender, completed: 1 });
+    f.run(server[reducer], {});
+    const progress = f.db.playerProgress.identity.find(f.ctx.sender);
+    expect(JSON.parse(progress.inventoryJson).includes(STARTER_BOW)).toBe(keepsItem);
+    expect(JSON.parse(progress.cosmeticItemsJson)).toContain(STARTER_BOW);
+  }
 });

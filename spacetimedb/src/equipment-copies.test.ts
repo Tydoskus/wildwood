@@ -39,6 +39,9 @@ const later = (f: Fixture, ms: number) => { f.ctx.timestamp = new Timestamp(f.ct
 const luckyRandom = (f: Fixture, float = .1) => {
   Object.assign(f.ctx, { random: Object.assign(() => float, { integerInRange: (min: number) => min }) });
 };
+/** Auto keep best off: duplicates from loot become Keep/Ignore offers, as they did before it existed. */
+const askMe = (f: Fixture, who = f.ctx.sender) =>
+  f.seed("playerLootSetting", { identity: who, autoKeepBest: false, autoEquipBest: true, updatedAt: f.ctx.timestamp });
 /** A player holding an iron bow with roll A in their hand. */
 function archer(extra: Record<string, unknown> = {}) {
   const f = crystalFixture();
@@ -58,8 +61,9 @@ it("offers equipment only: never cosmetic looks, starter or developer items", ()
   expect(bagSlotsUsed([IRON_BOW, SAMURAI_HAT, BASIC_PAPER_HAT, IRON_BOW], [IRON_BOW], 2)).toBe(3);
 });
 
-it("turns a duplicate enemy drop into an offer instead of throwing it away", () => {
+it("with Auto keep best off, turns a duplicate enemy drop into an offer instead of throwing it away", () => {
   const f = crystalFixture();
+  askMe(f);
   luckyRandom(f);
   f.patch("playerProgress", { damage: 1e15, inventoryJson: '["crystal_armor"]' });
   fillDefeatBudget(f, "crystal_hollows", "Shard Hopper");
@@ -74,8 +78,9 @@ it("turns a duplicate enemy drop into an offer instead of throwing it away", () 
   expect(f.db.playerItemDrop.key.find(`${f.ctx.sender.toHexString()}:crystal_armor`).alreadyOwned).toBe(true);
 });
 
-it("rolls an offered bow like a new bow and leaves the first copy's roll alone", () => {
+it("with Auto keep best off, rolls an offered bow like a new bow and leaves the first copy's roll alone", () => {
   const f = archer();
+  askMe(f);
   luckyRandom(f, .05);
   f.run((ctx: any) => publishItemDrop(ctx, ctx.sender, "crystal_bow", true));
   // Tier 10: 4.9-10.7%; a draw of .05 lands 2 tenths in. A duplicate never rolls onto the first copy.
@@ -85,8 +90,9 @@ it("rolls an offered bow like a new bow and leaves the first copy's roll alone",
   expect(firstRoll(f)).toEqual(A);
 });
 
-it("offers every copy past the first when one report drops several", () => {
+it("with Auto keep best off, offers every copy past the first when one report drops several", () => {
   const f = crystalFixture();
+  askMe(f);
   f.run((ctx: any) => publishItemDrop(ctx, ctx.sender, IRON_BOW, false, 3));
   expect(offers(f)).toHaveLength(2);
   f.run((ctx: any) => publishItemDrop(ctx, ctx.sender, IRON_BOW, true, 2));
@@ -245,17 +251,18 @@ it("converts an item to a cosmetic without touching any copy", () => {
   expect(firstRoll(f)).toEqual(A);
 });
 
-it("takes kept copies and waiting offers with the gear on prestige and reset", () => {
-  for (const reducer of ["prestigeAccount", "resetPlayerProgress"] as const) {
+it("keeps kept copies through prestige but takes them on reset; waiting offers go either way", () => {
+  for (const [reducer, keepsCopies] of [["prestigeAccount", true], ["resetPlayerProgress", false]] as const) {
     const f = archer({ bossRewardClaims: BOSS_REWARD_CLAIM_BITS.aegisPrime });
     f.seed("proceduralProgress", { identity: f.ctx.sender, completed: 1 });
     seedCopy(f, B);
     seedOffer(f, C);
     seedCopy(f, B, IRON_BOW, identity("2"));
     f.run(server[reducer], {});
-    expect(copies(f)).toEqual([]);
+    expect(copies(f).map(rollOf)).toEqual(keepsCopies ? [B] : []);
     expect(offers(f)).toEqual([]);
     expect(copies(f, identity("2"))).toHaveLength(1);
+    expect(firstRoll(f)).toEqual(A); // Rolls are never taken: a bow dropping again keeps its roll.
   }
 });
 

@@ -8,6 +8,7 @@ import { createRegularEnemyLootQueue, ENEMY_DEFEAT_ACK_TIMEOUT_MS } from "./regu
 import { REGULAR_ENEMY_LOOT_DELAY_MS } from "../../../shared/regular-map-loot";
 import { ONBOARDING_DAMAGE_REWARD, ONBOARDING_REGEN_REWARD, ONBOARDING_STEP } from "../../../shared/onboarding";
 import { withoutDestroyedEquipment } from "./destroyed-equipment";
+import { serverLoadoutChanges, withServerLoadout, type ServerLoadoutChange } from "./server-loadout";
 import { cosmeticUnlocks } from "../../../shared/cosmetic-conversion";
 import type { PendingItemGift } from "../../../shared/item-gifts";
 import { createProceduralMapService } from "./procedural-map-service";
@@ -39,6 +40,9 @@ import {
 import { createProgressStore } from "./progress-store";
 import { recordConnectionDiagnostic } from "./connection-diagnostic-runtime";
 import { createCutsceneHistory } from "./cutscene-history";
+
+/** Slots the server changed by itself, the row they came in, and whether it is live rather than a reconnect's replay. */
+export type ServerEquip = { changes: readonly ServerLoadoutChange[]; progress: PlayerProgress; live: boolean };
 
 type ProgressionServiceDependencies = {
   reducers: ReducerPort;
@@ -159,6 +163,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   // Hydration replays the standing row; only a sequence we have not seen is a new drop.
   let lastGemDropSequence = 0n;
   let itemUpgradeListener: ((upgrade: { itemId: string; level: number }) => void) | null = null;
+  let serverEquipListener: ((equip: ServerEquip) => void) | null = null;
 
   function upgradeLevelsFor(identity: string) {
     return Object.fromEntries(upgradeLevelsByIdentity.get(identity)?.entries() ?? []);
@@ -354,7 +359,12 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       if (identity === dependencies.activeProfileIdentity()) dependencies.notify();
       return;
     }
+    // Gear the server put on by itself (auto equip, prestige) is taken into the
+    // queued save and the bag here, before anything saves the old loadout back.
+    const serverEquips = serverLoadoutChanges(localProgress, progress, pendingProgress);
     localProgress = progress;
+    if (pendingProgress && serverEquips.length) pendingProgress = withServerLoadout(pendingProgress, serverEquips);
+    if (serverEquips.length) serverEquipListener?.({ changes: serverEquips, progress, live: dependencies.hydrationReady() });
     if (pendingProgress) pendingProgress = withoutLockedEquipment(pendingProgress, progress, progress);
     void cutscenes.flush();
     if (restoredSave && pendingProgress) {
@@ -720,6 +730,10 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       },
       setOnItemUpgrade(callback: ((upgrade: { itemId: string; level: number }) => void) | null) {
         itemUpgradeListener = callback;
+      },
+      /** Called when the server changes this player's equipped gear by itself, for the bag to follow. */
+      setOnServerEquip(callback: ((equip: ServerEquip) => void) | null) {
+        serverEquipListener = callback;
       },
       mailboxMessages: () => [...mailboxMessages.values()].sort((a, b) => b.createdAtMs - a.createdAtMs),
       readMailboxLetter: (id: string) => reducerResult("mail read", connection => connection.reducers.readMailboxLetter({ id }))(),

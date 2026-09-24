@@ -222,6 +222,8 @@ export type BossCombatDeps = {
   equippedRightHandForProgress: (progress: any) => string;
   equippedLeftHandForProgress: (progress: any) => string;
   writeProgressAndPresentation: (ctx: any, progress: any) => void;
+  /** Auto equip after a reward is written: see auto-equip.ts. `before` is the progress the reward started from. */
+  equipNewUpgrades: (ctx: any, identity: any, before: any) => void;
 };
 
 export function createBossCombat(deps: BossCombatDeps) {
@@ -230,6 +232,7 @@ export function createBossCombat(deps: BossCombatDeps) {
     syncPlayerMotionIdentity, powerFieldsForProgress, attackIntervalForProgress, playerOwnsItem,
     publishItemDrop, restoreItemToProgress, researchedDamage, inventoryForProgress,
     equippedRightHandForProgress, equippedLeftHandForProgress, writeProgressAndPresentation,
+    equipNewUpgrades,
   } = deps;
 
   const DRAGON_POSITION = editedBossPosition(TUTORIAL_FOREST_MAP_ID, { x: WORLD.width - 760, y: WORLD.height - 560 });
@@ -630,6 +633,7 @@ export function createBossCombat(deps: BossCombatDeps) {
       updateSnapshotRow(ctx, "player", nextPlayer);
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
     }
+    equipNewUpgrades(ctx, identity, current);
   }
 
   function finishSpiderEncounter(ctx: any, spider: any) {
@@ -709,6 +713,7 @@ export function createBossCombat(deps: BossCombatDeps) {
       updateSnapshotRow(ctx, "player", nextPlayer);
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
     }
+    equipNewUpgrades(ctx, identity, current);
   }
 
   function finishFrostclawEncounter(ctx: any, frostclaw: any) {
@@ -780,6 +785,7 @@ export function createBossCombat(deps: BossCombatDeps) {
       updateSnapshotRow(ctx, "player", nextPlayer);
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
     }
+    equipNewUpgrades(ctx, identity, current);
   }
 
   function finishMagmaliskEncounter(ctx: any, magmalisk: any) {
@@ -844,6 +850,7 @@ export function createBossCombat(deps: BossCombatDeps) {
       updateSnapshotRow(ctx, "player", nextPlayer);
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
     }
+    equipNewUpgrades(ctx, identity, current);
   }
 
   function finishGloomrootEncounter(ctx: any, gloomroot: any) {
@@ -986,6 +993,7 @@ export function createBossCombat(deps: BossCombatDeps) {
       updateSnapshotRow(ctx, "player", nextPlayer);
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
     }
+    equipNewUpgrades(ctx, identity, current);
   }
 
   function rewardKoiShogunContributor(ctx: any, identity: any) {
@@ -1009,6 +1017,7 @@ export function createBossCombat(deps: BossCombatDeps) {
       updateSnapshotRow(ctx, "player", nextPlayer);
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
     }
+    equipNewUpgrades(ctx, identity, current);
   }
 
   function rewardTempestKirinContributor(ctx: any, identity: any) {
@@ -1032,6 +1041,7 @@ export function createBossCombat(deps: BossCombatDeps) {
       updateSnapshotRow(ctx, "player", nextPlayer);
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
     }
+    equipNewUpgrades(ctx, identity, current);
   }
 
   function rewardMiremawContributor(ctx: any, identity: any) {
@@ -1055,6 +1065,7 @@ export function createBossCombat(deps: BossCombatDeps) {
       updateSnapshotRow(ctx, "player", nextPlayer);
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
     }
+    equipNewUpgrades(ctx, identity, current);
   }
   function rewardPrismshellContributor(ctx: any, identity: any) {
     const current = ctx.db.playerProgress.identity.find(identity);
@@ -1077,6 +1088,7 @@ export function createBossCombat(deps: BossCombatDeps) {
       updateSnapshotRow(ctx, "player", nextPlayer);
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
     }
+    equipNewUpgrades(ctx, identity, current);
   }
   function rewardIronhornContributor(ctx: any, identity: any) {
     const current = ctx.db.playerProgress.identity.find(identity);
@@ -1099,6 +1111,7 @@ export function createBossCombat(deps: BossCombatDeps) {
       updateSnapshotRow(ctx, "player", nextPlayer);
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
     }
+    equipNewUpgrades(ctx, identity, current);
   }
   function rewardDreadreaperContributor(ctx: any, identity: any) {
     const current = ctx.db.playerProgress.identity.find(identity);
@@ -1121,6 +1134,7 @@ export function createBossCombat(deps: BossCombatDeps) {
       updateSnapshotRow(ctx, "player", nextPlayer);
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
     }
+    equipNewUpgrades(ctx, identity, current);
   }
   function rewardVoltwardenContributor(ctx: any, identity: any) {
     const current = ctx.db.playerProgress.identity.find(identity);
@@ -1143,6 +1157,7 @@ export function createBossCombat(deps: BossCombatDeps) {
       updateSnapshotRow(ctx, "player", nextPlayer);
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
     }
+    equipNewUpgrades(ctx, identity, current);
   }
   function rewardGravebloomContributor(ctx: any, identity: any) {
     const current = ctx.db.playerProgress.identity.find(identity);
@@ -1165,6 +1180,7 @@ export function createBossCombat(deps: BossCombatDeps) {
       updateSnapshotRow(ctx, "player", nextPlayer);
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
     }
+    equipNewUpgrades(ctx, identity, current);
   }
   function rewardAegisPrimeContributor(ctx: any, identity: any) {
     const current = ctx.db.playerProgress.identity.find(identity);
@@ -1187,6 +1203,7 @@ export function createBossCombat(deps: BossCombatDeps) {
       updateSnapshotRow(ctx, "player", nextPlayer);
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
     }
+    equipNewUpgrades(ctx, identity, current);
   }
 
 
@@ -1550,6 +1567,7 @@ export function createBossCombat(deps: BossCombatDeps) {
       updateSnapshotRow(ctx, "player", nextPlayer);
       syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
     }
+    equipNewUpgrades(ctx, identity, current);
   }
 
   function finishDragonEncounter(ctx: any, dragon: any) {

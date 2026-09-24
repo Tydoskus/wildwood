@@ -85,7 +85,12 @@ import { describe, expect, it } from "vitest";
 // Validation, the offer clearing, the guest merge and removal live in
 // ignored-drops.ts; filtering the rolled loot wraps the existing roll call, so
 // it costs no line. The raise is the schema surface alone.
-const MAX_LINES = 6_794;
+// 6_787: Auto keep best and auto equip add the player_loot_setting
+// registration, the my_loot_settings view, the set_loot_settings reducer, the
+// auto equip factory and its three call sites (loot, boss rewards, prestige).
+// save_player_progress's loadout rules and the saved-hand helpers moved out to
+// loadout.ts, where auto equip checks the same rules, which paid for all of it.
+const MAX_LINES = 6_787;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

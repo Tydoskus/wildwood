@@ -80,13 +80,20 @@ export function effectivePlayerPower(
 }
 
 export function playerPowerForStats(stats: PlayerPowerStats) {
+  return Math.round(unroundedPlayerPower(stats));
+}
+
+/**
+ * The same sum before rounding. Comparing two pieces of gear needs it: a
+ * small weapon difference on a low-level player can round away entirely.
+ */
+export function unroundedPlayerPower(stats: PlayerPowerStats) {
   const attackSpeedMultiplier = DEFAULT_ATTACK_INTERVAL / Math.max(MIN_ATTACK_INTERVAL, stats.attackRate);
-  const power = Math.round(
+  const power =
     stats.damage * attackSpeedMultiplier +
     stats.maxHp +
     stats.armor * 3 +
-    stats.regen * 10,
-  );
+    stats.regen * 10;
   return Number.isFinite(power) ? Math.max(0, power) : 0;
 }
 

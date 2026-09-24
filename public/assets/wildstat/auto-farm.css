@@ -522,7 +522,16 @@
 [aria-checked="false"] .loot-filter-check { border-color: rgba(255,255,255,.3); background: #0006; }
 [aria-checked="false"] .loot-filter-check::after { content: ""; }
 .loot-filter-sheet .farm-selection { color: #ff9b91; }
+/* Auto keep best and Auto equip, above the slot chips, drawn like the item rows. */
+.loot-filter-settings { display: grid; flex-shrink: 0; gap: 6px; margin: 0 14px 8px; }
+.loot-filter-settings[hidden] { display: none; }
+.farm-sheet .loot-filter-setting { min-height: 46px; }
+.loot-filter-setting .loot-filter-detail { font-size: 11px; line-height: 1.25; }
+.equipment-offer-score { margin-top: 2px; color: #ff8872; font-weight: 700; }
 @media (max-height: 480px) {
+  /* Side by side on a landscape phone, so the item list keeps its room. */
+  .loot-filter-settings { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 4px; }
+  .farm-sheet .loot-filter-setting { min-height: 40px; }
   /* Landscape phones are short but wide: widen so each chip keeps its art and name on one line. */
   .farm-sheet.loot-filter-sheet { width: min(560px, calc(100vw - 24px)); max-height: calc(100dvh - 16px); }
   .loot-filter-sheet .farm-header { padding-top: 8px; }

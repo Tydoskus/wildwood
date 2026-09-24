@@ -4,15 +4,17 @@ import { LOOT_FILTER_SLOTS, isDropFiltered, isFilterableDrop, itemSlot, slotFilt
 import { itemArtMarkup } from "../game/item-presentation";
 import { itemDropColor } from "./item-drop-color";
 import { itemInspectionButtonLabel } from "./item-inspection-controller";
+import { createLootSettingsSwitches, type LootSettingsPort } from "./loot-settings-switches";
 
 type Result = { ok: boolean; error?: string } | undefined;
 
 /**
  * What the window needs from the coop session: the account's filter entries
- * (slot entries and item ids that are off) and the call that changes them.
- * Both optional, so an older API simply has no Loot filter button.
+ * (slot entries and item ids that are off) and the call that changes them,
+ * and the loot settings the switches at the top show. All optional, so an
+ * older API simply has no Loot filter button, or no switches.
  */
-export type LootFilterPort = {
+export type LootFilterPort = LootSettingsPort & {
   ignoredDrops?: () => ReadonlySet<string>;
   setIgnoredDrops?: (filterIds: readonly string[], ignored: boolean) => Promise<Result>;
 };
@@ -39,7 +41,9 @@ export function filterableDrops(itemIds: readonly string[]) {
 /**
  * The Loot Filter, opened from the map window.
  *
- * Phrased as what the player picks up. Four slot chips on top turn a whole
+ * At the very top, two account switches: Auto keep best copy and Auto equip
+ * upgrades (loot-settings-switches.ts). Below them the filter itself,
+ * phrased as what the player picks up. Four slot chips turn a whole
  * slot off on every map, which is the one-tap way to farm only bows. Below,
  * this map's items each have a Pick up switch; an item whose slot is off
  * shows "Slot off" and cannot be switched until the slot is back on. All on
@@ -64,6 +68,7 @@ export function createLootFilterWindow(options: LootFilterWindowOptions) {
   dialog.className = "farm-sheet loot-filter-sheet";
   dialog.setAttribute("aria-labelledby", "lootFilterTitle");
   dialog.innerHTML = `<header class="farm-header"><h2 id="lootFilterTitle" class="window-banner"><span>Loot Filter</span></h2></header>`
+    + `<div class="loot-filter-settings" role="group" aria-label="Loot settings" hidden></div>`
     + `<div class="loot-filter-slots" role="group" aria-label="Slots you pick up"></div>`
     + `<p class="loot-filter-hint">Off = never drops, on every map.</p>`
     + `<div class="loot-filter-items-head"><h3 class="loot-filter-map"></h3>`
@@ -93,6 +98,9 @@ export function createLootFilterWindow(options: LootFilterWindowOptions) {
     chip.addEventListener("click", () => { void change([slotFilterId(slot)], !listed(slotFilterId(slot))); });
     slots.append(chip);
   }
+  // Auto keep best and Auto equip upgrades, above the slots: they decide what
+  // happens to what does drop, where the filter decides what drops at all.
+  const settings = createLootSettingsSwitches({ container: part(".loot-filter-settings"), port: options.port, setStatus, root: doc });
 
   /**
    * Entries pressed here that the list from the server may not show yet.
@@ -129,6 +137,7 @@ export function createLootFilterWindow(options: LootFilterWindowOptions) {
   }
 
   function sync() {
+    settings.sync();
     for (const chip of slots.querySelectorAll<HTMLButtonElement>("[data-filter-id]")) {
       const on = !listed(chip.dataset.filterId!);
       chip.setAttribute("aria-pressed", String(on));
@@ -227,6 +236,7 @@ export function createLootFilterWindow(options: LootFilterWindowOptions) {
     if (dialog.open) return;
     // A confirmed press the server never matched was changed elsewhere since; the server's list stands.
     for (const [filterId, entry] of pending) if (entry.confirmed) pending.delete(filterId);
+    settings.forgetConfirmed();
     setStatus("");
     sync();
     if (typeof dialog.showModal === "function") dialog.showModal();

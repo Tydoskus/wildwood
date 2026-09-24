@@ -2,6 +2,7 @@ import { tables, type DbConnection } from "../../module_bindings";
 import type { BowSkillRoll } from "../../../shared/bow-skills";
 import { reducerErrorMessage } from "./reducer-errors";
 import { createIgnoredDrops } from "./ignored-drops";
+import { createLootSettings } from "./loot-settings";
 
 /** A copy of an item beyond the first, kept from a duplicate drop. */
 export type EquipmentCopy = { id: bigint; itemId: string; roll: BowSkillRoll };
@@ -15,22 +16,28 @@ type Row = { id: bigint; itemId: string; arrowStorm: number; ricochet: number; p
 const rollOf = (row: Row): BowSkillRoll => ({ arrowStorm: row.arrowStorm, ricochet: row.ricochet, piercingShot: row.piercingShot });
 const byId = (a: { id: bigint }, b: { id: bigint }) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 const millis = (timestamp: { microsSinceUnixEpoch: bigint }) => Number(timestamp.microsSinceUnixEpoch / 1000n);
+/** How long after this tab equips, destroys or keeps a copy a change to that bow's roll is taken as its doing. */
+export const LOCAL_COPY_ACTION_WINDOW_MS = 10_000;
 
 /**
  * This account's kept extra copies and waiting duplicate offers, from the
  * caller-scoped my_equipment_copies and my_equipment_offers views, and the
  * three reducers that change them. The account's loot filter, which decides
- * what drops at all, rides along. The server decides everything; this only
- * carries rows and requests.
+ * what drops at all, and its loot settings (Auto keep best, Auto equip) ride
+ * along. The server decides everything; this only carries rows and requests.
  */
-export function createEquipmentCopies(notify: () => void) {
+export function createEquipmentCopies(notify: () => void, now: () => number = Date.now) {
   let target: Target | null = null;
   let copies: readonly EquipmentCopy[] = [];
   let offers: readonly EquipmentOffer[] = [];
   const ignoredDrops = createIgnoredDrops(notify);
+  const lootSettings = createLootSettings(notify);
+  /** When this tab last asked for a change to each item's copies. */
+  const localActions = new Map<string, number>();
 
   function watch(connection: DbConnection, isCurrent: () => boolean) {
     const readIgnoredDrops = ignoredDrops.watch(connection, isCurrent);
+    const readLootSettings = lootSettings.watch(connection, isCurrent);
     target = { connection, isCurrent };
     copies = [];
     offers = [];
@@ -52,11 +59,12 @@ export function createEquipmentCopies(notify: () => void) {
     connection.db.myEquipmentOffers.onInsert(readOffers);
     connection.db.myEquipmentOffers.onUpdate(readOffers);
     connection.db.myEquipmentOffers.onDelete(readOffers);
-    connection.subscriptionBuilder().onApplied(() => { readCopies(); readOffers(); readIgnoredDrops(); })
-      .subscribe([tables.myEquipmentCopies, tables.myEquipmentOffers, ignoredDrops.table]);
+    connection.subscriptionBuilder().onApplied(() => { readCopies(); readOffers(); readIgnoredDrops(); readLootSettings(); })
+      .subscribe([tables.myEquipmentCopies, tables.myEquipmentOffers, ignoredDrops.table, lootSettings.table]);
   }
 
-  async function call(send: (connection: DbConnection) => Promise<unknown>): Promise<EquipmentCopyResult> {
+  async function call(send: (connection: DbConnection) => Promise<unknown>, itemId?: string): Promise<EquipmentCopyResult> {
+    if (itemId) localActions.set(itemId, now());
     const current = target;
     if (!current || !current.isCurrent() || !current.connection.isActive) return { ok: false, error: "NOT CONNECTED" };
     try {
@@ -67,21 +75,33 @@ export function createEquipmentCopies(notify: () => void) {
     }
   }
 
+  /**
+   * Whether this tab changed an item's copies a moment ago. Equipping or
+   * destroying a copy moves a roll onto the first copy, which must not read
+   * as Auto keep best having found a better one.
+   */
+  function changedLocally(itemId: string) {
+    const at = localActions.get(itemId);
+    return at !== undefined && now() - at < LOCAL_COPY_ACTION_WINDOW_MS;
+  }
+
   return {
     watch,
+    changedLocally,
     api: {
       /** Kept copies beyond the first, oldest first. */
       equipmentCopies: (): readonly EquipmentCopy[] => copies,
       /** Duplicate drops waiting for an answer, oldest first. */
       equipmentOffers: (): readonly EquipmentOffer[] => offers,
       resolveEquipmentOffer: (id: bigint, keep: boolean) =>
-        call(connection => connection.reducers.resolveEquipmentOffer({ id, keep })),
+        call(connection => connection.reducers.resolveEquipmentOffer({ id, keep }), offers.find(offer => offer.id === id)?.itemId),
       /** Copy id 0 is the first copy, the one in the bag's item list. */
       destroyEquipmentCopy: (itemId: string, copyId: bigint) =>
-        call(connection => connection.reducers.destroyEquipmentCopy({ itemId, copyId })),
+        call(connection => connection.reducers.destroyEquipmentCopy({ itemId, copyId }), itemId),
       selectEquipmentCopy: (copyId: bigint) =>
-        call(connection => connection.reducers.selectEquipmentCopy({ copyId })),
+        call(connection => connection.reducers.selectEquipmentCopy({ copyId }), copies.find(copy => copy.id === copyId)?.itemId),
       ...ignoredDrops.api,
+      ...lootSettings.api,
     },
   };
 }
