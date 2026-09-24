@@ -737,14 +737,12 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     messageActions.init();
     // Capture scrolling from messages and the conversation list, including
     // momentum after the finger lifts. No layout reads or per-event timers.
-    // Keystrokes are left out on purpose: this lifts the game canvas behind
-    // chat from its idle 30fps to 60fps, which only scrolling needs. Typed
-    // text is drawn by the browser, and on a slow phone a full canvas frame
-    // on every vsync competes with the keyboard for the main thread.
+    // Scrolling and typing both keep the game behind chat at 60fps instead of
+    // its idle 30fps (Ryan's call: typing should feel as smooth as scrolling).
     const noteInteraction = () => {
       if (large && enabled) interactionUntil = performance.now() + 2_000;
     };
-    for (const event of ["scroll", "wheel", "touchmove", "pointerdown"]) {
+    for (const event of ["scroll", "wheel", "touchmove", "pointerdown", "keydown", "input"]) {
       elements.panel.addEventListener(event, noteInteraction, { capture: true, passive: true });
     }
     elements.panel.insertBefore(channelPicker.root, elements.messages);

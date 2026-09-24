@@ -70,10 +70,11 @@ it.each([false, true])("a presentation change that alters a drawn row redraws th
   expect(after?.textContent).toContain("(guest)");
 });
 
-it("typing in the expanded chat no longer counts as interaction; scrolling still does", () => {
-  const { elements, window, chat } = mount(true);
-  for (const type of ["keydown", "input"]) elements.input.dispatchEvent(new window.Event(type, { bubbles: true }));
-  expect(chat.isInteracting()).toBe(false);
-  elements.messages.dispatchEvent(new window.Event("scroll", { bubbles: true }));
-  expect(chat.isInteracting()).toBe(true);
+it("typing and scrolling in the expanded chat both count as interaction", () => {
+  for (const [target, type] of [["input", "keydown"], ["input", "input"], ["messages", "scroll"]] as const) {
+    const { elements, window, chat } = mount(true);
+    expect(chat.isInteracting()).toBe(false);
+    elements[target].dispatchEvent(new window.Event(type, { bubbles: true }));
+    expect(chat.isInteracting()).toBe(true);
+  }
 });
