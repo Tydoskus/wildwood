@@ -1648,6 +1648,7 @@ import {
       panels.closeAllExcept("mapGuide");
     },
     clearPlayerInput: playerInput.clear,
+    ignoredDrops: coop,
   });
 
   runtimeHud = createGameRuntimeHud({

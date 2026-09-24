@@ -378,3 +378,101 @@
   cursor: pointer;
 }
 .equipment-offer-review[hidden] { display: none; }
+/* Ignore drops, opened from the map window's Item Drops header. The Auto Farm
+ * window's frame and rows, each item with an Ignore switch. Amber rather than
+ * green: an ignored item is one the player turned away, not one they chose. */
+#mapGuide .map-guide-drop-settings {
+  flex-shrink: 0;
+  min-height: 32px;
+  margin: 0;
+  padding: 4px 12px;
+  border: 2px solid #c9ab64;
+  border-radius: 8px;
+  background: rgba(201,171,100,.12);
+  box-shadow: none;
+  color: #ffcf7a;
+  font: 900 12px/1.2 var(--font-rounded);
+  white-space: nowrap;
+  cursor: pointer;
+}
+#mapGuide .map-guide-drop-settings[hidden] { display: none; }
+#mapGuide .map-guide-drop-settings:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.farm-sheet.drop-ignore-sheet {
+  height: fit-content;
+  max-height: min(600px, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px));
+}
+.drop-ignore-all-wrap { flex-shrink: 0; margin: 0 14px 8px; padding-bottom: 8px; border-bottom: 1px solid #ffffff1c; }
+.drop-ignore-all-wrap[hidden] { display: none; }
+.farm-sheet .drop-ignore-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 56px;
+  padding: 7px 10px;
+  border: 2px solid rgba(255,255,255,.14);
+  border-radius: 10px;
+  background: #ffffff06;
+  box-shadow: none;
+  color: #fff;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.farm-sheet .drop-ignore-row[aria-checked="true"] { border-color: #c9ab64; background: rgba(201,171,100,.10); }
+.farm-sheet .drop-ignore-row[aria-checked="mixed"] { border-color: rgba(201,171,100,.55); }
+.farm-sheet .drop-ignore-all { min-height: 46px; }
+.drop-ignore-art {
+  display: grid;
+  place-items: center;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: #0006;
+}
+.drop-ignore-art > * { width: 34px; height: 34px; }
+.drop-ignore-copy { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.drop-ignore-copy strong { overflow: hidden; font-size: 14px; white-space: nowrap; text-overflow: ellipsis; }
+.drop-ignore-detail { color: var(--muted); font-size: 12px; }
+.drop-ignore-detail:empty { display: none; }
+.drop-ignore-toggle { display: flex; align-items: center; gap: 7px; flex-shrink: 0; color: var(--muted); font-size: 11px; text-transform: uppercase; }
+[aria-checked="true"] > .drop-ignore-toggle { color: #ffcf7a; }
+.drop-ignore-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: #0008;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.25);
+  transition: background-color .15s;
+}
+.drop-ignore-switch::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #cfd6d0;
+  transition: transform .15s;
+}
+[aria-checked="true"] .drop-ignore-switch { background: #a8741f; box-shadow: inset 0 0 0 2px #ffcf7a; }
+[aria-checked="true"] .drop-ignore-switch::after { background: #fff; transform: translateX(16px); }
+[aria-checked="mixed"] .drop-ignore-switch { box-shadow: inset 0 0 0 2px #c9ab64; }
+[aria-checked="mixed"] .drop-ignore-switch::after { background: #ffcf7a; transform: translateX(8px); }
+.drop-ignore-note { margin: 0 0 8px; color: var(--muted); text-align: center; font-size: 12px; line-height: 1.35; }
+.drop-ignore-sheet .farm-selection { color: #ff9b91; }
+@media (max-height: 480px) {
+  .farm-sheet.drop-ignore-sheet { max-height: calc(100dvh - 16px); }
+  .drop-ignore-all-wrap { margin-bottom: 4px; padding-bottom: 4px; }
+  .farm-sheet .drop-ignore-row { min-height: 46px; padding: 5px 10px; }
+  .farm-sheet .drop-ignore-all { min-height: 40px; }
+  .drop-ignore-art { flex-basis: 34px; width: 34px; height: 34px; }
+  .drop-ignore-art > * { width: 28px; height: 28px; }
+  .drop-ignore-note { margin-bottom: 4px; }
+}

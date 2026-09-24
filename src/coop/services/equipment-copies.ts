@@ -1,6 +1,7 @@
 import { tables, type DbConnection } from "../../module_bindings";
 import type { BowSkillRoll } from "../../../shared/bow-skills";
 import { reducerErrorMessage } from "./reducer-errors";
+import { createIgnoredDrops } from "./ignored-drops";
 
 /** A copy of an item beyond the first, kept from a duplicate drop. */
 export type EquipmentCopy = { id: bigint; itemId: string; roll: BowSkillRoll };
@@ -18,15 +19,18 @@ const millis = (timestamp: { microsSinceUnixEpoch: bigint }) => Number(timestamp
 /**
  * This account's kept extra copies and waiting duplicate offers, from the
  * caller-scoped my_equipment_copies and my_equipment_offers views, and the
- * three reducers that change them. The server decides everything; this only
- * carries rows and requests.
+ * three reducers that change them. The items whose copies are ignored on
+ * arrival ride along. The server decides everything; this only carries rows
+ * and requests.
  */
 export function createEquipmentCopies(notify: () => void) {
   let target: Target | null = null;
   let copies: readonly EquipmentCopy[] = [];
   let offers: readonly EquipmentOffer[] = [];
+  const ignoredDrops = createIgnoredDrops(notify);
 
   function watch(connection: DbConnection, isCurrent: () => boolean) {
+    const readIgnoredDrops = ignoredDrops.watch(connection, isCurrent);
     target = { connection, isCurrent };
     copies = [];
     offers = [];
@@ -48,8 +52,8 @@ export function createEquipmentCopies(notify: () => void) {
     connection.db.myEquipmentOffers.onInsert(readOffers);
     connection.db.myEquipmentOffers.onUpdate(readOffers);
     connection.db.myEquipmentOffers.onDelete(readOffers);
-    connection.subscriptionBuilder().onApplied(() => { readCopies(); readOffers(); })
-      .subscribe([tables.myEquipmentCopies, tables.myEquipmentOffers]);
+    connection.subscriptionBuilder().onApplied(() => { readCopies(); readOffers(); readIgnoredDrops(); })
+      .subscribe([tables.myEquipmentCopies, tables.myEquipmentOffers, ignoredDrops.table]);
   }
 
   async function call(send: (connection: DbConnection) => Promise<unknown>): Promise<EquipmentCopyResult> {
@@ -77,6 +81,7 @@ export function createEquipmentCopies(notify: () => void) {
         call(connection => connection.reducers.destroyEquipmentCopy({ itemId, copyId })),
       selectEquipmentCopy: (copyId: bigint) =>
         call(connection => connection.reducers.selectEquipmentCopy({ copyId })),
+      ...ignoredDrops.api,
     },
   };
 }

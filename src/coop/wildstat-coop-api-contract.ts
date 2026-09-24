@@ -150,6 +150,8 @@ type ExpectedApiKey =
   | "resolveEquipmentOffer"
   | "destroyEquipmentCopy"
   | "selectEquipmentCopy"
+  | "ignoredDrops"
+  | "setIgnoredDrops"
   | "developerNameTagVisible"
   | "setDeveloperNameTag"
   | "playerNamePrefix"

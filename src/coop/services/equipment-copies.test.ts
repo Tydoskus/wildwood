@@ -5,9 +5,10 @@ const at = (ms: number) => ({ microsSinceUnixEpoch: BigInt(ms) * 1000n });
 
 function fakeConnection() {
   const handlers: Array<() => void> = [];
-  let applied: (() => void) | null = null;
+  const applied: Array<() => void> = [];
   const copies: unknown[] = [];
   const offers: unknown[] = [];
+  const ignored: unknown[] = [];
   const view = (rows: unknown[]) => ({
     iter: () => rows[Symbol.iterator](),
     onInsert: (handler: () => void) => handlers.push(handler),
@@ -18,14 +19,18 @@ function fakeConnection() {
     resolveEquipmentOffer: vi.fn(async () => {}),
     destroyEquipmentCopy: vi.fn(async () => {}),
     selectEquipmentCopy: vi.fn(async () => { throw new Error("That copy is not in your inventory."); }),
+    setIgnoredDrops: vi.fn(async () => {}),
   };
   const connection = {
     isActive: true,
-    db: { myEquipmentCopies: view(copies), myEquipmentOffers: view(offers) },
+    db: { myEquipmentCopies: view(copies), myEquipmentOffers: view(offers), myIgnoredDrops: view(ignored) },
     reducers,
-    subscriptionBuilder: () => ({ onApplied(callback: () => void) { applied = callback; return this; }, subscribe: vi.fn() }),
+    subscriptionBuilder: () => ({ onApplied(callback: () => void) { applied.push(callback); return this; }, subscribe: vi.fn() }),
   };
-  return { connection: connection as never, copies, offers, reducers, settle: () => applied?.(), fire: () => handlers.forEach(handler => handler()) };
+  return {
+    connection: connection as never, copies, offers, ignored, reducers,
+    settle: () => applied.forEach(callback => callback()), fire: () => handlers.forEach(handler => handler()),
+  };
 }
 
 it("serves kept copies and waiting offers oldest first, with their rolls and times", () => {
@@ -71,4 +76,22 @@ it("forgets a replaced connection's rows", () => {
   service.watch(fakeConnection().connection, () => true);
   first.fire();
   expect(service.api.equipmentCopies()).toEqual([]);
+});
+
+it("serves the items marked ignored and sends changes to the server", async () => {
+  const service = createEquipmentCopies(() => {});
+  expect(await service.api.setIgnoredDrops(["iron_bow"], true)).toEqual({ ok: false, error: "NOT CONNECTED" });
+  const conn = fakeConnection();
+  service.watch(conn.connection, () => true);
+  conn.ignored.push({ key: "a:iron_bow", itemId: "iron_bow" }, { key: "a:samurai_hat", itemId: "samurai_hat" });
+  expect([...service.api.ignoredDrops()]).toEqual([]);
+  conn.settle();
+  expect([...service.api.ignoredDrops()].sort()).toEqual(["iron_bow", "samurai_hat"]);
+  conn.ignored.splice(0, 1);
+  conn.fire();
+  expect([...service.api.ignoredDrops()]).toEqual(["samurai_hat"]);
+  expect(await service.api.setIgnoredDrops(["iron_bow", "samurai_hat"], false)).toEqual({ ok: true });
+  expect(conn.reducers.setIgnoredDrops).toHaveBeenCalledWith({ itemIds: ["iron_bow", "samurai_hat"], ignored: false });
+  conn.reducers.setIgnoredDrops.mockRejectedValueOnce(new Error("That item cannot be ignored."));
+  expect(await service.api.setIgnoredDrops(["stone"], true)).toEqual({ ok: false, error: "That item cannot be ignored." });
 });

@@ -16,6 +16,7 @@ import { WORLD } from "../game/constants";
 import { ENEMY_TYPES, REWARD_DATA, type RewardType } from "../game/enemies";
 import { itemPresentation } from "../game/item-presentation";
 import { drawPortalMapMarker } from "../game/portal-presentation";
+import { createDropIgnoreSettings, type IgnoredDropsPort } from "./drop-ignore-settings";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
@@ -56,6 +57,8 @@ type MapGuideDependencies = {
   portals: () => MapGuidePortal[];
   beforeOpen: () => void;
   clearPlayerInput: () => void;
+  /** The coop session, for the account's ignored drops. Without it the map has no Ignore drops button. */
+  ignoredDrops?: IgnoredDropsPort | null;
 };
 
 export type MapGuideDrop = {
@@ -181,6 +184,10 @@ function displayItemName(itemId: ItemId) {
 /** Owns the clickable minimap help surface and its compact full-window guide. */
 export function createMapGuideController(elements: MapGuideElements, dependencies: MapGuideDependencies) {
   const { trigger, overlay, title, canvas, zoneLabels, dropItems, back } = elements;
+  const dropsHeader = dropItems.parentElement?.querySelector("header");
+  const dropSettings = dropsHeader
+    ? createDropIgnoreSettings({ anchor: dropsHeader, port: () => dependencies.ignoredDrops })
+    : null;
 
   function renderZoneLabels(zones: MapGuideZone[], boss: MapGuideBoss) {
     const labels = zones.map((zone) => {
@@ -344,6 +351,7 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
     const mapId = dependencies.currentMapId();
     title.textContent = dependencies.mapName(mapId);
     renderDrops(mapId);
+    dropSettings?.setMap(dependencies.mapName(mapId), mapGuideDrops(mapId).map((drop) => drop.itemId));
     drawMap();
   }
 
@@ -360,6 +368,7 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
 
   function close() {
     if (overlay.hidden) return;
+    dropSettings?.close();
     overlay.hidden = true;
     trigger.setAttribute("aria-expanded", "false");
   }
