@@ -85,7 +85,12 @@ import { describe, expect, it } from "vitest";
 // Validation, the offer clearing, the guest merge and removal live in
 // ignored-drops.ts; filtering the rolled loot wraps the existing roll call, so
 // it costs no line. The raise is the schema surface alone.
-const MAX_LINES = 6_794;
+// 6_802: per-prestige leaderboards add the get_prestige_leaderboard_page
+// procedure declaration, its return type and its note. The three tables
+// register through the existing leaderboardPageTables spread, and the ranking,
+// the guest merge and the read live in leaderboard-pages.ts; the raise is the
+// declaration alone.
+const MAX_LINES = 6_802;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

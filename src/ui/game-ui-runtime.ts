@@ -146,7 +146,7 @@ export function createDevPanel(d: Record<string, any>) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createLeaderboardPanel(d: Record<string, any>) {
   const e = d.e;
-  return createLeaderboardController({ button: e.leaderboardBtn, overlay: e.leaderboardEl, closeButton: e.closeLeaderboardBtn, tabs: { power: e.leaderboardPowerTab, damage: e.leaderboardDamageTab, health: e.leaderboardHealthTab, armor: e.leaderboardArmorTab, regen: e.leaderboardRegenTab, time: e.leaderboardTimeTab }, valueHeading: e.leaderboardValueHeading, podium: e.leaderboardPodiumEl, rows: e.leaderboardRowsEl, loading: e.leaderboardLoadingEl, empty: e.leaderboardEmptyEl }, d.options);
+  return createLeaderboardController({ button: e.leaderboardBtn, overlay: e.leaderboardEl, closeButton: e.closeLeaderboardBtn, tabs: { power: e.leaderboardPowerTab, damage: e.leaderboardDamageTab, health: e.leaderboardHealthTab, armor: e.leaderboardArmorTab, regen: e.leaderboardRegenTab, time: e.leaderboardTimeTab }, valueHeading: e.leaderboardValueHeading, podium: e.leaderboardPodiumEl, rows: e.leaderboardRowsEl, loading: e.leaderboardLoadingEl, empty: e.leaderboardEmptyEl, prestigeChips: e.leaderboardPrestigeChips, prestigeHeading: e.leaderboardPrestigeHeading }, d.options);
 }
 
 /** Wires standard game-window actions and escape priority from UI controllers. */

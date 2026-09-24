@@ -93,6 +93,7 @@ export const ERASURE_TARGETS: readonly ErasureTarget[] = [
   { table: "koiShogunContribution", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "leaderboardEntry", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "leaderboardPosition", columns: ["identity"], pk: "identity", mode: "key" },
+  { table: "leaderboardPrestigePosition", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "magmaliskAttackWindow", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "magmaliskContribution", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "mailboxEquipment", columns: ["identity"], pk: "key", mode: "index", index: "identity" },

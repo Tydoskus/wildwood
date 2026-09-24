@@ -38,7 +38,7 @@ import { playerBowSkill, ensureBowSkillRoll, ensureBowSkillRolls } from "./bow-s
 import { playerEquipmentCopy, pendingEquipmentOffer, createEquipmentCopies, publishItemDrop, offerDuplicateEquipment, expireEquipmentOffers, removeEquipmentCopies } from "./equipment-copies";
 import { moderateReportedMessage } from "./chat-report-moderation";
 import { PLAYER_SKIN_TONES } from "../../shared/player-skin-tones";
-import { leaderboardPageTables, writeLeaderboardPages, readLeaderboardWindow, readLeaderboardPage } from "./leaderboard-pages";
+import { leaderboardPageTables, writeLeaderboardPages, readLeaderboardWindow, readLeaderboardPage, readPrestigeLeaderboardPage } from "./leaderboard-pages";
 import { leaderboardEligible } from "../../shared/leaderboard-window";
 import { effectiveMovementSpeedForProgress } from "./player-speed";
 import { earlierTimestamp } from "./timestamp-utils";
@@ -308,7 +308,7 @@ const DUEL_REPLAY_RETENTION_MICROS = CHAT_HISTORY_RETENTION_MICROS;
 const MAINTENANCE_INTERVAL_MICROS = 60_000_000n;
 const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
-const LEADERBOARD_REFRESH_VERSION = 12;
+const LEADERBOARD_REFRESH_VERSION = 13;
 // Shared-boss combat bodies live in boss-combat.ts; the reducers below keep
 // calling the same names. Placed after WORLD, the one const the factory reads.
 const {
@@ -6681,6 +6681,14 @@ export const getLeaderboardPage = spacetimedb.procedure(
   { stat: t.string(), startRank: t.u32(), count: t.u32() },
   t.object("LeaderboardPage", { entries: t.array(rankedLeaderboardPlayer), startRank: t.u32(), endRank: t.u32(), localRank: t.u32(), total: t.u32() }),
   (ctx, { stat, startRank, count }) => ctx.withTx(tx => readLeaderboardPage(tx, stat, startRank, count)),
+);
+// One prestige level's board; the page shape above plus the level and the list
+// of levels anyone is on. The body lives in leaderboard-pages.ts.
+export const getPrestigeLeaderboardPage = spacetimedb.procedure(
+  { stat: t.string(), prestige: t.u32(), startRank: t.u32(), count: t.u32() },
+  t.object("PrestigeLeaderboardPage", { entries: t.array(rankedLeaderboardPlayer), startRank: t.u32(), endRank: t.u32(), localRank: t.u32(),
+    total: t.u32(), prestige: t.u32(), levels: t.array(t.u32()) }),
+  (ctx, { stat, prestige, startRank, count }) => ctx.withTx(tx => readPrestigeLeaderboardPage(tx, stat, prestige, startRank, count)),
 );
 
 export const latestChatMessages = spacetimedb.anonymousView(

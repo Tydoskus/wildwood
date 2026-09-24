@@ -1,7 +1,7 @@
 import { isDeveloperIdentity } from "../../../shared/developer-identity";
 import { withRequestDeadline } from "./request-deadline";
 import { unsubscribeIfActive, type ActiveSubscription } from "./subscription-handoff";
-import type { LeaderboardStat, LeaderboardPage } from "../../../shared/leaderboard-window";
+import type { LeaderboardStat, PrestigeLeaderboardPage } from "../../../shared/leaderboard-window";
 import { Identity } from "spacetimedb";
 import { tables, type DbConnection } from "../../module_bindings";
 import { createEmptyResearchRanks } from "../../../shared/research";
@@ -73,7 +73,7 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
   const playerProfileLoads = new Map<string, Promise<PlayerProfileData | null>>();
   let leaderboardGeneration = 0;
   const leaderboardRequests = new Map<LeaderboardStat, Promise<LeaderboardEntry[]>>();
-  const leaderboardPages = new Map<string, Promise<LeaderboardPage<LeaderboardEntry>>>();
+  const leaderboardPages = new Map<string, Promise<PrestigeLeaderboardPage<LeaderboardEntry>>>();
   let activeIdentity = "";
   let activeSubscription: ActiveSubscription | null = null;
   let profileGeneration = 0;
@@ -268,14 +268,15 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
     return request;
   }
 
-  function loadLeaderboardPage(stat: LeaderboardStat, startRank = 0, count = 100): Promise<LeaderboardPage<LeaderboardEntry>> {
-    const key = `${stat}:${startRank}:${count}`;
+  /** One prestige level's board; 0 is the players who have never prestiged. */
+  function loadLeaderboardPage(stat: LeaderboardStat, prestige: number, startRank = 0, count = 100): Promise<PrestigeLeaderboardPage<LeaderboardEntry>> {
+    const key = `${stat}:${prestige}:${startRank}:${count}`;
     const existing = leaderboardPages.get(key);
     if (existing) return existing;
     const connection = dependencies.connection();
     if (!connection?.isActive) return Promise.reject(new Error("Not connected. Try again."));
     const generation = leaderboardGeneration, identity = dependencies.localIdentity();
-    const request = withRequestDeadline(connection.procedures.getLeaderboardPage({ stat, startRank, count })).then(page => {
+    const request = withRequestDeadline(connection.procedures.getPrestigeLeaderboardPage({ stat, prestige, startRank, count })).then(page => {
       if (generation !== leaderboardGeneration || connection !== dependencies.connection() || identity !== dependencies.localIdentity()) throw new Error("Session changed. Reopen the leaderboard.");
       const entries = page.entries.map(({ rank, entry: row }) => {
         const entry = { ...leaderboardEntryFromRow(row), rank };
