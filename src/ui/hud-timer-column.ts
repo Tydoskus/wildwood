@@ -3,16 +3,16 @@ import type { ActiveResearch } from "./tech-tree-controller";
 import type { createGameElements } from "./game-elements";
 import { createHudProgressTimers } from "./hud-progress-timers";
 import { installHudProgressSettings } from "./hud-progress-settings";
-import { createRewardedRespawnAdController } from "./rewarded-respawn-ad-controller";
+import { createRewardedGemAdController } from "./rewarded-gem-ad-controller";
+import type { AdGemRewardRecord } from "../../shared/ad-gem-reward";
 
 type Elements = ReturnType<typeof createGameElements>;
 type Dependencies = {
   getNativeBridge: () => unknown;
   isSupporter: () => boolean;
-  grantBoost: () => boolean;
-  toggleBoost: () => boolean;
-  isBoostEnabled: () => boolean;
-  boostRemainingMs: () => number;
+  adGemReward: () => AdGemRewardRecord | null;
+  claimAdGems: () => Promise<{ ok: boolean; error?: string }>;
+  showGemReward: (amount: number) => void;
   setPromptActive: (active: boolean) => void;
   setAdPlaybackActive: (active: boolean) => void;
   showMessage: (text: string, color?: string) => void;
@@ -38,20 +38,19 @@ export function createHudTimerColumn(elements: Elements, dependencies: Dependenc
   const slotTwoTimer = timer("slot", "Slot 2");
   const slotThreeTimer = timer("slot", "Slot 3");
   elements.enemyRespawnAdBtn.before(column);
-  column.append(researchTimer, slotOneTimer, slotTwoTimer, slotThreeTimer, elements.enemyRespawnBoostStatus, elements.enemyRespawnAdBtn);
+  column.append(researchTimer, slotOneTimer, slotTwoTimer, slotThreeTimer, elements.enemyRespawnAdBtn);
 
-  const rewardedRespawnAd = createRewardedRespawnAdController({
+  const rewardedGemAd = createRewardedGemAdController({
     button: elements.enemyRespawnAdBtn,
     status: elements.enemyRespawnAdStatus,
-    bankButton: elements.enemyRespawnBoostStatus,
-    bankTimer: elements.enemyRespawnBoostTimer,
+    countdown: elements.enemyRespawnAdCountdown,
     prompt: elements.enemyRespawnAdPrompt,
     confirmButton: elements.enemyRespawnAdConfirm,
     cancelButton: elements.enemyRespawnAdCancel,
     browserAd: elements.browserRewardedAd,
     browserAdTimer: elements.browserRewardedAdTimer,
   }, dependencies);
-  rewardedRespawnAd.init();
+  rewardedGemAd.init();
 
   let storage: Storage | null = null;
   try { storage = window.localStorage; } catch { /* Continue with session choices. */ }
@@ -67,7 +66,8 @@ export function createHudTimerColumn(elements: Elements, dependencies: Dependenc
     slotTwo: settings.visible("slotTwo"),
     slotThree: settings.visible("slotThree"),
   }) });
-  window.setInterval(timers.tick, 1_000);
-  document.addEventListener("visibilitychange", timers.tick);
-  return rewardedRespawnAd;
+  // The ad's wait counts down on the same second; it does nothing while hidden.
+  window.setInterval(() => { timers.tick(); rewardedGemAd.sync(); }, 1_000);
+  document.addEventListener("visibilitychange", () => { timers.tick(); rewardedGemAd.sync(); });
+  return rewardedGemAd;
 }

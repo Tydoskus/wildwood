@@ -27,6 +27,7 @@ import { mergeEquipmentCopies } from "./equipment-copies";
 import { mergeMailboxReceipts, removeMailboxReceipts } from "./mailbox";
 import { mergeOnboarding } from "./onboarding";
 import { mergeAudioSettings, removeAudioSettings } from "./audio-settings";
+import { mergeAdGemReward, removeAdGemReward } from "./ad-gem-reward";
 import { mergeLootSettings, removeLootSettings } from "./loot-settings";
 import { mergeIgnoredDrops, removeIgnoredDrops } from "./ignored-drops";
 import { mergeLinkedPrestige } from "./prestige-transfer";
@@ -198,6 +199,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
       seenMask: accountCutscenes.seenMask | guestCutscenes.seenMask,
     });
     mergeGuestGemWallet(ctx, link.guest, ctx.sender, link.code);
+    mergeAdGemReward(ctx, link.guest, ctx.sender);
     mergeBalanceApologyNotice(ctx, link.guest, ctx.sender);
     mergeItemGifts(ctx, link.guest, ctx.sender);
     mergeBowSkills(ctx, link.guest, ctx.sender);
@@ -737,6 +739,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.playerBalanceVersion.identity.find(identity)) ctx.db.playerBalanceVersion.identity.delete(identity);
     if (ctx.db.playerGemWallet.identity.find(identity)) ctx.db.playerGemWallet.identity.delete(identity);
     if (ctx.db.balanceApologyNotice.identity.find(identity)) ctx.db.balanceApologyNotice.identity.delete(identity);
+    removeAdGemReward(ctx, identity);
     removeItemGifts(ctx, identity);
     removeBowSkills(ctx, identity);
     removeMailboxReceipts(ctx, identity);
@@ -844,6 +847,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.playerGemWallet.identity.find(identity)) ctx.db.playerGemWallet.identity.delete(identity);
     if (ctx.db.dailyGemBonus.identity.find(identity)) ctx.db.dailyGemBonus.identity.delete(identity);
     if (ctx.db.balanceApologyNotice.identity.find(identity)) ctx.db.balanceApologyNotice.identity.delete(identity);
+    removeAdGemReward(ctx, identity);
     removeItemGifts(ctx, identity);
     removeBowSkills(ctx, identity);
     removeMailboxReceipts(ctx, identity);

@@ -14,6 +14,8 @@ Ad unit names are **WildStat iOS - Respawn Boost** and
 **WildStat Android - Respawn Boost**. Both use the **Rewarded** format with
 reward amount **1** and reward item **30-minute respawn boost**. Partner bidding
 is off, and the remaining ad-unit settings retain AdMob defaults.
+Since 0.807 the game pays 10 Gems per watched ad (`claim_ad_gems`) and ignores
+the SDK's reward amount and item, so these dashboard labels are only names.
 
 ## Current status
 

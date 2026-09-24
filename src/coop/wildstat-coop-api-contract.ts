@@ -36,6 +36,8 @@ type ExpectedApiKey =
   | "claimItemGift"
   | "pendingItemGift"
   | "claimDailyGemBonus"
+  | "adGemReward"
+  | "claimAdGems"
   | "connect"
   | "connectionDiagnostics"
   | "continueAsGuest"

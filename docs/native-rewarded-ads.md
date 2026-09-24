@@ -1,21 +1,22 @@
-# Rewarded respawn ads
+# Rewarded ads
 
-The web game owns button, browser placeholder, reward timer, and regular-enemy respawn rule. An iOS or Android wrapper owns the real ad SDK.
+The web game owns the button, the browser placeholder and the claim. An iOS or Android wrapper owns the real ad SDK. A watched ad pays 10 Gems through the `claim_ad_gems` reducer; the server allows one claim every 30 minutes and four per UTC day (the daily Gem bonus's day), and refuses anything else with the wait ("Next ad in 12:34").
 
 ```mermaid
 flowchart LR
-  Tap["Tap 2x respawn"] --> Bridge{"Native bridge present?"}
+  Tap["Tap Watch ad · +10 Gems"] --> Ready{"Server row: ready?"}
+  Ready -->|No| Wait["Disabled countdown: cooldown or UTC reset"]
+  Ready -->|Yes| Bridge{"Native bridge present?"}
   Bridge -->|No| Browser["30-second black AD timer"]
   Bridge -->|Yes| SDK["Native rewarded-ad SDK"]
-  Browser --> Reward["30-minute boost"]
-  SDK -->|rewarded: true| Reward
-  SDK -->|skip or failure| NoReward["No boost"]
-  Reward --> Fast["Regular enemies: 15 seconds"]
-  Reward --> Timer["HUD countdown + local expiry"]
-  Timer -->|expires| Normal["Regular enemies: 30 seconds"]
+  Browser --> Claim["claim_ad_gems"]
+  SDK -->|rewarded: true| Claim
+  SDK -->|skip or failure| NoReward["No claim"]
+  Claim -->|paid| Gems["+10 Gems, then the 30-minute countdown"]
+  Claim -->|refused| Message["Server's refusal shown"]
 ```
 
-Boss respawns remain server-owned. Reward flow makes no SpacetimeDB calls.
+Patreon supporters skip the ad and claim with one tap under the same limits. Enemy respawns are no longer part of the reward: every regular enemy respawns in 10 seconds.
 
 ## Native bridge contract
 
@@ -38,6 +39,6 @@ window.wildstatNative = {
 window.dispatchEvent(new Event("wildstat:native-rewarded-ads-changed"));
 ```
 
-Placement is `regular_enemy_respawn_2x`. Return `{ rewarded: true }` only after SDK reward callback. Dismissal, skip, load failure, or playback failure must return `{ rewarded: false }` or reject.
+Placement is `regular_enemy_respawn_2x`, a name kept from the respawn reward so existing wrappers keep working. Return `{ rewarded: true }` only after SDK reward callback. Dismissal, skip, load failure, or playback failure must return `{ rewarded: false }` or reject.
 
-Browser path intentionally simulates one normal 30-second ad and grants same 30-minute boost. Boost expiry uses wall-clock time and local storage, so refresh or app backgrounding does not erase earned time.
+Browser path intentionally simulates one normal 30-second ad and claims the same 10 Gems. The cooldown and the daily count live on the server (`player_ad_reward`, read through `my_ad_gem_reward`), so a refresh, another device or a guest sign-in cannot reset them. If an earned ad's claim fails, the next tap claims it without another ad.

@@ -119,7 +119,8 @@ describe("farming rate under the respawn ceiling", () => {
     // six, which left the ceiling applying only to accounts without a snapshot
     // — and live has thousands with one.
     expect(defeatMinRespawnSeconds(REGULAR_ENEMY_RESPAWN_SECONDS)).toBe(DEFEAT_MIN_RESPAWN_SECONDS);
-    expect(defeatMinRespawnSeconds(40)).toBe(20);
+    // Nothing halves the respawn any more, so neither does the ceiling.
+    expect(defeatMinRespawnSeconds(20)).toBe(20);
     const pinned = player({ lapSeconds: 28 / 5, minutes: 10 });
     const unpinned = player({ lapSeconds: 28 / 5, minutes: 10, pinned: false });
     expect(pinned.paidPerSecond).toBeCloseTo(unpinned.paidPerSecond, 2);
@@ -129,7 +130,8 @@ describe("farming rate under the respawn ceiling", () => {
   it("reports what each profile actually earns", () => {
     const profiles = [
       ["honest lap (28s)", { lapSeconds: 28, minutes: 10 }],
-      ["ad boost (10s)", { lapSeconds: 10, minutes: 10 }],
+      ["plain respawn (10s)", { lapSeconds: 10, minutes: 10 }],
+      ["old ad rate (5s)", { lapSeconds: 5, minutes: 10 }],
       ["5x speed hack", { lapSeconds: 28 / 5, minutes: 10 }],
       ["flat-out script", { lapSeconds: .5, minutes: 10 }],
       ["script, one hour", { lapSeconds: .5, minutes: 60 }],
@@ -151,11 +153,25 @@ describe("farming rate under the respawn ceiling", () => {
     expect(run.reviewed).toBe(0);
   });
 
-  it("pays a fast player on the ad boost in full", () => {
-    // Clearing as fast as the boosted respawn allows is legitimate play.
+  it("pays a fast player on the 10-second respawn in full", () => {
+    // Clearing as fast as the plain respawn allows is legitimate play, and
+    // since 0.807 that is ten seconds with no ad involved.
+    expect(DEFEAT_MIN_RESPAWN_SECONDS).toBe(10);
     const run = player({ lapSeconds: DEFEAT_MIN_RESPAWN_SECONDS, minutes: 10 });
     expect(run.paid).toBe(run.claimed);
     expect(run.restricted).toBe(false);
+    expect(run.reviewed).toBe(0);
+  });
+
+  it("clips the old ad-halved rate of a 10-second respawn", () => {
+    // Half of ten seconds is what the ad used to allow on top of the plain
+    // clock. Nothing grants it now, so the ceiling holds it to the plain rate.
+    const run = player({ lapSeconds: DEFEAT_MIN_RESPAWN_SECONDS / 2, minutes: 10 });
+    expect(run.claimedPerSecond).toBeCloseTo(CEILING * 2, 1);
+    expect(run.paidPerSecond).toBeLessThanOrEqual(CEILING * 1.05);
+    expect(run.paid).toBeLessThan(run.claimed);
+    expect(run.restricted).toBe(false);
+    expect(run.stillInWorld).toBe(true);
   });
 
   it("holds a speed hacker to the ceiling and keeps them playing", () => {
@@ -183,7 +199,8 @@ describe("farming rate under the respawn ceiling", () => {
     const honest = player({ lapSeconds: 28, minutes: 10 });
     const cheater = player({ lapSeconds: .5, minutes: 10 });
     // Fifty-six times the claimed rate buys under three times the payout, and
-    // that whole margin is the legitimate headroom an ad-boosted player has.
+    // that whole margin is the legitimate headroom of a player who clears as
+    // fast as the 10-second respawn allows.
     expect(cheater.claimedPerSecond / honest.claimedPerSecond).toBeGreaterThan(50);
     expect(cheater.paid / honest.paid).toBeLessThan(3);
   });

@@ -102,6 +102,9 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
   if (configurationVersion === 2) {
     result.configurationVersion = 2;
     result.regularRespawnSeconds = REGULAR_ENEMY_RESPAWN_SECONDS * (factors.enemyRespawn ?? 1);
+    // The base it was scaled from, so a snapshot pinned under an older base
+    // can be told apart and re-pinned (see pinMapBalance).
+    result.regularRespawnBaseSeconds = REGULAR_ENEMY_RESPAWN_SECONDS;
     result.loot = regularMapLoot(mapId, true).map(drop => (factors.enemyDrops ?? 1) === 1 ? { ...drop } : ({
       itemId: drop.itemId, outcomes: 1_000_000,
       wins: Math.min(1_000_000, Math.round(drop.wins / drop.outcomes * (factors.enemyDrops ?? 1) * 1_000_000)),

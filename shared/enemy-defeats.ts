@@ -4,7 +4,7 @@ import { ENEMY_TYPES, type EnemyKind } from "./enemy-definitions";
 import * as camps from "./enemy-camps";
 import designs from "../src/game/map-designs.json";
 import { generateMap, generatedEnemyStats, isProceduralMap } from "./procedural-maps";
-import { MAX_ARMOR, MAX_PLAYER_STAT, MIN_ATTACK_INTERVAL, REGULAR_KILL_REPORT_SECONDS, REWARDED_REGULAR_ENEMY_RESPAWN_SECONDS } from "./rules";
+import { MAX_ARMOR, MAX_PLAYER_STAT, MIN_ATTACK_INTERVAL, REGULAR_ENEMY_RESPAWN_SECONDS, REGULAR_KILL_REPORT_SECONDS } from "./rules";
 
 export type EnemyDefeat = { enemy: string; count: number };
 export const ENEMY_DEFEAT_BATCH_MAX = 100;
@@ -67,24 +67,26 @@ export function combatMap(mapId: string) { return Object.prototype.hasOwnPropert
 
 /**
  * Nobody can kill a species faster than it comes back, and the fastest it
- * comes back is the ad-boosted respawn. A whole map is thirty enemies, so this
- * ceiling is three kills a second against a lap that really takes about
- * twenty-eight: room for a fast player, and nowhere near enough for a script.
+ * comes back is the plain respawn: nothing shortens it any more. A whole map
+ * is thirty enemies, so this ceiling is three kills a second against a lap
+ * that really takes about twenty-eight: room for a fast player, and nowhere
+ * near enough for a script.
  *
  * This is the bound that matters. It holds however fast a client claims to
  * move or hit, which is why movement checks can stay loose enough never to
  * trouble an honest player.
  */
-export const DEFEAT_MIN_RESPAWN_SECONDS = REWARDED_REGULAR_ENEMY_RESPAWN_SECONDS;
+export const DEFEAT_MIN_RESPAWN_SECONDS = REGULAR_ENEMY_RESPAWN_SECONDS;
 /**
- * The ceiling basis for a map whose respawn has been tuned. The rewarded ad
- * halves the wait, and that is the fastest a camp can legitimately come back.
- * Every player carrying a pinned balance snapshot resolves through here, so it
- * has to agree with DEFEAT_MIN_RESPAWN_SECONDS or the ceiling only applies to
- * the handful of accounts without one.
+ * The ceiling basis for a map whose respawn has been tuned, after research.
+ * Until 0.807 the rewarded ad halved the wait and this halved it too; the ad
+ * pays Gems now, so the tuned respawn is itself the fastest a camp can
+ * legitimately come back. Every player carrying a pinned balance snapshot
+ * resolves through here, so it has to agree with DEFEAT_MIN_RESPAWN_SECONDS or
+ * the ceiling only applies to the handful of accounts without one.
  */
 export function defeatMinRespawnSeconds(regularRespawnSeconds: number) {
-  return Math.max(1e-6, regularRespawnSeconds) / 2;
+  return Math.max(1e-6, regularRespawnSeconds);
 }
 export function defeatBudget(population: number, minRespawnSeconds = DEFEAT_MIN_RESPAWN_SECONDS) {
   const perSecond = population / minRespawnSeconds;

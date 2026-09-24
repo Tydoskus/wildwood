@@ -100,7 +100,13 @@ import { describe, expect, it } from "vitest";
 // declaration alone.
 // 6_797: the maintenance sweep's call that prunes idle enemy_defeat_budget
 // rows; the pruning lives in enemy-defeats.ts.
-const MAX_LINES = 6_797;
+// 6_808: the rewarded ad pays Gems. One import, the player_ad_reward
+// registration, the caller-scoped my_ad_gem_reward view and the claim_ad_gems
+// reducer declaration with its note. The table, the thirty-minute and
+// four-a-day rules, the payout, the guest merge and removal live in
+// ad-gem-reward.ts and shared/ad-gem-reward.ts; the raise is the schema
+// surface alone.
+const MAX_LINES = 6_808;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

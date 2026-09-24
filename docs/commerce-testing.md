@@ -9,15 +9,15 @@ and a trusted server fulfillment integration. Native account sign-in is configur
 ## Try rewarded ads
 
 Rebuild with the existing iPhone or Android launcher. The game's **Watch Ad**
-respawn boost uses the native SDK. The wrapper uses Google's public demo app IDs
+Gem reward uses the native SDK. The wrapper uses Google's public demo app IDs
 and rewarded-ad units; no AdMob account is needed for this test inventory.
 
-Completing the reward and closing the ad activates the existing 30-minute
-respawn boost. Dismissal before earning the reward or playback failure grants
+Completing the reward and closing the ad claims 10 Gems (one claim every 30
+minutes, four per UTC day, enforced by the server). Dismissal before earning the reward or playback failure grants
 nothing. The bridge waits for dismissal before resuming gameplay. An offline
 load can retry when the device reconnects or the app returns to the foreground.
 
-The iOS preview, Android, and web all use the full **30-minute** boost.
+The iOS preview, Android, and web all pay the same **10 Gems**.
 The ad's own playback duration is unchanged. A failed native load now leaves a
 usable **Retry Ad** action instead of permanently disabling the video icon.
 

@@ -421,6 +421,12 @@
       "contributorsJson",
       "createdAt"
     ],
+    "my_ad_gem_reward": [
+      "identity",
+      "lastClaimAt",
+      "dayKey",
+      "claimsToday"
+    ],
     "my_audio_settings": [
       "identity",
       "musicVolume",

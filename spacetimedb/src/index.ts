@@ -22,6 +22,7 @@ import { playerOfflinePreference, writeOfflinePreference } from "./offline-prefe
 import { playerAudioSetting, writeAudioSettings } from "./audio-settings";
 import { keepWantedDrops, playerIgnoredDrop, writeIgnoredDrops } from "./ignored-drops";
 import { playerLootSetting, writeLootSettings } from "./loot-settings";
+import { claimAdGemReward, playerAdReward } from "./ad-gem-reward";
 import { createAutoEquip } from "./auto-equip";
 import { allowedLoadout, blankHandWeapon, canonicalSavedHand } from "./loadout";
 import { ERASURE_ROW_BUDGET, eraseIdentityRows, linkedIdentities, requireErasureConfirmation } from "./account-erasure";
@@ -1789,6 +1790,7 @@ const spacetimedb = schema({
   playerGemWallet,
   gemTransaction,
   dailyGemBonus,
+  playerAdReward,
   balanceApologyNotice,
   playerItemGift, playerBowSkill, playerEquipmentCopy, pendingEquipmentOffer, playerIgnoredDrop, playerLootSetting,
   mailboxLetter, mailboxReceipt, playerJoinDate, mailboxEquipment, accountDeletionRequest,
@@ -5664,6 +5666,15 @@ export const myLootSettings = spacetimedb.view(
 export const setLootSettings = spacetimedb.reducer({ autoKeepBest: t.bool(), autoEquipBest: t.bool() }, (ctx, settings) => {
   requireControllingPlayer(ctx);
   writeLootSettings(ctx, settings);
+});
+export const myAdGemReward = spacetimedb.view(
+  { name: "my_ad_gem_reward", public: true }, t.array(playerAdReward.rowType),
+  ctx => { const row = ctx.db.playerAdReward.identity.find(ctx.sender); return row ? [row] : []; },
+);
+/** Ten Gems for a watched ad, thirty minutes apart and four a UTC day. Body: ad-gem-reward.ts. */
+export const claimAdGems = spacetimedb.reducer((ctx) => {
+  requireControllingPlayer(ctx);
+  claimAdGemReward(ctx, applyGemBalanceChange);
 });
 export const myAudioSettings = spacetimedb.view(
   { name: "my_audio_settings", public: true }, t.array(playerAudioSetting.rowType),

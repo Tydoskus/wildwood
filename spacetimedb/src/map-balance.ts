@@ -2,6 +2,7 @@ import { table, t, SenderError } from 'spacetimedb/server';
 import { defaultBalanceSettings, resolveMapBalance, validateBalanceSettings, BALANCE_MAPS } from '../../shared/map-balance';
 import type { BalanceEditorState, BalanceSettings, MapBalanceSnapshot } from '../../shared/map-balance-types';
 import type { GameReducerContext } from './index';
+import { REGULAR_ENEMY_RESPAWN_SECONDS } from '../../shared/rules';
 export const mapBalanceVersion = table({ name: 'map_balance_version' }, {
   revision: t.u32().primaryKey(), settingsJson: t.string(), editor: t.identity(), createdAt: t.timestamp(),
 });
@@ -62,12 +63,22 @@ export function saveMapBalance(ctx: Context, expectedRevision: number, json: str
   else ctx.db.mapBalanceHead.insert({ id: 0, revision });
   forgetBalanceCaches();
 }
+/**
+ * A v2 snapshot resolved before 0.807 carries the respawn scaled from the old
+ * 20-second base. Kept for the rest of the visit, it would hold the client and
+ * the kill ceiling to the old clock until the player next travelled, so it is
+ * re-pinned at the same revision instead.
+ */
+function respawnBaseIsStale(snapshot: MapBalanceSnapshot | null) {
+  return snapshot?.configurationVersion === 2 && snapshot.regularRespawnBaseSeconds !== REGULAR_ENEMY_RESPAWN_SECONDS;
+}
 /** One small snapshot per player. Reconnects retain the same combat and rewards. */
 export function pinMapBalance(ctx: Context, mapId: string, enable = false, requestedVersion?: 1 | 2) {
   const previous = ctx.db.playerMapBalance.identity.find(ctx.sender);
   const oldSnapshot: MapBalanceSnapshot | null = previous ? JSON.parse(previous.snapshotJson) : null;
   const version = requestedVersion ?? oldSnapshot?.configurationVersion ?? 1;
-  if ((previous?.mapId === mapId && (oldSnapshot?.configurationVersion ?? 1) === version) || (!previous && !enable)) return;
+  const sameVisit = previous?.mapId === mapId && (oldSnapshot?.configurationVersion ?? 1) === version;
+  if ((sameVisit && !respawnBaseIsStale(oldSnapshot)) || (!previous && !enable)) return;
   let head = balanceEditorState(ctx);
   let fromStore = Boolean(storedSettings(ctx, head.revision));
   // Changing client capability on reconnect keeps the visit's balance revision.

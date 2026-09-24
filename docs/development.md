@@ -410,9 +410,10 @@ that function, not the version list, is what keeps an old decoder out.
   called with the tier's real id (`scripts/configure-patreon.mjs` accepts an
   optional `diamondTierId`). Developers can still preview it, because the
   developer preview reports the top tier.
-- **Supporters see no ads.** The rewarded-respawn button grants a supporter the
-  boost on tap; the client asks `supporterTier()` (the tier of the last
-  verified status), so an unlinked or lapsed member is shown the ad like anyone.
+- **Supporters see no ads.** The rewarded-ad button lets a supporter claim its
+  10 Gems on tap, under the same 30-minute and four-a-day limits; the client
+  asks `supporterTier()` (the tier of the last verified status), so an unlinked
+  or lapsed member is shown the ad like anyone.
 - A supporter's lease runs to the end of the period they paid for, not to the
   next check. See **Kill claim invariants** for the shape of the mistake that
   came from the other choice: a six-hour lease meant a supporter who had not

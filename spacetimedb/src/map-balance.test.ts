@@ -56,9 +56,24 @@ it('negotiates new fields without switching balance revisions during a visit', (
   const settings = balanceEditorState(ctx).settings; settings.maps.tutorial_forest.enemyRespawn = 2;
   saveMapBalance(ctx, 0, JSON.stringify(settings));
   pinMapBalance(ctx, 'tutorial_forest', true, 2);
-  expect(pinnedMapBalance(ctx, ctx.sender, 'tutorial_forest')).toMatchObject({ revision: 0, configurationVersion: 2, regularRespawnSeconds: 20 });
+  expect(pinnedMapBalance(ctx, ctx.sender, 'tutorial_forest')).toMatchObject({ revision: 0, configurationVersion: 2, regularRespawnSeconds: 10 });
   pinMapBalance(ctx, 'home_exterior'); pinMapBalance(ctx, 'tutorial_forest');
-  expect(pinnedMapBalance(ctx, ctx.sender, 'tutorial_forest')).toMatchObject({ revision: 1, configurationVersion: 2, regularRespawnSeconds: 40 });
+  expect(pinnedMapBalance(ctx, ctx.sender, 'tutorial_forest')).toMatchObject({ revision: 1, configurationVersion: 2, regularRespawnSeconds: 20 });
+});
+it('re-pins a visit whose snapshot was scaled from the old 20-second respawn', () => {
+  const ctx = fixture(); pinMapBalance(ctx, 'tutorial_forest', true, 2);
+  const current = pinnedMapBalance(ctx, ctx.sender, 'tutorial_forest')!;
+  expect(current).toMatchObject({ regularRespawnSeconds: 10, regularRespawnBaseSeconds: 10 });
+  // What a pre-0.807 server pinned: the same revision, scaled from 20 seconds, with no base recorded.
+  const { regularRespawnBaseSeconds: _base, ...rest } = current;
+  ctx.db.playerMapBalance.identity.update({ identity: ctx.sender, mapId: 'tutorial_forest', snapshotJson: JSON.stringify({ ...rest, regularRespawnSeconds: 20 }) });
+  pinMapBalance(ctx, 'tutorial_forest');
+  expect(pinnedMapBalance(ctx, ctx.sender, 'tutorial_forest')).toEqual(current);
+  // A current snapshot is still kept for the rest of the visit.
+  const settings = balanceEditorState(ctx).settings; settings.maps.tutorial_forest.enemyRespawn = 2;
+  saveMapBalance(ctx, 0, JSON.stringify(settings));
+  pinMapBalance(ctx, 'tutorial_forest', true, 2);
+  expect(pinnedMapBalance(ctx, ctx.sender, 'tutorial_forest')).toEqual(current);
 });
 
 it('reuses a revision across players without serving it past the next save', () => {

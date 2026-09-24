@@ -1142,34 +1142,36 @@
     transform: translate(-35%, -50%);
   }
 
-  .respawn-boost-status {
-    width: 100%;
-    min-height: 0;
+  /*
+   * Between ads the button stays in its spot as a countdown pill, dressed like
+   * the progress timers above it: the wait on one line, the day's ads left on
+   * the next. The server holds the limits; this only shows them.
+   */
+  .respawn-ad-button:is([data-state="cooldown"], [data-state="limit"]) {
+    align-self: stretch;
+    width: auto;
+    height: auto;
     margin: 0;
     padding: 4px 2px;
-    border: 1px solid #72ef5866;
-    border-radius: 6px;
-    background: rgba(12,26,14,.62);
-    box-shadow: none;
-    color: #72ef58;
-    font: 900 9px/1.2 var(--font-rounded);
+    border: 2px solid var(--hud-frame);
+    border-radius: var(--hud-radius-small);
+    background: var(--hud-surface);
+    box-shadow: 0 2px 0 rgba(0,0,0,.42);
+  }
+
+  .respawn-ad-button:is([data-state="cooldown"], [data-state="limit"]) .respawn-ad-video-icon { display: none; }
+
+  .respawn-ad-countdown {
+    color: #fff0ad;
+    font: 900 var(--font-readable-min)/1.2 var(--font-rounded);
     letter-spacing: .025em;
     text-align: center;
     text-shadow: 1px 2px 0 #000;
-    pointer-events: auto;
+    white-space: pre-line;
+    font-variant-numeric: tabular-nums;
   }
 
-  /* A paused bank keeps its time and says so by going quiet, not by leaving. */
-  .respawn-boost-status[data-state="off"] {
-    border-color: #ffffff30;
-    color: #cfd6cb;
-  }
-
-  .respawn-boost-status:hover,
-  .respawn-boost-status:focus-visible { filter: brightness(1.15); }
-
-  .respawn-boost-status[hidden] { display: none; }
-  .respawn-boost-status span { font-variant-numeric: tabular-nums; text-shadow: inherit; }
+  .respawn-ad-countdown[hidden] { display: none; }
 
   .respawn-ad-prompt {
     position: fixed;
@@ -3730,7 +3732,7 @@
   .account-button,
   .account-status,
   .hud-progress-timer,
-  .respawn-boost-status,
+  .respawn-ad-countdown,
   #duelStatus,
   .item-drop-stats,
   #topMeta,

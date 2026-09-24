@@ -1,5 +1,6 @@
 import { BALANCE_MAPS } from '../../shared/map-balance';
 import { DEFAULT_BALANCE_FACTORS, type BalanceEditorState, type BalanceSettings, type BalanceFactors, type MapBalanceSnapshot } from '../../shared/map-balance-types';
+import { REGULAR_ENEMY_RESPAWN_SECONDS } from '../../shared/rules';
 export type BalanceEditorDependencies = {
   load: () => Promise<BalanceEditorState>;
   preview: (map: string, settings: BalanceSettings) => Promise<MapBalanceSnapshot>;
@@ -77,7 +78,7 @@ export function createBalanceEditorPanel(root: HTMLElement, api: BalanceEditorDe
       }
       table.append(body); preview.append(table);
       const details = document.createElement('p');
-      details.textContent = `Enemy respawn: ${format(value.regularRespawnSeconds ?? 20)}s · With ad: ${format((value.regularRespawnSeconds ?? 20) / 2)}s` + (value.boss ? ` · Boss respawn: ${format(value.boss.respawnSeconds)}s · Boss regen: ${format((value.boss.regenFraction ?? .001) * 100)}% HP/s` : '');
+      details.textContent = `Enemy respawn: ${format(value.regularRespawnSeconds ?? REGULAR_ENEMY_RESPAWN_SECONDS)}s` + (value.boss ? ` · Boss respawn: ${format(value.boss.respawnSeconds)}s · Boss regen: ${format((value.boss.regenFraction ?? .001) * 100)}% HP/s` : '');
       preview.append(details);
       if (value.loot?.length) { const loot = document.createElement('p'); loot.textContent = value.loot.map(drop => `${drop.itemId.replace(/_/g, ' ')}: ${format(drop.wins / drop.outcomes * 100)}%`).join(' · '); preview.append(loot); }
        el('.balance-preview-state').textContent = 'Server preview';

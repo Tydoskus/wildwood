@@ -44,7 +44,7 @@ it('version 2 carries resolved respawn, regeneration and loot while legacy clien
   const legacy = resolveMapBalance('tutorial_forest', settings, 4, 1);
   const current = resolveMapBalance('tutorial_forest', settings, 4, 2);
   expect(legacy.regularRespawnSeconds).toBeUndefined(); expect(legacy.loot).toBeUndefined();
-  expect(current.regularRespawnSeconds).toBe(40);
+  expect(current.regularRespawnSeconds).toBe(20); expect(current.regularRespawnBaseSeconds).toBe(10);
   expect(current.boss!.respawnSeconds).toBe(legacy.boss!.respawnSeconds * 3);
   expect(current.boss!.regenFraction).toBe(bossRegenFractionFor('tutorial_forest') * .5);
   const base = resolveMapBalance('tutorial_forest', defaultBalanceSettings(), 0);

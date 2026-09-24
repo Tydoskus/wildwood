@@ -65,7 +65,7 @@ import type { PlayerDeathAnimationState } from "./game/runtime/player-death-anim
 import { createDuelRuntime } from "./game/runtime/duel-runtime";
 import { createDuelSessionController } from "./game/runtime/duel-session-controller";
 import { createCanvasRuntime, gameplayBottomInset } from "./game/runtime/canvas-runtime";
-import { APP_SHELL_STORAGE_KEYS, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_TEXT_CULL_MIN_DISTANCE, GAME_VERSION, INFERNAL_PORTAL_CUTSCENE_SEEN_KEY, LAVA_PORTAL_CUTSCENE_SEEN_KEY, MUSIC_VOLUME_KEY, readRespawnBoostBank, writeRespawnBoostBank, SAMURAI_PORTAL_CUTSCENE_SEEN_KEY, SFX_VOLUME_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WATER_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT, WORLD_HEALTH_BAR_RADIUS } from "./game/runtime/game-settings";
+import { APP_SHELL_STORAGE_KEYS, DRAGON_PORTAL_CUTSCENE_SEEN_KEY, ENEMY_TEXT_CULL_MIN_DISTANCE, GAME_VERSION, INFERNAL_PORTAL_CUTSCENE_SEEN_KEY, LAVA_PORTAL_CUTSCENE_SEEN_KEY, MUSIC_VOLUME_KEY, SAMURAI_PORTAL_CUTSCENE_SEEN_KEY, SFX_VOLUME_KEY, SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY, WATER_PORTAL_CUTSCENE_SEEN_KEY, WORLD_HEALTH_BAR_HEIGHT, WORLD_HEALTH_BAR_RADIUS } from "./game/runtime/game-settings";
 import { createWorldProgressionController } from "./game/runtime/world-progression-controller";
 import { BOSS_HP_LOSS_FLASH_DURATION, createBossController, SPIDER_WEB_RANGE } from "./game/runtime/boss-controller";
 import { createMapController } from "./game/runtime/map-controller";
@@ -77,7 +77,7 @@ import { createAutoFarmPanel } from "./ui/auto-farm-panel";
 import { createHomeTravelController } from "./ui/home-travel-controller";
 import { createPlayerController, type PlayerController } from "./game/runtime/player-controller";
 import { applyPlayerMaxHealthMultiplierBonus } from "./game/runtime/player-health";
-import { createRegularEnemyRespawnBoost } from "./game/runtime/regular-enemy-respawn";
+import { createRegularEnemyRespawn, REGULAR_ENEMY_RESPAWN_SECONDS } from "./game/runtime/regular-enemy-respawn";
 import { createRespawnMemory } from "./game/runtime/respawn-memory";
 import { createBossFightMemory } from "./game/runtime/boss-fight-memory";
 import { createResearchController } from "./game/runtime/research-controller";
@@ -336,33 +336,12 @@ import {
     applyGameplayPauseState();
   }
 
-  const regularEnemyRespawnBoost = createRegularEnemyRespawnBoost(
-    spawnSites,
+  const regularEnemyRespawn = createRegularEnemyRespawn(
     () => session.gameTime(),
-    readRespawnBoostBank(),
     localTestMultiplier,
-    () => runtimeMapBalance(currentMapId)?.regularRespawnSeconds ?? 20,
-    writeRespawnBoostBank,
+    () => runtimeMapBalance(currentMapId)?.regularRespawnSeconds ?? REGULAR_ENEMY_RESPAWN_SECONDS,
     () => coop?.research?.()?.enemyRespawn ?? 0,
   );
-
-  window.addEventListener("pagehide", regularEnemyRespawnBoost.flush);
-  document.addEventListener("visibilitychange", () => { if (document.hidden) regularEnemyRespawnBoost.flush(); });
-
-  /** Switching the bank rewrites pending timers, so the saved ones follow it. */
-  function rememberPendingRespawns() {
-    for (const site of spawnSites) {
-      if (!site.alive && site.respawnAt > session.gameTime()) {
-        respawnMemory.remember(enemyRespawnKey(site), (site.respawnAt - session.gameTime()) * 1000);
-      }
-    }
-  }
-
-  function toggleRewardedRespawnBoost() {
-    const enabled = regularEnemyRespawnBoost.toggle();
-    rememberPendingRespawns();
-    return enabled;
-  }
 
   const duelSession = createDuelSessionController({
     activeDuel: () => duelRuntime.activeDuel(),
@@ -724,7 +703,7 @@ import {
     hitGeneratedBoss: (enemy, damage, critical) => { if (!enemy.generatedBoss) return false; personalBosses.hit(currentMapId, damage); spawnDamageNumber(enemy.x, enemy.y, damage, critical); return true; },
     hitPersonalBoss: (damage, x, y, critical) => { personalBosses.hit(currentMapId, damage); spawnDamageNumber(x, y, damage, critical); },
     scheduleEnemyRespawn: site => {
-      regularEnemyRespawnBoost.schedule(site);
+      regularEnemyRespawn.schedule(site);
       respawnMemory.remember(enemyRespawnKey(site), (site.respawnAt - session.gameTime()) * 1000);
     },
     recordRegularEnemyDefeat: (mapId, enemy) => coop?.recordRegularEnemyDefeat?.(mapId, enemy, Boolean(autoFarm.targetType())),
@@ -1664,10 +1643,9 @@ import {
   const rewardedRespawnAd = createHudTimerColumn(gameElements, {
     getNativeBridge: () => nativeBridgeForRuntime(window),
     isSupporter: () => (coop?.supporterTier?.() ?? "none") !== "none",
-    grantBoost: regularEnemyRespawnBoost.grant,
-    toggleBoost: toggleRewardedRespawnBoost,
-    isBoostEnabled: regularEnemyRespawnBoost.isEnabled,
-    boostRemainingMs: regularEnemyRespawnBoost.remainingMs,
+    adGemReward: () => coop?.adGemReward?.() ?? null,
+    claimAdGems: () => coop?.claimAdGems?.() ?? Promise.resolve({ ok: false, error: "NOT CONNECTED" }),
+    showGemReward: amount => runtimeHud.showGemDrop(amount, "Ad reward"),
     setPromptActive: (active) => setGameplayPause("rewarded-ad-prompt", active),
     setAdPlaybackActive: (active) => {
       setGameplayPause("rewarded-ad", active);
@@ -1747,8 +1725,6 @@ import {
     clearDuelCombat: () => { autoFarm.stop("Autofarm stopped for duel"); projectileStore.clear(); playerCombat.clearPendingBossHits(); },
     updateEffects: effects.update, updateHud: () => updateHud(),
     updateVisuals: (dt) => {
-      // The bank buys faster camps, so it is only spent where camps exist.
-      if (!inTutorial() && currentMapId !== "home_exterior") regularEnemyRespawnBoost.drain(dt * 1_000);
       onboarding?.update(dt); flash = Math.max(0, flash - dt); screenShake *= Math.pow(.01, dt);
     },
     updateMessage: runtimeHud.updateMessage,

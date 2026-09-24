@@ -48,6 +48,7 @@ import CancelItemUpgradeReducer from "./cancel_item_upgrade_reducer";
 import ChallengeGuildReducer from "./challenge_guild_reducer";
 import ChangeDisplayNameReducer from "./change_display_name_reducer";
 import ChangeMapReducer from "./change_map_reducer";
+import ClaimAdGemsReducer from "./claim_ad_gems_reducer";
 import ClaimDailyGemBonusReducer from "./claim_daily_gem_bonus_reducer";
 import ClaimDeveloperItemGiftReducer from "./claim_developer_item_gift_reducer";
 import ClaimGuestAccountReducer from "./claim_guest_account_reducer";
@@ -254,6 +255,7 @@ import MagmaliskBossRow from "./magmalisk_boss_table";
 import MagmaliskResultRow from "./magmalisk_result_table";
 import MiremawBossRow from "./miremaw_boss_table";
 import MiremawResultRow from "./miremaw_result_table";
+import MyAdGemRewardRow from "./my_ad_gem_reward_table";
 import MyAudioSettingsRow from "./my_audio_settings_table";
 import MyBalanceApologyNoticeRow from "./my_balance_apology_notice_table";
 import MyBowSkillsRow from "./my_bow_skills_table";
@@ -1123,6 +1125,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, LatestChatMessagesWithReactionsRow),
+  myAdGemReward: __table({
+    name: 'my_ad_gem_reward',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyAdGemRewardRow),
   myAudioSettings: __table({
     name: 'my_audio_settings',
     indexes: [
@@ -1337,6 +1346,7 @@ const reducersSchema = __reducers(
   __reducerSchema("challenge_guild", ChallengeGuildReducer),
   __reducerSchema("change_display_name", ChangeDisplayNameReducer),
   __reducerSchema("change_map", ChangeMapReducer),
+  __reducerSchema("claim_ad_gems", ClaimAdGemsReducer),
   __reducerSchema("claim_daily_gem_bonus", ClaimDailyGemBonusReducer),
   __reducerSchema("claim_developer_item_gift", ClaimDeveloperItemGiftReducer),
   __reducerSchema("claim_guest_account", ClaimGuestAccountReducer),

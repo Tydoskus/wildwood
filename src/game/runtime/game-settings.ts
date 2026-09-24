@@ -24,33 +24,6 @@ export const APP_SHELL_STORAGE_KEYS = {
   sfxVolume: SFX_VOLUME_KEY,
   audioUnsynced: AUDIO_UNSYNCED_KEY,
 } as const;
-/**
- * The reward became a bank the player spends, so the stored shape changed from
- * an expiry instant to remaining milliseconds plus the switch position. A new
- * key lets an old countdown lapse instead of reading as a full bank.
- */
-export const REWARDED_RESPAWN_BOOST_BANK_KEY = "wildwood-rewarded-respawn-boost-bank-v1";
-
-export type StoredRespawnBoostBank = { remainingMs: number; enabled: boolean };
-
-/** A missing, unreadable or malformed bank reads as no bank, never as a full one. */
-export function readRespawnBoostBank(): Partial<StoredRespawnBoostBank> {
-  try {
-    const stored = localStorage.getItem(REWARDED_RESPAWN_BOOST_BANK_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored) as Partial<StoredRespawnBoostBank>;
-      return { remainingMs: Number(parsed?.remainingMs), enabled: Boolean(parsed?.enabled) };
-    }
-  } catch {}
-  return {};
-}
-
-export function writeRespawnBoostBank(bank: StoredRespawnBoostBank) {
-  try {
-    if (bank.remainingMs > 0) localStorage.setItem(REWARDED_RESPAWN_BOOST_BANK_KEY, JSON.stringify(bank));
-    else localStorage.removeItem(REWARDED_RESPAWN_BOOST_BANK_KEY);
-  } catch {}
-}
 export const DRAGON_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-dragon-portal-cutscene-v2";
 export const SNOWLANDS_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-snowlands-portal-cutscene-v1";
 export const LAVA_PORTAL_CUTSCENE_SEEN_KEY = "wildwood-lava-portal-cutscene-v1";

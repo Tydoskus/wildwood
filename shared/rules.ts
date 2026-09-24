@@ -57,12 +57,12 @@ export const DEFAULT_ATTACK_INTERVAL = 1.56;
 // minute, and the per-player cost of the report is small next to a view.
 export const REGULAR_KILL_REPORT_SECONDS = 30;
 /**
- * How long a cleared camp takes to come back, and how long with the rewarded
- * ad boost. Both the client's respawn clock and the server's kill ceiling are
- * derived from these, so they have to agree.
+ * How long a cleared camp takes to come back. Both the client's respawn clock
+ * and the server's kill ceiling are derived from this, so they have to agree.
+ * It was 20 seconds, or 10 for thirty minutes after a rewarded ad; since 0.807
+ * 10 seconds is simply the respawn, and the ad pays Gems instead.
  */
-export const REGULAR_ENEMY_RESPAWN_SECONDS = 20;
-export const REWARDED_REGULAR_ENEMY_RESPAWN_SECONDS = REGULAR_ENEMY_RESPAWN_SECONDS / 2;
+export const REGULAR_ENEMY_RESPAWN_SECONDS = 10;
 export const MAX_BASE_ATTACKS_PER_SECOND = 2.625;
 export const MIN_ATTACK_INTERVAL = 1 / MAX_BASE_ATTACKS_PER_SECOND;
 export const BOSS_RESPAWN_SECONDS = 45;

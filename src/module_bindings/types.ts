@@ -1278,6 +1278,9 @@ export const MotionDetailFrameSchedule = __t.object("MotionDetailFrameSchedule",
 });
 export type MotionDetailFrameSchedule = __Infer<typeof MotionDetailFrameSchedule>;
 
+export const MyAdGemReward = __t.object("MyAdGemReward", {});
+export type MyAdGemReward = __Infer<typeof MyAdGemReward>;
+
 export const MyAudioSettings = __t.object("MyAudioSettings", {});
 export type MyAudioSettings = __Infer<typeof MyAudioSettings>;
 
@@ -1522,6 +1525,14 @@ export const PlayerAccountStatus = __t.object("PlayerAccountStatus", {
   isGuest: __t.bool(),
 });
 export type PlayerAccountStatus = __Infer<typeof PlayerAccountStatus>;
+
+export const PlayerAdReward = __t.object("PlayerAdReward", {
+  identity: __t.identity(),
+  lastClaimAt: __t.timestamp(),
+  dayKey: __t.string(),
+  claimsToday: __t.u32(),
+});
+export type PlayerAdReward = __Infer<typeof PlayerAdReward>;
 
 export const PlayerAudioSetting = __t.object("PlayerAudioSetting", {
   identity: __t.identity(),

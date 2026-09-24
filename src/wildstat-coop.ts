@@ -1,7 +1,7 @@
 import { watchDefeatSession } from "./coop/services/defeat-session-watch";
-import { watchOfflineProgress, createOfflineProgressPreference, type OfflineProgressSummary } from "./coop/services/offline-progress-watch";
+import { watchOfflineProgress, type OfflineProgressSummary } from "./coop/services/offline-progress-watch";
 import { createAccountAudioSettings } from "./coop/services/account-audio-settings";
-import { createBowSkills } from "./coop/services/bow-skills";
+import { createAccountRowServices } from "./coop/services/account-row-services";
 import { consumeUpdateResumeMode } from "./coop/services/update-resume-browser";
 import { configureConnectionDiagnostics, recordConnectionDiagnostic, flushConnectionDiagnostics } from "./coop/services/connection-diagnostic-runtime";
 import { bindProgressFlushOnHide } from "./coop/services/flush-on-hide";
@@ -113,9 +113,8 @@ let worldEntryPromise: Promise<boolean> | null = null;
 let worldEntryGeneration = 0;
 let worldEntryBlocked = false;
 let protocolReadyGeneration = 0;
-const offlinePreference = createOfflineProgressPreference(() => connection, onChange);
+const accountRows = createAccountRowServices(() => connection, onChange);
 const accountAudio = createAccountAudioSettings();
-const bowSkills = createBowSkills(onChange);
 let accountService!: AccountService;
 const startupTelemetryRuntime = createStartupTelemetryRuntime({
   clientVersion: GAME_VERSION,
@@ -732,9 +731,8 @@ function connect() {
         pendingOfflineProgress = summary;
         onChange();
       });
-      offlinePreference.watch(conn, () => generation === connectionGeneration && connection === conn);
+      accountRows.watch(conn, () => generation === connectionGeneration && connection === conn);
       accountAudio.watch(conn, () => generation === connectionGeneration && connection === conn, () => protocolReadyGeneration === generation && !protocolBlocked);
-      bowSkills.watch(conn, () => generation === connectionGeneration && connection === conn);
       const protocolStartedAt = performance.now();
       void conn.reducers.registerProtocol({ protocolVersion: PROTOCOL_VERSION }).then(async () => {
         if (generation !== connectionGeneration || connection !== conn) return;
@@ -912,9 +910,8 @@ export const wildstatCoop = {
     return localIdentity;
   },
   pendingOfflineProgress: () => pendingOfflineProgress,
-  ...offlinePreference.api,
+  ...accountRows.api,
   accountAudio: accountAudio.api,
-  ...bowSkills.api,
   async acknowledgeOfflineProgress() {
     pendingOfflineProgress = null;
     if (!connection?.isActive) return;

@@ -56,7 +56,10 @@ import { describe, expect, it } from "vitest";
 // player. Three more let Equip best rank bows by their skills: the local
 // power function takes the coop session's rolls when comparing, and says so.
 // The comparison itself lives in shared/equip-best.ts.
-const MAX_LINES = 2_193;
+// 2_169: the rewarded respawn boost went (0.807). Its bank, its drain, its
+// save-on-hide and the pending-timer rewrite for the switch left with it; the
+// ad's Gem claim is three dependency lines handed to the HUD timer column.
+const MAX_LINES = 2_169;
 const TARGET_LINES = 1_000;
 
 describe("game composition boundary", () => {

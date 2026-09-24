@@ -198,12 +198,13 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
 
   // A gem earned from kills pops the way an item does, then a copy of it flies
   // to the wallet in the top bar so the counter change reads as the payoff.
-  function showGemDrop(amount: number) {
+  // The ad's Gems arrive the same way and only say where they came from.
+  function showGemDrop(amount: number, source = "Earned from enemy kills") {
     showItemDrop({
       artSource: GEM_DROP_ART,
       color: "#7fd7ff",
       name: amount === 1 ? "+1 Gem" : `+${amount} Gems`,
-      stats: ["Earned from enemy kills"],
+      stats: [source],
       onFinish: () => flyGemToWallet(),
     });
   }
