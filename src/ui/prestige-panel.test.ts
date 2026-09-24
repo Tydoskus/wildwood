@@ -286,3 +286,10 @@ describe("each prestige asks for one Endless stage more", () => {
     expect(hidden).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("prestige reward label", () => {
+  it("states what the next prestige adds, not the running total", () => {
+    expect(prestigeRewardLabel(0)).toBe("+10% stat gain and 1 perk point");
+    expect(prestigeRewardLabel(2)).toBe("+10% stat gain (+30% total) and 1 perk point");
+  });
+});

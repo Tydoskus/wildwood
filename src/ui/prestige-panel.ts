@@ -1,5 +1,5 @@
 import { formatCompactNumber } from './number-format';
-import { PRESTIGE_STAT_GAIN_PER_LEVEL, prestigeEndlessRequirement, prestigeRequirementHint, prestigeStatMultiplier } from '../../shared/prestige';
+import { PRESTIGE_PERK_POINTS_PER_LEVEL, PRESTIGE_STAT_GAIN_PER_LEVEL, prestigeEndlessRequirement, prestigeRequirementHint, prestigeStatMultiplier } from '../../shared/prestige';
 import { PRESTIGE_PERKS, PRESTIGE_PERK_IDS, PRESTIGE_PERK_MAX_RANK, prestigePerkEffectLabel, prestigePerkRank,
   type PrestigePerkId, type PrestigePerkRanks } from '../../shared/prestige-perks';
 
@@ -31,9 +31,15 @@ export async function submitPrestige(runPrestige: () => Promise<PrestigeResult>,
   }
 }
 
-/** What one more prestige is worth, as the panel words it. */
+/**
+ * What one more prestige adds, from the current level. Every prestige adds the
+ * same stat gain and perk points; after the first, the new total follows.
+ */
 export function prestigeRewardLabel(level: number) {
-  return `+${Math.round(prestigeStatMultiplier(level + 1) * 100 - 100)}% stat gain, ${level + 1} perk point${level ? 's' : ''}`;
+  const gain = Math.round(PRESTIGE_STAT_GAIN_PER_LEVEL * 100);
+  const total = Math.round(prestigeStatMultiplier(level + 1) * 100 - 100);
+  const points = PRESTIGE_PERK_POINTS_PER_LEVEL;
+  return `+${gain}% stat gain${level > 0 ? ` (+${total}% total)` : ''} and ${points} perk point${points === 1 ? '' : 's'}`;
 }
 
 export function createPrestigeController(options: {
