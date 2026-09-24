@@ -1,4 +1,12 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.804": [
+    "Duplicate drops keep the better skill roll automatically (switch in the Loot Filter).",
+    "Better gear equips itself as it drops or unlocks (switch in the Loot Filter).",
+    "Bows show their skill total, like \"Skills: +7.5% dmg\".",
+    "Prestige keeps your items; higher tiers unlock again as you reach their maps.",
+    "Leaderboards are ranked per prestige level; switch levels with the chips at the top.",
+    "Piercing Shot reaches twice as far and flies off screen.",
+  ],
   "0.803": [
     "New Loot filter in the map window: pick which items you pick up.",
     "Turn off a whole slot (like Armor) to stop it dropping on every map, or turn off single items.",
@@ -2363,6 +2371,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.804": "2026-09-23",
   "0.803": "2026-09-23",
   "0.802": "2026-09-23",
   "0.801": "2026-09-23",
