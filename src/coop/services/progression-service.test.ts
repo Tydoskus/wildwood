@@ -487,3 +487,13 @@ describe("local progress store writes on the kill path", () => {
     h.service.dispose();
   });
 });
+
+it("treats every portal cutscene as seen once the player has prestiged", () => {
+  const h = setup();
+  const cutscene = "wildwood-dragon-portal-cutscene-v2";
+  h.service.tables.upsertCutsceneHistory({ identity: { toHexString: () => identity }, seenMask: 0, generation: 0 } as never);
+  expect(h.service.api.hasSeenPortalCutscene(cutscene)).toBe(false);
+  h.service.tables.upsertPrestige({ identity: { toHexString: () => identity }, level: 1, perkPoints: 1, peakPower: 5, prestigedAt: { microsSinceUnixEpoch: 1_000n } } as never);
+  expect(h.service.api.hasSeenPortalCutscene(cutscene)).toBe(true);
+  h.service.dispose();
+});

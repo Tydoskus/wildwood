@@ -708,7 +708,9 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     },
     api: {
       ...createProceduralMapService(dependencies.reducers),
-      hasSeenPortalCutscene: cutscenes.hasSeen,
+      // Portal cutscenes introduce each map once. A prestiged player has
+      // unlocked every one before, so a rerun of the campaign skips them.
+      hasSeenPortalCutscene: (cutscene: string) => (localPrestige?.level ?? 0) > 0 || cutscenes.hasSeen(cutscene),
       markPortalCutsceneSeen: cutscenes.mark,
       setOnItemDrop(callback: ((drop: { itemId: string; alreadyOwned: boolean }) => void) | null) {
         itemDropListener = callback;

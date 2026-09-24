@@ -610,7 +610,7 @@ import {
     defeated: mapId => {
       // Early bosses retain their saved cinematic/result flow. Later campaign and Endless
       // reveals wait for the server unlock, independent of subscription snapshot timing.
-      if (CAMPAIGN_MAP_IDS.indexOf(mapId) >= 6 || mapId.startsWith("endless_")) mapController.queuePortalReveal(mapId as MapId);
+      if ((CAMPAIGN_MAP_IDS.indexOf(mapId) >= 6 || mapId.startsWith("endless_")) && !coop?.prestige?.()?.level) mapController.queuePortalReveal(mapId as MapId);
       coop?.recordRegularEnemyDefeat?.(mapId, "boss");
     },
   });
