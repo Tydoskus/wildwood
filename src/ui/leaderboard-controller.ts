@@ -1,10 +1,11 @@
 import { playerNameTagsRevision } from "../app/player-name-tags";
 import { renderLeaderboard, renderLeaderboardPodium, setLeaderboardTab, type LeaderboardStat, type RenderedLeaderboardPodiumPlayer } from "./leaderboard";
 import type { LeaderboardEntry } from "../wildstat-coop";
-import type { LeaderboardPage } from "../../shared/leaderboard-window";
+import type { PrestigeLeaderboardPage } from "../../shared/leaderboard-window";
+import { createLeaderboardPrestigeSelection, leaderboardPrestigeLevels, renderLeaderboardPrestige } from "./leaderboard-prestige";
 
 type Direction = "above" | "below";
-type Window = Omit<LeaderboardPage<LeaderboardEntry>, "entries"> & {
+type Window = Omit<PrestigeLeaderboardPage<LeaderboardEntry>, "entries"> & {
   loadedAt: number;
   entries: LeaderboardEntry[];
   podium: LeaderboardEntry[];
@@ -18,10 +19,13 @@ export type LeaderboardControllerElements = {
   button: HTMLElement; overlay: HTMLElement; closeButton: HTMLElement;
   tabs: Record<LeaderboardStat, HTMLElement>; valueHeading: HTMLElement;
   podium: HTMLElement; rows: HTMLElement; loading: HTMLElement; empty: HTMLElement;
+  prestigeChips: HTMLElement; prestigeHeading: HTMLElement;
 };
 export type LeaderboardControllerHooks = {
-  loadPage: (stat: LeaderboardStat, startRank?: number, count?: number) => Promise<LeaderboardPage<LeaderboardEntry>>;
+  loadPage: (stat: LeaderboardStat, prestige: number, startRank?: number, count?: number) => Promise<PrestigeLeaderboardPage<LeaderboardEntry>>;
   localIdentity: () => string;
+  /** The viewer's prestige level now; the board opens on it. */
+  localPrestige: () => number | undefined;
   isDeveloper: (identity: string) => boolean;
   paintProfileIcon: (canvas: HTMLCanvasElement, identity: string) => void;
   podiumAssetsReady?: () => boolean;
@@ -34,7 +38,10 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
   const scroller = elements.rows.closest<HTMLElement>(".leaderboard-scroll") ?? elements.rows;
   let stat: LeaderboardStat = "power", requestGeneration = 0, snapshotIdentity = "", error = "";
   let loading = false, snapshot: Window | undefined, lastScrollTop = 0;
-  const snapshots = new Map<LeaderboardStat, Window>();
+  // Keyed "stat:level": each prestige level is its own board.
+  const snapshots = new Map<string, Window>();
+  const prestige = createLeaderboardPrestigeSelection(hooks.localPrestige);
+  let level = prestige.level(), podiumLevel = level, levelsWithPlayers: number[] = [];
   let podiumPlayers: RenderedLeaderboardPodiumPlayer[] = [], nameTagRevision = -1;
   let podiumDirty = true;
   const actions = {
@@ -91,16 +98,29 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
     elements.rows.setAttribute("aria-busy", String(Boolean(snapshot?.busy)));
     if (center) centerPlayer(); else restore(saved);
   }
+  function renderPrestige() {
+    renderLeaderboardPrestige({ chips: elements.prestigeChips, heading: elements.prestigeHeading }, {
+      levels: leaderboardPrestigeLevels(levelsWithPlayers, prestige.own(), level), selected: level, own: prestige.own(),
+      localRank: snapshot?.localRank ?? 0, loading,
+    }, pickLevel);
+    elements.podium.setAttribute("aria-label", level > 0 ? `Top three Prestige ${level} players` : "Top three players without prestige");
+  }
   function render(center = false) {
     nameTagRevision = playerNameTagsRevision();
     elements.podium.setAttribute("aria-busy", String(loading));
+    renderPrestige();
     if (loading) {
       elements.rows.hidden = true; elements.empty.hidden = true; elements.loading.hidden = false;
-      return; // Preserve the podium scene while a different stat loads.
+      // A different stat keeps the podium scene while it loads. A different
+      // prestige level empties it, so one level's winners never stand on
+      // another level's podium.
+      if (podiumLevel !== level) { podiumPlayers = renderLeaderboardPodium(elements.podium, stat, [], actions); podiumLevel = level; }
+      return;
     }
     elements.loading.hidden = true;
     elements.empty.textContent = error || "NO PLAYERS YET";
     podiumPlayers = renderLeaderboardPodium(elements.podium, stat, snapshot?.podium ?? [], actions);
+    podiumLevel = level;
     podiumDirty = true;
     drawPodium();
     renderRows(center);
@@ -109,6 +129,8 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
     if (elements.overlay.hidden) return;
     if (snapshotIdentity !== hooks.localIdentity()) { close(); return; }
     if (nameTagRevision !== playerNameTagsRevision()) { render(); return; }
+    // A prestige while the board is open moves it along, unless a level was picked.
+    if (prestige.level() !== level) { void select(stat); return; }
     if (!podiumDirty || hooks.podiumAssetsReady?.() === false) return;
     podiumDirty = false;
     for (const player of podiumPlayers) hooks.drawPodiumCharacter(player.canvas, player.entry, player.rank);
@@ -116,8 +138,10 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
   async function select(requested: string) {
     stat = setLeaderboardTab({ tabs: elements.tabs, rows: elements.rows, empty: elements.empty, valueHeading: elements.valueHeading }, requested);
     elements.overlay.dataset.stat = stat;
-    const requestedStat = stat, generation = ++requestGeneration;
-    error = ""; snapshot = snapshots.get(stat);
+    level = prestige.level();
+    elements.overlay.dataset.prestige = String(level);
+    const requestedStat = stat, requestedLevel = level, generation = ++requestGeneration;
+    error = ""; snapshot = snapshots.get(`${stat}:${level}`);
     if (snapshot && Date.now() - snapshot.loadedAt >= CACHE_MS) snapshot = undefined;
     // A tab always reopens at the viewer, even after its old neighborhood was evicted.
     if (snapshot?.localRank && !snapshot.entries.some(row => row.identity === hooks.localIdentity())) snapshot = undefined;
@@ -125,11 +149,12 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
     render(true);
     if (!loading) return;
     try {
-      const page = await hooks.loadPage(requestedStat);
+      const page = await hooks.loadPage(requestedStat, requestedLevel);
       if (generation !== requestGeneration || elements.overlay.hidden || snapshotIdentity !== hooks.localIdentity()) return;
       snapshot = { ...page, loadedAt: Date.now(), entries: page.entries.filter(row => row.rank! >= page.startRank && row.rank! <= page.endRank),
         podium: page.entries.filter(row => row.rank! <= 3) };
-      snapshots.set(requestedStat, snapshot);
+      levelsWithPlayers = page.levels ?? levelsWithPlayers;
+      snapshots.set(`${requestedStat}:${requestedLevel}`, snapshot);
     } catch (failure) {
       if (generation !== requestGeneration || elements.overlay.hidden) return;
       snapshot = undefined; error = failure instanceof Error ? failure.message : "COULD NOT LOAD · SELECT A TAB TO RETRY";
@@ -141,12 +166,12 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
     const state = snapshot;
     if (!state || loading || state.busy || elements.overlay.hidden || snapshotIdentity !== hooks.localIdentity()) return;
     if (direction === "above" ? state.startRank <= 1 : state.endRank >= state.total) return;
-    const generation = requestGeneration, requestedStat = stat;
+    const generation = requestGeneration, requestedStat = stat, requestedLevel = level;
     const start = direction === "above" ? Math.max(1, state.startRank - 100) : state.endRank + 1;
     const count = direction === "above" ? state.startRank - start : 100;
     state.busy = direction; state.error = undefined; renderRows();
     try {
-      const page = await hooks.loadPage(requestedStat, start, count);
+      const page = await hooks.loadPage(requestedStat, requestedLevel, start, count);
       if (generation !== requestGeneration || elements.overlay.hidden || snapshotIdentity !== hooks.localIdentity()) return;
       const saved = anchor();
       // A periodic ranking refresh can move identities; never show someone twice.
@@ -174,10 +199,15 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
     if (delta < 0 && top < EDGE_DISTANCE) void loadMore("above");
     else if (delta > 0 && scroller.scrollHeight - scroller.clientHeight - top < EDGE_DISTANCE) void loadMore("below");
   }
+  /** A chip press. The pick holds for the session; see createLeaderboardPrestigeSelection. */
+  function pickLevel(next: number) {
+    prestige.pick(next);
+    if (!elements.overlay.hidden) void select(stat);
+  }
   async function open() {
     hooks.beforeOpen(); elements.overlay.hidden = false; elements.button.setAttribute("aria-expanded", "true");
     if (snapshotIdentity !== hooks.localIdentity()) {
-      snapshots.clear(); snapshot = undefined;
+      snapshots.clear(); snapshot = undefined; prestige.reset(); levelsWithPlayers = [];
       podiumPlayers = renderLeaderboardPodium(elements.podium, stat, [], actions);
     }
     snapshotIdentity = hooks.localIdentity();
@@ -213,5 +243,6 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
   });
   elements.closeButton.addEventListener("click", close);
   for (const [name, tab] of Object.entries(elements.tabs)) tab.addEventListener("click", () => { void select(name); });
-  return { close, drawPodium, open, render, select, loadMore, setUnlocked, isOpen: () => !elements.overlay.hidden };
+  return { close, drawPodium, open, render, select, selectPrestige: pickLevel, loadMore, setUnlocked,
+    prestigeLevel: () => level, isOpen: () => !elements.overlay.hidden };
 }

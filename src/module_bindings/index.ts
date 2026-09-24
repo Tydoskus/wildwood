@@ -209,6 +209,7 @@ import * as GetMapConfigurationProcedure from "./get_map_configuration_procedure
 import * as GetModerationHistoryProcedure from "./get_moderation_history_procedure";
 import * as GetNameChangeStatusProcedure from "./get_name_change_status_procedure";
 import * as GetPatreonStatusProcedure from "./get_patreon_status_procedure";
+import * as GetPrestigeLeaderboardPageProcedure from "./get_prestige_leaderboard_page_procedure";
 import * as GetSocialChatHistoryProcedure from "./get_social_chat_history_procedure";
 import * as GetSocialChatHistoryWithReactionsProcedure from "./get_social_chat_history_with_reactions_procedure";
 import * as GetSocialHubProcedure from "./get_social_hub_procedure";
@@ -1499,6 +1500,7 @@ const proceduresSchema = __procedures(
   __procedureSchema("get_moderation_history", GetModerationHistoryProcedure.params, GetModerationHistoryProcedure.returnType),
   __procedureSchema("get_name_change_status", GetNameChangeStatusProcedure.params, GetNameChangeStatusProcedure.returnType),
   __procedureSchema("get_patreon_status", GetPatreonStatusProcedure.params, GetPatreonStatusProcedure.returnType),
+  __procedureSchema("get_prestige_leaderboard_page", GetPrestigeLeaderboardPageProcedure.params, GetPrestigeLeaderboardPageProcedure.returnType),
   __procedureSchema("get_social_chat_history", GetSocialChatHistoryProcedure.params, GetSocialChatHistoryProcedure.returnType),
   __procedureSchema("get_social_chat_history_with_reactions", GetSocialChatHistoryWithReactionsProcedure.params, GetSocialChatHistoryWithReactionsProcedure.returnType),
   __procedureSchema("get_social_hub", GetSocialHubProcedure.params, GetSocialHubProcedure.returnType),

@@ -8,7 +8,7 @@ function fixture() {
   const presenceEvents = { insert: new Set<Function>(), update: new Set<Function>(), remove: new Set<Function>() };
   const connection = {
     isActive: true,
-    procedures: { getLeaderboardPage: vi.fn() },
+    procedures: { getPrestigeLeaderboardPage: vi.fn() },
     db: Object.fromEntries(["playerChatHearts", "playerProgress", "playerLifetime", "playerResearch", "playerItemUpgrade", "playerProfile", "playerAccountStatus", "player"].map(name => [name, { iter: () => [] }])),
     subscriptionBuilder() {
       let applied = () => {}, ready = false;
@@ -69,15 +69,27 @@ it("a stalled profile request times out safely and still disposes a late subscri
 it("deduplicates leaderboard pages and rejects a late page after the session is cleared", async () => {
   const f = fixture();
   let finish!: (page: unknown) => void;
-  f.connection.procedures.getLeaderboardPage.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
-  const first = f.service.api.loadLeaderboardPage("power", 250, 100);
-  const duplicate = f.service.api.loadLeaderboardPage("power", 250, 100);
+  f.connection.procedures.getPrestigeLeaderboardPage.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  const first = f.service.api.loadLeaderboardPage("power", 2, 250, 100);
+  const duplicate = f.service.api.loadLeaderboardPage("power", 2, 250, 100);
   expect(first).toBe(duplicate);
-  expect(f.connection.procedures.getLeaderboardPage).toHaveBeenCalledOnce();
+  expect(f.connection.procedures.getPrestigeLeaderboardPage).toHaveBeenCalledOnce();
+  expect(f.connection.procedures.getPrestigeLeaderboardPage).toHaveBeenCalledWith({ stat: "power", prestige: 2, startRank: 250, count: 100 });
   f.service.clearSession();
   const rejected = expect(first).rejects.toThrow("Session changed");
-  finish({ entries: [], startRank: 250, endRank: 349, localRank: 300, total: 1000 });
+  finish({ entries: [], startRank: 250, endRank: 349, localRank: 300, total: 1000, prestige: 2, levels: [0, 2] });
   await rejected;
+});
+
+it("keeps each prestige level's page apart", async () => {
+  const f = fixture();
+  f.connection.procedures.getPrestigeLeaderboardPage.mockImplementation(({ prestige }: { prestige: number }) =>
+    Promise.resolve({ entries: [], startRank: 1, endRank: 0, localRank: 0, total: 0, prestige, levels: [0, 1, 2] }));
+  const none = f.service.api.loadLeaderboardPage("power", 0);
+  const second = f.service.api.loadLeaderboardPage("power", 2);
+  expect(none).not.toBe(second);
+  expect((await none).prestige).toBe(0);
+  expect(await second).toMatchObject({ prestige: 2, levels: [0, 1, 2] });
 });
 
 it("tracks an autofarming hidden player's presence and departure without polling", async () => {

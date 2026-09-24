@@ -25,6 +25,7 @@ import * as GetMapConfigurationProcedure from "../get_map_configuration_procedur
 import * as GetModerationHistoryProcedure from "../get_moderation_history_procedure";
 import * as GetNameChangeStatusProcedure from "../get_name_change_status_procedure";
 import * as GetPatreonStatusProcedure from "../get_patreon_status_procedure";
+import * as GetPrestigeLeaderboardPageProcedure from "../get_prestige_leaderboard_page_procedure";
 import * as GetSocialChatHistoryProcedure from "../get_social_chat_history_procedure";
 import * as GetSocialChatHistoryWithReactionsProcedure from "../get_social_chat_history_with_reactions_procedure";
 import * as GetSocialHubProcedure from "../get_social_hub_procedure";
@@ -69,6 +70,8 @@ export type GetNameChangeStatusArgs = __Infer<typeof GetNameChangeStatusProcedur
 export type GetNameChangeStatusResult = __Infer<typeof GetNameChangeStatusProcedure.returnType>;
 export type GetPatreonStatusArgs = __Infer<typeof GetPatreonStatusProcedure.params>;
 export type GetPatreonStatusResult = __Infer<typeof GetPatreonStatusProcedure.returnType>;
+export type GetPrestigeLeaderboardPageArgs = __Infer<typeof GetPrestigeLeaderboardPageProcedure.params>;
+export type GetPrestigeLeaderboardPageResult = __Infer<typeof GetPrestigeLeaderboardPageProcedure.returnType>;
 export type GetSocialChatHistoryArgs = __Infer<typeof GetSocialChatHistoryProcedure.params>;
 export type GetSocialChatHistoryResult = __Infer<typeof GetSocialChatHistoryProcedure.returnType>;
 export type GetSocialChatHistoryWithReactionsArgs = __Infer<typeof GetSocialChatHistoryWithReactionsProcedure.params>;

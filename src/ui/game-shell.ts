@@ -207,6 +207,10 @@ const afterUpdateGateShell = String.raw`
 <div id="leaderboard" hidden>
   <div class="modal leaderboard-modal" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
     <h2 id="leaderboardTitle" class="window-banner window-banner--gold"><span>Leaderboard</span></h2>
+    <div class="leaderboard-prestige">
+      <div id="leaderboardPrestigeChips" class="leaderboard-prestige-chips" role="tablist" aria-label="Prestige level"></div>
+      <p id="leaderboardPrestigeHeading" class="leaderboard-prestige-heading" aria-live="polite"></p>
+    </div>
     <section id="leaderboardPodium" class="leaderboard-podium" aria-label="Top three players" hidden></section>
     <div class="profile-tabs leaderboard-tabs" role="tablist" aria-label="Leaderboard stat">
       <button id="leaderboardPowerTab" class="profile-tab is-active" type="button" role="tab" aria-selected="true" aria-label="Power"></button>

@@ -1040,6 +1040,25 @@ export const LeaderboardPosition = __t.object("LeaderboardPosition", {
 });
 export type LeaderboardPosition = __Infer<typeof LeaderboardPosition>;
 
+export const LeaderboardPrestigePosition = __t.object("LeaderboardPrestigePosition", {
+  identity: __t.identity(),
+  prestige: __t.u32(),
+  ranks: __t.array(__t.u32()),
+});
+export type LeaderboardPrestigePosition = __Infer<typeof LeaderboardPrestigePosition>;
+
+export const LeaderboardPrestigeRankPage = __t.object("LeaderboardPrestigeRankPage", {
+  key: __t.string(),
+  identities: __t.array(__t.identity()),
+});
+export type LeaderboardPrestigeRankPage = __Infer<typeof LeaderboardPrestigeRankPage>;
+
+export const LeaderboardPrestigeSize = __t.object("LeaderboardPrestigeSize", {
+  prestige: __t.u32(),
+  total: __t.u32(),
+});
+export type LeaderboardPrestigeSize = __Infer<typeof LeaderboardPrestigeSize>;
+
 export const LeaderboardRankPage = __t.object("LeaderboardRankPage", {
   key: __t.string(),
   identities: __t.array(__t.identity()),
@@ -2005,6 +2024,19 @@ export const PresenceChatCooldown = __t.object("PresenceChatCooldown", {
   lastLeaveAtMicros: __t.u64(),
 });
 export type PresenceChatCooldown = __Infer<typeof PresenceChatCooldown>;
+
+export const PrestigeLeaderboardPage = __t.object("PrestigeLeaderboardPage", {
+  get entries() {
+    return __t.array(RankedLeaderboardPlayer);
+  },
+  startRank: __t.u32(),
+  endRank: __t.u32(),
+  localRank: __t.u32(),
+  total: __t.u32(),
+  prestige: __t.u32(),
+  levels: __t.array(__t.u32()),
+});
+export type PrestigeLeaderboardPage = __Infer<typeof PrestigeLeaderboardPage>;
 
 export const PrismshellAttackWindow = __t.object("PrismshellAttackWindow", {
   identity: __t.identity(),

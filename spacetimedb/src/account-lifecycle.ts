@@ -30,6 +30,7 @@ import { mergeAudioSettings, removeAudioSettings } from "./audio-settings";
 import { mergeLootSettings, removeLootSettings } from "./loot-settings";
 import { mergeIgnoredDrops, removeIgnoredDrops } from "./ignored-drops";
 import { mergeLinkedPrestige } from "./prestige-transfer";
+import { moveLeaderboardPrestigePosition } from "./leaderboard-pages";
 import { unlinkPatreon } from "./patreon";
 import { clearProceduralProgress, mergeProceduralProgress } from "./procedural-maps";
 import { deleteSnapshotRow, insertSnapshotRow, updateSnapshotRow } from "./snapshot-row-writes";
@@ -419,6 +420,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
       else ctx.db.leaderboardEntry.insert(nextLeaderboardEntry);
     }
     if (guestLeaderboardEntry) ctx.db.leaderboardEntry.identity.delete(link.guest);
+    moveLeaderboardPrestigePosition(ctx, link.guest, ctx.sender);
     // Linking during any boss fight keeps the guest's contribution under the
     // authenticated identity. Attack windows are cleared so the next volley is
     // authorized against the new identity and cannot inherit stale hit counts.

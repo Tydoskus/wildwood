@@ -1481,11 +1481,11 @@ import {
   });
 
   const leaderboard = createLeaderboardPanel({ e: gameElements, options: {
-    entries: () => coop?.leaderboardEntries?.() ?? [],
-    loadPage: async (stat: import("./ui/leaderboard").LeaderboardStat, startRank = 0, count = 100) => {
+    loadPage: async (stat: import("./ui/leaderboard").LeaderboardStat, prestige: number, startRank = 0, count = 100) => {
       if (!coop) throw new Error("Not connected. Try again.");
-      return coop.loadLeaderboardPage(stat, startRank, count);
+      return coop.loadLeaderboardPage(stat, prestige, startRank, count);
     },
+    localPrestige: () => coop?.prestige?.()?.level ?? 0,
     localIdentity: () => coop?.localIdentity?.() || "",
     isDeveloper: isDeveloperIdentity,
     paintProfileIcon: (canvas: HTMLCanvasElement, identity: string) => paintProfileIconCanvas(canvas, coop?.profileIcon?.(identity) ?? 0),

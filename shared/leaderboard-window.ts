@@ -26,3 +26,9 @@ export type LeaderboardPage<Entry> = {
   localRank: number;
   total: number;
 };
+
+/** One prestige level's board, and every level that has anyone on it. */
+export type PrestigeLeaderboardPage<Entry> = LeaderboardPage<Entry> & {
+  prestige: number;
+  levels: number[];
+};
