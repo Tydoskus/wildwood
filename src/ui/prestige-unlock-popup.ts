@@ -6,7 +6,10 @@ export const PRESTIGE_UNLOCK_ANNOUNCED_KEY = "wildstat.prestigeUnlockAnnounced";
 export const prestigeUnlockStorageKey = (identity: string) => `${PRESTIGE_UNLOCK_ANNOUNCED_KEY}:${identity}`;
 
 /** Anything that owns the screen. The popup waits for all of it to clear. */
-const BUSY_BODY_STATES = ".is-cutscene, .is-replaying, .is-onboarding, .is-dueling, .is-loading-game-assets";
+// Not is-loading-game-assets: it is added when game.js is requested and never
+// removed, so it would hold the window back for the whole session. ready()
+// already waits for a running game.
+const BUSY_BODY_STATES = ".is-cutscene, .is-replaying, .is-onboarding, .is-dueling";
 const WINDOW_SELECTOR = '[role="dialog"], [role="alertdialog"], dialog[open]';
 /** The boss's death, its loot and the kill toasts land first; then the window. */
 const SETTLE_MS = 1_200;

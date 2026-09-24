@@ -274,3 +274,8 @@ describe("prestiging from the unlock popup", () => {
     expect(s.storage.values.size).toBe(0);
   });
 });
+
+it("is not held back by the loading class, which the page never removes", () => {
+  const { document } = parseHTML('<html><body class="is-loading-game-assets has-webgl-world"></body></html>');
+  expect(screenIsBusy(document as unknown as Document)).toBe(false);
+});
