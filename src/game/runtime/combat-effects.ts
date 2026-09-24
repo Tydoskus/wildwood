@@ -53,6 +53,9 @@ const DAMAGE_NUMBER_SPREAD: readonly [number, number][] = [
 /** Numbers born within this long of each other, this close, count as one burst. */
 const DAMAGE_NUMBER_BURST_SECONDS = .28;
 const DAMAGE_NUMBER_BURST_DISTANCE = 70;
+/** How long an Arrow Storm arrow flies, and how far apart the volley's arrows leave. */
+export const ARROW_STORM_FLIGHT_SECONDS = .3;
+export const ARROW_STORM_STAGGER_SECONDS = .035;
 /** How far out an Arrow Storm arrow swings, as a share of the distance to the target. */
 const ARROW_STORM_ARC_SPREAD = [.55, .8, .35, 1, .65] as const;
 export const DAMAGE_NUMBER_RISE_DURATION = .55;
@@ -155,13 +158,13 @@ export function createCombatEffects() {
     const side = index % 2 === 0 ? 1 : -1;
     const spread = ARROW_STORM_ARC_SPREAD[index % ARROW_STORM_ARC_SPREAD.length] * distance;
     const normalX = -(toY - fromY) / distance * side, normalY = (toX - fromX) / distance * side;
-    const delay = index * .035;
-    const effect = spawnSkillEffect("arrow", fromX, fromY, toX, toY, .3, 3, color, delay);
+    const delay = index * ARROW_STORM_STAGGER_SECONDS;
+    const effect = spawnSkillEffect("arrow", fromX, fromY, toX, toY, ARROW_STORM_FLIGHT_SECONDS, 3, color, delay);
     // A control point out to the side, a little behind the shooter, starts the
     // arrow off square to the line of fire before it curves in.
     effect.controlX = fromX + normalX * spread * 1.35 - (toX - fromX) * .1;
     effect.controlY = fromY + normalY * spread * 1.35 - (toY - fromY) * .1;
-    spawnSkillEffect("ring", toX, toY, toX, toY, .3, 24, color, delay + .28);
+    spawnSkillEffect("ring", toX, toY, toX, toY, .3, 24, color, delay + ARROW_STORM_FLIGHT_SECONDS - .02);
   }
 
   /** A glowing streak from one point to another; jagged reads as electricity. */

@@ -626,10 +626,25 @@ describe("bow skills", () => {
     expect(taken(plain)).toEqual([10, 0, 0]);
   });
 
-  it("rains Arrow Storm's five half-damage arrows on the enemies around the one hit", () => {
-    const state = field([560, 620, 800], { random: sequence(0, .99, 0, .99, 0) });
+  it("rains Arrow Storm's five half-damage arrows on the enemies around the one hit, as each lands", () => {
+    let now = 1;
+    const state = field([560, 620, 800], { random: sequence(0, .99, 0, .99, 0), nowSeconds: () => now });
     shoot(state, { ...NO_PROCS, arrowStorm: true });
+    // The arrows are still in the air: only the arrow that triggered them has hit.
+    expect(taken(state)).toEqual([10, 0, 0]);
+    now += 1;
+    state.controller.updateProjectiles(1 / 60);
     expect(taken(state)).toEqual([10 + 3 * 5, 2 * 5, 0]);
+  });
+
+  it("passes an arrow whose target died in flight to the nearest live enemy", () => {
+    let now = 1;
+    const state = field([560, 620], { random: () => 0, nowSeconds: () => now });
+    shoot(state, { ...NO_PROCS, arrowStorm: true });
+    state.enemies[0].dead = true;
+    now += 1;
+    state.controller.updateProjectiles(1 / 60);
+    expect(state.enemies[1].maxHp - state.enemies[1].hp).toBe(5 * 5);
   });
 
   it("bounces a Ricochet to the next two enemies in reach at 60% damage", () => {
@@ -640,13 +655,17 @@ describe("bow skills", () => {
 
   it("puts every Arrow Storm arrow on a boss, and nothing bounces off it", () => {
     const hit = vi.fn();
-    const state = createCombatHarness({ isTutorialMap: () => false, isMoonfenMap: () => true, hitPersonalBoss: hit });
+    let now = 1;
+    const state = createCombatHarness({ isTutorialMap: () => false, isMoonfenMap: () => true, hitPersonalBoss: hit, nowSeconds: () => now });
     state.enemies.length = 0;
     Object.assign(state.miremawBoss, { x: 700, y: 500, dead: false });
     const projectile = state.projectileStore.acquirePlayerProjectile();
     Object.assign(projectile, { x: 300, y: 500, vx: 1_000, vy: 0, r: 6, damage: 10, critical: false, hitLife: 1, life: 1, trail: 1,
       skills: { arrowStorm: true, ricochet: true, piercingShot: true }, pierced: null });
     state.controller.updateProjectiles(.6);
+    expect(hit.mock.calls.map(call => call[0])).toEqual([10]);
+    now += 1;
+    state.controller.updateProjectiles(1 / 60);
     expect(hit.mock.calls.map(call => call[0])).toEqual([10, 5, 5, 5, 5, 5]);
     expect(projectile.life).toBe(0);
   });
@@ -683,5 +702,25 @@ describe("enemy health bar loss chunk", () => {
     expect(enemy.hp).toBeLessThan(1_000);
     expect(enemy.hpLossFlashFrom).toBe(1_000);
     expect(enemy.hpLossFlashTimer).toBeGreaterThan(0);
+  });
+});
+
+describe("Arrow Storm across a map change", () => {
+  it("drops arrows still in flight when their enemies are no longer on the map", () => {
+    let now = 1;
+    const state = createCombatHarness({ random: () => 0, nowSeconds: () => now });
+    state.boss.dead = true;
+    state.enemies.length = 0;
+    createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Spitter", x: 560, y: 500, campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
+    const enemy = state.enemies[0];
+    enemy.hp = enemy.maxHp = 1e9;
+    const projectile = state.projectileStore.acquirePlayerProjectile();
+    Object.assign(projectile, { x: 300, y: 500, vx: 1_000, vy: 0, r: 6, damage: 10, critical: false, hitLife: 1, life: 1, trail: 1,
+      skills: { arrowStorm: true, ricochet: false, piercingShot: false }, pierced: null });
+    state.controller.updateProjectiles(.6);
+    state.enemies.length = 0;
+    now += 1;
+    state.controller.updateProjectiles(1 / 60);
+    expect(enemy.maxHp - enemy.hp).toBe(10);
   });
 });

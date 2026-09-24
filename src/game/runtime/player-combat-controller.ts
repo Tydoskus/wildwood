@@ -12,8 +12,9 @@ import { createSpatialGrid } from "./spatial-grid";
 import type { BossTarget, DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, AegisPrimeBossState, PlayerState, Projectile, RuntimeReward, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
 import type { SpawnSite } from "../world";
 import { equipmentDamage, itemDefinition } from "../../../shared/items";
-import { ARROW_STORM_DAMAGE_SHARE, RICOCHET_DAMAGE_SHARE, hasBowSkills, rollArrowSkillProcs, type BowSkillRoll } from "../../../shared/bow-skills";
-import { arrowPassesThrough, rainArrowStorm, ricochetChain } from "./bow-skill-procs";
+import { ARROW_STORM_DAMAGE_SHARE, ARROW_STORM_RADIUS, RICOCHET_DAMAGE_SHARE, hasBowSkills, rollArrowSkillProcs, type BowSkillRoll } from "../../../shared/bow-skills";
+import { ARROW_STORM_FLIGHT_SECONDS, ARROW_STORM_STAGGER_SECONDS } from "./combat-effects";
+import { arrowPassesThrough, isSkillSecondaryTarget, rainArrowStorm, ricochetChain } from "./bow-skill-procs";
 import { addPlayerBaseMaxHealth } from "./player-health";
 import {
   absoluteAttackTimestamps,
@@ -170,6 +171,30 @@ export function createPlayerCombatController(options: {
   } = options;
   const { projectiles, enemyShots } = projectileStore;
   const random = options.random ?? Math.random;
+  /** Arrow Storm hits wait for their arrow to land, so a target does not vanish first. */
+  const stormHits: { target: EnemyState | BossTarget; damage: number; critical: boolean; landAt: number; x: number; y: number }[] = [];
+
+  function landStormHits(nowSeconds: number) {
+    for (let index = stormHits.length - 1; index >= 0; index--) {
+      const hit = stormHits[index];
+      if (hit.landAt > nowSeconds) continue;
+      stormHits.splice(index, 1);
+      // A target the volley already finished passes the arrow to the nearest live one.
+      // An enemy no longer in this map's list (a map change mid-volley) is never hit.
+      const present = hit.target.isBoss || enemies.includes(hit.target as EnemyState);
+      let target: EnemyState | BossTarget | null = hit.target.dead || !present ? null : hit.target;
+      if (!target && present && !hit.target.isBoss) {
+        let nearest = ARROW_STORM_RADIUS;
+        for (const enemy of enemies) {
+          if (!isSkillSecondaryTarget(enemy)) continue;
+          const distance = Math.hypot(enemy.x - hit.x, enemy.y - hit.y) - enemy.r;
+          if (distance <= nearest) { nearest = distance; target = enemy; }
+        }
+      }
+      spawnBurst(hit.x, hit.y, "#ffe9a6", 3, 40);
+      if (target) applyPlayerHit(target, hit.damage, hit.critical, Math.PI / 2);
+    }
+  }
   const targetGrid = createSpatialGrid<EnemyState>(TARGET_GRID_CELL_SIZE, WORLD.w, WORLD.h);
   const targetCandidates: EnemyState[] = [];
   let retainedTarget: EnemyState | BossTarget | null = null;
@@ -611,11 +636,13 @@ export function createPlayerCombatController(options: {
       // The volley leaves the shooter square to the line of fire, left and
       // right in turn, and curves in on each landing point: a teardrop.
       let volley = 0;
+      const firedAt = options.nowSeconds();
       rainArrowStorm({ x, y }, target, enemies as Array<EnemyState | BossTarget>, random, (struck, landX, landY) => {
-        if (options.skillEffects) options.skillEffects.spawnArcingArrow(player.x, player.y, landX, landY, volley++, "#ffd957");
+        const index = volley++;
+        if (options.skillEffects) options.skillEffects.spawnArcingArrow(player.x, player.y, landX, landY, index, "#ffd957");
         else spawnParticle(landX, landY - 70, 0, 420, .16, .16, 3, "#ffd957");
-        spawnBurst(landX, landY, "#ffe9a6", 3, 40);
-        if (struck) applyPlayerHit(struck, projectile.damage * ARROW_STORM_DAMAGE_SHARE, critical, Math.PI / 2);
+        if (struck) stormHits.push({ target: struck, damage: projectile.damage * ARROW_STORM_DAMAGE_SHARE, critical, x: landX, y: landY,
+          landAt: firedAt + index * ARROW_STORM_STAGGER_SECONDS + ARROW_STORM_FLIGHT_SECONDS });
       });
     }
     if (procs.ricochet) {
@@ -637,6 +664,7 @@ export function createPlayerCombatController(options: {
       if (hit.mapId === options.currentMapId?.()) spawnDamageNumber(hit.x, hit.y, hit.damage, hit.critical);
     }
     const nowSeconds = options.nowSeconds();
+    if (stormHits.length) landStormHits(nowSeconds);
     syncAttackTimeline(nowSeconds);
     if (projectiles.length > 0) rebuildTargetGrid();
     for (const projectile of projectiles) {
