@@ -6,6 +6,7 @@ import { configureConnectionDiagnostics, recordConnectionDiagnostic, flushConnec
 import { bindProgressFlushOnHide } from "./coop/services/flush-on-hide";
 import { createLatencySamples } from "./coop/services/latency-samples";
 import { diagnosticWebSocket } from "./coop/services/diagnostic-websocket";
+import { createStaleBundleGuard } from "./coop/services/stale-bundle-guard";
 import { enterWorldAfterConsent } from "./coop/services/world-entry-consent";
 import { accountStorageKeys } from "./coop/services/account-storage-keys";
 import { createCommunityServices } from "./coop/services/community-services";
@@ -94,6 +95,7 @@ let latencyMs: number | null = null;
 let lastLatencyProbeStartedAt = 0;
 let connecting = false;
 let connectionGeneration = 0;
+const staleBundle = createStaleBundleGuard({ version: GAME_VERSION });
 let sessionGeneration = 0;
 let hydrationReady = false;
 let sessionSubscriptions: ReturnType<typeof startBaseSubscription> | null = null;
@@ -687,7 +689,8 @@ function connect() {
     connection = guardConnectionActivity(DbConnection.builder()
     .withUri(host)
     .withDatabaseName(databaseName)
-    .withWSFn(diagnosticWebSocket(recordConnectionDiagnostic, { transport: "account", database: databaseName, isCurrent: () => generation === connectionGeneration }, accountService.connectionToken))
+    .withWSFn(diagnosticWebSocket(recordConnectionDiagnostic, { transport: "account", database: databaseName, isCurrent: () => generation === connectionGeneration,
+      onFrameHandlerFailed: () => { staleBundle.frameHandlerFailed(); } }, accountService.connectionToken))
     .withToken(accountService.connectionCredential() || accountService.guestToken() || undefined)
     .onConnect((conn: DbConnection, identity: Identity, token: string) => {
       if (generation !== connectionGeneration) {
@@ -776,6 +779,7 @@ function connect() {
           batch: batchChanges,
           handlers: baseSubscriptionHandlers,
           onHydrated: () => {
+            staleBundle.hydrated();
             recordConnectionDiagnostic("reconnected");
             hydrationReady = true;
             multiplayerSync.sync();

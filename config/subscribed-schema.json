@@ -1,0 +1,925 @@
+{
+  "protocolVersion": 107,
+  "tables": {
+    "active_item_upgrade_slot_three": [
+      "identity",
+      "itemId",
+      "currentLevel",
+      "targetLevel",
+      "startedAt",
+      "completesAt",
+      "paused",
+      "remainingMicros"
+    ],
+    "active_item_upgrade_slot_two": [
+      "identity",
+      "itemId",
+      "currentLevel",
+      "targetLevel",
+      "startedAt",
+      "completesAt",
+      "paused",
+      "remainingMicros"
+    ],
+    "active_item_upgrade": [
+      "identity",
+      "itemId",
+      "currentLevel",
+      "targetLevel",
+      "startedAt",
+      "completesAt",
+      "paused",
+      "remainingMicros"
+    ],
+    "active_research": [
+      "identity",
+      "researchId",
+      "targetRank",
+      "startedAt",
+      "completesAt"
+    ],
+    "aegis_prime_boss": [
+      "id",
+      "encounter",
+      "hp",
+      "maxHp",
+      "alive",
+      "respawnAtMicros",
+      "lastDamageAtMicros"
+    ],
+    "aegis_prime_result": [
+      "id",
+      "encounter",
+      "totalDamage",
+      "contributorsJson",
+      "createdAt"
+    ],
+    "boss_attack_frame": [
+      "mapId",
+      "zoneX",
+      "zoneY",
+      "networkId",
+      "attackerX",
+      "attackerY",
+      "targetX",
+      "targetY",
+      "targetRadius",
+      "hits",
+      "emittedAt"
+    ],
+    "boss_hit_result": [
+      "identity",
+      "mapId",
+      "x",
+      "y",
+      "damage",
+      "critical"
+    ],
+    "dev_access_audit": [
+      "identity",
+      "viewer",
+      "displayName",
+      "firstSeenAt",
+      "lastSeenAt",
+      "accountType",
+      "lastProtocolVersion",
+      "label"
+    ],
+    "dev_bug_reports": [
+      "id",
+      "reporter",
+      "reporterName",
+      "message",
+      "protocolVersion",
+      "reportedAt"
+    ],
+    "dev_forest_reward_prototype": [
+      "identity",
+      "encounter",
+      "enemyHp",
+      "damage",
+      "kills",
+      "lastAttack",
+      "nextAttackAt",
+      "respawnAt"
+    ],
+    "dev_gem_purchase_review": [
+      "reference",
+      "owner",
+      "packId",
+      "purchasedAtMs",
+      "status",
+      "reservationId",
+      "reason",
+      "updatedAt"
+    ],
+    "dragon_boss": [
+      "id",
+      "encounter",
+      "hp",
+      "maxHp",
+      "alive",
+      "respawnAtMicros",
+      "lastDamageAtMicros"
+    ],
+    "dragon_result": [
+      "id",
+      "encounter",
+      "totalDamage",
+      "contributorsJson",
+      "createdAt"
+    ],
+    "dreadreaper_boss": [
+      "id",
+      "encounter",
+      "hp",
+      "maxHp",
+      "alive",
+      "respawnAtMicros",
+      "lastDamageAtMicros"
+    ],
+    "dreadreaper_result": [
+      "id",
+      "encounter",
+      "totalDamage",
+      "contributorsJson",
+      "createdAt"
+    ],
+    "duel_replay": [
+      "id",
+      "challengerName",
+      "opponentName",
+      "winnerName",
+      "durationSeconds",
+      "challengerMaxHp",
+      "challengerDamage",
+      "challengerArmor",
+      "challengerAttackRate",
+      "challengerRegen",
+      "challengerFinalHp",
+      "challengerAttacks",
+      "challengerDamageDealt",
+      "challengerRegened",
+      "challengerBlocked",
+      "opponentMaxHp",
+      "opponentDamage",
+      "opponentArmor",
+      "opponentAttackRate",
+      "opponentRegen",
+      "opponentFinalHp",
+      "opponentAttacks",
+      "opponentDamageDealt",
+      "opponentRegened",
+      "opponentBlocked",
+      "createdAt",
+      "challengerIdentity",
+      "opponentIdentity",
+      "challengerHeadItem",
+      "challengerChestItem",
+      "challengerFeetItem",
+      "challengerRightHandItem",
+      "challengerLeftHandItem",
+      "opponentHeadItem",
+      "opponentChestItem",
+      "opponentFeetItem",
+      "opponentRightHandItem",
+      "opponentLeftHandItem",
+      "challengerGender",
+      "opponentGender",
+      "combatVersion",
+      "challengerWeaponItem",
+      "opponentWeaponItem"
+    ],
+    "duel_riposte": [
+      "duelId",
+      "challengerRiposte",
+      "opponentRiposte",
+      "riposteSeed"
+    ],
+    "duel": [
+      "id",
+      "challenger",
+      "opponent",
+      "status",
+      "createdAt",
+      "startedAt",
+      "endsAtMicros",
+      "lastResolvedAt",
+      "challengerOriginX",
+      "challengerOriginY",
+      "opponentOriginX",
+      "opponentOriginY",
+      "challengerHp",
+      "challengerMaxHp",
+      "challengerDamage",
+      "challengerArmor",
+      "challengerAttackRate",
+      "opponentHp",
+      "opponentMaxHp",
+      "opponentDamage",
+      "opponentArmor",
+      "opponentAttackRate",
+      "startsAtMicros",
+      "challengerRegen",
+      "challengerAttacks",
+      "challengerDamageDealt",
+      "challengerRegened",
+      "challengerBlocked",
+      "opponentRegen",
+      "opponentAttacks",
+      "opponentDamageDealt",
+      "opponentRegened",
+      "opponentBlocked",
+      "challengerHeadItem",
+      "challengerChestItem",
+      "challengerFeetItem",
+      "challengerRightHandItem",
+      "challengerLeftHandItem",
+      "opponentHeadItem",
+      "opponentChestItem",
+      "opponentFeetItem",
+      "opponentRightHandItem",
+      "opponentLeftHandItem",
+      "challengerName",
+      "opponentName",
+      "challengerGender",
+      "opponentGender",
+      "combatVersion",
+      "challengerWeaponItem",
+      "opponentWeaponItem"
+    ],
+    "duel_wire_access": [
+      "key",
+      "identity",
+      "combatVersion"
+    ],
+    "frostclaw_boss": [
+      "id",
+      "encounter",
+      "hp",
+      "maxHp",
+      "alive",
+      "respawnAtMicros",
+      "lastDamageAtMicros"
+    ],
+    "frostclaw_result": [
+      "id",
+      "encounter",
+      "totalDamage",
+      "contributorsJson",
+      "createdAt"
+    ],
+    "gloomroot_boss": [
+      "id",
+      "encounter",
+      "hp",
+      "maxHp",
+      "alive",
+      "respawnAtMicros",
+      "lastDamageAtMicros"
+    ],
+    "gloomroot_result": [
+      "id",
+      "encounter",
+      "totalDamage",
+      "contributorsJson",
+      "createdAt"
+    ],
+    "gravebloom_boss": [
+      "id",
+      "encounter",
+      "hp",
+      "maxHp",
+      "alive",
+      "respawnAtMicros",
+      "lastDamageAtMicros"
+    ],
+    "gravebloom_result": [
+      "id",
+      "encounter",
+      "totalDamage",
+      "contributorsJson",
+      "createdAt"
+    ],
+    "ironhorn_boss": [
+      "id",
+      "encounter",
+      "hp",
+      "maxHp",
+      "alive",
+      "respawnAtMicros",
+      "lastDamageAtMicros"
+    ],
+    "ironhorn_result": [
+      "id",
+      "encounter",
+      "totalDamage",
+      "contributorsJson",
+      "createdAt"
+    ],
+    "koi_shogun_boss": [
+      "id",
+      "encounter",
+      "hp",
+      "maxHp",
+      "alive",
+      "respawnAtMicros",
+      "lastDamageAtMicros"
+    ],
+    "koi_shogun_result": [
+      "id",
+      "encounter",
+      "totalDamage",
+      "contributorsJson",
+      "createdAt"
+    ],
+    "latest_chat_messages": [
+      "id",
+      "sender",
+      "senderName",
+      "message",
+      "sentAt",
+      "replayId",
+      "senderIsGuest",
+      "powerLevel",
+      "senderGender",
+      "moderated",
+      "replyToMessageId",
+      "replyToSenderName",
+      "replyToMessage",
+      "guildReplayKey"
+    ],
+    "latest_chat_messages_with_reactions": [
+      "id",
+      "sender",
+      "senderName",
+      "message",
+      "sentAt",
+      "replayId",
+      "senderIsGuest",
+      "powerLevel",
+      "senderGender",
+      "moderated",
+      "replyToMessageId",
+      "replyToSenderName",
+      "replyToMessage",
+      "guildReplayKey",
+      "reactionCountsJson"
+    ],
+    "leaderboard_entry": [
+      "identity",
+      "displayName",
+      "damage",
+      "maxHp",
+      "isGuest",
+      "power",
+      "armor",
+      "regen",
+      "playedMicros",
+      "profileIcon",
+      "powerLevel",
+      "gender",
+      "skinTone",
+      "headItem",
+      "chestItem",
+      "feetItem",
+      "rightHandItem",
+      "leftHandItem"
+    ],
+    "local_movement_demand": [
+      "identity"
+    ],
+    "magmalisk_boss": [
+      "id",
+      "encounter",
+      "hp",
+      "maxHp",
+      "alive",
+      "respawnAtMicros",
+      "lastDamageAtMicros"
+    ],
+    "magmalisk_result": [
+      "id",
+      "encounter",
+      "totalDamage",
+      "contributorsJson",
+      "createdAt"
+    ],
+    "miremaw_boss": [
+      "id",
+      "encounter",
+      "hp",
+      "maxHp",
+      "alive",
+      "respawnAtMicros",
+      "lastDamageAtMicros"
+    ],
+    "miremaw_result": [
+      "id",
+      "encounter",
+      "totalDamage",
+      "contributorsJson",
+      "createdAt"
+    ],
+    "my_audio_settings": [
+      "identity",
+      "musicVolume",
+      "sfxVolume",
+      "updatedAt"
+    ],
+    "my_balance_apology_notice": [
+      "identity",
+      "amount",
+      "createdAt"
+    ],
+    "my_cutscene_history": [
+      "identity",
+      "seenMask",
+      "generation"
+    ],
+    "my_daily_gem_bonus": [
+      "identity",
+      "claimableDayKey",
+      "lastClaimedDayKey",
+      "claimCycle",
+      "revision",
+      "updatedAt"
+    ],
+    "my_defeat_session_restriction": [
+      "identity",
+      "revokedAtMicros",
+      "blockedUntilMicros",
+      "requireSignIn"
+    ],
+    "my_endless_travel_access": [
+      "identity"
+    ],
+    "my_gem_purchases": [
+      "reservationId",
+      "identity",
+      "packId",
+      "day",
+      "status",
+      "externalReference",
+      "createdAt",
+      "updatedAt"
+    ],
+    "my_gem_wallet": [
+      "identity",
+      "balance",
+      "revision",
+      "updatedAt"
+    ],
+    "my_inventory_capacity": [
+      "identity",
+      "slotsUnlocked",
+      "updatedAt"
+    ],
+    "my_item_gifts": [
+      "key",
+      "identity",
+      "campaign",
+      "itemId",
+      "claimed",
+      "createdAt"
+    ],
+    "my_legal_consent": [
+      "identity",
+      "termsVersion",
+      "ageBand",
+      "acceptedAt"
+    ],
+    "my_mailbox": [
+      "id",
+      "title",
+      "body",
+      "gems",
+      "createdAt",
+      "read",
+      "claimed"
+    ],
+    "my_mailbox_v_2": [
+      "id",
+      "title",
+      "body",
+      "gems",
+      "createdAt",
+      "read",
+      "claimed",
+      "itemIds",
+      "upgradeLevel"
+    ],
+    "my_offline_preference": [
+      "identity",
+      "enabled"
+    ],
+    "my_offline_progress": [
+      "identity",
+      "awaySinceMicros",
+      "mapId",
+      "seconds",
+      "kills",
+      "damage",
+      "health",
+      "armor",
+      "regen",
+      "attackSpeed",
+      "blocked",
+      "grantedAtMicros",
+      "pending"
+    ],
+    "my_onboarding": [
+      "identity",
+      "step"
+    ],
+    "my_player_blocks": [
+      "key",
+      "owner",
+      "target",
+      "targetName"
+    ],
+    "my_procedural_boss": [
+      "key",
+      "mapId",
+      "encounter",
+      "hp",
+      "maxHp",
+      "respawnAtMicros"
+    ],
+    "my_social_hub": [
+      "identity",
+      "snapshot"
+    ],
+    "my_social_messages": [
+      "id",
+      "channel",
+      "conversation",
+      "guildId",
+      "sender",
+      "recipient",
+      "recipientName",
+      "senderName",
+      "senderGender",
+      "powerLevel",
+      "senderIsGuest",
+      "message",
+      "moderated",
+      "sentAt",
+      "replySender",
+      "replyToMessageId",
+      "replyToSenderName",
+      "replyToMessage"
+    ],
+    "my_social_messages_with_reactions": [
+      "id",
+      "channel",
+      "conversation",
+      "guildId",
+      "sender",
+      "recipient",
+      "recipientName",
+      "senderName",
+      "senderGender",
+      "powerLevel",
+      "senderIsGuest",
+      "message",
+      "moderated",
+      "sentAt",
+      "replySender",
+      "replyToMessageId",
+      "replyToSenderName",
+      "replyToMessage",
+      "reactionCountsJson"
+    ],
+    "my_upgrade_bench": [
+      "identity",
+      "secondSlotUnlocked",
+      "updatedAt"
+    ],
+    "my_upgrade_bench_third_slot": [
+      "identity",
+      "updatedAt"
+    ],
+    "patreon_ticker_supporters": [
+      "identity",
+      "name",
+      "validUntilMs"
+    ],
+    "player_account_status": [
+      "identity",
+      "isGuest"
+    ],
+    "player_chat_hearts": [
+      "identity",
+      "chatHeartsReceived"
+    ],
+    "player_death_frame": [
+      "mapId",
+      "zoneX",
+      "zoneY",
+      "networkId",
+      "playerX",
+      "playerY",
+      "facing",
+      "emittedAt"
+    ],
+    "player_gem_drop": [
+      "identity",
+      "amount",
+      "sequence",
+      "droppedAt"
+    ],
+    "player_item_drop": [
+      "key",
+      "identity",
+      "itemId",
+      "alreadyOwned",
+      "sequence",
+      "droppedAt"
+    ],
+    "player_item_upgrade": [
+      "key",
+      "identity",
+      "itemId",
+      "level"
+    ],
+    "player_lifetime": [
+      "identity",
+      "joinedAt",
+      "playedMicros",
+      "sessionStartedAt",
+      "enemyKills",
+      "deathCount"
+    ],
+    "player_map_frame": [
+      "mapId",
+      "emittedAt",
+      "playerCount",
+      "payload"
+    ],
+    "player_map_marker": [
+      "identity",
+      "x",
+      "y",
+      "mapId",
+      "isVisible",
+      "updatedAt"
+    ],
+    "player_motion_detail_frame": [
+      "recipient",
+      "emittedAt",
+      "playerCount",
+      "payload"
+    ],
+    "player_motion_frame": [
+      "mapId",
+      "zoneX",
+      "zoneY",
+      "emittedAt",
+      "playerCount",
+      "payload"
+    ],
+    "player_motion_identity": [
+      "networkId",
+      "identity",
+      "mapId",
+      "isVisible",
+      "zoneX",
+      "zoneY",
+      "displayName",
+      "profileIcon",
+      "playerSprite",
+      "skinTone",
+      "isGuest",
+      "gender",
+      "speed",
+      "powerLevel",
+      "feetItem",
+      "headItem",
+      "chestItem",
+      "rightHandItem",
+      "leftHandItem"
+    ],
+    "player_name_tag": [
+      "identity",
+      "guildTag",
+      "showDevTag"
+    ],
+    "player_prestige_perk": [
+      "identity",
+      "keenEdge",
+      "doubleStrike",
+      "splitShot",
+      "riposte"
+    ],
+    "player_prestige": [
+      "identity",
+      "level",
+      "perkPoints",
+      "peakPower",
+      "prestigedAt"
+    ],
+    "player_profile": [
+      "identity",
+      "displayName",
+      "profileIcon",
+      "playerSprite",
+      "skinTone",
+      "gender"
+    ],
+    "player_progress": [
+      "identity",
+      "maxHp",
+      "damage",
+      "attackRate",
+      "projectileSpeed",
+      "projectileCount",
+      "attackRange",
+      "armor",
+      "regen",
+      "speed",
+      "bootsCollected",
+      "introComplete",
+      "inventoryJson",
+      "equippedFeet",
+      "desertUnlocked",
+      "equippedHead",
+      "equippedChest",
+      "snowlandsUnlocked",
+      "equippedRightHand",
+      "equippedLeftHand",
+      "lavaUnlocked",
+      "bowCount",
+      "woodenArmorCount",
+      "cosmeticHead",
+      "cosmeticChest",
+      "cosmeticFeet",
+      "cosmeticRightHand",
+      "cosmeticLeftHand",
+      "speedOverride",
+      "infernalUnlocked",
+      "waterUnlocked",
+      "samuraiUnlocked",
+      "cloudspireUnlocked",
+      "moonfenUnlocked",
+      "crystalHollowsUnlocked",
+      "bossRewardClaims",
+      "clockworkRuinsUnlocked",
+      "duskfallOrchardUnlocked",
+      "neonBastionUnlocked",
+      "verdantCatacombsUnlocked",
+      "ionCitadelUnlocked",
+      "cosmeticItemsJson"
+    ],
+    "player_research": [
+      "identity",
+      "warcraft",
+      "foraging",
+      "frontierMastery",
+      "vitality",
+      "precision",
+      "criticalChance",
+      "moveSpeed",
+      "prosperity",
+      "criticalDamage",
+      "regeneration",
+      "researchSpeed",
+      "slotUpgradeSpeed",
+      "enemyRespawn",
+      "bossRespawn",
+      "offlineWindow",
+      "utilityMoveSpeed",
+      "utilityAttackRange"
+    ],
+    "player": [
+      "identity",
+      "x",
+      "y",
+      "facing",
+      "hp",
+      "maxHp",
+      "speed",
+      "moving",
+      "lastInputAt",
+      "lastInputSequence",
+      "power",
+      "protocolVersion",
+      "feetItem",
+      "zoneX",
+      "zoneY",
+      "mapId",
+      "controllerTabId",
+      "headItem",
+      "chestItem",
+      "isVisible",
+      "dx",
+      "dy",
+      "powerLevel",
+      "rightHandItem",
+      "leftHandItem",
+      "vx",
+      "vy",
+      "simulationTick",
+      "motionEpoch"
+    ],
+    "prismshell_boss": [
+      "id",
+      "encounter",
+      "hp",
+      "maxHp",
+      "alive",
+      "respawnAtMicros",
+      "lastDamageAtMicros"
+    ],
+    "prismshell_result": [
+      "id",
+      "encounter",
+      "totalDamage",
+      "contributorsJson",
+      "createdAt"
+    ],
+    "procedural_boss": [
+      "mapId",
+      "encounter",
+      "hp",
+      "maxHp",
+      "respawnAtMicros"
+    ],
+    "procedural_progress": [
+      "identity",
+      "completed"
+    ],
+    "release_notice": [
+      "id",
+      "releaseJson"
+    ],
+    "spider_boss": [
+      "id",
+      "encounter",
+      "hp",
+      "maxHp",
+      "alive",
+      "respawnAtMicros",
+      "lastDamageAtMicros"
+    ],
+    "spider_result": [
+      "id",
+      "encounter",
+      "totalDamage",
+      "contributorsJson",
+      "createdAt"
+    ],
+    "tempest_kirin_boss": [
+      "id",
+      "encounter",
+      "hp",
+      "maxHp",
+      "alive",
+      "respawnAtMicros",
+      "lastDamageAtMicros"
+    ],
+    "tempest_kirin_result": [
+      "id",
+      "encounter",
+      "totalDamage",
+      "contributorsJson",
+      "createdAt"
+    ],
+    "tidewyrm_boss": [
+      "id",
+      "encounter",
+      "hp",
+      "maxHp",
+      "alive",
+      "respawnAtMicros",
+      "lastDamageAtMicros"
+    ],
+    "tidewyrm_result": [
+      "id",
+      "encounter",
+      "totalDamage",
+      "contributorsJson",
+      "createdAt"
+    ],
+    "voltwarden_boss": [
+      "id",
+      "encounter",
+      "hp",
+      "maxHp",
+      "alive",
+      "respawnAtMicros",
+      "lastDamageAtMicros"
+    ],
+    "voltwarden_result": [
+      "id",
+      "encounter",
+      "totalDamage",
+      "contributorsJson",
+      "createdAt"
+    ],
+    "world_status": [
+      "id",
+      "onlinePlayers"
+    ]
+  }
+}

@@ -58,6 +58,12 @@ removed or renamed without a bump — a cached client still requests the old nam
 A stylesheet-only change that should ship without a bump: restamp
 `config/shipped-assets.json` at the current version in the same commit.
 
+`check:release` also compares the client's table bindings with
+`config/subscribed-schema.json`. A column added to or removed from a table the
+client reads needs a `PROTOCOL_VERSION` bump (old tabs cannot decode the new
+rows and retry forever); new tables only need
+`node scripts/subscribed-schema.mjs --stamp`.
+
 `release:prepare` / `release:rollout` / `release:cancel` are the staged mobile
 release flow, not the web version bump. `spacetime:publish:cloud` is the raw CLI
 publish with no preflight — prefer `spacetime:publish:live`.

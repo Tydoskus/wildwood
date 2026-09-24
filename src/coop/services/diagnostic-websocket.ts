@@ -6,14 +6,18 @@ type Factory = Parameters<ReturnType<typeof DbConnection.builder>["withWSFn"]>[0
  * No URL, token, payload, or full browser fingerprint is recorded. */
 export function diagnosticWebSocket(
   record: (kind: ConnectionEventKind, data: Partial<ConnectionDiagnostic>) => void,
-  context: { transport: string; database: string; mapId?: string; isCurrent?: () => boolean },
+  context: { transport: string; database: string; mapId?: string; isCurrent?: () => boolean; onFrameHandlerFailed?: () => void },
   resolveToken?: (token: string, force: boolean) => Promise<string>,
 ): Factory {
   return async args => {
     const started = performance.now();
     let intentional = false;
     const report = (kind: ConnectionEventKind, data: Partial<ConnectionDiagnostic> = {}) => {
-      try { if (context.isCurrent?.() === false) return; record(kind, { ...context, connectionAgeMs: performance.now() - started, intentional, ...data }); } catch {}
+      try {
+        if (context.isCurrent?.() === false) return;
+        const { onFrameHandlerFailed: _hook, ...fields } = context;
+        record(kind, { ...fields, connectionAgeMs: performance.now() - started, intentional, ...data });
+      } catch {}
     };
     let temporaryToken: string | undefined;
     if (args.authToken) {
@@ -84,12 +88,13 @@ export function diagnosticWebSocket(
             return;
           }
           if (!obsolete()) handler({ data });
-        }).catch(() => {
+        }).catch((error: unknown) => {
           // A decoder/SDK exception must not leave an apparently live socket
           // silently discarding all future frames. Reuse ordinary recovery.
           closed = true;
-          report('lifecycle-failure', { detail: 'frame-handler-failed' });
+          report('lifecycle-failure', { detail: `frame-handler-failed: ${error instanceof Error ? error.message : String(error)}` });
           socket.close();
+          if (context.isCurrent?.() !== false) context.onFrameHandlerFailed?.();
         });
       },
     };

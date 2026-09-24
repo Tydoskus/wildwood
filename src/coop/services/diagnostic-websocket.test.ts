@@ -16,7 +16,10 @@ class FakeSocket extends EventTarget {
   }
 }
 const args = { url: new URL("wss://test.example"), wsProtocol: ["v1.bsatn.spacetimedb"], nameOrAddress: "test-db", compression: "gzip" as const, lightMode: false };
-function setup() { vi.stubGlobal("WebSocket", FakeSocket); const record = vi.fn(); return { record, factory: diagnosticWebSocket(record, { transport: "account", database: "test-db" }) }; }
+function setup() {
+  vi.stubGlobal("WebSocket", FakeSocket); const record = vi.fn(), frameHandlerFailed = vi.fn();
+  return { record, frameHandlerFailed, factory: diagnosticWebSocket(record, { transport: "account", database: "test-db", onFrameHandlerFailed: frameHandlerFailed }) };
+}
 afterEach(() => vi.unstubAllGlobals());
 describe("diagnostic WebSocket", () => {
   it("preserves close codes/reasons before the SDK callback and marks requested closes", async () => {
@@ -69,7 +72,7 @@ describe("diagnostic WebSocket", () => {
     expect(message).not.toHaveBeenCalled();
   });
   it('closes once if the SDK rejects a frame, allowing the normal reconnect path', async () => {
-    const { factory, record } = setup(); const adapter = await factory(args);
+    const { factory, record, frameHandlerFailed } = setup(); const adapter = await factory(args);
     const message = vi.fn(() => { throw new Error('Invalid SDK frame'); }); adapter.onmessage = message;
     await Promise.all([
       FakeSocket.latest.onmessage!({ data: new Uint8Array([0, 1]).buffer }),
@@ -77,7 +80,10 @@ describe("diagnostic WebSocket", () => {
     ]);
     expect(message).toHaveBeenCalledOnce();
     expect(FakeSocket.latest.close).toHaveBeenCalledOnce();
-    expect(record).toHaveBeenCalledWith('lifecycle-failure', expect.objectContaining({ detail: 'frame-handler-failed' }));
+    expect(record).toHaveBeenCalledWith('lifecycle-failure', expect.objectContaining({ detail: 'frame-handler-failed: Invalid SDK frame' }));
+    // The hook stays out of the diagnostic row and fires once per failed socket.
+    expect(record.mock.calls.every(([, data]) => !('onFrameHandlerFailed' in data))).toBe(true);
+    expect(frameHandlerFailed).toHaveBeenCalledOnce();
   });
   it("uses only the temporary WebSocket token and keeps status on exchange failures", async () => {
     const { factory, record } = setup();
