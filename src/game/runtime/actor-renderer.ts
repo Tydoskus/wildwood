@@ -8,6 +8,7 @@ import type { RemotePlayer } from "../../wildstat-coop";
 import type { PlayerGender } from "../../../shared/player-gender";
 import type { Camera } from "./camera";
 import { healthBarTextY } from "./health-bar-layout";
+import { ENEMY_STATUS_HP_FONT, createEnemyStatusPlates } from "./enemy-status-plate";
 import type { BossTarget, DuelCombatant, DuelScene, EnemyShot, EnemyState, PlayerState, Projectile } from "./types";
 import { itemPresentation, projectileKindForWeapon } from "../item-presentation";
 import { playerDeathPose, type PlayerDeathAnimationState } from "./player-death-animation";
@@ -214,6 +215,19 @@ export function createActorRenderer(options: {
   const screenX = (worldX: number) => snapWorldRenderCoordinate(worldX - camera.x, camera.zoom, options.devicePixelRatio());
   const screenY = (worldY: number) => snapWorldRenderCoordinate(worldY - camera.y, camera.zoom, options.devicePixelRatio());
   const enemyLabelCache = new Map<string, { name: LabelBitmap; reward: LabelBitmap }>();
+  const statusPlates = createEnemyStatusPlates({ pixelRatio: options.devicePixelRatio });
+  // An enemy's "440 / 500" changes only when its health does; formatting it
+  // every frame for every enemy was most of what its label cost.
+  const hpLabels = new WeakMap<EnemyState, { hp: number; maxHp: number; label: string }>();
+  function enemyHpLabel(enemy: EnemyState, hp: number) {
+    const shownHp = Math.max(0, Math.ceil(hp));
+    const shownMax = Math.ceil(enemy.maxHp);
+    const cached = hpLabels.get(enemy);
+    if (cached && cached.hp === shownHp && cached.maxHp === shownMax) return cached.label;
+    const label = `${formatCompactNumber(shownHp)} / ${formatCompactNumber(shownMax)}`;
+    hpLabels.set(enemy, { hp: shownHp, maxHp: shownMax, label });
+    return label;
+  }
   const enemyLabelFont = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
   const projectileCircleSprites = new Map<string, HTMLCanvasElement>();
   let arrowProjectileSprite: HTMLCanvasElement | null | undefined;
@@ -761,35 +775,38 @@ export function createActorRenderer(options: {
     const barY = spriteTop * camera.zoom - 14;
     const displayedHp = enemy.remoteCombatHp ?? enemy.hp;
     const hpRatio = clamp(displayedHp / enemy.maxHp, 0, 1);
-    const hpLabel = `${formatCompactNumber(Math.max(0, Math.ceil(displayedHp)))} / ${formatCompactNumber(Math.ceil(enemy.maxHp))}`;
+    const hpLabel = enemyHpLabel(enemy, displayedHp);
 
     drawScreenSpaceAt(ctx, camera.zoom, x, y, () => {
       ctx.globalAlpha = visibility;
-      ctx.fillStyle = "rgba(0,0,0,.86)";
-      ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
-      ctx.fillStyle = "#472225";
-      ctx.fillRect(barX, barY, barW, barH);
-      ctx.fillStyle = "#55d568";
-      ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
-      // Only the health just lost lights up, fading out, the way a boss's bar does.
-      const lossTimer = enemy.hpLossFlashTimer ?? 0;
-      if (lossTimer > 0 && (enemy.hpLossFlashFrom ?? 0) > displayedHp) {
-        const fromRatio = clamp((enemy.hpLossFlashFrom ?? 0) / enemy.maxHp, hpRatio, 1);
-        ctx.save();
-        ctx.globalAlpha = visibility * clamp(lossTimer / ENEMY_HP_LOSS_FLASH_SECONDS, 0, 1);
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(barX + Math.round(barW * hpRatio), barY, Math.max(1, Math.round(barW * (fromRatio - hpRatio))), barH);
-        ctx.restore();
-      }
-
-      ctx.textAlign = "center";
       const displayAmount = (reward: EnemyDefinition["reward"]) => options.rewardAmount?.(reward.type, reward.amount) ?? reward.amount * options.rewardMultiplier();
       const labels = enemyLabels(enemy.displayName ?? (enemy.generatedBoss ? enemy.campName : enemy.type), { ...enemy.reward, amount: displayAmount(enemy.reward) });
-      ctx.drawImage(labels.name.canvas, -labels.name.width / 2, barY - 4 - labels.name.anchorY, labels.name.width, labels.name.height);
-
-      ctx.font = '900 10px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-      ctx.textBaseline = "middle";
-      options.outlinedText(hpLabel, barCenterX, healthBarTextY(barY, barH), "#ffffff", 2);
+      // Name and empty bar, plus the full bar and numbers at full health: one
+      // image shared by every enemy of this kind (enemy-status-plate.ts).
+      const full = hpRatio >= 1;
+      const plate = statusPlates.plate(labels.name, barW, barH, full ? hpLabel : null);
+      const smoothing = ctx.imageSmoothingEnabled;
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(plate.canvas, barCenterX + plate.left, barY + plate.top, plate.width, plate.height);
+      ctx.imageSmoothingEnabled = smoothing;
+      if (!full) {
+        ctx.fillStyle = "#55d568";
+        ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
+        // Only the health just lost lights up, fading out, the way a boss's bar does.
+        const lossTimer = enemy.hpLossFlashTimer ?? 0;
+        if (lossTimer > 0 && (enemy.hpLossFlashFrom ?? 0) > displayedHp) {
+          const fromRatio = clamp((enemy.hpLossFlashFrom ?? 0) / enemy.maxHp, hpRatio, 1);
+          ctx.save();
+          ctx.globalAlpha = visibility * clamp(lossTimer / ENEMY_HP_LOSS_FLASH_SECONDS, 0, 1);
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(barX + Math.round(barW * hpRatio), barY, Math.max(1, Math.round(barW * (fromRatio - hpRatio))), barH);
+          ctx.restore();
+        }
+        ctx.textAlign = "center";
+        ctx.font = ENEMY_STATUS_HP_FONT;
+        ctx.textBaseline = "middle";
+        options.outlinedText(hpLabel, barCenterX, healthBarTextY(barY, barH), "#ffffff", 2);
+      }
 
       if (!enemy.remoteCombatGhost) {
         const rewards = enemy.bossRewards?.map(reward => enemyLabels(enemy.displayName ?? enemy.campName, { ...reward, amount: displayAmount(reward) }).reward) ?? [labels.reward];

@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.808": [
+    "Enemy name and health labels draw faster in busy mob groups.",
+  ],
   "0.807": [
     "Enemies respawn every 10 seconds.",
     "The ad now gives 10 Gems, up to 4 times a day, at least 30 minutes apart.",
@@ -2383,6 +2386,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.808": "2026-09-24",
   "0.807": "2026-09-23",
   "0.806": "2026-09-23",
   "0.805": "2026-09-23",
