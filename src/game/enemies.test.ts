@@ -28,8 +28,8 @@ describe("generated encounter economy", () => {
     expect(ENEMY_TYPES.Bramble.reward).toEqual({ type: "health", amount: 14 });
     expect(ENEMY_TYPES["King Slime"].reward).toEqual({ type: "health", amount: 30 });
     expect(ENEMY_TYPES.Mossback.reward).toEqual({ type: "armor", amount: 3 });
-    expect(rewardLabel({ type: "speed", amount: .25 })).toBe("+0.25 ATK/SEC");
-    expect(rewardLabel({ type: "damage", amount: 1.05 })).toBe("+1.05 DAMAGE");
+    expect(rewardLabel({ type: "speed", amount: .25 })).toBe("+0.25 Atk/sec");
+    expect(rewardLabel({ type: "damage", amount: 1.05 })).toBe("+1.05 Damage");
   });
   it("keeps every spawned encounter finite, rewarding, and within its role", () => {
     for (const enemy of Object.values(ENEMY_TYPES)) {

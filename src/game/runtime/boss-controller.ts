@@ -1,3 +1,4 @@
+import { TIDEWYRM_SURGE_WINDUP } from "../constants";
 import { bossVerticalRadius } from "../../../shared/boss-hitbox";
 import { VERDANT_ROOTS, VERDANT_SPORES, verdantRootHits, verdantSporeHits, verdantSporeSites } from "../../../shared/verdant-attacks";
 import { ION_SWEEP, ION_BURSTS, ionSweepHits, ionBurstHits, ionBurstSites } from "../../../shared/ion-attacks";
@@ -129,7 +130,6 @@ const MAGMALISK_BITE_WINDUP = .72;
 const MAGMALISK_BITE_DURATION = .9;
 const GLOOMROOT_SWEEP_WINDUP = .85;
 const GLOOMROOT_SWEEP_DURATION = 1;
-const TIDEWYRM_SURGE_WINDUP = .82;
 const TIDEWYRM_SURGE_DURATION = 1.05;
 const KOI_SHOGUN_SLASH_WINDUP = .78;
 const KOI_SHOGUN_SLASH_DURATION = 1.04;
@@ -641,6 +641,7 @@ export function createBossController(options: {
   }
 
   function resetTidewyrmBoss() {
+    tidewyrmBoss.spriteAttackElapsed = undefined;
     const shared = getTidewyrmBoss();
     if (shared) {
       tidewyrmBoss.encounter = shared.encounter;
@@ -740,6 +741,7 @@ function resetMiremawBoss() {
     resetAbilityTimeline("prismshell");
   }
   function resetIronhornBoss() {
+    ironhornBoss.spriteAttackElapsed = undefined;
     const shared = getIronhornBoss();
     if (shared) {
       ironhornBoss.encounter = shared.encounter;
@@ -759,6 +761,7 @@ function resetMiremawBoss() {
     resetAbilityTimeline("ironhorn");
   }
   function resetDreadreaperBoss() {
+    dreadreaperBoss.spriteAttackElapsed = undefined;
     const shared = getDreadreaperBoss();
     if (shared) {
       dreadreaperBoss.encounter = shared.encounter;
@@ -2657,6 +2660,7 @@ function syncMiremawState() {
   }
 
   function startTidewyrmSurge(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    tidewyrmBoss.spriteAttackElapsed = Math.max(0, elapsedSeconds) - TIDEWYRM_SURGE_WINDUP + .5;
     const elapsed = Math.max(0, elapsedSeconds);
     tidewyrmBoss.surge = {
       angle: Math.atan2(target.y - tidewyrmBoss.y, target.x - tidewyrmBoss.x),
@@ -2669,6 +2673,7 @@ function syncMiremawState() {
   }
 
   function startTidewyrmWhirlpools(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    tidewyrmBoss.spriteAttackElapsed = Math.max(0, elapsedSeconds) - .85 + .5;
     const patternIndex = deterministicPatternIndex ?? tidewyrmWhirlpoolPatternIndex;
     for (let index = 0; index < 11; index += 1) {
       const { angle, radius } = seededBossHazardPolar({
@@ -2700,6 +2705,7 @@ function syncMiremawState() {
   }
 
   function updateTidewyrmBoss(dt: number) {
+    if (tidewyrmBoss.spriteAttackElapsed !== undefined) tidewyrmBoss.spriteAttackElapsed += dt;
     tidewyrmBoss.hpLossFlashTimer = Math.max(0, tidewyrmBoss.hpLossFlashTimer - dt);
     tidewyrmBoss.contactDamageClock = Math.max(0, tidewyrmBoss.contactDamageClock - dt);
     if (tidewyrmBoss.dead) return;
@@ -2922,6 +2928,7 @@ function startMiremawTongue(elapsedSeconds = 0, target: Pick<BossAbilityTarget, 
     prismshellBoss.nextAttack = "crystalBurst";
   }
   function startIronhornShatter(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    ironhornBoss.spriteAttackElapsed = Math.max(0, elapsedSeconds) - IRONHORN_SHATTER_WINDUP + .5;
     const elapsed = Math.max(0, elapsedSeconds);
     ironhornBoss.shatter = {
       angle: Math.atan2(target.y - ironhornBoss.y, target.x - ironhornBoss.x),
@@ -2933,6 +2940,7 @@ function startMiremawTongue(elapsedSeconds = 0, target: Pick<BossAbilityTarget, 
     ironhornBoss.nextAttack = "crystalBurst";
   }
   function startDreadreaperShatter(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    dreadreaperBoss.spriteAttackElapsed = Math.max(0, elapsedSeconds) - DREADREAPER_SHATTER_WINDUP + .5;
     const elapsed = Math.max(0, elapsedSeconds);
     dreadreaperBoss.shatter = {
       angle: Math.atan2(target.y - dreadreaperBoss.y, target.x - dreadreaperBoss.x),
@@ -3068,6 +3076,7 @@ function startMiremawBogBurst(elapsedSeconds = 0, deterministicPatternIndex?: nu
     prismshellBoss.nextAttack = "shatter";
   }
   function startIronhornCrystalBurst(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    ironhornBoss.spriteAttackElapsed = Math.max(0, elapsedSeconds) - 1.05 + .5;
     const patternIndex = deterministicPatternIndex ?? ironhornCrystalBurstPatternIndex;
     // Two staggered rows of scrap leave alternating escape lanes.
     const angle = Math.atan2(target.y - ironhornBoss.y, target.x - ironhornBoss.x) + (patternIndex % 2 ? Math.PI / 2 : 0);
@@ -3090,6 +3099,7 @@ function startMiremawBogBurst(elapsedSeconds = 0, deterministicPatternIndex?: nu
     ironhornBoss.nextAttack = "shatter";
   }
   function startDreadreaperCrystalBurst(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+    dreadreaperBoss.spriteAttackElapsed = Math.max(0, elapsedSeconds) - 1.15 + .5;
     const patternIndex = deterministicPatternIndex ?? dreadreaperCrystalBurstPatternIndex;
     for (let index = 0; index < 10; index += 1) {
       const { angle, radius } = seededBossHazardPolar({
@@ -3370,6 +3380,7 @@ function updateMiremawBoss(dt: number) {
     else startPrismshellCrystalBurst();
   }
   function updateIronhornBoss(dt: number) {
+    if (ironhornBoss.spriteAttackElapsed !== undefined) ironhornBoss.spriteAttackElapsed += dt;
     ironhornBoss.hpLossFlashTimer = Math.max(0, ironhornBoss.hpLossFlashTimer - dt);
     ironhornBoss.contactDamageClock = Math.max(0, ironhornBoss.contactDamageClock - dt);
     if (ironhornBoss.dead) return;
@@ -3441,6 +3452,7 @@ function updateMiremawBoss(dt: number) {
     else startIronhornCrystalBurst();
   }
   function updateDreadreaperBoss(dt: number) {
+    if (dreadreaperBoss.spriteAttackElapsed !== undefined) dreadreaperBoss.spriteAttackElapsed += dt;
     dreadreaperBoss.hpLossFlashTimer = Math.max(0, dreadreaperBoss.hpLossFlashTimer - dt);
     dreadreaperBoss.contactDamageClock = Math.max(0, dreadreaperBoss.contactDamageClock - dt);
     if (dreadreaperBoss.dead) return;

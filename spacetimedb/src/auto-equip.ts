@@ -1,3 +1,4 @@
+import { equipmentLocked } from "./equipment-locks";
 import type { Identity } from "spacetimedb";
 import { itemDefinition, STARTER_STONE } from "../../shared/items";
 import { CAMPAIGN_UNLOCK_FIELDS, equipmentMapRequirement, withoutLockedEquipment } from "../../shared/equipment-access";
@@ -58,6 +59,8 @@ export function createAutoEquip(deps: {
    */
   function withUpgrade(ctx: Ctx, progress: any, itemId: string, inventory: readonly string[]) {
     if (!inventory.includes(itemId) || equipmentMapRequirement(itemId, progress)) return progress;
+    const slot = itemDefinition(itemId)?.slot;
+    if (slot && equipmentLocked(ctx, progress.identity, equippedInSlot(progress, slot))) return progress;
     const current = { ...progress, ...withoutLockedEquipment(progress, progress) };
     if (!isEquipUpgrade(current, itemId, comparisonPower(ctx, progress.identity))) return progress;
     const allowed = allowedLoadout(withItemEquipped(current, itemId), inventory);

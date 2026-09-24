@@ -1,3 +1,4 @@
+import { localDeveloperAccess } from "./local-developer-access.mjs";
 import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import ts from 'typescript';
@@ -102,6 +103,10 @@ export async function createLocalWorkspace(root, columns) {
     async sync() {
       for (const name of ['src', 'shared', 'config', 'spacetimedb/src']) {
         await syncTree(join(root, name), join(directory, name), name === 'src' ? ['module_bindings'] : []);
+      }
+      for (const [relative, server] of [['shared/developer-identity.ts', false], ['spacetimedb/src/index.ts', true]]) {
+        const path = join(directory, relative);
+        await writeFile(path, localDeveloperAccess(await readFile(path, 'utf8'), server));
       }
       if (!Object.keys(columns).length) return;
       const serverSource = join(directory, 'spacetimedb/src');

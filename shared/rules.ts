@@ -1,3 +1,4 @@
+import { CAMPAIGN_MAPS } from "./campaign-registry";
 // Browser- and server-safe values. Keep this module free of DOM, Node, and
 // SpacetimeDB imports so both runtime targets use one gameplay contract.
 import { MAP_EDITOR_GAMEPLAY_OVERRIDES } from "./map-editor-overrides";
@@ -102,18 +103,7 @@ export const BALANCE_LATE_BOSS_TARGET_MAX_SECONDS = BOSS_TARGET_SECONDS;
 // The claim mask is retained as append-only save metadata. It identifies a
 // boss that has been cleared while preserving the published player_progress
 // column; it no longer changes the reward amount.
-export const BOSS_REWARD_CLAIM_BITS = {
-  dragon: 1 << 0,
-  spider: 1 << 1,
-  frostclaw: 1 << 2,
-  magmalisk: 1 << 3,
-  gloomroot: 1 << 4,
-  tidewyrm: 1 << 5,
-  koiShogun: 1 << 6,
-  tempestKirin: 1 << 7,
-  miremaw: 1 << 8,
-  prismshell: 1 << 9, ironhorn: 1 << 10, dreadreaper: 1 << 11, voltwarden: 1 << 12, gravebloom: 1 << 13, aegisPrime: 1 << 14,
-} as const;
+export const BOSS_REWARD_CLAIM_BITS: Record<string, number> = Object.fromEntries(CAMPAIGN_MAPS.map(map => [map.bossKind, 2 ** map.claimIndex]));
 
 // Forest owns its tutorial boss; campaign bosses use Desert-relative tiers.
 // Every clear pays the same modest capstone reward, including repeat clears.
@@ -207,32 +197,11 @@ export const DUSKFALL_ORCHARD_MAP_ID = "duskfall_orchard";
 export const NEON_BASTION_MAP_ID = "neon_bastion";
 export const VERDANT_CATACOMBS_MAP_ID = "verdant_catacombs";
 export const ION_CITADEL_MAP_ID = "ion_citadel";
-export const MAP_DISPLAY_NAMES = {
-  first_steps: "First Steps",
-  home_exterior: "Base",
-  [TUTORIAL_FOREST_MAP_ID]: "Tutorial Forest - 1",
-  [BEGINNER_DESERT_MAP_ID]: "Beginner Desert - 2",
-  [INTERMEDIATE_SNOWLANDS_MAP_ID]: "Intermediate Snowlands - 3",
-  [ADVANCED_LAVA_WASTES_MAP_ID]: "Advanced Lava Lake - 4",
-  [INFERNAL_DEPTHS_MAP_ID]: "Night Forest - 5",
-  [WATER_REACH_MAP_ID]: "Water Reach - 6",
-  [SAMURAI_GARDEN_MAP_ID]: "Samurai Garden - 7",
-  [CLOUDSPIRE_MAP_ID]: "Cloudspire - 8",
-  [MOONFEN_MAP_ID]: "Moonfen - 9",
-  [CRYSTAL_HOLLOWS_MAP_ID]: "Crystal Hollows - 10", [CLOCKWORK_RUINS_MAP_ID]: "Clockwork Ruins - 11", [DUSKFALL_ORCHARD_MAP_ID]: "Duskfall Orchard - 12", [NEON_BASTION_MAP_ID]: "Neon Bastion - 13", [VERDANT_CATACOMBS_MAP_ID]: "Verdant Catacombs - 14", [ION_CITADEL_MAP_ID]: "Ion Citadel - 15",
-} as const;
-export const MAP_IDS: readonly string[] = [
-  TUTORIAL_FOREST_MAP_ID,
-  BEGINNER_DESERT_MAP_ID,
-  INTERMEDIATE_SNOWLANDS_MAP_ID,
-  ADVANCED_LAVA_WASTES_MAP_ID,
-  INFERNAL_DEPTHS_MAP_ID,
-  WATER_REACH_MAP_ID,
-  SAMURAI_GARDEN_MAP_ID,
-  CLOUDSPIRE_MAP_ID,
-  MOONFEN_MAP_ID,
-  CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, NEON_BASTION_MAP_ID, VERDANT_CATACOMBS_MAP_ID, ION_CITADEL_MAP_ID,
-];
+export const MAP_DISPLAY_NAMES: Record<string, string> = {
+  first_steps: "First Steps", home_exterior: "Base",
+  ...Object.fromEntries(CAMPAIGN_MAPS.map((map, index) => [map.id, `${map.displayName.replace(/ - \d+$/, "")} - ${index + 1}`])),
+};
+export const MAP_IDS: readonly string[] = CAMPAIGN_MAPS.map(map => map.id);
 
 /** Keep authored/custom map names and their progression suffix consistent. */
 export function numberedMapName(mapId: string, name: string) {

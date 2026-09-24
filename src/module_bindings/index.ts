@@ -167,6 +167,7 @@ import SetChatMessageReactionReducer from "./set_chat_message_reaction_reducer";
 import SetDeveloperNameTagReducer from "./set_developer_name_tag_reducer";
 import SetDeveloperPresenceReducer from "./set_developer_presence_reducer";
 import SetDisplayNameReducer from "./set_display_name_reducer";
+import SetEquipmentLockedReducer from "./set_equipment_locked_reducer";
 import SetGenderReducer from "./set_gender_reducer";
 import SetGuildVicePresidentReducer from "./set_guild_vice_president_reducer";
 import SetIgnoredDropsReducer from "./set_ignored_drops_reducer";
@@ -277,6 +278,7 @@ import MyDailyGemBonusRow from "./my_daily_gem_bonus_table";
 import MyDefeatSessionRestrictionRow from "./my_defeat_session_restriction_table";
 import MyEndlessTravelAccessRow from "./my_endless_travel_access_table";
 import MyEquipmentCopiesRow from "./my_equipment_copies_table";
+import MyEquipmentLocksRow from "./my_equipment_locks_table";
 import MyEquipmentOffersRow from "./my_equipment_offers_table";
 import MyGemPurchasesRow from "./my_gem_purchases_table";
 import MyGemWalletRow from "./my_gem_wallet_table";
@@ -1208,6 +1210,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyEquipmentCopiesRow),
+  myEquipmentLocks: __table({
+    name: 'my_equipment_locks',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyEquipmentLocksRow),
   myEquipmentOffers: __table({
     name: 'my_equipment_offers',
     indexes: [
@@ -1485,6 +1494,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_developer_name_tag", SetDeveloperNameTagReducer),
   __reducerSchema("set_developer_presence", SetDeveloperPresenceReducer),
   __reducerSchema("set_display_name", SetDisplayNameReducer),
+  __reducerSchema("set_equipment_locked", SetEquipmentLockedReducer),
   __reducerSchema("set_gender", SetGenderReducer),
   __reducerSchema("set_guild_vice_president", SetGuildVicePresidentReducer),
   __reducerSchema("set_ignored_drops", SetIgnoredDropsReducer),

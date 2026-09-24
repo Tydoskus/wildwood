@@ -318,6 +318,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   function upsertProgress(row: ProgressRow) {
     const identity = row.identity.toHexString();
     const progress: PlayerProgress = {
+      bossRewardClaims: row.bossRewardClaims ?? 0,
       maxHp: row.maxHp,
       damage: row.damage,
       attackRate: row.attackRate,
@@ -478,7 +479,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     splitShot: number;
     riposte: number;
   }) {
-    if (row.identity.toHexString() !== dependencies.localIdentity()) return;
+    if (row.identity.toHexString() !== dependencies.localIdentity()) { dependencies.notify(); return; }
     localPrestigePerks = {
       keenEdge: row.keenEdge,
       doubleStrike: row.doubleStrike,
@@ -489,7 +490,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   }
 
   function removePrestigePerk(row: { identity: Identity }) {
-    if (row.identity.toHexString() !== dependencies.localIdentity()) return;
+    if (row.identity.toHexString() !== dependencies.localIdentity()) { dependencies.notify(); return; }
     localPrestigePerks = null;
     dependencies.notify();
   }

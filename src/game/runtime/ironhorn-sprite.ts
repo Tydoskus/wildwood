@@ -1,3 +1,4 @@
+import { bossAnimationClock } from "./boss-animation-clock";
 import atlas from "../enemy-atlases/rhino-armor-512.mjs";
 
 export const IRONHORN_ATLAS = atlas;
@@ -10,14 +11,14 @@ export const IRONHORN_USED_PAGES = [...new Set([
 ])];
 
 export function ironhornSpriteFrame(timeSeconds: number, attackElapsedSeconds?: number) {
-  const motion = attackElapsedSeconds === undefined ? atlas.animations.idle : atlas.animations.attack;
-  const seconds = attackElapsedSeconds ?? timeSeconds;
-  const elapsed = Number.isFinite(seconds) ? Math.max(0, seconds) * 1000 : 0;
+  const { attacking, elapsed } = bossAnimationClock(timeSeconds, attackElapsedSeconds, atlas.animations.attack.durationMs);
+  const motion = attacking ? atlas.animations.attack : atlas.animations.idle;
   const rawIndex = Math.floor(elapsed / motion.frameDurationMs);
   const index = motion.loop ? rawIndex % motion.frames.length : Math.min(rawIndex, motion.frames.length - 1);
   const scale = IRONHORN_SPRITE_HEIGHT / (atlas.bounds.bottom - atlas.bounds.top);
   return {
     ...motion.frames[index],
+    tuningFrame: index + (attacking ? atlas.animations.idle.frames.length : 0),
     drawX: -atlas.anchorX * scale,
     drawY: IRONHORN_SPRITE_HEIGHT / 2 - atlas.bounds.bottom * scale,
     drawWidth: atlas.frameWidth * scale,

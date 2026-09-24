@@ -199,6 +199,7 @@ function renderEquipmentSlot(
   label: string,
   mode: InventoryMode,
   upgradeLevel: (itemId: string) => number,
+  slotTier?: (slot: "HAND" | "HEAD" | "CHEST") => number,
 ) {
   const itemId = equipmentItemId(inventory, destination, mode);
   const item = itemsById[itemId];
@@ -217,7 +218,8 @@ function renderEquipmentSlot(
   element.classList.toggle("is-cosmetic", mode === "COSMETICS" && Boolean(item));
   element.classList.toggle("is-cosmetic-inherited", Boolean(inheritedItem));
   element.classList.toggle("is-cosmetic-hidden", cosmeticHidden);
-  const level = item ? upgradeLevel(itemId) : 0;
+  const track = destination === "HEAD" || destination === "CHEST" ? destination : destination === "FEET" ? null : "HAND";
+  const level = (track && slotTier ? slotTier(track) : item ? upgradeLevel(itemId) : 0);
   element.setAttribute("aria-label", item
     ? `${label}: ${itemDisplayName(itemId, level)}. Tap to inspect.`
     : cosmeticHidden
@@ -250,7 +252,7 @@ function renderEquipmentSlot(
   // name: the name is on the artwork, and the level is the thing this panel is
   // for. Cosmetic slots have no level, so they keep saying what is in them.
   const equipped = item && mode === "EQUIPMENT";
-  name.textContent = equipped
+  name.textContent = track
     ? `Lvl: +${level}`
     : item?.name ?? (cosmeticHidden ? "NOTHING" : inheritedItem ? "GEAR VISIBLE" : mode === "COSMETICS" ? "NOTHING" : "EMPTY");
   element.replaceChildren(slotLabel, art, name);
@@ -272,6 +274,7 @@ export function renderInventoryView(
     /** `copyId` is 0n for an item's first copy and a kept copy's id otherwise. */
     onInspect: (itemId: string, location: EquipmentSlot | "BAG", copyId?: bigint) => void;
     upgradeLevel: (itemId: string) => number;
+    slotTier?: (slot: "HAND" | "HEAD" | "CHEST") => number;
     slotCapacity: number;
     filter?: ItemSlot;
     nextSlotCost?: bigint;
@@ -292,10 +295,10 @@ export function renderInventoryView(
       || (a.copyId < b.copyId ? -1 : a.copyId > b.copyId ? 1 : 0));
   const slotCapacity = cosmetics ? Math.max(50, bagStacks.length) : actions.slotCapacity;
   elements.count.textContent = `${bagStacks.length} / ${slotCapacity} ${cosmetics ? "Cosmetics" : "Items"}`;
-  renderEquipmentSlot(elements.equippedHead, inventory, "HEAD", "HEAD", mode, actions.upgradeLevel);
-  renderEquipmentSlot(elements.equippedChest, inventory, "CHEST", "ARMOR", mode, actions.upgradeLevel);
-  renderEquipmentSlot(elements.equippedRightHand, inventory, inventoryWeaponSlot(inventory, mode), "WEAPON", mode, actions.upgradeLevel);
-  renderEquipmentSlot(elements.equippedFeet, inventory, "FEET", "BOOTS", mode, actions.upgradeLevel);
+  renderEquipmentSlot(elements.equippedHead, inventory, "HEAD", "HEAD", mode, actions.upgradeLevel, actions.slotTier);
+  renderEquipmentSlot(elements.equippedChest, inventory, "CHEST", "ARMOR", mode, actions.upgradeLevel, actions.slotTier);
+  renderEquipmentSlot(elements.equippedRightHand, inventory, inventoryWeaponSlot(inventory, mode), "WEAPON", mode, actions.upgradeLevel, actions.slotTier);
+  renderEquipmentSlot(elements.equippedFeet, inventory, "FEET", "BOOTS", mode, actions.upgradeLevel, actions.slotTier);
 
   const visibleStacks = actions.filter ? bagStacks.filter(stack => itemDefinition(stack.itemId)?.slot === actions.filter) : bagStacks;
   // Keep the full grid footprint while filtering so scroll clamping cannot

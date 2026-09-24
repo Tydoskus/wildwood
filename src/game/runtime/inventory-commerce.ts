@@ -11,6 +11,8 @@ export function createInventoryCommerceActions(options: {
   inventory: InventoryState;
   player: { speed: number; baseMaxHp: number; maxHp: number; hp: number };
   coop: () => {
+    equipmentLocked?: (itemId: string, copyId?: bigint) => boolean;
+    setEquipmentLocked?: (itemId: string, locked: boolean, copyId?: bigint) => Promise<Result>;
     destroyEquipment?: (itemId: string) => Promise<Result>;
     convertItemToCosmetic?: (itemId: string) => Promise<Result>;
     equipmentCopies?: () => readonly KeptCopy[];
@@ -25,6 +27,8 @@ export function createInventoryCommerceActions(options: {
     applyPlayerMaxHealthMultiplierBonus(options.player, options.healthMultiplierBonus());
   };
   return {
+    equipmentLocked: (itemId: string, copyId = 0n) => options.coop()?.equipmentLocked?.(itemId, copyId) ?? false,
+    setEquipmentLocked: async (itemId: string, locked: boolean, copyId = 0n) => options.coop()?.setEquipmentLocked?.(itemId, locked, copyId),
     async destroyEquipment(itemId: string) {
       const result = await options.coop()?.destroyEquipment?.(itemId);
       if (result?.ok) {

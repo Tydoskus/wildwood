@@ -1,5 +1,6 @@
 import { runtimeMapBalance } from "../../shared/map-balance-runtime";
 import {
+  PROCEDURAL_FIRST_TIER,
   generateMap,
   generatedEnemyStats,
   isProceduralMap,
@@ -39,7 +40,7 @@ export function generatedMapContent(id: ProceduralMapId) {
         definition: {
           ...ENEMY_TYPES[kind],
           ...generatedEnemyStats(map, elite ? "Dread Warden" : camp.lane),
-          speed: runtimeMapBalance(id)?.enemies[kind]?.speed ?? campaignMeleeChaseSpeed(14),
+          speed: runtimeMapBalance(id)?.enemies[kind]?.speed ?? campaignMeleeChaseSpeed(PROCEDURAL_FIRST_TIER),
           elite: false,
         },
       });

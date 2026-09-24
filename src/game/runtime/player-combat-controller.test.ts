@@ -190,7 +190,7 @@ describe("player attack timing", () => {
     expect(state.player.combatFacing).toBeNull();
     expect(state.player.throwClock).toBe(0);
     state.controller.attackNearest();
-    expect(state.player.combatFacing).toBe(0);
+    expect(state.player.combatFacing).toBeCloseTo(Math.atan2(state.boss.y + (state.boss.hitboxOffsetY ?? 0) - state.player.y, state.boss.x - state.player.x));
   });
 
   it.each(["starter_stone", "starter_bow"])("plays one release sound for %s at launch, including multishot", (weapon) => {

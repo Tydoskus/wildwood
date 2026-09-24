@@ -22,6 +22,7 @@ const MIN_PROJECTILE_SPEED = 390;
 const MAX_PROJECTILE_SPEED = 2730;
 
 export type PlayerProgress = {
+  bossRewardClaims?: number;
   maxHp: number;
   damage: number;
   attackRate: number;
@@ -64,7 +65,7 @@ export type PlayerProgress = {
   woodenArmorCount: number;
 };
 
-export type ProgressSave = Omit<PlayerProgress, "speedOverride" | "introComplete" | "desertUnlocked" | "snowlandsUnlocked" | "lavaUnlocked" | "infernalUnlocked" | "waterUnlocked" | "samuraiUnlocked" | "cloudspireUnlocked" | "moonfenUnlocked" | "crystalHollowsUnlocked" | "clockworkRuinsUnlocked" | "duskfallOrchardUnlocked" | "neonBastionUnlocked" | "verdantCatacombsUnlocked" | "ionCitadelUnlocked" | "bowCount" | "woodenArmorCount" | "cosmeticItemsJson"> & { enemyKills: number };
+export type ProgressSave = Omit<PlayerProgress, "bossRewardClaims" | "speedOverride" | "introComplete" | "desertUnlocked" | "snowlandsUnlocked" | "lavaUnlocked" | "infernalUnlocked" | "waterUnlocked" | "samuraiUnlocked" | "cloudspireUnlocked" | "moonfenUnlocked" | "crystalHollowsUnlocked" | "clockworkRuinsUnlocked" | "duskfallOrchardUnlocked" | "neonBastionUnlocked" | "verdantCatacombsUnlocked" | "ionCitadelUnlocked" | "bowCount" | "woodenArmorCount" | "cosmeticItemsJson"> & { enemyKills: number };
 
 export function bounded(value: number, min: number, max: number, fallback: number) {
   return Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;

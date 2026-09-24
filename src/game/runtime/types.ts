@@ -229,6 +229,8 @@ type BossStateBase = Circle & {
   contactDamageClock: number;
   hurt: number;
   attackClock: number;
+  /** Visual clip time; negative during warnings, with a half-second lead into the hit. */
+  spriteAttackElapsed?: number;
   encounter: bigint | null;
 };
 

@@ -55,7 +55,7 @@ export function formatStatRewardToastAmount(stat: string, value: number) {
 export function statRewardToastModel(text: string, attackSpeedCapped = false): StatRewardToastModel | null {
   const match = /^(\+\S+)\s+(.+)$/.exec(text.trim());
   if (!match) return null;
-  const stat = match[2];
+  const stat = match[2].toUpperCase();
   const presentation = STAT_REWARD_PRESENTATION[stat];
   const value = statRewardValue(match[1]);
   if (!presentation || value === null) return null;

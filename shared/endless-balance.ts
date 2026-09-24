@@ -1,4 +1,5 @@
-export const ENDLESS_FIRST_TIER = 14;
+import { CAMPAIGN_ENDPOINT } from "./campaign-registry";
+export const ENDLESS_FIRST_TIER = CAMPAIGN_ENDPOINT.endlessTier;
 // A tenfold drop in payout rate starts the long-term grind immediately at Endless 1.
 // Apply equally to regular enemies and bosses so repeat bosses cannot bypass it.
 //

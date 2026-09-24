@@ -136,6 +136,8 @@ export type PlayerLifetime = {
 };
 
 export type PlayerProfileData = {
+  prestigeLevel?: number;
+  prestigePerks?: Partial<import("../../shared/prestige-perks").PrestigePerkRanks>;
   identity: string;
   name: string;
   gender: PlayerGender;

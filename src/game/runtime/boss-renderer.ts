@@ -1,3 +1,6 @@
+import { carapaceAnglerSpriteFrame } from "./carapace-angler-sprite";
+import { BOSS_ART } from "./boss-art";
+import { DRAGON_SPRITE_Y_OFFSET, DRAGON_SPRITE_GROUND_OFFSET, DRAGON_ART_TOP, PRISMSHELL_SPRITE_GROUND_OFFSET, PRISMSHELL_ART_TOP, IRONHORN_ART_TOP, DREADREAPER_ART_TOP } from "../constants";
 import { drawVerdantAttacks } from "./verdant-attack-art";
 import { drawIonAttacks } from "./ion-attack-art";
 import { drawNeonAttacks } from "./neon-attack-art";
@@ -30,7 +33,6 @@ import {
   SPIDER_ART_TOP,
   SPIDER_SPRITE_GROUND_OFFSET,
   TEMPEST_KIRIN_ART_TOP,
-  TIDEWYRM_ART_TOP,
   MIREMAW_SPRITE_GROUND_OFFSET,
   MIREMAW_SPRITE_Y_OFFSET,
   KOI_SHOGUN_ART_TOP,
@@ -43,7 +45,6 @@ import {
   KOI_SHOGUN_SLASH_RANGE,
   KOI_SHOGUN_SPRITE_GROUND_OFFSET,
   KOI_SHOGUN_SPRITE_Y_OFFSET,
-  TIDEWYRM_SPRITE_GROUND_OFFSET,
   TIDEWYRM_SPRITE_Y_OFFSET,
   TIDEWYRM_SURGE_HALF_ANGLE,
   TIDEWYRM_SURGE_RANGE,
@@ -153,7 +154,7 @@ export function createBossRenderer(options: {
   frostclawSpriteCanvas: HTMLCanvasElement;
   magmaliskSpriteCanvas: HTMLCanvasElement;
   gloomrootSpriteCanvas: HTMLCanvasElement;
-  tidewyrmSpriteCanvas: HTMLCanvasElement;
+  tidewyrmSpritePages: HTMLImageElement[];
   koiShogunSpriteCanvas: HTMLCanvasElement;
   tempestKirinSpriteCanvas: HTMLCanvasElement;
   miremawSpriteCanvas: HTMLCanvasElement;
@@ -308,11 +309,14 @@ export function createBossRenderer(options: {
   }
   function drawBoss() {
     if (boss.dead || !options.dragonReady()) return;
-    const canvas = options.dragonSpriteCanvas; const cellW = canvas.width / 4; const drawW = 300; const drawH = 400; const x = screenX(boss.x); const y = screenY(boss.y);
-    options.drawShadow(x, y + 93, 188, .24); ctx.drawImage(canvas, Math.floor(options.gameTime() * 4) % 4 * cellW, 0, cellW, canvas.height, x - drawW / 2, y - drawH / 2, drawW, drawH);
+    const canvas = options.dragonSpriteCanvas; const cellW = canvas.width / 4; const drawW = BOSS_ART.DRAGON.drawWidth; const drawH = BOSS_ART.DRAGON.drawHeight; const x = screenX(boss.x); const y = screenY(boss.y);
+    const frame = Math.floor(options.gameTime() * 4) % 4;
+    options.drawShadow(x, y + DRAGON_SPRITE_Y_OFFSET + DRAGON_SPRITE_GROUND_OFFSET, BOSS_ART.DRAGON.shadowWidth, .24);
+    ctx.save(); ctx.translate(x, y + DRAGON_SPRITE_Y_OFFSET);
+    drawBossSheetFrame(ctx, canvas, { bossId: "DRAGON", frame, cellWidth: cellW, cellHeight: canvas.height, drawWidth: drawW, drawHeight: drawH }); ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: y - drawH / 2,
+      spriteTopY: y + DRAGON_SPRITE_Y_OFFSET + DRAGON_ART_TOP + (bossFrameCrop("DRAGON", frame).statusOffsetY ?? 0),
       barGap: 20,
       barWidth: 220,
       barHeight: 20,
@@ -322,7 +326,7 @@ export function createBossRenderer(options: {
       hpLossFlashFrom: boss.hpLossFlashFrom,
       backgroundColor: "#4d1d1d",
       fillColor: "#d8352d",
-      name: { text: "DRAGON", color: "#f5e9c4" },
+      name: { text: "Dragon", color: "#f5e9c4" },
       rewardBottomOffsetY: -5,
       rewards: [
         { text: rewardText("damage", DRAGON_REWARD_DAMAGE), color: "#ff655a" },
@@ -341,7 +345,7 @@ export function createBossRenderer(options: {
     const x = screenX(spiderBoss.x);
     const y = screenY(spiderBoss.y);
     const spriteTopY = y + frame.topOffset;
-    options.drawShadow(x, y + SPIDER_SPRITE_GROUND_OFFSET, 220, .24);
+    options.drawShadow(x, y + SPIDER_SPRITE_GROUND_OFFSET, BOSS_ART.SPIDER.shadowWidth, .24);
     // Through the same path as every other sheet boss, so its frames can be
     // corrected too. The scorpion is placed from its feet, hence the top.
     ctx.save();
@@ -365,7 +369,7 @@ export function createBossRenderer(options: {
       hpLossFlashFrom: spiderBoss.hpLossFlashFrom,
       backgroundColor: "#342027",
       fillColor: "#9f5c2f",
-      name: { text: "DESERT SCORPION", color: "#f5e9c4" },
+      name: { text: "Desert Scorpion", color: "#f5e9c4" },
       rewardBottomOffsetY: -5,
       rewards: [
         { text: rewardText("damage", SPIDER_REWARD_DAMAGE), color: "#ff655a" },
@@ -462,14 +466,14 @@ export function createBossRenderer(options: {
     if (frostclawBoss.dead || !options.frostclawReady()) return;
     const canvas = options.frostclawSpriteCanvas;
     const cellW = canvas.width / 4;
-    const drawW = 330;
-    const drawH = 440;
+    const drawW = BOSS_ART.FROSTCLAW.drawWidth;
+    const drawH = BOSS_ART.FROSTCLAW.drawHeight;
     const x = screenX(frostclawBoss.x);
     const y = screenY(frostclawBoss.y);
     const visualY = y + FROSTCLAW_SPRITE_Y_OFFSET;
     const frame = frostclawBoss.roar ? 2 : frostclawBoss.rift ? 1 : options.frostclawIcefalls.length ? 3 : Math.floor(options.gameTime() * 3.5) % 4;
     const pulse = frostclawBoss.roar ? 1 + Math.sin(options.gameTime() * 15) * .018 : 1;
-    options.drawShadow(x, visualY + FROSTCLAW_SPRITE_GROUND_OFFSET, 215, .27);
+    options.drawShadow(x, visualY + FROSTCLAW_SPRITE_GROUND_OFFSET, BOSS_ART.FROSTCLAW.shadowWidth, .27);
     ctx.save(); ctx.translate(x, visualY + 2); ctx.scale(pulse, pulse);
     drawBossSheetFrame(ctx, canvas, { bossId: "FROSTCLAW", frame, cellWidth: cellW, cellHeight: canvas.height, drawWidth: drawW, drawHeight: drawH }); ctx.restore();
     drawBossStatus({
@@ -484,7 +488,7 @@ export function createBossRenderer(options: {
       hpLossFlashFrom: frostclawBoss.hpLossFlashFrom,
       backgroundColor: "#17364b",
       fillColor: "#42c9f5",
-      name: { text: "FROSTCLAW", color: "#dff8ff" },
+      name: { text: "Frostclaw", color: "#dff8ff" },
       rewards: [
         { text: rewardText("damage", FROSTCLAW_REWARD_DAMAGE), color: "#ff655a" },
         { text: rewardText("health", FROSTCLAW_REWARD_HEALTH), color: "#6fe48e" },
@@ -547,13 +551,13 @@ export function createBossRenderer(options: {
     // The selected Magmalisk animation deliberately uses only source frames 0–2.
     const frame = options.magmaliskEruptions.length > 0 ? 2 : magmaliskBoss.bite ? 1 : 0;
     // Preprocessing isolates and re-packs each connected pose before rendering.
-    const drawW = 390;
-    const drawH = 520;
+    const drawW = BOSS_ART.MAGMALISK.drawWidth;
+    const drawH = BOSS_ART.MAGMALISK.drawHeight;
     const x = screenX(magmaliskBoss.x);
     const y = screenY(magmaliskBoss.y);
     const visualY = y + MAGMALISK_SPRITE_Y_OFFSET;
     const pulse = options.magmaliskEruptions.length > 0 ? 1 + Math.sin(options.gameTime() * 14) * .016 : 1;
-    options.drawShadow(x, visualY + MAGMALISK_SPRITE_GROUND_OFFSET, 245, .29);
+    options.drawShadow(x, visualY + MAGMALISK_SPRITE_GROUND_OFFSET, BOSS_ART.MAGMALISK.shadowWidth, .29);
     ctx.save();
     ctx.translate(x, visualY);
     ctx.scale(pulse, pulse);
@@ -571,7 +575,7 @@ export function createBossRenderer(options: {
       hpLossFlashFrom: magmaliskBoss.hpLossFlashFrom,
       backgroundColor: "#4b2119",
       fillColor: "#ef6428",
-      name: { text: "MAGMALISK", color: "#ffe0ad" },
+      name: { text: "Magmalisk", color: "#ffe0ad" },
       rewards: [
         { text: rewardText("damage", MAGMALISK_REWARD_DAMAGE), color: "#ff655a" },
         { text: rewardText("health", MAGMALISK_REWARD_HEALTH), color: "#6fe48e" },
@@ -634,13 +638,13 @@ export function createBossRenderer(options: {
     if (gloomrootBoss.dead) return;
     const canvas = options.gloomrootSpriteCanvas;
     const frame = options.gloomrootBlooms.length > 0 ? 3 : gloomrootBoss.sweep ? 1 : 0;
-    const drawW = 430;
-    const drawH = 430;
+    const drawW = BOSS_ART.GLOOMROOT.drawWidth;
+    const drawH = BOSS_ART.GLOOMROOT.drawHeight;
     const x = screenX(gloomrootBoss.x);
     const y = screenY(gloomrootBoss.y);
     const visualY = y + GLOOMROOT_SPRITE_Y_OFFSET;
     const pulse = options.gloomrootBlooms.length > 0 ? 1 + Math.sin(options.gameTime() * 13) * .018 : 1;
-    options.drawShadow(x, visualY + GLOOMROOT_SPRITE_GROUND_OFFSET, 260, .3);
+    options.drawShadow(x, visualY + GLOOMROOT_SPRITE_GROUND_OFFSET, BOSS_ART.GLOOMROOT.shadowWidth, .3);
 
     // A soft moon-sap aura separates the dark treant from the Night Forest,
     // while the fallback guarantees a visible target if its art fails to load.
@@ -694,7 +698,7 @@ export function createBossRenderer(options: {
       hpLossFlashFrom: gloomrootBoss.hpLossFlashFrom,
       backgroundColor: "#14293a",
       fillColor: "#39cbd3",
-      name: { text: "GLOOMROOT", color: "#b9fbf5" },
+      name: { text: "Gloomroot", color: "#b9fbf5" },
       rewards: [
         { text: rewardText("damage", GLOOMROOT_REWARD_DAMAGE), color: "#ff655a" },
         { text: rewardText("health", GLOOMROOT_REWARD_HEALTH), color: "#6fe48e" },
@@ -761,21 +765,20 @@ export function createBossRenderer(options: {
 
   function drawTidewyrmBoss() {
     if (tidewyrmBoss.dead) return;
-    const canvas = options.tidewyrmSpriteCanvas;
-    const frame = options.tidewyrmWhirlpools.length > 0 ? 3 : tidewyrmBoss.surge ? (tidewyrmBoss.surge.windup > 0 ? 2 : 1) : 0;
-    const drawW = 440;
-    const drawH = 440;
+    const surge = tidewyrmBoss.surge;
+    const attackElapsed = tidewyrmBoss.spriteAttackElapsed;
+    const frame = carapaceAnglerSpriteFrame(options.gameTime(), attackElapsed);
+    const page = options.tidewyrmSpritePages[frame.page];
     const x = screenX(tidewyrmBoss.x);
     const y = screenY(tidewyrmBoss.y);
     const visualY = y + TIDEWYRM_SPRITE_Y_OFFSET;
-    const pulse = options.tidewyrmWhirlpools.length > 0 ? 1 + Math.sin(options.gameTime() * 14) * .016 : 1;
-    options.drawShadow(x, visualY + TIDEWYRM_SPRITE_GROUND_OFFSET, 280, .3);
+    // The Unity capture already includes the Angler’s ground shadow.
     ctx.save();
     ctx.translate(x, visualY);
-    ctx.scale(pulse, pulse);
-    if (options.tidewyrmReady() && canvas.width >= 4 && canvas.height >= 2) {
-      const cellW = canvas.width / 4;
-      drawBossSheetFrame(ctx, canvas, { bossId: "TIDEWYRM", frame, cellWidth: cellW, cellHeight: canvas.height, drawWidth: drawW, drawHeight: drawH });
+    if (surge && Math.cos(surge.angle) > 0) ctx.scale(-1, 1);
+    if (options.tidewyrmReady() && page?.naturalWidth > 0) {
+      // Separate crop identity preserves the user's original Tidewyrm adjustments.
+      drawBossAtlasFrame(ctx, page, frame, "CARAPACE_ANGLER");
     } else {
       ctx.fillStyle = "#147f9d";
       ctx.strokeStyle = "#b9f8ff";
@@ -800,7 +803,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY + TIDEWYRM_ART_TOP + (bossFrameCrop("TIDEWYRM", frame).statusOffsetY ?? 0),
+      spriteTopY: visualY + frame.top + (bossFrameCrop("CARAPACE_ANGLER", frame.tuningFrame).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 310,
       barHeight: 23,
@@ -810,7 +813,7 @@ export function createBossRenderer(options: {
       hpLossFlashFrom: tidewyrmBoss.hpLossFlashFrom,
       backgroundColor: "#123b56",
       fillColor: "#35cce5",
-      name: { text: "TIDEWYRM", color: "#c7faff" },
+      name: { text: "Carapace Angler", color: "#c7faff" },
       rewards: [
         { text: rewardText("damage", TIDEWYRM_REWARD_DAMAGE), color: "#ff655a" },
         { text: rewardText("health", TIDEWYRM_REWARD_HEALTH), color: "#6fe48e" },
@@ -879,14 +882,14 @@ export function createBossRenderer(options: {
     if (koiShogunBoss.dead) return;
     const canvas = options.koiShogunSpriteCanvas;
     const frame = options.koiShogunWhirlpools.length > 0 ? 3 : koiShogunBoss.slash ? (koiShogunBoss.slash.windup > 0 ? 2 : 1) : 0;
-    const drawW = 330;
-    const drawH = 440;
+    const drawW = BOSS_ART.KOI_SHOGUN.drawWidth;
+    const drawH = BOSS_ART.KOI_SHOGUN.drawHeight;
     const x = screenX(koiShogunBoss.x);
     const y = screenY(koiShogunBoss.y);
     const visualY = y + KOI_SHOGUN_SPRITE_Y_OFFSET;
     const pulse = options.koiShogunWhirlpools.length > 0 ? 1 + Math.sin(options.gameTime() * 14) * .016 : 1;
     const flipHorizontally = frame === 0 || frame === 1;
-    options.drawShadow(x, visualY + KOI_SHOGUN_SPRITE_GROUND_OFFSET, 210, .3);
+    options.drawShadow(x, visualY + KOI_SHOGUN_SPRITE_GROUND_OFFSET, BOSS_ART.KOI_SHOGUN.shadowWidth, .3);
     ctx.save();
     ctx.translate(x, visualY);
     ctx.scale(flipHorizontally ? -pulse : pulse, pulse);
@@ -923,7 +926,7 @@ export function createBossRenderer(options: {
       hpLossFlashFrom: koiShogunBoss.hpLossFlashFrom,
       backgroundColor: "#482719",
       fillColor: "#e2832d",
-      name: { text: "KOI SHOGUN", color: "#ffe6a4" },
+      name: { text: "Koi Shogun", color: "#ffe6a4" },
       rewards: [
         { text: rewardText("damage", KOI_SHOGUN_REWARD_DAMAGE), color: "#ff655a" },
         { text: rewardText("health", KOI_SHOGUN_REWARD_HEALTH), color: "#6fe48e" },
@@ -992,13 +995,13 @@ export function createBossRenderer(options: {
       : tempestKirinBoss.charge
         ? (tempestKirinBoss.charge.windup > 0 ? 1 : 2)
         : 0;
-    const drawW = 356;
-    const drawH = 542;
+    const drawW = BOSS_ART.TEMPEST_KIRIN.drawWidth;
+    const drawH = BOSS_ART.TEMPEST_KIRIN.drawHeight;
     const x = screenX(tempestKirinBoss.x);
     const y = screenY(tempestKirinBoss.y);
     const visualY = y + TEMPEST_KIRIN_SPRITE_Y_OFFSET;
     const pulse = options.tempestKirinThunderbolts.length > 0 ? 1 + Math.sin(options.gameTime() * 15) * .016 : 1;
-    options.drawShadow(x, visualY + TEMPEST_KIRIN_SPRITE_GROUND_OFFSET, 235, .3);
+    options.drawShadow(x, visualY + TEMPEST_KIRIN_SPRITE_GROUND_OFFSET, BOSS_ART.TEMPEST_KIRIN.shadowWidth, .3);
     ctx.save();
     ctx.translate(x, visualY);
     ctx.scale(pulse, pulse);
@@ -1035,7 +1038,7 @@ export function createBossRenderer(options: {
       hpLossFlashFrom: tempestKirinBoss.hpLossFlashFrom,
       backgroundColor: "#193a67",
       fillColor: "#65c8ff",
-      name: { text: "TEMPEST KIRIN", color: "#e9fbff" },
+      name: { text: "Tempest Kirin", color: "#e9fbff" },
       rewards: [
         { text: rewardText("damage", TEMPEST_KIRIN_REWARD_DAMAGE), color: "#ff655a" },
         { text: rewardText("health", TEMPEST_KIRIN_REWARD_HEALTH), color: "#6fe48e" },
@@ -1318,13 +1321,13 @@ export function createBossRenderer(options: {
       : miremawBoss.tongue
         ? (miremawBoss.tongue.windup > 0 ? 1 : 2)
         : 0;
-    const drawW = 470;
-    const drawH = 532;
+    const drawW = BOSS_ART.MIREMAW.drawWidth;
+    const drawH = BOSS_ART.MIREMAW.drawHeight;
     const x = screenX(miremawBoss.x);
     const y = screenY(miremawBoss.y);
     const visualY = y + MIREMAW_SPRITE_Y_OFFSET;
     const pulse = options.miremawBogBursts.length > 0 ? 1 + Math.sin(options.gameTime() * 14) * .018 : 1;
-    options.drawShadow(x, visualY + MIREMAW_SPRITE_GROUND_OFFSET, 285, .3);
+    options.drawShadow(x, visualY + MIREMAW_SPRITE_GROUND_OFFSET, BOSS_ART.MIREMAW.shadowWidth, .3);
     ctx.save();
     ctx.translate(x, visualY);
     ctx.scale(pulse, pulse);
@@ -1363,7 +1366,7 @@ export function createBossRenderer(options: {
       hpLossFlashFrom: miremawBoss.hpLossFlashFrom,
       backgroundColor: "#193c38",
       fillColor: "#55d6a8",
-      name: { text: "MIREMAW", color: "#e9fff5" },
+      name: { text: "Miremaw", color: "#e9fff5" },
       rewards: [
         { text: rewardText("damage", MIREMAW_REWARD_DAMAGE), color: "#ff655a" },
         { text: rewardText("health", MIREMAW_REWARD_HEALTH), color: "#6fe48e" },
@@ -1390,7 +1393,7 @@ export function createBossRenderer(options: {
     // Ground the transparent artwork with a soft contact shadow. Keep it
     // independent of breathing and attack scaling so it stays on the floor.
     ctx.save();
-    ctx.translate(0, 125);
+    ctx.translate(0, PRISMSHELL_SPRITE_GROUND_OFFSET);
     ctx.scale(175, 48);
     const shadow = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
     shadow.addColorStop(0, "rgba(15, 9, 24, 0.42)");
@@ -1402,7 +1405,7 @@ export function createBossRenderer(options: {
     // The amethyst artwork faces left.
     if (shatter && Math.cos(shatter.angle) > 0) ctx.scale(-1, 1);
     if (options.prismshellReady() && page?.naturalWidth > 0) {
-      drawBossAtlasFrame(ctx, page, frame);
+      drawBossAtlasFrame(ctx, page, frame, "PRISMSHELL");
     } else {
       // A readable armored silhouette remains if the network fails an image.
       ctx.fillStyle = "#74749c";
@@ -1426,7 +1429,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY + frame.top,
+      spriteTopY: visualY + PRISMSHELL_ART_TOP + (bossFrameCrop("PRISMSHELL", frame.tuningFrame).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 330,
       barHeight: 23,
@@ -1436,7 +1439,7 @@ export function createBossRenderer(options: {
       hpLossFlashFrom: prismshellBoss.hpLossFlashFrom,
       backgroundColor: "#333149",
       fillColor: "#ab8be6",
-      name: { text: "PRISMSHELL", color: "#f1e9ff" },
+      name: { text: "Prismshell", color: "#f1e9ff" },
       rewards: [
         { text: rewardText("damage", PRISMSHELL_REWARD_DAMAGE), color: "#ff655a" },
         { text: rewardText("health", PRISMSHELL_REWARD_HEALTH), color: "#6fe48e" },
@@ -1448,11 +1451,7 @@ export function createBossRenderer(options: {
   function drawIronhornBoss() {
     if (ironhornBoss.dead) return;
     const shatter = ironhornBoss.shatter;
-    const attackElapsed = shatter
-      ? 1.85 - shatter.windup - shatter.timer
-      : options.ironhornCrystalBursts.length > 0
-        ? Math.max(...options.ironhornCrystalBursts.map((burst) => burst.maxTimer - burst.timer))
-        : undefined;
+    const attackElapsed = ironhornBoss.spriteAttackElapsed;
     const frame = ironhornSpriteFrame(options.gameTime(), attackElapsed);
     const page = options.ironhornSpritePages[frame.page];
     const x = screenX(ironhornBoss.x);
@@ -1463,7 +1462,7 @@ export function createBossRenderer(options: {
     // The imported prefab faces left and already contains its own shadow.
     if (shatter && Math.cos(shatter.angle) > 0) ctx.scale(-1, 1);
     if (options.ironhornReady() && page?.naturalWidth > 0) {
-      drawBossAtlasFrame(ctx, page, frame);
+      drawBossAtlasFrame(ctx, page, frame, "IRONHORN");
     } else {
       // A readable armored silhouette remains if the network fails an image.
       ctx.fillStyle = "#74749c";
@@ -1487,7 +1486,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY + frame.top,
+      spriteTopY: visualY + IRONHORN_ART_TOP + (bossFrameCrop("IRONHORN", frame.tuningFrame).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 330,
       barHeight: 23,
@@ -1497,7 +1496,7 @@ export function createBossRenderer(options: {
       hpLossFlashFrom: ironhornBoss.hpLossFlashFrom,
       backgroundColor: "#333149",
       fillColor: "#d9a64e",
-      name: { text: "IRONHORN", color: "#f1e9ff" },
+      name: { text: "Ironhorn", color: "#f1e9ff" },
       rewards: [
         { text: rewardText("damage", IRONHORN_REWARD_DAMAGE), color: "#ff655a" },
         { text: rewardText("health", IRONHORN_REWARD_HEALTH), color: "#6fe48e" },
@@ -1509,11 +1508,7 @@ export function createBossRenderer(options: {
   function drawDreadreaperBoss() {
     if (dreadreaperBoss.dead) return;
     const shatter = dreadreaperBoss.shatter;
-    const attackElapsed = shatter
-      ? 1.9 - shatter.windup - shatter.timer
-      : options.dreadreaperCrystalBursts.length > 0
-        ? Math.max(...options.dreadreaperCrystalBursts.map((burst) => burst.maxTimer - burst.timer))
-        : undefined;
+    const attackElapsed = dreadreaperBoss.spriteAttackElapsed;
     const frame = dreadreaperSpriteFrame(options.gameTime(), attackElapsed);
     const page = options.dreadreaperSpritePages[frame.page];
     const x = screenX(dreadreaperBoss.x);
@@ -1524,7 +1519,7 @@ export function createBossRenderer(options: {
     // The imported prefab faces left and already contains its own shadow.
     if (shatter && Math.cos(shatter.angle) > 0) ctx.scale(-1, 1);
     if (options.dreadreaperReady() && page?.naturalWidth > 0) {
-      drawBossAtlasFrame(ctx, page, frame);
+      drawBossAtlasFrame(ctx, page, frame, "DREADREAPER");
     } else {
       // A readable armored silhouette remains if the network fails an image.
       ctx.fillStyle = "#74749c";
@@ -1548,7 +1543,7 @@ export function createBossRenderer(options: {
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY + frame.top,
+      spriteTopY: visualY + DREADREAPER_ART_TOP + (bossFrameCrop("DREADREAPER", frame.tuningFrame).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 330,
       barHeight: 23,
@@ -1558,7 +1553,7 @@ export function createBossRenderer(options: {
       hpLossFlashFrom: dreadreaperBoss.hpLossFlashFrom,
       backgroundColor: "#333149",
       fillColor: "#a3c563",
-      name: { text: "DREADREAPER", color: "#f1e9ff" },
+      name: { text: "Dreadreaper", color: "#f1e9ff" },
       rewards: [
         { text: rewardText("damage", DREADREAPER_REWARD_DAMAGE), color: "#ff655a" },
         { text: rewardText("health", DREADREAPER_REWARD_HEALTH), color: "#6fe48e" },
@@ -1576,7 +1571,7 @@ export function createBossRenderer(options: {
       voltwardenBoss.hurt, options.voltwardenReady() ? options.voltwardenSpritePages[0] : undefined);
     drawBossStatus({
       x,
-      spriteTopY: visualY + VOLTWARDEN_ART_TOP,
+      spriteTopY: visualY + VOLTWARDEN_ART_TOP + (bossFrameCrop("VOLTWARDEN", voltwardenBoss.shatter ? 1 : options.voltwardenCrystalBursts.length > 0 ? 2 : 0).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 330,
       barHeight: 23,
@@ -1586,7 +1581,7 @@ export function createBossRenderer(options: {
       hpLossFlashFrom: voltwardenBoss.hpLossFlashFrom,
       backgroundColor: "#333149",
       fillColor: "#35dae6",
-      name: { text: "VOLTWARDEN", color: "#f1e9ff" },
+      name: { text: "Voltwarden", color: "#f1e9ff" },
       rewards: [
         { text: rewardText("damage", VOLTWARDEN_REWARD_DAMAGE), color: "#ff655a" },
         { text: rewardText("health", VOLTWARDEN_REWARD_HEALTH), color: "#6fe48e" },
@@ -1604,7 +1599,7 @@ export function createBossRenderer(options: {
       gravebloomBoss.hurt, options.gravebloomReady() ? options.gravebloomSpritePages[0] : undefined);
     drawBossStatus({
       x,
-      spriteTopY: visualY + GRAVEBLOOM_ART_TOP,
+      spriteTopY: visualY + GRAVEBLOOM_ART_TOP + (bossFrameCrop("GRAVEBLOOM", 0).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 330,
       barHeight: 23,
@@ -1614,7 +1609,7 @@ export function createBossRenderer(options: {
       hpLossFlashFrom: gravebloomBoss.hpLossFlashFrom,
       backgroundColor: "#333149",
       fillColor: "#35dae6",
-      name: { text: "GRAVEBLOOM", color: "#f1e9ff" },
+      name: { text: "Gravebloom", color: "#f1e9ff" },
       rewards: [
         { text: rewardText("damage", GRAVEBLOOM_REWARD_DAMAGE), color: "#ff655a" },
         { text: rewardText("health", GRAVEBLOOM_REWARD_HEALTH), color: "#6fe48e" },
@@ -1632,7 +1627,7 @@ export function createBossRenderer(options: {
       aegisPrimeBoss.hurt, options.aegisPrimeReady() ? options.aegisPrimeSpritePages[0] : undefined);
     drawBossStatus({
       x,
-      spriteTopY: visualY + AEGIS_PRIME_ART_TOP,
+      spriteTopY: visualY + AEGIS_PRIME_ART_TOP + (bossFrameCrop("AEGIS_PRIME", 0).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 330,
       barHeight: 23,
@@ -1642,7 +1637,7 @@ export function createBossRenderer(options: {
       hpLossFlashFrom: aegisPrimeBoss.hpLossFlashFrom,
       backgroundColor: "#333149",
       fillColor: "#35dae6",
-      name: { text: "AEGIS PRIME", color: "#f1e9ff" },
+      name: { text: "Aegis Prime", color: "#f1e9ff" },
       rewards: [
         { text: rewardText("damage", AEGIS_PRIME_REWARD_DAMAGE), color: "#ff655a" },
         { text: rewardText("health", AEGIS_PRIME_REWARD_HEALTH), color: "#6fe48e" },

@@ -20,6 +20,10 @@ function copy<T>(value: T): T {
     && typeof value.__timestamp_micros_since_unix_epoch__ === "bigint") {
     return new Timestamp(value.__timestamp_micros_since_unix_epoch__) as T;
   }
+  if (value && typeof value === "object" && "__connection_id__" in value
+    && typeof value.__connection_id__ === "bigint") {
+    return new ConnectionId(value.__connection_id__) as T;
+  }
   if (value instanceof Uint8Array) return value.slice() as T;
   if (Array.isArray(value)) return value.map(copy) as T;
   if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, copy(v)])) as T;

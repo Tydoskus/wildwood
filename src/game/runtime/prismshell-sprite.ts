@@ -18,7 +18,7 @@ export function prismshellSpriteFrame(timeSeconds: number, attackElapsedSeconds?
   const scaleX = scale * (1 - breath * 0.4 + pulse * 0.04);
   const scaleY = scale * (1 + breath - pulse * 0.035);
   return {
-    page: 0, x: 0, y: 0, w: pages[0].width, h: pages[0].height,
+    tuningFrame: 0, page: 0, x: 0, y: 0, w: pages[0].width, h: pages[0].height,
     drawX: -(bounds.left + bounds.right) / 2 * scaleX,
     drawY: PRISMSHELL_SPRITE_HEIGHT / 2 - bounds.bottom * scaleY,
     drawWidth: pages[0].width * scaleX,

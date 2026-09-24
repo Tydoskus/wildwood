@@ -113,7 +113,7 @@ export function createProfileWindowController(elements: {
       renderProfileEquipmentSlot(
         equipmentElements[slot],
         presentation,
-        presentation.inspectionItemId ? slotUpgradeLevelFor(profile?.itemUpgradeLevels ?? {}, presentation.inspectionItemId) : 0,
+        profile?.itemUpgradeLevels[slot === "WEAPON" ? "HAND" : slot] ?? 0,
       );
     }
   }
@@ -184,9 +184,9 @@ export function createProfileWindowController(elements: {
     const activeSeconds = online ? Math.max(0, (Date.now() - lifetime.sessionStartedAtMs) / 1000) : 0;
     elements.timePlayed.textContent = api.formatPlayedTime(lifetime.playedSeconds + activeSeconds); elements.kills.textContent = Math.round(lifetime.enemyKills).toLocaleString();
     elements.online.textContent = presence; elements.online.style.color = online ? "#72ef58" : "#b7c5b7";
-    // Only the local player's prestige is subscribed, so the line is theirs alone.
-    const prestigeLevel = own ? api.prestigeLevel?.() ?? 0 : 0;
-    elements.prestigeRow.hidden = !own || prestigeLevel <= 0;
+    // Remote bonuses arrive with the inspected profile subscription.
+    const prestigeLevel = own ? api.prestigeLevel?.() ?? profile.prestigeLevel ?? 0 : profile.prestigeLevel ?? 0;
+    elements.prestigeRow.hidden = prestigeLevel <= 0;
     elements.prestige.textContent = `${prestigeLevel} (+${Math.round(prestigeLevel * PRESTIGE_STAT_GAIN_PER_LEVEL * 100)}% stat gain)`;
     api.renderStats(profile, elements.statGrid);
     loading.hide();
@@ -206,7 +206,7 @@ export function createProfileWindowController(elements: {
     api.paintIcon(elements.icon, api.profileIcon(nextIdentity)); applyAvatarFrame(elements.icon, nextIdentity); const own = nextIdentity === api.localIdentity(); elements.icon.classList.toggle("is-editable", own); elements.icon.disabled = !own; elements.editName.hidden = !own; elements.genderSetting.hidden = !own; closeGenderChoices(); if (own) updateGenderChoices(api.playerGender(nextIdentity));
     if (elements.settings) elements.settings.hidden = !own;
     renderEquipment(null); updatePreview(nextIdentity, own); renderPower("—"); selectTab("stats"); loading.show();
-    const cached = api.profile(nextIdentity); if (cached) { render(cached); return; }
+    const cached = api.profile(nextIdentity); if (cached) { render(cached); if (own) return; }
     try {
       const loaded = await api.loadProfile(nextIdentity); if (nextIdentity !== identity) return;
       if (loaded) render(loaded); else loading.fail();

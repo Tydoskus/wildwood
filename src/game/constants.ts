@@ -17,7 +17,7 @@ export const MAGMALISK_AGGRO_RANGE = 650;
 export const MAGMALISK_BITE_RANGE = 760;
 export const MAGMALISK_BITE_HALF_ANGLE = .42;
 export const MAGMALISK_SPRITE_Y_OFFSET = -8;
-export const MAGMALISK_SPRITE_GROUND_OFFSET = 152;
+export const MAGMALISK_SPRITE_GROUND_OFFSET = 138;
 export const GLOOMROOT_AGGRO_RANGE = 675;
 export const GLOOMROOT_SWEEP_RANGE = 820;
 export const GLOOMROOT_SWEEP_HALF_ANGLE = .5;
@@ -66,7 +66,7 @@ export const DREADREAPER_SPRITE_Y_OFFSET = 0;
 export const VOLTWARDEN_SPRITE_Y_OFFSET = 0;
 export const GRAVEBLOOM_SPRITE_Y_OFFSET = 0;
 export const AEGIS_PRIME_SPRITE_Y_OFFSET = 0;
-export const MIREMAW_SPRITE_GROUND_OFFSET = 141;
+export const MIREMAW_SPRITE_GROUND_OFFSET = 187;
 /**
  * Where the creature's own pixels start inside its cell, measured from the
  * sprite's centre. The status bar hangs off this rather than the cell's top
@@ -77,12 +77,6 @@ export const MIREMAW_SPRITE_GROUND_OFFSET = 141;
  */
 export const MIREMAW_ART_TOP = -45;
 export const KOI_SHOGUN_ART_TOP = -150;
-export const PRISMSHELL_SPRITE_GROUND_OFFSET = 170;
-export const IRONHORN_SPRITE_GROUND_OFFSET = 170;
-export const DREADREAPER_SPRITE_GROUND_OFFSET = 170;
-export const VOLTWARDEN_SPRITE_GROUND_OFFSET = 170;
-export const GRAVEBLOOM_SPRITE_GROUND_OFFSET = 170;
-export const AEGIS_PRIME_SPRITE_GROUND_OFFSET = 170;
 export const BASE_PROJECTILE_SPEED = PLAYER_PROJECTILE_SPEED;
 export const MAX_PROJECTILE_SPEED = BASE_PROJECTILE_SPEED * 7;
 export const PLAYER_KNOCKBACK_FORCE = 90;
@@ -146,3 +140,22 @@ export const GRAVEBLOOM_DEPTH_OFFSET = 170;
 export const AEGIS_PRIME_DEPTH_OFFSET = 170;
 /** How long the lost chunk of an enemy's health bar stays lit after the last hit. */
 export const ENEMY_HP_LOSS_FLASH_SECONDS = .35;
+
+// Presentation anchors shared with the boss tuner.
+export const DRAGON_SPRITE_Y_OFFSET = 0;
+export const DRAGON_ART_TOP = -200;
+export const DRAGON_SPRITE_GROUND_OFFSET = 93;
+export const PRISMSHELL_ART_TOP = -170;
+export const IRONHORN_ART_TOP = -170;
+export const DREADREAPER_ART_TOP = -170;
+export const VOLTWARDEN_ART_TOP = -200;
+export const GRAVEBLOOM_ART_TOP = -240;
+export const AEGIS_PRIME_ART_TOP = -240;
+export const PRISMSHELL_SPRITE_GROUND_OFFSET = 125;
+export const IRONHORN_SPRITE_GROUND_OFFSET = 0;
+export const DREADREAPER_SPRITE_GROUND_OFFSET = 0;
+export const VOLTWARDEN_SPRITE_GROUND_OFFSET = 143;
+export const GRAVEBLOOM_SPRITE_GROUND_OFFSET = 115;
+export const AEGIS_PRIME_SPRITE_GROUND_OFFSET = 140;
+
+export const TIDEWYRM_SURGE_WINDUP = .82;

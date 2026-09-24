@@ -1,3 +1,4 @@
+import { createInventoryLockMode } from "./inventory-lock-mode";
 import { createInventoryFilters, type InventoryFilter } from "./inventory-filters";
 import {
   type EquipmentSlot,
@@ -30,7 +31,10 @@ type InventoryDependencies = {
   moveCosmetic: (itemId: string, destination: EquipmentSlot | "BAG") => boolean;
   toggleCosmeticVisibility: (destination: EquipmentSlot) => boolean;
   upgradeLevel: (itemId: string) => number;
+  slotTier?: (slot: "HAND" | "HEAD" | "CHEST") => number;
   equipBest?: () => boolean;
+  equipmentLocked?: (itemId: string, copyId?: bigint) => boolean;
+  setEquipmentLocked?: (itemId: string, locked: boolean, copyId?: bigint) => Promise<Result>;
   equipmentRequirement?: (itemId: string) => string | null;
   itemInspection: ItemInspectionController;
   inventorySlotsUnlocked: () => number;
@@ -118,7 +122,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   const confirmDestroy = dependencies.confirmDestroy ?? gameConfirm;
   const equipBestButton = filters.bar.querySelector<HTMLElement>(".inventory-equip-best");
   const deleteMode = createInventoryDeleteMode({
-    canDelete: canDestroyEquipment,
+    canDelete: (itemId, copyId) => canDestroyEquipment(itemId) && !dependencies.equipmentLocked?.(itemId, copyId),
     keptCopyIds: itemId => keptCopiesOf(itemId).map(copy => copy.id),
     destroyEquipment: dependencies.destroyEquipment,
     destroyEquipmentCopy: dependencies.destroyEquipmentCopy,
@@ -126,10 +130,15 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     showMessage: dependencies.showMessage,
     onDeleted: () => { clearInventorySelection(dependencies.inventory); render(); },
     // Equip best makes way for Cancel and Delete while picking.
-    onModeChange: active => { if (equipBestButton) equipBestButton.hidden = active || mode === "COSMETICS"; },
+    onModeChange: active => { if (active) lockMode?.exit(); if (equipBestButton) equipBestButton.hidden = active || mode === "COSMETICS"; },
     panel,
   });
   equipBestButton?.before(deleteMode.element);
+  const lockMode = createInventoryLockMode({ panel, locked: (itemId, copyId) => dependencies.equipmentLocked?.(itemId, copyId) ?? false,
+    setLocked: (itemId, locked, copyId) => dependencies.setEquipmentLocked?.(itemId, locked, copyId) ?? Promise.resolve({ ok: false, error: "NOT CONNECTED" }),
+    onEnter: () => deleteMode.exit(), render: () => { renderedState = ""; render(); }, showMessage: dependencies.showMessage });
+  equipBestButton?.before(lockMode.button);
+
 
   const equipmentElements: Record<EquipmentSlot, HTMLElement> = {
     HEAD: equippedHead,
@@ -150,6 +159,11 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   }
 
   function move(itemId: string, destination: EquipmentSlot | "BAG") {
+    if (mode === "EQUIPMENT") {
+      const inv = dependencies.inventory;
+      const previous = destination === "HEAD" ? inv.equippedHead : destination === "CHEST" ? inv.equippedChest : destination === "FEET" ? inv.equippedFeet : destination === "BAG" ? itemId : inv.equippedRightHand || inv.equippedLeftHand;
+      if (dependencies.equipmentLocked?.(previous)) { dependencies.showMessage("Unlock equipment before replacing it.", "#79c9ff"); return false; }
+    }
     const moved = mode === "COSMETICS"
       ? dependencies.moveCosmetic(itemId, destination)
       : dependencies.move(itemId, destination);
@@ -164,6 +178,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
 
   /** `copyId` 0n is the item's first copy: the bag entry, or whatever its slot holds. */
   function inspect(itemId: string, location: Exclude<InventoryLocation, "">, copyId = 0n) {
+    if (lockMode.active() && mode === "EQUIPMENT") { void lockMode.pick(itemId, copyId); return; }
     // In delete mode a bag tap picks the item; equipped gear cannot be picked.
     if (deleteMode.active()) {
       if (location === "BAG") deleteMode.pick(itemId, copyId);
@@ -209,9 +224,9 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     return [{
       label: equipped && !skilled ? "SAME AS EQUIPPED" : "EQUIP",
       kind: "PRIMARY" as const,
-      disabled: locked || (equipped && !skilled) || !dependencies.selectEquipmentCopy,
+      disabled: locked || Boolean(dependencies.equipmentLocked?.(copy.itemId)) || (equipped && !skilled) || !dependencies.selectEquipmentCopy,
       onActivate: async () => {
-        if (skilled) {
+        {
           const result = await dependencies.selectEquipmentCopy?.(copy.id);
           if (!result?.ok) {
             dependencies.showMessage(result?.error ?? "NOT CONNECTED", "#ff9b91");
@@ -269,7 +284,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
    * the bag must not drop the item locally the way a last copy's destroy does.
    */
   function destructionActions(itemId: string, copyId = 0n) {
-    if (!dependencies.inventory.itemIds.includes(itemId)) return [];
+    if (!dependencies.inventory.itemIds.includes(itemId) || dependencies.equipmentLocked?.(itemId, copyId)) return [];
     const destroyCopy = dependencies.destroyEquipmentCopy;
     const oneOfSeveral = Boolean(destroyCopy) && (copyId !== 0n || keptCopiesOf(itemId).length > 0);
     return canDestroyEquipment(itemId) ? [{
@@ -295,8 +310,8 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   function render() {
     const inventory = dependencies.inventory;
     const copies = dependencies.equipmentCopies?.() ?? [];
-    const nextState = JSON.stringify([mode, filter, inventory, dependencies.inventorySlotsUnlocked(), unlockingSlot,
-      inventory.itemIds.map(itemId => dependencies.upgradeLevel(itemId)), copies.map(copy => `${copy.id}:${copy.itemId}`)]);
+    const nextState = JSON.stringify([mode, filter, inventory, inventory.itemIds.map(id => dependencies.equipmentLocked?.(id)), dependencies.inventorySlotsUnlocked(), unlockingSlot,
+      ["HEAD", "CHEST", "HAND"].map(slot => dependencies.slotTier?.(slot as "HEAD" | "CHEST" | "HAND")), inventory.itemIds.map(itemId => dependencies.upgradeLevel(itemId)), copies.map(copy => `${copy.id}:${copy.itemId}:${dependencies.equipmentLocked?.(copy.itemId, copy.id)}`)]);
     if (nextState === renderedState) return;
     renderedState = nextState;
     const cosmeticsActive = mode === "COSMETICS";
@@ -323,6 +338,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
         copies,
         filter: filter === "ALL" ? undefined : filter,
         upgradeLevel: dependencies.upgradeLevel,
+        slotTier: dependencies.slotTier,
         slotCapacity,
         nextSlotCost: slotCapacity < MAX_INVENTORY_SLOT_CAPACITY
           ? inventorySlotUnlockCost(slotsUnlocked)
@@ -332,6 +348,9 @@ export function createInventoryController(dependencies: InventoryDependencies) {
           : () => { void unlockNextSlot(); },
       },
     );
+    lockMode.button.hidden = cosmeticsActive;
+    if (cosmeticsActive) lockMode.exit();
+    lockMode.decorate();
     deleteMode.decorate(items);
     syncSlotSizes();
   }
@@ -394,6 +413,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   const setMode = (nextMode: InventoryMode) => {
     if (mode === nextMode) return;
     deleteMode.exit();
+    lockMode.exit();
     mode = nextMode;
     clearInventorySelection(dependencies.inventory);
     render();
@@ -416,6 +436,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     prepareOpen: () => {
       dependencies.itemInspection.close();
       deleteMode.exit();
+      lockMode.exit();
       clearInventorySelection(dependencies.inventory);
     },
     mode: () => mode,

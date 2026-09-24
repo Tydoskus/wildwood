@@ -1,3 +1,4 @@
+import { mergeEquipmentLocks, removeEquipmentLocks } from "./equipment-locks";
 // Guest-to-account claiming and identity removal: the claimGuestAccount body
 // that folds a guest save into its signed-in identity, the helpers that erase
 // a player or simulated client row by row, and the account-link and
@@ -210,6 +211,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
     mergeOnboarding(ctx, link.guest, ctx.sender);
     mergeAudioSettings(ctx, link.guest, ctx.sender);
     mergeLootSettings(ctx, link.guest, ctx.sender);
+    mergeEquipmentLocks(ctx, link.guest, ctx.sender);
     mergeIgnoredDrops(ctx, link.guest, ctx.sender);
     const guestBalance = ctx.db.playerBalanceVersion.identity.find(link.guest);
     const guestBalanceVersion = guestBalance?.version ?? 0;
@@ -753,6 +755,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.playerMultiplayerPreference.identity.find(identity)) ctx.db.playerMultiplayerPreference.identity.delete(identity);
     removeAudioSettings(ctx, identity);
     removeLootSettings(ctx, identity);
+    removeEquipmentLocks(ctx, identity);
     removeIgnoredDrops(ctx, identity);
     for (const cursor of ctx.db.regularEnemyLootCursor.identity.filter(identity)) ctx.db.regularEnemyLootCursor.key.delete(cursor.key);
     if (ctx.db.playerOnboarding.identity.find(identity)) ctx.db.playerOnboarding.identity.delete(identity);
@@ -862,6 +865,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.playerMultiplayerPreference.identity.find(identity)) ctx.db.playerMultiplayerPreference.identity.delete(identity);
     removeAudioSettings(ctx, identity);
     removeLootSettings(ctx, identity);
+    removeEquipmentLocks(ctx, identity);
     removeIgnoredDrops(ctx, identity);
     for (const cursor of ctx.db.regularEnemyLootCursor.identity.filter(identity)) ctx.db.regularEnemyLootCursor.key.delete(cursor.key);
     if (ctx.db.playerOnboarding.identity.find(identity)) ctx.db.playerOnboarding.identity.delete(identity);

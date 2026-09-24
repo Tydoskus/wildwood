@@ -1,3 +1,4 @@
+import { CAMPAIGN_MAPS } from "./campaign-registry";
 import type { MapBalanceSnapshot } from "./map-balance-types";
 import { personalBossDefinition } from "./personal-bosses";
 import { ENEMY_TYPES, type EnemyKind } from "./enemy-definitions";
@@ -54,16 +55,17 @@ export function enemyDefeatDefinition(mapId: string, enemy: string, balance?: Ma
     return null;
   }
   const fallback = CAMPS[mapId];
-  if (!fallback || !Object.prototype.hasOwnProperty.call(ENEMY_TYPES, enemy)) return null;
+  if (!Object.prototype.hasOwnProperty.call(ENEMY_TYPES, enemy)) return null;
   const saved = (designs.maps as Record<string, { status: string; spawnCamps: camps.SpawnCamp[] }>)[mapId];
   const rows = saved?.status === "live" && saved.spawnCamps.length ? saved.spawnCamps : fallback;
+  if (!rows) return null;
   // Shuffling changes positions, never the number of each species.
   const population = rows.reduce((sum, camp) => sum + Array.from({ length: camp.count }, (_, i) => camp.types[i % camp.types.length]).filter(type => type === enemy).length, 0);
   if (!population) return null;
   const definition = balance?.enemies[enemy] ?? ENEMY_TYPES[enemy as EnemyKind];
   return { reward: definition.reward, hp: definition.hp, population, loot: !(mapId === "beginner_desert" && definition.elite) };
 }
-export function combatMap(mapId: string) { return Object.prototype.hasOwnProperty.call(CAMPS, mapId) || isProceduralMap(mapId); }
+export function combatMap(mapId: string) { return CAMPAIGN_MAPS.some(map => map.id === mapId) || isProceduralMap(mapId); }
 
 /**
  * Nobody can kill a species faster than it comes back, and the fastest it

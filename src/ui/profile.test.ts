@@ -297,3 +297,12 @@ describe("stat gain multiplication", () => {
     expect(gain(0, 0)).toMatchObject({ hideEquation: true, sources: [], total: "+0%" });
   });
 });
+
+it("uses a remote profile's prestige bonuses without local-only arguments", () => {
+  const remote = { identity: "friend", progress: progress(), research: createEmptyResearchRanks(), itemUpgradeLevels: {},
+    prestigeLevel: 3, prestigePerks: { keenEdge: 2 } } as unknown as Parameters<typeof profileStatDisplayRows>[0];
+  const implicit = profileStatDisplayRows(remote, () => "0%", MIN_ATTACK_INTERVAL);
+  const explicit = profileStatDisplayRows(remote, () => "0%", MIN_ATTACK_INTERVAL, remote.research, 3, { keenEdge: 2 });
+  expect(implicit).toEqual(explicit);
+  expect(implicit.find(row => row.kind === "stat-gain")?.sources).toContainEqual({ label: "Prestige", value: "1.30×" });
+});

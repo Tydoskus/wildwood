@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GLOOMROOT_RADIUS, KOI_SHOGUN_RADIUS, MAGMALISK_RADIUS, MIREMAW_RADIUS, TEMPEST_KIRIN_RADIUS, TIDEWYRM_RADIUS } from "../../shared/boss-hitbox";
+import { PRISMSHELL_RADIUS, GLOOMROOT_RADIUS, KOI_SHOGUN_RADIUS, MAGMALISK_RADIUS, MIREMAW_RADIUS, TEMPEST_KIRIN_RADIUS, TIDEWYRM_RADIUS } from "../../shared/boss-hitbox";
 import { GLOOMROOT_MAX_HP, KOI_SHOGUN_MAX_HP, MAGMALISK_MAX_HP, MIREMAW_MAX_HP, PRISMSHELL_MAX_HP, TEMPEST_KIRIN_MAX_HP, TIDEWYRM_MAX_HP } from "../../shared/rules";
 import { ENEMY_TYPES } from "./enemies";
 import { createGameBootstrap } from "./runtime/game-bootstrap";
@@ -185,7 +185,7 @@ describe("Advanced Lava Lake", () => {
     expect(bootstrap.mapConfig[MOONFEN_MAP_ID].secondaryPortal.destination).toBe(CRYSTAL_HOLLOWS_MAP_ID);
     expect(map.portal.destination).toBe(MOONFEN_MAP_ID);
     expect(map.name).toBe("Crystal Hollows - 10");
-    expect(bootstrap.prismshellBoss).toMatchObject({ x: 4050, y: 4050, r: 170, maxHp: PRISMSHELL_MAX_HP });
+    expect(bootstrap.prismshellBoss).toMatchObject({ x: 4050, y: 4050, r: PRISMSHELL_RADIUS, maxHp: PRISMSHELL_MAX_HP });
     expect(layout).toEqual(createWorldLayout(map.arrival, CRYSTAL_HOLLOWS_MAP_ID));
     expect(layout.paths).not.toEqual(createWorldLayout(map.arrival, MOONFEN_MAP_ID).paths);
     expect(sites).toHaveLength(30);

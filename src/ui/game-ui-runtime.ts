@@ -15,7 +15,6 @@ import { createOverlaysController } from "./overlays-controller";
 import { createRuntimeHudController } from "./runtime-hud-controller";
 import { createPrestigeController } from "./prestige-panel";
 import { createPrestigeUnlockPopup } from "./prestige-unlock-popup";
-import { proceduralMapId } from "../../shared/procedural-maps";
 import { createTechTreeController } from "./tech-tree-controller";
 
 export function createHomeStationTouchHandler(
@@ -85,7 +84,7 @@ export function createPrestigeUnlockRuntime(d: Record<string, any>) {
     ready: () => Boolean(d.playing() && coop?.isConnected?.() && coop?.localState?.() && !coop?.accountState?.()?.sessionConflict),
     blocked: d.blocked,
     level: () => coop?.prestige?.()?.level ?? 0,
-    campaignComplete: () => Boolean(coop?.proceduralMapUnlocked?.(proceduralMapId(1))),
+    campaignComplete: () => Boolean(coop?.prestigeCampaignComplete?.((coop?.prestige?.()?.level ?? 0) + 1)),
     completedEndless: () => coop?.proceduralCompleted?.() ?? 0,
     runPrestige: d.runPrestige,
     showMessage: d.showMessage,

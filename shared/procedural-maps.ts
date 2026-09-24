@@ -1,7 +1,10 @@
+import { finalCampaignEnemy, finalCampaignBoss } from "./campaign-combat-baseline";
+import { CAMPAIGN_ENDPOINT } from "./campaign-registry";
 import { runtimeMapBalance } from "./map-balance-runtime";
 import {
   campaignEnemyRewardMultiplier,
   bossHeavyHitAt,
+  bossRewardValue,
   desertBossHealthAt,
   desertLaneCombatValue,
   desertLaneRewardValue,
@@ -15,9 +18,9 @@ import { endlessScaling } from "./endless-balance";
 export type ProceduralMapId = `endless_${number}`;
 export const PROCEDURAL_PREFIX = "endless_";
 export const PROCEDURAL_MAP_VERSION = 2;
-export const PROCEDURAL_ENTRY_MAP = "ion_citadel";
-export const PROCEDURAL_ENTRY_BOSS = "aegisPrime";
-export const PROCEDURAL_FIRST_TIER = 14; // Desert is tier zero; this follows Ion.
+export const PROCEDURAL_ENTRY_MAP = CAMPAIGN_ENDPOINT.mapId;
+export const PROCEDURAL_ENTRY_BOSS = CAMPAIGN_ENDPOINT.bossKind;
+export const PROCEDURAL_FIRST_TIER = CAMPAIGN_ENDPOINT.endlessTier;
 export const PROCEDURAL_WORLD = { width: 4800, height: 4800 };
 export function proceduralMapNumber(id: string): number | null {
   if (!/^endless_[1-9]\d{0,15}$/.test(id)) return null;
@@ -200,26 +203,31 @@ export function generatedEnemyStats(
   const remote = !authored && runtimeMapBalance(`endless_${map.number}`)?.lanes[lane];
   if (remote) return { ...remote, reward: { ...remote.reward } };
   const scale = endlessScaling(map.number);
+  const previousTier = PROCEDURAL_FIRST_TIER - 1;
+  const previous = finalCampaignEnemy(lane);
+  const expectedPrevious = desertLaneCombatValue(lane, previousTier);
   const reward = desertLaneRewardValue(lane, PROCEDURAL_FIRST_TIER);
+  reward.amount *= previous.reward.amount / desertLaneRewardValue(lane, previousTier).amount;
   reward.amount *=
     campaignEnemyRewardMultiplier(PROCEDURAL_FIRST_TIER - 1) /
     campaignEnemyRewardMultiplier(PROCEDURAL_FIRST_TIER) * scale.rewards;
   const combat = desertLaneCombatValue(lane, PROCEDURAL_FIRST_TIER);
   const armor = referenceBuildForMap(PROCEDURAL_FIRST_TIER).armor;
-  return { hp: combat.hp * scale.combatStats * scale.endurance,
-    damage: combat.damage * scale.combatStats * (1 - armorDamageReduction(armor)) / (1 - armorDamageReduction(armor * scale.combatStats)), reward };
+  return { hp: combat.hp * previous.hp / expectedPrevious.hp * scale.combatStats * scale.endurance,
+    damage: combat.damage * previous.damage / expectedPrevious.damage * scale.combatStats * (1 - armorDamageReduction(armor)) / (1 - armorDamageReduction(armor * scale.combatStats)), reward };
 }
 export function generatedBossStats(map: Pick<GeneratedMap, "number">, authored = false) {
   const remote = !authored && runtimeMapBalance(`endless_${map.number}`)?.boss;
   if (remote) return { hp: remote.hp, damage: remote.damage, rewards: Object.entries(remote.rewards).map(([type, amount]) => ({ type: type as RewardStat, amount })) };
   const scale = endlessScaling(map.number);
   const armor = referenceBuildForMap(PROCEDURAL_FIRST_TIER).armor * 3;
+  const previous = finalCampaignBoss(), previousTier = PROCEDURAL_FIRST_TIER - 1;
   return {
-    hp: desertBossHealthAt(PROCEDURAL_FIRST_TIER) * scale.combatStats * scale.endurance,
-    damage: bossHeavyHitAt(PROCEDURAL_FIRST_TIER) * scale.combatStats * (1 - armorDamageReduction(armor)) / (1 - armorDamageReduction(armor * scale.combatStats)),
+    hp: previous.hp * desertBossHealthAt(PROCEDURAL_FIRST_TIER) / desertBossHealthAt(previousTier) * scale.combatStats * scale.endurance,
+    damage: previous.damage * bossHeavyHitAt(PROCEDURAL_FIRST_TIER) / bossHeavyHitAt(previousTier) * scale.combatStats * (1 - armorDamageReduction(armor)) / (1 - armorDamageReduction(armor * scale.combatStats)),
     rewards: (["Cindermaw", "Bramble", "Mossback", "Brood"] as const).map(lane => {
       const reward = generatedEnemyStats(map, lane, authored).reward;
-      return { ...reward, amount: reward.amount * 10 };
+      return { ...reward, amount: reward.amount * 10 * previous.reward(reward.type) / bossRewardValue(reward.type, previousTier) };
     }),
   };
 }

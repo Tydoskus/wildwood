@@ -1,3 +1,4 @@
+import { CAMPAIGN_MAPS, type CampaignMapDefinition } from "./campaign-registry";
 import { itemTier } from "./item-tier";
 import { canonicalItemId } from "./items";
 import { MAP_IDS, MAP_DISPLAY_NAMES } from "./rules";
@@ -5,10 +6,18 @@ import { MAP_IDS, MAP_DISPLAY_NAMES } from "./rules";
 export const CAMPAIGN_UNLOCK_FIELDS = ["desertUnlocked", "snowlandsUnlocked", "lavaUnlocked", "infernalUnlocked",
   "waterUnlocked", "samuraiUnlocked", "cloudspireUnlocked", "moonfenUnlocked", "crystalHollowsUnlocked",
   "clockworkRuinsUnlocked", "duskfallOrchardUnlocked", "neonBastionUnlocked", "verdantCatacombsUnlocked", "ionCitadelUnlocked"] as const;
-export type CampaignAccess = Partial<Record<typeof CAMPAIGN_UNLOCK_FIELDS[number], boolean>>;
+export type CampaignAccess = Partial<Record<typeof CAMPAIGN_UNLOCK_FIELDS[number], boolean>> & { bossRewardClaims?: number };
 
+/** Existing saves retain their flags; added maps use the preceding boss's claim. */
+export function campaignMapUnlocked(index: number, progress: CampaignAccess, maps: readonly CampaignMapDefinition[] = CAMPAIGN_MAPS) {
+  if (index === 0) return true;
+  const map = maps[index];
+  if (!map || index < 0) return false;
+  if ((CAMPAIGN_UNLOCK_FIELDS as readonly string[]).includes(map.unlockField)) return Boolean(progress[map.unlockField as typeof CAMPAIGN_UNLOCK_FIELDS[number]]);
+  return Boolean((progress.bossRewardClaims ?? 0) & 2 ** maps[index - 1].claimIndex);
+}
 export function highestCampaignMap(progress: CampaignAccess) {
-  return CAMPAIGN_UNLOCK_FIELDS.reduce((highest, field, index) => progress[field] ? index + 1 : highest, 0);
+  return CAMPAIGN_MAPS.reduce((highest, _map, index) => campaignMapUnlocked(index, progress) ? index : highest, 0);
 }
 
 /**
@@ -19,13 +28,13 @@ export function highestCampaignMap(progress: CampaignAccess) {
  */
 export function accessibleCampaignMap(mapId: string, progress: CampaignAccess): string {
   const rung = MAP_IDS.indexOf(mapId);
-  if (rung <= 0 || progress[CAMPAIGN_UNLOCK_FIELDS[rung - 1]]) return mapId;
+  if (rung <= 0 || campaignMapUnlocked(rung, progress)) return mapId;
   return MAP_IDS[highestCampaignMap(progress)];
 }
 
 export function equipmentMapRequirement(itemId: string, progress: CampaignAccess | null | undefined): string | null {
   const tier = itemTier(canonicalItemId(itemId) ?? itemId);
-  if (!tier || tier <= 1 || progress?.[CAMPAIGN_UNLOCK_FIELDS[tier - 2]]) return null;
+  if (!tier || tier <= 1 || (progress && campaignMapUnlocked(tier - 1, progress))) return null;
   return MAP_DISPLAY_NAMES[MAP_IDS[tier - 1] as keyof typeof MAP_DISPLAY_NAMES] ?? `Map ${tier}`;
 }
 

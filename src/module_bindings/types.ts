@@ -1320,6 +1320,9 @@ export type MyEndlessTravelAccess = __Infer<typeof MyEndlessTravelAccess>;
 export const MyEquipmentCopies = __t.object("MyEquipmentCopies", {});
 export type MyEquipmentCopies = __Infer<typeof MyEquipmentCopies>;
 
+export const MyEquipmentLocks = __t.object("MyEquipmentLocks", {});
+export type MyEquipmentLocks = __Infer<typeof MyEquipmentLocks>;
+
 export const MyEquipmentOffers = __t.object("MyEquipmentOffers", {});
 export type MyEquipmentOffers = __Infer<typeof MyEquipmentOffers>;
 
@@ -1660,6 +1663,14 @@ export const PlayerEquipmentCopy = __t.object("PlayerEquipmentCopy", {
   acquiredAt: __t.timestamp(),
 });
 export type PlayerEquipmentCopy = __Infer<typeof PlayerEquipmentCopy>;
+
+export const PlayerEquipmentLock = __t.object("PlayerEquipmentLock", {
+  key: __t.string(),
+  identity: __t.identity(),
+  itemId: __t.string(),
+  copyId: __t.u64(),
+});
+export type PlayerEquipmentLock = __Infer<typeof PlayerEquipmentLock>;
 
 export const PlayerGemDrop = __t.object("PlayerGemDrop", {
   identity: __t.identity(),

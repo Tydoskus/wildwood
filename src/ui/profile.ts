@@ -114,8 +114,8 @@ export function profileStatDisplayRows(
   armorReduction: (armor: number) => string,
   minAttackInterval: number,
   research?: PlayerResearch,
-  prestigeLevel = 0,
-  perks?: Partial<PrestigePerkRanks> | null,
+  prestigeLevel = profile.prestigeLevel ?? 0,
+  perks: Partial<PrestigePerkRanks> | null | undefined = profile.prestigePerks,
 ) {
   const { progress } = profile;
   const ranks = research ?? profile.research ?? createEmptyResearchRanks();
@@ -259,8 +259,8 @@ export function renderProfileStats(
   armorReduction: (armor: number) => string,
   minAttackInterval: number,
   research?: PlayerResearch,
-  prestigeLevel = 0,
-  perks?: Partial<PrestigePerkRanks> | null,
+  prestigeLevel = profile.prestigeLevel ?? 0,
+  perks: Partial<PrestigePerkRanks> | null | undefined = profile.prestigePerks,
 ) {
   const stats = profileStatDisplayRows(profile, armorReduction, minAttackInterval, research, prestigeLevel, perks);
   const expandedKinds = statGrid.dataset.identity === profile.identity

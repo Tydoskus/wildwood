@@ -2,14 +2,14 @@
 
     npm run boss:tuner
 
-Opens a local editor for the things that decide how a sprite-sheet boss sits
+Opens a local editor for the things that decide how a boss sits
 on screen and how it is hit. Pick a boss, drag the pink ellipse in the preview
 or adjust a field, and press **Save changes** in the header. A yellow dot marks
 each boss with unsaved edits. **Revert boss** restores the selected boss to its
 last saved values; **Reload from disk** reloads all bosses after confirmation.
 The preview starts paused so its frame controls stay stable while you edit.
 
-- **Hitbox** — the ellipse the server tests a shot against. Drag the pink ring
+- **Hitbox** — the ellipse used for boss collision. Drag the pink ring
   to move it, or its left/right edge to set the width and its top/bottom edge
   to set the height. A boss whose height equals its width is a plain circle,
   which is what every boss was before this existed.
@@ -56,8 +56,19 @@ here. The preview and checker apply the same green removal and frame alignment
 as the game before showing or measuring the artwork. The server only listens
 on `127.0.0.1`.
 
-The draw sizes, health bar sizes, and guide offsets in
-`scripts/boss-tuner-server.mjs` mirror `boss-renderer.ts`. If a boss is redrawn
-differently, update that table so the preview stays accurate. If another tuner
+Bosses are discovered from `src/game/boss-art.json`, including atlas, sheet,
+and single-image bosses. Register future boss artwork there and it appears
+automatically. Atlas frames come from the game manifests. Crop geometry and
+actor-shadow dimensions are shared with the renderer. The preview shows each
+base pose; combat pulses, glow, and other procedural animation are not simulated.
+Ironhorn and Dreadreaper have shadows baked into their artwork, so independent
+shadow controls are disabled.
+
+Frame edge trims isolate crowded poses without stretching them. Positive values
+trim an edge; negative values permit an overhanging pose outside its original
+cell. Existing saved adjustments are retained. Rebuild/reload the game after
+saving to see the changes there.
+
+If another tuner
 is already running, the command reuses it only when it matches this checkout
 and editor version; otherwise it starts on the next free local port.

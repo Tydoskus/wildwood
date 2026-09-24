@@ -1,3 +1,5 @@
+import { CAMPAIGN_MAPS } from "../../../shared/campaign-registry";
+import { DRAGON_RADIUS, DRAGON_VERTICAL_RADIUS, DRAGON_HITBOX_OFFSET_Y, PRISMSHELL_RADIUS, PRISMSHELL_VERTICAL_RADIUS, PRISMSHELL_HITBOX_OFFSET_Y, IRONHORN_RADIUS, IRONHORN_VERTICAL_RADIUS, IRONHORN_HITBOX_OFFSET_Y, DREADREAPER_RADIUS, DREADREAPER_VERTICAL_RADIUS, DREADREAPER_HITBOX_OFFSET_Y, VOLTWARDEN_RADIUS, VOLTWARDEN_VERTICAL_RADIUS, VOLTWARDEN_HITBOX_OFFSET_Y, GRAVEBLOOM_RADIUS, GRAVEBLOOM_VERTICAL_RADIUS, GRAVEBLOOM_HITBOX_OFFSET_Y, AEGIS_PRIME_RADIUS, AEGIS_PRIME_VERTICAL_RADIUS, AEGIS_PRIME_HITBOX_OFFSET_Y } from "../../../shared/boss-hitbox";
 import { HOME_TRAVEL_PORTAL, HOME_EXTERIOR_SPAWN } from "../../../shared/home";
 import {
   FROSTCLAW_HITBOX_OFFSET_Y, FROSTCLAW_VERTICAL_RADIUS, FROSTCLAW_RADIUS,
@@ -186,11 +188,22 @@ export function createGameBootstrap() {
       arrival: { x: 580, y: 770 },
     }),
   } satisfies Record<MapId, BootstrapMapEntry>;
+  const campaignConfig = authoredMapConfig as Record<string, BootstrapMapEntry>;
+  for (const [index, map] of CAMPAIGN_MAPS.entries()) {
+    campaignConfig[map.id] ??= editedMapEntry(map.id as MapId, {
+      name: MAP_DISPLAY_NAMES[map.id], arrival: { x: 580, y: 770 },
+      portal: index ? { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: CAMPAIGN_MAPS[index - 1].id as MapId } : null,
+    });
+    const next = CAMPAIGN_MAPS[index + 1];
+    if (next && ![campaignConfig[map.id].portal, campaignConfig[map.id].secondaryPortal].some(portal => portal?.destination === next.id)) {
+      campaignConfig[map.id].secondaryPortal = { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: next.id as MapId };
+    }
+  }
   const mapConfig = withGeneratedMaps<BootstrapMapEntry>(authoredMapConfig, id => {
     const map = generateMap(id);
     return { name: map.name, arrival: map.arrival, portal: { ...map.portals[0], destination: map.portals[0].destination as MapId }, secondaryPortal: map.portals[1] ? { ...map.portals[1], destination: map.portals[1].destination as MapId } : undefined };
   }) as typeof authoredMapConfig & Record<MapId, BootstrapMapEntry>;
-  mapConfig[PROCEDURAL_ENTRY_MAP].secondaryPortal = { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: proceduralMapId(1) };
+  mapConfig[PROCEDURAL_ENTRY_MAP as MapId].secondaryPortal = { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: proceduralMapId(1) };
   const player: PlayerState = {
     x: startSpawn.x, y: startSpawn.y, r: 17,
     speed: PLAYER_SPEED,
@@ -217,7 +230,9 @@ export function createGameBootstrap() {
     isBoss: true,
     x: dragonPosition.x,
     y: dragonPosition.y,
-    r: 140,
+    r: DRAGON_RADIUS,
+    ry: DRAGON_VERTICAL_RADIUS,
+    hitboxOffsetY: DRAGON_HITBOX_OFFSET_Y,
     maxHp: DRAGON_MAX_HP,
     hp: DRAGON_MAX_HP,
     dead: false,
@@ -410,7 +425,9 @@ export function createGameBootstrap() {
     bossKind: "prismshell",
     x: prismshellPosition.x,
     y: prismshellPosition.y,
-    r: 170,
+    r: PRISMSHELL_RADIUS,
+    ry: PRISMSHELL_VERTICAL_RADIUS,
+    hitboxOffsetY: PRISMSHELL_HITBOX_OFFSET_Y,
     maxHp: PRISMSHELL_MAX_HP,
     hp: PRISMSHELL_MAX_HP,
     dead: false,
@@ -428,7 +445,9 @@ export function createGameBootstrap() {
     bossKind: "ironhorn",
     x: ironhornPosition.x,
     y: ironhornPosition.y,
-    r: 170,
+    r: IRONHORN_RADIUS,
+    ry: IRONHORN_VERTICAL_RADIUS,
+    hitboxOffsetY: IRONHORN_HITBOX_OFFSET_Y,
     maxHp: IRONHORN_MAX_HP,
     hp: IRONHORN_MAX_HP,
     dead: false,
@@ -446,7 +465,9 @@ export function createGameBootstrap() {
     bossKind: "dreadreaper",
     x: dreadreaperPosition.x,
     y: dreadreaperPosition.y,
-    r: 170,
+    r: DREADREAPER_RADIUS,
+    ry: DREADREAPER_VERTICAL_RADIUS,
+    hitboxOffsetY: DREADREAPER_HITBOX_OFFSET_Y,
     maxHp: DREADREAPER_MAX_HP,
     hp: DREADREAPER_MAX_HP,
     dead: false,
@@ -464,7 +485,9 @@ export function createGameBootstrap() {
     bossKind: "voltwarden",
     x: voltwardenPosition.x,
     y: voltwardenPosition.y,
-    r: 170,
+    r: VOLTWARDEN_RADIUS,
+    ry: VOLTWARDEN_VERTICAL_RADIUS,
+    hitboxOffsetY: VOLTWARDEN_HITBOX_OFFSET_Y,
     maxHp: VOLTWARDEN_MAX_HP,
     hp: VOLTWARDEN_MAX_HP,
     dead: false,
@@ -482,7 +505,9 @@ export function createGameBootstrap() {
     bossKind: "gravebloom",
     x: gravebloomPosition.x,
     y: gravebloomPosition.y,
-    r: 170,
+    r: GRAVEBLOOM_RADIUS,
+    ry: GRAVEBLOOM_VERTICAL_RADIUS,
+    hitboxOffsetY: GRAVEBLOOM_HITBOX_OFFSET_Y,
     maxHp: GRAVEBLOOM_MAX_HP,
     hp: GRAVEBLOOM_MAX_HP,
     dead: false,
@@ -500,7 +525,9 @@ export function createGameBootstrap() {
     bossKind: "aegisPrime",
     x: aegisPrimePosition.x,
     y: aegisPrimePosition.y,
-    r: 170,
+    r: AEGIS_PRIME_RADIUS,
+    ry: AEGIS_PRIME_VERTICAL_RADIUS,
+    hitboxOffsetY: AEGIS_PRIME_HITBOX_OFFSET_Y,
     maxHp: AEGIS_PRIME_MAX_HP,
     hp: AEGIS_PRIME_MAX_HP,
     dead: false,

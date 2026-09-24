@@ -1,3 +1,5 @@
+import { bossHeavyHitAt, bossRewardValue } from "./progression";
+import { CAMPAIGN_MAPS, CAMPAIGN_ENDPOINT } from "./campaign-registry";
 import { regularMapLoot } from './regular-map-loot';
 import { bossRegenFractionFor } from './boss-regeneration';
 import { REGULAR_ENEMY_RESPAWN_SECONDS } from './rules';
@@ -13,16 +15,10 @@ import { DEFAULT_BALANCE_FACTORS, type BalanceSettings, type MapBalanceSnapshot 
 const AUTHORED_RULES = { ...rules };
 const AUTHORED_ENEMIES = structuredCloneSafe(ENEMY_TYPES);
 function structuredCloneSafe<T>(value: T): T { return JSON.parse(JSON.stringify(value)); }
-export const BALANCE_MAPS = [
-  ['tutorial_forest', '1 · Tutorial Forest', 'DRAGON'], ['beginner_desert', '2 · Desert', 'SPIDER'],
-  ['intermediate_snowlands', '3 · Snowlands', 'FROSTCLAW'], ['advanced_lava_wastes', '4 · Lava Wastes', 'MAGMALISK'],
-  ['infernal_depths', '5 · Infernal Depths', 'GLOOMROOT'], ['water_reach', '6 · Water Reach', 'TIDEWYRM'],
-  ['samurai_garden', '7 · Samurai Garden', 'KOI_SHOGUN'], ['cloudspire', '8 · Cloudspire', 'TEMPEST_KIRIN'],
-  ['moonfen', '9 · Moonfen', 'MIREMAW'], ['crystal_hollows', '10 · Crystal Hollows', 'PRISMSHELL'],
-  ['clockwork_ruins', '11 · Clockwork Ruins', 'IRONHORN'], ['duskfall_orchard', '12 · Duskfall Orchard', 'DREADREAPER'],
-  ['neon_bastion', '13 · Neon Bastion', 'VOLTWARDEN'], ['verdant_catacombs', '14 · Verdant Catacombs', 'GRAVEBLOOM'],
-  ['ion_citadel', '15 · Ion Citadel', 'AEGIS_PRIME'], ['endless', 'Endless', ''],
-] as const;
+export const BALANCE_MAPS: readonly (readonly [string, string, string])[] = [
+  ...CAMPAIGN_MAPS.map((map, index) => [map.id, `${index + 1} · ${map.name}`, map.bossArt] as const),
+  ['endless', 'Endless', ''],
+];
 export function defaultBalanceSettings(): BalanceSettings {
   return { maps: Object.fromEntries(BALANCE_MAPS.map(([id]) => [id, { ...DEFAULT_BALANCE_FACTORS }])),
     endless: { rewardMultiplier: ENDLESS_REWARD_MULTIPLIER, statStep: ENDLESS_STAT_STEP, enduranceStep: ENDLESS_ENDURANCE_STEP, enduranceExponent: ENDLESS_ENDURANCE_EXPONENT, rewardPerHealth: 1 } };
@@ -33,7 +29,7 @@ export function validateBalanceSettings(value: unknown): BalanceSettings {
   for (const [map] of BALANCE_MAPS) for (const field of Object.keys(DEFAULT_BALANCE_FACTORS) as (keyof typeof DEFAULT_BALANCE_FACTORS)[]) {
     const optional = ['enemyRespawn', 'bossRespawn', 'bossRegen', 'enemyDrops'].includes(field);
     const raw = input?.maps?.[map]?.[field];
-    const n = raw === undefined && optional ? 1 : raw;
+    const n = raw === undefined && (optional || input?.maps?.[map] === undefined) ? 1 : raw;
     const min = field === 'bossRegen' || field === 'enemyDrops' ? 0 : .01;
     if (!Number.isFinite(n) || n < min || n > 100 || (field === 'enemySpeed' && n > 3)) throw new Error(`Invalid ${map} ${field} (${min}–${field === 'enemySpeed' ? 3 : 100}).`);
     result.maps[map][field] = n;
@@ -58,6 +54,7 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
   const factors = settings.maps[generated ? 'endless' : mapId];
   const definition = personalBossDefinition(mapId, true)!;
   if (generated) {
+    const campaignFactors = settings.maps[CAMPAIGN_ENDPOINT.mapId] ?? DEFAULT_BALANCE_FACTORS;
     const map = generateMap(mapId), base = endlessScaling(map.number), depth = Math.min(map.number - 1, 1000), tuning = settings.endless;
     const stats = 1 + tuning.statStep * Math.log2(1 + depth);
     const hpRatio = (1 + tuning.statStep * depth) * (1 + tuning.enduranceStep * depth) ** tuning.enduranceExponent / (base.combatStats * base.endurance);
@@ -69,15 +66,15 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
     const lanes = new Set([...map.camps.map(c => c.lane), 'Dread Warden' as const]);
     for (const lane of lanes) {
       const row = generatedEnemyStats(map, lane, true);
-      result.lanes[lane] = { hp: row.hp * hpRatio * factors.enemyHealth, damage: row.damage * damageRatio * factors.enemyDamage,
-        reward: { ...row.reward, amount: row.reward.amount * rewardRatio * factors.enemyRewards } };
+      result.lanes[lane] = { hp: row.hp * hpRatio * factors.enemyHealth * campaignFactors.enemyHealth, damage: row.damage * damageRatio * factors.enemyDamage * campaignFactors.enemyDamage,
+        reward: { ...row.reward, amount: row.reward.amount * rewardRatio * factors.enemyRewards * campaignFactors.enemyRewards } };
     }
     // Generated camps reuse art, but receive these resolved combat values at spawn.
     const art = generatedEnemyArt(mapId);
     result.enemies[art] = { ...AUTHORED_ENEMIES[art], speed: 275 * factors.enemySpeed };
     const boss = generatedBossStats(map, true);
-    result.boss = { kind: definition.kind, hp: boss.hp * hpRatio * factors.bossHealth, damage: boss.damage * damageRatio * factors.bossDamage,
-      respawnSeconds: definition.respawnSeconds, attacks: {}, rewards: Object.fromEntries(boss.rewards.map(r => [r.type, r.amount * rewardRatio * factors.bossRewards])) };
+    result.boss = { kind: definition.kind, hp: boss.hp * hpRatio * factors.bossHealth * campaignFactors.bossHealth, damage: boss.damage * damageRatio * factors.bossDamage * campaignFactors.bossDamage,
+      respawnSeconds: definition.respawnSeconds, attacks: {}, rewards: Object.fromEntries(boss.rewards.map(r => [r.type, r.amount * rewardRatio * factors.bossRewards * campaignFactors.bossRewards])) };
   } else {
     for (const kind of Object.keys(ENEMY_TYPES) as EnemyKind[]) {
       if (!enemyDefeatDefinition(mapId, kind)) continue;
@@ -95,7 +92,12 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
         rewardValues[key.slice(`${prefix}_REWARD_`.length).toLowerCase()] = value * factors.bossRewards;
       }
     }
-    const attacks = BOSS_DAMAGE_PROFILES[definition.kind as keyof typeof BOSS_DAMAGE_PROFILES];
+    const campaignIndex = CAMPAIGN_MAPS.findIndex(map => map.id === mapId);
+    const attacks = BOSS_DAMAGE_PROFILES[definition.kind as keyof typeof BOSS_DAMAGE_PROFILES]
+      ?? { heavy: bossHeavyHitAt(Math.max(0, campaignIndex - 1)) };
+    if (!Object.keys(rewardValues).length) {
+      for (const stat of ['damage', 'health', 'armor', 'regen'] as const) rewardValues[stat] = bossRewardValue(stat, Math.max(0, campaignIndex - 1)) * factors.bossRewards;
+    }
     result.boss = { ...definition, hp: definition.hp * factors.bossHealth, damage: 0,
       attacks: Object.fromEntries(Object.entries(attacks).map(([key, value]) => [key, value * factors.bossDamage])), rewards: rewardValues };
   }

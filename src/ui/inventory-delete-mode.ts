@@ -6,7 +6,7 @@ const TRASH_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" 
 
 export type InventoryDeleteModeDependencies = {
   /** Starter gear and anything else the server will not destroy cannot be picked. */
-  canDelete: (itemId: string) => boolean;
+  canDelete: (itemId: string, copyId?: bigint) => boolean;
   /** The ids of an item's kept copies, beyond its first. */
   keptCopyIds: (itemId: string) => readonly bigint[];
   destroyEquipment: (itemId: string) => Promise<Result>;
@@ -75,7 +75,7 @@ export function createInventoryDeleteMode(dependencies: InventoryDeleteModeDepen
       const key = keyOf(itemId, BigInt(button.dataset.copyId ?? "0"));
       const picked = active && selected.has(key);
       button.classList.toggle("is-delete-selected", picked);
-      button.classList.toggle("is-delete-locked", active && !dependencies.canDelete(itemId));
+      button.classList.toggle("is-delete-locked", active && !dependencies.canDelete(itemId, BigInt(button.dataset.copyId ?? "0")));
       if (active) button.setAttribute("aria-pressed", String(picked));
       else button.removeAttribute("aria-pressed");
     }
@@ -92,7 +92,7 @@ export function createInventoryDeleteMode(dependencies: InventoryDeleteModeDepen
   /** A bag tap while the mode is on. Returns false when the mode is off, so the tap opens the item as usual. */
   function pick(itemId: string, copyId = 0n) {
     if (!active) return false;
-    if (busy || !dependencies.canDelete(itemId)) return true;
+    if (busy || !dependencies.canDelete(itemId, copyId)) return true;
     const key = keyOf(itemId, copyId);
     if (selected.has(key)) selected.delete(key); else selected.add(key);
     sync();

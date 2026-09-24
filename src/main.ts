@@ -101,7 +101,7 @@ import {
 } from "./game/world";
 import { createChatRuntimeController } from "./ui/chat-runtime-controller";
 import { createPlayerSafetyController } from "./ui/player-safety-controller";
-import { bestEquipmentMoves } from "./game/equip-best";
+import { equipBestUnlocked } from "./game/equip-best";
 import { createInventoryController } from "./ui/inventory-controller";
 import { createItemInspectionController, itemStatsWithBowSkills } from "./ui/item-inspection-controller";
 import { createUpgradeBenchController } from "./ui/upgrade-bench-controller";
@@ -446,9 +446,8 @@ import {
     itemInspection: itemInspectionController,
     equipmentRequirement: (itemId) => equipmentMapRequirement(itemId, coop?.savedProgress?.()),
     equipBest: () => {
-      const moves = bestEquipmentMoves(inventory, candidate => powerForEquipment(candidate, true), itemId =>!equipmentMapRequirement(itemId, coop?.savedProgress?.()));
-      if (!moves.length) return false;
-      for (const { itemId, destination } of moves) moveInventoryItem(inventory, itemId, destination);
+      if (!equipBestUnlocked(inventory, candidate => powerForEquipment(candidate, true),
+        itemId => !equipmentMapRequirement(itemId, coop?.savedProgress?.()), itemId => coop?.equipmentLocked?.(itemId) ?? false)) return false;
       player.speed = progress.movementSpeedForEquipment(false) * localTestMultiplier;
       applyPlayerMaxHealthMultiplierBonus(player, healthMultiplierBonus());
       saveProgress(true);
@@ -456,6 +455,7 @@ import {
       return true;
     },
     upgradeLevel: (itemId) => coop?.itemUpgradeLevel?.(itemId) ?? 0,
+    slotTier: slot => coop?.slotUpgradeTier?.(slot) ?? 0,
     inventorySlotsUnlocked: () => coop?.inventorySlotsUnlocked?.() ?? 0,
     gemBalance: () => coop?.gemBalance?.() ?? 0n,
     unlockInventorySlot: async () => coop?.unlockInventorySlot?.(),
@@ -1365,7 +1365,7 @@ import {
   const prestigePanel = createPrestigePanel({
     e: gameElements, prestige: () => coop?.prestige?.() ?? null, showMessage,
     perks: () => coop?.prestigePerks?.(), spendPerk: (perk: string) => coop?.spendPrestigePerkPoint?.(perk),
-    unlocked: () => Boolean(coop?.proceduralMapUnlocked?.(proceduralMapId(1))), completed: () => coop?.proceduralCompleted?.() ?? 0,
+    unlocked: () => Boolean(coop?.prestigeCampaignComplete?.((coop?.prestige?.()?.level ?? 0) + 1)), completed: () => coop?.proceduralCompleted?.() ?? 0,
     runPrestige,
   });
   const profileWindow = createProfileWindowController({
@@ -1396,8 +1396,8 @@ import {
     skinTone: (identity) => coop?.skinTone?.(identity) ?? DEFAULT_SKIN_TONE, setSkinTone: async (value) => coop?.setSkinTone?.(value),
     playerGender: (identity) => coop?.playerGender?.(identity) ?? 0, setGender: async (value) => coop?.setGender?.(value),
     renderStats: (profile, element) => renderProfileStats(profile, element, formatArmorReduction, MIN_ATTACK_INTERVAL, profile.research,
-      profile.identity === coop?.localIdentity?.() ? coop?.prestige?.()?.level ?? 0 : 0,
-      profile.identity === coop?.localIdentity?.() ? coop?.prestigePerks?.() : null),
+      profile.identity === coop?.localIdentity?.() ? coop?.prestige?.()?.level ?? 0 : profile.prestigeLevel ?? 0,
+      profile.identity === coop?.localIdentity?.() ? coop?.prestigePerks?.() : profile.prestigePerks),
     formatPower: (profile) => formatCompactNumber(profilePower(profile)), formatPlayedTime,
     profile: (identity) => coop?.playerProfile?.(identity), loadProfile: async (identity) => coop?.loadPlayerProfile?.(identity), releaseProfile: () => { coop?.releasePlayerProfile?.(); },
     isDueling, duelCooldownMs: () => coop?.duelCooldownRemainingMs?.() ?? 0,

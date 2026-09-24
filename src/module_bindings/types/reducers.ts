@@ -139,6 +139,7 @@ import SetChatMessageReactionReducer from "../set_chat_message_reaction_reducer"
 import SetDeveloperNameTagReducer from "../set_developer_name_tag_reducer";
 import SetDeveloperPresenceReducer from "../set_developer_presence_reducer";
 import SetDisplayNameReducer from "../set_display_name_reducer";
+import SetEquipmentLockedReducer from "../set_equipment_locked_reducer";
 import SetGenderReducer from "../set_gender_reducer";
 import SetGuildVicePresidentReducer from "../set_guild_vice_president_reducer";
 import SetIgnoredDropsReducer from "../set_ignored_drops_reducer";
@@ -301,6 +302,7 @@ export type SetChatMessageReactionParams = __Infer<typeof SetChatMessageReaction
 export type SetDeveloperNameTagParams = __Infer<typeof SetDeveloperNameTagReducer>;
 export type SetDeveloperPresenceParams = __Infer<typeof SetDeveloperPresenceReducer>;
 export type SetDisplayNameParams = __Infer<typeof SetDisplayNameReducer>;
+export type SetEquipmentLockedParams = __Infer<typeof SetEquipmentLockedReducer>;
 export type SetGenderParams = __Infer<typeof SetGenderReducer>;
 export type SetGuildVicePresidentParams = __Infer<typeof SetGuildVicePresidentReducer>;
 export type SetIgnoredDropsParams = __Infer<typeof SetIgnoredDropsReducer>;

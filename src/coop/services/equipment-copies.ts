@@ -30,6 +30,7 @@ export function createEquipmentCopies(notify: () => void, now: () => number = Da
   let target: Target | null = null;
   let copies: readonly EquipmentCopy[] = [];
   let offers: readonly EquipmentOffer[] = [];
+  let locks = new Set<string>();
   const ignoredDrops = createIgnoredDrops(notify);
   const lootSettings = createLootSettings(notify);
   /** When this tab last asked for a change to each item's copies. */
@@ -40,6 +41,14 @@ export function createEquipmentCopies(notify: () => void, now: () => number = Da
     const readLootSettings = lootSettings.watch(connection, isCurrent);
     target = { connection, isCurrent };
     copies = [];
+    locks = new Set();
+    const readLocks = () => {
+      if (!isCurrent()) return;
+      locks = new Set([...connection.db.myEquipmentLocks.iter()].map(row => `${row.itemId}:${row.copyId}`));
+      notify();
+    };
+    connection.db.myEquipmentLocks.onInsert(readLocks);
+    connection.db.myEquipmentLocks.onDelete(readLocks);
     offers = [];
     const readCopies = () => {
       if (!isCurrent()) return;
@@ -59,8 +68,8 @@ export function createEquipmentCopies(notify: () => void, now: () => number = Da
     connection.db.myEquipmentOffers.onInsert(readOffers);
     connection.db.myEquipmentOffers.onUpdate(readOffers);
     connection.db.myEquipmentOffers.onDelete(readOffers);
-    connection.subscriptionBuilder().onApplied(() => { readCopies(); readOffers(); readIgnoredDrops(); readLootSettings(); })
-      .subscribe([tables.myEquipmentCopies, tables.myEquipmentOffers, ignoredDrops.table, lootSettings.table]);
+    connection.subscriptionBuilder().onApplied(() => { readCopies(); readOffers(); readIgnoredDrops(); readLootSettings(); readLocks(); })
+      .subscribe([tables.myEquipmentLocks, tables.myEquipmentCopies, tables.myEquipmentOffers, ignoredDrops.table, lootSettings.table]);
   }
 
   async function call(send: (connection: DbConnection) => Promise<unknown>, itemId?: string): Promise<EquipmentCopyResult> {
@@ -89,6 +98,8 @@ export function createEquipmentCopies(notify: () => void, now: () => number = Da
     watch,
     changedLocally,
     api: {
+      equipmentLocked: (itemId: string, copyId = 0n) => locks.has(`${itemId}:${copyId}`),
+      setEquipmentLocked: (itemId: string, locked: boolean, copyId = 0n) => call(connection => connection.reducers.setEquipmentLocked({ itemId, locked, copyId })),
       /** Kept copies beyond the first, oldest first. */
       equipmentCopies: (): readonly EquipmentCopy[] => copies,
       /** Duplicate drops waiting for an answer, oldest first. */

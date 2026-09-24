@@ -9,7 +9,7 @@ function fixture() {
   const connection = {
     isActive: true,
     procedures: { getPrestigeLeaderboardPage: vi.fn() },
-    db: Object.fromEntries(["playerChatHearts", "playerProgress", "playerLifetime", "playerResearch", "playerItemUpgrade", "playerProfile", "playerAccountStatus", "player"].map(name => [name, { iter: () => [] }])),
+    db: Object.fromEntries(["playerPrestige", "playerPrestigePerk", "playerChatHearts", "playerProgress", "playerLifetime", "playerResearch", "playerItemUpgrade", "playerProfile", "playerAccountStatus", "player"].map(name => [name, { iter: () => [] }])),
     subscriptionBuilder() {
       let applied = () => {}, ready = false;
       const unsubscribe = vi.fn(() => { if (!ready) throw new Error("Cannot unsubscribe pending"); });
@@ -29,12 +29,13 @@ function fixture() {
     onUpdate: (fn: Function) => presenceEvents.update.add(fn), removeOnUpdate: (fn: Function) => presenceEvents.update.delete(fn),
     onDelete: (fn: Function) => presenceEvents.remove.add(fn), removeOnDelete: (fn: Function) => presenceEvents.remove.delete(fn),
   });
+  const progression = { progressFor: vi.fn((): any => null), lifetimeFor: vi.fn((): any => null), researchFor: () => null, upgradeLevelsFor: vi.fn(() => ({})), clearProfile: vi.fn(), tables: { upsertItemUpgrade: vi.fn() } };
   const service = createPlayerProfileService({ connection: () => connection, localIdentity: () => "me", notify: vi.fn(),
     localMapId: () => "tutorial_forest", nearbyMapFor: () => undefined, developerIdentityFor: () => undefined,
-    directory: { identityFor: () => new Identity("1".repeat(64)), tables: {}, rememberPresentation: vi.fn() },
-    progression: { progressFor: () => null, lifetimeFor: () => null, clearProfile: vi.fn(), tables: {} },
+    directory: { identityFor: () => new Identity("1".repeat(64)), nameFor: () => "Friend", genderFor: () => 0, tables: {}, rememberPresentation: vi.fn() },
+    progression,
   } as never);
-  return { service, subscriptions, connection, presenceEvents };
+  return { service, subscriptions, connection, presenceEvents, progression };
 }
 it("closes a pending profile without throwing and disposes it when it finally applies", async () => {
   const f = fixture();
@@ -106,4 +107,18 @@ it("tracks an autofarming hidden player's presence and departure without polling
   expect(f.service.api.activePlayerMap(id)).toBe("");
   f.service.api.releasePlayerProfile();
   expect([...f.presenceEvents.insert, ...f.presenceEvents.update, ...f.presenceEvents.remove]).toHaveLength(0);
+});
+
+it("loads remote prestige, perks and slot tiers despite already cached base stats", async () => {
+  const f = fixture(), identity = new Identity("1".repeat(64)), hex = identity.toHexString();
+  f.progression.progressFor.mockReturnValue({ damage: 10 });
+  f.progression.lifetimeFor.mockReturnValue({ enemyKills: 5 });
+  const request = f.service.api.loadPlayerProfile(hex);
+  expect(f.subscriptions).toHaveLength(1);
+  f.connection.db.playerPrestige.iter = () => [{ identity, level: 3 }] as any;
+  f.connection.db.playerPrestigePerk.iter = () => [{ identity, keenEdge: 2, doubleStrike: 1, splitShot: 0, riposte: 0 }] as any;
+  f.connection.db.playerItemUpgrade.iter = () => [{ identity, itemId: "HAND", level: 7 }] as any;
+  f.progression.tables.upsertItemUpgrade.mockImplementation(() => { f.progression.upgradeLevelsFor.mockReturnValue({ HAND: 7 }); });
+  f.subscriptions[0].apply();
+  expect(await request).toMatchObject({ prestigeLevel: 3, prestigePerks: { keenEdge: 2 }, itemUpgradeLevels: { HAND: 7 } });
 });

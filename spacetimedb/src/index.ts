@@ -1,3 +1,6 @@
+import { playerEquipmentLock, assertEquipmentUnlocked, setEquipmentLock } from "./equipment-locks";
+import { CAMPAIGN_MAPS, fillCampaignPortals } from "../../shared/campaign-registry";
+import { campaignMapUnlocked } from "../../shared/equipment-access";
 import { compactNumberChanged } from "../../shared/compact-number";
 import { auditPrivilegedAccess, denyPrivilegedAccess } from "./privileged-access-audit";
 import { defeatSessionRestriction, defeatRestrictionError, requireAllowedDefeatSession, restrictDefeatSession, suspendPlayerAccount } from "./defeat-session";
@@ -306,6 +309,7 @@ const MAP_ARRIVALS: Record<string, { x: number; y: number }> = Object.fromEntrie
     MAP_EDITOR_GAMEPLAY_OVERRIDES[mapId]?.arrival ?? arrival,
   ]),
 );
+fillCampaignPortals(MAP_ARRIVALS, MAP_PORTALS, MAP_EDITOR_GAMEPLAY_OVERRIDES);
 const MAP_PORTAL_USE_RANGE = 125;
 const CHAT_MESSAGE_MAX_LENGTH = 250;
 const CHAT_COOLDOWN_MICROS = 3_000_000n;
@@ -1779,7 +1783,7 @@ const spacetimedb = schema({
   dailyGemBonus,
   playerAdReward, playerChatMute,
   balanceApologyNotice,
-  playerItemGift, playerBowSkill, playerEquipmentCopy, pendingEquipmentOffer, playerIgnoredDrop, playerLootSetting,
+  playerEquipmentLock, playerItemGift, playerBowSkill, playerEquipmentCopy, pendingEquipmentOffer, playerIgnoredDrop, playerLootSetting,
   mailboxLetter, mailboxReceipt, playerJoinDate, mailboxEquipment, accountDeletionRequest,
   playerOnboarding,
   regularEnemyLootCursor, enemyDefeatBudget, bossDefeatWindow, bossMapDefeatWindow,
@@ -4669,6 +4673,7 @@ export const savePlayerProgress = spacetimedb.reducer(
     const inventory = inventoryForProgress(inventorySource);
     const inventoryJson = JSON.stringify(inventory);
     // The ownership and hand rules live in loadout.ts, which auto equip checks too.
+    assertEquipmentUnlocked(ctx, base, progress);
     const { equippedHead, equippedChest, equippedFeet, equippedRightHand, equippedLeftHand } = allowedLoadout(progress, inventory);
     const cosmeticEquipment = cosmeticEquipmentForProgress({
       ...base,
@@ -5203,7 +5208,18 @@ function recordEnemyDefeatsFor(ctx: any, batch: { streamId: string; sequence: bi
       if (reward.type !== "boss") continue;
       const boss = personalBossDefinition(batch.mapId)!;
       for (let clear = 0; clear < reward.count; clear++) {
-        if (boss.kind !== "procedural") bossRewardHandlers[boss.kind](ctx, ctx.sender);
+        if (boss.kind !== "procedural") {
+          const handler = bossRewardHandlers[boss.kind];
+          if (handler) handler(ctx, ctx.sender);
+          else {
+            const balance = pinnedMapBalance(ctx, ctx.sender, batch.mapId);
+            if (!balance?.boss) throw new SenderError("Boss balance is unavailable.");
+            const progress = ctx.db.playerProgress.identity.find(ctx.sender)!;
+            const rewards = Object.entries(balance.boss.rewards).map(([type, amount]) => ({ type, amount, count: 1 }));
+            const rewarded = applyEnemyRewards(progress, rewards, statRewardMultiplier(ctx, ctx.sender));
+            writeProgressAndPresentation(ctx, { ...rewarded, bossRewardClaims: (progress.bossRewardClaims | BOSS_REWARD_CLAIM_BITS[boss.kind]) >>> 0 });
+          }
+        }
         else {
           const map = generateMap(batch.mapId as `endless_${number}`);
           const previous = ctx.db.proceduralProgress.identity.find(ctx.sender);
@@ -5298,6 +5314,14 @@ export const myBowSkills = spacetimedb.view(
   { name: "my_bow_skills", public: true }, t.array(playerBowSkill.rowType),
   ctx => [...ctx.db.playerBowSkill.identity.filter(ctx.sender)],
 );
+export const myEquipmentLocks = spacetimedb.view(
+  { name: "my_equipment_locks", public: true }, t.array(playerEquipmentLock.rowType),
+  ctx => [...ctx.db.playerEquipmentLock.identity.filter(ctx.sender)],
+);
+export const setEquipmentLocked = spacetimedb.reducer({ itemId: t.string(), copyId: t.u64(), locked: t.bool() }, (ctx, args) => {
+  requireControllingPlayer(ctx);
+  setEquipmentLock(ctx, args, inventoryForProgress);
+});
 export const myEquipmentCopies = spacetimedb.view(
   { name: "my_equipment_copies", public: true }, t.array(playerEquipmentCopy.rowType),
   ctx => [...ctx.db.playerEquipmentCopy.identity.filter(ctx.sender)],
@@ -5819,38 +5843,9 @@ export const changeMap = spacetimedb.reducer(
       throw new SenderError("Portal position is outside the world.");
     }
     const currentProgress = ctx.db.playerProgress.identity.find(ctx.sender);
-    if (mapId === BEGINNER_DESERT_MAP_ID && !currentProgress?.desertUnlocked) throw new SenderError("Defeat the Dragon before entering Beginner Desert.");
-    if (mapId === INTERMEDIATE_SNOWLANDS_MAP_ID && !currentProgress?.snowlandsUnlocked) throw new SenderError("Defeat the Desert Spider before entering Intermediate Snowlands.");
-    if (mapId === ADVANCED_LAVA_WASTES_MAP_ID && !currentProgress?.lavaUnlocked) {
-      throw new SenderError(`Defeat Frostclaw before entering ${MAP_DISPLAY_NAMES[ADVANCED_LAVA_WASTES_MAP_ID]}.`);
-    }
-    if (mapId === INFERNAL_DEPTHS_MAP_ID && !currentProgress?.infernalUnlocked) {
-      throw new SenderError(`Defeat Magmalisk before entering ${MAP_DISPLAY_NAMES[INFERNAL_DEPTHS_MAP_ID]}.`);
-    }
-    if (mapId === WATER_REACH_MAP_ID && !currentProgress?.waterUnlocked) {
-      throw new SenderError(`Defeat Gloomroot before entering ${MAP_DISPLAY_NAMES[WATER_REACH_MAP_ID]}.`);
-    }
-    if (mapId === SAMURAI_GARDEN_MAP_ID && !currentProgress?.samuraiUnlocked) {
-      throw new SenderError(`Defeat Tidewyrm before entering ${MAP_DISPLAY_NAMES[SAMURAI_GARDEN_MAP_ID]}.`);
-    }
-    if (mapId === CLOUDSPIRE_MAP_ID && !currentProgress?.cloudspireUnlocked) {
-      throw new SenderError(`Defeat Koi Shogun before entering ${MAP_DISPLAY_NAMES[CLOUDSPIRE_MAP_ID]}.`);
-    }
-    if (mapId === MOONFEN_MAP_ID && !currentProgress?.moonfenUnlocked) {
-      throw new SenderError(`Defeat Tempest Kirin before entering ${MAP_DISPLAY_NAMES[MOONFEN_MAP_ID]}.`);
-    }
-    if (mapId === CLOCKWORK_RUINS_MAP_ID && !currentProgress?.clockworkRuinsUnlocked) {
-      throw new SenderError(`Defeat Prismshell before entering ${MAP_DISPLAY_NAMES[CLOCKWORK_RUINS_MAP_ID]}.`);
-    } else if (mapId === ION_CITADEL_MAP_ID && !currentProgress?.ionCitadelUnlocked) {
-      throw new SenderError(`Defeat Gravebloom before entering ${MAP_DISPLAY_NAMES[ION_CITADEL_MAP_ID]}.`);
-    } else if (mapId === VERDANT_CATACOMBS_MAP_ID && !currentProgress?.verdantCatacombsUnlocked) {
-      throw new SenderError(`Defeat Voltwarden before entering ${MAP_DISPLAY_NAMES[VERDANT_CATACOMBS_MAP_ID]}.`);
-    } else if (mapId === NEON_BASTION_MAP_ID && !currentProgress?.neonBastionUnlocked) {
-      throw new SenderError(`Defeat Dreadreaper before entering ${MAP_DISPLAY_NAMES[NEON_BASTION_MAP_ID]}.`);
-    } else if (mapId === DUSKFALL_ORCHARD_MAP_ID && !currentProgress?.duskfallOrchardUnlocked) {
-      throw new SenderError(`Defeat Ironhorn before entering ${MAP_DISPLAY_NAMES[DUSKFALL_ORCHARD_MAP_ID]}.`);
-    } else if (mapId === CRYSTAL_HOLLOWS_MAP_ID && !currentProgress?.crystalHollowsUnlocked) {
-      throw new SenderError(`Defeat Miremaw before entering ${MAP_DISPLAY_NAMES[CRYSTAL_HOLLOWS_MAP_ID]}.`);
+    const campaignIndex = CAMPAIGN_MAPS.findIndex(map => map.id === mapId);
+    if (campaignIndex > 0 && !campaignMapUnlocked(campaignIndex, currentProgress ?? {})) {
+      throw new SenderError(`Defeat ${CAMPAIGN_MAPS[campaignIndex - 1].bossName} before entering ${MAP_DISPLAY_NAMES[mapId]}.`);
     }
 
     if (isProceduralMap(mapId) && !generatedMapUnlocked(mapId,

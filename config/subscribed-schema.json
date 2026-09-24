@@ -484,6 +484,12 @@
       "piercingShot",
       "acquiredAt"
     ],
+    "my_equipment_locks": [
+      "key",
+      "identity",
+      "itemId",
+      "copyId"
+    ],
     "my_equipment_offers": [
       "id",
       "identity",

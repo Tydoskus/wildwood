@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { parseHTML } from "linkedom";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { HIDDEN_COSMETIC_ITEM_ID } from "../game/inventory";
 import {
   BASIC_PAPER_HAT,
@@ -7,7 +8,7 @@ import {
   STARTER_STONE,
   WOODEN_ARMOR,
 } from "../../shared/items";
-import { PROFILE_EQUIPMENT_SLOTS, profileEquipmentPresentation, type ProfileEquipmentProgress } from "./profile-equipment";
+import { PROFILE_EQUIPMENT_SLOTS, profileEquipmentPresentation, renderProfileEquipmentSlot, type ProfileEquipmentProgress } from "./profile-equipment";
 
 function equipment(overrides: Partial<ProfileEquipmentProgress> = {}): ProfileEquipmentProgress {
   return {
@@ -86,4 +87,18 @@ describe("profile equipment presentation", () => {
       kind: "COSMETIC", displayItemId: STARTER_STONE,
     });
   });
+});
+
+afterEach(() => vi.unstubAllGlobals());
+it("keeps the slot level visible for empty and cosmetically hidden profile slots", () => {
+  const { document } = parseHTML('<html><body></body></html>');
+  vi.stubGlobal("document", document);
+  for (const progress of [null, equipment({ cosmeticHead: HIDDEN_COSMETIC_ITEM_ID })]) {
+    const element = document.createElement("button");
+    renderProfileEquipmentSlot(element as unknown as HTMLButtonElement, profileEquipmentPresentation(progress, "HEAD"), 7);
+    expect(element.querySelector('.inventory-upgrade-level')?.textContent).toBe('+7');
+  }
+  const empty = document.createElement("button");
+  renderProfileEquipmentSlot(empty as unknown as HTMLButtonElement, profileEquipmentPresentation(null, "WEAPON"), 0);
+  expect(empty.querySelector('.inventory-upgrade-level')?.textContent).toBe('+0');
 });

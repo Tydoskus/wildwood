@@ -1,3 +1,5 @@
+import { CARAPACE_ANGLER_ATLAS, CARAPACE_ANGLER_USED_PAGES } from "./carapace-angler-sprite";
+import { BOSS_ART } from "./boss-art";
 import { isProceduralMap } from "../../../shared/procedural-maps";
 import { DUEL_PLATFORM_ART_SOURCE, DUEL_SPACE_BACKGROUND_SOURCE } from "../duel";
 import { requiredCanvasContext } from "./dom";
@@ -154,7 +156,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   const dragonSpriteCanvas = document.createElement("canvas");
   const dragonSpriteContext = requiredCanvasContext(dragonSpriteCanvas, { willReadFrequently: true });
   let dragonReady = false;
-  const dragonAsset = createLazyImageAsset("assets/wildstat/dragon_boss_spritesheet.webp", (image, settle) => {
+  const dragonAsset = createLazyImageAsset(`assets/wildstat/${BOSS_ART.DRAGON.sheet}`, (image, settle) => {
     dragonSpriteCanvas.width = image.naturalWidth;
     dragonSpriteCanvas.height = image.naturalHeight;
     dragonSpriteContext.drawImage(image, 0, 0);
@@ -180,7 +182,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   const frostclawSpriteCanvas = document.createElement("canvas");
   const frostclawSpriteContext = requiredCanvasContext(frostclawSpriteCanvas, { willReadFrequently: true });
   let frostclawReady = false;
-  const frostclawAsset = createLazyImageAsset("assets/wildstat/frostclaw-boss-spritesheet.webp", (image, settle) => {
+  const frostclawAsset = createLazyImageAsset(`assets/wildstat/${BOSS_ART.FROSTCLAW.sheet}`, (image, settle) => {
     frostclawSpriteCanvas.width = image.naturalWidth;
     frostclawSpriteCanvas.height = image.naturalHeight;
     frostclawSpriteContext.drawImage(image, 0, 0);
@@ -193,7 +195,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   const magmaliskSpriteCanvas = document.createElement("canvas");
   const magmaliskSpriteContext = requiredCanvasContext(magmaliskSpriteCanvas, { willReadFrequently: true });
   let magmaliskReady = false;
-  const magmaliskAsset = createLazyImageAsset("assets/wildstat/magmalisk-boss-spritesheet.webp", (image, settle) => {
+  const magmaliskAsset = createLazyImageAsset(`assets/wildstat/${BOSS_ART.MAGMALISK.sheet}`, (image, settle) => {
     magmaliskSpriteCanvas.width = image.naturalWidth;
     magmaliskSpriteCanvas.height = image.naturalHeight;
     magmaliskSpriteContext.drawImage(image, 0, 0);
@@ -206,7 +208,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   const gloomrootSpriteCanvas = document.createElement("canvas");
   const gloomrootSpriteContext = requiredCanvasContext(gloomrootSpriteCanvas, { willReadFrequently: true });
   let gloomrootReady = false;
-  const gloomrootAsset = createLazyImageAsset("assets/wildstat/gloomroot-boss-spritesheet-v1.webp", (image, settle) => {
+  const gloomrootAsset = createLazyImageAsset(`assets/wildstat/${BOSS_ART.GLOOMROOT.sheet}`, (image, settle) => {
     gloomrootSpriteCanvas.width = image.naturalWidth;
     gloomrootSpriteCanvas.height = image.naturalHeight;
     gloomrootSpriteContext.drawImage(image, 0, 0);
@@ -217,26 +219,13 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     settle();
   });
 
-  const tidewyrmSpriteCanvas = document.createElement("canvas");
-  const tidewyrmSpriteContext = requiredCanvasContext(tidewyrmSpriteCanvas, { willReadFrequently: true });
-  let tidewyrmReady = false;
-  const tidewyrmAsset = createLazyImageAsset("assets/wildstat/tidewyrm-boss-spritesheet-v1.webp", (image, settle) => {
-    tidewyrmSpriteCanvas.width = image.naturalWidth;
-    tidewyrmSpriteCanvas.height = image.naturalHeight;
-    tidewyrmSpriteContext.drawImage(image, 0, 0);
-    const pixels = tidewyrmSpriteContext.getImageData(0, 0, tidewyrmSpriteCanvas.width, tidewyrmSpriteCanvas.height);
-    removeGreenPixels(pixels.data, 145, 1.45);
-    keepLargestFrameComponents(pixels.data, tidewyrmSpriteCanvas.width, tidewyrmSpriteCanvas.height, 4);
-    centerFramesOnGround(pixels.data, tidewyrmSpriteCanvas.width, tidewyrmSpriteCanvas.height, 4);
-    tidewyrmSpriteContext.putImageData(pixels, 0, 0);
-    tidewyrmReady = true;
-    settle();
-  });
+  const tidewyrmPageAssets = CARAPACE_ANGLER_ATLAS.pages.map(page => createLazyImageAsset(page.src));
+  const tidewyrmAssets = CARAPACE_ANGLER_USED_PAGES.map(index => tidewyrmPageAssets[index]);
 
   const koiShogunSpriteCanvas = document.createElement("canvas");
   const koiShogunSpriteContext = requiredCanvasContext(koiShogunSpriteCanvas, { willReadFrequently: true });
   let koiShogunReady = false;
-  const koiShogunAsset = createLazyImageAsset("assets/wildstat/koi-shogun-boss-spritesheet-v1.webp", (image, settle) => {
+  const koiShogunAsset = createLazyImageAsset(`assets/wildstat/${BOSS_ART.KOI_SHOGUN.sheet}`, (image, settle) => {
     koiShogunSpriteCanvas.width = image.naturalWidth;
     koiShogunSpriteCanvas.height = image.naturalHeight;
     koiShogunSpriteContext.drawImage(image, 0, 0);
@@ -249,7 +238,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   const tempestKirinSpriteCanvas = document.createElement("canvas");
   const tempestKirinSpriteContext = requiredCanvasContext(tempestKirinSpriteCanvas, { willReadFrequently: true });
   let tempestKirinReady = false;
-  const tempestKirinAsset = createLazyImageAsset("assets/wildstat/tempest-kirin-boss-spritesheet-v1.webp", (image, settle) => {
+  const tempestKirinAsset = createLazyImageAsset(`assets/wildstat/${BOSS_ART.TEMPEST_KIRIN.sheet}`, (image, settle) => {
     tempestKirinSpriteCanvas.width = image.naturalWidth;
     tempestKirinSpriteCanvas.height = image.naturalHeight;
     tempestKirinSpriteContext.drawImage(image, 0, 0);
@@ -259,7 +248,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   const miremawSpriteCanvas = document.createElement("canvas");
   const miremawSpriteContext = requiredCanvasContext(miremawSpriteCanvas, { willReadFrequently: true });
   let miremawReady = false;
-  const miremawAsset = createLazyImageAsset("assets/wildstat/miremaw-boss-spritesheet-v1.webp", (image, settle) => {
+  const miremawAsset = createLazyImageAsset(`assets/wildstat/${BOSS_ART.MIREMAW.sheet}`, (image, settle) => {
     miremawSpriteCanvas.width = image.naturalWidth;
     miremawSpriteCanvas.height = image.naturalHeight;
     miremawSpriteContext.drawImage(image, 0, 0);
@@ -363,7 +352,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     nightBoss: [gloomrootAsset],
     nightDecor: [nightTreeAsset],
     cherryDecor: [cherryTreeAsset],
-    waterBoss: [tidewyrmAsset],
+    waterBoss: tidewyrmAssets,
     samuraiBoss: [koiShogunAsset],
     cloudspireBoss: [tempestKirinAsset],
     moonfenBoss: [miremawAsset],
@@ -420,8 +409,8 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     spiderSpriteCanvas,
     treeSpriteBounds: () => treeBounds,
     treeSpritesheet: treeAsset.image,
-    tidewyrmReady: () => tidewyrmReady,
-    tidewyrmSpriteCanvas,
+    tidewyrmReady: () => tidewyrmAssets.every(asset => asset.settled() && !asset.failed()),
+    tidewyrmSpritePages: tidewyrmPageAssets.map(asset => asset.image),
     koiShogunReady: () => koiShogunReady,
     koiShogunSpriteCanvas,
     tempestKirinReady: () => tempestKirinReady,

@@ -80,7 +80,7 @@ it('shows four reward camp choices for a generated map with one species', () => 
   s.click('.farm-toggle');
   const choices = [...s.document.querySelectorAll('.farm-enemy')];
   expect(choices).toHaveLength(4);
-  const damage = choices.find(button => button.querySelector('.farm-reward')?.textContent?.includes('DAMAGE'))!;
+  const damage = choices.find(button => button.querySelector('.farm-reward')?.textContent?.includes('Damage'))!;
   expect(damage.textContent).toContain(`13 × ${s.spawnSites[0].type}`);
   expect(damage.querySelector('.farm-reward')!.textContent).toContain('–');
   expect(s.document.querySelector('.farm-choices')!.textContent).not.toContain('Attack Speed');

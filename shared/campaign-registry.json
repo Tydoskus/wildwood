@@ -1,0 +1,167 @@
+[
+  {
+    "id": "tutorial_forest",
+    "name": "Tutorial Forest",
+    "bossKind": "dragon",
+    "bossArt": "DRAGON",
+    "claimIndex": 0,
+    "unlockField": "",
+    "displayName": "Tutorial Forest - 1",
+    "bossName": "Dragon",
+    "campsKey": "CAMPS"
+  },
+  {
+    "id": "beginner_desert",
+    "name": "Desert",
+    "bossKind": "spider",
+    "bossArt": "SPIDER",
+    "claimIndex": 1,
+    "unlockField": "desertUnlocked",
+    "displayName": "Beginner Desert - 2",
+    "bossName": "Desert Spider",
+    "campsKey": "DESERT_CAMPS"
+  },
+  {
+    "id": "intermediate_snowlands",
+    "name": "Snowlands",
+    "bossKind": "frostclaw",
+    "bossArt": "FROSTCLAW",
+    "claimIndex": 2,
+    "unlockField": "snowlandsUnlocked",
+    "displayName": "Intermediate Snowlands - 3",
+    "bossName": "Frostclaw",
+    "campsKey": "SNOW_CAMPS"
+  },
+  {
+    "id": "advanced_lava_wastes",
+    "name": "Lava Wastes",
+    "bossKind": "magmalisk",
+    "bossArt": "MAGMALISK",
+    "claimIndex": 3,
+    "unlockField": "lavaUnlocked",
+    "displayName": "Advanced Lava Lake - 4",
+    "bossName": "Magmalisk",
+    "campsKey": "LAVA_CAMPS"
+  },
+  {
+    "id": "infernal_depths",
+    "name": "Infernal Depths",
+    "bossKind": "gloomroot",
+    "bossArt": "GLOOMROOT",
+    "claimIndex": 4,
+    "unlockField": "infernalUnlocked",
+    "displayName": "Night Forest - 5",
+    "bossName": "Gloomroot",
+    "campsKey": "INFERNAL_CAMPS"
+  },
+  {
+    "id": "water_reach",
+    "name": "Water Reach",
+    "bossKind": "tidewyrm",
+    "bossArt": "TIDEWYRM",
+    "claimIndex": 5,
+    "unlockField": "waterUnlocked",
+    "displayName": "Water Reach - 6",
+    "bossName": "Tidewyrm",
+    "campsKey": "WATER_CAMPS"
+  },
+  {
+    "id": "samurai_garden",
+    "name": "Samurai Garden",
+    "bossKind": "koiShogun",
+    "bossArt": "KOI_SHOGUN",
+    "claimIndex": 6,
+    "unlockField": "samuraiUnlocked",
+    "displayName": "Samurai Garden - 7",
+    "bossName": "Koi Shogun",
+    "campsKey": "SAMURAI_CAMPS"
+  },
+  {
+    "id": "cloudspire",
+    "name": "Cloudspire",
+    "bossKind": "tempestKirin",
+    "bossArt": "TEMPEST_KIRIN",
+    "claimIndex": 7,
+    "unlockField": "cloudspireUnlocked",
+    "displayName": "Cloudspire - 8",
+    "bossName": "Tempest Kirin",
+    "campsKey": "CLOUDSPIRE_CAMPS"
+  },
+  {
+    "id": "moonfen",
+    "name": "Moonfen",
+    "bossKind": "miremaw",
+    "bossArt": "MIREMAW",
+    "claimIndex": 8,
+    "unlockField": "moonfenUnlocked",
+    "displayName": "Moonfen - 9",
+    "bossName": "Miremaw",
+    "campsKey": "MOONFEN_CAMPS"
+  },
+  {
+    "id": "crystal_hollows",
+    "name": "Crystal Hollows",
+    "bossKind": "prismshell",
+    "bossArt": "PRISMSHELL",
+    "claimIndex": 9,
+    "unlockField": "crystalHollowsUnlocked",
+    "displayName": "Crystal Hollows - 10",
+    "bossName": "Prismshell",
+    "campsKey": "CRYSTAL_HOLLOWS_CAMPS"
+  },
+  {
+    "id": "clockwork_ruins",
+    "name": "Clockwork Ruins",
+    "bossKind": "ironhorn",
+    "bossArt": "IRONHORN",
+    "claimIndex": 10,
+    "unlockField": "clockworkRuinsUnlocked",
+    "displayName": "Clockwork Ruins - 11",
+    "bossName": "Ironhorn",
+    "campsKey": "CLOCKWORK_RUINS_CAMPS"
+  },
+  {
+    "id": "duskfall_orchard",
+    "name": "Duskfall Orchard",
+    "bossKind": "dreadreaper",
+    "bossArt": "DREADREAPER",
+    "claimIndex": 11,
+    "unlockField": "duskfallOrchardUnlocked",
+    "displayName": "Duskfall Orchard - 12",
+    "bossName": "Dreadreaper",
+    "campsKey": "DUSKFALL_ORCHARD_CAMPS"
+  },
+  {
+    "id": "neon_bastion",
+    "name": "Neon Bastion",
+    "bossKind": "voltwarden",
+    "bossArt": "VOLTWARDEN",
+    "claimIndex": 12,
+    "unlockField": "neonBastionUnlocked",
+    "displayName": "Neon Bastion - 13",
+    "bossName": "Voltwarden",
+    "campsKey": "NEON_BASTION_CAMPS"
+  },
+  {
+    "id": "verdant_catacombs",
+    "name": "Verdant Catacombs",
+    "bossKind": "gravebloom",
+    "bossArt": "GRAVEBLOOM",
+    "claimIndex": 13,
+    "unlockField": "verdantCatacombsUnlocked",
+    "displayName": "Verdant Catacombs - 14",
+    "bossName": "Gravebloom",
+    "campsKey": "VERDANT_CATACOMBS_CAMPS"
+  },
+  {
+    "id": "ion_citadel",
+    "name": "Ion Citadel",
+    "bossKind": "aegisPrime",
+    "bossArt": "AEGIS_PRIME",
+    "claimIndex": 14,
+    "unlockField": "ionCitadelUnlocked",
+    "displayName": "Ion Citadel - 15",
+    "bossName": "Aegis Prime",
+    "campsKey": "ION_CITADEL_CAMPS"
+  }
+]

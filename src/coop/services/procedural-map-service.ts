@@ -1,3 +1,4 @@
+import { prestigeCampaignComplete } from "../../../shared/prestige";
 import { BOSS_REWARD_CLAIM_BITS } from "../../../shared/rules";
 import { tables, type DbConnection } from "../../module_bindings";
 import {
@@ -94,6 +95,11 @@ export function createProceduralMapService(port: ReducerPort) {
     proceduralCompleted() {
       const conn = port.connection();
       return conn?.identity ? (conn.db.proceduralProgress.identity.find(conn.identity)?.completed ?? 0) : 0;
+    },
+    prestigeCampaignComplete(nextLevel: number) {
+      const conn = port.connection();
+      const claims = conn?.identity ? conn.db.playerProgress.identity.find(conn.identity)?.bossRewardClaims ?? 0 : 0;
+      return prestigeCampaignComplete(claims, nextLevel);
     },
     proceduralMapUnlocked(mapId: string) {
       const number = proceduralMapNumber(mapId);

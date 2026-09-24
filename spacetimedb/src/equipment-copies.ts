@@ -1,3 +1,4 @@
+import { equipmentLocked, moveEquipmentLock } from "./equipment-locks";
 import { SenderError, table, t } from "spacetimedb/server";
 import { Timestamp, type Identity } from "spacetimedb";
 import { NO_BOW_SKILLS, bowSkillScore, isSkillBow, rollBowSkills, type BowSkillRoll } from "../../shared/bow-skills";
@@ -107,7 +108,7 @@ export function offerDuplicateEquipment(ctx: Ctx, identity: Identity, itemId: st
  */
 export function keepBestCopies(ctx: Ctx, identity: Identity, itemId: string, count = 1) {
   const canonical = canonicalItemId(itemId);
-  if (!canonical || !isDuplicateOfferItem(canonical) || !isSkillBow(canonical)) return;
+  if (!canonical || !isDuplicateOfferItem(canonical) || !isSkillBow(canonical) || equipmentLocked(ctx, identity, canonical)) return;
   const copies = Math.min(MAX_PENDING_EQUIPMENT_OFFERS, Math.max(0, Math.floor(count)));
   for (let copy = 0; copy < copies; copy += 1) {
     const roll = rollBowSkills(canonical, () => ctx.random()) ?? NO_BOW_SKILLS;
@@ -263,6 +264,7 @@ export function createEquipmentCopies(deps: {
     if (deps.activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel first.");
     const canonical = canonicalItemId(itemId);
     if (!canonical || !canDestroyEquipment(canonical)) throw new SenderError("This item cannot be destroyed.");
+    if (equipmentLocked(ctx, ctx.sender, canonical, copyId)) throw new SenderError("Unlock this equipment before deleting it.");
     const progress = ownedProgress(ctx, canonical);
     if (copyId !== 0n) {
       const copy = ownCopy(ctx, copyId);
@@ -272,6 +274,7 @@ export function createEquipmentCopies(deps: {
     }
     const [replacement] = extraCopiesOf(ctx, ctx.sender, canonical);
     if (replacement) {
+      moveEquipmentLock(ctx, ctx.sender, canonical, replacement.id, 0n);
       setFirstCopyRoll(ctx, ctx.sender, canonical, rollOf(replacement));
       ctx.db.playerEquipmentCopy.id.delete(replacement.id);
       return;
@@ -288,7 +291,9 @@ export function createEquipmentCopies(deps: {
     deps.requireControllingPlayer(ctx);
     if (deps.activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel first.");
     const copy = ownCopy(ctx, copyId);
+    if (equipmentLocked(ctx, ctx.sender, copy.itemId)) throw new SenderError("Unlock this equipment before replacing it.");
     ownedProgress(ctx, copy.itemId);
+    moveEquipmentLock(ctx, ctx.sender, copy.itemId, copy.id, 0n);
     if (!isSkillBow(copy.itemId)) return;
     const first = bowSkillRollFor(ctx, ctx.sender, copy.itemId);
     setFirstCopyRoll(ctx, ctx.sender, copy.itemId, rollOf(copy));

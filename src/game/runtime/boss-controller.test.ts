@@ -753,3 +753,23 @@ it("alternates Aegis Prime's shared-clock volley direction and clears attacks on
   expect(h.aegisPrimeCrystalBursts).toHaveLength(0);
   expect(h.aegisPrimeBoss.shatter).toBeNull();
 });
+
+it("leads Angler hits by half a second without replaying on staggered circles", () => {
+  const h = createFrostclawHarness({ currentMapIsSnow: () => false, currentMapIsWater: () => true });
+  h.player.x = h.tidewyrmBoss.x + 300; h.player.y = h.tidewyrmBoss.y;
+  h.tidewyrmBoss.attackClock = 0;
+  h.controller.updateTidewyrmBoss(.016);
+  expect(h.tidewyrmBoss.spriteAttackElapsed).toBeCloseTo(-.32);
+  h.controller.updateTidewyrmBoss(.82);
+  expect(h.tidewyrmBoss.spriteAttackElapsed).toBeCloseTo(.5);
+  h.controller.updateTidewyrmBoss(1.1);
+  h.controller.updateTidewyrmBoss(2.5);
+  expect(h.tidewyrmWhirlpools.length).toBeGreaterThan(0);
+  expect(h.tidewyrmBoss.spriteAttackElapsed).toBeCloseTo(-.35);
+  h.controller.updateTidewyrmBoss(.36);
+  expect(h.tidewyrmBoss.spriteAttackElapsed).toBeCloseTo(.01);
+  h.controller.updateTidewyrmBoss(.5);
+  expect(h.tidewyrmBoss.spriteAttackElapsed).toBeCloseTo(.51);
+  h.controller.resetTidewyrmBoss();
+  expect(h.tidewyrmBoss.spriteAttackElapsed).toBeUndefined();
+});

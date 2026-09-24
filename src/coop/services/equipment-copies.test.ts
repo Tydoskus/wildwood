@@ -25,7 +25,7 @@ function fakeConnection() {
   };
   const connection = {
     isActive: true,
-    db: { myEquipmentCopies: view(copies), myEquipmentOffers: view(offers), myIgnoredDrops: view(ignored), myLootSettings: view(lootSettings) },
+    db: { myEquipmentLocks: view([]), myEquipmentCopies: view(copies), myEquipmentOffers: view(offers), myIgnoredDrops: view(ignored), myLootSettings: view(lootSettings) },
     reducers,
     subscriptionBuilder: () => ({ onApplied(callback: () => void) { applied.push(callback); return this; }, subscribe: vi.fn() }),
   };

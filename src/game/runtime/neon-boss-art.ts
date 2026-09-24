@@ -1,5 +1,7 @@
+import { VOLTWARDEN_SPRITE_GROUND_OFFSET } from "../constants";
+export { VOLTWARDEN_ART_TOP } from "../constants";
+import { drawBossSheetFrame } from "./boss-frame-crop";
 export const VOLTWARDEN_ART_SOURCE = "assets/wildstat/voltwarden-boss-spritesheet-v1.webp";
-export const VOLTWARDEN_ART_TOP = -200;
 export type VoltwardenPose = "idle" | "laser" | "emp";
 
 /** Three total frames in one row: idle, laser and EMP. */
@@ -20,11 +22,11 @@ export function drawVoltwardenArt(ctx: CanvasRenderingContext2D, x: number, y: n
     ctx.save();
     ctx.translate(x, y);
     ctx.fillStyle = "#05071680";
-    ctx.beginPath(); ctx.ellipse(0, 130, 126, 34, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.translate(0, VOLTWARDEN_ART_TOP + 360 + bob);
+    ctx.beginPath(); ctx.ellipse(0, VOLTWARDEN_SPRITE_GROUND_OFFSET, 126, 34, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.translate(0, -200 + 360 + bob);
     ctx.scale(charge, 1 / charge);
     if (hurt > 0) ctx.filter = "brightness(1.7)";
-    ctx.drawImage(sprite, frame.x, frame.y, frame.w, frame.h, -size / 2, -size + 36, size, size);
+    drawBossSheetFrame(ctx, sprite, { bossId: "VOLTWARDEN", frame: ({ idle: 0, laser: 1, emp: 2 })[pose], cellWidth: frame.w, cellHeight: frame.h, drawWidth: size, drawHeight: size, top: -size + 36 });
     ctx.restore();
     return;
   }

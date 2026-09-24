@@ -113,7 +113,7 @@ export function renderProfileEquipmentSlot(
 ) {
   const item = itemDefinition(presentation.displayItemId);
   const inspectionItem = itemDefinition(presentation.inspectionItemId);
-  const level = inspectionItem ? normalizeItemUpgradeLevel(upgradeLevel) : 0;
+  const level = normalizeItemUpgradeLevel(upgradeLevel);
   const cosmetic = presentation.kind === "COSMETIC";
   const hidden = presentation.kind === "HIDDEN";
 
@@ -160,7 +160,7 @@ export function renderProfileEquipmentSlot(
   element.classList.toggle("is-filled", Boolean(item && !cosmetic));
   if (item && !cosmetic) appendItemTierLabel(element, item.id);
 
-  if (level > 0) {
+  if (presentation.slot !== "FEET") {
     const badge = document.createElement("span");
     badge.className = "inventory-upgrade-level";
     badge.textContent = `+${level}`;

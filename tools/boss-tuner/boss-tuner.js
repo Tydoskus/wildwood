@@ -1,3 +1,5 @@
+import { actorShadowDimensions } from "/actor-shadow-geometry.js";
+import { bossSheetFrameGeometry } from "/boss-frame-geometry.js";
 import { centerFramesOnGround, keepLargestFrameComponents, removeGreenPixels, repackLargestComponentsIntoFrames } from "/sprite-pixels.js";
 
 // The preview mirrors boss-renderer: the sheet is drawn at drawWidth x
@@ -7,6 +9,9 @@ import { centerFramesOnGround, keepLargestFrameComponents, removeGreenPixels, re
 
 const view = document.getElementById("view");
 const ctx = view.getContext("2d");
+const shadowImage = new Image();
+shadowImage.onload = () => draw();
+shadowImage.src = "/assets/wildstat/2D%20Character%20-%20Casual%20Monsters/_PNG/slime/shadow.webp";
 const listEl = document.getElementById("list");
 const controlsEl = document.getElementById("controls");
 const frameBarEl = document.getElementById("frames");
@@ -84,6 +89,10 @@ function updateSaveState() {
 }
 
 const CROP_FIELDS = [
+  { key: "clipLeft", label: "Trim left edge", min: -400, max: 400 },
+  { key: "clipRight", label: "Trim right edge", min: -400, max: 400 },
+  { key: "clipTop", label: "Trim top edge", min: -400, max: 400 },
+  { key: "clipBottom", label: "Trim bottom edge", min: -400, max: 400 },
   { key: "sourceX", label: "Crop left", min: -200, max: 200 },
   { key: "sourceY", label: "Crop top", min: -200, max: 200 },
   { key: "sourceWidth", label: "Crop width", min: -400, max: 400 },
@@ -107,7 +116,9 @@ function setCrop(row, index, key, value) {
 }
 
 function sheetFor(row) {
-  if (sheets.has(row.id)) return sheets.get(row.id);
+  const source = row.framesData?.[frame]?.sheet ?? row.sheet;
+  const key = `${row.id}:${source}`;
+  if (sheets.has(key)) return sheets.get(key);
   const image = new Image();
   image.onload = () => {
     const canvas = document.createElement("canvas");
@@ -117,27 +128,30 @@ function sheetFor(row) {
     context.drawImage(image, 0, 0);
     // Use the game's exact preprocessing so the crop and hit area guides sit
     // around the pixels players actually see, including its frame recentering.
-    if (["SPIDER", "FROSTCLAW", "MAGMALISK", "GLOOMROOT", "TIDEWYRM", "KOI_SHOGUN"].includes(row.id)) {
+    if (["green", "center", "repack"].includes(row.preprocess)) {
       const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
       removeGreenPixels(pixels.data, row.id === "SPIDER" ? 135 : 145, row.id === "SPIDER" ? 1.35 : 1.45);
-      if (row.id === "MAGMALISK") repackLargestComponentsIntoFrames(pixels.data, canvas.width, canvas.height, 4);
-      else if (["SPIDER", "FROSTCLAW", "TIDEWYRM", "KOI_SHOGUN"].includes(row.id)) {
+      if (row.preprocess === "repack") repackLargestComponentsIntoFrames(pixels.data, canvas.width, canvas.height, row.frames);
+      else if (row.preprocess === "center") {
         keepLargestFrameComponents(pixels.data, canvas.width, canvas.height, 4);
         centerFramesOnGround(pixels.data, canvas.width, canvas.height, 4);
       }
       context.putImageData(pixels, 0, 0);
     }
-    sheets.set(row.id, canvas);
+    sheets.set(key, canvas);
     draw();
   };
   image.onerror = () => setStatus(`Could not load ${row.sheet}.`, true);
-  sheets.set(row.id, image);
-  image.src = `/assets/wildstat/${row.sheet}`;
+  sheets.set(key, image);
+  image.src = `/assets/wildstat/${source}`;
   return image;
 }
 
 /** Where the sprite's box lands, in world units around the anchor. */
 function spriteBox(row, image) {
+  const atlasFrame = row.framesData?.[frame];
+  if (atlasFrame) return { cellW: atlasFrame.w, cellH: atlasFrame.h, width: atlasFrame.drawWidth,
+    height: atlasFrame.drawHeight, top: row.spriteY + atlasFrame.drawY, left: atlasFrame.drawX };
   const columns = row.frames;
   const rows = row.rows ?? 1;
   const cellW = image.width / columns;
@@ -146,10 +160,10 @@ function spriteBox(row, image) {
   // The scorpion is sized from its width and placed from its feet; every other
   // boss is drawn into a fixed box centred on its own offset. Either way the
   // artwork answers to its own number and nothing else.
-  const top = row.drawHeight
+  const top = row.spriteTop !== undefined ? row.spriteY + row.spriteTop : row.drawHeight
     ? row.spriteY + (row.spriteNudge ?? 0) - height / 2
     : row.spriteY - height * (row.groundBaseline ?? 0.88);
-  return { cellW, cellH, width: row.drawWidth, height, top };
+  return { cellW, cellH, width: row.drawWidth, height, top, left: row.spriteLeft };
 }
 
 function drawBoss(row) {
@@ -158,21 +172,27 @@ function drawBoss(row) {
   const box = spriteBox(row, image);
   const columns = row.frames;
   const index = frame % (columns * (row.rows ?? 1));
-  // Mirrors drawBossSheetFrame: the source window moves and grows inside the
-  // cell, and the draw box keeps its proportions rather than stretching.
-  const crop = cropFor(row, index);
-  const sourceX = (index % columns) * box.cellW + crop.sourceX;
-  const sourceY = Math.floor(index / columns) * box.cellH + crop.sourceY;
-  const sourceW = box.cellW + crop.sourceWidth;
-  const sourceH = box.cellH + crop.sourceHeight;
-  if (sourceW <= 0 || sourceH <= 0) return box;
-  const scale = 1 + crop.scale;
-  const width = box.width * (sourceW / box.cellW) * scale;
-  const height = box.height * (sourceH / box.cellH) * scale;
-  const drawTop = row.drawHeight ? box.top + (box.height - height) / 2 : box.top;
-  const [x, y] = toScreen(-width / 2 + crop.offsetX, drawTop + crop.offsetY);
+  const atlasFrame = row.framesData?.[index];
+  const fixedTop = !row.drawHeight || row.spriteTop !== undefined || atlasFrame;
+  const correction = cropFor(row, index);
+  if (atlasFrame?.contentBounds) {
+    const b = atlasFrame.contentBounds;
+    correction.clipLeft = Math.max(correction.clipLeft, b.x);
+    correction.clipRight = Math.max(correction.clipRight, atlasFrame.w - b.x - b.w);
+    correction.clipTop = Math.max(correction.clipTop, b.y);
+    correction.clipBottom = Math.max(correction.clipBottom, atlasFrame.h - b.y - b.h);
+  }
+  const geometry = bossSheetFrameGeometry({ bossId: row.id, frame: index,
+    cellWidth: box.cellW, cellHeight: box.cellH, columns,
+    drawWidth: box.width, drawHeight: box.height,
+    ...(fixedTop ? { top: box.top } : {}), left: box.left,
+    ...(atlasFrame ? { sourceX: atlasFrame.x, sourceY: atlasFrame.y } : {}),
+  }, correction);
+  if (!geometry) return box;
+  const [x, y] = toScreen(geometry.x, geometry.y + (fixedTop ? 0 : row.spriteY + (row.spriteNudge ?? 0)));
   ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(image, sourceX, sourceY, sourceW, sourceH, x, y, width * SCALE, height * SCALE);
+  ctx.drawImage(image, geometry.sourceX, geometry.sourceY, geometry.sourceWidth, geometry.sourceHeight,
+    x, y, geometry.width * SCALE, geometry.height * SCALE);
 
   // The cell the artwork is drawn into, so the empty air above a short boss is
   // visible rather than something you have to infer from the bar floating.
@@ -208,6 +228,24 @@ function draw() {
   ctx.font = "600 11px system-ui";
   ctx.fillText("depth", 8, depthY - 5);
 
+  if (row.shadowWidth > 0 && row.id !== "GLOOMROOT") {
+    const [sx, sy] = toScreen(0, shadowOffset);
+    const sw = row.shadowWidth * SCALE;
+    const sh = (row.shadowHeight ?? actorShadowDimensions(row.shadowWidth).height) * SCALE;
+    ctx.save();
+    if (row.softShadow) {
+      ctx.translate(sx, sy); ctx.scale(sw / 2, sh / 2);
+      const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+      gradient.addColorStop(0, "rgba(15,9,24,.42)"); gradient.addColorStop(.55, "rgba(15,9,24,.28)"); gradient.addColorStop(1, "rgba(15,9,24,0)");
+      ctx.fillStyle = gradient; ctx.fillRect(-1, -1, 2, 2);
+    } else if (row.flatShadow || !shadowImage.complete || !shadowImage.naturalWidth) {
+      ctx.fillStyle = "rgba(2,11,18,.5)"; ctx.beginPath(); ctx.ellipse(sx, sy, sw / 2, sh / 2, 0, 0, Math.PI * 2); ctx.fill();
+    } else {
+      ctx.globalAlpha = row.id === "SPIDER" || row.id === "DRAGON" ? .24 : row.id === "FROSTCLAW" ? .27 : row.id === "MAGMALISK" ? .29 : .3;
+      ctx.drawImage(shadowImage, sx - sw / 2, sy - sh / 2, sw, sh);
+    }
+    ctx.restore();
+  }
   drawBoss(row);
 
   const [shadowX, shadowY] = toScreen(0, shadowOffset);
@@ -215,7 +253,7 @@ function draw() {
   ctx.lineWidth = 2;
   ctx.setLineDash([6, 5]);
   ctx.beginPath();
-  ctx.ellipse(shadowX, shadowY, row.shadowWidth / 2 * SCALE, row.shadowWidth / 6 * SCALE, 0, 0, Math.PI * 2);
+  if (row.shadowWidth > 0) ctx.ellipse(shadowX, shadowY, row.shadowWidth / 2 * SCALE, (row.shadowHeight ?? actorShadowDimensions(row.shadowWidth).height) / 2 * SCALE, 0, 0, Math.PI * 2);
   ctx.stroke();
   ctx.setLineDash([]);
 
@@ -380,6 +418,10 @@ function renderControls() {
       fieldInputs.set(field.key, control);
       set.append(control.wrap);
     }
+    if (group === "Shadow" && row.bakedShadow) {
+      set.disabled = true;
+      help.textContent = "This shadow is baked into the artwork and moves with the sprite.";
+    }
     controlsEl.append(set);
   }
 
@@ -389,7 +431,7 @@ function renderControls() {
   cropLegend.textContent = `Frame · ${row.frameNames?.[index] ?? index}`;
   const help = document.createElement("p");
   help.className = "group-help";
-  help.textContent = "Corrections for this frame only. Pause playback to edit them.";
+  help.textContent = "Each frame is isolated so widening its crop does not pull in its neighbor. Trim edges to exclude a nearby pose; negative trims extend an edge for overhanging artwork. Pause to edit.";
   cropSet.append(cropLegend, help);
   const crop = cropFor(row, index);
   for (const field of CROP_FIELDS) {

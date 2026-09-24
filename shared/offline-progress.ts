@@ -4,7 +4,7 @@ import { ENEMY_TYPES, type EnemyKind } from "./enemy-definitions";
 import type { MapBalanceSnapshot } from "./map-balance-types";
 import { generateMap, generatedEnemyStats, isProceduralMap, proceduralMapId } from "./procedural-maps";
 import { MAP_IDS, MIN_ATTACK_INTERVAL, REGULAR_ENEMY_RESPAWN_SECONDS } from "./rules";
-import { CAMPAIGN_UNLOCK_FIELDS, type CampaignAccess } from "./equipment-access";
+import { campaignMapUnlocked, type CampaignAccess } from "./equipment-access";
 import type { PlayerPowerStats } from "./player-power";
 
 /** The most farming one absence is worth, however long the player was gone. */
@@ -194,7 +194,7 @@ export function offlineFarmableMaps(
   endless: { completed: number; unlocked: boolean },
   limit = OFFLINE_MAP_SEARCH_LIMIT,
 ): string[] {
-  const campaign = MAP_IDS.filter((_mapId, index) => index === 0 || progress[CAMPAIGN_UNLOCK_FIELDS[index - 1]]);
+  const campaign = MAP_IDS.filter((_mapId, index) => campaignMapUnlocked(index, progress));
   const ladder = [...campaign];
   if (endless.unlocked) {
     const highest = Math.max(0, Math.floor(endless.completed)) + 1;

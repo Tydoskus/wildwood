@@ -1,3 +1,4 @@
+import { actorShadowDimensions } from "./actor-shadow-geometry";
 import { createCanvasPrimitives } from "../canvas";
 import { requiredCanvasContext } from "./dom";
 import { canvasRenderPixelRatio } from "./render-budget";
@@ -80,7 +81,7 @@ export function createCanvasRuntime({
   }
 
   function drawActorShadow(x: number, y: number, shadowWidth: number, alpha = .38) {
-    const shadowHeight = Math.max(8, Math.round(shadowWidth * 33 / 86));
+    const shadowHeight = actorShadowDimensions(shadowWidth).height;
     const sprite = getActorShadowSprite();
     ctx.save();
     ctx.globalAlpha = alpha;

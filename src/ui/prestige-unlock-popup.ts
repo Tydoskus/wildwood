@@ -1,4 +1,4 @@
-import { prestigeEndlessRequirement } from "../../shared/prestige";
+import { prestigeEndlessRequirement, prestigeRequirementHint } from "../../shared/prestige";
 import { PRESTIGE_ARMED_WARNING, PRESTIGE_COST, prestigeRewardLabel, submitPrestige, type PrestigeResult } from "./prestige-panel";
 
 /** Per identity: the highest prestige level this browser has announced, or seen the account reach. */
@@ -219,7 +219,7 @@ export function createPrestigeUnlockPopup(dependencies: PrestigeUnlockPopupDepen
     // The same gate the panel enforces: only the campaign, the one this client
     // can be certain of. The server owns the Endless count and says what is missing.
     if (!preview && !dependencies.campaignComplete()) {
-      status.textContent = "Defeat Aegis Prime to unlock Prestige.";
+      status.textContent = prestigeRequirementHint(false, dependencies.completedEndless(), dependencies.level() + 1);
       return;
     }
     // Losing every map unlock deserves a second press, not a single tap.

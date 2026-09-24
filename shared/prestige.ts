@@ -1,5 +1,5 @@
 import { BOSS_REWARD_CLAIM_BITS } from "./rules";
-import { PROCEDURAL_ENTRY_BOSS } from "./procedural-maps";
+import { CAMPAIGN_MAPS, type CampaignMapDefinition } from "./campaign-registry";
 
 /**
  * Prestige trades a finished campaign for permanent account bonuses. The reset
@@ -12,32 +12,34 @@ export const PRESTIGE_PERK_POINTS_PER_LEVEL = 1;
 
 /** The campaign's last boss is down: the clearance Endless itself needs. */
 export function campaignComplete(bossRewardClaims: number) {
-  return Boolean(bossRewardClaims & BOSS_REWARD_CLAIM_BITS[PROCEDURAL_ENTRY_BOSS]);
+  return Boolean(bossRewardClaims & BOSS_REWARD_CLAIM_BITS[CAMPAIGN_MAPS[CAMPAIGN_MAPS.length - 1].bossKind]);
 }
 
-/**
- * Each prestige asks for one stage more than the last: the first for the
- * campaign, the second for Endless 1 as well, the third for Endless 2, and so
- * on. Endless progress resets with everything else, so every run has to
- * actually reach its stage rather than lean on an earlier one.
- */
-export function prestigeEndlessRequirement(nextLevel: number) {
-  return Math.max(0, Math.floor(Number.isFinite(nextLevel) ? nextLevel : 1) - 1);
+/** Prestige follows absolute map numbers, even when the campaign grows. */
+export const PRESTIGE_FIRST_MAP = 15;
+export function prestigeRequiredMap(nextLevel: number) {
+  return PRESTIGE_FIRST_MAP + Math.max(1, Math.floor(Number.isFinite(nextLevel) ? nextLevel : 1)) - 1;
 }
-
-/** Whether a run has earned its next prestige: `nextLevel` is the level it would reach. */
-export function prestigeUnlocked(bossRewardClaims: number, completedEndless = 0, nextLevel = 1) {
-  return campaignComplete(bossRewardClaims) && completedEndless >= prestigeEndlessRequirement(nextLevel);
+export function prestigeEndlessRequirement(nextLevel: number, campaignLength = CAMPAIGN_MAPS.length) {
+  return Math.max(0, prestigeRequiredMap(nextLevel) - campaignLength);
 }
-
-/** What still stands between this run and its next prestige, in the player's words; empty when nothing does. */
-export function prestigeRequirementHint(campaignDone: boolean, completedEndless: number, nextLevel: number) {
-  const stage = prestigeEndlessRequirement(nextLevel);
-  // The ladder is one list of maps: tier 15 is Aegis Prime, tier 16 is Endless
-  // 1, and so on. A run that has cleared Endless N has necessarily cleared
-  // everything below it, so naming anything but the stage itself is noise.
-  if (stage) return completedEndless >= stage ? "" : `Clear the Endless ${stage} boss to prestige.`;
-  return campaignDone ? "" : "Defeat Aegis Prime to unlock Prestige.";
+export function prestigeCampaignTarget(nextLevel: number, maps: readonly CampaignMapDefinition[] = CAMPAIGN_MAPS) {
+  return maps[Math.min(prestigeRequiredMap(nextLevel), maps.length) - 1];
+}
+export function prestigeCampaignComplete(bossRewardClaims: number, nextLevel: number, maps: readonly CampaignMapDefinition[] = CAMPAIGN_MAPS) {
+  const target = prestigeCampaignTarget(nextLevel, maps);
+  return Boolean(target && (bossRewardClaims & 2 ** target.claimIndex));
+}
+export function prestigeUnlocked(bossRewardClaims: number, completedEndless = 0, nextLevel = 1, maps: readonly CampaignMapDefinition[] = CAMPAIGN_MAPS) {
+  return prestigeCampaignComplete(bossRewardClaims, nextLevel, maps)
+    && completedEndless >= prestigeEndlessRequirement(nextLevel, maps.length);
+}
+/** The target can be an authored boss or a stage after the campaign. */
+export function prestigeRequirementHint(campaignDone: boolean, completedEndless: number, nextLevel: number, maps: readonly CampaignMapDefinition[] = CAMPAIGN_MAPS) {
+  const stage = prestigeEndlessRequirement(nextLevel, maps.length);
+  if (stage) return campaignDone && completedEndless >= stage ? "" : `Clear the Endless ${stage} boss to prestige.`;
+  const target = maps[prestigeRequiredMap(nextLevel) - 1];
+  return campaignDone ? "" : `Defeat ${target?.bossName ?? `the Map ${prestigeRequiredMap(nextLevel)} boss`} to unlock Prestige.`;
 }
 
 /** What one kill's stat reward is worth after `level` prestiges. */

@@ -124,6 +124,7 @@ export const ERASURE_TARGETS: readonly ErasureTarget[] = [
   { table: "playerEndlessRebaseBackup", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerEquipmentCopy", columns: ["identity"], pk: "id", mode: "index", index: "identity" },
   { table: "playerGemWallet", columns: ["identity"], pk: "identity", mode: "key" },
+  { table: "playerEquipmentLock", columns: ["identity"], pk: "key", mode: "index", index: "identity" },
   { table: "playerIgnoredDrop", columns: ["identity"], pk: "key", mode: "index", index: "identity" },
   { table: "playerInventoryCapacity", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerItemDrop", columns: ["identity"], pk: "key", mode: "index", index: "byIdentity" },

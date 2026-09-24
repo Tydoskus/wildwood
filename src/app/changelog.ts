@@ -1,4 +1,11 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.810": [
+    "Lock individual equipment items to protect them from deletion and replacement.",
+    "Player profiles now show prestige bonuses and slot upgrade levels, including empty slots.",
+    "Carapace Angler replaces Tidewyrm, with improved boss attack animation timing.",
+    "Boss crops, shadows and hitboxes now follow the saved adjustments more closely.",
+    "Endless starts from the final campaign map while keeping its existing growth curve.",
+  ],
   "0.809": [
     "Repeated filtered chat messages now mute chat for an hour, then 24 hours for repeat offenders.",
     "Muted players can still read chat but can't send or react until the mute ends.",
@@ -2395,6 +2402,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.810": "2026-09-24",
   "0.809": "2026-09-24",
   "0.808": "2026-09-24",
   "0.807": "2026-09-23",

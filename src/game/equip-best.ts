@@ -28,3 +28,14 @@ export function bestEquipmentMoves(inventory: InventoryState, power: (candidate:
   }
   return moves;
 }
+
+/** Apply Equip Best while leaving protected equipment in its slot. */
+export function equipBestUnlocked(inventory: InventoryState, power: (candidate: InventoryState) => number,
+  canEquip: (itemId: string) => boolean, locked: (itemId: string) => boolean) {
+  const moves = bestEquipmentMoves(inventory, power, canEquip).filter(({ destination }) => {
+    const slot = EQUIP_BEST_SLOTS.find(row => row[2] === destination)![0];
+    return !locked(equippedInSlot(inventory, slot));
+  });
+  for (const { itemId, destination } of moves) moveInventoryItem(inventory, itemId, destination);
+  return moves.length > 0;
+}

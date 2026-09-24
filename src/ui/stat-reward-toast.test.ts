@@ -4,6 +4,7 @@ import { formatStatRewardToastAmount, statRewardToastModel } from "./stat-reward
 describe("stat reward toast", () => {
   it.each([
     ["+4.88m DAMAGE", "+4.88m", "Damage", "⚔️"],
+    ["+4.88m Damage", "+4.88m", "Damage", "⚔️"],
     ["+8.50k MAX HEALTH", "+8.50k", "Max Health", "♥"],
     ["+150 ARMOR", "+150", "Armor", "🛡️"],
     ["+0.25 ATK/SEC", "+0.25", "Attack Speed", "⚡"],

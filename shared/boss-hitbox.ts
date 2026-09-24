@@ -23,9 +23,9 @@ export type BossHitbox = {
 /** Sheet-boss horizontal radii are shared by the tuner, client, and server. */
 export const SPIDER_RADIUS = 146;
 export const FROSTCLAW_RADIUS = 150;
-export const MAGMALISK_RADIUS = 151;
+export const MAGMALISK_RADIUS = 171;
 export const GLOOMROOT_RADIUS = 137;
-export const TIDEWYRM_RADIUS = 156;
+export const TIDEWYRM_RADIUS = 197;
 export const KOI_SHOGUN_RADIUS = 103;
 export const TEMPEST_KIRIN_RADIUS = 136;
 export const MIREMAW_RADIUS = 119;
@@ -88,13 +88,13 @@ export const SPIDER_HITBOX_OFFSET_Y = -43;
 export const FROSTCLAW_VERTICAL_RADIUS = 191;
 
 /** Where Frostclaw's body sits relative to its anchor. */
-export const FROSTCLAW_HITBOX_OFFSET_Y = 0;
+export const FROSTCLAW_HITBOX_OFFSET_Y = 24;
 
 /** Magmalisk's body height. Tuned in tools/boss-tuner. */
-export const MAGMALISK_VERTICAL_RADIUS = 143;
+export const MAGMALISK_VERTICAL_RADIUS = 126;
 
 /** Where Magmalisk's body sits relative to its anchor. */
-export const MAGMALISK_HITBOX_OFFSET_Y = 17;
+export const MAGMALISK_HITBOX_OFFSET_Y = 51;
 
 /** Gloomroot's body height. Tuned in tools/boss-tuner. */
 export const GLOOMROOT_VERTICAL_RADIUS = 154;
@@ -106,4 +106,27 @@ export const GLOOMROOT_HITBOX_OFFSET_Y = 29;
 export const TIDEWYRM_VERTICAL_RADIUS = 119;
 
 /** Where Tidewyrm's body sits relative to its anchor. */
-export const TIDEWYRM_HITBOX_OFFSET_Y = -12;
+export const TIDEWYRM_HITBOX_OFFSET_Y = 6;
+
+// Remaining campaign bosses use the same tuner-backed hitbox fields.
+export const DRAGON_RADIUS = 85;
+export const DRAGON_VERTICAL_RADIUS = 115;
+export const DRAGON_HITBOX_OFFSET_Y = 17;
+export const PRISMSHELL_RADIUS = 147;
+export const PRISMSHELL_VERTICAL_RADIUS = 144;
+export const PRISMSHELL_HITBOX_OFFSET_Y = 29;
+export const IRONHORN_RADIUS = 170;
+export const IRONHORN_VERTICAL_RADIUS = 170;
+export const IRONHORN_HITBOX_OFFSET_Y = 0;
+export const DREADREAPER_RADIUS = 170;
+export const DREADREAPER_VERTICAL_RADIUS = 170;
+export const DREADREAPER_HITBOX_OFFSET_Y = 0;
+export const VOLTWARDEN_RADIUS = 173;
+export const VOLTWARDEN_VERTICAL_RADIUS = 173;
+export const VOLTWARDEN_HITBOX_OFFSET_Y = 13;
+export const GRAVEBLOOM_RADIUS = 170;
+export const GRAVEBLOOM_VERTICAL_RADIUS = 170;
+export const GRAVEBLOOM_HITBOX_OFFSET_Y = 0;
+export const AEGIS_PRIME_RADIUS = 170;
+export const AEGIS_PRIME_VERTICAL_RADIUS = 170;
+export const AEGIS_PRIME_HITBOX_OFFSET_Y = 0;

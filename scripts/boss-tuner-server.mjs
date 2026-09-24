@@ -17,35 +17,21 @@
 import { createServer } from "node:http";
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
-import { extname, join, resolve } from "node:path";
+import { extname, join, resolve, sep } from "node:path";
 import { spawn } from "node:child_process";
 import ts from "typescript";
+import { loadBossCatalog } from "./boss-tuner-catalog.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 let port = Number(process.env.BOSS_TUNER_PORT ?? 8765);
-const editorFiles = ["scripts/boss-tuner-server.mjs", "tools/boss-tuner/index.html", "tools/boss-tuner/boss-tuner.js", "tools/boss-tuner/boss-tuner.css", "src/game/runtime/sprite-pixels.ts"];
+const editorFiles = ["scripts/boss-tuner-server.mjs", "tools/boss-tuner/index.html", "tools/boss-tuner/boss-tuner.js", "tools/boss-tuner/boss-tuner.css", "src/game/runtime/sprite-pixels.ts", "src/game/runtime/boss-frame-geometry.ts", "scripts/boss-tuner-catalog.mjs", "src/game/boss-art.json", "src/game/runtime/actor-shadow-geometry.ts"];
 const editorVersion = createHash("sha256").update((await Promise.all(editorFiles.map((file) => readFile(join(root, file))))).map((bytes) => bytes.toString("utf8")).join("\n")).digest("hex");
 
 const HITBOX_FILE = "shared/boss-hitbox.ts";
 const CONSTANTS_FILE = "src/game/constants.ts";
 const CROPS_FILE = "src/game/boss-frame-crops.json";
 
-/**
- * Mirrors the draw call in boss-renderer.ts. These are literals in the
- * renderer rather than data, so the tool carries its own copy; the preview is
- * wrong if they drift, which the sheet's own dimensions make obvious.
- */
-const SHEET_PREVIEW = { statusFollowsSprite: true, shadowFollowsSprite: true, barGap: 34, barHeight: 23 };
-const BOSSES = [
-  { ...SHEET_PREVIEW, id: "SPIDER", name: "Spider", sheet: "desert-scorpion-boss-spritesheet-v1.webp", frames: 4, drawWidth: 330, drawHeight: 0, groundBaseline: 0.88, spriteY: 0, shadowWidth: 220, defaultGroundOffset: 55, spriteYConstant: "SPIDER_STAND_OFFSET", statusFollowsSprite: false, shadowFollowsSprite: false, barGap: 32, barWidth: 250, barHeight: 22, frameNames: ['walk 1', 'walk 2', 'walk 3', 'walk 4'], frameNote: "Walk cycle: every frame plays, always." },
-  { ...SHEET_PREVIEW, id: "FROSTCLAW", name: "Frostclaw", sheet: "frostclaw-boss-spritesheet.webp", frames: 4, drawWidth: 330, drawHeight: 440, spriteY: -12, spriteNudge: 2, shadowWidth: 215, barWidth: 270, barHeight: 22, frameNames: ['idle 1 / —', 'idle 2 / rift', 'idle 3 / roar', 'idle 4 / icefall'], frameNote: "Idle cycles through all four; the same frames double as rift, roar and icefall." },
-  { ...SHEET_PREVIEW, id: "MAGMALISK", name: "Magmalisk", sheet: "magmalisk-boss-spritesheet.webp", frames: 4, drawWidth: 390, drawHeight: 520, spriteY: -8, shadowWidth: 245, barWidth: 290, frameNames: ['idle', 'bite', 'erupt', 'never drawn'], frameNote: "Only three frames are ever chosen." },
-  { ...SHEET_PREVIEW, id: "GLOOMROOT", name: "Gloomroot", sheet: "gloomroot-boss-spritesheet-v1.webp", frames: 2, rows: 2, drawWidth: 430, drawHeight: 430, spriteY: -18, shadowWidth: 260, barWidth: 300, frameNames: ['idle', 'sweep', 'never drawn', 'bloom'], frameNote: "Frame 2 is never chosen." },
-  { ...SHEET_PREVIEW, id: "TIDEWYRM", name: "Tidewyrm", sheet: "tidewyrm-boss-spritesheet-v1.webp", frames: 4, drawWidth: 440, drawHeight: 440, spriteY: -28, shadowWidth: 280, barWidth: 310, frameNames: ['idle', 'surge', 'surge windup', 'whirlpool'] },
-  { ...SHEET_PREVIEW, id: "KOI_SHOGUN", name: "Koi Shogun", sheet: "koi-shogun-boss-spritesheet-v1.webp", frames: 4, drawWidth: 330, drawHeight: 440, spriteY: -30, shadowWidth: 210, barWidth: 310, frameNames: ['idle', 'slash', 'slash windup', 'whirlpool'] },
-  { ...SHEET_PREVIEW, id: "TEMPEST_KIRIN", name: "Tempest Kirin", sheet: "tempest-kirin-boss-spritesheet-v1.webp", frames: 4, drawWidth: 356, drawHeight: 542, spriteY: -42, shadowWidth: 235, barWidth: 320, frameNames: ['idle', 'charge windup', 'charge', 'thunderbolt'] },
-  { ...SHEET_PREVIEW, id: "MIREMAW", name: "Miremaw", sheet: "miremaw-boss-spritesheet-v1.webp", frames: 4, drawWidth: 470, drawHeight: 532, spriteY: -45, shadowWidth: 285, barWidth: 330, frameNames: ['idle', 'tongue windup', 'tongue', 'bog burst'] },
-];
+let BOSSES = await loadBossCatalog(root);
 
 const readNumber = (source, name) => {
   const match = source.match(new RegExp(`export const ${name} = (-?[\\d.]+);`));
@@ -64,6 +50,7 @@ const FIELD_LIMITS = {
   spriteY: [-320, 320], artTop: [-400, 40], groundOffset: [-60, 320], depthOffset: [-60, 400],
 };
 const CROP_LIMITS = {
+  clipLeft: [-400, 400], clipRight: [-400, 400], clipTop: [-400, 400], clipBottom: [-400, 400],
   sourceX: [-200, 200], sourceY: [-200, 200], sourceWidth: [-400, 400], sourceHeight: [-400, 400],
   offsetX: [-200, 200], offsetY: [-200, 200], scale: [-0.6, 0.6],
   statusOffsetY: [-200, 200],
@@ -97,6 +84,7 @@ function validateEdits(edits) {
 }
 
 async function loadBosses() {
+  BOSSES = await loadBossCatalog(root);
   const [hitbox, constants, cropsJson] = await Promise.all(
     [HITBOX_FILE, CONSTANTS_FILE, CROPS_FILE].map((file) => readFile(join(root, file), "utf8")),
   );
@@ -107,7 +95,7 @@ async function loadBosses() {
     radius: readNumber(hitbox, `${boss.id}_RADIUS`) ?? 170,
     verticalRadius: readNumber(hitbox, `${boss.id}_VERTICAL_RADIUS`),
     hitboxOffsetY: readNumber(hitbox, `${boss.id}_HITBOX_OFFSET_Y`) ?? 0,
-    artTop: readNumber(constants, `${boss.id}_ART_TOP`),
+    artTop: readNumber(constants, `${boss.id}_ART_TOP`) ?? boss.artTop ?? null,
     spriteY: readNumber(constants, boss.spriteYConstant ?? `${boss.id}_SPRITE_Y_OFFSET`) ?? boss.spriteY,
     depthOffset: readNumber(constants, `${boss.id}_DEPTH_OFFSET`) ?? 0,
     groundOffset: readNumber(constants, `${boss.id}_SPRITE_GROUND_OFFSET`) ?? boss.defaultGroundOffset ?? 0,
@@ -157,7 +145,7 @@ async function saveBosses(edits) {
   return changed;
 }
 
-const TYPES = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".webp": "image/webp", ".png": "image/png" };
+const TYPES = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".webp": "image/webp", ".png": "image/png", ".svg": "image/svg+xml" };
 
 const server = createServer(async (request, response) => {
   const send = (status, body, type = "application/json") => {
@@ -168,8 +156,8 @@ const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", `http://127.0.0.1:${port}`);
     if (url.pathname === "/api/meta") return send(200, JSON.stringify({ root, editorVersion }));
     if (url.pathname === "/api/bosses") return send(200, JSON.stringify(await loadBosses()));
-    if (url.pathname === "/sprite-pixels.js") {
-      const source = await readFile(join(root, "src/game/runtime/sprite-pixels.ts"), "utf8");
+    if (["/sprite-pixels.js", "/boss-frame-geometry.js", "/actor-shadow-geometry.js"].includes(url.pathname)) {
+      const source = await readFile(join(root, `src/game/runtime${url.pathname.replace(/\.js$/, ".ts")}`), "utf8");
       return send(200, ts.transpileModule(source, {
         compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
       }).outputText, "text/javascript");
@@ -182,10 +170,10 @@ const server = createServer(async (request, response) => {
     }
     // Everything else is the page itself or the artwork it draws.
     const path = url.pathname === "/" ? "tools/boss-tuner/index.html"
-      : url.pathname.startsWith("/assets/") ? `public${url.pathname}`
+      : url.pathname.startsWith("/assets/") ? `public${decodeURIComponent(url.pathname)}`
         : `tools/boss-tuner${url.pathname}`;
     const file = resolve(root, path);
-    if (!file.startsWith(root)) return send(403, "{}");
+    if (!file.startsWith(root + sep)) return send(403, "{}");
     send(200, await readFile(file), TYPES[extname(file)] ?? "application/octet-stream");
   } catch (error) {
     send(error?.code === "ENOENT" ? 404 : error instanceof InputError || error instanceof SyntaxError ? 400 : 500,

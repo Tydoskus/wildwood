@@ -97,6 +97,11 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
     if (!progress || !lifetime) return null;
     return {
       identity,
+      prestigeLevel: [...(dependencies.connection()?.db.playerPrestige.iter() ?? [])].find(row => row.identity.toHexString() === identity)?.level ?? 0,
+      prestigePerks: (() => {
+        const row = [...(dependencies.connection()?.db.playerPrestigePerk.iter() ?? [])].find(row => row.identity.toHexString() === identity);
+        return row ? { keenEdge: row.keenEdge, doubleStrike: row.doubleStrike, splitShot: row.splitShot, riposte: row.riposte } : {};
+      })(),
       name: dependencies.directory.nameFor(identity) ?? "PLAYER",
       gender: dependencies.directory.genderFor(identity),
       progress: { ...progress },
@@ -223,6 +228,8 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
           tables.playerChatHearts.where(row => row.identity.eq(dbIdentity)),
           tables.playerLifetime.where((lifetime) => lifetime.identity.eq(dbIdentity)),
           tables.playerResearch.where((research) => research.identity.eq(dbIdentity)),
+          tables.playerPrestige.where(row => row.identity.eq(dbIdentity)),
+          tables.playerPrestigePerk.where(row => row.identity.eq(dbIdentity)),
           tables.playerItemUpgrade.where((upgrade) => upgrade.identity.eq(dbIdentity)),
           tables.player.where((player) => player.identity.eq(dbIdentity)),
         ]);

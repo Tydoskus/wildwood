@@ -15,7 +15,7 @@ function fakeConnection(rows: Row[] = []) {
   });
   // The service also carries kept copies and duplicate offers on the same connection.
   const connection = {
-    db: { myBowSkills: view(() => rows), myEquipmentCopies: view(() => []), myEquipmentOffers: view(() => []), myIgnoredDrops: view(() => []), myLootSettings: view(() => []) },
+    db: { myEquipmentLocks: view(() => []), myBowSkills: view(() => rows), myEquipmentCopies: view(() => []), myEquipmentOffers: view(() => []), myIgnoredDrops: view(() => []), myLootSettings: view(() => []) },
     subscriptionBuilder: () => ({ onApplied(callback: () => void) { applied = callback; return this; }, subscribe }),
   };
   return { connection: connection as never, rows, subscribe, settle: () => applied?.(), fire: () => handlers.forEach(handler => handler()) };
