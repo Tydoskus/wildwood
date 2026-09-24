@@ -62,7 +62,6 @@ type ExpectedApiKey =
   | "hasSeenPortalCutscene"
   | "markPortalCutsceneSeen"
   | "isConnected"
-  | "moderationHistory"
   | "isDeveloper"
   | "isDisplayNameTaken"
   | "isGuest"

@@ -183,6 +183,15 @@ function boundedQueue<T extends { status: string; reportedAtMs: number }>(entrie
   return [...open, ...sorted.filter(entry => entry.status !== "open").slice(0, REVIEWED_LIMIT)];
 }
 
+/** The overview's two queue counts, without building the queue. */
+export function countOpenItems(ctx: ReadCtx) {
+  let pendingReports = [...ctx.db.chatMessageReport.byStatus.filter("pending")].length;
+  for (const row of ctx.db.playerReport.iter()) if (row.status === "pending") pendingReports++;
+  let openBugs = 0;
+  for (const row of ctx.db.bugReport.iter()) if (bugStatusAfter(decisionsFor(ctx, `bug:${row.id}`)) === "open") openBugs++;
+  return { pendingReports, openBugs };
+}
+
 export function readDevReviewQueue(ctx: ReadCtx): DevReviewQueue {
   const refs = new Map<DevReportEntry, MessageRef>();
   const reports = boundedQueue([
@@ -271,25 +280,55 @@ function mailReporter(ctx: GameReducerContext, reportKey: string, reporter: any,
 
 type ReviewArgs = { decision: string; note: string; mailReporter: boolean };
 
+const actorType = (ctx: GameReducerContext) => isDeveloperIdentity(ctx.sender.toHexString()) ? "developer" as const : "owner" as const;
+
+/** The audit line for a triage decision, so the moderation log holds every developer action. */
+function auditDecision(ctx: GameReducerContext, entry: { channel: "report" | "bug"; key: string; target: any; targetName: string;
+  decision: string; note: string; evidence: string; mailed: boolean; closed: number }) {
+  const [reportTable, reportId] = entry.key.split(":");
+  recordModerationAction(ctx, {
+    targetIdentity: entry.target.toHexString(), targetName: entry.targetName, channel: entry.channel,
+    action: `${entry.channel === "bug" ? "Bug" : "Report"} ${decisionWords(entry.decision)}`,
+    reason: entry.note || "No note", actorType: actorType(ctx), rule: "developer-triage",
+    reportTable, reportId, before: entry.evidence,
+    after: [entry.mailed ? "Reporter mailed" : "No letter", entry.closed > 1 ? `${entry.closed} reports closed` : ""].filter(Boolean).join(" · "),
+  });
+}
+
+function decisionWords(decision: string) {
+  return ({ removed: "message removed", dismissed: "dismissed", muted_1h: "muted 1h", muted_24h: "muted 24h", banned: "banned",
+    reopened: "reopened", resolved: "resolved", wont_fix: "won't fix", duplicate: "duplicate", deleted: "deleted" } as Record<string, string>)[decision] ?? decision;
+}
+
 /** Called only after the reducer verifies the developer or the database owner. */
 export function reviewReport(ctx: GameReducerContext, args: ReviewArgs & { reportKey: string }) {
   if (!isReportDecision(args.decision)) throw new SenderError("Choose a valid report decision.");
   const note = cleanNote(args.note);
   const report = findReport(ctx, args.reportKey);
+  const audit = (mailed: boolean, closed: number) => auditDecision(ctx, {
+    channel: "report", key: report.key, target: report.table === "chat" ? report.row.accused : report.row.target,
+    targetName: report.table === "chat" ? report.row.senderName : report.row.targetName,
+    decision: args.decision, note, evidence: report.table === "chat" ? report.row.message : report.row.note, mailed, closed,
+  });
   if (args.decision === "reopened") {
     setReportStatus(ctx, report, "pending");
     recordDecision(ctx, report.key, "reopened", note);
+    audit(false, 0);
     return;
   }
   if (args.decision === "removed") removeReportedMessage(ctx, report);
   const status = args.decision === "dismissed" ? "dismissed" : "resolved";
   // The letter says only that action was or was not taken, never what or to whom.
   const letter = args.mailReporter ? reviewMailLetter("report", args.decision, "", note) : null;
-  for (const current of [report, ...siblingReports(ctx, report)]) {
+  const closing = [report, ...siblingReports(ctx, report)];
+  let anyMailed = false;
+  for (const current of closing) {
     setReportStatus(ctx, current, status);
     const mailed = mailReporter(ctx, current.key, current.row.reporter, letter);
+    anyMailed ||= mailed;
     recordDecision(ctx, current.key, args.decision, current === report ? note : `Same message as ${report.key}. ${note}`.trim(), mailed);
   }
+  audit(anyMailed, closing.length);
 }
 
 /** Called only after the reducer verifies the developer or the database owner. */
@@ -301,14 +340,19 @@ export function reviewBug(ctx: GameReducerContext, args: ReviewArgs & { id: bigi
   const key = `bug:${args.id}`;
   const mailed = args.mailReporter && mailReporter(ctx, key, bug.reporter, reviewMailLetter("bug", args.decision, bug.message, note));
   recordDecision(ctx, key, args.decision, note, mailed);
+  auditDecision(ctx, { channel: "bug", key, target: bug.reporter, targetName: bug.reporterName, decision: args.decision,
+    note, evidence: bug.message, mailed, closed: 1 });
 }
 
-/** The spam delete still leaves a line saying who removed the report. */
+/** The spam delete sends no letter but still leaves a line saying who removed the report. */
 export function recordBugDeletion(ctx: GameReducerContext, id: bigint) {
+  const bug = ctx.db.bugReport.id.find(id);
   recordDecision(ctx, `bug:${id}`, "deleted", "");
+  if (bug) auditDecision(ctx, { channel: "bug", key: `bug:${id}`, target: bug.reporter, targetName: bug.reporterName,
+    decision: "deleted", note: "", evidence: bug.message, mailed: false, closed: 1 });
 }
 
-function playerSummary(ctx: ReadCtx, identity: any, displayName: string): DevPlayerSummary {
+export function playerSummary(ctx: ReadCtx, identity: any, displayName: string): DevPlayerSummary {
   const restriction = ctx.db.defeatSessionRestriction.identity.find(identity);
   const now = ctx.timestamp.microsSinceUnixEpoch;
   const suspended = restriction && restriction.blockedUntilMicros > now ? restriction.blockedUntilMicros : 0n;

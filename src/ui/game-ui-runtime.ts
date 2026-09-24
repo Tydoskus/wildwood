@@ -129,7 +129,7 @@ export function createDevPanel(d: Record<string, any>) {
     getVirtualPlayerLoadTest: () => coop?.virtualPlayerLoadTestState?.() ?? { phase: "idle", requested: 0, connected: 0, failures: 0, movementHz: VIRTUAL_PLAYER_MOVEMENT_HZ, saveIntervalMs: VIRTUAL_PLAYER_SAVE_INTERVAL_MS },
     startVirtualPlayers: (count: number) => coop?.startVirtualPlayers?.(count),
     stopVirtualPlayers: () => coop?.stopVirtualPlayers?.(),
-    loadModerationHistory: (beforeId) => coop?.moderationHistory?.(beforeId) ?? Promise.reject(new Error("Connect to view moderation history.")),
+    loadModerationLog: (query, beforeId) => coop?.devModeration?.moderationLog(query, beforeId) ?? Promise.reject(new Error("Connect to view the moderation log.")),
     getBugReports: () => coop?.bugReportEntries?.() ?? [],
     deleteBugReport: (id: bigint) => coop?.deleteBugReport?.(id),
     loadAnalytics: (fromDayKey: string, toDayKey: string) => coop?.analyticsDashboard?.(fromDayKey, toDayKey) ?? Promise.reject(new Error("Connect to view analytics.")),

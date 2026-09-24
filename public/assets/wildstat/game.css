@@ -1800,6 +1800,10 @@
 
   #chatForm button { cursor: pointer; }
   #chatForm button:disabled { min-width: 53px; opacity: .72; cursor: wait; }
+  /* Muted: grey and inert, keeping the countdown text, until the mute ends. */
+  #chatForm #chatSendBtn.is-muted,
+  #chatForm #chatSendBtn.is-muted:hover,
+  #chatForm #chatSendBtn.is-muted:active { border-color: #29302c; background: linear-gradient(#5d6a61, #37423b); box-shadow: none; color: rgba(236,240,236,.62); filter: none; opacity: 1; transform: none; cursor: not-allowed; }
   .pickup {
     justify-self: center;
     max-width: 100%;
@@ -4013,7 +4017,7 @@
 .dev-analytics-error { color: #ff9b91; }
 @media (max-width: 560px) { .dev-analytics-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .moderation-history-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.moderation-history-toolbar button { width: auto; margin: 0; }
+.moderation-history-toolbar button { width: auto; min-height: 36px; margin: 0; padding: 6px 12px; border-width: 2px; border-radius: 8px; font-size: 12px; }
 .moderation-history-rows { max-height: min(55dvh, 520px); overflow-y: auto; overscroll-behavior: contain; }
 .moderation-history-entry { padding: 12px 2px; border-bottom: 1px solid #ffffff26; color: #fff; font-size: 12px; line-height: 1.5; }
 .moderation-history-entry summary { cursor: pointer; }
@@ -4378,4 +4382,32 @@
 @media (max-height: 480px) {
   .modal.dev-audit-modal { padding: 8px; }
   .dev-audit-tabs .profile-tab { height: 38px; min-height: 38px; padding: 4px 10px; }
+}
+/* Moderation console: headline counts, Muted/Banned rows, the player card and log filters. */
+.dev-overview { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 2px 0 6px; }
+.dev-overview[hidden] { display: none; }
+.dev-overview-chip { display: grid; justify-items: center; gap: 1px; min-width: 0; min-height: 44px; margin: 0; padding: 4px 2px; border: 1px solid rgba(145,207,160,.24); border-radius: 7px; background: rgba(0,0,0,.24); box-shadow: none; color: var(--muted); font-size: 10px; font-weight: 900; line-height: 1.1; text-shadow: none; }
+.dev-overview-chip strong { color: #d8e4d4; font-size: 16px; }
+.dev-overview-chip[data-active="true"] { border-color: rgba(255,216,91,.5); }
+.dev-overview-chip[data-active="true"] strong { color: #ffe07a; }
+.dev-console-name { min-width: 0; color: #fff; font-size: 13px; overflow-wrap: anywhere; }
+.dev-player-facts { display: grid; gap: 3px; margin: 0; font-size: 12px; }
+.dev-player-facts > div { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px; }
+.dev-player-facts dt { color: var(--muted); }
+.dev-player-facts dd { margin: 0; color: #eef1ee; overflow-wrap: anywhere; }
+.dev-review-actions > input { grid-column: 1 / -1; }
+.dev-review-actions > .dev-player-custom { grid-column: auto; }
+.dev-player-chat summary { min-height: 36px; padding: 8px 0; color: #b9d6ff; font-weight: 900; cursor: pointer; }
+.dev-log-filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; margin-bottom: 8px; }
+.dev-log-filters > input[type="search"] { grid-column: 1 / -1; }
+.dev-log-filters select { appearance: auto; }
+@media (max-width: 420px) {
+  .dev-overview-chip { font-size: 9px; }
+  .dev-player-facts > div { grid-template-columns: 80px minmax(0, 1fr); }
+}
+#devModerationPanel .moderation-history-rows + button { min-height: 36px; margin: 8px 0 0; padding: 6px 12px; border-width: 2px; border-radius: 8px; font-size: 12px; }
+@media (max-height: 480px) {
+  .dev-overview { margin: 0 0 4px; }
+  .dev-overview-chip { grid-auto-flow: column; align-items: center; justify-content: center; gap: 5px; min-height: 36px; }
+  .dev-overview-chip strong { font-size: 13px; }
 }

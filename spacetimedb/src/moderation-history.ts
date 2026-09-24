@@ -1,6 +1,7 @@
 import { table, t } from "spacetimedb/server";
 import type { ModuleReducerCtx } from "./index";
 import type { ModerationHistoryPage } from "../../shared/moderation-history";
+import { moderationEntryMatches, type ModerationLogQuery } from "../../shared/dev-console";
 
 const moderationAction = table({ name: "moderation_action", public: false }, {
   id: t.u64().primaryKey(),
@@ -51,6 +52,28 @@ export function readPlayerModerationHistory(ctx: Pick<ModuleReducerCtx, "db">, t
     entries.push({ ...entry, id: id.toString(), recordedAtMs: Number(recordedAt.microsSinceUnixEpoch / 1000n) });
   }
   return { entries, beforeId: "0", hasMore: false };
+}
+
+/**
+ * The moderation log's filtered search: up to 50 matches, reading at most
+ * PLAYER_HISTORY_SCAN rows back from `beforeId`. The next page starts where
+ * this one stopped reading, so a sparse filter pages on rather than stalling.
+ */
+export function searchModerationHistory(ctx: Pick<ModuleReducerCtx, "db">, query: ModerationLogQuery, beforeId: bigint): ModerationHistoryPage {
+  const end = (ctx.db.moderationHead.id.find(0)?.lastId ?? 0n) + 1n;
+  const before = beforeId > 0n && beforeId < end ? beforeId : end;
+  const floor = before > PLAYER_HISTORY_SCAN ? before - PLAYER_HISTORY_SCAN : 1n;
+  const entries: ModerationHistoryPage["entries"] = [];
+  let id = before - 1n;
+  for (; id >= floor && entries.length < 50; id--) {
+    const row = ctx.db.moderationAction.id.find(id);
+    if (!row) continue;
+    const { recordedAt, ...rest } = row;
+    const entry = { ...rest, id: id.toString(), recordedAtMs: Number(recordedAt.microsSinceUnixEpoch / 1000n) };
+    if (moderationEntryMatches(entry, query)) entries.push(entry);
+  }
+  const next = id + 1n;
+  return { entries, beforeId: next.toString(), hasMore: next > 1n };
 }
 
 /** Fixed 50 indexed reads; history size never changes the work for a page. */

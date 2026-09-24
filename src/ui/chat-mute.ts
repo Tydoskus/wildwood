@@ -67,6 +67,8 @@ export function createChatMuteDisplay({ input, sendButton, record, visible, onTi
     const label = formatChatMuteRemaining(remaining);
     const nextPlaceholder = muted ? `Chat muted · ${label}` : placeholder;
     if (input.placeholder !== nextPlaceholder) input.placeholder = nextPlaceholder;
+    // Greyed out, not merely disabled: the green cooldown look read as "wait a moment".
+    if (sendButton.classList.contains("is-muted") !== muted) sendButton.classList.toggle("is-muted", muted);
     if (!muted) return false;
     sendButton.disabled = true;
     const buttonLabel = formatChatMuteButton(remaining);

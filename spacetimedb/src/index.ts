@@ -35,7 +35,8 @@ import { playerOnboarding, advanceOnboarding, needsOnboarding } from "./onboardi
 import { isUpgradeSlot, normalizeSlotTier, upgradeSlotForItem, UPGRADE_SLOT_LABELS } from "../../shared/slot-upgrades";
 import { deliverDisconnectCompensation, deliverCombatUpdateGift, deliverOutageCompensation, announceOutageCompensation, deliverAutofarmTestGift } from "./disconnect-compensation";
 import { connectionDiagnosticTables, recordConnectionDiagnostics, cleanupConnectionDiagnostics } from "./connection-diagnostics";
-import { moderationTables, recordModerationAction, readModerationHistory, readPlayerModerationHistory } from "./moderation-history";
+import { moderationTables, recordModerationAction, readModerationHistory, readPlayerModerationHistory, searchModerationHistory } from "./moderation-history";
+import { readDevConsole, readDevPlayerCard, warnPlayer } from "./dev-console";
 import { mailboxLetter, mailboxReceipt, mailboxEntryV2, mailboxForPlayerV2, playerJoinDate, publishMailboxLetter, syncPlayerJoinDate, updateMailboxReceipt } from "./mailbox";
 import { rollbackPlayerProgression } from "./player-progression-rollback";
 import { playerItemGift, deliverAlphaTesterGifts, claimItemGift } from "./item-gifts";
@@ -2150,8 +2151,9 @@ function syncDisplayNamePresentation(ctx: any, identity: any, displayName: strin
   }
 }
 
-function repairModeratedDisplayName(ctx: any, profile: any, actorType: "automatic" | "owner" = "automatic") {
-  if (isPublicDisplayNameAllowed(profile.displayName)) return profile;
+/** `forcedReason` renames even an allowed name: the developer's reset, with its reason. */
+function repairModeratedDisplayName(ctx: any, profile: any, actorType: "automatic" | "owner" | "developer" = "automatic", forcedReason = "") {
+  if (!forcedReason && isPublicDisplayNameAllowed(profile.displayName)) return profile;
   const displayName = generatedDisplayName(profile.identity);
   const repaired = { ...profile, displayName };
   updateSnapshotRow(ctx, "playerProfile", repaired);
@@ -2161,7 +2163,7 @@ function repairModeratedDisplayName(ctx: any, profile: any, actorType: "automati
   }
   syncDisplayNamePresentation(ctx, profile.identity, displayName);
   recordModerationAction(ctx, { targetIdentity: profile.identity.toHexString(), targetName: displayName,
-    channel: "profile", action: "Name changed", reason: displayNameModerationReason(profile.displayName) ?? "Disallowed username",
+    channel: "profile", action: "Name changed", reason: forcedReason || (displayNameModerationReason(profile.displayName) ?? "Disallowed username"),
     actorType, rule: MODERATION_RULE_VERSION, before: profile.displayName, after: displayName });
   return repaired;
 }
@@ -6405,6 +6407,33 @@ export const devReviewBug = spacetimedb.reducer({ id: t.u64(), decision: t.strin
 export const devLiftPlayerSuspension = spacetimedb.reducer({ identity: t.identity(), reason: t.string() }, (ctx, { identity, reason }) => {
   if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_lift_player_suspension");
   liftPlayerSuspension(ctx, identity, reason);
+});
+// The rest of the console: muted and banned lists, headline counts, the player
+// card, the filtered log, warnings and name resets. Bodies live in dev-console.ts.
+export const getDevConsole = spacetimedb.procedure({}, t.string(), ctx => ctx.withTx(tx => {
+  if (!isDatabaseOwnerIdentity(tx.sender)) requireDeveloperSession(tx, "get_dev_console");
+  return JSON.stringify(readDevConsole(tx));
+}));
+export const getDevPlayerCard = spacetimedb.procedure({ identity: t.identity() }, t.string(), (ctx, { identity }) => ctx.withTx(tx => {
+  if (!isDatabaseOwnerIdentity(tx.sender)) requireDeveloperSession(tx, "get_dev_player_card");
+  return JSON.stringify(readDevPlayerCard(tx, identity));
+}));
+export const getModerationLog = spacetimedb.procedure({ text: t.string(), category: t.string(), fromMs: t.f64(), toMs: t.f64(), beforeId: t.u64() }, t.string(),
+  (ctx, { beforeId, ...query }) => ctx.withTx(tx => {
+    if (!isDatabaseOwnerIdentity(tx.sender)) requireDeveloperSession(tx, "get_moderation_log");
+    return JSON.stringify(searchModerationHistory(tx, query, beforeId));
+  }));
+export const devWarnPlayer = spacetimedb.reducer({ identity: t.identity(), message: t.string() }, (ctx, { identity, message }) => {
+  if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_warn_player");
+  warnPlayer(ctx, identity, message);
+});
+export const devResetDisplayName = spacetimedb.reducer({ identity: t.identity(), expectedDisplayName: t.string(), reason: t.string() }, (ctx, args) => {
+  if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_reset_display_name");
+  const profile = ctx.db.playerProfile.identity.find(args.identity);
+  if (!profile || profile.displayName !== args.expectedDisplayName) throw new SenderError("Player name changed; reset refused.");
+  if (isDeveloperIdentity(args.identity) || isDatabaseOwnerIdentity(args.identity)) throw new SenderError("Protected identity cannot be renamed.");
+  repairModeratedDisplayName(ctx, profile, isDeveloperIdentity(ctx.sender) ? "developer" : "owner", args.reason.trim().slice(0, 300) || "Reset by the developer");
+  refreshLeaderboard(ctx);
 });
 
 // New clients subscribe to extended views; existing app schemas remain unchanged.

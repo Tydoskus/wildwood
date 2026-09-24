@@ -14,7 +14,9 @@ function harness(reviewQueue: () => Promise<unknown>, identity = DEVELOPER_IDENT
   const showMessage = vi.fn();
   const review = {
     reviewQueue: vi.fn(reviewQueue), reviewReport: vi.fn(), reviewBug: vi.fn(), setChatMute: vi.fn(), suspend: vi.fn(),
-    findPlayers: vi.fn(), playerHistory: vi.fn(), liftSuspension: vi.fn(),
+    findPlayers: vi.fn(), playerCard: vi.fn(), liftSuspension: vi.fn(), warn: vi.fn(), resetDisplayName: vi.fn(),
+    console: vi.fn(async () => ({ overview: { pendingReports: 2, openBugs: 0, muted: 1, banned: 0 }, muted: [], banned: [], serverNowMs: Date.now() })),
+    serverNow: () => Date.now(),
   };
   const controller = createDevPanelController({
     teleportPlayer: async () => {}, simulateTimeAway: async () => true,
@@ -25,7 +27,7 @@ function harness(reviewQueue: () => Promise<unknown>, identity = DEVELOPER_IDENT
     getPresenceVisible: () => true, setPresenceVisible: () => undefined,
     getVirtualPlayerLoadTest: () => ({ phase: "idle", requested: 0, connected: 0, failures: 0, movementHz: 1, saveIntervalMs: 1_000 }),
     startVirtualPlayers: () => undefined, stopVirtualPlayers: () => undefined,
-    loadModerationHistory: async () => ({ entries: [], beforeId: "0", hasMore: false }),
+    loadModerationLog: async () => ({ entries: [], beforeId: "0", hasMore: false }),
     getBugReports: () => [], deleteBugReport: () => undefined,
     loadAnalytics: async () => { throw new Error("unused"); },
     getMetrics: () => { throw new Error("unused"); },
@@ -54,6 +56,9 @@ describe("developer panel access", () => {
     expect(h.element("devReportsPanel").hidden).toBe(false);
     expect(h.element("devReportsTab").getAttribute("aria-selected")).toBe("true");
     expect(h.review.reviewQueue).toHaveBeenCalledTimes(1);
+    // The overview strip shows the headline counts once the console read lands.
+    expect(h.element("devOverview").hidden).toBe(false);
+    expect(h.element("devOverview").textContent).toContain("2pending");
   });
 
   it("closes when the server refuses, whatever the client thought", async () => {

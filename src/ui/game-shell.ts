@@ -263,11 +263,14 @@ const afterUpdateGateShell = String.raw`
 <div id="devAudit" hidden>
   <div class="modal dev-audit-modal" role="dialog" aria-modal="true" aria-label="Developer tools">
     <p id="devAccessGate" class="dev-access-gate" role="status" hidden></p>
+    <div id="devOverview" class="dev-overview" aria-label="Moderation overview" hidden></div>
     <div id="devAuditTabs" class="dev-audit-tabs" role="tablist" aria-label="Developer tools">
       <button id="devReportsTab" class="profile-tab is-active" type="button" role="tab" aria-selected="true">Reports</button>
       <button id="devBugReportsTab" class="profile-tab" type="button" role="tab" aria-selected="false">Bugs</button>
+      <button id="devMutedTab" class="profile-tab" type="button" role="tab" aria-selected="false">Muted</button>
+      <button id="devBannedTab" class="profile-tab" type="button" role="tab" aria-selected="false">Banned</button>
       <button id="devPlayersTab" class="profile-tab" type="button" role="tab" aria-selected="false">Players</button>
-      <button id="devModerationTab" class="profile-tab" type="button" role="tab" aria-selected="false">Moderation log</button>
+      <button id="devModerationTab" class="profile-tab" type="button" role="tab" aria-selected="false">Log</button>
       <button id="devControlsTab" class="profile-tab" type="button" role="tab" aria-selected="false">Controls</button>
       <button id="devBalanceTab" class="profile-tab" type="button" role="tab" aria-selected="false">Balance</button>
       <button id="devPerformanceTab" class="profile-tab" type="button" role="tab" aria-selected="false">Performance</button>
@@ -275,6 +278,8 @@ const afterUpdateGateShell = String.raw`
     </div>
     <section id="devReportsPanel" class="dev-review-panel" role="tabpanel" aria-labelledby="devReportsTab"></section>
     <section id="devBugReportsPanel" class="dev-review-panel" role="tabpanel" aria-labelledby="devBugReportsTab" hidden></section>
+    <section id="devMutedPanel" class="dev-review-panel" role="tabpanel" aria-labelledby="devMutedTab" hidden></section>
+    <section id="devBannedPanel" class="dev-review-panel" role="tabpanel" aria-labelledby="devBannedTab" hidden></section>
     <section id="devPlayersPanel" class="dev-review-panel" role="tabpanel" aria-labelledby="devPlayersTab" hidden></section>
     <section id="devBalancePanel" role="tabpanel" aria-labelledby="devBalanceTab" hidden></section>
     <section id="devModerationPanel" role="tabpanel" aria-labelledby="devModerationTab" hidden></section>

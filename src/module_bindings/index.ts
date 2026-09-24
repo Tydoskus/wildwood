@@ -100,6 +100,7 @@ import DevPublishMailboxLetterReducer from "./dev_publish_mailbox_letter_reducer
 import DevRepairDisplayNameReducer from "./dev_repair_display_name_reducer";
 import DevRepairPlayerJoinedAtReducer from "./dev_repair_player_joined_at_reducer";
 import DevResetDailyGemBonusReducer from "./dev_reset_daily_gem_bonus_reducer";
+import DevResetDisplayNameReducer from "./dev_reset_display_name_reducer";
 import DevReviewBugReducer from "./dev_review_bug_reducer";
 import DevReviewReportReducer from "./dev_review_report_reducer";
 import DevRollbackPlayerProgressionReducer from "./dev_rollback_player_progression_reducer";
@@ -109,6 +110,7 @@ import DevSetEndlessTravelAccessReducer from "./dev_set_endless_travel_access_re
 import DevSuspendPlayerAccountReducer from "./dev_suspend_player_account_reducer";
 import DevTeleportEndlessReducer from "./dev_teleport_endless_reducer";
 import DevUpdatePlayerSaveReducer from "./dev_update_player_save_reducer";
+import DevWarnPlayerReducer from "./dev_warn_player_reducer";
 import DisconnectPatreonReducer from "./disconnect_patreon_reducer";
 import EnterWorldReducer from "./enter_world_reducer";
 import EnterWorldWithTutorialReducer from "./enter_world_with_tutorial_reducer";
@@ -204,6 +206,8 @@ import * as GetBalanceEditorProcedure from "./get_balance_editor_procedure";
 import * as GetChatHistoryProcedure from "./get_chat_history_procedure";
 import * as GetChatHistoryWithReactionsProcedure from "./get_chat_history_with_reactions_procedure";
 import * as GetChatMessageReactionsProcedure from "./get_chat_message_reactions_procedure";
+import * as GetDevConsoleProcedure from "./get_dev_console_procedure";
+import * as GetDevPlayerCardProcedure from "./get_dev_player_card_procedure";
 import * as GetDevReviewQueueProcedure from "./get_dev_review_queue_procedure";
 import * as GetDeveloperTravelTargetProcedure from "./get_developer_travel_target_procedure";
 import * as GetGuildHubProcedure from "./get_guild_hub_procedure";
@@ -214,6 +218,7 @@ import * as GetLeaderboardWindowProcedure from "./get_leaderboard_window_procedu
 import * as GetMapBalanceProcedure from "./get_map_balance_procedure";
 import * as GetMapConfigurationProcedure from "./get_map_configuration_procedure";
 import * as GetModerationHistoryProcedure from "./get_moderation_history_procedure";
+import * as GetModerationLogProcedure from "./get_moderation_log_procedure";
 import * as GetNameChangeStatusProcedure from "./get_name_change_status_procedure";
 import * as GetPatreonStatusProcedure from "./get_patreon_status_procedure";
 import * as GetPlayerModerationHistoryProcedure from "./get_player_moderation_history_procedure";
@@ -1413,6 +1418,7 @@ const reducersSchema = __reducers(
   __reducerSchema("dev_repair_display_name", DevRepairDisplayNameReducer),
   __reducerSchema("dev_repair_player_joined_at", DevRepairPlayerJoinedAtReducer),
   __reducerSchema("dev_reset_daily_gem_bonus", DevResetDailyGemBonusReducer),
+  __reducerSchema("dev_reset_display_name", DevResetDisplayNameReducer),
   __reducerSchema("dev_review_bug", DevReviewBugReducer),
   __reducerSchema("dev_review_report", DevReviewReportReducer),
   __reducerSchema("dev_rollback_player_progression", DevRollbackPlayerProgressionReducer),
@@ -1422,6 +1428,7 @@ const reducersSchema = __reducers(
   __reducerSchema("dev_suspend_player_account", DevSuspendPlayerAccountReducer),
   __reducerSchema("dev_teleport_endless", DevTeleportEndlessReducer),
   __reducerSchema("dev_update_player_save", DevUpdatePlayerSaveReducer),
+  __reducerSchema("dev_warn_player", DevWarnPlayerReducer),
   __reducerSchema("disconnect_patreon", DisconnectPatreonReducer),
   __reducerSchema("enter_world", EnterWorldReducer),
   __reducerSchema("enter_world_with_tutorial", EnterWorldWithTutorialReducer),
@@ -1519,6 +1526,8 @@ const proceduresSchema = __procedures(
   __procedureSchema("get_chat_history", GetChatHistoryProcedure.params, GetChatHistoryProcedure.returnType),
   __procedureSchema("get_chat_history_with_reactions", GetChatHistoryWithReactionsProcedure.params, GetChatHistoryWithReactionsProcedure.returnType),
   __procedureSchema("get_chat_message_reactions", GetChatMessageReactionsProcedure.params, GetChatMessageReactionsProcedure.returnType),
+  __procedureSchema("get_dev_console", GetDevConsoleProcedure.params, GetDevConsoleProcedure.returnType),
+  __procedureSchema("get_dev_player_card", GetDevPlayerCardProcedure.params, GetDevPlayerCardProcedure.returnType),
   __procedureSchema("get_dev_review_queue", GetDevReviewQueueProcedure.params, GetDevReviewQueueProcedure.returnType),
   __procedureSchema("get_developer_travel_target", GetDeveloperTravelTargetProcedure.params, GetDeveloperTravelTargetProcedure.returnType),
   __procedureSchema("get_guild_hub", GetGuildHubProcedure.params, GetGuildHubProcedure.returnType),
@@ -1529,6 +1538,7 @@ const proceduresSchema = __procedures(
   __procedureSchema("get_map_balance", GetMapBalanceProcedure.params, GetMapBalanceProcedure.returnType),
   __procedureSchema("get_map_configuration", GetMapConfigurationProcedure.params, GetMapConfigurationProcedure.returnType),
   __procedureSchema("get_moderation_history", GetModerationHistoryProcedure.params, GetModerationHistoryProcedure.returnType),
+  __procedureSchema("get_moderation_log", GetModerationLogProcedure.params, GetModerationLogProcedure.returnType),
   __procedureSchema("get_name_change_status", GetNameChangeStatusProcedure.params, GetNameChangeStatusProcedure.returnType),
   __procedureSchema("get_patreon_status", GetPatreonStatusProcedure.params, GetPatreonStatusProcedure.returnType),
   __procedureSchema("get_player_moderation_history", GetPlayerModerationHistoryProcedure.params, GetPlayerModerationHistoryProcedure.returnType),

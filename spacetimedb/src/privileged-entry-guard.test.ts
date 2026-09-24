@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Identity } from "../../tests/helpers/spacetime-memory-db";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
@@ -16,7 +17,7 @@ const DEV_VIEWS = new Set(["devAccessAudit", "devBugReports", "devGemPurchaseRev
 const PRIVILEGED_WITHOUT_DEV_PREFIX = [
   "setDeveloperNameTag", "setDeveloperPresence", "simulateTimeAway",
   "getBalanceEditor", "previewMapBalance", "setMapBalance", "restoreMapBalance",
-  "getModerationHistory", "getPlayerModerationHistory", "getDevReviewQueue",
+  "getModerationHistory", "getPlayerModerationHistory", "getDevReviewQueue", "getDevConsole", "getDevPlayerCard", "getModerationLog",
   "getAnalyticsDashboard", "getDeveloperTravelTarget",
   "configurePatreon", "configureGemCommerce", "setReleaseWindow", "refreshDuelWireAccess", "seedTemporaryGuild",
   "beginForestRewardPrototype", "attackForestRewardPrototype",
@@ -37,6 +38,7 @@ function argsFor(target: Identity) {
     settingsJson: "{}", operationId: "op", baselineJson: "{}", itemId: "wooden_sword", slot: "rightHand", level: 1,
     title: "t", body: "b", encounter: 1n, firstAttack: 1n, count: 1, version: "1", phase: "notice", startsAt: 0, reload: false,
     clientId: "c", clientSecret: "s", campaignId: "1", silverTierId: "1", goldTierId: "2", diamondTierId: "", redirectUri: "u",
+    text: "", category: "", fromMs: 0, toMs: 0, message: "warning", mailReporter: true,
     maxHp: 1, damage: 1, attackRate: 1, projectileSpeed: 1, projectileCount: 1, attackRange: 1, armor: 1, regen: 1, speed: 1,
   };
 }
@@ -65,7 +67,7 @@ describe("privileged entry points", () => {
   it("finds the developer tools it is guarding, including the triage and moderation ones", () => {
     expect(devEntries).toEqual(expect.arrayContaining([
       "devReviewReport", "devReviewBug", "devFindPlayers", "devLiftPlayerSuspension", "devSetChatMute",
-      "devSuspendPlayerAccount", "devDeleteBugReport", "devAdjustGems", "devEraseAccount",
+      "devSuspendPlayerAccount", "devDeleteBugReport", "devAdjustGems", "devEraseAccount", "devWarnPlayer", "devResetDisplayName",
     ]));
     for (const name of PRIVILEGED_WITHOUT_DEV_PREFIX) expect(typeof exported[name], name).toBe("function");
   });
@@ -80,6 +82,15 @@ describe("privileged entry points", () => {
   it.each(guarded)("%s refuses the developer identity without its signed-in account", name => {
     const { call } = setup("unauthenticatedDeveloper");
     expect(() => call(name)).toThrow(REFUSED);
+  });
+
+  it("keeps the moderation, report, triage and mail tables private", () => {
+    const source = (file: string) => readFileSync(new URL(file, import.meta.url), "utf8");
+    for (const [file, name] of [
+      ["./dev-review.ts", "dev_report_review"], ["./dev-review-mail.ts", "player_mail"], ["./chat-mute.ts", "player_chat_mute"],
+      ["./moderation-history.ts", "moderation_action"], ["./social-tables.ts", "social_report"], ["./social-tables.ts", "social_message"],
+      ["./index.ts", "player_report"], ["./defeat-session.ts", "defeat_session_restriction"],
+    ]) expect(source(file), name).toContain(`name: "${name}", public: false`);
   });
 
   it.each([...DEV_VIEWS])("%s shows a non-developer nothing", name => {

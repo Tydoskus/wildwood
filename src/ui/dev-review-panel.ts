@@ -293,7 +293,7 @@ export function createDevReviewPanel(containers: { reports: HTMLElement; bugs: H
     const api = dependencies.api();
     const review = (decision: string, success: string) => act(entry.key, success,
       async () => api ? api.reviewReport(entry.key, decision, note(entry.key), mailing(entry.key)) : { ok: false, error: "Not connected." });
-    const history = action("History", "plain", () => dependencies.openPlayer(entry.targetIdentity, entry.targetName));
+    const history = action("Player", "plain", () => dependencies.openPlayer(entry.targetIdentity, entry.targetName));
     if (entry.status !== "open") {
       article.append(actionRow(action("Reopen", "plain", () => { void review("reopened", "Report reopened"); }), history));
       return article;
@@ -353,9 +353,10 @@ export function createDevReviewPanel(containers: { reports: HTMLElement; bugs: H
     const review = (decision: string, success: string) => act(key, success,
       async () => api ? api.reviewBug(entry.id, decision, note(key), mailing(key)) : { ok: false, error: "Not connected." });
     const copy = action("Copy text", "plain", () => { void copyText(entry); });
+    const reporterCard = action("Reporter", "plain", () => dependencies.openPlayer(entry.reporterIdentity, entry.reporterName));
     const remove = action("Delete", "danger", async () => {
       const confirmed = await dependencies.confirm({
-        message: "Delete this bug report? Use this for spam only; the decision log keeps a line saying you deleted it.",
+        message: "Delete this bug report for good? It can't be undone and no letter is sent. Use it for spam only; the log keeps a line saying you deleted it.",
         confirmLabel: "Delete", danger: true,
       });
       if (confirmed) void act(key, "Bug report deleted", async () => await dependencies.deleteBug(BigInt(entry.id)));
@@ -365,10 +366,10 @@ export function createDevReviewPanel(containers: { reports: HTMLElement; bugs: H
         action("Resolved", "primary", () => { void review("resolved", "Bug marked resolved"); }),
         action("Won't fix", "plain", () => { void review("wont_fix", "Bug marked won't fix"); }),
         action("Duplicate", "plain", () => { void review("duplicate", "Bug marked duplicate"); }),
-        copy, remove,
+        copy, reporterCard, remove,
       ));
     } else {
-      article.append(actionRow(action("Reopen", "plain", () => { void review("reopened", "Bug reopened"); }), copy, remove));
+      article.append(actionRow(action("Reopen", "plain", () => { void review("reopened", "Bug reopened"); }), copy, reporterCard, remove));
     }
     return article;
   }

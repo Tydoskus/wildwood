@@ -101,7 +101,7 @@ describe("developer review panel", () => {
   it("opens the reported player's history and reviews bugs", async () => {
     const h = harness();
     await h.panel.load();
-    h.button(h.reports, "History").click();
+    h.button(h.reports, "Player").click();
     expect(h.openPlayer).toHaveBeenCalledWith("bb", "Rude");
     // Unticking "Mail the reporter" sends the decision without a letter.
     const mail = h.bugs.querySelector(".dev-review-mail input") as HTMLInputElement;

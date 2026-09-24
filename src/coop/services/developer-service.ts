@@ -1,5 +1,4 @@
 import type { BalanceEditorState, BalanceSettings, MapBalanceSnapshot } from "../../../shared/map-balance-types";
-import type { ModerationHistoryPage } from "../../../shared/moderation-history";
 import { Identity } from "spacetimedb";
 import { isDeveloperIdentity } from "../../app/developer";
 import type { AccessAuditEntry, BugReportEntry } from "../contracts";
@@ -132,16 +131,6 @@ export function createDeveloperService(dependencies: DeveloperServiceDependencie
         const conn = dependencies.reducers.connection();
         if (!conn || !hasAccess()) throw new Error("Developer access required.");
         await conn.reducers.restoreMapBalance({ expectedRevision, revision });
-      },
-      async moderationHistory(beforeId = "0"): Promise<ModerationHistoryPage> {
-        const connection = dependencies.reducers.connection();
-        const identity = dependencies.localIdentity();
-        if (!connection || !hasAccess()) throw new Error("Developer access required.");
-        const result = await connection.procedures.getModerationHistory({ beforeId: BigInt(beforeId) });
-        if (connection !== dependencies.reducers.connection() || identity !== dependencies.localIdentity() || !hasAccess()) {
-          throw new Error("Session changed. Reopen moderation history.");
-        }
-        return JSON.parse(result) as ModerationHistoryPage;
       },
       async analyticsDashboard(fromDayKey: string, toDayKey: string): Promise<AnalyticsDashboard> {
         const connection = dependencies.reducers.connection();

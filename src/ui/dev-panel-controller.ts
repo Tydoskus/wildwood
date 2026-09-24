@@ -4,7 +4,9 @@ import { createBossHitboxOverlayControl } from "./boss-hitbox-overlay-control";
 import { createPrestigeUnlockPreviewControl } from "./prestige-unlock-popup";
 import { createOtaPanel } from './ota-panel';
 import { createBalanceEditorPanel, type BalanceEditorDependencies } from "./balance-editor-panel";
-import { createModerationHistoryPanel, type ModerationHistoryLoader } from "./moderation-history-panel";
+import { createDevModerationLog, type ModerationLogLoader } from "./dev-moderation-log";
+import { createDevConsolePanels, type DevConsoleApi } from "./dev-console-panels";
+import type { DevConsoleOverview } from "../../shared/dev-console";
 import { requiredElement } from "../game/runtime/dom";
 import { createDevReviewPanel, type DevReviewApi } from "./dev-review-panel";
 import { createDevPlayerPanel, type DevPlayerApi } from "./dev-player-panel";
@@ -17,7 +19,7 @@ import {
 } from "../../shared/virtual-player-load-test";
 import type { AnalyticsDashboard } from "../coop/services/analytics-types";
 
-type DevPanelTab = "reports" | "bugs" | "players" | "moderation" | "controls" | "balance" | "performance" | "analytics";
+type DevPanelTab = "reports" | "bugs" | "muted" | "banned" | "players" | "moderation" | "controls" | "balance" | "performance" | "analytics";
 
 type BugReportEntry = { id: bigint };
 
@@ -50,7 +52,7 @@ type DevPanelDependencies = {
   previewPrestigeUnlock?: () => void;
   balance: BalanceEditorDependencies;
   /** Server calls for the triage tabs; null while disconnected. */
-  review: () => (DevReviewApi & DevPlayerApi) | null;
+  review: () => (DevReviewApi & DevPlayerApi & DevConsoleApi) | null;
   confirm: ConfirmPrompt;
   /** The server-assigned identity the connection authenticated as. */
   localIdentity: () => string;
@@ -62,7 +64,7 @@ type DevPanelDependencies = {
   getVirtualPlayerLoadTest: () => VirtualPlayerLoadTestState;
   startVirtualPlayers: (count: number) => Promise<{ ok?: boolean; error?: string; connected?: number; requested?: number } | undefined> | undefined;
   stopVirtualPlayers: () => Promise<{ ok?: boolean; error?: string } | undefined> | undefined;
-  loadModerationHistory: ModerationHistoryLoader;
+  loadModerationLog: ModerationLogLoader;
   getBugReports: () => BugReportEntry[];
   deleteBugReport: (id: bigint) => Promise<{ ok?: boolean; error?: string } | undefined> | undefined;
   loadAnalytics: (fromDayKey: string, toDayKey: string) => Promise<AnalyticsDashboard>;
@@ -79,9 +81,12 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
   const closeButton = requiredElement("closeDevAuditBtn");
   const gate = requiredElement("devAccessGate");
   const tabList = requiredElement("devAuditTabs");
+  const overview = requiredElement("devOverview");
   const tabs: Record<DevPanelTab, HTMLElement> = {
     reports: requiredElement("devReportsTab"),
     bugs: requiredElement("devBugReportsTab"),
+    muted: requiredElement("devMutedTab"),
+    banned: requiredElement("devBannedTab"),
     players: requiredElement("devPlayersTab"),
     moderation: requiredElement("devModerationTab"),
     controls: requiredElement("devControlsTab"),
@@ -92,6 +97,8 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
   const tabPanels: Record<DevPanelTab, HTMLElement> = {
     reports: requiredElement("devReportsPanel"),
     bugs: requiredElement("devBugReportsPanel"),
+    muted: requiredElement("devMutedPanel"),
+    banned: requiredElement("devBannedPanel"),
     players: requiredElement("devPlayersPanel"),
     moderation: requiredElement("devModerationPanel"),
     controls: requiredElement("devControlsPanel"),
@@ -111,7 +118,7 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
   });
   const ota = createOtaPanel(tabPanels.controls);
   const balance = createBalanceEditorPanel(tabPanels.balance, dependencies.balance);
-  const moderation = createModerationHistoryPanel(tabPanels.moderation, dependencies.loadModerationHistory);
+  const moderation = createDevModerationLog(tabPanels.moderation, dependencies.loadModerationLog);
   const players = createDevPlayerPanel(tabPanels.players, {
     api: dependencies.review, confirm: dependencies.confirm, showMessage: dependencies.showMessage, onAccessDenied: denyAccess,
   });
@@ -120,12 +127,40 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     deleteBug: dependencies.deleteBugReport,
     confirm: dependencies.confirm,
     showMessage: dependencies.showMessage,
-    onCounts: ({ reports, bugs }) => {
-      tabs.reports.textContent = reports ? `Reports (${reports})` : "Reports";
-      tabs.bugs.textContent = bugs ? `Bugs (${bugs})` : "Bugs";
-    },
-    openPlayer: (identity, displayName) => { setTab("players"); players.open(identity, displayName); },
+    onCounts: ({ reports, bugs }) => showOverview({ ...counts, pendingReports: reports, openBugs: bugs }),
+    openPlayer,
   });
+  const consolePanels = createDevConsolePanels({ muted: tabPanels.muted, banned: tabPanels.banned }, {
+    api: dependencies.review, confirm: dependencies.confirm, showMessage: dependencies.showMessage,
+    openPlayer, onOverview: showOverview, onAccessDenied: denyAccess,
+  });
+  let counts: DevConsoleOverview = { pendingReports: 0, openBugs: 0, muted: 0, banned: 0 };
+  const overviewTabs: [keyof DevConsoleOverview, DevPanelTab, string][] = [
+    ["pendingReports", "reports", "Reports"], ["openBugs", "bugs", "Bugs"], ["muted", "muted", "Muted"], ["banned", "banned", "Banned"],
+  ];
+
+  /** The headline counts, on the strip above the tabs and on the tabs themselves. */
+  function showOverview(next: DevConsoleOverview) {
+    counts = next;
+    const chips = overviewTabs.map(([key, tab, label]) => {
+      tabs[tab].textContent = counts[key] ? `${label} (${counts[key]})` : label;
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "dev-overview-chip";
+      chip.dataset.active = String(counts[key] > 0);
+      const value = document.createElement("strong");
+      value.textContent = String(counts[key]);
+      chip.append(value, document.createTextNode(label === "Reports" ? "pending" : label === "Bugs" ? "open bugs" : label.toLowerCase()));
+      chip.addEventListener("click", () => setTab(tab));
+      return chip;
+    });
+    overview.replaceChildren(...chips);
+  }
+
+  function openPlayer(identity: string, displayName: string) {
+    setTab("players");
+    players.open(identity, displayName);
+  }
   // Identity the server has confirmed for this panel; "" until a developer-gated
   // read succeeds. The button is only a hint: nothing renders until then.
   let confirmedIdentity = "";
@@ -171,11 +206,14 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     if (tab === "balance") void balance.open(); else balance.close();
     if (tab === "moderation") moderation.open();
     else moderation.clear();
+    consolePanels.setActive(tab === "muted" || tab === "banned");
     for (const [name, element] of Object.entries(tabs) as [DevPanelTab, HTMLElement][]) {
       const selected = name === tab;
       element.classList.toggle("is-active", selected);
       element.setAttribute("aria-selected", String(selected));
       tabPanels[name].hidden = !selected;
+      // The strip scrolls sideways on a phone; keep the chosen tab in view.
+      if (selected) element.scrollIntoView?.({ block: "nearest", inline: "nearest" });
     }
     if (tab === "controls") renderControls();
     if (reloadQueue && (tab === "reports" || tab === "bugs")) void reviews.load().then(result => { if (result.state === "denied") denyAccess(); });
@@ -256,7 +294,7 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
   function showGate(message: string | null) {
     gate.hidden = message === null;
     gate.textContent = message ?? "";
-    tabList.hidden = message !== null;
+    tabList.hidden = overview.hidden = message !== null;
     if (message !== null) for (const element of Object.values(tabPanels)) element.hidden = true;
   }
 
@@ -273,7 +311,7 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     dependencies.closeCompetingWindows();
     const identity = dependencies.localIdentity();
     bugSignature = liveBugSignature();
-    if (confirmedIdentity === identity) { showGate(null); setTab("reports"); return; }
+    if (confirmedIdentity === identity) { showGate(null); setTab("reports"); void consolePanels.load(); return; }
     showGate("Checking developer access…");
     const result = await reviews.load();
     if (request !== openGeneration || panel.hidden) return;
@@ -282,6 +320,7 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     confirmedIdentity = identity;
     showGate(null);
     setTab("reports", false);
+    void consolePanels.load();
   }
 
   function liveBugSignature() {
@@ -292,6 +331,7 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     confirmedIdentity = "";
     reviews.clear();
     players.clear();
+    consolePanels.clear();
     close();
     dependencies.showMessage("Developer access required.", "#ff9b91");
   }
@@ -300,6 +340,7 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     openGeneration++;
     balance.close();
     moderation.clear();
+    consolePanels.setActive(false);
     panel.hidden = true;
     button.setAttribute("aria-expanded", "false");
   }
@@ -318,6 +359,7 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     confirmedIdentity = "";
     reviews.clear();
     players.clear();
+    consolePanels.clear();
   }
 
   button.addEventListener("click", () => {

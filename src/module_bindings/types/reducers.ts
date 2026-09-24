@@ -72,6 +72,7 @@ import DevPublishMailboxLetterReducer from "../dev_publish_mailbox_letter_reduce
 import DevRepairDisplayNameReducer from "../dev_repair_display_name_reducer";
 import DevRepairPlayerJoinedAtReducer from "../dev_repair_player_joined_at_reducer";
 import DevResetDailyGemBonusReducer from "../dev_reset_daily_gem_bonus_reducer";
+import DevResetDisplayNameReducer from "../dev_reset_display_name_reducer";
 import DevReviewBugReducer from "../dev_review_bug_reducer";
 import DevReviewReportReducer from "../dev_review_report_reducer";
 import DevRollbackPlayerProgressionReducer from "../dev_rollback_player_progression_reducer";
@@ -81,6 +82,7 @@ import DevSetEndlessTravelAccessReducer from "../dev_set_endless_travel_access_r
 import DevSuspendPlayerAccountReducer from "../dev_suspend_player_account_reducer";
 import DevTeleportEndlessReducer from "../dev_teleport_endless_reducer";
 import DevUpdatePlayerSaveReducer from "../dev_update_player_save_reducer";
+import DevWarnPlayerReducer from "../dev_warn_player_reducer";
 import DisconnectPatreonReducer from "../disconnect_patreon_reducer";
 import EnterWorldReducer from "../enter_world_reducer";
 import EnterWorldWithTutorialReducer from "../enter_world_with_tutorial_reducer";
@@ -232,6 +234,7 @@ export type DevPublishMailboxLetterParams = __Infer<typeof DevPublishMailboxLett
 export type DevRepairDisplayNameParams = __Infer<typeof DevRepairDisplayNameReducer>;
 export type DevRepairPlayerJoinedAtParams = __Infer<typeof DevRepairPlayerJoinedAtReducer>;
 export type DevResetDailyGemBonusParams = __Infer<typeof DevResetDailyGemBonusReducer>;
+export type DevResetDisplayNameParams = __Infer<typeof DevResetDisplayNameReducer>;
 export type DevReviewBugParams = __Infer<typeof DevReviewBugReducer>;
 export type DevReviewReportParams = __Infer<typeof DevReviewReportReducer>;
 export type DevRollbackPlayerProgressionParams = __Infer<typeof DevRollbackPlayerProgressionReducer>;
@@ -241,6 +244,7 @@ export type DevSetEndlessTravelAccessParams = __Infer<typeof DevSetEndlessTravel
 export type DevSuspendPlayerAccountParams = __Infer<typeof DevSuspendPlayerAccountReducer>;
 export type DevTeleportEndlessParams = __Infer<typeof DevTeleportEndlessReducer>;
 export type DevUpdatePlayerSaveParams = __Infer<typeof DevUpdatePlayerSaveReducer>;
+export type DevWarnPlayerParams = __Infer<typeof DevWarnPlayerReducer>;
 export type DisconnectPatreonParams = __Infer<typeof DisconnectPatreonReducer>;
 export type EnterWorldParams = __Infer<typeof EnterWorldReducer>;
 export type EnterWorldWithTutorialParams = __Infer<typeof EnterWorldWithTutorialReducer>;

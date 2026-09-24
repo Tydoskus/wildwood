@@ -1,6 +1,7 @@
 import { Identity } from "spacetimedb";
 import { isDeveloperIdentity } from "../../app/developer";
 import type { DevPlayerSummary, DevReviewQueue } from "../../../shared/dev-review";
+import type { DevConsole, DevPlayerCard, ModerationLogQuery } from "../../../shared/dev-console";
 import type { ModerationHistoryPage } from "../../../shared/moderation-history";
 import type { DbConnection } from "../../module_bindings";
 import type { ReducerPort } from "../ports";
@@ -68,6 +69,28 @@ export function createDevModerationService(dependencies: DevModerationDependenci
       reviewBug(id: string, decision: string, note: string, mailReporter: boolean) {
         return reducer("bug review", current => current.reducers.devReviewBug({ id: BigInt(id), decision, note, mailReporter }));
       },
+      /** Muted and banned now, and the headline counts. */
+      async console(): Promise<DevConsole> {
+        const value = JSON.parse(await connection().procedures.getDevConsole({})) as DevConsole;
+        serverOffsetMs = value.serverNowMs - Date.now();
+        return value;
+      },
+      async playerCard(identity: string): Promise<DevPlayerCard> {
+        const card = JSON.parse(await connection().procedures.getDevPlayerCard({ identity: Identity.fromString(identity) })) as DevPlayerCard;
+        serverOffsetMs = card.serverNowMs - Date.now();
+        return card;
+      },
+      async moderationLog(query: ModerationLogQuery, beforeId = "0"): Promise<ModerationHistoryPage> {
+        return JSON.parse(await connection().procedures.getModerationLog({ ...query, beforeId: BigInt(beforeId) })) as ModerationHistoryPage;
+      },
+      warn(identity: string, message: string) {
+        return reducer("player warning", current => current.reducers.devWarnPlayer({ identity: Identity.fromString(identity), message }));
+      },
+      resetDisplayName(identity: string, expectedDisplayName: string, reason: string) {
+        return reducer("name reset", current => current.reducers.devResetDisplayName({ identity: Identity.fromString(identity), expectedDisplayName, reason }));
+      },
+      /** The server's clock, as last measured, for countdowns and deadlines. */
+      serverNow: () => Date.now() + serverOffsetMs,
       async findPlayers(query: string): Promise<DevPlayerSummary[]> {
         return JSON.parse(await connection().procedures.devFindPlayers({ query })) as DevPlayerSummary[];
       },

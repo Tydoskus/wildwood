@@ -15,6 +15,8 @@ import * as GetBalanceEditorProcedure from "../get_balance_editor_procedure";
 import * as GetChatHistoryProcedure from "../get_chat_history_procedure";
 import * as GetChatHistoryWithReactionsProcedure from "../get_chat_history_with_reactions_procedure";
 import * as GetChatMessageReactionsProcedure from "../get_chat_message_reactions_procedure";
+import * as GetDevConsoleProcedure from "../get_dev_console_procedure";
+import * as GetDevPlayerCardProcedure from "../get_dev_player_card_procedure";
 import * as GetDevReviewQueueProcedure from "../get_dev_review_queue_procedure";
 import * as GetDeveloperTravelTargetProcedure from "../get_developer_travel_target_procedure";
 import * as GetGuildHubProcedure from "../get_guild_hub_procedure";
@@ -25,6 +27,7 @@ import * as GetLeaderboardWindowProcedure from "../get_leaderboard_window_proced
 import * as GetMapBalanceProcedure from "../get_map_balance_procedure";
 import * as GetMapConfigurationProcedure from "../get_map_configuration_procedure";
 import * as GetModerationHistoryProcedure from "../get_moderation_history_procedure";
+import * as GetModerationLogProcedure from "../get_moderation_log_procedure";
 import * as GetNameChangeStatusProcedure from "../get_name_change_status_procedure";
 import * as GetPatreonStatusProcedure from "../get_patreon_status_procedure";
 import * as GetPlayerModerationHistoryProcedure from "../get_player_moderation_history_procedure";
@@ -53,6 +56,10 @@ export type GetChatHistoryWithReactionsArgs = __Infer<typeof GetChatHistoryWithR
 export type GetChatHistoryWithReactionsResult = __Infer<typeof GetChatHistoryWithReactionsProcedure.returnType>;
 export type GetChatMessageReactionsArgs = __Infer<typeof GetChatMessageReactionsProcedure.params>;
 export type GetChatMessageReactionsResult = __Infer<typeof GetChatMessageReactionsProcedure.returnType>;
+export type GetDevConsoleArgs = __Infer<typeof GetDevConsoleProcedure.params>;
+export type GetDevConsoleResult = __Infer<typeof GetDevConsoleProcedure.returnType>;
+export type GetDevPlayerCardArgs = __Infer<typeof GetDevPlayerCardProcedure.params>;
+export type GetDevPlayerCardResult = __Infer<typeof GetDevPlayerCardProcedure.returnType>;
 export type GetDevReviewQueueArgs = __Infer<typeof GetDevReviewQueueProcedure.params>;
 export type GetDevReviewQueueResult = __Infer<typeof GetDevReviewQueueProcedure.returnType>;
 export type GetDeveloperTravelTargetArgs = __Infer<typeof GetDeveloperTravelTargetProcedure.params>;
@@ -73,6 +80,8 @@ export type GetMapConfigurationArgs = __Infer<typeof GetMapConfigurationProcedur
 export type GetMapConfigurationResult = __Infer<typeof GetMapConfigurationProcedure.returnType>;
 export type GetModerationHistoryArgs = __Infer<typeof GetModerationHistoryProcedure.params>;
 export type GetModerationHistoryResult = __Infer<typeof GetModerationHistoryProcedure.returnType>;
+export type GetModerationLogArgs = __Infer<typeof GetModerationLogProcedure.params>;
+export type GetModerationLogResult = __Infer<typeof GetModerationLogProcedure.returnType>;
 export type GetNameChangeStatusArgs = __Infer<typeof GetNameChangeStatusProcedure.params>;
 export type GetNameChangeStatusResult = __Infer<typeof GetNameChangeStatusProcedure.returnType>;
 export type GetPatreonStatusArgs = __Infer<typeof GetPatreonStatusProcedure.params>;

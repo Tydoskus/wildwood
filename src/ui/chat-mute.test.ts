@@ -45,6 +45,7 @@ describe("chat mute display", () => {
     expect(d.input.disabled).toBe(true);
     expect(d.input.placeholder).toBe("Chat muted · 42:10");
     expect(d.sendButton.disabled).toBe(true);
+    expect(d.sendButton.classList.contains("is-muted")).toBe(true);
     expect(d.sendButton.textContent).toBe("42:10");
     d.advance(1_000);
     expect(d.input.placeholder).toBe("Chat muted · 42:09");
@@ -63,6 +64,8 @@ describe("chat mute display", () => {
     expect(d.input.disabled).toBe(false);
     expect(d.input.placeholder).toBe("Say something…");
     expect(d.sendButton.textContent).toBe("SEND");
+    expect(d.sendButton.disabled).toBe(false);
+    expect(d.sendButton.classList.contains("is-muted")).toBe(false);
     expect(d.pending()).toHaveLength(0);
   });
 

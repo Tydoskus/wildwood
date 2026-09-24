@@ -124,7 +124,12 @@ import { describe, expect, it } from "vitest";
 // moderation line. Retiring the Tutorial Forest reward prototype to two stubs and
 // folding three two-branch guards into the owner-or-developer line paid for them;
 // the queue, the decisions and the lookup live in dev-review.ts.
-const MAX_LINES = 6_498;
+// 6_527: the moderation console adds the get_dev_console, get_dev_player_card and
+// get_moderation_log procedures and the dev_warn_player and dev_reset_display_name
+// reducers, their import, the forced-reason branch of the existing name repair,
+// and the note above them. The reads, the warning and the log search live in
+// dev-console.ts and moderation-history.ts; the raise is the declarations alone.
+const MAX_LINES = 6_527;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {
