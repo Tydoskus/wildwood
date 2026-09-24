@@ -2,9 +2,12 @@ import { damageAfterArmor } from "./combat";
 import { duelAttackDelays, type DuelWeapons } from "./duel-approach";
 import { regularEnemySeededUnit } from "./regular-enemy-simulation";
 import { RIPOSTE_REFLECT_SHARE } from "./prestige-perks";
+import { ARROW_STORM_ARROWS, ARROW_STORM_DAMAGE_SHARE, DUEL_RICOCHET_REHITS, RICOCHET_DAMAGE_SHARE, type BowSkillId } from "./bow-skills";
 
 export type DuelFighter = { maxHp: number; damage: number; armor: number; regen: number; attackRate: number };
-export const DUEL_COMBAT_VERSION = 3;
+/** 4: bow skills (Arrow Storm, Ricochet, Piercing Shot) roll in the fight. */
+export const DUEL_COMBAT_VERSION = 4;
+export const DUEL_BOW_SKILLS_VERSION = 4;
 export function duelHitMultiplier(seconds: number, version = 0) {
   return version >= 1 ? 1 + Math.min(4, Math.max(0, seconds - 10) / 5) : 1;
 }
@@ -16,7 +19,51 @@ export type DuelCombat = DuelWeapons & {
   // Riposte chances and the seed their rolls come from. The seed is stored with
   // the duel so a replay rolls exactly what the server rolled.
   challengerRiposte?: number; opponentRiposte?: number; riposteSeed?: number;
+  // Each duellist's equipped bow skills, as stored percentages (0 = none).
+  // They roll from the same stored seed as Riposte, under their own salt.
+  challengerArrowStorm?: number; challengerRicochet?: number; challengerPiercingShot?: number;
+  opponentArrowStorm?: number; opponentRicochet?: number; opponentPiercingShot?: number;
 };
+
+const DUEL_SKILL_FIELDS = {
+  challenger: { arrowStorm: "challengerArrowStorm", ricochet: "challengerRicochet", piercingShot: "challengerPiercingShot" },
+  opponent: { arrowStorm: "opponentArrowStorm", ricochet: "opponentRicochet", piercingShot: "opponentPiercingShot" },
+} as const;
+
+/**
+ * Whether a duellist's bow skill fires on one of their attacks. Deterministic
+ * like Riposte: the same duel, side, attack and skill always answer the same.
+ * Fights recorded before bow skills existed never roll them.
+ */
+export function duelBowSkillProc(duel: DuelCombat, side: "challenger" | "opponent", attack: number, skill: BowSkillId) {
+  if ((duel.combatVersion ?? 0) < DUEL_BOW_SKILLS_VERSION) return false;
+  const percent = Number(duel[DUEL_SKILL_FIELDS[side][skill]] ?? 0);
+  const chance = Number.isFinite(percent) ? Math.max(0, Math.min(100, percent)) / 100 : 0;
+  if (chance <= 0) return false;
+  return regularEnemySeededUnit("duel-bow-skill", String(duel.riposteSeed ?? 0), side, attack, skill) < chance;
+}
+
+/**
+ * One attack's damage against the defender's armor, with the attacker's bow
+ * skills. One opponent means: Arrow Storm's extra arrows all hit them, each
+ * through armor; Ricochet comes back off them for one more hit at its share;
+ * Piercing Shot passes through their armor, so the arrow itself ignores it.
+ */
+function duelAttackDamage(duel: DuelCombat, side: "challenger" | "opponent", attack: number, raw: number, armor: number) {
+  const arrowArmor = duelBowSkillProc(duel, side, attack, "piercingShot") ? 0 : armor;
+  let dealt = damageAfterArmor(raw, arrowArmor), incoming = raw;
+  if (duelBowSkillProc(duel, side, attack, "arrowStorm")) {
+    const storm = raw * ARROW_STORM_DAMAGE_SHARE;
+    dealt += ARROW_STORM_ARROWS * damageAfterArmor(storm, armor);
+    incoming += ARROW_STORM_ARROWS * storm;
+  }
+  if (duelBowSkillProc(duel, side, attack, "ricochet")) {
+    const bounce = raw * RICOCHET_DAMAGE_SHARE;
+    dealt += DUEL_RICOCHET_REHITS * damageAfterArmor(bounce, arrowArmor);
+    incoming += DUEL_RICOCHET_REHITS * bounce;
+  }
+  return { dealt, blocked: Math.max(0, incoming - dealt) };
+}
 
 /**
  * Whether a hit is thrown back. Deterministic: the same duel, side and attack
@@ -71,11 +118,11 @@ export function advanceDuelCombat(
     // mitigation only for actual hits, not regeneration-only server pulses.
     if (challengerNext === next) {
       const challengerDamage = duel.challengerDamage * multiplier;
-      const challengerHit = damageAfterArmor(challengerDamage, duel.opponentArmor);
       state.challengerAttacks++;
-      const taken = Math.min(state.opponentHp, challengerHit);
+      const challengerHit = duelAttackDamage(duel, "challenger", state.challengerAttacks, challengerDamage, duel.opponentArmor);
+      const taken = Math.min(state.opponentHp, challengerHit.dealt);
       state.opponentHp -= taken; state.challengerDamageDealt += taken;
-      state.opponentBlocked += Math.max(0, challengerDamage - challengerHit);
+      state.opponentBlocked += challengerHit.blocked;
       if (taken > 0 && duelRiposted(duel, "opponent", state.challengerAttacks)) {
         const thrown = Math.min(state.challengerHp, taken * RIPOSTE_REFLECT_SHARE);
         state.challengerHp -= thrown; state.opponentDamageDealt += thrown;
@@ -83,11 +130,11 @@ export function advanceDuelCombat(
     }
     if (opponentNext === next) {
       const opponentDamage = duel.opponentDamage * multiplier;
-      const opponentHit = damageAfterArmor(opponentDamage, duel.challengerArmor);
       state.opponentAttacks++;
-      const taken = Math.min(state.challengerHp, opponentHit);
+      const opponentHit = duelAttackDamage(duel, "opponent", state.opponentAttacks, opponentDamage, duel.challengerArmor);
+      const taken = Math.min(state.challengerHp, opponentHit.dealt);
       state.challengerHp -= taken; state.opponentDamageDealt += taken;
-      state.challengerBlocked += Math.max(0, opponentDamage - opponentHit);
+      state.challengerBlocked += opponentHit.blocked;
       if (taken > 0 && duelRiposted(duel, "challenger", state.opponentAttacks)) {
         const thrown = Math.min(state.opponentHp, taken * RIPOSTE_REFLECT_SHARE);
         state.opponentHp -= thrown; state.challengerDamageDealt += thrown;

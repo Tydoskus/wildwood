@@ -110,6 +110,8 @@ export type ItemDefinition = {
     projectile?: ProjectileKind;
     range?: number;
     damageMultiplierBonus?: number;
+    /** The map tier a stat-bearing bow was authored at (1-15). */
+    tier?: number;
   };
 };
 
