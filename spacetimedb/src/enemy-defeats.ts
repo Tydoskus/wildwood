@@ -1,6 +1,6 @@
 import { pinnedMapBalance } from "./map-balance";
 import { personalBossDefinition } from "../../shared/personal-bosses";
-import { SenderError, table, t } from "spacetimedb/server";
+import { Range, SenderError, table, t } from "spacetimedb/server";
 import { defeatBudget, defeatMinRespawnSeconds, enemyDefeatDefinition, DEFEAT_BUDGET_WINDOW_SECONDS, ENEMY_DEFEAT_BATCH_MAX, type EnemyDefeat } from "../../shared/enemy-defeats";
 import { bossDefeatLimits, BOSS_REWARD_WINDOW_SECONDS } from "./boss-defeat-limits";
 import { bossRespawnSecondsWithResearch, enemyRespawnSecondsWithResearch } from "../../shared/utility-research";
@@ -10,8 +10,33 @@ import type { GameReducerContext } from "./index";
 type BossRewardContext = Pick<GameReducerContext, "db" | "sender" | "timestamp">;
 
 export const enemyDefeatBudget = table({ name: "enemy_defeat_budget" }, {
-  key: t.string().primaryKey(), identity: t.identity().index("btree"), tokens: t.f64(), updatedAtMicros: t.u64(),
+  key: t.string().primaryKey(), identity: t.identity().index("btree"), tokens: t.f64(), updatedAtMicros: t.u64().index("btree"),
 });
+
+/**
+ * A budget row nobody has touched for this long is dropped by the maintenance
+ * sweep. Rows were only ever added (one per player, map and species, and every
+ * Endless level is its own map), so the table grew without end. Dropping one
+ * is never looser: a missing spawn bucket starts at the arrival bank, below a
+ * full one; the combat clock is full after 15 idle minutes either way; a boss
+ * clock restarts at one reward window.
+ */
+export const DEFEAT_BUDGET_IDLE_MICROS = 6n * 3_600_000_000n;
+/** Rows dropped per sweep at most, so one sweep stays cheap however far behind it is. */
+export const DEFEAT_BUDGET_PRUNE_BATCH = 5_000;
+
+/** Drops the oldest idle budget rows, read in order from the updatedAtMicros index. Returns how many went. */
+export function pruneIdleDefeatBudgets(ctx: Pick<GameReducerContext, "db" | "timestamp">) {
+  const cutoff = ctx.timestamp.microsSinceUnixEpoch - DEFEAT_BUDGET_IDLE_MICROS;
+  if (cutoff <= 0n) return 0;
+  const idle: string[] = [];
+  for (const row of ctx.db.enemyDefeatBudget.updatedAtMicros.filter(new Range({ tag: "unbounded" }, { tag: "excluded", value: cutoff }))) {
+    idle.push(row.key);
+    if (idle.length === DEFEAT_BUDGET_PRUNE_BATCH) break;
+  }
+  for (const key of idle) ctx.db.enemyDefeatBudget.key.delete(key);
+  return idle.length;
+}
 // Retained for non-destructive schema compatibility with previous releases.
 // Reward validation now uses earned combat time, not a fixed defeat count.
 export const bossDefeatWindow = table({ name: "boss_defeat_window" }, {

@@ -98,7 +98,9 @@ import { describe, expect, it } from "vitest";
 // register through the existing leaderboardPageTables spread, and the ranking,
 // the guest merge and the read live in leaderboard-pages.ts; the raise is the
 // declaration alone.
-const MAX_LINES = 6_796;
+// 6_797: the maintenance sweep's call that prunes idle enemy_defeat_budget
+// rows; the pruning lives in enemy-defeats.ts.
+const MAX_LINES = 6_797;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {
