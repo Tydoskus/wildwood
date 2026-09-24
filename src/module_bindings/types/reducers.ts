@@ -134,6 +134,7 @@ import SetDeveloperPresenceReducer from "../set_developer_presence_reducer";
 import SetDisplayNameReducer from "../set_display_name_reducer";
 import SetGenderReducer from "../set_gender_reducer";
 import SetGuildVicePresidentReducer from "../set_guild_vice_president_reducer";
+import SetIgnoredDropsReducer from "../set_ignored_drops_reducer";
 import SetMapBalanceReducer from "../set_map_balance_reducer";
 import SetMultiplayerEnabledReducer from "../set_multiplayer_enabled_reducer";
 import SetOfflineProgressEnabledReducer from "../set_offline_progress_enabled_reducer";
@@ -287,6 +288,7 @@ export type SetDeveloperPresenceParams = __Infer<typeof SetDeveloperPresenceRedu
 export type SetDisplayNameParams = __Infer<typeof SetDisplayNameReducer>;
 export type SetGenderParams = __Infer<typeof SetGenderReducer>;
 export type SetGuildVicePresidentParams = __Infer<typeof SetGuildVicePresidentReducer>;
+export type SetIgnoredDropsParams = __Infer<typeof SetIgnoredDropsReducer>;
 export type SetMapBalanceParams = __Infer<typeof SetMapBalanceReducer>;
 export type SetMultiplayerEnabledParams = __Infer<typeof SetMultiplayerEnabledReducer>;
 export type SetOfflineProgressEnabledParams = __Infer<typeof SetOfflineProgressEnabledReducer>;

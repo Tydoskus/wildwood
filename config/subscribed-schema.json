@@ -497,6 +497,11 @@
       "revision",
       "updatedAt"
     ],
+    "my_ignored_drops": [
+      "key",
+      "identity",
+      "itemId"
+    ],
     "my_inventory_capacity": [
       "identity",
       "slotsUnlocked",

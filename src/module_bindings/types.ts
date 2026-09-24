@@ -1292,6 +1292,9 @@ export type MyGemPurchases = __Infer<typeof MyGemPurchases>;
 export const MyGemWallet = __t.object("MyGemWallet", {});
 export type MyGemWallet = __Infer<typeof MyGemWallet>;
 
+export const MyIgnoredDrops = __t.object("MyIgnoredDrops", {});
+export type MyIgnoredDrops = __Infer<typeof MyIgnoredDrops>;
+
 export const MyInventoryCapacity = __t.object("MyInventoryCapacity", {});
 export type MyInventoryCapacity = __Infer<typeof MyInventoryCapacity>;
 
@@ -1616,6 +1619,13 @@ export const PlayerGemWallet = __t.object("PlayerGemWallet", {
   updatedAt: __t.timestamp(),
 });
 export type PlayerGemWallet = __Infer<typeof PlayerGemWallet>;
+
+export const PlayerIgnoredDrop = __t.object("PlayerIgnoredDrop", {
+  key: __t.string(),
+  identity: __t.identity(),
+  itemId: __t.string(),
+});
+export type PlayerIgnoredDrop = __Infer<typeof PlayerIgnoredDrop>;
 
 export const PlayerInventoryCapacity = __t.object("PlayerInventoryCapacity", {
   identity: __t.identity(),

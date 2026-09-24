@@ -79,7 +79,11 @@ import { describe, expect, it } from "vitest";
 // declarations and the factory instance; publish_item_drop and the
 // destroy_equipment body moved out to equipment-copies.ts with the tables, the
 // offer lifecycle, the guest merge and removal, which more than paid for them.
-const MAX_LINES = 6_784;
+// 6_794: ignored drops add one import, the caller-scoped my_ignored_drops
+// view and the set_ignored_drops reducer declaration with its note; the table
+// registers on the duplicate-equipment line beside the tables it acts on. Validation, the offer clearing, the guest merge
+// and removal live in ignored-drops.ts; the raise is the schema surface alone.
+const MAX_LINES = 6_794;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

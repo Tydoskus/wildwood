@@ -162,6 +162,7 @@ import SetDeveloperPresenceReducer from "./set_developer_presence_reducer";
 import SetDisplayNameReducer from "./set_display_name_reducer";
 import SetGenderReducer from "./set_gender_reducer";
 import SetGuildVicePresidentReducer from "./set_guild_vice_president_reducer";
+import SetIgnoredDropsReducer from "./set_ignored_drops_reducer";
 import SetMapBalanceReducer from "./set_map_balance_reducer";
 import SetMultiplayerEnabledReducer from "./set_multiplayer_enabled_reducer";
 import SetOfflineProgressEnabledReducer from "./set_offline_progress_enabled_reducer";
@@ -262,6 +263,7 @@ import MyEquipmentCopiesRow from "./my_equipment_copies_table";
 import MyEquipmentOffersRow from "./my_equipment_offers_table";
 import MyGemPurchasesRow from "./my_gem_purchases_table";
 import MyGemWalletRow from "./my_gem_wallet_table";
+import MyIgnoredDropsRow from "./my_ignored_drops_table";
 import MyInventoryCapacityRow from "./my_inventory_capacity_table";
 import MyItemGiftsRow from "./my_item_gifts_table";
 import MyLegalConsentRow from "./my_legal_consent_table";
@@ -1195,6 +1197,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyGemWalletRow),
+  myIgnoredDrops: __table({
+    name: 'my_ignored_drops',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyIgnoredDropsRow),
   myInventoryCapacity: __table({
     name: 'my_inventory_capacity',
     indexes: [
@@ -1432,6 +1441,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_display_name", SetDisplayNameReducer),
   __reducerSchema("set_gender", SetGenderReducer),
   __reducerSchema("set_guild_vice_president", SetGuildVicePresidentReducer),
+  __reducerSchema("set_ignored_drops", SetIgnoredDropsReducer),
   __reducerSchema("set_map_balance", SetMapBalanceReducer),
   __reducerSchema("set_multiplayer_enabled", SetMultiplayerEnabledReducer),
   __reducerSchema("set_offline_progress_enabled", SetOfflineProgressEnabledReducer),

@@ -7,6 +7,7 @@ import {
   EQUIPMENT_OFFER_LIFETIME_MS, MAX_PENDING_EQUIPMENT_OFFERS, bagSlotsUsed, isDuplicateOfferItem,
 } from "../../shared/equipment-copies";
 import { bowSkillKey, bowSkillRollFor, ensureBowSkillRoll } from "./bow-skills";
+import { isDropIgnored } from "./ignored-drops";
 
 /**
  * Copies of an item beyond the first, one row per copy a player chose to keep.
@@ -95,11 +96,14 @@ export function offerDuplicateEquipment(ctx: Ctx, identity: Identity, itemId: st
 /**
  * Announces a drop to its player. The first copy of an item enters the bag and
  * rolls; a drop of equipment already held, and every copy past the first in
- * one batch, becomes a Keep/Ignore offer instead of being thrown away.
+ * one batch, becomes a Keep/Ignore offer instead of being thrown away, unless
+ * the player marked that item ignored on the map, when the copies are
+ * answered Ignore on arrival. The first copy lands either way.
  */
 export function publishItemDrop(ctx: Ctx, identity: Identity, itemId: string, alreadyOwned: boolean, quantity = 1) {
   if (!alreadyOwned) ensureBowSkillRoll(ctx, identity, itemId); // Only a bow entering the bag rolls.
-  offerDuplicateEquipment(ctx, identity, itemId, alreadyOwned ? quantity : quantity - 1);
+  const copies = alreadyOwned ? quantity : quantity - 1;
+  if (copies > 0 && !isDropIgnored(ctx, identity, itemId)) offerDuplicateEquipment(ctx, identity, itemId, copies);
   const key = `${identity.toHexString()}:${itemId}`;
   const current = ctx.db.playerItemDrop.key.find(key);
   const next = {

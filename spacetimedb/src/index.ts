@@ -20,6 +20,7 @@ import { applyEnemyRewards } from "../../shared/enemy-defeats";
 import { offlineProgressTables, beginOfflineWindow, grantOfflineProgress, acknowledgeOfflineProgress, setSimulatedTimeAway } from "./offline-progress";
 import { playerOfflinePreference, writeOfflinePreference } from "./offline-preference";
 import { playerAudioSetting, writeAudioSettings } from "./audio-settings";
+import { playerIgnoredDrop, writeIgnoredDrops } from "./ignored-drops";
 import { ERASURE_ROW_BUDGET, eraseIdentityRows, linkedIdentities, requireErasureConfirmation } from "./account-erasure";
 import { LOADOUT_FIELDS } from "../../shared/combat-progress";
 import { chatHeartAllowance, chatReactionCooldown, chatReactionSummary, chatReactionUnlock, playerChatHearts, reactionCountsFor, chatReaction, readChatReactions, setChatReaction, grantGemHeartUnlock, removeMessageReactions, removeAccountReactions } from "./chat-reactions";
@@ -1782,7 +1783,7 @@ const spacetimedb = schema({
   gemTransaction,
   dailyGemBonus,
   balanceApologyNotice,
-  playerItemGift, playerBowSkill, playerEquipmentCopy, pendingEquipmentOffer,
+  playerItemGift, playerBowSkill, playerEquipmentCopy, pendingEquipmentOffer, playerIgnoredDrop,
   mailboxLetter, mailboxReceipt, playerJoinDate, mailboxEquipment, accountDeletionRequest,
   playerOnboarding,
   regularEnemyLootCursor, enemyDefeatBudget, bossDefeatWindow, bossMapDefeatWindow,
@@ -5662,6 +5663,15 @@ export const myEquipmentOffers = spacetimedb.view(
   { name: "my_equipment_offers", public: true }, t.array(pendingEquipmentOffer.rowType),
   ctx => [...ctx.db.pendingEquipmentOffer.identity.filter(ctx.sender)],
 );
+export const myIgnoredDrops = spacetimedb.view(
+  { name: "my_ignored_drops", public: true }, t.array(playerIgnoredDrop.rowType),
+  ctx => [...ctx.db.playerIgnoredDrop.identity.filter(ctx.sender)],
+);
+/** Equipment whose copies are ignored on arrival, set from the map window. Body: ignored-drops.ts. */
+export const setIgnoredDrops = spacetimedb.reducer({ itemIds: t.array(t.string()), ignored: t.bool() }, (ctx, args) => {
+  requireControllingPlayer(ctx);
+  writeIgnoredDrops(ctx, args);
+});
 export const myAudioSettings = spacetimedb.view(
   { name: "my_audio_settings", public: true }, t.array(playerAudioSetting.rowType),
   ctx => { const row = ctx.db.playerAudioSetting.identity.find(ctx.sender); return row ? [row] : []; },

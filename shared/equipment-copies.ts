@@ -17,6 +17,11 @@ import { canDestroyEquipment, isCosmeticOnlyItem, itemDefinition } from "./items
 export const EQUIPMENT_OFFER_LIFETIME_MS = 5 * 60_000;
 /** Farming cannot pile offers up: past this many, the oldest is ignored. */
 export const MAX_PENDING_EQUIPMENT_OFFERS = 10;
+/**
+ * How many items one set_ignored_drops call may mark: a map's whole drop list,
+ * which the map window's "Ignore all" sends at once, with room to spare.
+ */
+export const MAX_IGNORED_DROP_BATCH = 32;
 
 /**
  * Which items a duplicate drop offers: real equipment the player could also
