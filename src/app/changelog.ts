@@ -1,4 +1,14 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.799": [
+    "Auto Farm can target the closest, lowest-health or strongest enemy.",
+    "The Auto Farm window matches the game's other windows and fits phones better.",
+    "Auto Farm keeps its distance when you have extra attack range.",
+    "Music and sound effect volume are saved to your account.",
+    "A window announces each new Prestige unlock, with the option to prestige right away.",
+    "Prestige shows what the next prestige adds: +10% stat gain and 1 perk point.",
+    "The Prestige panel no longer asks for an Endless boss you have already beaten.",
+    "Teus nerfed.",
+  ],
   "0.798": [
     "Utility research adds Attack Range, up to +50 range over five ranks, without zooming the camera out.",
     "Unlock an owned item's look as a permanent cosmetic for 10 Gems and keep the item.",
@@ -2329,6 +2339,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.799": "2026-09-23",
   "0.798": "2026-09-23",
   "0.797": "2026-09-23",
   "0.796": "2026-09-23",
