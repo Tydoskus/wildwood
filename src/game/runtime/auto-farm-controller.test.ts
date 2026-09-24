@@ -419,11 +419,20 @@ describe("autofarm against a ranged enemy with researched attack range", () => {
     }
   });
 
-  it("keeps the base stop distance for melee enemies", () => {
-    const standoff = autoFarmStandoff({ weaponRange: 250, playerAttackRange: 250, melee: false, playerRadius: 18,
+  it("keeps the base margin for melee enemies, so researched range moves the stop point out one for one", () => {
+    const at = (range: number) => autoFarmStandoff({ weaponRange: range, playerAttackRange: range, melee: false, playerRadius: 18,
       destination: { x: 0, y: 0, r: 16, type: "Bramble" }, enemy: true });
-    expect(standoff.stop).toBeCloseTo(250 * .78);
-    expect(standoff.resume).toBeGreaterThan(standoff.stop);
-    expect(standoff.resume).toBeLessThan(250);
+    expect(at(200).stop).toBeCloseTo(200 * .78);
+    for (let rank = 1; rank <= 5; rank++) {
+      const range = attackRangeWithResearch(rank);
+      expect(range - at(range).stop).toBeCloseTo(200 - at(200).stop);
+      expect(at(range).resume).toBeGreaterThan(at(range).stop);
+      expect(at(range).resume).toBeLessThan(range);
+    }
+  });
+  it("gives a melee weapon its researched range on top of its own reach", () => {
+    const standoff = autoFarmStandoff({ weaponRange: 75 + 50, playerAttackRange: 250, melee: true, playerRadius: 18,
+      destination: { x: 0, y: 0, r: 16, type: "Bramble" }, enemy: true });
+    expect(standoff.stop).toBeCloseTo(75 * .78 + 50 + 16);
   });
 });

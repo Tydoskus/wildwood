@@ -1,4 +1,5 @@
 import { isMeleeWeapon, weaponAttackRange } from "../weapon-combat";
+import { DEFAULT_ATTACK_RANGE } from '../../../shared/rules';
 import { isProceduralMap } from '../../../shared/procedural-maps';
 import { WORLD } from '../constants';
 import { ENEMY_TYPES, type EnemyDefinition, type EnemyKind } from '../enemies';
@@ -39,7 +40,11 @@ export function autoFarmStandoff(options: {
 }) {
   const reachPadding = options.melee && options.enemy ? options.destination.r ?? 0 : 0;
   const reach = Math.max(8, options.weaponRange) + reachPadding;
-  let stop = Math.max(8, options.weaponRange * .78) + reachPadding;
+  // The approach margin is 22% of the weapon's unresearched reach. Researched
+  // range moves the stop point out one for one; scaling the margin with it
+  // walked a player with more range further inside their reach than needed.
+  const researched = Math.max(0, options.playerAttackRange - DEFAULT_ATTACK_RANGE);
+  let stop = Math.max(8, Math.max(0, options.weaponRange - researched) * .78 + researched) + reachPadding;
   const kind = options.enemy ? options.destination.type : undefined;
   const ranged = kind !== undefined && (options.destination.definition ?? ENEMY_TYPES[kind])?.ranged;
   if (ranged && !options.melee) {
