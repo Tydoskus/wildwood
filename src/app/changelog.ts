@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.800": [
+    "A Travel portal is back at Home, with a window to pick any map you have unlocked.",
+    "Portal cutscenes are skipped after your first prestige.",
+    "Boss kills no longer show a defeated banner; the stat rewards say it all.",
+    "An out-of-date game tab now reloads itself instead of trying to reconnect forever.",
+  ],
   "0.799": [
     "Auto Farm can target the closest, lowest-health or strongest enemy.",
     "The Auto Farm window matches the game's other windows and fits phones better.",
@@ -2339,6 +2345,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.800": "2026-09-23",
   "0.799": "2026-09-23",
   "0.798": "2026-09-23",
   "0.797": "2026-09-23",
