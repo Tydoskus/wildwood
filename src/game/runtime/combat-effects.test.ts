@@ -76,3 +76,32 @@ it("uses white for outgoing hits, yellow for crits, and red for damage taken, in
   effects.spawnDamageNumber(0, 0, 40);
   expect(effects.damageNumbers[0].damageTaken).toBe(false);
 });
+
+describe("bow skill effects and crowded damage numbers", () => {
+  it("fans a burst of hits on one spot out so no two numbers share a place", () => {
+    const effects = createCombatEffects();
+    for (let hit = 0; hit < 6; hit++) effects.spawnDamageNumber(500, 500, 10 + hit);
+    const places = effects.damageNumbers.map(number => `${Math.round(number.x / 20)}:${Math.round(number.startY / 10)}`);
+    expect(new Set(places).size).toBe(6);
+    // A later, separate hit starts back at the centre.
+    effects.update(1);
+    effects.spawnDamageNumber(500, 500, 1);
+    const latest = effects.damageNumbers[effects.damageNumbers.length - 1];
+    expect(Math.abs(latest.x - 500)).toBeLessThanOrEqual(6);
+  });
+
+  it("delays, runs and expires Arrow Storm arrows, streaks and rings", () => {
+    const effects = createCombatEffects();
+    effects.spawnArcingArrow(0, 0, 200, 0, 0, "#fff");
+    effects.spawnArcingArrow(0, 0, 200, 0, 1, "#fff");
+    effects.spawnSkillStreak(0, 0, 100, 100, "#8fe3ff", 4, .3, true);
+    const arrows = effects.skillEffects.filter(effect => effect.kind === "arrow");
+    // One arrow swings out each side of the line of fire.
+    expect(Math.sign(arrows[0].controlY)).toBe(-Math.sign(arrows[1].controlY));
+    expect(effects.skillEffects.length).toBe(5);
+    // A delayed effect waits out its delay before its life starts running.
+    effects.update(1);
+    effects.update(1);
+    expect(effects.skillEffects.length).toBe(0);
+  });
+});

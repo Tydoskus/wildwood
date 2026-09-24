@@ -49,6 +49,9 @@ export type Projectile = Circle & {
   skills?: ArrowSkillProcs | null;
   /** Enemies a Piercing Shot arrow has already passed through. */
   pierced?: Set<object> | null;
+  /** Where the arrow left the bow, so a Piercing Shot beam can be drawn from it. */
+  originX?: number;
+  originY?: number;
 };
 
 export type EnemyShot = Circle & {
@@ -75,6 +78,9 @@ export type EnemyState = Circle & {
   vy: number;
   hp: number;
   maxHp: number;
+  /** Health before the latest run of hits: the bar flashes only the lost chunk, as a boss's does. */
+  hpLossFlashFrom?: number;
+  hpLossFlashTimer?: number;
   speed: number;
   damage: number;
   reward: EnemyDefinition["reward"];

@@ -221,6 +221,7 @@ export function createEnemySimulation(
       const ambient = regularEnemyAmbientPose(mapId, enemy.siteId, enemy.homeX, enemy.homeY, serverNowMs);
       enemy.phase = ambient.phase;
       enemy.hurt = Math.max(0, enemy.hurt - dt);
+      if (enemy.hpLossFlashTimer) enemy.hpLossFlashTimer = Math.max(0, enemy.hpLossFlashTimer - dt);
       enemy.attackClock -= dt;
       if (enemy.attackAnimationElapsed !== undefined) enemy.attackAnimationElapsed += dt;
       enemy.moveSpeedRecovery = Math.min(ENEMY_HIT_SPEED_RECOVERY_SECONDS, enemy.moveSpeedRecovery + dt);

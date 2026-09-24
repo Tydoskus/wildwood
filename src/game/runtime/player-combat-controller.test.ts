@@ -668,3 +668,20 @@ describe("bow skills", () => {
     expect(fire(() => null)).toBeNull();
   });
 });
+
+describe("enemy health bar loss chunk", () => {
+  it("remembers the health before a run of hits and keeps it while hits keep landing", () => {
+    let now = 0;
+    const state = createCombatHarness({ nowSeconds: () => now });
+    state.boss.dead = true;
+    Object.assign(state.player, { x: 500, y: 500, damage: 100, attackRange: 200 });
+    createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Spitter", x: 550, y: 500,
+      campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
+    const enemy = state.enemies[state.enemies.length - 1];
+    enemy.hp = enemy.maxHp = 1_000;
+    for (let frame = 0; frame < 240 && enemy.hp === 1_000; frame++) { now += 1 / 60; state.controller.attackNearest(); state.controller.updateProjectiles(1 / 60); }
+    expect(enemy.hp).toBeLessThan(1_000);
+    expect(enemy.hpLossFlashFrom).toBe(1_000);
+    expect(enemy.hpLossFlashTimer).toBeGreaterThan(0);
+  });
+});

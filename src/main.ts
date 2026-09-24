@@ -730,7 +730,7 @@ import {
     currentMapId: () => currentMapId,
     spawnBurst,
     spawnParticle,
-    spawnDamageNumber,
+    spawnDamageNumber, skillEffects: effects,
     playBowAttackSound: mapMusic.playBowAttackSound,
     logPickup,
     saveProgress,

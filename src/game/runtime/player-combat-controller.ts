@@ -3,7 +3,7 @@ import { isMeleeWeapon, weaponAttackRange, segmentCircleHit, segmentEllipseHit }
 import { isProceduralMap } from "../../../shared/procedural-maps";
 import { bossSurfaceDistance, bossVerticalRadius } from "../../../shared/boss-hitbox";
 import { isEnemyAttackingPlayer } from "./enemy-threat";
-import { PLAYER_KNOCKBACK_FORCE, WORLD } from "../constants";
+import { ENEMY_HP_LOSS_FLASH_SECONDS, PLAYER_KNOCKBACK_FORCE, WORLD } from "../constants";
 import { damageAfterArmor } from "../combat";
 import { ENEMY_TYPES, REWARD_DATA, rewardLabel, type EnemyKind } from "../enemies";
 import { circlesOverlap } from "../math";
@@ -143,6 +143,12 @@ export function createPlayerCombatController(options: {
   spawnBurst: (x: number, y: number, color: string, count?: number, speed?: number) => void;
   spawnParticle: (x: number, y: number, vx: number, vy: number, life: number, maxLife: number, size: number, color: string) => void;
   spawnDamageNumber: (x: number, y: number, amount: number, critical?: boolean, damageTaken?: boolean) => void;
+  /** Bow skill visuals; combat still works without them (tests, tools). */
+  skillEffects?: {
+    spawnArcingArrow: (fromX: number, fromY: number, toX: number, toY: number, index: number, color: string) => void;
+    spawnSkillStreak: (x: number, y: number, toX: number, toY: number, color: string, width?: number, life?: number, jagged?: boolean) => void;
+    spawnSkillRing: (x: number, y: number, color: string, radius?: number, life?: number) => void;
+  };
   drainBossHitResults?: () => { mapId: string; x: number; y: number; damage: number; critical: boolean }[];
   currentMapId?: () => string;
   onEnemyDefeated?: (enemy: EnemyState) => boolean;
@@ -327,6 +333,8 @@ export function createPlayerCombatController(options: {
       const projectile = projectileStore.acquirePlayerProjectile();
       projectile.x = player.x + Math.cos(angle) * 20;
       projectile.y = player.y + Math.sin(angle) * 20;
+      projectile.originX = projectile.x;
+      projectile.originY = projectile.y;
       projectile.vx = Math.cos(angle) * player.projectileSpeed;
       projectile.vy = Math.sin(angle) * player.projectileSpeed;
       projectile.r = 6;
@@ -567,6 +575,9 @@ export function createPlayerCombatController(options: {
       // The generated-boss controller owns its health and defeat handling.
     } else {
       engageEnemy(target);
+      // Hits in quick succession grow one chunk from the health before the first.
+      if (!((target.hpLossFlashTimer ?? 0) > 0)) target.hpLossFlashFrom = target.hp;
+      target.hpLossFlashTimer = ENEMY_HP_LOSS_FLASH_SECONDS;
       target.hp -= damage;
       if (player.knockback > 0) {
         const force = PLAYER_KNOCKBACK_FORCE * player.knockback;
@@ -597,8 +608,12 @@ export function createPlayerCombatController(options: {
     if (!procs?.arrowStorm && !procs?.ricochet) return;
     projectile.skills = procs.piercingShot ? PIERCE_ONLY : null;
     if (procs.arrowStorm) {
+      // The volley leaves the shooter square to the line of fire, left and
+      // right in turn, and curves in on each landing point: a teardrop.
+      let volley = 0;
       rainArrowStorm({ x, y }, target, enemies as Array<EnemyState | BossTarget>, random, (struck, landX, landY) => {
-        spawnParticle(landX, landY - 70, 0, 420, .16, .16, 3, "#ffd957");
+        if (options.skillEffects) options.skillEffects.spawnArcingArrow(player.x, player.y, landX, landY, volley++, "#ffd957");
+        else spawnParticle(landX, landY - 70, 0, 420, .16, .16, 3, "#ffd957");
         spawnBurst(landX, landY, "#ffe9a6", 3, 40);
         if (struck) applyPlayerHit(struck, projectile.damage * ARROW_STORM_DAMAGE_SHARE, critical, Math.PI / 2);
       });
@@ -606,7 +621,10 @@ export function createPlayerCombatController(options: {
     if (procs.ricochet) {
       let from: { x: number; y: number } = target;
       for (const next of ricochetChain(target, enemies)) {
-        streak(from.x, from.y, next.x, next.y, "#8fe3ff");
+        if (options.skillEffects) {
+          options.skillEffects.spawnSkillStreak(from.x, from.y, next.x, next.y, "#8fe3ff", 4, .32, true);
+          options.skillEffects.spawnSkillRing(next.x, next.y, "#8fe3ff", 20, .26);
+        } else streak(from.x, from.y, next.x, next.y, "#8fe3ff");
         spawnBurst(next.x, next.y, "#8fe3ff", 4, 50);
         applyPlayerHit(next, projectile.damage * RICOCHET_DAMAGE_SHARE, critical, Math.atan2(next.y - from.y, next.x - from.x));
         from = next;
@@ -637,9 +655,13 @@ export function createPlayerCombatController(options: {
       projectile.trail -= projectileStepSeconds;
       // Piercing Shot carries the arrow on through regular enemies in its line.
       while (hit && arrowPassesThrough(projectile.skills, hit.enemy, projectile.pierced?.size ?? 0)) {
-        arrowImpact(projectile, hit.enemy, startX + (endX - startX) * hit.t, startY + (endY - startY) * hit.t);
+        const pierceX = startX + (endX - startX) * hit.t, pierceY = startY + (endY - startY) * hit.t;
+        arrowImpact(projectile, hit.enemy, pierceX, pierceY);
         (projectile.pierced ??= new Set()).add(hit.enemy);
-        spawnBurst(hit.enemy.x, hit.enemy.y, "#f5b3ff", 6, 70);
+        // A golden beam from the bow through every enemy it has passed.
+        options.skillEffects?.spawnSkillStreak(projectile.originX ?? startX, projectile.originY ?? startY, pierceX, pierceY, "#ffc94d", 5, .3);
+        options.skillEffects?.spawnSkillRing(hit.enemy.x, hit.enemy.y, "#ffe08a", 22, .24);
+        spawnBurst(hit.enemy.x, hit.enemy.y, "#ffe08a", 6, 70);
         hit = raycastProjectile(startX, startY, hitEndX, hitEndY, projectile.r, projectile.pierced);
       }
       if (hit) {

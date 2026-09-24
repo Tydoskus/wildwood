@@ -15,6 +15,7 @@ import type { StaticWorldSpriteFrame } from "./webgl-static-world-layer";
 import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
 import { createTintedImageCanvas } from "./image-tint";
 import { createEnemyAnimationSampler } from "./enemy-animation";
+import { ENEMY_HP_LOSS_FLASH_SECONDS } from "../constants";
 
 
 type Viewport = { width: number; height: number };
@@ -768,8 +769,18 @@ export function createActorRenderer(options: {
       ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
       ctx.fillStyle = "#472225";
       ctx.fillRect(barX, barY, barW, barH);
-      ctx.fillStyle = enemy.hurt > 0 ? "#fff1b6" : "#55d568";
+      ctx.fillStyle = "#55d568";
       ctx.fillRect(barX, barY, Math.round(barW * hpRatio), barH);
+      // Only the health just lost lights up, fading out, the way a boss's bar does.
+      const lossTimer = enemy.hpLossFlashTimer ?? 0;
+      if (lossTimer > 0 && (enemy.hpLossFlashFrom ?? 0) > displayedHp) {
+        const fromRatio = clamp((enemy.hpLossFlashFrom ?? 0) / enemy.maxHp, hpRatio, 1);
+        ctx.save();
+        ctx.globalAlpha = visibility * clamp(lossTimer / ENEMY_HP_LOSS_FLASH_SECONDS, 0, 1);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(barX + Math.round(barW * hpRatio), barY, Math.max(1, Math.round(barW * (fromRatio - hpRatio))), barH);
+        ctx.restore();
+      }
 
       ctx.textAlign = "center";
       const displayAmount = (reward: EnemyDefinition["reward"]) => options.rewardAmount?.(reward.type, reward.amount) ?? reward.amount * options.rewardMultiplier();

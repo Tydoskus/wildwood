@@ -144,3 +144,5 @@ export const DREADREAPER_DEPTH_OFFSET = 170;
 export const VOLTWARDEN_DEPTH_OFFSET = 170;
 export const GRAVEBLOOM_DEPTH_OFFSET = 170;
 export const AEGIS_PRIME_DEPTH_OFFSET = 170;
+/** How long the lost chunk of an enemy's health bar stays lit after the last hit. */
+export const ENEMY_HP_LOSS_FLASH_SECONDS = .35;
