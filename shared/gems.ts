@@ -6,8 +6,10 @@ export const BALANCE_APOLOGY_GEM_GIFT = 10n;
 export const RESEARCH_SPEED_UP_MS_PER_GEM = 10 * 60 * 1_000;
 export const UPGRADE_BENCH_SECOND_SLOT_GEM_COST = 150n;
 export const UPGRADE_BENCH_THIRD_SLOT_GEM_COST = 200n;
-export const BASE_INVENTORY_SLOT_CAPACITY = 20;
-export const MAX_INVENTORY_SLOT_CAPACITY = 64;
+// 0.801 gave everyone ten more starting slots and raised the cap by the same
+// ten, so a player who had already bought slots still gains all ten.
+export const BASE_INVENTORY_SLOT_CAPACITY = 30;
+export const MAX_INVENTORY_SLOT_CAPACITY = 74;
 
 // Keep balances comfortably inside signed i64 transaction deltas while still
 // leaving far more headroom than the game economy should ever need.

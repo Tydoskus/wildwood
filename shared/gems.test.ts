@@ -33,10 +33,12 @@ describe("Gem balance rules", () => {
     expect(UPGRADE_BENCH_THIRD_SLOT_GEM_COST).toBe(200n);
   });
 
-  it("prices consecutive inventory slots at one, two, three Gems and expands the free 20 slots", () => {
-    expect(BASE_INVENTORY_SLOT_CAPACITY).toBe(20);
-    expect(inventorySlotCapacity(0)).toBe(20);
-    expect(inventorySlotCapacity(2)).toBe(22);
+  it("prices consecutive inventory slots at one, two, three Gems and expands the free 30 slots", () => {
+    expect(BASE_INVENTORY_SLOT_CAPACITY).toBe(30);
+    expect(inventorySlotCapacity(0)).toBe(30);
+    expect(inventorySlotCapacity(2)).toBe(32);
+    // The cap rose with the base, so a bag bought to the old 64 still gains ten.
+    expect(inventorySlotCapacity(44)).toBe(74);
     expect(inventorySlotUnlockCost(0)).toBe(1n);
     expect(inventorySlotUnlockCost(1)).toBe(2n);
     expect(inventorySlotUnlockCost(2)).toBe(3n);

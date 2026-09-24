@@ -4,6 +4,7 @@ import { deliverEquipmentMail, equipmentMailKey } from "./mailbox-equipment";
 import { publishMailboxLetter, mergeMailboxReceipts } from "./mailbox";
 import { GEAR_MAIL_ID, GEAR_MAIL_TITLE, GEAR_MAIL_BODY } from "../../shared/mailbox-equipment";
 import { EQUIPMENT_DROP_ITEM_IDS } from "../../shared/items";
+import { BASE_INVENTORY_SLOT_CAPACITY } from "../../shared/gems";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 function fixture() {
   const f = crystalFixture();
@@ -42,7 +43,7 @@ describe("equipment mailbox", () => {
   });
   it("leaves a full-bag gift unclaimed and awards everything after the player frees space", () => {
     const f = fixture();
-    const filler = EQUIPMENT_DROP_ITEM_IDS.filter(id => !["forest_cap", "wooden_armor", "starter_bow"].includes(id)).slice(0, 20);
+    const filler = EQUIPMENT_DROP_ITEM_IDS.filter(id => !["forest_cap", "wooden_armor", "starter_bow"].includes(id)).slice(0, BASE_INVENTORY_SLOT_CAPACITY);
     f.patch("playerProgress", { inventoryJson: JSON.stringify(filler) });
     const before = f.db.playerProgress.identity.find(f.ctx.sender);
     expect(() => f.run(server.claimMailboxGift, { id: GEAR_MAIL_ID })).toThrow(/Free .* inventory slot/);
