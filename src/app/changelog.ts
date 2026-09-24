@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.801": [
+    "Bows can roll Arrow Storm, Ricochet and Piercing Shot skills, each with its own chance to trigger.",
+    "Higher-tier bows roll higher skill chances: 1–3% on early bows, up to 7–15% on the best.",
+    "Bows you already own have been rolled, and bow skills also work in duels.",
+  ],
   "0.800": [
     "A Travel portal is back at Home, with a window to pick any map you have unlocked.",
     "Portal cutscenes are skipped after your first prestige.",
@@ -2345,6 +2350,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.801": "2026-09-23",
   "0.800": "2026-09-23",
   "0.799": "2026-09-23",
   "0.798": "2026-09-23",
