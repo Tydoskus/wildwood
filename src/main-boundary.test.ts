@@ -43,7 +43,11 @@ import { describe, expect, it } from "vitest";
 // preview hook need the coop session, the pause registry and the dev panel,
 // which only the composition root holds; the logic is prestige-unlock-popup.ts.
 // 2_195: the boss-defeated banner and its wiring were removed.
-const MAX_LINES = 2_195;
+// 2_187: the item-drop reveal's colour table moved to item-drop-color.ts, which
+// the duplicate-equipment offer window shares. That window's construction takes
+// one line of the room, with its note: only the composition root holds the coop
+// session, the local bag and whether the world is running.
+const MAX_LINES = 2_187;
 const TARGET_LINES = 1_000;
 
 describe("game composition boundary", () => {

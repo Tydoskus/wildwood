@@ -15,9 +15,13 @@ import {
 } from "../../shared/gems";
 import { gemSpendConfirmation } from "./gem-spend-confirmation";
 import { gameConfirm, type ConfirmPrompt, type ConfirmRequest } from "./confirm-dialog";
+import { isSkillBow, type BowSkillRoll } from "../../shared/bow-skills";
 
 type InventoryLocation = EquipmentSlot | "BAG" | "";
 type SelectableInventory = InventoryState & { selectedItemId: string; selectedItemLocation?: InventoryLocation };
+type Result = { ok: boolean; error?: string } | undefined;
+/** A copy kept from a duplicate drop, beyond the item's first. */
+export type KeptEquipmentCopy = { id: bigint; itemId: string; roll: Partial<BowSkillRoll> };
 
 type InventoryDependencies = {
   inventory: SelectableInventory;
@@ -36,6 +40,12 @@ type InventoryDependencies = {
   confirmGemSpend?: ConfirmPrompt;
   confirmDestroy?: ConfirmPrompt;
   showMessage: (message: string, color?: string) => void;
+  /** Copies kept from duplicate drops. Each is its own bag entry with its own roll. */
+  equipmentCopies?: () => readonly KeptEquipmentCopy[];
+  /** Copy id 0n is the item's first copy; the server moves a kept copy into its place. */
+  destroyEquipmentCopy?: (itemId: string, copyId: bigint) => Promise<Result>;
+  /** Makes a kept copy the one its slot equips. */
+  selectEquipmentCopy?: (copyId: bigint) => Promise<Result>;
 };
 
 export function clearInventorySelection(inventory: Pick<SelectableInventory, "selectedItemId" | "selectedItemLocation">) {
@@ -135,26 +145,70 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     return true;
   }
 
-  function inspect(itemId: string, location: Exclude<InventoryLocation, "">) {
+  const keptCopiesOf = (itemId: string) => (dependencies.equipmentCopies?.() ?? []).filter(copy => copy.itemId === itemId);
+
+  /** `copyId` 0n is the item's first copy: the bag entry, or whatever its slot holds. */
+  function inspect(itemId: string, location: Exclude<InventoryLocation, "">, copyId = 0n) {
     clearInventorySelection(dependencies.inventory);
     const item = itemDefinition(itemId);
     if (!item) return;
+    const kept = mode === "EQUIPMENT" ? keptCopiesOf(itemId) : [];
+    const copy = copyId ? kept.find(candidate => candidate.id === copyId) : undefined;
+    if (copyId && !copy) return;
     const requiredMap = mode === "EQUIPMENT" ? dependencies.equipmentRequirement?.(itemId) : null;
+    const moves = inventoryMoveActions(dependencies.inventory, itemId, location, mode).map((action) => ({
+      label: action.label,
+      kind: action.destination === "BAG" ? "SECONDARY" as const : "PRIMARY" as const,
+      disabled: action.disabled || Boolean(requiredMap && action.destination !== "BAG"),
+      onActivate: () => {
+        if (move(itemId, action.destination)) dependencies.itemInspection.close();
+      },
+    }));
     dependencies.itemInspection.open({
       itemId,
       upgradeLevel: dependencies.upgradeLevel(itemId),
       ownItem: mode === "EQUIPMENT",
+      ...(kept.length ? { context: `Copy ${copy ? kept.indexOf(copy) + 2 : 1} of ${kept.length + 1}` } : {}),
       ...(mode === "COSMETICS" ? { context: "Cosmetic · Appearance only" } : {}),
       ...(requiredMap ? { context: `Reach ${requiredMap} to equip` } : {}),
-      actions: [...inventoryMoveActions(dependencies.inventory, itemId, location, mode).map((action) => ({
-        label: action.label,
-        kind: action.destination === "BAG" ? "SECONDARY" as const : "PRIMARY" as const,
-        disabled: action.disabled || Boolean(requiredMap && action.destination !== "BAG"),
-        onActivate: () => {
-          if (move(itemId, action.destination)) dependencies.itemInspection.close();
-        },
-      })), ...conversionActions(itemId), ...destructionActions(itemId)],
+      ...(copy ? { skills: copy.roll } : {}),
+      actions: [...(copy ? copyEquipActions(copy, Boolean(requiredMap)) : moves),
+        ...conversionActions(itemId), ...destructionActions(itemId, copyId)],
     });
+  }
+
+  /**
+   * Equipping a kept copy. A bow's copies differ, so the server first makes
+   * this copy the one its slot holds; identical copies need no such swap.
+   */
+  function copyEquipActions(copy: KeptEquipmentCopy, locked: boolean) {
+    const [action] = inventoryMoveActions(dependencies.inventory, copy.itemId, "BAG", "EQUIPMENT");
+    if (!action) return [];
+    const skilled = isSkillBow(copy.itemId);
+    const equipped = action.disabled === true;
+    return [{
+      label: equipped && !skilled ? "SAME AS EQUIPPED" : "EQUIP",
+      kind: "PRIMARY" as const,
+      disabled: locked || (equipped && !skilled) || !dependencies.selectEquipmentCopy,
+      onActivate: async () => {
+        if (skilled) {
+          const result = await dependencies.selectEquipmentCopy?.(copy.id);
+          if (!result?.ok) {
+            dependencies.showMessage(result?.error ?? "NOT CONNECTED", "#ff9b91");
+            return;
+          }
+        }
+        if (!equipped) {
+          if (move(copy.itemId, action.destination)) dependencies.itemInspection.close();
+          return;
+        }
+        dependencies.itemInspection.close();
+        clearInventorySelection(dependencies.inventory);
+        render();
+        playMoveFeedback(action.destination);
+        dependencies.showMessage("EQUIPMENT UPDATED · WEAPON READY", "#72ef58");
+      },
+    }];
   }
 
   function conversionActions(itemId: string) {
@@ -189,19 +243,26 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     }];
   }
 
-  function destructionActions(itemId: string) {
+  /**
+   * Destroys one copy. With other copies kept, the server keeps the item and
+   * only a copy goes (the oldest kept one takes the first copy's place), so
+   * the bag must not drop the item locally the way a last copy's destroy does.
+   */
+  function destructionActions(itemId: string, copyId = 0n) {
     if (!dependencies.inventory.itemIds.includes(itemId)) return [];
+    const destroyCopy = dependencies.destroyEquipmentCopy;
+    const oneOfSeveral = Boolean(destroyCopy) && (copyId !== 0n || keptCopiesOf(itemId).length > 0);
     return canDestroyEquipment(itemId) ? [{
       label: "Destroy item",
       kind: "DESTROY" as const,
       onActivate: async () => {
         if (!await ask(confirmDestroy, {
-          message: `Destroy ${itemDisplayName(itemId, dependencies.upgradeLevel(itemId))} permanently?`,
+          message: `Destroy ${oneOfSeveral ? "this copy of " : ""}${itemDisplayName(itemId, dependencies.upgradeLevel(itemId))} permanently?`,
           details: [{ label: "This cannot be undone", value: "No refund" }],
           confirmLabel: "Destroy", danger: true,
         })) return;
         dependencies.itemInspection.close();
-        const result = await dependencies.destroyEquipment(itemId);
+        const result = oneOfSeveral ? await destroyCopy!(itemId, copyId) : await dependencies.destroyEquipment(itemId);
         if (result?.ok) {
           clearInventorySelection(dependencies.inventory);
           render();
@@ -213,8 +274,9 @@ export function createInventoryController(dependencies: InventoryDependencies) {
 
   function render() {
     const inventory = dependencies.inventory;
+    const copies = dependencies.equipmentCopies?.() ?? [];
     const nextState = JSON.stringify([mode, filter, inventory, dependencies.inventorySlotsUnlocked(), unlockingSlot,
-      inventory.itemIds.map(itemId => dependencies.upgradeLevel(itemId))]);
+      inventory.itemIds.map(itemId => dependencies.upgradeLevel(itemId)), copies.map(copy => `${copy.id}:${copy.itemId}`)]);
     if (nextState === renderedState) return;
     renderedState = nextState;
     const cosmeticsActive = mode === "COSMETICS";
@@ -236,6 +298,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
       mode,
       {
         onInspect: inspect,
+        copies,
         filter: filter === "ALL" ? undefined : filter,
         upgradeLevel: dependencies.upgradeLevel,
         slotCapacity,

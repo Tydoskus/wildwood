@@ -914,7 +914,7 @@ export const wildstatCoop = {
   pendingOfflineProgress: () => pendingOfflineProgress,
   ...offlinePreference.api,
   accountAudio: accountAudio.api,
-  bowSkills: bowSkills.bowSkills,
+  ...bowSkills.api,
   async acknowledgeOfflineProgress() {
     pendingOfflineProgress = null;
     if (!connection?.isActive) return;

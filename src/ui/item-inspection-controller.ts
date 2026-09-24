@@ -24,6 +24,8 @@ export type ItemInspectionRequest = {
   actions?: readonly ItemInspectionAction[];
   /** The item is this player's own, so its bow skill roll (if any) is shown. */
   ownItem?: boolean;
+  /** A kept copy's own roll, shown instead of the item's first copy's. */
+  skills?: Partial<BowSkillRoll> | null;
 };
 
 export type ItemInspectionController = ReturnType<typeof createItemInspectionController>;
@@ -122,7 +124,8 @@ export function createItemInspectionController(elements: ItemInspectionElements)
       stats.append(value);
     }
     // Skill names are written in title case and shown exactly as written.
-    for (const line of request.ownItem ? bowSkillLines(elements.bowSkills?.(item.id)) : []) {
+    const roll = request.skills !== undefined ? request.skills : elements.bowSkills?.(item.id);
+    for (const line of request.ownItem ? bowSkillLines(roll) : []) {
       const value = document.createElement("span");
       value.textContent = line;
       value.dataset.statKind = "skill";

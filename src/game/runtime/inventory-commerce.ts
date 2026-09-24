@@ -1,14 +1,22 @@
 import type { InventoryState } from "../inventory";
 import { setInventoryItemQuantity } from "../inventory";
 import { applyPlayerMaxHealthMultiplierBonus } from "./player-health";
+import type { BowSkillRoll } from "../../../shared/bow-skills";
 
 type Result = { ok: boolean; error?: string } | undefined;
+type KeptCopy = { id: bigint; itemId: string; roll: BowSkillRoll };
 
 /** Apply confirmed server ownership changes to the visible local loadout. */
 export function createInventoryCommerceActions(options: {
   inventory: InventoryState;
   player: { speed: number; baseMaxHp: number; maxHp: number; hp: number };
-  coop: () => { destroyEquipment?: (itemId: string) => Promise<Result>; convertItemToCosmetic?: (itemId: string) => Promise<Result> } | null;
+  coop: () => {
+    destroyEquipment?: (itemId: string) => Promise<Result>;
+    convertItemToCosmetic?: (itemId: string) => Promise<Result>;
+    equipmentCopies?: () => readonly KeptCopy[];
+    destroyEquipmentCopy?: (itemId: string, copyId: bigint) => Promise<Result>;
+    selectEquipmentCopy?: (copyId: bigint) => Promise<Result>;
+  } | null;
   healthMultiplierBonus: () => number;
   movementSpeed: () => number;
 }) {
@@ -32,5 +40,10 @@ export function createInventoryCommerceActions(options: {
       }
       return result;
     },
+    // Kept copies never leave the item's first copy without an owner, so these
+    // change no local ownership: the copy rows and rolls arrive from the server.
+    equipmentCopies: (): readonly KeptCopy[] => options.coop()?.equipmentCopies?.() ?? [],
+    destroyEquipmentCopy: async (itemId: string, copyId: bigint) => options.coop()?.destroyEquipmentCopy?.(itemId, copyId),
+    selectEquipmentCopy: async (copyId: bigint) => options.coop()?.selectEquipmentCopy?.(copyId),
   };
 }

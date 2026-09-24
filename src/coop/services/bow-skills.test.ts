@@ -7,13 +7,15 @@ function fakeConnection(rows: Row[] = []) {
   const handlers: Array<() => void> = [];
   let applied: (() => void) | null = null;
   const subscribe = vi.fn();
+  const view = (source: () => Iterable<unknown>) => ({
+    iter: () => source()[Symbol.iterator](),
+    onInsert: (handler: () => void) => handlers.push(handler),
+    onUpdate: (handler: () => void) => handlers.push(handler),
+    onDelete: (handler: () => void) => handlers.push(handler),
+  });
+  // The service also carries kept copies and duplicate offers on the same connection.
   const connection = {
-    db: { myBowSkills: {
-      iter: () => rows[Symbol.iterator](),
-      onInsert: (handler: () => void) => handlers.push(handler),
-      onUpdate: (handler: () => void) => handlers.push(handler),
-      onDelete: (handler: () => void) => handlers.push(handler),
-    } },
+    db: { myBowSkills: view(() => rows), myEquipmentCopies: view(() => []), myEquipmentOffers: view(() => []) },
     subscriptionBuilder: () => ({ onApplied(callback: () => void) { applied = callback; return this; }, subscribe }),
   };
   return { connection: connection as never, rows, subscribe, settle: () => applied?.(), fire: () => handlers.forEach(handler => handler()) };
@@ -24,7 +26,7 @@ it("serves this account's roll for each bow once the view settles, and follows c
   const skills = createBowSkills(notify);
   const conn = fakeConnection([{ itemId: "iron_bow", arrowStorm: 2.4, ricochet: 0, piercingShot: 0 }]);
   skills.watch(conn.connection, () => true);
-  expect(conn.subscribe).toHaveBeenCalledOnce();
+  expect(conn.subscribe).toHaveBeenCalledTimes(2);
   expect(skills.bowSkills("iron_bow")).toBeNull();
   conn.settle();
   expect(skills.bowSkills("iron_bow")).toEqual({ arrowStorm: 2.4, ricochet: 0, piercingShot: 0 });

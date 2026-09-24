@@ -269,19 +269,27 @@ export function renderInventoryView(
   inventory: InventoryViewState,
   mode: InventoryMode,
   actions: {
-    onInspect: (itemId: string, location: EquipmentSlot | "BAG") => void;
+    /** `copyId` is 0n for an item's first copy and a kept copy's id otherwise. */
+    onInspect: (itemId: string, location: EquipmentSlot | "BAG", copyId?: bigint) => void;
     upgradeLevel: (itemId: string) => number;
     slotCapacity: number;
     filter?: ItemSlot;
     nextSlotCost?: bigint;
     onUnlockSlot?: () => void;
+    /** Copies kept from duplicate drops, beyond each item's first. Each takes its own bag slot. */
+    copies?: readonly { id: bigint; itemId: string }[];
   },
 ) {
   elements.items.replaceChildren();
   const cosmetics = mode === "COSMETICS";
-  const bagStacks = cosmetics ? cosmeticInventoryStacks(inventory) : bagInventoryStacks(inventory)
-    .sort((a, b) => (itemTier(b.itemId) ?? 0) - (itemTier(a.itemId) ?? 0)
-      || itemDisplayName(a.itemId).localeCompare(itemDisplayName(b.itemId)));
+  // Kept copies sit beside the item's first copy, oldest first.
+  const keptCopies = cosmetics ? [] : (actions.copies ?? [])
+    .filter(copy => inventory.itemIds.includes(copy.itemId)).map(copy => ({ itemId: copy.itemId, copyId: copy.id }));
+  const bagStacks = cosmetics ? cosmeticInventoryStacks(inventory).map(stack => ({ ...stack, copyId: 0n })) : [
+    ...bagInventoryStacks(inventory).map(stack => ({ ...stack, copyId: 0n })), ...keptCopies,
+  ].sort((a, b) => (itemTier(b.itemId) ?? 0) - (itemTier(a.itemId) ?? 0)
+      || itemDisplayName(a.itemId).localeCompare(itemDisplayName(b.itemId))
+      || (a.copyId < b.copyId ? -1 : a.copyId > b.copyId ? 1 : 0));
   const slotCapacity = cosmetics ? Math.max(50, bagStacks.length) : actions.slotCapacity;
   elements.count.textContent = `${bagStacks.length} / ${slotCapacity} ${cosmetics ? "Cosmetics" : "Items"}`;
   renderEquipmentSlot(elements.equippedHead, inventory, "HEAD", "HEAD", mode, actions.upgradeLevel);
@@ -296,14 +304,16 @@ export function renderInventoryView(
   for (let index = 0; index < visibleSlots; index += 1) {
     const stack = visibleStacks[index];
     const itemId = stack?.itemId;
+    const copyId = stack?.copyId ?? 0n;
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.inventoryLocation = "BAG";
     button.className = "inventory-item" + (itemId ? " is-filled" : " is-empty");
     if (itemId) {
       const level = normalizeItemUpgradeLevel(actions.upgradeLevel(itemId));
-      button.setAttribute("aria-label", `${itemDisplayName(itemId, level)}. Tap to inspect and equip.`);
+      button.setAttribute("aria-label", `${itemDisplayName(itemId, level)}${copyId ? ", another copy" : ""}. Tap to inspect and equip.`);
       button.dataset.itemId = itemId;
+      if (copyId) button.dataset.copyId = String(copyId);
       const art = document.createElement("span");
       art.className = "inventory-item-art-wrap";
       art.innerHTML = itemArt(itemId);
@@ -328,7 +338,7 @@ export function renderInventoryView(
       // No +N on a loose item: the number belongs to the slot it goes in, and
       // showing it here made every weapon in the bag claim the weapon slot's
       // tier as its own.
-      button.addEventListener("click", () => actions.onInspect(itemId, "BAG"));
+      button.addEventListener("click", () => actions.onInspect(itemId, "BAG", copyId));
     } else {
       button.setAttribute("aria-label", `Empty bag slot ${index + 1}`);
       button.disabled = true;

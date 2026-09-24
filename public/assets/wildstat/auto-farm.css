@@ -226,3 +226,155 @@
 @media (max-height: 480px) {
   .farm-sheet.travel-sheet { height: fit-content; max-height: calc(100dvh - 16px); }
 }
+/* Duplicate equipment: Keep or Ignore. The Auto Farm window's frame, text and
+ * buttons, as a small card that does not pause the game: it sits under the top
+ * HUD, clear of the player at the centre, and never takes the whole screen. */
+.equipment-offer {
+  position: fixed;
+  top: calc(var(--hud-safe-top) + var(--player-hud-visual-height) + 42px);
+  left: 50%;
+  z-index: 14;
+  box-sizing: border-box;
+  display: grid;
+  gap: 8px;
+  width: min(340px, calc(100vw - 24px));
+  max-height: calc(100dvh - var(--hud-safe-top) - var(--player-hud-visual-height) - var(--window-bottom-inset) - 54px);
+  padding: 12px 12px 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 3px solid rgba(255,255,255,.20);
+  border-radius: 14px;
+  background: var(--window-surface);
+  color: var(--text);
+  box-shadow: 0 16px 48px #0008;
+  font: 900 var(--font-readable-body)/1.35 var(--font-rounded);
+  -webkit-text-stroke: var(--text-outline-width) #000;
+  paint-order: stroke fill;
+  text-shadow: var(--text-shadow);
+  transform: translateX(-50%);
+  pointer-events: auto;
+  animation: equipment-offer-enter .22s cubic-bezier(.2,.9,.24,1.2);
+}
+.equipment-offer[hidden] { display: none; }
+.equipment-offer:focus { outline: none; }
+.equipment-offer button { margin: 0; }
+.equipment-offer button:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+.equipment-offer-close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font: 900 20px/1 var(--font-rounded);
+  cursor: pointer;
+}
+.equipment-offer-header { display: flex; align-items: center; gap: 10px; min-width: 0; padding-right: 26px; }
+.equipment-offer-art {
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: #0006;
+}
+.equipment-offer-art > * { width: 36px; height: 36px; }
+.equipment-offer-heading { display: grid; gap: 2px; min-width: 0; }
+.equipment-offer-name { margin: 0; overflow: hidden; font: inherit; font-size: 15px; white-space: nowrap; text-overflow: ellipsis; }
+.equipment-offer-note { color: #ffcf7a; font-size: 12px; }
+.equipment-offer-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.equipment-offer-compare[hidden] { display: none; }
+.equipment-offer-roll {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 2px solid rgba(255,255,255,.14);
+  border-radius: 10px;
+  background: #ffffff06;
+  font-size: 12px;
+}
+.equipment-offer-roll strong { color: var(--muted); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.equipment-offer-roll.is-new { border-color: var(--green); background: rgba(105,229,111,.08); }
+.equipment-offer-lines { display: grid; gap: 1px; }
+.equipment-offer-timer { margin: 0; color: var(--muted); text-align: center; font-size: 12px; font-variant-numeric: tabular-nums; }
+.equipment-offer-actions { display: flex; justify-content: center; gap: 10px; }
+.equipment-offer-actions .window-back-button { flex: 0 1 140px; width: auto; margin: 0; }
+.equipment-offer .equipment-offer-keep {
+  display: flex;
+  flex: 0 1 140px;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 8px 2px;
+  border: 2px solid #103512;
+  border-radius: 8px;
+  background: linear-gradient(#5cbd5f, #2f7d38);
+  box-shadow: 0 3px 0 #15351a;
+  color: #fff;
+  font: 900 11px/1 var(--font-rounded);
+  -webkit-text-stroke: var(--text-outline-width) #000;
+  paint-order: stroke fill;
+  text-shadow: var(--text-shadow);
+  cursor: pointer;
+}
+.equipment-offer .equipment-offer-keep:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 #15351a; }
+.equipment-offer button:disabled { opacity: .45; cursor: default; }
+@keyframes equipment-offer-enter {
+  from { opacity: 0; transform: translateX(-50%) translateY(-8px) scale(.96); }
+  to { opacity: 1; transform: translateX(-50%); }
+}
+/* Landscape phones: beside the top HUD rather than under it, a little tighter. */
+@media (max-height: 480px) {
+  .equipment-offer { top: var(--hud-safe-top); gap: 6px; padding: 8px 10px; max-height: calc(100dvh - var(--hud-safe-top) - var(--window-bottom-inset) - 8px); }
+  .equipment-offer-art { flex-basis: 36px; width: 36px; height: 36px; }
+  .equipment-offer-art > * { width: 30px; height: 30px; }
+  .equipment-offer .equipment-offer-keep, .equipment-offer-actions .window-back-button { height: 38px; min-height: 38px; }
+}
+/* The way back to offers closed for later: a count on the Inventory button and a line in the bag. */
+.equipment-offer-badge {
+  position: absolute;
+  top: 3px;
+  right: calc(50% - 26px);
+  display: grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 8px;
+  background: #d8323c;
+  color: #fff;
+  font: 900 10px/1 var(--chat-font);
+  font-variant-numeric: tabular-nums;
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+  pointer-events: none;
+}
+.equipment-offer-badge[hidden] { display: none; }
+.equipment-offer-review {
+  width: 100%;
+  min-height: 34px;
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border: 2px solid #c9ab64;
+  border-radius: 8px;
+  background: rgba(201,171,100,.12);
+  box-shadow: none;
+  color: #ffcf7a;
+  font: 900 12px/1.3 var(--font-rounded);
+  text-align: center;
+  cursor: pointer;
+}
+.equipment-offer-review[hidden] { display: none; }

@@ -42,7 +42,9 @@ import {
 } from "./game/constants";
 import { distanceSquared } from "./game/math";
 import { formatArmorReduction } from "./game/combat";
-import { type InventoryState, DARK_METAL_HELMET, equipmentAppearance, FIRE_METAL_BOW, FIRE_METAL_HELMET, FROST_ARMOR, FROST_BOW, IRON_BOW, moveCosmeticInventoryItem, moveInventoryItem, NIGHT_BOW, setInventoryItemQuantity, SNOW_BOW, STARTER_BOW, toggleCosmeticEquipmentVisibility } from "./game/inventory";
+import { type InventoryState, equipmentAppearance, moveCosmeticInventoryItem, moveInventoryItem, setInventoryItemQuantity, toggleCosmeticEquipmentVisibility } from "./game/inventory";
+import { itemDropColor } from "./ui/item-drop-color";
+import { createEquipmentOfferPrompt } from "./ui/equipment-offer-prompt";
 import { itemPresentation } from "./game/item-presentation";
 import { createMapMusicController } from "./game/runtime/audio";
 import { createCamera } from "./game/runtime/camera";
@@ -2146,26 +2148,16 @@ import {
   });
   if (coop?.setOnChange) coop.setOnChange(coopSession.onChange);
   coop?.setOnGemDrop?.(({ amount }) => runtimeHud.showGemDrop(amount));
+  // A duplicate of held equipment is not revealed here: it arrives as a Keep/Ignore offer.
+  createEquipmentOfferPrompt({ coop, inventory, renderInventory, showMessage, ready: () => Boolean(session?.isRunning()) });
   coop?.setOnItemDrop?.(({ itemId, alreadyOwned }) => {
     if (alreadyOwned) return;
     if (!setInventoryItemQuantity(inventory, itemId, 1)) return;
     renderInventory();
     const level = coop?.itemUpgradeLevel?.(itemId) ?? 0;
-    const pickupColor = itemId === DARK_METAL_HELMET
-      ? "#8f83a6"
-      : itemId === NIGHT_BOW
-        ? "#a982ff"
-      : itemId === FIRE_METAL_BOW || itemId === FIRE_METAL_HELMET
-      ? "#ff6557"
-      : itemId === SNOW_BOW
-        ? "#e9fbff"
-      : itemId === FROST_BOW || itemId === FROST_ARMOR
-        ? "#2d92ff"
-        : itemId === IRON_BOW ? "#aeb7c5"
-          : itemId === STARTER_BOW ? "#ffd45c" : "#b98752";
     runtimeHud.showItemDrop({
       artSource: itemPresentation(itemId)?.inventory.source ?? "",
-      color: pickupColor,
+      color: itemDropColor(itemId),
       name: itemDisplayName(itemId),
       stats: itemStatsWithBowSkills(itemId, level, coop?.bowSkills?.(itemId)),
     });
