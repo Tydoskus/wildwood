@@ -8,6 +8,7 @@ import { appendPlayerGenderIcon } from "./player-gender";
 import { PRESTIGE_STAT_GAIN_PER_LEVEL } from "../../shared/prestige";
 import type { ItemInspectionController, ItemInspectionAction } from "./item-inspection-controller";
 import { slotUpgradeLevelFor } from "./profile";
+import { setText } from "./settings";
 import {
   PROFILE_EQUIPMENT_SLOTS,
   profileEquipmentPresentation,
@@ -16,6 +17,7 @@ import {
 } from "./profile-equipment";
 
 export type ProfileTab = "overview" | "stats";
+const DUEL_BUTTON_TITLE = "Automatic duel using earned stats and equipped gear. Hits grow stronger after 10 seconds. Knockout wins; at 30 seconds, the higher percentage of health remaining wins.";
 type Profile = PlayerProfileData;
 
 export function createProfileWindowController(elements: {
@@ -137,18 +139,20 @@ export function createProfileWindowController(elements: {
     drawPreview();
   }
 
+  /** Also runs on the 100ms HUD tick, so it only writes what changed and skips the duel button while the window is closed. */
   function updateDuelButton() {
-    elements.duel.title = "Automatic duel using earned stats and equipped gear. Hits grow stronger after 10 seconds. Knockout wins; at 30 seconds, the higher percentage of health remaining wins.";
     const own = !identity || identity === api.localIdentity();
-    elements.safetyActions.hidden = own;
+    if (elements.safetyActions.hidden !== own) elements.safetyActions.hidden = own;
     api.onOwnProfile?.(own);
-    elements.block.textContent = api.isBlocked(identity) ? "Unblock Player" : "Block Player";
-    if (elements.duel.hidden) return;
+    setText(elements.block, api.isBlocked(identity) ? "Unblock Player" : "Block Player");
+    if (elements.duel.hidden || elements.window.hidden) return;
+    if (elements.duel.title !== DUEL_BUTTON_TITLE) elements.duel.title = DUEL_BUTTON_TITLE;
     const remainingSeconds = Math.ceil(api.duelCooldownMs() / 1_000);
     const active = api.isDueling();
-    elements.duel.disabled = api.isBlocked(identity) || active || remainingSeconds > 0;
-    elements.duel.classList.toggle("is-cooling-down", remainingSeconds > 0);
-    elements.duel.textContent = active ? "DUEL IN PROGRESS" : remainingSeconds > 0 ? `DUEL · ${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, "0")}` : "DUEL";
+    const disabled = api.isBlocked(identity) || active || remainingSeconds > 0;
+    if (elements.duel.disabled !== disabled) elements.duel.disabled = disabled;
+    if (elements.duel.classList.contains("is-cooling-down") !== remainingSeconds > 0) elements.duel.classList.toggle("is-cooling-down", remainingSeconds > 0);
+    setText(elements.duel, active ? "DUEL IN PROGRESS" : remainingSeconds > 0 ? `DUEL · ${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, "0")}` : "DUEL");
   }
 
   function render(profile: Profile | null) {
@@ -195,8 +199,8 @@ export function createProfileWindowController(elements: {
     if (scroll) scroll.scrollTop = 0;
     const hearts = elements.window.querySelector<HTMLElement>("#playerProfileHearts");
     if (hearts) hearts.textContent = "0";
-    identity = nextIdentity; profileData = null; elements.duel.hidden = nextIdentity === api.localIdentity(); elements.duel.dataset.identity = nextIdentity; updateDuelButton();
-    elements.window.hidden = false; api.renderName(elements.name, nextIdentity, fallbackName, api.playerGender(nextIdentity)); elements.guest.hidden = !api.isGuest(nextIdentity);
+    identity = nextIdentity; profileData = null; elements.duel.hidden = nextIdentity === api.localIdentity(); elements.duel.dataset.identity = nextIdentity;
+    elements.window.hidden = false; updateDuelButton(); api.renderName(elements.name, nextIdentity, fallbackName, api.playerGender(nextIdentity)); elements.guest.hidden = !api.isGuest(nextIdentity);
     const online = api.isOnline(nextIdentity); elements.presence.textContent = online ? "Online" : "CHECKING LAST SEEN"; elements.presence.classList.toggle("is-online", online);
     api.paintIcon(elements.icon, api.profileIcon(nextIdentity)); applyAvatarFrame(elements.icon, nextIdentity); const own = nextIdentity === api.localIdentity(); elements.icon.classList.toggle("is-editable", own); elements.icon.disabled = !own; elements.editName.hidden = !own; elements.genderSetting.hidden = !own; closeGenderChoices(); if (own) updateGenderChoices(api.playerGender(nextIdentity));
     if (elements.settings) elements.settings.hidden = !own;

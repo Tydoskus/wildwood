@@ -144,14 +144,17 @@ export function createPrestigeController(options: {
   }
 
   /** Called whenever the profile window renders, so the button tracks progress. */
+  /** Also runs on the 100ms HUD tick, so it only writes what changed. */
   function refresh(ownProfile: boolean) {
-    options.ownActions.hidden = !ownProfile;
+    if (options.ownActions.hidden !== !ownProfile) options.ownActions.hidden = !ownProfile;
     const open = canOpen();
-    openButton.disabled = !open;
-    openButton.title = open ? 'Prestige' : hint() || LOCKED_HINT;
-    openButton.setAttribute('aria-disabled', String(!open));
+    if (openButton.disabled !== !open) openButton.disabled = !open;
+    const title = open ? 'Prestige' : hint() || LOCKED_HINT;
+    if (openButton.title !== title) openButton.title = title;
+    if (openButton.getAttribute('aria-disabled') !== String(!open)) openButton.setAttribute('aria-disabled', String(!open));
     const row = options.prestige();
-    openButton.textContent = row?.level ? `Prestige ${row.level}` : 'Prestige';
+    const label = row?.level ? `Prestige ${row.level}` : 'Prestige';
+    if (openButton.textContent !== label) openButton.textContent = label;
     if (!overlay.hidden) render();
   }
 

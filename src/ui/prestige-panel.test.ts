@@ -265,4 +265,24 @@ describe("each prestige asks for one Endless stage more", () => {
     click(later.pick("open"));
     expect(later.pick("status").textContent).toBe("Clear the Endless 3 boss to prestige.");
   });
+
+  it("leaves the profile button alone on a repeated refresh", () => {
+    // The HUD tick refreshes this every 100ms with the profile window closed.
+    const s = setup({ unlocked: true, row: { level: 2, perkPoints: 0, peakPower: 10 } });
+    s.controller.refresh(true);
+    const open = s.pick("open");
+    const own = s.pick("own");
+    const setAttribute = vi.spyOn(open, "setAttribute");
+    const text = vi.spyOn(open, "textContent", "set");
+    const title = vi.spyOn(open, "title", "set");
+    const hidden = vi.spyOn(own, "hidden", "set");
+    for (let tick = 0; tick < 5; tick += 1) s.controller.refresh(true);
+    expect(setAttribute).not.toHaveBeenCalled();
+    expect(text).not.toHaveBeenCalled();
+    expect(title).not.toHaveBeenCalled();
+    expect(hidden).not.toHaveBeenCalled();
+    s.controller.refresh(false);
+    expect(own.hidden).toBe(true);
+    expect(hidden).toHaveBeenCalledTimes(1);
+  });
 });
