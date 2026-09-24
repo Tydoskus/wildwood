@@ -100,7 +100,9 @@ export type ProfileStatDisplayRow = {
   kind: string;
   label: string;
   base: string;
-  equationOperator?: "×";
+  equationOperator?: "×" | "+";
+  equationTotal?: string;
+  hideEquation?: boolean;
   multiplier: string;
   expandedDetail?: string;
   total: string;
@@ -199,14 +201,19 @@ export function profileStatDisplayRows(
   // Tech and prestige multiply each other, exactly as the server pays them, so
   // the total is the product rather than the two percentages added together.
   const techGain = researchStatRewardMultiplier(ranks), prestigeGain = prestigeStatMultiplier(prestigeLevel);
-  const percent = (multiplier: number) => `+${Math.round((multiplier - 1) * 100)}%`;
   const percentPoints = (fraction: number) => `${Math.round(fraction * 1000) / 10}%`;
-  const statGain = percent(techGain * prestigeGain);
+  // Both factors have whole-percent precision. Round their integer product
+  // once so half-percent ties and the expanded/collapsed totals agree.
+  const gainPercent = Math.round(Math.round(techGain * 100) * Math.round(prestigeGain * 100) / 100) - 100;
+  const statGain = `+${gainPercent}%`;
   stats.push({
-    kind: "stat-gain", label: "Stat Gain:", base: "0%", multiplier: statGain, total: statGain,
+    kind: "stat-gain", label: "Stat Gain:", base: techGain.toFixed(2),
+    equationOperator: "×", multiplier: prestigeGain.toFixed(2), total: statGain,
+    equationTotal: `${((gainPercent + 100) / 100).toFixed(2)}×`,
+    hideEquation: techGain <= 1 || prestigeGain <= 1,
     sources: [
-      ...(techGain > 1 ? [{ label: "Tech" as const, value: percent(techGain) }] : []),
-      ...(prestigeGain > 1 ? [{ label: "Prestige" as const, value: percent(prestigeGain) }] : []),
+      ...(techGain > 1 ? [{ label: "Tech" as const, value: `${techGain.toFixed(2)}×` }] : []),
+      ...(prestigeGain > 1 ? [{ label: "Prestige" as const, value: `${prestigeGain.toFixed(2)}×` }] : []),
     ],
   });
   // Keen Edge pays critical chance and critical damage on top of research, so
@@ -214,7 +221,7 @@ export function profileStatDisplayRows(
   const perkCritical = prestigePerkValue(perks, "keenEdge"), perkCriticalDamage = prestigeCriticalDamageBonus(perks);
   const criticalChance = ranks.criticalChance * .01 + perkCritical;
   stats.push({
-    kind: "critical", label: "Critical Chance:", base: "0%", multiplier: `+${percentPoints(criticalChance)}`, total: percentPoints(criticalChance),
+    kind: "critical", label: "Critical Chance:", base: "0%", equationOperator: "+", multiplier: percentPoints(criticalChance), total: percentPoints(criticalChance),
     sources: [
       ...(ranks.criticalChance ? [{ label: "Tech" as const, value: `+${ranks.criticalChance}%` }] : []),
       ...(perkCritical ? [{ label: "Prestige" as const, value: `+${percentPoints(perkCritical)}` }] : []),
@@ -223,7 +230,7 @@ export function profileStatDisplayRows(
   const criticalDamageBonus = ranks.criticalDamage * .05 + perkCriticalDamage;
   const criticalDamage = 1.05 + criticalDamageBonus;
   stats.push({
-    kind: "critical-damage", label: "Critical Damage:", base: "1.05×", multiplier: `+${criticalDamageBonus.toFixed(2)}×`, total: `${criticalDamage.toFixed(2)}×`,
+    kind: "critical-damage", label: "Critical Damage:", base: "1.05×", equationOperator: "+", multiplier: `${criticalDamageBonus.toFixed(2)}×`, total: `${criticalDamage.toFixed(2)}×`,
     sources: [
       ...(ranks.criticalDamage ? [{ label: "Tech" as const, value: `+${(ranks.criticalDamage * .05).toFixed(2)}×` }] : []),
       ...(perkCriticalDamage ? [{ label: "Prestige" as const, value: `+${perkCriticalDamage.toFixed(2)}×` }] : []),
@@ -235,7 +242,7 @@ export function profileStatDisplayRows(
     const chance = prestigePerkValue(perks, perk);
     if (!chance) return;
     stats.push({
-      kind, label: `${PRESTIGE_PERKS[perk].title}:`, base: "0%", multiplier: `+${percentPoints(chance)}`,
+      kind, label: `${PRESTIGE_PERKS[perk].title}:`, base: "0%", equationOperator: "+", multiplier: percentPoints(chance),
       expandedDetail, total: percentPoints(chance),
       sources: [{ label: "Prestige", value: `+${percentPoints(chance)}` }],
     });
@@ -305,9 +312,9 @@ export function renderProfileStats(
     const equation = document.createElement("span");
     equation.className = "profile-stat-equation";
     const detailedTotal = document.createElement("span");
-    detailedTotal.textContent = stat.total;
+    detailedTotal.textContent = stat.equationTotal ?? stat.total;
     equation.append(base, multiplyOperator, multiplier, equalsOperator, detailedTotal);
-    sources.append(equation);
+    if (!stat.hideEquation) sources.append(equation);
     if (stat.sources.length === 0 && !stat.expandedDetail) {
       const empty = document.createElement("span");
       empty.className = "profile-stat-source-empty";
@@ -349,7 +356,7 @@ export function renderProfileStats(
     const breakdownText = [stat.sources.length > 0 ? sourceText : "", stat.expandedDetail ?? ""]
       .filter(Boolean)
       .join(". ") || sourceText;
-    const summaryText = `${stat.label} Base ${stat.base}. Calculation ${stat.base} ${stat.equationOperator ?? ""} ${stat.multiplier}. Total ${stat.total}.`;
+    const summaryText = stat.hideEquation ? `${stat.label} ${stat.total}.` : `${stat.label} Base ${stat.base}. Calculation ${stat.base} ${stat.equationOperator ?? ""} ${stat.multiplier}. Total ${stat.equationTotal ?? stat.total}.`;
     const setExpanded = (expanded: boolean) => {
       item.classList.toggle("is-expanded", expanded);
       item.setAttribute("aria-expanded", String(expanded));

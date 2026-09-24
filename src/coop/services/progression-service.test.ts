@@ -89,11 +89,12 @@ function setup() {
   const recordEnemyDefeats = vi.fn(async (_request: any): Promise<void> => {});
   const recordAutoFarmEnemyDefeats = vi.fn(async (_request: any): Promise<void> => {});
   const savePlayerProgress = vi.fn(async (): Promise<void> => {});
+  const prestigeAccount = vi.fn(async (): Promise<void> => {});
   const resetPlayerProgress = vi.fn(async (): Promise<void> => {});
   const claimDeveloperItemGift = vi.fn(async (): Promise<void> => {});
   const entry = { ready: true, blocked: false, hydrated: true };
   const destroyEquipment = vi.fn(async () => {});
-  const connection = { reducers: { recordEnemyDefeats, recordAutoFarmEnemyDefeats, savePlayerProgress, resetPlayerProgress, claimDeveloperItemGift, destroyEquipment } };
+  const connection = { reducers: { recordEnemyDefeats, recordAutoFarmEnemyDefeats, savePlayerProgress, prestigeAccount, resetPlayerProgress, claimDeveloperItemGift, destroyEquipment } };
   const reducers = {
     connection: () => connection,
     protocolBlocked: () => false,
@@ -118,7 +119,7 @@ function setup() {
     storage,
     pendingProgressKey: "pending-progress",
   });
-  return { recordEnemyDefeats, recordAutoFarmEnemyDefeats, notify, savePlayerProgress, resetPlayerProgress, service, entry, claimDeveloperItemGift, destroyEquipment, storage };
+  return { recordEnemyDefeats, recordAutoFarmEnemyDefeats, notify, savePlayerProgress, prestigeAccount, resetPlayerProgress, service, entry, claimDeveloperItemGift, destroyEquipment, storage };
 }
 
 describe("local progression profile snapshots", () => {
@@ -496,4 +497,20 @@ it("treats every portal cutscene as seen once the player has prestiged", () => {
   h.service.tables.upsertPrestige({ identity: { toHexString: () => identity }, level: 1, perkPoints: 1, peakPower: 5, prestigedAt: { microsSinceUnixEpoch: 1_000n } } as never);
   expect(h.service.api.hasSeenPortalCutscene(cutscene)).toBe(true);
   h.service.dispose();
+});
+
+it.each([true, false])("uses reset stats only after prestige succeeds: %s", async success => {
+  const h = setup();
+  const row = (value: PlayerProgress) => ({ ...value, identity: { toHexString: () => identity } }) as never;
+  const before = { ...progress(), damage: 9000 };
+  h.service.tables.upsertProgress(row(before));
+  h.service.api.saveProgress(saveFrom(before, { damage: 9003 }));
+  if (success) h.prestigeAccount.mockImplementationOnce(async () => { h.service.tables.upsertProgress(row(progress())); });
+  else h.prestigeAccount.mockRejectedValueOnce(new Error("Defeat Aegis Prime first"));
+  expect(await h.service.api.prestigeAccount()).toMatchObject({ ok: success });
+  expect(h.service.api.savedProgress()?.damage).toBe(success ? 4 : 9003);
+  expect(h.service.progressFor(identity)?.damage).toBe(success ? 4 : 9003);
+  if (success) expect(h.storage.length).toBe(0);
+  h.service.dispose();
+  vi.unstubAllGlobals();
 });

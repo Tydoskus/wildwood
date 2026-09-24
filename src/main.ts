@@ -1305,6 +1305,12 @@ import {
     progress.load();
   }
 
+  async function runPrestige() {
+    const result = await coop?.prestigeAccount?.();
+    if (result?.ok) loadProgress();
+    return result;
+  }
+
   function finishStartup() {
     startupCoordinator?.finishStartup();
   }
@@ -1326,7 +1332,7 @@ import {
 
   let offlineProgressSummary: ReturnType<typeof createOfflineProgressSummary> | undefined;
   let offlineProgressSetting: { refresh: () => void } | undefined;
-  const prestigeUnlock = createPrestigeUnlockRuntime({ coop, showMessage, playing: () => session?.hasStarted() && !inTutorial(),
+  const prestigeUnlock = createPrestigeUnlockRuntime({ coop, showMessage, runPrestige, playing: () => session?.hasStarted() && !inTutorial(),
     blocked: () => session.isPaused(), pause: (paused: boolean) => setGameplayPause("prestige-unlock", paused) });
   function updateHud(force = false) {
     runtimeHud.updateHud(force);
@@ -1360,7 +1366,7 @@ import {
     e: gameElements, prestige: () => coop?.prestige?.() ?? null, showMessage,
     perks: () => coop?.prestigePerks?.(), spendPerk: (perk: string) => coop?.spendPrestigePerkPoint?.(perk),
     unlocked: () => Boolean(coop?.proceduralMapUnlocked?.(proceduralMapId(1))), completed: () => coop?.proceduralCompleted?.() ?? 0,
-    runPrestige: async () => coop?.prestigeAccount?.(),
+    runPrestige,
   });
   const profileWindow = createProfileWindowController({
     window: playerProfileEl, name: playerProfileNameEl, guest: playerProfileGuestLabel, presence: playerProfilePresenceEl, power: playerProfilePowerEl, icon: playerProfileIcon, loading: playerProfileLoadingEl,

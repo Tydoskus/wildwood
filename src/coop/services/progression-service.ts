@@ -861,7 +861,18 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
         return reducerResult("research start", (connection) => connection.reducers.startResearch({ researchId }))();
       },
       speedUpResearchWithGems: reducerResult("research speed-up", (connection) => connection.reducers.speedUpResearchWithGems({})),
-      prestigeAccount: reducerResult("prestige", (connection) => connection.reducers.prestigeAccount({})),
+      async prestigeAccount() {
+        const identity = dependencies.localIdentity();
+        const connection = dependencies.reducers.connection();
+        const result = await reducerResult("prestige", (active) => active.reducers.prestigeAccount({}))();
+        if (result.ok && identity === dependencies.localIdentity() && connection === dependencies.reducers.connection()) {
+          // SDK 2.9 applies the reset row before resolving the reducer promise.
+          // A rejected prestige must retain its unsaved prediction.
+          clearPending(identity);
+          dependencies.notify();
+        }
+        return result;
+      },
       spendPrestigePerkPoint(perk: string) {
         return reducerResult("prestige perk point spend", (connection) => connection.reducers.spendPrestigePerkPoint({ perk }))();
       },

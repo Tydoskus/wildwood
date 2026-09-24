@@ -11,6 +11,7 @@ export function createStatTrackerSource(deps: {
   coop: () => {
     localIdentity?: () => string | undefined;
     isConnected?: () => boolean;
+    prestige?: () => { level: number } | null;
     accountState?: () => unknown;
     itemUpgradeLevel?: (itemId: string) => number;
   } | null | undefined;
@@ -23,7 +24,7 @@ export function createStatTrackerSource(deps: {
   researchRanks: () => Parameters<typeof effectivePlayerPowerStats>[1];
   kills: () => number;
 }) {
-  return (): { identity: string; values: TrackerValues } | null => {
+  return (): { identity: string; prestigeLevel: number; values: TrackerValues } | null => {
     const coop = deps.coop();
     const identity = coop?.localIdentity?.();
     if (!identity || !deps.hasStarted() || !deps.isLoadedFor(identity) || !coop?.isConnected?.()
@@ -32,7 +33,7 @@ export function createStatTrackerSource(deps: {
       attackRate: deps.player.attackRate, armor: deps.player.armor, regen: deps.player.regen }, deps.inventory);
     const stats = effectivePlayerPowerStats(progress, deps.researchRanks(),
       itemId => coop?.itemUpgradeLevel?.(itemId) ?? 0);
-    return { identity, values: { power: playerPowerForStats(stats), hp: stats.maxHp,
+    return { identity, prestigeLevel: coop.prestige?.()?.level ?? 0, values: { power: playerPowerForStats(stats), hp: stats.maxHp,
       damage: stats.damage, armor: stats.armor, regen: stats.regen, kills: deps.kills() } };
   };
 }

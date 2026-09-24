@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { parseHTML } from "linkedom";
-import { createPrestigeController, prestigeRewardLabel, type PrestigeRow } from "./prestige-panel";
+import { createPrestigeController, prestigeRewardLabel, submitPrestige, type PrestigeRow } from "./prestige-panel";
 
 function setup(options: { row?: PrestigeRow | null; unlocked?: boolean; completed?: number; run?: () => Promise<any>; perks?: any; spend?: () => Promise<any> } = {}) {
   const { document } = parseHTML(`<html><body>
@@ -204,7 +204,7 @@ describe("profile stat gain breakdown", () => {
     // 1.10 tech times 1.20 prestige is 32 percent, not 30.
     const both = gain(ranks, 2)!;
     expect(both.total).toBe("+32%");
-    expect(both.sources).toEqual([{ label: "Tech", value: "+10%" }, { label: "Prestige", value: "+20%" }]);
+    expect(both.sources).toEqual([{ label: "Tech", value: "1.10×" }, { label: "Prestige", value: "1.20×" }]);
     expect(gain(createEmptyResearchRanks(), 0)!.sources).toEqual([]);
   });
 });
@@ -292,4 +292,16 @@ describe("prestige reward label", () => {
     expect(prestigeRewardLabel(0)).toBe("+10% stat gain and 1 perk point");
     expect(prestigeRewardLabel(2)).toBe("+10% stat gain (+30% total) and 1 perk point");
   });
+});
+
+it.each([undefined, false, { ok: false, error: "Not ready" }])("does not announce success for an unacknowledged prestige: %s", async result => {
+  expect(await submitPrestige(async () => result, () => 2)).toMatchObject({ ok: false });
+});
+
+it("does not announce a perk purchase when its API returns no result", async () => {
+  const s = setup({ row: { level: 1, perkPoints: 1, peakPower: 100 }, spend: async () => undefined });
+  s.controller.open();
+  click(s.pick("perks").querySelector("button"));
+  await Promise.resolve();
+  expect(s.pick("status").textContent).toBe("Couldn't spend that point.");
 });

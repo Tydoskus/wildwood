@@ -1,7 +1,7 @@
 export const TRACKED_STATS = ['power', 'hp', 'damage', 'armor', 'regen', 'kills'] as const;
 export type TrackedStat = typeof TRACKED_STATS[number];
 export type TrackerValues = Record<TrackedStat, number>;
-type Session = { startedAt: number; baseline: TrackerValues; lastKills: number };
+type Session = { startedAt: number; baseline: TrackerValues; lastKills: number; prestigeLevel: number };
 type Store = Pick<Storage, 'getItem' | 'setItem'>;
 
 function validValues(value: unknown): value is TrackerValues {
@@ -13,6 +13,7 @@ function validValues(value: unknown): value is TrackerValues {
 
 /** Exact own-character values; elapsed time includes time away, as in tracker v2.8. */
 export function createStatTrackerModel(storage: Store, now = Date.now) {
+  let prestigeLevel = 0;
   let identity = '', session: Session | null = null, current: TrackerValues | null = null;
   const key = () => `wildstat-native-stat-tracker-v1:${identity}`;
   function save() {
@@ -20,10 +21,10 @@ export function createStatTrackerModel(storage: Store, now = Date.now) {
   }
   function reset() {
     if (!current) return;
-    session = { startedAt: now(), baseline: { ...current }, lastKills: current.kills };
+    session = { startedAt: now(), baseline: { ...current }, lastKills: current.kills, prestigeLevel };
     save();
   }
-  function update(nextIdentity: string, values: TrackerValues) {
+  function update(nextIdentity: string, values: TrackerValues, nextPrestigeLevel = 0) {
     if (!nextIdentity || !validValues(values)) return null;
     if (identity !== nextIdentity) {
       save();
@@ -32,12 +33,18 @@ export function createStatTrackerModel(storage: Store, now = Date.now) {
       try {
         const saved = JSON.parse(storage.getItem(key()) || 'null');
         if (saved && Number.isFinite(saved.startedAt) && saved.startedAt >= 0 && saved.startedAt <= now()
-          && validValues(saved.baseline) && Number.isFinite(saved.lastKills) && saved.lastKills >= 0) session = saved;
+          && validValues(saved.baseline) && Number.isFinite(saved.lastKills) && saved.lastKills >= 0) {
+          session = { ...saved, prestigeLevel: Number.isSafeInteger(saved.prestigeLevel) && saved.prestigeLevel >= 0 ? saved.prestigeLevel : 0 };
+        }
       } catch {}
     }
+    prestigeLevel = Number.isSafeInteger(nextPrestigeLevel) && nextPrestigeLevel >= 0 ? nextPrestigeLevel : 0;
     current = { ...values };
-    // A character progress reset starts a fresh session instead of negative lifetime kills.
-    if (!session || values.kills < session.lastKills) reset();
+    // Prestige keeps lifetime kills. A temporarily absent prestige row reads as
+    // zero and must not erase a session's known level during hydration.
+    if (!session || values.kills < session.lastKills || prestigeLevel > (session.prestigeLevel ?? 0)) reset();
+    prestigeLevel = Math.max(prestigeLevel, session!.prestigeLevel ?? 0);
+    session!.prestigeLevel = prestigeLevel;
     session!.lastKills = values.kills;
     const elapsedMs = Math.max(0, now() - session!.startedAt);
     return {
