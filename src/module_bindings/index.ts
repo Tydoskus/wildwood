@@ -250,6 +250,7 @@ import MiremawBossRow from "./miremaw_boss_table";
 import MiremawResultRow from "./miremaw_result_table";
 import MyAudioSettingsRow from "./my_audio_settings_table";
 import MyBalanceApologyNoticeRow from "./my_balance_apology_notice_table";
+import MyBowSkillsRow from "./my_bow_skills_table";
 import MyCutsceneHistoryRow from "./my_cutscene_history_table";
 import MyDailyGemBonusRow from "./my_daily_gem_bonus_table";
 import MyDefeatSessionRestrictionRow from "./my_defeat_session_restriction_table";
@@ -1126,6 +1127,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyBalanceApologyNoticeRow),
+  myBowSkills: __table({
+    name: 'my_bow_skills',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyBowSkillsRow),
   myCutsceneHistory: __table({
     name: 'my_cutscene_history',
     indexes: [

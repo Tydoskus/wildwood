@@ -1265,6 +1265,9 @@ export type MyAudioSettings = __Infer<typeof MyAudioSettings>;
 export const MyBalanceApologyNotice = __t.object("MyBalanceApologyNotice", {});
 export type MyBalanceApologyNotice = __Infer<typeof MyBalanceApologyNotice>;
 
+export const MyBowSkills = __t.object("MyBowSkills", {});
+export type MyBowSkills = __Infer<typeof MyBowSkills>;
+
 export const MyCutsceneHistory = __t.object("MyCutsceneHistory", {});
 export type MyCutsceneHistory = __Infer<typeof MyCutsceneHistory>;
 
@@ -1499,6 +1502,16 @@ export const PlayerBlock = __t.object("PlayerBlock", {
 });
 export type PlayerBlock = __Infer<typeof PlayerBlock>;
 
+export const PlayerBowSkill = __t.object("PlayerBowSkill", {
+  key: __t.string(),
+  identity: __t.identity(),
+  itemId: __t.string(),
+  arrowStorm: __t.f32(),
+  ricochet: __t.f32(),
+  piercingShot: __t.f32(),
+});
+export type PlayerBowSkill = __Infer<typeof PlayerBowSkill>;
+
 export const PlayerChatHearts = __t.object("PlayerChatHearts", {
   identity: __t.identity(),
   chatHeartsReceived: __t.u64(),
@@ -1609,6 +1622,12 @@ export const PlayerItemUpgrade = __t.object("PlayerItemUpgrade", {
   level: __t.u8(),
 });
 export type PlayerItemUpgrade = __Infer<typeof PlayerItemUpgrade>;
+
+export const PlayerJoinDate = __t.object("PlayerJoinDate", {
+  identity: __t.identity(),
+  joinedAt: __t.timestamp(),
+});
+export type PlayerJoinDate = __Infer<typeof PlayerJoinDate>;
 
 export const PlayerLastLocation = __t.object("PlayerLastLocation", {
   identity: __t.identity(),

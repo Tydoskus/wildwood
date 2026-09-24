@@ -82,7 +82,7 @@ export function permittedDefeatMaps(ctx: BossRewardContext, player: { mapId: str
 }
 /** O(distinct species), independent of account count; one receipt per batch. */
 export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: string; sequence: bigint; mapId: string; enemies: EnemyDefeat[] }, activeMapIds: string | readonly string[],
-  bossCombat: (earned: { type: string; amount: number; count: number }[]) => { dps: number; attackInterval: number; projectiles?: number; reach?: number }) {
+  bossCombat: (earned: { type: string; amount: number; count: number }[]) => { dps: number; attackInterval: number; projectiles?: number; reach?: number; bossDps?: number }) {
   if (!/^[a-zA-Z0-9-]{16,80}$/.test(batch.streamId) || batch.sequence < 1n || !batch.enemies.length)
     throw new SenderError("Invalid enemy defeat batch.");
   const key = `${ctx.sender.toHexString()}:${batch.streamId}`;
@@ -134,7 +134,9 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: st
     let acceptedCount = entry.count;
     if (boss) {
       const combat = bossCombat(rewards);
-      const limits = bossDefeatLimits(boss.hp, combat.dps, combat.attackInterval, boss.respawnSeconds);
+      // A boss is one target, so reach adds nothing here; Arrow Storm's extra
+      // arrows on it are damage, and bossDps carries them.
+      const limits = bossDefeatLimits(boss.hp, combat.bossDps ?? combat.dps, combat.attackInterval, boss.respawnSeconds);
       const timeKey = bossTimeKey(ctx.sender, batch.mapId);
       const clock = ctx.db.enemyDefeatBudget.key.find(timeKey);
       // Existing online clients may have fought before this check was deployed.

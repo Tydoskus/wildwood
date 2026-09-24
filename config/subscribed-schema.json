@@ -432,6 +432,14 @@
       "amount",
       "createdAt"
     ],
+    "my_bow_skills": [
+      "key",
+      "identity",
+      "itemId",
+      "arrowStorm",
+      "ricochet",
+      "piercingShot"
+    ],
     "my_cutscene_history": [
       "identity",
       "seenMask",

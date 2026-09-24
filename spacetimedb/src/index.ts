@@ -34,6 +34,7 @@ import { moderationTables, recordModerationAction, readModerationHistory } from 
 import { mailboxLetter, mailboxReceipt, mailboxEntryV2, mailboxForPlayerV2, playerJoinDate, publishMailboxLetter, syncPlayerJoinDate, updateMailboxReceipt } from "./mailbox";
 import { rollbackPlayerProgression } from "./player-progression-rollback";
 import { playerItemGift, deliverAlphaTesterGifts, claimItemGift } from "./item-gifts";
+import { playerBowSkill, ensureBowSkillRoll, ensureBowSkillRolls } from "./bow-skills";
 import { moderateReportedMessage } from "./chat-report-moderation";
 import { PLAYER_SKIN_TONES } from "../../shared/player-skin-tones";
 import { leaderboardPageTables, writeLeaderboardPages, readLeaderboardWindow, readLeaderboardPage } from "./leaderboard-pages";
@@ -1781,7 +1782,7 @@ const spacetimedb = schema({
   gemTransaction,
   dailyGemBonus,
   balanceApologyNotice,
-  playerItemGift,
+  playerItemGift, playerBowSkill,
   mailboxLetter, mailboxReceipt, playerJoinDate, mailboxEquipment, accountDeletionRequest,
   playerOnboarding,
   regularEnemyLootCursor, enemyDefeatBudget, bossDefeatWindow, bossMapDefeatWindow,
@@ -2931,6 +2932,7 @@ const cosmeticConversion = createCosmeticConversion({ requireControllingPlayer, 
   inventoryForProgress, writeProgressAndPresentation, applyGemBalanceChange });
 
 function publishItemDrop(ctx: any, identity: any, itemId: string, alreadyOwned: boolean, quantity = 1) {
+  ensureBowSkillRoll(ctx, identity, itemId); // Every drop, boss drop and grant passes here.
   const key = `${identity.toHexString()}:${itemId}`;
   const current = ctx.db.playerItemDrop.key.find(key);
   const next = {
@@ -3512,6 +3514,8 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
     }
   }
 
+  // Safety net: any bow held without a roll (a grant path that missed it) gets one.
+  if (!virtualRegistration) ensureBowSkillRolls(ctx, ctx.sender, inventoryForProgress(existingProgress));
   ensureCutsceneHistory(ctx, ctx.sender);
   researchForPlayer(ctx, ctx.sender);
   syncSenderAccountStatus(ctx);
@@ -5229,6 +5233,7 @@ export const claimDeveloperItemGift = spacetimedb.reducer({ key: t.string() }, (
     const progress = ctx.db.playerProgress.identity.find(ctx.sender);
     if (!progress) throw new SenderError("Player unavailable.");
     if (!playerOwnsItem(ctx, ctx.sender, itemId)) updateSnapshotRow(ctx, "playerProgress", restoreItemToProgress(progress, itemId));
+    ensureBowSkillRoll(ctx, ctx.sender, itemId);
   });
 });
 
@@ -5282,6 +5287,7 @@ export const claimMailboxGift = spacetimedb.reducer({ id: t.string() }, (ctx, { 
     if (slotsToFree) throw new SenderError(`Free ${slotsToFree} inventory slot${slotsToFree === 1 ? "" : "s"}, then claim your gear. Your gift will stay in Mail.`);
     let next = progress;
     for (const id of missing) next = restoreItemToProgress(next, id);
+    ensureBowSkillRolls(ctx, ctx.sender, missing);
     for (const slotName of new Set(items.map(upgradeSlotForItem).filter(Boolean) as string[])) {
       const key = slotUpgradeKey(ctx.sender, slotName), current = ctx.db.playerItemUpgrade.key.find(key);
       if ((current?.level ?? 0) >= level) continue;
@@ -5664,6 +5670,10 @@ export const setOfflineProgressEnabled = spacetimedb.reducer({ enabled: t.bool()
   writeOfflinePreference(ctx, enabled);
 });
 
+export const myBowSkills = spacetimedb.view(
+  { name: "my_bow_skills", public: true }, t.array(playerBowSkill.rowType),
+  ctx => [...ctx.db.playerBowSkill.identity.filter(ctx.sender)],
+);
 export const myAudioSettings = spacetimedb.view(
   { name: "my_audio_settings", public: true }, t.array(playerAudioSetting.rowType),
   ctx => { const row = ctx.db.playerAudioSetting.identity.find(ctx.sender); return row ? [row] : []; },

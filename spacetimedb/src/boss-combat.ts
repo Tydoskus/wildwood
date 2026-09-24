@@ -122,6 +122,8 @@ import { isProceduralMap, proceduralMapCore } from "../../shared/procedural-maps
 import { statRewardMultiplier, prestigePerkRanks } from "./prestige";
 import { prestigeCriticalDamageBonus, prestigePerkValue, prestigeReachMultiplier, prestigeSwingMultiplier } from "../../shared/prestige-perks";
 import { pinnedBossReward } from "./map-balance";
+import { bowSkillRollFor } from "./bow-skills";
+import { bowSkillBossDamageMultiplier, bowSkillReachMultiplier } from "../../shared/bow-skills";
 import { damageProceduralBoss, proceduralBossKey } from "./procedural-maps";
 import { updateSnapshotRow } from "./snapshot-row-writes";
 import type { ModuleReducerCtx } from "./index";
@@ -270,10 +272,16 @@ export function createBossCombat(deps: BossCombatDeps) {
     const projectiles = itemDefinition(weapon)?.weapon?.mode === "MELEE" ? 1 : Math.max(1, progress.projectileCount);
     // Double Strike is more damage per swing; Split Shot and Riposte are more
     // enemies reached per swing. The first belongs in damage per second, the
-    // second in how many kills per second that damage can finish.
-    return { attackInterval, projectiles, reach: prestigeReachMultiplier(ranks),
-      dps: researchedDamage(ctx, ctx.sender, progress.damage, progress, research) * critical
-        * prestigeSwingMultiplier(ranks) * projectiles / attackInterval };
+    // second in how many kills per second that damage can finish. The bow's
+    // skills are both. Every storm arrow, bounce and pierce can reach another
+    // enemy, so they widen reach; the Split Shot arrow rolls the bow's skills
+    // too, so the two reaches multiply. Against a lone boss only Arrow Storm
+    // adds anything, as more damage, so it widens the boss bound alone.
+    const bowSkills = bowSkillRollFor(ctx, ctx.sender, weapon);
+    const dps = researchedDamage(ctx, ctx.sender, progress.damage, progress, research) * critical
+      * prestigeSwingMultiplier(ranks) * projectiles / attackInterval;
+    return { attackInterval, projectiles, reach: prestigeReachMultiplier(ranks) * bowSkillReachMultiplier(bowSkills),
+      dps, bossDps: dps * bowSkillBossDamageMultiplier(bowSkills) };
   }
 
   function bossRowAtMaxHealth(existing: any, maxHp: number) {

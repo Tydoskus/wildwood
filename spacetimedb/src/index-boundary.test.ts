@@ -69,7 +69,12 @@ import { describe, expect, it } from "vitest";
 // set_audio_settings reducer declaration. Validation, the write-on-change
 // rule, the guest merge and removal live in audio-settings.ts; the raise is
 // the schema surface alone.
-const MAX_LINES = 6_786;
+// 6_796: random bow skills add the player_bow_skill import, the caller-scoped
+// my_bow_skills view, and one roll call on each path that hands out an item
+// without passing publishItemDrop (a claimed gift, claimed mail gear) plus the
+// world-entry safety net and its note. The table, the roll, the backfill, the
+// guest merge, removal and the duel fields live in bow-skills.ts.
+const MAX_LINES = 6_796;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

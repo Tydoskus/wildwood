@@ -22,6 +22,7 @@ import { PLAYER_SKIN_TONES } from "../../shared/player-skin-tones";
 import { isPublicDisplayNameAllowed } from "./chat-moderation";
 import { mergeAccountReactions, removeMessageReactions } from "./chat-reactions";
 import { mergeItemGifts, removeItemGifts } from "./item-gifts";
+import { mergeBowSkills, removeBowSkills } from "./bow-skills";
 import { mergeMailboxReceipts, removeMailboxReceipts } from "./mailbox";
 import { mergeOnboarding } from "./onboarding";
 import { mergeAudioSettings, removeAudioSettings } from "./audio-settings";
@@ -195,6 +196,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
     mergeGuestGemWallet(ctx, link.guest, ctx.sender, link.code);
     mergeBalanceApologyNotice(ctx, link.guest, ctx.sender);
     mergeItemGifts(ctx, link.guest, ctx.sender);
+    mergeBowSkills(ctx, link.guest, ctx.sender);
     mergeMailboxReceipts(ctx, link.guest, ctx.sender);
     mergeOnboarding(ctx, link.guest, ctx.sender);
     mergeAudioSettings(ctx, link.guest, ctx.sender);
@@ -728,6 +730,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.playerGemWallet.identity.find(identity)) ctx.db.playerGemWallet.identity.delete(identity);
     if (ctx.db.balanceApologyNotice.identity.find(identity)) ctx.db.balanceApologyNotice.identity.delete(identity);
     removeItemGifts(ctx, identity);
+    removeBowSkills(ctx, identity);
     removeMailboxReceipts(ctx, identity);
     unlinkPatreon(ctx, identity);
     for (const budget of ctx.db.enemyDefeatBudget.identity.filter(identity)) ctx.db.enemyDefeatBudget.key.delete(budget.key);
@@ -832,6 +835,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.dailyGemBonus.identity.find(identity)) ctx.db.dailyGemBonus.identity.delete(identity);
     if (ctx.db.balanceApologyNotice.identity.find(identity)) ctx.db.balanceApologyNotice.identity.delete(identity);
     removeItemGifts(ctx, identity);
+    removeBowSkills(ctx, identity);
     removeMailboxReceipts(ctx, identity);
     unlinkPatreon(ctx, identity);
     for (const budget of ctx.db.enemyDefeatBudget.identity.filter(identity)) ctx.db.enemyDefeatBudget.key.delete(budget.key);

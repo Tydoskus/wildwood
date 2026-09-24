@@ -112,6 +112,7 @@ export const ERASURE_TARGETS: readonly ErasureTarget[] = [
   { table: "playerAudioSetting", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerBalanceVersion", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerBlock", columns: ["owner","target"], pk: "key", mode: "index", index: "byOwner" },
+  { table: "playerBowSkill", columns: ["identity"], pk: "key", mode: "index", index: "identity" },
   { table: "playerChatHearts", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerController", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerCutsceneHistory", columns: ["identity"], pk: "identity", mode: "key" },

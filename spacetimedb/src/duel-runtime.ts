@@ -18,6 +18,7 @@ import { advanceDuelCombat, duelOutcome, DUEL_COMBAT_VERSION } from "../../share
 import { duelAnnouncementText } from "../../shared/duel-announcement";
 import { prestigePerkRanks } from "./prestige";
 import { prestigeCriticalDamageBonus, prestigePerkValue, prestigeRiposteChance, prestigeSwingMultiplier } from "../../shared/prestige-perks";
+import { duelBowSkillFields, ensureBowSkillRoll } from "./bow-skills";
 
 export const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
 export const DUEL_REQUEST_TIMEOUT_MICROS = 30_000_000n;
@@ -221,7 +222,9 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
       ? current.endsAtMicros
       : ctx.timestamp.microsSinceUnixEpoch;
     const riposte = ctx.db.duelRiposte.duelId.find(current.id);
-    const { resolvedMicros, ...combat } = advanceDuelCombat({ ...current, ...riposte }, current,
+    // Bow skills are read from each duellist's rolls for the bow the duel
+    // froze. Rolls never change, so every resolution sees the same chances.
+    const { resolvedMicros, ...combat } = advanceDuelCombat({ ...current, ...riposte, ...duelBowSkillFields(ctx, current) }, current,
       Number(current.lastResolvedAt.microsSinceUnixEpoch - current.startsAtMicros),
       Number(resolutionMicros - current.startsAtMicros));
     const next = {
@@ -289,6 +292,9 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
     const opponentRightHandItem = equippedRightHandForProgress(opponentProgress);
     const challengerLeftHandItem = challengerRightHandItem ? "" : equippedLeftHandForProgress(challengerProgress);
     const opponentLeftHandItem = opponentRightHandItem ? "" : equippedLeftHandForProgress(opponentProgress);
+    // A bow must have its roll before the first resolution reads it.
+    ensureBowSkillRoll(ctx, ctx.sender, challengerRightHandItem || challengerLeftHandItem);
+    ensureBowSkillRoll(ctx, opponent, opponentRightHandItem || opponentLeftHandItem);
     const challengerAppearance = equipmentPresentationForProgress(challengerProgress);
     const opponentAppearance = equipmentPresentationForProgress(opponentProgress);
     const challengerMaxHp = maxHealthForProgress(ctx, ctx.sender, challengerProgress);
