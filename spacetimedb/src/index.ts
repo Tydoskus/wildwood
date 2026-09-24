@@ -6394,11 +6394,11 @@ export const devFindPlayers = spacetimedb.procedure({ query: t.string() }, t.str
   if (!isDatabaseOwnerIdentity(tx.sender)) requireDeveloperSession(tx, "dev_find_players");
   return JSON.stringify(findDevPlayers(tx, query));
 }));
-export const devReviewReport = spacetimedb.reducer({ reportKey: t.string(), decision: t.string(), note: t.string() }, (ctx, args) => {
+export const devReviewReport = spacetimedb.reducer({ reportKey: t.string(), decision: t.string(), note: t.string(), mailReporter: t.bool() }, (ctx, args) => {
   if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_review_report");
   reviewReport(ctx, args);
 });
-export const devReviewBug = spacetimedb.reducer({ id: t.u64(), decision: t.string(), note: t.string() }, (ctx, args) => {
+export const devReviewBug = spacetimedb.reducer({ id: t.u64(), decision: t.string(), note: t.string(), mailReporter: t.bool() }, (ctx, args) => {
   if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_review_bug");
   reviewBug(ctx, args);
 });

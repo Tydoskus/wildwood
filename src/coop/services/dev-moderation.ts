@@ -61,11 +61,12 @@ export function createDevModerationService(dependencies: DevModerationDependenci
         serverOffsetMs = queue.serverNowMs - Date.now();
         return queue;
       },
-      reviewReport(reportKey: string, decision: string, note: string) {
-        return reducer("report review", current => current.reducers.devReviewReport({ reportKey, decision, note }));
+      /** `mailReporter` sends the reporter one letter about it, in the same transaction. */
+      reviewReport(reportKey: string, decision: string, note: string, mailReporter: boolean) {
+        return reducer("report review", current => current.reducers.devReviewReport({ reportKey, decision, note, mailReporter }));
       },
-      reviewBug(id: string, decision: string, note: string) {
-        return reducer("bug review", current => current.reducers.devReviewBug({ id: BigInt(id), decision, note }));
+      reviewBug(id: string, decision: string, note: string, mailReporter: boolean) {
+        return reducer("bug review", current => current.reducers.devReviewBug({ id: BigInt(id), decision, note, mailReporter }));
       },
       async findPlayers(query: string): Promise<DevPlayerSummary[]> {
         return JSON.parse(await connection().procedures.devFindPlayers({ query })) as DevPlayerSummary[];

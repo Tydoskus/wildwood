@@ -11,7 +11,8 @@ const NOW = 1_700_000_000_000;
 function report(key: string, status: DevReportEntry["status"], reportedAtMs: number, extra: Partial<DevReportEntry> = {}): DevReportEntry {
   return {
     key, status, channel: "world", reporterIdentity: "aa", reporterName: "Reporter", targetIdentity: "bb", targetName: "Rude",
-    reason: "harassment", text: `text ${key}`, reportedAtMs, canRemoveMessage: true, messageRemoved: false, decisions: [], ...extra,
+    reason: "harassment", text: `text ${key}`, reportedAtMs, where: "World chat", sentAtMs: reportedAtMs, context: [],
+    canRemoveMessage: true, messageRemoved: false, decisions: [], ...extra,
   };
 }
 
@@ -20,7 +21,7 @@ function queue(): DevReviewQueue {
     reports: [
       report("chat:1", "open", NOW - 60_000),
       report("chat:2", "open", NOW - 3_600_000, { channel: "profile", canRemoveMessage: false }),
-      report("chat:3", "dismissed", NOW - 7_200_000, { decisions: [{ decision: "dismissed", note: "fine", reviewerName: "Ryan", reviewedAtMs: NOW - 1_000 }] }),
+      report("chat:3", "dismissed", NOW - 7_200_000, { decisions: [{ decision: "dismissed", note: "fine", reviewerName: "Ryan", reviewedAtMs: NOW - 1_000, mailed: true }] }),
     ],
     bugs: [{ id: "4", status: "open", reporterIdentity: "cc", reporterName: "Bugfinder", protocolVersion: 90, message: "door stuck", reportedAtMs: NOW - 5_000, decisions: [] }],
     openReports: 2, openBugs: 1, serverNowMs: NOW,
@@ -67,7 +68,7 @@ describe("developer review panel", () => {
     filter.checked = false;
     filter.dispatchEvent(new (filter.ownerDocument.defaultView as any).Event("change"));
     expect(h.reports.querySelectorAll(".dev-review-card").length).toBe(3);
-    expect(h.reports.textContent).toContain("Dismissed · Ryan");
+    expect(h.reports.textContent).toContain("Dismissed · Ryan · just now · reporter mailed — fine");
   });
 
   it("removes a message, then mutes through the chat mute before recording the decision", async () => {
@@ -75,11 +76,11 @@ describe("developer review panel", () => {
     await h.panel.load();
     h.button(h.reports, "Remove message").click();
     await settle();
-    expect(h.api.reviewReport).toHaveBeenCalledWith("chat:1", "removed", "");
+    expect(h.api.reviewReport).toHaveBeenCalledWith("chat:1", "removed", "", true);
     h.button(h.reports, "Mute 24h").click();
     await settle();
     expect(h.api.setChatMute).toHaveBeenCalledWith("bb", 1_440);
-    expect(h.api.reviewReport).toHaveBeenLastCalledWith("chat:1", "muted_24h", "");
+    expect(h.api.reviewReport).toHaveBeenLastCalledWith("chat:1", "muted_24h", "", true);
   });
 
   it("asks before banning and does nothing when the answer is no", async () => {
@@ -94,7 +95,7 @@ describe("developer review panel", () => {
     await settle(); await settle();
     expect(h.confirm).toHaveBeenLastCalledWith(expect.objectContaining({ danger: true }));
     expect(h.api.suspend).toHaveBeenCalledWith("bb", "Rude", 0, expect.stringContaining("harassment"));
-    expect(h.api.reviewReport).toHaveBeenLastCalledWith("chat:1", "banned", "Ban permanently");
+    expect(h.api.reviewReport).toHaveBeenLastCalledWith("chat:1", "banned", "", true);
   });
 
   it("opens the reported player's history and reviews bugs", async () => {
@@ -102,10 +103,32 @@ describe("developer review panel", () => {
     await h.panel.load();
     h.button(h.reports, "History").click();
     expect(h.openPlayer).toHaveBeenCalledWith("bb", "Rude");
+    // Unticking "Mail the reporter" sends the decision without a letter.
+    const mail = h.bugs.querySelector(".dev-review-mail input") as HTMLInputElement;
+    expect(mail.checked).toBe(true);
+    mail.checked = false;
+    mail.dispatchEvent(new (mail.ownerDocument.defaultView as any).Event("change"));
     h.button(h.bugs, "Won't fix").click();
     await settle();
-    expect(h.api.reviewBug).toHaveBeenCalledWith("4", "wont_fix", "");
+    expect(h.api.reviewBug).toHaveBeenCalledWith("4", "wont_fix", "", false);
     expect(h.bugs.textContent).toContain("protocol 90");
+  });
+
+  it("shows where a private message was sent and, once expanded, the messages around it", async () => {
+    const context = [
+      { senderName: "Alice", text: "hi", sentAtMs: NOW - 120_000, reported: false },
+      { senderName: "Rude", text: "dm text", sentAtMs: NOW - 60_000, reported: true },
+    ];
+    const h = harness({ reviewQueue: vi.fn(async () => ({ ...queue(), reports: [
+      report("player:1", "open", NOW - 30_000, { channel: "dm", text: "dm text", where: "DM with Alice", sentAtMs: NOW - 60_000, context }),
+    ] })) });
+    await h.panel.load();
+    expect(h.reports.querySelector(".dev-review-where")?.textContent).toBe("DM with Alice · sent 1m ago");
+    const thread = h.reports.querySelector(".dev-review-context") as HTMLElement;
+    expect(thread.hidden).toBe(true);
+    (h.reports.querySelector(".dev-review-text") as HTMLButtonElement).click();
+    expect(thread.hidden).toBe(false);
+    expect(thread.querySelector(".is-reported")?.textContent).toContain("dm text");
   });
 
   it("reports an access refusal instead of rendering", async () => {

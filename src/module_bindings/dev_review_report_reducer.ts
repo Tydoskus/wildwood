@@ -14,4 +14,5 @@ export default {
   reportKey: __t.string(),
   decision: __t.string(),
   note: __t.string(),
+  mailReporter: __t.bool(),
 };

@@ -14,11 +14,43 @@ export type BugDecision = typeof BUG_DECISIONS[number];
 
 export const REVIEW_NOTE_MAX_LENGTH = 300;
 
+const BUG_SUMMARY_LENGTH = 120;
+
+/**
+ * The letter a reporter gets for a decision, or null when that decision sends
+ * none. Player-report letters never name the other player or the penalty; the
+ * reporter learns only that action was or was not taken. A developer note, when
+ * there is one, rides along in the same letter.
+ */
+export function reviewMailLetter(kind: "bug" | "report", decision: string, reported: string, note: string) {
+  let lines: string[];
+  if (kind === "bug") {
+    const opening = decision === "resolved" ? "Thanks for your bug report — it's been fixed."
+      : decision === "wont_fix" ? "Thanks for your bug report — we looked into it and won't be changing this."
+      : decision === "duplicate" ? "Thanks — this bug was already reported and is being tracked."
+      : null;
+    if (!opening) return null;
+    const text = reported.trim().replace(/\s+/g, " ");
+    const summary = text.length > BUG_SUMMARY_LENGTH ? `${text.slice(0, BUG_SUMMARY_LENGTH - 1)}…` : text;
+    lines = [opening, ...(summary ? [`You reported: “${summary}”`] : [])];
+  } else {
+    const opening = decision === "dismissed" ? "Thanks for your report — we reviewed it and didn't find a rule break."
+      : ["removed", "muted_1h", "muted_24h", "banned"].includes(decision) ? "Thanks for your report — we reviewed it and took action."
+      : null;
+    if (!opening) return null;
+    lines = [opening];
+  }
+  if (note) lines.push(`Note from the developer: ${note}`);
+  return { title: kind === "bug" ? "About your bug report" : "About your report", body: lines.join("\n\n") };
+}
+
 export type DevReviewDecision = {
   decision: string;
   note: string;
   reviewerName: string;
   reviewedAtMs: number;
+  /** A letter about this decision went to the reporter. */
+  mailed: boolean;
 };
 
 export type DevReportStatus = "open" | "resolved" | "dismissed";
@@ -34,12 +66,27 @@ export type DevReportEntry = {
   targetIdentity: string;
   targetName: string;
   reason: string;
+  /** The reported message as sent, from the report's own evidence or the moderation log. */
   text: string;
   reportedAtMs: number;
+  /** "World chat", "DM with Alice" or "Guild: Name"; empty for a profile report. */
+  where: string;
+  /** When the reported message was sent; 0 for a profile report. */
+  sentAtMs: number;
+  /** A few messages either side in the same conversation, oldest first. Developer-only. */
+  context: DevReportContextLine[];
   /** The reported message still exists and still shows its original text. */
   canRemoveMessage: boolean;
   messageRemoved: boolean;
   decisions: DevReviewDecision[];
+};
+
+export type DevReportContextLine = {
+  senderName: string;
+  text: string;
+  sentAtMs: number;
+  /** This line is the reported message. */
+  reported: boolean;
 };
 
 export type DevBugStatus = "open" | "resolved" | "wont_fix" | "duplicate";

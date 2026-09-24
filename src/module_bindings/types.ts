@@ -359,6 +359,7 @@ export const DevReportReview = __t.object("DevReportReview", {
   reviewerIdentity: __t.string(),
   reviewerName: __t.string(),
   reviewedAt: __t.timestamp(),
+  mailed: __t.bool(),
 });
 export type DevReportReview = __Infer<typeof DevReportReview>;
 
@@ -1758,6 +1759,16 @@ export const PlayerLootSetting = __t.object("PlayerLootSetting", {
   updatedAt: __t.timestamp(),
 });
 export type PlayerLootSetting = __Infer<typeof PlayerLootSetting>;
+
+export const PlayerMail = __t.object("PlayerMail", {
+  key: __t.string(),
+  identity: __t.identity(),
+  title: __t.string(),
+  body: __t.string(),
+  createdAt: __t.timestamp(),
+  read: __t.bool(),
+});
+export type PlayerMail = __Infer<typeof PlayerMail>;
 
 export const PlayerMapBalance = __t.object("PlayerMapBalance", {
   identity: __t.identity(),

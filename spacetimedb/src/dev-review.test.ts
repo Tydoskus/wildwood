@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { Identity, Timestamp } from "../../tests/helpers/spacetime-memory-db";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
@@ -102,6 +103,138 @@ describe("developer review queue", () => {
     f.run(server.devDeleteBugReport, { id: 1n });
     expect(f.db.bugReport.count()).toBe(0n);
     expect([...f.db.devReportReview.iter()].map(row => row.decision)).toEqual(["duplicate", "reopened", "deleted"]);
+  });
+});
+
+describe("reported private messages", () => {
+  it("shows the reported DM text, who it was sent to, when, and the messages around it", () => {
+    const f = fixture();
+    const at = (seconds: number) => new Timestamp(BigInt(seconds) * 1_000_000n);
+    f.db.socialMessage.id.update({ ...f.db.socialMessage.id.find(7n), recipientName: "Alice", sentAt: at(3) });
+    f.seed("socialMessage", { id: 5n, channel: "dm", conversation: "c", sender: reporterA, recipient: accused, senderName: "Alice", message: "hi", sentAt: at(2) });
+    f.seed("socialMessage", { id: 6n, channel: "dm", conversation: "other", sender: reporterB, recipient: accused, senderName: "Else", message: "not this thread", sentAt: at(2) });
+    f.seed("socialMessage", { id: 8n, channel: "dm", conversation: "c", sender: reporterA, recipient: accused, senderName: "Alice", message: "stop", sentAt: at(4) });
+    const entry = f.queue().reports.find(row => row.key === "player:1")!;
+    expect(entry).toMatchObject({ channel: "dm", text: "dm text", where: "DM with Alice", sentAtMs: 3_000 });
+    expect(entry.context.map(line => [line.senderName, line.text, line.reported])).toEqual([
+      ["Alice", "hi", false], ["Rude", "dm text", true], ["Alice", "stop", false],
+    ]);
+  });
+
+  it("names the guild for a guild message", () => {
+    const f = fixture();
+    f.seed("guild", { id: 3n, directoryId: 0n, nameKey: "wolves", name: "Wolves", leader: accused, members: 2, champions: 0,
+      week: 0, score: 0, wins: 0, battles: 0, attackDay: 0, attacks: 0, opponents: "" });
+    f.db.socialMessage.id.update({ ...f.db.socialMessage.id.find(7n), channel: "guild", guildId: 3n });
+    expect(f.queue().reports.find(row => row.key === "player:1")).toMatchObject({ where: "Guild: Wolves" });
+  });
+
+  it("falls back to the moderation log's original when the stored copy was already redacted", () => {
+    const f = fixture();
+    // Remove it once through the chat report, then a later DM report arrives with only the redacted copy.
+    f.run(server.devReviewReport, { reportKey: "player:1", decision: "removed", note: "" });
+    f.db.socialReport.key.update({ ...f.db.socialReport.key.find(`${reporterA.toHexString()}:7`), message: MODERATED_CHAT_MESSAGE });
+    expect(f.queue().reports.find(row => row.key === "player:1")?.text).toBe("dm text");
+    f.db.chatMessageReport.id.update({ ...f.db.chatMessageReport.id.find(3n), message: MODERATED_CHAT_MESSAGE, messageModerated: true });
+    f.run(server.devReviewReport, { reportKey: "chat:3", decision: "removed", note: "" });
+    expect(f.queue().reports.find(row => row.key === "chat:3")?.text).toBe("fine words");
+  });
+
+  it("serves the text only through the developer-gated read, never a public table or view", () => {
+    const f = fixture();
+    signInAs(f, reporterB);
+    expect(() => f.queue()).toThrow("Developer access required");
+    const read = (file: string) => readFileSync(new URL(file, import.meta.url), "utf8");
+    expect(read("./dev-review.ts")).toMatch(/table\(\{ name: "dev_report_review", public: false \}/);
+    expect(read("./social-tables.ts")).toMatch(/socialReport = table\(\{ name: "social_report", public: false \}/);
+    expect(read("./social-tables.ts")).toMatch(/socialMessage = table\(\{ name: "social_message", public: false \}/);
+  });
+});
+
+/** Hands the signed-in, controlling game session to a player who is not the developer. */
+function signInAs(f: ReturnType<typeof fixture>, who: Identity) {
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  f.seed("player", { ...f.db.player.identity.find(developer), identity: who });
+  f.seed("playerController", { ...f.db.playerController.identity.find(developer), identity: who });
+  f.db.playerSession.connectionId.update({ ...f.db.playerSession.connectionId.find(f.ctx.connectionId), identity: who });
+  f.ctx.sender = who;
+}
+
+describe("letters to the reporter", () => {
+  const letters = (f: ReturnType<typeof fixture>, who: Identity) => [...f.db.playerMail.identity.filter(who)];
+  const withReporters = () => {
+    const f = fixture();
+    f.seed("playerProfile", { identity: reporterA, displayName: "R1" });
+    f.seed("playerProfile", { identity: reporterB, displayName: "R2" });
+    return f;
+  };
+
+  it("sends each bug decision its own wording, with the developer's note in the same letter", () => {
+    for (const [decision, opening] of [
+      ["resolved", "it's been fixed."], ["wont_fix", "won't be changing this."], ["duplicate", "already reported and is being tracked."],
+    ]) {
+      const f = withReporters();
+      f.run(server.devReviewBug, { id: 1n, decision, note: "thanks!", mailReporter: true });
+      const [letter] = letters(f, reporterA);
+      expect(letter.title).toBe("About your bug report");
+      expect(letter.body).toContain(opening);
+      expect(letter.body).toContain("You reported: “the door is stuck”");
+      expect(letter.body).toContain("Note from the developer: thanks!");
+      expect([...f.db.devReportReview.iter()].at(-1)?.mailed).toBe(true);
+    }
+  });
+
+  it("tells a player reporter only that action was or was not taken", () => {
+    const f = withReporters();
+    f.run(server.devReviewReport, { reportKey: "chat:1", decision: "banned", note: "", mailReporter: true });
+    f.run(server.devReviewReport, { reportKey: "player:2", decision: "dismissed", note: "", mailReporter: true });
+    const toA = letters(f, reporterA), toB = letters(f, reporterB);
+    expect(toA.map(row => row.body)).toEqual(["Thanks for your report — we reviewed it and took action."]);
+    // chat:2 (same message, reporter B) and player:2 (dismissed) each get one letter.
+    expect(toB.map(row => row.body).sort()).toEqual([
+      "Thanks for your report — we reviewed it and didn't find a rule break.",
+      "Thanks for your report — we reviewed it and took action.",
+    ]);
+    for (const row of [...toA, ...toB]) expect(row.body).not.toMatch(/Rude|ban|mute|harassment|bad words/i);
+    expect(letters(f, accused)).toEqual([]);
+  });
+
+  it("sends one letter per report however often it is decided, none when unticked, and none for a delete", () => {
+    const f = withReporters();
+    f.run(server.devReviewReport, { reportKey: "player:2", decision: "dismissed", note: "", mailReporter: false });
+    expect(letters(f, reporterB)).toEqual([]);
+    f.run(server.devReviewReport, { reportKey: "player:2", decision: "reopened", note: "", mailReporter: true });
+    f.run(server.devReviewReport, { reportKey: "player:2", decision: "banned", note: "", mailReporter: true });
+    f.run(server.devReviewReport, { reportKey: "player:2", decision: "reopened", note: "", mailReporter: true });
+    f.run(server.devReviewReport, { reportKey: "player:2", decision: "dismissed", note: "", mailReporter: true });
+    expect(letters(f, reporterB)).toHaveLength(1);
+    expect([...f.db.devReportReview.reportKey.filter("player:2")].map(row => row.mailed)).toEqual([false, false, true, false, false]);
+    f.run(server.devDeleteBugReport, { id: 1n });
+    expect(letters(f, reporterA)).toEqual([]);
+  });
+
+  it("skips a reporter whose account is gone, and shows the letter only in its owner's mailbox", () => {
+    const f = fixture();
+    f.run(server.devReviewBug, { id: 1n, decision: "resolved", note: "", mailReporter: true });
+    expect(f.db.playerMail.count()).toBe(0n);
+    expect([...f.db.devReportReview.iter()].at(-1)?.mailed).toBe(false);
+    f.seed("playerProfile", { identity: reporterA, displayName: "R1" });
+    f.seed("bugReport", { id: 2n, reporter: reporterA, reporterName: "R1", message: "x", protocolVersion: 90, reportedAt: f.ctx.timestamp });
+    f.run(server.devReviewBug, { id: 2n, decision: "resolved", note: "", mailReporter: true });
+    const inbox = (who: Identity) => (server.myMailboxV2 as any)({ db: f.db, sender: who }) as { id: string; read: boolean }[];
+    expect(inbox(reporterA).filter(row => row.id === "dev-reply-bug-2")).toHaveLength(1);
+    expect(inbox(reporterB).some(row => row.id.startsWith("dev-reply"))).toBe(false);
+    signInAs(f, reporterA);
+    f.run(server.readMailboxLetter, { id: "dev-reply-bug-2" });
+    expect(inbox(reporterA).find(row => row.id === "dev-reply-bug-2")?.read).toBe(true);
+  });
+
+  it("refuses a signed-in player who is not the developer", () => {
+    const f = withReporters();
+    signInAs(f, reporterB);
+    expect(() => f.run(server.devReviewBug, { id: 1n, decision: "resolved", note: "", mailReporter: true })).toThrow("Developer access required");
+    expect(() => f.run(server.devReviewReport, { reportKey: "chat:1", decision: "dismissed", note: "", mailReporter: true })).toThrow("Developer access required");
+    expect(f.db.playerMail.count()).toBe(0n);
   });
 });
 

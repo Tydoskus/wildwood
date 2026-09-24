@@ -4339,6 +4339,16 @@
 .dev-review-text > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
 .dev-review-text.is-expanded > span { display: block; -webkit-line-clamp: unset; overflow: visible; }
 .dev-review-flag { margin: 0; color: #9ff29b; font-size: 11px; }
+.dev-review-where { margin: 0; color: #b9d6ff; font-size: 11px; }
+.dev-review-note-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 10px; }
+.dev-review-mail { font-size: 12px; white-space: nowrap; }
+@media (max-width: 420px) { .dev-review-note-row { grid-template-columns: minmax(0, 1fr); } }
+.dev-review-text-block { display: grid; gap: 6px; min-width: 0; }
+.dev-review-context { display: grid; gap: 4px; margin: 0; padding: 6px 8px; border-left: 2px solid rgba(185,214,255,.35); list-style: none; color: #c9d1d6; font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
+.dev-review-context[hidden] { display: none; }
+.dev-review-context li.is-reported { color: #fff; font-weight: 900; }
+.dev-review-context strong { color: #b9d6ff; }
+.dev-review-context time { color: var(--muted); font-size: 10px; font-weight: 500; }
 .dev-review-decisions { display: grid; gap: 3px; margin: 0; padding: 0 0 0 16px; color: var(--muted); font-size: 11px; }
 .dev-review-note, .dev-player-search input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 40px; padding: 6px 9px; border: 1px solid rgba(145,207,160,.32); border-radius: 6px; background: #111a13; color: var(--cream); font: 13px var(--font-rounded); }
 .dev-review-actions { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 6px; }

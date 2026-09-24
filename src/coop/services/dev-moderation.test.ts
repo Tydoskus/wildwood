@@ -48,7 +48,7 @@ describe("developer moderation service", () => {
   it("sends nothing from a non-developer tab", async () => {
     const { service, reducers, procedures } = fixture("cd".repeat(32));
     expect(await service.api.setChatMute(TARGET, 60)).toEqual({ ok: false, error: "Developer access required." });
-    expect(await service.api.reviewReport("chat:1", "dismissed", "")).toMatchObject({ ok: false });
+    expect(await service.api.reviewReport("chat:1", "dismissed", "", true)).toMatchObject({ ok: false });
     await expect(service.api.reviewQueue()).rejects.toThrow("Developer access required.");
     expect(reducers.devSetChatMute).not.toHaveBeenCalled();
     expect(procedures.getDevReviewQueue).not.toHaveBeenCalled();

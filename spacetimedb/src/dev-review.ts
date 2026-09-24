@@ -1,10 +1,12 @@
 import { SenderError, table, t } from "spacetimedb/server";
 import {
-  REVIEW_NOTE_MAX_LENGTH, bugStatusAfter, compareReviewItems, isBugDecision, isReportDecision,
+  REVIEW_NOTE_MAX_LENGTH, bugStatusAfter, compareReviewItems, isBugDecision, isReportDecision, reviewMailLetter,
   type DevBugEntry, type DevPlayerSummary, type DevReportEntry, type DevReviewDecision, type DevReviewQueue,
 } from "../../shared/dev-review";
+import { MODERATED_CHAT_MESSAGE } from "../../shared/chat-message";
 import { isDeveloperIdentity } from "../../shared/developer-identity";
 import { moderateReportedMessage } from "./chat-report-moderation";
+import { playerMail, sendPersonalMail } from "./dev-review-mail";
 import { PERMANENT_SUSPENSION_MICROS } from "./defeat-session";
 import { recordModerationAction } from "./moderation-history";
 import type { GameReducerContext } from "./index";
@@ -14,7 +16,8 @@ import type { GameReducerContext } from "./index";
  * string, and bug reports none at all, so this is where "who closed it, when,
  * and why" lives. Private: only the developer-gated queue procedure reads it.
  * The reviewer is kept as text, like moderation_action, so erasing a player
- * never has to walk the developer's own decision log.
+ * never has to walk the developer's own decision log. `mailed` says whether
+ * this decision wrote the reporter a letter.
  */
 const devReportReview = table({ name: "dev_report_review", public: false }, {
   id: t.u64().primaryKey().autoInc(),
@@ -24,8 +27,9 @@ const devReportReview = table({ name: "dev_report_review", public: false }, {
   reviewerIdentity: t.string(),
   reviewerName: t.string(),
   reviewedAt: t.timestamp(),
+  mailed: t.bool(),
 });
-export const devReviewTables = { devReportReview };
+export const devReviewTables = { devReportReview, playerMail };
 
 type ReadCtx = Pick<GameReducerContext, "db" | "timestamp">;
 
@@ -39,7 +43,7 @@ const toMs = (timestamp: { microsSinceUnixEpoch: bigint }) => Number(timestamp.m
 function decisionsFor(ctx: ReadCtx, key: string): DevReviewDecision[] {
   return [...ctx.db.devReportReview.reportKey.filter(key)]
     .sort((a, b) => (a.id < b.id ? -1 : 1))
-    .map(row => ({ decision: row.decision, note: row.note, reviewerName: row.reviewerName, reviewedAtMs: toMs(row.reviewedAt) }));
+    .map(row => ({ decision: row.decision, note: row.note, reviewerName: row.reviewerName, reviewedAtMs: toMs(row.reviewedAt), mailed: row.mailed }));
 }
 
 function reportStatus(status: string) {
@@ -66,33 +70,100 @@ function reportedSocialMessage(ctx: ReadCtx, row: any) {
   return message && sameHex(message.sender, row.target) ? message : null;
 }
 
-function chatEntry(ctx: ReadCtx, row: any): DevReportEntry {
+/** What a report points at, kept beside the entry until the queue is cut to size. */
+type MessageRef = { social: boolean; messageId: bigint; stored: string };
+
+/** How far back the moderation log is read for an already-redacted original. */
+const HISTORY_FALLBACK_SCAN = 5_000n;
+const CONTEXT_BEFORE = 2;
+const CONTEXT_AFTER = 1;
+
+function chatEntry(ctx: ReadCtx, row: any, refs: Map<DevReportEntry, MessageRef>): DevReportEntry {
   const message = reportedChatMessage(ctx, row);
   const key = `chat:${row.id}`;
-  return {
+  const entry: DevReportEntry = {
     key, status: reportStatus(row.status), channel: "world",
     reporterIdentity: row.reporter.toHexString(), reporterName: row.reporterName,
     targetIdentity: row.accused.toHexString(), targetName: row.senderName,
     reason: row.reason, text: row.message, reportedAtMs: toMs(row.reportedAt),
+    where: "World chat", sentAtMs: toMs(row.sentAt), context: [],
     canRemoveMessage: Boolean(message && !message.moderated),
     messageRemoved: Boolean(message?.moderated),
     decisions: decisionsFor(ctx, key),
   };
+  refs.set(entry, { social: false, messageId: row.messageId, stored: row.messageModerated ? MODERATED_CHAT_MESSAGE : row.message });
+  return entry;
 }
 
-function playerEntry(ctx: ReadCtx, row: any): DevReportEntry {
+function playerEntry(ctx: ReadCtx, row: any, refs: Map<DevReportEntry, MessageRef>): DevReportEntry {
   const social = socialReference(row.note);
   const message = reportedSocialMessage(ctx, row);
   const key = `player:${row.id}`;
-  return {
+  // The social_report row is the evidence copy written at report time.
+  const evidence = social ? ctx.db.socialReport.key.find(`${row.reporter.toHexString()}:${social.messageId}`)?.message : undefined;
+  const entry: DevReportEntry = {
     key, status: reportStatus(row.status), channel: social?.channel ?? "profile",
     reporterIdentity: row.reporter.toHexString(), reporterName: row.reporterName,
     targetIdentity: row.target.toHexString(), targetName: row.targetName,
-    reason: row.reason, text: social?.text ?? row.note, reportedAtMs: toMs(row.reportedAt),
+    reason: row.reason, text: evidence ?? social?.text ?? row.note, reportedAtMs: toMs(row.reportedAt),
+    where: "", sentAtMs: 0, context: [],
     canRemoveMessage: Boolean(message && !message.moderated),
     messageRemoved: Boolean(message?.moderated),
     decisions: decisionsFor(ctx, key),
   };
+  if (social) refs.set(entry, { social: true, messageId: social.messageId, stored: entry.text });
+  return entry;
+}
+
+/** Originals of redacted messages, from the moderation log's "before" text. */
+function redactedOriginals(ctx: ReadCtx) {
+  const originals = new Map<string, string>();
+  const head = ctx.db.moderationHead.id.find(0)?.lastId ?? 0n;
+  const floor = head > HISTORY_FALLBACK_SCAN ? head - HISTORY_FALLBACK_SCAN : 0n;
+  for (let id = head; id > floor; id--) {
+    const row = ctx.db.moderationAction.id.find(id);
+    if (!row?.messageId || !row.before || row.before === MODERATED_CHAT_MESSAGE) continue;
+    const key = `${row.channel === "world" ? "world" : "social"}:${row.messageId}`;
+    if (!originals.has(key)) originals.set(key, row.before);
+  }
+  return originals;
+}
+
+function contextLine(row: any, reportedId: bigint) {
+  return { senderName: row.senderName, text: row.message, sentAtMs: toMs(row.sentAt), reported: row.id === reportedId };
+}
+
+/**
+ * Fills in the conversation around each report left after the cut: the
+ * original text when the stored copy is redacted, where it was sent, and a few
+ * neighbouring messages. Only the developer-gated queue procedure calls this.
+ */
+function addMessageContext(ctx: ReadCtx, entries: DevReportEntry[], refs: Map<DevReportEntry, MessageRef>) {
+  let originals: Map<string, string> | null = null;
+  const original = (ref: MessageRef) => (originals ??= redactedOriginals(ctx)).get(`${ref.social ? "social" : "world"}:${ref.messageId}`);
+  for (const entry of entries) {
+    const ref = refs.get(entry);
+    if (!ref) continue;
+    if (ref.stored === MODERATED_CHAT_MESSAGE) entry.text = original(ref) ?? entry.text;
+    if (!ref.social) {
+      const lines = [];
+      for (let id = ref.messageId - BigInt(CONTEXT_BEFORE); id <= ref.messageId + BigInt(CONTEXT_AFTER); id++) {
+        const row = id > 0n ? ctx.db.chatMessage.id.find(id) : null;
+        if (row) lines.push(contextLine(row, ref.messageId));
+      }
+      entry.context = lines;
+      continue;
+    }
+    const message = ctx.db.socialMessage.id.find(ref.messageId);
+    if (!message) continue;
+    entry.sentAtMs = toMs(message.sentAt);
+    entry.where = message.channel === "dm"
+      ? `DM with ${message.recipientName || "a player"}`
+      : `Guild: ${ctx.db.guild.id.find(message.guildId)?.name ?? "left guild"}`;
+    const thread = [...ctx.db.socialMessage.conversation.filter(message.conversation)].sort((x, y) => (x.id < y.id ? -1 : 1));
+    const at = thread.findIndex(row => row.id === message.id);
+    entry.context = thread.slice(Math.max(0, at - CONTEXT_BEFORE), at + CONTEXT_AFTER + 1).map(row => contextLine(row, message.id));
+  }
 }
 
 function bugEntry(ctx: ReadCtx, row: any): DevBugEntry {
@@ -113,10 +184,12 @@ function boundedQueue<T extends { status: string; reportedAtMs: number }>(entrie
 }
 
 export function readDevReviewQueue(ctx: ReadCtx): DevReviewQueue {
+  const refs = new Map<DevReportEntry, MessageRef>();
   const reports = boundedQueue([
-    ...[...ctx.db.chatMessageReport.iter()].map(row => chatEntry(ctx, row)),
-    ...[...ctx.db.playerReport.iter()].map(row => playerEntry(ctx, row)),
+    ...[...ctx.db.chatMessageReport.iter()].map(row => chatEntry(ctx, row, refs)),
+    ...[...ctx.db.playerReport.iter()].map(row => playerEntry(ctx, row, refs)),
   ]);
+  addMessageContext(ctx, reports, refs);
   const bugs = boundedQueue([...ctx.db.bugReport.iter()].map(row => bugEntry(ctx, row)));
   return {
     reports, bugs,
@@ -127,14 +200,14 @@ export function readDevReviewQueue(ctx: ReadCtx): DevReviewQueue {
 }
 
 function cleanNote(note: string) {
-  const value = note.trim().replace(/\s+/g, " ");
+  const value = note.replace(/[\u0000-\u001f\u007f]/g, " ").trim().replace(/\s+/g, " ");
   if (value.length > REVIEW_NOTE_MAX_LENGTH) throw new SenderError(`Keep the note under ${REVIEW_NOTE_MAX_LENGTH} characters.`);
   return value;
 }
 
-function recordDecision(ctx: GameReducerContext, reportKey: string, decision: string, note: string) {
+function recordDecision(ctx: GameReducerContext, reportKey: string, decision: string, note: string, mailed = false) {
   ctx.db.devReportReview.insert({
-    id: 0n, reportKey, decision, note,
+    id: 0n, reportKey, decision, note, mailed,
     reviewerIdentity: ctx.sender.toHexString(),
     reviewerName: ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "Database owner",
     reviewedAt: ctx.timestamp,
@@ -185,8 +258,21 @@ function setReportStatus(ctx: GameReducerContext, report: ReportRow, status: str
   else ctx.db.playerReport.id.update({ ...report.row, status });
 }
 
+/**
+ * Writes the reporter's letter for a decision, in the decision's transaction.
+ * One letter per report, ever: the id is the report's, so an edited decision
+ * or a double click finds it already sent. An erased or deleted reporter is
+ * skipped silently. True only when a letter was written now.
+ */
+function mailReporter(ctx: GameReducerContext, reportKey: string, reporter: any, letter: { title: string; body: string } | null) {
+  if (!letter || !ctx.db.playerProfile.identity.find(reporter)) return false;
+  return sendPersonalMail(ctx, { key: `dev-reply-${reportKey.replace(":", "-")}`, identity: reporter, ...letter });
+}
+
+type ReviewArgs = { decision: string; note: string; mailReporter: boolean };
+
 /** Called only after the reducer verifies the developer or the database owner. */
-export function reviewReport(ctx: GameReducerContext, args: { reportKey: string; decision: string; note: string }) {
+export function reviewReport(ctx: GameReducerContext, args: ReviewArgs & { reportKey: string }) {
   if (!isReportDecision(args.decision)) throw new SenderError("Choose a valid report decision.");
   const note = cleanNote(args.note);
   const report = findReport(ctx, args.reportKey);
@@ -197,17 +283,24 @@ export function reviewReport(ctx: GameReducerContext, args: { reportKey: string;
   }
   if (args.decision === "removed") removeReportedMessage(ctx, report);
   const status = args.decision === "dismissed" ? "dismissed" : "resolved";
+  // The letter says only that action was or was not taken, never what or to whom.
+  const letter = args.mailReporter ? reviewMailLetter("report", args.decision, "", note) : null;
   for (const current of [report, ...siblingReports(ctx, report)]) {
     setReportStatus(ctx, current, status);
-    recordDecision(ctx, current.key, args.decision, current === report ? note : `Same message as ${report.key}. ${note}`.trim());
+    const mailed = mailReporter(ctx, current.key, current.row.reporter, letter);
+    recordDecision(ctx, current.key, args.decision, current === report ? note : `Same message as ${report.key}. ${note}`.trim(), mailed);
   }
 }
 
 /** Called only after the reducer verifies the developer or the database owner. */
-export function reviewBug(ctx: GameReducerContext, args: { id: bigint; decision: string; note: string }) {
+export function reviewBug(ctx: GameReducerContext, args: ReviewArgs & { id: bigint }) {
   if (!isBugDecision(args.decision)) throw new SenderError("Choose a valid bug decision.");
-  if (!ctx.db.bugReport.id.find(args.id)) throw new SenderError("Bug report not found.");
-  recordDecision(ctx, `bug:${args.id}`, args.decision, cleanNote(args.note));
+  const bug = ctx.db.bugReport.id.find(args.id);
+  if (!bug) throw new SenderError("Bug report not found.");
+  const note = cleanNote(args.note);
+  const key = `bug:${args.id}`;
+  const mailed = args.mailReporter && mailReporter(ctx, key, bug.reporter, reviewMailLetter("bug", args.decision, bug.message, note));
+  recordDecision(ctx, key, args.decision, note, mailed);
 }
 
 /** The spam delete still leaves a line saying who removed the report. */

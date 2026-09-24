@@ -1,4 +1,5 @@
 import { equipmentForMail, mergeEquipmentMail, removeEquipmentMail } from "./mailbox-equipment";
+import { mergePersonalMail, personalMailFor, readPersonalMail, removePersonalMail } from "./dev-review-mail";
 import { GEAR_MAIL_ID } from "../../shared/mailbox-equipment";
 import { table, t, SenderError } from "spacetimedb/server";
 import type { Identity, Timestamp } from "spacetimedb";
@@ -58,7 +59,8 @@ export function mailboxForPlayer(ctx: ModuleViewCtx) {
   const receipts = new Map([...ctx.db.mailboxReceipt.identity.filter(ctx.sender)].map(row => [row.letterId, row]));
   return [...ctx.db.mailboxLetter.iter()].filter(row => row.id === GEAR_MAIL_ID ? Boolean(equipmentForMail(ctx, row.id)) : eligible(ctx, row.eligibleBefore.microsSinceUnixEpoch))
     .map(row => ({ id: row.id, title: row.title, body: row.body, gems: row.gems, createdAt: row.createdAt,
-      read: receipts.get(row.id)?.read ?? false, claimed: receipts.get(row.id)?.claimed ?? false }));
+      read: receipts.get(row.id)?.read ?? false, claimed: receipts.get(row.id)?.claimed ?? false }))
+    .concat(personalMailFor(ctx));
 }
 
 /** Campaign identity, eligibility and reward are immutable; copy can be corrected safely. */
@@ -90,6 +92,8 @@ export function publishSlotUpgradeMail(ctx: ModuleReducerCtx) {
 }
 
 export function updateMailboxReceipt(ctx: ModuleReducerCtx, id: string, claim: boolean, credit: (amount: bigint, reference: string, title: string) => void, grantEquipment?: (items: string[], level: number) => void) {
+  // A personal letter carries no reward: reading or "claiming" it only marks it read.
+  if (readPersonalMail(ctx, id)) return;
   const letter = ctx.db.mailboxLetter.id.find(id);
   const gear = equipmentForMail(ctx, id);
   if (!letter || (id === GEAR_MAIL_ID ? !gear : !eligible(ctx, letter.eligibleBefore.microsSinceUnixEpoch))) throw new SenderError("Mail unavailable.");
@@ -109,6 +113,7 @@ export function updateMailboxReceipt(ctx: ModuleReducerCtx, id: string, claim: b
 
 export function mergeMailboxReceipts(ctx: ModuleReducerCtx, guest: Identity, account: Identity) {
   mergeEquipmentMail(ctx, guest, account);
+  mergePersonalMail(ctx, guest, account);
   for (const row of ctx.db.mailboxReceipt.identity.filter(guest)) {
     const key = receiptKey(row.letterId, account);
     const previous = ctx.db.mailboxReceipt.key.find(key);
@@ -121,5 +126,6 @@ export function mergeMailboxReceipts(ctx: ModuleReducerCtx, guest: Identity, acc
 
 export function removeMailboxReceipts(ctx: ModuleReducerCtx, identity: Identity) {
   removeEquipmentMail(ctx, identity);
+  removePersonalMail(ctx, identity);
   for (const row of ctx.db.mailboxReceipt.identity.filter(identity)) ctx.db.mailboxReceipt.key.delete(row.key);
 }

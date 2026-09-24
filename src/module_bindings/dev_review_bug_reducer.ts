@@ -14,4 +14,5 @@ export default {
   id: __t.u64(),
   decision: __t.string(),
   note: __t.string(),
+  mailReporter: __t.bool(),
 };
