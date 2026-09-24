@@ -180,3 +180,49 @@
   .farm-map { margin-bottom: 4px; }
   .farm-sheet .farm-enemy { min-height: 48px; padding: 6px 10px; }
 }
+/* Home's travel portal reuses this window frame and its rows. It sizes to its
+ * list, so a new player's two maps do not sit in a mostly empty window. */
+.farm-sheet.travel-sheet {
+  height: fit-content;
+  max-height: min(600px, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px));
+}
+.travel-sheet .farm-enemy-mark { color: #fff; font-size: 16px; }
+.travel-sheet .farm-reward { color: var(--muted); }
+.travel-sheet .is-departure .farm-reward { color: #ffcf7a; }
+.farm-sheet .travel-map.is-locked { opacity: .5; cursor: default; }
+.travel-sheet .is-locked .farm-reward { white-space: normal; }
+.travel-sheet .is-locked .farm-check { visibility: hidden; }
+.travel-endless { display: flex; align-items: stretch; gap: 6px; min-width: 0; }
+.travel-endless .travel-map { flex: 1 1 auto; min-width: 0; }
+.farm-sheet .travel-step {
+  flex: 0 0 34px;
+  padding: 0;
+  border: 2px solid rgba(255,255,255,.14);
+  border-radius: 10px;
+  background: #ffffff06;
+  box-shadow: none;
+  color: #fff;
+  font: inherit;
+  font-size: 18px;
+  cursor: pointer;
+}
+.farm-sheet .travel-step:disabled { opacity: .35; cursor: default; }
+.travel-stage {
+  flex: 0 0 52px;
+  box-sizing: border-box;
+  width: 52px;
+  min-width: 0;
+  padding: 0 4px;
+  border: 2px solid rgba(255,255,255,.14);
+  border-radius: 10px;
+  background: #0006;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+.travel-stage::-webkit-inner-spin-button, .travel-stage::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+@media (max-height: 480px) {
+  .farm-sheet.travel-sheet { height: fit-content; max-height: calc(100dvh - 16px); }
+}

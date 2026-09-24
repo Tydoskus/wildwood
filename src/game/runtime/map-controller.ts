@@ -43,6 +43,10 @@ type TeleportArrival = { mapId: string; x: number; y: number; facing: number };
 export type MapController = {
   teleportHome: () => Promise<boolean>;
   teleportToMap: (destination: MapId, request: () => Promise<boolean | TeleportArrival>) => Promise<boolean>;
+  /** Leaves Home through its travel portal for a destination the picker chose. */
+  travelFromHome: (destination: MapId) => Promise<boolean>;
+  /** The map the toolbar teleport last left for Home, while this page has seen it. */
+  homeDeparture: () => MapId | null;
   activePortal: () => MapPortal | null;
   secondaryPortal: () => MapPortal | null;
   portalIsUnlocked: (portal: MapPortal) => boolean;
@@ -69,6 +73,7 @@ export type MapController = {
 
 /** Owns map travel, portal collisions, and cinematic portal state. */
 export function createMapController(options: {
+  openHomeTravel?: () => void;
   onTravelStarted?: () => void;
   mapConfig: MapConfig;
   tutorialMapId: MapId;
@@ -153,6 +158,7 @@ export function createMapController(options: {
   let mapLoadGeneration = 0;
   let portalCooldown = 0;
   let portalExitGuard: MapPortal | null = null;
+  let homeDeparture: MapId | null = null;
   let portalCutsceneIntensity = -1;
   let portalCutsceneBlackoutOpacity = 0;
   let portalCutsceneDestinationOpacity = 0;
@@ -169,7 +175,8 @@ export function createMapController(options: {
     options.onTravelStarted?.();
     mapTransitioning = true;
     const attempt = ++mapLoadGeneration;
-    const returning = getCurrentMapId() === "home_exterior";
+    const departure = getCurrentMapId();
+    const returning = departure === "home_exterior";
     let finished = false;
     const current = () => !finished && attempt === mapLoadGeneration && running() && player.hp > 0;
     try {
@@ -203,6 +210,7 @@ export function createMapController(options: {
         } else loadMap(latest.mapId as MapId, latest.x, latest.y, latest.facing);
         snapCameraToPlayer(camera, player, viewport()); resetPresentationState();
         beginHomeTeleport(true);
+        if (!destination && !returning) homeDeparture = departure;
         return true;
       };
       return await withMapDeadline(travel());
@@ -323,6 +331,14 @@ export function createMapController(options: {
       playerIsInsidePortal(candidate),
     );
     if (!portal || !portalIsUnlocked(portal)) return;
+    if (getCurrentMapId() === "home_exterior" && options.openHomeTravel) {
+      // The picker chooses the destination. Guarding the pad means standing
+      // on it after Back never reopens the window; walking off and on does.
+      portalExitGuard = portal;
+      keys.clear(); stopTouchMove(); player.moving = false;
+      options.openHomeTravel();
+      return;
+    }
     options.onTravelStarted?.();
     mapTransitioning = true;
     keys.clear();
@@ -446,6 +462,9 @@ export function createMapController(options: {
   return {
     teleportHome: () => teleport(),
     teleportToMap: (destination, request) => teleport(destination, request),
+    travelFromHome: async (destination) => getCurrentMapId() === "home_exterior" && destination !== "home_exterior"
+      && teleport(destination, async () => Boolean(await changeMap(destination, player.x, player.y))),
+    homeDeparture: () => homeDeparture,
     activePortal,
     secondaryPortal,
     portalIsUnlocked,

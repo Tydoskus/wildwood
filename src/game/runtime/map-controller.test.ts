@@ -22,7 +22,9 @@ function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
   const changeMap = vi.fn(async () => true);
   const markPortalCutsceneSeen = vi.fn();
   const onTravelStarted = vi.fn();
+  const openHomeTravel = vi.fn();
   const controller = createMapController({
+    openHomeTravel,
     onTravelStarted,
     mapConfig: {
       ...bootstrap.mapConfig,
@@ -97,7 +99,7 @@ function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
     onCutsceneFinished: vi.fn(),
   } as unknown as Parameters<typeof createMapController>[0]);
   return {
-    onTravelStarted, changeMap, controller, currentMapId: () => currentMapId, desertMapId, player, markPortalCutsceneSeen,
+    onTravelStarted, openHomeTravel, changeMap, controller, currentMapId: () => currentMapId, desertMapId, player, markPortalCutsceneSeen,
     bootstrap, prepareMapAssets,
     setMap: (value: MapId) => { currentMapId = value; },
     setUnlocked: (value: boolean) => { unlocked = value; },
@@ -278,14 +280,60 @@ describe("reset map presentation", () => {
 });
 
 describe("Home teleport", () => {
-  it("has no portal in Home, so walking the courtyard never travels", () => {
+  it("has a Home travel portal without triggering it from the spawn point", () => {
     const h = portalArrivalHarness({ x: 300, y: 400 });
     h.controller.loadMap("home_exterior", 500, 700);
-    expect(h.controller.activePortal()).toBeNull();
+    expect(h.controller.activePortal()).toMatchObject({ label: "Travel" });
     h.controller.resolvePortalCollision();
     h.controller.updatePortal(1);
     expect(h.player).toMatchObject({ x: 500, y: 700 });
     expect(h.changeMap).not.toHaveBeenCalled();
+    expect(h.openHomeTravel).not.toHaveBeenCalled();
+  });
+  it("opens the picker on the Home portal instead of travelling, and only again after walking off it", () => {
+    const h = portalArrivalHarness({ x: 300, y: 400 });
+    h.controller.loadMap("home_exterior", 500, 700);
+    const portal = h.controller.activePortal()!;
+    const onPad = () => { h.player.x = portal.x; h.player.y = portal.y - portal.height * .32; };
+    onPad(); h.controller.updatePortal(1);
+    expect(h.openHomeTravel).toHaveBeenCalledOnce();
+    expect(h.changeMap).not.toHaveBeenCalled();
+    expect(h.onTravelStarted).not.toHaveBeenCalled();
+    for (let frame = 0; frame < 5; frame++) h.controller.updatePortal(1);
+    expect(h.openHomeTravel).toHaveBeenCalledOnce();
+    h.player.y += 200; h.controller.updatePortal(1);
+    onPad(); h.controller.updatePortal(1);
+    expect(h.openHomeTravel).toHaveBeenCalledTimes(2);
+  });
+  it("travels from Home to the picked map through the server and stops autofarm first", async () => {
+    vi.useFakeTimers();
+    const h = portalArrivalHarness({ x: 300, y: 400 });
+    h.controller.loadMap("home_exterior", 600, 442);
+    h.changeMap.mockImplementationOnce(async () => {
+      h.setServerMap({ mapId: "beginner_desert", x: 360, y: 770, facing: 0 });
+      return true;
+    });
+    const travel = h.controller.travelFromHome("beginner_desert");
+    expect(h.onTravelStarted).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(650);
+    expect(await travel).toBe(true);
+    expect(h.changeMap).toHaveBeenCalledWith("beginner_desert", 600, 442);
+    expect(h.currentMapId()).toBe("beginner_desert");
+    expect(h.player).toMatchObject({ x: 360, y: 770 });
+    expect(await h.controller.travelFromHome("tutorial_forest")).toBe(false);
+  });
+  it("remembers which map the toolbar teleport left for Home", async () => {
+    vi.useFakeTimers();
+    const h = portalArrivalHarness({ x: 300, y: 400 });
+    expect(h.controller.homeDeparture()).toBeNull();
+    h.changeMap.mockImplementationOnce(async () => {
+      h.setServerMap({ mapId: "home_exterior", x: 500, y: 700, facing: 0 });
+      return true;
+    });
+    const travel = h.controller.teleportHome();
+    await vi.advanceTimersByTimeAsync(650);
+    expect(await travel).toBe(true);
+    expect(h.controller.homeDeparture()).toBe("tutorial_forest");
   });
   afterEach(() => vi.useRealTimers());
   it("locks departure, waits for server state, and restores the server return point", async () => {

@@ -1,4 +1,4 @@
-import { HOME_EXTERIOR_SPAWN } from "../../../shared/home";
+import { HOME_TRAVEL_PORTAL, HOME_EXTERIOR_SPAWN } from "../../../shared/home";
 import {
   FROSTCLAW_HITBOX_OFFSET_Y, FROSTCLAW_VERTICAL_RADIUS, FROSTCLAW_RADIUS,
   GLOOMROOT_HITBOX_OFFSET_Y, GLOOMROOT_VERTICAL_RADIUS, GLOOMROOT_RADIUS,
@@ -101,7 +101,7 @@ export function createGameBootstrap() {
   const startSpawn = { ...PLAYER_SPAWN };
   const authoredMapConfig = {
     [ONBOARDING_MAP_ID]: { name: "First Steps", portal: null, arrival: ONBOARDING_WORLD.spawn },
-    home_exterior: { name: "Home", portal: null, arrival: HOME_EXTERIOR_SPAWN },
+    home_exterior: { name: "Home", portal: HOME_TRAVEL_PORTAL, arrival: HOME_EXTERIOR_SPAWN },
     [TUTORIAL_FOREST_MAP_ID]: editedMapEntry(TUTORIAL_FOREST_MAP_ID, {
       name: MAP_DISPLAY_NAMES[TUTORIAL_FOREST_MAP_ID],
       portal: { x: 190, y: 448, width: 198, height: 198, depth: 448, destination: BEGINNER_DESERT_MAP_ID },

@@ -71,6 +71,7 @@ import { createPlayerInputController } from "./game/runtime/player-input-control
 import { createAutoFarmController } from "./game/runtime/auto-farm-controller";
 import { createAutoFarmResumeStore } from "./app/auto-farm-resume";
 import { createAutoFarmPanel } from "./ui/auto-farm-panel";
+import { createHomeTravelController } from "./ui/home-travel-controller";
 import { createPlayerController, type PlayerController } from "./game/runtime/player-controller";
 import { applyPlayerMaxHealthMultiplierBonus } from "./game/runtime/player-health";
 import { createRegularEnemyRespawnBoost } from "./game/runtime/regular-enemy-respawn";
@@ -358,10 +359,6 @@ import {
     const enabled = regularEnemyRespawnBoost.toggle();
     rememberPendingRespawns();
     return enabled;
-  }
-
-  function grantRewardedRespawnBoost() {
-    return regularEnemyRespawnBoost.grant();
   }
 
   const duelSession = createDuelSessionController({
@@ -805,6 +802,7 @@ import {
 
   let playerController: PlayerController;
   const mapController = createMapController({
+    openHomeTravel: () => homeTravel.open(),
     onTravelStarted: () => autoFarm.stop("Map changed · choose an enemy"),
     markPortalCutsceneSeen: (cutscene) => coop?.markPortalCutsceneSeen?.(cutscene),
     mapConfig: MAP_CONFIG,
@@ -889,6 +887,7 @@ import {
     clearPendingBossHits: () => playerCombat.clearPendingBossHits(),
     onCutsceneFinished: (wasPreview) => bossController.onPortalCutsceneFinished(wasPreview),
   });
+  const homeTravel = createHomeTravelController({ source: () => coop, travel: mapController.travelFromHome, departure: mapController.homeDeparture, atHome: () => currentMapId === "home_exterior", pause: paused => setGameplayPause("home-travel", paused), clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id].name });
   const { activePortal, secondaryPortal, portalIsUnlocked, startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene, startSamuraiPortalCutscene } = mapController;
 
   const bossController = createBossController({
@@ -1658,7 +1657,7 @@ import {
   const rewardedRespawnAd = createHudTimerColumn(gameElements, {
     getNativeBridge: () => nativeBridgeForRuntime(window),
     isSupporter: () => (coop?.supporterTier?.() ?? "none") !== "none",
-    grantBoost: grantRewardedRespawnBoost,
+    grantBoost: regularEnemyRespawnBoost.grant,
     toggleBoost: toggleRewardedRespawnBoost,
     isBoostEnabled: regularEnemyRespawnBoost.isEnabled,
     boostRemainingMs: regularEnemyRespawnBoost.remainingMs,
