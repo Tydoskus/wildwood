@@ -1,6 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.808": [
     "Enemy name and health labels draw faster in busy mob groups.",
+    "Typing in chat stays smooth when chat has been open a while.",
   ],
   "0.807": [
     "Enemies respawn every 10 seconds.",
