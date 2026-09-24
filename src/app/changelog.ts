@@ -1,5 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.807": [
+    "Enemies respawn every 10 seconds.",
+    "The ad now gives 10 Gems, up to 4 times a day, at least 30 minutes apart.",
     "The Inventory red dot only shows while an upgrade bench is free.",
   ],
   "0.806": [
