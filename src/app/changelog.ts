@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.809": [
+    "Repeated filtered chat messages now mute chat for an hour, then 24 hours for repeat offenders.",
+    "Muted players can still read chat but can't send or react until the mute ends.",
+    "You'll get a mailbox letter when your bug report or player report is reviewed.",
+  ],
   "0.808": [
     "Enemy name and health labels draw faster in busy mob groups.",
     "Typing in chat stays smooth when chat has been open a while.",
@@ -2387,6 +2392,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.809": "2026-09-24",
   "0.808": "2026-09-24",
   "0.807": "2026-09-23",
   "0.806": "2026-09-23",
