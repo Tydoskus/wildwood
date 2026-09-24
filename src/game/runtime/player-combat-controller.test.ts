@@ -560,3 +560,37 @@ it('passes Endless critical damage and the critical flag to its hit display', ()
   for (let i = 0; i < 90; i++) { now += 1 / 60; state.controller.attackNearest(); state.controller.updateProjectiles(1 / 60); }
   expect(hit).toHaveBeenCalledWith(state.enemies[0], 20, true);
 });
+
+describe("autofarm target priority", () => {
+  // Three of one type in range: nearest at full health, a wounded one further
+  // out, and a tougher one furthest away.
+  function harness() {
+    const state = createCombatHarness();
+    state.boss.dead = true;
+    const template = state.enemies.find(enemy => !enemy.dead)!;
+    const at = (dx: number, hp: number, maxHp: number) => ({ ...template, x: state.player.x + dx, y: state.player.y, hp, maxHp, dead: false, generatedBoss: false, remoteCombatGhost: false });
+    const near = at(40, 100, 100), wounded = at(80, 10, 100), tough = at(120, 150, 300);
+    state.enemies.splice(0, state.enemies.length, near, wounded, tough);
+    state.player.attackRange = 200;
+    return { state, near, wounded, tough };
+  }
+  const aimedAt = (state: ReturnType<typeof harness>["state"], enemy: { x: number; y: number }) =>
+    state.player.combatFacing !== null && Math.abs(state.player.combatFacing - Math.atan2(enemy.y - state.player.y, enemy.x - state.player.x)) < 1e-6;
+
+  it("aims at the nearest, the most wounded or the toughest as chosen", () => {
+    for (const [priority, pick] of [["closest", "near"], ["lowest", "wounded"], ["strongest", "tough"]] as const) {
+      const h = harness();
+      h.state.controller.attackNearest(h.near.type, null, priority);
+      expect(aimedAt(h.state, h[pick])).toBe(true);
+    }
+  });
+
+  it("keeps a ranked target until it dies rather than alternating", () => {
+    const h = harness();
+    h.state.controller.attackNearest(h.near.type, null, "lowest");
+    expect(aimedAt(h.state, h.wounded)).toBe(true);
+    h.near.hp = 5;
+    h.state.controller.attackNearest(h.near.type, null, "lowest");
+    expect(aimedAt(h.state, h.wounded)).toBe(true);
+  });
+});

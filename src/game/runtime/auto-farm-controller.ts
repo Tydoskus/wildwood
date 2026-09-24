@@ -9,6 +9,7 @@ import type { Movement } from './player-input-controller';
 import { isEnemyAttackingPlayer } from './enemy-threat';
 import { farmRoute } from './auto-farm-navigation';
 import { rangedEnemyHoldBand } from './ranged-enemy-range';
+import { compareAutoFarmTargets, readAutoFarmPriority, writeAutoFarmPriority, type AutoFarmPriority } from './auto-farm-priority';
 import type { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 
 export type AutoFarmController = ReturnType<typeof createAutoFarmController>;
@@ -68,7 +69,9 @@ export function createAutoFarmController(options: {
   paused: () => boolean;
   speed: () => number;
   obstacles: () => Circle[];
+  priorityStorage?: () => Pick<Storage, 'getItem' | 'setItem'> | undefined;
 }) {
+  let priority: AutoFarmPriority = readAutoFarmPriority(options.priorityStorage);
   let selected: string | null = null;
   let selectedType: EnemyKind | null = null;
   let selectedCamp: string | null = null;
@@ -228,7 +231,9 @@ export function createAutoFarmController(options: {
     if (!active || options.paused()) return manual;
     if (!target || !validEnemy(target) || !enemies.includes(target)) {
       target = null;
-      for (const enemy of enemies) if (validEnemy(enemy) && (!target || distance(enemy) < distance(target))) target = enemy;
+      for (const enemy of enemies) {
+        if (validEnemy(enemy) && (!target || compareAutoFarmTargets(priority, enemy, distance(enemy), target, distance(target)) < 0)) target = enemy;
+      }
       routeClock = 0;
     }
     let threat: EnemyState | null = null;
@@ -286,5 +291,14 @@ export function createAutoFarmController(options: {
     state: () => ({ active, selected, selectedLabel, status: active && !recovering && options.paused() ? 'Paused' : status }),
     targetType: () => active && !manualControl ? selectedType : null,
     targetCamp: () => active && !manualControl ? selectedCamp : null,
+    priority: () => priority,
+    setPriority(next: AutoFarmPriority) {
+      if (next === priority) return;
+      priority = next;
+      writeAutoFarmPriority(next, options.priorityStorage);
+      // Choose again under the new rule rather than finishing the old target.
+      target = null;
+      routeClock = 0;
+    },
   };
 }

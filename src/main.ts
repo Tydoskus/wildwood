@@ -1259,7 +1259,7 @@ import {
     regenerationPerSecond,
     healthMultiplierBonus,
     syncMovementState: (x, y, vx, vy, inputSource, force, interestArea) => { if (!inTutorial()) coop?.syncMovementState?.(x, y, vx, vy, inputSource, force, interestArea); },
-    autoAttack: () => playerCombat.attackNearest(autoFarm.targetType(), autoFarm.targetCamp()),
+    autoAttack: () => playerCombat.attackNearest(autoFarm.targetType(), autoFarm.targetCamp(), autoFarm.priority()),
     isAutoAttackEnabled: () => !onboarding?.blocksInput() && isWeaponItem(inventory.equippedRightHand || inventory.equippedLeftHand),
     activeDuel,
     isDueling,

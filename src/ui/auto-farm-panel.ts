@@ -1,9 +1,10 @@
 import { ENEMY_TYPES, REWARD_DATA, rewardLabel, rewardAmountLabel, rewardStatLabel, type EnemyDefinition } from '../game/enemies';
 import type { AutoFarmController } from '../game/runtime/auto-farm-controller';
+import { AUTO_FARM_PRIORITIES } from '../game/runtime/auto-farm-priority';
 
 const farmIcon = '<img class="farm-swords-icon" src="assets/wildstat/icons/Icon_AutoFarm.svg" alt="" aria-hidden="true">';
 
-/** Compact HUD control and a native modal sheet with built-in focus trapping. */
+/** Compact HUD control and a native modal game window with built-in focus trapping. */
 export function createAutoFarmPanel(options: {
   farm: AutoFarmController;
   mapName: () => string;
@@ -23,7 +24,13 @@ export function createAutoFarmPanel(options: {
   sheet.id = 'autoFarmSheet';
   sheet.className = 'farm-sheet';
   sheet.setAttribute('aria-labelledby', 'autoFarmTitle');
-  sheet.innerHTML = `<div class="farm-handle" aria-hidden="true"></div><header class="farm-header"><h2 id="autoFarmTitle">Autofarm</h2><button type="button" class="farm-close" aria-label="Close autofarm">×</button></header><div class="farm-map"></div><div class="farm-choices" role="group" aria-label="Enemy types"></div><footer class="farm-footer"><p class="farm-selection" aria-live="polite"></p><button type="button" class="farm-start">START FARMING</button></footer>`;
+  sheet.innerHTML = `<header class="farm-header"><h2 id="autoFarmTitle" class="window-banner"><span>Auto Farm</span></h2></header>`
+    + `<p class="farm-map"></p>`
+    + `<div class="farm-priority" role="radiogroup" aria-label="Target priority"><span class="farm-priority-label">Target</span>`
+    + AUTO_FARM_PRIORITIES.map(entry => `<button type="button" role="radio" data-priority="${entry.id}">${entry.label}</button>`).join('')
+    + `</div><div class="farm-choices" role="group" aria-label="Enemy types"></div>`
+    + `<footer class="farm-footer"><p class="farm-selection" aria-live="polite"></p>`
+    + `<div class="farm-actions"><button type="button" class="window-back-button farm-close">Back</button><button type="button" class="farm-start">Start</button></div></footer>`;
   document.getElementById('hud')!.append(floating);
   document.body.append(sheet);
   const element = <T extends HTMLElement>(selector: string) => sheet.querySelector<T>(selector)!;
@@ -35,10 +42,13 @@ export function createAutoFarmPanel(options: {
   let priorFocus: HTMLElement | null = null;
   let choiceKey = '';
 
+  const priorityButtons = [...sheet.querySelectorAll<HTMLButtonElement>('[data-priority]')];
   function updateSelection() {
     for (const button of list.querySelectorAll<HTMLButtonElement>('[data-enemy]')) {
       button.setAttribute('aria-pressed', String(button.dataset.enemy === draft));
     }
+    const priority = options.farm.priority();
+    for (const button of priorityButtons) button.setAttribute('aria-checked', String(button.dataset.priority === priority));
     const reason = options.unavailable();
     startButton.disabled = !draft || Boolean(reason);
     selection.textContent = reason || '';
@@ -129,6 +139,11 @@ export function createAutoFarmPanel(options: {
     else open();
   });
   element('.farm-close').addEventListener('click', close);
+  for (const button of priorityButtons) button.addEventListener('click', () => {
+    const choice = AUTO_FARM_PRIORITIES.find(entry => entry.id === button.dataset.priority);
+    if (choice) options.farm.setPriority(choice.id);
+    updateSelection();
+  });
   sheet.addEventListener('cancel', event => { event.preventDefault(); close(); });
   sheet.addEventListener('click', event => {
     if (event.target !== sheet) return;

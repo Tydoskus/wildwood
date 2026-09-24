@@ -117,3 +117,12 @@ it('shows damage rewards after a 75% damage bonus when base rewards are off', ()
   s.panel.refresh();
   expect(s.document.querySelector('.farm-reward')!.textContent).toBe(rewardLabel(reward));
 });
+it('switches the target priority from the window and marks the chosen one', () => {
+  const s = setup();
+  s.click('.farm-toggle');
+  expect(s.document.querySelector('[data-priority="closest"]')!.getAttribute('aria-checked')).toBe('true');
+  s.click('[data-priority="strongest"]');
+  expect(s.farm.priority()).toBe('strongest');
+  expect(s.document.querySelector('[data-priority="strongest"]')!.getAttribute('aria-checked')).toBe('true');
+  expect(s.document.querySelector('[data-priority="closest"]')!.getAttribute('aria-checked')).toBe('false');
+});

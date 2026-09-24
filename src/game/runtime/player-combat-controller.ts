@@ -1,3 +1,4 @@
+import { compareAutoFarmTargets, type AutoFarmPriority } from './auto-farm-priority';
 import { isMeleeWeapon, weaponAttackRange, segmentCircleHit, segmentEllipseHit } from "../weapon-combat";
 import { isProceduralMap } from "../../../shared/procedural-maps";
 import { bossSurfaceDistance, bossVerticalRadius } from "../../../shared/boss-hitbox";
@@ -61,7 +62,7 @@ export function attackReadyAtWithoutTarget(nextAttackAtSeconds: number, nowSecon
 }
 
 export type PlayerCombatController = {
-  attackNearest: (enemyType?: EnemyKind | null, campName?: string | null) => void;
+  attackNearest: (enemyType?: EnemyKind | null, campName?: string | null, priority?: AutoFarmPriority) => void;
   updateProjectiles: (dt: number) => void;
   damagePlayer: (amount: number) => boolean;
   clearPendingBossHits: () => void;
@@ -161,6 +162,7 @@ export function createPlayerCombatController(options: {
   let nextTargetSearchAt = 0;
   let searchedEnemyCount = -1;
   let searchedEnemyType: EnemyKind | null = null;
+  let searchedPriority: AutoFarmPriority = 'closest';
   let searchedCampName: string | null = null;
   let searchedRange = 0;
   let searchedBoss: BossTarget | null = null;
@@ -367,7 +369,9 @@ export function createPlayerCombatController(options: {
         (target.type === enemyType && (!campName || target.campName === campName)));
   }
 
-  function findAttackTarget(enemyType: EnemyKind | null, campName: string | null, mapBoss: BossTarget | null) {
+  function findAttackTarget(enemyType: EnemyKind | null, campName: string | null, mapBoss: BossTarget | null, priority: AutoFarmPriority) {
+    // Priority only applies to an Autofarm target type; manual play aims at the nearest.
+    const ranked = enemyType !== null && priority !== 'closest';
     let target: EnemyState | BossTarget | null = null;
     let best = attackRange() * attackRange();
     // A direct scan avoids rebuilding the projectile grid just to choose one target.
@@ -381,7 +385,10 @@ export function createPlayerCombatController(options: {
       const distance = targetDistance(enemy) ** 2;
       if (distance >= attackRange() * attackRange()) continue;
       if (enemy === retainedTarget) { retainedDistance = distance; retainedThreat = threat; }
-      if ((threat && !defending) || (threat === defending && distance < best)) {
+      const better = ranked && target && !target.isBoss
+        ? compareAutoFarmTargets(priority, enemy, distance, target as EnemyState, targetDistance(target as EnemyState) ** 2) < 0
+        : distance < best;
+      if ((threat && !defending) || (threat === defending && (!target || better))) {
         best = distance; target = enemy; defending = threat;
       }
     }
@@ -390,22 +397,27 @@ export function createPlayerCombatController(options: {
       if (mapBoss === retainedTarget && edgeDistance < attackRange()) retainedDistance = edgeDistance * edgeDistance;
       if (edgeDistance * edgeDistance < best) { best = edgeDistance * edgeDistance; target = mapBoss; }
     }
-    if (target && retainedTarget && retainedThreat === defending &&
-        Math.sqrt(retainedDistance) <= Math.sqrt(best) + TARGET_SWITCH_DISTANCE) target = retainedTarget;
+    // Nearest keeps a target within a small distance margin; a ranked
+    // priority keeps its target until it dies or leaves range, so two wounded
+    // enemies are never alternated between.
+    if (target && retainedTarget && retainedThreat === defending && Number.isFinite(retainedDistance) &&
+        (ranked || Math.sqrt(retainedDistance) <= Math.sqrt(best) + TARGET_SWITCH_DISTANCE)) target = retainedTarget;
     return target;
   }
 
-  function attackNearest(enemyType: EnemyKind | null = null, campName: string | null = null) {
+  function attackNearest(enemyType: EnemyKind | null = null, campName: string | null = null, priority: AutoFarmPriority = 'closest') {
     const nowSeconds = options.nowSeconds();
     syncAttackTimeline(nowSeconds);
     const mapBoss = activeMapBoss();
     const bossAlive = Boolean(mapBoss && !mapBoss.dead);
     // The current target and aim update every frame; only acquisition is throttled.
     if (nowSeconds >= nextTargetSearchAt || enemies.length !== searchedEnemyCount ||
-        enemyType !== searchedEnemyType || campName !== searchedCampName || attackRange() !== searchedRange ||
+        enemyType !== searchedEnemyType || campName !== searchedCampName || attackRange() !== searchedRange || priority !== searchedPriority ||
         mapBoss !== searchedBoss || bossAlive !== searchedBossAlive ||
         (retainedTarget && !targetIsEligible(retainedTarget, enemyType, campName, mapBoss))) {
-      retainedTarget = findAttackTarget(enemyType, campName, mapBoss);
+      if (priority !== searchedPriority) retainedTarget = null;
+      retainedTarget = findAttackTarget(enemyType, campName, mapBoss, priority);
+      searchedPriority = priority;
       nextTargetSearchAt = nowSeconds + TARGET_SEARCH_INTERVAL_SECONDS;
       searchedEnemyCount = enemies.length;
       searchedEnemyType = enemyType;

@@ -436,3 +436,25 @@ describe("autofarm against a ranged enemy with researched attack range", () => {
     expect(standoff.stop).toBeCloseTo(75 * .78 + 50 + 16);
   });
 });
+
+describe('autofarm target priority', () => {
+  it('walks toward the most wounded enemy when Lowest HP is chosen, and remembers the choice', () => {
+    const s = setup();
+    const near = s.add('Bramble', 900, 500);   // to the right
+    const wounded = s.add('Bramble', 100, 500); // to the left
+    wounded.hp = 1;
+    expect(near.hp).toBeGreaterThan(1);
+    s.farm.start('Bramble');
+    expect(s.tick().x).toBeGreaterThan(0);
+    const values = new Map<string, string>();
+    const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } };
+    const farm = createAutoFarmController({ ...s, mapId: () => 'forest', unavailable: () => null, paused: () => false,
+      speed: () => s.player.speed, obstacles: () => [], equippedWeapon: () => 'starter_bow', priorityStorage: () => storage });
+    farm.setPriority('lowest');
+    farm.start('Bramble');
+    expect(farm.movement(idle, 1 / 60).x).toBeLessThan(0);
+    const reloaded = createAutoFarmController({ ...s, mapId: () => 'forest', unavailable: () => null, paused: () => false,
+      speed: () => s.player.speed, obstacles: () => [], priorityStorage: () => storage });
+    expect(reloaded.priority()).toBe('lowest');
+  });
+});
