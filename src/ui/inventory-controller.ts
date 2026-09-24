@@ -16,6 +16,7 @@ import {
 import { gemSpendConfirmation } from "./gem-spend-confirmation";
 import { gameConfirm, type ConfirmPrompt, type ConfirmRequest } from "./confirm-dialog";
 import { isSkillBow, type BowSkillRoll } from "../../shared/bow-skills";
+import { createInventoryDeleteMode } from "./inventory-delete-mode";
 
 type InventoryLocation = EquipmentSlot | "BAG" | "";
 type SelectableInventory = InventoryState & { selectedItemId: string; selectedItemLocation?: InventoryLocation };
@@ -115,6 +116,20 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   }
   const confirmGemSpend = dependencies.confirmGemSpend ?? gameConfirm;
   const confirmDestroy = dependencies.confirmDestroy ?? gameConfirm;
+  const equipBestButton = filters.bar.querySelector<HTMLElement>(".inventory-equip-best");
+  const deleteMode = createInventoryDeleteMode({
+    canDelete: canDestroyEquipment,
+    keptCopyIds: itemId => keptCopiesOf(itemId).map(copy => copy.id),
+    destroyEquipment: dependencies.destroyEquipment,
+    destroyEquipmentCopy: dependencies.destroyEquipmentCopy,
+    confirm: request => ask(confirmDestroy, request),
+    showMessage: dependencies.showMessage,
+    onDeleted: () => { clearInventorySelection(dependencies.inventory); render(); },
+    // Equip best makes way for Cancel and Delete while picking.
+    onModeChange: active => { if (equipBestButton) equipBestButton.hidden = active || mode === "COSMETICS"; },
+    panel,
+  });
+  equipBestButton?.before(deleteMode.element);
 
   const equipmentElements: Record<EquipmentSlot, HTMLElement> = {
     HEAD: equippedHead,
@@ -149,6 +164,11 @@ export function createInventoryController(dependencies: InventoryDependencies) {
 
   /** `copyId` 0n is the item's first copy: the bag entry, or whatever its slot holds. */
   function inspect(itemId: string, location: Exclude<InventoryLocation, "">, copyId = 0n) {
+    // In delete mode a bag tap picks the item; equipped gear cannot be picked.
+    if (deleteMode.active()) {
+      if (location === "BAG") deleteMode.pick(itemId, copyId);
+      return;
+    }
     clearInventorySelection(dependencies.inventory);
     const item = itemDefinition(itemId);
     if (!item) return;
@@ -282,6 +302,8 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     const cosmeticsActive = mode === "COSMETICS";
     cosmeticsNote.hidden = !cosmeticsActive;
     filters.setCosmetics(cosmeticsActive);
+    deleteMode.element.hidden = cosmeticsActive;
+    if (equipBestButton && deleteMode.active()) equipBestButton.hidden = true;
     equipmentTab.classList.toggle("is-active", !cosmeticsActive);
     equipmentTab.setAttribute("aria-selected", String(!cosmeticsActive));
     equipmentTab.tabIndex = cosmeticsActive ? -1 : 0;
@@ -310,6 +332,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
           : () => { void unlockNextSlot(); },
       },
     );
+    deleteMode.decorate(items);
     syncSlotSizes();
   }
 
@@ -370,6 +393,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   equippedFeet.addEventListener("click", () => clickEquipment("FEET", itemInSlot("FEET")));
   const setMode = (nextMode: InventoryMode) => {
     if (mode === nextMode) return;
+    deleteMode.exit();
     mode = nextMode;
     clearInventorySelection(dependencies.inventory);
     render();
@@ -391,6 +415,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     render,
     prepareOpen: () => {
       dependencies.itemInspection.close();
+      deleteMode.exit();
       clearInventorySelection(dependencies.inventory);
     },
     mode: () => mode,

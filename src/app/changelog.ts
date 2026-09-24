@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.806": [
+    "Delete several items at once: tap the trash button in the inventory, pick items, then Delete.",
+  ],
   "0.805": [
     "Item windows list a bow's skills without the damage total.",
     "The leaderboard's prestige picker is a dropdown under the rankings.",
@@ -2375,6 +2378,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.806": "2026-09-23",
   "0.805": "2026-09-23",
   "0.804": "2026-09-23",
   "0.803": "2026-09-23",
