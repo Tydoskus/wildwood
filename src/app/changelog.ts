@@ -1,4 +1,13 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.798": [
+    "Utility research adds Attack Range, up to +50 range over five ranks, without zooming the camera out.",
+    "Unlock an owned item's look as a permanent cosmetic for 10 Gems and keep the item.",
+    "Black Boots now give +25 movement speed at all times.",
+    "Every kill earns one gem per 1,200 kills, whether you fight yourself or use Auto Farm.",
+    "Auto Farm no longer stutters when fighting ranged enemies.",
+    "Returning players stay signed in more reliably and get fewer email sign-in links.",
+    "Smoother frame rate while farming quickly and during the Gloomroot fight.",
+  ],
   "0.797": [
     "Stat reward popups remain visible while Developer Tools is open.",
     "The saved map stat reward boosts are reflected in Balance Lab.",
@@ -2320,6 +2329,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.798": "2026-09-23",
   "0.797": "2026-09-23",
   "0.796": "2026-09-23",
   "0.795": "2026-09-23",
