@@ -671,7 +671,10 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     /**
      * A completed tier is auto-granted. Poll each UI frame so the badge and
      * completion card still appear while gameplay is paused by a panel.
-     * Starting another upgrade acknowledges the badge.
+     * The badge means a bench is free to start the next tier, so it shows only
+     * while one of the player's unlocked benches is idle; once every bench is
+     * busy again, however the next upgrade was started (this tab, another tab
+     * or device), the badge is acknowledged.
      */
     finishedUpgradeWaiting(connected = true) {
       loadSnapshot();
@@ -695,6 +698,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
           dependencies.slotTier(job.itemId) >= job.targetLevel) continue;
         tracked.set(slot, job);
       }
+      if (finishedWaiting && UPGRADE_SLOTS.every((slot) => !isSlotUnlocked(slot) || current.has(slot))) rememberFinished(false);
       saveSnapshot();
       return finishedWaiting;
     },

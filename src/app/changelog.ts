@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.807": [
+    "The Inventory red dot only shows while an upgrade bench is free.",
+  ],
   "0.806": [
     "Delete several items at once: tap the trash button in the inventory, pick items, then Delete.",
   ],
@@ -2378,6 +2381,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.807": "2026-09-23",
   "0.806": "2026-09-23",
   "0.805": "2026-09-23",
   "0.804": "2026-09-23",

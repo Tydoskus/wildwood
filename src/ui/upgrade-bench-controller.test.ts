@@ -226,7 +226,7 @@ describe("finished upgrade notification", () => {
     expect(controller.finishedUpgradeWaiting()).toBe(false);
   });
 
-  it("offers slot three for 200 Gems only after slot two, then clears the dot when all three run", async () => {
+  it("offers slot three for 200 Gems only after slot two, and shows no dot while every unlocked slot runs", async () => {
     const names = ["inventory", "slot", "slotTwo", "slotThree", "action", "speedUp", "back", "closePicker"];
     const others = ["panel", "prompt", "statGain", "timer", "picker", "pickerItems"];
     const { document } = parseHTML(`<html><body>${names.map((name) => `<button id="${name}"></button>`).join("")}${others.map((name) => `<div id="${name}"></div>`).join("")}</body></html>`);
@@ -256,7 +256,8 @@ describe("finished upgrade notification", () => {
     expect(element("slotThree").hidden).toBe(false);
     expect(element("slotThree").getAttribute("aria-label")).toContain("200 Gems");
     controller.observeUpgradeTier("CHEST", 1);
-    expect(controller.finishedUpgradeWaiting()).toBe(true);
+    // Both unlocked slots are running and slot three is not bought: nothing to start, so no dot.
+    expect(controller.finishedUpgradeWaiting()).toBe(false);
     element("slotThree").click();
     await vi.waitFor(() => expect(unlockThirdSlot).toHaveBeenCalledOnce());
     expect(confirmUnlock).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining("200 Gems") }));
@@ -265,5 +266,37 @@ describe("finished upgrade notification", () => {
     element("action").click();
     await vi.waitFor(() => expect(startUpgrade).toHaveBeenCalledWith(3, "CHEST", expect.anything()));
     expect(controller.finishedUpgradeWaiting()).toBe(false);
+  });
+
+  it("drops a remembered dot once the player's only bench is busy again, however it was started", () => {
+    const names = ["inventory", "slot", "slotTwo", "slotThree", "action", "speedUp", "back", "closePicker"];
+    const others = ["panel", "prompt", "statGain", "timer", "picker", "pickerItems"];
+    const { document } = parseHTML(`<html><body>${names.map((name) => `<button id="${name}"></button>`).join("")}${others.map((name) => `<div id="${name}"></div>`).join("")}</body></html>`);
+    vi.stubGlobal("document", document);
+    const values = new Map<string, string>([["wildstat-upgrade-finished:player", JSON.stringify({ waiting: true, jobs: [] })]]);
+    const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } };
+    let active: ActiveItemUpgrade[] = [];
+    let secondUnlocked = false;
+    const controller = createUpgradeBenchController(Object.fromEntries([...names, ...others].map((name) => [name, document.getElementById(name)!])) as never, {
+      activeUpgrades: () => active, slotTier: () => 0, nowMs: () => 100, localIdentity: () => "player", storage,
+      secondSlotUnlocked: () => secondUnlocked, thirdSlotUnlocked: () => false,
+    } as never);
+    // A finish from an earlier session is still waiting and the bench is free.
+    expect(controller.finishedUpgradeWaiting()).toBe(true);
+    // The next tier was started from another tab: the one bench is busy, so the dot goes, for good.
+    active = [job(1, 5_000, "HEAD")];
+    expect(controller.finishedUpgradeWaiting()).toBe(false);
+    expect(JSON.parse(values.get("wildstat-upgrade-finished:player")!).waiting).toBe(false);
+    active = [];
+    expect(controller.finishedUpgradeWaiting()).toBe(false);
+    // With a second bench bought, one running job leaves a bench free.
+    const other = createUpgradeBenchController(Object.fromEntries([...names, ...others].map((name) => [name, document.getElementById(name)!])) as never, {
+      activeUpgrades: () => active, slotTier: () => 0, nowMs: () => 100, localIdentity: () => "other", storage,
+      secondSlotUnlocked: () => secondUnlocked, thirdSlotUnlocked: () => false,
+    } as never);
+    values.set("wildstat-upgrade-finished:other", JSON.stringify({ waiting: true, jobs: [] }));
+    secondUnlocked = true;
+    active = [job(1, 5_000, "HEAD")];
+    expect(other.finishedUpgradeWaiting()).toBe(true);
   });
 });
