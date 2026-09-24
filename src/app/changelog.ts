@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.805": [
+    "Item windows list a bow's skills without the damage total.",
+  ],
   "0.804": [
     "Duplicate drops keep the better skill roll automatically (switch in the Loot Filter).",
     "Better gear equips itself as it drops or unlocks (switch in the Loot Filter).",
@@ -2371,6 +2374,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.805": "2026-09-23",
   "0.804": "2026-09-23",
   "0.803": "2026-09-23",
   "0.802": "2026-09-23",

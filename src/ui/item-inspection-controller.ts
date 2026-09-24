@@ -7,7 +7,7 @@ import {
   itemStats,
   normalizeItemUpgradeLevel,
 } from "../../shared/items";
-import { bowSkillLines, bowSkillScoreLine, hasBowSkills, type BowSkillRoll } from "../../shared/bow-skills";
+import { bowSkillLines, type BowSkillRoll } from "../../shared/bow-skills";
 
 export type ItemInspectionAction = {
   label: string;
@@ -129,13 +129,6 @@ export function createItemInspectionController(elements: ItemInspectionElements)
       const value = document.createElement("span");
       value.textContent = line;
       value.dataset.statKind = "skill";
-      stats.append(value);
-    }
-    // What those skills add to an arrow, the number the copies are compared by.
-    if (request.ownItem && hasBowSkills(roll)) {
-      const value = document.createElement("span");
-      value.textContent = bowSkillScoreLine(roll);
-      value.dataset.statKind = "skill-score";
       stats.append(value);
     }
     copy.append(stats);

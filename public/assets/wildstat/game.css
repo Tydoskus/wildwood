@@ -643,7 +643,6 @@
   .item-inspection-stats [data-stat-kind="health"] { color: #69e56f; }
   .item-inspection-stats [data-stat-kind="armor"] { color: var(--stat-armor); }
   .item-inspection-stats [data-stat-kind="regen"] { color: var(--stat-regen); }
-  .item-inspection-stats [data-stat-kind="skill-score"] { color: #ff8872; }
   .item-inspection-actions { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr); justify-content: center; gap: 8px; width: 100%; margin-top: 6px; }
   .item-inspection-window > .window-back-footer { padding: 2px 16px 14px; min-height: 60px; }
   .item-inspection-window .item-inspection-back { width: 100%; }

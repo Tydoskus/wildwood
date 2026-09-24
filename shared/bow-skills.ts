@@ -160,8 +160,8 @@ export const RICOCHET_SCORE_WEIGHT = RICOCHET_MAX_BOUNCES * RICOCHET_DAMAGE_SHAR
 /**
  * Expected extra damage per arrow from a roll, in percent: 7.5 means an arrow
  * from this bow is worth 7.5% more than one with no skills. It decides which
- * copy of a bow is better (Auto keep best, Equip best, auto equip) and is what
- * the item windows show. No roll, or a malformed one, scores 0.
+ * copy of a bow is better (Auto keep best, Equip best, auto equip). No roll,
+ * or a malformed one, scores 0.
  */
 export function bowSkillScore(roll: Partial<BowSkillRoll> | null | undefined) {
   const score = bowSkillChance(roll, "arrowStorm") * 100 * ARROW_STORM_SCORE_WEIGHT
@@ -176,9 +176,4 @@ export function bowSkillScore(roll: Partial<BowSkillRoll> | null | undefined) {
 export function formatBowSkillScore(score: number) {
   const tenths = Math.round((Number.isFinite(score) ? Math.max(0, score) : 0) * 10);
   return `+${(tenths / 10).toFixed(1)}%`;
-}
-
-/** The line an item window shows with a bow's skills: "Skills: +7.5% dmg". */
-export function bowSkillScoreLine(roll: Partial<BowSkillRoll> | null | undefined) {
-  return `Skills: ${formatBowSkillScore(bowSkillScore(roll))} dmg`;
 }

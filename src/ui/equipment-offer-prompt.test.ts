@@ -59,8 +59,8 @@ it("shows the new copy's skills beside the one the player has, with the time lef
   expect(view.card.hidden).toBe(false);
   expect(view.text(".equipment-offer-name")).toBe("Iron Bow");
   expect(view.text(".equipment-offer-note")).toBe("You already have this");
-  expect(view.lines("is-yours")).toEqual(["Arrow Storm 2.4%", "Skills: +6.0% dmg"]);
-  expect(view.lines("is-new")).toEqual(["Ricochet 3.1%", "Skills: +3.7% dmg"]);
+  expect(view.lines("is-yours")).toEqual(["Arrow Storm 2.4%"]);
+  expect(view.lines("is-new")).toEqual(["Ricochet 3.1%"]);
   expect(view.text(".equipment-offer-timer")).toBe("Ignored in 5:00");
   view.setNow(61_000);
   vi.advanceTimersByTime(1_000);
@@ -71,7 +71,7 @@ it("shows the new copy's skills beside the one the player has, with the time lef
 it("says No skills for a roll without any, and compares nothing for gear without rolls", () => {
   const view = harness([bowOffer(1n, NONE), { id: 2n, itemId: "samurai_hat", roll: NONE, expiresAtMs: 301_000 }],
     { copies: [{ id: 9n, itemId: "samurai_hat" }] });
-  expect(view.lines("is-new")).toEqual(["No skills", "Skills: +0.0% dmg"]);
+  expect(view.lines("is-new")).toEqual(["No skills"]);
   expect(view.text(".equipment-offer-timer")).toBe("Ignored in 5:00 · 1 of 2");
   view.click(".equipment-offer-ignore");
   return flush().then(() => {

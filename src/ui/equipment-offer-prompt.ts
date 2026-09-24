@@ -1,4 +1,4 @@
-import { bowSkillLines, bowSkillScoreLine, formatBowSkillScore, isSkillBow, type BowSkillRoll } from "../../shared/bow-skills";
+import { bowSkillLines, formatBowSkillScore, isSkillBow, type BowSkillRoll } from "../../shared/bow-skills";
 import { itemDisplayName } from "../../shared/items";
 import { itemArtMarkup } from "../game/item-presentation";
 import type { InventoryState } from "../game/inventory";
@@ -32,10 +32,10 @@ export type EquipmentOfferPromptOptions = {
   tickMs?: number;
 };
 
-/** A roll's skills, then what they add up to, so the two sides compare at a glance. */
+/** A roll's skills, side by side with the other copy's. */
 const skillList = (roll: Partial<BowSkillRoll> | null | undefined) => {
   const lines = bowSkillLines(roll);
-  return [...(lines.length ? lines : ["No skills"]), bowSkillScoreLine(roll)];
+  return lines.length ? lines : ["No skills"];
 };
 
 /** The toast when Auto keep best replaced a bow's roll with a better one. */

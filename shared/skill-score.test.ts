@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ARROW_STORM_SCORE_WEIGHT, PIERCING_SHOT_SCORE_WEIGHT, RICOCHET_SCORE_WEIGHT,
-  bowSkillScore, bowSkillScoreLine, formatBowSkillScore,
+  bowSkillScore, formatBowSkillScore,
 } from "./bow-skills";
 import { equipComparisonPower, isEquipUpgrade, withItemEquipped, type EquipLoadout } from "./equip-best";
 import { effectivePlayerPower } from "./player-power";
@@ -35,8 +35,6 @@ describe("bow skill score", () => {
     expect(formatBowSkillScore(4.75)).toBe("+4.8%");
     expect(formatBowSkillScore(0)).toBe("+0.0%");
     expect(formatBowSkillScore(Number.NaN)).toBe("+0.0%");
-    expect(bowSkillScoreLine({ arrowStorm: 3, ricochet: 0, piercingShot: 0 })).toBe("Skills: +7.5% dmg");
-    expect(bowSkillScoreLine(null)).toBe("Skills: +0.0% dmg");
   });
 });
 
