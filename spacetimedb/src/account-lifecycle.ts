@@ -24,6 +24,7 @@ import { mergeAccountReactions, removeMessageReactions } from "./chat-reactions"
 import { mergeItemGifts, removeItemGifts } from "./item-gifts";
 import { mergeMailboxReceipts, removeMailboxReceipts } from "./mailbox";
 import { mergeOnboarding } from "./onboarding";
+import { mergeAudioSettings, removeAudioSettings } from "./audio-settings";
 import { mergeLinkedPrestige } from "./prestige-transfer";
 import { unlinkPatreon } from "./patreon";
 import { clearProceduralProgress, mergeProceduralProgress } from "./procedural-maps";
@@ -196,6 +197,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
     mergeItemGifts(ctx, link.guest, ctx.sender);
     mergeMailboxReceipts(ctx, link.guest, ctx.sender);
     mergeOnboarding(ctx, link.guest, ctx.sender);
+    mergeAudioSettings(ctx, link.guest, ctx.sender);
     const guestBalance = ctx.db.playerBalanceVersion.identity.find(link.guest);
     const guestBalanceVersion = guestBalance?.version ?? 0;
     const guestAttackRate = guestBalanceVersion >= 1 ? guestProgress.attackRate : guestProgress.attackRate * 2;
@@ -732,6 +734,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.bossDefeatWindow.identity.find(identity)) ctx.db.bossDefeatWindow.identity.delete(identity);
     if (ctx.db.bossMapDefeatWindow.identity.find(identity)) ctx.db.bossMapDefeatWindow.identity.delete(identity);
     if (ctx.db.playerMultiplayerPreference.identity.find(identity)) ctx.db.playerMultiplayerPreference.identity.delete(identity);
+    removeAudioSettings(ctx, identity);
     for (const cursor of ctx.db.regularEnemyLootCursor.identity.filter(identity)) ctx.db.regularEnemyLootCursor.key.delete(cursor.key);
     if (ctx.db.playerOnboarding.identity.find(identity)) ctx.db.playerOnboarding.identity.delete(identity);
     if (ctx.db.playerMapBalance.identity.find(identity)) ctx.db.playerMapBalance.identity.delete(identity);
@@ -835,6 +838,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.bossDefeatWindow.identity.find(identity)) ctx.db.bossDefeatWindow.identity.delete(identity);
     if (ctx.db.bossMapDefeatWindow.identity.find(identity)) ctx.db.bossMapDefeatWindow.identity.delete(identity);
     if (ctx.db.playerMultiplayerPreference.identity.find(identity)) ctx.db.playerMultiplayerPreference.identity.delete(identity);
+    removeAudioSettings(ctx, identity);
     for (const cursor of ctx.db.regularEnemyLootCursor.identity.filter(identity)) ctx.db.regularEnemyLootCursor.key.delete(cursor.key);
     if (ctx.db.playerOnboarding.identity.find(identity)) ctx.db.playerOnboarding.identity.delete(identity);
     if (ctx.db.playerMapBalance.identity.find(identity)) ctx.db.playerMapBalance.identity.delete(identity);

@@ -123,6 +123,7 @@ import SeedTemporaryGuildReducer from "../seed_temporary_guild_reducer";
 import SendChatMessageReducer from "../send_chat_message_reducer";
 import SendChatReplyReducer from "../send_chat_reply_reducer";
 import SendSocialMessageReducer from "../send_social_message_reducer";
+import SetAudioSettingsReducer from "../set_audio_settings_reducer";
 import SetAvatarFrameReducer from "../set_avatar_frame_reducer";
 import SetChatMessageReactionReducer from "../set_chat_message_reaction_reducer";
 import SetDeveloperNameTagReducer from "../set_developer_name_tag_reducer";
@@ -272,6 +273,7 @@ export type SeedTemporaryGuildParams = __Infer<typeof SeedTemporaryGuildReducer>
 export type SendChatMessageParams = __Infer<typeof SendChatMessageReducer>;
 export type SendChatReplyParams = __Infer<typeof SendChatReplyReducer>;
 export type SendSocialMessageParams = __Infer<typeof SendSocialMessageReducer>;
+export type SetAudioSettingsParams = __Infer<typeof SetAudioSettingsReducer>;
 export type SetAvatarFrameParams = __Infer<typeof SetAvatarFrameReducer>;
 export type SetChatMessageReactionParams = __Infer<typeof SetChatMessageReactionReducer>;
 export type SetDeveloperNameTagParams = __Infer<typeof SetDeveloperNameTagReducer>;

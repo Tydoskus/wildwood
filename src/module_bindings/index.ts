@@ -151,6 +151,7 @@ import SeedTemporaryGuildReducer from "./seed_temporary_guild_reducer";
 import SendChatMessageReducer from "./send_chat_message_reducer";
 import SendChatReplyReducer from "./send_chat_reply_reducer";
 import SendSocialMessageReducer from "./send_social_message_reducer";
+import SetAudioSettingsReducer from "./set_audio_settings_reducer";
 import SetAvatarFrameReducer from "./set_avatar_frame_reducer";
 import SetChatMessageReactionReducer from "./set_chat_message_reaction_reducer";
 import SetDeveloperNameTagReducer from "./set_developer_name_tag_reducer";
@@ -247,6 +248,7 @@ import MagmaliskBossRow from "./magmalisk_boss_table";
 import MagmaliskResultRow from "./magmalisk_result_table";
 import MiremawBossRow from "./miremaw_boss_table";
 import MiremawResultRow from "./miremaw_result_table";
+import MyAudioSettingsRow from "./my_audio_settings_table";
 import MyBalanceApologyNoticeRow from "./my_balance_apology_notice_table";
 import MyCutsceneHistoryRow from "./my_cutscene_history_table";
 import MyDailyGemBonusRow from "./my_daily_gem_bonus_table";
@@ -1110,6 +1112,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, LatestChatMessagesWithReactionsRow),
+  myAudioSettings: __table({
+    name: 'my_audio_settings',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyAudioSettingsRow),
   myBalanceApologyNotice: __table({
     name: 'my_balance_apology_notice',
     indexes: [
@@ -1385,6 +1394,7 @@ const reducersSchema = __reducers(
   __reducerSchema("send_chat_message", SendChatMessageReducer),
   __reducerSchema("send_chat_reply", SendChatReplyReducer),
   __reducerSchema("send_social_message", SendSocialMessageReducer),
+  __reducerSchema("set_audio_settings", SetAudioSettingsReducer),
   __reducerSchema("set_avatar_frame", SetAvatarFrameReducer),
   __reducerSchema("set_chat_message_reaction", SetChatMessageReactionReducer),
   __reducerSchema("set_developer_name_tag", SetDeveloperNameTagReducer),

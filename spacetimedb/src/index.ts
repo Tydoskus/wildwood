@@ -19,6 +19,7 @@ import { grantVirtualPlayerConsent, revokeVirtualPlayerConsent } from "./virtual
 import { applyEnemyRewards } from "../../shared/enemy-defeats";
 import { offlineProgressTables, beginOfflineWindow, grantOfflineProgress, acknowledgeOfflineProgress, setSimulatedTimeAway } from "./offline-progress";
 import { playerOfflinePreference, writeOfflinePreference } from "./offline-preference";
+import { playerAudioSetting, writeAudioSettings } from "./audio-settings";
 import { ERASURE_ROW_BUDGET, eraseIdentityRows, linkedIdentities, requireErasureConfirmation } from "./account-erasure";
 import { LOADOUT_FIELDS } from "../../shared/combat-progress";
 import { chatHeartAllowance, chatReactionCooldown, chatReactionSummary, chatReactionUnlock, playerChatHearts, reactionCountsFor, chatReaction, readChatReactions, setChatReaction, grantGemHeartUnlock, removeMessageReactions, removeAccountReactions } from "./chat-reactions";
@@ -1746,7 +1747,7 @@ const patreonSweepSchedule = table(
 );
 const spacetimedb = schema({
   ...offlineProgressTables,
-  playerOfflinePreference,
+  playerOfflinePreference, playerAudioSetting,
   defeatSessionRestriction,
   mapBalanceVersion, mapBalanceHead, playerMapBalance,
   ...moderationTables,
@@ -5661,6 +5662,17 @@ export const myOfflinePreference = spacetimedb.view(
 export const setOfflineProgressEnabled = spacetimedb.reducer({ enabled: t.bool() }, (ctx, { enabled }) => {
   requireControllingPlayer(ctx);
   writeOfflinePreference(ctx, enabled);
+});
+
+export const myAudioSettings = spacetimedb.view(
+  { name: "my_audio_settings", public: true }, t.array(playerAudioSetting.rowType),
+  ctx => { const row = ctx.db.playerAudioSetting.identity.find(ctx.sender); return row ? [row] : []; },
+);
+
+/** The account's volumes. Any tab with a session may save them, in or out of the world. */
+export const setAudioSettings = spacetimedb.reducer({ musicVolume: t.f32(), sfxVolume: t.f32() }, (ctx, volumes) => {
+  requireSupportedSessionProtocol(ctx);
+  writeAudioSettings(ctx, volumes);
 });
 
 /**

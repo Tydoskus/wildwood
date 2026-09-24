@@ -64,7 +64,12 @@ import { describe, expect, it } from "vitest";
 // 6_780: the third paid upgrade slot adds a private unlock table, an
 // identity-scoped view and a reducer declaration. The separate table keeps
 // the live bench row unchanged so older clients remain connected.
-const MAX_LINES = 6_780;
+// 6_786: account-wide music and sound-effect volumes add one table
+// registration, the caller-scoped my_audio_settings view and the
+// set_audio_settings reducer declaration. Validation, the write-on-change
+// rule, the guest merge and removal live in audio-settings.ts; the raise is
+// the schema surface alone.
+const MAX_LINES = 6_786;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

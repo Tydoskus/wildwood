@@ -1259,6 +1259,9 @@ export const MotionDetailFrameSchedule = __t.object("MotionDetailFrameSchedule",
 });
 export type MotionDetailFrameSchedule = __Infer<typeof MotionDetailFrameSchedule>;
 
+export const MyAudioSettings = __t.object("MyAudioSettings", {});
+export type MyAudioSettings = __Infer<typeof MyAudioSettings>;
+
 export const MyBalanceApologyNotice = __t.object("MyBalanceApologyNotice", {});
 export type MyBalanceApologyNotice = __Infer<typeof MyBalanceApologyNotice>;
 
@@ -1473,6 +1476,14 @@ export const PlayerAccountStatus = __t.object("PlayerAccountStatus", {
   isGuest: __t.bool(),
 });
 export type PlayerAccountStatus = __Infer<typeof PlayerAccountStatus>;
+
+export const PlayerAudioSetting = __t.object("PlayerAudioSetting", {
+  identity: __t.identity(),
+  musicVolume: __t.f32(),
+  sfxVolume: __t.f32(),
+  updatedAt: __t.timestamp(),
+});
+export type PlayerAudioSetting = __Infer<typeof PlayerAudioSetting>;
 
 export const PlayerBalanceVersion = __t.object("PlayerBalanceVersion", {
   identity: __t.identity(),
