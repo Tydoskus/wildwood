@@ -90,7 +90,10 @@ import { describe, expect, it } from "vitest";
 // auto equip factory and its three call sites (loot, boss rewards, prestige).
 // save_player_progress's loadout rules and the saved-hand helpers moved out to
 // loadout.ts, where auto equip checks the same rules, which paid for all of it.
-const MAX_LINES = 6_787;
+// 6_788: dev_grant_equipment's note that it only equips a weapon the player's
+// maps unlock. A locked weapon in hand read as no weapon, which the grant
+// left behind; the blank-hand rule itself lives in loadout.ts.
+const MAX_LINES = 6_788;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

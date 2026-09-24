@@ -4,7 +4,7 @@ import type { InventoryState } from "../game/inventory";
 import { applyPlayerMaxHealthMultiplierBonus } from "../game/runtime/player-health";
 import type { PlayerState } from "../game/runtime/types";
 import type { ServerEquip } from "../coop/services/progression-service";
-import type { ServerLoadoutChange } from "../coop/services/server-loadout";
+import { EQUIPPED_FIELDS, applyServerLoadout, type ServerLoadoutChange } from "../coop/services/server-loadout";
 import { itemInspectionButtonLabel } from "./item-inspection-controller";
 
 /** What the feedback needs from the coop session; an older API simply never calls it. */
@@ -38,13 +38,10 @@ export function createAutoEquipFeedback(options: {
   showMessage: (message: string, color: string) => void;
 }) {
   options.coop?.setOnServerEquip?.(({ changes, progress, live }) => {
-    let changed = false;
-    for (const { field, itemId } of changes) {
-      if (options.inventory[field] === itemId) continue;
-      options.inventory[field] = itemId;
-      changed = true;
-    }
-    if (!changed) return;
+    const next = applyServerLoadout(options.inventory, changes);
+    const changed = EQUIPPED_FIELDS.filter(field => options.inventory[field] !== next[field]);
+    if (!changed.length) return;
+    for (const field of changed) options.inventory[field] = next[field];
     applyPlayerMaxHealthMultiplierBonus(options.player, options.healthMultiplierBonus());
     options.renderInventory();
     const message = live ? autoEquipMessage(changes, progress) : null;

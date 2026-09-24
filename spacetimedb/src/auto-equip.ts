@@ -14,6 +14,8 @@ const LOADOUT_FIELDS = ["equippedHead", "equippedChest", "equippedFeet", "equipp
 
 export const sameLoadout = (a: EquipLoadout, b: EquipLoadout) => LOADOUT_FIELDS.every(field => a[field] === b[field]);
 
+const slotField = (itemId: string) => EQUIP_BEST_SLOTS.find(([slot]) => slot === itemDefinition(itemId)?.slot)![1];
+
 /** Whether anything could have become newly equippable: the bag (forest counts included) or a map unlock changed. */
 const gainedGearOrMaps = (before: any, after: any) => before.inventoryJson !== after.inventoryJson
   || before.bowCount !== after.bowCount || before.woodenArmorCount !== after.woodenArmorCount
@@ -60,7 +62,12 @@ export function createAutoEquip(deps: {
     if (!isEquipUpgrade(current, itemId, comparisonPower(ctx, progress.identity))) return progress;
     const allowed = allowedLoadout(withItemEquipped(current, itemId), inventory);
     if (!Object.values(allowed).includes(itemId)) return progress;
-    return { ...progress, ...allowed };
+    // Only the item's own slot is written. The comparison reads locked gear as
+    // an empty slot, but writing that emptiness into another slot would strip
+    // it: a locked bow in hand became a blank hand when a helmet went on.
+    return itemDefinition(itemId)?.slot === "HAND"
+      ? { ...progress, equippedRightHand: allowed.equippedRightHand, equippedLeftHand: allowed.equippedLeftHand }
+      : { ...progress, [slotField(itemId)]: itemId };
   }
 
   /**

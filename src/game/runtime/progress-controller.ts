@@ -1,4 +1,5 @@
-import { canonicalItemId, itemDefinition } from "../../../shared/items";
+import { canonicalItemId, itemDefinition, STARTER_ITEM_IDS } from "../../../shared/items";
+import { fillEmptyHand } from "../../coop/services/server-loadout";
 import { cosmeticUnlocks } from "../../../shared/cosmetic-conversion";
 import { equipmentMapRequirement, EQUIPMENT_ACCESS_FIELDS, withoutLockedEquipment } from "../../../shared/equipment-access";
 import { BASE_ATTACK_RANGE, BASE_PROJECTILE_SPEED } from "../constants";
@@ -62,7 +63,10 @@ export function createProgressController(dependencies: ProgressDependencies) {
       let parsed: unknown;
       try { parsed = JSON.parse(saved.inventoryJson); } catch { return; }
       if (!Array.isArray(parsed)) return;
-      ownedItems = parsed.map(canonicalItemId).filter(item => item !== undefined);
+      const listed = parsed.map(canonicalItemId).filter(item => item !== undefined);
+      // Starter items are owned whether or not the row lists them, as on the
+      // server; a row without the stone must not take it out of the bag.
+      ownedItems = [...STARTER_ITEM_IDS.filter(item => !listed.includes(item)), ...listed];
       ownershipJson = saved.inventoryJson;
     }
     const cosmeticJson = saved.cosmeticItemsJson ?? "[]";
@@ -92,6 +96,8 @@ export function createProgressController(dependencies: ProgressDependencies) {
       if (itemDefinition(inventory[field]) && !ownedItems.includes(inventory[field]) &&
           !(field.startsWith("cosmetic") && ownedCosmetics.includes(inventory[field]))) inventory[field] = "";
     }
+    // Gear taken away or locked again must not leave the player unable to attack.
+    fillEmptyHand(inventory, inventory.itemIds, saved);
     applyPlayerMaxHealthMultiplierBonus(dependencies.player, dependencies.healthMultiplierBonus());
     dependencies.renderInventory();
   }
@@ -210,6 +216,8 @@ export function createProgressController(dependencies: ProgressDependencies) {
     inventory.cosmeticFeet = savedInventory.cosmeticFeet;
     inventory.cosmeticRightHand = savedInventory.cosmeticRightHand;
     inventory.cosmeticLeftHand = savedInventory.cosmeticLeftHand;
+    // A blank saved hand is the best usable weapon, as the server reads it: never no weapon.
+    fillEmptyHand(inventory, inventory.itemIds, source);
     setPlayerBaseMaxHealth(player, player.baseMaxHp, dependencies.healthMultiplierBonus(), true);
     applyMovementSpeed(source, false);
     inventory.selectedItemId = "";

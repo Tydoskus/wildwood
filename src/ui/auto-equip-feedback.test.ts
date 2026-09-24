@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { autoEquipMessage, createAutoEquipFeedback } from "./auto-equip-feedback";
-import { serverLoadoutChanges, withServerLoadout } from "../coop/services/server-loadout";
+import { applyServerLoadout, fillEmptyHand, serverLoadoutChanges, withServerLoadout } from "../coop/services/server-loadout";
 import type { ServerEquip } from "../coop/services/progression-service";
 import type { PlayerProgress, ProgressSave } from "../coop/services/progress";
 import type { InventoryState } from "../game/inventory";
@@ -10,7 +10,9 @@ import type { PlayerState } from "../game/runtime/types";
 const loadout = (rightHand: string, extra: Record<string, string> = {}) => ({
   equippedHead: "", equippedChest: "", equippedFeet: "", equippedRightHand: rightHand, equippedLeftHand: "", ...extra,
 });
-const progress = (rightHand: string, extra: Record<string, unknown> = {}) => ({ ...loadout(rightHand), ...extra }) as unknown as PlayerProgress;
+const ALL_MAPS = Object.fromEntries(CAMPAIGN_UNLOCK_FIELDS.map(field => [field, true]));
+const progress = (rightHand: string, extra: Record<string, unknown> = {}) =>
+  ({ ...loadout(rightHand), ...ALL_MAPS, ...extra }) as unknown as PlayerProgress;
 const save = (rightHand: string, extra: Record<string, string> = {}) => loadout(rightHand, extra) as unknown as ProgressSave;
 
 it("takes a slot the server changed while the local save still held the old gear", () => {
@@ -26,6 +28,30 @@ it("takes a slot the server changed while the local save still held the old gear
   const changes = serverLoadoutChanges(progress("iron_bow"), progress("crystal_bow"), save("iron_bow"));
   expect(withServerLoadout(save("iron_bow", { equippedHead: "wood_full_helm" }), changes))
     .toMatchObject({ equippedRightHand: "crystal_bow", equippedHead: "wood_full_helm" });
+});
+
+it("never takes in a blank hand, locked gear or gear in the wrong slot: the server only puts gear on", () => {
+  // A blank hand in the row is an ordinary saved state, with or without a locked bow in the bag.
+  expect(serverLoadoutChanges(progress("starter_stone"), progress(""), null)).toEqual([]);
+  expect(serverLoadoutChanges(progress("starter_stone"), progress("", { desertUnlocked: false, inventoryJson: '["iron_bow"]' }), save("starter_stone"))).toEqual([]);
+  // A bow whose map is not reached, and a bow in the head slot.
+  expect(serverLoadoutChanges(progress("starter_stone"), progress("iron_bow", { desertUnlocked: false }), null)).toEqual([]);
+  expect(serverLoadoutChanges(progress("starter_stone", { equippedHead: "" }), progress("starter_stone", { equippedHead: "iron_bow" }), null)).toEqual([]);
+});
+
+it("puts a weapon in one hand the way the inventory does, and fills an empty hand from the bag", () => {
+  const changes = [{ field: "equippedRightHand" as const, itemId: "crystal_bow", previous: "" }];
+  expect(applyServerLoadout(loadout("", { equippedLeftHand: "iron_bow" }), changes))
+    .toMatchObject({ equippedRightHand: "crystal_bow", equippedLeftHand: "" });
+  const blank = loadout("");
+  expect(fillEmptyHand(blank, ["starter_stone", "iron_bow"], {})).toBe("starter_stone");
+  expect(blank.equippedRightHand).toBe("starter_stone");
+  // With no stone listed at all it is still the stone: every player owns it.
+  expect(fillEmptyHand(loadout(""), ["iron_bow"], {})).toBe("starter_stone");
+  expect(fillEmptyHand(loadout(""), ["starter_stone", "starter_bow", "iron_bow"], { desertUnlocked: true })).toBe("iron_bow");
+  // A locked weapon in hand counts as empty; a usable one is left alone.
+  expect(fillEmptyHand(loadout("iron_bow"), ["starter_stone", "iron_bow"], {})).toBe("starter_stone");
+  expect(fillEmptyHand(loadout("starter_bow"), ["starter_stone", "starter_bow"], {})).toBe("");
 });
 
 it("names the upgrade, the weapon first, and says nothing for a prestige swap or an emptied slot", () => {

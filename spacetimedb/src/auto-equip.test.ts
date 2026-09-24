@@ -1,3 +1,4 @@
+import { Identity } from "spacetimedb";
 import { expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { fillDefeatBudget, reportEnemy } from "../../tests/helpers/enemy-defeat";
@@ -6,6 +7,7 @@ import { combatTimeKey } from "./enemy-defeats";
 import { publishItemDrop } from "./equipment-copies";
 import { CAMPAIGN_UNLOCK_FIELDS } from "../../shared/equipment-access";
 import { BOSS_REWARD_CLAIM_BITS } from "../../shared/rules";
+import { TERMS_VERSION } from "../../shared/legal";
 import { IRON_BOW, SAMURAI_HAT, STARTER_BOW, STARTER_STONE } from "../../shared/items";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
@@ -173,6 +175,46 @@ it("equips gear already in the bag when reaching a map unlocks it, only with Aut
     expect(progress(f).clockworkRuinsUnlocked).toBe(true);
     expect(progress(f).equippedRightHand).toBe(autoEquipBest ? "clockwork_bow" : IRON_BOW);
   }
+});
+
+const consent = (f: Fixture) =>
+  f.seed("playerLegalConsent", { identity: f.ctx.sender, termsVersion: TERMS_VERSION, ageBand: 2, acceptedAt: f.ctx.timestamp });
+
+// The blank-hand bug: a map-locked bow in hand read as "no weapon", world entry
+// wrote that "" back, auto equip copied it when another slot changed, and the
+// client took it in. The player could not attack.
+it("never writes a blank hand: world entry, auto equip and dev grants all leave a weapon", () => {
+  // World entry with a locked bow in hand and the stone in the bag.
+  const entry = crystalFixture();
+  entry.patch("playerProgress", { inventoryJson: JSON.stringify([STARTER_STONE, IRON_BOW]), equippedRightHand: IRON_BOW });
+  consent(entry);
+  entry.run(server.enterWorld, { tabId: "blank-hand" });
+  expect(progress(entry).equippedRightHand).toBe(STARTER_STONE);
+  expect(entry.db.player.identity.find(entry.ctx.sender).rightHandItem).toBe(STARTER_STONE);
+  // A usable bow in the bag is the better fallback.
+  const usable = crystalFixture();
+  usable.patch("playerProgress", { inventoryJson: JSON.stringify([STARTER_STONE, STARTER_BOW, "ion_bow"]), bowCount: 1, equippedRightHand: "" });
+  consent(usable);
+  usable.run(server.enterWorld, { tabId: "blank-hand" });
+  expect(progress(usable).equippedRightHand).toBe(STARTER_BOW);
+
+  // Auto equip putting on a helmet leaves a locked bow in hand as it was, never blank.
+  const helmet = looter({ inventoryJson: JSON.stringify([STARTER_STONE, "ion_bow"]), equippedRightHand: "ion_bow" });
+  helmet.run(server.setIgnoredDrops, { itemIds: ["slot:HAND"], ignored: true }); // only armour drops
+  reportEnemy(helmet, ENEMY, 1);
+  expect(progress(helmet).equippedHead).toBe("crystal_helmet");
+  expect(progress(helmet).equippedRightHand).toBe("ion_bow");
+  expect(helmet.db.player.identity.find(helmet.ctx.sender).rightHandItem).not.toBe("");
+
+  // A developer grant never puts a locked weapon in hand.
+  const grant = crystalFixture();
+  grant.patch("playerProgress", { inventoryJson: JSON.stringify([STARTER_STONE]), equippedRightHand: STARTER_STONE });
+  const player = grant.ctx.sender;
+  grant.ctx.sender = Identity.fromString("c200383520521c925f3cf6deafb20cd6a7d6168d1c31cb3c0ddb731c197a2d79"); // the database owner
+  grant.run(server.devGrantEquipment, { identity: player, itemId: IRON_BOW, equip: true });
+  grant.ctx.sender = player;
+  expect(progress(grant).equippedRightHand).toBe(STARTER_STONE);
+  expect(inventory(grant)).toContain(IRON_BOW);
 });
 
 /** A player who finished the campaign with top gear, ready to prestige. */
