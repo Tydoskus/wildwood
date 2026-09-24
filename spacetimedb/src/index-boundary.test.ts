@@ -111,7 +111,14 @@ import { describe, expect, it } from "vitest";
 // damage reducers are one-line stubs now, maintenance drops its already inert
 // boss regeneration call, and the factory hands out only the live kill bound
 // and clear rewards.
-const MAX_LINES = 6_489;
+// 6_501: automatic chat mutes add one import, the player_chat_mute
+// registration (on the ad reward's line), the caller-scoped my_chat_mute view,
+// the owner-gated dev_set_chat_mute reducer declaration with its note, and two
+// one-line calls in the world send path: the mute check before the cooldown and
+// the strike after a filtered message. The table, the strike and escalation
+// rules, the owner tool, the guest merge and removal live in chat-mute.ts and
+// shared/chat-mute.ts; the raise is the schema surface and those calls alone.
+const MAX_LINES = 6_501;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

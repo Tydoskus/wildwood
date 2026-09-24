@@ -101,6 +101,7 @@ import DevRepairPlayerJoinedAtReducer from "./dev_repair_player_joined_at_reduce
 import DevResetDailyGemBonusReducer from "./dev_reset_daily_gem_bonus_reducer";
 import DevRollbackPlayerProgressionReducer from "./dev_rollback_player_progression_reducer";
 import DevSetAccessAuditLabelReducer from "./dev_set_access_audit_label_reducer";
+import DevSetChatMuteReducer from "./dev_set_chat_mute_reducer";
 import DevSetEndlessTravelAccessReducer from "./dev_set_endless_travel_access_reducer";
 import DevSuspendPlayerAccountReducer from "./dev_suspend_player_account_reducer";
 import DevTeleportEndlessReducer from "./dev_teleport_endless_reducer";
@@ -259,6 +260,7 @@ import MyAdGemRewardRow from "./my_ad_gem_reward_table";
 import MyAudioSettingsRow from "./my_audio_settings_table";
 import MyBalanceApologyNoticeRow from "./my_balance_apology_notice_table";
 import MyBowSkillsRow from "./my_bow_skills_table";
+import MyChatMuteRow from "./my_chat_mute_table";
 import MyCutsceneHistoryRow from "./my_cutscene_history_table";
 import MyDailyGemBonusRow from "./my_daily_gem_bonus_table";
 import MyDefeatSessionRestrictionRow from "./my_defeat_session_restriction_table";
@@ -1153,6 +1155,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyBowSkillsRow),
+  myChatMute: __table({
+    name: 'my_chat_mute',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyChatMuteRow),
   myCutsceneHistory: __table({
     name: 'my_cutscene_history',
     indexes: [
@@ -1399,6 +1408,7 @@ const reducersSchema = __reducers(
   __reducerSchema("dev_reset_daily_gem_bonus", DevResetDailyGemBonusReducer),
   __reducerSchema("dev_rollback_player_progression", DevRollbackPlayerProgressionReducer),
   __reducerSchema("dev_set_access_audit_label", DevSetAccessAuditLabelReducer),
+  __reducerSchema("dev_set_chat_mute", DevSetChatMuteReducer),
   __reducerSchema("dev_set_endless_travel_access", DevSetEndlessTravelAccessReducer),
   __reducerSchema("dev_suspend_player_account", DevSuspendPlayerAccountReducer),
   __reducerSchema("dev_teleport_endless", DevTeleportEndlessReducer),

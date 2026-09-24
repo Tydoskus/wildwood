@@ -26,6 +26,8 @@ import { createChatUnreadTracker, formatChatUnreadCount, type ChatUnreadCounts }
 import { createChatHistory, type ChatHistoryPage } from "./chat-history";
 import { createChatChannelPicker, type ChatChannel, type ChatConversation } from "./chat-channels";
 import { createChatInputSizer } from "./chat-input-size";
+import { createChatMuteDisplay } from "./chat-mute";
+import type { ChatMuteRecord } from "../../shared/chat-mute";
 import { chatListFingerprint, createChatInputMemo, sameChatRows, setChatAttribute, setChatHidden, setChatText } from "./chat-refresh-cache";
 
 const CHAT_ENABLED_KEY = "wildwood-chat-enabled-v1";
@@ -86,6 +88,7 @@ type CoopClient = {
   loadChatHistory?: (beforeId: bigint) => Promise<ChatHistoryPage<ChatMessage>>;
   sendChatMessage?: (message: string, replyToMessageId?: bigint) => Promise<{ ok: boolean; error?: string }>;
   reportChatMessage?: (messageId: bigint, reason: ChatReportReason) => Promise<{ ok: boolean; error?: string }>;
+  chatMute?: () => ChatMuteRecord | null;
 };
 
 type ChatElements = {
@@ -269,8 +272,17 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
   let chatCooldownTimer: number | null = null;
   let layoutRecoveryTimer: number | null = null;
   let pendingReply: ChatMessageActionTarget | null = null;
+  const muteDisplay = createChatMuteDisplay({
+    input: elements.input,
+    sendButton: elements.sendButton,
+    record: () => getCoop()?.chatMute?.() ?? null,
+    visible: () => large && enabled && document.visibilityState !== "hidden",
+    onTick: () => updateChatCooldown(),
+    showMessage,
+  });
   const messageActions = createChatMessageActionsController({
     elements: elements.messageActions,
+    isMuted: () => muteDisplay.isMuted(),
     loadReactions: async target => {
       const coop = getCoop();
       if (!coop?.loadChatMessageReactions) throw new Error("Reconnect to react.");
@@ -375,6 +387,11 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
   }
 
   function updateChatCooldown() {
+    if (muteDisplay.apply()) {
+      if (chatCooldownTimer !== null) window.clearTimeout(chatCooldownTimer);
+      chatCooldownTimer = null;
+      return;
+    }
     const remaining = Math.max(0, chatCooldownUntil - Date.now());
     const active = remaining > 0;
     elements.sendButton.disabled = active || submitting;
@@ -433,6 +450,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       updateChatCooldown();
       return;
     }
+    if (muteDisplay.stale()) updateChatCooldown();
     const nextGuildContext = String(coop?.social?.currentGuild()?.id ?? "");
     if (nextGuildContext !== guildContext) {
       unread.resetGuild();
@@ -804,7 +822,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     });
     elements.form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      if (submitting) return;
+      if (submitting || muteDisplay.isMuted()) return;
       if (Date.now() < chatCooldownUntil) {
         showMessage(`CHAT READY IN ${Math.ceil((chatCooldownUntil - Date.now()) / 1000)}S`, "#ffdb84");
         return;
@@ -830,6 +848,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       const generation = ++submissionGeneration;
       const replyId = pendingReply?.id ?? 0n;
       submitting = true;
+      muteDisplay.expectStrike();
       updateChatCooldown();
       let result: { ok: boolean; error?: string } | undefined;
       try {

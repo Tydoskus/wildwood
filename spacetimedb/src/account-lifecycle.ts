@@ -28,6 +28,7 @@ import { mergeMailboxReceipts, removeMailboxReceipts } from "./mailbox";
 import { mergeOnboarding } from "./onboarding";
 import { mergeAudioSettings, removeAudioSettings } from "./audio-settings";
 import { mergeAdGemReward, removeAdGemReward } from "./ad-gem-reward";
+import { mergeChatMute, removeChatMute } from "./chat-mute";
 import { mergeLootSettings, removeLootSettings } from "./loot-settings";
 import { mergeIgnoredDrops, removeIgnoredDrops } from "./ignored-drops";
 import { mergeLinkedPrestige } from "./prestige-transfer";
@@ -200,6 +201,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
     });
     mergeGuestGemWallet(ctx, link.guest, ctx.sender, link.code);
     mergeAdGemReward(ctx, link.guest, ctx.sender);
+    mergeChatMute(ctx, link.guest, ctx.sender);
     mergeBalanceApologyNotice(ctx, link.guest, ctx.sender);
     mergeItemGifts(ctx, link.guest, ctx.sender);
     mergeBowSkills(ctx, link.guest, ctx.sender);
@@ -740,6 +742,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.playerGemWallet.identity.find(identity)) ctx.db.playerGemWallet.identity.delete(identity);
     if (ctx.db.balanceApologyNotice.identity.find(identity)) ctx.db.balanceApologyNotice.identity.delete(identity);
     removeAdGemReward(ctx, identity);
+    removeChatMute(ctx, identity);
     removeItemGifts(ctx, identity);
     removeBowSkills(ctx, identity);
     removeMailboxReceipts(ctx, identity);
@@ -848,6 +851,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.dailyGemBonus.identity.find(identity)) ctx.db.dailyGemBonus.identity.delete(identity);
     if (ctx.db.balanceApologyNotice.identity.find(identity)) ctx.db.balanceApologyNotice.identity.delete(identity);
     removeAdGemReward(ctx, identity);
+    removeChatMute(ctx, identity);
     removeItemGifts(ctx, identity);
     removeBowSkills(ctx, identity);
     removeMailboxReceipts(ctx, identity);

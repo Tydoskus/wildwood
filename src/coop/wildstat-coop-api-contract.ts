@@ -36,6 +36,7 @@ type ExpectedApiKey =
   | "claimDailyGemBonus"
   | "adGemReward"
   | "claimAdGems"
+  | "chatMute"
   | "connect"
   | "connectionDiagnostics"
   | "continueAsGuest"

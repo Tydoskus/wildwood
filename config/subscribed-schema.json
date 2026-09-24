@@ -446,6 +446,13 @@
       "ricochet",
       "piercingShot"
     ],
+    "my_chat_mute": [
+      "identity",
+      "strikeAtMicros",
+      "mutedUntilMicros",
+      "lastMuteAtMicros",
+      "muteCount"
+    ],
     "my_cutscene_history": [
       "identity",
       "seenMask",

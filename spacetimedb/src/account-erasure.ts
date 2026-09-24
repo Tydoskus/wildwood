@@ -117,6 +117,7 @@ export const ERASURE_TARGETS: readonly ErasureTarget[] = [
   { table: "playerBlock", columns: ["owner","target"], pk: "key", mode: "index", index: "byOwner" },
   { table: "playerBowSkill", columns: ["identity"], pk: "key", mode: "index", index: "identity" },
   { table: "playerChatHearts", columns: ["identity"], pk: "identity", mode: "key" },
+  { table: "playerChatMute", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerController", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerCutsceneHistory", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerEndgameRebaseBackup", columns: ["identity"], pk: "identity", mode: "key" },

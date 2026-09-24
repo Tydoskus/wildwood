@@ -54,10 +54,12 @@ type ChatMessageActionsOptions = {
   onReply: (target: ChatMessageActionTarget) => void;
   reportMessage: (messageId: bigint, reason: ChatReportReason) => Promise<{ ok: boolean; error?: string }>;
   showMessage: (text: string, color?: string) => void;
+  /** A muted account still reads every message and reaction; it cannot react or reply. */
+  isMuted?: () => boolean;
 };
 
-export function canReactToMessage(target: ChatMessageActionTarget, localIdentity: string) {
-  return Boolean(localIdentity && target.sender && target.sender !== localIdentity && !target.moderated);
+export function canReactToMessage(target: ChatMessageActionTarget, localIdentity: string, muted = false) {
+  return Boolean(!muted && localIdentity && target.sender && target.sender !== localIdentity && !target.moderated);
 }
 
 export function shouldOfferMessageReport(target: ChatMessageActionTarget, localIdentity: string) {
@@ -67,14 +69,14 @@ export function shouldOfferMessageReport(target: ChatMessageActionTarget, localI
     && target.sender !== localIdentity;
 }
 
-export function messageActionAvailability(target: ChatMessageActionTarget, localIdentity: string) {
+export function messageActionAvailability(target: ChatMessageActionTarget, localIdentity: string, muted = false) {
   const isReplay = target.replayId > 0n || Boolean(target.guildReplayKey);
   return {
     watchReplay: isReplay,
     copy: !isReplay,
     original: (target.replyToMessageId ?? 0n) > 0n,
     directMessage: shouldOfferMessageReport(target, localIdentity),
-    reply: Boolean(target.senderName),
+    reply: Boolean(target.senderName) && !muted,
     report: shouldOfferMessageReport(target, localIdentity),
   };
 }
@@ -115,6 +117,7 @@ export function createChatMessageActionsController({
   onReply,
   reportMessage,
   showMessage,
+  isMuted = () => false,
 }: ChatMessageActionsOptions) {
   let selectedReactions: ChatReaction[] = [];
   let gemHeartUnlocked = false;
@@ -150,7 +153,7 @@ export function createChatMessageActionsController({
 
   function showActionMenu() {
     if (!selectedMessage) return;
-    const availability = messageActionAvailability(selectedMessage, getLocalIdentity());
+    const availability = messageActionAvailability(selectedMessage, getLocalIdentity(), isMuted());
     reportPending = false;
     selectReason(null);
     const sender = document.createElement("span");
@@ -165,7 +168,7 @@ export function createChatMessageActionsController({
     elements.preview.textContent = selectedMessage.message;
     elements.preview.scrollTop = 0;
     elements.title.parentElement!.hidden = false;
-    elements.reactions.hidden = !canReactToMessage(selectedMessage, getLocalIdentity());
+    elements.reactions.hidden = !canReactToMessage(selectedMessage, getLocalIdentity(), isMuted());
     elements.menu.hidden = false;
     elements.reportForm.hidden = true;
     elements.watchReplayButton.hidden = !availability.watchReplay;
@@ -260,7 +263,7 @@ export function createChatMessageActionsController({
   function updateReactions() {
     for (const button of elements.reactions.querySelectorAll<HTMLButtonElement>("button")) {
       button.hidden = button.dataset.reaction === "gemHeart" && !gemHeartUnlocked;
-      button.disabled = reactionPending || !selectedMessage || !canReactToMessage(selectedMessage, getLocalIdentity());
+      button.disabled = reactionPending || !selectedMessage || !canReactToMessage(selectedMessage, getLocalIdentity(), isMuted());
       button.setAttribute("aria-pressed", String(selectedReactions.includes(button.dataset.reaction as ChatReaction)));
     }
   }
@@ -276,7 +279,7 @@ export function createChatMessageActionsController({
       } else button.textContent = emoji;
       button.setAttribute("aria-label", label); button.setAttribute("aria-pressed", "false");
       button.addEventListener("click", async () => {
-        if (!selectedMessage || reactionPending || !canReactToMessage(selectedMessage, getLocalIdentity())) return;
+        if (!selectedMessage || reactionPending || !canReactToMessage(selectedMessage, getLocalIdentity(), isMuted())) return;
         const target = selectedMessage, revision = presentationRevision;
         reactionPending = true; updateReactions();
         try {
@@ -338,7 +341,7 @@ export function createChatMessageActionsController({
       onDirectMessage(target);
     });
     elements.replyButton.addEventListener("click", () => {
-      if (!selectedMessage) return;
+      if (!selectedMessage || isMuted()) return;
       const replyTarget = selectedMessage;
       close(false);
       onReply(replyTarget);

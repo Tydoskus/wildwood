@@ -7,6 +7,7 @@ import { SOCIAL_FRIEND_LIMIT, SOCIAL_REQUEST_LIMIT, SOCIAL_MESSAGE_LIMIT, SOCIAL
 import { GUILD_MEMBER_LIMIT } from "../../shared/guilds";
 import { moderatePublicChatMessage, chatModerationReason, MODERATION_RULE_VERSION } from "./chat-moderation";
 import { chatPage } from "../../shared/chat-page";
+import { assertChatNotMuted, recordChatStrike } from "./chat-mute";
 type Ctx = ModuleReducerCtx;
 /** Shared by reducer/procedure/view contexts; this service's read functions never mutate. */
 export type SocialReadCtx = Pick<ModuleViewCtx, "db" | "sender">;
@@ -148,6 +149,7 @@ export function createSocialService(deps: { joinGuild(ctx: Ctx, guildId: bigint)
       } else ctx.db.socialGuildInvite.id.delete(row.id);
     },
     sendMessage(ctx: Ctx, channel: string, value: string, message: string, replyToMessageId: bigint) {
+      assertChatNotMuted(ctx);
       const text = message.trim();
       if (!text || text.length > 250) fail("Messages must contain 1–250 characters.");
       const profile = ctx.db.playerProfile.identity.find(ctx.sender) ?? fail("Player unavailable.");
@@ -176,6 +178,7 @@ export function createSocialService(deps: { joinGuild(ctx: Ctx, guildId: bigint)
         action: "Message filtered", reason: chatModerationReason(text) ?? "Disallowed content",
         actorType: "automatic", rule: MODERATION_RULE_VERSION, before: text, after: moderated.message,
       });
+      if (moderated.moderated) recordChatStrike(ctx, channel, profile.displayName);
       if (channel === "guild") pruneGuildMessages(ctx, conversation);
     },
   };

@@ -1290,6 +1290,9 @@ export type MyBalanceApologyNotice = __Infer<typeof MyBalanceApologyNotice>;
 export const MyBowSkills = __t.object("MyBowSkills", {});
 export type MyBowSkills = __Infer<typeof MyBowSkills>;
 
+export const MyChatMute = __t.object("MyChatMute", {});
+export type MyChatMute = __Infer<typeof MyChatMute>;
+
 export const MyCutsceneHistory = __t.object("MyCutsceneHistory", {});
 export type MyCutsceneHistory = __Infer<typeof MyCutsceneHistory>;
 
@@ -1571,6 +1574,15 @@ export const PlayerChatHearts = __t.object("PlayerChatHearts", {
   chatHeartsReceived: __t.u64(),
 });
 export type PlayerChatHearts = __Infer<typeof PlayerChatHearts>;
+
+export const PlayerChatMute = __t.object("PlayerChatMute", {
+  identity: __t.identity(),
+  strikeAtMicros: __t.array(__t.u64()),
+  mutedUntilMicros: __t.u64(),
+  lastMuteAtMicros: __t.u64(),
+  muteCount: __t.u32(),
+});
+export type PlayerChatMute = __Infer<typeof PlayerChatMute>;
 
 export const PlayerController = __t.object("PlayerController", {
   identity: __t.identity(),

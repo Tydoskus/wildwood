@@ -2,6 +2,7 @@ import { table, t, SenderError } from "spacetimedb/server";
 import type { Identity } from "spacetimedb";
 import type { ModuleReducerCtx, ModuleViewCtx } from "./index";
 import { CHAT_REACTIONS, chatReactionCounts, isChatReaction } from "../../shared/chat-reactions";
+import { assertChatNotMuted } from "./chat-mute";
 export const chatReactionUnlock = table({ name: "chat_reaction_unlock", public: false }, {
   identity: t.identity().primaryKey(), gemHeart: t.bool().default(false),
 });
@@ -111,6 +112,8 @@ function clearOtherReactions(ctx: ModuleReducerCtx, target: string, actor: Ident
   return changed;
 }
 export function setChatReaction(ctx: ModuleReducerCtx, channel: string, id: bigint, reaction: string, active: boolean) {
+  // Muted players still see reactions; they cannot add or take one back.
+  assertChatNotMuted(ctx);
   if (!isChatReaction(reaction)) throw new SenderError("Unknown reaction.");
   if (reaction === "gemHeart" && active && !gemHeartUnlocked(ctx)) throw new SenderError("Gem heart reaction is locked.");
   const row = readableMessage(ctx, channel, id);

@@ -23,6 +23,7 @@ import { playerAudioSetting, writeAudioSettings } from "./audio-settings";
 import { keepWantedDrops, playerIgnoredDrop, writeIgnoredDrops } from "./ignored-drops";
 import { playerLootSetting, writeLootSettings } from "./loot-settings";
 import { claimAdGemReward, playerAdReward } from "./ad-gem-reward";
+import { assertChatNotMuted, playerChatMute, recordChatStrike, setChatMute } from "./chat-mute";
 import { createAutoEquip } from "./auto-equip";
 import { allowedLoadout, blankHandWeapon, canonicalSavedHand } from "./loadout";
 import { ERASURE_ROW_BUDGET, eraseIdentityRows, linkedIdentities, requireErasureConfirmation } from "./account-erasure";
@@ -1775,7 +1776,7 @@ const spacetimedb = schema({
   playerGemWallet,
   gemTransaction,
   dailyGemBonus,
-  playerAdReward,
+  playerAdReward, playerChatMute,
   balanceApologyNotice,
   playerItemGift, playerBowSkill, playerEquipmentCopy, pendingEquipmentOffer, playerIgnoredDrop, playerLootSetting,
   mailboxLetter, mailboxReceipt, playerJoinDate, mailboxEquipment, accountDeletionRequest,
@@ -5360,6 +5361,15 @@ export const claimAdGems = spacetimedb.reducer((ctx) => {
   requireControllingPlayer(ctx);
   claimAdGemReward(ctx, applyGemBalanceChange);
 });
+export const myChatMute = spacetimedb.view(
+  { name: "my_chat_mute", public: true }, t.array(playerChatMute.rowType),
+  ctx => { const row = ctx.db.playerChatMute.identity.find(ctx.sender); return row ? [row] : []; },
+);
+/** Owner tool: mute an account's chat for `minutes`, or lift the mute with 0. Body: chat-mute.ts. */
+export const devSetChatMute = spacetimedb.reducer({ identity: t.identity(), minutes: t.u32() }, (ctx, { identity, minutes }) => {
+  if (!isDatabaseOwnerIdentity(ctx.sender)) denyPrivilegedAccess(ctx, "dev_set_chat_mute", "Database owner required.");
+  setChatMute(ctx, identity, minutes);
+});
 export const myAudioSettings = spacetimedb.view(
   { name: "my_audio_settings", public: true }, t.array(playerAudioSetting.rowType),
   ctx => { const row = ctx.db.playerAudioSetting.identity.find(ctx.sender); return row ? [row] : []; },
@@ -5552,6 +5562,7 @@ function sendPlayerChatMessage(ctx: ModuleReducerCtx, message: string, replyToMe
   const bugCommand = /^\/bug(?:\s|$)/i.exec(normalized);
   const bugReportText = bugCommand ? normalized.slice(bugCommand[0].length).trim() : "";
   if (bugCommand && !bugReportText) throw new SenderError("Use /bug followed by a description.");
+  if (!bugCommand) assertChatNotMuted(ctx);
 
   let reply: { messageId: bigint; senderName: string; message: string } | undefined;
   if (!bugCommand && replyToMessageId > 0n) {
@@ -5600,6 +5611,7 @@ function sendPlayerChatMessage(ctx: ModuleReducerCtx, message: string, replyToMe
     action: "Message filtered", reason: chatModerationReason(normalized) ?? "Disallowed content",
     actorType: "automatic", rule: MODERATION_RULE_VERSION, before: normalized, after: moderatedMessage.message,
   });
+  if (moderatedMessage.moderated) recordChatStrike(ctx, "world", profile.displayName);
 }
 
 export const sendChatMessage = spacetimedb.reducer(

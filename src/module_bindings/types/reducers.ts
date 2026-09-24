@@ -73,6 +73,7 @@ import DevRepairPlayerJoinedAtReducer from "../dev_repair_player_joined_at_reduc
 import DevResetDailyGemBonusReducer from "../dev_reset_daily_gem_bonus_reducer";
 import DevRollbackPlayerProgressionReducer from "../dev_rollback_player_progression_reducer";
 import DevSetAccessAuditLabelReducer from "../dev_set_access_audit_label_reducer";
+import DevSetChatMuteReducer from "../dev_set_chat_mute_reducer";
 import DevSetEndlessTravelAccessReducer from "../dev_set_endless_travel_access_reducer";
 import DevSuspendPlayerAccountReducer from "../dev_suspend_player_account_reducer";
 import DevTeleportEndlessReducer from "../dev_teleport_endless_reducer";
@@ -229,6 +230,7 @@ export type DevRepairPlayerJoinedAtParams = __Infer<typeof DevRepairPlayerJoined
 export type DevResetDailyGemBonusParams = __Infer<typeof DevResetDailyGemBonusReducer>;
 export type DevRollbackPlayerProgressionParams = __Infer<typeof DevRollbackPlayerProgressionReducer>;
 export type DevSetAccessAuditLabelParams = __Infer<typeof DevSetAccessAuditLabelReducer>;
+export type DevSetChatMuteParams = __Infer<typeof DevSetChatMuteReducer>;
 export type DevSetEndlessTravelAccessParams = __Infer<typeof DevSetEndlessTravelAccessReducer>;
 export type DevSuspendPlayerAccountParams = __Infer<typeof DevSuspendPlayerAccountReducer>;
 export type DevTeleportEndlessParams = __Infer<typeof DevTeleportEndlessReducer>;
