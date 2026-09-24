@@ -29,6 +29,10 @@ import {
 } from "../../../shared/boss-simulation";
 
 const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
+// A Piercing Shot arrow reaches twice as far as a plain one, and once past
+// that it keeps flying (hitting nothing more) until it is well off screen.
+const PIERCING_SHOT_RANGE_MULTIPLIER = 2;
+const PIERCING_SHOT_FLIGHT_DISTANCE = 1_600;
 const DEATH_PARTICLE_COLOR = "#e53935";
 const TARGET_GRID_CELL_SIZE = 160;
 // Collision settling must not flip aim between equally close enemies every frame.
@@ -373,6 +377,10 @@ export function createPlayerCombatController(options: {
       // Every arrow, the Split Shot one included, rolls each bow skill itself.
       projectile.skills = skilled ? rollArrowSkillProcs(bowSkills, random) : null;
       projectile.pierced = null;
+      if (projectile.skills?.piercingShot) {
+        projectile.hitLife *= PIERCING_SHOT_RANGE_MULTIPLIER;
+        projectile.life = Math.max(projectile.life, PIERCING_SHOT_FLIGHT_DISTANCE / player.projectileSpeed);
+      }
     };
     for (let index = 0; index < player.projectileCount; index++) {
       fire(baseAngle + (index - (player.projectileCount - 1) / 2) * .13);
@@ -686,8 +694,12 @@ export function createPlayerCombatController(options: {
         const pierceX = startX + (endX - startX) * hit.t, pierceY = startY + (endY - startY) * hit.t;
         arrowImpact(projectile, hit.enemy, pierceX, pierceY);
         (projectile.pierced ??= new Set()).add(hit.enemy);
-        // A golden beam from the bow through every enemy it has passed.
-        options.skillEffects?.spawnSkillStreak(projectile.originX ?? startX, projectile.originY ?? startY, pierceX, pierceY, "#ffc94d", 5, .3);
+        // A golden beam from the bow through every enemy it has passed and on
+        // along the line of flight, off screen.
+        const beamFromX = projectile.originX ?? startX, beamFromY = projectile.originY ?? startY;
+        const speed = Math.hypot(projectile.vx, projectile.vy) || 1;
+        options.skillEffects?.spawnSkillStreak(beamFromX, beamFromY, beamFromX + projectile.vx / speed * PIERCING_SHOT_FLIGHT_DISTANCE,
+          beamFromY + projectile.vy / speed * PIERCING_SHOT_FLIGHT_DISTANCE, "#ffc94d", 5, .3);
         options.skillEffects?.spawnSkillRing(hit.enemy.x, hit.enemy.y, "#ffe08a", 22, .24);
         spawnBurst(hit.enemy.x, hit.enemy.y, "#ffe08a", 6, 70);
         hit = raycastProjectile(startX, startY, hitEndX, hitEndY, projectile.r, projectile.pierced);
@@ -700,7 +712,8 @@ export function createPlayerCombatController(options: {
       } else { projectile.x = endX; projectile.y = endY; }
       if (projectile.trail <= 0) {
         projectile.trail = .035;
-        spawnParticle(projectile.x, projectile.y, 0, 0, .16, .16, 3, "#ffd957");
+        const piercing = Boolean(projectile.skills?.piercingShot);
+        spawnParticle(projectile.x, projectile.y, 0, 0, piercing ? .24 : .16, piercing ? .24 : .16, piercing ? 4 : 3, piercing ? "#ffc94d" : "#ffd957");
       }
     }
     projectileStore.compactPlayerProjectiles();
