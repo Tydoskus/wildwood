@@ -110,6 +110,65 @@ function foldForModeration(message: string) {
     });
 }
 
+// Look-alike folding is deliberately stronger than foldForModeration and is
+// used ONLY for the severe patterns (slurs, explicit sexual terms, sexualized
+// references to children). It merges letters that are hard to tell apart
+// (i/l, g/q), which would create false positives on ordinary profanity lists.
+//
+// Characters that survive NFKD but read as Latin letters. Upper-case forms are
+// listed separately because Greek capital Nu lowercases to "ν", which reads v.
+const CONFUSABLE_LETTERS: Readonly<Record<string, string>> = {
+  // Cyrillic
+  "А": "a", "а": "a", "В": "b", "в": "b", "Е": "e", "е": "e", "г": "r", "И": "n", "и": "n",
+  "І": "i", "і": "i", "Ј": "j", "ј": "j", "К": "k", "к": "k", "М": "m", "м": "m", "Н": "h", "н": "h",
+  "О": "o", "о": "o", "П": "n", "п": "n", "Р": "p", "р": "p", "С": "c", "с": "c", "Т": "t", "т": "t",
+  "У": "y", "у": "y", "Х": "x", "х": "x", "Ѕ": "s", "ѕ": "s", "Ԛ": "q", "ԛ": "q", "Ԝ": "w", "ԝ": "w",
+  "Ӏ": "l", "ӏ": "l", "ԁ": "d", "ԍ": "g", "һ": "h", "ь": "b", "ъ": "b", "ш": "w", "щ": "w",
+  // Greek
+  "Α": "a", "α": "a", "Β": "b", "β": "b", "Ε": "e", "ε": "e", "Ζ": "z", "Η": "h", "η": "n", "Ι": "i",
+  "ι": "i", "Κ": "k", "κ": "k", "Μ": "m", "Ν": "n", "ν": "v", "Ο": "o", "ο": "o", "Ρ": "p", "ρ": "p",
+  "Τ": "t", "τ": "t", "Υ": "y", "υ": "u", "Χ": "x", "χ": "x", "ω": "w", "π": "n", "μ": "u",
+  // Armenian
+  "ո": "n", "ս": "u", "օ": "o", "ց": "g", "զ": "q", "հ": "h",
+  // Latin letters without a decomposition
+  "ı": "i", "ɩ": "i", "ǀ": "l", "ł": "l", "ɡ": "g", "ɢ": "g", "ɑ": "a", "ø": "o", "đ": "d", "ħ": "h",
+  "ŋ": "n", "¡": "i",
+};
+const CONFUSABLE_PATTERN = new RegExp(`[${Object.keys(CONFUSABLE_LETTERS).join("")}]`, "g");
+// Zero-width and other invisible characters that can split a word. U+034F
+// (combining grapheme joiner) already goes with the combining marks.
+const INVISIBLE_CHARACTERS = /[­ᅟᅠ᠎​-‏‪-‮⁠-⁤ㅤ﻿]/g;
+
+function foldLookalikes(message: string) {
+  const latin = message
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(INVISIBLE_CHARACTERS, "")
+    .replace(CONFUSABLE_PATTERN, character => CONFUSABLE_LETTERS[character] ?? character);
+  return foldForModeration(latin)
+    // foldForModeration keeps a leading or trailing symbol so @mentions and
+    // prices survive; the plain form is still checked, so fold them all here.
+    .replace(/@/g, "a")
+    .replace(/\$/g, "s")
+    .replace(/[!|]/g, "i")
+    .replace(/ph/g, "f")
+    .replace(/vv/g, "w")
+    .replace(/l/g, "i")
+    .replace(/[q96]/g, "g");
+}
+
+// The same fold applied to a pattern's own letters, so a pattern word that
+// contains "l" (girl, little, blowjob) still matches once text l became i.
+// These pattern sources hold only literal letters, classes like [^a-z0-9]
+// (no l or q inside) and regex syntax, so swapping the letters is safe.
+const lookalikePattern = (pattern: RegExp) =>
+  new RegExp(pattern.source.replace(/l/g, "i").replace(/q/g, "g"), pattern.flags);
+
+/** Look-alike form of a name with every separator removed ("N.i q_q-a" -> "nigga"). */
+function compactLookalike(name: string) {
+  return foldLookalikes(name).replace(/[^a-z0-9]+/g, "");
+}
+
 export function normalizeModerationText(message: string) {
   const normalized = foldForModeration(message)
     // Leading/trailing symbols are normally punctuation. Recognize these
@@ -126,13 +185,26 @@ export function normalizeModerationText(message: string) {
     .replace(/(^| )f+\s*(?:u+\s*)?c+\s*k+(?= |$)/g, "$1fuck");
 }
 
-export const MODERATION_RULE_VERSION = "content-filter-v4";
+// Recorded as the `rule` on every automatic moderation_action row, so the log
+// shows which filter made a call. Changing it re-checks nothing by itself.
+export const MODERATION_RULE_VERSION = "content-filter-v5";
+
+const LOOKALIKE_SEVERE_HATE_PATTERNS = SEVERE_HATE_PATTERNS.map(lookalikePattern);
+const LOOKALIKE_EXPLICIT_SEXUAL_PATTERNS = EXPLICIT_SEXUAL_PATTERNS.map(lookalikePattern);
+// Compound usernames have no word boundaries: appending a title must not
+// make this racial slur acceptable. Keep this separate from chat discussion.
+const HATEFUL_USERNAME_PATTERN = /(?:n+i+g+g+(?:e+r+|a+)|nword(?:slayer|killer))/;
+const LOOKALIKE_HATEFUL_USERNAME_PATTERN = lookalikePattern(HATEFUL_USERNAME_PATTERN);
+const LOOKALIKE_CHILD_NUDITY_NAME_PATTERN = lookalikePattern(CHILD_NUDITY_NAME_PATTERN);
 
 export function chatModerationReason(message: string): string | null {
   const folded = foldForModeration(message);
   const normalized = normalizeModerationText(message);
-  if (SEVERE_HATE_PATTERNS.some(pattern => pattern.test(folded))) return "Hateful language";
-  if (EXPLICIT_SEXUAL_PATTERNS.some(pattern => pattern.test(folded))) return "Explicit sexual content";
+  const lookalike = foldLookalikes(message);
+  if (SEVERE_HATE_PATTERNS.some(pattern => pattern.test(folded))
+    || LOOKALIKE_SEVERE_HATE_PATTERNS.some(pattern => pattern.test(lookalike))) return "Hateful language";
+  if (EXPLICIT_SEXUAL_PATTERNS.some(pattern => pattern.test(folded))
+    || LOOKALIKE_EXPLICIT_SEXUAL_PATTERNS.some(pattern => pattern.test(lookalike))) return "Explicit sexual content";
   if (SEXUAL_SOLICITATION_PATTERNS.some(pattern => pattern.test(normalized))) return "Sexual solicitation";
   if (DIRECTED_SEXUAL_INSULT_PATTERN.test(normalized)) return "Sexual harassment";
   if (CREDIBLE_THREAT_PATTERNS.some(pattern => pattern.test(folded))) return "Threat of real-world harm";
@@ -150,10 +222,10 @@ export function displayNameModerationReason(displayName: string): string | null 
   const reason = chatModerationReason(displayName);
   if (reason) return reason;
   const compact = normalizeModerationText(displayName).replace(/\s/g, "");
-  // Compound usernames have no word boundaries: appending a title must not
-  // make this racial slur acceptable. Keep this separate from chat discussion.
-  if (/(?:n+i+g+g+(?:e+r+|a+)|nword(?:slayer|killer))/.test(compact)) return "Hateful username";
-  return CHILD_NUDITY_NAME_PATTERN.test(compact) ? "Sexualized reference to a child" : null;
+  const lookalike = compactLookalike(displayName);
+  if (HATEFUL_USERNAME_PATTERN.test(compact) || LOOKALIKE_HATEFUL_USERNAME_PATTERN.test(lookalike)) return "Hateful username";
+  return CHILD_NUDITY_NAME_PATTERN.test(compact) || LOOKALIKE_CHILD_NUDITY_NAME_PATTERN.test(lookalike)
+    ? "Sexualized reference to a child" : null;
 }
 
 export function isPublicDisplayNameAllowed(displayName: string) {
@@ -179,5 +251,9 @@ const BLOCKED_GUILD_NAMES = new Set([
 export function guildNameModerationReason(name: string): string | null {
   const reason = displayNameModerationReason(name);
   if (reason) return reason;
-  return BLOCKED_GUILD_NAMES.has(normalizeModerationText(name).replace(/\s/g, "")) ? "Offensive guild name" : null;
+  const blocked = BLOCKED_GUILD_NAMES.has(normalizeModerationText(name).replace(/\s/g, ""))
+    // Guild names are four plain letters, so the look-alike form only adds
+    // l->i and q->g here ("NlGS", "QOOK"); the plain check keeps "SLUT".
+    || BLOCKED_GUILD_NAMES.has(compactLookalike(name));
+  return blocked ? "Offensive guild name" : null;
 }

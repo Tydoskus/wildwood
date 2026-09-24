@@ -33,7 +33,7 @@ it("repairs an offline name and public presentation without changing the save", 
   expect(f.db.playerProgress.identity.find(target)).toEqual(before);
   expect(f.db.player.identity.find(target)).toBeNull();
   expect([...f.db.moderationAction.iter()][0]).toMatchObject({ action: "Name changed", actorType: "owner",
-    actorIdentity: owner.toHexString(), before: name, after: repaired, rule: "content-filter-v4" });
+    actorIdentity: owner.toHexString(), before: name, after: repaired, rule: "content-filter-v5" });
   f.run(server.devRepairDisplayName, { ...args, expectedDisplayName: repaired });
   expect(f.db.playerProfile.identity.find(target).displayName).toBe(repaired);
   expect(f.db.moderationAction.count()).toBe(1n);

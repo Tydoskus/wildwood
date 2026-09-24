@@ -12,7 +12,7 @@ it("records automatic filtering with original evidence, rule, target, and actual
   const action = [...f.db.moderationAction.iter()][0];
   expect(action).toMatchObject({ targetIdentity: f.ctx.sender.toHexString(), targetName: "Test Player",
     action: "Message filtered", reason: "Explicit sexual content", channel: "world",
-    actorType: "automatic", actorIdentity: "", rule: "content-filter-v4",
+    actorType: "automatic", actorIdentity: "", rule: "content-filter-v5",
     before: "send nudes", after: "Message moderated.", messageId: message.id.toString(), reportId: "" });
   expect(action.recordedAt.microsSinceUnixEpoch).toBe(f.ctx.timestamp.microsSinceUnixEpoch);
   f.db.chatMessage.id.delete(message.id);
