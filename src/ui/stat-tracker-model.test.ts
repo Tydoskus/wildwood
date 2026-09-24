@@ -64,3 +64,25 @@ describe('native stat tracker sessions', () => {
     expect(row(better, 'damage')).toMatchObject({ current: 120, gain: 20 });
   });
 });
+
+it("resets for prestige, ignores a loading zero, and persists the new baseline", () => {
+  const env = setup(), tracker = createStatTrackerModel(env.storage, env.now);
+  tracker.update('alice', values, 1);
+  env.advance(60_000);
+  expect(tracker.update('alice', { ...values, damage: 120 }, 0)!.rows.find(r => r.stat === 'damage')!.gain).toBe(20);
+  const reset = tracker.update('alice', { ...values, damage: 4 }, 2)!;
+  expect(reset.elapsedMs).toBe(0);
+  expect(reset.rows.every(r => r.gain === 0)).toBe(true);
+  const restored = createStatTrackerModel(env.storage, env.now);
+  expect(restored.update('alice', { ...values, damage: 5 }, 2)!.rows.find(r => r.stat === 'damage')!.gain).toBe(1);
+});
+
+it("migrates old sessions once and preserves the prestige level on manual reset", () => {
+  const env = setup();
+  env.storage.setItem('wildstat-native-stat-tracker-v1:alice', JSON.stringify({ startedAt: 0, baseline: values, lastKills: 50 }));
+  const tracker = createStatTrackerModel(env.storage, env.now);
+  expect(tracker.update('alice', { ...values, damage: 4 }, 2)!.rows.every(r => r.gain === 0)).toBe(true);
+  tracker.update('alice', { ...values, damage: 5 }, 0);
+  tracker.reset(); env.advance(1000);
+  expect(tracker.update('alice', { ...values, damage: 6 }, 2)!.rows.find(r => r.stat === 'damage')!.gain).toBe(1);
+});

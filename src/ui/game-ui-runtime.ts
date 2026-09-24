@@ -86,7 +86,7 @@ export function createPrestigeUnlockRuntime(d: Record<string, any>) {
     level: () => coop?.prestige?.()?.level ?? 0,
     campaignComplete: () => Boolean(coop?.proceduralMapUnlocked?.(proceduralMapId(1))),
     completedEndless: () => coop?.proceduralCompleted?.() ?? 0,
-    runPrestige: async () => coop?.prestigeAccount?.(),
+    runPrestige: d.runPrestige,
     showMessage: d.showMessage,
     pause: d.pause,
   });

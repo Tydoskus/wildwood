@@ -10,6 +10,10 @@ function fixture() {
   vi.stubGlobal("HTMLTextAreaElement", window.HTMLTextAreaElement);
   const canvas = document.querySelector("canvas")!;
   canvas.getBoundingClientRect = () => ({ left: 20, top: 30, width: 400, height: 300 } as DOMRect);
+  const captured = new Set<number>();
+  canvas.setPointerCapture = vi.fn(id => { captured.add(id); });
+  canvas.hasPointerCapture = id => captured.has(id);
+  canvas.releasePointerCapture = vi.fn(id => { captured.delete(id); });
   const player = { x: 100, y: 100 }, camera = { x: 0, y: 0, zoom: 2, width: 800, height: 600 };
   let movable = true, now = 0;
   vi.spyOn(performance, "now").mockImplementation(() => now);
@@ -67,16 +71,15 @@ it("keeps profile taps, right clicks, and touch out of desktop movement", () => 
   expect(f.input.movement().source).toBe("none");
 });
 
-it.each(["keyboard", "UI", "travel", "blur", "pause", "cancel", "leave"])("cancels desktop movement for %s", reason => {
+it.each(["keyboard", "UI", "travel", "blur", "pause", "cancel"])("cancels desktop movement for %s", reason => {
   const f = fixture(); f.event("pointerdown");
-  if (reason !== "leave") f.event("pointerup");
+  f.event("pointerup");
   if (reason === "keyboard") { f.event("keydown", { code: "KeyA" }); f.event("keyup", { code: "KeyA" }); }
   if (reason === "UI") f.event("pointerdown", {}, f.document.querySelector("button")!);
   if (reason === "travel") f.input.stopTouchMove();
   if (reason === "blur") f.event("blur");
   if (reason === "pause") f.pause();
   if (reason === "cancel") f.event("pointercancel");
-  if (reason === "leave") f.event("pointerleave");
   expect(f.input.movement().source).toBe("none");
 });
 
@@ -85,4 +88,41 @@ it("abandons an obstructed click without letting presentation reads advance the 
   for (let i = 0; i < 200; i++) expect(f.input.movement().x).toBe(1);
   for (let i = 0; i < 50; i++) f.input.movement(1 / 60);
   expect(f.input.movement().source).toBe("none");
+});
+
+it("keeps a canvas hold steering across UI and releases capture when stopped", () => {
+  const f = fixture(), canvas = f.document.querySelector("canvas")!, ui = f.document.querySelector("button")!;
+  f.event("pointerdown");
+  expect(canvas.setPointerCapture).toHaveBeenCalledWith(1);
+  f.event("pointermove", { clientX: 50 }, ui);
+  f.event("pointerleave");
+  expect(f.input.movement().x).toBe(-1);
+  f.event("pointerup", {}, ui);
+  expect(f.input.movement().source).toBe("none");
+  expect(canvas.hasPointerCapture(1)).toBe(false);
+});
+
+it.each(["lostpointercapture", "buttons", "blur", "visibility", "keyboard"])("ends a held gesture on %s", reason => {
+  const f = fixture(); f.event("pointerdown");
+  if (reason === "buttons") f.event("pointermove", { buttons: 0 });
+  else if (reason === "visibility") {
+    Object.defineProperty(f.document, "hidden", { value: true });
+    f.event("visibilitychange", {}, f.document);
+  } else if (reason === "keyboard") {
+    f.event("keydown", { code: "KeyA" }); f.event("keyup", { code: "KeyA" });
+  } else f.event(reason);
+  expect(f.input.movement().source).toBe("none");
+  expect(f.document.querySelector("canvas")!.hasPointerCapture(1)).toBe(false);
+});
+
+it("never starts steering from a UI press", () => {
+  const f = fixture(); f.event("pointerdown", {}, f.document.querySelector("button")!);
+  f.event("pointermove");
+  expect(f.input.movement().source).toBe("none");
+  expect(f.document.querySelector("canvas")!.setPointerCapture).not.toHaveBeenCalled();
+});
+
+it("preserves click-to-move after normal capture loss following pointerup", () => {
+  const f = fixture(); f.click(); f.event("lostpointercapture");
+  expect(f.input.movement().source).toBe("steer");
 });

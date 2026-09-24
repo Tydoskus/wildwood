@@ -23,7 +23,7 @@ export async function submitPrestige(runPrestige: () => Promise<PrestigeResult>,
   : Promise<{ ok: true; message: string } | { ok: false; error: string }> {
   try {
     const result = await runPrestige();
-    const ok = typeof result === 'boolean' ? result : result?.ok !== false;
+    const ok = typeof result === 'boolean' ? result : result?.ok === true;
     if (ok) return { ok: true, message: `Prestige ${level() || ''}`.trim() + ' complete.' };
     return { ok: false, error: (typeof result === 'object' && result?.error) || "Couldn't prestige. Please try again." };
   } catch {
@@ -115,7 +115,7 @@ export function createPrestigeController(options: {
         status.textContent = `Spending a point on ${PRESTIGE_PERKS[id].title}…`;
         try {
           const result = await options.spendPerk(id);
-          const ok = typeof result === 'boolean' ? result : result?.ok !== false;
+          const ok = typeof result === 'boolean' ? result : result?.ok === true;
           status.textContent = ok ? `${PRESTIGE_PERKS[id].title} is now rank ${rank + 1}.`
             : (typeof result === 'object' && result?.error) || "Couldn't spend that point.";
         } catch {

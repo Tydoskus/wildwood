@@ -15,7 +15,12 @@ export function createDesktopMovement(canvas: HTMLCanvasElement, options: Deskto
   let lastPosition: Point | null = null;
   let blockedSeconds = 0;
 
-  function clear() { target = null; held = null; lastPosition = null; blockedSeconds = 0; }
+  function releaseHold() {
+    const id = held?.id;
+    held = null;
+    if (id !== undefined && canvas.hasPointerCapture?.(id)) canvas.releasePointerCapture(id);
+  }
+  function clear() { target = null; releaseHold(); lastPosition = null; blockedSeconds = 0; }
   function worldPoint(x: number, y: number): Point | null {
     const rect = canvas.getBoundingClientRect(), view = options.view(), bounds = options.bounds();
     if (!rect.width || !rect.height || view.zoom <= 0) return null;
@@ -32,12 +37,13 @@ export function createDesktopMovement(canvas: HTMLCanvasElement, options: Deskto
     clear();
     if (onTapPlayer(event.clientX, event.clientY) || !options.canMove()) return;
     event.preventDefault();
+    canvas.setPointerCapture(event.pointerId);
     target = worldPoint(event.clientX, event.clientY);
     held = { id: event.pointerId, x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY, at: performance.now(), dragged: false };
   });
   window.addEventListener("pointermove", event => {
     if (!held || event.pointerId !== held.id) return;
-    if (!(event.buttons & 1) || event.target !== canvas) { clear(); return; }
+    if (!(event.buttons & 1)) { clear(); return; }
     held.x = event.clientX; held.y = event.clientY;
     held.dragged ||= Math.hypot(held.x - held.startX, held.y - held.startY) > 5;
   });
@@ -46,10 +52,10 @@ export function createDesktopMovement(canvas: HTMLCanvasElement, options: Deskto
     if (event.target !== canvas || held.dragged || performance.now() - held.at >= 200) { clear(); return; }
     // Freeze a quick click in world space, rather than chasing a scrolling screen point.
     target = worldPoint(event.clientX, event.clientY);
-    held = null;
+    releaseHold();
   });
   window.addEventListener("pointercancel", clear);
-  canvas.addEventListener("pointerleave", () => { if (held) clear(); });
+  canvas.addEventListener("lostpointercapture", event => { if (held?.id === event.pointerId) clear(); });
 
   return {
     clear,

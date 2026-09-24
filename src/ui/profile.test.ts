@@ -247,11 +247,11 @@ describe("prestige perks in the stat panel", () => {
     const rows = profileStatDisplayRows(perkProfile(), () => "0%", MIN_ATTACK_INTERVAL, research, 1, { keenEdge: 5 });
 
     expect(rows.find((row) => row.kind === "critical")).toMatchObject({
-      total: "29%",
+      total: "29%", equationOperator: "+", multiplier: "29%",
       sources: [{ label: "Tech", value: "+4%" }, { label: "Prestige", value: "+25%" }],
     });
     expect(rows.find((row) => row.kind === "critical-damage")).toMatchObject({
-      total: "1.80×",
+      total: "1.80×", equationOperator: "+", multiplier: "0.75×",
       sources: [{ label: "Tech", value: "+0.15×" }, { label: "Prestige", value: "+0.60×" }],
     });
   });
@@ -262,7 +262,7 @@ describe("prestige perks in the stat panel", () => {
 
     expect(rows.map((row) => row.kind)).toContain("double-strike");
     expect(rows.find((row) => row.kind === "double-strike")).toMatchObject({
-      label: "Double Strike:", total: "8%", sources: [{ label: "Prestige", value: "+8%" }],
+      label: "Double Strike:", total: "8%", equationOperator: "+", multiplier: "8%", sources: [{ label: "Prestige", value: "+8%" }],
     });
     expect(rows.find((row) => row.kind === "split-shot")).toMatchObject({ label: "Split Shot:", total: "25%" });
     expect(rows.find((row) => row.kind === "riposte")).toBeUndefined();
@@ -280,5 +280,20 @@ describe("prestige perks in the stat panel", () => {
     expect(withoutPerks.find((row) => row.kind === "critical"))
       .toMatchObject({ total: "4%", sources: [{ label: "Tech", value: "+4%" }] });
     expect(withoutPerks.some((row) => row.kind.startsWith("double"))).toBe(false);
+  });
+});
+
+describe("stat gain multiplication", () => {
+  const gain = (foraging: number, prestige: number) => profileStatDisplayRows({
+    progress: progress(), research: { ...createEmptyResearchRanks(), foraging, prosperity: foraging }, itemUpgradeLevels: {},
+  } as Parameters<typeof profileStatDisplayRows>[0], () => "0%", MIN_ATTACK_INTERVAL, undefined, prestige).find(r => r.kind === "stat-gain")!;
+  it("shows multiplied factors and one consistently rounded result", () => {
+    expect(gain(15, 1)).toMatchObject({ base: "1.45", equationOperator: "×", multiplier: "1.10", equationTotal: "1.60×", total: "+60%", hideEquation: false,
+      sources: [{ label: "Tech", value: "1.45×" }, { label: "Prestige", value: "1.10×" }] });
+    expect(gain(5, 1)).toMatchObject({ equationTotal: "1.27×", total: "+27%" });
+  });
+  it("omits the equation for one or zero bonuses", () => {
+    expect(gain(0, 1)).toMatchObject({ hideEquation: true, sources: [{ label: "Prestige", value: "1.10×" }] });
+    expect(gain(0, 0)).toMatchObject({ hideEquation: true, sources: [], total: "+0%" });
   });
 });
