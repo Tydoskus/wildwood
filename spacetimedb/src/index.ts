@@ -23,7 +23,7 @@ import { playerAudioSetting, writeAudioSettings } from "./audio-settings";
 import { keepWantedDrops, playerIgnoredDrop, writeIgnoredDrops } from "./ignored-drops";
 import { playerLootSetting, writeLootSettings } from "./loot-settings";
 import { createAutoEquip } from "./auto-equip";
-import { allowedLoadout, canonicalSavedHand, savedInventoryHasHandItem } from "./loadout";
+import { allowedLoadout, blankHandWeapon, canonicalSavedHand } from "./loadout";
 import { ERASURE_ROW_BUDGET, eraseIdentityRows, linkedIdentities, requireErasureConfirmation } from "./account-erasure";
 import { LOADOUT_FIELDS } from "../../shared/combat-progress";
 import { chatHeartAllowance, chatReactionCooldown, chatReactionSummary, chatReactionUnlock, playerChatHearts, reactionCountsFor, chatReaction, readChatReactions, setChatReaction, grantGemHeartUnlock, removeMessageReactions, removeAccountReactions } from "./chat-reactions";
@@ -2962,7 +2962,7 @@ function equippedFeetForProgress(progress: any, inventory = inventoryForProgress
 function equippedRightHandForProgress(progress: any, inventory = inventoryForProgress(progress)) {
   const saved = canonicalSavedHand(progress, "equippedRightHand");
   if (saved && inventory.includes(saved) && !equipmentMapRequirement(saved, progress)) return saved;
-  return savedInventoryHasHandItem(progress) ? "" : STARTER_STONE;
+  return equippedLeftHandForProgress(progress, inventory) ? "" : blankHandWeapon(inventory, progress);
 }
 
 function equippedLeftHandForProgress(progress: any, inventory = inventoryForProgress(progress)) {
@@ -5183,7 +5183,8 @@ export const devGrantEquipment = spacetimedb.reducer(
     if (!item || !progress) throw new SenderError("Player or equipment unavailable.");
     const alreadyOwned = playerOwnsItem(ctx, identity, itemId);
     let next = restoreItemToProgress(progress, itemId);
-    if (equip && item.slot === "HAND") next = { ...next, equippedRightHand: itemId, equippedLeftHand: "", cosmeticRightHand: "", cosmeticLeftHand: "" };
+    // Only gear the player's maps unlock: a locked weapon in hand reads as no weapon.
+    if (equip && item.slot === "HAND" && !equipmentMapRequirement(itemId, next)) next ={ ...next, equippedRightHand: itemId, equippedLeftHand: "", cosmeticRightHand: "", cosmeticLeftHand: "" };
     writeProgressAndPresentation(ctx, next);
     publishItemDrop(ctx, identity, itemId, alreadyOwned);
   },

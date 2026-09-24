@@ -90,12 +90,15 @@ import { describe, expect, it } from "vitest";
 // auto equip factory and its three call sites (loot, boss rewards, prestige).
 // save_player_progress's loadout rules and the saved-hand helpers moved out to
 // loadout.ts, where auto equip checks the same rules, which paid for all of it.
-// 6_795: per-prestige leaderboards add the get_prestige_leaderboard_page
+// 6_788: dev_grant_equipment's note that it only equips a weapon the player's
+// maps unlock. A locked weapon in hand read as no weapon, which the grant
+// left behind; the blank-hand rule itself lives in loadout.ts.
+// 6_796: per-prestige leaderboards add the get_prestige_leaderboard_page
 // procedure declaration, its return type and its note. The three tables
 // register through the existing leaderboardPageTables spread, and the ranking,
 // the guest merge and the read live in leaderboard-pages.ts; the raise is the
 // declaration alone.
-const MAX_LINES = 6_795;
+const MAX_LINES = 6_796;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

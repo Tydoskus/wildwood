@@ -98,10 +98,17 @@ describe("boss time validation", () => {
     f.at(1245); f.claim(); expect(f.kills()).toBe(2n);
   });
 
-  it("cannot claim with an empty weapon slot or turn projectile count into sword DPS", () => {
-    const unarmed = fixture();
-    unarmed.patch("playerProgress", { equippedRightHand: "", damage: 1e30 });
-    unarmed.claim(20); expect(unarmed.kills()).toBe(0n);
+  it("reads a blank weapon slot as the best usable weapon, and cannot turn projectile count into sword DPS", () => {
+    // A blank hand is an ordinary saved state, and the client fights with the
+    // weapon it resolves to, so the bound does too: exactly the starter bow's.
+    const kills = (rightHand: string) => {
+      const f = fixture();
+      f.patch("playerProgress", { equippedRightHand: rightHand });
+      f.begin(); f.at(100); f.claim();
+      return f.kills();
+    };
+    expect(kills("")).toBe(1n);
+    expect(kills("")).toBe(kills(STARTER_BOW));
     const sword = fixture("endless_11", 50_000);
     sword.patch("playerProgress", { inventoryJson: '["wooden_sword"]', equippedRightHand: "wooden_sword", projectileCount: 100 });
     sword.claim(); expect(sword.kills()).toBe(0n);
@@ -117,9 +124,13 @@ describe("boss time validation", () => {
     f.at(600); f.claim();
     expect(f.kills()).toBe(1n);
     expect(f.db.playerProgress.identity.find(f.ctx.sender).desertUnlocked).toBe(true);
-    f.patch("playerProgress", { equippedRightHand: "ion_bow", damage: 1e30 });
+    // A locked bow in hand fights as the best usable weapon (the starter bow),
+    // never with the ion bow's damage: the next kill still takes the full fight.
+    f.patch("playerProgress", { ...f.stats, equippedRightHand: "ion_bow" });
     f.at(1200); f.claim();
     expect(f.kills()).toBe(1n);
+    f.at(1245); f.claim();
+    expect(f.kills()).toBe(2n);
   });
 
   it("honors server research, ranged volleys, and possible Endless criticals", () => {

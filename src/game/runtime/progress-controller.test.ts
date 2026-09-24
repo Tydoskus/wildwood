@@ -142,4 +142,40 @@ describe("loaded progress reconciliation", () => {
     expect(state.inventory.equippedRightHand).toBe(saved.equippedRightHand);
   });
 
+  function loaded(initial: Partial<PlayerProgress>) {
+    const state = createGameBootstrap();
+    let saved: PlayerProgress = { ...savedProgress(), ...initial };
+    const controller = createProgressController({
+      player: state.player, inventory: state.inventory, bootsPickup: state.bootsPickup,
+      legacyStorageKey: "unused-legacy-save", getSavedProgress: () => saved, saveRemoteProgress: vi.fn(),
+      localIdentity: () => "guest-identity", lifetimeEnemyKills: () => 0, isDeveloper: () => false,
+      getTotalKills: () => 0, setTotalKills: vi.fn(), researchVitalityRank: () => 0, healthMultiplierBonus: () => 0,
+      setAppliedVitalityRank: vi.fn(), renderInventory: vi.fn(), onLoaded: vi.fn(),
+    });
+    controller.load();
+    return { state, reload: (next: Partial<PlayerProgress>) => { saved = { ...saved, ...next }; controller.load(); } };
+  }
+
+  it("never loads a blank hand: the best usable weapon, else the stone, whatever the bag holds", () => {
+    // A blank saved hand with a map-locked iron bow in the bag: the stone, which stays owned.
+    const locked = loaded({ inventoryJson: '["starter_stone","iron_bow"]', equippedRightHand: "" });
+    expect(locked.state.inventory.equippedRightHand).toBe("starter_stone");
+    expect(locked.state.inventory.itemIds).toEqual(expect.arrayContaining(["starter_stone", "iron_bow"]));
+    // The same with the bow's map reached: the bow.
+    const usable = loaded({ inventoryJson: '["starter_stone","iron_bow"]', equippedRightHand: "", desertUnlocked: true });
+    expect(usable.state.inventory.equippedRightHand).toBe("iron_bow");
+  });
+
+  it("keeps the stone and a weapon in hand when the row drops both (the WEAPON EMPTY repro)", () => {
+    const view = loaded({ inventoryJson: '["starter_stone","iron_bow"]', equippedRightHand: "starter_stone" });
+    view.reload({ inventoryJson: '["iron_bow"]', equippedRightHand: "" });
+    expect(view.state.inventory.itemIds).toContain("starter_stone");
+    expect(view.state.inventory.equippedRightHand).toBe("starter_stone");
+    // A weapon locked away again falls back to a usable one, never to nothing.
+    const relocked = loaded({ inventoryJson: '["starter_stone","iron_bow"]', equippedRightHand: "iron_bow", desertUnlocked: true });
+    expect(relocked.state.inventory.equippedRightHand).toBe("iron_bow");
+    relocked.reload({ desertUnlocked: false });
+    expect(relocked.state.inventory.equippedRightHand).toBe("starter_stone");
+  });
+
 });

@@ -1,5 +1,9 @@
 import { bowSkillScore, type BowSkillRoll } from "./bow-skills";
-import { BLACK_BOOTS, BLACK_BOOTS_SPEED_BONUS, isCosmeticOnlyItem, itemDefinition, type EquipmentSlot, type ItemSlot } from "./items";
+import {
+  BLACK_BOOTS, BLACK_BOOTS_SPEED_BONUS, STARTER_STONE, equipmentDamageMultiplierBonus, isCosmeticOnlyItem, itemDefinition,
+  type EquipmentSlot, type ItemSlot,
+} from "./items";
+import { equipmentMapRequirement, type CampaignAccess } from "./equipment-access";
 import {
   effectivePlayerPowerStats, unroundedPlayerPower, type PlayerPowerProgress, type PlayerPowerResearch,
 } from "./player-power";
@@ -90,6 +94,28 @@ export function withItemEquipped<T extends EquipLoadout>(loadout: T, itemId: str
   }
   next[EQUIP_BEST_SLOTS.find(([candidate]) => candidate === slot)![1]] = itemId;
   return next;
+}
+
+/**
+ * What an empty hand means: the strongest weapon the player owns and may use
+ * (by the item's own damage bonus), else the starter stone, which every
+ * player owns. Never "". A blank hand is a normal saved state (older saves,
+ * gear whose map is locked again), and a player with no weapon cannot attack,
+ * so the server's reading of a saved hand and the client's bag both fill it
+ * from here.
+ */
+export function fallbackWeapon(itemIds: readonly string[], access: CampaignAccess | null | undefined) {
+  let best: string = STARTER_STONE;
+  let bestBonus = equipmentDamageMultiplierBonus(STARTER_STONE, "", "");
+  for (const itemId of itemIds) {
+    if (itemDefinition(itemId)?.slot !== "HAND" || isCosmeticOnlyItem(itemId) || equipmentMapRequirement(itemId, access)) continue;
+    const bonus = equipmentDamageMultiplierBonus(itemId, "", "");
+    if (bonus > bestBonus) {
+      best = itemId;
+      bestBonus = bonus;
+    }
+  }
+  return best;
 }
 
 /** Whether putting this item on would beat what is in its slot now. Cosmetic looks never do. */
