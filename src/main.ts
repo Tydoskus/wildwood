@@ -634,7 +634,6 @@ import {
       remotePlayers: () => (inTutorial() ? [] : coop?.remotePlayers?.() ?? [])
         .filter((remote) => !coop?.remotePlayerDeath?.(remote.id)),
       remoteCombatStats: (identity) => coop?.remoteCombatStats?.(identity),
-      remoteBoss: () => null,
       playerMovementSpeed: () => player.speed * movementMultiplier(),
       spawnDamageNumber,
       spawnBurst,
