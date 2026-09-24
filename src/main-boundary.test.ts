@@ -38,6 +38,10 @@ import { describe, expect, it } from "vitest";
 // The toggle, its storage and its row live in boss-hitbox-overlay-control.ts
 // and the drawing lives in the boss renderer; only the composition root holds
 // both the panel and the render runtime.
+// 2_205, not raised: the prestige unlock popup's wiring took the four lines of
+// slack below it. Its construction, the HUD-tick poll and the developer
+// preview hook need the coop session, the pause registry and the dev panel,
+// which only the composition root holds; the logic is prestige-unlock-popup.ts.
 const MAX_LINES = 2_205;
 const TARGET_LINES = 1_000;
 

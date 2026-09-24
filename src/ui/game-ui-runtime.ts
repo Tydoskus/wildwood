@@ -13,6 +13,8 @@ import { createLeaderboardController } from "./leaderboard-controller";
 import { createOverlaysController } from "./overlays-controller";
 import { createRuntimeHudController } from "./runtime-hud-controller";
 import { createPrestigeController } from "./prestige-panel";
+import { createPrestigeUnlockPopup } from "./prestige-unlock-popup";
+import { proceduralMapId } from "../../shared/procedural-maps";
 import { createTechTreeController } from "./tech-tree-controller";
 
 export function createHomeStationTouchHandler(
@@ -61,9 +63,33 @@ export function createPrestigePanel(d: Record<string, any>) {
   return createPrestigeController({ openButton: e.prestigeBtn, ownActions: e.profileOwnActions, overlay: e.prestigeOverlay,
     closeButton: e.closePrestigeBtn, confirmButton: e.prestigeConfirmBtn, level: e.prestigeLevel, bonus: e.prestigeBonus,
     points: e.prestigePoints, peak: e.prestigePeak, cost: e.prestigeCost, status: e.prestigeStatus,
-    perkList: e.prestigePerks, prestige: d.prestige, unlocked: d.unlocked, runPrestige: d.runPrestige,
+    perkList: e.prestigePerks, prestige: d.prestige, unlocked: d.unlocked, completed: d.completed, runPrestige: d.runPrestige,
     perks: d.perks, spendPerk: d.spendPerk,
     showMessage: d.showMessage, beforeOpen: d.beforeOpen });
+}
+
+/**
+ * The "Prestige N unlocked" window, reading the same rows the prestige panel
+ * reads and prestiging through the same reducer.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createPrestigeUnlockRuntime(d: Record<string, any>) {
+  const { coop } = d;
+  return createPrestigeUnlockPopup({
+    identity: () => coop?.localIdentity?.() ?? "",
+    // The player row comes only with the game subscription, in the same
+    // applied batch as the prestige row and the Endless count. The account
+    // subscription before it carries campaign progress alone, which with no
+    // prestige row reads as a level-0 account that has finished the campaign.
+    ready: () => Boolean(d.playing() && coop?.isConnected?.() && coop?.localState?.() && !coop?.accountState?.()?.sessionConflict),
+    blocked: d.blocked,
+    level: () => coop?.prestige?.()?.level ?? 0,
+    campaignComplete: () => Boolean(coop?.proceduralMapUnlocked?.(proceduralMapId(1))),
+    completedEndless: () => coop?.proceduralCompleted?.() ?? 0,
+    runPrestige: async () => coop?.prestigeAccount?.(),
+    showMessage: d.showMessage,
+    pause: d.pause,
+  });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -86,6 +112,7 @@ export function createDevPanel(d: Record<string, any>) {
   const panel = createDevPanelController({
     teleportPlayer: d.teleportPlayer,
     simulateTimeAway: d.simulateTimeAway, offlineWindowRank: d.offlineWindowRank,
+    previewPrestigeUnlock: d.previewPrestigeUnlock,
     balance: {
       load: () => coop.balanceEditor(), preview: (map, settings) => coop.previewBalance(map, settings),
       save: (revision, settings) => coop.saveBalance(revision, settings), restore: (expected, revision) => coop.restoreBalance(expected, revision),

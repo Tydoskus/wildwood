@@ -1,6 +1,7 @@
 import { createPlayerTravelControl } from "./player-travel-control";
 import { createOfflineProgressTestControl } from "./offline-progress-test-control";
 import { createBossHitboxOverlayControl } from "./boss-hitbox-overlay-control";
+import { createPrestigeUnlockPreviewControl } from "./prestige-unlock-popup";
 import { createOtaPanel } from './ota-panel';
 import { createBalanceEditorPanel, type BalanceEditorDependencies } from "./balance-editor-panel";
 import { createModerationHistoryPanel, type ModerationHistoryLoader } from "./moderation-history-panel";
@@ -49,6 +50,8 @@ type DevPanelDependencies = {
   teleportPlayer: (query: string) => Promise<void>;
   simulateTimeAway: (seconds: number) => Promise<boolean>;
   offlineWindowRank?: () => number;
+  /** Opens the "Prestige N unlocked" window without beating a boss. */
+  previewPrestigeUnlock?: () => void;
   balance: BalanceEditorDependencies;
   forestPrototype: ForestPrototypePanelDependencies;
   isDeveloper: () => boolean;
@@ -97,6 +100,11 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     allowed: dependencies.isDeveloper, simulate: dependencies.simulateTimeAway, offlineWindowRank: dependencies.offlineWindowRank, showMessage: dependencies.showMessage,
   });
   const bossHitboxes = createBossHitboxOverlayControl(tabPanels.controls, { allowed: dependencies.isDeveloper });
+  const prestigeUnlockPreview = createPrestigeUnlockPreviewControl(tabPanels.controls, {
+    allowed: () => dependencies.isDeveloper() && Boolean(dependencies.previewPrestigeUnlock),
+    // The popup waits for other windows to clear, so this one steps aside first.
+    preview: () => { close(); dependencies.previewPrestigeUnlock?.(); },
+  });
   const ota = createOtaPanel(tabPanels.controls);
   const balance = createBalanceEditorPanel(tabPanels.balance, dependencies.balance);
   const moderation = createModerationHistoryPanel(tabPanels.moderation, dependencies.loadModerationHistory);
@@ -278,6 +286,7 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
     ota.setDeveloperAccess(developer);
     playerTravel.render();
     offlineProgressTest.render();
+    prestigeUnlockPreview.render();
     settingsRow.hidden = !developer;
     button.hidden = !developer;
     if (!developer) { close(); forestPrototype.clear(); }

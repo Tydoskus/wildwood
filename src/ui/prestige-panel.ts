@@ -4,11 +4,32 @@ import { PRESTIGE_PERKS, PRESTIGE_PERK_IDS, PRESTIGE_PERK_MAX_RANK, prestigePerk
   type PrestigePerkId, type PrestigePerkRanks } from '../../shared/prestige-perks';
 
 export type PrestigeRow = { level: number; perkPoints: number; peakPower: number };
-type Result = { ok: boolean; error?: string } | boolean | undefined;
+export type PrestigeResult = { ok: boolean; error?: string } | boolean | undefined;
 
 const LOCKED_HINT = 'Defeat Aegis Prime to unlock Prestige.';
-const COST = 'Prestige resets your stats, equipment and every map unlock. '
+/** What a prestige takes away and what it leaves, in the words every prestige window uses. */
+export const PRESTIGE_COST = 'Prestige resets your stats, equipment and every map unlock. '
   + 'Your tech research, lifetime kills, name, gems, bought slots and upgrade bench all stay.';
+/** The warning shown once a prestige button is armed and the next press resets. */
+export const PRESTIGE_ARMED_WARNING = 'This cannot be undone.';
+
+/**
+ * The one way a window prestiges: the same reducer call and the same words for
+ * success and failure, whether the press came from the prestige panel or from
+ * the popup announcing that a level has unlocked. `level` is read after the
+ * call resolves, so the message names the level just reached.
+ */
+export async function submitPrestige(runPrestige: () => Promise<PrestigeResult>, level: () => number)
+  : Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+  try {
+    const result = await runPrestige();
+    const ok = typeof result === 'boolean' ? result : result?.ok !== false;
+    if (ok) return { ok: true, message: `Prestige ${level() || ''}`.trim() + ' complete.' };
+    return { ok: false, error: (typeof result === 'object' && result?.error) || "Couldn't prestige. Please try again." };
+  } catch {
+    return { ok: false, error: "Couldn't prestige. Please try again." };
+  }
+}
 
 /** What one more prestige is worth, as the panel words it. */
 export function prestigeRewardLabel(level: number) {
@@ -22,12 +43,12 @@ export function createPrestigeController(options: {
   cost: HTMLElement; status: HTMLElement;
   prestige: () => PrestigeRow | null;
   perks: () => PrestigePerkRanks | null | undefined;
-  spendPerk: (perk: PrestigePerkId) => Promise<Result>;
+  spendPerk: (perk: PrestigePerkId) => Promise<PrestigeResult>;
   /** Whether the first Endless map is open: the campaign is complete. */
   unlocked: () => boolean;
   /** Endless stages cleared this run; the second prestige needs one, the third two, and so on. */
   completed?: () => number;
-  runPrestige: () => Promise<Result>;
+  runPrestige: () => Promise<PrestigeResult>;
   showMessage?: (text: string) => void;
   beforeOpen?: () => void;
 }) {
@@ -128,7 +149,7 @@ export function createPrestigeController(options: {
     options.points.textContent = String(row?.perkPoints ?? 0);
     options.peak.textContent = row?.peakPower ? formatCompactNumber(row.peakPower) : '—';
     options.cost.textContent = unlocked()
-      ? `${COST} You would earn ${prestigeRewardLabel(level)}.`
+      ? `${PRESTIGE_COST} You would earn ${prestigeRewardLabel(level)}.`
       : `Spend the points you have banked. ${hint()}`;
     renderPerks(row?.perkPoints ?? 0);
     // Enabled whenever the campaign is done, even if this client reads fewer
@@ -184,23 +205,20 @@ export function createPrestigeController(options: {
       armed = true;
       confirmButton.textContent = 'Yes, prestige';
       confirmButton.classList.add('is-armed');
-      status.textContent = 'This cannot be undone.';
+      status.textContent = PRESTIGE_ARMED_WARNING;
       return;
     }
     pending = true; disarm();
     status.textContent = 'Prestiging…';
     confirmButton.disabled = true;
     try {
-      const result = await options.runPrestige();
-      const ok = typeof result === 'boolean' ? result : result?.ok !== false;
-      if (ok) {
+      const outcome = await submitPrestige(options.runPrestige, () => options.prestige()?.level ?? 0);
+      if (outcome.ok) {
         close();
-        options.showMessage?.(`Prestige ${(options.prestige()?.level ?? 0) || ''}`.trim() + ' complete.');
+        options.showMessage?.(outcome.message);
       } else {
-        status.textContent = (typeof result === 'object' && result?.error) || "Couldn't prestige. Please try again.";
+        status.textContent = outcome.error;
       }
-    } catch {
-      status.textContent = "Couldn't prestige. Please try again.";
     } finally {
       pending = false; render();
     }

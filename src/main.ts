@@ -114,7 +114,7 @@ import { hasApprovedGameSession } from "./coop/startup-state-machine";
 import { createHudTimerColumn } from "./ui/hud-timer-column";
 import { createGameElements } from "./ui/game-elements";
 import { bindGameInteractionListeners } from "./ui/game-interaction-bindings";
-import { createDevPanel, createGameActionsRuntime, createGameOverlays, createGameRuntimeHud, createHomeStationTouchHandler, createLeaderboardPanel, createPrestigePanel, createTechTreePanel } from "./ui/game-ui-runtime";
+import { createDevPanel, createGameActionsRuntime, createGameOverlays, createGameRuntimeHud, createHomeStationTouchHandler, createLeaderboardPanel, createPrestigePanel, createPrestigeUnlockRuntime, createTechTreePanel } from "./ui/game-ui-runtime";
 import { formatCompactNumber, formatGemAmount } from "./ui/number-format";
 import { playerGenderIconPath } from "./ui/player-gender";
 import type { LeaderboardEntry } from "./wildstat-coop";
@@ -1354,9 +1354,12 @@ import {
 
   let offlineProgressSummary: ReturnType<typeof createOfflineProgressSummary> | undefined;
   let offlineProgressSetting: { refresh: () => void } | undefined;
+  const prestigeUnlock = createPrestigeUnlockRuntime({ coop, showMessage, playing: () => session?.hasStarted() && !inTutorial(),
+    blocked: () => session.isPaused(), pause: (paused: boolean) => setGameplayPause("prestige-unlock", paused) });
   function updateHud(force = false) {
     runtimeHud.updateHud(force);
     offlineProgressSummary?.showPending();
+    prestigeUnlock.poll();
     offlineProgressSetting?.refresh();
   }
 
@@ -1504,6 +1507,7 @@ import {
   const devPanel = createDevPanel({
     coop,
     simulateTimeAway: async (seconds: number) => Boolean(await coop?.simulateTimeAway?.(seconds)), offlineWindowRank: () => coop?.research?.()?.offlineWindow ?? 0,
+    previewPrestigeUnlock: prestigeUnlock.preview,
     teleportPlayer: async (query: string) => {
       if (!coop?.isDeveloper?.()) throw new Error("Developer access required.");
       const target = await coop.findTeleportPlayer(query);

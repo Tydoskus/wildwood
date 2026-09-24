@@ -2741,6 +2741,26 @@
   .prestige-confirm { border-color: #67272b; background: linear-gradient(#c85050, #842f34); color: #fff; }
   .prestige-confirm.is-armed { border-color: #8a3a1e; background: linear-gradient(#e08a3c, #a04f1c); }
   .prestige-confirm:disabled { filter: grayscale(.7); opacity: .6; }
+  /* "Prestige N unlocked": the prestige window's frame, footer and confirm,
+     raised by itself when a level opens. Same layer and dimming as that window;
+     each edge clears its own safe-area inset so a notch or home bar never
+     covers a button. */
+  #prestigeUnlock { position: fixed; inset: 0; z-index: 13; display: grid; place-items: center; padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); background: rgba(0,0,0,.78); }
+  #prestigeUnlock[hidden] { display: none; }
+  .prestige-unlock-window { width: min(360px, 100%); text-align: center; }
+  .prestige-unlock-window .window-banner.window-banner { margin-bottom: 0; }
+  .prestige-unlock-badge { --prestige-badge-size: 56px; margin: 0 0 2px; }
+  .prestige-unlock-kicker { color: #f0c674; font-size: 12px; font-weight: 900; letter-spacing: .18em; }
+  .prestige-unlock-reward { margin: 0; color: #fff; font-size: 13px; line-height: 1.45; }
+  .prestige-unlock-later { margin: 0; color: #8c94a1; font-size: 10px; line-height: 1.4; }
+  .prestige-unlock-window .prestige-footer button { flex: 1 1 128px; width: auto; max-width: 170px; height: 44px; margin: 0; padding: 0 8px 2px; border-width: 2px; border-radius: 8px; }
+  /* Landscape phones: the window scrolls rather than clip, but the badge and
+     the spacing give way first so both buttons usually fit without it. */
+  @media (max-height: 480px) {
+    .prestige-unlock-window { gap: 6px; padding: 8px 12px; }
+    .prestige-unlock-badge { --prestige-badge-size: 36px; }
+    .prestige-unlock-window .window-banner.window-banner { --banner-width: min(220px, 50vw); }
+  }
   .profile-own-actions { display: flex; justify-content: center; margin-top: 10px; }
   .profile-own-actions[hidden] { display: none; }
   /* The back button's shape, in the tab row's own blue. It is the one action on
