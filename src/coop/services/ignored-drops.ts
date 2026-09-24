@@ -6,10 +6,10 @@ export type IgnoredDropsResult = { ok: boolean; error?: string };
 type Target = { connection: DbConnection; isCurrent: () => boolean };
 
 /**
- * The equipment this account marked ignored on the map window, from the
- * caller-scoped my_ignored_drops view, and the reducer that changes it. Copies
- * of these items are ignored by the server when they drop; the client only
- * shows the list and sends the player's changes.
+ * This account's loot filter, from the caller-scoped my_ignored_drops view:
+ * slot entries (`slot:HAND` and so on) and item ids that are turned off, and
+ * the reducer that changes them. The server never drops what the filter turns
+ * off; the client only shows the list and sends the player's changes.
  */
 export function createIgnoredDrops(notify: () => void) {
   let target: Target | null = null;
@@ -49,7 +49,7 @@ export function createIgnoredDrops(notify: () => void) {
     watch,
     table: tables.myIgnoredDrops,
     api: {
-      /** Item ids whose copies the server ignores on arrival. */
+      /** Loot filter entries turned off: `slot:<SLOT>` for a whole slot, or an item id. */
       ignoredDrops: (): ReadonlySet<string> => ignored,
       setIgnoredDrops,
     },

@@ -16,7 +16,7 @@ import { WORLD } from "../game/constants";
 import { ENEMY_TYPES, REWARD_DATA, type RewardType } from "../game/enemies";
 import { itemPresentation } from "../game/item-presentation";
 import { drawPortalMapMarker } from "../game/portal-presentation";
-import { createDropIgnoreSettings, type IgnoredDropsPort } from "./drop-ignore-settings";
+import { createLootFilterWindow, type LootFilterPort } from "./loot-filter-window";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
@@ -57,8 +57,8 @@ type MapGuideDependencies = {
   portals: () => MapGuidePortal[];
   beforeOpen: () => void;
   clearPlayerInput: () => void;
-  /** The coop session, for the account's ignored drops. Without it the map has no Ignore drops button. */
-  ignoredDrops?: IgnoredDropsPort | null;
+  /** The coop session, for the account's loot filter. Without it the map has no Loot filter button. */
+  lootFilter?: LootFilterPort | null;
 };
 
 export type MapGuideDrop = {
@@ -185,8 +185,8 @@ function displayItemName(itemId: ItemId) {
 export function createMapGuideController(elements: MapGuideElements, dependencies: MapGuideDependencies) {
   const { trigger, overlay, title, canvas, zoneLabels, dropItems, back } = elements;
   const dropsHeader = dropItems.parentElement?.querySelector("header");
-  const dropSettings = dropsHeader
-    ? createDropIgnoreSettings({ anchor: dropsHeader, port: () => dependencies.ignoredDrops })
+  const lootFilter = dropsHeader
+    ? createLootFilterWindow({ anchor: dropsHeader, cards: dropItems, port: () => dependencies.lootFilter })
     : null;
 
   function renderZoneLabels(zones: MapGuideZone[], boss: MapGuideBoss) {
@@ -351,7 +351,7 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
     const mapId = dependencies.currentMapId();
     title.textContent = dependencies.mapName(mapId);
     renderDrops(mapId);
-    dropSettings?.setMap(dependencies.mapName(mapId), mapGuideDrops(mapId).map((drop) => drop.itemId));
+    lootFilter?.setMap(dependencies.mapName(mapId), mapGuideDrops(mapId).map((drop) => drop.itemId));
     drawMap();
   }
 
@@ -368,7 +368,7 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
 
   function close() {
     if (overlay.hidden) return;
-    dropSettings?.close();
+    lootFilter?.close();
     overlay.hidden = true;
     trigger.setAttribute("aria-expanded", "false");
   }

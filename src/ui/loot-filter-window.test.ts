@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { parseHTML } from "linkedom";
-import { createDropIgnoreSettings, ignorableDrops, ignoreAllState, type IgnoredDropsPort } from "./drop-ignore-settings";
+import { createLootFilterWindow, filterableDrops, type LootFilterPort } from "./loot-filter-window";
 import { mapGuideDrops } from "./map-guide-controller";
 import { BASIC_PAPER_HAT, IRON_BOW, SAMURAI_BOW, SAMURAI_HAT, STARTER_BOW, WOODEN_ARMOR } from "../../shared/items";
 import { SAMURAI_GARDEN_MAP_ID, TUTORIAL_FOREST_MAP_ID } from "../game/world";
@@ -9,154 +9,194 @@ const globals = globalThis as unknown as Record<string, unknown>;
 const saved = { document: globals.document, HTMLElement: globals.HTMLElement };
 afterEach(() => { Object.assign(globals, saved); vi.useRealTimers(); });
 
-type Deferred = { itemIds: readonly string[]; ignored: boolean; resolve: (result: { ok: boolean; error?: string }) => void };
+type Call = { ids: readonly string[]; off: boolean; resolve: (result: { ok: boolean; error?: string }) => void };
 
 function harness(initial: string[] = [], options: { withSetter?: boolean } = {}) {
   vi.useFakeTimers();
   const { document, window } = parseHTML(`<html><body><section class="map-guide-drops"><header><h3>Item Drops</h3></header>
-    <div id="mapGuideDropItems"></div></section></body></html>`);
+    <div id="mapGuideDropItems">
+      <article class="map-guide-drop-card" data-item-id="samurai_hat"><div class="map-guide-drop-copy"><h4>Samurai Hat</h4></div></article>
+      <article class="map-guide-drop-card" data-item-id="samurai_bow"><div class="map-guide-drop-copy"><h4>Samurai Bow</h4></div></article>
+    </div></section></body></html>`);
   Object.assign(globals, { document, HTMLElement: window.HTMLElement });
   const server = new Set(initial);
-  const calls: Deferred[] = [];
-  const port: IgnoredDropsPort = {
+  const calls: Call[] = [];
+  const port: LootFilterPort = {
     ignoredDrops: () => server,
     ...(options.withSetter === false ? {} : {
-      setIgnoredDrops: (itemIds: readonly string[], ignored: boolean) =>
-        new Promise(resolve => calls.push({ itemIds, ignored, resolve })),
+      setIgnoredDrops: (ids: readonly string[], off: boolean) => new Promise(resolve => calls.push({ ids, off, resolve })),
     }),
   };
-  const settings = createDropIgnoreSettings({ anchor: document.querySelector("header") as unknown as HTMLElement, port: () => port, root: document as unknown as Document });
+  const filter = createLootFilterWindow({
+    anchor: document.querySelector("header") as unknown as HTMLElement,
+    cards: document.querySelector("#mapGuideDropItems") as unknown as HTMLElement,
+    port: () => port, root: document as unknown as Document,
+  });
   const dialog = document.querySelector("dialog") as unknown as HTMLDialogElement;
   Object.assign(dialog, { showModal() { dialog.setAttribute("open", ""); }, close() { dialog.removeAttribute("open"); } });
   Object.defineProperty(dialog, "open", { get: () => dialog.hasAttribute("open") });
-  const trigger = document.querySelector(".map-guide-drop-settings") as unknown as HTMLButtonElement;
-  const row = (itemId: string) => document.querySelector(`.drop-ignore-list [data-item-id="${itemId}"]`) as unknown as HTMLButtonElement;
-  const all = () => document.querySelector(".drop-ignore-all") as unknown as HTMLButtonElement;
-  const checked = (itemId: string) => row(itemId).getAttribute("aria-checked");
-  const status = () => document.querySelector(".farm-selection") as unknown as HTMLElement;
+  const q = <T = HTMLElement>(selector: string) => document.querySelector(selector) as unknown as T;
+  const trigger = q<HTMLButtonElement>(".map-guide-loot-filter");
+  const row = (itemId: string) => q<HTMLButtonElement>(`.loot-filter-list [data-item-id="${itemId}"]`);
+  const chip = (slot: string) => q<HTMLButtonElement>(`.loot-filter-chip[data-filter-id="slot:${slot}"]`);
+  const pickedUp = (itemId: string) => row(itemId).getAttribute("aria-checked");
+  const card = (itemId: string) => q<HTMLElement>(`.map-guide-drop-card[data-item-id="${itemId}"]`);
   /** The server answers the oldest call: on success its rows change first, as a transaction update does. */
   const answer = async (result: { ok: boolean; error?: string } = { ok: true }) => {
     const call = calls.shift()!;
-    if (result.ok) for (const itemId of call.itemIds) call.ignored ? server.add(itemId) : server.delete(itemId);
+    if (result.ok) for (const id of call.ids) call.off ? server.add(id) : server.delete(id);
     call.resolve(result);
     await Promise.resolve(); await Promise.resolve();
   };
-  return { document, settings, dialog, trigger, row, all, checked, status, calls, answer, server };
+  const sent = () => calls.map(call => [[...call.ids], call.off]);
+  return { document, filter, dialog, trigger, row, chip, pickedUp, card, q, calls, sent, answer, server };
 }
 
-it("lists each piece of equipment that drops on the map once, with its tier, and nothing that cannot be offered", () => {
-  expect(ignorableDrops([IRON_BOW, BASIC_PAPER_HAT, IRON_BOW, SAMURAI_HAT])).toEqual([IRON_BOW, SAMURAI_HAT]);
-  // The Tutorial Forest's paper hat is a cosmetic look, which never makes an offer.
-  const forest = ignorableDrops(mapGuideDrops(TUTORIAL_FOREST_MAP_ID).map(drop => drop.itemId));
-  expect(forest).toEqual(expect.arrayContaining([STARTER_BOW, WOODEN_ARMOR]));
-  expect(forest).not.toContain(BASIC_PAPER_HAT);
+it("lists every item that drops on the map once, cosmetic looks included, never starter items", () => {
+  expect(filterableDrops([IRON_BOW, BASIC_PAPER_HAT, IRON_BOW, SAMURAI_HAT])).toEqual([IRON_BOW, BASIC_PAPER_HAT, SAMURAI_HAT]);
+  expect(filterableDrops(["starter_stone", "wooden_sword"])).toEqual([]);
+  const forest = filterableDrops(mapGuideDrops(TUTORIAL_FOREST_MAP_ID).map(drop => drop.itemId));
+  expect(forest).toEqual(expect.arrayContaining([STARTER_BOW, WOODEN_ARMOR, BASIC_PAPER_HAT]));
 
   const view = harness();
-  view.settings.setMap("Samurai Garden", mapGuideDrops(SAMURAI_GARDEN_MAP_ID).map(drop => drop.itemId));
+  view.filter.setMap("Samurai Garden", mapGuideDrops(SAMURAI_GARDEN_MAP_ID).map(drop => drop.itemId));
   expect(view.trigger.hidden).toBe(false);
-  expect(view.trigger.textContent).toBe("Ignore drops");
+  expect(view.trigger.textContent).toBe("Loot filter");
+  expect(view.q(".loot-filter-map").textContent).toBe("Items on Samurai Garden");
+  expect(view.q("#lootFilterTitle").textContent).toBe("Loot Filter");
+  expect(view.q(".loot-filter-hint").textContent).toBe("Off = never drops, on every map.");
   expect(view.row(SAMURAI_HAT).querySelector("strong")!.textContent).toBe("Samurai Hat");
-  expect(view.row(SAMURAI_HAT).querySelector(".drop-ignore-detail")!.textContent).toBe("Tier 7");
-  expect(view.row(SAMURAI_BOW).getAttribute("role")).toBe("checkbox");
-  expect(view.document.querySelector(".drop-ignore-note")!.textContent)
-    .toBe("New items still drop; only copies you already own are ignored.");
+  expect(view.row(SAMURAI_HAT).querySelector(".loot-filter-detail")!.textContent).toBe("Tier 7");
+  expect(view.pickedUp(SAMURAI_HAT)).toBe("true");
+  expect(view.row(SAMURAI_HAT).querySelector(".loot-filter-switch-label")!.textContent).toBe("Pick up");
+  expect([...view.document.querySelectorAll(".loot-filter-chip")].map(chip => [chip.textContent, chip.getAttribute("aria-pressed")]))
+    .toEqual([["Weapons", "true"], ["Armor", "true"], ["Helmets", "true"], ["Boots", "true"]]);
+  expect(view.document.body.textContent).not.toContain("New items still drop");
 });
 
-it("hides the button on a map with nothing to ignore, or when the session cannot save", () => {
-  const view = harness();
-  view.settings.setMap("Home", []);
-  expect(view.trigger.hidden).toBe(true);
-  view.settings.open();
-  expect(view.dialog.open).toBe(false);
+it("has no button when the session cannot save", () => {
   const old = harness([], { withSetter: false });
-  old.settings.setMap("Samurai Garden", [SAMURAI_HAT]);
+  old.filter.setMap("Samurai Garden", [SAMURAI_HAT]);
   expect(old.trigger.hidden).toBe(true);
 });
 
-it("switches one item at once, sends it, and keeps it once the server agrees", async () => {
+it("turns a whole slot off with one chip, and shows that slot's rows as Slot off", async () => {
   const view = harness();
-  view.settings.setMap("Samurai Garden", [SAMURAI_HAT, SAMURAI_BOW]);
-  view.trigger.click();
-  expect(view.dialog.open).toBe(true);
-  view.row(SAMURAI_HAT).click();
-  expect(view.checked(SAMURAI_HAT)).toBe("true");
-  expect(view.checked(SAMURAI_BOW)).toBe("false");
-  expect(view.calls.map(call => [call.itemIds, call.ignored])).toEqual([[[SAMURAI_HAT], true]]);
+  view.filter.setMap("Samurai Garden", [SAMURAI_HAT, SAMURAI_BOW]);
+  view.filter.open();
+  view.chip("HEAD").click();
+  expect(view.sent()).toEqual([[["slot:HEAD"], true]]);
+  expect(view.chip("HEAD").getAttribute("aria-pressed")).toBe("false");
+  expect(view.row(SAMURAI_HAT).disabled).toBe(true);
+  expect(view.row(SAMURAI_HAT).classList.contains("is-slot-off")).toBe(true);
+  expect(view.row(SAMURAI_HAT).querySelector(".loot-filter-switch-label")!.textContent).toBe("Slot off");
+  expect(view.pickedUp(SAMURAI_HAT)).toBe("false");
+  expect(view.pickedUp(SAMURAI_BOW)).toBe("true");
   await view.answer();
-  expect(view.checked(SAMURAI_HAT)).toBe("true");
-  expect(view.trigger.textContent).toBe("Ignore drops (1)");
+  // A disabled row cannot be switched while its slot is off.
   view.row(SAMURAI_HAT).click();
-  expect(view.checked(SAMURAI_HAT)).toBe("false");
-  expect(view.calls.map(call => [call.itemIds, call.ignored])).toEqual([[[SAMURAI_HAT], false]]);
-  await view.answer();
-  expect(view.checked(SAMURAI_HAT)).toBe("false");
-  expect(view.status().hidden).toBe(true);
+  expect(view.calls).toHaveLength(0);
+  view.chip("HEAD").click();
+  expect(view.sent()).toEqual([[["slot:HEAD"], false]]);
+  expect(view.row(SAMURAI_HAT).disabled).toBe(false);
+  expect(view.pickedUp(SAMURAI_HAT)).toBe("true");
 });
 
-it("puts a switch back and says why when the server refuses or cannot be reached", async () => {
-  const view = harness([SAMURAI_BOW]);
-  view.settings.setMap("Samurai Garden", [SAMURAI_HAT, SAMURAI_BOW]);
-  view.settings.open();
-  view.row(SAMURAI_HAT).click();
-  expect(view.checked(SAMURAI_HAT)).toBe("true");
-  await view.answer({ ok: false, error: "NOT CONNECTED" });
-  expect(view.checked(SAMURAI_HAT)).toBe("false");
-  expect(view.status().hidden).toBe(false);
-  expect(view.status().textContent).toBe("Not saved: NOT CONNECTED");
+it("keeps an item's own switch under its slot: back on with the slot, it is still off if it was", () => {
+  const view = harness([SAMURAI_HAT, "slot:HEAD"]);
+  view.filter.setMap("Samurai Garden", [SAMURAI_HAT]);
+  expect(view.pickedUp(SAMURAI_HAT)).toBe("false");
+  expect(view.row(SAMURAI_HAT).disabled).toBe(true);
+  view.server.delete("slot:HEAD");
+  view.filter.refresh();
+  expect(view.row(SAMURAI_HAT).disabled).toBe(false);
+  expect(view.pickedUp(SAMURAI_HAT)).toBe("false");
+  expect(view.row(SAMURAI_HAT).querySelector(".loot-filter-switch-label")!.textContent).toBe("Pick up");
+});
+
+it("switches one item at once and puts it back with a reason when the server refuses", async () => {
+  const view = harness();
+  view.filter.setMap("Samurai Garden", [SAMURAI_HAT, SAMURAI_BOW]);
+  view.filter.open();
   view.row(SAMURAI_BOW).click();
-  expect(view.status().hidden).toBe(true);
-  await view.answer({ ok: false, error: "That item cannot be ignored." });
-  expect(view.checked(SAMURAI_BOW)).toBe("true");
-  expect(view.status().textContent).toBe("Not saved: That item cannot be ignored.");
+  expect(view.pickedUp(SAMURAI_BOW)).toBe("false");
+  expect(view.sent()).toEqual([[[SAMURAI_BOW], true]]);
+  await view.answer({ ok: false, error: "NOT CONNECTED" });
+  expect(view.pickedUp(SAMURAI_BOW)).toBe("true");
+  expect(view.q(".farm-selection").hidden).toBe(false);
+  expect(view.q(".farm-selection").textContent).toBe("Not saved: NOT CONNECTED");
+  view.row(SAMURAI_BOW).click();
+  expect(view.q(".farm-selection").hidden).toBe(true);
+  await view.answer();
+  expect(view.pickedUp(SAMURAI_BOW)).toBe("false");
+  expect(view.q(".map-guide-loot-filter-count").textContent).toBe("· 1 off");
+  expect(view.q(".map-guide-loot-filter-count").hidden).toBe(false);
 });
 
 it("a late answer to an older press never undoes a newer one", async () => {
   const view = harness();
-  view.settings.setMap("Samurai Garden", [SAMURAI_HAT]);
-  view.settings.open();
+  view.filter.setMap("Samurai Garden", [SAMURAI_HAT]);
+  view.filter.open();
   view.row(SAMURAI_HAT).click();
   view.row(SAMURAI_HAT).click();
-  expect(view.checked(SAMURAI_HAT)).toBe("false");
+  expect(view.pickedUp(SAMURAI_HAT)).toBe("true");
   await view.answer({ ok: false, error: "NOT CONNECTED" });
-  expect(view.checked(SAMURAI_HAT)).toBe("false");
+  expect(view.pickedUp(SAMURAI_HAT)).toBe("true");
   await view.answer();
-  expect(view.checked(SAMURAI_HAT)).toBe("false");
+  expect(view.pickedUp(SAMURAI_HAT)).toBe("true");
 });
 
-it("ignores all, shows a mixed state, and sends only what changes", async () => {
-  expect(ignoreAllState([], () => false)).toBe("false");
-  expect(ignoreAllState(["a", "b"], id => id === "a")).toBe("mixed");
-  expect(ignoreAllState(["a", "b"], () => true)).toBe("true");
-
+it("All off and All on set this map's items, sending only what changes", async () => {
   const view = harness([SAMURAI_HAT]);
-  view.settings.setMap("Samurai Garden", [SAMURAI_HAT, SAMURAI_BOW, IRON_BOW]);
-  view.settings.open();
-  expect(view.all().getAttribute("aria-checked")).toBe("mixed");
-  view.all().click();
-  expect(view.calls.map(call => [call.itemIds, call.ignored])).toEqual([[[SAMURAI_BOW, IRON_BOW], true]]);
-  expect(view.all().getAttribute("aria-checked")).toBe("true");
-  expect([SAMURAI_HAT, SAMURAI_BOW, IRON_BOW].map(view.checked)).toEqual(["true", "true", "true"]);
+  view.filter.setMap("Samurai Garden", [SAMURAI_HAT, SAMURAI_BOW, IRON_BOW]);
+  view.filter.open();
+  const allOn = view.q<HTMLButtonElement>(".loot-filter-all-on");
+  const allOff = view.q<HTMLButtonElement>(".loot-filter-all-off");
+  expect([allOn.disabled, allOff.disabled]).toEqual([false, false]);
+  allOff.click();
+  expect(view.sent()).toEqual([[[SAMURAI_BOW, IRON_BOW], true]]);
+  expect([SAMURAI_HAT, SAMURAI_BOW, IRON_BOW].map(view.pickedUp)).toEqual(["false", "false", "false"]);
+  expect(allOff.disabled).toBe(true);
   await view.answer();
-  view.all().click();
-  expect(view.calls.map(call => [call.itemIds, call.ignored])).toEqual([[[SAMURAI_HAT, SAMURAI_BOW, IRON_BOW], false]]);
-  expect(view.all().getAttribute("aria-checked")).toBe("false");
-  // A refusal puts every switch back, and Ignore all with them.
+  allOn.click();
+  expect(view.sent()).toEqual([[[SAMURAI_HAT, SAMURAI_BOW, IRON_BOW], false]]);
+  expect(allOn.disabled).toBe(true);
   await view.answer({ ok: false, error: "NOT CONNECTED" });
-  expect(view.all().getAttribute("aria-checked")).toBe("true");
-  view.row(IRON_BOW).click();
-  expect(view.all().getAttribute("aria-checked")).toBe("mixed");
+  expect([SAMURAI_HAT, SAMURAI_BOW, IRON_BOW].map(view.pickedUp)).toEqual(["false", "false", "false"]);
+  // The slot chips are not this map's to change.
+  expect(view.sent()).toEqual([]);
+  expect(view.server.has("slot:HAND")).toBe(false);
+});
+
+it("tags the map's drop cards Filtered, by slot or by item, and counts them on the button", async () => {
+  const view = harness(["slot:HEAD"]);
+  view.filter.setMap("Samurai Garden", [SAMURAI_HAT, SAMURAI_BOW]);
+  expect(view.card(SAMURAI_HAT).classList.contains("is-filtered")).toBe(true);
+  expect(view.card(SAMURAI_HAT).querySelector(".map-guide-drop-filtered")!.textContent).toBe("Filtered");
+  expect(view.card(SAMURAI_BOW).querySelector(".map-guide-drop-filtered")).toBeNull();
+  expect(view.q(".map-guide-loot-filter-count").textContent).toBe("· 1 off");
+  view.filter.open();
+  view.row(SAMURAI_BOW).click();
+  await view.answer();
+  expect(view.card(SAMURAI_BOW).classList.contains("is-filtered")).toBe(true);
+  expect(view.q(".map-guide-loot-filter-count").textContent).toBe("· 2 off");
+  view.chip("HEAD").click();
+  await view.answer();
+  expect(view.card(SAMURAI_HAT).classList.contains("is-filtered")).toBe(false);
+  expect(view.card(SAMURAI_HAT).querySelector(".map-guide-drop-filtered")).toBeNull();
+  expect(view.card(SAMURAI_HAT).querySelectorAll(".map-guide-drop-filtered")).toHaveLength(0);
 });
 
 it("follows changes made on another device while open, and closes on Back or Escape without closing the map", () => {
   const view = harness();
-  view.settings.setMap("Samurai Garden", [SAMURAI_HAT]);
-  view.settings.open();
-  view.server.add(SAMURAI_HAT);
+  view.filter.setMap("Samurai Garden", [SAMURAI_HAT]);
+  view.filter.open();
+  view.server.add("slot:HEAD");
   vi.advanceTimersByTime(1_000);
-  expect(view.checked(SAMURAI_HAT)).toBe("true");
-  (view.document.querySelector(".drop-ignore-sheet .window-back-button") as unknown as HTMLButtonElement).click();
+  expect(view.chip("HEAD").getAttribute("aria-pressed")).toBe("false");
+  view.q<HTMLButtonElement>(".loot-filter-sheet .window-back-button").click();
   expect(view.dialog.open).toBe(false);
-  view.settings.open();
+  view.filter.open();
   const outside = vi.fn();
   view.document.body.addEventListener("keydown", outside);
   const escape = new (view.document.defaultView as any).Event("keydown", { bubbles: true, cancelable: true });

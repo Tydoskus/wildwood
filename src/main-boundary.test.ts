@@ -47,9 +47,9 @@ import { describe, expect, it } from "vitest";
 // the duplicate-equipment offer window shares. That window's construction takes
 // one line of the room, with its note: only the composition root holds the coop
 // session, the local bag and whether the world is running.
-// 2_188: one line handing the map window the coop session for its Ignore
-// drops window. The list, the switches and their saving live in
-// drop-ignore-settings.ts; only the composition root holds the session.
+// 2_188: one line handing the map window the coop session for its Loot
+// filter window. The chips, the switches and their saving live in
+// loot-filter-window.ts; only the composition root holds the session.
 const MAX_LINES = 2_188;
 const TARGET_LINES = 1_000;
 

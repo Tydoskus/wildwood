@@ -19,9 +19,9 @@ const millis = (timestamp: { microsSinceUnixEpoch: bigint }) => Number(timestamp
 /**
  * This account's kept extra copies and waiting duplicate offers, from the
  * caller-scoped my_equipment_copies and my_equipment_offers views, and the
- * three reducers that change them. The items whose copies are ignored on
- * arrival ride along. The server decides everything; this only carries rows
- * and requests.
+ * three reducers that change them. The account's loot filter, which decides
+ * what drops at all, rides along. The server decides everything; this only
+ * carries rows and requests.
  */
 export function createEquipmentCopies(notify: () => void) {
   let target: Target | null = null;

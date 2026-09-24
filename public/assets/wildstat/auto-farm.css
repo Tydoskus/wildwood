@@ -378,101 +378,160 @@
   cursor: pointer;
 }
 .equipment-offer-review[hidden] { display: none; }
-/* Ignore drops, opened from the map window's Item Drops header. The Auto Farm
- * window's frame and rows, each item with an Ignore switch. Amber rather than
- * green: an ignored item is one the player turned away, not one they chose. */
-#mapGuide .map-guide-drop-settings {
+/* Loot Filter, opened from the map window's Item Drops header, in the Auto
+ * Farm window's frame. Phrased as what is picked up: lit green is on, dark
+ * and struck through is filtered. */
+#mapGuide .map-guide-loot-filter {
+  display: inline-flex;
   flex-shrink: 0;
+  align-items: center;
+  gap: 5px;
   min-height: 32px;
   margin: 0;
   padding: 4px 12px;
-  border: 2px solid #c9ab64;
+  border: 2px solid rgba(105,229,111,.55);
   border-radius: 8px;
-  background: rgba(201,171,100,.12);
+  background: rgba(105,229,111,.10);
   box-shadow: none;
-  color: #ffcf7a;
+  color: #c9f7c2;
   font: 900 12px/1.2 var(--font-rounded);
   white-space: nowrap;
   cursor: pointer;
 }
-#mapGuide .map-guide-drop-settings[hidden] { display: none; }
-#mapGuide .map-guide-drop-settings:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-.farm-sheet.drop-ignore-sheet {
-  height: fit-content;
-  max-height: min(600px, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px));
+#mapGuide .map-guide-loot-filter[hidden], .map-guide-loot-filter-count[hidden] { display: none; }
+#mapGuide .map-guide-loot-filter:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.map-guide-loot-filter-count { color: #ffcf7a; }
+.map-guide-drop-card.is-filtered .map-guide-drop-art,
+.map-guide-drop-card.is-filtered .map-guide-drop-copy > :not(.map-guide-drop-filtered),
+.map-guide-drop-card.is-filtered .map-guide-drop-chance { opacity: .4; filter: grayscale(.8); }
+.map-guide-drop-filtered {
+  justify-self: start;
+  padding: 1px 6px;
+  border: 1px solid #c9ab64;
+  border-radius: 999px;
+  background: rgba(0,0,0,.45);
+  color: #ffcf7a;
+  font-size: 9px;
+  line-height: 1.3;
+  text-transform: uppercase;
 }
-.drop-ignore-all-wrap { flex-shrink: 0; margin: 0 14px 8px; padding-bottom: 8px; border-bottom: 1px solid #ffffff1c; }
-.drop-ignore-all-wrap[hidden] { display: none; }
-.farm-sheet .drop-ignore-row {
+.farm-sheet.loot-filter-sheet {
+  height: fit-content;
+  max-height: min(640px, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px));
+}
+.loot-filter-slots { display: grid; flex-shrink: 0; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 0 14px; }
+.farm-sheet .loot-filter-chip {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 7px 2px 6px;
+  border: 2px solid var(--green);
+  border-radius: 10px;
+  background: rgba(105,229,111,.14);
+  box-shadow: 0 0 0 1px rgba(105,229,111,.3);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+.loot-filter-chip-art { position: relative; display: grid; place-items: center; width: 34px; height: 34px; }
+.loot-filter-chip-art > * { width: 30px; height: 30px; }
+.loot-filter-chip-label { max-width: 100%; overflow: hidden; font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }
+.farm-sheet .loot-filter-chip[aria-pressed="false"] { border-color: rgba(255,255,255,.14); background: #0006; box-shadow: none; color: var(--muted); }
+.loot-filter-chip[aria-pressed="false"] .loot-filter-chip-art > * { opacity: .35; filter: grayscale(1); }
+.loot-filter-chip[aria-pressed="false"] .loot-filter-chip-label { text-decoration: line-through; text-decoration-thickness: 2px; }
+/* A red slash across the art, the "no" sign, on a slot that is filtered. */
+.loot-filter-chip[aria-pressed="false"] .loot-filter-chip-art::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -2px;
+  right: -2px;
+  height: 3px;
+  border-radius: 2px;
+  background: #ff9b91;
+  transform: rotate(-40deg);
+  pointer-events: none;
+}
+.loot-filter-hint { flex-shrink: 0; margin: 6px 14px 8px; color: var(--muted); text-align: center; font-size: 12px; }
+.loot-filter-items-head { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 8px; margin: 0 14px 6px; padding-top: 8px; border-top: 1px solid #ffffff1c; }
+.loot-filter-map { min-width: 0; margin: 0; overflow: hidden; font-size: 13px; white-space: nowrap; text-overflow: ellipsis; }
+.loot-filter-bulk { display: flex; flex-shrink: 0; gap: 4px; }
+.loot-filter-bulk[hidden] { display: none; }
+.farm-sheet .loot-filter-bulk button {
+  min-height: 28px;
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  color: #c9f7c2;
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.farm-sheet .loot-filter-bulk button:disabled { color: var(--muted); opacity: .45; text-decoration: none; cursor: default; }
+.farm-sheet .loot-filter-row {
   display: flex;
   align-items: center;
   gap: 10px;
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  min-height: 56px;
-  padding: 7px 10px;
-  border: 2px solid rgba(255,255,255,.14);
+  min-height: 54px;
+  padding: 6px 10px;
+  border: 2px solid var(--green);
   border-radius: 10px;
-  background: #ffffff06;
+  background: rgba(105,229,111,.08);
   box-shadow: none;
   color: #fff;
   text-align: left;
   font: inherit;
   cursor: pointer;
 }
-.farm-sheet .drop-ignore-row[aria-checked="true"] { border-color: #c9ab64; background: rgba(201,171,100,.10); }
-.farm-sheet .drop-ignore-row[aria-checked="mixed"] { border-color: rgba(201,171,100,.55); }
-.farm-sheet .drop-ignore-all { min-height: 46px; }
-.drop-ignore-art {
+.farm-sheet .loot-filter-row[aria-checked="false"] { border-color: rgba(255,255,255,.14); background: #ffffff06; }
+.loot-filter-row[aria-checked="false"] .loot-filter-art,
+.loot-filter-row[aria-checked="false"] .loot-filter-copy { opacity: .4; filter: grayscale(.8); }
+.farm-sheet .loot-filter-row.is-slot-off { border-style: dashed; cursor: default; }
+.loot-filter-art { display: grid; place-items: center; flex: 0 0 38px; width: 38px; height: 38px; border-radius: 8px; background: #0006; }
+.loot-filter-art > * { width: 32px; height: 32px; }
+.loot-filter-copy { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.loot-filter-copy strong { overflow: hidden; font-size: 14px; white-space: nowrap; text-overflow: ellipsis; }
+.loot-filter-detail { color: var(--muted); font-size: 12px; }
+.loot-filter-detail:empty { display: none; }
+.loot-filter-switch { display: flex; align-items: center; gap: 7px; flex-shrink: 0; color: #c9f7c2; font-size: 11px; text-transform: uppercase; }
+[aria-checked="false"] > .loot-filter-switch { color: var(--muted); }
+.is-slot-off > .loot-filter-switch { color: #ff9b91; }
+.loot-filter-check {
   display: grid;
   place-items: center;
-  flex: 0 0 40px;
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  background: #0006;
-}
-.drop-ignore-art > * { width: 34px; height: 34px; }
-.drop-ignore-copy { flex: 1; min-width: 0; display: grid; gap: 2px; }
-.drop-ignore-copy strong { overflow: hidden; font-size: 14px; white-space: nowrap; text-overflow: ellipsis; }
-.drop-ignore-detail { color: var(--muted); font-size: 12px; }
-.drop-ignore-detail:empty { display: none; }
-.drop-ignore-toggle { display: flex; align-items: center; gap: 7px; flex-shrink: 0; color: var(--muted); font-size: 11px; text-transform: uppercase; }
-[aria-checked="true"] > .drop-ignore-toggle { color: #ffcf7a; }
-.drop-ignore-switch {
-  position: relative;
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
-  width: 38px;
-  height: 22px;
-  border-radius: 999px;
-  background: #0008;
-  box-shadow: inset 0 0 0 2px rgba(255,255,255,.25);
-  transition: background-color .15s;
+  box-sizing: border-box;
+  border: 2px solid var(--green);
+  border-radius: 6px;
+  background: var(--green);
+  -webkit-text-stroke: 0;
+  text-shadow: none;
 }
-.drop-ignore-switch::after {
-  content: "";
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #cfd6d0;
-  transition: transform .15s;
-}
-[aria-checked="true"] .drop-ignore-switch { background: #a8741f; box-shadow: inset 0 0 0 2px #ffcf7a; }
-[aria-checked="true"] .drop-ignore-switch::after { background: #fff; transform: translateX(16px); }
-[aria-checked="mixed"] .drop-ignore-switch { box-shadow: inset 0 0 0 2px #c9ab64; }
-[aria-checked="mixed"] .drop-ignore-switch::after { background: #ffcf7a; transform: translateX(8px); }
-.drop-ignore-note { margin: 0 0 8px; color: var(--muted); text-align: center; font-size: 12px; line-height: 1.35; }
-.drop-ignore-sheet .farm-selection { color: #ff9b91; }
+.loot-filter-check::after { content: "\2713"; color: #0a120c; font-size: 14px; line-height: 1; }
+[aria-checked="false"] .loot-filter-check { border-color: rgba(255,255,255,.3); background: #0006; }
+[aria-checked="false"] .loot-filter-check::after { content: ""; }
+.loot-filter-sheet .farm-selection { color: #ff9b91; }
 @media (max-height: 480px) {
-  .farm-sheet.drop-ignore-sheet { max-height: calc(100dvh - 16px); }
-  .drop-ignore-all-wrap { margin-bottom: 4px; padding-bottom: 4px; }
-  .farm-sheet .drop-ignore-row { min-height: 46px; padding: 5px 10px; }
-  .farm-sheet .drop-ignore-all { min-height: 40px; }
-  .drop-ignore-art { flex-basis: 34px; width: 34px; height: 34px; }
-  .drop-ignore-art > * { width: 28px; height: 28px; }
-  .drop-ignore-note { margin-bottom: 4px; }
+  /* Landscape phones are short but wide: widen so each chip keeps its art and name on one line. */
+  .farm-sheet.loot-filter-sheet { width: min(560px, calc(100vw - 24px)); max-height: calc(100dvh - 16px); }
+  .loot-filter-sheet .farm-header { padding-top: 8px; }
+  .farm-sheet .loot-filter-chip { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 4px; padding: 3px 6px; }
+  .loot-filter-chip-art { width: 26px; height: 26px; }
+  .loot-filter-chip-art > * { width: 24px; height: 24px; }
+  .loot-filter-hint { margin: 4px 14px; }
+  .loot-filter-items-head { margin-bottom: 4px; padding-top: 4px; }
+  .farm-sheet .loot-filter-row { min-height: 44px; padding: 4px 10px; }
+  .loot-filter-art { flex-basis: 32px; width: 32px; height: 32px; }
+  .loot-filter-art > * { width: 28px; height: 28px; }
 }
