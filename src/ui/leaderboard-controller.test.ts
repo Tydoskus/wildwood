@@ -210,7 +210,7 @@ describe("prestige boards", () => {
     expect(f.loadPage).toHaveBeenLastCalledWith("power", 0);
     f.pending[0].resolve([entry(1, "Fresh winner")], [0, 1, 2]);
     await opening;
-    expect(chips(f).map(button => button.textContent)).toEqual(["No prestigeYou", "P1", "P2"]);
+    expect(chips(f).map(button => button.textContent)).toEqual(["No prestigeYou", "Prestige 1", "Prestige 2"]);
     expect(chip(f, 0).classList.contains("is-active")).toBe(true);
     expect(f.elements.prestigeHeading.textContent).toContain("No prestige leaderboard");
   });

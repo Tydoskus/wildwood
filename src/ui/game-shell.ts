@@ -207,10 +207,6 @@ const afterUpdateGateShell = String.raw`
 <div id="leaderboard" hidden>
   <div class="modal leaderboard-modal" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
     <h2 id="leaderboardTitle" class="window-banner window-banner--gold"><span>Leaderboard</span></h2>
-    <div class="leaderboard-prestige">
-      <div id="leaderboardPrestigeChips" class="leaderboard-prestige-chips" role="tablist" aria-label="Prestige level"></div>
-      <p id="leaderboardPrestigeHeading" class="leaderboard-prestige-heading" aria-live="polite"></p>
-    </div>
     <section id="leaderboardPodium" class="leaderboard-podium" aria-label="Top three players" hidden></section>
     <div class="profile-tabs leaderboard-tabs" role="tablist" aria-label="Leaderboard stat">
       <button id="leaderboardPowerTab" class="profile-tab is-active" type="button" role="tab" aria-selected="true" aria-label="Power"></button>
@@ -225,6 +221,10 @@ const afterUpdateGateShell = String.raw`
     <ol id="leaderboardRows" class="leaderboard-rows"></ol>
     <div id="leaderboardLoading" class="leaderboard-loading" role="status" aria-label="Loading leaderboard" hidden><span class="leaderboard-spinner" aria-hidden="true"></span></div>
     <div id="leaderboardEmpty" class="profile-loading" hidden>NO RANKINGS YET</div>
+    </div>
+    <div class="leaderboard-prestige">
+      <div id="leaderboardPrestigeChips" class="leaderboard-prestige-chips" role="listbox" aria-label="Prestige level" hidden></div>
+      <button id="leaderboardPrestigeHeading" class="leaderboard-prestige-heading" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="leaderboardPrestigeChips"></button>
     </div>
     <footer class="window-back-footer">
       <button id="closeLeaderboardBtn" class="window-back-button" type="button" aria-label="Back from leaderboard">Back</button>

@@ -1,6 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.805": [
     "Item windows list a bow's skills without the damage total.",
+    "The leaderboard's prestige picker is a dropdown under the rankings.",
   ],
   "0.804": [
     "Duplicate drops keep the better skill roll automatically (switch in the Loot Filter).",

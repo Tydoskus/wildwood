@@ -5,12 +5,12 @@
  * prestiged opens on No prestige.
  */
 
-/** Chip text: level 0 is the players who have never prestiged. */
+/** A level's name in the dropdown: level 0 is the players who have never prestiged. */
 export function leaderboardPrestigeLabel(level: number) {
-  return level > 0 ? `P${level}` : "No prestige";
+  return level > 0 ? `Prestige ${level}` : "No prestige";
 }
 
-/** The line under the chips naming the board on screen. */
+/** The dropdown button's text, naming the board on screen. */
 export function leaderboardPrestigeTitle(level: number) {
   return level > 0 ? `Prestige ${level} leaderboard` : "No prestige leaderboard";
 }
@@ -50,22 +50,52 @@ export function createLeaderboardPrestigeSelection(ownLevel: () => number | unde
 
 export type LeaderboardPrestigeElements = { chips: HTMLElement; heading: HTMLElement };
 
+const boundMenus = new WeakSet<HTMLElement>();
+
+function setMenuOpen(elements: LeaderboardPrestigeElements, open: boolean) {
+  elements.chips.hidden = !open;
+  elements.heading.setAttribute("aria-expanded", String(open));
+  if (!open) return;
+  // Open on the level being shown, however far down a list of 20+ it is.
+  const selected = elements.chips.querySelector<HTMLElement>(".leaderboard-prestige-chip.is-active");
+  if (selected) elements.chips.scrollTop = Math.max(0, selected.offsetTop - (elements.chips.clientHeight - selected.offsetHeight) / 2);
+}
+
 /**
- * Draws the chip row and the heading. The row scrolls sideways inside itself,
- * so the selected chip is brought into its view without moving the page.
+ * The switcher sits under the list: one button naming the board on screen
+ * ("Prestige 2 leaderboard ▾") with the viewer's rank beside it. Pressing it
+ * opens a list of every level above it, which scrolls inside itself, so 20
+ * or more levels never crowd the window. A pick, a press outside, Escape or
+ * the button again closes it.
  */
+function bindMenu(elements: LeaderboardPrestigeElements) {
+  if (boundMenus.has(elements.heading)) return;
+  boundMenus.add(elements.heading);
+  const doc = elements.heading.ownerDocument;
+  elements.heading.addEventListener("click", () => setMenuOpen(elements, elements.chips.hidden));
+  doc.addEventListener("pointerdown", event => {
+    const target = event.target as Node | null;
+    if (!elements.chips.hidden && target && !elements.chips.contains(target) && !elements.heading.contains(target)) setMenuOpen(elements, false);
+  });
+  doc.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !elements.chips.hidden) { event.stopPropagation(); setMenuOpen(elements, false); }
+  }, true);
+}
+
+/** Draws the dropdown's button and its list of levels. */
 export function renderLeaderboardPrestige(
   elements: LeaderboardPrestigeElements,
   state: { levels: readonly number[]; selected: number; own: number; localRank: number; loading: boolean },
   onPick: (level: number) => void,
 ) {
+  bindMenu(elements);
   const doc = elements.chips.ownerDocument;
   const chips = state.levels.map(level => {
     const chip = doc.createElement("button");
     chip.type = "button";
     chip.className = "leaderboard-prestige-chip";
     chip.dataset.prestige = String(level);
-    chip.setAttribute("role", "tab");
+    chip.setAttribute("role", "option");
     const active = level === state.selected;
     chip.classList.toggle("is-active", active);
     chip.setAttribute("aria-selected", String(active));
@@ -82,18 +112,13 @@ export function renderLeaderboardPrestige(
       chip.append(you);
     }
     chip.setAttribute("aria-label", `${leaderboardPrestigeTitle(level)}${mine ? ", your prestige" : ""}`);
-    chip.addEventListener("click", () => { if (level !== state.selected) onPick(level); });
+    chip.addEventListener("click", () => {
+      setMenuOpen(elements, false);
+      if (level !== state.selected) onPick(level);
+    });
     return chip;
   });
   elements.chips.replaceChildren(...chips);
-  const selected = chips[state.levels.indexOf(state.selected)];
-  if (selected) {
-    const row = elements.chips;
-    const left = selected.offsetLeft, right = left + selected.offsetWidth;
-    if (left < row.scrollLeft || right > row.scrollLeft + row.clientWidth) {
-      row.scrollLeft = Math.max(0, left - (row.clientWidth - selected.offsetWidth) / 2);
-    }
-  }
 
   const title = doc.createElement("span");
   title.className = "leaderboard-prestige-title";
@@ -105,4 +130,5 @@ export function renderLeaderboardPrestige(
       : state.selected === state.own ? "Not ranked yet" : "";
   note.hidden = !note.textContent;
   elements.heading.replaceChildren(title, note);
+  elements.heading.setAttribute("aria-label", `${leaderboardPrestigeTitle(state.selected)}. Change prestige level`);
 }

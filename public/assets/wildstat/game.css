@@ -2995,7 +2995,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     min-width: 0;
-    grid-template-rows: auto auto auto auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto auto;
     width: 100%;
     height: 100%;
     max-height: none;
@@ -3139,57 +3139,74 @@
   .leaderboard-modal > .window-back-footer { min-width: 0; max-width: 100%; width: var(--leaderboard-content-width); margin-right: auto; margin-left: auto; }
   .leaderboard-tabs { margin-top: 9px; margin-bottom: 8px; }
   /*
-   * Prestige switcher: one pill per level above the podium. The row scrolls
-   * sideways inside itself when there are many levels, never the page, and
-   * the selected pill takes the game's green.
+   * Prestige switcher, under the list: one button naming the board on screen
+   * with the viewer's rank beside it. It opens a list of every level upward,
+   * over the rankings, that scrolls inside itself however many levels there
+   * are; the selected level takes the game's green.
    */
-  .leaderboard-prestige { display: grid; grid-template-columns: minmax(0, 1fr); gap: 5px; margin-top: 7px; margin-bottom: 7px; }
+  .leaderboard-prestige { position: relative; margin-top: 7px; margin-bottom: 2px; }
+  .leaderboard-prestige .leaderboard-prestige-heading {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    width: 100%; min-width: 0; min-height: 40px; margin: 0; padding: 6px 12px;
+    border: 2px solid rgba(255,255,255,.18); border-radius: 12px;
+    background: #0008; box-shadow: none;
+    color: #fff; font: 900 var(--font-readable-min) var(--font-rounded); letter-spacing: .04em; line-height: 1.2;
+    text-align: left; text-shadow: 0 1px 1px #14150e; cursor: pointer;
+  }
+  .leaderboard-prestige .leaderboard-prestige-heading:hover { border-color: rgba(255,255,255,.34); transform: none; }
+  .leaderboard-prestige .leaderboard-prestige-heading:active { transform: none; }
+  .leaderboard-prestige .leaderboard-prestige-heading[aria-expanded="true"] { border-color: var(--green); }
+  .leaderboard-prestige .leaderboard-prestige-heading:focus-visible { outline: 1px solid rgba(255,255,255,.7); outline-offset: 1px; }
+  .leaderboard-prestige-title { display: inline-flex; align-items: center; gap: 7px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* A caret that points up while the list is open above it. */
+  .leaderboard-prestige-title::after {
+    content: ""; flex: 0 0 auto; width: 0; height: 0;
+    border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid var(--green);
+  }
+  .leaderboard-prestige-heading[aria-expanded="true"] .leaderboard-prestige-title::after { border-top: 0; border-bottom: 6px solid var(--green); }
+  .leaderboard-prestige-rank { flex: 0 0 auto; color: var(--green); white-space: nowrap; }
+  .leaderboard-prestige-rank[hidden] { display: none; }
   .leaderboard-prestige-chips {
-    position: relative; display: flex; gap: 6px; min-width: 0; padding: 2px;
-    overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; touch-action: pan-x;
-    scrollbar-width: none;
+    position: absolute; z-index: 5; left: 0; right: 0; bottom: calc(100% + 6px);
+    display: flex; flex-direction: column; gap: 4px; max-height: min(52vh, 320px); padding: 6px;
+    overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y;
+    border: 2px solid rgba(255,255,255,.18); border-radius: 12px;
+    background: #15170f; box-shadow: 0 8px 24px #000a;
+    scrollbar-width: thin;
   }
-  .leaderboard-prestige-chips::-webkit-scrollbar { display: none; }
+  .leaderboard-prestige-chips[hidden] { display: none; }
   .leaderboard-prestige .leaderboard-prestige-chip {
-    flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 5px;
-    min-width: 44px; min-height: 30px; margin: 0; padding: 4px 11px;
-    border: 2px solid rgba(255,255,255,.14); border-radius: 999px;
-    background: #0006; box-shadow: none;
+    flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    width: 100%; min-height: 38px; margin: 0; padding: 6px 12px;
+    border: 2px solid transparent; border-radius: 9px;
+    background: #ffffff0a; box-shadow: none;
     color: var(--muted); font: 900 var(--font-readable-min) var(--font-rounded); line-height: 1;
-    white-space: nowrap; text-shadow: 0 1px 1px #14150e; cursor: pointer;
+    text-align: left; white-space: nowrap; text-shadow: 0 1px 1px #14150e; cursor: pointer;
   }
-  .leaderboard-prestige .leaderboard-prestige-chip:hover { color: #fff; transform: none; }
+  .leaderboard-prestige .leaderboard-prestige-chip:hover { color: #fff; background: #ffffff14; transform: none; }
   .leaderboard-prestige .leaderboard-prestige-chip:active { transform: none; }
   .leaderboard-prestige .leaderboard-prestige-chip.is-active {
-    border-color: var(--green); background: rgba(105,229,111,.14);
-    box-shadow: 0 0 0 1px rgba(105,229,111,.3); color: #fff;
+    border-color: var(--green); background: rgba(105,229,111,.14); color: #fff;
   }
   .leaderboard-prestige .leaderboard-prestige-chip:focus-visible { outline: 1px solid rgba(255,255,255,.7); outline-offset: 1px; }
   /* The viewer's own level: a gold dot and the word, gold like first place. */
   .leaderboard-prestige-you { display: inline-flex; align-items: center; gap: 3px; color: #ffe05d; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
   .leaderboard-prestige-you::before { content: ""; flex: 0 0 6px; width: 6px; height: 6px; border-radius: 50%; background: #ffe05d; box-shadow: 0 0 0 1px #2b2b21; }
-  .leaderboard-prestige-heading {
-    display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0;
-    margin: 0; padding: 0 4px; color: #fff; font-size: var(--font-readable-min); font-weight: 900;
-    letter-spacing: .04em; line-height: 1.2; text-shadow: 0 1px 1px #14150e;
-  }
-  .leaderboard-prestige-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .leaderboard-prestige-rank { flex: 0 0 auto; color: var(--green); white-space: nowrap; }
-  .leaderboard-prestige-rank[hidden] { display: none; }
   /*
    * Landscape phones: stacked, the podium alone is taller than what is left
-   * under the banner, and the list got no height at all. The switcher and the
-   * podium take the left half and the stat tabs and the list the right.
+   * under the banner, and the list got no height at all. The podium, with the
+   * switcher under it, takes the left half and the stat tabs and the list the
+   * right.
    */
   @media (max-height: 480px) and (min-width: 640px) {
     .modal.leaderboard-modal {
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       grid-template-rows: auto auto auto minmax(0, 1fr) auto;
-      grid-template-areas: "banner banner" "prestige tabs" "podium headings" "podium list" "footer footer";
+      grid-template-areas: "banner banner" "podium tabs" "podium headings" "prestige list" "footer footer";
       column-gap: 14px;
     }
     .modal.leaderboard-modal > .window-banner { grid-area: banner; }
-    .leaderboard-modal > .leaderboard-prestige { grid-area: prestige; margin-top: 2px; }
+    .leaderboard-modal > .leaderboard-prestige { grid-area: prestige; align-self: end; margin: 0 0 2px; }
     .leaderboard-modal > .leaderboard-podium { grid-area: podium; align-self: start; }
     .leaderboard-modal > .leaderboard-tabs { grid-area: tabs; align-self: start; margin-top: 2px; }
     .leaderboard-modal > .leaderboard-tabs .profile-tab { aspect-ratio: auto; min-height: 36px; }
@@ -3485,8 +3502,9 @@
     .player-profile-modal .profile-stat-grid dt, .player-profile-modal .profile-stat-grid dd { margin: 0; font-size: 9px; }
     .modal.leaderboard-modal { padding: max(9px, env(safe-area-inset-top)) max(9px, env(safe-area-inset-right)) 0 max(9px, env(safe-area-inset-left)); }
     .leaderboard-tabs { margin: 4px 0 3px; }
-    .leaderboard-prestige { gap: 4px; margin: 5px auto 5px; }
-    .leaderboard-prestige .leaderboard-prestige-chip { min-height: 28px; padding: 3px 10px; }
+    .leaderboard-prestige { margin: 5px auto 2px; }
+    .leaderboard-prestige .leaderboard-prestige-heading { min-height: 36px; padding: 5px 10px; }
+    .leaderboard-prestige .leaderboard-prestige-chip { min-height: 34px; padding: 5px 10px; }
     .leaderboard-tabs .profile-tab { padding: 5px 6px; gap: 7px; font-size: 10px; }
     .leaderboard-podium { margin-bottom: 3px; }
     .leaderboard-column-headings { padding: 8px 7px 5px; font-size: 7px; }

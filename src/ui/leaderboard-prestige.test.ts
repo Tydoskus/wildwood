@@ -8,7 +8,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 it("names level 0 No prestige and every other level by its number", () => {
   expect(leaderboardPrestigeLabel(0)).toBe("No prestige");
-  expect(leaderboardPrestigeLabel(2)).toBe("P2");
+  expect(leaderboardPrestigeLabel(2)).toBe("Prestige 2");
   expect(leaderboardPrestigeTitle(0)).toBe("No prestige leaderboard");
   expect(leaderboardPrestigeTitle(2)).toBe("Prestige 2 leaderboard");
 });
@@ -42,13 +42,13 @@ it("follows the viewer's level until a different one is picked, then holds the p
 });
 
 it("marks the viewer's own chip, highlights the selected one and reports a pick", () => {
-  const { document } = parseHTML("<html><body><div id=chips></div><p id=heading></p></body></html>");
+  const { document } = parseHTML("<html><body><div id=chips hidden></div><button id=heading></button></body></html>");
   const chips = document.getElementById("chips") as unknown as HTMLElement;
   const heading = document.getElementById("heading") as unknown as HTMLElement;
   const onPick = vi.fn();
   renderLeaderboardPrestige({ chips, heading }, { levels: [0, 1, 2], selected: 1, own: 2, localRank: 0, loading: false }, onPick);
   const buttons = [...chips.querySelectorAll<HTMLElement>("button")];
-  expect(buttons.map(button => button.querySelector(".leaderboard-prestige-chip-label")!.textContent)).toEqual(["No prestige", "P1", "P2"]);
+  expect(buttons.map(button => button.querySelector(".leaderboard-prestige-chip-label")!.textContent)).toEqual(["No prestige", "Prestige 1", "Prestige 2"]);
   expect(buttons.map(button => button.getAttribute("aria-selected"))).toEqual(["false", "true", "false"]);
   expect(buttons[1].classList.contains("is-active")).toBe(true);
   expect(buttons[2].classList.contains("is-own")).toBe(true);
@@ -68,4 +68,29 @@ it("marks the viewer's own chip, highlights the selected one and reports a pick"
   expect(heading.querySelector(".leaderboard-prestige-rank")!.textContent).toBe("Not ranked yet");
   renderLeaderboardPrestige({ chips, heading }, { levels: [0, 1, 2], selected: 2, own: 2, localRank: 0, loading: true }, onPick);
   expect(heading.querySelector<HTMLElement>(".leaderboard-prestige-rank")!.hidden).toBe(true);
+});
+
+it("opens the level list from the button under the board and closes it on a pick", () => {
+  const { document } = parseHTML("<html><body><div id=chips hidden></div><button id=heading></button><p id=outside></p></body></html>");
+  const chips = document.getElementById("chips") as unknown as HTMLElement;
+  const heading = document.getElementById("heading") as unknown as HTMLElement;
+  const onPick = vi.fn();
+  const levels = Array.from({ length: 25 }, (_, level) => level);
+  renderLeaderboardPrestige({ chips, heading }, { levels, selected: 3, own: 3, localRank: 7, loading: false }, onPick);
+  expect(heading.textContent).toBe("Prestige 3 leaderboardYou're #7");
+  expect(chips.hidden).toBe(true);
+  heading.click();
+  expect(chips.hidden).toBe(false);
+  expect(heading.getAttribute("aria-expanded")).toBe("true");
+  expect(chips.querySelectorAll("button")).toHaveLength(25);
+  chips.querySelector<HTMLElement>('[data-prestige="20"]')!.click();
+  expect(onPick).toHaveBeenCalledWith(20);
+  expect(chips.hidden).toBe(true);
+  expect(heading.getAttribute("aria-expanded")).toBe("false");
+  // Re-rendering binds nothing twice: one press still opens it once.
+  renderLeaderboardPrestige({ chips, heading }, { levels, selected: 20, own: 3, localRank: 0, loading: false }, onPick);
+  heading.click();
+  expect(chips.hidden).toBe(false);
+  heading.click();
+  expect(chips.hidden).toBe(true);
 });
