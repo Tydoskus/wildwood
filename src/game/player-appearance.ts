@@ -6,6 +6,7 @@ import { drawAlignedPlayerLayer, type PlayerLayer, type PlayerLayerAlignment, ty
 import { STARTER_STONE } from "./inventory";
 import { ITEM_PRESENTATIONS, itemPresentation, type WorldSpritePresentation } from "./item-presentation";
 import { PLAYER_WORLD_SCALE } from "./player-render-scale";
+import { residentDrawable } from "./runtime/resident-image";
 
 import { PLAYER_SKIN_TONES, DEFAULT_SKIN_TONE } from "../../shared/player-skin-tones";
 export { PLAYER_SKIN_TONES, PLAYER_SKIN_TONE_NAMES, DEFAULT_SKIN_TONE } from "../../shared/player-skin-tones";
@@ -372,11 +373,11 @@ export function drawStartingPlayer(
   const headItem = options.headItem ?? "";
   const drawLayer = (target: CanvasRenderingContext2D, asset: PlayerLayerAsset, x: number, y: number, width = assetWidth(asset), height = assetHeight(asset), layer?: PlayerLayer, report = false) => {
     if (!readyImage(asset)) return;
-    if (!layer) { target.drawImage(asset, x, y, width, height); return; }
+    if (!layer) { target.drawImage(residentDrawable(asset), x, y, width, height); return; }
     drawAlignedPlayerLayer(target, layer, { x, y, width, height }, options.alignment?.[layer] ?? (layer === "weapon" ? defaultWeaponAlignment(heldSpritePresentation) : undefined),
       () => {
         if (layer === "helmet") target.globalAlpha *= options.helmetOpacity ?? 1;
-        target.drawImage(asset, x, y, width, height);
+        target.drawImage(residentDrawable(asset), x, y, width, height);
       }, report ? options.onLayerBounds : undefined);
   };
   const drawEquippedSprite = (target: CanvasRenderingContext2D, itemId: string | undefined, layer: WorldSpritePresentation["layer"], gaitY = 0, report = false) => {
@@ -462,7 +463,7 @@ export function drawStartingPlayer(
       drawSwordTrail(ctx, pivotX + alignment.x, pivotY + alignment.y,
         width * (1 - (alignment.pivotX ?? .5)) * alignment.scale, angle * DEGREES_TO_RADIANS, pose.trail);
       drawAlignedPlayerLayer(ctx, "weapon", { x: -width / 2, y: -height / 2, width, height },
-        { ...alignment, angle }, () => ctx.drawImage(asset, -width / 2, -height / 2, width, height), options.onLayerBounds);
+        { ...alignment, angle }, () => ctx.drawImage(residentDrawable(asset), -width / 2, -height / 2, width, height), options.onLayerBounds);
     } else {
       drawLayer(ctx, asset, -width / 2, -height / 2, width, height, "weapon", true);
     }
