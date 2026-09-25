@@ -305,6 +305,17 @@ describe("Frostclaw boss", () => {
     expect(snapshot(first)).toEqual(snapshot(second));
   });
 
+  it("still shows most of an attack's warning to a player who arrives partway through it", () => {
+    let now = 1_800_000_000_000;
+    while (bossAbilityTimelineAt({ kind: "frostclaw", serverNowMs: now }).ability !== "roar") now += 500;
+    const roar = bossAbilityTimelineAt({ kind: "frostclaw", serverNowMs: now });
+    const serverNowMs = roar.startedAtMs + 800; // the roar's windup is .85s
+    const harness = createFrostclawHarness({ serverNowMs: () => serverNowMs, bossTargets: () => [{ id: "network:1", x: 4_350, y: 4_050 }] });
+    harness.frostclawBoss.encounter = 5n;
+    harness.controller.updateFrostclawBoss(.016);
+    expect(harness.frostclawBoss.roar?.windup).toBeGreaterThan(.55);
+  });
+
   it("uses Glacial Roar to damage and push players away", () => {
     const { controller, frostclawBoss, player, damagePlayer } = createFrostclawHarness();
 

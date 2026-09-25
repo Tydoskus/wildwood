@@ -447,6 +447,8 @@ export function createBossController(options: {
     activatedAbilityKeys.delete(kind);
   }
 
+  /** The most of an attack's warning a player joining it late can miss. */
+  const LATE_ABILITY_JOIN_MS = 250;
   function syncAbilityTimeline(options: {
     kind: BossSimulationKind;
     encounter: bigint | null;
@@ -473,7 +475,11 @@ export function createBossController(options: {
       activatedAbilityKeys.get(options.kind) === key
     ) return true;
     activatedAbilityKeys.set(options.kind, key);
-    options.start(phase.ability, phase.elapsedMs / 1_000, phase.attackIndex, target);
+    // Someone who walks into range partway through an attack used to have it
+    // start with all that time already spent: a cone with no windup left, rain
+    // already landing, a hit the moment the boss came into view. Late joiners
+    // now see at least the warning; if the next slot begins first, it clears.
+    options.start(phase.ability, Math.min(phase.elapsedMs, LATE_ABILITY_JOIN_MS) / 1_000, phase.attackIndex, target);
     return true;
   }
 
