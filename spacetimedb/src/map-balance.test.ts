@@ -118,3 +118,18 @@ it('serves byte-identical snapshots whether or not the caches are warm', () => {
   };
   expect(snapshotsFor(false)).toEqual(snapshotsFor(true));
 });
+
+ it.each(['tutorial_forest', 'ion_citadel', 'endless_40'])('restores damage for an existing %s visit without changing anything else', (mapId) => {
+  const ctx = fixture(); pinMapBalance(ctx, mapId, true, 2);
+  const original = pinnedMapBalance(ctx, ctx.sender, mapId)!;
+  const old = JSON.parse(JSON.stringify(original)); delete old.enemyDamageVersion;
+  for (const row of [...Object.values(old.enemies), ...Object.values(old.lanes)] as any[]) row.damage = row.hp * .1;
+  // A pinned reward may predate a reward buff; the damage hotfix must leave it alone.
+  if (old.boss) old.boss.rewards.health = 123;
+  ctx.db.playerMapBalance.identity.update({ identity: ctx.sender, mapId, snapshotJson: JSON.stringify(old) });
+  pinMapBalance(ctx, mapId);
+  if (original.boss) original.boss.rewards.health = 123;
+  expect(pinnedMapBalance(ctx, ctx.sender, mapId)).toEqual(original);
+  pinMapBalance(ctx, mapId);
+  expect(pinnedMapBalance(ctx, ctx.sender, mapId)).toEqual(original);
+});

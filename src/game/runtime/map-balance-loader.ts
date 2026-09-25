@@ -1,4 +1,3 @@
-import { enemyDamageFromHealth } from "../../../shared/enemy-damage";
 import type { MapBalanceSnapshot } from '../../../shared/map-balance-types';
 import { installMapBalance } from '../../../shared/map-balance-runtime';
 import { installBossRuleValues } from '../../../shared/rules';
@@ -7,7 +6,7 @@ import { BOSS_DAMAGE_PROFILES } from '../../../shared/boss-damage';
 export function applyMapBalance(snapshot: MapBalanceSnapshot) {
   if (snapshot.schema !== 1) throw new Error('Unsupported map balance. Update WildStat.');
   installMapBalance(snapshot);
-  for (const [kind, row] of Object.entries(snapshot.enemies)) if (Object.prototype.hasOwnProperty.call(ENEMY_TYPES, kind)) Object.assign(ENEMY_TYPES[kind as EnemyKind], row, { damage: enemyDamageFromHealth(row.hp) });
+  for (const [kind, row] of Object.entries(snapshot.enemies)) if (Object.prototype.hasOwnProperty.call(ENEMY_TYPES, kind)) Object.assign(ENEMY_TYPES[kind as EnemyKind], row);
   installBossRuleValues(snapshot.rules);
   if (snapshot.boss && Object.prototype.hasOwnProperty.call(BOSS_DAMAGE_PROFILES, snapshot.boss.kind)) {
     Object.assign(BOSS_DAMAGE_PROFILES[snapshot.boss.kind as keyof typeof BOSS_DAMAGE_PROFILES], snapshot.boss.attacks);

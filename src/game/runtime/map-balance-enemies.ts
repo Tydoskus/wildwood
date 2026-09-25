@@ -1,4 +1,3 @@
-import { enemyDamageFromHealth } from "../../../shared/enemy-damage";
 import type { MapBalanceSnapshot } from '../../../shared/map-balance-types';
 import { generateMap, isProceduralMap } from '../../../shared/procedural-maps';
 import { ENEMY_TYPES } from '../../../shared/enemy-definitions';
@@ -21,14 +20,13 @@ export function refreshMapBalanceEnemies(snapshot: MapBalanceSnapshot, sites: Sp
         }
         index -= camp.count;
       }
-      base = { ...base, damage: enemyDamageFromHealth(base.hp) };
       site.definition = base;
     }
     for (const enemy of enemies) {
       if (enemy.generatedBoss || enemy.dead || enemy.siteId !== site.id) continue;
       const definition = map ? base : ENEMY_TYPES[site.type];
       enemy.hp = Math.max(0, Math.min(1, enemy.hp / enemy.maxHp)) * definition.hp;
-      enemy.maxHp = definition.hp; enemy.damage = enemyDamageFromHealth(definition.hp); enemy.speed = definition.speed;
+      enemy.maxHp = definition.hp; enemy.damage = definition.damage; enemy.speed = definition.speed;
       enemy.reward = definition.reward;
       if (map) enemy.definition = definition;
     }

@@ -1,4 +1,3 @@
-import { enemyDamageFromHealth } from "./enemy-damage";
 import { ENEMY_TOP_CHASE_SPEED } from "./rules";
 import { CURRENT_ROLE_LANES, SNOWLANDS_TUNING, campaignEnemyHealthScale, laneCombatValue, laneRewardValue,
   desertLaneCombatValue, desertLaneRewardValue, type ForestProgressionLane,
@@ -582,5 +581,4 @@ const enemyTypes = {
 } satisfies Record<string, EnemyDefinition>;
 
 export type EnemyKind = keyof typeof enemyTypes;
-for (const definition of Object.values(enemyTypes)) definition.damage = enemyDamageFromHealth(definition.hp);
 export const ENEMY_TYPES: Record<EnemyKind, EnemyDefinition> = enemyTypes;

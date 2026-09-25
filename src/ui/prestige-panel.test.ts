@@ -101,7 +101,7 @@ describe("prestige panel", () => {
     expect(s.pick("bonus").textContent).toBe("+30%");
     expect(s.pick("points").textContent).toBe("1");
     expect(s.pick("peak").textContent).not.toBe("—");
-    expect(s.pick("cost").textContent).toContain("every map unlock");
+    expect(s.pick("cost").textContent).toContain("resets your stats and map unlocks");
     expect(s.pick("cost").textContent).toContain(prestigeRewardLabel(3));
   });
 

@@ -78,6 +78,20 @@ export function pinMapBalance(ctx: Context, mapId: string, enable = false, reque
   const oldSnapshot: MapBalanceSnapshot | null = previous ? JSON.parse(previous.snapshotJson) : null;
   const version = requestedVersion ?? oldSnapshot?.configurationVersion ?? 1;
   const sameVisit = previous?.mapId === mapId && (oldSnapshot?.configurationVersion ?? 1) === version;
+  if (sameVisit && !respawnBaseIsStale(oldSnapshot) && oldSnapshot?.enemyDamageVersion !== 1) {
+    // Hotfix existing visits without changing their pinned health, rewards, or timers.
+    const settings = storedSettings(ctx, oldSnapshot!.revision) ?? defaultBalanceSettings();
+    const corrected = resolveMapBalance(mapId, settings, oldSnapshot!.revision, version);
+    for (const [kind, row] of Object.entries(oldSnapshot!.enemies)) {
+      if (corrected.enemies[kind]) row.damage = corrected.enemies[kind].damage;
+    }
+    for (const [lane, row] of Object.entries(oldSnapshot!.lanes)) {
+      if (corrected.lanes[lane]) row.damage = corrected.lanes[lane].damage;
+    }
+    oldSnapshot!.enemyDamageVersion = 1;
+    ctx.db.playerMapBalance.identity.update({ ...previous, snapshotJson: JSON.stringify(oldSnapshot) });
+    return;
+  }
   if ((sameVisit && !respawnBaseIsStale(oldSnapshot)) || (!previous && !enable)) return;
   let head = balanceEditorState(ctx);
   let fromStore = Boolean(storedSettings(ctx, head.revision));

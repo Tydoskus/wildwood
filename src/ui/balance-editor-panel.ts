@@ -7,13 +7,13 @@ export type BalanceEditorDependencies = {
   save: (revision: number, settings: BalanceSettings) => Promise<void>;
   restore: (expected: number, revision: number) => Promise<void>;
 };
-const fields: [keyof BalanceFactors, string][] = [['enemyHealth', 'Health'], ['enemyRewards', 'Stat rewards'], ['enemySpeed', 'Move speed'], ['enemyRespawn', 'Respawn time'], ['enemyDrops', 'Item drops'], ['bossHealth', 'Health'], ['bossDamage', 'Damage'], ['bossRewards', 'Stat rewards'], ['bossRespawn', 'Respawn time'], ['bossRegen', 'Regeneration']];
+const fields: [keyof BalanceFactors, string][] = [['enemyHealth', 'Health'], ['enemyDamage', 'Damage'], ['enemyRewards', 'Stat rewards'], ['enemySpeed', 'Move speed'], ['enemyRespawn', 'Respawn time'], ['enemyDrops', 'Item drops'], ['bossHealth', 'Health'], ['bossDamage', 'Damage'], ['bossRewards', 'Stat rewards'], ['bossRespawn', 'Respawn time'], ['bossRegen', 'Regeneration']];
 const format = (n: number) => Intl.NumberFormat('en', { notation: n >= 10000 ? 'compact' : 'standard', maximumSignificantDigits: 4 }).format(n);
 export function createBalanceEditorPanel(root: HTMLElement, api: BalanceEditorDependencies) {
   root.classList.add('balance-editor');
   root.innerHTML = `<div class="balance-heading"><div><h2>Map balancing</h2><p>Changes apply on the next map visit.</p></div><span class="balance-version">Loading…</span></div>
     <div class="balance-map-row"><label>Map<select class="balance-map" aria-label="Balance map"></select></label><label class="balance-depth" hidden>Endless map<input type="number" min="1" max="1001" step="1" value="1" aria-label="Endless preview map"></label></div>
-    <p class="balance-hint">1× is the base value · 0.5× is half · 2× is double. Enemy damage is 10% of health.</p><div class="balance-groups"></div><details class="balance-curve" hidden><summary>Endless progression</summary><p>Rewards grow slowly. Endurance increases enemy and boss health each map.</p><div class="balance-curve-inputs"></div></details>
+    <p class="balance-hint">1× is the base value · 0.5× is half · 2× is double</p><div class="balance-groups"></div><details class="balance-curve" hidden><summary>Endless progression</summary><p>Rewards grow slowly. Endurance increases enemy and boss health each map.</p><div class="balance-curve-inputs"></div></details>
     <div class="balance-preview-title"><h3>Resulting stats</h3><span class="balance-preview-state"></span></div><div class="balance-preview" aria-live="polite"></div>
     <p class="balance-status" role="status"></p><div class="balance-actions"><button class="balance-reset" type="button">Reset this map</button><button class="balance-apply" type="button" disabled>Apply changes</button></div><button class="balance-restore" type="button" disabled>Restore previous balance</button>`;
   const el = <T extends HTMLElement>(selector: string) => root.querySelector<T>(selector)!;

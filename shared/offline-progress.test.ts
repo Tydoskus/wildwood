@@ -47,15 +47,14 @@ describe("offline enemy roster", () => {
 });
 
 describe("offline survivability", () => {
-  // At 10% enemy-health damage, later maps require more survivability than
-  // the old reference builds; offline farming must reject those maps.
+  // The two ends that pin OFFLINE_INCOMING_PRESSURE. If either flips, the
+  // constant has drifted away from the progression curve it was fitted to.
   it.each(MAP_IDS.slice(1).map((mapId, tier) => [mapId, tier] as const))(
-    "checks reference-build survival for %s under health-based enemy damage",
+    "lets the reference build for %s farm it for the full window",
     (mapId, tier) => {
       const outcome = simulateOfflineFarming(mapId, referenceStats(tier), OFFLINE_WINDOW_SECONDS);
-      expect(outcome.survivable).toBe(tier < 2);
-      if (tier < 2) expect(outcome.kills).toBeGreaterThan(0);
-      else expect(outcome.kills).toBe(0);
+      expect(outcome.survivable).toBe(true);
+      expect(outcome.kills).toBeGreaterThan(0);
     },
   );
 
@@ -116,7 +115,7 @@ describe("offline throughput", () => {
   });
 
   it("scales with the window, not with how long the player was actually away", () => {
-    const stats = { ...referenceStats(4), regen: 1e20 };
+    const stats = referenceStats(4);
     const half = simulateOfflineFarming("water_reach", stats, OFFLINE_WINDOW_SECONDS / 2);
     const full = simulateOfflineFarming("water_reach", stats, OFFLINE_WINDOW_SECONDS);
     expect(full.kills).toBeGreaterThan(half.kills);
@@ -159,7 +158,7 @@ describe("choosing the offline map", () => {
   it("falls back down the ladder until it finds ground the player can hold", () => {
     const ladder = [...MAP_IDS].reverse();
     const outcome = resolveOfflineFarming(ladder, referenceStats(4), OFFLINE_WINDOW_SECONDS);
-    expect(outcome?.mapId).toBe("infernal_depths");
+    expect(outcome?.mapId).toBe("water_reach");
     expect(outcome?.survivable).toBe(true);
   });
 

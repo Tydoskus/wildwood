@@ -73,7 +73,7 @@ describe("prestige unlock popup", () => {
     expect(s.pick("#prestigeUnlockKicker").textContent).toBe("UNLOCKED");
     expect(s.pick(".prestige-unlock-badge").textContent).toBe("1");
     expect(s.pick(".prestige-unlock-reward").textContent).toBe("You would earn +10% stat gain and 1 perk point.");
-    expect(s.pick(".prestige-cost").textContent).toContain("resets your stats, equipment and every map unlock");
+    expect(s.pick(".prestige-cost").textContent).toContain("resets your stats and map unlocks");
     expect(s.pause).toHaveBeenLastCalledWith(true);
   });
 

@@ -73,22 +73,11 @@ it('carries the final campaign tuning into Endless while earlier map tuning stay
   settings.maps[last].bossRewards = 7;
   const changed = resolveMapBalance('endless_1', settings, 1);
   expect(changed.lanes.Cindermaw.hp).toBeCloseTo(baseline.lanes.Cindermaw.hp * 2, -1);
-  expect(changed.lanes.Cindermaw.damage).toBeCloseTo(baseline.lanes.Cindermaw.damage * 2, -1);
+  expect(changed.lanes.Cindermaw.damage).toBeCloseTo(baseline.lanes.Cindermaw.damage * 3, -1);
   expect(changed.lanes.Cindermaw.reward.amount).toBeCloseTo(baseline.lanes.Cindermaw.reward.amount * 4, -1);
   expect(changed.boss!.hp).toBeCloseTo(baseline.boss!.hp * 5, -1);
   expect(changed.boss!.damage).toBeCloseTo(baseline.boss!.damage * 6, -1);
   expect(changed.boss!.rewards.damage).toBeCloseTo(baseline.boss!.rewards.damage * 7, -1);
   settings.maps.tutorial_forest.bossHealth = 9;
   expect(resolveMapBalance('endless_1', settings, 1).boss!.hp).toBe(changed.boss!.hp);
-});
-
-
-it('derives regular and elite damage from final health even with old damage tuning', () => {
-  const settings = defaultBalanceSettings();
-  for (const map of Object.values(settings.maps)) { map.enemyHealth = 2.5; map.enemyDamage = 9; }
-  for (const [id] of [...BALANCE_MAPS.slice(0, -1), ['endless_1'], ['endless_40']]) {
-    const result = resolveMapBalance(id, settings, 1);
-    const rows = id.startsWith('endless') ? Object.values(result.lanes) : Object.values(result.enemies);
-    for (const row of rows) expect(row.damage).toBeCloseTo(row.hp * .1, -1);
-  }
 });

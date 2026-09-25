@@ -55,7 +55,7 @@ describe("Endless curve", () => {
     expect(first.hp).toBeCloseTo(298457265600.00006, 3);
     expect(first.reward).toBeCloseTo(5791700.988475202 * 3, 6);
     expect(deepest.hp).toBeCloseTo(12161536658668.803, 3);
-    expect(deepest.damage).toBeCloseTo(deepest.hp * .1, 3);
+    expect(deepest.damage).toBeCloseTo(381982783274.0623, 3);
     expect(deepest.bossHp).toBeCloseTo(656722979568115.2, 1);
     expect(deepest.bossReward).toBeCloseTo(36203543.420153916, 6);
   });

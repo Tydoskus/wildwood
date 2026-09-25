@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.815": [
+    "Restored previous regular and elite enemy damage, including Endless. Health, armor, and regeneration reward boosts remain unchanged.",
+    "Corrected the prestige description: equipment is kept.",
+  ],
   "0.814": [
     "Tripled Health and Armor rewards and doubled Regen rewards from regular enemies, elites, and bosses, including Endless. Applies on your next map visit.",
   ],
@@ -306,7 +310,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
   ],
   "0.753": [
     "Prestige is here. Once Aegis Prime is down, trade your run for a permanent bonus: every prestige adds 10% to the stats each kill grants and banks a perk point.",
-    "Prestige clears your stats, equipment and every map unlock, so the next one is earned from the forest up. Your tech research, name, gems, bought bag slots and upgrade bench stay.",
+    "Prestige resets your stats and map unlocks. You keep your equipment; higher-tier items become usable again when you reach their maps. Tech research, slot upgrades, gems and bought bag slots stay.",
     "The Prestige button sits in your profile and stays greyed out until the first Endless map is open.",
   ],
   "0.752": [
@@ -2425,6 +2429,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.815": "2026-09-24",
   "0.814": "2026-09-24",
   "0.813": "2026-09-24",
   "0.812": "2026-09-24",
