@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.816": [
+    "Moved Endless portals to the center of each map, with arrival just below them.",
+  ],
   "0.815": [
     "Restored previous regular and elite enemy damage, including Endless. Health, armor, and regeneration reward boosts remain unchanged.",
     "Corrected the prestige description: equipment is kept.",
@@ -2429,6 +2432,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.816": "2026-09-24",
   "0.815": "2026-09-24",
   "0.814": "2026-09-24",
   "0.813": "2026-09-24",

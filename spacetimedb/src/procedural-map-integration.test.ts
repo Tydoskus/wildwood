@@ -42,7 +42,8 @@ describe("production generated map reducers", () => {
     expect(() =>
       f.run(server.changeMap, { mapId: "ion_citadel", x: 50, y: 50 }),
     ).toThrow(/closer/);
-    f.run(server.changeMap, { mapId: "ion_citadel", x: 360, y: 617 });
+    const back = generateMap("endless_1").portals[0];
+    f.run(server.changeMap, { mapId: "ion_citadel", x: back.x, y: back.y - back.height * .32 });
     expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe("ion_citadel");
   });
   it("retains the deployed layouts", () => {

@@ -7,6 +7,7 @@ import {
   proceduralMapId,
   proceduralMapNumber,
   PROCEDURAL_ENTRY_MAP,
+  PROCEDURAL_WORLD,
 } from "./procedural-maps";
 
 describe("procedural campaign definitions", () => {
@@ -31,11 +32,18 @@ describe("procedural campaign definitions", () => {
     );
     expect(generateMap("endless_1").portals[0].destination).toBe(
       PROCEDURAL_ENTRY_MAP,
+  PROCEDURAL_WORLD,
     );
   });
   it("connects every camp and boss with paths and links both directions", () => {
     for (let n = 1; n <= 200; n++) {
       const map = generateMap(proceduralMapId(n));
+      expect((map.portals[0].x + map.portals[1].x) / 2).toBe(PROCEDURAL_WORLD.width / 2);
+      for (const portal of map.portals) {
+        expect(portal.y).toBe(PROCEDURAL_WORLD.height / 2);
+        expect(portal.depth).toBe(portal.y);
+        expect(Math.hypot(map.arrival.x - portal.x, map.arrival.y - (portal.y - portal.height * .32))).toBeGreaterThan(125);
+      }
       expect(map.camps.map(c => c.stat).sort()).toEqual(["armor", "damage", "health", "regen"]);
       expect(
         generateMap(map.portals[1].destination as `endless_${number}`)
@@ -85,6 +93,7 @@ describe("procedural campaign definitions", () => {
     ).toBeCloseTo(1.2 * 1.1 ** 6);
     for (const n of [1, 10, 1000, Number.MAX_SAFE_INTEGER]) {
       const map = generateMap(proceduralMapId(n));
+
       const stats = generatedBossStats(map);
       expect(
         Number.isFinite(stats.hp) &&

@@ -22,6 +22,7 @@ export const PROCEDURAL_ENTRY_MAP = CAMPAIGN_ENDPOINT.mapId;
 export const PROCEDURAL_ENTRY_BOSS = CAMPAIGN_ENDPOINT.bossKind;
 export const PROCEDURAL_FIRST_TIER = CAMPAIGN_ENDPOINT.endlessTier;
 export const PROCEDURAL_WORLD = { width: 4800, height: 4800 };
+const PORTAL_CENTER = { x: PROCEDURAL_WORLD.width / 2, y: PROCEDURAL_WORLD.height / 2 };
 export function proceduralMapNumber(id: string): number | null {
   if (!/^endless_[1-9]\d{0,15}$/.test(id)) return null;
   const number = Number(id.slice(PROCEDURAL_PREFIX.length));
@@ -106,7 +107,7 @@ export function proceduralMapCore(id: string) {
   const number = proceduralMapNumber(id);
   if (number === null) throw new RangeError("Invalid generated map");
   return { number, tier: Math.min(60, PROCEDURAL_FIRST_TIER + number - 1),
-    arrival: { x: 580, y: 770 }, boss: { x: 4050, y: 4050 } };
+    arrival: { x: PORTAL_CENTER.x, y: PORTAL_CENTER.y + 150 }, boss: { x: 4050, y: 4050 } };
 }
 export function generateMap(id: ProceduralMapId): GeneratedMap {
   const { number, tier, arrival, boss } = proceduralMapCore(id);
@@ -137,7 +138,9 @@ export function generateMap(id: ProceduralMapId): GeneratedMap {
     count: lanes[i][1] === "damage" ? 13 : 6,
     radius: 330,
   }));
-  const paths: MapPath[] = [];
+  const paths: MapPath[] = [
+    { x: PORTAL_CENTER.x - 240, y: PORTAL_CENTER.y - 230, w: 480, h: 470 },
+  ];
   const connect = (a: MapPoint, b: MapPoint) => {
     paths.push({
       x: Math.min(a.x, b.x) - 90,
@@ -172,22 +175,22 @@ export function generateMap(id: ProceduralMapId): GeneratedMap {
     palette: proceduralPalette(number),
     portals: [
       {
-        x: 360,
-        y: 680,
+        x: PORTAL_CENTER.x - 110,
+        y: PORTAL_CENTER.y,
         width: 198,
         height: 198,
-        depth: 680,
+        depth: PORTAL_CENTER.y,
         destination:
           number === 1 ? PROCEDURAL_ENTRY_MAP : proceduralMapId(number - 1),
       },
       ...(number < Number.MAX_SAFE_INTEGER
         ? [
             {
-              x: 580,
-              y: 680,
+              x: PORTAL_CENTER.x + 110,
+              y: PORTAL_CENTER.y,
               width: 198,
               height: 198,
-              depth: 680,
+              depth: PORTAL_CENTER.y,
               destination: proceduralMapId(number + 1),
             },
           ]
