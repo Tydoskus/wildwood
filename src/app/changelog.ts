@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.824": [
+    "Fixed name symbols, power and equipment icons flickering in other players' profiles.",
+    "The HP numbers in the top-left bar are larger and easier to read.",
+  ],
   "0.823": [
     "Riposte is now Reflect, and it now works against regular enemies, not only in duels.",
     "Split Shot chance raised from 5% to 8% per rank.",
@@ -2465,6 +2469,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.824": "2026-09-25",
   "0.823": "2026-09-25",
   "0.822": "2026-09-25",
   "0.821": "2026-09-25",
