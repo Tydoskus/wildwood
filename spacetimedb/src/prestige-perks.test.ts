@@ -30,7 +30,7 @@ it("separates extra damage on a swing from extra enemies reached", () => {
   expect(prestigeSwingMultiplier({ splitShot: 5, riposte: 5 })).toBe(1);
   // Riposte only reflects half a hit, and only sometimes, so it widens the
   // claim bound by its average worth rather than its full chance.
-  expect(prestigeReachMultiplier({ splitShot: 5, riposte: 5 })).toBeCloseTo(1.25 + .3 * .5);
+  expect(prestigeReachMultiplier({ splitShot: 5, riposte: 5 })).toBeCloseTo(1.4 + .3 * .5);
   expect(prestigeReachMultiplier({ doubleStrike: 5 })).toBe(1);
   expect(prestigeReachMultiplier(null)).toBe(1);
 });

@@ -10,10 +10,11 @@ export const PRESTIGE_PERKS = {
     detail: "Critical chance and harder criticals, on top of research." },
   doubleStrike: { title: "Double Strike", perRank: .04,
     detail: "Chance for a hit to land twice." },
-  splitShot: { title: "Split Shot", perRank: .05,
+  splitShot: { title: "Split Shot", perRank: .08,
     detail: "Chance to strike a second enemy at the same time. Nothing to split against a boss." },
-  riposte: { title: "Riposte", perRank: .06,
-    detail: "Chance to throw half the damage you take back at whoever dealt it. Tells most in a duel." },
+  // Shown as Reflect; the id stays riposte because it names a database column.
+  riposte: { title: "Reflect", perRank: .06,
+    detail: "Chance to throw half the damage you take back at the enemy or duel opponent who dealt it. Bosses shrug it off." },
 } as const;
 
 /**

@@ -12,6 +12,7 @@ import { createSpatialGrid } from "./spatial-grid";
 import type { BossTarget, DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, AegisPrimeBossState, PlayerState, Projectile, RuntimeReward, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
 import type { SpawnSite } from "../world";
 import { equipmentDamage, itemDefinition } from "../../../shared/items";
+import { RIPOSTE_REFLECT_SHARE } from "../../../shared/prestige-perks";
 import { ARROW_STORM_DAMAGE_SHARE, ARROW_STORM_RADIUS, RICOCHET_DAMAGE_SHARE, hasBowSkills, rollArrowSkillProcs, type BowSkillRoll } from "../../../shared/bow-skills";
 import { ARROW_STORM_FLIGHT_SECONDS, ARROW_STORM_STAGGER_SECONDS } from "./combat-effects";
 import { arrowPassesThrough, isSkillSecondaryTarget, rainArrowStorm, ricochetChain } from "./bow-skill-procs";
@@ -72,7 +73,7 @@ export function attackReadyAtWithoutTarget(nextAttackAtSeconds: number, nowSecon
 export type PlayerCombatController = {
   attackNearest: (enemyType?: EnemyKind | null, campName?: string | null, priority?: AutoFarmPriority) => void;
   updateProjectiles: (dt: number) => void;
-  damagePlayer: (amount: number) => boolean;
+  damagePlayer: (amount: number, source?: EnemyState) => boolean;
   clearPendingThrow: () => void;
 };
 
@@ -125,6 +126,8 @@ export function createPlayerCombatController(options: {
   prestigeDoubleStrike?: () => number;
   /** Chance for a swing to also reach a second enemy, from the Split Shot perk. */
   prestigeSplitShot?: () => number;
+  /** Chance for a hit taken to be thrown back at its enemy, from the Reflect perk. */
+  prestigeReflect?: () => number;
   /** The equipped bow's skill roll (Arrow Storm, Ricochet, Piercing Shot), if it has one. */
   bowSkills?: () => Partial<BowSkillRoll> | null | undefined;
   /** Random source for bow skill procs; tests inject a fixed sequence. */
@@ -533,11 +536,17 @@ export function createPlayerCombatController(options: {
     }
   }
 
-  function damagePlayer(amount: number) {
+  function damagePlayer(amount: number, source?: EnemyState | null) {
     if (isDueling() || player.hurtClock > 0) return false;
     const dealt = damageAfterArmor(amount, effectiveArmor());
     if (dealt > 0) options.onCombat?.();
     player.hp -= dealt;
+    // Reflect throws half of what landed back at the enemy that dealt it. Bosses
+    // are left out: the server bounds a boss kill by the player's own damage.
+    if (source && !source.dead && !source.isBoss && !source.generatedBoss && dealt > 0
+      && Math.random() < (options.prestigeReflect?.() ?? 0)) {
+      applyPlayerHit(source, dealt * RIPOSTE_REFLECT_SHARE, false, Math.atan2(source.y - player.y, source.x - player.x));
+    }
     spawnDamageNumber(player.x, player.y, dealt, false, true);
     player.hurtClock = .1;
     setHitFlash();
@@ -716,7 +725,7 @@ export function createPlayerCombatController(options: {
       shot.life -= dt;
       shot.x += shot.vx * dt;
       shot.y += shot.vy * dt;
-      if (circlesOverlap(shot, player)) { damagePlayer(shot.damage); shot.life = 0; }
+      if (circlesOverlap(shot, player)) { damagePlayer(shot.damage, shot.source); shot.life = 0; }
     }
     projectileStore.compactEnemyShots();
   }

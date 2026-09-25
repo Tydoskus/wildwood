@@ -1,3 +1,5 @@
+import { GLOBAL_LEADERBOARD_PRESTIGE } from "../../shared/leaderboard-window";
+
 /**
  * The leaderboard's prestige switcher. Every board is ranked within one
  * prestige level, and a player sees their own level's board unless they pick
@@ -7,11 +9,13 @@
 
 /** A level's name in the dropdown: level 0 is the players who have never prestiged. */
 export function leaderboardPrestigeLabel(level: number) {
+  if (level === GLOBAL_LEADERBOARD_PRESTIGE) return "Global";
   return level > 0 ? `Prestige ${level}` : "No prestige";
 }
 
 /** The dropdown button's text, naming the board on screen. */
 export function leaderboardPrestigeTitle(level: number) {
+  if (level === GLOBAL_LEADERBOARD_PRESTIGE) return "Global leaderboard";
   return level > 0 ? `Prestige ${level} leaderboard` : "No prestige leaderboard";
 }
 
@@ -20,14 +24,15 @@ function wholeLevel(value: number | undefined) {
 }
 
 /**
- * One chip per level from No prestige up to the highest level anyone is on.
+ * Global first, then one chip per level from No prestige up to the highest
+ * level anyone is on.
  * The viewer's own level and the one on screen are always included, so a
  * player who has just prestiged past everyone still finds their own chip
  * before the next ranking snapshot lists it.
  */
 export function leaderboardPrestigeLevels(levelsWithPlayers: readonly number[], own: number, selected: number) {
   const highest = Math.max(0, wholeLevel(own), wholeLevel(selected), ...levelsWithPlayers.map(wholeLevel));
-  return Array.from({ length: highest + 1 }, (_, level) => level);
+  return [GLOBAL_LEADERBOARD_PRESTIGE, ...Array.from({ length: highest + 1 }, (_, level) => level)];
 }
 
 /**
@@ -42,7 +47,10 @@ export function createLeaderboardPrestigeSelection(ownLevel: () => number | unde
   return {
     own,
     level: () => picked ?? own(),
-    pick(level: number) { picked = wholeLevel(level) === own() ? undefined : wholeLevel(level); },
+    pick(level: number) {
+      const next = level === GLOBAL_LEADERBOARD_PRESTIGE ? level : wholeLevel(level);
+      picked = next === own() ? undefined : next;
+    },
     picked: () => picked !== undefined,
     reset() { picked = undefined; },
   };

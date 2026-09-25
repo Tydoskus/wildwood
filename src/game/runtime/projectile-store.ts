@@ -8,7 +8,7 @@ function blankProjectile(): Projectile {
 }
 
 function blankEnemyShot(): EnemyShot {
-  return { x: 0, y: 0, vx: 0, vy: 0, r: 0, damage: 0, life: 0 };
+  return { x: 0, y: 0, vx: 0, vy: 0, r: 0, damage: 0, life: 0, source: null };
 }
 
 /** Reuses short-lived projectile objects and enforces visual/combat budgets. */
@@ -42,7 +42,7 @@ export function createProjectileStore() {
     return shot;
   }
 
-  function spawnEnemyShot(x: number, y: number, vx: number, vy: number, radius: number, damage: number, life: number) {
+  function spawnEnemyShot(x: number, y: number, vx: number, vy: number, radius: number, damage: number, life: number, source: EnemyShot["source"] = null) {
     const shot = acquireEnemyShot();
     shot.x = x;
     shot.y = y;
@@ -51,6 +51,7 @@ export function createProjectileStore() {
     shot.r = radius;
     shot.damage = damage;
     shot.life = life;
+    shot.source = source;
   }
 
   function compactPlayerProjectiles() {

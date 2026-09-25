@@ -1,7 +1,7 @@
 import { SenderError } from "spacetimedb/server";
 import { researchStatRewardMultiplier } from "../../shared/research";
 import { playerPowerForStats } from "../../shared/player-power";
-import { PRESTIGE_PERK_POINTS_PER_LEVEL, prestigeCampaignTarget, prestigeCampaignComplete, prestigeEndlessRequirement, prestigeStatMultiplier, prestigeUnlocked } from "../../shared/prestige";
+import { PRESTIGE_CAP_HINT, PRESTIGE_PERK_POINTS_PER_LEVEL, prestigeCapped, prestigeCampaignTarget, prestigeCampaignComplete, prestigeEndlessRequirement, prestigeStatMultiplier, prestigeUnlocked } from "../../shared/prestige";
 import { PRESTIGE_PERK_MAX_RANK, isPrestigePerkId, type PrestigePerkRanks } from "../../shared/prestige-perks";
 
 // Prestige bodies. The player_prestige table and the reducer declaration stay
@@ -41,6 +41,7 @@ export function createPrestige(deps: PrestigeDeps) {
     const progress = ctx.db.playerProgress.identity.find(ctx.sender);
     const current = ctx.db.playerPrestige.identity.find(ctx.sender);
     const nextLevel = (current?.level ?? 0) + 1;
+    if (prestigeCapped(nextLevel)) throw new SenderError(PRESTIGE_CAP_HINT);
     const completedEndless = ctx.db.proceduralProgress.identity.find(ctx.sender)?.completed ?? 0;
     if (!progress || !prestigeUnlocked(progress.bossRewardClaims, completedEndless, nextLevel)) {
       // The campaign first, then one Endless stage more than the last prestige asked for.

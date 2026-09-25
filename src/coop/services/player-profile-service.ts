@@ -1,7 +1,7 @@
 import { isDeveloperIdentity } from "../../../shared/developer-identity";
 import { withRequestDeadline } from "./request-deadline";
 import { unsubscribeIfActive, type ActiveSubscription } from "./subscription-handoff";
-import type { LeaderboardStat, PrestigeLeaderboardPage } from "../../../shared/leaderboard-window";
+import { GLOBAL_LEADERBOARD_PRESTIGE, type LeaderboardStat, type PrestigeLeaderboardPage } from "../../../shared/leaderboard-window";
 import { Identity } from "spacetimedb";
 import { tables, type DbConnection } from "../../module_bindings";
 import { createEmptyResearchRanks } from "../../../shared/research";
@@ -283,7 +283,11 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
     const connection = dependencies.connection();
     if (!connection?.isActive) return Promise.reject(new Error("Not connected. Try again."));
     const generation = leaderboardGeneration, identity = dependencies.localIdentity();
-    const request = withRequestDeadline(connection.procedures.getPrestigeLeaderboardPage({ stat, prestige, startRank, count })).then(page => {
+    // Global reads the combined pages; it has no level list of its own.
+    const fetchPage = prestige === GLOBAL_LEADERBOARD_PRESTIGE
+      ? connection.procedures.getLeaderboardPage({ stat, startRank, count }).then(page => ({ ...page, prestige, levels: [] as number[] }))
+      : connection.procedures.getPrestigeLeaderboardPage({ stat, prestige, startRank, count });
+    const request = withRequestDeadline(fetchPage).then(page => {
       if (generation !== leaderboardGeneration || connection !== dependencies.connection() || identity !== dependencies.localIdentity()) throw new Error("Session changed. Reopen the leaderboard.");
       const entries = page.entries.map(({ rank, entry: row }) => {
         const entry = { ...leaderboardEntryFromRow(row), rank };

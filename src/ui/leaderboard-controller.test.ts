@@ -210,9 +210,24 @@ describe("prestige boards", () => {
     expect(f.loadPage).toHaveBeenLastCalledWith("power", 0);
     f.pending[0].resolve([entry(1, "Fresh winner")], [0, 1, 2]);
     await opening;
-    expect(chips(f).map(button => button.textContent)).toEqual(["No prestigeYou", "Prestige 1", "Prestige 2"]);
+    expect(chips(f).map(button => button.textContent)).toEqual(["Global", "No prestigeYou", "Prestige 1", "Prestige 2"]);
     expect(chip(f, 0).classList.contains("is-active")).toBe(true);
     expect(f.elements.prestigeHeading.textContent).toContain("No prestige leaderboard");
+  });
+
+  it("shows the global board when Global is picked, keeping the level list", async () => {
+    const f = fixture({ prestige: () => 2 });
+    const opening = f.controller.open();
+    f.pending[0].resolve([entry(1, "Top two")], [0, 1, 2]);
+    await opening;
+    chip(f, -1).click();
+    expect(f.loadPage).toHaveBeenLastCalledWith("power", -1);
+    f.pending[1].resolve([entry(1, "Best anywhere")], []);
+    await flush();
+    expect(chip(f, -1).classList.contains("is-active")).toBe(true);
+    expect(f.elements.prestigeHeading.textContent).toContain("Global leaderboard");
+    expect(chips(f).map(button => button.dataset.prestige)).toEqual(["-1", "0", "1", "2"]);
+    expect(f.elements.rows.textContent).toContain("Best anywhere");
   });
 
   it("opens a Prestige 2 player on Prestige 2, marks their chip and shows their rank", async () => {
@@ -234,7 +249,7 @@ describe("prestige boards", () => {
     const opening = f.controller.open();
     f.pending[0].resolve([], [0, 1, 3]);
     await opening;
-    expect(chips(f).map(button => button.dataset.prestige)).toEqual(["0", "1", "2", "3", "4", "5"]);
+    expect(chips(f).map(button => button.dataset.prestige)).toEqual(["-1", "0", "1", "2", "3", "4", "5"]);
     expect(f.elements.prestigeHeading.textContent).toBe("Prestige 5 leaderboardNot ranked yet");
   });
 

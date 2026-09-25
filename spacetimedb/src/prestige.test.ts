@@ -4,7 +4,7 @@ import { ScheduleAt, Timestamp } from "spacetimedb";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { STARTER_BOW } from "../../shared/items";
 import { ATTACK_BALANCE_VERSION, BOSS_REWARD_CLAIM_BITS, SPACETIME_AUTH_CLIENT_ID, SPACETIME_AUTH_ISSUER } from "../../shared/rules";
-import { PRESTIGE_STAT_GAIN_PER_LEVEL, prestigeStatMultiplier, prestigeUnlocked } from "../../shared/prestige";
+import { PRESTIGE_CAP_HINT, PRESTIGE_MAX_LEVEL, PRESTIGE_STAT_GAIN_PER_LEVEL, prestigeRequirementHint, prestigeStatMultiplier, prestigeUnlocked } from "../../shared/prestige";
 import { PRESTIGE_PERK_MAX_RANK } from "../../shared/prestige-perks";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
@@ -34,6 +34,19 @@ it("opens only once the campaign's last boss is down, and one Endless stage furt
   expect(prestigeUnlocked(0, 9, 2)).toBe(false);                   // Endless alone never opens it
   expect(prestigeStatMultiplier(0)).toBe(1);
   expect(prestigeStatMultiplier(3)).toBeCloseTo(1 + 3 * PRESTIGE_STAT_GAIN_PER_LEVEL);
+});
+
+it("caps prestige where every perk is maxed, and says so", () => {
+  expect(PRESTIGE_MAX_LEVEL).toBe(20);
+  expect(prestigeUnlocked(CAMPAIGN_COMPLETE, 99, PRESTIGE_MAX_LEVEL)).toBe(true);
+  expect(prestigeUnlocked(CAMPAIGN_COMPLETE, 99, PRESTIGE_MAX_LEVEL + 1)).toBe(false);
+  expect(prestigeRequirementHint(true, 99, PRESTIGE_MAX_LEVEL + 1)).toBe(PRESTIGE_CAP_HINT);
+  const f = crystalFixture();
+  f.patch("playerProgress", { bossRewardClaims: CAMPAIGN_COMPLETE });
+  f.seed("proceduralProgress", { identity: f.ctx.sender, completed: 99 });
+  f.seed("playerPrestige", { identity: f.ctx.sender, level: PRESTIGE_MAX_LEVEL, perkPoints: 0, peakPower: 0, prestigedAt: f.ctx.timestamp });
+  expect(() => f.run(server.prestigeAccount, {})).toThrow("capped at level 20");
+  expect(prestigeRow(f)).toMatchObject({ level: PRESTIGE_MAX_LEVEL });
 });
 
 it("refuses to prestige an unfinished campaign", () => {

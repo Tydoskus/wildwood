@@ -134,6 +134,32 @@ describe("player attack timing", () => {
     state.controller.damagePlayer(5); expect(combat).toHaveBeenCalledTimes(2);
   });
 
+  it("reflects half of a landed hit back at the enemy that dealt it, and never at a boss", () => {
+    const spawn = (state: ReturnType<typeof createCombatHarness>) => {
+      state.enemies.length = 0;
+      createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Spitter", x: 520, y: 500,
+        campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
+      const enemy = state.enemies[0]; enemy.hp = enemy.maxHp = 1000;
+      Object.assign(state.player, { x: 500, y: 500, hp: 1000, maxHp: 1000, hurtClock: 0 });
+      return enemy;
+    };
+    const reflecting = createCombatHarness({ prestigeReflect: () => 1 });
+    const attacker = spawn(reflecting);
+    expect(reflecting.controller.damagePlayer(40, attacker)).toBe(true);
+    expect(reflecting.player.hp).toBe(960);
+    expect(attacker.hp).toBe(980);
+
+    const plain = createCombatHarness();
+    const untouched = spawn(plain);
+    plain.controller.damagePlayer(40, untouched);
+    expect(untouched.hp).toBe(1000);
+
+    const bossFight = createCombatHarness({ prestigeReflect: () => 1 });
+    const boss = spawn(bossFight); boss.generatedBoss = true;
+    bossFight.controller.damagePlayer(40, boss);
+    expect(boss.hp).toBe(1000);
+  });
+
   it("prioritizes an aggroed attacker over its selected farm type, then returns to farming", () => {
     const state = createCombatHarness({ localIdentity: () => "my-account" });
     state.enemies.length = 0;

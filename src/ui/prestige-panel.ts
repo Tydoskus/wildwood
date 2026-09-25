@@ -1,5 +1,5 @@
 import { formatCompactNumber } from './number-format';
-import { PRESTIGE_PERK_POINTS_PER_LEVEL, PRESTIGE_STAT_GAIN_PER_LEVEL, prestigeEndlessRequirement, prestigeRequirementHint, prestigeStatMultiplier } from '../../shared/prestige';
+import { PRESTIGE_PERK_POINTS_PER_LEVEL, PRESTIGE_STAT_GAIN_PER_LEVEL, prestigeCapped, prestigeEndlessRequirement, prestigeRequirementHint, prestigeStatMultiplier } from '../../shared/prestige';
 import { PRESTIGE_PERKS, PRESTIGE_PERK_IDS, PRESTIGE_PERK_MAX_RANK, prestigePerkEffectLabel, prestigePerkRank,
   type PrestigePerkId, type PrestigePerkRanks } from '../../shared/prestige-perks';
 
@@ -65,7 +65,7 @@ export function createPrestigeController(options: {
   const nextLevel = () => (options.prestige()?.level ?? 0) + 1;
   const completed = () => options.completed?.() ?? 0;
   // The campaign, then one Endless stage more than the last prestige asked for.
-  const unlocked = () => options.unlocked() && completed() >= prestigeEndlessRequirement(nextLevel());
+  const unlocked = () => options.unlocked() && !prestigeCapped(nextLevel()) && completed() >= prestigeEndlessRequirement(nextLevel());
   const hint = () => prestigeRequirementHint(options.unlocked(), completed(), nextLevel());
   // Prestiging clears the campaign, which would otherwise lock a player out of
   // the window holding the point they just earned. Anyone who has prestiged,
@@ -166,7 +166,7 @@ export function createPrestigeController(options: {
     // Toephu on 2026-09-22, whose window said to clear a boss he had already
     // beaten. The requirement is still spelled out beside the button; the
     // server owns the decision and names exactly what is missing.
-    confirmButton.disabled = pending || !options.unlocked();
+    confirmButton.disabled = pending || !options.unlocked() || prestigeCapped(nextLevel());
     confirmButton.hidden = false;
     if (!unlocked() && !status.textContent) status.textContent = hint();
   }

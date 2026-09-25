@@ -687,7 +687,7 @@ import {
     researchRewardMultiplier,
     displayRewardAmount: rewardDisplay.totalAmount,
     prestigeDoubleStrike: () => prestigePerkValue(coop?.prestigePerks?.(), "doubleStrike"),
-    prestigeSplitShot: () => prestigePerkValue(coop?.prestigePerks?.(), "splitShot"),
+    prestigeSplitShot: () => prestigePerkValue(coop?.prestigePerks?.(), "splitShot"), prestigeReflect: () => prestigePerkValue(coop?.prestigePerks?.(), "riposte"),
     bowSkills: () => coop?.bowSkills?.(inventory.equippedRightHand || inventory.equippedLeftHand),
     equippedWeapon: () => inventory.equippedRightHand || inventory.equippedLeftHand,
     equippedWeaponUpgradeLevel: () => coop?.itemUpgradeLevel?.(inventory.equippedRightHand || inventory.equippedLeftHand) ?? 0,

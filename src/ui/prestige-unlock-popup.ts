@@ -1,4 +1,4 @@
-import { prestigeEndlessRequirement, prestigeRequirementHint } from "../../shared/prestige";
+import { prestigeCapped, prestigeEndlessRequirement, prestigeRequirementHint } from "../../shared/prestige";
 import { PRESTIGE_ARMED_WARNING, PRESTIGE_COST, prestigeRewardLabel, submitPrestige, type PrestigeResult } from "./prestige-panel";
 
 /** Per identity: the highest prestige level this browser has announced, or seen the account reach. */
@@ -36,7 +36,7 @@ export function prestigeLevelToAnnounce(state: {
   level: number; campaignComplete: boolean; completedEndless: number; announced: number;
 }) {
   const next = Math.max(0, Math.floor(state.level)) + 1;
-  if (!state.campaignComplete || state.completedEndless < prestigeEndlessRequirement(next)) return 0;
+  if (prestigeCapped(next) || !state.campaignComplete || state.completedEndless < prestigeEndlessRequirement(next)) return 0;
   return state.announced >= next ? 0 : next;
 }
 

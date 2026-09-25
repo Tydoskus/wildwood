@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.823": [
+    "Riposte is now Reflect, and it now works against regular enemies, not only in duels.",
+    "Split Shot chance raised from 5% to 8% per rank.",
+    "Prestige is capped at 20 until more perks arrive.",
+    "The leaderboard's prestige list has a Global option.",
+  ],
   "0.822": [
     "Rebalanced the campaign: early maps pay more stats and hit softer, and early bosses have less HP.",
     "Later bosses and late-map health elites are tougher, and health elites pay more to match.",
@@ -2459,6 +2465,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.823": "2026-09-25",
   "0.822": "2026-09-25",
   "0.821": "2026-09-25",
   "0.820": "2026-09-25",

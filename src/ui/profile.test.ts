@@ -264,7 +264,7 @@ describe("prestige perks in the stat panel", () => {
     expect(rows.find((row) => row.kind === "double-strike")).toMatchObject({
       label: "Double Strike:", total: "8%", equationOperator: "+", multiplier: "8%", sources: [{ label: "Prestige", value: "+8%" }],
     });
-    expect(rows.find((row) => row.kind === "split-shot")).toMatchObject({ label: "Split Shot:", total: "25%" });
+    expect(rows.find((row) => row.kind === "split-shot")).toMatchObject({ label: "Split Shot:", total: "40%" });
     expect(rows.find((row) => row.kind === "riposte")).toBeUndefined();
   });
 

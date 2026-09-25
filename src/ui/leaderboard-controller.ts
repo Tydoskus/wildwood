@@ -1,7 +1,7 @@
 import { playerNameTagsRevision } from "../app/player-name-tags";
 import { renderLeaderboard, renderLeaderboardPodium, setLeaderboardTab, type LeaderboardStat, type RenderedLeaderboardPodiumPlayer } from "./leaderboard";
 import type { LeaderboardEntry } from "../wildstat-coop";
-import type { PrestigeLeaderboardPage } from "../../shared/leaderboard-window";
+import { GLOBAL_LEADERBOARD_PRESTIGE, type PrestigeLeaderboardPage } from "../../shared/leaderboard-window";
 import { createLeaderboardPrestigeSelection, leaderboardPrestigeLevels, renderLeaderboardPrestige } from "./leaderboard-prestige";
 
 type Direction = "above" | "below";
@@ -103,7 +103,8 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
       levels: leaderboardPrestigeLevels(levelsWithPlayers, prestige.own(), level), selected: level, own: prestige.own(),
       localRank: snapshot?.localRank ?? 0, loading,
     }, pickLevel);
-    elements.podium.setAttribute("aria-label", level > 0 ? `Top three Prestige ${level} players` : "Top three players without prestige");
+    elements.podium.setAttribute("aria-label", level === GLOBAL_LEADERBOARD_PRESTIGE ? "Top three players"
+      : level > 0 ? `Top three Prestige ${level} players` : "Top three players without prestige");
   }
   function render(center = false) {
     nameTagRevision = playerNameTagsRevision();
@@ -153,7 +154,8 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
       if (generation !== requestGeneration || elements.overlay.hidden || snapshotIdentity !== hooks.localIdentity()) return;
       snapshot = { ...page, loadedAt: Date.now(), entries: page.entries.filter(row => row.rank! >= page.startRank && row.rank! <= page.endRank),
         podium: page.entries.filter(row => row.rank! <= 3) };
-      levelsWithPlayers = page.levels ?? levelsWithPlayers;
+      // The combined board does not list levels; keep the ones the last level board did.
+      if (requestedLevel !== GLOBAL_LEADERBOARD_PRESTIGE) levelsWithPlayers = page.levels ?? levelsWithPlayers;
       snapshots.set(`${requestedStat}:${requestedLevel}`, snapshot);
     } catch (failure) {
       if (generation !== requestGeneration || elements.overlay.hidden) return;

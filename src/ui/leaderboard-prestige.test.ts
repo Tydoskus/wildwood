@@ -14,11 +14,11 @@ it("names level 0 No prestige and every other level by its number", () => {
 });
 
 it("lists No prestige up to the highest level anyone is on, with the viewer's and the selected level always in", () => {
-  expect(leaderboardPrestigeLevels([], 0, 0)).toEqual([0]);
-  expect(leaderboardPrestigeLevels([0, 1, 3], 0, 0)).toEqual([0, 1, 2, 3]);
-  expect(leaderboardPrestigeLevels([0, 1], 4, 0)).toEqual([0, 1, 2, 3, 4]);
-  expect(leaderboardPrestigeLevels([0], 0, 2)).toEqual([0, 1, 2]);
-  expect(leaderboardPrestigeLevels([0], Number.NaN, -3)).toEqual([0]);
+  expect(leaderboardPrestigeLevels([], 0, 0)).toEqual([-1, 0]);
+  expect(leaderboardPrestigeLevels([0, 1, 3], 0, 0)).toEqual([-1, 0, 1, 2, 3]);
+  expect(leaderboardPrestigeLevels([0, 1], 4, 0)).toEqual([-1, 0, 1, 2, 3, 4]);
+  expect(leaderboardPrestigeLevels([0], 0, 2)).toEqual([-1, 0, 1, 2]);
+  expect(leaderboardPrestigeLevels([0], Number.NaN, -3)).toEqual([-1, 0]);
 });
 
 it("follows the viewer's level until a different one is picked, then holds the pick", () => {

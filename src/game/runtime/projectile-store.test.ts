@@ -31,6 +31,7 @@ describe("projectile store", () => {
       r: 6,
       damage: 50,
       life: 4,
+      source: null,
     }]);
   });
 });

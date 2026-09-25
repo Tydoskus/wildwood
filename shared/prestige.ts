@@ -1,5 +1,6 @@
 import { BOSS_REWARD_CLAIM_BITS } from "./rules";
 import { CAMPAIGN_MAPS, type CampaignMapDefinition } from "./campaign-registry";
+import { PRESTIGE_PERK_IDS, PRESTIGE_PERK_MAX_RANK } from "./prestige-perks";
 
 /**
  * Prestige trades a finished campaign for permanent account bonuses. The reset
@@ -9,6 +10,15 @@ import { CAMPAIGN_MAPS, type CampaignMapDefinition } from "./campaign-registry";
 export const PRESTIGE_STAT_GAIN_PER_LEVEL = .1;
 /** One perk point per level, so a rerun plays differently and not merely faster. */
 export const PRESTIGE_PERK_POINTS_PER_LEVEL = 1;
+/**
+ * Prestige stops where every perk is maxed: past it, a level would bank a point
+ * with nothing to spend it on. A new perk raises the cap by itself.
+ */
+export const PRESTIGE_MAX_LEVEL = PRESTIGE_PERK_IDS.length * PRESTIGE_PERK_MAX_RANK / PRESTIGE_PERK_POINTS_PER_LEVEL;
+export function prestigeCapped(nextLevel: number) {
+  return nextLevel > PRESTIGE_MAX_LEVEL;
+}
+export const PRESTIGE_CAP_HINT = `Prestige is capped at level ${PRESTIGE_MAX_LEVEL} until more perks arrive.`;
 
 /** The campaign's last boss is down: the clearance Endless itself needs. */
 export function campaignComplete(bossRewardClaims: number) {
@@ -31,11 +41,12 @@ export function prestigeCampaignComplete(bossRewardClaims: number, nextLevel: nu
   return Boolean(target && (bossRewardClaims & 2 ** target.claimIndex));
 }
 export function prestigeUnlocked(bossRewardClaims: number, completedEndless = 0, nextLevel = 1, maps: readonly CampaignMapDefinition[] = CAMPAIGN_MAPS) {
-  return prestigeCampaignComplete(bossRewardClaims, nextLevel, maps)
+  return !prestigeCapped(nextLevel) && prestigeCampaignComplete(bossRewardClaims, nextLevel, maps)
     && completedEndless >= prestigeEndlessRequirement(nextLevel, maps.length);
 }
 /** The target can be an authored boss or a stage after the campaign. */
 export function prestigeRequirementHint(campaignDone: boolean, completedEndless: number, nextLevel: number, maps: readonly CampaignMapDefinition[] = CAMPAIGN_MAPS) {
+  if (prestigeCapped(nextLevel)) return PRESTIGE_CAP_HINT;
   const stage = prestigeEndlessRequirement(nextLevel, maps.length);
   if (stage) return campaignDone && completedEndless >= stage ? "" : `Clear the Endless ${stage} boss to prestige.`;
   const target = maps[prestigeRequiredMap(nextLevel) - 1];

@@ -60,6 +60,8 @@ export type EnemyShot = Circle & {
   vy: number;
   damage: number;
   life: number;
+  /** Who fired it, so Reflect can answer them. */
+  source?: EnemyState | null;
 };
 
 export type EnemyState = Circle & {

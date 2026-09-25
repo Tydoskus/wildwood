@@ -32,7 +32,7 @@ function recoverySpeed(enemy: EnemyState, chaseSpeed: number) {
 }
 
 type Viewport = { width: number; height: number; zoom: number };
-type DamagePlayer = (amount: number) => boolean;
+type DamagePlayer = (amount: number, source?: EnemyState) => boolean;
 type EngageEnemy = (enemy: EnemyState, targetId?: string | null, startedAtTick?: number) => void;
 
 export type EnemySimulationSharedOptions = {
@@ -57,7 +57,7 @@ export type EnemySimulation = {
 /** Owns deterministic regular-enemy movement, aggro, and local combat. */
 export function createEnemySimulation(
   enemies: EnemyState[],
-  spawnEnemyShot: (x: number, y: number, vx: number, vy: number, radius: number, damage: number, life: number) => void,
+  spawnEnemyShot: (x: number, y: number, vx: number, vy: number, radius: number, damage: number, life: number, source?: EnemyState) => void,
   player: PlayerState,
   getViewport: () => Viewport,
   engageEnemy: EngageEnemy,
@@ -311,6 +311,7 @@ export function createEnemySimulation(
                 6,
                 enemy.damage,
                 4,
+                enemy,
               );
               const attackIndex = attackSequences.get(enemy) ?? 0;
               enemy.attackAnimationElapsed = 0;
@@ -322,7 +323,7 @@ export function createEnemySimulation(
                 1 / Math.max(.01, base.attackSpeed),
               );
             } else if (!base.ranged && enemy.attackClock <= 0 && circlesOverlap(player, enemy)) {
-              if (damagePlayer(enemy.damage)) {
+              if (damagePlayer(enemy.damage, enemy)) {
                 enemy.attackAnimationElapsed = 0;
                 enemy.attackClock = 1 / Math.max(.01, base.attackSpeed);
                 enemy.moveSpeedRecovery = 0;

@@ -28,6 +28,12 @@ export type LeaderboardPage<Entry> = {
 };
 
 /** One prestige level's board, and every level that has anyone on it. */
+/**
+ * The switcher's choice for the combined board: every player, highest prestige
+ * first. It is read from the combined pages, never sent as a prestige level.
+ */
+export const GLOBAL_LEADERBOARD_PRESTIGE = -1;
+
 export type PrestigeLeaderboardPage<Entry> = LeaderboardPage<Entry> & {
   prestige: number;
   levels: number[];
