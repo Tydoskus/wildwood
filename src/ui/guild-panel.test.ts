@@ -79,7 +79,7 @@ describe("guild panel", () => {
     h.click("Battles"); await settled(); h.click("Challenge"); h.click("Start battle"); await settled();
     expect(h.api.guildAction).toHaveBeenCalledWith({ kind: "challenge", opponentGuildId: "2" });
   });
-  it("places creation and invitations ahead of discovery", async () => {
+  it("shows discovery without the retired guild invitation controls", async () => {
     const g = fixture(); g.guild = null;
     const social: SocialSnapshot = { identity: "a", signedIn: true, friends: [], incomingRequests: [], outgoingRequests: [],
       guildInvitations: [{ id: "8", guildId: "2", guildName: "MOON", inviterName: "B" }],
@@ -87,10 +87,9 @@ describe("guild panel", () => {
     const api = { loadSocial: vi.fn(async () => social), socialAction: vi.fn(async () => {}), revision: () => 1, snapshot: () => social } as unknown as SocialApi;
     const h = setup(g, api); h.panel.open(); await settled();
     const content = h.document.querySelector(".guild-content")!.textContent!;
-    expect(content.indexOf("Create a guild")).toBeLessThan(content.indexOf("Open guilds"));
-    expect(content.indexOf("Guild invitations")).toBeLessThan(content.indexOf("Open guilds"));
-    h.click("Join guild"); await settled();
-    expect(api.socialAction).toHaveBeenCalledWith({ action: "acceptGuildInvite", invitationId: "8" });
+    expect(content).toContain("Create a guild");
+    expect(content).not.toContain("Guild invitations");
+    expect(h.find("Join guild")).toBeUndefined();
   });
   it("uses Back to cancel a pending destructive action", async () => {
     const h = setup(); h.panel.open(); await settled();
@@ -106,16 +105,13 @@ describe("guild panel", () => {
     expect(h.find("Battle history")?.getAttribute("aria-pressed")).toBe("true");
     expect(h.find("Challenge")).toBeUndefined();
   });
-  it("opens Manage friends as its own window and returns to the previous guild section", async () => {
+  it("keeps friend management out of guild tabs", async () => {
     const h = setup(); h.panel.open("rankings"); await settled();
-    h.click("Manage friends");
-    expect(h.document.querySelector("#guildTitle")?.textContent).toBe("Friends");
-    expect(h.document.querySelector(".guild-tabs")).toBeNull();
-    h.click("Back");
-    expect(h.panel.isOpen()).toBe(true);
-    expect(h.find("Rankings")?.getAttribute("aria-current")).toBe("page");
-    expect(h.document.querySelector("#guildTitle")?.textContent).toBe("Guilds");
-    expect(h.api.loadGuild).toHaveBeenCalledTimes(1);
+    expect(h.find("Manage friends")).toBeUndefined();
+    h.click("My Guild"); await settled();
+    expect(h.find("Manage friends")).toBeUndefined();
+    h.click("Battles"); await settled();
+    expect(h.find("Manage friends")).toBeUndefined();
   });
   it("toggles closed from the Guild toolbar button without reopening or refetching", async () => {
     const h = setup();
@@ -374,14 +370,39 @@ it("opens another guild in a compact preview without closing your fullscreen gui
 
 it.each(["a", "b", "c"])("shows the badge pencil only to officers (%s)", async viewer => {
   const g = fixture(); g.identity = viewer; g.guild!.vicePresident = "b";
-  g.guild!.members[0].power = 2500;
+  g.guild!.members[0].power = 2500; g.guild!.members[0].prestige = 3;
   const h = setup(g); h.panel.open(); await settled();
   expect(Boolean(h.find("Change guild badge"))).toBe(viewer !== "c");
-  expect(h.document.querySelector(".guild-member-power")?.textContent).toContain("Power:");
+  expect(h.document.querySelector("strong .guild-member-power .power-icon")).not.toBeNull();
+  expect(h.document.querySelector("strong .player-prestige-badge")?.textContent).toBe("3");
   if (viewer !== "c") {
     h.click("Change guild badge");
     expect(h.document.querySelectorAll(".guild-badge-picker button")).toHaveLength(16);
     h.click("wolf badge"); await settled();
     expect(h.api.guildAction).toHaveBeenCalledWith({ kind: "emblem", emblem: 0 });
   }
+});
+
+it.each(["a", "b", "c"])("shows admission and mail actions only to officers (%s)", async viewer => {
+  const g = fixture(); g.identity = viewer; g.guild!.vicePresident = "b";
+  g.guild!.requests = [{ identity: "new", name: "Applicant", power: 100, prestige: 1, profileIcon: 0, requestedAt: "0" }];
+  const h = setup(g); h.panel.open(); await settled();
+  expect(Boolean(h.find("Request Only"))).toBe(viewer !== "c");
+  expect(h.document.querySelector(".guild-mail")).toBeNull();
+  expect(h.document.body.textContent).not.toContain("Invite players");
+  if (viewer !== "c") {
+    h.click("Request Only"); await settled();
+    expect(h.api.guildAction).toHaveBeenCalledWith({ kind: "admission", action: "requestOnly" });
+
+  }
+});
+it("requests admission instead of joining a restricted guild, and allows cancellation", async () => {
+  const g = fixture(); g.guild = null; g.directory[0].requestOnly = true;
+  const h = setup(g); h.panel.open(); await settled(); h.click("Request to Join"); await settled();
+  expect(h.api.guildAction).toHaveBeenCalledWith({ kind: "admission", action: "request", guildId: "2" });
+  g.pendingRequest = { guildId: "2", name: "Moonlight" };
+  h.click("Refresh"); await settled();
+  expect(h.find("Requested")?.disabled).toBe(true);
+  h.click("Cancel request"); await settled();
+  expect(h.api.guildAction).toHaveBeenCalledWith({ kind: "admission", action: "cancel" });
 });

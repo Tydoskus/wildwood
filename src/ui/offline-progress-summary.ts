@@ -50,7 +50,6 @@ export function offlineStatLines(summary: OfflineProgressSummary) {
  */
 export function createOfflineProgressSummary(dependencies: {
   acknowledge: () => void;
-  pause: (paused: boolean) => void;
   /** The waiting summary, or null. Read repeatedly; shown exactly once. */
   pending: () => OfflineProgressSummary | null | undefined;
   /** False while the world is not yet somewhere the player can act. */
@@ -80,7 +79,6 @@ export function createOfflineProgressSummary(dependencies: {
     if (!open) return;
     open = false;
     overlay.hidden = true;
-    dependencies.pause(false);
     dependencies.acknowledge();
   }
 
@@ -114,7 +112,6 @@ export function createOfflineProgressSummary(dependencies: {
     }
     open = true;
     overlay.hidden = false;
-    dependencies.pause(true);
     window.requestAnimationFrame(() => collect.focus());
   }
 

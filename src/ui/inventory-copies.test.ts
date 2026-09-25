@@ -8,7 +8,7 @@ afterEach(() => vi.unstubAllGlobals());
 const A = { arrowStorm: 2, ricochet: 0, piercingShot: 0 };
 const B = { arrowStorm: 0, ricochet: 3, piercingShot: 0 };
 
-function bag(equippedRightHand = IRON_BOW, copies: KeptEquipmentCopy[] = [{ id: 5n, itemId: IRON_BOW, roll: B }], equippedHead = "") {
+function bag(equippedRightHand = IRON_BOW, copies: KeptEquipmentCopy[] = [{ id: 5n, itemId: IRON_BOW, roll: B }], equippedHead = "", locks: bigint[] = []) {
   const ids = ["inventoryPanel", "inventoryItems", "inventoryCount", "equippedHeadSlot", "equippedChestSlot", "equippedFeetSlot", "equippedRightHandSlot", "inventoryEquipmentTab", "inventoryCosmeticsTab", "inventoryContent"];
   const { document, window } = parseHTML(`<html><body>${ids.map(id => `<div id="${id}"></div>`).join("")}</body></html>`);
   vi.stubGlobal("document", document); vi.stubGlobal("window", window); vi.stubGlobal("navigator", {});
@@ -23,6 +23,7 @@ function bag(equippedRightHand = IRON_BOW, copies: KeptEquipmentCopy[] = [{ id: 
     destroyEquipmentCopy: async (itemId, copyId) => { calls.push(`destroy ${itemId} copy ${copyId}`); return { ok: true }; },
     selectEquipmentCopy: async copyId => { calls.push(`select ${copyId}`); return { ok: true }; },
     equipmentCopies: () => copies,
+    equipmentLocked: (itemId, copyId = 0n) => itemId === IRON_BOW && locks.includes(copyId),
     confirmDestroy: async () => true,
     unlockInventorySlot: async () => undefined, showMessage() {} });
   controller.render();
@@ -78,12 +79,32 @@ it("swaps a bow copy into the hand that already holds the bow without moving any
   expect(view.calls).toEqual(["select 5"]);
 });
 
-it("does not offer to equip an identical copy of equipment already worn", () => {
+it("can select an identical copy so its individual lock follows it into the slot", async () => {
   const worn = bag(IRON_BOW, [{ id: 6n, itemId: SAMURAI_HAT, roll: A }], SAMURAI_HAT);
   (worn.items.querySelector(`[data-copy-id="6"]`) as HTMLElement).click();
-  expect(worn.action(worn.opened.at(-1)!, "SAME AS EQUIPPED").disabled).toBe(true);
+  expect(worn.action(worn.opened.at(-1)!, "EQUIP").disabled).toBe(false);
+  await worn.action(worn.opened.at(-1)!, "EQUIP").onActivate();
+  expect(worn.calls).toEqual(["select 6"]);
   // With the hat itself in the bag, equipping a copy of it is an ordinary equip.
   const loose = bag(IRON_BOW, [{ id: 6n, itemId: SAMURAI_HAT, roll: A }]);
   (loose.items.querySelector(`[data-copy-id="6"]`) as HTMLElement).click();
   expect(loose.action(loose.opened.at(-1)!, "EQUIP").disabled).toBe(false);
+});
+
+it.each([0n, 5n])('allows equipping locked copy %s from the bag', async copyId => {
+  const view = bag('', [{ id: 5n, itemId: IRON_BOW, roll: B }], '', [0n, 5n]);
+  view.entry(copyId || undefined).click();
+  const request = view.opened.at(-1)!;
+  const equip = view.action(request, 'EQUIP');
+  expect(equip.disabled).toBeFalsy();
+  expect(request.actions!.some(action => action.kind === 'DESTROY')).toBe(false);
+  await equip.onActivate();
+  expect(view.calls).toContain(`move ${IRON_BOW} RIGHT_HAND`);
+});
+it('allows manually replacing a locked equipped item with a duplicate', async () => {
+  const view = bag(IRON_BOW, [{ id: 5n, itemId: IRON_BOW, roll: B }], '', [0n]);
+  view.entry(5n).click();
+  expect(view.action(view.opened.at(-1)!, 'EQUIP').disabled).toBe(false);
+  await view.action(view.opened.at(-1)!, 'EQUIP').onActivate();
+  expect(view.calls).toEqual(['select 5']);
 });

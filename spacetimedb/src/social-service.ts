@@ -4,7 +4,6 @@ import { Identity } from "spacetimedb";
 import { SenderError } from "spacetimedb/server";
 import type { ModuleReducerCtx, ModuleViewCtx } from "./index";
 import { SOCIAL_FRIEND_LIMIT, SOCIAL_REQUEST_LIMIT, SOCIAL_MESSAGE_LIMIT, SOCIAL_MESSAGE_RETENTION_DAYS, type SocialConversation, type SocialSnapshot } from "../../shared/social";
-import { GUILD_MEMBER_LIMIT } from "../../shared/guilds";
 import { moderatePublicChatMessage, chatModerationReason, MODERATION_RULE_VERSION } from "./chat-moderation";
 import { chatPage } from "../../shared/chat-page";
 import { assertChatNotMuted, recordChatStrike } from "./chat-mute";
@@ -124,19 +123,8 @@ export function createSocialService(deps: { joinGuild(ctx: Ctx, guildId: bigint)
       if (own.length >= SOCIAL_REQUEST_LIMIT || theirs.length >= SOCIAL_REQUEST_LIMIT) fail("Too many pending friend requests.");
       ctx.db.socialRequest.insert({ id: 0n, sender: ctx.sender, recipient: peer });
     },
-    guildInviteAction(ctx: Ctx, action: string, value: string, invitationId: bigint) {
-      if (action === "invite") {
-        const membership = ctx.db.guildMember.identity.find(ctx.sender) ?? fail("Join a guild first.");
-        const guild = ctx.db.guild.id.find(membership.guildId) ?? fail("Guild no longer exists.");
-        if (!same(guild.leader, ctx.sender)) fail("Only the guild President can invite players.");
-        if (guild.members >= GUILD_MEMBER_LIMIT) fail("This guild is full.");
-        const peer = target(ctx, value).identity; assertContact(ctx, peer);
-        if (ctx.db.guildMember.identity.find(peer)) fail("That player already belongs to a guild.");
-        const pending = [...ctx.db.socialGuildInvite.guildId.filter(guild.id)];
-        if (pending.some(row => same(row.recipient, peer))) fail("That player is already invited.");
-        if (pending.length >= SOCIAL_REQUEST_LIMIT || [...ctx.db.socialGuildInvite.recipient.filter(peer)].length >= SOCIAL_REQUEST_LIMIT) fail("Too many pending guild invitations.");
-        ctx.db.socialGuildInvite.insert({ id: 0n, guildId: guild.id, sender: ctx.sender, recipient: peer }); return;
-      }
+    guildInviteAction(ctx: Ctx, action: string, _value: string, invitationId: bigint) {
+      if (action === "invite") fail("Guild invitations have been replaced by join requests.");
       if (!["accept", "decline", "revoke"].includes(action)) fail("Unknown invitation action.");
       const row = ctx.db.socialGuildInvite.id.find(invitationId) ?? fail("Invitation no longer exists.");
       const guild = ctx.db.guild.id.find(row.guildId);

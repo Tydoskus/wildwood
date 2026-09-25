@@ -1,7 +1,8 @@
+import { renderGuildMemberName } from "./guild-member-name";
 import { formatCompactNumber } from "./number-format";
 import { guildMemberPresence } from './guild-presence';
 import { createGuildBattleReplay, type GuildReplayAssets } from "./guild-battle-replay";
-import { renderFriends, renderGuildInvites, renderReceivedGuildInvites } from "./social-panel-content";
+import { renderFriends } from "./social-panel-content";
 import type { SocialSnapshot, SocialAction } from "../../shared/social";
 import type { SocialApi } from "../coop/services/social-service";
 import { createGuildEmblem } from './guild-emblems';
@@ -122,6 +123,7 @@ export function createGuildPanel(options: Options) {
         if (socialAction.action === "inviteGuild") drafts.invite = "";
         if (socialAction.action === "acceptGuildInvite") { section = "guild"; notice = "You joined the guild."; }
       }
+      if (action?.kind === "admission") notice = action.action === "request" ? "Join request sent." : action.action === "cancel" ? "Request cancelled." : action.action === "accept" ? "Member accepted." : action.action === "decline" ? "Request declined." : "Guild admission updated.";
       clockOffset = date(next.serverNow).getTime() - Date.now();
       if (action?.kind === "create" || action?.kind === "join" || action?.kind === "leave") {
         section = "guild"; creating = false; managedMember = null; draftName = "";
@@ -158,10 +160,6 @@ export function createGuildPanel(options: Options) {
     dialog.querySelector<HTMLElement>(`[data-focus-key="tab-${next}"]`)?.focus();
     if (refreshDirectory) void load();
   }
-  function openFriends() {
-    friendsReturn = section === "friends" ? friendsReturn : section;
-    switchSection("friends");
-  }
   function backFromWindow() {
     if (confirmation) { confirmation = null; render(); }
     else if (section === "friends" && friendsReturn) {
@@ -197,7 +195,7 @@ export function createGuildPanel(options: Options) {
     if (!entries.length) empty(parent, challenge ? "No opponents yet" : "No guilds here yet", challenge ? "Other guilds will appear here as players create them." : "Be the first to create one, or check another page.");
     const list = element("div", undefined, "guild-list"); parent.append(list);
     for (const entry of entries) {
-      const item = row(list, entry.name, `${entry.members}/${GUILD_MEMBER_LIMIT} members`);
+      const item = row(list, entry.name, `${entry.members}/${GUILD_MEMBER_LIMIT} members · ${entry.requestOnly ? "Request Only" : "Open"}`);
       if (challenge) {
         const title = item.querySelector("strong")!;
         title.classList.add("guild-opponent-heading");
@@ -213,7 +211,9 @@ export function createGuildPanel(options: Options) {
       preview.setAttribute('aria-label', `View ${entry.name} guild`);
       preview.append(mark(entry.name, "guild-avatar", entry.emblem), item.firstElementChild!);
       preview.addEventListener('click', () => void otherGuild.open(entry.id)); item.prepend(preview);
-      if (!challenge) item.append(button(entry.members >= GUILD_MEMBER_LIMIT ? "Full" : "Join", () => act({ kind: "join", guildId: entry.id }), "secondary", !canJoin() || entry.members >= GUILD_MEMBER_LIMIT, `join-${entry.id}`));
+      if (!challenge) item.append(button(entry.members >= GUILD_MEMBER_LIMIT ? "Full" : g.pendingRequest?.guildId === entry.id ? "Requested" : entry.requestOnly ? "Request to Join" : "Join",
+        () => act(entry.requestOnly ? { kind: "admission", action: "request", guildId: entry.id } : { kind: "join", guildId: entry.id }), "secondary",
+        !canJoin() || entry.members >= GUILD_MEMBER_LIMIT || Boolean(entry.requestOnly && g.pendingRequest), `join-${entry.id}`));
       else if (canStartBattles()) {
         const ready = g.guild!.members.length > 0 && g.guild!.members.every(member => date(member.eligibleAt).getTime() <= now());
         const disabled = !ready || !g.guild!.attacksRemaining || !entry.members || entry.challengedToday;
@@ -241,7 +241,7 @@ export function createGuildPanel(options: Options) {
     profile.type = "button";
     profile.setAttribute("aria-label", `View ${member.name}'s profile`);
     profile.dataset.focusKey = `profile-${member.identity}`;
-    item.firstElementChild!.append(element("span", `Power: ${member.power === undefined ? "—" : formatCompactNumber(member.power)}`, "guild-member-power"));
+    renderGuildMemberName(item.querySelector<HTMLElement>("strong")!, member);
     profile.append(portrait, item.firstElementChild!);
     if (!office) {
       const chevron = element("span", "", "guild-profile-chevron");
@@ -289,7 +289,6 @@ export function createGuildPanel(options: Options) {
     heading(body, "Members", `${own.members.length}/${GUILD_MEMBER_LIMIT}`);
     const roster = element("div", undefined, "guild-list guild-roster"); body.append(roster);
     members.forEach(member => renderMember(roster, member));
-    if (isLeader() && social) renderGuildInvites(body, socialContext(), own.members.map(member => member.identity));
   }
   function renderGuild(body: HTMLElement) {
     const g = snapshot!;
@@ -298,15 +297,17 @@ export function createGuildPanel(options: Options) {
       intro.append(element("h3", "Find your Guild"));
       body.append(intro);
       renderCreate(body);
-      if (social) renderReceivedGuildInvites(body, socialContext());
-      heading(body, "Open guilds"); renderDirectory(body);
+      if (g.pendingRequest) {
+        const pending = row(body, g.pendingRequest.name, "Join request pending");
+        pending.append(button("Cancel request", () => act({ kind: "admission", action: "cancel" }), "quiet"));
+      }
+      heading(body, "Guilds"); renderDirectory(body);
       return;
     }
     const own = g.guild;
     const identity = element("div", undefined, "guild-identity guild-preview-identity");
     const copy = element("div");
     copy.append(element("h3", own.name));
-    copy.append(element("p", `${own.members.length} / ${GUILD_MEMBER_LIMIT} members`));
     const badge = element("div", undefined, "guild-badge-edit");
     badge.append(mark(own.name, "guild-mark", own.emblem));
     if (canStartBattles()) {
@@ -334,6 +335,14 @@ export function createGuildPanel(options: Options) {
     body.append(power);
     renderMembers(body);
     const settings = element("details", undefined, "guild-disclosure"); settings.append(element("summary", "Guild options"));
+    if (canStartBattles()) {
+      const modes = element("div", undefined, "guild-admission-options"); modes.setAttribute("aria-label", "Guild admission");
+      for (const [label, action] of [["Open", "open"], ["Request Only", "requestOnly"]] as const) {
+        const choice = button(label, () => act({ kind: "admission", action }), "secondary");
+        choice.setAttribute("aria-pressed", String(Boolean(own.requestOnly) === (action === "requestOnly"))); modes.append(choice);
+      }
+      settings.append(element("p", "Who can join"), modes);
+    }
     settings.append(button("Leave guild", () => ask("Leave this guild?", isLeader() ? own.members.length > 1 ? own.vicePresident ? "The Vice President becomes President." : "The longest-serving member becomes President." : "Leaving will disband the guild." : "You can join another guild immediately.", "Leave guild", { kind: "leave" }), "danger")); body.append(settings);
   }
   function renderReports(body: HTMLElement) {
@@ -445,10 +454,6 @@ export function createGuildPanel(options: Options) {
     const h2 = element("h2", undefined, "window-banner"); h2.id = "guildTitle";
     h2.append(element("span", section === "friends" ? "Friends" : "Guilds")); dialog.append(h2);
     if (section === "friends") { title.append(element("span", "Your people")); header.append(title); }
-    if (section !== "friends") {
-      const inbox = social ? social.incomingRequests.length + social.guildInvitations.length : 0;
-      header.append(button(inbox ? `Manage friends (${inbox})` : "Manage friends", openFriends, "quiet", false, "manage-friends"));
-    }
     const refresh = button("↻", () => void load(), "icon", false, "refresh");
     refresh.setAttribute("aria-label", "Refresh"); refresh.title = "Refresh";
     header.append(refresh);

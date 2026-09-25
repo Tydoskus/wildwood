@@ -1,4 +1,13 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.812": [
+    "Guilds can now be Open or Request Only. Join requests appear in a new guild chat tab.",
+    "Guild Presidents and Vice Presidents can accept or deny requests with an optional note sent by mail.",
+    "Improved guild layouts, player names, prestige badges and power displays on mobile.",
+    "Locked items can be equipped manually while staying protected from deletion and automatic replacement.",
+    "The While You Were Away popup no longer pauses the game.",
+    "Fixed update recovery that could leave players signed out.",
+    "Developers can now restore moderated messages from Reports.",
+  ],
   "0.811": [
     "Guild Presidents and Vice Presidents can choose their guild badge.",
     "Guild member lists now show each player's power.",
@@ -2407,6 +2416,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.812": "2026-09-24",
   "0.811": "2026-09-24",
   "0.810": "2026-09-24",
   "0.809": "2026-09-24",

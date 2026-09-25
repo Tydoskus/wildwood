@@ -201,5 +201,25 @@ it("returns current public roster details for another guild without management d
   expect(preview.name).toBe("Rose");
   expect(preview.members).toHaveLength(2);
   expect(preview.members.find((row: any) => row.identity === identity("1").toHexString()).profileIcon).toBe(82);
-  expect(Object.keys(preview).sort()).toEqual(["emblem", "id", "leader", "members", "name", "score", "vicePresident"]);
+  expect(Object.keys(preview).sort()).toEqual(["emblem", "id", "leader", "members", "name", "requestOnly", "score", "vicePresident"]);
+});
+
+it("accepts or denies join requests with private mailbox delivery and server permissions", () => {
+  const f = fixture(); const guildId = f.guild(["1", "2"], "Rose");
+  f.run(server.setGuildVicePresident, { identity: identity("2"), enabled: true });
+  f.run(server.guildAdmission, { action: "requestOnly", guildId, identity: identity("1"), note: "" });
+  f.actor("3"); f.run(server.guildAdmission, { action: "request", guildId, identity: identity("3"), note: "" });
+  expect(f.snapshot().pendingRequest?.guildId).toBe(String(guildId));
+  f.actor("2"); f.run(server.guildAdmission, { action: "accept", guildId, identity: identity("3"), note: "Welcome to Rose!" });
+  expect(f.db.guildMember.identity.find(identity("3")).guildId).toBe(guildId);
+  const accepted = [...f.db.playerMail.identity.filter(identity("3"))];
+  expect(accepted).toHaveLength(1); expect(accepted[0].read).toBe(false);
+  expect(accepted[0].title).toContain("accepted"); expect(accepted[0].body).toContain("Welcome to Rose!");
+  f.actor("4"); f.run(server.guildAdmission, { action: "request", guildId, identity: identity("4"), note: "" });
+  f.actor("3"); expect(f.snapshot().guild?.requests).toHaveLength(1);
+  expect(() => f.run(server.guildAdmission, { action: "decline", guildId, identity: identity("4"), note: "" })).toThrow("President or Vice President");
+  f.actor("1"); f.run(server.guildAdmission, { action: "decline", guildId, identity: identity("4"), note: "Try again later." });
+  const denied = [...f.db.playerMail.identity.filter(identity("4"))];
+  expect(denied).toHaveLength(1); expect(denied[0].title).toContain("denied"); expect(denied[0].body).toContain("Try again later.");
+  expect(f.db.guildMember.identity.find(identity("4"))).toBeNull();
 });

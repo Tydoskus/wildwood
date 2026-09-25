@@ -175,9 +175,8 @@ export function createChatChannelPicker(onChange: (channel: ChatChannel, usernam
         contacts.append(row);
       }
     }
-    setChatText(status, selected === "guild" ? (guildName ? `Guild: ${guildName}` : "Join or create a guild to chat with members.")
-      : "");
-    setChatHidden(status, selected !== "guild");
+    setChatText(status, selected === "guild" && !guildName ? "Join or create a guild to chat with members." : "");
+    setChatHidden(status, selected !== "guild" || Boolean(guildName));
     setChatText(conversationHeader, peer);
   }
   update();

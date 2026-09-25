@@ -15,7 +15,7 @@ type Storage = Pick<globalThis.Storage, "getItem" | "setItem">;
 export function createStaleBundleGuard(options: {
   version: string;
   storage?: () => Storage | undefined;
-  reload?: () => void;
+  reload?: () => boolean | void;
 }) {
   const storage = options.storage ?? (() => { try { return sessionStorage; } catch { return undefined; } });
   const reload = options.reload ?? (() => window.location.reload());
@@ -29,9 +29,9 @@ export function createStaleBundleGuard(options: {
       try {
         const store = storage();
         if (!store || store.getItem(key)) return false;
+        if (reload() === false) return false;
         store.setItem(key, String(Date.now()));
       } catch { return false; }
-      reload();
       return true;
     },
     hydrated() { failures = 0; },

@@ -9,6 +9,7 @@ const CHANNEL_LABELS: Record<DevReportChannel, string> = {
 
 const DECISION_LABELS: Record<string, string> = {
   removed: "Message removed",
+  restored: "Message restored",
   dismissed: "Dismissed",
   muted_1h: "Muted 1h",
   muted_24h: "Muted 24h",

@@ -77,13 +77,13 @@ export function shouldReloadStaleSession(blockedForMs: number, lastReloadAtMs: n
 }
 
 export function reloadStaleSession(blockedForMs: number, storage: Pick<Storage, "getItem" | "setItem"> = sessionStorage,
-  reload: () => void = () => window.location.reload(), nowMs = Date.now()) {
+  reload: () => boolean | void = () => window.location.reload(), nowMs = Date.now()) {
   if (reloadScheduled) return false;
   let last = Number.NaN;
   try { last = Number(storage.getItem(STALE_SESSION_RELOAD_KEY) ?? Number.NaN); } catch {}
   if (!shouldReloadStaleSession(blockedForMs, last, nowMs)) return false;
+  if (reload() === false) return false;
   try { storage.setItem(STALE_SESSION_RELOAD_KEY, String(nowMs)); } catch {}
   reloadScheduled = true;
-  reload();
   return true;
 }

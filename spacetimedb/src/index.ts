@@ -1,4 +1,4 @@
-import { playerEquipmentLock, assertEquipmentUnlocked, setEquipmentLock } from "./equipment-locks";
+import { playerEquipmentLock, setEquipmentLock } from "./equipment-locks";
 import { CAMPAIGN_MAPS, fillCampaignPortals } from "../../shared/campaign-registry";
 import { campaignMapUnlocked } from "../../shared/equipment-access";
 import { compactNumberChanged } from "../../shared/compact-number";
@@ -153,7 +153,7 @@ import { socialTables } from "./social-tables";
 import { createSocialService, socialSnapshot, visibleSocialMessages, latestSocialMessages, socialHistoryPage, pruneExpiredSocialMessages } from "./social-service";
 import { guildTables } from "./guild-tables";
 import { createGuildService } from "./guild-service";
-import { GUILD_CREATION_MIN_POWER } from "../../shared/guilds";
+import { registerGuildReducers } from "./guild-reducers";
 import { guildWeaponRange } from "../../shared/guild-combat";
 import type { DuelFighter } from "../../shared/duel-combat";
 import {
@@ -4673,7 +4673,6 @@ export const savePlayerProgress = spacetimedb.reducer(
     const inventory = inventoryForProgress(inventorySource);
     const inventoryJson = JSON.stringify(inventory);
     // The ownership and hand rules live in loadout.ts, which auto equip checks too.
-    assertEquipmentUnlocked(ctx, base, progress);
     const { equippedHead, equippedChest, equippedFeet, equippedRightHand, equippedLeftHand } = allowedLoadout(progress, inventory);
     const cosmeticEquipment = cosmeticEquipmentForProgress({
       ...base,
@@ -5962,6 +5961,7 @@ function guildFighterFor(ctx: ModuleReducerCtx, identity: Identity): DuelFighter
 }
 
 const guildService = createGuildService({
+  prestigeFor: (ctx, identity) => ctx.db.playerPrestige.identity.find(identity)?.level ?? 0,
   powerFor: (ctx, identity) => {
     const progress = ctx.db.playerProgress.identity.find(identity);
     return progress ? effectivePowerForProgress(ctx, progress) : 0;
@@ -6023,22 +6023,9 @@ const { savedWorldLocation, clearOrphanPresence, applyMovementState } = createPr
   activeDuelFor, effectiveMovementSpeedForProgress, equippedFeetForProgress,
 });
 
-export const createGuild = spacetimedb.reducer({ name: t.string() }, (ctx, { name }) => {
-  requireGuildPlayer(ctx);
-  const progress = ctx.db.playerProgress.identity.find(ctx.sender);
-  if (!progress || effectivePowerForProgress(ctx, progress) < GUILD_CREATION_MIN_POWER) {
-    throw new SenderError("Reach 1 billion power to create a guild.");
-  }
-  if (!isPublicDisplayNameAllowed(name)) throw new SenderError("Choose a different guild name.");
-  guildService.create(ctx, name);
-});
-export const joinGuild = spacetimedb.reducer({ guildId: t.u64() }, (ctx, { guildId }) => { requireGuildPlayer(ctx); guildService.join(ctx, guildId); });
-export const leaveGuild = spacetimedb.reducer((ctx) => { requireGuildPlayer(ctx); guildService.leave(ctx); });
-export const transferGuildLeadership = spacetimedb.reducer({ identity: t.identity() }, (ctx, { identity }) => { requireGuildPlayer(ctx); guildService.transfer(ctx, identity); });
-export const setGuildVicePresident = spacetimedb.reducer({ identity: t.identity(), enabled: t.bool() }, (ctx, { identity, enabled }) => { requireGuildPlayer(ctx); guildService.setVicePresident(ctx, identity, enabled); });
-export const setGuildEmblem = spacetimedb.reducer({ emblem: t.u8() }, (ctx, { emblem }) => { requireGuildPlayer(ctx); guildService.setEmblem(ctx, emblem); });
-export const kickGuildMember = spacetimedb.reducer({ identity: t.identity() }, (ctx, { identity }) => { requireGuildPlayer(ctx); guildService.kick(ctx, identity); });
-export const challengeGuild = spacetimedb.reducer({ opponentGuildId: t.u64() }, (ctx, { opponentGuildId }) => { requireGuildPlayer(ctx); guildService.challenge(ctx, opponentGuildId); });
+export const { createGuild, joinGuild, leaveGuild, transferGuildLeadership, setGuildVicePresident,
+  setGuildEmblem, kickGuildMember, challengeGuild, guildAdmission } = registerGuildReducers(spacetimedb,
+  { guildService, requireGuildPlayer, effectivePowerForProgress, isPublicDisplayNameAllowed });
 export const getGuildHub = spacetimedb.procedure({ afterId: t.u64() }, t.string(), (ctx, { afterId }) => ctx.withTx(tx => {
   requireGuildConnection(tx);
   return JSON.stringify(guildService.snapshot(tx, afterId, hasSpacetimeAuthAccount(tx)));

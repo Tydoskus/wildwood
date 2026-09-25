@@ -116,6 +116,7 @@ import EnterWorldReducer from "./enter_world_reducer";
 import EnterWorldWithTutorialReducer from "./enter_world_with_tutorial_reducer";
 import FriendActionReducer from "./friend_action_reducer";
 import FulfillGemPurchaseReducer from "./fulfill_gem_purchase_reducer";
+import GuildAdmissionReducer from "./guild_admission_reducer";
 import GuildInviteActionReducer from "./guild_invite_action_reducer";
 import HitProceduralBossReducer from "./hit_procedural_boss_reducer";
 import HitProceduralBossBatchReducer from "./hit_procedural_boss_batch_reducer";
@@ -1445,6 +1446,7 @@ const reducersSchema = __reducers(
   __reducerSchema("enter_world_with_tutorial", EnterWorldWithTutorialReducer),
   __reducerSchema("friend_action", FriendActionReducer),
   __reducerSchema("fulfill_gem_purchase", FulfillGemPurchaseReducer),
+  __reducerSchema("guild_admission", GuildAdmissionReducer),
   __reducerSchema("guild_invite_action", GuildInviteActionReducer),
   __reducerSchema("hit_procedural_boss", HitProceduralBossReducer),
   __reducerSchema("hit_procedural_boss_batch", HitProceduralBossBatchReducer),

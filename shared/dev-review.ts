@@ -5,7 +5,7 @@
  */
 
 /** Decisions on a chat or player report. Every one except "reopened" closes it. */
-export const REPORT_DECISIONS = ["removed", "dismissed", "muted_1h", "muted_24h", "banned", "reopened"] as const;
+export const REPORT_DECISIONS = ["removed", "restored", "dismissed", "muted_1h", "muted_24h", "banned", "reopened"] as const;
 export type ReportDecision = typeof REPORT_DECISIONS[number];
 
 /** Decisions on a bug report. "deleted" is written only by the spam delete. */
@@ -78,6 +78,7 @@ export type DevReportEntry = {
   /** The reported message still exists and still shows its original text. */
   canRemoveMessage: boolean;
   messageRemoved: boolean;
+  canRestoreMessage?: boolean;
   decisions: DevReviewDecision[];
 };
 

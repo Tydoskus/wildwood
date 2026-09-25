@@ -57,11 +57,13 @@ describe("private social interactions", () => {
   });
   it("scopes guild invitations to leaders and invitees, then revokes chat on leaving", () => {
     const f = fixture(); createTestGuild(f, "Rose");
-    f.run(server.guildInviteAction, { action: "invite", target: "Player 2", invitationId: 0n });
+    expect(() => f.run(server.guildInviteAction, { action: "invite", target: "Player 2", invitationId: 0n })).toThrow("join requests");
+    // Invitations issued before the change remain scoped to their original recipient.
+    f.db.socialGuildInvite.insert({ id: 1n, guildId: f.db.guildMember.identity.find(f.ctx.sender).guildId, sender: identity("1"), recipient: identity("2") });
     f.actor("3"); expect(() => f.run(server.guildInviteAction, { action: "accept", target: "", invitationId: 1n })).toThrow("not yours");
     f.actor("2"); expect(f.snapshot().guildInvitations).toHaveLength(1);
     f.run(server.guildInviteAction, { action: "accept", target: "", invitationId: 1n });
-    expect(() => f.run(server.guildInviteAction, { action: "invite", target: "Player 3", invitationId: 0n })).toThrow("President");
+    expect(() => f.run(server.guildInviteAction, { action: "invite", target: "Player 3", invitationId: 0n })).toThrow("join requests");
     f.send("guild", "", "Guild hello"); f.actor("1"); expect(f.visible()).toHaveLength(1);
     f.actor("3"); expect(f.visible()).toHaveLength(0);
     f.actor("2"); f.run(server.leaveGuild); expect(f.visible()).toHaveLength(0);

@@ -25,14 +25,15 @@ export function playerNamePrefix(identity?: string, developer = isDeveloperIdent
   const tag = tags.get(key(identity));
   return `${developer && tag?.showDevTag !== false ? "[dev]" : ""}${tag?.guildTag ? `[${tag.guildTag}]` : ""}`;
 }
-export function appendPlayerNameTags(element: HTMLElement, identity?: string, developer = isDeveloperIdentity(identity)) {
-  const prefix = playerNamePrefix(identity, developer);
+export function appendPlayerNameTags(element: HTMLElement, identity?: string, developer = isDeveloperIdentity(identity), showGuildTag = true) {
+  const fullPrefix = playerNamePrefix(identity, developer);
+  const prefix = showGuildTag ? fullPrefix : fullPrefix.startsWith("[dev]") ? "[dev]" : "";
   if (!prefix) return;
-  const badge = document.createElement("span");
+  const badge = element.ownerDocument.createElement("span");
   badge.className = "player-name-tags";
   if (prefix.startsWith("[dev]")) {
-    const dev = document.createElement("span"); dev.className = "dev-badge"; dev.textContent = "[dev]";
-    badge.append(dev, document.createTextNode(prefix.slice(5)));
+    const dev = element.ownerDocument.createElement("span"); dev.className = "dev-badge"; dev.textContent = "[dev]";
+    badge.append(dev, element.ownerDocument.createTextNode(prefix.slice(5)));
   } else badge.textContent = prefix;
   element.append(badge);
 }
@@ -42,10 +43,9 @@ export function appendPlayerNameTags(element: HTMLElement, identity?: string, de
  * inside the shield, so the badge says which prestige rather than just that
  * there was one.
  */
-export function appendPrestigeBadge(element: HTMLElement, identity?: string) {
-  const level = playerPrestigeLevel(identity);
+export function appendPrestigeBadge(element: HTMLElement, identity?: string, level = playerPrestigeLevel(identity)) {
   if (level <= 0) return null;
-  const badge = document.createElement("span");
+  const badge = element.ownerDocument.createElement("span");
   badge.className = "player-prestige-badge";
   badge.textContent = String(level);
   badge.setAttribute("aria-label", `Prestige ${level}`);

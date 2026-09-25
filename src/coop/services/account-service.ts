@@ -174,7 +174,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
   let signingOut = false;
   let sessionApproved = returnPending || dependencies.updateResumeMode === "account";
   let updateResumePending = dependencies.updateResumeMode !== null;
-  let lastPlayableSessionMode: UpdateResumeMode | null = null;
+  let lastPlayableSessionMode: UpdateResumeMode | null = dependencies.updateResumeMode;
   let takeoverRequested = false;
   let takeoverRevision = 0;
   const renewal = createAccountTokenRenewal(localStorage, keys.accountTokenKey);

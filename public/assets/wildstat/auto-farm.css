@@ -17,7 +17,7 @@
   border: 1px solid #c9ab64;
   border-radius: 50%;
   background: transparent;
-  box-shadow: none;
+  box-shadow: 0 3px 7px #0009;
   pointer-events: auto;
   overflow: hidden;
   /* Inventory and Settings live inside the toolbar's layer-7 stacking context. */

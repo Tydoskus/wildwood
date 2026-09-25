@@ -1,3 +1,4 @@
+import { reloadWithUpdateResume } from "../coop/services/update-resume-browser";
 import { recordConnectionDiagnostic } from "../coop/services/connection-diagnostic-runtime";
 import { enforceLatestVersion, reloadStaleSession } from "../app/version";
 import {
@@ -40,7 +41,7 @@ type StartupCoordinatorDependencies = {
   beginAdventure: () => void;
   startGame: () => void;
   retryConnection: () => boolean | void;
-  prepareUpdateReload: (latestVersion: string) => void;
+  prepareUpdateReload: (latestVersion: string) => boolean | void;
   updateHandoff?: { canReload: () => boolean; beforeReload: (version: string) => Promise<boolean> };
 };
 
@@ -182,7 +183,7 @@ export function createStartupCoordinator(dependencies: StartupCoordinatorDepende
       enforceLatestVersion(dependencies.version, showGameUpdating, dependencies.updateHandoff);
       // No newer build has appeared: this build is current and only its session
       // is stale (it began before the server's last publish). Start a fresh one.
-      reloadStaleSession(Date.now() - updatingSince);
+      reloadStaleSession(Date.now() - updatingSince, sessionStorage, () => reloadWithUpdateResume(dependencies.version, dependencies.prepareUpdateReload));
     }, 5_000);
   }
 

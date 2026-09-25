@@ -39,6 +39,16 @@ describe("developer report moderation", () => {
     expect([...(channel === "public" ? f.db.chatMessageReport : f.db.playerReport).iter()][0].status).toBe("resolved");
     expect(() => f.run(reducer, { messageId: 1n, reason: "harassment" })).toThrow("already reported");
   });
+  it.each(["public", "social"] as const)("restores a developer-reported %s message and its quotes", channel => {
+    const f = fixture(), table = channel === "public" ? "chatMessage" : "socialMessage";
+    f.run(channel === "public" ? server.reportChatMessage : server.reportSocialMessage, { messageId: 1n, reason: "harassment" });
+    const report = [...(channel === "public" ? f.db.chatMessageReport : f.db.playerReport).iter()][0];
+    f.run(server.devReviewReport, { reportKey: `${channel === "public" ? "chat" : "player"}:${report.id}`, decision: "restored", note: "Mistake", mailReporter: false });
+    expect(f.db[table].id.find(1n)).toMatchObject({ message: "Original message", moderated: false });
+    expect(f.db[table].id.find(2n).replyToMessage).toBe("Original message");
+    expect([...f.db.moderationAction.iter()].some(row => row.action === "Message restored")).toBe(true);
+    expect((channel === "public" ? f.db.chatMessageReport : f.db.playerReport).id.find(report.id).status).toBe("dismissed");
+  });
   it.each([[false, true], [true, false]])("requires both the developer identity and authentication (%s, %s)", (dev, authenticated) => {
     const f = fixture(dev, authenticated);
     f.run(server.reportChatMessage, { messageId: 1n, reason: "harassment" });

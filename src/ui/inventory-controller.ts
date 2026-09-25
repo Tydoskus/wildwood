@@ -16,7 +16,7 @@ import {
 } from "../../shared/gems";
 import { gemSpendConfirmation } from "./gem-spend-confirmation";
 import { gameConfirm, type ConfirmPrompt, type ConfirmRequest } from "./confirm-dialog";
-import { isSkillBow, type BowSkillRoll } from "../../shared/bow-skills";
+import { type BowSkillRoll } from "../../shared/bow-skills";
 import { createInventoryDeleteMode } from "./inventory-delete-mode";
 
 type InventoryLocation = EquipmentSlot | "BAG" | "";
@@ -159,11 +159,6 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   }
 
   function move(itemId: string, destination: EquipmentSlot | "BAG") {
-    if (mode === "EQUIPMENT") {
-      const inv = dependencies.inventory;
-      const previous = destination === "HEAD" ? inv.equippedHead : destination === "CHEST" ? inv.equippedChest : destination === "FEET" ? inv.equippedFeet : destination === "BAG" ? itemId : inv.equippedRightHand || inv.equippedLeftHand;
-      if (dependencies.equipmentLocked?.(previous)) { dependencies.showMessage("Unlock equipment before replacing it.", "#79c9ff"); return false; }
-    }
     const moved = mode === "COSMETICS"
       ? dependencies.moveCosmetic(itemId, destination)
       : dependencies.move(itemId, destination);
@@ -214,17 +209,16 @@ export function createInventoryController(dependencies: InventoryDependencies) {
 
   /**
    * Equipping a kept copy. A bow's copies differ, so the server first makes
-   * this copy the one its slot holds; identical copies need no such swap.
+   * this copy the one its slot holds. Locks follow the selected copy too.
    */
   function copyEquipActions(copy: KeptEquipmentCopy, locked: boolean) {
     const [action] = inventoryMoveActions(dependencies.inventory, copy.itemId, "BAG", "EQUIPMENT");
     if (!action) return [];
-    const skilled = isSkillBow(copy.itemId);
     const equipped = action.disabled === true;
     return [{
-      label: equipped && !skilled ? "SAME AS EQUIPPED" : "EQUIP",
+      label: "EQUIP",
       kind: "PRIMARY" as const,
-      disabled: locked || Boolean(dependencies.equipmentLocked?.(copy.itemId)) || (equipped && !skilled) || !dependencies.selectEquipmentCopy,
+      disabled: locked || !dependencies.selectEquipmentCopy,
       onActivate: async () => {
         {
           const result = await dependencies.selectEquipmentCopy?.(copy.id);

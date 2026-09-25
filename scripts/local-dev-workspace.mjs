@@ -85,6 +85,11 @@ async function syncTree(source, destination, keep = []) {
 
 export async function createLocalWorkspace(root, columns) {
   await mkdir(join(root, 'local-data'), { recursive: true });
+  let localIdentity = process.env.WILDSTAT_LOCAL_DEVELOPER_IDENTITY;
+  if (!localIdentity) {
+    try { localIdentity = (await readFile(join(root, 'local-data/developer-identity.txt'), 'utf8')).trim(); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
   const directory = await mkdtemp(join(root, 'local-data/dev-workspace-'));
   await cp(join(root, 'package.json'), join(directory, 'package.json'));
   await symlink(join(root, 'node_modules'), join(directory, 'node_modules'), 'junction');
@@ -106,7 +111,7 @@ export async function createLocalWorkspace(root, columns) {
       }
       for (const [relative, server] of [['shared/developer-identity.ts', false], ['spacetimedb/src/index.ts', true]]) {
         const path = join(directory, relative);
-        await writeFile(path, localDeveloperAccess(await readFile(path, 'utf8'), server));
+        await writeFile(path, localDeveloperAccess(await readFile(path, 'utf8'), server, localIdentity));
       }
       if (!Object.keys(columns).length) return;
       const serverSource = join(directory, 'spacetimedb/src');

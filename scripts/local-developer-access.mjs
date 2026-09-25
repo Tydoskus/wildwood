@@ -2,7 +2,9 @@ import ts from 'typescript';
 
 // Applied only to the disposable workspace built/published by local-dev.mjs.
 // Release sources, identities and authentication policy remain untouched.
-export function localDeveloperAccess(source, server = false) {
+export function localDeveloperAccess(source, server = false, localIdentity = null) {
+  const identityHex = localIdentity?.replace(/^0x/i, '').toLowerCase() ?? null;
+  if (identityHex !== null && !/^[0-9a-f]{64}$/.test(identityHex)) throw new Error('Invalid local developer identity.');
   const file = ts.createSourceFile('local.ts', source, ts.ScriptTarget.Latest, true);
   const edits = [];
   let found = false;
@@ -10,7 +12,7 @@ export function localDeveloperAccess(source, server = false) {
     if (ts.isFunctionDeclaration(node) && node.name?.text === 'isDeveloperIdentity' && node.body) {
       found = true;
       edits.push({ start: node.body.getStart(file), end: node.body.end,
-        text: server ? '{ return Boolean(identity?.toHexString?.()); }' : '{ return Boolean(identity); }' });
+        text: `{ const normalized = ${server ? 'identity?.toHexString?.()' : 'identity'}?.replace(/^0x/i, '').toLowerCase(); return Boolean(normalized) && (normalized === ${server ? 'DEVELOPER_IDENTITY_HEX' : 'DEVELOPER_IDENTITY'} || normalized === ${JSON.stringify(identityHex)}); }` });
     }
     // Local guest sessions can use dev reducers while retaining protocol,
     // controlling-tab checks, and the usual audit trail.
@@ -33,7 +35,7 @@ export function localDeveloperAccess(source, server = false) {
     source = 'import { referenceBuildForMap as localReferenceBuild } from "../../shared/progression";\n' + source;
     source = source.replace(marker, `
   // Disposable local build only: give guests a ready-to-test campaign save.
-  if (!virtualRegistration && !hasSpacetimeAuthAccount(ctx)) {
+  if (!virtualRegistration && isDeveloperIdentity(ctx.sender) && !hasSpacetimeAuthAccount(ctx)) {
     const stats = localReferenceBuild(Math.max(0, CAMPAIGN_MAPS.length - 2));
     const unlocked = Object.fromEntries(CAMPAIGN_MAPS.filter(map => map.unlockField).map(map => [map.unlockField, true]));
     existingProgress = { ...existingProgress, ...unlocked, introComplete: true,

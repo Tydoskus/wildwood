@@ -1,3 +1,4 @@
+import { guildAdmissionAction, guildRequestOnly } from "./guild-admissions";
 import { removeMessageReactions } from "./chat-reactions";
 import { guildNameModerationReason } from "./chat-moderation";
 import { syncGuildTag } from "./player-name-tags";
@@ -42,9 +43,9 @@ function account(ctx: Ctx, identity: Identity) {
   return ctx.db.guildAccount.identity.find(identity) ?? ctx.db.guildAccount.insert({ identity,
     joinAfter: 0n, lastAttackDay: 0, attackGuild: 0n });
 }
-function assertCanJoin(ctx: Ctx) {
-  if (ctx.db.guildMember.identity.find(ctx.sender)) fail("Leave your current guild first.");
-  const previous = account(ctx, ctx.sender);
+function assertCanJoin(ctx: Ctx, identity = ctx.sender) {
+  if (ctx.db.guildMember.identity.find(identity)) fail("Leave your current guild first.");
+  const previous = account(ctx, identity);
   if (previous.joinAfter !== 0n) ctx.db.guildAccount.identity.update({ ...previous, joinAfter: 0n });
 }
 function writeRanking(ctx: Ctx, guild: Guild) {
@@ -104,6 +105,8 @@ function removeMember(ctx: Ctx, member: Member) {
   if (!guild) return;
   if (guild.members <= 1) {
     ctx.db.guild.id.delete(guild.id);
+    ctx.db.guildAdmissionPolicy.guildId.delete(guild.id);
+    for (const row of ctx.db.guildJoinRequest.guildId.filter(guild.id)) ctx.db.guildJoinRequest.identity.delete(row.identity);
     for (const row of ctx.db.socialGuildInvite.guildId.filter(guild.id)) ctx.db.socialGuildInvite.id.delete(row.id);
     for (const row of ctx.db.socialMessage.conversation.filter(`guild:${guild.id}`)) { removeMessageReactions(ctx, "social", row.id); ctx.db.socialMessage.id.delete(row.id); }
     for (const row of ctx.db.guildBattleReport.guildId.filter(guild.id)) deleteReport(ctx, row.key);
@@ -129,6 +132,7 @@ function validateFighter(fighter: DuelFighter) {
  * current members from persisted stats; clients cannot submit fighters/results. */
 export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identity): Omit<GuildFighter, "identity">;
   powerFor?: (ctx: Ctx, identity: Identity) => number;
+  prestigeFor?: (ctx: Ctx, identity: Identity) => number;
   profileFor?: (ctx: Ctx, identity: Identity) => { displayName: string; profileIcon: number } | undefined;
   presenceFor?: (ctx: Ctx, identity: Identity) => { online: boolean; lastSeenAtMs: number };
   announceBattle?: (ctx: Ctx, report: GuildSnapshot["battles"][number]) => void }) {
@@ -142,13 +146,23 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
       return { ...snapshot, identity: key(member.identity) };
     });
   }
-  function insertMember(ctx: Ctx, guildId: bigint) {
-    const { name } = deps.fighterFor(ctx, ctx.sender);
-    ctx.db.guildMember.insert({ identity: ctx.sender, guildId, name, joinedAt: now(ctx),
+  function insertMember(ctx: Ctx, guildId: bigint, identity = ctx.sender) {
+    const { name } = deps.fighterFor(ctx, identity);
+    ctx.db.guildJoinRequest.identity.delete(identity);
+    ctx.db.guildMember.insert({ identity, guildId, name, joinedAt: now(ctx),
       eligibleAt: now(ctx), champion: false, fighter: "", power: 0, vicePresident: false });
-    syncGuildTag(ctx, ctx.sender);
+    syncGuildTag(ctx, identity);
+  }
+  function joinApproved(ctx: Ctx, guildId: bigint, identity: Identity) {
+    assertCanJoin(ctx, identity);
+    const guild = ctx.db.guild.id.find(guildId) ?? fail("Guild no longer exists.");
+    if (guild.members >= GUILD_MEMBER_LIMIT) fail("This guild is full.");
+    insertMember(ctx, guildId, identity);
+    const updated = { ...currentGuild(ctx, guild), members: guild.members + 1 };
+    ctx.db.guild.id.update(updated); writeRanking(ctx, updated);
   }
   return {
+    admission(ctx: Ctx, action: string, guildId: bigint, identity: Identity, note = "") { guildAdmissionAction(ctx, action, guildId, identity, joinApproved, note); },
     create(ctx: Ctx, value: string) {
       assertCanJoin(ctx);
       let normalized: ReturnType<typeof normalizeGuildName>;
@@ -163,13 +177,8 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
       insertMember(ctx, guild.id);
     },
     join(ctx: Ctx, guildId: bigint) {
-      assertCanJoin(ctx);
-      const guild = ctx.db.guild.id.find(guildId) ?? fail("Guild no longer exists.");
-      if (guild.members >= GUILD_MEMBER_LIMIT) fail("This guild is full.");
-      insertMember(ctx, guild.id);
-      const updated = { ...currentGuild(ctx, guild), members: guild.members + 1 };
-      ctx.db.guild.id.update(updated);
-      writeRanking(ctx, updated);
+      if (guildRequestOnly(ctx, guildId)) fail("This guild requires a join request.");
+      joinApproved(ctx, guildId, ctx.sender);
     },
     leave(ctx: Ctx) { removeMember(ctx, requireMember(ctx)); },
     kick(ctx: Ctx, identity: Identity) {
@@ -258,12 +267,12 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
     preview(ctx: Ctx, guildId: bigint) {
       const stored = ctx.db.guild.id.find(guildId) ?? fail("Guild no longer exists.");
       const guild = currentGuild(ctx, stored), roster = members(ctx, guildId);
-      return { id: String(guild.id), name: guild.name, emblem: guild.emblem, leader: key(guild.leader), score: guild.score,
+      return { id: String(guild.id), name: guild.name, emblem: guild.emblem, requestOnly: guildRequestOnly(ctx, guild.id), leader: key(guild.leader), score: guild.score,
         vicePresident: roster.find(row => row.vicePresident)?.identity.toHexString() ?? null,
         members: roster.map(row => {
           const profile = deps.profileFor?.(ctx, row.identity);
           return { identity: key(row.identity), name: profile?.displayName ?? row.name,
-            power: deps.powerFor?.(ctx, row.identity) ?? 0, profileIcon: profile?.profileIcon ?? 0, eligibleAt: String(row.eligibleAt),
+            power: deps.powerFor?.(ctx, row.identity) ?? 0, prestige: deps.prestigeFor?.(ctx, row.identity) ?? 0, profileIcon: profile?.profileIcon ?? 0, eligibleAt: String(row.eligibleAt),
             ...deps.presenceFor?.(ctx, row.identity) };
         }) };
     },
@@ -297,22 +306,29 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
         : ctx.db.guild.directoryId.filter(new Range({ tag: "excluded", value: afterId }));
       for (const row of rows) {
         if (directory.length === 20) { nextPage = directory[19].id; break; }
-        directory.push({ id: String(row.id), name: row.name, emblem: row.emblem, members: row.members, totalPower: totalPower(row.id),
+        directory.push({ id: String(row.id), name: row.name, emblem: row.emblem, requestOnly: guildRequestOnly(ctx, row.id), members: row.members, totalPower: totalPower(row.id),
           challengedToday: challengedToday.has(String(row.id)) });
       }
       return { identity: key(ctx.sender), serverNow: String(now(ctx)), week,
         nextWeekAt: String(BigInt((week + 1) * 7 - 3) * GUILD_DAY_MICROS),
         joinAfter: "0", signedIn,
-        guild: guild ? { id: String(guild.id), name: guild.name, emblem: guild.emblem, leader: key(guild.leader),
+        pendingRequest: (() => { const row = ctx.db.guildJoinRequest.identity.find(ctx.sender); return row ? { guildId: String(row.guildId), name: ctx.db.guild.id.find(row.guildId)?.name ?? "Guild" } : null; })(),
+        guild: guild ? { id: String(guild.id), name: guild.name, emblem: guild.emblem, requestOnly: guildRequestOnly(ctx, guild.id), leader: key(guild.leader),
           vicePresident: roster.find(row => row.vicePresident)?.identity.toHexString() ?? null,
           attacksRemaining: GUILD_DAILY_ATTACKS - guild.attacks, score: guild.score,
           totalPower: totalPower(guild.id),
+          requests: [...ctx.db.guildJoinRequest.guildId.filter(guild.id)].sort((a, b) => a.requestedAt < b.requestedAt ? -1 : 1).map(row => ({
+            identity: key(row.identity), name: deps.profileFor?.(ctx, row.identity)?.displayName ?? deps.fighterFor(ctx, row.identity).name,
+            power: memberPower(row.identity), prestige: deps.prestigeFor?.(ctx, row.identity) ?? 0,
+            profileIcon: deps.profileFor?.(ctx, row.identity)?.profileIcon ?? 0, requestedAt: String(row.requestedAt),
+            ...deps.presenceFor?.(ctx, row.identity),
+          })),
           // Repair old join-time names on read with one indexed profile lookup;
           // Reuse power reads from the directory totals.
           members: roster.map(row => {
             const profile = deps.profileFor?.(ctx, row.identity);
             return { identity: key(row.identity), name: profile?.displayName ?? row.name,
-              power: memberPower(row.identity), profileIcon: profile?.profileIcon ?? 0, eligibleAt: String(row.eligibleAt),
+              power: memberPower(row.identity), prestige: deps.prestigeFor?.(ctx, row.identity) ?? 0, profileIcon: profile?.profileIcon ?? 0, eligibleAt: String(row.eligibleAt),
               ...deps.presenceFor?.(ctx, row.identity) };
           }) } : null,
         directory, nextPage, standings: cache?.week === week ? JSON.parse(cache.entries) : [],
@@ -320,12 +336,18 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
           .sort((a, b) => a.sequence > b.sequence ? -1 : 1).map(row => JSON.parse(row.payload)) : [] };
     },
     removeAccount(ctx: Ctx, identity: Identity) {
+      ctx.db.guildJoinRequest.identity.delete(identity);
       anonymizeAccountReports(ctx, identity);
       const member = ctx.db.guildMember.identity.find(identity);
       if (member) removeMember(ctx, member);
       ctx.db.guildAccount.identity.delete(identity);
     },
     mergeGuest(ctx: Ctx, guest: Identity, accountIdentity: Identity) {
+      const pending = ctx.db.guildJoinRequest.identity.find(guest);
+      if (pending) {
+        ctx.db.guildJoinRequest.identity.delete(guest);
+        if (!ctx.db.guildJoinRequest.identity.find(accountIdentity) && !ctx.db.guildMember.identity.find(accountIdentity)) ctx.db.guildJoinRequest.insert({ ...pending, identity: accountIdentity });
+      }
       const guestMember = ctx.db.guildMember.identity.find(guest);
       const accountMember = ctx.db.guildMember.identity.find(accountIdentity);
       const guestHistory = ctx.db.guildAccount.identity.find(guest);
@@ -336,6 +358,7 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
         const guild = ctx.db.guild.id.find(guestMember.guildId);
         if (guild?.leader.equals(guest)) ctx.db.guild.id.update({ ...guild, leader: accountIdentity });
       } else if (guestMember) removeMember(ctx, guestMember);
+      if (ctx.db.guildMember.identity.find(accountIdentity)) ctx.db.guildJoinRequest.identity.delete(accountIdentity);
       // Keep the stricter cooldown/most recent attack history after linking.
       const history = guestHistory && guestHistory.lastAttackDay > previous.lastAttackDay ? guestHistory : previous;
       const conflictingAttacks = guestHistory && guestHistory.lastAttackDay === previous.lastAttackDay

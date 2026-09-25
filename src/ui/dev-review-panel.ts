@@ -294,6 +294,7 @@ export function createDevReviewPanel(containers: { reports: HTMLElement; bugs: H
     const review = (decision: string, success: string) => act(entry.key, success,
       async () => api ? api.reviewReport(entry.key, decision, note(entry.key), mailing(entry.key)) : { ok: false, error: "Not connected." });
     const history = action("Player", "plain", () => dependencies.openPlayer(entry.targetIdentity, entry.targetName));
+    if (entry.canRestoreMessage) article.append(actionRow(action("Unmoderate", "primary", () => { void review("restored", "Message restored to chat"); })));
     if (entry.status !== "open") {
       article.append(actionRow(action("Reopen", "plain", () => { void review("reopened", "Report reopened"); }), history));
       return article;

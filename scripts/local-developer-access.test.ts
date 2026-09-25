@@ -3,18 +3,22 @@ import { expect, it } from 'vitest';
 import ts from 'typescript';
 import { localDeveloperAccess } from './local-developer-access.mjs';
 const shared = readFileSync(new URL('../shared/developer-identity.ts', import.meta.url), 'utf8');
+const localIdentity = 'a'.repeat(64);
 const server = readFileSync(new URL('../spacetimedb/src/index.ts', import.meta.url), 'utf8');
-it('grants local guests developer UI access without replacing their identity', () => {
-  const js = ts.transpile(localDeveloperAccess(shared), { module: ts.ModuleKind.CommonJS });
+it('grants only the configured local guest developer access', () => {
+  const js = ts.transpile(localDeveloperAccess(shared, false, localIdentity), { module: ts.ModuleKind.CommonJS });
   const exports: any = {};
   new Function('exports', js)(exports);
-  expect(exports.isDeveloperIdentity('guest')).toBe(true);
+  expect(exports.isDeveloperIdentity(localIdentity)).toBe(true);
+  expect(exports.isDeveloperIdentity('b'.repeat(64))).toBe(false);
+  expect(exports.isDeveloperIdentity(exports.DEVELOPER_IDENTITY)).toBe(true);
   expect(exports.isDeveloperIdentity(null)).toBe(false);
   expect(shared).toContain('=== DEVELOPER_IDENTITY');
 });
 it('changes only the isolated developer gates and keeps session checks', () => {
-  const local = localDeveloperAccess(server, true);
-  expect(local).toContain('return Boolean(identity?.toHexString?.())');
+  const local = localDeveloperAccess(server, true, localIdentity);
+  expect(local).toContain(`normalized === "${localIdentity}"`);
+  expect(local).toContain('!virtualRegistration && isDeveloperIdentity(ctx.sender)');
   expect(local).not.toContain('!isDeveloperIdentity(ctx.sender) || !hasSpacetimeAuthAccount(ctx)');
   expect(local).toContain('requireSupportedSessionProtocol(ctx);');
   expect(local).toContain('requireControllingPlayer(ctx);');

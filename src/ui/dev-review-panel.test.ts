@@ -71,6 +71,19 @@ describe("developer review panel", () => {
     expect(h.reports.textContent).toContain("Dismissed · Ryan · just now · reporter mailed — fine");
   });
 
+  it("can unmoderate an already reviewed report", async () => {
+    const data = queue();
+    data.reports = [report("chat:9", "resolved", NOW, { messageRemoved: true, canRemoveMessage: false, canRestoreMessage: true })];
+    const h = harness({ reviewQueue: vi.fn(async () => data) });
+    await h.panel.load();
+    const filter = h.reports.querySelector("input[type=checkbox]") as HTMLInputElement;
+    filter.checked = false;
+    filter.dispatchEvent(new (filter.ownerDocument.defaultView as any).Event("change"));
+    h.button(h.reports, "Unmoderate").click();
+    await settle();
+    expect(h.api.reviewReport).toHaveBeenCalledWith("chat:9", "restored", "", true);
+  });
+
   it("removes a message, then mutes through the chat mute before recording the decision", async () => {
     const h = harness();
     await h.panel.load();

@@ -3,6 +3,7 @@ import type { GuildSnapshot, GuildReport, GuildPreview } from "../../../shared/g
 import type { ReducerPort } from "../ports";
 
 export type GuildAction =
+  | { kind: "admission"; action: "open" | "requestOnly" | "request" | "cancel" | "accept" | "decline"; guildId?: string; identity?: string; note?: string }
   | { kind: "create"; name: string } | { kind: "join"; guildId: string } | { kind: "leave" }
   | { kind: "transfer"; identity: string } | { kind: "kick"; identity: string }
   | { kind: "vicePresident"; identity: string; enabled: boolean }
@@ -69,6 +70,7 @@ export function createGuildService(deps: Dependencies) {
     async guildAction(action: GuildAction) {
       return mutate(async (connection) => {
         switch (action.kind) {
+          case "admission": return connection.reducers.guildAdmission({ action: action.action, guildId: BigInt(action.guildId ?? "0"), identity: Identity.fromString(action.identity ?? deps.localIdentity()), note: action.note ?? "" });
           case "emblem": return connection.reducers.setGuildEmblem({ emblem: action.emblem });
           case "create": return connection.reducers.createGuild({ name: action.name });
           case "join": return connection.reducers.joinGuild({ guildId: BigInt(action.guildId) });

@@ -1,3 +1,4 @@
+import { playerMail } from "./dev-review-mail";
 import { describe, expect, it, vi } from "vitest";
 import { schema } from "../../tests/helpers/spacetime-module";
 import { Identity, Timestamp, createMemoryDatabase } from "../../tests/helpers/spacetime-memory-db";
@@ -16,7 +17,7 @@ const fighter: DuelFighter = { maxHp: 100, damage: 20, armor: 0, regen: 0, attac
 function fixture(allowGuildScan = false) {
   // Separate root/server SDK installs have nominal BinaryReader private fields;
   // the test registration shim consumes identical structural table metadata.
-  const memory = createMemoryDatabase(schema({ ...guildTables, ...socialTables } as unknown as Parameters<typeof schema>[0]));
+  const memory = createMemoryDatabase(schema({ ...guildTables, ...socialTables, playerMail } as unknown as Parameters<typeof schema>[0]));
   const db = memory.db;
   const ctx = { db, sender: identity(1), timestamp: new Timestamp(20_000n * GUILD_DAY_MICROS) };
   const stats = new Map<string, DuelFighter>();
@@ -59,11 +60,13 @@ describe("guild membership and authoritative rosters", () => {
   it("totals power for current members only, including offline members", () => {
     const f = fixture(); f.makeGuild(1); f.makeGuild(10);
     const powerFor = vi.fn((_ctx, who: Identity) => Number(BigInt(`0x${who.toHexString()}`)) * 1000);
-    const service = createGuildService({ fighterFor: () => ({ name: "Test", fighter }), powerFor });
+    const service = createGuildService({ fighterFor: () => ({ name: "Test", fighter }), powerFor, prestigeFor: () => 4 });
     const snapshot = f.run(1, ctx => service.snapshot(ctx));
     expect(snapshot.guild?.totalPower).toBe(6000);
     expect(snapshot.directory.map(row => row.totalPower)).toEqual([6000, 33000]);
     expect(powerFor).toHaveBeenCalledTimes(6);
+    expect(snapshot.guild?.members[0].prestige).toBe(4);
+    expect(f.run(1, ctx => service.preview(ctx, BigInt(snapshot.guild!.id))).members[0].prestige).toBe(4);
     f.run(2, ctx => f.service.leave(ctx));
     expect(f.run(1, ctx => service.snapshot(ctx)).guild?.totalPower).toBe(4000);
   });
@@ -366,4 +369,52 @@ it('ranks opponents by saved power across page boundaries and reports member pow
   const next = f.run(1, ctx => service.snapshot(ctx, BigInt(first.nextPage!), true, true));
   expect(next.directory.map(row => row.totalPower)).toEqual([5000, 4000, 3000, 2000]);
   expect(next.nextPage).toBeNull();
+});
+
+describe("guild join requests", () => {
+  it("requires approval and shows requests to members but limits decisions to current officers", () => {
+    const f = fixture(); const guildId = f.makeGuild(1);
+    f.run(1, ctx => f.service.admission(ctx, "requestOnly", 0n, identity(1)));
+    expect(() => f.run(9, ctx => f.service.join(ctx, guildId))).toThrow("requires a join request");
+    f.run(9, ctx => f.service.admission(ctx, "request", guildId, identity(9)));
+    expect(f.run(9, ctx => f.service.snapshot(ctx)).pendingRequest?.guildId).toBe(String(guildId));
+    expect(f.run(1, ctx => f.service.snapshot(ctx)).guild?.requests).toHaveLength(1);
+    expect(f.run(2, ctx => f.service.snapshot(ctx)).guild?.requests).toHaveLength(1);
+    expect(() => f.run(2, ctx => f.service.admission(ctx, "accept", guildId, identity(9)))).toThrow("President or Vice President");
+    f.run(1, ctx => f.service.setVicePresident(ctx, identity(2), true));
+    f.run(2, ctx => f.service.admission(ctx, "accept", guildId, identity(9), "Welcome aboard!"));
+    expect([...f.db.playerMail.identity.filter(identity(9))][0].body).toContain("Welcome aboard!");
+    expect(f.db.guildMember.identity.find(identity(9))?.guildId).toBe(guildId);
+    expect(f.db.guildJoinRequest.identity.find(identity(9))).toBeNull();
+    expect(f.db.guild.id.find(guildId).members).toBe(4);
+    expect(() => f.run(2, ctx => f.service.admission(ctx, "accept", guildId, identity(9)))).toThrow("no longer exists");
+  });
+  it("keeps open guilds directly joinable and prevents cross-guild review", () => {
+    const f = fixture(); const a = f.makeGuild(1), b = f.makeGuild(10);
+    f.run(9, ctx => f.service.join(ctx, a));
+    f.run(1, ctx => f.service.admission(ctx, "requestOnly", a, identity(1)));
+    f.run(20, ctx => f.service.admission(ctx, "request", a, identity(20)));
+    f.run(20, ctx => f.service.admission(ctx, "request", a, identity(20)));
+    expect(f.run(1, ctx => f.service.snapshot(ctx)).guild?.requests).toHaveLength(1);
+    expect(() => f.run(10, ctx => f.service.admission(ctx, "decline", b, identity(20)))).toThrow("no longer exists");
+    f.run(20, ctx => f.service.admission(ctx, "cancel", 0n, identity(1)));
+    expect(f.db.guildJoinRequest.identity.find(identity(20))).toBeNull();
+    f.run(20, ctx => f.service.admission(ctx, "request", a, identity(20)));
+    f.run(20, ctx => f.service.join(ctx, b));
+    expect(f.db.guildJoinRequest.identity.find(identity(20))).toBeNull();
+  });
+  it("rejects approvals when full, and cleans requests on decline and account removal", () => {
+    const f = fixture(); const id = f.makeGuild(1);
+    f.run(1, ctx => f.service.admission(ctx, "requestOnly", id, identity(1)));
+    f.run(9, ctx => f.service.admission(ctx, "request", id, identity(9)));
+    f.db.guild.id.update({ ...f.db.guild.id.find(id), members: 20 });
+    expect(() => f.run(1, ctx => f.service.admission(ctx, "accept", id, identity(9)))).toThrow("full");
+    expect(f.db.guildJoinRequest.identity.find(identity(9))).not.toBeNull();
+    f.run(1, ctx => f.service.admission(ctx, "decline", id, identity(9)));
+    expect(f.db.guildJoinRequest.identity.find(identity(9))).toBeNull();
+    f.db.guild.id.update({ ...f.db.guild.id.find(id), members: 3 });
+    f.run(9, ctx => f.service.admission(ctx, "request", id, identity(9)));
+    f.run(9, ctx => f.service.removeAccount(ctx, identity(9)));
+    expect(f.db.guildJoinRequest.identity.find(identity(9))).toBeNull();
+  });
 });

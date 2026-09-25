@@ -7,7 +7,7 @@ export function createInventoryLockMode(deps: {
   let active = false, busy = false;
   const button = document.createElement('button');
   button.type = 'button'; button.className = 'inventory-lock-toggle'; button.innerHTML = ICON;
-  button.title = 'Lock equipment: protects the selected item from deletion and replacement';
+  button.title = 'Lock equipment: protects the selected item from deletion and automatic replacement by drops';
   button.setAttribute('aria-label', 'Lock equipment');
   const sync = () => { button.setAttribute('aria-pressed', String(active)); deps.panel.classList.toggle('is-lock-mode', active); };
   button.addEventListener('click', () => { if (busy) return; active = !active; if (active) { deps.onEnter(); deps.showMessage('Tap equipment to lock or unlock it.', '#79c9ff'); } sync(); });

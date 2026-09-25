@@ -1,4 +1,5 @@
 import { formatCompactNumber } from "./number-format";
+import { renderGuildMemberName } from "./guild-member-name";
 import { createGuildEmblem } from './guild-emblems';
 import { guildMemberPresence } from './guild-presence';
 import { GUILD_MEMBER_LIMIT, type GuildPreview } from '../../shared/guilds';
@@ -28,13 +29,17 @@ export function createGuildPreview(options: {
     panel.append(heading, content, footer);
   }
   function profile(member: GuildPreview['members'][number], role: string) {
-    const button = node('button', '', 'guild-preview-president guild-member-profile');
+    const button = node('button', '', 'guild-member-profile');
     button.setAttribute('aria-label', `View ${member.name}'s profile`);
     const icon = node('span', '', 'guild-avatar'); applyProfileIcon(icon, member.profileIcon ?? 0);
     const text = node('span', '', 'guild-row-copy'); text.append(node('strong', member.name), node('span', role || guildMemberPresence(member, Date.now()), role ? '' : member.online ? 'guild-presence--online' : 'guild-presence--offline'));
-    text.append(node("span", `Power: ${member.power === undefined ? "—" : formatCompactNumber(member.power)}`, "guild-member-power"));
+    renderGuildMemberName(text.querySelector<HTMLElement>("strong")!, member);
     button.append(icon, text); button.addEventListener('click', () => { options.openPlayer(member.identity, member.name); });
-    return button;
+    if (!role) {
+      const chevron = node('span', '', 'guild-profile-chevron'); chevron.setAttribute('aria-hidden', 'true'); button.append(chevron);
+    }
+    const row = node('div', '', role ? `guild-row guild-officer guild-officer--${role === 'President' ? 'president' : 'vice'}` : 'guild-row');
+    row.append(button); return row;
   }
   async function open(id: string) {
     const request = ++revision; previous = doc.activeElement as HTMLElement | null; root.hidden = false;
@@ -45,15 +50,33 @@ export function createGuildPreview(options: {
       if (request !== revision || root.hidden) return;
       body.textContent = ''; body.removeAttribute('role');
       const identity = node('div', '', 'guild-identity guild-preview-identity');
-      identity.append(createGuildEmblem(doc, guild.name, "guild-mark", guild.emblem), node('h3', guild.name)); body.append(identity);
-      body.append(node('p', `${guild.members.length}/${GUILD_MEMBER_LIMIT} members · ${guild.score} weekly points`));
+      const copy = node('div', '');
+      copy.append(node('h3', guild.name));
+      identity.append(createGuildEmblem(doc, guild.name, "guild-mark", guild.emblem), copy); body.append(identity);
+      const power = node('div', '', 'guild-total-power');
+      const amount = formatCompactNumber(guild.members.reduce((total, member) => total + (member.power ?? 0), 0));
+      power.setAttribute('aria-label', `Guild power: ${amount}`);
+      const powerIcon = doc.createElement('img'); powerIcon.className = 'power-icon';
+      powerIcon.src = 'assets/wildstat/icons/Icon_Battle_Candy_v2.webp'; powerIcon.alt = '';
+      power.append(node('span', 'Power:'), node('span', amount, 'power-value'), powerIcon); body.append(power);
+      const leadership = node('section', '', 'guild-leadership'); leadership.setAttribute('aria-label', 'Guild leadership');
+      const offices = node('div', '', 'guild-offices');
       for (const [role, identity] of [['President', guild.leader], ['Vice President', guild.vicePresident]]) {
         const member = guild.members.find(row => row.identity === identity);
-        if (member) body.append(profile(member, role!));
+        if (member) offices.append(profile(member, role!));
+        else if (role === 'Vice President') {
+          const vacant = node('div', '', 'guild-office-vacancy');
+          vacant.append(node('span', '+', 'guild-office-placeholder'), node('strong', role), node('span', 'Vacant')); offices.append(vacant);
+        }
       }
-      const members = node('details', '', 'guild-disclosure'); members.append(node('summary', 'Members'));
-      for (const member of guild.members.filter(row => row.identity !== guild.leader && row.identity !== guild.vicePresident)) members.append(profile(member, ''));
-      body.append(members);
+      leadership.append(offices); body.append(leadership);
+      const heading = node('div', '', 'guild-section-heading');
+      const memberHeading = node('h3', 'Members'); memberHeading.id = 'guildPreviewMembersTitle';
+      heading.append(memberHeading, node('p', `${guild.members.length}/${GUILD_MEMBER_LIMIT}`)); body.append(heading);
+      const memberList = node('div', '', 'guild-list guild-roster guild-preview-member-list');
+      memberList.setAttribute('role', 'region'); memberList.setAttribute('aria-labelledby', memberHeading.id); memberList.tabIndex = 0;
+      for (const member of guild.members.filter(row => row.identity !== guild.leader && row.identity !== guild.vicePresident).sort((a, b) => a.name.localeCompare(b.name))) memberList.append(profile(member, ''));
+      body.append(memberList);
     } catch (error) {
       if (request === revision && !root.hidden) body.textContent = error instanceof Error ? error.message : 'Could not load guild.';
     }

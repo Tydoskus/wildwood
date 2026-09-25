@@ -852,6 +852,12 @@ export const GuildAccount = __t.object("GuildAccount", {
 });
 export type GuildAccount = __Infer<typeof GuildAccount>;
 
+export const GuildAdmissionPolicy = __t.object("GuildAdmissionPolicy", {
+  guildId: __t.u64(),
+  requestOnly: __t.bool(),
+});
+export type GuildAdmissionPolicy = __Infer<typeof GuildAdmissionPolicy>;
+
 export const GuildBattleCounter = __t.object("GuildBattleCounter", {
   id: __t.u8(),
   next: __t.u64(),
@@ -865,6 +871,13 @@ export const GuildBattleReport = __t.object("GuildBattleReport", {
   payload: __t.string(),
 });
 export type GuildBattleReport = __Infer<typeof GuildBattleReport>;
+
+export const GuildJoinRequest = __t.object("GuildJoinRequest", {
+  identity: __t.identity(),
+  guildId: __t.u64(),
+  requestedAt: __t.u64(),
+});
+export type GuildJoinRequest = __Infer<typeof GuildJoinRequest>;
 
 export const GuildMember = __t.object("GuildMember", {
   identity: __t.identity(),

@@ -16,7 +16,6 @@ it('requires ownership and prevents deletion until unlocked', () => {
   f.run(server.setEquipmentLocked, { itemId: IRON_BOW, copyId: copy.id, locked: true });
   expect(() => f.run(server.destroyEquipmentCopy, { itemId: IRON_BOW, copyId: copy.id })).toThrow('Unlock');
   f.run(server.setEquipmentLocked, { itemId: IRON_BOW, copyId: copy.id, locked: false });
-  expect(() => f.run(server.selectEquipmentCopy, { copyId: copy.id })).toThrow('Unlock');
   f.run(server.setEquipmentLocked, { itemId: IRON_BOW, copyId: 0n, locked: false });
   f.run(server.destroyEquipmentCopy, { itemId: IRON_BOW, copyId: copy.id });
   expect(f.db.playerEquipmentCopy.id.find(copy.id)).toBeNull();
@@ -63,4 +62,27 @@ it('locks only one duplicate and carries its lock when selected or promoted', ()
   f.run(server.destroyEquipmentCopy, { itemId: IRON_BOW, copyId: 0n });
   expect(equipmentLocked(f.ctx as any, f.ctx.sender, IRON_BOW)).toBe(true);
   expect(equipmentLocked(f.ctx as any, f.ctx.sender, IRON_BOW, a.id)).toBe(false);
+});
+
+it.each([false, true])('equips a locked duplicate while preserving the bag copy lock (%s)', firstLocked => {
+  const f = crystalFixture();
+  f.patch('playerProgress', { inventoryJson: JSON.stringify([IRON_BOW]), equippedRightHand: '' });
+  const copy = f.seed('playerEquipmentCopy', { id: 0n, identity: f.ctx.sender, itemId: IRON_BOW, arrowStorm: 7, ricochet: 0, piercingShot: 0, acquiredAt: f.ctx.timestamp });
+  f.run(server.setEquipmentLocked, { itemId: IRON_BOW, copyId: copy.id, locked: true });
+  if (firstLocked) f.run(server.setEquipmentLocked, { itemId: IRON_BOW, copyId: 0n, locked: true });
+  f.run(server.selectEquipmentCopy, { copyId: copy.id });
+  expect(equipmentLocked(f.ctx as any, f.ctx.sender, IRON_BOW)).toBe(true);
+  expect(equipmentLocked(f.ctx as any, f.ctx.sender, IRON_BOW, copy.id)).toBe(firstLocked);
+  expect(f.db.playerBowSkill.key.find(`${f.ctx.sender.toHexString()}:${IRON_BOW}`).arrowStorm).toBe(7);
+});
+
+it('allows manually replacing a locked equipped copy and keeps its lock in the bag', () => {
+  const f = crystalFixture();
+  f.patch('playerProgress', { inventoryJson: JSON.stringify([IRON_BOW]), equippedRightHand: IRON_BOW });
+  const copy = f.seed('playerEquipmentCopy', { id: 0n, identity: f.ctx.sender, itemId: IRON_BOW, arrowStorm: 8, ricochet: 0, piercingShot: 0, acquiredAt: f.ctx.timestamp });
+  f.run(server.setEquipmentLocked, { itemId: IRON_BOW, copyId: 0n, locked: true });
+  f.run(server.selectEquipmentCopy, { copyId: copy.id });
+  expect(equipmentLocked(f.ctx as any, f.ctx.sender, IRON_BOW)).toBe(false);
+  expect(equipmentLocked(f.ctx as any, f.ctx.sender, IRON_BOW, copy.id)).toBe(true);
+  expect(() => f.run(server.destroyEquipmentCopy, { itemId: IRON_BOW, copyId: copy.id })).toThrow('Unlock');
 });

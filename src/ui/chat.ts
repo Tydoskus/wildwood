@@ -1,3 +1,5 @@
+import { createChatGuildRequests } from "./chat-guild-requests";
+import type { GuildApi } from "../coop/services/guild-service";
 import { createChatViewport } from "./chat-viewport";
 import { createChatScrollIdle } from "./chat-scroll-idle";
 import { applyAvatarFrame } from "../app/avatar-frames";
@@ -5,14 +7,13 @@ import { applyProfileIcon } from "../app/profile-icons";
 import { normalizeProfileIcon } from "../../shared/profile-icons";
 import { appendChatReactions } from "./chat-reactions";
 import type { ChatReaction, ChatReactionState } from "../../shared/chat-reactions";
-import { appendPlayerNameTags, appendPrestigeBadge, playerNamePrefix } from "../app/player-name-tags";
+import { playerNamePrefix } from "../app/player-name-tags";
 import {
   duelReplayIsInteractive,
   formatChatReplyPreview,
   shouldShowGlobalChatMessage,
 } from "./chat-presentation";
-import { formatCompactNumber } from "./number-format";
-import { appendPlayerGenderIcon } from "./player-gender";
+import { appendPlayerIdentity } from "./player-identity";
 import { PLAYER_GENDER_UNSET, normalizePlayerGender, type PlayerGender } from "../../shared/player-gender";
 import { MODERATED_CHAT_MESSAGE } from "../../shared/chat-message";
 import { type ChatReportReason } from "../../shared/chat-report";
@@ -33,7 +34,6 @@ import { chatListFingerprint, createChatInputMemo, sameChatRows, setChatAttribut
 const CHAT_ENABLED_KEY = "wildwood-chat-enabled-v1";
 const CHAT_DISPLAY_TTL_MS = 86_400_000;
 const CHAT_COOLDOWN_MS = 3_000;
-const NAME_COLORS = ["#ffc3dd", "#bce7ff", "#c9f5c2", "#ffe7a8", "#e1c7ff", "#bff3e7", "#ffd1aa", "#d0d9ff"];
 
 export function focusChatReplyInput(input: Pick<HTMLTextAreaElement, "focus" | "setSelectionRange" | "value">) {
   // Native focus scrolling is required here: revealing the reply preview moves
@@ -60,6 +60,7 @@ type ChatMessage = {
 };
 
 type CoopClient = {
+  guild?: GuildApi;
   loadChatMessageReactions?: (channel: string, id: bigint) => Promise<ChatReactionState>;
   setChatMessageReaction?: (channel: string, id: bigint, reaction: ChatReaction, active: boolean) => Promise<void>;
   social?: {
@@ -199,6 +200,10 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     if (large && channel !== "public") void loadHistory(true);
     if (channel !== "public") void getCoop()?.social?.loadSocial().then(refresh)
       .catch(error => showMessage(error instanceof Error ? error.message : "COULD NOT REFRESH SOCIAL CONTACTS", "#ff9b91"));
+  });
+
+  const guildRequests = createChatGuildRequests({ document: elements.panel.ownerDocument, api: () => getCoop()?.guild,
+    openPlayer: onOpenPlayer, changed: () => { messageActions.close(false); renderedRevision = ""; refresh(); },
   });
 
   function conversationKey() { return `${channel}:${channel === "private" ? privatePeerIdentity || privatePeer.toLowerCase() : channel === "guild" ? guildContext : ""}`; }
@@ -405,15 +410,6 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     updateChatCooldown();
   }
 
-  function nameColor(identity: string) {
-    let hash = 2166136261;
-    for (const character of identity) {
-      hash ^= character.charCodeAt(0);
-      hash = Math.imul(hash, 16777619);
-    }
-    return NAME_COLORS[(hash >>> 0) % NAME_COLORS.length];
-  }
-
   /** Everything a drawn row shows. An unchanged signature keeps its element. */
   function presentMessage(coop: CoopClient | null, identity: string, message: ChatMessage) {
     const cachedGender = normalizePlayerGender(coop?.playerGender?.(message.sender));
@@ -465,13 +461,15 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     }
     if (pendingReply && coop?.isPlayerBlocked?.(pendingReply.sender)) setPendingReply(null);
 
+    guildRequests.refresh(identity, guildContext, enabled && large && channel === "guild");
+    elements.panel.classList.toggle("is-guild-requests", guildRequests.isSelected());
     elements.panel.classList.toggle("is-private-inbox", channel === "private" && !privatePeer);
     const now = Date.now();
     history.select(`${identity}:${conversationKey()}:${coop?.social?.historyRevision?.() ?? 0}:${coop?.chatHistoryRevision?.() ?? 0}:${large}`);
     const historyState = history.state();
     setChatHidden(historySpinner, !large || !enabled || !historyState.loading);
 
-    const readingLatest = enabled && large && document.visibilityState !== "hidden"
+    const readingLatest = enabled && large && !guildRequests.isSelected() && document.visibilityState !== "hidden"
       && (renderedRevision === "" || (!historyState.frozen && atLatest));
     const revision = `${viewportRevision}:${Math.floor(now / 60_000)}:${reactionRevision}:${readingLatest}:${conversationKey()}:${coop?.chatRevision?.() ?? -1}:${coop?.social?.revision() ?? -1}:${coop?.localIdentity?.() ?? ""}:${enabled}:${large}:${historyState.revision}`;
     if (revision === renderedRevision && now < nextExpiryAt) return;
@@ -605,32 +603,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       const displayedPower = message.powerLevel;
       const name = document.createElement("span");
       name.className = "chat-name";
-      name.style.color = nameColor(displayIdentity);
-      const nameCore = document.createElement("span");
-      nameCore.className = "chat-name-core";
-      appendPlayerNameTags(nameCore, displayIdentity);
-      const nameText = document.createElement("span");
-      nameText.className = "chat-name-text";
-      nameText.textContent = displayName;
-      nameCore.append(nameText);
-      appendPrestigeBadge(nameCore, displayIdentity);
-      appendPlayerGenderIcon(nameCore, displayedGender);
-      if (guest) nameCore.append(document.createTextNode(" (guest)"));
-      name.appendChild(nameCore);
-      if (displayedPower > 0) {
-        const power = document.createElement("span");
-        power.className = "chat-power";
-        power.setAttribute("aria-label", `Power ${formatCompactNumber(displayedPower)}`);
-        const powerIcon = document.createElement("img");
-        powerIcon.className = "power-icon chat-power-icon";
-        powerIcon.src = "assets/wildstat/icons/Icon_Battle_Candy_v2.webp";
-        powerIcon.alt = "";
-        powerIcon.setAttribute("aria-hidden", "true");
-        const powerValue = document.createElement("span");
-        powerValue.textContent = formatCompactNumber(displayedPower);
-        power.append(powerValue, powerIcon);
-        name.appendChild(power);
-      }
+      appendPlayerIdentity(name, { identity: displayIdentity, name: displayName, power: displayedPower, gender: displayedGender, guest }, { chat: true });
       const openPlayer = (event: Event) => {
         event.stopPropagation();
         if (!large) {
@@ -763,6 +736,8 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     for (const event of ["scroll", "wheel", "touchmove", "pointerdown", "keydown", "input"]) {
       elements.panel.addEventListener(event, noteInteraction, { capture: true, passive: true });
     }
+    channelPicker.root.insertBefore(guildRequests.tabs, channelPicker.root.querySelector(".chat-channel-status"));
+    elements.panel.insertBefore(guildRequests.root, elements.messages);
     elements.panel.insertBefore(channelPicker.root, elements.messages);
     elements.panel.insertBefore(channelPicker.conversations, elements.messages);
     elements.form.append(latestButton);

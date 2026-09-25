@@ -145,6 +145,7 @@ function addMessageContext(ctx: ReadCtx, entries: DevReportEntry[], refs: Map<De
     const ref = refs.get(entry);
     if (!ref) continue;
     if (ref.stored === MODERATED_CHAT_MESSAGE) entry.text = original(ref) ?? entry.text;
+    entry.canRestoreMessage = entry.messageRemoved && Boolean(entry.text) && entry.text !== MODERATED_CHAT_MESSAGE;
     if (!ref.social) {
       const lines = [];
       for (let id = ref.messageId - BigInt(CONTEXT_BEFORE); id <= ref.messageId + BigInt(CONTEXT_AFTER); id++) {
@@ -261,6 +262,37 @@ function removeReportedMessage(ctx: GameReducerContext, report: ReportRow) {
     `${report.row.reporter.toHexString()}:${social.messageId}`);
 }
 
+/** Restore only retained evidence belonging to this report's actual message. */
+function restoreReportedMessage(ctx: GameReducerContext, report: ReportRow) {
+  const social = report.table === "player" ? socialReference(report.row.note) : null;
+  const message = report.table === "chat" ? reportedChatMessage(ctx, report.row) : reportedSocialMessage(ctx, report.row);
+  if (!message) throw new SenderError("That message no longer exists in chat history.");
+  if (!message.moderated) throw new SenderError("That message is already visible.");
+  let original = report.table === "chat" ? (report.row.messageModerated ? MODERATED_CHAT_MESSAGE : report.row.message)
+    : ctx.db.socialReport.key.find(`${report.row.reporter.toHexString()}:${social!.messageId}`)?.message;
+  if (!original || original === MODERATED_CHAT_MESSAGE) {
+    original = redactedOriginals(ctx).get(`${social ? "social" : "world"}:${message.id}`);
+  }
+  if (!original || original === MODERATED_CHAT_MESSAGE) throw new SenderError("The original message is no longer available.");
+  if ("conversation" in message) {
+    ctx.db.socialMessage.id.update({ ...message, message: original, moderated: false });
+    for (const reply of ctx.db.socialMessage.conversation.filter(message.conversation)) if (reply.replyToMessageId === message.id) {
+      ctx.db.socialMessage.id.update({ ...reply, replyToMessage: original });
+    }
+  } else {
+    ctx.db.chatMessage.id.update({ ...message, message: original, moderated: false });
+    for (const reply of ctx.db.chatMessage.iter()) if (reply.replyToMessageId === message.id) {
+      ctx.db.chatMessage.id.update({ ...reply, replyToMessage: original });
+    }
+  }
+  recordModerationAction(ctx, {
+    targetIdentity: message.sender.toHexString(), targetName: message.senderName,
+    channel: "channel" in message ? message.channel : "world", messageId: message.id,
+    action: "Message restored", reason: "Developer restored reported message", actorType: actorType(ctx),
+    reportTable: report.table, reportId: report.row.id.toString(), before: message.message, after: original,
+  });
+}
+
 function setReportStatus(ctx: GameReducerContext, report: ReportRow, status: string) {
   if (report.row.status === status) return;
   if (report.table === "chat") ctx.db.chatMessageReport.id.update({ ...report.row, status });
@@ -317,7 +349,8 @@ export function reviewReport(ctx: GameReducerContext, args: ReviewArgs & { repor
     return;
   }
   if (args.decision === "removed") removeReportedMessage(ctx, report);
-  const status = args.decision === "dismissed" ? "dismissed" : "resolved";
+  if (args.decision === "restored") restoreReportedMessage(ctx, report);
+  const status = ["dismissed", "restored"].includes(args.decision) ? "dismissed" : "resolved";
   // The letter says only that action was or was not taken, never what or to whom.
   const letter = args.mailReporter ? reviewMailLetter("report", args.decision, "", note) : null;
   const closing = [report, ...siblingReports(ctx, report)];

@@ -21,12 +21,14 @@ export const resolveGuildBattle = simulateGuildBattle;
 export type LegacyGuildBattleResult = { version?: undefined; rounds: (ReturnType<typeof simulateDuelBattle> & { attacker: string; defender: string })[]; wins: number; losses: number; outcome: string };
 export type GuildReport = { id: string; attackerId: string; defenderId: string; attacker: string; defender: string; at: string; result: GuildBattleResult | LegacyGuildBattleResult };
 export type GuildStanding = { id: string; name: string; emblem?: number; members: number; score: number; wins: number; battles: number };
-export type GuildPreview = Pick<NonNullable<GuildSnapshot['guild']>, 'id' | 'name' | 'emblem' | 'leader' | 'vicePresident' | 'score' | 'members'>;
+export type GuildPreview = Pick<NonNullable<GuildSnapshot['guild']>, 'id' | 'name' | 'emblem' | 'leader' | 'vicePresident' | 'score' | 'members' | 'requestOnly'>;
 export type GuildSnapshot = {
   identity: string; serverNow: string; week: number; nextWeekAt: string; joinAfter: string; signedIn: boolean;
-  guild: null | { id: string; name: string; emblem?: number; leader: string; vicePresident?: string | null; attacksRemaining: number; score: number; totalPower?: number;
-    members: { identity: string; name: string; profileIcon?: number; power?: number; online?: boolean; lastSeenAtMs?: number; eligibleAt: string }[] };
-  directory: { id: string; name: string; emblem?: number; members: number; totalPower?: number; challengedToday: boolean }[]; nextPage: string | null;
+  pendingRequest?: { guildId: string; name: string } | null;
+  guild: null | { id: string; name: string; emblem?: number; leader: string; vicePresident?: string | null; attacksRemaining: number; score: number; totalPower?: number; requestOnly?: boolean;
+    requests?: { identity: string; name: string; power: number; prestige: number; profileIcon: number; requestedAt: string; online?: boolean; lastSeenAtMs?: number }[];
+    members: { identity: string; name: string; profileIcon?: number; power?: number; prestige?: number; online?: boolean; lastSeenAtMs?: number; eligibleAt: string }[] };
+  directory: { id: string; name: string; emblem?: number; members: number; totalPower?: number; requestOnly?: boolean; challengedToday: boolean }[]; nextPage: string | null;
   standings: GuildStanding[];
   battles: GuildReport[];
 };

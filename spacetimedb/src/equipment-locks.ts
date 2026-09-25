@@ -44,8 +44,12 @@ export function setEquipmentLock(ctx: ModuleReducerCtx, args: { itemId: string; 
   } else ctx.db.playerEquipmentLock.key.delete(key);
 }
 
-export function assertEquipmentUnlocked(ctx: ModuleReducerCtx, base: any, progress: any) {
-  for (const field of ["equippedHead", "equippedChest", "equippedFeet", "equippedRightHand", "equippedLeftHand"] as const) {
-    if (base[field] !== progress[field] && equipmentLocked(ctx, ctx.sender, base[field])) throw new SenderError("Unlock equipped gear before replacing it.");
-  }
+/** Selecting a duplicate swaps copies, so preserve either copy's protection. */
+export function swapEquipmentLocks(ctx: Pick<ModuleReducerCtx, "db">, identity: Identity, itemId: string, copyId: bigint) {
+  const firstKey = equipmentLockKey(identity, itemId), copyKey = equipmentLockKey(identity, itemId, copyId);
+  const first = ctx.db.playerEquipmentLock.key.find(firstKey), copy = ctx.db.playerEquipmentLock.key.find(copyKey);
+  if (first) ctx.db.playerEquipmentLock.key.delete(firstKey);
+  if (copy) ctx.db.playerEquipmentLock.key.delete(copyKey);
+  if (first) ctx.db.playerEquipmentLock.insert({ ...first, key: copyKey, copyId });
+  if (copy) ctx.db.playerEquipmentLock.insert({ ...copy, key: firstKey, copyId: 0n });
 }

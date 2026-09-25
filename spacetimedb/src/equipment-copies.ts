@@ -1,4 +1,4 @@
-import { equipmentLocked, moveEquipmentLock } from "./equipment-locks";
+import { equipmentLocked, moveEquipmentLock, swapEquipmentLocks } from "./equipment-locks";
 import { SenderError, table, t } from "spacetimedb/server";
 import { Timestamp, type Identity } from "spacetimedb";
 import { NO_BOW_SKILLS, bowSkillScore, isSkillBow, rollBowSkills, type BowSkillRoll } from "../../shared/bow-skills";
@@ -291,9 +291,8 @@ export function createEquipmentCopies(deps: {
     deps.requireControllingPlayer(ctx);
     if (deps.activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel first.");
     const copy = ownCopy(ctx, copyId);
-    if (equipmentLocked(ctx, ctx.sender, copy.itemId)) throw new SenderError("Unlock this equipment before replacing it.");
     ownedProgress(ctx, copy.itemId);
-    moveEquipmentLock(ctx, ctx.sender, copy.itemId, copy.id, 0n);
+    swapEquipmentLocks(ctx, ctx.sender, copy.itemId, copy.id);
     if (!isSkillBow(copy.itemId)) return;
     const first = bowSkillRollFor(ctx, ctx.sender, copy.itemId);
     setFirstCopyRoll(ctx, ctx.sender, copy.itemId, rollOf(copy));

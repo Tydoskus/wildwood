@@ -1,10 +1,11 @@
+import { isNewerGameVersion } from "../../app/version";
 import { createUpdateResumeStore, inferLegacyUpdateResumeMode, type UpdateResumeMode } from "./update-resume-store";
 
 export function consumeUpdateResumeMode(options: { version: string; store: ReturnType<typeof createUpdateResumeStore>; consumedKey: string; tabKey: string; tokenKey: string }): UpdateResumeMode | null {
   const { version: GAME_VERSION, store: updateResumeStore, consumedKey: updateResumeConsumedKey, tabKey: authTabKey, tokenKey: accountTokenKey } = options;
   const requestedVersion = new URL(window.location.href).searchParams.get("v") ?? "";
+  if (requestedVersion !== GAME_VERSION && !isNewerGameVersion(GAME_VERSION, requestedVersion)) return null;
   const explicitMode = updateResumeStore.consume(requestedVersion);
-  if (requestedVersion !== GAME_VERSION) return null;
 
   try {
     const consumedVersion = sessionStorage.getItem(updateResumeConsumedKey) ?? "";
@@ -29,3 +30,12 @@ export function consumeUpdateResumeMode(options: { version: string; store: Retur
   }
 }
 
+
+/** Every automatic recovery reload must carry the active session to the next page. */
+export function reloadWithUpdateResume(version: string, prepare: (version: string) => boolean | void) {
+  if (prepare(version) === false) return false;
+  const url = new URL(window.location.href);
+  url.searchParams.set("v", version);
+  window.location.replace(url.href);
+  return true;
+}

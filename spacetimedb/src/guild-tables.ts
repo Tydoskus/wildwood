@@ -34,4 +34,10 @@ const guildReportParticipant = table({ name: "guild_report_participant", public:
 const guildBattleCounter = table({ name: "guild_battle_counter", public: false }, { id: t.u8().primaryKey(), next: t.u64() });
 const playerNameTag = table({ public: true }, { identity: t.identity().primaryKey(), guildTag: t.string(), showDevTag: t.bool() });
 
-export const guildTables = { playerNameTag, guild, guildMember, guildAccount, guildRank, guildStanding, guildBattleReport, guildReportParticipant, guildBattleCounter };
+const guildAdmissionPolicy = table({ name: "guild_admission_policy", public: false }, {
+  guildId: t.u64().primaryKey(), requestOnly: t.bool(),
+});
+const guildJoinRequest = table({ name: "guild_join_request", public: false }, {
+  identity: t.identity().primaryKey(), guildId: t.u64().index("btree"), requestedAt: t.u64(),
+});
+export const guildTables = { guildAdmissionPolicy, guildJoinRequest, playerNameTag, guild, guildMember, guildAccount, guildRank, guildStanding, guildBattleReport, guildReportParticipant, guildBattleCounter };

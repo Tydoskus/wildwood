@@ -30,3 +30,11 @@ describe("stale bundle guard", () => {
     expect(reload).not.toHaveBeenCalled();
   });
 });
+
+it('retries the handoff instead of consuming its only reload when session preservation fails', () => {
+  const storage = memory(), reload = vi.fn().mockReturnValueOnce(false).mockReturnValue(true);
+  const guard = createStaleBundleGuard({ version: '0.811', storage: () => storage, reload });
+  guard.frameHandlerFailed();
+  expect(guard.frameHandlerFailed()).toBe(false);
+  expect(guard.frameHandlerFailed()).toBe(true);
+});

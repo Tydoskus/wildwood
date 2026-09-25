@@ -101,7 +101,7 @@ import {
 } from "./game/world";
 import { createChatRuntimeController } from "./ui/chat-runtime-controller";
 import { createPlayerSafetyController } from "./ui/player-safety-controller";
-import { equipBestUnlocked } from "./game/equip-best";
+import { equipBestInventory } from "./game/equip-best";
 import { createInventoryController } from "./ui/inventory-controller";
 import { createItemInspectionController, itemStatsWithBowSkills } from "./ui/item-inspection-controller";
 import { createUpgradeBenchController } from "./ui/upgrade-bench-controller";
@@ -446,8 +446,8 @@ import {
     itemInspection: itemInspectionController,
     equipmentRequirement: (itemId) => equipmentMapRequirement(itemId, coop?.savedProgress?.()),
     equipBest: () => {
-      if (!equipBestUnlocked(inventory, candidate => powerForEquipment(candidate, true),
-        itemId => !equipmentMapRequirement(itemId, coop?.savedProgress?.()), itemId => coop?.equipmentLocked?.(itemId) ?? false)) return false;
+      if (!equipBestInventory(inventory, candidate => powerForEquipment(candidate, true),
+        itemId => !equipmentMapRequirement(itemId, coop?.savedProgress?.()))) return false;
       player.speed = progress.movementSpeedForEquipment(false) * localTestMultiplier;
       applyPlayerMaxHealthMultiplierBonus(player, healthMultiplierBonus());
       saveProgress(true);
@@ -1899,7 +1899,7 @@ import {
     beginAdventure: () => { coop?.beginAdventure?.(); },
     startGame: () => startGame(false),
     retryConnection: () => coop?.retryConnection?.(),
-    prepareUpdateReload: (latestVersion) => { coop?.prepareUpdateReload?.(latestVersion); },
+    prepareUpdateReload: (latestVersion) => coop?.prepareUpdateReload?.(latestVersion) ?? false,
   });
   finishStartup();
   startupCoordinator.startVersionPolling();
@@ -2094,7 +2094,6 @@ import {
   });
   offlineProgressSummary = createOfflineProgressSummary({
     acknowledge: () => { void coop?.acknowledgeOfflineProgress?.(); },
-    pause: paused => setGameplayPause("offline-progress", paused),
     pending: () => coop?.pendingOfflineProgress?.(),
     readyToShow: () => !inTutorial() && Boolean(session?.isRunning()),
   });

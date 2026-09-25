@@ -59,6 +59,20 @@ describe("developer review queue", () => {
     expect(queue.bugs).toMatchObject([{ id: "1", status: "open", protocolVersion: 90, message: "the door is stuck" }]);
   });
 
+  it("offers restoration for removed messages but rejects missing evidence and unauthorized callers", () => {
+    const f = fixture();
+    f.run(server.devReviewReport, { reportKey: "chat:1", decision: "removed", note: "" });
+    expect(f.queue().reports.find(row => row.key === "chat:1")?.canRestoreMessage).toBe(true);
+    f.ctx.senderAuth = {};
+    expect(() => f.run(server.devReviewReport, { reportKey: "chat:1", decision: "restored", note: "" })).toThrow("Developer access required");
+    f.ctx.senderAuth = { jwt: { issuer: SPACETIME_AUTH_ISSUER, audience: [SPACETIME_AUTH_CLIENT_ID] } };
+    f.db.chatMessageReport.id.update({ ...f.db.chatMessageReport.id.find(1n), message: MODERATED_CHAT_MESSAGE, messageModerated: true });
+    for (const row of f.db.moderationAction.iter()) f.db.moderationAction.id.delete(row.id);
+    expect(f.queue().reports.find(row => row.key === "chat:1")?.canRestoreMessage).toBe(false);
+    expect(() => f.run(server.devReviewReport, { reportKey: "chat:1", decision: "restored", note: "" })).toThrow("original message is no longer available");
+    expect(f.db.chatMessage.id.find(1n).moderated).toBe(true);
+  });
+
   it("removes a reported message, closes every pending report about it, and records who decided", () => {
     const f = fixture();
     f.run(server.devReviewReport, { reportKey: "chat:1", decision: "removed", note: "slur" });
