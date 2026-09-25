@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { generatedBossStats, generatedEnemyStats } from "../../shared/procedural-maps";
+import { defaultBalanceSettings, resolveMapBalance } from "../../shared/map-balance";
 import { createEmptyResearchRanks } from "../../shared/research";
 import { runBalanceSimulation, simulateExistingPlayer, createMapDefinitions, type ExistingPlayerSimulation } from "./simulator";
 import { DEFAULT_KILL_BUDGET } from "./kill-budget";
@@ -26,7 +26,7 @@ it("uses generated rewards for all four lanes even when they share the same spri
     expect(rows).toHaveLength(5); // two damage roles plus health, armor, regen
     expect(rows.reduce((sum, row) => sum + row.spawnCount, 0)).toBe(31);
     for (const lane of ["Cindermaw", "Dread Warden", "Bramble", "Mossback", "Brood"] as const) {
-      const expected = generatedEnemyStats({ number: n }, lane);
+      const expected = resolveMapBalance(`endless_${n}`, defaultBalanceSettings(), 0).lanes[lane];
       const row = rows.find(r => r.hp === expected.hp && r.rewardType === expected.reward.type)!;
       expect(row).toBeDefined(); expect(row.rewardAmount).toBeCloseTo(expected.reward.amount);
     }
@@ -38,7 +38,8 @@ it("farms generated sites instead of their sprite's Forest stats", () => {
     stopAfterCampaign: true, researchPlan: "off", steadyEquipmentUpgrades: false, strategy: "efficient" }, { ...ready, mapIndex: 15 });
   expect(result.maps[0].regularKills).toBe(31);
   expect(result.maps[0].statInvestments.health.rewardEvents).toBe(7); // 6 enemies + boss
-  const expectedHealth = ready.stats.maxHp + 6 * generatedEnemyStats({ number: 1 }, "Bramble").reward.amount + generatedBossStats({ number: 1 }).rewards.find(r => r.type === "health")!.amount;
+  const snapshot = resolveMapBalance("endless_1", defaultBalanceSettings(), 0);
+  const expectedHealth = ready.stats.maxHp + 6 * snapshot.lanes.Bramble.reward.amount + snapshot.boss!.rewards.health;
   expect(result.finalState.stats.maxHp / expectedHealth).toBeCloseTo(1, 12);
 });
 it("shows a sandbox kill-budget proposal without changing the input or authored boss", () => {

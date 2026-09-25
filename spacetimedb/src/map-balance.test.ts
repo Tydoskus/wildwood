@@ -1,3 +1,6 @@
+import { activateCampaignPacing } from './campaign-pacing-migration';
+import { defaultBalanceSettings } from '../../shared/map-balance';
+import bakeFixture from '../../tests/fixtures/balance-revision-73.json';
 import { it, expect, vi } from 'vitest';
 import { balanceEditorState, forgetBalanceCaches, saveMapBalance, pinMapBalance, pinnedMapBalance } from './map-balance';
 function fixture() {
@@ -132,4 +135,54 @@ it('serves byte-identical snapshots whether or not the caches are warm', () => {
   expect(pinnedMapBalance(ctx, ctx.sender, mapId)).toEqual(original);
   pinMapBalance(ctx, mapId);
   expect(pinnedMapBalance(ctx, ctx.sender, mapId)).toEqual(original);
+});
+
+it('loads and saves pre-bake revisions without applying rewards twice or rewriting history', () => {
+  const ctx = fixture();
+  const json = JSON.stringify(bakeFixture.settings);
+  ctx.db.mapBalanceVersion.insert({ revision: 73, settingsJson: json, editor: ctx.sender, createdAt: ctx.timestamp });
+  ctx.db.mapBalanceHead.insert({ id: 0, revision: 73 });
+  const editor = balanceEditorState(ctx);
+  expect(editor.settings.baselineVersion).toBe(2);
+  expect(editor.settings.maps.ion_citadel.enemyRewards).toBe(1);
+  pinMapBalance(ctx, 'ion_citadel', true, 2);
+  const before = pinnedMapBalance(ctx, ctx.sender, 'ion_citadel')!;
+  saveMapBalance(ctx, 73, JSON.stringify(editor.settings));
+  expect(balanceEditorState(ctx).settings).toEqual(editor.settings);
+  expect(ctx.db.mapBalanceVersion.revision.find(73).settingsJson).toBe(json);
+  pinMapBalance(ctx, 'home_exterior');
+  pinMapBalance(ctx, 'ion_citadel');
+  expect(pinnedMapBalance(ctx, ctx.sender, 'ion_citadel')).toEqual({ ...before, revision: 74 });
+});
+
+it('activates the exact tested campaign settings once, retaining archived revisions and pinned visits', () => {
+  const ctx = fixture();
+  const archived = { revision: 73, settingsJson: JSON.stringify(bakeFixture.settings), editor: ctx.sender, createdAt: ctx.timestamp };
+  ctx.db.mapBalanceVersion.insert(archived);
+  ctx.db.mapBalanceHead.insert({ id: 0, revision: 73 });
+  pinMapBalance(ctx, 'ion_citadel', true, 2);
+  const pinned = ctx.db.playerMapBalance.identity.find(ctx.sender).snapshotJson;
+  activateCampaignPacing(ctx);
+  expect(balanceEditorState(ctx).settings).toEqual(defaultBalanceSettings());
+  expect(balanceEditorState(ctx).revision).toBe(74);
+  expect(ctx.db.mapBalanceVersion.revision.find(73)).toEqual(archived);
+  expect(ctx.db.playerMapBalance.identity.find(ctx.sender).snapshotJson).toBe(pinned);
+  activateCampaignPacing(ctx);
+  expect(balanceEditorState(ctx).revision).toBe(74);
+  pinMapBalance(ctx, 'home_exterior');
+  pinMapBalance(ctx, 'ion_citadel');
+  expect(pinnedMapBalance(ctx, ctx.sender, 'ion_citadel')!.revision).toBe(74);
+});
+it('runs migration 43 from the existing connection path only once', () => {
+  const f = crystalFixture();
+  forgetBalanceCaches();
+  f.seed('moduleMigrationState', { id: 0, version: 42 });
+  f.seed('mapBalanceHead', { id: 0, revision: 73 });
+  f.seed('mapBalanceVersion', { revision: 73, settingsJson: JSON.stringify(bakeFixture.settings), editor: f.ctx.sender, createdAt: f.ctx.timestamp });
+  f.ctx.connectionId = null;
+  f.run(server.onConnect);
+  expect(f.db.moduleMigrationState.id.find(0).version).toBe(43);
+  expect(balanceEditorState(f.ctx as any)).toMatchObject({ revision: 74, settings: defaultBalanceSettings() });
+  f.run(server.onConnect);
+  expect(balanceEditorState(f.ctx as any).revision).toBe(74);
 });

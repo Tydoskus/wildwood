@@ -7,9 +7,11 @@ import { installMapBalance } from './map-balance-runtime';
 import { generatedBossStats, generateMap } from './procedural-maps';
 afterEach(() => installMapBalance(null));
 describe('server map balance snapshots', () => {
-  it('preserves all authored defaults including procedural rewards', () => {
+  it('preserves campaign bases and the explicit procedural reference curve', () => {
     for (const [map] of [...BALANCE_MAPS.slice(0, -1), ['endless_1'], ['endless_40']] as string[][]) {
-      const snapshot = resolveMapBalance(map, defaultBalanceSettings(), 2);
+      const settings = defaultBalanceSettings();
+      settings.endless = { rewardMultiplier: .1, statStep: .2, enduranceStep: .1, enduranceExponent: 6, rewardPerHealth: 1 };
+      const snapshot = resolveMapBalance(map, settings, 2);
       expect(snapshot.boss!.hp).toBeCloseTo(personalBossDefinition(map)!.hp, -1);
       if (map.startsWith('endless')) expect(Object.values(snapshot.boss!.rewards)).toEqual(generatedBossStats(generateMap(map as `endless_${number}`)).rewards.map(row => row.amount));
     }
@@ -67,7 +69,7 @@ it('carries the final campaign tuning into Endless while earlier map tuning stay
   const last = BALANCE_MAPS[BALANCE_MAPS.length - 2][0];
   settings.maps[last].enemyHealth = 2;
   settings.maps[last].enemyDamage = 3;
-  settings.maps[last].enemyRewards = 4;
+  settings.maps[last].enemyRewards *= 4;
   settings.maps[last].bossHealth = 5;
   settings.maps[last].bossDamage = 6;
   settings.maps[last].bossRewards = 7;

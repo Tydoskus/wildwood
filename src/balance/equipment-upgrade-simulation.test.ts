@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { advanceTime, startNextEquipmentUpgrade } from "./simulator";
+import { advanceTime, startNextEquipmentUpgrade, simulationUpgradeLevel } from "./simulator";
 import { IRON_BOW, STARTER_STONE, itemUpgradeDurationMs } from "../../shared/items";
 import { createEmptyResearchRanks } from "../../shared/research";
 
@@ -18,25 +18,26 @@ function fixture() {
 }
 
 describe("steady simulated equipment upgrades", () => {
-  it("uses a fallback weapon while the bow is at the bench and restores it on completion", () => {
+  it("keeps equipment usable and applies completed tiers to the whole slot", () => {
     const state = fixture();
     startNextEquipmentUpgrade(state);
     expect(state.activeUpgrade?.itemId).toBe(IRON_BOW);
-    expect(state.equipped.weapon).toBe(STARTER_STONE);
+    expect(state.equipped.weapon).toBe(IRON_BOW);
     const duration = itemUpgradeDurationMs(0) / 1000;
     state.steadyEquipmentUpgrades = false;
     advanceTime(state, duration - 1, "off", vi.fn());
-    expect(state.itemUpgradeLevels[IRON_BOW]).toBeUndefined();
+    expect(state.itemUpgradeLevels.HAND).toBeUndefined();
     advanceTime(state, duration, "off", vi.fn());
-    expect(state.itemUpgradeLevels[IRON_BOW]).toBe(1);
+    expect(state.itemUpgradeLevels.HAND).toBe(1);
     expect(state.equipped.weapon).toBe(IRON_BOW);
-    expect(state.itemUpgradeLevels[STARTER_STONE]).toBeUndefined();
+    expect(simulationUpgradeLevel(state, STARTER_STONE)).toBe(1);
+    expect(simulationUpgradeLevel(state, IRON_BOW)).toBe(1);
   });
 
   it("keeps one upgrade active and uses the longer duration for the next level", () => {
     const state = fixture();
     advanceTime(state, itemUpgradeDurationMs(0) / 1000, "off", vi.fn());
-    expect(state.itemUpgradeLevels[IRON_BOW]).toBe(1);
+    expect(state.itemUpgradeLevels.HAND).toBe(1);
     expect(state.activeUpgrade?.level).toBe(1);
     expect(state.activeUpgrade?.completesAt).toBeCloseTo((itemUpgradeDurationMs(0) + itemUpgradeDurationMs(1)) / 1000, 6);
   });
