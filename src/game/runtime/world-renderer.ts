@@ -193,6 +193,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   const visibleLavaRocks: LavaRockDecor[] = [];
   const gpuWorldSprites: StaticWorldSpriteFrame[] = [];
   const tintedPortalSwirls = new Map<string, HTMLCanvasElement>();
+  /** More than any one map shows; the rest are rebuilt if a map is revisited. */
+  const PORTAL_TINT_CACHE_LIMIT = 6;
   let lavaRocksRenderedByWebGL = false;
   const viewport = () => options.getViewport();
   const visibleSize = () => ({ width: viewport().width / camera.zoom, height: viewport().height / camera.zoom });
@@ -205,7 +207,12 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     if (!source.complete || source.naturalWidth <= 0 || source.naturalHeight <= 0) return null;
     const tint = portalDestinationColor(destination);
     const cached = tintedPortalSwirls.get(tint);
-    if (cached) return cached;
+    if (cached) {
+      // Most recently used last, so the oldest colour is the first to go.
+      tintedPortalSwirls.delete(tint);
+      tintedPortalSwirls.set(tint, cached);
+      return cached;
+    }
     const canvas = createTintedImageCanvas(
       source,
       Math.min(source.naturalWidth, PORTAL_TINTED_SHEET_SIZE),
@@ -214,6 +221,11 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       true,
     );
     if (canvas) tintedPortalSwirls.set(tint, canvas);
+    // Every Endless map has its own colour, and each copy is a 768px canvas,
+    // so an unbounded cache grew by about 2 MB per map for the whole session.
+    while (tintedPortalSwirls.size > PORTAL_TINT_CACHE_LIMIT) {
+      tintedPortalSwirls.delete(tintedPortalSwirls.keys().next().value!);
+    }
     return canvas;
   }
 

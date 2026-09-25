@@ -15,6 +15,7 @@ function fixture(complete = false) {
       if (type === "load") loadListener = listener;
     }),
     removeEventListener: vi.fn(),
+    removeAttribute: vi.fn(),
   } as unknown as HTMLImageElement;
   const add = vi.fn();
   const remove = vi.fn();
@@ -69,6 +70,13 @@ describe("startup artwork reveal", () => {
     await flushPromises();
 
     expect(scene.add).not.toHaveBeenCalled();
+  });
+
+  it("lets go of the decoded artwork once disposed", () => {
+    const scene = fixture();
+    const reveal = createStartupArtworkReveal({ root: scene.root, source: "/wallpaper.webp", image: scene.image });
+    reveal.dispose();
+    expect(scene.image.removeAttribute).toHaveBeenCalledWith("src");
   });
 
   it("supports explicit deferred artwork without dropping the return backdrop before decode", async () => {

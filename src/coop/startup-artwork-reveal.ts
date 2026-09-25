@@ -53,6 +53,9 @@ export function createStartupArtworkReveal({
     dispose() {
       disposed = true;
       image.removeEventListener("load", revealAfterDecode);
+      // This element held the decoded 2160x3840 artwork (about 32 MB) for the
+      // whole session. The screens paint it from CSS, so only the preload is let go.
+      image.removeAttribute("src");
     },
   };
 }
