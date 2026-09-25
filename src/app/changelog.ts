@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.818": [
+    "The player attack-range indicator alternates light and dark dashes for clearer visibility.",
+    "Raised damage popups to reduce overlap with health bars.",
+  ],
   "0.817": [
     "Added a soft dark outline to the player attack-range indicator.",
     "Darkened Endless map colors slightly while keeping paths clear.",
@@ -2437,6 +2441,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.818": "2026-09-24",
   "0.817": "2026-09-24",
   "0.816": "2026-09-24",
   "0.815": "2026-09-24",

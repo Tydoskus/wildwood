@@ -40,6 +40,8 @@ export type SkillEffect = {
   width: number; color: string; jagged: boolean;
 };
 
+const DAMAGE_NUMBER_START_HEIGHT = 52;
+
 type CameraPosition = { x: number; y: number; zoom: number };
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
 
@@ -118,11 +120,11 @@ export function createCombatEffects() {
     let crowd = 0;
     for (const other of damageNumbers) {
       if (other === number || other.maxLife - other.life > DAMAGE_NUMBER_BURST_SECONDS) continue;
-      if (Math.abs(other.x - x) < DAMAGE_NUMBER_BURST_DISTANCE && Math.abs(other.startY - (y - 28)) < DAMAGE_NUMBER_BURST_DISTANCE) crowd++;
+      if (Math.abs(other.x - x) < DAMAGE_NUMBER_BURST_DISTANCE && Math.abs(other.startY - (y - DAMAGE_NUMBER_START_HEIGHT)) < DAMAGE_NUMBER_BURST_DISTANCE) crowd++;
     }
     const [spreadX, spreadY] = DAMAGE_NUMBER_SPREAD[crowd % DAMAGE_NUMBER_SPREAD.length];
     number.x = x + spreadX + rand(-6, 6);
-    number.startY = y - 28 + spreadY - Math.floor(crowd / DAMAGE_NUMBER_SPREAD.length) * 24;
+    number.startY = y - DAMAGE_NUMBER_START_HEIGHT + spreadY - Math.floor(crowd / DAMAGE_NUMBER_SPREAD.length) * 24;
     number.y = number.startY;
     number.life = DAMAGE_NUMBER_LIFETIME;
     number.maxLife = DAMAGE_NUMBER_LIFETIME;
