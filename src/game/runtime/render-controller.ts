@@ -140,11 +140,19 @@ export function createRenderController(options: {
       const x = snapWorldRenderCoordinate(player.x - camera.x, camera.zoom, dpr);
       const y = snapWorldRenderCoordinate(player.y - camera.y, camera.zoom, dpr);
       ctx.save();
-      ctx.strokeStyle = "rgba(104,180,212,.33)";
-      ctx.lineWidth = 2;
       ctx.setLineDash([8, 11]);
+      ctx.lineCap = "round";
       ctx.beginPath();
       ctx.arc(x, y, options.weaponAttackRange?.() ?? player.attackRange, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(10,18,23,.28)";
+      ctx.lineWidth = 4;
+      ctx.shadowColor = "rgba(0,0,0,.3)";
+      ctx.shadowBlur = 3;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = "transparent";
+      ctx.strokeStyle = "rgba(104,180,212,.33)";
+      ctx.lineWidth = 2;
       ctx.stroke();
       ctx.restore();
     }
