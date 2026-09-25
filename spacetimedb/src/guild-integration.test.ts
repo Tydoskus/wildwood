@@ -201,5 +201,5 @@ it("returns current public roster details for another guild without management d
   expect(preview.name).toBe("Rose");
   expect(preview.members).toHaveLength(2);
   expect(preview.members.find((row: any) => row.identity === identity("1").toHexString()).profileIcon).toBe(82);
-  expect(Object.keys(preview).sort()).toEqual(["id", "leader", "members", "name", "score", "vicePresident"]);
+  expect(Object.keys(preview).sort()).toEqual(["emblem", "id", "leader", "members", "name", "score", "vicePresident"]);
 });

@@ -6,7 +6,7 @@ import { Range, SenderError } from "spacetimedb/server";
 import type { ModuleReducerCtx } from "./index";
 import type { DuelFighter } from "../../shared/duel-combat";
 import {
-  GUILD_MEMBER_LIMIT, GUILD_DAILY_ATTACKS, GUILD_DAY_MICROS,
+  GUILD_EMBLEMS, GUILD_MEMBER_LIMIT, GUILD_DAILY_ATTACKS, GUILD_DAY_MICROS,
   GUILD_RANKING_LIMIT, guildDay, guildWeek, normalizeGuildName, resolveGuildBattle,
   type GuildFighter, type GuildSnapshot, type GuildStanding,
 } from "../../shared/guilds";
@@ -20,7 +20,7 @@ function fail(message: string): never { throw new SenderError(message); }
 const weekPrefix = (week: number) => `${String(week).padStart(10, "0")}:`;
 const rankKey = (guild: Guild) => `${weekPrefix(guild.week)}${String(999 - guild.score).padStart(3, "0")}:${String(999 - guild.wins).padStart(3, "0")}:${String(guild.battles).padStart(3, "0")}:${String(guild.id).padStart(20, "0")}`;
 const standing = (guild: Guild): GuildStanding => ({ id: String(guild.id), name: guild.name,
-  members: guild.members, score: guild.score, wins: guild.wins, battles: guild.battles });
+  emblem: guild.emblem, members: guild.members, score: guild.score, wins: guild.wins, battles: guild.battles });
 function members(ctx: Ctx, guildId: bigint) { return [...ctx.db.guildMember.guildId.filter(guildId)]; }
 function requireMember(ctx: Ctx) {
   return ctx.db.guildMember.identity.find(ctx.sender) ?? fail("Join a guild first.");
@@ -156,7 +156,7 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
       const blocked = guildNameModerationReason(normalized.name);
       if (blocked) fail("That guild name is not allowed.");
       if (ctx.db.guild.nameKey.find(normalized.nameKey)) fail("That guild name is already taken.");
-      const guild = ctx.db.guild.insert({ id: 0n, directoryId: 0n, ...normalized, leader: ctx.sender, members: 1,
+      const guild = ctx.db.guild.insert({ id: 0n, directoryId: 0n, emblem: -1, ...normalized, leader: ctx.sender, members: 1,
         champions: 0, week: guildWeek(now(ctx)), score: 0, wins: 0, battles: 0,
         attackDay: guildDay(now(ctx)), attacks: 0, opponents: "[]" });
       ctx.db.guild.id.update({ ...guild, directoryId: guild.id });
@@ -246,28 +246,43 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
       }
       deps.announceBattle?.(ctx, report);
     },
+    setEmblem(ctx: Ctx, emblem: number) {
+      const member = requireMember(ctx);
+      const guild = ctx.db.guild.id.find(member.guildId) ?? fail("Guild no longer exists.");
+      if (!guild.leader.equals(ctx.sender) && !member.vicePresident) fail("Only the President or Vice President can change the badge.");
+      if (!Number.isInteger(emblem) || emblem < 0 || emblem >= GUILD_EMBLEMS.length) fail("Choose a valid guild badge.");
+      const updated = { ...currentGuild(ctx, guild), emblem };
+      ctx.db.guild.id.update(updated);
+      writeRanking(ctx, updated);
+    },
     preview(ctx: Ctx, guildId: bigint) {
       const stored = ctx.db.guild.id.find(guildId) ?? fail("Guild no longer exists.");
       const guild = currentGuild(ctx, stored), roster = members(ctx, guildId);
-      return { id: String(guild.id), name: guild.name, leader: key(guild.leader), score: guild.score,
+      return { id: String(guild.id), name: guild.name, emblem: guild.emblem, leader: key(guild.leader), score: guild.score,
         vicePresident: roster.find(row => row.vicePresident)?.identity.toHexString() ?? null,
         members: roster.map(row => {
           const profile = deps.profileFor?.(ctx, row.identity);
           return { identity: key(row.identity), name: profile?.displayName ?? row.name,
-            profileIcon: profile?.profileIcon ?? 0, eligibleAt: String(row.eligibleAt),
+            power: deps.powerFor?.(ctx, row.identity) ?? 0, profileIcon: profile?.profileIcon ?? 0, eligibleAt: String(row.eligibleAt),
             ...deps.presenceFor?.(ctx, row.identity) };
         }) };
     },
-    snapshot(ctx: Ctx, afterId = 0n, signedIn = true): GuildSnapshot {
+    snapshot(ctx: Ctx, afterId = 0n, signedIn = true, byPower = false): GuildSnapshot {
       const member = ctx.db.guildMember.identity.find(ctx.sender);
       const stored = member ? ctx.db.guild.id.find(member.guildId) : null;
       const guild = stored ? currentGuild(ctx, stored) : null;
       const roster = guild ? members(ctx, guild.id) : [];
+      const memberPowers = new Map<string, number>();
+      const memberPower = (identity: Identity) => {
+        const id = key(identity);
+        if (!memberPowers.has(id)) memberPowers.set(id, deps.powerFor?.(ctx, identity) ?? 0);
+        return memberPowers.get(id)!;
+      };
       const powers = new Map<bigint, number>();
       const totalPower = (guildId: bigint) => {
         if (!powers.has(guildId)) {
           const lineup = guildId === guild?.id ? roster : members(ctx, guildId);
-          powers.set(guildId, lineup.reduce((sum, row) => sum + (deps.powerFor?.(ctx, row.identity) ?? 0), 0));
+          powers.set(guildId, lineup.reduce((sum, row) => sum + memberPower(row.identity), 0));
         }
         return powers.get(guildId)!;
       };
@@ -276,24 +291,28 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
       const directory: GuildSnapshot["directory"] = [];
       const challengedToday = new Set<string>(guild ? JSON.parse(guild.opponents) : []);
       let nextPage: string | null = null;
-      for (const row of ctx.db.guild.directoryId.filter(new Range({ tag: "excluded", value: afterId }))) {
+      // Only explicit opponent searches rank all guilds. Normal directory reads remain bounded.
+      const ranked = byPower ? [...ctx.db.guild.iter()].filter(row => row.id !== guild?.id).sort((a, b) => totalPower(b.id) - totalPower(a.id) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)) : [];
+      const rows = byPower ? ranked.slice(afterId ? Math.max(0, ranked.findIndex(row => row.id === afterId) + 1) : 0)
+        : ctx.db.guild.directoryId.filter(new Range({ tag: "excluded", value: afterId }));
+      for (const row of rows) {
         if (directory.length === 20) { nextPage = directory[19].id; break; }
-        directory.push({ id: String(row.id), name: row.name, members: row.members, totalPower: totalPower(row.id),
+        directory.push({ id: String(row.id), name: row.name, emblem: row.emblem, members: row.members, totalPower: totalPower(row.id),
           challengedToday: challengedToday.has(String(row.id)) });
       }
       return { identity: key(ctx.sender), serverNow: String(now(ctx)), week,
         nextWeekAt: String(BigInt((week + 1) * 7 - 3) * GUILD_DAY_MICROS),
         joinAfter: "0", signedIn,
-        guild: guild ? { id: String(guild.id), name: guild.name, leader: key(guild.leader),
+        guild: guild ? { id: String(guild.id), name: guild.name, emblem: guild.emblem, leader: key(guild.leader),
           vicePresident: roster.find(row => row.vicePresident)?.identity.toHexString() ?? null,
           attacksRemaining: GUILD_DAILY_ATTACKS - guild.attacks, score: guild.score,
           totalPower: totalPower(guild.id),
           // Repair old join-time names on read with one indexed profile lookup;
-          // power reads are bounded to this roster and the 20-guild directory page.
+          // Reuse power reads from the directory totals.
           members: roster.map(row => {
             const profile = deps.profileFor?.(ctx, row.identity);
             return { identity: key(row.identity), name: profile?.displayName ?? row.name,
-              profileIcon: profile?.profileIcon ?? 0, eligibleAt: String(row.eligibleAt),
+              power: memberPower(row.identity), profileIcon: profile?.profileIcon ?? 0, eligibleAt: String(row.eligibleAt),
               ...deps.presenceFor?.(ctx, row.identity) };
           }) } : null,
         directory, nextPage, standings: cache?.week === week ? JSON.parse(cache.entries) : [],

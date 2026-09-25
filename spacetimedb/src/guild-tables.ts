@@ -6,6 +6,7 @@ const guild = table({ name: "guild", public: false }, {
   id: t.u64().primaryKey().autoInc(), directoryId: t.u64().index("btree"), nameKey: t.string().unique(), name: t.string(), leader: t.identity(),
   members: t.u32(), champions: t.u32(), week: t.u32(), score: t.u32(), wins: t.u32(), battles: t.u32(),
   attackDay: t.u32(), attacks: t.u32(), opponents: t.string(),
+  emblem: t.i32().default(-1),
 });
 const guildMember = table({ name: "guild_member", public: false }, {
   identity: t.identity().primaryKey(), guildId: t.u64().index("btree"), name: t.string(),

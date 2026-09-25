@@ -6036,11 +6036,16 @@ export const joinGuild = spacetimedb.reducer({ guildId: t.u64() }, (ctx, { guild
 export const leaveGuild = spacetimedb.reducer((ctx) => { requireGuildPlayer(ctx); guildService.leave(ctx); });
 export const transferGuildLeadership = spacetimedb.reducer({ identity: t.identity() }, (ctx, { identity }) => { requireGuildPlayer(ctx); guildService.transfer(ctx, identity); });
 export const setGuildVicePresident = spacetimedb.reducer({ identity: t.identity(), enabled: t.bool() }, (ctx, { identity, enabled }) => { requireGuildPlayer(ctx); guildService.setVicePresident(ctx, identity, enabled); });
+export const setGuildEmblem = spacetimedb.reducer({ emblem: t.u8() }, (ctx, { emblem }) => { requireGuildPlayer(ctx); guildService.setEmblem(ctx, emblem); });
 export const kickGuildMember = spacetimedb.reducer({ identity: t.identity() }, (ctx, { identity }) => { requireGuildPlayer(ctx); guildService.kick(ctx, identity); });
 export const challengeGuild = spacetimedb.reducer({ opponentGuildId: t.u64() }, (ctx, { opponentGuildId }) => { requireGuildPlayer(ctx); guildService.challenge(ctx, opponentGuildId); });
 export const getGuildHub = spacetimedb.procedure({ afterId: t.u64() }, t.string(), (ctx, { afterId }) => ctx.withTx(tx => {
   requireGuildConnection(tx);
   return JSON.stringify(guildService.snapshot(tx, afterId, hasSpacetimeAuthAccount(tx)));
+}));
+export const getGuildBattleHub = spacetimedb.procedure({ afterId: t.u64() }, t.string(), (ctx, { afterId }) => ctx.withTx(tx => {
+  requireGuildConnection(tx);
+  return JSON.stringify(guildService.snapshot(tx, afterId, hasSpacetimeAuthAccount(tx), true));
 }));
 export const getGuildPreview = spacetimedb.procedure({ guildId: t.u64() }, t.string(), (ctx, { guildId }) => ctx.withTx(tx => {
   requireGuildConnection(tx);

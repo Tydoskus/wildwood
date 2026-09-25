@@ -840,6 +840,7 @@ export const Guild = __t.object("Guild", {
   attackDay: __t.u32(),
   attacks: __t.u32(),
   opponents: __t.string(),
+  emblem: __t.i32(),
 });
 export type Guild = __Infer<typeof Guild>;
 

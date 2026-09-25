@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.811": [
+    "Guild Presidents and Vice Presidents can choose their guild badge.",
+    "Guild member lists now show each player's power.",
+    "Guild battle opponents are sorted by power, strongest first.",
+  ],
   "0.810": [
     "Lock individual equipment items to protect them from deletion and replacement.",
     "Player profiles now show prestige bonuses and slot upgrade levels, including empty slots.",
@@ -2402,6 +2407,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.811": "2026-09-24",
   "0.810": "2026-09-24",
   "0.809": "2026-09-24",
   "0.808": "2026-09-24",

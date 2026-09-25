@@ -13,7 +13,7 @@ vi.mock("spacetimedb/server", async () => ({ ...(await import("../../tests/helpe
 const identity = (id: number) => new Identity(id.toString(16).padStart(64, "0"));
 const guildName = (n: number) => `G${String.fromCharCode(65 + Math.floor(n / 26))}${String.fromCharCode(65 + n % 26)}d`;
 const fighter: DuelFighter = { maxHp: 100, damage: 20, armor: 0, regen: 0, attackRate: 1 };
-function fixture() {
+function fixture(allowGuildScan = false) {
   // Separate root/server SDK installs have nominal BinaryReader private fields;
   // the test registration shim consumes identical structural table metadata.
   const memory = createMemoryDatabase(schema({ ...guildTables, ...socialTables } as unknown as Parameters<typeof schema>[0]));
@@ -37,7 +37,7 @@ function fixture() {
       rows.sort((a, b) => a[column] < b[column] ? -1 : a[column] > b[column] ? 1 : 0);
       for (const row of recent ? [recent, ...rows] : rows) { reads[table]++; yield row; }
     };
-    db[table].iter = () => { throw Error("Unexpected global table scan"); };
+    if (table !== "guild" || !allowGuildScan) db[table].iter = () => { throw Error("Unexpected global table scan"); };
   }
   for (const name of ["guildMember", "guildBattleReport", "guildAccount", "guildStanding", "guildReportParticipant"]) db[name].iter = () => { throw Error("Unexpected global table scan"); };
   const service = createGuildService({ fighterFor: (_ctx, who) => ({ name: `Player ${who.toHexString().slice(-3)}`, fighter: stats.get(who.toHexString()) ?? fighter }) });
@@ -342,4 +342,28 @@ describe("asynchronous battles and bounded standings", () => {
     expect(top[0].id).toBe("2");
     expect(top[49].id).toBe("51");
   });
+});
+
+it('restricts badge edits to the President and Vice President and persists the choice', () => {
+  const f = fixture(); const id = f.makeGuild(1);
+  expect(() => f.run(2, ctx => f.service.setEmblem(ctx, 3))).toThrow('President');
+  f.run(1, ctx => f.service.setEmblem(ctx, 3));
+  expect(f.run(2, ctx => f.service.preview(ctx, id)).emblem).toBe(3);
+  f.run(1, ctx => f.service.setVicePresident(ctx, identity(2), true));
+  f.run(2, ctx => f.service.setEmblem(ctx, 15));
+  expect(f.run(1, ctx => f.service.snapshot(ctx)).guild?.emblem).toBe(15);
+  expect(() => f.run(2, ctx => f.service.setEmblem(ctx, 16))).toThrow('valid');
+  expect(() => f.run(2, ctx => f.service.setEmblem(ctx, -1))).toThrow('valid');
+});
+it('ranks opponents by saved power across page boundaries and reports member power', () => {
+  const f = fixture(true);
+  for (let who = 1; who <= 25; who++) f.run(who, ctx => f.service.create(ctx, guildName(who)));
+  const service = createGuildService({ fighterFor: () => ({ name: "Test", fighter }),
+    powerFor: (_ctx, who) => Number(BigInt(`0x${who.toHexString()}`)) * 1000 });
+  const first = f.run(1, ctx => service.snapshot(ctx, 0n, true, true));
+  expect(first.guild?.members[0].power).toBe(1000);
+  expect(first.directory.map(row => row.totalPower)).toEqual(Array.from({ length: 20 }, (_, i) => (25 - i) * 1000));
+  const next = f.run(1, ctx => service.snapshot(ctx, BigInt(first.nextPage!), true, true));
+  expect(next.directory.map(row => row.totalPower)).toEqual([5000, 4000, 3000, 2000]);
+  expect(next.nextPage).toBeNull();
 });

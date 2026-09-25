@@ -5,7 +5,7 @@ import { renderFriends, renderGuildInvites, renderReceivedGuildInvites } from ".
 import type { SocialSnapshot, SocialAction } from "../../shared/social";
 import type { SocialApi } from "../coop/services/social-service";
 import { createGuildEmblem } from './guild-emblems';
-import { GUILD_MEMBER_LIMIT, type GuildSnapshot, type GuildReport } from "../../shared/guilds";
+import { GUILD_EMBLEMS, GUILD_MEMBER_LIMIT, type GuildSnapshot, type GuildReport } from "../../shared/guilds";
 import type { GuildAction, GuildApi } from "../coop/services/guild-service";
 import { applyProfileIcon } from "../app/profile-icons";
 import { createGuildPreview } from './guild-preview';
@@ -55,7 +55,7 @@ export function createGuildPanel(options: Options) {
   let busy = false;
   let error = "", notice = "", page = "0", session = "", draftName = "";
   let serial = 0, clockOffset = 0, socialRevision = -1;
-  let creating = false;
+  let creating = false, choosingEmblem = false;
   let battleView: "opponents" | "history" | null = null;
   let managedMember: string | null = null;
   let confirmation: { title: string; detail: string; label: string; action: GuildAction } | null = null;
@@ -67,8 +67,8 @@ export function createGuildPanel(options: Options) {
     node.type = "button"; node.disabled = busy || disabled; node.dataset.focusKey = key;
     node.addEventListener("click", action); return node;
   }
-  function mark(name: string, className = "guild-mark") {
-    return createGuildEmblem(doc, name, className);
+  function mark(name: string, className = "guild-mark", emblem?: number) {
+    return createGuildEmblem(doc, name, className, emblem);
   }
   function heading(parent: HTMLElement, title: string, detail?: string) {
     const node = element("div", undefined, "guild-section-heading");
@@ -113,7 +113,7 @@ export function createGuildPanel(options: Options) {
         await socialApi.socialAction(socialAction); saved = true;
         if (!current(id)) return;
       }
-      const [next, socialNext] = await Promise.all([api.loadGuild(page), options.socialApi?.()?.loadSocial() ?? Promise.resolve(null)]);
+      const [next, socialNext] = await Promise.all([api.loadGuild(page, section === "battles"), options.socialApi?.()?.loadSocial() ?? Promise.resolve(null)]);
       if (!current(id)) return;
       snapshot = next; social = socialNext;
       if (socialAction) {
@@ -152,8 +152,11 @@ export function createGuildPanel(options: Options) {
   const act = (action: GuildAction) => { void load(action); };
   function switchSection(next: Section) {
     const body = dialog.querySelector(".guild-content"); if (body) body.scrollTop = 0;
+    const refreshDirectory = section === "battles" || next === "battles";
+    if (refreshDirectory) page = "0";
     section = next; activeReplay = null; confirmation = null; managedMember = null; notice = ""; render();
     dialog.querySelector<HTMLElement>(`[data-focus-key="tab-${next}"]`)?.focus();
+    if (refreshDirectory) void load();
   }
   function openFriends() {
     friendsReturn = section === "friends" ? friendsReturn : section;
@@ -190,6 +193,7 @@ export function createGuildPanel(options: Options) {
   function renderDirectory(parent: HTMLElement, challenge = false) {
     const g = snapshot!;
     const entries = g.directory.filter(entry => entry.id !== g.guild?.id);
+    if (challenge) entries.sort((a, b) => (b.totalPower ?? 0) - (a.totalPower ?? 0));
     if (!entries.length) empty(parent, challenge ? "No opponents yet" : "No guilds here yet", challenge ? "Other guilds will appear here as players create them." : "Be the first to create one, or check another page.");
     const list = element("div", undefined, "guild-list"); parent.append(list);
     for (const entry of entries) {
@@ -207,7 +211,7 @@ export function createGuildPanel(options: Options) {
       }
       const preview = element('button', undefined, 'guild-member-profile'); preview.type = 'button';
       preview.setAttribute('aria-label', `View ${entry.name} guild`);
-      preview.append(mark(entry.name, "guild-avatar"), item.firstElementChild!);
+      preview.append(mark(entry.name, "guild-avatar", entry.emblem), item.firstElementChild!);
       preview.addEventListener('click', () => void otherGuild.open(entry.id)); item.prepend(preview);
       if (!challenge) item.append(button(entry.members >= GUILD_MEMBER_LIMIT ? "Full" : "Join", () => act({ kind: "join", guildId: entry.id }), "secondary", !canJoin() || entry.members >= GUILD_MEMBER_LIMIT, `join-${entry.id}`));
       else if (canStartBattles()) {
@@ -237,6 +241,7 @@ export function createGuildPanel(options: Options) {
     profile.type = "button";
     profile.setAttribute("aria-label", `View ${member.name}'s profile`);
     profile.dataset.focusKey = `profile-${member.identity}`;
+    item.firstElementChild!.append(element("span", `Power: ${member.power === undefined ? "—" : formatCompactNumber(member.power)}`, "guild-member-power"));
     profile.append(portrait, item.firstElementChild!);
     if (!office) {
       const chevron = element("span", "", "guild-profile-chevron");
@@ -302,7 +307,23 @@ export function createGuildPanel(options: Options) {
     const copy = element("div");
     copy.append(element("h3", own.name));
     copy.append(element("p", `${own.members.length} / ${GUILD_MEMBER_LIMIT} members`));
-    identity.append(mark(own.name), copy); body.append(identity);
+    const badge = element("div", undefined, "guild-badge-edit");
+    badge.append(mark(own.name, "guild-mark", own.emblem));
+    if (canStartBattles()) {
+      const pencil = button("✎", () => { choosingEmblem = !choosingEmblem; render(); }, "icon", false, "edit-badge");
+      pencil.classList.add("guild-badge-pencil"); pencil.setAttribute("aria-label", "Change guild badge");
+      pencil.setAttribute("aria-expanded", String(choosingEmblem)); badge.append(pencil);
+    }
+    identity.append(badge, copy); body.append(identity);
+    if (choosingEmblem && canStartBattles()) {
+      const picker = element("div", undefined, "guild-badge-picker");
+      picker.setAttribute("aria-label", "Choose guild badge");
+      GUILD_EMBLEMS.forEach((name, emblem) => {
+        const choice = button("", () => { choosingEmblem = false; act({ kind: "emblem", emblem }); }, "icon", false, `badge-${emblem}`);
+        choice.setAttribute("aria-label", `${name} badge`); choice.setAttribute("aria-pressed", String(own.emblem === emblem));
+        choice.append(mark(name, "guild-avatar", emblem)); picker.append(choice);
+      }); body.append(picker);
+    }
     const power = element("div", undefined, "guild-total-power");
     const amount = own.totalPower === undefined ? "—" : formatCompactNumber(own.totalPower);
     power.setAttribute("aria-label", `Guild power: ${amount}`);
@@ -353,7 +374,7 @@ export function createGuildPanel(options: Options) {
     body.append(tabs);
     if (view === "history") renderReports(body);
     else {
-      heading(body, "Choose an opponent", `${own.attacksRemaining} attacks left · Resets 00:00 UTC`);
+      heading(body, "Choose an opponent", `${own.attacksRemaining} attacks left · Highest power first · Resets 00:00 UTC`);
       if (!canStartBattles()) body.append(element("p", "Only the President or Vice President can challenge.", "guild-callout"));
       else if (!own.attacksRemaining) body.append(element("p", "All attacks used. More at 00:00 UTC.", "guild-callout"));
       else {
@@ -374,7 +395,7 @@ export function createGuildPanel(options: Options) {
     g.standings.forEach((entry, index) => {
       const own = entry.id === g.guild?.id;
       const item = element("li", undefined, own ? "guild-ranking-own" : "");
-      item.append(element("span", String(index + 1).padStart(2, "0"), `guild-rank${index < 3 ? " guild-rank--top" : ""}`), mark(entry.name, "guild-avatar"));
+      item.append(element("span", String(index + 1).padStart(2, "0"), `guild-rank${index < 3 ? " guild-rank--top" : ""}`), mark(entry.name, "guild-avatar", entry.emblem));
       const copy = element("div", undefined, "guild-row-copy");
       copy.append(element("strong", entry.name), element("span", `${entry.wins} wins · ${entry.members} members${own ? " · Your guild" : ""}`));
       const score = element("div", undefined, "guild-score"); score.append(element("strong", number(entry.score)), element("span", "pts"));
@@ -477,7 +498,7 @@ export function createGuildPanel(options: Options) {
     if (!root.hidden) close();
     previousFocus = doc.activeElement as HTMLElement | null; options.beforeOpen();
     section = next; friendsReturn = null; battleView = null; session = options.sessionKey(); page = "0"; busy = false; snapshot = null; social = null; drafts.friend = ""; drafts.invite = "";
-    error = ""; notice = ""; creating = false; draftName = ""; managedMember = null;
+    error = ""; notice = ""; creating = false; choosingEmblem = false; draftName = ""; managedMember = null;
     root.hidden = false; doc.getElementById("guildBtn")?.setAttribute("aria-expanded", "true");
     render(); dialog.focus(); void load();
     // Session safety only: snapshots are fetched on opening, refresh or action.

@@ -178,3 +178,10 @@ body:has(.guild-overlay:not([hidden])) #profileIconPicker { z-index: 14; }
 .guild-profile-chevron { width: 8px; height: 8px; border-top: 2px solid #a7aba8; border-right: 2px solid #a7aba8; transform: rotate(45deg); margin: 0 5px 0 auto; flex-shrink: 0; }
 .guild-content > .guild-header { margin-top: 18px; padding: 0; }
 .guild-create-requirement { font-size: 11px; margin: 8px 0 !important; }
+
+.guild-badge-edit { position: relative; flex: 0 0 auto; }
+.guild-badge-pencil { position: absolute; right: -5px; bottom: -5px; margin: 0; width: 28px; height: 28px; min-height: 28px; padding: 0; }
+.guild-badge-picker { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 12px 0; }
+.guild-badge-picker .guild-button { margin: 0; width: 100%; height: auto; padding: 6px; }
+.guild-badge-picker [aria-pressed="true"] { outline: 2px solid #75bcf6; }
+.guild-row-copy .guild-member-power { color: #cfbaef; font-size: 12px; }

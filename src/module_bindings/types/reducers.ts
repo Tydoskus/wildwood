@@ -141,6 +141,7 @@ import SetDeveloperPresenceReducer from "../set_developer_presence_reducer";
 import SetDisplayNameReducer from "../set_display_name_reducer";
 import SetEquipmentLockedReducer from "../set_equipment_locked_reducer";
 import SetGenderReducer from "../set_gender_reducer";
+import SetGuildEmblemReducer from "../set_guild_emblem_reducer";
 import SetGuildVicePresidentReducer from "../set_guild_vice_president_reducer";
 import SetIgnoredDropsReducer from "../set_ignored_drops_reducer";
 import SetLootSettingsReducer from "../set_loot_settings_reducer";
@@ -304,6 +305,7 @@ export type SetDeveloperPresenceParams = __Infer<typeof SetDeveloperPresenceRedu
 export type SetDisplayNameParams = __Infer<typeof SetDisplayNameReducer>;
 export type SetEquipmentLockedParams = __Infer<typeof SetEquipmentLockedReducer>;
 export type SetGenderParams = __Infer<typeof SetGenderReducer>;
+export type SetGuildEmblemParams = __Infer<typeof SetGuildEmblemReducer>;
 export type SetGuildVicePresidentParams = __Infer<typeof SetGuildVicePresidentReducer>;
 export type SetIgnoredDropsParams = __Infer<typeof SetIgnoredDropsReducer>;
 export type SetLootSettingsParams = __Infer<typeof SetLootSettingsReducer>;

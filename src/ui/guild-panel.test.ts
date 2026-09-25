@@ -31,7 +31,7 @@ async function settled() { for (let i = 0; i < 10; i++) await Promise.resolve();
 describe("guild panel", () => {
   it("shows total guild power beside battle opponent names", async () => {
     const g = fixture(); g.directory[0].totalPower = 2_500_000_000;
-    const h = setup(g); h.panel.open(); await settled(); h.click("Battles");
+    const h = setup(g); h.panel.open(); await settled(); h.click("Battles"); await settled();
     const title = h.document.querySelector(".guild-opponent-heading")!;
     expect(title.textContent).toContain("Moonlight");
     expect(title.querySelector(".guild-opponent-power")?.textContent).toBe("2.50b");
@@ -76,7 +76,7 @@ describe("guild panel", () => {
     const h = setup(g); h.panel.open(); await settled();
     expect(h.document.querySelector(".guild-officer--vice")!.textContent).toContain("Vice President · You");
     expect(h.find("Manage C")).toBeUndefined();
-    h.click("Battles"); h.click("Challenge"); h.click("Start battle"); await settled();
+    h.click("Battles"); await settled(); h.click("Challenge"); h.click("Start battle"); await settled();
     expect(h.api.guildAction).toHaveBeenCalledWith({ kind: "challenge", opponentGuildId: "2" });
   });
   it("places creation and invitations ahead of discovery", async () => {
@@ -132,14 +132,15 @@ describe("guild panel", () => {
     expect(h.document.getElementById("guildOverlay")!.hidden).toBe(false);
     expect(h.api.loadGuild).toHaveBeenCalledTimes(2);
   });
-  it("keeps navigation focused and reuses the loaded snapshot across sections", async () => {
+  it("keeps navigation focused and requests ranked opponents when opening battles", async () => {
     const h = setup(); h.panel.open(); await settled();
     expect([...h.document.querySelectorAll(".guild-tabs button")].map(node => node.textContent)).toEqual(["My Guild", "Battles", "Rankings"]);
     expect(h.document.querySelectorAll(".guild-champion")).toHaveLength(0);
     expect(h.find("Make President")).toBeUndefined();
     expect(h.find("Remove member")).toBeUndefined();
-    h.click("Rankings"); h.click("Battles");
-    expect(h.api.loadGuild).toHaveBeenCalledTimes(1);
+    h.click("Rankings"); h.click("Battles"); await settled();
+    expect(h.api.loadGuild).toHaveBeenCalledTimes(2);
+    expect(h.api.loadGuild).toHaveBeenLastCalledWith("0", true);
   });
   it("reveals management only for the selected member and confirms leadership changes", async () => {
     const h = setup(); h.panel.open(); await settled(); h.click("Manage B");
@@ -153,7 +154,7 @@ describe("guild panel", () => {
   it("has no champion selection and includes every member in the challenge", async () => {
     const h = setup(); h.panel.open(); await settled(); h.click("Manage D");
     expect(h.find("Set as champion")).toBeUndefined(); expect(h.find("Update my build")).toBeUndefined();
-    h.click("Battles"); h.click("Challenge");
+    h.click("Battles"); await settled(); h.click("Challenge");
     expect(h.document.body.textContent).toContain("All 4 of your members will fight their 5 members");
   });
   it("keeps leadership controls unavailable to ordinary members", async () => {
@@ -161,7 +162,7 @@ describe("guild panel", () => {
     const h = setup(g); h.panel.open(); await settled();
     expect(h.find("Update my build")).toBeUndefined();
     expect(h.find("Manage A")).toBeUndefined();
-    h.click("Battles"); expect(h.find("Challenge")).toBeUndefined();
+    h.click("Battles"); await settled(); expect(h.find("Challenge")).toBeUndefined();
   });
   it("requires confirmation before spending a guild attack", async () => {
     const h = setup(); h.panel.open("battles"); await settled(); h.click("Challenge");
@@ -369,4 +370,18 @@ it("opens another guild in a compact preview without closing your fullscreen gui
   expect(h.panel.isOpen()).toBe(true);
   expect(h.api.loadGuild).toHaveBeenCalledTimes(1);
   expect(h.api.guildAction).not.toHaveBeenCalled();
+});
+
+it.each(["a", "b", "c"])("shows the badge pencil only to officers (%s)", async viewer => {
+  const g = fixture(); g.identity = viewer; g.guild!.vicePresident = "b";
+  g.guild!.members[0].power = 2500;
+  const h = setup(g); h.panel.open(); await settled();
+  expect(Boolean(h.find("Change guild badge"))).toBe(viewer !== "c");
+  expect(h.document.querySelector(".guild-member-power")?.textContent).toContain("Power:");
+  if (viewer !== "c") {
+    h.click("Change guild badge");
+    expect(h.document.querySelectorAll(".guild-badge-picker button")).toHaveLength(16);
+    h.click("wolf badge"); await settled();
+    expect(h.api.guildAction).toHaveBeenCalledWith({ kind: "emblem", emblem: 0 });
+  }
 });

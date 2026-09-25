@@ -6,6 +6,7 @@ export type GuildAction =
   | { kind: "create"; name: string } | { kind: "join"; guildId: string } | { kind: "leave" }
   | { kind: "transfer"; identity: string } | { kind: "kick"; identity: string }
   | { kind: "vicePresident"; identity: string; enabled: boolean }
+  | { kind: "emblem"; emblem: number }
   | { kind: "challenge"; opponentGuildId: string };
 
 type Dependencies = {
@@ -59,15 +60,16 @@ export function createGuildService(deps: Dependencies) {
       current.check();
       return JSON.parse(result) as GuildReport;
     },
-    async loadGuild(afterId = "0"): Promise<GuildSnapshot> {
+    async loadGuild(afterId = "0", byPower = false): Promise<GuildSnapshot> {
       const current = request();
-      const result = await current.connection.procedures.getGuildHub({ afterId: BigInt(afterId) });
+      const result = await (byPower ? current.connection.procedures.getGuildBattleHub({ afterId: BigInt(afterId) }) : current.connection.procedures.getGuildHub({ afterId: BigInt(afterId) }));
       current.check();
       return JSON.parse(result) as GuildSnapshot;
     },
     async guildAction(action: GuildAction) {
       return mutate(async (connection) => {
         switch (action.kind) {
+          case "emblem": return connection.reducers.setGuildEmblem({ emblem: action.emblem });
           case "create": return connection.reducers.createGuild({ name: action.name });
           case "join": return connection.reducers.joinGuild({ guildId: BigInt(action.guildId) });
           case "leave": return connection.reducers.leaveGuild({});

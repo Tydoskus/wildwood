@@ -169,6 +169,7 @@ import SetDeveloperPresenceReducer from "./set_developer_presence_reducer";
 import SetDisplayNameReducer from "./set_display_name_reducer";
 import SetEquipmentLockedReducer from "./set_equipment_locked_reducer";
 import SetGenderReducer from "./set_gender_reducer";
+import SetGuildEmblemReducer from "./set_guild_emblem_reducer";
 import SetGuildVicePresidentReducer from "./set_guild_vice_president_reducer";
 import SetIgnoredDropsReducer from "./set_ignored_drops_reducer";
 import SetLootSettingsReducer from "./set_loot_settings_reducer";
@@ -211,6 +212,7 @@ import * as GetDevConsoleProcedure from "./get_dev_console_procedure";
 import * as GetDevPlayerCardProcedure from "./get_dev_player_card_procedure";
 import * as GetDevReviewQueueProcedure from "./get_dev_review_queue_procedure";
 import * as GetDeveloperTravelTargetProcedure from "./get_developer_travel_target_procedure";
+import * as GetGuildBattleHubProcedure from "./get_guild_battle_hub_procedure";
 import * as GetGuildHubProcedure from "./get_guild_hub_procedure";
 import * as GetGuildPreviewProcedure from "./get_guild_preview_procedure";
 import * as GetGuildReplayProcedure from "./get_guild_replay_procedure";
@@ -1496,6 +1498,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_display_name", SetDisplayNameReducer),
   __reducerSchema("set_equipment_locked", SetEquipmentLockedReducer),
   __reducerSchema("set_gender", SetGenderReducer),
+  __reducerSchema("set_guild_emblem", SetGuildEmblemReducer),
   __reducerSchema("set_guild_vice_president", SetGuildVicePresidentReducer),
   __reducerSchema("set_ignored_drops", SetIgnoredDropsReducer),
   __reducerSchema("set_loot_settings", SetLootSettingsReducer),
@@ -1540,6 +1543,7 @@ const proceduresSchema = __procedures(
   __procedureSchema("get_dev_player_card", GetDevPlayerCardProcedure.params, GetDevPlayerCardProcedure.returnType),
   __procedureSchema("get_dev_review_queue", GetDevReviewQueueProcedure.params, GetDevReviewQueueProcedure.returnType),
   __procedureSchema("get_developer_travel_target", GetDeveloperTravelTargetProcedure.params, GetDeveloperTravelTargetProcedure.returnType),
+  __procedureSchema("get_guild_battle_hub", GetGuildBattleHubProcedure.params, GetGuildBattleHubProcedure.returnType),
   __procedureSchema("get_guild_hub", GetGuildHubProcedure.params, GetGuildHubProcedure.returnType),
   __procedureSchema("get_guild_preview", GetGuildPreviewProcedure.params, GetGuildPreviewProcedure.returnType),
   __procedureSchema("get_guild_replay", GetGuildReplayProcedure.params, GetGuildReplayProcedure.returnType),

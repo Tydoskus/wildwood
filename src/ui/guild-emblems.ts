@@ -1,6 +1,5 @@
 /** Generated atlas: measured 300px square frames keep adjacent shields out. */
-const EMBLEMS = ['wolf', 'fox', 'bear', 'owl', 'dragon', 'lion', 'raven', 'stag',
-  'swords', 'fire', 'serpent', 'moon', 'sun', 'tree', 'crystal', 'leopard'];
+import { GUILD_EMBLEMS as EMBLEMS } from "../../shared/guilds";
 const COLUMNS = [9, 322, 635, 948];
 const ROWS = [10, 312, 613, 913];
 
@@ -14,11 +13,11 @@ export function guildEmblemIndex(name: string) {
   return hash % EMBLEMS.length;
 }
 
-export function createGuildEmblem(doc: Document, name: string, className = 'guild-mark') {
+export function createGuildEmblem(doc: Document, name: string, className = 'guild-mark', chosen?: number) {
   const element = doc.createElement('span');
   element.className = `${className} guild-emblem`;
   element.setAttribute('aria-hidden', 'true');
-  const index = guildEmblemIndex(name);
+  const index = chosen !== undefined && Number.isInteger(chosen) && chosen >= 0 && chosen < EMBLEMS.length ? chosen : guildEmblemIndex(name);
   element.style.backgroundPosition = `${COLUMNS[index % 4] / 954 * 100}% ${ROWS[Math.floor(index / 4)] / 954 * 100}%`;
   return element;
 }

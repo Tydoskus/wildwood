@@ -1,3 +1,4 @@
+import { formatCompactNumber } from "./number-format";
 import { createGuildEmblem } from './guild-emblems';
 import { guildMemberPresence } from './guild-presence';
 import { GUILD_MEMBER_LIMIT, type GuildPreview } from '../../shared/guilds';
@@ -31,6 +32,7 @@ export function createGuildPreview(options: {
     button.setAttribute('aria-label', `View ${member.name}'s profile`);
     const icon = node('span', '', 'guild-avatar'); applyProfileIcon(icon, member.profileIcon ?? 0);
     const text = node('span', '', 'guild-row-copy'); text.append(node('strong', member.name), node('span', role || guildMemberPresence(member, Date.now()), role ? '' : member.online ? 'guild-presence--online' : 'guild-presence--offline'));
+    text.append(node("span", `Power: ${member.power === undefined ? "—" : formatCompactNumber(member.power)}`, "guild-member-power"));
     button.append(icon, text); button.addEventListener('click', () => { options.openPlayer(member.identity, member.name); });
     return button;
   }
@@ -43,7 +45,7 @@ export function createGuildPreview(options: {
       if (request !== revision || root.hidden) return;
       body.textContent = ''; body.removeAttribute('role');
       const identity = node('div', '', 'guild-identity guild-preview-identity');
-      identity.append(createGuildEmblem(doc, guild.name), node('h3', guild.name)); body.append(identity);
+      identity.append(createGuildEmblem(doc, guild.name, "guild-mark", guild.emblem), node('h3', guild.name)); body.append(identity);
       body.append(node('p', `${guild.members.length}/${GUILD_MEMBER_LIMIT} members · ${guild.score} weekly points`));
       for (const [role, identity] of [['President', guild.leader], ['Vice President', guild.vicePresident]]) {
         const member = guild.members.find(row => row.identity === identity);
