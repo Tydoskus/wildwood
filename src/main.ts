@@ -1799,6 +1799,7 @@ import {
     const diagnostics = coop?.connectionDiagnostics?.();
     const showReconnectOverlay = reconnecting && !waitingForServer && !accountRecoveryRequired;
     reconnectOverlayEl.hidden = !showReconnectOverlay;
+    reconnectOverlayEl.classList.toggle("is-quiet", Boolean(coop?.isReconnectingQuietly?.())); // a badge, not the overlay
     const extended = reconnectRecovery.update(showReconnectOverlay);
     reconnectRetryBtn.textContent = extended ? "RELOAD GAME" : "RETRY NOW";
     reconnectDetailEl.textContent = extended ? "Taking longer than usual. Reload to restore your session."

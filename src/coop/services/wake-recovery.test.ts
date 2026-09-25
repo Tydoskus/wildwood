@@ -70,3 +70,10 @@ it("keeps a healthy connection through a tab switch well past the old twenty sec
   expect(f.conn.reducers.resumeSession).not.toHaveBeenCalled();
   expect(f.options.diagnostic).toHaveBeenCalledWith("wake-resume", "short-return-kept-connection", 90_000);
 });
+
+it("keeps a healthy connection through a four-minute absence", () => {
+  const f = fixture();
+  f.recovery.resume(false, 4 * 60_000);
+  expect(f.options.restart).not.toHaveBeenCalled();
+  expect(f.conn.reducers.resumeSession).not.toHaveBeenCalled();
+});

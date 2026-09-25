@@ -28,6 +28,7 @@ import {
 } from "./coop/services/connection-lifecycle";
 import { createWakeRecovery, TAB_AWAY_GRACE_MS } from "./coop/services/wake-recovery";
 import { createPageWakeTracker } from "./coop/services/page-wake-tracker";
+import { installQuietReturn } from "./coop/services/quiet-return";
 import { connectionGateState } from "./coop/services/connection-gate-state";
 import { retryAfterMissingWorldPresence } from "./coop/services/world-presence-recovery";
 import { reducerErrorMessage } from "./coop/services/reducer-errors";
@@ -169,6 +170,8 @@ const connectionLifecycle = createConnectionLifecycle({
   onTimeout: (phase) => handleConnectionTimeout(phase),
   onIssue: (issue) => { recordConnectionDiagnostic("lifecycle-failure", { detail: `${issue.code}: ${issue.message}` }); console.warn("WildStat connection lifecycle failure:", issue); },
 });
+
+const quietReturn = installQuietReturn(document, window, () => onChange());
 
 const pageWakeTracker = createPageWakeTracker({
   longWakeMs: TAB_AWAY_GRACE_MS,
@@ -787,6 +790,7 @@ function connect() {
             accountService.finishHydration();
             setWakeReconnectVisible(false);
             setNetworkReconnectVisible(false);
+            quietReturn.settle();
             if (worldEntryGeneration === generation) presenceService.activateSubscriptions();
             sessionGeneration += 1;
             onChange();
@@ -867,7 +871,7 @@ export const wildstatCoop = {
   ...createConnectionStatusApi({
     lifecycle: connectionLifecycle, reconnect: reconnectScheduler,
     connected: () => Boolean(connection?.isActive && hydrationReady),
-    flags: () => [protocolBlocked, wakeReconnectVisible, networkReconnectVisible],
+    flags: () => [protocolBlocked, wakeReconnectVisible, networkReconnectVisible, quietReturn.active()],
     latency: () => latencyMs,
   }),
   beginStartupTelemetryStage(stage: StartupTelemetryStage) {

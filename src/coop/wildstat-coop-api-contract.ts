@@ -67,6 +67,7 @@ type ExpectedApiKey =
   | "isDisplayNameTaken"
   | "isGuest"
   | "isReconnectingAfterWake"
+  | "isReconnectingQuietly"
   | "itemUpgradeLevel"
   | "itemUpgradeLevels"
   | "slotUpgradeTier"

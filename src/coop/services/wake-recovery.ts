@@ -9,8 +9,11 @@ import { reducerErrorMessage } from "./reducer-errors";
  * glanced at another window for half a minute came back to a reconnect notice
  * for a connection that was fine. A dead transport is still caught at once, by
  * the isActive check above this grace period rather than by waiting it out.
+ *
+ * Five minutes since 2026-09-25, to match the quiet return window: a live
+ * socket is kept without a check for as long as a closed one reconnects quietly.
  */
-export const TAB_AWAY_GRACE_MS = 120_000;
+export const TAB_AWAY_GRACE_MS = 5 * 60_000;
 type WakeConnection = { isActive: boolean; reducers: { resumeSession: (args: {}) => Promise<unknown> } };
 
 /** A short tab switch preserves healthy transports. A dead transport never waits

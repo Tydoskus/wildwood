@@ -2077,6 +2077,15 @@
   }
 
   #reconnectOverlay[hidden] { display: none; }
+  #reconnectOverlay.is-quiet {
+    inset: calc(18vh + env(safe-area-inset-top)) 0 auto;
+    background: none;
+    font-size: 13px;
+    pointer-events: none;
+  }
+  #reconnectOverlay.is-quiet .reconnect-content { width: auto; padding: 7px 14px; border-radius: 999px; background: rgba(0, 0, 0, .62); }
+  #reconnectOverlay.is-quiet #reconnectDetail,
+  #reconnectOverlay.is-quiet #reconnectRetryBtn { display: none; }
   .reconnect-content {
     display: grid;
     width: min(360px, calc(100vw - 40px));

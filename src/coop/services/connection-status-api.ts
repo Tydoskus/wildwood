@@ -5,7 +5,7 @@ export function createConnectionStatusApi(options: {
   lifecycle: ReturnType<typeof createConnectionLifecycle>;
   reconnect: ReturnType<typeof createReconnectScheduler>;
   connected: () => boolean;
-  flags: () => [boolean, boolean, boolean];
+  flags: () => [boolean, boolean, boolean, boolean];
   latency: () => number | null;
 }) {
   return {
@@ -15,6 +15,7 @@ export function createConnectionStatusApi(options: {
     }),
     isConnected: options.connected,
     isReconnectingAfterWake: () => connectionGateState(...options.flags()).reconnecting,
+    isReconnectingQuietly: () => connectionGateState(...options.flags()).quiet,
     latencyMs: options.latency,
   };
 }
