@@ -51,7 +51,7 @@ import { createMapMusicController } from "./game/runtime/audio";
 import { createCamera } from "./game/runtime/camera";
 import { createCombatEffects } from "./game/runtime/combat-effects";
 import { createEnemyLifecycle } from "./game/runtime/enemy-lifecycle";
-import { createEnemySimulation } from "./game/runtime/enemy-simulation";
+import { createEnemySimulation, LOCAL_REGULAR_ENEMY_TARGET_ID } from "./game/runtime/enemy-simulation";
 import { createCoopSessionController } from "./game/runtime/coop-session-controller";
 import { createProgressController } from "./game/runtime/progress-controller";
 import { createGameSessionController } from "./game/runtime/game-session-controller";
@@ -124,6 +124,7 @@ import { playerGenderIconPath } from "./ui/player-gender";
 import type { LeaderboardEntry } from "./wildstat-coop";
 import type { ResearchId } from "../shared/research";
 import { PLAYER_GENDER_FEMALE, PLAYER_GENDER_MALE } from "../shared/player-gender";
+import { regularEnemySimulationTick } from "../shared/regular-enemy-simulation";
 import { equipComparisonPower } from "../shared/equip-best";
 import { equipmentMaxHealthMultiplierBonus, isWeaponItem, itemDisplayName } from "../shared/items";
 import { createRewardDisplay, playerRegenerationPerSecond } from "./game/runtime/reward-display";
@@ -675,6 +676,11 @@ import {
     isCloudspireMap: () => currentMapId === CLOUDSPIRE_MAP_ID,
     isMoonfenMap: () => currentMapId === MOONFEN_MAP_ID,
     isCrystalHollowsMap: () => currentMapId === CRYSTAL_HOLLOWS_MAP_ID, isClockworkRuinsMap: () => currentMapId === CLOCKWORK_RUINS_MAP_ID, isDuskfallOrchardMap: () => currentMapId === DUSKFALL_ORCHARD_MAP_ID, isNeonBastionMap: () => currentMapId === NEON_BASTION_MAP_ID, isVerdantCatacombsMap: () => currentMapId === VERDANT_CATACOMBS_MAP_ID, isIonCitadelMap: () => currentMapId === ION_CITADEL_MAP_ID,
+    engageEnemy: (enemy) => engageEnemy(
+      enemy,
+      coop?.localIdentity?.() || LOCAL_REGULAR_ENEMY_TARGET_ID,
+      regularEnemySimulationTick(coop?.serverNowMs?.() ?? Date.now()),
+    ),
     researchDamageMultiplier,
     researchCriticalChance,
     researchCriticalDamageMultiplier,

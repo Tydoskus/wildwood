@@ -300,7 +300,7 @@ describe("deterministic enemy simulation", () => {
     expect(enemy.engaged).toBe(false);
   });
 
-  it("only creates a remote ghost after the player enters aggro range", () => {
+  it("creates a ghost when the remote player's real attack range reaches the enemy", () => {
     const enemy = idleEnemyAt(100, 100);
     const local = playerAt(500, 500);
     const remote = remotePlayerAt(900, 900);
@@ -327,17 +327,12 @@ describe("deterministic enemy simulation", () => {
     remote.simulationY = remote.y;
     simulation.update(1 / 60);
 
-    expect(simulation.remoteCombatGhosts()).toHaveLength(0);
-    remote.x = enemy.x + 40;
-    remote.simulationX = remote.x;
-    simulation.update(1 / 60);
-
     expect(simulation.remoteCombatGhosts()).toHaveLength(1);
     expect(simulation.remoteCombatGhosts()[0].aggroTargetId).toBe(remote.id);
     expect(enemy.engaged).toBe(false);
   });
 
-  it("does not acquire remote aggro from a long attack range", () => {
+  it("keeps a remote ghost past an authored leash when the player's attack edge acquired it", () => {
     const enemy = idleEnemyAt(100, 100);
     const local = playerAt(500, 500);
     const remote = remotePlayerAt(1_800, 1_800);
@@ -365,7 +360,8 @@ describe("deterministic enemy simulation", () => {
     remote.simulationY = remote.y;
     simulation.update(1 / 60);
 
-    expect(simulation.remoteCombatGhosts()).toHaveLength(0);
+    expect(simulation.remoteCombatGhosts()).toHaveLength(1);
+    expect(simulation.remoteCombatGhosts()[0].aggroTargetId).toBe(remote.id);
   });
 
   it("shows remote enemy chasers moving ten faster than the target's synced speed", () => {

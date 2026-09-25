@@ -3,7 +3,6 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "Removed idle health regeneration from regular enemies and elites. Melee aggro range is now 100 for regular enemies and 200 for elites; ranged enemies are unchanged.",
   ],
   "0.816": [
-    "Enemies no longer aggro when hit from outside their aggro range.",
     "Moved Endless portals to the center of each map, with arrival just below them.",
   ],
   "0.815": [
