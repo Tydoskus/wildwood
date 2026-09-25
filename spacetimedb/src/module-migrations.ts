@@ -1,4 +1,4 @@
-import { activateCampaignPacing } from './campaign-pacing-migration';
+import { activateCampaignPacing, activateCampaignRewardFloor } from './campaign-pacing-migration';
 // One-time data migrations: the version-gated steps runPendingModuleMigrations
 // walks once per module version, the legacy balance rebases they call and the
 // per-connection migratePlayerBalance catch-up for saves that predate the
@@ -42,7 +42,7 @@ import { grantGemHeartUnlock } from "./chat-reactions";
 import { GEM_KILL_CREDIT_PER_GEM } from "../../shared/gem-drops";
 import { syncPlayerJoinDate } from "./mailbox";
 
-export const MODULE_MIGRATION_VERSION = 43;
+export const MODULE_MIGRATION_VERSION = 44;
 
 export type ModuleMigrationDeps = {
   MAP_ARRIVALS: Record<string, { x: number; y: number }>;
@@ -505,6 +505,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     }
     // 43: adopt the verified HP/reward curves as a new balance revision.
     if (currentVersion < 43) activateCampaignPacing(ctx);
+    if (currentVersion < 44) activateCampaignRewardFloor(ctx);
     const next = { id: 0, version: MODULE_MIGRATION_VERSION };
     if (state) ctx.db.moduleMigrationState.id.update(next);
     else ctx.db.moduleMigrationState.insert(next);

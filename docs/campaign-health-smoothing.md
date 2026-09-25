@@ -51,3 +51,15 @@ participate in fitting, so this is sensitivity testing rather than an unseen hol
 Reference sum of map medians: **46.78 → 46.71 hours**. Alternate seed: **50.30 → 48.75 hours**.
 
 The complete tested settings are in `local-data/campaign-health/pacing/proposed-balance-settings.json`. Runtime defaults match this file exactly. These are modeled active-play durations, with the simulator limitations listed in the adjacent report.
+
+## 0.820 reward floor follow-up
+
+`campaignRewardVersion: 1` prevents matching regular/elite stat rewards from
+falling below any earlier campaign map. Migration 44 only enables that rule;
+boss rewards, HP, damage, drops and Endless values are unchanged. Existing visits
+retain their snapshots until travel, and archived settings remain readable.
+
+This supersedes the strictly increasing duration result above: a five-trial
+reference check with the floor gave about 44 minutes for Forest and 31 for Desert.
+Maps 3–15 remained increasing in that check. No additional HP or boss rebalance
+was made to force the old pacing target after correcting the reward dips.
