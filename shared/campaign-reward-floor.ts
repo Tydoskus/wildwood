@@ -1,3 +1,4 @@
+import { CAMPAIGN_PROGRESSION_ENEMIES } from './campaign-progression';
 import { CAMPAIGN_MAPS } from './campaign-registry';
 import { ENEMY_BASE_VALUES } from './enemy-base-values';
 import { enemyDefeatDefinition } from './enemy-defeats';
@@ -18,7 +19,8 @@ export function applyCampaignRewardFloor(mapId: string, settings: BalanceSetting
     }
     for (const enemy of roster) {
       const key = role(enemy);
-      const amount = enemy.reward.amount * (settings.maps[map.id]?.enemyRewards ?? 1);
+      const curve = settings.campaignProgressionVersion === 1 && map.id !== CAMPAIGN_MAPS[0].id ? CAMPAIGN_PROGRESSION_ENEMIES[map.id]?.[key] : undefined;
+      const amount = (curve?.reward ?? enemy.reward.amount) * (settings.maps[map.id]?.enemyRewards ?? 1);
       floors.set(key, Math.max(floors.get(key) ?? 0, amount));
     }
   }

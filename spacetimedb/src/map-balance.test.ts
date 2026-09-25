@@ -1,3 +1,4 @@
+import revision75 from '../../tests/fixtures/balance-revision-75.json';
 import { activateCampaignPacing, activateCampaignRewardFloor } from './campaign-pacing-migration';
 import { defaultBalanceSettings } from '../../shared/map-balance';
 import bakeFixture from '../../tests/fixtures/balance-revision-73.json';
@@ -163,7 +164,7 @@ it('activates the exact tested campaign settings once, retaining archived revisi
   pinMapBalance(ctx, 'ion_citadel', true, 2);
   const pinned = ctx.db.playerMapBalance.identity.find(ctx.sender).snapshotJson;
   activateCampaignPacing(ctx);
-  const expected = defaultBalanceSettings(); delete expected.campaignRewardVersion;
+  const expected = JSON.parse(JSON.stringify(revision75)); delete expected.campaignRewardVersion;
   expect(balanceEditorState(ctx).settings).toEqual(expected);
   expect(balanceEditorState(ctx).revision).toBe(74);
   expect(ctx.db.mapBalanceVersion.revision.find(73)).toEqual(archived);
@@ -183,7 +184,7 @@ it('runs pending campaign migrations from the connection path only once', () => 
   f.ctx.connectionId = null;
   f.run(server.onConnect);
   expect(f.db.moduleMigrationState.id.find(0).version).toBe(44);
-  const expected = defaultBalanceSettings();
+  const expected = revision75;
   expect(balanceEditorState(f.ctx as any)).toMatchObject({ revision: 75, settings: expected });
   f.run(server.onConnect);
   expect(balanceEditorState(f.ctx as any).revision).toBe(75);

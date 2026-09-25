@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.821": [
+    "Coming back within 5 minutes on mobile now reconnects in the background instead of showing the Reconnecting screen.",
+    "Sound effects are louder and no longer go silent when you mute the music.",
+    "Fixed player-name symbols, equipment, shadows and small sprites flickering in the iOS web app.",
+  ],
   "0.820": [
     "Regular and elite stat rewards no longer decrease on later campaign maps for matching enemy types.",
     "Boss rewards, enemy health, and Endless balance are unchanged.",
@@ -2449,6 +2454,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.821": "2026-09-25",
   "0.820": "2026-09-25",
   "0.819": "2026-09-25",
   "0.818": "2026-09-24",

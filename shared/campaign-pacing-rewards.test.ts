@@ -1,3 +1,4 @@
+import revision75 from '../tests/fixtures/balance-revision-75.json';
 import { expect, it } from 'vitest';
 import fixture from '../tests/fixtures/balance-revision-73.json';
 import { defaultBalanceSettings, resolveMapBalance, validateBalanceSettings } from './map-balance';
@@ -5,7 +6,7 @@ import { CAMPAIGN_MAPS } from './campaign-registry';
 import { CAMPAIGN_PACING_REWARDS } from './campaign-pacing-rewards';
 
 it('applies campaign pacing once and changes no combat, boss, drop or timer values', () => {
-  const settings = defaultBalanceSettings();
+  const settings = validateBalanceSettings(revision75);
   delete settings.campaignHealthVersion;
   delete settings.campaignRewardVersion;
   expect(validateBalanceSettings(settings)).toEqual(settings);

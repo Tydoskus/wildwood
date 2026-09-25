@@ -1,6 +1,6 @@
+import { CAMPAIGN_PROGRESSION_ENEMIES, CAMPAIGN_PROGRESSION_BOSS_HEALTH, CAMPAIGN_PROGRESSION_BOSS_REWARDS } from './campaign-progression';
 import { applyCampaignRewardFloor } from './campaign-reward-floor';
 import { CAMPAIGN_HEALTH_FACTORS } from './campaign-health-curve';
-import { CAMPAIGN_PACING_REWARDS } from './campaign-pacing-rewards';
 import { LEGACY_ENEMY_REWARDS } from "./legacy-enemy-rewards";
 import { BALANCE_BASELINE_VERSION, BAKED_ENEMY_REWARD_FACTORS, BAKED_ENDLESS_DEFAULTS } from "./balance-baseline";
 import { bossHeavyHitAt, bossRewardValue } from "./progression";
@@ -25,13 +25,16 @@ export const BALANCE_MAPS: readonly (readonly [string, string, string])[] = [
   ['endless', 'Endless', ''],
 ];
 export function defaultBalanceSettings(): BalanceSettings {
-  return { baselineVersion: BALANCE_BASELINE_VERSION, campaignHealthVersion: 1, campaignRewardVersion: 1, maps: Object.fromEntries(BALANCE_MAPS.map(([id]) => [id, { ...DEFAULT_BALANCE_FACTORS,
-      enemyRewards: id === 'endless' ? 1 / (CAMPAIGN_PACING_REWARDS[CAMPAIGN_ENDPOINT.mapId] ?? 1) : CAMPAIGN_PACING_REWARDS[id] ?? 1 }])),
+  return { baselineVersion: BALANCE_BASELINE_VERSION, campaignHealthVersion: 1, campaignRewardVersion: 1, campaignProgressionVersion: 1, maps: Object.fromEntries(BALANCE_MAPS.map(([id]) => [id, { ...DEFAULT_BALANCE_FACTORS,
+      enemyRewards: 1, bossHealth: CAMPAIGN_PROGRESSION_BOSS_HEALTH[id] ?? 1, bossRewards: CAMPAIGN_PROGRESSION_BOSS_REWARDS[id] ?? 1 }])),
     endless: { ...BAKED_ENDLESS_DEFAULTS } };
 }
 export function validateBalanceSettings(value: unknown): BalanceSettings {
   const input = value as BalanceSettings;
   const result = defaultBalanceSettings();
+  if (input?.campaignProgressionVersion !== undefined && input.campaignProgressionVersion !== 1) throw new Error('Unsupported campaign progression curve.');
+  if (input?.campaignProgressionVersion === 1) result.campaignProgressionVersion = 1;
+  else delete result.campaignProgressionVersion;
   if (input?.campaignRewardVersion !== undefined && input.campaignRewardVersion !== 1) throw new Error('Unsupported campaign reward floor.');
   if (input?.campaignRewardVersion === 1) result.campaignRewardVersion = 1;
   else delete result.campaignRewardVersion;
@@ -101,9 +104,11 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
     for (const kind of Object.keys(ENEMY_TYPES) as EnemyKind[]) {
       if (!enemyDefeatDefinition(mapId, kind)) continue;
       const row = AUTHORED_ENEMIES[kind];
+      const curve = settings.campaignProgressionVersion === 1 && mapId !== CAMPAIGN_MAPS[0].id
+        ? CAMPAIGN_PROGRESSION_ENEMIES[mapId]?.[`${row.elite ? 'elite' : 'regular'}:${row.reward.type}`] : undefined;
       result.enemies[kind] = { ...row, hp: row.hp * (settings.campaignHealthVersion === 1
-          ? CAMPAIGN_HEALTH_FACTORS[mapId]?.[`${row.elite ? 'elite' : 'regular'}:${row.reward.type}`] ?? 1 : 1) * factors.enemyHealth, damage: row.damage * factors.enemyDamage,
-        speed: row.speed * factors.enemySpeed, reward: { ...row.reward, amount: row.reward.amount * factors.enemyRewards } };
+          ? CAMPAIGN_HEALTH_FACTORS[mapId]?.[`${row.elite ? 'elite' : 'regular'}:${row.reward.type}`] ?? 1 : 1) * (curve?.hp ?? 1) * factors.enemyHealth, damage: (curve?.damage ?? row.damage) * factors.enemyDamage,
+        speed: row.speed * factors.enemySpeed, reward: { ...row.reward, amount: (curve?.reward ?? row.reward.amount) * factors.enemyRewards } };
     }
     if (settings.campaignRewardVersion === 1) applyCampaignRewardFloor(mapId, settings, result.enemies);
     const prefix = BALANCE_MAPS.find(([id]) => id === mapId)![2];

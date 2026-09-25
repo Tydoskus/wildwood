@@ -22,7 +22,8 @@ it('converts saved reward multipliers once independently of intentional pacing d
   const neutral = defaultBalanceSettings();
   delete neutral.campaignHealthVersion;
   delete neutral.campaignRewardVersion;
-  for (const factors of Object.values(neutral.maps)) factors.enemyRewards = 1;
+  delete neutral.campaignProgressionVersion;
+  for (const factors of Object.values(neutral.maps)) { factors.enemyRewards = 1; factors.bossHealth = 1; factors.bossRewards = 1; }
   expect(settings).toEqual(neutral);
   expect(validateBalanceSettings(JSON.parse(JSON.stringify(settings)))).toEqual(settings);
   for (const [mapId] of Object.entries(BAKED_ENEMY_REWARD_FACTORS)) {
