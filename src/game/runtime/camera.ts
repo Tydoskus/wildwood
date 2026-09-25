@@ -15,6 +15,8 @@ export const MOBILE_CAMERA_VERTICAL_FOCUS_OFFSET = .1;
 // removed from a 390×844 home-screen viewport.
 export const MOBILE_CAMERA_REFERENCE_VIEWPORT = { width: 390, height: 780 } as const;
 const MOBILE_CAMERA_MAX_SHORT_SIDE = 600;
+/** Phones narrower than this zoom out in proportion, so they are not cramped. */
+export const NARROW_PHONE_WIDTH = 360;
 const MOBILE_CAMERA_MAX_AREA = 450_000;
 const MAX_CAMERA_ZOOM = 2;
 /**
@@ -48,8 +50,11 @@ export function targetCameraZoom(attackRange: number, viewport: Viewport) {
   const height = Math.max(1, viewport.height);
   const squareViewportArea = Math.min(width, height) ** 2;
   const referenceArea = MOBILE_CAMERA_REFERENCE_VIEWPORT.width * MOBILE_CAMERA_REFERENCE_VIEWPORT.height;
+  // Below 360px (Samsung screen zoom leaves some phones near 330) the phone
+  // framing zooms out with the width, so the view is not cramped. Ordinary
+  // small phones, 375px included, keep the fixed framing.
   const viewportMultiplier = isPhoneViewport(viewport)
-    ? MOBILE_CAMERA_ZOOM_MULTIPLIER
+    ? MOBILE_CAMERA_ZOOM_MULTIPLIER * Math.min(1, width / NARROW_PHONE_WIDTH)
     : MOBILE_CAMERA_ZOOM_MULTIPLIER * Math.sqrt(squareViewportArea / referenceArea);
   return clamp(attackRangeZoom(attackRange) * viewportMultiplier, MIN_CAMERA_ZOOM, MAX_CAMERA_ZOOM);
 }

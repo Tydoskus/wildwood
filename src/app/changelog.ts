@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.825": [
+    "Fixed a false Game Updating screen after tapping teleport or a portal while the game was reconnecting.",
+    "Phones with display zoom: the profile HUD has more room, HP text always fits, and the view is less zoomed in.",
+    "Reward popups no longer cover the players-online and version text.",
+  ],
   "0.824": [
     "Fixed name symbols, power and equipment icons flickering in other players' profiles.",
     "The HP numbers in the top-left bar are larger and easier to read.",
@@ -2471,6 +2476,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.825": "2026-09-25",
   "0.824": "2026-09-25",
   "0.823": "2026-09-25",
   "0.822": "2026-09-25",

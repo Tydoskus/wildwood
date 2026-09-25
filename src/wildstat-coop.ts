@@ -245,6 +245,8 @@ function handleReducerFailure(action: string, error: unknown) {
     console.warn(`WildStat ${action} rejected:`, message);
     return;
   }
+  // Before this connection has registered, the server has no session for it and answers any action as it would an outdated client: a tap raced the reconnect. Only the registration's own answer means an update.
+  if (action !== "session preparation" && protocolReadyGeneration !== connectionGeneration) { recordConnectionDiagnostic("session-blocked", { detail: `ignored before registration · ${action}` }); return; }
 
   // Do not let an old tab keep retrying saves or movement after Maincloud has
   // moved to a new protocol. Pending progress stays in local storage so the

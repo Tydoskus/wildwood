@@ -136,6 +136,12 @@ describe("runtime camera", () => {
       .toBeCloseTo(targetCameraZoom(155, MOBILE_CAMERA_REFERENCE_VIEWPORT), 10);
   });
 
+  it("zooms a screen-zoomed narrow phone out with its width", () => {
+    const reference = targetCameraZoom(155, MOBILE_CAMERA_REFERENCE_VIEWPORT);
+    expect(targetCameraZoom(155, { width: 330, height: 715 })).toBeCloseTo(reference * 330 / 360, 10);
+    expect(targetCameraZoom(155, { width: 360, height: 780 })).toBeCloseTo(reference, 10);
+  });
+
   describe("attack-range research", () => {
     // The pre-research curve: (1 - (range / 155 - 1) * .5) * .85.
     const legacyZoom = (range: number) => (1 - (range / 155 - 1) * .5) * .85;
