@@ -46,6 +46,7 @@ function harness(options: {
   bridge?: unknown;
   supporter?: boolean;
   claim?: () => Promise<{ ok: boolean; error?: string }>;
+  showWaitTimer?: () => boolean;
 } = {}) {
   const elements = fakeElements();
   let clock = NOON;
@@ -66,6 +67,7 @@ function harness(options: {
     adGemReward: () => server.record,
     claimAdGems, showGemReward, showMessage, setPromptActive, setAdPlaybackActive,
     now: () => clock,
+    showWaitTimer: options.showWaitTimer,
   });
   return {
     elements, server, controller, claimAdGems, showMessage, showGemReward, setPromptActive, setAdPlaybackActive,
@@ -147,6 +149,24 @@ describe("rewarded gem ad", () => {
     await vi.waitFor(() => expect(h.elements.button.dataset.state).toBe("browser"));
     expect(h.elements.button.disabled).toBe(false);
     expect(h.elements.countdown.hidden).toBe(true);
+    h.controller.destroy();
+  });
+
+  it("hides the button during the wait when the ad timer is off, and shows it once an ad is ready", async () => {
+    stubWindow();
+    let timerShown = false;
+    const h = harness({ record: { lastClaimAtMs: NOON - 48_000, dayKey: utcDayKey(NOON), claimsToday: 1 }, showWaitTimer: () => timerShown });
+    h.controller.init();
+    expect(h.elements.button.hidden).toBe(true);
+    timerShown = true;
+    h.advance(1_000);
+    h.controller.sync();
+    expectCountdown(h.elements, "Ad in 29:11\n3 left today");
+    timerShown = false;
+    h.advance(AD_GEM_COOLDOWN_MS);
+    h.controller.sync();
+    await vi.waitFor(() => expect(h.elements.button.dataset.state).toBe("browser"));
+    expect(h.elements.button.hidden).toBe(false);
     h.controller.destroy();
   });
 

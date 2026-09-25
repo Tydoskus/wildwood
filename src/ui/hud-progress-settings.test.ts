@@ -28,4 +28,19 @@ describe("HUD countdown settings", () => {
     expect(restored.settings.visible("slotTwo")).toBe(true);
     expect(restored.settings.visible("slotThree")).toBe(false);
   });
+
+  it("hides the ad timer until asked for, and remembers turning it on", () => {
+    const values = new Map<string, string>();
+    const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } };
+    const setup = () => {
+      const { document, Event } = parseHTML('<div id="settings"><div class="setting-row"><button id="statTrackerToggle"></button></div></div>');
+      const settings = installHudProgressSettings(document.getElementById("settings")!, vi.fn(), storage);
+      return { settings, click: () => document.querySelector('button[aria-label="ad timer"]')!.dispatchEvent(new Event("click")) };
+    };
+    const first = setup();
+    expect(first.settings.visible("adTimer")).toBe(false);
+    first.click();
+    expect(first.settings.visible("adTimer")).toBe(true);
+    expect(setup().settings.visible("adTimer")).toBe(true);
+  });
 });

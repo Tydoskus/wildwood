@@ -38,6 +38,8 @@ type RewardedGemAdDependencies = {
   setPromptActive: (active: boolean) => void;
   setAdPlaybackActive: (active: boolean) => void;
   showMessage: (text: string, color?: string) => void;
+  /** Whether the button stays up to count down to the next ad. When not, it is hidden until an ad is ready. */
+  showWaitTimer?: () => boolean;
   now?: () => number;
 };
 
@@ -120,6 +122,7 @@ export function createRewardedGemAdController(
     render(status.kind, `NEXT AD IN ${wait}`, true, adGemRefusal(status) ?? WATCH_LABEL);
     elements.countdown.hidden = false;
     elements.countdown.textContent = `Ad in ${wait}\n${status.claimsLeft} left today`;
+    if (!(dependencies.showWaitTimer?.() ?? true)) elements.button.hidden = true;
   }
 
   function readyLabel(claimsLeft: number) {

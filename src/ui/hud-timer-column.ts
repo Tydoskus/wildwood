@@ -40,6 +40,10 @@ export function createHudTimerColumn(elements: Elements, dependencies: Dependenc
   elements.enemyRespawnAdBtn.before(column);
   column.append(researchTimer, slotOneTimer, slotTwoTimer, slotThreeTimer, elements.enemyRespawnAdBtn);
 
+  let storage: Storage | null = null;
+  try { storage = window.localStorage; } catch { /* Continue with session choices. */ }
+  // Installed before the ad button, which reads its timer setting on its first render.
+  const settings = installHudProgressSettings(elements.settingsPanel, () => { timers.tick(); rewardedGemAd.sync(); }, storage);
   const rewardedGemAd = createRewardedGemAdController({
     button: elements.enemyRespawnAdBtn,
     status: elements.enemyRespawnAdStatus,
@@ -49,12 +53,9 @@ export function createHudTimerColumn(elements: Elements, dependencies: Dependenc
     cancelButton: elements.enemyRespawnAdCancel,
     browserAd: elements.browserRewardedAd,
     browserAdTimer: elements.browserRewardedAdTimer,
-  }, dependencies);
+  }, { ...dependencies, showWaitTimer: () => settings.visible("adTimer") });
   rewardedGemAd.init();
 
-  let storage: Storage | null = null;
-  try { storage = window.localStorage; } catch { /* Continue with session choices. */ }
-  const settings = installHudProgressSettings(elements.settingsPanel, () => timers.tick(), storage);
   const timers = createHudProgressTimers({
     research: researchTimer,
     slotOne: slotOneTimer,
