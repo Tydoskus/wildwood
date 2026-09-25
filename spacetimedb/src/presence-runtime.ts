@@ -22,6 +22,7 @@ import { analyticalPlayerMotionAt } from "../../shared/analytical-player-motion"
 import { playerMotionSampleAt } from "../../shared/player-motion-sample";
 import {
   BOSS_REWARD_CLAIM_BITS,
+  COMPATIBLE_PROTOCOL_VERSIONS,
   PLAYER_RADIUS,
   PLAYER_SPAWN,
   PLAYER_SPEED,
@@ -377,6 +378,18 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
   }
 
   function clearOrphanPresence(ctx: any) {
+    const abandoned = new Set<string>();
+    const cutoff = ctx.timestamp.microsSinceUnixEpoch - 86_400_000_000n;
+    for (const session of [...ctx.db.playerSession.iter()] as any[]) {
+      if (!session.enteredWorld || session.protocolVersion === 0 || COMPATIBLE_PROTOCOL_VERSIONS.includes(session.protocolVersion)) continue;
+      const player = ctx.db.player.identity.find(session.identity);
+      const motion = ctx.db.playerMotion.identity.find(session.identity);
+      const lastInput = motion?.lastInputAt ?? player?.lastInputAt ?? session.connectedAt;
+      if (session.connectedAt.microsSinceUnixEpoch > cutoff || lastInput.microsSinceUnixEpoch > cutoff) continue;
+      abandoned.add(session.identity.toHexString());
+      ctx.db.playerSession.connectionId.delete(session.connectionId);
+      ctx.db.playerSessionAnalytics.connectionId.delete(session.connectionId);
+    }
     const sessionsByIdentity = new Map<string, any[]>();
     for (const session of ctx.db.playerSession.iter() as Iterable<any>) {
       const key = session.identity.toHexString();
@@ -405,7 +418,14 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
       if (!ctx.db.playerController.identity.find(activePlayer.identity)) orphanIdentities.push(activePlayer.identity);
     }
     for (const identity of orphanIdentities) {
-      finishLifetimeSession(ctx, identity);
+      // A ghost row is not proof of playtime. Keep already-banked time and
+      // discard its unverified open interval rather than banking idle days.
+      if (abandoned.has(identity.toHexString())) {
+        const lifetime = ctx.db.playerLifetime.identity.find(identity);
+        if (lifetime) ctx.db.playerLifetime.identity.update({ ...lifetime, sessionStartedAt: ctx.timestamp });
+        const leaderboard = ctx.db.leaderboardEntry.identity.find(identity);
+        if (leaderboard && lifetime) ctx.db.leaderboardEntry.identity.update({ ...leaderboard, playedMicros: lifetime.playedMicros });
+      } else finishLifetimeSession(ctx, identity);
       removeIdentityPresence(ctx, identity);
     }
   }

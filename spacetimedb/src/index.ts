@@ -3688,6 +3688,11 @@ export const runMaintenance = spacetimedb.reducer(
 
 // Exact scheduled completions remain authoritative. These scans only recover
 // orphaned state or missing schedules, and run even with no players connected.
+export const devCleanupStaleSessions = spacetimedb.reducer({}, (ctx) => {
+  if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_cleanup_stale_sessions");
+  clearOrphanPresence(ctx); reconcileOnlinePlayers(ctx);
+});
+
 export const runMaintenanceSweep = spacetimedb.reducer(
   { maintenance: maintenanceSweepSchedule.rowType },
   (ctx, { maintenance }) => {
