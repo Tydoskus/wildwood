@@ -1,6 +1,6 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.826": [
-    "Walking up to a boss mid-attack now shows its warning first instead of hitting you the moment it appears.",
+    "Walking up to a boss mid-attack no longer hits you the moment it appears: every attack now starts from its full warning.",
   ],
   "0.825": [
     "Fixed a false Game Updating screen after tapping teleport or a portal while the game was reconnecting.",

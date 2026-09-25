@@ -305,15 +305,18 @@ describe("Frostclaw boss", () => {
     expect(snapshot(first)).toEqual(snapshot(second));
   });
 
-  it("still shows most of an attack's warning to a player who arrives partway through it", () => {
+  it("gives a player who arrives partway through an attack its full warning, or skips one too late to finish", () => {
     let now = 1_800_000_000_000;
     while (bossAbilityTimelineAt({ kind: "frostclaw", serverNowMs: now }).ability !== "roar") now += 500;
     const roar = bossAbilityTimelineAt({ kind: "frostclaw", serverNowMs: now });
-    const serverNowMs = roar.startedAtMs + 800; // the roar's windup is .85s
-    const harness = createFrostclawHarness({ serverNowMs: () => serverNowMs, bossTargets: () => [{ id: "network:1", x: 4_350, y: 4_050 }] });
-    harness.frostclawBoss.encounter = 5n;
-    harness.controller.updateFrostclawBoss(.016);
-    expect(harness.frostclawBoss.roar?.windup).toBeGreaterThan(.55);
+    const arrive = (afterMs: number) => {
+      const harness = createFrostclawHarness({ serverNowMs: () => roar.startedAtMs + afterMs, bossTargets: () => [{ id: "network:1", x: 4_350, y: 4_050 }] });
+      harness.frostclawBoss.encounter = 5n;
+      harness.controller.updateFrostclawBoss(.016);
+      return harness.frostclawBoss.roar;
+    };
+    expect(arrive(800)?.windup).toBeCloseTo(.85 - .016, 5); // the roar's whole windup, less the one frame run
+    expect(arrive(roar.slotDurationMs - roar.activeDurationMs + 100)).toBeNull(); // would be cut off: wait for the next
   });
 
   it("uses Glacial Roar to damage and push players away", () => {

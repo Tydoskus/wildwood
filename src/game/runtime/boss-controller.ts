@@ -447,8 +447,6 @@ export function createBossController(options: {
     activatedAbilityKeys.delete(kind);
   }
 
-  /** The most of an attack's warning a player joining it late can miss. */
-  const LATE_ABILITY_JOIN_MS = 250;
   function syncAbilityTimeline(options: {
     kind: BossSimulationKind;
     encounter: bigint | null;
@@ -469,17 +467,15 @@ export function createBossController(options: {
     }
     options.setAttackClock(Math.max(0, (phase.slotDurationMs - phase.elapsedMs) / 1_000));
     const target = options.targetForAttack(phase.attackIndex);
-    if (
-      !target ||
-      phase.elapsedMs >= phase.activeDurationMs ||
-      activatedAbilityKeys.get(options.kind) === key
-    ) return true;
+    if (!target || activatedAbilityKeys.get(options.kind) === key) return true;
     activatedAbilityKeys.set(options.kind, key);
-    // Someone who walks into range partway through an attack used to have it
-    // start with all that time already spent: a cone with no windup left, rain
-    // already landing, a hit the moment the boss came into view. Late joiners
-    // now see at least the warning; if the next slot begins first, it clears.
-    options.start(phase.ability, Math.min(phase.elapsedMs, LATE_ABILITY_JOIN_MS) / 1_000, phase.attackIndex, target);
+    // Bosses are fought locally and no one needs to see the same beat, so an
+    // attack always starts from its full warning. Picking it up partway used
+    // to spend the elapsed time first: a cone with no windup left, rain already
+    // landing, a hit the moment the boss came into view. One that would not
+    // finish before the next slot clears it is skipped instead.
+    if (phase.slotDurationMs - phase.elapsedMs < phase.activeDurationMs) return true;
+    options.start(phase.ability, 0, phase.attackIndex, target);
     return true;
   }
 
