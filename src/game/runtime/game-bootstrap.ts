@@ -630,6 +630,10 @@ export function createGameBootstrapAssets(options: {
   const assets = {
     ...preprocessedAssets,
     ensureMapAssets,
+    releaseMapAssetsExcept: (keep: readonly MapId[]) => {
+      preprocessedAssets.releaseMapAssetsExcept(keep);
+      enemyAssets.releaseMapSpritesExcept(keep);
+    },
     mapAssetLoadFailed,
     mapAssetsReady,
     worldArtReady: (mapId?: MapId) => {

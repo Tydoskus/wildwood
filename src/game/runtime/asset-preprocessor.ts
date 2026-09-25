@@ -102,11 +102,15 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     load: () => Promise<void>;
     failed: () => boolean;
     settled: () => boolean;
+    /** Lets go of the pixels of a map that was left; a later load() fetches them again. */
+    release: () => boolean;
   };
 
   function createLazyImageAsset(
     source: string,
     process: (image: HTMLImageElement, settle: () => void) => void = (_image, settle) => settle(),
+    /** Frees whatever `process` built from the image, and marks it not ready. */
+    onRelease?: () => void,
   ): LazyImageAsset {
     const image = new Image();
     image.decoding = "async";
@@ -115,22 +119,23 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     let didFail = false;
     let retry = 0;
     let resolve!: () => void;
-    const promise = new Promise<void>((complete) => { resolve = complete; });
+    let promise = new Promise<void>((complete) => { resolve = complete; });
     const settle = () => {
       if (didSettle) return;
       didSettle = true;
       onWorldAssetReady();
       resolve();
     };
-    image.addEventListener("load", () => {
+    const onLoad = () => {
       try {
         process(image, settle);
       } catch {
         didFail = true;
         settle();
       }
-    }, { once: true });
+    };
     image.addEventListener("error", () => {
+      if (!started) return;
       if (retry >= 2) {
         didFail = true;
         settle();
@@ -144,14 +149,28 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
       load: () => {
         if (!started) {
           started = true;
+          image.addEventListener("load", onLoad, { once: true });
           image.src = source;
         }
         return promise;
       },
       failed: () => didFail,
       settled: () => didSettle,
+      release: () => {
+        // Nothing loaded yet, or still loading: leave it to finish.
+        if (!started || !didSettle) return false;
+        image.removeEventListener("load", onLoad);
+        image.removeAttribute("src");
+        started = false; didSettle = false; didFail = false; retry = 0;
+        promise = new Promise<void>((complete) => { resolve = complete; });
+        onRelease?.();
+        return true;
+      },
     };
   }
+
+  /** A processed canvas takes its memory back by shrinking to nothing. */
+  const emptyCanvas = (canvas: HTMLCanvasElement) => { canvas.width = 0; canvas.height = 0; };
 
   const dragonSpriteCanvas = document.createElement("canvas");
   const dragonSpriteContext = requiredCanvasContext(dragonSpriteCanvas, { willReadFrequently: true });
@@ -164,7 +183,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
       dragonReady = true;
       settle();
     });
-  });
+  }, () => { dragonReady = false; emptyCanvas(dragonSpriteCanvas); });
 
   const spiderSpriteCanvas = document.createElement("canvas");
   const spiderSpriteContext = requiredCanvasContext(spiderSpriteCanvas, { willReadFrequently: true });
@@ -177,7 +196,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
       spiderReady = true;
       settle();
     }, SCORPION_SPRITE.frames);
-  });
+  }, () => { spiderReady = false; emptyCanvas(spiderSpriteCanvas); });
 
   const frostclawSpriteCanvas = document.createElement("canvas");
   const frostclawSpriteContext = requiredCanvasContext(frostclawSpriteCanvas, { willReadFrequently: true });
@@ -190,7 +209,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
       frostclawReady = true;
       settle();
     }, 4);
-  });
+  }, () => { frostclawReady = false; emptyCanvas(frostclawSpriteCanvas); });
 
   const magmaliskSpriteCanvas = document.createElement("canvas");
   const magmaliskSpriteContext = requiredCanvasContext(magmaliskSpriteCanvas, { willReadFrequently: true });
@@ -203,7 +222,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
       magmaliskReady = true;
       settle();
     }, 4, true);
-  });
+  }, () => { magmaliskReady = false; emptyCanvas(magmaliskSpriteCanvas); });
 
   const gloomrootSpriteCanvas = document.createElement("canvas");
   const gloomrootSpriteContext = requiredCanvasContext(gloomrootSpriteCanvas, { willReadFrequently: true });
@@ -217,7 +236,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     gloomrootSpriteContext.putImageData(pixels, 0, 0);
     gloomrootReady = true;
     settle();
-  });
+  }, () => { gloomrootReady = false; emptyCanvas(gloomrootSpriteCanvas); });
 
   const tidewyrmPageAssets = CARAPACE_ANGLER_ATLAS.pages.map(page => createLazyImageAsset(page.src));
   const tidewyrmAssets = CARAPACE_ANGLER_USED_PAGES.map(index => tidewyrmPageAssets[index]);
@@ -233,7 +252,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
       koiShogunReady = true;
       settle();
     }, 4);
-  });
+  }, () => { koiShogunReady = false; emptyCanvas(koiShogunSpriteCanvas); });
 
   const tempestKirinSpriteCanvas = document.createElement("canvas");
   const tempestKirinSpriteContext = requiredCanvasContext(tempestKirinSpriteCanvas, { willReadFrequently: true });
@@ -244,7 +263,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     tempestKirinSpriteContext.drawImage(image, 0, 0);
     tempestKirinReady = true;
     settle();
-  });
+  }, () => { tempestKirinReady = false; emptyCanvas(tempestKirinSpriteCanvas); });
   const miremawSpriteCanvas = document.createElement("canvas");
   const miremawSpriteContext = requiredCanvasContext(miremawSpriteCanvas, { willReadFrequently: true });
   let miremawReady = false;
@@ -254,7 +273,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     miremawSpriteContext.drawImage(image, 0, 0);
     miremawReady = true;
     settle();
-  });
+  }, () => { miremawReady = false; emptyCanvas(miremawSpriteCanvas); });
   const prismshellPageAssets = PRISMSHELL_ATLAS.pages.map((page) => createLazyImageAsset(page.src));
   const ironhornPageAssets = IRONHORN_ATLAS.pages.map((page) => createLazyImageAsset(page.src));
   const dreadreaperPageAssets = DREADREAPER_ATLAS.pages.map((page) => createLazyImageAsset(page.src));
@@ -379,6 +398,19 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     return (isProceduralMap(mapId) ? [] : mapAssets[mapId]).some((asset) => asset.failed());
   }
 
+  /**
+   * Maps load their art on the way in and used to keep it for the session, so
+   * a long run held every boss sheet it had passed (hundreds of MB decoded),
+   * and iOS began purging and re-decoding images mid-frame. Anything no map
+   * in `keep` uses is let go; it loads again if the player walks back.
+   */
+  function releaseMapAssetsExcept(keep: readonly MapId[]) {
+    const needed = new Set(keep.flatMap((mapId) => isProceduralMap(mapId) ? [] : mapAssets[mapId] ?? []));
+    let released = 0;
+    for (const asset of new Set(Object.values(mapAssets).flat())) if (!needed.has(asset) && asset.release()) released += 1;
+    return released;
+  }
+
   function ensureDuelAssets() {
     return Promise.all([duelSpaceAsset.load(), duelPlatformAsset.load()]).then(() => undefined);
   }
@@ -422,6 +454,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     ensureDuelAssets,
     duelAssetsReady: () => duelSpaceAsset.settled() && duelPlatformAsset.settled(),
     ensureMapAssets,
+    releaseMapAssetsExcept,
     mapAssetLoadFailed,
     mapAssetsReady,
     worldArtReady: (mapId?: MapId) => {

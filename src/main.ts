@@ -983,7 +983,7 @@ import {
   };
   const adjacentMapAssetPreloader = createAdjacentMapAssetPreloader<MapId>({
     mapConfig: MAP_CONFIG,
-    mapAssetsReady: assets.mapAssetsReady,
+    mapAssetsReady: assets.mapAssetsReady, releaseMapAssetsExcept: (keep) => { assets.releaseMapAssetsExcept(keep); },
     prepareMapAssets: (mapId) => prepareMapAssets(mapId),
     availability: () => {
       const connection = (navigator as Navigator & {

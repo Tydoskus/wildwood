@@ -85,6 +85,18 @@ describe("adjacent map asset preloading", () => {
     expect(prepareMapAssets).toHaveBeenCalledTimes(1);
   });
 
+  it("releases art that neither the new map nor its neighbours use", () => {
+    const releaseMapAssetsExcept = vi.fn();
+    const preloader = createAdjacentMapAssetPreloader({
+      mapConfig, mapAssetsReady: () => true, prepareMapAssets: () => Promise.resolve(), releaseMapAssetsExcept,
+      availability: () => "ready", schedule: controlledScheduler().schedule,
+    });
+    preloader.queueFrom("middle");
+    expect(releaseMapAssetsExcept).toHaveBeenCalledWith(["middle", "forward", "back"]);
+    preloader.queueFrom("back");
+    expect(releaseMapAssetsExcept).toHaveBeenLastCalledWith(["back", "middle"]);
+  });
+
   it("continues warming adjacent maps when a readiness check throws", async () => {
     const scheduler = controlledScheduler();
     const prepareMapAssets = vi.fn(async () => {});

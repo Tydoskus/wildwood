@@ -83,6 +83,8 @@ export function createAdjacentMapAssetPreloader<MapKey extends string>(options: 
   mapConfig: Record<MapKey, MapPreloadEntry<MapKey>>;
   mapAssetsReady: (mapId: MapKey) => boolean;
   prepareMapAssets: (mapId: MapKey) => Promise<void>;
+  /** Frees art that neither this map nor its neighbours use. */
+  releaseMapAssetsExcept?: (keep: MapKey[]) => void;
   availability: () => MapPreloadAvailability;
   schedule?: PreloadScheduler;
   initialDelayMs?: number;
@@ -106,6 +108,7 @@ export function createAdjacentMapAssetPreloader<MapKey extends string>(options: 
     cancel();
     const queueGeneration = generation;
     const destinations = adjacentMapDestinations(options.mapConfig, currentMapId);
+    options.releaseMapAssetsExcept?.([currentMapId, ...destinations]);
     let destinationIndex = 0;
 
     const scheduleNext = (delayMs: number) => {

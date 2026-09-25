@@ -3,6 +3,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "Fixed name symbols, power and equipment icons flickering in other players' profiles.",
     "The HP numbers in the top-left bar are larger and easier to read.",
     "New Ad Timer setting, off by default: the ad button stays hidden until an ad is ready.",
+    "Uses much less memory: art for maps you have left is freed, which should stop images flickering on phones.",
   ],
   "0.823": [
     "Riposte is now Reflect, and it now works against regular enemies, not only in duels.",

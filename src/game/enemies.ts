@@ -88,6 +88,8 @@ type LazyEnemyImageAsset = {
   load: () => Promise<void>;
   failed: () => boolean;
   settled: () => boolean;
+  /** Lets go of a map's pixels once the player has moved on; load() fetches them again. */
+  release: () => boolean;
 };
 
 function createLazyEnemyImage(source: string, onSettled: () => void): LazyEnemyImageAsset {
@@ -98,15 +100,15 @@ function createLazyEnemyImage(source: string, onSettled: () => void): LazyEnemyI
   let didSettle = false;
   let didFail = false;
   let resolve!: () => void;
-  const promise = new Promise<void>((complete) => { resolve = complete; });
+  let promise = new Promise<void>((complete) => { resolve = complete; });
   const settle = () => {
     if (didSettle) return;
     didSettle = true;
     onSettled();
     resolve();
   };
-  image.addEventListener("load", settle, { once: true });
   image.addEventListener("error", () => {
+    if (!started) return;
     if (retry >= ENEMY_SPRITE_RETRY_DELAYS_MS.length) {
       didFail = true;
       settle();
@@ -120,6 +122,7 @@ function createLazyEnemyImage(source: string, onSettled: () => void): LazyEnemyI
     load: () => {
       if (!started) {
         started = true;
+        image.addEventListener("load", settle, { once: true });
         image.src = source;
       } else if (didFail) {
         // Asked for again after giving up (the player came back to this map):
@@ -132,6 +135,15 @@ function createLazyEnemyImage(source: string, onSettled: () => void): LazyEnemyI
     },
     failed: () => didFail,
     settled: () => didSettle,
+    release: () => {
+      // Nothing loaded yet, or still loading: leave it to finish.
+      if (!started || !didSettle) return false;
+      image.removeEventListener("load", settle);
+      image.removeAttribute("src");
+      started = false; didSettle = false; didFail = false; retry = 0;
+      promise = new Promise<void>((complete) => { resolve = complete; });
+      return true;
+    },
   };
 }
 
@@ -187,6 +199,13 @@ export function createMapScopedEnemySpriteAssets<Kind extends string, MapKey ext
     ensureMapSprites: (mapId: MapKey) => Promise.all(mapAssets(mapId).map((asset) => asset.load())).then(() => undefined),
     mapSpriteLoadFailed: (mapId: MapKey) => mapAssets(mapId).some((asset) => asset.failed()),
     mapSpritesReady: (mapId: MapKey) => mapAssets(mapId).every((asset) => asset.settled()),
+    /** Frees every enemy sheet the maps in `keep` do not use. */
+    releaseMapSpritesExcept: (keep: readonly MapKey[]) => {
+      const needed = new Set(keep.flatMap((mapId) => mapAssets(mapId)));
+      let released = 0;
+      for (const asset of imageAssets.values()) if (!needed.has(asset) && asset.release()) released += 1;
+      return released;
+    },
     ready: () => [...imageAssets.values()].every((asset) => asset.settled()),
   };
 }

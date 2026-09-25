@@ -204,6 +204,43 @@ describe("enemy sprite loading", () => {
     expect(assets.mapSpritesReady("desert")).toBe(true);
   });
 
+  it("lets go of a map left behind, keeps shared and kept maps, and loads it again on return", async () => {
+    const images: FakeImage[] = [];
+    class FakeImage extends EventTarget {
+      decoding = "auto";
+      src = "";
+      constructor() { super(); images.push(this); }
+      removeAttribute(name: string) { if (name === "src") this.src = ""; }
+    }
+    vi.stubGlobal("Image", FakeImage);
+    const sources = {
+      forestEnemy: { src: "forest-enemy.webp", size: 40 },
+      desertEnemy: { src: "desert-enemy.webp", size: 40 },
+      sharedEnemy: { src: "shared-enemy.webp", size: 40 },
+    } satisfies Record<"forestEnemy" | "desertEnemy" | "sharedEnemy", EnemySpriteSource>;
+    const assets = createMapScopedEnemySpriteAssets(sources, {
+      forest: ["forestEnemy", "sharedEnemy"],
+      desert: ["desertEnemy", "sharedEnemy"],
+    });
+    const [forest, desert, shared] = images;
+    const forestReady = assets.ensureMapSprites("forest");
+    forest.dispatchEvent(new Event("load")); shared.dispatchEvent(new Event("load"));
+    await forestReady;
+    const desertLoading = assets.ensureMapSprites("desert");
+    expect(assets.releaseMapSpritesExcept(["desert"])).toBe(1);   // desert is still loading, shared is kept
+    expect(forest.src).toBe("");
+    expect(shared.src).toBe("shared-enemy.webp");
+    expect(assets.mapSpritesReady("forest")).toBe(false);
+    desert.dispatchEvent(new Event("load"));
+    await desertLoading;
+
+    const back = assets.ensureMapSprites("forest");
+    expect(forest.src).toBe("forest-enemy.webp");
+    forest.dispatchEvent(new Event("load"));
+    await back;
+    expect(assets.mapSpritesReady("forest")).toBe(true);
+  });
+
   it("shares animation pages between variants and only starts a family's images for its map", async () => {
     const images: FakeImage[] = [];
     class FakeImage extends EventTarget {
