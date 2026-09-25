@@ -1,5 +1,6 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.817": [
+    "Darkened Endless map colors slightly while keeping paths clear.",
     "Removed idle health regeneration from regular enemies and elites. Melee aggro range is now 100 for regular enemies and 200 for elites; ranged enemies are unchanged.",
   ],
   "0.816": [

@@ -97,10 +97,10 @@ export function proceduralPalette(index: number) {
   // Hex colors work in both the canvas tile painter and the WebGL backdrop.
   // Keep path lighter than ground, and both lighter than detail and accent.
   return {
-    ground: hslHex(hue, saturation, 58),
-    path: hslHex(hue, saturation * 0.6, 72),
-    pathDetail: hslHex(hue, saturation, 44),
-    accent: hslHex(hue, saturation, 34),
+    ground: hslHex(hue, saturation, 53),
+    path: hslHex(hue, saturation * 0.6, 67),
+    pathDetail: hslHex(hue, saturation, 39),
+    accent: hslHex(hue, saturation, 29),
   };
 }
 export function proceduralMapCore(id: string) {

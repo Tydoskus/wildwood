@@ -84,7 +84,7 @@ describe("procedural campaign definitions", () => {
   it("starts forest green, moves gradually through the spectrum, and keeps combat finite far into the sequence", () => {
     const first = generateMap("endless_1"),
       second = generateMap("endless_2");
-    expect(first.palette.ground).toBe("#87b078");
+    expect(first.palette.ground).toBe("#79a668");
     expect(second.palette.ground).toMatch(/^#[a-f0-9]{6}$/);
     expect(second.palette.ground).not.toBe(first.palette.ground);
     expect(
