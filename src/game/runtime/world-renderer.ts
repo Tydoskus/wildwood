@@ -1,3 +1,4 @@
+import { residentDrawable } from "./resident-image";
 import { drawHomeCourtyard, drawHomeResearchDesk, drawHomeStationSign } from "./home-courtyard";
 import { drawIonRoads } from "./ion-ground";
 import { drawVerdantRoads } from "./verdant-ground";
@@ -746,7 +747,7 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     if (!options.snowPine.complete || options.snowPine.naturalWidth <= 0) return;
     const height = Math.round(185 * tree.s);
     const width = Math.round(height * options.snowPine.naturalWidth / options.snowPine.naturalHeight);
-    ctx.drawImage(options.snowPine, x - width / 2, y - height, width, height);
+    ctx.drawImage(residentDrawable(options.snowPine), x - width / 2, y - height, width, height);
   }
 
   function drawUpgradeBench(bench: UpgradeBenchDecor) {
@@ -765,7 +766,7 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     // The generated sprite has generous transparent padding below its feet;
     // Lift the shadow into the sprite's padded feet so the bench stays planted.
     options.drawShadow(x, y - 27, Math.round(width * .75), .2);
-    ctx.drawImage(options.upgradeBench, x - width / 2, y - height, width, height);
+    ctx.drawImage(residentDrawable(options.upgradeBench), x - width / 2, y - height, width, height);
     const upgrade = options.upgradeBenchStatus();
     if (upgrade?.itemSprite?.complete && upgrade.itemSprite.naturalWidth > 0) {
       const maxWidth = 88;
@@ -779,7 +780,7 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
       ctx.save();
       ctx.shadowColor = "rgba(116,225,255,.8)";
       ctx.shadowBlur = 8;
-      ctx.drawImage(upgrade.itemSprite, itemCenterX - itemWidth / 2, itemCenterY - itemHeight / 2, itemWidth, itemHeight);
+      ctx.drawImage(residentDrawable(upgrade.itemSprite), itemCenterX - itemWidth / 2, itemCenterY - itemHeight / 2, itemWidth, itemHeight);
       ctx.restore();
     }
     if (options.getMapId() === "home_exterior") {
@@ -807,7 +808,7 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     const width = Math.round(150 * rock.s);
     const height = Math.round(width * image.naturalHeight / image.naturalWidth);
     if (x + width / 2 < -50 || x - width / 2 > visible.width + 50 || y < -50 || y - height > visible.height + 50) return;
-    ctx.drawImage(image, x - width / 2, y - height, width, height);
+    ctx.drawImage(residentDrawable(image), x - width / 2, y - height, width, height);
   }
 
   function lavaRockSpriteFrame(rock: LavaRockDecor): StaticWorldSpriteFrame | null {
@@ -831,7 +832,7 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     const height = Math.round(150 * tree.s);
     const width = Math.round(height * image.naturalWidth / image.naturalHeight);
     if (x + width / 2 < -50 || x - width / 2 > visible.width + 50 || y < -50 || y - height > visible.height + 50) return;
-    ctx.drawImage(image, x - width / 2, y - height, width, height);
+    ctx.drawImage(residentDrawable(image), x - width / 2, y - height, width, height);
   }
 
   function collectVisibleLavaRocks() {

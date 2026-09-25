@@ -1,3 +1,4 @@
+import { residentDrawable } from "./resident-image";
 import { actorShadowDimensions } from "./actor-shadow-geometry";
 import { createCanvasPrimitives } from "../canvas";
 import { requiredCanvasContext } from "./dom";
@@ -86,7 +87,7 @@ export function createCanvasRuntime({
     ctx.save();
     ctx.globalAlpha = alpha;
     if (sprite?.complete && sprite.naturalWidth > 0) {
-      ctx.drawImage(sprite, x - shadowWidth / 2, y - shadowHeight / 2, Math.round(shadowWidth), shadowHeight);
+      ctx.drawImage(residentDrawable(sprite), x - shadowWidth / 2, y - shadowHeight / 2, Math.round(shadowWidth), shadowHeight);
     } else {
       ctx.fillStyle = "#102719";
       ctx.beginPath();

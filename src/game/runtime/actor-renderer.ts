@@ -1,3 +1,4 @@
+import { residentDrawable } from "./resident-image";
 import { isMeleeWeapon } from "../weapon-combat";
 import { paintArrowProjectile, paintRockProjectile, rockProjectileSize } from "./weapon-projectile-renderer";
 export { rockProjectileSize } from "./weapon-projectile-renderer";
@@ -375,7 +376,7 @@ export function createActorRenderer(options: {
     ctx.translate(x, y);
     ctx.rotate(rotation);
     if (Math.cos(facing) < 0) ctx.scale(-1, 1);
-    ctx.drawImage(image, -width / 2, -height / 2, width, height);
+    ctx.drawImage(residentDrawable(image), -width / 2, -height / 2, width, height);
     ctx.restore();
   }
 
@@ -716,7 +717,7 @@ export function createActorRenderer(options: {
           ctx.translate(pivot.x, pivot.y + ENEMY_SPRITE_Y_OFFSET);
           ctx.rotate(enemyWeaponLayerRotation(enemy, combatTarget, layer.aimOffsetRadians, pivot));
           ctx.drawImage(
-            tintedEnemyLayerImage(layer),
+            residentDrawable(tintedEnemyLayerImage(layer)),
             layer.x - pivot.x,
             layer.y - pivot.y,
             layer.w,
@@ -733,7 +734,7 @@ export function createActorRenderer(options: {
             ctx.translate(layer.aimPivot.x, layer.aimPivot.y + ENEMY_SPRITE_Y_OFFSET);
             ctx.rotate(enemyWeaponLayerRotation(enemy, combatTarget, layer.aimOffsetRadians, layer.aimPivot));
             ctx.drawImage(
-              tintedEnemyLayerImage(layer),
+              residentDrawable(tintedEnemyLayerImage(layer)),
               layer.x - layer.aimPivot.x,
               layer.y - layer.aimPivot.y,
               layer.w,
@@ -741,14 +742,14 @@ export function createActorRenderer(options: {
             );
             ctx.restore();
           } else {
-            ctx.drawImage(tintedEnemyLayerImage(layer), layer.x, layer.y + ENEMY_SPRITE_Y_OFFSET, layer.w, layer.h);
+            ctx.drawImage(residentDrawable(tintedEnemyLayerImage(layer)), layer.x, layer.y + ENEMY_SPRITE_Y_OFFSET, layer.w, layer.h);
           }
         }
       }
     } else if (imageReady && image && sprite) {
       ctx.globalAlpha = (enemy.hurt > 0 ? .7 : 1) * visibility;
       ctx.drawImage(
-        image,
+        residentDrawable(image),
         -sprite.size / 2,
         -spriteHeight / 2 + ENEMY_SPRITE_Y_OFFSET,
         sprite.size,

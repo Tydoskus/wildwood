@@ -1,3 +1,4 @@
+import { residentDrawable } from "./resident-image";
 import { itemPresentation } from "../item-presentation";
 import { PLAYER_WORLD_SCALE } from "../player-render-scale";
 
@@ -36,6 +37,6 @@ export function paintRockProjectile(ctx: CanvasRenderingContext2D, image: HTMLIm
   if (!image?.complete || image.naturalWidth <= 0) return false;
   ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
   const { width, height } = rockProjectileSize(itemId, image.naturalWidth, image.naturalHeight);
-  ctx.drawImage(image, -width / 2, offset - height / 2, width, height);
+  ctx.drawImage(residentDrawable(image), -width / 2, offset - height / 2, width, height);
   ctx.restore(); return true;
 }
