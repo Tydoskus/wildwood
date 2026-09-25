@@ -1,3 +1,4 @@
+import { replaceChildrenIfChanged } from "../../ui/replace-children-if-changed";
 import { drawPlayerPowerLabel } from "./player-power-label";
 import { residentImage } from "./resident-image";
 import { applyProfileIcon, createProfileIconCanvasPainter } from "../../app/profile-icons";
@@ -117,17 +118,18 @@ export function createPlayerIdentityRenderer(options: {
 
   function renderDomPlayerName(element: HTMLElement, identity: string | undefined, name: string | undefined, gender = options.playerGender(identity)) {
     const baseName = name || "PLAYER";
-    element.replaceChildren();
-    appendPlayerNameTags(element, identity, options.isDeveloper(identity));
-    element.append(document.createTextNode(baseName));
-    appendPrestigeBadge(element, identity);
-    appendPlayerGenderIcon(element, gender);
-    if (options.isGuest(identity)) {
-      const guest = document.createElement("span");
-      guest.className = "player-name-guest";
-      guest.textContent = " (guest)";
-      element.append(guest);
-    }
+    replaceChildrenIfChanged(element, target => {
+      appendPlayerNameTags(target, identity, options.isDeveloper(identity));
+      target.append(document.createTextNode(baseName));
+      appendPrestigeBadge(target, identity);
+      appendPlayerGenderIcon(target, gender);
+      if (options.isGuest(identity)) {
+        const guest = document.createElement("span");
+        guest.className = "player-name-guest";
+        guest.textContent = " (guest)";
+        target.append(guest);
+      }
+    });
   }
 
   const paintProfileIconCanvas = createProfileIconCanvasPainter(options.onProfileIconsLoaded);

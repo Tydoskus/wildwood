@@ -1,3 +1,4 @@
+import { replaceChildrenIfChanged } from "./replace-children-if-changed";
 import { appendItemTierLabel } from "./item-tier-label";
 import type { PlayerProgress } from "../coop/services/progress";
 import { itemArtMarkup } from "../game/item-presentation";
@@ -156,14 +157,15 @@ export function renderProfileEquipmentSlot(
   // The same banner the inventory's slots carry: a filled equipment slot reads
   // as its upgrade level. "GEAR" said nothing the artwork had not already.
   state.textContent = cosmetic ? "LOOK" : hidden ? "HIDDEN" : item ? `Lvl: +${level}` : "EMPTY";
-  element.replaceChildren(label, art, state);
   element.classList.toggle("is-filled", Boolean(item && !cosmetic));
-  if (item && !cosmetic) appendItemTierLabel(element, item.id);
-
-  if (presentation.slot !== "FEET") {
-    const badge = document.createElement("span");
-    badge.className = "inventory-upgrade-level";
-    badge.textContent = `+${level}`;
-    element.append(badge);
-  }
+  replaceChildrenIfChanged(element, target => {
+    target.append(label, art, state);
+    if (item && !cosmetic) appendItemTierLabel(target, item.id);
+    if (presentation.slot !== "FEET") {
+      const badge = document.createElement("span");
+      badge.className = "inventory-upgrade-level";
+      badge.textContent = `+${level}`;
+      target.append(badge);
+    }
+  });
 }

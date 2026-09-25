@@ -1,3 +1,4 @@
+import { replaceChildrenIfChanged } from "./replace-children-if-changed";
 import { createProfileNameEditor } from "./profile-name-editor";
 import { createProfileLoading } from "./profile-loading";
 import type { NameChangeStatus } from "../../shared/name-change";
@@ -71,7 +72,7 @@ export function createProfileWindowController(elements: {
     const icon = document.createElement("img"); icon.className = "power-icon";
     icon.src = "assets/wildstat/icons/Icon_Battle_Candy_v2.webp"; icon.alt = ""; icon.setAttribute("aria-hidden", "true");
     elements.power.setAttribute("aria-label", `Power ${value}`);
-    elements.power.replaceChildren(number, icon);
+    replaceChildrenIfChanged(elements.power, target => target.append(number, icon));
   }
 
   function updateSkinChoices(value: number) {
@@ -82,18 +83,19 @@ export function createProfileWindowController(elements: {
     elements.genderChoices.querySelectorAll<HTMLButtonElement>(".profile-gender-choice").forEach((choice) => {
       choice.setAttribute("aria-pressed", String(Number(choice.dataset.gender) === value));
     });
-    elements.genderValue.replaceChildren();
     if (!isSelectedPlayerGender(value)) {
       elements.genderValue.setAttribute("aria-label", "Choose gender");
-      elements.genderValue.textContent = "choose";
+      replaceChildrenIfChanged(elements.genderValue, target => { target.textContent = "choose"; });
       return;
     }
     elements.genderValue.setAttribute("aria-label", `${playerGenderLabel(value)} selected`);
-    const icon = appendPlayerGenderIcon(elements.genderValue, value);
-    if (icon) {
-      icon.alt = "";
-      icon.setAttribute("aria-hidden", "true");
-    }
+    replaceChildrenIfChanged(elements.genderValue, target => {
+      const icon = appendPlayerGenderIcon(target, value);
+      if (icon) {
+        icon.alt = "";
+        icon.setAttribute("aria-hidden", "true");
+      }
+    });
   }
 
   function closeGenderChoices() {
