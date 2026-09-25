@@ -17,3 +17,11 @@ export function activateCampaignPacing(ctx: Parameters<typeof saveMapBalance>[0]
   next.maps.endless.enemyRewards *= previousLastReward / next.maps[CAMPAIGN_ENDPOINT.mapId].enemyRewards;
   if (JSON.stringify(next) !== JSON.stringify(settings)) saveMapBalance(ctx, revision, JSON.stringify(next));
 }
+
+/** Migration 44: enable reward floors without changing HP, bosses, or tuning. */
+export function activateCampaignRewardFloor(ctx: Parameters<typeof saveMapBalance>[0]) {
+  if (!ctx.db.mapBalanceHead.id.find(0)) return;
+  const { revision, settings } = balanceEditorState(ctx);
+  if (settings.campaignRewardVersion === 1) return;
+  saveMapBalance(ctx, revision, JSON.stringify({ ...settings, campaignRewardVersion: 1 }));
+}

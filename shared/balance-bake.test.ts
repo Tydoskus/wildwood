@@ -21,6 +21,7 @@ it('converts saved reward multipliers once independently of intentional pacing d
   const settings = validateBalanceSettings(fixture.settings);
   const neutral = defaultBalanceSettings();
   delete neutral.campaignHealthVersion;
+  delete neutral.campaignRewardVersion;
   for (const factors of Object.values(neutral.maps)) factors.enemyRewards = 1;
   expect(settings).toEqual(neutral);
   expect(validateBalanceSettings(JSON.parse(JSON.stringify(settings)))).toEqual(settings);

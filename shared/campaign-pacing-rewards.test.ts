@@ -7,6 +7,7 @@ import { CAMPAIGN_PACING_REWARDS } from './campaign-pacing-rewards';
 it('applies campaign pacing once and changes no combat, boss, drop or timer values', () => {
   const settings = defaultBalanceSettings();
   delete settings.campaignHealthVersion;
+  delete settings.campaignRewardVersion;
   expect(validateBalanceSettings(settings)).toEqual(settings);
   for (const map of CAMPAIGN_MAPS) for (const version of [1, 2] as const) {
     const before = resolveMapBalance(map.id, fixture.settings, 0, version);

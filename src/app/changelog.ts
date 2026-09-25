@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.820": [
+    "Regular and elite stat rewards no longer decrease on later campaign maps for matching enemy types.",
+    "Boss rewards, enemy health, and Endless balance are unchanged.",
+  ],
   "0.819": [
     "Smoothed campaign enemy health and stat rewards for steadier progression between maps.",
     "Map 15 enemy health, boss stats, and Endless balance are unchanged. New balance applies when entering a map.",
@@ -2445,6 +2449,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.820": "2026-09-25",
   "0.819": "2026-09-25",
   "0.818": "2026-09-24",
   "0.817": "2026-09-24",

@@ -1,4 +1,4 @@
-import { activateCampaignPacing } from './campaign-pacing-migration';
+import { activateCampaignPacing, activateCampaignRewardFloor } from './campaign-pacing-migration';
 import { defaultBalanceSettings } from '../../shared/map-balance';
 import bakeFixture from '../../tests/fixtures/balance-revision-73.json';
 import { it, expect, vi } from 'vitest';
@@ -163,7 +163,8 @@ it('activates the exact tested campaign settings once, retaining archived revisi
   pinMapBalance(ctx, 'ion_citadel', true, 2);
   const pinned = ctx.db.playerMapBalance.identity.find(ctx.sender).snapshotJson;
   activateCampaignPacing(ctx);
-  expect(balanceEditorState(ctx).settings).toEqual(defaultBalanceSettings());
+  const expected = defaultBalanceSettings(); delete expected.campaignRewardVersion;
+  expect(balanceEditorState(ctx).settings).toEqual(expected);
   expect(balanceEditorState(ctx).revision).toBe(74);
   expect(ctx.db.mapBalanceVersion.revision.find(73)).toEqual(archived);
   expect(ctx.db.playerMapBalance.identity.find(ctx.sender).snapshotJson).toBe(pinned);
@@ -173,7 +174,7 @@ it('activates the exact tested campaign settings once, retaining archived revisi
   pinMapBalance(ctx, 'ion_citadel');
   expect(pinnedMapBalance(ctx, ctx.sender, 'ion_citadel')!.revision).toBe(74);
 });
-it('runs migration 43 from the existing connection path only once', () => {
+it('runs pending campaign migrations from the connection path only once', () => {
   const f = crystalFixture();
   forgetBalanceCaches();
   f.seed('moduleMigrationState', { id: 0, version: 42 });
@@ -181,8 +182,22 @@ it('runs migration 43 from the existing connection path only once', () => {
   f.seed('mapBalanceVersion', { revision: 73, settingsJson: JSON.stringify(bakeFixture.settings), editor: f.ctx.sender, createdAt: f.ctx.timestamp });
   f.ctx.connectionId = null;
   f.run(server.onConnect);
-  expect(f.db.moduleMigrationState.id.find(0).version).toBe(43);
-  expect(balanceEditorState(f.ctx as any)).toMatchObject({ revision: 74, settings: defaultBalanceSettings() });
+  expect(f.db.moduleMigrationState.id.find(0).version).toBe(44);
+  const expected = defaultBalanceSettings();
+  expect(balanceEditorState(f.ctx as any)).toMatchObject({ revision: 75, settings: expected });
   f.run(server.onConnect);
-  expect(balanceEditorState(f.ctx as any).revision).toBe(74);
+  expect(balanceEditorState(f.ctx as any).revision).toBe(75);
+});
+
+it('migration 44 changes only the reward-floor flag and remains idempotent', () => {
+  const ctx = fixture();
+  const before = defaultBalanceSettings(); delete before.campaignRewardVersion;
+  before.maps.beginner_desert.bossRewards = 1.25;
+  ctx.db.mapBalanceVersion.insert({ revision: 74, settingsJson: JSON.stringify(before), editor: ctx.sender, createdAt: ctx.timestamp });
+  ctx.db.mapBalanceHead.insert({ id: 0, revision: 74 });
+  activateCampaignRewardFloor(ctx);
+  expect(balanceEditorState(ctx)).toMatchObject({ revision: 75, settings: { ...before, campaignRewardVersion: 1 } });
+  expect(JSON.parse(ctx.db.mapBalanceVersion.revision.find(74).settingsJson)).toEqual(before);
+  activateCampaignRewardFloor(ctx);
+  expect(balanceEditorState(ctx).revision).toBe(75);
 });
