@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.817": [
+    "Removed idle health regeneration from regular enemies and elites. Melee aggro range is now 100 for regular enemies and 200 for elites; ranged enemies are unchanged.",
+  ],
   "0.816": [
     "Enemies no longer aggro when hit from outside their aggro range.",
     "Moved Endless portals to the center of each map, with arrival just below them.",
@@ -2433,6 +2436,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.817": "2026-09-24",
   "0.816": "2026-09-24",
   "0.815": "2026-09-24",
   "0.814": "2026-09-24",

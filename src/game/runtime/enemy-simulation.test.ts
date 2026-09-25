@@ -373,7 +373,7 @@ describe("deterministic enemy simulation", () => {
     enemy.damage = 0;
     enemy.maxHp = 1000;
     enemy.hp = 1000;
-    const remote = remotePlayerAt(650, 1000);
+    const remote = remotePlayerAt(550, 1000);
     remote.speed = MAX_PLAYER_MOVEMENT_SPEED + 25;
     let now = 1_800_000_000_000;
     const simulation = createEnemySimulation(
@@ -384,6 +384,8 @@ describe("deterministic enemy simulation", () => {
     );
     simulation.update(1 / 60);
     expect(simulation.remoteCombatGhosts()).toHaveLength(1);
+    // Open a chase gap after proximity acquisition so contact does not cap movement.
+    remote.x += 100;
     let firstSecondX = 0;
     for (let frame = 1; frame <= 120; frame++) {
       now += 1000 / 60;
@@ -565,7 +567,7 @@ it("acquires nearby mobs while manually moving even when the network pose stays 
 
 it("uses the ramp on the very first aggro frame without restarting it on repeated hits", () => {
   const enemy = idleEnemyAt(1000, 1000);
-  const player = playerAt(1100, 1000);
+  const player = playerAt(1040, 1000);
   const lifecycle = createEnemyLifecycle([enemy], [], () => {});
   const sim = createEnemySimulation([enemy], () => {}, player,
     () => ({ width: 800, height: 800, zoom: 1 }), lifecycle.engageEnemy, () => false);
@@ -681,4 +683,25 @@ it("catches a runner who has not finished their move speed research", () => {
     if (player.x > 3000) { player.x -= 2000; enemy.x -= 2000; }
   }
   expect(hits).toBe(1);
+});
+
+ it.each([
+  ['Bramble', 100], ['King Slime', 200], ['Brood', 185], ['Moonblade Reaper', 340],
+] as const)('uses the expected aggro range and never idle-heals %s', (type, radius) => {
+  const base = ENEMY_TYPES[type];
+  const enemy = { ...idleEnemyAt(1000, 1000), type, aggroRadius: base.aggro ?? 0 };
+  enemy.hp = 20;
+  const player = playerAt(2000, 2000);
+  const sim = createEnemySimulation([enemy], () => {}, player,
+    () => ({ width: 800, height: 800, zoom: 1 }), engage, () => false,
+    { serverNowMs: () => 1800000000000 });
+  sim.update(1);
+  expect(enemy.hp).toBe(20);
+  player.x = enemy.x + radius + 5; player.y = enemy.y;
+  sim.update(1 / 60);
+  expect(enemy.engaged).toBe(false);
+  expect(enemy.hp).toBe(20);
+  player.x = enemy.x + radius - 5;
+  sim.update(1 / 60);
+  expect(enemy.engaged).toBe(true);
 });

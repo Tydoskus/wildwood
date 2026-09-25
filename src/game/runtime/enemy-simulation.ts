@@ -87,6 +87,7 @@ export function createEnemySimulation(
 
   function regularAggroRadius(enemy: EnemyState) {
     const base = (enemy.definition ?? ENEMY_TYPES[enemy.type]);
+    if (!base.ranged) return base.elite ? 200 : 100;
     return base.elite
       ? enemy.aggroRadius
       : Math.max(0, BASE_ATTACK_RANGE - REGULAR_ENEMY_AGGRO_PADDING);
@@ -237,7 +238,6 @@ export function createEnemySimulation(
         enemy.vx = 0;
         enemy.vy = 0;
         enemy.facingX = ambient.facingX;
-        if (enemy.hp < enemy.maxHp) enemy.hp = Math.min(enemy.maxHp, enemy.hp + enemy.maxHp * .16 * dt);
       }
 
       if (enemy.leashing) {
