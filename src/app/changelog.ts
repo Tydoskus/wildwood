@@ -1,5 +1,6 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.816": [
+    "Enemies no longer aggro when hit from outside their aggro range.",
     "Moved Endless portals to the center of each map, with arrival just below them.",
   ],
   "0.815": [

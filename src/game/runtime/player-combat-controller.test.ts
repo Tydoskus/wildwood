@@ -41,7 +41,6 @@ function createCombatHarness(overrides: Partial<Parameters<typeof createPlayerCo
     isCloudspireMap: () => false,
     isMoonfenMap: () => false,
     isCrystalHollowsMap: () => false, isClockworkRuinsMap: () => false, isDuskfallOrchardMap: () => false, isNeonBastionMap: () => false, isVerdantCatacombsMap: () => false, isIonCitadelMap: () => false,
-    engageEnemy: noop,
     researchDamageMultiplier: () => 1,
     researchCriticalChance: () => 0,
     researchCriticalDamageMultiplier: () => 1,
@@ -71,6 +70,22 @@ function createCombatHarness(overrides: Partial<Parameters<typeof createPlayerCo
 }
 
 describe("player attack timing", () => {
+  it("damages an enemy from outside aggro range without engaging it", () => {
+    let now = 0;
+    const state = createCombatHarness({ nowSeconds: () => now });
+    state.boss.dead = true;
+    Object.assign(state.player, { x: 500, y: 500, damage: 1, attackRange: 400 });
+    createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Bramble", x: 800, y: 500,
+      campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
+    const enemy = state.enemies[0];
+    const before = enemy.hp;
+    for (let i = 0; i < 180 && enemy.hp === before; i++) {
+      now += 1 / 60; state.controller.attackNearest(); state.controller.updateProjectiles(1 / 60);
+    }
+    expect(enemy.hp).toBeLessThan(before);
+    expect(enemy.engaged).toBe(false);
+    expect(enemy.aggroTargetId).toBeNull();
+  });
   it("reports both earned and base stat rewards after research and prestige", () => {
     const logPickup = vi.fn();
     const multiplier = researchStatRewardMultiplier({ foraging: 5, prosperity: 4 }) * prestigeStatMultiplier(2);

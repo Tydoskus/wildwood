@@ -1,6 +1,5 @@
 import {
   deterministicRemoteCritical,
-  REGULAR_ENEMY_AGGRO_EDGE_TOLERANCE,
   regularEnemyAggroRetainRadius,
   regularEnemyAmbientPose,
   REGULAR_ENEMY_TICK_MS,
@@ -522,19 +521,13 @@ export function createRemoteEnemyCombatShadows(options: {
     const candidates: RegularEnemyAggroCandidate[] = targets
       .filter((target) => target.id && Number.isFinite(target.simulationX ?? target.x) && Number.isFinite(target.simulationY ?? target.y))
       .map((target) => {
-        const stats = combatStatsFor(target.id, options.statsFor);
         return {
           id: target.id,
           x: target.simulationX ?? target.x,
           y: target.simulationY ?? target.y,
           radius: 17,
           local: false,
-          // A real player auto-attacks at this edge, even before the enemy's
-          // smaller proximity aggro triggers. The grid tolerance prevents a
-          // true edge hit from rounding outward on another client.
-          acquireRadius: stats
-            ? Math.max(options.acquireRadius, stats.attackRange + REGULAR_ENEMY_AGGRO_EDGE_TOLERANCE)
-            : options.acquireRadius,
+          acquireRadius: options.acquireRadius,
         };
       });
     const target = selectRegularEnemyAggroTarget({

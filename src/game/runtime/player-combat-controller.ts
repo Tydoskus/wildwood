@@ -115,7 +115,6 @@ export function createPlayerCombatController(options: {
   isNeonBastionMap: () => boolean;
   isVerdantCatacombsMap: () => boolean;
   isIonCitadelMap: () => boolean;
-  engageEnemy: (enemy: EnemyState) => void;
   researchDamageMultiplier: () => number;
   researchCriticalChance: () => number;
   researchCriticalDamageMultiplier: () => number;
@@ -166,7 +165,7 @@ export function createPlayerCombatController(options: {
 }): PlayerCombatController {
   const {
     player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss,
-    isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, isWaterMap, isSamuraiMap, isCloudspireMap, isMoonfenMap, isCrystalHollowsMap, isClockworkRuinsMap, isDuskfallOrchardMap, isNeonBastionMap, isVerdantCatacombsMap, isIonCitadelMap, engageEnemy, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
+    isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, isWaterMap, isSamuraiMap, isCloudspireMap, isMoonfenMap, isCrystalHollowsMap, isClockworkRuinsMap, isDuskfallOrchardMap, isNeonBastionMap, isVerdantCatacombsMap, isIonCitadelMap, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
     researchRewardMultiplier, minAttackInterval, effectiveArmor, isDueling, scheduleEnemyRespawn,
     incrementKills, recordRegularEnemyDefeat, spawnBurst, spawnParticle,
     spawnDamageNumber, logPickup, saveProgress, setHitFlash, addScreenShake, recordDeath, endGame,
@@ -605,7 +604,6 @@ export function createPlayerCombatController(options: {
     } else if (options.hitGeneratedBoss?.(target, damage, critical)) {
       // The generated-boss controller owns its health and defeat handling.
     } else {
-      engageEnemy(target);
       // Hits in quick succession grow one chunk from the health before the first.
       if (!((target.hpLossFlashTimer ?? 0) > 0)) target.hpLossFlashFrom = target.hp;
       target.hpLossFlashTimer = ENEMY_HP_LOSS_FLASH_SECONDS;
