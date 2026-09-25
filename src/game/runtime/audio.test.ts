@@ -7,7 +7,9 @@ import {
   BOW_ATTACK_SOUND_SOURCE,
   bowAttackPlaybackRate,
   createMapMusicController,
+  DEATH_SOUND_GAIN,
   DEATH_SOUND_SOURCE,
+  DEFAULT_SFX_VOLUME,
   musicGainForSource,
   musicSourceForMap,
   SIGN_IN_MUSIC_SOURCE,
@@ -138,7 +140,7 @@ describe("map music", () => {
 
     expect(instances[1]?.src).toBe(DEATH_SOUND_SOURCE);
     expect(instances[0]?.volume).toBe(.25);
-    expect(instances[1]?.volume).toBe(.6);
+    expect(instances[1]?.volume).toBe(1); // .6 × the death gain, capped by the element
     expect(instances[1]?.play).toHaveBeenCalledOnce();
 
     controller.setVolume(0);
@@ -164,7 +166,28 @@ describe("map music", () => {
     controller.playDeathSound();
     controller.playBowAttackSound();
     expect(context.resume).toHaveBeenCalledTimes(state === "suspended" || state === "interrupted" ? 3 : 0);
-    expect(context.gains).toHaveLength(2);
+    expect(context.gains).toHaveLength(3);
+  });
+
+  it("gives sound effects their own default instead of copying the music slider", () => {
+    vi.stubGlobal("Audio", FakeAudio);
+    vi.stubGlobal("window", {});
+    vi.stubGlobal("localStorage", { getItem: (key: string) => key === "test-volume" ? "0" : null });
+    const controller = createMapMusicController("test-volume", BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, "test-sfx-volume");
+    expect(controller.volume).toBe(0);
+    expect(controller.sfxVolume).toBe(DEFAULT_SFX_VOLUME);
+  });
+
+  it("boosts the quiet death sting through its own gain under the SFX slider", () => {
+    const context = new FakeAudioContext();
+    vi.stubGlobal("Audio", FakeAudio);
+    vi.stubGlobal("window", { AudioContext: class { constructor() { return context; } } });
+    vi.stubGlobal("localStorage", { getItem: () => null });
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false })));
+    const controller = createMapMusicController("test-volume", BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, "test-sfx-volume");
+    controller.ensurePlaying(false);
+    expect(context.gains[2]?.gain.value).toBe(DEATH_SOUND_GAIN);
+    expect(context.gains[2]?.connect).toHaveBeenCalledWith(context.gains[1]);
   });
 
   it("balances the shipped map tracks when the map or music slider changes", () => {
@@ -213,12 +236,12 @@ describe("map music", () => {
     const clipDuration = Math.min(duration, .46);
     expect(context.sources[0]?.start).toHaveBeenCalledWith(context.currentTime, 0, clipDuration);
     const playbackDuration = clipDuration / .965;
-    expect(context.gains[2]?.gain.setValueAtTime).toHaveBeenCalledWith(
+    expect(context.gains[3]?.gain.setValueAtTime).toHaveBeenCalledWith(
       BOW_ATTACK_SOUND_GAIN, context.currentTime + playbackDuration - Math.min(.09, playbackDuration * .25),
     );
     expect(fetch).toHaveBeenCalledWith(BOW_ATTACK_SOUND_SOURCE);
     expect(context.gains[1]?.gain.value).toBe(.4);
-    expect(context.gains[2]?.gain.linearRampToValueAtTime).toHaveBeenCalledWith(BOW_ATTACK_SOUND_GAIN, context.currentTime + .008);
+    expect(context.gains[3]?.gain.linearRampToValueAtTime).toHaveBeenCalledWith(BOW_ATTACK_SOUND_GAIN, context.currentTime + .008);
   });
   it("plays a shot that was fired while the clip was still decoding, if it arrives in time", async () => {
     const context = new FakeAudioContext();

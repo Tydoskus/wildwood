@@ -21,7 +21,14 @@ export function musicGainForSource(source: string) {
 export const SIGN_IN_MUSIC_SOURCE = "assets/wildstat/audio/signin.mp3";
 export const DEATH_SOUND_SOURCE = "assets/wildstat/audio/death.mp3";
 export const BOW_ATTACK_SOUND_SOURCE = "assets/wildstat/audio/bow-release.mp3";
-export const BOW_ATTACK_SOUND_GAIN = .28;
+// Clip levels, measured 2026-09-25. The release clip peaks at -3.6 dBFS but
+// lasts a tenth of a second, and at .28 it sat well under the -20 LUFS music;
+// the death sting was mastered quiet (-17 dBFS peak). Both now land at or above
+// the music at the same slider position, still clear of clipping at full volume.
+export const BOW_ATTACK_SOUND_GAIN = .8;
+export const DEATH_SOUND_GAIN = 2.8;
+/** Sound effects no longer copy the music slider: muting music used to silence them too. */
+export const DEFAULT_SFX_VOLUME = .7;
 export const BOW_ATTACK_SOUND_CLIP_SECONDS = .46;
 export const BOW_ATTACK_SOUND_RATE_MIN = .93;
 export const BOW_ATTACK_SOUND_RATE_MAX = 1;
@@ -101,7 +108,7 @@ export function createMapMusicController(
       if (Number.isFinite(savedVolume)) volume = Math.min(1, Math.max(0, savedVolume));
     }
   } catch {}
-  let sfxVolume = volume;
+  let sfxVolume = DEFAULT_SFX_VOLUME;
   if (sfxStorageKey) {
     try {
       const storedSfxVolume = localStorage.getItem(sfxStorageKey);
@@ -112,10 +119,11 @@ export function createMapMusicController(
     } catch {}
   }
   audio.volume = volume;
-  deathAudio.volume = sfxVolume;
+  deathAudio.volume = Math.min(1, sfxVolume * DEATH_SOUND_GAIN);
   let audioContext: AudioContext | null = null;
   let musicGainNode: GainNode | null = null;
   let sfxGainNode: GainNode | null = null;
+  let deathGainNode: GainNode | null = null;
   let bowAttackBuffer: AudioBuffer | null = null;
   let bowAttackBufferPromise: Promise<AudioBuffer | null> | null = null;
   let deathBuffer: AudioBuffer | null = null;
@@ -218,7 +226,7 @@ export function createMapMusicController(
   }
 
   function ensureAudioGraph() {
-    if (audioContext && musicGainNode && sfxGainNode) return audioContext;
+    if (audioContext && musicGainNode && sfxGainNode && deathGainNode) return audioContext;
     const AudioContextConstructor = window.AudioContext || (window as WebkitAudioWindow).webkitAudioContext;
     if (!AudioContextConstructor) return null;
     try {
@@ -229,8 +237,11 @@ export function createMapMusicController(
       sfxGainNode = audioContext.createGain();
       musicGainNode.gain.value = volume * musicGainForSource(requestedMusicSource);
       sfxGainNode.gain.value = sfxVolume;
+      deathGainNode = audioContext.createGain();
+      deathGainNode.gain.value = DEATH_SOUND_GAIN;
+      deathGainNode.connect(sfxGainNode);
       source.connect(musicGainNode);
-      deathSource.connect(sfxGainNode);
+      deathSource.connect(deathGainNode);
       musicGainNode.connect(audioContext.destination);
       sfxGainNode.connect(audioContext.destination);
       // iOS ignores HTMLMediaElement.volume. Keep the media element at full
@@ -242,8 +253,9 @@ export function createMapMusicController(
       audioContext = null;
       musicGainNode = null;
       sfxGainNode = null;
+      deathGainNode = null;
       audio.volume = Math.min(1, volume * musicGainForSource(requestedMusicSource));
-      deathAudio.volume = sfxVolume;
+      deathAudio.volume = Math.min(1, sfxVolume * DEATH_SOUND_GAIN);
       return null;
     }
   }
@@ -262,7 +274,7 @@ export function createMapMusicController(
   function setSfxVolume(nextVolume: number) {
     sfxVolume = Math.min(1, Math.max(0, nextVolume));
     if (sfxGainNode) sfxGainNode.gain.value = sfxVolume;
-    else deathAudio.volume = sfxVolume;
+    else deathAudio.volume = Math.min(1, sfxVolume * DEATH_SOUND_GAIN);
   }
 
   function pause() {
@@ -313,10 +325,10 @@ export function createMapMusicController(
     // A decoded buffer starts on the audio clock the instant it is asked for,
     // and does not depend on a media element that a suspended or interrupted
     // context can leave silent. Without a context the element still works.
-    if (context && sfxGainNode && deathBuffer) {
+    if (context && deathGainNode && deathBuffer) {
       const source = context.createBufferSource();
       source.buffer = deathBuffer;
-      source.connect(sfxGainNode);
+      source.connect(deathGainNode);
       source.onended = () => source.disconnect();
       try { source.start(); return; } catch { source.disconnect(); }
     }
