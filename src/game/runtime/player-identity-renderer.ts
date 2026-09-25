@@ -1,4 +1,5 @@
 import { drawPlayerPowerLabel } from "./player-power-label";
+import { residentImage } from "./resident-image";
 import { applyProfileIcon, createProfileIconCanvasPainter } from "../../app/profile-icons";
 import { playerNamePrefix, appendPlayerNameTags, appendPrestigeBadge, playerPrestigeLevel } from "../../app/player-name-tags";
 import { PRESTIGE_BADGE_ASSET, PRESTIGE_BADGE_PX } from "../../../shared/prestige";
@@ -93,6 +94,12 @@ export function createPlayerIdentityRenderer(options: {
 }) {
   const prestigeBadge = new Image();
   prestigeBadge.src = PRESTIGE_BADGE_ASSET;
+  const residentBadge = residentImage(prestigeBadge);
+  const residentPower = residentImage(options.powerIcon);
+  const residentGender = {
+    [PLAYER_GENDER_MALE]: residentImage(options.genderIcons[PLAYER_GENDER_MALE]),
+    [PLAYER_GENDER_FEMALE]: residentImage(options.genderIcons[PLAYER_GENDER_FEMALE]),
+  };
   const bubbles = new Map<string, SpeechBubble[]>();
   const speechBubbleLayoutCache = new Map<bigint, SpeechBubble>();
   let renderedSpeechBubbleRevision = -1;
@@ -308,19 +315,17 @@ export function createPlayerIdentityRenderer(options: {
     const nameWidth = ctx.measureText(displayName).width;
     const gender = explicitGender ?? options.playerGender(identity);
     const genderIcon = gender === PLAYER_GENDER_MALE || gender === PLAYER_GENDER_FEMALE
-      ? options.genderIcons[gender]
+      ? residentGender[gender]()
       : null;
-    const hasGenderIcon = Boolean(genderIcon?.complete && genderIcon.naturalWidth > 0 && genderIcon.naturalHeight > 0);
+    const hasGenderIcon = Boolean(genderIcon);
     const genderIconHeight = hasGenderIcon ? 15 : 0;
-    const genderIconWidth = hasGenderIcon && genderIcon
-      ? genderIconHeight * genderIcon.naturalWidth / genderIcon.naturalHeight
-      : 0;
+    const genderIconWidth = genderIcon ? genderIconHeight * genderIcon.width / genderIcon.height : 0;
     const genderIconGap = hasGenderIcon ? 3 : 0;
     // After the name, before the gender icon, at the same size as the power
     // sword below it. Its width joins the label so the whole stays centred.
     const prestige = playerPrestigeLevel(identity);
-    const showBadge = prestige > 0
-      && Boolean(prestigeBadge.complete && prestigeBadge.naturalWidth > 0 && prestigeBadge.naturalHeight > 0);
+    const badge = prestige > 0 ? residentBadge() : null;
+    const showBadge = Boolean(badge);
     const badgeSize = showBadge ? OVERHEAD_PRESTIGE_BADGE_SIZE : 0;
     const badgeGap = showBadge ? 1 : 0;
     const labelWidth = nameWidth + badgeGap + badgeSize + genderIconGap + genderIconWidth;
@@ -341,7 +346,7 @@ export function createPlayerIdentityRenderer(options: {
     if (showBadge) {
       ctx.imageSmoothingEnabled = true;
       const badgeTop = nameBottom - badgeSize + 1;
-      ctx.drawImage(prestigeBadge, badgeLeft, badgeTop, badgeSize, badgeSize);
+      ctx.drawImage(badge!, badgeLeft, badgeTop, badgeSize, badgeSize);
       // White with the same outline every other overhead label carries. The
       // digit is drawn at .515 rather than the middle because "middle" centres
       // the font's em box, not the ink, and the shield's own centre is above
@@ -370,7 +375,7 @@ export function createPlayerIdentityRenderer(options: {
       options.outlinedText("(guest)", centerX, nameBottom - 16, "#a9b1ad", 3);
     }
     if (powerValue) {
-      drawPlayerPowerLabel(ctx, options.outlinedText, options.powerIcon, powerValue, centerX, bottom);
+      drawPlayerPowerLabel(ctx, options.outlinedText, residentPower(), powerValue, centerX, bottom);
     }
     ctx.restore();
   }

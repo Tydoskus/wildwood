@@ -2,6 +2,7 @@ import { createCanvasPrimitives } from "../canvas";
 import { itemPresentation } from "../item-presentation";
 import { EXPANSION_HEAD_FRAME } from "../player-head-template";
 import { drawPlayerPowerLabel } from "./player-power-label";
+import { residentImage } from "./resident-image";
 import { formatCompactNumber } from "../../ui/number-format";
 import { canvasRenderPixelRatio } from "./render-budget";
 import { equipmentAppearance, type InventoryState } from "../inventory";
@@ -23,8 +24,9 @@ export function createInventoryCharacterPreview(
 ) {
   const ctx = requiredCanvasContext(canvas);
   const { outlinedWorldText } = createCanvasPrimitives(ctx);
-  const powerIcon = new Image();
-  powerIcon.src = "assets/wildstat/icons/Icon_Battle_Candy_v2.webp";
+  const powerImage = new Image();
+  powerImage.src = "assets/wildstat/icons/Icon_Battle_Candy_v2.webp";
+  const powerIcon = residentImage(powerImage);
   let renderedPower = "";
 
   function resize() {
@@ -72,7 +74,7 @@ export function createInventoryCharacterPreview(
       ? Math.min(EXPANSION_HEAD_FRAME.y, head.top ?? (head.bottom ?? headHeight) - headHeight)
       : EXPANSION_HEAD_FRAME.y;
     const labelBottom = height / 2 + 4 + characterOffsetY + 29 + (headTop - 171) * scale - 6;
-    drawPlayerPowerLabel(ctx, outlinedWorldText, powerIcon, nextPower, width / 2, Math.max(20, labelBottom));
+    drawPlayerPowerLabel(ctx, outlinedWorldText, powerIcon(), nextPower, width / 2, Math.max(20, labelBottom));
   }
 
   return { draw, resize };

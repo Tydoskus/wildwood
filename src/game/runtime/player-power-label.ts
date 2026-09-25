@@ -4,7 +4,7 @@ type OutlinedText = (text: string, x: number, y: number, color: string, strokeWi
 export function drawPlayerPowerLabel(
   ctx: CanvasRenderingContext2D,
   outlinedText: OutlinedText,
-  icon: HTMLImageElement,
+  icon: HTMLCanvasElement | null,
   value: string,
   centerX: number,
   bottom: number,
@@ -13,7 +13,7 @@ export function drawPlayerPowerLabel(
   ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
   ctx.textBaseline = "bottom";
   ctx.textAlign = "left";
-  const hasIcon = icon.complete && icon.naturalWidth > 0;
+  const hasIcon = Boolean(icon);
   const iconSize = hasIcon ? 16 : 0;
   const iconGap = hasIcon ? 3 : 0;
   const textWidth = ctx.measureText(value).width;
@@ -27,7 +27,7 @@ export function drawPlayerPowerLabel(
     // ink sits high in its own square.
     const textHeight = 12;
     const opticalDrop = 1;
-    ctx.drawImage(icon, left + textWidth + iconGap, bottom - textHeight / 2 - iconSize / 2 + opticalDrop, iconSize, iconSize);
+    ctx.drawImage(icon!, left + textWidth + iconGap, bottom - textHeight / 2 - iconSize / 2 + opticalDrop, iconSize, iconSize);
   }
   ctx.restore();
 }
