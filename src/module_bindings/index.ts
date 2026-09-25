@@ -251,6 +251,7 @@ import DragonResultRow from "./dragon_result_table";
 import DreadreaperBossRow from "./dreadreaper_boss_table";
 import DreadreaperResultRow from "./dreadreaper_result_table";
 import DuelRow from "./duel_table";
+import DuelCombatSnapshotRow from "./duel_combat_snapshot_table";
 import DuelReplayRow from "./duel_replay_table";
 import DuelRiposteRow from "./duel_riposte_table";
 import DuelWireAccessRow from "./duel_wire_access_table";
@@ -494,6 +495,17 @@ const tablesSchema = __schema({
       { name: 'duel_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, DuelRow),
+  duelCombatSnapshot: __table({
+    name: 'duel_combat_snapshot',
+    indexes: [
+      { accessor: 'duelId', name: 'duel_combat_snapshot_duel_id_idx_btree', algorithm: 'btree', columns: [
+        'duelId',
+      ] },
+    ],
+    constraints: [
+      { name: 'duel_combat_snapshot_duel_id_key', constraint: 'unique', columns: ['duelId'] },
+    ],
+  }, DuelCombatSnapshotRow),
   duelReplay: __table({
     name: 'duel_replay',
     indexes: [

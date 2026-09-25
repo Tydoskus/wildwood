@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.813": [
+    "Regular enemies and elites now deal 10% of their maximum health as damage before armor.",
+    "Fixed duel health bars and damage numbers missing bow skill and Riposte damage.",
+    "Bow skill effects now appear in duels and new replays.",
+    "Tap private-chat profile pictures or the conversation name to view a player profile.",
+  ],
   "0.812": [
     "Guilds can now be Open or Request Only. Join requests appear in a new guild chat tab.",
     "Guild Presidents and Vice Presidents can accept or deny requests with an optional note sent by mail.",
@@ -2416,6 +2422,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.813": "2026-09-24",
   "0.812": "2026-09-24",
   "0.811": "2026-09-24",
   "0.810": "2026-09-24",

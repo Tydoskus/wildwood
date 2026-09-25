@@ -18,7 +18,7 @@ export type DuelCombat = DuelWeapons & {
   opponentMaxHp: number; opponentDamage: number; opponentArmor: number; opponentRegen: number; opponentAttackRate: number;
   // Riposte chances and the seed their rolls come from. The seed is stored with
   // the duel so a replay rolls exactly what the server rolled.
-  challengerRiposte?: number; opponentRiposte?: number; riposteSeed?: number;
+  challengerRiposte?: number; opponentRiposte?: number; riposteSeed?: number | bigint;
   // Each duellist's equipped bow skills, as stored percentages (0 = none).
   // They roll from the same stored seed as Riposte, under their own salt.
   challengerArrowStorm?: number; challengerRicochet?: number; challengerPiercingShot?: number;
@@ -73,7 +73,7 @@ function duelAttackDamage(duel: DuelCombat, side: "challenger" | "opponent", att
 export function duelRiposted(duel: DuelCombat, side: "challenger" | "opponent", attack: number) {
   const chance = Math.max(0, Math.min(1, (side === "challenger" ? duel.challengerRiposte : duel.opponentRiposte) ?? 0));
   if (chance <= 0) return false;
-  return regularEnemySeededUnit("duel-riposte", duel.riposteSeed ?? 0, side, attack) < chance;
+  return regularEnemySeededUnit("duel-riposte", String(duel.riposteSeed ?? 0), side, attack) < chance;
 }
 export type DuelCombatState = {
   challengerHp: number; opponentHp: number; challengerAttacks: number; opponentAttacks: number;
@@ -164,3 +164,5 @@ export function simulateDuelBattle(challenger: DuelFighter, opponent: DuelFighte
   const result = advanceDuelCombat(combat, initialDuelCombatState(combat), 0, 30_000_000);
   return { combat, result, outcome: duelOutcome(combat, result), durationMicros: Math.max(3_000_000, result.resolvedMicros) };
 }
+
+export type DuelCombatModifiers = Pick<DuelCombat, "challengerRiposte" | "opponentRiposte" | "riposteSeed" | "challengerArrowStorm" | "challengerRicochet" | "challengerPiercingShot" | "opponentArrowStorm" | "opponentRicochet" | "opponentPiercingShot">;

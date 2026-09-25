@@ -1,3 +1,4 @@
+import type { DuelCombatModifiers } from "../../../shared/duel-combat";
 import type { EnemyDefinition, EnemyKind, RewardType } from "../enemies";
 import type { PlayerGender } from "../../../shared/player-gender";
 import type { ArrowSkillProcs } from "../../../shared/bow-skills";
@@ -381,7 +382,7 @@ export type ReplayMode = {
  * Narrow client boundary. Kept structural instead of importing wildstat-coop
  * so the core game runtime does not create a type cycle through Window.
  */
-export type RuntimeDuelState = {
+export type RuntimeDuelState = DuelCombatModifiers & {
   combatVersion?: number;
   id: bigint;
   challenger: string;
@@ -423,7 +424,7 @@ export type RuntimeDuelState = {
   opponentLeftHandItem: string;
 };
 
-export type RuntimeDuelReplay = {
+export type RuntimeDuelReplay = DuelCombatModifiers & {
   combatVersion?: number;
   id: bigint;
   challengerIdentity: string;

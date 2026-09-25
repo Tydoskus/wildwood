@@ -200,7 +200,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     if (large && channel !== "public") void loadHistory(true);
     if (channel !== "public") void getCoop()?.social?.loadSocial().then(refresh)
       .catch(error => showMessage(error instanceof Error ? error.message : "COULD NOT REFRESH SOCIAL CONTACTS", "#ff9b91"));
-  });
+  }, onOpenPlayer);
 
   const guildRequests = createChatGuildRequests({ document: elements.panel.ownerDocument, api: () => getCoop()?.guild,
     openPlayer: onOpenPlayer, changed: () => { messageActions.close(false); renderedRevision = ""; refresh(); },

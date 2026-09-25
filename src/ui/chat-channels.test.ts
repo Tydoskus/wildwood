@@ -3,7 +3,7 @@ import { parseHTML } from "linkedom";
 import { readFileSync } from "node:fs";
 import { createChatRuntimeController } from "./chat-runtime-controller";
 import { installGameShell } from "./game-shell";
-import { mergeChatConversations } from "./chat-channels";
+import { createChatChannelPicker, mergeChatConversations } from "./chat-channels";
 
 const settle = async () => { for (let i = 0; i < 8; i++) await Promise.resolve(); };
 
@@ -603,4 +603,20 @@ it("keeps chat interaction active through momentum and typing, then releases idl
     h.chat.minimize();
     expect(h.chat.isInteracting()).toBe(false);
   } finally { vi.restoreAllMocks(); }
+});
+
+
+it("opens profiles from private inbox portraits and the conversation heading", () => {
+  const { document, window } = parseHTML("<html><body></body></html>");
+  vi.stubGlobal("document", document); vi.stubGlobal("window", window);
+  const changed = vi.fn(), openProfile = vi.fn();
+  const picker = createChatChannelPicker(changed, openProfile);
+  picker.select("private", "");
+  picker.refresh([], [{ identity: "friend", name: "Moss", profileIcon: 19 }], "", { world: 0, guild: 0, private: 0, conversations: new Map() });
+  picker.conversations.querySelector<HTMLElement>(".chat-conversation-portrait")!.click();
+  expect(openProfile).toHaveBeenLastCalledWith("friend", "Moss");
+  expect(changed).toHaveBeenCalledTimes(1);
+  picker.select("private", "Moss", "friend");
+  picker.root.querySelector<HTMLElement>(".chat-conversation-heading")!.click();
+  expect(openProfile).toHaveBeenCalledTimes(2);
 });

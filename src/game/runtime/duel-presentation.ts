@@ -1,3 +1,4 @@
+import { showDuelSkillEffects, type DuelSkillEffects } from "./duel-skill-effects";
 import { duelAttackDelays, duelPositionsAt, duelWeapon } from "../../../shared/duel-approach";
 import { duelHitMultiplier } from "../../../shared/duel-combat";
 import {
@@ -27,6 +28,7 @@ export type DuelReplayTitle = {
 };
 
 export type DuelPresentationHooks = {
+  skillEffects?: DuelSkillEffects;
   activeDuel: () => RuntimeDuelState | null;
   localIdentity: () => string | undefined;
   localDisplayName: () => string | undefined;
@@ -80,6 +82,7 @@ export function createDuelPresentation(hooks: DuelPresentationHooks) {
     const previous = livePresentation?.id === duel.id
       ? livePresentation
       : { id: duel.id, elapsed: 0, challengerHp: duel.challengerMaxHp, opponentHp: duel.opponentMaxHp };
+    showDuelSkillEffects(duel, previous.elapsed, presentation.elapsed, presentation.state, hooks.skillEffects);
     if (presentation.elapsed >= previous.elapsed) {
       const challengerDamage = presentation.state.opponentDamageDealt - (previous.opponentDamageDealt ?? 0);
       const opponentDamage = presentation.state.challengerDamageDealt - (previous.challengerDamageDealt ?? 0);
@@ -229,6 +232,7 @@ export function createDuelPresentation(hooks: DuelPresentationHooks) {
         replayMode.opponentDeathStartedAtMs = now;
       }
     }
+    showDuelSkillEffects(replay, replayMode.lastElapsed, elapsed, state, hooks.skillEffects);
     if (elapsed >= replayMode.lastElapsed) {
       const challengerDamage = state.opponentDamageDealt - (replayMode.lastState.opponentDamageDealt ?? 0);
       const opponentDamage = state.challengerDamageDealt - (replayMode.lastState.challengerDamageDealt ?? 0);

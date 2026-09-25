@@ -1,9 +1,11 @@
+import type { DuelSkillEffects } from "./duel-skill-effects";
 import { appendPlayerNameTags } from "../../app/player-name-tags";
 import { createDuelPresentation, type DuelReplayTitle } from "./duel-presentation";
 import type { RuntimeDuelReplay, RuntimeDuelState } from "./types";
 import { appendPlayerGenderIcon } from "../../ui/player-gender";
 
 export function createDuelRuntime(hooks: {
+  skillEffects?: DuelSkillEffects;
   activeDuel: () => RuntimeDuelState | null;
   localIdentity: () => string | undefined;
   localDisplayName: () => string | undefined;
@@ -47,7 +49,7 @@ export function createDuelRuntime(hooks: {
     remotePlayers: hooks.remotePlayers,
     playerDisplayName: hooks.playerDisplayName,
     pulseDuel: hooks.pulseDuel,
-    spawnDamageNumber: hooks.spawnDamageNumber,
+    spawnDamageNumber: hooks.spawnDamageNumber, skillEffects: hooks.skillEffects,
     setReplayTitle: renderReplayTitle,
     now: hooks.now,
     nowMs: hooks.nowMs,

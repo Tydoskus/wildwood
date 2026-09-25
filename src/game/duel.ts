@@ -1,3 +1,4 @@
+import type { DuelCombatModifiers } from "../../shared/duel-combat";
 import type { DuelWeapons } from "../../shared/duel-approach";
 import { isMeleeWeapon } from "./weapon-combat";
 import { PLAYER_PROJECTILE_SPEED } from "../../shared/rules";
@@ -15,7 +16,7 @@ export const DUEL_SHOT_SPEED = PLAYER_PROJECTILE_SPEED;
 export const DUEL_SPACE_BACKGROUND_SOURCE = "assets/wildstat/duel-space-background-v1.webp";
 export const DUEL_PLATFORM_ART_SOURCE = "assets/wildstat/duel-floating-platform-v1.webp";
 
-type ReplayCombatantFields = DuelWeapons & {
+type ReplayCombatantFields = DuelCombatModifiers & DuelWeapons & {
   combatVersion?: number;
   durationSeconds: number;
   challengerMaxHp: number;

@@ -1,3 +1,4 @@
+import type { DuelCombatModifiers } from "../../shared/duel-combat";
 import type { PlayerGender } from "../../shared/player-gender";
 import type { ResearchId } from "../../shared/research";
 import type { PlayerProgress } from "./services/progress";
@@ -187,7 +188,7 @@ export type BugReportEntry = {
   reportedAtMs: number;
 };
 
-export type DuelState = {
+export type DuelState = DuelCombatModifiers & {
   combatVersion?: number;
   id: bigint;
   challenger: string;
@@ -229,7 +230,7 @@ export type DuelState = {
   opponentLeftHandItem: string;
 };
 
-export type DuelReplay = {
+export type DuelReplay = DuelCombatModifiers & {
   combatVersion?: number;
   id: bigint;
   challengerIdentity: string;

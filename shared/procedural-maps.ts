@@ -1,3 +1,4 @@
+import { enemyDamageFromHealth } from "./enemy-damage";
 import { finalCampaignEnemy, finalCampaignBoss } from "./campaign-combat-baseline";
 import { CAMPAIGN_ENDPOINT } from "./campaign-registry";
 import { runtimeMapBalance } from "./map-balance-runtime";
@@ -201,7 +202,7 @@ export function generatedEnemyStats(
   authored = false,
 ) {
   const remote = !authored && runtimeMapBalance(`endless_${map.number}`)?.lanes[lane];
-  if (remote) return { ...remote, reward: { ...remote.reward } };
+  if (remote) return { ...remote, damage: enemyDamageFromHealth(remote.hp), reward: { ...remote.reward } };
   const scale = endlessScaling(map.number);
   const previousTier = PROCEDURAL_FIRST_TIER - 1;
   const previous = finalCampaignEnemy(lane);
@@ -212,9 +213,8 @@ export function generatedEnemyStats(
     campaignEnemyRewardMultiplier(PROCEDURAL_FIRST_TIER - 1) /
     campaignEnemyRewardMultiplier(PROCEDURAL_FIRST_TIER) * scale.rewards;
   const combat = desertLaneCombatValue(lane, PROCEDURAL_FIRST_TIER);
-  const armor = referenceBuildForMap(PROCEDURAL_FIRST_TIER).armor;
-  return { hp: combat.hp * previous.hp / expectedPrevious.hp * scale.combatStats * scale.endurance,
-    damage: combat.damage * previous.damage / expectedPrevious.damage * scale.combatStats * (1 - armorDamageReduction(armor)) / (1 - armorDamageReduction(armor * scale.combatStats)), reward };
+  const hp = combat.hp * previous.hp / expectedPrevious.hp * scale.combatStats * scale.endurance;
+  return { hp, damage: enemyDamageFromHealth(hp), reward };
 }
 export function generatedBossStats(map: Pick<GeneratedMap, "number">, authored = false) {
   const remote = !authored && runtimeMapBalance(`endless_${map.number}`)?.boss;

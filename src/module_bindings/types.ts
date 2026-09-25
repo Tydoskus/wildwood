@@ -509,6 +509,20 @@ export const Duel = __t.object("Duel", {
 });
 export type Duel = __Infer<typeof Duel>;
 
+export const DuelCombatSnapshot = __t.object("DuelCombatSnapshot", {
+  duelId: __t.u64(),
+  challengerRiposte: __t.f64(),
+  opponentRiposte: __t.f64(),
+  riposteSeed: __t.u64(),
+  challengerArrowStorm: __t.f64(),
+  challengerRicochet: __t.f64(),
+  challengerPiercingShot: __t.f64(),
+  opponentArrowStorm: __t.f64(),
+  opponentRicochet: __t.f64(),
+  opponentPiercingShot: __t.f64(),
+});
+export type DuelCombatSnapshot = __Infer<typeof DuelCombatSnapshot>;
+
 export const DuelReplay = __t.object("DuelReplay", {
   id: __t.u64(),
   challengerName: __t.string(),

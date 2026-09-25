@@ -1,3 +1,4 @@
+import type { DuelCombatModifiers } from "../../../shared/duel-combat";
 import type { Identity } from "spacetimedb";
 import { tables } from "../../module_bindings";
 import { normalizePlayerGender } from "../../../shared/player-gender";
@@ -66,6 +67,30 @@ export function createDuelService(dependencies: DuelServiceDependencies) {
   const replays = new Map<bigint, DuelReplay>();
   const replayLoads = new Map<bigint, Promise<DuelReplay | null>>();
   const cancelReplayLoads = new Map<bigint, () => void>();
+  const modifiers = new Map<bigint, DuelCombatModifiers>();
+  const modifierLoads = new Map<bigint, { unsubscribe(): void }>();
+  function loadModifiers(id: bigint) {
+    if (modifiers.has(id) || modifierLoads.has(id)) return;
+    const connection = dependencies.reducers.connection();
+    if (!connection) return;
+    let applied = false;
+    const subscription = connection.subscriptionBuilder().onApplied(() => {
+      applied = true;
+      if (dependencies.reducers.connection() === connection) {
+        const row = connection.db.duelCombatSnapshot.duelId.find(id);
+        if (row) {
+          modifiers.set(id, row);
+          const duel = duels.get(id);
+          if (duel) duels.set(id, { ...duel, ...row });
+          dependencies.notify();
+        }
+      }
+      modifierLoads.get(id)?.unsubscribe();
+      modifierLoads.delete(id);
+    }).onError(() => { modifierLoads.delete(id); }).subscribe([tables.duelCombatSnapshot.where(row => row.duelId.eq(id))]);
+    if (applied) subscription.unsubscribe();
+    else modifierLoads.set(id, subscription);
+  }
   let lastPulseAt = 0;
   let cooldownUntil = 0;
 
@@ -81,6 +106,7 @@ export function createDuelService(dependencies: DuelServiceDependencies) {
   function upsert(row: DuelRow) {
     duels.set(row.id, {
       id: row.id,
+      ...modifiers.get(row.id),
       combatVersion: row.combatVersion ?? 0,
       challenger: row.challenger.toHexString(),
       opponent: row.opponent.toHexString(),
@@ -120,6 +146,7 @@ export function createDuelService(dependencies: DuelServiceDependencies) {
       opponentRightHandItem: row.opponentRightHandItem,
       opponentLeftHandItem: row.opponentLeftHandItem,
     });
+    loadModifiers(row.id);
     dependencies.notify();
   }
 
@@ -131,6 +158,7 @@ export function createDuelService(dependencies: DuelServiceDependencies) {
   function upsertReplay(row: any) {
     replays.set(row.id, {
       id: row.id,
+      ...modifiers.get(row.id),
       combatVersion: row.combatVersion ?? 0,
       challengerIdentity: row.challengerIdentity,
       opponentIdentity: row.opponentIdentity,
@@ -219,12 +247,14 @@ export function createDuelService(dependencies: DuelServiceDependencies) {
       .onApplied(() => {
         if (dependencies.reducers.connection() !== connection) return finish(null);
         const row = [...connection.db.duelReplay.iter()].find((replay) => replay.id === id);
+        const snapshot = connection.db.duelCombatSnapshot.duelId.find(id);
+        if (snapshot) modifiers.set(id, snapshot);
         if (row) upsertReplay(row);
         const replay = replays.get(id);
         finish(replay ? { ...replay } : null);
       })
       .onError(() => finish(null))
-      .subscribe([tables.duelReplay.where((replay) => replay.id.eq(id))]);
+      .subscribe([tables.duelReplay.where((replay) => replay.id.eq(id)), tables.duelCombatSnapshot.where(row => row.duelId.eq(id))]);
     if (unsubscribeAfterSubscribe) releaseSubscription();
     return request;
   }
@@ -293,6 +323,9 @@ export function createDuelService(dependencies: DuelServiceDependencies) {
     restoreCooldown,
     activeReplayLoadCount: () => replayLoads.size,
     resetSession() {
+      for (const subscription of modifierLoads.values()) subscription.unsubscribe();
+      modifierLoads.clear();
+      modifiers.clear();
       duels.clear();
       for (const cancel of [...cancelReplayLoads.values()]) cancel();
       cancelReplayLoads.clear();

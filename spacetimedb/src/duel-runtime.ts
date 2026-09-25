@@ -53,7 +53,7 @@ export function clearExpiredDuelRequests(ctx: any) {
       expiredIds.push(current.id);
     }
   }
-  for (const id of expiredIds) { deleteSnapshotRow(ctx, "duel", id); ctx.db.duelRiposte.duelId.delete(id); }
+  for (const id of expiredIds) { deleteSnapshotRow(ctx, "duel", id); ctx.db.duelRiposte.duelId.delete(id); ctx.db.duelCombatSnapshot.duelId.delete(id); }
 }
 
 export function returnDuelPlayer(ctx: any, identity: any, x: number, y: number) {
@@ -224,7 +224,7 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
     const riposte = ctx.db.duelRiposte.duelId.find(current.id);
     // Bow skills are read from each duellist's rolls for the bow the duel
     // froze. Rolls never change, so every resolution sees the same chances.
-    const { resolvedMicros, ...combat } = advanceDuelCombat({ ...current, ...riposte, ...duelBowSkillFields(ctx, current) }, current,
+    const { resolvedMicros, ...combat } = advanceDuelCombat({ ...current, ...(ctx.db.duelCombatSnapshot.duelId.find(current.id) ?? { ...riposte, ...duelBowSkillFields(ctx, current) }) }, current,
       Number(current.lastResolvedAt.microsSinceUnixEpoch - current.startsAtMicros),
       Number(resolutionMicros - current.startsAtMicros));
     const next = {
@@ -357,6 +357,7 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
       opponentRiposte: prestigeRiposteChance(prestigePerkRanks(ctx, opponent)),
       riposteSeed: ctx.timestamp.microsSinceUnixEpoch,
     });
+    ctx.db.duelCombatSnapshot.insert({ ...ctx.db.duelRiposte.duelId.find(insertedDuel.id), ...duelBowSkillFields(ctx, insertedDuel) });
     ctx.db.duelResolutionSchedule.insert({
       scheduledId: 0n,
       scheduledAt: ScheduleAt.time(endsAtMicros),

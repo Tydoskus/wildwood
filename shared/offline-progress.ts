@@ -1,3 +1,4 @@
+import { enemyDamageFromHealth } from "./enemy-damage";
 import { armorDamageReduction, damageAfterArmor } from "./combat";
 import { enemyDefeatDefinition } from "./enemy-defeats";
 import { ENEMY_TYPES, type EnemyKind } from "./enemy-definitions";
@@ -89,7 +90,7 @@ export function offlineEnemyRoster(mapId: string, balance?: MapBalanceSnapshot):
         byLane.set(lane, {
           enemy: lane,
           hp: stats.hp,
-          damage: stats.damage,
+          damage: enemyDamageFromHealth(stats.hp),
           attacksPerSecond: OFFLINE_DEFAULT_ATTACKS_PER_SECOND,
           population: 1,
           reward: { ...stats.reward },
@@ -106,7 +107,7 @@ export function offlineEnemyRoster(mapId: string, balance?: MapBalanceSnapshot):
     roster.push({
       enemy,
       hp: definition.hp,
-      damage: authored.damage,
+      damage: enemyDamageFromHealth(definition.hp),
       attacksPerSecond: authored.attackSpeed,
       population: definition.population,
       reward: { ...definition.reward },

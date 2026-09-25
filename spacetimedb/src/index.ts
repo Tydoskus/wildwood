@@ -1,3 +1,4 @@
+import { duelCombatSnapshot } from "./duel-combat-snapshot";
 import { playerEquipmentLock, setEquipmentLock } from "./equipment-locks";
 import { CAMPAIGN_MAPS, fillCampaignPortals } from "../../shared/campaign-registry";
 import { campaignMapUnlocked } from "../../shared/equipment-access";
@@ -1819,7 +1820,7 @@ const spacetimedb = schema({
   playerEndlessRebaseBackup,
   playerPrestige,
   playerPrestigePerk,
-  duelRiposte,
+  duelRiposte, duelCombatSnapshot,
   playerSessionAnalytics,
   developerPresencePreference,
   playerMovementDemand,
@@ -3346,7 +3347,7 @@ function clearExpiredHistory(ctx: any) {
   }
 
   for (const id of staleMessageIds) { removeMessageReactions(ctx, "public", id); ctx.db.chatMessage.id.delete(id); }
-  for (const id of staleReplayIds) ctx.db.duelReplay.id.delete(id);
+  for (const id of staleReplayIds) { ctx.db.duelReplay.id.delete(id); ctx.db.duelCombatSnapshot.duelId.delete(id); }
   pruneExpiredSocialMessages(ctx, ctx.timestamp.microsSinceUnixEpoch);
   if (cursor?.firstId) ctx.db.publicChatCursor.id.update({ ...cursor, firstId: firstLiveId });
   else updatePublicChatCursor(ctx);

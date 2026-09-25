@@ -1145,7 +1145,7 @@ import {
     remotePlayers: () => coop?.remotePlayers?.() ?? [],
     playerDisplayName: (identity) => coop?.playerDisplayName?.(identity),
     pulseDuel: () => coop?.pulseDuel?.(),
-    spawnDamageNumber,
+    spawnDamageNumber, skillEffects: effects,
     prepareArena: assets.ensureDuelAssets,
     loadReplay: async (replayId) => coop?.loadDuelReplay
       ? await coop.loadDuelReplay(replayId)

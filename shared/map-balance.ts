@@ -1,3 +1,4 @@
+import { enemyDamageFromHealth } from "./enemy-damage";
 import { bossHeavyHitAt, bossRewardValue } from "./progression";
 import { CAMPAIGN_MAPS, CAMPAIGN_ENDPOINT } from "./campaign-registry";
 import { regularMapLoot } from './regular-map-loot';
@@ -66,7 +67,7 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
     const lanes = new Set([...map.camps.map(c => c.lane), 'Dread Warden' as const]);
     for (const lane of lanes) {
       const row = generatedEnemyStats(map, lane, true);
-      result.lanes[lane] = { hp: row.hp * hpRatio * factors.enemyHealth * campaignFactors.enemyHealth, damage: row.damage * damageRatio * factors.enemyDamage * campaignFactors.enemyDamage,
+      result.lanes[lane] = { hp: row.hp * hpRatio * factors.enemyHealth * campaignFactors.enemyHealth, damage: enemyDamageFromHealth(row.hp * hpRatio * factors.enemyHealth * campaignFactors.enemyHealth),
         reward: { ...row.reward, amount: row.reward.amount * rewardRatio * factors.enemyRewards * campaignFactors.enemyRewards } };
     }
     // Generated camps reuse art, but receive these resolved combat values at spawn.
@@ -79,7 +80,7 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
     for (const kind of Object.keys(ENEMY_TYPES) as EnemyKind[]) {
       if (!enemyDefeatDefinition(mapId, kind)) continue;
       const row = AUTHORED_ENEMIES[kind];
-      result.enemies[kind] = { ...row, hp: row.hp * factors.enemyHealth, damage: row.damage * factors.enemyDamage,
+      result.enemies[kind] = { ...row, hp: row.hp * factors.enemyHealth, damage: enemyDamageFromHealth(row.hp * factors.enemyHealth),
         speed: row.speed * factors.enemySpeed, reward: { ...row.reward, amount: row.reward.amount * factors.enemyRewards } };
     }
     const prefix = BALANCE_MAPS.find(([id]) => id === mapId)![2];

@@ -18,7 +18,7 @@ export function mergeChatConversations(friends: ChatConversation[], conversation
   return [...names.values()].sort((a, b) => (b.lastSentAtMs ?? 0) - (a.lastSentAtMs ?? 0) || a.name.localeCompare(b.name));
 }
 
-export function createChatChannelPicker(onChange: (channel: ChatChannel, username: string, identity?: string) => void) {
+export function createChatChannelPicker(onChange: (channel: ChatChannel, username: string, identity?: string) => void, onOpenPlayer?: (identity: string, name: string) => void) {
   const root = document.createElement("div");
   root.className = "chat-channels";
   const tabs = document.createElement("div");
@@ -76,6 +76,13 @@ export function createChatChannelPicker(onChange: (channel: ChatChannel, usernam
   contacts.setAttribute("aria-label", "Private conversations");
   const conversationHeader = document.createElement("div");
   conversationHeader.className = "chat-conversation-heading";
+  conversationHeader.setAttribute("role", "button");
+  conversationHeader.tabIndex = 0;
+  const openPeer = () => { if (peerIdentity) onOpenPlayer?.(peerIdentity, peer); };
+  conversationHeader.addEventListener("click", openPeer);
+  conversationHeader.addEventListener("keydown", event => {
+    if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openPeer(); }
+  });
   picker.addEventListener("submit", (event) => {
     event.preventDefault();
     if (username.value.trim()) select("private", username.value.trim());
@@ -154,7 +161,14 @@ export function createChatChannelPicker(onChange: (channel: ChatChannel, usernam
         const portrait = document.createElement("span");
         portrait.className = "chat-profile-icon chat-conversation-portrait";
         applyAvatarFrame(portrait, person.identity);
-        portrait.setAttribute("aria-hidden", "true");
+        portrait.setAttribute("role", "button");
+        portrait.tabIndex = 0;
+        portrait.setAttribute("aria-label", `View ${person.name}'s profile`);
+        const openProfile = (event: Event) => { event.stopPropagation(); onOpenPlayer?.(person.identity, person.name); };
+        portrait.addEventListener("click", openProfile);
+        portrait.addEventListener("keydown", event => {
+          if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openProfile(event); }
+        });
         applyProfileIcon(portrait, person.profileIcon ?? 0);
         const content = document.createElement("span");
         content.className = "chat-conversation-content";

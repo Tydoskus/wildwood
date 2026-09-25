@@ -4451,3 +4451,7 @@
 .guild-request-actions .window-back-button { width: auto; min-width: 0; margin: 0; }
 .guild-request-actions .guild-request-accept { border-color: #18371b; background: linear-gradient(#63ad5c, #347536); box-shadow: 0 3px 0 #18371b; }
 .guild-request-actions .guild-request-deny { border-color: #594515; background: linear-gradient(#e0bd55, #ac812c); box-shadow: 0 3px 0 #594515; }
+
+.chat-conversation-heading[role="button"] { cursor: pointer; }
+.chat-conversation-heading[role="button"]:focus-visible,
+.chat-conversation-portrait[role="button"]:focus-visible { outline: 2px solid #ece7d2; outline-offset: 3px; }

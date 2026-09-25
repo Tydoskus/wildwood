@@ -145,6 +145,18 @@
       "contributorsJson",
       "createdAt"
     ],
+    "duel_combat_snapshot": [
+      "duelId",
+      "challengerRiposte",
+      "opponentRiposte",
+      "riposteSeed",
+      "challengerArrowStorm",
+      "challengerRicochet",
+      "challengerPiercingShot",
+      "opponentArrowStorm",
+      "opponentRicochet",
+      "opponentPiercingShot"
+    ],
     "duel_replay": [
       "id",
       "challengerName",
