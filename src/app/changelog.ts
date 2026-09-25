@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.814": [
+    "Tripled Health and Armor rewards and doubled Regen rewards from regular enemies, elites, and bosses, including Endless. Applies on your next map visit.",
+  ],
   "0.813": [
     "Regular enemies and elites now deal 10% of their maximum health as damage before armor.",
     "Fixed duel health bars and damage numbers missing bow skill and Riposte damage.",
@@ -2422,6 +2425,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.814": "2026-09-24",
   "0.813": "2026-09-24",
   "0.812": "2026-09-24",
   "0.811": "2026-09-24",

@@ -25,9 +25,9 @@ afterEach(() => {
 
 describe("generated encounter economy", () => {
   it("keeps tutorial breakthroughs and reward labels readable", () => {
-    expect(ENEMY_TYPES.Bramble.reward).toEqual({ type: "health", amount: 14 });
-    expect(ENEMY_TYPES["King Slime"].reward).toEqual({ type: "health", amount: 30 });
-    expect(ENEMY_TYPES.Mossback.reward).toEqual({ type: "armor", amount: 3 });
+    expect(ENEMY_TYPES.Bramble.reward).toEqual({ type: "health", amount: 42 });
+    expect(ENEMY_TYPES["King Slime"].reward).toEqual({ type: "health", amount: 90 });
+    expect(ENEMY_TYPES.Mossback.reward).toEqual({ type: "armor", amount: 9 });
     expect(rewardLabel({ type: "speed", amount: .25 })).toBe("+0.25 Atk/sec");
     expect(rewardLabel({ type: "damage", amount: 1.05 })).toBe("+1.05 Damage");
   });

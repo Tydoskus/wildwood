@@ -98,13 +98,9 @@ export function laneCombatValue(lane: ForestProgressionLane, mapIndex: number) {
   const scale = combatMultiplierForMap(mapIndex);
   return { hp: base.hp * scale, damage: base.damage * scale };
 }
-/**
- * A boss capstone was outpacing the camps that drop armour and health, so
- * nobody cleared them: the armour lane and both health lanes were skipped on
- * every lap. These raise the two stats regular enemies are the only source of.
- * Boss rewards are untouched, which is what closes the gap.
- */
-export const REGULAR_REWARD_STAT_SCALE: Partial<Record<RewardStat, number>> = { armor: 3, health: 2 };
+/** Existing health and armor rewards tripled, regeneration doubled.
+ * Includes the earlier regular-enemy health (2x) and armor (3x) boosts. */
+export const REGULAR_REWARD_STAT_SCALE: Partial<Record<RewardStat, number>> = { armor: 9, health: 6, regen: 2 };
 export function regularRewardStatScale(stat: RewardStat) {
   return REGULAR_REWARD_STAT_SCALE[stat] ?? 1;
 }
@@ -155,9 +151,9 @@ export function bossHeavyHitAt(mapIndex: number) {
 export const DESERT_BOSS_BASE_MAX_HP = desertBossHealthAt(0);
 export const DESERT_BOSS_BASE_HEAVY_HIT = bossHeavyHitAt(0);
 export const BOSS_REWARD_TRACK_BASES: Record<RewardStat, { amount: number; unlockMapIndex: number }> = {
-  damage: { amount: 50, unlockMapIndex: 0 }, health: { amount: 500, unlockMapIndex: 0 },
-  speed: { amount: 0, unlockMapIndex: 0 }, armor: { amount: 9.375, unlockMapIndex: 1 },
-  regen: { amount: 7.5, unlockMapIndex: 2 },
+  damage: { amount: 50, unlockMapIndex: 0 }, health: { amount: 1500, unlockMapIndex: 0 },
+  speed: { amount: 0, unlockMapIndex: 0 }, armor: { amount: 28.125, unlockMapIndex: 1 },
+  regen: { amount: 15, unlockMapIndex: 2 },
 };
 export function bossRewardValue(stat: RewardStat, mapIndex: number) {
   const base = BOSS_REWARD_TRACK_BASES[stat];

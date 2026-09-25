@@ -1,24 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { damageAfterArmor } from "./combat";
 import { desertLaneCombatValue, desertLaneRewardValue, referenceBuildForMap, ENCOUNTER_PROFILES,
-  DESERT_REFERENCE, FOREST_LANE_BASES, desertBossHealthAt, bossHeavyHitAt, MAP_STAT_GROWTH, CAMPAIGN_ENEMY_REWARD_MULTIPLIERS, CURRENT_ROLE_LANES, campaignEnemyRewardMultiplier, regularRewardStatScale } from "./progression";
+  bossRewardValue, DESERT_REFERENCE, FOREST_LANE_BASES, desertBossHealthAt, bossHeavyHitAt, MAP_STAT_GROWTH, CAMPAIGN_ENEMY_REWARD_MULTIPLIERS, CURRENT_ROLE_LANES, campaignEnemyRewardMultiplier, regularRewardStatScale } from "./progression";
 
 describe("encounter experience contract", () => {
-  it("awards 72 health for a Desert regent", () => {
-    expect(desertLaneRewardValue("King Slime", 0)).toEqual({ type: "health", amount: 72 });
+  it("awards 216 health for a Desert regent", () => {
+    expect(desertLaneRewardValue("King Slime", 0)).toEqual({ type: "health", amount: 216 });
   });
-  it("awards 36 health for Desert archers and 6 armor for guards", () => {
-    expect(desertLaneRewardValue("Bramble", 0)).toEqual({ type: "health", amount: 36 });
-    expect(desertLaneRewardValue("Mossback", 0)).toEqual({ type: "armor", amount: 6 });
+  it("awards 108 health for Desert archers and 18 armor for guards", () => {
+    expect(desertLaneRewardValue("Bramble", 0)).toEqual({ type: "health", amount: 108 });
+    expect(desertLaneRewardValue("Mossback", 0)).toEqual({ type: "armor", amount: 18 });
   });
-  it("leaves damage and regen lanes where they were", () => {
-    // Only the two stats bosses were outclassing move; the rest of the lap
-    // keeps its value, so the comparison between camps stays meaningful.
+  it("keeps damage and speed unchanged and applies the requested reward boosts", () => {
+    // Multipliers include the previous health and armor boosts.
     expect(regularRewardStatScale("damage")).toBe(1);
-    expect(regularRewardStatScale("regen")).toBe(1);
+    expect(regularRewardStatScale("regen")).toBe(2);
     expect(regularRewardStatScale("speed")).toBe(1);
-    expect(regularRewardStatScale("armor")).toBe(3);
-    expect(regularRewardStatScale("health")).toBe(2);
+    expect(regularRewardStatScale("armor")).toBe(9);
+    expect(regularRewardStatScale("health")).toBe(6);
   });
   it("awards 6 damage for a Desert raider", () => {
     expect(desertLaneRewardValue("Cindermaw", 0)).toEqual({ type: "damage", amount: 6 });
@@ -70,4 +69,12 @@ describe("encounter experience contract", () => {
   it("rejects invalid tiers instead of emitting broken content", () => {
     for (const tier of [-1, .5, NaN, Infinity, 61]) expect(() => referenceBuildForMap(tier)).toThrow(RangeError);
   });
+});
+
+
+it("triples boss health and armor rewards and doubles regeneration without raising damage", () => {
+  expect(bossRewardValue("health", 0)).toBe(1500);
+  expect(bossRewardValue("damage", 0)).toBe(50);
+  expect(bossRewardValue("armor", 1) / bossRewardValue("damage", 1)).toBeCloseTo(28.125 / 50);
+  expect(bossRewardValue("regen", 2) / bossRewardValue("damage", 2)).toBeCloseTo(15 / 50);
 });
