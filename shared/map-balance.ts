@@ -1,3 +1,7 @@
+import { CAMPAIGN_HEALTH_FACTORS } from './campaign-health-curve';
+import { CAMPAIGN_PACING_REWARDS } from './campaign-pacing-rewards';
+import { LEGACY_ENEMY_REWARDS } from "./legacy-enemy-rewards";
+import { BALANCE_BASELINE_VERSION, BAKED_ENEMY_REWARD_FACTORS, BAKED_ENDLESS_DEFAULTS } from "./balance-baseline";
 import { bossHeavyHitAt, bossRewardValue } from "./progression";
 import { CAMPAIGN_MAPS, CAMPAIGN_ENDPOINT } from "./campaign-registry";
 import { regularMapLoot } from './regular-map-loot';
@@ -10,7 +14,7 @@ import { enemyDefeatDefinition, combatMap } from './enemy-defeats';
 import { personalBossDefinition } from './personal-bosses';
 import { generateMap, generatedBossStats, generatedEnemyStats, isProceduralMap } from './procedural-maps';
 import { BOSS_DAMAGE_PROFILES } from './boss-damage';
-import { ENDLESS_REWARD_MULTIPLIER, ENDLESS_STAT_STEP, ENDLESS_ENDURANCE_STEP, ENDLESS_ENDURANCE_EXPONENT, endlessScaling } from './endless-balance';
+import { endlessScaling } from './endless-balance';
 import { DEFAULT_BALANCE_FACTORS, type BalanceSettings, type MapBalanceSnapshot } from './map-balance-types';
 const AUTHORED_RULES = { ...rules };
 const AUTHORED_ENEMIES = structuredCloneSafe(ENEMY_TYPES);
@@ -20,19 +24,27 @@ export const BALANCE_MAPS: readonly (readonly [string, string, string])[] = [
   ['endless', 'Endless', ''],
 ];
 export function defaultBalanceSettings(): BalanceSettings {
-  return { maps: Object.fromEntries(BALANCE_MAPS.map(([id]) => [id, { ...DEFAULT_BALANCE_FACTORS }])),
-    endless: { rewardMultiplier: ENDLESS_REWARD_MULTIPLIER, statStep: ENDLESS_STAT_STEP, enduranceStep: ENDLESS_ENDURANCE_STEP, enduranceExponent: ENDLESS_ENDURANCE_EXPONENT, rewardPerHealth: 1 } };
+  return { baselineVersion: BALANCE_BASELINE_VERSION, campaignHealthVersion: 1, maps: Object.fromEntries(BALANCE_MAPS.map(([id]) => [id, { ...DEFAULT_BALANCE_FACTORS,
+      enemyRewards: id === 'endless' ? 1 / (CAMPAIGN_PACING_REWARDS[CAMPAIGN_ENDPOINT.mapId] ?? 1) : CAMPAIGN_PACING_REWARDS[id] ?? 1 }])),
+    endless: { ...BAKED_ENDLESS_DEFAULTS } };
 }
 export function validateBalanceSettings(value: unknown): BalanceSettings {
   const input = value as BalanceSettings;
   const result = defaultBalanceSettings();
+  if (input?.campaignHealthVersion !== undefined && input.campaignHealthVersion !== 1) throw new Error('Unsupported campaign health curve.');
+  if (input?.campaignHealthVersion === 1) result.campaignHealthVersion = 1;
+  else delete result.campaignHealthVersion; // Archived settings keep their original HP.
+  if (input?.baselineVersion !== undefined && input.baselineVersion !== BALANCE_BASELINE_VERSION) throw new Error('Unsupported balance baseline.');
   for (const [map] of BALANCE_MAPS) for (const field of Object.keys(DEFAULT_BALANCE_FACTORS) as (keyof typeof DEFAULT_BALANCE_FACTORS)[]) {
     const optional = ['enemyRespawn', 'bossRespawn', 'bossRegen', 'enemyDrops'].includes(field);
     const raw = input?.maps?.[map]?.[field];
     const n = raw === undefined && (optional || input?.maps?.[map] === undefined) ? 1 : raw;
-    const min = field === 'bossRegen' || field === 'enemyDrops' ? 0 : .01;
+    const baked = field === 'enemyRewards' ? BAKED_ENEMY_REWARD_FACTORS[map] ?? 1 : 1;
+    const min = field === 'bossRegen' || field === 'enemyDrops' ? 0 : .01 / (input?.baselineVersion === 2 ? baked : 1);
     if (!Number.isFinite(n) || n < min || n > 100 || (field === 'enemySpeed' && n > 3)) throw new Error(`Invalid ${map} ${field} (${min}–${field === 'enemySpeed' ? 3 : 100}).`);
-    result.maps[map][field] = n;
+    // Old revisions use pre-bake multipliers. Convert once; saved/editor settings
+    // carry a version so loading them again cannot divide a second time.
+    result.maps[map][field] = input?.baselineVersion === 2 ? n : n / baked;
   }
   for (const field of Object.keys(result.endless) as (keyof BalanceSettings['endless'])[]) {
     const stored = input?.endless?.[field];
@@ -47,6 +59,8 @@ export function validateBalanceSettings(value: unknown): BalanceSettings {
 }
 /** Resolved numbers cross the wire; apps do not need the current scaling formula. */
 export function resolveMapBalance(mapId: string, settings: BalanceSettings, revision: number, configurationVersion: 1 | 2 = 2): MapBalanceSnapshot {
+  // Also cover direct callers (Balance Lab and archived settings), not only server saves.
+  if (settings.baselineVersion !== BALANCE_BASELINE_VERSION) settings = validateBalanceSettings(settings);
   const result: MapBalanceSnapshot = { schema: 1, enemyDamageVersion: 1, revision, mapId, enemies: {}, lanes: {}, boss: null, rules: {} };
   if (configurationVersion === 2) result.configurationVersion = 2;
   if (!combatMap(mapId)) return result;
@@ -54,7 +68,9 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
   const factors = settings.maps[generated ? 'endless' : mapId];
   const definition = personalBossDefinition(mapId, true)!;
   if (generated) {
-    const campaignFactors = settings.maps[CAMPAIGN_ENDPOINT.mapId] ?? DEFAULT_BALANCE_FACTORS;
+    const storedCampaignFactors = settings.maps[CAMPAIGN_ENDPOINT.mapId] ?? DEFAULT_BALANCE_FACTORS;
+    const campaignFactors = { ...storedCampaignFactors,
+      enemyRewards: storedCampaignFactors.enemyRewards * (BAKED_ENEMY_REWARD_FACTORS[CAMPAIGN_ENDPOINT.mapId] ?? 1) };
     const map = generateMap(mapId), base = endlessScaling(map.number), depth = Math.min(map.number - 1, 1000), tuning = settings.endless;
     const stats = 1 + tuning.statStep * Math.log2(1 + depth);
     const hpRatio = (1 + tuning.statStep * depth) * (1 + tuning.enduranceStep * depth) ** tuning.enduranceExponent / (base.combatStats * base.endurance);
@@ -71,7 +87,9 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
     }
     // Generated camps reuse art, but receive these resolved combat values at spawn.
     const art = generatedEnemyArt(mapId);
-    result.enemies[art] = { ...AUTHORED_ENEMIES[art], speed: 275 * factors.enemySpeed };
+    result.enemies[art] = { ...AUTHORED_ENEMIES[art],
+      reward: { ...AUTHORED_ENEMIES[art].reward, amount: LEGACY_ENEMY_REWARDS[art] ?? AUTHORED_ENEMIES[art].reward.amount },
+      speed: 275 * factors.enemySpeed };
     const boss = generatedBossStats(map, true);
     result.boss = { kind: definition.kind, hp: boss.hp * hpRatio * factors.bossHealth * campaignFactors.bossHealth, damage: boss.damage * damageRatio * factors.bossDamage * campaignFactors.bossDamage,
       respawnSeconds: definition.respawnSeconds, attacks: {}, rewards: Object.fromEntries(boss.rewards.map(r => [r.type, r.amount * rewardRatio * factors.bossRewards * campaignFactors.bossRewards])) };
@@ -79,7 +97,8 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
     for (const kind of Object.keys(ENEMY_TYPES) as EnemyKind[]) {
       if (!enemyDefeatDefinition(mapId, kind)) continue;
       const row = AUTHORED_ENEMIES[kind];
-      result.enemies[kind] = { ...row, hp: row.hp * factors.enemyHealth, damage: row.damage * factors.enemyDamage,
+      result.enemies[kind] = { ...row, hp: row.hp * (settings.campaignHealthVersion === 1
+          ? CAMPAIGN_HEALTH_FACTORS[mapId]?.[`${row.elite ? 'elite' : 'regular'}:${row.reward.type}`] ?? 1 : 1) * factors.enemyHealth, damage: row.damage * factors.enemyDamage,
         speed: row.speed * factors.enemySpeed, reward: { ...row.reward, amount: row.reward.amount * factors.enemyRewards } };
     }
     const prefix = BALANCE_MAPS.find(([id]) => id === mapId)![2];

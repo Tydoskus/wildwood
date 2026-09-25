@@ -4,13 +4,7 @@ import { CAMPAIGN_MAPS } from "./campaign-registry";
 import { MAP_EDITOR_GAMEPLAY_OVERRIDES } from "./map-editor-overrides";
 import { utilityMovementSpeedBonus } from "./research";
 import {
-  BOSS_BASE_MAX_HP,
-  bossRewardValue,
-  desertBossHealthAt,
-  DRAGON_REWARD_DAMAGE as TUTORIAL_DRAGON_REWARD,
   MAP_STAT_GROWTH, MAP_TARGET_SECONDS, BOSS_TARGET_SECONDS,
-  SNOWLANDS_TUNING,
-  TUTORIAL_BOSS_HEALTH_SCALE,
 } from "./progression";
 
 export const WORLD_WIDTH = 4800;
@@ -105,82 +99,77 @@ export const BALANCE_LATE_BOSS_TARGET_MAX_SECONDS = BOSS_TARGET_SECONDS;
 // column; it no longer changes the reward amount.
 export const BOSS_REWARD_CLAIM_BITS: Record<string, number> = Object.fromEntries(CAMPAIGN_MAPS.map(map => [map.bossKind, 2 ** map.claimIndex]));
 
-// Forest owns its tutorial boss; campaign bosses use Desert-relative tiers.
-// Every clear pays the same modest capstone reward, including repeat clears.
-const bossHealthAt = (mapIndex: number) => mapIndex === 0 ? BOSS_BASE_MAX_HP : desertBossHealthAt(mapIndex - 1);
-const bossRewardAt = (stat: "damage" | "health" | "armor" | "regen", mapIndex: number) =>
-  bossRewardValue(stat, mapIndex - 1);
+// Campaign boss values baked at revision 73; reward boosts are already included.
+export let DRAGON_MAX_HP = 70000;
+export let SPIDER_MAX_HP = 160000;
+export let FROSTCLAW_MAX_HP = 3790800;
+export let MAGMALISK_MAX_HP = 15163200.000000002;
+export let GLOOMROOT_MAX_HP = 45489600.00000001;
+export let TIDEWYRM_MAX_HP = 136468800.00000003;
+export let KOI_SHOGUN_MAX_HP = 409406400.00000006;
+export let TEMPEST_KIRIN_MAX_HP = 1228219200;
+export let MIREMAW_MAX_HP = 3684657600.0000005;
+export let PRISMSHELL_MAX_HP = 11053972800;
+export let IRONHORN_MAX_HP = 33161918400.000004;
+export let DREADREAPER_MAX_HP = 99485755200.00002;
+export let VOLTWARDEN_MAX_HP = 298457265600;
+export let GRAVEBLOOM_MAX_HP = 895371796800.0001;
+export let AEGIS_PRIME_MAX_HP = 2686115390400;
 
-export let DRAGON_MAX_HP = bossHealthAt(0) * TUTORIAL_BOSS_HEALTH_SCALE;
-export let SPIDER_MAX_HP = 160_000;
-export let FROSTCLAW_MAX_HP = bossHealthAt(2) * SNOWLANDS_TUNING.bossHealth;
-export let MAGMALISK_MAX_HP = bossHealthAt(3);
-export let GLOOMROOT_MAX_HP = bossHealthAt(4);
-export let TIDEWYRM_MAX_HP = bossHealthAt(5);
-export let KOI_SHOGUN_MAX_HP = bossHealthAt(6);
-export let TEMPEST_KIRIN_MAX_HP = bossHealthAt(7);
-export let MIREMAW_MAX_HP = bossHealthAt(8);
-export let PRISMSHELL_MAX_HP = bossHealthAt(9);
-export let IRONHORN_MAX_HP = bossHealthAt(10);
-export let DREADREAPER_MAX_HP = bossHealthAt(11);
-export let VOLTWARDEN_MAX_HP = bossHealthAt(12);
-export let GRAVEBLOOM_MAX_HP = bossHealthAt(13);
-export let AEGIS_PRIME_MAX_HP = bossHealthAt(14);
-
-export let DRAGON_REWARD_DAMAGE = TUTORIAL_DRAGON_REWARD;
-export let SPIDER_REWARD_DAMAGE = bossRewardAt("damage", 1);
-export let SPIDER_REWARD_HEALTH = bossRewardAt("health", 1);
-export let FROSTCLAW_REWARD_DAMAGE = bossRewardAt("damage", 2);
-export let FROSTCLAW_REWARD_HEALTH = bossRewardAt("health", 2);
-export let FROSTCLAW_REWARD_ARMOR = bossRewardAt("armor", 2);
-export let MAGMALISK_REWARD_DAMAGE = bossRewardAt("damage", 3);
-export let MAGMALISK_REWARD_HEALTH = bossRewardAt("health", 3);
-export let MAGMALISK_REWARD_ARMOR = bossRewardAt("armor", 3);
-export let MAGMALISK_REWARD_REGEN = bossRewardAt("regen", 3);
-export let GLOOMROOT_REWARD_DAMAGE = bossRewardAt("damage", 4);
-export let GLOOMROOT_REWARD_HEALTH = bossRewardAt("health", 4);
-export let GLOOMROOT_REWARD_ARMOR = bossRewardAt("armor", 4);
-export let GLOOMROOT_REWARD_REGEN = bossRewardAt("regen", 4);
-export let TIDEWYRM_REWARD_DAMAGE = bossRewardAt("damage", 5);
-export let TIDEWYRM_REWARD_HEALTH = bossRewardAt("health", 5);
-export let TIDEWYRM_REWARD_ARMOR = bossRewardAt("armor", 5);
-export let TIDEWYRM_REWARD_REGEN = bossRewardAt("regen", 5);
-export let KOI_SHOGUN_REWARD_DAMAGE = bossRewardAt("damage", 6);
-export let KOI_SHOGUN_REWARD_HEALTH = bossRewardAt("health", 6);
-export let KOI_SHOGUN_REWARD_ARMOR = bossRewardAt("armor", 6);
-export let KOI_SHOGUN_REWARD_REGEN = bossRewardAt("regen", 6);
-export let TEMPEST_KIRIN_REWARD_DAMAGE = bossRewardAt("damage", 7);
-export let TEMPEST_KIRIN_REWARD_HEALTH = bossRewardAt("health", 7);
-export let TEMPEST_KIRIN_REWARD_ARMOR = bossRewardAt("armor", 7);
-export let TEMPEST_KIRIN_REWARD_REGEN = bossRewardAt("regen", 7);
-export let MIREMAW_REWARD_DAMAGE = bossRewardAt("damage", 8);
-export let MIREMAW_REWARD_HEALTH = bossRewardAt("health", 8);
-export let MIREMAW_REWARD_ARMOR = bossRewardAt("armor", 8);
-export let MIREMAW_REWARD_REGEN = bossRewardAt("regen", 8);
-export let PRISMSHELL_REWARD_DAMAGE = bossRewardAt("damage", 9);
-export let IRONHORN_REWARD_DAMAGE = bossRewardAt("damage", 10);
-export let DREADREAPER_REWARD_DAMAGE = bossRewardAt("damage", 11);
-export let VOLTWARDEN_REWARD_DAMAGE = bossRewardAt("damage", 12);
-export let GRAVEBLOOM_REWARD_DAMAGE = bossRewardAt("damage", 13);
-export let AEGIS_PRIME_REWARD_DAMAGE = bossRewardAt("damage", 14);
-export let PRISMSHELL_REWARD_HEALTH = bossRewardAt("health", 9);
-export let IRONHORN_REWARD_HEALTH = bossRewardAt("health", 10);
-export let DREADREAPER_REWARD_HEALTH = bossRewardAt("health", 11);
-export let VOLTWARDEN_REWARD_HEALTH = bossRewardAt("health", 12);
-export let GRAVEBLOOM_REWARD_HEALTH = bossRewardAt("health", 13);
-export let AEGIS_PRIME_REWARD_HEALTH = bossRewardAt("health", 14);
-export let PRISMSHELL_REWARD_ARMOR = bossRewardAt("armor", 9);
-export let IRONHORN_REWARD_ARMOR = bossRewardAt("armor", 10);
-export let DREADREAPER_REWARD_ARMOR = bossRewardAt("armor", 11);
-export let VOLTWARDEN_REWARD_ARMOR = bossRewardAt("armor", 12);
-export let GRAVEBLOOM_REWARD_ARMOR = bossRewardAt("armor", 13);
-export let AEGIS_PRIME_REWARD_ARMOR = bossRewardAt("armor", 14);
-export let PRISMSHELL_REWARD_REGEN = bossRewardAt("regen", 9);
-export let IRONHORN_REWARD_REGEN = bossRewardAt("regen", 10);
-export let DREADREAPER_REWARD_REGEN = bossRewardAt("regen", 11);
-export let VOLTWARDEN_REWARD_REGEN = bossRewardAt("regen", 12);
-export let GRAVEBLOOM_REWARD_REGEN = bossRewardAt("regen", 13);
-export let AEGIS_PRIME_REWARD_REGEN = bossRewardAt("regen", 14);
+export let DRAGON_REWARD_DAMAGE = 20;
+export let SPIDER_REWARD_DAMAGE = 50;
+export let SPIDER_REWARD_HEALTH = 1500;
+export let FROSTCLAW_REWARD_DAMAGE = 115.5;
+export let FROSTCLAW_REWARD_HEALTH = 3465;
+export let FROSTCLAW_REWARD_ARMOR = 64.96875;
+export let MAGMALISK_REWARD_DAMAGE = 326.304;
+export let MAGMALISK_REWARD_HEALTH = 9789.119999999999;
+export let MAGMALISK_REWARD_ARMOR = 183.546;
+export let MAGMALISK_REWARD_REGEN = 97.8912;
+export let GLOOMROOT_REWARD_DAMAGE = 670.7475000000001;
+export let GLOOMROOT_REWARD_HEALTH = 20122.425;
+export let GLOOMROOT_REWARD_ARMOR = 377.29546875;
+export let GLOOMROOT_REWARD_REGEN = 201.22425;
+export let TIDEWYRM_REWARD_DAMAGE = 2108.511;
+export let TIDEWYRM_REWARD_HEALTH = 63255.329999999994;
+export let TIDEWYRM_REWARD_ARMOR = 1186.0374375;
+export let TIDEWYRM_REWARD_REGEN = 632.5532999999999;
+export let KOI_SHOGUN_REWARD_DAMAGE = 5857.8795;
+export let KOI_SHOGUN_REWARD_HEALTH = 175736.385;
+export let KOI_SHOGUN_REWARD_ARMOR = 3295.05721875;
+export let KOI_SHOGUN_REWARD_REGEN = 1757.36385;
+export let TEMPEST_KIRIN_REWARD_DAMAGE = 17082.2925;
+export let TEMPEST_KIRIN_REWARD_HEALTH = 512468.775;
+export let TEMPEST_KIRIN_REWARD_ARMOR = 9608.78953125;
+export let TEMPEST_KIRIN_REWARD_REGEN = 5124.68775;
+export let MIREMAW_REWARD_DAMAGE = 55182.384;
+export let MIREMAW_REWARD_HEALTH = 1655471.52;
+export let MIREMAW_REWARD_ARMOR = 31040.091;
+export let MIREMAW_REWARD_REGEN = 16554.7152;
+export let PRISMSHELL_REWARD_DAMAGE = 157729.7205;
+export let IRONHORN_REWARD_DAMAGE = 460080.2835;
+export let DREADREAPER_REWARD_DAMAGE = 1354170.717;
+export let VOLTWARDEN_REWARD_DAMAGE = 3865524.687;
+export let GRAVEBLOOM_REWARD_DAMAGE = 11261234.790000001;
+export let AEGIS_PRIME_REWARD_DAMAGE = 34672539.4425;
+export let PRISMSHELL_REWARD_HEALTH = 4731891.615;
+export let IRONHORN_REWARD_HEALTH = 13802408.505;
+export let DREADREAPER_REWARD_HEALTH = 40625121.51;
+export let VOLTWARDEN_REWARD_HEALTH = 115965740.61;
+export let GRAVEBLOOM_REWARD_HEALTH = 337837043.7;
+export let AEGIS_PRIME_REWARD_HEALTH = 1040176183.275;
+export let PRISMSHELL_REWARD_ARMOR = 88722.96778125;
+export let IRONHORN_REWARD_ARMOR = 258795.15946875;
+export let DREADREAPER_REWARD_ARMOR = 761721.0283125;
+export let VOLTWARDEN_REWARD_ARMOR = 2174357.6364375;
+export let GRAVEBLOOM_REWARD_ARMOR = 6334444.569375;
+export let AEGIS_PRIME_REWARD_ARMOR = 19503303.43640625;
+export let PRISMSHELL_REWARD_REGEN = 47318.916150000005;
+export let IRONHORN_REWARD_REGEN = 138024.08505;
+export let DREADREAPER_REWARD_REGEN = 406251.21510000003;
+export let VOLTWARDEN_REWARD_REGEN = 1159657.4061;
+export let GRAVEBLOOM_REWARD_REGEN = 3378370.437;
+export let AEGIS_PRIME_REWARD_REGEN = 10401761.83275;
 
 export const TUTORIAL_FOREST_MAP_ID = "tutorial_forest";
 export const BEGINNER_DESERT_MAP_ID = "beginner_desert";

@@ -1,3 +1,4 @@
+import { upgradeSlotForItem } from "../../shared/slot-upgrades";
 import { resolveSimulationMap, simulationSiteDefinition } from "./map-model";
 import { defaultBalanceSettings, validateBalanceSettings } from "../../shared/map-balance";
 import type { BalanceSettings, MapBalanceSnapshot } from "../../shared/map-balance-types";
@@ -1084,13 +1085,19 @@ type EffectiveStatsState = Pick<
   "stats" | "research" | "equipped" | "itemUpgradeLevel" | "itemUpgradeLevels" | "equipmentStrengthMultiplier"
 >;
 
+/** Slot tiers persist through equipment swaps; accept legacy per-item audit inputs. */
+export function simulationUpgradeLevel(state: Pick<SimulationStateSnapshot, "itemUpgradeLevels" | "itemUpgradeLevel">, itemId: string) {
+  const slot = upgradeSlotForItem(itemId);
+  return (slot ? state.itemUpgradeLevels?.[slot] : undefined) ?? state.itemUpgradeLevels?.[itemId] ?? state.itemUpgradeLevel;
+}
+
 function effectiveStats(state: EffectiveStatsState) {
   const withEquipment = effectivePlayerPowerStats({
     ...state.stats,
     equippedHead: state.equipped.head,
     equippedChest: state.equipped.chest,
     equippedRightHand: state.equipped.weapon,
-  }, state.research, (itemId) => state.itemUpgradeLevels?.[itemId] ?? state.itemUpgradeLevel);
+  }, state.research, (itemId) => simulationUpgradeLevel(state, itemId));
   const strength = Math.max(0, Math.min(2, state.equipmentStrengthMultiplier));
   if (strength === 1) return withEquipment;
   const withoutEquipment = effectivePlayerPowerStats({
@@ -1098,7 +1105,7 @@ function effectiveStats(state: EffectiveStatsState) {
     equippedHead: "",
     equippedChest: "",
     equippedRightHand: "",
-  }, state.research, (itemId) => state.itemUpgradeLevels?.[itemId] ?? state.itemUpgradeLevel);
+  }, state.research, (itemId) => simulationUpgradeLevel(state, itemId));
   return {
     damage: withoutEquipment.damage + (withEquipment.damage - withoutEquipment.damage) * strength,
     maxHp: withoutEquipment.maxHp + (withEquipment.maxHp - withoutEquipment.maxHp) * strength,
@@ -1239,7 +1246,7 @@ export function advanceTime(
     }
     if (state.activeUpgrade && upgradeAt === nextAt) {
       const upgrade = state.activeUpgrade;
-      (state.itemUpgradeLevels ??= {})[upgrade.itemId] = upgrade.level + 1;
+      (state.itemUpgradeLevels ??= {})[upgradeSlotForItem(upgrade.itemId)!] = upgrade.level + 1;
       state.activeUpgrade = null;
       equipBestAvailableItems(state);
       startNextEquipmentUpgrade(state);
@@ -1261,7 +1268,7 @@ function equipBestAvailableItems(state: MutableSimulationState) {
   for (const slot of ["weapon", "head", "chest"] as const) {
     state.equipped[slot] = "";
     for (const itemId of state.ownedItems) {
-      if ((itemTier(itemId) ?? 1) > state.mapIndex + 1 || itemId === state.activeUpgrade?.itemId || equipmentSlot(itemId as ItemId) !== slot) continue;
+      if ((itemTier(itemId) ?? 1) > state.mapIndex + 1 || equipmentSlot(itemId as ItemId) !== slot) continue;
       const previous = state.equipped[slot];
       const before = powerForState(state);
       state.equipped[slot] = itemId;
@@ -1274,7 +1281,7 @@ export function startNextEquipmentUpgrade(state: MutableSimulationState) {
   if (!state.steadyEquipmentUpgrades || state.activeUpgrade || state.equipmentStrengthMultiplier === 0) return;
   const candidates = [state.equipped.weapon, state.equipped.head, state.equipped.chest]
     .filter(itemId => isUpgradeableItem(itemId))
-    .map(itemId => ({ itemId, level: state.itemUpgradeLevels?.[itemId] ?? state.itemUpgradeLevel }))
+    .map(itemId => ({ itemId, level: simulationUpgradeLevel(state, itemId) }))
     .filter(item => item.level < MAX_ITEM_UPGRADE_LEVEL)
     .sort((a, b) => a.level - b.level);
   const next = candidates[0];

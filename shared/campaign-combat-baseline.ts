@@ -1,3 +1,4 @@
+import { LEGACY_ENEMY_REWARDS } from "./legacy-enemy-rewards";
 import { CAMPAIGN_MAPS } from "./campaign-registry";
 import { ENEMY_TYPES, type EnemyDefinition } from "./enemy-definitions";
 import * as camps from "./enemy-camps";
@@ -8,6 +9,10 @@ import { desertLaneCombatValue, desertLaneRewardValue, desertBossHealthAt, bossH
 
 // Capture authored values before a client installs a live map snapshot.
 const ENEMIES = JSON.parse(JSON.stringify(ENEMY_TYPES)) as Record<string, EnemyDefinition>;
+// Keep the established Endless reward anchor; its final-map tuning is applied once in the resolver.
+for (const [kind, row] of Object.entries(ENEMIES)) {
+  if (LEGACY_ENEMY_REWARDS[kind] !== undefined) row.reward.amount = LEGACY_ENEMY_REWARDS[kind];
+}
 const RULES = { ...rules } as unknown as Record<string, number>;
 export function finalCampaignEnemy(lane: ForestProgressionLane) {
   const map = CAMPAIGN_MAPS[CAMPAIGN_MAPS.length - 1], tier = CAMPAIGN_MAPS.length - 2;

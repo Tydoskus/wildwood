@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.819": [
+    "Smoothed campaign enemy health and stat rewards for steadier progression between maps.",
+    "Map 15 enemy health, boss stats, and Endless balance are unchanged. New balance applies when entering a map.",
+  ],
   "0.818": [
     "The player attack-range indicator alternates light and dark dashes for clearer visibility.",
     "Raised damage popups to reduce overlap with health bars.",
@@ -2441,6 +2445,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.819": "2026-09-25",
   "0.818": "2026-09-24",
   "0.817": "2026-09-24",
   "0.816": "2026-09-24",

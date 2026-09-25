@@ -52,7 +52,9 @@
     "build:reward-health": "vite build --config config/vite.stat-graph.config.ts",
     "audit:player": "tsx scripts/audit-player.ts",
     "check:erasure": "node scripts/check-erasure-targets.mjs",
-    "boss:tuner": "node scripts/boss-tuner-server.mjs"
+    "boss:tuner": "node scripts/boss-tuner-server.mjs",
+    "balance:pacing": "tsx scripts/balance-pacing.ts",
+    "balance:smooth-health": "tsx scripts/smooth-campaign-health.ts"
   },
   "dependencies": {
     "spacetimedb": "2.9.0"
