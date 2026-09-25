@@ -1,6 +1,6 @@
 import revision75 from '../../tests/fixtures/balance-revision-75.json';
-import { activateCampaignPacing, activateCampaignRewardFloor } from './campaign-pacing-migration';
-import { defaultBalanceSettings } from '../../shared/map-balance';
+import { activateCampaignPacing, activateCampaignProgression, activateCampaignRewardFloor } from './campaign-pacing-migration';
+import { defaultBalanceSettings, resolveMapBalance, validateBalanceSettings } from '../../shared/map-balance';
 import bakeFixture from '../../tests/fixtures/balance-revision-73.json';
 import { it, expect, vi } from 'vitest';
 import { balanceEditorState, forgetBalanceCaches, saveMapBalance, pinMapBalance, pinnedMapBalance } from './map-balance';
@@ -175,6 +175,12 @@ it('activates the exact tested campaign settings once, retaining archived revisi
   pinMapBalance(ctx, 'ion_citadel');
   expect(pinnedMapBalance(ctx, ctx.sender, 'ion_citadel')!.revision).toBe(74);
 });
+/** The curve's settings, allowing the Endless reward factor its round-off from being multiplied back to 1. */
+function expectProgressionCurve(settings: ReturnType<typeof defaultBalanceSettings>) {
+  expect(settings.maps.endless.enemyRewards).toBeCloseTo(1, 12);
+  expect({ ...settings, maps: { ...settings.maps, endless: { ...settings.maps.endless, enemyRewards: 1 } } }).toEqual(defaultBalanceSettings());
+}
+
 it('runs pending campaign migrations from the connection path only once', () => {
   const f = crystalFixture();
   forgetBalanceCaches();
@@ -183,11 +189,36 @@ it('runs pending campaign migrations from the connection path only once', () => 
   f.seed('mapBalanceVersion', { revision: 73, settingsJson: JSON.stringify(bakeFixture.settings), editor: f.ctx.sender, createdAt: f.ctx.timestamp });
   f.ctx.connectionId = null;
   f.run(server.onConnect);
-  expect(f.db.moduleMigrationState.id.find(0).version).toBe(44);
-  const expected = revision75;
-  expect(balanceEditorState(f.ctx as any)).toMatchObject({ revision: 75, settings: expected });
+  expect(f.db.moduleMigrationState.id.find(0).version).toBe(45);
+  expect(f.db.mapBalanceVersion.revision.find(75).settingsJson).toBe(JSON.stringify(validateBalanceSettings(revision75)));
+  expect(balanceEditorState(f.ctx as any).revision).toBe(76);
+  expectProgressionCurve(balanceEditorState(f.ctx as any).settings);
   f.run(server.onConnect);
-  expect(balanceEditorState(f.ctx as any).revision).toBe(75);
+  expect(balanceEditorState(f.ctx as any).revision).toBe(76);
+});
+
+it('migration 45 turns the live revision into the tested progression curve, once, keeping Endless and dev tuning', () => {
+  const ctx = fixture();
+  const live = validateBalanceSettings(revision75);
+  ctx.db.mapBalanceVersion.insert({ revision: 75, settingsJson: JSON.stringify(live), editor: ctx.sender, createdAt: ctx.timestamp });
+  ctx.db.mapBalanceHead.insert({ id: 0, revision: 75 });
+  activateCampaignProgression(ctx);
+  expect(balanceEditorState(ctx).revision).toBe(76);
+  expectProgressionCurve(balanceEditorState(ctx).settings);
+  for (const map of ['endless_1', 'endless_40', 'endless_1000']) {
+    const before = resolveMapBalance(map, live, 0), after = resolveMapBalance(map, balanceEditorState(ctx).settings, 0);
+    for (const [lane, value] of Object.entries(after.lanes)) expect(value.reward.amount / before.lanes[lane].reward.amount).toBeCloseTo(1, 12);
+  }
+  activateCampaignProgression(ctx);
+  expect(balanceEditorState(ctx).revision).toBe(76);
+
+  const tuned = fixture();
+  const tweaked = structuredClone(live); tweaked.maps.moonfen.enemyDamage = 1.2; tweaked.maps.water_reach.enemyRespawn = .8;
+  tuned.db.mapBalanceVersion.insert({ revision: 75, settingsJson: JSON.stringify(tweaked), editor: tuned.sender, createdAt: tuned.timestamp });
+  tuned.db.mapBalanceHead.insert({ id: 0, revision: 75 });
+  activateCampaignProgression(tuned);
+  expect(balanceEditorState(tuned).settings.maps.moonfen.enemyDamage).toBe(1.2);
+  expect(balanceEditorState(tuned).settings.maps.water_reach.enemyRespawn).toBe(.8);
 });
 
 it('migration 44 changes only the reward-floor flag and remains idempotent', () => {

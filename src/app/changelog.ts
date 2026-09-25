@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.822": [
+    "Rebalanced the campaign: early maps pay more stats and hit softer, and early bosses have less HP.",
+    "Later bosses and late-map health elites are tougher, and health elites pay more to match.",
+    "Endless is unchanged. New balance applies when entering a map.",
+  ],
   "0.821": [
     "Coming back within 5 minutes on mobile now reconnects in the background instead of showing the Reconnecting screen.",
     "Sound effects are louder and no longer go silent when you mute the music.",
@@ -2454,6 +2459,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.822": "2026-09-25",
   "0.821": "2026-09-25",
   "0.820": "2026-09-25",
   "0.819": "2026-09-25",
