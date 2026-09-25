@@ -3788,6 +3788,10 @@
   .leaderboard-tabs .profile-tab {
     font-size: var(--font-readable-min);
   }
+  /* HP reads at a glance: one size for every value, the largest at which the
+     widest one, "888.8M / 888.8M", still fits the 146px phone bar. The id and
+     class together outrank the readable-minimum rule above and the phone rule. */
+  .bar #hpText { font-size: 17px; line-height: 1; letter-spacing: .02em; transform: none; }
 
   .loading-detail,
   .session-takeover-note {
