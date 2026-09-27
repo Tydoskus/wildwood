@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { createRegularEnemyLootQueue, ENEMY_DEFEAT_BATCH_TIMEOUT_MS, ORPHAN_QUEUE_AFTER_MS, type EnemyLootRequest } from "./regular-enemy-loot-queue";
+import { createRegularEnemyLootQueue, DRAIN_EXTRA_BATCHES, ENEMY_DEFEAT_BATCH_TIMEOUT_MS, ORPHAN_QUEUE_AFTER_MS, type EnemyLootRequest } from "./regular-enemy-loot-queue";
 function fixture() {
   const data = new Map<string, string>();
   const storage = { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => data.set(key, value),
@@ -230,10 +230,25 @@ it("charges each sealed report the game time simulated since the previous one", 
   simulated = 45; queue.record("cloudspire", "Spitter");
   queue.begin();                                       // a reconnect keeps the unsealed batch's time
   simulated = 60; await queue.flush();
-  // One flush sealing several batches: the first takes the interval, the rest the nothing between them.
+  // One flush sealing several batches splits the interval where the time went:
+  // all 150 kills landed at 60 s, so the first hundred cover none of it and the
+  // last batch the thirty idle seconds after.
   for (let i = 0; i < 150; i++) queue.record("cloudspire", "Spitter");
   simulated = 90.0004; await queue.flush(true);
-  expect(f.send.mock.calls.map(([request]) => [request.count, request.simulatedMillis])).toEqual([[1, 30_000], [1, 30_000], [100, 30_000], [50, 0]]);
+  expect(f.send.mock.calls.map(([request]) => [request.count, request.simulatedMillis])).toEqual([[1, 30_000], [1, 30_000], [100, 0], [50, 30_000]]);
+});
+it("seals every pending batch of a flush together, so the ones behind the first are not sent on the round trip", async () => {
+  const f = fixture(); let simulated = 0;
+  // Each reply takes half a second of game time to come back.
+  const send = vi.fn(async (_request: EnemyLootRequest) => { simulated += .5; return true as const; });
+  const queue = createRegularEnemyLootQueue({ ...f.options, send, simulatedSeconds: () => simulated });
+  queue.begin();
+  // A fast client: 100 kills over the first 20 s, 50 more over the next 10.
+  for (let i = 1; i <= 100; i++) { simulated = i * .2; queue.record("cloudspire", "Spitter"); }
+  for (let i = 1; i <= 50; i++) { simulated = 20 + i * .2; queue.record("cloudspire", "Spitter"); }
+  await queue.flush(true);
+  // The second batch keeps its own ten seconds, not the half second it waited behind the first.
+  expect(send.mock.calls.map(([request]) => [request.count, request.simulatedMillis])).toEqual([[100, 20_000], [50, 10_000]]);
 });
 it("keeps a reloaded page's unsent kills on the time the earlier page recorded", async () => {
   const f = fixture(); let simulated = 0;
@@ -280,4 +295,41 @@ it("sends an adopted orphan with its own page's time, leaving this page's clock 
     await fresh.flush(true);
     expect(f.send.mock.calls.map(([request]) => [request.mapId, request.simulatedMillis])).toEqual([["water_reach", 7_000], ["moonfen", 4_000]]);
   } finally { vi.useRealTimers(); }
+});
+it("does not charge a report for game time with no kills in it", async () => {
+  const f = fixture(); let simulated = 0;
+  const queue = createRegularEnemyLootQueue({ ...f.options, simulatedSeconds: () => simulated });
+  queue.begin();
+  // Ten minutes in menus and at Home, or waiting while another device held
+  // the session: the game ran the whole time and no kill was made.
+  simulated = 600; queue.record("cloudspire", "Spitter");
+  simulated = 610; queue.record("cloudspire", "Spitter");
+  simulated = 630; await queue.flush(true);
+  // Charged from half a minute before the first kill, not from the page's start.
+  simulated = 1_500; queue.record("cloudspire", "Spitter");
+  simulated = 1_510; await queue.flush(true);
+  expect(f.send.mock.calls.map(([request]) => request.simulatedMillis)).toEqual([60_000, 40_000]);
+});
+it("starts a character's report time at its own begin, not at another character's last report", async () => {
+  const f = fixture(); let simulated = 0;
+  const queue = createRegularEnemyLootQueue({ ...f.options, simulatedSeconds: () => simulated });
+  queue.begin();
+  simulated = 5; queue.record("cloudspire", "Spitter");
+  simulated = 10; await queue.flush(true);
+  simulated = 200; f.identity("bob"); queue.begin();
+  simulated = 205; queue.record("cloudspire", "Spitter");
+  simulated = 206; await queue.flush(true);
+  expect(f.send.mock.calls.map(([request]) => request.simulatedMillis)).toEqual([10_000, 6_000]);
+});
+it("stops a drain a couple of batches past where it started, however fast kills keep landing", async () => {
+  const f = fixture();
+  // Every report's round trip sees another kill land, as on a fast farm.
+  let queue!: ReturnType<typeof createRegularEnemyLootQueue>;
+  const send = vi.fn(async (_request: EnemyLootRequest) => { queue.record("cloudspire", "Spitter"); return true as const; });
+  queue = createRegularEnemyLootQueue({ ...f.options, send });
+  queue.begin();
+  queue.record("cloudspire", "Spitter");
+  expect(await queue.flush(true)).toBe(true);
+  expect(send).toHaveBeenCalledTimes(1 + DRAIN_EXTRA_BATCHES);
+  expect(queue.hasPending()).toBe(true);   // the latest kill waits for the next report
 });

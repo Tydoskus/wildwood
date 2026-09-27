@@ -154,6 +154,14 @@ export type ClockSource = () => number | null;
 export const GAME_CLOCK_TOLERANCE_MS = 25;
 /** The most any one reading may add, as the background loop's old per-wake cap did. */
 export const GAME_CLOCK_MAX_SAMPLE_MS = 1_000;
+/**
+ * How long a clock may stand still while every other one runs before it is
+ * taken for broken rather than slow. A timeline that some webview stops
+ * advancing would otherwise be the slowest clock for good and freeze the
+ * game. Leaving it out costs nothing against a speed hack: every other source
+ * was captured when the bundle loaded, before any page script could hook it.
+ */
+export const GAME_CLOCK_STALL_MS = 1_000;
 
 export type GameClock = {
   /**
@@ -184,14 +192,15 @@ function clampSample(deltaMs: number) {
  * that one reading and then keeps counting, so the game loses at most a frame;
  * one that jumps forwards is capped at one second and is never the slowest.
  * A source that stops reporting (the timeline while hidden) is left out until
- * it returns, and rejoins at the time already granted.
+ * it returns, and rejoins at the time already granted; so is one that reports
+ * the same reading for GAME_CLOCK_STALL_MS while the others run on.
  */
 export function createGameClock(sources: readonly ClockSource[] = [
   monotonicNowMs,
   wallClockNowMs,
   () => documentHidden() ? null : clocks.timelineNowMs(),
 ]): GameClock {
-  const tracks = sources.map(() => ({ last: null as number | null, elapsed: 0 }));
+  const tracks = sources.map(() => ({ last: null as number | null, elapsed: 0, stalledMs: 0 }));
   let granted = 0;
   let lastFrameAt: number | null = null;
 
@@ -203,13 +212,25 @@ export function createGameClock(sources: readonly ClockSource[] = [
 
   /** Advances every source and returns the smallest running total, or null when none can be read. */
   function advance() {
+    const values = tracks.map((_, index) => read(index));
+    const deltas = tracks.map((track, index) => values[index] === null || track.last === null ? null : clampSample(values[index]! - track.last));
     let slowest: number | null = null;
     tracks.forEach((track, index) => {
-      const value = read(index);
-      if (value === null) { track.last = null; return; }
-      if (track.last === null) track.elapsed = Math.max(track.elapsed, granted);
-      else track.elapsed += clampSample(value - track.last);
+      const value = values[index], delta = deltas[index];
+      if (value === null) { track.last = null; track.stalledMs = 0; return; }
+      if (delta === null) track.elapsed = Math.max(track.elapsed, granted);
+      else if (delta > 0) {
+        // A stalled clock that moves again rejoins at the time already
+        // granted, as one returning from unavailable does.
+        if (track.stalledMs > GAME_CLOCK_STALL_MS) track.elapsed = Math.max(track.elapsed, granted);
+        track.elapsed += delta;
+        track.stalledMs = 0;
+      } else {
+        const others = deltas.filter((other, otherIndex) => otherIndex !== index && other !== null) as number[];
+        track.stalledMs += others.length ? Math.min(...others) : 0;
+      }
       track.last = value;
+      if (track.stalledMs > GAME_CLOCK_STALL_MS) return;
       slowest = slowest === null ? track.elapsed : Math.min(slowest, track.elapsed);
     });
     return slowest as number | null;

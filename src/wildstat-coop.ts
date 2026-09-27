@@ -58,7 +58,7 @@ import { createBaseSubscriptionHandlers, startBaseSubscription } from "./coop/se
 import { createAccountService, type AccountService } from "./coop/services/account-service";
 import { validateSpacetimeIdToken } from "./coop/security/oidc-id-token";
 import { createStartupTelemetryRuntime } from "./coop/services/startup-telemetry-runtime";
-import { startStartupBootstrap } from "./coop/startup-bootstrap";
+import { runningAsGameScript, startStartupBootstrap } from "./coop/startup-bootstrap";
 import type { ReducerPort } from "./coop/ports";
 import type { StartupTelemetryStage } from "../shared/startup-telemetry";
 export type * from "./coop/contracts";
@@ -415,7 +415,7 @@ chatService = createChatService({
   rememberSender: profileDirectory.rememberChatSender,
 });
 
-const progressionService = createProgressionService({
+const progressionService = createProgressionService({ gameBridgeCaller: () => runningAsGameScript(),
   reducers: reducerPort,
   notify: onChange,
   localIdentity: () => localIdentity,

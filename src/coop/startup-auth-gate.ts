@@ -1,4 +1,5 @@
 import { createLegalGateController, legalGateElements, type LegalGateElements } from "../ui/legal-gate";
+import { markGameScript } from "./game-script-gate";
 import { enforceLatestVersion } from "../app/version";
 import { GAME_VERSION } from "../game/runtime/game-settings";
 import { createDiscordLink } from "../ui/discord-link";
@@ -328,6 +329,7 @@ export function loadDeferredGameBundle(documentValue = document, checkForUpdate 
     script.id = "wildstatGameScript";
     script.src = source;
     script.async = false;
+    markGameScript(script);
     script.addEventListener("load", () => resolve(), { once: true });
     script.addEventListener("error", () => {
       script.remove();

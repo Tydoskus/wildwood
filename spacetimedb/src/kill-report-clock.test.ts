@@ -5,7 +5,7 @@ import { fillDefeatBudget } from "../../tests/helpers/enemy-defeat";
 import { STARTER_BOW } from "../../shared/items";
 import { SIM_CLOCK_BANK_SECONDS } from "../../shared/enemy-defeats";
 import { KILL_REPORT_BURST, KILL_REPORT_REFILL_SECONDS, REGULAR_KILL_REPORT_SECONDS } from "../../shared/rules";
-import { reportRateKey, scaledDefeatCount, simulationClock, simulationClockKey } from "./enemy-defeats";
+import { reportRateKey, scaledDefeatCounts, simulationClock, simulationClockKey, SIM_CLOCK_EPISODE_RECOVERY_SECONDS } from "./enemy-defeats";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 const MAP = "crystal_hollows", ENEMY = "Shard Hopper";
@@ -15,8 +15,8 @@ const row = (tokens: number, seconds: number) => ({ tokens, updatedAtMicros: at(
 describe("simulation clock arithmetic", () => {
   it("starts full, and an honest report leaves the bank where real time put it", () => {
     // A first report: the game time it covers came before the server knew the
-    // account, which is what the starting bank is for.
-    expect(simulationClock(null, at(100), 30_000)).toMatchObject({ scale: 1, credit: SIM_CLOCK_BANK_SECONDS, tokens: SIM_CLOCK_BANK_SECONDS - 30 });
+    // account, so it is paid in full and the bank starts full.
+    expect(simulationClock(null, at(100), 30_000)).toMatchObject({ scale: 1, credit: SIM_CLOCK_BANK_SECONDS, tokens: SIM_CLOCK_BANK_SECONDS });
     // Thirty seconds simulated in thirty seconds of real time costs nothing.
     expect(simulationClock(row(270, 100), at(130), 30_000)).toMatchObject({ scale: 1, credit: 300, tokens: 270 });
     // Network jitter either way is carried by the bank, never scaled.
@@ -24,11 +24,21 @@ describe("simulation clock arithmetic", () => {
     expect(simulationClock(row(266, 128), at(162), 28_000)).toMatchObject({ scale: 1, tokens: 272 });
   });
 
+  it("pays a first report in full however long the page ran before its first kill", () => {
+    // Nine minutes in menus, at Home or dying to a camp before the first kill
+    // lands: the page counted all of it, and nothing on the server can say
+    // when that time began. It used to be measured against the bank alone and
+    // clipped by half.
+    expect(simulationClock(null, at(1_000), 540_000)).toMatchObject({ scale: 1, tokens: SIM_CLOCK_BANK_SECONDS, episodeStarted: false });
+    // The row dropped by the six-hour idle sweep is the same case.
+    expect(simulationClock(undefined, at(50_000), 3_600_000)).toMatchObject({ scale: 1, tokens: SIM_CLOCK_BANK_SECONDS });
+  });
+
   it("caps the bank after the report's own time is added and taken off", () => {
     // Ten minutes idle with the tab open, then one report carrying all of it:
     // it is paid in full and leaves the bank full, not empty.
     expect(simulationClock(row(270, 0), at(630), 630_000)).toMatchObject({ scale: 1, tokens: 270 });
-    expect(simulationClock(row(300, 0), at(600), 600_000)).toMatchObject({ scale: 1, tokens: SIM_CLOCK_BANK_SECONDS });
+    expect(simulationClock(row(SIM_CLOCK_BANK_SECONDS, 0), at(600), 600_000)).toMatchObject({ scale: 1, tokens: SIM_CLOCK_BANK_SECONDS });
     // Time that passed with nothing simulated tops the bank up to the cap only.
     expect(simulationClock(row(10, 0), at(86_400), 30_000).tokens).toBe(SIM_CLOCK_BANK_SECONDS);
   });
@@ -40,11 +50,31 @@ describe("simulation clock arithmetic", () => {
     let previous = row(clock.tokens, 30);
     for (let t = 60; clock.scale === 1; t += 30) { clock = simulationClock(previous, at(t), 90_000); previous = row(clock.tokens, t); }
     // ...and once it is empty, a third of each report is what real time allowed.
-    expect(clock.tokens).toBe(0);
+    expect(clock).toMatchObject({ episodeStarted: true, bank: 0 });
+    expect(clock.tokens).toBeLessThan(0);
     const next = simulationClock(previous, at(Number(previous.updatedAtMicros) / 1e6 + 30), 90_000);
     expect(next.scale).toBeCloseTo(1 / 3, 9);
-    expect(next.before).toBe(0);
-    expect(next.tokens).toBe(0);
+    expect(next).toMatchObject({ before: 0, bank: 0, episodeStarted: false });
+    // A flush's second batch claims almost nothing and is not scaled; the
+    // episode carries on through it instead of starting again next report.
+    const tail = simulationClock(row(next.tokens, 100), at(100.2), 50);
+    expect(tail).toMatchObject({ scale: 1, episodeStarted: false });
+    expect(simulationClock(row(tail.tokens, 100.2), at(130), 90_000)).toMatchObject({ episodeStarted: false });
+  });
+
+  it("starts an episode on the first scaled report even when an unscaled one emptied the bank exactly", () => {
+    const emptied = simulationClock(row(60, 0), at(30), 90_000);
+    expect(emptied).toMatchObject({ scale: 1, tokens: 0, episodeStarted: false });
+    const scaled = simulationClock(row(emptied.tokens, 30), at(60), 90_000);
+    expect(scaled).toMatchObject({ episodeStarted: true, bank: 0 });
+    // Stopping the hack: the bank refills from zero, and the episode ends once
+    // it holds a minute of slack again, so a later relapse is logged afresh.
+    const recovering = simulationClock(row(scaled.tokens, 60), at(90), 20_000);
+    expect(recovering).toMatchObject({ scale: 1, before: 0, bank: 10, episodeStarted: false });
+    expect(recovering.tokens).toBeLessThan(0);
+    const recovered = simulationClock(row(recovering.tokens, 90), at(150), 0);
+    expect(recovered).toMatchObject({ bank: SIM_CLOCK_EPISODE_RECOVERY_SECONDS + 10, tokens: SIM_CLOCK_EPISODE_RECOVERY_SECONDS + 10 });
+    expect(simulationClock(row(recovered.tokens, 150), at(151), 100_000)).toMatchObject({ episodeStarted: true });
   });
 
   it("never scales a report that cannot say, and never reads a clock that ran backwards", () => {
@@ -53,10 +83,14 @@ describe("simulation clock arithmetic", () => {
   });
 
   it("scales counts down to whole kills, and leaves an unscaled count exactly alone", () => {
-    expect(scaledDefeatCount(17, 1)).toBe(17);
-    expect(scaledDefeatCount(30, 1 / 3)).toBe(10);
-    expect(scaledDefeatCount(17, .2)).toBe(3);
-    expect(scaledDefeatCount(3, .2)).toBe(0);
+    expect(scaledDefeatCounts([17, 1], 1)).toEqual([17, 1]);
+    expect(scaledDefeatCounts([30], 1 / 3)).toEqual([10]);
+    expect(scaledDefeatCounts([17, 3], .2)).toEqual([3, 1]);
+    // A boss clear, a count of one, survives a scale just under one.
+    expect(scaledDefeatCounts([12, 1], .97)).toEqual([12, 1]);
+    // An Endless report, one entry per site: half of it is paid, not none.
+    expect(scaledDefeatCounts(Array(10).fill(1), .5).reduce((a, b) => a + b, 0)).toBe(5);
+    expect(scaledDefeatCounts([3, 3, 3], 0)).toEqual([0, 0, 0]);
   });
 });
 
@@ -79,7 +113,7 @@ describe("simulation clock on report_enemy_defeats", () => {
     const f = fixture();
     for (let i = 0; i < 10; i++) { f.advance(REGULAR_KILL_REPORT_SECONDS); f.report(5, REGULAR_KILL_REPORT_SECONDS * 1000); }
     expect(f.kills()).toBe(50);
-    expect(f.clock()!.tokens).toBe(SIM_CLOCK_BANK_SECONDS - REGULAR_KILL_REPORT_SECONDS);
+    expect(f.clock()!.tokens).toBe(SIM_CLOCK_BANK_SECONDS);
   });
 
   it("does not charge the clock again for a report it has already consumed", () => {
@@ -134,7 +168,7 @@ describe("simulation clock on report_enemy_defeats", () => {
 });
 
 describe("kill report throttle", () => {
-  it("lets a burst through, then one report per refill, on every kill reducer", () => {
+  it("lets a burst through, then one report per refill, on both new kill reducers", () => {
     const f = fixture();
     for (let i = 0; i < KILL_REPORT_BURST; i++) f.report(1, 0);
     expect(() => f.report(1, 0)).toThrow("Enemy rewards are catching up.");
@@ -145,10 +179,13 @@ describe("kill report throttle", () => {
     f.advance(.01);
     f.report(1, 0, { sequence: BigInt(KILL_REPORT_BURST + 1) });
     expect(f.kills()).toBe(KILL_REPORT_BURST + 1);
-    for (const reducer of [server.reportAutoFarmEnemyDefeats, server.recordEnemyDefeats, server.recordAutoFarmEnemyDefeats]) {
-      expect(() => f.run(reducer, { streamId: "clock-test-other-01", sequence: 1n, mapId: MAP, simulatedMillis: 0, enemies: [{ enemy: ENEMY, count: 1 }] }))
-        .toThrow("Enemy rewards are catching up.");
-    }
+    expect(() => f.run(server.reportAutoFarmEnemyDefeats, { streamId: "clock-test-other-01", sequence: 1n, mapId: MAP, simulatedMillis: 0, enemies: [{ enemy: ENEMY, count: 1 }] }))
+      .toThrow("Enemy rewards are catching up.");
+    // Tabs from 0.826 and before report on every acknowledgement through the
+    // legacy pair; throttling them held their portals. They stay unthrottled.
+    const legacy = [server.recordEnemyDefeats, server.recordAutoFarmEnemyDefeats];
+    legacy.forEach((reducer, index) => f.run(reducer, { streamId: `clock-test-legacy-0${index}`, sequence: 1n, mapId: MAP, enemies: [{ enemy: ENEMY, count: 1 }] }));
+    expect(f.kills()).toBe(KILL_REPORT_BURST + 3);
   });
 
   it("is the first check, ahead of the session guard", () => {

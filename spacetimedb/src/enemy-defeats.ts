@@ -122,9 +122,11 @@ export const reportRateKey = (identity: { toHexString(): string }) => `${identit
  *
  * An honest client never gets near it. It reports every 30 seconds, plus a
  * drain before a portal, a boss reward, a hidden tab and an update screen,
- * each a single report. The acknowledgement chain in clients up to 0.826
- * sends a few more per 30 seconds at high ping, never one every three seconds
- * for long. After a dropped socket the backlog goes out back to back, but a
+ * each a single report. Clients up to 0.826 report on every acknowledgement,
+ * one per round trip for a fast farmer, through the legacy reducers; those
+ * are left unthrottled, since throttling them held honest players' portals
+ * for thirty seconds until they reloaded. After a
+ * dropped socket the backlog goes out back to back, but a
  * tab keeps adding to its unsent batch until it holds a hundred kills, so
  * even five minutes offline is a handful of reports, and orphaned tabs add a
  * few more. Sixteen covers all of that at once, and a minute later it is full
@@ -132,7 +134,9 @@ export const reportRateKey = (identity: { toHexString(): string }) => `${identit
  * paid thirty seconds later: nothing is refused, only delayed.
  *
  * A reducer that throws rolls this write back with everything else, so only a
- * report the server actually processed spends from the bucket.
+ * report the server actually processed spends from the bucket. A report that
+ * throws later (a wrong map, an invalid enemy) is not counted, and costs the
+ * reads up to its throw: the session and controller checks and the cursor.
  */
 export function throttleKillReports(ctx: BossRewardContext) {
   const key = reportRateKey(ctx.sender);
@@ -146,6 +150,15 @@ export function throttleKillReports(ctx: BossRewardContext) {
   if (previous) ctx.db.enemyDefeatBudget.key.update(next); else ctx.db.enemyDefeatBudget.insert(next);
 }
 
+/**
+ * While a client keeps running ahead, its bank is stored below zero, as
+ * -(bank + 1): an episode under way. It ends once the bank has a minute of
+ * slack again. A flush's later batches claim almost no time and are not
+ * scaled, so "the last report was scaled" would end it after every flush.
+ */
+export const SIM_CLOCK_EPISODE_RECOVERY_SECONDS = 60;
+const storedSimClock = (bank: number, inEpisode: boolean) => inEpisode ? -bank - 1 : bank;
+const readSimClock = (stored: number) => stored < 0 ? { bank: Math.max(0, -stored - 1), inEpisode: true } : { bank: stored, inEpisode: false };
 /**
  * The arithmetic of the simulation clock, on its own so it can be tested.
  *
@@ -168,18 +181,48 @@ export function throttleKillReports(ctx: BossRewardContext) {
  *
  * `previous` is the account's clock row; missing means a full bank. A claim
  * of zero means the client could not say, and is never scaled.
+ * `episodeStarted` marks the first scaled report of an episode, the one worth
+ * a log line.
  */
 export function simulationClock(previous: { tokens: number; updatedAtMicros: bigint } | null | undefined, nowMicros: bigint, simulatedMillis: number) {
-  const realSeconds = previous ? Math.max(0, Number(nowMicros - previous.updatedAtMicros) / 1e6) : 0;
-  const before = previous ? previous.tokens : SIM_CLOCK_BANK_SECONDS;
-  const credit = before + realSeconds;
   const claimed = Math.max(0, simulatedMillis) / 1000;
+  // No row: the account's first report on this clock, or its first since the
+  // idle sweep dropped the row after six quiet hours. The client counts game
+  // time from when its page loaded, which can be long before its first kill
+  // (menus, Home, the tutorial, a weak character dying), and there is no
+  // earlier report to measure real time from. Measuring it against the bank
+  // alone clipped a player who took over five minutes to land a kill. So the
+  // first report is paid in full and the bank starts full: a cheater gains one
+  // report, still under the spawn wall, per six idle hours.
+  if (!previous) return { before: SIM_CLOCK_BANK_SECONDS, credit: Math.max(SIM_CLOCK_BANK_SECONDS, claimed), claimed, scale: 1, bank: SIM_CLOCK_BANK_SECONDS, tokens: SIM_CLOCK_BANK_SECONDS, episodeStarted: false };
+  const realSeconds = Math.max(0, Number(nowMicros - previous.updatedAtMicros) / 1e6);
+  const { bank: before, inEpisode } = readSimClock(previous.tokens);
+  const credit = before + realSeconds;
   const scale = claimed > credit ? credit / claimed : 1;
-  return { before, credit, claimed, scale, tokens: Math.min(SIM_CLOCK_BANK_SECONDS, Math.max(0, credit - claimed)) };
+  const bank = Math.min(SIM_CLOCK_BANK_SECONDS, Math.max(0, credit - claimed));
+  const stillAhead = scale < 1 || (inEpisode && bank < SIM_CLOCK_EPISODE_RECOVERY_SECONDS);
+  return { before, credit, claimed, scale, bank, tokens: storedSimClock(bank, stillAhead), episodeStarted: scale < 1 && !inEpisode };
 }
-/** A claimed count after the simulation clock's scale; exactly the count when unscaled. */
-export function scaledDefeatCount(count: number, scale: number) {
-  return scale === 1 ? count : Math.max(0, Math.floor(count * scale + 1e-9));
+/**
+ * A report's claimed counts after the simulation clock's scale; exactly the
+ * counts when unscaled. The report's total is rounded once and handed out by
+ * largest remainder, earliest entry first on a tie. Flooring each entry took a
+ * whole kill off every species under any scale below one, and a boss clear,
+ * always a count of one, with it; an Endless report, one entry per site,
+ * could lose all of it.
+ */
+export function scaledDefeatCounts(counts: readonly number[], scale: number) {
+  if (scale === 1) return [...counts];
+  const exact = counts.map(count => Math.max(0, count) * Math.max(0, scale));
+  const scaled = exact.map(value => Math.floor(value + 1e-9));
+  let left = Math.floor(exact.reduce((sum, value) => sum + value, 0) + .5) - scaled.reduce((sum, value) => sum + value, 0);
+  const byRemainder = exact.map((value, index) => ({ index, remainder: value - scaled[index] }))
+    .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
+  for (const { index } of byRemainder) {
+    if (left <= 0) break;
+    if (scaled[index] < counts[index]) { scaled[index]++; left--; }
+  }
+  return scaled;
 }
 
 /** Reads and advances the account's simulation clock for one report. Returns the payout scale. */
@@ -190,9 +233,9 @@ function chargeSimulationClock(ctx: BossRewardContext, mapId: string, simulatedM
   const clock = simulationClock(previous, now, simulatedMillis);
   const next = { key, identity: ctx.sender, tokens: clock.tokens, updatedAtMicros: now };
   if (previous) ctx.db.enemyDefeatBudget.key.update(next); else ctx.db.enemyDefeatBudget.insert(next);
-  // Once per episode: the report that empties a bank that still had time in
-  // it. Reports while it stays empty are the same episode and stay quiet.
-  if (clock.scale < 1 && clock.before > 0) {
+  // Once per episode: the first scaled report. Reports while it stays scaled
+  // are the same episode and stay quiet.
+  if (clock.episodeStarted) {
     const displayName = ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "";
     const ratio = clock.claimed / Math.max(1e-9, clock.credit);
     const detail = { identity: ctx.sender.toHexString(), displayName, mapId,
@@ -279,14 +322,15 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
   const entries = batch.enemies.some(entry => entry.enemy === "boss")
     ? [...batch.enemies.filter(entry => entry.enemy !== "boss"), ...batch.enemies.filter(entry => entry.enemy === "boss")]
     : batch.enemies;
-  for (const entry of entries) {
+  const scaledCounts = scaledDefeatCounts(entries.map(entry => Number.isInteger(entry.count) ? entry.count : 0), scale);
+  for (const [index, entry] of entries.entries()) {
     const definition = enemyDefeatDefinition(batch.mapId, entry.enemy, balance ?? undefined);
     if (!definition || seen.has(entry.enemy) || !Number.isInteger(entry.count) || entry.count < 1 || (submittedCount += entry.count) > ENEMY_DEFEAT_BATCH_MAX)
       throw new SenderError("Invalid enemy for this map.");
     seen.add(entry.enemy);
     // Validation above is on the count the client sent; everything below
     // works from what the simulation clock left of it.
-    const claimed = scaledDefeatCount(entry.count, scale);
+    const claimed = scaledCounts[index];
     if (!claimed) { violations.push({ enemy: entry.enemy, requested: entry.count, accepted: 0 }); continue; }
     const bossDefinition = entry.enemy === "boss" ? balance?.boss ?? personalBossDefinition(batch.mapId) : null;
     const boss = bossDefinition && { ...bossDefinition, respawnSeconds: bossRespawnSecondsWithResearch(bossDefinition.respawnSeconds, utility?.bossRespawn ?? 0) };

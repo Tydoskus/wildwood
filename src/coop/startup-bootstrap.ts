@@ -26,6 +26,8 @@ type StartupBootstrapDependencies = {
 };
 
 /** Keeps the account/consent shell independent from the deferred game bundle. */
+/** Whether game.js, as the bootstrap loaded it, is the script running: see game-script-gate.ts. */
+export { runningAsGameScript } from "./game-script-gate";
 export function startStartupBootstrap(dependencies: StartupBootstrapDependencies) {
   const artworkReveal = startStartupArtworkReveal();
   let gameBundleRequested = false;

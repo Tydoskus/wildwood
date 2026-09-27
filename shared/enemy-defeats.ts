@@ -23,10 +23,14 @@ export const DEFEAT_BUDGET_WINDOW_SECONDS = 300;
  * before its kills are scaled back to the real-time share. An honest client
  * cannot run ahead at all (its fixed-step loop is capped per frame and per
  * background wake), so this is only slack for network jitter and a backlog
- * delivered late; it matches the spawn bank so any backlog the spawn bank
- * would pay, this pays too.
+ * delivered late. Late is the case that sets it: a report sealed just before
+ * an outage arrives after it and tops the bank up to the cap, and the report
+ * behind it, carrying the whole outage's play, arrives a moment later with
+ * nothing but the bank to cover it. Ten minutes pays any outage the spawn bank
+ * would (five minutes of respawns is about ten minutes of honest laps); a
+ * cheater gets the same ten minutes once per ten minutes away.
  */
-export const SIM_CLOCK_BANK_SECONDS = DEFEAT_BUDGET_WINDOW_SECONDS;
+export const SIM_CLOCK_BANK_SECONDS = 2 * DEFEAT_BUDGET_WINDOW_SECONDS;
 const CAMPS: Record<string, readonly camps.SpawnCamp[]> = {
   tutorial_forest: camps.CAMPS, beginner_desert: camps.DESERT_CAMPS,
   intermediate_snowlands: camps.SNOW_CAMPS, advanced_lava_wastes: camps.LAVA_CAMPS,

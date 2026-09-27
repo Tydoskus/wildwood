@@ -50,6 +50,8 @@ type ProgressionServiceDependencies = {
   notify: () => void;
   localIdentity: () => string;
   lootTabId?: () => string;
+  /** Whether the code claiming the game bridge is the game bundle itself (see game-script-gate.ts). */
+  gameBridgeCaller?: () => boolean;
   worldEntryReady: () => boolean;
   hydrationReady: () => boolean;
   activeProfileIdentity: () => string;
@@ -252,8 +254,10 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     if (!dependencies.worldEntryReady()) return Promise.resolve(false);
     if (!force && monotonicNowMs() < Math.max(saveInFlightUntil, nextPeriodicSaveAt)) return Promise.resolve(false);
     // Equipment acknowledgements must not clear the prediction for a kill batch
-    // that is still on its way to the server.
-    if (!loadoutOnly && enemyLoot.hasPending()) return flushEnemyLoot(force).then(ok => ok ? flushAsync(force) : false);
+    // that is still on its way to the server. Kills wait for their thirty-second
+    // report, but a changed loadout does not wait behind them: while the kills
+    // are held back, save it on its own.
+    if (!loadoutOnly && enemyLoot.hasPending()) return flushEnemyLoot(force).then(ok => ok ? flushAsync(force) : force ? false : flushAsync(false, true));
     if (localProgress && LOADOUT_FIELDS.every(field => pendingProgress![field] === localProgress![field])) {
       if (!enemyLoot.hasPending()) clearPending();
       return Promise.resolve(true);
@@ -306,12 +310,14 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     if (!force && monotonicNowMs() - lastKillReportAt < REGULAR_ENEMY_LOOT_DELAY_MS - KILL_REPORT_CADENCE_SLACK_MS) {
       return Promise.resolve(false);
     }
-    if (enemyLoot.hasPending()) lastKillReportAt = monotonicNowMs();
     return enemyLoot.flush(force);
   }
 
   async function sendCombatBatch(request: EnemyLootRequest): Promise<boolean | "discard" | "throttled"> {
     if (!dependencies.worldEntryReady() || !dependencies.hydrationReady() || dependencies.reducers.worldEntryBlocked() || resetPending) return false;
+    // The cadence runs from reports that go out, so a flush that could not send
+    // (a reconnect still hydrating) does not hold the kills back another thirty seconds.
+    lastKillReportAt = monotonicNowMs();
     // Validate a boss against the loadout actually used, not a stale empty slot.
     // Saving equipment never trusts client stat totals or clears pending kills.
     if (request.enemies.some(entry => entry.enemy === "boss") && pendingProgress
@@ -999,6 +1005,10 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
        */
       claimGameBridge(simulatedSeconds: () => number): GameBridge | null {
         if (gameBridgeClaimed || typeof simulatedSeconds !== "function") return null;
+        // game.js loads only after sign-in, so until then this sat unclaimed on
+        // the window API for anyone at the console to take, and with it the
+        // clock every report is measured by.
+        if (dependencies.gameBridgeCaller && !dependencies.gameBridgeCaller()) return null;
         gameBridgeClaimed = true;
         gameSimulatedSeconds = simulatedSeconds;
         return Object.freeze({

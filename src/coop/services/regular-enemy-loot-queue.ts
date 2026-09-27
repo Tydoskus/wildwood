@@ -1,3 +1,4 @@
+import { REGULAR_KILL_REPORT_SECONDS } from "../../../shared/rules";
 import { combatMap, type EnemyDefeat } from "../../../shared/enemy-defeats";
 import { withRequestDeadline } from "./request-deadline";
 import { wallClockNowMs } from "../../app/trusted-clock";
@@ -28,6 +29,10 @@ const QUEUE_KEY_PREFIX = "wildstat-enemy-defeats-v2:";
 export type EnemyLootRequest = { streamId: string; sequence: bigint; mapId: string; count: number; enemies: EnemyDefeat[]; autoFarm: boolean; simulatedMillis: number };
 /** The reducer argument is a u32. */
 export const MAX_SIMULATED_MILLIS = 4_294_967_295;
+/** Batches begun after a drain started that it still sends. */
+export const DRAIN_EXTRA_BATCHES = 2;
+/** Game time with no kills that a report still carries before its first kill: one report's worth. */
+export const IDLE_SIMULATION_ALLOWANCE_SECONDS = REGULAR_KILL_REPORT_SECONDS;
 
 function simulatedMillisBetween(fromSeconds: number, toSeconds: number) {
   const millis = Math.round((toSeconds - fromSeconds) * 1_000);
@@ -48,11 +53,17 @@ export function createRegularEnemyLootQueue(options: {
   simulatedSeconds?: () => number;
 }) {
   let owner = "", key = "", epoch = 0;
-  // Where the last sealed report's simulated time ended. Set once per page, at
-  // the first begin(), and deliberately not reset by a reconnect's begin():
-  // kills made before a reconnect are still in the unsealed batch, and the
-  // game time that produced them belongs to it.
+  // Where the last sealed report's simulated time ended. Set at the first
+  // begin() for each character and deliberately not reset by a reconnect's
+  // begin(): kills made before a reconnect are still in the unsealed batch,
+  // and the game time that produced them belongs to it.
   let lastSealedSimulatedSeconds: number | null = null;
+  let lastBegunOwner = "";
+  // The game time of the first kill since that seal. A report is charged from
+  // no earlier than IDLE_SIMULATION_ALLOWANCE_SECONDS before it: the game runs
+  // in menus, at Home and while another device holds the session's reports,
+  // and time with no kills in it says nothing about how fast they came.
+  let firstPendingKillSimulatedSeconds: number | null = null;
   const begunOwners = new Set<string>();
   const simulatedSecondsNow = () => {
     let seconds = 0;
@@ -127,7 +138,12 @@ export function createRegularEnemyLootQueue(options: {
     state = null; adopted = [];
     if (!owner) return;
     state = readState(key) ?? empty();
-    lastSealedSimulatedSeconds ??= simulatedSecondsNow();
+    if (owner !== lastBegunOwner) {
+      // Another character's play on this page is not this one's to report.
+      lastBegunOwner = owner;
+      lastSealedSimulatedSeconds = simulatedSecondsNow();
+      firstPendingKillSimulatedSeconds = null;
+    }
     if (!begunOwners.has(owner)) {
       // This character's first begin on this page. Whatever is still unsealed
       // was simulated by an earlier page, whose clock is gone: seal it with the
@@ -141,12 +157,34 @@ export function createRegularEnemyLootQueue(options: {
     adoptOrphans();
     scheduleBossRetry();
   }
-  /** Seals a batch of this page's stream, charging it the game time since the previous seal. */
-  function seal(batch: Batch) {
+  /**
+   * Seals every unsealed batch of this page's stream at once and splits the
+   * game time since the previous seal between them: each keeps the share it
+   * recorded (from the end of the batch before it to its own last kill), and
+   * the last takes the rest. Sealing one batch per send gave the first the
+   * whole interval and every later one only the round trip it waited behind
+   * it, so a flush of several full batches reported its kills against almost
+   * no game time.
+   */
+  function sealPending(stream: State) {
     const now = simulatedSecondsNow();
-    batch.simulatedMillis = simulatedMillisBetween(lastSealedSimulatedSeconds ?? now, now);
+    const total = simulatedMillisBetween(claimStart(now), now);
+    const pending = stream.batches.filter(batch => !batch.sealed);
+    let given = 0;
+    pending.forEach((batch, index) => {
+      const left = Math.max(0, total - given);
+      batch.simulatedMillis = index === pending.length - 1 ? left : Math.min(left, Math.max(0, batch.simulatedMillis ?? 0));
+      given += batch.simulatedMillis;
+      batch.sealed = true;
+    });
     lastSealedSimulatedSeconds = Math.max(lastSealedSimulatedSeconds ?? now, now);
-    batch.sealed = true;
+    firstPendingKillSimulatedSeconds = null;
+  }
+  /** Where the next report's game time starts: the last seal, or shortly before the first kill after it. */
+  function claimStart(now: number) {
+    const sealedAt = lastSealedSimulatedSeconds ?? now;
+    return firstPendingKillSimulatedSeconds === null ? sealedAt
+      : Math.max(sealedAt, firstPendingKillSimulatedSeconds - IDLE_SIMULATION_ALLOWANCE_SECONDS);
   }
   function flush(drain = false): Promise<boolean> {
     if (owner !== options.identity()) begin();
@@ -163,13 +201,14 @@ export function createRegularEnemyLootQueue(options: {
     // One stream at a time, oldest first: adopted queues before this tab's own.
     const sendStream = async (stream: State, storageKey: string, limit: number) => {
       let sent = 0;
-      while (stream.batches.length && (drain || sent < limit)) {
+      // A drain also takes batches begun while it runs, but only a couple: with
+      // kills landing every round trip it would otherwise send a report per
+      // round trip for as long as the fight went on.
+      while (stream.batches.length && sent < (drain ? limit + DRAIN_EXTRA_BATCHES : limit)) {
         const batch = stream.batches[0];
-        // An adopted orphan keeps whatever time its own page recorded. When one
-        // flush seals several batches, the first takes the whole interval and
-        // the rest about nothing, which is exactly the game time between them.
+        // An adopted orphan keeps whatever time its own page recorded.
         if (!batch.sealed) {
-          if (stream === current) seal(batch);
+          if (stream === current) sealPending(stream);
           else batch.sealed = true;
         }
         write(storageKey, stream);
@@ -228,7 +267,9 @@ export function createRegularEnemyLootQueue(options: {
       else state.batches.push(target = { sequence: state.nextSequence++, mapId, count: 1, enemies: [{ enemy, count: 1 }], sealed: false, autoFarm });
       // The time so far, kept only for a reload; sealing replaces it. Earlier
       // unsealed batches already hold their share, so this one takes the rest.
-      const sinceSeal = simulatedMillisBetween(lastSealedSimulatedSeconds ?? simulatedSecondsNow(), simulatedSecondsNow());
+      const now = simulatedSecondsNow();
+      firstPendingKillSimulatedSeconds ??= now;
+      const sinceSeal = simulatedMillisBetween(claimStart(now), now);
       const earlier = state.batches.reduce((sum, batch) => batch === target || batch.sealed ? sum : sum + (batch.simulatedMillis ?? 0), 0);
       target!.simulatedMillis = Math.max(0, sinceSeal - earlier);
       persist();

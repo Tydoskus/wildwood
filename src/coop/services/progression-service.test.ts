@@ -79,7 +79,7 @@ function saveFrom(current: PlayerProgress, changes: Partial<ProgressSave> = {}):
   return { ...saved, enemyKills: 1, ...changes };
 }
 
-function setup() {
+function setup(extra: Partial<Parameters<typeof createProgressionService>[0]> = {}) {
   vi.stubGlobal("window", {
     setInterval: vi.fn(() => 1),
     clearInterval: vi.fn(),
@@ -107,6 +107,7 @@ function setup() {
   const notify = vi.fn();
   const storage = new MemoryStorage();
   const service = createProgressionService({
+    ...extra,
     reducers,
     notify,
     localIdentity: () => identity,
@@ -408,6 +409,55 @@ describe("server-calculated defeat batches", () => {
       expect(h.reportEnemyDefeats.mock.calls.at(-1)![0].enemies).toContainEqual({ enemy: "boss", count: 1 });
       h.service.dispose();
     } finally { vi.useRealTimers(); }
+  });
+
+  it("saves a changed loadout on the timer even while kills wait for their report", async () => {
+    vi.useFakeTimers();
+    try {
+      const h = setup(); const base = progress();
+      h.service.tables.upsertProgress({ ...base, identity: { toHexString: () => identity } } as never);
+      const periodicFlush = vi.mocked(window.setInterval).mock.calls[0][0] as () => void;
+      h.service.recordRegularEnemyDefeat("water_reach", "Tide Raider");
+      h.service.api.saveProgress(saveFrom(base, { equippedHead: "samurai_hat" }));
+      await vi.advanceTimersByTimeAsync(30_000);
+      // The tick sends the kill report first, which restarts the kill cadence;
+      // the equipment save behind it must not wait for the next one.
+      periodicFlush();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(h.reportEnemyDefeats).toHaveBeenCalledOnce();
+      expect(h.savePlayerProgress).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ equippedHead: "samurai_hat" }));
+      h.service.dispose();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("restarts the kill cadence only when a report goes out", async () => {
+    vi.useFakeTimers();
+    try {
+      const h = setup();
+      h.entry.hydrated = false;
+      h.service.recordRegularEnemyDefeat("water_reach", "Tide Raider");
+      await vi.advanceTimersByTimeAsync(30_000);
+      // A reconnect's forced flush, before the world has hydrated, sends nothing...
+      h.service.flushPendingProgress(true);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(h.reportEnemyDefeats).not.toHaveBeenCalled();
+      // ...so the ordinary flush once it has arrived is not held back thirty seconds more.
+      h.entry.hydrated = true;
+      h.service.flushPendingProgress();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(h.reportEnemyDefeats).toHaveBeenCalledOnce();
+      h.service.dispose();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("hands the bridge only to the game bundle as it starts, never to a console that asks first", () => {
+    let callerIsGame = false;
+    const h = setup({ gameBridgeCaller: () => callerIsGame });
+    expect(h.service.api.claimGameBridge(() => 0)).toBeNull();     // the sign-in screen's console
+    callerIsGame = true;
+    expect(h.service.api.claimGameBridge(() => 0)).not.toBeNull(); // game.js, still unclaimed
+    expect(h.service.api.claimGameBridge(() => 0)).toBeNull();
+    h.service.dispose();
   });
 
   it("reports kills through the simulation-clock reducers with the game time behind them", async () => {

@@ -5253,11 +5253,11 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
     killGems.grantKillGems(ctx, ctx.sender, accepted.count, enemyKills);
     enforce();
 }
-// All four take the throttle before any other read, so a flood of reports costs
-// one row read each; throttleKillReports says why honest cadence never meets it.
+// The throttle comes before any other read, on the new pair only; throttleKillReports says why.
 const killReport = (legacy: boolean) => (ctx: any, batch: any) => {
+  if (legacy) return recordEnemyDefeatsFor(ctx, { ...batch, simulatedMillis: null });
   throttleKillReports(ctx);
-  recordEnemyDefeatsFor(ctx, legacy ? { ...batch, simulatedMillis: null } : batch);
+  recordEnemyDefeatsFor(ctx, batch);
 };
 export const reportEnemyDefeats = spacetimedb.reducer(enemyDefeatReportArgs, killReport(false));
 // Same reward as reportEnemyDefeats: which reducer a client calls is its own claim.

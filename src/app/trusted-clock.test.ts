@@ -131,6 +131,28 @@ describe("game clock", () => {
     expect(clock.sample()).toBeCloseTo(50);
   });
 
+  it("keeps running when one clock stops advancing for good, losing at most a second once", () => {
+    // A webview whose document.timeline never moves.
+    const run = runFrames({ seconds: 30, distort: clocks => ({ ...clocks, timeline: 5 }) });
+    expect(run.total).toBeGreaterThan(run.trueElapsed - 1_100);
+    expect(run.total).toBeLessThanOrEqual(run.trueElapsed + GAME_CLOCK_TOLERANCE_MS);
+  });
+
+  it("does not speed anything up when a stalled clock comes back", () => {
+    // The timeline stands still for five seconds, then runs again; performance.now and Date are honest.
+    const stalled = runFrames({ seconds: 20, distort: (clocks, frame) => ({ ...clocks, timeline: frame < 300 ? 0 : clocks.timeline }) });
+    expect(stalled.total).toBeLessThanOrEqual(stalled.trueElapsed + GAME_CLOCK_TOLERANCE_MS);
+  });
+
+  it("is beaten only by controlling every clock it reads, which the server's clock is there for", () => {
+    // Freezing the timeline while running the others fast is no better than
+    // running all of them fast, which takes a hook installed before the bundle
+    // captured them. That client runs fast here; the simulation clock on
+    // report_enemy_defeats is what pays it at the real-time share.
+    const hooked = runFrames({ seconds: 20, distort: clocks => ({ ...clocks, frame: clocks.frame * 5, performance: clocks.performance * 5, date: EPOCH_MS + (clocks.date - EPOCH_MS) * 5, timeline: 0 }) });
+    expect(hooked.total).toBeGreaterThan(hooked.trueElapsed * 4);
+  });
+
   it("runs nothing when no clock can be read", () => {
     const clock = createGameClock([() => null]);
     expect(clock.sample(16)).toBe(0);

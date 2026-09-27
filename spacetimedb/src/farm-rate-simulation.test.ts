@@ -1,7 +1,7 @@
 import { Timestamp } from "spacetimedb";
 import { describe, expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
-import { DEFEAT_MIN_RESPAWN_SECONDS, ENEMY_DEFEAT_BATCH_MAX, defeatBudget, defeatMinRespawnSeconds, enemyDefeatDefinition, mapEnemyPopulation } from "../../shared/enemy-defeats";
+import { DEFEAT_MIN_RESPAWN_SECONDS, ENEMY_DEFEAT_BATCH_MAX, SIM_CLOCK_BANK_SECONDS, defeatBudget, defeatMinRespawnSeconds, enemyDefeatDefinition, mapEnemyPopulation } from "../../shared/enemy-defeats";
 import { ENEMY_TYPES } from "../../shared/enemy-definitions";
 import { MIN_ATTACK_INTERVAL, REGULAR_ENEMY_RESPAWN_SECONDS, REGULAR_KILL_REPORT_SECONDS } from "../../shared/rules";
 import { STARTER_BOW } from "../../shared/items";
@@ -375,7 +375,8 @@ describe("the current client, held to the server's clock", () => {
     for (const speed of [3, 5]) {
       const hack = currentClient({ lapSeconds: HONEST_LAP, minutes: 60, speed });
       expect(hack.claimedPerSecond).toBeCloseTo(honest.claimedPerSecond * speed, 1);
-      expect(hack.paid / honest.paid).toBeLessThan(1.1);
+      // The bank is the whole head start: ten minutes of free overclaim in the hour.
+      expect(hack.paid / honest.paid).toBeLessThan((3_600 + SIM_CLOCK_BANK_SECONDS) / 3_600 * 1.02);
       // After the five-minute bank is spent it earns the honest rate.
       expect(hack.sustainedPerSecond / honest.sustainedPerSecond).toBeLessThan(1.02);
       // One warning and one audit line for the whole episode, and no punishment.
