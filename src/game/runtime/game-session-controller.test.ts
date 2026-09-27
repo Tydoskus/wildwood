@@ -214,6 +214,8 @@ describe("game session frame scheduling", () => {
     });
     vi.stubGlobal("window", { setInterval: (callback: () => void) => { backgroundTick = callback; return 1; }, clearInterval });
     vi.stubGlobal("performance", { now: () => now });
+    // The game clock believes the slowest of performance.now and Date.now.
+    const dateNow = vi.spyOn(Date, "now").mockImplementation(() => now);
     vi.stubGlobal("requestAnimationFrame", vi.fn());
     const updateCutscene = vi.fn();
     const render = vi.fn();
@@ -234,12 +236,13 @@ describe("game session frame scheduling", () => {
       now = 250;
       backgroundTick();
       expect(updateCutscene).toHaveBeenCalledTimes(15);
+      expect(session.simulatedSeconds()).toBeCloseTo(15 / 60);
       session.loop(now);
       expect(render).not.toHaveBeenCalled();
       hidden = false;
       visibilityChanged();
       expect(clearInterval).toHaveBeenCalledWith(1);
-    } finally { vi.unstubAllGlobals(); }
+    } finally { dateNow.mockRestore(); vi.unstubAllGlobals(); }
   });
   it("does not collapse 60 Hz rendering to every other callback when timestamps arrive slightly early", () => {
     const interval = 1_000 / 60;
@@ -327,5 +330,56 @@ describe("game session frame scheduling", () => {
     expect(result.steps).toBe(MAX_SIMULATION_STEPS_PER_FRAME);
     expect(result.accumulatorSeconds).toBeCloseTo(0);
     expect(result.droppedSeconds).toBeCloseTo(.5 - MAX_SIMULATION_CATCH_UP_SECONDS);
+  });
+
+  it("counts every simulated step, runs no faster than the slowest clock, and never resets the count", () => {
+    let hidden = false, performanceNow = 0, dateNow = 0;
+    let visibilityChanged = () => {};
+    let backgroundTick = () => {};
+    vi.stubGlobal("document", {
+      get hidden() { return hidden; },
+      addEventListener: (_name: string, callback: () => void) => { visibilityChanged = callback; },
+    });
+    vi.stubGlobal("window", { setInterval: (callback: () => void) => { backgroundTick = callback; return 1; }, clearInterval: vi.fn() });
+    vi.stubGlobal("performance", { now: () => performanceNow });
+    const date = vi.spyOn(Date, "now").mockImplementation(() => dateNow);
+    vi.stubGlobal("requestAnimationFrame", vi.fn());
+    const noop = () => {};
+    try {
+      const session = createGameSessionController({
+        player: { moving: false, hp: 100 }, camera: {}, getMapId: () => "test", validMapIds: ["test"],
+        hideStart: noop, hideGameOver: noop, mapMusicSync: noop, resetPlayer: noop,
+        serverMapId: () => undefined, serverPlayerState: () => ({ x: 0, y: 0, facing: 0 }),
+        resolvePortalCollision: noop, connected: () => false, beginAdventure: noop,
+        ensureMusicPlaying: noop, resetPresentationState: noop, accountInConflict: () => false,
+        capturePresentationState: noop, updateVisuals: noop, updateMessage: noop,
+        cutsceneActive: () => true, updateCutscene: noop, updateHud: noop, render: noop,
+        lowPerformanceMode: () => false, isReplayActive: () => false, presentationInputActive: () => false,
+        isDueling: () => false, recordPerformance: noop, performancePanelVisible: () => false, fpsDisplayVisible: () => false,
+      } as any);
+      session.start(false);
+      // A hooked performance.now (and rAF timestamps) running five times fast
+      // against an honest Date: ten real seconds of frames simulate ten seconds.
+      for (let frame = 1; frame <= 600; frame++) {
+        performanceNow = frame * 5_000 / 60;
+        dateNow = Math.floor(frame * 1_000 / 60);
+        session.loop(performanceNow);
+      }
+      expect(session.simulatedSeconds()).toBeGreaterThan(9.9);
+      expect(session.simulatedSeconds()).toBeLessThanOrEqual(10 + 1 / 30);
+      // The background loop is held to the same clock, whatever the tab claims.
+      hidden = true;
+      visibilityChanged();
+      const beforeBackground = session.simulatedSeconds();
+      for (let wake = 1; wake <= 8; wake++) {
+        performanceNow += 1_000;
+        dateNow += 250;
+        backgroundTick();
+      }
+      expect(session.simulatedSeconds() - beforeBackground).toBeCloseTo(2, 1);
+      session.resetGameTime();
+      expect(session.gameTime()).toBe(0);
+      expect(session.simulatedSeconds()).toBeGreaterThan(11.9);
+    } finally { date.mockRestore(); vi.unstubAllGlobals(); }
   });
 });

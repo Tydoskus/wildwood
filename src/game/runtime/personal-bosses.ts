@@ -4,10 +4,13 @@ import { personalBossDefinition } from "../../../shared/personal-bosses";
 import { bossRespawnSecondsWithResearch } from "../../../shared/utility-research";
 import type { RespawnMemory } from './respawn-memory';
 import type { BossFightMemory } from './boss-fight-memory';
+import { wallClockNowMs } from '../../app/trusted-clock';
 
 /** Local combat owns HP. Only the completed defeat is sent to the reward queue. */
 export function createPersonalBosses(options: {
-  mapId: () => string; identity: () => string; alive: () => boolean; now: () => number;
+  mapId: () => string; identity: () => string; alive: () => boolean;
+  /** Defaults to the wall clock captured at boot, so a Date.now override does not respawn bosses. */
+  now?: () => number;
   defeated: (mapId: string) => void;
   respawns?: RespawnMemory;
   fights?: BossFightMemory;
@@ -17,6 +20,7 @@ export function createPersonalBosses(options: {
   type State = { key: string; mapId: string; encounter: bigint; hp: number; maxHp: number; alive: boolean; respawnAtMs: number; respawnAtMicros: bigint };
   type Result = { encounter: bigint; totalDamage: number; createdAtMs: number; contributors: { identity: string; name: string; gender: 0; damage: number; percentage: number }[] };
   const states = new Map<string, State>(), results = new Map<string, Result>();
+  const now = options.now ?? wallClockNowMs;
   let owner = "", activeMap = "", encounter = BigInt(Date.now()) * 1000n;
   function refresh() {
     if (owner !== options.identity()) { owner = options.identity(); states.clear(); results.clear(); activeMap = ""; }
@@ -37,12 +41,12 @@ export function createPersonalBosses(options: {
     if (!definition) return null;
     let row = states.get(mapId);
     if (row && row.maxHp !== definition.hp) { row.hp = row.hp / row.maxHp * definition.hp; row.maxHp = definition.hp; }
-    if (!row || (!row.alive && options.now() >= row.respawnAtMs)) {
+    if (!row || (!row.alive && now() >= row.respawnAtMs)) {
       row = { key: `${owner}:${mapId}`, mapId, encounter: ++encounter, hp: definition.hp, maxHp: definition.hp, alive: true, respawnAtMs: 0, respawnAtMicros: 0n };
       const remaining = options.respawns?.remaining(`boss:${mapId}`) ?? 0;
       if (remaining > 0) {
         row.alive = false; row.hp = 0;
-        row.respawnAtMs = options.now() + remaining;
+        row.respawnAtMs = now() + remaining;
         row.respawnAtMicros = BigInt(Math.round(row.respawnAtMs * 1000));
       } else {
         row.hp = options.fights?.restore(mapId, definition.hp) ?? row.hp;
@@ -74,10 +78,10 @@ export function createPersonalBosses(options: {
       if (row.hp > 0) { options.fights?.remember(mapId, row.hp, row.maxHp); return; }
       options.fights?.clear();
       row.alive = false;
-      row.respawnAtMs = options.now() + bossRespawnSecondsWithResearch(personalBossDefinition(mapId)!.respawnSeconds, options.bossRespawnRank?.() ?? 0) * 1000;
+      row.respawnAtMs = now() + bossRespawnSecondsWithResearch(personalBossDefinition(mapId)!.respawnSeconds, options.bossRespawnRank?.() ?? 0) * 1000;
       row.respawnAtMicros = BigInt(Math.round(row.respawnAtMs * 1000));
-      options.respawns?.remember(`boss:${mapId}`, row.respawnAtMs - options.now());
-      results.set(mapId, { encounter: row.encounter, totalDamage: row.maxHp, createdAtMs: options.now(),
+      options.respawns?.remember(`boss:${mapId}`, row.respawnAtMs - now());
+      results.set(mapId, { encounter: row.encounter, totalDamage: row.maxHp, createdAtMs: now(),
         contributors: [{ identity: owner, name: "You", gender: 0, damage: row.maxHp, percentage: 100 }] });
       options.defeated(mapId);
     },

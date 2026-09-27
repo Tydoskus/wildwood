@@ -3,6 +3,7 @@ import { DUEL_ARENA } from "../duel";
 import { snapCameraToPlayer, updateCamera } from "./camera";
 import type { PlayerState } from "./types";
 import { frameDeadlineReached, nextPresentationDeadline } from "./render-budget";
+import { createGameClock, documentHidden, monotonicNowMs, nativeTimers, requestFrame, type GameClock } from "../../app/trusted-clock";
 export { FRAME_DEADLINE_TOLERANCE_MS, frameDeadlineReached } from "./render-budget";
 
 type MapId = string;
@@ -163,6 +164,8 @@ type SessionDependencies = {
   fpsDisplayVisible: () => boolean;
   fadeElement: HTMLElement;
   onLeaveDuelResult: () => void;
+  /** Tests pass their own; the game uses the clocks captured at boot. */
+  gameClock?: GameClock;
 };
 
 /** Owns frame cadence, session lifecycle, world update sequencing, and world fades. */
@@ -174,13 +177,20 @@ export function createGameSessionController(dependencies: SessionDependencies) {
   // arrived, so the position it was asked to restore could not be read yet.
   let awaitingServerPosition = false;
   let gameTime = 0;
-  let lastFrameAt = performance.now();
-  let lastRenderedAt = lastFrameAt;
-  let nextFrameAt = lastFrameAt;
-  let lastPresentationActivityAt = lastFrameAt;
+  // Every fixed step the simulation has actually run, foreground or background.
+  // Kill reports carry it so the server can compare kills with the game time
+  // that produced them; unlike gameTime nothing ever resets it.
+  let simulatedSeconds = 0;
+  // Game time comes from the slowest of the browser's clocks, captured at boot,
+  // so speeding up one of them (or the rAF timestamps) does not speed the game.
+  const gameClock = dependencies.gameClock ?? createGameClock();
+  // Frame cadence still compares rAF timestamps, which share performance.now's
+  // origin; reading the captured copy keeps a hooked global out of that too.
+  let lastRenderedAt = monotonicNowMs();
+  let nextFrameAt = lastRenderedAt;
+  let lastPresentationActivityAt = lastRenderedAt;
   let simulationAccumulatorSeconds = 0;
   let backgroundTimer: number | undefined;
-  let lastBackgroundAt = 0;
   let nextPerformancePanelUpdateAt = 0;
   let fading = false;
 
@@ -275,38 +285,41 @@ export function createGameSessionController(dependencies: SessionDependencies) {
       dependencies.capturePresentationState();
       if (step === 0) syncSharedWorldState();
       simulate(SIMULATION_STEP_SECONDS);
+      simulatedSeconds += SIMULATION_STEP_SECONDS;
     }
     if (clock.steps > 0) dependencies.updateHud();
     return Math.min(1, simulationAccumulatorSeconds / SIMULATION_STEP_SECONDS);
   }
 
   function refreshFrameClock() {
-    lastFrameAt = performance.now();
-    lastRenderedAt = lastFrameAt;
-    nextFrameAt = lastFrameAt;
-    lastPresentationActivityAt = lastFrameAt;
+    const now = monotonicNowMs();
+    lastRenderedAt = now;
+    nextFrameAt = now;
+    lastPresentationActivityAt = now;
     simulationAccumulatorSeconds = 0;
+    gameClock.reanchor();
     dependencies.resetPresentationState();
   }
 
   // requestAnimationFrame stops in hidden tabs. A timer keeps the simulation
   // and autofarm advancing while the browser still lets the page run; drawing
-  // remains paused until it is visible again. Cap each wake to one second so a
-  // suspended tab cannot send a burst of stale combat when it resumes.
+  // remains paused until it is visible again. Each wake grants at most one
+  // second (the game clock caps every reading), so a suspended tab cannot send
+  // a burst of stale combat when it resumes. Visibility is read through the
+  // captured getter, so a synthetic visibilitychange event with a spoofed
+  // `document.hidden` finds the tab still visible and starts nothing.
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) {
+    if (documentHidden()) {
       if (backgroundTimer !== undefined) return;
-      lastBackgroundAt = performance.now();
-      backgroundTimer = window.setInterval(() => {
-        const now = performance.now();
-        const elapsed = Math.max(0, (now - lastBackgroundAt) / 1_000);
-        lastBackgroundAt = now;
+      gameClock.reanchor();
+      backgroundTimer = nativeTimers.setInterval(() => {
+        const elapsed = gameClock.sample() / 1_000;
         if (running && !paused && !dependencies.accountInConflict()) {
           updateFixedSimulation(elapsed, MAX_BACKGROUND_SIMULATION_STEPS);
         }
       }, 250);
     } else {
-      if (backgroundTimer !== undefined) window.clearInterval(backgroundTimer);
+      if (backgroundTimer !== undefined) nativeTimers.clearInterval(backgroundTimer);
       backgroundTimer = undefined;
       refreshFrameClock();
     }
@@ -315,8 +328,8 @@ export function createGameSessionController(dependencies: SessionDependencies) {
   function loop(now: number) {
     // A failed draw must not cancel the only scheduled frame and strand the player.
     // Errors still reach the browser console with their original stack.
-    requestAnimationFrame(loop);
-    if (document.hidden) return;
+    requestFrame(loop);
+    if (documentHidden()) return;
     const lowPerformanceMode = dependencies.lowPerformanceMode();
     const replayActive = dependencies.isReplayActive();
     const uiActive = dependencies.presentationUiActive?.() ?? false;
@@ -331,14 +344,15 @@ export function createGameSessionController(dependencies: SessionDependencies) {
       return;
     }
     nextFrameAt = nextPresentationDeadline(now, nextFrameAt, reducedFrameRate ? 30 : 60);
-    const frameDeltaMs = Math.max(0, now - lastFrameAt);
-    lastFrameAt = now;
+    // Sampled on every presented frame, simulating or not, so a pause is not
+    // later mistaken for time the game still owes.
+    const frameDeltaMs = gameClock.sample(now);
     const renderedFrameDeltaMs = Math.max(0, now - lastRenderedAt);
     lastRenderedAt = now;
     const workStartedAt = performance.now();
     let updateMs = 0;
     let interpolationAlpha = 1;
-    if (running && !paused && !dependencies.accountInConflict() && !document.hidden) {
+    if (running && !paused && !dependencies.accountInConflict() && !documentHidden()) {
       const updateStartedAt = performance.now();
       interpolationAlpha = updateFixedSimulation(frameDeltaMs / 1_000);
       updateMs = performance.now() - updateStartedAt;
@@ -411,7 +425,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
       finally {
         snapCameraToPlayer(dependencies.camera, dependencies.player, dependencies.viewport());
         dependencies.resetPresentationState();
-        requestAnimationFrame(() => {
+        requestFrame(() => {
           fade.classList.remove("is-visible");
           window.setTimeout(() => {
             fade.hidden = true;
@@ -434,9 +448,11 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     loop,
     pause: () => { paused = true; simulationAccumulatorSeconds = 0; dependencies.resetPresentationState(); },
     refreshFrameClock,
-    resetFrameSchedule: () => { nextFrameAt = performance.now(); },
+    resetFrameSchedule: () => { nextFrameAt = monotonicNowMs(); },
     resetGameTime: () => { gameTime = 0; simulationAccumulatorSeconds = 0; dependencies.resetPresentationState(); },
     setHasStarted: (started: boolean) => { hasStarted = started; },
+    /** Monotonic seconds of fixed 60 Hz simulation actually run, never reset. */
+    simulatedSeconds: () => simulatedSeconds,
     setPaused: (nextPaused: boolean) => {
       if (paused === nextPaused) return;
       paused = nextPaused;

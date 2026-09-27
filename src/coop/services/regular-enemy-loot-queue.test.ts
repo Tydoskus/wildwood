@@ -220,3 +220,64 @@ it("leaves a sibling queue alone while another tab is still touching it", async 
     expect((f.options.storage as Storage).getItem("wildstat-enemy-defeats-v2:alice:other-live-tab")).not.toBeNull();
   } finally { vi.useRealTimers(); }
 });
+
+it("charges each sealed report the game time simulated since the previous one", async () => {
+  const f = fixture(); let simulated = 0;
+  const queue = createRegularEnemyLootQueue({ ...f.options, simulatedSeconds: () => simulated });
+  queue.begin();
+  simulated = 10; queue.record("cloudspire", "Spitter");
+  simulated = 30; await queue.flush();
+  simulated = 45; queue.record("cloudspire", "Spitter");
+  queue.begin();                                       // a reconnect keeps the unsealed batch's time
+  simulated = 60; await queue.flush();
+  // One flush sealing several batches: the first takes the interval, the rest the nothing between them.
+  for (let i = 0; i < 150; i++) queue.record("cloudspire", "Spitter");
+  simulated = 90.0004; await queue.flush(true);
+  expect(f.send.mock.calls.map(([request]) => [request.count, request.simulatedMillis])).toEqual([[1, 30_000], [1, 30_000], [100, 30_000], [50, 0]]);
+});
+it("keeps a reloaded page's unsent kills on the time the earlier page recorded", async () => {
+  const f = fixture(); let simulated = 0;
+  const closed = createRegularEnemyLootQueue({ ...f.options, send: async () => false, simulatedSeconds: () => simulated });
+  closed.begin();
+  simulated = 5; closed.record("cloudspire", "Spitter");
+  simulated = 20; await closed.flush();                // sealed at 20 s, never acknowledged
+  simulated = 32; closed.record("cloudspire", "Spitter");
+  simulated = 40; closed.record("moonfen", "Spitter"); // a second unsealed batch holds only its own share
+  simulated = 3;                                       // the reloaded page's clock starts again
+  const reload = createRegularEnemyLootQueue({ ...f.options, simulatedSeconds: () => simulated });
+  reload.begin();
+  simulated = 4; reload.record("cloudspire", "Spitter");
+  simulated = 13; await reload.flush(true);
+  expect(f.send.mock.calls.map(([request]) => [request.mapId, request.count, request.simulatedMillis])).toEqual([
+    ["cloudspire", 1, 20_000], ["cloudspire", 1, 12_000], ["moonfen", 1, 8_000], ["cloudspire", 1, 10_000],
+  ]);
+});
+it("reads batches saved before simulated time existed as unknown and rejects a corrupt one", async () => {
+  const f = fixture(); const storage = f.options.storage as Storage;
+  const key = "wildstat-enemy-defeats-v2:alice:tab";
+  const legacy = { sequence: 1, mapId: "cloudspire", count: 1, sealed: true, enemies: [{ enemy: "Spitter", count: 1 }] };
+  storage.setItem(key, JSON.stringify({ streamId: "legacy", nextSequence: 2, batches: [legacy] }));
+  const queue = createRegularEnemyLootQueue({ ...f.options, simulatedSeconds: () => 50 });
+  queue.begin(); await queue.flush();
+  expect(f.send.mock.calls[0][0]).toMatchObject({ streamId: "legacy", simulatedMillis: 0 });
+  storage.setItem(key, JSON.stringify({ streamId: "corrupt", nextSequence: 2, batches: [{ ...legacy, simulatedMillis: -1 }] }));
+  const corrupt = createRegularEnemyLootQueue(f.options);
+  corrupt.begin();
+  expect(corrupt.hasPending()).toBe(false);
+});
+it("sends an adopted orphan with its own page's time, leaving this page's clock alone", async () => {
+  vi.useFakeTimers();
+  try {
+    const f = fixture(); let simulated = 0;
+    const old = createRegularEnemyLootQueue({ ...f.options, tabId: () => "closed-tab", send: async () => false, simulatedSeconds: () => simulated });
+    old.begin();
+    simulated = 7; old.record("water_reach", "Spitter");
+    vi.advanceTimersByTime(ORPHAN_QUEUE_AFTER_MS + 1);
+    simulated = 2;
+    const fresh = createRegularEnemyLootQueue({ ...f.options, simulatedSeconds: () => simulated });
+    fresh.begin();
+    simulated = 6; fresh.record("moonfen", "Spitter");
+    await fresh.flush(true);
+    expect(f.send.mock.calls.map(([request]) => [request.mapId, request.simulatedMillis])).toEqual([["water_reach", 7_000], ["moonfen", 4_000]]);
+  } finally { vi.useRealTimers(); }
+});

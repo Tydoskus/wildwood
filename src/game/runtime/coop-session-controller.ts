@@ -2,6 +2,17 @@ import { wildstatCoop } from "../../wildstat-coop";
 import { createFrameCoalescer, type FrameCoalescerScheduler } from "./frame-coalescer";
 
 type CoopClient = typeof wildstatCoop;
+
+/**
+ * The coop client, and the bridge every kill is reported through: regular,
+ * Auto Farm, personal and procedural bosses. The window API has no kill call;
+ * the game claims this bridge once, at boot, and nothing else can afterwards.
+ * Each report carries the game time the session simulated since the previous.
+ */
+export function claimCoopClient(simulatedSeconds: () => number) {
+  const coop: CoopClient | null = window.wildstatCoop ?? window.wildwoodCoop ?? null;
+  return { coop, gameBridge: coop?.claimGameBridge?.(simulatedSeconds) ?? null };
+}
 type AccountState = ReturnType<CoopClient["accountState"]>;
 
 type CoopSessionDependencies = {

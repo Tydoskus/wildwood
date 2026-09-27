@@ -2,6 +2,7 @@ import { isMeleeWeapon, weaponAttackRange } from "../weapon-combat";
 import { DEFAULT_ATTACK_RANGE } from '../../../shared/rules';
 import { isProceduralMap } from '../../../shared/procedural-maps';
 import { WORLD } from '../constants';
+import { monotonicNowMs } from '../../app/trusted-clock';
 import { ENEMY_TYPES, type EnemyDefinition, type EnemyKind } from '../enemies';
 import type { SpawnSite } from '../world';
 import type { Circle, EnemyState, PlayerState, Position } from './types';
@@ -83,7 +84,8 @@ export function createAutoFarmController(options: {
   let startedIdentity: string | undefined;
   let recovering = false;
   let readySince: number | null = null;
-  const now = options.now ?? (() => performance.now());
+  // The captured clock, so a faster performance.now cannot empty the death-loop window.
+  const now = options.now ?? monotonicNowMs;
   let status = 'Choose an enemy to begin';
   let target: EnemyState | null = null;
   let route: Position[] = [];

@@ -50,6 +50,7 @@ import { BASE_ATTACK_RANGE, BASE_PROJECTILE_SPEED } from "../constants";
 import { createProjectileStore } from "./projectile-store";
 import { MAP_EDITOR_GAMEPLAY_OVERRIDES } from "../../../shared/map-editor-overrides";
 import { savedMapDesign, savedMapName } from "../map-design";
+import { requestFrame } from "../../app/trusted-clock";
 
 type BootstrapMapPortal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
 type BootstrapMapEntry = { name: string; portal: BootstrapMapPortal | null; arrival: { x: number; y: number }; secondaryPortal?: BootstrapMapPortal };
@@ -668,5 +669,5 @@ export function startGameRuntime(options: {
   updateCamera(options.camera, options.player, options.viewport(), null, 1);
   options.render();
   window.dispatchEvent(new Event("wildstat:game-boot-ready"));
-  requestAnimationFrame(options.loop);
+  requestFrame(options.loop);
 }

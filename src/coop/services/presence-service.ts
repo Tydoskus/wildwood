@@ -1,6 +1,7 @@
 import { parseReleaseWindow } from "../../../shared/release-window";
 import { createRemoteCorpses } from "./remote-corpses";
 import { recordConnectionDiagnostic } from "./connection-diagnostic-runtime";
+import { monotonicNowMs, wallClockNowMs } from "../../app/trusted-clock";
 import { isProceduralMap } from "../../../shared/procedural-maps";
 import type { Identity } from "spacetimedb";
 import { tables, type SubscriptionHandle } from "../../module_bindings";
@@ -248,13 +249,16 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     serverClockAnchor = { serverAtMs, receivedAt };
   }
 
-  function estimatedServerNowMs(now = performance.now()) {
-    if (!serverClockAnchor) return Date.now();
+  // Every clock read in this service is the one captured at boot, so a faster
+  // performance.now or Date.now cannot run the server-time estimate (boss attack
+  // slots, the player's boss attack cycle) or the movement throttles ahead.
+  function estimatedServerNowMs(now = monotonicNowMs()) {
+    if (!serverClockAnchor) return wallClockNowMs();
     const oneWayLatencyMs = Math.max(0, Math.min(500, dependencies.latencyMs() ?? 0)) / 2;
     return serverClockAnchor.serverAtMs + Math.max(0, now - serverClockAnchor.receivedAt) + oneWayLatencyMs;
   }
 
-  function regularEnemyLocalPosition(now = performance.now()) {
+  function regularEnemyLocalPosition(now = monotonicNowMs()) {
     if (!localState || !lastSentMovement?.moving) return localState ? { x: localState.x, y: localState.y } : null;
     const consensusAt = now - REGULAR_ENEMY_CONSENSUS_DELAY_MS;
     const elapsedSeconds = Math.max(0, Math.min(1_500, consensusAt - lastSentMovement.sentAt)) / 1_000;
@@ -387,7 +391,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
 
   function refreshMotionInterest() {
     if (mapPlayerSubscriptionTransitioning) return;
-    const now = performance.now();
+    const now = monotonicNowMs();
     const position = localState;
     const next = remotePlayersVisible && position
       ? selectPlayerMotionInterest({
@@ -431,7 +435,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       // again at sequence 1 would silently discard movement until it catches up.
       nextPositionSequence = Math.max(nextPositionSequence, row.lastInputSequence);
       localMotionEpoch = row.motionEpoch & 0xffff;
-      speedSyncTracker.observe(row.speed, performance.now());
+      speedSyncTracker.observe(row.speed, monotonicNowMs());
       const nextMapId = row.mapId || TUTORIAL_FOREST_MAP_ID;
       const firstLocalState = localState === null;
       const presenceChanged = dependencies.developer.api.developerPresenceVisible() !== row.isVisible;
@@ -598,7 +602,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       console.warn("Ignored malformed WildStat movement frame:", error);
       return;
     }
-    const receivedAt = performance.now();
+    const receivedAt = monotonicNowMs();
     const serverAtMs = serverTimestampMs(row.emittedAt);
     observeServerClock(serverAtMs, receivedAt);
     let readinessChanged = false;
@@ -649,7 +653,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       console.warn("Ignored malformed WildStat minimap frame:", error);
       return;
     }
-    const receivedAt = performance.now();
+    const receivedAt = monotonicNowMs();
     const serverAtMs = serverTimestampMs(row.emittedAt);
     observeServerClock(serverAtMs, receivedAt);
     latestMapFrameServerAtMs = serverAtMs;
@@ -675,7 +679,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       x: row.playerX,
       y: row.playerY,
       facing: row.facing,
-      startedAtMs: performance.now(),
+      startedAtMs: monotonicNowMs(),
     };
     remotePlayerDeaths.set(identity, death);
     corpses.add(players.get(identity)!, death, presentations.get(identity)?.skinTone);
@@ -867,12 +871,12 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     // therefore cannot manufacture a violation, and it keeps equipment and
     // combat churn off the wire for an invisible farmer.
     if (dependencies.multiplayerEnabled?.() === false) { deferredSpeed = speed; return false; }
-    if (!speedSyncTracker.begin(speed, performance.now())) return false;
+    if (!speedSyncTracker.begin(speed, monotonicNowMs())) return false;
     dependencies.reducers.sendReducer(
       "speed sync",
       (connection) => connection.reducers.setSpeed({ speed }),
-      () => speedSyncTracker.reject(speed, performance.now()),
-      () => speedSyncTracker.accept(speed, performance.now()),
+      () => speedSyncTracker.reject(speed, monotonicNowMs()),
+      () => speedSyncTracker.accept(speed, monotonicNowMs()),
     );
     return true;
   }
@@ -896,7 +900,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     // each frame until it lands rather than dropped on the first refusal.
     if (deferredSpeed !== null && dependencies.multiplayerEnabled?.() !== false
       && syncSpeed(deferredSpeed)) deferredSpeed = null;
-    const now = performance.now();
+    const now = monotonicNowMs();
     const velocity = sanitizeMovementVelocity(vx, vy);
     if (!movementUpdateReason({ now, velocity, inputKind, lastSent: lastSentMovement, force, position: { x, y },
       multiplayerEnabled: dependencies.multiplayerEnabled?.() ?? true })) return;
@@ -999,7 +1003,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         const result = remotePlayerRenderBuffer;
         result.length = 0;
         if (!remotePlayersVisible || currentMapId === "home_exterior") return result;
-        const now = performance.now();
+        const now = monotonicNowMs();
         const consensusServerAtMs = estimatedServerNowMs(now) - REGULAR_ENEMY_CONSENSUS_DELAY_MS;
         for (const player of players.values()) {
           if (player.id === dependencies.localIdentity() || !detailedMotionIdentities.has(player.id)) continue;
@@ -1027,13 +1031,13 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       },
       serverNowMs: () => estimatedServerNowMs(),
       regularEnemyLocalPosition: () => regularEnemyLocalPosition(),
-      remotePlayerCorpses: () => remotePlayersVisible ? corpses.players(currentMapId, performance.now()) : [],
+      remotePlayerCorpses: () => remotePlayersVisible ? corpses.players(currentMapId, monotonicNowMs()) : [],
       remotePlayerDeath(identity: string) {
-        const corpse = corpses.death(identity, currentMapId, performance.now());
+        const corpse = corpses.death(identity, currentMapId, monotonicNowMs());
         if (corpse) return corpse;
         const death = remotePlayerDeaths.get(identity);
         if (!death) return null;
-        if (death.mapId !== currentMapId || performance.now() - death.startedAtMs > REMOTE_PLAYER_DEATH_TTL_MS) {
+        if (death.mapId !== currentMapId || monotonicNowMs() - death.startedAtMs > REMOTE_PLAYER_DEATH_TTL_MS) {
           remotePlayerDeaths.delete(identity);
           return null;
         }
@@ -1070,7 +1074,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       };
     },
     commitStoppedPosition(position: { x: number; y: number }, sequence: number) {
-      lastSentMovement = { vx: 0, vy: 0, moving: false, sentAt: performance.now() };
+      lastSentMovement = { vx: 0, vy: 0, moving: false, sentAt: monotonicNowMs() };
       if (localState) {
         localState.x = position.x;
         localState.y = position.y;

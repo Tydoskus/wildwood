@@ -944,8 +944,9 @@ export const wildstatCoop = {
   },
 };
 
-runtime.wildstatCoop = wildstatCoop;
-runtime.wildwoodCoop = wildstatCoop; // Compatibility for existing browser integrations.
+// Frozen, method bags too, and pinned to window (wildwoodCoop for older integrations): nothing reassigns them, and no page script may swap a method the game calls.
+for (const bag of [wildstatCoop.guild, wildstatCoop.social, wildstatCoop.devModeration, wildstatCoop.accountAudio, wildstatCoop]) Object.freeze(bag);
+for (const name of ["wildstatCoop", "wildwoodCoop"]) Object.defineProperty(runtime, name, { value: wildstatCoop, writable: false, configurable: false, enumerable: true });
 bindProgressFlushOnHide(document, window, force => progressionService.flushPendingProgress(force));
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
