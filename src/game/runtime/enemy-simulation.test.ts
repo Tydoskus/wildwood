@@ -563,7 +563,11 @@ it("acquires nearby mobs while manually moving even when the network pose stays 
 
 it("uses the ramp on the very first aggro frame without restarting it on repeated hits", () => {
   const enemy = idleEnemyAt(1000, 1000);
-  const player = playerAt(1040, 1000);
+  // Idle enemies wander up to 72 px from home on a clock-driven path, and
+  // with no server clock here that clock is the time of day: a player 40 px
+  // from home was out of the 100 px aggro radius about one run in thirty.
+  // Standing on the home spot keeps them in range at any time.
+  const player = playerAt(1000, 1000);
   const lifecycle = createEnemyLifecycle([enemy], [], () => {});
   const sim = createEnemySimulation([enemy], () => {}, player,
     () => ({ width: 800, height: 800, zoom: 1 }), lifecycle.engageEnemy, () => false);
