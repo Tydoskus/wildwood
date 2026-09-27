@@ -206,18 +206,19 @@ export function simulationClock(previous: { tokens: number; updatedAtMicros: big
 /**
  * A report's claimed counts after the simulation clock's scale; exactly the
  * counts when unscaled. The report's total is rounded once and handed out by
- * largest remainder, earliest entry first on a tie. Flooring each entry took a
+ * largest remainder, `first` entries (a boss clear) before any other, then the
+ * earliest entry on a tie. Flooring each entry took a
  * whole kill off every species under any scale below one, and a boss clear,
  * always a count of one, with it; an Endless report, one entry per site,
  * could lose all of it.
  */
-export function scaledDefeatCounts(counts: readonly number[], scale: number) {
+export function scaledDefeatCounts(counts: readonly number[], scale: number, first: readonly boolean[] = []) {
   if (scale === 1) return [...counts];
   const exact = counts.map(count => Math.max(0, count) * Math.max(0, scale));
   const scaled = exact.map(value => Math.floor(value + 1e-9));
   let left = Math.floor(exact.reduce((sum, value) => sum + value, 0) + .5) - scaled.reduce((sum, value) => sum + value, 0);
   const byRemainder = exact.map((value, index) => ({ index, remainder: value - scaled[index] }))
-    .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
+    .sort((a, b) => Number(Boolean(first[b.index])) - Number(Boolean(first[a.index])) || b.remainder - a.remainder || a.index - b.index);
   for (const { index } of byRemainder) {
     if (left <= 0) break;
     if (scaled[index] < counts[index]) { scaled[index]++; left--; }
@@ -225,7 +226,11 @@ export function scaledDefeatCounts(counts: readonly number[], scale: number) {
   return scaled;
 }
 
-/** Reads and advances the account's simulation clock for one report. Returns the payout scale. */
+/**
+ * Reads and advances the account's simulation clock for one report. Returns
+ * the payout scale and the game seconds the server accepts as played: the
+ * claim, cut to the real-time share when it ran ahead.
+ */
 function chargeSimulationClock(ctx: BossRewardContext, mapId: string, simulatedMillis: number) {
   const key = simulationClockKey(ctx.sender);
   const previous = ctx.db.enemyDefeatBudget.key.find(key);
@@ -248,7 +253,7 @@ function chargeSimulationClock(ctx: BossRewardContext, mapId: string, simulatedM
       reason: `Simulated ${detail.claimed}s against ${detail.credit}s of server time on ${mapId} (${detail.ratio}x); kill rewards scaled to the real-time share.`,
       before: "", after: "" });
   }
-  return clock.scale;
+  return { scale: clock.scale, creditedSeconds: clock.claimed * clock.scale };
 }
 
 export type EnemyDefeatBatch = { streamId: string; sequence: bigint; mapId: string; enemies: EnemyDefeat[];
@@ -268,8 +273,10 @@ export type EnemyDefeatBatch = { streamId: string; sequence: bigint; mapId: stri
  *     whole population (the fastest a player standing at every camp at once
  *     could see enemies come back). The second closes map hopping: each map's
  *     spawn bucket refills while the player is away, but they all draw on one
- *     clock that refills at real time, so rotating maps sustains one map's
- *     wall and no more.
+ *     clock, so rotating maps sustains one map's wall and no more. On the new
+ *     reducers that clock refills with the game time the simulation clock
+ *     accepted (1.), so kills are paid for with play the server believes;
+ *     the legacy pair refills it at real time.
  *  4. Boss clears have their own earned-time clock, and also spend their fight
  *     seconds from the combat clock, without ever being refused for it.
  */
@@ -294,7 +301,8 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
   }
   // Scale first, then the bounds below, so the spawn wall and combat clock see
   // only what real time allowed and are not drained by the excess.
-  const scale = batch.simulatedMillis == null ? 1 : chargeSimulationClock(ctx, batch.mapId, batch.simulatedMillis);
+  const simulation = batch.simulatedMillis == null ? null : chargeSimulationClock(ctx, batch.mapId, batch.simulatedMillis);
+  const scale = simulation?.scale ?? 1;
   const balance = pinnedMapBalance(ctx, ctx.sender, batch.mapId);
   const utility = ctx.db.playerResearch.identity.find(ctx.sender);
   const regularRespawn = enemyRespawnSecondsWithResearch(balance?.regularRespawnSeconds ?? REGULAR_ENEMY_RESPAWN_SECONDS, utility?.enemyRespawn ?? 0);
@@ -311,9 +319,15 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
   // every map at the full rate at once, each from its own bank.
   const clockKey = combatTimeKey(ctx.sender);
   const clockPrevious = ctx.db.enemyDefeatBudget.key.find(clockKey);
-  let combatSeconds = clockPrevious
-    ? Math.min(COMBAT_TIME_BANK_SECONDS, clockPrevious.tokens + Math.max(0, Number(now - clockPrevious.updatedAtMicros) / 1e6))
-    : COMBAT_TIME_BANK_SECONDS;
+  // On the new reducers the clock refills with the game time the simulation
+  // clock accepted, not the wall clock: kills have to be paid for with play
+  // the server believes happened. A report claiming no time (a client that
+  // cannot say, or one that has been taken apart to say nothing) gets none,
+  // and only the bank pays it. The legacy pair still refills at real time
+  // until it is retired.
+  const refill = simulation ? simulation.creditedSeconds
+    : clockPrevious ? Math.max(0, Number(now - clockPrevious.updatedAtMicros) / 1e6) : 0;
+  let combatSeconds = clockPrevious ? Math.min(COMBAT_TIME_BANK_SECONDS, clockPrevious.tokens + refill) : COMBAT_TIME_BANK_SECONDS;
   let clockSpent = false;
   const rewards = [];
   const violations: { enemy: string; requested: number; accepted: number }[] = [];
@@ -322,7 +336,8 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
   const entries = batch.enemies.some(entry => entry.enemy === "boss")
     ? [...batch.enemies.filter(entry => entry.enemy !== "boss"), ...batch.enemies.filter(entry => entry.enemy === "boss")]
     : batch.enemies;
-  const scaledCounts = scaledDefeatCounts(entries.map(entry => Number.isInteger(entry.count) ? entry.count : 0), scale);
+  // A boss clear is the one kill a scaled report must not drop on a tie.
+  const scaledCounts = scaledDefeatCounts(entries.map(entry => Number.isInteger(entry.count) ? entry.count : 0), scale, entries.map(entry => entry.enemy === "boss"));
   for (const [index, entry] of entries.entries()) {
     const definition = enemyDefeatDefinition(batch.mapId, entry.enemy, balance ?? undefined);
     if (!definition || seen.has(entry.enemy) || !Number.isInteger(entry.count) || entry.count < 1 || (submittedCount += entry.count) > ENEMY_DEFEAT_BATCH_MAX)
@@ -406,7 +421,7 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
     rewards.push({ ...definition.reward, count: acceptedCount });
     if (definition.loot) lootCount += acceptedCount;
   }
-  if (clockSpent) {
+  if (clockSpent || (simulation && simulation.creditedSeconds > 0)) {
     const clock = { key: clockKey, identity: ctx.sender, tokens: combatSeconds, updatedAtMicros: now };
     if (clockPrevious) ctx.db.enemyDefeatBudget.key.update(clock); else ctx.db.enemyDefeatBudget.insert(clock);
   }

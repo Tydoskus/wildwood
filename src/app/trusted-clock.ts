@@ -12,10 +12,11 @@
  * synthetic visibilitychange event cannot start the background loop.
  *
  * This stops console one-liners and generic speed-hack extensions that patch
- * globals after the page loads, including on the sign-in screen before the
- * game bundle arrives (see sharedNativeClocks). It cannot stop someone who edits the bundle or
- * hooks the prototypes before it runs; the server's own clocks stay the real
- * limit on rewards. Nothing here tells the player anything: a tampered clock is
+ * the clocks after the page loads, including on the sign-in screen before the
+ * game bundle arrives (see sharedNativeClocks). It cannot stop someone who
+ * edits the bundle, hooks the prototypes before it runs, or hooks the lookups
+ * themselves (Object.getOwnPropertyDescriptor, a same-origin frame) knowing
+ * what the code reads; the server's own clocks stay the real limit on rewards. Nothing here tells the player anything: a tampered clock is
  * simply not believed, and honest play never notices.
  *
  * Tests run with live lookups instead, so vi.useFakeTimers and stubbed globals

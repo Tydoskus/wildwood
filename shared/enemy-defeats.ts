@@ -26,9 +26,11 @@ export const DEFEAT_BUDGET_WINDOW_SECONDS = 300;
  * delivered late. Late is the case that sets it: a report sealed just before
  * an outage arrives after it and tops the bank up to the cap, and the report
  * behind it, carrying the whole outage's play, arrives a moment later with
- * nothing but the bank to cover it. Ten minutes pays any outage the spawn bank
- * would (five minutes of respawns is about ten minutes of honest laps); a
- * cheater gets the same ten minutes once per ten minutes away.
+ * nothing but the bank to cover it. So up to ten minutes of play that could
+ * not be reported is paid in full, and beyond that it is paid at the
+ * real-time share; a disconnect the client notices pauses play, so this
+ * needs reports refused while the game keeps running. A cheater gets the same
+ * ten minutes once per ten minutes away.
  */
 export const SIM_CLOCK_BANK_SECONDS = 2 * DEFEAT_BUDGET_WINDOW_SECONDS;
 const CAMPS: Record<string, readonly camps.SpawnCamp[]> = {

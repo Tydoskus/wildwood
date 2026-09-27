@@ -91,6 +91,9 @@ describe("simulation clock arithmetic", () => {
     // An Endless report, one entry per site: half of it is paid, not none.
     expect(scaledDefeatCounts(Array(10).fill(1), .5).reduce((a, b) => a + b, 0)).toBe(5);
     expect(scaledDefeatCounts([3, 3, 3], 0)).toEqual([0, 0, 0]);
+    // A boss clear wins a tie: an Endless report of nine sites and the boss, scaled.
+    expect(scaledDefeatCounts([...Array(9).fill(1), 1], .9, [...Array(9).fill(false), true]).at(-1)).toBe(1);
+    expect(scaledDefeatCounts([1, 1], .6, [false, true])).toEqual([0, 1]);
   });
 });
 

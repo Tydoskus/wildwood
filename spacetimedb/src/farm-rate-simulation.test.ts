@@ -419,12 +419,14 @@ describe("the current client, held to the server's clock", () => {
     expect(run.scaledWarnings).toBe(0);
   });
 
-  it("never scales a report that cannot say how long it simulated", () => {
-    const run = currentClient({ lapSeconds: HONEST_LAP, minutes: 10, speed: 5, says: "zero" });
+  it("never scales a report that cannot say how long it simulated, but pays it only from the bank", () => {
+    const run = currentClient({ lapSeconds: HONEST_LAP, minutes: 60, speed: 5, says: "zero" });
     expect(run.scaledWarnings).toBe(0);
     expect(run.moderation).toEqual([]);
-    // Only the spawn wall and the combat clock bound it, as before.
-    expect(run.paidPerSecond).toBeLessThanOrEqual(CEILING * 1.05);
-    expect(run.paidPerSecond).toBeGreaterThan(currentClient({ lapSeconds: HONEST_LAP, minutes: 10, speed: 5 }).paidPerSecond);
-  });
+    // The combat clock refills with game time the server accepted, and a
+    // report that claims none adds none: once the fifteen-minute bank is
+    // spent, a client that says nothing (or was taken apart to) earns nothing.
+    expect(run.sustainedPerSecond).toBeLessThan(.05);
+    expect(run.paidPerSecond).toBeLessThan(currentClient({ lapSeconds: HONEST_LAP, minutes: 60 }).paidPerSecond);
+  }, SIMULATION_TIMEOUT_MS);
 });
