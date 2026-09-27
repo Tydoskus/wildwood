@@ -1,6 +1,7 @@
 import { Timestamp } from "spacetimedb";
 import { describe, expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
+import { KILL_RATE_WATCH_PER_SECOND } from "./enemy-defeats";
 import { DEFEAT_MIN_RESPAWN_SECONDS, ENEMY_DEFEAT_BATCH_MAX, SIM_CLOCK_BANK_SECONDS, defeatBudget, defeatMinRespawnSeconds, enemyDefeatDefinition, mapEnemyPopulation } from "../../shared/enemy-defeats";
 import { ENEMY_TYPES } from "../../shared/enemy-definitions";
 import { MIN_ATTACK_INTERVAL, REGULAR_ENEMY_RESPAWN_SECONDS, REGULAR_KILL_REPORT_SECONDS } from "../../shared/rules";
@@ -370,6 +371,19 @@ describe("the current client, held to the server's clock", () => {
     expect(current.restricted).toBe(false);
   });
 
+  it("writes down a client paid faster than honest play for a sustained stretch, and nobody honest", () => {
+    // A client edited to claim the real time that passes: the simulation clock
+    // cannot tell, and the spawn wall (with the report throttle) pays it about
+    // 2.4 kills a second, above anything honest play has reached.
+    const script = currentClient({ lapSeconds: .5, minutes: 60, says: "real" });
+    expect(script.paidPerSecond).toBeGreaterThan(KILL_RATE_WATCH_PER_SECOND);
+    expect(script.moderation.filter(row => row.rule === "sustained_kill_rate")).toHaveLength(1);
+    expect(script.restricted).toBe(false);
+    expect(script.stillInWorld).toBe(true);
+    for (const honest of [currentClient({ lapSeconds: HONEST_LAP, minutes: 60 }), currentClient({ lapSeconds: HONEST_LAP, minutes: 20, offline: { from: 120, seconds: 240 } })])
+      expect(honest.moderation).toEqual([]);
+  }, SIMULATION_TIMEOUT_MS);
+
   it("pays a 3x and a 5x speed hack within a tenth of the honest pace over an hour", () => {
     const honest = currentClient({ lapSeconds: HONEST_LAP, minutes: 60 });
     for (const speed of [3, 5]) {
@@ -422,7 +436,9 @@ describe("the current client, held to the server's clock", () => {
   it("never scales a report that cannot say how long it simulated, but pays it only from the bank", () => {
     const run = currentClient({ lapSeconds: HONEST_LAP, minutes: 60, speed: 5, says: "zero" });
     expect(run.scaledWarnings).toBe(0);
-    expect(run.moderation).toEqual([]);
+    // Never scaled; but fifteen minutes paid at the spawn wall out of the bank
+    // is faster than any honest account has farmed, and is written down once.
+    expect(run.moderation).toMatchObject([{ action: "kill_rate_flag", rule: "sustained_kill_rate", actorType: "automatic" }]);
     // The combat clock refills with game time the server accepted, and a
     // report that claims none adds none: once the fifteen-minute bank is
     // spent, a client that says nothing (or was taken apart to) earns nothing.
