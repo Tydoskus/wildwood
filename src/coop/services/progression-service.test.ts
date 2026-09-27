@@ -487,7 +487,9 @@ describe("server-calculated defeat batches", () => {
     const h = setup({ gameBridgeCaller: () => callerIsGame });
     expect(h.service.api.claimGameBridge(() => 0)).toBeNull();     // the sign-in screen's console
     callerIsGame = true;
-    expect(h.service.api.claimGameBridge(() => 0)).not.toBeNull(); // game.js, still unclaimed
+    const bridge = h.service.api.claimGameBridge(() => 0);
+    expect(bridge).not.toBeNull();                                 // game.js, still unclaimed
+    expect(Object.keys(bridge!).sort()).toEqual(["engaged", "recordRegularEnemyDefeat"]);
     expect(h.service.api.claimGameBridge(() => 0)).toBeNull();
     h.service.dispose();
   });

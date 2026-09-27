@@ -31,7 +31,7 @@ export type EnemyLootRequest = { streamId: string; sequence: bigint; mapId: stri
 export const MAX_SIMULATED_MILLIS = 4_294_967_295;
 /** Batches begun after a drain started that it still sends. */
 export const DRAIN_EXTRA_BATCHES = 2;
-/** Game time with no kills that a report still carries before its first kill: one report's worth. */
+/** Game time with no fighting that a report still carries before its first fight: one report's worth. */
 export const IDLE_SIMULATION_ALLOWANCE_SECONDS = REGULAR_KILL_REPORT_SECONDS;
 
 function simulatedMillisBetween(fromSeconds: number, toSeconds: number) {
@@ -59,11 +59,14 @@ export function createRegularEnemyLootQueue(options: {
   // and the game time that produced them belongs to it.
   let lastSealedSimulatedSeconds: number | null = null;
   let lastBegunOwner = "";
-  // The game time of the first kill since that seal. A report is charged from
-  // no earlier than IDLE_SIMULATION_ALLOWANCE_SECONDS before it: the game runs
-  // in menus, at Home and while another device holds the session's reports,
-  // and time with no kills in it says nothing about how fast they came.
-  let firstPendingKillSimulatedSeconds: number | null = null;
+  // The game time the player first fought after that seal: an attack, a hit
+  // taken or a kill. A report is charged from no earlier than
+  // IDLE_SIMULATION_ALLOWANCE_SECONDS before it. The game runs in menus, at
+  // Home and while another device holds the session's reports, and that time
+  // says nothing about how fast kills came; but a long fight is play the
+  // kills at its end were paid for with, and the server now pays kills out of
+  // the game time reports claim.
+  let engagedAtSimulatedSeconds: number | null = null;
   const begunOwners = new Set<string>();
   const simulatedSecondsNow = () => {
     let seconds = 0;
@@ -142,7 +145,7 @@ export function createRegularEnemyLootQueue(options: {
       // Another character's play on this page is not this one's to report.
       lastBegunOwner = owner;
       lastSealedSimulatedSeconds = simulatedSecondsNow();
-      firstPendingKillSimulatedSeconds = null;
+      engagedAtSimulatedSeconds = null;
     }
     if (!begunOwners.has(owner)) {
       // This character's first begin on this page. Whatever is still unsealed
@@ -178,13 +181,13 @@ export function createRegularEnemyLootQueue(options: {
       batch.sealed = true;
     });
     lastSealedSimulatedSeconds = Math.max(lastSealedSimulatedSeconds ?? now, now);
-    firstPendingKillSimulatedSeconds = null;
+    engagedAtSimulatedSeconds = null;
   }
-  /** Where the next report's game time starts: the last seal, or shortly before the first kill after it. */
+  /** Where the next report's game time starts: the last seal, or shortly before the first fight after it. */
   function claimStart(now: number) {
     const sealedAt = lastSealedSimulatedSeconds ?? now;
-    return firstPendingKillSimulatedSeconds === null ? sealedAt
-      : Math.max(sealedAt, firstPendingKillSimulatedSeconds - IDLE_SIMULATION_ALLOWANCE_SECONDS);
+    return engagedAtSimulatedSeconds === null ? sealedAt
+      : Math.max(sealedAt, engagedAtSimulatedSeconds - IDLE_SIMULATION_ALLOWANCE_SECONDS);
   }
   function flush(drain = false): Promise<boolean> {
     if (owner !== options.identity()) begin();
@@ -268,12 +271,14 @@ export function createRegularEnemyLootQueue(options: {
       // The time so far, kept only for a reload; sealing replaces it. Earlier
       // unsealed batches already hold their share, so this one takes the rest.
       const now = simulatedSecondsNow();
-      firstPendingKillSimulatedSeconds ??= now;
+      engagedAtSimulatedSeconds ??= now;
       const sinceSeal = simulatedMillisBetween(claimStart(now), now);
       const earlier = state.batches.reduce((sum, batch) => batch === target || batch.sealed ? sum : sum + (batch.simulatedMillis ?? 0), 0);
       target!.simulatedMillis = Math.max(0, sinceSeal - earlier);
       persist();
     },
+    /** The player is fighting: an attack or a hit taken. Cheap enough to call on every one. */
+    engaged() { engagedAtSimulatedSeconds ??= simulatedSecondsNow(); },
     reset() { cancelBossRetry(); bossRetryDelay = 2_000; epoch++; inFlight = null; if (owner) { state = empty(); persist(); } },
     clear() { cancelBossRetry(); bossRetryDelay = 2_000; epoch++; owner = ""; state = null; adopted = []; key = ""; inFlight = null; },
   };

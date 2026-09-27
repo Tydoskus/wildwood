@@ -333,3 +333,18 @@ it("stops a drain a couple of batches past where it started, however fast kills 
   expect(send).toHaveBeenCalledTimes(1 + DRAIN_EXTRA_BATCHES);
   expect(queue.hasPending()).toBe(true);   // the latest kill waits for the next report
 });
+it("charges a long fight's game time to the kill at its end, and still not the idle time before it", async () => {
+  const f = fixture(); let simulated = 0;
+  const queue = createRegularEnemyLootQueue({ ...f.options, simulatedSeconds: () => simulated });
+  queue.begin();
+  // A ninety-second fight: the first attack lands at 10 s, the kill at 100 s.
+  simulated = 10; queue.engaged();
+  for (simulated = 11; simulated < 100; simulated += 1.5) queue.engaged();
+  simulated = 100; queue.record("cloudspire", "Spitter");
+  simulated = 101; await queue.flush(true);
+  // Ten minutes at Home, then a short fight.
+  simulated = 700; queue.engaged();
+  simulated = 705; queue.record("cloudspire", "Spitter");
+  simulated = 710; await queue.flush(true);
+  expect(f.send.mock.calls.map(([request]) => request.simulatedMillis)).toEqual([101_000, 40_000]);
+});

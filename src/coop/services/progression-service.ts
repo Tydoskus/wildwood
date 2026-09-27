@@ -65,6 +65,8 @@ type ProgressionServiceDependencies = {
 /** What the game bundle gets from claimGameBridge: the only way to report a kill. */
 export type GameBridge = {
   recordRegularEnemyDefeat(mapId: string, enemy: string, autoFarm?: boolean): void;
+  /** The player attacked or was hit: the game time from here on is combat the next report claims. */
+  engaged(): void;
 };
 
 type ProgressRow = { identity: Identity } & Omit<
@@ -1023,6 +1025,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
         gameSimulatedSeconds = simulatedSeconds;
         return Object.freeze({
           recordRegularEnemyDefeat: (mapId: string, enemy: string, autoFarm = false) => recordRegularEnemyDefeat(mapId, enemy, autoFarm),
+          engaged: () => enemyLoot.engaged(),
         });
       },
       saveProgress(progress: ProgressSave, immediate = false) {

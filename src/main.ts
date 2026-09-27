@@ -710,7 +710,7 @@ import {
     currentMapId: () => currentMapId,
     spawnBurst,
     spawnParticle,
-    spawnDamageNumber, skillEffects: effects,
+    spawnDamageNumber, skillEffects: effects, onCombat: () => gameBridge?.engaged(),
     playBowAttackSound: mapMusic.playBowAttackSound,
     logPickup,
     saveProgress,
