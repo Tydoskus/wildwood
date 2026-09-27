@@ -239,6 +239,8 @@ function currentClient(options: {
   idle?: { from: number; seconds: number };
   /** Send through record_enemy_defeats instead, which knows nothing of game time: what every report was paid before. */
   legacy?: boolean;
+  /** From this many minutes in, farm at `reformLapSeconds` instead: a script turned off. */
+  reformAfterMinutes?: number; reformLapSeconds?: number;
 }) {
   const f = crystalFixture();
   const maps = options.maps ?? [MAP];
@@ -308,7 +310,8 @@ function currentClient(options: {
     f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + BigInt(step * 1e6));
     unsealedGameMs += speed * step * 1000; unsealedRealMs += step * 1000;
     if (!within(options.idle, t)) {
-      lap += speed * step / options.lapSeconds;
+      const lapSeconds = options.reformAfterMinutes !== undefined && t >= options.reformAfterMinutes * 60 ? options.reformLapSeconds! : options.lapSeconds;
+      lap += speed * step / lapSeconds;
       for (; lap >= 1; lap--) for (const { kind, population } of rosterOf(maps[mapIndex])) record(maps[mapIndex], kind, population);
     }
     sinceReport += step; sinceRotate += step;
@@ -391,6 +394,27 @@ describe("the current client, held to the server's clock", () => {
     for (const honest of [currentClient({ lapSeconds: HONEST_LAP, minutes: 60 }), currentClient({ lapSeconds: HONEST_LAP, minutes: 20, offline: { from: 120, seconds: 240 } }),
       currentClient({ lapSeconds: HONEST_LAP, minutes: 60, speed: 3 })])
       expect(honest.moderation.filter(row => row.rule === "pay_ceiling_shadow")).toEqual([]);
+  }, SIMULATION_TIMEOUT_MS);
+
+  it("counts one would-clip episode through short breaks, and writes its total when it ends", () => {
+    // Two minutes away in the middle of an hour at the ceiling is the same episode.
+    const script = currentClient({ lapSeconds: .5, minutes: 60, says: "real", offline: { from: 1_200, seconds: 120 } });
+    expect(script.moderation.filter(row => row.action === "pay_ceiling_would_clip")).toHaveLength(1);
+    // A client claiming the spawn wall (3/s) is caught once the fifteen-minute
+    // bank runs dry, about 41 minutes in. Fifty minutes of that, then an
+    // honest lap: the shadow recovers within twenty and the episode closes.
+    const reformed = currentClient({ lapSeconds: 10, minutes: 75, says: "real", reformAfterMinutes: 50, reformLapSeconds: HONEST_LAP });
+    const rows = reformed.moderation.filter(row => row.rule === "pay_ceiling_shadow");
+    expect(rows.map(row => row.action)).toEqual(["pay_ceiling_would_clip", "pay_ceiling_episode_total"]);
+    expect(Number(/would have paid (\d+) fewer kills in all/.exec(rows[1].reason)?.[1])).toBeGreaterThan(100);
+  }, SIMULATION_TIMEOUT_MS);
+
+  it("once enforced, pays an honest burst at 2.65/s in full from a full bank", () => {
+    PAY_CEILING.enforced = true;
+    try {
+      const burst = currentClient({ lapSeconds: 30 / 2.65, minutes: 10 });
+      expect(burst.paid).toBe(burst.claimed);
+    } finally { PAY_CEILING.enforced = false; }
   }, SIMULATION_TIMEOUT_MS);
 
   it("once enforced, holds the edited client to the line and pays honest play exactly as before", () => {

@@ -191,13 +191,26 @@ export const payCeilingKey = (identity: { toHexString(): string }) => `${identit
  *
  * Until `enforced` is set it only watches: a shadow clock charged at the
  * ceiling's price runs beside the real one and writes a moderation line
- * (pay_ceiling_shadow) the first time in an episode it would have paid less.
- * Enforce once that has run long enough to show no honest account is caught.
+ * (pay_ceiling_shadow) when an episode in which it would have paid less
+ * begins, and another with the episode's total when it ends. Enforce once
+ * that has run long enough to show no honest account is caught; then delete
+ * the shadow, and update the tests that assumed the spawn-wall floor
+ * (bow-skills "pays an honest top-rolled bow its full claim" and "still
+ * bounds a script", kill-plausibility "charges every kill at least the map's
+ * respawn over its whole population", and farm-rate-simulation's two
+ * watch-mode tests): they start from a nearly empty clock, where the 900 s
+ * bank that absorbs an honest burst in play is missing.
  * Tests switch it on to check enforcement; nothing else writes to it.
  */
 export const PAY_CEILING = { enforced: false };
-/** Added to the shadow clock while a would-clip episode lasts; it ends once the clock holds this many seconds again. */
-const PAY_CEILING_FLAGGED = 1e9, PAY_CEILING_RECOVERED_SECONDS = 60;
+/**
+ * A would-clip episode lasts until the shadow clock holds half the bank again,
+ * so a short break does not start a new one; while it lasts the shadow is
+ * stored as -1 - seconds, and the kills it would have cut are totted up in
+ * payCeilingEpisodeKey, written out as a second line when it ends.
+ */
+const PAY_CEILING_RECOVERED_SECONDS = COMBAT_TIME_BANK_SECONDS / 2;
+export const payCeilingEpisodeKey = (identity: { toHexString(): string }) => `${identity.toHexString()}:pay-ceiling-episode-v1`;
 
 /**
  * Writes an account down, once per episode, when its paid kills outrun
@@ -369,6 +382,38 @@ function chargeSimulationClock(ctx: BossRewardContext, mapId: string, simulatedM
   return { scale: clock.scale, creditedSeconds: clock.claimed * clock.scale };
 }
 
+/**
+ * Keeps the running total of kills the pay ceiling would have cut in the
+ * current episode, and writes a moderation line when the episode begins
+ * (naming the account at once) and when it ends (with the total, the number
+ * that tells a script from a brush with the line). Only accounts the shadow
+ * has caught reach this, so honest play pays nothing for it.
+ */
+function recordPayCeilingEpisode(ctx: BossRewardContext, mapId: string, ceilingPerSecond: number, wouldClip: number,
+  started: boolean, ended: boolean, legacy: boolean) {
+  const key = payCeilingEpisodeKey(ctx.sender);
+  const previous = started ? null : ctx.db.enemyDefeatBudget.key.find(key);
+  const total = (previous?.tokens ?? 0) + wouldClip;
+  const now = ctx.timestamp.microsSinceUnixEpoch;
+  if (ended) { if (previous) ctx.db.enemyDefeatBudget.key.delete(key); }
+  else {
+    const row = { key, identity: ctx.sender, tokens: total, updatedAtMicros: now };
+    if (previous) ctx.db.enemyDefeatBudget.key.update(row);
+    else if (ctx.db.enemyDefeatBudget.key.find(key)) ctx.db.enemyDefeatBudget.key.update(row);
+    else ctx.db.enemyDefeatBudget.insert(row);
+  }
+  if (!started && !ended) return;
+  const displayName = ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "";
+  const line = Number(ceilingPerSecond.toFixed(2));
+  const reason = started
+    ? `The pay ceiling (${line}/s on ${mapId}) would have paid ${wouldClip} fewer kills in this report${legacy ? " (legacy client)" : ""}. Watching only: nothing was clipped.`
+    : `Episode over: the pay ceiling would have paid ${Math.round(total)} fewer kills in all. Watching only: nothing was clipped.`;
+  console.warn("Pay ceiling would clip", JSON.stringify({ identity: ctx.sender.toHexString(), displayName, mapId, wouldClip: Math.round(total), started, legacy }));
+  recordModerationAction(ctx as any, { targetIdentity: ctx.sender.toHexString(), targetName: displayName, channel: "account",
+    action: started ? "pay_ceiling_would_clip" : "pay_ceiling_episode_total", actorType: "automatic", rule: "pay_ceiling_shadow",
+    reason, before: "", after: "" });
+}
+
 export type EnemyDefeatBatch = { streamId: string; sequence: bigint; mapId: string; enemies: EnemyDefeat[];
   /** Milliseconds the client simulated since its previous report; absent on the legacy reducers, which skip the check. */
   simulatedMillis?: number | null };
@@ -447,11 +492,11 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
   // Watching only: the same clock as it would stand had the ceiling always applied.
   const shadowKey = payCeilingKey(ctx.sender);
   const shadowPrevious = PAY_CEILING.enforced ? null : ctx.db.enemyDefeatBudget.key.find(shadowKey);
-  const shadowFlagged = Boolean(shadowPrevious && shadowPrevious.tokens >= PAY_CEILING_FLAGGED / 2);
+  const shadowFlagged = Boolean(shadowPrevious && shadowPrevious.tokens < 0);
   const shadowRefill = simulation ? simulation.creditedSeconds
     : shadowPrevious ? Math.max(0, Number(now - shadowPrevious.updatedAtMicros) / 1e6) : 0;
   let shadowSeconds = shadowPrevious
-    ? Math.min(COMBAT_TIME_BANK_SECONDS, (shadowFlagged ? shadowPrevious.tokens - PAY_CEILING_FLAGGED : shadowPrevious.tokens) + shadowRefill)
+    ? Math.min(COMBAT_TIME_BANK_SECONDS, (shadowFlagged ? -shadowPrevious.tokens - 1 : shadowPrevious.tokens) + shadowRefill)
     : combatSeconds;
   let wouldClip = 0;
   const rewards = [];
@@ -559,19 +604,11 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
     if (clockPrevious) ctx.db.enemyDefeatBudget.key.update(clock); else ctx.db.enemyDefeatBudget.insert(clock);
     if (!PAY_CEILING.enforced) {
       const episodeStarted = wouldClip > 0 && !shadowFlagged;
-      const flagged = (shadowFlagged || episodeStarted) && shadowSeconds < PAY_CEILING_RECOVERED_SECONDS;
-      const shadow = { key: shadowKey, identity: ctx.sender, tokens: flagged ? shadowSeconds + PAY_CEILING_FLAGGED : shadowSeconds, updatedAtMicros: now };
+      const inEpisode = shadowFlagged || episodeStarted;
+      const flagged = inEpisode && (wouldClip > 0 || shadowSeconds < PAY_CEILING_RECOVERED_SECONDS);
+      const shadow = { key: shadowKey, identity: ctx.sender, tokens: flagged ? -1 - shadowSeconds : shadowSeconds, updatedAtMicros: now };
       if (shadowPrevious) ctx.db.enemyDefeatBudget.key.update(shadow); else ctx.db.enemyDefeatBudget.insert(shadow);
-      if (episodeStarted) {
-        const displayName = ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "";
-        const detail = { identity: ctx.sender.toHexString(), displayName, mapId: batch.mapId, wouldClip,
-          ceilingPerSecond: Number((1 / ceilingSecondsPerKill).toFixed(2)), legacy: !simulation };
-        console.warn("Pay ceiling would clip", JSON.stringify(detail));
-        recordModerationAction(ctx as any, { targetIdentity: detail.identity, targetName: displayName, channel: "account",
-          action: "pay_ceiling_would_clip", actorType: "automatic", rule: "pay_ceiling_shadow",
-          reason: `The pay ceiling (${detail.ceilingPerSecond}/s on ${batch.mapId}) would have paid ${wouldClip} fewer kills in this report${detail.legacy ? " (legacy client)" : ""}. Watching only: nothing was clipped.`,
-          before: "", after: "" });
-      }
+      if (inEpisode) recordPayCeilingEpisode(ctx, batch.mapId, 1 / ceilingSecondsPerKill, wouldClip, episodeStarted, !flagged, !simulation);
     }
   }
   const receipt = { key, identity: ctx.sender, sequence: batch.sequence };

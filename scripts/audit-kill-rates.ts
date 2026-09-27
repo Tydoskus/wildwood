@@ -107,16 +107,19 @@ console.log(`\nFastest ${TOP} by best fifteen minutes:`);
 for (const summary of [...summaries].sort((a, b) => b.peak - a.peak).slice(0, TOP))
   console.log(`  ${nameOf(summary.identity).padEnd(22)} ${summary.peak.toFixed(2)}/s at ${when(summary.peakAt)}${summary.jumps ? `   (${summary.jumps} bulk jump${summary.jumps > 1 ? "s" : ""} excluded)` : ""}`);
 
-const flags = sql("SELECT target_identity, target_name, rule, reason, recorded_at FROM moderation_action WHERE actor_type = 'automatic'")
+const flags = sql("SELECT target_identity, target_name, action, rule, reason, recorded_at FROM moderation_action WHERE actor_type = 'automatic'")
   .filter(row => ["pay_ceiling_shadow", "sustained_kill_rate", "simulation_clock_ahead", "enemy_defeat_allowance", "movement_speed_allowance"].includes(row.rule));
 console.log("\nAutomatic flags by the server:");
 if (!flags.length) console.log("  none");
 const byAccount = new Map<string, Row[]>();
-for (const row of flags) byAccount.set(`${row.target_name}|${row.rule}`, [...(byAccount.get(`${row.target_name}|${row.rule}`) ?? []), row]);
+// The pay ceiling writes a line when an episode starts and another with its total when it ends.
+const label = (row: Row) => row.rule === "pay_ceiling_shadow" ? (row.action === "pay_ceiling_episode_total" ? "pay_ceiling (episode end)" : "pay_ceiling (would clip)") : row.rule;
+for (const row of flags) byAccount.set(`${row.target_name}|${label(row)}`, [...(byAccount.get(`${row.target_name}|${label(row)}`) ?? []), row]);
 for (const [key, rows] of [...byAccount].sort((a, b) => b[1].length - a[1].length)) {
   const [name, rule] = key.split("|");
   const times = rows.map(row => seconds(row.recorded_at)).sort((a, b) => a - b);
-  console.log(`  ${(name || "?").padEnd(22)} ${rule.padEnd(24)} ${String(rows.length).padStart(3)}x  ${when(times[0])}${rows.length > 1 ? ` .. ${when(times.at(-1)!)}` : ""}`);
+  const cut = rows.reduce((sum, row) => sum + Number(/would have paid (\d+) fewer kills in all/.exec(row.reason)?.[1] ?? 0), 0);
+  console.log(`  ${(name || "?").padEnd(22)} ${rule.padEnd(26)} ${String(rows.length).padStart(3)}x  ${when(times[0])}${rows.length > 1 ? ` .. ${when(times.at(-1)!)}` : ""}${cut ? `   ${cut} kills over the ceiling` : ""}`);
 }
 console.log("\npay_ceiling_shadow: the pay ceiling would have paid this account less (watching only; nothing clipped). Before enforcing it, every name here should be a cheater.");
 console.log("sustained_kill_rate and simulation_clock_ahead are written by 0.827 and later; enemy_defeat_allowance and movement_speed_allowance are the retired rules from 09-18 to 09-21, which also caught honest players.");
