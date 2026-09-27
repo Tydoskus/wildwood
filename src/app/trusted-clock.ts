@@ -12,7 +12,8 @@
  * synthetic visibilitychange event cannot start the background loop.
  *
  * This stops console one-liners and generic speed-hack extensions that patch
- * globals after the page loads. It cannot stop someone who edits the bundle or
+ * globals after the page loads, including on the sign-in screen before the
+ * game bundle arrives (see sharedNativeClocks). It cannot stop someone who edits the bundle or
  * hooks the prototypes before it runs; the server's own clocks stay the real
  * limit on rewards. Nothing here tells the player anything: a tampered clock is
  * simply not believed, and honest play never notices.
@@ -133,7 +134,27 @@ function liveClocks(): NativeClocks {
   };
 }
 
-const clocks = import.meta.env?.MODE === "test" ? liveClocks() : captureNativeClocks(globalThis as unknown as ClockScope);
+/** Where the first bundle to load leaves its capture for the others. */
+export const SHARED_CLOCKS_PROPERTY = "__wildstatNativeClocks";
+
+/**
+ * The clocks as the first WildStat bundle on the page captured them.
+ * coop-client.js runs as the page loads; game.js is only inserted after
+ * sign-in, and capturing again there would take whatever a console line typed
+ * on the sign-in screen had put in place. So the first capture is pinned to
+ * the page as a property nothing can reassign or redefine, and every later
+ * bundle reads that one.
+ */
+export function sharedNativeClocks(scope: ClockScope): NativeClocks {
+  const pinned = Object.getOwnPropertyDescriptor(scope, SHARED_CLOCKS_PROPERTY);
+  if (pinned && !pinned.writable && !pinned.configurable && pinned.value && typeof pinned.value.monotonicNowMs === "function") return pinned.value;
+  const captured = captureNativeClocks(scope);
+  const frozen: NativeClocks = Object.freeze({ ...captured, timers: Object.freeze({ ...captured.timers }) });
+  try { Object.defineProperty(scope, SHARED_CLOCKS_PROPERTY, { value: frozen, writable: false, configurable: false, enumerable: false }); } catch {}
+  return frozen;
+}
+
+const clocks = import.meta.env?.MODE === "test" ? liveClocks() : sharedNativeClocks(globalThis as unknown as ClockScope);
 
 export const monotonicNowMs = clocks.monotonicNowMs;
 export const wallClockNowMs = clocks.wallClockNowMs;

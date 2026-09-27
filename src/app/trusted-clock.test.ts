@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { captureNativeClocks, createGameClock, GAME_CLOCK_TOLERANCE_MS, type ClockSource } from "./trusted-clock";
+import { captureNativeClocks, createGameClock, GAME_CLOCK_TOLERANCE_MS, SHARED_CLOCKS_PROPERTY, sharedNativeClocks, type ClockSource } from "./trusted-clock";
 
 const FRAME_MS = 1_000 / 60;
 const EPOCH_MS = 1_790_000_000_000;
@@ -222,5 +222,46 @@ describe("captured browser clocks", () => {
     let frameAt = -1;
     clocks.requestFrame(at => { frameAt = at; });
     expect(frameAt).toBe(42);
+  });
+});
+
+describe("clocks shared between bundles", () => {
+  const scope = () => {
+    let now = 1_000;
+    const performance = Object.create({ now() { return now; } }) as Performance;
+    return { performance, Date: { now: () => EPOCH_MS + now } as unknown as DateConstructor,
+      setTimeout, clearTimeout, setInterval, clearInterval, advance: (ms: number) => { now += ms; } };
+  };
+
+  it("pins the first capture, so a bundle loaded after sign-in reads it and not a hook typed meanwhile", () => {
+    const page = scope();
+    const first = sharedNativeClocks(page as any);
+    // On the sign-in screen: a console line swaps the clocks for fast ones...
+    const real = page.Date.now;
+    page.Date = { now: () => real() * 5 } as unknown as DateConstructor;
+    Object.defineProperty(page.performance, "now", { value: () => 0 });
+    // ...then game.js arrives and captures.
+    const later = sharedNativeClocks(page as any);
+    expect(later).toBe(first);
+    page.advance(100);
+    expect(later.wallClockNowMs()).toBe(EPOCH_MS + 1_100);
+    expect(later.monotonicNowMs()).toBe(1_100);
+  });
+
+  it("cannot be reassigned or redefined once pinned", () => {
+    const page = scope();
+    const first = sharedNativeClocks(page as any);
+    expect(() => { (page as any)[SHARED_CLOCKS_PROPERTY] = {}; }).toThrow();
+    expect(() => Object.defineProperty(page, SHARED_CLOCKS_PROPERTY, { value: {} })).toThrow();
+    expect(Object.isFrozen(first) && Object.isFrozen(first.timers)).toBe(true);
+    expect(sharedNativeClocks(page as any)).toBe(first);
+  });
+
+  it("ignores a lookalike that a page script left writable, and captures for itself", () => {
+    const page = scope();
+    (page as any)[SHARED_CLOCKS_PROPERTY] = { monotonicNowMs: () => 0 };
+    const clocks = sharedNativeClocks(page as any);
+    page.advance(50);
+    expect(clocks.monotonicNowMs()).toBe(1_050);
   });
 });

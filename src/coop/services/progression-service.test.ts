@@ -88,13 +88,14 @@ function setup(extra: Partial<Parameters<typeof createProgressionService>[0]> = 
   });
   const reportEnemyDefeats = vi.fn(async (_request: any): Promise<void> => {});
   const reportAutoFarmEnemyDefeats = vi.fn(async (_request: any): Promise<void> => {});
+  const recordEnemyDefeats = vi.fn(async (_request: any): Promise<void> => {});
   const savePlayerProgress = vi.fn(async (): Promise<void> => {});
   const prestigeAccount = vi.fn(async (): Promise<void> => {});
   const resetPlayerProgress = vi.fn(async (): Promise<void> => {});
   const claimDeveloperItemGift = vi.fn(async (): Promise<void> => {});
   const entry = { ready: true, blocked: false, hydrated: true };
   const destroyEquipment = vi.fn(async () => {});
-  const connection = { reducers: { reportEnemyDefeats, reportAutoFarmEnemyDefeats, savePlayerProgress, prestigeAccount, resetPlayerProgress, claimDeveloperItemGift, destroyEquipment } };
+  const connection = { reducers: { reportEnemyDefeats, reportAutoFarmEnemyDefeats, recordEnemyDefeats, savePlayerProgress, prestigeAccount, resetPlayerProgress, claimDeveloperItemGift, destroyEquipment } };
   const reducers = {
     connection: () => connection,
     protocolBlocked: () => false,
@@ -120,7 +121,7 @@ function setup(extra: Partial<Parameters<typeof createProgressionService>[0]> = 
     storage,
     pendingProgressKey: "pending-progress",
   });
-  return { reportEnemyDefeats, reportAutoFarmEnemyDefeats, notify, savePlayerProgress, prestigeAccount, resetPlayerProgress, service, entry, claimDeveloperItemGift, destroyEquipment, storage };
+  return { reportEnemyDefeats, reportAutoFarmEnemyDefeats, recordEnemyDefeats, notify, savePlayerProgress, prestigeAccount, resetPlayerProgress, service, entry, claimDeveloperItemGift, destroyEquipment, storage };
 }
 
 describe("local progression profile snapshots", () => {
@@ -448,6 +449,37 @@ describe("server-calculated defeat batches", () => {
       expect(h.reportEnemyDefeats).toHaveBeenCalledOnce();
       h.service.dispose();
     } finally { vi.useRealTimers(); }
+  });
+
+  it("falls back to the older kill reducers when the server does not have the new ones yet", async () => {
+    const h = setup();
+    h.reportEnemyDefeats.mockImplementation(async () => { throw new Error("No such reducer `report_enemy_defeats`"); });
+    h.service.recordRegularEnemyDefeat("water_reach", "Tide Raider");
+    expect(await h.service.drainEnemyLoot()).toBe(true);
+    expect(h.recordEnemyDefeats).toHaveBeenCalledOnce();
+    expect(h.recordEnemyDefeats.mock.calls[0][0]).not.toHaveProperty("simulatedMillis");
+    // The rest of the connection goes straight to the older pair...
+    h.service.recordRegularEnemyDefeat("water_reach", "Tide Raider");
+    expect(await h.service.drainEnemyLoot()).toBe(true);
+    expect(h.reportEnemyDefeats).toHaveBeenCalledOnce();
+    expect(h.recordEnemyDefeats).toHaveBeenCalledTimes(2);
+    // ...and a new session tries the new ones again, in case the server was published meanwhile.
+    h.reportEnemyDefeats.mockReset();
+    h.service.beginSession(false);
+    h.service.recordRegularEnemyDefeat("water_reach", "Tide Raider");
+    expect(await h.service.drainEnemyLoot()).toBe(true);
+    expect(h.reportEnemyDefeats).toHaveBeenCalledOnce();
+    expect(h.recordEnemyDefeats).toHaveBeenCalledTimes(2);
+    h.service.dispose();
+  });
+
+  it("does not fall back on an ordinary refusal", async () => {
+    const h = setup();
+    h.reportEnemyDefeats.mockImplementation(async () => { throw new Error("Enemy defeat batches must arrive in order."); });
+    h.service.recordRegularEnemyDefeat("water_reach", "Tide Raider");
+    expect(await h.service.drainEnemyLoot()).toBe(false);
+    expect(h.recordEnemyDefeats).not.toHaveBeenCalled();
+    h.service.dispose();
   });
 
   it("hands the bridge only to the game bundle as it starts, never to a console that asks first", () => {
