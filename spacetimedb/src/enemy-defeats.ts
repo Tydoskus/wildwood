@@ -178,6 +178,27 @@ export function killRateWatch(previous: { tokens: number; updatedAtMicros: bigin
   return { level, episodeStarted, tokens: stillFlagged ? level + KILL_RATE_WATCH_FLAGGED : level };
 }
 
+/** The account's pay-ceiling shadow clock; see PAY_CEILING. */
+export const payCeilingKey = (identity: { toHexString(): string }) => `${identity.toHexString()}:pay-ceiling-v1`;
+/**
+ * The pay ceiling: the account's combat clock charging every regular kill at
+ * least 1 / killRateWatchLine seconds instead of the map's respawn over its
+ * population. Paid kills then cannot be sustained above the line honest play
+ * never reaches (about 2.2/s; 2.67/s on Endless at a 7.5 s respawn), where
+ * the spawn wall let a client edited to claim honest-looking game time reach
+ * 3-4/s. The per-species spawn buckets stay: rewards differ by species, and
+ * without them a claim could be all of the best-paying one.
+ *
+ * Until `enforced` is set it only watches: a shadow clock charged at the
+ * ceiling's price runs beside the real one and writes a moderation line
+ * (pay_ceiling_shadow) the first time in an episode it would have paid less.
+ * Enforce once that has run long enough to show no honest account is caught.
+ * Tests switch it on to check enforcement; nothing else writes to it.
+ */
+export const PAY_CEILING = { enforced: false };
+/** Added to the shadow clock while a would-clip episode lasts; it ends once the clock holds this many seconds again. */
+const PAY_CEILING_FLAGGED = 1e9, PAY_CEILING_RECOVERED_SECONDS = 60;
+
 /**
  * Writes an account down, once per episode, when its paid kills outrun
  * anything honest play has reached. It clips and restricts nothing: the
@@ -421,6 +442,18 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
     : clockPrevious ? Math.max(0, Number(now - clockPrevious.updatedAtMicros) / 1e6) : 0;
   let combatSeconds = clockPrevious ? Math.min(COMBAT_TIME_BANK_SECONDS, clockPrevious.tokens + refill) : COMBAT_TIME_BANK_SECONDS;
   let clockSpent = false;
+  // The pay ceiling (see PAY_CEILING): the least a kill can cost the clock.
+  const ceilingSecondsPerKill = 1 / killRateWatchLine(batch.mapId, defeatMinRespawnSeconds(regularRespawn));
+  // Watching only: the same clock as it would stand had the ceiling always applied.
+  const shadowKey = payCeilingKey(ctx.sender);
+  const shadowPrevious = PAY_CEILING.enforced ? null : ctx.db.enemyDefeatBudget.key.find(shadowKey);
+  const shadowFlagged = Boolean(shadowPrevious && shadowPrevious.tokens >= PAY_CEILING_FLAGGED / 2);
+  const shadowRefill = simulation ? simulation.creditedSeconds
+    : shadowPrevious ? Math.max(0, Number(now - shadowPrevious.updatedAtMicros) / 1e6) : 0;
+  let shadowSeconds = shadowPrevious
+    ? Math.min(COMBAT_TIME_BANK_SECONDS, (shadowFlagged ? shadowPrevious.tokens - PAY_CEILING_FLAGGED : shadowPrevious.tokens) + shadowRefill)
+    : combatSeconds;
+  let wouldClip = 0;
   const rewards = [];
   const violations: { enemy: string; requested: number; accepted: number }[] = [];
   // A save can contain regular kills that already raised the client's DPS.
@@ -476,6 +509,7 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
       // acceptance, and never below zero: the boss's own clock above is what
       // bounds clears, and a first clear must not wait on this one.
       combatSeconds = Math.max(0, combatSeconds - acceptedCount * Math.max(0, limits!.cycleSeconds - boss.respawnSeconds));
+      shadowSeconds = Math.max(0, shadowSeconds - acceptedCount * Math.max(0, limits!.cycleSeconds - boss.respawnSeconds));
       clockSpent = true;
     } else {
       // A sealed batch must be consumable even when it exceeds the maximum
@@ -500,10 +534,17 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
       const combat = bossCombat([...rewards, { ...definition.reward, count: acceptedCount }]);
       const plausibleRate = plausibleKillsPerSecond(definition.hp, combat.dps, combat.attackInterval, combat.projectiles ?? 1)
         * (combat.reach ?? 1) * PLAUSIBLE_KILL_TOLERANCE;
-      const costPerKill = plausibleRate > 0 ? Math.max(1 / plausibleRate, wallSecondsPerKill) : Infinity;
+      const floorCost = PAY_CEILING.enforced ? Math.max(wallSecondsPerKill, ceilingSecondsPerKill) : wallSecondsPerKill;
+      const costPerKill = plausibleRate > 0 ? Math.max(1 / plausibleRate, floorCost) : Infinity;
       const plausible = Number.isFinite(costPerKill) ? Math.max(0, Math.floor(combatSeconds / costPerKill + 1e-6)) : 0;
       if (acceptedCount > plausible) acceptedCount = plausible;
       if (acceptedCount) combatSeconds = Math.max(0, combatSeconds - acceptedCount * costPerKill);
+      if (!PAY_CEILING.enforced && Number.isFinite(costPerKill)) {
+        const shadowCost = Math.max(costPerKill, ceilingSecondsPerKill);
+        const shadowPaid = Math.min(acceptedCount, Math.max(0, Math.floor(shadowSeconds / shadowCost + 1e-6)));
+        wouldClip += acceptedCount - shadowPaid;
+        shadowSeconds = Math.max(0, shadowSeconds - shadowPaid * shadowCost);
+      }
       clockSpent = true;
       if (!acceptedCount) continue;
     }
@@ -516,6 +557,22 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
   if (clockSpent || (simulation && simulation.creditedSeconds > 0)) {
     const clock = { key: clockKey, identity: ctx.sender, tokens: combatSeconds, updatedAtMicros: now };
     if (clockPrevious) ctx.db.enemyDefeatBudget.key.update(clock); else ctx.db.enemyDefeatBudget.insert(clock);
+    if (!PAY_CEILING.enforced) {
+      const episodeStarted = wouldClip > 0 && !shadowFlagged;
+      const flagged = (shadowFlagged || episodeStarted) && shadowSeconds < PAY_CEILING_RECOVERED_SECONDS;
+      const shadow = { key: shadowKey, identity: ctx.sender, tokens: flagged ? shadowSeconds + PAY_CEILING_FLAGGED : shadowSeconds, updatedAtMicros: now };
+      if (shadowPrevious) ctx.db.enemyDefeatBudget.key.update(shadow); else ctx.db.enemyDefeatBudget.insert(shadow);
+      if (episodeStarted) {
+        const displayName = ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "";
+        const detail = { identity: ctx.sender.toHexString(), displayName, mapId: batch.mapId, wouldClip,
+          ceilingPerSecond: Number((1 / ceilingSecondsPerKill).toFixed(2)), legacy: !simulation };
+        console.warn("Pay ceiling would clip", JSON.stringify(detail));
+        recordModerationAction(ctx as any, { targetIdentity: detail.identity, targetName: displayName, channel: "account",
+          action: "pay_ceiling_would_clip", actorType: "automatic", rule: "pay_ceiling_shadow",
+          reason: `The pay ceiling (${detail.ceilingPerSecond}/s on ${batch.mapId}) would have paid ${wouldClip} fewer kills in this report${detail.legacy ? " (legacy client)" : ""}. Watching only: nothing was clipped.`,
+          before: "", after: "" });
+      }
+    }
   }
   const receipt = { key, identity: ctx.sender, sequence: batch.sequence };
   if (prior) ctx.db.regularEnemyLootCursor.key.update(receipt); else ctx.db.regularEnemyLootCursor.insert(receipt);

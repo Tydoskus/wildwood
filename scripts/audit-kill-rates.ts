@@ -108,7 +108,7 @@ for (const summary of [...summaries].sort((a, b) => b.peak - a.peak).slice(0, TO
   console.log(`  ${nameOf(summary.identity).padEnd(22)} ${summary.peak.toFixed(2)}/s at ${when(summary.peakAt)}${summary.jumps ? `   (${summary.jumps} bulk jump${summary.jumps > 1 ? "s" : ""} excluded)` : ""}`);
 
 const flags = sql("SELECT target_identity, target_name, rule, reason, recorded_at FROM moderation_action WHERE actor_type = 'automatic'")
-  .filter(row => ["sustained_kill_rate", "simulation_clock_ahead", "enemy_defeat_allowance", "movement_speed_allowance"].includes(row.rule));
+  .filter(row => ["pay_ceiling_shadow", "sustained_kill_rate", "simulation_clock_ahead", "enemy_defeat_allowance", "movement_speed_allowance"].includes(row.rule));
 console.log("\nAutomatic flags by the server:");
 if (!flags.length) console.log("  none");
 const byAccount = new Map<string, Row[]>();
@@ -118,4 +118,5 @@ for (const [key, rows] of [...byAccount].sort((a, b) => b[1].length - a[1].lengt
   const times = rows.map(row => seconds(row.recorded_at)).sort((a, b) => a - b);
   console.log(`  ${(name || "?").padEnd(22)} ${rule.padEnd(24)} ${String(rows.length).padStart(3)}x  ${when(times[0])}${rows.length > 1 ? ` .. ${when(times.at(-1)!)}` : ""}`);
 }
-console.log("\nsustained_kill_rate and simulation_clock_ahead are written by 0.827 and later; enemy_defeat_allowance and movement_speed_allowance are the retired rules from 09-18 to 09-21, which also caught honest players.");
+console.log("\npay_ceiling_shadow: the pay ceiling would have paid this account less (watching only; nothing clipped). Before enforcing it, every name here should be a cheater.");
+console.log("sustained_kill_rate and simulation_clock_ahead are written by 0.827 and later; enemy_defeat_allowance and movement_speed_allowance are the retired rules from 09-18 to 09-21, which also caught honest players.");

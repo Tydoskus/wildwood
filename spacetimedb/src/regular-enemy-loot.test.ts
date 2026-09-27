@@ -3,7 +3,7 @@ import { Timestamp } from "spacetimedb";
 import { expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { enemyDefeatDefinition, defeatBudget } from "../../shared/enemy-defeats";
-import { combatTimeKey, reportRateKey, simulationClockKey, killRateKey } from "./enemy-defeats";
+import { combatTimeKey, reportRateKey, simulationClockKey, killRateKey, payCeilingKey } from "./enemy-defeats";
 import { ENEMY_TYPES } from "../../shared/enemy-definitions";
 import { rollRegularEnemyLoot } from "./regular-enemy-loot";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
@@ -50,7 +50,7 @@ it("honours a report for the map the player left for Home, paid by that map's bu
   expect(f.db.playerProgress.identity.find(f.ctx.sender).damage).toBeCloseTo(base.damage + enemyDefeatDefinition(batch.mapId, enemy)!.reward.amount * 20);
   // Spawn budgets are the map's own; the account-wide clocks and the report
   // limiter have no map.
-  const accountWide = [combatTimeKey, reportRateKey, simulationClockKey, killRateKey].map(key => key(f.ctx.sender));
+  const accountWide = [combatTimeKey, reportRateKey, simulationClockKey, killRateKey, payCeilingKey].map(key => key(f.ctx.sender));
   expect([...f.db.enemyDefeatBudget.iter()].filter(row => !accountWide.includes(row.key))
     .every(row => row.key.includes(`:${batch.mapId}:`))).toBe(true);
 });

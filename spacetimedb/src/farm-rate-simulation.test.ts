@@ -1,7 +1,7 @@
 import { Timestamp } from "spacetimedb";
 import { describe, expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
-import { KILL_RATE_WATCH_PER_SECOND } from "./enemy-defeats";
+import { KILL_RATE_WATCH_PER_SECOND, PAY_CEILING } from "./enemy-defeats";
 import { DEFEAT_MIN_RESPAWN_SECONDS, ENEMY_DEFEAT_BATCH_MAX, SIM_CLOCK_BANK_SECONDS, defeatBudget, defeatMinRespawnSeconds, enemyDefeatDefinition, mapEnemyPopulation } from "../../shared/enemy-defeats";
 import { ENEMY_TYPES } from "../../shared/enemy-definitions";
 import { MIN_ATTACK_INTERVAL, REGULAR_ENEMY_RESPAWN_SECONDS, REGULAR_KILL_REPORT_SECONDS } from "../../shared/rules";
@@ -384,6 +384,30 @@ describe("the current client, held to the server's clock", () => {
       expect(honest.moderation).toEqual([]);
   }, SIMULATION_TIMEOUT_MS);
 
+  it("watches the pay ceiling without clipping: the edited client is written down, honest play is not", () => {
+    const script = currentClient({ lapSeconds: .5, minutes: 60, says: "real" });
+    expect(script.moderation.filter(row => row.rule === "pay_ceiling_shadow")).toHaveLength(1);
+    expect(script.paidPerSecond).toBeGreaterThan(KILL_RATE_WATCH_PER_SECOND);   // paid as before
+    for (const honest of [currentClient({ lapSeconds: HONEST_LAP, minutes: 60 }), currentClient({ lapSeconds: HONEST_LAP, minutes: 20, offline: { from: 120, seconds: 240 } }),
+      currentClient({ lapSeconds: HONEST_LAP, minutes: 60, speed: 3 })])
+      expect(honest.moderation.filter(row => row.rule === "pay_ceiling_shadow")).toEqual([]);
+  }, SIMULATION_TIMEOUT_MS);
+
+  it("once enforced, holds the edited client to the line and pays honest play exactly as before", () => {
+    const before = currentClient({ lapSeconds: HONEST_LAP, minutes: 60 });
+    PAY_CEILING.enforced = true;
+    try {
+      const honest = currentClient({ lapSeconds: HONEST_LAP, minutes: 60 });
+      expect(honest.paid).toBe(before.paid);
+      expect(honest.paid).toBe(honest.claimed);
+      const script = currentClient({ lapSeconds: .5, minutes: 60, says: "real" });
+      expect(script.sustainedPerSecond).toBeLessThanOrEqual(KILL_RATE_WATCH_PER_SECOND * 1.02);
+      expect(script.moderation.filter(row => row.rule === "pay_ceiling_shadow")).toEqual([]);
+      expect(script.restricted).toBe(false);
+      expect(script.stillInWorld).toBe(true);
+    } finally { PAY_CEILING.enforced = false; }
+  }, SIMULATION_TIMEOUT_MS);
+
   it("pays a 3x and a 5x speed hack within a tenth of the honest pace over an hour", () => {
     const honest = currentClient({ lapSeconds: HONEST_LAP, minutes: 60 });
     for (const speed of [3, 5]) {
@@ -438,7 +462,7 @@ describe("the current client, held to the server's clock", () => {
     expect(run.scaledWarnings).toBe(0);
     // Never scaled; but fifteen minutes paid at the spawn wall out of the bank
     // is faster than any honest account has farmed, and is written down once.
-    expect(run.moderation).toMatchObject([{ action: "kill_rate_flag", rule: "sustained_kill_rate", actorType: "automatic" }]);
+    expect(run.moderation.map(row => row.rule).sort()).toEqual(["pay_ceiling_shadow", "sustained_kill_rate"]);
     // The combat clock refills with game time the server accepted, and a
     // report that claims none adds none: once the fifteen-minute bank is
     // spent, a client that says nothing (or was taken apart to) earns nothing.
