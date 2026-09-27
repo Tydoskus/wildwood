@@ -89,34 +89,3 @@ export function restrictDefeatSession(ctx: GameReducerContext, evidence: {
     connectionId: ctx.connectionId?.toHexString() ?? null, moderationId: moderationId.toString(),
     atMicros: now.toString(), requireSignIn, blockedUntilMs: Number(row.blockedUntilMicros / 1000n), ...evidence };
 }
-
-/** Apply the same short guest block/session revocation to an impossible
- * movement-speed packet. This is deliberately separate from defeat evidence
- * so moderation history keeps the security signal and reason accurate. */
-export function restrictMovementSession(ctx: GameReducerContext, evidence: {
-  mapId: string; requestedSpeed: number; serverSpeed: number; allowedSpeed: number;
-}) {
-  const jwt = ctx.senderAuth?.jwt;
-  const requireSignIn = Boolean(jwt?.issuer === SPACETIME_AUTH_ISSUER && jwt.audience.includes(SPACETIME_AUTH_CLIENT_ID));
-  const now = ctx.timestamp.microsSinceUnixEpoch;
-  const row = { identity: ctx.sender, revokedAtMicros: now, requireSignIn,
-    blockedUntilMicros: requireSignIn ? 0n : now + BigInt(DEFEAT_GUEST_BLOCK_SECONDS) * 1_000_000n };
-  if (ctx.db.defeatSessionRestriction.identity.find(ctx.sender)) ctx.db.defeatSessionRestriction.identity.update(row);
-  else ctx.db.defeatSessionRestriction.insert(row);
-  const identity = ctx.sender.toHexString();
-  const displayName = ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "";
-  const moderationId = recordModerationAction(ctx, {
-    targetIdentity: identity, targetName: displayName,
-    channel: "game", action: requireSignIn ? "session_revoked" : "guest_connection_blocked",
-    reason: "Movement speed exceeded the server allowance", actorType: "automatic", rule: "movement_speed_allowance",
-    before: JSON.stringify(evidence), after: JSON.stringify({ requireSignIn, blockedUntilMs: Number(row.blockedUntilMicros / 1000n) }),
-  });
-  for (const session of ctx.db.playerSession.byIdentity.filter(ctx.sender))
-    ctx.db.playerSession.connectionId.update({ ...session, enteredWorld: false, protocolVersion: 0 });
-  if (ctx.db.playerController.identity.find(ctx.sender)) ctx.db.playerController.identity.delete(ctx.sender);
-  console.warn("Movement speed session restricted", JSON.stringify({
-    event: "movement_speed_session_restricted", identity, displayName,
-    connectionId: ctx.connectionId?.toHexString() ?? null, moderationId: moderationId.toString(),
-    atMicros: now.toString(), requireSignIn, blockedUntilMs: Number(row.blockedUntilMicros / 1000n), ...evidence,
-  }));
-}

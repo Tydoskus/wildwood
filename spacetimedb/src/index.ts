@@ -5725,7 +5725,7 @@ export const updateMovementState = spacetimedb.reducer(
   },
   (ctx, { x, y, vx, vy, simulationTick, motionEpoch, sequence }) => {
     if (blockedSession(ctx)) return;
-    applyMovementState(ctx, x, y, vx, vy, simulationTick, motionEpoch, sequence);
+    applyMovementState(ctx, x, y, vx, vy, simulationTick, motionEpoch, sequence, true);
   },
 );
 
@@ -6045,7 +6045,7 @@ const {
 // above, so this has to follow it.
 const { savedWorldLocation, clearOrphanPresence, applyMovementState } = createPresenceRuntime({
   WORLD, VALID_MAP_IDS, MAP_ARRIVALS, hasEndlessTravelAccess, sameIdentity, finishLifetimeSession,
-  removeIdentityPresence, requireControllingPlayer,
+  removeIdentityPresence, LEGACY_CLIENT_ERRORS, sessionForContext, isSupportedProtocol, sameConnection,
   activeDuelFor, effectiveMovementSpeedForProgress, equippedFeetForProgress,
 });
 

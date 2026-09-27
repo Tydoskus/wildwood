@@ -13,6 +13,7 @@ import { ScheduleAt } from "spacetimedb";
 import { SenderError } from "spacetimedb/server";
 import { generatedMapUnlocked } from "./procedural-maps";
 import { updateSnapshotRow } from "./snapshot-row-writes";
+import { requireAllowedDefeatSession } from "./defeat-session";
 import { generateMap, isProceduralMap, PROCEDURAL_ENTRY_BOSS } from "../../shared/procedural-maps";
 import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_WORLD_WIDTH, HOME_WORLD_HEIGHT } from "../../shared/home";
 import { BLACK_BOOTS, BLACK_BOOTS_SPEED_BONUS } from "../../shared/items";
@@ -75,8 +76,16 @@ export function analyticalMotionAt(motion: any, sampledAtMicros: bigint) {
 
 export function playerWithMotion(ctx: any, activePlayer: any) {
   if (!activePlayer) return activePlayer;
-  const motion = ctx.db.playerMotion.identity.find(activePlayer.identity);
-  if (!motion || motion.mapId !== activePlayer.mapId) return activePlayer;
+  return playerWithKnownMotion(ctx, activePlayer, ctx.db.playerMotion.identity.find(activePlayer.identity));
+}
+
+/**
+ * playerWithMotion for a caller that has already read the motion row in this
+ * transaction (null when there is none), so the movement packet does not pay
+ * for the same row again.
+ */
+export function playerWithKnownMotion(ctx: any, activePlayer: any, motion: any) {
+  if (!activePlayer || !motion || motion.mapId !== activePlayer.mapId) return activePlayer;
   const sampled = analyticalMotionAt(motion, ctx.timestamp.microsSinceUnixEpoch);
   return {
     ...activePlayer,
@@ -347,7 +356,10 @@ export type PresenceRuntimeDeps = {
   sameIdentity: (left: any, right: any) => boolean;
   finishLifetimeSession: (ctx: any, identity: any) => void;
   removeIdentityPresence: (ctx: any, identity: any) => void;
-  requireControllingPlayer: (ctx: any) => any;
+  LEGACY_CLIENT_ERRORS: { protocolUpdate: string; missingPresence: string };
+  sessionForContext: (ctx: any) => any;
+  isSupportedProtocol: (protocolVersion: number) => boolean;
+  sameConnection: (left: any, right: any) => boolean;
   activeDuelFor: (ctx: any, identity: any) => any;
   effectiveMovementSpeedForProgress: (ctx: any, progress: any) => number;
   equippedFeetForProgress: (progress: any) => string;
@@ -356,7 +368,7 @@ export type PresenceRuntimeDeps = {
 export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
   const {
     WORLD, VALID_MAP_IDS, MAP_ARRIVALS, hasEndlessTravelAccess, sameIdentity, finishLifetimeSession,
-    removeIdentityPresence, requireControllingPlayer,
+    removeIdentityPresence, LEGACY_CLIENT_ERRORS, sessionForContext, isSupportedProtocol, sameConnection,
     activeDuelFor, effectiveMovementSpeedForProgress, equippedFeetForProgress,
   } = deps;
 
@@ -430,6 +442,40 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
     }
   }
 
+  /**
+   * index.ts's requireControllingPlayer for the movement packet alone: the same
+   * checks, errors and order, but it returns the raw player and motion rows so
+   * the packet reads the motion row once instead of three times, and it skips
+   * the restriction lookup when the caller has just made it. Every other
+   * reducer keeps requireControllingPlayer.
+   */
+  function requireControllingMovementPlayer(ctx: any, restrictionChecked: boolean) {
+    if (!restrictionChecked) requireAllowedDefeatSession(ctx);
+    const session = sessionForContext(ctx);
+    if (!session || !sameIdentity(session.identity, ctx.sender) || !isSupportedProtocol(session.protocolVersion)) {
+      throw new SenderError(LEGACY_CLIENT_ERRORS.protocolUpdate);
+    }
+    const player = ctx.db.player.identity.find(ctx.sender);
+    if (!player) throw new SenderError(LEGACY_CLIENT_ERRORS.missingPresence);
+    const motion = ctx.db.playerMotion.identity.find(player.identity);
+    const controller = ctx.db.playerController.identity.find(ctx.sender);
+    if (!ctx.connectionId || !controller || !sameConnection(controller.connectionId, ctx.connectionId)) {
+      throw new SenderError("Wildstat is active in another tab.");
+    }
+    return { player, motion };
+  }
+
+  // update_movement_state is the busiest reducer, and on the host it is paid
+  // per database call, not per line. It used to make 12: the account
+  // restriction twice, the motion row three times, and playerProgress,
+  // playerResearch and an inventory decode on every packet just to learn the
+  // owned speed. Now a heartbeat makes 7 and a start or stop 8, and every
+  // accepted position, velocity, facing and row write is what it was
+  // (movement-state-equivalence.test.ts replays the old code against this).
+  // `restrictionChecked` is true only when the caller has just made the same
+  // restriction lookup itself, as updateMovementState does through
+  // blockedSession to drop a blocked tab's queued packets quietly. The legacy
+  // syncPosition bridge passes false and keeps the throwing check.
   function applyMovementState(
     ctx: any,
     x: number,
@@ -439,8 +485,12 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
     simulationTick: number,
     motionEpoch: number,
     sequence: number,
+    restrictionChecked = false,
   ) {
-    const current = requireControllingPlayer(ctx);
+    // The same checks, errors and order as requireControllingPlayer, but it
+    // hands back the motion row it sampled so it is read once, not three times.
+    const { player, motion } = requireControllingMovementPlayer(ctx, restrictionChecked);
+    const current = playerWithKnownMotion(ctx, player, motion);
     if (sequence <= current.lastInputSequence || ["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
     if (![x, y, vx, vy, simulationTick, motionEpoch].every(Number.isFinite)) throw new SenderError("Movement state values must be finite");
 
@@ -455,11 +505,20 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
     // Black Boots are a flat bonus, so a wearer has one speed rather than an
     // in-combat and an out-of-combat one. The saved row can still lag a rank
     // that just finished, so the bound is the highest of what we know.
-    const progress = ctx.db.playerProgress.identity.find(ctx.sender);
-    const expectedSpeed = progress ? effectiveMovementSpeedForProgress(ctx, progress) : compatibilitySpeed;
-    const bootedSpeed = progress && equippedFeetForProgress(progress) === BLACK_BOOTS
-      ? expectedSpeed + BLACK_BOOTS_SPEED_BONUS : expectedSpeed;
-    const allowedSpeed = Math.max(compatibilitySpeed, expectedSpeed, bootedSpeed);
+    // That bound is never below the player row's own speed, so a packet within
+    // the row's speed passes both checks below whatever the bound comes to.
+    // Only a packet past it pays for progress, research and the inventory
+    // decode, and then once. (A bound that is not a number fires neither check,
+    // before or after this change: every comparison with NaN is false.)
+    let allowedSpeed: number | undefined;
+    const ownedSpeed = () => {
+      if (allowedSpeed !== undefined) return allowedSpeed;
+      const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+      const expectedSpeed = progress ? effectiveMovementSpeedForProgress(ctx, progress) : compatibilitySpeed;
+      const bootedSpeed = progress && equippedFeetForProgress(progress) === BLACK_BOOTS
+        ? expectedSpeed + BLACK_BOOTS_SPEED_BONUS : expectedSpeed;
+      return allowedSpeed = Math.max(compatibilitySpeed, expectedSpeed, bootedSpeed);
+    };
     // Movement is not where cheating pays. What a speed hack buys is farming
     // throughput, and that is capped where it is earned: no account can be paid
     // for more kills than the map can respawn (DEFEAT_MIN_RESPAWN_SECONDS).
@@ -467,26 +526,29 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
     // revoke the session on speed and reject the packet on position, which cost
     // honest players their footing after boss knockback, a respawn or a lag
     // spike, and logged a warning for every one of them.
-    const speedScale = moving && requestedSpeed > allowedSpeed + MOVEMENT_SPEED_PACKET_TOLERANCE
-      ? allowedSpeed / requestedSpeed : 1;
+    const speedScale = moving && requestedSpeed > compatibilitySpeed + MOVEMENT_SPEED_PACKET_TOLERANCE &&
+      requestedSpeed > ownedSpeed() + MOVEMENT_SPEED_PACKET_TOLERANCE
+      ? ownedSpeed() / requestedSpeed : 1;
     const correctedVx = boundedVx * speedScale;
     const correctedVy = boundedVy * speedScale;
     let acceptedX = clampedX;
     let acceptedY = clampedY;
-    const motion = ctx.db.playerMotion.identity.find(ctx.sender);
     if (motion && motion.mapId === current.mapId && current.lastInputSequence > 0) {
       const elapsedSeconds = Math.max(0,
         Number(ctx.timestamp.microsSinceUnixEpoch - motion.lastInputAt.microsSinceUnixEpoch) / 1_000_000);
       const expected = analyticalMotionAt(motion, ctx.timestamp.microsSinceUnixEpoch);
       const distance = Math.hypot(clampedX - expected.x, clampedY - expected.y);
-      const maxDistance = allowedSpeed * elapsedSeconds + MOVEMENT_POSITION_PACKET_TOLERANCE;
       // Pull an unreachable position back onto the edge of what was reachable
       // instead of refusing it. The client keeps moving and the server keeps a
-      // position it can defend.
-      if (distance > maxDistance && distance > 0) {
-        const reachable = maxDistance / distance;
-        acceptedX = expected.x + (clampedX - expected.x) * reachable;
-        acceptedY = expected.y + (clampedY - expected.y) * reachable;
+      // position it can defend. Float rounding is monotonic, so a distance the
+      // row's speed could cover is one the owned speed could cover too.
+      if (distance > compatibilitySpeed * elapsedSeconds + MOVEMENT_POSITION_PACKET_TOLERANCE) {
+        const maxDistance = ownedSpeed() * elapsedSeconds + MOVEMENT_POSITION_PACKET_TOLERANCE;
+        if (distance > maxDistance && distance > 0) {
+          const reachable = maxDistance / distance;
+          acceptedX = expected.x + (clampedX - expected.x) * reachable;
+          acceptedY = expected.y + (clampedY - expected.y) * reachable;
+        }
       }
     }
     const boundedTick = Math.max(0, Math.min(0xffffffff, Math.floor(simulationTick)));
@@ -509,7 +571,8 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
       lastInputAt: ctx.timestamp,
       lastInputSequence: sequence,
     };
-    syncPlayerMotion(ctx, nextPlayer);
+    // Nothing above writes, so the row read at the top is still the stored one.
+    syncPlayerMotion(ctx, nextPlayer, { motion });
 
     // The exact-own player row only needs lifecycle endpoints and idle
     // corrections. Continuous coordinates and zone crossings stay private in
