@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.827": [
+    "Kill rewards now follow real time, so speeding up the game's clock no longer pays more.",
+    "Kills reach the server every 30 seconds instead of after every reply, easing server load.",
+  ],
   "0.826": [
     "Walking up to a boss mid-attack no longer hits you the moment it appears: every attack now starts from its full warning.",
   ],
@@ -2479,6 +2483,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.827": "2026-09-27",
   "0.826": "2026-09-25",
   "0.825": "2026-09-25",
   "0.824": "2026-09-25",
