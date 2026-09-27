@@ -4,6 +4,7 @@ import { tables } from "../../module_bindings";
 import { normalizePlayerGender } from "../../../shared/player-gender";
 import type { DuelReplay, DuelState } from "../contracts";
 import type { ReducerPort } from "../ports";
+import { monotonicNowMs } from "../../app/trusted-clock";
 import { createDuelCooldownStore } from "./duel-cooldown-store";
 
 const DUEL_COOLDOWN_MS = 120_000;
@@ -314,7 +315,8 @@ export function createDuelService(dependencies: DuelServiceDependencies) {
       },
       pulseDuel() {
         if (dependencies.reducers.protocolBlocked() || !dependencies.reducers.connection()) return;
-        const now = performance.now();
+        // The captured clock: a faster performance.now must not multiply pulses.
+        const now = monotonicNowMs();
         if (now - lastPulseAt < 500) return;
         lastPulseAt = now;
         dependencies.reducers.sendReducer("duel pulse", (connection) => connection.reducers.pulseDuel({}));

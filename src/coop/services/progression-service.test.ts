@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createGameBootstrap } from "../../game/runtime/game-bootstrap";
 import type { ReducerPort } from "../ports";
 import type { PlayerProgress, ProgressSave } from "./progress";
-import { createProgressionService, PROGRESS_SAVE_INTERVAL_MS, PROGRESS_STORE_WRITE_DELAY_MS } from "./progression-service";
+import { createProgressionService, KILL_REPORT_CADENCE_SLACK_MS, PROGRESS_SAVE_INTERVAL_MS, PROGRESS_STORE_WRITE_DELAY_MS } from "./progression-service";
 import { bindProgressFlushOnHide } from "./flush-on-hide";
 
 class MemoryStorage implements Storage {
@@ -86,15 +86,15 @@ function setup() {
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
   });
-  const recordEnemyDefeats = vi.fn(async (_request: any): Promise<void> => {});
-  const recordAutoFarmEnemyDefeats = vi.fn(async (_request: any): Promise<void> => {});
+  const reportEnemyDefeats = vi.fn(async (_request: any): Promise<void> => {});
+  const reportAutoFarmEnemyDefeats = vi.fn(async (_request: any): Promise<void> => {});
   const savePlayerProgress = vi.fn(async (): Promise<void> => {});
   const prestigeAccount = vi.fn(async (): Promise<void> => {});
   const resetPlayerProgress = vi.fn(async (): Promise<void> => {});
   const claimDeveloperItemGift = vi.fn(async (): Promise<void> => {});
   const entry = { ready: true, blocked: false, hydrated: true };
   const destroyEquipment = vi.fn(async () => {});
-  const connection = { reducers: { recordEnemyDefeats, recordAutoFarmEnemyDefeats, savePlayerProgress, prestigeAccount, resetPlayerProgress, claimDeveloperItemGift, destroyEquipment } };
+  const connection = { reducers: { reportEnemyDefeats, reportAutoFarmEnemyDefeats, savePlayerProgress, prestigeAccount, resetPlayerProgress, claimDeveloperItemGift, destroyEquipment } };
   const reducers = {
     connection: () => connection,
     protocolBlocked: () => false,
@@ -119,7 +119,7 @@ function setup() {
     storage,
     pendingProgressKey: "pending-progress",
   });
-  return { recordEnemyDefeats, recordAutoFarmEnemyDefeats, notify, savePlayerProgress, prestigeAccount, resetPlayerProgress, service, entry, claimDeveloperItemGift, destroyEquipment, storage };
+  return { reportEnemyDefeats, reportAutoFarmEnemyDefeats, notify, savePlayerProgress, prestigeAccount, resetPlayerProgress, service, entry, claimDeveloperItemGift, destroyEquipment, storage };
 }
 
 describe("local progression profile snapshots", () => {
@@ -241,22 +241,22 @@ describe("local progression profile snapshots", () => {
 describe("server-calculated defeat batches", () => {
   it("retains boss rewards until the reconnect snapshot has hydrated", async () => {
     const h = setup(); h.entry.hydrated = false;
-    h.service.api.recordRegularEnemyDefeat("tutorial_forest", "boss");
+    h.service.recordRegularEnemyDefeat("tutorial_forest", "boss");
     expect(await h.service.drainEnemyLoot()).toBe(false);
-    expect(h.recordEnemyDefeats).not.toHaveBeenCalled();
+    expect(h.reportEnemyDefeats).not.toHaveBeenCalled();
     h.entry.hydrated = true;
     expect(await h.service.drainEnemyLoot()).toBe(true);
-    expect(h.recordEnemyDefeats).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ mapId: "tutorial_forest", enemies: [{ enemy: "boss", count: 1 }] }));
+    expect(h.reportEnemyDefeats).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ mapId: "tutorial_forest", enemies: [{ enemy: "boss", count: 1 }] }));
     h.service.dispose();
   });
   it("acknowledges an equipped weapon before boss validation without clearing predicted rewards", async () => {
     const h = setup(); const base = { ...progress(), equippedRightHand: "" };
     const order: string[] = [];
     h.savePlayerProgress.mockImplementation(async () => { order.push("equipment"); });
-    h.recordEnemyDefeats.mockImplementation(async () => { order.push("boss"); });
+    h.reportEnemyDefeats.mockImplementation(async () => { order.push("boss"); });
     h.service.tables.upsertProgress({ ...base, identity: { toHexString: () => identity } } as never);
     h.service.api.saveProgress(saveFrom(base, { equippedRightHand: "starter_stone", damage: 50 }));
-    h.service.api.recordRegularEnemyDefeat("tutorial_forest", "boss");
+    h.service.recordRegularEnemyDefeat("tutorial_forest", "boss");
     expect(await h.service.drainEnemyLoot()).toBe(true);
     expect(order).toEqual(["equipment", "boss"]);
     expect(h.service.progressFor(identity)?.damage).toBe(50);
@@ -268,11 +268,11 @@ describe("server-calculated defeat batches", () => {
     h.service.tables.upsertProgress({ ...base, identity: { toHexString: () => identity } } as never);
     h.savePlayerProgress.mockRejectedValueOnce(new Error("Connection lost"));
     h.service.api.saveProgress(saveFrom(base, { equippedRightHand: "starter_stone" }));
-    h.service.api.recordRegularEnemyDefeat("tutorial_forest", "boss");
+    h.service.recordRegularEnemyDefeat("tutorial_forest", "boss");
     expect(await h.service.drainEnemyLoot()).toBe(false);
-    expect(h.recordEnemyDefeats).not.toHaveBeenCalled();
+    expect(h.reportEnemyDefeats).not.toHaveBeenCalled();
     expect(await h.service.drainEnemyLoot()).toBe(true);
-    expect(h.recordEnemyDefeats).toHaveBeenCalledOnce();
+    expect(h.reportEnemyDefeats).toHaveBeenCalledOnce();
     h.service.dispose();
   });
 
@@ -280,25 +280,25 @@ describe("server-calculated defeat batches", () => {
     const h = setup(); const base = progress();
     h.service.tables.upsertProgress({ ...base, identity: { toHexString: () => identity } } as never);
     h.service.api.saveProgress(saveFrom(base, { damage: 20, enemyKills: 10 }));
-    h.service.api.recordRegularEnemyDefeat("water_reach", "Tide Raider");
+    h.service.recordRegularEnemyDefeat("water_reach", "Tide Raider");
     expect(await h.service.drainPendingProgress()).toBe(true);
-    expect(h.recordEnemyDefeats).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+    expect(h.reportEnemyDefeats).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
       enemies: [{ enemy: "Tide Raider", count: 1 }],
     }));
     expect(h.savePlayerProgress).not.toHaveBeenCalled();
     expect(h.service.progressFor(identity)?.damage).toBe(base.damage);
-    expect(h.recordEnemyDefeats.mock.calls[0][0]).not.toHaveProperty("progress");
+    expect(h.reportEnemyDefeats.mock.calls[0][0]).not.toHaveProperty("progress");
     h.service.dispose();
   });
 
   it("routes Auto Farm kills to the Auto Farm reward reducer", async () => {
     const h = setup();
-    h.service.api.recordRegularEnemyDefeat("water_reach", "Tide Raider", true);
+    h.service.recordRegularEnemyDefeat("water_reach", "Tide Raider", true);
     expect(await h.service.drainEnemyLoot()).toBe(true);
-    expect(h.recordAutoFarmEnemyDefeats).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+    expect(h.reportAutoFarmEnemyDefeats).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
       enemies: [{ enemy: "Tide Raider", count: 1 }],
     }));
-    expect(h.recordEnemyDefeats).not.toHaveBeenCalled();
+    expect(h.reportEnemyDefeats).not.toHaveBeenCalled();
     h.service.dispose();
   });
 
@@ -306,9 +306,9 @@ describe("server-calculated defeat batches", () => {
     const h = setup(); const base = progress();
     h.service.tables.upsertProgress({ ...base, identity: { toHexString: () => identity } } as never);
     h.service.api.saveProgress(saveFrom(base, { equippedHead: "samurai_hat", damage: 20 }));
-    h.service.api.recordRegularEnemyDefeat("water_reach", "Tide Raider");
+    h.service.recordRegularEnemyDefeat("water_reach", "Tide Raider");
     expect(await h.service.drainPendingProgress()).toBe(true);
-    expect(h.recordEnemyDefeats.mock.calls[0][0].progress).toBeUndefined();
+    expect(h.reportEnemyDefeats.mock.calls[0][0].progress).toBeUndefined();
     expect(h.savePlayerProgress).toHaveBeenCalledTimes(1);
     h.service.dispose();
   });
@@ -316,9 +316,9 @@ describe("server-calculated defeat batches", () => {
   it("does not clear newer progress when an older batch is acknowledged", async () => {
     const h = setup(); const base = progress(); let finish!: () => void;
     h.service.tables.upsertProgress({ ...base, identity: { toHexString: () => identity } } as never);
-    h.recordEnemyDefeats.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    h.reportEnemyDefeats.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
     h.service.api.saveProgress(saveFrom(base, { damage: 20 }));
-    h.service.api.recordRegularEnemyDefeat("water_reach", "Tide Raider");
+    h.service.recordRegularEnemyDefeat("water_reach", "Tide Raider");
     const first = h.service.drainEnemyLoot();
     h.service.api.saveProgress(saveFrom(base, { damage: 30, enemyKills: 2 }));
     finish(); await first;
@@ -333,18 +333,18 @@ describe("server-calculated defeat batches", () => {
     try {
       const h = setup();
       let finish!: () => void;
-      h.recordEnemyDefeats.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
-      h.service.api.recordRegularEnemyDefeat("advanced_lava_wastes", "Lava Raider");
+      h.reportEnemyDefeats.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+      h.service.recordRegularEnemyDefeat("advanced_lava_wastes", "Lava Raider");
       let settled = false;
       const drain = h.service.drainEnemyLoot().then(ok => { settled = true; return ok; });
       await vi.advanceTimersByTimeAsync(12_000);
       expect(settled).toBe(false);
       const secondTap = h.service.drainEnemyLoot();
-      expect(h.recordEnemyDefeats).toHaveBeenCalledOnce();
+      expect(h.reportEnemyDefeats).toHaveBeenCalledOnce();
       finish();
       expect(await drain).toBe(true);
       expect(await secondTap).toBe(true);
-      expect(h.recordEnemyDefeats).toHaveBeenCalledOnce();
+      expect(h.reportEnemyDefeats).toHaveBeenCalledOnce();
       h.service.dispose();
     } finally { vi.useRealTimers(); }
   });
@@ -354,14 +354,14 @@ describe("server-calculated defeat batches", () => {
     try {
       const h = setup(); const base = progress();
       h.service.tables.upsertProgress({ ...base, identity: { toHexString: () => identity } } as never);
-      h.recordEnemyDefeats.mockImplementationOnce(() => new Promise(() => {}));
+      h.reportEnemyDefeats.mockImplementationOnce(() => new Promise(() => {}));
       h.service.api.saveProgress(saveFrom(base, { damage: 20 }));
-      h.service.api.recordRegularEnemyDefeat("water_reach", "Tide Raider");
+      h.service.recordRegularEnemyDefeat("water_reach", "Tide Raider");
       const first = h.service.drainEnemyLoot();
       await vi.advanceTimersByTimeAsync(15_001);
       expect(await first).toBe(false);
       expect(await h.service.drainPendingProgress()).toBe(true);
-      expect(h.recordEnemyDefeats.mock.calls[1][0]).toEqual(h.recordEnemyDefeats.mock.calls[0][0]);
+      expect(h.reportEnemyDefeats.mock.calls[1][0]).toEqual(h.reportEnemyDefeats.mock.calls[0][0]);
       expect(h.savePlayerProgress).not.toHaveBeenCalled();
       h.service.dispose();
     } finally { vi.useRealTimers(); }
@@ -373,14 +373,64 @@ describe("server-calculated defeat batches", () => {
     expect(PROGRESS_SAVE_INTERVAL_MS).toBe(30_000);
     h.service.dispose();
   });
+
+  it("sends ordinary kill reports at most once per thirty seconds while acknowledgements keep arriving", async () => {
+    vi.useFakeTimers();
+    try {
+      const h = setup(); const base = progress();
+      const row = { ...base, identity: { toHexString: () => identity } } as never;
+      h.service.tables.upsertProgress(row);
+      const periodicFlush = vi.mocked(window.setInterval).mock.calls[0][0] as () => void;
+      const reportedAt: number[] = [];
+      // Each acknowledgement updates the progress row a moment later, as the server's does.
+      h.reportEnemyDefeats.mockImplementation(async () => {
+        reportedAt.push(Date.now());
+        setTimeout(() => h.service.tables.upsertProgress(row), 80);
+      });
+      const startedAt = Date.now();
+      for (let kill = 1; kill <= 600; kill++) {            // five minutes of a kill every 500 ms
+        h.service.recordRegularEnemyDefeat("water_reach", "Tide Raider");
+        h.service.api.saveProgress(saveFrom(base, { damage: base.damage + kill }));
+        await vi.advanceTimersByTimeAsync(500);
+        if (kill % 60 === 0) periodicFlush();                // the thirty-second timer
+      }
+      expect(reportedAt.length).toBeGreaterThanOrEqual(9);
+      expect(reportedAt.length).toBeLessThanOrEqual(10);
+      expect(reportedAt[0] - startedAt).toBeGreaterThanOrEqual(30_000 - KILL_REPORT_CADENCE_SLACK_MS);
+      for (let index = 1; index < reportedAt.length; index++) {
+        expect(reportedAt[index] - reportedAt[index - 1]).toBeGreaterThanOrEqual(30_000 - KILL_REPORT_CADENCE_SLACK_MS);
+      }
+      // A forced flush still goes at once: a boss kill is reported immediately.
+      const before = h.reportEnemyDefeats.mock.calls.length;
+      h.service.recordRegularEnemyDefeat("water_reach", "boss");
+      await vi.advanceTimersByTimeAsync(0);
+      expect(h.reportEnemyDefeats.mock.calls.length).toBe(before + 1);
+      expect(h.reportEnemyDefeats.mock.calls.at(-1)![0].enemies).toContainEqual({ enemy: "boss", count: 1 });
+      h.service.dispose();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("reports kills through the simulation-clock reducers with the game time behind them", async () => {
+    const h = setup(); let simulated = 0;
+    const bridge = h.service.api.claimGameBridge(() => simulated)!;
+    expect(h.service.api.claimGameBridge(() => 0)).toBeNull();   // one claim per page
+    h.service.beginSession(false);
+    simulated = 12.5;
+    bridge.recordRegularEnemyDefeat("water_reach", "Tide Raider", true);
+    expect(await h.service.drainEnemyLoot()).toBe(true);
+    expect(h.reportAutoFarmEnemyDefeats).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      mapId: "water_reach", simulatedMillis: 12_500, enemies: [{ enemy: "Tide Raider", count: 1 }],
+    }));
+    h.service.dispose();
+  });
 });
 
 it("does not acknowledge a newer session with an old checkpoint response", async () => {
   const h = setup(); const base = progress(); let finish!: () => void;
   h.service.tables.upsertProgress({ ...base, identity: { toHexString: () => identity } } as never);
-  h.recordEnemyDefeats.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  h.reportEnemyDefeats.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   h.service.api.saveProgress(saveFrom(base, { damage: 20 }));
-  h.service.api.recordRegularEnemyDefeat("water_reach", "Tide Raider");
+  h.service.recordRegularEnemyDefeat("water_reach", "Tide Raider");
   const first = h.service.drainEnemyLoot();
   h.service.beginSession(false);
   h.service.api.saveProgress(saveFrom(base, { damage: 30, enemyKills: 2 }));
@@ -443,7 +493,7 @@ describe("local progress store writes on the kill path", () => {
     h.service.tables.upsertProgress({ ...base, identity: { toHexString: () => identity } } as never);
     h.service.api.saveProgress(saveFrom(base, { damage: 40 }));
     // A kill also queues its claim, which keeps the snapshot pending until the server answers.
-    h.service.api.recordRegularEnemyDefeat("water_reach", "Tide Raider");
+    h.service.recordRegularEnemyDefeat("water_reach", "Tide Raider");
     expect(storedDamage(h.storage)).toBeUndefined();
     const listeners = new Map<string, () => void>();
     const doc = { hidden: false, addEventListener: (type: string, listener: () => void) => listeners.set(`doc:${type}`, listener) };
@@ -469,7 +519,7 @@ describe("local progress store writes on the kill path", () => {
     const h = setup(); const base = progress();
     h.service.tables.upsertProgress({ ...base, identity: { toHexString: () => identity } } as never);
     h.service.api.saveProgress(saveFrom(base, { damage: 40 }));
-    h.service.api.recordRegularEnemyDefeat("water_reach", "Tide Raider");
+    h.service.recordRegularEnemyDefeat("water_reach", "Tide Raider");
     h.service.api.saveProgress(saveFrom(base, { damage: 41 }), true);
     expect(storedDamage(h.storage)).toBe(41);
     vi.advanceTimersByTime(PROGRESS_STORE_WRITE_DELAY_MS);

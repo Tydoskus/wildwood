@@ -52,7 +52,7 @@ import { createCamera } from "./game/runtime/camera";
 import { createCombatEffects } from "./game/runtime/combat-effects";
 import { createEnemyLifecycle } from "./game/runtime/enemy-lifecycle";
 import { createEnemySimulation, LOCAL_REGULAR_ENEMY_TARGET_ID } from "./game/runtime/enemy-simulation";
-import { createCoopSessionController } from "./game/runtime/coop-session-controller";
+import { claimCoopClient, createCoopSessionController } from "./game/runtime/coop-session-controller";
 import { createProgressController } from "./game/runtime/progress-controller";
 import { createGameSessionController } from "./game/runtime/game-session-controller";
 import { backgroundMapPreloadAvailability, createAdjacentMapAssetPreloader } from "./game/runtime/map-asset-preloader";
@@ -170,7 +170,7 @@ import {
     getActorShadowSprite: () => actorShadowSprite,
   });
   const { ctx, outlinedWorldText, fillWorldText, pixelCircle, roundRect, drawActorShadow } = canvasRuntime;
-  const coop = window.wildstatCoop ?? window.wildwoodCoop ?? null;
+  const { coop, gameBridge } = claimCoopClient(() => session?.simulatedSeconds() ?? 0);
   if (coop) bindPlayerNameTags({ prefix: (identity) => coop.playerNamePrefix(identity), revision: () => coop.playerNameTagsRevision(), prestigeLevel: (identity) => (identity && coop.prestigeLevelFor?.(identity)) || 0 });
   if (coop) bindAvatarFrames(coop.applyAvatarFrame);
   const gameplayReadyTelemetry = coop?.beginStartupTelemetryStage?.("gameplay-ready");
@@ -581,12 +581,12 @@ import {
     fights: bossFightMemory,
     ready: () => mapBalance.ready(currentMapId) && Boolean(session?.isRunning() && coop?.isConnected?.()) && !mapController.isMapTransitioning(),
     mapId: () => currentMapId, identity: () => coop?.localIdentity?.() ?? "local-player", bossRespawnRank: () => coop?.research?.()?.bossRespawn ?? 0,
-    alive: () => player.hp > 0, now: () => Date.now(),
+    alive: () => player.hp > 0,
     defeated: mapId => {
       // Early bosses retain their saved cinematic/result flow. Later campaign and Endless
       // reveals wait for the server unlock, independent of subscription snapshot timing.
       if ((CAMPAIGN_MAP_IDS.indexOf(mapId) >= 6 || mapId.startsWith("endless_")) && !coop?.prestige?.()?.level) mapController.queuePortalReveal(mapId as MapId);
-      coop?.recordRegularEnemyDefeat?.(mapId, "boss");
+      gameBridge?.recordRegularEnemyDefeat(mapId, "boss");
     },
   });
   const proceduralBoss = createProceduralBossController({
@@ -705,7 +705,7 @@ import {
       regularEnemyRespawn.schedule(site);
       respawnMemory.remember(enemyRespawnKey(site), (site.respawnAt - session.gameTime()) * 1000);
     },
-    recordRegularEnemyDefeat: (mapId, enemy) => coop?.recordRegularEnemyDefeat?.(mapId, enemy, Boolean(autoFarm.targetType())),
+    recordRegularEnemyDefeat: (mapId, enemy) => gameBridge?.recordRegularEnemyDefeat(mapId, enemy, Boolean(autoFarm.targetType())),
     incrementKills: () => { totalKills += 1; },
     currentMapId: () => currentMapId,
     spawnBurst,

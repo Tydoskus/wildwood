@@ -40,6 +40,7 @@ import {
 import { createProgressStore } from "./progress-store";
 import { recordConnectionDiagnostic } from "./connection-diagnostic-runtime";
 import { createCutsceneHistory } from "./cutscene-history";
+import { monotonicNowMs, nativeTimers } from "../../app/trusted-clock";
 
 /** Slots the server changed by itself, the row they came in, and whether it is live rather than a reconnect's replay. */
 export type ServerEquip = { changes: readonly ServerLoadoutChange[]; progress: PlayerProgress; live: boolean };
@@ -57,6 +58,11 @@ type ProgressionServiceDependencies = {
   commitStoppedPosition: (position: { x: number; y: number }, sequence: number) => void;
   storage: Storage;
   pendingProgressKey: string;
+};
+
+/** What the game bundle gets from claimGameBridge: the only way to report a kill. */
+export type GameBridge = {
+  recordRegularEnemyDefeat(mapId: string, enemy: string, autoFarm?: boolean): void;
 };
 
 type ProgressRow = { identity: Identity } & Omit<
@@ -116,6 +122,12 @@ export const PROGRESS_SAVE_INTERVAL_MS = REGULAR_ENEMY_LOOT_DELAY_MS;
  * this often, and at once when the page hides or the store is read back.
  */
 export const PROGRESS_STORE_WRITE_DELAY_MS = 2_000;
+/**
+ * The periodic flush timer fires every REGULAR_ENEMY_LOOT_DELAY_MS, but no timer
+ * lands on the millisecond. Without this slack a tick a hair early would find
+ * the last report not quite thirty seconds old and skip a whole period.
+ */
+export const KILL_REPORT_CADENCE_SLACK_MS = 1_000;
 
 export function createProgressionService(dependencies: ProgressionServiceDependencies) {
   const store = createProgressStore(dependencies.storage, dependencies.pendingProgressKey);
@@ -125,11 +137,15 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     canSave: cutscene => Boolean(unlockedPortalCutsceneMask(localProgress) & portalCutsceneBit(cutscene)),
     send: async (cutscene, generation) => (await reducerResult("cutscene history", (connection) => connection.reducers.markPortalCutsceneSeen({ cutscene, generation }))()).ok,
   });
+  // The game session's simulated seconds, handed over once by claimGameBridge.
+  let gameSimulatedSeconds: (() => number) | null = null;
+  let gameBridgeClaimed = false;
   const enemyLoot = createRegularEnemyLootQueue({
     identity: dependencies.localIdentity,
     tabId: dependencies.lootTabId ?? (() => "current-tab"),
     storage: dependencies.storage,
     send: sendCombatBatch,
+    simulatedSeconds: () => gameSimulatedSeconds?.() ?? 0,
   });
   const progressByIdentity = new Map<string, PlayerProgress>();
   const researchByIdentity = new Map<string, PlayerResearch>();
@@ -154,7 +170,10 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   let pendingProgress: ProgressSave | null = null;
   let deferredStoreWrite: { identity: string; progress: ProgressSave; timer: ReturnType<typeof setTimeout> } | null = null;
   let saveInFlightUntil = 0;
-  let nextPeriodicSaveAt = Date.now() + PROGRESS_SAVE_INTERVAL_MS;
+  let nextPeriodicSaveAt = monotonicNowMs() + PROGRESS_SAVE_INTERVAL_MS;
+  // When the last kill report was sent. Ordinary reports go every thirty seconds
+  // and no sooner; see flushEnemyLoot.
+  let lastKillReportAt = monotonicNowMs();
   let savePromise: Promise<boolean> | null = null;
   let resetPending = false;
   let restoredSave = false;
@@ -231,18 +250,18 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       !pendingProgress
     ) return Promise.resolve(!pendingProgress);
     if (!dependencies.worldEntryReady()) return Promise.resolve(false);
-    if (!force && Date.now() < Math.max(saveInFlightUntil, nextPeriodicSaveAt)) return Promise.resolve(false);
+    if (!force && monotonicNowMs() < Math.max(saveInFlightUntil, nextPeriodicSaveAt)) return Promise.resolve(false);
     // Equipment acknowledgements must not clear the prediction for a kill batch
     // that is still on its way to the server.
-    if (!loadoutOnly && enemyLoot.hasPending()) return enemyLoot.flush(force).then(ok => ok ? flushAsync(force) : false);
+    if (!loadoutOnly && enemyLoot.hasPending()) return flushEnemyLoot(force).then(ok => ok ? flushAsync(force) : false);
     if (localProgress && LOADOUT_FIELDS.every(field => pendingProgress![field] === localProgress![field])) {
       if (!enemyLoot.hasPending()) clearPending();
       return Promise.resolve(true);
     }
     const identity = dependencies.localIdentity();
     const snapshot = copyProgress(pendingProgress);
-    saveInFlightUntil = Date.now() + 30_000;
-    nextPeriodicSaveAt = Date.now() + PROGRESS_SAVE_INTERVAL_MS;
+    saveInFlightUntil = monotonicNowMs() + 30_000;
+    nextPeriodicSaveAt = monotonicNowMs() + PROGRESS_SAVE_INTERVAL_MS;
     savePromise = dependencies.reducers.runWorldReducer(() => connection.reducers.savePlayerProgress(snapshot))
       .then(() => {
         if (
@@ -275,6 +294,22 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     return savePromise;
   }
 
+  /**
+   * Sends queued kills. A forced flush (portal drain, boss kill, page hide,
+   * update drain, immediate save) goes at once. Anything else waits until the
+   * last report is thirty seconds old. Every acknowledgement updates the
+   * progress row, and the row's handler flushes again; nextPeriodicSaveAt only
+   * moves when progress itself is saved, so after the first thirty seconds that
+   * chain used to send a fresh report on every acknowledgement.
+   */
+  function flushEnemyLoot(force: boolean) {
+    if (!force && monotonicNowMs() - lastKillReportAt < REGULAR_ENEMY_LOOT_DELAY_MS - KILL_REPORT_CADENCE_SLACK_MS) {
+      return Promise.resolve(false);
+    }
+    if (enemyLoot.hasPending()) lastKillReportAt = monotonicNowMs();
+    return enemyLoot.flush(force);
+  }
+
   async function sendCombatBatch(request: EnemyLootRequest): Promise<boolean | "discard" | "throttled"> {
     if (!dependencies.worldEntryReady() || !dependencies.hydrationReady() || dependencies.reducers.worldEntryBlocked() || resetPending) return false;
     // Validate a boss against the loadout actually used, not a stale empty slot.
@@ -283,10 +318,13 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       && (!localProgress || LOADOUT_FIELDS.some(field => pendingProgress![field] !== localProgress![field]))) {
       if (!await flushAsync(true, true)) return false;
     }
+    // simulatedMillis is how much game time this tab ran since its previous
+    // report; the server holds kills to what that much play could produce.
     const result = await reducerResult("enemy defeats", connection => withRequestDeadline((request.autoFarm
-      ? connection.reducers.recordAutoFarmEnemyDefeats
-      : connection.reducers.recordEnemyDefeats)({
-      streamId: request.streamId, sequence: request.sequence, mapId: request.mapId, enemies: request.enemies,
+      ? connection.reducers.reportAutoFarmEnemyDefeats
+      : connection.reducers.reportEnemyDefeats)({
+      streamId: request.streamId, sequence: request.sequence, mapId: request.mapId,
+      simulatedMillis: request.simulatedMillis, enemies: request.enemies,
     }), ENEMY_DEFEAT_ACK_TIMEOUT_MS))();
     if (!result.ok && /Enemy defeats belong to another map|Invalid enemy for this map/.test(result.error ?? "")) {
       // These kills are gone. Write down how many and where, so a loss that
@@ -300,7 +338,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
 
   function flush(force = false) {
     flushStoreWrite();
-    void enemyLoot.flush(force);
+    void flushEnemyLoot(force);
     void cutscenes.flush();
     void flushAsync(force);
   }
@@ -583,10 +621,19 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   }
 
   const pageHide = () => flush(true);
-  const flushTimer = window.setInterval(() => flush(), PROGRESS_SAVE_INTERVAL_MS);
+  // The captured timer: a hooked setInterval must not shorten the report period.
+  const flushTimer = nativeTimers.setInterval(() => flush(), PROGRESS_SAVE_INTERVAL_MS);
   window.addEventListener("pagehide", pageHide);
 
+  /** Queues one kill. Reached only through the bridge claimGameBridge hands out. */
+  function recordRegularEnemyDefeat(mapId: string, enemy: string, autoFarm = false) {
+    if (resetPending || dependencies.reducers.protocolBlocked() || dependencies.reducers.worldEntryBlocked()) return;
+    enemyLoot.record(mapId, enemy, autoFarm);
+    if (enemy === "boss") void flushEnemyLoot(true);
+  }
+
   return {
+    recordRegularEnemyDefeat,
     tables: {
       upsertCutsceneHistory(row: { identity: Identity; seenMask: number; generation: number }) {
         cutscenes.upsert(row.identity.toHexString(), row.seenMask, row.generation);
@@ -944,10 +991,19 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
           dependencies.reducers.handleFailure("death tracking", error);
         }
       },
-      recordRegularEnemyDefeat(mapId: string, enemy: string, autoFarm = false) {
-        if (resetPending || dependencies.reducers.protocolBlocked() || dependencies.reducers.worldEntryBlocked()) return;
-        enemyLoot.record(mapId, enemy, autoFarm);
-        if (enemy === "boss") void enemyLoot.flush(true);
+      /**
+       * Kill reporting is not on the window API. The game claims this bridge
+       * once, at boot, before any page script can, and every later call gets
+       * null: a console one-liner has no kill function to call in a loop, and
+       * the kills that are reported carry the game's own simulation clock.
+       */
+      claimGameBridge(simulatedSeconds: () => number): GameBridge | null {
+        if (gameBridgeClaimed || typeof simulatedSeconds !== "function") return null;
+        gameBridgeClaimed = true;
+        gameSimulatedSeconds = simulatedSeconds;
+        return Object.freeze({
+          recordRegularEnemyDefeat: (mapId: string, enemy: string, autoFarm = false) => recordRegularEnemyDefeat(mapId, enemy, autoFarm),
+        });
       },
       saveProgress(progress: ProgressSave, immediate = false) {
         persistPending(progress, immediate);
@@ -1095,7 +1151,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     dispose() {
       flushStoreWrite();
       enemyLoot.clear();
-      window.clearInterval(flushTimer);
+      nativeTimers.clearInterval(flushTimer);
       window.removeEventListener("pagehide", pageHide);
     },
   };

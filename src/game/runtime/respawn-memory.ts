@@ -1,7 +1,9 @@
+import { wallClockNowMs } from "../../app/trusted-clock";
 type StoragePort = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
 /** Local defeat deadlines survive refresh; combat HP and rewards stay elsewhere. */
-export function createRespawnMemory(storage: StoragePort, identity: () => string, now = Date.now) {
+// The wall clock captured at boot: a Date.now override must not bring bosses back early.
+export function createRespawnMemory(storage: StoragePort, identity: () => string, now = wallClockNowMs) {
   let owner = '', deadlines: Record<string, number> = Object.create(null);
   const storageKey = () => `wildstat-respawns-v1:${owner}`;
   function load() {

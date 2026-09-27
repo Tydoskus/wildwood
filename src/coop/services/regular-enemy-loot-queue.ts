@@ -1,5 +1,6 @@
 import { combatMap, type EnemyDefeat } from "../../../shared/enemy-defeats";
 import { withRequestDeadline } from "./request-deadline";
+import { wallClockNowMs } from "../../app/trusted-clock";
 import { REGULAR_ENEMY_LOOT_BATCH_MAX } from "../../../shared/regular-map-loot";
 
 // A healthy socket can still have a slow reducer acknowledgement. Keep this
@@ -7,7 +8,13 @@ import { REGULAR_ENEMY_LOOT_BATCH_MAX } from "../../../shared/regular-map-loot";
 export const ENEMY_DEFEAT_ACK_TIMEOUT_MS = 15_000;
 export const ENEMY_DEFEAT_BATCH_TIMEOUT_MS = 25_000;
 
-type Batch = { sequence: number; mapId: string; count: number; sealed: boolean; enemies: EnemyDefeat[]; autoFarm?: boolean };
+/**
+ * simulatedMillis is the game time this tab simulated between sealing its
+ * previous report and sealing this one. Until a batch is sealed it holds the
+ * time so far, so a batch left behind by a closed page still says how much
+ * play produced it. Batches saved before it existed read as 0, "unknown".
+ */
+type Batch = { sequence: number; mapId: string; count: number; sealed: boolean; enemies: EnemyDefeat[]; autoFarm?: boolean; simulatedMillis?: number };
 type State = { streamId: string; nextSequence: number; batches: Batch[]; retryAtMs?: number; touchedAtMs?: number };
 /**
  * A queue is keyed by tab so two open tabs cannot claim one stream twice, but
@@ -18,7 +25,18 @@ type State = { streamId: string; nextSequence: number; batches: Batch[]; retryAt
  */
 export const ORPHAN_QUEUE_AFTER_MS = 120_000;
 const QUEUE_KEY_PREFIX = "wildstat-enemy-defeats-v2:";
-export type EnemyLootRequest = { streamId: string; sequence: bigint; mapId: string; count: number; enemies: EnemyDefeat[]; autoFarm: boolean };
+export type EnemyLootRequest = { streamId: string; sequence: bigint; mapId: string; count: number; enemies: EnemyDefeat[]; autoFarm: boolean; simulatedMillis: number };
+/** The reducer argument is a u32. */
+export const MAX_SIMULATED_MILLIS = 4_294_967_295;
+
+function simulatedMillisBetween(fromSeconds: number, toSeconds: number) {
+  const millis = Math.round((toSeconds - fromSeconds) * 1_000);
+  return Number.isFinite(millis) ? Math.min(MAX_SIMULATED_MILLIS, Math.max(0, millis)) : 0;
+}
+
+function validSimulatedMillis(value: unknown) {
+  return value === undefined || (Number.isInteger(value) && (value as number) >= 0 && (value as number) <= MAX_SIMULATED_MILLIS);
+}
 
 /** Persist before sending and retry the same sequence after an interrupted reply. */
 export function createRegularEnemyLootQueue(options: {
@@ -26,8 +44,21 @@ export function createRegularEnemyLootQueue(options: {
   tabId: () => string;
   storage: Storage;
   send: (request: EnemyLootRequest) => Promise<boolean | "discard" | "throttled">;
+  /** Seconds of game simulation run so far on this page; monotonic. */
+  simulatedSeconds?: () => number;
 }) {
   let owner = "", key = "", epoch = 0;
+  // Where the last sealed report's simulated time ended. Set once per page, at
+  // the first begin(), and deliberately not reset by a reconnect's begin():
+  // kills made before a reconnect are still in the unsealed batch, and the
+  // game time that produced them belongs to it.
+  let lastSealedSimulatedSeconds: number | null = null;
+  const begunOwners = new Set<string>();
+  const simulatedSecondsNow = () => {
+    let seconds = 0;
+    try { seconds = options.simulatedSeconds?.() ?? 0; } catch {}
+    return Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+  };
   let state: State | null = null;
   let adopted: { key: string; state: State }[] = [];
   let inFlight: Promise<boolean> | null = null;
@@ -44,7 +75,7 @@ export function createRegularEnemyLootQueue(options: {
       return;
     }
     const retryEpoch = epoch;
-    const throttleDelay = Math.min(30_000, Math.max(0, (state.retryAtMs ?? 0) - Date.now()));
+    const throttleDelay = Math.min(30_000, Math.max(0, (state.retryAtMs ?? 0) - wallClockNowMs()));
     bossRetryTimer = setTimeout(() => {
       bossRetryTimer = null;
       if (retryEpoch !== epoch) return;
@@ -54,7 +85,7 @@ export function createRegularEnemyLootQueue(options: {
   }
   const empty = (): State => ({ streamId: crypto.randomUUID(), nextSequence: 1, batches: [] });
   function write(storageKey: string, value: State) {
-    value.touchedAtMs = Date.now();
+    value.touchedAtMs = wallClockNowMs();
     try { options.storage.setItem(storageKey, JSON.stringify(value)); } catch {}
   }
   function persist() {
@@ -67,13 +98,14 @@ export function createRegularEnemyLootQueue(options: {
           saved.nextSequence > 0 && Array.isArray(saved.batches) && saved.batches.every(batch =>
             Number.isSafeInteger(batch.sequence) && batch.sequence > 0 && combatMap(batch.mapId) &&
             Number.isInteger(batch.count) && batch.count > 0 && batch.count <= REGULAR_ENEMY_LOOT_BATCH_MAX &&
+            validSimulatedMillis(batch.simulatedMillis) &&
             (Array.isArray(batch.enemies) && batch.enemies.every(entry => typeof entry.enemy === "string" && Number.isInteger(entry.count) && entry.count > 0) && batch.enemies.reduce((sum, entry) => sum + entry.count, 0) === batch.count))) return saved;
     } catch {}
     return null;
   }
   function adoptOrphans() {
     adopted = [];
-    const prefix = `${QUEUE_KEY_PREFIX}${owner}:`, now = Date.now();
+    const prefix = `${QUEUE_KEY_PREFIX}${owner}:`, now = wallClockNowMs();
     const siblings: string[] = [];
     try { for (let index = 0; index < options.storage.length; index++) { const candidate = options.storage.key(index); if (candidate && candidate.startsWith(prefix) && candidate !== key) siblings.push(candidate); } } catch {}
     for (const sibling of siblings) {
@@ -95,8 +127,26 @@ export function createRegularEnemyLootQueue(options: {
     state = null; adopted = [];
     if (!owner) return;
     state = readState(key) ?? empty();
+    lastSealedSimulatedSeconds ??= simulatedSecondsNow();
+    if (!begunOwners.has(owner)) {
+      // This character's first begin on this page. Whatever is still unsealed
+      // was simulated by an earlier page, whose clock is gone: seal it with the
+      // time it recorded, so this page's first report does not have to cover
+      // those kills as well.
+      begunOwners.add(owner);
+      let sealed = false;
+      for (const batch of state.batches) if (!batch.sealed) { batch.sealed = true; sealed = true; }
+      if (sealed) persist();
+    }
     adoptOrphans();
     scheduleBossRetry();
+  }
+  /** Seals a batch of this page's stream, charging it the game time since the previous seal. */
+  function seal(batch: Batch) {
+    const now = simulatedSecondsNow();
+    batch.simulatedMillis = simulatedMillisBetween(lastSealedSimulatedSeconds ?? now, now);
+    lastSealedSimulatedSeconds = Math.max(lastSealedSimulatedSeconds ?? now, now);
+    batch.sealed = true;
   }
   function flush(drain = false): Promise<boolean> {
     if (owner !== options.identity()) begin();
@@ -107,7 +157,7 @@ export function createRegularEnemyLootQueue(options: {
     if (!owner || !state || (!state.batches.length && !adopted.length)) { cancelBossRetry(); return Promise.resolve(true); }
     // Even forced portal/save drains respect a known server throttle. Persist it
     // so rapid refreshes cannot turn the same rejected report into a request loop.
-    if (Number.isFinite(state.retryAtMs) && state.retryAtMs! > Date.now() && state.retryAtMs! <= Date.now() + 30_000) { scheduleBossRetry(); return Promise.resolve(false); }
+    if (Number.isFinite(state.retryAtMs) && state.retryAtMs! > wallClockNowMs() && state.retryAtMs! <= wallClockNowMs() + 30_000) { scheduleBossRetry(); return Promise.resolve(false); }
     const current = state, runEpoch = epoch, runOwner = owner;
     const batchLimit = current.batches.length;
     // One stream at a time, oldest first: adopted queues before this tab's own.
@@ -115,14 +165,18 @@ export function createRegularEnemyLootQueue(options: {
       let sent = 0;
       while (stream.batches.length && (drain || sent < limit)) {
         const batch = stream.batches[0];
+        // An adopted orphan keeps whatever time its own page recorded. When one
+        // flush seals several batches, the first takes the whole interval and
+        // the rest about nothing, which is exactly the game time between them.
         if (!batch.sealed) {
-          batch.sealed = true;
+          if (stream === current) seal(batch);
+          else batch.sealed = true;
         }
         write(storageKey, stream);
         let accepted: boolean | "discard" | "throttled" = false;
-        try { accepted = await withRequestDeadline(options.send({ streamId: stream.streamId, sequence: BigInt(batch.sequence), mapId: batch.mapId, count: batch.count, enemies: batch.enemies, autoFarm: Boolean(batch.autoFarm) }), ENEMY_DEFEAT_BATCH_TIMEOUT_MS); } catch {}
+        try { accepted = await withRequestDeadline(options.send({ streamId: stream.streamId, sequence: BigInt(batch.sequence), mapId: batch.mapId, count: batch.count, enemies: batch.enemies, autoFarm: Boolean(batch.autoFarm), simulatedMillis: batch.simulatedMillis ?? 0 }), ENEMY_DEFEAT_BATCH_TIMEOUT_MS); } catch {}
         if (epoch !== runEpoch || options.identity() !== runOwner) return false;
-        if (accepted === "throttled") { stream.retryAtMs = Date.now() + 30_000; write(storageKey, stream); return false; }
+        if (accepted === "throttled") { stream.retryAtMs = wallClockNowMs() + 30_000; write(storageKey, stream); return false; }
         if (!accepted) return false;
         stream.retryAtMs = 0;
         stream.batches.shift();
@@ -165,12 +219,18 @@ export function createRegularEnemyLootQueue(options: {
       if (owner !== options.identity()) begin();
       if (!owner || !state || !combatMap(mapId) || !enemy) return;
       const tail = state.batches.at(-1);
+      let target = tail;
       if (tail && !tail.sealed && tail.mapId === mapId && Boolean(tail.autoFarm) === autoFarm && tail.count < REGULAR_ENEMY_LOOT_BATCH_MAX) {
         tail.count++;
         const entry = tail.enemies.find(entry => entry.enemy === enemy);
         if (entry) entry.count++; else tail.enemies.push({ enemy, count: 1 });
       }
-      else state.batches.push({ sequence: state.nextSequence++, mapId, count: 1, enemies: [{ enemy, count: 1 }], sealed: false, autoFarm });
+      else state.batches.push(target = { sequence: state.nextSequence++, mapId, count: 1, enemies: [{ enemy, count: 1 }], sealed: false, autoFarm });
+      // The time so far, kept only for a reload; sealing replaces it. Earlier
+      // unsealed batches already hold their share, so this one takes the rest.
+      const sinceSeal = simulatedMillisBetween(lastSealedSimulatedSeconds ?? simulatedSecondsNow(), simulatedSecondsNow());
+      const earlier = state.batches.reduce((sum, batch) => batch === target || batch.sealed ? sum : sum + (batch.simulatedMillis ?? 0), 0);
+      target!.simulatedMillis = Math.max(0, sinceSeal - earlier);
       persist();
     },
     reset() { cancelBossRetry(); bossRetryDelay = 2_000; epoch++; inFlight = null; if (owner) { state = empty(); persist(); } },

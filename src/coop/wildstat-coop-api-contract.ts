@@ -130,7 +130,7 @@ type ExpectedApiKey =
   | "spendPrestigePerkPoint"
   | "resetProgress"
   | "retryConnection"
-  | "recordRegularEnemyDefeat"
+  | "claimGameBridge"
   | "saveProgress"
   | "savedProgress"
   | "serverNowMs"

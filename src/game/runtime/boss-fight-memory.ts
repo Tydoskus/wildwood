@@ -1,9 +1,10 @@
+import { wallClockNowMs } from "../../app/trusted-clock";
 import { ATTACK_BALANCE_VERSION } from "../../../shared/rules";
 type Checkpoint = { mapId: string; hp: number; maxHp: number };
 type StoragePort = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
 /** One active fight per character; checkpoint writes are local and throttled. */
-export function createBossFightMemory(storage: StoragePort, identity: () => string, now = Date.now) {
+export function createBossFightMemory(storage: StoragePort, identity: () => string, now = wallClockNowMs) {
   let owner = "", loaded = false, checkpoint: Checkpoint | null = null;
   let dirty = false, lastWrite = -Infinity;
   const key = () => `wildstat-boss-fight-v1-balance${ATTACK_BALANCE_VERSION}:${owner}`;

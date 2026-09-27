@@ -1,3 +1,4 @@
+import { monotonicNowMs } from "../app/trusted-clock";
 import { PLAYER_DEATH_FALL_DURATION_MS } from "../game/runtime/player-death-animation";
 
 export const DEATH_RESPAWN_DELAY_MS = 3_000;
@@ -24,7 +25,8 @@ export function createDeathScreenController(options: {
   clock?: DeathScreenClock;
 }) {
   const clock = options.clock ?? {
-    now: () => performance.now(),
+    // The captured clock: a faster performance.now must not shorten the wait.
+    now: monotonicNowMs,
     setTimeout: (callback: () => void, delayMs: number) => globalThis.setTimeout(callback, delayMs),
     clearTimeout: (timer: ReturnType<typeof globalThis.setTimeout>) => globalThis.clearTimeout(timer),
   };
