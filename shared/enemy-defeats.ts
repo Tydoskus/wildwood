@@ -18,6 +18,15 @@ export const ENEMY_DEFEAT_BATCH_MAX = 100;
  * bounds a script, and that is the number worth tuning.
  */
 export const DEFEAT_BUDGET_WINDOW_SECONDS = 300;
+/**
+ * How far a client's game simulation may run ahead of the server's clock
+ * before its kills are scaled back to the real-time share. An honest client
+ * cannot run ahead at all (its fixed-step loop is capped per frame and per
+ * background wake), so this is only slack for network jitter and a backlog
+ * delivered late; it matches the spawn bank so any backlog the spawn bank
+ * would pay, this pays too.
+ */
+export const SIM_CLOCK_BANK_SECONDS = DEFEAT_BUDGET_WINDOW_SECONDS;
 const CAMPS: Record<string, readonly camps.SpawnCamp[]> = {
   tutorial_forest: camps.CAMPS, beginner_desert: camps.DESERT_CAMPS,
   intermediate_snowlands: camps.SNOW_CAMPS, advanced_lava_wastes: camps.LAVA_CAMPS,
@@ -65,18 +74,40 @@ export function enemyDefeatDefinition(mapId: string, enemy: string, balance?: Ma
   const definition = balance?.enemies[enemy] ?? ENEMY_TYPES[enemy as EnemyKind];
   return { reward: definition.reward, hp: definition.hp, population, loot: !(mapId === "beginner_desert" && definition.elite) };
 }
+const mapPopulations = new Map<string, number>();
+/**
+ * Every claimable enemy on a map at once: all species of a campaign map, or
+ * every spawn site of an Endless level. Divided into the respawn, this is how
+ * many seconds of the account's combat clock one kill on the map is worth at
+ * the least (see acceptEnemyDefeats). Cached: it depends on the map alone.
+ */
+export function mapEnemyPopulation(mapId: string) {
+  let population = mapPopulations.get(mapId);
+  if (population !== undefined) return population;
+  if (isProceduralMap(mapId)) {
+    population = generatedDefinition(mapId as `endless_${number}`).camps.reduce((sum, camp) => sum + camp.count, 0);
+  } else {
+    population = Object.keys(ENEMY_TYPES).reduce((sum, kind) => sum + (enemyDefeatDefinition(mapId, kind)?.population ?? 0), 0);
+  }
+  // Endless levels are unbounded in number; a player only visits a handful.
+  if (mapPopulations.size >= 256) mapPopulations.clear();
+  mapPopulations.set(mapId, population);
+  return population;
+}
 export function combatMap(mapId: string) { return CAMPAIGN_MAPS.some(map => map.id === mapId) || isProceduralMap(mapId); }
 
 /**
  * Nobody can kill a species faster than it comes back, and the fastest it
- * comes back is the plain respawn: nothing shortens it any more. A whole map
- * is thirty enemies, so this ceiling is three kills a second against a lap
- * that really takes about twenty-eight: room for a fast player, and nowhere
- * near enough for a script.
+ * comes back is the player's own respawn: the map's tuned one, less up to 2.5
+ * seconds of research. A campaign map is thirty enemies (the forest has more), so this
+ * ceiling is three kills a second against a lap that really takes about
+ * twenty-eight: room for a fast player, and nowhere near enough for a script.
  *
- * This is the bound that matters. It holds however fast a client claims to
- * move or hit, which is why movement checks can stay loose enough never to
- * trouble an honest player.
+ * This bound holds however fast a client claims to move or hit, which is why
+ * movement checks can stay loose enough never to trouble an honest player. It
+ * is per map, and each map's buckets refill while the player is elsewhere, so
+ * the account's combat clock also charges every kill at least respawn /
+ * mapEnemyPopulation seconds: hopping maps sustains one map's wall, no more.
  */
 export const DEFEAT_MIN_RESPAWN_SECONDS = REGULAR_ENEMY_RESPAWN_SECONDS;
 /**

@@ -18,7 +18,7 @@ import { isValidProfileIcon } from "../../shared/profile-icons";
 import { releaseNotice, releaseAcknowledgement, writeReleaseWindow, acknowledgeReleaseWindow } from "./release-control";
 import { personalBossDefinition } from "../../shared/personal-bosses";
 import { playerMultiplayerPreference, writeMultiplayerPreference } from "./multiplayer-preference";
-import { enemyDefeatBudget, bossDefeatWindow, bossMapDefeatWindow, acceptEnemyDefeats, beginBossTimeBudget, enemyDefeatReview, permittedDefeatMaps, pruneIdleDefeatBudgets } from "./enemy-defeats";
+import { enemyDefeatBudget, bossDefeatWindow, bossMapDefeatWindow, acceptEnemyDefeats, beginBossTimeBudget, enemyDefeatReview, permittedDefeatMaps, pruneIdleDefeatBudgets, throttleKillReports, type EnemyDefeatBatch } from "./enemy-defeats";
 import { grantVirtualPlayerConsent, revokeVirtualPlayerConsent } from "./virtual-player-consent";
 import { applyEnemyRewards } from "../../shared/enemy-defeats";
 import { offlineProgressTables, beginOfflineWindow, grantOfflineProgress, acknowledgeOfflineProgress, setSimulatedTimeAway } from "./offline-progress";
@@ -327,7 +327,7 @@ const autoEquip = createAutoEquip({ inventoryForProgress, itemUpgradeLevelFor, w
 // and bossRewardHandlers below call these names. Placed after autoEquip, whose
 // equipNewUpgrades the rewards borrow.
 const {
-  maximumBossCombatForProgress, rewardDragonContributor, rewardSpiderContributor,
+  combatBoundForReport, rewardDragonContributor, rewardSpiderContributor,
   rewardFrostclawContributor, rewardMagmaliskContributor, rewardGloomrootContributor,
   rewardTidewyrmContributor, rewardKoiShogunContributor, rewardTempestKirinContributor,
   rewardMiremawContributor, rewardPrismshellContributor, rewardIronhornContributor,
@@ -335,8 +335,8 @@ const {
   rewardAegisPrimeContributor,
 } = createBossCombat({
   playerWithMotion, syncPlayerMotionIdentity, powerFieldsForProgress, attackIntervalForProgress,
-  playerOwnsItem, publishItemDrop, restoreItemToProgress, researchedDamage, inventoryForProgress,
-  equippedRightHandForProgress, equippedLeftHandForProgress,
+  playerOwnsItem, publishItemDrop, restoreItemToProgress, itemUpgradeLevelFor, inventoryForProgress,
+  equippedRightHandForProgress, equippedLeftHandForProgress, equippedHeadForProgress, equippedChestForProgress,
   equipNewUpgrades: autoEquip.equipNewUpgrades,
 });
 // Duel bodies live in duel-runtime.ts; the duel reducers and the equipment
@@ -5151,8 +5151,9 @@ export const recordPlayerDeath = spacetimedb.reducer(
   },
 );
 
-function awardRegularEnemyLoot(ctx: ReducerCtx<InferSchema<typeof spacetimedb>>, mapId: string, count: number, checkpoint?: { progress: any }) {
-  const drops = keepWantedDrops(ctx, ctx.sender, rollRegularEnemyLoot(ctx, mapId, count, pinnedMapBalance(ctx, ctx.sender, mapId)?.loot));
+/** `balance` is the report's pinned map balance, already read and parsed by acceptEnemyDefeats. */
+function awardRegularEnemyLoot(ctx: ReducerCtx<InferSchema<typeof spacetimedb>>, mapId: string, count: number, balance: ReturnType<typeof pinnedMapBalance>, checkpoint?: { progress: any }) {
+  const drops = keepWantedDrops(ctx, ctx.sender, rollRegularEnemyLoot(ctx, mapId, count, balance?.loot));
   if (!drops.size) return checkpoint?.progress;
   const current = checkpoint?.progress ?? ctx.db.playerProgress.identity.find(ctx.sender);
   let next = current ?? defaultPlayerProgress(ctx.sender);
@@ -5175,16 +5176,21 @@ function awardRegularEnemyLoot(ctx: ReducerCtx<InferSchema<typeof spacetimedb>>,
 }
 
 /** Only enemy identities/counts cross the wire; all reward values are server-owned. */
-const enemyDefeatArgs = { streamId: t.string(), sequence: t.u64(), mapId: t.string(), enemies: t.array(t.object("EnemyDefeat", { enemy: t.string(), count: t.u16() })) };
-function recordEnemyDefeatsFor(ctx: any, batch: { streamId: string; sequence: bigint; mapId: string; enemies: { enemy: string; count: number }[] }) {
+const EnemyDefeatEntry = t.object("EnemyDefeat", { enemy: t.string(), count: t.u16() });
+const enemyDefeatArgs = { streamId: t.string(), sequence: t.u64(), mapId: t.string(), enemies: t.array(EnemyDefeatEntry) };
+// Plus the milliseconds the client simulated since its previous report (0 when it cannot say); see simulationClock.
+const enemyDefeatReportArgs = { streamId: t.string(), sequence: t.u64(), mapId: t.string(), simulatedMillis: t.u32(), enemies: t.array(EnemyDefeatEntry) };
+function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
     const player = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Enemy rewards require your account world connection.");
-    const accepted = acceptEnemyDefeats(ctx, batch, permittedDefeatMaps(ctx, player, HOME_EXTERIOR_MAP_ID), earned => maximumBossCombatForProgress(ctx, earned));
+    // Everything the combat bound reads, read once for the whole report.
+    const combat = combatBoundForReport(ctx);
+    const accepted = acceptEnemyDefeats(ctx, batch, permittedDefeatMaps(ctx, player, HOME_EXTERIOR_MAP_ID), earned => combat.bound(earned));
     if (!accepted) return;
     const enforce = () => {
       // Only a report no real client could have sent. A clipped claim is
-      // already bounded and flagged for review; taking the session as well
-      // kicked honest players off a portal round-trip. See enemy-defeats.ts.
+      // already bounded; taking the session as well kicked honest players off
+      // a portal round-trip. See enemy-defeats.ts.
       if (!accepted.restrict) return;
       const restriction = restrictDefeatSession(ctx, { mapId: batch.mapId, streamId: batch.streamId,
         sequence: batch.sequence.toString(), violations: accepted.violations });
@@ -5193,12 +5199,14 @@ function recordEnemyDefeatsFor(ctx: any, batch: { streamId: string; sequence: bi
       console.warn("Enemy defeat session restricted", JSON.stringify(restriction));
     };
     if (!accepted.count) { enforce(); return; }
-    const base = ctx.db.playerProgress.identity.find(ctx.sender) ?? defaultPlayerProgress(ctx.sender);
+    // Validation wrote no progress, so the row the bound read is still current.
+    const base = combat.savedProgress() ?? defaultPlayerProgress(ctx.sender);
+    const statMultiplier = combat.statMultiplier();
     if (accepted.rewards.some(reward => reward.type !== "boss")) {
-      const next = applyEnemyRewards(base, accepted.rewards, statRewardMultiplier(ctx, ctx.sender));
-      const rewarded = awardRegularEnemyLoot(ctx, batch.mapId, accepted.lootCount, { progress: next });
+      const next = applyEnemyRewards(base, accepted.rewards, statMultiplier);
+      const rewarded = awardRegularEnemyLoot(ctx, batch.mapId, accepted.lootCount, accepted.balance, { progress: next });
       updateSnapshotRow(ctx, "playerProgress", rewarded);
-      const power = powerFieldsForProgress(ctx, rewarded);
+      const power = combat.powerFields(rewarded);
       // Both rows below are broadcast to everyone on the map, and kills move
       // power on nearly every report. The plate shows only the compact figure,
       // so write when that changes; the row is exact when written and never
@@ -5212,16 +5220,17 @@ function recordEnemyDefeatsFor(ctx: any, batch: { streamId: string; sequence: bi
     for (const reward of accepted.rewards) {
       if (reward.type !== "boss") continue;
       const boss = personalBossDefinition(batch.mapId)!;
+      // A boss reward never re-pins the map, so the balance validation read holds.
+      const balance = accepted.balance;
       for (let clear = 0; clear < reward.count; clear++) {
         if (boss.kind !== "procedural") {
           const handler = bossRewardHandlers[boss.kind];
           if (handler) handler(ctx, ctx.sender);
           else {
-            const balance = pinnedMapBalance(ctx, ctx.sender, batch.mapId);
             if (!balance?.boss) throw new SenderError("Boss balance is unavailable.");
             const progress = ctx.db.playerProgress.identity.find(ctx.sender)!;
             const rewards = Object.entries(balance.boss.rewards).map(([type, amount]) => ({ type, amount, count: 1 }));
-            const rewarded = applyEnemyRewards(progress, rewards, statRewardMultiplier(ctx, ctx.sender));
+            const rewarded = applyEnemyRewards(progress, rewards, statMultiplier);
             writeProgressAndPresentation(ctx, { ...rewarded, bossRewardClaims: (progress.bossRewardClaims | BOSS_REWARD_CLAIM_BITS[boss.kind]) >>> 0 });
           }
         }
@@ -5231,7 +5240,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: { streamId: string; sequence: bi
           const row = { identity: ctx.sender, completed: Math.max(previous?.completed ?? 0, map.number) };
           if (previous) ctx.db.proceduralProgress.identity.update(row); else ctx.db.proceduralProgress.insert(row);
           const progress = ctx.db.playerProgress.identity.find(ctx.sender)!;
-          writeProgressAndPresentation(ctx, applyEnemyRewards(progress, (pinnedMapBalance(ctx, ctx.sender, batch.mapId)?.boss ? Object.entries(pinnedMapBalance(ctx, ctx.sender, batch.mapId)!.boss!.rewards).map(([type, amount]) => ({ type, amount })) : generatedBossStats(map).rewards).map(reward => ({ ...reward, count: 1 })), statRewardMultiplier(ctx, ctx.sender)));
+          writeProgressAndPresentation(ctx, applyEnemyRewards(progress, (balance?.boss ? Object.entries(balance.boss.rewards).map(([type, amount]) => ({ type, amount })) : generatedBossStats(map).rewards).map(reward => ({ ...reward, count: 1 })), statMultiplier));
         }
       }
     }
@@ -5244,9 +5253,20 @@ function recordEnemyDefeatsFor(ctx: any, batch: { streamId: string; sequence: bi
     killGems.grantKillGems(ctx, ctx.sender, accepted.count, enemyKills);
     enforce();
 }
-export const recordEnemyDefeats = spacetimedb.reducer(enemyDefeatArgs, (ctx, batch) => recordEnemyDefeatsFor(ctx, batch));
-// Same reward as recordEnemyDefeats: which reducer a client calls is its own claim.
-export const recordAutoFarmEnemyDefeats = spacetimedb.reducer(enemyDefeatArgs, (ctx, batch) => recordEnemyDefeatsFor(ctx, batch));
+// All four take the throttle before any other read, so a flood of reports costs
+// one row read each; throttleKillReports says why honest cadence never meets it.
+const killReport = (legacy: boolean) => (ctx: any, batch: any) => {
+  throttleKillReports(ctx);
+  recordEnemyDefeatsFor(ctx, legacy ? { ...batch, simulatedMillis: null } : batch);
+};
+export const reportEnemyDefeats = spacetimedb.reducer(enemyDefeatReportArgs, killReport(false));
+// Same reward as reportEnemyDefeats: which reducer a client calls is its own claim.
+export const reportAutoFarmEnemyDefeats = spacetimedb.reducer(enemyDefeatReportArgs, killReport(false));
+// These two exist only for tabs opened before report_enemy_defeats, until they
+// reload, and skip the simulation clock because those tabs cannot say. Retire
+// them to "Refresh to continue" (like the ones below) in a later release.
+export const recordEnemyDefeats = spacetimedb.reducer(enemyDefeatArgs, killReport(true));
+export const recordAutoFarmEnemyDefeats = spacetimedb.reducer(enemyDefeatArgs, killReport(true));
 
 /** Retained wire shape: obsolete clients must update before submitting rewards. */
 export const recordRegularEnemyDefeats = spacetimedb.reducer(

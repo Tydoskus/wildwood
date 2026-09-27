@@ -3,7 +3,7 @@ import { STARTER_BOW } from "../../shared/items";
 import { describe, expect, it, vi } from "vitest";
 import { Timestamp } from "spacetimedb";
 import { bossDefeatLimits } from "./boss-defeat-limits";
-import { beginBossTimeBudget } from "./enemy-defeats";
+import { beginBossTimeBudget, combatTimeKey } from "./enemy-defeats";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { itemDamageMultiplierBonus } from "../../shared/items";
 import { personalBossDefinition } from "../../shared/personal-bosses";
@@ -186,6 +186,26 @@ it("does not treat delayed batch receipt times as the times bosses actually died
   f.at(535); f.claim(); expect(f.kills()).toBe(4n);
 });
 
+
+it("charges a clear's fight to the account's combat clock after paying it, and never refuses one for it", () => {
+  // The fight was time this player could not spend on regular enemies. Only
+  // the boss's own clock decides whether a clear is paid; the shared one is
+  // charged afterwards and stops at zero.
+  const f = fixture(); f.begin();
+  const key = combatTimeKey(f.ctx.sender);
+  const setClock = (tokens: number) => {
+    const row = { key, identity: f.ctx.sender, tokens, updatedAtMicros: f.ctx.timestamp.microsSinceUnixEpoch };
+    if (f.db.enemyDefeatBudget.key.find(key)) f.db.enemyDefeatBudget.key.update(row); else f.db.enemyDefeatBudget.insert(row);
+  };
+  f.at(100); setClock(20);
+  f.claim(); expect(f.kills()).toBe(1n);
+  expect(f.db.enemyDefeatBudget.key.find(key).tokens).toBe(0);
+  f.patch("playerProgress", f.stats);
+  f.at(245); setClock(500);
+  f.claim(); expect(f.kills()).toBe(2n);
+  // Less the 100-second fight.
+  expect(f.db.enemyDefeatBudget.key.find(key).tokens).toBeCloseTo(400, 6);
+});
 
 it("ignores the retired 20-boss cap while enforcing earned DPS time", () => {
   const f = fixture(); f.begin();

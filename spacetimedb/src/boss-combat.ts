@@ -1,6 +1,6 @@
 // Boss combat bounds and rewards for the fifteen campaign bosses (dragon
 // through Aegis Prime). Boss fights are personal and run on the client; the
-// server bounds a kill claim with maximumBossCombatForProgress and pays a
+// server bounds a kill claim with combatBoundForReport and pays a
 // validated clear through the reward*Contributor handlers, which index.ts maps
 // by boss kind in bossRewardHandlers. The shared-boss tables stay registered
 // (boss-tables.ts) so the publish needs no data deletion; nothing here writes
@@ -63,7 +63,10 @@ import {
   VOLTWARDEN_REWARD_HEALTH,
   VOLTWARDEN_REWARD_REGEN,
 } from "../../shared/rules";
+import { upgradeSlotForItem } from "../../shared/slot-upgrades";
+import { effectivePlayerPower, legacyU32Power } from "../../shared/player-power";
 import {
+  equipmentDamage,
   FROST_ARMOR,
   FROST_BOW,
   itemDefinition,
@@ -104,10 +107,13 @@ export type BossCombatDeps = {
   playerOwnsItem: (ctx: any, identity: any, itemId: string) => boolean;
   publishItemDrop: (ctx: any, identity: any, itemId: string, alreadyOwned: boolean) => void;
   restoreItemToProgress: (progress: any, itemId: string) => any;
-  researchedDamage: (ctx: any, identity: any, damage: number, knownProgress?: any, knownResearch?: any) => number;
+  itemUpgradeLevelFor: (ctx: any, identity: any, itemId: unknown) => number;
+  // The equipped* helpers take an already parsed inventory, so one parse serves all four.
+  equippedRightHandForProgress: (progress: any, inventory?: string[]) => string;
+  equippedLeftHandForProgress: (progress: any, inventory?: string[]) => string;
+  equippedHeadForProgress: (progress: any, inventory?: string[]) => string;
+  equippedChestForProgress: (progress: any, inventory?: string[]) => string;
   inventoryForProgress: (progress: any) => string[];
-  equippedRightHandForProgress: (progress: any) => string;
-  equippedLeftHandForProgress: (progress: any) => string;
   /** Auto equip after a reward is written: see auto-equip.ts. `before` is the progress the reward started from. */
   equipNewUpgrades: (ctx: any, identity: any, before: any) => void;
 };
@@ -115,38 +121,104 @@ export type BossCombatDeps = {
 export function createBossCombat(deps: BossCombatDeps) {
   const {
     playerWithMotion, syncPlayerMotionIdentity, powerFieldsForProgress, attackIntervalForProgress,
-    playerOwnsItem, publishItemDrop, restoreItemToProgress, researchedDamage, inventoryForProgress,
-    equippedRightHandForProgress, equippedLeftHandForProgress, equipNewUpgrades,
+    playerOwnsItem, publishItemDrop, restoreItemToProgress, itemUpgradeLevelFor, inventoryForProgress,
+    equippedRightHandForProgress, equippedLeftHandForProgress, equippedHeadForProgress, equippedChestForProgress,
+    equipNewUpgrades,
   } = deps;
 
-  function maximumBossCombatForProgress(ctx: GameReducerContext, earned: { type: string; amount: number; count: number }[]) {
-    const saved = ctx.db.playerProgress.identity.find(ctx.sender);
-    if (!saved) return { dps: 0, attackInterval: 1 };
-    const research = ctx.db.playerResearch.identity.find(ctx.sender);
-    const progress = earned.length ? applyEnemyRewards(saved, earned, statRewardMultiplier(ctx, ctx.sender)) : saved;
-    const weapon = equippedRightHandForProgress(progress) || equippedLeftHandForProgress(progress);
-    const attackInterval = attackIntervalForProgress(progress);
-    if (!weapon) return { dps: 0, attackInterval, projectiles: 1 };
-    // Every personal boss can receive criticals. Use the possible maximum so
-    // legitimate lucky streaks do not cause first-clear rewards to be rejected.
-    // Keen Edge grants crit on its own, so a player with no crit research can
-    // still be critting; the bound has to know that or it clips them.
-    const ranks = prestigePerkRanks(ctx, ctx.sender);
-    const critical = (research?.criticalChance ?? 0) > 0 || prestigePerkValue(ranks, "keenEdge") > 0
-      ? Math.max(1, 1.05 + (research?.criticalDamage ?? 0) * .05 + prestigeCriticalDamageBonus(ranks)) : 1;
-    const projectiles = itemDefinition(weapon)?.weapon?.mode === "MELEE" ? 1 : Math.max(1, progress.projectileCount);
-    // Double Strike is more damage per swing; Split Shot and Riposte are more
-    // enemies reached per swing. The first belongs in damage per second, the
-    // second in how many kills per second that damage can finish. The bow's
-    // skills are both. Every storm arrow, bounce and pierce can reach another
-    // enemy, so they widen reach; the Split Shot arrow rolls the bow's skills
-    // too, so the two reaches multiply. Against a lone boss only Arrow Storm
-    // adds anything, as more damage, so it widens the boss bound alone.
-    const bowSkills = bowSkillRollFor(ctx, ctx.sender, weapon);
-    const dps = researchedDamage(ctx, ctx.sender, progress.damage, progress, research) * critical
-      * prestigeSwingMultiplier(ranks) * projectiles / attackInterval;
-    return { attackInterval, projectiles, reach: prestigeReachMultiplier(ranks) * bowSkillReachMultiplier(bowSkills),
-      dps, bossDps: dps * bowSkillBossDamageMultiplier(bowSkills) };
+  /**
+   * researchedDamage (index.ts) with the gear resolved once: the weapon, and
+   * what it and the head and chest make of any base damage, with each slot's
+   * upgrade level read at most once. The formula has to stay researchedDamage's.
+   */
+  function damageLoadout(ctx: GameReducerContext, progress: any, research: any) {
+    const inventory = inventoryForProgress(progress);
+    const weapon = equippedRightHandForProgress(progress, inventory) || equippedLeftHandForProgress(progress, inventory);
+    const head = equippedHeadForProgress(progress, inventory), chest = equippedChestForProgress(progress, inventory);
+    const levels = new Map<string, number>();
+    const levelFor = (itemId: unknown) => {
+      const slot = upgradeSlotForItem(itemId);
+      if (!slot) return 0;
+      let level = levels.get(slot);
+      if (level === undefined) levels.set(slot, level = itemUpgradeLevelFor(ctx, ctx.sender, itemId));
+      return level;
+    };
+    const [weaponLevel, headLevel, chestLevel] = [levelFor(weapon), levelFor(head), levelFor(chest)];
+    const warcraft = 1 + (research?.warcraft ?? 0) * .02;
+    return { weapon, levelFor,
+      damage: (base: number) => equipmentDamage(base, weapon, head, chest, warcraft, weaponLevel, headLevel, chestLevel) };
+  }
+
+  /**
+   * The most combat this player could have brought to each entry of one kill
+   * report. Every row it reads is fixed for the length of a report: validation
+   * writes only budget rows and the stream cursor, and the rewards a report
+   * earns move stats, never gear, unlocks, perks, research or the bow's roll.
+   * So the rows are read and the inventory parsed once, on first use, and each
+   * entry after that is arithmetic on the saved stats plus what it earned.
+   * This used to be rebuilt from scratch per species (nine reads and four
+   * inventory parses each, thirty-one times on an Endless report), which was
+   * most of what the kill reducer cost.
+   */
+  function combatBoundForReport(ctx: GameReducerContext) {
+    let loaded: ReturnType<typeof load> | undefined;
+    function load() {
+      const saved = ctx.db.playerProgress.identity.find(ctx.sender);
+      const research = ctx.db.playerResearch.identity.find(ctx.sender);
+      const statMultiplier = statRewardMultiplier(ctx, ctx.sender);
+      const loadout = saved ? damageLoadout(ctx, saved, research) : null;
+      if (!saved || !loadout?.weapon) return { saved, research, loadout, statMultiplier, gear: null };
+      // Every personal boss can receive criticals. Use the possible maximum so
+      // legitimate lucky streaks do not cause first-clear rewards to be rejected.
+      // Keen Edge grants crit on its own, so a player with no crit research can
+      // still be critting; the bound has to know that or it clips them.
+      const ranks = prestigePerkRanks(ctx, ctx.sender);
+      const critical = (research?.criticalChance ?? 0) > 0 || prestigePerkValue(ranks, "keenEdge") > 0
+        ? Math.max(1, 1.05 + (research?.criticalDamage ?? 0) * .05 + prestigeCriticalDamageBonus(ranks)) : 1;
+      // Double Strike is more damage per swing; Split Shot and Riposte are more
+      // enemies reached per swing. The first belongs in damage per second, the
+      // second in how many kills per second that damage can finish. The bow's
+      // skills are both. Every storm arrow, bounce and pierce can reach another
+      // enemy, so they widen reach; the Split Shot arrow rolls the bow's skills
+      // too, so the two reaches multiply. Against a lone boss only Arrow Storm
+      // adds anything, as more damage, so it widens the boss bound alone.
+      const bowSkills = bowSkillRollFor(ctx, ctx.sender, loadout.weapon);
+      return { saved, research, loadout, statMultiplier, gear: {
+        loadout, critical, swing: prestigeSwingMultiplier(ranks),
+        // Projectile count is not a kill reward, so the saved row holds for the whole report.
+        projectiles: itemDefinition(loadout.weapon)?.weapon?.mode === "MELEE" ? 1 : Math.max(1, saved.projectileCount),
+        reach: prestigeReachMultiplier(ranks) * bowSkillReachMultiplier(bowSkills),
+        bossDamage: bowSkillBossDamageMultiplier(bowSkills),
+      } };
+    }
+    const report = () => (loaded ??= load());
+    return {
+      /** The bound with the given earned rewards applied, as the client had them by its last kill. */
+      bound(earned: { type: string; amount: number; count: number }[]) {
+        const { saved, statMultiplier, gear } = report();
+        if (!saved) return { dps: 0, attackInterval: 1 };
+        const progress = earned.length ? applyEnemyRewards(saved, earned, statMultiplier) : saved;
+        const attackInterval = attackIntervalForProgress(progress);
+        if (!gear) return { dps: 0, attackInterval, projectiles: 1 };
+        const dps = gear.loadout.damage(progress.damage) * gear.critical * gear.swing * gear.projectiles / attackInterval;
+        return { attackInterval, projectiles: gear.projectiles, reach: gear.reach, dps, bossDps: dps * gear.bossDamage };
+      },
+      /** statRewardMultiplier: research and prestige cannot change inside one report. */
+      statMultiplier: () => report().statMultiplier,
+      /** The saved progress row as the report found it; nothing in validation writes it. */
+      savedProgress: () => report().saved,
+      /**
+       * powerFieldsForProgress for the rewarded row, from the research row and
+       * slot levels this report already read. Loot adds to the bag but equips
+       * nothing, and the levels are memoised by slot, so this is exact.
+       */
+      powerFields(progress: any) {
+        const { research, loadout } = report();
+        if (!loadout) return powerFieldsForProgress(ctx, progress);
+        const powerLevel = effectivePlayerPower(progress, research, loadout.levelFor);
+        return { power: legacyU32Power(powerLevel), powerLevel };
+      },
+    };
   }
 
   function applyBossRepeatableReward(
@@ -547,7 +619,7 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   return {
-    maximumBossCombatForProgress, rewardDragonContributor, rewardSpiderContributor,
+    combatBoundForReport, rewardDragonContributor, rewardSpiderContributor,
     rewardFrostclawContributor, rewardMagmaliskContributor, rewardGloomrootContributor,
     rewardTidewyrmContributor, rewardKoiShogunContributor, rewardTempestKirinContributor,
     rewardMiremawContributor, rewardPrismshellContributor, rewardIronhornContributor,

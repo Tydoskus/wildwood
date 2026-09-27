@@ -10,7 +10,7 @@ vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module
 const report = { streamId: "enforcement-stream-01", sequence: 1n, mapId: "endless_1", enemies: [{ enemy: "site:0", count: 100 }] };
 // A real client seals at most REGULAR_ENEMY_LOOT_BATCH_MAX kills per report, so
 // only a larger one is proof of a forged claim. Everything a client could have
-// sent is bounded and written down instead; see enemy-defeats.ts.
+// sent is bounded instead; see enemy-defeats.ts.
 const oversized = { ...report, enemies: [{ enemy: "site:0", count: 101 }] };
 // One spawn site holds one enemy; a report can bank at most this many of its kills.
 const SITE_BUDGET = defeatBudget(enemyDefeatDefinition("endless_1", "site:0")!.population);

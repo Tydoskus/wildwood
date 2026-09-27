@@ -2,7 +2,7 @@ import { fillDefeatBudget } from "../../tests/helpers/enemy-defeat";
 import { expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { STARTER_BOW } from "../../shared/items";
-import { DEFEAT_BUDGET_WINDOW_SECONDS, DEFEAT_MIN_RESPAWN_SECONDS, enemyDefeatDefinition } from "../../shared/enemy-defeats";
+import { DEFEAT_BUDGET_WINDOW_SECONDS, DEFEAT_MIN_RESPAWN_SECONDS, enemyDefeatDefinition, mapEnemyPopulation } from "../../shared/enemy-defeats";
 import { REGULAR_ENEMY_LOOT_DELAY_MS } from "../../shared/regular-map-loot";
 import { PLAUSIBLE_KILL_TOLERANCE, combatTimeKey, plausibleKillsPerSecond } from "./enemy-defeats";
 import { ENEMY_TYPES } from "../../shared/enemy-definitions";
@@ -68,6 +68,22 @@ it("estimates with the stats the report itself grants, as the client had them by
   f.run(server.recordEnemyDefeats, { streamId: "plausibility-stream-02", sequence: 1n, mapId: "tutorial_forest", enemies: [{ enemy: "Needle", count: CLAIM }] });
   expect(kills(f)).toBe(BigInt(CLAIM));
   expect(flags(f)).toEqual([]);
+});
+
+it("charges every kill at least the map's respawn over its whole population, so hopping maps earns no more", () => {
+  // However strong the build, the whole map comes back once per respawn, so a
+  // kill here is never worth less than 10 / 30 of a second of the account's
+  // clock. Ten banked seconds buy thirty kills on this map, from whichever
+  // map's refilled spawn bucket they are claimed.
+  expect(mapEnemyPopulation("crystal_hollows")).toBe(30);
+  const f = crystalFixture();
+  f.patch("playerProgress", { equippedRightHand: STARTER_BOW, inventoryJson: '["starter_bow"]', damage: 1e15, projectileCount: 3 });
+  fillDefeatBudget(f, "crystal_hollows", ENEMY);
+  f.seed("enemyDefeatBudget", { key: combatTimeKey(f.ctx.sender), identity: f.ctx.sender, tokens: 10, updatedAtMicros: f.ctx.timestamp.microsSinceUnixEpoch });
+  f.run(server.recordEnemyDefeats, claim(50));
+  expect(kills(f)).toBe(BigInt(10 * 30 / DEFEAT_MIN_RESPAWN_SECONDS));
+  expect(f.db.enemyDefeatBudget.key.find(combatTimeKey(f.ctx.sender)).tokens).toBeCloseTo(0, 6);
+  expect(restricted(f)).toBe(false);
 });
 
 it("shares one combat clock across species, so claiming several at once earns no more", () => {

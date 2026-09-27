@@ -81,6 +81,7 @@ import DestroyEquipmentCopyReducer from "./destroy_equipment_copy_reducer";
 import DevAdjustGemsReducer from "./dev_adjust_gems_reducer";
 import DevAnnounceOutageCompensationReducer from "./dev_announce_outage_compensation_reducer";
 import DevBeginVirtualPlayerLoadTestReducer from "./dev_begin_virtual_player_load_test_reducer";
+import DevCleanupStaleSessionsReducer from "./dev_cleanup_stale_sessions_reducer";
 import DevClearVirtualPlayersReducer from "./dev_clear_virtual_players_reducer";
 import DevCopyPlayerCombatStatsReducer from "./dev_copy_player_combat_stats_reducer";
 import DevDeleteBugReportReducer from "./dev_delete_bug_report_reducer";
@@ -145,7 +146,9 @@ import RecordStartupTelemetryReducer from "./record_startup_telemetry_reducer";
 import RefreshDuelWireAccessReducer from "./refresh_duel_wire_access_reducer";
 import RegisterClientVersionReducer from "./register_client_version_reducer";
 import RegisterProtocolReducer from "./register_protocol_reducer";
+import ReportAutoFarmEnemyDefeatsReducer from "./report_auto_farm_enemy_defeats_reducer";
 import ReportChatMessageReducer from "./report_chat_message_reducer";
+import ReportEnemyDefeatsReducer from "./report_enemy_defeats_reducer";
 import ReportPlayerReducer from "./report_player_reducer";
 import ReportSocialMessageReducer from "./report_social_message_reducer";
 import RequestAccountDeletionReducer from "./request_account_deletion_reducer";
@@ -1423,6 +1426,7 @@ const reducersSchema = __reducers(
   __reducerSchema("dev_adjust_gems", DevAdjustGemsReducer),
   __reducerSchema("dev_announce_outage_compensation", DevAnnounceOutageCompensationReducer),
   __reducerSchema("dev_begin_virtual_player_load_test", DevBeginVirtualPlayerLoadTestReducer),
+  __reducerSchema("dev_cleanup_stale_sessions", DevCleanupStaleSessionsReducer),
   __reducerSchema("dev_clear_virtual_players", DevClearVirtualPlayersReducer),
   __reducerSchema("dev_copy_player_combat_stats", DevCopyPlayerCombatStatsReducer),
   __reducerSchema("dev_delete_bug_report", DevDeleteBugReportReducer),
@@ -1487,7 +1491,9 @@ const reducersSchema = __reducers(
   __reducerSchema("refresh_duel_wire_access", RefreshDuelWireAccessReducer),
   __reducerSchema("register_client_version", RegisterClientVersionReducer),
   __reducerSchema("register_protocol", RegisterProtocolReducer),
+  __reducerSchema("report_auto_farm_enemy_defeats", ReportAutoFarmEnemyDefeatsReducer),
   __reducerSchema("report_chat_message", ReportChatMessageReducer),
+  __reducerSchema("report_enemy_defeats", ReportEnemyDefeatsReducer),
   __reducerSchema("report_player", ReportPlayerReducer),
   __reducerSchema("report_social_message", ReportSocialMessageReducer),
   __reducerSchema("request_account_deletion", RequestAccountDeletionReducer),

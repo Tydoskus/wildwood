@@ -52,6 +52,15 @@ export const DEFAULT_ATTACK_INTERVAL = 1.56;
 // minute, and the per-player cost of the report is small next to a view.
 export const REGULAR_KILL_REPORT_SECONDS = 30;
 /**
+ * The server's limit on kill reports per account: a bucket of this many that
+ * refills one report every KILL_REPORT_REFILL_SECONDS. A report over it gets
+ * "Enemy rewards are catching up." and the client keeps the kills queued and
+ * retries in 30 seconds. It is a cost bound, not an anti-cheat one: every
+ * report runs the whole kill reducer, whatever it ends up paying.
+ */
+export const KILL_REPORT_BURST = 16;
+export const KILL_REPORT_REFILL_SECONDS = 3;
+/**
  * How long a cleared camp takes to come back. Both the client's respawn clock
  * and the server's kill ceiling are derived from this, so they have to agree.
  * It was 20 seconds, or 10 for thirty minutes after a rewarded ad; since 0.807

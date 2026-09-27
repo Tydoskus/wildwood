@@ -129,7 +129,13 @@ import { describe, expect, it } from "vitest";
 // reducers, their import, the forced-reason branch of the existing name repair,
 // and the note above them. The reads, the warning and the log search live in
 // dev-console.ts and moderation-history.ts; the raise is the declarations alone.
-const MAX_LINES = 6_527;
+// 6_540: kill reports add the report_enemy_defeats and
+// report_auto_farm_enemy_defeats declarations (their simulatedMillis args and
+// the shared throttled wrapper with the legacy pair's retirement note), and
+// the reward path takes the balance, stat multiplier and power inputs the
+// per-report combat bound already read. The throttle, the simulation clock and
+// the bound live in enemy-defeats.ts and boss-combat.ts.
+const MAX_LINES = 6_540;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

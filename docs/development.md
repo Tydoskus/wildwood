@@ -285,50 +285,75 @@ that function, not the version list, is what keeps an old decoder out.
 
 ## Kill claim invariants
 
-- The client reports kills; the server decides what they are worth. Two
-  bounds apply to a regular-enemy claim, and **neither restricts the session**:
-  1. **Spawn wall** — a token bucket per player, map and species that refills at
-     the map's spawn rate and banks `DEFEAT_BUDGET_WINDOW_SECONDS` of it.
-     Claims above it are paid only up to it and written to
-     `enemy_defeat_review`.
-  2. **Plausibility** — a second bucket that refills at the most kills per
-     second this player's own combat can produce (one projectile kills at most
-     one enemy; each enemy needs a whole number of hits; every hit a maximum
-     critical; `PLAUSIBLE_KILL_TOLERANCE` on top). Claims above it are paid
-     only up to it and written to `enemy_defeat_review`. It never restricts,
-     because a report can outrun a progress save after an equipment change.
-     The estimate uses the stats the report itself grants (bounded by the spawn
-     wall): kill rewards raise damage as they land, and the client fought the
-     whole report with those gains while the saved row still shows the stats
-     from before it.
-- The bank is one client report. The client sends regular kills every
-  `REGULAR_KILL_REPORT_SECONDS` (300, `shared/rules.ts`), and both the client
-  delay and the server bank derive from that one constant. A smaller bank clips
-  honest players: at sixty seconds a five-minute report was paid at a fifth in
-  local testing. A longer one only lets a script claim more in one go than the
-  client could have gathered.
-- Position is not checked. A report lands up to five minutes after its first
-  kill, so where the player stands when it arrives says nothing about where
-  the kills happened. The map check (`Enemy defeats belong to another map`) is
-  the location bound, and it runs before any of this.
+- The client reports kills; the server decides what they are worth. Regular
+  kills are simulated on the client, so every bound below is on the server's
+  clock (`ctx.timestamp`), and **none of them restricts, disconnects or
+  refuses anyone**: a claim above a bound is paid up to it, and the report is
+  consumed either way so it never blocks the stream, saves or portals. Every
+  automatic punishment tried before (movement bans, session revocation on
+  clipped claims) hit honest players and was rolled back.
+- A regular-enemy report passes, in order (`acceptEnemyDefeats`,
+  `spacetimedb/src/enemy-defeats.ts`):
+  1. **Simulation clock** (`report_enemy_defeats` only). The report says how
+     many milliseconds of game simulation the client ran since its previous
+     one. Per account, the server banks how far the simulation may run ahead
+     of its own clock (`SIM_CLOCK_BANK_SECONDS`, 300). An honest fixed-step
+     loop cannot run faster than real time, so its bank never drains: jitter,
+     a long idle and a backlog flushed after a dropped socket are all covered.
+     A hooked `performance.now`/`requestAnimationFrame` drains it, and from
+     then on each claim is scaled to the real-time share, which is what an
+     honest player at that pace earns. One `console.warn` and one
+     developer-only `moderation_action` line (`rewards_scaled`,
+     `simulation_clock_ahead`) per episode. A report of 0 ms (the client
+     cannot say) is not scaled.
+  2. **Spawn wall** — a token bucket per player, map and species that refills
+     at population / respawn (the player's own researched respawn and pinned
+     balance) and banks `DEFEAT_BUDGET_WINDOW_SECONDS` of it. A first sight of
+     a species gets only the arrival bank.
+  3. **Combat clock** — one clock per account (`COMBAT_TIME_BANK_SECONDS`)
+     that refills at real time. Each kill costs the longer of what this
+     player's own combat needs for it (`plausibleKillsPerSecond`: one
+     projectile kills one enemy, every hit a maximum critical, reach and
+     `PLAUSIBLE_KILL_TOLERANCE` on top, using the stats the report itself
+     grants) and the map's respawn over its whole population
+     (`mapEnemyPopulation`). The second closes map hopping: each map's spawn
+     buckets refill while the player is away, but they all spend one clock,
+     so rotating maps sustains one map's wall.
+  Boss clears are bounded by their own earned-time clock
+  (`boss-defeat-limits.ts`, spec in `boss-defeat-limits.test.ts`) and then
+  also spend their fight seconds from the combat clock, clamped at zero, so a
+  clear is never refused for it.
+- `record_enemy_defeats` / `record_auto_farm_enemy_defeats` are the same
+  handler without the simulation clock, kept only for tabs opened before
+  `report_enemy_defeats` shipped. Retire them in a later release. A client
+  that sends 0 ms or uses them is still held by the wall and the combat clock.
+- **Report throttle.** All four kill reducers first take one report from a
+  per-account bucket (`KILL_REPORT_BURST` 16, one more every
+  `KILL_REPORT_REFILL_SECONDS` 3). Past it they answer
+  `Enemy rewards are catching up.`; the client keeps the kills queued and
+  retries in 30 s. Honest cadence is one report per
+  `REGULAR_KILL_REPORT_SECONDS` (30) plus single drains for portals, bosses,
+  hidden tabs and the update screen, and a reconnect backlog is a handful of
+  sealed batches, so it never gets near it. It is a cost bound: every report
+  runs the whole reducer.
+- Position is not checked. A report lands up to a report window after its
+  first kill, so where the player stands when it arrives says nothing about
+  where the kills happened. The map check (`Enemy defeats belong to another
+  map`, which also admits the map the player left for Home) is the location
+  bound, and it runs before any of this. A duplicate sequence returns before
+  anything is charged.
 - **Only a report no real client could have sent restricts a session**: more
   than `ENEMY_DEFEAT_BATCH_MAX` kills in one batch, which the client's own
-  `REGULAR_ENEMY_LOOT_BATCH_MAX` seal makes impossible. Everything else is
-  bounded and written down. Restricting on any violation kicked honest players:
-  every automatic revocation on live was `boss requested 1, accepted 0`, mostly
-  at sequence 1 or 2 — the first report of a fresh stream, which is exactly what
-  a portal round-trip produces. Bosses are personal (client-side), so
-  travelling back to a map re-presents one the earned-time clock has not paid
-  for yet; the claim earning nothing is the enforcement, and taking the session
-  on top of it was the bug. The same applies to a map round-trip starting a
-  fresh stream against a bucket the last visit drained.
-- `enemy_defeat_review` keeps the last `DEFEAT_REVIEW_FLAGS_PER_PLAYER` rows
-  per player for a person to read. Nothing acts on it automatically. Both
-  bounds write there; `kind` says which one clipped (`spawn`, `damage`,
-  `boss-time`).
-- The boss combat-time window (`BOSS_REWARD_WINDOW_SECONDS`, 60) is a separate
-  mechanism with its own spec in `boss-defeat-limits.test.ts`. Boss kills are
-  reported the moment they happen, so a one-minute bank is honest there.
+  `REGULAR_ENEMY_LOOT_BATCH_MAX` seal makes impossible. Restricting on any
+  violation kicked honest players: every automatic revocation on live was
+  `boss requested 1, accepted 0`, mostly the first report of a fresh stream,
+  which is exactly what a portal round-trip produces.
+- `enemy_defeat_review` is retained for schema compatibility only; nothing
+  writes it. There is no review queue.
+- Cost: the combat bound reads progress, research, prestige, perks, the bow
+  roll, the slot levels and the inventory once per report
+  (`combatBoundForReport`), and the pinned balance is parsed once. A 6-species
+  report is about 44 database calls, an Endless report of 31 sites about 94.
 
 ## Schema change invariants
 

@@ -7,7 +7,8 @@ import { eraseIdentityRows } from "./account-erasure";
 import { bowSkillKey } from "./bow-skills";
 import { combatTimeKey, PLAUSIBLE_KILL_TOLERANCE } from "./enemy-defeats";
 import { bowSkillChanceRangeTenths, bowSkillReachMultiplier } from "../../shared/bow-skills";
-import { ATTACK_BALANCE_VERSION, SPACETIME_AUTH_CLIENT_ID, SPACETIME_AUTH_ISSUER } from "../../shared/rules";
+import { ATTACK_BALANCE_VERSION, REGULAR_ENEMY_RESPAWN_SECONDS, SPACETIME_AUTH_CLIENT_ID, SPACETIME_AUTH_ISSUER } from "../../shared/rules";
+import { mapEnemyPopulation } from "../../shared/enemy-defeats";
 import { STARTER_BOW } from "../../shared/items";
 import { TERMS_VERSION } from "../../shared/legal";
 import { DUEL_COMBAT_VERSION } from "../../shared/duel-combat";
@@ -140,7 +141,13 @@ it("pays an honest top-rolled bow its full claim where the skill-free bound woul
 it("still bounds a script that claims more than even a top-rolled bow could land", () => {
   const f = oneShotter(TOP);
   reportEnemy(f, ENEMY, 100);
-  expect(kills(f)).toBe(Math.floor(10 * bowSkillReachMultiplier(TOP) * PLAUSIBLE_KILL_TOLERANCE));
+  // Whichever binds first: what the bow could land in ten seconds, or what the
+  // map could put back in front of anyone (its whole population once per
+  // respawn). On this thirty-enemy map the second is lower than a top roll.
+  const bow = Math.floor(10 * bowSkillReachMultiplier(TOP) * PLAUSIBLE_KILL_TOLERANCE);
+  const wall = Math.floor(10 * mapEnemyPopulation("crystal_hollows") / REGULAR_ENEMY_RESPAWN_SECONDS + 1e-6);
+  expect(wall).toBeLessThan(bow);
+  expect(kills(f)).toBe(Math.min(bow, wall));
   expect(kills(f)).toBeLessThan(100);
   expect(f.db.defeatSessionRestriction.identity.find(f.ctx.sender)).toBeNull();
 });

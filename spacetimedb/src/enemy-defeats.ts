@@ -1,10 +1,11 @@
 import { pinnedMapBalance } from "./map-balance";
 import { personalBossDefinition } from "../../shared/personal-bosses";
 import { Range, SenderError, table, t } from "spacetimedb/server";
-import { defeatBudget, defeatMinRespawnSeconds, enemyDefeatDefinition, DEFEAT_BUDGET_WINDOW_SECONDS, ENEMY_DEFEAT_BATCH_MAX, type EnemyDefeat } from "../../shared/enemy-defeats";
+import { defeatBudget, defeatMinRespawnSeconds, enemyDefeatDefinition, mapEnemyPopulation, DEFEAT_BUDGET_WINDOW_SECONDS, ENEMY_DEFEAT_BATCH_MAX, SIM_CLOCK_BANK_SECONDS, type EnemyDefeat } from "../../shared/enemy-defeats";
 import { bossDefeatLimits, BOSS_REWARD_WINDOW_SECONDS } from "./boss-defeat-limits";
 import { bossRespawnSecondsWithResearch, enemyRespawnSecondsWithResearch } from "../../shared/utility-research";
-import { REGULAR_ENEMY_RESPAWN_SECONDS } from "../../shared/rules";
+import { KILL_REPORT_BURST, KILL_REPORT_REFILL_SECONDS, REGULAR_ENEMY_RESPAWN_SECONDS } from "../../shared/rules";
+import { recordModerationAction } from "./moderation-history";
 import type { GameReducerContext } from "./index";
 
 type BossRewardContext = Pick<GameReducerContext, "db" | "sender" | "timestamp">;
@@ -19,7 +20,8 @@ export const enemyDefeatBudget = table({ name: "enemy_defeat_budget" }, {
  * Endless level is its own map), so the table grew without end. Dropping one
  * is never looser: a missing spawn bucket starts at the arrival bank, below a
  * full one; the combat clock is full after 15 idle minutes either way; a boss
- * clock restarts at one reward window.
+ * clock restarts at one reward window; the simulation clock and the report
+ * limiter are full after five minutes and a minute idle, and start full.
  */
 export const DEFEAT_BUDGET_IDLE_MICROS = 6n * 3_600_000_000n;
 /** Rows dropped per sweep at most, so one sweep stays cheap however far behind it is. */
@@ -53,8 +55,9 @@ export const combatTimeKey = (identity: { toHexString(): string }) => `${identit
 
 // Retained for non-destructive schema compatibility. Nothing writes here any
 // more: a clipped claim is simply paid what it earned, which needs no queue and
-// no person. Payouts are bounded by the respawn ceiling and the damage budget,
-// and neither ever costs anyone their session.
+// no person. Payouts are bounded by the respawn ceiling, the combat clock and
+// the simulation clock (see acceptEnemyDefeats), and none of them ever costs
+// anyone their session.
 export const enemyDefeatReview = table(
   { name: "enemy_defeat_review", public: false, indexes: [{ accessor: "byIdentity", algorithm: "btree", columns: ["identity"] as const }] },
   {
@@ -105,13 +108,137 @@ export function permittedDefeatMaps(ctx: BossRewardContext, player: { mapId: str
   const left = ctx.db.homeReturnLocation.identity.find(ctx.sender)?.mapId;
   return left && left !== homeMapId ? [player.mapId, left] : [player.mapId];
 }
-/** O(distinct species), independent of account count; one receipt per batch. */
-export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: string; sequence: bigint; mapId: string; enemies: EnemyDefeat[] }, activeMapIds: string | readonly string[],
+/** How far this account's game simulation may still run ahead of real time. */
+export const simulationClockKey = (identity: { toHexString(): string }) => `${identity.toHexString()}:sim-clock-v1`;
+/** The account's kill-report limiter; see KILL_REPORT_BURST. */
+export const reportRateKey = (identity: { toHexString(): string }) => `${identity.toHexString()}:report-rate-v1`;
+
+/**
+ * The first thing every kill reducer does, before any other read: one report
+ * from a bucket of KILL_REPORT_BURST that refills one every
+ * KILL_REPORT_REFILL_SECONDS. Every report runs the whole kill reducer
+ * whatever it pays, and nothing else stopped a script sending them as fast as
+ * the socket allowed.
+ *
+ * An honest client never gets near it. It reports every 30 seconds, plus a
+ * drain before a portal, a boss reward, a hidden tab and an update screen,
+ * each a single report. The acknowledgement chain in clients up to 0.826
+ * sends a few more per 30 seconds at high ping, never one every three seconds
+ * for long. After a dropped socket the backlog goes out back to back, but a
+ * tab keeps adding to its unsent batch until it holds a hundred kills, so
+ * even five minutes offline is a handful of reports, and orphaned tabs add a
+ * few more. Sixteen covers all of that at once, and a minute later it is full
+ * again. If it ever were reached, the kills stay queued in the tab and are
+ * paid thirty seconds later: nothing is refused, only delayed.
+ *
+ * A reducer that throws rolls this write back with everything else, so only a
+ * report the server actually processed spends from the bucket.
+ */
+export function throttleKillReports(ctx: BossRewardContext) {
+  const key = reportRateKey(ctx.sender);
+  const previous = ctx.db.enemyDefeatBudget.key.find(key);
+  const now = ctx.timestamp.microsSinceUnixEpoch;
+  const tokens = previous
+    ? Math.min(KILL_REPORT_BURST, previous.tokens + Math.max(0, Number(now - previous.updatedAtMicros) / 1e6) / KILL_REPORT_REFILL_SECONDS)
+    : KILL_REPORT_BURST;
+  if (tokens < 1 - 1e-9) throw new SenderError("Enemy rewards are catching up.");
+  const next = { key, identity: ctx.sender, tokens: Math.max(0, tokens - 1), updatedAtMicros: now };
+  if (previous) ctx.db.enemyDefeatBudget.key.update(next); else ctx.db.enemyDefeatBudget.insert(next);
+}
+
+/**
+ * The arithmetic of the simulation clock, on its own so it can be tested.
+ *
+ * The client says how many milliseconds of game simulation it ran since it
+ * sealed its previous report. The server already knows how much real time
+ * passed since that report arrived. An honest client cannot simulate faster
+ * than real time: its fixed 60 Hz steps are capped at eight a frame in the
+ * foreground and one second per wake in the background. So claimed never
+ * exceeds real elapsed plus network jitter, and the bank covers the jitter
+ * and a backlog delivered late after a dropped socket (the socket being down
+ * is real time too). The bank is capped after this report's time is added
+ * and its claim taken off, so a report after a long idle (600 seconds real,
+ * 600 simulated) leaves a full bank rather than an empty one.
+ *
+ * A client whose clock runs fast (a hooked performance.now or
+ * requestAnimationFrame) simulates more seconds than the server sees pass.
+ * The bank drains, and from then on its kills are scaled to the real-time
+ * share, which is what an honest player at the same pace earns. Nothing is
+ * refused or restricted; the report is consumed either way.
+ *
+ * `previous` is the account's clock row; missing means a full bank. A claim
+ * of zero means the client could not say, and is never scaled.
+ */
+export function simulationClock(previous: { tokens: number; updatedAtMicros: bigint } | null | undefined, nowMicros: bigint, simulatedMillis: number) {
+  const realSeconds = previous ? Math.max(0, Number(nowMicros - previous.updatedAtMicros) / 1e6) : 0;
+  const before = previous ? previous.tokens : SIM_CLOCK_BANK_SECONDS;
+  const credit = before + realSeconds;
+  const claimed = Math.max(0, simulatedMillis) / 1000;
+  const scale = claimed > credit ? credit / claimed : 1;
+  return { before, credit, claimed, scale, tokens: Math.min(SIM_CLOCK_BANK_SECONDS, Math.max(0, credit - claimed)) };
+}
+/** A claimed count after the simulation clock's scale; exactly the count when unscaled. */
+export function scaledDefeatCount(count: number, scale: number) {
+  return scale === 1 ? count : Math.max(0, Math.floor(count * scale + 1e-9));
+}
+
+/** Reads and advances the account's simulation clock for one report. Returns the payout scale. */
+function chargeSimulationClock(ctx: BossRewardContext, mapId: string, simulatedMillis: number) {
+  const key = simulationClockKey(ctx.sender);
+  const previous = ctx.db.enemyDefeatBudget.key.find(key);
+  const now = ctx.timestamp.microsSinceUnixEpoch;
+  const clock = simulationClock(previous, now, simulatedMillis);
+  const next = { key, identity: ctx.sender, tokens: clock.tokens, updatedAtMicros: now };
+  if (previous) ctx.db.enemyDefeatBudget.key.update(next); else ctx.db.enemyDefeatBudget.insert(next);
+  // Once per episode: the report that empties a bank that still had time in
+  // it. Reports while it stays empty are the same episode and stay quiet.
+  if (clock.scale < 1 && clock.before > 0) {
+    const displayName = ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "";
+    const ratio = clock.claimed / Math.max(1e-9, clock.credit);
+    const detail = { identity: ctx.sender.toHexString(), displayName, mapId,
+      claimed: Number(clock.claimed.toFixed(3)), credit: Number(clock.credit.toFixed(3)), ratio: Number(ratio.toFixed(3)) };
+    console.warn("Enemy rewards scaled: simulation ahead of server time", JSON.stringify(detail));
+    // An audit line for a developer reading the moderation log. The log is
+    // developer-only: it restricts nothing and the player never sees it.
+    recordModerationAction(ctx as any, { targetIdentity: detail.identity, targetName: displayName, channel: "account",
+      action: "rewards_scaled", actorType: "automatic", rule: "simulation_clock_ahead",
+      reason: `Simulated ${detail.claimed}s against ${detail.credit}s of server time on ${mapId} (${detail.ratio}x); kill rewards scaled to the real-time share.`,
+      before: "", after: "" });
+  }
+  return clock.scale;
+}
+
+export type EnemyDefeatBatch = { streamId: string; sequence: bigint; mapId: string; enemies: EnemyDefeat[];
+  /** Milliseconds the client simulated since its previous report; absent on the legacy reducers, which skip the check. */
+  simulatedMillis?: number | null };
+
+/**
+ * O(distinct species), independent of account count; one receipt per batch.
+ *
+ * What a report is paid, in order:
+ *  1. The simulation clock (new reducers only) scales each claim back to what
+ *     real time allowed, when the client ran ahead of it.
+ *  2. The spawn wall: nobody kills a species on a map faster than it respawns.
+ *  3. The account's combat clock: one clock across every map and species that
+ *     each kill spends from. A kill costs whichever is longer, the time this
+ *     player's own combat needs for it or the map's respawn divided by its
+ *     whole population (the fastest a player standing at every camp at once
+ *     could see enemies come back). The second closes map hopping: each map's
+ *     spawn bucket refills while the player is away, but they all draw on one
+ *     clock that refills at real time, so rotating maps sustains one map's
+ *     wall and no more.
+ *  4. Boss clears have their own earned-time clock, and also spend their fight
+ *     seconds from the combat clock, without ever being refused for it.
+ */
+export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBatch, activeMapIds: string | readonly string[],
   bossCombat: (earned: { type: string; amount: number; count: number }[]) => { dps: number; attackInterval: number; projectiles?: number; reach?: number; bossDps?: number }) {
   if (!/^[a-zA-Z0-9-]{16,80}$/.test(batch.streamId) || batch.sequence < 1n || !batch.enemies.length)
     throw new SenderError("Invalid enemy defeat batch.");
   const key = `${ctx.sender.toHexString()}:${batch.streamId}`;
   const prior = ctx.db.regularEnemyLootCursor.key.find(key);
+  // A report already consumed is a retry of one whose acknowledgement was
+  // lost. Return before anything is charged: it must not spend the simulation
+  // clock (or anything else) a second time.
   if (batch.sequence <= (prior?.sequence ?? 0n)) return null;
   if (!(typeof activeMapIds === "string" ? [activeMapIds] : activeMapIds).includes(batch.mapId)) throw new SenderError("Enemy defeats belong to another map.");
   if (batch.sequence !== (prior?.sequence ?? 0n) + 1n) throw new SenderError("Enemy defeat batches must arrive in order.");
@@ -120,10 +247,19 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: st
     && total > ENEMY_DEFEAT_BATCH_MAX) {
     const receipt = { key, identity: ctx.sender, sequence: batch.sequence };
     if (prior) ctx.db.regularEnemyLootCursor.key.update(receipt); else ctx.db.regularEnemyLootCursor.insert(receipt);
-    return { rewards: [], count: 0, lootCount: 0, restrict: true, violations: [{ enemy: "batch", requested: total, accepted: 0 }] };
+    return { rewards: [], count: 0, lootCount: 0, restrict: true, violations: [{ enemy: "batch", requested: total, accepted: 0 }], balance: null };
   }
+  // Scale first, then the bounds below, so the spawn wall and combat clock see
+  // only what real time allowed and are not drained by the excess.
+  const scale = batch.simulatedMillis == null ? 1 : chargeSimulationClock(ctx, batch.mapId, batch.simulatedMillis);
   const balance = pinnedMapBalance(ctx, ctx.sender, batch.mapId);
   const utility = ctx.db.playerResearch.identity.find(ctx.sender);
+  const regularRespawn = enemyRespawnSecondsWithResearch(balance?.regularRespawnSeconds ?? REGULAR_ENEMY_RESPAWN_SECONDS, utility?.enemyRespawn ?? 0);
+  const mapPopulation = mapEnemyPopulation(batch.mapId);
+  // The least combat time one kill on this map can cost: the whole map comes
+  // back once per respawn, so no player can sustain more than population /
+  // respawn kills a second on it, however strong. See 3. above.
+  const wallSecondsPerKill = mapPopulation > 0 ? defeatMinRespawnSeconds(regularRespawn) / mapPopulation : 0;
   const seen = new Set<string>();
   let count = 0, lootCount = 0, submittedCount = 0;
   const now = ctx.timestamp.microsSinceUnixEpoch;
@@ -148,15 +284,18 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: st
     if (!definition || seen.has(entry.enemy) || !Number.isInteger(entry.count) || entry.count < 1 || (submittedCount += entry.count) > ENEMY_DEFEAT_BATCH_MAX)
       throw new SenderError("Invalid enemy for this map.");
     seen.add(entry.enemy);
+    // Validation above is on the count the client sent; everything below
+    // works from what the simulation clock left of it.
+    const claimed = scaledDefeatCount(entry.count, scale);
+    if (!claimed) { violations.push({ enemy: entry.enemy, requested: entry.count, accepted: 0 }); continue; }
     const bossDefinition = entry.enemy === "boss" ? balance?.boss ?? personalBossDefinition(batch.mapId) : null;
     const boss = bossDefinition && { ...bossDefinition, respawnSeconds: bossRespawnSecondsWithResearch(bossDefinition.respawnSeconds, utility?.bossRespawn ?? 0) };
-    const regularRespawn = enemyRespawnSecondsWithResearch(balance?.regularRespawnSeconds ?? REGULAR_ENEMY_RESPAWN_SECONDS, utility?.enemyRespawn ?? 0);
     const budget = boss ? { capacity: 1 + Math.ceil(300 / boss.respawnSeconds), perSecond: 1 / boss.respawnSeconds } : defeatBudget(definition.population, defeatMinRespawnSeconds(regularRespawn));
     const budgetKey = `${ctx.sender.toHexString()}:${batch.mapId}:${entry.enemy}`;
     const previous = ctx.db.enemyDefeatBudget.key.find(budgetKey);
     const elapsed = previous ? Math.max(0, Number(now - previous.updatedAtMicros) / 1e6) : 0;
     const tokens = previous ? Math.min(budget.capacity, previous.tokens + elapsed * budget.perSecond) : ((budget as { initial?: number }).initial ?? budget.capacity);
-    let acceptedCount = entry.count;
+    let acceptedCount = claimed;
     if (boss) {
       const combat = bossCombat(rewards);
       // A boss is one target, so reach adds nothing here; Arrow Storm's extra
@@ -172,7 +311,7 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: st
       // The earned-time budget already enforces HP / server DPS + respawn.
       // Receipt timestamps are not kill timestamps: counting them again in a
       // rolling per-map window rejects valid boundary kills and delayed saves.
-      acceptedCount = limits ? Math.max(0, Math.min(entry.count, Math.floor(tokens + 1e-6),
+      acceptedCount = limits ? Math.max(0, Math.min(claimed, Math.floor(tokens + 1e-6),
         Math.floor(credit / limits.cycleSeconds + 1e-9))) : 0;
       const nextClock = { key: timeKey, identity: ctx.sender,
         tokens: Math.max(0, credit - acceptedCount * (limits?.cycleSeconds ?? 0)), updatedAtMicros: now };
@@ -181,20 +320,26 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: st
       // sealed report blocking saves, portals, or the valid kills behind it.
       if (acceptedCount < entry.count) violations.push({ enemy: entry.enemy, requested: entry.count, accepted: acceptedCount });
       if (!acceptedCount) continue;
+      // The fight itself was combat time the player could not spend on
+      // regular enemies, so it comes off the shared clock too. Only after
+      // acceptance, and never below zero: the boss's own clock above is what
+      // bounds clears, and a first clear must not wait on this one.
+      combatSeconds = Math.max(0, combatSeconds - acceptedCount * Math.max(0, limits!.cycleSeconds - boss.respawnSeconds));
+      clockSpent = true;
     } else {
       // A sealed batch must be consumable even when it exceeds the maximum
       // bucket (one Endless spawn holds 91 kills; a report can contain 100).
       // Award only the server-earned allowance, then acknowledge the report so
       // it cannot permanently block saving or travel. Retrying a new stream
       // cannot restore the spent allowance.
-      acceptedCount = Math.max(0, Math.min(entry.count, Math.floor(tokens + 1e-6)));
+      acceptedCount = Math.max(0, Math.min(claimed, Math.floor(tokens + 1e-6)));
       if (acceptedCount < entry.count) violations.push({ enemy: entry.enemy, requested: entry.count, accepted: acceptedCount });
-      // The spawn wall above is what a script hits when it asks for more than
-      // the map could ever produce, and it still restricts. This second bucket
-      // asks a quieter question: could this player's own combat have produced
-      // these kills? It refills at the player's plausible rate, so a backlog
+      // The spawn wall above bounds one species on one map. This second bound
+      // is the account's combat clock: could this player's own combat have
+      // produced these kills, and could any player have seen this many
+      // enemies come back in the time? It refills at real time, so a backlog
       // flushed after a dropped socket is honoured, and it never restricts:
-      // the payout is bounded and the overage is written down for a person.
+      // the payout is bounded and that is all.
       // Kill rewards raise damage and attack speed as they land, and the
       // client fought the whole report with those gains while the saved row
       // still shows the stats from before it. Estimate with the stats this
@@ -204,9 +349,10 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: st
       const combat = bossCombat([...rewards, { ...definition.reward, count: acceptedCount }]);
       const plausibleRate = plausibleKillsPerSecond(definition.hp, combat.dps, combat.attackInterval, combat.projectiles ?? 1)
         * (combat.reach ?? 1) * PLAUSIBLE_KILL_TOLERANCE;
-      const plausible = plausibleRate > 0 ? Math.max(0, Math.floor(combatSeconds * plausibleRate + 1e-6)) : 0;
+      const costPerKill = plausibleRate > 0 ? Math.max(1 / plausibleRate, wallSecondsPerKill) : Infinity;
+      const plausible = Number.isFinite(costPerKill) ? Math.max(0, Math.floor(combatSeconds / costPerKill + 1e-6)) : 0;
       if (acceptedCount > plausible) acceptedCount = plausible;
-      if (acceptedCount) combatSeconds = Math.max(0, combatSeconds - acceptedCount / plausibleRate);
+      if (acceptedCount) combatSeconds = Math.max(0, combatSeconds - acceptedCount * costPerKill);
       clockSpent = true;
       if (!acceptedCount) continue;
     }
@@ -222,10 +368,11 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: { streamId: st
   }
   const receipt = { key, identity: ctx.sender, sequence: batch.sequence };
   if (prior) ctx.db.regularEnemyLootCursor.key.update(receipt); else ctx.db.regularEnemyLootCursor.insert(receipt);
-  // A clipped claim is bounded and written down, never a session action: the
-  // spawn wall clips an honest client too (a portal round-trip re-presents a
-  // personal boss the earned-time clock has not paid for yet, and a map change
-  // starts a fresh stream against a bucket the last visit drained). Only a
-  // report larger than any real client can send still restricts, above.
-  return { rewards, count, lootCount, restrict: false, violations };
+  // A clipped claim is bounded, never a session action: the spawn wall clips
+  // an honest client too (a portal round-trip re-presents a personal boss the
+  // earned-time clock has not paid for yet, and a map change starts a fresh
+  // stream against a bucket the last visit drained). Only a report larger than
+  // any real client can send still restricts, above. The pinned balance goes
+  // back to the caller so the rewards need not read and parse it again.
+  return { rewards, count, lootCount, restrict: false, violations, balance };
 }
