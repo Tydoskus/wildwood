@@ -1,4 +1,5 @@
 import { pinnedMapBalance } from "./map-balance";
+import { isProceduralMap } from "../../shared/procedural-maps";
 import { personalBossDefinition } from "../../shared/personal-bosses";
 import { Range, SenderError, table, t } from "spacetimedb/server";
 import { defeatBudget, defeatMinRespawnSeconds, enemyDefeatDefinition, mapEnemyPopulation, DEFEAT_BUDGET_WINDOW_SECONDS, ENEMY_DEFEAT_BATCH_MAX, SIM_CLOCK_BANK_SECONDS, type EnemyDefeat } from "../../shared/enemy-defeats";
@@ -116,39 +117,65 @@ export const reportRateKey = (identity: { toHexString(): string }) => `${identit
 export const killRateKey = (identity: { toHexString(): string }) => `${identity.toHexString()}:kill-rate-v1`;
 
 /**
- * Paid kills per second of real time that no honest account has sustained.
+ * The watch's line: paid kills per second that honest play cannot sustain.
  * Every kill-gem payout from 2026-09-20 to 09-27 put each account's best
- * fifteen minutes at or under 1.65/s, and 2.0/s for ten minutes at most, on a
- * two-camp shuttle. A client edited to claim honest-looking game time is still
- * paid up to the spawn wall: 3/s on most maps, 4.3/s on Tutorial Forest.
+ * fifteen minutes at or under 1.65/s (auto-farm on one 13-site Endless camp,
+ * 13 / 7.5 s = 1.73/s at most), and 2.0/s for ten minutes at most, on a
+ * two-camp shuttle. The line scales with the map's respawn, so a faster
+ * respawn (research, or a balance change) moves it too: an Endless damage
+ * camp and its nearest six-site camp hold 19 sites, 2.53/s at a 7.5 s
+ * respawn, so Endless takes 20 sites' worth per respawn; campaign maps' best
+ * pair is far smaller, and 16.5 keeps them at 2.2/s at 7.5 s. Never below
+ * KILL_RATE_WATCH_PER_SECOND. A client edited to claim honest-looking game
+ * time is still paid up to the spawn wall (3-4/s, 4.3-5.7/s on Tutorial
+ * Forest), well above it.
  */
 export const KILL_RATE_WATCH_PER_SECOND = 2.2;
-/** Paid kills above that rate before an account is written down: fifteen minutes at 3/s. */
+export const KILL_RATE_WATCH_SITES = { endless: 20, campaign: 16.5 };
+export function killRateWatchLine(mapId: string, respawnSeconds: number) {
+  const sites = isProceduralMap(mapId) ? KILL_RATE_WATCH_SITES.endless : KILL_RATE_WATCH_SITES.campaign;
+  return Math.max(KILL_RATE_WATCH_PER_SECOND, Number.isFinite(respawnSeconds) && respawnSeconds > 0 ? sites / respawnSeconds : 0);
+}
+/** Paid kills above the line before an account is written down: fifteen minutes at 3/s against 2.2. */
 export const KILL_RATE_WATCH_EXCESS = 720;
+/**
+ * How far below zero the bucket may go: time that passed with fewer kills
+ * than the line allows, kept as credit for a backlog behind it. Ten minutes,
+ * the backlog the simulation clock pays. A legacy client (no game time in its
+ * reports) flushing a stall sends the first report with the whole stall as
+ * elapsed time and the rest a moment apart; without this the stall's drain
+ * was thrown away on the first and the rest landed undrained.
+ */
+export const KILL_RATE_WATCH_CREDIT_SECONDS = SIM_CLOCK_BANK_SECONDS;
+/** Added to the stored level while an episode lasts. */
+const KILL_RATE_WATCH_FLAGGED = 1e9;
+/** Whether a stored watch value is mid-episode. */
+export const killRateWatchFlagged = (tokens: number) => tokens >= KILL_RATE_WATCH_FLAGGED / 2;
 
 /**
  * The watch's arithmetic, on its own so it can be tested: a bucket that paid
- * kills fill and the time they were earned in drains at
- * KILL_RATE_WATCH_PER_SECOND. It passes KILL_RATE_WATCH_EXCESS only after
- * kills have outrun that rate for a long stretch. The time a report's kills
- * were earned in is the longer of the real time since the account's last
- * report and the game time the simulation clock accepted for it: batches
- * sealed together after an outage arrive a moment apart, each carrying its
- * share of the outage. Kills are added and drained over the same interval,
- * and offline progress never passes through here. An episode starts when the
- * level crosses the line and lasts until it falls under half of it; while it
- * lasts the level is stored as -(level + 1).
+ * kills fill and the time they were earned in drains at `perSecond`. It
+ * passes KILL_RATE_WATCH_EXCESS only after kills have outrun the line for a
+ * long stretch. The time a report's kills were earned in is the longer of
+ * the real time since the account's last report and the game time the
+ * simulation clock accepted for it: batches sealed together after an outage
+ * arrive a moment apart, each carrying its share of the outage. Kills are
+ * added and drained over the same interval, and offline progress never
+ * passes through here. An episode starts when the level crosses the excess
+ * and lasts until it falls under half of it; while it lasts the stored value
+ * carries KILL_RATE_WATCH_FLAGGED on top of the level.
  */
-export function killRateWatch(previous: { tokens: number; updatedAtMicros: bigint } | null | undefined, nowMicros: bigint, paidKills: number, creditedSeconds = 0) {
+export function killRateWatch(previous: { tokens: number; updatedAtMicros: bigint } | null | undefined, nowMicros: bigint, paidKills: number,
+  creditedSeconds = 0, perSecond = KILL_RATE_WATCH_PER_SECOND) {
   const stored = previous?.tokens ?? 0;
-  const flagged = stored < 0;
-  const before = flagged ? -stored - 1 : stored;
+  const flagged = killRateWatchFlagged(stored);
+  const before = flagged ? stored - KILL_RATE_WATCH_FLAGGED : stored;
   const elapsed = previous ? Math.max(0, Number(nowMicros - previous.updatedAtMicros) / 1e6) : 0;
   const earnedOver = Math.max(elapsed, Number.isFinite(creditedSeconds) ? creditedSeconds : 0);
-  const level = Math.max(0, before + Math.max(0, paidKills) - earnedOver * KILL_RATE_WATCH_PER_SECOND);
+  const level = Math.max(-perSecond * KILL_RATE_WATCH_CREDIT_SECONDS, before + Math.max(0, paidKills) - earnedOver * perSecond);
   const episodeStarted = !flagged && level >= KILL_RATE_WATCH_EXCESS;
   const stillFlagged = (flagged || episodeStarted) && level >= KILL_RATE_WATCH_EXCESS / 2;
-  return { level, episodeStarted, tokens: stillFlagged ? -level - 1 : level };
+  return { level, episodeStarted, tokens: stillFlagged ? level + KILL_RATE_WATCH_FLAGGED : level };
 }
 
 /**
@@ -158,22 +185,23 @@ export function killRateWatch(previous: { tokens: number; updatedAtMicros: bigin
  * catches what the simulation clock cannot, a client edited to report
  * honest-looking game time, which the spawn wall still pays.
  */
-function watchKillRate(ctx: BossRewardContext, mapId: string, paidKills: number, creditedSeconds: number | null) {
+function watchKillRate(ctx: BossRewardContext, mapId: string, respawnSeconds: number, paidKills: number, creditedSeconds: number | null) {
   const legacy = creditedSeconds === null;
   const key = killRateKey(ctx.sender);
   const previous = ctx.db.enemyDefeatBudget.key.find(key);
   const now = ctx.timestamp.microsSinceUnixEpoch;
-  const watch = killRateWatch(previous, now, paidKills, creditedSeconds ?? 0);
+  const line = killRateWatchLine(mapId, respawnSeconds);
+  const watch = killRateWatch(previous, now, paidKills, creditedSeconds ?? 0, line);
   const next = { key, identity: ctx.sender, tokens: watch.tokens, updatedAtMicros: now };
   if (previous) ctx.db.enemyDefeatBudget.key.update(next); else ctx.db.enemyDefeatBudget.insert(next);
   if (!watch.episodeStarted) return;
   const displayName = ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "";
   const detail = { identity: ctx.sender.toHexString(), displayName, mapId, excessKills: Math.round(watch.level),
-    abovePerSecond: KILL_RATE_WATCH_PER_SECOND, legacy };
+    abovePerSecond: Number(line.toFixed(2)), legacy };
   console.warn("Kill rate above honest play", JSON.stringify(detail));
   recordModerationAction(ctx as any, { targetIdentity: detail.identity, targetName: displayName, channel: "account",
     action: "kill_rate_flag", actorType: "automatic", rule: "sustained_kill_rate",
-    reason: `Paid kills stayed above ${KILL_RATE_WATCH_PER_SECOND}/s long enough to bank ${detail.excessKills} over it on ${mapId}${legacy ? " (legacy client)" : ""}. Nothing was clipped; review with npm run audit:kill-rates.`,
+    reason: `Paid kills stayed above ${detail.abovePerSecond}/s long enough to bank ${detail.excessKills} over it on ${mapId}${legacy ? " (legacy client)" : ""}. Nothing was clipped; review with npm run audit:kill-rates.`,
     before: "", after: "" });
 }
 
@@ -491,7 +519,7 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
   }
   const receipt = { key, identity: ctx.sender, sequence: batch.sequence };
   if (prior) ctx.db.regularEnemyLootCursor.key.update(receipt); else ctx.db.regularEnemyLootCursor.insert(receipt);
-  if (count > 0) watchKillRate(ctx, batch.mapId, count, simulation ? simulation.creditedSeconds : null);
+  if (count > 0) watchKillRate(ctx, batch.mapId, defeatMinRespawnSeconds(regularRespawn), count, simulation ? simulation.creditedSeconds : null);
   // A clipped claim is bounded, never a session action: the spawn wall clips
   // an honest client too (a portal round-trip re-presents a personal boss the
   // earned-time clock has not paid for yet, and a map change starts a fresh

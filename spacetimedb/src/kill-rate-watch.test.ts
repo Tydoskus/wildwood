@@ -1,15 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
-import { killRateWatch, KILL_RATE_WATCH_PER_SECOND } from "./enemy-defeats";
+import { killRateWatch, killRateWatchFlagged, killRateWatchLine, KILL_RATE_WATCH_PER_SECOND } from "./enemy-defeats";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 const at = (seconds: number) => BigInt(Math.round(seconds * 1e6));
 
 /** Reports every `every` seconds paying `rate` kills a second; returns when each episode began. */
-function run(rate: number, seconds: number, every = 30, start: { tokens: number; updatedAtMicros: bigint } | null = null, from = 0) {
+function run(rate: number, seconds: number, every = 30, start: { tokens: number; updatedAtMicros: bigint } | null = null, from = 0, line = KILL_RATE_WATCH_PER_SECOND) {
   let row = start;
   const episodes: number[] = [];
   for (let t = from + every; t <= from + seconds; t += every) {
-    const watch = killRateWatch(row, at(t), rate * every, every);
+    const watch = killRateWatch(row, at(t), rate * every, every, line);
     if (watch.episodeStarted) episodes.push(t);
     row = { tokens: watch.tokens, updatedAtMicros: at(t) };
   }
@@ -45,16 +45,17 @@ describe("kill-rate watch", () => {
       expect(next.episodeStarted).toBe(false);
       batched = { tokens: next.tokens, updatedAtMicros: at(1_200 + i / 10) };
     }
-    expect(batched.tokens).toBe(0);
+    // Nothing over the line, and the outage's unused time is still credit.
+    expect(batched.tokens).toBeLessThanOrEqual(0);
   });
 
   it("ends an episode once the rate falls back, so a relapse is written down again", () => {
     const first = run(3, 1800);
     expect(first.episodes).toHaveLength(1);
-    expect(first.row.tokens).toBeLessThan(0);
+    expect(killRateWatchFlagged(first.row.tokens)).toBe(true);
     const calm = run(1, 1800, 30, first.row, 1800);
     expect(calm.episodes).toEqual([]);
-    expect(calm.row.tokens).toBeGreaterThanOrEqual(0);
+    expect(killRateWatchFlagged(calm.row.tokens)).toBe(false);
     expect(run(3, 1800, 30, calm.row, 3600).episodes).toHaveLength(1);
   });
 
@@ -62,7 +63,7 @@ describe("kill-rate watch", () => {
     const { row } = run(3, 1200);
     const burst = killRateWatch(row, at(1_230), 500);
     expect(burst.episodeStarted).toBe(false);
-    expect(burst.tokens).toBeLessThan(0);
+    expect(killRateWatchFlagged(burst.tokens)).toBe(true);
   });
 });
 
@@ -76,4 +77,45 @@ it("writes down a client that claims no game time as soon as its paid kills pass
   }
   expect(flaggedAt).toBeGreaterThan(0);
   expect(flaggedAt).toBeLessThan(60);
+});
+
+describe("kill-rate watch line", () => {
+  it("follows the map's respawn, and never drops below 2.2/s", () => {
+    expect(killRateWatchLine("crystal_hollows", 10)).toBe(KILL_RATE_WATCH_PER_SECOND);
+    expect(killRateWatchLine("crystal_hollows", 7.5)).toBeCloseTo(2.2, 9);
+    expect(killRateWatchLine("endless_4", 10)).toBe(KILL_RATE_WATCH_PER_SECOND);
+    expect(killRateWatchLine("endless_4", 7.5)).toBeCloseTo(20 / 7.5, 9);
+    // A balance change to a 5 s respawn moves the line with it.
+    expect(killRateWatchLine("endless_4", 5)).toBeCloseTo(4, 9);
+  });
+
+  it("leaves the best honest Endless shuttle alone: damage camp and its nearest six, 19 sites at 7.5 s", () => {
+    const line = killRateWatchLine("endless_203", 7.5);
+    for (const rate of [2.3, 2.5, 19 / 7.5]) expect(run(rate, 4 * 3600, 30, null, 0, line).episodes).toEqual([]);
+  });
+
+  it("leaves auto-farm alone when a balance change shortens the Endless respawn to 5 s", () => {
+    expect(run(13 / 5.47, 4 * 3600, 30, null, 0, killRateWatchLine("endless_4", 5)).episodes).toEqual([]);
+  });
+
+  it("still writes down a client paid the researched Endless wall within ten minutes", () => {
+    const { episodes } = run(31 / 7.5, 3600, 30, null, 0, killRateWatchLine("endless_4", 7.5));
+    expect(episodes).toHaveLength(1);
+    expect(episodes[0]).toBeLessThanOrEqual(600);
+  });
+
+  it("keeps a stall's time for the backlog a legacy client sends behind it", () => {
+    // 0.826 sends no game time. Two kills a second, a twelve-minute stall with
+    // play going on, then the backlog as a report carrying the stall and
+    // fourteen more a tenth of a second apart.
+    let { row } = run(2, 1800);
+    const first = killRateWatch(row, at(1800 + 720), 100, 0);
+    row = { tokens: first.tokens, updatedAtMicros: at(1800 + 720) };
+    for (let i = 1; i < 15; i++) {
+      const next = killRateWatch(row, at(1800 + 720 + i / 10), 100, 0);
+      expect(next.episodeStarted).toBe(false);
+      row = { tokens: next.tokens, updatedAtMicros: at(1800 + 720 + i / 10) };
+    }
+    expect(run(2, 3600, 30, row, 2520).episodes).toEqual([]);
+  });
 });
