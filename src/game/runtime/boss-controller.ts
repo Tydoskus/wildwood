@@ -3638,8 +3638,20 @@ function updateMiremawBoss(dt: number) {
       const activeDt = Math.max(0, dt - Math.max(0, laser.windup));
       laser.windup = Math.max(0, laser.windup - dt);
       if (activeDt > 0) {
+        const previousProgress = clamp(1 - laser.timer / laser.duration, 0, 1);
         laser.timer -= activeDt;
-        if (!laser.hitPlayer && ionSweepHits(player.x - aegisPrimeBoss.x, player.y - aegisPrimeBoss.y, laser.angle, player.r)) {
+        const progress = clamp(1 - laser.timer / laser.duration, 0, 1);
+        // The sweep is drawn as a wave travelling out from the shield
+        // (ion-attack-art.ts), but it used to hit the whole arc on its first
+        // active frame: a player near the far edge took the damage while the
+        // wave was still at the boss's feet. Only the wave's front hits now,
+        // as it does for every other boss that draws one.
+        const span = ION_SWEEP.range - ION_SWEEP.innerRange;
+        const minRadius = ION_SWEEP.innerRange + span * previousProgress;
+        const maxRadius = ION_SWEEP.innerRange + span * progress;
+        const distance = Math.hypot(player.x - aegisPrimeBoss.x, player.y - aegisPrimeBoss.y);
+        if (!laser.hitPlayer && distance >= minRadius - 42 && distance <= maxRadius + 42
+          && ionSweepHits(player.x - aegisPrimeBoss.x, player.y - aegisPrimeBoss.y, laser.angle, player.r)) {
           laser.hitPlayer = true; damagePlayer(BOSS_DAMAGE_PROFILES.aegisPrime.shatter);
           spawnBurst(player.x, player.y, "#56f7ff", 24, 240);
         }

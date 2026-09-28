@@ -6,6 +6,7 @@ import {BOSS_DAMAGE_PROFILES} from "../boss-damage";
 import {BOSS_CONE_RANGE, FROSTCLAW_ROAR_RANGE, GLOOMROOT_SWEEP_RANGE, KOI_SHOGUN_SLASH_RANGE, MAGMALISK_BITE_RANGE, MIREMAW_TONGUE_RANGE, PRISMSHELL_SHATTER_RANGE, TEMPEST_KIRIN_CHARGE_RANGE, TIDEWYRM_SURGE_RANGE} from "../constants";
 import {DRAGON_MAX_HP, FROSTCLAW_MAX_HP, FROSTCLAW_REWARD_ARMOR, FROSTCLAW_REWARD_DAMAGE, FROSTCLAW_REWARD_HEALTH, GLOOMROOT_MAX_HP, GLOOMROOT_REWARD_ARMOR, GLOOMROOT_REWARD_DAMAGE, GLOOMROOT_REWARD_HEALTH, GLOOMROOT_REWARD_REGEN, KOI_SHOGUN_MAX_HP, KOI_SHOGUN_REWARD_ARMOR, KOI_SHOGUN_REWARD_DAMAGE, KOI_SHOGUN_REWARD_HEALTH, KOI_SHOGUN_REWARD_REGEN, MAGMALISK_MAX_HP, MAGMALISK_REWARD_ARMOR, MAGMALISK_REWARD_DAMAGE, MAGMALISK_REWARD_HEALTH, MAGMALISK_REWARD_REGEN, MIREMAW_MAX_HP, PRISMSHELL_MAX_HP, MIREMAW_REWARD_ARMOR, PRISMSHELL_REWARD_ARMOR, MIREMAW_REWARD_DAMAGE, PRISMSHELL_REWARD_DAMAGE, MIREMAW_REWARD_HEALTH, PRISMSHELL_REWARD_HEALTH, MIREMAW_REWARD_REGEN, PRISMSHELL_REWARD_REGEN, TEMPEST_KIRIN_MAX_HP, TEMPEST_KIRIN_REWARD_ARMOR, TEMPEST_KIRIN_REWARD_DAMAGE, TEMPEST_KIRIN_REWARD_HEALTH, TEMPEST_KIRIN_REWARD_REGEN, TIDEWYRM_MAX_HP, TIDEWYRM_REWARD_ARMOR, TIDEWYRM_REWARD_DAMAGE, TIDEWYRM_REWARD_HEALTH, TIDEWYRM_REWARD_REGEN} from "../../../shared/rules";
 import {bossAbilityTimelineAt} from "../../../shared/boss-simulation";
+import {ION_SWEEP} from "../../../shared/ion-attacks";
 import {rewardLabel} from "../enemies";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -766,6 +767,26 @@ it("alternates Aegis Prime's shared-clock volley direction and clears attacks on
   h.controller.resetAegisPrimeBoss();
   expect(h.aegisPrimeCrystalBursts).toHaveLength(0);
   expect(h.aegisPrimeBoss.shatter).toBeNull();
+});
+
+it("lands Aegis Prime's shield sweep where its drawn wave is, not across the whole arc at once", () => {
+  // Where the travelling wave is drawn when the hit lands, for a player this far in front.
+  const waveRadiusAtHit = (distance: number) => {
+    let serverNowMs = 100; // the opening Shield Sweep slot
+    const h = createFrostclawHarness({ serverNowMs: () => serverNowMs, currentMapIsSnow: () => false, currentMapIsIonCitadel: () => true });
+    h.aegisPrimeBoss.dead = false;
+    h.player.x = h.aegisPrimeBoss.x - distance; h.player.y = h.aegisPrimeBoss.y;
+    for (let frame = 0; frame < 150 && !h.damagePlayer.mock.calls.length; frame++) {
+      serverNowMs += 1_000 / 60;
+      h.controller.updateAegisPrimeBoss(1 / 60);
+    }
+    expect(h.damagePlayer).toHaveBeenCalledTimes(1);
+    const sweep = h.aegisPrimeBoss.shatter!;
+    expect(sweep.windup).toBe(0);
+    return ION_SWEEP.innerRange + (1 - Math.max(0, sweep.timer) / sweep.duration) * (ION_SWEEP.range - ION_SWEEP.innerRange);
+  };
+  // The wave's 42px reach, plus the 16px it travels in one frame.
+  for (const distance of [250, 450, 650]) expect(Math.abs(waveRadiusAtHit(distance) - distance)).toBeLessThanOrEqual(42 + 16);
 });
 
 it("leads Angler hits by half a second without replaying on staggered circles", () => {
