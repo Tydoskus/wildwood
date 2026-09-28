@@ -3860,7 +3860,7 @@ export const respawnGravebloom = spacetimedb.reducer({ schedule: gravebloomRespa
 export const respawnAegisPrime = spacetimedb.reducer({ schedule: aegisPrimeRespawnSchedule.rowType }, () => {});
 
 // Retired shared-boss hits. Boss fights are personal and settle through
-// record_enemy_defeats; these keep their wire shapes so a stale tab gets an
+// report_enemy_defeats; these keep their wire shapes so a stale tab gets an
 // explicit update error instead of an unknown reducer.
 const retiredBossHitArgs = { hits: t.u32(), x: t.f64(), y: t.f64() };
 function refuseRetiredBossHit(): never {
@@ -5253,20 +5253,19 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
     killGems.grantKillGems(ctx, ctx.sender, accepted.count, enemyKills);
     enforce();
 }
-// The throttle comes before any other read, on the new pair only; throttleKillReports says why.
-const killReport = (legacy: boolean) => (ctx: any, batch: any) => {
-  if (legacy) return recordEnemyDefeatsFor(ctx, { ...batch, simulatedMillis: null });
+// The throttle comes before any other read; throttleKillReports says why.
+const killReport = (ctx: any, batch: any) => {
   throttleKillReports(ctx);
   recordEnemyDefeatsFor(ctx, batch);
 };
-export const reportEnemyDefeats = spacetimedb.reducer(enemyDefeatReportArgs, killReport(false));
+export const reportEnemyDefeats = spacetimedb.reducer(enemyDefeatReportArgs, killReport);
 // Same reward as reportEnemyDefeats: which reducer a client calls is its own claim.
-export const reportAutoFarmEnemyDefeats = spacetimedb.reducer(enemyDefeatReportArgs, killReport(false));
-// These two exist only for tabs opened before report_enemy_defeats, until they
-// reload, and skip the simulation clock because those tabs cannot say. Retire
-// them to "Refresh to continue" (like the ones below) in a later release.
-export const recordEnemyDefeats = spacetimedb.reducer(enemyDefeatArgs, killReport(true));
-export const recordAutoFarmEnemyDefeats = spacetimedb.reducer(enemyDefeatArgs, killReport(true));
+export const reportAutoFarmEnemyDefeats = spacetimedb.reducer(enemyDefeatReportArgs, killReport);
+// Tabs from before report_enemy_defeats, which cannot say how long they played:
+// they reload, and the new page sends their unsent kills. Their payout skipped
+// the simulation clock and refilled the combat clock at real time.
+export const recordEnemyDefeats = spacetimedb.reducer(enemyDefeatArgs, (ctx, _batch) => { requireControllingPlayer(ctx); throw new SenderError("WildStat updated. Refresh to continue."); });
+export const recordAutoFarmEnemyDefeats = spacetimedb.reducer(enemyDefeatArgs, (ctx, _batch) => { requireControllingPlayer(ctx); throw new SenderError("WildStat updated. Refresh to continue."); });
 
 /** Retained wire shape: obsolete clients must update before submitting rewards. */
 export const recordRegularEnemyDefeats = spacetimedb.reducer(
@@ -5288,7 +5287,7 @@ export const recordCombatCheckpoint = spacetimedb.reducer(
 );
 
 // Keep historical wire names to return an explicit update error. All new reward
-// traffic uses record_enemy_defeats, including maps without item drops.
+// traffic uses report_enemy_defeats, including maps without item drops.
 export const recordForestEnemyDefeat = spacetimedb.reducer({}, ctx => { requireControllingPlayer(ctx); throw new SenderError("WildStat updated. Refresh to continue.");
 });
 export const recordDesertEnemyDefeat = spacetimedb.reducer({}, ctx => { requireControllingPlayer(ctx); throw new SenderError("WildStat updated. Refresh to continue.");
@@ -6350,7 +6349,7 @@ export const myProceduralBoss = spacetimedb.view(
 );
 
 // Retired shared Endless boss endpoints. Endless bosses are personal and settle
-// through record_enemy_defeats. Preparing was already a silent no-op for
+// through report_enemy_defeats. Preparing was already a silent no-op for
 // current clients, so it stays one; the hits refuse like the map bosses above.
 export const prepareProceduralBoss = spacetimedb.reducer({ mapId:t.string() }, () => {});
 const proceduralHitArgs = { mapId:t.string(), bossKey:t.string(), encounter:t.u64(), hits:t.u32(), x:t.f64(), y:t.f64() };

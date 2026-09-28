@@ -1,4 +1,4 @@
-import { fillDefeatBudget } from "../../tests/helpers/enemy-defeat";
+import { fillDefeatBudget, reportKills } from "../../tests/helpers/enemy-defeat";
 import { expect, it, vi } from "vitest";
 import { ScheduleAt, Timestamp } from "spacetimedb";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
@@ -21,7 +21,7 @@ function farmer(prestigeLevel = 0) {
   return f;
 }
 const farmSpitters = (f: ReturnType<typeof crystalFixture>, count = 10) =>
-  f.run(server.recordEnemyDefeats, { streamId: "prestige-stream-01", sequence: 1n, mapId: "tutorial_forest", enemies: [{ enemy: "Spitter", count }] });
+  reportKills(f, { streamId: "prestige-stream-01", sequence: 1n, mapId: "tutorial_forest", enemies: [{ enemy: "Spitter", count }] });
 
 it("opens only once the campaign's last boss is down, and one Endless stage further each prestige", () => {
   expect(prestigeUnlocked(0)).toBe(false);

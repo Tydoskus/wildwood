@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
-import { reportEnemy } from "../../tests/helpers/enemy-defeat";
+import { reportEnemy, reportKills } from "../../tests/helpers/enemy-defeat";
 import { CAMPAIGN_UNLOCK_FIELDS } from "../../shared/equipment-access";
 import { MAP_IDS, BOSS_REWARD_CLAIM_BITS } from "../../shared/rules";
 import { personalBossDefinition } from "../../shared/personal-bosses";
@@ -20,7 +20,7 @@ it('consumes an excessive boss backlog once and keeps the player in the world', 
   reportEnemy(f, 'boss', 100);
   // One minute of credit plus the 60-second respawn: two clears, the rest is excess.
   expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(2n);
-  expect(() => f.run(server.recordEnemyDefeats, { mapId: 'endless_40', streamId: 'test-defeats-stream-0001', sequence: 1n, enemies: [{ enemy: 'boss', count: 100 }] })).not.toThrow();
+  expect(() => reportKills(f, { mapId: 'endless_40', streamId: 'test-defeats-stream-0001', sequence: 1n, enemies: [{ enemy: 'boss', count: 100 }] })).not.toThrow();
   expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(2n);
   expect(f.db.regularEnemyLootCursor.key.find(`${f.ctx.sender.toHexString()}:test-defeats-stream-0001`).sequence).toBe(1n);
   // The excess earns nothing and nothing is queued for review. It never costs
@@ -35,7 +35,7 @@ it('uses each map combat-time budget instead of a global twenty-boss cutoff', ()
   let calls = 0;
   const claim = (mapId: string, count: number, seconds: number) => {
     f.patch('player', { mapId }); f.ctx.timestamp = new Timestamp(start + BigInt(seconds) * 1_000_000n);
-    f.run(server.recordEnemyDefeats, { mapId, streamId: `different-browser-${++calls}`, sequence: 1n, enemies: [{ enemy: 'boss', count }] });
+    reportKills(f, { mapId, streamId: `different-browser-${++calls}`, sequence: 1n, enemies: [{ enemy: 'boss', count }] });
   };
   // Each map's own credit pays two instant clears; the retired global cutoff never applies.
   claim('tutorial_forest', 2, 0); claim('beginner_desert', 2, 100); claim('intermediate_snowlands', 2, 200);
@@ -59,7 +59,7 @@ it.each(["endless_1", "endless_40"] as const)("awards all four scaled stats once
     const field = fields[reward.type as keyof typeof fields];
     expect(after[field]).toBe(before[field] + reward.amount * multiplier);
   }
-  f.run(server.recordEnemyDefeats, { streamId: "test-defeats-stream-0001", sequence: 1n, mapId, enemies: [{ enemy: "boss", count: 1 }] });
+  reportKills(f, { streamId: "test-defeats-stream-0001", sequence: 1n, mapId, enemies: [{ enemy: "boss", count: 1 }] });
   expect(f.db.playerProgress.identity.find(f.ctx.sender)).toEqual(after);
 });
 it.each([...MAP_IDS, "endless_40"].filter(mapId => personalBossDefinition(mapId)))("awards the reporting player's personal clear on %s", mapId => {

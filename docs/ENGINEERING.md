@@ -55,7 +55,7 @@ Keep static definitions and pure calculations outside `main.ts`. `main.ts` is a 
 Recorded here because the backlog above previously described the opposite, and the code is the source of truth.
 
 - `savePlayerProgress` declares client stat fields (`maxHp`, `damage`, `armor`, `regen`, `speed`, …) but **ignores every one of them**. The saved row is built from `base.*` — the server's existing stored progress — plus server constants. Only equipment and cosmetic slot selections cross the wire, and those are validated against owned inventory.
-- `recordEnemyDefeats` is the reward path: only enemy identities and counts are sent; all reward values are server-owned, bounded by `maximumBossCombatForProgress` and `acceptEnemyDefeats`, with violations routed to `restrictDefeatSession`.
+- `reportEnemyDefeats` (and its Auto Farm twin) is the reward path: only enemy identities and counts are sent; all reward values are server-owned, bounded by `maximumBossCombatForProgress` and `acceptEnemyDefeats`, with violations routed to `restrictDefeatSession`.
 - `recordCombatCheckpoint` is retired and throws unconditionally. Never accept its supplied totals.
 - The unused stat fields in the `savePlayerProgress` signature are vestigial. Removing them is a reducer-signature change: it requires regenerated bindings and a matching client, so it belongs in a planned release, not a hotfix.
 
@@ -66,7 +66,7 @@ Boss combat runs locally in `src/game/runtime/personal-bosses.ts`, which owns HP
 Consequences to keep in mind before changing boss code:
 
 - The old shared-boss server code is gone. What remains is schema only: the `damage*` / `hit_procedural_boss*` reducers are stubs that throw the update error, `prepare_procedural_boss` and the `respawn*` scheduled reducers are no-ops kept because their names are published (and each `*_respawn_schedule` table names its reducer), and the `*_boss` / `*_contribution` / `*_attack_window` / `*_result` table sets, `boss_hit_result` and the legacy procedural boss tables stay registered so the publish deletes no data. Nothing writes them except account cleanup (rename, guest merge, deletion, erasure) of old rows. Dropping them is a separate client-breaking release.
-- `reward*Contributor` and `applyBossRepeatableReward` are **not** dead. They still carry live reward logic reached through `bossRewardHandlers` from `recordEnemyDefeats`. Preserve them through any cleanup.
+- `reward*Contributor` and `applyBossRepeatableReward` are **not** dead. They still carry live reward logic reached through `bossRewardHandlers` from `reportEnemyDefeats`. Preserve them through any cleanup.
 - Schema tables are retained deliberately, not by oversight. `boss_attack_frame`, `boss_defeat_window`, `boss_map_defeat_window`, and the legacy procedural boss tables are inert because removing a populated table needs a destructive publish. See `docs/legacy-cleanup-audit-2026-08-30.md`.
 - Removing the dead reducers is a schema change that must go through the prepared rollout path with a `Compatible` preflight — never `release:live`.
 

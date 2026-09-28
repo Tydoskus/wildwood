@@ -141,10 +141,10 @@ export const KILL_RATE_WATCH_EXCESS = 720;
 /**
  * How far below zero the bucket may go: time that passed with fewer kills
  * than the line allows, kept as credit for a backlog behind it. Ten minutes,
- * the backlog the simulation clock pays. A legacy client (no game time in its
- * reports) flushing a stall sends the first report with the whole stall as
- * elapsed time and the rest a moment apart; without this the stall's drain
- * was thrown away on the first and the rest landed undrained.
+ * the backlog the simulation clock pays. A backlog flushed after a stall
+ * arrives as one report carrying the whole stall and the rest a moment apart;
+ * without this the stall's drain was thrown away on the first and the rest
+ * landed undrained.
  */
 export const KILL_RATE_WATCH_CREDIT_SECONDS = SIM_CLOCK_BANK_SECONDS;
 /** Added to the stored level while an episode lasts. */
@@ -219,23 +219,22 @@ export const payCeilingEpisodeKey = (identity: { toHexString(): string }) => `${
  * catches what the simulation clock cannot, a client edited to report
  * honest-looking game time, which the spawn wall still pays.
  */
-function watchKillRate(ctx: BossRewardContext, mapId: string, respawnSeconds: number, paidKills: number, creditedSeconds: number | null) {
-  const legacy = creditedSeconds === null;
+function watchKillRate(ctx: BossRewardContext, mapId: string, respawnSeconds: number, paidKills: number, creditedSeconds: number) {
   const key = killRateKey(ctx.sender);
   const previous = ctx.db.enemyDefeatBudget.key.find(key);
   const now = ctx.timestamp.microsSinceUnixEpoch;
   const line = killRateWatchLine(mapId, respawnSeconds);
-  const watch = killRateWatch(previous, now, paidKills, creditedSeconds ?? 0, line);
+  const watch = killRateWatch(previous, now, paidKills, creditedSeconds, line);
   const next = { key, identity: ctx.sender, tokens: watch.tokens, updatedAtMicros: now };
   if (previous) ctx.db.enemyDefeatBudget.key.update(next); else ctx.db.enemyDefeatBudget.insert(next);
   if (!watch.episodeStarted) return;
   const displayName = ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "";
   const detail = { identity: ctx.sender.toHexString(), displayName, mapId, excessKills: Math.round(watch.level),
-    abovePerSecond: Number(line.toFixed(2)), legacy };
+    abovePerSecond: Number(line.toFixed(2)) };
   console.warn("Kill rate above honest play", JSON.stringify(detail));
   recordModerationAction(ctx as any, { targetIdentity: detail.identity, targetName: displayName, channel: "account",
     action: "kill_rate_flag", actorType: "automatic", rule: "sustained_kill_rate",
-    reason: `Paid kills stayed above ${detail.abovePerSecond}/s long enough to bank ${detail.excessKills} over it on ${mapId}${legacy ? " (legacy client)" : ""}. Nothing was clipped; review with npm run audit:kill-rates.`,
+    reason: `Paid kills stayed above ${detail.abovePerSecond}/s long enough to bank ${detail.excessKills} over it on ${mapId}. Nothing was clipped; review with npm run audit:kill-rates.`,
     before: "", after: "" });
 }
 
@@ -248,11 +247,9 @@ function watchKillRate(ctx: BossRewardContext, mapId: string, respawnSeconds: nu
  *
  * An honest client never gets near it. It reports every 30 seconds, plus a
  * drain before a portal, a boss reward, a hidden tab and an update screen,
- * each a single report. Clients up to 0.826 report on every acknowledgement,
- * one per round trip for a fast farmer, through the legacy reducers; those
- * are left unthrottled, since throttling them held honest players' portals
- * for thirty seconds until they reloaded. After a
- * dropped socket the backlog goes out back to back, but a
+ * each a single report. (Clients up to 0.826 reported on every
+ * acknowledgement, through record_enemy_defeats, which now only tells them to
+ * refresh.) After a dropped socket the backlog goes out back to back, but a
  * tab keeps adding to its unsent batch until it holds a hundred kills, so
  * even five minutes offline is a handful of reports, and orphaned tabs add a
  * few more. Sixteen covers all of that at once, and a minute later it is full
@@ -390,7 +387,7 @@ function chargeSimulationClock(ctx: BossRewardContext, mapId: string, simulatedM
  * has caught reach this, so honest play pays nothing for it.
  */
 function recordPayCeilingEpisode(ctx: BossRewardContext, mapId: string, ceilingPerSecond: number, wouldClip: number,
-  started: boolean, ended: boolean, legacy: boolean) {
+  started: boolean, ended: boolean) {
   const key = payCeilingEpisodeKey(ctx.sender);
   const previous = started ? null : ctx.db.enemyDefeatBudget.key.find(key);
   const total = (previous?.tokens ?? 0) + wouldClip;
@@ -406,23 +403,23 @@ function recordPayCeilingEpisode(ctx: BossRewardContext, mapId: string, ceilingP
   const displayName = ctx.db.playerProfile.identity.find(ctx.sender)?.displayName ?? "";
   const line = Number(ceilingPerSecond.toFixed(2));
   const reason = started
-    ? `The pay ceiling (${line}/s on ${mapId}) would have paid ${wouldClip} fewer kills in this report${legacy ? " (legacy client)" : ""}. Watching only: nothing was clipped.`
+    ? `The pay ceiling (${line}/s on ${mapId}) would have paid ${wouldClip} fewer kills in this report. Watching only: nothing was clipped.`
     : `Episode over: the pay ceiling would have paid ${Math.round(total)} fewer kills in all. Watching only: nothing was clipped.`;
-  console.warn("Pay ceiling would clip", JSON.stringify({ identity: ctx.sender.toHexString(), displayName, mapId, wouldClip: Math.round(total), started, legacy }));
+  console.warn("Pay ceiling would clip", JSON.stringify({ identity: ctx.sender.toHexString(), displayName, mapId, wouldClip: Math.round(total), started }));
   recordModerationAction(ctx as any, { targetIdentity: ctx.sender.toHexString(), targetName: displayName, channel: "account",
     action: started ? "pay_ceiling_would_clip" : "pay_ceiling_episode_total", actorType: "automatic", rule: "pay_ceiling_shadow",
     reason, before: "", after: "" });
 }
 
 export type EnemyDefeatBatch = { streamId: string; sequence: bigint; mapId: string; enemies: EnemyDefeat[];
-  /** Milliseconds the client simulated since its previous report; absent on the legacy reducers, which skip the check. */
-  simulatedMillis?: number | null };
+  /** Milliseconds the client simulated since its previous report. */
+  simulatedMillis: number };
 
 /**
  * O(distinct species), independent of account count; one receipt per batch.
  *
  * What a report is paid, in order:
- *  1. The simulation clock (new reducers only) scales each claim back to what
+ *  1. The simulation clock scales each claim back to what
  *     real time allowed, when the client ran ahead of it.
  *  2. The spawn wall: nobody kills a species on a map faster than it respawns.
  *  3. The account's combat clock: one clock across every map and species that
@@ -431,10 +428,9 @@ export type EnemyDefeatBatch = { streamId: string; sequence: bigint; mapId: stri
  *     whole population (the fastest a player standing at every camp at once
  *     could see enemies come back). The second closes map hopping: each map's
  *     spawn bucket refills while the player is away, but they all draw on one
- *     clock, so rotating maps sustains one map's wall and no more. On the new
- *     reducers that clock refills with the game time the simulation clock
- *     accepted (1.), so kills are paid for with play the server believes;
- *     the legacy pair refills it at real time.
+ *     clock, so rotating maps sustains one map's wall and no more. That clock
+ *     refills with the game time the simulation clock accepted (1.), so kills
+ *     are paid for with play the server believes.
  *  4. Boss clears have their own earned-time clock, and also spend their fight
  *     seconds from the combat clock, without ever being refused for it.
  */
@@ -459,8 +455,8 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
   }
   // Scale first, then the bounds below, so the spawn wall and combat clock see
   // only what real time allowed and are not drained by the excess.
-  const simulation = batch.simulatedMillis == null ? null : chargeSimulationClock(ctx, batch.mapId, batch.simulatedMillis);
-  const scale = simulation?.scale ?? 1;
+  const simulation = chargeSimulationClock(ctx, batch.mapId, batch.simulatedMillis);
+  const scale = simulation.scale;
   const balance = pinnedMapBalance(ctx, ctx.sender, batch.mapId);
   const utility = ctx.db.playerResearch.identity.find(ctx.sender);
   const regularRespawn = enemyRespawnSecondsWithResearch(balance?.regularRespawnSeconds ?? REGULAR_ENEMY_RESPAWN_SECONDS, utility?.enemyRespawn ?? 0);
@@ -477,15 +473,12 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
   // every map at the full rate at once, each from its own bank.
   const clockKey = combatTimeKey(ctx.sender);
   const clockPrevious = ctx.db.enemyDefeatBudget.key.find(clockKey);
-  // On the new reducers the clock refills with the game time the simulation
-  // clock accepted, not the wall clock: kills have to be paid for with play
-  // the server believes happened. A report claiming no time (a client that
-  // cannot say, or one that has been taken apart to say nothing) gets none,
-  // and only the bank pays it. The legacy pair still refills at real time
-  // until it is retired.
-  const refill = simulation ? simulation.creditedSeconds
-    : clockPrevious ? Math.max(0, Number(now - clockPrevious.updatedAtMicros) / 1e6) : 0;
-  let combatSeconds = clockPrevious ? Math.min(COMBAT_TIME_BANK_SECONDS, clockPrevious.tokens + refill) : COMBAT_TIME_BANK_SECONDS;
+  // The clock refills with the game time the simulation clock accepted, not
+  // the wall clock: kills have to be paid for with play the server believes
+  // happened. A report claiming no time (a client that cannot say, or one
+  // that has been taken apart to say nothing) gets none, and only the bank
+  // pays it.
+  let combatSeconds = clockPrevious ? Math.min(COMBAT_TIME_BANK_SECONDS, clockPrevious.tokens + simulation.creditedSeconds) : COMBAT_TIME_BANK_SECONDS;
   let clockSpent = false;
   // The pay ceiling (see PAY_CEILING): the least a kill can cost the clock.
   const ceilingSecondsPerKill = 1 / killRateWatchLine(batch.mapId, defeatMinRespawnSeconds(regularRespawn));
@@ -493,10 +486,8 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
   const shadowKey = payCeilingKey(ctx.sender);
   const shadowPrevious = PAY_CEILING.enforced ? null : ctx.db.enemyDefeatBudget.key.find(shadowKey);
   const shadowFlagged = Boolean(shadowPrevious && shadowPrevious.tokens < 0);
-  const shadowRefill = simulation ? simulation.creditedSeconds
-    : shadowPrevious ? Math.max(0, Number(now - shadowPrevious.updatedAtMicros) / 1e6) : 0;
   let shadowSeconds = shadowPrevious
-    ? Math.min(COMBAT_TIME_BANK_SECONDS, (shadowFlagged ? -shadowPrevious.tokens - 1 : shadowPrevious.tokens) + shadowRefill)
+    ? Math.min(COMBAT_TIME_BANK_SECONDS, (shadowFlagged ? -shadowPrevious.tokens - 1 : shadowPrevious.tokens) + simulation.creditedSeconds)
     : combatSeconds;
   let wouldClip = 0;
   const rewards = [];
@@ -567,9 +558,9 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
       // The spawn wall above bounds one species on one map. This second bound
       // is the account's combat clock: could this player's own combat have
       // produced these kills, and could any player have seen this many
-      // enemies come back in the time? It refills at real time, so a backlog
-      // flushed after a dropped socket is honoured, and it never restricts:
-      // the payout is bounded and that is all.
+      // enemies come back in the time? It refills with the game time the tab
+      // ran, so a backlog flushed after a dropped socket is honoured, and it
+      // never restricts: the payout is bounded and that is all.
       // Kill rewards raise damage and attack speed as they land, and the
       // client fought the whole report with those gains while the saved row
       // still shows the stats from before it. Estimate with the stats this
@@ -599,7 +590,7 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
     rewards.push({ ...definition.reward, count: acceptedCount });
     if (definition.loot) lootCount += acceptedCount;
   }
-  if (clockSpent || (simulation && simulation.creditedSeconds > 0)) {
+  if (clockSpent || simulation.creditedSeconds > 0) {
     const clock = { key: clockKey, identity: ctx.sender, tokens: combatSeconds, updatedAtMicros: now };
     if (clockPrevious) ctx.db.enemyDefeatBudget.key.update(clock); else ctx.db.enemyDefeatBudget.insert(clock);
     if (!PAY_CEILING.enforced) {
@@ -608,12 +599,12 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
       const flagged = inEpisode && (wouldClip > 0 || shadowSeconds < PAY_CEILING_RECOVERED_SECONDS);
       const shadow = { key: shadowKey, identity: ctx.sender, tokens: flagged ? -1 - shadowSeconds : shadowSeconds, updatedAtMicros: now };
       if (shadowPrevious) ctx.db.enemyDefeatBudget.key.update(shadow); else ctx.db.enemyDefeatBudget.insert(shadow);
-      if (inEpisode) recordPayCeilingEpisode(ctx, batch.mapId, 1 / ceilingSecondsPerKill, wouldClip, episodeStarted, !flagged, !simulation);
+      if (inEpisode) recordPayCeilingEpisode(ctx, batch.mapId, 1 / ceilingSecondsPerKill, wouldClip, episodeStarted, !flagged);
     }
   }
   const receipt = { key, identity: ctx.sender, sequence: batch.sequence };
   if (prior) ctx.db.regularEnemyLootCursor.key.update(receipt); else ctx.db.regularEnemyLootCursor.insert(receipt);
-  if (count > 0) watchKillRate(ctx, batch.mapId, defeatMinRespawnSeconds(regularRespawn), count, simulation ? simulation.creditedSeconds : null);
+  if (count > 0) watchKillRate(ctx, batch.mapId, defeatMinRespawnSeconds(regularRespawn), count, simulation.creditedSeconds);
   // A clipped claim is bounded, never a session action: the spawn wall clips
   // an honest client too (a portal round-trip re-presents a personal boss the
   // earned-time clock has not paid for yet, and a map change starts a fresh

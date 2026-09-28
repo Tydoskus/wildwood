@@ -1,5 +1,6 @@
 import { expect, it, vi } from "vitest";
-import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
+import { crystalFixture } from "../../tests/helpers/crystal-hollows-fixture";
+import { reportKills } from "../../tests/helpers/enemy-defeat";
 import { STARTER_BOW } from "../../shared/items";
 import { compactNumberChanged, formatCompactNumber } from "../../shared/compact-number";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
@@ -12,7 +13,7 @@ function farmer() {
   return f;
 }
 const report = (f: ReturnType<typeof crystalFixture>, sequence: bigint, count: number) =>
-  f.run(server.recordEnemyDefeats, { streamId: "power-broadcast-stream", sequence, mapId: "tutorial_forest", enemies: [{ enemy: "Spitter", count }] });
+  reportKills(f, { streamId: "power-broadcast-stream", sequence, mapId: "tutorial_forest", enemies: [{ enemy: "Spitter", count }] });
 
 it("tells a visible change from one under the last displayed digit", () => {
   expect(compactNumberChanged(515_000_000, 515_400_000)).toBe(false); // both "515m"

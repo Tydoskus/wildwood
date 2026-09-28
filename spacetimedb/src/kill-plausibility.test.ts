@@ -1,6 +1,6 @@
-import { fillDefeatBudget } from "../../tests/helpers/enemy-defeat";
+import { fillDefeatBudget, reportKills } from "../../tests/helpers/enemy-defeat";
 import { expect, it, vi } from "vitest";
-import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
+import { crystalFixture } from "../../tests/helpers/crystal-hollows-fixture";
 import { STARTER_BOW } from "../../shared/items";
 import { DEFEAT_BUDGET_WINDOW_SECONDS, DEFEAT_MIN_RESPAWN_SECONDS, enemyDefeatDefinition, mapEnemyPopulation } from "../../shared/enemy-defeats";
 import { REGULAR_ENEMY_LOOT_DELAY_MS } from "../../shared/regular-map-loot";
@@ -34,7 +34,7 @@ it("banks at least one client report, so an honest report is never clipped for i
 it("pays a weak player only what they could have killed and does not restrict them", () => {
   const f = crystalFixture();
   f.patch("playerProgress", { equippedRightHand: STARTER_BOW, damage: 1 });
-  f.run(server.recordEnemyDefeats, claim(50));
+  reportKills(f, claim(50));
   expect(kills(f)).toBeLessThan(50n);
   // Bounded, not reported: there is no queue for anyone to read.
   expect(flags(f)).toEqual([]);
@@ -44,7 +44,7 @@ it("pays a weak player only what they could have killed and does not restrict th
 it("pays a strong player in full with nothing to review", () => {
   const f = crystalFixture();
   f.patch("playerProgress", { equippedRightHand: STARTER_BOW, damage: 1e15 });
-  f.run(server.recordEnemyDefeats, claim(6));
+  reportKills(f, claim(6));
   expect(kills(f)).toBe(6n);
   expect(flags(f)).toEqual([]);
 });
@@ -65,7 +65,7 @@ it("estimates with the stats the report itself grants, as the client had them by
   // The damage bound is what this test measures, so bank the spawn allowance a
   // player on the map would already have.
   fillDefeatBudget(f, "tutorial_forest", "Needle");
-  f.run(server.recordEnemyDefeats, { streamId: "plausibility-stream-02", sequence: 1n, mapId: "tutorial_forest", enemies: [{ enemy: "Needle", count: CLAIM }] });
+  reportKills(f, { streamId: "plausibility-stream-02", sequence: 1n, mapId: "tutorial_forest", enemies: [{ enemy: "Needle", count: CLAIM }] });
   expect(kills(f)).toBe(BigInt(CLAIM));
   expect(flags(f)).toEqual([]);
 });
@@ -80,7 +80,7 @@ it("charges every kill at least the map's respawn over its whole population, so 
   f.patch("playerProgress", { equippedRightHand: STARTER_BOW, inventoryJson: '["starter_bow"]', damage: 1e15, projectileCount: 3 });
   fillDefeatBudget(f, "crystal_hollows", ENEMY);
   f.seed("enemyDefeatBudget", { key: combatTimeKey(f.ctx.sender), identity: f.ctx.sender, tokens: 10, updatedAtMicros: f.ctx.timestamp.microsSinceUnixEpoch });
-  f.run(server.recordEnemyDefeats, claim(50));
+  reportKills(f, claim(50));
   expect(kills(f)).toBe(BigInt(10 * 30 / DEFEAT_MIN_RESPAWN_SECONDS));
   expect(f.db.enemyDefeatBudget.key.find(combatTimeKey(f.ctx.sender)).tokens).toBeCloseTo(0, 6);
   expect(restricted(f)).toBe(false);
@@ -96,7 +96,7 @@ it("shares one combat clock across species, so claiming several at once earns no
   f.patch("playerProgress", { equippedRightHand: STARTER_BOW, inventoryJson: '["starter_bow"]', damage: 1e15, attackRate: 1, projectileCount: 1 });
   for (const kind of species) fillDefeatBudget(f, "crystal_hollows", kind);
   f.seed("enemyDefeatBudget", { key: combatTimeKey(f.ctx.sender), identity: f.ctx.sender, tokens: 10, updatedAtMicros: f.ctx.timestamp.microsSinceUnixEpoch });
-  f.run(server.recordEnemyDefeats, { streamId: "plausibility-stream-03", sequence: 1n, mapId: "crystal_hollows",
+  reportKills(f, { streamId: "plausibility-stream-03", sequence: 1n, mapId: "crystal_hollows",
     enemies: species.map(enemy => ({ enemy, count: 10 })) });
   expect(kills(f)).toBe(BigInt(Math.floor(10 * PLAUSIBLE_KILL_TOLERANCE)));
   expect(restricted(f)).toBe(false);

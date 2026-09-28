@@ -162,10 +162,12 @@ describe("simulation clock on report_enemy_defeats", () => {
     expect(f.db.player.identity.find(f.ctx.sender)).not.toBeNull();
   });
 
-  it("leaves the legacy reducers off the simulation clock", () => {
+  it("answers the retired reducers, which cannot say how long a tab played, with a refresh", () => {
     const f = fixture();
-    f.run(server.recordEnemyDefeats, { streamId: "clock-test-legacy-01", sequence: 1n, mapId: MAP, enemies: [{ enemy: ENEMY, count: 5 }] });
-    expect(f.kills()).toBe(5);
+    for (const reducer of [server.recordEnemyDefeats, server.recordAutoFarmEnemyDefeats])
+      expect(() => f.run(reducer, { streamId: "clock-test-legacy-01", sequence: 1n, mapId: MAP, enemies: [{ enemy: ENEMY, count: 5 }] }))
+        .toThrow("WildStat updated. Refresh to continue.");
+    expect(f.kills()).toBe(0);
     expect(f.clock()).toBeNull();
   });
 });
@@ -184,11 +186,6 @@ describe("kill report throttle", () => {
     expect(f.kills()).toBe(KILL_REPORT_BURST + 1);
     expect(() => f.run(server.reportAutoFarmEnemyDefeats, { streamId: "clock-test-other-01", sequence: 1n, mapId: MAP, simulatedMillis: 0, enemies: [{ enemy: ENEMY, count: 1 }] }))
       .toThrow("Enemy rewards are catching up.");
-    // Tabs from 0.826 and before report on every acknowledgement through the
-    // legacy pair; throttling them held their portals. They stay unthrottled.
-    const legacy = [server.recordEnemyDefeats, server.recordAutoFarmEnemyDefeats];
-    legacy.forEach((reducer, index) => f.run(reducer, { streamId: `clock-test-legacy-0${index}`, sequence: 1n, mapId: MAP, enemies: [{ enemy: ENEMY, count: 1 }] }));
-    expect(f.kills()).toBe(KILL_REPORT_BURST + 3);
   });
 
   it("is the first check, ahead of the session guard", () => {

@@ -3,6 +3,7 @@ import { CAMPAIGN_UNLOCK_FIELDS } from "../../shared/equipment-access";
 import { MAP_IDS } from "../../shared/rules";
 import { expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
+import { reportKills } from "../../tests/helpers/enemy-defeat";
 import { CAMPAIGN_EQUIPMENT } from "../../shared/campaign-equipment";
 import { ENEMY_TYPES } from "../../shared/enemy-definitions";
 import { enemyDefeatDefinition } from "../../shared/enemy-defeats";
@@ -20,7 +21,7 @@ it.each(maps)("awards, equips, and preserves the new %s drops through an authori
   const enemy = Object.keys(ENEMY_TYPES).find(kind => enemyDefeatDefinition(mapId, kind))!;
   expect(enemy).toBeTruthy();
   const batch = { streamId: "campaign-loot-test-1234", sequence: 1n, mapId, enemies: [{ enemy, count: 1 }] };
-  f.run(server.recordEnemyDefeats, batch);
+  reportKills(f, batch);
   const earned = regularMapLoot(mapId).map(drop => drop.itemId);
   let progress = f.db.playerProgress.identity.find(f.ctx.sender);
   expect(JSON.parse(progress.inventoryJson)).toEqual(expect.arrayContaining(earned));
@@ -31,7 +32,7 @@ it.each(maps)("awards, equips, and preserves the new %s drops through an authori
     expect(progress[field]).toBe(id);
     expect(JSON.parse(progress.inventoryJson)).toContain(id);
   }
-  f.run(server.recordEnemyDefeats, batch);
+  reportKills(f, batch);
   expect([...f.db.playerItemDrop.iter()].every(drop => drop.sequence === 1n)).toBe(true);
 });
 it.each(Object.entries(CAMPAIGN_EQUIPMENT))("uses the exact winning boundary for %s", (id, entry) => {

@@ -2,6 +2,7 @@ import { STARTER_BOW } from "../../shared/items";
 import { Timestamp } from "spacetimedb";
 import { expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
+import { reportKills } from "../../tests/helpers/enemy-defeat";
 import { enemyDefeatDefinition, defeatBudget } from "../../shared/enemy-defeats";
 import { combatTimeKey, reportRateKey, simulationClockKey, killRateKey, payCeilingKey } from "./enemy-defeats";
 import { ENEMY_TYPES } from "../../shared/enemy-definitions";
@@ -22,13 +23,13 @@ it("calculates stats and independent loot rolls once in one transaction", () => 
   const f = fixture(), base = f.db.playerProgress.identity.find(f.ctx.sender);
   f.ctx.random.integerInRange = vi.fn(() => 1);
   const update = vi.spyOn(f.db.playerProgress.identity, "update");
-  f.run(server.recordEnemyDefeats, { ...batch, progress: { damage: 1e30 } });
+  reportKills(f, { ...batch, progress: { damage: 1e30 } });
   expect(update).toHaveBeenCalledTimes(1);
   expect(f.db.playerProgress.identity.find(f.ctx.sender).damage).toBeCloseTo(base.damage + enemyDefeatDefinition(batch.mapId, enemy)!.reward.amount * 20);
   expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(20n);
   expect(f.ctx.random.integerInRange).toHaveBeenCalledTimes(60);
   f.patch("player", { mapId: "home_exterior" });
-  f.run(server.recordEnemyDefeats, batch);
+  reportKills(f, batch);
   expect(update).toHaveBeenCalledTimes(1);
   expect(f.ctx.random.integerInRange).toHaveBeenCalledTimes(60);
 });
@@ -38,7 +39,7 @@ it.each([
   { mapId: "cloudspire" },
 ])("rejects invalid identities/counts without consuming a receipt %s", change => {
   const f = fixture();
-  expect(() => f.run(server.recordEnemyDefeats, { ...batch, ...change })).toThrow();
+  expect(() => reportKills(f, { ...batch, ...change })).toThrow();
   expect([...f.db.regularEnemyLootCursor.iter()]).toHaveLength(0);
   expect([...f.db.enemyDefeatBudget.iter()]).toHaveLength(0);
 });
@@ -46,7 +47,7 @@ it("honours a report for the map the player left for Home, paid by that map's bu
   const f = fixture(), base = f.db.playerProgress.identity.find(f.ctx.sender);
   f.patch("player", { mapId: "home_exterior" });
   f.db.homeReturnLocation.insert({ identity: f.ctx.sender, mapId: batch.mapId, x: 1, y: 1, facing: 0 });
-  f.run(server.recordEnemyDefeats, batch);
+  reportKills(f, batch);
   expect(f.db.playerProgress.identity.find(f.ctx.sender).damage).toBeCloseTo(base.damage + enemyDefeatDefinition(batch.mapId, enemy)!.reward.amount * 20);
   // Spawn budgets are the map's own; the account-wide clocks and the report
   // limiter have no map.
@@ -57,18 +58,18 @@ it("honours a report for the map the player left for Home, paid by that map's bu
 it("still rejects a report for a map the player did not come Home from, even when unlocked", () => {
   const f = fixture(); f.patch("player", { mapId: "home_exterior" }); f.patch("playerProgress", { waterUnlocked: true });
   f.db.homeReturnLocation.insert({ identity: f.ctx.sender, mapId: "cloudspire", x: 1, y: 1, facing: 0 });
-  expect(() => f.run(server.recordEnemyDefeats, batch)).toThrow("another map");
+  expect(() => reportKills(f, batch)).toThrow("another map");
   expect([...f.db.regularEnemyLootCursor.iter()]).toHaveLength(0);
 });
 it("rolls back reward, budget, receipt and loot if a write fails", () => {
   const f = fixture(), base = f.db.playerProgress.identity.find(f.ctx.sender);
   f.ctx.random.integerInRange = () => 1;
   const insert = vi.spyOn(f.db.playerItemDrop, "insert").mockImplementationOnce(() => { throw new Error("write failure"); });
-  expect(() => f.run(server.recordEnemyDefeats, batch)).toThrow("write failure");
+  expect(() => reportKills(f, batch)).toThrow("write failure");
   expect([...f.db.regularEnemyLootCursor.iter()]).toHaveLength(0);
   expect([...f.db.enemyDefeatBudget.iter()]).toHaveLength(0);
   expect(f.db.playerProgress.identity.find(f.ctx.sender)).toEqual(base);
-  insert.mockRestore(); f.run(server.recordEnemyDefeats, batch);
+  insert.mockRestore(); reportKills(f, batch);
   expect([...f.db.playerItemDrop.iter()]).toHaveLength(3);
 });
 it("allows grouped kills and acknowledges excess without granting rewards across new streams", () => {
@@ -77,15 +78,15 @@ it("allows grouped kills and acknowledges excess without granting rewards across
   // Mirror the server's float tolerance: 6 + 1.8 * 60 is 113.99999999999999.
   const capacity = Math.floor(defeatBudget(definition.population).capacity + 1e-6);
   let remaining = capacity, sequence = 1n;
-  while (remaining) { const count = Math.min(100, remaining); f.run(server.recordEnemyDefeats, { ...batch, sequence: sequence++, enemies: [{ enemy, count }] }); remaining -= count; }
+  while (remaining) { const count = Math.min(100, remaining); reportKills(f, { ...batch, sequence: sequence++, enemies: [{ enemy, count }] }); remaining -= count; }
   const next = { ...batch, streamId: "another-stream-12345", enemies: [{ enemy, count: definition.population }] };
   const before = f.db.playerProgress.identity.find(f.ctx.sender).damage;
-  expect(() => f.run(server.recordEnemyDefeats, next)).not.toThrow();
+  expect(() => reportKills(f, next)).not.toThrow();
   expect(f.db.playerProgress.identity.find(f.ctx.sender).damage).toBe(before);
   // A retry of the consumed report cannot later turn excess claims into rewards.
 
   f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + 4_000_000n);
-  expect(() => f.run(server.recordEnemyDefeats, next)).not.toThrow();
+  expect(() => reportKills(f, next)).not.toThrow();
   expect(f.db.playerProgress.identity.find(f.ctx.sender).damage).toBe(before);
   // Bounding the payout is the whole enforcement. Taking the session as well
   // kicked honest players whose map round-trip outran the refilling bucket.
@@ -107,9 +108,9 @@ it("consumes a 100-kill Endless report exceeding the one-site capacity and keeps
   // hour, so a report claiming them is paid only what it earned.
   expect(capacity).toBe(4);
   const report = { ...batch, mapId: "endless_1", enemies: [{ enemy: "site:0", count: 100 }] };
-  f.run(server.recordEnemyDefeats, report);
+  reportKills(f, report);
   expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(BigInt(capacity));
-  expect(() => f.run(server.recordEnemyDefeats, report)).not.toThrow();
+  expect(() => reportKills(f, report)).not.toThrow();
   expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(BigInt(capacity));
   expect(f.db.defeatSessionRestriction.identity.find(f.ctx.sender)).toBeNull();
   expect(f.db.regularEnemyLootCursor.key.find(`${f.ctx.sender.toHexString()}:${report.streamId}`).sequence).toBe(1n);

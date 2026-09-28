@@ -1,5 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
+import { reportKills } from "../../tests/helpers/enemy-defeat";
 import { GEM_KILL_CREDIT_PER_GEM } from "../../shared/gem-drops";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
@@ -7,8 +8,8 @@ vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module
 // beatable in one report once damage is high enough for the DPS check.
 function clearBoss(f: ReturnType<typeof crystalFixture>, sequence: bigint, autoFarm = false) {
   f.patch("playerProgress", { damage: 1e15 });
-  f.run(autoFarm ? server.recordAutoFarmEnemyDefeats : server.recordEnemyDefeats,
-    { streamId: "kill-gems-test-stream", sequence, mapId: "crystal_hollows", enemies: [{ enemy: "boss", count: 1 }] });
+  reportKills(f, { streamId: "kill-gems-test-stream", sequence, mapId: "crystal_hollows", enemies: [{ enemy: "boss", count: 1 }] },
+    autoFarm ? server.reportAutoFarmEnemyDefeats : server.reportEnemyDefeats);
 }
 
 it("pays a gem for a hidden manual kill when its credit completes a block", () => {
@@ -49,7 +50,7 @@ it("never pays twice for a replayed report", () => {
   clearBoss(f, 1n);
   // Same sequence again is rejected before rewards; the wallet is untouched.
   f.patch("playerProgress", { damage: 1e15 });
-  f.run(server.recordEnemyDefeats, { streamId: "kill-gems-test-stream", sequence: 1n, mapId: "crystal_hollows", enemies: [{ enemy: "boss", count: 1 }] });
+  reportKills(f, { streamId: "kill-gems-test-stream", sequence: 1n, mapId: "crystal_hollows", enemies: [{ enemy: "boss", count: 1 }] });
   expect(f.db.playerGemWallet.identity.find(f.ctx.sender)?.balance).toBe(1n);
   expect([...f.db.gemTransaction.iter()].filter(row => row.kind === "enemy_kills")).toHaveLength(1);
 });

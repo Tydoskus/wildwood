@@ -144,8 +144,6 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   // The game session's simulated seconds, handed over once by claimGameBridge.
   let gameSimulatedSeconds: (() => number) | null = null;
   let gameBridgeClaimed = false;
-  // Set when the server does not know report_enemy_defeats; cleared by a new session.
-  let legacyKillReports = false;
   const enemyLoot = createRegularEnemyLootQueue({
     identity: dependencies.localIdentity,
     tabId: dependencies.lootTabId ?? (() => "current-tab"),
@@ -330,20 +328,10 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     }
     // simulatedMillis is how much game time this tab ran since its previous
     // report; the server holds kills to what that much play could produce.
-    const report = (legacy: boolean) => reducerResult("enemy defeats", connection => withRequestDeadline(legacy
-      ? (request.autoFarm ? connection.reducers.recordAutoFarmEnemyDefeats : connection.reducers.recordEnemyDefeats)({
-        streamId: request.streamId, sequence: request.sequence, mapId: request.mapId, enemies: request.enemies })
-      : (request.autoFarm ? connection.reducers.reportAutoFarmEnemyDefeats : connection.reducers.reportEnemyDefeats)({
+    const result = await reducerResult("enemy defeats", connection => withRequestDeadline(
+      (request.autoFarm ? connection.reducers.reportAutoFarmEnemyDefeats : connection.reducers.reportEnemyDefeats)({
         streamId: request.streamId, sequence: request.sequence, mapId: request.mapId,
         simulatedMillis: request.simulatedMillis, enemies: request.enemies }), ENEMY_DEFEAT_ACK_TIMEOUT_MS))();
-    let result = await report(legacyKillReports);
-    // A server published before these reducers existed (a client that went
-    // live first, or a server rolled back) would refuse every report and hold
-    // every portal. Use the older pair for the rest of this connection.
-    if (!result.ok && !legacyKillReports && /no such (reducer|procedure)/i.test(result.error ?? "")) {
-      legacyKillReports = true;
-      result = await report(true);
-    }
     if (!result.ok && /Enemy defeats belong to another map|Invalid enemy for this map/.test(result.error ?? "")) {
       // These kills are gone. Write down how many and where, so a loss that
       // used to be invisible can be counted and its cause found.
@@ -1108,7 +1096,6 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       saveInFlightUntil = Number.POSITIVE_INFINITY;
     },
     beginSession(identityChanged: boolean) {
-      legacyKillReports = false;   // a reconnect may have reached a newly published server
       enemyLoot.begin();
       cutscenes.begin();
       flushStoreWrite();

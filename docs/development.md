@@ -294,10 +294,10 @@ that function, not the version list, is what keeps an old decoder out.
   clipped claims) hit honest players and was rolled back.
 - A regular-enemy report passes, in order (`acceptEnemyDefeats`,
   `spacetimedb/src/enemy-defeats.ts`):
-  1. **Simulation clock** (`report_enemy_defeats` only). The report says how
+  1. **Simulation clock.** The report says how
      many milliseconds of game simulation the client ran since its previous
      one. Per account, the server banks how far the simulation may run ahead
-     of its own clock (`SIM_CLOCK_BANK_SECONDS`, 300). An honest fixed-step
+     of its own clock (`SIM_CLOCK_BANK_SECONDS`, 600). An honest fixed-step
      loop cannot run faster than real time, so its bank never drains: jitter,
      a long idle and a backlog flushed after a dropped socket are all covered.
      A hooked `performance.now`/`requestAnimationFrame` drains it, and from
@@ -311,7 +311,8 @@ that function, not the version list, is what keeps an old decoder out.
      balance) and banks `DEFEAT_BUDGET_WINDOW_SECONDS` of it. A first sight of
      a species gets only the arrival bank.
   3. **Combat clock** — one clock per account (`COMBAT_TIME_BANK_SECONDS`)
-     that refills at real time. Each kill costs the longer of what this
+     that refills with the game time the simulation clock accepted, so a
+     report claiming 0 ms is paid only from its bank. Each kill costs the longer of what this
      player's own combat needs for it (`plausibleKillsPerSecond`: one
      projectile kills one enemy, every hit a maximum critical, reach and
      `PLAUSIBLE_KILL_TOLERANCE` on top, using the stats the report itself
@@ -323,11 +324,14 @@ that function, not the version list, is what keeps an old decoder out.
   (`boss-defeat-limits.ts`, spec in `boss-defeat-limits.test.ts`) and then
   also spend their fight seconds from the combat clock, clamped at zero, so a
   clear is never refused for it.
-- `record_enemy_defeats` / `record_auto_farm_enemy_defeats` are the same
-  handler without the simulation clock, kept only for tabs opened before
-  `report_enemy_defeats` shipped. Retire them in a later release. A client
-  that sends 0 ms or uses them is still held by the wall and the combat clock.
-- **Report throttle.** All four kill reducers first take one report from a
+- `report_auto_farm_enemy_defeats` is the same handler under another name,
+  so the dashboard shows Auto Farm traffic apart; which one a client calls is
+  its own claim, and both pay alike.
+- `record_enemy_defeats` / `record_auto_farm_enemy_defeats` (tabs from 0.826
+  and before, which send no game time) are retired: they answer
+  `WildStat updated. Refresh to continue.`, the tab reloads, and the new page
+  sends its unsent kills.
+- **Report throttle.** Both kill reducers first take one report from a
   per-account bucket (`KILL_REPORT_BURST` 16, one more every
   `KILL_REPORT_REFILL_SECONDS` 3). Past it they answer
   `Enemy rewards are catching up.`; the client keeps the kills queued and

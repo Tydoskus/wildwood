@@ -3,6 +3,7 @@ import { defeatBudget, enemyDefeatDefinition } from "../../shared/enemy-defeats"
 import { expect, it, vi } from "vitest";
 import { Timestamp } from "spacetimedb";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
+import { reportKills } from "../../tests/helpers/enemy-defeat";
 import { SPACETIME_AUTH_CLIENT_ID, SPACETIME_AUTH_ISSUER, PROTOCOL_VERSION } from "../../shared/rules";
 import { requireAllowedDefeatSession } from "./defeat-session";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
@@ -26,7 +27,7 @@ function fixture(registered = false) {
 }
 it("commits the guest restriction, receipt and private audit together", () => {
   const f = fixture(); const before = f.db.playerProgress.identity.find(f.ctx.sender);
-  f.run(server.recordEnemyDefeats, oversized);
+  reportKills(f, oversized);
   expect(f.db.defeatSessionRestriction.identity.find(f.ctx.sender)).toMatchObject({ requireSignIn: false, blockedUntilMicros: 40_000_000n });
   expect(f.db.playerController.identity.find(f.ctx.sender)).toBeNull();
   expect(f.db.player.identity.find(f.ctx.sender)).toBeNull();
@@ -44,7 +45,7 @@ it("commits the guest restriction, receipt and private audit together", () => {
 });
 it("revokes existing and refreshed account tokens, while allowing a later verified authentication", () => {
   const f = fixture(true);
-  f.run(server.recordEnemyDefeats, oversized);
+  reportKills(f, oversized);
   expect(f.db.defeatSessionRestriction.identity.find(f.ctx.sender).requireSignIn).toBe(true);
   f.ctx.timestamp = new Timestamp(100_000_000n);
   expect(() => f.run(server.registerProtocol, { protocolVersion: PROTOCOL_VERSION })).toThrow("DEFEAT_SESSION_REAUTH");
@@ -61,26 +62,26 @@ it("does not punish legitimate duplicate delivery or grouped kills", () => {
   // A grouped report that fits the arrival bank; the same report twice pays once.
   const grouped = Math.max(1, Number(SITE_CAPACITY) - 1);
   const f = fixture(); const normal = { ...report, enemies: [{ enemy: "site:0", count: grouped }] };
-  f.run(server.recordEnemyDefeats, normal); f.run(server.recordEnemyDefeats, normal);
+  reportKills(f, normal); reportKills(f, normal);
   expect(f.db.defeatSessionRestriction.identity.find(f.ctx.sender)).toBeNull();
   expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(BigInt(grouped));
 });
 it("does not admit a new connection during the guest cooldown", () => {
   const f = fixture();
-  f.run(server.recordEnemyDefeats, oversized);
+  reportKills(f, oversized);
   f.ctx.connectionId = new (f.ctx.connectionId!.constructor as any)(2n);
   f.run(server.onConnect);
   expect(f.db.playerSession.connectionId.find(f.ctx.connectionId)).toBeNull();
   expect(() => f.run(server.registerProtocol, { protocolVersion: PROTOCOL_VERSION })).toThrow("DEFEAT_SESSION_COOLDOWN");
 });
 it("also restricts an oversized batch instead of throwing away the restriction transaction", () => {
-  const f = fixture(); f.run(server.recordEnemyDefeats, oversized);
+  const f = fixture(); reportKills(f, oversized);
   expect(f.db.defeatSessionRestriction.identity.find(f.ctx.sender)).not.toBeNull();
   expect(f.db.playerLifetime.identity.find(f.ctx.sender)?.enemyKills ?? 0n).toBe(0n);
 });
 it("pays a clipped report its bounded share and leaves the session alone", () => {
   const f = fixture();
-  f.run(server.recordEnemyDefeats, report);
+  reportKills(f, report);
   expect(f.db.defeatSessionRestriction.identity.find(f.ctx.sender)).toBeNull();
   expect(f.db.player.identity.find(f.ctx.sender)).not.toBeNull();
   expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(SITE_CAPACITY);
@@ -91,7 +92,7 @@ it("bounds a boss claim the earned-time clock cannot pay without taking the sess
   // A portal round-trip re-presents a personal boss before the clock has paid
   // for it. The claim earns nothing and the player keeps playing.
   const f = fixture(); f.patch("playerProgress", { equippedRightHand: "", damage: 1 });
-  f.run(server.recordEnemyDefeats, { ...report, enemies: [{ enemy: "boss", count: 1 }] });
+  reportKills(f, { ...report, enemies: [{ enemy: "boss", count: 1 }] });
   expect(f.db.defeatSessionRestriction.identity.find(f.ctx.sender)).toBeNull();
   expect(f.db.player.identity.find(f.ctx.sender)).not.toBeNull();
   expect(f.db.proceduralProgress.identity.find(f.ctx.sender)).toBeNull();
@@ -121,7 +122,7 @@ it.each([false, true])("logs actual kill-limit enforcement with its durable audi
   const f = fixture(registered);
   const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   try {
-    f.run(server.recordEnemyDefeats, oversized);
+    reportKills(f, oversized);
     const events = warn.mock.calls.filter(call => call[0] === "Enemy defeat session restricted");
     expect(events).toHaveLength(1);
     const event = JSON.parse(String(events[0][1]));
@@ -141,7 +142,7 @@ it("does not log a session revocation for valid kills or duplicate delivery", ()
   const f = fixture(), warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   try {
     const valid = { ...report, enemies: [{ enemy: "site:0", count: 1 }] };
-    f.run(server.recordEnemyDefeats, valid); f.run(server.recordEnemyDefeats, valid);
+    reportKills(f, valid); reportKills(f, valid);
     expect(warn.mock.calls.filter(call => call[0] === "Enemy defeat session restricted")).toHaveLength(0);
   } finally { warn.mockRestore(); }
 });

@@ -1,4 +1,4 @@
-import { fillDefeatBudget } from "../../tests/helpers/enemy-defeat";
+import { fillDefeatBudget, reportKills } from "../../tests/helpers/enemy-defeat";
 import { STARTER_BOW } from "../../shared/items";
 import { describe, expect, it, vi } from "vitest";
 import { Timestamp } from "spacetimedb";
@@ -34,7 +34,7 @@ function fixture(mapId = "tutorial_forest", fightSeconds = 100) {
     at: (seconds: number) => { f.ctx.timestamp = new Timestamp(start + BigInt(Math.round(seconds * 1e6))); },
     claim: (count = 1, freshStream = false) => {
       sequence++;
-      f.run(server.recordEnemyDefeats, { mapId, streamId: freshStream ? `boss-validation-stream-${sequence}` : "boss-validation-stream-01",
+      reportKills(f, { mapId, streamId: freshStream ? `boss-validation-stream-${sequence}` : "boss-validation-stream-01",
         sequence: freshStream ? 1n : sequence, enemies: [{ enemy: "boss", count }] });
     },
     kills: () => f.db.playerLifetime.identity.find(f.ctx.sender)?.enemyKills ?? 0n,
@@ -161,7 +161,7 @@ describe("boss time validation", () => {
     // A player who has been on this map long enough to bank the allowance; the
     // arrival bank is not what this test is about.
     fillDefeatBudget(f, "tutorial_forest", "Cindermaw");
-    f.run(server.recordEnemyDefeats, { mapId: "tutorial_forest", streamId: "mixed-boss-save-window-01", sequence: 1n,
+    reportKills(f, { mapId: "tutorial_forest", streamId: "mixed-boss-save-window-01", sequence: 1n,
       // Sixty Cindermaw sit inside what one projectile a second can plausibly kill in a minute.
       enemies: [{ enemy: "boss", count: 1 }, { enemy: "Cindermaw", count: 60 }] });
     expect(f.kills()).toBe(61n);

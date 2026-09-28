@@ -104,10 +104,10 @@ describe("kill-rate watch line", () => {
     expect(episodes[0]).toBeLessThanOrEqual(600);
   });
 
-  it("keeps a stall's time for the backlog a legacy client sends behind it", () => {
-    // 0.826 sends no game time. Two kills a second, a twelve-minute stall with
-    // play going on, then the backlog as a report carrying the stall and
-    // fourteen more a tenth of a second apart.
+  it("keeps a stall's time for the backlog sent behind it", () => {
+    // Two kills a second, a twelve-minute stall with play going on, then the
+    // backlog as a report carrying the stall and fourteen more a tenth of a
+    // second apart that claim no game time of their own.
     let { row } = run(2, 1800);
     const first = killRateWatch(row, at(1800 + 720), 100, 0);
     row = { tokens: first.tokens, updatedAtMicros: at(1800 + 720) };

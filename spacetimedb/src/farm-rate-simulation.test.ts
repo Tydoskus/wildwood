@@ -1,6 +1,7 @@
 import { Timestamp } from "spacetimedb";
 import { describe, expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
+import { reportKills } from "../../tests/helpers/enemy-defeat";
 import { KILL_RATE_WATCH_PER_SECOND, PAY_CEILING } from "./enemy-defeats";
 import { DEFEAT_MIN_RESPAWN_SECONDS, ENEMY_DEFEAT_BATCH_MAX, SIM_CLOCK_BANK_SECONDS, defeatBudget, defeatMinRespawnSeconds, enemyDefeatDefinition, mapEnemyPopulation } from "../../shared/enemy-defeats";
 import { ENEMY_TYPES } from "../../shared/enemy-definitions";
@@ -70,9 +71,15 @@ function player(options: { lapSeconds: number; minutes: number; reportSeconds?: 
         else pending.set(enemy, owed - take);
       }
       if (!chunk.length) break;
-      sequence += 1n;
       const before = Number(f.db.playerLifetime.identity.find(f.ctx.sender)?.enemyKills ?? 0n);
-      f.run(server.recordEnemyDefeats, { mapId: MAP, streamId, sequence, enemies: chunk });
+      try { reportKills(f, { mapId: MAP, streamId, sequence: sequence + 1n, enemies: chunk }); }
+      catch (error) {
+        if (!/Enemy rewards are catching up/.test(String(error))) throw error;
+        // Throttled: the kills stay queued for the next report, as the client keeps them.
+        for (const { enemy, count } of chunk) pending.set(enemy, (pending.get(enemy) ?? 0) + count);
+        return;
+      }
+      sequence += 1n;
       paid = Number(f.db.playerLifetime.identity.find(f.ctx.sender)?.enemyKills ?? 0n);
       // player_gem_drop and player_item_drop are event tables: the host hands
       // each row to the client and drops it. The in-memory database keeps rows,
@@ -237,8 +244,6 @@ function currentClient(options: {
   offline?: { from: number; seconds: number };
   /** The tab stays open with nothing to fight: game time runs, no kills land. */
   idle?: { from: number; seconds: number };
-  /** Send through record_enemy_defeats instead, which knows nothing of game time: what every report was paid before. */
-  legacy?: boolean;
   /** From this many minutes in, farm at `reformLapSeconds` instead: a script turned off. */
   reformAfterMinutes?: number; reformLapSeconds?: number;
 }) {
@@ -286,8 +291,7 @@ function currentClient(options: {
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       const report = { streamId, sequence: sequence + 1n, mapId: batch.mapId, enemies: [...batch.enemies].map(([enemy, count]) => ({ enemy, count })) };
       try {
-        if (options.legacy) f.run(server.recordEnemyDefeats, report);
-        else f.run(server.reportEnemyDefeats, { ...report, simulatedMillis });
+        f.run(server.reportEnemyDefeats, { ...report, simulatedMillis });
       } catch (error) {
         // The client keeps the batch and tries again on a later tick.
         if (/Enemy rewards are catching up/.test(String(error))) { throttled++; return; }
@@ -359,12 +363,9 @@ describe("the current client, held to the server's clock", () => {
     expect(rows).toHaveLength(profiles.length);
   }, SIMULATION_TIMEOUT_MS);
 
-  it("pays an honest lap exactly what the old reducer paid it, and never scales it", () => {
+  it("pays an honest lap in full, and never scales it", () => {
     const current = currentClient({ lapSeconds: HONEST_LAP, minutes: 10 });
-    const legacy = currentClient({ lapSeconds: HONEST_LAP, minutes: 10, legacy: true });
     expect(current.paid).toBe(current.claimed);
-    expect(current.claimed).toBe(legacy.claimed);
-    expect(current.paid).toBe(legacy.paid);
     // The lap the older harness above drives is paid in full as well.
     const older = player({ lapSeconds: HONEST_LAP, minutes: 10 });
     expect(older.paid).toBe(older.claimed);

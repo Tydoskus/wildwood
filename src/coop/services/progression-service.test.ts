@@ -451,33 +451,13 @@ describe("server-calculated defeat batches", () => {
     } finally { vi.useRealTimers(); }
   });
 
-  it("falls back to the older kill reducers when the server does not have the new ones yet", async () => {
+  it("never reports through the retired kill reducers, whatever the server answers", async () => {
     const h = setup();
-    h.reportEnemyDefeats.mockImplementation(async () => { throw new Error("No such reducer `report_enemy_defeats`"); });
-    h.service.recordRegularEnemyDefeat("water_reach", "Tide Raider");
-    expect(await h.service.drainEnemyLoot()).toBe(true);
-    expect(h.recordEnemyDefeats).toHaveBeenCalledOnce();
-    expect(h.recordEnemyDefeats.mock.calls[0][0]).not.toHaveProperty("simulatedMillis");
-    // The rest of the connection goes straight to the older pair...
-    h.service.recordRegularEnemyDefeat("water_reach", "Tide Raider");
-    expect(await h.service.drainEnemyLoot()).toBe(true);
-    expect(h.reportEnemyDefeats).toHaveBeenCalledOnce();
-    expect(h.recordEnemyDefeats).toHaveBeenCalledTimes(2);
-    // ...and a new session tries the new ones again, in case the server was published meanwhile.
-    h.reportEnemyDefeats.mockReset();
-    h.service.beginSession(false);
-    h.service.recordRegularEnemyDefeat("water_reach", "Tide Raider");
-    expect(await h.service.drainEnemyLoot()).toBe(true);
-    expect(h.reportEnemyDefeats).toHaveBeenCalledOnce();
-    expect(h.recordEnemyDefeats).toHaveBeenCalledTimes(2);
-    h.service.dispose();
-  });
-
-  it("does not fall back on an ordinary refusal", async () => {
-    const h = setup();
-    h.reportEnemyDefeats.mockImplementation(async () => { throw new Error("Enemy defeat batches must arrive in order."); });
-    h.service.recordRegularEnemyDefeat("water_reach", "Tide Raider");
-    expect(await h.service.drainEnemyLoot()).toBe(false);
+    for (const refusal of ["No such reducer `report_enemy_defeats`", "Enemy defeat batches must arrive in order."]) {
+      h.reportEnemyDefeats.mockImplementation(async () => { throw new Error(refusal); });
+      h.service.recordRegularEnemyDefeat("water_reach", "Tide Raider");
+      expect(await h.service.drainEnemyLoot()).toBe(false);
+    }
     expect(h.recordEnemyDefeats).not.toHaveBeenCalled();
     h.service.dispose();
   });

@@ -135,7 +135,8 @@ import { describe, expect, it } from "vitest";
 // the reward path takes the balance, stat multiplier and power inputs the
 // per-report combat bound already read. The throttle, the simulation clock and
 // the bound live in enemy-defeats.ts and boss-combat.ts.
-const MAX_LINES = 6_540;
+// 6_539: the legacy pair retired to a refresh.
+const MAX_LINES = 6_539;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {
