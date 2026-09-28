@@ -1,4 +1,11 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.829": [
+    "New: Respec in the Prestige window refunds every spent perk point, for your run's power.",
+    "Reflect now answers melee enemies and bosses, lands at a steady rate, and shows in blue.",
+    "Aegis Prime's Shield Sweep hits when its wave reaches you, not before.",
+    "Fewer sign-in prompts: an update or reload no longer throws away your sign-in.",
+    "Offline progress stays off once you turn it off, including after signing up.",
+  ],
   "0.828": [
     "Fixed the multiplayer eye sometimes staying on without showing other players after a reconnect.",
   ],
@@ -2486,6 +2493,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.829": "2026-09-28",
   "0.828": "2026-09-28",
   "0.827": "2026-09-27",
   "0.826": "2026-09-25",
