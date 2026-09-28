@@ -16,6 +16,19 @@ export function offlineProgressEnabled(ctx: { db: any }, identity: any) {
   return ctx.db.playerOfflinePreference.identity.find(identity)?.enabled ?? true;
 }
 
+/**
+ * A guest's choice moves to the account it becomes, as audio and loot
+ * settings do. Missed here, a guest who had switched offline progress off and
+ * then signed up came back with it on: the account had no row, which means on.
+ * An account that already made its own choice keeps it.
+ */
+export function mergeOfflinePreference(ctx: { db: any }, guest: any, account: any) {
+  const guestRow = ctx.db.playerOfflinePreference.identity.find(guest);
+  if (!guestRow) return;
+  if (!ctx.db.playerOfflinePreference.identity.find(account)) ctx.db.playerOfflinePreference.insert({ ...guestRow, identity: account });
+  ctx.db.playerOfflinePreference.identity.delete(guest);
+}
+
 export function writeOfflinePreference(ctx: { db: any; sender: any }, enabled: boolean) {
   const previous = ctx.db.playerOfflinePreference.identity.find(ctx.sender);
   if (previous?.enabled === enabled) return;

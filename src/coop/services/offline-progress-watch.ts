@@ -58,8 +58,11 @@ export function watchOfflineProgressPreference(connection: DbConnection, present
 
 /**
  * The opt-out as the coop API serves it: mirrored so settings can render
- * before a row arrives, and shown immediately when changed, with the
- * subscription correcting it if the server disagrees.
+ * before a row arrives, and shown immediately when changed. A change the
+ * server refuses (another tab holds the session, a reconnect) puts the switch
+ * back to what the server has: the subscription never corrects it, since the
+ * row did not change, and the switch used to keep showing a choice that was
+ * never saved until the next session quietly paid for time away again.
  */
 export function createOfflineProgressPreference(connection: () => DbConnection | null, notify: () => void) {
   let enabled = true;
@@ -78,8 +81,15 @@ export function createOfflineProgressPreference(connection: () => DbConnection |
         if (!current?.isActive) return false;
         enabled = next;
         notify();
-        await current.reducers.setOfflineProgressEnabled({ enabled: next });
-        return true;
+        try {
+          await current.reducers.setOfflineProgressEnabled({ enabled: next });
+          return true;
+        } catch (error) {
+          enabled = [...current.db.myOfflinePreference.iter()][0]?.enabled ?? true;
+          notify();
+          console.warn("WildStat offline progress setting was not saved:", error);
+          return false;
+        }
       },
     },
   };

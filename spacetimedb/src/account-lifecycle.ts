@@ -32,6 +32,7 @@ import { mergeAdGemReward, removeAdGemReward } from "./ad-gem-reward";
 import { mergeChatMute, removeChatMute } from "./chat-mute";
 import { mergeLootSettings, removeLootSettings } from "./loot-settings";
 import { mergeIgnoredDrops, removeIgnoredDrops } from "./ignored-drops";
+import { mergeOfflinePreference } from "./offline-preference";
 import { mergeLinkedPrestige } from "./prestige-transfer";
 import { moveLeaderboardPrestigePosition } from "./leaderboard-pages";
 import { unlinkPatreon } from "./patreon";
@@ -213,6 +214,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
     mergeLootSettings(ctx, link.guest, ctx.sender);
     mergeEquipmentLocks(ctx, link.guest, ctx.sender);
     mergeIgnoredDrops(ctx, link.guest, ctx.sender);
+    mergeOfflinePreference(ctx, link.guest, ctx.sender);
     const guestBalance = ctx.db.playerBalanceVersion.identity.find(link.guest);
     const guestBalanceVersion = guestBalance?.version ?? 0;
     const guestAttackRate = guestBalanceVersion >= 1 ? guestProgress.attackRate : guestProgress.attackRate * 2;

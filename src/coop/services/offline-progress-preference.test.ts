@@ -41,4 +41,17 @@ describe("offline progress preference", () => {
     expect(preference.api.offlineProgressEnabled()).toBe(false);
     expect(conn.setOfflineProgressEnabled).toHaveBeenCalledWith({ enabled: false });
   });
+
+  it("puts the switch back to what the server has when the change is refused", async () => {
+    const conn = fakeConnection([{ enabled: false }]);
+    conn.setOfflineProgressEnabled.mockRejectedValueOnce(new Error("WildStat is active in another tab."));
+    const preference = createOfflineProgressPreference(() => conn.connection, vi.fn());
+    preference.watch(conn.connection, () => true);
+    conn.settle();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(preference.api.setOfflineProgressEnabled(true)).resolves.toBe(false);
+    warn.mockRestore();
+    // Still off, as saved: showing "on" here was a choice the server never took.
+    expect(preference.api.offlineProgressEnabled()).toBe(false);
+  });
 });
