@@ -64,7 +64,7 @@ import {
   VOLTWARDEN_REWARD_REGEN,
 } from "../../shared/rules";
 import { upgradeSlotForItem } from "../../shared/slot-upgrades";
-import { effectivePlayerPower, legacyU32Power } from "../../shared/player-power";
+import { effectivePlayerPower, effectivePlayerPowerStats, legacyU32Power } from "../../shared/player-power";
 import {
   equipmentDamage,
   FROST_ARMOR,
@@ -189,6 +189,7 @@ export function createBossCombat(deps: BossCombatDeps) {
         projectiles: itemDefinition(loadout.weapon)?.weapon?.mode === "MELEE" ? 1 : Math.max(1, saved.projectileCount),
         reach: prestigeReachMultiplier(ranks) * bowSkillReachMultiplier(bowSkills),
         bossDamage: bowSkillBossDamageMultiplier(bowSkills),
+        reflects: prestigePerkValue(ranks, "riposte") > 0,
       } };
     }
     const report = () => (loaded ??= load());
@@ -201,7 +202,12 @@ export function createBossCombat(deps: BossCombatDeps) {
         const attackInterval = attackIntervalForProgress(progress);
         if (!gear) return { dps: 0, attackInterval, projectiles: 1 };
         const dps = gear.loadout.damage(progress.damage) * gear.critical * gear.swing * gear.projectiles / attackInterval;
-        return { attackInterval, projectiles: gear.projectiles, reach: gear.reach, dps, bossDps: dps * gear.bossDamage };
+        // Reflect throws half of a landed hit back, at bosses too. It can never
+        // return more than half of all the player takes, and a player cannot
+        // take more than their health and what regen restores before falling:
+        // the most it can shorten a clear, whatever its bag drew.
+        const reflect = gear.reflects ? (({ maxHp, regen }) => ({ maxHp, regen }))(effectivePlayerPowerStats(progress, report().research, gear.loadout.levelFor)) : null;
+        return { attackInterval, projectiles: gear.projectiles, reach: gear.reach, dps, bossDps: dps * gear.bossDamage, reflect };
       },
       /** statRewardMultiplier: research and prestige cannot change inside one report. */
       statMultiplier: () => report().statMultiplier,

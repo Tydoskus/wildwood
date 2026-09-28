@@ -14,7 +14,7 @@ export const PRESTIGE_PERKS = {
     detail: "Chance to strike a second enemy at the same time. Nothing to split against a boss." },
   // Shown as Reflect; the id stays riposte because it names a database column.
   riposte: { title: "Reflect", perRank: .06,
-    detail: "Chance to throw half the damage you take back at the enemy or duel opponent who dealt it. Bosses shrug it off." },
+    detail: "Chance to throw half the damage you take back at whoever dealt it: enemies, bosses and duel opponents." },
 } as const;
 
 /**

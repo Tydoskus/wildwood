@@ -592,7 +592,7 @@ import {
   const proceduralBoss = createProceduralBossController({
     mapId: () => currentMapId, state: mapId => ({ ...coop?.proceduralMapState(), boss: personalBosses.proceduralState(mapId) }),
     enemies, player, spawn: spawnFromSite,
-    damagePlayer: damage => playerCombat.damagePlayer(damage), burst: spawnBurst, shot: projectileStore.spawnEnemyShot,
+    damagePlayer: (damage, source) => playerCombat.damagePlayer(damage, source), burst: spawnBurst, shot: projectileStore.spawnEnemyShot,
   });
   const enemySimulation = createEnemySimulation(
     enemies,
@@ -600,7 +600,7 @@ import {
     player,
     () => ({ ...canvasRuntime.viewport(), zoom: camera.zoom }),
     engageEnemy,
-    (amount) => playerCombat.damagePlayer(amount),
+    (amount, source) => playerCombat.damagePlayer(amount, source),   // the source is who Reflect answers
     {
       currentMapId: () => currentMapId,
       serverNowMs: () => coop?.serverNowMs?.() ?? Date.now(),
@@ -699,8 +699,8 @@ import {
     minAttackInterval: MIN_ATTACK_INTERVAL,
     effectiveArmor,
     isDueling,
-    hitGeneratedBoss: (enemy, damage, critical) => { if (!enemy.generatedBoss) return false; personalBosses.hit(currentMapId, damage); spawnDamageNumber(enemy.x, enemy.y, damage, critical); return true; },
-    hitPersonalBoss: (damage, x, y, critical) => { personalBosses.hit(currentMapId, damage); spawnDamageNumber(x, y, damage, critical); },
+    hitGeneratedBoss: (enemy, damage, critical, reflected) => { if (!enemy.generatedBoss) return false; personalBosses.hit(currentMapId, damage); spawnDamageNumber(enemy.x, enemy.y, damage, critical, false, reflected); return true; },
+    hitPersonalBoss: (damage, x, y, critical, reflected) => { personalBosses.hit(currentMapId, damage); spawnDamageNumber(x, y, damage, critical, false, reflected); },
     scheduleEnemyRespawn: site => {
       regularEnemyRespawn.schedule(site);
       respawnMemory.remember(enemyRespawnKey(site), (site.respawnAt - session.gameTime()) * 1000);
@@ -943,7 +943,7 @@ import {
     startWaterPortalCutscene,
     startSamuraiPortalCutscene,
     spawnBurst,
-    damagePlayer: (amount) => playerCombat.damagePlayer(amount),
+    damagePlayer: (amount) => playerCombat.damagePlayerFromBoss(amount),
     logPickup,
     saveProgress,
     healthMultiplierBonus,

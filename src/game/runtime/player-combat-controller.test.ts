@@ -134,7 +134,7 @@ describe("player attack timing", () => {
     state.controller.damagePlayer(5); expect(combat).toHaveBeenCalledTimes(2);
   });
 
-  it("reflects half of a landed hit back at the enemy that dealt it, and never at a boss", () => {
+  it("reflects half of a landed hit back at the enemy that dealt it, an Endless boss included", () => {
     const spawn = (state: ReturnType<typeof createCombatHarness>) => {
       state.enemies.length = 0;
       createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Spitter", x: 520, y: 500,
@@ -154,10 +154,47 @@ describe("player attack timing", () => {
     plain.controller.damagePlayer(40, untouched);
     expect(untouched.hp).toBe(1000);
 
-    const bossFight = createCombatHarness({ prestigeReflect: () => 1 });
+    const hitGeneratedBoss = vi.fn(() => true);
+    const bossFight = createCombatHarness({ prestigeReflect: () => 1, hitGeneratedBoss });
     const boss = spawn(bossFight); boss.generatedBoss = true;
     bossFight.controller.damagePlayer(40, boss);
-    expect(boss.hp).toBe(1000);
+    expect(hitGeneratedBoss).toHaveBeenCalledWith(boss, 20, false, true);
+  });
+
+  it("reflects a campaign boss's hit back at that boss, drawn blue", () => {
+    const hitPersonalBoss = vi.fn();
+    const state = createCombatHarness({ prestigeReflect: () => 1, hitPersonalBoss });
+    Object.assign(state.boss, { dead: false, x: 700, y: 500 });
+    Object.assign(state.player, { x: 500, y: 500, hp: 1000, maxHp: 1000, hurtClock: 0 });
+    expect(state.controller.damagePlayerFromBoss(40)).toBe(true);
+    expect(hitPersonalBoss).toHaveBeenCalledOnce();
+    expect(hitPersonalBoss.mock.calls[0]).toEqual([20, 700, 500 + (state.boss.hitboxOffsetY ?? 0), false, true]);
+    // A dead boss's lingering hazard has no one to answer.
+    state.boss.dead = true; state.player.hurtClock = 0;
+    state.controller.damagePlayerFromBoss(40);
+    expect(hitPersonalBoss).toHaveBeenCalledOnce();
+  });
+
+  it("draws Reflect from a marble bag, only on hits it could answer, and shows each one blue", () => {
+    const spawnDamageNumber = vi.fn();
+    let seed = 5;
+    const state = createCombatHarness({ prestigeReflect: () => .3, spawnDamageNumber,
+      random: () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 2 ** 32; } });
+    state.enemies.length = 0;
+    createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Spitter", x: 520, y: 500,
+      campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
+    const mob = state.enemies[0]; mob.hp = mob.maxHp = 1e9;
+    const gone = { ...mob, dead: true } as typeof mob;
+    Object.assign(state.player, { x: 500, y: 500, hp: 1e9, maxHp: 1e9 });
+    for (let hit = 0; hit < 40; hit++) {
+      state.player.hurtClock = 0; state.controller.damagePlayer(40, mob);
+      // A shot from an enemy already dead draws no marble, so it cannot eat a reflect the living were owed.
+      state.player.hurtClock = 0; state.controller.damagePlayer(40, gone);
+    }
+    const blue = spawnDamageNumber.mock.calls.filter(call => call[5] === true);
+    expect(blue).toHaveLength(12);                      // exactly 30% of 40, not a coin's luck
+    expect(mob.hp).toBe(1e9 - 12 * 20);                 // each one half of the 40 that landed
+    expect(blue.every(call => call[2] === 20 && call[4] === false)).toBe(true);
   });
 
   it("prioritizes an aggroed attacker over its selected farm type, then returns to farming", () => {
@@ -577,7 +614,7 @@ it('passes Endless critical damage and the critical flag to its hit display', ()
     x: 550, y: 500, campName: 'Boss', leashRange: 500, alive: false, respawnAt: 0 });
   state.enemies[0].generatedBoss = true;
   for (let i = 0; i < 90; i++) { now += 1 / 60; state.controller.attackNearest(); state.controller.updateProjectiles(1 / 60); }
-  expect(hit).toHaveBeenCalledWith(state.enemies[0], 20, true);
+  expect(hit).toHaveBeenCalledWith(state.enemies[0], 20, true, false);   // a swing, not a reflect
 });
 
 describe("autofarm target priority", () => {

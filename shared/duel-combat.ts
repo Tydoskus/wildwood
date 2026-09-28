@@ -2,12 +2,17 @@ import { damageAfterArmor } from "./combat";
 import { duelAttackDelays, type DuelWeapons } from "./duel-approach";
 import { regularEnemySeededUnit } from "./regular-enemy-simulation";
 import { RIPOSTE_REFLECT_SHARE } from "./prestige-perks";
+import { marbleBagHit } from "./marble-bag";
 import { ARROW_STORM_ARROWS, ARROW_STORM_DAMAGE_SHARE, DUEL_RICOCHET_REHITS, RICOCHET_DAMAGE_SHARE, type BowSkillId } from "./bow-skills";
 
 export type DuelFighter = { maxHp: number; damage: number; armor: number; regen: number; attackRate: number };
-/** 4: bow skills (Arrow Storm, Ricochet, Piercing Shot) roll in the fight. */
-export const DUEL_COMBAT_VERSION = 4;
+/**
+ * 4: bow skills (Arrow Storm, Ricochet, Piercing Shot) roll in the fight.
+ * 5: Riposte (Reflect) draws from a marble bag instead of a coin per hit.
+ */
+export const DUEL_COMBAT_VERSION = 5;
 export const DUEL_BOW_SKILLS_VERSION = 4;
+export const DUEL_RIPOSTE_BAG_VERSION = 5;
 export function duelHitMultiplier(seconds: number, version = 0) {
   return version >= 1 ? 1 + Math.min(4, Math.max(0, seconds - 10) / 5) : 1;
 }
@@ -68,12 +73,20 @@ function duelAttackDamage(duel: DuelCombat, side: "challenger" | "opponent", att
 /**
  * Whether a hit is thrown back. Deterministic: the same duel, side and attack
  * always answer the same, so the server and every replay agree without either
- * carrying a list of rolls.
+ * carrying a list of rolls. Since version 5 the attack number is a draw from a
+ * marble bag shuffled by the stored seed, so a duellist's Reflect lands at its
+ * rate over any twenty hits rather than whenever a coin allows; fights
+ * recorded earlier keep the coin, so their replays still agree.
  */
 export function duelRiposted(duel: DuelCombat, side: "challenger" | "opponent", attack: number) {
   const chance = Math.max(0, Math.min(1, (side === "challenger" ? duel.challengerRiposte : duel.opponentRiposte) ?? 0));
   if (chance <= 0) return false;
-  return regularEnemySeededUnit("duel-riposte", String(duel.riposteSeed ?? 0), side, attack) < chance;
+  const seed = String(duel.riposteSeed ?? 0);
+  if ((duel.combatVersion ?? 0) >= DUEL_RIPOSTE_BAG_VERSION) {
+    // Attacks count from 1; the first one draws the first marble.
+    return marbleBagHit(chance, attack - 1, (bag, slot) => regularEnemySeededUnit("duel-riposte-bag", seed, side, bag, slot));
+  }
+  return regularEnemySeededUnit("duel-riposte", seed, side, attack) < chance;
 }
 export type DuelCombatState = {
   challengerHp: number; opponentHp: number; challengerAttacks: number; opponentAttacks: number;

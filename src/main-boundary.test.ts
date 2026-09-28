@@ -83,3 +83,13 @@ describe("game composition boundary", () => {
     expect(MAX_LINES).toBeGreaterThan(TARGET_LINES);
   });
 });
+
+describe("game composition wiring", () => {
+  // main.ts has no tests of its own, and a callback that takes fewer arguments
+  // still type-checks. Dropping the attacker here left Reflect dead against
+  // every melee enemy from 0.823 to 0.829 while its own tests passed.
+  it("hands the enemy that struck to the player's damage, so Reflect can answer it", () => {
+    const source = readFileSync(new URL("./main.ts", import.meta.url), "utf8");
+    expect(source).toMatch(/\(amount, source\) => playerCombat\.damagePlayer\(amount, source\)/);
+  });
+});

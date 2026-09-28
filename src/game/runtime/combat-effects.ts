@@ -24,6 +24,8 @@ export type DamageNumber = {
   text: string;
   critical: boolean;
   damageTaken: boolean;
+  /** Thrown back by Reflect: drawn blue. */
+  reflected: boolean;
 };
 
 /**
@@ -106,11 +108,11 @@ export function createCombatEffects() {
     }
   }
 
-  function spawnDamageNumber(x: number, y: number, amount: number, critical = false, damageTaken = false) {
+  function spawnDamageNumber(x: number, y: number, amount: number, critical = false, damageTaken = false, reflected = false) {
     if (!Number.isFinite(amount) || amount <= 0) return;
     let number: DamageNumber;
     if (damageNumbers.length < MAX_DAMAGE_NUMBERS) {
-      number = damageNumberPool.pop() ?? { x: 0, y: 0, startY: 0, life: 0, maxLife: 0, opacity: 1, text: "", critical: false, damageTaken: false };
+      number = damageNumberPool.pop() ?? { x: 0, y: 0, startY: 0, life: 0, maxLife: 0, opacity: 1, text: "", critical: false, damageTaken: false, reflected: false };
       damageNumbers.push(number);
     } else {
       number = damageNumbers[damageNumberReplacement % damageNumbers.length];
@@ -132,6 +134,7 @@ export function createCombatEffects() {
     number.text = `-${formatCompactNumber(amount)}`;
     number.critical = critical;
     number.damageTaken = damageTaken;
+    number.reflected = reflected;
   }
 
   function acquireSkillEffect() {
@@ -326,7 +329,7 @@ export function createCombatEffects() {
           number.text,
           0,
           0,
-          number.damageTaken ? "#ff5a5a" : number.critical ? "#ffe36b" : "#ffffff",
+          number.damageTaken ? "#ff5a5a" : number.reflected ? "#6fc8ff" : number.critical ? "#ffe36b" : "#ffffff",
           4,
         );
       });

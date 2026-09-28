@@ -4,6 +4,7 @@ import { personalBossDefinition } from "../../shared/personal-bosses";
 import { Range, SenderError, table, t } from "spacetimedb/server";
 import { defeatBudget, defeatMinRespawnSeconds, enemyDefeatDefinition, mapEnemyPopulation, DEFEAT_BUDGET_WINDOW_SECONDS, ENEMY_DEFEAT_BATCH_MAX, SIM_CLOCK_BANK_SECONDS, type EnemyDefeat } from "../../shared/enemy-defeats";
 import { bossDefeatLimits, BOSS_REWARD_WINDOW_SECONDS } from "./boss-defeat-limits";
+import { RIPOSTE_REFLECT_SHARE } from "../../shared/prestige-perks";
 import { bossRespawnSecondsWithResearch, enemyRespawnSecondsWithResearch } from "../../shared/utility-research";
 import { KILL_REPORT_BURST, KILL_REPORT_REFILL_SECONDS, REGULAR_ENEMY_RESPAWN_SECONDS } from "../../shared/rules";
 import { recordModerationAction } from "./moderation-history";
@@ -435,7 +436,8 @@ export type EnemyDefeatBatch = { streamId: string; sequence: bigint; mapId: stri
  *     seconds from the combat clock, without ever being refused for it.
  */
 export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBatch, activeMapIds: string | readonly string[],
-  bossCombat: (earned: { type: string; amount: number; count: number }[]) => { dps: number; attackInterval: number; projectiles?: number; reach?: number; bossDps?: number }) {
+  bossCombat: (earned: { type: string; amount: number; count: number }[]) => { dps: number; attackInterval: number; projectiles?: number; reach?: number; bossDps?: number;
+    reflect?: { maxHp: number; regen: number } | null }) {
   if (!/^[a-zA-Z0-9-]{16,80}$/.test(batch.streamId) || batch.sequence < 1n || !batch.enemies.length)
     throw new SenderError("Invalid enemy defeat batch.");
   const key = `${ctx.sender.toHexString()}:${batch.streamId}`;
@@ -520,7 +522,11 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
       const combat = bossCombat(rewards);
       // A boss is one target, so reach adds nothing here; Arrow Storm's extra
       // arrows on it are damage, and bossDps carries them.
-      const limits = bossDefeatLimits(boss.hp, combat.bossDps ?? combat.dps, combat.attackInterval, boss.respawnSeconds);
+      // Reflect covers up to half the player's health pool and half their regen
+      // of the boss's HP; their own damage has to cover the rest.
+      const reflected = combat.reflect ? RIPOSTE_REFLECT_SHARE : 0;
+      const limits = bossDefeatLimits(Math.max(1, boss.hp - reflected * (combat.reflect?.maxHp ?? 0)),
+        (combat.bossDps ?? combat.dps) + reflected * (combat.reflect?.regen ?? 0), combat.attackInterval, boss.respawnSeconds);
       const timeKey = bossTimeKey(ctx.sender, batch.mapId);
       const clock = ctx.db.enemyDefeatBudget.key.find(timeKey);
       // Existing online clients may have fought before this check was deployed.

@@ -13,6 +13,7 @@ import type { BossTarget, DragonBossState, EnemyState, FrostclawBossState, Gloom
 import type { SpawnSite } from "../world";
 import { equipmentDamage, itemDefinition } from "../../../shared/items";
 import { RIPOSTE_REFLECT_SHARE } from "../../../shared/prestige-perks";
+import { createMarbleBag } from "../../../shared/marble-bag";
 import { ARROW_STORM_DAMAGE_SHARE, ARROW_STORM_RADIUS, RICOCHET_DAMAGE_SHARE, hasBowSkills, rollArrowSkillProcs, type BowSkillRoll } from "../../../shared/bow-skills";
 import { ARROW_STORM_FLIGHT_SECONDS, ARROW_STORM_STAGGER_SECONDS } from "./combat-effects";
 import { arrowPassesThrough, isSkillSecondaryTarget, rainArrowStorm, ricochetChain } from "./bow-skill-procs";
@@ -73,7 +74,10 @@ export function attackReadyAtWithoutTarget(nextAttackAtSeconds: number, nowSecon
 export type PlayerCombatController = {
   attackNearest: (enemyType?: EnemyKind | null, campName?: string | null, priority?: AutoFarmPriority) => void;
   updateProjectiles: (dt: number) => void;
-  damagePlayer: (amount: number, source?: EnemyState) => boolean;
+  /** `source` is who dealt it, which Reflect answers. */
+  damagePlayer: (amount: number, source?: EnemyState | BossTarget | null) => boolean;
+  /** A hit from this map's boss, which Reflect answers at the boss. */
+  damagePlayerFromBoss: (amount: number) => boolean;
   clearPendingThrow: () => void;
 };
 
@@ -145,11 +149,11 @@ export function createPlayerCombatController(options: {
   scheduleEnemyRespawn: (site: SpawnSite) => void;
   recordRegularEnemyDefeat: (mapId: string, enemy: string) => void;
   incrementKills: () => void;
-  hitPersonalBoss?: (damage: number, x: number, y: number, critical: boolean) => void;
-  hitGeneratedBoss?: (enemy: EnemyState, damage: number, critical: boolean) => boolean;
+  hitPersonalBoss?: (damage: number, x: number, y: number, critical: boolean, reflected?: boolean) => void;
+  hitGeneratedBoss?: (enemy: EnemyState, damage: number, critical: boolean, reflected?: boolean) => boolean;
   spawnBurst: (x: number, y: number, color: string, count?: number, speed?: number) => void;
   spawnParticle: (x: number, y: number, vx: number, vy: number, life: number, maxLife: number, size: number, color: string) => void;
-  spawnDamageNumber: (x: number, y: number, amount: number, critical?: boolean, damageTaken?: boolean) => void;
+  spawnDamageNumber: (x: number, y: number, amount: number, critical?: boolean, damageTaken?: boolean, reflected?: boolean) => void;
   /** Bow skill visuals; combat still works without them (tests, tools). */
   skillEffects?: {
     spawnArcingArrow: (fromX: number, fromY: number, toX: number, toY: number, index: number, color: string) => void;
@@ -176,6 +180,9 @@ export function createPlayerCombatController(options: {
   } = options;
   const { projectiles, enemyShots } = projectileStore;
   const random = options.random ?? Math.random;
+  // Reflect draws from a marble bag, so its rate corrects itself instead of
+  // running dry for a hundred hits at 6%. Only hits it could answer draw.
+  const reflectBag = createMarbleBag(random);
   /** Arrow Storm hits wait for their arrow to land, so a target does not vanish first. */
   const stormHits: { target: EnemyState | BossTarget; damage: number; critical: boolean; landAt: number; x: number; y: number }[] = [];
 
@@ -536,16 +543,16 @@ export function createPlayerCombatController(options: {
     }
   }
 
-  function damagePlayer(amount: number, source?: EnemyState | null) {
+  function damagePlayer(amount: number, source?: EnemyState | BossTarget | null) {
     if (isDueling() || player.hurtClock > 0) return false;
     const dealt = damageAfterArmor(amount, effectiveArmor());
     if (dealt > 0) options.onCombat?.();
     player.hp -= dealt;
-    // Reflect throws half of what landed back at the enemy that dealt it. Bosses
-    // are left out: the server bounds a boss kill by the player's own damage.
-    if (source && !source.dead && !source.isBoss && !source.generatedBoss && dealt > 0
-      && Math.random() < (options.prestigeReflect?.() ?? 0)) {
-      applyPlayerHit(source, dealt * RIPOSTE_REFLECT_SHARE, false, Math.atan2(source.y - player.y, source.x - player.x));
+    // Reflect throws half of what landed back at whoever dealt it, bosses
+    // included; the server widens a boss clear's bound by what it can add.
+    const reflectChance = options.prestigeReflect?.() ?? 0;
+    if (source && !source.dead && dealt > 0 && reflectChance > 0 && reflectBag.draw(reflectChance)) {
+      applyPlayerHit(source, dealt * RIPOSTE_REFLECT_SHARE, false, Math.atan2(source.y - player.y, source.x - player.x), true);
     }
     spawnDamageNumber(player.x, player.y, dealt, false, true);
     player.hurtClock = .1;
@@ -603,15 +610,16 @@ export function createPlayerCombatController(options: {
     }
   }
 
-  function applyPlayerHit(target: EnemyState | BossTarget, damage: number, critical: boolean, angle: number) {
-    if (!target.isBoss && !target.generatedBoss) spawnDamageNumber(target.x, target.y, damage, critical);
+  function applyPlayerHit(target: EnemyState | BossTarget, damage: number, critical: boolean, angle: number, reflected = false) {
+    // A reflected hit shows blue, so the player can see Reflect fire.
+    if (!target.isBoss && !target.generatedBoss) spawnDamageNumber(target.x, target.y, damage, critical, false, reflected);
     target.hurt = .12;
     if (target.isBoss && options.hitPersonalBoss) {
-      options.hitPersonalBoss(damage, target.x, target.y + (target.hitboxOffsetY ?? 0), critical === true);
+      options.hitPersonalBoss(damage, target.x, target.y + (target.hitboxOffsetY ?? 0), critical === true, reflected);
     } else if (target.isBoss) {
       // No personal-boss handler is wired up (never happens in production,
       // where main.ts always supplies hitPersonalBoss for boss targets).
-    } else if (options.hitGeneratedBoss?.(target, damage, critical)) {
+    } else if (options.hitGeneratedBoss?.(target, damage, critical, reflected)) {
       // The generated-boss controller owns its health and defeat handling.
     } else {
       engageEnemy(target);
@@ -734,6 +742,7 @@ export function createPlayerCombatController(options: {
     attackNearest,
     updateProjectiles,
     damagePlayer,
+    damagePlayerFromBoss: (amount: number) => damagePlayer(amount, activeMapBoss()),
     clearPendingThrow: () => {
       retainedTarget = null;
       nextTargetSearchAt = 0;

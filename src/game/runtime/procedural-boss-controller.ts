@@ -23,7 +23,8 @@ export function createProceduralBossController(options: {
   enemies: EnemyState[];
   player: PlayerState;
   spawn: (site: SpawnSite) => void;
-  damagePlayer: (damage: number) => boolean;
+  /** `source` is the boss, which Reflect answers. */
+  damagePlayer: (damage: number, source?: EnemyState) => boolean;
   burst: (
     x: number,
     y: number,
@@ -39,6 +40,7 @@ export function createProceduralBossController(options: {
     r: number,
     damage: number,
     life: number,
+    source?: EnemyState | null,
   ) => void;
 }) {
   let mapId = "",
@@ -151,7 +153,7 @@ export function createProceduralBossController(options: {
     if (attackElapsed >= 1.4 && !pulseFired) {
       pulseFired = true;
       boss.attackAnimationElapsed = 0;
-      if (distance < 330 + options.player.r) options.damagePlayer(boss.damage);
+      if (distance < 330 + options.player.r) options.damagePlayer(boss.damage, boss);
     }
     if (shotElapsed >= 1.6) {
       shotElapsed %= 1.6;
@@ -168,6 +170,7 @@ export function createProceduralBossController(options: {
         10,
         boss.damage * 0.3,
         4,
+        boss,
       );
     }
     if (distance < boss.r + options.player.r) {

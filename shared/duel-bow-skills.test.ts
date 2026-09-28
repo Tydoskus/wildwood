@@ -13,8 +13,8 @@ const run = (duel: DuelCombat, micros = 30_000_000) => advanceDuelCombat(duel, i
 // The first hit lands before any escalation multiplier.
 const firstHit = (duel: DuelCombat) => run(duel, 1_000_000).challengerDamageDealt;
 
-it("is version 4, and a fight with no bow skills plays exactly as it did before", () => {
-  expect(DUEL_COMBAT_VERSION).toBe(4);
+it("rolls bow skills from version 4, and a fight with none plays exactly as it did before", () => {
+  expect(DUEL_COMBAT_VERSION).toBeGreaterThanOrEqual(DUEL_BOW_SKILLS_VERSION);
   expect(DUEL_BOW_SKILLS_VERSION).toBe(4);
   const plain = fighters({ challengerArmor: 300, opponentArmor: 50, challengerAttackRate: .7 });
   expect(run(plain)).toEqual(run({ ...plain, combatVersion: 3 }));
