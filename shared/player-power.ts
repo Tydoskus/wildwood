@@ -1,4 +1,4 @@
-import { DEFAULT_ATTACK_INTERVAL, MIN_ATTACK_INTERVAL } from "./rules";
+import { DEFAULT_ATTACK_INTERVAL, MIN_ATTACK_INTERVAL, PLAYER_BASE_DAMAGE, PLAYER_BASE_HP, PLAYER_BASE_REGEN } from "./rules";
 import {
   equipmentDamage,
   equipmentMaxHealth,
@@ -12,6 +12,14 @@ export type PlayerPowerStats = {
   armor: number;
   regen: number;
 };
+
+/**
+ * The stats kills raise, as a new run starts them: a new account, a prestige
+ * and a perk respec all set them back to these.
+ */
+export const PLAYER_STARTING_POWER: Readonly<PlayerPowerStats> = Object.freeze({
+  maxHp: PLAYER_BASE_HP, damage: PLAYER_BASE_DAMAGE, attackRate: DEFAULT_ATTACK_INTERVAL, armor: 0, regen: PLAYER_BASE_REGEN,
+});
 
 export type PlayerPowerProgress = PlayerPowerStats & {
   equippedHead?: string;

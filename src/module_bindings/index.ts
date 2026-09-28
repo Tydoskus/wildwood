@@ -157,6 +157,7 @@ import RequestPatreonHelpReducer from "./request_patreon_help_reducer";
 import ReserveGemPurchaseReducer from "./reserve_gem_purchase_reducer";
 import ResetPlayerProgressReducer from "./reset_player_progress_reducer";
 import ResolveEquipmentOfferReducer from "./resolve_equipment_offer_reducer";
+import RespecPrestigePerksReducer from "./respec_prestige_perks_reducer";
 import RestoreMapBalanceReducer from "./restore_map_balance_reducer";
 import ResumeSessionReducer from "./resume_session_reducer";
 import SavePlayerProgressReducer from "./save_player_progress_reducer";
@@ -1502,6 +1503,7 @@ const reducersSchema = __reducers(
   __reducerSchema("reserve_gem_purchase", ReserveGemPurchaseReducer),
   __reducerSchema("reset_player_progress", ResetPlayerProgressReducer),
   __reducerSchema("resolve_equipment_offer", ResolveEquipmentOfferReducer),
+  __reducerSchema("respec_prestige_perks", RespecPrestigePerksReducer),
   __reducerSchema("restore_map_balance", RestoreMapBalanceReducer),
   __reducerSchema("resume_session", ResumeSessionReducer),
   __reducerSchema("save_player_progress", SavePlayerProgressReducer),

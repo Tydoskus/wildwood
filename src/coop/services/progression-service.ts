@@ -930,6 +930,19 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       spendPrestigePerkPoint(perk: string) {
         return reducerResult("prestige perk point spend", (connection) => connection.reducers.spendPrestigePerkPoint({ perk }))();
       },
+      async respecPrestigePerks() {
+        const identity = dependencies.localIdentity();
+        const connection = dependencies.reducers.connection();
+        // Queued kills were earned at the old power. Paid after the reset they
+        // would be judged against starting stats on another map, and dropped.
+        if (!await enemyLoot.flush(true)) return { ok: false, error: "Rewards are still syncing. Try again in a moment." };
+        const result = await reducerResult("prestige respec", (active) => active.reducers.respecPrestigePerks({}))();
+        if (result.ok && identity === dependencies.localIdentity() && connection === dependencies.reducers.connection()) {
+          clearPending(identity);   // as after a prestige: the reset row supersedes the unsaved prediction
+          dependencies.notify();
+        }
+        return result;
+      },
       async startItemUpgrade(slot: UpgradeBenchSlot, itemId: string, position?: { x: number; y: number }) {
         if (dependencies.reducers.protocolBlocked()) return { ok: false, error: "UPDATE REQUIRED" };
         const connection = dependencies.reducers.connection();

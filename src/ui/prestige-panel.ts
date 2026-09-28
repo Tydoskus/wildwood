@@ -13,6 +13,14 @@ export const PRESTIGE_COST = 'Prestige resets your stats and map unlocks. '
   + 'Tech research, slot upgrade levels, ongoing research and upgrades, lifetime kills, name, gems and bought slots all stay.';
 /** The warning shown once a prestige button is armed and the next press resets. */
 export const PRESTIGE_ARMED_WARNING = 'This cannot be undone.';
+/** What a respec costs, spelled out before the press that does it. */
+export const RESPEC_ARMED_WARNING = 'Your power resets to starting stats and you return to the forest. '
+  + 'Maps, research, gear and your prestige level stay. This cannot be undone.';
+
+/** The respec row's line: the points it hands back, and its price in a phrase. */
+export function respecLabel(spent: number) {
+  return `Refund ${spent} spent point${spent === 1 ? '' : 's'} to place again. Resets your power to starting stats.`;
+}
 
 /**
  * The one way a window prestiges: the same reducer call and the same words for
@@ -56,11 +64,13 @@ export function createPrestigeController(options: {
   /** Endless stages cleared this run; the second prestige needs one, the third two, and so on. */
   completed?: () => number;
   runPrestige: () => Promise<PrestigeResult>;
+  /** Refund every spent perk point for the run's power. The row stays hidden without it. */
+  respec?: () => Promise<PrestigeResult>;
   showMessage?: (text: string) => void;
   beforeOpen?: () => void;
 }) {
   const { openButton, overlay, confirmButton, status } = options;
-  let armed = false, pending = false;
+  let armed = false, pending = false, respecArmed = false;
 
   const nextLevel = () => (options.prestige()?.level ?? 0) + 1;
   const completed = () => options.completed?.() ?? 0;
@@ -79,6 +89,7 @@ export function createPrestigeController(options: {
     armed = false;
     confirmButton.textContent = 'Prestige';
     confirmButton.classList.remove('is-armed');
+    respecArmed = false;
   }
 
   /**
@@ -88,11 +99,54 @@ export function createPrestigeController(options: {
    * which is why spending a point sometimes took several taps.
    */
   const perkRows = new Map<PrestigePerkId, { title: HTMLElement; value: HTMLElement; spend: HTMLButtonElement }>();
+  /**
+   * Respec: every spent point back to place again, for the run's power. It
+   * sits under the perks it undoes, appears once a point is spent, and is
+   * armed like Prestige: the first press says exactly what it costs, the
+   * second does it. The window stays open so the points can go straight back.
+   */
+  let respecRow: { row: HTMLElement; text: HTMLElement; button: HTMLButtonElement } | null = null;
+
+  function buildRespecRow(create: (tag: string) => HTMLElement) {
+    const row = create('div');
+    row.className = 'prestige-respec';
+    const text = create('div');
+    text.className = 'prestige-respec-text';
+    const button = create('button') as HTMLButtonElement;
+    button.type = 'button';
+    button.className = 'prestige-respec-btn';
+    button.addEventListener('click', async () => {
+      if (pending || button.disabled || !options.respec) return;
+      if (!respecArmed) {
+        disarm();
+        respecArmed = true;
+        status.textContent = RESPEC_ARMED_WARNING;
+        render();
+        return;
+      }
+      respecArmed = false; pending = true;
+      status.textContent = 'Refunding perk points…';
+      render();
+      try {
+        const result = await options.respec();
+        const ok = typeof result === 'boolean' ? result : result?.ok === true;
+        status.textContent = ok ? 'Perk points refunded. Place them again.'
+          : (typeof result === 'object' && result?.error) || "Couldn't respec. Please try again.";
+      } catch {
+        status.textContent = "Couldn't respec. Please try again.";
+      } finally {
+        pending = false; render();
+      }
+    });
+    row.append(text, button);
+    respecRow = { row, text, button };
+    return row;
+  }
 
   function buildPerkRows() {
     // Build from the list's own document so the panel works wherever it is mounted.
     const create = (tag: string) => options.perkList.ownerDocument.createElement(tag) as HTMLElement;
-    options.perkList.replaceChildren(...PRESTIGE_PERK_IDS.map(id => {
+    const rows = PRESTIGE_PERK_IDS.map(id => {
       const row = create('div');
       row.className = 'prestige-perk';
       row.dataset.perk = id;
@@ -112,6 +166,7 @@ export function createPrestigeController(options: {
         // Read the rank now rather than closing over the one this row was
         // built with, which a rank bought since would have left stale.
         const rank = prestigePerkRank(options.perks(), id);
+        disarm();
         pending = true; spend.disabled = true;
         status.textContent = `Spending a point on ${PRESTIGE_PERKS[id].title}…`;
         try {
@@ -128,7 +183,8 @@ export function createPrestigeController(options: {
       row.append(title, detail, value, spend);
       perkRows.set(id, { title, value, spend });
       return row;
-    }));
+    });
+    options.perkList.replaceChildren(...rows, buildRespecRow(create));
   }
 
   function renderPerks(points: number) {
@@ -145,6 +201,14 @@ export function createPrestigeController(options: {
         : `Now ${prestigePerkEffectLabel(id, rank)} · Next ${prestigePerkEffectLabel(id, rank + 1)}`;
       row.spend.textContent = maxed ? 'Maxed' : 'Spend';
       row.spend.disabled = pending || maxed || points < 1;
+    }
+    if (respecRow) {
+      const spent = PRESTIGE_PERK_IDS.reduce((sum, id) => sum + prestigePerkRank(ranks, id), 0);
+      respecRow.row.hidden = !options.respec || spent < 1;
+      respecRow.text.textContent = respecLabel(spent);
+      respecRow.button.textContent = respecArmed ? 'Yes, respec' : 'Respec';
+      respecRow.button.classList.toggle('is-armed', respecArmed);
+      respecRow.button.disabled = pending;
     }
   }
 
@@ -209,10 +273,12 @@ export function createPrestigeController(options: {
     }
     // Losing every map unlock deserves a second press, not a single tap.
     if (!armed) {
+      disarm();
       armed = true;
       confirmButton.textContent = 'Yes, prestige';
       confirmButton.classList.add('is-armed');
       status.textContent = PRESTIGE_ARMED_WARNING;
+      render();   // repaints a respec this press disarmed
       return;
     }
     pending = true; disarm();

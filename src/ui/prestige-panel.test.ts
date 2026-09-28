@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { parseHTML } from "linkedom";
 import { createPrestigeController, prestigeRewardLabel, submitPrestige, type PrestigeRow } from "./prestige-panel";
 
-function setup(options: { row?: PrestigeRow | null; unlocked?: boolean; completed?: number; run?: () => Promise<any>; perks?: any; spend?: () => Promise<any> } = {}) {
+function setup(options: { row?: PrestigeRow | null; unlocked?: boolean; completed?: number; run?: () => Promise<any>; perks?: any; spend?: () => Promise<any>; respec?: () => Promise<any> } = {}) {
   const { document } = parseHTML(`<html><body>
     <div id="own" hidden><button id="open" disabled>Prestige</button></div>
     <div id="overlay" hidden>
@@ -13,6 +13,7 @@ function setup(options: { row?: PrestigeRow | null; unlocked?: boolean; complete
   const pick = (id: string) => document.getElementById(id) as any;
   const runPrestige = vi.fn(options.run ?? (async () => ({ ok: true })));
   const spendPerk = vi.fn(options.spend ?? (async () => ({ ok: true })));
+  const respec = vi.fn(options.respec ?? (async () => ({ ok: true })));
   const showMessage = vi.fn();
   const controller = createPrestigeController({
     openButton: pick("open"), ownActions: pick("own"), overlay: pick("overlay"),
@@ -20,9 +21,9 @@ function setup(options: { row?: PrestigeRow | null; unlocked?: boolean; complete
     points: pick("points"), peak: pick("peak"), cost: pick("cost"), status: pick("status"),
     prestige: () => options.row ?? null, unlocked: () => options.unlocked ?? false, completed: () => options.completed ?? 0,
     perkList: pick("perks"), perks: () => options.perks ?? null, spendPerk: spendPerk as any,
-    runPrestige, showMessage,
+    runPrestige, showMessage, respec,
   });
-  return { controller, pick, runPrestige, spendPerk, showMessage };
+  return { controller, pick, runPrestige, spendPerk, showMessage, respec };
 }
 const click = (element: any) => element.click();
 
@@ -132,7 +133,7 @@ describe("prestige panel", () => {
   it("lists every perk with its rank, and only offers a spend when a point is banked", () => {
     const none = setup({ unlocked: true, row: { level: 1, perkPoints: 0, peakPower: 0 }, perks: { keenEdge: 2 } });
     none.controller.open();
-    const rows = () => [...none.pick("perks").children] as any[];
+    const rows = () => [...none.pick("perks").querySelectorAll(".prestige-perk")] as any[];
     expect(rows()).toHaveLength(4);
     expect(rows()[0].querySelector(".prestige-perk-title").textContent).toBe("Keen Edge 2/5");
     // Both what the rank owned is worth and what one more point buys.
@@ -143,7 +144,7 @@ describe("prestige panel", () => {
 
     const banked = setup({ unlocked: true, row: { level: 3, perkPoints: 1, peakPower: 0 }, perks: { riposte: 5 } });
     banked.controller.open();
-    const perkRows = [...banked.pick("perks").children] as any[];
+    const perkRows = [...banked.pick("perks").querySelectorAll(".prestige-perk")] as any[];
     expect(perkRows[0].querySelector("button").disabled).toBe(false);
     const maxed = perkRows.find((row: any) => row.dataset.perk === "riposte");
     expect(maxed.querySelector("button").textContent).toBe("Maxed");
@@ -304,4 +305,60 @@ it("does not announce a perk purchase when its API returns no result", async () 
   click(s.pick("perks").querySelector("button"));
   await Promise.resolve();
   expect(s.pick("status").textContent).toBe("Couldn't spend that point.");
+});
+
+describe("prestige respec", () => {
+  const respecRow = (s: ReturnType<typeof setup>) => s.pick("perks").querySelector(".prestige-respec") as any;
+  const settle = async () => { for (let i = 0; i < 4; i++) await Promise.resolve(); };
+
+  it("stays hidden until a point is spent, then names how many come back", () => {
+    const fresh = setup({ unlocked: true, row: { level: 2, perkPoints: 2, peakPower: 0 }, perks: {} });
+    fresh.controller.open();
+    expect(respecRow(fresh).hidden).toBe(true);
+    const spent = setup({ unlocked: true, row: { level: 3, perkPoints: 0, peakPower: 0 }, perks: { keenEdge: 2, riposte: 1 } });
+    spent.controller.open();
+    expect(respecRow(spent).hidden).toBe(false);
+    expect(respecRow(spent).textContent).toContain("Refund 3 spent points");
+    expect(respecRow(spent).textContent).toContain("starting stats");
+  });
+
+  it("says what it costs on the first press and only respecs on the second, keeping the window open", async () => {
+    const s = setup({ unlocked: true, row: { level: 3, perkPoints: 0, peakPower: 0 }, perks: { splitShot: 3 } });
+    s.controller.open();
+    const button = respecRow(s).querySelector("button");
+    button.click();
+    expect(s.respec).not.toHaveBeenCalled();
+    expect(button.textContent).toBe("Yes, respec");
+    expect(s.pick("status").textContent).toContain("starting stats");
+    button.click();
+    await settle();
+    expect(s.respec).toHaveBeenCalledOnce();
+    expect(s.pick("overlay").hidden).toBe(false);
+    expect(s.pick("status").textContent).toContain("refunded");
+    expect(button.textContent).toBe("Respec");
+  });
+
+  it("arming Prestige disarms a respec, and the reverse, so one press never fires the other", () => {
+    const s = setup({ unlocked: true, row: { level: 3, perkPoints: 0, peakPower: 0 }, perks: { splitShot: 3 } });
+    s.controller.open();
+    const respecButton = respecRow(s).querySelector("button");
+    respecButton.click();
+    click(s.pick("confirm"));
+    expect(respecButton.textContent).toBe("Respec");
+    expect(s.pick("confirm").textContent).toBe("Yes, prestige");
+    respecButton.click();
+    expect(s.pick("confirm").textContent).toBe("Prestige");
+    expect(s.runPrestige).not.toHaveBeenCalled();
+    expect(s.respec).not.toHaveBeenCalled();
+  });
+
+  it("reports a refusal and leaves the points where they were", async () => {
+    const s = setup({ unlocked: true, row: { level: 3, perkPoints: 0, peakPower: 0 }, perks: { keenEdge: 1 },
+      respec: async () => ({ ok: false, error: "Finish your duel before respeccing." }) });
+    s.controller.open();
+    const button = respecRow(s).querySelector("button");
+    button.click(); button.click();
+    await settle();
+    expect(s.pick("status").textContent).toContain("duel");
+  });
 });

@@ -129,6 +129,7 @@ import RequestPatreonHelpReducer from "../request_patreon_help_reducer";
 import ReserveGemPurchaseReducer from "../reserve_gem_purchase_reducer";
 import ResetPlayerProgressReducer from "../reset_player_progress_reducer";
 import ResolveEquipmentOfferReducer from "../resolve_equipment_offer_reducer";
+import RespecPrestigePerksReducer from "../respec_prestige_perks_reducer";
 import RestoreMapBalanceReducer from "../restore_map_balance_reducer";
 import ResumeSessionReducer from "../resume_session_reducer";
 import SavePlayerProgressReducer from "../save_player_progress_reducer";
@@ -297,6 +298,7 @@ export type RequestPatreonHelpParams = __Infer<typeof RequestPatreonHelpReducer>
 export type ReserveGemPurchaseParams = __Infer<typeof ReserveGemPurchaseReducer>;
 export type ResetPlayerProgressParams = __Infer<typeof ResetPlayerProgressReducer>;
 export type ResolveEquipmentOfferParams = __Infer<typeof ResolveEquipmentOfferReducer>;
+export type RespecPrestigePerksParams = __Infer<typeof RespecPrestigePerksReducer>;
 export type RestoreMapBalanceParams = __Infer<typeof RestoreMapBalanceReducer>;
 export type ResumeSessionParams = __Infer<typeof ResumeSessionReducer>;
 export type SavePlayerProgressParams = __Infer<typeof SavePlayerProgressReducer>;

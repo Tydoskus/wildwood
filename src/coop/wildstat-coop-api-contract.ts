@@ -128,6 +128,7 @@ type ExpectedApiKey =
   | "prestigeAccount"
   | "prestigePerks"
   | "spendPrestigePerkPoint"
+  | "respecPrestigePerks"
   | "resetProgress"
   | "retryConnection"
   | "claimGameBridge"

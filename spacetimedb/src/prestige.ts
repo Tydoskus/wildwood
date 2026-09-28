@@ -1,8 +1,9 @@
 import { SenderError } from "spacetimedb/server";
 import { researchStatRewardMultiplier } from "../../shared/research";
-import { playerPowerForStats } from "../../shared/player-power";
+import { PLAYER_STARTING_POWER, playerPowerForStats } from "../../shared/player-power";
+import { updateSnapshotRow } from "./snapshot-row-writes";
 import { PRESTIGE_CAP_HINT, PRESTIGE_PERK_POINTS_PER_LEVEL, prestigeCapped, prestigeCampaignTarget, prestigeCampaignComplete, prestigeEndlessRequirement, prestigeStatMultiplier, prestigeUnlocked } from "../../shared/prestige";
-import { PRESTIGE_PERK_MAX_RANK, isPrestigePerkId, type PrestigePerkRanks } from "../../shared/prestige-perks";
+import { PRESTIGE_PERK_IDS, PRESTIGE_PERK_MAX_RANK, isPrestigePerkId, type PrestigePerkRanks } from "../../shared/prestige-perks";
 
 // Prestige bodies. The player_prestige table and the reducer declaration stay
 // in index.ts; this module owns what they call. The reset arrives through deps
@@ -30,10 +31,11 @@ export type PrestigeDeps = {
   activeDuelFor: (ctx: any, identity: any) => unknown;
   resetProgressToDefaults: (ctx: any, activePlayer: any, keep?: { research?: boolean; lifetimeKills?: boolean; slotTiers?: boolean; items?: boolean }) => void;
   recordPrestige: (ctx: any) => void;
+  respawnWithProgress: (ctx: any, activePlayer: any, progress: any) => void;
 };
 
 export function createPrestige(deps: PrestigeDeps) {
-  const { requireControllingPlayer, activeDuelFor, resetProgressToDefaults, recordPrestige } = deps;
+  const { requireControllingPlayer, activeDuelFor, resetProgressToDefaults, recordPrestige, respawnWithProgress } = deps;
 
   function prestigeAccount(ctx: any) {
     const activePlayer = requireControllingPlayer(ctx);
@@ -77,5 +79,30 @@ export function createPrestige(deps: PrestigeDeps) {
     ctx.db.playerPrestige.identity.update({ ...current, perkPoints: current.perkPoints - 1 });
   }
 
-  return { prestigeAccount, spendPerkPoint };
+  /**
+   * Hands back every spent perk point to place again. The price is the run's
+   * power: the stats kills raised go back to where a new run starts them, and
+   * the player starts again at the forest spawn, since starting power on a
+   * late map is a death loop. Map unlocks, Endless stages, research, gear,
+   * bench tiers and the prestige level all stay, so the maps already opened
+   * are there to farm again. The peak records the power traded away.
+   */
+  function respecPerks(ctx: any) {
+    const activePlayer = requireControllingPlayer(ctx);
+    if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel before respeccing.");
+    const current = ctx.db.playerPrestige.identity.find(ctx.sender);
+    const ranks = prestigePerkRanks(ctx, ctx.sender);
+    const spent = PRESTIGE_PERK_IDS.reduce((sum, perk) => sum + ranks[perk], 0);
+    const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+    if (!current || !progress || spent < 1) throw new SenderError("No perk points to respec.");
+    ctx.db.playerPrestigePerk.identity.update({ identity: ctx.sender, ...Object.fromEntries(PRESTIGE_PERK_IDS.map(perk => [perk, 0])) });
+    ctx.db.playerPrestige.identity.update({ ...current, perkPoints: current.perkPoints + spent,
+      peakPower: Math.max(current.peakPower, playerPowerForStats(progress)) });
+    const next = { ...progress, ...PLAYER_STARTING_POWER };
+    updateSnapshotRow(ctx, "playerProgress", next);
+    respawnWithProgress(ctx, activePlayer, next);
+    return spent;
+  }
+
+  return { prestigeAccount, spendPerkPoint, respecPerks };
 }

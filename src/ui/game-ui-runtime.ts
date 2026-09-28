@@ -64,7 +64,7 @@ export function createPrestigePanel(d: Record<string, any>) {
     closeButton: e.closePrestigeBtn, confirmButton: e.prestigeConfirmBtn, level: e.prestigeLevel, bonus: e.prestigeBonus,
     points: e.prestigePoints, peak: e.prestigePeak, cost: e.prestigeCost, status: e.prestigeStatus,
     perkList: e.prestigePerks, prestige: d.prestige, unlocked: d.unlocked, completed: d.completed, runPrestige: d.runPrestige,
-    perks: d.perks, spendPerk: d.spendPerk,
+    perks: d.perks, spendPerk: d.spendPerk, respec: d.respec,
     showMessage: d.showMessage, beforeOpen: d.beforeOpen });
 }
 

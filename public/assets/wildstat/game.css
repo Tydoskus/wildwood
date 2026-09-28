@@ -2784,6 +2784,14 @@
   .prestige-perk-value { grid-column: 1; color: #f0c674; font-size: 10px; line-height: 1.4; }
   .prestige-perk-spend { grid-column: 2; grid-row: 1 / span 3; min-height: 36px; padding: 0 12px; font-size: 11px; }
   .prestige-perk-spend:disabled { filter: grayscale(.8); opacity: .5; }
+  /* Respec: under the perks it undoes, set apart by a dashed edge because it
+     costs the run's power; armed in the same amber as an armed Prestige. */
+  .prestige-respec { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; padding: 6px 8px; border: 1px dashed #3a4a66; border-radius: 6px; }
+  .prestige-respec[hidden] { display: none; }
+  .prestige-respec-text { color: #8c94a1; font-size: 10px; line-height: 1.4; }
+  .prestige-respec-btn { min-height: 36px; padding: 0 12px; font-size: 11px; }
+  .prestige-respec-btn.is-armed { border-color: #8a3a1e; background: linear-gradient(#e08a3c, #a04f1c); color: #fff; }
+  .prestige-respec-btn:disabled { filter: grayscale(.8); opacity: .5; }
   .prestige-cost { margin: 0; color: #c2c7ce; font-size: 11px; line-height: 1.5; text-align: center; }
   .prestige-status { min-height: 16px; color: #f0c674; font-size: 11px; text-align: center; }
   .prestige-footer { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }

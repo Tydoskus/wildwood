@@ -1305,8 +1305,8 @@ import {
     progress.load();
   }
 
-  async function runPrestige() {
-    const result = await coop?.prestigeAccount?.();
+  async function runPrestige(reset = coop?.prestigeAccount) {
+    const result = await reset?.();
     if (result?.ok) loadProgress();
     return result;
   }
@@ -1366,7 +1366,7 @@ import {
     e: gameElements, prestige: () => coop?.prestige?.() ?? null, showMessage,
     perks: () => coop?.prestigePerks?.(), spendPerk: (perk: string) => coop?.spendPrestigePerkPoint?.(perk),
     unlocked: () => Boolean(coop?.prestigeCampaignComplete?.((coop?.prestige?.()?.level ?? 0) + 1)), completed: () => coop?.proceduralCompleted?.() ?? 0,
-    runPrestige,
+    runPrestige, respec: () => runPrestige(coop?.respecPrestigePerks),
   });
   const profileWindow = createProfileWindowController({
     window: playerProfileEl, name: playerProfileNameEl, guest: playerProfileGuestLabel, presence: playerProfilePresenceEl, power: playerProfilePowerEl, icon: playerProfileIcon, loading: playerProfileLoadingEl,

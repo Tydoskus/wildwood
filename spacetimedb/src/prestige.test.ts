@@ -3,6 +3,7 @@ import { expect, it, vi } from "vitest";
 import { ScheduleAt, Timestamp } from "spacetimedb";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { STARTER_BOW } from "../../shared/items";
+import { PLAYER_STARTING_POWER } from "../../shared/player-power";
 import { ATTACK_BALANCE_VERSION, BOSS_REWARD_CLAIM_BITS, SPACETIME_AUTH_CLIENT_ID, SPACETIME_AUTH_ISSUER } from "../../shared/rules";
 import { PRESTIGE_CAP_HINT, PRESTIGE_MAX_LEVEL, PRESTIGE_STAT_GAIN_PER_LEVEL, prestigeRequirementHint, prestigeStatMultiplier, prestigeUnlocked } from "../../shared/prestige";
 import { PRESTIGE_PERK_MAX_RANK } from "../../shared/prestige-perks";
@@ -287,4 +288,30 @@ it("keeps a prestiged player on the leaderboard at their reset power", () => {
   expect(entry.powerLevel).toBeLessThan(5_000_000);
   expect(entry.damage).toBeLessThan(5_000_000);
   expect(f.db.leaderboardPosition.identity.find(f.ctx.sender)?.ranks[0]).toBeGreaterThan(0);
+});
+
+it("respecs every spent perk point back, at the price of the run's power, keeping maps and gear", () => {
+  const f = farmer();
+  f.seed("playerPrestige", { identity: f.ctx.sender, level: 4, perkPoints: 1, peakPower: 5, prestigedAt: f.ctx.timestamp });
+  f.seed("playerPrestigePerk", { identity: f.ctx.sender, keenEdge: 2, doubleStrike: 0, splitShot: 1, riposte: 0 });
+  const unlocked = { bossRewardClaims: CAMPAIGN_COMPLETE, desertUnlocked: true, ionCitadelUnlocked: true };
+  f.patch("playerProgress", { ...unlocked, maxHp: 90_000, damage: 40_000, armor: 300, regen: 900, attackRate: .4 });
+  f.patch("player", { mapId: "ion_citadel" });
+  f.run(server.respecPrestigePerks, {});
+  expect(perkRow(f)).toMatchObject({ keenEdge: 0, doubleStrike: 0, splitShot: 0, riposte: 0 });
+  expect(prestigeRow(f)).toMatchObject({ level: 4, perkPoints: 4 });
+  expect(prestigeRow(f)!.peakPower).toBeGreaterThan(5);
+  const progress = f.db.playerProgress.identity.find(f.ctx.sender);
+  expect(progress).toMatchObject({ ...PLAYER_STARTING_POWER, ...unlocked, equippedRightHand: STARTER_BOW });
+  // Starting power on a late map is a death loop, so the run restarts at the forest.
+  expect(f.db.player.identity.find(f.ctx.sender)).toMatchObject({ mapId: "tutorial_forest", hp: PLAYER_STARTING_POWER.maxHp });
+});
+
+it("refuses a respec with nothing spent, and changes nothing", () => {
+  const f = farmer();
+  f.seed("playerPrestige", { identity: f.ctx.sender, level: 1, perkPoints: 1, peakPower: 0, prestigedAt: f.ctx.timestamp });
+  const before = f.db.playerProgress.identity.find(f.ctx.sender);
+  expect(() => f.run(server.respecPrestigePerks, {})).toThrow("No perk points to respec.");
+  expect(f.db.playerProgress.identity.find(f.ctx.sender)).toEqual(before);
+  expect(prestigeRow(f)).toMatchObject({ perkPoints: 1 });
 });

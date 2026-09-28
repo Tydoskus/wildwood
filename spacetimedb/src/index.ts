@@ -88,7 +88,7 @@ import {
   type ResearchId,
 } from "../../shared/research";
 import { VIRTUAL_PLAYER_LIMIT, isVirtualPlayerTicket } from "../../shared/virtual-player-load-test";
-import { effectivePlayerPower, effectivePlayerPowerStats, legacyU32Power, playerPowerForStats } from "../../shared/player-power";
+import { PLAYER_STARTING_POWER, effectivePlayerPower, effectivePlayerPowerStats, legacyU32Power, playerPowerForStats } from "../../shared/player-power";
 import {
   PLAYER_GENDER_UNSET,
   isSelectedPlayerGender,
@@ -208,8 +208,6 @@ import {
   NAME_ADJECTIVES,
   NAME_CREATURES,
   PLAYER_BASE_HP,
-  PLAYER_BASE_DAMAGE,
-  PLAYER_BASE_REGEN,
   PLAYER_PROJECTILE_SPEED,
   PLAYER_RADIUS,
   PLAYER_SPAWN,
@@ -2192,14 +2190,10 @@ export const devRepairDisplayName = spacetimedb.reducer(
 function defaultPlayerProgress(identity: any) {
   return {
     identity,
-    maxHp: PLAYER_BASE_HP,
-    damage: PLAYER_BASE_DAMAGE,
-    attackRate: DEFAULT_ATTACK_INTERVAL,
+    ...PLAYER_STARTING_POWER,
     projectileSpeed: PLAYER_PROJECTILE_SPEED,
     projectileCount: 1,
     attackRange: DEFAULT_ATTACK_RANGE,
-    armor: 0,
-    regen: PLAYER_BASE_REGEN,
     speed: PLAYER_SPEED,
     bootsCollected: true,
     inventoryJson: JSON.stringify([STARTER_STONE]),
@@ -5538,16 +5532,13 @@ function resetProgressToDefaults(ctx: any, activePlayer: any, keep: { research?:
       (ctx.db as any)[`${boss}Contribution`].identity.delete(ctx.sender);
       (ctx.db as any)[`${boss}AttackWindow`].identity.delete(ctx.sender);
     }
-    const nextPlayer = {
-      ...activePlayer,
-      hp: next.maxHp,
-      maxHp: next.maxHp,
-      ...powerFieldsForProgress(ctx, next),
-      speed: effectiveMovementSpeedForProgress(ctx, next),
-      ...equipmentPresentationForProgress(next),
-    };
-    const respawned = transitionPlayerMap(ctx, nextPlayer, TUTORIAL_FOREST_MAP_ID, PLAYER_SPAWN, 0);
-    persistWorldLocation(ctx, respawned);
+    respawnWithProgress(ctx, activePlayer, next);
+}
+/** After a reset or respec: full health at the new stats, at the forest spawn, and ranked on them at once. */
+function respawnWithProgress(ctx: any, activePlayer: any, next: any) {
+    const nextPlayer = { ...activePlayer, hp: next.maxHp, maxHp: next.maxHp, ...powerFieldsForProgress(ctx, next),
+      speed: effectiveMovementSpeedForProgress(ctx, next), ...equipmentPresentationForProgress(next) };
+    persistWorldLocation(ctx, transitionPlayerMap(ctx, nextPlayer, TUTORIAL_FOREST_MAP_ID, PLAYER_SPAWN, 0));
     // The board is built from saved stats on a timer, so without this the
     // player keeps their old rank until the next sweep, which reads to
     // everyone else as a reset player still sitting at the top.
@@ -5556,7 +5547,7 @@ function resetProgressToDefaults(ctx: any, activePlayer: any, keep: { research?:
 const prestige = createPrestige({
   requireControllingPlayer,
   activeDuelFor,
-  resetProgressToDefaults,
+  resetProgressToDefaults, respawnWithProgress,
   recordPrestige: (ctx: any) => { recordAnalyticsMilestone(ctx, "prestige"); },
 });
 export const resetPlayerProgress = spacetimedb.reducer({}, (ctx) => {
@@ -5568,6 +5559,7 @@ export const resetPlayerProgress = spacetimedb.reducer({}, (ctx) => {
 export const prestigeAccount = spacetimedb.reducer({}, (ctx) => { prestige.prestigeAccount(ctx); });
 export const spendPrestigePerkPoint = spacetimedb.reducer({ perk: t.string() },
   (ctx, { perk }) => { prestige.spendPerkPoint(ctx, perk); });
+export const respecPrestigePerks = spacetimedb.reducer({}, (ctx) => { prestige.respecPerks(ctx); });
 
 function sendPlayerChatMessage(ctx: ModuleReducerCtx, message: string, replyToMessageId = 0n) {
   requireControllingPlayer(ctx);
