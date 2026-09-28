@@ -3,6 +3,7 @@ import { AccountRenewalRequired, createAccountTokenRenewal } from "./account-tok
 import { accountLogoutUrl } from "./account-logout";
 import { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 import { recordCarriedConnectionDiagnostic, recordConnectionDiagnostic } from "./connection-diagnostic-runtime";
+import { whenAccountRenewalSettled } from "../../app/account-renewal-flag";
 import { syncResearchNotification } from "../../app/native-research-notifications";
 import type { DbConnection } from "../../module_bindings";
 import { NATIVE_AUTH_CANCEL, NATIVE_AUTH_REDIRECT, nativeAuth } from "../../app/native-auth";
@@ -547,6 +548,9 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       // which for an email account is the difference from a magic link.
       if (forceLogin) { url.searchParams.set("prompt", "login"); url.searchParams.set("max_age", "0"); }
       dependencies.notify();
+      // Leaving mid-renewal would lose the refresh token SpacetimeAuth just issued.
+      await whenAccountRenewalSettled();
+      if (signingOut || !outboundAuthNavigationPending) return;
       if (isNativePreview()) {
         try {
           const bridge = nativeAuth();
@@ -612,11 +616,36 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     try { return await renewal.resolve(token, force); }
     catch (error) {
       if (error instanceof AccountRenewalRequired && sessionApproved && !outboundAuthNavigationPending) {
+        recordCarriedConnectionDiagnostic("session-blocked", { detail: `renewal-refused:${error.reason}:${error.detail}` });
         notice = "RESTORING SIGN-IN";
         await startAccountSignIn(`renewal-${error.reason}`);
       }
       throw error;
     }
+  }
+
+  /**
+   * While the game is open, renew the sign-in quietly before it expires, so
+   * the stored token is still good whenever this tab reloads or reconnects.
+   * Those were the only moments it renewed, and an update reloads every tab
+   * at once. A refusal here changes nothing for the session already playing;
+   * it is written down, and the next connection asks for a sign-in as before.
+   */
+  // Only from a visible, connected tab on the minute: never on a wake or a
+  // network change, which reach every tab at once on a still-shaky network.
+  let renewAheadTimer: ReturnType<typeof setInterval> | null = null;
+  function renewAhead() {
+    if (signingOut || outboundAuthNavigationPending || callbackPending || !accountToken()) return;
+    if (document.hidden || navigator.onLine === false || !dependencies.connection()?.isActive) return;
+    void renewal.renewAhead().catch((error) => {
+      if (error instanceof AccountRenewalRequired && error.reason === "grant-rejected") {
+        recordConnectionDiagnostic("session-blocked", { detail: `renew-ahead-refused:${error.detail}` });
+      }
+    });
+  }
+  function startRenewingAhead() {
+    if (renewAheadTimer !== null || typeof document === "undefined" || typeof setInterval !== "function") return;
+    renewAheadTimer = setInterval(renewAhead, 60_000);
   }
 
   const defeatCooldownKey = `${keys.guestTokenKey}:defeat-block-until`;
@@ -893,7 +922,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       lastPlayableSessionMode = signedIn ? "account" : "guest";
       // Keep an already admitted account in the game while transport recovers.
       // Otherwise a restored-token login falls back to sign-in on retry.
-      if (signedIn) sessionApproved = true;
+      if (signedIn) { sessionApproved = true; startRenewingAhead(); }
     },
     prepareUpdateReload(version: string) {
       recordConnectionDiagnostic("update-reload", { intentional: true, detail: `version:${version}` });

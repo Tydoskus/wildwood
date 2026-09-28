@@ -32,3 +32,17 @@ it('does not reload if the session cannot be preserved', () => {
   expect(reloadWithUpdateResume('0.811', () => false)).toBe(false);
   expect(f.replace).not.toHaveBeenCalled();
 });
+
+it("holds a recovery reload until a sign-in renewal in flight has settled", async () => {
+  vi.useFakeTimers({ now: Date.now() });
+  try {
+    const f = fixture();
+    sessionStorage.setItem("wildstat:account-renewal-started-at", String(Date.now()));
+    expect(reloadWithUpdateResume('0.811', version => f.store.write(version, 'account'))).toBe(true);
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(f.replace).not.toHaveBeenCalled();
+    sessionStorage.removeItem("wildstat:account-renewal-started-at");
+    await vi.advanceTimersByTimeAsync(100);
+    expect(f.replace).toHaveBeenCalledWith('https://example.com/?v=0.811');
+  } finally { vi.useRealTimers(); }
+});

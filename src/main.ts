@@ -16,7 +16,7 @@ import { createOfflineProgressSummary } from "./ui/offline-progress-summary";
 import { createFullscreenMovementGate } from "./ui/fullscreen-movement";
 import { installGameTicker } from "./ui/game-ticker";
 import { createScheduledUpdateController, createScheduledUpdateView } from "./ui/scheduled-update-controller";
-import { enforceLatestVersion } from "./app/version";
+import { afterAccountRenewal, enforceLatestVersion } from "./app/version";
 import { createPersonalBosses } from "./game/runtime/personal-bosses";
 import { createLocalCorpses } from "./game/runtime/local-corpses";
 import { ONBOARDING_MAP_ID, ONBOARDING_WORLD } from "../shared/onboarding";
@@ -1779,7 +1779,7 @@ import {
       if (!coop?.prepareUpdateReload?.(GAME_VERSION)) return false;
       const url = new URL(window.location.href);
       url.searchParams.set("v", GAME_VERSION);
-      window.location.replace(url.href);
+      afterAccountRenewal(() => window.location.replace(url.href));
       return true;
     },
   });

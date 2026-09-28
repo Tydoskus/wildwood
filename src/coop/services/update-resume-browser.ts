@@ -1,4 +1,4 @@
-import { isNewerGameVersion } from "../../app/version";
+import { afterAccountRenewal, isNewerGameVersion } from "../../app/version";
 import { createUpdateResumeStore, inferLegacyUpdateResumeMode, type UpdateResumeMode } from "./update-resume-store";
 
 export function consumeUpdateResumeMode(options: { version: string; store: ReturnType<typeof createUpdateResumeStore>; consumedKey: string; tabKey: string; tokenKey: string }): UpdateResumeMode | null {
@@ -36,6 +36,7 @@ export function reloadWithUpdateResume(version: string, prepare: (version: strin
   if (prepare(version) === false) return false;
   const url = new URL(window.location.href);
   url.searchParams.set("v", version);
-  window.location.replace(url.href);
+  // Wait out a sign-in renewal in flight, or its new refresh token is lost.
+  afterAccountRenewal(() => window.location.replace(url.href));
   return true;
 }

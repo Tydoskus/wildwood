@@ -1,3 +1,4 @@
+import { afterAccountRenewal } from "../../app/account-renewal-flag";
 /** Consecutive frames the SDK could not decode before this bundle counts as stale. */
 export const STALE_BUNDLE_FAILURES = 2;
 
@@ -18,7 +19,7 @@ export function createStaleBundleGuard(options: {
   reload?: () => boolean | void;
 }) {
   const storage = options.storage ?? (() => { try { return sessionStorage; } catch { return undefined; } });
-  const reload = options.reload ?? (() => window.location.reload());
+  const reload = options.reload ?? (() => afterAccountRenewal(() => window.location.reload()));
   const key = `wildstat-stale-bundle-reload:${options.version}`;
   let failures = 0;
   return {

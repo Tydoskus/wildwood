@@ -1,3 +1,6 @@
+import { afterAccountRenewal, whenAccountRenewalSettled } from "./account-renewal-flag";
+export { afterAccountRenewal };
+
 let versionCheckInFlight = false;
 let reloadScheduled = false;
 
@@ -47,7 +50,9 @@ export function enforceLatestVersion(version: string, onUpdateDetected?: UpdateD
       // navigate. Keep the existing session-preserving update presentation.
       onUpdateDetected?.(release.version);
       url.searchParams.set("v", release.version);
-      window.setTimeout(() => window.location.replace(url.toString()), 700);
+      // Never leave mid-renewal: that loses the refresh token SpacetimeAuth just issued.
+      await Promise.all([whenAccountRenewalSettled(), new Promise(resolve => window.setTimeout(resolve, 700))]);
+      window.location.replace(url.toString());
     })
     .catch(() => {})
     .finally(() => { versionCheckInFlight = false; });
@@ -77,7 +82,7 @@ export function shouldReloadStaleSession(blockedForMs: number, lastReloadAtMs: n
 }
 
 export function reloadStaleSession(blockedForMs: number, storage: Pick<Storage, "getItem" | "setItem"> = sessionStorage,
-  reload: () => boolean | void = () => window.location.reload(), nowMs = Date.now()) {
+  reload: () => boolean | void = () => afterAccountRenewal(() => window.location.reload()), nowMs = Date.now()) {
   if (reloadScheduled) return false;
   let last = Number.NaN;
   try { last = Number(storage.getItem(STALE_SESSION_RELOAD_KEY) ?? Number.NaN); } catch {}
