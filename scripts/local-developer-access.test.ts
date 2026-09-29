@@ -28,3 +28,11 @@ it('changes only the isolated developer gates and keeps session checks', () => {
 it('fails closed if the source contract changes', () => {
   expect(() => localDeveloperAccess('export const unrelated = 1')).toThrow();
 });
+it('multiplies local stat rewards through the research multiplier both sides share', async () => {
+  const { localRewardMultiplier } = await import('./local-developer-access.mjs');
+  const research = readFileSync('shared/research.ts', 'utf8');
+  expect(localRewardMultiplier(research, 1)).toBe(research);
+  expect(localRewardMultiplier(research, 10)).toContain('normalizedResearchRank(ranks?.prosperity) * .02) * 10;');
+  expect(() => localRewardMultiplier('changed', 10)).toThrow('update the local reward multiplier');
+  expect(() => localRewardMultiplier(research, 0)).toThrow('Invalid');
+});

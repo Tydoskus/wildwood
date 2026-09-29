@@ -1,4 +1,4 @@
-import { localDeveloperAccess } from "./local-developer-access.mjs";
+import { localDeveloperAccess, localRewardMultiplier } from "./local-developer-access.mjs";
 import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import ts from 'typescript';
@@ -90,6 +90,13 @@ export async function createLocalWorkspace(root, columns) {
     try { localIdentity = (await readFile(join(root, 'local-data/developer-identity.txt'), 'utf8')).trim(); }
     catch (error) { if (error.code !== 'ENOENT') throw error; }
   }
+  let rewardMultiplier = process.env.WILDSTAT_LOCAL_REWARD_MULTIPLIER;
+  if (!rewardMultiplier) {
+    try { rewardMultiplier = (await readFile(join(root, 'local-data/reward-multiplier.txt'), 'utf8')).trim(); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
+  const rewards = rewardMultiplier ? Number(rewardMultiplier) : 1;
+  if (rewards !== 1) console.log(`Local stat rewards ×${rewards} (local-data/reward-multiplier.txt).`);
   const directory = await mkdtemp(join(root, 'local-data/dev-workspace-'));
   await cp(join(root, 'package.json'), join(directory, 'package.json'));
   await symlink(join(root, 'node_modules'), join(directory, 'node_modules'), 'junction');
@@ -113,6 +120,8 @@ export async function createLocalWorkspace(root, columns) {
         const path = join(directory, relative);
         await writeFile(path, localDeveloperAccess(await readFile(path, 'utf8'), server, localIdentity));
       }
+      const research = join(directory, 'shared/research.ts');
+      await writeFile(research, localRewardMultiplier(await readFile(research, 'utf8'), rewards));
       if (!Object.keys(columns).length) return;
       const serverSource = join(directory, 'spacetimedb/src');
       for (const name of await readdir(serverSource)) {

@@ -31,3 +31,18 @@ export function localDeveloperAccess(source, server = false, localIdentity = nul
   for (const edit of edits.sort((a, b) => b.start - a.start)) source = source.slice(0, edit.start) + edit.text + source.slice(edit.end);
   return source;
 }
+
+/**
+ * Local builds only: every stat reward times `multiplier`, for balance
+ * testing. It scales researchStatRewardMultiplier, which the server pays kills
+ * with and the client predicts them with, so both agree. Set it in
+ * local-data/reward-multiplier.txt (or WILDSTAT_LOCAL_REWARD_MULTIPLIER) and
+ * restart `npm run dev:local`; 1 or no file is off.
+ */
+export function localRewardMultiplier(source, multiplier) {
+  if (!(Number.isFinite(multiplier) && multiplier > 0)) throw new Error('Invalid local reward multiplier.');
+  if (multiplier === 1) return source;
+  const line = '  return 1 + normalizedResearchRank(ranks?.foraging) * .01 + normalizedResearchRank(ranks?.prosperity) * .02;';
+  if (source.split(line).length !== 2) throw new Error('Research reward multiplier changed; update the local reward multiplier.');
+  return source.replace(line, `  return (1 + normalizedResearchRank(ranks?.foraging) * .01 + normalizedResearchRank(ranks?.prosperity) * .02) * ${multiplier};`);
+}
