@@ -89,6 +89,7 @@ function resolveCurve(mapId: string, curve: BalanceCurve, factors: typeof DEFAUL
   definition: NonNullable<ReturnType<typeof personalBossDefinition>>, result: MapBalanceSnapshot) {
   const noRewards = { damage: 0, health: 0, armor: 0, regen: 0 };
   result.rules.ARMOR_CURVE = 1;   // the client blocks hits on the curve's armor rule
+  result.rules.SPEED_RATING = 1;  // speed camps pay Speed points; see attack-speed-rating.ts
   if (isProceduralMap(mapId)) {
     const map = generateMap(mapId), y = CAMPAIGN_MAPS.length + map.number;
     for (const lane of new Set([...map.camps.map(c => c.lane), 'Dread Warden' as const])) {

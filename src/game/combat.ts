@@ -1,5 +1,6 @@
 import { armorDamageReduction as authoredArmorReduction } from "../../shared/combat";
 import { curveArmorReduction } from "../../shared/balance-curve";
+import { addSpeedRating } from "../../shared/attack-speed-rating";
 
 /**
  * The map curve's armor rule, on trial: while the map's balance carries
@@ -8,6 +9,15 @@ import { curveArmorReduction } from "../../shared/balance-curve";
  */
 let curveArmor = false;
 export function useCurveArmor(on: boolean) { curveArmor = on; }
+
+/** While the map's balance carries SPEED_RATING, speed rewards are Speed points, not attacks per second. */
+let speedRating = false;
+export function useSpeedRating(on: boolean) { speedRating = on; }
+export function paysSpeedRating() { return speedRating; }
+/** The attack interval after a speed reward, on whichever rule the map pays. */
+export function attackIntervalAfterSpeedReward(attackInterval: number, amount: number, minAttackInterval: number) {
+  return speedRating ? addSpeedRating(attackInterval, amount) : 1 / Math.min(1 / minAttackInterval, 1 / attackInterval + amount);
+}
 export function armorDamageReduction(armor: number) {
   return curveArmor ? curveArmorReduction(armor) : authoredArmorReduction(armor);
 }

@@ -5183,7 +5183,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Enemy rewards require your account world connection.");
     // Everything the combat bound reads, read once for the whole report.
     const combat = combatBoundForReport(ctx);
-    const accepted = acceptEnemyDefeats(ctx, batch, permittedDefeatMaps(ctx, player, HOME_EXTERIOR_MAP_ID), earned => combat.bound(earned));
+    const accepted = acceptEnemyDefeats(ctx, batch, permittedDefeatMaps(ctx, player, HOME_EXTERIOR_MAP_ID), (earned, speedRating) => combat.bound(earned, speedRating));
     if (!accepted) return;
     const enforce = () => {
       // Only a report no real client could have sent. A clipped claim is
@@ -5201,7 +5201,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
     const base = combat.savedProgress() ?? defaultPlayerProgress(ctx.sender);
     const statMultiplier = combat.statMultiplier();
     if (accepted.rewards.some(reward => reward.type !== "boss")) {
-      const next = applyEnemyRewards(base, accepted.rewards, statMultiplier);
+      const next = applyEnemyRewards(base, accepted.rewards, statMultiplier, accepted.balance?.rules.SPEED_RATING === 1);
       const rewarded = awardRegularEnemyLoot(ctx, batch.mapId, accepted.lootCount, accepted.balance, { progress: next });
       updateSnapshotRow(ctx, "playerProgress", rewarded);
       const power = combat.powerFields(rewarded);
@@ -5228,7 +5228,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
             if (!balance?.boss) throw new SenderError("Boss balance is unavailable.");
             const progress = ctx.db.playerProgress.identity.find(ctx.sender)!;
             const rewards = Object.entries(balance.boss.rewards).map(([type, amount]) => ({ type, amount, count: 1 }));
-            const rewarded = applyEnemyRewards(progress, rewards, statMultiplier);
+            const rewarded = applyEnemyRewards(progress, rewards, statMultiplier, balance.rules.SPEED_RATING === 1);
             writeProgressAndPresentation(ctx, { ...rewarded, bossRewardClaims: (progress.bossRewardClaims | BOSS_REWARD_CLAIM_BITS[boss.kind]) >>> 0 });
           }
         }
@@ -5238,7 +5238,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
           const row = { identity: ctx.sender, completed: Math.max(previous?.completed ?? 0, map.number) };
           if (previous) ctx.db.proceduralProgress.identity.update(row); else ctx.db.proceduralProgress.insert(row);
           const progress = ctx.db.playerProgress.identity.find(ctx.sender)!;
-          writeProgressAndPresentation(ctx, applyEnemyRewards(progress, (balance?.boss ? Object.entries(balance.boss.rewards).map(([type, amount]) => ({ type, amount })) : generatedBossStats(map).rewards).map(reward => ({ ...reward, count: 1 })), statMultiplier));
+          writeProgressAndPresentation(ctx, applyEnemyRewards(progress, (balance?.boss ? Object.entries(balance.boss.rewards).map(([type, amount]) => ({ type, amount })) : generatedBossStats(map).rewards).map(reward => ({ ...reward, count: 1 })), statMultiplier, balance?.rules.SPEED_RATING === 1));
         }
       }
     }

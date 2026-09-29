@@ -198,10 +198,10 @@ export function createBossCombat(deps: BossCombatDeps) {
     const report = () => (loaded ??= load());
     return {
       /** The bound with the given earned rewards applied, as the client had them by its last kill. */
-      bound(earned: { type: string; amount: number; count: number }[]) {
+      bound(earned: { type: string; amount: number; count: number }[], speedRating = false) {
         const { saved, statMultiplier, gear } = report();
         if (!saved) return { dps: 0, attackInterval: 1 };
-        const progress = earned.length ? applyEnemyRewards(saved, earned, statMultiplier) : saved;
+        const progress = earned.length ? applyEnemyRewards(saved, earned, statMultiplier, speedRating) : saved;
         const attackInterval = attackIntervalForProgress(progress);
         if (!gear) return { dps: 0, attackInterval, projectiles: 1 };
         const dps = gear.loadout.damage(progress.damage) * gear.critical * gear.swing * gear.projectiles / attackInterval;

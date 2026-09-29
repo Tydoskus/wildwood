@@ -39,13 +39,14 @@ describe("balance curve", () => {
     expect(curveTargets(20, gentle).damage).toBeCloseTo(curveTargets(15, gentle).damage * 2 ** 5);
   });
 
-  it("closes a fifth of the gap to 3 attacks a second each map, and never passes it", () => {
-    const gap = (y: number) => curve.speedCap - curveTargets(y).attackSpeed;
+  it("grows Speed like armor, which climbs toward 3 attacks a second and never reaches it", () => {
     for (let y = 1; y <= 60; y++) {
-      expect(gap(y)).toBeCloseTo(gap(y - 1) * .8);
-      expect(curveTargets(y).attackSpeed).toBeLessThan(curve.speedCap);
+      expect(curveTargets(y).speed).toBeCloseTo(curveTargets(y).armor / curve.armorMap1 * curve.speedMap1);
+      expect(curveTargets(y).attackSpeed).toBeGreaterThanOrEqual(curveTargets(y - 1).attackSpeed);   // level once Speed hits the stat cap
+      expect(curveTargets(y).attackSpeed).toBeLessThan(3);
     }
-    expect(curveRewardPerKill(1, "speed")).toBeCloseTo(gap(0) * .2 / 140);
+    expect(curveTargets(15).attackSpeed).toBeGreaterThan(2.8);
+    expect(curveRewardPerKill(1, "speed")).toBeCloseTo(curve.speedMap1 / 140);
   });
 
   it("blocks 10% more of what is left every 10× armor", () => {

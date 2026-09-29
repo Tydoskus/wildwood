@@ -17,6 +17,7 @@ const STAT_REWARD_PRESENTATION: Readonly<Record<string, StatRewardPresentation>>
   "MAX HEALTH": { icon: "♥", label: "Max Health" },
   ARMOR: { icon: "🛡️", label: "Armor" },
   "ATK/SEC": { icon: "⚡", label: "Attack Speed" },
+  SPEED: { icon: "⚡", label: "Speed" },
   "HP/SEC": { icon: "✚", label: "Regeneration" },
 };
 

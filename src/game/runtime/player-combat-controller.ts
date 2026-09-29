@@ -4,7 +4,7 @@ import { isProceduralMap } from "../../../shared/procedural-maps";
 import { bossSurfaceDistance, bossVerticalRadius } from "../../../shared/boss-hitbox";
 import { isEnemyAttackingPlayer } from "./enemy-threat";
 import { ENEMY_HP_LOSS_FLASH_SECONDS, PLAYER_KNOCKBACK_FORCE, WORLD } from "../constants";
-import { damageAfterArmor } from "../combat";
+import { attackIntervalAfterSpeedReward, damageAfterArmor } from "../combat";
 import { ENEMY_TYPES, REWARD_DATA, rewardLabel, type EnemyKind } from "../enemies";
 import { circlesOverlap } from "../math";
 import type { ProjectileStore } from "./projectile-store";
@@ -507,7 +507,7 @@ export function createPlayerCombatController(options: {
     switch (enhanced.type) {
       case "damage": player.damage += enhanced.amount; break;
       case "health": addPlayerBaseMaxHealth(player, enhanced.amount, options.healthMultiplierBonus()); break;
-      case "speed": player.attackRate = 1 / Math.min(1 / minAttackInterval, 1 / player.attackRate + enhanced.amount); break;
+      case "speed": player.attackRate = attackIntervalAfterSpeedReward(player.attackRate, enhanced.amount, minAttackInterval); break;
       case "armor": player.armor += enhanced.amount; break;
       case "regen": player.regen += enhanced.amount; break;
     }

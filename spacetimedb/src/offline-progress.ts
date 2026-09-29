@@ -218,7 +218,8 @@ export function grantOfflineProgress(ctx: any, progress: any, ports: OfflineGran
     storeOfflineGrant(ctx, ctx.sender, grant, { damage: 0, health: 0, armor: 0, regen: 0, attackSpeed: 0 });
     return progress;
   }
-  const next = applyEnemyRewards(progress, grant.outcome.rewards, ports.statMultiplier(ctx, ctx.sender));
+  const next = applyEnemyRewards(progress, grant.outcome.rewards, ports.statMultiplier(ctx, ctx.sender),
+    ports.pinnedBalance(ctx, ctx.sender, grant.outcome.mapId)?.rules.SPEED_RATING === 1);
   storeOfflineGrant(ctx, ctx.sender, grant, {
     damage: next.damage - progress.damage,
     health: next.maxHp - progress.maxHp,

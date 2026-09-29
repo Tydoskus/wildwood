@@ -1,4 +1,5 @@
 import { DEFAULT_ATTACK_INTERVAL, MAX_PLAYER_STAT, PLAYER_BASE_DAMAGE, PLAYER_BASE_HP, PLAYER_BASE_REGEN } from './rules';
+import { attacksPerSecondFromSpeed } from './attack-speed-rating';
 
 /**
  * The per-map balance curve.
@@ -10,7 +11,8 @@ import { DEFAULT_ATTACK_INTERVAL, MAX_PLAYER_STAT, PLAYER_BASE_DAMAGE, PLAYER_BA
  * - health survives `survivalHits` of the map's hits after armor;
  * - regen heals `regenShare` of a hit, after armor, each second;
  * - armor blocks on curveArmorReduction;
- * - attack speed closes `speedCloser` of the gap to `speedCap`.
+ * - Speed, a rating like armor, grows like armor from `speedMap1`; see
+ *   attack-speed-rating.ts for how it becomes attacks per second.
  * Each map's build is `arrivalBlows` times the last one's
  * (`endlessArrivalBlows` past the campaign), so a player arrives needing that
  * many blows a kill, and taking hits that many times bigger, and farms to
@@ -39,10 +41,8 @@ export type BalanceCurve = {
   survivalHits: number;
   /** Share of a hit, after armor, that a finished map's regen heals each second. */
   regenShare: number;
-  /** Share of the gap to the attack speed cap each map's speed camps close. */
-  speedCloser: number;
-  /** Attacks per second the speed track approaches and never passes. */
-  speedCap: number;
+  /** Map 1's Speed target. */
+  speedMap1: number;
   /** Seconds a boss takes at the finished map's damage and attack speed. */
   bossFightSeconds: number;
   /** A boss's heaviest hit, after armor, as a share of the finished map's health. */
@@ -55,7 +55,7 @@ export type BalanceCurve = {
 export const DEFAULT_BALANCE_CURVE: Readonly<BalanceCurve> = Object.freeze({
   clearsX: 20, clearsY: 1, groupSize: 7, arrivalBlows: 7, endlessArrivalBlows: 7,
   map1EnemyHp: 24, map1EnemyHit: 20, armorMap1: 50,
-  survivalHits: 12, regenShare: .5, speedCloser: .2, speedCap: 3,
+  survivalHits: 12, regenShare: .5, speedMap1: 50,
   bossFightSeconds: 45, bossHitShare: .25, eliteHealth: 5, eliteHit: 3,
 });
 
@@ -63,7 +63,7 @@ export const DEFAULT_BALANCE_CURVE: Readonly<BalanceCurve> = Object.freeze({
 export const BALANCE_CURVE_LIMITS: Readonly<Record<keyof BalanceCurve, readonly [number, number]>> = Object.freeze({
   clearsX: [1, 1000], clearsY: [0, 10], groupSize: [1, 50], arrivalBlows: [1.1, 20], endlessArrivalBlows: [1.1, 20],
   map1EnemyHp: [1, 1e6], map1EnemyHit: [1, 1e6], armorMap1: [1, 1e6],
-  survivalHits: [1, 100], regenShare: [0, 10], speedCloser: [0, .9], speedCap: [.5, 10],
+  survivalHits: [1, 100], regenShare: [0, 10], speedMap1: [1, 1e6],
   bossFightSeconds: [5, 600], bossHitShare: [.01, 1], eliteHealth: [1, 100], eliteHit: [.1, 100],
 });
 
@@ -82,10 +82,11 @@ export function curveArmorReduction(armor: number) {
 
 /** A new run's stats, before map 1: what a prestige and a respec return to. */
 export const CURVE_START = Object.freeze({
-  damage: PLAYER_BASE_DAMAGE, maxHp: PLAYER_BASE_HP, regen: PLAYER_BASE_REGEN, armor: 0, attackSpeed: 1 / DEFAULT_ATTACK_INTERVAL,
+  damage: PLAYER_BASE_DAMAGE, maxHp: PLAYER_BASE_HP, regen: PLAYER_BASE_REGEN, armor: 0, speed: 0, attackSpeed: 1 / DEFAULT_ATTACK_INTERVAL,
 });
 
-export type CurveTargets = { damage: number; maxHp: number; regen: number; armor: number; attackSpeed: number; enemyHit: number };
+/** `speed` is the rating; `attackSpeed` is the attacks per second it gives. */
+export type CurveTargets = { damage: number; maxHp: number; regen: number; armor: number; speed: number; attackSpeed: number; enemyHit: number };
 const cap = (value: number) => Number.isFinite(value) ? Math.min(MAX_PLAYER_STAT, value) : MAX_PLAYER_STAT;
 
 /** Clears of each camp type on map y, and the kills they take. */
@@ -104,23 +105,23 @@ function mapScale(y: number, curve: BalanceCurve) {
 
 /** The build a player has once map y's camps are farmed; y = 0 is a new run. */
 export function curveTargets(y: number, curve: BalanceCurve = DEFAULT_BALANCE_CURVE): CurveTargets {
-  const attackSpeed = curve.speedCap - (curve.speedCap - CURVE_START.attackSpeed) * (1 - curve.speedCloser) ** Math.max(0, y);
-  if (y <= 0) return { damage: CURVE_START.damage, maxHp: CURVE_START.maxHp, regen: CURVE_START.regen, armor: CURVE_START.armor, attackSpeed, enemyHit: 0 };
+  if (y <= 0) return { ...CURVE_START, enemyHit: 0 };
   const scale = mapScale(y, curve);
+  const speed = cap(curve.speedMap1 * scale);
   const armor = cap(Math.max(CURVE_START.armor, curve.armorMap1) * scale);
   const enemyHit = cap(curve.map1EnemyHit * scale), landed = enemyHit * (1 - curveArmorReduction(armor));
   return {
     damage: cap(Math.max(CURVE_START.damage, curve.map1EnemyHp) * scale),
     maxHp: cap(Math.max(CURVE_START.maxHp, curve.survivalHits * landed)),
     regen: cap(Math.max(CURVE_START.regen, curve.regenShare * landed)),
-    armor, attackSpeed, enemyHit,
+    armor, speed, attackSpeed: attacksPerSecondFromSpeed(speed), enemyHit,
   };
 }
 
 export type CurveRewardStat = 'damage' | 'health' | 'regen' | 'armor' | 'speed';
 /** One regular kill's reward on map y: the step from the last map's build to this one's, over its kills. */
 export function curveRewardPerKill(y: number, stat: CurveRewardStat, curve: BalanceCurve = DEFAULT_BALANCE_CURVE) {
-  const field = ({ damage: 'damage', health: 'maxHp', regen: 'regen', armor: 'armor', speed: 'attackSpeed' } as const)[stat];
+  const field = ({ damage: 'damage', health: 'maxHp', regen: 'regen', armor: 'armor', speed: 'speed' } as const)[stat];
   const step = curveTargets(y, curve)[field] - curveTargets(y - 1, curve)[field];
   return cap(Math.max(0, step) / curveKills(y, curve));
 }
