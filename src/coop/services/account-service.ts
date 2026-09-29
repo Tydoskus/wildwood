@@ -94,7 +94,7 @@ const AUTH_MAX_AGE_SECONDS = String(365 * 86_400);
 
 /** Why a player was sent to SpacetimeAuth, reported when they come back. */
 type SignInReason = "known-account" | "register" | "guest-link" | "update-resume"
-  | "renewal-no-grant" | "renewal-grant-rejected" | "token-rejected" | "defeat-reauth";
+  | "renewal-no-grant" | "renewal-grant-rejected" | "token-rejected" | "defeat-reauth" | "grant-follow-up";
 const TOKEN_EXCHANGE_TIMEOUT_MS = 15_000;
 
 type TokenResponse = {
@@ -183,6 +183,8 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
   let approvedAt: number | null = null;
   /** Why the last callback on this page failed, for the trip report. */
   let callbackFailure = "";
+  /** The last successful callback on this page came back without a refresh grant. */
+  let callbackWithoutGrant = false;
 
   function accountToken() {
     try {
@@ -250,12 +252,14 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     if (typeof trip.reason !== "string" || typeof trip.at !== "number") {
       // A tab that lost its trip record (the state check) still failed.
       if (outcome === "failed") recordCarriedConnectionDiagnostic("session-blocked", { detail: `sign-in-return:failed:unknown-trip${failure}` });
-      return;
+      return null;
     }
     const seconds = Math.max(0, Math.round((Date.now() - trip.at) / 1000));
+    const grant = outcome === "success" && callbackWithoutGrant ? ":no-grant" : "";
     recordCarriedConnectionDiagnostic("session-blocked", {
-      detail: `sign-in-return:${outcome}:${trip.reason}:${trip.prompt ? "prompt" : "silent"}:${seconds}s${failure}`,
+      detail: `sign-in-return:${outcome}:${trip.reason}:${trip.prompt ? "prompt" : "silent"}:${seconds}s${grant}${failure}`,
     });
+    return { reason: trip.reason, prompt: Boolean(trip.prompt) };
   }
 
   // A failing account never connects, so its reports go out with whoever
@@ -514,6 +518,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       // A late OAuth response must not restore credentials after Sign Out.
       if (signingOut) { callbackFailure = "signed-out"; return "failed"; }
       renewal.save(result.id_token, result.refresh_token);
+      callbackWithoutGrant = typeof result.refresh_token !== "string" || !result.refresh_token;
       defeatSignInBlocked = false;
       rememberAccount();
       // Successful state/PKCE/nonce/token verification approves this session.
@@ -610,12 +615,31 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     const bridge = nativeAuth();
     if (bridge && await bridge.ready) return;
     const callbackOutcome = await completeAccountCallback();
-    if (callbackOutcome !== "none") finishSignInTrip(callbackOutcome, callbackFailure);
+    const trip = callbackOutcome !== "none" ? finishSignInTrip(callbackOutcome, callbackFailure) : null;
     if (signingOut) return;
     // Callback failures and invalid/expired OAuth state must repaint the
     // lightweight sign-in shell instead of leaving it on "Verifying Sign-In".
     dependencies.notify();
     if (callbackOutcome === "failed") return;
+    // A forced login (registration, guest link, sign-in after signing out, the
+    // kill-report re-auth) comes back without a refresh grant: SpacetimeAuth
+    // drops offline_access whenever a prompt is sent. That sign-in then dies
+    // with its ID token, and the next reconnect throws the player out to
+    // SpacetimeAuth mid-session, which is where Vis landed on a second login.
+    // One silent trip straight away, while SpacetimeAuth's session is seconds
+    // old, brings the grant back. Once only: a follow-up that also returns
+    // without one plays on as before. Not in the app, where each trip opens
+    // the system browser sheet.
+    if (callbackOutcome === "success" && callbackWithoutGrant && trip?.prompt && !isNativePreview()) {
+      notice = "FINISHING SIGN-IN";
+      dependencies.notify();
+      try {
+        await startAccountSignIn("grant-follow-up");
+        return;
+      } catch (error) {
+        console.warn("WildStat sign-in grant follow-up failed:", error);
+      }
+    }
     const token = renewal.stored();
     if (!token && hasKnownAccount() && !guestSessionExplicit) {
       if (dependencies.updateResumeMode === "account") {

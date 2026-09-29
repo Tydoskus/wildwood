@@ -310,11 +310,11 @@ describe("sign-in emails in the player lookup", () => {
     connectAs(f, emailLink, { sub: "user_email", email: "Same@Example.com", email_verified: true });
     connectAs(f, google, { sub: "user_google", email: "same@example.com", email_verified: true, name: "Serge" });
     const found = f.players(" SAME@example.com ");
-    expect(found.map(player => [player.displayName, player.loginKind, player.loginId, player.email]).sort()).toEqual([
-      ["Brave Moth 509", "google", "user_google", "same@example.com"],
-      ["Vis", "email-link", "user_email", "same@example.com"],
+    expect(found.map(player => [player.displayName, player.loginId, player.email]).sort()).toEqual([
+      ["Brave Moth 509", "user_google", "same@example.com"],
+      ["Vis", "user_email", "same@example.com"],
     ]);
-    expect(f.players("Vis")[0]).toMatchObject({ email: "same@example.com", loginKind: "email-link" });
+    expect(f.players("Vis")[0]).toMatchObject({ email: "same@example.com", loginId: "user_email" });
   });
 
   it("keeps guests and tokens from other issuers out, and leaves unknown accounts blank", () => {
@@ -323,7 +323,7 @@ describe("sign-in emails in the player lookup", () => {
     f.seed("playerProfile", { identity: guest, displayName: "Wanderer" });
     connectAs(f, guest, null);
     expect(f.players("guest@example.com")).toEqual([]);
-    expect(f.players("Wanderer")[0]).toMatchObject({ email: "", loginId: "", loginKind: "" });
+    expect(f.players("Wanderer")[0]).toMatchObject({ email: "", loginId: "" });
   });
 
   it("writes nothing on a reconnect with the same login", () => {

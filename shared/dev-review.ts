@@ -125,8 +125,6 @@ export type DevPlayerSummary = {
   email: string;
   /** SpacetimeAuth user ID, to find the login in its dashboard. */
   loginId: string;
-  /** "google" when the token carried a display name, "email-link" when it did not, "" when unknown. */
-  loginKind: "google" | "email-link" | "";
 };
 
 export function isReportDecision(value: string): value is ReportDecision {

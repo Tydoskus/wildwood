@@ -736,6 +736,43 @@ describe("sign-in round trips", () => {
     expect(recordCarriedConnectionDiagnostic).toHaveBeenCalledWith("session-blocked", { detail: "sign-in-return:success:known-account:silent:42s" });
     expect(f.session.getItem(keys.authTripKey)).toBeNull();
   });
+  it("follows a forced login that returned no refresh grant with one silent trip", async () => {
+    const f = setup();
+    await f.service.api.signIn();
+    const forced = new URL(f.assign.mock.calls[0][0]);
+    expect(forced.searchParams.get("prompt")).toBe("login");
+    const returnFrom = async (url: URL, response: Record<string, unknown>) => {
+      f.session.setItem(keys.authNonceKey, "expected-nonce");
+      stubTokenRequest(new FakeTokenRequest(200, response));
+      window.location.href = `https://wildstat.example/game?code=one&state=${url.searchParams.get("state")}`;
+      await f.service.restoreKnownAccount();
+    };
+    await returnFrom(forced, { id_token: accountToken() });
+    expect(f.assign).toHaveBeenCalledTimes(2);
+    const followUp = new URL(f.assign.mock.calls[1][0]);
+    expect(followUp.searchParams.get("prompt")).toBeNull();
+    expect(JSON.parse(f.session.getItem(keys.authTripKey)!)).toMatchObject({ reason: "grant-follow-up", prompt: false });
+    expect(f.connect).not.toHaveBeenCalled();
+    expect(recordCarriedConnectionDiagnostic).toHaveBeenCalledWith("session-blocked", {
+      detail: expect.stringMatching(/^sign-in-return:success:register:prompt:\d+s:no-grant$/),
+    });
+
+    await returnFrom(followUp, { id_token: accountToken(), refresh_token: "grant" });
+    expect(f.assign).toHaveBeenCalledTimes(2);
+    expect(f.connect).toHaveBeenCalledOnce();
+    expect(JSON.parse(f.local.getItem(`${keys.accountTokenKey}:refresh`)!)).toMatchObject({ token: "grant" });
+  });
+  it("plays on without a grant rather than repeating the follow-up", async () => {
+    const f = setup({ knownAccount: true });
+    await f.service.api.signIn();
+    const silent = new URL(f.assign.mock.calls[0][0]);
+    f.session.setItem(keys.authNonceKey, "expected-nonce");
+    stubTokenRequest(new FakeTokenRequest(200, { id_token: accountToken() }));
+    window.location.href = `https://wildstat.example/game?code=one&state=${silent.searchParams.get("state")}`;
+    await f.service.restoreKnownAccount();
+    expect(f.assign).toHaveBeenCalledOnce();
+    expect(f.connect).toHaveBeenCalledOnce();
+  });
   it("says why a return failed and names the account, since a guest may upload it", async () => {
     vi.useFakeTimers({ now: 1_000_000 });
     const f = setup({ knownAccount: true });

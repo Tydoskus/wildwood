@@ -4,14 +4,16 @@ import type { GameReducerContext } from "./index";
 
 /**
  * The email SpacetimeAuth vouched for on each account's last sign-in, so the
- * developer can see which login owns a character. SpacetimeAuth keeps a Google
- * login and an email-link login as separate users even for the same address,
- * and each gets its own character; searching an address shows both.
+ * developer can see which login owns a character. One address can end up as
+ * two SpacetimeAuth users, each with its own character; searching an address
+ * shows both.
  *
  * Private: only the developer-gated player lookup reads it, and account erasure
  * deletes it. `loginId` is the SpacetimeAuth user ID (the token's `sub`), to find
  * the row in the SpacetimeAuth dashboard. `named` says the token carried a
- * display name, which Google logins do and email-link logins do not.
+ * display name. That comes from the SpacetimeAuth user (Google fills it in when
+ * the user is created), not from how they signed in this time, so it is not
+ * shown as a login method.
  */
 export const accountEmail = table({ name: "account_email", public: false }, {
   identity: t.identity().primaryKey(),

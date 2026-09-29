@@ -402,7 +402,6 @@ export function playerSummary(ctx: ReadCtx, identity: any, displayName: string):
     chatMutedUntilMs: Number(muted / 1000n),
     email: login?.email ?? "",
     loginId: login?.loginId ?? "",
-    loginKind: login ? (login.named ? "google" : "email-link") : "",
   };
 }
 

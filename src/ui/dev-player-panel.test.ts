@@ -8,7 +8,7 @@ afterEach(() => vi.unstubAllGlobals());
 const NOW = Date.now();
 const card = (): DevPlayerCard => ({
   summary: { identity: "ab".repeat(32), displayName: "Rude", isGuest: false, online: true, suspendedUntilMs: 0, permanentlySuspended: false,
-    chatMutedUntilMs: NOW + 30 * 60_000, email: "rude@example.com", loginId: "user_rude", loginKind: "email-link" },
+    chatMutedUntilMs: NOW + 30 * 60_000, email: "rude@example.com", loginId: "user_rude" },
   pastNames: ["OldRude"], prestigeLevel: 3, power: 120, joinedAtMs: NOW - 86_400_000, strikes: 2, muteCount: 1,
   reportsFiled: 0, reportsAgainst: 4, history: [],
   recentChat: [{ channel: "dm", where: "DM with Alice", text: "hello", sentAtMs: NOW - 60_000, moderated: false }],
@@ -46,7 +46,7 @@ describe("player card", () => {
     await settle();
     const text = h.root.textContent ?? "";
     for (const expected of ["OldRude", "Prestige3", "Power120", "4 against · 0 filed", "2 · 1 mutes so far", "Chat muted", "DM with Alice hello",
-      "rude@example.com", "Email link · user_rude"]) {
+      "rude@example.com", "user_rude"]) {
       expect(text).toContain(expected);
     }
     expect(h.button("Unmute").disabled).toBe(false);
