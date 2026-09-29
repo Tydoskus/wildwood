@@ -2951,7 +2951,8 @@ function cosmeticEquipmentForProgress(progress: any, inventory = inventoryForPro
 }
 
 function equipmentPresentationForProgress(progress: any, inventory = inventoryForProgress(progress)) {
-  const rightHandItem = equippedRightHandForProgress(progress, inventory);
+  // Empty hands look empty; combat bounds still read them as the best weapon owned.
+  const rightHandItem = progress.equippedRightHand || progress.equippedLeftHand ? equippedRightHandForProgress(progress, inventory) : "";
   const cosmetics = cosmeticEquipmentForProgress(progress, inventory);
   return resolveEquipmentAppearance({
     equippedFeet: equippedFeetForProgress(progress, inventory),
@@ -3432,8 +3433,10 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
     const equippedFeet = equippedFeetForProgress(existingProgress);
     const equippedHead = equippedHeadForProgress(existingProgress);
     const equippedChest = equippedChestForProgress(existingProgress);
-    const equippedRightHand = equippedRightHandForProgress(existingProgress);
-    const equippedLeftHand = equippedRightHand ? "" : equippedLeftHandForProgress(existingProgress);
+    // Hands the player emptied stay empty (unarmed Reflect runs); only gear locked away or lost is replaced.
+    const handsEmpty = !existingProgress.equippedRightHand && !existingProgress.equippedLeftHand;
+    const equippedRightHand = handsEmpty ? "" : equippedRightHandForProgress(existingProgress);
+    const equippedLeftHand = handsEmpty || equippedRightHand ? "" : equippedLeftHandForProgress(existingProgress);
     const inventoryJson = JSON.stringify(inventoryForProgress(existingProgress));
     const cosmeticEquipment = cosmeticEquipmentForProgress({ ...existingProgress, inventoryJson });
     const speed = playerBaseMovementSpeed(false);

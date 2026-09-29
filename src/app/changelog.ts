@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.832": [
+    "Empty hands stay empty: auto equip, logging in and prestige no longer put a weapon in them.",
+  ],
   "0.831": [
     "Fixed other players and minimap dots vanishing for everyone after a server update.",
     "The multiplayer eye remembers your setting through reloads and updates.",
@@ -2500,6 +2503,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.832": "2026-09-28",
   "0.831": "2026-09-28",
   "0.830": "2026-09-28",
   "0.829": "2026-09-28",

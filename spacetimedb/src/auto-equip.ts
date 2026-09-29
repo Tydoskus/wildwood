@@ -34,7 +34,8 @@ const gainedGearOrMaps = (before: any, after: any) => before.inventoryJson !== a
  * player already holds. It is the player's autoEquipBest setting, on unless
  * they turned it off in the Loot Filter window. Prestige also re-equips, with
  * the setting on or off, because gear it locks away would otherwise leave an
- * empty hand.
+ * empty hand. Hands the player emptied themselves stay empty: players fight
+ * unarmed on purpose (Reflect challenges), so a new weapon never fills them.
  *
  * The client sees the new loadout in its player_progress row and takes it
  * into its own bag, so its next save does not put the old gear back.
@@ -57,9 +58,11 @@ export function createAutoEquip(deps: {
    * otherwise the progress unchanged. Gear the player's maps lock away counts
    * as an empty slot, which is also how their power sees it.
    */
-  function withUpgrade(ctx: Ctx, progress: any, itemId: string, inventory: readonly string[]) {
+  function withUpgrade(ctx: Ctx, progress: any, itemId: string, inventory: readonly string[], fillEmptyHand = false) {
     if (!inventory.includes(itemId) || equipmentMapRequirement(itemId, progress)) return progress;
     const slot = itemDefinition(itemId)?.slot;
+    // Empty hands are a choice (unarmed Reflect runs): a new weapon never fills them.
+    if (slot === "HAND" && !fillEmptyHand && !progress.equippedRightHand && !progress.equippedLeftHand) return progress;
     if (slot && equipmentLocked(ctx, progress.identity, equippedInSlot(progress, slot))) return progress;
     const current = { ...progress, ...withoutLockedEquipment(progress, progress) };
     if (!isEquipUpgrade(current, itemId, comparisonPower(ctx, progress.identity))) return progress;
@@ -98,9 +101,9 @@ export function createAutoEquip(deps: {
    * `previous` the run being traded in. The bag, the forest counts and the
    * loadout carry over, and gear above tier 1 is locked again until its map
    * is reached. Every slot holding locked gear gets the best gear the player
-   * can use instead, and a hand left empty falls back to the starter stone,
-   * which every player owns. Slots holding usable gear, or an armour slot the
-   * player left empty, stay as they were.
+   * can use instead, and a hand with nothing usable falls back to the starter
+   * stone, which every player owns. Slots holding usable gear, or any slot the
+   * player left empty, hands included, stay as they were.
    */
   function keepBagThroughPrestige(ctx: Ctx, fresh: any, previous: any) {
     return equipUsable(ctx, {
@@ -121,13 +124,15 @@ export function createAutoEquip(deps: {
     // Decided up front: filling one slot clears locked gear from the others.
     const refill = EQUIP_BEST_SLOTS.filter(([slot]) => {
       const current = equippedInSlot(progress, slot);
-      return current ? Boolean(equipmentMapRequirement(current, progress)) : slot === "HAND";
+      // Only gear the reset locks away is replaced; a slot the player left
+      // empty, hands included, stays empty.
+      return Boolean(current && equipmentMapRequirement(current, progress));
     });
     let next = { ...progress };
     for (const [slot, field] of refill) {
       if (slot === "HAND") next = { ...next, equippedRightHand: "", equippedLeftHand: "" };
       else next = { ...next, [field]: "" };
-      for (const itemId of inventory) if (itemDefinition(itemId)?.slot === slot) next = withUpgrade(ctx, next, itemId, inventory);
+      for (const itemId of inventory) if (itemDefinition(itemId)?.slot === slot) next = withUpgrade(ctx, next, itemId, inventory, true);
       if (slot === "HAND" && !equippedInSlot(next, "HAND")) next = { ...next, equippedRightHand: STARTER_STONE };
     }
     return next;

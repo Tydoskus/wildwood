@@ -183,7 +183,7 @@ const consent = (f: Fixture) =>
 // The blank-hand bug: a map-locked bow in hand read as "no weapon", world entry
 // wrote that "" back, auto equip copied it when another slot changed, and the
 // client took it in. The player could not attack.
-it("never writes a blank hand: world entry, auto equip and dev grants all leave a weapon", () => {
+it("never blanks a hand that held a weapon: world entry, auto equip and dev grants all leave one", () => {
   // World entry with a locked bow in hand and the stone in the bag.
   const entry = crystalFixture();
   entry.patch("playerProgress", { inventoryJson: JSON.stringify([STARTER_STONE, IRON_BOW]), equippedRightHand: IRON_BOW });
@@ -191,9 +191,9 @@ it("never writes a blank hand: world entry, auto equip and dev grants all leave 
   entry.run(server.enterWorld, { tabId: "blank-hand" });
   expect(progress(entry).equippedRightHand).toBe(STARTER_STONE);
   expect(entry.db.player.identity.find(entry.ctx.sender).rightHandItem).toBe(STARTER_STONE);
-  // A usable bow in the bag is the better fallback.
+  // A usable bow in the bag is the better fallback for a locked one.
   const usable = crystalFixture();
-  usable.patch("playerProgress", { inventoryJson: JSON.stringify([STARTER_STONE, STARTER_BOW, "ion_bow"]), bowCount: 1, equippedRightHand: "" });
+  usable.patch("playerProgress", { inventoryJson: JSON.stringify([STARTER_STONE, STARTER_BOW, IRON_BOW]), bowCount: 1, equippedRightHand: IRON_BOW });
   consent(usable);
   usable.run(server.enterWorld, { tabId: "blank-hand" });
   expect(progress(usable).equippedRightHand).toBe(STARTER_BOW);
@@ -215,6 +215,26 @@ it("never writes a blank hand: world entry, auto equip and dev grants all leave 
   grant.ctx.sender = player;
   expect(progress(grant).equippedRightHand).toBe(STARTER_STONE);
   expect(inventory(grant)).toContain(IRON_BOW);
+});
+
+// Players empty their hands on purpose, for unarmed Reflect runs.
+it("leaves hands the player emptied empty: at world entry, when a better weapon drops, and through prestige", () => {
+  const entry = crystalFixture();
+  entry.patch("playerProgress", { inventoryJson: JSON.stringify([STARTER_STONE, STARTER_BOW]), bowCount: 1, equippedRightHand: "", equippedLeftHand: "" });
+  consent(entry);
+  entry.run(server.enterWorld, { tabId: "unarmed-run" });
+  expect(progress(entry)).toMatchObject({ equippedRightHand: "", equippedLeftHand: "" });
+  expect(entry.db.player.identity.find(entry.ctx.sender).rightHandItem).toBe("");   // and looks it to everyone
+
+  const drop = looter({ equippedRightHand: "", equippedLeftHand: "" });
+  reportEnemy(drop, ENEMY, 1);
+  expect(inventory(drop)).toContain("crystal_bow");
+  expect(progress(drop)).toMatchObject({ equippedRightHand: "", equippedLeftHand: "" });
+
+  const run = veteran();
+  run.patch("playerProgress", { equippedRightHand: "", equippedLeftHand: "" });
+  run.run(server.prestigeAccount, {});
+  expect(progress(run)).toMatchObject({ equippedRightHand: "", equippedLeftHand: "" });
 });
 
 /** A player who finished the campaign with top gear, ready to prestige. */
