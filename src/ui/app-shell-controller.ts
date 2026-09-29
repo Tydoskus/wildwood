@@ -51,6 +51,7 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   const screenShakeToggle = requiredElement<HTMLButtonElement>("screenShakeToggle");
   const attackRangeToggle = requiredElement<HTMLButtonElement>("attackRangeToggle");
   const baseStatRewardsToggle = requiredElement<HTMLButtonElement>("baseStatRewardsToggle");
+  const remoteGhostsToggle = requiredElement<HTMLButtonElement>("remoteGhostsToggle");
   const lowPerformanceToggle = requiredElement<HTMLButtonElement>("lowPerformanceToggle");
   const fpsToggle = requiredElement<HTMLButtonElement>("fpsToggle");
   const fpsStatus = requiredElement("fpsStatus");
@@ -70,6 +71,7 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   let screenShakeEnabled = readBoolean(dependencies.storageKeys.screenShake, true);
   let attackRangeVisible = readBoolean(dependencies.storageKeys.attackRange, true);
   let showBaseStatRewards = readBoolean("wildstat-show-base-stat-rewards-v1", false);
+  let remoteGhostsEnabled = readBoolean("wildstat-show-remote-ghosts-v1", true);
   let lowPerformanceMode = readBoolean(dependencies.storageKeys.lowPerformance, false);
   let fpsVisible = readBoolean(dependencies.storageKeys.fps, false);
   let latencyVisible = readBoolean(dependencies.storageKeys.latency, false);
@@ -87,6 +89,7 @@ export function createAppShellController(dependencies: AppShellDependencies) {
     renderBooleanSetting(screenShakeToggle, screenShakeEnabled);
     renderBooleanSetting(attackRangeToggle, attackRangeVisible);
     renderBooleanSetting(baseStatRewardsToggle, showBaseStatRewards);
+    renderBooleanSetting(remoteGhostsToggle, remoteGhostsEnabled);
     renderBooleanSetting(lowPerformanceToggle, lowPerformanceMode);
     renderBooleanSetting(fpsToggle, fpsVisible);
     gameFpsStatus.hidden = !fpsVisible;
@@ -143,6 +146,11 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   baseStatRewardsToggle.addEventListener("click", () => {
     showBaseStatRewards = !showBaseStatRewards;
     writeBoolean("wildstat-show-base-stat-rewards-v1", showBaseStatRewards);
+    refreshSettings();
+  });
+  remoteGhostsToggle.addEventListener("click", () => {
+    remoteGhostsEnabled = !remoteGhostsEnabled;
+    writeBoolean("wildstat-show-remote-ghosts-v1", remoteGhostsEnabled);
     refreshSettings();
   });
   lowPerformanceToggle.addEventListener("click", () => {
@@ -248,6 +256,7 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   return {
     attackRangeVisible: () => attackRangeVisible,
     showBaseStatRewards: () => showBaseStatRewards,
+    remoteGhostsEnabled: () => remoteGhostsEnabled,
     fpsVisible: () => fpsVisible,
     lowPerformanceMode: () => lowPerformanceMode,
     screenShakeEnabled: () => screenShakeEnabled,

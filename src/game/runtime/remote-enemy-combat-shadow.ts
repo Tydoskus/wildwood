@@ -29,6 +29,8 @@ const PROJECTILE_SPREAD_RADIANS = .13;
 const GHOST_OPPONENT_DEATH_HOLD_MS = 850;
 export const REMOTE_GHOST_DEATH_ANIMATION_MS = 620;
 export const REMOTE_GHOST_TARGET_MISSING_GRACE_MS = 2_000;
+/** At most this many ghost enemies fight any one other player; the rest stay at their camps. */
+export const REMOTE_GHOSTS_PER_FIGHT = 3;
 
 type FighterState = {
   hp: number;
@@ -161,7 +163,10 @@ function createGhost(source: EnemyState, ambient: RegularEnemyAmbientPose, targe
 export function createRemoteEnemyCombatShadows(options: {
   spawnDamageNumber: (x: number, y: number, amount: number, critical?: boolean, damageTaken?: boolean) => void;
   spawnBurst?: (x: number, y: number, color: string, count?: number, speed?: number) => void;
+  /** How many ghosts may fight one other player; 0 turns them off. */
+  ghostsPerFight?: () => number;
 }) {
+  const ghostsPerFight = () => Math.max(0, options.ghostsPerFight?.() ?? REMOTE_GHOSTS_PER_FIGHT);
   const shadows = new Map<number, ShadowState>();
   const fighters = new Map<string, FighterState>();
   const suppressedUntilMs = new Map<number, number>();
@@ -221,16 +226,17 @@ export function createRemoteEnemyCombatShadows(options: {
     return fighter;
   }
 
-  function hasShadowForTarget(targetId: string) {
+  function shadowsForTarget(targetId: string) {
+    let count = 0;
     for (const shadow of shadows.values()) {
-      if (shadow.targetId === targetId) return true;
+      if (shadow.targetId === targetId) count += 1;
     }
-    return false;
+    return count;
   }
 
   function fighterForNewEngagement(targetId: string, stats: RemoteCombatStats) {
     const fighter = fighterFor(targetId, stats);
-    const alreadyFighting = hasShadowForTarget(targetId);
+    const alreadyFighting = shadowsForTarget(targetId) > 0;
     if (fighter.hp <= 0 && !alreadyFighting) {
       fighter.hp = fighter.maxHp;
       fighter.lastUpdatedAtMs = serverNowMs;
@@ -241,7 +247,7 @@ export function createRemoteEnemyCombatShadows(options: {
 
   function updateFighters() {
     for (const [targetId, fighter] of fighters) {
-      const stillFighting = hasShadowForTarget(targetId);
+      const stillFighting = shadowsForTarget(targetId) > 0;
       if (!targetById.has(targetId) && !stillFighting) {
         fighters.delete(targetId);
         continue;
@@ -491,7 +497,7 @@ export function createRemoteEnemyCombatShadows(options: {
     dt: number,
     remotePlayers: readonly RemotePlayer[],
   ) {
-    if (currentMapId !== mapId) {
+    if (currentMapId !== mapId || (shadows.size && !ghostsPerFight())) {
       clearState();
       currentMapId = mapId;
     }
@@ -518,7 +524,8 @@ export function createRemoteEnemyCombatShadows(options: {
     statsFor: (identity: string) => RemoteCombatStats | null | undefined;
   }) {
     const { enemy, base, ambient } = options;
-    if (shadows.has(enemy.siteId) || (suppressedUntilMs.get(enemy.siteId) ?? 0) > serverNowMs) return;
+    const perFight = ghostsPerFight();
+    if (!perFight || shadows.has(enemy.siteId) || (suppressedUntilMs.get(enemy.siteId) ?? 0) > serverNowMs) return;
     const candidates: RegularEnemyAggroCandidate[] = targets
       .filter((target) => target.id && Number.isFinite(target.simulationX ?? target.x) && Number.isFinite(target.simulationY ?? target.y))
       .map((target) => {
@@ -544,7 +551,8 @@ export function createRemoteEnemyCombatShadows(options: {
       retainRadius: enemy.leashRange,
       candidates,
     });
-    if (!target) return;
+    // Aggro still picks as it does for real; a full fight just draws no more.
+    if (!target || shadowsForTarget(target.id) >= perFight) return;
     const remote = targetById.get(target.id);
     const stats = combatStatsFor(target.id, options.statsFor);
     if (!remote || !stats) return;

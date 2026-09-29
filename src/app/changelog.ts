@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.835": [
+    "Other players' fights now show at most 3 enemies each; turn them off in Settings > Game > Other Players' Fights.",
+  ],
   "0.834": [
     "Removed the combat wait on teleporting home; the Base button now ignores taps for 3 seconds after closing chat.",
   ],
@@ -2509,6 +2512,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.835": "2026-09-28",
   "0.834": "2026-09-28",
   "0.833": "2026-09-28",
   "0.832": "2026-09-28",

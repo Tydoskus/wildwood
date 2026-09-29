@@ -32,8 +32,9 @@ describe("installed interface structure", () => {
     // paragraphs cannot share a background without something to draw it on,
     // and the Discord invite in that copy is a link rather than a word. The
     // icon beside the mute button is built in script, where its path costs the
-    // startup shell nothing.
-    expect(Buffer.byteLength(entryHtml)).toBeLessThan(24_672);
+    // startup shell nothing. Raised by 32 for the Other Players' Fights row;
+    // that row itself landed in the old headroom.
+    expect(Buffer.byteLength(entryHtml)).toBeLessThan(24_704);
     for (const id of ["start", "gameUpdateGate", "dailyGemBonus", "gameOver", "playerProfile", "techTreeOverlay", "guildBtn"]) {
       expect(doc.getElementById(id), id).not.toBeNull();
     }

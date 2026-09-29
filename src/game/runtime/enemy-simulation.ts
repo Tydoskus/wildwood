@@ -19,7 +19,7 @@ import {
 } from "../../../shared/regular-enemy-simulation";
 import type { RemoteCombatStats, RemotePlayer } from "../../wildstat-coop";
 import { separateEnemyCrowd } from "./enemy-crowd-separation";
-import { createRemoteEnemyCombatShadows } from "./remote-enemy-combat-shadow";
+import { createRemoteEnemyCombatShadows, REMOTE_GHOSTS_PER_FIGHT } from "./remote-enemy-combat-shadow";
 import { rangedEnemyAttackRange, rangedEnemyHoldBand } from "./ranged-enemy-range";
 import type { EnemyState, PlayerState } from "./types";
 
@@ -45,6 +45,8 @@ export type EnemySimulationSharedOptions = {
   remoteCombatStats?: (identity: string) => RemoteCombatStats | null | undefined;
   spawnDamageNumber?: (x: number, y: number, amount: number, critical?: boolean, damageTaken?: boolean) => void;
   spawnBurst?: (x: number, y: number, color: string, count?: number, speed?: number) => void;
+  /** The device setting for drawing other players' fights; on unless it says false. */
+  remoteGhostsEnabled?: () => boolean;
 };
 
 export type EnemySimulation = {
@@ -69,6 +71,7 @@ export function createEnemySimulation(
   const remoteCombat = createRemoteEnemyCombatShadows({
     spawnDamageNumber: shared.spawnDamageNumber ?? (() => {}),
     spawnBurst: shared.spawnBurst,
+    ghostsPerFight: () => shared.remoteGhostsEnabled?.() === false ? 0 : REMOTE_GHOSTS_PER_FIGHT,
   });
 
   /** Chase speed tracks the player in front of the enemy, a step ahead of them. */

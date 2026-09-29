@@ -609,7 +609,7 @@ import {
         .filter((remote) => !coop?.remotePlayerDeath?.(remote.id)),
       remoteCombatStats: (identity) => coop?.remoteCombatStats?.(identity),
       playerMovementSpeed: () => player.speed * movementMultiplier(),
-      spawnDamageNumber,
+      spawnDamageNumber, remoteGhostsEnabled: appShell.remoteGhostsEnabled,
       spawnBurst,
     },
   );

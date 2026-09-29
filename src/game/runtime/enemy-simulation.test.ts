@@ -332,6 +332,42 @@ describe("deterministic enemy simulation", () => {
     expect(enemy.engaged).toBe(false);
   });
 
+  it("draws at most three ghosts in each other player's fight, for every fight, and none with the setting off", () => {
+    const enemies = [0, 1, 2, 3, 4, 5, 6, 7].map((index) => ({
+      ...idleEnemyAt(index < 4 ? 300 + index * 40 : 580 + index * 40, 500), siteId: index + 1,
+    }));
+    const first = { ...remotePlayerAt(360, 540), id: "first" };
+    const second = { ...remotePlayerAt(800, 540), id: "second" };
+    let ghostsOn = true;
+    const simulation = createEnemySimulation(
+      enemies,
+      () => {},
+      playerAt(560, 500),
+      () => ({ width: 800, height: 800, zoom: 1 }),
+      engage,
+      () => false,
+      {
+        currentMapId: () => "tutorial_forest",
+        serverNowMs: () => 1_800_000_000_000,
+        localIdentity: () => "local-player",
+        remotePlayers: () => [first, second],
+        remoteCombatStats: () => remoteCombatStats,
+        remoteGhostsEnabled: () => ghostsOn,
+      },
+    );
+    const perFight = () => ["first", "second"].map((id) =>
+      simulation.remoteCombatGhosts().filter((ghost) => ghost.aggroTargetId === id).length);
+
+    simulation.update(1 / 60);
+    expect(perFight()).toEqual([3, 3]);
+    ghostsOn = false;
+    simulation.update(1 / 60);
+    expect(simulation.remoteCombatGhosts()).toHaveLength(0);
+    ghostsOn = true;
+    simulation.update(1 / 60);
+    expect(perFight()).toEqual([3, 3]);
+  });
+
   it("keeps a remote ghost past an authored leash when the player's attack edge acquired it", () => {
     const enemy = idleEnemyAt(100, 100);
     const local = playerAt(500, 500);
