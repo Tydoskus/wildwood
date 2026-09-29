@@ -1,4 +1,5 @@
 import { createChatGuildRequests } from "./chat-guild-requests";
+import { CHAT_CLOSED_EVENT } from "./home-teleport-button";
 import type { GuildApi } from "../coop/services/guild-service";
 import { createChatViewport } from "./chat-viewport";
 import { createChatScrollIdle } from "./chat-scroll-idle";
@@ -378,6 +379,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     updateHeight();
     if (large && channel !== "public") void loadHistory(true);
     if (closingComposer) {
+      window.dispatchEvent(new window.Event(CHAT_CLOSED_EVENT));
       if (layoutRecoveryTimer !== null) window.clearTimeout(layoutRecoveryTimer);
       requestAnimationFrame(() => requestAnimationFrame(() => onLayoutChange?.()));
       layoutRecoveryTimer = window.setTimeout(() => {

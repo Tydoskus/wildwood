@@ -290,9 +290,6 @@
   .home-teleport-cooldown[hidden] { display: none; }
   #techTreeBtn.is-home-cooldown { opacity: 1; }
   #techTreeBtn.is-home-cooldown .toolbar-icon { visibility: hidden; }
-  /* In combat: the same ring counts down to home in red. */
-  #techTreeBtn.is-home-combat:not(.is-home-cooldown) .toolbar-icon { visibility: hidden; }
-  #techTreeBtn.is-home-combat:not(.is-home-cooldown) .home-teleport-cooldown::before { background: conic-gradient(#ff8b8b var(--cooldown-progress, 100%), rgba(255,139,139,.16) 0); }
   .tech-tree-notice { position: absolute; top: 12%; left: calc(50% + 8px); width: 8px; height: 8px; border: 1px solid #fff; border-radius: 50%; background: #e63d3d; box-shadow: 0 1px 0 #000; pointer-events: none; }
   .tech-tree-notice[hidden] { display: none; }
   .inventory-notice { position: absolute; top: 12%; left: calc(50% + 8px); width: 8px; height: 8px; border: 1px solid #fff; border-radius: 50%; background: #e63d3d; box-shadow: 0 1px 0 #000; pointer-events: none; }

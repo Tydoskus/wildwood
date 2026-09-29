@@ -1,21 +1,11 @@
 const HOME_TELEPORT_COOLDOWN_MS = 5_000;
 /**
- * Time out of combat, with no blow dealt or taken, before the home teleport
- * works away from home: it is a way home, not a way out of a losing fight.
- * Going back out from home is never held.
+ * After chat closes, the home teleport ignores taps this long, so the tap
+ * that closes chat, or the next one, cannot send a player home by accident.
  */
-export const HOME_TELEPORT_COMBAT_LOCK_MS = 30_000;
-
-let lastCombatAt = Number.NEGATIVE_INFINITY;
-const combatListeners = new Set<() => void>();
-/** A blow dealt or taken: the home teleport waits HOME_TELEPORT_COMBAT_LOCK_MS from now. */
-export function noteCombat(now = performance.now()) {
-  lastCombatAt = now;
-  for (const listener of combatListeners) listener();
-}
-export function combatLockRemainingMs(now = performance.now()) {
-  return Math.max(0, lastCombatAt + HOME_TELEPORT_COMBAT_LOCK_MS - now);
-}
+export const HOME_TELEPORT_CHAT_CLOSE_HOLD_MS = 3_000;
+/** Dispatched on window by chat when its expanded panel closes. */
+export const CHAT_CLOSED_EVENT = "wildwood:chat-closed";
 
 export function bindHomeTeleportButton(
   button: HTMLButtonElement,
@@ -23,8 +13,7 @@ export function bindHomeTeleportButton(
     beforeTeleport(): void;
     teleport(): Promise<boolean>;
     showFailure(failed: boolean): void;
-    /** At home the button goes back out, which combat never holds. */
-    atHome?(): boolean;
+    /** Says why a tap during the hold did nothing. */
     showBlocked?(text: string): void;
   },
 ) {
@@ -33,7 +22,10 @@ export function bindHomeTeleportButton(
   cooldown.hidden = true;
   cooldown.setAttribute("aria-hidden", "true");
   button.append(cooldown);
-  const combatLocked = () => !options.atHome?.() && combatLockRemainingMs() > 0;
+  let heldUntil = 0;
+  button.ownerDocument.defaultView?.addEventListener(CHAT_CLOSED_EVENT, () => {
+    heldUntil = performance.now() + HOME_TELEPORT_CHAT_CLOSE_HOLD_MS;
+  });
 
   function showCooldown() {
     const endsAt = Date.now() + HOME_TELEPORT_COOLDOWN_MS;
@@ -46,7 +38,6 @@ export function bindHomeTeleportButton(
         button.classList.remove("is-home-cooldown");
         button.removeAttribute("title");
         button.disabled = false;
-        showCombatLock();
         return;
       }
       const seconds = Math.ceil(remaining / 1_000);
@@ -58,42 +49,11 @@ export function bindHomeTeleportButton(
     update();
   }
 
-  /**
-   * The combat countdown, in the same ring as the teleport cooldown. Ticks
-   * only while a lock runs, started by the first blow, so a quiet button
-   * costs nothing; the teleport's own cooldown shows over it.
-   */
-  let combatTicking = false;
-  function showCombatLock() {
-    const locked = combatLocked();
-    button.classList.toggle("is-home-combat", locked);
-    if (button.classList.contains("is-home-cooldown")) return locked;
-    if (locked) {
-      const remaining = combatLockRemainingMs(), seconds = Math.ceil(remaining / 1_000);
-      cooldown.hidden = false;
-      cooldown.textContent = String(seconds);
-      cooldown.style.setProperty("--cooldown-progress", `${remaining / HOME_TELEPORT_COMBAT_LOCK_MS * 100}%`);
-      button.title = `In combat · home in ${seconds}s`;
-    } else if (!cooldown.hidden) {
-      cooldown.hidden = true;
-      button.removeAttribute("title");
-    }
-    return locked;
-  }
-  function tickCombatLock() {
-    if (showCombatLock()) setTimeout(tickCombatLock, 250);
-    else combatTicking = false;
-  }
-  combatListeners.add(() => {
-    if (combatTicking) return;
-    combatTicking = true;
-    tickCombatLock();
-  });
-
   button.addEventListener("click", async () => {
     if (button.disabled) return;
-    if (combatLocked()) {
-      options.showBlocked?.(`LEAVE COMBAT TO GO HOME · ${Math.ceil(combatLockRemainingMs() / 1_000)}s`);
+    const held = heldUntil - performance.now();
+    if (held > 0) {
+      options.showBlocked?.(`HOME READY IN ${Math.ceil(held / 1_000)}S`);
       return;
     }
     button.disabled = true;

@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.834": [
+    "Removed the combat wait on teleporting home; the Base button now ignores taps for 3 seconds after closing chat.",
+  ],
   "0.833": [
     "Teleporting home now needs 30 seconds out of combat; the Base button counts it down.",
   ],
@@ -2506,6 +2509,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.834": "2026-09-28",
   "0.833": "2026-09-28",
   "0.832": "2026-09-28",
   "0.831": "2026-09-28",

@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { createChatRuntimeController } from "./chat-runtime-controller";
 import { installGameShell } from "./game-shell";
 import { createChatChannelPicker, mergeChatConversations } from "./chat-channels";
+import { CHAT_CLOSED_EVENT } from "./home-teleport-button";
 
 const settle = async () => { for (let i = 0; i < 8; i++) await Promise.resolve(); };
 
@@ -265,8 +266,11 @@ describe("chat channels", () => {
     expect(h.document.querySelector(".chat-conversation-preview")!.textContent).toBe("You: See you soon");
     expect(h.document.querySelector<HTMLElement>(".chat-conversation-portrait")!.style.backgroundPosition).not.toBe("");
     expect((h.document.getElementById("chatBackBtn") as HTMLButtonElement).hidden).toBe(false);
+    const closed = vi.fn();
+    h.window.addEventListener(CHAT_CLOSED_EVENT, closed);   // holds the Base button
     h.document.getElementById("chatBackBtn")!.click();
     expect(h.document.getElementById("chatPanel")!.classList.contains("is-large")).toBe(false);
+    expect(closed).toHaveBeenCalledOnce();
   });
   it("keeps private messages older than 24 hours visible", () => {
     const h = setup();
