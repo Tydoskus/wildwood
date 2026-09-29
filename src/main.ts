@@ -33,7 +33,7 @@ import { bindAvatarFrames } from "./app/avatar-frames";
 import { HOME_WORLD_WIDTH, HOME_WORLD_HEIGHT } from "../shared/home";
 import { WORLD_WIDTH, WORLD_HEIGHT } from "../shared/rules";
 import { createGuildPanel } from "./ui/guild-panel";
-import { bindHomeTeleportButton } from "./ui/home-teleport-button";
+import { bindHomeTeleportButton, noteCombat } from "./ui/home-teleport-button";
 import { isDeveloperIdentity } from "./app/developer";
 import { nativeBridgeForRuntime } from "./app/native-ads";
 import {
@@ -710,7 +710,7 @@ import {
     currentMapId: () => currentMapId,
     spawnBurst,
     spawnParticle,
-    spawnDamageNumber, skillEffects: effects, onCombat: () => gameBridge?.engaged(),
+    spawnDamageNumber, skillEffects: effects, onCombat: () => { gameBridge?.engaged(); noteCombat(); },
     playBowAttackSound: mapMusic.playBowAttackSound,
     logPickup,
     saveProgress,
@@ -1532,8 +1532,8 @@ import {
 
   bindHomeTeleportButton(gameElements.techTreeBtn, {
     beforeTeleport: () => { techTree.close(); upgradeBenchController.close(); },
-    teleport: () => inTutorial() ? Promise.resolve(false) : mapController.teleportHome(),
-    showFailure: failed => showMessage(failed ? "TELEPORT FAILED · TRY AGAIN" : "TELEPORT UNAVAILABLE", "#ffbc91"),
+    teleport: () => inTutorial() ? Promise.resolve(false) : mapController.teleportHome(), atHome: () => currentMapId === "home_exterior",
+    showFailure: failed => showMessage(failed ? "TELEPORT FAILED · TRY AGAIN" : "TELEPORT UNAVAILABLE", "#ffbc91"), showBlocked: text => showMessage(text, "#ffbc91"),
   });
   const updateHomeStations = createHomeStationTouchHandler(
     () => currentMapId === "home_exterior" && !mapController.isMapTransitioning(), player,

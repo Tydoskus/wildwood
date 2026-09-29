@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.833": [
+    "Teleporting home now needs 30 seconds out of combat; the Base button counts it down.",
+  ],
   "0.832": [
     "Empty hands stay empty: auto equip, logging in and prestige no longer put a weapon in them.",
   ],
@@ -2503,6 +2506,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.833": "2026-09-28",
   "0.832": "2026-09-28",
   "0.831": "2026-09-28",
   "0.830": "2026-09-28",
