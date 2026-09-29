@@ -55,7 +55,7 @@ export function noteKill(enemy: Enemy, now = performance.now()) {
     panel = document.createElement("div");
     panel.setAttribute("aria-hidden", "true");
     Object.assign(panel.style, {
-      position: "fixed", left: "8px", bottom: "8px", zIndex: "9999", pointerEvents: "none",
+      position: "fixed", left: "8px", bottom: "96px", zIndex: "9999", pointerEvents: "none",
       font: "12px/1.35 ui-monospace, monospace", color: "#fff", background: "rgba(0,0,0,.6)",
       padding: "6px 8px", borderRadius: "6px", whiteSpace: "pre",
     });
