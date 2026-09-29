@@ -67,7 +67,7 @@ export const KILL_REPORT_REFILL_SECONDS = 3;
  * 10 seconds is simply the respawn, and the ad pays Gems instead.
  */
 export const REGULAR_ENEMY_RESPAWN_SECONDS = 10;
-export const MAX_BASE_ATTACKS_PER_SECOND = 2.625;
+export const MAX_BASE_ATTACKS_PER_SECOND = 3;
 export const MIN_ATTACK_INTERVAL = 1 / MAX_BASE_ATTACKS_PER_SECOND;
 export const BOSS_RESPAWN_SECONDS = 45;
 // Scalable combat stats use f32 storage. One undecillion stays below f32's

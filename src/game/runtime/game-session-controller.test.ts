@@ -322,7 +322,7 @@ describe("game session frame scheduling", () => {
   });
 
   it("keeps max base attack totals independent of render FPS", () => {
-    expect([60, 30, 20, 9].map((fps) => attacksFor(fps, 10, MIN_ATTACK_INTERVAL))).toEqual([27, 27, 27, 27]);
+    expect([60, 30, 20, 9].map((fps) => attacksFor(fps, 10, MIN_ATTACK_INTERVAL))).toEqual([30, 30, 30, 30]);
   });
 
   it("bounds catch-up after a long stall instead of creating a resume burst", () => {

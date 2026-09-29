@@ -164,10 +164,10 @@ describe("profile stat display", () => {
     const attack = profileStatDisplayRows(profile, () => "0%", MIN_ATTACK_INTERVAL).find((row) => row.kind === "attack");
 
     expect(attack).toMatchObject({
-      base: "2.63/s (Max)",
+      base: "3.00/s (Max)",
       equationOperator: "×",
       multiplier: "1.00",
-      total: "2.63/s",
+      total: "3.00/s",
       sources: [],
     });
   });
