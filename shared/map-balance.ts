@@ -108,6 +108,7 @@ function resolveCurve(mapId: string, curve: BalanceCurve, factors: typeof DEFAUL
     const row = AUTHORED_ENEMIES[kind];
     const enemy = curveEnemy(y, row.reward.type as CurveRewardStat, row.elite === true, curve);
     result.enemies[kind] = { ...row, hp: enemy.hp, damage: enemy.damage, speed: row.speed * factors.enemySpeed,
+      attackSpeed: enemy.attackSpeed, regen: enemy.regen, armor: enemy.armor,
       reward: { ...row.reward, amount: enemy.reward.amount } };
   }
   const boss = curveBoss(y, curve);

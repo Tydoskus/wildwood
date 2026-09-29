@@ -5,6 +5,7 @@ import { bossSurfaceDistance, bossVerticalRadius } from "../../../shared/boss-hi
 import { isEnemyAttackingPlayer } from "./enemy-threat";
 import { ENEMY_HP_LOSS_FLASH_SECONDS, PLAYER_KNOCKBACK_FORCE, WORLD } from "../constants";
 import { attackIntervalAfterSpeedReward, damageAfterArmor } from "../combat";
+import { curveArmorReduction } from "../../../shared/balance-curve";
 import { ENEMY_TYPES, REWARD_DATA, rewardLabel, type EnemyKind } from "../enemies";
 import { circlesOverlap } from "../math";
 import type { ProjectileStore } from "./projectile-store";
@@ -612,6 +613,11 @@ export function createPlayerCombatController(options: {
   }
 
   function applyPlayerHit(target: EnemyState | BossTarget, damage: number, critical: boolean, angle: number, reflected = false) {
+    // A curve map's armor camps block the player's hits the way armor blocks theirs.
+    if (!target.isBoss && !target.generatedBoss) {
+      const armor = ((target as EnemyState).definition ?? ENEMY_TYPES[(target as EnemyState).type])?.armor ?? 0;
+      if (armor > 0) damage *= 1 - curveArmorReduction(armor);
+    }
     // A reflected hit shows blue, so the player can see Reflect fire.
     if (!target.isBoss && !target.generatedBoss) spawnDamageNumber(target.x, target.y, damage, critical, false, reflected);
     target.hurt = .12;

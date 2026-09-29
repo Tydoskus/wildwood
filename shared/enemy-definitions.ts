@@ -8,6 +8,9 @@ export type EnemyDefinition = {
   speed: number;
   damage: number;
   attackSpeed: number; // Attacks per second.
+  /** Curve maps only: health healed a second, and armor on curveArmorReduction. */
+  regen?: number;
+  armor?: number;
   r: number;
   color: string;
   outline: string;

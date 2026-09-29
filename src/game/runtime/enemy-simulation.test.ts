@@ -300,6 +300,15 @@ describe("deterministic enemy simulation", () => {
     expect(enemy.engaged).toBe(false);
   });
 
+  it("heals a curve regen camp while it lives, up to its full health", () => {
+    const enemy = { ...idleEnemyAt(100, 100), hp: 10, definition: { ...ENEMY_TYPES.Bramble, maxHp: 42, regen: 12 } } as EnemyState;
+    const simulation = createEnemySimulation([enemy], () => {}, playerAt(900, 900), () => ({ width: 800, height: 800, zoom: 1 }), engage, () => false);
+    simulation.update(.5);
+    expect(enemy.hp).toBeCloseTo(16);
+    for (let i = 0; i < 10; i++) simulation.update(.5);
+    expect(enemy.hp).toBe(42);
+  });
+
   it("creates a ghost when the remote player's real attack range reaches the enemy", () => {
     const enemy = idleEnemyAt(100, 100);
     const local = playerAt(500, 500);

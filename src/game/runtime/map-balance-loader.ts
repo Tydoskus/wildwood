@@ -7,7 +7,7 @@ import { useCurveArmor, useSpeedRating } from '../combat';
 export function applyMapBalance(snapshot: MapBalanceSnapshot) {
   if (snapshot.schema !== 1) throw new Error('Unsupported map balance. Update WildStat.');
   installMapBalance(snapshot);
-  for (const [kind, row] of Object.entries(snapshot.enemies)) if (Object.prototype.hasOwnProperty.call(ENEMY_TYPES, kind)) Object.assign(ENEMY_TYPES[kind as EnemyKind], row);
+  for (const [kind, row] of Object.entries(snapshot.enemies)) if (Object.prototype.hasOwnProperty.call(ENEMY_TYPES, kind)) Object.assign(ENEMY_TYPES[kind as EnemyKind], { regen: 0, armor: 0 }, row);
   installBossRuleValues(snapshot.rules);
   useCurveArmor(snapshot.rules.ARMOR_CURVE === 1);
   useSpeedRating(snapshot.rules.SPEED_RATING === 1);

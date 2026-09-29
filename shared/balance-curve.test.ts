@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CURVE_START, DEFAULT_BALANCE_CURVE, curveArmorReduction, curveBoss, curveClears, curveEnemy, curveKills, curveRewardPerKill, curveTargets } from "./balance-curve";
+import { CURVE_ROLES, CURVE_START, DEFAULT_BALANCE_CURVE, curveArmorReduction, curveBoss, curveClears, curveEnemy, curveKills, curveRewardPerKill, curveTargets } from "./balance-curve";
 import { defaultBalanceSettings, resolveMapBalance, validateBalanceSettings } from "./map-balance";
 import { CAMPAIGN_MAPS } from "./campaign-registry";
 
@@ -57,6 +57,17 @@ describe("balance curve", () => {
     expect(curveArmorReduction(0)).toBe(0);
   });
 
+  it("gives each camp its own stat: damage hits, health lasts, speed swings, regen heals, armor blocks", () => {
+    const y = 3, targets = curveTargets(y), role = (stat: Parameters<typeof curveEnemy>[1]) => curveEnemy(y, stat, false);
+    expect(role("damage").damage).toBeGreaterThan(Math.max(...(["health", "speed", "regen", "armor"] as const).map(stat => role(stat).damage)));
+    expect(role("health").hp).toBeGreaterThan(Math.max(...(["damage", "speed", "regen", "armor"] as const).map(stat => role(stat).hp)));
+    expect(role("speed").attackSpeed).toBeGreaterThan(1);
+    expect(role("regen").regen).toBeGreaterThan(0);
+    expect(role("armor").armor).toBeCloseTo(targets.armor);
+    for (const stat of ["damage", "health", "speed", "armor"] as const) expect(role(stat).regen).toBe(0);
+    for (const stat of ["damage", "health", "speed", "regen"] as const) expect(role(stat).armor).toBe(0);
+  });
+
   it("carries Endless on as the same formula, and stays inside the stat cap however deep", () => {
     expect(curveTargets(CAMPAIGN_MAPS.length + 1).damage).toBeCloseTo(curveTargets(15).damage * curve.endlessArrivalBlows);
     for (const y of [100, 1_016, 5_000]) {
@@ -88,7 +99,7 @@ describe("resolving maps from the curve", () => {
   it("builds the forest and desert from the curve, and pays nothing for a boss", () => {
     const forest = resolveMapBalance("tutorial_forest", settings(), 1);
     expect(forest.enemies.Spitter.hp).toBeCloseTo(24);
-    expect(forest.enemies.Spitter.damage).toBeCloseTo(20);
+    expect(forest.enemies.Spitter.damage).toBeCloseTo(20 * CURVE_ROLES.damage.hit);
     expect(forest.enemies.Spitter.reward.amount).toBeCloseTo(curveRewardPerKill(1, "damage"));
     expect(forest.boss!.rewards).toEqual({ damage: 0, health: 0, armor: 0, regen: 0 });
     expect(Object.entries(forest.rules).filter(([key]) => key.includes("_REWARD_")).every(([, n]) => n === 0)).toBe(true);

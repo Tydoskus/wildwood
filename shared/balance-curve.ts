@@ -127,21 +127,36 @@ export function curveRewardPerKill(y: number, stat: CurveRewardStat, curve: Bala
 }
 
 /**
- * How hard each camp hits, next to the damage camp's hit. Every regular dies
- * to one blow of the finished map's damage, so every camp is farmed at the
- * same pace; what differs is how much each hurts on the way.
+ * What each camp is about. A regular is sized from the finished map's build:
+ * health 1 dies to one of its blows, hit 1 is the map's hit, attack speed 1
+ * swings once a second. Each camp leans on the stat it pays:
+ * - damage hits hardest;
+ * - health takes the most blows;
+ * - attack speed swings fastest, with lighter hits;
+ * - regen heals `regen` of its health a second;
+ * - armor wears `armor` times the map's armor target, on the curve's block.
  */
-export const CURVE_ROLE_HIT: Readonly<Record<CurveRewardStat, number>> = Object.freeze({
-  damage: 1, health: .7, speed: 1.2, armor: 1.45, regen: 2.8,
+export type CurveRole = { health: number; hit: number; attackSpeed: number; regen: number; armor: number };
+export const CURVE_ROLES: Readonly<Record<CurveRewardStat, Readonly<CurveRole>>> = Object.freeze({
+  damage: { health: 1, hit: 2, attackSpeed: 1, regen: 0, armor: 0 },
+  health: { health: 3, hit: .8, attackSpeed: 1, regen: 0, armor: 0 },
+  speed: { health: 1, hit: .5, attackSpeed: 2.5, regen: 0, armor: 0 },
+  regen: { health: 1.5, hit: .8, attackSpeed: 1, regen: .2, armor: 0 },
+  armor: { health: 1, hit: 1, attackSpeed: 1, regen: 0, armor: 1 },
 });
 
-export type CurveEnemy = { hp: number; damage: number; reward: { type: CurveRewardStat; amount: number } };
+/** `regen` is health a second; `armor` blocks on curveArmorReduction. */
+export type CurveEnemy = { hp: number; damage: number; attackSpeed: number; regen: number; armor: number; reward: { type: CurveRewardStat; amount: number } };
 export function curveEnemy(y: number, stat: CurveRewardStat, elite: boolean, curve: BalanceCurve = DEFAULT_BALANCE_CURVE): CurveEnemy {
-  const targets = curveTargets(y, curve);
+  const targets = curveTargets(y, curve), role = CURVE_ROLES[stat];
   const tough = elite ? curve.eliteHealth : 1;
+  const hp = cap(targets.damage * role.health * tough);
   return {
-    hp: cap(targets.damage * tough),
-    damage: cap(targets.enemyHit * CURVE_ROLE_HIT[stat] * (elite ? curve.eliteHit : 1)),
+    hp,
+    damage: cap(targets.enemyHit * role.hit * (elite ? curve.eliteHit : 1)),
+    attackSpeed: role.attackSpeed,
+    regen: cap(hp * role.regen),
+    armor: cap(targets.armor * role.armor),
     reward: { type: stat, amount: cap(curveRewardPerKill(y, stat, curve) * tough) },
   };
 }

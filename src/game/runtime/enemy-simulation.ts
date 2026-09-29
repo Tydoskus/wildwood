@@ -216,6 +216,8 @@ export function createEnemySimulation(
       const ambient = regularEnemyAmbientPose(mapId, enemy.siteId, enemy.homeX, enemy.homeY, serverNowMs);
       enemy.phase = ambient.phase;
       enemy.hurt = Math.max(0, enemy.hurt - dt);
+      // A curve map's regen camps heal while they live.
+      if (base.regen && enemy.hp < enemy.maxHp) enemy.hp = Math.min(enemy.maxHp, enemy.hp + base.regen * dt);
       if (enemy.hpLossFlashTimer) enemy.hpLossFlashTimer = Math.max(0, enemy.hpLossFlashTimer - dt);
       enemy.attackClock -= dt;
       if (enemy.attackAnimationElapsed !== undefined) enemy.attackAnimationElapsed += dt;
