@@ -1,5 +1,7 @@
 import { expect, it, vi } from "vitest";
+import { ScheduleAt } from "spacetimedb";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
+import { ensureMapFrameSchedule, ensureMotionDetailFrameSchedule } from "./presence-runtime";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 it("stops a stale publisher without scanning or broadcasting private homes", () => {
@@ -33,3 +35,22 @@ it.each([0, 1])("publishes a final clearing frame before stopping at visible cou
   expect([...f.db.playerMapFrame.iter()].map((row: any) => row.playerCount)).toEqual([visibleCount]);
   expect([...f.db.mapFrameSchedule.iter()]).toHaveLength(0);
 });
+
+it.each([["mapFrameSchedule", ensureMapFrameSchedule], ["motionDetailFrameSchedule", ensureMotionDetailFrameSchedule]] as const)(
+  "replaces a %s row a publish left long past due, so the loop cannot stay dead", (table, ensure) => {
+    // Production, 2026-09-29: the minimap loop's row sat 52 minutes past due
+    // after a publish, and every ensure saw a row and armed nothing.
+    const f = crystalFixture();
+    const now = f.ctx.timestamp.microsSinceUnixEpoch;
+    f.seed("playerMotionMapState", { mapId: "water_reach", playerCount: 2, visibleCount: 2 });
+    f.seed("playerMotionInterest", { identity: f.ctx.sender, networkIds: [2] });
+    f.seed(table, { scheduledId: 7n, scheduledAt: ScheduleAt.time(now - 3_122_000_000n) });
+    f.run(ctx => ensure(ctx));
+    const rows = [...(f.db as any)[table].iter()];
+    expect(rows).toHaveLength(1);
+    expect(rows[0].scheduledId).not.toBe(7n);
+    expect(rows[0].scheduledAt.value.microsSinceUnixEpoch > now).toBe(true);
+    // A healthy row, due a moment from now, is left as it is.
+    f.run(ctx => ensure(ctx));
+    expect([...(f.db as any)[table].iter()].map((row: any) => row.scheduledId)).toEqual([rows[0].scheduledId]);
+  });

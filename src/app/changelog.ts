@@ -1,5 +1,6 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.831": [
+    "Fixed other players and minimap dots vanishing for everyone after a server update.",
     "The multiplayer eye remembers your setting through reloads and updates.",
   ],
   "0.830": [

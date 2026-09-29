@@ -255,10 +255,34 @@ export function hasSharedMap(ctx: any) {
   return false;
 }
 
-// Existence checks use count(): a scan deserialises every row it touches, a
-// count answers without reading any.
+/**
+ * How far past its time a frame loop's row may be before it counts as dead.
+ * The loops re-arm every third of a second or every second, so a row this
+ * late did not fire and will not: a module publish can leave the row due at
+ * that moment behind. On 2026-09-29 the minimap loop's row sat 52 minutes past
+ * due from the 00:02 publish, and since the ensures below saw a row they
+ * armed nothing: no map frames went out, no client learned where anyone was
+ * or asked to follow them, and everyone with the eye on was alone.
+ */
+export const FRAME_SCHEDULE_STALE_MICROS = 5_000_000n;
+
+/**
+ * Whether a frame loop is armed. Most calls answer from count(), which reads
+ * no rows; only when a row exists is it read, to replace one long past due.
+ */
+function frameLoopArmed(table: any, nowMicros: bigint) {
+  if (Number(table.count()) === 0) return false;
+  let armed = false;
+  for (const row of [...table.iter()] as any[]) {
+    const due = row.scheduledAt?.tag === "Time" ? row.scheduledAt.value.microsSinceUnixEpoch as bigint : null;
+    if (due === null || due >= nowMicros - FRAME_SCHEDULE_STALE_MICROS) armed = true;
+    else table.scheduledId.delete(row.scheduledId);
+  }
+  return armed;
+}
+
 export function ensureMotionDetailFrameSchedule(ctx: any) {
-  if (Number(ctx.db.motionDetailFrameSchedule.count()) > 0) return;
+  if (frameLoopArmed(ctx.db.motionDetailFrameSchedule, ctx.timestamp.microsSinceUnixEpoch)) return;
   if (Number(ctx.db.playerMotionInterest.count()) === 0) return;
   ctx.db.motionDetailFrameSchedule.insert({
     scheduledId: 0n,
@@ -267,7 +291,7 @@ export function ensureMotionDetailFrameSchedule(ctx: any) {
 }
 
 export function ensureMapFrameSchedule(ctx: any) {
-  if (Number(ctx.db.mapFrameSchedule.count()) > 0) return;
+  if (frameLoopArmed(ctx.db.mapFrameSchedule, ctx.timestamp.microsSinceUnixEpoch)) return;
   if (!hasSharedMap(ctx)) return;
   ctx.db.mapFrameSchedule.insert({
     scheduledId: 0n,

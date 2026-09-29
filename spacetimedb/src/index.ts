@@ -3699,6 +3699,7 @@ export const runMaintenanceSweep = spacetimedb.reducer(
     clearExpiredVirtualPlayerRuns(ctx);
     pruneIdleDefeatBudgets(ctx);
     reconcileOnlinePlayers(ctx);
+    ensureRealtimeFrameSchedules(ctx);   // a frame loop a publish left dead restarts within one sweep
     for (const active of [...ctx.db.activeResearch.iter()] as any[]) reconcileActiveResearch(ctx, active);
     for (const active of [...ctx.db.activeItemUpgrade.iter()] as any[]) {
       reconcileActiveItemUpgrade(ctx, active, UPGRADE_BENCH_SLOT_ONE);
