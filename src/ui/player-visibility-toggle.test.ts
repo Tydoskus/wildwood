@@ -37,18 +37,18 @@ it("restores always-off and blocks rapid toggles for five seconds", () => {
   state.toggle.dispose();
 });
 
-it("starts off even for a player who last left it on", () => {
-  // Presence is what the server spends its time on, and most sessions never
-  // look at another player, so every session begins off and is turned on by
-  // the person who wants it.
-  const state = setup("true");
-  expect(state.setVisible.mock.calls).toEqual([[false]]);
-  expect(state.button.disabled).toBe(false);
-  expect(state.button.getAttribute("aria-pressed")).toBe("false");
-  state.button.click();
-  expect(state.setVisible).toHaveBeenLastCalledWith(true);
-  state.toggle.dispose();
-  expect(vi.getTimerCount()).toBe(0);
+it("comes back on for a player who left it on, and stays off for one who turned it off", () => {
+  // Every reload and update used to start the eye off, so a whole map that
+  // had it on came back unable to see each other.
+  const on = setup("true");
+  expect(on.setVisible.mock.calls).toEqual([[true]]);
+  expect(on.button.getAttribute("aria-pressed")).toBe("true");
+  expect(on.storage.setItem).not.toHaveBeenCalled();
+  on.toggle.dispose();
+  const off = setup("false");
+  expect(off.setVisible.mock.calls).toEqual([[false]]);
+  expect(off.button.getAttribute("aria-pressed")).toBe("false");
+  off.toggle.dispose();
 });
 
 it("turns itself on once when the tutorial is finished", () => {
@@ -117,10 +117,11 @@ it("expires while chatting, stays off when chat closes, and wakes on manual move
   }
   expect(button.dataset.state).toBe("idle");
   gate.setFullscreen(false);
-  expect(apply.mock.calls).toEqual([[false], [true], [false]]);
+  // It starts on (the player left it on), idles out while chatting, and stays out once chat closes.
+  expect(apply.mock.calls).toEqual([[true], [false]]);
   toggle.noteManualMovement();
   expect(button.getAttribute("aria-pressed")).toBe("true");
-  expect(apply.mock.calls).toEqual([[false], [true], [false], [true]]);
+  expect(apply.mock.calls).toEqual([[true], [false], [true]]);
   toggle.dispose(); gate.dispose();
 });
 
@@ -142,31 +143,19 @@ it("manual movement never overrides always-off, even after cooldown or reload", 
   state.toggle.dispose();
 });
 
-it("hides for an update and stays hidden until the reload", () => {
+it("stays on through an update, and comes back on after it", () => {
   const state = setup(null);
   state.toggle.enableForTutorial();
-  state.storage.setItem.mockClear();
-
+  state.storage.setItem.mockClear(); state.setVisible.mockClear();
   state.toggle.suspend();
-  expect(state.setVisible).toHaveBeenLastCalledWith(false);
-  // An update reconnects everyone at once, so the next start comes back off.
-  expect(state.storage.setItem).toHaveBeenCalledWith("wildstat-show-other-players", "false");
-
-  // Moving must not bring presence back for a client on its way out.
-  state.setVisible.mockClear();
+  expect(state.setVisible).not.toHaveBeenCalled();
+  expect(state.storage.setItem).not.toHaveBeenCalled();
+  expect(state.button.getAttribute("aria-pressed")).toBe("true");
+  // Moving must not wake an idle eye for a client on its way out.
   state.toggle.noteManualMovement();
   expect(state.setVisible).not.toHaveBeenCalled();
-});
-
-it("starts the session after an update with multiplayer off", () => {
-  const first = setup(null);
-  first.toggle.enableForTutorial();
-  first.toggle.suspend();
-  expect(first.setVisible).toHaveBeenLastCalledWith(false);
-  expect(first.storage.setItem).toHaveBeenCalledWith("wildstat-show-other-players", "false");
-  // The next start reads what the update wrote, so the reconnecting crowd does
-  // not all arrive visible at once. One tap puts it back.
-  const next = setup("false");
-  expect(next.setVisible.mock.calls).toEqual([[false]]);
-  expect(next.button.dataset.state).toBe("off");
+  // The next page reads what this one kept.
+  const next = setup("true");
+  expect(next.setVisible.mock.calls).toEqual([[true]]);
+  expect(next.button.dataset.state).toBe("on");
 });

@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.831": [
+    "The multiplayer eye remembers your setting through reloads and updates.",
+  ],
   "0.830": [
     "Reflect now throws back half of each hit before your armor, so armor no longer shrinks it.",
   ],
@@ -2496,6 +2499,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.831": "2026-09-28",
   "0.830": "2026-09-28",
   "0.829": "2026-09-28",
   "0.828": "2026-09-28",

@@ -4,34 +4,32 @@ import { MULTIPLAYER_TOGGLE_COOLDOWN_MS as COOLDOWN_MS } from "../../shared/mult
 const STORAGE_KEY = "wildstat-show-other-players";
 
 /**
- * Multiplayer starts off, every session.
+ * The eye remembers its setting on this device, through reloads and updates.
  *
- * Presence is the expensive thing the server does, and most sessions never
- * look at another player. Signing in, reconnecting and reloading all begin
- * with the eye off, and anyone who wants to be seen taps it — one tap, and it
- * stays on for as long as they keep playing.
+ * It used to start every session off and write "off" at every start and
+ * before every update, to spare the server a crowd arriving visible at once.
+ * In practice every update, reload and reconnect put the whole map back in
+ * the dark until each person found the eye again, so players who all had it
+ * on still met nobody. Now a player who turned it on comes back seen, and one
+ * who turned it off stays hidden.
  *
- * The one exception is finishing the tutorial: a brand new player should walk
- * out of it and see the other new players around them, so `enableForTutorial`
- * turns it on once at that moment.
- *
- * The stored preference is therefore no longer read at startup. It is still
- * written, because the idle and update paths read it to tell an explicit "off"
- * from a temporary one.
+ * A brand new player starts with it off, and finishing the tutorial turns it
+ * on once, so they walk out of it and see the others around them.
  */
 export function createPlayerVisibilityToggle(options: {
   button: HTMLButtonElement;
   setVisible: (visible: boolean) => void;
   storage?: Pick<Storage, "getItem" | "setItem">;
 }) {
-  let enabled = false;
-  let visible = false;
+  let stored: string | null = null;
+  try { stored = options.storage?.getItem(STORAGE_KEY) ?? null; } catch { /* Storage may be unavailable. */ }
+  let enabled = stored === "true";
+  let visible = enabled;
   /** The tutorial's one automatic switch-on, which never fires twice. */
   let tutorialEnabled = false;
   let cooldownUntil = 0;
   let suspended = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  try { options.storage?.setItem(STORAGE_KEY, "false"); } catch { /* Storage may be unavailable. */ }
   options.button.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="player-visibility-slash" d="m4 3 16 18"/></svg><span class="player-visibility-idle" aria-hidden="true"></span><span class="player-visibility-countdown" aria-hidden="true"></span>`;
   const countdown = options.button.querySelector<HTMLElement>(".player-visibility-countdown")!;
   const idleLabel = options.button.querySelector<HTMLElement>(".player-visibility-idle")!;
@@ -71,22 +69,12 @@ export function createPlayerVisibilityToggle(options: {
   idle.setEnabled(visible);
   return {
     /**
-     * Turn multiplayer off for an update, and record it. An update reconnects
-     * every client at once, so coming back visible puts that whole crowd into
-     * presence in the same moment. The eye starts the next session off and the
-     * player turns it back on when they want to be seen.
+     * An update is about to reload the page. The setting stays as it is, so
+     * the next page comes back as seen as this one was; only movement is kept
+     * from waking an idle eye for a client on its way out.
      */
     suspend() {
-      // Holds until the reload; movement must not bring presence back for a
-      // client that is on its way out.
       suspended = true;
-      enabled = false;
-      try { options.storage?.setItem(STORAGE_KEY, "false"); } catch { /* Keep the session preference. */ }
-      if (!visible) { refresh(); return; }
-      visible = false;
-      idle.setEnabled(false);
-      refresh();
-      options.setVisible(false);
     },
     /**
      * The tutorial has just been completed. This is the only thing that turns
