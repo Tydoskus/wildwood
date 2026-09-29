@@ -71,3 +71,21 @@ describe("swapping characters between logins", () => {
     expect(f.db.playerProfile.identity.find(vis)?.displayName).toBe("Vis");
   });
 });
+
+describe("tables whose player index is unique", () => {
+  it("reads them through find, as the live server exposes them, instead of crashing", async () => {
+    const { moveIdentityRows } = await import("./account-transfer");
+    const row = { key: `${hex(vis)}:1`, identity: vis, remaining: 3 };
+    const written: any[] = [];
+    // The live module gives a unique index find/update/delete, and no filter.
+    const handle = {
+      identity: { find: (who: Identity) => (who.isEqual(vis) ? row : undefined) },
+      key: { delete: () => true, update: (next: any) => written.push(next) },
+      insert: (next: any) => written.push(next),
+      iter: () => [row][Symbol.iterator](),
+    };
+    const moved = moveIdentityRows({ db: { enemyDefeatBudget: handle } }, vis, moth);
+    expect(moved).toEqual({ enemyDefeatBudget: 1 });
+    expect(written).toEqual([{ key: `${hex(moth)}:1`, identity: moth, remaining: 3 }]);
+  });
+});

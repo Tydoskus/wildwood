@@ -51,9 +51,16 @@ function rowsOwnedBy(ctx: any, target: ErasureTarget, columns: readonly string[]
   const index = target.index ? handle[camel(target.index)] : null;
   // An index covers one column. A table with two (friend and owner, sender
   // and recipient) is scanned, or the rows naming this player second stay behind.
+  // A unique index has find, not filter: live, that crashed the first swap.
+  const byIndex = (): any[] | null => {
+    if (target.mode !== "index" || !index || columns.length !== 1) return null;
+    if (typeof index.filter === "function") return [...index.filter(identity)];
+    if (typeof index.find === "function") return [index.find(identity)].filter(Boolean);
+    return null;
+  };
   const candidates = target.mode === "key" && target.pk
     ? [handle[camel(target.pk)]?.find(identity)].filter(Boolean)
-    : target.mode === "index" && index && columns.length === 1 ? [...index.filter(identity)] : [...handle.iter()];
+    : byIndex() ?? [...handle.iter()];
   // Snapshot before writing: changing a table while iterating it skips rows.
   return candidates.filter((row: any) => columns.some(column => sameIdentity(row[column], identity)));
 }
@@ -67,7 +74,12 @@ export function moveIdentityRows(ctx: any, from: any, to: any) {
     if (!handle || !target.pk || LOGIN_TABLES.has(target.table)) continue;
     const pk = camel(target.pk);
     const columns = target.columns.map(camel);
-    for (const row of rowsOwnedBy(ctx, target, columns, from)) {
+    const rows = rowsOwnedBy(ctx, target, columns, from);
+    // Refuse rather than half-move: the transaction then changes nothing.
+    if (rows.length && typeof handle[pk]?.delete !== "function") {
+      throw new SenderError(`Cannot move ${target.table}: no ${pk} key to write through. Nothing was changed.`);
+    }
+    for (const row of rows) {
       const next = { ...row };
       for (const column of columns) if (sameIdentity(row[column], from)) next[column] = to;
       if (typeof row[pk] === "string" && row[pk].toLowerCase().includes(fromHex)) {
