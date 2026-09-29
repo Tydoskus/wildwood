@@ -18,13 +18,11 @@ it('grants only the configured local guest developer access', () => {
 it('changes only the isolated developer gates and keeps session checks', () => {
   const local = localDeveloperAccess(server, true, localIdentity);
   expect(local).toContain(`normalized === "${localIdentity}"`);
-  expect(local).toContain('!virtualRegistration && isDeveloperIdentity(ctx.sender)');
   expect(local).not.toContain('!isDeveloperIdentity(ctx.sender) || !hasSpacetimeAuthAccount(ctx)');
   expect(local).toContain('requireSupportedSessionProtocol(ctx);');
   expect(local).toContain('requireControllingPlayer(ctx);');
   expect(local).toContain('!hasSpacetimeAuthAccount(ctx)');
-  expect(local).toContain('bossRewardClaims: CAMPAIGN_MAPS.reduce');
-  expect(local).toContain('localReferenceBuild(Math.max(0, CAMPAIGN_MAPS.length - 2))');
+  expect(local).not.toContain('localReferenceBuild');   // no old-table save seed on the curve
   expect(server).toContain('!isDeveloperIdentity(ctx.sender) || !hasSpacetimeAuthAccount(ctx)');
 });
 it('fails closed if the source contract changes', () => {

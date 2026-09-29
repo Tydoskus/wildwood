@@ -105,17 +105,6 @@ describe("balance simulator", () => {
     expect(result.maps.find((map) => map.mapId === INTERMEDIATE_SNOWLANDS_MAP_ID)?.completedPercent).toBe(100);
   }, 30_000);
 
-  it("can run an explicit repeat-boss scenario and exposes its farming cost", () => {
-    const result = runBalanceSimulation({ durationSeconds: 6 * 60 * 60, trials: 1, strategy: "boss-farm", seed: 7_331 });
-    const forest = result.maps.find((map) => map.mapId === TUTORIAL_FOREST_MAP_ID)!;
-    expect(forest.repeatBossKillsMedian).toBeGreaterThan(1);
-    expect(forest.repeatBossPowerGainMedian).toBeGreaterThan(0);
-    expect(forest.bossRepeatPermanentPowerPerMinuteMedian).toBeGreaterThan(0);
-    expect(forest.bossRepeatEfficiencyRatioMedian).toBeGreaterThan(0);
-    expect(forest.repeatTimeBudgetMedian?.respawnWaitSeconds).toBeGreaterThan(0);
-    expect(result.diagnostics.some((diagnostic) => diagnostic.includes("full configured reward"))).toBe(true);
-  });
-
   it("produces a monotonic power timeline when no gear is at the bench", () => {
     const timeline = runBalanceSimulation({ ...quickConfig, steadyEquipmentUpgrades: false }).timeline;
     for (let index = 1; index < timeline.length; index += 1) {

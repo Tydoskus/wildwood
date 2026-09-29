@@ -36,27 +36,4 @@ describe("Endless curve", () => {
     });
   });
 
-  it("resolves the live curve to different stats than the authored reference", () => {
-    const live = resolved(LIVE_CURVE);
-    const authored = resolved({
-      rewardMultiplier: ENDLESS_REWARD_MULTIPLIER, statStep: ENDLESS_STAT_STEP,
-      enduranceStep: ENDLESS_ENDURANCE_STEP, enduranceExponent: ENDLESS_ENDURANCE_EXPONENT,
-      rewardPerHealth: 1,
-    });
-    // Endless 1 sits at depth zero, where every curve agrees. The gap opens
-    // with depth, which is what makes a silent reset hard to notice.
-    expect(live[0].hp).toBeCloseTo(authored[0].hp, 0);
-    expect(live.at(-1)!.reward / authored.at(-1)!.reward).toBeGreaterThan(5);
-    expect(live.at(-1)!.hp / authored.at(-1)!.hp).toBeLessThan(.5);
-  });
-
-  it("holds the live curve's resolved stats, so a reset cannot move them unnoticed", () => {
-    const [first, , , , deepest] = resolved(LIVE_CURVE);
-    expect(first.hp).toBeCloseTo(298457265600.00006, 3);
-    expect(first.reward).toBeCloseTo(5791700.988475202 * 3 * 4, 6);
-    expect(deepest.hp).toBeCloseTo(12161536658668.803, 3);
-    expect(deepest.damage).toBeCloseTo(381982783274.0623, 3);
-    expect(deepest.bossHp).toBeCloseTo(656722979568115.2, 1);
-    expect(deepest.bossReward).toBeCloseTo(36203543.420153916, 6);
-  });
 });

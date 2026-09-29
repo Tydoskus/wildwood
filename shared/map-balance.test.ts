@@ -7,22 +7,6 @@ import { installMapBalance } from './map-balance-runtime';
 import { generatedBossStats, generateMap } from './procedural-maps';
 afterEach(() => installMapBalance(null));
 describe('server map balance snapshots', () => {
-  it('preserves campaign bases and the explicit procedural reference curve', () => {
-    for (const [map] of [...BALANCE_MAPS.slice(0, -1), ['endless_1'], ['endless_40']] as string[][]) {
-      const settings = defaultBalanceSettings();
-      for (const factors of Object.values(settings.maps)) factors.bossHealth = 1;
-      settings.endless = { rewardMultiplier: .1, statStep: .2, enduranceStep: .1, enduranceExponent: 6, rewardPerHealth: 1 };
-      const snapshot = resolveMapBalance(map, settings, 2);
-      expect(snapshot.boss!.hp).toBeCloseTo(personalBossDefinition(map)!.hp, -1);
-      if (map.startsWith('endless')) expect(Object.values(snapshot.boss!.rewards)).toEqual(generatedBossStats(generateMap(map as `endless_${number}`)).rewards.map(row => row.amount));
-    }
-  });
-  it('uses identical regular rewards in presentation and validation', () => {
-    const settings = defaultBalanceSettings(); settings.maps.tutorial_forest.enemyRewards = 2.4;
-    const snapshot = resolveMapBalance('tutorial_forest', settings, 3);
-    expect(enemyDefeatDefinition('tutorial_forest', 'Spitter', snapshot)!.reward).toEqual(snapshot.enemies.Spitter.reward);
-    expect(snapshot.enemies.Spitter.reward.amount).toBeCloseTo(enemyDefeatDefinition('tutorial_forest', 'Spitter')!.reward.amount * 2.4);
-  });
   it('uses identical Endless site rewards, boss HP and payouts', () => {
     const settings = defaultBalanceSettings(); settings.maps.endless.bossHealth = 2; settings.maps.endless.enemyRewards = 3; settings.endless.rewardMultiplier = .2;
     const snapshot = resolveMapBalance('endless_7', settings, 4);
@@ -62,25 +46,4 @@ it('upgrades stored old settings without changing their existing values and allo
   next.maps.tutorial_forest.enemyDrops = 0; next.maps.tutorial_forest.bossRegen = 0;
   const snapshot = resolveMapBalance('tutorial_forest', validateBalanceSettings(next), 1);
   expect(snapshot.loot!.every(d => d.wins === 0)).toBe(true); expect(snapshot.boss!.regenFraction).toBe(0);
-});
-
-it('carries the final campaign tuning into Endless while earlier map tuning stays local', () => {
-  const settings = defaultBalanceSettings();
-  const baseline = resolveMapBalance('endless_1', settings, 0);
-  const last = BALANCE_MAPS[BALANCE_MAPS.length - 2][0];
-  settings.maps[last].enemyHealth = 2;
-  settings.maps[last].enemyDamage = 3;
-  settings.maps[last].enemyRewards *= 4;
-  settings.maps[last].bossHealth = 5;
-  settings.maps[last].bossDamage = 6;
-  settings.maps[last].bossRewards = 7;
-  const changed = resolveMapBalance('endless_1', settings, 1);
-  expect(changed.lanes.Cindermaw.hp).toBeCloseTo(baseline.lanes.Cindermaw.hp * 2, -1);
-  expect(changed.lanes.Cindermaw.damage).toBeCloseTo(baseline.lanes.Cindermaw.damage * 3, -1);
-  expect(changed.lanes.Cindermaw.reward.amount).toBeCloseTo(baseline.lanes.Cindermaw.reward.amount * 4, -1);
-  expect(changed.boss!.hp).toBeCloseTo(baseline.boss!.hp * 5, -1);
-  expect(changed.boss!.damage).toBeCloseTo(baseline.boss!.damage * 6, -1);
-  expect(changed.boss!.rewards.damage).toBeCloseTo(baseline.boss!.rewards.damage * 7, -1);
-  settings.maps.tutorial_forest.bossHealth = 9;
-  expect(resolveMapBalance('endless_1', settings, 1).boss!.hp).toBe(changed.boss!.hp);
 });
