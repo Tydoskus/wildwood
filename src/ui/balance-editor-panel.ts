@@ -1,6 +1,13 @@
 import { BALANCE_MAPS } from '../../shared/map-balance';
 import { DEFAULT_BALANCE_FACTORS, type BalanceEditorState, type BalanceSettings, type BalanceFactors, type MapBalanceSnapshot } from '../../shared/map-balance-types';
 import { REGULAR_ENEMY_RESPAWN_SECONDS } from '../../shared/rules';
+import { BALANCE_CURVE_LIMITS, DEFAULT_BALANCE_CURVE, curveKills, type BalanceCurve } from '../../shared/balance-curve';
+import { CAMPAIGN_MAPS } from '../../shared/campaign-registry';
+const curveFields: [keyof BalanceCurve, string][] = [['clearsX', 'Clears per camp on map 1 (X)'], ['clearsY', 'Clear growth per map (Y)'], ['groupSize', 'Enemies per clear'],
+  ['arrivalBlows', 'Blows per kill arriving on a map'], ['endlessArrivalBlows', 'Endless: blows per kill arriving'], ['map1EnemyHp', 'Map 1 damage camp health'], ['map1EnemyHit', 'Map 1 enemy hit'], ['armorMap1', 'Map 1 armor target'],
+  ['survivalHits', 'Hits a finished map survives'], ['regenShare', 'Regen per second (share of a hit)'], ['speedCloser', 'Attack speed gap closed per map'],
+  ['speedCap', 'Attack speed cap (per second)'], ['bossFightSeconds', 'Boss fight length (seconds)'], ['bossHitShare', 'Boss heaviest hit (share of health)'],
+  ['eliteHealth', 'Elite health and reward (×)'], ['eliteHit', 'Elite hit (×)']];
 export type BalanceEditorDependencies = {
   load: () => Promise<BalanceEditorState>;
   preview: (map: string, settings: BalanceSettings) => Promise<MapBalanceSnapshot>;
@@ -14,6 +21,7 @@ export function createBalanceEditorPanel(root: HTMLElement, api: BalanceEditorDe
   root.innerHTML = `<div class="balance-heading"><div><h2>Map balancing</h2><p>Changes apply on the next map visit.</p></div><span class="balance-version">Loading…</span></div>
     <div class="balance-map-row"><label>Map<select class="balance-map" aria-label="Balance map"></select></label><label class="balance-depth" hidden>Endless map<input type="number" min="1" max="1001" step="1" value="1" aria-label="Endless preview map"></label></div>
     <p class="balance-hint">1× is the base value · 0.5× is half · 2× is double</p><div class="balance-groups"></div><details class="balance-curve" hidden><summary>Endless progression</summary><p>Rewards grow slowly. Endurance increases enemy and boss health each map.</p><div class="balance-curve-inputs"></div></details>
+    <details class="balance-formula"><summary>Map curve</summary><p>Every camp is farmed X × (1 + Y × (map − 1)) times to reach the map's targets; rewards per kill follow. Ticking it previews the curve; Apply then prices every map from it at once.</p><label class="balance-formula-preview"><input type="checkbox" aria-label="Use the map curve"> Use the map curve</label><div class="balance-formula-inputs"></div></details>
     <div class="balance-preview-title"><h3>Resulting stats</h3><span class="balance-preview-state"></span></div><div class="balance-preview" aria-live="polite"></div>
     <p class="balance-status" role="status"></p><div class="balance-actions"><button class="balance-reset" type="button">Reset this map</button><button class="balance-apply" type="button" disabled>Apply changes</button></div><button class="balance-restore" type="button" disabled>Restore previous balance</button>`;
   const el = <T extends HTMLElement>(selector: string) => root.querySelector<T>(selector)!;
@@ -42,12 +50,31 @@ export function createBalanceEditorPanel(root: HTMLElement, api: BalanceEditorDe
     el('.balance-curve-inputs').append(label); curveInputs.set(key, input);
     input.addEventListener('input', () => { if (draft) { draft.endless[key] = input.valueAsNumber; schedulePreview(); } });
   }
+  // The map curve's knobs, and its switch: ticked, the draft carries
+  // curveVersion 1, so the preview shows it and Apply puts it live.
+  const formulaPreview = el<HTMLInputElement>('.balance-formula-preview input');
+  const formulaInputs = new Map<keyof BalanceCurve, HTMLInputElement>();
+  for (const [key, labelText] of curveFields) {
+    const label = document.createElement('label'); label.append(labelText);
+    const input = document.createElement('input'); input.type = 'number'; input.step = 'any'; input.setAttribute('aria-label', labelText);
+    [input.min, input.max] = BALANCE_CURVE_LIMITS[key].map(String);
+    label.append(input); el('.balance-formula-inputs').append(label); formulaInputs.set(key, input);
+    input.addEventListener('input', () => { if (draft) { draft.curve = { ...DEFAULT_BALANCE_CURVE, ...draft.curve, [key]: input.valueAsNumber }; schedulePreview(); } });
+  }
+  formulaPreview.addEventListener('change', () => {
+    if (!draft) return;
+    if (formulaPreview.checked) { draft.curveVersion = 1; draft.curve = draft.curve ?? { ...DEFAULT_BALANCE_CURVE }; }
+    else delete draft.curveVersion;
+    schedulePreview();
+  });
   function changed() { return !!state && JSON.stringify(state.settings) !== JSON.stringify(draft); }
-  function valid() { return [...inputs.values(), ...(select.value === 'endless' ? curveInputs.values() : [])].every(input => input.value !== '' && input.checkValidity()); }
+  function valid() { return [...inputs.values(), ...formulaInputs.values(), ...(select.value === 'endless' ? curveInputs.values() : [])].every(input => input.value !== '' && input.checkValidity()); }
   function fill() {
     if (!draft) return;
     for (const [key, input] of inputs) input.value = String(draft.maps[select.value][key]);
     for (const [key, input] of curveInputs) input.value = String(draft.endless[key]);
+    for (const [key, input] of formulaInputs) input.value = String((draft.curve ?? DEFAULT_BALANCE_CURVE)[key]);
+    formulaPreview.checked = draft.curveVersion === 1;
     el('.balance-depth').hidden = el('.balance-curve').hidden = select.value !== 'endless';
     restore.disabled = busy || state?.previousRevision == null;
     schedulePreview();
@@ -80,6 +107,12 @@ export function createBalanceEditorPanel(root: HTMLElement, api: BalanceEditorDe
       const details = document.createElement('p');
       details.textContent = `Enemy respawn: ${format(value.regularRespawnSeconds ?? REGULAR_ENEMY_RESPAWN_SECONDS)}s` + (value.boss ? ` · Boss respawn: ${format(value.boss.respawnSeconds)}s · Boss regen: ${format((value.boss.regenFraction ?? .001) * 100)}% HP/s` : '');
       preview.append(details);
+      if (formulaPreview.checked) {
+        const y = select.value === 'endless' ? CAMPAIGN_MAPS.length + depth.valueAsNumber : CAMPAIGN_MAPS.findIndex(map => map.id === select.value) + 1;
+        const kills = curveKills(y, draft.curve ?? DEFAULT_BALANCE_CURVE);
+        const line = document.createElement('p'); line.textContent = `Map curve · map ${y}: ${format(kills)} kills per camp type to finish it`;
+        preview.append(line);
+      }
       if (value.loot?.length) { const loot = document.createElement('p'); loot.textContent = value.loot.map(drop => `${drop.itemId.replace(/_/g, ' ')}: ${format(drop.wins / drop.outcomes * 100)}%`).join(' · '); preview.append(loot); }
        el('.balance-preview-state').textContent = 'Server preview';
       apply.disabled = busy || !changed();

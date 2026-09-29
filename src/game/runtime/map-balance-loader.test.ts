@@ -26,3 +26,12 @@ it('bounds a hanging request, retries, and caches until a new map visit', async 
   await loader.ensure('home_exterior'); expect(fetch).toHaveBeenCalledTimes(2);
   loader.reset(); await loader.ensure('home_exterior'); expect(fetch).toHaveBeenCalledTimes(3);
 });
+it('blocks hits on the curve armor rule only while the map balance is from the curve', async () => {
+  const { applyMapBalance } = await import('./map-balance-loader');
+  const { damageAfterArmor } = await import('../combat');
+  const { validateBalanceSettings } = await import('../../../shared/map-balance');
+  applyMapBalance(resolveMapBalance('beginner_desert', validateBalanceSettings({ ...defaultBalanceSettings(), curveVersion: 1 }), 1));
+  expect(damageAfterArmor(1_000, 1_000)).toBe(729);   // 1,000 armor: .9³ gets through
+  applyMapBalance(resolveMapBalance('beginner_desert', defaultBalanceSettings(), 1));
+  expect(damageAfterArmor(1_000, 1_000)).toBe(500);   // the authored rule halves it
+});
