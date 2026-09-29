@@ -31,7 +31,8 @@ it('blocks hits on the curve armor rule only while the map balance is from the c
   const { damageAfterArmor } = await import('../combat');
   const { validateBalanceSettings } = await import('../../../shared/map-balance');
   applyMapBalance(resolveMapBalance('beginner_desert', validateBalanceSettings({ ...defaultBalanceSettings(), curveVersion: 1 }), 1));
-  expect(damageAfterArmor(1_000, 1_000)).toBe(729);   // 1,000 armor: .9³ gets through
+  expect(damageAfterArmor(1_000, 1_000)).toBeCloseTo(729);   // 1,000 armor: .9³ gets through
+  expect(damageAfterArmor(.5, 10)).toBeCloseTo(.45);   // and small hits keep their fractions
   applyMapBalance(resolveMapBalance('beginner_desert', defaultBalanceSettings(), 1));
   expect(damageAfterArmor(1_000, 1_000)).toBe(500);   // the authored rule halves it
 });

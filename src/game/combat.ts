@@ -13,7 +13,9 @@ export function armorDamageReduction(armor: number) {
 }
 export function damageAfterArmor(damage: number, armor: number) {
   const incoming = Math.max(0, Number.isFinite(damage) ? damage : 0);
-  return Math.max(1, Math.round(incoming * (1 - armorDamageReduction(armor))));
+  const landed = incoming * (1 - armorDamageReduction(armor));
+  // The curve prices hits in fractions; the authored rule rounds to at least 1.
+  return curveArmor ? landed : Math.max(1, Math.round(landed));
 }
 
 export function formatArmorReduction(armor: number) {

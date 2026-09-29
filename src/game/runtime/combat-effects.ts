@@ -108,6 +108,11 @@ export function createCombatEffects() {
     }
   }
 
+  /** Up to three significant digits, so small hits keep their decimals: 0.5, 2.35, 12.5, 841. */
+  function formatDamageNumber(amount: number) {
+    return amount >= 1_000 ? formatCompactNumber(amount) : String(Number(amount.toPrecision(3)));
+  }
+
   function spawnDamageNumber(x: number, y: number, amount: number, critical = false, damageTaken = false, reflected = false) {
     if (!Number.isFinite(amount) || amount <= 0) return;
     let number: DamageNumber;
@@ -131,7 +136,7 @@ export function createCombatEffects() {
     number.life = DAMAGE_NUMBER_LIFETIME;
     number.maxLife = DAMAGE_NUMBER_LIFETIME;
     number.opacity = 1;
-    number.text = `-${formatCompactNumber(amount)}`;
+    number.text = `-${formatDamageNumber(amount)}`;
     number.critical = critical;
     number.damageTaken = damageTaken;
     number.reflected = reflected;
