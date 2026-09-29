@@ -36,7 +36,7 @@ export function createDevPlayerPanel(container: HTMLElement, dependencies: DevPl
   form.className = "dev-player-search";
   const input = document.createElement("input");
   input.type = "search";
-  input.placeholder = "Player name or account ID";
+  input.placeholder = "Player name, email or account ID";
   input.setAttribute("aria-label", "Player name or account ID");
   input.autocomplete = "off";
   input.maxLength = 80;
@@ -77,12 +77,18 @@ export function createDevPlayerPanel(container: HTMLElement, dependencies: DevPl
     try {
       const players = await api.findPlayers(query);
       if (request !== generation) return;
-      status.textContent = players.length ? "" : "No player matches that name.";
+      status.textContent = players.length ? "" : "No player matches that search.";
       results.replaceChildren(...players.map(resultButton));
       if (players.length === 1) void select(players[0].identity, players[0].displayName);
     } catch (error) {
       if (request === generation) failed(error);
     }
+  }
+
+  // SpacetimeAuth keeps Google and email-link logins as separate users even for
+  // one address, and each has its own character. Google tokens carry a name.
+  function loginKindLabel(kind: DevPlayerSummary["loginKind"]) {
+    return kind === "google" ? "Google" : kind === "email-link" ? "Email link" : "";
   }
 
   function resultButton(player: DevPlayerSummary) {
@@ -92,8 +98,8 @@ export function createDevPlayerPanel(container: HTMLElement, dependencies: DevPl
     const name = document.createElement("strong");
     name.textContent = player.displayName;
     const meta = document.createElement("span");
-    meta.textContent = [player.isGuest ? "Guest" : "Account", player.online ? "Online" : "Offline",
-      player.suspendedUntilMs ? "Banned" : "", player.chatMutedUntilMs ? "Muted" : ""].filter(Boolean).join(" · ");
+    meta.textContent = [player.isGuest ? "Guest" : "Account", loginKindLabel(player.loginKind), player.online ? "Online" : "Offline",
+      player.suspendedUntilMs ? "Banned" : "", player.chatMutedUntilMs ? "Muted" : "", player.email].filter(Boolean).join(" · ");
     button.append(name, meta);
     button.addEventListener("click", () => { void select(player.identity, player.displayName); });
     return button;
@@ -191,6 +197,8 @@ export function createDevPlayerPanel(container: HTMLElement, dependencies: DevPl
       ["Strikes", `${card.strikes} · ${card.muteCount} mutes so far`],
       ["Reports", `${card.reportsAgainst} against · ${card.reportsFiled} filed`],
       ["Past names", card.pastNames.join(", ") || "—"],
+      ["Email", summary.email || "— (not signed in since this was recorded)"],
+      ["Login", summary.loginId ? `${loginKindLabel(summary.loginKind)} · ${summary.loginId}` : "—"],
       ["Account ID", summary.identity],
     ]) {
       const row = element("div", "");

@@ -77,6 +77,7 @@ import { compressLegacyMapPower } from "../../shared/map-power-rescale";
 import { createPlayerMotionFrameSampler } from "../../shared/player-motion-sample";
 import { schema, SenderError, Router, table, t, type InferSchema, type ReducerCtx, type ViewCtx } from "spacetimedb/server";
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
+import { accountEmail, recordAccountEmail } from "./account-email";
 import { devReviewTables, findDevPlayers, liftPlayerSuspension, readDevReviewQueue, recordBugDeletion, reviewBug, reviewReport } from "./dev-review";
 import { portalCutsceneBit, unlockedPortalCutsceneMask } from "../../shared/portal-cutscenes";
 import { playerBlockKey, playerReportValidationError } from "../../shared/player-safety";
@@ -1750,7 +1751,7 @@ const spacetimedb = schema({
   playerOfflinePreference, playerAudioSetting,
   defeatSessionRestriction,
   mapBalanceVersion, mapBalanceHead, playerMapBalance,
-  ...moderationTables, ...devReviewTables,
+  ...moderationTables, ...devReviewTables, accountEmail,
   publicChatCursor,
   gemKillProgress,
   playerGemDrop,
@@ -3592,6 +3593,8 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
 }
 
 export const onConnect = spacetimedb.clientConnected((ctx) => {
+  // Before the restriction check: a suspended player's login is still worth knowing.
+  recordAccountEmail(ctx);
   // Deny game-session admission before initialization work. Leave the notice
   // readable so clients can disconnect without mistaking this for an expired
   // guest token and creating a new guest account.

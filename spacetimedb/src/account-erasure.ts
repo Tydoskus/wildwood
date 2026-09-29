@@ -31,6 +31,7 @@ export type ErasureTarget = {
 
 export const ERASURE_TARGETS: readonly ErasureTarget[] = [
   { table: "accountDeletionRequest", columns: ["identity"], pk: "identity", mode: "key" },
+  { table: "accountEmail", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "accountLink", columns: ["guest"], pk: "code", mode: "scan" },
   { table: "activeItemUpgrade", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "activeItemUpgradeSlotTwo", columns: ["identity"], pk: "identity", mode: "key" },

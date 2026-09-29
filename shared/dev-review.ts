@@ -121,6 +121,12 @@ export type DevPlayerSummary = {
   permanentlySuspended: boolean;
   /** Zero when the account can chat. */
   chatMutedUntilMs: number;
+  /** From the account's last sign-in since this was recorded; empty for guests and older accounts. */
+  email: string;
+  /** SpacetimeAuth user ID, to find the login in its dashboard. */
+  loginId: string;
+  /** "google" when the token carried a display name, "email-link" when it did not, "" when unknown. */
+  loginKind: "google" | "email-link" | "";
 };
 
 export function isReportDecision(value: string): value is ReportDecision {

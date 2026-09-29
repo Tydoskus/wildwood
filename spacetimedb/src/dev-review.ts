@@ -9,6 +9,7 @@ import { moderateReportedMessage } from "./chat-report-moderation";
 import { playerMail, sendPersonalMail } from "./dev-review-mail";
 import { PERMANENT_SUSPENSION_MICROS } from "./defeat-session";
 import { recordModerationAction } from "./moderation-history";
+import { normalizeEmail } from "./account-email";
 import type { GameReducerContext } from "./index";
 
 /**
@@ -391,6 +392,7 @@ export function playerSummary(ctx: ReadCtx, identity: any, displayName: string):
   const suspended = restriction && restriction.blockedUntilMicros > now ? restriction.blockedUntilMicros : 0n;
   const mute = ctx.db.playerChatMute.identity.find(identity);
   const muted = mute && mute.mutedUntilMicros > now ? mute.mutedUntilMicros : 0n;
+  const login = ctx.db.accountEmail.identity.find(identity);
   return {
     identity: identity.toHexString(), displayName,
     isGuest: ctx.db.playerAccountStatus.identity.find(identity)?.isGuest ?? false,
@@ -398,11 +400,23 @@ export function playerSummary(ctx: ReadCtx, identity: any, displayName: string):
     suspendedUntilMs: Number(suspended / 1000n),
     permanentlySuspended: suspended >= PERMANENT_SUSPENSION_MICROS,
     chatMutedUntilMs: Number(muted / 1000n),
+    email: login?.email ?? "",
+    loginId: login?.loginId ?? "",
+    loginKind: login ? (login.named ? "google" : "email-link") : "",
   };
 }
 
-/** Name search for the developer's player lookup. Exact names sort first. */
+/**
+ * Name search for the developer's player lookup. Exact names sort first. An
+ * email finds every character signed in with that address, which is how a
+ * Google login and an email-link login for one person show up side by side.
+ */
 export function findDevPlayers(ctx: ReadCtx, query: string): DevPlayerSummary[] {
+  if (query.includes("@")) {
+    const email = normalizeEmail(query);
+    return [...ctx.db.accountEmail.email.filter(email)].slice(0, PLAYER_SEARCH_LIMIT).map(row =>
+      playerSummary(ctx, row.identity, ctx.db.playerProfile.identity.find(row.identity)?.displayName ?? "(no character)"));
+  }
   const needle = query.trim().toLowerCase().replace(/^0x/, "");
   if (!needle || needle.length > 80) throw new SenderError("Enter a player name.");
   const matches = [...ctx.db.playerProfile.iter()]
