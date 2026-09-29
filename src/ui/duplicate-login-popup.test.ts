@@ -22,6 +22,18 @@ function setup(options: { name?: string; ready?: boolean; stored?: Record<string
 }
 
 describe("existing character warning", () => {
+  it("is not displayed until there is something to say", async () => {
+    const f = setup({ name: "" });
+    expect(f.overlay.style.display).toBe("none");
+    await f.arrive();
+    expect(f.overlay.style.display).toBe("none");
+    const shown = setup();
+    await shown.arrive();
+    expect(shown.overlay.style.display).toBe("grid");
+    shown.click(".duplicate-login-keep");
+    expect(shown.overlay.style.display).toBe("none");
+  });
+
   it("names the other character, asks the server once, and signs out on request", async () => {
     const f = setup();
     await f.arrive();

@@ -56,7 +56,10 @@ export function createDuplicateLoginPopup(dependencies: DuplicateLoginPopupDepen
   overlay.id = "duplicateLoginWarning";
   overlay.hidden = true;
   // Styled inline like #prestigeUnlock, so shipping it needs no stylesheet change.
-  overlay.setAttribute("style", "position:fixed;inset:0;z-index:13;display:grid;place-items:center;padding:14px;background:rgba(0,0,0,.78)");
+  // An inline display beats the hidden attribute, so display is switched here
+  // with it: display:grid alone left an empty, unclosable window on every load.
+  overlay.setAttribute("style", "position:fixed;inset:0;z-index:13;display:none;place-items:center;padding:14px;background:rgba(0,0,0,.78)");
+  const setVisible = (visible: boolean) => { overlay.hidden = !visible; overlay.style.display = visible ? "grid" : "none"; };
   overlay.innerHTML = `<section class="prestige-window prestige-unlock-window" role="alertdialog" aria-modal="true" aria-labelledby="duplicateLoginTitle" aria-describedby="duplicateLoginBody">
     <header class="prestige-header">
       <h2 id="duplicateLoginTitle" class="window-banner window-banner--blue"><span>Wrong sign-in?</span></h2>
@@ -90,7 +93,7 @@ export function createDuplicateLoginPopup(dependencies: DuplicateLoginPopupDepen
       + `If you still land here, message us on Discord with your email and we will move ${name} for you.`;
     open = true;
     openedAt = now();
-    overlay.hidden = false;
+    setVisible(true);
     dependencies.pause?.(true);
     // The harmless choice holds focus: a stray Enter keeps playing, it does not sign out.
     keepButton.focus?.();
@@ -99,7 +102,7 @@ export function createDuplicateLoginPopup(dependencies: DuplicateLoginPopupDepen
   function close() {
     if (!open) return;
     open = false;
-    overlay.hidden = true;
+    setVisible(false);
     dependencies.pause?.(false);
   }
 
