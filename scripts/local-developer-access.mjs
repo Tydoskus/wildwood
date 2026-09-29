@@ -35,7 +35,10 @@ export function localDeveloperAccess(source, server = false, localIdentity = nul
     source = 'import { referenceBuildForMap as localReferenceBuild } from "../../shared/progression";\n' + source;
     source = source.replace(marker, `
   // Disposable local build only: give guests a ready-to-test campaign save.
-  if (!virtualRegistration && isDeveloperIdentity(ctx.sender) && !hasSpacetimeAuthAccount(ctx)) {
+  // Not while the map curve is on: that save is built for the old tables, and
+  // curve testing starts from a fresh run.
+  if (!virtualRegistration && isDeveloperIdentity(ctx.sender) && !hasSpacetimeAuthAccount(ctx)
+    && balanceEditorState(ctx).settings.curveVersion !== 1) {
     const stats = localReferenceBuild(Math.max(0, CAMPAIGN_MAPS.length - 2));
     const unlocked = Object.fromEntries(CAMPAIGN_MAPS.filter(map => map.unlockField).map(map => [map.unlockField, true]));
     existingProgress = { ...existingProgress, ...unlocked, introComplete: true,
