@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.837": [
+    "Fix an empty sign-in window covering the game",
+  ],
   "0.836": [
     "Sign-in failures now report why, so we can fix them",
   ],
@@ -2515,6 +2518,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.837": "2026-09-29",
   "0.836": "2026-09-29",
   "0.835": "2026-09-28",
   "0.834": "2026-09-28",
