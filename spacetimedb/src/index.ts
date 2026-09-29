@@ -78,6 +78,7 @@ import { createPlayerMotionFrameSampler } from "../../shared/player-motion-sampl
 import { schema, SenderError, Router, table, t, type InferSchema, type ReducerCtx, type ViewCtx } from "spacetimedb/server";
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { accountEmail, recordAccountEmail } from "./account-email";
+import { swapCharacterLogins } from "./account-transfer";
 import { devReviewTables, findDevPlayers, liftPlayerSuspension, readDevReviewQueue, recordBugDeletion, reviewBug, reviewReport } from "./dev-review";
 import { portalCutsceneBit, unlockedPortalCutsceneMask } from "../../shared/portal-cutscenes";
 import { playerBlockKey, playerReportValidationError } from "../../shared/player-safety";
@@ -2184,6 +2185,17 @@ export const devRepairDisplayName = spacetimedb.reducer(
     // Also reconcile retained history when this account was already repaired.
     if (isPublicDisplayNameAllowed(profile.displayName)) syncDisplayNamePresentation(ctx, identity, profile.displayName);
     else repairModeratedDisplayName(ctx, profile, "owner");
+    refreshLeaderboard(ctx);
+  },
+);
+
+// Swaps two characters between logins (account-transfer.ts). Owner-only, from the CLI.
+export const devSwapCharacters = spacetimedb.reducer(
+  { firstIdentity: t.string(), secondIdentity: t.string(), expectedFirstName: t.string(), expectedSecondName: t.string(),
+    reason: t.string(), confirmation: t.string() },
+  (ctx, args) => {
+    if (!isDatabaseOwnerIdentity(ctx.sender)) denyPrivilegedAccess(ctx, "dev_swap_characters", "Database owner required.");
+    swapCharacterLogins(ctx, args);
     refreshLeaderboard(ctx);
   },
 );

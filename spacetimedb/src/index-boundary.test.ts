@@ -136,7 +136,11 @@ import { describe, expect, it } from "vitest";
 // per-report combat bound already read. The throttle, the simulation clock and
 // the bound live in enemy-defeats.ts and boss-combat.ts.
 // 6_539: the legacy pair retired to a refresh.
-const MAX_LINES = 6_539;
+// 6_550: swapping characters between logins, for a player whose magic link
+// began opening a second SpacetimeAuth user, added the dev_swap_characters
+// declaration and its import. The body, checks and audit live in
+// account-transfer.ts; the raise is the declaration alone.
+const MAX_LINES = 6_550;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {
