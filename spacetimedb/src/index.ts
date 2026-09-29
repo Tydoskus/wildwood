@@ -77,7 +77,7 @@ import { compressLegacyMapPower } from "../../shared/map-power-rescale";
 import { createPlayerMotionFrameSampler } from "../../shared/player-motion-sample";
 import { schema, SenderError, Router, table, t, type InferSchema, type ReducerCtx, type ViewCtx } from "spacetimedb/server";
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
-import { accountEmail, recordAccountEmail } from "./account-email";
+import { accountEmail, otherCharacterForLogin, recordAccountEmail } from "./account-email";
 import { swapCharacterLogins } from "./account-transfer";
 import { devReviewTables, findDevPlayers, liftPlayerSuspension, readDevReviewQueue, recordBugDeletion, reviewBug, reviewReport } from "./dev-review";
 import { portalCutsceneBit, unlockedPortalCutsceneMask } from "../../shared/portal-cutscenes";
@@ -6415,6 +6415,8 @@ export const getPlayerModerationHistory = spacetimedb.procedure({ identity: t.id
   if (!isDatabaseOwnerIdentity(tx.sender)) requireDeveloperSession(tx, "get_player_moderation_history");
   return JSON.stringify(readPlayerModerationHistory(tx, identity.toHexString()));
 }));
+// The caller's email already has a played character on another login (account-email.ts).
+export const getOtherCharacterForLogin = spacetimedb.procedure({}, t.string(), ctx => ctx.withTx(tx => otherCharacterForLogin(tx)));
 export const devFindPlayers = spacetimedb.procedure({ query: t.string() }, t.string(), (ctx, { query }) => ctx.withTx(tx => {
   if (!isDatabaseOwnerIdentity(tx.sender)) requireDeveloperSession(tx, "dev_find_players");
   return JSON.stringify(findDevPlayers(tx, query));

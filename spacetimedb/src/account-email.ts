@@ -50,4 +50,31 @@ export function recordAccountEmail(ctx: Pick<GameReducerContext, "db" | "sender"
     && prior.loginId === next.loginId && prior.named === next.named) return;
   if (prior) ctx.db.accountEmail.identity.update(next);
   else ctx.db.accountEmail.insert(next);
+  // Once per new or changed login: the trace to find a split account by in the logs.
+  const other = otherCharacterForLogin(ctx);
+  if (other) console.log(`duplicate login: ${ctx.sender.toHexString()} shares its email with ${other}`);
+}
+
+/**
+ * The character this login's email already has on another login, when this
+ * login's own character is new: "" otherwise. SpacetimeAuth can make a second
+ * user for an address (a Google sign-in on an email-link account), and the new
+ * login opens an empty character; the client warns before the player invests
+ * in it. Only the caller's own address is looked up, both addresses must be
+ * verified, and all it reveals is that character's name.
+ *
+ * Addresses are recorded on sign-in, so an older login is found once it has
+ * signed in since account_email existed.
+ */
+export function otherCharacterForLogin(ctx: Pick<GameReducerContext, "db" | "sender">) {
+  const mine = ctx.db.accountEmail.identity.find(ctx.sender);
+  if (!mine?.emailVerified) return "";
+  if (ctx.db.analyticsPlayer.identity.find(ctx.sender)?.firstKillDayKey) return "";
+  for (const row of ctx.db.accountEmail.email.filter(mine.email) as Iterable<any>) {
+    if (row.identity.isEqual(ctx.sender) || !row.emailVerified) continue;
+    if (!ctx.db.analyticsPlayer.identity.find(row.identity)?.firstKillDayKey) continue;
+    const name = ctx.db.playerProfile.identity.find(row.identity)?.displayName;
+    if (name) return name;
+  }
+  return "";
 }

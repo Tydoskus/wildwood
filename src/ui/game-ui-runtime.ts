@@ -15,6 +15,7 @@ import { createOverlaysController } from "./overlays-controller";
 import { createRuntimeHudController } from "./runtime-hud-controller";
 import { createPrestigeController } from "./prestige-panel";
 import { createPrestigeUnlockPopup } from "./prestige-unlock-popup";
+import { createDuplicateLoginPopup } from "./duplicate-login-popup";
 import { createTechTreeController } from "./tech-tree-controller";
 
 export function createHomeStationTouchHandler(
@@ -88,6 +89,23 @@ export function createPrestigeUnlockRuntime(d: Record<string, any>) {
     completedEndless: () => coop?.proceduralCompleted?.() ?? 0,
     runPrestige: d.runPrestige,
     showMessage: d.showMessage,
+    pause: d.pause,
+  });
+}
+
+/**
+ * The "this email already has a character" window. Tutorial included: that is
+ * where a login that opened a new, empty character starts.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createDuplicateLoginRuntime(d: Record<string, any>) {
+  const { coop } = d;
+  return createDuplicateLoginPopup({
+    identity: () => coop?.localIdentity?.() ?? "",
+    ready: () => Boolean(d.started() && coop?.isConnected?.() && coop?.accountState?.()?.signedIn
+      && !coop?.accountState?.()?.sessionConflict),
+    lookup: () => coop?.otherCharacterForLogin?.() ?? Promise.resolve(""),
+    signOut: () => { coop?.signOut?.(); },
     pause: d.pause,
   });
 }

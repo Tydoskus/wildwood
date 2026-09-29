@@ -30,6 +30,7 @@ import * as GetMapConfigurationProcedure from "../get_map_configuration_procedur
 import * as GetModerationHistoryProcedure from "../get_moderation_history_procedure";
 import * as GetModerationLogProcedure from "../get_moderation_log_procedure";
 import * as GetNameChangeStatusProcedure from "../get_name_change_status_procedure";
+import * as GetOtherCharacterForLoginProcedure from "../get_other_character_for_login_procedure";
 import * as GetPatreonStatusProcedure from "../get_patreon_status_procedure";
 import * as GetPlayerModerationHistoryProcedure from "../get_player_moderation_history_procedure";
 import * as GetPrestigeLeaderboardPageProcedure from "../get_prestige_leaderboard_page_procedure";
@@ -87,6 +88,8 @@ export type GetModerationLogArgs = __Infer<typeof GetModerationLogProcedure.para
 export type GetModerationLogResult = __Infer<typeof GetModerationLogProcedure.returnType>;
 export type GetNameChangeStatusArgs = __Infer<typeof GetNameChangeStatusProcedure.params>;
 export type GetNameChangeStatusResult = __Infer<typeof GetNameChangeStatusProcedure.returnType>;
+export type GetOtherCharacterForLoginArgs = __Infer<typeof GetOtherCharacterForLoginProcedure.params>;
+export type GetOtherCharacterForLoginResult = __Infer<typeof GetOtherCharacterForLoginProcedure.returnType>;
 export type GetPatreonStatusArgs = __Infer<typeof GetPatreonStatusProcedure.params>;
 export type GetPatreonStatusResult = __Infer<typeof GetPatreonStatusProcedure.returnType>;
 export type GetPlayerModerationHistoryArgs = __Infer<typeof GetPlayerModerationHistoryProcedure.params>;

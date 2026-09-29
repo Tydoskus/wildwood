@@ -140,7 +140,10 @@ import { describe, expect, it } from "vitest";
 // began opening a second SpacetimeAuth user, added the dev_swap_characters
 // declaration and its import. The body, checks and audit live in
 // account-transfer.ts; the raise is the declaration alone.
-const MAX_LINES = 6_550;
+// 6_552: warning a new login that its email already has a played character
+// added the get_other_character_for_login declaration and its comment. The
+// lookup lives in account-email.ts; the raise is the declaration alone.
+const MAX_LINES = 6_552;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

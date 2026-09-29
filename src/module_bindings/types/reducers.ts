@@ -81,6 +81,7 @@ import DevSetAccessAuditLabelReducer from "../dev_set_access_audit_label_reducer
 import DevSetChatMuteReducer from "../dev_set_chat_mute_reducer";
 import DevSetEndlessTravelAccessReducer from "../dev_set_endless_travel_access_reducer";
 import DevSuspendPlayerAccountReducer from "../dev_suspend_player_account_reducer";
+import DevSwapCharactersReducer from "../dev_swap_characters_reducer";
 import DevTeleportEndlessReducer from "../dev_teleport_endless_reducer";
 import DevUpdatePlayerSaveReducer from "../dev_update_player_save_reducer";
 import DevWarnPlayerReducer from "../dev_warn_player_reducer";
@@ -250,6 +251,7 @@ export type DevSetAccessAuditLabelParams = __Infer<typeof DevSetAccessAuditLabel
 export type DevSetChatMuteParams = __Infer<typeof DevSetChatMuteReducer>;
 export type DevSetEndlessTravelAccessParams = __Infer<typeof DevSetEndlessTravelAccessReducer>;
 export type DevSuspendPlayerAccountParams = __Infer<typeof DevSuspendPlayerAccountReducer>;
+export type DevSwapCharactersParams = __Infer<typeof DevSwapCharactersReducer>;
 export type DevTeleportEndlessParams = __Infer<typeof DevTeleportEndlessReducer>;
 export type DevUpdatePlayerSaveParams = __Infer<typeof DevUpdatePlayerSaveReducer>;
 export type DevWarnPlayerParams = __Infer<typeof DevWarnPlayerReducer>;

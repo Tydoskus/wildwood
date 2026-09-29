@@ -63,6 +63,7 @@ type ExpectedApiKey =
   | "hasSeenPortalCutscene"
   | "markPortalCutsceneSeen"
   | "isConnected"
+  | "otherCharacterForLogin"
   | "isDeveloper"
   | "isDisplayNameTaken"
   | "isGuest"

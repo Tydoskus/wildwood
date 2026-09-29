@@ -782,6 +782,12 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     },
     legalConsentAccepted: legalConsent.accepted,
     acceptLegalTerms: legalConsent.acceptAge,
+    /** The played character this login's email has on another login, or "" (spacetimedb/src/account-email.ts). */
+    async otherCharacterForLogin() {
+      const connection = dependencies.connection();
+      if (signingOut || !connection?.isActive || !dependencies.connectedSignedIn()) return "";
+      return connection.procedures.getOtherCharacterForLogin({});
+    },
     knownCharacter() {
       const accountCharacter = rememberedAccountCharacter();
       const signedIn = dependencies.connection()?.isActive ? dependencies.connectedSignedIn() : Boolean(accountToken());

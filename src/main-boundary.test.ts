@@ -66,7 +66,10 @@ import { describe, expect, it } from "vitest";
 // 2_140: runPrestige, shared by the prestige panel and the unlock popup, reloads
 // progress only after the prestige reducer succeeds, so a failed prestige keeps
 // the player's unsaved stats.
-const MAX_LINES = 2_140;
+// 2_142: the existing-character warning's construction and its HUD-tick poll,
+// the same shape as the prestige window's. Its lookup, window and show-once
+// rule live in game-ui-runtime.ts and duplicate-login-popup.ts.
+const MAX_LINES = 2_142;
 const TARGET_LINES = 1_000;
 
 describe("game composition boundary", () => {
