@@ -14,7 +14,7 @@ export const PRESTIGE_PERKS = {
     detail: "Chance to strike a second enemy at the same time. Nothing to split against a boss." },
   // Shown as Reflect; the id stays riposte because it names a database column.
   riposte: { title: "Reflect", perRank: .06,
-    detail: "Chance to throw half the damage you take back at whoever dealt it: enemies, bosses and duel opponents." },
+    detail: "Chance to throw half of a hit, before your armor, back at whoever dealt it: enemies, bosses and duel opponents." },
 } as const;
 
 /**
@@ -27,7 +27,8 @@ export const KEEN_EDGE_CRITICAL_DAMAGE_PER_RANK = .12;
 
 /**
  * Riposte is a chance to reflect, not a constant share, so a duel can turn on
- * one of them. Half the damage taken is thrown back at the attacker.
+ * one of them. Half the hit is thrown back at the attacker, as it arrived,
+ * before the defender's armor: armor spares the defender, not the attacker.
  */
 export const RIPOSTE_REFLECT_SHARE = .5;
 
@@ -87,9 +88,17 @@ export function prestigeSwingMultiplier(ranks: Partial<PrestigePerkRanks> | null
  * plus an allowance for kills finished by reflected damage. Both create kills
  * that the weapon's own damage per second cannot account for, so the server's
  * claim bound has to widen by the same amount the client can actually earn.
+ * `armorReduction` is the player's own: Reflect throws back the hit before it,
+ * so the more armor takes off, the more Reflect returns per hit that lands.
  */
-export function prestigeReachMultiplier(ranks: Partial<PrestigePerkRanks> | null | undefined) {
+export function prestigeReachMultiplier(ranks: Partial<PrestigePerkRanks> | null | undefined, armorReduction = 0) {
   // Riposte only reflects part of a hit, and only sometimes, so the claim bound
   // widens by what it is worth on average rather than by its full chance.
-  return 1 + prestigePerkValue(ranks, "splitShot") + prestigeRiposteChance(ranks) * RIPOSTE_REFLECT_SHARE;
+  return 1 + prestigePerkValue(ranks, "splitShot")
+    + prestigeRiposteChance(ranks) * RIPOSTE_REFLECT_SHARE * preArmorFactor(armorReduction);
+}
+
+/** How much bigger a hit was before armor than what got through: 2 at half reduction. */
+export function preArmorFactor(armorReduction: number) {
+  return 1 / (1 - Math.max(0, Math.min(.999, Number.isFinite(armorReduction) ? armorReduction : 0)));
 }

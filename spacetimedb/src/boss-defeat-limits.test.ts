@@ -193,6 +193,21 @@ it("lets Reflect's share of the player's health shorten a clear, and only for a 
   expect(clears(1)).toBe(4n);
   expect(clears(0)).toBeLessThan(4n);
 });
+
+it("scales Reflect's share of a clear by the player's armor, since it returns the hit before armor", () => {
+  // Half the health of the test above, but armor that halves every hit: what
+  // arrived before armor, and so what Reflect can return, is twice what got through.
+  const clears = (armor: number) => {
+    const f = fixture(); f.begin();
+    const stats = { ...f.stats, maxHp: personalBossDefinition("tutorial_forest")!.hp / 2, regen: 0, armor };
+    f.patch("playerProgress", stats);
+    f.seed("playerPrestigePerk", { identity: f.ctx.sender, keenEdge: 0, doubleStrike: 0, splitShot: 0, riposte: 1 });
+    for (const seconds of [60, 155, 250, 345]) { f.at(seconds); f.claim(); f.patch("playerProgress", stats); }
+    return f.kills();
+  };
+  expect(clears(1_000)).toBe(4n);
+  expect(clears(0)).toBeLessThan(4n);
+});
 it("does not treat delayed batch receipt times as the times bosses actually died", () => {
   // Five-second fights: two fit the 105 seconds of credit banked by t=300.
   const f = fixture("tutorial_forest", 5); f.begin();

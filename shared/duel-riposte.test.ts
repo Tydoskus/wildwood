@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { advanceDuelCombat, duelRiposted, initialDuelCombatState, DUEL_COMBAT_VERSION, DUEL_RIPOSTE_BAG_VERSION, type DuelCombat } from "./duel-combat";
+import { advanceDuelCombat, duelRiposted, initialDuelCombatState, DUEL_COMBAT_VERSION, DUEL_RIPOSTE_BAG_VERSION, DUEL_RIPOSTE_PRE_ARMOR_VERSION, type DuelCombat } from "./duel-combat";
 import { regularEnemySeededUnit } from "./regular-enemy-simulation";
 import { PRESTIGE_PERK_MAX_RANK, RIPOSTE_REFLECT_SHARE, prestigeRiposteChance } from "./prestige-perks";
 
@@ -55,6 +55,20 @@ it("turns a duel the defender would otherwise lose", () => {
   const result = run(riposting);
   expect(result.challengerHp).toBeLessThan(run(plain).challengerHp);
   expect(result.opponentDamageDealt).toBeGreaterThan(run(plain).opponentDamageDealt);
+});
+
+it("throws back half the hit before the defender's armor from version 6, and half of what got through before", () => {
+  // Armor 1,000 halves each hit of 100, and every hit is reflected.
+  const duel = (combatVersion: number) => fighters({ combatVersion, challengerDamage: 100, opponentArmor: 1_000,
+    challengerMaxHp: 1_000_000, opponentMaxHp: 1_000_000, opponentDamage: 0, opponentRiposte: 1, riposteSeed: 5 });
+  // Stop before the ten-second ramp; the opponent's own swings still land for the minimum 1.
+  const firstAttack = (combatVersion: number) => {
+    const state = advanceDuelCombat(duel(combatVersion), initialDuelCombatState(duel(combatVersion)), 0, 9_500_000);
+    expect(state.challengerAttacks).toBeGreaterThan(0);
+    return (1_000_000 - state.challengerHp - state.opponentAttacks) / state.challengerAttacks;
+  };
+  expect(firstAttack(DUEL_RIPOSTE_PRE_ARMOR_VERSION)).toBeCloseTo(50, 0);
+  expect(firstAttack(DUEL_RIPOSTE_PRE_ARMOR_VERSION - 1)).toBeCloseTo(25, 0);
 });
 
 it("reflects half of what it takes, never more than the attacker has left", () => {

@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.830": [
+    "Reflect now throws back half of each hit before your armor, so armor no longer shrinks it.",
+  ],
   "0.829": [
     "New: Respec in the Prestige window refunds every spent perk point, for your run's power.",
     "Reflect now answers melee enemies and bosses, lands at a steady rate, and shows in blue.",
@@ -2493,6 +2496,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.830": "2026-09-28",
   "0.829": "2026-09-28",
   "0.828": "2026-09-28",
   "0.827": "2026-09-27",

@@ -249,7 +249,7 @@ export function profileStatDisplayRows(
   };
   perkRow("doubleStrike", "double-strike", "(Chance a hit lands twice)");
   perkRow("splitShot", "split-shot", "(Chance to strike a second enemy)");
-  perkRow("riposte", "riposte", `(Reflects ${percentPoints(RIPOSTE_REFLECT_SHARE)} of the hit taken)`);
+  perkRow("riposte", "riposte", `(Reflects ${percentPoints(RIPOSTE_REFLECT_SHARE)} of each hit, before armor)`);
   return stats;
 }
 

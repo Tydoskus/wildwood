@@ -548,11 +548,12 @@ export function createPlayerCombatController(options: {
     const dealt = damageAfterArmor(amount, effectiveArmor());
     if (dealt > 0) options.onCombat?.();
     player.hp -= dealt;
-    // Reflect throws half of what landed back at whoever dealt it, bosses
-    // included; the server widens a boss clear's bound by what it can add.
+    // Reflect throws half of the hit back at whoever dealt it, bosses
+    // included, as it arrived: before armor, which spares only the player.
+    // The server widens its kill and boss bounds by what that can add.
     const reflectChance = options.prestigeReflect?.() ?? 0;
     if (source && !source.dead && dealt > 0 && reflectChance > 0 && reflectBag.draw(reflectChance)) {
-      applyPlayerHit(source, dealt * RIPOSTE_REFLECT_SHARE, false, Math.atan2(source.y - player.y, source.x - player.x), true);
+      applyPlayerHit(source, Math.max(0, amount) * RIPOSTE_REFLECT_SHARE, false, Math.atan2(source.y - player.y, source.x - player.x), true);
     }
     spawnDamageNumber(player.x, player.y, dealt, false, true);
     player.hurtClock = .1;

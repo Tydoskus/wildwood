@@ -77,7 +77,8 @@ import {
 } from "../../shared/items";
 import { applyEnemyRewards } from "../../shared/enemy-defeats";
 import { statRewardMultiplier, prestigePerkRanks } from "./prestige";
-import { prestigeCriticalDamageBonus, prestigePerkValue, prestigeReachMultiplier, prestigeSwingMultiplier } from "../../shared/prestige-perks";
+import { preArmorFactor, prestigeCriticalDamageBonus, prestigePerkValue, prestigeReachMultiplier, prestigeSwingMultiplier } from "../../shared/prestige-perks";
+import { armorDamageReduction } from "../../shared/combat";
 import { pinnedBossReward } from "./map-balance";
 import { bowSkillRollFor } from "./bow-skills";
 import { isDropIgnored } from "./ignored-drops";
@@ -187,7 +188,9 @@ export function createBossCombat(deps: BossCombatDeps) {
         loadout, critical, swing: prestigeSwingMultiplier(ranks),
         // Projectile count is not a kill reward, so the saved row holds for the whole report.
         projectiles: itemDefinition(loadout.weapon)?.weapon?.mode === "MELEE" ? 1 : Math.max(1, saved.projectileCount),
-        reach: prestigeReachMultiplier(ranks) * bowSkillReachMultiplier(bowSkills),
+        // Reflect returns the hit before armor, so armor raises what it adds.
+        reach: prestigeReachMultiplier(ranks, armorDamageReduction(effectivePlayerPowerStats(saved, research, loadout.levelFor).armor))
+          * bowSkillReachMultiplier(bowSkills),
         bossDamage: bowSkillBossDamageMultiplier(bowSkills),
         reflects: prestigePerkValue(ranks, "riposte") > 0,
       } };
@@ -202,11 +205,13 @@ export function createBossCombat(deps: BossCombatDeps) {
         const attackInterval = attackIntervalForProgress(progress);
         if (!gear) return { dps: 0, attackInterval, projectiles: 1 };
         const dps = gear.loadout.damage(progress.damage) * gear.critical * gear.swing * gear.projectiles / attackInterval;
-        // Reflect throws half of a landed hit back, at bosses too. It can never
-        // return more than half of all the player takes, and a player cannot
-        // take more than their health and what regen restores before falling:
-        // the most it can shorten a clear, whatever its bag drew.
-        const reflect = gear.reflects ? (({ maxHp, regen }) => ({ maxHp, regen }))(effectivePlayerPowerStats(progress, report().research, gear.loadout.levelFor)) : null;
+        // Reflect throws half of a hit back, at bosses too, as it arrived before
+        // armor. What got through can never total more than the player's health
+        // and what regen restores before they fall, and a hit before armor is
+        // what got through times preArmorFactor: so half of that, scaled, is
+        // the most Reflect can shorten a clear, whatever its bag drew.
+        const reflect = gear.reflects ? (({ maxHp, regen, armor }) => ({ maxHp, regen, preArmor: preArmorFactor(armorDamageReduction(armor)) }))(
+          effectivePlayerPowerStats(progress, report().research, gear.loadout.levelFor)) : null;
         return { attackInterval, projectiles: gear.projectiles, reach: gear.reach, dps, bossDps: dps * gear.bossDamage, reflect };
       },
       /** statRewardMultiplier: research and prestige cannot change inside one report. */

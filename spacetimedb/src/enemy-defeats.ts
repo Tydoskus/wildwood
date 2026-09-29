@@ -437,7 +437,7 @@ export type EnemyDefeatBatch = { streamId: string; sequence: bigint; mapId: stri
  */
 export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBatch, activeMapIds: string | readonly string[],
   bossCombat: (earned: { type: string; amount: number; count: number }[]) => { dps: number; attackInterval: number; projectiles?: number; reach?: number; bossDps?: number;
-    reflect?: { maxHp: number; regen: number } | null }) {
+    reflect?: { maxHp: number; regen: number; preArmor?: number } | null }) {
   if (!/^[a-zA-Z0-9-]{16,80}$/.test(batch.streamId) || batch.sequence < 1n || !batch.enemies.length)
     throw new SenderError("Invalid enemy defeat batch.");
   const key = `${ctx.sender.toHexString()}:${batch.streamId}`;
@@ -523,8 +523,9 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
       // A boss is one target, so reach adds nothing here; Arrow Storm's extra
       // arrows on it are damage, and bossDps carries them.
       // Reflect covers up to half the player's health pool and half their regen
-      // of the boss's HP; their own damage has to cover the rest.
-      const reflected = combat.reflect ? RIPOSTE_REFLECT_SHARE : 0;
+      // of the boss's HP, scaled up by their armor since it returns the hit
+      // before armor; their own damage has to cover the rest.
+      const reflected = combat.reflect ? RIPOSTE_REFLECT_SHARE * (combat.reflect.preArmor ?? 1) : 0;
       const limits = bossDefeatLimits(Math.max(1, boss.hp - reflected * (combat.reflect?.maxHp ?? 0)),
         (combat.bossDps ?? combat.dps) + reflected * (combat.reflect?.regen ?? 0), combat.attackInterval, boss.respawnSeconds);
       const timeKey = bossTimeKey(ctx.sender, batch.mapId);

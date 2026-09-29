@@ -33,4 +33,7 @@ it("separates extra damage on a swing from extra enemies reached", () => {
   expect(prestigeReachMultiplier({ splitShot: 5, riposte: 5 })).toBeCloseTo(1.4 + .3 * .5);
   expect(prestigeReachMultiplier({ doubleStrike: 5 })).toBe(1);
   expect(prestigeReachMultiplier(null)).toBe(1);
+  // Reflect returns the hit before armor: at half reduction, twice what got through.
+  expect(prestigeReachMultiplier({ riposte: 5 }, .5)).toBeCloseTo(1 + .3 * .5 * 2);
+  expect(prestigeReachMultiplier({ splitShot: 5 }, .5)).toBeCloseTo(1.4);
 });

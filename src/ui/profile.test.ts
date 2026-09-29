@@ -271,7 +271,7 @@ describe("prestige perks in the stat panel", () => {
   it("says what a Riposte rank is worth rather than the chance alone", () => {
     const rows = profileStatDisplayRows(perkProfile(), () => "0%", MIN_ATTACK_INTERVAL, undefined, 1, { riposte: 3 });
     expect(rows.find((row) => row.kind === "riposte"))
-      .toMatchObject({ total: "18%", expandedDetail: "(Reflects 50% of the hit taken)" });
+      .toMatchObject({ total: "18%", expandedDetail: "(Reflects 50% of each hit, before armor)" });
   });
 
   it("leaves a profile with no perks exactly as it was", () => {

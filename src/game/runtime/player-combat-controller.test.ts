@@ -161,6 +161,18 @@ describe("player attack timing", () => {
     expect(hitGeneratedBoss).toHaveBeenCalledWith(boss, 20, false, true);
   });
 
+  it("reflects half of the hit before armor, so armor spares the player and not the attacker", () => {
+    const state = createCombatHarness({ prestigeReflect: () => 1, effectiveArmor: () => 1_000 });   // armor halves damage
+    state.enemies.length = 0;
+    createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Spitter", x: 520, y: 500,
+      campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
+    const mob = state.enemies[0]; mob.hp = mob.maxHp = 1000;
+    Object.assign(state.player, { x: 500, y: 500, hp: 1000, maxHp: 1000, hurtClock: 0 });
+    state.controller.damagePlayer(40, mob);
+    expect(state.player.hp).toBe(980);   // 20 got through
+    expect(mob.hp).toBe(980);            // half of the 40 that arrived, not half of the 20
+  });
+
   it("reflects a campaign boss's hit back at that boss, drawn blue", () => {
     const hitPersonalBoss = vi.fn();
     const state = createCombatHarness({ prestigeReflect: () => 1, hitPersonalBoss });

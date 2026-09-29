@@ -9,10 +9,16 @@ export type DuelFighter = { maxHp: number; damage: number; armor: number; regen:
 /**
  * 4: bow skills (Arrow Storm, Ricochet, Piercing Shot) roll in the fight.
  * 5: Riposte (Reflect) draws from a marble bag instead of a coin per hit.
+ * 6: Riposte throws back half the hit before the defender's armor, not after.
  */
-export const DUEL_COMBAT_VERSION = 5;
+export const DUEL_COMBAT_VERSION = 6;
 export const DUEL_BOW_SKILLS_VERSION = 4;
 export const DUEL_RIPOSTE_BAG_VERSION = 5;
+export const DUEL_RIPOSTE_PRE_ARMOR_VERSION = 6;
+/** What Riposte throws back from one attack: the hit as it arrived since version 6, what got through before. */
+function riposteBase(duel: DuelCombat, hit: { dealt: number; blocked: number }, taken: number) {
+  return (duel.combatVersion ?? 0) >= DUEL_RIPOSTE_PRE_ARMOR_VERSION ? hit.dealt + hit.blocked : taken;
+}
 export function duelHitMultiplier(seconds: number, version = 0) {
   return version >= 1 ? 1 + Math.min(4, Math.max(0, seconds - 10) / 5) : 1;
 }
@@ -137,7 +143,7 @@ export function advanceDuelCombat(
       state.opponentHp -= taken; state.challengerDamageDealt += taken;
       state.opponentBlocked += challengerHit.blocked;
       if (taken > 0 && duelRiposted(duel, "opponent", state.challengerAttacks)) {
-        const thrown = Math.min(state.challengerHp, taken * RIPOSTE_REFLECT_SHARE);
+        const thrown = Math.min(state.challengerHp, riposteBase(duel, challengerHit, taken) * RIPOSTE_REFLECT_SHARE);
         state.challengerHp -= thrown; state.opponentDamageDealt += thrown;
       }
     }
@@ -149,7 +155,7 @@ export function advanceDuelCombat(
       state.challengerHp -= taken; state.opponentDamageDealt += taken;
       state.challengerBlocked += opponentHit.blocked;
       if (taken > 0 && duelRiposted(duel, "challenger", state.opponentAttacks)) {
-        const thrown = Math.min(state.opponentHp, taken * RIPOSTE_REFLECT_SHARE);
+        const thrown = Math.min(state.opponentHp, riposteBase(duel, opponentHit, taken) * RIPOSTE_REFLECT_SHARE);
         state.opponentHp -= thrown; state.challengerDamageDealt += thrown;
       }
     }
