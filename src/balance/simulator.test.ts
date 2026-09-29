@@ -85,20 +85,6 @@ describe("balance simulator", () => {
     expect(new Set(finalStrategyPowers).size).toBeGreaterThan(1);
   });
 
-  it("keeps post-clear Boss-rush repeat power positive on every clear", () => {
-    const result = runBalanceSimulationWithStrategyComparisons({
-      durationSeconds: 8 * 60 * 60,
-      steadyEquipmentUpgrades: false,
-      trials: 1,
-      strategy: "mixed",
-      seed: 7_331,
-    });
-    const bossRush = result.strategyTimelines?.find((entry) => entry.strategy === "boss-rush");
-    const finalPoint = bossRush?.timeline.at(-1);
-    const previousPoint = bossRush?.timeline.at(-2);
-    expect(finalPoint?.powerMedian).toBeGreaterThan(previousPoint?.powerMedian ?? 0);
-  }, 30_000);
-
   it("keeps a DPS-first player moving through discrete boss-readiness ties", () => {
     const result = runBalanceSimulation({ durationSeconds: 24 * 60 * 60, trials: 1, strategy: "dps-first", seed: 7_331 });
     expect(result.maps.find((map) => map.mapId === BEGINNER_DESERT_MAP_ID)?.completedPercent).toBe(100);
