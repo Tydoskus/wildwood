@@ -5,6 +5,8 @@ import { PRESTIGE_PERKS, RIPOSTE_REFLECT_SHARE, prestigeCriticalDamageBonus, pre
 import { effectivePlayerPower, effectivePlayerPowerStats } from "../../shared/player-power";
 import { equipmentDamageMultiplierBonus, equipmentMaxHealthMultiplierBonus, equipmentRegenerationMultiplierBonus } from "../../shared/items";
 import { formatCompactNumber } from "./number-format";
+import { paysSpeedRating } from "../game/combat";
+import { speedFromAttacksPerSecond } from "../../shared/attack-speed-rating";
 import { upgradeSlotForItem } from "../../shared/slot-upgrades";
 
 export function formatPlayedTime(seconds: number) {
@@ -138,7 +140,10 @@ export function profileStatDisplayRows(
     return sources;
   };
   const baseAttackInterval = Math.max(minAttackInterval, progress.attackRate);
-  const attackSpeedMaxed = baseAttackInterval <= minAttackInterval + .0001;
+  // On the curve Attack Speed is a rating that never reaches the cap; the
+  // expanded line names the rating behind the rate, as Armor names its Block.
+  const speedRating = paysSpeedRating() ? speedFromAttacksPerSecond(1 / baseAttackInterval) : null;
+  const attackSpeedMaxed = speedRating === null && baseAttackInterval <= minAttackInterval + .0001;
   const baseAttackSpeed = `${(1 / baseAttackInterval).toFixed(2)}/s${attackSpeedMaxed ? " (Max)" : ""}`;
   const attackSpeed = `${(1 / effective.attackRate).toFixed(2)}/s`;
   const regen = `${effective.regen >= 1_000_000 ? formatCompactNumber(effective.regen) : effective.regen.toFixed(1)}/s`;
@@ -176,6 +181,7 @@ export function profileStatDisplayRows(
       kind: "attack", label: "Attack Speed:", base: baseAttackSpeed,
       equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.attackSpeed), total: attackSpeed,
+      ...(speedRating === null ? {} : { expandedDetail: `(${speedRating >= 1_000 ? formatCompactNumber(speedRating) : Number(speedRating.toPrecision(3))} Attack Speed)` }),
       sources: [],
     },
     {

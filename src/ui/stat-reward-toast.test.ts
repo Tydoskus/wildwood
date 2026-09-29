@@ -25,3 +25,7 @@ describe("stat reward toast", () => {
     expect(statRewardToastModel("+mystery DAMAGE")).toBeNull();
   });
 });
+
+it("names a curve map's speed reward Attack Speed", () => {
+  expect(statRewardToastModel("+0.36 Attack Speed")).toMatchObject({ stat: "ATTACK SPEED", value: .36, label: "Attack Speed" });
+});

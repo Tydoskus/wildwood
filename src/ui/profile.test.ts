@@ -172,6 +172,21 @@ describe("profile stat display", () => {
     });
   });
 
+  it("names the Attack Speed rating behind the rate on a curve map, with no max marker", async () => {
+    const { useSpeedRating } = await import("../game/combat");
+    const { attacksPerSecondFromSpeed } = await import("../../shared/attack-speed-rating");
+    const profile = {
+      progress: { ...progress(FROST_BOW), attackRate: 1 / attacksPerSecondFromSpeed(50) },
+      research: createEmptyResearchRanks(),
+      itemUpgradeLevels: {},
+    } as Parameters<typeof profileStatDisplayRows>[0];
+    useSpeedRating(true);
+    try {
+      expect(profileStatDisplayRows(profile, () => "0%", MIN_ATTACK_INTERVAL).find((row) => row.kind === "attack"))
+        .toMatchObject({ base: "1.39/s", expandedDetail: "(50 Attack Speed)" });
+    } finally { useSpeedRating(false); }
+  });
+
   it("combines all active multipliers and keeps their source breakdown", () => {
     const research = { ...createEmptyResearchRanks(), vitality: 5, warcraft: 4 };
     const profile = {

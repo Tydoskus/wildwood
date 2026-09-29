@@ -235,7 +235,7 @@ export function rewardAmountLabel(reward: EnemyDefinition["reward"]) {
 export function rewardStatLabel(reward: EnemyDefinition["reward"]) {
   if (reward.type === "damage") return "Damage";
   if (reward.type === "health") return "Max Health";
-  if (reward.type === "speed") return paysSpeedRating() ? "Speed" : "Atk/sec";
+  if (reward.type === "speed") return paysSpeedRating() ? "Attack Speed" : "Atk/sec";
   if (reward.type === "armor") return "Armor";
   return "HP/sec";
 }
