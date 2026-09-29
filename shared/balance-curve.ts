@@ -9,9 +9,9 @@ import { attacksPerSecondFromSpeed } from './attack-speed-rating';
  * a new run's on map 1) and the one they finish it with.
  *
  * Rewards decide the pace. Map 1's damage camp pays `map1DamageReward` a
- * kill, and a new run farms it from 3 damage to one-shot its `map1EnemyHp`:
- * that sets map 1's kills per camp type (0.5 a kill from 3 to 24 is 42 kills,
- * six groups of 7). Every map after asks for more kills,
+ * kill, and a new run farms it from 3 damage to `map1EnemyHp`, map 1's
+ * finished damage: that sets map 1's kills per camp type (0.5 a kill from 3
+ * to 24 is 42 kills, six groups of 7). Every map after asks for more kills,
  * kills(y) = kills(1) × (1 + Y × (y − 1)). Each camp's reward is its step
  * from the arrival build to the finished one, shared over those kills.
  *
@@ -21,7 +21,8 @@ import { attacksPerSecondFromSpeed } from './attack-speed-rating';
  *
  * Enemies are sized against the arrival build, attack speed included:
  * - health: the damage camp takes the finished damage, which on arrival is
- *   `arrivalBlows` blows;
+ *   `arrivalBlows` blows; map 1's instead has `map1SlimeHp`, a few blows of
+ *   a new run's damage, so the first fights are quick;
  * - hit: map 1's damage camp hits for `map1DamageCampHit`; whatever share of
  *   a new run's health that costs over one fight, every later map's arrival
  *   fight costs the same share of its arrival health, through the arrival
@@ -41,8 +42,10 @@ export type BalanceCurve = {
   arrivalBlows: number;
   /** The same for Endless maps. Lower keeps Endless clear of the stat cap for longer. */
   endlessArrivalBlows: number;
-  /** Map 1's damage camp health: one blow of map 1's finished damage. */
+  /** Map 1's finished damage. With map1DamageReward it sets map 1's kills. */
   map1EnemyHp: number;
+  /** Map 1's damage camp health: a few blows of a new run's damage. */
+  map1SlimeHp: number;
   /** Map 1's finished health, regen, armor and Attack Speed. */
   map1MaxHp: number;
   map1Regen: number;
@@ -61,14 +64,14 @@ export type BalanceCurve = {
 
 export const DEFAULT_BALANCE_CURVE: Readonly<BalanceCurve> = Object.freeze({
   map1DamageReward: .5, clearsY: 1, groupSize: 7, arrivalBlows: 7, endlessArrivalBlows: 7,
-  map1EnemyHp: 24, map1MaxHp: 800, map1Regen: 1.6, armorMap1: 50, speedMap1: 50,
-  map1DamageCampHit: 3, bossFightSeconds: 45, bossHitShare: .25, eliteHealth: 5, eliteHit: 3,
+  map1EnemyHp: 24, map1SlimeHp: 8, map1MaxHp: 800, map1Regen: 1.6, armorMap1: 50, speedMap1: 50,
+  map1DamageCampHit: 10, bossFightSeconds: 45, bossHitShare: .25, eliteHealth: 5, eliteHit: 3,
 });
 
 /** The knobs a developer may set, and their ranges. */
 export const BALANCE_CURVE_LIMITS: Readonly<Record<keyof BalanceCurve, readonly [number, number]>> = Object.freeze({
   map1DamageReward: [.001, 1e6], clearsY: [0, 10], groupSize: [1, 50], arrivalBlows: [1.1, 20], endlessArrivalBlows: [1.1, 20],
-  map1EnemyHp: [4, 1e6], map1MaxHp: [101, 1e6], map1Regen: [.21, 1e6], armorMap1: [1, 1e6], speedMap1: [1, 1e6],
+  map1EnemyHp: [4, 1e6], map1SlimeHp: [.1, 1e6], map1MaxHp: [101, 1e6], map1Regen: [.21, 1e6], armorMap1: [1, 1e6], speedMap1: [1, 1e6],
   map1DamageCampHit: [.001, 1e6], bossFightSeconds: [5, 600], bossHitShare: [.01, 1], eliteHealth: [1, 100], eliteHit: [.1, 100],
 });
 
@@ -134,7 +137,11 @@ export function curveRewardPerKill(y: number, stat: CurveRewardStat, curve: Bala
 /** Seconds an arrival fight against a regular lasts on map y: the arrival blows at the arrival attack speed. */
 function arrivalFightSeconds(y: number, curve: BalanceCurve) {
   const arrival = curveTargets(y - 1, curve);
-  return curveTargets(y, curve).damage / arrival.damage / arrival.attackSpeed;
+  return regularHealth(y, curve) / arrival.damage / arrival.attackSpeed;
+}
+/** A regular's health before its role: map 1's slime, then each map's finished damage. */
+function regularHealth(y: number, curve: BalanceCurve) {
+  return y <= 1 ? curve.map1SlimeHp : curveTargets(y, curve).damage;
 }
 /** Share of the arrival health one arrival fight against a regular costs, set by map 1's damage camp hit. */
 export function curveArrivalFightShare(curve: BalanceCurve = DEFAULT_BALANCE_CURVE) {
@@ -178,7 +185,7 @@ export function curveEnemy(y: number, stat: CurveRewardStat, elite: boolean, cur
   const tough = elite ? curve.eliteHealth : 1;
   const armor = cap(targets.armor * role.armor);
   return {
-    hp: cap(targets.damage * role.health * tough * (1 - curveArmorReduction(armor))),
+    hp: cap(regularHealth(y, curve) * role.health * tough * (1 - curveArmorReduction(armor))),
     damage: cap(curveEnemyHit(y, curve) * role.hit * (elite ? curve.eliteHit : 1)),
     attackSpeed: role.attackSpeed,
     regen: cap(arrival.damage * arrival.attackSpeed * role.regen),

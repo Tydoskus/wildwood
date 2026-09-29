@@ -6,8 +6,11 @@ import { CAMPAIGN_MAPS } from "./campaign-registry";
 const curve = DEFAULT_BALANCE_CURVE;
 
 describe("balance curve", () => {
-  it("starts from the 0.5 damage slime with 24 health: 42 kills take a new run from 3 damage to one-shots", () => {
-    expect(curveEnemy(1, "damage", false)).toMatchObject({ hp: 24, reward: { amount: .5 } });
+  it("starts a new run on a 0.5 damage slime it kills in three hits and survives ten of, over 42 kills to 24 damage", () => {
+    const slime = curveEnemy(1, "damage", false);
+    expect(slime).toMatchObject({ hp: 8, reward: { amount: .5 } });
+    expect(Math.ceil(slime.hp / CURVE_START.damage)).toBe(3);
+    expect(Math.ceil(CURVE_START.maxHp / slime.damage)).toBe(10);
     expect(curveKills(1)).toBeCloseTo(42);
     expect(CURVE_START.damage + curveRewardPerKill(1, "damage") * curveKills(1)).toBeCloseTo(24);
   });
@@ -29,7 +32,7 @@ describe("balance curve", () => {
   it("arrives on every map past the forest seven blows short, and farms it to one-shots", () => {
     const blows = (y: number) => curveEnemy(y, "damage", false).hp / curveTargets(y - 1).damage;
     for (let y = 2; y <= 35; y++) expect(blows(y)).toBeCloseTo(curve.arrivalBlows);
-    for (let y = 1; y <= 30; y++) expect(curveEnemy(y, "damage", false).hp).toBeCloseTo(curveTargets(y).damage);
+    for (let y = 2; y <= 30; y++) expect(curveEnemy(y, "damage", false).hp).toBeCloseTo(curveTargets(y).damage);
     const gentle = { ...curve, endlessArrivalBlows: 2 };
     expect(curveTargets(20, gentle).damage).toBeCloseTo(curveTargets(15, gentle).damage * 2 ** 5);
   });
@@ -45,10 +48,10 @@ describe("balance curve", () => {
         expect(taken / arrival.maxHp).toBeLessThan(.8);
       }
     }
-    // Map 1's damage camp hits for 3, and every map's arrival fight costs the same share of health.
-    expect(curveEnemy(1, "damage", false).damage).toBeCloseTo(3);
+    // Map 1's damage camp hit sets every map's arrival fight to the same share of health.
+    expect(curveEnemy(1, "damage", false).damage).toBeCloseTo(curve.map1DamageCampHit);
     const share = (y: number) => curveEnemyHit(y) * (1 - curveArmorReduction(curveTargets(y - 1).armor))
-      * curveTargets(y).damage / curveTargets(y - 1).damage / curveTargets(y - 1).attackSpeed / curveTargets(y - 1).maxHp;
+      * curveEnemy(y, "damage", false).hp / curveTargets(y - 1).damage / curveTargets(y - 1).attackSpeed / curveTargets(y - 1).maxHp;
     for (const y of [2, 8, 15, 30]) expect(share(y)).toBeCloseTo(share(1));
   });
 
@@ -125,7 +128,7 @@ describe("resolving maps from the curve", () => {
 
   it("builds the forest and desert from the curve, and pays nothing for a boss", () => {
     const forest = resolveMapBalance("tutorial_forest", settings(), 1);
-    expect(forest.enemies.Spitter.hp).toBeCloseTo(24);
+    expect(forest.enemies.Spitter.hp).toBeCloseTo(8);
     expect(forest.enemies.Spitter.damage).toBeCloseTo(curveEnemyHit(1) * CURVE_ROLES.damage.hit);
     expect(forest.enemies.Spitter.reward.amount).toBeCloseTo(curveRewardPerKill(1, "damage"));
     expect(forest.boss!.rewards).toEqual({ damage: 0, health: 0, armor: 0, regen: 0 });

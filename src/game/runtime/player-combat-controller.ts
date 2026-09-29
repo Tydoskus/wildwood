@@ -19,6 +19,7 @@ import { ARROW_STORM_DAMAGE_SHARE, ARROW_STORM_RADIUS, RICOCHET_DAMAGE_SHARE, ha
 import { ARROW_STORM_FLIGHT_SECONDS, ARROW_STORM_STAGGER_SECONDS } from "./combat-effects";
 import { arrowPassesThrough, isSkillSecondaryTarget, rainArrowStorm, ricochetChain } from "./bow-skill-procs";
 import { addPlayerBaseMaxHealth } from "./player-health";
+import { noteHitDealt, noteHitTaken, noteKill } from "./fight-readout";
 import {
   absoluteAttackTimestamps,
   attackAnimationClockAt,
@@ -521,6 +522,7 @@ export function createPlayerCombatController(options: {
   function killEnemy(enemy: EnemyState) {
     if (enemy.dead) return;
     enemy.dead = true;
+    noteKill(enemy);
     if (options.onEnemyDefeated?.(enemy)) {
       spawnBurst(enemy.x, enemy.y, DEATH_PARTICLE_COLOR, 12, 90);
       return;
@@ -548,6 +550,7 @@ export function createPlayerCombatController(options: {
     if (isDueling() || player.hurtClock > 0) return false;
     const dealt = damageAfterArmor(amount, effectiveArmor());
     if (dealt > 0) options.onCombat?.();
+    if (dealt > 0 && source && !source.isBoss && !source.generatedBoss) noteHitTaken(source as EnemyState, dealt, player.maxHp);
     player.hp -= dealt;
     // Reflect throws half of the hit back at whoever dealt it, bosses
     // included, as it arrived: before armor, which spares only the player.
@@ -630,6 +633,7 @@ export function createPlayerCombatController(options: {
       // The generated-boss controller owns its health and defeat handling.
     } else {
       engageEnemy(target);
+      noteHitDealt(target, player.maxHp);
       // Hits in quick succession grow one chunk from the health before the first.
       if (!((target.hpLossFlashTimer ?? 0) > 0)) target.hpLossFlashFrom = target.hp;
       target.hpLossFlashTimer = ENEMY_HP_LOSS_FLASH_SECONDS;
