@@ -22,9 +22,10 @@ import { attacksPerSecondFromSpeed } from './attack-speed-rating';
  * Enemies are sized against the arrival build, attack speed included:
  * - health: the damage camp takes the finished damage, which on arrival is
  *   `arrivalBlows` blows;
- * - hit: one arrival fight against a regular costs `arrivalFightShare` of the
- *   arrival health, through the arrival armor, however long the arrival
- *   attack speed makes that fight;
+ * - hit: map 1's damage camp hits for `map1DamageCampHit`; whatever share of
+ *   a new run's health that costs over one fight, every later map's arrival
+ *   fight costs the same share of its arrival health, through the arrival
+ *   armor, however long the arrival attack speed makes that fight;
  * - regen camps heal a share of the arrival damage per second (DPS);
  * - each camp leans on its own stat (CURVE_ROLES).
  * A map's boss checks the finished build and pays nothing but the next map.
@@ -47,8 +48,8 @@ export type BalanceCurve = {
   map1Regen: number;
   armorMap1: number;
   speedMap1: number;
-  /** Share of the arrival health one arrival fight against a regular costs. */
-  arrivalFightShare: number;
+  /** Map 1's damage camp hit. It sets how much of the arrival health a fight costs on every map. */
+  map1DamageCampHit: number;
   /** Seconds a boss takes at the finished map's damage and attack speed. */
   bossFightSeconds: number;
   /** A boss's heaviest hit, after armor, as a share of the finished map's health. */
@@ -61,14 +62,14 @@ export type BalanceCurve = {
 export const DEFAULT_BALANCE_CURVE: Readonly<BalanceCurve> = Object.freeze({
   map1DamageReward: .5, clearsY: 1, groupSize: 7, arrivalBlows: 7, endlessArrivalBlows: 7,
   map1EnemyHp: 24, map1MaxHp: 200, map1Regen: 2, armorMap1: 50, speedMap1: 50,
-  arrivalFightShare: .06, bossFightSeconds: 45, bossHitShare: .25, eliteHealth: 5, eliteHit: 3,
+  map1DamageCampHit: 3, bossFightSeconds: 45, bossHitShare: .25, eliteHealth: 5, eliteHit: 3,
 });
 
 /** The knobs a developer may set, and their ranges. */
 export const BALANCE_CURVE_LIMITS: Readonly<Record<keyof BalanceCurve, readonly [number, number]>> = Object.freeze({
   map1DamageReward: [.001, 1e6], clearsY: [0, 10], groupSize: [1, 50], arrivalBlows: [1.1, 20], endlessArrivalBlows: [1.1, 20],
   map1EnemyHp: [4, 1e6], map1MaxHp: [101, 1e6], map1Regen: [.21, 1e6], armorMap1: [1, 1e6], speedMap1: [1, 1e6],
-  arrivalFightShare: [.001, 1], bossFightSeconds: [5, 600], bossHitShare: [.01, 1], eliteHealth: [1, 100], eliteHit: [.1, 100],
+  map1DamageCampHit: [.001, 1e6], bossFightSeconds: [5, 600], bossHitShare: [.01, 1], eliteHealth: [1, 100], eliteHit: [.1, 100],
 });
 
 /** Campaign maps before Endless; Endless N is map CAMPAIGN_LENGTH + N. */
@@ -130,15 +131,23 @@ export function curveRewardPerKill(y: number, stat: CurveRewardStat, curve: Bala
   return cap(Math.max(0, step) / curveKills(y, curve));
 }
 
+/** Seconds an arrival fight against a regular lasts on map y: the arrival blows at the arrival attack speed. */
+function arrivalFightSeconds(y: number, curve: BalanceCurve) {
+  const arrival = curveTargets(y - 1, curve);
+  return curveTargets(y, curve).damage / arrival.damage / arrival.attackSpeed;
+}
+/** Share of the arrival health one arrival fight against a regular costs, set by map 1's damage camp hit. */
+export function curveArrivalFightShare(curve: BalanceCurve = DEFAULT_BALANCE_CURVE) {
+  return curve.map1DamageCampHit / CURVE_ROLES.damage.hit * arrivalFightSeconds(1, curve) / CURVE_START.maxHp;
+}
 /**
  * The hit of a regular on map y, sized against the arrival build: an arrival
- * fight lasts the arrival blows at the arrival attack speed, and costs
- * arrivalFightShare of the arrival health through the arrival armor.
+ * fight costs curveArrivalFightShare of the arrival health through the
+ * arrival armor, however long the arrival attack speed makes it.
  */
 export function curveEnemyHit(y: number, curve: BalanceCurve = DEFAULT_BALANCE_CURVE) {
   const arrival = curveTargets(y - 1, curve);
-  const fightSeconds = curveTargets(y, curve).damage / arrival.damage / arrival.attackSpeed;
-  return cap(curve.arrivalFightShare * arrival.maxHp / fightSeconds / (1 - curveArmorReduction(arrival.armor)));
+  return cap(curveArrivalFightShare(curve) * arrival.maxHp / arrivalFightSeconds(y, curve) / (1 - curveArmorReduction(arrival.armor)));
 }
 
 /**

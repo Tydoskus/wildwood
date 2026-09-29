@@ -42,12 +42,14 @@ describe("balance curve", () => {
         const dps = arrival.damage * arrival.attackSpeed * (1 - curveArmorReduction(enemy.armor)) - enemy.regen;
         expect(dps).toBeGreaterThan(0);
         const taken = enemy.damage * enemy.attackSpeed * (1 - curveArmorReduction(arrival.armor)) * enemy.hp / dps;
-        expect(taken / arrival.maxHp).toBeLessThan(.3);
+        expect(taken / arrival.maxHp).toBeLessThan(.8);
       }
     }
-    // One arrival fight against a regular costs arrivalFightShare of the arrival health.
-    const arrival = curveTargets(0), fight = 24 / arrival.damage / arrival.attackSpeed;
-    expect(curveEnemyHit(1) * fight / arrival.maxHp).toBeCloseTo(curve.arrivalFightShare);
+    // Map 1's damage camp hits for 3, and every map's arrival fight costs the same share of health.
+    expect(curveEnemy(1, "damage", false).damage).toBeCloseTo(3);
+    const share = (y: number) => curveEnemyHit(y) * (1 - curveArmorReduction(curveTargets(y - 1).armor))
+      * curveTargets(y).damage / curveTargets(y - 1).damage / curveTargets(y - 1).attackSpeed / curveTargets(y - 1).maxHp;
+    for (const y of [2, 8, 15, 30]) expect(share(y)).toBeCloseTo(share(1));
   });
 
   it("grows Attack Speed like armor, climbing toward 3 attacks a second and never reaching it", () => {

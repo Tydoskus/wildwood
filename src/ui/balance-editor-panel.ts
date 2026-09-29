@@ -5,7 +5,7 @@ import { BALANCE_CURVE_LIMITS, DEFAULT_BALANCE_CURVE, curveKills, type BalanceCu
 import { CAMPAIGN_MAPS } from '../../shared/campaign-registry';
 const curveFields: [keyof BalanceCurve, string][] = [['map1DamageReward', 'Map 1 damage reward per kill'], ['map1EnemyHp', 'Map 1 damage camp health'], ['clearsY', 'Kill growth per map (Y)'], ['groupSize', 'Enemies per group'],
   ['arrivalBlows', 'Blows per kill arriving on a map'], ['endlessArrivalBlows', 'Endless: blows per kill arriving'], ['map1MaxHp', 'Map 1 health target'], ['map1Regen', 'Map 1 regen target'],
-  ['armorMap1', 'Map 1 armor target'], ['speedMap1', 'Map 1 Attack Speed target'], ['arrivalFightShare', 'Health one arrival fight costs (share)'],
+  ['armorMap1', 'Map 1 armor target'], ['speedMap1', 'Map 1 Attack Speed target'], ['map1DamageCampHit', 'Map 1 damage camp hit'],
   ['bossFightSeconds', 'Boss fight length (seconds)'], ['bossHitShare', 'Boss heaviest hit (share of health)'], ['eliteHealth', 'Elite health and reward (×)'], ['eliteHit', 'Elite hit (×)']];
 export type BalanceEditorDependencies = {
   load: () => Promise<BalanceEditorState>;
