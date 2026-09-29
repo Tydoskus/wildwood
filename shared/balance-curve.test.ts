@@ -52,6 +52,20 @@ describe("balance curve", () => {
     for (const y of [2, 8, 15, 30]) expect(share(y)).toBeCloseTo(share(1));
   });
 
+  it("punishes skipping health, regen and armor from map 2: all damage dies where a farmed build lives", () => {
+    const fightCost = (player: { damage: number; maxHp: number; armor: number; attackSpeed: number }, stat: Parameters<typeof curveEnemy>[1]) => {
+      const enemy = curveEnemy(2, stat, false);
+      const seconds = Math.ceil(enemy.hp / (player.damage * (1 - curveArmorReduction(enemy.armor)))) / player.attackSpeed;
+      return Math.ceil(seconds * enemy.attackSpeed) * enemy.damage * (1 - curveArmorReduction(player.armor)) / player.maxHp;
+    };
+    // The same 210 map-1 kills, all spent on the damage camp.
+    const skipper = { damage: CURVE_START.damage + 210 * curveRewardPerKill(1, "damage"), maxHp: CURVE_START.maxHp, armor: 0, attackSpeed: CURVE_START.attackSpeed };
+    for (const stat of ["damage", "health", "speed", "regen", "armor"] as const) {
+      expect(fightCost(curveTargets(1), stat)).toBeLessThan(.6);
+      expect(fightCost(skipper, stat)).toBeGreaterThan(1);
+    }
+  });
+
   it("grows Attack Speed like armor, climbing toward 3 attacks a second and never reaching it", () => {
     for (let y = 1; y <= 60; y++) {
       expect(curveTargets(y).speed).toBeCloseTo(curveTargets(y).armor / curve.armorMap1 * curve.speedMap1);

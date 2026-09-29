@@ -61,7 +61,7 @@ export type BalanceCurve = {
 
 export const DEFAULT_BALANCE_CURVE: Readonly<BalanceCurve> = Object.freeze({
   map1DamageReward: .5, clearsY: 1, groupSize: 7, arrivalBlows: 7, endlessArrivalBlows: 7,
-  map1EnemyHp: 24, map1MaxHp: 200, map1Regen: 2, armorMap1: 50, speedMap1: 50,
+  map1EnemyHp: 24, map1MaxHp: 800, map1Regen: 1.6, armorMap1: 50, speedMap1: 50,
   map1DamageCampHit: 3, bossFightSeconds: 45, bossHitShare: .25, eliteHealth: 5, eliteHit: 3,
 });
 
