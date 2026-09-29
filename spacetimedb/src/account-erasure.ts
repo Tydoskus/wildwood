@@ -84,6 +84,7 @@ export const ERASURE_TARGETS: readonly ErasureTarget[] = [
   { table: "gravebloomContribution", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "guild", columns: ["leader"], pk: "id", mode: "scan" },
   { table: "guildAccount", columns: ["identity"], pk: "identity", mode: "key" },
+  { table: "guildJoinRequest", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "guildMember", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "guildReportParticipant", columns: ["identity"], pk: "key", mode: "index", index: "identity" },
   { table: "homeReturnLocation", columns: ["identity"], pk: "identity", mode: "key" },
@@ -131,6 +132,7 @@ export const ERASURE_TARGETS: readonly ErasureTarget[] = [
   { table: "playerItemDrop", columns: ["identity"], pk: "key", mode: "index", index: "byIdentity" },
   { table: "playerItemGift", columns: ["identity"], pk: "key", mode: "index", index: "identity" },
   { table: "playerItemUpgrade", columns: ["identity"], pk: "key", mode: "index", index: "byIdentity" },
+  { table: "playerJoinDate", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerLastLocation", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerLegalConsent", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerLifetime", columns: ["identity"], pk: "identity", mode: "key" },
@@ -194,9 +196,14 @@ export const ERASURE_TARGETS: readonly ErasureTarget[] = [
  */
 export const ERASURE_ROW_BUDGET = 2_000;
 
+// The published schema, and so ERASURE_TARGETS, names some columns and keys in
+// snake_case; server rows and index accessors use camelCase. Reading
+// row["reservation_id"] is undefined, and the row is silently kept.
+const camel = (name: string) => name.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
+
 function matchesIdentity(row: any, columns: readonly string[], identities: readonly any[]) {
   for (const column of columns) {
-    const value = row[column];
+    const value = row[camel(column)];
     if (!value) continue;
     for (const identity of identities) if (value.isEqual ? value.isEqual(identity) : value === identity) return true;
   }
@@ -218,21 +225,25 @@ export function eraseIdentityRows(ctx: any, identities: readonly any[], budget =
     if (!handle) continue;
     if (exhausted) { remaining.push(target.table); continue; }
 
-    if (target.mode === "key" && target.pk) {
+    const pk = target.pk ? handle[camel(target.pk)] : null;
+    if (target.mode === "key" && pk) {
       for (const identity of identities) {
         if (deleted >= budget) { exhausted = true; break; }
-        if (handle[target.pk]?.find(identity)) { handle[target.pk].delete(identity); deleted += 1; }
+        if (pk.find(identity)) { pk.delete(identity); deleted += 1; }
       }
       if (exhausted) remaining.push(target.table);
       continue;
     }
 
     // Snapshot the matches before deleting: mutating a table while iterating
-    // it is how a sweep silently skips rows.
+    // it is how a sweep silently skips rows. The index only covers one column,
+    // so a table naming the player in two (owner and peer, sender and
+    // recipient) is scanned, or the rows naming this player second stay behind.
     const rows: any[] = [];
-    if (target.mode === "index" && target.index && handle[target.index]) {
+    const index = target.index ? handle[camel(target.index)] : null;
+    if (target.mode === "index" && index && target.columns.length === 1) {
       for (const identity of identities) {
-        for (const row of handle[target.index].filter(identity) as Iterable<any>) rows.push(row);
+        for (const row of index.filter(identity) as Iterable<any>) rows.push(row);
       }
     } else {
       for (const row of handle.iter() as Iterable<any>) {
@@ -242,9 +253,9 @@ export function eraseIdentityRows(ctx: any, identities: readonly any[], budget =
 
     for (const row of rows) {
       if (deleted >= budget) { exhausted = true; break; }
-      if (!target.pk) continue;
-      const key = row[target.pk];
-      if (handle[target.pk]?.find(key)) { handle[target.pk].delete(key); deleted += 1; }
+      if (!target.pk || !pk) continue;
+      const key = row[camel(target.pk)];
+      if (pk.find(key)) { pk.delete(key); deleted += 1; }
     }
     if (exhausted) remaining.push(target.table);
   }
