@@ -736,6 +736,60 @@ describe("sign-in round trips", () => {
     expect(recordCarriedConnectionDiagnostic).toHaveBeenCalledWith("session-blocked", { detail: "sign-in-return:success:known-account:silent:42s" });
     expect(f.session.getItem(keys.authTripKey)).toBeNull();
   });
+  it("says why a return failed and names the account, since a guest may upload it", async () => {
+    vi.useFakeTimers({ now: 1_000_000 });
+    const f = setup({ knownAccount: true });
+    f.local.setItem(keys.knownAccountCharacterKey, "Pearl");
+    await f.service.api.signIn();
+    const state = f.session.getItem(keys.authStateKey)!;
+    vi.setSystemTime(1_004_000);
+    stubTokenRequest(new FakeTokenRequest(400, { error: "invalid_grant" }));
+    window.location.href = `https://wildstat.example/game?code=one&state=${state}`;
+    await f.service.restoreKnownAccount();
+    expect(recordCarriedConnectionDiagnostic).toHaveBeenCalledWith("session-blocked", {
+      detail: "sign-in-return:failed:known-account:silent:4s:why=failed:invalid_grant;acct=Pearl",
+    });
+  });
+  it("still reports a failed return whose tab lost the trip record", async () => {
+    const f = setup({ knownAccount: true });
+    f.local.setItem(keys.knownAccountCharacterKey, "Pearl");
+    window.location.href = "https://wildstat.example/game?code=one&state=from-another-tab";
+    await f.service.restoreKnownAccount();
+    expect(recordCarriedConnectionDiagnostic).toHaveBeenCalledWith("session-blocked", {
+      detail: "sign-in-return:failed:unknown-trip:why=tab-lost-state;acct=Pearl",
+    });
+  });
+  it("reports once when a sign-in that worked falls back to the sign-in screen", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const f = setup({ authCallback: true, knownAccount: true });
+    f.local.setItem(keys.knownAccountCharacterKey, "Pearl");
+    stubTokenRequest(new FakeTokenRequest(200, { id_token: accountToken(), refresh_token: "grant" }));
+    await f.service.restoreKnownAccount();
+    expect(f.service.api.accountState().gameSessionApproved).toBe(true);
+    const lost = () => vi.mocked(recordCarriedConnectionDiagnostic).mock.calls
+      .filter(([, data]) => data?.detail?.startsWith("sign-in-lost:"));
+    expect(lost()).toHaveLength(0);
+    // The server refuses the new login a second time in this tab.
+    f.session.setItem(keys.authRetryKey, "true");
+    f.service.onConnectError(true, new Error("HTTP 401 Unauthorized"));
+    f.service.api.accountState();
+    f.service.api.accountState();
+    expect(lost()).toHaveLength(1);
+    expect(lost()[0][1]!.detail).toMatch(/^sign-in-lost:after=\d+s;notice=SIGN-IN REQUIRED;token=none;approved=no;acct=Pearl$/);
+    expect(recordCarriedConnectionDiagnostic).toHaveBeenCalledWith("session-blocked", {
+      detail: "authentication-rejected: HTTP 401 Unauthorized;acct=Pearl",
+    });
+    expect(warn).toHaveBeenCalledWith("WildStat sign-in lost:", lost()[0][1]!.detail);
+    warn.mockRestore();
+  });
+  it("does not report a player who chose Guest or signed out", async () => {
+    const f = setup({ authCallback: true, knownAccount: true });
+    stubTokenRequest(new FakeTokenRequest(200, { id_token: accountToken(), refresh_token: "grant" }));
+    await f.service.restoreKnownAccount();
+    f.service.api.continueAsGuest();
+    f.service.api.accountState();
+    expect(vi.mocked(recordCarriedConnectionDiagnostic).mock.calls.some(([, data]) => data?.detail?.startsWith("sign-in-lost:"))).toBe(false);
+  });
 });
 
 describe("kill-report session enforcement", () => {

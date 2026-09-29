@@ -179,6 +179,10 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
   let takeoverRequested = false;
   let takeoverRevision = 0;
   const renewal = createAccountTokenRenewal(localStorage, keys.accountTokenKey);
+  /** When this page's player last got past sign-in, until a lost sign-in is reported. */
+  let approvedAt: number | null = null;
+  /** Why the last callback on this page failed, for the trip report. */
+  let callbackFailure = "";
 
   function accountToken() {
     try {
@@ -237,16 +241,42 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
 
   // The round trip's length separates a silent return (a second or two) from
   // one where the player had to log in, which for email means a magic link.
-  function finishSignInTrip(outcome: "success" | "failed" | "abandoned") {
+  function finishSignInTrip(outcome: "success" | "failed" | "abandoned", why = "") {
     const saved = readTabValue(keys.authTripKey);
     clearTabValue(keys.authTripKey);
     let trip: { reason?: unknown; prompt?: unknown; at?: unknown } = {};
     try { trip = JSON.parse(saved ?? "{}"); } catch {}
-    if (typeof trip.reason !== "string" || typeof trip.at !== "number") return;
+    const failure = outcome === "failed" ? `:why=${why || "unknown"}${accountTag()}` : "";
+    if (typeof trip.reason !== "string" || typeof trip.at !== "number") {
+      // A tab that lost its trip record (the state check) still failed.
+      if (outcome === "failed") recordCarriedConnectionDiagnostic("session-blocked", { detail: `sign-in-return:failed:unknown-trip${failure}` });
+      return;
+    }
     const seconds = Math.max(0, Math.round((Date.now() - trip.at) / 1000));
     recordCarriedConnectionDiagnostic("session-blocked", {
-      detail: `sign-in-return:${outcome}:${trip.reason}:${trip.prompt ? "prompt" : "silent"}:${seconds}s`,
+      detail: `sign-in-return:${outcome}:${trip.reason}:${trip.prompt ? "prompt" : "silent"}:${seconds}s${failure}`,
     });
+  }
+
+  // A failing account never connects, so its reports go out with whoever
+  // connects next in this tab, usually a guest. The character names the account.
+  function accountTag() {
+    const character = rememberedAccountCharacter();
+    return character ? `;acct=${character}` : "";
+  }
+
+  // approvedAt is set when the player gets past sign-in on this page. If the
+  // game then falls back to the sign-in screen without them signing out or
+  // choosing Guest, that is reported once, with the notice and credential state.
+  function reportLostSignIn(state: { signedIn: boolean; gameSessionApproved: boolean; authInProgress: boolean; returningFromSignIn: boolean }) {
+    if (approvedAt === null || signingOut || guestSessionExplicit || outboundAuthNavigationPending) return;
+    if (state.signedIn || state.gameSessionApproved || state.authInProgress || state.returningFromSignIn) return;
+    const seconds = Math.max(0, Math.round((Date.now() - approvedAt) / 1000));
+    approvedAt = null;
+    const token = renewal.stored() ? (accountToken() ? "valid" : "expired") : "none";
+    const detail = `sign-in-lost:after=${seconds}s;notice=${notice || "none"};token=${token};approved=${sessionApproved ? "yes" : "no"}${accountTag()}`;
+    recordCarriedConnectionDiagnostic("session-blocked", { detail });
+    console.warn("WildStat sign-in lost:", detail);
   }
 
   function readAccountLinkTransaction(): AccountLinkTransaction | null {
@@ -440,6 +470,9 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       !verifier || !expectedNonce ||
       (responseIssuer !== null && responseIssuer !== SPACETIME_AUTH_ISSUER)
     ) {
+      callbackFailure = !state ? "no-state" : !expectedState ? "tab-lost-state"
+        : !authValuesMatch(state, expectedState) ? "state-mismatch"
+          : !verifier || !expectedNonce ? "tab-lost-verifier" : "issuer";
       callbackPending = false;
       clearAccountReturnPending();
       notice = "SIGN-IN CHECK FAILED";
@@ -449,6 +482,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       return "failed";
     }
     if (authError) {
+      callbackFailure = `provider-${authError.replace(/[^a-z_]/gi, "").slice(0, 40)}`;
       callbackPending = false;
       clearAccountReturnPending();
       notice = authError === "login_required" ? "AUTO SIGN-IN UNAVAILABLE" : "SIGN-IN FAILED";
@@ -478,7 +512,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       }
       await dependencies.validateAccountIdToken(result.id_token, expectedNonce);
       // A late OAuth response must not restore credentials after Sign Out.
-      if (signingOut) return "failed";
+      if (signingOut) { callbackFailure = "signed-out"; return "failed"; }
       renewal.save(result.id_token, result.refresh_token);
       defeatSignInBlocked = false;
       rememberAccount();
@@ -486,11 +520,15 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       // A missing UI-return marker after native activity recreation must not
       // send an authenticated player straight back to the sign-in screen.
       sessionApproved = true;
+      approvedAt = Date.now();
       returnPending = true;
       outboundAuthNavigationPending = false;
       notice = "SIGNED IN";
       outcome = "success";
     } catch (error) {
+      callbackFailure = error instanceof TokenExchangeRequestError ? `exchange-${error.reason}`
+        : error instanceof OidcIdTokenError ? `token-check-${error.reason}`
+          : `failed:${String(error instanceof Error ? error.message : error).slice(0, 80)}`;
       notice = error instanceof TokenExchangeRequestError && error.reason === "timeout"
         ? "SIGN-IN TIMED OUT · TRY AGAIN"
         : error instanceof TokenExchangeRequestError && error.reason === "network"
@@ -572,7 +610,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     const bridge = nativeAuth();
     if (bridge && await bridge.ready) return;
     const callbackOutcome = await completeAccountCallback();
-    if (callbackOutcome !== "none") finishSignInTrip(callbackOutcome);
+    if (callbackOutcome !== "none") finishSignInTrip(callbackOutcome, callbackFailure);
     if (signingOut) return;
     // Callback failures and invalid/expired OAuth state must repaint the
     // lightweight sign-in shell instead of leaving it on "Verifying Sign-In".
@@ -673,6 +711,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     const cooldown = message.match(/DEFEAT_SESSION_COOLDOWN:(\d+)/);
     if (!reauth && !cooldown) return false;
     if (reauth && defeatSignInBlocked) return true;
+    recordCarriedConnectionDiagnostic("session-blocked", { detail: `defeat-restriction:${reauth ? "sign-in-again" : "cooldown"}${accountTag()}` });
     if (reauth) {
       defeatSignInBlocked = true;
       clearStoredToken(keys.accountTokenKey); // In-flight renewals verify this token is unchanged.
@@ -700,7 +739,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
   const api = {
     accountState() {
       const signedIn = !signingOut && Boolean(dependencies.connection()?.isActive && dependencies.connectedSignedIn());
-      return {
+      const state = {
         signedIn,
         knownAccount: hasKnownAccount(),
         signInRequired: hasKnownAccount() && !signedIn && !guestSessionExplicit,
@@ -714,6 +753,8 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
         sessionConflict: dependencies.worldEntryBlocked(),
         notice,
       };
+      if (!state.sessionConflict) reportLostSignIn(state);
+      return state;
     },
     legalConsentAccepted: legalConsent.accepted,
     acceptLegalTerms: legalConsent.acceptAge,
@@ -752,6 +793,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
         clearTabValue(keys.authRetryKey);
         if (renewal.stored() && hasKnownAccount()) {
           sessionApproved = true;
+          approvedAt = Date.now();
           notice = "OPENING CHARACTER";
           dependencies.notify();
           dependencies.connect();
@@ -952,6 +994,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
           notice = "ACCOUNT CHARACTER LOADED";
           return true;
         }
+        recordCarriedConnectionDiagnostic("session-blocked", { detail: `account-link-failed:${message.slice(0, 100)}${accountTag()}` });
         clearStoredToken(keys.accountTokenKey);
         clearAccountMigrationPending();
         guestSessionExplicit = true;
@@ -1017,7 +1060,8 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       if (handleDefeatRestriction(error)) return true;
       const rejectedToken = /\b401\b|\b403\b|unauthorized|forbidden|invalid token/i.test(String(error?.message || error));
       if (!rejectedToken) return false;
-      recordConnectionDiagnostic("session-blocked", { detail: `authentication-rejected: ${error.message}` });
+      if (signedIn) recordCarriedConnectionDiagnostic("session-blocked", { detail: `authentication-rejected: ${error.message}${accountTag()}` });
+      else recordConnectionDiagnostic("session-blocked", { detail: `authentication-rejected: ${error.message}` });
       clearStoredToken(signedIn ? keys.accountTokenKey : keys.guestTokenKey);
       if (signedIn && hasKnownAccount()) {
         const alreadyRetried = readTabValue(keys.authRetryKey) === "true";
@@ -1053,7 +1097,10 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
           if (event.oldValue && event.newValue &&
             inspectSpacetimeIdToken(event.oldValue, { allowExpired: true }).sub === inspectSpacetimeIdToken(event.newValue).sub) return;
         } catch {}
-        if (!accountMigrationPending()) window.location.reload();
+        if (!accountMigrationPending()) {
+          recordCarriedConnectionDiagnostic("session-blocked", { detail: `other-tab-${event.newValue ? "changed-account" : "signed-out"}${accountTag()}` });
+          window.location.reload();
+        }
         return;
       }
       if (event.key === keys.accountMigrationPendingKey && event.newValue === null) {
