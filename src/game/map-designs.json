@@ -3146,8 +3146,8 @@
         },
         {
           "name": "Glass Thicket",
-          "x": 4000,
-          "y": 900,
+          "x": 2450,
+          "y": 2400,
           "minRadius": 210,
           "radius": 360,
           "count": 5,
@@ -3185,8 +3185,8 @@
         },
         {
           "name": "Cinder Quarry",
-          "x": 2450,
-          "y": 2400,
+          "x": 4000,
+          "y": 900,
           "minRadius": 230,
           "radius": 400,
           "count": 6,
