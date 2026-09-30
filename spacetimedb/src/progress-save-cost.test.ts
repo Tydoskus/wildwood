@@ -1,4 +1,5 @@
 import { expect, it, vi } from "vitest";
+import { PLAYER_SPEED } from "../../shared/rules";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
@@ -72,19 +73,19 @@ it("does not rewrite progress or presentation for an unchanged checkpoint", () =
 it("removes the temporary boots bonus when those boots are unequipped", () => {
   const f = crystalFixture();
   f.patch("playerProgress", { infernalUnlocked: true, waterUnlocked: true, equippedFeet: "black_boots", inventoryJson: '["black_boots"]' });
-  f.patch("player", { feetItem: "black_boots", speed: 205 });
+  f.patch("player", { feetItem: "black_boots", speed: PLAYER_SPEED + 25 });
   const base = f.db.playerProgress.identity.find(f.ctx.sender);
   f.run(server.savePlayerProgress, { ...base, equippedFeet: "", enemyKills: 3 });
-  expect(f.db.player.identity.find(f.ctx.sender).speed).toBe(180);
+  expect(f.db.player.identity.find(f.ctx.sender).speed).toBe(PLAYER_SPEED);
 });
 
 it("preserves the active black-boots bonus during an unrelated equipment edit", () => {
   const f = crystalFixture();
   f.patch("playerProgress", { infernalUnlocked: true, waterUnlocked: true, equippedFeet: "black_boots", inventoryJson: '["black_boots","water_armor"]' });
-  f.patch("player", { feetItem: "black_boots", speed: 205 });
+  f.patch("player", { feetItem: "black_boots", speed: PLAYER_SPEED + 25 });
   const base = f.db.playerProgress.identity.find(f.ctx.sender);
   f.run(server.savePlayerProgress, { ...base, equippedChest: "water_armor", enemyKills: 3 });
-  expect(f.db.player.identity.find(f.ctx.sender).speed).toBe(205);
+  expect(f.db.player.identity.find(f.ctx.sender).speed).toBe(PLAYER_SPEED + 25);
   expect(f.db.playerProgress.identity.find(f.ctx.sender).equippedChest).toBe("water_armor");
 });
 

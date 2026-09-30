@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { type ConnectionId } from "spacetimedb";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
-import { BOSS_REWARD_CLAIM_BITS, MAP_IDS, PLAYER_BASE_HP, PLAYER_SPAWN, PROTOCOL_VERSION, TUTORIAL_FOREST_MAP_ID } from "../../shared/rules";
+import { BOSS_REWARD_CLAIM_BITS, MAP_IDS, PLAYER_BASE_HP, PLAYER_SPEED, PLAYER_SPAWN, PROTOCOL_VERSION, TUTORIAL_FOREST_MAP_ID } from "../../shared/rules";
 import { AGE_BAND_ADULT, TERMS_VERSION } from "../../shared/legal";
 import { STARTER_STONE, SUPERIOR_GOLDEN_HELMET } from "../../shared/items";
 
@@ -18,7 +18,7 @@ describe("progress reset returns the character to the tutorial", () => {
       const progress = f.db.playerProgress.identity.find(f.ctx.sender);
       // Nobody starts shod any more: Trailblazer Boots are gone entirely.
       expect(progress.equippedFeet).toBe("");
-      expect(progress.speed).toBe(180);
+      expect(progress.speed).toBe(PLAYER_SPEED);
       expect(JSON.parse(progress.inventoryJson)).toEqual([STARTER_STONE]);
       expect(JSON.parse(progress.inventoryJson)).not.toContain(SUPERIOR_GOLDEN_HELMET);
     }

@@ -8,7 +8,7 @@ it("keeps early enemies approachable and ramps later-map speed to a fixed cap", 
   expect(ENEMY_TYPES.Bramble.speed).toBe(205);
   expect(ENEMY_TYPES["Dune Raider"].speed).toBe(205);
   expect(ENEMY_TYPES["Frost Raider"].speed).toBe(230);
-  expect(campaignMeleeChaseSpeed(11)).toBe(ENEMY_TOP_CHASE_SPEED);
+  expect(campaignMeleeChaseSpeed(15)).toBe(ENEMY_TOP_CHASE_SPEED);
   expect(campaignMeleeChaseSpeed(100)).toBe(ENEMY_TOP_CHASE_SPEED);
 });
 

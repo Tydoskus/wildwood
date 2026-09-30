@@ -1,7 +1,7 @@
 import { reportEnemy } from "../../tests/helpers/enemy-defeat";
 import { expect, it, vi } from "vitest";
 import { BLACK_BOOTS, BLACK_BOOTS_DROP_DENOMINATOR } from "../../shared/items";
-import { INFERNAL_DEPTHS_MAP_ID } from "../../shared/rules";
+import { INFERNAL_DEPTHS_MAP_ID, PLAYER_SPEED } from "../../shared/rules";
 import { inventoryFromSave } from "../../src/game/inventory";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
@@ -27,17 +27,18 @@ it("rejects unowned or cosmetic-only speed boosts and accepts the exact equipped
   f.patch("playerProgress", { equippedFeet: BLACK_BOOTS });
   expect(() => f.run(server.setSpeed, { speed: 205 })).toThrow("Unsupported player speed");
   f.patch("playerProgress", { infernalUnlocked: true });
-  f.run(server.setSpeed, { speed: 205 });
-  expect(f.db.player.identity.find(f.ctx.sender).speed).toBe(205);
+  const shod = PLAYER_SPEED + 25;
+  f.run(server.setSpeed, { speed: shod });
+  expect(f.db.player.identity.find(f.ctx.sender).speed).toBe(shod);
   expect(f.db.playerProgress.identity.find(f.ctx.sender).speed).toBe(180);
   expect(() => f.run(server.updateMovementState, {
-    x: 4050, y: 4050, vx: 205, vy: 0, simulationTick: 1, motionEpoch: 1, sequence: 1,
+    x: 4050, y: 4050, vx: shod, vy: 0, simulationTick: 1, motionEpoch: 1, sequence: 1,
   })).not.toThrow();
-  f.run(server.setSpeed, { speed: 180 });
+  f.run(server.setSpeed, { speed: PLAYER_SPEED });
   expect(() => f.run(server.updateMovementState, {
-    x: 4050, y: 4050, vx: 180, vy: 0, simulationTick: 2, motionEpoch: 1, sequence: 2,
+    x: 4050, y: 4050, vx: PLAYER_SPEED, vy: 0, simulationTick: 2, motionEpoch: 1, sequence: 2,
   })).not.toThrow();
-  expect(() => f.run(server.setSpeed, { speed: 206 })).toThrow("Unsupported player speed");
+  expect(() => f.run(server.setSpeed, { speed: shod + 1 })).toThrow("Unsupported player speed");
 });
 
 it("accepts the Black Boots bonus while the player row still has the base speed", () => {
@@ -77,7 +78,7 @@ it("accepts the speed of the rank a player has just finished, which their client
   // previous rank's speed. It is slower than allowed, so it is not an exploit.
   const f = crystalFixture();
   f.seed("playerResearch", { identity: f.ctx.sender, moveSpeed: 6 });
-  const atRank = (rank: number) => 180 * (1 + rank * 0.02);
+  const atRank = (rank: number) => PLAYER_SPEED * (1 + rank * 0.02);
 
   expect(() => f.run(server.setSpeed, { speed: atRank(6) })).not.toThrow();
   expect(() => f.run(server.setSpeed, { speed: atRank(5) })).not.toThrow();

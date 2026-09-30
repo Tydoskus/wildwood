@@ -4,19 +4,20 @@ import {
   movementSpeedMultiplier,
   movementSpeedsMatch,
   playerBaseMovementSpeed,
+  PLAYER_SPEED,
 } from "./rules";
 
 describe("player movement speed", () => {
   it("keeps cosmetic boots from changing movement speed", () => {
-    expect(playerBaseMovementSpeed(false)).toBe(180);
-    expect(playerBaseMovementSpeed(true)).toBe(180);
+    expect(playerBaseMovementSpeed(false)).toBe(PLAYER_SPEED);
+    expect(playerBaseMovementSpeed(true)).toBe(PLAYER_SPEED);
   });
 
   it("applies every Move Speed research rank after equipment", () => {
     expect(movementSpeedMultiplier(5)).toBeCloseTo(1.1);
-    expect(effectivePlayerMovementSpeed(true, 5)).toBeCloseTo(198);
-    expect(effectivePlayerMovementSpeed(true, 11)).toBeCloseTo(219.6);
-    expect(effectivePlayerMovementSpeed(true, 15)).toBeCloseTo(234);
+    expect(effectivePlayerMovementSpeed(true, 5)).toBeCloseTo(PLAYER_SPEED * 1.1);
+    expect(effectivePlayerMovementSpeed(true, 11)).toBeCloseTo(PLAYER_SPEED * 1.22);
+    expect(effectivePlayerMovementSpeed(true, 15)).toBeCloseTo(PLAYER_SPEED * 1.3);
   });
 
   it("uses a server-owned developer override as the researched base speed", () => {

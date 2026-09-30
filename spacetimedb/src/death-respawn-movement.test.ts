@@ -1,4 +1,5 @@
 import { expect, it, vi } from "vitest";
+import { PLAYER_SPEED } from "../../shared/rules";
 import { Timestamp } from "spacetimedb";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
@@ -16,11 +17,11 @@ it("pulls a position the player could not have walked to back to the edge of wha
   later(f, 3.85);
   // Refusing this used to cost honest players their footing after knockback or
   // a lag spike. It is corrected now, and no error reaches the client.
-  expect(() => move(f, 600, 600, 3, 180)).not.toThrow();
+  expect(() => move(f, 600, 600, 3, PLAYER_SPEED)).not.toThrow();
   const moved = f.db.player.identity.find(f.ctx.sender);
   expect(moved.x).toBeLessThan(4060);
   expect(moved.x).toBeGreaterThan(600);
-  expect(Math.hypot(moved.x - 4060, moved.y - 4050)).toBeLessThanOrEqual(180 * 3.85 + 96 + 1);
+  expect(Math.hypot(moved.x - 4060, moved.y - 4050)).toBeLessThanOrEqual(PLAYER_SPEED * 3.85 + 96 + 1);
 });
 
 it("lets a player who died move again from wherever they respawn", () => {
@@ -30,7 +31,7 @@ it("lets a player who died move again from wherever they respawn", () => {
   f.run(server.recordPlayerDeath, {});
   expect(f.db.player.identity.find(f.ctx.sender).lastInputSequence).toBe(0);
   later(f, 3.85);                                           // the respawn delay
-  expect(() => move(f, 600, 600, 3, 180)).not.toThrow();    // the map's spawn, a map away from the death
+  expect(() => move(f, 600, 600, 3, PLAYER_SPEED)).not.toThrow();    // the map's spawn, a map away from the death
   expect(f.db.player.identity.find(f.ctx.sender)).toMatchObject({ x: 600, y: 600, lastInputSequence: 3 });
   later(f, 0.5);
   // Armed again: a jump from there is corrected rather than taken whole.

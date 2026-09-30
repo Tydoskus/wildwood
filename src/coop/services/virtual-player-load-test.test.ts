@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PLAYER_RADIUS, WORLD_HEIGHT, WORLD_WIDTH } from "../../../shared/rules";
+import { PLAYER_RADIUS, PLAYER_SPEED, WORLD_HEIGHT, WORLD_WIDTH } from "../../../shared/rules";
 import {
   BROWSER_VIRTUAL_PLAYER_LIMIT,
   VIRTUAL_PLAYER_MOVEMENT_HZ,
@@ -103,7 +103,7 @@ describe("virtual-player random walk", () => {
 
     expect(next.moving).toBe(true);
     expect(next.x).toBeGreaterThan(100);
-    expect(next.x).toBeLessThanOrEqual(127);
+    expect(next.x).toBeLessThanOrEqual(100 + PLAYER_SPEED * .15);
     expect(next.nextTurnAt).toBeGreaterThan(1_000);
   });
 

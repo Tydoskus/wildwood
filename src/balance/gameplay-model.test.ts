@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { PLAYER_SPEED } from "../../shared/rules";
 import { regularMapLoot } from "../../shared/regular-map-loot";
 import { enemyDefeatDefinition } from "../../shared/enemy-defeats";
 import { ENEMY_TYPES } from "../../shared/enemy-definitions";
@@ -26,10 +27,11 @@ describe("simulator parity with gameplay", () => {
   });
 
   it("only gives Black Boots' flat speed bonus after five seconds without combat", () => {
-    // Black Boots are flat now: 205/s with them, 180/s without.
-    expect(simulationTravelSeconds(205, 0, true)).toBeCloseTo(1);
-    expect(simulationTravelSeconds(900, 0, true)).toBeCloseTo(900 / 205);
-    expect(simulationTravelSeconds(205, 0, false)).toBeCloseTo(205 / 180);
-    expect(simulationTravelSeconds(241, 10, true)).toBeCloseTo(241 / (180 * 1.2 + 25));
+    // Black Boots are flat now: 25/s on top of the base speed.
+    const shod = PLAYER_SPEED + 25;
+    expect(simulationTravelSeconds(shod, 0, true)).toBeCloseTo(1);
+    expect(simulationTravelSeconds(900, 0, true)).toBeCloseTo(900 / shod);
+    expect(simulationTravelSeconds(shod, 0, false)).toBeCloseTo(shod / PLAYER_SPEED);
+    expect(simulationTravelSeconds(241, 10, true)).toBeCloseTo(241 / (PLAYER_SPEED * 1.2 + 25));
   });
 });

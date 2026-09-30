@@ -15,7 +15,15 @@ export const PLAYER_RADIUS = 17;
 export const PLAYER_BASE_HP = 100;
 export const PLAYER_BASE_DAMAGE = 3;
 export const PLAYER_BASE_REGEN = 0.2;
-export const PLAYER_SPEED = 180;
+export const PLAYER_SPEED = 200;
+/**
+ * Movement comes from PLAYER_SPEED, not the speed a save stores, but the
+ * untouched-save checks compare that stored copy: saves made at the old 180
+ * still count as untouched.
+ */
+export function isBaseStoredSpeed(speed: unknown) {
+  return speed === PLAYER_SPEED || speed === 180;
+}
 export const BOOTS_SPEED_BONUS = 0;
 export const MOVE_SPEED_RESEARCH_BONUS_PER_RANK = .02;
 /** Move Speed research: five ranks per band across four bands. */

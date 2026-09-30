@@ -16,7 +16,7 @@ import {
   MIN_ATTACK_INTERVAL,
   PLAYER_BASE_HP, PLAYER_BASE_DAMAGE,
   PLAYER_BASE_REGEN,
-  PLAYER_SPEED,
+  isBaseStoredSpeed,
   playerBaseMovementSpeed,
 } from "../../../shared/rules";
 
@@ -265,6 +265,6 @@ function isDefaultProgress(progress: Partial<PlayerProgress>) {
     progress.attackRange === BASE_ATTACK_RANGE &&
     progress.armor === 0 &&
     (progress.regen === 0 || Math.abs((progress.regen ?? 0) - PLAYER_BASE_REGEN) < 1e-6) &&
-    progress.speed === PLAYER_SPEED &&
+    isBaseStoredSpeed(progress.speed) &&
     (progress.speedOverride ?? 0) === 0;
 }

@@ -220,6 +220,7 @@ import {
   WATER_REACH_MAP_ID,
   WORLD_HEIGHT,
   WORLD_WIDTH,
+  isBaseStoredSpeed,
 } from "../../shared/rules";
 import { MAP_EDITOR_GAMEPLAY_OVERRIDES } from "../../shared/map-editor-overrides";
 
@@ -2757,7 +2758,7 @@ function hasFreshProgress(progress: any) {
     progress.attackRange === defaultProgress.attackRange &&
     progress.armor === defaultProgress.armor &&
     (progress.regen === 0 || Math.abs(progress.regen - defaultProgress.regen) < 1e-6) &&
-    progress.speed === defaultProgress.speed &&
+    isBaseStoredSpeed(progress.speed) &&
     (progress.speedOverride ?? 0) === 0 &&
     progress.bootsCollected === defaultProgress.bootsCollected &&
     progress.inventoryJson === defaultProgress.inventoryJson &&
