@@ -30,6 +30,7 @@ import {
   OidcIdTokenError,
   type ValidatedIdTokenClaims,
 } from "../security/oidc-id-token";
+import { tokenClockOffsetMs } from "../security/token-clock";
 
 type AccountKeys = {
   tokenKey: string;
@@ -530,6 +531,9 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       outboundAuthNavigationPending = false;
       notice = "SIGNED IN";
       outcome = "success";
+      // A device clock this far off used to refuse every sign-in (token-clock.ts).
+      const clockOffset = tokenClockOffsetMs();
+      if (clockOffset) recordCarriedConnectionDiagnostic("session-blocked", { detail: `device-clock-off:${Math.round(clockOffset / 1_000)}s${accountTag()}` });
     } catch (error) {
       callbackFailure = error instanceof TokenExchangeRequestError ? `exchange-${error.reason}`
         : error instanceof OidcIdTokenError ? `token-check-${error.reason}`

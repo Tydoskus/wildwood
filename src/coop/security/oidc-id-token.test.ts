@@ -6,6 +6,7 @@ import {
   validateSpacetimeIdToken,
   verifySpacetimeIdToken,
 } from "./oidc-id-token";
+import { learnTokenClock, tokenClockOffsetMs } from "./token-clock";
 
 const TEST_NOW_MS = 1_800_000_000_000;
 const TEST_NOW_SECONDS = TEST_NOW_MS / 1_000;
@@ -174,5 +175,37 @@ describe("Spacetime Auth ID-token validation", () => {
     } catch (error) {
       expect(String(error)).not.toContain(secret);
     }
+  });
+});
+
+describe("a device clock that is wrong", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    learnTokenClock(Date.now() / 1_000); // back to no correction for the next test
+  });
+  const verify = (token: string) => verifySpacetimeIdToken(token, { expectedNonce: "expected-nonce", jwks: { keys: [publicJwk] } });
+
+  it("accepts a fresh login on a device five minutes behind, and the stored one after it", async () => {
+    vi.useFakeTimers({ now: TEST_NOW_MS - 300_000, toFake: ["Date"] });
+    const token = await signedToken({ claims: { iat: TEST_NOW_SECONDS, exp: TEST_NOW_SECONDS + 3_600 } });
+    // Uncorrected, it reads as issued five minutes in the future: every sign-in refused.
+    expect(() => inspectSpacetimeIdToken(token)).toThrow(OidcIdTokenError);
+    await expect(verify(token)).resolves.toMatchObject({ sub: "test-subject" });
+    expect(tokenClockOffsetMs()).toBe(300_000);
+    expect(() => inspectSpacetimeIdToken(token)).not.toThrow();
+  });
+
+  it("accepts a fresh login on a device two hours ahead, which read it as expired", async () => {
+    vi.useFakeTimers({ now: TEST_NOW_MS + 7_200_000, toFake: ["Date"] });
+    const token = await signedToken({ claims: { iat: TEST_NOW_SECONDS, exp: TEST_NOW_SECONDS + 3_600 } });
+    expect(() => inspectSpacetimeIdToken(token)).toThrow(OidcIdTokenError);
+    await expect(verify(token)).resolves.toMatchObject({ sub: "test-subject" });
+    expect(tokenClockOffsetMs()).toBe(-7_200_000);
+  });
+
+  it("leaves network-sized drift and implausible gaps uncorrected", () => {
+    expect(learnTokenClock(1_000, 1_000_000 + 30_000)).toBe(0);
+    expect(learnTokenClock(1_000 + 30 * 86_400, 1_000_000)).toBe(0);
+    expect(learnTokenClock(1_000 + 600, 1_000_000)).toBe(600_000);
   });
 });
