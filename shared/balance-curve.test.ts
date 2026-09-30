@@ -20,10 +20,17 @@ describe("balance curve", () => {
     expect(CURVE_START.damage + curveRewardPerKill(1, "damage") * curveKills(1)).toBeCloseTo(24);
   });
 
-  it("asks 1 + Y × (map − 1) times map 1's kills on every map, so map 15 is 15× at Y = 1 and flat at Y = 0", () => {
-    expect(curveKills(15)).toBeCloseTo(15 * curveKills(1));
-    expect(curveKills(15, { ...curve, clearsY: 0 })).toBeCloseTo(curveKills(1));
+  it("pays 3.4x more a kill each map while the build grows 4x, so each map asks for more kills", () => {
+    for (let y = 2; y < 30; y++) {
+      const ratio = curveRewardPerKill(y + 1, "damage") / curveRewardPerKill(y, "damage");
+      expect(ratio).toBeCloseTo(curve.rewardGrowth);
+      expect(curveKills(y + 1)).toBeGreaterThan(curveKills(y));
+    }
+    expect(curveTargets(3).damage / curveTargets(2).damage).toBeCloseTo(4);
     expect(curveClears(1)).toBeCloseTo(6);
+    // Paying as much more as the build grows keeps kills flat; never fewer.
+    expect(curveKills(15, { ...curve, rewardGrowth: 4 / 1.02 })).toBeCloseTo(curveKills(1));
+    expect(curveKills(15, { ...curve, rewardGrowth: 20 })).toBeCloseTo(curveKills(1));
   });
 
   it("pays more per kill on every map than the one before, so a newly opened map is worth farming", () => {
@@ -79,7 +86,8 @@ describe("balance curve", () => {
       expect(curveTargets(y).attackSpeed).toBeGreaterThanOrEqual(curveTargets(y - 1).attackSpeed);   // level once Speed hits the stat cap
       expect(curveTargets(y).attackSpeed).toBeLessThan(3);
     }
-    expect(curveTargets(15).attackSpeed).toBeGreaterThan(2.8);
+    // 4x a map reaches about 2.75 attacks a second by map 15.
+    expect(curveTargets(15).attackSpeed).toBeGreaterThan(2.7);
     expect(curveRewardPerKill(1, "speed")).toBeCloseTo(curve.speedMap1 / 42);
   });
 
@@ -106,7 +114,7 @@ describe("balance curve", () => {
     // Endless 1 is map 16: the same growth, kills and gear allowance as any campaign map.
     const endless1 = CAMPAIGN_MAPS.length + 1;
     expect(curveTargets(endless1).damage).toBeCloseTo(curveTargets(15).damage * curve.arrivalBlows);
-    expect(curveKills(endless1)).toBeCloseTo(16 * curveKills(1));
+    expect(curveKills(endless1) / curveKills(15)).toBeCloseTo(curveKills(15) / curveKills(14));
     expect(curveBonus(endless1).damage).toBeCloseTo(curveBonus(15).damage * curve.bonusGrowth);
     for (const y of [100, 1_016, 5_000]) {
       const enemy = curveEnemy(y, "health", true), boss = curveBoss(y);

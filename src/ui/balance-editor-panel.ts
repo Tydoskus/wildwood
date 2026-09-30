@@ -3,7 +3,7 @@ import { DEFAULT_BALANCE_FACTORS, type BalanceEditorState, type BalanceSettings,
 import { REGULAR_ENEMY_RESPAWN_SECONDS } from '../../shared/rules';
 import { BALANCE_CURVE_LIMITS, DEFAULT_BALANCE_CURVE, curveKills, type BalanceCurve } from '../../shared/balance-curve';
 import { CAMPAIGN_MAPS } from '../../shared/campaign-registry';
-const curveFields: [keyof BalanceCurve, string][] = [['map1DamageReward', 'Map 1 damage reward per kill'], ['map1EnemyHp', 'Map 1 finished damage'], ['map1SlimeHp', 'Map 1 damage camp health'], ['clearsY', 'Kill growth per map (Y)'], ['groupSize', 'Enemies per group'],
+const curveFields: [keyof BalanceCurve, string][] = [['map1DamageReward', 'Map 1 damage reward per kill'], ['map1EnemyHp', 'Map 1 finished damage'], ['map1SlimeHp', 'Map 1 damage camp health'], ['rewardGrowth', 'Reward per kill growth per map (×)'], ['groupSize', 'Enemies per group'],
   ['arrivalBlows', 'Blows per kill arriving on a map'], ['map1MaxHp', 'Map 1 health target'], ['map1Regen', 'Map 1 regen target'],
   ['armorMap1', 'Map 1 armor target'], ['speedMap1', 'Map 1 Attack Speed target'], ['map1DamageCampHit', 'Map 1 damage camp hit'],
   ['bossFightSeconds', 'Boss fight length (seconds)'], ['bossHitShare', 'Boss heaviest hit (share of health)'], ['eliteHealth', 'Elite health and reward (×)'], ['eliteHit', 'Elite hit (×)'],
@@ -24,7 +24,7 @@ export function createBalanceEditorPanel(root: HTMLElement, api: BalanceEditorDe
   root.innerHTML = `<div class="balance-heading"><div><h2>Map balancing</h2><p>Changes apply on the next map visit.</p></div><span class="balance-version">Loading…</span></div>
     <div class="balance-map-row"><label>Map<select class="balance-map" aria-label="Balance map"></select></label><label class="balance-depth" hidden>Endless map<input type="number" min="1" max="1001" step="1" value="1" aria-label="Endless preview map"></label></div>
     <p class="balance-hint">1× is the base value · 0.5× is half · 2× is double</p><div class="balance-groups"></div>
-    <section class="balance-formula"><h3>Map curve</h3><p>Map 1's damage reward and slime health set map 1's kills; every later map asks 1 + Y × (map − 1) times as many. Enemies are sized to the build you arrive with. It sets every map's enemies and bosses.</p><div class="balance-formula-inputs"></div></section>
+    <section class="balance-formula"><h3>Map curve</h3><p>Map 1's damage reward and slime health set map 1's kills; after that a kill pays the reward growth times the last map's while the build grows by the blows per kill, and the gap is more kills. Enemies are sized to the build you arrive with. It sets every map's enemies and bosses.</p><div class="balance-formula-inputs"></div></section>
     <div class="balance-preview-title"><h3>Resulting stats</h3><span class="balance-preview-state"></span></div><div class="balance-preview" aria-live="polite"></div>
     <p class="balance-status" role="status"></p><div class="balance-actions"><button class="balance-reset" type="button">Reset this map</button><button class="balance-apply" type="button" disabled>Apply changes</button></div><button class="balance-restore" type="button" disabled>Restore previous balance</button>`;
   const el = <T extends HTMLElement>(selector: string) => root.querySelector<T>(selector)!;

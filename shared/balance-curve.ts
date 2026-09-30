@@ -11,9 +11,12 @@ import { attacksPerSecondFromSpeed } from './attack-speed-rating';
  * Rewards decide the pace. Map 1's damage camp pays `map1DamageReward` a
  * kill, and a new run farms it from 3 damage to `map1EnemyHp`, map 1's
  * finished damage: that sets map 1's kills per camp type (0.5 a kill from 3
- * to 24 is 42 kills, six groups of 7). Every map after asks for more kills,
- * kills(y) = kills(1) × (1 + Y × (y − 1)). Each camp's reward is its step
- * from the arrival build to the finished one, shared over those kills.
+ * to 24 is 42 kills, six groups of 7). After that a kill pays `rewardGrowth`
+ * times the last map's, while the build grows `arrivalBlows` times: the gap
+ * is more kills, kills(y) = kills(1) × (arrivalBlows / (rewardGrowth ×
+ * rewardBonusGrowth))^(y − 1), never fewer than the map before. Each camp's
+ * reward is its step from the arrival build to the finished one, shared over
+ * those kills.
  *
  * Every finished stat is its map-1 target grown `arrivalBlows` times a map,
  * so a player arrives needing that many blows a kill and farms to one-shots.
@@ -44,8 +47,8 @@ import { attacksPerSecondFromSpeed } from './attack-speed-rating';
 export type BalanceCurve = {
   /** What map 1's damage camp pays a kill. With map1EnemyHp it sets map 1's kills. */
   map1DamageReward: number;
-  /** How fast kills grow per map: kills(y) = kills(1) × (1 + Y × (y − 1)); 1 makes map 15 take 15×. */
-  clearsY: number;
+  /** How much more a kill pays than on the map before. Below arrivalBlows, each map asks for more kills. */
+  rewardGrowth: number;
   /** Kills in one group, for counting clears. */
   groupSize: number;
   /** How much each map's finished build grows: the blows a kill takes on arrival. */
@@ -79,7 +82,7 @@ export type BalanceCurve = {
 };
 
 export const DEFAULT_BALANCE_CURVE: Readonly<BalanceCurve> = Object.freeze({
-  map1DamageReward: .5, clearsY: 1, groupSize: 7, arrivalBlows: 7,
+  map1DamageReward: .5, rewardGrowth: 3.4, groupSize: 7, arrivalBlows: 4,
   map1EnemyHp: 24, map1SlimeHp: 8, map1MaxHp: 800, map1Regen: 1.6, armorMap1: 50, speedMap1: 50,
   map1DamageCampHit: 10, bossFightSeconds: 45, bossHitShare: .25, eliteHealth: 5, eliteHit: 3,
   bonusGrowth: 1.07, healthBonusGrowth: 1.06, rewardBonusGrowth: 1.02, bossGate: .75,
@@ -87,7 +90,7 @@ export const DEFAULT_BALANCE_CURVE: Readonly<BalanceCurve> = Object.freeze({
 
 /** The knobs a developer may set, and their ranges. */
 export const BALANCE_CURVE_LIMITS: Readonly<Record<keyof BalanceCurve, readonly [number, number]>> = Object.freeze({
-  map1DamageReward: [.001, 1e6], clearsY: [0, 10], groupSize: [1, 50], arrivalBlows: [1.1, 20],
+  map1DamageReward: [.001, 1e6], rewardGrowth: [1, 20], groupSize: [1, 50], arrivalBlows: [1.1, 20],
   map1EnemyHp: [4, 1e6], map1SlimeHp: [.1, 1e6], map1MaxHp: [101, 1e6], map1Regen: [.21, 1e6], armorMap1: [1, 1e6], speedMap1: [1, 1e6],
   map1DamageCampHit: [.001, 1e6], bossFightSeconds: [5, 600], bossHitShare: [.01, 1], eliteHealth: [1, 100], eliteHit: [.1, 100],
   bonusGrowth: [1, 2], healthBonusGrowth: [1, 2], rewardBonusGrowth: [1, 2], bossGate: [0, .95],
@@ -116,7 +119,8 @@ const cap = (value: number) => Number.isFinite(value) ? Math.min(MAX_PLAYER_STAT
 /** Kills of each camp type on map y, and the groups they make. */
 export function curveKills(y: number, curve: BalanceCurve = DEFAULT_BALANCE_CURVE) {
   const map1 = Math.max(1, (curve.map1EnemyHp - CURVE_START.damage) / curve.map1DamageReward);
-  return map1 * (1 + curve.clearsY * (Math.max(1, y) - 1));
+  const growth = Math.max(1, curve.arrivalBlows / (curve.rewardGrowth * curve.rewardBonusGrowth));
+  return map1 * growth ** (Math.max(1, y) - 1);
 }
 export function curveClears(y: number, curve: BalanceCurve = DEFAULT_BALANCE_CURVE) {
   return curveKills(y, curve) / curve.groupSize;
