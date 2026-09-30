@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.843": [
+    "Dropping out of Reflect Only keeps your challenge run; drop back in to pick it up where you left it",
+  ],
   "0.842": [
     "Reflect Only wins also raise Reflect's rank cap by 1 each, up to rank 9",
     "Clearer Reflect Only challenge text",
@@ -2549,6 +2552,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.843": "2026-09-30",
   "0.842": "2026-09-30",
   "0.841": "2026-09-30",
   "0.840": "2026-09-30",
