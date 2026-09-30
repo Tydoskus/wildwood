@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { defaultBalanceSettings, resolveMapBalance, validateBalanceSettings, BALANCE_MAPS } from './map-balance';
+import { ENDLESS_STEPS, defaultBalanceSettings, resolveMapBalance, validateBalanceSettings, BALANCE_MAPS } from './map-balance';
 import { bossRegenFractionFor } from './boss-regeneration';
 import { enemyDefeatDefinition } from './enemy-defeats';
 import { personalBossDefinition } from './personal-bosses';
@@ -86,15 +86,18 @@ it('carries the final campaign tuning into Endless while earlier map tuning stay
 
 describe('Endless carries on from map 15', () => {
   const damageCamp = (snapshot: ReturnType<typeof resolveMapBalance>) => Object.values(snapshot.enemies).find(row => row.reward.type === 'damage' && !row.elite)!;
-  it('grows every Endless map by the campaign\'s last step, from map 15', () => {
+  it('grows every Endless map by ENDLESS_STEPS from map 15, the same for every camp', () => {
     const settings = defaultBalanceSettings();
-    const map14 = damageCamp(resolveMapBalance('verdant_catacombs', settings, 0)), map15 = damageCamp(resolveMapBalance('ion_citadel', settings, 0));
+    const map15 = damageCamp(resolveMapBalance('ion_citadel', settings, 0));
     for (const depth of [1, 2, 3, 10]) {
       const lane = resolveMapBalance(`endless_${depth}`, settings, 0).lanes.Cindermaw;
-      expect(lane.hp / map15.hp / (map15.hp / map14.hp) ** depth).toBeCloseTo(1, 9);
-      expect(lane.damage / map15.damage / (map15.damage / map14.damage) ** depth).toBeCloseTo(1, 9);
-      expect(lane.reward.amount / map15.reward.amount / (map15.reward.amount / map14.reward.amount) ** depth).toBeCloseTo(1, 9);
+      expect(lane.hp / map15.hp / ENDLESS_STEPS.health ** depth).toBeCloseTo(1, 9);
+      expect(lane.damage / map15.damage / ENDLESS_STEPS.hit ** depth).toBeCloseTo(1, 9);
+      expect(lane.reward.amount / map15.reward.amount / ENDLESS_STEPS.reward ** depth).toBeCloseTo(1, 9);
     }
+    // Elites grow at the same step as their regulars, so their share of a hit stays put.
+    const e1 = resolveMapBalance('endless_1', settings, 0).lanes, e5 = resolveMapBalance('endless_5', settings, 0).lanes;
+    expect(e5['Dread Warden'].damage / e5.Cindermaw.damage).toBeCloseTo(e1['Dread Warden'].damage / e1.Cindermaw.damage, 9);
   });
   it('carries map 15 tuning into Endless once, without compounding it', () => {
     const plain = defaultBalanceSettings(), tuned = defaultBalanceSettings();

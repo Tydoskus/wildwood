@@ -1,7 +1,7 @@
 import revision75 from '../tests/fixtures/balance-revision-75.json';
 import { expect, it } from 'vitest';
 import fixture from '../tests/fixtures/balance-revision-73.json';
-import { defaultBalanceSettings, resolveMapBalance, validateBalanceSettings } from './map-balance';
+import { ENDLESS_STEPS, defaultBalanceSettings, resolveMapBalance, validateBalanceSettings } from './map-balance';
 import { CAMPAIGN_MAPS } from './campaign-registry';
 import { CAMPAIGN_PACING_REWARDS } from './campaign-pacing-rewards';
 
@@ -21,14 +21,13 @@ it('applies campaign pacing once and changes no combat, boss, drop or timer valu
   }
 });
 
-it('carries final-map pacing into Endless, which carries on from map 15 by its last step', () => {
+it('carries final-map pacing into Endless, which carries on from map 15', () => {
   const damageCamp = (snapshot: ReturnType<typeof resolveMapBalance>) => Object.values(snapshot.enemies).find(row => row.reward.type === 'damage' && !row.elite)!;
   for (const settings of [fixture.settings, defaultBalanceSettings()]) {
-    const map14 = damageCamp(resolveMapBalance('verdant_catacombs', settings, 0)).reward.amount;
     const map15 = damageCamp(resolveMapBalance('ion_citadel', settings, 0)).reward.amount;
     for (const depth of [1, 2, 10, 40]) {
       const lane = resolveMapBalance(`endless_${depth}`, settings, 0).lanes.Cindermaw.reward.amount;
-      expect(lane / map15 / (map15 / map14) ** depth).toBeCloseTo(1, 9);
+      expect(lane / map15 / ENDLESS_STEPS.reward ** depth).toBeCloseTo(1, 9);
     }
   }
 });
