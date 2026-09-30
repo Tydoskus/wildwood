@@ -1,3 +1,5 @@
+import { cameraZoomPreference } from "./camera-zoom-preference";
+
 /** Aligns a world-space render coordinate to a physical display pixel. */
 export function snapWorldRenderCoordinate(value: number, zoom: number, devicePixelRatio: number) {
   const scale = zoom * devicePixelRatio;
@@ -18,9 +20,11 @@ export function drawScreenSpaceAt(
   draw: () => void,
 ) {
   const safeZoom = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+  // Labels grow and shrink with the player's own zoom, so they keep their size next to the world.
+  const labelScale = cameraZoomPreference() / safeZoom;
   ctx.save();
   ctx.translate(x, y);
-  ctx.scale(1 / safeZoom, 1 / safeZoom);
+  ctx.scale(labelScale, labelScale);
   try {
     draw();
   } finally {

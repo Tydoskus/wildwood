@@ -983,6 +983,10 @@
   .signin-version[data-unread-notes="true"]::after { top: 12px; right: 34px; }
   .minimap-version:hover, .minimap-version:active { background: transparent; box-shadow: none; transform: none; }
   .minimap-version:focus-visible { outline: 1px solid #fff; outline-offset: 2px; }
+  .camera-zoom-control { display: flex; align-items: center; gap: 4px; margin-top: 2px; pointer-events: auto; }
+  .camera-zoom-button { width: 22px; min-width: 0; height: 22px; min-height: 0; padding: 0; border-radius: 50%; font: 900 15px/1 var(--font-rounded); }
+  .camera-zoom-button:disabled { opacity: .4; }
+  .camera-zoom-level { min-width: 34px; color: rgba(246, 246, 232, .9); font: 900 10px/12px var(--font-rounded); }
 
   .minimap-button {
     position: absolute;

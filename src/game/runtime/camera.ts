@@ -1,4 +1,5 @@
 import { ATTACK_RANGE_ZOOM_REFERENCE, BASE_ATTACK_RANGE, MIN_CAMERA_ZOOM, WORLD } from "../constants";
+import { cameraZoomPreference } from "./camera-zoom-preference";
 import { clamp } from "../math";
 
 export type Camera = { x: number; y: number; zoom: number };
@@ -56,7 +57,8 @@ export function targetCameraZoom(attackRange: number, viewport: Viewport) {
   const viewportMultiplier = isPhoneViewport(viewport)
     ? MOBILE_CAMERA_ZOOM_MULTIPLIER * Math.min(1, width / NARROW_PHONE_WIDTH)
     : MOBILE_CAMERA_ZOOM_MULTIPLIER * Math.sqrt(squareViewportArea / referenceArea);
-  return clamp(attackRangeZoom(attackRange) * viewportMultiplier, MIN_CAMERA_ZOOM, MAX_CAMERA_ZOOM);
+  // The player's own zoom rides on top of the framing, within ±30% (camera-zoom-preference.ts).
+  return clamp(attackRangeZoom(attackRange) * viewportMultiplier, MIN_CAMERA_ZOOM, MAX_CAMERA_ZOOM) * cameraZoomPreference();
 }
 
 function targetPosition(
