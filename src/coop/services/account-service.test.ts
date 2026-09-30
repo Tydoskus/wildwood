@@ -44,6 +44,7 @@ const keys = {
   guestTokenKey: "guest-token",
   accountTokenKey: "account-token",
   accountLinkKey: "account-link",
+  loginMoveKey: "login-move",
   accountMigrationPendingKey: "migration",
   authStateKey: "auth-state",
   authVerifierKey: "auth-verifier",
@@ -736,6 +737,97 @@ describe("sign-in round trips", () => {
     expect(recordCarriedConnectionDiagnostic).toHaveBeenCalledWith("session-blocked", { detail: "sign-in-return:success:known-account:silent:42s" });
     expect(f.session.getItem(keys.authTripKey)).toBeNull();
   });
+  it("follows a forced login that returned no refresh grant with one silent trip", async () => {
+    const f = setup();
+    await f.service.api.signIn();
+    const forced = new URL(f.assign.mock.calls[0][0]);
+    expect(forced.searchParams.get("prompt")).toBe("login");
+    const returnFrom = async (url: URL, response: Record<string, unknown>) => {
+      f.session.setItem(keys.authNonceKey, "expected-nonce");
+      stubTokenRequest(new FakeTokenRequest(200, response));
+      window.location.href = `https://wildstat.example/game?code=one&state=${url.searchParams.get("state")}`;
+      await f.service.restoreKnownAccount();
+    };
+    await returnFrom(forced, { id_token: accountToken() });
+    expect(f.assign).toHaveBeenCalledTimes(2);
+    const followUp = new URL(f.assign.mock.calls[1][0]);
+    expect(followUp.searchParams.get("prompt")).toBeNull();
+    expect(JSON.parse(f.session.getItem(keys.authTripKey)!)).toMatchObject({ reason: "grant-follow-up", prompt: false });
+    expect(f.connect).not.toHaveBeenCalled();
+    expect(recordCarriedConnectionDiagnostic).toHaveBeenCalledWith("session-blocked", {
+      detail: expect.stringMatching(/^sign-in-return:success:register:prompt:\d+s:no-grant$/),
+    });
+
+    await returnFrom(followUp, { id_token: accountToken(), refresh_token: "grant" });
+    expect(f.assign).toHaveBeenCalledTimes(2);
+    expect(f.connect).toHaveBeenCalledOnce();
+    expect(JSON.parse(f.local.getItem(`${keys.accountTokenKey}:refresh`)!)).toMatchObject({ token: "grant" });
+  });
+  it("plays on without a grant rather than repeating the follow-up", async () => {
+    const f = setup({ knownAccount: true });
+    await f.service.api.signIn();
+    const silent = new URL(f.assign.mock.calls[0][0]);
+    f.session.setItem(keys.authNonceKey, "expected-nonce");
+    stubTokenRequest(new FakeTokenRequest(200, { id_token: accountToken() }));
+    window.location.href = `https://wildstat.example/game?code=one&state=${silent.searchParams.get("state")}`;
+    await f.service.restoreKnownAccount();
+    expect(f.assign).toHaveBeenCalledOnce();
+    expect(f.connect).toHaveBeenCalledOnce();
+  });
+  it("says why a return failed and names the account, since a guest may upload it", async () => {
+    vi.useFakeTimers({ now: 1_000_000 });
+    const f = setup({ knownAccount: true });
+    f.local.setItem(keys.knownAccountCharacterKey, "Pearl");
+    await f.service.api.signIn();
+    const state = f.session.getItem(keys.authStateKey)!;
+    vi.setSystemTime(1_004_000);
+    stubTokenRequest(new FakeTokenRequest(400, { error: "invalid_grant" }));
+    window.location.href = `https://wildstat.example/game?code=one&state=${state}`;
+    await f.service.restoreKnownAccount();
+    expect(recordCarriedConnectionDiagnostic).toHaveBeenCalledWith("session-blocked", {
+      detail: "sign-in-return:failed:known-account:silent:4s:why=failed:invalid_grant;acct=Pearl",
+    });
+  });
+  it("still reports a failed return whose tab lost the trip record", async () => {
+    const f = setup({ knownAccount: true });
+    f.local.setItem(keys.knownAccountCharacterKey, "Pearl");
+    window.location.href = "https://wildstat.example/game?code=one&state=from-another-tab";
+    await f.service.restoreKnownAccount();
+    expect(recordCarriedConnectionDiagnostic).toHaveBeenCalledWith("session-blocked", {
+      detail: "sign-in-return:failed:unknown-trip:why=tab-lost-state;acct=Pearl",
+    });
+  });
+  it("reports once when a sign-in that worked falls back to the sign-in screen", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const f = setup({ authCallback: true, knownAccount: true });
+    f.local.setItem(keys.knownAccountCharacterKey, "Pearl");
+    stubTokenRequest(new FakeTokenRequest(200, { id_token: accountToken(), refresh_token: "grant" }));
+    await f.service.restoreKnownAccount();
+    expect(f.service.api.accountState().gameSessionApproved).toBe(true);
+    const lost = () => vi.mocked(recordCarriedConnectionDiagnostic).mock.calls
+      .filter(([, data]) => data?.detail?.startsWith("sign-in-lost:"));
+    expect(lost()).toHaveLength(0);
+    // The server refuses the new login a second time in this tab.
+    f.session.setItem(keys.authRetryKey, "true");
+    f.service.onConnectError(true, new Error("HTTP 401 Unauthorized"));
+    f.service.api.accountState();
+    f.service.api.accountState();
+    expect(lost()).toHaveLength(1);
+    expect(lost()[0][1]!.detail).toMatch(/^sign-in-lost:after=\d+s;notice=SIGN-IN REQUIRED;token=none;approved=no;acct=Pearl$/);
+    expect(recordCarriedConnectionDiagnostic).toHaveBeenCalledWith("session-blocked", {
+      detail: "authentication-rejected: HTTP 401 Unauthorized;acct=Pearl",
+    });
+    expect(warn).toHaveBeenCalledWith("WildStat sign-in lost:", lost()[0][1]!.detail);
+    warn.mockRestore();
+  });
+  it("does not report a player who chose Guest or signed out", async () => {
+    const f = setup({ authCallback: true, knownAccount: true });
+    stubTokenRequest(new FakeTokenRequest(200, { id_token: accountToken(), refresh_token: "grant" }));
+    await f.service.restoreKnownAccount();
+    f.service.api.continueAsGuest();
+    f.service.api.accountState();
+    expect(vi.mocked(recordCarriedConnectionDiagnostic).mock.calls.some(([, data]) => data?.detail?.startsWith("sign-in-lost:"))).toBe(false);
+  });
 });
 
 describe("kill-report session enforcement", () => {
@@ -786,5 +878,78 @@ describe("kill-report session enforcement", () => {
     vi.advanceTimersByTime(12_000);
     expect(f.service.canConnect()).toBe(true);
     expect(f.local.getItem(keys.guestTokenKey)).toBe("same-guest");
+  });
+});
+
+describe("moving a character to a Google sign-in", () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+  it("saves, leaves a code, signs out of SpacetimeAuth, then opens a forced sign-in on return", async () => {
+    const f = setup({ signedIn: true, accountToken: accountToken(), knownAccount: true });
+    const startLoginMove = vi.fn(async () => {});
+    f.setConnection({ isActive: true, disconnect: vi.fn(), reducers: { startLoginMove } } as never);
+    expect(await f.service.api.moveToGoogleSignIn()).toEqual({ ok: true });
+    const code = f.session.getItem(keys.loginMoveKey)!;
+    expect(startLoginMove).toHaveBeenCalledWith({ code });
+    expect(f.drainPendingProgress.mock.invocationCallOrder[0]).toBeLessThan(startLoginMove.mock.invocationCallOrder[0]);
+    // A different user signing in over a live session loses the sign-in at SpacetimeAuth, so it ends first.
+    expect(new URL(f.assign.mock.calls[0][0]).pathname).toMatch(/\/session\/end$/);
+    expect(f.local.getItem(keys.accountTokenKey)).toBeNull();
+
+    // Back from signing out, in the same tab: the move code survived, and the sign-in page opens.
+    const back = setup();
+    for (const key of [keys.loginMoveKey, `${keys.loginMoveKey}/sign_in_next`]) back.session.setItem(key, f.session.getItem(key)!);
+    await back.service.restoreKnownAccount();
+    const signIn = new URL(back.assign.mock.calls[0][0]);
+    expect(signIn.searchParams.get("prompt")).toBe("login");
+    expect(back.session.getItem(keys.loginMoveKey)).toBe(code);
+    expect(back.session.getItem(`${keys.loginMoveKey}/sign_in_next`)).toBeNull();
+    expect(back.connect).not.toHaveBeenCalled();
+  });
+  it("forgets a pending move on an ordinary sign-out", async () => {
+    const f = setup({ signedIn: true, accountToken: accountToken(), knownAccount: true });
+    f.session.setItem(keys.loginMoveKey, "move-code");
+    f.session.setItem(`${keys.loginMoveKey}/sign_in_next`, "true");
+    f.setConnection({ isActive: true, disconnect: vi.fn(), reducers: {} } as never);
+    await f.service.api.signOut();
+    expect(f.session.getItem(keys.loginMoveKey)).toBeNull();
+    expect(f.session.getItem(`${keys.loginMoveKey}/sign_in_next`)).toBeNull();
+  });
+  it("stays put when the server refuses to start", async () => {
+    const f = setup({ signedIn: true, accountToken: accountToken(), knownAccount: true });
+    f.setConnection({ isActive: true, reducers: { startLoginMove: vi.fn().mockRejectedValue("Sign in to your character first.") } } as never);
+    expect(await f.service.api.moveToGoogleSignIn()).toMatchObject({ ok: false, error: "Sign in to your character first." });
+    expect(f.assign).not.toHaveBeenCalled();
+    expect(f.session.getItem(keys.loginMoveKey)).toBeNull();
+  });
+  it("claims once on return, then enters the world", async () => {
+    const f = setup({ signedIn: true });
+    f.session.setItem(keys.loginMoveKey, "move-code");
+    const finishLoginMove = vi.fn(async () => {});
+    const connection = { disconnect: vi.fn(), reducers: { finishLoginMove } };
+    expect(await f.service.claimLoginMove(connection as never, true, () => true)).toBe(true);
+    expect(finishLoginMove).toHaveBeenCalledWith({ code: "move-code" });
+    expect(f.session.getItem(keys.loginMoveKey)).toBeNull();
+    expect(await f.service.claimLoginMove(connection as never, true, () => true)).toBe(true);
+    expect(finishLoginMove).toHaveBeenCalledOnce();
+  });
+  it("keeps the code and stops when the old login is still open, so a reload retries", async () => {
+    const f = setup({ signedIn: true });
+    f.session.setItem(keys.loginMoveKey, "move-code");
+    const connection = { disconnect: vi.fn(), reducers: {
+      finishLoginMove: vi.fn().mockRejectedValue("Your old login is still open on another device or tab. Close WildStat there, then reload.") } };
+    expect(await f.service.claimLoginMove(connection as never, true, () => true)).toBe(false);
+    expect(connection.disconnect).toHaveBeenCalledOnce();
+    expect(f.session.getItem(keys.loginMoveKey)).toBe("move-code");
+    expect(f.service.api.accountState().notice).toMatch(/STILL OPEN/);
+  });
+  it("drops the code and plays on after any other refusal", async () => {
+    const f = setup({ signedIn: true });
+    f.session.setItem(keys.loginMoveKey, "move-code");
+    const connection = { disconnect: vi.fn(), reducers: {
+      finishLoginMove: vi.fn().mockRejectedValue("This login already has a character (Fern). Use a Google account that has not played WildStat.") } };
+    expect(await f.service.claimLoginMove(connection as never, true, () => true)).toBe(true);
+    expect(connection.disconnect).not.toHaveBeenCalled();
+    expect(f.session.getItem(keys.loginMoveKey)).toBeNull();
+    expect(f.service.api.accountState().notice).toBe("NOT MOVED · THAT GOOGLE ACCOUNT ALREADY HAS A CHARACTER");
   });
 });

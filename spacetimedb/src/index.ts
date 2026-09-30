@@ -77,6 +77,8 @@ import { compressLegacyMapPower } from "../../shared/map-power-rescale";
 import { createPlayerMotionFrameSampler } from "../../shared/player-motion-sample";
 import { schema, SenderError, Router, table, t, type InferSchema, type ReducerCtx, type ViewCtx } from "spacetimedb/server";
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
+import { accountEmail, otherCharacterForLogin, recordAccountEmail } from "./account-email";
+import { beginLoginMove, claimLoginMove, loginMove, swapCharacterLogins } from "./account-transfer";
 import { devReviewTables, findDevPlayers, liftPlayerSuspension, readDevReviewQueue, recordBugDeletion, reviewBug, reviewReport } from "./dev-review";
 import { portalCutsceneBit, unlockedPortalCutsceneMask } from "../../shared/portal-cutscenes";
 import { playerBlockKey, playerReportValidationError } from "../../shared/player-safety";
@@ -1751,7 +1753,7 @@ const spacetimedb = schema({
   playerOfflinePreference, playerAudioSetting,
   defeatSessionRestriction,
   mapBalanceVersion, mapBalanceHead, playerMapBalance,
-  ...moderationTables, ...devReviewTables,
+  ...moderationTables, ...devReviewTables, accountEmail, loginMove,
   publicChatCursor,
   gemKillProgress,
   playerGemDrop,
@@ -2184,6 +2186,28 @@ export const devRepairDisplayName = spacetimedb.reducer(
     // Also reconcile retained history when this account was already repaired.
     if (isPublicDisplayNameAllowed(profile.displayName)) syncDisplayNamePresentation(ctx, identity, profile.displayName);
     else repairModeratedDisplayName(ctx, profile, "owner");
+    refreshLeaderboard(ctx);
+  },
+);
+
+// A player moving their character to another sign-in, from Settings (account-transfer.ts).
+export const startLoginMove = spacetimedb.reducer({ code: t.string() }, (ctx, { code }) => {
+  requireSupportedSessionProtocol(ctx);
+  beginLoginMove(ctx, code);
+});
+export const finishLoginMove = spacetimedb.reducer({ code: t.string() }, (ctx, { code }) => {
+  requireSupportedSessionProtocol(ctx);
+  claimLoginMove(ctx, code);
+  refreshLeaderboard(ctx);
+});
+
+// Swaps two characters between logins (account-transfer.ts). Owner-only, from the CLI.
+export const devSwapCharacters = spacetimedb.reducer(
+  { firstIdentity: t.string(), secondIdentity: t.string(), expectedFirstName: t.string(), expectedSecondName: t.string(),
+    reason: t.string(), confirmation: t.string() },
+  (ctx, args) => {
+    if (!isDatabaseOwnerIdentity(ctx.sender)) denyPrivilegedAccess(ctx, "dev_swap_characters", "Database owner required.");
+    swapCharacterLogins(ctx, args);
     refreshLeaderboard(ctx);
   },
 );
@@ -3593,6 +3617,8 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
 }
 
 export const onConnect = spacetimedb.clientConnected((ctx) => {
+  // Before the restriction check: a suspended player's login is still worth knowing.
+  recordAccountEmail(ctx);
   // Deny game-session admission before initialization work. Leave the notice
   // readable so clients can disconnect without mistaking this for an expired
   // guest token and creating a new guest account.
@@ -6401,6 +6427,8 @@ export const getPlayerModerationHistory = spacetimedb.procedure({ identity: t.id
   if (!isDatabaseOwnerIdentity(tx.sender)) requireDeveloperSession(tx, "get_player_moderation_history");
   return JSON.stringify(readPlayerModerationHistory(tx, identity.toHexString()));
 }));
+// The caller's email already has a played character on another login (account-email.ts).
+export const getOtherCharacterForLogin = spacetimedb.procedure({}, t.string(), ctx => ctx.withTx(tx => otherCharacterForLogin(tx)));
 export const devFindPlayers = spacetimedb.procedure({ query: t.string() }, t.string(), (ctx, { query }) => ctx.withTx(tx => {
   if (!isDatabaseOwnerIdentity(tx.sender)) requireDeveloperSession(tx, "dev_find_players");
   return JSON.stringify(findDevPlayers(tx, query));

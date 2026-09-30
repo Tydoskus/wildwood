@@ -17,6 +17,16 @@ export const AccountDeletionRequest = __t.object("AccountDeletionRequest", {
 });
 export type AccountDeletionRequest = __Infer<typeof AccountDeletionRequest>;
 
+export const AccountEmail = __t.object("AccountEmail", {
+  identity: __t.identity(),
+  email: __t.string(),
+  emailVerified: __t.bool(),
+  loginId: __t.string(),
+  named: __t.bool(),
+  seenAt: __t.timestamp(),
+});
+export type AccountEmail = __Infer<typeof AccountEmail>;
+
 export const AccountLink = __t.object("AccountLink", {
   code: __t.string(),
   guest: __t.identity(),
@@ -1117,6 +1127,13 @@ export const LeaderboardSize = __t.object("LeaderboardSize", {
   total: __t.u32(),
 });
 export type LeaderboardSize = __Infer<typeof LeaderboardSize>;
+
+export const LoginMove = __t.object("LoginMove", {
+  code: __t.string(),
+  source: __t.identity(),
+  createdAt: __t.timestamp(),
+});
+export type LoginMove = __Infer<typeof LoginMove>;
 
 export const MagmaliskAttackWindow = __t.object("MagmaliskAttackWindow", {
   identity: __t.identity(),

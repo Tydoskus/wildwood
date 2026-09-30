@@ -109,12 +109,14 @@ import DevSetAccessAuditLabelReducer from "./dev_set_access_audit_label_reducer"
 import DevSetChatMuteReducer from "./dev_set_chat_mute_reducer";
 import DevSetEndlessTravelAccessReducer from "./dev_set_endless_travel_access_reducer";
 import DevSuspendPlayerAccountReducer from "./dev_suspend_player_account_reducer";
+import DevSwapCharactersReducer from "./dev_swap_characters_reducer";
 import DevTeleportEndlessReducer from "./dev_teleport_endless_reducer";
 import DevUpdatePlayerSaveReducer from "./dev_update_player_save_reducer";
 import DevWarnPlayerReducer from "./dev_warn_player_reducer";
 import DisconnectPatreonReducer from "./disconnect_patreon_reducer";
 import EnterWorldReducer from "./enter_world_reducer";
 import EnterWorldWithTutorialReducer from "./enter_world_with_tutorial_reducer";
+import FinishLoginMoveReducer from "./finish_login_move_reducer";
 import FriendActionReducer from "./friend_action_reducer";
 import FulfillGemPurchaseReducer from "./fulfill_gem_purchase_reducer";
 import GuildAdmissionReducer from "./guild_admission_reducer";
@@ -194,6 +196,7 @@ import SpeedUpItemUpgradeWithGemsReducer from "./speed_up_item_upgrade_with_gems
 import SpeedUpResearchWithGemsReducer from "./speed_up_research_with_gems_reducer";
 import SpendPrestigePerkPointReducer from "./spend_prestige_perk_point_reducer";
 import StartItemUpgradeReducer from "./start_item_upgrade_reducer";
+import StartLoginMoveReducer from "./start_login_move_reducer";
 import StartResearchReducer from "./start_research_reducer";
 import SyncPositionReducer from "./sync_position_reducer";
 import TakeOverSessionReducer from "./take_over_session_reducer";
@@ -228,6 +231,7 @@ import * as GetMapConfigurationProcedure from "./get_map_configuration_procedure
 import * as GetModerationHistoryProcedure from "./get_moderation_history_procedure";
 import * as GetModerationLogProcedure from "./get_moderation_log_procedure";
 import * as GetNameChangeStatusProcedure from "./get_name_change_status_procedure";
+import * as GetOtherCharacterForLoginProcedure from "./get_other_character_for_login_procedure";
 import * as GetPatreonStatusProcedure from "./get_patreon_status_procedure";
 import * as GetPlayerModerationHistoryProcedure from "./get_player_moderation_history_procedure";
 import * as GetPrestigeLeaderboardPageProcedure from "./get_prestige_leaderboard_page_procedure";
@@ -1455,12 +1459,14 @@ const reducersSchema = __reducers(
   __reducerSchema("dev_set_chat_mute", DevSetChatMuteReducer),
   __reducerSchema("dev_set_endless_travel_access", DevSetEndlessTravelAccessReducer),
   __reducerSchema("dev_suspend_player_account", DevSuspendPlayerAccountReducer),
+  __reducerSchema("dev_swap_characters", DevSwapCharactersReducer),
   __reducerSchema("dev_teleport_endless", DevTeleportEndlessReducer),
   __reducerSchema("dev_update_player_save", DevUpdatePlayerSaveReducer),
   __reducerSchema("dev_warn_player", DevWarnPlayerReducer),
   __reducerSchema("disconnect_patreon", DisconnectPatreonReducer),
   __reducerSchema("enter_world", EnterWorldReducer),
   __reducerSchema("enter_world_with_tutorial", EnterWorldWithTutorialReducer),
+  __reducerSchema("finish_login_move", FinishLoginMoveReducer),
   __reducerSchema("friend_action", FriendActionReducer),
   __reducerSchema("fulfill_gem_purchase", FulfillGemPurchaseReducer),
   __reducerSchema("guild_admission", GuildAdmissionReducer),
@@ -1540,6 +1546,7 @@ const reducersSchema = __reducers(
   __reducerSchema("speed_up_research_with_gems", SpeedUpResearchWithGemsReducer),
   __reducerSchema("spend_prestige_perk_point", SpendPrestigePerkPointReducer),
   __reducerSchema("start_item_upgrade", StartItemUpgradeReducer),
+  __reducerSchema("start_login_move", StartLoginMoveReducer),
   __reducerSchema("start_research", StartResearchReducer),
   __reducerSchema("sync_position", SyncPositionReducer),
   __reducerSchema("take_over_session", TakeOverSessionReducer),
@@ -1576,6 +1583,7 @@ const proceduresSchema = __procedures(
   __procedureSchema("get_moderation_history", GetModerationHistoryProcedure.params, GetModerationHistoryProcedure.returnType),
   __procedureSchema("get_moderation_log", GetModerationLogProcedure.params, GetModerationLogProcedure.returnType),
   __procedureSchema("get_name_change_status", GetNameChangeStatusProcedure.params, GetNameChangeStatusProcedure.returnType),
+  __procedureSchema("get_other_character_for_login", GetOtherCharacterForLoginProcedure.params, GetOtherCharacterForLoginProcedure.returnType),
   __procedureSchema("get_patreon_status", GetPatreonStatusProcedure.params, GetPatreonStatusProcedure.returnType),
   __procedureSchema("get_player_moderation_history", GetPlayerModerationHistoryProcedure.params, GetPlayerModerationHistoryProcedure.returnType),
   __procedureSchema("get_prestige_leaderboard_page", GetPrestigeLeaderboardPageProcedure.params, GetPrestigeLeaderboardPageProcedure.returnType),

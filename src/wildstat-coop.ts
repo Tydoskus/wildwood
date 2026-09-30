@@ -80,7 +80,7 @@ const defaultHost = defaultRealtimeHost(window.location.hostname);
 const host = runtime.WILDWOOD_SPACETIMEDB_HOST ?? defaultHost;
 const databaseName = runtime.WILDWOOD_SPACETIMEDB_DB_NAME ?? "wildwood-coop";
 const {
-  tokenKey, guestTokenKey, accountTokenKey, accountLinkKey, accountMigrationPendingKey,
+  tokenKey, guestTokenKey, accountTokenKey, accountLinkKey, loginMoveKey, accountMigrationPendingKey,
   authStateKey, authVerifierKey, authNonceKey, authTripKey, authRetryKey, knownAccountKey,
   knownAccountCharacterKey, knownAccountGenderKey, knownGuestCharacterKey, authReturnUiKey,
   updateResumeKey, updateResumeConsumedKey, authTabKey, pendingProgressKey, legalConsentKey,
@@ -473,7 +473,7 @@ accountService = createAccountService({
     tokenKey,
     guestTokenKey,
     accountTokenKey,
-    accountLinkKey,
+    accountLinkKey, loginMoveKey,
     accountMigrationPendingKey,
     authStateKey,
     authVerifierKey,
@@ -751,7 +751,7 @@ function connect() {
 
         await accountService.syncLegalConsent(conn);
         if (!isCurrentConnection()) return;
-        if (!await accountService.claimAccountLink(conn, signedIn, isCurrentConnection)) return;
+        if (!await accountService.claimPendingSignIn(conn, signedIn, isCurrentConnection)) return;
         if (!await accountService.handlePendingTakeover(conn, isCurrentConnection)) return;
 
         if (accountService.shouldEnterWorld(signedIn)) {

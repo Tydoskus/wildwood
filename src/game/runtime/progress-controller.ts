@@ -79,6 +79,8 @@ export function createProgressController(dependencies: ProgressDependencies) {
       inventory.itemIds.every((item, index) => item === ownedItems[index]) &&
       (inventory.cosmeticItemIds ?? []).length === ownedCosmetics.length &&
       (inventory.cosmeticItemIds ?? []).every((item, index) => item === ownedCosmetics[index]);
+    // Whether a weapon was in hand before this reconcile clears locked or lost gear.
+    const heldWeapon = Boolean(inventory.equippedRightHand || inventory.equippedLeftHand);
     let removedLocked = false;
     for (const field of EQUIPMENT_ACCESS_FIELDS) {
       if (inventory[field] && equipmentMapRequirement(inventory[field], saved)) {
@@ -97,7 +99,9 @@ export function createProgressController(dependencies: ProgressDependencies) {
           !(field.startsWith("cosmetic") && ownedCosmetics.includes(inventory[field]))) inventory[field] = "";
     }
     // Gear taken away or locked again must not leave the player unable to attack.
-    fillEmptyHand(inventory, inventory.itemIds, saved);
+    // Hands the player emptied stay empty (unarmed Reflect runs): new loot
+    // changing the bag used to put the best weapon, usually a bow, into them.
+    if (heldWeapon) fillEmptyHand(inventory, inventory.itemIds, saved);
     applyPlayerMaxHealthMultiplierBonus(dependencies.player, dependencies.healthMultiplierBonus());
     dependencies.renderInventory();
   }
@@ -176,6 +180,8 @@ export function createProgressController(dependencies: ProgressDependencies) {
   }
 
   function applyProgress(source: Partial<PlayerProgress>) {
+    // Read before locked gear is stripped: a locked weapon in hand still counts as one.
+    const savedWeapon = Boolean(source.equippedRightHand || source.equippedLeftHand);
     source = withoutLockedEquipment(source, source);
     const { player, inventory, bootsPickup } = dependencies;
     player.baseMaxHp = boundedProgressValue(source.maxHp, player.baseMaxHp, 1, MAX_PLAYER_STAT);
@@ -216,8 +222,11 @@ export function createProgressController(dependencies: ProgressDependencies) {
     inventory.cosmeticFeet = savedInventory.cosmeticFeet;
     inventory.cosmeticRightHand = savedInventory.cosmeticRightHand;
     inventory.cosmeticLeftHand = savedInventory.cosmeticLeftHand;
-    // A blank saved hand is the best usable weapon, as the server reads it: never no weapon.
-    fillEmptyHand(inventory, inventory.itemIds, source);
+    // A saved weapon that is locked again or no longer owned falls back to the
+    // best usable one. A hand saved empty is the player's choice and stays
+    // empty, as the server has kept it since 0.832; filling it on load equipped
+    // the best weapon, usually a bow, on every login.
+    if (savedWeapon) fillEmptyHand(inventory, inventory.itemIds, source);
     setPlayerBaseMaxHealth(player, player.baseMaxHp, dependencies.healthMultiplierBonus(), true);
     applyMovementSpeed(source, false);
     inventory.selectedItemId = "";

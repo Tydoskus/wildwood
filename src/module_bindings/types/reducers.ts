@@ -81,12 +81,14 @@ import DevSetAccessAuditLabelReducer from "../dev_set_access_audit_label_reducer
 import DevSetChatMuteReducer from "../dev_set_chat_mute_reducer";
 import DevSetEndlessTravelAccessReducer from "../dev_set_endless_travel_access_reducer";
 import DevSuspendPlayerAccountReducer from "../dev_suspend_player_account_reducer";
+import DevSwapCharactersReducer from "../dev_swap_characters_reducer";
 import DevTeleportEndlessReducer from "../dev_teleport_endless_reducer";
 import DevUpdatePlayerSaveReducer from "../dev_update_player_save_reducer";
 import DevWarnPlayerReducer from "../dev_warn_player_reducer";
 import DisconnectPatreonReducer from "../disconnect_patreon_reducer";
 import EnterWorldReducer from "../enter_world_reducer";
 import EnterWorldWithTutorialReducer from "../enter_world_with_tutorial_reducer";
+import FinishLoginMoveReducer from "../finish_login_move_reducer";
 import FriendActionReducer from "../friend_action_reducer";
 import FulfillGemPurchaseReducer from "../fulfill_gem_purchase_reducer";
 import GuildAdmissionReducer from "../guild_admission_reducer";
@@ -166,6 +168,7 @@ import SpeedUpItemUpgradeWithGemsReducer from "../speed_up_item_upgrade_with_gem
 import SpeedUpResearchWithGemsReducer from "../speed_up_research_with_gems_reducer";
 import SpendPrestigePerkPointReducer from "../spend_prestige_perk_point_reducer";
 import StartItemUpgradeReducer from "../start_item_upgrade_reducer";
+import StartLoginMoveReducer from "../start_login_move_reducer";
 import StartResearchReducer from "../start_research_reducer";
 import SyncPositionReducer from "../sync_position_reducer";
 import TakeOverSessionReducer from "../take_over_session_reducer";
@@ -250,12 +253,14 @@ export type DevSetAccessAuditLabelParams = __Infer<typeof DevSetAccessAuditLabel
 export type DevSetChatMuteParams = __Infer<typeof DevSetChatMuteReducer>;
 export type DevSetEndlessTravelAccessParams = __Infer<typeof DevSetEndlessTravelAccessReducer>;
 export type DevSuspendPlayerAccountParams = __Infer<typeof DevSuspendPlayerAccountReducer>;
+export type DevSwapCharactersParams = __Infer<typeof DevSwapCharactersReducer>;
 export type DevTeleportEndlessParams = __Infer<typeof DevTeleportEndlessReducer>;
 export type DevUpdatePlayerSaveParams = __Infer<typeof DevUpdatePlayerSaveReducer>;
 export type DevWarnPlayerParams = __Infer<typeof DevWarnPlayerReducer>;
 export type DisconnectPatreonParams = __Infer<typeof DisconnectPatreonReducer>;
 export type EnterWorldParams = __Infer<typeof EnterWorldReducer>;
 export type EnterWorldWithTutorialParams = __Infer<typeof EnterWorldWithTutorialReducer>;
+export type FinishLoginMoveParams = __Infer<typeof FinishLoginMoveReducer>;
 export type FriendActionParams = __Infer<typeof FriendActionReducer>;
 export type FulfillGemPurchaseParams = __Infer<typeof FulfillGemPurchaseReducer>;
 export type GuildAdmissionParams = __Infer<typeof GuildAdmissionReducer>;
@@ -335,6 +340,7 @@ export type SpeedUpItemUpgradeWithGemsParams = __Infer<typeof SpeedUpItemUpgrade
 export type SpeedUpResearchWithGemsParams = __Infer<typeof SpeedUpResearchWithGemsReducer>;
 export type SpendPrestigePerkPointParams = __Infer<typeof SpendPrestigePerkPointReducer>;
 export type StartItemUpgradeParams = __Infer<typeof StartItemUpgradeReducer>;
+export type StartLoginMoveParams = __Infer<typeof StartLoginMoveReducer>;
 export type StartResearchParams = __Infer<typeof StartResearchReducer>;
 export type SyncPositionParams = __Infer<typeof SyncPositionReducer>;
 export type TakeOverSessionParams = __Infer<typeof TakeOverSessionReducer>;

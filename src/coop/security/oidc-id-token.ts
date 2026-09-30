@@ -2,6 +2,7 @@ import {
   SPACETIME_AUTH_CLIENT_ID,
   SPACETIME_AUTH_ISSUER,
 } from "../../../shared/rules";
+import { learnTokenClock, tokenClockNowMs } from "./token-clock";
 
 const JWKS_ENDPOINT = `${SPACETIME_AUTH_ISSUER}/jwks`;
 const JWKS_TIMEOUT_MS = 10_000;
@@ -137,7 +138,8 @@ export function inspectSpacetimeIdToken(
   if (audiences.length > 1 && claims.azp !== SPACETIME_AUTH_CLIENT_ID) throw new OidcIdTokenError("claims");
   if (claims.azp !== undefined && claims.azp !== SPACETIME_AUTH_CLIENT_ID) throw new OidcIdTokenError("claims");
 
-  const nowSeconds = (options.nowMs ?? Date.now()) / 1_000;
+  // Corrected for a device clock that runs fast or slow (token-clock.ts).
+  const nowSeconds = (options.nowMs ?? tokenClockNowMs()) / 1_000;
   if (!options.allowExpired && expiresAt <= nowSeconds + MINIMUM_TOKEN_LIFETIME_SECONDS) throw new OidcIdTokenError("claims");
   if (issuedAt > nowSeconds + CLOCK_SKEW_SECONDS || issuedAt >= expiresAt) throw new OidcIdTokenError("claims");
   const notBefore = numericDate(claims.nbf);
@@ -210,6 +212,11 @@ export async function verifySpacetimeIdToken(
   },
 ) {
   const parsed = parseIdToken(token);
+  // Only tokens SpacetimeAuth has just issued come through here (the sign-in
+  // callback and renewals), so iat is its "now": learn the device's clock
+  // error before checking this token's times against it.
+  const issuedAt = numericDate(parsed.claims.iat);
+  if (options.nowMs === undefined && issuedAt !== null) learnTokenClock(issuedAt);
   const claims = inspectSpacetimeIdToken(token, options);
   const subtle = options.subtle ?? globalThis.crypto?.subtle;
   if (!subtle) throw new OidcIdTokenError("signature");

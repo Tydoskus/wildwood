@@ -79,3 +79,29 @@ it("takes the guest half of an account with it", () => {
   expect(f.db.playerProgress.identity.find(guest)).toBeNull();
   expect(f.db.playerProgress.identity.find(f.ctx.sender)).toBeNull();
 });
+
+it("finds rows keyed in snake_case and rows naming the player second", () => {
+  // gem_purchase and player_session have snake_case keys in the schema, and a
+  // friendship lists this player as the peer rather than the owner.
+  const f = crystalFixture();
+  const friend = Identity.fromString("c2".padEnd(64, "5"));
+  f.seed("gemPurchase", { reservationId: "r-1", identity: f.ctx.sender, packId: "small", status: "settled",
+    createdAt: f.ctx.timestamp, updatedAt: f.ctx.timestamp });
+  f.seed("socialFriend", { key: "friend-1", owner: friend, peer: f.ctx.sender });
+  expect(f.db.playerSession.connectionId.find(f.ctx.connectionId)).not.toBeNull();
+
+  eraseIdentityRows(f.ctx, [f.ctx.sender]);
+
+  expect(f.db.gemPurchase.reservationId.find("r-1")).toBeNull();
+  expect(f.db.playerSession.connectionId.find(f.ctx.connectionId)).toBeNull();
+  expect(f.db.socialFriend.key.find("friend-1")).toBeNull();
+});
+
+it("covers the tables 0.812 added", () => {
+  const f = crystalFixture();
+  f.seed("guildJoinRequest", { identity: f.ctx.sender, guildId: 1n, requestedAt: 1n });
+  f.seed("playerJoinDate", { identity: f.ctx.sender, joinedAt: f.ctx.timestamp });
+  eraseIdentityRows(f.ctx, [f.ctx.sender]);
+  expect(f.db.guildJoinRequest.identity.find(f.ctx.sender)).toBeNull();
+  expect(f.db.playerJoinDate.identity.find(f.ctx.sender)).toBeNull();
+});

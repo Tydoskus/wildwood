@@ -118,7 +118,7 @@ import { hasApprovedGameSession } from "./coop/startup-state-machine";
 import { createHudTimerColumn } from "./ui/hud-timer-column";
 import { createGameElements } from "./ui/game-elements";
 import { bindGameInteractionListeners } from "./ui/game-interaction-bindings";
-import { createDevPanel, createGameActionsRuntime, createGameOverlays, createGameRuntimeHud, createHomeStationTouchHandler, createLeaderboardPanel, createPrestigePanel, createPrestigeUnlockRuntime, createTechTreePanel } from "./ui/game-ui-runtime";
+import { createDevPanel, createDuplicateLoginRuntime, createGameActionsRuntime, createGameOverlays, createGameRuntimeHud, createHomeStationTouchHandler, createLeaderboardPanel, createPrestigePanel, createPrestigeUnlockRuntime, createTechTreePanel } from "./ui/game-ui-runtime";
 import { formatCompactNumber, formatGemAmount } from "./ui/number-format";
 import { playerGenderIconPath } from "./ui/player-gender";
 import type { LeaderboardEntry } from "./wildstat-coop";
@@ -1334,10 +1334,12 @@ import {
   let offlineProgressSetting: { refresh: () => void } | undefined;
   const prestigeUnlock = createPrestigeUnlockRuntime({ coop, showMessage, runPrestige, playing: () => session?.hasStarted() && !inTutorial(),
     blocked: () => session.isPaused(), pause: (paused: boolean) => setGameplayPause("prestige-unlock", paused) });
+  const duplicateLogin = createDuplicateLoginRuntime({ coop, started: () => session?.hasStarted(), pause: (paused: boolean) => setGameplayPause("duplicate-login", paused) });
   function updateHud(force = false) {
     runtimeHud.updateHud(force);
     offlineProgressSummary?.showPending();
     prestigeUnlock.poll();
+    duplicateLogin.poll();
     offlineProgressSetting?.refresh();
   }
 

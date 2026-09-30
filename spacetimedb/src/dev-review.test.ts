@@ -286,3 +286,52 @@ describe("developer mute and ban", () => {
     expect(() => f.queue()).toThrow("Developer access required");
   });
 });
+
+describe("sign-in emails in the player lookup", () => {
+  const connectAs = (f: ReturnType<typeof fixture>, who: Identity, claims: Record<string, unknown> | null) => {
+    f.ctx.sender = who;
+    f.ctx.senderAuth = claims
+      ? { jwt: { issuer: SPACETIME_AUTH_ISSUER, audience: [SPACETIME_AUTH_CLIENT_ID], fullPayload: claims } }
+      : { jwt: { issuer: "https://guest.example", audience: ["spacetimedb"], fullPayload: { email: "guest@example.com" } } } as any;
+    // No connection ID, so the connect hook leaves the developer's own session alone.
+    const connectionId = f.ctx.connectionId;
+    f.ctx.connectionId = null;
+    f.run(server.onConnect);
+    f.ctx.connectionId = connectionId;
+    f.ctx.sender = developer;
+    f.ctx.senderAuth = { jwt: { issuer: SPACETIME_AUTH_ISSUER, audience: [SPACETIME_AUTH_CLIENT_ID] } };
+  };
+
+  it("finds both characters when one address signed in by Google and by email link", () => {
+    const f = fixture();
+    const google = identity("5"), emailLink = identity("6");
+    f.seed("playerProfile", { identity: emailLink, displayName: "Vis" });
+    f.seed("playerProfile", { identity: google, displayName: "Brave Moth 509" });
+    connectAs(f, emailLink, { sub: "user_email", email: "Same@Example.com", email_verified: true });
+    connectAs(f, google, { sub: "user_google", email: "same@example.com", email_verified: true, name: "Serge" });
+    const found = f.players(" SAME@example.com ");
+    expect(found.map(player => [player.displayName, player.loginId, player.email]).sort()).toEqual([
+      ["Brave Moth 509", "user_google", "same@example.com"],
+      ["Vis", "user_email", "same@example.com"],
+    ]);
+    expect(f.players("Vis")[0]).toMatchObject({ email: "same@example.com", loginId: "user_email" });
+  });
+
+  it("keeps guests and tokens from other issuers out, and leaves unknown accounts blank", () => {
+    const f = fixture();
+    const guest = identity("7");
+    f.seed("playerProfile", { identity: guest, displayName: "Wanderer" });
+    connectAs(f, guest, null);
+    expect(f.players("guest@example.com")).toEqual([]);
+    expect(f.players("Wanderer")[0]).toMatchObject({ email: "", loginId: "" });
+  });
+
+  it("writes nothing on a reconnect with the same login", () => {
+    const f = fixture();
+    const player = identity("8");
+    connectAs(f, player, { sub: "user_same", email: "a@example.com" });
+    const first = f.db.accountEmail.identity.find(player);
+    connectAs(f, player, { sub: "user_same", email: "a@example.com" });
+    expect(f.db.accountEmail.identity.find(player)).toEqual(first);
+  });
+});

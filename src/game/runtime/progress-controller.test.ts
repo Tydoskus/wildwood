@@ -156,14 +156,19 @@ describe("loaded progress reconciliation", () => {
     return { state, reload: (next: Partial<PlayerProgress>) => { saved = { ...saved, ...next }; controller.load(); } };
   }
 
-  it("never loads a blank hand: the best usable weapon, else the stone, whatever the bag holds", () => {
-    // A blank saved hand with a map-locked iron bow in the bag: the stone, which stays owned.
-    const locked = loaded({ inventoryJson: '["starter_stone","iron_bow"]', equippedRightHand: "" });
+  it("leaves hands the player emptied empty on login, and when loot changes the bag", () => {
+    const empty = loaded({ inventoryJson: '["starter_stone","iron_bow"]', equippedRightHand: "", equippedLeftHand: "", desertUnlocked: true });
+    expect(empty.state.inventory.equippedRightHand).toBe("");
+    expect(empty.state.inventory.equippedLeftHand).toBe("");
+    empty.reload({ inventoryJson: '["starter_stone","iron_bow","cloudspire_bow"]' });
+    expect(empty.state.inventory.equippedRightHand).toBe("");
+    expect(empty.state.inventory.itemIds).toEqual(expect.arrayContaining(["starter_stone", "iron_bow"]));
+  });
+
+  it("refills a hand whose saved weapon is locked again: the best usable weapon, else the stone", () => {
+    const locked = loaded({ inventoryJson: '["starter_stone","iron_bow"]', equippedRightHand: "iron_bow" });
     expect(locked.state.inventory.equippedRightHand).toBe("starter_stone");
     expect(locked.state.inventory.itemIds).toEqual(expect.arrayContaining(["starter_stone", "iron_bow"]));
-    // The same with the bow's map reached: the bow.
-    const usable = loaded({ inventoryJson: '["starter_stone","iron_bow"]', equippedRightHand: "", desertUnlocked: true });
-    expect(usable.state.inventory.equippedRightHand).toBe("iron_bow");
   });
 
   it("keeps the stone and a weapon in hand when the row drops both (the WEAPON EMPTY repro)", () => {

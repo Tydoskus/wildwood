@@ -15,6 +15,8 @@ import { createOverlaysController } from "./overlays-controller";
 import { createRuntimeHudController } from "./runtime-hud-controller";
 import { createPrestigeController } from "./prestige-panel";
 import { createPrestigeUnlockPopup } from "./prestige-unlock-popup";
+import { createDuplicateLoginPopup } from "./duplicate-login-popup";
+import { installLoginMove } from "./login-move-controller";
 import { createTechTreeController } from "./tech-tree-controller";
 import { installCameraZoomControl } from "./camera-zoom-control";
 
@@ -90,6 +92,28 @@ export function createPrestigeUnlockRuntime(d: Record<string, any>) {
     completedEndless: () => coop?.proceduralCompleted?.() ?? 0,
     runPrestige: d.runPrestige,
     showMessage: d.showMessage,
+    pause: d.pause,
+  });
+}
+
+/**
+ * The "this email already has a character" window. Tutorial included: that is
+ * where a login that opened a new, empty character starts. Settings' "Move to
+ * Google Sign-In" is the deliberate version of the same fix.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createDuplicateLoginRuntime(d: Record<string, any>) {
+  const { coop } = d;
+  installLoginMove(document, {
+    signedIn: () => Boolean(coop?.accountState?.()?.signedIn),
+    move: async () => await coop?.moveToGoogleSignIn?.() ?? { ok: false, error: "Connect to your character first." },
+  });
+  return createDuplicateLoginPopup({
+    identity: () => coop?.localIdentity?.() ?? "",
+    ready: () => Boolean(d.started() && coop?.isConnected?.() && coop?.accountState?.()?.signedIn
+      && !coop?.accountState?.()?.sessionConflict),
+    lookup: () => coop?.otherCharacterForLogin?.() ?? Promise.resolve(""),
+    signOut: () => { coop?.signOut?.(); },
     pause: d.pause,
   });
 }
