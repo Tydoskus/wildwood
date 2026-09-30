@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.840": [
+    "Prestige Challenge is now Reflect Only, in its own tab: only reflected hits deal damage, and your prestige and perks stay on",
+    "Boss hits are back in step with their map's enemies, Endless included: much harder late, softer in the desert",
+    "Zoom buttons always sit left of the minimap; hide them in Settings > Game > Zoom Buttons",
+    "The map name sits on the minimap",
+  ],
   "0.839": [
     "Every map rebalanced: enemies hit harder, each map takes longer than the last, and bosses are real gates",
     "Endless now follows the same curve as the campaign",
@@ -2535,6 +2541,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.840": "2026-09-30",
   "0.839": "2026-09-30",
   "0.838": "2026-09-29",
   "0.837": "2026-09-29",
