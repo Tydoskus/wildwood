@@ -1,14 +1,16 @@
 import { BALANCE_MAPS } from '../../shared/map-balance';
 import { DEFAULT_BALANCE_FACTORS, type BalanceEditorState, type BalanceSettings, type BalanceFactors, type MapBalanceSnapshot } from '../../shared/map-balance-types';
 import { REGULAR_ENEMY_RESPAWN_SECONDS } from '../../shared/rules';
-import { BALANCE_CURVE_LIMITS, DEFAULT_BALANCE_CURVE, curveKills, type BalanceCurve } from '../../shared/balance-curve';
+import { BALANCE_CURVE_LIMITS, DEFAULT_BALANCE_CURVE, curveEnemyScale, curveRewardScale, type BalanceCurve } from '../../shared/balance-curve';
 import { CAMPAIGN_MAPS } from '../../shared/campaign-registry';
-const curveFields: [keyof BalanceCurve, string][] = [['map1DamageReward', 'Map 1 damage reward per kill'], ['map1EnemyHp', 'Map 1 finished damage'], ['map1SlimeHp', 'Map 1 damage camp health'], ['rewardGrowth', 'Reward per kill growth per map (×)'], ['groupSize', 'Enemies per group'],
-  ['arrivalBlows', 'Blows per kill arriving on a map'], ['map1MaxHp', 'Map 1 health target'], ['map1Regen', 'Map 1 regen target'],
-  ['armorMap1', 'Map 1 armor target'], ['speedMap1', 'Map 1 Attack Speed target'], ['map1DamageCampHit', 'Map 1 damage camp hit'],
-  ['bossFightSeconds', 'Boss fight length (seconds)'], ['bossHitShare', 'Boss heaviest hit (share of health)'], ['eliteHealth', 'Elite health and reward (×)'], ['eliteHit', 'Elite hit (×)'],
-  ['bossGate', 'Boss gate (share of finished damage it heals)'], ['bonusGrowth', 'Gear and research damage per map (×)'],
-  ['healthBonusGrowth', 'Gear and research health per map (×)'], ['rewardBonusGrowth', 'Research reward per map (×)']];
+const curveFields: [keyof BalanceCurve, string][] = [['enemyGrowth', 'Enemies per map (×)'], ['rewardGrowth', 'Rewards per map (×)'], ['groupSize', 'Enemies per group'],
+  ['damageHp', 'Map 1 damage camp health'], ['damageHit', 'Map 1 damage camp hit'], ['damageReward', 'Map 1 damage camp reward'],
+  ['healthHp', 'Map 1 health camp health'], ['healthHit', 'Map 1 health camp hit'], ['healthReward', 'Map 1 health camp reward'],
+  ['speedHp', 'Map 1 speed camp health'], ['speedHit', 'Map 1 speed camp hit'], ['speedReward', 'Map 1 speed camp reward'],
+  ['regenHp', 'Map 1 regen camp health'], ['regenHit', 'Map 1 regen camp hit'], ['regenReward', 'Map 1 regen camp reward'], ['regenHeal', 'Map 1 regen camp heal (per second)'],
+  ['armorHp', 'Map 1 armor camp health'], ['armorHit', 'Map 1 armor camp hit'], ['armorReward', 'Map 1 armor camp reward'], ['armorArmor', 'Map 1 armor camp armor'],
+  ['bossHp', 'Map 1 boss health'], ['bossHit', 'Map 1 boss heaviest hit'], ['bossRegen', 'Boss heal per second (share of health)'],
+  ['eliteHealth', 'Elite health and reward (×)'], ['eliteHit', 'Elite hit (×)']];
 export type BalanceEditorDependencies = {
   load: () => Promise<BalanceEditorState>;
   preview: (map: string, settings: BalanceSettings) => Promise<MapBalanceSnapshot>;
@@ -24,7 +26,7 @@ export function createBalanceEditorPanel(root: HTMLElement, api: BalanceEditorDe
   root.innerHTML = `<div class="balance-heading"><div><h2>Map balancing</h2><p>Changes apply on the next map visit.</p></div><span class="balance-version">Loading…</span></div>
     <div class="balance-map-row"><label>Map<select class="balance-map" aria-label="Balance map"></select></label><label class="balance-depth" hidden>Endless map<input type="number" min="1" max="1001" step="1" value="1" aria-label="Endless preview map"></label></div>
     <p class="balance-hint">1× is the base value · 0.5× is half · 2× is double</p><div class="balance-groups"></div>
-    <section class="balance-formula"><h3>Map curve</h3><p>Map 1's damage reward and slime health set map 1's kills; after that a kill pays the reward growth times the last map's while the build grows by the blows per kill, and the gap is more kills. Enemies are sized to the build you arrive with. It sets every map's enemies and bosses.</p><div class="balance-formula-inputs"></div></section>
+    <section class="balance-formula"><h3>Map curve</h3><p>Map 1 is set by hand below. Every map after multiplies its enemies by the enemy growth and its rewards by the reward growth. Enemies grow faster, so each map asks for more kills. Endless carries on the same way.</p><div class="balance-formula-inputs"></div></section>
     <div class="balance-preview-title"><h3>Resulting stats</h3><span class="balance-preview-state"></span></div><div class="balance-preview" aria-live="polite"></div>
     <p class="balance-status" role="status"></p><div class="balance-actions"><button class="balance-reset" type="button">Reset this map</button><button class="balance-apply" type="button" disabled>Apply changes</button></div><button class="balance-restore" type="button" disabled>Restore previous balance</button>`;
   const el = <T extends HTMLElement>(selector: string) => root.querySelector<T>(selector)!;
@@ -94,7 +96,8 @@ export function createBalanceEditorPanel(root: HTMLElement, api: BalanceEditorDe
       details.textContent = `Enemy respawn: ${format(value.regularRespawnSeconds ?? REGULAR_ENEMY_RESPAWN_SECONDS)}s` + (value.boss ? ` · Boss respawn: ${format(value.boss.respawnSeconds)}s · Boss regen: ${format((value.boss.regenFraction ?? .001) * 100)}% HP/s` : '');
       preview.append(details);
       const y = select.value === 'endless' ? CAMPAIGN_MAPS.length + depth.valueAsNumber : CAMPAIGN_MAPS.findIndex(map => map.id === select.value) + 1;
-      const line = document.createElement('p'); line.textContent = `Map curve · map ${y}: ${format(curveKills(y, draft.curve ?? DEFAULT_BALANCE_CURVE))} kills per camp type to finish it`;
+      const line = document.createElement('p'); const curve = draft.curve ?? DEFAULT_BALANCE_CURVE;
+      line.textContent = `Map curve · map ${y}: enemies ${format(curveEnemyScale(y, curve))}× map 1, rewards ${format(curveRewardScale(y, curve))}× map 1`;
       preview.append(line);
       if (value.loot?.length) { const loot = document.createElement('p'); loot.textContent = value.loot.map(drop => `${drop.itemId.replace(/_/g, ' ')}: ${format(drop.wins / drop.outcomes * 100)}%`).join(' · '); preview.append(loot); }
        el('.balance-preview-state').textContent = 'Server preview';

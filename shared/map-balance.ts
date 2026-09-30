@@ -108,7 +108,7 @@ function resolveCurve(mapId: string, curve: BalanceCurve, factors: typeof DEFAUL
       reward: { ...row.reward, amount: enemy.reward.amount } };
   }
   // The tutorial dragon keeps its gentle regen and ungated health: it is the first boss anyone meets.
-  const boss = curveBoss(y, mapId in BOSS_REGEN_FRACTION_OVERRIDES ? { ...curve, bossGate: 0 } : curve);
+  const boss = curveBoss(y, mapId in BOSS_REGEN_FRACTION_OVERRIDES ? { ...curve, bossRegen: 0 } : curve);
   const prefix = BALANCE_MAPS.find(([id]) => id === mapId)![2];
   // The boss keeps its own attack mix, scaled so its heaviest lands as the curve asks.
   const authored = BOSS_DAMAGE_PROFILES[definition.kind as keyof typeof BOSS_DAMAGE_PROFILES] ?? { heavy: 1 };

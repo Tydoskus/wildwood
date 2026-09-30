@@ -3,7 +3,7 @@ import { activateCampaignPacing, activateCampaignProgression, activateCampaignRe
 import { defaultBalanceSettings, resolveMapBalance, validateBalanceSettings } from '../../shared/map-balance';
 import { DEFAULT_BALANCE_CURVE } from '../../shared/balance-curve';
 // A boss lasts bossFightSeconds, so scaling it scales every boss's health exactly.
-const longerBosses = (times: number) => ({ ...DEFAULT_BALANCE_CURVE, bossFightSeconds: DEFAULT_BALANCE_CURVE.bossFightSeconds * times });
+const longerBosses = (times: number) => ({ ...DEFAULT_BALANCE_CURVE, bossHp: DEFAULT_BALANCE_CURVE.bossHp * times });
 import bakeFixture from '../../tests/fixtures/balance-revision-73.json';
 import { it, expect, vi } from 'vitest';
 import { balanceEditorState, forgetBalanceCaches, saveMapBalance, pinMapBalance, pinnedMapBalance } from './map-balance';
