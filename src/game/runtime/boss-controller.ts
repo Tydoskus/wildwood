@@ -527,6 +527,8 @@ export function createBossController(options: {
   }
 
   function logReward(reward: ReturnType<typeof scaledReward>, color: string) {
+    // Bosses on the live balance pay nothing: no "+0" pop-up for them.
+    if (!(reward.baseAmount > 0)) return;
     logPickup(rewardLabel({ ...reward, amount: options.displayRewardAmount?.(reward.type, reward.baseAmount) ?? reward.amount }), color, rewardLabel({ type: reward.type, amount: reward.baseAmount }));
   }
 

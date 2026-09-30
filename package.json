@@ -59,7 +59,7 @@
     "balance:smooth-health": "tsx scripts/smooth-campaign-health.ts"
   },
   "dependencies": {
-    "spacetimedb": "2.9.0"
+    "spacetimedb": "2.10.2"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",

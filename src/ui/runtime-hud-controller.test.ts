@@ -119,6 +119,15 @@ describe("runtime reward notifications", () => {
     expect(pickupLog.children).toHaveLength(0);
   });
 
+  it("shows no popup for a stat reward of nothing, like a boss that pays 0", () => {
+    const { controller, pickupLog } = setupHud();
+    controller.logPickup("+0 DAMAGE", "#fff");
+    controller.logPickup("+0.00 MAX HEALTH", "#fff");
+    expect(pickupLog.children).toHaveLength(0);
+    controller.logPickup("+2 DAMAGE", "#fff");
+    expect(pickupLog.children).toHaveLength(1);
+  });
+
   it("changes an existing attack-speed popup to Capped and keeps repeated capped rewards there", () => {
     const { controller, pickupLog, player } = setupHud();
     controller.logPickup("+0.25 ATK/SEC", "#fff");
