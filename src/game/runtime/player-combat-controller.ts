@@ -145,7 +145,7 @@ export function createPlayerCombatController(options: {
   equippedChest: () => string;
   equippedChestUpgradeLevel?: () => number;
   healthMultiplierBonus: () => number;
-  minAttackInterval: number;
+  minAttackInterval: number | (() => number);
   effectiveArmor: () => number;
   isDueling: () => boolean;
   scheduleEnemyRespawn: (site: SpawnSite) => void;
@@ -509,7 +509,7 @@ export function createPlayerCombatController(options: {
     switch (enhanced.type) {
       case "damage": player.damage += enhanced.amount; break;
       case "health": addPlayerBaseMaxHealth(player, enhanced.amount, options.healthMultiplierBonus()); break;
-      case "speed": player.attackRate = 1 / Math.min(1 / minAttackInterval, 1 / player.attackRate + enhanced.amount); break;
+      case "speed": player.attackRate = 1 / Math.min(1 / (typeof minAttackInterval === "function" ? minAttackInterval() : minAttackInterval), 1 / player.attackRate + enhanced.amount); break;
       case "armor": player.armor += enhanced.amount; break;
       case "regen": player.regen += enhanced.amount; break;
     }

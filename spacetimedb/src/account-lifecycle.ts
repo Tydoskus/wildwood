@@ -1,3 +1,4 @@
+import { challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { mergeEquipmentLocks, removeEquipmentLocks } from "./equipment-locks";
 // Guest-to-account claiming and identity removal: the claimGuestAccount body
 // that folds a guest save into its signed-in identity, the helpers that erase
@@ -12,7 +13,6 @@ import { removePlayerJoinDate, syncPlayerJoinDate } from "./mailbox";
 import {
   ATTACK_BALANCE_VERSION,
   DEFAULT_ATTACK_INTERVAL,
-  MIN_ATTACK_INTERVAL,
   SPACETIME_AUTH_CLIENT_ID,
   SPACETIME_AUTH_ISSUER,
 } from "../../shared/rules";
@@ -221,7 +221,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
     const nextProgress = {
       ...guestProgress,
       identity: ctx.sender,
-      attackRate: Math.max(MIN_ATTACK_INTERVAL, Math.min(DEFAULT_ATTACK_INTERVAL, guestAttackRate)),
+      attackRate: Math.max(challengeMinimumInterval(ctx.db.playerPrestigeChallenge.identity.find(link.guest)), Math.min(DEFAULT_ATTACK_INTERVAL, guestAttackRate)),
       cosmeticItemsJson: JSON.stringify([...new Set([
         ...cosmeticUnlocks(accountProgress?.cosmeticItemsJson),
         ...cosmeticUnlocks(guestProgress.cosmeticItemsJson),

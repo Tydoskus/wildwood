@@ -1,4 +1,5 @@
-import { DEFAULT_ATTACK_INTERVAL, MIN_ATTACK_INTERVAL, PLAYER_BASE_DAMAGE, PLAYER_BASE_HP, PLAYER_BASE_REGEN } from "./rules";
+import { CHALLENGE_ABSOLUTE_MIN_INTERVAL } from "./prestige-challenge";
+import { DEFAULT_ATTACK_INTERVAL, PLAYER_BASE_DAMAGE, PLAYER_BASE_HP, PLAYER_BASE_REGEN } from "./rules";
 import {
   equipmentDamage,
   equipmentMaxHealth,
@@ -67,7 +68,7 @@ export function effectivePlayerPowerStats(
       headLevel,
       chestLevel,
     ),
-    attackRate: Math.max(MIN_ATTACK_INTERVAL, progress.attackRate),
+    attackRate: Math.max(CHALLENGE_ABSOLUTE_MIN_INTERVAL, progress.attackRate),
     armor: progress.armor * (1 + researchRank(research?.precision) * .02),
     regen: equipmentRegeneration(progress.regen,
       headItem,
@@ -96,7 +97,7 @@ export function playerPowerForStats(stats: PlayerPowerStats) {
  * small weapon difference on a low-level player can round away entirely.
  */
 export function unroundedPlayerPower(stats: PlayerPowerStats) {
-  const attackSpeedMultiplier = DEFAULT_ATTACK_INTERVAL / Math.max(MIN_ATTACK_INTERVAL, stats.attackRate);
+  const attackSpeedMultiplier = DEFAULT_ATTACK_INTERVAL / Math.max(CHALLENGE_ABSOLUTE_MIN_INTERVAL, stats.attackRate);
   const power =
     stats.damage * attackSpeedMultiplier +
     stats.maxHp +

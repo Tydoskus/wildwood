@@ -774,6 +774,11 @@
       "guildTag",
       "showDevTag"
     ],
+    "player_prestige_challenge": [
+      "identity",
+      "active",
+      "completed"
+    ],
     "player_prestige_expansion_perk": [
       "identity",
       "bossSlayer",

@@ -1,9 +1,10 @@
+import { CHALLENGE_ABSOLUTE_MIN_INTERVAL } from "./prestige-challenge";
 import { armorDamageReduction, damageAfterArmor } from "./combat";
 import { enemyDefeatDefinition } from "./enemy-defeats";
 import { ENEMY_TYPES, type EnemyKind } from "./enemy-definitions";
 import type { MapBalanceSnapshot } from "./map-balance-types";
 import { generateMap, generatedEnemyStats, isProceduralMap, proceduralMapId } from "./procedural-maps";
-import { MAP_IDS, MIN_ATTACK_INTERVAL, REGULAR_ENEMY_RESPAWN_SECONDS } from "./rules";
+import { MAP_IDS, REGULAR_ENEMY_RESPAWN_SECONDS } from "./rules";
 import { campaignMapUnlocked, type CampaignAccess } from "./equipment-access";
 import type { PlayerPowerStats } from "./player-power";
 
@@ -155,7 +156,7 @@ export function simulateOfflineFarming(
   const totalPopulation = roster.reduce((sum, entry) => sum + entry.population, 0);
   if (!roster.length || !totalPopulation || !seconds) return empty;
 
-  const dps = stats.damage / Math.max(MIN_ATTACK_INTERVAL, stats.attackRate);
+  const dps = stats.damage / Math.max(CHALLENGE_ABSOLUTE_MIN_INTERVAL, stats.attackRate);
   if (!(dps > 0)) return empty;
 
   const meanFightSeconds = roster.reduce((sum, entry) => sum + entry.population * entry.hp / dps, 0) / totalPopulation;

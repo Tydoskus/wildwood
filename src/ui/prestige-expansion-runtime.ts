@@ -2,6 +2,7 @@ import { createPrestigeExpansionNotice } from "./prestige-expansion-notice";
 import { prestigeExpansionLabel } from "../../shared/prestige-expansion";
 import { activeRelease } from "../../shared/release-window";
 import { createPrestigePanel } from "./game-ui-runtime";
+import { createPrestigeChallengePanel } from "./prestige-challenge-panel";
 
 /** Compose the shared launch notice, map label and account prestige controls. */
 export function createPrestigeExpansionRuntime(d: {
@@ -12,22 +13,32 @@ export function createPrestigeExpansionRuntime(d: {
   const unlocksAt = () => coop?.prestigeExpansionUnlocksAt?.();
   const notice = createPrestigeExpansionNotice({ unlocksAt, now,
     visible: () => d.started() && !activeRelease(coop?.releaseWindow?.() ?? null, now()) });
+  let challengePanel: ReturnType<typeof createPrestigeChallengePanel> | undefined;
   return {
     unlocked: notice.unlocked,
     tick() {
       const name = d.mapName();
       if (d.mapLabel.textContent !== name) d.mapLabel.textContent = name;
       notice.tick();
+      challengePanel?.render();
     },
     createPanel(options: Record<string, any>) {
-      return createPrestigePanel({ ...options,
+      const panel = createPrestigePanel({ ...options,
         prestige: () => coop?.prestige?.() ?? null, expanded: notice.unlocked,
         expansionCountdown: () => unlocksAt() ? prestigeExpansionLabel(unlocksAt(), now()) : "",
         perks: () => coop?.prestigePerks?.(), spendPerk: (perk: string) => coop?.spendPrestigePerkPoint?.(perk),
         unlocked: () => Boolean(coop?.prestigeCampaignComplete?.((coop?.prestige?.()?.level ?? 0) + 1)),
         completed: () => coop?.proceduralCompleted?.() ?? 0,
+        challenge: () => coop?.prestigeChallenge?.()?.active ?? false,
         respec: () => options.runPrestige(coop?.respecPrestigePerks),
       });
+      challengePanel = createPrestigeChallengePanel({ container: options.e.prestigePerks.parentElement,
+        state: () => coop?.prestigeChallenge?.() ?? { active: false, completed: 0 },
+        available: () => notice.unlocked() && (coop?.prestige?.()?.level ?? 0) > 0,
+        start: () => options.runPrestige(coop?.startPrestigeChallenge),
+        abandon: () => options.runPrestige(coop?.abandonPrestigeChallenge),
+      });
+      return panel;
     },
   };
 }

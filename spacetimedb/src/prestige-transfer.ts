@@ -1,8 +1,10 @@
+import { mergePrestigeChallenges } from "./prestige-challenge";
 import { PRESTIGE_PERK_IDS, PRESTIGE_PERK_MAX_RANK, type PrestigePerkRanks } from "../../shared/prestige-perks";
 import { writePrestigePerkRanks } from "./prestige";
 
 /** Move permanent prestige credit when a guest save is claimed by an account. */
 export function mergeLinkedPrestige(ctx: any, guest: any, account: any) {
+  mergePrestigeChallenges(ctx, guest, account);
   const guestPrestige = ctx.db.playerPrestige.identity.find(guest);
   const accountPrestige = ctx.db.playerPrestige.identity.find(account);
   if (guestPrestige) {

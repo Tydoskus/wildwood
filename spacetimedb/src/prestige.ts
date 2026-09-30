@@ -1,3 +1,5 @@
+import { challengeActive, setPrestigeChallenge } from "./prestige-challenge";
+import { challengeAttackInterval } from "../../shared/prestige-challenge";
 import { SenderError } from "spacetimedb/server";
 import { researchStatRewardMultiplier } from "../../shared/research";
 import { PLAYER_STARTING_POWER, playerPowerForStats } from "../../shared/player-power";
@@ -20,11 +22,12 @@ import { attackRangeWithResearch } from "../../shared/utility-research";
  */
 export function statRewardMultiplier(ctx: any, identity: any) {
   return researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity))
-    * prestigeStatMultiplier(ctx.db.playerPrestige.identity.find(identity)?.level ?? 0);
+    * prestigeStatMultiplier(challengeActive(ctx, identity) ? 0 : ctx.db.playerPrestige.identity.find(identity)?.level ?? 0);
 }
 
 /** The player's perk ranks, zero for anyone who has never prestiged. */
 export function prestigePerkRanks(ctx: any, identity: any): PrestigePerkRanks {
+  if (challengeActive(ctx, identity)) return Object.fromEntries(PRESTIGE_PERK_IDS.map(perk => [perk, 0])) as PrestigePerkRanks;
   const row = ctx.db.playerPrestigePerk.identity.find(identity);
   const expansion = prestigeExpanded(ctx) ? ctx.db.playerPrestigeExpansionPerk.identity.find(identity) : null;
   return { keenEdge: row?.keenEdge ?? 0, doubleStrike: row?.doubleStrike ?? 0, splitShot: row?.splitShot ?? 0, riposte: row?.riposte ?? 0,
@@ -46,6 +49,7 @@ export type PrestigeDeps = {
   resetProgressToDefaults: (ctx: any, activePlayer: any, keep?: { research?: boolean; lifetimeKills?: boolean; slotTiers?: boolean; items?: boolean }) => void;
   recordPrestige: (ctx: any) => void;
   respawnWithProgress: (ctx: any, activePlayer: any, progress: any) => void;
+  restoreChallenge: (ctx: any, player: any, reward: boolean) => void;
   refreshPerkEffects: (ctx: any, activePlayer: any) => void;
 };
 
@@ -67,6 +71,7 @@ export function createPrestige(deps: PrestigeDeps) {
         ? `Clear Endless ${prestigeEndlessRequirement(nextLevel)} before prestiging.`
         : `Defeat ${prestigeCampaignTarget(nextLevel).bossName} before prestiging.`);
     }
+    if (challengeActive(ctx, ctx.sender)) { deps.restoreChallenge(ctx, activePlayer, true); return current; }
     // The peak is kept for the player to see what they traded away; it only
     // ever rises, so a weaker later run cannot erase a stronger earlier one.
     const next = {
@@ -85,6 +90,7 @@ export function createPrestige(deps: PrestigeDeps) {
   /** Spend one banked point on one rank; unspent points have no gameplay cap. */
   function spendPerkPoint(ctx: any, perk: string) {
     const activePlayer = requireControllingPlayer(ctx);
+    if (challengeActive(ctx, ctx.sender)) throw new SenderError("Perks are disabled during a prestige challenge.");
     if (!isPrestigePerkId(perk)) throw new SenderError("Unknown prestige perk.");
     if ((PRESTIGE_EXPANSION_PERK_IDS as readonly string[]).includes(perk) && !prestigeExpanded(ctx)) {
       throw new SenderError("New prestige perks unlock when the countdown finishes.");
@@ -110,6 +116,7 @@ export function createPrestige(deps: PrestigeDeps) {
     const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel before respeccing.");
     const current = ctx.db.playerPrestige.identity.find(ctx.sender);
+    if (challengeActive(ctx, ctx.sender)) throw new SenderError("Finish or abandon the prestige challenge before respeccing.");
     const ranks = prestigePerkRanks(ctx, ctx.sender);
     const spent = PRESTIGE_PERK_IDS.reduce((sum, perk) => sum + ranks[perk], 0);
     const progress = ctx.db.playerProgress.identity.find(ctx.sender);
@@ -118,11 +125,20 @@ export function createPrestige(deps: PrestigeDeps) {
     ctx.db.playerPrestige.identity.update({ ...current, perkPoints: current.perkPoints + spent,
       peakPower: Math.max(current.peakPower, playerPowerForStats(progress)) });
     const next = { ...progress, ...PLAYER_STARTING_POWER,
+      attackRate: challengeAttackInterval(PLAYER_STARTING_POWER.attackRate, ctx.db.playerPrestigeChallenge.identity.find(ctx.sender)),
       attackRange: attackRangeWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.utilityAttackRange ?? 0) };
     updateSnapshotRow(ctx, "playerProgress", next);
     respawnWithProgress(ctx, activePlayer, next);
     return spent;
   }
 
-  return { prestigeAccount, spendPerkPoint, respecPerks };
+  function changeChallenge(ctx: any, active: boolean) {
+    const player = requireControllingPlayer(ctx);
+    if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel before changing challenge mode.");
+    if (!active) { deps.restoreChallenge(ctx, player, false); return; }
+    setPrestigeChallenge(ctx, true, player);
+    resetProgressToDefaults(ctx, player, { research: true, lifetimeKills: true, slotTiers: true, items: true });
+  }
+
+  return { prestigeAccount, spendPerkPoint, respecPerks, changeChallenge };
 }

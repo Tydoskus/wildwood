@@ -53,6 +53,7 @@ export type BaseSubscriptionHandlers = {
   prestige: RowHandler;
   removePrestige: RowHandler;
   prestigePerk: RowHandler;
+  prestigeChallenge: RowHandler; removePrestigeChallenge: RowHandler;
   prestigeExpansion: RowHandler;
   removePrestigeExpansion: RowHandler;
   prestigeExpansionPerk: RowHandler;
@@ -107,6 +108,7 @@ type BaseSubscriptionHandlerSources = {
     upsertPrestige: BaseSubscriptionHandlers["prestige"];
     removePrestige: BaseSubscriptionHandlers["removePrestige"];
     upsertPrestigePerk: BaseSubscriptionHandlers["prestigePerk"];
+    upsertPrestigeChallenge: RowHandler; removePrestigeChallenge: RowHandler;
     upsertPrestigeExpansion: RowHandler; removePrestigeExpansion: RowHandler;
     upsertPrestigeExpansionPerk: RowHandler; removePrestigeExpansionPerk: RowHandler;
     removePrestigePerk: BaseSubscriptionHandlers["removePrestigePerk"];
@@ -201,6 +203,7 @@ export function createBaseSubscriptionHandlers(sources: BaseSubscriptionHandlerS
     prestige: progression.upsertPrestige,
     removePrestige: progression.removePrestige,
     prestigePerk: progression.upsertPrestigePerk,
+    prestigeChallenge: progression.upsertPrestigeChallenge, removePrestigeChallenge: progression.removePrestigeChallenge,
     prestigeExpansion: progression.upsertPrestigeExpansion, removePrestigeExpansion: progression.removePrestigeExpansion,
     prestigeExpansionPerk: progression.upsertPrestigeExpansionPerk, removePrestigeExpansionPerk: progression.removePrestigeExpansionPerk,
     removePrestigePerk: progression.removePrestigePerk,
@@ -325,6 +328,9 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   connection.db.playerPrestige.onInsert((_ctx, row) => { if (shouldHandle()) handlers.prestige(row); });
   connection.db.playerPrestige.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.prestige(row); });
   connection.db.playerPrestige.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removePrestige(row); });
+  connection.db.playerPrestigeChallenge.onInsert((_ctx, row) => { if (shouldHandle()) handlers.prestigeChallenge(row); });
+  connection.db.playerPrestigeChallenge.onUpdate((_ctx, _old, row) => { if (shouldHandle()) handlers.prestigeChallenge(row); });
+  connection.db.playerPrestigeChallenge.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removePrestigeChallenge(row); });
   connection.db.prestigeExpansion.onInsert((_ctx, row) => { if (shouldHandle()) handlers.prestigeExpansion(row); });
   connection.db.prestigeExpansion.onUpdate((_ctx, _old, row) => { if (shouldHandle()) handlers.prestigeExpansion(row); });
   connection.db.prestigeExpansion.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removePrestigeExpansion(row); });
@@ -408,6 +414,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       // Whole table, not only our row: the level badge beside every name needs
       // everyone's. One small row per prestiged player.
       tables.playerPrestige,
+      tables.playerPrestigeChallenge.where(row => row.identity.eq(dependencies.identity)),
       tables.prestigeExpansion,
       tables.playerPrestigeExpansionPerk.where(row => row.identity.eq(dependencies.identity)),
       tables.playerPrestigePerk.where((prestigePerk) => prestigePerk.identity.eq(dependencies.identity)),
@@ -455,6 +462,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
         if (![...connection.db.activeResearch.iter()].some(row => row.identity.toHexString() === dependencies.identity.toHexString())) handlers.removeActiveResearch({ identity: dependencies.identity });
         for (const row of connection.db.playerPrestige.iter()) handlers.prestige(row);
         for (const row of connection.db.playerPrestigePerk.iter()) handlers.prestigePerk(row);
+        for (const row of connection.db.playerPrestigeChallenge.iter()) handlers.prestigeChallenge(row);
         for (const row of connection.db.prestigeExpansion.iter()) handlers.prestigeExpansion(row);
         for (const row of connection.db.playerPrestigeExpansionPerk.iter()) handlers.prestigeExpansionPerk(row);
         if (![...connection.db.playerPrestigeExpansionPerk.iter()].some(row => row.identity.toHexString() === dependencies.identity.toHexString())) handlers.removePrestigeExpansionPerk({ identity: dependencies.identity });

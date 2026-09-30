@@ -1,13 +1,13 @@
+import { CHALLENGE_ABSOLUTE_MIN_INTERVAL } from "../../../shared/prestige-challenge";
 import { rescaleEndgameProgress } from "../../../shared/endgame-power-rescale";
 import { withoutLockedEquipment } from "../../../shared/equipment-access";
 import { compressLegacyMapPower } from "../../../shared/map-power-rescale";
 import {
   ATTACK_BALANCE_VERSION,
   DEFAULT_ATTACK_INTERVAL,
-  DEFAULT_ATTACK_RANGE,
+  DEFAULT_ATTACK_RANGE, MIN_ATTACK_INTERVAL,
   MAX_ARMOR,
   MAX_PLAYER_STAT,
-  MIN_ATTACK_INTERVAL,
   movementSpeedsMatch,
   PLAYER_SPEED,
 } from "../../../shared/rules";
@@ -75,7 +75,7 @@ export function copyProgress(progress: ProgressSave): ProgressSave {
   return {
     maxHp: bounded(progress.maxHp, 1, MAX_PLAYER_STAT, 100),
     damage: bounded(progress.damage, 1, MAX_PLAYER_STAT, 4),
-    attackRate: bounded(progress.attackRate, MIN_ATTACK_INTERVAL, 10, DEFAULT_ATTACK_INTERVAL),
+    attackRate: bounded(progress.attackRate, CHALLENGE_ABSOLUTE_MIN_INTERVAL, 10, DEFAULT_ATTACK_INTERVAL),
     projectileSpeed: bounded(progress.projectileSpeed, MIN_PROJECTILE_SPEED, MAX_PROJECTILE_SPEED, MIN_PROJECTILE_SPEED),
     projectileCount: Number.isInteger(progress.projectileCount)
       ? Math.max(1, Math.min(20, progress.projectileCount))

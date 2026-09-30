@@ -1988,6 +1988,13 @@ export const PlayerPrestige = __t.object("PlayerPrestige", {
 });
 export type PlayerPrestige = __Infer<typeof PlayerPrestige>;
 
+export const PlayerPrestigeChallenge = __t.object("PlayerPrestigeChallenge", {
+  identity: __t.identity(),
+  active: __t.bool(),
+  completed: __t.u32(),
+});
+export type PlayerPrestigeChallenge = __Infer<typeof PlayerPrestigeChallenge>;
+
 export const PlayerPrestigeExpansionPerk = __t.object("PlayerPrestigeExpansionPerk", {
   identity: __t.identity(),
   bossSlayer: __t.u32(),
@@ -2134,6 +2141,16 @@ export const PresenceChatCooldown = __t.object("PresenceChatCooldown", {
   lastLeaveAtMicros: __t.u64(),
 });
 export type PresenceChatCooldown = __Infer<typeof PresenceChatCooldown>;
+
+export const PrestigeChallengeBackup = __t.object("PrestigeChallengeBackup", {
+  identity: __t.identity(),
+  progressJson: __t.string(),
+  completedEndless: __t.f64(),
+  mapId: __t.string(),
+  x: __t.f32(),
+  y: __t.f32(),
+});
+export type PrestigeChallengeBackup = __Infer<typeof PrestigeChallengeBackup>;
 
 export const PrestigeExpansion = __t.object("PrestigeExpansion", {
   id: __t.u8(),

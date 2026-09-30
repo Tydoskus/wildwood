@@ -46,6 +46,7 @@ type RuntimeHudElements = {
 type RuntimeHudDependencies = {
   elements: RuntimeHudElements;
   player: PlayerState;
+  minimumAttackInterval?: () => number;
   activeDuel: () => RuntimeDuelState | null;
   duelOpponentName: (duel: RuntimeDuelState) => string;
   localDisplayName: () => string;
@@ -128,7 +129,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
       }
       rewardDisplayMode = mode;
     }
-    const attackSpeedCapped = dependencies.player.attackRate <= MIN_ATTACK_INTERVAL + 1e-7;
+    const attackSpeedCapped = dependencies.player.attackRate <= (dependencies.minimumAttackInterval?.() ?? MIN_ATTACK_INTERVAL) + 1e-7;
     const model = statRewardToastModel(text, attackSpeedCapped);
     const active = model ? activeStatRewards.get(model.stat) : undefined;
     if (model && active && active.entry.parentElement === elements.pickupLog) {

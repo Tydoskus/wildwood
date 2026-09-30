@@ -6,6 +6,7 @@
 import { type Infer as __Infer } from "spacetimedb";
 
 // Import all reducer arg schemas
+import AbandonPrestigeChallengeReducer from "../abandon_prestige_challenge_reducer";
 import AcceptDuelReducer from "../accept_duel_reducer";
 import AcceptTermsReducer from "../accept_terms_reducer";
 import AcknowledgeBalanceApologyGiftReducer from "../acknowledge_balance_apology_gift_reducer";
@@ -169,6 +170,7 @@ import SpeedUpResearchWithGemsReducer from "../speed_up_research_with_gems_reduc
 import SpendPrestigePerkPointReducer from "../spend_prestige_perk_point_reducer";
 import StartItemUpgradeReducer from "../start_item_upgrade_reducer";
 import StartLoginMoveReducer from "../start_login_move_reducer";
+import StartPrestigeChallengeReducer from "../start_prestige_challenge_reducer";
 import StartResearchReducer from "../start_research_reducer";
 import SyncPositionReducer from "../sync_position_reducer";
 import TakeOverSessionReducer from "../take_over_session_reducer";
@@ -178,6 +180,7 @@ import UnlockSecondUpgradeSlotReducer from "../unlock_second_upgrade_slot_reduce
 import UnlockThirdUpgradeSlotReducer from "../unlock_third_upgrade_slot_reducer";
 import UpdateMovementStateReducer from "../update_movement_state_reducer";
 
+export type AbandonPrestigeChallengeParams = __Infer<typeof AbandonPrestigeChallengeReducer>;
 export type AcceptDuelParams = __Infer<typeof AcceptDuelReducer>;
 export type AcceptTermsParams = __Infer<typeof AcceptTermsReducer>;
 export type AcknowledgeBalanceApologyGiftParams = __Infer<typeof AcknowledgeBalanceApologyGiftReducer>;
@@ -341,6 +344,7 @@ export type SpeedUpResearchWithGemsParams = __Infer<typeof SpeedUpResearchWithGe
 export type SpendPrestigePerkPointParams = __Infer<typeof SpendPrestigePerkPointReducer>;
 export type StartItemUpgradeParams = __Infer<typeof StartItemUpgradeReducer>;
 export type StartLoginMoveParams = __Infer<typeof StartLoginMoveReducer>;
+export type StartPrestigeChallengeParams = __Infer<typeof StartPrestigeChallengeReducer>;
 export type StartResearchParams = __Infer<typeof StartResearchReducer>;
 export type SyncPositionParams = __Infer<typeof SyncPositionReducer>;
 export type TakeOverSessionParams = __Infer<typeof TakeOverSessionReducer>;

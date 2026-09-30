@@ -141,6 +141,7 @@ export type PlayerLifetime = {
 };
 
 export type PlayerProfileData = {
+  prestigeChallenge?: import("../../shared/prestige-challenge").PrestigeChallenge;
   prestigeLevel?: number;
   prestigePerks?: Partial<import("../../shared/prestige-perks").PrestigePerkRanks>;
   identity: string;

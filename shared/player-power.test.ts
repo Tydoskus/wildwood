@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FROST_ARMOR, STARTER_BOW, WOOD_FULL_HELM, WOODEN_ARMOR } from "./items";
 import { effectivePlayerPower, effectivePlayerPowerStats, legacyU32Power, playerPowerForStats } from "./player-power";
-import { MIN_ATTACK_INTERVAL } from "./rules";
 
 describe("player power", () => {
   it("uses the same research and equipped-item stats everywhere", () => {
@@ -44,7 +43,7 @@ describe("player power", () => {
     expect(legacyU32Power(power)).toBe(0xffffffff);
   });
 
-  it("never reports a legacy saved attack rate above the current base-speed cap", () => {
+  it("preserves a validated challenge attack rate above the original cap", () => {
     const effective = effectivePlayerPowerStats({
       maxHp: 100,
       damage: 10,
@@ -52,7 +51,7 @@ describe("player power", () => {
       armor: 0,
       regen: 0,
     });
-    expect(effective.attackRate).toBeCloseTo(MIN_ATTACK_INTERVAL);
+    expect(effective.attackRate).toBeCloseTo(.32);
   });
 
   it("adds chest health and helmet regeneration separately", () => {

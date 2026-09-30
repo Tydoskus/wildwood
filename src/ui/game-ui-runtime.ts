@@ -1,3 +1,5 @@
+import { challengeMinimumInterval } from "../../shared/prestige-challenge";
+export { challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { createGemShopController } from "./gem-shop-controller";
 import { HOME_RESEARCH_POSITION } from "../../shared/home";
 import { recentReleaseNotes } from "../app/changelog";
@@ -54,7 +56,7 @@ export function createGameOverlays(d: Record<string, any>) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createGameRuntimeHud(d: Record<string, any>) {
   const { e, coop } = d;
-  const controller = createRuntimeHudController({ elements: { message: e.messageEl, pickupLog: e.pickupLog, itemDropReveal: e.itemDropReveal, hpFill: e.hpFill, hpText: e.hpText, playerName: e.playerNameEl, playerPower: e.playerPowerEl, coopStatus: e.coopStatusEl, minimapPlayers: e.minimapPlayersEl, playerIcon: e.playerHudProfileIcon, duelControls: e.duelControls, duelStatus: e.duelStatusEl, duelRequest: e.duelRequestBtn, duelAccept: e.duelAcceptBtn, duelCountdown: e.duelCountdownEl, duelResult: e.duelResultEl, duelResultTitle: e.duelResultTitle, duelResultStats: e.duelResultStats, shareDuelBtn: e.shareDuelBtn, watchDuelReplay: e.watchDuelReplayBtn }, player: d.player, activeDuel: d.activeDuel, duelOpponentName: d.duelOpponentName, localDisplayName: () => coop?.localDisplayName?.() || "", localIdentity: () => coop?.localIdentity?.(), isGuest: (identity: string | undefined) => coop?.isGuest?.(identity) ?? false, playerGender: (identity: string | undefined) => coop?.playerGender?.(identity) ?? 0, remotePlayerCount: () => coop?.remotePlayerCount?.() ?? coop?.remotePlayers?.().length ?? 0, onlinePlayerCount: () => coop?.onlinePlayerCount?.() ?? null, connected: () => Boolean(coop?.isConnected?.()), isDeveloper: () => isDeveloperIdentity(coop?.localIdentity?.()), profileIcon: () => coop?.profileIcon?.() ?? 0, applyProfileIcon: d.applyProfileIcon, playerPower: d.playerPower, setDeveloperAccess: d.setDeveloperAccess, applyVitalityResearch: d.applyVitalityResearch, updateTechNotice: d.updateTechNotice, tickTechTree: d.tickTechTree, refreshAppStatus: d.refreshAppStatus, updateProfileDuelButton: d.updateProfileDuelButton, pulseDuel: () => { coop?.pulseDuel?.(); }, shareDuel: (id: bigint) => coop?.shareDuelReplay?.(id) ?? Promise.resolve({ ok: false, error: "NOT CONNECTED" }) });
+  const controller = createRuntimeHudController({ elements: { message: e.messageEl, pickupLog: e.pickupLog, itemDropReveal: e.itemDropReveal, hpFill: e.hpFill, hpText: e.hpText, playerName: e.playerNameEl, playerPower: e.playerPowerEl, coopStatus: e.coopStatusEl, minimapPlayers: e.minimapPlayersEl, playerIcon: e.playerHudProfileIcon, duelControls: e.duelControls, duelStatus: e.duelStatusEl, duelRequest: e.duelRequestBtn, duelAccept: e.duelAcceptBtn, duelCountdown: e.duelCountdownEl, duelResult: e.duelResultEl, duelResultTitle: e.duelResultTitle, duelResultStats: e.duelResultStats, shareDuelBtn: e.shareDuelBtn, watchDuelReplay: e.watchDuelReplayBtn }, player: d.player, minimumAttackInterval: () => challengeMinimumInterval(coop?.prestigeChallenge?.()), activeDuel: d.activeDuel, duelOpponentName: d.duelOpponentName, localDisplayName: () => coop?.localDisplayName?.() || "", localIdentity: () => coop?.localIdentity?.(), isGuest: (identity: string | undefined) => coop?.isGuest?.(identity) ?? false, playerGender: (identity: string | undefined) => coop?.playerGender?.(identity) ?? 0, remotePlayerCount: () => coop?.remotePlayerCount?.() ?? coop?.remotePlayers?.().length ?? 0, onlinePlayerCount: () => coop?.onlinePlayerCount?.() ?? null, connected: () => Boolean(coop?.isConnected?.()), isDeveloper: () => isDeveloperIdentity(coop?.localIdentity?.()), profileIcon: () => coop?.profileIcon?.() ?? 0, applyProfileIcon: d.applyProfileIcon, playerPower: d.playerPower, setDeveloperAccess: d.setDeveloperAccess, applyVitalityResearch: d.applyVitalityResearch, updateTechNotice: d.updateTechNotice, tickTechTree: d.tickTechTree, refreshAppStatus: d.refreshAppStatus, updateProfileDuelButton: d.updateProfileDuelButton, pulseDuel: () => { coop?.pulseDuel?.(); }, shareDuel: (id: bigint) => coop?.shareDuelReplay?.(id) ?? Promise.resolve({ ok: false, error: "NOT CONNECTED" }) });
   e.shareDuelBtn.addEventListener("click", () => { void controller.shareDuelResult(); });
   return controller;
 }
@@ -66,7 +68,7 @@ export function createPrestigePanel(d: Record<string, any>) {
     closeButton: e.closePrestigeBtn, confirmButton: e.prestigeConfirmBtn, level: e.prestigeLevel, bonus: e.prestigeBonus,
     points: e.prestigePoints, peak: e.prestigePeak, cost: e.prestigeCost, status: e.prestigeStatus,
     perkList: e.prestigePerks, prestige: d.prestige, unlocked: d.unlocked, completed: d.completed, runPrestige: d.runPrestige,
-    perks: d.perks, spendPerk: d.spendPerk, respec: d.respec, expanded: d.expanded, expansionCountdown: d.expansionCountdown,
+    perks: d.perks, spendPerk: d.spendPerk, respec: d.respec, expanded: d.expanded, expansionCountdown: d.expansionCountdown, challenge: d.challenge,
     showMessage: d.showMessage, beforeOpen: d.beforeOpen });
 }
 
@@ -83,7 +85,7 @@ export function createPrestigeUnlockRuntime(d: Record<string, any>) {
     // applied batch as the prestige row and the Endless count. The account
     // subscription before it carries campaign progress alone, which with no
     // prestige row reads as a level-0 account that has finished the campaign.
-    ready: () => Boolean(d.playing() && coop?.isConnected?.() && coop?.localState?.() && !coop?.accountState?.()?.sessionConflict),
+    ready: () => Boolean(d.playing() && !coop?.prestigeChallenge?.()?.active && coop?.isConnected?.() && coop?.localState?.() && !coop?.accountState?.()?.sessionConflict),
     blocked: d.blocked,
     level: () => coop?.prestige?.()?.level ?? 0,
     campaignComplete: () => Boolean(coop?.prestigeCampaignComplete?.((coop?.prestige?.()?.level ?? 0) + 1)),

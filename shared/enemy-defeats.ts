@@ -143,7 +143,7 @@ export function defeatBudget(population: number, minRespawnSeconds = DEFEAT_MIN_
   };
 }
 export function applyEnemyRewards<T extends { damage: number; maxHp: number; attackRate: number; armor: number; regen: number }>(
-  base: T, rewards: { type: string; amount: number; count: number }[], multiplier: number,
+  base: T, rewards: { type: string; amount: number; count: number }[], multiplier: number, minAttackInterval = MIN_ATTACK_INTERVAL,
 ): T {
   const next = { ...base };
   for (const reward of rewards) {
@@ -153,7 +153,7 @@ export function applyEnemyRewards<T extends { damage: number; maxHp: number; att
       case "health": next.maxHp = Math.min(MAX_PLAYER_STAT, next.maxHp + amount); break;
       case "armor": next.armor = Math.min(MAX_ARMOR, next.armor + amount); break;
       case "regen": next.regen = Math.min(MAX_PLAYER_STAT, next.regen + amount); break;
-      case "speed": next.attackRate = 1 / Math.min(1 / MIN_ATTACK_INTERVAL, 1 / next.attackRate + amount); break;
+      case "speed": next.attackRate = 1 / Math.min(1 / minAttackInterval, 1 / next.attackRate + amount); break;
     }
   }
   return next;
