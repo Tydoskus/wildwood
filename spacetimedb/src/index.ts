@@ -221,8 +221,7 @@ import {
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
   WORLD_HEIGHT,
-  WORLD_WIDTH,
-  isBaseStoredSpeed,
+  WORLD_WIDTH, isBaseStoredSpeed,
 } from "../../shared/rules";
 import { MAP_EDITOR_GAMEPLAY_OVERRIDES } from "../../shared/map-editor-overrides";
 

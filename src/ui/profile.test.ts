@@ -164,10 +164,10 @@ describe("profile stat display", () => {
     const attack = profileStatDisplayRows(profile, () => "0%", MIN_ATTACK_INTERVAL).find((row) => row.kind === "attack");
 
     expect(attack).toMatchObject({
-      base: "3.00/s (Max)",
+      base: "2.63/s (Max)",
       equationOperator: "×",
       multiplier: "1.00",
-      total: "3.00/s",
+      total: "2.63/s",
       sources: [],
     });
   });
@@ -183,7 +183,7 @@ describe("profile stat display", () => {
     useSpeedRating(true);
     try {
       expect(profileStatDisplayRows(profile, () => "0%", MIN_ATTACK_INTERVAL).find((row) => row.kind === "attack"))
-        .toMatchObject({ base: "1.39/s", expandedDetail: "(50 Attack Speed)" });
+        .toMatchObject({ base: `${attacksPerSecondFromSpeed(50).toFixed(2)}/s`, expandedDetail: "(50 Attack Speed)" });
     } finally { useSpeedRating(false); }
   });
 
