@@ -25,7 +25,7 @@ export function installLoginMove(doc: Document, hooks: Hooks) {
   const dialog = doc.createElement("dialog"); dialog.className = "game-mailbox account-deletion-dialog login-move-dialog";
   dialog.setAttribute("aria-labelledby", "loginMoveTitle");
   dialog.innerHTML = `<div class="mailbox-scroll"><h2 id="loginMoveTitle">Move to Google Sign-In?</h2>
-    <p>You'll go to the sign-in page. Choose <strong>Google</strong>, and your character moves to that Google account. From then on, sign in with Google.</p>
+    <p>You'll be signed out, then the sign-in page opens. Choose <strong>Google</strong>, and your character moves to that Google account. From then on, sign in with Google.</p>
     <p>Use a Google account that hasn't played WildStat, and close WildStat in your other tabs and devices first.</p>
     <p>Nothing is deleted. Your old sign-in keeps an empty character.</p>
     <p class="account-deletion-status login-move-status" role="status" aria-live="polite"></p></div>
@@ -50,7 +50,7 @@ export function installLoginMove(doc: Document, hooks: Hooks) {
   confirm.addEventListener("click", () => {
     if (pending) return;
     if (!hooks.signedIn()) { status.textContent = "Sign in to your character first."; return; }
-    pending = true; confirm.disabled = true; cancel.disabled = true; status.textContent = "Saving and opening sign-in…";
+    pending = true; confirm.disabled = true; cancel.disabled = true; status.textContent = "Saving and signing out…";
     const failed = (message?: string) => {
       status.textContent = message ?? "Couldn't start the move. Please try again.";
       pending = false; confirm.disabled = false; cancel.disabled = false;
@@ -58,7 +58,7 @@ export function installLoginMove(doc: Document, hooks: Hooks) {
     // On the web the page is already leaving for the sign-in page; the app opens it in a sheet.
     void hooks.move().then(result => {
       if (!result?.ok) { failed(result?.error); return; }
-      status.textContent = "Choose Google on the sign-in page.";
+      status.textContent = "Signing out. Choose Google on the sign-in page next.";
       pending = false; cancel.disabled = false;
     }, () => failed());
   });

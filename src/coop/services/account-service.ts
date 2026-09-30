@@ -568,6 +568,54 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     return outcome;
   }
 
+  /**
+   * Sign out of the game and of SpacetimeAuth. A character move keeps its
+   * one-time code: SpacetimeAuth loses the sign-in when a different user logs
+   * in over a live session (the Google return showed "interaction session not
+   * found"), so the move ends the session first, as Sign out does, and the
+   * sign-in page opens on return (restoreKnownAccount).
+   */
+  const loginMoveSignInKey = `${keys.loginMoveKey}/sign_in_next`;
+  async function endAccountSession(keepLoginMove = false) {
+    if (signingOut) return;
+    createAutoFarmResumeStore().clear();
+    signingOut = true;
+    takeoverRequested = false; takeoverRevision++;
+    const idToken = renewal.stored();
+    recordConnectionDiagnostic("user-sign-out", { intentional: true });
+    // Notification plugins must never hold account sign-out open.
+    void syncResearchNotification(null);
+    nativeAuth()?.cancel();
+    dependencies.disconnectVirtualPlayers();
+    sessionApproved = false;
+    guestSessionExplicit = false;
+    updateResumePending = false;
+    lastPlayableSessionMode = null;
+    renewal.clear();
+    try {
+      localStorage.removeItem(keys.accountTokenKey);
+      localStorage.removeItem(keys.knownAccountKey);
+      localStorage.removeItem(keys.accountMigrationPendingKey);
+      localStorage.removeItem(keys.knownAccountCharacterKey);
+      localStorage.removeItem(keys.knownAccountGenderKey);
+    } catch {}
+    clearTabValue(keys.accountLinkKey);
+    if (!keepLoginMove) { clearTabValue(keys.loginMoveKey); clearTabValue(loginMoveSignInKey); }
+    clearAuthTransaction();
+    clearTabValue(keys.authRetryKey);
+    clearAccountReturnPending();
+    dependencies.updateResumeStore.clear();
+    dependencies.connection()?.disconnect();
+    notice = "SIGNED OUT";
+    dependencies.notify();
+    const url = accountLogoutUrl(idToken, redirectUri(), isNativePreview() ? randomUrlSafe(24) : undefined);
+    if (isNativePreview()) {
+      try { await nativeAuth()?.signOut?.(url); }
+      catch { /* Local credentials are already cleared; explicit login prompts again. */ }
+      window.location.reload();
+    } else window.location.assign(url);
+  }
+
   async function startAccountSignIn(reason: SignInReason, forceLogin = false) {
     // Lock before PKCE hashing yields, so startup and taps share one transaction.
     if (signingOut || outboundAuthNavigationPending || callbackPending) return;
@@ -635,6 +683,24 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     // lightweight sign-in shell instead of leaving it on "Verifying Sign-In".
     dependencies.notify();
     if (callbackOutcome === "failed") return;
+    // Back from ending the old login's session for a character move: now sign in as the new one.
+    if (callbackOutcome === "none" && readTabValue(loginMoveSignInKey)) {
+      clearTabValue(loginMoveSignInKey);
+      if (readTabValue(keys.loginMoveKey)) {
+        notice = "OPENING SIGN-IN · CHOOSE GOOGLE";
+        dependencies.notify();
+        try {
+          await startAccountSignIn("login-move", true);
+          return;
+        } catch (error) {
+          clearTabValue(keys.loginMoveKey);
+          notice = "SIGN-IN FAILED · TRY AGAIN";
+          console.warn("WildStat character move sign-in failed:", error);
+          dependencies.notify();
+          return;
+        }
+      }
+    }
     // A forced login (registration, guest link, sign-in after signing out, the
     // kill-report re-auth) comes back without a refresh grant: SpacetimeAuth
     // drops offline_access whenever a prompt is sent. That sign-in then dies
@@ -757,7 +823,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       sessionApproved = false; guestSessionExplicit = false; updateResumePending = false;
       lastPlayableSessionMode = null; takeoverRequested = false;
       clearAccountReturnPending(); clearAuthTransaction();
-      clearTabValue(keys.accountLinkKey); clearTabValue(keys.loginMoveKey); clearAccountMigrationPending();
+      clearTabValue(keys.accountLinkKey); clearTabValue(keys.loginMoveKey); clearTabValue(loginMoveSignInKey); clearAccountMigrationPending();
       dependencies.updateResumeStore.clear();
       dependencies.setWorldEntryBlocked(true);
       notice = "KILL REPORT EXCEEDED LIMIT · SIGN IN AGAIN";
@@ -819,9 +885,8 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
           return { ok: false, error: dependencies.errorMessage(error) };
         }
         writeTabValue(keys.loginMoveKey, code);
-        notice = "OPENING SIGN-IN · CHOOSE GOOGLE";
-        dependencies.notify();
-        await startAccountSignIn("login-move", true);
+        writeTabValue(loginMoveSignInKey, "true");
+        await endAccountSession(true);
         return { ok: true };
       } finally {
         signInPreparing = false;
@@ -941,44 +1006,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       dependencies.notify();
       return { ok: true };
     },
-    async signOut() {
-      if (signingOut) return;
-      createAutoFarmResumeStore().clear();
-      signingOut = true;
-      takeoverRequested = false; takeoverRevision++;
-      const idToken = renewal.stored();
-      recordConnectionDiagnostic("user-sign-out", { intentional: true });
-      // Notification plugins must never hold account sign-out open.
-      void syncResearchNotification(null);
-      nativeAuth()?.cancel();
-      dependencies.disconnectVirtualPlayers();
-      sessionApproved = false;
-      guestSessionExplicit = false;
-      updateResumePending = false;
-      lastPlayableSessionMode = null;
-      renewal.clear();
-      try {
-        localStorage.removeItem(keys.accountTokenKey);
-        localStorage.removeItem(keys.knownAccountKey);
-        localStorage.removeItem(keys.accountMigrationPendingKey);
-        localStorage.removeItem(keys.knownAccountCharacterKey);
-        localStorage.removeItem(keys.knownAccountGenderKey);
-      } catch {}
-      clearTabValue(keys.accountLinkKey); clearTabValue(keys.loginMoveKey);
-      clearAuthTransaction();
-      clearTabValue(keys.authRetryKey);
-      clearAccountReturnPending();
-      dependencies.updateResumeStore.clear();
-      dependencies.connection()?.disconnect();
-      notice = "SIGNED OUT";
-      dependencies.notify();
-      const url = accountLogoutUrl(idToken, redirectUri(), isNativePreview() ? randomUrlSafe(24) : undefined);
-      if (isNativePreview()) {
-        try { await nativeAuth()?.signOut?.(url); }
-        catch { /* Local credentials are already cleared; explicit login prompts again. */ }
-        window.location.reload();
-      } else window.location.assign(url);
-    },
+    async signOut() { await endAccountSession(); },
     continueAsGuest() {
       if (signingOut) return { ok: false, error: "SIGNING OUT" };
       takeoverRequested = false; takeoverRevision++;
@@ -990,7 +1018,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       dependencies.disconnectVirtualPlayers();
       renewal.clear();
       clearStoredToken(keys.accountTokenKey);
-      clearTabValue(keys.accountLinkKey); clearTabValue(keys.loginMoveKey);
+      clearTabValue(keys.accountLinkKey); clearTabValue(keys.loginMoveKey); clearTabValue(loginMoveSignInKey);
       clearAuthTransaction();
       clearAccountMigrationPending();
       clearAccountReturnPending();

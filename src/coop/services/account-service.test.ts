@@ -883,7 +883,7 @@ describe("kill-report session enforcement", () => {
 
 describe("moving a character to a Google sign-in", () => {
   afterEach(() => { vi.unstubAllGlobals(); });
-  it("saves, leaves a code on the old login, and opens a forced sign-in", async () => {
+  it("saves, leaves a code, signs out of SpacetimeAuth, then opens a forced sign-in on return", async () => {
     const f = setup({ signedIn: true, accountToken: accountToken(), knownAccount: true });
     const startLoginMove = vi.fn(async () => {});
     f.setConnection({ isActive: true, disconnect: vi.fn(), reducers: { startLoginMove } } as never);
@@ -891,8 +891,28 @@ describe("moving a character to a Google sign-in", () => {
     const code = f.session.getItem(keys.loginMoveKey)!;
     expect(startLoginMove).toHaveBeenCalledWith({ code });
     expect(f.drainPendingProgress.mock.invocationCallOrder[0]).toBeLessThan(startLoginMove.mock.invocationCallOrder[0]);
-    const url = new URL(f.assign.mock.calls[0][0]);
-    expect(url.searchParams.get("prompt")).toBe("login");
+    // A different user signing in over a live session loses the sign-in at SpacetimeAuth, so it ends first.
+    expect(new URL(f.assign.mock.calls[0][0]).pathname).toMatch(/\/session\/end$/);
+    expect(f.local.getItem(keys.accountTokenKey)).toBeNull();
+
+    // Back from signing out, in the same tab: the move code survived, and the sign-in page opens.
+    const back = setup();
+    for (const key of [keys.loginMoveKey, `${keys.loginMoveKey}/sign_in_next`]) back.session.setItem(key, f.session.getItem(key)!);
+    await back.service.restoreKnownAccount();
+    const signIn = new URL(back.assign.mock.calls[0][0]);
+    expect(signIn.searchParams.get("prompt")).toBe("login");
+    expect(back.session.getItem(keys.loginMoveKey)).toBe(code);
+    expect(back.session.getItem(`${keys.loginMoveKey}/sign_in_next`)).toBeNull();
+    expect(back.connect).not.toHaveBeenCalled();
+  });
+  it("forgets a pending move on an ordinary sign-out", async () => {
+    const f = setup({ signedIn: true, accountToken: accountToken(), knownAccount: true });
+    f.session.setItem(keys.loginMoveKey, "move-code");
+    f.session.setItem(`${keys.loginMoveKey}/sign_in_next`, "true");
+    f.setConnection({ isActive: true, disconnect: vi.fn(), reducers: {} } as never);
+    await f.service.api.signOut();
+    expect(f.session.getItem(keys.loginMoveKey)).toBeNull();
+    expect(f.session.getItem(`${keys.loginMoveKey}/sign_in_next`)).toBeNull();
   });
   it("stays put when the server refuses to start", async () => {
     const f = setup({ signedIn: true, accountToken: accountToken(), knownAccount: true });
