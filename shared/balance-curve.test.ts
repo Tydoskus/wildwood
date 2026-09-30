@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { CAMP_SWINGS, DEFAULT_BALANCE_CURVE, curveArmorReduction, curveBoss, curveEnemy, curveEnemyScale, curveRewardScale } from "./balance-curve";
-import { defaultBalanceSettings, resolveMapBalance, validateBalanceSettings } from "./map-balance";
-import { CAMPAIGN_MAPS } from "./campaign-registry";
 import { PLAYER_BASE_DAMAGE, PLAYER_BASE_HP } from "./rules";
 
 const curve = DEFAULT_BALANCE_CURVE;
@@ -76,46 +74,5 @@ describe("balance curve", () => {
         expect(Number.isFinite(n)).toBe(true);
       }
     }
-  });
-});
-
-describe("resolving maps from the curve", () => {
-  const settings = () => validateBalanceSettings({ ...defaultBalanceSettings(), curveVersion: 1 });
-
-  it("leaves every existing revision alone until the curve is switched on, and checks its ranges", () => {
-    expect(validateBalanceSettings(defaultBalanceSettings()).curveVersion).toBeUndefined();
-    expect(validateBalanceSettings(defaultBalanceSettings()).curve).toBeUndefined();
-    expect(settings().curve).toEqual(DEFAULT_BALANCE_CURVE);
-    expect(() => validateBalanceSettings({ ...defaultBalanceSettings(), curve: { ...curve, enemyGrowth: 50 } })).toThrow("enemyGrowth");
-  });
-
-  it("builds the forest and desert from the curve, and pays nothing for a boss", () => {
-    const forest = resolveMapBalance("tutorial_forest", settings(), 1);
-    expect(forest.enemies.Spitter.hp).toBeCloseTo(curve.damageHp);
-    expect(forest.enemies.Spitter.damage).toBeCloseTo(curve.damageHit);
-    expect(forest.enemies.Spitter.reward.amount).toBeCloseTo(curve.damageReward);
-    expect(forest.boss!.rewards).toEqual({ damage: 0, health: 0, armor: 0, regen: 0 });
-    expect(Object.entries(forest.rules).filter(([key]) => key.includes("_REWARD_")).every(([, n]) => n === 0)).toBe(true);
-    const desert = resolveMapBalance("beginner_desert", settings(), 1);
-    const desertDamage = Object.values(desert.enemies).find(row => row.reward.type === "damage" && !row.elite)!;
-    expect(desertDamage.hp).toBeCloseTo(curve.damageHp * curve.enemyGrowth);
-    expect(desertDamage.reward.amount).toBeCloseTo(curve.damageReward * curve.rewardGrowth);
-    expect(Math.max(...Object.values(desert.boss!.attacks))).toBeCloseTo(curveBoss(2).heaviestHit);
-    expect(desert.boss!.regenFraction).toBeCloseTo(curve.bossRegen);
-  });
-
-  it("gives the tutorial dragon its own health and its gentle regen, outside the bosses' chain", () => {
-    const forest = resolveMapBalance("tutorial_forest", settings(), 1);
-    expect(forest.boss!.hp).toBe(curve.dragonHp);
-    expect(Math.max(...Object.values(forest.boss!.attacks))).toBeCloseTo(curve.dragonHit);
-    expect(forest.boss!.regenFraction).toBeLessThan(.001);
-    expect(resolveMapBalance("beginner_desert", settings(), 1).boss!.hp).toBeCloseTo(curve.bossHp * curve.enemyGrowth);
-  });
-
-  it("resolves Endless as map 15 + N, its boss paying nothing, up to the deepest map a save checks", () => {
-    const first = resolveMapBalance("endless_1", settings(), 1);
-    expect(Object.values(first.lanes).some(row => Math.abs(row.hp - curveEnemy(CAMPAIGN_MAPS.length + 1, "damage", false).hp) < 1e-6)).toBe(true);
-    expect(first.boss!.rewards).toEqual({ damage: 0, health: 0, armor: 0, regen: 0 });
-    expect(() => resolveMapBalance("endless_1001", settings(), 1)).not.toThrow();
   });
 });

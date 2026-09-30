@@ -1,18 +1,22 @@
-import { CAMPAIGN_PROGRESSION_BOSS_HEALTH, CAMPAIGN_PROGRESSION_BOSS_REWARDS } from './campaign-progression';
+import { CAMPAIGN_PROGRESSION_ENEMIES, CAMPAIGN_PROGRESSION_BOSS_HEALTH, CAMPAIGN_PROGRESSION_BOSS_REWARDS } from './campaign-progression';
+import { applyCampaignRewardFloor } from './campaign-reward-floor';
+import { CAMPAIGN_HEALTH_FACTORS } from './campaign-health-curve';
+import { LEGACY_ENEMY_REWARDS } from "./legacy-enemy-rewards";
 import { BALANCE_BASELINE_VERSION, BAKED_ENEMY_REWARD_FACTORS, BAKED_ENDLESS_DEFAULTS } from "./balance-baseline";
-import { CAMPAIGN_MAPS } from "./campaign-registry";
+import { bossHeavyHitAt, bossRewardValue } from "./progression";
+import { CAMPAIGN_MAPS, CAMPAIGN_ENDPOINT } from "./campaign-registry";
 import { regularMapLoot } from './regular-map-loot';
-import { BOSS_REGEN_FRACTION_OVERRIDES, bossRegenFractionFor } from './boss-regeneration';
+import { bossRegenFractionFor } from './boss-regeneration';
 import { REGULAR_ENEMY_RESPAWN_SECONDS } from './rules';
 import { generatedEnemyArt } from "./procedural-enemy-art";
 import * as rules from './rules';
 import { ENEMY_TYPES, type EnemyKind } from './enemy-definitions';
 import { enemyDefeatDefinition, combatMap } from './enemy-defeats';
 import { personalBossDefinition } from './personal-bosses';
-import { generateMap, isProceduralMap } from './procedural-maps';
+import { generateMap, generatedBossStats, generatedEnemyStats, isProceduralMap } from './procedural-maps';
 import { BOSS_DAMAGE_PROFILES } from './boss-damage';
+import { endlessScaling } from './endless-balance';
 import { DEFAULT_BALANCE_FACTORS, type BalanceSettings, type MapBalanceSnapshot } from './map-balance-types';
-import { BALANCE_CURVE_LIMITS, DEFAULT_BALANCE_CURVE, curveBoss, curveEnemy, type BalanceCurve, type CurveRewardStat } from './balance-curve';
 const AUTHORED_RULES = { ...rules };
 const AUTHORED_ENEMIES = structuredCloneSafe(ENEMY_TYPES);
 function structuredCloneSafe<T>(value: T): T { return JSON.parse(JSON.stringify(value)); }
@@ -38,19 +42,6 @@ export function validateBalanceSettings(value: unknown): BalanceSettings {
   if (input?.campaignHealthVersion === 1) result.campaignHealthVersion = 1;
   else delete result.campaignHealthVersion; // Archived settings keep their original HP.
   if (input?.baselineVersion !== undefined && input.baselineVersion !== BALANCE_BASELINE_VERSION) throw new Error('Unsupported balance baseline.');
-  if (input?.curveVersion !== undefined && input.curveVersion !== 1) throw new Error('Unsupported balance curve.');
-  if (input?.curveVersion === 1) result.curveVersion = 1;
-  // Only a revision that has touched the curve carries it, so every older
-  // revision keeps its exact shape; a missing knob takes its default.
-  if (input?.curve !== undefined || input?.curveVersion === 1) {
-    result.curve = { ...DEFAULT_BALANCE_CURVE };
-    for (const key of Object.keys(DEFAULT_BALANCE_CURVE) as (keyof BalanceCurve)[]) {
-      const n = input?.curve?.[key] ?? DEFAULT_BALANCE_CURVE[key];
-      const [min, max] = BALANCE_CURVE_LIMITS[key];
-      if (!Number.isFinite(n) || n < min || n > max) throw new Error(`Invalid curve ${key} (${min}–${max}).`);
-      result.curve[key] = n;
-    }
-  }
   for (const [map] of BALANCE_MAPS) for (const field of Object.keys(DEFAULT_BALANCE_FACTORS) as (keyof typeof DEFAULT_BALANCE_FACTORS)[]) {
     const optional = ['enemyRespawn', 'bossRespawn', 'bossRegen', 'enemyDrops'].includes(field);
     const raw = input?.maps?.[map]?.[field];
@@ -73,56 +64,6 @@ export function validateBalanceSettings(value: unknown): BalanceSettings {
   }
   return result;
 }
-/**
- * Every map from the balance curve: a map's number decides its enemies,
- * rewards and boss, and Endless N is map 15 + N. The per-map multipliers
- * still set movement speed, respawn, drops and boss regeneration; the curve
- * owns health, damage and rewards. Bosses pay no stats: beating one opens the
- * next map.
- */
-function resolveCurve(mapId: string, curve: BalanceCurve, factors: typeof DEFAULT_BALANCE_FACTORS,
-  definition: NonNullable<ReturnType<typeof personalBossDefinition>>, result: MapBalanceSnapshot) {
-  const noRewards = { damage: 0, health: 0, armor: 0, regen: 0 };
-  result.rules.ARMOR_CURVE = 1;   // the client blocks hits on the curve's armor rule
-  result.rules.SPEED_RATING = 1;  // speed camps pay Speed points; see attack-speed-rating.ts
-  if (isProceduralMap(mapId)) {
-    const map = generateMap(mapId), y = CAMPAIGN_MAPS.length + map.number;
-    for (const lane of new Set([...map.camps.map(c => c.lane), 'Dread Warden' as const])) {
-      const row = AUTHORED_ENEMIES[lane];
-      result.lanes[lane] = curveEnemy(y, row.reward.type as CurveRewardStat, row.elite === true, curve);
-    }
-    const art = generatedEnemyArt(mapId);
-    result.enemies[art] = { ...AUTHORED_ENEMIES[art], speed: 275 * factors.enemySpeed };
-    const boss = curveBoss(y, curve);
-    result.boss = { kind: definition.kind, hp: boss.hp, damage: boss.heaviestHit, respawnSeconds: definition.respawnSeconds, attacks: {}, rewards: noRewards,
-      ...(boss.regenFraction === null ? {} : { regenFraction: boss.regenFraction }) };
-    return;
-  }
-  const y = CAMPAIGN_MAPS.findIndex(map => map.id === mapId) + 1;
-  for (const kind of Object.keys(ENEMY_TYPES) as EnemyKind[]) {
-    if (!enemyDefeatDefinition(mapId, kind)) continue;
-    const row = AUTHORED_ENEMIES[kind];
-    const enemy = curveEnemy(y, row.reward.type as CurveRewardStat, row.elite === true, curve);
-    result.enemies[kind] = { ...row, hp: enemy.hp, damage: enemy.damage, speed: row.speed * factors.enemySpeed,
-      attackSpeed: enemy.attackSpeed, regen: enemy.regen, armor: enemy.armor,
-      reward: { ...row.reward, amount: enemy.reward.amount } };
-  }
-  // The tutorial dragon has its own health and keeps its gentle regen: it is the first boss anyone meets.
-  const dragon = mapId in BOSS_REGEN_FRACTION_OVERRIDES;
-  const boss = dragon ? { ...curveBoss(y, { ...curve, bossRegen: 0 }), hp: curve.dragonHp, heaviestHit: curve.dragonHit } : curveBoss(y, curve);
-  const prefix = BALANCE_MAPS.find(([id]) => id === mapId)![2];
-  // The boss keeps its own attack mix, scaled so its heaviest lands as the curve asks.
-  const authored = BOSS_DAMAGE_PROFILES[definition.kind as keyof typeof BOSS_DAMAGE_PROFILES] ?? { heavy: 1 };
-  const heaviest = Math.max(...Object.values(authored));
-  for (const key of Object.keys(AUTHORED_RULES)) {
-    if (key === `${prefix}_MAX_HP`) result.rules[key] = boss.hp;
-    if (key.startsWith(`${prefix}_REWARD_`)) result.rules[key] = 0;
-  }
-  result.boss = { ...definition, hp: boss.hp, damage: 0, rewards: noRewards,
-    ...(boss.regenFraction === null ? {} : { regenFraction: boss.regenFraction }),
-    attacks: Object.fromEntries(Object.entries(authored).map(([key, value]) => [key, value / heaviest * boss.heaviestHit])) };
-}
-
 /** Resolved numbers cross the wire; apps do not need the current scaling formula. */
 export function resolveMapBalance(mapId: string, settings: BalanceSettings, revision: number, configurationVersion: 1 | 2 = 2): MapBalanceSnapshot {
   // Also cover direct callers (Balance Lab and archived settings), not only server saves.
@@ -133,7 +74,62 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
   const generated = isProceduralMap(mapId);
   const factors = settings.maps[generated ? 'endless' : mapId];
   const definition = personalBossDefinition(mapId, true)!;
-  resolveCurve(mapId, settings.curve ?? DEFAULT_BALANCE_CURVE, factors, definition, result);
+  if (generated) {
+    const storedCampaignFactors = settings.maps[CAMPAIGN_ENDPOINT.mapId] ?? DEFAULT_BALANCE_FACTORS;
+    const campaignFactors = { ...storedCampaignFactors,
+      enemyRewards: storedCampaignFactors.enemyRewards * (BAKED_ENEMY_REWARD_FACTORS[CAMPAIGN_ENDPOINT.mapId] ?? 1) };
+    const map = generateMap(mapId), base = endlessScaling(map.number), depth = Math.min(map.number - 1, 1000), tuning = settings.endless;
+    const stats = 1 + tuning.statStep * Math.log2(1 + depth);
+    const hpRatio = (1 + tuning.statStep * depth) * (1 + tuning.enduranceStep * depth) ** tuning.enduranceExponent / (base.combatStats * base.endurance);
+    // Reward per health is pure pacing: the boss is unchanged, so the power
+    // needed to beat it is unchanged; only the kills to earn that power move.
+    const rewardRatio = tuning.rewardMultiplier * (tuning.rewardPerHealth ?? 1) * Math.sqrt(stats) / base.rewards;
+    // Keep the compiled armor compensation; the authored damage multiplier is explicit.
+    const damageRatio = (1 + tuning.statStep * depth) / base.combatStats;
+    const lanes = new Set([...map.camps.map(c => c.lane), 'Dread Warden' as const]);
+    for (const lane of lanes) {
+      const row = generatedEnemyStats(map, lane, true);
+      result.lanes[lane] = { hp: row.hp * hpRatio * factors.enemyHealth * campaignFactors.enemyHealth, damage: row.damage * damageRatio * factors.enemyDamage * campaignFactors.enemyDamage,
+        reward: { ...row.reward, amount: row.reward.amount * rewardRatio * factors.enemyRewards * campaignFactors.enemyRewards } };
+    }
+    // Generated camps reuse art, but receive these resolved combat values at spawn.
+    const art = generatedEnemyArt(mapId);
+    result.enemies[art] = { ...AUTHORED_ENEMIES[art],
+      reward: { ...AUTHORED_ENEMIES[art].reward, amount: LEGACY_ENEMY_REWARDS[art] ?? AUTHORED_ENEMIES[art].reward.amount },
+      speed: 275 * factors.enemySpeed };
+    const boss = generatedBossStats(map, true);
+    result.boss = { kind: definition.kind, hp: boss.hp * hpRatio * factors.bossHealth * campaignFactors.bossHealth, damage: boss.damage * damageRatio * factors.bossDamage * campaignFactors.bossDamage,
+      respawnSeconds: definition.respawnSeconds, attacks: {}, rewards: Object.fromEntries(boss.rewards.map(r => [r.type, r.amount * rewardRatio * factors.bossRewards * campaignFactors.bossRewards])) };
+  } else {
+    for (const kind of Object.keys(ENEMY_TYPES) as EnemyKind[]) {
+      if (!enemyDefeatDefinition(mapId, kind)) continue;
+      const row = AUTHORED_ENEMIES[kind];
+      const curve = settings.campaignProgressionVersion === 1 && mapId !== CAMPAIGN_MAPS[0].id
+        ? CAMPAIGN_PROGRESSION_ENEMIES[mapId]?.[`${row.elite ? 'elite' : 'regular'}:${row.reward.type}`] : undefined;
+      result.enemies[kind] = { ...row, hp: row.hp * (settings.campaignHealthVersion === 1
+          ? CAMPAIGN_HEALTH_FACTORS[mapId]?.[`${row.elite ? 'elite' : 'regular'}:${row.reward.type}`] ?? 1 : 1) * (curve?.hp ?? 1) * factors.enemyHealth, damage: (curve?.damage ?? row.damage) * factors.enemyDamage,
+        speed: row.speed * factors.enemySpeed, reward: { ...row.reward, amount: (curve?.reward ?? row.reward.amount) * factors.enemyRewards } };
+    }
+    if (settings.campaignRewardVersion === 1) applyCampaignRewardFloor(mapId, settings, result.enemies);
+    const prefix = BALANCE_MAPS.find(([id]) => id === mapId)![2];
+    const rewardValues: Record<string, number> = {};
+    for (const [key, value] of Object.entries(AUTHORED_RULES)) {
+      if (typeof value !== 'number') continue;
+      if (key === `${prefix}_MAX_HP`) result.rules[key] = value * factors.bossHealth;
+      if (key.startsWith(`${prefix}_REWARD_`)) {
+        result.rules[key] = value * factors.bossRewards;
+        rewardValues[key.slice(`${prefix}_REWARD_`.length).toLowerCase()] = value * factors.bossRewards;
+      }
+    }
+    const campaignIndex = CAMPAIGN_MAPS.findIndex(map => map.id === mapId);
+    const attacks = BOSS_DAMAGE_PROFILES[definition.kind as keyof typeof BOSS_DAMAGE_PROFILES]
+      ?? { heavy: bossHeavyHitAt(Math.max(0, campaignIndex - 1)) };
+    if (!Object.keys(rewardValues).length) {
+      for (const stat of ['damage', 'health', 'armor', 'regen'] as const) rewardValues[stat] = bossRewardValue(stat, Math.max(0, campaignIndex - 1)) * factors.bossRewards;
+    }
+    result.boss = { ...definition, hp: definition.hp * factors.bossHealth, damage: 0,
+      attacks: Object.fromEntries(Object.entries(attacks).map(([key, value]) => [key, value * factors.bossDamage])), rewards: rewardValues };
+  }
   if (configurationVersion === 2) {
     result.configurationVersion = 2;
     result.regularRespawnSeconds = REGULAR_ENEMY_RESPAWN_SECONDS * (factors.enemyRespawn ?? 1);
@@ -146,8 +142,7 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
     }));
     if (result.boss) {
       result.boss.respawnSeconds *= factors.bossRespawn ?? 1;
-      // The curve's boss gate sets its own regen; the factor still scales it.
-      result.boss.regenFraction = (result.boss.regenFraction ?? bossRegenFractionFor(mapId)) * (factors.bossRegen ?? 1);
+      result.boss.regenFraction = bossRegenFractionFor(mapId) * (factors.bossRegen ?? 1);
     }
   }
   for (const n of [result.boss?.hp, result.boss?.damage, ...Object.values(result.boss?.rewards ?? {}), ...Object.values(result.lanes).flatMap(row => [row.hp, row.damage, row.reward.amount])]) {

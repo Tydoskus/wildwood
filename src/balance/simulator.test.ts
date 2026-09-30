@@ -85,11 +85,36 @@ describe("balance simulator", () => {
     expect(new Set(finalStrategyPowers).size).toBeGreaterThan(1);
   });
 
+  it("keeps post-clear Boss-rush repeat power positive on every clear", () => {
+    const result = runBalanceSimulationWithStrategyComparisons({
+      durationSeconds: 8 * 60 * 60,
+      steadyEquipmentUpgrades: false,
+      trials: 1,
+      strategy: "mixed",
+      seed: 7_331,
+    });
+    const bossRush = result.strategyTimelines?.find((entry) => entry.strategy === "boss-rush");
+    const finalPoint = bossRush?.timeline.at(-1);
+    const previousPoint = bossRush?.timeline.at(-2);
+    expect(finalPoint?.powerMedian).toBeGreaterThan(previousPoint?.powerMedian ?? 0);
+  }, 30_000);
+
   it("keeps a DPS-first player moving through discrete boss-readiness ties", () => {
     const result = runBalanceSimulation({ durationSeconds: 24 * 60 * 60, trials: 1, strategy: "dps-first", seed: 7_331 });
     expect(result.maps.find((map) => map.mapId === BEGINNER_DESERT_MAP_ID)?.completedPercent).toBe(100);
     expect(result.maps.find((map) => map.mapId === INTERMEDIATE_SNOWLANDS_MAP_ID)?.completedPercent).toBe(100);
   }, 30_000);
+
+  it("can run an explicit repeat-boss scenario and exposes its farming cost", () => {
+    const result = runBalanceSimulation({ durationSeconds: 6 * 60 * 60, trials: 1, strategy: "boss-farm", seed: 7_331 });
+    const forest = result.maps.find((map) => map.mapId === TUTORIAL_FOREST_MAP_ID)!;
+    expect(forest.repeatBossKillsMedian).toBeGreaterThan(1);
+    expect(forest.repeatBossPowerGainMedian).toBeGreaterThan(0);
+    expect(forest.bossRepeatPermanentPowerPerMinuteMedian).toBeGreaterThan(0);
+    expect(forest.bossRepeatEfficiencyRatioMedian).toBeGreaterThan(0);
+    expect(forest.repeatTimeBudgetMedian?.respawnWaitSeconds).toBeGreaterThan(0);
+    expect(result.diagnostics.some((diagnostic) => diagnostic.includes("full configured reward"))).toBe(true);
+  });
 
   it("produces a monotonic power timeline when no gear is at the bench", () => {
     const timeline = runBalanceSimulation({ ...quickConfig, steadyEquipmentUpgrades: false }).timeline;

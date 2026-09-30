@@ -1,9 +1,6 @@
 import revision75 from '../../tests/fixtures/balance-revision-75.json';
 import { activateCampaignPacing, activateCampaignProgression, activateCampaignRewardFloor } from './campaign-pacing-migration';
 import { defaultBalanceSettings, resolveMapBalance, validateBalanceSettings } from '../../shared/map-balance';
-import { DEFAULT_BALANCE_CURVE } from '../../shared/balance-curve';
-// A boss lasts bossFightSeconds, so scaling it scales every boss's health exactly.
-const longerBosses = (times: number) => ({ ...DEFAULT_BALANCE_CURVE, bossHp: DEFAULT_BALANCE_CURVE.bossHp * times, dragonHp: DEFAULT_BALANCE_CURVE.dragonHp * times });
 import bakeFixture from '../../tests/fixtures/balance-revision-73.json';
 import { it, expect, vi } from 'vitest';
 import { balanceEditorState, forgetBalanceCaches, saveMapBalance, pinMapBalance, pinnedMapBalance } from './map-balance';
@@ -19,7 +16,7 @@ function fixture() {
 it('pins a visit across changes/reconnects, refreshes on travel, preserves previous version', () => {
   const ctx = fixture(); pinMapBalance(ctx, 'tutorial_forest', true);
   const initial = pinnedMapBalance(ctx, ctx.sender, 'tutorial_forest')!;
-  const edited = balanceEditorState(ctx); edited.settings.curve = longerBosses(2);
+  const edited = balanceEditorState(ctx); edited.settings.maps.tutorial_forest.bossHealth = 2;
   saveMapBalance(ctx, 0, JSON.stringify(edited.settings));
   pinMapBalance(ctx, 'tutorial_forest');
   expect(pinnedMapBalance(ctx, ctx.sender, 'tutorial_forest')!.boss!.hp).toBe(initial.boss!.hp);
@@ -89,14 +86,14 @@ it('reuses a revision across players without serving it past the next save', () 
   pinMapBalance(ctx, 'tutorial_forest', true);
   const before = pinnedMapBalance(ctx, ctx.sender, 'tutorial_forest')!;
   const settings = balanceEditorState(ctx).settings;
-  settings.curve = longerBosses(5);
+  settings.maps.tutorial_forest.bossHealth = 5;
   saveMapBalance(ctx, 0, JSON.stringify(settings));
 
   // Travelling away and back takes the new revision rather than a cached one.
   pinMapBalance(ctx, 'home_exterior'); pinMapBalance(ctx, 'tutorial_forest');
   const after = pinnedMapBalance(ctx, ctx.sender, 'tutorial_forest')!;
   expect(after.revision).toBe(1);
-  expect(after.boss!.hp).toBeCloseTo(before.boss!.hp * 5);
+  expect(after.boss!.hp).toBe(before.boss!.hp * 5);
 
   // A second player arriving at the same revision is served the same snapshot.
   const other = { ...ctx, sender: { toHexString: () => 'other' } };
@@ -211,7 +208,7 @@ it('migration 45 turns the live revision into the tested progression curve, once
   expectProgressionCurve(balanceEditorState(ctx).settings);
   for (const map of ['endless_1', 'endless_40', 'endless_1000']) {
     const before = resolveMapBalance(map, live, 0), after = resolveMapBalance(map, balanceEditorState(ctx).settings, 0);
-    expect(after.lanes).toEqual(before.lanes);
+    for (const [lane, value] of Object.entries(after.lanes)) expect(value.reward.amount / before.lanes[lane].reward.amount).toBeCloseTo(1, 12);
   }
   activateCampaignProgression(ctx);
   expect(balanceEditorState(ctx).revision).toBe(76);
