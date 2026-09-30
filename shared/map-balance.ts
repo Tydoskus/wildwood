@@ -3,7 +3,7 @@ import { applyCampaignRewardFloor } from './campaign-reward-floor';
 import { CAMPAIGN_HEALTH_FACTORS } from './campaign-health-curve';
 import { LEGACY_ENEMY_REWARDS } from "./legacy-enemy-rewards";
 import { BALANCE_BASELINE_VERSION, BAKED_ENEMY_REWARD_FACTORS, BAKED_ENDLESS_DEFAULTS } from "./balance-baseline";
-import { bossHeavyHitAt, bossRewardValue } from "./progression";
+import { bossHeavyHitAt } from "./progression";
 import { CAMPAIGN_MAPS, CAMPAIGN_ENDPOINT } from "./campaign-registry";
 import { regularMapLoot } from './regular-map-loot';
 import { bossRegenFractionFor } from './boss-regeneration';
@@ -141,16 +141,17 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
     for (const [key, value] of Object.entries(AUTHORED_RULES)) {
       if (typeof value !== 'number') continue;
       if (key === `${prefix}_MAX_HP`) result.rules[key] = value * factors.bossHealth;
+      // Bosses pay nothing: beating one opens the next map (Ryan, 2026-09-30).
       if (key.startsWith(`${prefix}_REWARD_`)) {
-        result.rules[key] = value * factors.bossRewards;
-        rewardValues[key.slice(`${prefix}_REWARD_`.length).toLowerCase()] = value * factors.bossRewards;
+        result.rules[key] = 0;
+        rewardValues[key.slice(`${prefix}_REWARD_`.length).toLowerCase()] = 0;
       }
     }
     const campaignIndex = CAMPAIGN_MAPS.findIndex(map => map.id === mapId);
     const attacks = BOSS_DAMAGE_PROFILES[definition.kind as keyof typeof BOSS_DAMAGE_PROFILES]
       ?? { heavy: bossHeavyHitAt(Math.max(0, campaignIndex - 1)) };
     if (!Object.keys(rewardValues).length) {
-      for (const stat of ['damage', 'health', 'armor', 'regen'] as const) rewardValues[stat] = bossRewardValue(stat, Math.max(0, campaignIndex - 1)) * factors.bossRewards;
+      for (const stat of ['damage', 'health', 'armor', 'regen'] as const) rewardValues[stat] = 0;
     }
     result.boss = { ...definition, hp: definition.hp * factors.bossHealth, damage: 0,
       attacks: Object.fromEntries(Object.entries(attacks).map(([key, value]) => [key, value * factors.bossDamage])), rewards: rewardValues };
