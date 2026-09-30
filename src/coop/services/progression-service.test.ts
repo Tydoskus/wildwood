@@ -253,6 +253,30 @@ describe("local progression profile snapshots", () => {
 });
 
 describe("server-calculated defeat batches", () => {
+  it("corrects fresh stale equipment saves against campaign access before persisting or sending", async () => {
+    const h = setup(); const base = { ...progress(), equippedRightHand: "" };
+    h.service.tables.upsertProgress({ ...base, identity: { toHexString: () => identity } } as never);
+    // The game still holds its pre-prestige gear, but another slot is a valid new choice.
+    h.service.api.saveProgress(saveFrom(base, { equippedHead: "neon_helmet", equippedRightHand: "starter_stone" }), true);
+    expect(await h.service.drainPendingProgress()).toBe(true);
+    expect(h.savePlayerProgress).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      equippedHead: base.equippedHead, equippedRightHand: "starter_stone",
+    }));
+    h.service.dispose();
+  });
+
+  it("holds a restored loadout until hydration can correct newly locked equipment", async () => {
+    const h = setup(); const base = progress(); h.entry.hydrated = false;
+    h.service.api.saveProgress(saveFrom(base, { equippedRightHand: "neon_bow" }), true);
+    expect(await h.service.drainPendingProgress()).toBe(false);
+    expect(h.savePlayerProgress).not.toHaveBeenCalled();
+    h.service.tables.upsertProgress({ ...base, identity: { toHexString: () => identity } } as never);
+    h.entry.hydrated = true;
+    expect(await h.service.drainPendingProgress()).toBe(true);
+    expect(h.savePlayerProgress).not.toHaveBeenCalled();
+    h.service.dispose();
+  });
+
   it("retains boss rewards until the reconnect snapshot has hydrated", async () => {
     const h = setup(); h.entry.hydrated = false;
     h.service.recordRegularEnemyDefeat("tutorial_forest", "boss");
@@ -317,7 +341,7 @@ describe("server-calculated defeat batches", () => {
   });
 
   it("keeps equipment changes on the normal validated save path", async () => {
-    const h = setup(); const base = progress();
+    const h = setup(); const base = { ...progress(), samuraiUnlocked: true };
     h.service.tables.upsertProgress({ ...base, identity: { toHexString: () => identity } } as never);
     h.service.api.saveProgress(saveFrom(base, { equippedHead: "samurai_hat", damage: 20 }));
     h.service.recordRegularEnemyDefeat("water_reach", "Tide Raider");
@@ -427,7 +451,7 @@ describe("server-calculated defeat batches", () => {
   it("saves a changed loadout on the timer even while kills wait for their report", async () => {
     vi.useFakeTimers();
     try {
-      const h = setup(); const base = progress();
+      const h = setup(); const base = { ...progress(), samuraiUnlocked: true };
       h.service.tables.upsertProgress({ ...base, identity: { toHexString: () => identity } } as never);
       const periodicFlush = vi.mocked(window.setInterval).mock.calls[0][0] as () => void;
       h.service.recordRegularEnemyDefeat("water_reach", "Tide Raider");

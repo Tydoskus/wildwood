@@ -233,7 +233,9 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
 
   function persistPending(progress: ProgressSave, immediate: boolean) {
     if (resetPending) return;
-    pendingProgress = copyProgress(progress);
+    // A game-frame save can still carry the loadout from before prestige or
+    // reconnect hydration. Never put locked gear back into the retry queue.
+    pendingProgress = copyProgress(localProgress ? withoutLockedEquipment(progress, localProgress, localProgress) : progress);
     const identity = dependencies.localIdentity();
     if (identity && immediate) pendingProgress = writeStore(identity, pendingProgress);
     else if (identity) deferStoreWrite(identity, pendingProgress);
@@ -257,13 +259,14 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       !connection ||
       !pendingProgress
     ) return Promise.resolve(!pendingProgress);
-    if (!dependencies.worldEntryReady()) return Promise.resolve(false);
+    if (!dependencies.worldEntryReady() || !dependencies.hydrationReady()) return Promise.resolve(false);
     if (!force && monotonicNowMs() < Math.max(saveInFlightUntil, nextPeriodicSaveAt)) return Promise.resolve(false);
     // Equipment acknowledgements must not clear the prediction for a kill batch
     // that is still on its way to the server. Kills wait for their thirty-second
     // report, but a changed loadout does not wait behind them: while the kills
     // are held back, save it on its own.
     if (!loadoutOnly && enemyLoot.hasPending()) return flushEnemyLoot(force).then(ok => ok ? flushAsync(force) : force ? false : flushAsync(false, true));
+    if (localProgress) pendingProgress = withoutLockedEquipment(pendingProgress, localProgress, localProgress);
     if (localProgress && LOADOUT_FIELDS.every(field => pendingProgress![field] === localProgress![field])) {
       if (!enemyLoot.hasPending()) clearPending();
       return Promise.resolve(true);

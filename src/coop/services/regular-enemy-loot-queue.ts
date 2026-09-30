@@ -89,7 +89,7 @@ export function createRegularEnemyLootQueue(options: {
       return;
     }
     const retryEpoch = epoch;
-    const throttleDelay = Math.min(30_000, Math.max(0, (state.retryAtMs ?? 0) - wallClockNowMs()));
+    const throttleDelay = Math.min(30_000, Math.max(0, retryAt() - wallClockNowMs()));
     bossRetryTimer = setTimeout(() => {
       bossRetryTimer = null;
       if (retryEpoch !== epoch) return;
@@ -98,6 +98,8 @@ export function createRegularEnemyLootQueue(options: {
     }, Math.max(bossRetryDelay, throttleDelay));
   }
   const empty = (): State => ({ streamId: crypto.randomUUID(), nextSequence: 1, batches: [] });
+  // The server budget belongs to the account, including adopted tab streams.
+  const retryAt = () => Math.max(state?.retryAtMs ?? 0, ...adopted.map(orphan => orphan.state.retryAtMs ?? 0));
   function write(storageKey: string, value: State) {
     value.touchedAtMs = wallClockNowMs();
     try { options.storage.setItem(storageKey, JSON.stringify(value)); } catch {}
@@ -198,7 +200,8 @@ export function createRegularEnemyLootQueue(options: {
     if (!owner || !state || (!state.batches.length && !adopted.length)) { cancelBossRetry(); return Promise.resolve(true); }
     // Even forced portal/save drains respect a known server throttle. Persist it
     // so rapid refreshes cannot turn the same rejected report into a request loop.
-    if (Number.isFinite(state.retryAtMs) && state.retryAtMs! > wallClockNowMs() && state.retryAtMs! <= wallClockNowMs() + 30_000) { scheduleBossRetry(); return Promise.resolve(false); }
+    const retryAtMs = retryAt();
+    if (Number.isFinite(retryAtMs) && retryAtMs > wallClockNowMs() && retryAtMs <= wallClockNowMs() + 30_000) { scheduleBossRetry(); return Promise.resolve(false); }
     const current = state, runEpoch = epoch, runOwner = owner;
     const batchLimit = current.batches.length;
     // One stream at a time, oldest first: adopted queues before this tab's own.
@@ -262,7 +265,11 @@ export function createRegularEnemyLootQueue(options: {
       if (!owner || !state || !combatMap(mapId) || !enemy) return;
       const tail = state.batches.at(-1);
       let target = tail;
-      if (tail && !tail.sealed && tail.mapId === mapId && Boolean(tail.autoFarm) === autoFarm && tail.count < REGULAR_ENEMY_LOOT_BATCH_MAX) {
+      // Both reducers pay the same rewards. Manual movement can override
+      // Auto Farm between kills; splitting on each switch turns one camp clear
+      // into a burst of tiny reports that exhausts the server's report budget.
+      if (tail && !tail.sealed && tail.mapId === mapId && tail.count < REGULAR_ENEMY_LOOT_BATCH_MAX) {
+        tail.autoFarm = Boolean(tail.autoFarm) && autoFarm;
         tail.count++;
         const entry = tail.enemies.find(entry => entry.enemy === enemy);
         if (entry) entry.count++; else tail.enemies.push({ enemy, count: 1 });

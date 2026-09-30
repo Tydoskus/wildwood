@@ -21,7 +21,7 @@ it("combines kills, keeps source maps separate, and bounds batches", async () =>
   await f.queue.flush(true);
   expect(f.send.mock.calls.slice(2).map(([r]) => r.count)).toEqual([100, 100, 5]);
 });
-it("keeps manual and Auto Farm kills in separate retryable batches", async () => {
+it("combines Auto Farm switches into one report and keeps wholly automatic batches automatic", async () => {
   const f = fixture();
   f.queue.record("cloudspire", "Spitter", false);
   f.queue.record("cloudspire", "Spitter", true);
@@ -29,7 +29,13 @@ it("keeps manual and Auto Farm kills in separate retryable batches", async () =>
   f.queue.record("cloudspire", "Spitter", false);
   await f.queue.flush(true);
   expect(f.send.mock.calls.map(([request]) => [request.autoFarm, request.count]))
-    .toEqual([[false, 1], [true, 2], [false, 1]]);
+    .toEqual([[false, 4]]);
+  for (let i = 0; i < 75; i++) f.queue.record("cloudspire", "Spitter", Boolean(i % 2));
+  await f.queue.flush();
+  expect(f.send.mock.calls[1][0]).toMatchObject({ autoFarm: false, count: 75 });
+  f.queue.record("cloudspire", "Spitter", true);
+  await f.queue.flush();
+  expect(f.send.mock.calls[2][0]).toMatchObject({ autoFarm: true, count: 1 });
 });
 it("persists an unacknowledged batch and never adds kills to a retry", async () => {
   const f = fixture(); f.send.mockResolvedValue(false);
@@ -127,6 +133,26 @@ it('persists a throttle across refreshes and ignores repeated forced drains unti
     await vi.advanceTimersByTimeAsync(30_000); send.mockResolvedValue(true);
     expect(await queue.flush(true)).toBe(true);
     expect(send.mock.calls[1][0]).toEqual(original);
+  } finally { vi.useRealTimers(); }
+});
+
+it('respects an adopted orphan throttle before draining either stream', async () => {
+  vi.useFakeTimers();
+  try {
+    const f = fixture();
+    f.queue.record('water_reach', 'Spitter');
+    await vi.advanceTimersByTimeAsync(ORPHAN_QUEUE_AFTER_MS + 1);
+    const send = vi.fn(async (_r: EnemyLootRequest): Promise<boolean | 'throttled'> => 'throttled');
+    const queue = createRegularEnemyLootQueue({ ...f.options, tabId: () => 'new-tab', send });
+    queue.begin(); queue.record('water_reach', 'Spitter');
+    expect(await queue.flush(true)).toBe(false);
+    const rejected = send.mock.calls[0][0];
+    for (let i = 0; i < 10; i++) expect(await queue.flush(true)).toBe(false);
+    expect(send).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(30_000); send.mockResolvedValue(true);
+    expect(await queue.flush(true)).toBe(true);
+    expect(send.mock.calls[1][0]).toEqual(rejected);
+    expect(send).toHaveBeenCalledTimes(3);
   } finally { vi.useRealTimers(); }
 });
 

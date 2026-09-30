@@ -9,6 +9,8 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "Base move speed is 200, and enemies chase a little faster",
     "Melee enemies notice you from farther away",
     "Bosses no longer knock you back",
+    "Fixed locked gear coming back after prestige or a reconnect",
+    "Fewer lost kill rewards when switching Auto Farm on and off or playing in several tabs",
   ],
   "0.838": [
     "Emptied hands stay empty after logging in or picking up loot",
