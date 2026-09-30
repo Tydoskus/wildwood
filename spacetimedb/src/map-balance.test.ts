@@ -206,10 +206,9 @@ it('migration 45 turns the live revision into the tested progression curve, once
   activateCampaignProgression(ctx);
   expect(balanceEditorState(ctx).revision).toBe(76);
   expectProgressionCurve(balanceEditorState(ctx).settings);
-  for (const map of ['endless_1', 'endless_40', 'endless_1000']) {
-    const before = resolveMapBalance(map, live, 0), after = resolveMapBalance(map, balanceEditorState(ctx).settings, 0);
-    for (const [lane, value] of Object.entries(after.lanes)) expect(value.reward.amount / before.lanes[lane].reward.amount).toBeCloseTo(1, 12);
-  }
+  // Endless now carries on from map 15 (shared/map-balance.ts), so a campaign
+  // change moves it by design; the migration's old "Endless unchanged" promise
+  // held when it ran and is not re-checked here.
   activateCampaignProgression(ctx);
   expect(balanceEditorState(ctx).revision).toBe(76);
 

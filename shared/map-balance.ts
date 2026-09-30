@@ -13,9 +13,8 @@ import * as rules from './rules';
 import { ENEMY_TYPES, type EnemyKind } from './enemy-definitions';
 import { enemyDefeatDefinition, combatMap } from './enemy-defeats';
 import { personalBossDefinition } from './personal-bosses';
-import { generateMap, generatedBossStats, generatedEnemyStats, isProceduralMap } from './procedural-maps';
+import { generateMap, isProceduralMap } from './procedural-maps';
 import { BOSS_DAMAGE_PROFILES } from './boss-damage';
-import { endlessScaling } from './endless-balance';
 import { DEFAULT_BALANCE_FACTORS, type BalanceSettings, type MapBalanceSnapshot } from './map-balance-types';
 const AUTHORED_RULES = { ...rules };
 const AUTHORED_ENEMIES = structuredCloneSafe(ENEMY_TYPES);
@@ -75,31 +74,57 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
   const factors = settings.maps[generated ? 'endless' : mapId];
   const definition = personalBossDefinition(mapId, true)!;
   if (generated) {
-    const storedCampaignFactors = settings.maps[CAMPAIGN_ENDPOINT.mapId] ?? DEFAULT_BALANCE_FACTORS;
-    const campaignFactors = { ...storedCampaignFactors,
-      enemyRewards: storedCampaignFactors.enemyRewards * (BAKED_ENEMY_REWARD_FACTORS[CAMPAIGN_ENDPOINT.mapId] ?? 1) };
-    const map = generateMap(mapId), base = endlessScaling(map.number), depth = Math.min(map.number - 1, 1000), tuning = settings.endless;
-    const stats = 1 + tuning.statStep * Math.log2(1 + depth);
-    const hpRatio = (1 + tuning.statStep * depth) * (1 + tuning.enduranceStep * depth) ** tuning.enduranceExponent / (base.combatStats * base.endurance);
-    // Reward per health is pure pacing: the boss is unchanged, so the power
-    // needed to beat it is unchanged; only the kills to earn that power move.
-    const rewardRatio = tuning.rewardMultiplier * (tuning.rewardPerHealth ?? 1) * Math.sqrt(stats) / base.rewards;
-    // Keep the compiled armor compensation; the authored damage multiplier is explicit.
-    const damageRatio = (1 + tuning.statStep * depth) / base.combatStats;
+    // Endless N is the campaign carried on: map 15's resolved enemies and boss,
+    // grown N times by the campaign's own last step (map 14 to map 15), per
+    // camp. Live's old Endless grew linearly, so each map past the first was
+    // barely different and rewards went nearly flat (Ryan, 2026-09-30).
+    const map = generateMap(mapId), depth = Math.min(map.number, 1_000);
+    // The step comes from the campaign's own progression: tuning map 14 or 15 on
+    // its own would otherwise compound into every Endless map. Map 15's tuning
+    // still carries into Endless once, through `last`.
+    const endpoint = CAMPAIGN_ENDPOINT.mapId, previousId = CAMPAIGN_MAPS[CAMPAIGN_MAPS.length - 2].id;
+    const untuned = { ...settings, maps: { ...settings.maps, [endpoint]: DEFAULT_BALANCE_FACTORS, [previousId]: DEFAULT_BALANCE_FACTORS } };
+    const last = resolveMapBalance(endpoint, settings, revision, configurationVersion);
+    const stepTo = resolveMapBalance(endpoint, untuned, revision, configurationVersion);
+    const before = resolveMapBalance(previousId, untuned, revision, configurationVersion);
+    const cap = (n: number) => Math.min(rules.MAX_PLAYER_STAT, Number.isFinite(n) ? n : rules.MAX_PLAYER_STAT);
+    // A camp's values on a campaign map. Map 15 has some camps only as an elite
+    // (its regen camp): the other version is scaled by that map's damage camp's
+    // elite-to-regular ratio.
+    const camp = (snapshot: MapBalanceSnapshot, type: string, elite: boolean) => {
+      const rows = Object.values(snapshot.enemies);
+      const exact = rows.find(row => row.reward.type === type && Boolean(row.elite) === elite);
+      if (exact) return exact;
+      const regular = rows.find(row => row.reward.type === 'damage' && !row.elite)!;
+      const other = rows.find(row => row.reward.type === type);
+      const eliteDamage = rows.find(row => row.reward.type === 'damage' && row.elite);
+      if (!other || !eliteDamage) return regular;
+      const k = elite ? 1 : -1, ratio = (a: number, b: number) => (a / b) ** k;
+      return { ...other, elite, hp: other.hp * ratio(eliteDamage.hp, regular.hp), damage: other.damage * ratio(eliteDamage.damage, regular.damage),
+        reward: { ...other.reward, amount: other.reward.amount * ratio(eliteDamage.reward.amount, regular.reward.amount) } };
+    };
     const lanes = new Set([...map.camps.map(c => c.lane), 'Dread Warden' as const]);
     for (const lane of lanes) {
-      const row = generatedEnemyStats(map, lane, true);
-      result.lanes[lane] = { hp: row.hp * hpRatio * factors.enemyHealth * campaignFactors.enemyHealth, damage: row.damage * damageRatio * factors.enemyDamage * campaignFactors.enemyDamage,
-        reward: { ...row.reward, amount: row.reward.amount * rewardRatio * factors.enemyRewards * campaignFactors.enemyRewards } };
+      const authored = AUTHORED_ENEMIES[lane], elite = lane === 'Dread Warden' || lane === 'King Slime';
+      const now = camp(last, authored.reward.type, elite), to = camp(stepTo, authored.reward.type, elite), was = camp(before, authored.reward.type, elite);
+      result.lanes[lane] = {
+        hp: cap(now.hp * (to.hp / was.hp) ** depth * factors.enemyHealth),
+        damage: cap(now.damage * (to.damage / was.damage) ** depth * factors.enemyDamage),
+        reward: { ...now.reward, amount: cap(now.reward.amount * (to.reward.amount / was.reward.amount) ** depth * factors.enemyRewards) },
+      };
     }
     // Generated camps reuse art, but receive these resolved combat values at spawn.
     const art = generatedEnemyArt(mapId);
     result.enemies[art] = { ...AUTHORED_ENEMIES[art],
       reward: { ...AUTHORED_ENEMIES[art].reward, amount: LEGACY_ENEMY_REWARDS[art] ?? AUTHORED_ENEMIES[art].reward.amount },
       speed: 275 * factors.enemySpeed };
-    const boss = generatedBossStats(map, true);
-    result.boss = { kind: definition.kind, hp: boss.hp * hpRatio * factors.bossHealth * campaignFactors.bossHealth, damage: boss.damage * damageRatio * factors.bossDamage * campaignFactors.bossDamage,
-      respawnSeconds: definition.respawnSeconds, attacks: {}, rewards: Object.fromEntries(boss.rewards.map(r => [r.type, r.amount * rewardRatio * factors.bossRewards * campaignFactors.bossRewards])) };
+    const heaviest = (snapshot: MapBalanceSnapshot) => Math.max(...Object.values(snapshot.boss!.attacks), snapshot.boss!.damage);
+    const rewardStep = camp(stepTo, 'damage', false).reward.amount / camp(before, 'damage', false).reward.amount;
+    result.boss = { kind: definition.kind,
+      hp: cap(last.boss!.hp * (stepTo.boss!.hp / before.boss!.hp) ** depth * factors.bossHealth),
+      damage: cap(heaviest(last) * (heaviest(stepTo) / heaviest(before)) ** depth * factors.bossDamage),
+      respawnSeconds: definition.respawnSeconds, attacks: {},
+      rewards: Object.fromEntries(Object.entries(last.boss!.rewards).map(([type, amount]) => [type, cap(amount * rewardStep ** depth * factors.bossRewards)])) };
   } else {
     for (const kind of Object.keys(ENEMY_TYPES) as EnemyKind[]) {
       if (!enemyDefeatDefinition(mapId, kind)) continue;

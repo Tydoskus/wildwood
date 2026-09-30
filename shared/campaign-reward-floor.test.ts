@@ -19,10 +19,11 @@ it('never lowers matching regular/elite rewards on later maps, including after t
   }
 });
 
-it('only raises deficient enemy rewards: bosses, HP, damage, loot and Endless stay identical', () => {
+it('only raises deficient enemy rewards: bosses, HP, damage and loot stay identical', () => {
   const afterSettings = defaultBalanceSettings();
   const beforeSettings = { ...afterSettings }; delete beforeSettings.campaignRewardVersion;
-  for (const map of [...CAMPAIGN_MAPS.map(m => m.id), ...Array.from({ length: 1002 }, (_, i) => `endless_${i + 1}`)]) {
+  // Endless carries on from map 15, so it follows whatever the floor does there (map-balance.test.ts).
+  for (const map of CAMPAIGN_MAPS.map(m => m.id)) {
     for (const version of [1, 2] as const) {
       const before = resolveMapBalance(map, beforeSettings, 0, version);
       const after = resolveMapBalance(map, afterSettings, 0, version);

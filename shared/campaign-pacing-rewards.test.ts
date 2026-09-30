@@ -21,16 +21,14 @@ it('applies campaign pacing once and changes no combat, boss, drop or timer valu
   }
 });
 
-it('preserves every Endless field through the scaling cap after final-map pacing changes', () => {
-  const settings = defaultBalanceSettings();
-  for (let depth = 1; depth <= 1002; depth++) for (const version of [1, 2] as const) {
-    const before = resolveMapBalance(`endless_${depth}`, fixture.settings, 0, version);
-    const after = resolveMapBalance(`endless_${depth}`, settings, 0, version);
-    for (const [lane, row] of Object.entries(before.lanes)) {
-      // The inverse factor can add only floating-point multiplication round-off.
-      expect(Math.abs(after.lanes[lane].reward.amount / row.reward.amount - 1)).toBeLessThan(1e-14);
-      after.lanes[lane].reward.amount = row.reward.amount;
+it('carries final-map pacing into Endless, which carries on from map 15 by its last step', () => {
+  const damageCamp = (snapshot: ReturnType<typeof resolveMapBalance>) => Object.values(snapshot.enemies).find(row => row.reward.type === 'damage' && !row.elite)!;
+  for (const settings of [fixture.settings, defaultBalanceSettings()]) {
+    const map14 = damageCamp(resolveMapBalance('verdant_catacombs', settings, 0)).reward.amount;
+    const map15 = damageCamp(resolveMapBalance('ion_citadel', settings, 0)).reward.amount;
+    for (const depth of [1, 2, 10, 40]) {
+      const lane = resolveMapBalance(`endless_${depth}`, settings, 0).lanes.Cindermaw.reward.amount;
+      expect(lane / map15 / (map15 / map14) ** depth).toBeCloseTo(1, 9);
     }
-    expect(after).toEqual(before);
   }
 });

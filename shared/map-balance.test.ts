@@ -8,13 +8,12 @@ import { generatedBossStats, generateMap } from './procedural-maps';
 afterEach(() => installMapBalance(null));
 describe('server map balance snapshots', () => {
   it('preserves campaign bases and the explicit procedural reference curve', () => {
-    for (const [map] of [...BALANCE_MAPS.slice(0, -1), ['endless_1'], ['endless_40']] as string[][]) {
+    for (const [map] of BALANCE_MAPS.slice(0, -1) as string[][]) {
       const settings = defaultBalanceSettings();
       for (const factors of Object.values(settings.maps)) factors.bossHealth = 1;
       settings.endless = { rewardMultiplier: .1, statStep: .2, enduranceStep: .1, enduranceExponent: 6, rewardPerHealth: 1 };
       const snapshot = resolveMapBalance(map, settings, 2);
       expect(snapshot.boss!.hp).toBeCloseTo(personalBossDefinition(map)!.hp, -1);
-      if (map.startsWith('endless')) expect(Object.values(snapshot.boss!.rewards)).toEqual(generatedBossStats(generateMap(map as `endless_${number}`)).rewards.map(row => row.amount));
     }
   });
   it('uses identical regular rewards in presentation and validation', () => {
@@ -83,4 +82,31 @@ it('carries the final campaign tuning into Endless while earlier map tuning stay
   expect(changed.boss!.rewards.damage).toBeCloseTo(baseline.boss!.rewards.damage * 7, -1);
   settings.maps.tutorial_forest.bossHealth = 9;
   expect(resolveMapBalance('endless_1', settings, 1).boss!.hp).toBe(changed.boss!.hp);
+});
+
+describe('Endless carries on from map 15', () => {
+  const damageCamp = (snapshot: ReturnType<typeof resolveMapBalance>) => Object.values(snapshot.enemies).find(row => row.reward.type === 'damage' && !row.elite)!;
+  it('grows every Endless map by the campaign\'s last step, from map 15', () => {
+    const settings = defaultBalanceSettings();
+    const map14 = damageCamp(resolveMapBalance('verdant_catacombs', settings, 0)), map15 = damageCamp(resolveMapBalance('ion_citadel', settings, 0));
+    for (const depth of [1, 2, 3, 10]) {
+      const lane = resolveMapBalance(`endless_${depth}`, settings, 0).lanes.Cindermaw;
+      expect(lane.hp / map15.hp / (map15.hp / map14.hp) ** depth).toBeCloseTo(1, 9);
+      expect(lane.damage / map15.damage / (map15.damage / map14.damage) ** depth).toBeCloseTo(1, 9);
+      expect(lane.reward.amount / map15.reward.amount / (map15.reward.amount / map14.reward.amount) ** depth).toBeCloseTo(1, 9);
+    }
+  });
+  it('carries map 15 tuning into Endless once, without compounding it', () => {
+    const plain = defaultBalanceSettings(), tuned = defaultBalanceSettings();
+    tuned.maps.ion_citadel.enemyHealth = 2;
+    for (const depth of [1, 5, 20]) {
+      const ratio = resolveMapBalance(`endless_${depth}`, tuned, 0).lanes.Cindermaw.hp / resolveMapBalance(`endless_${depth}`, plain, 0).lanes.Cindermaw.hp;
+      expect(ratio).toBeCloseTo(2, 9);
+    }
+  });
+  it("keeps every Endless lane its own stat, including map 15's elite-only regen camp", () => {
+    const lanes = resolveMapBalance('endless_3', defaultBalanceSettings(), 0).lanes;
+    expect(lanes.Brood.reward.type).toBe('regen');
+    expect(lanes['Dread Warden'].hp).toBeGreaterThan(lanes.Cindermaw.hp);
+  });
 });
