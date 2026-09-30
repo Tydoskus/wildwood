@@ -53,7 +53,7 @@ export const DEFAULT_BALANCE_CURVE: Readonly<BalanceCurve> = Object.freeze({
   damageHp: 8, damageHit: 10, damageReward: .5,
   healthHp: 24, healthHit: 4, healthReward: 15,
   speedHp: 8, speedHit: 2.5, speedReward: 1.2,
-  regenHp: 12, regenHit: 4, regenReward: .014, regenHeal: 1,
+  regenHp: 12, regenHit: 4, regenReward: .2, regenHeal: 1,
   armorHp: 13, armorHit: 5, armorReward: 1.2, armorArmor: 50,
   bossHp: 190, bossHit: 120, bossRegen: .067, dragonHp: 50_000, dragonHit: 1_500,
   eliteHealth: 5, eliteHit: 3,
