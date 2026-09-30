@@ -162,6 +162,8 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   let activeResearch: ActiveResearch | null = null;
   let localPrestige: PlayerPrestige | null = null;
   let localPrestigePerks: PlayerPrestigePerks | null = null;
+  let expansionPerks = { bossSlayer: 0, secondWind: 0, longShot: 0, fleetFoot: 0 };
+  let prestigeExpansionUnlocksAt: number | null = null;
   let gemBalance = 0n;
   let dailyGemBonusClaimable = false;
   const mailboxMessages = new Map<string, MailboxMessage>();
@@ -533,6 +535,29 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     dependencies.notify();
   }
 
+  function upsertPrestigeExpansion(row: { id: number; unlocksAt: { microsSinceUnixEpoch: bigint } }) {
+    if (row.id !== 0) return;
+    prestigeExpansionUnlocksAt = Number(row.unlocksAt.microsSinceUnixEpoch / 1000n);
+    dependencies.notify();
+  }
+
+  function removePrestigeExpansion(row: { id: number }) {
+    if (row.id === 0) prestigeExpansionUnlocksAt = null;
+    dependencies.notify();
+  }
+
+  function upsertPrestigeExpansionPerk(row: { identity: Identity; bossSlayer: number; secondWind: number; longShot: number; fleetFoot: number }) {
+    if (row.identity.toHexString() === dependencies.localIdentity()) {
+      expansionPerks = { bossSlayer: row.bossSlayer, secondWind: row.secondWind, longShot: row.longShot, fleetFoot: row.fleetFoot };
+    }
+    dependencies.notify();
+  }
+
+  function removePrestigeExpansionPerk(row: { identity: Identity }) {
+    if (row.identity.toHexString() === dependencies.localIdentity()) expansionPerks = { bossSlayer: 0, secondWind: 0, longShot: 0, fleetFoot: 0 };
+    dependencies.notify();
+  }
+
   function removePrestigePerk(row: { identity: Identity }) {
     if (row.identity.toHexString() !== dependencies.localIdentity()) { dependencies.notify(); return; }
     localPrestigePerks = null;
@@ -656,6 +681,8 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       upsertPrestige,
       removePrestige,
       upsertPrestigePerk,
+      upsertPrestigeExpansion, removePrestigeExpansion,
+      upsertPrestigeExpansionPerk, removePrestigeExpansionPerk,
       removePrestigePerk,
       upsertItemUpgrade,
       removeItemUpgrade,
@@ -819,9 +846,8 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       activeResearch: () => activeResearch ? { ...activeResearch } : null,
       prestige: () => localPrestige ? { ...localPrestige } : null,
       prestigeLevelFor: (identity: string) => prestigeLevelByIdentity.get(identity) ?? 0,
-      prestigePerks: (): PlayerPrestigePerks => localPrestigePerks
-        ? { ...localPrestigePerks }
-        : { keenEdge: 0, doubleStrike: 0, splitShot: 0, riposte: 0 },
+      prestigeExpansionUnlocksAt: () => prestigeExpansionUnlocksAt,
+      prestigePerks: (): PlayerPrestigePerks => ({ keenEdge: 0, doubleStrike: 0, splitShot: 0, riposte: 0, ...localPrestigePerks, ...expansionPerks }),
       /** The tier that applies to an item: whatever its slot has earned. */
       itemUpgradeLevel(itemId: string, identity = dependencies.localIdentity()) {
         const slot = upgradeSlotForItem(itemId);
@@ -1123,6 +1149,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       localPrestige = null;
       prestigeLevelByIdentity.clear();
       localPrestigePerks = null;
+      expansionPerks = { bossSlayer: 0, secondWind: 0, longShot: 0, fleetFoot: 0 };
       activeItemUpgrades.clear();
       balanceApologyGiftAmount = 0n;
       itemGifts.clear();
@@ -1163,6 +1190,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       localPrestige = null;
       prestigeLevelByIdentity.clear();
       localPrestigePerks = null;
+      expansionPerks = { bossSlayer: 0, secondWind: 0, longShot: 0, fleetFoot: 0 };
       activeItemUpgrades.clear();
       balanceApologyGiftAmount = 0n;
       itemGifts.clear();

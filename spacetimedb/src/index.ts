@@ -50,7 +50,8 @@ import { moderateReportedMessage } from "./chat-report-moderation";
 import { PLAYER_SKIN_TONES } from "../../shared/player-skin-tones";
 import { leaderboardPageTables, writeLeaderboardPages, readLeaderboardWindow, readLeaderboardPage, readPrestigeLeaderboardPage } from "./leaderboard-pages";
 import { leaderboardEligible } from "../../shared/leaderboard-window";
-import { effectiveMovementSpeedForProgress } from "./player-speed";
+import { effectiveMovementSpeedForProgress, prestigeRangeBonus, refreshPrestigeMovement } from "./player-speed";
+import { playerPrestige, playerPrestigePerk, prestigeExpansion, playerPrestigeExpansionPerk, ensurePrestigeExpansion } from "./prestige-expansion";
 import { earlierTimestamp } from "./timestamp-utils";
 import { attackRangeWithResearch, slotUpgradeDurationWithResearch } from "../../shared/utility-research";
 import { createResearchState } from "./research-state";
@@ -1081,17 +1082,6 @@ const playerEndgameRebaseBackup = table(
 // Permanent account bonuses. A prestige reset clears progress and unlocks but
 // never this row: the level multiplies every stat reward a kill grants, and the
 // perk points buy prestige perks. Public like player_progress, read per player.
-const playerPrestige = table({ name: "player_prestige", public: true }, {
-  identity: t.identity().primaryKey(), level: t.u32().default(0), perkPoints: t.u32().default(0),
-  peakPower: t.f64().default(0), prestigedAt: t.timestamp(),
-});
-// Perk ranks live apart from the level that bought them. player_prestige is
-// public and already subscribed by shipped clients, so its shape is frozen;
-// a new table is additive and leaves those clients connected.
-const playerPrestigePerk = table({ name: "player_prestige_perk", public: true }, {
-  identity: t.identity().primaryKey(),
-  keenEdge: t.u32().default(0), doubleStrike: t.u32().default(0), splitShot: t.u32().default(0), riposte: t.u32().default(0),
-});
 const playerEndlessRebaseBackup = table({ public: false }, {
   identity: t.identity().primaryKey(),
   maxHp: t.f32(), damage: t.f32(), armor: t.f32(), regen: t.f32(), attackRate: t.f32(),
@@ -1820,6 +1810,8 @@ const spacetimedb = schema({
   playerEndlessRebaseBackup,
   playerPrestige,
   playerPrestigePerk,
+  prestigeExpansion,
+  playerPrestigeExpansionPerk,
   duelRiposte, duelCombatSnapshot,
   playerSessionAnalytics,
   developerPresencePreference,
@@ -2333,7 +2325,7 @@ function completeActiveResearch(ctx: any, active: any) {
   if (active.researchId === "slotUpgradeSpeed") refreshActiveSlotUpgrades(ctx, active.identity, reconcileActiveItemUpgrade);
   let progress = ctx.db.playerProgress.identity.find(active.identity);
   if (progress && active.researchId === "utilityAttackRange") {
-    progress = { ...progress, attackRange: attackRangeWithResearch(nextResearch.utilityAttackRange) };
+    progress = { ...progress, attackRange: attackRangeWithResearch(nextResearch.utilityAttackRange) + prestigeRangeBonus(ctx, active.identity) };
     updateSnapshotRow(ctx, "playerProgress", progress);
   }
   const player = ctx.db.player.identity.find(active.identity);
@@ -3465,7 +3457,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
     const cosmeticEquipment = cosmeticEquipmentForProgress({ ...existingProgress, inventoryJson });
     const speed = playerBaseMovementSpeed(false);
     const maxHp = Math.max(PLAYER_BASE_HP, existingProgress.maxHp);
-    const attackRange = attackRangeWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.utilityAttackRange ?? 0);
+    const attackRange = attackRangeWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.utilityAttackRange ?? 0) + prestigeRangeBonus(ctx, ctx.sender);
     if (existingProgress.maxHp !== maxHp || existingProgress.attackRange !== attackRange || existingProgress.speed !== speed || existingProgress.inventoryJson !== inventoryJson || existingProgress.equippedHead !== equippedHead || existingProgress.equippedChest !== equippedChest || existingProgress.equippedFeet !== equippedFeet || existingProgress.equippedRightHand !== equippedRightHand || existingProgress.equippedLeftHand !== equippedLeftHand || existingProgress.cosmeticHead !== cosmeticEquipment.cosmeticHead || existingProgress.cosmeticChest !== cosmeticEquipment.cosmeticChest || existingProgress.cosmeticFeet !== cosmeticEquipment.cosmeticFeet || existingProgress.cosmeticRightHand !== cosmeticEquipment.cosmeticRightHand || existingProgress.cosmeticLeftHand !== cosmeticEquipment.cosmeticLeftHand) {
       const migratedProgress = {
         ...existingProgress,
@@ -3625,6 +3617,7 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
   ensureMaintenanceSchedule(ctx);
   ensurePatreonSweep(ctx, ScheduleAt.interval(PATREON_SWEEP_INTERVAL_MICROS));
   // Initialization and balance reconciliation run once per module version.
+  ensurePrestigeExpansion(ctx);
   runPendingModuleMigrations(ctx);
 
   if (!ctx.connectionId) return;
@@ -3700,6 +3693,7 @@ export const runMaintenance = spacetimedb.reducer(
     for (const current of finishedDuels) finishDuel(ctx, current);
     clearExpiredDuelRequests(ctx);
     ensureMotionDetailFrameSchedule(ctx);
+    ensurePrestigeExpansion(ctx);
     runPendingModuleMigrations(ctx);
     // The online count lives here only: every client subscribes to it, so a
     // refresh per connect and disconnect made a mass reload players-squared.
@@ -4725,7 +4719,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       attackRate: base.attackRate,
       projectileSpeed: PLAYER_PROJECTILE_SPEED,
       projectileCount: base.projectileCount,
-      attackRange: attackRangeWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.utilityAttackRange ?? 0),
+      attackRange: attackRangeWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.utilityAttackRange ?? 0) + prestigeRangeBonus(ctx, ctx.sender),
       armor: base.armor,
       regen: base.regen,
       speed: playerBaseMovementSpeed(false),
@@ -5530,7 +5524,7 @@ function resetProgressToDefaults(ctx: any, activePlayer: any, keep: { research?:
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
     const next = defaultPlayerProgress(ctx.sender);
     if (current) next.cosmeticItemsJson = current.cosmeticItemsJson;
-    if (keep.research) next.attackRange = attackRangeWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.utilityAttackRange ?? 0);
+    if (keep.research) next.attackRange = attackRangeWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.utilityAttackRange ?? 0) + prestigeRangeBonus(ctx, ctx.sender);
     const history = ctx.db.playerCutsceneHistory.identity.find(ctx.sender);
     if (history) ctx.db.playerCutsceneHistory.identity.update({ ...history, seenMask: 0, generation: history.generation + 1 });
     else ctx.db.playerCutsceneHistory.insert({ identity: ctx.sender, seenMask: 0, generation: 0 });
@@ -5578,6 +5572,7 @@ const prestige = createPrestige({
   requireControllingPlayer,
   activeDuelFor,
   resetProgressToDefaults, respawnWithProgress,
+  refreshPerkEffects: (ctx, player) => refreshPrestigeMovement(ctx, player, updated => syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, updated))),
   recordPrestige: (ctx: any) => { recordAnalyticsMilestone(ctx, "prestige"); },
 });
 export const resetPlayerProgress = spacetimedb.reducer({}, (ctx) => {
@@ -5934,7 +5929,8 @@ export const setSpeed = spacetimedb.reducer(
     const feet = progress ? equippedFeetForProgress(progress) : current.feetItem;
     const bootsEquipped = false;
     const moveSpeedRank = research?.moveSpeed ?? 0;
-    const expectedSpeed = effectivePlayerMovementSpeed(bootsEquipped, moveSpeedRank, progress?.speedOverride ?? 0, research?.utilityMoveSpeed ?? 0);
+    const expectedSpeed = progress ? effectiveMovementSpeedForProgress(ctx, progress, research)
+      : effectivePlayerMovementSpeed(bootsEquipped, moveSpeedRank, 0, research?.utilityMoveSpeed ?? 0);
     // Regular-enemy combat runs locally. Permit its two exact movement states,
     // while checking ownership/equipment here and never saving a temporary bonus.
     const blackBootsEquipped = progress && feet === BLACK_BOOTS;

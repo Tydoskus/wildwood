@@ -4,6 +4,9 @@ import { PLAYER_STARTING_POWER, playerPowerForStats } from "../../shared/player-
 import { updateSnapshotRow } from "./snapshot-row-writes";
 import { PRESTIGE_CAP_HINT, PRESTIGE_PERK_POINTS_PER_LEVEL, prestigeCapped, prestigeCampaignTarget, prestigeCampaignComplete, prestigeEndlessRequirement, prestigeStatMultiplier, prestigeUnlocked } from "../../shared/prestige";
 import { PRESTIGE_PERK_IDS, PRESTIGE_PERK_MAX_RANK, isPrestigePerkId, type PrestigePerkRanks } from "../../shared/prestige-perks";
+import { PRESTIGE_EXPANSION_PERK_IDS } from "../../shared/prestige-expansion";
+import { prestigeExpanded } from "./prestige-expansion";
+import { attackRangeWithResearch } from "../../shared/utility-research";
 
 // Prestige bodies. The player_prestige table and the reducer declaration stay
 // in index.ts; this module owns what they call. The reset arrives through deps
@@ -23,7 +26,18 @@ export function statRewardMultiplier(ctx: any, identity: any) {
 /** The player's perk ranks, zero for anyone who has never prestiged. */
 export function prestigePerkRanks(ctx: any, identity: any): PrestigePerkRanks {
   const row = ctx.db.playerPrestigePerk.identity.find(identity);
-  return { keenEdge: row?.keenEdge ?? 0, doubleStrike: row?.doubleStrike ?? 0, splitShot: row?.splitShot ?? 0, riposte: row?.riposte ?? 0 };
+  const expansion = prestigeExpanded(ctx) ? ctx.db.playerPrestigeExpansionPerk.identity.find(identity) : null;
+  return { keenEdge: row?.keenEdge ?? 0, doubleStrike: row?.doubleStrike ?? 0, splitShot: row?.splitShot ?? 0, riposte: row?.riposte ?? 0,
+    bossSlayer: expansion?.bossSlayer ?? 0, secondWind: expansion?.secondWind ?? 0, longShot: expansion?.longShot ?? 0, fleetFoot: expansion?.fleetFoot ?? 0 };
+}
+
+/** Preserve the original public row's wire shape; expansion ranks live beside it. */
+export function writePrestigePerkRanks(ctx: any, identity: any, ranks: PrestigePerkRanks) {
+  const original = { identity, keenEdge: ranks.keenEdge, doubleStrike: ranks.doubleStrike, splitShot: ranks.splitShot, riposte: ranks.riposte };
+  const expanded = { identity, bossSlayer: ranks.bossSlayer, secondWind: ranks.secondWind, longShot: ranks.longShot, fleetFoot: ranks.fleetFoot };
+  for (const [table, row] of [[ctx.db.playerPrestigePerk, original], [ctx.db.playerPrestigeExpansionPerk, expanded]]) {
+    if (table.identity.find(identity)) table.identity.update(row); else table.insert(row);
+  }
 }
 
 export type PrestigeDeps = {
@@ -32,6 +46,7 @@ export type PrestigeDeps = {
   resetProgressToDefaults: (ctx: any, activePlayer: any, keep?: { research?: boolean; lifetimeKills?: boolean; slotTiers?: boolean; items?: boolean }) => void;
   recordPrestige: (ctx: any) => void;
   respawnWithProgress: (ctx: any, activePlayer: any, progress: any) => void;
+  refreshPerkEffects: (ctx: any, activePlayer: any) => void;
 };
 
 export function createPrestige(deps: PrestigeDeps) {
@@ -43,9 +58,10 @@ export function createPrestige(deps: PrestigeDeps) {
     const progress = ctx.db.playerProgress.identity.find(ctx.sender);
     const current = ctx.db.playerPrestige.identity.find(ctx.sender);
     const nextLevel = (current?.level ?? 0) + 1;
-    if (prestigeCapped(nextLevel)) throw new SenderError(PRESTIGE_CAP_HINT);
+    const expanded = prestigeExpanded(ctx);
+    if (prestigeCapped(nextLevel, expanded)) throw new SenderError(PRESTIGE_CAP_HINT);
     const completedEndless = ctx.db.proceduralProgress.identity.find(ctx.sender)?.completed ?? 0;
-    if (!progress || !prestigeUnlocked(progress.bossRewardClaims, completedEndless, nextLevel)) {
+    if (!progress || !prestigeUnlocked(progress.bossRewardClaims, completedEndless, nextLevel, undefined, expanded)) {
       // The campaign first, then one Endless stage more than the last prestige asked for.
       throw new SenderError(progress && prestigeCampaignComplete(progress.bossRewardClaims, nextLevel) && prestigeEndlessRequirement(nextLevel) > 0
         ? `Clear Endless ${prestigeEndlessRequirement(nextLevel)} before prestiging.`
@@ -66,17 +82,20 @@ export function createPrestige(deps: PrestigeDeps) {
     return next;
   }
 
-  /** Spend one banked point on one rank. Points never come back. */
+  /** Spend one banked point on one rank; unspent points have no gameplay cap. */
   function spendPerkPoint(ctx: any, perk: string) {
-    requireControllingPlayer(ctx);
+    const activePlayer = requireControllingPlayer(ctx);
     if (!isPrestigePerkId(perk)) throw new SenderError("Unknown prestige perk.");
+    if ((PRESTIGE_EXPANSION_PERK_IDS as readonly string[]).includes(perk) && !prestigeExpanded(ctx)) {
+      throw new SenderError("New prestige perks unlock when the countdown finishes.");
+    }
     const current = ctx.db.playerPrestige.identity.find(ctx.sender);
     if (!current || current.perkPoints < 1) throw new SenderError("No perk points to spend.");
-    const ranks = ctx.db.playerPrestigePerk.identity.find(ctx.sender);
-    if ((ranks?.[perk] ?? 0) >= PRESTIGE_PERK_MAX_RANK) throw new SenderError("That perk is already at its highest rank.");
-    const next = { identity: ctx.sender, ...prestigePerkRanks(ctx, ctx.sender), [perk]: (ranks?.[perk] ?? 0) + 1 };
-    if (ranks) ctx.db.playerPrestigePerk.identity.update(next); else ctx.db.playerPrestigePerk.insert(next);
+    const ranks = prestigePerkRanks(ctx, ctx.sender);
+    if (ranks[perk] >= PRESTIGE_PERK_MAX_RANK) throw new SenderError("That perk is already at its highest rank.");
+    writePrestigePerkRanks(ctx, ctx.sender, { ...ranks, [perk]: ranks[perk] + 1 });
     ctx.db.playerPrestige.identity.update({ ...current, perkPoints: current.perkPoints - 1 });
+    deps.refreshPerkEffects(ctx, activePlayer);
   }
 
   /**
@@ -95,10 +114,11 @@ export function createPrestige(deps: PrestigeDeps) {
     const spent = PRESTIGE_PERK_IDS.reduce((sum, perk) => sum + ranks[perk], 0);
     const progress = ctx.db.playerProgress.identity.find(ctx.sender);
     if (!current || !progress || spent < 1) throw new SenderError("No perk points to respec.");
-    ctx.db.playerPrestigePerk.identity.update({ identity: ctx.sender, ...Object.fromEntries(PRESTIGE_PERK_IDS.map(perk => [perk, 0])) });
+    writePrestigePerkRanks(ctx, ctx.sender, Object.fromEntries(PRESTIGE_PERK_IDS.map(perk => [perk, 0])) as PrestigePerkRanks);
     ctx.db.playerPrestige.identity.update({ ...current, perkPoints: current.perkPoints + spent,
       peakPower: Math.max(current.peakPower, playerPowerForStats(progress)) });
-    const next = { ...progress, ...PLAYER_STARTING_POWER };
+    const next = { ...progress, ...PLAYER_STARTING_POWER,
+      attackRange: attackRangeWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.utilityAttackRange ?? 0) };
     updateSnapshotRow(ctx, "playerProgress", next);
     respawnWithProgress(ctx, activePlayer, next);
     return spent;

@@ -326,10 +326,12 @@ import PlayerMotionFrameRow from "./player_motion_frame_table";
 import PlayerMotionIdentityRow from "./player_motion_identity_table";
 import PlayerNameTagRow from "./player_name_tag_table";
 import PlayerPrestigeRow from "./player_prestige_table";
+import PlayerPrestigeExpansionPerkRow from "./player_prestige_expansion_perk_table";
 import PlayerPrestigePerkRow from "./player_prestige_perk_table";
 import PlayerProfileRow from "./player_profile_table";
 import PlayerProgressRow from "./player_progress_table";
 import PlayerResearchRow from "./player_research_table";
+import PrestigeExpansionRow from "./prestige_expansion_table";
 import PrismshellBossRow from "./prismshell_boss_table";
 import PrismshellResultRow from "./prismshell_result_table";
 import ProceduralBossRow from "./procedural_boss_table";
@@ -923,6 +925,17 @@ const tablesSchema = __schema({
       { name: 'player_prestige_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerPrestigeRow),
+  playerPrestigeExpansionPerk: __table({
+    name: 'player_prestige_expansion_perk',
+    indexes: [
+      { accessor: 'identity', name: 'player_prestige_expansion_perk_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_prestige_expansion_perk_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerPrestigeExpansionPerkRow),
   playerPrestigePerk: __table({
     name: 'player_prestige_perk',
     indexes: [
@@ -967,6 +980,17 @@ const tablesSchema = __schema({
       { name: 'player_research_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerResearchRow),
+  prestigeExpansion: __table({
+    name: 'prestige_expansion',
+    indexes: [
+      { accessor: 'id', name: 'prestige_expansion_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'prestige_expansion_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, PrestigeExpansionRow),
   prismshellBoss: __table({
     name: 'prismshell_boss',
     indexes: [

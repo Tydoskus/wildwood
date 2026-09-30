@@ -34,7 +34,8 @@ describe("installed interface structure", () => {
     // icon beside the mute button is built in script, where its path costs the
     // startup shell nothing. Raised by 32 for the Other Players' Fights row;
     // that row itself landed in the old headroom.
-    expect(Buffer.byteLength(entryHtml)).toBeLessThan(24_704);
+    // The map-name label adds one accessible element below the minimap.
+    expect(Buffer.byteLength(entryHtml)).toBeLessThan(24_832);
     for (const id of ["start", "gameUpdateGate", "dailyGemBonus", "gameOver", "playerProfile", "techTreeOverlay", "guildBtn"]) {
       expect(doc.getElementById(id), id).not.toBeNull();
     }

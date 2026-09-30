@@ -191,7 +191,7 @@ export function createBossCombat(deps: BossCombatDeps) {
         // Reflect returns the hit before armor, so armor raises what it adds.
         reach: prestigeReachMultiplier(ranks, armorDamageReduction(effectivePlayerPowerStats(saved, research, loadout.levelFor).armor))
           * bowSkillReachMultiplier(bowSkills),
-        bossDamage: bowSkillBossDamageMultiplier(bowSkills),
+        bossDamage: bowSkillBossDamageMultiplier(bowSkills) * (1 + prestigePerkValue(ranks, "bossSlayer")),
         reflects: prestigePerkValue(ranks, "riposte") > 0,
       } };
     }

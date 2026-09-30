@@ -112,6 +112,10 @@ export type PlayerPrestigePerks = {
   doubleStrike: number;
   splitShot: number;
   riposte: number;
+  bossSlayer?: number;
+  secondWind?: number;
+  longShot?: number;
+  fleetFoot?: number;
 };
 
 export type UpgradeBenchSlot = 1 | 2 | 3;

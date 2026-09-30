@@ -134,7 +134,7 @@ describe("prestige panel", () => {
     const none = setup({ unlocked: true, row: { level: 1, perkPoints: 0, peakPower: 0 }, perks: { keenEdge: 2 } });
     none.controller.open();
     const rows = () => [...none.pick("perks").querySelectorAll(".prestige-perk")] as any[];
-    expect(rows()).toHaveLength(4);
+    expect(rows()).toHaveLength(8);
     expect(rows()[0].querySelector(".prestige-perk-title").textContent).toBe("Keen Edge 2/5");
     // Both what the rank owned is worth and what one more point buys.
     const value = rows()[0].querySelector(".prestige-perk-value").textContent;

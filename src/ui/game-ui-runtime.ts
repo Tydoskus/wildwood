@@ -66,7 +66,7 @@ export function createPrestigePanel(d: Record<string, any>) {
     closeButton: e.closePrestigeBtn, confirmButton: e.prestigeConfirmBtn, level: e.prestigeLevel, bonus: e.prestigeBonus,
     points: e.prestigePoints, peak: e.prestigePeak, cost: e.prestigeCost, status: e.prestigeStatus,
     perkList: e.prestigePerks, prestige: d.prestige, unlocked: d.unlocked, completed: d.completed, runPrestige: d.runPrestige,
-    perks: d.perks, spendPerk: d.spendPerk, respec: d.respec,
+    perks: d.perks, spendPerk: d.spendPerk, respec: d.respec, expanded: d.expanded, expansionCountdown: d.expansionCountdown,
     showMessage: d.showMessage, beforeOpen: d.beforeOpen });
 }
 
@@ -88,6 +88,7 @@ export function createPrestigeUnlockRuntime(d: Record<string, any>) {
     level: () => coop?.prestige?.()?.level ?? 0,
     campaignComplete: () => Boolean(coop?.prestigeCampaignComplete?.((coop?.prestige?.()?.level ?? 0) + 1)),
     completedEndless: () => coop?.proceduralCompleted?.() ?? 0,
+    expanded: d.expanded,
     runPrestige: d.runPrestige,
     showMessage: d.showMessage,
     pause: d.pause,

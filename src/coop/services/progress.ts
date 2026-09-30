@@ -80,7 +80,7 @@ export function copyProgress(progress: ProgressSave): ProgressSave {
     projectileCount: Number.isInteger(progress.projectileCount)
       ? Math.max(1, Math.min(20, progress.projectileCount))
       : 1,
-    attackRange: Number.isFinite(progress.attackRange) && progress.attackRange >= DEFAULT_ATTACK_RANGE && progress.attackRange <= DEFAULT_ATTACK_RANGE + 50
+    attackRange: Number.isFinite(progress.attackRange) && progress.attackRange >= DEFAULT_ATTACK_RANGE && progress.attackRange <= DEFAULT_ATTACK_RANGE + 75
       ? progress.attackRange : DEFAULT_ATTACK_RANGE,
     armor: bounded(progress.armor, 0, MAX_ARMOR, 0),
     regen: bounded(progress.regen, 0, MAX_PLAYER_STAT, 0),

@@ -33,10 +33,10 @@ const CONFIRM_GAP_MS = 400;
  * keeps reloads, reconnects and re-renders from saying it twice.
  */
 export function prestigeLevelToAnnounce(state: {
-  level: number; campaignComplete: boolean; completedEndless: number; announced: number;
+  level: number; campaignComplete: boolean; completedEndless: number; announced: number; expanded?: boolean;
 }) {
   const next = Math.max(0, Math.floor(state.level)) + 1;
-  if (prestigeCapped(next) || !state.campaignComplete || state.completedEndless < prestigeEndlessRequirement(next)) return 0;
+  if (prestigeCapped(next, state.expanded) || !state.campaignComplete || state.completedEndless < prestigeEndlessRequirement(next)) return 0;
   return state.announced >= next ? 0 : next;
 }
 
@@ -73,6 +73,7 @@ export type PrestigeUnlockPopupDependencies = {
   level: () => number;
   campaignComplete: () => boolean;
   completedEndless: () => number;
+  expanded?: () => boolean;
   /** The prestige panel's own reducer call. */
   runPrestige: () => Promise<PrestigeResult>;
   showMessage?: (text: string) => void;
@@ -204,6 +205,7 @@ export function createPrestigeUnlockPopup(dependencies: PrestigeUnlockPopupDepen
       campaignComplete: dependencies.campaignComplete(),
       completedEndless: dependencies.completedEndless(),
       announced: announced(identity),
+      expanded: dependencies.expanded?.(),
     });
     if (!level) { due = null; return; }
     if (due?.identity !== identity || due.level !== level) due = { identity, level, since: now() };

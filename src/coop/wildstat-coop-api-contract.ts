@@ -129,6 +129,7 @@ type ExpectedApiKey =
   | "prestigeLevelFor"
   | "prestigeAccount"
   | "prestigePerks"
+  | "prestigeExpansionUnlocksAt"
   | "spendPrestigePerkPoint"
   | "respecPrestigePerks"
   | "resetProgress"

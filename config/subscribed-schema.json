@@ -774,6 +774,13 @@
       "guildTag",
       "showDevTag"
     ],
+    "player_prestige_expansion_perk": [
+      "identity",
+      "bossSlayer",
+      "secondWind",
+      "longShot",
+      "fleetFoot"
+    ],
     "player_prestige_perk": [
       "identity",
       "keenEdge",
@@ -890,6 +897,11 @@
       "vy",
       "simulationTick",
       "motionEpoch"
+    ],
+    "prestige_expansion": [
+      "id",
+      "launchedAt",
+      "unlocksAt"
     ],
     "prismshell_boss": [
       "id",

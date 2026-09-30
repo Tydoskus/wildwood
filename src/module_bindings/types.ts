@@ -1988,6 +1988,15 @@ export const PlayerPrestige = __t.object("PlayerPrestige", {
 });
 export type PlayerPrestige = __Infer<typeof PlayerPrestige>;
 
+export const PlayerPrestigeExpansionPerk = __t.object("PlayerPrestigeExpansionPerk", {
+  identity: __t.identity(),
+  bossSlayer: __t.u32(),
+  secondWind: __t.u32(),
+  longShot: __t.u32(),
+  fleetFoot: __t.u32(),
+});
+export type PlayerPrestigeExpansionPerk = __Infer<typeof PlayerPrestigeExpansionPerk>;
+
 export const PlayerPrestigePerk = __t.object("PlayerPrestigePerk", {
   identity: __t.identity(),
   keenEdge: __t.u32(),
@@ -2125,6 +2134,13 @@ export const PresenceChatCooldown = __t.object("PresenceChatCooldown", {
   lastLeaveAtMicros: __t.u64(),
 });
 export type PresenceChatCooldown = __Infer<typeof PresenceChatCooldown>;
+
+export const PrestigeExpansion = __t.object("PrestigeExpansion", {
+  id: __t.u8(),
+  launchedAt: __t.timestamp(),
+  unlocksAt: __t.timestamp(),
+});
+export type PrestigeExpansion = __Infer<typeof PrestigeExpansion>;
 
 export const PrestigeLeaderboardPage = __t.object("PrestigeLeaderboardPage", {
   get entries() {

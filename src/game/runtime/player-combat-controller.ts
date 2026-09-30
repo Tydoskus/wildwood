@@ -132,6 +132,8 @@ export function createPlayerCombatController(options: {
   prestigeSplitShot?: () => number;
   /** Chance for a hit taken to be thrown back at its enemy, from the Reflect perk. */
   prestigeReflect?: () => number;
+  prestigeBossSlayer?: () => number;
+  prestigeSecondWind?: () => number;
   /** The equipped bow's skill roll (Arrow Storm, Ricochet, Piercing Shot), if it has one. */
   bowSkills?: () => Partial<BowSkillRoll> | null | undefined;
   /** Random source for bow skill procs; tests inject a fixed sequence. */
@@ -525,6 +527,8 @@ export function createPlayerCombatController(options: {
       return;
     }
     incrementKills();
+    // Regular enemy kills only; bosses and duel opponents do not trigger healing.
+    if (player.hp > 0) player.hp = Math.min(player.maxHp, player.hp + player.maxHp * (options.prestigeSecondWind?.() ?? 0));
     const site = spawnSites[enemy.siteId];
     if (site) scheduleEnemyRespawn(site);
     const base = enemy.definition ?? ENEMY_TYPES[enemy.type];
@@ -612,6 +616,7 @@ export function createPlayerCombatController(options: {
   }
 
   function applyPlayerHit(target: EnemyState | BossTarget, damage: number, critical: boolean, angle: number, reflected = false) {
+    if ((target.isBoss || target.generatedBoss) && !reflected) damage *= 1 + (options.prestigeBossSlayer?.() ?? 0);
     // A reflected hit shows blue, so the player can see Reflect fire.
     if (!target.isBoss && !target.generatedBoss) spawnDamageNumber(target.x, target.y, damage, critical, false, reflected);
     target.hurt = .12;
