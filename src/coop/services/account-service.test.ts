@@ -44,6 +44,7 @@ const keys = {
   guestTokenKey: "guest-token",
   accountTokenKey: "account-token",
   accountLinkKey: "account-link",
+  loginMoveKey: "login-move",
   accountMigrationPendingKey: "migration",
   authStateKey: "auth-state",
   authVerifierKey: "auth-verifier",
@@ -877,5 +878,58 @@ describe("kill-report session enforcement", () => {
     vi.advanceTimersByTime(12_000);
     expect(f.service.canConnect()).toBe(true);
     expect(f.local.getItem(keys.guestTokenKey)).toBe("same-guest");
+  });
+});
+
+describe("moving a character to a Google sign-in", () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+  it("saves, leaves a code on the old login, and opens a forced sign-in", async () => {
+    const f = setup({ signedIn: true, accountToken: accountToken(), knownAccount: true });
+    const startLoginMove = vi.fn(async () => {});
+    f.setConnection({ isActive: true, disconnect: vi.fn(), reducers: { startLoginMove } } as never);
+    expect(await f.service.api.moveToGoogleSignIn()).toEqual({ ok: true });
+    const code = f.session.getItem(keys.loginMoveKey)!;
+    expect(startLoginMove).toHaveBeenCalledWith({ code });
+    expect(f.drainPendingProgress.mock.invocationCallOrder[0]).toBeLessThan(startLoginMove.mock.invocationCallOrder[0]);
+    const url = new URL(f.assign.mock.calls[0][0]);
+    expect(url.searchParams.get("prompt")).toBe("login");
+  });
+  it("stays put when the server refuses to start", async () => {
+    const f = setup({ signedIn: true, accountToken: accountToken(), knownAccount: true });
+    f.setConnection({ isActive: true, reducers: { startLoginMove: vi.fn().mockRejectedValue("Sign in to your character first.") } } as never);
+    expect(await f.service.api.moveToGoogleSignIn()).toMatchObject({ ok: false, error: "Sign in to your character first." });
+    expect(f.assign).not.toHaveBeenCalled();
+    expect(f.session.getItem(keys.loginMoveKey)).toBeNull();
+  });
+  it("claims once on return, then enters the world", async () => {
+    const f = setup({ signedIn: true });
+    f.session.setItem(keys.loginMoveKey, "move-code");
+    const finishLoginMove = vi.fn(async () => {});
+    const connection = { disconnect: vi.fn(), reducers: { finishLoginMove } };
+    expect(await f.service.claimLoginMove(connection as never, true, () => true)).toBe(true);
+    expect(finishLoginMove).toHaveBeenCalledWith({ code: "move-code" });
+    expect(f.session.getItem(keys.loginMoveKey)).toBeNull();
+    expect(await f.service.claimLoginMove(connection as never, true, () => true)).toBe(true);
+    expect(finishLoginMove).toHaveBeenCalledOnce();
+  });
+  it("keeps the code and stops when the old login is still open, so a reload retries", async () => {
+    const f = setup({ signedIn: true });
+    f.session.setItem(keys.loginMoveKey, "move-code");
+    const connection = { disconnect: vi.fn(), reducers: {
+      finishLoginMove: vi.fn().mockRejectedValue("Your old login is still open on another device or tab. Close WildStat there, then reload.") } };
+    expect(await f.service.claimLoginMove(connection as never, true, () => true)).toBe(false);
+    expect(connection.disconnect).toHaveBeenCalledOnce();
+    expect(f.session.getItem(keys.loginMoveKey)).toBe("move-code");
+    expect(f.service.api.accountState().notice).toMatch(/STILL OPEN/);
+  });
+  it("drops the code and plays on after any other refusal", async () => {
+    const f = setup({ signedIn: true });
+    f.session.setItem(keys.loginMoveKey, "move-code");
+    const connection = { disconnect: vi.fn(), reducers: {
+      finishLoginMove: vi.fn().mockRejectedValue("This login already has a character (Fern). Use a Google account that has not played WildStat.") } };
+    expect(await f.service.claimLoginMove(connection as never, true, () => true)).toBe(true);
+    expect(connection.disconnect).not.toHaveBeenCalled();
+    expect(f.session.getItem(keys.loginMoveKey)).toBeNull();
+    expect(f.service.api.accountState().notice).toBe("NOT MOVED · THAT GOOGLE ACCOUNT ALREADY HAS A CHARACTER");
   });
 });

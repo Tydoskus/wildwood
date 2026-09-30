@@ -1128,6 +1128,13 @@ export const LeaderboardSize = __t.object("LeaderboardSize", {
 });
 export type LeaderboardSize = __Infer<typeof LeaderboardSize>;
 
+export const LoginMove = __t.object("LoginMove", {
+  code: __t.string(),
+  source: __t.identity(),
+  createdAt: __t.timestamp(),
+});
+export type LoginMove = __Infer<typeof LoginMove>;
+
 export const MagmaliskAttackWindow = __t.object("MagmaliskAttackWindow", {
   identity: __t.identity(),
   encounter: __t.u64(),

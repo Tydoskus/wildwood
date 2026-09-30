@@ -4,6 +4,7 @@ export function accountStorageKeys(host: string, databaseName: string) {
   const guestTokenKey = `${tokenKey}/guest_v1`;
   const accountTokenKey = `${tokenKey}/spacetimeauth_id_token_v1`;
   const accountLinkKey = `${tokenKey}/spacetimeauth_link_v1`;
+  const loginMoveKey = `${tokenKey}/spacetimeauth_login_move_v1`;
   const accountMigrationPendingKey = `${tokenKey}/spacetimeauth_migration_pending_v1`;
   const authStateKey = `${tokenKey}/spacetimeauth_state_v1`;
   const authVerifierKey = `${tokenKey}/spacetimeauth_verifier_v1`;
@@ -21,7 +22,7 @@ export function accountStorageKeys(host: string, databaseName: string) {
   const pendingProgressKey = `${tokenKey}/pending_progress_v1`;
   const legalConsentKey = `${tokenKey}/legal_consent_v1`;
   return {
-    tokenKey, guestTokenKey, accountTokenKey, accountLinkKey, accountMigrationPendingKey,
+    tokenKey, guestTokenKey, accountTokenKey, accountLinkKey, loginMoveKey, accountMigrationPendingKey,
     authStateKey, authVerifierKey, authNonceKey, authTripKey, authRetryKey, knownAccountKey,
     knownAccountCharacterKey, knownAccountGenderKey, knownGuestCharacterKey, authReturnUiKey,
     updateResumeKey, updateResumeConsumedKey, authTabKey, pendingProgressKey, legalConsentKey,

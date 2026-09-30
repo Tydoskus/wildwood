@@ -64,6 +64,7 @@ type ExpectedApiKey =
   | "markPortalCutsceneSeen"
   | "isConnected"
   | "otherCharacterForLogin"
+  | "moveToGoogleSignIn"
   | "isDeveloper"
   | "isDisplayNameTaken"
   | "isGuest"

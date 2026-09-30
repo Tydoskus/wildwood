@@ -143,7 +143,11 @@ import { describe, expect, it } from "vitest";
 // 6_552: warning a new login that its email already has a played character
 // added the get_other_character_for_login declaration and its comment. The
 // lookup lives in account-email.ts; the raise is the declaration alone.
-const MAX_LINES = 6_552;
+// 6_563: a player moving their character to a Google sign-in from Settings
+// added the start_login_move and finish_login_move declarations, their comment
+// and the login_move registration. The table, the checks, the swap and the
+// audit live in account-transfer.ts; the raise is the declarations alone.
+const MAX_LINES = 6_563;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

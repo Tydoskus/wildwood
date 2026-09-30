@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { Identity, Timestamp } from "../../tests/helpers/spacetime-memory-db";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
+import { SPACETIME_AUTH_CLIENT_ID, SPACETIME_AUTH_ISSUER } from "../../shared/rules";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 const owner = new Identity("c200383520521c925f3cf6deafb20cd6a7d6168d1c31cb3c0ddb731c197a2d79");
@@ -87,5 +88,92 @@ describe("tables whose player index is unique", () => {
     const moved = moveIdentityRows({ db: { enemyDefeatBudget: handle } }, vis, moth);
     expect(moved).toEqual({ enemyDefeatBudget: 1 });
     expect(written).toEqual([{ key: `${hex(moth)}:1`, identity: moth, remaining: 3 }]);
+  });
+});
+
+describe("a player moving their character to another sign-in", () => {
+  // Vis starts the move on their email login, then signs in with Google as `google`.
+  const google = identity("d");
+  function moveFixture() {
+    const f = fixture();
+    const ConnectionId = f.ctx.connectionId!.constructor as any;
+    const protocolVersion = (f.db.playerSession.connectionId.find(f.ctx.connectionId) as any).protocolVersion;
+    f.ctx.senderAuth = { jwt: { issuer: SPACETIME_AUTH_ISSUER, audience: [SPACETIME_AUTH_CLIENT_ID] } };
+    f.seed("analyticsPlayer", { identity: vis, firstSeenDayKey: "2026-09-01", firstKillDayKey: "2026-09-01" });
+    f.progress(google);
+    f.seed("playerProfile", { identity: google, displayName: "Quiet Fern 12", skinTone: 2 });
+    f.seed("playerAccountStatus", { identity: google, isGuest: false });
+    const connect = (who: Identity, id: bigint, enteredWorld = false) => {
+      f.ctx.sender = who;
+      f.ctx.connectionId = new ConnectionId(id);
+      f.seed("playerSession", { connectionId: f.ctx.connectionId, identity: who, enteredWorld, protocolVersion,
+        connectedAt: f.ctx.timestamp, tabId: "t" });
+    };
+    const disconnect = () => f.db.playerSession.connectionId.delete(f.ctx.connectionId);
+    const code = "c".repeat(40);
+    const start = () => f.run(server.startLoginMove, { code });
+    const finish = () => f.run(server.finishLoginMove, { code });
+    // Vis on the email login, starting the move, then leaving for the sign-in page.
+    connect(vis, 20n);
+    start();
+    disconnect();
+    connect(google, 21n);
+    return { ...f, connect, disconnect, finish, start, code };
+  }
+
+  it("puts the character on the Google login and the empty one on the old login", () => {
+    const f = moveFixture();
+    f.finish();
+    expect(f.db.playerProfile.identity.find(google)?.displayName).toBe("Vis");
+    expect(f.db.playerProgress.identity.find(google)?.damage).toBe(9_999);
+    expect(f.db.playerProfile.identity.find(vis)?.displayName).toBe("Quiet Fern 12");
+    expect(f.db.socialFriend.key.find(`${hex(friend)}:${hex(google)}`)).toMatchObject({ peer: google });
+    // The live connection stays with the login that opened it, and the code is spent.
+    expect(f.db.playerSession.connectionId.find(f.ctx.connectionId)).toMatchObject({ identity: google });
+    expect(f.db.loginMove.code.find(f.code)).toBeNull();
+    expect(() => f.finish()).toThrow("expired");
+  });
+
+  it("refuses a Google login that already has a played character", () => {
+    const f = moveFixture();
+    f.seed("analyticsPlayer", { identity: google, firstSeenDayKey: "2026-09-01", firstKillDayKey: "2026-09-02" });
+    expect(() => f.finish()).toThrow("already has a character (Quiet Fern 12)");
+    expect(f.db.playerProfile.identity.find(vis)?.displayName).toBe("Vis");
+  });
+
+  it("refuses while the old login is still in the world somewhere, but not for an idle tab", () => {
+    const f = moveFixture();
+    f.seed("playerSession", { connectionId: new (f.ctx.connectionId as any).constructor(31n), identity: vis,
+      enteredWorld: false, protocolVersion: 0, connectedAt: f.ctx.timestamp, tabId: "idle" });
+    f.seed("playerSession", { connectionId: new (f.ctx.connectionId as any).constructor(30n), identity: vis,
+      enteredWorld: true, protocolVersion: 0, connectedAt: f.ctx.timestamp, tabId: "other" });
+    expect(() => f.finish()).toThrow("old login is still open");
+    // Nothing changed and the code survives, so closing that tab and retrying works.
+    expect(f.db.playerProfile.identity.find(google)?.displayName).toBe("Quiet Fern 12");
+    expect(f.db.loginMove.code.find(f.code)).not.toBeNull();
+    f.db.playerSession.connectionId.delete(new (f.ctx.connectionId as any).constructor(30n));
+    f.finish();
+    expect(f.db.playerProfile.identity.find(google)?.displayName).toBe("Vis");
+    expect(f.db.playerSession.connectionId.find(new (f.ctx.connectionId as any).constructor(31n))).toMatchObject({ identity: vis });
+  });
+
+  it("refuses the same login, a guest, and an expired code", () => {
+    const f = moveFixture();
+    f.disconnect();
+    f.connect(vis, 22n);
+    expect(() => f.finish()).toThrow("same login");
+    f.disconnect();
+    f.connect(google, 23n);
+    f.ctx.senderAuth = {};
+    expect(() => f.finish()).toThrow("Sign in required");
+    f.ctx.senderAuth = { jwt: { issuer: SPACETIME_AUTH_ISSUER, audience: [SPACETIME_AUTH_CLIENT_ID] } };
+    f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + 900_000_000n);
+    expect(() => f.finish()).toThrow("expired");
+  });
+
+  it("does not let a guest start one", () => {
+    const f = moveFixture();
+    f.ctx.senderAuth = {};
+    expect(() => f.start()).toThrow("Sign in to your character first");
   });
 });

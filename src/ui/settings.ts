@@ -67,7 +67,7 @@ export function renderAccountStatus(
   setText(button, account.signedIn ? "SIGN OUT" : "SIGN IN / CREATE");
   const text = account.notice || (account.signedIn ? "SIGNED IN · ACCOUNT SAVE" : "GUEST · DEVICE SAVE");
   setText(status, text);
-  const error = /FAILED|WAIT|CHECK/.test(text);
+  const error = /FAILED|WAIT|CHECK|NOT MOVED|STILL OPEN/.test(text);
   if (status.classList.contains("is-signed-in") !== account.signedIn) status.classList.toggle("is-signed-in", account.signedIn);
   if (status.classList.contains("is-error") !== error) status.classList.toggle("is-error", error);
 }

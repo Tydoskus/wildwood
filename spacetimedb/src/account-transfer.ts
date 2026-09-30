@@ -1,6 +1,8 @@
-import { SenderError } from "spacetimedb/server";
+import { SenderError, table, t } from "spacetimedb/server";
 import { Identity } from "spacetimedb";
 import { ERASURE_TARGETS, type ErasureTarget } from "./account-erasure";
+import { hasSpacetimeAuthAccount } from "./account-lifecycle";
+import { activeDuelFor } from "./duel-runtime";
 import { recordModerationAction } from "./moderation-history";
 
 /**
@@ -22,8 +24,11 @@ import { recordModerationAction } from "./moderation-history";
  * One reducer call, one transaction: it swaps everything or nothing.
  */
 
-/** About the sign-in, not the character: the login keeps these. */
-const LOGIN_TABLES = new Set(["accountEmail"]);
+/**
+ * About the sign-in, not the character: the login keeps these. A session is a
+ * live connection, so it stays with the login that opened it.
+ */
+const LOGIN_TABLES = new Set(["accountEmail", "playerSession", "loginMove"]);
 
 // The erasure list is generated from the published schema, which names
 // columns and keys in snake_case; server rows and index accessors use camelCase.
@@ -123,6 +128,10 @@ export function swapCharacters(ctx: any, args: {
       throw new SenderError("Both accounts must be signed out before a swap.");
     }
   }
+  return swapIdentityRows(ctx, first, second);
+}
+
+function swapIdentityRows(ctx: any, first: any, second: any) {
   const parked = moveIdentityRows(ctx, first, SWAP_PARKING_IDENTITY);
   const toFirst = moveIdentityRows(ctx, second, first);
   const toSecond = moveIdentityRows(ctx, SWAP_PARKING_IDENTITY, second);
@@ -155,4 +164,84 @@ export function swapCharacterLogins(ctx: any, args: {
   }
   console.log(`dev_swap_characters ${first.toHexString()} <-> ${second.toHexString()}: ${JSON.stringify(result)}`);
   return result;
+}
+
+/**
+ * A player moving their own character to another sign-in, from Settings.
+ *
+ * The usual case is an email-link account moving to Google. Each SpacetimeAuth
+ * user is its own identity, so the player proves both: signed in on the old
+ * login they leave a one-time code, then they sign in again (choosing Google)
+ * and claim it before entering the world. The claim swaps the two characters,
+ * so the new login's empty one lands on the old login and nothing is deleted.
+ *
+ * The code lives only in the tab that began the move and expires in 15 minutes.
+ */
+export const loginMove = table({ name: "login_move", public: false }, {
+  code: t.string().primaryKey(),
+  source: t.identity(),
+  createdAt: t.timestamp(),
+});
+
+export const LOGIN_MOVE_LIFETIME_MICROS = 900_000_000n;
+
+function clearExpiredLoginMoves(ctx: any) {
+  const now = ctx.timestamp.microsSinceUnixEpoch;
+  const expired = [...ctx.db.loginMove.iter() as Iterable<any>]
+    .filter(move => now - move.createdAt.microsSinceUnixEpoch >= LOGIN_MOVE_LIFETIME_MICROS);
+  for (const move of expired) ctx.db.loginMove.code.delete(move.code);
+}
+
+export function beginLoginMove(ctx: any, code: string) {
+  if (!hasSpacetimeAuthAccount(ctx)) throw new SenderError("Sign in to your character first.");
+  if (!/^[A-Za-z0-9_-]{32,128}$/.test(code)) throw new SenderError("Invalid move code.");
+  clearExpiredLoginMoves(ctx);
+  // One move at a time: starting again replaces the last one.
+  const earlier = [...ctx.db.loginMove.iter() as Iterable<any>].filter(move => sameIdentity(move.source, ctx.sender));
+  for (const move of earlier) ctx.db.loginMove.code.delete(move.code);
+  ctx.db.loginMove.insert({ code, source: ctx.sender, createdAt: ctx.timestamp });
+}
+
+function inWorld(ctx: any, identity: any) {
+  return Boolean(ctx.db.player.identity.find(identity) || ctx.db.playerController.identity.find(identity)
+    || [...ctx.db.playerSession.byIdentity.filter(identity) as Iterable<any>].some(session => session.enteredWorld));
+}
+
+/** Swaps the caller's character with the one that began `code`. Returns the moved character's name. */
+export function claimLoginMove(ctx: any, code: string) {
+  if (!hasSpacetimeAuthAccount(ctx)) throw new SenderError("Sign in required.");
+  clearExpiredLoginMoves(ctx);
+  const move = ctx.db.loginMove.code.find(code);
+  if (!move) throw new SenderError("The move expired. Sign in with your old login and start it again.");
+  const from = move.source, to = ctx.sender;
+  if (sameIdentity(from, to)) {
+    throw new SenderError("You signed in with the same login. Start the move again and choose Google on the sign-in page.");
+  }
+  // World presence and its controller would move with the character while a
+  // connection on the other login drives them, so neither login may be in the
+  // world. A tab that is connected but never entered is harmless: its session
+  // stays with its login. This connection has not entered: the client claims
+  // before world entry.
+  if (inWorld(ctx, from)) {
+    throw new SenderError("Your old login is still open on another device or tab. Close WildStat there, then reload.");
+  }
+  if (inWorld(ctx, to)) throw new SenderError("This login is open on another device or tab. Close WildStat there, then reload.");
+  if (ctx.db.analyticsPlayer.identity.find(to)?.firstKillDayKey) {
+    const name = ctx.db.playerProfile.identity.find(to)?.displayName ?? "a character";
+    throw new SenderError(`This login already has a character (${name}). Use a Google account that has not played WildStat.`);
+  }
+  const name = ctx.db.playerProfile.identity.find(from)?.displayName;
+  if (!name) throw new SenderError("The old login has no character to move.");
+  if (activeDuelFor(ctx, from) || activeDuelFor(ctx, to)) throw new SenderError("Finish your duel before moving.");
+
+  ctx.db.loginMove.code.delete(code);
+  const result = swapIdentityRows(ctx, from, to);
+  for (const [login, previous, moved] of [[to, from, name], [from, to, "the new login's empty character"]] as const) {
+    recordModerationAction(ctx, { targetIdentity: login.toHexString(), targetName: moved,
+      channel: "account", action: "Character moved to this login", reason: "The player moved their character to another sign-in from Settings.",
+      actorType: "automatic", rule: "player-login-move",
+      before: JSON.stringify({ login: previous.toHexString() }), after: JSON.stringify({ login: login.toHexString() }) });
+  }
+  console.log(`claim_login_move ${from.toHexString()} -> ${to.toHexString()} (${name}): ${JSON.stringify(result)}`);
+  return name;
 }

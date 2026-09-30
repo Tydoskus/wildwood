@@ -116,6 +116,7 @@ import DevWarnPlayerReducer from "./dev_warn_player_reducer";
 import DisconnectPatreonReducer from "./disconnect_patreon_reducer";
 import EnterWorldReducer from "./enter_world_reducer";
 import EnterWorldWithTutorialReducer from "./enter_world_with_tutorial_reducer";
+import FinishLoginMoveReducer from "./finish_login_move_reducer";
 import FriendActionReducer from "./friend_action_reducer";
 import FulfillGemPurchaseReducer from "./fulfill_gem_purchase_reducer";
 import GuildAdmissionReducer from "./guild_admission_reducer";
@@ -195,6 +196,7 @@ import SpeedUpItemUpgradeWithGemsReducer from "./speed_up_item_upgrade_with_gems
 import SpeedUpResearchWithGemsReducer from "./speed_up_research_with_gems_reducer";
 import SpendPrestigePerkPointReducer from "./spend_prestige_perk_point_reducer";
 import StartItemUpgradeReducer from "./start_item_upgrade_reducer";
+import StartLoginMoveReducer from "./start_login_move_reducer";
 import StartResearchReducer from "./start_research_reducer";
 import SyncPositionReducer from "./sync_position_reducer";
 import TakeOverSessionReducer from "./take_over_session_reducer";
@@ -1464,6 +1466,7 @@ const reducersSchema = __reducers(
   __reducerSchema("disconnect_patreon", DisconnectPatreonReducer),
   __reducerSchema("enter_world", EnterWorldReducer),
   __reducerSchema("enter_world_with_tutorial", EnterWorldWithTutorialReducer),
+  __reducerSchema("finish_login_move", FinishLoginMoveReducer),
   __reducerSchema("friend_action", FriendActionReducer),
   __reducerSchema("fulfill_gem_purchase", FulfillGemPurchaseReducer),
   __reducerSchema("guild_admission", GuildAdmissionReducer),
@@ -1543,6 +1546,7 @@ const reducersSchema = __reducers(
   __reducerSchema("speed_up_research_with_gems", SpeedUpResearchWithGemsReducer),
   __reducerSchema("spend_prestige_perk_point", SpendPrestigePerkPointReducer),
   __reducerSchema("start_item_upgrade", StartItemUpgradeReducer),
+  __reducerSchema("start_login_move", StartLoginMoveReducer),
   __reducerSchema("start_research", StartResearchReducer),
   __reducerSchema("sync_position", SyncPositionReducer),
   __reducerSchema("take_over_session", TakeOverSessionReducer),

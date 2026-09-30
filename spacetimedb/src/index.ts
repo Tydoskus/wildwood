@@ -78,7 +78,7 @@ import { createPlayerMotionFrameSampler } from "../../shared/player-motion-sampl
 import { schema, SenderError, Router, table, t, type InferSchema, type ReducerCtx, type ViewCtx } from "spacetimedb/server";
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { accountEmail, otherCharacterForLogin, recordAccountEmail } from "./account-email";
-import { swapCharacterLogins } from "./account-transfer";
+import { beginLoginMove, claimLoginMove, loginMove, swapCharacterLogins } from "./account-transfer";
 import { devReviewTables, findDevPlayers, liftPlayerSuspension, readDevReviewQueue, recordBugDeletion, reviewBug, reviewReport } from "./dev-review";
 import { portalCutsceneBit, unlockedPortalCutsceneMask } from "../../shared/portal-cutscenes";
 import { playerBlockKey, playerReportValidationError } from "../../shared/player-safety";
@@ -1752,7 +1752,7 @@ const spacetimedb = schema({
   playerOfflinePreference, playerAudioSetting,
   defeatSessionRestriction,
   mapBalanceVersion, mapBalanceHead, playerMapBalance,
-  ...moderationTables, ...devReviewTables, accountEmail,
+  ...moderationTables, ...devReviewTables, accountEmail, loginMove,
   publicChatCursor,
   gemKillProgress,
   playerGemDrop,
@@ -2188,6 +2188,17 @@ export const devRepairDisplayName = spacetimedb.reducer(
     refreshLeaderboard(ctx);
   },
 );
+
+// A player moving their character to another sign-in, from Settings (account-transfer.ts).
+export const startLoginMove = spacetimedb.reducer({ code: t.string() }, (ctx, { code }) => {
+  requireSupportedSessionProtocol(ctx);
+  beginLoginMove(ctx, code);
+});
+export const finishLoginMove = spacetimedb.reducer({ code: t.string() }, (ctx, { code }) => {
+  requireSupportedSessionProtocol(ctx);
+  claimLoginMove(ctx, code);
+  refreshLeaderboard(ctx);
+});
 
 // Swaps two characters between logins (account-transfer.ts). Owner-only, from the CLI.
 export const devSwapCharacters = spacetimedb.reducer(

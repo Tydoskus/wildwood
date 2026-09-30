@@ -37,6 +37,8 @@ type AccountKeys = {
   guestTokenKey: string;
   accountTokenKey: string;
   accountLinkKey: string;
+  /** The one-time code a character move left on the old login (spacetimedb/src/account-transfer.ts). */
+  loginMoveKey: string;
   accountMigrationPendingKey: string;
   authStateKey: string;
   authVerifierKey: string;
@@ -94,9 +96,17 @@ const AUTH_SCOPE = "openid profile email offline_access";
 const AUTH_MAX_AGE_SECONDS = String(365 * 86_400);
 
 /** Why a player was sent to SpacetimeAuth, reported when they come back. */
-type SignInReason = "known-account" | "register" | "guest-link" | "update-resume"
+type SignInReason = "known-account" | "register" | "guest-link" | "login-move" | "update-resume"
   | "renewal-no-grant" | "renewal-grant-rejected" | "token-rejected" | "defeat-reauth" | "grant-follow-up";
 const TOKEN_EXCHANGE_TIMEOUT_MS = 15_000;
+
+/** A short status line for a character move the server refused; it plays on as the login it signed in with. */
+export function loginMoveFailureNotice(message: string) {
+  if (/already has a character/i.test(message)) return "NOT MOVED · THAT GOOGLE ACCOUNT ALREADY HAS A CHARACTER";
+  if (/same login/i.test(message)) return "NOT MOVED · SAME SIGN-IN CHOSEN, PICK GOOGLE";
+  if (/expired/i.test(message)) return "NOT MOVED · MOVE EXPIRED, START AGAIN";
+  return "CHARACTER NOT MOVED · TRY AGAIN";
+}
 
 type TokenResponse = {
   id_token?: unknown;
@@ -603,7 +613,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
           const bridge = nativeAuth();
           if (!bridge) throw new Error("Native sign-in unavailable");
           await bridge.open(url.toString(), [keys.authStateKey, keys.authVerifierKey, keys.authNonceKey, keys.authTripKey,
-            keys.authReturnUiKey, keys.accountLinkKey, keys.authTabKey, keys.authRetryKey]);
+            keys.authReturnUiKey, keys.accountLinkKey, keys.loginMoveKey, keys.authTabKey, keys.authRetryKey]);
         } catch (error) {
           cancelAbandonedSignIn();
           throw error;
@@ -747,7 +757,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       sessionApproved = false; guestSessionExplicit = false; updateResumePending = false;
       lastPlayableSessionMode = null; takeoverRequested = false;
       clearAccountReturnPending(); clearAuthTransaction();
-      clearTabValue(keys.accountLinkKey); clearAccountMigrationPending();
+      clearTabValue(keys.accountLinkKey); clearTabValue(keys.loginMoveKey); clearAccountMigrationPending();
       dependencies.updateResumeStore.clear();
       dependencies.setWorldEntryBlocked(true);
       notice = "KILL REPORT EXCEEDED LIMIT · SIGN IN AGAIN";
@@ -786,6 +796,37 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     },
     legalConsentAccepted: legalConsent.accepted,
     acceptLegalTerms: legalConsent.acceptAge,
+    /**
+     * Settings: move this character to another sign-in, usually Google
+     * (spacetimedb/src/account-transfer.ts). Leaves a one-time code on this
+     * login and opens the sign-in page; claimLoginMove finishes it on return.
+     */
+    async moveToGoogleSignIn(): Promise<{ ok: boolean; error?: string }> {
+      if (signingOut || signInPreparing || outboundAuthNavigationPending || callbackPending) {
+        return { ok: false, error: "Sign-in is busy. Try again in a moment." };
+      }
+      if (isNativePreview() && !nativeAuth()) return { ok: false, error: "Sign-in is unavailable in this app." };
+      if (dependencies.protocolBlocked()) return { ok: false, error: "Update the game first." };
+      const connection = dependencies.connection();
+      if (!connection?.isActive || !dependencies.connectedSignedIn()) return { ok: false, error: "Sign in to your character first." };
+      signInPreparing = true;
+      try {
+        if (!await dependencies.drainPendingProgress()) return { ok: false, error: "Couldn't save your progress. Try again." };
+        const code = randomUrlSafe(40);
+        try {
+          await dependencies.runWorldReducer(() => connection.reducers.startLoginMove({ code }));
+        } catch (error) {
+          return { ok: false, error: dependencies.errorMessage(error) };
+        }
+        writeTabValue(keys.loginMoveKey, code);
+        notice = "OPENING SIGN-IN · CHOOSE GOOGLE";
+        dependencies.notify();
+        await startAccountSignIn("login-move", true);
+        return { ok: true };
+      } finally {
+        signInPreparing = false;
+      }
+    },
     /** The played character this login's email has on another login, or "" (spacetimedb/src/account-email.ts). */
     async otherCharacterForLogin() {
       const connection = dependencies.connection();
@@ -923,7 +964,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
         localStorage.removeItem(keys.knownAccountCharacterKey);
         localStorage.removeItem(keys.knownAccountGenderKey);
       } catch {}
-      clearTabValue(keys.accountLinkKey);
+      clearTabValue(keys.accountLinkKey); clearTabValue(keys.loginMoveKey);
       clearAuthTransaction();
       clearTabValue(keys.authRetryKey);
       clearAccountReturnPending();
@@ -949,7 +990,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
       dependencies.disconnectVirtualPlayers();
       renewal.clear();
       clearStoredToken(keys.accountTokenKey);
-      clearTabValue(keys.accountLinkKey);
+      clearTabValue(keys.accountLinkKey); clearTabValue(keys.loginMoveKey);
       clearAuthTransaction();
       clearAccountMigrationPending();
       clearAccountReturnPending();
@@ -966,7 +1007,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     },
   };
 
-  return {
+  const service = {
     api,
     handleDefeatRestriction,
     accountToken,
@@ -1037,6 +1078,39 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
         dependencies.handleFailure("account migration", error);
         connection.disconnect();
         return false;
+      }
+    },
+    /** Back from the sign-in page: take along a guest save, then a character move, before entering the world. */
+    async claimPendingSignIn(connection: DbConnection, signedIn: boolean, isCurrent: () => boolean) {
+      return await service.claimAccountLink(connection, signedIn, isCurrent) && await service.claimLoginMove(connection, signedIn, isCurrent);
+    },
+    /** A character move left a code on the old login: claim it before entering the world. */
+    async claimLoginMove(connection: DbConnection, signedIn: boolean, isCurrent: () => boolean) {
+      const code = signedIn ? readTabValue(keys.loginMoveKey) : null;
+      if (!code || dependencies.protocolBlocked()) return true;
+      notice = "MOVING CHARACTER";
+      dependencies.notify();
+      try {
+        await connection.reducers.finishLoginMove({ code });
+        if (!isCurrent()) return false;
+        clearTabValue(keys.loginMoveKey);
+        notice = "CHARACTER MOVED TO THIS SIGN-IN";
+        return true;
+      } catch (error) {
+        if (!isCurrent()) return false;
+        const message = dependencies.errorMessage(error);
+        recordCarriedConnectionDiagnostic("session-blocked", { detail: `login-move-failed:${message.slice(0, 100)}${accountTag()}` });
+        dependencies.handleFailure("character move", error);
+        if (/still open|open on another/i.test(message)) {
+          // The code stays in this tab: once the other tab is closed, a reload claims it again.
+          notice = "OLD SIGN-IN STILL OPEN · CLOSE OTHER TABS, THEN RELOAD";
+          dependencies.notify();
+          connection.disconnect();
+          return false;
+        }
+        clearTabValue(keys.loginMoveKey);
+        notice = loginMoveFailureNotice(message);
+        return true;
       }
     },
     async handlePendingTakeover(connection: DbConnection, isCurrent: () => boolean) {
@@ -1144,6 +1218,7 @@ export function createAccountService(dependencies: AccountServiceDependencies) {
     },
     restoreKnownAccount,
   };
+  return service;
 }
 
 export type AccountService = ReturnType<typeof createAccountService>;
