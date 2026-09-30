@@ -103,9 +103,12 @@ describe("resolving maps from the curve", () => {
     expect(desert.boss!.regenFraction).toBeCloseTo(curve.bossRegen);
   });
 
-  it("keeps the tutorial dragon's gentle regen", () => {
+  it("gives the tutorial dragon its own health and its gentle regen, outside the bosses' chain", () => {
     const forest = resolveMapBalance("tutorial_forest", settings(), 1);
+    expect(forest.boss!.hp).toBe(curve.dragonHp);
+    expect(Math.max(...Object.values(forest.boss!.attacks))).toBeCloseTo(curve.dragonHit);
     expect(forest.boss!.regenFraction).toBeLessThan(.001);
+    expect(resolveMapBalance("beginner_desert", settings(), 1).boss!.hp).toBeCloseTo(curve.bossHp * curve.enemyGrowth);
   });
 
   it("resolves Endless as map 15 + N, its boss paying nothing, up to the deepest map a save checks", () => {

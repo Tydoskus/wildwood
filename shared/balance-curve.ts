@@ -39,6 +39,8 @@ export type BalanceCurve = {
   bossHp: number; bossHit: number;
   /** The share of its health a boss heals a second. A build dealing less than that never wins. */
   bossRegen: number;
+  /** The tutorial dragon's health and heaviest hit. It stands apart from the bosses' chain and keeps its gentle regen. */
+  dragonHp: number; dragonHit: number;
   /** Elites: health and reward as multiples of their camp's regulars, and their hit. */
   eliteHealth: number;
   eliteHit: number;
@@ -51,7 +53,7 @@ export const DEFAULT_BALANCE_CURVE: Readonly<BalanceCurve> = Object.freeze({
   speedHp: 8, speedHit: 2.5, speedReward: 1.2,
   regenHp: 12, regenHit: 4, regenReward: .014, regenHeal: 1,
   armorHp: 13, armorHit: 5, armorReward: 1.2, armorArmor: 50,
-  bossHp: 190, bossHit: 120, bossRegen: .067,
+  bossHp: 190, bossHit: 120, bossRegen: .067, dragonHp: 50_000, dragonHit: 1_500,
   eliteHealth: 5, eliteHit: 3,
 });
 
@@ -63,7 +65,7 @@ export const BALANCE_CURVE_LIMITS: Readonly<Record<keyof BalanceCurve, readonly 
   speedHp: [.1, 1e6], speedHit: [.001, 1e6], speedReward: [.001, 1e6],
   regenHp: [.1, 1e6], regenHit: [.001, 1e6], regenReward: [.001, 1e6], regenHeal: [0, 1e6],
   armorHp: [.1, 1e6], armorHit: [.001, 1e6], armorReward: [.001, 1e6], armorArmor: [0, 1e6],
-  bossHp: [1, 1e9], bossHit: [.001, 1e9], bossRegen: [0, .5],
+  bossHp: [1, 1e9], bossHit: [.001, 1e9], bossRegen: [0, .5], dragonHp: [1, 1e9], dragonHit: [.001, 1e9],
   eliteHealth: [1, 100], eliteHit: [.1, 100],
 });
 

@@ -9,7 +9,7 @@ const curveFields: [keyof BalanceCurve, string][] = [['enemyGrowth', 'Enemies pe
   ['speedHp', 'Map 1 speed camp health'], ['speedHit', 'Map 1 speed camp hit'], ['speedReward', 'Map 1 speed camp reward'],
   ['regenHp', 'Map 1 regen camp health'], ['regenHit', 'Map 1 regen camp hit'], ['regenReward', 'Map 1 regen camp reward'], ['regenHeal', 'Map 1 regen camp heal (per second)'],
   ['armorHp', 'Map 1 armor camp health'], ['armorHit', 'Map 1 armor camp hit'], ['armorReward', 'Map 1 armor camp reward'], ['armorArmor', 'Map 1 armor camp armor'],
-  ['bossHp', 'Map 1 boss health'], ['bossHit', 'Map 1 boss heaviest hit'], ['bossRegen', 'Boss heal per second (share of health)'],
+  ['bossHp', 'Map 1 boss health'], ['bossHit', 'Map 1 boss heaviest hit'], ['bossRegen', 'Boss heal per second (share of health)'], ['dragonHp', 'Tutorial dragon health'], ['dragonHit', 'Tutorial dragon heaviest hit'],
   ['eliteHealth', 'Elite health and reward (×)'], ['eliteHit', 'Elite hit (×)']];
 export type BalanceEditorDependencies = {
   load: () => Promise<BalanceEditorState>;
