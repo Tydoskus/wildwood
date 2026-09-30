@@ -16,7 +16,9 @@ import { isUpgradeableItem, itemUpgradeDurationMs, MAX_ITEM_UPGRADE_LEVEL } from
 import { BOSS_TARGET_SECONDS } from "../../shared/progression";
 import { ATTACK_WINDUP_SECONDS } from "../game/attack-timeline";
 import { BOSS_DAMAGE_PROFILES } from "../game/boss-damage";
-import { damageAfterArmor } from "../game/combat";
+import { damageAfterArmor, paysSpeedRating, useCurveArmor, useSpeedRating } from "../game/combat";
+import { addSpeedRating } from "../../shared/attack-speed-rating";
+import { curveArmorReduction } from "../../shared/balance-curve";
 import { ENEMY_TYPES, type EnemyKind, type EnemyDefinition, type RewardType } from "../game/enemies";
 import { createGameBootstrap } from "../game/runtime/game-bootstrap";
 import { formatCompactNumber } from "../ui/number-format";
@@ -695,6 +697,16 @@ function finiteRange(value: unknown, fallback: number, minimum: number, maximum:
   return Number.isFinite(number) ? Math.max(minimum, Math.min(maximum, number)) : fallback;
 }
 
+/**
+ * The game switches to the curve's armor and Speed rules on a map whose
+ * balance carries them (map-balance-loader.ts). Every map here is one
+ * balance, so the whole run takes the rule its maps carry.
+ */
+function useCurveRules(maps: readonly BalanceMapDefinition[]) {
+  useCurveArmor(maps.some(map => map.balance?.rules.ARMOR_CURVE === 1));
+  useSpeedRating(maps.some(map => map.balance?.rules.SPEED_RATING === 1));
+}
+
 export function createMapDefinitions(endlessMaps = 0, settings: BalanceSettings = defaultBalanceSettings()): BalanceMapDefinition[] {
   const bootstrap = createGameBootstrap();
   const maps: BalanceMapDefinition[] = [
@@ -1157,9 +1169,26 @@ function combatStats(state: EffectiveStatsState) {
   };
 }
 
-function timeToKill(hitPoints: number, hitDamage: number, attackInterval: number) {
-  const hits = Math.max(1, Math.ceil(Math.max(1, hitPoints) / Math.max(1, hitDamage)));
-  return FIRST_HIT_SECONDS + (hits - 1) * Math.max(MIN_ATTACK_INTERVAL, attackInterval);
+/** Past this a fight never ends: the enemy heals faster than the build hurts it. */
+const UNWINNABLE_FIGHT_SECONDS = 1e9;
+
+/**
+ * Seconds to kill an enemy. On a curve map, as in the game, an armor camp
+ * blocks the player's hits on the curve's armor rule and a regen camp heals
+ * `regen` a second between them (enemy-simulation.ts, player-combat-controller.ts).
+ */
+function timeToKill(hitPoints: number, hitDamage: number, attackInterval: number, enemy?: { regen?: number; armor?: number }) {
+  const interval = Math.max(MIN_ATTACK_INTERVAL, attackInterval);
+  const hit = hitDamage * (enemy?.armor ? 1 - curveArmorReduction(enemy.armor) : 1);
+  const healed = (enemy?.regen ?? 0) * interval;
+  if (!enemy?.regen && !enemy?.armor) {
+    const hits = Math.max(1, Math.ceil(Math.max(1, hitPoints) / Math.max(1, hitDamage)));
+    return FIRST_HIT_SECONDS + (hits - 1) * interval;
+  }
+  if (hit >= hitPoints) return FIRST_HIT_SECONDS;
+  if (hit <= healed) return UNWINNABLE_FIGHT_SECONDS;
+  const hits = Math.ceil((hitPoints - healed) / (hit - healed));
+  return FIRST_HIT_SECONDS + (hits - 1) * interval;
 }
 
 function applyRewardToStats(stats: PersistentStats, type: RewardType, amount: number) {
@@ -1169,6 +1198,8 @@ function applyRewardToStats(stats: PersistentStats, type: RewardType, amount: nu
     case "armor": stats.armor += amount; break;
     case "regen": stats.regen += amount; break;
     case "speed": {
+      // A curve map pays Speed points, which the game turns into attacks per second (attack-speed-rating.ts).
+      if (paysSpeedRating()) { stats.attackRate = addSpeedRating(stats.attackRate, amount); break; }
       const attacksPerSecond = Math.min(MAX_BASE_ATTACKS_PER_SECOND, 1 / Math.max(MIN_ATTACK_INTERVAL, stats.attackRate) + amount);
       stats.attackRate = 1 / attacksPerSecond;
       break;
@@ -1414,7 +1445,7 @@ function bestRegularPowerPerMinute(
     };
     const reward = enemy.reward;
     applyRewardToStats(projected.stats, reward.type, reward.amount * researchStatRewardMultiplier(snapshot.research) * adjustment.reward);
-    const fight = timeToKill(enemy.hp * adjustment.hp, combat.averageHit, combat.attackRate);
+    const fight = timeToKill(enemy.hp * adjustment.hp, combat.averageHit, combat.attackRate, enemy);
     const powerGain = Math.max(0, continuousPowerForState(projected) - continuousPowerForState(snapshot));
     best = Math.max(best, powerGain / Math.max(.01, fight + LOOT_AND_RETARGET_SECONDS) * 60);
   }
@@ -1493,7 +1524,7 @@ function selectSite(
     let projection = projections.get(key);
     if (!projection) {
       projection = {
-        fight: timeToKill(enemy.hp * adjustment.hp, combat.averageHit, combat.attackRate),
+        fight: timeToKill(enemy.hp * adjustment.hp, combat.averageHit, combat.attackRate, enemy),
         power: bossGateActive ? 0 : projectedRewardPowerGain(state, enemy, adjustment),
         dps: bossGateActive ? 0 : projectedDpsGain(state, enemy, adjustment),
         bossTtk: bossGateActive && (enemy.reward.type === "damage" || enemy.reward.type === "speed")
@@ -1560,7 +1591,7 @@ function selectSite(
       );
       const authoredTimeByStat = sites.reduce((totals, site) => {
         const enemy = siteEnemy(site);
-        const fight = timeToKill(enemy.hp * adjustment.hp, combat.averageHit, combat.attackRate);
+        const fight = timeToKill(enemy.hp * adjustment.hp, combat.averageHit, combat.attackRate, enemy);
         const stat = progressionStatForReward(enemy.reward.type);
         totals.set(stat, (totals.get(stat) ?? 0) + fight + LOOT_AND_RETARGET_SECONDS);
         return totals;
@@ -1790,6 +1821,7 @@ function simulateTrial(
   existing?: ExistingPlayerSimulation,
 ): TrialResult {
   const MAP_DEFINITIONS = createMapDefinitions(config.endlessMaps, config.balanceSettings);
+  useCurveRules(MAP_DEFINITIONS);
   const random = seededRandom(config.seed + trialIndex * 104_729);
   const behavior = trialBehavior(config.strategy, random);
   const state: MutableSimulationState = {
@@ -2398,7 +2430,7 @@ function enemyMetricsForMap(
     };
     const amount = enemy.reward.amount * researchStatRewardMultiplier(snapshot.research) * adjustment.reward;
     applyRewardToStats(projected.stats, enemy.reward.type, amount);
-    const fight = timeToKill(enemy.hp * adjustment.hp, combat.averageHit, combat.attackRate);
+    const fight = timeToKill(enemy.hp * adjustment.hp, combat.averageHit, combat.attackRate, enemy);
     const powerGain = Math.max(0, continuousPowerForState(projected) - beforePower);
     const incomingHit = damageAfterArmor(enemy.damage * adjustment.damage, combat.armor);
     const incomingDamagePerSecond = incomingHit * enemy.attackSpeed;
@@ -2793,6 +2825,7 @@ function runBalanceSimulationInternal(
 ): BalanceSimulationResult {
   const config = normalizeConfig(input);
   const MAP_DEFINITIONS = createMapDefinitions(config.endlessMaps, config.balanceSettings);
+  useCurveRules(MAP_DEFINITIONS);
   const trials: TrialResult[] = [];
   for (let index = 0; index < config.trials; index += 1) {
     trials.push(simulateTrial(config, index));
