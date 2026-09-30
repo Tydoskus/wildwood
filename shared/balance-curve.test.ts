@@ -15,9 +15,9 @@ describe("balance curve", () => {
     expect(Math.ceil(PLAYER_BASE_HP / slime.damage)).toBe(10);
   });
 
-  it("holds the baseline: map 1's Spitters have 8 health and pay 0.5 damage", () => {
+  it("holds the baseline: map 1's Spitters have 8 health and pay 1.5 damage", () => {
     expect(curve.damageHp).toBe(8);
-    expect(curve.damageReward).toBe(.5);
+    expect(curve.damageReward).toBe(1.5);
   });
 
   it("multiplies every enemy by enemyGrowth and every reward by rewardGrowth a map, Endless included", () => {

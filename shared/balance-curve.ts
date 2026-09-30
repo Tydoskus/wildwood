@@ -14,7 +14,7 @@ import { MAX_PLAYER_STAT } from './rules';
  * kills than the last.
  *
  * The baseline never changes: map 1's damage camp (Spitters) has 8 health
- * and pays 0.5 damage a kill. Everything else is tuned against it.
+ * and pays 1.5 damage a kill. Everything else is tuned against it.
  *
  * A boss heals `bossRegen` of its health a second, so a build that cannot
  * out-damage that never wins, however long it fights. It pays nothing:
@@ -50,7 +50,7 @@ export type BalanceCurve = {
 
 export const DEFAULT_BALANCE_CURVE: Readonly<BalanceCurve> = Object.freeze({
   enemyGrowth: 4.3, rewardGrowth: 3.4, groupSize: 7,
-  damageHp: 8, damageHit: 10, damageReward: .5,
+  damageHp: 8, damageHit: 10, damageReward: 1.5,
   healthHp: 24, healthHit: 4, healthReward: 15,
   speedHp: 8, speedHit: 2.5, speedReward: 1.2,
   regenHp: 12, regenHit: 4, regenReward: .2, regenHeal: 1,
