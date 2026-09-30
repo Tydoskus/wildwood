@@ -30,3 +30,15 @@ it("scales floating labels with the player's zoom", () => {
   expect(scales[0]).toBeCloseTo(.5);
   expect(scales[1]).toBeCloseTo(1.1 / 2);
 });
+
+it("starts at 100% when nothing is saved, not at the 70% end", async () => {
+  const store = new Map<string, string>();
+  const previous = globalThis.localStorage;
+  globalThis.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => { store.set(k, v); } } as Storage;
+  try {
+    const { vi } = await import("vitest");
+    vi.resetModules();
+    const fresh = await import("./camera-zoom-preference");
+    expect(fresh.cameraZoomPreference()).toBe(1);
+  } finally { globalThis.localStorage = previous; }
+});

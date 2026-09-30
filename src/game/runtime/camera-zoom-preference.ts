@@ -13,7 +13,8 @@ const STORAGE_KEY = "wildstat.cameraZoomStep";
 
 let index = DEFAULT_INDEX;
 try {
-  const stored = Number(globalThis.localStorage?.getItem(STORAGE_KEY));
+  const raw = globalThis.localStorage?.getItem(STORAGE_KEY);
+  const stored = raw ? Number(raw) : Number.NaN;   // Number(null) is 0, the 70% end.
   if (Number.isInteger(stored) && stored >= 0 && stored < CAMERA_ZOOM_LEVELS.length) index = stored;
 } catch { /* Private windows and blocked storage keep 100%. */ }
 

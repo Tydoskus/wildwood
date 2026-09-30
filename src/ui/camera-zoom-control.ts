@@ -1,18 +1,18 @@
 import { CAMERA_ZOOM_LEVELS, canZoomCamera, cameraZoomPreference, stepCameraZoom } from "../game/runtime/camera-zoom-preference";
 
 /**
- * The − 100% + row under the minimap. The mouse wheel over the game zooms
- * too, one step a notch, except with Ctrl held (the browser's own zoom).
+ * A + / 100% / − column beside the minimap. The mouse wheel over the game
+ * zooms too, one step a flick, except with Ctrl held (the browser's own zoom).
  */
 export function installCameraZoomControl(doc: Document, canvas: HTMLElement | null) {
-  const meta = doc.querySelector(".minimap-meta");
-  if (!meta || doc.getElementById("cameraZoomControl")) return;
+  const hud = doc.getElementById("hud");
+  if (!hud || doc.getElementById("cameraZoomControl")) return;
   const row = doc.createElement("div");
   row.id = "cameraZoomControl"; row.className = "camera-zoom-control";
-  row.innerHTML = `<button type="button" class="camera-zoom-button" data-zoom="-1" aria-label="Zoom out">−</button>`
+  row.innerHTML = `<button type="button" class="camera-zoom-button" data-zoom="1" aria-label="Zoom in">+</button>`
     + `<span class="camera-zoom-level" aria-live="polite"></span>`
-    + `<button type="button" class="camera-zoom-button" data-zoom="1" aria-label="Zoom in">+</button>`;
-  meta.append(row);
+    + `<button type="button" class="camera-zoom-button" data-zoom="-1" aria-label="Zoom out">−</button>`;
+  hud.append(row);
   const level = row.querySelector<HTMLElement>(".camera-zoom-level")!;
   const out = row.querySelector<HTMLButtonElement>('[data-zoom="-1"]')!;
   const inward = row.querySelector<HTMLButtonElement>('[data-zoom="1"]')!;
