@@ -37,6 +37,11 @@ async function publish() {
   console.log(`Publishing only to ${databaseHost}/${database} (preserving saves)…`);
   await command(['publish', database, '--module-path', 'spacetimedb', '--server', databaseHost,
     '--delete-data=never', '--yes=remote,migrate,break-clients']);
+  // A map visit keeps the balance it started with, so a balance edit would not
+  // show until the player travelled. Local only: drop those pins so the tab's
+  // automatic reload picks up the new numbers.
+  await command(['sql', database, '--server', databaseHost, 'DELETE FROM player_map_balance'], true)
+    .catch(error => console.warn(`Could not refresh map balance pins: ${error.message}`));
   await command(['generate', '--lang', 'typescript', '--out-dir', 'src/module_bindings', '--module-path', 'spacetimedb']);
 }
 async function buildClient() {
