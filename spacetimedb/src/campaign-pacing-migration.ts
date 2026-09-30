@@ -53,26 +53,42 @@ export function activateCampaignProgression(ctx: Parameters<typeof saveMapBalanc
 }
 
 /**
- * Migration 46: campaign enemies hit as hard as the desert's. Measured in the
- * Balance Lab on live revision 76 (2026-09-30), a regular's hit took 7.7% of a
- * typical arriving player's health on the desert and 0.7–1.6% on every later
- * map, so health, armor and regen stopped mattering past map 2. Each map's
- * enemy damage is multiplied so a regular hit takes about 7.7% again; elites
- * rise with it. Map 1 and the desert stay as they are, and Endless follows map
- * 15. Every other factor stays as the live revision has it.
+ * Migration 46: the campaign and Endless rebalance, tuned in the Balance Lab
+ * (2026-09-30) against a typical player with research and gear, from live
+ * revision 76. Ryan's rules, checked on every map:
+ * - fast early: the forest about 16 minutes, the desert 26, then each map
+ *   longer than the last (x1.6 early easing to x1.1 by map 15, about 7.7 h),
+ *   and Endless about 20% longer a map;
+ * - dangerous: a regular takes 8 hits to kill on arrival and hits for about
+ *   7.5% of the player's health; elites far harder;
+ * - bosses are big gates: every boss takes about 12 minutes to kill on
+ *   arrival, and paying nothing, only opens the next map.
+ * It sets these factors per map, and Endless's shared ones (Endless 1 from
+ * map 15; ENDLESS_STEPS in shared/map-balance.ts after that). Every other
+ * setting stays as the live revision has it.
  */
-export const CAMPAIGN_ENEMY_HIT_MULTIPLIERS: Readonly<Record<string, number>> = Object.freeze({
-  intermediate_snowlands: 5.22, advanced_lava_wastes: 7.83, infernal_depths: 5.48, water_reach: 4.68, samurai_garden: 5.55,
-  cloudspire: 7.24, moonfen: 8.9, crystal_hollows: 10.17, clockwork_ruins: 11.2, duskfall_orchard: 11.04,
-  neon_bastion: 10.72, verdant_catacombs: 10.02, ion_citadel: 9.52,
+export const CAMPAIGN_REBALANCE: Readonly<Record<string, Readonly<Partial<Record<'enemyHealth' | 'enemyDamage' | 'enemyRewards' | 'bossHealth' | 'bossDamage', number>>>>> = Object.freeze({
+  tutorial_forest: { bossHealth: 0.01996, bossDamage: 0.3 },
+  beginner_desert: { enemyHealth: 0.1939, enemyDamage: 0.5404, enemyRewards: 0.2999, bossHealth: 0.0877 },
+  intermediate_snowlands: { enemyHealth: 0.127, enemyDamage: 2.162, enemyRewards: 0.2237, bossHealth: 0.01908 },
+  advanced_lava_wastes: { enemyHealth: 0.1129, enemyDamage: 1.682, enemyRewards: 0.08743, bossHealth: 0.02383 },
+  infernal_depths: { enemyHealth: 0.1147, enemyDamage: 1.292, enemyRewards: 0.1168, bossHealth: 0.03966 },
+  water_reach: { enemyHealth: 0.1044, enemyDamage: 1.193, enemyRewards: 0.1524, bossHealth: 0.06636 },
+  samurai_garden: { enemyHealth: 0.09499, enemyDamage: 1.072, enemyRewards: 0.2338, bossHealth: 0.1109 },
+  cloudspire: { enemyHealth: 0.09765, enemyDamage: 1.602, enemyRewards: 0.3336, bossHealth: 0.1866 },
+  moonfen: { enemyHealth: 0.1141, enemyDamage: 2.544, enemyRewards: 0.4398, bossHealth: 0.3154 },
+  crystal_hollows: { enemyHealth: 0.1524, enemyDamage: 3.844, enemyRewards: 0.7848, bossHealth: 0.5314 },
+  clockwork_ruins: { enemyHealth: 0.2459, enemyDamage: 7.943, enemyRewards: 1.13, bossHealth: 0.8811 },
+  duskfall_orchard: { enemyHealth: 0.3981, enemyDamage: 13.98, enemyRewards: 1.851, bossHealth: 1.453 },
+  neon_bastion: { enemyHealth: 0.8428, enemyDamage: 24.12, enemyRewards: 3.219, bossHealth: 2.415 },
+  verdant_catacombs: { enemyHealth: 1.922, enemyDamage: 38.23, enemyRewards: 5.784, bossHealth: 4.002 },
+  ion_citadel: { enemyHealth: 5.251, enemyDamage: 72.18, enemyRewards: 11.04, bossHealth: 6.739 },
+  endless: { enemyHealth: 4.8, enemyDamage: 4.943, enemyRewards: 3.973, bossHealth: 5.056 },
 });
-export function raiseCampaignEnemyHits(ctx: Parameters<typeof saveMapBalance>[0]) {
-  if (!ctx.db.mapBalanceHead.id.find(0)) return; // A fresh database has no live revision to raise.
+export function applyCampaignRebalance(ctx: Parameters<typeof saveMapBalance>[0]) {
+  if (!ctx.db.mapBalanceHead.id.find(0)) return; // A fresh database has no live revision to rebalance.
   const { revision, settings } = balanceEditorState(ctx);
   const next = { ...settings, maps: Object.fromEntries(Object.entries(settings.maps).map(([id, factors]) => [id, { ...factors }])) };
-  for (const [id, multiplier] of Object.entries(CAMPAIGN_ENEMY_HIT_MULTIPLIERS)) {
-    const factors = next.maps[id];
-    if (factors) factors.enemyDamage = Math.min(100, Math.round(factors.enemyDamage * multiplier * 100) / 100);
-  }
+  for (const [id, factors] of Object.entries(CAMPAIGN_REBALANCE)) if (next.maps[id]) Object.assign(next.maps[id], factors);
   saveMapBalance(ctx, revision, JSON.stringify(next));
 }

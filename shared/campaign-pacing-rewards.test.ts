@@ -27,7 +27,7 @@ it('carries final-map pacing into Endless, which carries on from map 15', () => 
     const map15 = damageCamp(resolveMapBalance('ion_citadel', settings, 0)).reward.amount;
     for (const depth of [1, 2, 10, 40]) {
       const lane = resolveMapBalance(`endless_${depth}`, settings, 0).lanes.Cindermaw.reward.amount;
-      expect(lane / map15 / ENDLESS_STEPS.reward ** depth).toBeCloseTo(1, 9);
+      expect(lane / map15 / ENDLESS_STEPS.reward ** (depth - 1)).toBeCloseTo(1, 9);
     }
   }
 });

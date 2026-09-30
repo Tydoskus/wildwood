@@ -57,7 +57,9 @@ export function saveMapBalance(ctx: Context, expectedRevision: number, json: str
   } catch (error) { throw new SenderError(error instanceof Error ? error.message : 'Invalid balance.'); }
   // Revision zero is a real backup of the defaults that were live at first edit.
   if (!ctx.db.mapBalanceVersion.revision.find(0)) ctx.db.mapBalanceVersion.insert({ revision: 0, settingsJson: JSON.stringify(current.settings), editor: ctx.sender, createdAt: ctx.timestamp });
-  const revision = current.revision + 1;
+  // A revision number is never reused, even when the head was moved back past it.
+  let revision = current.revision + 1;
+  while (ctx.db.mapBalanceVersion.revision.find(revision)) revision += 1;
   ctx.db.mapBalanceVersion.insert({ revision, settingsJson: JSON.stringify(settings), editor: ctx.sender, createdAt: ctx.timestamp });
   if (ctx.db.mapBalanceHead.id.find(0)) ctx.db.mapBalanceHead.id.update({ id: 0, revision });
   else ctx.db.mapBalanceHead.insert({ id: 0, revision });

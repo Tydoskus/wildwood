@@ -1,4 +1,4 @@
-import { activateCampaignPacing, activateCampaignProgression, raiseCampaignEnemyHits, activateCampaignRewardFloor } from './campaign-pacing-migration';
+import { activateCampaignPacing, activateCampaignProgression, applyCampaignRebalance, activateCampaignRewardFloor } from './campaign-pacing-migration';
 // One-time data migrations: the version-gated steps runPendingModuleMigrations
 // walks once per module version, the legacy balance rebases they call and the
 // per-connection migratePlayerBalance catch-up for saves that predate the
@@ -508,8 +508,8 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     if (currentVersion < 44) activateCampaignRewardFloor(ctx);
     // 45: switch on the unified campaign progression curve shipped inactive in 0.821.
     if (currentVersion < 45) activateCampaignProgression(ctx);
-    // 46: campaign enemies hit as hard as the desert's, as a new balance revision.
-    if (currentVersion < 46) raiseCampaignEnemyHits(ctx);
+    // 46: the campaign and Endless rebalance (campaign-pacing-migration.ts), as a new balance revision.
+    if (currentVersion < 46) applyCampaignRebalance(ctx);
     const next = { id: 0, version: MODULE_MIGRATION_VERSION };
     if (state) ctx.db.moduleMigrationState.id.update(next);
     else ctx.db.moduleMigrationState.insert(next);

@@ -1,5 +1,5 @@
 import revision75 from '../../tests/fixtures/balance-revision-75.json';
-import { CAMPAIGN_ENEMY_HIT_MULTIPLIERS, activateCampaignPacing, activateCampaignProgression, activateCampaignRewardFloor, raiseCampaignEnemyHits } from './campaign-pacing-migration';
+import { CAMPAIGN_REBALANCE, activateCampaignPacing, activateCampaignProgression, activateCampaignRewardFloor, applyCampaignRebalance } from './campaign-pacing-migration';
 import { defaultBalanceSettings, resolveMapBalance, validateBalanceSettings } from '../../shared/map-balance';
 import bakeFixture from '../../tests/fixtures/balance-revision-73.json';
 import { it, expect, vi } from 'vitest';
@@ -235,20 +235,30 @@ it('migration 44 changes only the reward-floor flag and remains idempotent', () 
   expect(balanceEditorState(ctx).revision).toBe(75);
 });
 
-it('migration 46 multiplies each later campaign map\'s enemy damage as a new revision, leaving everything else', () => {
+it('migration 46 sets the rebalanced factors as a new revision, leaving every other setting', () => {
   const ctx = fixture();
   const live = validateBalanceSettings(revision75);
-  live.maps.moonfen.enemyDamage = 1.5;   // a developer's tuning is multiplied, not replaced
+  live.maps.moonfen.enemySpeed = 1.2;   // a developer's other tuning stays
   ctx.db.mapBalanceVersion.insert({ revision: 75, settingsJson: JSON.stringify(live), editor: ctx.sender, createdAt: ctx.timestamp });
   ctx.db.mapBalanceHead.insert({ id: 0, revision: 75 });
-  raiseCampaignEnemyHits(ctx);
+  applyCampaignRebalance(ctx);
   const { revision, settings } = balanceEditorState(ctx);
   expect(revision).toBe(76);
-  for (const [id, multiplier] of Object.entries(CAMPAIGN_ENEMY_HIT_MULTIPLIERS)) {
-    expect(settings.maps[id].enemyDamage).toBeCloseTo((live.maps[id].enemyDamage ?? 1) * multiplier, 2);
+  for (const [id, factors] of Object.entries(CAMPAIGN_REBALANCE)) {
+    for (const [field, value] of Object.entries(factors)) expect(settings.maps[id][field as keyof typeof factors]).toBeCloseTo(value, 6);
+    expect({ ...settings.maps[id], ...Object.fromEntries(Object.keys(factors).map(k => [k, 0])) })
+      .toEqual({ ...live.maps[id], ...Object.fromEntries(Object.keys(factors).map(k => [k, 0])) });
   }
-  expect(settings.maps.moonfen.enemyDamage).toBeCloseTo(1.5 * 8.9, 2);
-  for (const id of ['tutorial_forest', 'beginner_desert', 'endless']) expect(settings.maps[id]).toEqual(live.maps[id]);
-  for (const id of Object.keys(live.maps)) expect({ ...settings.maps[id], enemyDamage: 0 }).toEqual({ ...live.maps[id], enemyDamage: 0 });
+  expect(settings.maps.moonfen.enemySpeed).toBe(1.2);
   expect(settings.endless).toEqual(live.endless);
+});
+
+it('a save never reuses a revision number when the head was moved back', () => {
+  const ctx = fixture();
+  const live = validateBalanceSettings(revision75);
+  for (const revision of [75, 76]) ctx.db.mapBalanceVersion.insert({ revision, settingsJson: JSON.stringify(live), editor: ctx.sender, createdAt: ctx.timestamp });
+  ctx.db.mapBalanceHead.insert({ id: 0, revision: 75 });
+  applyCampaignRebalance(ctx);
+  expect(balanceEditorState(ctx).revision).toBe(77);
+  expect(JSON.parse(ctx.db.mapBalanceVersion.revision.find(76).settingsJson)).toEqual(live);
 });

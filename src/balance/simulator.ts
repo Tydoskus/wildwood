@@ -195,6 +195,15 @@ export type SimulationStateSnapshot = {
   itemUpgradeLevel: number;
   itemUpgradeLevels?: Record<string, number>;
   equipmentStrengthMultiplier: number;
+  /**
+   * The rest of a run's state, so a simulation resumed from a snapshot carries
+   * on the same run: gear it owns, and research and an upgrade still ticking
+   * (seconds left, since each run's clock starts at 0).
+   */
+  ownedItems?: string[];
+  activeResearch?: { id: ResearchId; remainingSeconds: number } | null;
+  activeUpgrade?: { itemId: string; level: number; remainingSeconds: number } | null;
+  bossRewardClaims?: number;
 };
 
 /** Offline audit input; never accepts or changes a live player save. */
@@ -1089,6 +1098,10 @@ function stateSnapshot(state: MutableSimulationState): SimulationStateSnapshot {
     itemUpgradeLevel: state.itemUpgradeLevel,
     itemUpgradeLevels: { ...state.itemUpgradeLevels },
     equipmentStrengthMultiplier: state.equipmentStrengthMultiplier,
+    ownedItems: [...state.ownedItems],
+    activeResearch: state.activeResearch && { id: state.activeResearch.id, remainingSeconds: Math.max(0, state.activeResearch.completesAt - state.time) },
+    activeUpgrade: state.activeUpgrade && { itemId: state.activeUpgrade.itemId, level: state.activeUpgrade.level, remainingSeconds: Math.max(0, state.activeUpgrade.completesAt - state.time) },
+    bossRewardClaims: state.bossRewardClaims,
   };
 }
 
@@ -1854,6 +1867,9 @@ function simulateTrial(
     state.itemUpgradeLevels = { ...existing.itemUpgradeLevels };
     state.equipmentStrengthMultiplier = existing.equipmentStrengthMultiplier;
     state.bossRewardClaims = existing.bossRewardClaims;
+    // A snapshot taken mid-run carries its research and upgrade timers on.
+    if (existing.activeResearch) state.activeResearch = { id: existing.activeResearch.id, completesAt: existing.activeResearch.remainingSeconds };
+    if (existing.activeUpgrade) state.activeUpgrade = { itemId: existing.activeUpgrade.itemId, level: existing.activeUpgrade.level, completesAt: existing.activeUpgrade.remainingSeconds };
     equipBestAvailableItems(state);
   }
   let position = { ...MAP_DEFINITIONS[state.mapIndex].arrival };
