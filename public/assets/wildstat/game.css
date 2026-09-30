@@ -1029,6 +1029,18 @@
   .camera-zoom-button:disabled { opacity: .35; cursor: default; }
   .camera-zoom-level { color: rgba(246,246,232,.9); font: 900 10px/12px var(--font-rounded); letter-spacing: .02em; text-shadow: 1px 1px 0 #000; }
   body:is(.is-dueling, .is-replaying) .camera-zoom-control { visibility: hidden; pointer-events: none; }
+  /* A phone's player panel reaches the minimap: sit under the minimap instead, left of the ad button. */
+  @media (max-width: 560px) {
+    .camera-zoom-control {
+      top: calc(var(--hud-safe-top) + var(--hud-map-size) + 33px);
+      right: calc(var(--hud-safe-right) + 52px);
+      flex-direction: row-reverse;
+      gap: 6px;
+      width: auto;
+      height: 35px;
+      padding: 0 5px;
+    }
+  }
 
   .minimap-button {
     position: absolute;
