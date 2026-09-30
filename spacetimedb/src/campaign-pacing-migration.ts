@@ -51,3 +51,28 @@ export function activateCampaignProgression(ctx: Parameters<typeof saveMapBalanc
   next.maps.endless.enemyRewards *= previousLastReward;
   saveMapBalance(ctx, revision, JSON.stringify(next));
 }
+
+/**
+ * Migration 46: campaign enemies hit as hard as the desert's. Measured in the
+ * Balance Lab on live revision 76 (2026-09-30), a regular's hit took 7.7% of a
+ * typical arriving player's health on the desert and 0.7–1.6% on every later
+ * map, so health, armor and regen stopped mattering past map 2. Each map's
+ * enemy damage is multiplied so a regular hit takes about 7.7% again; elites
+ * rise with it. Map 1 and the desert stay as they are, and Endless follows map
+ * 15. Every other factor stays as the live revision has it.
+ */
+export const CAMPAIGN_ENEMY_HIT_MULTIPLIERS: Readonly<Record<string, number>> = Object.freeze({
+  intermediate_snowlands: 5.22, advanced_lava_wastes: 7.83, infernal_depths: 5.48, water_reach: 4.68, samurai_garden: 5.55,
+  cloudspire: 7.24, moonfen: 8.9, crystal_hollows: 10.17, clockwork_ruins: 11.2, duskfall_orchard: 11.04,
+  neon_bastion: 10.72, verdant_catacombs: 10.02, ion_citadel: 9.52,
+});
+export function raiseCampaignEnemyHits(ctx: Parameters<typeof saveMapBalance>[0]) {
+  if (!ctx.db.mapBalanceHead.id.find(0)) return; // A fresh database has no live revision to raise.
+  const { revision, settings } = balanceEditorState(ctx);
+  const next = { ...settings, maps: Object.fromEntries(Object.entries(settings.maps).map(([id, factors]) => [id, { ...factors }])) };
+  for (const [id, multiplier] of Object.entries(CAMPAIGN_ENEMY_HIT_MULTIPLIERS)) {
+    const factors = next.maps[id];
+    if (factors) factors.enemyDamage = Math.min(100, Math.round(factors.enemyDamage * multiplier * 100) / 100);
+  }
+  saveMapBalance(ctx, revision, JSON.stringify(next));
+}

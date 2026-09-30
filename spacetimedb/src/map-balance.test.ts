@@ -1,5 +1,5 @@
 import revision75 from '../../tests/fixtures/balance-revision-75.json';
-import { activateCampaignPacing, activateCampaignProgression, activateCampaignRewardFloor } from './campaign-pacing-migration';
+import { CAMPAIGN_ENEMY_HIT_MULTIPLIERS, activateCampaignPacing, activateCampaignProgression, activateCampaignRewardFloor, raiseCampaignEnemyHits } from './campaign-pacing-migration';
 import { defaultBalanceSettings, resolveMapBalance, validateBalanceSettings } from '../../shared/map-balance';
 import bakeFixture from '../../tests/fixtures/balance-revision-73.json';
 import { it, expect, vi } from 'vitest';
@@ -190,12 +190,13 @@ it('runs pending campaign migrations from the connection path only once', () => 
   f.seed('mapBalanceVersion', { revision: 73, settingsJson: JSON.stringify(bakeFixture.settings), editor: f.ctx.sender, createdAt: f.ctx.timestamp });
   f.ctx.connectionId = null;
   f.run(server.onConnect);
-  expect(f.db.moduleMigrationState.id.find(0).version).toBe(45);
+  expect(f.db.moduleMigrationState.id.find(0).version).toBe(46);
   expect(f.db.mapBalanceVersion.revision.find(75).settingsJson).toBe(JSON.stringify(validateBalanceSettings(revision75)));
-  expect(balanceEditorState(f.ctx as any).revision).toBe(76);
-  expectProgressionCurve(balanceEditorState(f.ctx as any).settings);
+  // 45 made revision 76, and 46 raised its enemy hits as revision 77.
+  expectProgressionCurve(JSON.parse(f.db.mapBalanceVersion.revision.find(76).settingsJson));
+  expect(balanceEditorState(f.ctx as any).revision).toBe(77);
   f.run(server.onConnect);
-  expect(balanceEditorState(f.ctx as any).revision).toBe(76);
+  expect(balanceEditorState(f.ctx as any).revision).toBe(77);
 });
 
 it('migration 45 turns the live revision into the tested progression curve, once, keeping Endless and dev tuning', () => {
@@ -232,4 +233,22 @@ it('migration 44 changes only the reward-floor flag and remains idempotent', () 
   expect(JSON.parse(ctx.db.mapBalanceVersion.revision.find(74).settingsJson)).toEqual(before);
   activateCampaignRewardFloor(ctx);
   expect(balanceEditorState(ctx).revision).toBe(75);
+});
+
+it('migration 46 multiplies each later campaign map\'s enemy damage as a new revision, leaving everything else', () => {
+  const ctx = fixture();
+  const live = validateBalanceSettings(revision75);
+  live.maps.moonfen.enemyDamage = 1.5;   // a developer's tuning is multiplied, not replaced
+  ctx.db.mapBalanceVersion.insert({ revision: 75, settingsJson: JSON.stringify(live), editor: ctx.sender, createdAt: ctx.timestamp });
+  ctx.db.mapBalanceHead.insert({ id: 0, revision: 75 });
+  raiseCampaignEnemyHits(ctx);
+  const { revision, settings } = balanceEditorState(ctx);
+  expect(revision).toBe(76);
+  for (const [id, multiplier] of Object.entries(CAMPAIGN_ENEMY_HIT_MULTIPLIERS)) {
+    expect(settings.maps[id].enemyDamage).toBeCloseTo((live.maps[id].enemyDamage ?? 1) * multiplier, 2);
+  }
+  expect(settings.maps.moonfen.enemyDamage).toBeCloseTo(1.5 * 8.9, 2);
+  for (const id of ['tutorial_forest', 'beginner_desert', 'endless']) expect(settings.maps[id]).toEqual(live.maps[id]);
+  for (const id of Object.keys(live.maps)) expect({ ...settings.maps[id], enemyDamage: 0 }).toEqual({ ...live.maps[id], enemyDamage: 0 });
+  expect(settings.endless).toEqual(live.endless);
 });
