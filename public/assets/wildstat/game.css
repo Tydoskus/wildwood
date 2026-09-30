@@ -983,10 +983,52 @@
   .signin-version[data-unread-notes="true"]::after { top: 12px; right: 34px; }
   .minimap-version:hover, .minimap-version:active { background: transparent; box-shadow: none; transform: none; }
   .minimap-version:focus-visible { outline: 1px solid #fff; outline-offset: 2px; }
-  .camera-zoom-control { position: absolute; top: calc(var(--hud-safe-top) + 4px); right: calc(var(--hud-safe-right) + var(--hud-map-size) + 6px); z-index: 4; display: flex; flex-direction: column; align-items: center; gap: 3px; pointer-events: auto; text-shadow: 1px 1px 0 #000; }
-  .camera-zoom-button { width: 22px; min-width: 0; height: 22px; min-height: 0; padding: 0; border-radius: 50%; font: 900 15px/1 var(--font-rounded); }
-  .camera-zoom-button:disabled { opacity: .4; }
-  .camera-zoom-level { min-width: 34px; color: rgba(246, 246, 232, .9); font: 900 10px/12px var(--font-rounded); }
+  /* Beside the minimap, in its frame; + and − match its "?" mark. */
+  .camera-zoom-control {
+    position: absolute;
+    top: var(--hud-safe-top);
+    right: calc(var(--hud-safe-right) + var(--hud-map-size) + 5px);
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    box-sizing: border-box;
+    width: 35px;
+    height: var(--hud-map-size);
+    padding: 5px 0;
+    border: 2px solid var(--hud-frame);
+    border-radius: 5px;
+    background: rgba(8,13,10,.32);
+    box-shadow: 0 2px 0 rgba(0,0,0,.42);
+    pointer-events: auto;
+  }
+  .camera-zoom-button {
+    display: grid;
+    place-items: center;
+    width: 25px;
+    height: 25px;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0 0 1px;
+    border: 2px solid rgba(255,255,255,.52);
+    border-radius: 50%;
+    background: rgba(8,13,10,.32);
+    box-shadow: 0 2px 0 rgba(0,0,0,.3);
+    color: #fff;
+    cursor: pointer;
+    font: 900 17px/1 var(--font-rounded);
+    text-shadow: 1px 1px 0 #000;
+    transition: background-color .12s, transform .12s;
+  }
+  .camera-zoom-button:hover:not(:disabled),
+  .camera-zoom-button:focus-visible { background: rgba(43,91,61,.48); transform: scale(1.08); }
+  .camera-zoom-button:active:not(:disabled) { transform: scale(.96); }
+  .camera-zoom-button:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+  .camera-zoom-button:disabled { opacity: .35; cursor: default; }
+  .camera-zoom-level { color: rgba(246,246,232,.9); font: 900 10px/12px var(--font-rounded); letter-spacing: .02em; text-shadow: 1px 1px 0 #000; }
+  body:is(.is-dueling, .is-replaying) .camera-zoom-control { visibility: hidden; pointer-events: none; }
 
   .minimap-button {
     position: absolute;
