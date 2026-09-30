@@ -27,11 +27,11 @@ export type BalanceCurve = {
   rewardGrowth: number;
   /** Kills in one group, for counting clears. */
   groupSize: number;
-  /** Map 1's damage camp: hits hardest. */
+  /** Map 1's damage camp. Every camp hits at least as hard as it. */
   damageHp: number; damageHit: number; damageReward: number;
   /** Map 1's health camp: takes the most blows. */
   healthHp: number; healthHit: number; healthReward: number;
-  /** Map 1's speed camp: swings fastest (CAMP_SWINGS), with lighter hits. */
+  /** Map 1's speed camp: swings fastest (CAMP_SWINGS). */
   speedHp: number; speedHit: number; speedReward: number;
   /** Map 1's regen camp: heals `regenHeal` a second while it lives. */
   regenHp: number; regenHit: number; regenReward: number; regenHeal: number;
@@ -51,10 +51,10 @@ export type BalanceCurve = {
 export const DEFAULT_BALANCE_CURVE: Readonly<BalanceCurve> = Object.freeze({
   enemyGrowth: 4.3, rewardGrowth: 3.4, groupSize: 7,
   damageHp: 8, damageHit: 10, damageReward: 1.5,
-  healthHp: 24, healthHit: 4, healthReward: 15,
-  speedHp: 90, speedHit: 2.5, speedReward: 1.2,
-  regenHp: 120, regenHit: 4, regenReward: .2, regenHeal: 1,
-  armorHp: 13, armorHit: 5, armorReward: 1.2, armorArmor: 50,
+  healthHp: 24, healthHit: 10, healthReward: 15,
+  speedHp: 90, speedHit: 10, speedReward: 1.2,
+  regenHp: 120, regenHit: 10, regenReward: .2, regenHeal: 1,
+  armorHp: 13, armorHit: 10, armorReward: 1.2, armorArmor: 50,
   bossHp: 190, bossHit: 120, bossRegen: .067, dragonHp: 50_000, dragonHit: 1_500,
   eliteHealth: 5, eliteHit: 3,
 });

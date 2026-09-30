@@ -38,9 +38,9 @@ describe("balance curve", () => {
     expect(curve.enemyGrowth).toBeGreaterThan(curve.rewardGrowth);
   });
 
-  it("gives each camp its own stat: damage hits, health lasts, speed swings, regen heals, armor blocks", () => {
+  it("gives each camp its own stat: health lasts, speed swings, regen heals, armor blocks, and none hits softer than a Spitter", () => {
     const map = (stat: typeof STATS[number]) => curveEnemy(4, stat, false);
-    expect(map("damage").damage).toBeGreaterThan(map("health").damage);
+    for (const stat of STATS) expect(map(stat).damage).toBeGreaterThanOrEqual(map("damage").damage);
     expect(map("health").hp).toBeGreaterThan(map("damage").hp);
     expect(map("speed").attackSpeed).toBe(CAMP_SWINGS.speed);
     expect(map("regen").regen).toBeGreaterThan(0);
