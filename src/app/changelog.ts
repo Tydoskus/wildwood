@@ -1,4 +1,15 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.839": [
+    "Every map rebalanced: enemies hit harder, each map takes longer than the last, and bosses are real gates",
+    "Endless now follows the same curve as the campaign",
+    "Bosses no longer give stat rewards",
+    "Prestige 20 is uncapped after a shared countdown, with four new perks: Boss Slayer, Second Wind, Long Shot and Fleet Foot",
+    "New: Prestige Challenges, each completed one adds +0.5 attacks/sec to your base and cap for good",
+    "Camera zoom buttons beside the minimap",
+    "Base move speed is 200, and enemies chase a little faster",
+    "Melee enemies notice you from farther away",
+    "Bosses no longer knock you back",
+  ],
   "0.838": [
     "Emptied hands stay empty after logging in or picking up loot",
     "Sign-in works on computers whose clock is wrong",
@@ -2522,6 +2533,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.839": "2026-09-30",
   "0.838": "2026-09-29",
   "0.837": "2026-09-29",
   "0.836": "2026-09-29",
