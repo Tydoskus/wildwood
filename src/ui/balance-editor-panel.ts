@@ -6,7 +6,9 @@ import { CAMPAIGN_MAPS } from '../../shared/campaign-registry';
 const curveFields: [keyof BalanceCurve, string][] = [['map1DamageReward', 'Map 1 damage reward per kill'], ['map1EnemyHp', 'Map 1 finished damage'], ['map1SlimeHp', 'Map 1 damage camp health'], ['clearsY', 'Kill growth per map (Y)'], ['groupSize', 'Enemies per group'],
   ['arrivalBlows', 'Blows per kill arriving on a map'], ['endlessArrivalBlows', 'Endless: blows per kill arriving'], ['map1MaxHp', 'Map 1 health target'], ['map1Regen', 'Map 1 regen target'],
   ['armorMap1', 'Map 1 armor target'], ['speedMap1', 'Map 1 Attack Speed target'], ['map1DamageCampHit', 'Map 1 damage camp hit'],
-  ['bossFightSeconds', 'Boss fight length (seconds)'], ['bossHitShare', 'Boss heaviest hit (share of health)'], ['eliteHealth', 'Elite health and reward (×)'], ['eliteHit', 'Elite hit (×)']];
+  ['bossFightSeconds', 'Boss fight length (seconds)'], ['bossHitShare', 'Boss heaviest hit (share of health)'], ['eliteHealth', 'Elite health and reward (×)'], ['eliteHit', 'Elite hit (×)'],
+  ['bossGate', 'Boss gate (share of finished damage it heals)'], ['bonusGrowth', 'Gear and research damage per map (×)'],
+  ['healthBonusGrowth', 'Gear and research health per map (×)'], ['rewardBonusGrowth', 'Research reward per map (×)']];
 export type BalanceEditorDependencies = {
   load: () => Promise<BalanceEditorState>;
   preview: (map: string, settings: BalanceSettings) => Promise<MapBalanceSnapshot>;

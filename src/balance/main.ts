@@ -310,6 +310,11 @@ function saveConfig() {
   } catch { /* Local storage is optional. */ }
 }
 
+/** A gated boss out-heals a build below its gate, so that fight never ends. */
+function bossFightTime(seconds: number | null) {
+  return seconds !== null && !Number.isFinite(seconds) ? "can't win" : formatDuration(seconds);
+}
+
 function formatDuration(seconds: number | null, compact = false) {
   if (seconds === null || !Number.isFinite(seconds)) return "—";
   const absolute = Math.max(0, seconds);
@@ -562,7 +567,7 @@ function renderMapTable(next: BalanceSimulationResult) {
     const reached = map.reachedPercent;
     const cleared = map.hasBoss ? formatPercent(map.completedPercent) : "OPEN";
     const bossTtk = map.hasBoss
-      ? `${formatDuration(map.bossTtkAtEntryMedianSeconds)}<span class="cell-sub">exit ${formatDuration(map.bossTtkAtExitMedianSeconds)}</span>`
+      ? `${bossFightTime(map.bossTtkAtEntryMedianSeconds)}<span class="cell-sub">exit ${formatDuration(map.bossTtkAtExitMedianSeconds)}</span>`
       : "—";
     const durationFit = map.durationVsTarget;
     const durationWall = durationFit !== null && (durationFit < .75 || durationFit > 1.25);

@@ -30,6 +30,16 @@ import { attacksPerSecondFromSpeed } from './attack-speed-rating';
  * - regen camps heal a share of the arrival damage per second (DPS);
  * - each camp leans on its own stat (CURVE_ROLES).
  * A map's boss checks the finished build and pays nothing but the next map.
+ *
+ * Gear and research sit on top of the farmed stats and grow all campaign: the
+ * Balance Lab measured a build hitting about 7% harder a map than its farmed
+ * damage (2.6× by map 15), with about 6% more health and 2% more reward a
+ * kill. The curve expects them, so enemies and bosses are sized against the
+ * build with them and rewards shrink by research's share. Without that,
+ * each map took fewer kills than the last asked. See curveBonus.
+ *
+ * A boss out-heals any build below `bossGate` of the finished damage, so a
+ * half-farmed build cannot win however long it fights.
  */
 export type BalanceCurve = {
   /** What map 1's damage camp pays a kill. With map1EnemyHp it sets map 1's kills. */
@@ -60,12 +70,21 @@ export type BalanceCurve = {
   /** Elites: health and reward as multiples of their camp's regulars, and their hit. */
   eliteHealth: number;
   eliteHit: number;
+  /** Gear and research: how much harder than its farmed damage a build hits, per campaign map. */
+  bonusGrowth: number;
+  /** The same for health. */
+  healthBonusGrowth: number;
+  /** Research's extra reward a kill, per campaign map: rewards shrink by it so kills stay what the curve asks. */
+  rewardBonusGrowth: number;
+  /** The share of the finished build's damage a boss heals a second: a build below it cannot beat the boss. 0 turns the gate off. */
+  bossGate: number;
 };
 
 export const DEFAULT_BALANCE_CURVE: Readonly<BalanceCurve> = Object.freeze({
   map1DamageReward: .5, clearsY: 1, groupSize: 7, arrivalBlows: 7, endlessArrivalBlows: 7,
   map1EnemyHp: 24, map1SlimeHp: 8, map1MaxHp: 800, map1Regen: 1.6, armorMap1: 50, speedMap1: 50,
   map1DamageCampHit: 10, bossFightSeconds: 45, bossHitShare: .25, eliteHealth: 5, eliteHit: 3,
+  bonusGrowth: 1.07, healthBonusGrowth: 1.06, rewardBonusGrowth: 1.02, bossGate: .75,
 });
 
 /** The knobs a developer may set, and their ranges. */
@@ -73,6 +92,7 @@ export const BALANCE_CURVE_LIMITS: Readonly<Record<keyof BalanceCurve, readonly 
   map1DamageReward: [.001, 1e6], clearsY: [0, 10], groupSize: [1, 50], arrivalBlows: [1.1, 20], endlessArrivalBlows: [1.1, 20],
   map1EnemyHp: [4, 1e6], map1SlimeHp: [.1, 1e6], map1MaxHp: [101, 1e6], map1Regen: [.21, 1e6], armorMap1: [1, 1e6], speedMap1: [1, 1e6],
   map1DamageCampHit: [.001, 1e6], bossFightSeconds: [5, 600], bossHitShare: [.01, 1], eliteHealth: [1, 100], eliteHit: [.1, 100],
+  bonusGrowth: [1, 2], healthBonusGrowth: [1, 2], rewardBonusGrowth: [1, 2], bossGate: [0, .95],
 });
 
 /** Campaign maps before Endless; Endless N is map CAMPAIGN_LENGTH + N. */
@@ -126,22 +146,32 @@ export function curveTargets(y: number, curve: BalanceCurve = DEFAULT_BALANCE_CU
   };
 }
 
+/**
+ * What gear and research multiply a build's farmed stats by on map y: 1 on
+ * map 1 and a new run, growing each campaign map. Endless holds the
+ * campaign's end, since gear upgrades stop there.
+ */
+export function curveBonus(y: number, curve: BalanceCurve = DEFAULT_BALANCE_CURVE) {
+  const maps = Math.max(0, Math.min(y, CAMPAIGN_LENGTH) - 1);
+  return { damage: curve.bonusGrowth ** maps, health: curve.healthBonusGrowth ** maps, reward: curve.rewardBonusGrowth ** maps };
+}
+
 export type CurveRewardStat = 'damage' | 'health' | 'regen' | 'armor' | 'speed';
 /** One regular kill's reward on map y: the step from the arrival build to the finished one, over its kills. */
 export function curveRewardPerKill(y: number, stat: CurveRewardStat, curve: BalanceCurve = DEFAULT_BALANCE_CURVE) {
   const field = ({ damage: 'damage', health: 'maxHp', regen: 'regen', armor: 'armor', speed: 'speed' } as const)[stat];
   const step = curveTargets(y, curve)[field] - curveTargets(y - 1, curve)[field];
-  return cap(Math.max(0, step) / curveKills(y, curve));
+  return cap(Math.max(0, step) / curveKills(y, curve) / curveBonus(y - 1, curve).reward);
 }
 
 /** Seconds an arrival fight against a regular lasts on map y: the arrival blows at the arrival attack speed. */
 function arrivalFightSeconds(y: number, curve: BalanceCurve) {
   const arrival = curveTargets(y - 1, curve);
-  return regularHealth(y, curve) / arrival.damage / arrival.attackSpeed;
+  return regularHealth(y, curve) / (arrival.damage * curveBonus(y - 1, curve).damage) / arrival.attackSpeed;
 }
-/** A regular's health before its role: map 1's slime, then each map's finished damage. */
+/** A regular's health before its role: map 1's slime, then each map's finished damage with the arrival's gear and research. */
 function regularHealth(y: number, curve: BalanceCurve) {
-  return y <= 1 ? curve.map1SlimeHp : curveTargets(y, curve).damage;
+  return y <= 1 ? curve.map1SlimeHp : curveTargets(y, curve).damage * curveBonus(y - 1, curve).damage;
 }
 /** Share of the arrival health one arrival fight against a regular costs, set by map 1's damage camp hit. */
 export function curveArrivalFightShare(curve: BalanceCurve = DEFAULT_BALANCE_CURVE) {
@@ -154,7 +184,8 @@ export function curveArrivalFightShare(curve: BalanceCurve = DEFAULT_BALANCE_CUR
  */
 export function curveEnemyHit(y: number, curve: BalanceCurve = DEFAULT_BALANCE_CURVE) {
   const arrival = curveTargets(y - 1, curve);
-  return cap(curveArrivalFightShare(curve) * arrival.maxHp / arrivalFightSeconds(y, curve) / (1 - curveArmorReduction(arrival.armor)));
+  const health = arrival.maxHp * curveBonus(y - 1, curve).health;
+  return cap(curveArrivalFightShare(curve) * health / arrivalFightSeconds(y, curve) / (1 - curveArmorReduction(arrival.armor)));
 }
 
 /**
@@ -188,22 +219,28 @@ export function curveEnemy(y: number, stat: CurveRewardStat, elite: boolean, cur
     hp: cap(regularHealth(y, curve) * role.health * tough * (1 - curveArmorReduction(armor))),
     damage: cap(curveEnemyHit(y, curve) * role.hit * (elite ? curve.eliteHit : 1)),
     attackSpeed: role.attackSpeed,
-    regen: cap(arrival.damage * arrival.attackSpeed * role.regen),
+    regen: cap(arrival.damage * curveBonus(y - 1, curve).damage * arrival.attackSpeed * role.regen),
     armor,
     reward: { type: stat, amount: cap(curveRewardPerKill(y, stat, curve) * tough) },
   };
 }
 
 /**
- * Map y's boss, tuned to the finished build: it lasts `bossFightSeconds` at
- * that build's damage and attack speed, and its heaviest hit takes
- * `bossHitShare` of that build's health through its armor. It pays nothing:
- * beating it opens the next map.
+ * Map y's boss, tuned to the finished build with its gear and research: it
+ * lasts `bossFightSeconds` at that build's damage and attack speed, and its
+ * heaviest hit takes `bossHitShare` of that build's health through its armor.
+ * It heals `bossGate` of that build's damage a second (`regenFraction` of its
+ * health), so a build below that share cannot win, and its health is what is
+ * left over for the fight to still take `bossFightSeconds` at the finished
+ * build. It pays nothing: beating it opens the next map.
  */
 export function curveBoss(y: number, curve: BalanceCurve = DEFAULT_BALANCE_CURVE) {
-  const targets = curveTargets(y, curve);
+  const targets = curveTargets(y, curve), bonus = curveBonus(y, curve);
+  const gate = Math.min(.95, Math.max(0, curve.bossGate));
   return {
-    hp: cap(targets.damage * targets.attackSpeed * curve.bossFightSeconds),
-    heaviestHit: cap(curve.bossHitShare * targets.maxHp / (1 - curveArmorReduction(targets.armor))),
+    hp: cap(targets.damage * bonus.damage * targets.attackSpeed * curve.bossFightSeconds * (1 - gate)),
+    heaviestHit: cap(curve.bossHitShare * targets.maxHp * bonus.health / (1 - curveArmorReduction(targets.armor))),
+    /** Health healed a second as a share of its maximum; null keeps the default boss regen. */
+    regenFraction: gate > 0 ? gate / (curve.bossFightSeconds * (1 - gate)) : null,
   };
 }

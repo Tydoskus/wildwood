@@ -95,6 +95,8 @@ function parseArguments(args: string[]) {
 
 function formatDuration(seconds: number | null) {
   if (seconds === null) return "—";
+  // A gated boss out-heals a build below its gate: that fight never ends.
+  if (!Number.isFinite(seconds)) return "never";
   if (seconds < 60) return `${seconds.toFixed(seconds < 10 ? 1 : 0)}s`;
   if (seconds < 3_600) return `${(seconds / 60).toFixed(seconds < 600 ? 1 : 0)}m`;
   if (seconds < 86_400) return `${(seconds / 3_600).toFixed(seconds < 36_000 ? 1 : 0)}h`;

@@ -526,8 +526,10 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
       // of the boss's HP, scaled up by their armor since it returns the hit
       // before armor; their own damage has to cover the rest.
       const reflected = combat.reflect ? RIPOSTE_REFLECT_SHARE * (combat.reflect.preArmor ?? 1) : 0;
+      // A curve map's boss regen, which its gate makes decisive; the authored maps' bound never counted regen.
+      const gateRegen = balance?.rules.ARMOR_CURVE === 1 ? boss.hp * ((boss as { regenFraction?: number }).regenFraction ?? 0) : 0;
       const limits = bossDefeatLimits(Math.max(1, boss.hp - reflected * (combat.reflect?.maxHp ?? 0)),
-        (combat.bossDps ?? combat.dps) + reflected * (combat.reflect?.regen ?? 0), combat.attackInterval, boss.respawnSeconds);
+        (combat.bossDps ?? combat.dps) + reflected * (combat.reflect?.regen ?? 0), combat.attackInterval, boss.respawnSeconds, gateRegen);
       const timeKey = bossTimeKey(ctx.sender, batch.mapId);
       const clock = ctx.db.enemyDefeatBudget.key.find(timeKey);
       // Existing online clients may have fought before this check was deployed.

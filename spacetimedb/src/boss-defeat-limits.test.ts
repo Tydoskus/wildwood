@@ -51,6 +51,13 @@ describe("boss time validation", () => {
     for (const dps of [0, -1, NaN, Infinity]) expect(bossDefeatLimits(100, dps, 1, 45)).toBeNull();
   });
 
+  it("refuses a build that cannot out-damage a gated boss's regen, and slows the rest by it", () => {
+    // A boss healing 750 a second: 700 DPS never wins, 1,000 nets 250.
+    expect(bossDefeatLimits(10_000, 700, 1, 45, 750)).toBeNull();
+    expect(bossDefeatLimits(10_000, 1_000, 1, 45, 750)?.cycleSeconds).toBeCloseTo(10_000 / 250 - 1 + 45);
+    expect(bossDefeatLimits(10_000, 1_000, 1, 45, -1)).toBeNull();
+  });
+
   it("rejects the dev-browser exploit: one or twenty impossible Endless kills grant nothing", () => {
     const f = fixture("endless_11", 50_000);
     const before = f.db.playerProgress.identity.find(f.ctx.sender);

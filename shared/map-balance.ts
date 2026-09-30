@@ -2,7 +2,7 @@ import { CAMPAIGN_PROGRESSION_BOSS_HEALTH, CAMPAIGN_PROGRESSION_BOSS_REWARDS } f
 import { BALANCE_BASELINE_VERSION, BAKED_ENEMY_REWARD_FACTORS, BAKED_ENDLESS_DEFAULTS } from "./balance-baseline";
 import { CAMPAIGN_MAPS } from "./campaign-registry";
 import { regularMapLoot } from './regular-map-loot';
-import { bossRegenFractionFor } from './boss-regeneration';
+import { BOSS_REGEN_FRACTION_OVERRIDES, bossRegenFractionFor } from './boss-regeneration';
 import { REGULAR_ENEMY_RESPAWN_SECONDS } from './rules';
 import { generatedEnemyArt } from "./procedural-enemy-art";
 import * as rules from './rules';
@@ -94,7 +94,8 @@ function resolveCurve(mapId: string, curve: BalanceCurve, factors: typeof DEFAUL
     const art = generatedEnemyArt(mapId);
     result.enemies[art] = { ...AUTHORED_ENEMIES[art], speed: 275 * factors.enemySpeed };
     const boss = curveBoss(y, curve);
-    result.boss = { kind: definition.kind, hp: boss.hp, damage: boss.heaviestHit, respawnSeconds: definition.respawnSeconds, attacks: {}, rewards: noRewards };
+    result.boss = { kind: definition.kind, hp: boss.hp, damage: boss.heaviestHit, respawnSeconds: definition.respawnSeconds, attacks: {}, rewards: noRewards,
+      ...(boss.regenFraction === null ? {} : { regenFraction: boss.regenFraction }) };
     return;
   }
   const y = CAMPAIGN_MAPS.findIndex(map => map.id === mapId) + 1;
@@ -106,7 +107,8 @@ function resolveCurve(mapId: string, curve: BalanceCurve, factors: typeof DEFAUL
       attackSpeed: enemy.attackSpeed, regen: enemy.regen, armor: enemy.armor,
       reward: { ...row.reward, amount: enemy.reward.amount } };
   }
-  const boss = curveBoss(y, curve);
+  // The tutorial dragon keeps its gentle regen and ungated health: it is the first boss anyone meets.
+  const boss = curveBoss(y, mapId in BOSS_REGEN_FRACTION_OVERRIDES ? { ...curve, bossGate: 0 } : curve);
   const prefix = BALANCE_MAPS.find(([id]) => id === mapId)![2];
   // The boss keeps its own attack mix, scaled so its heaviest lands as the curve asks.
   const authored = BOSS_DAMAGE_PROFILES[definition.kind as keyof typeof BOSS_DAMAGE_PROFILES] ?? { heavy: 1 };
@@ -116,6 +118,7 @@ function resolveCurve(mapId: string, curve: BalanceCurve, factors: typeof DEFAUL
     if (key.startsWith(`${prefix}_REWARD_`)) result.rules[key] = 0;
   }
   result.boss = { ...definition, hp: boss.hp, damage: 0, rewards: noRewards,
+    ...(boss.regenFraction === null ? {} : { regenFraction: boss.regenFraction }),
     attacks: Object.fromEntries(Object.entries(authored).map(([key, value]) => [key, value / heaviest * boss.heaviestHit])) };
 }
 
@@ -142,7 +145,8 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
     }));
     if (result.boss) {
       result.boss.respawnSeconds *= factors.bossRespawn ?? 1;
-      result.boss.regenFraction = bossRegenFractionFor(mapId) * (factors.bossRegen ?? 1);
+      // The curve's boss gate sets its own regen; the factor still scales it.
+      result.boss.regenFraction = (result.boss.regenFraction ?? bossRegenFractionFor(mapId)) * (factors.bossRegen ?? 1);
     }
   }
   for (const n of [result.boss?.hp, result.boss?.damage, ...Object.values(result.boss?.rewards ?? {}), ...Object.values(result.lanes).flatMap(row => [row.hp, row.damage, row.reward.amount])]) {

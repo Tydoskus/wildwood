@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { CURVE_ROLES, CURVE_START, DEFAULT_BALANCE_CURVE, curveArmorReduction, curveBoss, curveClears, curveEnemy, curveEnemyHit, curveKills, curveRewardPerKill, curveTargets } from "./balance-curve";
+import { CURVE_ROLES, CURVE_START, DEFAULT_BALANCE_CURVE, curveArmorReduction, curveBonus, curveBoss, curveClears, curveEnemy, curveEnemyHit, curveKills, curveRewardPerKill, curveTargets } from "./balance-curve";
 import { defaultBalanceSettings, resolveMapBalance, validateBalanceSettings } from "./map-balance";
 import { CAMPAIGN_MAPS } from "./campaign-registry";
 
 const curve = DEFAULT_BALANCE_CURVE;
+/** Map y's finished build (0: a new run) with the gear and research the curve expects on it. */
+const geared = (y: number, c = curve) => {
+  const t = curveTargets(y, c), b = curveBonus(y, c);
+  return { ...t, damage: t.damage * b.damage, maxHp: t.maxHp * b.health };
+};
 
 describe("balance curve", () => {
   it("starts a new run on a 0.5 damage slime it kills in three hits and survives ten of, over 42 kills to 24 damage", () => {
@@ -30,16 +35,17 @@ describe("balance curve", () => {
   });
 
   it("arrives on every map past the forest seven blows short, and farms it to one-shots", () => {
-    const blows = (y: number) => curveEnemy(y, "damage", false).hp / curveTargets(y - 1).damage;
+    const blows = (y: number) => curveEnemy(y, "damage", false).hp / geared(y - 1).damage;
     for (let y = 2; y <= 35; y++) expect(blows(y)).toBeCloseTo(curve.arrivalBlows);
-    for (let y = 2; y <= 30; y++) expect(curveEnemy(y, "damage", false).hp).toBeCloseTo(curveTargets(y).damage);
+    // The finished farmed damage, with the gear and research that arrived, one-shots it.
+    for (let y = 2; y <= 30; y++) expect(curveEnemy(y, "damage", false).hp).toBeCloseTo(curveTargets(y).damage * curveBonus(y - 1).damage);
     const gentle = { ...curve, endlessArrivalBlows: 2 };
     expect(curveTargets(20, gentle).damage).toBeCloseTo(curveTargets(15, gentle).damage * 2 ** 5);
   });
 
   it("sizes every camp to the build that arrives, attack speed included, so a new run can win on map 1", () => {
     for (const y of [1, 2, 3, 8, 15, 30]) {
-      const arrival = curveTargets(y - 1);
+      const arrival = geared(y - 1);
       for (const stat of ["damage", "health", "speed", "regen", "armor"] as const) {
         const enemy = curveEnemy(y, stat, false);
         const dps = arrival.damage * arrival.attackSpeed * (1 - curveArmorReduction(enemy.armor)) - enemy.regen;
@@ -50,8 +56,8 @@ describe("balance curve", () => {
     }
     // Map 1's damage camp hit sets every map's arrival fight to the same share of health.
     expect(curveEnemy(1, "damage", false).damage).toBeCloseTo(curve.map1DamageCampHit);
-    const share = (y: number) => curveEnemyHit(y) * (1 - curveArmorReduction(curveTargets(y - 1).armor))
-      * curveEnemy(y, "damage", false).hp / curveTargets(y - 1).damage / curveTargets(y - 1).attackSpeed / curveTargets(y - 1).maxHp;
+    const share = (y: number) => curveEnemyHit(y) * (1 - curveArmorReduction(geared(y - 1).armor))
+      * curveEnemy(y, "damage", false).hp / geared(y - 1).damage / geared(y - 1).attackSpeed / geared(y - 1).maxHp;
     for (const y of [2, 8, 15, 30]) expect(share(y)).toBeCloseTo(share(1));
   });
 
@@ -109,10 +115,38 @@ describe("balance curve", () => {
     }
   });
 
-  it("tunes a boss to the finished build: 45 s of its blows, and a heaviest hit of a quarter of its health through armor", () => {
-    const end = curveTargets(3), boss = curveBoss(3);
-    expect(boss.hp).toBeCloseTo(end.damage * end.attackSpeed * 45);
-    expect(boss.heaviestHit * (1 - curveArmorReduction(end.armor))).toBeCloseTo(end.maxHp * .25);
+  it("tunes a boss to the finished build with its gear: 45 s of its blows, and a heaviest hit of a quarter of its health through armor", () => {
+    for (const y of [3, 9, 15]) {
+      const end = geared(y), boss = curveBoss(y);
+      const dps = end.damage * end.attackSpeed, healed = boss.hp * boss.regenFraction!;
+      expect(boss.hp / (dps - healed)).toBeCloseTo(45);
+      expect(boss.heaviestHit * (1 - curveArmorReduction(end.armor))).toBeCloseTo(end.maxHp * .25);
+    }
+  });
+
+  it("gates a boss: a build below three quarters of the finished damage never wins, however long it fights", () => {
+    const end = geared(6), boss = curveBoss(6), healed = boss.hp * boss.regenFraction!;
+    expect(end.damage * end.attackSpeed * .74).toBeLessThan(healed);
+    expect(end.damage * end.attackSpeed * .9).toBeGreaterThan(healed);
+    // A half-farmed build: half the finished damage, the same speed and gear.
+    expect(end.damage * .5 * end.attackSpeed).toBeLessThan(healed);
+    // Off, the boss is the plain 45 s of blows with no gate regen.
+    const open = curveBoss(6, { ...curve, bossGate: 0 });
+    expect(open.regenFraction).toBeNull();
+    expect(open.hp).toBeCloseTo(end.damage * end.attackSpeed * 45);
+  });
+
+  it("expects gear and research to grow each campaign map, and holds them through Endless", () => {
+    expect(curveBonus(0)).toEqual({ damage: 1, health: 1, reward: 1 });
+    expect(curveBonus(1)).toEqual({ damage: 1, health: 1, reward: 1 });
+    // The Balance Lab measured about 2.6× damage, 2.2× health and 1.3× reward by map 15.
+    expect(curveBonus(15).damage).toBeCloseTo(1.07 ** 14);
+    expect(curveBonus(15).health).toBeCloseTo(1.06 ** 14);
+    expect(curveBonus(15).reward).toBeCloseTo(1.02 ** 14);
+    expect(curveBonus(25)).toEqual(curveBonus(15));
+    // Research's reward share comes back off each kill, so the kills stay what the curve asks.
+    const withResearch = (y: number) => curveRewardPerKill(y, "damage") * curveBonus(y - 1).reward * curveKills(y);
+    for (const y of [2, 9, 15]) expect(withResearch(y)).toBeCloseTo(curveTargets(y).damage - curveTargets(y - 1).damage);
   });
 });
 
