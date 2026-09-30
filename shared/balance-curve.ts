@@ -15,9 +15,9 @@ import { attacksPerSecondFromSpeed } from './attack-speed-rating';
  * kills(y) = kills(1) × (1 + Y × (y − 1)). Each camp's reward is its step
  * from the arrival build to the finished one, shared over those kills.
  *
- * Every finished stat is its map-1 target grown `arrivalBlows` times a map
- * (`endlessArrivalBlows` past the campaign), so a player arrives needing that
- * many blows a kill and farms to one-shots.
+ * Every finished stat is its map-1 target grown `arrivalBlows` times a map,
+ * so a player arrives needing that many blows a kill and farms to one-shots.
+ * Endless N is map 15 + N on the same curve: nothing changes past the campaign.
  *
  * Enemies are sized against the arrival build, attack speed included:
  * - health: the damage camp takes the finished damage, which on arrival is
@@ -48,10 +48,8 @@ export type BalanceCurve = {
   clearsY: number;
   /** Kills in one group, for counting clears. */
   groupSize: number;
-  /** How much each campaign map's finished build grows: the blows a kill takes on arrival. */
+  /** How much each map's finished build grows: the blows a kill takes on arrival. */
   arrivalBlows: number;
-  /** The same for Endless maps. Lower keeps Endless clear of the stat cap for longer. */
-  endlessArrivalBlows: number;
   /** Map 1's finished damage. With map1DamageReward it sets map 1's kills. */
   map1EnemyHp: number;
   /** Map 1's damage camp health: a few blows of a new run's damage. */
@@ -81,7 +79,7 @@ export type BalanceCurve = {
 };
 
 export const DEFAULT_BALANCE_CURVE: Readonly<BalanceCurve> = Object.freeze({
-  map1DamageReward: .5, clearsY: 1, groupSize: 7, arrivalBlows: 7, endlessArrivalBlows: 7,
+  map1DamageReward: .5, clearsY: 1, groupSize: 7, arrivalBlows: 7,
   map1EnemyHp: 24, map1SlimeHp: 8, map1MaxHp: 800, map1Regen: 1.6, armorMap1: 50, speedMap1: 50,
   map1DamageCampHit: 10, bossFightSeconds: 45, bossHitShare: .25, eliteHealth: 5, eliteHit: 3,
   bonusGrowth: 1.07, healthBonusGrowth: 1.06, rewardBonusGrowth: 1.02, bossGate: .75,
@@ -89,14 +87,12 @@ export const DEFAULT_BALANCE_CURVE: Readonly<BalanceCurve> = Object.freeze({
 
 /** The knobs a developer may set, and their ranges. */
 export const BALANCE_CURVE_LIMITS: Readonly<Record<keyof BalanceCurve, readonly [number, number]>> = Object.freeze({
-  map1DamageReward: [.001, 1e6], clearsY: [0, 10], groupSize: [1, 50], arrivalBlows: [1.1, 20], endlessArrivalBlows: [1.1, 20],
+  map1DamageReward: [.001, 1e6], clearsY: [0, 10], groupSize: [1, 50], arrivalBlows: [1.1, 20],
   map1EnemyHp: [4, 1e6], map1SlimeHp: [.1, 1e6], map1MaxHp: [101, 1e6], map1Regen: [.21, 1e6], armorMap1: [1, 1e6], speedMap1: [1, 1e6],
   map1DamageCampHit: [.001, 1e6], bossFightSeconds: [5, 600], bossHitShare: [.01, 1], eliteHealth: [1, 100], eliteHit: [.1, 100],
   bonusGrowth: [1, 2], healthBonusGrowth: [1, 2], rewardBonusGrowth: [1, 2], bossGate: [0, .95],
 });
 
-/** Campaign maps before Endless; Endless N is map CAMPAIGN_LENGTH + N. */
-export const CAMPAIGN_LENGTH = 15;
 
 /**
  * Armor's block: every 10× armor moves damage 10% closer to fully blocked.
@@ -126,10 +122,9 @@ export function curveClears(y: number, curve: BalanceCurve = DEFAULT_BALANCE_CUR
   return curveKills(y, curve) / curve.groupSize;
 }
 
-/** How many times map 1's build map y's is: arrivalBlows a campaign map, then endlessArrivalBlows. */
+/** How many times map 1's build map y's is: arrivalBlows a map, Endless included. */
 function mapScale(y: number, curve: BalanceCurve) {
-  const campaign = Math.min(y, CAMPAIGN_LENGTH) - 1, endless = Math.max(0, y - CAMPAIGN_LENGTH);
-  return curve.arrivalBlows ** campaign * curve.endlessArrivalBlows ** endless;
+  return curve.arrivalBlows ** Math.max(0, y - 1);
 }
 
 /** The build a player has once map y's camps are farmed; y = 0 is a new run. */
@@ -148,11 +143,10 @@ export function curveTargets(y: number, curve: BalanceCurve = DEFAULT_BALANCE_CU
 
 /**
  * What gear and research multiply a build's farmed stats by on map y: 1 on
- * map 1 and a new run, growing each campaign map. Endless holds the
- * campaign's end, since gear upgrades stop there.
+ * map 1 and a new run, growing each map, Endless included.
  */
 export function curveBonus(y: number, curve: BalanceCurve = DEFAULT_BALANCE_CURVE) {
-  const maps = Math.max(0, Math.min(y, CAMPAIGN_LENGTH) - 1);
+  const maps = Math.max(0, y - 1);
   return { damage: curve.bonusGrowth ** maps, health: curve.healthBonusGrowth ** maps, reward: curve.rewardBonusGrowth ** maps };
 }
 

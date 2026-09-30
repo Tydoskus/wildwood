@@ -39,8 +39,6 @@ describe("balance curve", () => {
     for (let y = 2; y <= 35; y++) expect(blows(y)).toBeCloseTo(curve.arrivalBlows);
     // The finished farmed damage, with the gear and research that arrived, one-shots it.
     for (let y = 2; y <= 30; y++) expect(curveEnemy(y, "damage", false).hp).toBeCloseTo(curveTargets(y).damage * curveBonus(y - 1).damage);
-    const gentle = { ...curve, endlessArrivalBlows: 2 };
-    expect(curveTargets(20, gentle).damage).toBeCloseTo(curveTargets(15, gentle).damage * 2 ** 5);
   });
 
   it("sizes every camp to the build that arrives, attack speed included, so a new run can win on map 1", () => {
@@ -104,8 +102,12 @@ describe("balance curve", () => {
     for (const stat of ["damage", "health", "speed", "regen"] as const) expect(role(stat).armor).toBe(0);
   });
 
-  it("carries Endless on as the same formula, and stays inside the stat cap however deep", () => {
-    expect(curveTargets(CAMPAIGN_MAPS.length + 1).damage).toBeCloseTo(curveTargets(15).damage * curve.endlessArrivalBlows);
+  it("carries Endless on as the same curve, and stays inside the stat cap however deep", () => {
+    // Endless 1 is map 16: the same growth, kills and gear allowance as any campaign map.
+    const endless1 = CAMPAIGN_MAPS.length + 1;
+    expect(curveTargets(endless1).damage).toBeCloseTo(curveTargets(15).damage * curve.arrivalBlows);
+    expect(curveKills(endless1)).toBeCloseTo(16 * curveKills(1));
+    expect(curveBonus(endless1).damage).toBeCloseTo(curveBonus(15).damage * curve.bonusGrowth);
     for (const y of [100, 1_016, 5_000]) {
       const enemy = curveEnemy(y, "health", true), boss = curveBoss(y);
       for (const n of [enemy.hp, enemy.damage, enemy.reward.amount, boss.hp, boss.heaviestHit]) {
@@ -136,14 +138,13 @@ describe("balance curve", () => {
     expect(open.hp).toBeCloseTo(end.damage * end.attackSpeed * 45);
   });
 
-  it("expects gear and research to grow each campaign map, and holds them through Endless", () => {
+  it("expects gear and research to grow every map", () => {
     expect(curveBonus(0)).toEqual({ damage: 1, health: 1, reward: 1 });
     expect(curveBonus(1)).toEqual({ damage: 1, health: 1, reward: 1 });
     // The Balance Lab measured about 2.6× damage, 2.2× health and 1.3× reward by map 15.
     expect(curveBonus(15).damage).toBeCloseTo(1.07 ** 14);
     expect(curveBonus(15).health).toBeCloseTo(1.06 ** 14);
     expect(curveBonus(15).reward).toBeCloseTo(1.02 ** 14);
-    expect(curveBonus(25)).toEqual(curveBonus(15));
     // Research's reward share comes back off each kill, so the kills stay what the curve asks.
     const withResearch = (y: number) => curveRewardPerKill(y, "damage") * curveBonus(y - 1).reward * curveKills(y);
     for (const y of [2, 9, 15]) expect(withResearch(y)).toBeCloseTo(curveTargets(y).damage - curveTargets(y - 1).damage);
