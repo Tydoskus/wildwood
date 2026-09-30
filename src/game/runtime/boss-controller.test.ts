@@ -1,7 +1,7 @@
 import {desertBossHealthAt, bossRewardValue, BOSS_BASE_MAX_HP, SNOWLANDS_TUNING, TUTORIAL_BOSS_HEALTH_SCALE} from "../../../shared/progression";
 import {afterEach, describe, expect, it, vi} from "vitest";
 import {createGameBootstrap} from "./game-bootstrap";
-import {BOSS_AREA_KNOCKBACK_DURATION, SPIDER_WEB_RANGE, bossAreaKnockbackDistance, createBossController} from "./boss-controller";
+import {BOSS_AREA_KNOCKBACK_DURATION, SPIDER_WEB_RANGE, createBossController} from "./boss-controller";
 import {BOSS_DAMAGE_PROFILES} from "../boss-damage";
 import {BOSS_CONE_RANGE, FROSTCLAW_ROAR_RANGE, GLOOMROOT_SWEEP_RANGE, KOI_SHOGUN_SLASH_RANGE, MAGMALISK_BITE_RANGE, MIREMAW_TONGUE_RANGE, PRISMSHELL_SHATTER_RANGE, TEMPEST_KIRIN_CHARGE_RANGE, TIDEWYRM_SURGE_RANGE} from "../constants";
 import {DRAGON_MAX_HP, FROSTCLAW_MAX_HP, FROSTCLAW_REWARD_ARMOR, FROSTCLAW_REWARD_DAMAGE, FROSTCLAW_REWARD_HEALTH, GLOOMROOT_MAX_HP, GLOOMROOT_REWARD_ARMOR, GLOOMROOT_REWARD_DAMAGE, GLOOMROOT_REWARD_HEALTH, GLOOMROOT_REWARD_REGEN, KOI_SHOGUN_MAX_HP, KOI_SHOGUN_REWARD_ARMOR, KOI_SHOGUN_REWARD_DAMAGE, KOI_SHOGUN_REWARD_HEALTH, KOI_SHOGUN_REWARD_REGEN, MAGMALISK_MAX_HP, MAGMALISK_REWARD_ARMOR, MAGMALISK_REWARD_DAMAGE, MAGMALISK_REWARD_HEALTH, MAGMALISK_REWARD_REGEN, MIREMAW_MAX_HP, PRISMSHELL_MAX_HP, MIREMAW_REWARD_ARMOR, PRISMSHELL_REWARD_ARMOR, MIREMAW_REWARD_DAMAGE, PRISMSHELL_REWARD_DAMAGE, MIREMAW_REWARD_HEALTH, PRISMSHELL_REWARD_HEALTH, MIREMAW_REWARD_REGEN, PRISMSHELL_REWARD_REGEN, TEMPEST_KIRIN_MAX_HP, TEMPEST_KIRIN_REWARD_ARMOR, TEMPEST_KIRIN_REWARD_DAMAGE, TEMPEST_KIRIN_REWARD_HEALTH, TEMPEST_KIRIN_REWARD_REGEN, TIDEWYRM_MAX_HP, TIDEWYRM_REWARD_ARMOR, TIDEWYRM_REWARD_DAMAGE, TIDEWYRM_REWARD_HEALTH, TIDEWYRM_REWARD_REGEN} from "../../../shared/rules";
@@ -155,7 +155,7 @@ const areaKnockbackBosses: Array<{
 
 describe("Boss area knockback", () => {
   for (const bossCase of areaKnockbackBosses) {
-    it(`${bossCase.name} pushes once without ejecting a close-range player`, () => {
+    it(`${bossCase.name} hits without pushing the player`, () => {
       const harness = createFrostclawHarness();
       const bossState = bossCase.state(harness);
       bossState.attackClock = 0;
@@ -171,10 +171,7 @@ describe("Boss area knockback", () => {
       const before = Math.hypot(harness.player.x - bossState.x, harness.player.y - bossState.y);
       harness.controller.applyBossKnockback(BOSS_AREA_KNOCKBACK_DURATION);
       const after = Math.hypot(harness.player.x - bossState.x, harness.player.y - bossState.y);
-      const oneHitDistance = bossAreaKnockbackDistance(bossCase.range, bossState.r);
-      expect(after - before).toBeCloseTo(oneHitDistance, 5);
-      expect(after).toBeLessThan(bossCase.range);
-      expect(after - before).toBeCloseTo((bossCase.range - bossState.r) / 4, 5);
+      expect(after).toBeCloseTo(before, 5);
     });
   }
 });
@@ -320,7 +317,7 @@ describe("Frostclaw boss", () => {
     expect(arrive(roar.slotDurationMs - roar.activeDurationMs + 100)).toBeNull(); // would be cut off: wait for the next
   });
 
-  it("uses Glacial Roar to damage and push players away", () => {
+  it("uses Glacial Roar to damage players without pushing them", () => {
     const { controller, frostclawBoss, player, damagePlayer } = createFrostclawHarness();
 
     controller.updateFrostclawBoss(.016);
@@ -333,7 +330,7 @@ describe("Frostclaw boss", () => {
     const before = Math.hypot(player.x - frostclawBoss.x, player.y - frostclawBoss.y);
     controller.applyBossKnockback(BOSS_AREA_KNOCKBACK_DURATION);
     const after = Math.hypot(player.x - frostclawBoss.x, player.y - frostclawBoss.y);
-    expect(after).toBeGreaterThan(before + 100);
+    expect(after).toBeCloseTo(before, 5);
   });
 
   it("reveals the Lava Lake portal after a local Frostclaw contribution", () => {

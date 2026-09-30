@@ -530,11 +530,10 @@ export function createBossController(options: {
     logPickup(rewardLabel({ ...reward, amount: options.displayRewardAmount?.(reward.type, reward.baseAmount) ?? reward.amount }), color, rewardLabel({ type: reward.type, amount: reward.baseAmount }));
   }
 
-  function queueBossAreaKnockback(sourceX: number, sourceY: number, attackRange: number, bossRadius: number) {
-    bossKnockbackAngle = Math.atan2(player.y - sourceY, player.x - sourceX);
-    bossKnockbackTimeRemaining = BOSS_AREA_KNOCKBACK_DURATION;
-    bossKnockbackDistanceRemaining = bossAreaKnockbackDistance(attackRange, bossRadius);
-  }
+  // Boss area attacks hit without knocking the player back. Restoring the push
+  // is setting the angle, BOSS_AREA_KNOCKBACK_DURATION and
+  // bossAreaKnockbackDistance(attackRange, bossRadius) here again.
+  function queueBossAreaKnockback(_sourceX: number, _sourceY: number, _attackRange: number, _bossRadius: number) {}
 
   function clearBossKnockback() {
     bossKnockbackTimeRemaining = 0;
