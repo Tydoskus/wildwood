@@ -135,7 +135,11 @@ describe("local progression profile snapshots", () => {
     expect(h.service.api.prestigePerks()).toEqual(before);
     h.service.tables.upsertPrestigeChallenge({ identity: local, active: false, completed: 3 });
     expect(h.service.api.prestigePerks()).toEqual(before);
-    expect(h.service.api.prestigeChallenge()).toEqual({ active: false, completed: 3 });
+    expect(h.service.api.prestigeChallenge()).toEqual({ active: false, completed: 3, parked: false });
+    h.service.tables.upsertPrestigeChallengeParked({ identity: local });
+    expect(h.service.api.prestigeChallenge()).toMatchObject({ parked: true });
+    h.service.tables.removePrestigeChallengeParked({ identity: local });
+    expect(h.service.api.prestigeChallenge()).toMatchObject({ parked: false });
   });
   afterEach(() => vi.unstubAllGlobals());
 

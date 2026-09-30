@@ -10,6 +10,15 @@ export const prestigeChallengeBackup = table({ name: "prestige_challenge_backup"
   identity: t.identity().primaryKey(), progressJson: t.string(), completedEndless: t.f64(),
   mapId: t.string(), x: t.f32(), y: t.f32(),
 });
+/** A challenge run the player dropped out of, parked until they drop back in. */
+export const prestigeChallengeRun = table({ name: "prestige_challenge_run", public: false }, {
+  identity: t.identity().primaryKey(), progressJson: t.string(), completedEndless: t.f64(),
+  mapId: t.string(), x: t.f32(), y: t.f32(),
+});
+/** Tells the client a challenge run is parked, so it offers to drop back in. The run itself stays private. */
+export const playerPrestigeChallengeParked = table({ name: "player_prestige_challenge_parked", public: true }, {
+  identity: t.identity().primaryKey(), parkedAt: t.timestamp(),
+});
 export const challengeActive = (ctx: any, identity: any) => Boolean(ctx.db.playerPrestigeChallenge.identity.find(identity)?.active);
 
 export function setPrestigeChallenge(ctx: any, active: boolean, player: any) {
@@ -31,23 +40,62 @@ export function setPrestigeChallenge(ctx: any, active: boolean, player: any) {
   if (row) ctx.db.playerPrestigeChallenge.identity.update(next); else ctx.db.playerPrestigeChallenge.insert(next);
 }
 
-/** Both finishing and abandoning restore the parked run; only finishing earns a reward. */
-export function restorePrestigeChallenge(ctx: any, _player: any, reward: boolean,
+/** The run as it stands: stats, Endless progress and position, ready to park. */
+function runSnapshot(ctx: any, identity: any, player: any) {
+  const { identity: _identity, ...fields } = ctx.db.playerProgress.identity.find(identity);
+  return { identity, progressJson: JSON.stringify(fields),
+    completedEndless: ctx.db.proceduralProgress.identity.find(identity)?.completed ?? 0,
+    mapId: player.mapId, x: player.x, y: player.y };
+}
+function writeEndless(ctx: any, identity: any, completed: number) {
+  const endless = { identity, completed };
+  if (ctx.db.proceduralProgress.identity.find(identity)) ctx.db.proceduralProgress.identity.update(endless);
+  else ctx.db.proceduralProgress.insert(endless);
+}
+function clearParkedRun(ctx: any, identity: any) {
+  if (ctx.db.prestigeChallengeRun.identity.find(identity)) ctx.db.prestigeChallengeRun.identity.delete(identity);
+  if (ctx.db.playerPrestigeChallengeParked.identity.find(identity)) ctx.db.playerPrestigeChallengeParked.identity.delete(identity);
+}
+
+/**
+ * Winning and dropping out both restore the saved main run. Dropping out parks
+ * the challenge run first, so dropping back in picks it up where it stood;
+ * only winning earns the reward, and a win leaves nothing parked.
+ */
+export function restorePrestigeChallenge(ctx: any, player: any, reward: boolean,
   arrive: (restored: { progress: any; mapId: string; x: number; y: number }) => void) {
   const challenge = ctx.db.playerPrestigeChallenge.identity.find(ctx.sender);
   const backup = ctx.db.prestigeChallengeBackup.identity.find(ctx.sender);
   if (!challenge?.active || !backup) throw new SenderError("No saved prestige challenge is active.");
   const next = { ...challenge, active: false, completed: challenge.completed + (reward ? 1 : 0) };
   if (next.completed > PRESTIGE_CHALLENGE_LIMIT) throw new SenderError("All four prestige challenges are complete.");
+  clearParkedRun(ctx, ctx.sender);
+  if (!reward) {
+    ctx.db.prestigeChallengeRun.insert(runSnapshot(ctx, ctx.sender, player));
+    ctx.db.playerPrestigeChallengeParked.insert({ identity: ctx.sender, parkedAt: ctx.timestamp });
+  }
   ctx.db.playerPrestigeChallenge.identity.update(next);
   const progress = { ...JSON.parse(backup.progressJson), identity: ctx.sender };
   if (reward) progress.attackRate = Math.max(challengeMinimumInterval(next), 1 / (1 / progress.attackRate + .5));
   updateSnapshotRow(ctx, "playerProgress", progress);
-  const endless = { identity: ctx.sender, completed: backup.completedEndless };
-  if (ctx.db.proceduralProgress.identity.find(ctx.sender)) ctx.db.proceduralProgress.identity.update(endless);
-  else ctx.db.proceduralProgress.insert(endless);
+  writeEndless(ctx, ctx.sender, backup.completedEndless);
   ctx.db.prestigeChallengeBackup.identity.delete(ctx.sender);
   arrive({ progress, mapId: backup.mapId, x: backup.x, y: backup.y });
+}
+
+/**
+ * Starting a challenge with a run parked drops back into it: the main run is
+ * saved as for any start, and the parked run comes back where it stood.
+ * Returns where to put the player, or null when there is nothing to resume.
+ */
+export function resumeParkedChallenge(ctx: any): { progress: any; mapId: string; x: number; y: number } | null {
+  const parked = ctx.db.prestigeChallengeRun.identity.find(ctx.sender);
+  if (!parked) return null;
+  const progress = { ...JSON.parse(parked.progressJson), identity: ctx.sender };
+  updateSnapshotRow(ctx, "playerProgress", progress);
+  writeEndless(ctx, ctx.sender, parked.completedEndless);
+  clearParkedRun(ctx, ctx.sender);
+  return { progress, mapId: parked.mapId, x: parked.x, y: parked.y };
 }
 
 export function mergePrestigeChallenges(ctx: any, guest: any, account: any) {
@@ -58,6 +106,12 @@ export function mergePrestigeChallenges(ctx: any, guest: any, account: any) {
   const backup = ctx.db.prestigeChallengeBackup.identity.find(guest);
   if (backup && !ctx.db.prestigeChallengeBackup.identity.find(account)) ctx.db.prestigeChallengeBackup.insert({ ...backup, identity: account });
   if (backup) ctx.db.prestigeChallengeBackup.identity.delete(guest);
+  const parked = ctx.db.prestigeChallengeRun.identity.find(guest);
+  if (parked && !ctx.db.prestigeChallengeRun.identity.find(account)) {
+    ctx.db.prestigeChallengeRun.insert({ ...parked, identity: account });
+    if (!ctx.db.playerPrestigeChallengeParked.identity.find(account)) ctx.db.playerPrestigeChallengeParked.insert({ identity: account, parkedAt: ctx.timestamp });
+  }
+  clearParkedRun(ctx, guest);
   if (target) ctx.db.playerPrestigeChallenge.identity.update(next); else ctx.db.playerPrestigeChallenge.insert(next);
   ctx.db.playerPrestigeChallenge.identity.delete(guest);
 }

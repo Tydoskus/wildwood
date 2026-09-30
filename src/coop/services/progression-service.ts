@@ -166,6 +166,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   let expansionPerks = { bossSlayer: 0, secondWind: 0, longShot: 0, fleetFoot: 0 };
   let prestigeExpansionUnlocksAt: number | null = null;
   let prestigeChallenge: PrestigeChallenge = { active: false, completed: 0 };
+  let challengeParked = false;
   let gemBalance = 0n;
   let dailyGemBonusClaimable = false;
   const mailboxMessages = new Map<string, MailboxMessage>();
@@ -550,6 +551,16 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     prestigeChallenge = { active: false, completed: 0 };
     dependencies.notify();
   }
+  function upsertPrestigeChallengeParked(row: { identity: Identity }) {
+    if (row.identity.toHexString() !== dependencies.localIdentity()) return;
+    challengeParked = true;
+    dependencies.notify();
+  }
+  function removePrestigeChallengeParked(row: { identity: Identity }) {
+    if (row.identity.toHexString() !== dependencies.localIdentity()) return;
+    challengeParked = false;
+    dependencies.notify();
+  }
 
   function upsertPrestigeExpansion(row: { id: number; unlocksAt: { microsSinceUnixEpoch: bigint } }) {
     if (row.id !== 0) return;
@@ -698,6 +709,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       removePrestige,
       upsertPrestigePerk,
       upsertPrestigeChallenge, removePrestigeChallenge,
+      upsertPrestigeChallengeParked, removePrestigeChallengeParked,
       upsertPrestigeExpansion, removePrestigeExpansion,
       upsertPrestigeExpansionPerk, removePrestigeExpansionPerk,
       removePrestigePerk,
@@ -863,7 +875,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       activeResearch: () => activeResearch ? { ...activeResearch } : null,
       prestige: () => localPrestige ? { ...localPrestige } : null,
       prestigeLevelFor: (identity: string) => prestigeLevelByIdentity.get(identity) ?? 0,
-      prestigeChallenge: () => ({ ...prestigeChallenge }),
+      prestigeChallenge: () => ({ ...prestigeChallenge, parked: challengeParked }),
       prestigeExpansionUnlocksAt: () => prestigeExpansionUnlocksAt,
       prestigePerks: (): PlayerPrestigePerks => ({ keenEdge: 0, doubleStrike: 0, splitShot: 0, riposte: 0, ...localPrestigePerks, ...expansionPerks }),
       /** The tier that applies to an item: whatever its slot has earned. */
@@ -1182,6 +1194,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       localResearch = createEmptyResearchRanks();
       activeResearch = null;
       prestigeChallenge = { active: false, completed: 0 };
+      challengeParked = false;
       localPrestige = null;
       prestigeLevelByIdentity.clear();
       localPrestigePerks = null;
@@ -1224,6 +1237,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       localResearch = createEmptyResearchRanks();
       activeResearch = null;
       prestigeChallenge = { active: false, completed: 0 };
+      challengeParked = false;
       localPrestige = null;
       prestigeLevelByIdentity.clear();
       localPrestigePerks = null;

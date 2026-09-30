@@ -130,3 +130,35 @@ it("names each Reflect Only goal", () => {
   expect(challengeGoal(0).label).toBe("Defeat Aegis Prime (map 15)");
   expect(challengeGoal(3).label).toBe("Clear Endless 3");
 });
+
+it("drops out keeping the challenge run, and drops back in where it stood", () => {
+  const f = fixture();
+  f.run(server.startPrestigeChallenge);
+  // Progress made on the challenge run.
+  f.patch("playerProgress", { damage: 777, bossRewardClaims: 7 });
+  f.patch("player", { mapId: "intermediate_snowlands", x: 123, y: 456 });
+  f.run(server.abandonPrestigeChallenge);
+  // Out: the main run is back, the challenge run is parked, and the client can see that.
+  expect(f.db.playerProgress.identity.find(f.ctx.sender)).toMatchObject(f.saved);
+  expect(f.db.prestigeChallengeRun.identity.find(f.ctx.sender)).toMatchObject({ mapId: "intermediate_snowlands", x: 123, y: 456 });
+  expect(f.db.playerPrestigeChallengeParked.identity.find(f.ctx.sender)).toBeTruthy();
+  expect(f.db.playerPrestigeChallenge.identity.find(f.ctx.sender)).toMatchObject({ active: false, completed: 0 });
+  // Back in: the challenge run returns as it was, and the main run is saved again.
+  f.run(server.startPrestigeChallenge);
+  expect(f.db.playerProgress.identity.find(f.ctx.sender)).toMatchObject({ damage: 777, bossRewardClaims: 7 });
+  expect(f.db.player.identity.find(f.ctx.sender)).toMatchObject({ mapId: "intermediate_snowlands" });
+  expect(f.db.prestigeChallengeRun.identity.find(f.ctx.sender)).toBeNull();
+  expect(f.db.playerPrestigeChallengeParked.identity.find(f.ctx.sender)).toBeNull();
+  expect(JSON.parse(f.db.prestigeChallengeBackup.identity.find(f.ctx.sender).progressJson).damage).toBe(f.saved.damage);
+  // A win restores the main run and leaves nothing parked.
+  f.patch("playerProgress", { bossRewardClaims: BOSS_REWARD_CLAIM_BITS.aegisPrime });
+  f.run(server.prestigeAccount);
+  expect(f.db.playerProgress.identity.find(f.ctx.sender).damage).toBe(f.saved.damage);
+  expect(f.db.prestigeChallengeRun.identity.find(f.ctx.sender)).toBeNull();
+  expect(f.db.playerPrestigeChallengeParked.identity.find(f.ctx.sender)).toBeNull();
+});
+
+it("starts fresh from the forest when nothing is parked", () => {
+  const f = fixture(); f.run(server.startPrestigeChallenge);
+  expect(f.db.playerProgress.identity.find(f.ctx.sender)).toMatchObject({ attackRate: DEFAULT_ATTACK_INTERVAL, bossRewardClaims: 0 });
+});

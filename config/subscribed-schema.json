@@ -774,6 +774,10 @@
       "guildTag",
       "showDevTag"
     ],
+    "player_prestige_challenge_parked": [
+      "identity",
+      "parkedAt"
+    ],
     "player_prestige_challenge": [
       "identity",
       "active",

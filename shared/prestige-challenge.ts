@@ -3,7 +3,8 @@ import { MAX_BASE_ATTACKS_PER_SECOND } from "./rules";
 
 export const PRESTIGE_CHALLENGE_LIMIT = 4;
 export const PRESTIGE_CHALLENGE_ATTACKS_PER_SECOND = .5;
-export type PrestigeChallenge = { active: boolean; completed: number };
+/** `parked`: a challenge run the player dropped out of, waiting for them to drop back in. */
+export type PrestigeChallenge = { active: boolean; completed: number; parked?: boolean };
 export const CHALLENGE_ABSOLUTE_MIN_INTERVAL = 1 / (MAX_BASE_ATTACKS_PER_SECOND + 2);
 export function challengeMinimumInterval(challenge: PrestigeChallenge | null | undefined) {
   return 1 / (MAX_BASE_ATTACKS_PER_SECOND + (challenge?.active ? 0 : Math.max(0, Math.min(4, challenge?.completed ?? 0))) * .5);

@@ -62,27 +62,31 @@ export function createPrestigeChallengePanel(d: {
     const current = d.state(), locked = d.locked(), done = current.completed >= PRESTIGE_CHALLENGE_LIMIT;
     card.classList.toggle("is-active", current.active);
     const number = `Challenge ${current.completed + 1} of ${PRESTIGE_CHALLENGE_LIMIT}`;
-    state.textContent = done ? `All ${PRESTIGE_CHALLENGE_LIMIT} won` : current.active ? `${number} · in progress` : locked ?? number;
+    const parked = !current.active && !done && current.parked === true;
+    state.textContent = done ? `All ${PRESTIGE_CHALLENGE_LIMIT} won` : current.active ? `${number} · in progress`
+      : locked ?? (parked ? `${number} · dropped out` : number);
     pips.querySelectorAll("li").forEach((pip, index) => pip.classList.toggle("is-done", index < current.completed));
     const lines = done ? [] : current.active
-      ? ["Your saved run comes back when you win or abandon.", "Reach the goal, then press Prestige to win."]
+      ? ["Drop out any time: this run is kept, and your main run comes back.", "Reach the goal, then press Prestige to win."]
+      : parked ? ["Your challenge run is kept where you left it.", "Dropping back in saves your main run and picks the challenge up again."]
       : ["Starting saves your run and puts you back in the forest with starting stats.",
         "Prestige level, perks, research and gear all stay.", "Reach the goal, then press Prestige to win and get your run back."];
     terms.replaceChildren(...lines.map(line => Object.assign(root.createElement("li"), { textContent: line })));
     goal.hidden = reward.hidden = done;
     goalLabel.textContent = done ? "" : challengeGoal(current.completed).label;
     earned.textContent = current.completed ? `${done ? "Won" : "Won so far"}: ${bonus(current.completed)} attacks/sec and +${current.completed * REFLECT_RANKS_PER_CHALLENGE} Reflect rank${current.completed === 1 ? "" : "s"}, for good` : "";
-    button.textContent = current.active ? "Abandon and restore my run" : done ? "All challenges won" : "Start Reflect Only";
+    button.textContent = current.active ? "Drop out" : done ? "All challenges won" : parked ? "Drop back in" : "Start Reflect Only";
     button.classList.toggle("is-abandon", current.active);
     button.disabled = pending || (!current.active && (done || locked !== null));
   }
   button.addEventListener("click", async () => {
     if (button.disabled || pending) return;
-    const active = d.state().active;
+    const { active, parked } = d.state();
     if (!await (d.confirm ?? gameConfirm)({ message: active
-      ? "Abandon Reflect Only and return to your saved run without the reward?"
-      : "Start Reflect Only? Your stats and stage are saved and restored when you finish or abandon it.",
-      confirmLabel: active ? "Restore saved run" : "Start challenge" })) return;
+      ? "Drop out of Reflect Only? This run is kept for later, and your main run comes back."
+      : parked ? "Drop back in to Reflect Only? Your main run is saved, and the challenge picks up where you left it."
+      : "Start Reflect Only? Your stats and stage are saved and restored when you win or drop out.",
+      confirmLabel: active ? "Drop out" : parked ? "Drop back in" : "Start challenge" })) return;
     pending = true; render();
     try {
       const result = await (active ? d.abandon() : d.start());

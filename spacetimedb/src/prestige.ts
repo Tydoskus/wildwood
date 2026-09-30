@@ -1,4 +1,4 @@
-import { challengeActive, setPrestigeChallenge } from "./prestige-challenge";
+import { challengeActive, resumeParkedChallenge, setPrestigeChallenge } from "./prestige-challenge";
 import { challengeAttackInterval, challengeGoal, challengeGoalMet } from "../../shared/prestige-challenge";
 import { SenderError } from "spacetimedb/server";
 import { researchStatRewardMultiplier } from "../../shared/research";
@@ -47,7 +47,7 @@ export type PrestigeDeps = {
   activeDuelFor: (ctx: any, identity: any) => unknown;
   resetProgressToDefaults: (ctx: any, activePlayer: any, keep?: { research?: boolean; lifetimeKills?: boolean; slotTiers?: boolean; items?: boolean }) => void;
   recordPrestige: (ctx: any) => void;
-  respawnWithProgress: (ctx: any, activePlayer: any, progress: any) => void;
+  respawnWithProgress: (ctx: any, activePlayer: any, progress: any, destination?: { mapId: string; x: number; y: number }) => void;
   restoreChallenge: (ctx: any, player: any, reward: boolean) => void;
   refreshPerkEffects: (ctx: any, activePlayer: any) => void;
 };
@@ -147,7 +147,9 @@ export function createPrestige(deps: PrestigeDeps) {
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel before changing challenge mode.");
     if (!active) { deps.restoreChallenge(ctx, player, false); return; }
     setPrestigeChallenge(ctx, true, player);
-    resetProgressToDefaults(ctx, player, { research: true, lifetimeKills: true, slotTiers: true, items: true });
+    const resumed = resumeParkedChallenge(ctx);
+    if (resumed) respawnWithProgress(ctx, player, resumed.progress, resumed);
+    else resetProgressToDefaults(ctx, player, { research: true, lifetimeKills: true, slotTiers: true, items: true });
   }
 
   return { prestigeAccount, spendPerkPoint, respecPerks, changeChallenge };

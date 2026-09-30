@@ -21,9 +21,9 @@ it("shows Reflect Only's rule and reward, and confirms starting or abandoning it
   expect(container.querySelectorAll(".prestige-challenge-pips li.is-done")).toHaveLength(2);
   const button = container.querySelector("button")!;
   button.click(); await vi.waitFor(() => expect(start).toHaveBeenCalledOnce());
-  panel.render(); expect(button.textContent).toContain("Abandon");
+  panel.render(); expect(button.textContent).toBe("Drop out");
   expect(container.textContent).toContain("Challenge 3 of 4 · in progress");
-  expect(container.textContent).toContain("Your saved run comes back when you win or abandon");
+  expect(container.textContent).toContain("Drop out any time: this run is kept");
   expect(container.textContent).not.toContain("Starting saves your run");
   await vi.waitFor(() => expect(button.disabled).toBe(false));
   button.click(); await vi.waitFor(() => expect(abandon).toHaveBeenCalledOnce());
@@ -52,4 +52,20 @@ it("switches between the Perks and Challenge tabs", () => {
   expect(document.getElementById("pa")!.hidden).toBe(true);
   expect(document.getElementById("pb")!.hidden).toBe(false);
   expect(document.getElementById("b")!.getAttribute("aria-selected")).toBe("true");
+});
+
+it("offers to drop back in to a parked challenge run", async () => {
+  const { document } = parseHTML("<html><body><div id='panel'></div></body></html>");
+  const container = document.getElementById("panel") as unknown as HTMLElement;
+  const start = vi.fn(async () => ({ ok: true }));
+  const confirm = vi.fn(async (_request: { message: string; confirmLabel?: string }) => true);
+  createPrestigeChallengePanel({ container, state: () => ({ active: false, completed: 1, parked: true }), locked: () => null,
+    start, abandon: vi.fn(), confirm });
+  const button = container.querySelector("button")!;
+  expect(button.textContent).toBe("Drop back in");
+  expect(container.textContent).toContain("Challenge 2 of 4 · dropped out");
+  expect(container.textContent).toContain("Your challenge run is kept where you left it");
+  button.click();
+  await vi.waitFor(() => expect(start).toHaveBeenCalledOnce());
+  expect(confirm.mock.calls[0][0]).toMatchObject({ confirmLabel: "Drop back in" });
 });

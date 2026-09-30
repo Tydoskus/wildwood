@@ -329,6 +329,7 @@ import PlayerMotionIdentityRow from "./player_motion_identity_table";
 import PlayerNameTagRow from "./player_name_tag_table";
 import PlayerPrestigeRow from "./player_prestige_table";
 import PlayerPrestigeChallengeRow from "./player_prestige_challenge_table";
+import PlayerPrestigeChallengeParkedRow from "./player_prestige_challenge_parked_table";
 import PlayerPrestigeExpansionPerkRow from "./player_prestige_expansion_perk_table";
 import PlayerPrestigePerkRow from "./player_prestige_perk_table";
 import PlayerProfileRow from "./player_profile_table";
@@ -939,6 +940,17 @@ const tablesSchema = __schema({
       { name: 'player_prestige_challenge_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerPrestigeChallengeRow),
+  playerPrestigeChallengeParked: __table({
+    name: 'player_prestige_challenge_parked',
+    indexes: [
+      { accessor: 'identity', name: 'player_prestige_challenge_parked_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_prestige_challenge_parked_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerPrestigeChallengeParkedRow),
   playerPrestigeExpansionPerk: __table({
     name: 'player_prestige_expansion_perk',
     indexes: [
