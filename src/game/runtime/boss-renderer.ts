@@ -234,10 +234,11 @@ export function createBossRenderer(options: {
     ctx.restore();
   }
 
-  const rewardText = (type: RewardType, baseAmount: number) => rewardLabel({
-    type,
-    amount: options.rewardAmount?.(type, baseAmount) ?? baseAmount * options.rewardMultiplier(),
-  });
+  // A boss on the map curve pays nothing (its reward rules are 0), so it shows no reward line.
+  const rewardText = (type: RewardType, baseAmount: number) => {
+    const amount = options.rewardAmount?.(type, baseAmount) ?? baseAmount * options.rewardMultiplier();
+    return amount > 0 ? rewardLabel({ type, amount }) : "";
+  };
   function drawBossStatus(options_: {
     x: number;
     spriteTopY: number;
@@ -288,11 +289,12 @@ export function createBossRenderer(options: {
         4,
       );
       ctx.textBaseline = "bottom";
-      const labelOffsets = bossStatusLabelOffsets(options_.rewards.length, options_.rewardBottomOffsetY);
+      const rewards = options_.rewards.filter(reward => reward.text);
+      const labelOffsets = bossStatusLabelOffsets(rewards.length, options_.rewardBottomOffsetY);
       ctx.font = bossLabelFont(BOSS_NAME_FONT_SIZE);
       options.outlinedText(options_.name.text, 0, barY + labelOffsets.name, options_.name.color, 4);
       ctx.font = bossLabelFont(BOSS_REWARD_FONT_SIZE);
-      for (const [index, reward] of options_.rewards.entries()) {
+      for (const [index, reward] of rewards.entries()) {
         options.outlinedText(reward.text, 0, barY + labelOffsets.rewards[index], reward.color, 4);
       }
     });

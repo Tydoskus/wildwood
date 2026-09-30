@@ -810,7 +810,9 @@ export function createActorRenderer(options: {
       }
 
       if (!enemy.remoteCombatGhost) {
-        const rewards = enemy.bossRewards?.map(reward => enemyLabels(enemy.displayName ?? enemy.campName, { ...reward, amount: displayAmount(reward) }).reward) ?? [labels.reward];
+        // An Endless boss on the map curve pays nothing, so its zero rewards show no line.
+        const rewards = enemy.bossRewards?.filter(reward => displayAmount(reward) > 0)
+          .map(reward => enemyLabels(enemy.displayName ?? enemy.campName, { ...reward, amount: displayAmount(reward) }).reward) ?? [labels.reward];
         for (const [index, label] of rewards.entries()) {
           ctx.drawImage(label.canvas, -label.width / 2, rewardY + index * 19 - label.anchorY, label.width, label.height);
         }
