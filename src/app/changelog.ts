@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.844": [
+    "Bosses no longer show a +0 stat pop-up",
+    "Steadier connection: a dropped connection mid-game now reconnects instead of stalling",
+  ],
   "0.843": [
     "Dropping out of Reflect Only keeps your challenge run; drop back in to pick it up where you left it",
   ],
@@ -2552,6 +2556,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.844": "2026-09-30",
   "0.843": "2026-09-30",
   "0.842": "2026-09-30",
   "0.841": "2026-09-30",
