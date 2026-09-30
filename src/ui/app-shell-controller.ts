@@ -52,6 +52,7 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   const attackRangeToggle = requiredElement<HTMLButtonElement>("attackRangeToggle");
   const baseStatRewardsToggle = requiredElement<HTMLButtonElement>("baseStatRewardsToggle");
   const remoteGhostsToggle = requiredElement<HTMLButtonElement>("remoteGhostsToggle");
+  const cameraZoomToggle = requiredElement<HTMLButtonElement>("cameraZoomToggle");
   const lowPerformanceToggle = requiredElement<HTMLButtonElement>("lowPerformanceToggle");
   const fpsToggle = requiredElement<HTMLButtonElement>("fpsToggle");
   const fpsStatus = requiredElement("fpsStatus");
@@ -72,6 +73,7 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   let attackRangeVisible = readBoolean(dependencies.storageKeys.attackRange, true);
   let showBaseStatRewards = readBoolean("wildstat-show-base-stat-rewards-v1", false);
   let remoteGhostsEnabled = readBoolean("wildstat-show-remote-ghosts-v1", true);
+  let cameraZoomVisible = readBoolean("wildstat-show-camera-zoom-v1", true);
   let lowPerformanceMode = readBoolean(dependencies.storageKeys.lowPerformance, false);
   let fpsVisible = readBoolean(dependencies.storageKeys.fps, false);
   let latencyVisible = readBoolean(dependencies.storageKeys.latency, false);
@@ -90,6 +92,9 @@ export function createAppShellController(dependencies: AppShellDependencies) {
     renderBooleanSetting(attackRangeToggle, attackRangeVisible);
     renderBooleanSetting(baseStatRewardsToggle, showBaseStatRewards);
     renderBooleanSetting(remoteGhostsToggle, remoteGhostsEnabled);
+    renderBooleanSetting(cameraZoomToggle, cameraZoomVisible);
+    // Hides the buttons only; the mouse wheel still zooms.
+    document.body.classList.toggle("camera-zoom-hidden", !cameraZoomVisible);
     renderBooleanSetting(lowPerformanceToggle, lowPerformanceMode);
     renderBooleanSetting(fpsToggle, fpsVisible);
     gameFpsStatus.hidden = !fpsVisible;
@@ -151,6 +156,11 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   remoteGhostsToggle.addEventListener("click", () => {
     remoteGhostsEnabled = !remoteGhostsEnabled;
     writeBoolean("wildstat-show-remote-ghosts-v1", remoteGhostsEnabled);
+    refreshSettings();
+  });
+  cameraZoomToggle.addEventListener("click", () => {
+    cameraZoomVisible = !cameraZoomVisible;
+    writeBoolean("wildstat-show-camera-zoom-v1", cameraZoomVisible);
     refreshSettings();
   });
   lowPerformanceToggle.addEventListener("click", () => {

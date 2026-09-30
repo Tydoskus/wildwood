@@ -342,13 +342,20 @@ const afterUpdateGateShell = String.raw`
       <h2 id="prestigeTitle" class="window-banner window-banner--blue"><span>Prestige</span></h2>
       <div id="prestigeLevel" class="prestige-level" aria-live="polite">PRESTIGE 0</div>
     </header>
-    <dl class="prestige-summary">
-      <div><dt>STAT GAIN</dt><dd id="prestigeBonus">—</dd></div>
-      <div><dt>PERK POINTS</dt><dd id="prestigePoints">—</dd></div>
-      <div><dt>PEAK POWER</dt><dd id="prestigePeak">—</dd></div>
-    </dl>
-    <div id="prestigePerks" class="prestige-perks" aria-label="Prestige perks"></div>
-    <p id="prestigeCost" class="prestige-cost"></p>
+    <div class="prestige-tabs" role="tablist" aria-label="Prestige view">
+      <button id="prestigePerksTabBtn" class="prestige-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="prestigePerksTab">PERKS</button>
+      <button id="prestigeChallengeTabBtn" class="prestige-tab" type="button" role="tab" aria-selected="false" aria-controls="prestigeChallengeTab" tabindex="-1">CHALLENGE</button>
+    </div>
+    <div id="prestigePerksTab" class="prestige-tab-panel" role="tabpanel" aria-labelledby="prestigePerksTabBtn">
+      <dl class="prestige-summary">
+        <div><dt>STAT GAIN</dt><dd id="prestigeBonus">—</dd></div>
+        <div><dt>PERK POINTS</dt><dd id="prestigePoints">—</dd></div>
+        <div><dt>PEAK POWER</dt><dd id="prestigePeak">—</dd></div>
+      </dl>
+      <div id="prestigePerks" class="prestige-perks" aria-label="Prestige perks"></div>
+      <p id="prestigeCost" class="prestige-cost"></p>
+    </div>
+    <div id="prestigeChallengeTab" class="prestige-tab-panel" role="tabpanel" aria-labelledby="prestigeChallengeTabBtn" hidden></div>
     <div id="prestigeStatus" class="prestige-status" role="status" aria-live="polite"></div>
     <footer class="prestige-footer">
       <button id="prestigeConfirmBtn" class="prestige-confirm" type="button">Prestige</button>

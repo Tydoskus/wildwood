@@ -2,7 +2,7 @@ import { createPrestigeExpansionNotice } from "./prestige-expansion-notice";
 import { prestigeExpansionLabel } from "../../shared/prestige-expansion";
 import { activeRelease } from "../../shared/release-window";
 import { createPrestigePanel } from "./game-ui-runtime";
-import { createPrestigeChallengePanel } from "./prestige-challenge-panel";
+import { createPrestigeChallengePanel, installPrestigeTabs } from "./prestige-challenge-panel";
 
 /** Compose the shared launch notice, map label and account prestige controls. */
 export function createPrestigeExpansionRuntime(d: {
@@ -32,9 +32,12 @@ export function createPrestigeExpansionRuntime(d: {
         challenge: () => coop?.prestigeChallenge?.()?.active ?? false,
         respec: () => options.runPrestige(coop?.respecPrestigePerks),
       });
-      challengePanel = createPrestigeChallengePanel({ container: options.e.prestigePerks.parentElement,
+      const doc = options.e.prestigePerks.ownerDocument as Document;
+      installPrestigeTabs(doc);
+      challengePanel = createPrestigeChallengePanel({ container: doc.getElementById("prestigeChallengeTab")!,
         state: () => coop?.prestigeChallenge?.() ?? { active: false, completed: 0 },
-        available: () => notice.unlocked() && (coop?.prestige?.()?.level ?? 0) > 0,
+        locked: () => !notice.unlocked() ? "Unlocks when the prestige countdown ends"
+          : (coop?.prestige?.()?.level ?? 0) > 0 ? null : "Prestige once to unlock",
         start: () => options.runPrestige(coop?.startPrestigeChallenge),
         abandon: () => options.runPrestige(coop?.abandonPrestigeChallenge),
       });

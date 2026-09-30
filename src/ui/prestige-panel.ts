@@ -225,13 +225,13 @@ export function createPrestigeController(options: {
     const row = options.prestige();
     const level = row?.level ?? 0;
     options.level.textContent = `PRESTIGE ${level}`;
-    options.bonus.textContent = options.challenge?.() ? "Disabled during challenge" : `+${Math.round(level * PRESTIGE_STAT_GAIN_PER_LEVEL * 100)}%`;
+    options.bonus.textContent = `+${Math.round(level * PRESTIGE_STAT_GAIN_PER_LEVEL * 100)}%`;
     options.points.textContent = String(row?.perkPoints ?? 0);
     options.peak.textContent = row?.peakPower ? formatCompactNumber(row.peakPower) : '—';
     options.cost.textContent = unlocked()
       ? `${PRESTIGE_COST} You would earn ${prestigeRewardLabel(level)}.`
       : `Spend the points you have banked. ${hint()}`;
-    if (options.challenge?.()) options.cost.textContent = `Finish the prestige requirement to restore your saved stats and stage. Earn permanent +0.5 attacks/sec to base and cap. ${hint()}`;
+    if (options.challenge?.()) options.cost.textContent = `Reflect Only is on: meet the prestige requirement, then press Prestige to win +0.5 attacks/sec and restore your saved run. ${hint()}`;
     renderPerks(row?.perkPoints ?? 0);
     // Enabled whenever the campaign is done, even if this client reads fewer
     // Endless stages than the server has. A missing procedural_progress row
