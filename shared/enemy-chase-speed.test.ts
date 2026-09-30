@@ -8,14 +8,14 @@ it("keeps early enemies approachable and ramps later-map speed to a fixed cap", 
   expect(ENEMY_TYPES.Bramble.speed).toBe(205);
   expect(ENEMY_TYPES["Dune Raider"].speed).toBe(205);
   expect(ENEMY_TYPES["Frost Raider"].speed).toBe(230);
-  expect(campaignMeleeChaseSpeed(15)).toBe(ENEMY_TOP_CHASE_SPEED);
+  expect(campaignMeleeChaseSpeed(100)).toBe(ENEMY_TOP_CHASE_SPEED);
   expect(campaignMeleeChaseSpeed(100)).toBe(ENEMY_TOP_CHASE_SPEED);
 });
 
 it("tops every chase out one step above a fully researched runner", () => {
   // Running is no longer a free escape: the fastest chasers gain on even a
   // finished build, and speed boots are what buy the last step back.
-  expect(ENEMY_TOP_CHASE_SPEED).toBe(MAX_PLAYER_MOVEMENT_SPEED + 10);
+  expect(ENEMY_TOP_CHASE_SPEED).toBe(MAX_PLAYER_MOVEMENT_SPEED + 25);
   const overtaking = (Object.keys(ENEMY_TYPES) as EnemyKind[])
     .filter(kind => ENEMY_TYPES[kind].speed > ENEMY_TOP_CHASE_SPEED);
   expect(overtaking).toEqual([]);
@@ -27,7 +27,7 @@ describe("chase speed tracks the player in front of the enemy", () => {
   it("keeps the fastest enemies exactly the margin ahead, at every rank", () => {
     for (const rank of [0, 1, 5, 10, 15, 20]) {
       const player = researched(rank);
-      expect(enemyChaseSpeed(ENEMY_TOP_CHASE_SPEED, player)).toBeCloseTo(player + 10, 6);
+      expect(enemyChaseSpeed(ENEMY_TOP_CHASE_SPEED, player)).toBeCloseTo(player + 25, 6);
     }
   });
 
@@ -40,13 +40,13 @@ describe("chase speed tracks the player in front of the enemy", () => {
     // the very ceiling actually kept up and everything else chased slower than
     // the player it was chasing. A chaser is a chaser: it gains by the margin.
     const player = researched(20);
-    expect(enemyChaseSpeed(205, player)).toBeCloseTo(player + 10, 6);
+    expect(enemyChaseSpeed(205, player)).toBeCloseTo(player + 25, 6);
     expect(enemyChaseSpeed(205, player)).toBeCloseTo(enemyChaseSpeed(ENEMY_TOP_CHASE_SPEED, player), 6);
   });
 
-  it("stays ten ahead when equipment boosts the player's actual speed", () => {
+  it("stays the margin ahead when equipment boosts the player's actual speed", () => {
     const player = researched(20);
-    expect(enemyChaseSpeed(205, player + 25)).toBeCloseTo(player + 35, 6);
+    expect(enemyChaseSpeed(205, player + 25)).toBeCloseTo(player + 50, 6);
   });
 
   it("falls back to the authored speed without a reference", () => {

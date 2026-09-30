@@ -31,7 +31,7 @@ export const MAX_MOVE_SPEED_RESEARCH_RANK = 20;
 /** A fully researched build wearing no speed boots. */
 export const MAX_PLAYER_MOVEMENT_SPEED = Math.round(PLAYER_SPEED * (1 + MAX_MOVE_SPEED_RESEARCH_RANK * MOVE_SPEED_RESEARCH_BONUS_PER_RANK));
 /** Baseline chase speed against a fully researched player without equipment. */
-export const ENEMY_CHASE_SPEED_MARGIN = 10;
+export const ENEMY_CHASE_SPEED_MARGIN = 25;
 export const ENEMY_TOP_CHASE_SPEED = MAX_PLAYER_MOVEMENT_SPEED + ENEMY_CHASE_SPEED_MARGIN;
 /**
  * The speed an enemy actually chases at, against the player in front of it.

@@ -11,8 +11,10 @@ import { MAX_PLAYER_STAT } from './rules';
  *
  * Enemies grow a little faster than a build can from rewards alone, which
  * covers the gear and research a player picks up, so each map asks for more
- * kills than the last. Map 1's rewards grow a build about 4× over 42 kills
- * a camp, the same step every later map asks for.
+ * kills than the last.
+ *
+ * The baseline never changes: map 1's damage camp (Spitters) has 8 health
+ * and pays 0.5 damage a kill. Everything else is tuned against it.
  *
  * A boss heals `bossRegen` of its health a second, so a build that cannot
  * out-damage that never wins, however long it fights. It pays nothing:
@@ -48,8 +50,8 @@ export type BalanceCurve = {
 
 export const DEFAULT_BALANCE_CURVE: Readonly<BalanceCurve> = Object.freeze({
   enemyGrowth: 4.3, rewardGrowth: 3.4, groupSize: 7,
-  damageHp: 8, damageHit: 10, damageReward: .21,
-  healthHp: 24, healthHit: 4, healthReward: 7.1,
+  damageHp: 8, damageHit: 10, damageReward: .5,
+  healthHp: 24, healthHit: 4, healthReward: 15,
   speedHp: 8, speedHit: 2.5, speedReward: 1.2,
   regenHp: 12, regenHit: 4, regenReward: .014, regenHeal: 1,
   armorHp: 13, armorHit: 5, armorReward: 1.2, armorArmor: 50,

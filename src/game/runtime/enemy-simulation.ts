@@ -90,7 +90,8 @@ export function createEnemySimulation(
 
   function regularAggroRadius(enemy: EnemyState) {
     const base = (enemy.definition ?? ENEMY_TYPES[enemy.type]);
-    if (!base.ranged) return base.elite ? 200 : 100;
+    // Melee: 225 for a regular, 300 for an elite. Ranged keep theirs.
+    if (!base.ranged) return base.elite ? 300 : 225;
     return base.elite
       ? enemy.aggroRadius
       : Math.max(0, BASE_ATTACK_RANGE - REGULAR_ENEMY_AGGRO_PADDING);

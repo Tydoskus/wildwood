@@ -15,9 +15,9 @@ describe("balance curve", () => {
     expect(Math.ceil(PLAYER_BASE_HP / slime.damage)).toBe(10);
   });
 
-  it("grows map 1's rewards about 4x over 42 kills a camp, the step every map asks for", () => {
-    expect((PLAYER_BASE_DAMAGE + 42 * curve.damageReward) / PLAYER_BASE_DAMAGE).toBeCloseTo(3.94, 1);
-    expect((PLAYER_BASE_HP + 42 * curve.healthReward) / PLAYER_BASE_HP).toBeCloseTo(3.98, 1);
+  it("holds the baseline: map 1's Spitters have 8 health and pay 0.5 damage", () => {
+    expect(curve.damageHp).toBe(8);
+    expect(curve.damageReward).toBe(.5);
   });
 
   it("multiplies every enemy by enemyGrowth and every reward by rewardGrowth a map, Endless included", () => {

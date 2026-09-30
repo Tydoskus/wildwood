@@ -436,7 +436,7 @@ describe("deterministic enemy simulation", () => {
       if (frame === 60) firstSecondX = simulation.remoteCombatGhosts()[0].x;
     }
     const ghost = simulation.remoteCombatGhosts()[0];
-    expect(ghost.x - firstSecondX).toBeCloseTo(remote.speed + 10, 0);
+    expect(ghost.x - firstSecondX).toBeCloseTo(remote.speed + 25, 0);
   });
 
   it("starts a later independent ghost engagement at full displayed player health", () => {
@@ -678,8 +678,8 @@ it("chases a beginner a step ahead of their own speed, not at its authored pace"
     if (player.x > 3000) { player.x -= 2000; enemy.x -= 2000; }
     fastest = Math.max(fastest, Math.hypot(enemy.vx, enemy.vy));
   }
-  expect(fastest).toBeGreaterThan(beginner + 9);
-  expect(fastest).toBeLessThan(beginner + 11);
+  expect(fastest).toBeGreaterThan(beginner + 24);
+  expect(fastest).toBeLessThan(beginner + 26);
   // Well under the ceiling a maxed runner is measured against: a beginner is
   // chased a step faster than they move, not at the late game's number.
   expect(fastest).toBeLessThan(ENEMY_TOP_CHASE_SPEED - 50);
@@ -705,8 +705,8 @@ it.each(["Bramble", "King Slime", "Dune Archer", "Dune Regent"] as const)(
       if (!enemy.engaged) break;
     }
     expect(enemy.engaged).toBe(true);
-    expect(peakSpeed).toBeGreaterThan(playerSpeed + 9);
-    expect(peakSpeed).toBeLessThan(playerSpeed + 11);
+    expect(peakSpeed).toBeGreaterThan(playerSpeed + 24);
+    expect(peakSpeed).toBeLessThan(playerSpeed + 26);
   },
 );
 
@@ -731,7 +731,7 @@ it("catches a runner who has not finished their move speed research", () => {
 });
 
  it.each([
-  ['Bramble', 100], ['King Slime', 200], ['Brood', 185], ['Moonblade Reaper', 340],
+  ['Bramble', 225], ['King Slime', 300], ['Brood', 185], ['Moonblade Reaper', 340],
 ] as const)('uses the expected aggro range and never idle-heals %s', (type, radius) => {
   const base = ENEMY_TYPES[type];
   const enemy = { ...idleEnemyAt(1000, 1000), type, aggroRadius: base.aggro ?? 0 };
