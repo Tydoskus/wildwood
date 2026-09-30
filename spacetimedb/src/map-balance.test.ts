@@ -1,6 +1,6 @@
 import revision75 from '../../tests/fixtures/balance-revision-75.json';
 import { CAMPAIGN_REBALANCE, activateCampaignPacing, activateCampaignProgression, activateCampaignRewardFloor, applyCampaignRebalance } from './campaign-pacing-migration';
-import { defaultBalanceSettings, resolveMapBalance, validateBalanceSettings } from '../../shared/map-balance';
+import { defaultBalanceSettings, validateBalanceSettings } from '../../shared/map-balance';
 import bakeFixture from '../../tests/fixtures/balance-revision-73.json';
 import { it, expect, vi } from 'vitest';
 import { balanceEditorState, forgetBalanceCaches, saveMapBalance, pinMapBalance, pinnedMapBalance } from './map-balance';
