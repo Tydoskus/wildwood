@@ -20,11 +20,4 @@ describe("Speed rating", () => {
     for (let kill = 0; kill < 9; kill++) interval = addSpeedRating(interval, 1);
     expect(1 / interval).toBeCloseTo(attacksPerSecondFromSpeed(9));
   });
-
-  it("is what the server pays only on a map that says so", () => {
-    const base = { damage: 1, maxHp: 1, attackRate: DEFAULT_ATTACK_INTERVAL, armor: 0, regen: 0 };
-    const speed = [{ type: "speed", amount: 3, count: 3 }];
-    expect(1 / applyEnemyRewards(base, speed, 1, true).attackRate).toBeCloseTo(attacksPerSecondFromSpeed(9));
-    expect(1 / applyEnemyRewards(base, speed, 1).attackRate).toBeCloseTo(CAP);   // 9 attacks a second, held at the cap
-  });
 });

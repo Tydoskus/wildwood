@@ -97,10 +97,15 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
     if (!progress || !lifetime) return null;
     return {
       identity,
+      prestigeChallenge: (() => { const row = [...(dependencies.connection()?.db.playerPrestigeChallenge.iter() ?? [])].find(row => row.identity.toHexString() === identity); return { active: row?.active ?? false, completed: row?.completed ?? 0 }; })(),
       prestigeLevel: [...(dependencies.connection()?.db.playerPrestige.iter() ?? [])].find(row => row.identity.toHexString() === identity)?.level ?? 0,
       prestigePerks: (() => {
+        const challenge = [...(dependencies.connection()?.db.playerPrestigeChallenge.iter() ?? [])].find(row => row.identity.toHexString() === identity);
+        if (challenge?.active) return { keenEdge: 0, doubleStrike: 0, splitShot: 0, riposte: 0, bossSlayer: 0, secondWind: 0, longShot: 0, fleetFoot: 0 };
         const row = [...(dependencies.connection()?.db.playerPrestigePerk.iter() ?? [])].find(row => row.identity.toHexString() === identity);
-        return row ? { keenEdge: row.keenEdge, doubleStrike: row.doubleStrike, splitShot: row.splitShot, riposte: row.riposte } : {};
+        const expansion = [...(dependencies.connection()?.db.playerPrestigeExpansionPerk.iter() ?? [])].find(row => row.identity.toHexString() === identity);
+        return { keenEdge: row?.keenEdge ?? 0, doubleStrike: row?.doubleStrike ?? 0, splitShot: row?.splitShot ?? 0, riposte: row?.riposte ?? 0,
+          bossSlayer: expansion?.bossSlayer ?? 0, secondWind: expansion?.secondWind ?? 0, longShot: expansion?.longShot ?? 0, fleetFoot: expansion?.fleetFoot ?? 0 };
       })(),
       name: dependencies.directory.nameFor(identity) ?? "PLAYER",
       gender: dependencies.directory.genderFor(identity),
@@ -230,6 +235,8 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
           tables.playerResearch.where((research) => research.identity.eq(dbIdentity)),
           tables.playerPrestige.where(row => row.identity.eq(dbIdentity)),
           tables.playerPrestigePerk.where(row => row.identity.eq(dbIdentity)),
+          tables.playerPrestigeChallenge.where(row => row.identity.eq(dbIdentity)),
+          tables.playerPrestigeExpansionPerk.where(row => row.identity.eq(dbIdentity)),
           tables.playerItemUpgrade.where((upgrade) => upgrade.identity.eq(dbIdentity)),
           tables.player.where((player) => player.identity.eq(dbIdentity)),
         ]);

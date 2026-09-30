@@ -31,7 +31,8 @@ export function createResearchController(options: ResearchControllerOptions) {
   return {
     ranks,
     damageMultiplier: () => 1 + ranks().warcraft * .02,
-    movementSpeedMultiplier: () => movementSpeedMultiplier(ranks().moveSpeed) + utilityMovementSpeedBonus(ranks().utilityMoveSpeed) / Math.max(1, options.player.speed),
+    movementSpeedMultiplier: () => (movementSpeedMultiplier(ranks().moveSpeed) + utilityMovementSpeedBonus(ranks().utilityMoveSpeed) / Math.max(1, options.player.speed))
+      * (1 + prestigePerkValue(options.prestigePerks?.(), "fleetFoot")),
     rewardMultiplier: () => researchStatRewardMultiplier(ranks()) * prestigeStatMultiplier(options.prestigeLevel?.() ?? 0),
     effectiveArmor: () => options.player.armor * (1 + ranks().precision * .02),
     regenerationMultiplier: () => 1 + ranks().regeneration * .02,

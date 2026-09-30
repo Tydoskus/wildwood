@@ -2,6 +2,7 @@ import { formatCompactNumber } from './number-format';
 import { PRESTIGE_PERK_POINTS_PER_LEVEL, PRESTIGE_STAT_GAIN_PER_LEVEL, prestigeCapped, prestigeEndlessRequirement, prestigeRequirementHint, prestigeStatMultiplier } from '../../shared/prestige';
 import { PRESTIGE_PERKS, PRESTIGE_PERK_IDS, PRESTIGE_PERK_MAX_RANK, prestigePerkEffectLabel, prestigePerkRank,
   type PrestigePerkId, type PrestigePerkRanks } from '../../shared/prestige-perks';
+import { PRESTIGE_EXPANSION_PERK_IDS } from '../../shared/prestige-expansion';
 
 export type PrestigeRow = { level: number; perkPoints: number; peakPower: number };
 export type PrestigeResult = { ok: boolean; error?: string } | boolean | undefined;
@@ -63,6 +64,9 @@ export function createPrestigeController(options: {
   unlocked: () => boolean;
   /** Endless stages cleared this run; the second prestige needs one, the third two, and so on. */
   completed?: () => number;
+  expanded?: () => boolean;
+  challenge?: () => boolean;
+  expansionCountdown?: () => string;
   runPrestige: () => Promise<PrestigeResult>;
   /** Refund every spent perk point for the run's power. The row stays hidden without it. */
   respec?: () => Promise<PrestigeResult>;
@@ -74,9 +78,12 @@ export function createPrestigeController(options: {
 
   const nextLevel = () => (options.prestige()?.level ?? 0) + 1;
   const completed = () => options.completed?.() ?? 0;
+  const expanded = () => options.expanded?.() ?? false;
+  let previousExpanded = expanded();
   // The campaign, then one Endless stage more than the last prestige asked for.
-  const unlocked = () => options.unlocked() && !prestigeCapped(nextLevel()) && completed() >= prestigeEndlessRequirement(nextLevel());
-  const hint = () => prestigeRequirementHint(options.unlocked(), completed(), nextLevel());
+  const unlocked = () => options.unlocked() && !prestigeCapped(nextLevel(), expanded()) && completed() >= prestigeEndlessRequirement(nextLevel());
+  const hint = () => prestigeCapped(nextLevel(), expanded()) && options.expansionCountdown?.()
+    || prestigeRequirementHint(options.unlocked(), completed(), nextLevel(), undefined, expanded());
   // Prestiging clears the campaign, which would otherwise lock a player out of
   // the window holding the point they just earned. Anyone who has prestiged,
   // or has a point banked, can always open it; only the reset stays gated.
@@ -194,13 +201,14 @@ export function createPrestigeController(options: {
       const row = perkRows.get(id);
       if (!row) continue;
       const rank = prestigePerkRank(ranks, id);
+      const coming = !expanded() && (PRESTIGE_EXPANSION_PERK_IDS as readonly string[]).includes(id);
       const maxed = rank >= PRESTIGE_PERK_MAX_RANK;
       row.title.textContent = `${PRESTIGE_PERKS[id].title} ${rank}/${PRESTIGE_PERK_MAX_RANK}`;
       row.value.textContent = maxed
         ? `Now ${prestigePerkEffectLabel(id, rank)}`
         : `Now ${prestigePerkEffectLabel(id, rank)} · Next ${prestigePerkEffectLabel(id, rank + 1)}`;
-      row.spend.textContent = maxed ? 'Maxed' : 'Spend';
-      row.spend.disabled = pending || maxed || points < 1;
+      row.spend.textContent = coming ? 'Coming soon' : maxed ? 'Maxed' : 'Spend';
+      row.spend.disabled = Boolean(options.challenge?.()) || coming || pending || maxed || points < 1;
     }
     if (respecRow) {
       const spent = PRESTIGE_PERK_IDS.reduce((sum, id) => sum + prestigePerkRank(ranks, id), 0);
@@ -208,20 +216,22 @@ export function createPrestigeController(options: {
       respecRow.text.textContent = respecLabel(spent);
       respecRow.button.textContent = respecArmed ? 'Yes, respec' : 'Respec';
       respecRow.button.classList.toggle('is-armed', respecArmed);
-      respecRow.button.disabled = pending;
+      respecRow.button.disabled = Boolean(options.challenge?.()) || pending;
     }
   }
 
   function render() {
+    if (previousExpanded !== expanded()) { previousExpanded = expanded(); status.textContent = ''; disarm(); }
     const row = options.prestige();
     const level = row?.level ?? 0;
     options.level.textContent = `PRESTIGE ${level}`;
-    options.bonus.textContent = `+${Math.round(level * PRESTIGE_STAT_GAIN_PER_LEVEL * 100)}%`;
+    options.bonus.textContent = options.challenge?.() ? "Disabled during challenge" : `+${Math.round(level * PRESTIGE_STAT_GAIN_PER_LEVEL * 100)}%`;
     options.points.textContent = String(row?.perkPoints ?? 0);
     options.peak.textContent = row?.peakPower ? formatCompactNumber(row.peakPower) : '—';
     options.cost.textContent = unlocked()
       ? `${PRESTIGE_COST} You would earn ${prestigeRewardLabel(level)}.`
       : `Spend the points you have banked. ${hint()}`;
+    if (options.challenge?.()) options.cost.textContent = `Finish the prestige requirement to restore your saved stats and stage. Earn permanent +0.5 attacks/sec to base and cap. ${hint()}`;
     renderPerks(row?.perkPoints ?? 0);
     // Enabled whenever the campaign is done, even if this client reads fewer
     // Endless stages than the server has. A missing procedural_progress row
@@ -230,9 +240,9 @@ export function createPrestigeController(options: {
     // Toephu on 2026-09-22, whose window said to clear a boss he had already
     // beaten. The requirement is still spelled out beside the button; the
     // server owns the decision and names exactly what is missing.
-    confirmButton.disabled = pending || !options.unlocked() || prestigeCapped(nextLevel());
+    confirmButton.disabled = pending || !options.unlocked() || prestigeCapped(nextLevel(), expanded());
     confirmButton.hidden = false;
-    if (!unlocked() && !status.textContent) status.textContent = hint();
+    if (!unlocked() && (!status.textContent || status.textContent.startsWith('Prestige 20 uncapped in '))) status.textContent = hint();
   }
 
   /** Called whenever the profile window renders, so the button tracks progress. */
@@ -277,10 +287,11 @@ export function createPrestigeController(options: {
       armed = true;
       confirmButton.textContent = 'Yes, prestige';
       confirmButton.classList.add('is-armed');
-      status.textContent = PRESTIGE_ARMED_WARNING;
+      status.textContent = options.challenge?.() ? "Complete challenge and restore your saved run." : PRESTIGE_ARMED_WARNING;
       render();   // repaints a respec this press disarmed
       return;
     }
+    const completingChallenge = options.challenge?.();
     pending = true; disarm();
     status.textContent = 'Prestiging…';
     confirmButton.disabled = true;
@@ -288,7 +299,7 @@ export function createPrestigeController(options: {
       const outcome = await submitPrestige(options.runPrestige, () => options.prestige()?.level ?? 0);
       if (outcome.ok) {
         close();
-        options.showMessage?.(outcome.message);
+        options.showMessage?.(completingChallenge ? "Prestige challenge complete. Your saved run is restored." : outcome.message);
       } else {
         status.textContent = outcome.error;
       }

@@ -1,3 +1,5 @@
+import { playerPrestigeChallenge, prestigeChallengeBackup, restorePrestigeChallenge } from "./prestige-challenge";
+import { challengeAttackInterval, challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { duelCombatSnapshot } from "./duel-combat-snapshot";
 import { playerEquipmentLock, setEquipmentLock } from "./equipment-locks";
 import { CAMPAIGN_MAPS, fillCampaignPortals } from "../../shared/campaign-registry";
@@ -50,7 +52,8 @@ import { moderateReportedMessage } from "./chat-report-moderation";
 import { PLAYER_SKIN_TONES } from "../../shared/player-skin-tones";
 import { leaderboardPageTables, writeLeaderboardPages, readLeaderboardWindow, readLeaderboardPage, readPrestigeLeaderboardPage } from "./leaderboard-pages";
 import { leaderboardEligible } from "../../shared/leaderboard-window";
-import { effectiveMovementSpeedForProgress } from "./player-speed";
+import { effectiveMovementSpeedForProgress, prestigeRangeBonus, refreshPrestigeMovement, attackIntervalForProgress } from "./player-speed";
+import { playerPrestige, playerPrestigePerk, prestigeExpansion, playerPrestigeExpansionPerk, ensurePrestigeExpansion } from "./prestige-expansion";
 import { earlierTimestamp } from "./timestamp-utils";
 import { attackRangeWithResearch, slotUpgradeDurationWithResearch } from "../../shared/utility-research";
 import { createResearchState } from "./research-state";
@@ -1081,17 +1084,6 @@ const playerEndgameRebaseBackup = table(
 // Permanent account bonuses. A prestige reset clears progress and unlocks but
 // never this row: the level multiplies every stat reward a kill grants, and the
 // perk points buy prestige perks. Public like player_progress, read per player.
-const playerPrestige = table({ name: "player_prestige", public: true }, {
-  identity: t.identity().primaryKey(), level: t.u32().default(0), perkPoints: t.u32().default(0),
-  peakPower: t.f64().default(0), prestigedAt: t.timestamp(),
-});
-// Perk ranks live apart from the level that bought them. player_prestige is
-// public and already subscribed by shipped clients, so its shape is frozen;
-// a new table is additive and leaves those clients connected.
-const playerPrestigePerk = table({ name: "player_prestige_perk", public: true }, {
-  identity: t.identity().primaryKey(),
-  keenEdge: t.u32().default(0), doubleStrike: t.u32().default(0), splitShot: t.u32().default(0), riposte: t.u32().default(0),
-});
 const playerEndlessRebaseBackup = table({ public: false }, {
   identity: t.identity().primaryKey(),
   maxHp: t.f32(), damage: t.f32(), armor: t.f32(), regen: t.f32(), attackRate: t.f32(),
@@ -1820,6 +1812,8 @@ const spacetimedb = schema({
   playerEndlessRebaseBackup,
   playerPrestige,
   playerPrestigePerk,
+  playerPrestigeChallenge, prestigeChallengeBackup, prestigeExpansion,
+  playerPrestigeExpansionPerk,
   duelRiposte, duelCombatSnapshot,
   playerSessionAnalytics,
   developerPresencePreference,
@@ -2333,7 +2327,7 @@ function completeActiveResearch(ctx: any, active: any) {
   if (active.researchId === "slotUpgradeSpeed") refreshActiveSlotUpgrades(ctx, active.identity, reconcileActiveItemUpgrade);
   let progress = ctx.db.playerProgress.identity.find(active.identity);
   if (progress && active.researchId === "utilityAttackRange") {
-    progress = { ...progress, attackRange: attackRangeWithResearch(nextResearch.utilityAttackRange) };
+    progress = { ...progress, attackRange: attackRangeWithResearch(nextResearch.utilityAttackRange) + prestigeRangeBonus(ctx, active.identity) };
     updateSnapshotRow(ctx, "playerProgress", progress);
   }
   const player = ctx.db.player.identity.find(active.identity);
@@ -2995,9 +2989,6 @@ function leaderboardAppearanceForProgress(progress: any, profile: any) {
   };
 }
 
-function attackIntervalForProgress(progress: any) {
-  return Math.max(MIN_ATTACK_INTERVAL, progress.attackRate);
-}
 
 function maxHealthForProgress(ctx: any, identity: any, progress: any) {
   const headItem = equippedHeadForProgress(progress);
@@ -3465,7 +3456,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
     const cosmeticEquipment = cosmeticEquipmentForProgress({ ...existingProgress, inventoryJson });
     const speed = playerBaseMovementSpeed(false);
     const maxHp = Math.max(PLAYER_BASE_HP, existingProgress.maxHp);
-    const attackRange = attackRangeWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.utilityAttackRange ?? 0);
+    const attackRange = attackRangeWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.utilityAttackRange ?? 0) + prestigeRangeBonus(ctx, ctx.sender);
     if (existingProgress.maxHp !== maxHp || existingProgress.attackRange !== attackRange || existingProgress.speed !== speed || existingProgress.inventoryJson !== inventoryJson || existingProgress.equippedHead !== equippedHead || existingProgress.equippedChest !== equippedChest || existingProgress.equippedFeet !== equippedFeet || existingProgress.equippedRightHand !== equippedRightHand || existingProgress.equippedLeftHand !== equippedLeftHand || existingProgress.cosmeticHead !== cosmeticEquipment.cosmeticHead || existingProgress.cosmeticChest !== cosmeticEquipment.cosmeticChest || existingProgress.cosmeticFeet !== cosmeticEquipment.cosmeticFeet || existingProgress.cosmeticRightHand !== cosmeticEquipment.cosmeticRightHand || existingProgress.cosmeticLeftHand !== cosmeticEquipment.cosmeticLeftHand) {
       const migratedProgress = {
         ...existingProgress,
@@ -3625,6 +3616,7 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
   ensureMaintenanceSchedule(ctx);
   ensurePatreonSweep(ctx, ScheduleAt.interval(PATREON_SWEEP_INTERVAL_MICROS));
   // Initialization and balance reconciliation run once per module version.
+  ensurePrestigeExpansion(ctx);
   runPendingModuleMigrations(ctx);
 
   if (!ctx.connectionId) return;
@@ -3700,6 +3692,7 @@ export const runMaintenance = spacetimedb.reducer(
     for (const current of finishedDuels) finishDuel(ctx, current);
     clearExpiredDuelRequests(ctx);
     ensureMotionDetailFrameSchedule(ctx);
+    ensurePrestigeExpansion(ctx);
     runPendingModuleMigrations(ctx);
     // The online count lives here only: every client subscribes to it, so a
     // refresh per connect and disconnect made a mass reload players-squared.
@@ -4725,7 +4718,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       attackRate: base.attackRate,
       projectileSpeed: PLAYER_PROJECTILE_SPEED,
       projectileCount: base.projectileCount,
-      attackRange: attackRangeWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.utilityAttackRange ?? 0),
+      attackRange: attackRangeWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.utilityAttackRange ?? 0) + prestigeRangeBonus(ctx, ctx.sender),
       armor: base.armor,
       regen: base.regen,
       speed: playerBaseMovementSpeed(false),
@@ -5209,7 +5202,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Enemy rewards require your account world connection.");
     // Everything the combat bound reads, read once for the whole report.
     const combat = combatBoundForReport(ctx);
-    const accepted = acceptEnemyDefeats(ctx, batch, permittedDefeatMaps(ctx, player, HOME_EXTERIOR_MAP_ID), (earned, speedRating) => combat.bound(earned, speedRating));
+    const accepted = acceptEnemyDefeats(ctx, batch, permittedDefeatMaps(ctx, player, HOME_EXTERIOR_MAP_ID), earned => combat.bound(earned));
     if (!accepted) return;
     const enforce = () => {
       // Only a report no real client could have sent. A clipped claim is
@@ -5227,7 +5220,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
     const base = combat.savedProgress() ?? defaultPlayerProgress(ctx.sender);
     const statMultiplier = combat.statMultiplier();
     if (accepted.rewards.some(reward => reward.type !== "boss")) {
-      const next = applyEnemyRewards(base, accepted.rewards, statMultiplier, accepted.balance?.rules.SPEED_RATING === 1);
+      const next = applyEnemyRewards(base, accepted.rewards, statMultiplier, challengeMinimumInterval(ctx.db.playerPrestigeChallenge.identity.find(ctx.sender)));
       const rewarded = awardRegularEnemyLoot(ctx, batch.mapId, accepted.lootCount, accepted.balance, { progress: next });
       updateSnapshotRow(ctx, "playerProgress", rewarded);
       const power = combat.powerFields(rewarded);
@@ -5254,7 +5247,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
             if (!balance?.boss) throw new SenderError("Boss balance is unavailable.");
             const progress = ctx.db.playerProgress.identity.find(ctx.sender)!;
             const rewards = Object.entries(balance.boss.rewards).map(([type, amount]) => ({ type, amount, count: 1 }));
-            const rewarded = applyEnemyRewards(progress, rewards, statMultiplier, balance.rules.SPEED_RATING === 1);
+            const rewarded = applyEnemyRewards(progress, rewards, statMultiplier, challengeMinimumInterval(ctx.db.playerPrestigeChallenge.identity.find(ctx.sender)));
             writeProgressAndPresentation(ctx, { ...rewarded, bossRewardClaims: (progress.bossRewardClaims | BOSS_REWARD_CLAIM_BITS[boss.kind]) >>> 0 });
           }
         }
@@ -5264,7 +5257,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
           const row = { identity: ctx.sender, completed: Math.max(previous?.completed ?? 0, map.number) };
           if (previous) ctx.db.proceduralProgress.identity.update(row); else ctx.db.proceduralProgress.insert(row);
           const progress = ctx.db.playerProgress.identity.find(ctx.sender)!;
-          writeProgressAndPresentation(ctx, applyEnemyRewards(progress, (balance?.boss ? Object.entries(balance.boss.rewards).map(([type, amount]) => ({ type, amount })) : generatedBossStats(map).rewards).map(reward => ({ ...reward, count: 1 })), statMultiplier, balance?.rules.SPEED_RATING === 1));
+          writeProgressAndPresentation(ctx, applyEnemyRewards(progress, (balance?.boss ? Object.entries(balance.boss.rewards).map(([type, amount]) => ({ type, amount })) : generatedBossStats(map).rewards).map(reward => ({ ...reward, count: 1 })), statMultiplier, challengeMinimumInterval(ctx.db.playerPrestigeChallenge.identity.find(ctx.sender))));
         }
       }
     }
@@ -5529,8 +5522,9 @@ function resetProgressToDefaults(ctx: any, activePlayer: any, keep: { research?:
     clearProceduralProgress(ctx, ctx.sender);
     const current = ctx.db.playerProgress.identity.find(ctx.sender);
     const next = defaultPlayerProgress(ctx.sender);
+    next.attackRate = challengeAttackInterval(next.attackRate, ctx.db.playerPrestigeChallenge.identity.find(ctx.sender));
     if (current) next.cosmeticItemsJson = current.cosmeticItemsJson;
-    if (keep.research) next.attackRange = attackRangeWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.utilityAttackRange ?? 0);
+    if (keep.research) next.attackRange = attackRangeWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.utilityAttackRange ?? 0) + prestigeRangeBonus(ctx, ctx.sender);
     const history = ctx.db.playerCutsceneHistory.identity.find(ctx.sender);
     if (history) ctx.db.playerCutsceneHistory.identity.update({ ...history, seenMask: 0, generation: history.generation + 1 });
     else ctx.db.playerCutsceneHistory.insert({ identity: ctx.sender, seenMask: 0, generation: 0 });
@@ -5565,10 +5559,10 @@ function resetProgressToDefaults(ctx: any, activePlayer: any, keep: { research?:
     respawnWithProgress(ctx, activePlayer, next);
 }
 /** After a reset or respec: full health at the new stats, at the forest spawn, and ranked on them at once. */
-function respawnWithProgress(ctx: any, activePlayer: any, next: any) {
+function respawnWithProgress(ctx: any, activePlayer: any, next: any, destination = { mapId: TUTORIAL_FOREST_MAP_ID, ...PLAYER_SPAWN }) {
     const nextPlayer = { ...activePlayer, hp: next.maxHp, maxHp: next.maxHp, ...powerFieldsForProgress(ctx, next),
       speed: effectiveMovementSpeedForProgress(ctx, next), ...equipmentPresentationForProgress(next) };
-    persistWorldLocation(ctx, transitionPlayerMap(ctx, nextPlayer, TUTORIAL_FOREST_MAP_ID, PLAYER_SPAWN, 0));
+    persistWorldLocation(ctx, transitionPlayerMap(ctx, nextPlayer, destination.mapId, destination, 0));
     // The board is built from saved stats on a timer, so without this the
     // player keeps their old rank until the next sweep, which reads to
     // everyone else as a reset player still sitting at the top.
@@ -5578,6 +5572,9 @@ const prestige = createPrestige({
   requireControllingPlayer,
   activeDuelFor,
   resetProgressToDefaults, respawnWithProgress,
+  restoreChallenge: (ctx, player, reward) => restorePrestigeChallenge(ctx, player, reward,
+    restored => respawnWithProgress(ctx, player, restored.progress, restored)),
+  refreshPerkEffects: (ctx, player) => refreshPrestigeMovement(ctx, player, updated => syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, updated))),
   recordPrestige: (ctx: any) => { recordAnalyticsMilestone(ctx, "prestige"); },
 });
 export const resetPlayerProgress = spacetimedb.reducer({}, (ctx) => {
@@ -5586,6 +5583,8 @@ export const resetPlayerProgress = spacetimedb.reducer({}, (ctx) => {
   resetProgressToDefaults(ctx, activePlayer);
 });
 // Bodies live in prestige.ts; this is the schema-facing declaration.
+export const startPrestigeChallenge = spacetimedb.reducer({}, ctx => prestige.changeChallenge(ctx, true));
+export const abandonPrestigeChallenge = spacetimedb.reducer({}, ctx => prestige.changeChallenge(ctx, false));
 export const prestigeAccount = spacetimedb.reducer({}, (ctx) => { prestige.prestigeAccount(ctx); });
 export const spendPrestigePerkPoint = spacetimedb.reducer({ perk: t.string() },
   (ctx, { perk }) => { prestige.spendPerkPoint(ctx, perk); });
@@ -5934,7 +5933,8 @@ export const setSpeed = spacetimedb.reducer(
     const feet = progress ? equippedFeetForProgress(progress) : current.feetItem;
     const bootsEquipped = false;
     const moveSpeedRank = research?.moveSpeed ?? 0;
-    const expectedSpeed = effectivePlayerMovementSpeed(bootsEquipped, moveSpeedRank, progress?.speedOverride ?? 0, research?.utilityMoveSpeed ?? 0);
+    const expectedSpeed = progress ? effectiveMovementSpeedForProgress(ctx, progress, research)
+      : effectivePlayerMovementSpeed(bootsEquipped, moveSpeedRank, 0, research?.utilityMoveSpeed ?? 0);
     // Regular-enemy combat runs locally. Permit its two exact movement states,
     // while checking ownership/equipment here and never saving a temporary bonus.
     const blackBootsEquipped = progress && feet === BLACK_BOOTS;

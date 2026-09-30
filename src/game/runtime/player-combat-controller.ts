@@ -4,8 +4,7 @@ import { isProceduralMap } from "../../../shared/procedural-maps";
 import { bossSurfaceDistance, bossVerticalRadius } from "../../../shared/boss-hitbox";
 import { isEnemyAttackingPlayer } from "./enemy-threat";
 import { ENEMY_HP_LOSS_FLASH_SECONDS, PLAYER_KNOCKBACK_FORCE, WORLD } from "../constants";
-import { attackIntervalAfterSpeedReward, damageAfterArmor } from "../combat";
-import { curveArmorReduction } from "../../../shared/balance-curve";
+import { damageAfterArmor } from "../combat";
 import { ENEMY_TYPES, REWARD_DATA, rewardLabel, type EnemyKind } from "../enemies";
 import { circlesOverlap } from "../math";
 import type { ProjectileStore } from "./projectile-store";
@@ -134,6 +133,8 @@ export function createPlayerCombatController(options: {
   prestigeSplitShot?: () => number;
   /** Chance for a hit taken to be thrown back at its enemy, from the Reflect perk. */
   prestigeReflect?: () => number;
+  prestigeBossSlayer?: () => number;
+  prestigeSecondWind?: () => number;
   /** The equipped bow's skill roll (Arrow Storm, Ricochet, Piercing Shot), if it has one. */
   bowSkills?: () => Partial<BowSkillRoll> | null | undefined;
   /** Random source for bow skill procs; tests inject a fixed sequence. */
@@ -145,7 +146,7 @@ export function createPlayerCombatController(options: {
   equippedChest: () => string;
   equippedChestUpgradeLevel?: () => number;
   healthMultiplierBonus: () => number;
-  minAttackInterval: number;
+  minAttackInterval: number | (() => number);
   effectiveArmor: () => number;
   isDueling: () => boolean;
   scheduleEnemyRespawn: (site: SpawnSite) => void;
@@ -509,7 +510,7 @@ export function createPlayerCombatController(options: {
     switch (enhanced.type) {
       case "damage": player.damage += enhanced.amount; break;
       case "health": addPlayerBaseMaxHealth(player, enhanced.amount, options.healthMultiplierBonus()); break;
-      case "speed": player.attackRate = attackIntervalAfterSpeedReward(player.attackRate, enhanced.amount, minAttackInterval); break;
+      case "speed": player.attackRate = 1 / Math.min(1 / (typeof minAttackInterval === "function" ? minAttackInterval() : minAttackInterval), 1 / player.attackRate + enhanced.amount); break;
       case "armor": player.armor += enhanced.amount; break;
       case "regen": player.regen += enhanced.amount; break;
     }
@@ -528,6 +529,8 @@ export function createPlayerCombatController(options: {
       return;
     }
     incrementKills();
+    // Regular enemy kills only; bosses and duel opponents do not trigger healing.
+    if (player.hp > 0) player.hp = Math.min(player.maxHp, player.hp + player.maxHp * (options.prestigeSecondWind?.() ?? 0));
     const site = spawnSites[enemy.siteId];
     if (site) scheduleEnemyRespawn(site);
     const base = enemy.definition ?? ENEMY_TYPES[enemy.type];
@@ -616,11 +619,7 @@ export function createPlayerCombatController(options: {
   }
 
   function applyPlayerHit(target: EnemyState | BossTarget, damage: number, critical: boolean, angle: number, reflected = false) {
-    // A curve map's armor camps block the player's hits the way armor blocks theirs.
-    if (!target.isBoss && !target.generatedBoss) {
-      const armor = ((target as EnemyState).definition ?? ENEMY_TYPES[(target as EnemyState).type])?.armor ?? 0;
-      if (armor > 0) damage *= 1 - curveArmorReduction(armor);
-    }
+    if ((target.isBoss || target.generatedBoss) && !reflected) damage *= 1 + (options.prestigeBossSlayer?.() ?? 0);
     // A reflected hit shows blue, so the player can see Reflect fire.
     if (!target.isBoss && !target.generatedBoss) spawnDamageNumber(target.x, target.y, damage, critical, false, reflected);
     target.hurt = .12;

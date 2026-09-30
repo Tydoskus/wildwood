@@ -1,7 +1,7 @@
 /**
  * Prestige perks. One point per prestige and five ranks per perk, so maxing a
  * line takes five runs and spreading points leaves you mediocre at all of them.
- * Every value here is a fraction; the combat code multiplies, never adds.
+ * Percent bonuses use fractions; Long Shot adds world units of attack range.
  */
 export const PRESTIGE_PERK_MAX_RANK = 5;
 
@@ -15,6 +15,10 @@ export const PRESTIGE_PERKS = {
   // Shown as Reflect; the id stays riposte because it names a database column.
   riposte: { title: "Reflect", perRank: .06,
     detail: "Chance to throw half of a hit, before your armor, back at whoever dealt it: enemies, bosses and duel opponents." },
+  bossSlayer: { title: "Boss Slayer", perRank: .10, detail: "Deal more weapon damage to bosses. Does not amplify reflected damage." },
+  secondWind: { title: "Second Wind", perRank: .01, detail: "Restore a share of your maximum health after each regular enemy kill." },
+  longShot: { title: "Long Shot", perRank: 5, detail: "Extend your attack range, for bows and melee weapons alike." },
+  fleetFoot: { title: "Fleet Foot", perRank: .02, detail: "Move faster, on top of Move Speed research." },
 } as const;
 
 /**
@@ -50,7 +54,7 @@ export function prestigePerkRank(ranks: Partial<PrestigePerkRanks> | null | unde
   return Math.max(0, Math.min(PRESTIGE_PERK_MAX_RANK, Math.floor(Number.isFinite(rank) ? rank : 0)));
 }
 
-/** The perk's effect at the player's current rank, as a fraction. */
+/** The perk's effect at the player's current rank, in its configured units. */
 export function prestigePerkValue(ranks: Partial<PrestigePerkRanks> | null | undefined, perk: PrestigePerkId) {
   return prestigePerkRank(ranks, perk) * PRESTIGE_PERKS[perk].perRank;
 }
@@ -71,6 +75,10 @@ export function prestigePerkEffectLabel(perk: PrestigePerkId, rank: number) {
   if (perk === "keenEdge") return `+${chance} critical chance, +${percent(prestigeCriticalDamageBonus(ranks))} critical damage`;
   if (perk === "doubleStrike") return `+${chance} chance to strike twice`;
   if (perk === "splitShot") return `+${chance} chance to hit a second enemy`;
+  if (perk === "bossSlayer") return `+${chance} weapon damage to bosses`;
+  if (perk === "secondWind") return `Restore ${chance} maximum health per kill`;
+  if (perk === "longShot") return `+${prestigePerkValue(ranks, perk)} attack range`;
+  if (perk === "fleetFoot") return `+${chance} move speed`;
   return `+${chance} chance to reflect ${percent(RIPOSTE_REFLECT_SHARE)} of the hit`;
 }
 

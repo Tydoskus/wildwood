@@ -107,6 +107,19 @@ describe("player attack timing", () => {
     if (reward.type === "damage") expect(state.player.damage - before).toBeCloseTo(reward.amount * multiplier);
   });
 
+  it("heals once after a regular kill with Second Wind", () => {
+    let now = 0;
+    const state = createCombatHarness({ nowSeconds: () => now, prestigeSecondWind: () => .05 });
+    state.boss.dead = true;
+    Object.assign(state.player, { x: 500, y: 500, damage: 100, attackRange: 200, hp: 50, maxHp: 100 });
+    createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Spitter", x: 550, y: 500,
+      campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
+    const enemy = state.enemies[0]; enemy.hp = enemy.maxHp = 1;
+    for (let i = 0; i < 180; i++) { now += 1 / 60; state.controller.attackNearest(); state.controller.updateProjectiles(1 / 60); }
+    expect(enemy.dead).toBe(true);
+    expect(state.player.hp).toBe(55);
+  });
+
   it("routes a tutorial kill to its acknowledgement without ordinary loot, stats, or respawns", () => {
     const saveProgress = vi.fn(), loot = vi.fn(), schedule = vi.fn(), killed = vi.fn(() => true);
     let now = 0;
@@ -175,7 +188,7 @@ describe("player attack timing", () => {
 
   it("reflects a campaign boss's hit back at that boss, drawn blue", () => {
     const hitPersonalBoss = vi.fn();
-    const state = createCombatHarness({ prestigeReflect: () => 1, hitPersonalBoss });
+    const state = createCombatHarness({ prestigeReflect: () => 1, prestigeBossSlayer: () => .5, hitPersonalBoss });
     Object.assign(state.boss, { dead: false, x: 700, y: 500 });
     Object.assign(state.player, { x: 500, y: 500, hp: 1000, maxHp: 1000, hurtClock: 0 });
     expect(state.controller.damagePlayerFromBoss(40)).toBe(true);
@@ -563,6 +576,7 @@ it("only hits Miremaw where its tuned oval reaches", () => {
     isTutorialMap: () => false,
     isMoonfenMap: () => true,
     hitPersonalBoss: hit,
+    prestigeBossSlayer: () => .5,
   });
   state.enemies.length = 0;
   Object.assign(state.miremawBoss, { x: 500, y: 500, dead: false });
@@ -583,6 +597,7 @@ it("only hits Miremaw where its tuned oval reaches", () => {
   fireAcross(563);
   expect(hit).toHaveBeenCalledOnce();
   expect(hit.mock.calls[0]?.[2]).toBe(563);
+  expect(hit.mock.calls[0]?.[0]).toBe(1.5);
 });
 
 it("aims at Miremaw's body instead of the anchor above it", () => {

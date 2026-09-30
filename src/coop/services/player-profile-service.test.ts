@@ -9,7 +9,7 @@ function fixture() {
   const connection = {
     isActive: true,
     procedures: { getPrestigeLeaderboardPage: vi.fn() },
-    db: Object.fromEntries(["playerPrestige", "playerPrestigePerk", "playerChatHearts", "playerProgress", "playerLifetime", "playerResearch", "playerItemUpgrade", "playerProfile", "playerAccountStatus", "player"].map(name => [name, { iter: () => [] }])),
+    db: Object.fromEntries(["playerPrestige", "playerPrestigePerk", "playerPrestigeExpansionPerk", "playerPrestigeChallenge", "playerChatHearts", "playerProgress", "playerLifetime", "playerResearch", "playerItemUpgrade", "playerProfile", "playerAccountStatus", "player"].map(name => [name, { iter: () => [] }])),
     subscriptionBuilder() {
       let applied = () => {}, ready = false;
       const unsubscribe = vi.fn(() => { if (!ready) throw new Error("Cannot unsubscribe pending"); });
@@ -117,8 +117,9 @@ it("loads remote prestige, perks and slot tiers despite already cached base stat
   expect(f.subscriptions).toHaveLength(1);
   f.connection.db.playerPrestige.iter = () => [{ identity, level: 3 }] as any;
   f.connection.db.playerPrestigePerk.iter = () => [{ identity, keenEdge: 2, doubleStrike: 1, splitShot: 0, riposte: 0 }] as any;
+  f.connection.db.playerPrestigeExpansionPerk.iter = () => [{ identity, fleetFoot: 3, longShot: 2, bossSlayer: 1, secondWind: 0 }] as any;
   f.connection.db.playerItemUpgrade.iter = () => [{ identity, itemId: "HAND", level: 7 }] as any;
   f.progression.tables.upsertItemUpgrade.mockImplementation(() => { f.progression.upgradeLevelsFor.mockReturnValue({ HAND: 7 }); });
   f.subscriptions[0].apply();
-  expect(await request).toMatchObject({ prestigeLevel: 3, prestigePerks: { keenEdge: 2 }, itemUpgradeLevels: { HAND: 7 } });
+  expect(await request).toMatchObject({ prestigeLevel: 3, prestigePerks: { keenEdge: 2, fleetFoot: 3, longShot: 2 }, itemUpgradeLevels: { HAND: 7 } });
 });

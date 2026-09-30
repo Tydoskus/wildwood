@@ -1,3 +1,4 @@
+import { challengeMinimumInterval } from "../../shared/prestige-challenge";
 // Boss combat bounds and rewards for the fifteen campaign bosses (dragon
 // through Aegis Prime). Boss fights are personal and run on the client; the
 // server bounds a kill claim with combatBoundForReport and pays a
@@ -191,17 +192,17 @@ export function createBossCombat(deps: BossCombatDeps) {
         // Reflect returns the hit before armor, so armor raises what it adds.
         reach: prestigeReachMultiplier(ranks, armorDamageReduction(effectivePlayerPowerStats(saved, research, loadout.levelFor).armor))
           * bowSkillReachMultiplier(bowSkills),
-        bossDamage: bowSkillBossDamageMultiplier(bowSkills),
+        bossDamage: bowSkillBossDamageMultiplier(bowSkills) * (1 + prestigePerkValue(ranks, "bossSlayer")),
         reflects: prestigePerkValue(ranks, "riposte") > 0,
       } };
     }
     const report = () => (loaded ??= load());
     return {
       /** The bound with the given earned rewards applied, as the client had them by its last kill. */
-      bound(earned: { type: string; amount: number; count: number }[], speedRating = false) {
+      bound(earned: { type: string; amount: number; count: number }[]) {
         const { saved, statMultiplier, gear } = report();
         if (!saved) return { dps: 0, attackInterval: 1 };
-        const progress = earned.length ? applyEnemyRewards(saved, earned, statMultiplier, speedRating) : saved;
+        const progress = earned.length ? applyEnemyRewards(saved, earned, statMultiplier, challengeMinimumInterval(ctx.db.playerPrestigeChallenge.identity.find(ctx.sender))) : saved;
         const attackInterval = attackIntervalForProgress(progress);
         if (!gear) return { dps: 0, attackInterval, projectiles: 1 };
         const dps = gear.loadout.damage(progress.damage) * gear.critical * gear.swing * gear.projectiles / attackInterval;

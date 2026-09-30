@@ -112,6 +112,10 @@ export type PlayerPrestigePerks = {
   doubleStrike: number;
   splitShot: number;
   riposte: number;
+  bossSlayer?: number;
+  secondWind?: number;
+  longShot?: number;
+  fleetFoot?: number;
 };
 
 export type UpgradeBenchSlot = 1 | 2 | 3;
@@ -137,6 +141,7 @@ export type PlayerLifetime = {
 };
 
 export type PlayerProfileData = {
+  prestigeChallenge?: import("../../shared/prestige-challenge").PrestigeChallenge;
   prestigeLevel?: number;
   prestigePerks?: Partial<import("../../shared/prestige-perks").PrestigePerkRanks>;
   identity: string;

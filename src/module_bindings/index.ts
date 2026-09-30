@@ -34,6 +34,7 @@ import {
 } from "spacetimedb";
 
 // Import all reducer arg schemas
+import AbandonPrestigeChallengeReducer from "./abandon_prestige_challenge_reducer";
 import AcceptDuelReducer from "./accept_duel_reducer";
 import AcceptTermsReducer from "./accept_terms_reducer";
 import AcknowledgeBalanceApologyGiftReducer from "./acknowledge_balance_apology_gift_reducer";
@@ -197,6 +198,7 @@ import SpeedUpResearchWithGemsReducer from "./speed_up_research_with_gems_reduce
 import SpendPrestigePerkPointReducer from "./spend_prestige_perk_point_reducer";
 import StartItemUpgradeReducer from "./start_item_upgrade_reducer";
 import StartLoginMoveReducer from "./start_login_move_reducer";
+import StartPrestigeChallengeReducer from "./start_prestige_challenge_reducer";
 import StartResearchReducer from "./start_research_reducer";
 import SyncPositionReducer from "./sync_position_reducer";
 import TakeOverSessionReducer from "./take_over_session_reducer";
@@ -326,10 +328,13 @@ import PlayerMotionFrameRow from "./player_motion_frame_table";
 import PlayerMotionIdentityRow from "./player_motion_identity_table";
 import PlayerNameTagRow from "./player_name_tag_table";
 import PlayerPrestigeRow from "./player_prestige_table";
+import PlayerPrestigeChallengeRow from "./player_prestige_challenge_table";
+import PlayerPrestigeExpansionPerkRow from "./player_prestige_expansion_perk_table";
 import PlayerPrestigePerkRow from "./player_prestige_perk_table";
 import PlayerProfileRow from "./player_profile_table";
 import PlayerProgressRow from "./player_progress_table";
 import PlayerResearchRow from "./player_research_table";
+import PrestigeExpansionRow from "./prestige_expansion_table";
 import PrismshellBossRow from "./prismshell_boss_table";
 import PrismshellResultRow from "./prismshell_result_table";
 import ProceduralBossRow from "./procedural_boss_table";
@@ -923,6 +928,28 @@ const tablesSchema = __schema({
       { name: 'player_prestige_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerPrestigeRow),
+  playerPrestigeChallenge: __table({
+    name: 'player_prestige_challenge',
+    indexes: [
+      { accessor: 'identity', name: 'player_prestige_challenge_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_prestige_challenge_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerPrestigeChallengeRow),
+  playerPrestigeExpansionPerk: __table({
+    name: 'player_prestige_expansion_perk',
+    indexes: [
+      { accessor: 'identity', name: 'player_prestige_expansion_perk_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_prestige_expansion_perk_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerPrestigeExpansionPerkRow),
   playerPrestigePerk: __table({
     name: 'player_prestige_perk',
     indexes: [
@@ -967,6 +994,17 @@ const tablesSchema = __schema({
       { name: 'player_research_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerResearchRow),
+  prestigeExpansion: __table({
+    name: 'prestige_expansion',
+    indexes: [
+      { accessor: 'id', name: 'prestige_expansion_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'prestige_expansion_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, PrestigeExpansionRow),
   prismshellBoss: __table({
     name: 'prismshell_boss',
     indexes: [
@@ -1384,6 +1422,7 @@ const tablesSchema = __schema({
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
+  __reducerSchema("abandon_prestige_challenge", AbandonPrestigeChallengeReducer),
   __reducerSchema("accept_duel", AcceptDuelReducer),
   __reducerSchema("accept_terms", AcceptTermsReducer),
   __reducerSchema("acknowledge_balance_apology_gift", AcknowledgeBalanceApologyGiftReducer),
@@ -1547,6 +1586,7 @@ const reducersSchema = __reducers(
   __reducerSchema("spend_prestige_perk_point", SpendPrestigePerkPointReducer),
   __reducerSchema("start_item_upgrade", StartItemUpgradeReducer),
   __reducerSchema("start_login_move", StartLoginMoveReducer),
+  __reducerSchema("start_prestige_challenge", StartPrestigeChallengeReducer),
   __reducerSchema("start_research", StartResearchReducer),
   __reducerSchema("sync_position", SyncPositionReducer),
   __reducerSchema("take_over_session", TakeOverSessionReducer),

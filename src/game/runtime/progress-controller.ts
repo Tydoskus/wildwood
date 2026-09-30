@@ -1,3 +1,4 @@
+import { CHALLENGE_ABSOLUTE_MIN_INTERVAL } from "../../../shared/prestige-challenge";
 import { canonicalItemId, itemDefinition, STARTER_ITEM_IDS } from "../../../shared/items";
 import { fillEmptyHand } from "../../coop/services/server-loadout";
 import { cosmeticUnlocks } from "../../../shared/cosmetic-conversion";
@@ -13,7 +14,6 @@ import {
   MAX_MOVEMENT_SPEED_OVERRIDE,
   MAX_ARMOR,
   MAX_PLAYER_STAT,
-  MIN_ATTACK_INTERVAL,
   PLAYER_BASE_HP, PLAYER_BASE_DAMAGE,
   PLAYER_BASE_REGEN,
   isBaseStoredSpeed,
@@ -154,10 +154,10 @@ export function createProgressController(dependencies: ProgressDependencies) {
         const player = dependencies.player;
         player.damage = boundedProgressValue(saved.damage, player.damage, 1, MAX_PLAYER_STAT);
         player.armor = boundedProgressValue(saved.armor, player.armor, 0, MAX_ARMOR);
-        player.attackRate = boundedProgressValue(saved.attackRate, player.attackRate, MIN_ATTACK_INTERVAL, 10);
+        player.attackRate = boundedProgressValue(saved.attackRate, player.attackRate, CHALLENGE_ABSOLUTE_MIN_INTERVAL, 10);
         player.regen = boundedProgressValue(saved.regen, player.regen, 0, MAX_PLAYER_STAT);
         player.projectileCount = saved.projectileCount;
-        player.attackRange = boundedProgressValue(saved.attackRange, player.attackRange, BASE_ATTACK_RANGE, BASE_ATTACK_RANGE + 50);
+        player.attackRange = boundedProgressValue(saved.attackRange, player.attackRange, BASE_ATTACK_RANGE, BASE_ATTACK_RANGE + 75);
         if (player.baseMaxHp !== saved.maxHp) setPlayerBaseMaxHealth(player, saved.maxHp, dependencies.healthMultiplierBonus());
         reconcileInventory(saved);
         applyMovementSpeed(saved, false);
@@ -186,10 +186,10 @@ export function createProgressController(dependencies: ProgressDependencies) {
     const { player, inventory, bootsPickup } = dependencies;
     player.baseMaxHp = boundedProgressValue(source.maxHp, player.baseMaxHp, 1, MAX_PLAYER_STAT);
     player.damage = boundedProgressValue(source.damage, player.damage, 1, MAX_PLAYER_STAT);
-    player.attackRate = boundedProgressValue(source.attackRate, player.attackRate, MIN_ATTACK_INTERVAL, 10);
+    player.attackRate = boundedProgressValue(source.attackRate, player.attackRate, CHALLENGE_ABSOLUTE_MIN_INTERVAL, 10);
     player.projectileSpeed = BASE_PROJECTILE_SPEED;
     player.projectileCount = Math.floor(boundedProgressValue(source.projectileCount, player.projectileCount, 1, 20));
-    player.attackRange = boundedProgressValue(source.attackRange, BASE_ATTACK_RANGE, BASE_ATTACK_RANGE, BASE_ATTACK_RANGE + 50);
+    player.attackRange = boundedProgressValue(source.attackRange, BASE_ATTACK_RANGE, BASE_ATTACK_RANGE, BASE_ATTACK_RANGE + 75);
     player.armor = boundedProgressValue(source.armor, player.armor, 0, MAX_ARMOR);
     player.regen = boundedProgressValue(source.regen, player.regen, 0, MAX_PLAYER_STAT);
     bootsPickup.collected = source.bootsCollected === true;

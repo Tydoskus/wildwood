@@ -125,6 +125,18 @@ function setup(extra: Partial<Parameters<typeof createProgressionService>[0]> = 
 }
 
 describe("local progression profile snapshots", () => {
+  it("disables prestige perks during a challenge and restores allocations afterward", () => {
+    const h = setup();
+    const local = { toHexString: () => identity } as never;
+    h.service.tables.upsertPrestigePerk({ identity: local, keenEdge: 3, doubleStrike: 2, splitShot: 1, riposte: 1 });
+    h.service.tables.upsertPrestigeExpansionPerk({ identity: local, bossSlayer: 4, secondWind: 3, longShot: 2, fleetFoot: 1 });
+    const before = h.service.api.prestigePerks();
+    h.service.tables.upsertPrestigeChallenge({ identity: local, active: true, completed: 2 });
+    expect(Object.values(h.service.api.prestigePerks()).every(rank => rank === 0)).toBe(true);
+    h.service.tables.upsertPrestigeChallenge({ identity: local, active: false, completed: 3 });
+    expect(h.service.api.prestigePerks()).toEqual(before);
+    expect(h.service.api.prestigeChallenge()).toEqual({ active: false, completed: 3 });
+  });
   afterEach(() => vi.unstubAllGlobals());
 
   it("removes confirmed destruction from cached and pending inventory without losing earned stats", async () => {

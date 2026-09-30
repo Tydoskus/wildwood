@@ -6,7 +6,6 @@ import * as camps from "./enemy-camps";
 import designs from "../src/game/map-designs.json";
 import { generateMap, generatedEnemyStats, isProceduralMap } from "./procedural-maps";
 import { MAX_ARMOR, MAX_PLAYER_STAT, MIN_ATTACK_INTERVAL, REGULAR_ENEMY_RESPAWN_SECONDS, REGULAR_KILL_REPORT_SECONDS } from "./rules";
-import { addSpeedRating } from "./attack-speed-rating";
 
 export type EnemyDefeat = { enemy: string; count: number };
 export const ENEMY_DEFEAT_BATCH_MAX = 100;
@@ -144,9 +143,7 @@ export function defeatBudget(population: number, minRespawnSeconds = DEFEAT_MIN_
   };
 }
 export function applyEnemyRewards<T extends { damage: number; maxHp: number; attackRate: number; armor: number; regen: number }>(
-  base: T, rewards: { type: string; amount: number; count: number }[], multiplier: number,
-  /** The map pays Speed points (its balance carries SPEED_RATING), not attacks per second. */
-  speedRating = false,
+  base: T, rewards: { type: string; amount: number; count: number }[], multiplier: number, minAttackInterval = MIN_ATTACK_INTERVAL,
 ): T {
   const next = { ...base };
   for (const reward of rewards) {
@@ -156,8 +153,7 @@ export function applyEnemyRewards<T extends { damage: number; maxHp: number; att
       case "health": next.maxHp = Math.min(MAX_PLAYER_STAT, next.maxHp + amount); break;
       case "armor": next.armor = Math.min(MAX_ARMOR, next.armor + amount); break;
       case "regen": next.regen = Math.min(MAX_PLAYER_STAT, next.regen + amount); break;
-      case "speed": next.attackRate = speedRating ? addSpeedRating(next.attackRate, amount)
-        : 1 / Math.min(1 / MIN_ATTACK_INTERVAL, 1 / next.attackRate + amount); break;
+      case "speed": next.attackRate = 1 / Math.min(1 / minAttackInterval, 1 / next.attackRate + amount); break;
     }
   }
   return next;

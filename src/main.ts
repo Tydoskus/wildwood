@@ -26,6 +26,7 @@ import { createItemGiftController } from "./ui/item-gift-controller";
 import { createReconnectRecovery } from "./ui/reconnect-recovery";
 import { isProceduralMap, proceduralMapId } from "../shared/procedural-maps";
 import { prestigePerkValue } from "../shared/prestige-perks";
+import { createPrestigeExpansionRuntime } from "./ui/prestige-expansion-runtime";
 import { leaderboardEligible } from "../shared/leaderboard-window";
 import { createProceduralBossController } from "./game/runtime/procedural-boss-controller";
 import { bindPlayerNameTags } from "./app/player-name-tags";
@@ -118,7 +119,7 @@ import { hasApprovedGameSession } from "./coop/startup-state-machine";
 import { createHudTimerColumn } from "./ui/hud-timer-column";
 import { createGameElements } from "./ui/game-elements";
 import { bindGameInteractionListeners } from "./ui/game-interaction-bindings";
-import { createDevPanel, createDuplicateLoginRuntime, createGameActionsRuntime, createGameOverlays, createGameRuntimeHud, createHomeStationTouchHandler, createLeaderboardPanel, createPrestigePanel, createPrestigeUnlockRuntime, createTechTreePanel } from "./ui/game-ui-runtime";
+import { challengeMinimumInterval, createDevPanel, createDuplicateLoginRuntime, createGameActionsRuntime, createGameOverlays, createGameRuntimeHud, createHomeStationTouchHandler, createLeaderboardPanel, createPrestigeUnlockRuntime, createTechTreePanel } from "./ui/game-ui-runtime";
 import { formatCompactNumber, formatGemAmount } from "./ui/number-format";
 import { playerGenderIconPath } from "./ui/player-gender";
 import type { LeaderboardEntry } from "./wildstat-coop";
@@ -132,7 +133,6 @@ import { createInventoryCommerceActions } from "./game/runtime/inventory-commerc
 import {
   DEFAULT_ATTACK_INTERVAL as STARTING_ATTACK_INTERVAL,
   MAX_PLAYER_STAT,
-  MIN_ATTACK_INTERVAL,
   PLAYER_BASE_HP as BASE_PLAYER_HP,
   PLAYER_BASE_DAMAGE,
   PLAYER_BASE_REGEN,
@@ -614,7 +614,7 @@ import {
     },
   );
   const research = createResearchController({
-    prestigeLevel: () => coop?.prestige?.()?.level ?? 0,
+    prestigeLevel: () => coop?.prestigeChallenge?.()?.active ? 0 : coop?.prestige?.()?.level ?? 0,
     prestigePerks: () => coop?.prestigePerks?.(),
     player,
     getRanks: () => coop?.research?.(),
@@ -686,6 +686,8 @@ import {
     researchCriticalDamageMultiplier,
     researchRewardMultiplier,
     displayRewardAmount: rewardDisplay.totalAmount,
+    prestigeBossSlayer: () => prestigePerkValue(coop?.prestigePerks?.(), "bossSlayer"),
+    prestigeSecondWind: () => prestigePerkValue(coop?.prestigePerks?.(), "secondWind"),
     prestigeDoubleStrike: () => prestigePerkValue(coop?.prestigePerks?.(), "doubleStrike"),
     prestigeSplitShot: () => prestigePerkValue(coop?.prestigePerks?.(), "splitShot"), prestigeReflect: () => prestigePerkValue(coop?.prestigePerks?.(), "riposte"),
     bowSkills: () => coop?.bowSkills?.(inventory.equippedRightHand || inventory.equippedLeftHand),
@@ -696,7 +698,7 @@ import {
     equippedChest: () => inventory.equippedChest,
     equippedChestUpgradeLevel: () => coop?.itemUpgradeLevel?.(inventory.equippedChest) ?? 0,
     healthMultiplierBonus,
-    minAttackInterval: MIN_ATTACK_INTERVAL,
+    minAttackInterval: () => challengeMinimumInterval(coop?.prestigeChallenge?.()),
     effectiveArmor,
     isDueling,
     hitGeneratedBoss: (enemy, damage, critical, reflected) => { if (!enemy.generatedBoss) return false; personalBosses.hit(currentMapId, damage); spawnDamageNumber(enemy.x, enemy.y, damage, critical, false, reflected); return true; },
@@ -1332,11 +1334,13 @@ import {
 
   let offlineProgressSummary: ReturnType<typeof createOfflineProgressSummary> | undefined;
   let offlineProgressSetting: { refresh: () => void } | undefined;
-  const prestigeUnlock = createPrestigeUnlockRuntime({ coop, showMessage, runPrestige, playing: () => session?.hasStarted() && !inTutorial(),
+  const expansionNotice = createPrestigeExpansionRuntime({ coop, started: () => Boolean(session?.hasStarted()), mapName: () => MAP_CONFIG[currentMapId].name, mapLabel: gameElements.minimapMapNameEl });
+  const prestigeUnlock = createPrestigeUnlockRuntime({ coop, expanded: expansionNotice.unlocked, showMessage, runPrestige, playing: () => session?.hasStarted() && !inTutorial(),
     blocked: () => session.isPaused(), pause: (paused: boolean) => setGameplayPause("prestige-unlock", paused) });
   const duplicateLogin = createDuplicateLoginRuntime({ coop, started: () => session?.hasStarted(), pause: (paused: boolean) => setGameplayPause("duplicate-login", paused) });
   function updateHud(force = false) {
     runtimeHud.updateHud(force);
+    expansionNotice.tick();
     offlineProgressSummary?.showPending();
     prestigeUnlock.poll();
     duplicateLogin.poll();
@@ -1364,12 +1368,7 @@ import {
     pendingProfileNameSave = request;
     return request.finally(() => { if (pendingProfileNameSave === request) pendingProfileNameSave = undefined; });
   }
-  const prestigePanel = createPrestigePanel({
-    e: gameElements, prestige: () => coop?.prestige?.() ?? null, showMessage,
-    perks: () => coop?.prestigePerks?.(), spendPerk: (perk: string) => coop?.spendPrestigePerkPoint?.(perk),
-    unlocked: () => Boolean(coop?.prestigeCampaignComplete?.((coop?.prestige?.()?.level ?? 0) + 1)), completed: () => coop?.proceduralCompleted?.() ?? 0,
-    runPrestige, respec: () => runPrestige(coop?.respecPrestigePerks),
-  });
+  const prestigePanel = expansionNotice.createPanel({ e: gameElements, showMessage, runPrestige });
   const profileWindow = createProfileWindowController({
     window: playerProfileEl, name: playerProfileNameEl, guest: playerProfileGuestLabel, presence: playerProfilePresenceEl, power: playerProfilePowerEl, icon: playerProfileIcon, loading: playerProfileLoadingEl,
     overviewTab: profileOverviewTab, statsTab: profileStatsTab, overviewPanel: profileOverviewPanel, statsPanel: profileStatsPanel,
@@ -1397,8 +1396,8 @@ import {
     renderCharacter: (identity, progress, visible) => profileCharacterPreview.draw({ visible, progress, skinTone: coop?.skinTone?.(identity) ?? DEFAULT_SKIN_TONE }),
     skinTone: (identity) => coop?.skinTone?.(identity) ?? DEFAULT_SKIN_TONE, setSkinTone: async (value) => coop?.setSkinTone?.(value),
     playerGender: (identity) => coop?.playerGender?.(identity) ?? 0, setGender: async (value) => coop?.setGender?.(value),
-    renderStats: (profile, element) => renderProfileStats(profile, element, formatArmorReduction, MIN_ATTACK_INTERVAL, profile.research,
-      profile.identity === coop?.localIdentity?.() ? coop?.prestige?.()?.level ?? 0 : profile.prestigeLevel ?? 0,
+    renderStats: (profile, element) => renderProfileStats(profile, element, formatArmorReduction, challengeMinimumInterval(profile.prestigeChallenge), profile.research,
+      profile.prestigeChallenge?.active ? 0 : profile.identity === coop?.localIdentity?.() ? coop?.prestige?.()?.level ?? 0 : profile.prestigeLevel ?? 0,
       profile.identity === coop?.localIdentity?.() ? coop?.prestigePerks?.() : profile.prestigePerks),
     formatPower: (profile) => formatCompactNumber(profilePower(profile)), formatPlayedTime,
     profile: (identity) => coop?.playerProfile?.(identity), loadProfile: async (identity) => coop?.loadPlayerProfile?.(identity), releaseProfile: () => { coop?.releasePlayerProfile?.(); },

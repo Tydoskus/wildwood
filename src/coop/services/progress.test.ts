@@ -1,3 +1,4 @@
+import { CHALLENGE_ABSOLUTE_MIN_INTERVAL } from "../../../shared/prestige-challenge";
 import { rescaleEndgameProgress } from "../../../shared/endgame-power-rescale";
 import { compressLegacyMapPower } from "../../../shared/map-power-rescale";
 import { describe, expect, it } from "vitest";
@@ -45,7 +46,7 @@ function memoryStorage() {
 describe("progress persistence rules", () => {
   it("normalises untrusted save values", () => {
     expect(copyProgress({ ...pending, attackRate: 0, projectileCount: 99, attackRange: 999, enemyKills: -4 })).toMatchObject({
-      attackRate: MIN_ATTACK_INTERVAL,
+      attackRate: CHALLENGE_ABSOLUTE_MIN_INTERVAL,
       projectileCount: 20,
       attackRange: DEFAULT_ATTACK_RANGE,
       enemyKills: 0,
@@ -67,7 +68,7 @@ describe("progress persistence rules", () => {
       damage: MAX_PLAYER_STAT,
       armor: MAX_PLAYER_STAT,
       regen: MAX_PLAYER_STAT,
-      attackRate: MIN_ATTACK_INTERVAL,
+      attackRate: CHALLENGE_ABSOLUTE_MIN_INTERVAL,
       speed: 2_000,
     });
   });
