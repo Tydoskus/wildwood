@@ -4,13 +4,13 @@ import { REGULAR_ENEMY_RESPAWN_SECONDS } from '../../shared/rules';
 import { BALANCE_CURVE_LIMITS, DEFAULT_BALANCE_CURVE, curveEnemyScale, curveRewardScale, type BalanceCurve } from '../../shared/balance-curve';
 import { CAMPAIGN_MAPS } from '../../shared/campaign-registry';
 const curveFields: [keyof BalanceCurve, string][] = [['enemyGrowth', 'Enemies per map (×)'], ['rewardGrowth', 'Rewards per map (×)'], ['groupSize', 'Enemies per group'],
-  ['damageHp', 'Map 1 damage camp health'], ['damageHit', 'Map 1 damage camp hit'], ['damageReward', 'Map 1 damage camp reward'],
-  ['healthHp', 'Map 1 health camp health'], ['healthHit', 'Map 1 health camp hit'], ['healthReward', 'Map 1 health camp reward'],
-  ['speedHp', 'Map 1 speed camp health'], ['speedHit', 'Map 1 speed camp hit'], ['speedReward', 'Map 1 speed camp reward'],
-  ['regenHp', 'Map 1 regen camp health'], ['regenHit', 'Map 1 regen camp hit'], ['regenReward', 'Map 1 regen camp reward'], ['regenHeal', 'Map 1 regen camp heal (per second)'],
-  ['armorHp', 'Map 1 armor camp health'], ['armorHit', 'Map 1 armor camp hit'], ['armorReward', 'Map 1 armor camp reward'], ['armorArmor', 'Map 1 armor camp armor'],
+  ['damageHp', 'Map 1 damage camp health'], ['damageHit', 'Map 1 damage camp hit'], ['damageReward', 'Map 1 damage camp reward'], ['damageEliteHp', 'Map 1 damage camp elite health'], ['damageEliteHit', 'Map 1 damage camp elite hit'],
+  ['healthHp', 'Map 1 health camp health'], ['healthHit', 'Map 1 health camp hit'], ['healthReward', 'Map 1 health camp reward'], ['healthEliteHp', 'Map 1 health camp elite health'], ['healthEliteHit', 'Map 1 health camp elite hit'],
+  ['speedHp', 'Map 1 speed camp health'], ['speedHit', 'Map 1 speed camp hit'], ['speedReward', 'Map 1 speed camp reward'], ['speedEliteHp', 'Map 1 speed camp elite health'], ['speedEliteHit', 'Map 1 speed camp elite hit'],
+  ['regenHp', 'Map 1 regen camp health'], ['regenHit', 'Map 1 regen camp hit'], ['regenReward', 'Map 1 regen camp reward'], ['regenEliteHp', 'Map 1 regen camp elite health'], ['regenEliteHit', 'Map 1 regen camp elite hit'], ['regenHeal', 'Map 1 regen camp heal (per second)'],
+  ['armorHp', 'Map 1 armor camp health'], ['armorHit', 'Map 1 armor camp hit'], ['armorReward', 'Map 1 armor camp reward'], ['armorEliteHp', 'Map 1 armor camp elite health'], ['armorEliteHit', 'Map 1 armor camp elite hit'], ['armorArmor', 'Map 1 armor camp armor'],
   ['bossHp', 'Map 1 boss health'], ['bossHit', 'Map 1 boss heaviest hit'], ['bossRegen', 'Boss heal per second (share of health)'], ['dragonHp', 'Tutorial dragon health'], ['dragonHit', 'Tutorial dragon heaviest hit'],
-  ['eliteHealth', 'Elite health and reward (×)'], ['eliteHit', 'Elite hit (×)']];
+  ['eliteReward', 'Elite reward (×)']];
 export type BalanceEditorDependencies = {
   load: () => Promise<BalanceEditorState>;
   preview: (map: string, settings: BalanceSettings) => Promise<MapBalanceSnapshot>;

@@ -49,11 +49,12 @@ describe("balance curve", () => {
     for (const stat of ["damage", "health", "speed", "regen"] as const) expect(map(stat).armor).toBe(0);
   });
 
-  it("makes elites tougher, harder-hitting and better-paying than their camp", () => {
+  it("gives each camp's elite its own health and hit, and a bigger reward than its camp", () => {
+    expect(curveEnemy(1, "health", true)).toMatchObject({ hp: 1_200, damage: 250 });   // King Slime
     const regular = curveEnemy(5, "health", false), elite = curveEnemy(5, "health", true);
-    expect(elite.hp).toBeCloseTo(regular.hp * curve.eliteHealth);
-    expect(elite.damage).toBeCloseTo(regular.damage * curve.eliteHit);
-    expect(elite.reward.amount).toBeCloseTo(regular.reward.amount * curve.eliteHealth);
+    expect(elite.hp).toBeCloseTo(curve.healthEliteHp * curveEnemyScale(5));
+    expect(elite.damage).toBeCloseTo(curve.healthEliteHit * curveEnemyScale(5));
+    expect(elite.reward.amount).toBeCloseTo(regular.reward.amount * curve.eliteReward);
   });
 
   it("blocks 10% more of what is left every 10× armor", () => {

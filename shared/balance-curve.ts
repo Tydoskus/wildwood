@@ -27,48 +27,47 @@ export type BalanceCurve = {
   rewardGrowth: number;
   /** Kills in one group, for counting clears. */
   groupSize: number;
-  /** Map 1's damage camp. Every camp hits at least as hard as it. */
-  damageHp: number; damageHit: number; damageReward: number;
+  /** Map 1's damage camp. Every camp hits at least as hard as it. `EliteHp` and `EliteHit` are each camp's elite's. */
+  damageHp: number; damageHit: number; damageReward: number; damageEliteHp: number; damageEliteHit: number;
   /** Map 1's health camp: takes the most blows. */
-  healthHp: number; healthHit: number; healthReward: number;
+  healthHp: number; healthHit: number; healthReward: number; healthEliteHp: number; healthEliteHit: number;
   /** Map 1's speed camp: swings fastest (CAMP_SWINGS). */
-  speedHp: number; speedHit: number; speedReward: number;
+  speedHp: number; speedHit: number; speedReward: number; speedEliteHp: number; speedEliteHit: number;
   /** Map 1's regen camp: heals `regenHeal` a second while it lives. */
-  regenHp: number; regenHit: number; regenReward: number; regenHeal: number;
+  regenHp: number; regenHit: number; regenReward: number; regenHeal: number; regenEliteHp: number; regenEliteHit: number;
   /** Map 1's armor camp: blocks the player's hits on curveArmorReduction. */
-  armorHp: number; armorHit: number; armorReward: number; armorArmor: number;
+  armorHp: number; armorHit: number; armorReward: number; armorArmor: number; armorEliteHp: number; armorEliteHit: number;
   /** Map 1's boss: its health and heaviest hit. */
   bossHp: number; bossHit: number;
   /** The share of its health a boss heals a second. A build dealing less than that never wins. */
   bossRegen: number;
   /** The tutorial dragon's health and heaviest hit. It stands apart from the bosses' chain and keeps its gentle regen. */
   dragonHp: number; dragonHit: number;
-  /** Elites: health and reward as multiples of their camp's regulars, and their hit. */
-  eliteHealth: number;
-  eliteHit: number;
+  /** Elites: reward as a multiple of their camp's regulars. */
+  eliteReward: number;
 };
 
 export const DEFAULT_BALANCE_CURVE: Readonly<BalanceCurve> = Object.freeze({
   enemyGrowth: 4.3, rewardGrowth: 3.4, groupSize: 7,
-  damageHp: 8, damageHit: 10, damageReward: 1.5,
-  healthHp: 24, healthHit: 10, healthReward: 15,
-  speedHp: 90, speedHit: 10, speedReward: 1.2,
-  regenHp: 120, regenHit: 10, regenReward: .2, regenHeal: 1,
-  armorHp: 13, armorHit: 10, armorReward: 1.2, armorArmor: 50,
+  damageHp: 8, damageHit: 10, damageReward: 1.5, damageEliteHp: 40, damageEliteHit: 30,
+  healthHp: 24, healthHit: 10, healthReward: 15, healthEliteHp: 1_200, healthEliteHit: 250,
+  speedHp: 90, speedHit: 10, speedReward: 1.2, speedEliteHp: 450, speedEliteHit: 30,
+  regenHp: 120, regenHit: 10, regenReward: .2, regenHeal: 1, regenEliteHp: 600, regenEliteHit: 30,
+  armorHp: 153, armorHit: 10, armorReward: 1.2, armorArmor: 50, armorEliteHp: 65, armorEliteHit: 30,
   bossHp: 190, bossHit: 120, bossRegen: .067, dragonHp: 50_000, dragonHit: 1_500,
-  eliteHealth: 5, eliteHit: 3,
+  eliteReward: 5,
 });
 
 /** The knobs a developer may set, and their ranges. */
 export const BALANCE_CURVE_LIMITS: Readonly<Record<keyof BalanceCurve, readonly [number, number]>> = Object.freeze({
   enemyGrowth: [1, 20], rewardGrowth: [1, 20], groupSize: [1, 50],
-  damageHp: [.1, 1e6], damageHit: [.001, 1e6], damageReward: [.001, 1e6],
-  healthHp: [.1, 1e6], healthHit: [.001, 1e6], healthReward: [.001, 1e6],
-  speedHp: [.1, 1e6], speedHit: [.001, 1e6], speedReward: [.001, 1e6],
-  regenHp: [.1, 1e6], regenHit: [.001, 1e6], regenReward: [.001, 1e6], regenHeal: [0, 1e6],
-  armorHp: [.1, 1e6], armorHit: [.001, 1e6], armorReward: [.001, 1e6], armorArmor: [0, 1e6],
+  damageHp: [.1, 1e6], damageHit: [.001, 1e6], damageReward: [.001, 1e6], damageEliteHp: [.1, 1e7], damageEliteHit: [.001, 1e7],
+  healthHp: [.1, 1e6], healthHit: [.001, 1e6], healthReward: [.001, 1e6], healthEliteHp: [.1, 1e7], healthEliteHit: [.001, 1e7],
+  speedHp: [.1, 1e6], speedHit: [.001, 1e6], speedReward: [.001, 1e6], speedEliteHp: [.1, 1e7], speedEliteHit: [.001, 1e7],
+  regenHp: [.1, 1e6], regenHit: [.001, 1e6], regenReward: [.001, 1e6], regenHeal: [0, 1e6], regenEliteHp: [.1, 1e7], regenEliteHit: [.001, 1e7],
+  armorHp: [.1, 1e6], armorHit: [.001, 1e6], armorReward: [.001, 1e6], armorArmor: [0, 1e6], armorEliteHp: [.1, 1e7], armorEliteHit: [.001, 1e7],
   bossHp: [1, 1e9], bossHit: [.001, 1e9], bossRegen: [0, .5], dragonHp: [1, 1e9], dragonHit: [.001, 1e9],
-  eliteHealth: [1, 100], eliteHit: [.1, 100],
+  eliteReward: [1, 100],
 });
 
 /**
@@ -100,21 +99,20 @@ export const CAMP_SWINGS: Readonly<Record<CurveRewardStat, number>> = Object.fre
 export type CurveEnemy = { hp: number; damage: number; attackSpeed: number; regen: number; armor: number; reward: { type: CurveRewardStat; amount: number } };
 export function curveEnemy(y: number, stat: CurveRewardStat, elite: boolean, curve: BalanceCurve = DEFAULT_BALANCE_CURVE): CurveEnemy {
   const enemies = curveEnemyScale(y, curve), rewards = curveRewardScale(y, curve);
-  const tough = elite ? curve.eliteHealth : 1;
   const map1 = {
-    damage: { hp: curve.damageHp, hit: curve.damageHit, reward: curve.damageReward, heal: 0, armor: 0 },
-    health: { hp: curve.healthHp, hit: curve.healthHit, reward: curve.healthReward, heal: 0, armor: 0 },
-    speed: { hp: curve.speedHp, hit: curve.speedHit, reward: curve.speedReward, heal: 0, armor: 0 },
-    regen: { hp: curve.regenHp, hit: curve.regenHit, reward: curve.regenReward, heal: curve.regenHeal, armor: 0 },
-    armor: { hp: curve.armorHp, hit: curve.armorHit, reward: curve.armorReward, heal: 0, armor: curve.armorArmor },
+    damage: { hp: curve.damageHp, eliteHp: curve.damageEliteHp, eliteHit: curve.damageEliteHit, hit: curve.damageHit, reward: curve.damageReward, heal: 0, armor: 0 },
+    health: { hp: curve.healthHp, eliteHp: curve.healthEliteHp, eliteHit: curve.healthEliteHit, hit: curve.healthHit, reward: curve.healthReward, heal: 0, armor: 0 },
+    speed: { hp: curve.speedHp, eliteHp: curve.speedEliteHp, eliteHit: curve.speedEliteHit, hit: curve.speedHit, reward: curve.speedReward, heal: 0, armor: 0 },
+    regen: { hp: curve.regenHp, eliteHp: curve.regenEliteHp, eliteHit: curve.regenEliteHit, hit: curve.regenHit, reward: curve.regenReward, heal: curve.regenHeal, armor: 0 },
+    armor: { hp: curve.armorHp, eliteHp: curve.armorEliteHp, eliteHit: curve.armorEliteHit, hit: curve.armorHit, reward: curve.armorReward, heal: 0, armor: curve.armorArmor },
   }[stat];
   return {
-    hp: cap(map1.hp * enemies * tough),
-    damage: cap(map1.hit * enemies * (elite ? curve.eliteHit : 1)),
+    hp: cap((elite ? map1.eliteHp : map1.hp) * enemies),
+    damage: cap((elite ? map1.eliteHit : map1.hit) * enemies),
     attackSpeed: CAMP_SWINGS[stat],
     regen: cap(map1.heal * enemies),
     armor: cap(map1.armor * enemies),
-    reward: { type: stat, amount: cap(map1.reward * rewards * tough) },
+    reward: { type: stat, amount: cap(map1.reward * rewards * (elite ? curve.eliteReward : 1)) },
   };
 }
 
