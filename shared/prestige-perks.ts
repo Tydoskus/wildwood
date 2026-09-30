@@ -1,5 +1,5 @@
 /**
- * Prestige perks. One point per prestige and five ranks per perk, so maxing a
+ * Prestige perks. One point per prestige and five ranks per perk (Reflect has seven), so maxing a
  * line takes five runs and spreading points leaves you mediocre at all of them.
  * Percent bonuses use fractions; Long Shot adds world units of attack range.
  */
@@ -13,7 +13,7 @@ export const PRESTIGE_PERKS = {
   splitShot: { title: "Split Shot", perRank: .08,
     detail: "Chance to strike a second enemy at the same time. Nothing to split against a boss." },
   // Shown as Reflect; the id stays riposte because it names a database column.
-  riposte: { title: "Reflect", perRank: .06,
+  riposte: { title: "Reflect", perRank: .06, maxRank: 7,
     detail: "Chance to throw half of a hit, before your armor, back at whoever dealt it: enemies, bosses and duel opponents." },
   bossSlayer: { title: "Boss Slayer", perRank: .10, detail: "Deal more weapon damage to bosses. Does not amplify reflected damage." },
   secondWind: { title: "Second Wind", perRank: .01, detail: "Restore a share of your maximum health after each regular enemy kill." },
@@ -45,13 +45,19 @@ export type PrestigePerkId = keyof typeof PRESTIGE_PERKS;
 export const PRESTIGE_PERK_IDS = Object.keys(PRESTIGE_PERKS) as PrestigePerkId[];
 export type PrestigePerkRanks = Record<PrestigePerkId, number>;
 
+/** Five ranks a perk, except where one says otherwise (Reflect has seven). */
+export function prestigePerkMaxRank(perk: PrestigePerkId) {
+  const definition = PRESTIGE_PERKS[perk];
+  return "maxRank" in definition ? definition.maxRank : PRESTIGE_PERK_MAX_RANK;
+}
+
 export function isPrestigePerkId(value: string): value is PrestigePerkId {
   return Object.prototype.hasOwnProperty.call(PRESTIGE_PERKS, value);
 }
 
 export function prestigePerkRank(ranks: Partial<PrestigePerkRanks> | null | undefined, perk: PrestigePerkId) {
   const rank = ranks?.[perk] ?? 0;
-  return Math.max(0, Math.min(PRESTIGE_PERK_MAX_RANK, Math.floor(Number.isFinite(rank) ? rank : 0)));
+  return Math.max(0, Math.min(prestigePerkMaxRank(perk), Math.floor(Number.isFinite(rank) ? rank : 0)));
 }
 
 /** The perk's effect at the player's current rank, in its configured units. */

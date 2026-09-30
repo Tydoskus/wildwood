@@ -5,7 +5,7 @@ import { researchStatRewardMultiplier } from "../../shared/research";
 import { PLAYER_STARTING_POWER, playerPowerForStats } from "../../shared/player-power";
 import { updateSnapshotRow } from "./snapshot-row-writes";
 import { PRESTIGE_CAP_HINT, PRESTIGE_PERK_POINTS_PER_LEVEL, prestigeCapped, prestigeCampaignTarget, prestigeCampaignComplete, prestigeEndlessRequirement, prestigeStatMultiplier, prestigeUnlocked } from "../../shared/prestige";
-import { PRESTIGE_PERK_IDS, PRESTIGE_PERK_MAX_RANK, isPrestigePerkId, type PrestigePerkRanks } from "../../shared/prestige-perks";
+import { PRESTIGE_PERK_IDS, isPrestigePerkId, prestigePerkMaxRank, type PrestigePerkRanks } from "../../shared/prestige-perks";
 import { PRESTIGE_EXPANSION_PERK_IDS } from "../../shared/prestige-expansion";
 import { prestigeExpanded } from "./prestige-expansion";
 import { attackRangeWithResearch } from "../../shared/utility-research";
@@ -106,7 +106,7 @@ export function createPrestige(deps: PrestigeDeps) {
     const current = ctx.db.playerPrestige.identity.find(ctx.sender);
     if (!current || current.perkPoints < 1) throw new SenderError("No perk points to spend.");
     const ranks = prestigePerkRanks(ctx, ctx.sender);
-    if (ranks[perk] >= PRESTIGE_PERK_MAX_RANK) throw new SenderError("That perk is already at its highest rank.");
+    if (ranks[perk] >= prestigePerkMaxRank(perk)) throw new SenderError("That perk is already at its highest rank.");
     writePrestigePerkRanks(ctx, ctx.sender, { ...ranks, [perk]: ranks[perk] + 1 });
     ctx.db.playerPrestige.identity.update({ ...current, perkPoints: current.perkPoints - 1 });
     deps.refreshPerkEffects(ctx, activePlayer);

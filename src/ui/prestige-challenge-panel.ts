@@ -40,14 +40,10 @@ export function createPrestigeChallengePanel(d: {
       <div><h3 class="prestige-challenge-title">Reflect Only</h3><p class="prestige-challenge-state"></p></div>
       <ol class="prestige-challenge-pips" aria-label="Challenges completed"></ol>
     </header>
-    <p class="prestige-challenge-rule">Only reflected hits deal damage. Your own attacks land nothing, so your Reflect perk does all the work.</p>
-    <ul class="prestige-challenge-terms">
-      <li>Your run is saved; you restart from the forest with starting stats.</li>
-      <li>Your prestige level and perks stay on.</li>
-      <li>Reach the goal and press Prestige to win. Your saved run comes back.</li>
-    </ul>
+    <p class="prestige-challenge-rule">Your attacks deal no damage. Only hits you throw back with the Reflect perk hurt enemies and bosses.</p>
+    <ul class="prestige-challenge-terms"></ul>
     <div class="prestige-challenge-goal"><span>Goal</span><strong></strong><small></small></div>
-    <div class="prestige-challenge-reward"><span>Reward</span><strong>${bonus(1)} attacks/sec</strong><small>to your base attack speed and its cap, for good</small></div>
+    <div class="prestige-challenge-reward"><span>Reward</span><strong>${bonus(1)} attacks/sec</strong><small>to base attack speed and its cap, for good</small></div>
     <p class="prestige-challenge-earned"></p>
     <button type="button" class="prestige-challenge-action"></button>
     <p class="prestige-challenge-status" role="status"></p>`;
@@ -55,18 +51,27 @@ export function createPrestigeChallengePanel(d: {
   const $ = <T extends HTMLElement>(selector: string) => card.querySelector<T>(selector)!;
   const state = $(".prestige-challenge-state"), pips = $(".prestige-challenge-pips"), earned = $(".prestige-challenge-earned");
   const button = $<HTMLButtonElement>(".prestige-challenge-action"), status = $(".prestige-challenge-status");
+  const terms = $(".prestige-challenge-terms"), goal = $(".prestige-challenge-goal"), reward = $(".prestige-challenge-reward");
   const goalLabel = $(".prestige-challenge-goal strong"), goalLadder = $(".prestige-challenge-goal small");
-  goalLadder.textContent = Array.from({ length: PRESTIGE_CHALLENGE_LIMIT }, (_, index) => challengeGoal(index).label.replace(/^Defeat /, "")).join(" → ");
+  goalLadder.textContent = `Map ${challengeGoal(0).label.match(/map (\d+)/)?.[1] ?? 15} boss → `
+    + Array.from({ length: PRESTIGE_CHALLENGE_LIMIT - 1 }, (_, index) => `Endless ${index + 1}`).join(" → ");
   pips.innerHTML = Array.from({ length: PRESTIGE_CHALLENGE_LIMIT }, () => "<li></li>").join("");
   let pending = false;
   function render() {
     const current = d.state(), locked = d.locked(), done = current.completed >= PRESTIGE_CHALLENGE_LIMIT;
     card.classList.toggle("is-active", current.active);
-    state.textContent = current.active ? "In progress" : done ? "All complete" : locked ?? `Challenge ${current.completed + 1} of ${PRESTIGE_CHALLENGE_LIMIT}`;
+    const number = `Challenge ${current.completed + 1} of ${PRESTIGE_CHALLENGE_LIMIT}`;
+    state.textContent = done ? `All ${PRESTIGE_CHALLENGE_LIMIT} won` : current.active ? `${number} · in progress` : locked ?? number;
     pips.querySelectorAll("li").forEach((pip, index) => pip.classList.toggle("is-done", index < current.completed));
-    goalLabel.textContent = done ? "Every goal cleared" : challengeGoal(current.completed).label;
-    earned.textContent = current.completed ? `Earned so far: ${bonus(current.completed)} attacks/sec` : "";
-    button.textContent = current.active ? "Abandon and restore my run" : done ? "All challenges complete" : "Start Reflect Only";
+    const lines = done ? [] : current.active
+      ? ["Your saved run comes back when you win or abandon.", "Reach the goal, then press Prestige to win."]
+      : ["Starting saves your run and puts you back in the forest with starting stats.",
+        "Prestige level, perks, research and gear all stay.", "Reach the goal, then press Prestige to win and get your run back."];
+    terms.replaceChildren(...lines.map(line => Object.assign(root.createElement("li"), { textContent: line })));
+    goal.hidden = reward.hidden = done;
+    goalLabel.textContent = done ? "" : challengeGoal(current.completed).label;
+    earned.textContent = current.completed ? `${done ? "Won" : "Won so far"}: ${bonus(current.completed)} attacks/sec for good` : "";
+    button.textContent = current.active ? "Abandon and restore my run" : done ? "All challenges won" : "Start Reflect Only";
     button.classList.toggle("is-abandon", current.active);
     button.disabled = pending || (!current.active && (done || locked !== null));
   }

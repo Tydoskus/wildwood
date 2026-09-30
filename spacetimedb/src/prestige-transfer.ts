@@ -1,5 +1,5 @@
 import { mergePrestigeChallenges } from "./prestige-challenge";
-import { PRESTIGE_PERK_IDS, PRESTIGE_PERK_MAX_RANK, type PrestigePerkRanks } from "../../shared/prestige-perks";
+import { PRESTIGE_PERK_IDS, prestigePerkMaxRank, type PrestigePerkRanks } from "../../shared/prestige-perks";
 import { writePrestigePerkRanks } from "./prestige";
 
 /** Move permanent prestige credit when a guest save is claimed by an account. */
@@ -31,8 +31,8 @@ export function mergeLinkedPrestige(ctx: any, guest: any, account: any) {
   let refundedPoints = 0;
   for (const perk of PRESTIGE_PERK_IDS) {
     const total = (guestPerks[perk] ?? 0) + (accountPerks?.[perk] ?? 0);
-    mergedPerks[perk] = Math.min(PRESTIGE_PERK_MAX_RANK, total);
-    refundedPoints += Math.max(0, total - PRESTIGE_PERK_MAX_RANK);
+    mergedPerks[perk] = Math.min(prestigePerkMaxRank(perk), total);
+    refundedPoints += Math.max(0, total - prestigePerkMaxRank(perk));
   }
   writePrestigePerkRanks(ctx, account, mergedPerks);
   if (guestOriginal) ctx.db.playerPrestigePerk.identity.delete(guest);

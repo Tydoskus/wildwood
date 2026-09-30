@@ -1,6 +1,6 @@
 import { formatCompactNumber } from './number-format';
 import { PRESTIGE_PERK_POINTS_PER_LEVEL, PRESTIGE_STAT_GAIN_PER_LEVEL, prestigeCapped, prestigeEndlessRequirement, prestigeRequirementHint, prestigeStatMultiplier } from '../../shared/prestige';
-import { PRESTIGE_PERKS, PRESTIGE_PERK_IDS, PRESTIGE_PERK_MAX_RANK, prestigePerkEffectLabel, prestigePerkRank,
+import { PRESTIGE_PERKS, PRESTIGE_PERK_IDS, prestigePerkEffectLabel, prestigePerkMaxRank, prestigePerkRank,
   type PrestigePerkId, type PrestigePerkRanks } from '../../shared/prestige-perks';
 import { PRESTIGE_EXPANSION_PERK_IDS } from '../../shared/prestige-expansion';
 
@@ -205,8 +205,8 @@ export function createPrestigeController(options: {
       if (!row) continue;
       const rank = prestigePerkRank(ranks, id);
       const coming = !expanded() && (PRESTIGE_EXPANSION_PERK_IDS as readonly string[]).includes(id);
-      const maxed = rank >= PRESTIGE_PERK_MAX_RANK;
-      row.title.textContent = `${PRESTIGE_PERKS[id].title} ${rank}/${PRESTIGE_PERK_MAX_RANK}`;
+      const maxed = rank >= prestigePerkMaxRank(id);
+      row.title.textContent = `${PRESTIGE_PERKS[id].title} ${rank}/${prestigePerkMaxRank(id)}`;
       row.value.textContent = maxed
         ? `Now ${prestigePerkEffectLabel(id, rank)}`
         : `Now ${prestigePerkEffectLabel(id, rank)} · Next ${prestigePerkEffectLabel(id, rank + 1)}`;

@@ -11,22 +11,26 @@ it("shows Reflect Only's rule and reward, and confirms starting or abandoning it
   const confirm = vi.fn(async (_request: { message: string }) => true);
   const panel = createPrestigeChallengePanel({ container, state: () => state, locked: () => null, start, abandon, confirm });
   expect(container.textContent).toContain("Reflect Only");
-  expect(container.textContent).toContain("Only reflected hits deal damage");
+  expect(container.textContent).toContain("Only hits you throw back with the Reflect perk");
   expect(container.querySelector(".prestige-challenge-goal strong")!.textContent).toBe("Clear Endless 2");
-  expect(container.textContent).toContain("Aegis Prime (map 15) → Clear Endless 1 → Clear Endless 2 → Clear Endless 3");
+  expect(container.textContent).toContain("Starting saves your run");
+  expect(container.textContent).toContain("Map 15 boss → Endless 1 → Endless 2 → Endless 3");
   expect(container.textContent).toContain("+0.5 attacks/sec");
-  expect(container.textContent).toContain("Earned so far: +1 attacks/sec");
+  expect(container.textContent).toContain("Won so far: +1 attacks/sec for good");
   expect(container.querySelectorAll(".prestige-challenge-pips li.is-done")).toHaveLength(2);
   const button = container.querySelector("button")!;
   button.click(); await vi.waitFor(() => expect(start).toHaveBeenCalledOnce());
   panel.render(); expect(button.textContent).toContain("Abandon");
+  expect(container.textContent).toContain("Challenge 3 of 4 · in progress");
+  expect(container.textContent).toContain("Your saved run comes back when you win or abandon");
+  expect(container.textContent).not.toContain("Starting saves your run");
   await vi.waitFor(() => expect(button.disabled).toBe(false));
   button.click(); await vi.waitFor(() => expect(abandon).toHaveBeenCalledOnce());
   expect(state.completed).toBe(2);
   expect(confirm.mock.calls[0][0].message).toContain("saved and restored");
   state = { active: false, completed: 4 }; panel.render();
   expect(button.disabled).toBe(true);
-  expect(container.textContent).toContain("Earned so far: +2 attacks/sec");
+  expect(container.textContent).toContain("Won: +2 attacks/sec for good");
 });
 
 it("names why the challenge is locked and keeps its button off", () => {
