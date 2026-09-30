@@ -106,7 +106,9 @@ export function createPrestige(deps: PrestigeDeps) {
     const current = ctx.db.playerPrestige.identity.find(ctx.sender);
     if (!current || current.perkPoints < 1) throw new SenderError("No perk points to spend.");
     const ranks = prestigePerkRanks(ctx, ctx.sender);
-    if (ranks[perk] >= prestigePerkMaxRank(perk)) throw new SenderError("That perk is already at its highest rank.");
+    if (ranks[perk] >= prestigePerkMaxRank(perk, ctx.db.playerPrestigeChallenge.identity.find(ctx.sender)?.completed ?? 0)) {
+      throw new SenderError(perk === "riposte" ? "Reflect is at its cap. Each Reflect Only win raises it by one." : "That perk is already at its highest rank.");
+    }
     writePrestigePerkRanks(ctx, ctx.sender, { ...ranks, [perk]: ranks[perk] + 1 });
     ctx.db.playerPrestige.identity.update({ ...current, perkPoints: current.perkPoints - 1 });
     deps.refreshPerkEffects(ctx, activePlayer);

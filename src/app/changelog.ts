@@ -1,6 +1,6 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.842": [
-    "Reflect now goes to rank 7, up to a 42% chance to reflect",
+    "Reflect Only wins also raise Reflect's rank cap by 1 each, up to rank 9",
     "Clearer Reflect Only challenge text",
   ],
   "0.841": [

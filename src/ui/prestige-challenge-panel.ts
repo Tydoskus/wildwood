@@ -1,5 +1,6 @@
 import { gameConfirm, type ConfirmPrompt } from "./confirm-dialog";
 import { PRESTIGE_CHALLENGE_ATTACKS_PER_SECOND, PRESTIGE_CHALLENGE_LIMIT, challengeGoal, type PrestigeChallenge } from "../../shared/prestige-challenge";
+import { REFLECT_RANKS_PER_CHALLENGE } from "../../shared/prestige-perks";
 
 /** The prestige window's two tabs: its perks, and the Reflect Only challenge. */
 export function installPrestigeTabs(root: Document) {
@@ -43,7 +44,7 @@ export function createPrestigeChallengePanel(d: {
     <p class="prestige-challenge-rule">Your attacks deal no damage. Only hits you throw back with the Reflect perk hurt enemies and bosses.</p>
     <ul class="prestige-challenge-terms"></ul>
     <div class="prestige-challenge-goal"><span>Goal</span><strong></strong><small></small></div>
-    <div class="prestige-challenge-reward"><span>Reward</span><strong>${bonus(1)} attacks/sec</strong><small>to base attack speed and its cap, for good</small></div>
+    <div class="prestige-challenge-reward"><span>Reward</span><strong>${bonus(1)} attacks/sec · +${REFLECT_RANKS_PER_CHALLENGE} Reflect rank</strong><small>to base attack speed and its cap, and to Reflect's rank cap, for good</small></div>
     <p class="prestige-challenge-earned"></p>
     <button type="button" class="prestige-challenge-action"></button>
     <p class="prestige-challenge-status" role="status"></p>`;
@@ -70,7 +71,7 @@ export function createPrestigeChallengePanel(d: {
     terms.replaceChildren(...lines.map(line => Object.assign(root.createElement("li"), { textContent: line })));
     goal.hidden = reward.hidden = done;
     goalLabel.textContent = done ? "" : challengeGoal(current.completed).label;
-    earned.textContent = current.completed ? `${done ? "Won" : "Won so far"}: ${bonus(current.completed)} attacks/sec for good` : "";
+    earned.textContent = current.completed ? `${done ? "Won" : "Won so far"}: ${bonus(current.completed)} attacks/sec and +${current.completed * REFLECT_RANKS_PER_CHALLENGE} Reflect rank${current.completed === 1 ? "" : "s"}, for good` : "";
     button.textContent = current.active ? "Abandon and restore my run" : done ? "All challenges won" : "Start Reflect Only";
     button.classList.toggle("is-abandon", current.active);
     button.disabled = pending || (!current.active && (done || locked !== null));

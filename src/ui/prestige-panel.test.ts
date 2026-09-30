@@ -143,14 +143,14 @@ describe("prestige panel", () => {
     expect(value).toContain("Next +15% critical chance, +36% critical damage");
     expect(rows().every((row: any) => row.querySelector("button").disabled)).toBe(true);
 
-    const banked = setup({ unlocked: true, row: { level: 3, perkPoints: 1, peakPower: 0 }, perks: { riposte: 7 } });
+    const banked = setup({ unlocked: true, row: { level: 3, perkPoints: 1, peakPower: 0 }, perks: { riposte: 5 } });
     banked.controller.open();
     const perkRows = [...banked.pick("perks").querySelectorAll(".prestige-perk")] as any[];
     expect(perkRows[0].querySelector("button").disabled).toBe(false);
     const maxed = perkRows.find((row: any) => row.dataset.perk === "riposte");
     expect(maxed.querySelector("button").textContent).toBe("Maxed");
     expect(maxed.querySelector(".prestige-perk-value").textContent).not.toContain("Next");
-    expect(maxed.querySelector(".prestige-perk-title").textContent).toBe("Reflect 7/7");
+    expect(maxed.querySelector(".prestige-perk-title").textContent).toBe("Reflect 5/5");
     expect(maxed.querySelector("button").disabled).toBe(true);
   });
 

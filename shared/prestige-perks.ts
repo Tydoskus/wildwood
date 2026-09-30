@@ -1,5 +1,6 @@
+import { PRESTIGE_CHALLENGE_LIMIT } from "./prestige-challenge";
 /**
- * Prestige perks. One point per prestige and five ranks per perk (Reflect has seven), so maxing a
+ * Prestige perks. One point per prestige and five ranks per perk (Reflect gains one per challenge won), so maxing a
  * line takes five runs and spreading points leaves you mediocre at all of them.
  * Percent bonuses use fractions; Long Shot adds world units of attack range.
  */
@@ -13,7 +14,7 @@ export const PRESTIGE_PERKS = {
   splitShot: { title: "Split Shot", perRank: .08,
     detail: "Chance to strike a second enemy at the same time. Nothing to split against a boss." },
   // Shown as Reflect; the id stays riposte because it names a database column.
-  riposte: { title: "Reflect", perRank: .06, maxRank: 7,
+  riposte: { title: "Reflect", perRank: .06,
     detail: "Chance to throw half of a hit, before your armor, back at whoever dealt it: enemies, bosses and duel opponents." },
   bossSlayer: { title: "Boss Slayer", perRank: .10, detail: "Deal more weapon damage to bosses. Does not amplify reflected damage." },
   secondWind: { title: "Second Wind", perRank: .01, detail: "Restore a share of your maximum health after each regular enemy kill." },
@@ -45,10 +46,15 @@ export type PrestigePerkId = keyof typeof PRESTIGE_PERKS;
 export const PRESTIGE_PERK_IDS = Object.keys(PRESTIGE_PERKS) as PrestigePerkId[];
 export type PrestigePerkRanks = Record<PrestigePerkId, number>;
 
-/** Five ranks a perk, except where one says otherwise (Reflect has seven). */
-export function prestigePerkMaxRank(perk: PrestigePerkId) {
-  const definition = PRESTIGE_PERKS[perk];
-  return "maxRank" in definition ? definition.maxRank : PRESTIGE_PERK_MAX_RANK;
+/** Each Reflect Only win raises Reflect's cap by one rank. */
+export const REFLECT_RANKS_PER_CHALLENGE = 1;
+/**
+ * Five ranks a perk; Reflect gains one more for every Reflect Only win. With
+ * no count given, the ceiling after every win: what a rank is clamped to.
+ */
+export function prestigePerkMaxRank(perk: PrestigePerkId, challengesWon = PRESTIGE_CHALLENGE_LIMIT) {
+  const wins = Math.max(0, Math.min(PRESTIGE_CHALLENGE_LIMIT, Math.floor(Number.isFinite(challengesWon) ? challengesWon : 0)));
+  return PRESTIGE_PERK_MAX_RANK + (perk === "riposte" ? wins * REFLECT_RANKS_PER_CHALLENGE : 0);
 }
 
 export function isPrestigePerkId(value: string): value is PrestigePerkId {

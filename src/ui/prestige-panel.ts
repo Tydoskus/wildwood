@@ -66,6 +66,8 @@ export function createPrestigeController(options: {
   completed?: () => number;
   expanded?: () => boolean;
   challenge?: () => boolean;
+  /** Reflect Only wins so far: each raises Reflect's cap by one. */
+  challengesWon?: () => number;
   /** While Reflect Only runs: its goal, and whether this run meets it. Prestige's own requirement and cap step aside. */
   challengeGoal?: () => { label: string; met: boolean } | null;
   expansionCountdown?: () => string;
@@ -205,8 +207,9 @@ export function createPrestigeController(options: {
       if (!row) continue;
       const rank = prestigePerkRank(ranks, id);
       const coming = !expanded() && (PRESTIGE_EXPANSION_PERK_IDS as readonly string[]).includes(id);
-      const maxed = rank >= prestigePerkMaxRank(id);
-      row.title.textContent = `${PRESTIGE_PERKS[id].title} ${rank}/${prestigePerkMaxRank(id)}`;
+      const cap = prestigePerkMaxRank(id, options.challengesWon?.() ?? 0);
+      const maxed = rank >= cap;
+      row.title.textContent = `${PRESTIGE_PERKS[id].title} ${rank}/${cap}`;
       row.value.textContent = maxed
         ? `Now ${prestigePerkEffectLabel(id, rank)}`
         : `Now ${prestigePerkEffectLabel(id, rank)} · Next ${prestigePerkEffectLabel(id, rank + 1)}`;

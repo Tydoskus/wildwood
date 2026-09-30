@@ -29,10 +29,12 @@ export function mergeLinkedPrestige(ctx: any, guest: any, account: any) {
   const accountPerks = { ...ctx.db.playerPrestigePerk.identity.find(account), ...ctx.db.playerPrestigeExpansionPerk.identity.find(account) };
   const mergedPerks = {} as PrestigePerkRanks;
   let refundedPoints = 0;
+  // Challenges merged first, so Reflect's cap reflects the wins of both saves.
+  const wins = ctx.db.playerPrestigeChallenge.identity.find(account)?.completed ?? 0;
   for (const perk of PRESTIGE_PERK_IDS) {
     const total = (guestPerks[perk] ?? 0) + (accountPerks?.[perk] ?? 0);
-    mergedPerks[perk] = Math.min(prestigePerkMaxRank(perk), total);
-    refundedPoints += Math.max(0, total - prestigePerkMaxRank(perk));
+    mergedPerks[perk] = Math.min(prestigePerkMaxRank(perk, wins), total);
+    refundedPoints += Math.max(0, total - prestigePerkMaxRank(perk, wins));
   }
   writePrestigePerkRanks(ctx, account, mergedPerks);
   if (guestOriginal) ctx.db.playerPrestigePerk.identity.delete(guest);

@@ -334,12 +334,15 @@ it("pays a Reflect Only run for what Reflect could have killed, and nothing with
   expect(reflected).toBeLessThan(weapon);
 });
 
-it("lets Reflect reach rank 7 while every other perk stops at 5", () => {
+it("raises Reflect's cap by one for each Reflect Only win, while every other perk stops at 5", () => {
   const f = crystalFixture();
   f.seed("playerPrestige", { identity: f.ctx.sender, level: 20, perkPoints: 20, peakPower: 0, prestigedAt: f.ctx.timestamp });
-  for (let rank = 0; rank < 7; rank++) f.run(server.spendPrestigePerkPoint, { perk: "riposte" });
+  for (let rank = 0; rank < 5; rank++) f.run(server.spendPrestigePerkPoint, { perk: "riposte" });
+  expect(() => f.run(server.spendPrestigePerkPoint, { perk: "riposte" })).toThrow("Each Reflect Only win raises it by one");
+  f.seed("playerPrestigeChallenge", { identity: f.ctx.sender, active: false, completed: 2 });
+  f.run(server.spendPrestigePerkPoint, { perk: "riposte" }); f.run(server.spendPrestigePerkPoint, { perk: "riposte" });
   expect(f.db.playerPrestigePerk.identity.find(f.ctx.sender).riposte).toBe(7);
-  expect(() => f.run(server.spendPrestigePerkPoint, { perk: "riposte" })).toThrow("highest rank");
+  expect(() => f.run(server.spendPrestigePerkPoint, { perk: "riposte" })).toThrow("Reflect is at its cap");
   for (let rank = 0; rank < 5; rank++) f.run(server.spendPrestigePerkPoint, { perk: "keenEdge" });
   expect(() => f.run(server.spendPrestigePerkPoint, { perk: "keenEdge" })).toThrow("highest rank");
   expect(prestigeRow(f).perkPoints).toBe(8);
