@@ -61,3 +61,23 @@ export function mergePrestigeChallenges(ctx: any, guest: any, account: any) {
   if (target) ctx.db.playerPrestigeChallenge.identity.update(next); else ctx.db.playerPrestigeChallenge.insert(next);
   ctx.db.playerPrestigeChallenge.identity.delete(guest);
 }
+
+/**
+ * Put a player already playing reflect-only by hand into the challenge where
+ * they stand: their current run becomes the saved run, and nothing resets.
+ */
+export function enrollInPrestigeChallenge(ctx: any, identity: any): string {
+  const row = ctx.db.playerPrestigeChallenge.identity.find(identity);
+  if (row?.active || ctx.db.prestigeChallengeBackup.identity.find(identity)) return "already in a challenge";
+  if ((row?.completed ?? 0) >= PRESTIGE_CHALLENGE_LIMIT) return "every challenge already complete";
+  const progress = ctx.db.playerProgress.identity.find(identity);
+  const player = ctx.db.player.identity.find(identity);
+  if (!progress || !player) return "no saved run to park";
+  const { identity: _identity, ...fields } = progress;
+  ctx.db.prestigeChallengeBackup.insert({ identity, progressJson: JSON.stringify(fields),
+    completedEndless: ctx.db.proceduralProgress.identity.find(identity)?.completed ?? 0,
+    mapId: player.mapId, x: player.x, y: player.y });
+  const next = { identity, active: true, completed: row?.completed ?? 0 };
+  if (row) ctx.db.playerPrestigeChallenge.identity.update(next); else ctx.db.playerPrestigeChallenge.insert(next);
+  return "enrolled";
+}

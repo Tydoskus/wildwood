@@ -22,12 +22,11 @@ import { attackRangeWithResearch } from "../../shared/utility-research";
  */
 export function statRewardMultiplier(ctx: any, identity: any) {
   return researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity))
-    * prestigeStatMultiplier(challengeActive(ctx, identity) ? 0 : ctx.db.playerPrestige.identity.find(identity)?.level ?? 0);
+    * prestigeStatMultiplier(ctx.db.playerPrestige.identity.find(identity)?.level ?? 0);
 }
 
 /** The player's perk ranks, zero for anyone who has never prestiged. */
 export function prestigePerkRanks(ctx: any, identity: any): PrestigePerkRanks {
-  if (challengeActive(ctx, identity)) return Object.fromEntries(PRESTIGE_PERK_IDS.map(perk => [perk, 0])) as PrestigePerkRanks;
   const row = ctx.db.playerPrestigePerk.identity.find(identity);
   const expansion = prestigeExpanded(ctx) ? ctx.db.playerPrestigeExpansionPerk.identity.find(identity) : null;
   return { keenEdge: row?.keenEdge ?? 0, doubleStrike: row?.doubleStrike ?? 0, splitShot: row?.splitShot ?? 0, riposte: row?.riposte ?? 0,
@@ -90,7 +89,7 @@ export function createPrestige(deps: PrestigeDeps) {
   /** Spend one banked point on one rank; unspent points have no gameplay cap. */
   function spendPerkPoint(ctx: any, perk: string) {
     const activePlayer = requireControllingPlayer(ctx);
-    if (challengeActive(ctx, ctx.sender)) throw new SenderError("Perks are disabled during a prestige challenge.");
+    if (challengeActive(ctx, ctx.sender)) throw new SenderError("Finish or abandon the prestige challenge before spending perk points.");
     if (!isPrestigePerkId(perk)) throw new SenderError("Unknown prestige perk.");
     if ((PRESTIGE_EXPANSION_PERK_IDS as readonly string[]).includes(perk) && !prestigeExpanded(ctx)) {
       throw new SenderError("New prestige perks unlock when the countdown finishes.");

@@ -1,6 +1,7 @@
 import revision75 from '../../tests/fixtures/balance-revision-75.json';
-import { CAMPAIGN_REBALANCE, activateCampaignPacing, activateCampaignProgression, activateCampaignRewardFloor, applyCampaignRebalance } from './campaign-pacing-migration';
-import { defaultBalanceSettings, validateBalanceSettings } from '../../shared/map-balance';
+import { BOSS_DAMAGE_REBALANCE, CAMPAIGN_REBALANCE, activateCampaignPacing, activateCampaignProgression, activateCampaignRewardFloor, applyCampaignRebalance } from './campaign-pacing-migration';
+import { defaultBalanceSettings, resolveMapBalance, validateBalanceSettings } from '../../shared/map-balance';
+import { LIVE_BALANCE } from '../../src/balance/live-balance';
 import bakeFixture from '../../tests/fixtures/balance-revision-73.json';
 import { it, expect, vi } from 'vitest';
 import { balanceEditorState, forgetBalanceCaches, saveMapBalance, pinMapBalance, pinnedMapBalance } from './map-balance';
@@ -190,13 +191,13 @@ it('runs pending campaign migrations from the connection path only once', () => 
   f.seed('mapBalanceVersion', { revision: 73, settingsJson: JSON.stringify(bakeFixture.settings), editor: f.ctx.sender, createdAt: f.ctx.timestamp });
   f.ctx.connectionId = null;
   f.run(server.onConnect);
-  expect(f.db.moduleMigrationState.id.find(0).version).toBe(46);
+  expect(f.db.moduleMigrationState.id.find(0).version).toBe(48);
   expect(f.db.mapBalanceVersion.revision.find(75).settingsJson).toBe(JSON.stringify(validateBalanceSettings(revision75)));
-  // 45 made revision 76, and 46 raised its enemy hits as revision 77.
+  // 45 made revision 76, 46 raised its enemy hits as revision 77, and 48 its boss hits as 78.
   expectProgressionCurve(JSON.parse(f.db.mapBalanceVersion.revision.find(76).settingsJson));
-  expect(balanceEditorState(f.ctx as any).revision).toBe(77);
+  expect(balanceEditorState(f.ctx as any).revision).toBe(78);
   f.run(server.onConnect);
-  expect(balanceEditorState(f.ctx as any).revision).toBe(77);
+  expect(balanceEditorState(f.ctx as any).revision).toBe(78);
 });
 
 it('migration 45 turns the live revision into the tested progression curve, once, keeping Endless and dev tuning', () => {
@@ -261,4 +262,22 @@ it('a save never reuses a revision number when the head was moved back', () => {
   applyCampaignRebalance(ctx);
   expect(balanceEditorState(ctx).revision).toBe(77);
   expect(JSON.parse(ctx.db.mapBalanceVersion.revision.find(76).settingsJson)).toEqual(live);
+});
+
+it('migration 48 has every boss from the desert on hit 11x its map regular, Endless included', () => {
+  const ctx = fixture();
+  ctx.db.mapBalanceVersion.insert({ revision: 76, settingsJson: JSON.stringify(LIVE_BALANCE.settings), editor: ctx.sender, createdAt: ctx.timestamp });
+  ctx.db.mapBalanceHead.insert({ id: 0, revision: 76 });
+  applyCampaignRebalance(ctx);
+  applyCampaignRebalance(ctx, BOSS_DAMAGE_REBALANCE);
+  const { revision, settings } = balanceEditorState(ctx);
+  expect(revision).toBe(78);
+  const median = (values: number[]) => values.sort((a, b) => a - b)[Math.floor(values.length / 2)];
+  for (const id of [...Object.keys(BOSS_DAMAGE_REBALANCE).filter(id => id !== 'endless'), 'endless_1', 'endless_4']) {
+    const balance: any = resolveMapBalance(id, settings, revision);
+    const rows: any[] = id.startsWith('endless_') ? Object.entries(balance.lanes).map(([kind, lane]: any) => ({ elite: /Warden|King/.test(kind), ...lane })) : Object.values(balance.enemies);
+    const heaviest = Math.max(balance.boss.damage ?? 0, ...Object.values(balance.boss.attacks ?? {}) as number[]);
+    expect(heaviest / median(rows.filter(row => !row.elite).map(row => row.damage)), id).toBeCloseTo(11, 1);
+  }
+  expect(settings.maps.tutorial_forest.bossDamage).toBe(0.3);
 });

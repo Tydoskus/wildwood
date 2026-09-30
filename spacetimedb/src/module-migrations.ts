@@ -1,4 +1,4 @@
-import { activateCampaignPacing, activateCampaignProgression, applyCampaignRebalance, activateCampaignRewardFloor } from './campaign-pacing-migration';
+import { BOSS_DAMAGE_REBALANCE, activateCampaignPacing, activateCampaignProgression, applyCampaignRebalance, activateCampaignRewardFloor } from './campaign-pacing-migration';
 // One-time data migrations: the version-gated steps runPendingModuleMigrations
 // walks once per module version, the legacy balance rebases they call and the
 // per-connection migratePlayerBalance catch-up for saves that predate the
@@ -41,8 +41,21 @@ import { BALANCE_APOLOGY_GEM_GIFT } from "../../shared/gems";
 import { grantGemHeartUnlock } from "./chat-reactions";
 import { GEM_KILL_CREDIT_PER_GEM } from "../../shared/gem-drops";
 import { syncPlayerJoinDate } from "./mailbox";
+import { enrollInPrestigeChallenge } from "./prestige-challenge";
 
-export const MODULE_MIGRATION_VERSION = 46;
+export const MODULE_MIGRATION_VERSION = 48;
+
+/** Migration 47's one player, matched on the whole display name, ignoring case. */
+export const REFLECT_CHALLENGE_ENROLLEE = "phoe";
+
+/** Enrols the one player with this name; logs and does nothing on no match or several. */
+export function enrollPlayerByName(ctx: any, name: string) {
+  const matches = [...ctx.db.playerProfile.iter() as Iterable<any>].filter(profile => String(profile.displayName).trim().toLowerCase() === name);
+  if (matches.length !== 1) { console.warn(`Reflect challenge enrolment: ${matches.length} players named "${name}", none enrolled.`); return null; }
+  const outcome = enrollInPrestigeChallenge(ctx, matches[0].identity);
+  console.log(`Reflect challenge enrolment of "${name}": ${outcome}.`);
+  return outcome;
+}
 
 export type ModuleMigrationDeps = {
   MAP_ARRIVALS: Record<string, { x: number; y: number }>;
@@ -510,6 +523,11 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     if (currentVersion < 45) activateCampaignProgression(ctx);
     // 46: the campaign and Endless rebalance (campaign-pacing-migration.ts), as a new balance revision.
     if (currentVersion < 46) applyCampaignRebalance(ctx);
+    // 47: Phoe was playing a Reflect Only challenge by hand before it existed;
+    // put that run into the challenge where it stands instead of restarting it.
+    if (currentVersion < 47) enrollPlayerByName(ctx, REFLECT_CHALLENGE_ENROLLEE);
+    // 48: bosses hit 11x their map's regular again (campaign-pacing-migration.ts).
+    if (currentVersion < 48) applyCampaignRebalance(ctx, BOSS_DAMAGE_REBALANCE);
     const next = { id: 0, version: MODULE_MIGRATION_VERSION };
     if (state) ctx.db.moduleMigrationState.id.update(next);
     else ctx.db.moduleMigrationState.insert(next);

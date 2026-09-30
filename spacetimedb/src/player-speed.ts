@@ -1,5 +1,4 @@
 import { CHALLENGE_ABSOLUTE_MIN_INTERVAL } from "../../shared/prestige-challenge";
-import { challengeActive } from "./prestige-challenge";
 import { effectivePlayerMovementSpeed } from "../../shared/rules";
 import { prestigePerkValue } from "../../shared/prestige-perks";
 import { attackRangeWithResearch } from "../../shared/utility-research";
@@ -13,12 +12,12 @@ export function effectiveMovementSpeedForProgress(ctx: any, progress: any, resea
     ranks?.moveSpeed ?? 0,
     progress.speedOverride ?? 0,
     ranks?.utilityMoveSpeed ?? 0,
-  ) * (1 + (challengeActive(ctx, progress.identity) ? 0 : prestigePerkValue(ctx.db.playerPrestigeExpansionPerk.identity.find(progress.identity), "fleetFoot")));
+  ) * (1 + prestigePerkValue(ctx.db.playerPrestigeExpansionPerk.identity.find(progress.identity), "fleetFoot"));
 }
 
 /** Saved range includes research and Long Shot, while base stat totals stay unchanged. */
 export function prestigeRangeBonus(ctx: any, identity: any) {
-  return challengeActive(ctx, identity) ? 0 : prestigePerkValue(ctx.db.playerPrestigeExpansionPerk.identity.find(identity), "longShot");
+  return prestigePerkValue(ctx.db.playerPrestigeExpansionPerk.identity.find(identity), "longShot");
 }
 
 /** Refresh saved range and live movement immediately when a perk point is spent. */

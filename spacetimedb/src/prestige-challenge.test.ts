@@ -5,6 +5,7 @@ import { prestigePerkRanks, statRewardMultiplier, writePrestigePerkRanks } from 
 import { BOSS_REWARD_CLAIM_BITS, DEFAULT_ATTACK_INTERVAL, MAX_BASE_ATTACKS_PER_SECOND, MIN_ATTACK_INTERVAL } from "../../shared/rules";
 import { challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { applyEnemyRewards } from "../../shared/enemy-defeats";
+import { REFLECT_CHALLENGE_ENROLLEE, enrollPlayerByName } from "./module-migrations";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 function fixture() {
@@ -25,14 +26,14 @@ function fixture() {
   return { ...f, saved, ranks, finish };
 }
 
-it("parks the current run and disables prestige bonuses without erasing their allocations", () => {
-  const f = fixture(); f.run(server.startPrestigeChallenge);
+it("parks the current run and resets its stats, keeping prestige level and perks on", () => {
+  const f = fixture(); const multiplier = statRewardMultiplier(f.ctx, f.ctx.sender); f.run(server.startPrestigeChallenge);
   expect(f.db.playerPrestigeChallenge.identity.find(f.ctx.sender)).toMatchObject({ active: true, completed: 0 });
   expect(f.db.playerProgress.identity.find(f.ctx.sender)).toMatchObject({ attackRate: DEFAULT_ATTACK_INTERVAL, bossRewardClaims: 0 });
-  expect(Object.values(prestigePerkRanks(f.ctx, f.ctx.sender)).every(rank => rank === 0)).toBe(true);
-  expect(statRewardMultiplier(f.ctx, f.ctx.sender)).toBe(1);
-  expect(f.db.playerPrestigePerk.identity.find(f.ctx.sender).keenEdge).toBe(2);
-  expect(() => f.run(server.spendPrestigePerkPoint, { perk: "keenEdge" })).toThrow("disabled");
+  expect(prestigePerkRanks(f.ctx, f.ctx.sender)).toEqual(f.ranks);
+  expect(statRewardMultiplier(f.ctx, f.ctx.sender)).toBe(multiplier);
+  expect(multiplier).toBeGreaterThan(1);
+  expect(() => f.run(server.spendPrestigePerkPoint, { perk: "keenEdge" })).toThrow("challenge");
   expect(() => f.run(server.respecPrestigePerks)).toThrow("challenge");
   expect(() => f.run(server.startPrestigeChallenge)).toThrow("already active");
   expect(() => f.run(server.prestigeAccount)).toThrow();
@@ -83,4 +84,24 @@ it("keeps the permanent base and cap reward through later ordinary prestiges and
   expect(f.db.playerProgress.identity.find(f.ctx.sender).attackRate).toBeCloseTo(expected);
   expect(f.db.playerPrestigeChallenge.identity.find(f.ctx.sender).completed).toBe(1);
   expect(1 / challengeMinimumInterval(f.db.playerPrestigeChallenge.identity.find(f.ctx.sender))).toBe(MAX_BASE_ATTACKS_PER_SECOND + .5);
+});
+
+it("enrols a player by name where they stand, parking that run without resetting it", () => {
+  const f = fixture();
+  f.patch("playerProfile", { displayName: "Phoe" });
+  expect(enrollPlayerByName(f.ctx, REFLECT_CHALLENGE_ENROLLEE)).toBe("enrolled");
+  expect(f.db.playerPrestigeChallenge.identity.find(f.ctx.sender)).toMatchObject({ active: true, completed: 0 });
+  expect(f.db.playerProgress.identity.find(f.ctx.sender)).toMatchObject(f.saved);
+  expect(enrollPlayerByName(f.ctx, REFLECT_CHALLENGE_ENROLLEE)).toBe("already in a challenge");
+  // Finishing hands back the run as it stood at enrolment, with the reward.
+  f.patch("proceduralProgress", { completed: 13 }); f.run(server.prestigeAccount);
+  expect(f.db.proceduralProgress.identity.find(f.ctx.sender).completed).toBe(12);
+  expect(f.db.playerProgress.identity.find(f.ctx.sender)).toMatchObject({ ...f.saved, attackRate: 1 / (MAX_BASE_ATTACKS_PER_SECOND + .5) });
+  expect(f.db.playerPrestigeChallenge.identity.find(f.ctx.sender)).toMatchObject({ active: false, completed: 1 });
+});
+
+it("enrols nobody when no player, or more than one, has the name", () => {
+  const f = fixture();
+  expect(enrollPlayerByName(f.ctx, REFLECT_CHALLENGE_ENROLLEE)).toBeNull();
+  expect(f.db.playerPrestigeChallenge.identity.find(f.ctx.sender)).toBeNull();
 });

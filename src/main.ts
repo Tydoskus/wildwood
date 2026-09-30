@@ -614,7 +614,7 @@ import {
     },
   );
   const research = createResearchController({
-    prestigeLevel: () => coop?.prestigeChallenge?.()?.active ? 0 : coop?.prestige?.()?.level ?? 0,
+    prestigeLevel: () => coop?.prestige?.()?.level ?? 0,
     prestigePerks: () => coop?.prestigePerks?.(),
     player,
     getRanks: () => coop?.research?.(),
@@ -699,6 +699,7 @@ import {
     equippedChestUpgradeLevel: () => coop?.itemUpgradeLevel?.(inventory.equippedChest) ?? 0,
     healthMultiplierBonus,
     minAttackInterval: () => challengeMinimumInterval(coop?.prestigeChallenge?.()),
+    reflectOnly: () => Boolean(coop?.prestigeChallenge?.()?.active),
     effectiveArmor,
     isDueling,
     hitGeneratedBoss: (enemy, damage, critical, reflected) => { if (!enemy.generatedBoss) return false; personalBosses.hit(currentMapId, damage); spawnDamageNumber(enemy.x, enemy.y, damage, critical, false, reflected); return true; },
@@ -1397,7 +1398,7 @@ import {
     skinTone: (identity) => coop?.skinTone?.(identity) ?? DEFAULT_SKIN_TONE, setSkinTone: async (value) => coop?.setSkinTone?.(value),
     playerGender: (identity) => coop?.playerGender?.(identity) ?? 0, setGender: async (value) => coop?.setGender?.(value),
     renderStats: (profile, element) => renderProfileStats(profile, element, formatArmorReduction, challengeMinimumInterval(profile.prestigeChallenge), profile.research,
-      profile.prestigeChallenge?.active ? 0 : profile.identity === coop?.localIdentity?.() ? coop?.prestige?.()?.level ?? 0 : profile.prestigeLevel ?? 0,
+      profile.identity === coop?.localIdentity?.() ? coop?.prestige?.()?.level ?? 0 : profile.prestigeLevel ?? 0,
       profile.identity === coop?.localIdentity?.() ? coop?.prestigePerks?.() : profile.prestigePerks),
     formatPower: (profile) => formatCompactNumber(profilePower(profile)), formatPlayedTime,
     profile: (identity) => coop?.playerProfile?.(identity), loadProfile: async (identity) => coop?.loadPlayerProfile?.(identity), releaseProfile: () => { coop?.releasePlayerProfile?.(); },

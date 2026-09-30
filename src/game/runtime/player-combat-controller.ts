@@ -154,6 +154,8 @@ export function createPlayerCombatController(options: {
   incrementKills: () => void;
   hitPersonalBoss?: (damage: number, x: number, y: number, critical: boolean, reflected?: boolean) => void;
   hitGeneratedBoss?: (enemy: EnemyState, damage: number, critical: boolean, reflected?: boolean) => boolean;
+  /** The Reflect Only prestige challenge: only reflected hits deal damage. */
+  reflectOnly?: () => boolean;
   spawnBurst: (x: number, y: number, color: string, count?: number, speed?: number) => void;
   spawnParticle: (x: number, y: number, vx: number, vy: number, life: number, maxLife: number, size: number, color: string) => void;
   spawnDamageNumber: (x: number, y: number, amount: number, critical?: boolean, damageTaken?: boolean, reflected?: boolean) => void;
@@ -619,6 +621,7 @@ export function createPlayerCombatController(options: {
   }
 
   function applyPlayerHit(target: EnemyState | BossTarget, damage: number, critical: boolean, angle: number, reflected = false) {
+    if (!reflected && options.reflectOnly?.()) return;
     if ((target.isBoss || target.generatedBoss) && !reflected) damage *= 1 + (options.prestigeBossSlayer?.() ?? 0);
     // A reflected hit shows blue, so the player can see Reflect fire.
     if (!target.isBoss && !target.generatedBoss) spawnDamageNumber(target.x, target.y, damage, critical, false, reflected);

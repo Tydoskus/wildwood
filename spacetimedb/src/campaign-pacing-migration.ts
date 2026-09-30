@@ -85,10 +85,24 @@ export const CAMPAIGN_REBALANCE: Readonly<Record<string, Readonly<Partial<Record
   ion_citadel: { enemyHealth: 5.251, enemyDamage: 72.18, enemyRewards: 11.04, bossHealth: 6.739 },
   endless: { enemyHealth: 4.8, enemyDamage: 4.943, enemyRewards: 3.973, bossHealth: 5.056 },
 });
-export function applyCampaignRebalance(ctx: Parameters<typeof saveMapBalance>[0]) {
+/**
+ * Migration 48: migration 46 raised regular hits up to 72x and left boss hits
+ * alone, so by map 15 a boss hit for a sixth of a regular and in Endless for 3%.
+ * Every boss from the desert on now lands its heaviest attack at 11x its map's
+ * regular hit, the ratio the early campaign already had. The forest dragon
+ * keeps its hand-set numbers; Endless follows map 15 through ENDLESS_STEPS.hit.
+ */
+export const BOSS_DAMAGE_REBALANCE: typeof CAMPAIGN_REBALANCE = Object.freeze({
+  beginner_desert: { bossDamage: 0.1465 }, intermediate_snowlands: { bossDamage: 0.9467 }, advanced_lava_wastes: { bossDamage: 0.8435 },
+  infernal_depths: { bossDamage: 0.8381 }, water_reach: { bossDamage: 0.962 }, samurai_garden: { bossDamage: 1.031 },
+  cloudspire: { bossDamage: 1.766 }, moonfen: { bossDamage: 2.969 }, crystal_hollows: { bossDamage: 4.775 },
+  clockwork_ruins: { bossDamage: 10.06 }, duskfall_orchard: { bossDamage: 17.08 }, neon_bastion: { bossDamage: 28.02 },
+  verdant_catacombs: { bossDamage: 40.74 }, ion_citadel: { bossDamage: 66.37 }, endless: { bossDamage: 4.943 },
+});
+export function applyCampaignRebalance(ctx: Parameters<typeof saveMapBalance>[0], table: typeof CAMPAIGN_REBALANCE = CAMPAIGN_REBALANCE) {
   if (!ctx.db.mapBalanceHead.id.find(0)) return; // A fresh database has no live revision to rebalance.
   const { revision, settings } = balanceEditorState(ctx);
   const next = { ...settings, maps: Object.fromEntries(Object.entries(settings.maps).map(([id, factors]) => [id, { ...factors }])) };
-  for (const [id, factors] of Object.entries(CAMPAIGN_REBALANCE)) if (next.maps[id]) Object.assign(next.maps[id], factors);
+  for (const [id, factors] of Object.entries(table)) if (next.maps[id]) Object.assign(next.maps[id], factors);
   saveMapBalance(ctx, revision, JSON.stringify(next));
 }
