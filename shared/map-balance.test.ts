@@ -110,3 +110,9 @@ describe('Endless carries on from map 15', () => {
     expect(lanes['Dread Warden'].hp).toBeGreaterThan(lanes.Cindermaw.hp);
   });
 });
+
+it("holds the baseline: map 1's Spitters have 8 health and pay 1.5 damage a kill", () => {
+  const spitter = resolveMapBalance('tutorial_forest', defaultBalanceSettings(), 0).enemies.Spitter;
+  expect(spitter.hp).toBe(8);
+  expect(spitter.reward).toEqual({ type: 'damage', amount: 1.5 });
+});

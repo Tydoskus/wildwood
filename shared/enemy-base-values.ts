@@ -6,7 +6,7 @@ export const ENEMY_BASE_VALUES = {
   "Bramble": {"speed": 205, "attackSpeed": 1, "r": 14, "color": "#d95738", "outline": "#5c1b13", "hp": 42, "damage": 14, "reward": {"type": "health", "amount": 42}},
   "Needle": {"speed": 205, "attackSpeed": 1, "r": 10, "color": "#ffd34d", "outline": "#6f4a12", "hp": 90, "damage": 24, "reward": {"type": "speed", "amount": 0.05}},
   "Mossback": {"speed": 205, "attackSpeed": 1, "r": 22, "color": "#768d51", "outline": "#2c3b20", "hp": 180, "damage": 29, "reward": {"type": "armor", "amount": 9}},
-  "Spitter": {"speed": 205, "attackSpeed": 1, "r": 15, "color": "#b16ac8", "outline": "#4b235d", "hp": 24, "damage": 20, "reward": {"type": "damage", "amount": 1}},
+  "Spitter": {"speed": 205, "attackSpeed": 1, "r": 15, "color": "#b16ac8", "outline": "#4b235d", "hp": 8, "damage": 20, "reward": {"type": "damage", "amount": 1.5}},
   "Brood": {"speed": 205, "attackSpeed": 0.69, "r": 16, "color": "#45b6c2", "outline": "#174a54", "ranged": true, "hp": 220, "damage": 56, "reward": {"type": "regen", "amount": 2}},
   "Cindermaw": {"speed": 205, "attackSpeed": 1, "r": 19, "color": "#d95738", "outline": "#5c1b13", "hp": 360, "damage": 86, "reward": {"type": "damage", "amount": 3}},
   "King Slime": {"speed": 205, "attackSpeed": 1, "r": 27, "color": "#70a94f", "outline": "#2d5127", "elite": true, "aggro": 300, "hp": 500, "damage": 143, "reward": {"type": "health", "amount": 90}},
