@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.842": [
+    "Reflect now goes to rank 7, up to a 42% chance to reflect",
+    "Clearer Reflect Only challenge text",
+  ],
   "0.841": [
     "Reflect Only goals: defeat the map 15 boss, then clear Endless 1, 2 and 3",
     "Reflect Only is checked by the server: kills have to come from Reflect, and offline farming pauses during it",
@@ -2545,6 +2549,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.842": "2026-09-30",
   "0.841": "2026-09-30",
   "0.840": "2026-09-30",
   "0.839": "2026-09-30",
