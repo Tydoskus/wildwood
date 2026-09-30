@@ -78,7 +78,7 @@ import {
 } from "../../shared/items";
 import { applyEnemyRewards } from "../../shared/enemy-defeats";
 import { statRewardMultiplier, prestigePerkRanks } from "./prestige";
-import { preArmorFactor, prestigeCriticalDamageBonus, prestigePerkValue, prestigeReachMultiplier, prestigeSwingMultiplier } from "../../shared/prestige-perks";
+import { RIPOSTE_REFLECT_SHARE, preArmorFactor, prestigeCriticalDamageBonus, prestigePerkValue, prestigeReachMultiplier, prestigeSwingMultiplier } from "../../shared/prestige-perks";
 import { armorDamageReduction } from "../../shared/combat";
 import { pinnedBossReward } from "./map-balance";
 import { bowSkillRollFor } from "./bow-skills";
@@ -119,6 +119,11 @@ export type BossCombatDeps = {
   /** Auto equip after a reward is written: see auto-equip.ts. `before` is the progress the reward started from. */
   equipNewUpgrades: (ctx: any, identity: any, before: any) => void;
 };
+
+/** The death screen's 3-second countdown and a second more: shorter than any real death and walk back. */
+export const REFLECT_ONLY_LIFE_SECONDS = 4;
+/** Reflect lands whenever a hit does, with no swing to round kills to; a short tick keeps the bound continuous. */
+export const REFLECT_ONLY_TICK_SECONDS = .1;
 
 export function createBossCombat(deps: BossCombatDeps) {
   const {
@@ -194,6 +199,7 @@ export function createBossCombat(deps: BossCombatDeps) {
           * bowSkillReachMultiplier(bowSkills),
         bossDamage: bowSkillBossDamageMultiplier(bowSkills) * (1 + prestigePerkValue(ranks, "bossSlayer")),
         reflects: prestigePerkValue(ranks, "riposte") > 0,
+        reflectOnly: Boolean(ctx.db.playerPrestigeChallenge.identity.find(ctx.sender)?.active),
       } };
     }
     const report = () => (loaded ??= load());
@@ -213,6 +219,15 @@ export function createBossCombat(deps: BossCombatDeps) {
         // the most Reflect can shorten a clear, whatever its bag drew.
         const reflect = gear.reflects ? (({ maxHp, regen, armor }) => ({ maxHp, regen, preArmor: preArmorFactor(armorDamageReduction(armor)) }))(
           effectivePlayerPowerStats(progress, report().research, gear.loadout.levelFor)) : null;
+        // Reflect Only: the weapon counts for nothing, and every kill has to come
+        // from hits taken. What got through is at most a full health bar per life
+        // plus regen, a life being no shorter than REFLECT_ONLY_LIFE_SECONDS; half
+        // of that, scaled up by armor, is what Reflect can return. The perk's
+        // chance is left out, so the bound only ever errs towards paying.
+        if (gear.reflectOnly) {
+          const reflected = reflect ? RIPOSTE_REFLECT_SHARE * reflect.preArmor * (reflect.regen + reflect.maxHp / REFLECT_ONLY_LIFE_SECONDS) : 0;
+          return { attackInterval: REFLECT_ONLY_TICK_SECONDS, projectiles: 1, reach: 1, dps: reflected, bossDps: reflected, reflect: null };
+        }
         return { attackInterval, projectiles: gear.projectiles, reach: gear.reach, dps, bossDps: dps * gear.bossDamage, reflect };
       },
       /** statRewardMultiplier: research and prestige cannot change inside one report. */

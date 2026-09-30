@@ -10,6 +10,7 @@ type ExpectedApiKey =
   | "proceduralMapUnlocked"
   | "proceduralCompleted"
   | "prestigeCampaignComplete"
+  | "prestigeChallengeGoal"
   | "social"
   | "guild"
   | "acceptLegalTerms"

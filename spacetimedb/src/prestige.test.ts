@@ -315,3 +315,21 @@ it("refuses a respec with nothing spent, and changes nothing", () => {
   expect(f.db.playerProgress.identity.find(f.ctx.sender)).toEqual(before);
   expect(prestigeRow(f)).toMatchObject({ perkPoints: 1 });
 });
+
+it("pays a Reflect Only run for what Reflect could have killed, and nothing without it", () => {
+  const accepted = (ranks: Record<string, number>, challenge: boolean) => {
+    const f = farmer(1);
+    f.patch("playerProgress", { maxHp: 4, regen: 0 });
+    if (Object.keys(ranks).length) f.seed("playerPrestigePerk", { identity: f.ctx.sender, ...ranks });
+    if (challenge) f.seed("playerPrestigeChallenge", { identity: f.ctx.sender, active: true, completed: 0 });
+    fillDefeatBudget(f, "tutorial_forest", "Spitter");
+    farmSpitters(f, 100);
+    return Number(f.db.playerLifetime.identity.find(f.ctx.sender)?.enemyKills ?? 0n);
+  };
+  const weapon = accepted({ riposte: PRESTIGE_PERK_MAX_RANK }, false);
+  const reflected = accepted({ riposte: PRESTIGE_PERK_MAX_RANK }, true);
+  // A 1,000-damage bow is worth nothing here: only hits taken come back.
+  expect(accepted({}, true)).toBe(0);
+  expect(reflected).toBeGreaterThan(0);
+  expect(reflected).toBeLessThan(weapon);
+});

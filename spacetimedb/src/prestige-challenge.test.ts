@@ -3,7 +3,7 @@ import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixt
 import { ensurePrestigeExpansion } from "./prestige-expansion";
 import { prestigePerkRanks, statRewardMultiplier, writePrestigePerkRanks } from "./prestige";
 import { BOSS_REWARD_CLAIM_BITS, DEFAULT_ATTACK_INTERVAL, MAX_BASE_ATTACKS_PER_SECOND, MIN_ATTACK_INTERVAL } from "../../shared/rules";
-import { challengeMinimumInterval } from "../../shared/prestige-challenge";
+import { challengeGoal, challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { applyEnemyRewards } from "../../shared/enemy-defeats";
 import { REFLECT_CHALLENGE_ENROLLEE, enrollPlayerByName } from "./module-migrations";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
@@ -20,7 +20,7 @@ function fixture() {
   const ranks = prestigePerkRanks(f.ctx, f.ctx.sender);
   const finish = () => {
     f.patch("playerProgress", { bossRewardClaims: BOSS_REWARD_CLAIM_BITS.aegisPrime });
-    f.seed("proceduralProgress", { identity: f.ctx.sender, completed: 1 });
+    f.seed("proceduralProgress", { identity: f.ctx.sender, completed: 3 });
     f.run(server.prestigeAccount);
   };
   return { ...f, saved, ranks, finish };
@@ -104,4 +104,29 @@ it("enrols nobody when no player, or more than one, has the name", () => {
   const f = fixture();
   expect(enrollPlayerByName(f.ctx, REFLECT_CHALLENGE_ENROLLEE)).toBeNull();
   expect(f.db.playerPrestigeChallenge.identity.find(f.ctx.sender)).toBeNull();
+});
+
+it("wins each Reflect Only run on its own goal: map 15's boss, then Endless 1, 2 and 3", () => {
+  const f = fixture();
+  f.run(server.startPrestigeChallenge);
+  // The first goal is the campaign's last boss, nothing else.
+  expect(() => f.run(server.prestigeAccount)).toThrow("Defeat Aegis Prime (map 15) to win");
+  f.patch("playerProgress", { bossRewardClaims: BOSS_REWARD_CLAIM_BITS.aegisPrime });
+  f.run(server.prestigeAccount);
+  expect(f.db.playerPrestigeChallenge.identity.find(f.ctx.sender)).toMatchObject({ active: false, completed: 1 });
+  expect(f.db.playerPrestige.identity.find(f.ctx.sender).level).toBe(1);
+  for (const stage of [1, 2, 3]) {
+    f.run(server.startPrestigeChallenge);
+    f.patch("playerProgress", { bossRewardClaims: BOSS_REWARD_CLAIM_BITS.aegisPrime });
+    f.seed("proceduralProgress", { identity: f.ctx.sender, completed: stage - 1 });
+    expect(() => f.run(server.prestigeAccount)).toThrow(`Clear Endless ${stage} to win`);
+    f.patch("proceduralProgress", { completed: stage });
+    f.run(server.prestigeAccount);
+    expect(f.db.playerPrestigeChallenge.identity.find(f.ctx.sender).completed).toBe(stage + 1);
+  }
+});
+
+it("names each Reflect Only goal", () => {
+  expect(challengeGoal(0).label).toBe("Defeat Aegis Prime (map 15)");
+  expect(challengeGoal(3).label).toBe("Clear Endless 3");
 });

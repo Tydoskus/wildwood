@@ -2863,6 +2863,10 @@
   .prestige-challenge-pips li.is-done { border-color: #f0c674; background: #f0c674; }
   .prestige-challenge-rule { margin: 0; color: #fff; font-size: 12px; line-height: 1.45; }
   .prestige-challenge-terms { display: grid; gap: 4px; margin: 0; padding-left: 16px; color: #aab2bf; font-size: 10px; line-height: 1.4; }
+  .prestige-challenge-goal { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 2px 8px; padding: 8px 10px; border-radius: 6px; background: rgba(90,140,220,.12); border: 1px solid rgba(110,150,220,.4); }
+  .prestige-challenge-goal span { color: #8c94a1; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+  .prestige-challenge-goal strong { color: #fff; font-size: 13px; }
+  .prestige-challenge-goal small { grid-column: 1 / -1; color: #8c94a1; font-size: 10px; }
   .prestige-challenge-reward { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 2px 8px; padding: 8px 10px; border-radius: 6px; background: rgba(240,198,116,.1); border: 1px solid rgba(240,198,116,.35); }
   .prestige-challenge-reward span { color: #8c94a1; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
   .prestige-challenge-reward strong { color: #f0c674; font-size: 14px; }

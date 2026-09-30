@@ -30,6 +30,7 @@ export function createPrestigeExpansionRuntime(d: {
         unlocked: () => Boolean(coop?.prestigeCampaignComplete?.((coop?.prestige?.()?.level ?? 0) + 1)),
         completed: () => coop?.proceduralCompleted?.() ?? 0,
         challenge: () => coop?.prestigeChallenge?.()?.active ?? false,
+        challengeGoal: () => { const state = coop?.prestigeChallenge?.(); return state?.active ? coop?.prestigeChallengeGoal?.(state.completed) ?? null : null; },
         respec: () => options.runPrestige(coop?.respecPrestigePerks),
       });
       const doc = options.e.prestigePerks.ownerDocument as Document;

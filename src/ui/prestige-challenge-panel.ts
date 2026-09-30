@@ -1,5 +1,5 @@
 import { gameConfirm, type ConfirmPrompt } from "./confirm-dialog";
-import { PRESTIGE_CHALLENGE_ATTACKS_PER_SECOND, PRESTIGE_CHALLENGE_LIMIT, type PrestigeChallenge } from "../../shared/prestige-challenge";
+import { PRESTIGE_CHALLENGE_ATTACKS_PER_SECOND, PRESTIGE_CHALLENGE_LIMIT, challengeGoal, type PrestigeChallenge } from "../../shared/prestige-challenge";
 
 /** The prestige window's two tabs: its perks, and the Reflect Only challenge. */
 export function installPrestigeTabs(root: Document) {
@@ -44,8 +44,9 @@ export function createPrestigeChallengePanel(d: {
     <ul class="prestige-challenge-terms">
       <li>Your run is saved; you restart from the forest with starting stats.</li>
       <li>Your prestige level and perks stay on.</li>
-      <li>Meet your next prestige requirement and press Prestige to win. Your saved run comes back.</li>
+      <li>Reach the goal and press Prestige to win. Your saved run comes back.</li>
     </ul>
+    <div class="prestige-challenge-goal"><span>Goal</span><strong></strong><small></small></div>
     <div class="prestige-challenge-reward"><span>Reward</span><strong>${bonus(1)} attacks/sec</strong><small>to your base attack speed and its cap, for good</small></div>
     <p class="prestige-challenge-earned"></p>
     <button type="button" class="prestige-challenge-action"></button>
@@ -54,6 +55,8 @@ export function createPrestigeChallengePanel(d: {
   const $ = <T extends HTMLElement>(selector: string) => card.querySelector<T>(selector)!;
   const state = $(".prestige-challenge-state"), pips = $(".prestige-challenge-pips"), earned = $(".prestige-challenge-earned");
   const button = $<HTMLButtonElement>(".prestige-challenge-action"), status = $(".prestige-challenge-status");
+  const goalLabel = $(".prestige-challenge-goal strong"), goalLadder = $(".prestige-challenge-goal small");
+  goalLadder.textContent = Array.from({ length: PRESTIGE_CHALLENGE_LIMIT }, (_, index) => challengeGoal(index).label.replace(/^Defeat /, "")).join(" → ");
   pips.innerHTML = Array.from({ length: PRESTIGE_CHALLENGE_LIMIT }, () => "<li></li>").join("");
   let pending = false;
   function render() {
@@ -61,6 +64,7 @@ export function createPrestigeChallengePanel(d: {
     card.classList.toggle("is-active", current.active);
     state.textContent = current.active ? "In progress" : done ? "All complete" : locked ?? `Challenge ${current.completed + 1} of ${PRESTIGE_CHALLENGE_LIMIT}`;
     pips.querySelectorAll("li").forEach((pip, index) => pip.classList.toggle("is-done", index < current.completed));
+    goalLabel.textContent = done ? "Every goal cleared" : challengeGoal(current.completed).label;
     earned.textContent = current.completed ? `Earned so far: ${bonus(current.completed)} attacks/sec` : "";
     button.textContent = current.active ? "Abandon and restore my run" : done ? "All challenges complete" : "Start Reflect Only";
     button.classList.toggle("is-abandon", current.active);

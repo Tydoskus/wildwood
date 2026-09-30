@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { parseHTML } from "linkedom";
 import { createPrestigeController, prestigeRewardLabel, submitPrestige, type PrestigeRow } from "./prestige-panel";
 
-function setup(options: { row?: PrestigeRow | null; unlocked?: boolean; completed?: number; run?: () => Promise<any>; perks?: any; spend?: () => Promise<any>; respec?: () => Promise<any> } = {}) {
+function setup(options: { row?: PrestigeRow | null; unlocked?: boolean; completed?: number; goal?: { label: string; met: boolean } | null; run?: () => Promise<any>; perks?: any; spend?: () => Promise<any>; respec?: () => Promise<any> } = {}) {
   const { document } = parseHTML(`<html><body>
     <div id="own" hidden><button id="open" disabled>Prestige</button></div>
     <div id="overlay" hidden>
@@ -22,6 +22,7 @@ function setup(options: { row?: PrestigeRow | null; unlocked?: boolean; complete
     prestige: () => options.row ?? null, unlocked: () => options.unlocked ?? false, completed: () => options.completed ?? 0,
     perkList: pick("perks"), perks: () => options.perks ?? null, spendPerk: spendPerk as any,
     runPrestige, showMessage, respec,
+    ...(options.goal === undefined ? {} : { challenge: () => options.goal !== null, challengeGoal: () => options.goal ?? null }),
   });
   return { controller, pick, runPrestige, spendPerk, showMessage, respec };
 }
@@ -361,4 +362,18 @@ describe("prestige respec", () => {
     await settle();
     expect(s.pick("status").textContent).toContain("duel");
   });
+});
+
+it("follows the Reflect Only goal instead of prestige's own requirement while a challenge runs", async () => {
+  // The campaign is not done, but the challenge goal is what decides the button.
+  const unmet = setup({ row: { level: 3, perkPoints: 0, peakPower: 0 }, unlocked: false, goal: { label: "Clear Endless 2", met: false } });
+  unmet.controller.open(); unmet.controller.render();
+  expect(unmet.pick("confirm").disabled).toBe(true);
+  expect(unmet.pick("cost").textContent).toContain("Reflect Only goal: Clear Endless 2");
+  const met = setup({ row: { level: 3, perkPoints: 0, peakPower: 0 }, unlocked: false, goal: { label: "Clear Endless 2", met: true } });
+  met.controller.open(); met.controller.render();
+  expect(met.pick("confirm").disabled).toBe(false);
+  click(met.pick("confirm")); click(met.pick("confirm"));
+  await vi.waitFor(() => expect(met.runPrestige).toHaveBeenCalledOnce());
+  await vi.waitFor(() => expect(met.showMessage).toHaveBeenCalledWith(expect.stringContaining("Reflect Only won")));
 });

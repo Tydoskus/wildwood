@@ -1,5 +1,5 @@
 import { challengeActive, setPrestigeChallenge } from "./prestige-challenge";
-import { challengeAttackInterval } from "../../shared/prestige-challenge";
+import { challengeAttackInterval, challengeGoal, challengeGoalMet } from "../../shared/prestige-challenge";
 import { SenderError } from "spacetimedb/server";
 import { researchStatRewardMultiplier } from "../../shared/research";
 import { PLAYER_STARTING_POWER, playerPowerForStats } from "../../shared/player-power";
@@ -60,6 +60,16 @@ export function createPrestige(deps: PrestigeDeps) {
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel before prestiging.");
     const progress = ctx.db.playerProgress.identity.find(ctx.sender);
     const current = ctx.db.playerPrestige.identity.find(ctx.sender);
+    // A Reflect Only run wins on its own goal, not the next prestige's requirement or cap.
+    const challenge = ctx.db.playerPrestigeChallenge.identity.find(ctx.sender);
+    if (challenge?.active) {
+      const endless = ctx.db.proceduralProgress.identity.find(ctx.sender)?.completed ?? 0;
+      if (!progress || !challengeGoalMet(challenge.completed, progress.bossRewardClaims, endless)) {
+        throw new SenderError(`Reflect Only: ${challengeGoal(challenge.completed).label} to win.`);
+      }
+      deps.restoreChallenge(ctx, activePlayer, true);
+      return current;
+    }
     const nextLevel = (current?.level ?? 0) + 1;
     const expanded = prestigeExpanded(ctx);
     if (prestigeCapped(nextLevel, expanded)) throw new SenderError(PRESTIGE_CAP_HINT);
@@ -70,7 +80,6 @@ export function createPrestige(deps: PrestigeDeps) {
         ? `Clear Endless ${prestigeEndlessRequirement(nextLevel)} before prestiging.`
         : `Defeat ${prestigeCampaignTarget(nextLevel).bossName} before prestiging.`);
     }
-    if (challengeActive(ctx, ctx.sender)) { deps.restoreChallenge(ctx, activePlayer, true); return current; }
     // The peak is kept for the player to see what they traded away; it only
     // ever rises, so a weaker later run cannot erase a stronger earlier one.
     const next = {

@@ -1,4 +1,5 @@
 import { prestigeCampaignComplete } from "../../../shared/prestige";
+import { challengeGoal, challengeGoalMet } from "../../../shared/prestige-challenge";
 import { BOSS_REWARD_CLAIM_BITS } from "../../../shared/rules";
 import { tables, type DbConnection } from "../../module_bindings";
 import {
@@ -100,6 +101,13 @@ export function createProceduralMapService(port: ReducerPort) {
       const conn = port.connection();
       const claims = conn?.identity ? conn.db.playerProgress.identity.find(conn.identity)?.bossRewardClaims ?? 0 : 0;
       return prestigeCampaignComplete(claims, nextLevel);
+    },
+    /** The Reflect Only goal for a challenge with `completed` wins behind it, and whether this run meets it. */
+    prestigeChallengeGoal(completed: number) {
+      const conn = port.connection();
+      const claims = conn?.identity ? conn.db.playerProgress.identity.find(conn.identity)?.bossRewardClaims ?? 0 : 0;
+      const endless = conn?.identity ? conn.db.proceduralProgress.identity.find(conn.identity)?.completed ?? 0 : 0;
+      return { label: challengeGoal(completed).label, met: challengeGoalMet(completed, claims, endless) };
     },
     proceduralMapUnlocked(mapId: string) {
       const number = proceduralMapNumber(mapId);

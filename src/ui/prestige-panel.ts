@@ -66,6 +66,8 @@ export function createPrestigeController(options: {
   completed?: () => number;
   expanded?: () => boolean;
   challenge?: () => boolean;
+  /** While Reflect Only runs: its goal, and whether this run meets it. Prestige's own requirement and cap step aside. */
+  challengeGoal?: () => { label: string; met: boolean } | null;
   expansionCountdown?: () => string;
   runPrestige: () => Promise<PrestigeResult>;
   /** Refund every spent perk point for the run's power. The row stays hidden without it. */
@@ -77,6 +79,7 @@ export function createPrestigeController(options: {
   let armed = false, pending = false, respecArmed = false;
 
   const nextLevel = () => (options.prestige()?.level ?? 0) + 1;
+  const goal = () => options.challenge?.() ? options.challengeGoal?.() ?? null : null;
   const completed = () => options.completed?.() ?? 0;
   const expanded = () => options.expanded?.() ?? false;
   let previousExpanded = expanded();
@@ -231,7 +234,8 @@ export function createPrestigeController(options: {
     options.cost.textContent = unlocked()
       ? `${PRESTIGE_COST} You would earn ${prestigeRewardLabel(level)}.`
       : `Spend the points you have banked. ${hint()}`;
-    if (options.challenge?.()) options.cost.textContent = `Reflect Only is on: meet the prestige requirement, then press Prestige to win +0.5 attacks/sec and restore your saved run. ${hint()}`;
+    const challengeGoal = goal();
+    if (challengeGoal) options.cost.textContent = `Reflect Only goal: ${challengeGoal.label}. Then press Prestige to win +0.5 attacks/sec and restore your saved run.`;
     renderPerks(row?.perkPoints ?? 0);
     // Enabled whenever the campaign is done, even if this client reads fewer
     // Endless stages than the server has. A missing procedural_progress row
@@ -240,9 +244,10 @@ export function createPrestigeController(options: {
     // Toephu on 2026-09-22, whose window said to clear a boss he had already
     // beaten. The requirement is still spelled out beside the button; the
     // server owns the decision and names exactly what is missing.
-    confirmButton.disabled = pending || !options.unlocked() || prestigeCapped(nextLevel(), expanded());
+    confirmButton.disabled = pending || (challengeGoal ? !challengeGoal.met : !options.unlocked() || prestigeCapped(nextLevel(), expanded()));
     confirmButton.hidden = false;
-    if (!unlocked() && (!status.textContent || status.textContent.startsWith('Prestige 20 uncapped in '))) status.textContent = hint();
+    if (challengeGoal) { if (!challengeGoal.met && !status.textContent) status.textContent = `Reflect Only: ${challengeGoal.label} to win.`; }
+    else if (!unlocked() && (!status.textContent || status.textContent.startsWith("Prestige 20 uncapped in "))) status.textContent = hint();
   }
 
   /** Called whenever the profile window renders, so the button tracks progress. */
@@ -277,8 +282,9 @@ export function createPrestigeController(options: {
     // Only the campaign gate is enforced here, because it is the one this
     // client can be certain of. An Endless count that has not arrived yet must
     // not swallow the press; the server refuses and says why.
-    if (pending || !options.unlocked()) {
-      if (!pending) status.textContent = hint() || LOCKED_HINT;
+    const challengeGoal = goal();
+    if (pending || (challengeGoal ? !challengeGoal.met : !options.unlocked())) {
+      if (!pending) status.textContent = challengeGoal ? `Reflect Only: ${challengeGoal.label} to win.` : hint() || LOCKED_HINT;
       return;
     }
     // Losing every map unlock deserves a second press, not a single tap.
@@ -287,7 +293,7 @@ export function createPrestigeController(options: {
       armed = true;
       confirmButton.textContent = 'Yes, prestige';
       confirmButton.classList.add('is-armed');
-      status.textContent = options.challenge?.() ? "Complete challenge and restore your saved run." : PRESTIGE_ARMED_WARNING;
+      status.textContent = challengeGoal ? "Win Reflect Only and restore your saved run." : PRESTIGE_ARMED_WARNING;
       render();   // repaints a respec this press disarmed
       return;
     }
@@ -299,7 +305,7 @@ export function createPrestigeController(options: {
       const outcome = await submitPrestige(options.runPrestige, () => options.prestige()?.level ?? 0);
       if (outcome.ok) {
         close();
-        options.showMessage?.(completingChallenge ? "Prestige challenge complete. Your saved run is restored." : outcome.message);
+        options.showMessage?.(completingChallenge ? "Reflect Only won: +0.5 attacks/sec. Your saved run is restored." : outcome.message);
       } else {
         status.textContent = outcome.error;
       }

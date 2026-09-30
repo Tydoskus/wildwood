@@ -190,3 +190,13 @@ it("pays nothing to an account that switched offline progress off, and closes th
   expect(row.pending).toBe(false);
   expect(row.awaySinceMicros).toBe(0n);
 });
+
+it("pays no offline farming while a Reflect Only challenge runs", () => {
+  const fixture = away(OFFLINE_WINDOW_SECONDS);
+  fixture.seed("playerPrestigeChallenge", { identity: fixture.ctx.sender, active: true, completed: 0 });
+  const before = fixture.db.playerProgress.identity.find(fixture.ctx.sender);
+  enter(fixture);
+  const after = fixture.db.playerProgress.identity.find(fixture.ctx.sender);
+  expect([after.damage, after.maxHp, after.armor, after.regen]).toEqual([before.damage, before.maxHp, before.armor, before.regen]);
+  expect(fixture.db.offlineProgress.identity.find(fixture.ctx.sender).kills).toBe(0);
+});

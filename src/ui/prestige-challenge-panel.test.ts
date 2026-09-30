@@ -12,6 +12,8 @@ it("shows Reflect Only's rule and reward, and confirms starting or abandoning it
   const panel = createPrestigeChallengePanel({ container, state: () => state, locked: () => null, start, abandon, confirm });
   expect(container.textContent).toContain("Reflect Only");
   expect(container.textContent).toContain("Only reflected hits deal damage");
+  expect(container.querySelector(".prestige-challenge-goal strong")!.textContent).toBe("Clear Endless 2");
+  expect(container.textContent).toContain("Aegis Prime (map 15) → Clear Endless 1 → Clear Endless 2 → Clear Endless 3");
   expect(container.textContent).toContain("+0.5 attacks/sec");
   expect(container.textContent).toContain("Earned so far: +1 attacks/sec");
   expect(container.querySelectorAll(".prestige-challenge-pips li.is-done")).toHaveLength(2);
