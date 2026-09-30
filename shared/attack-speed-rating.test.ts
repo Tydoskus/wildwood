@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { addSpeedRating, attacksPerSecondFromSpeed, speedFromAttacksPerSecond } from "./attack-speed-rating";
-import { DEFAULT_ATTACK_INTERVAL } from "./rules";
+import { DEFAULT_ATTACK_INTERVAL, MAX_BASE_ATTACKS_PER_SECOND as CAP } from "./rules";
 import { applyEnemyRewards } from "./enemy-defeats";
 
 describe("Speed rating", () => {
-  it("starts at a new run's rate and closes a fifth of the gap to 3/s every 10x", () => {
-    const start = 1 / DEFAULT_ATTACK_INTERVAL, gap = 3 - start;
+  it("starts at a new run's rate and closes a fifth of the gap to the cap every 10x", () => {
+    const start = 1 / DEFAULT_ATTACK_INTERVAL, gap = CAP - start;
     expect(attacksPerSecondFromSpeed(0)).toBeCloseTo(start);
-    expect(attacksPerSecondFromSpeed(9)).toBeCloseTo(3 - gap * .8);
-    expect(attacksPerSecondFromSpeed(999)).toBeCloseTo(3 - gap * .8 ** 3);
-    expect(attacksPerSecondFromSpeed(1e36)).toBeLessThan(3);
+    expect(attacksPerSecondFromSpeed(9)).toBeCloseTo(CAP - gap * .8);
+    expect(attacksPerSecondFromSpeed(999)).toBeCloseTo(CAP - gap * .8 ** 3);
+    expect(attacksPerSecondFromSpeed(1e36)).toBeLessThan(CAP);
   });
 
   it("reads the rating back from a stored interval, and adds points to it", () => {
@@ -25,6 +25,6 @@ describe("Speed rating", () => {
     const base = { damage: 1, maxHp: 1, attackRate: DEFAULT_ATTACK_INTERVAL, armor: 0, regen: 0 };
     const speed = [{ type: "speed", amount: 3, count: 3 }];
     expect(1 / applyEnemyRewards(base, speed, 1, true).attackRate).toBeCloseTo(attacksPerSecondFromSpeed(9));
-    expect(1 / applyEnemyRewards(base, speed, 1).attackRate).toBeCloseTo(3);   // 9 attacks a second, held at the cap
+    expect(1 / applyEnemyRewards(base, speed, 1).attackRate).toBeCloseTo(CAP);   // 9 attacks a second, held at the cap
   });
 });
