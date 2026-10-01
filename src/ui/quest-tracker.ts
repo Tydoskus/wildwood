@@ -1,12 +1,22 @@
 import type { QuestTrackerView } from "./quest-board-controller";
 
 const COLLAPSED_KEY = "wildstat-quest-tracker-collapsed-v1";
+const ENABLED_KEY = "wildstat-quest-tracker-v1";
+
+/** Whether the HUD tracker is on: switched from the Quest Board, on unless turned off, remembered per device. */
+export function createQuestTrackerSetting(storage: Pick<Storage, "getItem" | "setItem">) {
+  let enabled = (() => { try { return storage.getItem(ENABLED_KEY) !== "false"; } catch { return true; } })();
+  return {
+    enabled: () => enabled,
+    set(next: boolean) { enabled = next; try { storage.setItem(ENABLED_KEY, String(next)); } catch { /* holds for the session */ } },
+  };
+}
 
 /**
  * The quest tracker on the HUD away from home: the three quests in play with
  * their counts, those on the current map first and bright, the rest dimmed
- * with where to find them. The header collapses it to a small chip; Settings
- * turns it off. Rows are rebuilt only when what they show changes.
+ * with where to find them. The header collapses it to a small chip; the Quest
+ * Board turns it off. Rows are rebuilt only when what they show changes.
  */
 export function installQuestTracker(options: {
   view: () => QuestTrackerView | null;
@@ -15,8 +25,8 @@ export function installQuestTracker(options: {
   storage: Pick<Storage, "getItem" | "setItem">;
   /** Draws this week's quests if they have not arrived (rate-limited by the caller). */
   ensure?: () => void;
+  enabled: () => boolean;
 }) {
-  const toggle = document.getElementById("questTrackerToggle");
   const panel = document.createElement("section");
   panel.className = "quest-tracker";
   panel.hidden = true;
@@ -43,8 +53,7 @@ export function installQuestTracker(options: {
   applyCollapsed();
 
   function render() {
-    const enabled = !toggle || toggle.getAttribute("aria-pressed") !== "false";
-    const showing = enabled && !options.hiddenHere();
+    const showing = options.enabled() && !options.hiddenHere();
     if (showing) options.ensure?.();
     const view = showing ? options.view() : null;
     if (!view) { panel.hidden = true; return; }

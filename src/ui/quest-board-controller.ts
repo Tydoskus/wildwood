@@ -1,3 +1,4 @@
+import { renderBooleanSetting } from "./settings";
 import { GUILD_QUEST_BONUS_PER_POINT, SOLO_QUEST_BONUS_PER_QUEST, WEEKLY_QUEST_COUNT, activeQuestIndices, ownQuest, questDay, questDone, questOpen, questWeek, questWeekEndsAtMs, type DailyQuest } from "../../shared/daily-quests";
 
 type QuestState = { day: number; quests: DailyQuest[]; bonus: number; guildPoints: number; guildName: string };
@@ -111,6 +112,8 @@ export function createQuestBoardController(deps: {
   clearInput?: () => void;
   mapName: (mapId: string) => string;
   nowMs?: () => number;
+  /** The HUD quest tracker's switch, which lives on the board. */
+  tracker?: { enabled: () => boolean; set: (enabled: boolean) => void };
 }) {
   const now = () => deps.nowMs?.() ?? Date.now();
   const dialog = document.createElement("dialog");
@@ -119,11 +122,18 @@ export function createQuestBoardController(deps: {
   dialog.innerHTML = `<header class="farm-header"><h2 id="questBoardTitle" class="window-banner"><span>Weekly Quests</span></h2></header>`
     // Everything between the banner and Back scrolls, so small screens reach it all.
     + `<div class="quest-body"><p class="farm-map quest-reset"></p><div class="quest-week" aria-hidden="true"></div><div class="quest-list" role="list" aria-label="Quests in play"></div>`
-    + `<p class="quest-guild-hint"></p></div>`
+    + `<p class="quest-guild-hint"></p>`
+    + `<div class="quest-tracker-setting"><span>Track quests on the HUD</span><button type="button" class="setting-toggle quest-tracker-switch"></button></div></div>`
     + `<footer class="farm-footer"><div class="farm-actions"><button type="button" class="window-back-button">Back</button></div></footer>`;
   document.body.append(dialog);
   const $ = <T extends HTMLElement>(selector: string) => dialog.querySelector<T>(selector)!;
   const reset = $(".quest-reset"), list = $(".quest-list"), week = $(".quest-week"), hint = $(".quest-guild-hint"), back = $<HTMLButtonElement>(".window-back-button");
+  const trackerRow = $(".quest-tracker-setting"), trackerSwitch = $<HTMLButtonElement>(".quest-tracker-switch");
+  trackerRow.hidden = !deps.tracker;
+  trackerSwitch.setAttribute("aria-label", "Track quests on the HUD");
+  const paintTracker = () => renderBooleanSetting(trackerSwitch, deps.tracker?.enabled() ?? true);
+  trackerSwitch.addEventListener("click", () => { deps.tracker?.set(!deps.tracker.enabled()); paintTracker(); });
+  paintTracker();
   let ticker = 0;
 
   function render() {

@@ -1,6 +1,6 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.857": [
-    "New: a quest tracker on the HUD away from home shows your three quests in play; tap it to fold it away, or turn it off in Settings",
+    "New: a quest tracker on the HUD away from home shows your three quests in play; tap it to fold it away, or switch it off on the Quest Board",
   ],
   "0.856": [
     "Duels and the leaderboard's stat tabs now hold stats past 1e38",

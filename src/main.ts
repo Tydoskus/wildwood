@@ -1,7 +1,7 @@
 import { installOfflineProgressSetting } from "./ui/offline-progress-setting";
 import { runtimeMapBalance } from '../shared/map-balance-runtime';
 import { installStatTracker } from './ui/stat-tracker';
-import { installQuestTracker } from './ui/quest-tracker';
+import { createQuestTrackerSetting, installQuestTracker } from './ui/quest-tracker';
 import { createStatTrackerSource } from './ui/stat-tracker-source';
 import { refreshMapBalanceEnemies } from "./game/runtime/map-balance-enemies";
 import { createMapBalanceLoader } from "./game/runtime/map-balance-loader";
@@ -871,7 +871,8 @@ import {
     prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss,
     onCutsceneFinished: () => bossController.onPortalCutsceneFinished(),
   });
-  const quests = createQuestBoardRuntime({ source: () => coop, atHome: () => currentMapId === "home_exterior",
+  const questTracker = createQuestTrackerSetting(localStorage);
+  const quests = createQuestBoardRuntime({ source: () => coop, atHome: () => currentMapId === "home_exterior", tracker: questTracker,
     pause: paused => setGameplayPause("quest-board", paused), clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id as MapId]?.name ?? id, showProgress: (enemy, count, target) => runtimeHud.showQuestProgress(enemy, count, target) });
   const homeTravel = createHomeTravelController({ source: () => coop, travel: mapController.travelFromHome, departure: mapController.homeDeparture, atHome: () => currentMapId === "home_exterior", pause: paused => setGameplayPause("home-travel", paused), clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id].name });
   const { activePortal, secondaryPortal, portalIsUnlocked, startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene, startSamuraiPortalCutscene } = mapController;
@@ -1757,7 +1758,7 @@ import {
   installStatTracker({ storage: localStorage, read: createStatTrackerSource({ coop: () => coop, player, inventory,
     hasStarted: session.hasStarted, isLoadedFor: progress.isLoadedFor, inTutorial, researchRanks, kills: () => totalKills,
     displayedProgress: displayedPlayerPowerProgress }) });
-  installQuestTracker({ storage: localStorage, ensure: () => quests.refresh(), view: () => quests.trackerView(currentMapId), hiddenHere: () => !session.hasStarted() || currentMapId === "home_exterior" || inTutorial() || document.body.matches(".is-cutscene, .is-replaying, .is-dueling") });
+  installQuestTracker({ storage: localStorage, enabled: questTracker.enabled, ensure: () => quests.refresh(), view: () => quests.trackerView(currentMapId), hiddenHere: () => !session.hasStarted() || currentMapId === "home_exterior" || inTutorial() || document.body.matches(".is-cutscene, .is-replaying, .is-dueling") });
   const mailbox = createGameMailbox(gameElements.mailboxToggle, gameElements.minimapVersionEl, coop,
     () => session.hasStarted() && !inTutorial());
 

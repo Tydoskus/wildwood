@@ -558,6 +558,10 @@
 .quest-sheet .quest-week { display: flex; justify-content: center; gap: 6px; margin: -2px 0 12px; }
 .quest-sheet .quest-week-step { flex: none; width: 5px; height: 18px; border-radius: 3px; background: rgba(255,255,255,.85); }
 .quest-sheet .quest-week-step.is-done { background: var(--green); }
+/* The HUD tracker's switch, at the foot of the board. */
+.quest-sheet .quest-tracker-setting { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0 0; padding: 8px 10px; border: 2px solid rgba(255,255,255,.14); border-radius: 10px; background: #ffffff06; font-weight: 800; }
+.quest-sheet .quest-tracker-setting[hidden] { display: none; }
+.quest-sheet .quest-tracker-switch { flex: none; margin: 0; }
 /* A quest a guildmate collected: no longer this player's to finish. */
 .quest-sheet .quest-row.is-taken { opacity: .55; }
 .quest-sheet .quest-check { flex: 0 0 26px; display: grid; place-items: center; width: 26px; height: 26px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; color: transparent; font-size: 15px; -webkit-text-stroke: 0; text-shadow: none; }
