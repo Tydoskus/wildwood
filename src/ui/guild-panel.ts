@@ -11,7 +11,7 @@ import type { GuildAction, GuildApi } from "../coop/services/guild-service";
 import { applyProfileIcon } from "../app/profile-icons";
 import { createGuildPreview } from './guild-preview';
 import type { GuildQuestStanding } from "./quest-board-controller";
-import { GUILD_QUEST_BONUS_PER_POINT, GUILD_QUEST_COLLECT_LIMIT, WEEKLY_QUEST_COUNT, questDay } from "../../shared/daily-quests";
+import { GUILD_QUEST_BONUS_PER_POINT, GUILD_QUEST_COLLECT_LIMIT, SOLO_QUEST_BONUS_PER_QUEST, WEEKLY_QUEST_COUNT, questDay, questWeek } from "../../shared/daily-quests";
 
 type Section = "guild" | "battles" | "rankings" | "quests" | "friends";
 type Member = NonNullable<GuildSnapshot["guild"]>["members"][number];
@@ -410,14 +410,23 @@ export function createGuildPanel(options: Options) {
       element("p", "Your guild gets 3 attacks a day, once per opponent. Attacking earns 3 weekly points for a victory, 1 for a draw. Defense costs no attacks and awards no points.")); body.append(rules);
   }
   /** Daily quest points: what this guild has this week, what it pays, and how every guild stands. */
+  function hint(parent: HTMLElement, text: string) { parent.append(element("p", text, "guild-quest-hint")); }
   function renderQuests(body: HTMLElement) {
     const standing = options.questStanding?.();
-    heading(body, "Quest points", `Each weekly quest a member finishes is a point. Next week, the whole guild gets +${GUILD_QUEST_BONUS_PER_POINT * 100}% stat gains per point.`);
+    if (standing?.solo) heading(body, "Your quest bonus", `Each weekly quest you finish on your own is +${Math.round(SOLO_QUEST_BONUS_PER_QUEST * 100)}% stat gains next week.`);
+    else heading(body, "Quest points", `Each weekly quest a member finishes is a point. Next week, the whole guild gets +${GUILD_QUEST_BONUS_PER_POINT * 100}% stat gains per point.`);
     if (standing?.guild) {
       const week = element("div", undefined, "guild-quest-week");
       week.append(element("strong", `${number(standing.guild.points)} point${standing.guild.points === 1 ? "" : "s"} this week`),
         element("span", `Guild bonus now: +${standing.guild.bonusNow} stat gains`), element("span", `Next week: +${standing.guild.bonusNext}`));
       body.append(week);
+    } else if (standing?.solo) {
+      // Guildless: their own week, what it pays, and what a guild would add.
+      const week = element("div", undefined, "guild-quest-week");
+      week.append(element("strong", `${standing.solo.quests}/${WEEKLY_QUEST_COUNT} quests on your own this week`),
+        element("span", `Your bonus now: +${standing.solo.bonusNow} stat gains`), element("span", `Next week: +${standing.solo.bonusNext} (up to +${standing.solo.bonusMax})`));
+      body.append(week);
+      hint(body, `In a guild, every member's quests add up: +${GUILD_QUEST_BONUS_PER_POINT * 100}% per point, up to +${Math.round(GUILD_MEMBER_LIMIT * WEEKLY_QUEST_COUNT * GUILD_QUEST_BONUS_PER_POINT * 100)}% a week. You get a guild's bonus from the first Monday you're in it.`);
     } else empty(body, "No guild yet", "Join or found a guild, and every weekly quest you finish becomes a point for it.");
     renderQuestMembers(body);
     heading(body, "Guild ranking", "Every guild's quest points this week.");
@@ -440,14 +449,16 @@ export function createGuildPanel(options: Options) {
    * unfinished ones here.
    */
   function renderQuestMembers(body: HTMLElement) {
-    const hint = (parent: HTMLElement, text: string) => parent.append(element("p", text, "guild-quest-hint"));
     const own = snapshot?.guild;
     if (!own) return;
     const today = questDay(BigInt(Math.floor(now())) * 1000n);
     const joinedToday = (member: { eligibleAt: string }) => questDay(BigInt(member.eligibleAt)) >= today;
     heading(body, "Members this week", "Each member's fifteen quests and the points they have earned the guild.");
     const self = own.members.find(member => member.identity === snapshot!.identity);
-    if (self && joinedToday(self)) hint(body, "Your quests count for this guild from tomorrow, and its bonus from next week.");
+    // New members: when their quests start counting here, and when the guild's bonus reaches them.
+    const joinedThisWeek = (member: { eligibleAt: string }) => questWeek(questDay(BigInt(member.eligibleAt))) >= questWeek(today);
+    if (self && joinedToday(self)) hint(body, "Your quests count for this guild from tomorrow; today's go to your own bonus. The guild's bonus reaches you next week.");
+    else if (self && joinedThisWeek(self)) hint(body, "You joined this week: the guild's bonus reaches you next week. Until then you keep your own.");
     const collect = own.questCollect;
     if (collect) hint(body, !collect.ready ? `Finish your own ${WEEKLY_QUEST_COUNT} quests to collect up to ${GUILD_QUEST_COLLECT_LIMIT} of your members' unfinished ones.`
       : collect.left ? `You can collect ${collect.left} more of your members' unfinished quests this week.` : "You have collected all you can this week.");

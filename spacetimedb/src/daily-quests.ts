@@ -80,7 +80,8 @@ export function ensureDailyQuests(ctx: Ctx, identity: any) {
   const day = questDay(ctx.timestamp.microsSinceUnixEpoch);
   const existing = ctx.db.playerDailyQuest.identity.find(identity);
   const guild = guildOf(ctx, identity), week = questWeek(day);
-  const guildFields = { bonus: guildQuestBonusFor(ctx, identity), guildPoints: guild ? weekPoints(ctx, week, guild.id) : 0, guildName: guild?.name ?? "" };
+  // Without a guild, guildPoints carries the player's own solo quests this week, for the board's bonus line.
+  const guildFields = { bonus: guildQuestBonusFor(ctx, identity), guildPoints: guild ? weekPoints(ctx, week, guild.id) : soloPoints(ctx, identity, week), guildName: guild?.name ?? "" };
   let questsJson = existing?.questsJson ?? "[]";
   const current = existing && questWeek(existing.day) === week ? parseDailyQuests(existing.questsJson) : null;
   const own = current?.filter(ownQuest).length ?? 0;
@@ -106,16 +107,18 @@ export function recordDailyQuestKills(ctx: Ctx, identity: any, mapId: string, ki
   const { quests, completed } = applyQuestKills(parseDailyQuests(row.questsJson), mapId, kills);
   let guildPoints = row.guildPoints;
   // A member's quests count for their guild from the day after they join, so
-  // joining a guild for the day sends it nothing.
+  // joining a guild for the day sends it nothing. Points earned stay with the
+  // guild that earned them, whatever the player joins afterwards.
   const member = completed ? guildOf(ctx, identity) : null;
   const guild = member && member.joinedDay < row.day ? member : null;
-  if (completed && !member) {
-    // No guild: the quest counts toward next week's solo bonus instead.
+  if (completed && !guild) {
+    // No guild, or joined today: the quest counts toward next week's solo bonus instead, so none is wasted.
     const week = questWeek(row.day), solo = ctx.db.soloQuestWeek.identity.find(identity);
     const next = !solo ? { identity, week, points: completed, lastWeek: 0, lastPoints: 0 }
       : solo.week === week ? { ...solo, points: solo.points + completed }
       : { identity, week, points: completed, lastWeek: solo.week, lastPoints: solo.points };
     if (solo) ctx.db.soloQuestWeek.identity.update(next); else ctx.db.soloQuestWeek.insert(next);
+    if (!member) guildPoints = next.points;
   }
   if (guild) {
     const week = questWeek(row.day), key = weekKey(week, guild.id);

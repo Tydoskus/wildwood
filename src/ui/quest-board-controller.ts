@@ -21,12 +21,21 @@ export function formatQuestReset(msLeft: number) {
   return days ? `${days}d ${hours % 24}h` : hours ? `${hours}h ${minutes % 60}m` : `${minutes}m`;
 }
 
-/** The guild's quest week, for the Guild window's Quests tab: its points, its bonus now and next week, and the ranking. */
+/**
+ * The quest week for the Guild window's Quests tab: the guild's points and its
+ * bonus now and next week, or, without a guild, the player's own solo week
+ * (their row's points are their own quests then), and the ranking.
+ */
 export function guildQuestStanding(state: QuestState | null, ranking: RankingRow[]) {
+  const quests = Math.min(WEEKLY_QUEST_COUNT, state?.guildPoints ?? 0);
   return {
     guild: state?.guildName
       ? { name: state.guildName, points: state.guildPoints, bonusNow: percent(Math.max(0, state.bonus - 1)),
         bonusNext: percent(state.guildPoints * GUILD_QUEST_BONUS_PER_POINT) }
+      : null,
+    solo: state && !state.guildName
+      ? { quests, bonusNow: percent(Math.max(0, state.bonus - 1)), bonusNext: percent(quests * SOLO_QUEST_BONUS_PER_QUEST),
+        bonusMax: percent(WEEKLY_QUEST_COUNT * SOLO_QUEST_BONUS_PER_QUEST) }
       : null,
     ranking: ranking.slice(0, RANKING_ROWS).map((row, index) => ({ place: index + 1, name: row.guildName, points: row.points, mine: row.guildName === state?.guildName })),
   };
@@ -105,9 +114,12 @@ export function createQuestBoardController(deps: {
       step.className = `quest-week-step${index < view.done ? " is-done" : ""}`;
       return step;
     }));
-    hint.textContent = view.finished ? "All done this week. New quests on Monday."
-      : state?.guildName ? "Each quest you finish is a point for your guild. See Guild → Quests."
-      : `No guild: each quest you finish is +${Math.round(SOLO_QUEST_BONUS_PER_QUEST * 100)}% stat gains next week.`;
+    const solo = guildQuestStanding(state, []).solo;
+    hint.textContent = solo
+      // Without a guild, the board says what the week is worth so far and what the bonus is now.
+      ? `On your own: +${solo.bonusNext} stat gains next week (+${Math.round(SOLO_QUEST_BONUS_PER_QUEST * 100)}% a quest, up to +${solo.bonusMax}). Bonus now: +${solo.bonusNow}.`
+      : view.finished ? "All done this week. New quests on Monday."
+      : "Each quest you finish is a point for your guild. See Guild → Quests.";
     list.replaceChildren(...view.quests.map(quest => {
       const row = document.createElement("div");
       row.className = "quest-row"; row.setAttribute("role", "listitem");

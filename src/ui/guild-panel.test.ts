@@ -413,7 +413,7 @@ describe("guild quests tab", () => {
     const snapshot = fixture();
     const api = { cancel: vi.fn(), loadGuildPreview: vi.fn(), loadReplay: vi.fn(), loadGuild: vi.fn(async () => snapshot), guildAction: vi.fn(async () => {}) } as unknown as GuildApi;
     const panel = createGuildPanel({ document: document as unknown as Document, api: () => api, sessionKey: () => "a", beforeOpen: vi.fn(), onClose: vi.fn(),
-      questStanding: () => ({ guild: { name: "Wildwood", points: 37, bonusNow: "10%", bonusNext: "9.3%" },
+      questStanding: () => ({ guild: { name: "Wildwood", points: 37, bonusNow: "10%", bonusNext: "9.3%" }, solo: null,
         ranking: [{ place: 1, name: "Pines", points: 50, mine: false }, { place: 2, name: "Wildwood", points: 37, mine: true }] }) });
     disposals.push(panel.dispose);
     panel.open(); await settled();

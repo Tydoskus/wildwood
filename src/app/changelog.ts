@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.854": [
+    "Without a guild, the Quest Board and Guild > Quests show your own quests this week and your bonus now and next",
+    "Quests finished on the day you join a guild count toward your own bonus instead of nothing",
+  ],
   "0.853": [
     "Quests are weekly: 15 a week, 3 on the board at a time, so you can do them all in a day or across the week",
     "Guild quest bonus is now +0.1% stat gains per point",
@@ -2606,6 +2610,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.854": "2026-10-01",
   "0.853": "2026-10-01",
   "0.852": "2026-10-01",
   "0.851": "2026-10-01",

@@ -57,6 +57,8 @@ it("pays the guild's bonus the week after: 0.1% of stat gains per point", () => 
 it("pays a guildless player 1% a quest the week after, up to 15%", () => {
   const { f } = questing(false);
   spitters(f, 10);
+  // The row carries their own count for the board's bonus line.
+  expect(f.db.playerDailyQuest.identity.find(f.ctx.sender)).toMatchObject({ guildName: "", guildPoints: 1 });
   expect(JSON.parse(f.db.playerDailyQuest.identity.find(f.ctx.sender).questsJson)[0].progress).toBe(50);
   expect([...f.db.guildQuestWeek.iter()]).toHaveLength(0);
   expect(guildQuestBonusFor(f.ctx, f.ctx.sender)).toBe(1);
@@ -65,6 +67,17 @@ it("pays a guildless player 1% a quest the week after, up to 15%", () => {
   // Two weeks on, last week's empty solo week pays nothing.
   f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + 7n * DAY);
   expect(guildQuestBonusFor(f.ctx, f.ctx.sender)).toBe(1);
+});
+
+it("keeps points with the guild that earned them when a member hops", () => {
+  const { f, day } = questing();
+  spitters(f, 10);
+  expect(f.db.guildQuestWeek.key.find(`${questWeek(day)}:7`).points).toBe(1);
+  f.seed("guild", { id: 8n, directoryId: 1n, nameKey: "pines", name: "Pines", leader: f.ctx.sender, members: 1, champions: 0, week: 0, score: 0,
+    wins: 0, battles: 0, attackDay: 0, attacks: 0, opponents: "", emblem: -1 });
+  f.patch("guildMember", { guildId: 8n, joinedAt: f.ctx.timestamp.microsSinceUnixEpoch - DAY });
+  expect(f.db.guildQuestWeek.key.find(`${questWeek(day)}:7`).points).toBe(1);
+  expect(memberQuestStanding(f.ctx, f.ctx.sender, 8n).questPoints).toBe(0);
 });
 
 it("draws fifteen when the week turns, and tops a daily list up to fifteen keeping its progress", () => {
@@ -80,13 +93,18 @@ it("draws fifteen when the week turns, and tops a daily list up to fifteen keepi
   expect(quests.every((q: any) => q.progress === 0)).toBe(true);
 });
 
-it("counts a new member's quests for the guild from tomorrow, and its bonus from next week", () => {
+it("counts a new member's quests for the guild from tomorrow (today's go solo), and its bonus from next week", () => {
   const { f, day } = questing();
   f.patch("guildMember", { joinedAt: f.ctx.timestamp.microsSinceUnixEpoch });
   f.seed("guildQuestWeek", { key: `${questWeek(day) - 1}:7`, week: questWeek(day) - 1, guildId: 7n, guildName: "Oaks", points: 420 });
   expect(guildQuestBonusFor(f.ctx, f.ctx.sender)).toBe(1);
   spitters(f, 10);
   expect(f.db.guildQuestWeek.key.find(`${questWeek(day)}:7`)).toBeNull();
+  expect(f.db.soloQuestWeek.identity.find(f.ctx.sender)).toMatchObject({ week: questWeek(day), points: 1 });
+  // In the guild when the week turns: its bonus, not the solo one.
+  f.seed("guildQuestWeek", { key: `${questWeek(day)}:7`, week: questWeek(day), guildId: 7n, guildName: "Oaks", points: 100 });
+  f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + 7n * DAY);
+  expect(guildQuestBonusFor(f.ctx, f.ctx.sender)).toBeCloseTo(1.1);
   expect(JSON.parse(f.db.playerDailyQuest.identity.find(f.ctx.sender).questsJson)[0].progress).toBe(50);
 });
 

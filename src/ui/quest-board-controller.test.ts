@@ -22,7 +22,11 @@ it("gives the Guild window the guild's week, its bonus, and the ranking", () => 
   const standing = guildQuestStanding(state, [{ guildId: "1", guildName: "Pines", points: 50 }, { guildId: "7", guildName: "Oaks", points: 37 }]);
   expect(standing.guild).toEqual({ name: "Oaks", points: 37, bonusNow: "10%", bonusNext: "3.7%" });
   expect(standing.ranking).toEqual([{ place: 1, name: "Pines", points: 50, mine: false }, { place: 2, name: "Oaks", points: 37, mine: true }]);
-  expect(guildQuestStanding({ ...state, guildName: "", guildPoints: 0, bonus: 1 }, []).guild).toBeNull();
+  expect(standing.solo).toBeNull();
+  // Without a guild the same row is the player's own week: quests so far, bonus now and next.
+  const solo = guildQuestStanding({ ...state, guildName: "", guildPoints: 6, bonus: 1.04 }, []);
+  expect(solo.guild).toBeNull();
+  expect(solo.solo).toEqual({ quests: 6, bonusNow: "4%", bonusNext: "6%", bonusMax: "15%" });
 });
 
 it("tells the courtyard board how many papers are still pinned up, and the week's count", () => {
