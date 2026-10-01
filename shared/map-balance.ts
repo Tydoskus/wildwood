@@ -77,6 +77,9 @@ export function validateBalanceSettings(value: unknown): BalanceSettings {
  *   are finite, but slowly.
  * At about 5x a map, enemies reach the stat cap around Endless 30.
  */
+/** Every regen-paying enemy's reward, times this, campaign and Endless alike (Ryan, 2026-10-01). */
+export const REGEN_REWARD_BOOST = 1.5;
+
 export const ENDLESS_STEPS: Readonly<{ health: number; hit: number; reward: number; bossHealth: number }> = Object.freeze({ health: 5.2, hit: 5.68, reward: 4.75, bossHealth: 5.06 });
 
 /** Resolved numbers cross the wire; apps do not need the current scaling formula. */
@@ -144,6 +147,8 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
         speed: row.speed * factors.enemySpeed, reward: { ...row.reward, amount: (curve?.reward ?? row.reward.amount) * factors.enemyRewards } };
     }
     if (settings.campaignRewardVersion === 1) applyCampaignRewardFloor(mapId, settings, result.enemies);
+    // Regen camps pay half again (0.845); Endless inherits it from map 15.
+    for (const enemy of Object.values(result.enemies)) if (enemy.reward.type === 'regen') enemy.reward = { ...enemy.reward, amount: enemy.reward.amount * REGEN_REWARD_BOOST };
     const prefix = BALANCE_MAPS.find(([id]) => id === mapId)![2];
     const rewardValues: Record<string, number> = {};
     for (const [key, value] of Object.entries(AUTHORED_RULES)) {

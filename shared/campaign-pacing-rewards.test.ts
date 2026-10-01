@@ -14,7 +14,7 @@ it('applies campaign pacing once and changes no combat, boss, drop or timer valu
     const before = resolveMapBalance(map.id, fixture.settings, 0, version);
     const after = resolveMapBalance(map.id, settings, 0, version);
     for (const [kind, row] of Object.entries(before.enemies)) {
-      expect(after.enemies[kind].reward.amount).toBe(row.reward.amount * CAMPAIGN_PACING_REWARDS[map.id]);
+      expect(after.enemies[kind].reward.amount / (row.reward.amount * CAMPAIGN_PACING_REWARDS[map.id])).toBeCloseTo(1, 12);
       after.enemies[kind].reward.amount = row.reward.amount;
     }
     expect(after).toEqual(before);

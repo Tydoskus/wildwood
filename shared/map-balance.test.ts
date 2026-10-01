@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { ENDLESS_STEPS, defaultBalanceSettings, resolveMapBalance, validateBalanceSettings, BALANCE_MAPS } from './map-balance';
+import { ENDLESS_STEPS, REGEN_REWARD_BOOST, defaultBalanceSettings, resolveMapBalance, validateBalanceSettings, BALANCE_MAPS } from './map-balance';
+import { ENEMY_TYPES } from './enemy-definitions';
 import { bossRegenFractionFor } from './boss-regeneration';
 import { enemyDefeatDefinition } from './enemy-defeats';
 import { personalBossDefinition } from './personal-bosses';
@@ -118,4 +119,19 @@ it("holds the baseline: map 1's Spitters have 8 health and pay 1.5 damage a kill
   const spitter = resolveMapBalance('tutorial_forest', defaultBalanceSettings(), 0).enemies.Spitter;
   expect(spitter.hp).toBe(8);
   expect(spitter.reward).toEqual({ type: 'damage', amount: 1.5 });
+});
+
+it('pays every regen camp half again, on the campaign and in Endless', () => {
+  // Against each camp's authored reward, regen camps come out 1.5x what every other camp does.
+  const settings = defaultBalanceSettings();
+  delete settings.campaignProgressionVersion; delete settings.campaignHealthVersion; delete settings.campaignRewardVersion;
+  for (const id of ['beginner_desert', 'water_reach', 'ion_citadel']) {
+    const scale = Object.entries(resolveMapBalance(id, settings, 1).enemies)
+      .map(([kind, enemy]) => ({ type: enemy.reward.type, scale: enemy.reward.amount / (ENEMY_TYPES as any)[kind].reward.amount }));
+    const regen = scale.filter(row => row.type === 'regen'), other = scale.filter(row => row.type !== 'regen');
+    expect(regen.length, id).toBeGreaterThan(0);
+    for (const row of regen) expect(row.scale / other[0].scale, id).toBeCloseTo(REGEN_REWARD_BOOST, 9);
+    for (const row of other) expect(row.scale / other[0].scale, id).toBeCloseTo(1, 9);
+  }
+  expect(REGEN_REWARD_BOOST).toBe(1.5);
 });
