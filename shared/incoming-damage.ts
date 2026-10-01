@@ -1,4 +1,4 @@
-import { percentArmorReduction as armorDamageReduction } from "./combat";
+import { armorDamageReduction } from "./combat";
 import { referenceBuildForMap } from "./progression";
 
 export const LATE_MAP_DAMAGE_TIER = {

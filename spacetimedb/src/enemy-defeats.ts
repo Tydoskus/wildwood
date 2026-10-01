@@ -9,7 +9,6 @@ import { bossRespawnSecondsWithResearch, enemyRespawnSecondsWithResearch } from 
 import { KILL_REPORT_BURST, KILL_REPORT_REFILL_SECONDS, REGULAR_ENEMY_RESPAWN_SECONDS } from "../../shared/rules";
 import { recordModerationAction } from "./moderation-history";
 import type { GameReducerContext } from "./index";
-import { BOSS_DAMAGE_PROFILES } from "../../shared/boss-damage";
 
 type BossRewardContext = Pick<GameReducerContext, "db" | "sender" | "timestamp">;
 
@@ -437,7 +436,7 @@ export type EnemyDefeatBatch = { streamId: string; sequence: bigint; mapId: stri
  *     seconds from the combat clock, without ever being refused for it.
  */
 export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBatch, activeMapIds: string | readonly string[],
-  bossCombat: (earned: { type: string; amount: number; count: number }[], incomingHit?: number) => { dps: number; attackInterval: number; projectiles?: number; reach?: number; bossDps?: number;
+  bossCombat: (earned: { type: string; amount: number; count: number }[]) => { dps: number; attackInterval: number; projectiles?: number; reach?: number; bossDps?: number;
     reflect?: { maxHp: number; regen: number; preArmor?: number } | null }) {
   if (!/^[a-zA-Z0-9-]{16,80}$/.test(batch.streamId) || batch.sequence < 1n || !batch.enemies.length)
     throw new SenderError("Invalid enemy defeat batch.");
@@ -520,13 +519,7 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
     const tokens = previous ? Math.min(budget.capacity, previous.tokens + elapsed * budget.perSecond) : ((budget as { initial?: number }).initial ?? budget.capacity);
     let acceptedCount = claimed;
     if (boss) {
-      // The boss's heaviest attack: flat armor barely dents it, which is what
-      // Reflect works from. Without a loaded balance, its authored attacks.
-      const attacks = (boss as { attacks?: Record<string, unknown> }).attacks
-        ?? (BOSS_DAMAGE_PROFILES as Record<string, Record<string, unknown>>)[(boss as { kind?: string }).kind ?? ""] ?? {};
-      const bossHit = Math.max(0, Number((boss as { damage?: number }).damage) || 0,
-        ...Object.values(attacks).map(value => Number(value)).filter(Number.isFinite));
-      const combat = bossCombat(rewards, bossHit);
+      const combat = bossCombat(rewards);
       // A boss is one target, so reach adds nothing here; Arrow Storm's extra
       // arrows on it are damage, and bossDps carries them.
       // Reflect covers up to half the player's health pool and half their regen
@@ -583,7 +576,7 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
       // report grants (bounded by the spawn wall above), as the client had
       // them by its last kill; anything less pays a fast-growing farmer at
       // the rate they started the report with.
-      const combat = bossCombat([...rewards, { ...definition.reward, count: acceptedCount }], definition.damage);
+      const combat = bossCombat([...rewards, { ...definition.reward, count: acceptedCount }]);
       const plausibleRate = plausibleKillsPerSecond(definition.hp, combat.dps, combat.attackInterval, combat.projectiles ?? 1)
         * (combat.reach ?? 1) * PLAUSIBLE_KILL_TOLERANCE;
       const floorCost = PAY_CEILING.enforced ? Math.max(wallSecondsPerKill, ceilingSecondsPerKill) : wallSecondsPerKill;

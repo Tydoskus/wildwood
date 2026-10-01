@@ -1,4 +1,4 @@
-import { percentArmorReduction as armorDamageReduction } from "./combat";
+import { armorDamageReduction } from "./combat";
 
 /** Fixed authoring references, never adjusted to the player in the encounter. */
 export const MAP_STAT_GROWTH = 3;

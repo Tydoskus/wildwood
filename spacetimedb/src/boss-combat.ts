@@ -124,8 +124,6 @@ export type BossCombatDeps = {
 export const REFLECT_ONLY_LIFE_SECONDS = 4;
 /** Reflect lands whenever a hit does, with no swing to round kills to; a short tick keeps the bound continuous. */
 export const REFLECT_ONLY_TICK_SECONDS = .1;
-/** The most enemies taken as hitting a Reflect Only player at once, each about once a second. */
-export const REFLECT_ONLY_ATTACKERS = 8;
 
 export function createBossCombat(deps: BossCombatDeps) {
   const {
@@ -196,10 +194,9 @@ export function createBossCombat(deps: BossCombatDeps) {
         loadout, critical, swing: prestigeSwingMultiplier(ranks),
         // Projectile count is not a kill reward, so the saved row holds for the whole report.
         projectiles: itemDefinition(loadout.weapon)?.weapon?.mode === "MELEE" ? 1 : Math.max(1, saved.projectileCount),
-        // Reflect returns the hit before armor, so armor raises what it adds,
-        // by how much of the enemy's hit it stops: worked out per enemy in bound.
-        ranks, armor: effectivePlayerPowerStats(saved, research, loadout.levelFor).armor,
-        bowReach: bowSkillReachMultiplier(bowSkills),
+        // Reflect returns the hit before armor, so armor raises what it adds.
+        reach: prestigeReachMultiplier(ranks, armorDamageReduction(effectivePlayerPowerStats(saved, research, loadout.levelFor).armor))
+          * bowSkillReachMultiplier(bowSkills),
         bossDamage: bowSkillBossDamageMultiplier(bowSkills) * (1 + prestigePerkValue(ranks, "bossSlayer")),
         reflects: prestigePerkValue(ranks, "riposte") > 0,
         reflectOnly: Boolean(ctx.db.playerPrestigeChallenge.identity.find(ctx.sender)?.active),
@@ -207,13 +204,8 @@ export function createBossCombat(deps: BossCombatDeps) {
     }
     const report = () => (loaded ??= load());
     return {
-      /**
-       * The bound with the given earned rewards applied, as the client had them
-       * by its last kill. `incomingHit` is the enemy's own hit: flat armor
-       * stops a share of it that depends on its size, and Reflect throws back
-       * the hit before armor.
-       */
-      bound(earned: { type: string; amount: number; count: number }[], incomingHit = 0) {
+      /** The bound with the given earned rewards applied, as the client had them by its last kill. */
+      bound(earned: { type: string; amount: number; count: number }[]) {
         const { saved, statMultiplier, gear } = report();
         if (!saved) return { dps: 0, attackInterval: 1 };
         const progress = earned.length ? applyEnemyRewards(saved, earned, statMultiplier, challengeMinimumInterval(ctx.db.playerPrestigeChallenge.identity.find(ctx.sender))) : saved;
@@ -225,24 +217,18 @@ export function createBossCombat(deps: BossCombatDeps) {
         // and what regen restores before they fall, and a hit before armor is
         // what got through times preArmorFactor: so half of that, scaled, is
         // the most Reflect can shorten a clear, whatever its bag drew.
-        const reflect = gear.reflects ? (({ maxHp, regen, armor }) => ({ maxHp, regen, preArmor: preArmorFactor(armorDamageReduction(armor, incomingHit)) }))(
+        const reflect = gear.reflects ? (({ maxHp, regen, armor }) => ({ maxHp, regen, preArmor: preArmorFactor(armorDamageReduction(armor)) }))(
           effectivePlayerPowerStats(progress, report().research, gear.loadout.levelFor)) : null;
-        const reach = prestigeReachMultiplier(gear.ranks, armorDamageReduction(gear.armor, incomingHit)) * gear.bowReach;
         // Reflect Only: the weapon counts for nothing, and every kill has to come
         // from hits taken. What got through is at most a full health bar per life
         // plus regen, a life being no shorter than REFLECT_ONLY_LIFE_SECONDS; half
-        // of that, scaled up by armor, is what Reflect can return. A player whose
-        // armor outweighs the hit takes almost nothing and can stand in it all
-        // day, so the enemies' own output bounds it too: up to
-        // REFLECT_ONLY_ATTACKERS of them, each hitting once a second. The
-        // perk's chance is left out, so the bound only ever errs towards paying.
+        // of that, scaled up by armor, is what Reflect can return. The perk's
+        // chance is left out, so the bound only ever errs towards paying.
         if (gear.reflectOnly) {
-          const absorbed = reflect ? RIPOSTE_REFLECT_SHARE * reflect.preArmor * (reflect.regen + reflect.maxHp / REFLECT_ONLY_LIFE_SECONDS) : 0;
-          const output = reflect ? RIPOSTE_REFLECT_SHARE * Math.max(0, incomingHit) * REFLECT_ONLY_ATTACKERS : 0;
-          const reflected = Math.max(absorbed, output);
+          const reflected = reflect ? RIPOSTE_REFLECT_SHARE * reflect.preArmor * (reflect.regen + reflect.maxHp / REFLECT_ONLY_LIFE_SECONDS) : 0;
           return { attackInterval: REFLECT_ONLY_TICK_SECONDS, projectiles: 1, reach: 1, dps: reflected, bossDps: reflected, reflect: null };
         }
-        return { attackInterval, projectiles: gear.projectiles, reach, dps, bossDps: dps * gear.bossDamage, reflect };
+        return { attackInterval, projectiles: gear.projectiles, reach: gear.reach, dps, bossDps: dps * gear.bossDamage, reflect };
       },
       /** statRewardMultiplier: research and prestige cannot change inside one report. */
       statMultiplier: () => report().statMultiplier,

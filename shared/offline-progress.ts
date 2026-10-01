@@ -236,7 +236,7 @@ export function resolveOfflineFarming(
   return best;
 }
 
-/** Armor's share of an incoming hit of this size, for the summary's own explanation. */
-export function offlineDamageReduction(armor: number, hit: number) {
-  return armorDamageReduction(armor, hit);
+/** Armor's share of the incoming hit, for the summary's own explanation. */
+export function offlineDamageReduction(armor: number) {
+  return armorDamageReduction(armor);
 }

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-// The authored late-map hits were sized on the percentage curve.
-import { duelDamageAfterArmor as damageAfterArmor } from "../../shared/combat";
+import { damageAfterArmor } from "./combat";
 import { ENEMY_TYPES } from "./enemies";
 import { lateMapReferenceBuild } from "../../shared/incoming-damage";
 

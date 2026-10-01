@@ -10,22 +10,13 @@ import {
 } from "./offline-progress";
 import { referenceBuildForMap } from "./progression";
 import { MAP_IDS } from "./rules";
-import { percentArmorReduction } from "./combat";
 
-/**
- * The reference build for a tier, as the authored world sized it. Its armor
- * was authored on the percentage curve; enemy armor is flat now (0.845), so it
- * carries the flat armor that blocks what the percentage did against its own
- * map's typical hit, which keeps every enemy landing what it was authored to.
- */
 function referenceStats(tier: number) {
   const build = referenceBuildForMap(tier);
-  const hits = offlineEnemyRoster(MAP_IDS[tier + 1]).map(entry => entry.damage).sort((a, b) => a - b);
-  const typicalHit = hits[Math.floor(hits.length / 2)] ?? 0;
   return {
     damage: build.damage,
     maxHp: build.maxHp,
-    armor: typicalHit * percentArmorReduction(build.armor),
+    armor: build.armor,
     regen: build.regen,
     attackRate: build.attackInterval,
   };

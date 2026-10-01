@@ -1,7 +1,6 @@
 import { referenceBuildForMap } from "./progression";
 import { describe, expect, it } from "vitest";
-// Authoring math, which generated the base enemy stats, stays on the percentage curve.
-import { percentArmorReduction as armorDamageReduction, duelDamageAfterArmor as damageAfterArmor } from "./combat";
+import { armorDamageReduction, damageAfterArmor } from "./combat";
 import { lateMapDamageProfile, lateMapMinimumHitDamage, lateMapReferenceBuild } from "./incoming-damage";
 
 describe("health-and-armor damage ladder", () => {

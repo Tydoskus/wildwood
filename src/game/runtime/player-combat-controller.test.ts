@@ -175,7 +175,7 @@ describe("player attack timing", () => {
   });
 
   it("reflects half of the hit before armor, so armor spares the player and not the attacker", () => {
-    const state = createCombatHarness({ prestigeReflect: () => 1, effectiveArmor: () => 20 });   // flat: takes 20 off the 40
+    const state = createCombatHarness({ prestigeReflect: () => 1, effectiveArmor: () => 1_000 });   // armor halves damage
     state.enemies.length = 0;
     createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Spitter", x: 520, y: 500,
       campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });

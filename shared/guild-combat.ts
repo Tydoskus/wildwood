@@ -1,5 +1,5 @@
 import { buildGuildEntrance, GUILD_MOVE_SPEED } from "./guild-entrance";
-import { duelDamageAfterArmor as damageAfterArmor } from "./combat";
+import { damageAfterArmor } from "./combat";
 import { duelHitMultiplier, type DuelFighter } from "./duel-combat";
 import { itemDefinition } from "./items";
 import { DEFAULT_ATTACK_RANGE } from "./rules";

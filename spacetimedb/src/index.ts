@@ -5202,7 +5202,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Enemy rewards require your account world connection.");
     // Everything the combat bound reads, read once for the whole report.
     const combat = combatBoundForReport(ctx);
-    const accepted = acceptEnemyDefeats(ctx, batch, permittedDefeatMaps(ctx, player, HOME_EXTERIOR_MAP_ID), (earned, incomingHit) => combat.bound(earned, incomingHit));
+    const accepted = acceptEnemyDefeats(ctx, batch, permittedDefeatMaps(ctx, player, HOME_EXTERIOR_MAP_ID), earned => combat.bound(earned));
     if (!accepted) return;
     const enforce = () => {
       // Only a report no real client could have sent. A clipped claim is

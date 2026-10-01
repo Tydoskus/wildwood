@@ -108,9 +108,8 @@ export function prestigeSwingMultiplier(ranks: Partial<PrestigePerkRanks> | null
  * plus an allowance for kills finished by reflected damage. Both create kills
  * that the weapon's own damage per second cannot account for, so the server's
  * claim bound has to widen by the same amount the client can actually earn.
- * `armorReduction` is the player's own share of the hit: Reflect throws back
- * the hit before armor, so the more armor takes off, the more Reflect returns
- * per hit that lands.
+ * `armorReduction` is the player's own: Reflect throws back the hit before it,
+ * so the more armor takes off, the more Reflect returns per hit that lands.
  */
 export function prestigeReachMultiplier(ranks: Partial<PrestigePerkRanks> | null | undefined, armorReduction = 0) {
   // Riposte only reflects part of a hit, and only sometimes, so the claim bound
