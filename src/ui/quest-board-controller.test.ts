@@ -1,30 +1,32 @@
 import { expect, it, vi } from "vitest";
 import { parseHTML } from "linkedom";
 import { formatQuestReset, guildQuestStanding, questBoardView, questBoardWorldStatus } from "./quest-board-controller";
-import { questDayEndsAtMs } from "../../shared/daily-quests";
+import { questWeekEndsAtMs } from "../../shared/daily-quests";
 
 const state = { day: 20_000, bonus: 1.1, guildPoints: 37, guildName: "Oaks", quests: [
   { mapId: "beginner_desert", enemy: "Venom Guard", target: 73, progress: 73 },
   { mapId: "beginner_desert", enemy: "Dune Raider", target: 60, progress: 12 },
   { mapId: "tutorial_forest", enemy: "Spitter", target: 50, progress: 0 }] };
 
-it("lists today's quests with progress and when new ones come", () => {
-  const view = questBoardView(state, questDayEndsAtMs(20_000) - 90 * 60_000,
+it("lists the quests in play, the week's count, and when the next fifteen come", () => {
+  const view = questBoardView(state, questWeekEndsAtMs(20_000) - 90 * 60_000,
     (id: string) => ({ beginner_desert: "Desert", tutorial_forest: "Forest" } as Record<string, string>)[id] ?? id);
-  expect(view.quests[0]).toMatchObject({ title: "Defeat 73 Venom Guard", where: "Desert", done: true });
-  expect(view.quests[1]).toMatchObject({ progress: "12/60", done: false });
-  expect(view.resetsIn).toBe("1h 30m");
+  // The finished quest leaves the board; the open ones stay.
+  expect(view.quests.map(quest => quest.title)).toEqual(["Defeat 60 Dune Raider", "Defeat 50 Spitter"]);
+  expect(view.quests[0]).toMatchObject({ where: "Desert", progress: "12/60", done: false });
+  expect(view).toMatchObject({ done: 1, total: 3, resetsIn: "1h 30m", finished: false });
+  expect(formatQuestReset(3 * 86_400_000 + 2 * 3_600_000)).toBe("3d 2h");
 });
 
 it("gives the Guild window the guild's week, its bonus, and the ranking", () => {
   const standing = guildQuestStanding(state, [{ guildId: "1", guildName: "Pines", points: 50 }, { guildId: "7", guildName: "Oaks", points: 37 }]);
-  expect(standing.guild).toEqual({ name: "Oaks", points: 37, bonusNow: "10%", bonusNext: "9.3%" });
+  expect(standing.guild).toEqual({ name: "Oaks", points: 37, bonusNow: "10%", bonusNext: "3.7%" });
   expect(standing.ranking).toEqual([{ place: 1, name: "Pines", points: 50, mine: false }, { place: 2, name: "Oaks", points: 37, mine: true }]);
   expect(guildQuestStanding({ ...state, guildName: "", guildPoints: 0, bonus: 1 }, []).guild).toBeNull();
 });
 
-it("tells the courtyard board which papers are checked off", () => {
-  expect(questBoardWorldStatus(state)).toEqual({ finished: [true, false, false], timer: "1/3 done" });
+it("tells the courtyard board how many papers are still pinned up, and the week's count", () => {
+  expect(questBoardWorldStatus(state)).toEqual({ finished: [false, false, true], timer: "1/3 done" });
   expect(questBoardWorldStatus(null)).toBeNull();
   expect(formatQuestReset(30_000)).toBe("1m");
 });
@@ -45,8 +47,8 @@ it("counts a quest enemy at once, never backwards, catching up to the server and
   runtime.noteKill("beginner_desert", "Dune Raider");
   runtime.noteKill("beginner_desert", "Dune Raider");   // finished: nothing more
   expect(shownCounts.slice(1)).toEqual([["Dune Raider", 3, 3]]);
-  // A new day starts the counts over.
-  current = { ...current, day: current.day + 1, quests: [{ ...current.quests[0], progress: 0 }] };
+  // A new week starts the counts over.
+  current = { ...current, day: current.day + 7, quests: [{ ...current.quests[0], progress: 0 }] };
   runtime.noteKill("beginner_desert", "Dune Raider");
   expect(shownCounts.at(-1)).toEqual(["Dune Raider", 1, 3]);
   vi.unstubAllGlobals();

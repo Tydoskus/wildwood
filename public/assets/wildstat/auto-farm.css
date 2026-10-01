@@ -554,7 +554,11 @@
 .quest-sheet .quest-list { display: grid; gap: 8px; }
 .quest-sheet .quest-row { display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 8px 10px; border: 2px solid rgba(255,255,255,.14); border-radius: 10px; background: #ffffff06; }
 .quest-sheet .quest-row.is-done { border-color: var(--green); background: rgba(105,229,111,.08); }
-/* A quest a guild leader took over: no longer this player's to finish. */
+/* The week's fifteen under the reset line, as tally marks: white until done, then green. */
+.quest-sheet .quest-week { display: flex; justify-content: center; gap: 6px; margin: -2px 0 12px; }
+.quest-sheet .quest-week-step { flex: none; width: 5px; height: 18px; border-radius: 3px; background: rgba(255,255,255,.85); }
+.quest-sheet .quest-week-step.is-done { background: var(--green); }
+/* A quest a guildmate collected: no longer this player's to finish. */
 .quest-sheet .quest-row.is-taken { opacity: .55; }
 .quest-sheet .quest-check { flex: 0 0 26px; display: grid; place-items: center; width: 26px; height: 26px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; color: transparent; font-size: 15px; -webkit-text-stroke: 0; text-shadow: none; }
 .quest-sheet .is-done .quest-check { border-color: var(--green); background: var(--green); color: #fff; }

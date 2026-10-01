@@ -161,6 +161,7 @@ export const ERASURE_TARGETS: readonly ErasureTarget[] = [
   { table: "playerFreeRespec", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerDailyQuest", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "guildMemberQuestWeek", columns: ["identity"], pk: "identity", mode: "key" },
+  { table: "soloQuestWeek", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerProfile", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerProgress", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerReport", columns: ["reporter","target"], pk: "id", mode: "scan" },

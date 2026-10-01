@@ -137,7 +137,7 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
   presenceFor?: (ctx: Ctx, identity: Identity) => { online: boolean; lastSeenAtMs: number };
   /** Daily quest standing for the Guild window's member list (daily-quests.ts). */
   questFor?: (ctx: Ctx, identity: Identity, guildId: bigint) => { questsDone: number; questsTotal: number; questsOpen: number; questsTaken: number; questPoints: number };
-  /** Whether the viewer may collect members' quests today and how many more (President and Vice President only). */
+  /** Whether the viewer may collect members' quests this week and how many more. */
   questCollect?: (ctx: Ctx, identity: Identity) => { ready: boolean; left: number };
   announceBattle?: (ctx: Ctx, report: GuildSnapshot["battles"][number]) => void;
   /** Whether a battle has been posted to chat, by its replay key ("attackerId:battleId"). */
@@ -352,7 +352,7 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
               power: memberPower(row.identity), prestige: deps.prestigeFor?.(ctx, row.identity) ?? 0, profileIcon: profile?.profileIcon ?? 0, eligibleAt: String(row.eligibleAt),
               ...deps.presenceFor?.(ctx, row.identity), ...deps.questFor?.(ctx, row.identity, guild.id) };
           }),
-          questCollect: guild.leader.equals(ctx.sender) || member?.vicePresident ? deps.questCollect?.(ctx, ctx.sender) ?? null : null } : null,
+          questCollect: deps.questCollect?.(ctx, ctx.sender) ?? null } : null,
         directory, nextPage, standings: cache?.week === week ? JSON.parse(cache.entries) : [],
         battles: guild ? [...ctx.db.guildBattleReport.guildId.filter(guild.id)]
           .sort((a, b) => a.sequence > b.sequence ? -1 : 1).map(row => {

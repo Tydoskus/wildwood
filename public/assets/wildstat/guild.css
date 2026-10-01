@@ -209,15 +209,15 @@ body:has(.guild-overlay:not([hidden])) #profileIconPicker { z-index: 14; }
 .guild-quest-week { display: grid; gap: 3px; margin: 0 0 12px; padding: 10px 12px; border: 2px solid rgba(255,214,107,.3); border-radius: 10px; background: rgba(255,214,107,.07); }
 .guild-quest-week strong { color: #ffd66b; font-size: 15px; }
 .guild-quest-week span { font-size: 12px; }
-/* Members this week: today's quests as checks, the week's points on the right, a Collect button for leaders. */
+/* Members this week: the week's fifteen quests as tally marks, the week's points on the right, a Collect button. */
 .guild-quest-hint { margin: 0 0 10px; color: var(--guild-muted); font-size: 12px; line-height: 1.35; }
 .guild-quest-members { margin: 0 0 18px; padding: 0; list-style: none; }
 .guild-quest-member { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px; border-bottom: 1px solid var(--guild-line); }
 .guild-quest-member.is-self { border-radius: 8px; background: rgba(255,214,107,.06); }
 .guild-quest-member .guild-avatar { overflow: hidden; }
 .guild-quest-member .guild-row-copy strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.guild-quest-member .guild-row-copy .guild-quest-checks { display: flex; gap: 4px; margin-top: 4px; }
-.guild-quest-member .guild-row-copy .guild-quest-check { display: grid; place-items: center; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.22); border-radius: 50%; color: #102012; font-size: 10px; font-weight: 900; line-height: 1; }
-.guild-quest-member .guild-row-copy .guild-quest-check.is-done { border-color: #69e56f; background: #69e56f; }
-.guild-quest-member .guild-row-copy .guild-quest-check.is-taken { border-color: #ffd66b; color: #ffd66b; }
+.guild-quest-member .guild-row-copy .guild-quest-line { display: flex; align-items: center; gap: 4px; margin-top: 5px; }
+.guild-quest-member .guild-row-copy .guild-quest-step { flex: none; width: 4px; height: 14px; border-radius: 2px; background: rgba(255,255,255,.85); }
+.guild-quest-member .guild-row-copy .guild-quest-step.is-done { background: #69e56f; }
+.guild-quest-member .guild-row-copy .guild-quest-step.is-taken { background: #ffd66b; }
 .guild-quest-member .guild-quest-collect { flex-shrink: 0; min-height: 34px; margin: 0; padding: 4px 10px; font-size: 12px; }

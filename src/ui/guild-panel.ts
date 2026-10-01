@@ -11,7 +11,7 @@ import type { GuildAction, GuildApi } from "../coop/services/guild-service";
 import { applyProfileIcon } from "../app/profile-icons";
 import { createGuildPreview } from './guild-preview';
 import type { GuildQuestStanding } from "./quest-board-controller";
-import { GUILD_QUEST_COLLECT_LIMIT, questDay } from "../../shared/daily-quests";
+import { GUILD_QUEST_BONUS_PER_POINT, GUILD_QUEST_COLLECT_LIMIT, WEEKLY_QUEST_COUNT, questDay } from "../../shared/daily-quests";
 
 type Section = "guild" | "battles" | "rankings" | "quests" | "friends";
 type Member = NonNullable<GuildSnapshot["guild"]>["members"][number];
@@ -25,7 +25,7 @@ type Options = {
   document?: Document;
   replayAssets?: GuildReplayAssets;
   lowPerformanceMode?: () => boolean;
-  /** The guild's daily quest week: its points, its bonus, and every guild's ranking. */
+  /** The guild's quest week: its points, its bonus, and every guild's ranking. */
   questStanding?: () => GuildQuestStanding;
 };
 const number = (value: number) => new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value);
@@ -412,16 +412,16 @@ export function createGuildPanel(options: Options) {
   /** Daily quest points: what this guild has this week, what it pays, and how every guild stands. */
   function renderQuests(body: HTMLElement) {
     const standing = options.questStanding?.();
-    heading(body, "Quest points", "Each daily quest a member finishes is a point. Next week, the whole guild gets +0.25% stat gains per point.");
+    heading(body, "Quest points", `Each weekly quest a member finishes is a point. Next week, the whole guild gets +${GUILD_QUEST_BONUS_PER_POINT * 100}% stat gains per point.`);
     if (standing?.guild) {
       const week = element("div", undefined, "guild-quest-week");
       week.append(element("strong", `${number(standing.guild.points)} point${standing.guild.points === 1 ? "" : "s"} this week`),
         element("span", `Guild bonus now: +${standing.guild.bonusNow} stat gains`), element("span", `Next week: +${standing.guild.bonusNext}`));
       body.append(week);
-    } else empty(body, "No guild yet", "Join or found a guild, and every daily quest you finish becomes a point for it.");
+    } else empty(body, "No guild yet", "Join or found a guild, and every weekly quest you finish becomes a point for it.");
     renderQuestMembers(body);
     heading(body, "Guild ranking", "Every guild's quest points this week.");
-    if (!standing?.ranking.length) { empty(body, "No points yet this week", "Finish daily quests on the Quest Board at home to put a guild here."); return; }
+    if (!standing?.ranking.length) { empty(body, "No points yet this week", "Finish weekly quests on the Quest Board at home to put a guild here."); return; }
     const list = element("ol", undefined, "guild-ranking");
     for (const entry of standing.ranking) {
       const item = element("li", undefined, entry.mine ? "guild-ranking-own" : "");
@@ -434,9 +434,10 @@ export function createGuildPanel(options: Options) {
     body.append(list);
   }
   /**
-   * Who has done their quests: today's three as checks and this week's points,
-   * most points first. The President and Vice President can collect a
-   * member's unfinished quests here once their own are done.
+   * Who has done their quests: the week's fifteen as a line of segments, green
+   * for done and gold for collected by someone else, and this week's points,
+   * most first. Any member whose own fifteen are done can collect another's
+   * unfinished ones here.
    */
   function renderQuestMembers(body: HTMLElement) {
     const hint = (parent: HTMLElement, text: string) => parent.append(element("p", text, "guild-quest-hint"));
@@ -444,12 +445,12 @@ export function createGuildPanel(options: Options) {
     if (!own) return;
     const today = questDay(BigInt(Math.floor(now())) * 1000n);
     const joinedToday = (member: { eligibleAt: string }) => questDay(BigInt(member.eligibleAt)) >= today;
-    heading(body, "Members this week", "Today's quests and the points each member has earned the guild.");
+    heading(body, "Members this week", "Each member's fifteen quests and the points they have earned the guild.");
     const self = own.members.find(member => member.identity === snapshot!.identity);
     if (self && joinedToday(self)) hint(body, "Your quests count for this guild from tomorrow, and its bonus from next week.");
     const collect = own.questCollect;
-    if (collect) hint(body, !collect.ready ? `Finish your own quests to collect up to ${GUILD_QUEST_COLLECT_LIMIT} of a member's.`
-      : collect.left ? `You can collect ${collect.left} more of your members' unfinished quests today.` : "You have collected all you can today.");
+    if (collect) hint(body, !collect.ready ? `Finish your own ${WEEKLY_QUEST_COUNT} quests to collect up to ${GUILD_QUEST_COLLECT_LIMIT} of your members' unfinished ones.`
+      : collect.left ? `You can collect ${collect.left} more of your members' unfinished quests this week.` : "You have collected all you can this week.");
     const members = [...own.members].sort((a, b) => (b.questPoints ?? 0) - (a.questPoints ?? 0) || a.name.localeCompare(b.name));
     const list = element("ol", undefined, "guild-quest-members");
     for (const member of members) {
@@ -458,21 +459,21 @@ export function createGuildPanel(options: Options) {
       portrait.setAttribute("aria-hidden", "true");
       applyProfileIcon(portrait, member.profileIcon ?? 0);
       const copy = element("div", undefined, "guild-row-copy");
-      const done = member.questsDone ?? 0, taken = member.questsTaken ?? 0, total = member.questsTotal ?? 0;
-      const checks = element("span", undefined, "guild-quest-checks");
-      checks.setAttribute("aria-label", `${done} of ${total} quests done today${taken ? `, ${taken} collected by a leader` : ""}`);
-      // Done, then collected by a leader, then still to do.
+      const done = member.questsDone ?? 0, taken = member.questsTaken ?? 0, total = member.questsTotal ?? WEEKLY_QUEST_COUNT;
+      const line = element("span", undefined, "guild-quest-line");
+      line.setAttribute("role", "img");
+      line.setAttribute("aria-label", `${done} of ${total} quests done this week${taken ? `, ${taken} collected by a guildmate` : ""}`);
+      // Done, then collected by someone else, then still to do.
       for (let index = 0; index < total; index++) {
-        const state = index < done ? "is-done" : index < done + taken ? "is-taken" : "";
-        checks.append(element("span", state === "is-done" ? "✓" : state === "is-taken" ? "↗" : "", `guild-quest-check ${state}`.trim()));
+        line.append(element("span", undefined, `guild-quest-step${index < done ? " is-done" : index < done + taken ? " is-taken" : ""}`));
       }
-      copy.append(element("strong", member.name), checks);
+      copy.append(element("strong", member.name), line);
       const score = element("div", undefined, "guild-score");
       score.append(element("strong", number(member.questPoints ?? 0)), element("span", "pts"));
       item.append(portrait, copy, score);
       if (collect?.ready && collect.left && member.identity !== snapshot!.identity && (member.questsOpen ?? 0) > 0 && !joinedToday(member)) {
         const take = button("Collect", () => ask(`Collect ${member.name}'s quests?`,
-          `Up to ${Math.min(collect.left, member.questsOpen ?? 0)} of their unfinished quests move to your Quest Board. The points count as yours.`,
+          `Up to ${Math.min(collect.left, member.questsOpen ?? 0)} of their unfinished quests move to your Quest Board, three at a time. The points count as yours.`,
           "Collect", { kind: "collectQuests", identity: member.identity }), "secondary", busy, `collect-${member.identity}`);
         take.classList.add("guild-quest-collect");
         item.append(take);

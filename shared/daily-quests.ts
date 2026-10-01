@@ -3,16 +3,25 @@ import { enemyDefeatDefinition } from "./enemy-defeats";
 import { ENEMY_TYPES } from "./enemy-definitions";
 
 /**
- * Daily quests (0.847): three a day, each "kill 50 to 100 of one regular
- * campaign enemy". Every completed quest is a point for the player's guild that
- * week, and next week the whole guild's stat rewards grow by 0.25% for each
- * point (a full 20-member week, 420 points, is +105%). Days turn at 00:00 UTC;
- * weeks begin on Monday.
+ * Weekly quests (0.853; daily from 0.847): fifteen a week, each "kill 50 to
+ * 100 of one regular campaign enemy", three on the board at a time. Finishing
+ * one brings the next, so a player can clear all fifteen in a day or spread
+ * them over the week. Every completed quest is a point for the player's guild
+ * that week, and next week the whole guild's stat rewards grow by 0.1% for
+ * each point (a full 20-member week, 300 points, is +30%). Weeks begin on
+ * Monday at 00:00 UTC.
  */
-export const DAILY_QUEST_COUNT = 3;
+export const WEEKLY_QUEST_COUNT = 15;
+/** Quests on the board at once; kills count toward these only. */
+export const QUEST_ACTIVE_COUNT = 3;
 export const DAILY_QUEST_MIN_KILLS = 50;
 export const DAILY_QUEST_MAX_KILLS = 100;
-export const GUILD_QUEST_BONUS_PER_POINT = .0025;
+export const GUILD_QUEST_BONUS_PER_POINT = .001;
+/**
+ * Without a guild, each quest a player finishes is +1% stat gains next week:
+ * fifteen quests, +15%, half of what a full guild's week can earn.
+ */
+export const SOLO_QUEST_BONUS_PER_QUEST = .01;
 
 export type DailyQuest = {
   mapId: string; enemy: string; target: number; progress: number;
@@ -23,11 +32,11 @@ export type DailyQuest = {
 };
 
 /**
- * The President and Vice President may each collect this many of their
- * members' unfinished quests a day, once their own three are done, so one
- * member missing a day does not cost the guild its points.
+ * Any member may collect this many of other members' unfinished quests a
+ * week, once their own fifteen are done, so a member who misses the week does
+ * not cost the guild its points.
  */
-export const GUILD_QUEST_COLLECT_LIMIT = 3;
+export const GUILD_QUEST_COLLECT_LIMIT = 15;
 
 /** A quest of the player's own draw, not one they collected; a collected-away one still counts as theirs. */
 export const ownQuest = (quest: DailyQuest) => !quest.from;
@@ -41,6 +50,13 @@ export function questDay(micros: bigint) { return Number(micros / DAY_MICROS); }
 export function questWeek(day: number) { return Math.floor((day + 3) / 7); }
 /** When the given quest day ends, in milliseconds since the epoch. */
 export function questDayEndsAtMs(day: number) { return (day + 1) * 86_400_000; }
+/** When the quest week holding this day ends (Monday 00:00 UTC), in milliseconds since the epoch. */
+export function questWeekEndsAtMs(day: number) { return ((questWeek(day) + 1) * 7 - 3) * 86_400_000; }
+
+/** Next week's stat reward multiplier for a guildless player who finished this many quests this week. */
+export function soloQuestBonus(lastWeekQuests: number) {
+  return 1 + Math.min(WEEKLY_QUEST_COUNT, Math.max(0, Number.isFinite(lastWeekQuests) ? Math.floor(lastWeekQuests) : 0)) * SOLO_QUEST_BONUS_PER_QUEST;
+}
 
 /** Next week's stat reward multiplier for a guild that earned these points this week. */
 export function guildQuestBonus(lastWeekPoints: number) {
@@ -74,17 +90,34 @@ function seededRandom(seed: string) {
   };
 }
 
-/** Today's quests for a player: three different enemies from the maps they can reach. */
-export function dailyQuestsFor(identityHex: string, day: number, progress: UnlockSource): DailyQuest[] {
-  const pool = dailyQuestCandidates(progress);
-  const random = seededRandom(`${identityHex.replace(/^0x/i, "").toLowerCase()}:${day}`);
+/**
+ * A player's fifteen quests for a week, from the maps they can reach. Every
+ * enemy comes up once before any repeats, so a new player with one map open
+ * still gets a full week.
+ */
+export function weeklyQuestsFor(identityHex: string, week: number, progress: UnlockSource): DailyQuest[] {
+  const candidates = dailyQuestCandidates(progress);
+  let pool = [...candidates];
+  const random = seededRandom(`${identityHex.replace(/^0x/i, "").toLowerCase()}:week:${week}`);
   const quests: DailyQuest[] = [];
-  while (quests.length < DAILY_QUEST_COUNT && pool.length) {
+  while (quests.length < WEEKLY_QUEST_COUNT && candidates.length) {
+    if (!pool.length) pool = [...candidates];
     const [pick] = pool.splice(Math.floor(random() * pool.length), 1);
     const target = DAILY_QUEST_MIN_KILLS + Math.floor(random() * (DAILY_QUEST_MAX_KILLS - DAILY_QUEST_MIN_KILLS + 1));
     quests.push({ ...pick, target, progress: 0 });
   }
   return quests;
+}
+
+/**
+ * The quests on the board: the first three still open, in list order. The
+ * player's own come first and collected ones follow, since collecting waits
+ * until a player's own fifteen are done.
+ */
+export function activeQuestIndices(quests: readonly DailyQuest[]) {
+  const active: number[] = [];
+  for (let index = 0; index < quests.length && active.length < QUEST_ACTIVE_COUNT; index++) if (questOpen(quests[index])) active.push(index);
+  return active;
 }
 
 /** Reads a stored quest list, dropping anything malformed. */
@@ -110,8 +143,10 @@ export function applyQuestKills(quests: DailyQuest[], mapId: string, kills: { en
   let completed = 0;
   const left = new Map<string, number>();
   for (const kill of kills) left.set(kill.enemy, (left.get(kill.enemy) ?? 0) + Math.max(0, Math.floor(kill.count)));
-  const next = quests.map(quest => {
-    if (!questOpen(quest) || quest.mapId !== mapId) return quest;
+  // Only the quests on the board move; the rest wait their turn.
+  const active = new Set(activeQuestIndices(quests));
+  const next = quests.map((quest, index) => {
+    if (!active.has(index) || quest.mapId !== mapId) return quest;
     const count = Math.min(left.get(quest.enemy) ?? 0, quest.target - quest.progress);
     if (count <= 0) return quest;
     left.set(quest.enemy, (left.get(quest.enemy) ?? 0) - count);

@@ -3,7 +3,7 @@ import { Timestamp } from "spacetimedb";
 import { crystalFixture } from "../../tests/helpers/crystal-hollows-fixture";
 import { fillDefeatBudget, reportKills } from "../../tests/helpers/enemy-defeat";
 import { STARTER_BOW } from "../../shared/items";
-import { questDay, questWeek } from "../../shared/daily-quests";
+import { WEEKLY_QUEST_COUNT, questDay, questWeek } from "../../shared/daily-quests";
 import { collectMemberQuests, ensureDailyQuests, guildQuestBonusFor, memberQuestStanding, questCollectStanding } from "./daily-quests";
 import { Identity } from "spacetimedb";
 import { statRewardMultiplier } from "./prestige";
@@ -45,29 +45,38 @@ it("finishes a quest from accepted kills and gives the guild a point for the wee
   expect(f.db.guildQuestWeek.key.find(`${questWeek(day)}:7`).points).toBe(1);
 });
 
-it("pays the guild's bonus the week after: 0.25% of stat gains per point", () => {
+it("pays the guild's bonus the week after: 0.1% of stat gains per point", () => {
   const { f, day } = questing();
   const base = statRewardMultiplier(f.ctx, f.ctx.sender);
-  f.seed("guildQuestWeek", { key: `${questWeek(day) - 1}:7`, week: questWeek(day) - 1, guildId: 7n, guildName: "Oaks", points: 420 });
-  expect(guildQuestBonusFor(f.ctx, f.ctx.sender)).toBeCloseTo(2.05);
-  expect(statRewardMultiplier(f.ctx, f.ctx.sender)).toBeCloseTo(base * 2.05);
-  expect(ensureDailyQuests(f.ctx, f.ctx.sender).bonus).toBeCloseTo(2.05);
+  f.seed("guildQuestWeek", { key: `${questWeek(day) - 1}:7`, week: questWeek(day) - 1, guildId: 7n, guildName: "Oaks", points: 300 });
+  expect(guildQuestBonusFor(f.ctx, f.ctx.sender)).toBeCloseTo(1.3);
+  expect(statRewardMultiplier(f.ctx, f.ctx.sender)).toBeCloseTo(base * 1.3);
+  expect(ensureDailyQuests(f.ctx, f.ctx.sender).bonus).toBeCloseTo(1.3);
 });
 
-it("finishes quests without a guild, for no point", () => {
+it("pays a guildless player 1% a quest the week after, up to 15%", () => {
   const { f } = questing(false);
   spitters(f, 10);
   expect(JSON.parse(f.db.playerDailyQuest.identity.find(f.ctx.sender).questsJson)[0].progress).toBe(50);
   expect([...f.db.guildQuestWeek.iter()]).toHaveLength(0);
+  expect(guildQuestBonusFor(f.ctx, f.ctx.sender)).toBe(1);
+  f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + 7n * DAY);
+  expect(guildQuestBonusFor(f.ctx, f.ctx.sender)).toBeCloseTo(1.01);
+  // Two weeks on, last week's empty solo week pays nothing.
+  f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + 7n * DAY);
+  expect(guildQuestBonusFor(f.ctx, f.ctx.sender)).toBe(1);
 });
 
-it("draws a fresh set when the day turns", () => {
+it("draws fifteen when the week turns, and tops a daily list up to fifteen keeping its progress", () => {
   const { f, day } = questing();
-  f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + 86_400_000_000n);
+  const topped = JSON.parse(ensureDailyQuests(f.ctx, f.ctx.sender).questsJson);
+  expect(topped).toHaveLength(WEEKLY_QUEST_COUNT);
+  expect(topped.slice(0, 2).map((q: any) => q.progress)).toEqual([45, 0]);
+  f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + 7n * DAY);
   const row = ensureDailyQuests(f.ctx, f.ctx.sender);
-  expect(row.day).toBe(day + 1);
+  expect(row.day).toBe(day + 7);
   const quests = JSON.parse(row.questsJson);
-  expect(quests).toHaveLength(3);
+  expect(quests).toHaveLength(WEEKLY_QUEST_COUNT);
   expect(quests.every((q: any) => q.progress === 0)).toBe(true);
 });
 
@@ -84,43 +93,44 @@ it("counts a new member's quests for the guild from tomorrow, and its bonus from
 it("tallies each member's points for the Guild window, for the guild they earned them in", () => {
   const { f } = questing();
   spitters(f, 10);
-  expect(memberQuestStanding(f.ctx, f.ctx.sender, 7n)).toMatchObject({ questsDone: 1, questsTotal: 2, questsOpen: 1, questPoints: 1 });
+  expect(memberQuestStanding(f.ctx, f.ctx.sender, 7n)).toMatchObject({ questsDone: 1, questsTotal: 15, questsOpen: 14, questPoints: 1 });
   expect(memberQuestStanding(f.ctx, f.ctx.sender, 8n).questPoints).toBe(0);
 });
 
-it("lets a leader whose own quests are done collect up to three of a member's unfinished ones", () => {
+const member = (f: any, last: string, joinedAt = 0n) => {
+  const who = Identity.fromString("00".repeat(31) + last);
+  f.seed("guildMember", { identity: who, guildId: 7n, name: `M${last}`, joinedAt, eligibleAt: 0n, champion: false, fighter: "", power: 0, vicePresident: false });
+  return who;
+};
+const finishedWeek = () => JSON.stringify(Array.from({ length: WEEKLY_QUEST_COUNT }, () => ({ mapId: "tutorial_forest", enemy: "Spitter", target: 50, progress: 50 })));
+
+it("lets any member whose own fifteen are done collect up to fifteen of another's unfinished ones", () => {
   const { f, day } = questing();
-  const member = Identity.fromString("00".repeat(31) + "42");
-  f.seed("guildMember", { identity: member, guildId: 7n, name: "Sleepy", joinedAt: 0n, eligibleAt: 0n, champion: false, fighter: "", power: 0, vicePresident: false });
-  f.seed("playerDailyQuest", { identity: member, day, bonus: 1, guildPoints: 0, guildName: "Oaks", questsJson: JSON.stringify([
+  const sleepy = member(f, "42"), helper = member(f, "44");
+  f.seed("playerDailyQuest", { identity: sleepy, day, bonus: 1, guildPoints: 0, guildName: "Oaks", questsJson: JSON.stringify([
     { mapId: "tutorial_forest", enemy: "Spitter", target: 60, progress: 10 },
     { mapId: "tutorial_forest", enemy: "Bramble", target: 70, progress: 70 },
-    { mapId: "tutorial_forest", enemy: "Spitter", target: 90, progress: 0 },
   ]) });
-  // The leader's own Bramble quest is still open.
-  expect(() => collectMemberQuests(f.ctx, f.ctx.sender, member)).toThrow("Finish your own quests first");
-  f.patch("playerDailyQuest", { questsJson: JSON.stringify([{ mapId: "tutorial_forest", enemy: "Spitter", target: 50, progress: 50 }]) });
-  expect(questCollectStanding(f.ctx, f.ctx.sender)).toEqual({ ready: true, left: 3 });
-  expect(collectMemberQuests(f.ctx, f.ctx.sender, member)).toBe(2);
-  const theirs = JSON.parse(f.db.playerDailyQuest.identity.find(member).questsJson);
-  expect(theirs.filter((quest: any) => quest.takenBy)).toHaveLength(2);
-  const mine = JSON.parse(f.db.playerDailyQuest.identity.find(f.ctx.sender).questsJson);
-  expect(mine.filter((quest: any) => quest.from === "Sleepy").map((quest: any) => quest.progress)).toEqual([10, 0]);
-  expect(questCollectStanding(f.ctx, f.ctx.sender).left).toBe(1);
-  // Nothing left open to take: the finished Bramble stays theirs.
-  expect(() => collectMemberQuests(f.ctx, f.ctx.sender, member)).toThrow("no unfinished quests");
-  // Finishing a collected quest is a point for the guild, credited to the leader.
-  spitters(f, 50);
-  expect(memberQuestStanding(f.ctx, f.ctx.sender, 7n).questPoints).toBe(1);
-  expect(memberQuestStanding(f.ctx, member, 7n)).toMatchObject({ questsDone: 1, questsOpen: 0 });
+  // The collector's own week is still open.
+  expect(() => collectMemberQuests(f.ctx, f.ctx.sender, sleepy)).toThrow("Finish your own quests first");
+  // Not only leaders: an ordinary member with a finished week can collect.
+  f.seed("playerDailyQuest", { identity: helper, day, bonus: 1, guildPoints: 0, guildName: "Oaks", questsJson: finishedWeek() });
+  expect(questCollectStanding(f.ctx, helper)).toEqual({ ready: true, left: 15 });
+  // Their 14 open (one started, thirteen drawn to top the week up) all move.
+  expect(collectMemberQuests(f.ctx, helper, sleepy)).toBe(14);
+  const theirs = JSON.parse(f.db.playerDailyQuest.identity.find(sleepy).questsJson);
+  expect(theirs.filter((quest: any) => quest.takenBy === "M44" || quest.takenBy)).toHaveLength(14);
+  const mine = JSON.parse(f.db.playerDailyQuest.identity.find(helper).questsJson);
+  expect(mine.filter((quest: any) => quest.from).map((quest: any) => quest.progress).slice(0, 2)).toEqual([10, 0]);
+  expect(questCollectStanding(f.ctx, helper).left).toBe(1);
+  expect(memberQuestStanding(f.ctx, sleepy, 7n)).toMatchObject({ questsDone: 1, questsTaken: 14, questsOpen: 0 });
+  expect(() => collectMemberQuests(f.ctx, helper, sleepy)).toThrow("no unfinished quests");
 });
 
-it("collects only for the President and Vice President, and not from a member who joined today", () => {
-  const { f, day } = questing();
-  const member = Identity.fromString("00".repeat(31) + "43");
-  f.seed("guildMember", { identity: member, guildId: 7n, name: "New", joinedAt: f.ctx.timestamp.microsSinceUnixEpoch, eligibleAt: 0n, champion: false, fighter: "", power: 0, vicePresident: false });
-  f.patch("playerDailyQuest", { questsJson: JSON.stringify([{ mapId: "tutorial_forest", enemy: "Spitter", target: 50, progress: 50 }]) });
-  expect(() => collectMemberQuests(f.ctx, f.ctx.sender, member)).toThrow("from tomorrow");
-  expect(() => collectMemberQuests(f.ctx, member, f.ctx.sender)).toThrow("President or Vice President");
-  void day;
+it("does not collect from or for a member who joined today", () => {
+  const { f } = questing();
+  const fresh = member(f, "43", f.ctx.timestamp.microsSinceUnixEpoch);
+  f.patch("playerDailyQuest", { questsJson: finishedWeek() });
+  expect(() => collectMemberQuests(f.ctx, f.ctx.sender, fresh)).toThrow("from tomorrow");
+  expect(() => collectMemberQuests(f.ctx, fresh, f.ctx.sender)).toThrow("from tomorrow");
 });

@@ -773,7 +773,7 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     if (bench.label === "Quest Board") {
       const quests = options.questBoardStatus?.();
       drawHomeQuestBoard(ctx, x, y, options.getGameTime(), quests?.finished ?? []);
-      drawHomeStationSign(ctx, x, y + 2, "Daily Quests", quests?.timer);
+      drawHomeStationSign(ctx, x, y + 2, "Weekly Quests", quests?.timer);
       return;
     }
     if (!options.upgradeBench.complete || options.upgradeBench.naturalWidth <= 0) return;

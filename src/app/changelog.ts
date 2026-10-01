@@ -1,5 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.853": [
+    "Quests are weekly: 15 a week, 3 on the board at a time, so you can do them all in a day or across the week",
+    "Guild quest bonus is now +0.1% stat gains per point",
+    "Any guild member who finishes their 15 can collect up to 15 of other members' unfinished quests",
+    "No guild? Each quest you finish is +1% stat gains next week, up to +15%",
     "New setting: Scientific Notation shows big numbers like 1.23e45",
     "Regen shows three significant digits everywhere, like 523k/s",
     "Guild battles no longer post to chat on their own; tap Share on a battle report to post it",

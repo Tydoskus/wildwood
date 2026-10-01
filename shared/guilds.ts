@@ -36,7 +36,7 @@ export type GuildSnapshot = {
       questsOpen?: number;
       /** Today's quests a leader collected from them. */
       questsTaken?: number }[];
-    /** President and Vice President only: whether they may collect members' quests today (their own done), and how many more. */
+    /** Whether the viewer may collect members' quests this week (their own fifteen done), and how many more. */
     questCollect?: { ready: boolean; left: number } | null };
   directory: { id: string; name: string; emblem?: number; members: number; totalPower?: number; requestOnly?: boolean; challengedToday: boolean }[]; nextPage: string | null;
   standings: GuildStanding[];

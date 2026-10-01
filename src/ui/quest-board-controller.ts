@@ -1,4 +1,4 @@
-import { GUILD_QUEST_BONUS_PER_POINT, questDay, questDayEndsAtMs, questOpen, questWeek, type DailyQuest } from "../../shared/daily-quests";
+import { GUILD_QUEST_BONUS_PER_POINT, SOLO_QUEST_BONUS_PER_QUEST, WEEKLY_QUEST_COUNT, activeQuestIndices, ownQuest, questDay, questDone, questOpen, questWeek, questWeekEndsAtMs, type DailyQuest } from "../../shared/daily-quests";
 
 type QuestState = { day: number; quests: DailyQuest[]; bonus: number; guildPoints: number; guildName: string };
 type RankingRow = { guildId: string; guildName: string; points: number };
@@ -17,8 +17,8 @@ const percent = (fraction: number) => `${Math.round(fraction * 1000) / 10}%`;
 
 export function formatQuestReset(msLeft: number) {
   const minutes = Math.max(1, Math.ceil(msLeft / 60_000));
-  const hours = Math.floor(minutes / 60);
-  return hours ? `${hours}h ${minutes % 60}m` : `${minutes}m`;
+  const hours = Math.floor(minutes / 60), days = Math.floor(hours / 24);
+  return days ? `${days}d ${hours % 24}h` : hours ? `${hours}h ${minutes % 60}m` : `${minutes}m`;
 }
 
 /** The guild's quest week, for the Guild window's Quests tab: its points, its bonus now and next week, and the ranking. */
@@ -39,9 +39,14 @@ export function guildQuestStandingFrom(source: QuestBoardSource) {
   return guildQuestStanding(state, state ? source?.guildQuestRanking?.(questWeek(state.day)) ?? [] : []);
 }
 
-/** The words on the board: one row a quest, and when new ones come. */
+/**
+ * The words on the board: the three quests in play, how many of the week's
+ * fifteen are done, and when the next fifteen come.
+ */
 export function questBoardView(state: QuestState | null, nowMs: number, mapName: (mapId: string) => string) {
-  const quests = (state?.quests ?? []).map(quest => ({
+  const all = state?.quests ?? [];
+  const own = all.filter(ownQuest);
+  const quests = activeQuestIndices(all).map(index => all[index]).map(quest => ({
     title: `Defeat ${quest.target} ${quest.enemy}`,
     // A collected quest names the member it was taken from; a taken one, who took it.
     where: quest.from ? `${mapName(quest.mapId)} · For ${quest.from}` : quest.takenBy ? `Taken by ${quest.takenBy}` : mapName(quest.mapId),
@@ -50,17 +55,22 @@ export function questBoardView(state: QuestState | null, nowMs: number, mapName:
     done: quest.progress >= quest.target,
     taken: Boolean(quest.takenBy) && quest.progress < quest.target,
   }));
-  return { quests, resetsIn: state ? formatQuestReset(questDayEndsAtMs(state.day) - nowMs) : "" };
+  const extra = all.filter(quest => !ownQuest(quest));
+  return { quests, resetsIn: state ? formatQuestReset(questWeekEndsAtMs(state.day) - nowMs) : "",
+    done: own.filter(questDone).length, total: own.length || WEEKLY_QUEST_COUNT,
+    collected: extra.length ? `${extra.filter(questDone).length}/${extra.length} collected` : "",
+    finished: own.length > 0 && !all.some(questOpen) };
 }
 
-/** What the board in the courtyard shows: papers checked off, and how many are done. */
+/** What the board in the courtyard shows: three papers, ticked once the week's quests run out, and the week's count. */
 export function questBoardWorldStatus(state: QuestState | null) {
   if (!state?.quests.length) return null;
-  const finished = state.quests.map(quest => !questOpen(quest));
-  return { finished, timer: `${finished.filter(Boolean).length}/${finished.length} done` };
+  const open = activeQuestIndices(state.quests).length;
+  const own = state.quests.filter(ownQuest);
+  return { finished: [0, 1, 2].map(paper => paper >= open), timer: `${own.filter(questDone).length}/${own.length} done` };
 }
 
-/** Home's Daily Quest board: a game window with today's quests and the guild race. */
+/** Home's Quest Board: a game window with the week's quests, three at a time. */
 export function createQuestBoardController(deps: {
   source: () => QuestBoardSource;
   atHome: () => boolean;
@@ -73,20 +83,31 @@ export function createQuestBoardController(deps: {
   const dialog = document.createElement("dialog");
   dialog.className = "farm-sheet quest-sheet";
   dialog.setAttribute("aria-labelledby", "questBoardTitle");
-  dialog.innerHTML = `<header class="farm-header"><h2 id="questBoardTitle" class="window-banner"><span>Daily Quests</span></h2></header>`
+  dialog.innerHTML = `<header class="farm-header"><h2 id="questBoardTitle" class="window-banner"><span>Weekly Quests</span></h2></header>`
     // Everything between the banner and Back scrolls, so small screens reach it all.
-    + `<div class="quest-body"><p class="farm-map quest-reset"></p><div class="quest-list" role="list" aria-label="Today's quests"></div>`
-    + `<p class="quest-guild-hint">Each quest you finish is a point for your guild. See Guild → Quests.</p></div>`
+    + `<div class="quest-body"><p class="farm-map quest-reset"></p><div class="quest-week" aria-hidden="true"></div><div class="quest-list" role="list" aria-label="Quests in play"></div>`
+    + `<p class="quest-guild-hint"></p></div>`
     + `<footer class="farm-footer"><div class="farm-actions"><button type="button" class="window-back-button">Back</button></div></footer>`;
   document.body.append(dialog);
   const $ = <T extends HTMLElement>(selector: string) => dialog.querySelector<T>(selector)!;
-  const reset = $(".quest-reset"), list = $(".quest-list"), back = $<HTMLButtonElement>(".window-back-button");
+  const reset = $(".quest-reset"), list = $(".quest-list"), week = $(".quest-week"), hint = $(".quest-guild-hint"), back = $<HTMLButtonElement>(".window-back-button");
   let ticker = 0;
 
   function render() {
     const state = deps.source()?.dailyQuests?.() ?? null;
     const view = questBoardView(state, now(), deps.mapName);
-    reset.textContent = state ? `New quests in ${view.resetsIn}` : "Pinning up today's quests…";
+    // The week's count, then when the next fifteen come on a line of its own.
+    if (state) reset.replaceChildren(`${view.done}/${view.total} done this week${view.collected ? ` · ${view.collected}` : ""}`, document.createElement("br"), `New quests in ${view.resetsIn}`);
+    else reset.textContent = "Pinning up this week's quests…";
+    // One bar for the week's fifteen, so it is clear the three on the board are not all.
+    week.replaceChildren(...Array.from({ length: view.total }, (_, index) => {
+      const step = document.createElement("span");
+      step.className = `quest-week-step${index < view.done ? " is-done" : ""}`;
+      return step;
+    }));
+    hint.textContent = view.finished ? "All done this week. New quests on Monday."
+      : state?.guildName ? "Each quest you finish is a point for your guild. See Guild → Quests."
+      : `No guild: each quest you finish is +${Math.round(SOLO_QUEST_BONUS_PER_QUEST * 100)}% stat gains next week.`;
     list.replaceChildren(...view.quests.map(quest => {
       const row = document.createElement("div");
       row.className = "quest-row"; row.setAttribute("role", "listitem");
@@ -143,14 +164,15 @@ export function createQuestBoardRuntime(deps: Parameters<typeof createQuestBoard
   const shown = new Map<string, number>();
   let shownDay = -1;
   return {
-    /** A regular enemy died: count it against today's quests at once, ahead of the server's report. */
+    /** A regular enemy died: count it against the quests in play at once, ahead of the server's report. */
     noteKill(mapId: string, enemy: string) {
       const state = deps.source()?.dailyQuests?.();
       if (!state) return;
       if (state.day !== shownDay) { shown.clear(); shownDay = state.day; }
-      // Kills fill the first open quest for the enemy, the same order the server counts them.
-      for (const [index, quest] of state.quests.entries()) {
-        if (quest.mapId !== mapId || quest.enemy !== enemy || !questOpen(quest)) continue;
+      // Kills fill the first quest in play for the enemy, the same order the server counts them.
+      for (const index of activeQuestIndices(state.quests)) {
+        const quest = state.quests[index];
+        if (quest.mapId !== mapId || quest.enemy !== enemy) continue;
         const key = `${mapId}:${enemy}:${index}`, before = Math.max(shown.get(key) ?? 0, quest.progress);
         if (before >= quest.target) continue;
         shown.set(key, before + 1);
@@ -165,7 +187,7 @@ export function createQuestBoardRuntime(deps: Parameters<typeof createQuestBoard
       if (!deps.atHome() || !source?.isConnected?.()) return;
       const state = source.dailyQuests?.();
       const today = questDay(BigInt(Math.floor(source.serverNowMs?.() ?? Date.now())) * 1000n);
-      if ((state && state.day === today) || performance.now() < refreshAt) return;
+      if ((state && questWeek(state.day) === questWeek(today)) || performance.now() < refreshAt) return;
       refreshAt = performance.now() + 60_000;
       void source.refreshDailyQuests?.()?.catch?.(() => {});
     },
