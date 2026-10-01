@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.848": [
+    "Defeating a quest enemy shows your progress, like 2/50",
+    "Guild quest points and the weekly ranking moved to Guild > Quests",
+    "The Quest Board scrolls on small screens",
+  ],
   "0.847": [
     "New: Daily Quests on the Quest Board at home, three a day",
     "Each finished quest is a point for your guild; next week the whole guild gets +0.25% stat gains per point",
@@ -2574,6 +2579,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.848": "2026-09-30",
   "0.847": "2026-09-30",
   "0.846": "2026-09-30",
   "0.845": "2026-09-30",
