@@ -70,7 +70,9 @@
   margin: 0 14px 10px;
   border-bottom: 1px solid #ffffff1c;
 }
-.farm-priority-label { display: grid; place-items: center; padding: 0 10px 0 2px; color: var(--muted); font-size: 12px; }
+.farm-pull { display: flex; flex-shrink: 0; align-items: center; gap: 8px; margin: -2px 14px 10px; color: var(--muted); font-size: 12px; cursor: pointer; }
+.farm-pull input { flex: 0 0 auto; width: 18px; height: 18px; margin: 0; accent-color: var(--green); cursor: pointer; }
+.farm-pull:has(input:checked) { color: #fff; }
 .farm-sheet .farm-priority button {
   flex: 1;
   min-width: 0;

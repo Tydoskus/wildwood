@@ -10,7 +10,7 @@ import type { Movement } from './player-input-controller';
 import { isEnemyAttackingPlayer } from './enemy-threat';
 import { farmRoute } from './auto-farm-navigation';
 import { rangedEnemyHoldBand } from './ranged-enemy-range';
-import { compareAutoFarmTargets, readAutoFarmPriority, writeAutoFarmPriority, type AutoFarmPriority } from './auto-farm-priority';
+import { compareAutoFarmTargets, readAutoFarmPriority, readAutoFarmPull, writeAutoFarmPriority, writeAutoFarmPull, type AutoFarmPriority } from './auto-farm-priority';
 import type { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 
 export type AutoFarmController = ReturnType<typeof createAutoFarmController>;
@@ -73,6 +73,7 @@ export function createAutoFarmController(options: {
   priorityStorage?: () => Pick<Storage, 'getItem' | 'setItem'> | undefined;
 }) {
   let priority: AutoFarmPriority = readAutoFarmPriority(options.priorityStorage);
+  let pullAll = readAutoFarmPull(options.priorityStorage);
   let selected: string | null = null;
   let selectedType: EnemyKind | null = null;
   let selectedCamp: string | null = null;
@@ -294,6 +295,13 @@ export function createAutoFarmController(options: {
     targetType: () => active && !manualControl ? selectedType : null,
     targetCamp: () => active && !manualControl ? selectedCamp : null,
     priority: () => priority,
+    pullAll: () => pullAll,
+    setPullAll(next: boolean) {
+      pullAll = next;
+      writeAutoFarmPull(next, options.priorityStorage);
+    },
+    /** With "aggro on spawn" ticked, every live enemy of the farmed group comes for the player, from anywhere. */
+    pulls: (enemy: EnemyState) => pullAll && active && !manualControl && !recovering && !pendingResume && !options.paused() && validEnemy(enemy),
     setPriority(next: AutoFarmPriority) {
       if (next === priority) return;
       priority = next;

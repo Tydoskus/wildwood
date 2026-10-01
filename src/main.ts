@@ -610,6 +610,7 @@ import {
       playerMovementSpeed: () => player.speed * movementMultiplier(),
       spawnDamageNumber, remoteGhostsEnabled: appShell.remoteGhostsEnabled,
       spawnBurst,
+      pullAggro: enemy => autoFarm.pulls(enemy),
     },
   );
   const research = createResearchController({

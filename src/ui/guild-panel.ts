@@ -489,13 +489,21 @@ export function createGuildPanel(options: Options) {
       applyProfileIcon(portrait, member.profileIcon ?? 0);
       const copy = element("div", undefined, "guild-row-copy");
       const done = member.questsDone ?? 0, collected = member.questsCollected ?? 0, total = member.questsTotal ?? WEEKLY_QUEST_COUNT;
+      // Marks match points: a done quest is green only when it earned this guild a point. Pool quests count
+      // first, since collecting needs their own fifteen done; the rest of the points are their own quests.
+      const points = member.questPoints ?? 0;
+      const countedPool = Math.min(collected, points), counted = Math.min(done, points - countedPool), uncounted = done - counted;
       const line = element("span", undefined, "guild-quest-line");
       line.setAttribute("role", "img");
-      line.setAttribute("aria-label", `${done} of ${total} quests done this week${collected ? `, and ${collected} from the guild's pool` : ""}`);
-      // Their own fifteen, green when done; then a gold mark for each pool quest they finished, so marks match points.
-      for (let index = 0; index < total; index++) line.append(element("span", undefined, `guild-quest-step${index < done ? " is-done" : ""}`));
-      for (let index = 0; index < collected; index++) line.append(element("span", undefined, "guild-quest-step is-taken"));
+      line.setAttribute("aria-label", `${done} of ${total} quests done this week${uncounted ? `, ${uncounted} of them not for this guild` : ""}${collected ? `, and ${collected} from the guild's pool` : ""}`);
+      for (let index = 0; index < total; index++) {
+        line.append(element("span", undefined, `guild-quest-step${index < counted ? " is-done" : index < done ? " is-elsewhere" : ""}`));
+      }
+      for (let index = 0; index < countedPool; index++) line.append(element("span", undefined, "guild-quest-step is-taken"));
       copy.append(element("strong", member.name), line);
+      if (uncounted) {
+        copy.append(element("span", member.joinedThisWeek ? `${uncounted} done before joining · solo bonus` : `${uncounted} not counted for this guild`, "guild-quest-note"));
+      }
       const score = element("div", undefined, "guild-score");
       score.append(element("strong", number(member.questPoints ?? 0)), element("span", "pts"));
       item.append(portrait, copy, score);

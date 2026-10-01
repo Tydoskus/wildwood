@@ -23,6 +23,17 @@ export function writeAutoFarmPriority(priority: AutoFarmPriority, storage: () =>
   try { storage()?.setItem(AUTO_FARM_PRIORITY_KEY, priority); } catch { /* The choice still applies this session. */ }
 }
 
+export const AUTO_FARM_PULL_KEY = 'wildstat:autofarm-pull:v1';
+
+/** Whether the farmed group comes for the player as soon as it spawns; a preference like the priority. */
+export function readAutoFarmPull(storage: () => Storage | undefined = () => localStorage) {
+  try { return storage()?.getItem(AUTO_FARM_PULL_KEY) === '1'; } catch { return false; }
+}
+
+export function writeAutoFarmPull(pull: boolean, storage: () => Storage | undefined = () => localStorage) {
+  try { storage()?.setItem(AUTO_FARM_PULL_KEY, pull ? '1' : '0'); } catch { /* The choice still applies this session. */ }
+}
+
 type Candidate = { hp: number; maxHp: number };
 
 /**

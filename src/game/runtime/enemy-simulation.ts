@@ -47,6 +47,8 @@ export type EnemySimulationSharedOptions = {
   spawnBurst?: (x: number, y: number, color: string, count?: number, speed?: number) => void;
   /** The device setting for drawing other players' fights; on unless it says false. */
   remoteGhostsEnabled?: () => boolean;
+  /** Autofarm's "aggro on spawn": this enemy comes for the player from anywhere and never leashes. */
+  pullAggro?: (enemy: EnemyState) => boolean;
 };
 
 export type EnemySimulation = {
@@ -214,6 +216,8 @@ export function createEnemySimulation(
       if (enemy.dead || enemy.generatedBoss) continue;
 
       const base = (enemy.definition ?? ENEMY_TYPES[enemy.type]);
+      const pulled = shared.pullAggro?.(enemy) === true;
+      if (pulled && enemy.leashing) enemy.leashing = false;
       const ambient = regularEnemyAmbientPose(mapId, enemy.siteId, enemy.homeX, enemy.homeY, serverNowMs);
       enemy.phase = ambient.phase;
       enemy.hurt = Math.max(0, enemy.hurt - dt);
@@ -262,8 +266,8 @@ export function createEnemySimulation(
         const selected = selectRegularEnemyAggroTarget({
           enemyX: enemy.x,
           enemyY: enemy.y,
-          acquireRadius: regularAggroRadius(enemy),
-          retainRadius: regularRetainRadius(enemy),
+          acquireRadius: pulled ? Number.POSITIVE_INFINITY : regularAggroRadius(enemy),
+          retainRadius: pulled ? Number.POSITIVE_INFINITY : regularRetainRadius(enemy),
           currentTargetId: enemy.engaged ? enemy.aggroTargetId : null,
           candidates: [localCandidate],
         });
@@ -293,7 +297,7 @@ export function createEnemySimulation(
           const targetDx = target.x - enemy.x;
           const targetDy = target.y - enemy.y;
           const targetDistance = Math.hypot(targetDx, targetDy) || 1;
-          const leashRange = regularRetainRadius(enemy);
+          const leashRange = pulled ? Number.POSITIVE_INFINITY : regularRetainRadius(enemy);
           if (targetDistance > leashRange) {
             beginLeashing(enemy);
           } else {

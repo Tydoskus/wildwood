@@ -37,7 +37,9 @@ export type GuildSnapshot = {
       /** Quests a guildmate took from them (before 0.858). */
       questsTaken?: number;
       /** Quests they collected from the guild's pool and finished. */
-      questsCollected?: number }[];
+      questsCollected?: number;
+      /** Joined this week: quests done on or before their joining day count toward their own bonus, not the guild's. */
+      joinedThisWeek?: boolean }[];
     /** Whether the viewer may collect members' quests this week (their own fifteen done), and how many more. */
     questCollect?: { ready: boolean; left: number; pool?: number; poolSize?: number } | null };
   directory: { id: string; name: string; emblem?: number; members: number; totalPower?: number; requestOnly?: boolean; challengedToday: boolean }[]; nextPage: string | null;

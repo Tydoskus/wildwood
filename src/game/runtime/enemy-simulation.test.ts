@@ -151,6 +151,23 @@ describe("deterministic enemy simulation", () => {
     );
   });
 
+  it("lets autofarm pull a far enemy as it spawns and keeps it from leashing", () => {
+    const pulledEnemy = idleEnemyAt(1600, 300);
+    const leftAlone = { ...idleEnemyAt(1600, 700), siteId: 2 };
+    const local = playerAt(100, 300);
+    const simulation = createEnemySimulation(
+      [pulledEnemy, leftAlone], () => {}, local, () => ({ width: 800, height: 800, zoom: 1 }), engage, () => false,
+      { localIdentity: () => "local-player", pullAggro: enemy => enemy === pulledEnemy },
+    );
+    simulation.update(1 / 60);
+    expect(pulledEnemy.engaged).toBe(true);
+    expect(pulledEnemy.combatTargetX).toBe(local.x);
+    expect(leftAlone.engaged).toBe(false);
+    for (let frame = 0; frame < 30; frame++) simulation.update(1 / 60);
+    expect(pulledEnemy.leashing).toBe(false);
+    expect(pulledEnemy.x).toBeLessThan(1600);
+  });
+
   it("breaks from the shared consensus pose and follows the actual local player after aggro", () => {
     const enemy = idleEnemyAt(300, 300);
     engage(enemy, "local-player");

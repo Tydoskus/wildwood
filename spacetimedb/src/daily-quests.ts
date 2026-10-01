@@ -196,7 +196,8 @@ export function memberQuestStanding(ctx: Ctx, identity: any, guildId: bigint) {
   // Never fewer points than the list shows done for this guild: the tally began in 0.852, after some of
   // this week's quests. A member who joined this week may have done those for another guild, so theirs stand.
   const member = ctx.db.guildMember.identity.find(identity);
-  const done = member?.guildId === guildId && questWeek(questDay(member.joinedAt)) < week ? listDone(ctx, identity, week) : null;
+  const joinedThisWeek = member?.guildId !== guildId || questWeek(questDay(member.joinedAt)) >= week;
+  const done = joinedThisWeek ? null : listDone(ctx, identity, week);
   const tally = guildTally(ctx, identity, week, guildId);
   return {
     questsDone: own ? own.filter(questDone).length : 0,
@@ -207,6 +208,8 @@ export function memberQuestStanding(ctx: Ctx, identity: any, guildId: bigint) {
     // Quests collected from the guild's pool and finished: points beyond the member's own fifteen.
     questsCollected: quests ? quests.filter(quest => quest.from && questDone(quest)).length : 0,
     questPoints: done ? Math.max(tally, done.own + done.collected - soloPoints(ctx, identity, week)) : tally,
+    // Quests done on or before the day they joined count toward their own bonus, not this guild's.
+    joinedThisWeek,
   };
 }
 

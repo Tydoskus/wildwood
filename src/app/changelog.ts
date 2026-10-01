@@ -1,6 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.860": [
     "Research can be paused: it keeps its time left, and starting it again resumes it",
+    "Autofarm: new tick to aggro the whole group as it spawns, handy for Reflect runs",
+    "Guild > Quests: a quest is green only when it earned the guild a point; ones done before joining show hollow",
   ],
   "0.859": [
     "Every regen camp has 2 more enemies",

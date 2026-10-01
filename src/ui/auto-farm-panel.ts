@@ -26,9 +26,10 @@ export function createAutoFarmPanel(options: {
   sheet.setAttribute('aria-labelledby', 'autoFarmTitle');
   sheet.innerHTML = `<header class="farm-header"><h2 id="autoFarmTitle" class="window-banner"><span>Auto Farm</span></h2></header>`
     + `<p class="farm-map"></p>`
-    + `<div class="farm-priority" role="radiogroup" aria-label="Target priority"><span class="farm-priority-label">Target</span>`
+    + `<div class="farm-priority" role="radiogroup" aria-label="Target priority">`
     + AUTO_FARM_PRIORITIES.map(entry => `<button type="button" role="radio" data-priority="${entry.id}">${entry.label}</button>`).join('')
-    + `</div><div class="farm-choices" role="group" aria-label="Enemy types"></div>`
+    + `</div><label class="farm-pull"><input type="checkbox"><span>Aggro whole group as it spawns</span></label>`
+    + `<div class="farm-choices" role="group" aria-label="Enemy types"></div>`
     + `<footer class="farm-footer"><p class="farm-selection" aria-live="polite"></p>`
     + `<div class="farm-actions"><button type="button" class="window-back-button farm-close">Back</button><button type="button" class="farm-start">Start</button></div></footer>`;
   document.getElementById('hud')!.append(floating);
@@ -43,12 +44,14 @@ export function createAutoFarmPanel(options: {
   let choiceKey = '';
 
   const priorityButtons = [...sheet.querySelectorAll<HTMLButtonElement>('[data-priority]')];
+  const pullBox = element<HTMLInputElement>('.farm-pull input');
   function updateSelection() {
     for (const button of list.querySelectorAll<HTMLButtonElement>('[data-enemy]')) {
       button.setAttribute('aria-pressed', String(button.dataset.enemy === draft));
     }
     const priority = options.farm.priority();
     for (const button of priorityButtons) button.setAttribute('aria-checked', String(button.dataset.priority === priority));
+    pullBox.checked = options.farm.pullAll();
     const reason = options.unavailable();
     startButton.disabled = !draft || Boolean(reason);
     selection.textContent = reason || '';
@@ -144,6 +147,7 @@ export function createAutoFarmPanel(options: {
     if (choice) options.farm.setPriority(choice.id);
     updateSelection();
   });
+  pullBox.addEventListener('change', () => { options.farm.setPullAll(pullBox.checked); updateSelection(); });
   sheet.addEventListener('cancel', event => { event.preventDefault(); close(); });
   sheet.addEventListener('click', event => {
     if (event.target !== sheet) return;

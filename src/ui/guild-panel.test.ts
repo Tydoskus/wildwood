@@ -424,4 +424,27 @@ describe("guild quests tab", () => {
     expect(text).toContain("Next week: +9.3%");
     expect([...document.querySelectorAll(".guild-ranking li")].map(item => item.className)).toEqual(["", "guild-ranking-own"]);
   });
+
+  it("only greens the quests that earned this guild a point, and says why the rest did not", async () => {
+    const { document } = parseHTML('<html><body><button id="guildBtn">Guilds</button></body></html>');
+    const snapshot = fixture();
+    snapshot.guild!.members = [
+      { ...member("a"), questsDone: 15, questsCollected: 2, questPoints: 17 },
+      { ...member("b"), questsDone: 7, questPoints: 0, joinedThisWeek: true },
+      { ...member("c"), questsDone: 5, questPoints: 2, joinedThisWeek: true },
+    ];
+    const api = { cancel: vi.fn(), loadGuildPreview: vi.fn(), loadReplay: vi.fn(), loadGuild: vi.fn(async () => snapshot), guildAction: vi.fn(async () => {}) } as unknown as GuildApi;
+    const panel = createGuildPanel({ document: document as unknown as Document, api: () => api, sessionKey: () => "a", beforeOpen: vi.fn(), onClose: vi.fn() });
+    disposals.push(panel.dispose);
+    panel.open(); await settled();
+    ([...document.querySelectorAll(".guild-tabs button")].find(node => node.textContent === "Quests") as unknown as HTMLButtonElement).click();
+    const rows = [...document.querySelectorAll(".guild-quest-member")];
+    const marks = (row: Element, kind: string) => row.querySelectorAll(`.guild-quest-step.${kind}`).length;
+    const row = (name: string) => rows.find(item => item.querySelector("strong")?.textContent === name.toUpperCase())!;
+    expect([marks(row("a"), "is-done"), marks(row("a"), "is-taken"), marks(row("a"), "is-elsewhere")]).toEqual([15, 2, 0]);
+    expect([marks(row("b"), "is-done"), marks(row("b"), "is-elsewhere")]).toEqual([0, 7]);
+    expect(row("b").querySelector(".guild-quest-note")?.textContent).toBe("7 done before joining · solo bonus");
+    expect([marks(row("c"), "is-done"), marks(row("c"), "is-elsewhere")]).toEqual([2, 3]);
+    expect(row("a").querySelector(".guild-quest-note")).toBeNull();
+  });
 });
