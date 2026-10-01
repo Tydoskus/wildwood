@@ -547,7 +547,10 @@
 
 /* Daily Quest board: today's three quests, then the guild's week and ranking. */
 .farm-sheet.quest-sheet { height: fit-content; max-height: min(640px, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px)); }
-.quest-sheet .quest-list, .quest-sheet .quest-guild { flex-shrink: 0; margin: 0 14px 10px; }
+.quest-sheet .quest-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.quest-sheet .farm-footer { flex-shrink: 0; }
+.quest-sheet .quest-list { margin: 0 14px 10px; }
+.quest-sheet .quest-guild-hint { margin: 0 14px 10px; color: var(--muted); text-align: center; font-size: 12px; }
 .quest-sheet .quest-list { display: grid; gap: 8px; }
 .quest-sheet .quest-row { display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 8px 10px; border: 2px solid rgba(255,255,255,.14); border-radius: 10px; background: #ffffff06; }
 .quest-sheet .quest-row.is-done { border-color: var(--green); background: rgba(105,229,111,.08); }
@@ -560,14 +563,3 @@
 .quest-sheet .is-done .quest-bar span { background: var(--green); }
 .quest-sheet .quest-count { flex: 0 0 auto; color: #ffdf7e; font-size: 14px; }
 .quest-sheet .is-done .quest-count { color: var(--green); }
-.quest-sheet .quest-guild { padding: 10px 12px; border: 2px solid rgba(255,214,107,.28); border-radius: 10px; background: rgba(255,214,107,.06); }
-.quest-sheet .quest-guild-title { margin: 0 0 4px; color: #ffd66b; font-size: 15px; }
-.quest-sheet .quest-guild-line { margin: 0 0 2px; color: var(--text); font-size: 12px; }
-.quest-sheet .quest-guild-next { color: var(--muted); }
-.quest-sheet .quest-guild-line:empty { display: none; }
-.quest-sheet .quest-ranking { display: grid; gap: 3px; margin: 8px 0 0; padding: 0; list-style: none; }
-.quest-sheet .quest-ranking[hidden] { display: none; }
-.quest-sheet .quest-ranking li { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; padding: 3px 6px; border-radius: 6px; font-size: 12px; }
-.quest-sheet .quest-ranking li.is-mine { background: rgba(255,214,107,.16); color: #ffd66b; }
-.quest-sheet .quest-place { color: var(--muted); text-align: right; }
-.quest-sheet .quest-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }

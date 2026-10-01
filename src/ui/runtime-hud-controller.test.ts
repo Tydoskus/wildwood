@@ -119,6 +119,18 @@ describe("runtime reward notifications", () => {
     expect(pickupLog.children).toHaveLength(0);
   });
 
+  it("keeps one quest pop-up per enemy and counts it up in place", () => {
+    const { controller, pickupLog } = setupHud();
+    controller.showQuestProgress("Brood", 2, 50);
+    controller.showQuestProgress("Brood", 3, 50);
+    expect(pickupLog.children).toHaveLength(1);
+    expect(pickupLog.children[0].querySelector(".stat-reward-value")?.textContent).toBe("3/50");
+    controller.showQuestProgress("Needle", 1, 60);
+    expect(pickupLog.children).toHaveLength(2);
+    controller.showQuestProgress("Brood", 50, 50);
+    expect(pickupLog.children[0].querySelector(".stat-reward-label")?.textContent).toBe("Brood · Quest done");
+  });
+
   it("shows no popup for a stat reward of nothing, like a boss that pays 0", () => {
     const { controller, pickupLog } = setupHud();
     controller.logPickup("+0 DAMAGE", "#fff");

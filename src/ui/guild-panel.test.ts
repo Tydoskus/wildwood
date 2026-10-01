@@ -130,7 +130,7 @@ describe("guild panel", () => {
   });
   it("keeps navigation focused and requests ranked opponents when opening battles", async () => {
     const h = setup(); h.panel.open(); await settled();
-    expect([...h.document.querySelectorAll(".guild-tabs button")].map(node => node.textContent)).toEqual(["My Guild", "Battles", "Rankings"]);
+    expect([...h.document.querySelectorAll(".guild-tabs button")].map(node => node.textContent)).toEqual(["My Guild", "Battles", "Rankings", "Quests"]);
     expect(h.document.querySelectorAll(".guild-champion")).toHaveLength(0);
     expect(h.find("Make President")).toBeUndefined();
     expect(h.find("Remove member")).toBeUndefined();
@@ -405,4 +405,23 @@ it("requests admission instead of joining a restricted guild, and allows cancell
   expect(h.find("Requested")?.disabled).toBe(true);
   h.click("Cancel request"); await settled();
   expect(h.api.guildAction).toHaveBeenCalledWith({ kind: "admission", action: "cancel" });
+});
+
+describe("guild quests tab", () => {
+  it("shows the guild's quest points, its bonus, and every guild's ranking", async () => {
+    const { document } = parseHTML('<html><body><button id="guildBtn">Guilds</button></body></html>');
+    const snapshot = fixture();
+    const api = { cancel: vi.fn(), loadGuildPreview: vi.fn(), loadReplay: vi.fn(), loadGuild: vi.fn(async () => snapshot), guildAction: vi.fn(async () => {}) } as unknown as GuildApi;
+    const panel = createGuildPanel({ document: document as unknown as Document, api: () => api, sessionKey: () => "a", beforeOpen: vi.fn(), onClose: vi.fn(),
+      questStanding: () => ({ guild: { name: "Wildwood", points: 37, bonusNow: "10%", bonusNext: "9.3%" },
+        ranking: [{ place: 1, name: "Pines", points: 50, mine: false }, { place: 2, name: "Wildwood", points: 37, mine: true }] }) });
+    disposals.push(panel.dispose);
+    panel.open(); await settled();
+    ([...document.querySelectorAll(".guild-tabs button")].find(node => node.textContent === "Quests") as unknown as HTMLButtonElement).click();
+    const text = document.querySelector(".guild-content")!.textContent!;
+    expect(text).toContain("37 points this week");
+    expect(text).toContain("Guild bonus now: +10% stat gains");
+    expect(text).toContain("Next week: +9.3%");
+    expect([...document.querySelectorAll(".guild-ranking li")].map(item => item.className)).toEqual(["", "guild-ranking-own"]);
+  });
 });

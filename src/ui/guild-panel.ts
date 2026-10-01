@@ -10,8 +10,9 @@ import { GUILD_EMBLEMS, GUILD_MEMBER_LIMIT, type GuildSnapshot, type GuildReport
 import type { GuildAction, GuildApi } from "../coop/services/guild-service";
 import { applyProfileIcon } from "../app/profile-icons";
 import { createGuildPreview } from './guild-preview';
+import type { GuildQuestStanding } from "./quest-board-controller";
 
-type Section = "guild" | "battles" | "rankings" | "friends";
+type Section = "guild" | "battles" | "rankings" | "quests" | "friends";
 type Member = NonNullable<GuildSnapshot["guild"]>["members"][number];
 type Options = {
   api: () => GuildApi | undefined;
@@ -23,6 +24,8 @@ type Options = {
   document?: Document;
   replayAssets?: GuildReplayAssets;
   lowPerformanceMode?: () => boolean;
+  /** The guild's daily quest week: its points, its bonus, and every guild's ranking. */
+  questStanding?: () => GuildQuestStanding;
 };
 const number = (value: number) => new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value);
 const date = (micros: string) => new Date(Number(BigInt(micros) / 1000n));
@@ -396,6 +399,28 @@ export function createGuildPanel(options: Options) {
       element("p", "Every member joins one simultaneous battle using their latest saved stats and gear. Eliminate the opposing guild to win. At 60 seconds, remaining team health percentage breaks the tie."),
       element("p", "Your guild gets 3 attacks a day, once per opponent. Attacking earns 3 weekly points for a victory, 1 for a draw. Defense costs no attacks and awards no points.")); body.append(rules);
   }
+  /** Daily quest points: what this guild has this week, what it pays, and how every guild stands. */
+  function renderQuests(body: HTMLElement) {
+    const standing = options.questStanding?.();
+    heading(body, "Quest points", "Each daily quest a member finishes is a point. Next week, the whole guild gets +0.25% stat gains per point.");
+    if (standing?.guild) {
+      const week = element("div", undefined, "guild-quest-week");
+      week.append(element("strong", `${number(standing.guild.points)} point${standing.guild.points === 1 ? "" : "s"} this week`),
+        element("span", `Guild bonus now: +${standing.guild.bonusNow} stat gains`), element("span", `Next week: +${standing.guild.bonusNext}`));
+      body.append(week);
+    } else empty(body, "No guild yet", "Join or found a guild, and every daily quest you finish becomes a point for it.");
+    if (!standing?.ranking.length) { empty(body, "No points yet this week", "Finish daily quests on the Quest Board at home to put a guild here."); return; }
+    const list = element("ol", undefined, "guild-ranking");
+    for (const entry of standing.ranking) {
+      const item = element("li", undefined, entry.mine ? "guild-ranking-own" : "");
+      const copy = element("div", undefined, "guild-row-copy");
+      copy.append(element("strong", entry.name), element("span", entry.mine ? "Your guild" : ""));
+      const score = element("div", undefined, "guild-score"); score.append(element("strong", number(entry.points)), element("span", "pts"));
+      item.append(element("span", String(entry.place).padStart(2, "0"), `guild-rank${entry.place <= 3 ? " guild-rank--top" : ""}`), copy, score);
+      list.append(item);
+    }
+    body.append(list);
+  }
   function renderRankings(body: HTMLElement) {
     const g = snapshot!;
     heading(body, "Top guilds", `This week · Resets ${date(g.nextWeekAt).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}`);
@@ -458,7 +483,7 @@ export function createGuildPanel(options: Options) {
     refresh.setAttribute("aria-label", "Refresh"); refresh.title = "Refresh";
     header.append(refresh);
     const nav = element("nav", undefined, "guild-tabs"); nav.setAttribute("aria-label", "Guild sections");
-    for (const [key, label] of [["guild", snapshot?.guild ? "My Guild" : "Find Guild"], ["battles", "Battles"], ["rankings", "Rankings"]] as const) {
+    for (const [key, label] of [["guild", snapshot?.guild ? "My Guild" : "Find Guild"], ["battles", "Battles"], ["rankings", "Rankings"], ["quests", "Quests"]] as const) {
       const tab = button(label, () => switchSection(key), "tab", false, `tab-${key}`); tab.setAttribute("aria-current", key === section ? "page" : "false"); nav.append(tab);
     }
     if (section !== "friends") dialog.append(nav);
@@ -477,6 +502,7 @@ export function createGuildPanel(options: Options) {
       else empty(body, "Friends unavailable", "Connect to your character, then refresh to see your friends.");
     } else if (section === "guild") renderGuild(body);
     else if (section === "battles") renderBattles(body);
+    else if (section === "quests") renderQuests(body);
     else renderRankings(body);
     body.append(header);
     dialog.append(body);

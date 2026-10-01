@@ -202,3 +202,8 @@ body:has(.guild-overlay:not([hidden])) #profileIconPicker { z-index: 14; }
 .guild-request-row > .guild-member-profile { flex-basis: 100%; }
 .guild-request-actions { display: flex; gap: 8px; margin-left: 48px; }
 .guild-mail summary { color: var(--text, #fff); }
+
+/* Quests tab: this guild's daily quest week, above every guild's ranking. */
+.guild-quest-week { display: grid; gap: 3px; margin: 0 0 12px; padding: 10px 12px; border: 2px solid rgba(255,214,107,.3); border-radius: 10px; background: rgba(255,214,107,.07); }
+.guild-quest-week strong { color: #ffd66b; font-size: 15px; }
+.guild-quest-week span { font-size: 12px; }

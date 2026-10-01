@@ -21,8 +21,26 @@ export function formatQuestReset(msLeft: number) {
   return hours ? `${hours}h ${minutes % 60}m` : `${minutes}m`;
 }
 
-/** The words on the board: one row a quest, the guild's week, and the ranking. */
-export function questBoardView(state: QuestState | null, ranking: RankingRow[], nowMs: number, mapName: (mapId: string) => string) {
+/** The guild's quest week, for the Guild window's Quests tab: its points, its bonus now and next week, and the ranking. */
+export function guildQuestStanding(state: QuestState | null, ranking: RankingRow[]) {
+  return {
+    guild: state?.guildName
+      ? { name: state.guildName, points: state.guildPoints, bonusNow: percent(Math.max(0, state.bonus - 1)),
+        bonusNext: percent(state.guildPoints * GUILD_QUEST_BONUS_PER_POINT) }
+      : null,
+    ranking: ranking.slice(0, RANKING_ROWS).map((row, index) => ({ place: index + 1, name: row.guildName, points: row.points, mine: row.guildName === state?.guildName })),
+  };
+}
+export type GuildQuestStanding = ReturnType<typeof guildQuestStanding>;
+
+/** The standing from the coop session, for this week. */
+export function guildQuestStandingFrom(source: QuestBoardSource) {
+  const state = source?.dailyQuests?.() ?? null;
+  return guildQuestStanding(state, state ? source?.guildQuestRanking?.(questWeek(state.day)) ?? [] : []);
+}
+
+/** The words on the board: one row a quest, and when new ones come. */
+export function questBoardView(state: QuestState | null, nowMs: number, mapName: (mapId: string) => string) {
   const quests = (state?.quests ?? []).map(quest => ({
     title: `Defeat ${quest.target} ${quest.enemy}`,
     where: mapName(quest.mapId),
@@ -30,16 +48,7 @@ export function questBoardView(state: QuestState | null, ranking: RankingRow[], 
     share: quest.target > 0 ? Math.min(1, quest.progress / quest.target) : 0,
     done: quest.progress >= quest.target,
   }));
-  const guild = state?.guildName
-    ? { name: state.guildName, points: state.guildPoints, bonusNow: percent(Math.max(0, state.bonus - 1)),
-      bonusNext: percent(state.guildPoints * GUILD_QUEST_BONUS_PER_POINT) }
-    : null;
-  return {
-    quests,
-    resetsIn: state ? formatQuestReset(questDayEndsAtMs(state.day) - nowMs) : "",
-    guild,
-    ranking: ranking.slice(0, RANKING_ROWS).map((row, index) => ({ place: index + 1, name: row.guildName, points: row.points, mine: row.guildName === state?.guildName })),
-  };
+  return { quests, resetsIn: state ? formatQuestReset(questDayEndsAtMs(state.day) - nowMs) : "" };
 }
 
 /** What the board in the courtyard shows: papers checked off, and how many are done. */
@@ -63,22 +72,18 @@ export function createQuestBoardController(deps: {
   dialog.className = "farm-sheet quest-sheet";
   dialog.setAttribute("aria-labelledby", "questBoardTitle");
   dialog.innerHTML = `<header class="farm-header"><h2 id="questBoardTitle" class="window-banner"><span>Daily Quests</span></h2></header>`
-    + `<p class="farm-map quest-reset"></p><div class="quest-list" role="list" aria-label="Today's quests"></div>`
-    + `<section class="quest-guild" aria-label="Guild quest points"><h3 class="quest-guild-title"></h3><p class="quest-guild-line"></p>`
-    + `<p class="quest-guild-line quest-guild-next"></p><ol class="quest-ranking"></ol></section>`
+    // Everything between the banner and Back scrolls, so small screens reach it all.
+    + `<div class="quest-body"><p class="farm-map quest-reset"></p><div class="quest-list" role="list" aria-label="Today's quests"></div>`
+    + `<p class="quest-guild-hint">Each quest you finish is a point for your guild. See Guild → Quests.</p></div>`
     + `<footer class="farm-footer"><div class="farm-actions"><button type="button" class="window-back-button">Back</button></div></footer>`;
   document.body.append(dialog);
   const $ = <T extends HTMLElement>(selector: string) => dialog.querySelector<T>(selector)!;
-  const reset = $(".quest-reset"), list = $(".quest-list"), guildTitle = $(".quest-guild-title");
-  const [guildLine, guildNext] = [...dialog.querySelectorAll<HTMLElement>(".quest-guild-line")];
-  const ranking = $(".quest-ranking"), back = $<HTMLButtonElement>(".window-back-button");
+  const reset = $(".quest-reset"), list = $(".quest-list"), back = $<HTMLButtonElement>(".window-back-button");
   let ticker = 0;
 
   function render() {
-    const source = deps.source();
-    const state = source?.dailyQuests?.() ?? null;
-    const week = state ? questWeek(state.day) : 0;
-    const view = questBoardView(state, state ? source?.guildQuestRanking?.(week) ?? [] : [], now(), deps.mapName);
+    const state = deps.source()?.dailyQuests?.() ?? null;
+    const view = questBoardView(state, now(), deps.mapName);
     reset.textContent = state ? `New quests in ${view.resetsIn}` : "Pinning up today's quests…";
     list.replaceChildren(...view.quests.map(quest => {
       const row = document.createElement("div");
@@ -92,25 +97,6 @@ export function createQuestBoardController(deps: {
       row.querySelector(".quest-count")!.textContent = quest.done ? "Done" : quest.progress;
       return row;
     }));
-    if (view.guild) {
-      guildTitle.textContent = `${view.guild.name} · ${view.guild.points} point${view.guild.points === 1 ? "" : "s"} this week`;
-      guildLine.textContent = `Guild bonus now: +${view.guild.bonusNow} stat gains`;
-      guildNext.textContent = `Next week: +${view.guild.bonusNext} (each quest anyone finishes adds 0.25%)`;
-    } else {
-      guildTitle.textContent = "No guild";
-      guildLine.textContent = "Join a guild: each quest you finish is a point for it, and its points become a stat bonus for the whole guild next week.";
-      guildNext.textContent = "";
-    }
-    ranking.replaceChildren(...view.ranking.map(row => {
-      const item = document.createElement("li");
-      item.classList.toggle("is-mine", row.mine);
-      item.innerHTML = `<span class="quest-place"></span><span class="quest-name"></span><span class="quest-points"></span>`;
-      item.querySelector(".quest-place")!.textContent = String(row.place);
-      item.querySelector(".quest-name")!.textContent = row.name;
-      item.querySelector(".quest-points")!.textContent = String(row.points);
-      return item;
-    }));
-    ranking.hidden = !view.ranking.length;
   }
 
   function close() {
@@ -144,10 +130,28 @@ export function createQuestBoardController(deps: {
  * refresh that, while the player is home, asks the server once a minute to
  * draw today's quests until they arrive.
  */
-export function createQuestBoardRuntime(deps: Parameters<typeof createQuestBoardController>[0]) {
+export function createQuestBoardRuntime(deps: Parameters<typeof createQuestBoardController>[0] & {
+  /** Shows a quest enemy's pop-up: its name and the quest's count. */
+  showProgress?: (enemy: string, count: number, target: number) => void;
+}) {
   const board = createQuestBoardController(deps);
   let refreshAt = 0;
+  // Each quest's count as last shown: never below the server's, never backwards.
+  const shown = new Map<string, number>();
+  let shownDay = -1;
   return {
+    /** A regular enemy died: count it against today's quests at once, ahead of the server's report. */
+    noteKill(mapId: string, enemy: string) {
+      const state = deps.source()?.dailyQuests?.();
+      if (!state) return;
+      if (state.day !== shownDay) { shown.clear(); shownDay = state.day; }
+      const quest = state.quests.find(q => q.mapId === mapId && q.enemy === enemy);
+      if (!quest) return;
+      const key = `${mapId}:${enemy}`, before = Math.max(shown.get(key) ?? 0, quest.progress);
+      if (before >= quest.target) return;
+      shown.set(key, before + 1);
+      deps.showProgress?.(enemy, before + 1, quest.target);
+    },
     board,
     worldStatus: () => questBoardWorldStatus(deps.source()?.dailyQuests?.() ?? null),
     refreshAtHome() {

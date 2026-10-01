@@ -76,7 +76,7 @@ import { createAutoFarmController } from "./game/runtime/auto-farm-controller";
 import { createAutoFarmResumeStore } from "./app/auto-farm-resume";
 import { createAutoFarmPanel } from "./ui/auto-farm-panel";
 import { createHomeTravelController } from "./ui/home-travel-controller";
-import { createQuestBoardRuntime } from "./ui/quest-board-controller";
+import { createQuestBoardRuntime, guildQuestStandingFrom } from "./ui/quest-board-controller";
 import { createPlayerController, type PlayerController } from "./game/runtime/player-controller";
 import { applyPlayerMaxHealthMultiplierBonus } from "./game/runtime/player-health";
 import { createRegularEnemyRespawn, REGULAR_ENEMY_RESPAWN_SECONDS } from "./game/runtime/regular-enemy-respawn";
@@ -710,7 +710,7 @@ import {
       regularEnemyRespawn.schedule(site);
       respawnMemory.remember(enemyRespawnKey(site), (site.respawnAt - session.gameTime()) * 1000);
     },
-    recordRegularEnemyDefeat: (mapId, enemy) => gameBridge?.recordRegularEnemyDefeat(mapId, enemy, Boolean(autoFarm.targetType())),
+    recordRegularEnemyDefeat: (mapId, enemy) => { gameBridge?.recordRegularEnemyDefeat(mapId, enemy, Boolean(autoFarm.targetType())); quests.noteKill(mapId, enemy); },
     incrementKills: () => { totalKills += 1; },
     currentMapId: () => currentMapId,
     spawnBurst,
@@ -876,7 +876,7 @@ import {
     onCutsceneFinished: () => bossController.onPortalCutsceneFinished(),
   });
   const quests = createQuestBoardRuntime({ source: () => coop, atHome: () => currentMapId === "home_exterior",
-    pause: paused => setGameplayPause("quest-board", paused), clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id as MapId]?.name ?? id });
+    pause: paused => setGameplayPause("quest-board", paused), clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id as MapId]?.name ?? id, showProgress: (enemy, count, target) => runtimeHud.showQuestProgress(enemy, count, target) });
   const homeTravel = createHomeTravelController({ source: () => coop, travel: mapController.travelFromHome, departure: mapController.homeDeparture, atHome: () => currentMapId === "home_exterior", pause: paused => setGameplayPause("home-travel", paused), clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id].name });
   const { activePortal, secondaryPortal, portalIsUnlocked, startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene, startSamuraiPortalCutscene } = mapController;
 
@@ -1456,7 +1456,7 @@ import {
 
   guildPanel = createGuildPanel({
     onOpenPlayer: (identity, name) => { void profileWindow.open(identity, name); },
-    lowPerformanceMode: appShell.lowPerformanceMode,
+    lowPerformanceMode: appShell.lowPerformanceMode, questStanding: () => guildQuestStandingFrom(coop),
     replayAssets: { player: playerAppearanceAssets, prepare: () => assets.ensureMapAssets("home_exterior"), trees: assets.treeSpritesheet, treeBounds: assets.treeSpriteBounds },
     api: () => coop?.guild,
     socialApi: () => coop?.social,

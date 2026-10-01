@@ -123,3 +123,29 @@ export function createProgressCompletionToast(kind: "Research" | "Upgrade", deta
   entry.append(icon, label, value);
   return entry;
 }
+
+/** A daily quest enemy defeated: its name and the quest's count, "Quest done" on the last one. */
+export function createQuestProgressToast(enemy: string, count: number, target: number) {
+  const entry = document.createElement("div");
+  entry.className = "pickup stat-reward-toast quest-progress-toast";
+  entry.style.setProperty("--stat-reward-accent", "#ffd66b");
+  entry.setAttribute("role", "status");
+  const icon = document.createElement("span");
+  icon.className = "stat-reward-icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = "📜";
+  const label = document.createElement("span");
+  label.className = "stat-reward-label";
+  const value = document.createElement("strong");
+  value.className = "stat-reward-value";
+  entry.append(icon, label, value);
+  updateQuestProgressToast(entry, enemy, count, target);
+  return entry;
+}
+export function updateQuestProgressToast(entry: HTMLElement, enemy: string, count: number, target: number) {
+  const done = count >= target;
+  entry.classList.toggle("is-quest-done", done);
+  entry.querySelector(".stat-reward-label")!.textContent = done ? `${enemy} · Quest done` : enemy;
+  entry.querySelector(".stat-reward-value")!.textContent = `${Math.min(count, target)}/${target}`;
+  entry.setAttribute("aria-label", `${enemy} ${Math.min(count, target)} of ${target}${done ? ", quest done" : ""}`);
+}

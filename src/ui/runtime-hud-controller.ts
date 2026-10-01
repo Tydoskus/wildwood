@@ -11,6 +11,8 @@ import {
 } from "./item-drop-reveal";
 import {
   createProgressCompletionToast,
+  createQuestProgressToast,
+  updateQuestProgressToast,
   createStatRewardToast,
   formatStatRewardToastAmount,
   statRewardToastModel,
@@ -158,6 +160,22 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
     };
     activeStatRewards.set(model.stat, reward);
     refreshStatRewardLifetime(model.stat, reward);
+  }
+
+  /** One pop-up per quest enemy, counting up in place as kills land. */
+  function showQuestProgress(enemy: string, count: number, target: number) {
+    const key = `quest:${enemy}`;
+    const active = activeStatRewards.get(key);
+    if (active && active.entry.parentElement === elements.pickupLog) {
+      updateQuestProgressToast(active.entry, enemy, count, target);
+      refreshStatRewardLifetime(key, active);
+      return;
+    }
+    const entry = createQuestProgressToast(enemy, count, target);
+    elements.pickupLog.appendChild(entry);
+    const reward = { entry, total: 0, fadeTimer: 0, removeTimer: 0 };
+    activeStatRewards.set(key, reward);
+    refreshStatRewardLifetime(key, reward);
   }
 
   function showProgressCompletion(kind: "Research" | "Upgrade", detail: string, icon: string, color: string) {
@@ -398,6 +416,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
     clearTransientUi,
     logPickup,
     showProgressCompletion,
+    showQuestProgress,
     showItemDrop,
     showGemDrop,
     setDuelCountdown,
