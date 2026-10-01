@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.846": [
+    "Your free respec is now the Respec button itself, marked \"Respec (1 free)\", and it keeps your stats",
+    "Fixed: during Reflect Only, Prestige now lights up when you reach the challenge goal",
+    "Fixed: Reflect ranks past 5 can be spent after Reflect Only wins",
+  ],
   "0.845": [
     "Endless eased: enemies hit about as hard as in the campaign, and each map takes only about 8% longer than the last",
     "Endless bosses no longer one-shot you on arrival",
@@ -2563,6 +2568,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.846": "2026-09-30",
   "0.845": "2026-09-30",
   "0.844": "2026-09-30",
   "0.843": "2026-09-30",
