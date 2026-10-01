@@ -27,7 +27,15 @@ export type GuildSnapshot = {
   pendingRequest?: { guildId: string; name: string } | null;
   guild: null | { id: string; name: string; emblem?: number; leader: string; vicePresident?: string | null; attacksRemaining: number; score: number; totalPower?: number; requestOnly?: boolean;
     requests?: { identity: string; name: string; power: number; prestige: number; profileIcon: number; requestedAt: string; online?: boolean; lastSeenAtMs?: number }[];
-    members: { identity: string; name: string; profileIcon?: number; power?: number; prestige?: number; online?: boolean; lastSeenAtMs?: number; eligibleAt: string }[] };
+    members: { identity: string; name: string; profileIcon?: number; power?: number; prestige?: number; online?: boolean; lastSeenAtMs?: number; eligibleAt: string;
+      /** Today's daily quests done and drawn, and quest points earned for this guild this week. */
+      questsDone?: number; questsTotal?: number; questPoints?: number;
+      /** Today's quests still unfinished and not yet collected by a leader. */
+      questsOpen?: number;
+      /** Today's quests a leader collected from them. */
+      questsTaken?: number }[];
+    /** President and Vice President only: whether they may collect members' quests today (their own done), and how many more. */
+    questCollect?: { ready: boolean; left: number } | null };
   directory: { id: string; name: string; emblem?: number; members: number; totalPower?: number; requestOnly?: boolean; challengedToday: boolean }[]; nextPage: string | null;
   standings: GuildStanding[];
   battles: GuildReport[];

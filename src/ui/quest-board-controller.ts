@@ -1,4 +1,4 @@
-import { GUILD_QUEST_BONUS_PER_POINT, questDay, questDayEndsAtMs, questWeek, type DailyQuest } from "../../shared/daily-quests";
+import { GUILD_QUEST_BONUS_PER_POINT, questDay, questDayEndsAtMs, questOpen, questWeek, type DailyQuest } from "../../shared/daily-quests";
 
 type QuestState = { day: number; quests: DailyQuest[]; bonus: number; guildPoints: number; guildName: string };
 type RankingRow = { guildId: string; guildName: string; points: number };
@@ -43,10 +43,12 @@ export function guildQuestStandingFrom(source: QuestBoardSource) {
 export function questBoardView(state: QuestState | null, nowMs: number, mapName: (mapId: string) => string) {
   const quests = (state?.quests ?? []).map(quest => ({
     title: `Defeat ${quest.target} ${quest.enemy}`,
-    where: mapName(quest.mapId),
+    // A collected quest names the member it was taken from; a taken one, who took it.
+    where: quest.from ? `${mapName(quest.mapId)} · For ${quest.from}` : quest.takenBy ? `Taken by ${quest.takenBy}` : mapName(quest.mapId),
     progress: `${Math.min(quest.progress, quest.target)}/${quest.target}`,
     share: quest.target > 0 ? Math.min(1, quest.progress / quest.target) : 0,
     done: quest.progress >= quest.target,
+    taken: Boolean(quest.takenBy) && quest.progress < quest.target,
   }));
   return { quests, resetsIn: state ? formatQuestReset(questDayEndsAtMs(state.day) - nowMs) : "" };
 }
@@ -54,7 +56,7 @@ export function questBoardView(state: QuestState | null, nowMs: number, mapName:
 /** What the board in the courtyard shows: papers checked off, and how many are done. */
 export function questBoardWorldStatus(state: QuestState | null) {
   if (!state?.quests.length) return null;
-  const finished = state.quests.map(quest => quest.progress >= quest.target);
+  const finished = state.quests.map(quest => !questOpen(quest));
   return { finished, timer: `${finished.filter(Boolean).length}/${finished.length} done` };
 }
 
@@ -89,12 +91,13 @@ export function createQuestBoardController(deps: {
       const row = document.createElement("div");
       row.className = "quest-row"; row.setAttribute("role", "listitem");
       row.classList.toggle("is-done", quest.done);
+      row.classList.toggle("is-taken", quest.taken);
       row.innerHTML = `<span class="quest-check" aria-hidden="true">✓</span><span class="quest-copy"><strong></strong><span class="quest-where"></span>`
         + `<span class="quest-bar" aria-hidden="true"><span></span></span></span><span class="quest-count"></span>`;
       row.querySelector("strong")!.textContent = quest.title;
       row.querySelector(".quest-where")!.textContent = quest.where;
       row.querySelector<HTMLElement>(".quest-bar span")!.style.width = `${Math.round(quest.share * 100)}%`;
-      row.querySelector(".quest-count")!.textContent = quest.done ? "Done" : quest.progress;
+      row.querySelector(".quest-count")!.textContent = quest.done ? "Done" : quest.taken ? "Taken" : quest.progress;
       return row;
     }));
   }
@@ -145,12 +148,15 @@ export function createQuestBoardRuntime(deps: Parameters<typeof createQuestBoard
       const state = deps.source()?.dailyQuests?.();
       if (!state) return;
       if (state.day !== shownDay) { shown.clear(); shownDay = state.day; }
-      const quest = state.quests.find(q => q.mapId === mapId && q.enemy === enemy);
-      if (!quest) return;
-      const key = `${mapId}:${enemy}`, before = Math.max(shown.get(key) ?? 0, quest.progress);
-      if (before >= quest.target) return;
-      shown.set(key, before + 1);
-      deps.showProgress?.(enemy, before + 1, quest.target);
+      // Kills fill the first open quest for the enemy, the same order the server counts them.
+      for (const [index, quest] of state.quests.entries()) {
+        if (quest.mapId !== mapId || quest.enemy !== enemy || !questOpen(quest)) continue;
+        const key = `${mapId}:${enemy}:${index}`, before = Math.max(shown.get(key) ?? 0, quest.progress);
+        if (before >= quest.target) continue;
+        shown.set(key, before + 1);
+        deps.showProgress?.(enemy, before + 1, quest.target);
+        return;
+      }
     },
     board,
     worldStatus: () => questBoardWorldStatus(deps.source()?.dailyQuests?.() ?? null),

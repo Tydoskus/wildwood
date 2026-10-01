@@ -1,6 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.852": [
     "Fixed guild battles failing when a member has maxed attack range and Long Shot",
+    "Guild > Quests shows each member's quests today and points this week",
+    "Guild President and Vice President can collect up to 3 of a member's unfinished quests a day, once their own are done",
+    "Quest points count for a guild from the day after you join, and its weekly bonus from the week after",
   ],
   "0.851": [
     "Guild battles: members who already attacked with another guild today sit out instead of blocking the attack",

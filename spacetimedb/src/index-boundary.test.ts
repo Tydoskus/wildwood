@@ -158,7 +158,10 @@ import { describe, expect, it } from "vitest";
 // lookup lives in leaderboard-pages.ts.
 // 6_575: a boss clear finishes a Reflect Only run whose goal it met. The
 // check lives in prestige.ts.
-const MAX_LINES = 6_575;
+// 6_577: guild quest collecting added the collect_guild_member_quests
+// declaration and the guild snapshot's quest hooks. The rules live in
+// daily-quests.ts.
+const MAX_LINES = 6_577;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

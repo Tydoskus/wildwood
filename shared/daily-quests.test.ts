@@ -35,6 +35,18 @@ describe("daily quests", () => {
     expect(applyQuestKills(quests, "tutorial_forest", [{ enemy: "Venom Guard", count: 10 }]).completed).toBe(0);
   });
 
+  it("counts each kill toward one quest, and never toward a quest a leader has taken", () => {
+    const quests = [
+      { mapId: "tutorial_forest", enemy: "Spitter", target: 50, progress: 45, from: "Ann" },
+      { mapId: "tutorial_forest", enemy: "Spitter", target: 60, progress: 0, from: "Bo" },
+      { mapId: "tutorial_forest", enemy: "Bramble", target: 60, progress: 0, takenBy: "Cy" },
+    ];
+    const result = applyQuestKills(quests, "tutorial_forest", [{ enemy: "Spitter", count: 8 }, { enemy: "Bramble", count: 60 }]);
+    expect(result.quests.map(quest => quest.progress)).toEqual([50, 3, 0]);
+    expect(result.completed).toBe(1);
+    expect(parseDailyQuests(JSON.stringify(quests)).map(quest => quest.from ?? quest.takenBy)).toEqual(["Ann", "Bo", "Cy"]);
+  });
+
   it("turns days at midnight UTC and weeks on Monday, and pays 0.25% a point", () => {
     // 2026-09-28 is a Monday.
     const monday = questDay(BigInt(Date.UTC(2026, 8, 28)) * 1000n), sunday = monday - 1;

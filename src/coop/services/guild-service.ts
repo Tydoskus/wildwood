@@ -8,7 +8,8 @@ export type GuildAction =
   | { kind: "transfer"; identity: string } | { kind: "kick"; identity: string }
   | { kind: "vicePresident"; identity: string; enabled: boolean }
   | { kind: "emblem"; emblem: number }
-  | { kind: "challenge"; opponentGuildId: string };
+  | { kind: "challenge"; opponentGuildId: string }
+  | { kind: "collectQuests"; identity: string };
 
 type Dependencies = {
   reducers: ReducerPort;
@@ -79,6 +80,7 @@ export function createGuildService(deps: Dependencies) {
           case "vicePresident": return connection.reducers.setGuildVicePresident({ identity: Identity.fromString(action.identity), enabled: action.enabled });
           case "kick": return connection.reducers.kickGuildMember({ identity: Identity.fromString(action.identity) });
           case "challenge": return connection.reducers.challengeGuild({ opponentGuildId: BigInt(action.opponentGuildId) });
+          case "collectQuests": return connection.reducers.collectGuildMemberQuests({ member: Identity.fromString(action.identity) });
         }
       });
     },

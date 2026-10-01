@@ -916,6 +916,14 @@ export const GuildMember = __t.object("GuildMember", {
 });
 export type GuildMember = __Infer<typeof GuildMember>;
 
+export const GuildMemberQuestWeek = __t.object("GuildMemberQuestWeek", {
+  identity: __t.identity(),
+  week: __t.u32(),
+  guildId: __t.u64(),
+  points: __t.u32(),
+});
+export type GuildMemberQuestWeek = __Infer<typeof GuildMemberQuestWeek>;
+
 export const GuildQuestWeek = __t.object("GuildQuestWeek", {
   key: __t.string(),
   week: __t.u32(),

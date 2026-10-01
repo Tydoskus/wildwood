@@ -1,5 +1,5 @@
 import { playerPrestigeChallenge, playerPrestigeChallengeParked, prestigeChallengeBackup, prestigeChallengeRun, restorePrestigeChallenge } from "./prestige-challenge";
-import { playerDailyQuest, guildQuestWeek, ensureDailyQuests, recordDailyQuestKills } from "./daily-quests";
+import { playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, ensureDailyQuests, recordDailyQuestKills, memberQuestStanding, questCollectStanding, collectMemberQuests } from "./daily-quests";
 import { challengeAttackInterval, challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { duelCombatSnapshot } from "./duel-combat-snapshot";
 import { playerEquipmentLock, setEquipmentLock } from "./equipment-locks";
@@ -1814,7 +1814,7 @@ const spacetimedb = schema({
   playerEndlessRebaseBackup,
   playerPrestige,
   playerPrestigePerk,
-  playerPrestigeChallenge, prestigeChallengeBackup, prestigeChallengeRun, playerPrestigeChallengeParked, playerFreeRespec, playerDailyQuest, guildQuestWeek, prestigeExpansion,
+  playerPrestigeChallenge, prestigeChallengeBackup, prestigeChallengeRun, playerPrestigeChallengeParked, playerFreeRespec, playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, prestigeExpansion,
   playerPrestigeExpansionPerk,
   duelRiposte, duelCombatSnapshot,
   playerSessionAnalytics,
@@ -5595,6 +5595,7 @@ export const spendPrestigePerkPoint = spacetimedb.reducer({ perk: t.string() },
 export const respecPrestigePerks = spacetimedb.reducer({}, (ctx) => { prestige.respecPerks(ctx); });
 export const useFreePrestigeRespec = spacetimedb.reducer({}, (ctx) => { prestige.freeRespecPerks(ctx); });
 export const refreshDailyQuests = spacetimedb.reducer({}, (ctx) => { requireControllingPlayer(ctx); ensureDailyQuests(ctx, ctx.sender); });
+export const collectGuildMemberQuests = spacetimedb.reducer({ member: t.identity() }, (ctx, { member }) => { requireControllingPlayer(ctx); collectMemberQuests(ctx, ctx.sender, member); });
 
 function sendPlayerChatMessage(ctx: ModuleReducerCtx, message: string, replyToMessageId = 0n) {
   requireControllingPlayer(ctx);
@@ -6026,6 +6027,7 @@ const guildService = createGuildService({
     lastSeenAtMs: Number(ctx.db.playerLifetime.identity.find(identity)?.sessionStartedAt.microsSinceUnixEpoch ?? 0n) / 1000,
   }),
   profileFor: (ctx, identity) => ctx.db.playerProfile.identity.find(identity) ?? undefined,
+  questFor: memberQuestStanding, questCollect: questCollectStanding,
   announceBattle: (ctx, report) => {
     const result = report.result;
     const message = result.outcome === "DRAW" ? `[${report.attacker}] × [${report.defender}] · Draw`

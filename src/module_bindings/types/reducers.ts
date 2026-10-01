@@ -26,6 +26,7 @@ import ClaimDailyGemBonusReducer from "../claim_daily_gem_bonus_reducer";
 import ClaimDeveloperItemGiftReducer from "../claim_developer_item_gift_reducer";
 import ClaimGuestAccountReducer from "../claim_guest_account_reducer";
 import ClaimMailboxGiftReducer from "../claim_mailbox_gift_reducer";
+import CollectGuildMemberQuestsReducer from "../collect_guild_member_quests_reducer";
 import CompleteOnboardingStepReducer from "../complete_onboarding_step_reducer";
 import ConfigureGemCommerceReducer from "../configure_gem_commerce_reducer";
 import ConfigurePatreonReducer from "../configure_patreon_reducer";
@@ -202,6 +203,7 @@ export type ClaimDailyGemBonusParams = __Infer<typeof ClaimDailyGemBonusReducer>
 export type ClaimDeveloperItemGiftParams = __Infer<typeof ClaimDeveloperItemGiftReducer>;
 export type ClaimGuestAccountParams = __Infer<typeof ClaimGuestAccountReducer>;
 export type ClaimMailboxGiftParams = __Infer<typeof ClaimMailboxGiftReducer>;
+export type CollectGuildMemberQuestsParams = __Infer<typeof CollectGuildMemberQuestsReducer>;
 export type CompleteOnboardingStepParams = __Infer<typeof CompleteOnboardingStepReducer>;
 export type ConfigureGemCommerceParams = __Infer<typeof ConfigureGemCommerceReducer>;
 export type ConfigurePatreonParams = __Infer<typeof ConfigurePatreonReducer>;

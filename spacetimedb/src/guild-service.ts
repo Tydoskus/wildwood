@@ -135,6 +135,10 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
   prestigeFor?: (ctx: Ctx, identity: Identity) => number;
   profileFor?: (ctx: Ctx, identity: Identity) => { displayName: string; profileIcon: number } | undefined;
   presenceFor?: (ctx: Ctx, identity: Identity) => { online: boolean; lastSeenAtMs: number };
+  /** Daily quest standing for the Guild window's member list (daily-quests.ts). */
+  questFor?: (ctx: Ctx, identity: Identity, guildId: bigint) => { questsDone: number; questsTotal: number; questsOpen: number; questsTaken: number; questPoints: number };
+  /** Whether the viewer may collect members' quests today and how many more (President and Vice President only). */
+  questCollect?: (ctx: Ctx, identity: Identity) => { ready: boolean; left: number };
   announceBattle?: (ctx: Ctx, report: GuildSnapshot["battles"][number]) => void }) {
   function team(ctx: Ctx, guildId: bigint, lineup = members(ctx, guildId)): GuildFighter[] {
     const roster = [...lineup].sort((a, b) => key(a.identity).localeCompare(key(b.identity)));
@@ -332,8 +336,9 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
             const profile = deps.profileFor?.(ctx, row.identity);
             return { identity: key(row.identity), name: profile?.displayName ?? row.name,
               power: memberPower(row.identity), prestige: deps.prestigeFor?.(ctx, row.identity) ?? 0, profileIcon: profile?.profileIcon ?? 0, eligibleAt: String(row.eligibleAt),
-              ...deps.presenceFor?.(ctx, row.identity) };
-          }) } : null,
+              ...deps.presenceFor?.(ctx, row.identity), ...deps.questFor?.(ctx, row.identity, guild.id) };
+          }),
+          questCollect: guild.leader.equals(ctx.sender) || member?.vicePresident ? deps.questCollect?.(ctx, ctx.sender) ?? null : null } : null,
         directory, nextPage, standings: cache?.week === week ? JSON.parse(cache.entries) : [],
         battles: guild ? [...ctx.db.guildBattleReport.guildId.filter(guild.id)]
           .sort((a, b) => a.sequence > b.sequence ? -1 : 1).map(row => JSON.parse(row.payload)) : [] };
