@@ -1,5 +1,5 @@
 import revision75 from '../../tests/fixtures/balance-revision-75.json';
-import { BOSS_DAMAGE_REBALANCE, CAMPAIGN_REBALANCE, activateCampaignPacing, activateCampaignProgression, activateCampaignRewardFloor, applyCampaignRebalance } from './campaign-pacing-migration';
+import { BOSS_DAMAGE_REBALANCE, CAMPAIGN_REBALANCE, ENDLESS_EASE, activateCampaignPacing, activateCampaignProgression, activateCampaignRewardFloor, applyCampaignRebalance } from './campaign-pacing-migration';
 import { defaultBalanceSettings, resolveMapBalance, validateBalanceSettings } from '../../shared/map-balance';
 import { LIVE_BALANCE } from '../../src/balance/live-balance';
 import bakeFixture from '../../tests/fixtures/balance-revision-73.json';
@@ -191,13 +191,13 @@ it('runs pending campaign migrations from the connection path only once', () => 
   f.seed('mapBalanceVersion', { revision: 73, settingsJson: JSON.stringify(bakeFixture.settings), editor: f.ctx.sender, createdAt: f.ctx.timestamp });
   f.ctx.connectionId = null;
   f.run(server.onConnect);
-  expect(f.db.moduleMigrationState.id.find(0).version).toBe(48);
+  expect(f.db.moduleMigrationState.id.find(0).version).toBe(49);
   expect(f.db.mapBalanceVersion.revision.find(75).settingsJson).toBe(JSON.stringify(validateBalanceSettings(revision75)));
-  // 45 made revision 76, 46 raised its enemy hits as revision 77, and 48 its boss hits as 78.
+  // 45 made revision 76, 46 raised its enemy hits as revision 77, 48 its boss hits as 78, and 49 eased Endless as 79.
   expectProgressionCurve(JSON.parse(f.db.mapBalanceVersion.revision.find(76).settingsJson));
-  expect(balanceEditorState(f.ctx as any).revision).toBe(78);
+  expect(balanceEditorState(f.ctx as any).revision).toBe(79);
   f.run(server.onConnect);
-  expect(balanceEditorState(f.ctx as any).revision).toBe(78);
+  expect(balanceEditorState(f.ctx as any).revision).toBe(79);
 });
 
 it('migration 45 turns the live revision into the tested progression curve, once, keeping Endless and dev tuning', () => {
@@ -280,4 +280,24 @@ it('migration 48 has every boss from the desert on hit 11x its map regular, Endl
     expect(heaviest / median(rows.filter(row => !row.elite).map(row => row.damage)), id).toBeCloseTo(11, 1);
   }
   expect(settings.maps.tutorial_forest.bossDamage).toBe(0.3);
+});
+
+it('migration 49 eases Endless and keeps its boss at 11x a regular hit', () => {
+  const ctx = fixture();
+  ctx.db.mapBalanceVersion.insert({ revision: 76, settingsJson: JSON.stringify(LIVE_BALANCE.settings), editor: ctx.sender, createdAt: ctx.timestamp });
+  ctx.db.mapBalanceHead.insert({ id: 0, revision: 76 });
+  applyCampaignRebalance(ctx);
+  applyCampaignRebalance(ctx, BOSS_DAMAGE_REBALANCE);
+  const before = balanceEditorState(ctx).settings;
+  applyCampaignRebalance(ctx, ENDLESS_EASE);
+  const { revision, settings } = balanceEditorState(ctx);
+  expect(revision).toBe(79);
+  expect(settings.maps.endless).toMatchObject({ ...before.maps.endless, ...ENDLESS_EASE.endless });
+  for (const [id, map] of Object.entries(settings.maps)) if (id !== 'endless') expect(map).toEqual(before.maps[id]);
+  const median = (values: number[]) => values.sort((a, b) => a - b)[Math.floor(values.length / 2)];
+  for (const id of ['endless_1', 'endless_5']) {
+    const balance: any = resolveMapBalance(id, settings, revision);
+    const regular = median(Object.entries(balance.lanes).filter(([kind]) => !/Warden|King/.test(kind)).map(([, lane]: any) => lane.damage));
+    expect(balance.boss.damage / regular, id).toBeCloseTo(11, 1);
+  }
 });

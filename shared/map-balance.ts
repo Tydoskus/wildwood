@@ -66,18 +66,18 @@ export function validateBalanceSettings(value: unknown): BalanceSettings {
 /**
  * How much each Endless map grows over the one before. Endless 1 is map 15
  * times the Endless factors (settings.maps.endless); these grow every map
- * after it, the same for every camp. Tuned in the Balance Lab (2026-09-30)
- * against a typical player with research and gear, who grows about 5x a map
- * past a boss that takes 12 minutes on arrival:
- * - health and bossHealth 5.2: a regular keeps taking about 8 hits to kill,
- *   and each boss keeps its 12-minute gate;
- * - hit 6: a regular's hit keeps taking about 8-12% of the player's health,
- *   whose health grows faster than their damage in Endless;
- * - reward 4.3: map time grows about 20% a map. It keeps growing, since maps
- *   are finite, without running away.
+ * after it, the same for every camp. Retuned in the Balance Lab (2026-10-01,
+ * 0.845) against a typical player with research and gear, past a boss that
+ * takes 12 minutes on arrival:
+ * - health and bossHealth ~5.2: a regular keeps taking 8 hits to kill, and
+ *   each boss keeps its 12-minute gate;
+ * - hit 5.68: from Endless 2 on a regular's hit takes about 7.5% of the
+ *   player's health, as in the campaign (Endless 1 is gentler, about 5%);
+ * - reward 4.75: map time grows about 8% a map. It keeps growing, since maps
+ *   are finite, but slowly.
  * At about 5x a map, enemies reach the stat cap around Endless 30.
  */
-export const ENDLESS_STEPS: Readonly<{ health: number; hit: number; reward: number; bossHealth: number }> = Object.freeze({ health: 5.2, hit: 6, reward: 4.3, bossHealth: 5.2 });
+export const ENDLESS_STEPS: Readonly<{ health: number; hit: number; reward: number; bossHealth: number }> = Object.freeze({ health: 5.2, hit: 5.68, reward: 4.75, bossHealth: 5.06 });
 
 /** Resolved numbers cross the wire; apps do not need the current scaling formula. */
 export function resolveMapBalance(mapId: string, settings: BalanceSettings, revision: number, configurationVersion: 1 | 2 = 2): MapBalanceSnapshot {

@@ -1,4 +1,4 @@
-import { BOSS_DAMAGE_REBALANCE, activateCampaignPacing, activateCampaignProgression, applyCampaignRebalance, activateCampaignRewardFloor } from './campaign-pacing-migration';
+import { BOSS_DAMAGE_REBALANCE, ENDLESS_EASE, activateCampaignPacing, activateCampaignProgression, applyCampaignRebalance, activateCampaignRewardFloor } from './campaign-pacing-migration';
 // One-time data migrations: the version-gated steps runPendingModuleMigrations
 // walks once per module version, the legacy balance rebases they call and the
 // per-connection migratePlayerBalance catch-up for saves that predate the
@@ -43,7 +43,7 @@ import { GEM_KILL_CREDIT_PER_GEM } from "../../shared/gem-drops";
 import { syncPlayerJoinDate } from "./mailbox";
 import { enrollInPrestigeChallenge } from "./prestige-challenge";
 
-export const MODULE_MIGRATION_VERSION = 48;
+export const MODULE_MIGRATION_VERSION = 49;
 
 /** Migration 47's one player, matched on the whole display name, ignoring case. */
 export const REFLECT_CHALLENGE_ENROLLEE = "phoe";
@@ -528,6 +528,8 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     if (currentVersion < 47) enrollPlayerByName(ctx, REFLECT_CHALLENGE_ENROLLEE);
     // 48: bosses hit 11x their map's regular again (campaign-pacing-migration.ts).
     if (currentVersion < 48) applyCampaignRebalance(ctx, BOSS_DAMAGE_REBALANCE);
+    // 49: Endless eased to campaign-level hits and ~8% more time a map.
+    if (currentVersion < 49) applyCampaignRebalance(ctx, ENDLESS_EASE);
     const next = { id: 0, version: MODULE_MIGRATION_VERSION };
     if (state) ctx.db.moduleMigrationState.id.update(next);
     else ctx.db.moduleMigrationState.insert(next);

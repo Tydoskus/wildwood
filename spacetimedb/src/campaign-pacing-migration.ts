@@ -99,6 +99,17 @@ export const BOSS_DAMAGE_REBALANCE: typeof CAMPAIGN_REBALANCE = Object.freeze({
   clockwork_ruins: { bossDamage: 10.06 }, duskfall_orchard: { bossDamage: 17.08 }, neon_bastion: { bossDamage: 28.02 },
   verdant_catacombs: { bossDamage: 40.74 }, ion_citadel: { bossDamage: 66.37 }, endless: { bossDamage: 4.943 },
 });
+/**
+ * Migration 49 (0.845): Endless eased. From Endless 2 a regular hit for about
+ * 10% of the arriving player's health, and each map took ~16% longer than the
+ * last. With ENDLESS_STEPS retuned (shared/map-balance.ts) these Endless 1
+ * factors give ~7.5% from Endless 2 on (Endless 1 gentler, ~5%), about 8% more
+ * time a map, and the boss still a 12-minute gate whose heaviest attack is 11x
+ * a regular's (bossDamage moves with enemyDamage).
+ */
+export const ENDLESS_EASE: typeof CAMPAIGN_REBALANCE = Object.freeze({
+  endless: { enemyDamage: 3.763, enemyRewards: 3.82, bossHealth: 5.073, bossDamage: 3.763 },
+});
 export function applyCampaignRebalance(ctx: Parameters<typeof saveMapBalance>[0], table: typeof CAMPAIGN_REBALANCE = CAMPAIGN_REBALANCE) {
   if (!ctx.db.mapBalanceHead.id.find(0)) return; // A fresh database has no live revision to rebalance.
   const { revision, settings } = balanceEditorState(ctx);
