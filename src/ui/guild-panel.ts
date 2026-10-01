@@ -488,18 +488,30 @@ export function createGuildPanel(options: Options) {
       portrait.setAttribute("aria-hidden", "true");
       applyProfileIcon(portrait, member.profileIcon ?? 0);
       const copy = element("div", undefined, "guild-row-copy");
-      const done = member.questsDone ?? 0, taken = member.questsTaken ?? 0, total = member.questsTotal ?? WEEKLY_QUEST_COUNT;
+      const done = member.questsDone ?? 0, collected = member.questsCollected ?? 0, total = member.questsTotal ?? WEEKLY_QUEST_COUNT;
       const line = element("span", undefined, "guild-quest-line");
       line.setAttribute("role", "img");
-      line.setAttribute("aria-label", `${done} of ${total} quests done this week${taken ? `, ${taken} collected by a guildmate` : ""}`);
-      // Done, then collected by someone else, then still to do.
-      for (let index = 0; index < total; index++) {
-        line.append(element("span", undefined, `guild-quest-step${index < done ? " is-done" : index < done + taken ? " is-taken" : ""}`));
-      }
+      line.setAttribute("aria-label", `${done} of ${total} quests done this week${collected ? `, and ${collected} from the guild's pool` : ""}`);
+      // Their own fifteen, green when done; then a gold mark for each pool quest they finished, so marks match points.
+      for (let index = 0; index < total; index++) line.append(element("span", undefined, `guild-quest-step${index < done ? " is-done" : ""}`));
+      for (let index = 0; index < collected; index++) line.append(element("span", undefined, "guild-quest-step is-taken"));
       copy.append(element("strong", member.name), line);
       const score = element("div", undefined, "guild-score");
       score.append(element("strong", number(member.questPoints ?? 0)), element("span", "pts"));
       item.append(portrait, copy, score);
+      list.append(item);
+    }
+    // Points the guild earned that no current member's row shows: members who have left, and quests
+    // from before members' counts began. Shown so the column adds up to the guild's total.
+    const shown = members.reduce((sum, member) => sum + (member.questPoints ?? 0), 0);
+    const earlier = (options.questStanding?.()?.guild?.points ?? 0) - shown;
+    if (earlier > 0) {
+      const item = element("li", undefined, "guild-quest-member guild-quest-earlier");
+      const copy = element("div", undefined, "guild-row-copy");
+      copy.append(element("strong", "Earlier & former members"), element("span", "Points from members who have left, or from before members' counts began."));
+      const score = element("div", undefined, "guild-score");
+      score.append(element("strong", number(earlier)), element("span", "pts"));
+      item.append(copy, score);
       list.append(item);
     }
     body.append(list);

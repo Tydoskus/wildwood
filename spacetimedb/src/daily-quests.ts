@@ -190,7 +190,8 @@ function weeksQuests(ctx: Ctx, identity: any): DailyQuest[] | null {
  * who has not opened the board this week has all fifteen still to come.
  */
 export function memberQuestStanding(ctx: Ctx, identity: any, guildId: bigint) {
-  const own = weeksQuests(ctx, identity)?.filter(ownQuest);
+  const quests = weeksQuests(ctx, identity);
+  const own = quests?.filter(ownQuest);
   const week = questWeek(questDay(ctx.timestamp.microsSinceUnixEpoch));
   // Never fewer points than the list shows done for this guild: the tally began in 0.852, after some of
   // this week's quests. A member who joined this week may have done those for another guild, so theirs stand.
@@ -203,6 +204,8 @@ export function memberQuestStanding(ctx: Ctx, identity: any, guildId: bigint) {
     questsTotal: Math.max(WEEKLY_QUEST_COUNT, own?.length ?? 0),
     questsOpen: own ? own.filter(questOpen).length + Math.max(0, WEEKLY_QUEST_COUNT - own.length) : WEEKLY_QUEST_COUNT,
     questsTaken: own ? own.filter(quest => quest.takenBy && !questDone(quest)).length : 0,
+    // Quests collected from the guild's pool and finished: points beyond the member's own fifteen.
+    questsCollected: quests ? quests.filter(quest => quest.from && questDone(quest)).length : 0,
     questPoints: done ? Math.max(tally, done.own + done.collected - soloPoints(ctx, identity, week)) : tally,
   };
 }

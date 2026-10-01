@@ -2,6 +2,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
   "0.858": [
     "Collecting quests now draws from your guild's weekly pool (15 per member) instead of taking a member's quests",
     "A guild's quest points for the week stop at its pool",
+    "Guild > Quests: quests collected from the pool show as gold marks, and points from earlier or former members get their own row, so the column adds up",
     "New setting: Stat Gain Popups, to turn off the stat gain pop-ups",
   ],
   "0.857": [

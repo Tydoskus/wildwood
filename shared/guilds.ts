@@ -34,8 +34,10 @@ export type GuildSnapshot = {
       questsDone?: number; questsTotal?: number; questPoints?: number;
       /** Today's quests still unfinished and not yet collected by a leader. */
       questsOpen?: number;
-      /** Today's quests a leader collected from them. */
-      questsTaken?: number }[];
+      /** Quests a guildmate took from them (before 0.858). */
+      questsTaken?: number;
+      /** Quests they collected from the guild's pool and finished. */
+      questsCollected?: number }[];
     /** Whether the viewer may collect members' quests this week (their own fifteen done), and how many more. */
     questCollect?: { ready: boolean; left: number; pool?: number; poolSize?: number } | null };
   directory: { id: string; name: string; emblem?: number; members: number; totalPower?: number; requestOnly?: boolean; challengedToday: boolean }[]; nextPage: string | null;
