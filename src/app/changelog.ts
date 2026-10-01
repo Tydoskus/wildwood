@@ -1,5 +1,6 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.844": [
+    "Gear and cosmetics you get during a Reflect Only run are kept when you drop out or win",
     "Bosses no longer show a +0 stat pop-up",
     "Steadier connection: a dropped connection mid-game now reconnects instead of stalling",
   ],

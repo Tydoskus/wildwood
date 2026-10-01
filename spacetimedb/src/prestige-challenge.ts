@@ -47,6 +47,36 @@ function runSnapshot(ctx: any, identity: any, player: any) {
     completedEndless: ctx.db.proceduralProgress.identity.find(identity)?.completed ?? 0,
     mapId: player.mapId, x: player.x, y: player.y };
 }
+/**
+ * What a player owns belongs to the account, not to one run. A run coming back
+ * keeps its own stats, maps and equipped gear, but takes everything either run
+ * holds: an item that dropped, or a cosmetic bought, on the run being parked
+ * is never lost to the swap.
+ */
+const ownedList = (json: unknown): string[] => {
+  try { const list = JSON.parse(String(json ?? "[]")); return Array.isArray(list) ? list.filter(item => typeof item === "string") : []; }
+  catch { return []; }
+};
+export function carryOwnership(restored: any, live: any) {
+  if (!live) return restored;
+  // Repeats are copies (forest bows and armor are counted that way), so each
+  // item keeps the larger of the two runs' counts, in the restored run's order.
+  const union = (a: unknown, b: unknown) => {
+    const merged = ownedList(a), counts = new Map<string, number>();
+    for (const item of merged) counts.set(item, (counts.get(item) ?? 0) + 1);
+    const extra = new Map<string, number>();
+    for (const item of ownedList(b)) {
+      extra.set(item, (extra.get(item) ?? 0) + 1);
+      if ((extra.get(item) ?? 0) > (counts.get(item) ?? 0)) merged.push(item);
+    }
+    return JSON.stringify(merged);
+  };
+  return { ...restored,
+    inventoryJson: union(restored.inventoryJson, live.inventoryJson),
+    cosmeticItemsJson: union(restored.cosmeticItemsJson, live.cosmeticItemsJson),
+    bowCount: Math.max(restored.bowCount ?? 0, live.bowCount ?? 0),
+    woodenArmorCount: Math.max(restored.woodenArmorCount ?? 0, live.woodenArmorCount ?? 0) };
+}
 function writeEndless(ctx: any, identity: any, completed: number) {
   const endless = { identity, completed };
   if (ctx.db.proceduralProgress.identity.find(identity)) ctx.db.proceduralProgress.identity.update(endless);
@@ -75,7 +105,7 @@ export function restorePrestigeChallenge(ctx: any, player: any, reward: boolean,
     ctx.db.playerPrestigeChallengeParked.insert({ identity: ctx.sender, parkedAt: ctx.timestamp });
   }
   ctx.db.playerPrestigeChallenge.identity.update(next);
-  const progress = { ...JSON.parse(backup.progressJson), identity: ctx.sender };
+  const progress = carryOwnership({ ...JSON.parse(backup.progressJson), identity: ctx.sender }, ctx.db.playerProgress.identity.find(ctx.sender));
   if (reward) progress.attackRate = Math.max(challengeMinimumInterval(next), 1 / (1 / progress.attackRate + .5));
   updateSnapshotRow(ctx, "playerProgress", progress);
   writeEndless(ctx, ctx.sender, backup.completedEndless);
@@ -91,7 +121,7 @@ export function restorePrestigeChallenge(ctx: any, player: any, reward: boolean,
 export function resumeParkedChallenge(ctx: any): { progress: any; mapId: string; x: number; y: number } | null {
   const parked = ctx.db.prestigeChallengeRun.identity.find(ctx.sender);
   if (!parked) return null;
-  const progress = { ...JSON.parse(parked.progressJson), identity: ctx.sender };
+  const progress = carryOwnership({ ...JSON.parse(parked.progressJson), identity: ctx.sender }, ctx.db.playerProgress.identity.find(ctx.sender));
   updateSnapshotRow(ctx, "playerProgress", progress);
   writeEndless(ctx, ctx.sender, parked.completedEndless);
   clearParkedRun(ctx, ctx.sender);

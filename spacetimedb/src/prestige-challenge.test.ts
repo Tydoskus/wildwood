@@ -6,6 +6,7 @@ import { BOSS_REWARD_CLAIM_BITS, DEFAULT_ATTACK_INTERVAL, MAX_BASE_ATTACKS_PER_S
 import { challengeGoal, challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { applyEnemyRewards } from "../../shared/enemy-defeats";
 import { REFLECT_CHALLENGE_ENROLLEE, enrollPlayerByName } from "./module-migrations";
+import { carryOwnership } from "./prestige-challenge";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 function fixture() {
@@ -161,4 +162,33 @@ it("drops out keeping the challenge run, and drops back in where it stood", () =
 it("starts fresh from the forest when nothing is parked", () => {
   const f = fixture(); f.run(server.startPrestigeChallenge);
   expect(f.db.playerProgress.identity.find(f.ctx.sender)).toMatchObject({ attackRate: DEFAULT_ATTACK_INTERVAL, bossRewardClaims: 0 });
+});
+
+it("never loses what either run owns when runs swap, keeping each run's own equipped gear", () => {
+  const f = fixture();
+  f.patch("playerProgress", { inventoryJson: JSON.stringify(["starter_bow", "starter_bow", "neon_helmet"]), cosmeticItemsJson: "[]" });
+  const main = { ...f.db.playerProgress.identity.find(f.ctx.sender) };
+  f.run(server.startPrestigeChallenge);
+  // On the challenge run: an item drops and a cosmetic is bought.
+  const during = f.db.playerProgress.identity.find(f.ctx.sender);
+  f.patch("playerProgress", { inventoryJson: JSON.stringify([...JSON.parse(during.inventoryJson), "samurai_hat"]), cosmeticItemsJson: JSON.stringify(["starter_bow"]) });
+  f.run(server.abandonPrestigeChallenge);
+  const back = f.db.playerProgress.identity.find(f.ctx.sender);
+  expect(JSON.parse(back.inventoryJson)).toEqual(expect.arrayContaining(["neon_helmet", "samurai_hat"]));
+  expect(JSON.parse(back.inventoryJson).filter((item: string) => item === "starter_bow")).toHaveLength(2);
+  expect(JSON.parse(back.cosmeticItemsJson)).toEqual(["starter_bow"]);
+  expect(back.equippedHead).toBe(main.equippedHead);
+  // On the main run: another drop, then back into the challenge, and out after a win.
+  f.patch("playerProgress", { inventoryJson: JSON.stringify([...JSON.parse(back.inventoryJson), "frost_bow"]) });
+  f.run(server.startPrestigeChallenge);
+  expect(JSON.parse(f.db.playerProgress.identity.find(f.ctx.sender).inventoryJson)).toEqual(expect.arrayContaining(["samurai_hat", "frost_bow", "neon_helmet"]));
+  f.patch("playerProgress", { bossRewardClaims: BOSS_REWARD_CLAIM_BITS.aegisPrime });
+  f.run(server.prestigeAccount);
+  expect(JSON.parse(f.db.playerProgress.identity.find(f.ctx.sender).inventoryJson)).toEqual(expect.arrayContaining(["samurai_hat", "frost_bow", "neon_helmet"]));
+});
+
+it("merges owned lists by count, so repeated copies survive", () => {
+  const merged = carryOwnership({ inventoryJson: '["a","a","b"]', cosmeticItemsJson: "[]" }, { inventoryJson: '["a","c","c","c"]', cosmeticItemsJson: '["x"]' });
+  expect(JSON.parse(merged.inventoryJson)).toEqual(["a", "a", "b", "c", "c", "c"]);
+  expect(JSON.parse(merged.cosmeticItemsJson)).toEqual(["x"]);
 });
