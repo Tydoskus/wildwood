@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.845": [
+    "Endless eased: enemies hit about as hard as in the campaign, and each map takes only about 8% longer than the last",
+    "Endless bosses no longer one-shot you on arrival",
+    "Everyone gets one free respec that refunds your perk points and keeps your stats",
+  ],
   "0.844": [
     "Gear and cosmetics you get during a Reflect Only run are kept when you drop out or win",
     "Bosses no longer show a +0 stat pop-up",
@@ -2557,6 +2562,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.845": "2026-09-30",
   "0.844": "2026-09-30",
   "0.843": "2026-09-30",
   "0.842": "2026-09-30",
