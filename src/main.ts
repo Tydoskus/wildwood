@@ -1441,6 +1441,8 @@ import {
     startResearch: async (id: ResearchId) => coop?.startResearch?.(id),
     gemBalance: () => coop?.gemBalance?.() ?? 0n,
     speedUpResearch: async () => coop?.speedUpResearchWithGems?.(),
+    pausedResearch: () => coop?.pausedResearch?.() ?? [],
+    pauseResearch: async () => coop?.pauseResearch?.(),
     ...progressNotices.researchHooks,
     showMessage,
     beforeOpen: () => panels.closeAllExcept("techTree"),

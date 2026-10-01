@@ -99,6 +99,8 @@ export type ActiveResearch = {
   startedAtMs: number;
   completesAtMs: number;
 };
+/** Research set aside with the time it still needs; starting it again resumes it. */
+export type PausedResearch = { researchId: ResearchId; targetRank: number; remainingMs: number };
 
 export type PlayerPrestige = {
   level: number;

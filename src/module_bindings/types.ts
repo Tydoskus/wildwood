@@ -1584,6 +1584,16 @@ export type PatreonTickerSupporter = __Infer<typeof PatreonTickerSupporter>;
 export const PatreonTickerSupporters = __t.object("PatreonTickerSupporters", {});
 export type PatreonTickerSupporters = __Infer<typeof PatreonTickerSupporters>;
 
+export const PausedResearch = __t.object("PausedResearch", {
+  key: __t.string(),
+  identity: __t.identity(),
+  researchId: __t.string(),
+  targetRank: __t.u32(),
+  remainingMicros: __t.u64(),
+  pausedAt: __t.timestamp(),
+});
+export type PausedResearch = __Infer<typeof PausedResearch>;
+
 export const PendingEquipmentOffer = __t.object("PendingEquipmentOffer", {
   id: __t.u64(),
   identity: __t.identity(),

@@ -10,6 +10,7 @@ import { mergeEquipmentLocks, removeEquipmentLocks } from "./equipment-locks";
 // deps so the moved code reads exactly as it did.
 import { SenderError } from "spacetimedb/server";
 import { removePlayerJoinDate, syncPlayerJoinDate } from "./mailbox";
+import { removePausedResearch } from "./research-pause";
 import {
   ATTACK_BALANCE_VERSION,
   DEFAULT_ATTACK_INTERVAL,
@@ -635,6 +636,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (guestResearch) deleteSnapshotRow(ctx, "playerResearch", link.guest);
     if (guestReactionUnlock) ctx.db.chatReactionUnlock.identity.delete(link.guest);
     if (guestActiveResearch) ctx.db.activeResearch.identity.delete(link.guest);
+    removePausedResearch(ctx, link.guest);
     removePlayerItemUpgradeData(ctx, link.guest, true);
     if (guestProfile) deleteSnapshotRow(ctx, "playerProfile", link.guest);
     if (guestLifetime) ctx.db.playerLifetime.identity.delete(link.guest);
@@ -736,6 +738,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.chatReactionUnlock.identity.find(identity)) ctx.db.chatReactionUnlock.identity.delete(identity);
     if (ctx.db.activeResearch.identity.find(identity)) ctx.db.activeResearch.identity.delete(identity);
     removeResearchCompletionSchedules(ctx, identity);
+    removePausedResearch(ctx, identity);
     removePlayerItemUpgradeData(ctx, identity, true);
     if (ctx.db.playerAccountStatus.identity.find(identity)) deleteSnapshotRow(ctx, "playerAccountStatus", identity);
     if (ctx.db.defeatSessionRestriction.identity.find(identity)) ctx.db.defeatSessionRestriction.identity.delete(identity);
@@ -844,6 +847,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.chatReactionUnlock.identity.find(identity)) ctx.db.chatReactionUnlock.identity.delete(identity);
     if (ctx.db.activeResearch.identity.find(identity)) ctx.db.activeResearch.identity.delete(identity);
     removeResearchCompletionSchedules(ctx, identity);
+    removePausedResearch(ctx, identity);
     removePlayerItemUpgradeData(ctx, identity, true);
 
     if (ctx.db.playerAccountStatus.identity.find(identity)) deleteSnapshotRow(ctx, "playerAccountStatus", identity);

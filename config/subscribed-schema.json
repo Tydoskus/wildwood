@@ -710,6 +710,14 @@
       "name",
       "validUntilMs"
     ],
+    "paused_research": [
+      "key",
+      "identity",
+      "researchId",
+      "targetRank",
+      "remainingMicros",
+      "pausedAt"
+    ],
     "player_account_status": [
       "identity",
       "isGuest"

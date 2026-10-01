@@ -103,6 +103,7 @@ import JoinVirtualPlayerLoadTestReducer from "../join_virtual_player_load_test_r
 import KickGuildMemberReducer from "../kick_guild_member_reducer";
 import LeaveGuildReducer from "../leave_guild_reducer";
 import MarkPortalCutsceneSeenReducer from "../mark_portal_cutscene_seen_reducer";
+import PauseResearchReducer from "../pause_research_reducer";
 import PrepareProceduralBossReducer from "../prepare_procedural_boss_reducer";
 import PrepareWorldActionPositionReducer from "../prepare_world_action_position_reducer";
 import PrestigeAccountReducer from "../prestige_account_reducer";
@@ -280,6 +281,7 @@ export type JoinVirtualPlayerLoadTestParams = __Infer<typeof JoinVirtualPlayerLo
 export type KickGuildMemberParams = __Infer<typeof KickGuildMemberReducer>;
 export type LeaveGuildParams = __Infer<typeof LeaveGuildReducer>;
 export type MarkPortalCutsceneSeenParams = __Infer<typeof MarkPortalCutsceneSeenReducer>;
+export type PauseResearchParams = __Infer<typeof PauseResearchReducer>;
 export type PrepareProceduralBossParams = __Infer<typeof PrepareProceduralBossReducer>;
 export type PrepareWorldActionPositionParams = __Infer<typeof PrepareWorldActionPositionReducer>;
 export type PrestigeAccountParams = __Infer<typeof PrestigeAccountReducer>;

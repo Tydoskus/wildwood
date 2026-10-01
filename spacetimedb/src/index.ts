@@ -158,6 +158,7 @@ import {
 } from "../../shared/gems";
 import { HIDDEN_COSMETIC_ITEM_ID, isHiddenCosmeticItem, resolveEquipmentAppearance } from "../../shared/equipment-appearance";
 import { socialTables } from "./social-tables";
+import { pausedResearch, pauseActiveResearch, removePausedResearch, takePausedResearch } from "./research-pause";
 import { createSocialService, socialSnapshot, visibleSocialMessages, latestSocialMessages, socialHistoryPage, pruneExpiredSocialMessages } from "./social-service";
 import { playerDirectoryJson } from "./player-directory";
 import { guildTables } from "./guild-tables";
@@ -1762,6 +1763,7 @@ const spacetimedb = schema({
   homeReturnLocation,
   ...guildTables,
   ...socialTables,
+  pausedResearch,
   patreonSweepSchedule,
   shardCoordinatorConnection,
   forestRewardPrototype,
@@ -4797,17 +4799,21 @@ export const startResearch = spacetimedb.reducer(
     assertResearchAvailable(research, researchId);
     const targetRank = research[researchId] + 1;
     const durationMicros = BigInt(researchDurationMs(researchId, research[researchId], research.researchSpeed)) * 1_000n;
-    const completesAtMicros = ctx.timestamp.microsSinceUnixEpoch + durationMicros;
+    const remainingMicros = takePausedResearch(ctx, ctx.sender, researchId, targetRank, durationMicros);
+    const completesAtMicros = ctx.timestamp.microsSinceUnixEpoch + remainingMicros;
     ctx.db.activeResearch.insert({
       identity: ctx.sender,
       researchId,
       targetRank,
-      startedAt: ctx.timestamp,
+      startedAt: new Timestamp(ctx.timestamp.microsSinceUnixEpoch - (durationMicros - remainingMicros)),
       completesAt: new Timestamp(completesAtMicros),
     });
     ensureResearchCompletionSchedule(ctx, { identity: ctx.sender, researchId, targetRank, completesAt: new Timestamp(completesAtMicros) });
   },
 );
+
+/** Sets the running research aside with its time left, freeing the slot; starting it again resumes it. */
+export const pauseResearch = spacetimedb.reducer((ctx) => { requireControllingPlayer(ctx); pauseActiveResearch(ctx, reconcileActiveResearch, removeResearchCompletionSchedules); });
 
 export const speedUpResearchWithGems = spacetimedb.reducer((ctx) => {
   requireControllingPlayer(ctx);
@@ -5538,6 +5544,7 @@ function resetProgressToDefaults(ctx: any, activePlayer: any, keep: { research?:
       const activeResearchRow = ctx.db.activeResearch.identity.find(ctx.sender);
       if (activeResearchRow) ctx.db.activeResearch.identity.delete(ctx.sender);
       removeResearchCompletionSchedules(ctx, ctx.sender);
+      removePausedResearch(ctx, ctx.sender);
     }
     // A tier belongs to the slot, not to whatever is sitting in it. Prestige
     // leaves the bench work, the way it leaves research and now the gear;

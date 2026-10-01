@@ -23,6 +23,8 @@ type ExpectedApiKey =
   | "activeItemUpgrades"
   | "activePlayerMap"
   | "activeResearch"
+  | "pausedResearch"
+  | "pauseResearch"
   | "balanceApologyGiftAmount"
   | "beginStartupTelemetryStage"
   | "beginAdventure"

@@ -131,6 +131,7 @@ import JoinVirtualPlayerLoadTestReducer from "./join_virtual_player_load_test_re
 import KickGuildMemberReducer from "./kick_guild_member_reducer";
 import LeaveGuildReducer from "./leave_guild_reducer";
 import MarkPortalCutsceneSeenReducer from "./mark_portal_cutscene_seen_reducer";
+import PauseResearchReducer from "./pause_research_reducer";
 import PrepareProceduralBossReducer from "./prepare_procedural_boss_reducer";
 import PrepareWorldActionPositionReducer from "./prepare_world_action_position_reducer";
 import PrestigeAccountReducer from "./prestige_account_reducer";
@@ -322,6 +323,7 @@ import MySocialMessagesWithReactionsRow from "./my_social_messages_with_reaction
 import MyUpgradeBenchRow from "./my_upgrade_bench_table";
 import MyUpgradeBenchThirdSlotRow from "./my_upgrade_bench_third_slot_table";
 import PatreonTickerSupportersRow from "./patreon_ticker_supporters_table";
+import PausedResearchRow from "./paused_research_table";
 import PlayerRow from "./player_table";
 import PlayerAccountStatusRow from "./player_account_status_table";
 import PlayerChatHeartsRow from "./player_chat_hearts_table";
@@ -787,6 +789,20 @@ const tablesSchema = __schema({
       { name: 'miremaw_result_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, MiremawResultRow),
+  pausedResearch: __table({
+    name: 'paused_research',
+    indexes: [
+      { accessor: 'identity', name: 'paused_research_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+      { accessor: 'key', name: 'paused_research_key_idx_btree', algorithm: 'btree', columns: [
+        'key',
+      ] },
+    ],
+    constraints: [
+      { name: 'paused_research_key_key', constraint: 'unique', columns: ['key'] },
+    ],
+  }, PausedResearchRow),
   player: __table({
     name: 'player',
     indexes: [
@@ -1641,6 +1657,7 @@ const reducersSchema = __reducers(
   __reducerSchema("kick_guild_member", KickGuildMemberReducer),
   __reducerSchema("leave_guild", LeaveGuildReducer),
   __reducerSchema("mark_portal_cutscene_seen", MarkPortalCutsceneSeenReducer),
+  __reducerSchema("pause_research", PauseResearchReducer),
   __reducerSchema("prepare_procedural_boss", PrepareProceduralBossReducer),
   __reducerSchema("prepare_world_action_position", PrepareWorldActionPositionReducer),
   __reducerSchema("prestige_account", PrestigeAccountReducer),

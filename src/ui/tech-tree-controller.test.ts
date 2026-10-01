@@ -71,6 +71,53 @@ function ranks(overrides: Partial<ResearchRanks> = {}): ResearchRanks {
   };
 }
 
+it("pauses running research and offers to resume a paused one", async () => {
+  const { document, window } = parseHTML(`<html><body>
+    <span id="notice"></span><div id="overlay" hidden><h2 id="title"><span>Tech Research</span></h2>
+    <div id="categories"><button data-research-tree="power"><small class="tech-tree-choice-progress"></small></button><button data-research-tree="utility"><small class="tech-tree-choice-progress"></small></button></div>
+    <div id="viewport" hidden><div id="map"><canvas id="canvas"></canvas></div></div>
+    <div id="active"></div><button id="back"></button><div id="detail" hidden><div id="content"></div><button id="detailBack"></button></div></div>
+  </body></html>`);
+  vi.stubGlobal("document", document);
+  vi.stubGlobal("window", window);
+  vi.stubGlobal("addEventListener", () => {});
+  vi.stubGlobal("requestAnimationFrame", () => 0);
+  const element = (id: string) => document.getElementById(id)! as HTMLElement;
+  const map = element("map");
+  map.getBoundingClientRect = () => ({ width: 0, height: 0 } as DOMRect);
+  let running: { researchId: "researchSpeed"; targetRank: number; startedAtMs: number; completesAtMs: number } | null =
+    { researchId: "researchSpeed", targetRank: 1, startedAtMs: 0, completesAtMs: 45_000 };
+  let paused: { researchId: "researchSpeed"; targetRank: number; remainingMs: number }[] = [];
+  const pauseResearch = vi.fn(async () => { paused = [{ researchId: "researchSpeed", targetRank: 1, remainingMs: 35_000 }]; running = null; return { ok: true }; });
+  const startResearch = vi.fn(async () => ({ ok: true }));
+  const controller = createTechTreeController({
+    notice: element("notice"), overlay: element("overlay"), title: element("title"), categories: element("categories"),
+    viewport: element("viewport"), closeButton: element("back"), active: element("active"),
+    canvas: element("canvas") as HTMLCanvasElement, map, detail: element("detail"),
+    detailContent: element("content"), closeDetailButton: element("detailBack"),
+  }, {
+    researchRanks: () => ranks(), activeResearch: () => running, startResearch, gemBalance: () => 0n,
+    speedUpResearch: async () => ({ ok: true }), showMessage: () => {}, localIdentity: () => "alice",
+    isConnected: () => true, beforeOpen: () => {}, nowMs: () => 10_000,
+    pausedResearch: () => paused, pauseResearch,
+  });
+  const click = (selector: string) => document.querySelector(selector)!.dispatchEvent(new window.Event("click", { bubbles: true }));
+  controller.open();
+  click('[data-research-tree="utility"]');
+  click('[data-tech-node="tech-utility-researchSpeed"]');
+  click(".tech-tree-pause");
+  await Promise.resolve(); await Promise.resolve();
+  expect(pauseResearch).toHaveBeenCalledOnce();
+  expect(document.querySelector(".tech-tree-pause")).toBeNull();
+  expect(element("content").textContent).toContain("PAUSED · TIME LEFT35s");
+  expect(element("content").textContent).toContain("RESUME RESEARCH");
+  expect(element("active").textContent).toBe("NO RESEARCH ACTIVE · 1 PAUSED");
+  expect(document.querySelector('[data-tech-node="tech-utility-researchSpeed"]')!.classList.contains("is-paused")).toBe(true);
+  click(".tech-tree-action");
+  await Promise.resolve();
+  expect(startResearch).toHaveBeenCalledWith("researchSpeed");
+});
+
 describe("research completion notifications", () => {
   const job = { researchId: "warcraft" as const, targetRank: 6, startedAtMs: 100, completesAtMs: 500 };
 

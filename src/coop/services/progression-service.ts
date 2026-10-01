@@ -26,6 +26,7 @@ import { createEmptyResearchRanks, RESEARCH_DEFINITIONS, isResearchId, type Rese
 import type {
   ActiveItemUpgrade,
   ActiveResearch,
+  PausedResearch,
   PlayerLifetime,
   PlayerPrestige,
   PlayerPrestigePerks,
@@ -164,6 +165,8 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   let localProgress: PlayerProgress | null = null;
   let localResearch: PlayerResearch = createEmptyResearchRanks();
   let activeResearch: ActiveResearch | null = null;
+  /** Research set aside with the time it still needs, by research id. */
+  const pausedResearch = new Map<ResearchId, PausedResearch>();
   let localPrestige: PlayerPrestige | null = null;
   let localPrestigePerks: PlayerPrestigePerks | null = null;
   let expansionPerks = { bossSlayer: 0, secondWind: 0, longShot: 0, fleetFoot: 0 };
@@ -493,6 +496,18 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     dependencies.notify();
   }
 
+  function upsertPausedResearch(row: { identity: Identity; researchId: string; targetRank: number; remainingMicros: bigint }) {
+    if (row.identity.toHexString() !== dependencies.localIdentity() || !isResearchId(row.researchId)) return;
+    pausedResearch.set(row.researchId, { researchId: row.researchId, targetRank: row.targetRank, remainingMs: Number(row.remainingMicros / 1_000n) });
+    dependencies.notify();
+  }
+
+  function removePausedResearch(row: { identity: Identity; researchId: string }) {
+    if (row.identity.toHexString() !== dependencies.localIdentity() || !isResearchId(row.researchId)) return;
+    pausedResearch.delete(row.researchId);
+    dependencies.notify();
+  }
+
   function removeActiveResearch(row: { identity: Identity }) {
     if (row.identity.toHexString() !== dependencies.localIdentity()) return;
     void syncResearchNotification(null);
@@ -739,6 +754,8 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       removeResearch,
       upsertActiveResearch,
       removeActiveResearch,
+      upsertPausedResearch,
+      removePausedResearch,
       upsertPrestige,
       removePrestige,
       upsertPrestigePerk,
@@ -909,6 +926,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       },
       research: () => ({ ...localResearch }),
       activeResearch: () => activeResearch ? { ...activeResearch } : null,
+      pausedResearch: () => [...pausedResearch.values()].map(row => ({ ...row })),
       prestige: () => localPrestige ? { ...localPrestige } : null,
       prestigeLevelFor: (identity: string) => prestigeLevelByIdentity.get(identity) ?? 0,
       prestigeChallenge: () => ({ ...prestigeChallenge, parked: challengeParked }),
@@ -1016,6 +1034,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
         return reducerResult("research start", (connection) => connection.reducers.startResearch({ researchId }))();
       },
       speedUpResearchWithGems: reducerResult("research speed-up", (connection) => connection.reducers.speedUpResearchWithGems({})),
+      pauseResearch: reducerResult("research pause", (connection) => connection.reducers.pauseResearch({})),
       async startPrestigeChallenge() {
         if (!await enemyLoot.flush(true)) return { ok: false, error: "Rewards are still syncing. Try again in a moment." };
         const identity = dependencies.localIdentity();
@@ -1242,6 +1261,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       localProgress = null;
       localResearch = createEmptyResearchRanks();
       activeResearch = null;
+      pausedResearch.clear();
       prestigeChallenge = { active: false, completed: 0 };
       challengeParked = false;
       freeRespecUsed = false;
@@ -1288,6 +1308,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     markDisconnected() {
       localResearch = createEmptyResearchRanks();
       activeResearch = null;
+      pausedResearch.clear();
       prestigeChallenge = { active: false, completed: 0 };
       challengeParked = false;
       freeRespecUsed = false;

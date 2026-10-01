@@ -51,6 +51,8 @@ export type BaseSubscriptionHandlers = {
   removeResearch: RowHandler;
   activeResearch: RowHandler;
   removeActiveResearch: RowHandler;
+  pausedResearch: RowHandler;
+  removePausedResearch: RowHandler;
   prestige: RowHandler;
   removePrestige: RowHandler;
   prestigePerk: RowHandler;
@@ -111,6 +113,8 @@ type BaseSubscriptionHandlerSources = {
     removeResearch: BaseSubscriptionHandlers["removeResearch"];
     upsertActiveResearch: BaseSubscriptionHandlers["activeResearch"];
     removeActiveResearch: BaseSubscriptionHandlers["removeActiveResearch"];
+    upsertPausedResearch: BaseSubscriptionHandlers["pausedResearch"];
+    removePausedResearch: BaseSubscriptionHandlers["removePausedResearch"];
     upsertPrestige: BaseSubscriptionHandlers["prestige"];
     removePrestige: BaseSubscriptionHandlers["removePrestige"];
     upsertPrestigePerk: BaseSubscriptionHandlers["prestigePerk"];
@@ -209,6 +213,8 @@ export function createBaseSubscriptionHandlers(sources: BaseSubscriptionHandlerS
     removeResearch: progression.removeResearch,
     activeResearch: progression.upsertActiveResearch,
     removeActiveResearch: progression.removeActiveResearch,
+    pausedResearch: progression.upsertPausedResearch,
+    removePausedResearch: progression.removePausedResearch,
     prestige: progression.upsertPrestige,
     removePrestige: progression.removePrestige,
     prestigePerk: progression.upsertPrestigePerk,
@@ -350,6 +356,9 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   connection.db.activeResearch.onInsert((_ctx, row) => { if (shouldHandle()) handlers.activeResearch(row); });
   connection.db.activeResearch.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.activeResearch(row); });
   connection.db.activeResearch.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeActiveResearch(row); });
+  connection.db.pausedResearch.onInsert((_ctx, row) => { if (shouldHandle()) handlers.pausedResearch(row); });
+  connection.db.pausedResearch.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.pausedResearch(row); });
+  connection.db.pausedResearch.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removePausedResearch(row); });
   connection.db.playerPrestige.onInsert((_ctx, row) => { if (shouldHandle()) handlers.prestige(row); });
   connection.db.playerPrestige.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.prestige(row); });
   connection.db.playerPrestige.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removePrestige(row); });
@@ -458,6 +467,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.playerWideStats.where((wide) => wide.identity.eq(dependencies.identity)),
       tables.playerResearch.where((research) => research.identity.eq(dependencies.identity)),
       tables.activeResearch.where((research) => research.identity.eq(dependencies.identity)),
+      tables.pausedResearch.where((research) => research.identity.eq(dependencies.identity)),
       // Whole table, not only our row: the level badge beside every name needs
       // everyone's. One small row per prestiged player.
       tables.playerPrestige,
@@ -515,6 +525,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
         for (const row of connection.db.playerResearch.iter()) handlers.research(row);
         for (const row of connection.db.activeResearch.iter()) handlers.activeResearch(row);
         if (![...connection.db.activeResearch.iter()].some(row => row.identity.toHexString() === dependencies.identity.toHexString())) handlers.removeActiveResearch({ identity: dependencies.identity });
+        for (const row of connection.db.pausedResearch.iter()) handlers.pausedResearch(row);
         for (const row of connection.db.playerPrestige.iter()) handlers.prestige(row);
         for (const row of connection.db.playerPrestigePerk.iter()) handlers.prestigePerk(row);
         for (const row of connection.db.playerPrestigeChallenge.iter()) handlers.prestigeChallenge(row);

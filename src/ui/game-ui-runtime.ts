@@ -132,7 +132,7 @@ export function createDuplicateLoginRuntime(d: Record<string, any>) {
 export function createTechTreePanel(d: Record<string, any>) {
   const e = d.e;
   return createTechTreeController({ notice: e.techTreeNotice, overlay: e.techTreeOverlay, title: e.techTreeTitle, categories: e.techTreeCategories, viewport: e.techTreeViewport, closeButton: e.closeTechTreeBtn, active: e.techTreeActive, canvas: e.techTreeCanvas, map: e.techTreeMap, detail: e.techTreeDetail, detailContent: e.techTreeDetailContent, closeDetailButton: e.closeTechTreeDetailBtn }, {
-    researchRanks: d.researchRanks, activeResearch: d.activeResearch, startResearch: d.startResearch, gemBalance: d.gemBalance, speedUpResearch: d.speedUpResearch, showMessage: d.showMessage, localIdentity: d.localIdentity, isConnected: d.isConnected, onResearchFinished: d.onResearchFinished, beforeOpen: d.beforeOpen, nowMs: () => Date.now(),
+    researchRanks: d.researchRanks, activeResearch: d.activeResearch, startResearch: d.startResearch, gemBalance: d.gemBalance, speedUpResearch: d.speedUpResearch, pausedResearch: d.pausedResearch, pauseResearch: d.pauseResearch, showMessage: d.showMessage, localIdentity: d.localIdentity, isConnected: d.isConnected, onResearchFinished: d.onResearchFinished, beforeOpen: d.beforeOpen, nowMs: () => Date.now(),
   });
 }
 

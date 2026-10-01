@@ -25,6 +25,9 @@ export type ActiveResearch = {
   completesAtMs: number;
 };
 
+/** Research set aside with the time it still needs; starting it again resumes it. */
+export type PausedResearch = { researchId: ResearchId; targetRank: number; remainingMs: number };
+
 type ResearchResult = { ok: boolean; error?: string } | undefined;
 
 export type TechTreeControllerElements = {
@@ -48,6 +51,8 @@ export type TechTreeControllerHooks = {
   startResearch: (researchId: ResearchId) => Promise<ResearchResult>;
   gemBalance: () => bigint;
   speedUpResearch: () => Promise<ResearchResult>;
+  pausedResearch?: () => PausedResearch[];
+  pauseResearch?: () => Promise<ResearchResult>;
   confirmGemSpend?: ConfirmPrompt;
   showMessage: (message: string, color: string) => void;
   localIdentity: () => string;
@@ -275,12 +280,19 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     const ranks = hooks.researchRanks();
     const current = hooks.activeResearch();
     const activeRemaining = current ? current.completesAtMs - hooks.nowMs() : 0;
+    const paused = new Map((hooks.pausedResearch?.() ?? []).map(row => [row.researchId, row]));
+    // A paused row only counts while it is still the next rank of its research.
+    const pausedFor = (researchId: ResearchId) => {
+      const row = paused.get(researchId);
+      return row && row.targetRank === ranks[researchId] + 1 && current?.researchId !== researchId ? row : null;
+    };
+    const pausedCount = [...paused.keys()].filter(id => pausedFor(id)).length;
     updateNotice();
     active.textContent = current
       ? activeRemaining > 0
         ? `${RESEARCH_DEFINITIONS[current.researchId].effect} · ${formatResearchTime(activeRemaining)}`
         : `${RESEARCH_DEFINITIONS[current.researchId].effect} · FINALIZING`
-      : "NO RESEARCH ACTIVE";
+      : pausedCount ? `NO RESEARCH ACTIVE · ${pausedCount} PAUSED` : "NO RESEARCH ACTIVE";
 
     if (!tree) {
       for (const [name, ids] of [["power", POWER_RESEARCH_IDS], ["utility", UTILITY_RESEARCH_IDS]] as const) {
@@ -302,6 +314,7 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
       element.classList.toggle("is-available", available);
       element.classList.toggle("is-complete", progress.isComplete);
       element.classList.toggle("is-active", activeOnNode);
+      element.classList.toggle("is-paused", progress.isCurrent && Boolean(pausedFor(node.researchId)));
       element.classList.toggle("is-locked", !available && !progress.isComplete && !activeOnNode);
       element.setAttribute("aria-pressed", String(selectedNodeId === node.id));
       const small = element.querySelector("small");
@@ -315,6 +328,8 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     const selectedActive = current?.researchId === selected.researchId &&
       current.targetRank > selected.startRank && current.targetRank <= selected.endRank;
     const duration = researchDurationMs(selected.researchId, progress.rank, ranks.researchSpeed);
+    const selectedPaused = progress.isCurrent ? pausedFor(selected.researchId) : null;
+    const pausedRemaining = selectedPaused ? Math.min(duration, selectedPaused.remainingMs) : 0;
     const canStart = !current && progress.isCurrent && researchIsAvailable(selected.researchId, ranks);
     detailContent.replaceChildren();
     const title = document.createElement("strong");
@@ -336,25 +351,28 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
       const time = document.createElement("div");
       time.className = "tech-tree-research-time";
       const timeLabel = document.createElement("span");
-      timeLabel.textContent = selectedActive && activeRemaining > 0 ? "RESEARCH REMAINING" : "NEXT RESEARCH";
+      timeLabel.textContent = selectedActive && activeRemaining > 0 ? "RESEARCH REMAINING" : selectedPaused ? "PAUSED · TIME LEFT" : "NEXT RESEARCH";
       const timeValue = document.createElement("strong");
-      timeValue.textContent = formatResearchTime(selectedActive && activeRemaining > 0 ? activeRemaining : duration);
+      timeValue.textContent = formatResearchTime(selectedActive && activeRemaining > 0 ? activeRemaining : selectedPaused ? pausedRemaining : duration);
       time.append(timeLabel, timeValue);
       detailContent.append(time);
     }
-    if (selectedActive && activeRemaining > 0 && current) {
-      const totalDuration = Math.max(1, current.completesAtMs - current.startedAtMs);
+    const runningBar = selectedActive && activeRemaining > 0 && current;
+    if (runningBar || selectedPaused) {
+      const totalDuration = runningBar ? Math.max(1, current.completesAtMs - current.startedAtMs) : Math.max(1, duration);
       const timer = document.createElement("div");
       timer.className = "tech-tree-timer";
       const label = document.createElement("span");
       label.className = "tech-tree-timer-label";
-      label.textContent = "RESEARCH PROGRESS";
+      label.textContent = runningBar ? "RESEARCH PROGRESS" : "PAUSED";
       const track = document.createElement("div");
       track.className = "tech-tree-timer-track";
       track.setAttribute("role", "progressbar");
       track.setAttribute("aria-valuemin", "0");
       track.setAttribute("aria-valuemax", String(totalDuration));
-      const elapsed = Math.round(researchElapsedRatio(current.startedAtMs, current.completesAtMs, hooks.nowMs()) * totalDuration);
+      const elapsed = runningBar
+        ? Math.round(researchElapsedRatio(current.startedAtMs, current.completesAtMs, hooks.nowMs()) * totalDuration)
+        : totalDuration - pausedRemaining;
       track.setAttribute("aria-valuenow", String(elapsed));
       const fill = document.createElement("div");
       fill.className = "tech-tree-timer-fill";
@@ -386,12 +404,37 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
         ? activeRemaining <= 0 ? "FINALIZING RESEARCH" : "RESEARCH IN PROGRESS"
         : progress.isComplete ? "LEVELS COMPLETE"
           : progress.isFuture ? "COMPLETE EARLIER LEVELS"
-          : canStart ? "START RESEARCH"
+          : canStart ? selectedPaused ? "RESUME RESEARCH" : "START RESEARCH"
             : `REQUIRES ${requirementText(selected.researchId, ranks)}`;
     }
     action.addEventListener("click", () => { void triggerAction(); });
-    detailContent.append(action);
+    if (canSpeedUp && hooks.pauseResearch) {
+      // Pausing keeps the time already spent; starting this research again resumes it.
+      const pause = document.createElement("button");
+      pause.className = "primary-button tech-tree-action tech-tree-pause";
+      pause.type = "button";
+      pause.textContent = "Pause";
+      pause.disabled = researchRequestPending;
+      pause.setAttribute("aria-label", "Pause this research. Starting it again later resumes where it stopped.");
+      pause.addEventListener("click", () => { void triggerPause(); });
+      const actions = document.createElement("div");
+      actions.className = "tech-tree-actions";
+      actions.append(action, pause);
+      detailContent.append(actions);
+    } else {
+      detailContent.append(action);
+    }
     drawLinks();
+  }
+
+  async function triggerPause() {
+    if (researchRequestPending || !hooks.pauseResearch) return;
+    researchRequestPending = true;
+    render();
+    const result = await hooks.pauseResearch();
+    researchRequestPending = false;
+    if (!result?.ok) hooks.showMessage(result?.error ?? "COULD NOT PAUSE RESEARCH", "#ff9b91");
+    render();
   }
 
   async function triggerAction() {

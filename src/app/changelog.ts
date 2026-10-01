@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.860": [
+    "Research can be paused: it keeps its time left, and starting it again resumes it",
+  ],
   "0.859": [
     "Every regen camp has 2 more enemies",
     "Utility Research: a second Enemy Respawn node under Attack Range, 5 more ranks of -0.5s",
@@ -2634,6 +2637,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.860": "2026-10-01",
   "0.859": "2026-10-01",
   "0.858": "2026-10-01",
   "0.857": "2026-10-01",

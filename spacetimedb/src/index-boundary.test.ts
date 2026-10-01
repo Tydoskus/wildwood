@@ -167,7 +167,10 @@ import { describe, expect, it } from "vitest";
 // clamp on leaderboard and chat writes. The storage lives in wide-stats.ts.
 // 6_572: 0.856 retired the duel wire filters and their backfill reducer, and
 // the legacy f32 leaderboard table lives in leaderboard-legacy.ts.
-const MAX_LINES = 6_572;
+// 6_579: research pause added the paused_research table and its import, the
+// pause_research declaration, the resume line in start_research and the
+// prestige cleanup call. The rules live in research-pause.ts.
+const MAX_LINES = 6_579;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {
