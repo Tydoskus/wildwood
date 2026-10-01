@@ -1,5 +1,5 @@
 import { damageAfterArmor } from "../../shared/combat";
-export { armorDamageReduction, damageAfterArmor } from "../../shared/combat";
+export { armorDamageReduction, damageAfterArmor, duelDamageAfterArmor } from "../../shared/combat";
 
 /** Damage credited to the defender whose armor reduced the incoming hit. */
 export function damageBlockedByArmor(damage: number, defenderArmor: number) {

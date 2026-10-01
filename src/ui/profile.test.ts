@@ -226,7 +226,7 @@ describe("profile stat display", () => {
       base: "10",
       equationOperator: "×",
       multiplier: "1.00",
-      expandedDetail: "(50% Block)",
+      expandedDetail: "(50%)",
       total: "10",
       sources: [],
     });

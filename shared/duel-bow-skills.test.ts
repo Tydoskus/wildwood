@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { advanceDuelCombat, duelBowSkillProc, initialDuelCombatState, DUEL_BOW_SKILLS_VERSION, DUEL_COMBAT_VERSION, type DuelCombat } from "./duel-combat";
 import { ARROW_STORM_ARROWS, ARROW_STORM_DAMAGE_SHARE, RICOCHET_DAMAGE_SHARE } from "./bow-skills";
-import { damageAfterArmor } from "./combat";
+import { duelDamageAfterArmor as damageAfterArmor } from "./combat";
 
 const fighters = (over: Partial<DuelCombat> = {}): DuelCombat => ({
   combatVersion: DUEL_COMBAT_VERSION, riposteSeed: 42,

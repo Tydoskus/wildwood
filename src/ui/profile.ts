@@ -173,7 +173,7 @@ export function profileStatDisplayRows(
       kind: "armor", label: "Armor:", base: statValue(progress.armor),
       equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.armor),
-      expandedDetail: `(${armorReduction(effective.armor)} Block)`,
+      expandedDetail: `(${armorReduction(effective.armor)})`,
       total: statValue(effective.armor),
       sources: multiplierSources(armorResearchBonus),
     },

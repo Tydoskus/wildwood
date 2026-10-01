@@ -1,8 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.845": [
-    "Endless eased: enemies hit about as hard as in the campaign, and each map takes only about 8% longer than the last",
-    "Endless bosses no longer one-shot you on arrival",
+    "Endless eased: each map takes only about 8% longer than the last",
     "Everyone gets one free respec that refunds your perk points and keeps your stats",
+    "Armor is now flat: it takes its full value off every enemy hit, down to 1 damage. Duels keep the old armor",
   ],
   "0.844": [
     "Gear and cosmetics you get during a Reflect Only run are kept when you drop out or win",

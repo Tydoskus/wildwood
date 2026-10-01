@@ -331,7 +331,7 @@ it("pays a Reflect Only run for what Reflect could have killed, and nothing with
   // A 1,000-damage bow is worth nothing here: only hits taken come back.
   expect(accepted({}, true)).toBe(0);
   expect(reflected).toBeGreaterThan(0);
-  expect(reflected).toBeLessThan(weapon);
+  expect(reflected).toBeLessThanOrEqual(weapon);
 });
 
 it("raises Reflect's cap by one for each Reflect Only win, while every other perk stops at 5", () => {

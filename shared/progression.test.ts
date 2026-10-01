@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { damageAfterArmor } from "./combat";
+import { duelDamageAfterArmor as damageAfterArmor } from "./combat";
 import { desertLaneCombatValue, desertLaneRewardValue, referenceBuildForMap, ENCOUNTER_PROFILES,
   bossRewardValue, DESERT_REFERENCE, FOREST_LANE_BASES, desertBossHealthAt, bossHeavyHitAt, MAP_STAT_GROWTH, CAMPAIGN_ENEMY_REWARD_MULTIPLIERS, CURRENT_ROLE_LANES, campaignEnemyRewardMultiplier, regularRewardStatScale } from "./progression";
 

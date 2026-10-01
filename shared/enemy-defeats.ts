@@ -53,7 +53,7 @@ function generatedDefinition(mapId: `endless_${number}`) {
   return map;
 }
 export function enemyDefeatDefinition(mapId: string, enemy: string, balance?: MapBalanceSnapshot) {
-  if (enemy === "boss") return personalBossDefinition(mapId) ? { reward: { type: "boss", amount: 0 }, hp: 0, population: 1, loot: false } : null;
+  if (enemy === "boss") return personalBossDefinition(mapId) ? { reward: { type: "boss", amount: 0 }, hp: 0, damage: 0, population: 1, loot: false } : null;
   if (isProceduralMap(mapId)) {
     // Generated art is cosmetic. A stable spawn index identifies its actual reward lane.
     if (!/^site:\d+$/.test(enemy)) return null;
@@ -63,7 +63,7 @@ export function enemyDefeatDefinition(mapId: string, enemy: string, balance?: Ma
       if (site < camp.count) {
         const lane = camp.stat === "damage" && site >= 6 ? "Dread Warden" : camp.lane;
         const stats = balance?.lanes[lane] ?? generatedEnemyStats(map, lane);
-        return { reward: stats.reward, hp: stats.hp, population: 1, loot: true };
+        return { reward: stats.reward, hp: stats.hp, damage: stats.damage, population: 1, loot: true };
       }
       site -= camp.count;
     }
@@ -78,7 +78,7 @@ export function enemyDefeatDefinition(mapId: string, enemy: string, balance?: Ma
   const population = rows.reduce((sum, camp) => sum + Array.from({ length: camp.count }, (_, i) => camp.types[i % camp.types.length]).filter(type => type === enemy).length, 0);
   if (!population) return null;
   const definition = balance?.enemies[enemy] ?? ENEMY_TYPES[enemy as EnemyKind];
-  return { reward: definition.reward, hp: definition.hp, population, loot: !(mapId === "beginner_desert" && definition.elite) };
+  return { reward: definition.reward, hp: definition.hp, damage: definition.damage, population, loot: !(mapId === "beginner_desert" && definition.elite) };
 }
 const mapPopulations = new Map<string, number>();
 /**

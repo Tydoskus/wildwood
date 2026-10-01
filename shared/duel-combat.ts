@@ -1,4 +1,4 @@
-import { damageAfterArmor } from "./combat";
+import { duelDamageAfterArmor as damageAfterArmor } from "./combat";
 import { duelAttackDelays, type DuelWeapons } from "./duel-approach";
 import { regularEnemySeededUnit } from "./regular-enemy-simulation";
 import { RIPOSTE_REFLECT_SHARE } from "./prestige-perks";

@@ -11,7 +11,7 @@ import {
   type ForestProgressionLane,
   type RewardStat,
 } from "./progression";
-import { armorDamageReduction } from "./combat";
+import { percentArmorReduction as armorDamageReduction } from "./combat";
 import { referenceBuildForMap } from "./progression";
 import { endlessScaling } from "./endless-balance";
 
