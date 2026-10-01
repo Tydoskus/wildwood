@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.852": [
+    "Fixed guild battles failing when a member has maxed attack range and Long Shot",
+  ],
   "0.851": [
     "Guild battles: members who already attacked with another guild today sit out instead of blocking the attack",
   ],
@@ -2591,6 +2594,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.852": "2026-10-01",
   "0.851": "2026-10-01",
   "0.850": "2026-09-30",
   "0.849": "2026-09-30",

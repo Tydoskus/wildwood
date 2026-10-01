@@ -162,7 +162,7 @@ import { playerDirectoryJson } from "./player-directory";
 import { guildTables } from "./guild-tables";
 import { createGuildService } from "./guild-service";
 import { registerGuildReducers } from "./guild-reducers";
-import { guildWeaponRange } from "../../shared/guild-combat";
+import { GUILD_MAX_RANGE, guildWeaponRange } from "../../shared/guild-combat";
 import type { DuelFighter } from "../../shared/duel-combat";
 import {
   BASIC_PAPER_HAT,
@@ -6042,7 +6042,7 @@ const guildService = createGuildService({
       appearance: leaderboardAppearanceForProgress(progress, profile),
       moveSpeed: PLAYER_SPEED,
       weaponItem: progress.equippedRightHand || progress.equippedLeftHand,
-      range: guildWeaponRange(progress.equippedRightHand || progress.equippedLeftHand, progress.attackRange) };
+      range: Math.min(GUILD_MAX_RANGE, guildWeaponRange(progress.equippedRightHand || progress.equippedLeftHand, progress.attackRange)) };
 
   },
 });

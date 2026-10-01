@@ -1,6 +1,6 @@
 import { buildGuildEntrance } from "./guild-entrance";
 import { describe, expect, it } from "vitest";
-import { advanceGuildCombat, initialGuildCombat, simulateGuildBattle, type GuildCombatFrame, type GuildFighter } from "./guild-combat";
+import { GUILD_MAX_RANGE, advanceGuildCombat, initialGuildCombat, simulateGuildBattle, type GuildCombatFrame, type GuildFighter } from "./guild-combat";
 const fighter = { maxHp: 100, damage: 20, armor: 0, regen: 0, attackRate: 1 };
 const team = (count: number, side = "a", stats = fighter): GuildFighter[] => Array.from({ length: count }, (_, i) => ({ identity: `${side}${i}`, name: `${side}${i}`, fighter: stats }));
 
@@ -8,6 +8,13 @@ describe("whole-guild combat", () => {
   it("resolves equal simultaneous lethal attacks without a first-side advantage", () => {
     const result = simulateGuildBattle(team(1, "a", { ...fighter, damage: 1000 }), team(1, "b", { ...fighter, damage: 1000 }));
     expect(result.outcome).toBe("DRAW"); expect(result.attackerSurvivors).toBe(0); expect(result.defenderSurvivors).toBe(0);
+  });
+  it("fights a member with every range research rank and all five Long Shot ranks", () => {
+    // 200 base + 50 research + 25 Long Shot: once over the old 250 bound, which failed the whole battle.
+    expect(GUILD_MAX_RANGE).toBe(275);
+    const longShot = team(1).map(member => ({ ...member, range: GUILD_MAX_RANGE }));
+    expect(() => simulateGuildBattle(longShot, team(1, "b"))).not.toThrow();
+    expect(() => simulateGuildBattle(team(1).map(member => ({ ...member, range: GUILD_MAX_RANGE + 1 })), team(1, "b"))).toThrow("combat stats");
   });
   it("allows unequal full rosters and retargets after a knockout", () => {
     const frames: GuildCombatFrame[] = [];

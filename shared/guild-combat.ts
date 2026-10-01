@@ -3,6 +3,15 @@ import { damageAfterArmor } from "./combat";
 import { duelHitMultiplier, type DuelFighter } from "./duel-combat";
 import { itemDefinition } from "./items";
 import { DEFAULT_ATTACK_RANGE } from "./rules";
+import { attackRangeWithResearch } from "./utility-research";
+import { PRESTIGE_PERKS, PRESTIGE_PERK_MAX_RANK } from "./prestige-perks";
+
+/**
+ * The farthest any member can reach: every range research rank plus every
+ * Long Shot rank (275). The check below once stopped at 250, so a member with
+ * both maxed made every battle they were in fail (0.852).
+ */
+export const GUILD_MAX_RANGE = attackRangeWithResearch(Number.MAX_SAFE_INTEGER) + PRESTIGE_PERK_MAX_RANK * PRESTIGE_PERKS.longShot.perRank;
 
 export const GUILD_COMBAT_VERSION = 4;
 export const GUILD_COMBAT_STEP = .1;
@@ -26,7 +35,7 @@ function validateTeam(team: GuildFighter[]) {
   if (!team.length || team.length > 20) throw new Error("Each guild needs 1–20 members.");
   for (const { fighter: f, range, moveSpeed } of team) {
     if (moveSpeed !== undefined && (!Number.isFinite(moveSpeed) || moveSpeed <= 0 || moveSpeed > 1000)) throw new Error("A member's movement speed is unavailable.");
-    if (Object.values(f).some(value => !Number.isFinite(value) || value < 0) || f.maxHp <= 0 || f.attackRate < .05 || (range !== undefined && (!Number.isFinite(range) || range < 40 || range > 250))) throw new Error("A member's combat stats are unavailable.");
+    if (Object.values(f).some(value => !Number.isFinite(value) || value < 0) || f.maxHp <= 0 || f.attackRate < .05 || (range !== undefined && (!Number.isFinite(range) || range < 40 || range > GUILD_MAX_RANGE))) throw new Error("A member's combat stats are unavailable.");
   }
 }
 export function initialGuildCombat(attackers: GuildFighter[], defenders: GuildFighter[]): GuildCombatFrame {
