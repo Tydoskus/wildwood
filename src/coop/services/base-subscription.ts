@@ -75,6 +75,8 @@ export type BaseSubscriptionHandlers = {
   removeSocialHub: RowHandler;
   socialMessage: RowHandler;
   removeSocialMessage: RowHandler;
+  socialDuelLink: RowHandler;
+  removeSocialDuelLink: RowHandler;
   chatMessage: RowHandler;
   removeChatMessage: RowHandler;
   playerBlock: RowHandler;
@@ -154,7 +156,7 @@ type BaseSubscriptionHandlerSources = {
     upsertBugReport: BaseSubscriptionHandlers["bugReport"];
     removeBugReport: BaseSubscriptionHandlers["removeBugReport"];
   };
-  social?: { upsertHub: RowHandler; removeHub: RowHandler; upsertMessage: RowHandler; removeMessage: RowHandler };
+  social?: { upsertHub: RowHandler; removeHub: RowHandler; upsertMessage: RowHandler; removeMessage: RowHandler; upsertDuelLink?: RowHandler; removeDuelLink?: RowHandler };
   chat: { upsert: BaseSubscriptionHandlers["chatMessage"]; upsertBlock: RowHandler; removeBlock: RowHandler; remove: RowHandler };
   duel: { upsert: BaseSubscriptionHandlers["duel"]; remove: BaseSubscriptionHandlers["removeDuel"] };
 };
@@ -230,6 +232,8 @@ export function createBaseSubscriptionHandlers(sources: BaseSubscriptionHandlerS
     removeSocialHub: sources.social?.removeHub ?? (() => {}),
     socialMessage: sources.social?.upsertMessage ?? (() => {}),
     removeSocialMessage: sources.social?.removeMessage ?? (() => {}),
+    socialDuelLink: sources.social?.upsertDuelLink ?? (() => {}),
+    removeSocialDuelLink: sources.social?.removeDuelLink ?? (() => {}),
     chatMessage: chat.upsert,
     removeChatMessage: chat.remove,
     playerBlock: chat.upsertBlock,
@@ -398,6 +402,8 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   connection.db.mySocialMessagesWithReactions.onInsert((_ctx, row) => { if (shouldHandle()) handlers.socialMessage(row); });
   connection.db.mySocialMessagesWithReactions.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.socialMessage(row); });
   connection.db.mySocialMessagesWithReactions.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeSocialMessage(row); });
+  connection.db.socialDuelMessage.onInsert((_ctx, row) => { if (shouldHandle()) handlers.socialDuelLink(row); });
+  connection.db.socialDuelMessage.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeSocialDuelLink(row); });
   connection.db.latestChatMessagesWithReactions.onInsert((_ctx, row) => { if (shouldHandle()) handlers.chatMessage(row); });
   connection.db.latestChatMessagesWithReactions.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.chatMessage(row); });
   connection.db.latestChatMessagesWithReactions.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeChatMessage(row); });
@@ -479,6 +485,8 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.playerLifetime.where((lifetime) => lifetime.identity.eq(dependencies.identity)),
       tables.mySocialHub,
       tables.mySocialMessagesWithReactions,
+      tables.socialDuelMessage.where(row => row.recipient.eq(dependencies.identity)),
+      tables.socialDuelMessage.where(row => row.sender.eq(dependencies.identity)),
       tables.latestChatMessagesWithReactions,
       tables.myPlayerBlocks,
       tables.duel.where((duel) => duel.challenger.eq(dependencies.identity)),
@@ -529,6 +537,8 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
         for (const row of connection.db.player.iter()) handlers.player(row);
         for (const row of connection.db.myPlayerBlocks.iter()) handlers.playerBlock(row);
         for (const row of connection.db.mySocialHub.iter()) handlers.socialHub(row);
+        // Links first, so each duel result arrives with its replay.
+        for (const row of connection.db.socialDuelMessage.iter()) handlers.socialDuelLink(row);
         for (const row of connection.db.mySocialMessagesWithReactions.iter()) handlers.socialMessage(row);
         for (const row of connection.db.latestChatMessagesWithReactions.iter()) handlers.chatMessage(row);
         for (const row of connection.db.duel.iter()) handlers.duel(withWideDuel(connection, row));

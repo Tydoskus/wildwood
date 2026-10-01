@@ -4,10 +4,12 @@
   .stat-tracker > header, .stat-tracker > table, .stat-tracker > footer, .stat-tracker > .stat-tracker-opacity { opacity: var(--stat-tracker-ink, 1); }
   /* Above HUD controls (5–8), below full-screen windows (10+). */
   #hud > .stat-tracker { z-index: 6; }
-  /* Quest tracker: top left under the gem row, away from home. Three quests in play, this map's first and bright. */
+  /* Quest tracker: top left under the gem row until dragged. Three quests in play, this map's first and bright. */
   .quest-tracker { position: fixed; top: calc(var(--hud-safe-top) + var(--player-hud-visual-height) + 48px); left: var(--hud-safe-left); z-index: 5; width: min(196px, 46vw); padding: 0 0 4px; border: 2px solid var(--hud-frame); border-radius: var(--hud-radius-small); background: rgba(18, 28, 22, .72); box-shadow: 0 2px 0 rgba(0,0,0,.35); color: #fff; font: 700 11px/1.25 "Wildstat Chat", sans-serif; pointer-events: auto; }
   .quest-tracker[hidden] { display: none; }
-  .quest-tracker .quest-tracker-header { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 30px; margin: 0; padding: 4px 8px; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .quest-tracker .quest-tracker-header:active { cursor: grabbing; }
+  .quest-tracker.is-world-gesture, .quest-tracker.is-world-gesture * { pointer-events: none; }
+  .quest-tracker .quest-tracker-header { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 30px; margin: 0; padding: 4px 8px; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: inherit; font: inherit; text-align: left; cursor: grab; touch-action: none; }
   .quest-tracker .quest-tracker-header:active { transform: none; }
   .quest-tracker .quest-tracker-header:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
   .quest-tracker-title { font-weight: 900; letter-spacing: .03em; }

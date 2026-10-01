@@ -1,6 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.857": [
-    "New: a quest tracker on the HUD away from home shows your three quests in play; tap it to fold it away, or switch it off on the Quest Board",
+    "New: a quest tracker on the HUD shows your three quests in play; drag it anywhere, tap to fold it, or switch it off on the Quest Board",
+    "The player you duel gets the result and replay in private chat, gone after a day",
   ],
   "0.856": [
     "Duels and the leaderboard's stat tabs now hold stats past 1e38",

@@ -172,6 +172,27 @@ export function createSocialService(deps: { joinGuild(ctx: Ctx, guildId: bigint)
   };
 }
 const SOCIAL_MESSAGE_RETENTION_MICROS = BigInt(SOCIAL_MESSAGE_RETENTION_DAYS) * 86_400_000_000n;
+const DUEL_MESSAGE_RETENTION_MICROS = 86_400_000_000n;
+
+/**
+ * A finished duel, sent privately from the challenger to the opponent with
+ * its replay, whether or not anyone shares it to public chat. It is erased
+ * after a day, as the replay is. Nothing is sent between blocked players.
+ */
+export function sendDuelResultMessage(ctx: Ctx, duel: { id: bigint; challenger: Identity; opponent: Identity; challengerName: string; opponentName: string; outcome: "challenger" | "opponent" | "draw" }) {
+  if (same(duel.challenger, duel.opponent) || blocked(ctx, duel.challenger, duel.opponent)) return;
+  const profile = ctx.db.playerProfile.identity.find(duel.challenger);
+  const [winner, loser] = duel.outcome === "challenger" ? [duel.challengerName, duel.opponentName] : [duel.opponentName, duel.challengerName];
+  const message = duel.outcome === "draw" ? `Duel: ${duel.challengerName} and ${duel.opponentName} drew. Watch the replay.`
+    : `Duel: ${winner} defeated ${loser}. Watch the replay.`;
+  const inserted = ctx.db.socialMessage.insert({ id: 0n, channel: "dm", conversation: dmKey(duel.challenger, duel.opponent), guildId: 0n,
+    sender: duel.challenger, recipient: duel.opponent, recipientName: name(ctx, duel.opponent), senderName: profile?.displayName ?? duel.challengerName,
+    senderGender: profile?.gender ?? 0, powerLevel: ctx.db.player.identity.find(duel.challenger)?.powerLevel ?? 0,
+    senderIsGuest: ctx.db.playerAccountStatus.identity.find(duel.challenger)?.isGuest ?? true,
+    message, moderated: false, sentAt: ctx.timestamp,
+    replySender: duel.challenger, replyToMessageId: 0n, replyToSenderName: "", replyToMessage: "" });
+  ctx.db.socialDuelMessage.insert({ messageId: inserted.id, replayId: duel.id, sender: duel.challenger, recipient: duel.opponent, sentAt: ctx.timestamp });
+}
 
 /**
  * Guild chat is trimmed to a message count as it arrives. Private messages have
@@ -181,6 +202,14 @@ const SOCIAL_MESSAGE_RETENTION_MICROS = BigInt(SOCIAL_MESSAGE_RETENTION_DAYS) * 
  */
 export function pruneExpiredSocialMessages(ctx: Ctx, nowMicros: bigint) {
   const cutoff = nowMicros - SOCIAL_MESSAGE_RETENTION_MICROS;
+  // A duel's message goes after a day, with the replay it links to: a walk of the small link table, not every message.
+  const duelCutoff = nowMicros - DUEL_MESSAGE_RETENTION_MICROS;
+  for (const link of [...ctx.db.socialDuelMessage.iter()]) {
+    if (link.sentAt.microsSinceUnixEpoch >= duelCutoff) continue;
+    removeMessageReactions(ctx, "social", link.messageId);
+    ctx.db.socialMessage.id.delete(link.messageId);
+    ctx.db.socialDuelMessage.messageId.delete(link.messageId);
+  }
   for (const row of [...ctx.db.socialMessage.iter()]) {
     if (row.sentAt.microsSinceUnixEpoch >= cutoff) continue;
     removeMessageReactions(ctx, "social", row.id);
@@ -199,6 +228,7 @@ export function removeSocialAccount(ctx: Ctx, who: Identity) {
   for (const row of requests(ctx, who)) ctx.db.socialRequest.id.delete(row.id);
   for (const row of [...ctx.db.socialGuildInvite.sender.filter(who), ...ctx.db.socialGuildInvite.recipient.filter(who)]) ctx.db.socialGuildInvite.id.delete(row.id);
   for (const row of [...ctx.db.socialMessage.sender.filter(who), ...ctx.db.socialMessage.recipient.filter(who)]) { removeMessageReactions(ctx, "social", row.id); ctx.db.socialMessage.id.delete(row.id); }
+  for (const row of [...ctx.db.socialDuelMessage.sender.filter(who), ...ctx.db.socialDuelMessage.recipient.filter(who)]) ctx.db.socialDuelMessage.messageId.delete(row.messageId);
   for (const row of ctx.db.socialMessage.replySender.filter(who)) ctx.db.socialMessage.id.update({ ...row, replyToMessageId: 0n, replyToSenderName: "", replyToMessage: "", replySender: row.sender });
   for (const row of [...ctx.db.socialReport.reporter.filter(who), ...ctx.db.socialReport.accused.filter(who)]) ctx.db.socialReport.key.delete(row.key);
 }

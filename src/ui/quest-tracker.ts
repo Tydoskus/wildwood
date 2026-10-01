@@ -1,6 +1,7 @@
 import type { QuestTrackerView } from "./quest-board-controller";
 
 const COLLAPSED_KEY = "wildstat-quest-tracker-collapsed-v1";
+const POSITION_KEY = "wildstat-quest-tracker-position-v1";
 const ENABLED_KEY = "wildstat-quest-tracker-v1";
 
 /** Whether the HUD tracker is on: switched from the Quest Board, on unless turned off, remembered per device. */
@@ -13,7 +14,7 @@ export function createQuestTrackerSetting(storage: Pick<Storage, "getItem" | "se
 }
 
 /**
- * The quest tracker on the HUD away from home: the three quests in play with
+ * The quest tracker on the HUD, at home too while it is switched on: the three quests in play with
  * their counts, those on the current map first and bright, the rest dimmed
  * with where to find them. The header collapses it to a small chip; the Quest
  * Board turns it off. Rows are rebuilt only when what they show changes.
@@ -39,17 +40,65 @@ export function installQuestTracker(options: {
   const read = () => { try { return options.storage.getItem(COLLAPSED_KEY) === "true"; } catch { return false; } };
   let collapsed = read();
   let signature = "";
+  // Dragged by its header like the stat tracker; a double tap puts it back under the gem row.
+  let position: { x: number; y: number } | null = null;
+  let drag: { id: number; x: number; y: number; startX: number; startY: number; moved: boolean } | null = null;
+  let suppressClick = false;
+  try {
+    const saved = JSON.parse(options.storage.getItem(POSITION_KEY) || "null");
+    if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) position = saved;
+  } catch { /* the default spot */ }
+  const savePosition = () => { try { options.storage.setItem(POSITION_KEY, JSON.stringify(position)); } catch { /* this session only */ } };
+  function place() {
+    if (panel.hidden || !position) return;
+    position.x = Math.max(8, Math.min(position.x, window.innerWidth - panel.offsetWidth - 8));
+    position.y = Math.max(8, Math.min(position.y, window.innerHeight - panel.offsetHeight - 8));
+    panel.style.left = `${position.x}px`;
+    panel.style.top = `${position.y}px`;
+  }
+  const home = () => { position = null; panel.style.left = ""; panel.style.top = ""; savePosition(); };
 
   function applyCollapsed() {
     panel.classList.toggle("is-collapsed", collapsed);
     header.setAttribute("aria-expanded", String(!collapsed));
-    header.setAttribute("aria-label", `${collapsed ? "Show" : "Hide"} quests`);
+    header.setAttribute("aria-label", `${collapsed ? "Show" : "Hide"} quests. Drag to move; double tap to put it back.`);
   }
-  header.addEventListener("click", () => {
+  header.addEventListener("click", event => {
+    if (suppressClick && event.detail !== 0) { suppressClick = false; return; }
     collapsed = !collapsed;
     try { options.storage.setItem(COLLAPSED_KEY, String(collapsed)); } catch { /* the choice still holds this session */ }
     applyCollapsed();
+    place();
   });
+  header.addEventListener("pointerdown", event => {
+    if (event.button !== 0) return;
+    const bounds = panel.getBoundingClientRect();
+    suppressClick = false;
+    drag = { id: event.pointerId, x: event.clientX - bounds.left, y: event.clientY - bounds.top, startX: event.clientX, startY: event.clientY, moved: false };
+    header.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+  header.addEventListener("pointermove", event => {
+    if (!drag || drag.id !== event.pointerId) return;
+    if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 6) drag.moved = true;
+    if (!drag.moved) return;
+    position = { x: event.clientX - drag.x, y: event.clientY - drag.y };
+    place();
+  });
+  const finishDrag = () => { if (drag?.moved) { suppressClick = true; savePosition(); } drag = null; };
+  header.addEventListener("pointerup", finishDrag);
+  header.addEventListener("pointercancel", () => { finishDrag(); suppressClick = true; });
+  header.addEventListener("lostpointercapture", finishDrag);
+  header.addEventListener("dblclick", home);
+  // Touches on the tracker are the tracker's, never a step or a shot in the world.
+  for (const type of ["pointerdown", "pointermove", "pointerup", "click", "dblclick"]) panel.addEventListener(type, event => event.stopPropagation());
+  // A world gesture that slides across the panel keeps going.
+  window.addEventListener("pointerdown", event => {
+    if (event.button === 0 && (event.target as HTMLElement | null)?.tagName === "CANVAS") panel.classList.add("is-world-gesture");
+  }, true);
+  const endWorldGesture = () => panel.classList.remove("is-world-gesture");
+  window.addEventListener("pointerup", endWorldGesture, true);
+  window.addEventListener("pointercancel", endWorldGesture, true);
   applyCollapsed();
 
   function render() {
@@ -57,7 +106,9 @@ export function installQuestTracker(options: {
     if (showing) options.ensure?.();
     const view = showing ? options.view() : null;
     if (!view) { panel.hidden = true; return; }
+    const wasHidden = panel.hidden;
     panel.hidden = false;
+    if (wasHidden) place();
     const next = JSON.stringify(view);
     if (next === signature) return;
     signature = next;

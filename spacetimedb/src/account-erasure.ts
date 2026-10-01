@@ -183,6 +183,7 @@ export const ERASURE_TARGETS: readonly ErasureTarget[] = [
   { table: "socialFriend", columns: ["owner","peer"], pk: "key", mode: "index", index: "owner" },
   { table: "socialGuildInvite", columns: ["sender","recipient"], pk: "id", mode: "index", index: "sender" },
   { table: "socialMessage", columns: ["sender","recipient","reply_sender"], pk: "id", mode: "index", index: "sender" },
+  { table: "socialDuelMessage", columns: ["sender","recipient"], pk: "messageId", mode: "index", index: "sender" },
   { table: "socialReport", columns: ["reporter","accused"], pk: "key", mode: "index", index: "reporter" },
   { table: "socialRequest", columns: ["sender","recipient"], pk: "id", mode: "index", index: "recipient" },
   { table: "spiderAttackWindow", columns: ["identity"], pk: "identity", mode: "key" },

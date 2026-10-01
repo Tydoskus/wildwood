@@ -2496,6 +2496,15 @@ export const SocialChatWithReactions = __t.object("SocialChatWithReactions", {
 });
 export type SocialChatWithReactions = __Infer<typeof SocialChatWithReactions>;
 
+export const SocialDuelMessage = __t.object("SocialDuelMessage", {
+  messageId: __t.u64(),
+  replayId: __t.u64(),
+  sender: __t.identity(),
+  recipient: __t.identity(),
+  sentAt: __t.timestamp(),
+});
+export type SocialDuelMessage = __Infer<typeof SocialDuelMessage>;
+
 export const SocialFriend = __t.object("SocialFriend", {
   key: __t.string(),
   owner: __t.identity(),

@@ -15,8 +15,16 @@ const socialMessage = table({ name: "social_message", public: false }, {
   message: t.string(), moderated: t.bool(), sentAt: t.timestamp(),
   replySender: t.identity().index("btree"), replyToMessageId: t.u64(), replyToSenderName: t.string(), replyToMessage: t.string(),
 });
+/**
+ * A private message that carries a duel's result (0.857): the replay it
+ * links to. Beside social_message rather than in it, so that table's shape is
+ * untouched; the two duellists subscribe to their own rows. Both go after a day.
+ */
+const socialDuelMessage = table({ name: "social_duel_message", public: true }, {
+  messageId: t.u64().primaryKey(), replayId: t.u64(), sender: t.identity().index("btree"), recipient: t.identity().index("btree"), sentAt: t.timestamp(),
+});
 const socialReport = table({ name: "social_report", public: false }, {
   key: t.string().primaryKey(), reporter: t.identity().index("btree"), accused: t.identity().index("btree"),
   messageId: t.u64(), message: t.string(), reason: t.string(), reportedAt: t.timestamp(),
 });
-export const socialTables = { socialFriend, socialRequest, socialGuildInvite, socialMessage, socialReport };
+export const socialTables = { socialFriend, socialRequest, socialGuildInvite, socialMessage, socialReport, socialDuelMessage };

@@ -353,6 +353,7 @@ import PrismshellResultRow from "./prismshell_result_table";
 import ProceduralBossRow from "./procedural_boss_table";
 import ProceduralProgressRow from "./procedural_progress_table";
 import ReleaseNoticeRow from "./release_notice_table";
+import SocialDuelMessageRow from "./social_duel_message_table";
 import SpiderBossRow from "./spider_boss_table";
 import SpiderResultRow from "./spider_result_table";
 import TempestKirinBossRow from "./tempest_kirin_boss_table";
@@ -1164,6 +1165,23 @@ const tablesSchema = __schema({
       { name: 'release_notice_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, ReleaseNoticeRow),
+  socialDuelMessage: __table({
+    name: 'social_duel_message',
+    indexes: [
+      { accessor: 'messageId', name: 'social_duel_message_message_id_idx_btree', algorithm: 'btree', columns: [
+        'messageId',
+      ] },
+      { accessor: 'recipient', name: 'social_duel_message_recipient_idx_btree', algorithm: 'btree', columns: [
+        'recipient',
+      ] },
+      { accessor: 'sender', name: 'social_duel_message_sender_idx_btree', algorithm: 'btree', columns: [
+        'sender',
+      ] },
+    ],
+    constraints: [
+      { name: 'social_duel_message_message_id_key', constraint: 'unique', columns: ['messageId'] },
+    ],
+  }, SocialDuelMessageRow),
   spiderBoss: __table({
     name: 'spider_boss',
     indexes: [

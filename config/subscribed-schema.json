@@ -998,6 +998,13 @@
       "id",
       "releaseJson"
     ],
+    "social_duel_message": [
+      "messageId",
+      "replayId",
+      "sender",
+      "recipient",
+      "sentAt"
+    ],
     "spider_boss": [
       "id",
       "encounter",

@@ -11,6 +11,7 @@ import { ScheduleAt, Timestamp } from "spacetimedb";
 import { SenderError } from "spacetimedb/server";
 import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./snapshot-row-writes";
 import { withDuelWide, writeReplayWide } from "./wide-stats";
+import { sendDuelResultMessage } from "./social-service";
 import {
   playerZone, playerWithMotion, stoppedMotionFields, syncPlayerMotion, syncPlayerMotionIdentity,
   syncPlayerMapMarker, ensureRealtimeFrameSchedules,
@@ -176,6 +177,9 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
       challengerGender: current.challengerGender,
       opponentGender: current.opponentGender,
     }));
+    // The opponent hears of it privately, shared to public chat or not.
+    sendDuelResultMessage(ctx, { id: current.id, challenger: current.challenger, opponent: current.opponent, challengerName, opponentName,
+      outcome: challengerWon ? "challenger" : opponentWon ? "opponent" : "draw" });
 
     deleteSnapshotRow(ctx, "duel", current.id);
     ctx.db.duelRiposte.duelId.delete(current.id);

@@ -30,6 +30,8 @@ export function createSocialService(deps: Dependencies) {
   let orderedMessages: SocialMessage[] | null = null;
   let generation = 0, revision = 0, hubRevision = 0, snapshotRevision = 0;
   let pending: symbol | null = null;
+  // Private messages that carry a duel result, to the replay they link (social_duel_message).
+  const duelReplays = new Map<bigint, bigint>();
   // Player search loads every active name once and filters locally; the server rebuilds it every ten minutes.
   const DIRECTORY_CACHE_MS = 10 * 60_000;
   let directory: { loadedAt: number; players: PlayerDirectoryEntry[] } | null = null;
@@ -100,7 +102,7 @@ export function createSocialService(deps: Dependencies) {
   function presentation(row: MessageRow): SocialMessage {
     deps.rememberSender?.({ identity: row.sender.toHexString(), identityValue: row.sender, name: row.senderName, isGuest: row.senderIsGuest ?? true });
     return { ...row, sender: row.sender.toHexString(), recipient: row.recipient.toHexString(),
-      guildId: String(row.guildId), replayId: 0n, senderGender: normalizePlayerGender(row.senderGender),
+      guildId: String(row.guildId), replayId: duelReplays.get(row.id) ?? 0n, senderGender: normalizePlayerGender(row.senderGender),
       sentAtMs: Number(row.sentAt.microsSinceUnixEpoch / 1_000n) };
   }
   const api = {
@@ -188,6 +190,13 @@ export function createSocialService(deps: Dependencies) {
       messages.set(row.id, presentation(row)); changed();
     },
     removeMessage(row: { id: bigint }) { if (messages.delete(row.id)) { orderedMessages = null; changed(); } },
+    /** A duel result's replay, from social_duel_message; the message may already be on screen. */
+    upsertDuelLink(row: { messageId: bigint; replayId: bigint }) {
+      duelReplays.set(row.messageId, row.replayId);
+      const message = messages.get(row.messageId);
+      if (message && message.replayId !== row.replayId) { messages.set(row.messageId, { ...message, replayId: row.replayId }); orderedMessages = null; changed(); }
+    },
+    removeDuelLink(row: { messageId: bigint }) { duelReplays.delete(row.messageId); },
   }, resetSession() { generation++; pending = null; snapshot = emptySnapshot(); messages.clear(); orderedMessages = null; hubRevision++; changed(); } };
 }
 export type SocialApi = ReturnType<typeof createSocialService>["api"];

@@ -1758,7 +1758,7 @@ import {
   installStatTracker({ storage: localStorage, read: createStatTrackerSource({ coop: () => coop, player, inventory,
     hasStarted: session.hasStarted, isLoadedFor: progress.isLoadedFor, inTutorial, researchRanks, kills: () => totalKills,
     displayedProgress: displayedPlayerPowerProgress }) });
-  installQuestTracker({ storage: localStorage, enabled: questTracker.enabled, ensure: () => quests.refresh(), view: () => quests.trackerView(currentMapId), hiddenHere: () => !session.hasStarted() || currentMapId === "home_exterior" || inTutorial() || document.body.matches(".is-cutscene, .is-replaying, .is-dueling") });
+  installQuestTracker({ storage: localStorage, enabled: questTracker.enabled, ensure: () => quests.refresh(), view: () => quests.trackerView(currentMapId), hiddenHere: () => !session.hasStarted() || inTutorial() || document.body.matches(".is-cutscene, .is-replaying, .is-dueling") });
   const mailbox = createGameMailbox(gameElements.mailboxToggle, gameElements.minimapVersionEl, coop,
     () => session.hasStarted() && !inTutorial());
 
