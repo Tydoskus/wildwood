@@ -2844,7 +2844,7 @@
   .prestige-perk-spend:disabled { filter: grayscale(.8); opacity: .5; }
   /* Respec: under the perks it undoes, set apart by a dashed edge because it
      costs the run's power; armed in the same amber as an armed Prestige. */
-  .prestige-respec { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px; padding: 6px 8px; border: 1px dashed #3a4a66; border-radius: 6px; }
+  .prestige-respec { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; padding: 6px 8px; border: 1px dashed #3a4a66; border-radius: 6px; }
   .prestige-respec[hidden] { display: none; }
   .prestige-respec-text { color: #8c94a1; font-size: 10px; line-height: 1.4; }
   .prestige-respec-btn { min-height: 36px; padding: 0 12px; font-size: 11px; }
@@ -2852,7 +2852,6 @@
   .prestige-respec-btn:disabled { filter: grayscale(.8); opacity: .5; }
   /* The free respec costs nothing, so it reads as a safe green beside the costly one. */
   .prestige-respec-free { border-color: #2f5f2c; background: linear-gradient(#5aa04f, #346f2f); color: #fff; }
-  .prestige-respec-free[hidden] { display: none; }
   /* Reflect Only: one card, amber while a run is under way. */
   .prestige-challenge { display: grid; gap: 10px; padding: 12px; background: rgba(0,0,0,.25); border: 1px solid #2b3a52; border-radius: 8px; }
   .prestige-challenge.is-active { border-color: #a8742a; box-shadow: inset 0 0 0 1px rgba(240,198,116,.25); }
