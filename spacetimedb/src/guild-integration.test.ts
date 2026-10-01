@@ -135,12 +135,18 @@ describe("guild root reducer integration", () => {
     expect(f.snapshot().battles[0].result).toEqual(result);
     expect(f.snapshot().guild?.members[0]).not.toHaveProperty("fighter");
   });
-  it("announces one public replay and lets spectators fetch only an announced retained report", () => {
+  it("posts a battle to chat only when a member shares it, once, and lets spectators fetch only a shared retained report", () => {
     const f = fixture();
     const ours = f.guild(["1", "2"], "Rose");
     const theirs = f.guild(["3", "4"], "Moon");
     f.actor("1"); f.run(server.challengeGuild, { opponentGuildId: theirs });
-    const report = f.snapshot().battles[0];
+    const { shared, ...report } = f.snapshot().battles[0];
+    expect(shared).toBe(false);
+    expect([...f.db.chatMessage.iter()].filter(row => row.guildReplayKey)).toHaveLength(0);
+    // Either side may share it: here the defenders do.
+    f.actor("3"); f.run(server.shareGuildBattle, { battleId: report.id });
+    expect(() => f.run(server.shareGuildBattle, { battleId: report.id })).toThrow("already been shared");
+    f.actor("1"); expect(f.snapshot().battles[0].shared).toBe(true);
     const announcements = [...f.db.chatMessage.iter()].filter(row => row.guildReplayKey);
     expect(announcements).toHaveLength(1);
     expect(announcements[0].guildReplayKey).toBe(`${ours}:${report.id}`);

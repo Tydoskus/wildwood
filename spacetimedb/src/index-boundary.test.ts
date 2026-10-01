@@ -161,7 +161,9 @@ import { describe, expect, it } from "vitest";
 // 6_577: guild quest collecting added the collect_guild_member_quests
 // declaration and the guild snapshot's quest hooks. The rules live in
 // daily-quests.ts.
-const MAX_LINES = 6_577;
+// 6_578: opt-in battle sharing added the guild service's battleShared hook.
+// The share lives in guild-service.ts and its reducer in guild-reducers.ts.
+const MAX_LINES = 6_578;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

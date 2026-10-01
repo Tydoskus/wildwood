@@ -194,6 +194,7 @@ import SetReleaseWindowReducer from "./set_release_window_reducer";
 import SetSkinToneReducer from "./set_skin_tone_reducer";
 import SetSpeedReducer from "./set_speed_reducer";
 import ShareDuelReplayReducer from "./share_duel_replay_reducer";
+import ShareGuildBattleReducer from "./share_guild_battle_reducer";
 import SimulateTimeAwayReducer from "./simulate_time_away_reducer";
 import SpeedUpItemUpgradeWithGemsReducer from "./speed_up_item_upgrade_with_gems_reducer";
 import SpeedUpResearchWithGemsReducer from "./speed_up_research_with_gems_reducer";
@@ -1638,6 +1639,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_skin_tone", SetSkinToneReducer),
   __reducerSchema("set_speed", SetSpeedReducer),
   __reducerSchema("share_duel_replay", ShareDuelReplayReducer),
+  __reducerSchema("share_guild_battle", ShareGuildBattleReducer),
   __reducerSchema("simulate_time_away", SimulateTimeAwayReducer),
   __reducerSchema("speed_up_item_upgrade_with_gems", SpeedUpItemUpgradeWithGemsReducer),
   __reducerSchema("speed_up_research_with_gems", SpeedUpResearchWithGemsReducer),

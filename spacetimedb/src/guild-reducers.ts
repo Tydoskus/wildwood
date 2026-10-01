@@ -27,6 +27,7 @@ const setGuildVicePresident = spacetimedb.reducer({ identity: t.identity(), enab
 const setGuildEmblem = spacetimedb.reducer({ emblem: t.u8() }, (ctx, { emblem }) => { requireGuildPlayer(ctx); guildService.setEmblem(ctx, emblem); });
 const kickGuildMember = spacetimedb.reducer({ identity: t.identity() }, (ctx, { identity }) => { requireGuildPlayer(ctx); guildService.kick(ctx, identity); });
 const challengeGuild = spacetimedb.reducer({ opponentGuildId: t.u64() }, (ctx, { opponentGuildId }) => { requireGuildPlayer(ctx); guildService.challenge(ctx, opponentGuildId); });
+const shareGuildBattle = spacetimedb.reducer({ battleId: t.string() }, (ctx, { battleId }) => { requireGuildPlayer(ctx); guildService.shareBattle(ctx, battleId); });
 const guildAdmission = spacetimedb.reducer({ action: t.string(), guildId: t.u64(), identity: t.identity(), note: t.string() }, (ctx, { action, guildId, identity, note }) => { requireGuildPlayer(ctx); guildService.admission(ctx, action, guildId, identity, note); });
-  return { createGuild, joinGuild, leaveGuild, transferGuildLeadership, setGuildVicePresident, setGuildEmblem, kickGuildMember, challengeGuild, guildAdmission };
+  return { createGuild, joinGuild, leaveGuild, transferGuildLeadership, setGuildVicePresident, setGuildEmblem, kickGuildMember, challengeGuild, guildAdmission, shareGuildBattle };
 }

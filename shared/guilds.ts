@@ -19,7 +19,9 @@ export function normalizeGuildName(value: string) {
 export const resolveGuildBattle = simulateGuildBattle;
 /** Retained reports from before whole-guild combat remain readable. */
 export type LegacyGuildBattleResult = { version?: undefined; rounds: (ReturnType<typeof simulateDuelBattle> & { attacker: string; defender: string })[]; wins: number; losses: number; outcome: string };
-export type GuildReport = { id: string; attackerId: string; defenderId: string; attacker: string; defender: string; at: string; result: GuildBattleResult | LegacyGuildBattleResult };
+export type GuildReport = { id: string; attackerId: string; defenderId: string; attacker: string; defender: string; at: string; result: GuildBattleResult | LegacyGuildBattleResult;
+  /** In a guild snapshot: whether someone has posted this battle to chat. */
+  shared?: boolean };
 export type GuildStanding = { id: string; name: string; emblem?: number; members: number; score: number; wins: number; battles: number };
 export type GuildPreview = Pick<NonNullable<GuildSnapshot['guild']>, 'id' | 'name' | 'emblem' | 'leader' | 'vicePresident' | 'score' | 'members' | 'requestOnly'>;
 export type GuildSnapshot = {

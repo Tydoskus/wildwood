@@ -128,13 +128,14 @@ export function createGuildPanel(options: Options) {
         if (socialAction.action === "acceptGuildInvite") { section = "guild"; notice = "You joined the guild."; }
       }
       if (action?.kind === "collectQuests") notice = "Collected. They are on your Quest Board at home.";
+      if (action?.kind === "shareBattle") notice = "Shared to the Guilds chat.";
       if (action?.kind === "admission") notice = action.action === "request" ? "Join request sent." : action.action === "cancel" ? "Request cancelled." : action.action === "accept" ? "Member accepted." : action.action === "decline" ? "Request declined." : "Guild admission updated.";
       clockOffset = date(next.serverNow).getTime() - Date.now();
       if (action?.kind === "create" || action?.kind === "join" || action?.kind === "leave") {
         section = "guild"; creating = false; managedMember = null; draftName = "";
       }
       if (action?.kind === "challenge") {
-        section = "battles"; battleView = "history"; notice = "Battle complete.";
+        section = "battles"; battleView = "history"; notice = "Battle complete. Share it to chat from its report if you like.";
         const battle = next.battles.find(report => report.attackerId === next.guild?.id &&
           report.defenderId === action.opponentGuildId && !previousReports.has(report.id) && (report.result.version === 2 || report.result.version === 3 || report.result.version === 4));
         if (battle) { activeReplay = battle; replayFromChat = false; }
@@ -364,6 +365,13 @@ export function createGuildPanel(options: Options) {
       summary.append(element("span", result, `guild-result guild-result--${result.toLowerCase()}`), info); report.append(summary);
       if ((battle.result.version === 2 || battle.result.version === 3 || battle.result.version === 4)) {
         summary.append(button("Replay", () => { activeReplay = battle; replayFromChat = false; render(); }, "secondary", false, `replay-${battle.id}`));
+        // Results stay private until someone posts them; each battle posts once.
+        if (battle.shared) summary.append(element("span", "Shared", "guild-report-shared"));
+        else {
+          const share = button("Share", () => { void load({ kind: "shareBattle", battleId: battle.id }); }, "secondary", busy, `share-${battle.id}`);
+          share.setAttribute("aria-label", `Share the battle against ${attacking ? battle.defender : battle.attacker} to the Guilds chat`);
+          summary.append(share);
+        }
       } else if ("rounds" in battle.result) {
         const legacy = element("details", undefined, "guild-disclosure"); legacy.append(element("summary", "Previous battle report"));
         battle.result.rounds.forEach(round => row(legacy, `${round.attacker} vs ${round.defender}`, `${(round.durationMicros / 1_000_000).toFixed(1)}s`));

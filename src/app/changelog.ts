@@ -2,6 +2,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
   "0.853": [
     "New setting: Scientific Notation shows big numbers like 1.23e45",
     "Regen shows three significant digits everywhere, like 523k/s",
+    "Guild battles no longer post to chat on their own; tap Share on a battle report to post it",
   ],
   "0.852": [
     "Fixed guild battles failing when a member has maxed attack range and Long Shot",

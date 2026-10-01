@@ -139,7 +139,9 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
   questFor?: (ctx: Ctx, identity: Identity, guildId: bigint) => { questsDone: number; questsTotal: number; questsOpen: number; questsTaken: number; questPoints: number };
   /** Whether the viewer may collect members' quests today and how many more (President and Vice President only). */
   questCollect?: (ctx: Ctx, identity: Identity) => { ready: boolean; left: number };
-  announceBattle?: (ctx: Ctx, report: GuildSnapshot["battles"][number]) => void }) {
+  announceBattle?: (ctx: Ctx, report: GuildSnapshot["battles"][number]) => void;
+  /** Whether a battle has been posted to chat, by its replay key ("attackerId:battleId"). */
+  battleShared?: (ctx: Ctx, replayKey: string) => boolean }) {
   function team(ctx: Ctx, guildId: bigint, lineup = members(ctx, guildId)): GuildFighter[] {
     const roster = [...lineup].sort((a, b) => key(a.identity).localeCompare(key(b.identity)));
     if (!roster.length) fail("Both guilds need members to battle.");
@@ -260,6 +262,18 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
           }));
         }
       }
+      // Results are no longer posted on their own; a member shares one from the report (shareBattle).
+    },
+    /**
+     * Posts a battle to the Guilds chat, once. Any member of either guild can
+     * share it from their report; a second share of the same battle is refused.
+     */
+    shareBattle(ctx: Ctx, battleId: string) {
+      const member = requireMember(ctx);
+      if (!/^\d{1,20}$/.test(battleId)) fail("Choose a battle report.");
+      const row = ctx.db.guildBattleReport.key.find(`${member.guildId}:${battleId}`) ?? fail("That battle report is no longer available.");
+      const report: GuildSnapshot["battles"][number] = JSON.parse(row.payload);
+      if (deps.battleShared?.(ctx, `${report.attackerId}:${report.id}`)) fail("This battle has already been shared.");
       deps.announceBattle?.(ctx, report);
     },
     setEmblem(ctx: Ctx, emblem: number) {
@@ -341,7 +355,10 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
           questCollect: guild.leader.equals(ctx.sender) || member?.vicePresident ? deps.questCollect?.(ctx, ctx.sender) ?? null : null } : null,
         directory, nextPage, standings: cache?.week === week ? JSON.parse(cache.entries) : [],
         battles: guild ? [...ctx.db.guildBattleReport.guildId.filter(guild.id)]
-          .sort((a, b) => a.sequence > b.sequence ? -1 : 1).map(row => JSON.parse(row.payload)) : [] };
+          .sort((a, b) => a.sequence > b.sequence ? -1 : 1).map(row => {
+            const report = JSON.parse(row.payload);
+            return { ...report, shared: deps.battleShared?.(ctx, `${report.attackerId}:${report.id}`) ?? false };
+          }) : [] };
     },
     removeAccount(ctx: Ctx, identity: Identity) {
       ctx.db.guildJoinRequest.identity.delete(identity);

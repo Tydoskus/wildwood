@@ -6028,6 +6028,7 @@ const guildService = createGuildService({
   }),
   profileFor: (ctx, identity) => ctx.db.playerProfile.identity.find(identity) ?? undefined,
   questFor: memberQuestStanding, questCollect: questCollectStanding,
+  battleShared: (ctx, replayKey) => !ctx.db.chatMessage.byGuildReplay.filter(replayKey)[Symbol.iterator]().next().done,
   announceBattle: (ctx, report) => {
     const result = report.result;
     const message = result.outcome === "DRAW" ? `[${report.attacker}] × [${report.defender}] · Draw`
@@ -6079,7 +6080,7 @@ const { savedWorldLocation, clearOrphanPresence, applyMovementState } = createPr
 });
 
 export const { createGuild, joinGuild, leaveGuild, transferGuildLeadership, setGuildVicePresident,
-  setGuildEmblem, kickGuildMember, challengeGuild, guildAdmission } = registerGuildReducers(spacetimedb,
+  setGuildEmblem, kickGuildMember, challengeGuild, guildAdmission, shareGuildBattle } = registerGuildReducers(spacetimedb,
   { guildService, requireGuildPlayer, effectivePowerForProgress, isPublicDisplayNameAllowed });
 export const getGuildHub = spacetimedb.procedure({ afterId: t.u64() }, t.string(), (ctx, { afterId }) => ctx.withTx(tx => {
   requireGuildConnection(tx);
