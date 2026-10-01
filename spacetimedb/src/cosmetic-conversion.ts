@@ -1,6 +1,7 @@
 import { SenderError } from "spacetimedb/server";
 import { STARTER_BOW, WOODEN_ARMOR, canonicalItemId } from "../../shared/items";
 import { COSMETIC_CONVERSION_GEM_COST, canConvertToCosmetic, cosmeticUnlocks } from "../../shared/cosmetic-conversion";
+import { readPlayerProgress } from "./wide-stats";
 
 /** A Gem purchase unlocks an appearance while retaining the original item. */
 export function createCosmeticConversion(deps: {
@@ -27,7 +28,7 @@ export function createCosmeticConversion(deps: {
     if (deps.activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel first.");
     const canonical = canonicalItemId(itemId);
     if (!canonical || !canConvertToCosmetic(canonical)) throw new SenderError("This item cannot become a cosmetic.");
-    const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+    const progress = readPlayerProgress(ctx, ctx.sender);
     if (!progress || !deps.inventoryForProgress(progress).includes(canonical)) {
       throw new SenderError("That item is not in your inventory.");
     }

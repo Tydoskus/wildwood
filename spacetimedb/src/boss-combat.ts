@@ -86,6 +86,7 @@ import { isDropIgnored } from "./ignored-drops";
 import { bowSkillBossDamageMultiplier, bowSkillReachMultiplier } from "../../shared/bow-skills";
 import { updateSnapshotRow } from "./snapshot-row-writes";
 import type { ModuleReducerCtx } from "./index";
+import { readPlayerProgress } from "./wide-stats";
 
 type GameReducerContext = ModuleReducerCtx;
 
@@ -170,7 +171,7 @@ export function createBossCombat(deps: BossCombatDeps) {
   function combatBoundForReport(ctx: GameReducerContext) {
     let loaded: ReturnType<typeof load> | undefined;
     function load() {
-      const saved = ctx.db.playerProgress.identity.find(ctx.sender);
+      const saved = readPlayerProgress(ctx, ctx.sender);
       const research = ctx.db.playerResearch.identity.find(ctx.sender);
       const statMultiplier = statRewardMultiplier(ctx, ctx.sender);
       const loadout = saved ? damageLoadout(ctx, saved, research) : null;
@@ -269,7 +270,7 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardDragonContributor(ctx: any, identity: any) {
-    const current = ctx.db.playerProgress.identity.find(identity);
+    const current = readPlayerProgress(ctx, identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.dragon, rewardMultiplier, {
@@ -290,7 +291,7 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardSpiderContributor(ctx: any, identity: any) {
-    const current = ctx.db.playerProgress.identity.find(identity);
+    const current = readPlayerProgress(ctx, identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.spider, rewardMultiplier, {
@@ -312,7 +313,7 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardFrostclawContributor(ctx: any, identity: any) {
-    const current = ctx.db.playerProgress.identity.find(identity);
+    const current = readPlayerProgress(ctx, identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
     // Each boss item owns an independent roll, even when the player already has
@@ -351,7 +352,7 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardMagmaliskContributor(ctx: any, identity: any) {
-    const current = ctx.db.playerProgress.identity.find(identity);
+    const current = readPlayerProgress(ctx, identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const lavaBowDropped = ctx.random.integerInRange(1, LAVA_BOSS_ITEM_DROP_DENOMINATOR) === 1;
@@ -382,7 +383,7 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardGloomrootContributor(ctx: any, identity: any) {
-    const current = ctx.db.playerProgress.identity.find(identity);
+    const current = readPlayerProgress(ctx, identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.gloomroot, rewardMultiplier, {
@@ -406,7 +407,7 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardTidewyrmContributor(ctx: any, identity: any) {
-    const current = ctx.db.playerProgress.identity.find(identity);
+    const current = readPlayerProgress(ctx, identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.tidewyrm, rewardMultiplier, {
@@ -430,7 +431,7 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardKoiShogunContributor(ctx: any, identity: any) {
-    const current = ctx.db.playerProgress.identity.find(identity);
+    const current = readPlayerProgress(ctx, identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.koiShogun, rewardMultiplier, {
@@ -454,7 +455,7 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardTempestKirinContributor(ctx: any, identity: any) {
-    const current = ctx.db.playerProgress.identity.find(identity);
+    const current = readPlayerProgress(ctx, identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.tempestKirin, rewardMultiplier, {
@@ -478,7 +479,7 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardMiremawContributor(ctx: any, identity: any) {
-    const current = ctx.db.playerProgress.identity.find(identity);
+    const current = readPlayerProgress(ctx, identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.miremaw, rewardMultiplier, {
@@ -502,7 +503,7 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardPrismshellContributor(ctx: any, identity: any) {
-    const current = ctx.db.playerProgress.identity.find(identity);
+    const current = readPlayerProgress(ctx, identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.prismshell, rewardMultiplier, {
@@ -526,7 +527,7 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardIronhornContributor(ctx: any, identity: any) {
-    const current = ctx.db.playerProgress.identity.find(identity);
+    const current = readPlayerProgress(ctx, identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.ironhorn, rewardMultiplier, {
@@ -550,7 +551,7 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardDreadreaperContributor(ctx: any, identity: any) {
-    const current = ctx.db.playerProgress.identity.find(identity);
+    const current = readPlayerProgress(ctx, identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.dreadreaper, rewardMultiplier, {
@@ -574,7 +575,7 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardVoltwardenContributor(ctx: any, identity: any) {
-    const current = ctx.db.playerProgress.identity.find(identity);
+    const current = readPlayerProgress(ctx, identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.voltwarden, rewardMultiplier, {
@@ -598,7 +599,7 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardGravebloomContributor(ctx: any, identity: any) {
-    const current = ctx.db.playerProgress.identity.find(identity);
+    const current = readPlayerProgress(ctx, identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.gravebloom, rewardMultiplier, {
@@ -622,7 +623,7 @@ export function createBossCombat(deps: BossCombatDeps) {
   }
 
   function rewardAegisPrimeContributor(ctx: any, identity: any) {
-    const current = ctx.db.playerProgress.identity.find(identity);
+    const current = readPlayerProgress(ctx, identity);
     if (!current) return;
     const rewardMultiplier = statRewardMultiplier(ctx, identity);
     const reward = applyBossRepeatableReward(current, BOSS_REWARD_CLAIM_BITS.aegisPrime, rewardMultiplier, {

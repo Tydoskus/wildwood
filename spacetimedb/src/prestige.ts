@@ -10,6 +10,7 @@ import { PRESTIGE_PERK_IDS, isPrestigePerkId, prestigePerkMaxRank, type Prestige
 import { PRESTIGE_EXPANSION_PERK_IDS } from "../../shared/prestige-expansion";
 import { prestigeExpanded } from "./prestige-expansion";
 import { attackRangeWithResearch } from "../../shared/utility-research";
+import { readPlayerProgress } from "./wide-stats";
 
 // Prestige bodies. The player_prestige table and the reducer declaration stay
 // in index.ts; this module owns what they call. The reset arrives through deps
@@ -61,7 +62,7 @@ export function createPrestige(deps: PrestigeDeps) {
   function prestigeAccount(ctx: any) {
     const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel before prestiging.");
-    const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+    const progress = readPlayerProgress(ctx, ctx.sender);
     const current = ctx.db.playerPrestige.identity.find(ctx.sender);
     // A Reflect Only run wins on its own goal, not the next prestige's requirement or cap.
     const challenge = ctx.db.playerPrestigeChallenge.identity.find(ctx.sender);
@@ -132,7 +133,7 @@ export function createPrestige(deps: PrestigeDeps) {
     if (challengeActive(ctx, ctx.sender)) throw new SenderError("Finish or abandon the prestige challenge before respeccing.");
     const ranks = prestigePerkRanks(ctx, ctx.sender);
     const spent = PRESTIGE_PERK_IDS.reduce((sum, perk) => sum + ranks[perk], 0);
-    const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+    const progress = readPlayerProgress(ctx, ctx.sender);
     if (!current || !progress || spent < 1) throw new SenderError("No perk points to respec.");
     writePrestigePerkRanks(ctx, ctx.sender, Object.fromEntries(PRESTIGE_PERK_IDS.map(perk => [perk, 0])) as PrestigePerkRanks);
     ctx.db.playerPrestige.identity.update({ ...current, perkPoints: current.perkPoints + spent,

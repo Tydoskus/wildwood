@@ -2,6 +2,7 @@ import { createSessionSubscriptions } from "./session-subscriptions";
 import { PATREON_TICKER_CHANGED } from "../../../shared/patreon-ticker";
 import type { Identity } from "spacetimedb";
 import { tables, type DbConnection } from "../../module_bindings";
+import { withWideProgress } from "./wide-progress";
 
 type RowHandler = (row: any) => void;
 
@@ -327,8 +328,18 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   connection.db.releaseNotice.onUpdate((_ctx, _old, row) => { if (shouldHandle()) handlers.releaseNotice(row); });
   connection.db.worldStatus.onInsert((_ctx, row) => { if (shouldHandle()) handlers.worldStatus(row); });
   connection.db.worldStatus.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.worldStatus(row); });
-  connection.db.playerProgress.onInsert((_ctx, row) => { if (shouldHandle()) handlers.progress(row); });
-  connection.db.playerProgress.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.progress(row); });
+  connection.db.playerProgress.onInsert((_ctx, row) => { if (shouldHandle()) handlers.progress(withWideProgress(connection, row)); });
+  connection.db.playerProgress.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.progress(withWideProgress(connection, row)); });
+  // Stats past f32 arrive in their own row; a change there re-reads the progress it extends.
+  const progressAgain = (wide: { identity: { toHexString(): string } }) => {
+    if (!shouldHandle()) return;
+    for (const row of connection.db.playerProgress.iter()) {
+      if (row.identity.toHexString() === wide.identity.toHexString()) handlers.progress(withWideProgress(connection, row));
+    }
+  };
+  connection.db.playerWideStats.onInsert((_ctx, row) => progressAgain(row));
+  connection.db.playerWideStats.onUpdate((_ctx, _oldRow, row) => progressAgain(row));
+  connection.db.playerWideStats.onDelete((_ctx, row) => progressAgain(row));
   connection.db.playerResearch.onInsert((_ctx, row) => { if (shouldHandle()) handlers.research(row); });
   connection.db.playerResearch.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.research(row); });
   connection.db.playerResearch.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeResearch(row); });
@@ -407,6 +418,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       .subscribe(scope === "account" ? [
       tables.playerProfile.where((profile) => profile.identity.eq(dependencies.identity)),
       tables.playerProgress.where((progress) => progress.identity.eq(dependencies.identity)),
+      tables.playerWideStats.where((wide) => wide.identity.eq(dependencies.identity)),
       tables.playerAccountStatus.where((status) => status.identity.eq(dependencies.identity)),
     ] : [
       tables.playerNameTag,
@@ -429,6 +441,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.worldStatus,
       tables.releaseNotice,
       tables.playerProgress.where((progress) => progress.identity.eq(dependencies.identity)),
+      tables.playerWideStats.where((wide) => wide.identity.eq(dependencies.identity)),
       tables.playerResearch.where((research) => research.identity.eq(dependencies.identity)),
       tables.activeResearch.where((research) => research.identity.eq(dependencies.identity)),
       // Whole table, not only our row: the level badge beside every name needs
@@ -481,7 +494,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
         for (const row of connection.db.playerAccountStatus.iter()) handlers.accountStatus(row);
         for (const row of connection.db.worldStatus.iter()) handlers.worldStatus(row);
         for (const row of connection.db.releaseNotice.iter()) handlers.releaseNotice(row);
-        for (const row of connection.db.playerProgress.iter()) handlers.progress(row);
+        for (const row of connection.db.playerProgress.iter()) handlers.progress(withWideProgress(connection, row));
         for (const row of connection.db.playerResearch.iter()) handlers.research(row);
         for (const row of connection.db.activeResearch.iter()) handlers.activeResearch(row);
         if (![...connection.db.activeResearch.iter()].some(row => row.identity.toHexString() === dependencies.identity.toHexString())) handlers.removeActiveResearch({ identity: dependencies.identity });

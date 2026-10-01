@@ -7,6 +7,7 @@ import { tables, type DbConnection } from "../../module_bindings";
 import { createEmptyResearchRanks } from "../../../shared/research";
 import { normalizePlayerGender } from "../../../shared/player-gender";
 import { resolvePlayerPresenceMap } from "./profile-presence";
+import { withWideProgress } from "./wide-progress";
 import type { LeaderboardEntry, PlayerProfileData } from "../contracts";
 import type { ProfileDirectory } from "./profile-directory";
 import type { ProgressionService } from "./progression-service";
@@ -193,7 +194,7 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
             return finish(null);
           }
           for (const row of connection.db.playerProgress.iter()) {
-            if (row.identity.toHexString() === identity) dependencies.progression.tables.upsertProgress(row);
+            if (row.identity.toHexString() === identity) dependencies.progression.tables.upsertProgress(withWideProgress(connection, row));
           }
           for (const row of connection.db.playerChatHearts.iter()) {
             if (row.identity.toHexString() === identity) dependencies.progression.tables.upsertChatHearts(row);
@@ -228,6 +229,7 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
           tables.playerProfile.where((profile) => profile.identity.eq(dbIdentity)),
           tables.playerAccountStatus.where((status) => status.identity.eq(dbIdentity)),
           tables.playerProgress.where((progress) => progress.identity.eq(dbIdentity)),
+          tables.playerWideStats.where((wide) => wide.identity.eq(dbIdentity)),
           tables.playerChatHearts.where(row => row.identity.eq(dbIdentity)),
           tables.playerLifetime.where((lifetime) => lifetime.identity.eq(dbIdentity)),
           tables.playerResearch.where((research) => research.identity.eq(dbIdentity)),

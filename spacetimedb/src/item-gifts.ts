@@ -2,6 +2,7 @@ import { table, t, SenderError } from "spacetimedb/server";
 import type { Identity } from "spacetimedb";
 import type { ModuleReducerCtx } from "./index";
 import { ALPHA_TESTER_GIFT_CAMPAIGN, ALPHA_TESTER_GIFT_ITEM, ALPHA_TESTER_REGISTRATION_START, ALPHA_TESTER_REGISTRATION_END } from "../../shared/item-gifts";
+import { readPlayerProgress } from "./wide-stats";
 
 export const playerItemGift = table({ name: "player_item_gift", public: false }, {
   key: t.string().primaryKey(), identity: t.identity().index("btree"), campaign: t.string(),
@@ -15,7 +16,7 @@ export function deliverAlphaTesterGifts(ctx: Ctx, recipients: Identity[]) {
   for (const identity of recipients) {
     const audit = ctx.db.playerAccessAudit.identity.find(identity);
     if (!audit || !["account", "guest"].includes(audit.accountType)
-      || ctx.db.virtualPlayer.identity.find(identity) || !ctx.db.playerProgress.identity.find(identity)
+      || ctx.db.virtualPlayer.identity.find(identity) || !readPlayerProgress(ctx, identity)
       || audit.firstSeenAt.microsSinceUnixEpoch < ALPHA_TESTER_REGISTRATION_START
       || audit.firstSeenAt.microsSinceUnixEpoch >= ALPHA_TESTER_REGISTRATION_END) {
       throw new SenderError("Recipient did not start on September 13.");

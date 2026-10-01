@@ -1,6 +1,7 @@
 import { SenderError } from "spacetimedb/server";
 import type { Identity } from "spacetimedb";
 import type { ModuleReducerCtx } from "./index";
+import { readPlayerProgress } from "./wide-stats";
 
 export const DISCONNECT_GIFT_CAMPAIGN = "disconnect-compensation:2026-09-14";
 export const DISCONNECT_GIFT_AMOUNT = 20n;
@@ -29,7 +30,7 @@ export function deliverCombatUpdateGift(ctx: ModuleReducerCtx, recipients: Ident
 function deliverGemGift(ctx: ModuleReducerCtx, recipients: Identity[], credit: Credit, campaign: string, kind: string, note: string, amount = DISCONNECT_GIFT_AMOUNT) {
   if (recipients.length > 100) throw new SenderError("Send at most 100 gifts at a time.");
   for (const identity of recipients) {
-    if (!ctx.db.playerProgress.identity.find(identity) || ctx.db.virtualPlayer.identity.find(identity)) continue;
+    if (!readPlayerProgress(ctx, identity) || ctx.db.virtualPlayer.identity.find(identity)) continue;
     const externalReference = `${campaign}:${identity.toHexString()}`;
     if (ctx.db.gemTransaction.externalReference.find(externalReference)) continue;
     credit({ identity, delta: amount, kind, note, externalReference });

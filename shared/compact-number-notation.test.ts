@@ -25,3 +25,10 @@ it("gives a rate three significant digits at every size", () => {
   expect(formatRate(523_401.3)).toBe("523k");
   expect(formatRate(2.4e7)).toBe("24.0m");
 });
+
+it("names numbers past undecillion, then falls back to scientific notation", () => {
+  expect(formatCompactNumber(4.2e39)).toBe("4.20dd");
+  expect(formatCompactNumber(1.5e63)).toBe("1.50vg");
+  expect(formatCompactNumber(2.5e70)).toBe("2.50e70");
+  expect(formatCompactNumber(1e300)).toBe("1.00e300");
+});

@@ -2,6 +2,7 @@ import { table, t, SenderError } from "spacetimedb/server";
 import { PRESTIGE_CHALLENGE_LIMIT, challengeGoalMet, challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { prestigeExpanded } from "./prestige-expansion";
 import { updateSnapshotRow } from "./snapshot-row-writes";
+import { readPlayerProgress } from "./wide-stats";
 
 export const playerPrestigeChallenge = table({ name: "player_prestige_challenge", public: true }, {
   identity: t.identity().primaryKey(), active: t.bool(), completed: t.u32(),
@@ -30,7 +31,7 @@ export function setPrestigeChallenge(ctx: any, active: boolean, player: any) {
     if ((row?.completed ?? 0) >= PRESTIGE_CHALLENGE_LIMIT) throw new SenderError("All four prestige challenges are complete.");
   } else if (!row?.active) throw new SenderError("No prestige challenge is active.");
   const next = { identity: ctx.sender, active, completed: row?.completed ?? 0 };
-  const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+  const progress = readPlayerProgress(ctx, ctx.sender);
   if (!progress) throw new SenderError("Player progress is not ready.");
   if (ctx.db.prestigeChallengeBackup.identity.find(ctx.sender)) throw new SenderError("A saved challenge run already exists.");
   const { identity: _identity, ...fields } = progress;
@@ -42,7 +43,7 @@ export function setPrestigeChallenge(ctx: any, active: boolean, player: any) {
 
 /** The run as it stands: stats, Endless progress and position, ready to park. */
 function runSnapshot(ctx: any, identity: any, player: any) {
-  const { identity: _identity, ...fields } = ctx.db.playerProgress.identity.find(identity);
+  const { identity: _identity, ...fields } = readPlayerProgress(ctx, identity);
   return { identity, progressJson: JSON.stringify(fields),
     completedEndless: ctx.db.proceduralProgress.identity.find(identity)?.completed ?? 0,
     mapId: player.mapId, x: player.x, y: player.y };
@@ -100,7 +101,7 @@ function clearParkedRun(ctx: any, identity: any) {
 export function challengeWinReady(ctx: any) {
   const challenge = ctx.db.playerPrestigeChallenge.identity.find(ctx.sender);
   if (!challenge?.active || challenge.completed >= PRESTIGE_CHALLENGE_LIMIT) return false;
-  const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+  const progress = readPlayerProgress(ctx, ctx.sender);
   const endless = ctx.db.proceduralProgress.identity.find(ctx.sender)?.completed ?? 0;
   return Boolean(progress && challengeGoalMet(challenge.completed, progress.bossRewardClaims, endless)
     && ctx.db.prestigeChallengeBackup.identity.find(ctx.sender));
@@ -119,7 +120,7 @@ export function restorePrestigeChallenge(ctx: any, player: any, reward: boolean,
     ctx.db.playerPrestigeChallengeParked.insert({ identity: ctx.sender, parkedAt: ctx.timestamp });
   }
   ctx.db.playerPrestigeChallenge.identity.update(next);
-  const progress = carryOwnership({ ...JSON.parse(backup.progressJson), identity: ctx.sender }, ctx.db.playerProgress.identity.find(ctx.sender));
+  const progress = carryOwnership({ ...JSON.parse(backup.progressJson), identity: ctx.sender }, readPlayerProgress(ctx, ctx.sender));
   if (reward) progress.attackRate = Math.max(challengeMinimumInterval(next), 1 / (1 / progress.attackRate + .5));
   updateSnapshotRow(ctx, "playerProgress", progress);
   writeEndless(ctx, ctx.sender, backup.completedEndless);
@@ -135,7 +136,7 @@ export function restorePrestigeChallenge(ctx: any, player: any, reward: boolean,
 export function resumeParkedChallenge(ctx: any): { progress: any; mapId: string; x: number; y: number } | null {
   const parked = ctx.db.prestigeChallengeRun.identity.find(ctx.sender);
   if (!parked) return null;
-  const progress = carryOwnership({ ...JSON.parse(parked.progressJson), identity: ctx.sender }, ctx.db.playerProgress.identity.find(ctx.sender));
+  const progress = carryOwnership({ ...JSON.parse(parked.progressJson), identity: ctx.sender }, readPlayerProgress(ctx, ctx.sender));
   updateSnapshotRow(ctx, "playerProgress", progress);
   writeEndless(ctx, ctx.sender, parked.completedEndless);
   clearParkedRun(ctx, ctx.sender);
@@ -168,7 +169,7 @@ export function enrollInPrestigeChallenge(ctx: any, identity: any): string {
   const row = ctx.db.playerPrestigeChallenge.identity.find(identity);
   if (row?.active || ctx.db.prestigeChallengeBackup.identity.find(identity)) return "already in a challenge";
   if ((row?.completed ?? 0) >= PRESTIGE_CHALLENGE_LIMIT) return "every challenge already complete";
-  const progress = ctx.db.playerProgress.identity.find(identity);
+  const progress = readPlayerProgress(ctx, identity);
   const player = ctx.db.player.identity.find(identity);
   if (!progress || !player) return "no saved run to park";
   const { identity: _identity, ...fields } = progress;

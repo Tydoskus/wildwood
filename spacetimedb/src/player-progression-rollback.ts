@@ -4,6 +4,7 @@ import type { ModuleReducerCtx } from "./index";
 import { CAMPAIGN_UNLOCK_FIELDS, highestCampaignMap, withoutLockedEquipment } from "../../shared/equipment-access";
 import { MAX_PLAYER_STAT, MAX_ARMOR, MIN_ATTACK_INTERVAL } from "../../shared/rules";
 import { recordModerationAction } from "./moderation-history";
+import { readPlayerProgress } from "./wide-stats";
 
 export type ProgressionRollbackArgs = {
   identity: Identity; expectedDisplayName: string; operationId: string; baselineJson: string; reason: string;
@@ -24,7 +25,7 @@ export function rollbackPlayerProgression(ctx: ModuleReducerCtx, args: Progressi
     if (action.rule === rule && action.targetIdentity === target) return;
   }
   const profile = ctx.db.playerProfile.identity.find(args.identity);
-  const current = ctx.db.playerProgress.identity.find(args.identity);
+  const current = readPlayerProgress(ctx, args.identity);
   if (!profile || !current || profile.displayName !== args.expectedDisplayName) throw new SenderError("Rollback target changed or was not found.");
   let baseline: any;
   try { baseline = JSON.parse(args.baselineJson); } catch { throw new SenderError("Invalid rollback snapshot."); }

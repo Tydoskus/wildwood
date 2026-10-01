@@ -50,7 +50,7 @@ describe("account and gameplay query scopes", () => {
     const f = fixture();
     f.subscription.refresh(false);
     expect(f.requests).toHaveLength(1);
-    expect(f.requests[0].queries.map(q => q.name)).toEqual(["playerProfile", "playerProgress", "playerAccountStatus"]);
+    expect(f.requests[0].queries.map(q => q.name)).toEqual(["playerProfile", "playerProgress", "playerWideStats", "playerAccountStatus"]);
   });
 
   it("hydrates private history without shared boss subscriptions", () => {

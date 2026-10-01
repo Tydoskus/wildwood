@@ -9,6 +9,7 @@ import {
 } from "../../shared/equipment-copies";
 import { bowSkillKey, bowSkillRollFor, ensureBowSkillRoll } from "./bow-skills";
 import { lootSettingsFor } from "./loot-settings";
+import { readPlayerProgress } from "./wide-stats";
 
 /**
  * Copies of an item beyond the first, one row per copy a player chose to keep.
@@ -206,7 +207,7 @@ export function createEquipmentCopies(deps: {
   writeProgressAndPresentation: (ctx: Ctx, progress: any) => void;
 }) {
   function ownedProgress(ctx: Ctx, itemId: string) {
-    const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+    const progress = readPlayerProgress(ctx, ctx.sender);
     if (!progress || !deps.inventoryForProgress(progress).includes(itemId)) throw new SenderError("That item is not in your inventory.");
     return progress;
   }
@@ -234,7 +235,7 @@ export function createEquipmentCopies(deps: {
     if (offer.expiresAt.microsSinceUnixEpoch <= ctx.timestamp.microsSinceUnixEpoch) {
       throw new SenderError("That item ran out of time and was ignored.");
     }
-    const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+    const progress = readPlayerProgress(ctx, ctx.sender);
     if (!progress) throw new SenderError("Player unavailable.");
     const inventory = deps.inventoryForProgress(progress);
     const capacity = inventorySlotCapacity(ctx.db.playerInventoryCapacity.identity.find(ctx.sender)?.slotsUnlocked ?? 0);

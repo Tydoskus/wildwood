@@ -54,13 +54,13 @@ describe("progress persistence rules", () => {
     expect(copyProgress({ ...pending, attackRange: 230 }).attackRange).toBe(230);
   });
 
-  it("preserves undecillion combat stats while retaining speed caps", () => {
+  it("caps combat stats at the f64 ceiling while retaining speed caps", () => {
     expect(copyProgress({
       ...pending,
-      maxHp: 1e36,
-      damage: 1e36,
-      armor: 1e36,
-      regen: 1e36,
+      maxHp: 1e301,
+      damage: 1e301,
+      armor: 1e301,
+      regen: 1e301,
       attackRate: 0,
       speed: 20_000,
     })).toMatchObject({

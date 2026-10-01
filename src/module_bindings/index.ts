@@ -344,6 +344,7 @@ import PlayerPrestigePerkRow from "./player_prestige_perk_table";
 import PlayerProfileRow from "./player_profile_table";
 import PlayerProgressRow from "./player_progress_table";
 import PlayerResearchRow from "./player_research_table";
+import PlayerWideStatsRow from "./player_wide_stats_table";
 import PrestigeExpansionRow from "./prestige_expansion_table";
 import PrismshellBossRow from "./prismshell_boss_table";
 import PrismshellResultRow from "./prismshell_result_table";
@@ -1051,6 +1052,17 @@ const tablesSchema = __schema({
       { name: 'player_research_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerResearchRow),
+  playerWideStats: __table({
+    name: 'player_wide_stats',
+    indexes: [
+      { accessor: 'identity', name: 'player_wide_stats_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_wide_stats_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerWideStatsRow),
   prestigeExpansion: __table({
     name: 'prestige_expansion',
     indexes: [

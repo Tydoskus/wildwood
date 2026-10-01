@@ -1,6 +1,7 @@
 // The one compact formatter, shared so the server can tell when a number a
 // player sees would actually change.
-const COMPACT_UNITS = ["", "k", "m", "b", "t", "qd", "qn", "sx", "sp", "oc", "no", "dc", "ud"] as const;
+// Short-scale names up to vigintillion (1e63); past that the suffix form switches to scientific notation.
+export const COMPACT_UNITS = ["", "k", "m", "b", "t", "qd", "qn", "sx", "sp", "oc", "no", "dc", "ud", "dd", "td", "qad", "qid", "sxd", "spd", "ocd", "nod", "vg"] as const;
 
 export type NumberNotation = "suffix" | "scientific";
 // A display preference, set only by the client. The server never sets it, so
@@ -39,9 +40,10 @@ export function formatRate(value: number): string {
   return value.toFixed(absolute >= 99.95 ? 0 : absolute >= 9.995 ? 1 : 2);
 }
 
-/** The suffix form: 841, 5.00m, 28.1k. */
+/** The suffix form: 841, 5.00m, 28.1k; beyond the last suffix, 1.23e66. */
 export function formatSuffixNumber(value: number): string {
   if (!Number.isFinite(value)) return "0";
+  if (Math.abs(value) >= 999.5 * 1_000 ** (COMPACT_UNITS.length - 1)) return formatScientificNumber(value);
   const sign = value < 0 ? "-" : "";
   const absolute = Math.abs(value);
   if (absolute < 1_000) return `${sign}${Math.round(absolute)}`;

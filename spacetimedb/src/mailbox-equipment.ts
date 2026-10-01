@@ -2,6 +2,7 @@ import { table, t, SenderError } from "spacetimedb/server";
 import type { Identity } from "spacetimedb";
 import type { ModuleReducerCtx, ModuleViewCtx } from "./index";
 import { gearForHighestMap, GEAR_MAIL_ID, GEAR_MAIL_LEVEL } from "../../shared/mailbox-equipment";
+import { readPlayerProgress } from "./wide-stats";
 
 export const mailboxEquipment = table({ name: "mailbox_equipment", public: false }, {
   key: t.string().primaryKey(), identity: t.identity().index("btree"), letterId: t.string(),
@@ -15,7 +16,7 @@ export function deliverEquipmentMail(ctx: ModuleReducerCtx, recipients: Identity
   for (const identity of recipients) {
     const key = equipmentMailKey(GEAR_MAIL_ID, identity);
     if (ctx.db.mailboxEquipment.key.find(key)) continue;
-    const progress = ctx.db.playerProgress.identity.find(identity);
+    const progress = readPlayerProgress(ctx, identity);
     if (!progress || ctx.db.virtualPlayer.identity.find(identity)) continue;
     const gift = gearForHighestMap(progress);
     ctx.db.mailboxEquipment.insert({ key, identity, letterId: GEAR_MAIL_ID, itemIdsJson: JSON.stringify(gift.itemIds),

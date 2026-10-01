@@ -229,6 +229,9 @@ import {
   WORLD_WIDTH, isBaseStoredSpeed,
 } from "../../shared/rules";
 import { MAP_EDITOR_GAMEPLAY_OVERRIDES } from "../../shared/map-editor-overrides";
+import { readPlayerProgress, iterPlayerProgress } from "./wide-stats";
+import { playerWideStats } from "./wide-stats-table";
+import { narrowStat } from "../../shared/wide-stats";
 
 // Cached clients parse these exact wire messages. Current clients rebrand them
 // for display; changing them would break reconnects and account linking in old tabs.
@@ -1814,7 +1817,7 @@ const spacetimedb = schema({
   playerEndlessRebaseBackup,
   playerPrestige,
   playerPrestigePerk,
-  playerPrestigeChallenge, prestigeChallengeBackup, prestigeChallengeRun, playerPrestigeChallengeParked, playerFreeRespec, playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, prestigeExpansion,
+  playerPrestigeChallenge, prestigeChallengeBackup, prestigeChallengeRun, playerPrestigeChallengeParked, playerFreeRespec, playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerWideStats, prestigeExpansion,
   playerPrestigeExpansionPerk,
   duelRiposte, duelCombatSnapshot,
   playerSessionAnalytics,
@@ -2066,7 +2069,7 @@ function ensureCutsceneHistory(ctx: ModuleReducerCtx, identity: Identity) {
   if (existing) return existing;
   return ctx.db.playerCutsceneHistory.insert({
     identity,
-    seenMask: unlockedPortalCutsceneMask(ctx.db.playerProgress.identity.find(identity)),
+    seenMask: unlockedPortalCutsceneMask(readPlayerProgress(ctx, identity)),
     generation: 0,
   });
 }
@@ -2075,7 +2078,7 @@ export const markPortalCutsceneSeen = spacetimedb.reducer({ cutscene: t.string()
   requireControllingPlayer(ctx);
   const bit = portalCutsceneBit(cutscene);
   if (!bit) throw new SenderError("Unknown portal cutscene.");
-  const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+  const progress = readPlayerProgress(ctx, ctx.sender);
   if (!(unlockedPortalCutsceneMask(progress) & bit)) throw new SenderError("Portal not unlocked.");
   const history = ensureCutsceneHistory(ctx, ctx.sender);
   if (history.generation !== generation) throw new SenderError("Character history was reset.");
@@ -2327,7 +2330,7 @@ function completeActiveResearch(ctx: any, active: any) {
   const nextResearch = { ...research, [active.researchId]: active.targetRank };
   updateSnapshotRow(ctx, "playerResearch", nextResearch);
   if (active.researchId === "slotUpgradeSpeed") refreshActiveSlotUpgrades(ctx, active.identity, reconcileActiveItemUpgrade);
-  let progress = ctx.db.playerProgress.identity.find(active.identity);
+  let progress = readPlayerProgress(ctx, active.identity);
   if (progress && active.researchId === "utilityAttackRange") {
     progress = { ...progress, attackRange: attackRangeWithResearch(nextResearch.utilityAttackRange) + prestigeRangeBonus(ctx, active.identity) };
     updateSnapshotRow(ctx, "playerProgress", progress);
@@ -2472,7 +2475,7 @@ function powerFieldsForProgress(ctx: any, progress: any) {
 
 function researchedDamage(ctx: any, identity: any, damage: number, knownProgress?: any, knownResearch?: any) {
   const rank = (knownResearch === undefined ? ctx.db.playerResearch.identity.find(identity) : knownResearch)?.warcraft ?? 0;
-  const progress = knownProgress ?? ctx.db.playerProgress.identity.find(identity);
+  const progress = knownProgress ?? readPlayerProgress(ctx, identity);
   const weaponItem = progress ? equippedRightHandForProgress(progress) || equippedLeftHandForProgress(progress) : "";
   const headItem = progress ? equippedHeadForProgress(progress) : "";
   const chestItem = progress ? equippedChestForProgress(progress) : "";
@@ -2494,7 +2497,7 @@ function researchedArmor(ctx: any, identity: any, armor: number) {
 
 function researchedRegen(ctx: any, identity: any, regen: number) {
   const rank = ctx.db.playerResearch.identity.find(identity)?.regeneration ?? 0;
-  const progress = ctx.db.playerProgress.identity.find(identity);
+  const progress = readPlayerProgress(ctx, identity);
   const headItem = progress ? equippedHeadForProgress(progress) : "";
   const chestItem = progress ? equippedChestForProgress(progress) : "";
   return equipmentRegeneration(regen,
@@ -2538,7 +2541,7 @@ function boundedMapPopulation(ctx: any, mapId: string) {
 
 function refreshLeaderboard(ctx: any) {
   const candidates: any[] = [];
-  for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+  for (const progress of iterPlayerProgress(ctx) as Iterable<any>) {
     if (ctx.db.virtualPlayer.identity.find(progress.identity)) continue;
     // First runs join after the Dragon; a prestige level retains that credit
     // when the reset clears the current run's Desert access.
@@ -2590,10 +2593,11 @@ function refreshLeaderboard(ctx: any) {
       feetItem: candidate.feetItem,
       rightHandItem: candidate.rightHandItem,
       leftHandItem: candidate.leftHandItem,
-      damage: candidate.damage,
-      maxHp: candidate.maxHp,
-      armor: candidate.armor,
-      regen: candidate.regen,
+      // f32 columns: clamped for display; the ranking was written from the full values above.
+      damage: narrowStat(candidate.damage),
+      maxHp: narrowStat(candidate.maxHp),
+      armor: narrowStat(candidate.armor),
+      regen: narrowStat(candidate.regen),
       playedMicros: candidate.playedMicros,
       isGuest: candidate.isGuest,
     };
@@ -2878,7 +2882,7 @@ function progressHasItem(progress: any, itemId: string) {
 }
 
 function playerOwnsItem(ctx: any, identity: any, itemId: string) {
-  const progress = ctx.db.playerProgress.identity.find(identity);
+  const progress = readPlayerProgress(ctx, identity);
   if (progressHasItem(progress ?? defaultPlayerProgress(identity), itemId)) return true;
   return activeItemUpgradeEntriesFor(ctx, identity).some(({ active }) => active.itemId === itemId);
 }
@@ -2902,7 +2906,7 @@ const OFFLINE_GRANT_PORTS = { effectiveStats: effectivePowerStatsForProgress, ma
   writeProgress: (ctx: any, progress: any) => writeProgressAndPresentation(ctx, progress) };
 
 function writeProgressAndPresentation(ctx: any, progress: any) {
-  const current = ctx.db.playerProgress.identity.find(progress.identity);
+  const current = readPlayerProgress(ctx, progress.identity);
   if (current) updateSnapshotRow(ctx, "playerProgress", progress);
   else insertSnapshotRow(ctx, "playerProgress", progress);
   const active = ctx.db.player.identity.find(progress.identity);
@@ -3061,7 +3065,7 @@ function completeActiveItemUpgrade(ctx: any, active: any, slot: number) {
     const completed = { key, identity: active.identity, itemId: active.itemId, level: active.targetLevel };
     if (current) updateSnapshotRow(ctx, "playerItemUpgrade", completed);
     else insertSnapshotRow(ctx, "playerItemUpgrade", completed);
-    const progress = ctx.db.playerProgress.identity.find(active.identity);
+    const progress = readPlayerProgress(ctx, active.identity);
     if (progress) writeProgressAndPresentation(ctx, progress);
   }
   deleteActiveItemUpgrade(ctx, active.identity, slot);
@@ -3073,7 +3077,7 @@ function cancelActiveItemUpgrade(ctx: any, active: any, slot: number) {
   // back. A row left over from when upgrades belonged to items still names an
   // item, and that one is still returned.
   if (!isUpgradeSlot(active.itemId)) {
-    const progress = ctx.db.playerProgress.identity.find(active.identity) ?? defaultPlayerProgress(active.identity);
+    const progress = readPlayerProgress(ctx, active.identity) ?? defaultPlayerProgress(active.identity);
     writeProgressAndPresentation(ctx, restoreItemToProgress(progress, active.itemId));
   }
   deleteActiveItemUpgrade(ctx, active.identity, slot);
@@ -3309,7 +3313,7 @@ function insertChatMessage(
   reply?: { messageId: bigint; senderName: string; message: string },
   guildReplayKey = "",
 ) {
-  const progress = ctx.db.playerProgress.identity.find(sender);
+  const progress = readPlayerProgress(ctx, sender);
   const profile = ctx.db.playerProfile.identity.find(sender);
   const inserted = ctx.db.chatMessage.insert({
     id: 0n,
@@ -3319,7 +3323,7 @@ function insertChatMessage(
     message,
     replayId,
     sentAt: ctx.timestamp,
-    powerLevel: progress ? effectivePowerForProgress(ctx, progress) : 0,
+    powerLevel: progress ? narrowStat(effectivePowerForProgress(ctx, progress)) : 0,
     senderGender: profile?.gender ?? PLAYER_GENDER_UNSET,
     moderated,
     replyToMessageId: reply?.messageId ?? 0n,
@@ -3437,7 +3441,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
 
   const lifetime = ensurePlayerLifetime(ctx);
 
-  let existingProgress: any = ctx.db.playerProgress.identity.find(ctx.sender);
+  let existingProgress: any = readPlayerProgress(ctx, ctx.sender);
   if (!existingProgress) {
     existingProgress = defaultPlayerProgress(ctx.sender);
     if (supportsTutorial && !existingProfile && !virtualRegistration) ctx.db.playerOnboarding.insert({ identity: ctx.sender, step: 1 });
@@ -4318,7 +4322,7 @@ export const joinVirtualPlayerLoadTest = spacetimedb.reducer(
       if (
         ctx.db.player.identity.find(ctx.sender) ||
         ctx.db.playerProfile.identity.find(ctx.sender) ||
-        ctx.db.playerProgress.identity.find(ctx.sender) ||
+        readPlayerProgress(ctx, ctx.sender) ||
         ctx.db.playerLifetime.identity.find(ctx.sender)
       ) throw new SenderError("Virtual-player identity must be new.");
     }
@@ -4383,7 +4387,7 @@ export const devDeleteLegacyPlayer = spacetimedb.reducer(
     if (isVirtualPlayer(ctx, identity)) throw new SenderError("Use virtual-player cleanup for simulated players.");
 
     const profile = ctx.db.playerProfile.identity.find(identity);
-    const progress = ctx.db.playerProgress.identity.find(identity);
+    const progress = readPlayerProgress(ctx, identity);
     const leaderboard = ctx.db.leaderboardEntry.identity.find(identity);
     if (!profile || !progress || !leaderboard) throw new SenderError("Legacy player save not found.");
     if (profile.displayName !== expectedDisplayName.trim()) throw new SenderError("Player name changed; deletion refused.");
@@ -4436,8 +4440,8 @@ export const devCopyPlayerCombatStats = spacetimedb.reducer(
   (ctx, { sourceIdentity, targetIdentity }) => {
     if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_copy_player_combat_stats");
     if (sameIdentity(sourceIdentity, targetIdentity)) throw new SenderError("Source and target must differ.");
-    const source = ctx.db.playerProgress.identity.find(sourceIdentity);
-    const target = ctx.db.playerProgress.identity.find(targetIdentity);
+    const source = readPlayerProgress(ctx, sourceIdentity);
+    const target = readPlayerProgress(ctx, targetIdentity);
     if (!source || !target) throw new SenderError("Player progress row not found.");
 
     const nextProgress = {
@@ -4600,7 +4604,7 @@ export const devUpdatePlayerSave = spacetimedb.reducer(
   (ctx, update) => {
     requireDeveloper(ctx, "dev_update_player_save");
     const profile = ctx.db.playerProfile.identity.find(update.identity);
-    const progress = ctx.db.playerProgress.identity.find(update.identity);
+    const progress = readPlayerProgress(ctx, update.identity);
     if (!profile || !progress) throw new SenderError("Player save row not found.");
     const displayName = update.displayName.trim().replace(/\s+/g, " ");
     if (!/^[A-Za-z0-9 _-]{2,20}$/.test(displayName)) {
@@ -4674,7 +4678,7 @@ export const savePlayerProgress = spacetimedb.reducer(
   },
   (ctx, progress) => {
     const activePlayer = requireControllingPlayer(ctx);
-    const current = ctx.db.playerProgress.identity.find(ctx.sender);
+    const current = readPlayerProgress(ctx, ctx.sender);
     const base = current ?? defaultPlayerProgress(ctx.sender);
     for (const field of ["equippedHead", "equippedChest", "equippedFeet", "equippedRightHand", "equippedLeftHand"] as const) {
       const requiredMap = equipmentMapRequirement(progress[field], base);
@@ -4868,7 +4872,7 @@ export const devGrantEquipment = spacetimedb.reducer(
   { identity: t.identity(), itemId: t.string(), equip: t.bool() }, (ctx, { identity, itemId, equip }) => {
     if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_grant_equipment");
     const item = itemDefinition(itemId);
-    const progress = ctx.db.playerProgress.identity.find(identity);
+    const progress = readPlayerProgress(ctx, identity);
     if (!item || !progress) throw new SenderError("Player or equipment unavailable.");
     const alreadyOwned = playerOwnsItem(ctx, identity, itemId);
     let next = restoreItemToProgress(progress, itemId);
@@ -4889,7 +4893,7 @@ export const devDeliverAlphaTesterGifts = spacetimedb.reducer(
 export const claimDeveloperItemGift = spacetimedb.reducer({ key: t.string() }, (ctx, { key }) => {
   requireControllingPlayer(ctx);
   claimItemGift(ctx, key, itemId => {
-    const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+    const progress = readPlayerProgress(ctx, ctx.sender);
     if (!progress) throw new SenderError("Player unavailable.");
     if (playerOwnsItem(ctx, ctx.sender, itemId)) return offerDuplicateEquipment(ctx, ctx.sender, itemId);
     updateSnapshotRow(ctx, "playerProgress", restoreItemToProgress(progress, itemId));
@@ -4937,7 +4941,7 @@ export const claimMailboxGift = spacetimedb.reducer({ id: t.string() }, (ctx, { 
   updateMailboxReceipt(ctx, id, true, (amount, reference, title) => {
     applyGemBalanceChange(ctx, { identity: ctx.sender, delta: amount, kind: "mailbox_gift", note: title, externalReference: reference });
   }, (items, level) => {
-    const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+    const progress = readPlayerProgress(ctx, ctx.sender);
     if (!progress) throw new SenderError("Player unavailable.");
     const upgrading = activeItemUpgradeEntriesFor(ctx, ctx.sender).map(({ active }) => active.itemId);
     if (items.some(id => upgrading.includes(id))) throw new SenderError("Finish or cancel the upgrade on your gifted gear, then claim it here.");
@@ -5174,7 +5178,7 @@ export const recordPlayerDeath = spacetimedb.reducer(
 function awardRegularEnemyLoot(ctx: ReducerCtx<InferSchema<typeof spacetimedb>>, mapId: string, count: number, balance: ReturnType<typeof pinnedMapBalance>, checkpoint?: { progress: any }) {
   const drops = keepWantedDrops(ctx, ctx.sender, rollRegularEnemyLoot(ctx, mapId, count, balance?.loot));
   if (!drops.size) return checkpoint?.progress;
-  const current = checkpoint?.progress ?? ctx.db.playerProgress.identity.find(ctx.sender);
+  const current = checkpoint?.progress ?? readPlayerProgress(ctx, ctx.sender);
   let next = current ?? defaultPlayerProgress(ctx.sender);
   const owned = new Set(inventoryForProgress(next));
   for (const { active } of activeItemUpgradeEntriesFor(ctx, ctx.sender)) owned.add(active.itemId);
@@ -5247,7 +5251,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
           if (handler) handler(ctx, ctx.sender);
           else {
             if (!balance?.boss) throw new SenderError("Boss balance is unavailable.");
-            const progress = ctx.db.playerProgress.identity.find(ctx.sender)!;
+            const progress = readPlayerProgress(ctx, ctx.sender)!;
             const rewards = Object.entries(balance.boss.rewards).map(([type, amount]) => ({ type, amount, count: 1 }));
             const rewarded = applyEnemyRewards(progress, rewards, statMultiplier, challengeMinimumInterval(ctx.db.playerPrestigeChallenge.identity.find(ctx.sender)));
             writeProgressAndPresentation(ctx, { ...rewarded, bossRewardClaims: (progress.bossRewardClaims | BOSS_REWARD_CLAIM_BITS[boss.kind]) >>> 0 });
@@ -5258,7 +5262,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
           const previous = ctx.db.proceduralProgress.identity.find(ctx.sender);
           const row = { identity: ctx.sender, completed: Math.max(previous?.completed ?? 0, map.number) };
           if (previous) ctx.db.proceduralProgress.identity.update(row); else ctx.db.proceduralProgress.insert(row);
-          const progress = ctx.db.playerProgress.identity.find(ctx.sender)!;
+          const progress = readPlayerProgress(ctx, ctx.sender)!;
           writeProgressAndPresentation(ctx, applyEnemyRewards(progress, (balance?.boss ? Object.entries(balance.boss.rewards).map(([type, amount]) => ({ type, amount })) : generatedBossStats(map).rewards).map(reward => ({ ...reward, count: 1 })), statMultiplier, challengeMinimumInterval(ctx.db.playerPrestigeChallenge.identity.find(ctx.sender))));
         }
       }
@@ -5506,7 +5510,7 @@ export const beginAdventure = spacetimedb.reducer(
   {},
   (ctx) => {
     requireControllingPlayer(ctx);
-    const current = ctx.db.playerProgress.identity.find(ctx.sender);
+    const current = readPlayerProgress(ctx, ctx.sender);
     if (current?.introComplete) return;
     if (current) updateSnapshotRow(ctx, "playerProgress", { ...current, introComplete: true });
     else insertSnapshotRow(ctx, "playerProgress", { ...defaultPlayerProgress(ctx.sender), introComplete: true });
@@ -5524,7 +5528,7 @@ export const beginAdventure = spacetimedb.reducer(
  */
 function resetProgressToDefaults(ctx: any, activePlayer: any, keep: { research?: boolean; lifetimeKills?: boolean; slotTiers?: boolean; items?: boolean } = {}) {
     clearProceduralProgress(ctx, ctx.sender);
-    const current = ctx.db.playerProgress.identity.find(ctx.sender);
+    const current = readPlayerProgress(ctx, ctx.sender);
     const next = defaultPlayerProgress(ctx.sender);
     next.attackRate = challengeAttackInterval(next.attackRate, ctx.db.playerPrestigeChallenge.identity.find(ctx.sender));
     if (current) next.cosmeticItemsJson = current.cosmeticItemsJson;
@@ -5868,7 +5872,7 @@ export const changeMap = spacetimedb.reducer(
         const saved = ctx.db.homeReturnLocation.identity.find(ctx.sender);
         // Recover already-linked accounts whose older client/server omitted
         // their Home return record. Keep their stats and unlocks intact.
-        const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+        const progress = readPlayerProgress(ctx, ctx.sender);
         const converted = ctx.db.playerEndlessRebaseBackup.identity.find(ctx.sender);
         const savedMapIndex = saved ? MAP_IDS.indexOf(saved.mapId) : -1;
         const permitted = !converted || (saved && (isProceduralMap(saved.mapId)
@@ -5894,7 +5898,7 @@ export const changeMap = spacetimedb.reducer(
     if (x < PLAYER_RADIUS || x > WORLD.width - PLAYER_RADIUS || y < PLAYER_RADIUS || y > WORLD.height - PLAYER_RADIUS) {
       throw new SenderError("Portal position is outside the world.");
     }
-    const currentProgress = ctx.db.playerProgress.identity.find(ctx.sender);
+    const currentProgress = readPlayerProgress(ctx, ctx.sender);
     const campaignIndex = CAMPAIGN_MAPS.findIndex(map => map.id === mapId);
     if (campaignIndex > 0 && !campaignMapUnlocked(campaignIndex, currentProgress ?? {})) {
       throw new SenderError(`Defeat ${CAMPAIGN_MAPS[campaignIndex - 1].bossName} before entering ${MAP_DISPLAY_NAMES[mapId]}.`);
@@ -5935,7 +5939,7 @@ export const setSpeed = spacetimedb.reducer(
     // Speed remains server-authoritative. Move Speed research is a legitimate
     // client-side movement multiplier, so validate its exact server record
     // instead of treating every researched speed as a malformed packet.
-    const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+    const progress = readPlayerProgress(ctx, ctx.sender);
     const research = ctx.db.playerResearch.identity.find(ctx.sender);
     const feet = progress ? equippedFeetForProgress(progress) : current.feetItem;
     const bootsEquipped = false;
@@ -6002,7 +6006,7 @@ function requireGuildPlayer(ctx: ModuleReducerCtx) {
 }
 
 function guildFighterFor(ctx: ModuleReducerCtx, identity: Identity): DuelFighter {
-  const progress = ctx.db.playerProgress.identity.find(identity);
+  const progress = readPlayerProgress(ctx, identity);
   if (!progress) throw new SenderError("Player progress is unavailable.");
   const weapon = equippedRightHandForProgress(progress) || equippedLeftHandForProgress(progress);
   return {
@@ -6017,7 +6021,7 @@ function guildFighterFor(ctx: ModuleReducerCtx, identity: Identity): DuelFighter
 const guildService = createGuildService({
   prestigeFor: (ctx, identity) => ctx.db.playerPrestige.identity.find(identity)?.level ?? 0,
   powerFor: (ctx, identity) => {
-    const progress = ctx.db.playerProgress.identity.find(identity);
+    const progress = readPlayerProgress(ctx, identity);
     return progress ? effectivePowerForProgress(ctx, progress) : 0;
   },
   presenceFor: (ctx, identity) => ({
@@ -6039,7 +6043,7 @@ const guildService = createGuildService({
   fighterFor: (ctx, identity) => {
     const profile = ctx.db.playerProfile.identity.find(identity);
     if (!profile) throw new SenderError("Player profile is unavailable.");
-    const progress = ctx.db.playerProgress.identity.find(identity);
+    const progress = readPlayerProgress(ctx, identity);
     if (!progress) throw new SenderError("Player progress is unavailable.");
     return { name: profile.displayName, fighter: guildFighterFor(ctx, identity),
       appearance: leaderboardAppearanceForProgress(progress, profile),
@@ -6112,7 +6116,7 @@ export const seedTemporaryGuild = spacetimedb.reducer((ctx) => {
     throw new SenderError("The temp guild already exists; its membership was preserved.");
   }
   const candidates = [...ctx.db.leaderboardEntry.iter()]
-    .filter(row => !ctx.db.guildMember.identity.find(row.identity) && ctx.db.playerProgress.identity.find(row.identity)
+    .filter(row => !ctx.db.guildMember.identity.find(row.identity) && readPlayerProgress(ctx, row.identity)
       && ctx.db.playerProfile.identity.find(row.identity) && !isVirtualPlayer(ctx, row.identity))
     .sort((a, b) => a.powerLevel - b.powerLevel || a.identity.toHexString().localeCompare(b.identity.toHexString()))
     .slice(0, 20);

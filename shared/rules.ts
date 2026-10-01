@@ -78,10 +78,11 @@ export const REGULAR_ENEMY_RESPAWN_SECONDS = 10;
 export const MAX_BASE_ATTACKS_PER_SECOND = 2.625;
 export const MIN_ATTACK_INTERVAL = 1 / MAX_BASE_ATTACKS_PER_SECOND;
 export const BOSS_RESPAWN_SECONDS = 45;
-// Scalable combat stats use f32 storage. One undecillion stays below f32's
-// finite limit with room for research and power multipliers. Movement and
-// attack speed retain their separate gameplay caps.
-export const MAX_PLAYER_STAT = 1e36;
+// Scalable combat stats are f64 (player_wide_stats past f32's range, 0.855),
+// so the ceiling sits far below f64's 1.8e308 with room for research and power
+// multipliers. Columns still stored as f32 clamp at F32_STAT_LIMIT
+// (shared/wide-stats.ts). Movement and attack speed keep their own caps.
+export const MAX_PLAYER_STAT = 1e300;
 export const MAX_ARMOR = MAX_PLAYER_STAT;
 export const ATTACK_BALANCE_VERSION = 9;
 export {

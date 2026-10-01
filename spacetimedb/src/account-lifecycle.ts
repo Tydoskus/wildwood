@@ -39,6 +39,7 @@ import { unlinkPatreon } from "./patreon";
 import { clearProceduralProgress, mergeProceduralProgress } from "./procedural-maps";
 import { deleteSnapshotRow, insertSnapshotRow, updateSnapshotRow } from "./snapshot-row-writes";
 import { mergeSocialAccount, removeSocialAccount } from "./social-service";
+import { readPlayerProgress } from "./wide-stats";
 
 export const ACCOUNT_LINK_LIFETIME_MICROS = 600_000_000n;
 
@@ -188,12 +189,12 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
       throw new SenderError("Finish duel before linking this account.");
     }
 
-    const accountProgress = ctx.db.playerProgress.identity.find(ctx.sender);
+    const accountProgress = readPlayerProgress(ctx, ctx.sender);
     if (accountProgress && !hasFreshProgress(accountProgress)) {
       throw new SenderError(LEGACY_CLIENT_ERRORS.existingAccountProgress);
     }
 
-    const guestProgress = ctx.db.playerProgress.identity.find(link.guest);
+    const guestProgress = readPlayerProgress(ctx, link.guest);
     if (!guestProgress) throw new SenderError("Guest save unavailable. Return to guest mode and try again.");
     const guestCutscenes = ensureCutsceneHistory(ctx, link.guest);
     const accountCutscenes = ensureCutsceneHistory(ctx, ctx.sender);
@@ -729,7 +730,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.playerMapMarker.identity.find(identity)) ctx.db.playerMapMarker.identity.delete(identity);
     if (ctx.db.playerMovementDemand.identity.find(identity)) ctx.db.playerMovementDemand.identity.delete(identity);
     if (ctx.db.playerProfile.identity.find(identity)) deleteSnapshotRow(ctx, "playerProfile", identity);
-    if (ctx.db.playerProgress.identity.find(identity)) deleteSnapshotRow(ctx, "playerProgress", identity);
+    if (readPlayerProgress(ctx, identity)) deleteSnapshotRow(ctx, "playerProgress", identity);
     if (ctx.db.playerLastLocation.identity.find(identity)) ctx.db.playerLastLocation.identity.delete(identity);
     if (ctx.db.playerResearch.identity.find(identity)) deleteSnapshotRow(ctx, "playerResearch", identity);
     if (ctx.db.chatReactionUnlock.identity.find(identity)) ctx.db.chatReactionUnlock.identity.delete(identity);
@@ -837,7 +838,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.playerMapMarker.identity.find(identity)) ctx.db.playerMapMarker.identity.delete(identity);
     if (ctx.db.playerMovementDemand.identity.find(identity)) ctx.db.playerMovementDemand.identity.delete(identity);
     if (ctx.db.playerProfile.identity.find(identity)) deleteSnapshotRow(ctx, "playerProfile", identity);
-    if (ctx.db.playerProgress.identity.find(identity)) deleteSnapshotRow(ctx, "playerProgress", identity);
+    if (readPlayerProgress(ctx, identity)) deleteSnapshotRow(ctx, "playerProgress", identity);
     if (ctx.db.playerLastLocation.identity.find(identity)) ctx.db.playerLastLocation.identity.delete(identity);
     if (ctx.db.playerResearch.identity.find(identity)) deleteSnapshotRow(ctx, "playerResearch", identity);
     if (ctx.db.chatReactionUnlock.identity.find(identity)) ctx.db.chatReactionUnlock.identity.delete(identity);

@@ -8,6 +8,7 @@ import {
 import { bowSkillRollFor } from "./bow-skills";
 import { allowedLoadout } from "./loadout";
 import { lootSettingsFor } from "./loot-settings";
+import { readPlayerProgress } from "./wide-stats";
 
 type Ctx = any;
 
@@ -85,7 +86,7 @@ export function createAutoEquip(deps: {
    */
   function equipNewUpgrades(ctx: Ctx, identity: Identity, before: any) {
     if (!before) return;
-    const progress = ctx.db.playerProgress.identity.find(identity);
+    const progress = readPlayerProgress(ctx, identity);
     if (!progress || !gainedGearOrMaps(before, progress) || !lootSettingsFor(ctx, identity).autoEquipBest) return;
     const had = new Set(deps.inventoryForProgress(before));
     const inventory = deps.inventoryForProgress(progress);

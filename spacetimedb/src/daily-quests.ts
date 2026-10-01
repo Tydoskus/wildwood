@@ -1,5 +1,6 @@
 import { table, t, SenderError } from "spacetimedb/server";
 import { WEEKLY_QUEST_COUNT, GUILD_QUEST_COLLECT_LIMIT, applyQuestKills, dailyQuestCandidates, weeklyQuestsFor, guildQuestBonus, ownQuest, parseDailyQuests, questDay, questDone, questOpen, questWeek, soloQuestBonus, type DailyQuest } from "../../shared/daily-quests";
+import { readPlayerProgress } from "./wide-stats";
 
 /**
  * A player's quests for one day, and what their guild stands at. The guild
@@ -86,7 +87,7 @@ export function ensureDailyQuests(ctx: Ctx, identity: any) {
   const current = existing && questWeek(existing.day) === week ? parseDailyQuests(existing.questsJson) : null;
   const own = current?.filter(ownQuest).length ?? 0;
   if (!current || own < WEEKLY_QUEST_COUNT) {
-    const progress = ctx.db.playerProgress.identity.find(identity) ?? {};
+    const progress = readPlayerProgress(ctx, identity) ?? {};
     const drawn = weeklyQuestsFor(identity.toHexString(), week, progress);
     // Own quests stay ahead of collected ones, so the board works through a player's own first.
     const kept = current ?? [];
@@ -188,7 +189,7 @@ export function collectMemberQuests(ctx: Ctx, leader: any, memberIdentity: any) 
   if (!standing.ready) fail("Finish your own quests first.");
   if (!standing.left) fail(`You have collected ${GUILD_QUEST_COLLECT_LIMIT} quests this week.`);
   const theirs = ensureDailyQuests(ctx, memberIdentity);
-  const reachable = new Set(dailyQuestCandidates(ctx.db.playerProgress.identity.find(leader) ?? {}).map(quest => `${quest.mapId}:${quest.enemy}`));
+  const reachable = new Set(dailyQuestCandidates(readPlayerProgress(ctx, leader) ?? {}).map(quest => `${quest.mapId}:${quest.enemy}`));
   const leaderName = ctx.db.playerProfile.identity.find(leader)?.displayName ?? "A guildmate";
   const memberName = ctx.db.playerProfile.identity.find(memberIdentity)?.displayName ?? target.name;
   const collected: DailyQuest[] = [];

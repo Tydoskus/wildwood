@@ -35,6 +35,15 @@ const COMPACT_MULTIPLIERS: Readonly<Record<string, number>> = {
   no: 1e30,
   dc: 1e33,
   ud: 1e36,
+  dd: 1e39,
+  td: 1e42,
+  qad: 1e45,
+  qid: 1e48,
+  sxd: 1e51,
+  spd: 1e54,
+  ocd: 1e57,
+  nod: 1e60,
+  vg: 1e63,
 };
 
 function statRewardValue(amount: string) {

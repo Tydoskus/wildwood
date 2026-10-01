@@ -2,6 +2,7 @@ import { canonicalItemId } from "../../shared/items";
 import { SenderError, table, t } from "spacetimedb/server";
 import type { Identity } from "spacetimedb";
 import type { ModuleReducerCtx } from "./index";
+import { readPlayerProgress } from "./wide-stats";
 export const playerEquipmentLock = table({ name: "player_equipment_lock", public: false }, {
   key: t.string().primaryKey(), identity: t.identity().index("btree"), itemId: t.string(), copyId: t.u64().default(0n),
 });
@@ -31,7 +32,7 @@ export function moveEquipmentLock(ctx: Pick<ModuleReducerCtx, "db">, identity: I
 
 export function setEquipmentLock(ctx: ModuleReducerCtx, args: { itemId: string; copyId: bigint; locked: boolean }, inventoryForProgress: (progress: any) => string[]) {
   const itemId = canonicalItemId(args.itemId);
-  const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+  const progress = readPlayerProgress(ctx, ctx.sender);
   if (!itemId || !progress || !inventoryForProgress(progress).includes(itemId)) throw new SenderError("Item not owned.");
   const copyId = args.copyId;
   if (copyId !== 0n) {

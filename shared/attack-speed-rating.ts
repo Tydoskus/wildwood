@@ -1,4 +1,7 @@
-import { DEFAULT_ATTACK_INTERVAL, MAX_BASE_ATTACKS_PER_SECOND, MAX_PLAYER_STAT } from './rules';
+import { DEFAULT_ATTACK_INTERVAL, MAX_BASE_ATTACKS_PER_SECOND } from './rules';
+
+/** The rating that stands for the attack speed cap: the old stat ceiling, kept so rates are unchanged when the stat ceiling rose. */
+const MAX_SPEED_RATING = 1e36;
 
 /**
  * Speed as a rating, the way armor is: rewards add Speed points, and the
@@ -23,13 +26,13 @@ export function attacksPerSecondFromSpeed(speed: number) {
 
 export function speedFromAttacksPerSecond(attacksPerSecond: number) {
   if (!(attacksPerSecond > START)) return 0;
-  if (attacksPerSecond >= MAX_BASE_ATTACKS_PER_SECOND) return MAX_PLAYER_STAT;
+  if (attacksPerSecond >= MAX_BASE_ATTACKS_PER_SECOND) return MAX_SPEED_RATING;
   const decades = Math.log((MAX_BASE_ATTACKS_PER_SECOND - attacksPerSecond) / GAP) / Math.log(1 - SPEED_RATING_CLOSER);
-  return Math.min(MAX_PLAYER_STAT, 10 ** decades - 1);
+  return Math.min(MAX_SPEED_RATING, 10 ** decades - 1);
 }
 
 /** The attack interval after `points` more Speed. */
 export function addSpeedRating(attackInterval: number, points: number) {
-  const speed = Math.min(MAX_PLAYER_STAT, speedFromAttacksPerSecond(1 / attackInterval) + Math.max(0, points));
+  const speed = Math.min(MAX_SPEED_RATING, speedFromAttacksPerSecond(1 / attackInterval) + Math.max(0, points));
   return 1 / attacksPerSecondFromSpeed(speed);
 }

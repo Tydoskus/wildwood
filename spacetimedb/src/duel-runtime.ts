@@ -19,6 +19,7 @@ import { duelAnnouncementText } from "../../shared/duel-announcement";
 import { prestigePerkRanks } from "./prestige";
 import { prestigeCriticalDamageBonus, prestigePerkValue, prestigeRiposteChance, prestigeSwingMultiplier } from "../../shared/prestige-perks";
 import { duelBowSkillFields } from "./bow-skills";
+import { readPlayerProgress } from "./wide-stats";
 
 export const DUEL_REQUEST_COOLDOWN_MICROS = 120_000_000n;
 export const DUEL_REQUEST_TIMEOUT_MICROS = 30_000_000n;
@@ -278,8 +279,8 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
       throw new SenderError(`Duel cooldown: ${remainingSeconds} seconds remaining.`);
     }
 
-    const challengerProgress = ctx.db.playerProgress.identity.find(ctx.sender);
-    const opponentProgress = ctx.db.playerProgress.identity.find(opponent);
+    const challengerProgress = readPlayerProgress(ctx, ctx.sender);
+    const opponentProgress = readPlayerProgress(ctx, opponent);
     const challengerProfile = ctx.db.playerProfile.identity.find(ctx.sender);
     const opponentProfile = ctx.db.playerProfile.identity.find(opponent);
     if (!challengerProgress || !opponentProgress || !challengerProfile || !opponentProfile) throw new SenderError("Player profile unavailable.");

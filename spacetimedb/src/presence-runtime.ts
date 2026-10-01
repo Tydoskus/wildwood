@@ -30,6 +30,7 @@ import {
   TUTORIAL_FOREST_MAP_ID,
 } from "../../shared/rules";
 import { accessibleCampaignMap } from "../../shared/equipment-access";
+import { readPlayerProgress } from "./wide-stats";
 
 const MAX_PACKED_PLAYER_VELOCITY = 0x7fff / PLAYER_VELOCITY_SCALE;
 // Movement packets are floats, so allow a tiny wire-format margin while
@@ -537,7 +538,7 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
     let allowedSpeed: number | undefined;
     const ownedSpeed = () => {
       if (allowedSpeed !== undefined) return allowedSpeed;
-      const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+      const progress = readPlayerProgress(ctx, ctx.sender);
       const expectedSpeed = progress ? effectiveMovementSpeedForProgress(ctx, progress) : compatibilitySpeed;
       const bootedSpeed = progress && equippedFeetForProgress(progress) === BLACK_BOOTS
         ? expectedSpeed + BLACK_BOOTS_SPEED_BONUS : expectedSpeed;

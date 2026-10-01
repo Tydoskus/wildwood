@@ -42,6 +42,7 @@ import { grantGemHeartUnlock } from "./chat-reactions";
 import { GEM_KILL_CREDIT_PER_GEM } from "../../shared/gem-drops";
 import { syncPlayerJoinDate } from "./mailbox";
 import { enrollInPrestigeChallenge } from "./prestige-challenge";
+import { readPlayerProgress, iterPlayerProgress } from "./wide-stats";
 
 export const MODULE_MIGRATION_VERSION = 49;
 
@@ -128,7 +129,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
       }
     }
     if (currentVersion < 5) {
-      for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      for (const progress of iterPlayerProgress(ctx) as Iterable<any>) {
         const inventoryJson = JSON.stringify(inventoryForProgress(progress));
         const equippedRightHand = equippedRightHandForProgress(progress);
         const equippedLeftHand = equippedRightHand ? "" : equippedLeftHandForProgress(progress);
@@ -145,7 +146,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
       }
     }
     if (currentVersion < 6) {
-      for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      for (const progress of iterPlayerProgress(ctx) as Iterable<any>) {
         const restoredProgress = {
           ...progress,
           equippedRightHand: progress.equippedRightHand === STARTER_BOW ? STARTER_STONE : progress.equippedRightHand,
@@ -164,7 +165,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
       }
     }
     if (currentVersion < 7) {
-      for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      for (const progress of iterPlayerProgress(ctx) as Iterable<any>) {
         const normalizedProgress = {
           ...progress,
           bowCount: forestItemCountForProgress(progress, STARTER_BOW, "bowCount"),
@@ -177,7 +178,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
       }
     }
     if (currentVersion < 8) {
-      for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      for (const progress of iterPlayerProgress(ctx) as Iterable<any>) {
         const normalizedProgress = {
           ...progress,
           bowCount: Math.min(1, forestItemCountForProgress(progress, STARTER_BOW, "bowCount")),
@@ -200,7 +201,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
       // Preserve obvious developer-authored custom speeds while normalizing
       // historical base values that predate the current 180/+25 equipment rule.
       const legacyDerivedSpeeds = [175, 180, 200, 205];
-      for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      for (const progress of iterPlayerProgress(ctx) as Iterable<any>) {
         // Trailblazer Boots never granted speed, and no longer exist.
         const equipmentSpeed = playerBaseMovementSpeed(false);
         const storedSpeed = Number(progress.speed);
@@ -225,7 +226,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     if (currentVersion < 11) {
       // Public player labels previously used raw save stats while profiles and
       // rankings applied research, equipment, and item upgrades.
-      for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      for (const progress of iterPlayerProgress(ctx) as Iterable<any>) {
         const active = ctx.db.player.identity.find(progress.identity);
         if (active) updateSnapshotRow(ctx, "player", { ...active, ...powerFieldsForProgress(ctx, progress) });
       }
@@ -260,7 +261,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
             for (const contributor of contributors) {
               if (typeof contributor?.identity !== "string") continue;
               const identity = new Identity(contributor.identity);
-              const progress = ctx.db.playerProgress.identity.find(identity);
+              const progress = readPlayerProgress(ctx, identity);
               if (progress && !progress.infernalUnlocked) {
                 updateSnapshotRow(ctx, "playerProgress", { ...progress, infernalUnlocked: true });
               }
@@ -282,7 +283,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
       // endgame envelope are soft-compressed. The logarithmic transform keeps
       // their ordering and veteran advantage while returning them to the curve.
       let changedProgress = false;
-      for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      for (const progress of iterPlayerProgress(ctx) as Iterable<any>) {
         const currentBalance = ctx.db.playerBalanceVersion.identity.find(progress.identity);
         const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0, false);
         if (!samePlayerProgressValues(progress, migrated)) {
@@ -304,7 +305,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
       // changing an account's raw damage-plus-health power budget. Accounts
       // already at or below the authored ratio remain byte-for-byte unchanged.
       let changedProgress = false;
-      for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      for (const progress of iterPlayerProgress(ctx) as Iterable<any>) {
         const currentBalance = ctx.db.playerBalanceVersion.identity.find(progress.identity);
         const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0, false);
         if (!samePlayerProgressValues(progress, migrated)) {
@@ -328,7 +329,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
       // migrates old pending browser saves, preventing them from restoring the
       // pre-compression values on reconnect.
       let changedProgress = false;
-      for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      for (const progress of iterPlayerProgress(ctx) as Iterable<any>) {
         const currentBalance = ctx.db.playerBalanceVersion.identity.find(progress.identity);
         const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0, false);
         if (!samePlayerProgressValues(progress, migrated)) {
@@ -349,7 +350,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
       // Balance version 6 corrects the short-lived v5 cohort from its cached
       // pre-equipment anchor to the intended current-equipment map targets.
       let changedProgress = false;
-      for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      for (const progress of iterPlayerProgress(ctx) as Iterable<any>) {
         const currentBalance = ctx.db.playerBalanceVersion.identity.find(progress.identity);
         const migrated = playerBalanceProgress(progress, currentBalance?.version ?? 0, false);
         if (!samePlayerProgressValues(progress, migrated)) {
@@ -377,7 +378,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
             for (const contributor of contributors) {
               if (typeof contributor?.identity !== "string") continue;
               const identity = new Identity(contributor.identity);
-              const progress = ctx.db.playerProgress.identity.find(identity);
+              const progress = readPlayerProgress(ctx, identity);
               if (progress && !progress.moonfenUnlocked) {
                 updateSnapshotRow(ctx, "playerProgress", { ...progress, moonfenUnlocked: true });
               }
@@ -391,7 +392,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
       // from stats or merely being present in Moonfen.
       const result = ctx.db.miremawResult.id.find(MIREMAW_ID);
       if (result) {
-        for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+        for (const progress of iterPlayerProgress(ctx) as Iterable<any>) {
           if (!progress.crystalHollowsUnlocked && resultIncludesContributor(result, progress.identity)) {
             updateSnapshotRow(ctx, "playerProgress", { ...progress, crystalHollowsUnlocked: true });
           }
@@ -404,7 +405,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
       // Prismshell has no downstream unlock, so only its latest recorded
       // contributor list is safe evidence for that bit. The ledger is metadata
       // only: every clear pays the full authored reward.
-      for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      for (const progress of iterPlayerProgress(ctx) as Iterable<any>) {
         let bossRewardClaims = Number(progress.bossRewardClaims ?? 0) >>> 0;
         if (progress.desertUnlocked) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.dragon;
         if (progress.snowlandsUnlocked) bossRewardClaims |= BOSS_REWARD_CLAIM_BITS.spider;
@@ -430,7 +431,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     if (currentVersion < 24) rebaseLegacyPlayersToMaps(ctx);
     if (currentVersion < 25) {
       // The existing claim ledger preserves every prior Prismshell victory.
-      for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      for (const progress of iterPlayerProgress(ctx) as Iterable<any>) {
         if ((progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.prismshell) !== 0 || contributedToLatestPrismshell(ctx, progress.identity)) {
           updateSnapshotRow(ctx, "playerProgress", { ...progress, clockworkRuinsUnlocked: true });
         }
@@ -439,21 +440,21 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     if (currentVersion < 26) rebasePlayersToEndgame(ctx);
     if (currentVersion < 27) migrateGuildTags(ctx);
     if (currentVersion < 28) {
-      for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      for (const progress of iterPlayerProgress(ctx) as Iterable<any>) {
         if (!progress.neonBastionUnlocked && ((progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.dreadreaper) || contributedToLatestDreadreaper(ctx, progress.identity))) {
           updateSnapshotRow(ctx, "playerProgress", { ...progress, neonBastionUnlocked: true });
         }
       }
     }
     if (currentVersion < 29) {
-      for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      for (const progress of iterPlayerProgress(ctx) as Iterable<any>) {
         if (!progress.verdantCatacombsUnlocked && ((progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.voltwarden) || contributedToLatestVoltwarden(ctx, progress.identity))) {
           updateSnapshotRow(ctx, "playerProgress", { ...progress, verdantCatacombsUnlocked: true });
         }
       }
     }
     if (currentVersion < 30) {
-      for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      for (const progress of iterPlayerProgress(ctx) as Iterable<any>) {
         if (!progress.ionCitadelUnlocked && ((progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS.gravebloom) || contributedToLatestGravebloom(ctx, progress.identity))) {
           updateSnapshotRow(ctx, "playerProgress", { ...progress, ionCitadelUnlocked: true });
         }
@@ -469,7 +470,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
       for (const row of ctx.db.playerNameCooldown.iter()) {
         ctx.db.playerNameCooldown.identity.update({ ...row, changedAt: resetAt });
       }
-      for (const progress of ctx.db.playerProgress.iter() as Iterable<any>) {
+      for (const progress of iterPlayerProgress(ctx) as Iterable<any>) {
         const next = rebaseEndlessPlayer(ctx, progress);
         markPlayerBalanceCurrent(ctx, progress.identity);
         const active = ctx.db.player.identity.find(progress.identity);
@@ -636,7 +637,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
         }
       }
 
-      const progress = ctx.db.playerProgress.identity.find(prestige.identity);
+      const progress = readPlayerProgress(ctx, prestige.identity);
       const player = ctx.db.player.identity.find(prestige.identity);
       if (progress && player) {
         const updated = {
@@ -714,7 +715,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
   }
 
   function rebaseLegacyPlayersToMaps(ctx: any) {
-    const plans = [...ctx.db.playerProgress.iter() as Iterable<any>].map((progress) => {
+    const plans = [...iterPlayerProgress(ctx) as Iterable<any>].map((progress) => {
       const archived = ctx.db.playerPowerRebaseBackup.identity.find(progress.identity);
       const next = archived ? progress : compressLegacyMapPower(progress);
       return { progress, next, archived, before: effectivePowerForProgress(ctx, progress), after: effectivePowerForProgress(ctx, next) };
@@ -751,7 +752,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
       const effective = effectivePowerStatsForProgress(ctx, progress);
       return rescaleRankingStats(effective);
     };
-    const plans = [...ctx.db.playerProgress.iter() as Iterable<any>].map((progress) => {
+    const plans = [...iterPlayerProgress(ctx) as Iterable<any>].map((progress) => {
       const archived = ctx.db.playerEndgameRebaseBackup.identity.find(progress.identity);
       const next = archived ? progress : rescaleEndgameProgress(progress);
       return { progress, next, archived, before: stats(progress), after: stats(next) };

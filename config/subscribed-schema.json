@@ -926,6 +926,13 @@
       "simulationTick",
       "motionEpoch"
     ],
+    "player_wide_stats": [
+      "identity",
+      "maxHp",
+      "damage",
+      "armor",
+      "regen"
+    ],
     "prestige_expansion": [
       "id",
       "launchedAt",

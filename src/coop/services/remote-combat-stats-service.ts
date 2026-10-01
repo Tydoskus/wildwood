@@ -4,6 +4,7 @@ import { effectivePlayerPowerStats } from "../../../shared/player-power";
 import { itemDefinition, normalizeItemUpgradeLevel } from "../../../shared/items";
 import { guildWeaponRange } from "../../../shared/guild-combat";
 import type { RemoteCombatStats } from "../contracts";
+import { withWideProgress } from "./wide-progress";
 
 const LOAD_TIMEOUT_MS = 5_000;
 const CACHE_TTL_MS = 30_000;
@@ -172,9 +173,10 @@ export function createRemoteCombatStatsService(dependencies: {
         .onApplied(() => {
           if (dependencies.connection() !== connection) return finish(null);
           try {
-            const progress = [...connection.db.playerProgress.iter()]
+            const stored = [...connection.db.playerProgress.iter()]
               .find((row) => row.identity.toHexString() === identity);
-            if (!progress) return finish(null);
+            if (!stored) return finish(null);
+            const progress = withWideProgress(connection, stored);
             const research = [...connection.db.playerResearch.iter()]
               .find((row) => row.identity.toHexString() === identity);
             const upgrades = [...connection.db.playerItemUpgrade.iter()]
@@ -187,6 +189,7 @@ export function createRemoteCombatStatsService(dependencies: {
         .onError(() => finish(null))
         .subscribe([
           tables.playerProgress.where((row) => row.identity.eq(dbIdentity)),
+          tables.playerWideStats.where((row) => row.identity.eq(dbIdentity)),
           tables.playerResearch.where((row) => row.identity.eq(dbIdentity)),
           tables.playerItemUpgrade.where((row) => row.identity.eq(dbIdentity)),
         ]);

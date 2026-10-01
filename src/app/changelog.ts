@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.855": [
+    "Stats can now grow far past 1e36: Endless keeps scaling to around Endless 400",
+    "New number names past 1e36 (dd, td, qad … vg), then scientific notation",
+  ],
   "0.854": [
     "Without a guild, the Quest Board and Guild > Quests show your own quests this week and your bonus now and next",
     "Quests finished on the day you join a guild count toward your own bonus instead of nothing",
@@ -2610,6 +2614,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.855": "2026-10-01",
   "0.854": "2026-10-01",
   "0.853": "2026-10-01",
   "0.852": "2026-10-01",

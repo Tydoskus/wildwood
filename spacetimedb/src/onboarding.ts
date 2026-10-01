@@ -2,6 +2,7 @@ import { table, t, SenderError } from "spacetimedb/server";
 import type { Identity } from "spacetimedb";
 import type { ModuleReducerCtx } from "./index";
 import { ONBOARDING_DAMAGE_REWARD, ONBOARDING_REGEN_REWARD, ONBOARDING_STEP, onboardingPending } from "../../shared/onboarding";
+import { readPlayerProgress } from "./wide-stats";
 
 export const playerOnboarding = table({ name: "player_onboarding", public: false }, {
   identity: t.identity().primaryKey(), step: t.u8(),
@@ -16,7 +17,7 @@ export function advanceOnboarding(ctx: ModuleReducerCtx, step: number, writeProg
   if (step <= state.step) return;
   // The final step can also be reached through Skip tutorial. It grants no unearned rewards.
   if (step !== ONBOARDING_STEP.complete && step !== state.step + 1) throw new SenderError("Finish the current tutorial step first.");
-  const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+  const progress = readPlayerProgress(ctx, ctx.sender);
   if (!progress) throw new SenderError("Character unavailable.");
   writeProgress({ ...progress,
     damage: progress.damage + (step === ONBOARDING_STEP.regen ? ONBOARDING_DAMAGE_REWARD : 0),

@@ -13,6 +13,7 @@ import { enemyRespawnSecondsWithResearch, offlineWindowSecondsWithResearch } fro
 import { REGULAR_ENEMY_RESPAWN_SECONDS } from "../../shared/rules";
 import type { PlayerPowerStats } from "../../shared/player-power";
 import type { MapBalanceSnapshot } from "../../shared/map-balance-types";
+import { readPlayerProgress } from "./wide-stats";
 
 export const offlineProgressTables = {
   /**
@@ -253,6 +254,6 @@ export function setSimulatedTimeAway(ctx: any, seconds: number, ports: OfflineGr
   const awaySinceMicros = backdated > 0n ? backdated : 1n;
   const row: OfflineProgressRow | undefined = ctx.db.offlineProgress.identity.find(ctx.sender);
   writeRow(ctx, { ...(row ?? emptyOfflineProgressRow(ctx.sender)), awaySinceMicros, pending: false });
-  const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+  const progress = readPlayerProgress(ctx, ctx.sender);
   if (progress) grantOfflineProgress(ctx, progress, ports);
 }

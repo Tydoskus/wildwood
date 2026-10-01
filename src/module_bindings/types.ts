@@ -2167,6 +2167,15 @@ export const PlayerSessionAnalytics = __t.object("PlayerSessionAnalytics", {
 });
 export type PlayerSessionAnalytics = __Infer<typeof PlayerSessionAnalytics>;
 
+export const PlayerSoloQuestWeek = __t.object("PlayerSoloQuestWeek", {
+  identity: __t.identity(),
+  week: __t.u32(),
+  points: __t.u32(),
+  lastWeek: __t.u32(),
+  lastPoints: __t.u32(),
+});
+export type PlayerSoloQuestWeek = __Infer<typeof PlayerSoloQuestWeek>;
+
 export const PlayerUpgradeBench = __t.object("PlayerUpgradeBench", {
   identity: __t.identity(),
   secondSlotUnlocked: __t.bool(),
@@ -2179,6 +2188,15 @@ export const PlayerUpgradeBenchThirdSlot = __t.object("PlayerUpgradeBenchThirdSl
   updatedAt: __t.timestamp(),
 });
 export type PlayerUpgradeBenchThirdSlot = __Infer<typeof PlayerUpgradeBenchThirdSlot>;
+
+export const PlayerWideStats = __t.object("PlayerWideStats", {
+  identity: __t.identity(),
+  maxHp: __t.f64(),
+  damage: __t.f64(),
+  armor: __t.f64(),
+  regen: __t.f64(),
+});
+export type PlayerWideStats = __Infer<typeof PlayerWideStats>;
 
 export const PresenceChatCooldown = __t.object("PresenceChatCooldown", {
   identity: __t.identity(),

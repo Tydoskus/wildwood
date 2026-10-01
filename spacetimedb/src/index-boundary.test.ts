@@ -163,7 +163,9 @@ import { describe, expect, it } from "vitest";
 // daily-quests.ts.
 // 6_578: opt-in battle sharing added the guild service's battleShared hook.
 // The share lives in guild-service.ts and its reducer in guild-reducers.ts.
-const MAX_LINES = 6_578;
+// 6_582: wide stats added the player_wide_stats table import and the f32
+// clamp on leaderboard and chat writes. The storage lives in wide-stats.ts.
+const MAX_LINES = 6_582;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

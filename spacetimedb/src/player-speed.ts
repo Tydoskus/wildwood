@@ -3,6 +3,7 @@ import { effectivePlayerMovementSpeed } from "../../shared/rules";
 import { prestigePerkValue } from "../../shared/prestige-perks";
 import { attackRangeWithResearch } from "../../shared/utility-research";
 import { updateSnapshotRow } from "./snapshot-row-writes";
+import { readPlayerProgress } from "./wide-stats";
 
 /** The server's saved movement speed, including both research trees. */
 export function effectiveMovementSpeedForProgress(ctx: any, progress: any, research?: any) {
@@ -22,7 +23,7 @@ export function prestigeRangeBonus(ctx: any, identity: any) {
 
 /** Refresh saved range and live movement immediately when a perk point is spent. */
 export function refreshPrestigeMovement(ctx: any, activePlayer: any, syncMotion: (player: any) => void) {
-  const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+  const progress = readPlayerProgress(ctx, ctx.sender);
   if (!progress) return;
   const next = { ...progress, attackRange: attackRangeWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.utilityAttackRange ?? 0) + prestigeRangeBonus(ctx, ctx.sender) };
   updateSnapshotRow(ctx, "playerProgress", next);

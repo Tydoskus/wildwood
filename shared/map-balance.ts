@@ -185,7 +185,7 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
     }
   }
   for (const n of [result.boss?.hp, result.boss?.damage, ...Object.values(result.boss?.rewards ?? {}), ...Object.values(result.lanes).flatMap(row => [row.hp, row.damage, row.reward.amount])]) {
-    if (n !== undefined && (!Number.isFinite(n) || n < 0 || n > 1e36)) throw new Error('Balance exceeds supported stat range.');
+    if (n !== undefined && (!Number.isFinite(n) || n < 0 || n > rules.MAX_PLAYER_STAT)) throw new Error('Balance exceeds supported stat range.');
   }
   return result;
 }
