@@ -1717,6 +1717,12 @@ export const PlayerEquipmentLock = __t.object("PlayerEquipmentLock", {
 });
 export type PlayerEquipmentLock = __Infer<typeof PlayerEquipmentLock>;
 
+export const PlayerFreeRespec = __t.object("PlayerFreeRespec", {
+  identity: __t.identity(),
+  usedAt: __t.timestamp(),
+});
+export type PlayerFreeRespec = __Infer<typeof PlayerFreeRespec>;
+
 export const PlayerGemDrop = __t.object("PlayerGemDrop", {
   identity: __t.identity(),
   amount: __t.u32(),

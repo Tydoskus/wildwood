@@ -53,7 +53,7 @@ import { PLAYER_SKIN_TONES } from "../../shared/player-skin-tones";
 import { leaderboardPageTables, writeLeaderboardPages, readLeaderboardWindow, readLeaderboardPage, readPrestigeLeaderboardPage } from "./leaderboard-pages";
 import { leaderboardEligible } from "../../shared/leaderboard-window";
 import { effectiveMovementSpeedForProgress, prestigeRangeBonus, refreshPrestigeMovement, attackIntervalForProgress } from "./player-speed";
-import { playerPrestige, playerPrestigePerk, prestigeExpansion, playerPrestigeExpansionPerk, ensurePrestigeExpansion } from "./prestige-expansion";
+import { playerPrestige, playerPrestigePerk, prestigeExpansion, playerPrestigeExpansionPerk, playerFreeRespec, ensurePrestigeExpansion } from "./prestige-expansion";
 import { earlierTimestamp } from "./timestamp-utils";
 import { attackRangeWithResearch, slotUpgradeDurationWithResearch } from "../../shared/utility-research";
 import { createResearchState } from "./research-state";
@@ -1812,7 +1812,7 @@ const spacetimedb = schema({
   playerEndlessRebaseBackup,
   playerPrestige,
   playerPrestigePerk,
-  playerPrestigeChallenge, prestigeChallengeBackup, prestigeChallengeRun, playerPrestigeChallengeParked, prestigeExpansion,
+  playerPrestigeChallenge, prestigeChallengeBackup, prestigeChallengeRun, playerPrestigeChallengeParked, playerFreeRespec, prestigeExpansion,
   playerPrestigeExpansionPerk,
   duelRiposte, duelCombatSnapshot,
   playerSessionAnalytics,
@@ -5589,6 +5589,7 @@ export const prestigeAccount = spacetimedb.reducer({}, (ctx) => { prestige.prest
 export const spendPrestigePerkPoint = spacetimedb.reducer({ perk: t.string() },
   (ctx, { perk }) => { prestige.spendPerkPoint(ctx, perk); });
 export const respecPrestigePerks = spacetimedb.reducer({}, (ctx) => { prestige.respecPerks(ctx); });
+export const useFreePrestigeRespec = spacetimedb.reducer({}, (ctx) => { prestige.freeRespecPerks(ctx); });
 
 function sendPlayerChatMessage(ctx: ModuleReducerCtx, message: string, replyToMessageId = 0n) {
   requireControllingPlayer(ctx);

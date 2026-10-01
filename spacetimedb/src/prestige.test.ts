@@ -347,3 +347,27 @@ it("raises Reflect's cap by one for each Reflect Only win, while every other per
   expect(() => f.run(server.spendPrestigePerkPoint, { perk: "keenEdge" })).toThrow("highest rank");
   expect(prestigeRow(f).perkPoints).toBe(8);
 });
+
+it("gives every account one free respec that refunds perks and keeps the run's stats and map", () => {
+  const f = farmer();
+  f.seed("playerPrestige", { identity: f.ctx.sender, level: 4, perkPoints: 1, peakPower: 5, prestigedAt: f.ctx.timestamp });
+  f.seed("playerPrestigePerk", { identity: f.ctx.sender, keenEdge: 2, doubleStrike: 0, splitShot: 1, riposte: 0 });
+  const before = { ...f.db.playerProgress.identity.find(f.ctx.sender) };
+  const mapId = f.db.player.identity.find(f.ctx.sender).mapId;
+  f.run(server.useFreePrestigeRespec, {});
+  expect(prestigeRow(f)).toMatchObject({ level: 4, perkPoints: 4 });
+  expect(perkRow(f)).toMatchObject({ keenEdge: 0, splitShot: 0 });
+  expect(f.db.playerProgress.identity.find(f.ctx.sender)).toMatchObject({ damage: before.damage, maxHp: before.maxHp, bossRewardClaims: before.bossRewardClaims });
+  expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe(mapId);
+  f.run(server.spendPrestigePerkPoint, { perk: "riposte" });
+  expect(() => f.run(server.useFreePrestigeRespec, {})).toThrow("already used");
+});
+
+it("keeps the free respec out of a running challenge", () => {
+  const f = farmer();
+  f.seed("playerPrestige", { identity: f.ctx.sender, level: 1, perkPoints: 0, peakPower: 0, prestigedAt: f.ctx.timestamp });
+  f.seed("playerPrestigePerk", { identity: f.ctx.sender, keenEdge: 1, doubleStrike: 0, splitShot: 0, riposte: 0 });
+  f.seed("playerPrestigeChallenge", { identity: f.ctx.sender, active: true, completed: 0 });
+  expect(() => f.run(server.useFreePrestigeRespec, {})).toThrow("challenge");
+  expect(f.db.playerFreeRespec.identity.find(f.ctx.sender)).toBeNull();
+});

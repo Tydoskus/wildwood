@@ -179,6 +179,7 @@ import UnlockInventorySlotReducer from "../unlock_inventory_slot_reducer";
 import UnlockSecondUpgradeSlotReducer from "../unlock_second_upgrade_slot_reducer";
 import UnlockThirdUpgradeSlotReducer from "../unlock_third_upgrade_slot_reducer";
 import UpdateMovementStateReducer from "../update_movement_state_reducer";
+import UseFreePrestigeRespecReducer from "../use_free_prestige_respec_reducer";
 
 export type AbandonPrestigeChallengeParams = __Infer<typeof AbandonPrestigeChallengeReducer>;
 export type AcceptDuelParams = __Infer<typeof AcceptDuelReducer>;
@@ -353,4 +354,5 @@ export type UnlockInventorySlotParams = __Infer<typeof UnlockInventorySlotReduce
 export type UnlockSecondUpgradeSlotParams = __Infer<typeof UnlockSecondUpgradeSlotReducer>;
 export type UnlockThirdUpgradeSlotParams = __Infer<typeof UnlockThirdUpgradeSlotReducer>;
 export type UpdateMovementStateParams = __Infer<typeof UpdateMovementStateReducer>;
+export type UseFreePrestigeRespecParams = __Infer<typeof UseFreePrestigeRespecReducer>;
 

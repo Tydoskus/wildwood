@@ -692,6 +692,10 @@
       "facing",
       "emittedAt"
     ],
+    "player_free_respec": [
+      "identity",
+      "usedAt"
+    ],
     "player_gem_drop": [
       "identity",
       "amount",

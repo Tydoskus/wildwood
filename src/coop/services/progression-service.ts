@@ -167,6 +167,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   let prestigeExpansionUnlocksAt: number | null = null;
   let prestigeChallenge: PrestigeChallenge = { active: false, completed: 0 };
   let challengeParked = false;
+  let freeRespecUsed = false;
   let gemBalance = 0n;
   let dailyGemBonusClaimable = false;
   const mailboxMessages = new Map<string, MailboxMessage>();
@@ -551,6 +552,16 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     prestigeChallenge = { active: false, completed: 0 };
     dependencies.notify();
   }
+  function upsertFreeRespec(row: { identity: Identity }) {
+    if (row.identity.toHexString() !== dependencies.localIdentity()) return;
+    freeRespecUsed = true;
+    dependencies.notify();
+  }
+  function removeFreeRespec(row: { identity: Identity }) {
+    if (row.identity.toHexString() !== dependencies.localIdentity()) return;
+    freeRespecUsed = false;
+    dependencies.notify();
+  }
   function upsertPrestigeChallengeParked(row: { identity: Identity }) {
     if (row.identity.toHexString() !== dependencies.localIdentity()) return;
     challengeParked = true;
@@ -710,6 +721,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       upsertPrestigePerk,
       upsertPrestigeChallenge, removePrestigeChallenge,
       upsertPrestigeChallengeParked, removePrestigeChallengeParked,
+      upsertFreeRespec, removeFreeRespec,
       upsertPrestigeExpansion, removePrestigeExpansion,
       upsertPrestigeExpansionPerk, removePrestigeExpansionPerk,
       removePrestigePerk,
@@ -876,6 +888,8 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       prestige: () => localPrestige ? { ...localPrestige } : null,
       prestigeLevelFor: (identity: string) => prestigeLevelByIdentity.get(identity) ?? 0,
       prestigeChallenge: () => ({ ...prestigeChallenge, parked: challengeParked }),
+      /** Every account has one respec that keeps its stats; false once it is spent. */
+      freeRespecAvailable: () => !freeRespecUsed,
       prestigeExpansionUnlocksAt: () => prestigeExpansionUnlocksAt,
       prestigePerks: (): PlayerPrestigePerks => ({ keenEdge: 0, doubleStrike: 0, splitShot: 0, riposte: 0, ...localPrestigePerks, ...expansionPerks }),
       /** The tier that applies to an item: whatever its slot has earned. */
@@ -1015,6 +1029,10 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
           dependencies.notify();
         }
         return result;
+      },
+      /** The free respec keeps the run's stats, so queued kills and the unsaved prediction stay valid. */
+      useFreePrestigeRespec() {
+        return reducerResult("free prestige respec", (active) => active.reducers.useFreePrestigeRespec({}))();
       },
       async startItemUpgrade(slot: UpgradeBenchSlot, itemId: string, position?: { x: number; y: number }) {
         if (dependencies.reducers.protocolBlocked()) return { ok: false, error: "UPDATE REQUIRED" };
@@ -1195,6 +1213,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       activeResearch = null;
       prestigeChallenge = { active: false, completed: 0 };
       challengeParked = false;
+      freeRespecUsed = false;
       localPrestige = null;
       prestigeLevelByIdentity.clear();
       localPrestigePerks = null;
@@ -1238,6 +1257,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       activeResearch = null;
       prestigeChallenge = { active: false, completed: 0 };
       challengeParked = false;
+      freeRespecUsed = false;
       localPrestige = null;
       prestigeLevelByIdentity.clear();
       localPrestigePerks = null;

@@ -142,6 +142,27 @@ export function createPrestige(deps: PrestigeDeps) {
     return spent;
   }
 
+  /**
+   * The one free respec every account gets: the same refund as respecPerks, but
+   * the run keeps its stats, map and position. Only the perks' own effects
+   * (Fleet Foot's speed, Long Shot's range) come off with their ranks.
+   */
+  function freeRespecPerks(ctx: any) {
+    const activePlayer = requireControllingPlayer(ctx);
+    if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel before respeccing.");
+    if (ctx.db.playerFreeRespec.identity.find(ctx.sender)) throw new SenderError("Your free respec is already used.");
+    if (challengeActive(ctx, ctx.sender)) throw new SenderError("Finish or drop out of the prestige challenge before respeccing.");
+    const current = ctx.db.playerPrestige.identity.find(ctx.sender);
+    const ranks = prestigePerkRanks(ctx, ctx.sender);
+    const spent = PRESTIGE_PERK_IDS.reduce((sum, perk) => sum + ranks[perk], 0);
+    if (!current || spent < 1) throw new SenderError("No perk points to respec.");
+    writePrestigePerkRanks(ctx, ctx.sender, Object.fromEntries(PRESTIGE_PERK_IDS.map(perk => [perk, 0])) as PrestigePerkRanks);
+    ctx.db.playerPrestige.identity.update({ ...current, perkPoints: current.perkPoints + spent });
+    ctx.db.playerFreeRespec.insert({ identity: ctx.sender, usedAt: ctx.timestamp });
+    deps.refreshPerkEffects(ctx, activePlayer);
+    return spent;
+  }
+
   function changeChallenge(ctx: any, active: boolean) {
     const player = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel before changing challenge mode.");
@@ -152,5 +173,5 @@ export function createPrestige(deps: PrestigeDeps) {
     else resetProgressToDefaults(ctx, player, { research: true, lifetimeKills: true, slotTiers: true, items: true });
   }
 
-  return { prestigeAccount, spendPerkPoint, respecPerks, changeChallenge };
+  return { prestigeAccount, spendPerkPoint, respecPerks, freeRespecPerks, changeChallenge };
 }

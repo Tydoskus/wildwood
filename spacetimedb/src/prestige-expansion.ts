@@ -25,6 +25,11 @@ export function prestigeExpanded(ctx: Context) {
   return Boolean(row && ctx.timestamp.microsSinceUnixEpoch >= row.unlocksAt.microsSinceUnixEpoch);
 }
 
+/** Every account gets one respec that refunds perk points but keeps the run's stats. A row means it is spent. */
+export const playerFreeRespec = table({ name: "player_free_respec", public: true }, {
+  identity: t.identity().primaryKey(), usedAt: t.timestamp(),
+});
+
 export const playerPrestige = table({ name: "player_prestige", public: true }, {
   identity: t.identity().primaryKey(), level: t.u32().default(0), perkPoints: t.u32().default(0),
   peakPower: t.f64().default(0), prestigedAt: t.timestamp(),

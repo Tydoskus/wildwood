@@ -207,6 +207,7 @@ import UnlockInventorySlotReducer from "./unlock_inventory_slot_reducer";
 import UnlockSecondUpgradeSlotReducer from "./unlock_second_upgrade_slot_reducer";
 import UnlockThirdUpgradeSlotReducer from "./unlock_third_upgrade_slot_reducer";
 import UpdateMovementStateReducer from "./update_movement_state_reducer";
+import UseFreePrestigeRespecReducer from "./use_free_prestige_respec_reducer";
 
 // Import all procedure arg schemas
 import * as BeginPatreonLinkProcedure from "./begin_patreon_link_procedure";
@@ -317,6 +318,7 @@ import PlayerRow from "./player_table";
 import PlayerAccountStatusRow from "./player_account_status_table";
 import PlayerChatHeartsRow from "./player_chat_hearts_table";
 import PlayerDeathFrameRow from "./player_death_frame_table";
+import PlayerFreeRespecRow from "./player_free_respec_table";
 import PlayerGemDropRow from "./player_gem_drop_table";
 import PlayerItemDropRow from "./player_item_drop_table";
 import PlayerItemUpgradeRow from "./player_item_upgrade_table";
@@ -782,6 +784,17 @@ const tablesSchema = __schema({
     ],
     event: true,
   }, PlayerDeathFrameRow),
+  playerFreeRespec: __table({
+    name: 'player_free_respec',
+    indexes: [
+      { accessor: 'identity', name: 'player_free_respec_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_free_respec_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerFreeRespecRow),
   playerGemDrop: __table({
     name: 'player_gem_drop',
     indexes: [
@@ -1607,6 +1620,7 @@ const reducersSchema = __reducers(
   __reducerSchema("unlock_second_upgrade_slot", UnlockSecondUpgradeSlotReducer),
   __reducerSchema("unlock_third_upgrade_slot", UnlockThirdUpgradeSlotReducer),
   __reducerSchema("update_movement_state", UpdateMovementStateReducer),
+  __reducerSchema("use_free_prestige_respec", UseFreePrestigeRespecReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */

@@ -136,6 +136,8 @@ type ExpectedApiKey =
   | "prestigeExpansionUnlocksAt"
   | "spendPrestigePerkPoint"
   | "respecPrestigePerks"
+  | "freeRespecAvailable"
+  | "useFreePrestigeRespec"
   | "resetProgress"
   | "retryConnection"
   | "claimGameBridge"

@@ -147,7 +147,9 @@ import { describe, expect, it } from "vitest";
 // added the start_login_move and finish_login_move declarations, their comment
 // and the login_move registration. The table, the checks, the swap and the
 // audit live in account-transfer.ts; the raise is the declarations alone.
-const MAX_LINES = 6_563;
+// 6_564: the one free prestige respec added the use_free_prestige_respec
+// declaration. Its body lives in prestige.ts; the raise is the declaration alone.
+const MAX_LINES = 6_564;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {
