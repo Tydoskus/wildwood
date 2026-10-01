@@ -1,10 +1,12 @@
 import { App } from '@capacitor/app';
 import { registerPlugin } from '@capacitor/core';
 import { ANDROID_UPDATE_CHECK_MS, createAndroidUpdateController, type AndroidUpdateBridge } from './android-update-controller';
+import { installClosedBetaInvite } from './closed-beta-invite';
 
 /** Google Play decides availability for this tester and installed build. */
 export function installAndroidUpdates() {
   const bridge = registerPlugin<AndroidUpdateBridge>('WildStatUpdates');
+  installClosedBetaInvite(() => bridge.openStore());
   const mount = () => {
     const banner = document.createElement('section');
     banner.id = 'androidUpdateBanner'; banner.hidden = true;
