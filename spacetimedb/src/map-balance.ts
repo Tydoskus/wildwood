@@ -132,3 +132,16 @@ export function pinnedMapBalance(ctx: Pick<Context, 'db'>, identity: Context['se
 export function pinnedBossReward(ctx: Pick<Context, 'db'>, identity: Context['sender'], mapId: string, stat: string, fallback: number) {
   return pinnedMapBalance(ctx, identity, mapId)?.boss?.rewards[stat] ?? fallback;
 }
+/**
+ * The balance a player would meet on a map right now: their pinned visit when
+ * it is that map, otherwise what arriving there would pin (the head revision,
+ * the current wire version). Offline farming reads it for maps the player is
+ * not standing on, which used to fall back to the pre-resolver curves and pay
+ * a sliver of what the same kill pays in play.
+ */
+export function liveMapBalance(ctx: Pick<Context, 'db'>, identity: Context['sender'], mapId: string): MapBalanceSnapshot {
+  const pinned = pinnedMapBalance(ctx, identity, mapId);
+  if (pinned) return pinned;
+  const head = balanceEditorState(ctx);
+  return JSON.parse(resolvedSnapshotJson(mapId, head, 2, Boolean(storedSettings(ctx, head.revision))));
+}

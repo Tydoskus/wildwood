@@ -4,7 +4,7 @@ import { defaultBalanceSettings, resolveMapBalance, validateBalanceSettings } fr
 import { LIVE_BALANCE } from '../../src/balance/live-balance';
 import bakeFixture from '../../tests/fixtures/balance-revision-73.json';
 import { it, expect, vi } from 'vitest';
-import { balanceEditorState, forgetBalanceCaches, saveMapBalance, pinMapBalance, pinnedMapBalance } from './map-balance';
+import { balanceEditorState, forgetBalanceCaches, saveMapBalance, pinMapBalance, pinnedMapBalance, liveMapBalance } from './map-balance';
 function fixture() {
   forgetBalanceCaches();
   const sender = { toHexString: () => 'test' };
@@ -32,6 +32,20 @@ it('does not opt an old client into new values before it requests the snapshot',
 });
 
 vi.mock('spacetimedb/server', () => import('../../tests/helpers/spacetime-module'));
+it('gives offline farming the balance a kill pays right now, on maps the player is not standing on too', () => {
+  const ctx = fixture(); pinMapBalance(ctx, 'endless_19', true, 2);
+  const pinned = pinnedMapBalance(ctx, ctx.sender, 'endless_19')!;
+  const edited = balanceEditorState(ctx); edited.settings.maps.endless.enemyRewards *= 2;
+  saveMapBalance(ctx, 0, JSON.stringify(edited.settings));
+  // The visit in progress keeps its pin.
+  expect(liveMapBalance(ctx, ctx.sender, 'endless_19')).toEqual(pinned);
+  // One map ahead is what arriving would pin, not the pre-resolver curve that paid a sliver of it.
+  const ahead = liveMapBalance(ctx, ctx.sender, 'endless_20');
+  expect(ahead.revision).toBe(1);
+  expect(ahead.lanes.Bramble.reward.amount).toBeGreaterThan(pinned.lanes.Bramble.reward.amount * 2);
+  pinMapBalance(ctx, 'endless_20', true, 2);
+  expect(pinnedMapBalance(ctx, ctx.sender, 'endless_20')).toEqual(ahead);
+});
 
 import { crystalFixture, server } from '../../tests/helpers/crystal-hollows-fixture';
 import { reportKills } from '../../tests/helpers/enemy-defeat';

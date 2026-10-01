@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.849": [
+    "Offline farming pays the same stats per kill as playing that map",
+  ],
   "0.848": [
     "Defeating a quest enemy shows your progress, like 2/50",
     "Guild quest points and the weekly ranking moved to Guild > Quests",
@@ -2579,6 +2582,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.849": "2026-09-30",
   "0.848": "2026-09-30",
   "0.847": "2026-09-30",
   "0.846": "2026-09-30",

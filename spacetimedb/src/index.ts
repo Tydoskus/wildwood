@@ -9,7 +9,7 @@ import { compactNumberChanged } from "../../shared/compact-number";
 import { auditPrivilegedAccess, denyPrivilegedAccess } from "./privileged-access-audit";
 import { defeatSessionRestriction, defeatRestrictionError, requireAllowedDefeatSession, restrictDefeatSession, suspendPlayerAccount } from "./defeat-session";
 import { findDeveloperTravelTarget, readDeveloperTravelTarget } from "./developer-travel";
-import { mapBalanceVersion, mapBalanceHead, playerMapBalance, balanceEditorState, saveMapBalance, pinMapBalance, pinnedMapBalance } from "./map-balance";
+import { mapBalanceVersion, mapBalanceHead, playerMapBalance, balanceEditorState, saveMapBalance, pinMapBalance, pinnedMapBalance, liveMapBalance } from "./map-balance";
 import { resolveMapBalance, validateBalanceSettings } from "../../shared/map-balance";
 import { accountDeletionRequest, queueAccountDeletion } from "./account-deletion";
 import { mailboxEquipment, deliverEquipmentMail } from "./mailbox-equipment";
@@ -2896,7 +2896,7 @@ function restoreItemToProgress(progress: any, itemId: string) {
 }
 
 /** What offline-progress.ts needs from this module, wired once. */
-const OFFLINE_GRANT_PORTS = { effectiveStats: effectivePowerStatsForProgress, pinnedBalance: pinnedMapBalance,
+const OFFLINE_GRANT_PORTS = { effectiveStats: effectivePowerStatsForProgress, mapBalance: liveMapBalance,
   statMultiplier: statRewardMultiplier, endlessClaimBit: BOSS_REWARD_CLAIM_BITS[PROCEDURAL_ENTRY_BOSS],
   writeProgress: (ctx: any, progress: any) => writeProgressAndPresentation(ctx, progress) };
 

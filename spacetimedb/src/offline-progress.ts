@@ -178,7 +178,8 @@ export function acknowledgeOfflineProgress(ctx: any, identity: any) {
 
 export type OfflineGrantPorts = {
   effectiveStats: (ctx: any, progress: any) => PlayerPowerStats;
-  pinnedBalance: (ctx: any, identity: any, mapId: string) => MapBalanceSnapshot | null | undefined;
+  /** The balance a kill on this map pays right now: the pinned visit, or what arriving would pin. */
+  mapBalance: (ctx: any, identity: any, mapId: string) => MapBalanceSnapshot | null | undefined;
   statMultiplier: (ctx: any, identity: any) => number;
   writeProgress: (ctx: any, progress: any) => void;
   endlessClaimBit: number;
@@ -214,7 +215,7 @@ export function grantOfflineProgress(ctx: any, progress: any, ports: OfflineGran
       completed: ctx.db.proceduralProgress.identity.find(ctx.sender)?.completed ?? 0,
       unlocked: Boolean(progress?.bossRewardClaims & ports.endlessClaimBit),
     },
-    balanceFor: (mapId: string) => ports.pinnedBalance(ctx, ctx.sender, mapId) ?? undefined,
+    balanceFor: (mapId: string) => ports.mapBalance(ctx, ctx.sender, mapId) ?? undefined,
   });
   if (!grant || !grant.outcome.rewards.length) {
     storeOfflineGrant(ctx, ctx.sender, grant, { damage: 0, health: 0, armor: 0, regen: 0, attackSpeed: 0 });
