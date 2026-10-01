@@ -146,6 +146,7 @@ import RecordPlayerDeathReducer from "./record_player_death_reducer";
 import RecordRegularEnemyDefeatsReducer from "./record_regular_enemy_defeats_reducer";
 import RecordSnowEnemyDefeatReducer from "./record_snow_enemy_defeat_reducer";
 import RecordStartupTelemetryReducer from "./record_startup_telemetry_reducer";
+import RefreshDailyQuestsReducer from "./refresh_daily_quests_reducer";
 import RefreshDuelWireAccessReducer from "./refresh_duel_wire_access_reducer";
 import RegisterClientVersionReducer from "./register_client_version_reducer";
 import RegisterProtocolReducer from "./register_protocol_reducer";
@@ -272,6 +273,7 @@ import GloomrootBossRow from "./gloomroot_boss_table";
 import GloomrootResultRow from "./gloomroot_result_table";
 import GravebloomBossRow from "./gravebloom_boss_table";
 import GravebloomResultRow from "./gravebloom_result_table";
+import GuildQuestWeekRow from "./guild_quest_week_table";
 import IronhornBossRow from "./ironhorn_boss_table";
 import IronhornResultRow from "./ironhorn_result_table";
 import KoiShogunBossRow from "./koi_shogun_boss_table";
@@ -317,6 +319,7 @@ import PatreonTickerSupportersRow from "./patreon_ticker_supporters_table";
 import PlayerRow from "./player_table";
 import PlayerAccountStatusRow from "./player_account_status_table";
 import PlayerChatHeartsRow from "./player_chat_hearts_table";
+import PlayerDailyQuestRow from "./player_daily_quest_table";
 import PlayerDeathFrameRow from "./player_death_frame_table";
 import PlayerFreeRespecRow from "./player_free_respec_table";
 import PlayerGemDropRow from "./player_gem_drop_table";
@@ -630,6 +633,20 @@ const tablesSchema = __schema({
       { name: 'gravebloom_result_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, GravebloomResultRow),
+  guildQuestWeek: __table({
+    name: 'guild_quest_week',
+    indexes: [
+      { accessor: 'key', name: 'guild_quest_week_key_idx_btree', algorithm: 'btree', columns: [
+        'key',
+      ] },
+      { accessor: 'week', name: 'guild_quest_week_week_idx_btree', algorithm: 'btree', columns: [
+        'week',
+      ] },
+    ],
+    constraints: [
+      { name: 'guild_quest_week_key_key', constraint: 'unique', columns: ['key'] },
+    ],
+  }, GuildQuestWeekRow),
   ironhornBoss: __table({
     name: 'ironhorn_boss',
     indexes: [
@@ -768,6 +785,17 @@ const tablesSchema = __schema({
       { name: 'player_chat_hearts_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerChatHeartsRow),
+  playerDailyQuest: __table({
+    name: 'player_daily_quest',
+    indexes: [
+      { accessor: 'identity', name: 'player_daily_quest_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_daily_quest_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerDailyQuestRow),
   playerDeathFrame: __table({
     name: 'player_death_frame',
     indexes: [
@@ -1559,6 +1587,7 @@ const reducersSchema = __reducers(
   __reducerSchema("record_regular_enemy_defeats", RecordRegularEnemyDefeatsReducer),
   __reducerSchema("record_snow_enemy_defeat", RecordSnowEnemyDefeatReducer),
   __reducerSchema("record_startup_telemetry", RecordStartupTelemetryReducer),
+  __reducerSchema("refresh_daily_quests", RefreshDailyQuestsReducer),
   __reducerSchema("refresh_duel_wire_access", RefreshDuelWireAccessReducer),
   __reducerSchema("register_client_version", RegisterClientVersionReducer),
   __reducerSchema("register_protocol", RegisterProtocolReducer),

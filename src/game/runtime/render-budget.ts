@@ -15,7 +15,10 @@ export function nextPresentationDeadline(now: number, previousDeadline: number, 
 }
 
 /** 2× keeps canvas detail while bounding fill cost on 3×/4× phone displays.
+ * The High Resolution setting lifts it to 3× on screens that have it.
  * DOM text and controls still use the screen's native resolution. */
+let renderPixelRatioCap = 2;
+export function setHighResolutionCanvas(on: boolean) { renderPixelRatioCap = on ? 3 : 2; }
 export function canvasRenderPixelRatio(pixelRatio: number) {
-  return Math.min(2, Math.max(1, Number.isFinite(pixelRatio) ? pixelRatio : 1));
+  return Math.min(renderPixelRatioCap, Math.max(1, Number.isFinite(pixelRatio) ? pixelRatio : 1));
 }

@@ -17,6 +17,8 @@ type ResearchControllerOptions = {
   healthMultiplierBonus?: () => number;
   /** Prestige levels banked. Stat rewards carry it exactly as the server does. */
   prestigeLevel?: () => number;
+  /** This week's guild quest bonus on stat rewards (daily quests), as the server pays it. */
+  guildQuestBonus?: () => number;
   /** Prestige perk ranks. Keen Edge grants criticals outside the tech tree. */
   prestigePerks?: () => Partial<PrestigePerkRanks> | null | undefined;
 };
@@ -33,7 +35,8 @@ export function createResearchController(options: ResearchControllerOptions) {
     damageMultiplier: () => 1 + ranks().warcraft * .02,
     movementSpeedMultiplier: () => (movementSpeedMultiplier(ranks().moveSpeed) + utilityMovementSpeedBonus(ranks().utilityMoveSpeed) / Math.max(1, options.player.speed))
       * (1 + prestigePerkValue(options.prestigePerks?.(), "fleetFoot")),
-    rewardMultiplier: () => researchStatRewardMultiplier(ranks()) * prestigeStatMultiplier(options.prestigeLevel?.() ?? 0),
+    rewardMultiplier: () => researchStatRewardMultiplier(ranks()) * prestigeStatMultiplier(options.prestigeLevel?.() ?? 0)
+      * Math.max(1, options.guildQuestBonus?.() ?? 1),
     effectiveArmor: () => options.player.armor * (1 + ranks().precision * .02),
     regenerationMultiplier: () => 1 + ranks().regeneration * .02,
     criticalChance: () => ranks().criticalChance * .01 + prestigePerkValue(options.prestigePerks?.(), "keenEdge"),

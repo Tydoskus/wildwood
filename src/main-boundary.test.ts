@@ -69,7 +69,10 @@ import { describe, expect, it } from "vitest";
 // 2_142: the existing-character warning's construction and its HUD-tick poll,
 // the same shape as the prestige window's. Its lookup, window and show-once
 // rule live in game-ui-runtime.ts and duplicate-login-popup.ts.
-const MAX_LINES = 2_142;
+// 2_149: the Daily Quest board's construction, courtyard status and walk-up
+// hook, and its guild bonus in the reward and profile multipliers. Its window,
+// view and refresh live in quest-board-controller.ts.
+const MAX_LINES = 2_149;
 const TARGET_LINES = 1_000;
 
 describe("game composition boundary", () => {

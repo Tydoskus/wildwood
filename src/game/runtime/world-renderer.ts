@@ -1,5 +1,5 @@
 import { residentDrawable } from "./resident-image";
-import { drawHomeCourtyard, drawHomeResearchDesk, drawHomeStationSign } from "./home-courtyard";
+import { drawHomeCourtyard, drawHomeQuestBoard, drawHomeResearchDesk, drawHomeStationSign } from "./home-courtyard";
 import { drawIonRoads } from "./ion-ground";
 import { drawVerdantRoads } from "./verdant-ground";
 import { drawNeonRoads } from "./neon-ground";
@@ -135,6 +135,8 @@ export type WorldRendererOptions = {
   upgradeBench: HTMLImageElement;
   upgradeBenchStatus: () => { itemSprite?: HTMLImageElement; timer: string } | null;
   researchStatus?: () => { timer: string } | null;
+  /** Today's quests, finished or not, and the line under the board's sign. */
+  questBoardStatus?: () => { finished: boolean[]; timer: string } | null;
   lavaPools: HTMLImageElement[];
   lavaRocks: HTMLImageElement[];
   charredTrees: HTMLImageElement[];
@@ -769,7 +771,13 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     if (x < -120 || y < -210 || x > visible.width + 120 || y > visible.height + 210) return;
     if (bench.label === "Tech Research") {
       drawHomeResearchDesk(ctx, x, y - 8, options.getGameTime());
-      drawHomeStationSign(ctx, x, y, true, options.researchStatus?.()?.timer);
+      drawHomeStationSign(ctx, x, y, "Tech Research", options.researchStatus?.()?.timer);
+      return;
+    }
+    if (bench.label === "Quest Board") {
+      const quests = options.questBoardStatus?.();
+      drawHomeQuestBoard(ctx, x, y, options.getGameTime(), quests?.finished ?? []);
+      drawHomeStationSign(ctx, x, y + 2, "Daily Quests", quests?.timer);
       return;
     }
     if (!options.upgradeBench.complete || options.upgradeBench.naturalWidth <= 0) return;
@@ -778,7 +786,12 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     // The generated sprite has generous transparent padding below its feet;
     // Lift the shadow into the sprite's padded feet so the bench stays planted.
     options.drawShadow(x, y - 27, Math.round(width * .75), .2);
-    ctx.drawImage(residentDrawable(options.upgradeBench), x - width / 2, y - height, width, height);
+    // Drawn mirrored (Ryan, 2026-10-01): the sprite faces left as generated.
+    ctx.save();
+    ctx.translate(x, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(residentDrawable(options.upgradeBench), -width / 2, y - height, width, height);
+    ctx.restore();
     const upgrade = options.upgradeBenchStatus();
     if (upgrade?.itemSprite?.complete && upgrade.itemSprite.naturalWidth > 0) {
       const maxWidth = 88;
@@ -786,8 +799,9 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
       const scale = Math.min(maxWidth / upgrade.itemSprite.naturalWidth, maxHeight / upgrade.itemSprite.naturalHeight);
       const itemWidth = Math.max(1, Math.round(upgrade.itemSprite.naturalWidth * scale));
       const itemHeight = Math.max(1, Math.round(upgrade.itemSprite.naturalHeight * scale));
-      // Center the active item over the bench sprite's flat gray work plate.
-      const itemCenterX = x - Math.round(width * .18);
+      // Center the active item over the bench sprite's flat gray work plate,
+      // which the mirrored bench puts right of center.
+      const itemCenterX = x + Math.round(width * .18);
       const itemCenterY = y - height + height * .32 - 6;
       ctx.save();
       ctx.shadowColor = "rgba(116,225,255,.8)";
@@ -796,7 +810,7 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
       ctx.restore();
     }
     if (options.getMapId() === "home_exterior") {
-      drawHomeStationSign(ctx, x, y, false, upgrade?.timer); return;
+      drawHomeStationSign(ctx, x, y, "Loadout Upgrades", upgrade?.timer); return;
     }
     drawScreenSpaceAt(ctx, camera.zoom, x, y - height, () => {
       ctx.textAlign = "center";

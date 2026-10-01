@@ -313,6 +313,13 @@
       "contributorsJson",
       "createdAt"
     ],
+    "guild_quest_week": [
+      "key",
+      "week",
+      "guildId",
+      "guildName",
+      "points"
+    ],
     "ironhorn_boss": [
       "id",
       "encounter",
@@ -681,6 +688,14 @@
     "player_chat_hearts": [
       "identity",
       "chatHeartsReceived"
+    ],
+    "player_daily_quest": [
+      "identity",
+      "day",
+      "questsJson",
+      "bonus",
+      "guildPoints",
+      "guildName"
     ],
     "player_death_frame": [
       "mapId",

@@ -94,7 +94,7 @@ export function profilePower(profile: PlayerProfileData) {
 }
 
 export type ProfileStatDisplaySource = {
-  label: "Tech" | "Equipment" | "Slot Upgrade" | "Prestige";
+  label: "Tech" | "Equipment" | "Slot Upgrade" | "Prestige" | "Guild";
   value: string;
 };
 
@@ -118,6 +118,7 @@ export function profileStatDisplayRows(
   research?: PlayerResearch,
   prestigeLevel = profile.prestigeLevel ?? 0,
   perks: Partial<PrestigePerkRanks> | null | undefined = profile.prestigePerks,
+  guildBonus = 1,
 ) {
   const { progress } = profile;
   const ranks = research ?? profile.research ?? createEmptyResearchRanks();
@@ -207,19 +208,22 @@ export function profileStatDisplayRows(
   // Tech and prestige multiply each other, exactly as the server pays them, so
   // the total is the product rather than the two percentages added together.
   const techGain = researchStatRewardMultiplier(ranks), prestigeGain = prestigeStatMultiplier(prestigeLevel);
+  // The guild's daily quest bonus multiplies in last, as the server pays it.
+  const guildGain = Math.max(1, Number.isFinite(guildBonus) ? guildBonus : 1);
   const percentPoints = (fraction: number) => `${Math.round(fraction * 1000) / 10}%`;
   // Both factors have whole-percent precision. Round their integer product
   // once so half-percent ties and the expanded/collapsed totals agree.
-  const gainPercent = Math.round(Math.round(techGain * 100) * Math.round(prestigeGain * 100) / 100) - 100;
+  const gainPercent = Math.round(Math.round(techGain * 100) * Math.round(prestigeGain * 100) / 100 * Math.round(guildGain * 100) / 100) - 100;
   const statGain = `+${gainPercent}%`;
   stats.push({
     kind: "stat-gain", label: "Stat Gain:", base: techGain.toFixed(2),
-    equationOperator: "×", multiplier: prestigeGain.toFixed(2), total: statGain,
+    equationOperator: "×", multiplier: (prestigeGain * guildGain).toFixed(2), total: statGain,
     equationTotal: `${((gainPercent + 100) / 100).toFixed(2)}×`,
-    hideEquation: techGain <= 1 || prestigeGain <= 1,
+    hideEquation: techGain <= 1 || prestigeGain * guildGain <= 1,
     sources: [
       ...(techGain > 1 ? [{ label: "Tech" as const, value: `${techGain.toFixed(2)}×` }] : []),
       ...(prestigeGain > 1 ? [{ label: "Prestige" as const, value: `${prestigeGain.toFixed(2)}×` }] : []),
+      ...(guildGain > 1 ? [{ label: "Guild" as const, value: `${guildGain.toFixed(2)}×` }] : []),
     ],
   });
   // Keen Edge pays critical chance and critical damage on top of research, so
@@ -267,8 +271,9 @@ export function renderProfileStats(
   research?: PlayerResearch,
   prestigeLevel = profile.prestigeLevel ?? 0,
   perks: Partial<PrestigePerkRanks> | null | undefined = profile.prestigePerks,
+  guildBonus = 1,
 ) {
-  const stats = profileStatDisplayRows(profile, armorReduction, minAttackInterval, research, prestigeLevel, perks);
+  const stats = profileStatDisplayRows(profile, armorReduction, minAttackInterval, research, prestigeLevel, perks, guildBonus);
   const expandedKinds = statGrid.dataset.identity === profile.identity
     ? new Set([...statGrid.querySelectorAll<HTMLElement>('[aria-expanded="true"]')].map((row) => row.dataset.stat))
     : new Set<string>();

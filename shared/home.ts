@@ -6,6 +6,8 @@ export const HOME_ART_OFFSET = { x: (HOME_WORLD_WIDTH - 1_000) / 2, y: (HOME_WOR
 export const HOME_EXTERIOR_SPAWN = { x: 500 + HOME_ART_OFFSET.x, y: 700 + HOME_ART_OFFSET.y };
 export const HOME_BENCH_POSITION = { x: 380 + HOME_ART_OFFSET.x, y: 450 + HOME_ART_OFFSET.y };
 export const HOME_RESEARCH_POSITION = { x: 620 + HOME_ART_OFFSET.x, y: 450 + HOME_ART_OFFSET.y };
+/** The Daily Quest board, on the lawn beside the entrance path, the first thing seen on arrival. */
+export const HOME_QUEST_BOARD_POSITION = { x: 685 + HOME_ART_OFFSET.x, y: 765 + HOME_ART_OFFSET.y };
 
 // Close to the workshop banners, centered over their shared courtyard. Walking
 // in opens a destination picker; the server accepts any map the player has

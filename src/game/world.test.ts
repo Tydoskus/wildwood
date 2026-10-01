@@ -321,6 +321,7 @@ describe("Home", () => {
     expect(layout.decor.filter(item => item.type === "upgradeBench")).toEqual([
       { type: "upgradeBench", x: 480, y: 700, s: 1, label: "Upgrade Bench" },
       { type: "upgradeBench", x: 720, y: 700, s: 1, label: "Tech Research" },
+      { type: "upgradeBench", x: 785, y: 1015, s: 1, label: "Quest Board" },
     ]);
     expect(createSpawnSites({ x: 4050, y: 4050 }, "home_exterior")).toEqual([]);
     expect(layout.decor.every(item => item.x >= 0 && item.x <= 1200 && item.y >= 0 && item.y <= 1500)).toBe(true);

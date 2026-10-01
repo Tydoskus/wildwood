@@ -1,4 +1,5 @@
 import { playerPrestigeChallenge, playerPrestigeChallengeParked, prestigeChallengeBackup, prestigeChallengeRun, restorePrestigeChallenge } from "./prestige-challenge";
+import { playerDailyQuest, guildQuestWeek, ensureDailyQuests, recordDailyQuestKills } from "./daily-quests";
 import { challengeAttackInterval, challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { duelCombatSnapshot } from "./duel-combat-snapshot";
 import { playerEquipmentLock, setEquipmentLock } from "./equipment-locks";
@@ -1812,7 +1813,7 @@ const spacetimedb = schema({
   playerEndlessRebaseBackup,
   playerPrestige,
   playerPrestigePerk,
-  playerPrestigeChallenge, prestigeChallengeBackup, prestigeChallengeRun, playerPrestigeChallengeParked, playerFreeRespec, prestigeExpansion,
+  playerPrestigeChallenge, prestigeChallengeBackup, prestigeChallengeRun, playerPrestigeChallengeParked, playerFreeRespec, playerDailyQuest, guildQuestWeek, prestigeExpansion,
   playerPrestigeExpansionPerk,
   duelRiposte, duelCombatSnapshot,
   playerSessionAnalytics,
@@ -5268,6 +5269,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
     recordAnalyticsMilestone(ctx, "kill");
     if (accepted.rewards.some(reward => reward.type === "boss")) recordAnalyticsMilestone(ctx, "boss");
     killGems.grantKillGems(ctx, ctx.sender, accepted.count, enemyKills);
+    recordDailyQuestKills(ctx, ctx.sender, batch.mapId, accepted.kills);
     enforce();
 }
 // The throttle comes before any other read; throttleKillReports says why.
@@ -5590,6 +5592,7 @@ export const spendPrestigePerkPoint = spacetimedb.reducer({ perk: t.string() },
   (ctx, { perk }) => { prestige.spendPerkPoint(ctx, perk); });
 export const respecPrestigePerks = spacetimedb.reducer({}, (ctx) => { prestige.respecPerks(ctx); });
 export const useFreePrestigeRespec = spacetimedb.reducer({}, (ctx) => { prestige.freeRespecPerks(ctx); });
+export const refreshDailyQuests = spacetimedb.reducer({}, (ctx) => { requireControllingPlayer(ctx); ensureDailyQuests(ctx, ctx.sender); });
 
 function sendPlayerChatMessage(ctx: ModuleReducerCtx, message: string, replyToMessageId = 0n) {
   requireControllingPlayer(ctx);

@@ -453,7 +453,7 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
     && total > ENEMY_DEFEAT_BATCH_MAX) {
     const receipt = { key, identity: ctx.sender, sequence: batch.sequence };
     if (prior) ctx.db.regularEnemyLootCursor.key.update(receipt); else ctx.db.regularEnemyLootCursor.insert(receipt);
-    return { rewards: [], count: 0, lootCount: 0, restrict: true, violations: [{ enemy: "batch", requested: total, accepted: 0 }], balance: null };
+    return { rewards: [], kills: [], count: 0, lootCount: 0, restrict: true, violations: [{ enemy: "batch", requested: total, accepted: 0 }], balance: null };
   }
   // Scale first, then the bounds below, so the spawn wall and combat clock see
   // only what real time allowed and are not drained by the excess.
@@ -469,6 +469,8 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
   const wallSecondsPerKill = mapPopulation > 0 ? defeatMinRespawnSeconds(regularRespawn) / mapPopulation : 0;
   const seen = new Set<string>();
   let count = 0, lootCount = 0, submittedCount = 0;
+  // What was paid, by enemy: daily quests count kills by kind.
+  const kills: { enemy: string; count: number }[] = [];
   const now = ctx.timestamp.microsSinceUnixEpoch;
   // One clock for the whole account: a kill spends the seconds this player
   // needs to make it. Per-species buckets let a script claim every species on
@@ -597,6 +599,7 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
     if (previous) ctx.db.enemyDefeatBudget.key.update(next); else ctx.db.enemyDefeatBudget.insert(next);
     count += acceptedCount;
     rewards.push({ ...definition.reward, count: acceptedCount });
+    kills.push({ enemy: entry.enemy, count: acceptedCount });
     if (definition.loot) lootCount += acceptedCount;
   }
   if (clockSpent || simulation.creditedSeconds > 0) {
@@ -620,5 +623,5 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
   // stream against a bucket the last visit drained). Only a report larger than
   // any real client can send still restricts, above. The pinned balance goes
   // back to the caller so the rewards need not read and parse it again.
-  return { rewards, count, lootCount, restrict: false, violations, balance };
+  return { rewards, kills, count, lootCount, restrict: false, violations, balance };
 }

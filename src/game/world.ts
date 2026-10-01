@@ -4,7 +4,7 @@ import { generatedMapContent } from "./procedural-maps";
 import { createIonCitadelLayout } from "./ion-layout";
 import { createVerdantCatacombsLayout } from "./verdant-layout";
 import { createNeonBastionLayout } from "./neon-layout";
-import { HOME_EXTERIOR_MAP_ID, HOME_BENCH_POSITION, HOME_RESEARCH_POSITION, HOME_ART_OFFSET, HOME_WORLD_WIDTH, HOME_WORLD_HEIGHT } from "../../shared/home";
+import { HOME_EXTERIOR_MAP_ID, HOME_BENCH_POSITION, HOME_QUEST_BOARD_POSITION, HOME_RESEARCH_POSITION, HOME_ART_OFFSET, HOME_WORLD_WIDTH, HOME_WORLD_HEIGHT } from "../../shared/home";
 import { createExpansionLayout } from "./expansion-layouts";
 import { BOSS_ENEMY_SAFE_DISTANCE, WORLD } from "./constants";
 import { CAMPS, ENEMY_TYPES, type EnemyKind } from "./enemies";
@@ -23,7 +23,7 @@ export type WorldDecor = WorldDecorPlacement & (
   | { type: "desertGrass"; variant: number }
   | { type: "snowPine"; s: number }
   | { type: "snowTuft"; variant: number }
-  | { type: "upgradeBench"; s: number; label: "Upgrade Bench" | "Tech Research" }
+  | { type: "upgradeBench"; s: number; label: "Upgrade Bench" | "Tech Research" | "Quest Board" }
   | { type: "lavaPool"; s: number; variant: number }
   | { type: "lavaRock"; s: number; variant: number }
   | { type: "charredTree"; s: number; variant: number }
@@ -633,6 +633,7 @@ export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FO
     decor: [
       { type: "upgradeBench", ...HOME_BENCH_POSITION, s: 1, label: "Upgrade Bench" },
       { type: "upgradeBench", ...HOME_RESEARCH_POSITION, s: 1, label: "Tech Research" },
+      { type: "upgradeBench", ...HOME_QUEST_BOARD_POSITION, s: 1, label: "Quest Board" },
       ...[100, HOME_WORLD_WIDTH - 100].flatMap(x => [180, 420, 720, 940, HOME_WORLD_HEIGHT - 100].map((y, variant) => ({ type: "tree", x, y, s: 1, variant }))),
     ] as WorldDecor[],
   };

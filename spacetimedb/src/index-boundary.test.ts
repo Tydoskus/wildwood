@@ -149,7 +149,10 @@ import { describe, expect, it } from "vitest";
 // audit live in account-transfer.ts; the raise is the declarations alone.
 // 6_564: the one free prestige respec added the use_free_prestige_respec
 // declaration. Its body lives in prestige.ts; the raise is the declaration alone.
-const MAX_LINES = 6_564;
+// 6_567: daily quests added their tables' import, the refresh_daily_quests
+// declaration and the kill report's hook. The rules and tables live in
+// daily-quests.ts; the raise is the wiring alone.
+const MAX_LINES = 6_567;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

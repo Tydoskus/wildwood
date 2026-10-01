@@ -4,6 +4,7 @@ import type { MapMusicController } from "../game/runtime/audio";
 import type { AccountAudioRemote } from "../coop/services/account-audio-settings";
 import { createAccountAudioSync } from "./account-audio-sync";
 import { requiredElement } from "../game/runtime/dom";
+import { setHighResolutionCanvas } from "../game/runtime/render-budget";
 import {
   renderAccountStatus,
   renderBooleanSetting,
@@ -53,6 +54,7 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   const baseStatRewardsToggle = requiredElement<HTMLButtonElement>("baseStatRewardsToggle");
   const remoteGhostsToggle = requiredElement<HTMLButtonElement>("remoteGhostsToggle");
   const cameraZoomToggle = requiredElement<HTMLButtonElement>("cameraZoomToggle");
+  const highResolutionToggle = requiredElement<HTMLButtonElement>("highResolutionToggle");
   const lowPerformanceToggle = requiredElement<HTMLButtonElement>("lowPerformanceToggle");
   const fpsToggle = requiredElement<HTMLButtonElement>("fpsToggle");
   const fpsStatus = requiredElement("fpsStatus");
@@ -74,6 +76,9 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   let showBaseStatRewards = readBoolean("wildstat-show-base-stat-rewards-v1", false);
   let remoteGhostsEnabled = readBoolean("wildstat-show-remote-ghosts-v1", true);
   let cameraZoomVisible = readBoolean("wildstat-show-camera-zoom-v1", true);
+  // Off by default: 3x canvas pixels cost fill rate on phones.
+  let highResolution = readBoolean("wildstat-high-resolution-v1", false);
+  setHighResolutionCanvas(highResolution);
   let lowPerformanceMode = readBoolean(dependencies.storageKeys.lowPerformance, false);
   let fpsVisible = readBoolean(dependencies.storageKeys.fps, false);
   let latencyVisible = readBoolean(dependencies.storageKeys.latency, false);
@@ -93,6 +98,7 @@ export function createAppShellController(dependencies: AppShellDependencies) {
     renderBooleanSetting(baseStatRewardsToggle, showBaseStatRewards);
     renderBooleanSetting(remoteGhostsToggle, remoteGhostsEnabled);
     renderBooleanSetting(cameraZoomToggle, cameraZoomVisible);
+    renderBooleanSetting(highResolutionToggle, highResolution);
     // Hides the buttons only; the mouse wheel still zooms.
     document.body.classList.toggle("camera-zoom-hidden", !cameraZoomVisible);
     renderBooleanSetting(lowPerformanceToggle, lowPerformanceMode);
@@ -156,6 +162,14 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   remoteGhostsToggle.addEventListener("click", () => {
     remoteGhostsEnabled = !remoteGhostsEnabled;
     writeBoolean("wildstat-show-remote-ghosts-v1", remoteGhostsEnabled);
+    refreshSettings();
+  });
+  highResolutionToggle.addEventListener("click", () => {
+    highResolution = !highResolution;
+    writeBoolean("wildstat-high-resolution-v1", highResolution);
+    setHighResolutionCanvas(highResolution);
+    // Every canvas sizes its backing store on resize; this applies the new cap now.
+    window.dispatchEvent(new Event("resize"));
     refreshSettings();
   });
   cameraZoomToggle.addEventListener("click", () => {

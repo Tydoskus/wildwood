@@ -1,4 +1,7 @@
 import type { PrestigeChallenge } from "../../../shared/prestige-challenge";
+import { parseDailyQuests, type DailyQuest } from "../../../shared/daily-quests";
+
+export type DailyQuestState = { day: number; quests: DailyQuest[]; bonus: number; guildPoints: number; guildName: string };
 import type { MailboxMessage } from "../../../shared/mailbox";
 import { portalCutsceneBit, unlockedPortalCutsceneMask } from "../../../shared/portal-cutscenes";
 import { withoutLockedEquipment } from "../../../shared/equipment-access";
@@ -168,6 +171,8 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   let prestigeChallenge: PrestigeChallenge = { active: false, completed: 0 };
   let challengeParked = false;
   let freeRespecUsed = false;
+  let dailyQuest: DailyQuestState | null = null;
+  const guildQuestWeeks = new Map<string, { week: number; guildId: string; guildName: string; points: number }>();
   let gemBalance = 0n;
   let dailyGemBonusClaimable = false;
   const mailboxMessages = new Map<string, MailboxMessage>();
@@ -552,6 +557,24 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     prestigeChallenge = { active: false, completed: 0 };
     dependencies.notify();
   }
+  function upsertDailyQuest(row: { identity: Identity; day: number; questsJson: string; bonus: number; guildPoints: number; guildName: string }) {
+    if (row.identity.toHexString() !== dependencies.localIdentity()) return;
+    dailyQuest = { day: row.day, quests: parseDailyQuests(row.questsJson), bonus: row.bonus, guildPoints: row.guildPoints, guildName: row.guildName };
+    dependencies.notify();
+  }
+  function removeDailyQuest(row: { identity: Identity }) {
+    if (row.identity.toHexString() !== dependencies.localIdentity()) return;
+    dailyQuest = null;
+    dependencies.notify();
+  }
+  function upsertGuildQuestWeek(row: { key: string; week: number; guildId: bigint; guildName: string; points: number }) {
+    guildQuestWeeks.set(row.key, { week: row.week, guildId: String(row.guildId), guildName: row.guildName, points: row.points });
+    dependencies.notify();
+  }
+  function removeGuildQuestWeek(row: { key: string }) {
+    guildQuestWeeks.delete(row.key);
+    dependencies.notify();
+  }
   function upsertFreeRespec(row: { identity: Identity }) {
     if (row.identity.toHexString() !== dependencies.localIdentity()) return;
     freeRespecUsed = true;
@@ -722,6 +745,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       upsertPrestigeChallenge, removePrestigeChallenge,
       upsertPrestigeChallengeParked, removePrestigeChallengeParked,
       upsertFreeRespec, removeFreeRespec,
+      upsertDailyQuest, removeDailyQuest, upsertGuildQuestWeek, removeGuildQuestWeek,
       upsertPrestigeExpansion, removePrestigeExpansion,
       upsertPrestigeExpansionPerk, removePrestigeExpansionPerk,
       removePrestigePerk,
@@ -890,6 +914,13 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       prestigeChallenge: () => ({ ...prestigeChallenge, parked: challengeParked }),
       /** Every account has one respec that keeps its stats; false once it is spent. */
       freeRespecAvailable: () => !freeRespecUsed,
+      /** Today's quests and the guild's standing; null until the server has drawn them. */
+      dailyQuests: (): DailyQuestState | null => dailyQuest ? { ...dailyQuest, quests: dailyQuest.quests.map(quest => ({ ...quest })) } : null,
+      /** Every guild's quest points in one week, best first. */
+      guildQuestRanking: (week: number) => [...guildQuestWeeks.values()].filter(row => row.week === week).sort((a, b) => b.points - a.points || a.guildName.localeCompare(b.guildName)),
+      refreshDailyQuests() {
+        return reducerResult("daily quests", (active) => active.reducers.refreshDailyQuests({}))();
+      },
       prestigeExpansionUnlocksAt: () => prestigeExpansionUnlocksAt,
       prestigePerks: (): PlayerPrestigePerks => ({ keenEdge: 0, doubleStrike: 0, splitShot: 0, riposte: 0, ...localPrestigePerks, ...expansionPerks }),
       /** The tier that applies to an item: whatever its slot has earned. */
@@ -1214,6 +1245,8 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       prestigeChallenge = { active: false, completed: 0 };
       challengeParked = false;
       freeRespecUsed = false;
+      dailyQuest = null;
+      guildQuestWeeks.clear();
       localPrestige = null;
       prestigeLevelByIdentity.clear();
       localPrestigePerks = null;
@@ -1258,6 +1291,8 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       prestigeChallenge = { active: false, completed: 0 };
       challengeParked = false;
       freeRespecUsed = false;
+      dailyQuest = null;
+      guildQuestWeeks.clear();
       localPrestige = null;
       prestigeLevelByIdentity.clear();
       localPrestigePerks = null;

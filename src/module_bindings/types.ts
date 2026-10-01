@@ -916,6 +916,15 @@ export const GuildMember = __t.object("GuildMember", {
 });
 export type GuildMember = __Infer<typeof GuildMember>;
 
+export const GuildQuestWeek = __t.object("GuildQuestWeek", {
+  key: __t.string(),
+  week: __t.u32(),
+  guildId: __t.u64(),
+  guildName: __t.string(),
+  points: __t.u32(),
+});
+export type GuildQuestWeek = __Infer<typeof GuildQuestWeek>;
+
 export const GuildRank = __t.object("GuildRank", {
   guildId: __t.u64(),
   rankKey: __t.string(),
@@ -1656,6 +1665,16 @@ export const PlayerCutsceneHistory = __t.object("PlayerCutsceneHistory", {
   generation: __t.u32(),
 });
 export type PlayerCutsceneHistory = __Infer<typeof PlayerCutsceneHistory>;
+
+export const PlayerDailyQuest = __t.object("PlayerDailyQuest", {
+  identity: __t.identity(),
+  day: __t.u32(),
+  questsJson: __t.string(),
+  bonus: __t.f64(),
+  guildPoints: __t.u32(),
+  guildName: __t.string(),
+});
+export type PlayerDailyQuest = __Infer<typeof PlayerDailyQuest>;
 
 export const PlayerDeathFrame = __t.object("PlayerDeathFrame", {
   mapId: __t.string(),

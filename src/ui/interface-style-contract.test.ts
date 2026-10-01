@@ -35,8 +35,8 @@ describe("installed interface structure", () => {
     // startup shell nothing. Raised by 32 for the Other Players' Fights row;
     // that row itself landed in the old headroom.
     // The map-name label adds one accessible element below the minimap.
-    // Raised by 128 for the Zoom Buttons row.
-    expect(Buffer.byteLength(entryHtml)).toBeLessThan(24_960);
+    // Raised by 128 for the Zoom Buttons row, and 256 more for High Resolution.
+    expect(Buffer.byteLength(entryHtml)).toBeLessThan(25_216);
     for (const id of ["start", "gameUpdateGate", "dailyGemBonus", "gameOver", "playerProfile", "techTreeOverlay", "guildBtn"]) {
       expect(doc.getElementById(id), id).not.toBeNull();
     }

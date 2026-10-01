@@ -76,6 +76,7 @@ import { createAutoFarmController } from "./game/runtime/auto-farm-controller";
 import { createAutoFarmResumeStore } from "./app/auto-farm-resume";
 import { createAutoFarmPanel } from "./ui/auto-farm-panel";
 import { createHomeTravelController } from "./ui/home-travel-controller";
+import { createQuestBoardRuntime } from "./ui/quest-board-controller";
 import { createPlayerController, type PlayerController } from "./game/runtime/player-controller";
 import { applyPlayerMaxHealthMultiplierBonus } from "./game/runtime/player-health";
 import { createRegularEnemyRespawn, REGULAR_ENEMY_RESPAWN_SECONDS } from "./game/runtime/regular-enemy-respawn";
@@ -615,6 +616,7 @@ import {
   );
   const research = createResearchController({
     prestigeLevel: () => coop?.prestige?.()?.level ?? 0,
+    guildQuestBonus: () => coop?.dailyQuests?.()?.bonus ?? 1,
     prestigePerks: () => coop?.prestigePerks?.(),
     player,
     getRanks: () => coop?.research?.(),
@@ -873,6 +875,8 @@ import {
     prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss,
     onCutsceneFinished: () => bossController.onPortalCutsceneFinished(),
   });
+  const quests = createQuestBoardRuntime({ source: () => coop, atHome: () => currentMapId === "home_exterior",
+    pause: paused => setGameplayPause("quest-board", paused), clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id as MapId]?.name ?? id });
   const homeTravel = createHomeTravelController({ source: () => coop, travel: mapController.travelFromHome, departure: mapController.homeDeparture, atHome: () => currentMapId === "home_exterior", pause: paused => setGameplayPause("home-travel", paused), clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id].name });
   const { activePortal, secondaryPortal, portalIsUnlocked, startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene, startSamuraiPortalCutscene } = mapController;
 
@@ -1106,6 +1110,7 @@ import {
     actorShadowSprite,
     upgradeBenchStatus: () => upgradeBenchController?.worldStatus() ?? null,
     researchStatus: () => techTree?.worldStatus() ?? null,
+    questBoardStatus: quests.worldStatus,
     drawShadow: drawActorShadow,
     pixelCircle,
     outlinedText: outlinedWorldText,
@@ -1399,7 +1404,8 @@ import {
     playerGender: (identity) => coop?.playerGender?.(identity) ?? 0, setGender: async (value) => coop?.setGender?.(value),
     renderStats: (profile, element) => renderProfileStats(profile, element, formatArmorReduction, challengeMinimumInterval(profile.prestigeChallenge), profile.research,
       profile.identity === coop?.localIdentity?.() ? coop?.prestige?.()?.level ?? 0 : profile.prestigeLevel ?? 0,
-      profile.identity === coop?.localIdentity?.() ? coop?.prestigePerks?.() : profile.prestigePerks),
+      profile.identity === coop?.localIdentity?.() ? coop?.prestigePerks?.() : profile.prestigePerks,
+      profile.identity === coop?.localIdentity?.() ? coop?.dailyQuests?.()?.bonus ?? 1 : 1),
     formatPower: (profile) => formatCompactNumber(profilePower(profile)), formatPlayedTime,
     profile: (identity) => coop?.playerProfile?.(identity), loadProfile: async (identity) => coop?.loadPlayerProfile?.(identity), releaseProfile: () => { coop?.releasePlayerProfile?.(); },
     isDueling, duelCooldownMs: () => coop?.duelCooldownRemainingMs?.() ?? 0,
@@ -1533,13 +1539,14 @@ import {
   });
 
   bindHomeTeleportButton(gameElements.techTreeBtn, {
-    beforeTeleport: () => { techTree.close(); upgradeBenchController.close(); },
+    beforeTeleport: () => { techTree.close(); upgradeBenchController.close(); quests.board.close(); },
     teleport: () => inTutorial() ? Promise.resolve(false) : mapController.teleportHome(),
     showFailure: failed => showMessage(failed ? "TELEPORT FAILED · TRY AGAIN" : "TELEPORT UNAVAILABLE", "#ffbc91"), showBlocked: text => showMessage(text, "#ffbc91"),
   });
   const updateHomeStations = createHomeStationTouchHandler(
     () => currentMapId === "home_exterior" && !mapController.isMapTransitioning(), player,
-    () => { playerInput.clear(); techTree.open(); }, () => upgradeBenchController.updateTouch(),
+    () => { playerInput.clear(); techTree.open(); }, () => { upgradeBenchController.updateTouch(); quests.refreshAtHome(); },
+    () => { playerInput.clear(); quests.board.open(); },
   );
   upgradeBenchController = createUpgradeBenchController({
     panel: gameElements.upgradeBenchPanel,

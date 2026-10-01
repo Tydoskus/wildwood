@@ -1,4 +1,5 @@
 import { challengeActive, resumeParkedChallenge, setPrestigeChallenge } from "./prestige-challenge";
+import { guildQuestBonusFor } from "./daily-quests";
 import { challengeAttackInterval, challengeGoal, challengeGoalMet } from "../../shared/prestige-challenge";
 import { SenderError } from "spacetimedb/server";
 import { researchStatRewardMultiplier } from "../../shared/research";
@@ -22,7 +23,9 @@ import { attackRangeWithResearch } from "../../shared/utility-research";
  */
 export function statRewardMultiplier(ctx: any, identity: any) {
   return researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity))
-    * prestigeStatMultiplier(ctx.db.playerPrestige.identity.find(identity)?.level ?? 0);
+    * prestigeStatMultiplier(ctx.db.playerPrestige.identity.find(identity)?.level ?? 0)
+    // The guild's daily quest points last week (daily-quests.ts).
+    * guildQuestBonusFor(ctx, identity);
 }
 
 /** The player's perk ranks, zero for anyone who has never prestiged. */

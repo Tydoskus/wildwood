@@ -170,8 +170,8 @@ export function drawHomeCourtyard(c: ArtContext) {
   c.restore();
 }
 
-/** Physical wooden signs sit above both stations at the same world-space size. */
-export function drawHomeStationSign(c: CanvasRenderingContext2D, x: number, y: number, research: boolean, timer = "") {
+/** Physical wooden signs sit above the stations at the same world-space size. */
+export function drawHomeStationSign(c: CanvasRenderingContext2D, x: number, y: number, label: string, timer = "") {
   c.save();
   for (const dx of [-79, 79]) box(c, x + dx - 4, y - 151, 8, 28, "#795437", 2);
   box(c, x - 93, y - 177, 186, 37, "#a47548", 4);
@@ -181,9 +181,45 @@ export function drawHomeStationSign(c: CanvasRenderingContext2D, x: number, y: n
   c.font = '900 15px "Arial Rounded MT Bold", Arial, sans-serif';
   c.textAlign = "center"; c.textBaseline = "middle"; c.lineJoin = "round";
   c.strokeStyle = "#171810"; c.lineWidth = 4; c.fillStyle = "#fff1d2";
-  const label = research ? "Tech Research" : "Loadout Upgrades";
   c.strokeText(label, x, y - 157, 174); c.fillText(label, x, y - 157, 174);
   if (timer) { c.font = '900 12px Arial'; c.strokeText(timer, x, y - 187); c.fillStyle = "#a4edf2"; c.fillText(timer, x, y - 187); }
+  c.restore();
+}
+
+/**
+ * The Daily Quest board: a corkboard on two posts with today's three quests
+ * pinned to it. A finished quest's paper carries a green check; while any are
+ * unfinished, a gold "!" bobs above the board.
+ */
+export function drawHomeQuestBoard(c: CanvasRenderingContext2D, x: number, y: number, time: number, finished: readonly boolean[]) {
+  c.save(); c.translate(x, y);
+  ellipse(c, 0, -10, 70, 13, "#122e3c44");
+  // Posts and the framed board.
+  box(c, -58, -96, 11, 90, "#6c4a30", 3); box(c, 47, -96, 11, 90, "#6c4a30", 3);
+  box(c, -70, -132, 140, 92, "#7a5536", 5);
+  box(c, -63, -125, 126, 78, "#c79a62", 3, "#5a3e28");
+  line(c, [-63, -102, 63, -102], "#b98b55", 1.5); line(c, [-63, -78, 63, -78], "#b98b55", 1.5);
+  // Today's three quests, pinned.
+  for (let i = 0; i < 3; i++) {
+    const px = -42 + i * 42, tilt = (i - 1) * .07, done = finished[i] === true;
+    c.save(); c.translate(px, -88); c.rotate(tilt);
+    box(c, -16, -26, 32, 44, done ? "#e9f6dc" : "#f5ead2", 2, "#8a7656");
+    for (let row = 0; row < 3; row++) line(c, [-10, -12 + row * 9, 10, -12 + row * 9], "#b7a789", 1.5);
+    ellipse(c, 0, -24, 3.5, 3.5, ["#d8473f", "#3f7fd8", "#e2b23c"][i], "#3b2a1c");
+    if (done) {
+      c.strokeStyle = "#2f9a46"; c.lineWidth = 4; c.lineCap = "round"; c.lineJoin = "round";
+      c.beginPath(); c.moveTo(-8, 4); c.lineTo(-2, 10); c.lineTo(10, -6); c.stroke();
+    }
+    c.restore();
+  }
+  if (finished.length && finished.some(done => !done)) {
+    const bob = Math.sin(time * 3) * 3;
+    c.font = '900 26px "Arial Rounded MT Bold", Arial, sans-serif';
+    c.textAlign = "center"; c.textBaseline = "middle"; c.lineJoin = "round";
+    c.strokeStyle = "#2a1c0f"; c.lineWidth = 5; c.fillStyle = "#ffd34d";
+    // Beside the sign, which is drawn over the board.
+    c.strokeText("!", 106, -160 + bob); c.fillText("!", 106, -160 + bob);
+  }
   c.restore();
 }
 

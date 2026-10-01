@@ -1,7 +1,7 @@
 import { challengeMinimumInterval } from "../../shared/prestige-challenge";
 export { challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { createGemShopController } from "./gem-shop-controller";
-import { HOME_RESEARCH_POSITION } from "../../shared/home";
+import { HOME_QUEST_BOARD_POSITION, HOME_RESEARCH_POSITION } from "../../shared/home";
 import { recentReleaseNotes } from "../app/changelog";
 import { isDeveloperIdentity } from "../app/developer";
 import {
@@ -27,12 +27,17 @@ export function createHomeStationTouchHandler(
   player: { x: number; y: number },
   openResearch: () => void,
   updateBench: () => void,
+  openQuestBoard?: () => void,
 ) {
-  let touchingResearch = false;
+  let touchingResearch = false, touchingQuestBoard = false;
   return () => {
     const touching = isHome() && Math.hypot(player.x - HOME_RESEARCH_POSITION.x, player.y - (HOME_RESEARCH_POSITION.y - 36)) < 42.5;
     if (touching && !touchingResearch) openResearch();
     touchingResearch = touching;
+    // The board is wider than the desk: walk up to its face to read it.
+    const atBoard = isHome() && Math.hypot(player.x - HOME_QUEST_BOARD_POSITION.x, player.y - (HOME_QUEST_BOARD_POSITION.y - 30)) < 55;
+    if (atBoard && !touchingQuestBoard) openQuestBoard?.();
+    touchingQuestBoard = atBoard;
     updateBench();
   };
 }
