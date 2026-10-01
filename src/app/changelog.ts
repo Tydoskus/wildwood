@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.857": [
+    "New: a quest tracker on the HUD away from home shows your three quests in play; tap it to fold it away, or turn it off in Settings",
+  ],
   "0.856": [
     "Duels and the leaderboard's stat tabs now hold stats past 1e38",
     "Quests finished before the weekly change now count toward your solo bonus and your guild points",
@@ -2619,6 +2622,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.857": "2026-10-01",
   "0.856": "2026-10-01",
   "0.855": "2026-10-01",
   "0.854": "2026-10-01",

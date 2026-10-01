@@ -4,6 +4,30 @@
   .stat-tracker > header, .stat-tracker > table, .stat-tracker > footer, .stat-tracker > .stat-tracker-opacity { opacity: var(--stat-tracker-ink, 1); }
   /* Above HUD controls (5–8), below full-screen windows (10+). */
   #hud > .stat-tracker { z-index: 6; }
+  /* Quest tracker: top left under the gem row, away from home. Three quests in play, this map's first and bright. */
+  .quest-tracker { position: fixed; top: calc(var(--hud-safe-top) + var(--player-hud-visual-height) + 48px); left: var(--hud-safe-left); z-index: 5; width: min(196px, 46vw); padding: 0 0 4px; border: 2px solid var(--hud-frame); border-radius: var(--hud-radius-small); background: rgba(18, 28, 22, .72); box-shadow: 0 2px 0 rgba(0,0,0,.35); color: #fff; font: 700 11px/1.25 "Wildstat Chat", sans-serif; pointer-events: auto; }
+  .quest-tracker[hidden] { display: none; }
+  .quest-tracker .quest-tracker-header { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 30px; margin: 0; padding: 4px 8px; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .quest-tracker .quest-tracker-header:active { transform: none; }
+  .quest-tracker .quest-tracker-header:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+  .quest-tracker-title { font-weight: 900; letter-spacing: .03em; }
+  .quest-tracker-week { margin-left: auto; color: #ffd66b; font-variant-numeric: tabular-nums; }
+  .quest-tracker-chevron { width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid currentColor; opacity: .8; transition: transform .15s; }
+  .quest-tracker.is-collapsed { width: auto; padding-bottom: 0; }
+  .quest-tracker.is-collapsed .quest-tracker-chevron { transform: rotate(-90deg); }
+  .quest-tracker.is-collapsed .quest-tracker-list { display: none; }
+  .quest-tracker-list { display: grid; gap: 5px; margin: 0; padding: 0 8px; list-style: none; }
+  .quest-tracker-item { display: grid; gap: 2px; opacity: .6; }
+  .quest-tracker-item.is-here { opacity: 1; }
+  .quest-tracker-line { display: flex; justify-content: space-between; gap: 6px; }
+  .quest-tracker-enemy { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .quest-tracker-count { flex: none; font-variant-numeric: tabular-nums; }
+  .quest-tracker-item.is-here .quest-tracker-count { color: #ffd66b; }
+  .quest-tracker-bar { height: 3px; overflow: hidden; border-radius: 2px; background: rgba(255,255,255,.18); }
+  .quest-tracker-bar > span { display: block; height: 100%; background: #ffd66b; transition: width .2s; }
+  .quest-tracker-where[hidden] { display: none; }
+  .quest-tracker-where { overflow: hidden; color: #c9d3cc; font-size: 10px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+  .quest-tracker-item.is-here .quest-tracker-where { color: var(--green); }
   .stat-tracker.is-world-gesture, .stat-tracker.is-world-gesture * { pointer-events: none; }
   .stat-tracker.is-collapsed { width: max-content; max-width: calc(100vw - 24px); overflow: hidden; }
   .stat-tracker.is-collapsed header { padding: 0 4px; }

@@ -57,3 +57,20 @@ it("counts a quest enemy at once, never backwards, catching up to the server and
   expect(shownCounts.at(-1)).toEqual(["Dune Raider", 1, 3]);
   vi.unstubAllGlobals();
 });
+
+it("tracks the quests in play away from home, this map's first, counted as far as the pop-ups showed", async () => {
+  const { questTrackerView } = await import("./quest-board-controller");
+  const week = { ...state, quests: [
+    { mapId: "beginner_desert", enemy: "Venom Guard", target: 73, progress: 73 },
+    { mapId: "beginner_desert", enemy: "Dune Raider", target: 60, progress: 12 },
+    { mapId: "tutorial_forest", enemy: "Spitter", target: 50, progress: 0, from: "Odin" },
+    { mapId: "tutorial_forest", enemy: "Brood", target: 40, progress: 0 },
+  ] };
+  const view = questTrackerView(week, "tutorial_forest", id => id === "tutorial_forest" ? "Forest" : "Desert", key => key === "tutorial_forest:Spitter:2" ? 4 : undefined)!;
+  expect(view).toMatchObject({ done: 1, total: 3 });
+  expect(view.items.map(item => [item.enemy, item.onMap, item.count, item.where, item.from])).toEqual([
+    ["Spitter", true, 4, "Forest", "Odin"], ["Brood", true, 0, "Forest", ""], ["Dune Raider", false, 12, "Desert", ""],
+  ]);
+  expect(questTrackerView({ ...week, quests: [week.quests[0]] }, "tutorial_forest", id => id)).toBeNull();
+  expect(questTrackerView(null, "tutorial_forest", id => id)).toBeNull();
+});

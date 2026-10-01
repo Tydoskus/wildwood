@@ -71,6 +71,30 @@ export function questBoardView(state: QuestState | null, nowMs: number, mapName:
     finished: own.length > 0 && !all.some(questOpen) };
 }
 
+/**
+ * The HUD tracker's rows: the three quests in play, each with its count and
+ * whether it is on the map the player is on, and the week's count for the
+ * header. Null when there is nothing to track: no quests yet, or all done.
+ */
+export function questTrackerView(state: QuestState | null, mapId: string, mapName: (mapId: string) => string, shownCount: (key: string) => number | undefined = () => undefined) {
+  if (!state?.quests.length) return null;
+  const active = activeQuestIndices(state.quests);
+  if (!active.length) return null;
+  const own = state.quests.filter(ownQuest);
+  return {
+    done: own.filter(questDone).length, total: own.length || WEEKLY_QUEST_COUNT,
+    items: active.map(index => {
+      const quest = state.quests[index];
+      const count = Math.min(quest.target, Math.max(quest.progress, shownCount(`${quest.mapId}:${quest.enemy}:${index}`) ?? 0));
+      return { key: `${index}:${quest.mapId}:${quest.enemy}`, enemy: quest.enemy, where: mapName(quest.mapId), from: quest.from ?? "",
+        onMap: quest.mapId === mapId, count, target: quest.target, share: quest.target > 0 ? count / quest.target : 0 };
+    })
+      // Quests on this map first: they are the ones the player is working on now.
+      .sort((a, b) => Number(b.onMap) - Number(a.onMap)),
+  };
+}
+export type QuestTrackerView = NonNullable<ReturnType<typeof questTrackerView>>;
+
 /** What the board in the courtyard shows: three papers, ticked once the week's quests run out, and the week's count. */
 export function questBoardWorldStatus(state: QuestState | null) {
   if (!state?.quests.length) return null;
@@ -172,6 +196,16 @@ export function createQuestBoardRuntime(deps: Parameters<typeof createQuestBoard
 }) {
   const board = createQuestBoardController(deps);
   let refreshAt = 0;
+  /** Asks the server to draw this week's quests until they arrive, at most once a minute; the tracker calls it away from home. */
+  function refresh() {
+    const source = deps.source();
+    if (!source?.isConnected?.()) return;
+    const state = source.dailyQuests?.();
+    const today = questDay(BigInt(Math.floor(source.serverNowMs?.() ?? Date.now())) * 1000n);
+    if ((state && questWeek(state.day) === questWeek(today)) || performance.now() < refreshAt) return;
+    refreshAt = performance.now() + 60_000;
+    void source.refreshDailyQuests?.()?.catch?.(() => {});
+  }
   // Each quest's count as last shown: never below the server's, never backwards.
   const shown = new Map<string, number>();
   let shownDay = -1;
@@ -193,15 +227,17 @@ export function createQuestBoardRuntime(deps: Parameters<typeof createQuestBoard
       }
     },
     board,
-    worldStatus: () => questBoardWorldStatus(deps.source()?.dailyQuests?.() ?? null),
-    refreshAtHome() {
-      const source = deps.source();
-      if (!deps.atHome() || !source?.isConnected?.()) return;
-      const state = source.dailyQuests?.();
-      const today = questDay(BigInt(Math.floor(source.serverNowMs?.() ?? Date.now())) * 1000n);
-      if ((state && questWeek(state.day) === questWeek(today)) || performance.now() < refreshAt) return;
-      refreshAt = performance.now() + 60_000;
-      void source.refreshDailyQuests?.()?.catch?.(() => {});
+    /**
+     * The quests in play for the HUD tracker, counted as far as the kill
+     * pop-ups have shown, so the two never disagree.
+     */
+    trackerView(mapId: string) {
+      const state = deps.source()?.dailyQuests?.() ?? null;
+      if (state && state.day !== shownDay) { shown.clear(); shownDay = state.day; }
+      return questTrackerView(state, mapId, deps.mapName, (key) => shown.get(key));
     },
+    worldStatus: () => questBoardWorldStatus(deps.source()?.dailyQuests?.() ?? null),
+    refreshAtHome() { if (deps.atHome()) refresh(); },
+    refresh,
   };
 }
