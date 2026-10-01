@@ -2,7 +2,7 @@ import { createSessionSubscriptions } from "./session-subscriptions";
 import { PATREON_TICKER_CHANGED } from "../../../shared/patreon-ticker";
 import type { Identity } from "spacetimedb";
 import { tables, type DbConnection } from "../../module_bindings";
-import { withWideProgress } from "./wide-progress";
+import { withWideDuel, withWideProgress } from "./wide-progress";
 
 type RowHandler = (row: any) => void;
 
@@ -404,8 +404,16 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   connection.db.myPlayerBlocks.onInsert((_ctx, row) => { if (shouldHandle()) handlers.playerBlock(row); });
   connection.db.myPlayerBlocks.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.playerBlock(row); });
   connection.db.myPlayerBlocks.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removePlayerBlock(row); });
-  connection.db.duel.onInsert((_ctx, row) => { if (shouldHandle()) handlers.duel(row); });
-  connection.db.duel.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.duel(row); });
+  connection.db.duel.onInsert((_ctx, row) => { if (shouldHandle()) handlers.duel(withWideDuel(connection, row)); });
+  connection.db.duel.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.duel(withWideDuel(connection, row)); });
+  // A duel's stats past f32 arrive in their own row; a change there re-reads the duel.
+  const duelAgain = (wide: { duelId: bigint }) => {
+    if (!shouldHandle()) return;
+    for (const row of connection.db.duel.iter()) if (row.id === wide.duelId) handlers.duel(withWideDuel(connection, row));
+  };
+  connection.db.duelWideStats.onInsert((_ctx, row) => duelAgain(row));
+  connection.db.duelWideStats.onUpdate((_ctx, _oldRow, row) => duelAgain(row));
+  connection.db.duelWideStats.onDelete((_ctx, row) => duelAgain(row));
   connection.db.duel.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeDuel(row); });
 
   return createSessionSubscriptions({
@@ -474,6 +482,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.latestChatMessagesWithReactions,
       tables.myPlayerBlocks,
       tables.duel.where((duel) => duel.challenger.eq(dependencies.identity)),
+      tables.duelWideStats.where((wide) => wide.challenger.eq(dependencies.identity)),
 ]),
     hydrate: () => {
       dependencies.batch(() => {
@@ -522,7 +531,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
         for (const row of connection.db.mySocialHub.iter()) handlers.socialHub(row);
         for (const row of connection.db.mySocialMessagesWithReactions.iter()) handlers.socialMessage(row);
         for (const row of connection.db.latestChatMessagesWithReactions.iter()) handlers.chatMessage(row);
-        for (const row of connection.db.duel.iter()) handlers.duel(row);
+        for (const row of connection.db.duel.iter()) handlers.duel(withWideDuel(connection, row));
       });
     },
     ready: () => {

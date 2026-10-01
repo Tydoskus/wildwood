@@ -152,3 +152,33 @@ it("does not collect from or for a member who joined today", () => {
   expect(() => collectMemberQuests(f.ctx, f.ctx.sender, fresh)).toThrow("from tomorrow");
   expect(() => collectMemberQuests(f.ctx, fresh, f.ctx.sender)).toThrow("from tomorrow");
 });
+
+it("pays the full solo week when quests were finished before the solo count began, and keeps it past the new draw", () => {
+  const { f, day } = questing(false);
+  // Fifteen done; the solo count only saw thirteen of them (two came before 0.853).
+  f.patch("playerDailyQuest", { questsJson: finishedWeek() });
+  f.seed("soloQuestWeek", { identity: f.ctx.sender, week: questWeek(day), points: 13, lastWeek: 0, lastPoints: 0 });
+  expect(ensureDailyQuests(f.ctx, f.ctx.sender).guildPoints).toBe(15);
+  f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + 7n * DAY);
+  expect(guildQuestBonusFor(f.ctx, f.ctx.sender)).toBeCloseTo(1.15);
+  // The new week's draw replaces the list; the settled count keeps the bonus.
+  const row = ensureDailyQuests(f.ctx, f.ctx.sender);
+  expect(JSON.parse(row.questsJson).every((q: any) => q.progress === 0)).toBe(true);
+  expect(row.bonus).toBeCloseTo(1.15);
+  expect(guildQuestBonusFor(f.ctx, f.ctx.sender)).toBeCloseTo(1.15);
+});
+
+it("never shows a member fewer points than their list shows done", () => {
+  const { f, day } = questing();
+  f.patch("playerDailyQuest", { questsJson: JSON.stringify([
+    { mapId: "tutorial_forest", enemy: "Spitter", target: 50, progress: 50 },
+    { mapId: "tutorial_forest", enemy: "Brood", target: 50, progress: 50 },
+    { mapId: "tutorial_forest", enemy: "Needle", target: 50, progress: 50 },
+  ]) });
+  // The tally began after two of them.
+  f.seed("guildMemberQuestWeek", { identity: f.ctx.sender, week: questWeek(day), guildId: 7n, points: 1 });
+  expect(memberQuestStanding(f.ctx, f.ctx.sender, 7n).questPoints).toBe(3);
+  // A tally ahead of the list (earlier days' daily quests) stands.
+  f.patch("guildMemberQuestWeek", { points: 9 });
+  expect(memberQuestStanding(f.ctx, f.ctx.sender, 7n).questPoints).toBe(9);
+});

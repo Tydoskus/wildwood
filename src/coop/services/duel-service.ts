@@ -6,6 +6,7 @@ import type { DuelReplay, DuelState } from "../contracts";
 import type { ReducerPort } from "../ports";
 import { monotonicNowMs } from "../../app/trusted-clock";
 import { createDuelCooldownStore } from "./duel-cooldown-store";
+import { withWideReplay } from "./wide-progress";
 
 const DUEL_COOLDOWN_MS = 120_000;
 const DUEL_COOLDOWN_KEY_PREFIX = "wildwood-duel-cooldown-v1:";
@@ -250,12 +251,13 @@ export function createDuelService(dependencies: DuelServiceDependencies) {
         const row = [...connection.db.duelReplay.iter()].find((replay) => replay.id === id);
         const snapshot = connection.db.duelCombatSnapshot.duelId.find(id);
         if (snapshot) modifiers.set(id, snapshot);
-        if (row) upsertReplay(row);
+        if (row) upsertReplay(withWideReplay(connection, row));
         const replay = replays.get(id);
         finish(replay ? { ...replay } : null);
       })
       .onError(() => finish(null))
-      .subscribe([tables.duelReplay.where((replay) => replay.id.eq(id)), tables.duelCombatSnapshot.where(row => row.duelId.eq(id))]);
+      .subscribe([tables.duelReplay.where((replay) => replay.id.eq(id)), tables.duelReplayWideStats.where(row => row.replayId.eq(id)),
+        tables.duelCombatSnapshot.where(row => row.duelId.eq(id))]);
     if (unsubscribeAfterSubscribe) releaseSubscription();
     return request;
   }

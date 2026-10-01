@@ -44,7 +44,21 @@ import { syncPlayerJoinDate } from "./mailbox";
 import { enrollInPrestigeChallenge } from "./prestige-challenge";
 import { readPlayerProgress, iterPlayerProgress } from "./wide-stats";
 
-export const MODULE_MIGRATION_VERSION = 49;
+export const MODULE_MIGRATION_VERSION = 50;
+
+/**
+ * Migration 50 (0.856): the ranking snapshot moves to leaderboard_entry_v2,
+ * whose stat columns are f64, so the board is full the moment the module
+ * lands rather than at the next refresh; and the retired duel wire grants are
+ * cleared (duel-wire-access.ts). Both old tables are left empty.
+ */
+export function moveToWideTables(ctx: any) {
+  for (const row of [...ctx.db.leaderboardEntryLegacy.iter()] as any[]) {
+    if (!ctx.db.leaderboardEntry.identity.find(row.identity)) ctx.db.leaderboardEntry.insert({ ...row });
+    ctx.db.leaderboardEntryLegacy.identity.delete(row.identity);
+  }
+  for (const row of [...ctx.db.duelWireAccess.iter()] as any[]) ctx.db.duelWireAccess.key.delete(row.key);
+}
 
 /** Migration 47's one player, matched on the whole display name, ignoring case. */
 export const REFLECT_CHALLENGE_ENROLLEE = "phoe";
@@ -531,6 +545,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     if (currentVersion < 48) applyCampaignRebalance(ctx, BOSS_DAMAGE_REBALANCE);
     // 49: Endless eased to campaign-level hits and ~8% more time a map.
     if (currentVersion < 49) applyCampaignRebalance(ctx, ENDLESS_EASE);
+    if (currentVersion < 50) moveToWideTables(ctx);
     const next = { id: 0, version: MODULE_MIGRATION_VERSION };
     if (state) ctx.db.moduleMigrationState.id.update(next);
     else ctx.db.moduleMigrationState.insert(next);

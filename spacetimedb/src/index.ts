@@ -14,7 +14,8 @@ import { resolveMapBalance, validateBalanceSettings } from "../../shared/map-bal
 import { accountDeletionRequest, queueAccountDeletion } from "./account-deletion";
 import { mailboxEquipment, deliverEquipmentMail } from "./mailbox-equipment";
 import { gearClaimSpace } from "../../shared/mailbox-equipment";
-import { duelWireAccess, syncDuelWireAccess, DUEL_WIRE_FILTER, DUEL_REPLAY_WIRE_FILTER } from "./duel-wire-access";
+import { duelWireAccess } from "./duel-wire-access";
+import { leaderboardEntryLegacy } from "./leaderboard-legacy";
 import { nameChangeStatus } from "../../shared/name-change";
 import { validPatreonRedirect } from "./patreon-url";
 import { isValidProfileIcon } from "../../shared/profile-icons";
@@ -229,8 +230,8 @@ import {
   WORLD_WIDTH, isBaseStoredSpeed,
 } from "../../shared/rules";
 import { MAP_EDITOR_GAMEPLAY_OVERRIDES } from "../../shared/map-editor-overrides";
-import { readPlayerProgress, iterPlayerProgress } from "./wide-stats";
-import { playerWideStats } from "./wide-stats-table";
+import { readPlayerProgress, iterPlayerProgress, withDuelWide, deleteReplayWide } from "./wide-stats";
+import { playerWideStats, duelWideStats, duelReplayWideStats } from "./wide-stats-table";
 import { narrowStat } from "../../shared/wide-stats";
 
 // Cached clients parse these exact wire messages. Current clients rebrand them
@@ -956,18 +957,19 @@ const playerGemDrop = table(
 );
 
 // Shared periodic ranking snapshot. Clients fetch only server-selected rank
-// windows; this table stays outside all normal client subscriptions.
+// windows; this table stays outside all normal client subscriptions. Stats are
+// f64 (0.856): the f32 table they came from could not hold past 3.4e38.
 const leaderboardEntry = table(
-  { public: true },
+  { name: "leaderboard_entry_v2", public: true },
   {
     identity: t.identity().primaryKey(),
     displayName: t.string(),
-    damage: t.f32(),
-    maxHp: t.f32(),
+    damage: t.f64(),
+    maxHp: t.f64(),
     isGuest: t.bool(),
     power: t.u32().default(0),
-    armor: t.f32().default(0),
-    regen: t.f32().default(0),
+    armor: t.f64().default(0),
+    regen: t.f64().default(0),
     playedMicros: t.u64().default(0n),
     profileIcon: t.u32().default(0),
     powerLevel: t.f64().default(0),
@@ -1801,7 +1803,7 @@ const spacetimedb = schema({
   activeItemUpgradeSlotTwo,
   activeItemUpgradeSlotThree,
   playerItemDrop,
-  leaderboardEntry,
+  leaderboardEntry, leaderboardEntryLegacy,
   playerAccountStatus,
   playerLegalConsent,
   worldStatus,
@@ -1817,7 +1819,7 @@ const spacetimedb = schema({
   playerEndlessRebaseBackup,
   playerPrestige,
   playerPrestigePerk,
-  playerPrestigeChallenge, prestigeChallengeBackup, prestigeChallengeRun, playerPrestigeChallengeParked, playerFreeRespec, playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerWideStats, prestigeExpansion,
+  playerPrestigeChallenge, prestigeChallengeBackup, prestigeChallengeRun, playerPrestigeChallengeParked, playerFreeRespec, playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerWideStats, duelWideStats, duelReplayWideStats, prestigeExpansion,
   playerPrestigeExpansionPerk,
   duelRiposte, duelCombatSnapshot,
   playerSessionAnalytics,
@@ -1876,8 +1878,6 @@ const spacetimedb = schema({
   prismshellRespawnSchedule, ironhornRespawnSchedule, dreadreaperRespawnSchedule, voltwardenRespawnSchedule, gravebloomRespawnSchedule, aegisPrimeRespawnSchedule,
 });
 export default spacetimedb;
-export const duelWireFilter = spacetimedb.clientVisibilityFilter.sql(DUEL_WIRE_FILTER);
-export const duelReplayWireFilter = spacetimedb.clientVisibilityFilter.sql(DUEL_REPLAY_WIRE_FILTER);
 
 export type ModuleViewCtx = import("spacetimedb/server").ViewCtx<InferSchema<typeof spacetimedb>>;
 export type ModuleReducerCtx = ReducerCtx<InferSchema<typeof spacetimedb>>;
@@ -2147,10 +2147,10 @@ function syncDisplayNamePresentation(ctx: any, identity: any, displayName: strin
     }
   }
   syncDisplayNameHistory(ctx, identity, displayName);
-  for (const duel of [...ctx.db.duel.byChallenger.filter(identity)] as any[]) {
+  for (const duel of [...ctx.db.duel.byChallenger.filter(identity)].map(row => withDuelWide(ctx, row)) as any[]) {
     if (duel.challengerName !== displayName) updateSnapshotRow(ctx, "duel", { ...duel, challengerName: displayName });
   }
-  for (const duel of [...ctx.db.duel.byOpponent.filter(identity)] as any[]) {
+  for (const duel of [...ctx.db.duel.byOpponent.filter(identity)].map(row => withDuelWide(ctx, row)) as any[]) {
     if (duel.opponentName !== displayName) updateSnapshotRow(ctx, "duel", { ...duel, opponentName: displayName });
   }
 }
@@ -2593,11 +2593,10 @@ function refreshLeaderboard(ctx: any) {
       feetItem: candidate.feetItem,
       rightHandItem: candidate.rightHandItem,
       leftHandItem: candidate.leftHandItem,
-      // f32 columns: clamped for display; the ranking was written from the full values above.
-      damage: narrowStat(candidate.damage),
-      maxHp: narrowStat(candidate.maxHp),
-      armor: narrowStat(candidate.armor),
-      regen: narrowStat(candidate.regen),
+      damage: candidate.damage,
+      maxHp: candidate.maxHp,
+      armor: candidate.armor,
+      regen: candidate.regen,
       playedMicros: candidate.playedMicros,
       isGuest: candidate.isGuest,
     };
@@ -3363,7 +3362,7 @@ function clearExpiredHistory(ctx: any) {
   }
 
   for (const id of staleMessageIds) { removeMessageReactions(ctx, "public", id); ctx.db.chatMessage.id.delete(id); }
-  for (const id of staleReplayIds) { ctx.db.duelReplay.id.delete(id); ctx.db.duelCombatSnapshot.duelId.delete(id); }
+  for (const id of staleReplayIds) { ctx.db.duelReplay.id.delete(id); ctx.db.duelCombatSnapshot.duelId.delete(id); deleteReplayWide(ctx, id); }
   pruneExpiredSocialMessages(ctx, ctx.timestamp.microsSinceUnixEpoch);
   if (cursor?.firstId) ctx.db.publicChatCursor.id.update({ ...cursor, firstId: firstLiveId });
   else updatePublicChatCursor(ctx);
@@ -3692,7 +3691,7 @@ export const runMaintenance = spacetimedb.reducer(
   { maintenance: maintenanceSchedule.rowType },
   (ctx, { maintenance }) => {
     void maintenance;
-    const finishedDuels = [...ctx.db.duel.iter()].filter((current: any) =>
+    const finishedDuels = [...ctx.db.duel.iter()].map(row => withDuelWide(ctx, row)).filter((current: any) =>
       current.status === "finishing" && ctx.timestamp.microsSinceUnixEpoch >= current.endsAtMicros
     );
     for (const current of finishedDuels) finishDuel(ctx, current);
@@ -3857,7 +3856,7 @@ export const completeItemUpgrade = spacetimedb.reducer(
 export const resolveScheduledDuel = spacetimedb.reducer(
   { schedule: duelResolutionSchedule.rowType },
   (ctx, { schedule }) => {
-    const current = ctx.db.duel.id.find(schedule.duelId);
+    const current = withDuelWide(ctx, ctx.db.duel.id.find(schedule.duelId));
     if (current) resolveDuel(ctx, current);
   },
 );
@@ -3921,14 +3920,6 @@ export const acknowledgeRelease = spacetimedb.reducer({ id: t.string() }, (ctx, 
   acknowledgeReleaseWindow(ctx, id);
 });
 
-// One-time backfill for clients already online when the compatibility bridge ships.
-export const refreshDuelWireAccess = spacetimedb.reducer({}, (ctx) => {
-  if (!isDatabaseOwnerIdentity(ctx.sender)) denyPrivilegedAccess(ctx, "refresh_duel_wire_access", "Database owner required.");
-  for (const player of ctx.db.player.iter()) {
-    syncDuelWireAccess({ db: ctx.db, sender: player.identity }, player.protocolVersion);
-  }
-});
-
 export const registerProtocol = spacetimedb.reducer(
   { protocolVersion: t.u32() },
   (ctx, { protocolVersion }) => {
@@ -3936,7 +3927,6 @@ export const registerProtocol = spacetimedb.reducer(
       throw new SenderError(LEGACY_CLIENT_ERRORS.protocolUpdate);
     }
     const session = requireSession(ctx);
-    syncDuelWireAccess(ctx, protocolVersion);
     if (session.protocolVersion !== protocolVersion) ctx.db.playerSession.connectionId.update({ ...session, protocolVersion });
     const current = ctx.db.player.identity.find(ctx.sender);
     const controller = ctx.db.playerController.identity.find(ctx.sender);

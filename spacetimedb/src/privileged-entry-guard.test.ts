@@ -19,7 +19,7 @@ const PRIVILEGED_WITHOUT_DEV_PREFIX = [
   "getBalanceEditor", "previewMapBalance", "setMapBalance", "restoreMapBalance",
   "getModerationHistory", "getPlayerModerationHistory", "getDevReviewQueue", "getDevConsole", "getDevPlayerCard", "getModerationLog",
   "getAnalyticsDashboard", "getDeveloperTravelTarget",
-  "configurePatreon", "configureGemCommerce", "setReleaseWindow", "refreshDuelWireAccess", "seedTemporaryGuild",
+  "configurePatreon", "configureGemCommerce", "setReleaseWindow", "seedTemporaryGuild",
   "beginForestRewardPrototype", "attackForestRewardPrototype",
 ];
 const REFUSED = /Developer access required|Database owner required|Account database owner required|Developer travel access required|Database operator required|WildStat updated\. Refresh to continue\./;

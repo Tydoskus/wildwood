@@ -120,7 +120,6 @@ import RecordRegularEnemyDefeatsReducer from "../record_regular_enemy_defeats_re
 import RecordSnowEnemyDefeatReducer from "../record_snow_enemy_defeat_reducer";
 import RecordStartupTelemetryReducer from "../record_startup_telemetry_reducer";
 import RefreshDailyQuestsReducer from "../refresh_daily_quests_reducer";
-import RefreshDuelWireAccessReducer from "../refresh_duel_wire_access_reducer";
 import RegisterClientVersionReducer from "../register_client_version_reducer";
 import RegisterProtocolReducer from "../register_protocol_reducer";
 import ReportAutoFarmEnemyDefeatsReducer from "../report_auto_farm_enemy_defeats_reducer";
@@ -298,7 +297,6 @@ export type RecordRegularEnemyDefeatsParams = __Infer<typeof RecordRegularEnemyD
 export type RecordSnowEnemyDefeatParams = __Infer<typeof RecordSnowEnemyDefeatReducer>;
 export type RecordStartupTelemetryParams = __Infer<typeof RecordStartupTelemetryReducer>;
 export type RefreshDailyQuestsParams = __Infer<typeof RefreshDailyQuestsReducer>;
-export type RefreshDuelWireAccessParams = __Infer<typeof RefreshDuelWireAccessReducer>;
 export type RegisterClientVersionParams = __Infer<typeof RegisterClientVersionReducer>;
 export type RegisterProtocolParams = __Infer<typeof RegisterProtocolReducer>;
 export type ReportAutoFarmEnemyDefeatsParams = __Infer<typeof ReportAutoFarmEnemyDefeatsReducer>;

@@ -216,7 +216,7 @@ export function numberedMapName(mapId: string, name: string) {
   return index < 0 ? name : `${name.replace(/ - \d+$/, "")} - ${index + 1}`;
 }
 
-export const PROTOCOL_VERSION = 107;
+export const PROTOCOL_VERSION = 108;
 // Add a previous version only after reviewing wire/schema and security compatibility.
 // Flat equipment changes combat DPS and boss-claim validation. Percentage-based
 // clients must update together with the servers, even though the wire is unchanged.

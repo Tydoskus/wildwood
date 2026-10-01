@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.856": [
+    "Duels and the leaderboard's stat tabs now hold stats past 1e38",
+    "Quests finished before the weekly change now count toward your solo bonus and your guild points",
+    "The stat tracker no longer scrolls sideways with long numbers",
+  ],
   "0.855": [
     "Stats can now grow far past 1e36: Endless keeps scaling to around Endless 400",
     "New number names past 1e36 (dd, td, qad … vg), then scientific notation",
@@ -2614,6 +2619,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.856": "2026-10-01",
   "0.855": "2026-10-01",
   "0.854": "2026-10-01",
   "0.853": "2026-10-01",

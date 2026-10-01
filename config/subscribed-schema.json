@@ -1,5 +1,5 @@
 {
-  "protocolVersion": 107,
+  "protocolVersion": 108,
   "tables": {
     "active_item_upgrade_slot_three": [
       "identity",
@@ -202,6 +202,10 @@
       "challengerWeaponItem",
       "opponentWeaponItem"
     ],
+    "duel_replay_wide_stats": [
+      "replayId",
+      "statsJson"
+    ],
     "duel_riposte": [
       "duelId",
       "challengerRiposte",
@@ -259,6 +263,11 @@
       "combatVersion",
       "challengerWeaponItem",
       "opponentWeaponItem"
+    ],
+    "duel_wide_stats": [
+      "duelId",
+      "challenger",
+      "statsJson"
     ],
     "duel_wire_access": [
       "key",
@@ -384,6 +393,26 @@
       "replyToMessage",
       "guildReplayKey",
       "reactionCountsJson"
+    ],
+    "leaderboard_entry_legacy": [
+      "identity",
+      "displayName",
+      "damage",
+      "maxHp",
+      "isGuest",
+      "power",
+      "armor",
+      "regen",
+      "playedMicros",
+      "profileIcon",
+      "powerLevel",
+      "gender",
+      "skinTone",
+      "headItem",
+      "chestItem",
+      "feetItem",
+      "rightHandItem",
+      "leftHandItem"
     ],
     "leaderboard_entry": [
       "identity",

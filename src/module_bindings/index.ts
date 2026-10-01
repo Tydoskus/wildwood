@@ -148,7 +148,6 @@ import RecordRegularEnemyDefeatsReducer from "./record_regular_enemy_defeats_red
 import RecordSnowEnemyDefeatReducer from "./record_snow_enemy_defeat_reducer";
 import RecordStartupTelemetryReducer from "./record_startup_telemetry_reducer";
 import RefreshDailyQuestsReducer from "./refresh_daily_quests_reducer";
-import RefreshDuelWireAccessReducer from "./refresh_duel_wire_access_reducer";
 import RegisterClientVersionReducer from "./register_client_version_reducer";
 import RegisterProtocolReducer from "./register_protocol_reducer";
 import ReportAutoFarmEnemyDefeatsReducer from "./report_auto_farm_enemy_defeats_reducer";
@@ -269,7 +268,9 @@ import DreadreaperResultRow from "./dreadreaper_result_table";
 import DuelRow from "./duel_table";
 import DuelCombatSnapshotRow from "./duel_combat_snapshot_table";
 import DuelReplayRow from "./duel_replay_table";
+import DuelReplayWideStatsRow from "./duel_replay_wide_stats_table";
 import DuelRiposteRow from "./duel_riposte_table";
+import DuelWideStatsRow from "./duel_wide_stats_table";
 import DuelWireAccessRow from "./duel_wire_access_table";
 import FrostclawBossRow from "./frostclaw_boss_table";
 import FrostclawResultRow from "./frostclaw_result_table";
@@ -285,6 +286,7 @@ import KoiShogunResultRow from "./koi_shogun_result_table";
 import LatestChatMessagesRow from "./latest_chat_messages_table";
 import LatestChatMessagesWithReactionsRow from "./latest_chat_messages_with_reactions_table";
 import LeaderboardEntryRow from "./leaderboard_entry_table";
+import LeaderboardEntryLegacyRow from "./leaderboard_entry_legacy_table";
 import MagmaliskBossRow from "./magmalisk_boss_table";
 import MagmaliskResultRow from "./magmalisk_result_table";
 import MiremawBossRow from "./miremaw_boss_table";
@@ -544,6 +546,17 @@ const tablesSchema = __schema({
       { name: 'duel_replay_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, DuelReplayRow),
+  duelReplayWideStats: __table({
+    name: 'duel_replay_wide_stats',
+    indexes: [
+      { accessor: 'replayId', name: 'duel_replay_wide_stats_replay_id_idx_btree', algorithm: 'btree', columns: [
+        'replayId',
+      ] },
+    ],
+    constraints: [
+      { name: 'duel_replay_wide_stats_replay_id_key', constraint: 'unique', columns: ['replayId'] },
+    ],
+  }, DuelReplayWideStatsRow),
   duelRiposte: __table({
     name: 'duel_riposte',
     indexes: [
@@ -555,6 +568,17 @@ const tablesSchema = __schema({
       { name: 'duel_riposte_duel_id_key', constraint: 'unique', columns: ['duelId'] },
     ],
   }, DuelRiposteRow),
+  duelWideStats: __table({
+    name: 'duel_wide_stats',
+    indexes: [
+      { accessor: 'duelId', name: 'duel_wide_stats_duel_id_idx_btree', algorithm: 'btree', columns: [
+        'duelId',
+      ] },
+    ],
+    constraints: [
+      { name: 'duel_wide_stats_duel_id_key', constraint: 'unique', columns: ['duelId'] },
+    ],
+  }, DuelWideStatsRow),
   duelWireAccess: __table({
     name: 'duel_wire_access',
     indexes: [
@@ -696,7 +720,7 @@ const tablesSchema = __schema({
       { name: 'koi_shogun_result_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, KoiShogunResultRow),
-  leaderboardEntry: __table({
+  leaderboardEntryLegacy: __table({
     name: 'leaderboard_entry',
     indexes: [
       { accessor: 'identity', name: 'leaderboard_entry_identity_idx_btree', algorithm: 'btree', columns: [
@@ -705,6 +729,17 @@ const tablesSchema = __schema({
     ],
     constraints: [
       { name: 'leaderboard_entry_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, LeaderboardEntryLegacyRow),
+  leaderboardEntry: __table({
+    name: 'leaderboard_entry_v2',
+    indexes: [
+      { accessor: 'identity', name: 'leaderboard_entry_v2_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'leaderboard_entry_v2_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, LeaderboardEntryRow),
   magmaliskBoss: __table({
@@ -1605,7 +1640,6 @@ const reducersSchema = __reducers(
   __reducerSchema("record_snow_enemy_defeat", RecordSnowEnemyDefeatReducer),
   __reducerSchema("record_startup_telemetry", RecordStartupTelemetryReducer),
   __reducerSchema("refresh_daily_quests", RefreshDailyQuestsReducer),
-  __reducerSchema("refresh_duel_wire_access", RefreshDuelWireAccessReducer),
   __reducerSchema("register_client_version", RegisterClientVersionReducer),
   __reducerSchema("register_protocol", RegisterProtocolReducer),
   __reducerSchema("report_auto_farm_enemy_defeats", ReportAutoFarmEnemyDefeatsReducer),

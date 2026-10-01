@@ -94,6 +94,7 @@ export const ERASURE_TARGETS: readonly ErasureTarget[] = [
   { table: "koiShogunAttackWindow", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "koiShogunContribution", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "leaderboardEntry", columns: ["identity"], pk: "identity", mode: "key" },
+  { table: "leaderboardEntryLegacy", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "leaderboardPosition", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "leaderboardPrestigePosition", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "loginMove", columns: ["source"], pk: "code", mode: "scan" },

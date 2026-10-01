@@ -580,6 +580,12 @@ export const DuelReplay = __t.object("DuelReplay", {
 });
 export type DuelReplay = __Infer<typeof DuelReplay>;
 
+export const DuelReplayWideStats = __t.object("DuelReplayWideStats", {
+  replayId: __t.u64(),
+  statsJson: __t.string(),
+});
+export type DuelReplayWideStats = __Infer<typeof DuelReplayWideStats>;
+
 export const DuelRequestCooldown = __t.object("DuelRequestCooldown", {
   identity: __t.identity(),
   requestedAt: __t.timestamp(),
@@ -600,6 +606,13 @@ export const DuelRiposte = __t.object("DuelRiposte", {
   riposteSeed: __t.u64(),
 });
 export type DuelRiposte = __Infer<typeof DuelRiposte>;
+
+export const DuelWideStats = __t.object("DuelWideStats", {
+  duelId: __t.u64(),
+  challenger: __t.identity(),
+  statsJson: __t.string(),
+});
+export type DuelWideStats = __Infer<typeof DuelWideStats>;
 
 export const DuelWireAccess = __t.object("DuelWireAccess", {
   key: __t.string(),
@@ -1089,6 +1102,28 @@ export const LeaderboardEntry = __t.object("LeaderboardEntry", {
   leftHandItem: __t.string(),
 });
 export type LeaderboardEntry = __Infer<typeof LeaderboardEntry>;
+
+export const LeaderboardEntryV2 = __t.object("LeaderboardEntryV2", {
+  identity: __t.identity(),
+  displayName: __t.string(),
+  damage: __t.f64(),
+  maxHp: __t.f64(),
+  isGuest: __t.bool(),
+  power: __t.u32(),
+  armor: __t.f64(),
+  regen: __t.f64(),
+  playedMicros: __t.u64(),
+  profileIcon: __t.u32(),
+  powerLevel: __t.f64(),
+  gender: __t.u8(),
+  skinTone: __t.u32(),
+  headItem: __t.string(),
+  chestItem: __t.string(),
+  feetItem: __t.string(),
+  rightHandItem: __t.string(),
+  leftHandItem: __t.string(),
+});
+export type LeaderboardEntryV2 = __Infer<typeof LeaderboardEntryV2>;
 
 export const LeaderboardPage = __t.object("LeaderboardPage", {
   get entries() {
@@ -2380,7 +2415,7 @@ export type PublicChatWithReactions = __Infer<typeof PublicChatWithReactions>;
 export const RankedLeaderboardPlayer = __t.object("RankedLeaderboardPlayer", {
   rank: __t.u32(),
   get entry() {
-    return LeaderboardEntry;
+    return LeaderboardEntryV2;
   },
 });
 export type RankedLeaderboardPlayer = __Infer<typeof RankedLeaderboardPlayer>;

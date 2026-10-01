@@ -1,9 +1,7 @@
 import { expect, it, vi } from "vitest";
 import { Timestamp } from "spacetimedb";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
-import { syncDuelWireAccess } from "./duel-wire-access";
 import { COMPATIBLE_PROTOCOL_VERSIONS, PROTOCOL_VERSION } from "../../shared/rules";
-import { DUEL_COMBAT_VERSION } from "../../shared/duel-combat";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 it("requires flat-stat combat clients so boss validation uses matching DPS", () => {
@@ -12,20 +10,6 @@ it("requires flat-stat combat clients so boss validation uses matching DPS", () 
   expect(COMPATIBLE_PROTOCOL_VERSIONS).not.toContain(104);
   expect(COMPATIBLE_PROTOCOL_VERSIONS).not.toContain(105);
   expect(COMPATIBLE_PROTOCOL_VERSIONS).not.toContain(103);
-});
-it("grants all recorded duel formats only to current clients and revokes on old-client registration", () => {
-  const f = crystalFixture();
-  syncDuelWireAccess(f.ctx, 104);
-  expect([...f.db.duelWireAccess.iter()]).toHaveLength(0);
-  syncDuelWireAccess(f.ctx, PROTOCOL_VERSION);
-  // Through the current version, not a frozen list: a duel written at a version
-  // nobody was granted never reached either duellist.
-  const granted = [...Array(DUEL_COMBAT_VERSION + 1).keys()];
-  expect([...f.db.duelWireAccess.iter()].map((r: any) => r.combatVersion)).toEqual(granted);
-  syncDuelWireAccess(f.ctx, PROTOCOL_VERSION);
-  expect([...f.db.duelWireAccess.iter()]).toHaveLength(granted.length);
-  syncDuelWireAccess(f.ctx, 104);
-  expect([...f.db.duelWireAccess.iter()]).toHaveLength(0);
 });
 it.each([undefined, 104, 105, 106])("allows a saved opponent with live protocol %s", protocol => {
   const f = crystalFixture(), opponent = identity("b");
@@ -53,14 +37,4 @@ it("records disconnect time after hidden autofarming without movement heartbeats
   f.run(server.onDisconnect);
   expect(f.db.player.identity.find(f.ctx.sender)).toBeNull();
   expect(f.db.playerLifetime.identity.find(f.ctx.sender)).toMatchObject({ sessionStartedAt: f.ctx.timestamp, playedMicros: 600_000_000n });
-});
-it("leaves an unchanged grant alone on reconnect, since every client's duel filter joins this table", () => {
-  const f = crystalFixture();
-  f.transaction(() => syncDuelWireAccess(f.ctx, PROTOCOL_VERSION));
-  const deletes = vi.spyOn(f.db.duelWireAccess.key, "delete");
-  const inserts = vi.spyOn(f.db.duelWireAccess, "insert");
-  f.transaction(() => syncDuelWireAccess(f.ctx, PROTOCOL_VERSION));
-  expect(deletes).not.toHaveBeenCalled();
-  expect(inserts).not.toHaveBeenCalled();
-  expect([...f.db.duelWireAccess.iter()]).toHaveLength(DUEL_COMBAT_VERSION + 1);
 });

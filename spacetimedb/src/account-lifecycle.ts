@@ -39,7 +39,7 @@ import { unlinkPatreon } from "./patreon";
 import { clearProceduralProgress, mergeProceduralProgress } from "./procedural-maps";
 import { deleteSnapshotRow, insertSnapshotRow, updateSnapshotRow } from "./snapshot-row-writes";
 import { mergeSocialAccount, removeSocialAccount } from "./social-service";
-import { readPlayerProgress } from "./wide-stats";
+import { readPlayerProgress, deleteReplayWide } from "./wide-stats";
 
 export const ACCOUNT_LINK_LIFETIME_MICROS = 600_000_000n;
 
@@ -962,7 +962,7 @@ for (const [contributionTable, attackWindowTable] of [
     for (const replay of [...ctx.db.duelReplay.iter() as Iterable<any>]) {
       const challengerHex = replay.challengerIdentity.replace(/^0x/i, "").toLowerCase();
       const opponentHex = replay.opponentIdentity.replace(/^0x/i, "").toLowerCase();
-      if (challengerHex === identityHex || opponentHex === identityHex) ctx.db.duelReplay.id.delete(replay.id);
+      if (challengerHex === identityHex || opponentHex === identityHex) { ctx.db.duelReplay.id.delete(replay.id); deleteReplayWide(ctx, replay.id); }
     }
 
     refreshLeaderboard(ctx);

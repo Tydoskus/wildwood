@@ -10,6 +10,7 @@
 import { ScheduleAt, Timestamp } from "spacetimedb";
 import { SenderError } from "spacetimedb/server";
 import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./snapshot-row-writes";
+import { withDuelWide, writeReplayWide } from "./wide-stats";
 import {
   playerZone, playerWithMotion, stoppedMotionFields, syncPlayerMotion, syncPlayerMotionIdentity,
   syncPlayerMapMarker, ensureRealtimeFrameSchedules,
@@ -38,7 +39,7 @@ export function activeDuelFor(ctx: any, identity: any) {
     current.status === "active" ||
     current.status === "finishing";
   for (const current of ctx.db.duel.byChallenger.filter(identity) as Iterable<any>) {
-    if (isActive(current)) return current;
+    if (isActive(current)) return withDuelWide(ctx, current);
   }
   return null;
 }
@@ -130,7 +131,7 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
     const winnerName = challengerWon ? challengerName : opponentWon ? opponentName : "DRAW";
     const durationSeconds = Math.max(0, Number(current.lastResolvedAt.microsSinceUnixEpoch - current.startsAtMicros) / 1_000_000);
 
-    ctx.db.duelReplay.insert({
+    ctx.db.duelReplay.insert(writeReplayWide(ctx, {
       id: current.id,
       combatVersion: current.combatVersion ?? 0,
       challengerIdentity: current.challenger.toHexString(),
@@ -174,7 +175,7 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
       opponentLeftHandItem: current.opponentLeftHandItem,
       challengerGender: current.challengerGender,
       opponentGender: current.opponentGender,
-    });
+    }));
 
     deleteSnapshotRow(ctx, "duel", current.id);
     ctx.db.duelRiposte.duelId.delete(current.id);
