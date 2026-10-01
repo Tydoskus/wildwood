@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.850": [
+    "New: search players by name on the leaderboard (jumps to their rank) and in private chat",
+    "Reflect Only completes on its own when you reach the goal, with a popup",
+    "Offline farming steps down to the best map you can hold instead of Tutorial Forest",
+    "Removed Screen Shake and Damage Flash",
+  ],
   "0.849": [
     "Offline farming pays the same stats per kill as playing that map",
   ],
@@ -2582,6 +2588,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.850": "2026-09-30",
   "0.849": "2026-09-30",
   "0.848": "2026-09-30",
   "0.847": "2026-09-30",

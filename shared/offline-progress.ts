@@ -37,13 +37,14 @@ export const OFFLINE_INCOMING_PRESSURE = .25;
  */
 export const OFFLINE_DEFAULT_ATTACKS_PER_SECOND = 1;
 /**
- * How many rungs the fallback will walk before giving up on the ladder.
+ * How many Endless rungs the fallback will walk.
  *
  * This runs inside world entry, and each generated rung costs a map
  * generation, so an account sitting on Endless 300 must not turn a login into
  * three hundred of them. Nobody unlocks more than a few rungs past what they
- * can hold, so eight candidates covers every honest account; the campaign
- * floor is appended separately so the search always has somewhere to land.
+ * can hold, so eight rungs covers every honest account. Campaign maps cost no
+ * generation, so every unlocked one is searched below them: a build that
+ * cannot hold its top maps lands on the highest one it can, not on map 1.
  */
 export const OFFLINE_MAP_SEARCH_LIMIT = 8;
 
@@ -202,7 +203,7 @@ export function offlineFarmableMaps(
     // Only the rungs the search can actually reach are worth building.
     for (let number = Math.max(1, highest - limit + 1); number <= highest; number += 1) ladder.push(proceduralMapId(number));
   }
-  const candidates = ladder.reverse().slice(0, Math.max(1, limit));
+  const candidates = ladder.reverse();
   // The first campaign map is the floor: always reachable, always survivable
   // for anyone who has left it, so the search can never come back empty-handed.
   return candidates.includes(MAP_IDS[0]) ? candidates : [...candidates, MAP_IDS[0]];

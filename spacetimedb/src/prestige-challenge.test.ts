@@ -6,7 +6,7 @@ import { BOSS_REWARD_CLAIM_BITS, DEFAULT_ATTACK_INTERVAL, MAX_BASE_ATTACKS_PER_S
 import { challengeGoal, challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { applyEnemyRewards } from "../../shared/enemy-defeats";
 import { REFLECT_CHALLENGE_ENROLLEE, enrollPlayerByName } from "./module-migrations";
-import { carryOwnership } from "./prestige-challenge";
+import { carryOwnership, challengeWinReady } from "./prestige-challenge";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 function fixture() {
@@ -125,6 +125,23 @@ it("wins each Reflect Only run on its own goal: map 15's boss, then Endless 1, 2
     f.run(server.prestigeAccount);
     expect(f.db.playerPrestigeChallenge.identity.find(f.ctx.sender).completed).toBe(stage + 1);
   }
+});
+
+it("knows when a Reflect Only run has met its goal, so a boss clear can win it on the spot", () => {
+  const f = fixture();
+  expect(challengeWinReady(f.ctx)).toBe(false);
+  f.run(server.startPrestigeChallenge);
+  expect(challengeWinReady(f.ctx)).toBe(false);
+  f.patch("playerProgress", { bossRewardClaims: BOSS_REWARD_CLAIM_BITS.aegisPrime });
+  expect(challengeWinReady(f.ctx)).toBe(true);
+  f.run(server.prestigeAccount);
+  // The next run asks for Endless 1: unlocking it is not clearing it.
+  f.run(server.startPrestigeChallenge);
+  f.patch("playerProgress", { bossRewardClaims: BOSS_REWARD_CLAIM_BITS.aegisPrime });
+  f.seed("proceduralProgress", { identity: f.ctx.sender, completed: 0 });
+  expect(challengeWinReady(f.ctx)).toBe(false);
+  f.patch("proceduralProgress", { completed: 1 });
+  expect(challengeWinReady(f.ctx)).toBe(true);
 });
 
 it("names each Reflect Only goal", () => {

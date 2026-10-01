@@ -141,7 +141,7 @@ describe("choosing the offline map", () => {
     expect(maps.at(-1)).toBe("tutorial_forest");
   });
 
-  it("never walks more than the search limit, however deep Endless goes", () => {
+  it("walks at most the search limit of Endless rungs, however deep Endless goes, then every campaign map", () => {
     const access = Object.fromEntries(MAP_IDS.slice(1).map((_, index) => [
       ["desertUnlocked", "snowlandsUnlocked", "lavaUnlocked", "infernalUnlocked", "waterUnlocked", "samuraiUnlocked",
         "cloudspireUnlocked", "moonfenUnlocked", "crystalHollowsUnlocked", "clockworkRuinsUnlocked",
@@ -149,8 +149,10 @@ describe("choosing the offline map", () => {
       true,
     ]));
     const maps = offlineFarmableMaps(access, { completed: 400, unlocked: true });
-    expect(maps.length).toBeLessThanOrEqual(OFFLINE_MAP_SEARCH_LIMIT + 1);
+    expect(maps.filter(map => map.startsWith("endless_"))).toHaveLength(OFFLINE_MAP_SEARCH_LIMIT);
     expect(maps[0]).toBe("endless_401");
+    // A build that cannot hold Endless steps down the whole campaign, not straight to map 1.
+    expect(maps.slice(OFFLINE_MAP_SEARCH_LIMIT)).toEqual([...MAP_IDS].reverse());
     // The campaign floor is always reachable, so nobody is left with nothing.
     expect(maps.at(-1)).toBe(MAP_IDS[0]);
   });

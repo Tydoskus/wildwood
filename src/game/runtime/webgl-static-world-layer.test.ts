@@ -14,31 +14,31 @@ describe("WebGL static world layer", () => {
     expect(parseHexColor("not-a-color")).toEqual([0, 0, 0]);
   });
 
-  it("builds two GPU triangles per sprite with zoom and screen shake applied", () => {
+  it("builds two GPU triangles per sprite with zoom applied", () => {
     expect(Array.from(webGLSpriteBatchVertices([
       { left: 10, top: 20, width: 30, height: 40 },
-    ], 2, 3, -4))).toEqual([
-      23, 36, 0, 0,
-      83, 36, 1, 0,
-      23, 116, 0, 1,
-      23, 116, 0, 1,
-      83, 36, 1, 0,
-      83, 116, 1, 1,
+    ], 2))).toEqual([
+      20, 40, 0, 0,
+      80, 40, 1, 0,
+      20, 120, 0, 1,
+      20, 120, 0, 1,
+      80, 40, 1, 0,
+      80, 120, 1, 1,
     ]);
   });
 
   it("reuses vertex storage without drawing stale vertices after a batch shrinks", () => {
     const storage = new Float32Array(48);
     const sprite = { left: 2, top: 3, width: 4, height: 5 };
-    const full = webGLSpriteBatchVertices([sprite, sprite], 1, 0, 0, storage);
+    const full = webGLSpriteBatchVertices([sprite, sprite], 1, storage);
     expect(full.buffer).toBe(storage.buffer);
     expect(full.length).toBe(48);
-    const smaller = webGLSpriteBatchVertices([sprite], 2, 1, -1, storage);
+    const smaller = webGLSpriteBatchVertices([sprite], 2, storage);
     expect(smaller.buffer).toBe(storage.buffer);
     expect(smaller.length).toBe(24);
-    expect([...smaller]).toEqual([...webGLSpriteBatchVertices([sprite], 2, 1, -1)]);
-    expect(webGLSpriteBatchVertices([], 1, 0, 0, storage).length).toBe(0);
-    expect(() => webGLSpriteBatchVertices([sprite], 1, 0, 0, new Float32Array(23))).toThrow(RangeError);
+    expect([...smaller]).toEqual([...webGLSpriteBatchVertices([sprite], 2)]);
+    expect(webGLSpriteBatchVertices([], 1, storage).length).toBe(0);
+    expect(() => webGLSpriteBatchVertices([sprite], 1, new Float32Array(23))).toThrow(RangeError);
   });
 
   it("rotates sprite geometry around its center without changing texture coordinates", () => {
@@ -60,7 +60,7 @@ describe("WebGL static world layer", () => {
     expect(vertices[21]).toBeCloseTo(15);
   });
 
-  it("writes one colored, opacity-clamped GPU quad with zoom and screen shake", () => {
+  it("writes one colored, opacity-clamped GPU quad with zoom", () => {
     const vertices = new Float32Array(36);
     expect(writeWebGLColorQuadVertices([{
       left: 1,
@@ -69,14 +69,14 @@ describe("WebGL static world layer", () => {
       height: 4,
       color: [.25, .5, .75],
       opacity: 2,
-    }], vertices, 2, 5, -1)).toBe(36);
+    }], vertices, 2)).toBe(36);
     expect(Array.from(vertices)).toEqual([
-      7, 3, .25, .5, .75, 1,
-      13, 3, .25, .5, .75, 1,
-      7, 11, .25, .5, .75, 1,
-      7, 11, .25, .5, .75, 1,
-      13, 3, .25, .5, .75, 1,
-      13, 11, .25, .5, .75, 1,
+      2, 4, .25, .5, .75, 1,
+      8, 4, .25, .5, .75, 1,
+      2, 12, .25, .5, .75, 1,
+      2, 12, .25, .5, .75, 1,
+      8, 4, .25, .5, .75, 1,
+      8, 12, .25, .5, .75, 1,
     ]);
   });
 });

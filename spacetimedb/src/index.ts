@@ -51,7 +51,7 @@ import { playerBowSkill, ensureBowSkillRoll, ensureBowSkillRolls } from "./bow-s
 import { playerEquipmentCopy, pendingEquipmentOffer, createEquipmentCopies, publishItemDrop, offerDuplicateEquipment, expireEquipmentOffers, removeEquipmentCopies, removeEquipmentOffers } from "./equipment-copies";
 import { moderateReportedMessage } from "./chat-report-moderation";
 import { PLAYER_SKIN_TONES } from "../../shared/player-skin-tones";
-import { leaderboardPageTables, writeLeaderboardPages, readLeaderboardWindow, readLeaderboardPage, readPrestigeLeaderboardPage } from "./leaderboard-pages";
+import { leaderboardPageTables, writeLeaderboardPages, readLeaderboardWindow, readLeaderboardPage, readPrestigeLeaderboardPage, findLeaderboardSpot } from "./leaderboard-pages";
 import { leaderboardEligible } from "../../shared/leaderboard-window";
 import { effectiveMovementSpeedForProgress, prestigeRangeBonus, refreshPrestigeMovement, attackIntervalForProgress } from "./player-speed";
 import { playerPrestige, playerPrestigePerk, prestigeExpansion, playerPrestigeExpansionPerk, playerFreeRespec, ensurePrestigeExpansion } from "./prestige-expansion";
@@ -158,6 +158,7 @@ import {
 import { HIDDEN_COSMETIC_ITEM_ID, isHiddenCosmeticItem, resolveEquipmentAppearance } from "../../shared/equipment-appearance";
 import { socialTables } from "./social-tables";
 import { createSocialService, socialSnapshot, visibleSocialMessages, latestSocialMessages, socialHistoryPage, pruneExpiredSocialMessages } from "./social-service";
+import { playerDirectoryJson } from "./player-directory";
 import { guildTables } from "./guild-tables";
 import { createGuildService } from "./guild-service";
 import { registerGuildReducers } from "./guild-reducers";
@@ -5271,6 +5272,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
     killGems.grantKillGems(ctx, ctx.sender, accepted.count, enemyKills);
     recordDailyQuestKills(ctx, ctx.sender, batch.mapId, accepted.kills);
     enforce();
+    if (!accepted.restrict && accepted.rewards.some(reward => reward.type === "boss")) prestige.completeChallengeIfMet(ctx);
 }
 // The throttle comes before any other read; throttleKillReports says why.
 const killReport = (ctx: any, batch: any) => {
@@ -6152,6 +6154,10 @@ export const devGrantGemHeart = spacetimedb.reducer(
 export const getSocialHub = spacetimedb.procedure({}, t.string(), ctx => ctx.withTx(tx => {
   requireSocialPlayer(tx); return JSON.stringify(socialSnapshot(tx, hasSpacetimeAuthAccount(tx)));
 }));
+/** Recently active players' names, for player search; built at most once every ten minutes for everyone. */
+export const getPlayerDirectory = spacetimedb.procedure({}, t.string(), ctx => ctx.withTx(tx => {
+  requireSocialPlayer(tx); return playerDirectoryJson(tx, isVirtualPlayer);
+}));
 export const getSocialChatHistory = spacetimedb.procedure(
   { channel: t.string(), peer: t.string(), beforeId: t.u64() },
   t.object("SocialChatPage", { messages: t.array(socialTables.socialMessage.rowType), hasMore: t.bool() }),
@@ -6400,6 +6406,8 @@ export const getPrestigeLeaderboardPage = spacetimedb.procedure(
     total: t.u32(), prestige: t.u32(), levels: t.array(t.u32()) }),
   (ctx, { stat, prestige, startRank, count }) => ctx.withTx(tx => readPrestigeLeaderboardPage(tx, stat, prestige, startRank, count)),
 );
+export const findLeaderboardPlayer = spacetimedb.procedure({ stat: t.string(), prestige: t.i32(), identity: t.identity() },
+  t.object("LeaderboardSpot", { rank: t.u32(), prestige: t.i32() }), (ctx, { stat, prestige, identity }) => ctx.withTx(tx => findLeaderboardSpot(tx, stat, prestige, identity)));
 
 export const latestChatMessages = spacetimedb.anonymousView(
   { public: true }, t.array(chatMessage.rowType),

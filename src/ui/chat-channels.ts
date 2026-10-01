@@ -3,6 +3,8 @@ import { applyProfileIcon } from "../app/profile-icons";
 import { formatChatUnreadCount, type ChatUnreadCounts } from "./chat-unread";
 import { createDiscordLink } from "./discord-link";
 import { setChatAttribute, setChatHidden, setChatText } from "./chat-refresh-cache";
+import { createPlayerSearch } from "./player-search";
+import type { PlayerDirectoryEntry } from "../../shared/player-search";
 
 export type ChatChannel = "public" | "guild" | "private";
 export type ChatConversation = import("../../shared/social").SocialConversation;
@@ -18,7 +20,11 @@ export function mergeChatConversations(friends: ChatConversation[], conversation
   return [...names.values()].sort((a, b) => (b.lastSentAtMs ?? 0) - (a.lastSentAtMs ?? 0) || a.name.localeCompare(b.name));
 }
 
-export function createChatChannelPicker(onChange: (channel: ChatChannel, username: string, identity?: string) => void, onOpenPlayer?: (identity: string, name: string) => void) {
+export function createChatChannelPicker(
+  onChange: (channel: ChatChannel, username: string, identity?: string) => void,
+  onOpenPlayer?: (identity: string, name: string) => void,
+  search: { loadPlayers?: () => Promise<PlayerDirectoryEntry[]> | undefined; localIdentity?: () => string } = {},
+) {
   const root = document.createElement("div");
   root.className = "chat-channels";
   const tabs = document.createElement("div");
@@ -62,12 +68,13 @@ export function createChatChannelPicker(onChange: (channel: ChatChannel, usernam
   }
   const picker = document.createElement("form");
   picker.className = "chat-private-picker";
-  const username = document.createElement("input");
-  username.type = "text";
-  username.placeholder = "Player username";
-  username.setAttribute("aria-label", "Private message recipient username");
-  username.autocomplete = "off";
-  username.maxLength = 40;
+  // Names fill in as they are typed; picking one opens that player's conversation.
+  const playerSearch = createPlayerSearch({
+    load: () => search.loadPlayers?.(), localIdentity: search.localIdentity, className: "chat-player-search",
+    label: "Private message recipient username", placeholder: "Search players",
+    onPick: player => select("private", player.name, player.identity),
+  });
+  const username = playerSearch.input;
   const open = document.createElement("button");
   open.type = "submit";
   open.textContent = "Open";
@@ -92,7 +99,7 @@ export function createChatChannelPicker(onChange: (channel: ChatChannel, usernam
   manageFriends.textContent = "Manage friends";
   manageFriends.className = "chat-manage-friends";
   manageFriends.addEventListener("click", () => window.dispatchEvent(new CustomEvent("wildwood:open-friends")));
-  picker.append(username, open, manageFriends);
+  picker.append(playerSearch.root, open, manageFriends);
   const status = document.createElement("div");
   status.className = "chat-channel-status";
   status.setAttribute("aria-live", "polite");

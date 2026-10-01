@@ -24,7 +24,6 @@ type AppShellDependencies = {
     lowPerformance: string;
     latency: string;
     musicVolume: string;
-    screenShake: string;
     sfxVolume: string;
     audioUnsynced: string;
   };
@@ -36,7 +35,6 @@ type AppShellDependencies = {
   signIn: () => void;
   signOut: () => void;
   canPlayMusic: () => boolean;
-  onScreenShakeDisabled: () => void;
   onLowPerformanceChanged: () => void;
   showMessage: (message: string, color: string) => void;
 };
@@ -49,7 +47,6 @@ export function createAppShellController(dependencies: AppShellDependencies) {
     window.dispatchEvent(new Event("wildstat:toolbar-haptic"));
   });
   installKeepScreenOnSettings(document, window, feedbackStorage, dependencies.showMessage);
-  const screenShakeToggle = requiredElement<HTMLButtonElement>("screenShakeToggle");
   const attackRangeToggle = requiredElement<HTMLButtonElement>("attackRangeToggle");
   const baseStatRewardsToggle = requiredElement<HTMLButtonElement>("baseStatRewardsToggle");
   const remoteGhostsToggle = requiredElement<HTMLButtonElement>("remoteGhostsToggle");
@@ -71,7 +68,6 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   const accountButton = requiredElement("accountButton");
   const accountStatus = requiredElement("accountStatus");
 
-  let screenShakeEnabled = readBoolean(dependencies.storageKeys.screenShake, true);
   let attackRangeVisible = readBoolean(dependencies.storageKeys.attackRange, true);
   let showBaseStatRewards = readBoolean("wildstat-show-base-stat-rewards-v1", false);
   let remoteGhostsEnabled = readBoolean("wildstat-show-remote-ghosts-v1", true);
@@ -93,7 +89,6 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   }
 
   function refreshSettings() {
-    renderBooleanSetting(screenShakeToggle, screenShakeEnabled);
     renderBooleanSetting(attackRangeToggle, attackRangeVisible);
     renderBooleanSetting(baseStatRewardsToggle, showBaseStatRewards);
     renderBooleanSetting(remoteGhostsToggle, remoteGhostsEnabled);
@@ -143,12 +138,6 @@ export function createAppShellController(dependencies: AppShellDependencies) {
     refreshFullscreen();
   }
 
-  screenShakeToggle.addEventListener("click", () => {
-    screenShakeEnabled = !screenShakeEnabled;
-    writeBoolean(dependencies.storageKeys.screenShake, screenShakeEnabled);
-    if (!screenShakeEnabled) dependencies.onScreenShakeDisabled();
-    refreshSettings();
-  });
   attackRangeToggle.addEventListener("click", () => {
     attackRangeVisible = !attackRangeVisible;
     writeBoolean(dependencies.storageKeys.attackRange, attackRangeVisible);
@@ -283,8 +272,6 @@ export function createAppShellController(dependencies: AppShellDependencies) {
     remoteGhostsEnabled: () => remoteGhostsEnabled,
     fpsVisible: () => fpsVisible,
     lowPerformanceMode: () => lowPerformanceMode,
-    screenShakeEnabled: () => screenShakeEnabled,
-    damageFlashEnabled: feedback.damageFlashEnabled,
     selfProfileTapEnabled: feedback.selfProfileTapEnabled,
     refreshFullscreen,
     refreshSettings,

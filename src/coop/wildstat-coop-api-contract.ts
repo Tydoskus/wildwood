@@ -82,6 +82,7 @@ type ExpectedApiKey =
   | "loadDuelReplay"
   | "loadLeaderboardSnapshot"
   | "loadLeaderboardPage"
+  | "findLeaderboardSpot"
   | "loadChatHistory"
   | "chatHistoryRevision"
   | "loadPlayerProfile"

@@ -3,6 +3,8 @@ import { renderLeaderboard, renderLeaderboardPodium, setLeaderboardTab, type Lea
 import type { LeaderboardEntry } from "../wildstat-coop";
 import { GLOBAL_LEADERBOARD_PRESTIGE, type PrestigeLeaderboardPage } from "../../shared/leaderboard-window";
 import { createLeaderboardPrestigeSelection, leaderboardPrestigeLevels, renderLeaderboardPrestige } from "./leaderboard-prestige";
+import { createPlayerSearch } from "./player-search";
+import type { PlayerDirectoryEntry } from "../../shared/player-search";
 
 type Direction = "above" | "below";
 type Window = Omit<PrestigeLeaderboardPage<LeaderboardEntry>, "entries"> & {
@@ -31,6 +33,10 @@ export type LeaderboardControllerHooks = {
   podiumAssetsReady?: () => boolean;
   drawPodiumCharacter: (canvas: HTMLCanvasElement, entry: LeaderboardEntry, rank: 1 | 2 | 3) => void;
   openProfile: (identity: string, name: string) => void;
+  /** Every recently active player's name, for the magnifier; filtered on the device as names are typed. */
+  loadPlayers?: () => Promise<PlayerDirectoryEntry[]> | undefined;
+  /** A searched player's rank on this stat, and which prestige board holds it (their own level unless the combined board is open). */
+  findPlayer?: (stat: LeaderboardStat, prestige: number, identity: string) => Promise<{ rank: number; prestige: number }>;
   beforeOpen: () => void;
 };
 
@@ -44,6 +50,14 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
   let level = prestige.level(), podiumLevel = level, levelsWithPlayers: number[] = [];
   let podiumPlayers: RenderedLeaderboardPodiumPlayer[] = [], nameTagRevision = -1;
   let podiumDirty = true;
+  // The magnifier in the corner jumps the board to a player's row; their profile is a tap away there.
+  // Someone with no rank on this stat has no row, so their profile opens instead.
+  const search = createPlayerSearch({
+    load: () => hooks.loadPlayers?.(), localIdentity: hooks.localIdentity, collapsible: true, className: "leaderboard-search",
+    label: "Search players", placeholder: "Search players", onPick: player => { void jumpTo(player); },
+  });
+  let found = "";
+  (elements.overlay.querySelector(".leaderboard-modal") ?? elements.overlay).append(search.root);
   const actions = {
     isDeveloper: hooks.isDeveloper, paintProfileIcon: hooks.paintProfileIcon,
     openProfile(identity: string, name: string) { hooks.openProfile(identity, name); },
@@ -62,7 +76,9 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
     lastScrollTop = scroller.scrollTop;
   }
   function centerPlayer() {
-    const row = elements.rows.querySelector<HTMLElement>(".is-local");
+    centerRow(elements.rows.querySelector<HTMLElement>(".is-local"));
+  }
+  function centerRow(row: HTMLElement | null) {
     if (row) {
       const list = scroller.getBoundingClientRect(), bounds = row.getBoundingClientRect();
       scroller.scrollTop += bounds.top - list.top - (scroller.clientHeight - bounds.height) / 2;
@@ -96,6 +112,7 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
       if (snapshot.endRank < snapshot.total) elements.rows.append(edge("below"));
     }
     elements.rows.setAttribute("aria-busy", String(Boolean(snapshot?.busy)));
+    if (found) foundRow()?.classList.add("is-search-hit");
     if (center) centerPlayer(); else restore(saved);
   }
   function renderPrestige() {
@@ -136,7 +153,36 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
     podiumDirty = false;
     for (const player of podiumPlayers) hooks.drawPodiumCharacter(player.canvas, player.entry, player.rank);
   }
+  function foundRow() {
+    return [...elements.rows.querySelectorAll<HTMLElement>(".leaderboard-row")].find(row => row.dataset.identity === found) ?? null;
+  }
+  /** Moves the board to a searched player's row: their prestige level's board if it is another, then the ranks around them. */
+  async function jumpTo(player: { identity: string; name: string }) {
+    const requestedStat = stat;
+    let spot: { rank: number; prestige: number };
+    try {
+      if (!hooks.findPlayer) throw new Error("No rank lookup.");
+      spot = await hooks.findPlayer(requestedStat, level, player.identity);
+    } catch { hooks.openProfile(player.identity, player.name); return; }
+    if (elements.overlay.hidden || stat !== requestedStat) return;
+    if (!spot.rank) { hooks.openProfile(player.identity, player.name); return; }
+    if (spot.prestige !== level) { prestige.pick(spot.prestige); await select(stat); }
+    const state = snapshot, generation = requestGeneration;
+    if (!state || elements.overlay.hidden || stat !== requestedStat || level !== spot.prestige) return;
+    if (!state.entries.some(row => row.identity === player.identity)) {
+      try {
+        const page = await hooks.loadPage(stat, level, Math.max(1, spot.rank - 49), 100);
+        if (generation !== requestGeneration || snapshot !== state || elements.overlay.hidden) return;
+        state.entries = page.entries.filter(row => row.rank! >= page.startRank && row.rank! <= page.endRank);
+        state.startRank = page.startRank; state.endRank = page.endRank; state.total = page.total;
+      } catch { hooks.openProfile(player.identity, player.name); return; }
+    }
+    found = player.identity;
+    renderRows();
+    centerRow(foundRow());
+  }
   async function select(requested: string) {
+    found = "";
     stat = setLeaderboardTab({ tabs: elements.tabs, rows: elements.rows, empty: elements.empty, valueHeading: elements.valueHeading }, requested);
     elements.overlay.dataset.stat = stat;
     level = prestige.level();
@@ -215,7 +261,7 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
     snapshotIdentity = hooks.localIdentity();
     await select(stat);
   }
-  function close() { requestGeneration++; elements.overlay.hidden = true; elements.button.setAttribute("aria-expanded", "false"); }
+  function close() { requestGeneration++; search.close(); elements.overlay.hidden = true; elements.button.setAttribute("aria-expanded", "false"); }
   // Keep the three canvases until their content or responsive dimensions change.
   if (typeof ResizeObserver !== "undefined") {
     new ResizeObserver(() => { podiumDirty = true; }).observe(elements.podium);
@@ -245,6 +291,6 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
   });
   elements.closeButton.addEventListener("click", close);
   for (const [name, tab] of Object.entries(elements.tabs)) tab.addEventListener("click", () => { void select(name); });
-  return { close, drawPodium, open, render, select, selectPrestige: pickLevel, loadMore, setUnlocked,
+  return { close, drawPodium, open, render, select, selectPrestige: pickLevel, loadMore, setUnlocked, jumpTo,
     prestigeLevel: () => level, isOpen: () => !elements.overlay.hidden };
 }

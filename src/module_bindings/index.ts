@@ -214,6 +214,7 @@ import UseFreePrestigeRespecReducer from "./use_free_prestige_respec_reducer";
 import * as BeginPatreonLinkProcedure from "./begin_patreon_link_procedure";
 import * as DevFindPlayersProcedure from "./dev_find_players_procedure";
 import * as DevTeleportToPlayerProcedure from "./dev_teleport_to_player_procedure";
+import * as FindLeaderboardPlayerProcedure from "./find_leaderboard_player_procedure";
 import * as GetAnalyticsDashboardProcedure from "./get_analytics_dashboard_procedure";
 import * as GetAvatarFramesProcedure from "./get_avatar_frames_procedure";
 import * as GetBalanceEditorProcedure from "./get_balance_editor_procedure";
@@ -237,6 +238,7 @@ import * as GetModerationLogProcedure from "./get_moderation_log_procedure";
 import * as GetNameChangeStatusProcedure from "./get_name_change_status_procedure";
 import * as GetOtherCharacterForLoginProcedure from "./get_other_character_for_login_procedure";
 import * as GetPatreonStatusProcedure from "./get_patreon_status_procedure";
+import * as GetPlayerDirectoryProcedure from "./get_player_directory_procedure";
 import * as GetPlayerModerationHistoryProcedure from "./get_player_moderation_history_procedure";
 import * as GetPrestigeLeaderboardPageProcedure from "./get_prestige_leaderboard_page_procedure";
 import * as GetSocialChatHistoryProcedure from "./get_social_chat_history_procedure";
@@ -1657,6 +1659,7 @@ const proceduresSchema = __procedures(
   __procedureSchema("begin_patreon_link", BeginPatreonLinkProcedure.params, BeginPatreonLinkProcedure.returnType),
   __procedureSchema("dev_find_players", DevFindPlayersProcedure.params, DevFindPlayersProcedure.returnType),
   __procedureSchema("dev_teleport_to_player", DevTeleportToPlayerProcedure.params, DevTeleportToPlayerProcedure.returnType),
+  __procedureSchema("find_leaderboard_player", FindLeaderboardPlayerProcedure.params, FindLeaderboardPlayerProcedure.returnType),
   __procedureSchema("get_analytics_dashboard", GetAnalyticsDashboardProcedure.params, GetAnalyticsDashboardProcedure.returnType),
   __procedureSchema("get_avatar_frames", GetAvatarFramesProcedure.params, GetAvatarFramesProcedure.returnType),
   __procedureSchema("get_balance_editor", GetBalanceEditorProcedure.params, GetBalanceEditorProcedure.returnType),
@@ -1680,6 +1683,7 @@ const proceduresSchema = __procedures(
   __procedureSchema("get_name_change_status", GetNameChangeStatusProcedure.params, GetNameChangeStatusProcedure.returnType),
   __procedureSchema("get_other_character_for_login", GetOtherCharacterForLoginProcedure.params, GetOtherCharacterForLoginProcedure.returnType),
   __procedureSchema("get_patreon_status", GetPatreonStatusProcedure.params, GetPatreonStatusProcedure.returnType),
+  __procedureSchema("get_player_directory", GetPlayerDirectoryProcedure.params, GetPlayerDirectoryProcedure.returnType),
   __procedureSchema("get_player_moderation_history", GetPlayerModerationHistoryProcedure.params, GetPlayerModerationHistoryProcedure.returnType),
   __procedureSchema("get_prestige_leaderboard_page", GetPrestigeLeaderboardPageProcedure.params, GetPrestigeLeaderboardPageProcedure.returnType),
   __procedureSchema("get_social_chat_history", GetSocialChatHistoryProcedure.params, GetSocialChatHistoryProcedure.returnType),

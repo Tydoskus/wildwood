@@ -152,7 +152,13 @@ import { describe, expect, it } from "vitest";
 // 6_567: daily quests added their tables' import, the refresh_daily_quests
 // declaration and the kill report's hook. The rules and tables live in
 // daily-quests.ts; the raise is the wiring alone.
-const MAX_LINES = 6_567;
+// 6_572: player search added the get_player_directory declaration and its
+// import. The list and its cache live in player-directory.ts.
+// 6_574: the leaderboard search's find_leaderboard_player declaration. The
+// lookup lives in leaderboard-pages.ts.
+// 6_575: a boss clear finishes a Reflect Only run whose goal it met. The
+// check lives in prestige.ts.
+const MAX_LINES = 6_575;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

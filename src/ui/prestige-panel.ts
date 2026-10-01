@@ -326,7 +326,8 @@ export function createPrestigeController(options: {
       const outcome = await submitPrestige(options.runPrestige, () => options.prestige()?.level ?? 0);
       if (outcome.ok) {
         close();
-        options.showMessage?.(completingChallenge ? "Reflect Only won: +0.5 attacks/sec. Your saved run is restored." : outcome.message);
+        // A Reflect Only win announces itself in its own popup, whichever way it was won.
+        if (!completingChallenge) options.showMessage?.(outcome.message);
       } else {
         status.textContent = outcome.error;
       }

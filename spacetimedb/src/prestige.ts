@@ -1,4 +1,4 @@
-import { challengeActive, resumeParkedChallenge, setPrestigeChallenge } from "./prestige-challenge";
+import { challengeActive, challengeWinReady, resumeParkedChallenge, setPrestigeChallenge } from "./prestige-challenge";
 import { guildQuestBonusFor } from "./daily-quests";
 import { challengeAttackInterval, challengeGoal, challengeGoalMet } from "../../shared/prestige-challenge";
 import { SenderError } from "spacetimedb/server";
@@ -176,5 +176,18 @@ export function createPrestige(deps: PrestigeDeps) {
     else resetProgressToDefaults(ctx, player, { research: true, lifetimeKills: true, slotTiers: true, items: true });
   }
 
-  return { prestigeAccount, spendPerkPoint, respecPerks, freeRespecPerks, changeChallenge };
+  /**
+   * A Reflect Only run wins the moment its goal is met, with the same reward
+   * and restored run the Prestige button gives: players took the goal for the
+   * win and stopped there. Called after a boss clear. Every guard returns
+   * rather than throws, because a throw would undo the kill report around it.
+   */
+  function completeChallengeIfMet(ctx: any) {
+    const player = ctx.db.player.identity.find(ctx.sender);
+    if (!player || !challengeWinReady(ctx) || activeDuelFor(ctx, ctx.sender)) return false;
+    deps.restoreChallenge(ctx, player, true);
+    return true;
+  }
+
+  return { prestigeAccount, spendPerkPoint, respecPerks, freeRespecPerks, changeChallenge, completeChallengeIfMet };
 }

@@ -5,6 +5,7 @@ import { normalizePlayerGender } from "../../../shared/player-gender";
 import type { ChatMessage } from "../contracts";
 import type { ReducerPort } from "../ports";
 import { withRequestDeadline } from "./request-deadline";
+import { parsePlayerDirectory, type PlayerDirectoryEntry } from "../../../shared/player-search";
 
 type Dependencies = {
   reducers: ReducerPort; localIdentity: () => string; notify: () => void;
@@ -29,6 +30,10 @@ export function createSocialService(deps: Dependencies) {
   let orderedMessages: SocialMessage[] | null = null;
   let generation = 0, revision = 0, hubRevision = 0, snapshotRevision = 0;
   let pending: symbol | null = null;
+  // Player search loads every active name once and filters locally; the server rebuilds it every ten minutes.
+  const DIRECTORY_CACHE_MS = 10 * 60_000;
+  let directory: { loadedAt: number; players: PlayerDirectoryEntry[] } | null = null;
+  let directoryRequest: Promise<PlayerDirectoryEntry[]> | null = null;
   function changed() { revision++; deps.notify(); }
   function request() {
     const connection = deps.reducers.connection();
@@ -131,6 +136,18 @@ export function createSocialService(deps: Dependencies) {
       current.check();
       if (snapshotRevision === started) { snapshot = JSON.parse(result) as SocialSnapshot; changed(); }
       return snapshot;
+    },
+    /** Every recently active player's name, for search. One request per ten minutes, however much is typed. */
+    loadPlayerDirectory(): Promise<PlayerDirectoryEntry[]> {
+      if (directory && Date.now() - directory.loadedAt < DIRECTORY_CACHE_MS) return Promise.resolve(directory.players);
+      directoryRequest ??= (async () => {
+        const current = request();
+        const result = await withRequestDeadline(current.connection.procedures.getPlayerDirectory({}))
+          .catch(error => { throw new Error(deps.reducers.errorMessage(error)); });
+        directory = { loadedAt: Date.now(), players: parsePlayerDirectory(result) };
+        return directory.players;
+      })().finally(() => { directoryRequest = null; });
+      return directoryRequest;
     },
     async socialAction(action: SocialAction) {
       if (pending) throw new Error("An action is already being saved.");

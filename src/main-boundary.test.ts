@@ -72,7 +72,9 @@ import { describe, expect, it } from "vitest";
 // 2_149: the Daily Quest board's construction, courtyard status and walk-up
 // hook, and its guild bonus in the reward and profile multipliers. Its window,
 // view and refresh live in quest-board-controller.ts.
-const MAX_LINES = 2_149;
+// 2_150: the leaderboard's player search hook. The search lives in
+// player-search.ts and the directory in the social service.
+const MAX_LINES = 2_150;
 const TARGET_LINES = 1_000;
 
 describe("game composition boundary", () => {

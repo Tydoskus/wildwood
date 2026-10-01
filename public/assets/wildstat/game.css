@@ -3453,6 +3453,10 @@
   .leaderboard-row { display: grid; grid-template-columns: 29px 25px minmax(0, 1fr) auto; gap: 7px; align-items: center; min-height: 44px; padding: 4px 8px; border: 0; border-radius: 0; background: transparent; }
   canvas.leaderboard-profile-icon { position: static; inset: auto; display: block; width: 25px; height: 25px; padding: 0; border: 2px solid #000; border-radius: 4px; background: #fff; cursor: pointer; image-rendering: auto; }
   .leaderboard-row.is-local { background: transparent; }
+  /* The row a search jumped to: a gold frame that pulses once, so the eye lands on it. */
+  .leaderboard-row.is-search-hit { border-radius: 8px; background: rgba(255,212,90,.16); box-shadow: inset 0 0 0 2px rgba(255,212,90,.85); animation: leaderboard-search-hit 1.1s ease-out 1; }
+  @keyframes leaderboard-search-hit { 0% { background: rgba(255,212,90,.5); } 100% { background: rgba(255,212,90,.16); } }
+  @media (prefers-reduced-motion: reduce) { .leaderboard-row.is-search-hit { animation: none; } }
   .leaderboard-rank { color: var(--muted); font-size: 9px; text-align: center; }
   .leaderboard-row:nth-child(1) .leaderboard-rank { color: #ffe05d; }
   .leaderboard-row:nth-child(2) .leaderboard-rank { color: #dce6e8; }
@@ -3990,6 +3994,38 @@
 .chat-private-picker[hidden] { display: none; }
 .chat-private-picker input { min-width: 0; min-height: 40px; padding: 7px; border: 1px solid #73667c; border-radius: 6px; background: #29252d; color: #fff; font-size: 14px; }
 .chat-private-picker button { min-height: 40px; margin: 0; font-size: 12px; }
+/* Player search: the recipient field in private chat and the leaderboard's magnifier. Names come from one load and filter as they are typed. */
+.player-search { position: relative; min-width: 0; }
+.player-search-field { position: relative; display: flex; align-items: center; min-width: 0; }
+.player-search-field[hidden] { display: none; }
+.player-search-icon { position: absolute; left: 11px; width: 16px; height: 16px; color: #bdb3c6; pointer-events: none; }
+.player-search-icon svg, .player-search-toggle svg { display: block; width: 100%; height: 100%; }
+.player-search .player-search-input { width: 100%; min-width: 0; min-height: 40px; padding: 7px 10px 7px 34px; border: 1px solid #73667c; border-radius: 8px; background: #29252d; color: #fff; font: 700 14px var(--font-rounded); appearance: none; }
+.player-search-input::-webkit-search-cancel-button { display: none; }
+.player-search-input::placeholder { color: #a99fb2; }
+.player-search-input:focus { outline: none; border-color: var(--green); }
+.player-search-results { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; right: 0; max-height: min(300px, 46vh); margin: 0; padding: 4px; overflow-y: auto; overscroll-behavior: contain; list-style: none; border: 2px solid rgba(255,255,255,.2); border-radius: 10px; background: rgba(29,26,32,.97); box-shadow: 0 10px 22px rgba(0,0,0,.55); }
+.player-search-results[hidden] { display: none; }
+.player-search-option { display: flex; align-items: center; min-height: 40px; padding: 0 11px; border-radius: 7px; color: #fff; font: 800 14px var(--font-rounded); cursor: pointer; }
+.player-search-option + .player-search-option { margin-top: 2px; }
+.player-search-option:hover, .player-search-option[aria-selected="true"] { background: rgba(255,255,255,.11); }
+.player-search-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.player-search-name mark { padding: 0; background: none; color: #ffd45a; }
+.player-search-message { padding: 11px 10px; color: #bdb3c6; font: 700 13px var(--font-rounded); text-align: center; }
+/* Lined up with the board's own edge: the screen margin on a phone, the centred column on a wide screen. */
+.leaderboard-search { position: absolute; z-index: 6; top: max(12px, env(safe-area-inset-top)); right: max(13px, env(safe-area-inset-right), calc((100% - var(--window-content-max-width)) / 2)); display: flex; gap: 6px; }
+.leaderboard-search.is-open { left: max(13px, env(safe-area-inset-left), calc((100% - var(--window-content-max-width)) / 2)); }
+.leaderboard-search .player-search-field { flex: 1; order: -1; }
+/* Landscape phones split the board into two columns as wide as the screen, so the corner is the board's corner. */
+@media (max-height: 480px) and (min-width: 640px) {
+  .leaderboard-search { top: max(9px, env(safe-area-inset-top)); right: max(13px, env(safe-area-inset-right)); }
+  .leaderboard-search.is-open { left: auto; width: min(420px, calc(100% - 26px)); }
+}
+.leaderboard-search .player-search-results { right: 46px; }
+.player-search .player-search-toggle { flex: none; display: grid; place-items: center; width: 40px; height: 40px; min-height: 0; margin: 0; padding: 9px; border: 2px solid rgba(255,255,255,.22); border-radius: 50%; background: rgba(0,0,0,.53); color: #fff; box-shadow: none; cursor: pointer; }
+.player-search .player-search-toggle:hover { border-color: rgba(255,255,255,.42); transform: none; }
+.player-search .player-search-toggle:active { transform: none; }
+.player-search .player-search-toggle:focus-visible { outline: 1px solid rgba(255,255,255,.7); outline-offset: 1px; }
 #chatPanel .chat-conversations[hidden], .chat-conversation-heading[hidden] { display: none; }
 #chatPanel:not(.is-large) .chat-conversations { display: none; }
 #chatPanel.is-large.is-private-inbox #chatMessages { display: none; }

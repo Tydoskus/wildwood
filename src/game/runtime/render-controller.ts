@@ -44,8 +44,6 @@ export function createRenderController(options: {
   drawMapHazards?: () => void;
   drawGround: () => void;
   drawStaticWorld: (
-    offsetX?: number,
-    offsetY?: number,
     sprites?: readonly StaticWorldSpriteFrame[],
     colorQuads?: readonly StaticWorldColorQuadFrame[],
   ) => boolean;
@@ -90,11 +88,8 @@ export function createRenderController(options: {
   currentMapIsIonCitadel: () => boolean;
   portalCutsceneActive: () => boolean;
   portalBlackoutOpacity: () => number;
-  screenShake: () => number;
-  screenShakeEnabled: () => boolean;
   attackRangeVisible: () => boolean;
   weaponAttackRange?: () => number;
-  flash: () => number;
   projectiles: Projectile[];
   enemyShots: EnemyShot[];
   webGLProjectileBatch: () => { frames: readonly StaticWorldSpriteFrame[]; complete: boolean };
@@ -107,7 +102,7 @@ export function createRenderController(options: {
     drawGround, drawStaticWorld, drawDuelArena, drawDuelScene, drawDecor, drawBossTelegraphs,
     drawSpiderTelegraphs, drawFrostclawTelegraphs, drawMagmaliskTelegraphs, drawGloomrootTelegraphs, drawTidewyrmTelegraphs, drawKoiShogunTelegraphs, drawTempestKirinTelegraphs, drawMiremawTelegraphs, drawPrismshellTelegraphs, drawIronhornTelegraphs, drawDreadreaperTelegraphs, drawVoltwardenTelegraphs, drawGravebloomTelegraphs, drawAegisPrimeTelegraphs, drawProjectile, drawDepthSortedWorld, drawMinimap, drawCutscenePortal,
     drawParticles, drawDamageNumbers, currentMapIsTutorial, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, currentMapIsWater, currentMapIsSamurai, currentMapIsCloudspire, currentMapIsMoonfen, currentMapIsCrystalHollows, currentMapIsClockworkRuins, currentMapIsDuskfallOrchard, currentMapIsNeonBastion, currentMapIsVerdantCatacombs, currentMapIsIonCitadel, portalCutsceneActive,
-    portalBlackoutOpacity, screenShake, screenShakeEnabled, attackRangeVisible, flash, projectiles, enemyShots, webGLProjectileBatch, webGLParticleBatch,
+    portalBlackoutOpacity, attackRangeVisible, projectiles, enemyShots, webGLProjectileBatch, webGLParticleBatch,
   } = options;
 
   function drawBootPickup() {
@@ -257,16 +252,10 @@ export function createRenderController(options: {
     if (isDueling() && live) { renderDuelScene(live); return; }
     setRenderedDuelScene(null);
     ctx.save();
-    const shake = screenShake();
-    const shakeX = screenShakeEnabled() && shake > .2 ? snapToDevicePixel((Math.random() * 2 - 1) * shake, dpr) : 0;
-    const shakeY = screenShakeEnabled() && shake > .2 ? snapToDevicePixel((Math.random() * 2 - 1) * shake, dpr) : 0;
-    if (shakeX !== 0 || shakeY !== 0) ctx.translate(shakeX, shakeY);
     ctx.scale(camera.zoom, camera.zoom);
     const projectileBatch = webGLProjectileBatch();
     const particleBatch = webGLParticleBatch();
     const staticWorldRenderedByWebGL = drawStaticWorld(
-      shakeX,
-      shakeY,
       projectileBatch.complete ? projectileBatch.frames : [],
       particleBatch.complete ? particleBatch.frames : [],
     );
@@ -296,10 +285,6 @@ export function createRenderController(options: {
     ctx.restore();
     if (!isDueling() && !cutscene) drawNightMask();
     if (!isDueling() && !cutscene) drawMinimap(mapPlayerMarkers());
-    if (flash() > 0) {
-      ctx.fillStyle = `rgba(255,55,40,${flash() * .75})`;
-      ctx.fillRect(0, 0, width, height);
-    }
     drawVignette();
     if (cutscene) {
       ctx.fillStyle = `rgba(0,0,0,${portalBlackoutOpacity()})`;

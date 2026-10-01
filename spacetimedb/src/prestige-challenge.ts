@@ -1,5 +1,5 @@
 import { table, t, SenderError } from "spacetimedb/server";
-import { PRESTIGE_CHALLENGE_LIMIT, challengeMinimumInterval } from "../../shared/prestige-challenge";
+import { PRESTIGE_CHALLENGE_LIMIT, challengeGoalMet, challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { prestigeExpanded } from "./prestige-expansion";
 import { updateSnapshotRow } from "./snapshot-row-writes";
 
@@ -92,6 +92,20 @@ function clearParkedRun(ctx: any, identity: any) {
  * the challenge run first, so dropping back in picks it up where it stood;
  * only winning earns the reward, and a win leaves nothing parked.
  */
+/**
+ * Whether the sender's Reflect Only run has met its goal and can be won now:
+ * active, not past the last challenge, goal met, and the saved run there to
+ * restore. Never throws, so a kill report can ask it after every boss clear.
+ */
+export function challengeWinReady(ctx: any) {
+  const challenge = ctx.db.playerPrestigeChallenge.identity.find(ctx.sender);
+  if (!challenge?.active || challenge.completed >= PRESTIGE_CHALLENGE_LIMIT) return false;
+  const progress = ctx.db.playerProgress.identity.find(ctx.sender);
+  const endless = ctx.db.proceduralProgress.identity.find(ctx.sender)?.completed ?? 0;
+  return Boolean(progress && challengeGoalMet(challenge.completed, progress.bossRewardClaims, endless)
+    && ctx.db.prestigeChallengeBackup.identity.find(ctx.sender));
+}
+
 export function restorePrestigeChallenge(ctx: any, player: any, reward: boolean,
   arrive: (restored: { progress: any; mapId: string; x: number; y: number }) => void) {
   const challenge = ctx.db.playerPrestigeChallenge.identity.find(ctx.sender);

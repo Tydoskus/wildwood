@@ -61,8 +61,6 @@ function createCombatHarness(overrides: Partial<Parameters<typeof createPlayerCo
     spawnDamageNumber: noop,
     logPickup: noop,
     saveProgress: noop,
-    setHitFlash: noop,
-    addScreenShake: noop,
     recordDeath: noop,
     endGame: noop,
     ...overrides,

@@ -40,7 +40,7 @@ function fixture() {
   const layer = createWebGLStaticWorldLayer(document.getElementById("game") as HTMLCanvasElement)!;
   expect(layer.prepare()).toBe(true);
   const frame: StaticWorldLayerFrame = {
-    backgroundColor: "#123456", width: 400, height: 800, dpr: 1, zoom: 1, offsetX: 0, offsetY: 0,
+    backgroundColor: "#123456", width: 400, height: 800, dpr: 1, zoom: 1,
     tiles: [{ key: "old", source: createElement("canvas"), left: 0, top: 0, width: 640, height: 640 }],
   };
   return { layer, frame, gl, document, operations };

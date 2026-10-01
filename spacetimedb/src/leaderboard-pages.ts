@@ -207,3 +207,16 @@ export function readPrestigeLeaderboardPage(ctx: Pick<GameViewContext, "db" | "s
   const levels = [...ctx.db.leaderboardPrestigeSize.iter()].filter(row => row.total > 0).map(row => row.prestige).sort((a, b) => a - b);
   return { entries, startRank, endRank, localRank, total, prestige, levels };
 }
+
+/**
+ * Where one player stands, for the leaderboard's search: their rank on the
+ * combined board (prestige below zero), or on their own prestige level's
+ * board, which may not be the level being viewed. Rank 0 is unranked. One or
+ * two key lookups, whatever the population.
+ */
+export function findLeaderboardSpot(ctx: Pick<GameViewContext, "db">, requested: string, prestige: number, identity: Identity) {
+  const index = LEADERBOARD_STATS.indexOf(leaderboardStat(requested));
+  if (prestige < 0) return { rank: ctx.db.leaderboardPosition.identity.find(identity)?.ranks[index] ?? 0, prestige };
+  const position = ctx.db.leaderboardPrestigePosition.identity.find(identity);
+  return position ? { rank: position.ranks[index] ?? 0, prestige: position.prestige } : { rank: 0, prestige };
+}

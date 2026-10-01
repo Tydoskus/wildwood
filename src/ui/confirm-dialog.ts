@@ -23,6 +23,7 @@ export type ConfirmRequest = {
   details?: readonly ConfirmDetail[];
   /** The affirmative button's words. Defaults to "OK". */
   confirmLabel?: string;
+  /** An empty string leaves only the one button: a notice to acknowledge, not a question. */
   cancelLabel?: string;
   /**
    * Irreversible, so the frame reads red and the keyboard starts on Cancel.
@@ -98,6 +99,7 @@ export function createConfirmDialog(root: Document = document): ConfirmDialog {
       details.replaceChildren(...rows.map(detailRow));
       acceptButton.textContent = confirmLabel;
       cancelButton.textContent = cancelLabel;
+      cancelButton.hidden = !cancelLabel;
       frame.classList.toggle("is-danger", danger);
       overlay.hidden = false;
       // Something irreversible starts on the way out, so a stray Enter or a tap

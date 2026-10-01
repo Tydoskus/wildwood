@@ -1137,6 +1137,12 @@ export const LeaderboardSize = __t.object("LeaderboardSize", {
 });
 export type LeaderboardSize = __Infer<typeof LeaderboardSize>;
 
+export const LeaderboardSpot = __t.object("LeaderboardSpot", {
+  rank: __t.u32(),
+  prestige: __t.i32(),
+});
+export type LeaderboardSpot = __Infer<typeof LeaderboardSpot>;
+
 export const LoginMove = __t.object("LoginMove", {
   code: __t.string(),
   source: __t.identity(),

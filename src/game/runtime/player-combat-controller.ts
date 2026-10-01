@@ -171,8 +171,6 @@ export function createPlayerCombatController(options: {
   playBowAttackSound?: () => void;
   logPickup: (text: string, color: string, baseText?: string) => void;
   saveProgress: () => void;
-  setHitFlash: () => void;
-  addScreenShake: (amount: number) => void;
   recordDeath: () => void;
   endGame: () => void;
 }): PlayerCombatController {
@@ -181,7 +179,7 @@ export function createPlayerCombatController(options: {
     isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, isWaterMap, isSamuraiMap, isCloudspireMap, isMoonfenMap, isCrystalHollowsMap, isClockworkRuinsMap, isDuskfallOrchardMap, isNeonBastionMap, isVerdantCatacombsMap, isIonCitadelMap, engageEnemy, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
     researchRewardMultiplier, minAttackInterval, effectiveArmor, isDueling, scheduleEnemyRespawn,
     incrementKills, recordRegularEnemyDefeat, spawnBurst, spawnParticle,
-    spawnDamageNumber, logPickup, saveProgress, setHitFlash, addScreenShake, recordDeath, endGame,
+    spawnDamageNumber, logPickup, saveProgress, recordDeath, endGame,
   } = options;
   const { projectiles, enemyShots } = projectileStore;
   const random = options.random ?? Math.random;
@@ -566,8 +564,6 @@ export function createPlayerCombatController(options: {
     }
     spawnDamageNumber(player.x, player.y, dealt, false, true);
     player.hurtClock = .1;
-    setHitFlash();
-    addScreenShake(7);
     spawnBurst(player.x, player.y, "#ff5f55", 13, 115);
     if (player.hp <= 0) {
       player.hp = 0;

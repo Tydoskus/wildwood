@@ -52,7 +52,7 @@ function fixture() {
     parent.append(element);
     return element;
   };
-  for (const id of ["connectionStatus", "screenShakeToggle", "damageFlashToggle", "toolbarHapticsToggle", "attackRangeToggle", "chatToggle", "fullscreenToggle", "keepScreenOnToggle", "lowPerformanceToggle", "fpsToggle", "latencyToggle", "musicVolume", "sfxVolume", "accountButton"]) {
+  for (const id of ["connectionStatus", "toolbarHapticsToggle", "attackRangeToggle", "chatToggle", "fullscreenToggle", "keepScreenOnToggle", "lowPerformanceToggle", "fpsToggle", "latencyToggle", "musicVolume", "sfxVolume", "accountButton"]) {
     add(id, "", add("", "setting-row"));
   }
   add("accountStatus", "account-status");
@@ -77,7 +77,7 @@ describe("Settings tabs", () => {
     expect(get("settings-game-panel").hidden).toBe(false);
     expect(get("settings-audio-panel").hidden).toBe(true);
     expect(get("settings-account-panel").hidden).toBe(true);
-    expect(get("settings-game-panel").querySelectorAll(".setting-row")).toHaveLength(10);
+    expect(get("settings-game-panel").querySelectorAll(".setting-row")).toHaveLength(8);
     expect(get("settings-audio-panel").querySelector("#sfxVolume")).toBe(audio);
     audio.dispatch("input");
     expect(listener).toHaveBeenCalledOnce();

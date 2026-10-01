@@ -193,11 +193,8 @@ export type FrameRendererOptions = {
   drawDamageNumbers: (ctx: CanvasRenderingContext2D, camera: Camera, outlinedText: OutlinedText, devicePixelRatio: number) => void;
   portalCutsceneActive: () => boolean;
   portalBlackoutOpacity: () => number;
-  screenShake: () => number;
-  screenShakeEnabled: () => boolean;
   attackRangeVisible: () => boolean;
   weaponAttackRange?: () => number;
-  flash: () => number;
   projectiles: Projectile[];
   enemyShots: EnemyShot[];
   particles: readonly Particle[];
@@ -513,11 +510,8 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       currentMapIsCrystalHollows: () => options.currentMapId() === options.crystalHollowsMapId, currentMapIsClockworkRuins: () => options.currentMapId() === options.clockworkRuinsMapId, currentMapIsDuskfallOrchard: () => options.currentMapId() === options.duskfallOrchardMapId, currentMapIsNeonBastion: () => options.currentMapId() === options.neonBastionMapId, currentMapIsVerdantCatacombs: () => options.currentMapId() === options.verdantCatacombsMapId, currentMapIsIonCitadel: () => options.currentMapId() === options.ionCitadelMapId,
       portalCutsceneActive: frame.portalCutsceneActive,
       portalBlackoutOpacity: frame.portalBlackoutOpacity,
-      screenShake: frame.screenShake,
-      screenShakeEnabled: frame.screenShakeEnabled,
       attackRangeVisible: frame.attackRangeVisible,
       weaponAttackRange: frame.weaponAttackRange,
-      flash: frame.flash,
       projectiles: frame.projectiles,
       enemyShots: frame.enemyShots,
       webGLProjectileBatch,

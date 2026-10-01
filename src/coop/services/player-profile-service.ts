@@ -306,8 +306,16 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
     return request;
   }
 
+  /** Where a searched player stands on a board: their rank, and the prestige level whose board holds it. Rank 0 is unranked. */
+  function findLeaderboardSpot(stat: LeaderboardStat, prestige: number, identity: string): Promise<{ rank: number; prestige: number }> {
+    const connection = dependencies.connection();
+    if (!connection?.isActive) return Promise.reject(new Error("Not connected. Try again."));
+    return withRequestDeadline(connection.procedures.findLeaderboardPlayer({ stat, prestige, identity: Identity.fromString(identity.replace(/^0x/, "")) }));
+  }
+
   return {
     api: {
+      findLeaderboardSpot,
       leaderboardEntries() {
         return [...leaderboardEntries.values()].map((entry) => ({
           ...entry,

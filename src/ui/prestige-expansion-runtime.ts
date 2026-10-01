@@ -3,6 +3,8 @@ import { prestigeExpansionLabel } from "../../shared/prestige-expansion";
 import { activeRelease } from "../../shared/release-window";
 import { createPrestigePanel } from "./game-ui-runtime";
 import { createPrestigeChallengePanel, installPrestigeTabs } from "./prestige-challenge-panel";
+import { gameConfirm } from "./confirm-dialog";
+import { challengeWinReached, reflectOnlyWinNotice } from "./prestige-challenge-win";
 
 /** Compose the shared launch notice, map label and account prestige controls. */
 export function createPrestigeExpansionRuntime(d: {
@@ -14,6 +16,7 @@ export function createPrestigeExpansionRuntime(d: {
   const notice = createPrestigeExpansionNotice({ unlocksAt, now,
     visible: () => d.started() && !activeRelease(coop?.releaseWindow?.() ?? null, now()) });
   let challengePanel: ReturnType<typeof createPrestigeChallengePanel> | undefined;
+  let lastChallenge: { identity: string; active: boolean; completed: number } | null = null;
   return {
     unlocked: notice.unlocked,
     tick() {
@@ -21,6 +24,13 @@ export function createPrestigeExpansionRuntime(d: {
       if (d.mapLabel.textContent !== name) d.mapLabel.textContent = name;
       notice.tick();
       challengePanel?.render();
+      // The server ends a Reflect Only run the moment its goal is met; this is where the player hears of it.
+      const state = coop?.prestigeChallenge?.(), identity = coop?.localIdentity?.() ?? "";
+      if (state) {
+        const next = { identity, active: Boolean(state.active), completed: state.completed ?? 0 };
+        if (challengeWinReached(lastChallenge, next)) void gameConfirm(reflectOnlyWinNotice(next.completed));
+        lastChallenge = next;
+      }
     },
     createPanel(options: Record<string, any>) {
       const panel = createPrestigePanel({ ...options,

@@ -73,7 +73,7 @@ it("restores full-size drawing after the canvas loses its scale behind chat", ()
 });
 
 describe("snapToDevicePixel", () => {
-  it("keeps shake transforms on physical pixel boundaries", () => {
+  it("keeps transforms on physical pixel boundaries", () => {
     expect(snapToDevicePixel(1.26, 2)).toBe(1.5);
     expect(snapToDevicePixel(-1.26, 2)).toBe(-1.5);
     expect(snapToDevicePixel(.2, 3)).toBeCloseTo(1 / 3);

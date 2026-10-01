@@ -6,7 +6,7 @@ import type { LeaderboardEntry } from "../coop/contracts";
 
 afterEach(() => vi.unstubAllGlobals());
 type LeaderboardPage<Entry> = Omit<PrestigeLeaderboardPage<Entry>, "prestige" | "levels"> & Partial<PrestigeLeaderboardPage<Entry>>;
-function fixture(options: { prestige?: () => number } = {}) {
+function fixture(options: { prestige?: () => number; findPlayer?: (stat: string, prestige: number, identity: string) => Promise<{ rank: number; prestige: number }> } = {}) {
   const { document } = parseHTML("<html><body></body></html>");
   vi.stubGlobal("document", document);
   const element = () => document.createElement("div");
@@ -34,7 +34,7 @@ function fixture(options: { prestige?: () => number } = {}) {
   const openProfile = vi.fn();
   const drawPodiumCharacter = vi.fn();
   const controller = createLeaderboardController(elements, { loadPage, localPrestige: options.prestige ?? (() => 0),
-    localIdentity: () => identity, isDeveloper: () => false, paintProfileIcon: vi.fn(), drawPodiumCharacter, openProfile, beforeOpen: vi.fn() });
+    localIdentity: () => identity, isDeveloper: () => false, paintProfileIcon: vi.fn(), drawPodiumCharacter, openProfile, beforeOpen: vi.fn(), findPlayer: options.findPlayer });
   return { elements, pending, loadPage, openProfile, drawPodiumCharacter, controller, identity: (value: string) => { identity = value; } };
 }
 const entry = (rank: number, name: string) => ({ rank, identity: name, name, gender: 0, power: 1, damage: 1, maxHp: 1, armor: 1, regen: 1, playedSeconds: 1 } as LeaderboardEntry);
@@ -336,5 +336,31 @@ describe("prestige boards", () => {
     f.controller.close(); f.identity("someone else");
     void f.controller.open();
     expect(f.loadPage).toHaveBeenLastCalledWith("power", 2);
+  });
+});
+
+describe("player search", () => {
+  it("jumps to a found player's row and frames it, loading the ranks around them", async () => {
+    const f = fixture({ findPlayer: async () => ({ rank: 900, prestige: 0 }) });
+    const opened = f.controller.open();
+    f.pending[0].resolve([entry(1, "Winner"), entry(5, "me")]);
+    await opened;
+    const jump = f.controller.jumpTo({ identity: "Far", name: "Far" });
+    await vi.waitFor(() => expect(f.pending).toHaveLength(2));
+    expect(f.loadPage).toHaveBeenLastCalledWith("power", 0, 851, 100);
+    f.pending[1].resolvePage({ entries: [entry(899, "Above"), entry(900, "Far"), entry(901, "Below")], startRank: 899, endRank: 901, localRank: 5, total: 2_000 });
+    await jump;
+    const hit = f.elements.rows.querySelector(".is-search-hit") as HTMLElement;
+    expect(hit?.dataset.identity).toBe("Far");
+    expect(f.openProfile).not.toHaveBeenCalled();
+  });
+
+  it("opens the profile of someone with no row on the board", async () => {
+    const f = fixture({ findPlayer: async () => ({ rank: 0, prestige: 0 }) });
+    const opened = f.controller.open();
+    f.pending[0].resolve([entry(1, "Winner")]);
+    await opened;
+    await f.controller.jumpTo({ identity: "Unranked", name: "Unranked" });
+    expect(f.openProfile).toHaveBeenCalledWith("Unranked", "Unranked");
   });
 });

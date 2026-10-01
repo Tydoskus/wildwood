@@ -27,6 +27,7 @@ import {
 import { createChatUnreadTracker, formatChatUnreadCount, type ChatUnreadCounts } from "./chat-unread";
 import { createChatHistory, type ChatHistoryPage } from "./chat-history";
 import { createChatChannelPicker, type ChatChannel, type ChatConversation } from "./chat-channels";
+import type { PlayerDirectoryEntry } from "../../shared/player-search";
 import { createChatInputSizer } from "./chat-input-size";
 import { createChatMuteDisplay } from "./chat-mute";
 import type { ChatMuteRecord } from "../../shared/chat-mute";
@@ -74,6 +75,7 @@ type CoopClient = {
     privateConversations: () => ChatConversation[];
     currentGuild: () => { id: string | bigint; name: string } | null;
     loadSocial: () => Promise<unknown>;
+    loadPlayerDirectory?: () => Promise<PlayerDirectoryEntry[]>;
     sendGuildMessage: (message: string, replyId?: bigint) => Promise<{ ok: boolean; error?: string }>;
     sendPrivateMessage: (username: string, message: string, replyId?: bigint) => Promise<{ ok: boolean; error?: string }>;
     reportMessage: (id: bigint, reason: ChatReportReason) => Promise<{ ok: boolean; error?: string }>;
@@ -201,7 +203,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     if (large && channel !== "public") void loadHistory(true);
     if (channel !== "public") void getCoop()?.social?.loadSocial().then(refresh)
       .catch(error => showMessage(error instanceof Error ? error.message : "COULD NOT REFRESH SOCIAL CONTACTS", "#ff9b91"));
-  }, onOpenPlayer);
+  }, onOpenPlayer, { loadPlayers: () => getCoop()?.social?.loadPlayerDirectory?.(), localIdentity: () => getCoop()?.localIdentity?.() ?? "" });
 
   const guildRequests = createChatGuildRequests({ document: elements.panel.ownerDocument, api: () => getCoop()?.guild,
     openPlayer: onOpenPlayer, changed: () => { messageActions.close(false); renderedRevision = ""; refresh(); },

@@ -314,8 +314,6 @@ import {
   }
 
   let totalKills = 0;
-  let flash = 0;
-  let screenShake = 0;
   let runtimeHud!: ReturnType<typeof createGameRuntimeHud>;
   let heldDuelScene: DuelScene | null = null;
   let renderedDuelScene: DuelScene | null = null;
@@ -380,7 +378,6 @@ import {
     signIn: () => { void coop?.signIn?.(); },
     signOut: () => { coop?.signOut?.(); },
     canPlayMusic: () => !gameplayPauseReasons.has("rewarded-ad"),
-    onScreenShakeDisabled: () => { screenShake = 0; },
     onLowPerformanceChanged: () => { session.resetFrameSchedule(); },
     showMessage,
   });
@@ -719,8 +716,6 @@ import {
     playBowAttackSound: mapMusic.playBowAttackSound,
     logPickup,
     saveProgress,
-    setHitFlash: () => { flash = .22; },
-    addScreenShake: (amount) => { screenShake = Math.max(screenShake, amount); },
     recordDeath: () => { if (!inTutorial()) void coop?.recordPlayerDeath?.(); },
     endGame,
   });
@@ -1198,8 +1193,6 @@ import {
     },
     onResetUI: () => {
       session.resetGameTime();
-      flash = 0;
-      screenShake = 0;
       runtimeHud.clearTransientUi();
       updateHud(true);
     },
@@ -1293,11 +1286,8 @@ import {
     drawDamageNumbers: (context, activeCamera, outlined, devicePixelRatio) => effects.drawDamageNumbers(context, activeCamera, outlined, devicePixelRatio),
     portalCutsceneActive: () => mapController.isCutsceneActive(),
     portalBlackoutOpacity: () => mapController.portalBlackoutOpacity(),
-    screenShake: () => screenShake,
-    screenShakeEnabled: () => appShell.screenShakeEnabled(),
     attackRangeVisible: () => appShell.attackRangeVisible(),
     weaponAttackRange: () => weaponAttackRange(inventory.equippedRightHand || inventory.equippedLeftHand, player.attackRange),
-    flash: () => appShell.damageFlashEnabled() ? flash : 0,
     projectiles,
     enemyShots,
     particles: effects.particles,
@@ -1483,6 +1473,7 @@ import {
     podiumAssetsReady: () => playerSpriteReady,
     drawPodiumCharacter: (canvas: HTMLCanvasElement, entry: LeaderboardEntry, rank: 1 | 2 | 3) => leaderboardPodiumPreview.draw(canvas, entry, rank),
     openProfile: (identity: string, name: string) => { void profileWindow.open(identity, name); },
+    loadPlayers: () => coop?.social?.loadPlayerDirectory(), findPlayer: (stat: import("./ui/leaderboard").LeaderboardStat, prestige: number, identity: string) => coop ? coop.findLeaderboardSpot(stat, prestige, identity) : Promise.reject(new Error("Not connected. Try again.")),
     beforeOpen: () => panels.closeAllExcept("leaderboard"),
   } });
 
@@ -1738,7 +1729,7 @@ import {
     clearDuelCombat: () => { autoFarm.stop("Autofarm stopped for duel"); projectileStore.clear(); },
     updateEffects: effects.update, updateHud: () => updateHud(),
     updateVisuals: (dt) => {
-      onboarding?.update(dt); flash = Math.max(0, flash - dt); screenShake *= Math.pow(.01, dt);
+      onboarding?.update(dt);
     },
     updateMessage: runtimeHud.updateMessage,
     capturePresentationState: presentation.capture,
@@ -1968,8 +1959,6 @@ import {
       return;
     }
     cancelAdjacentMapAssetPreload();
-    screenShake = 0;
-    flash = 0;
     session.end();
     mailbox.refresh();
     refreshDailyGemBonus();

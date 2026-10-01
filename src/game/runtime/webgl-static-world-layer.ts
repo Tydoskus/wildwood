@@ -33,8 +33,6 @@ export type StaticWorldLayerFrame = {
   height: number;
   dpr: number;
   zoom: number;
-  offsetX: number;
-  offsetY: number;
   tiles: StaticWorldTileFrame[];
   sprites?: readonly StaticWorldSpriteFrame[];
   colorQuads?: readonly StaticWorldColorQuadFrame[];
@@ -121,8 +119,6 @@ void main() {
 export function webGLSpriteBatchVertices(
   sprites: readonly Pick<StaticWorldSpriteFrame, "left" | "top" | "width" | "height" | "rotation">[],
   zoom: number,
-  offsetX = 0,
-  offsetY = 0,
   target?: Float32Array,
 ) {
   const requiredLength = sprites.length * 6 * 4;
@@ -136,8 +132,8 @@ export function webGLSpriteBatchVertices(
     vertices[cursor++] = v;
   };
   for (const sprite of sprites) {
-    const left = sprite.left * zoom + offsetX;
-    const top = sprite.top * zoom + offsetY;
+    const left = sprite.left * zoom;
+    const top = sprite.top * zoom;
     const right = left + sprite.width * zoom;
     const bottom = top + sprite.height * zoom;
     const rotation = sprite.rotation ?? 0;
@@ -190,8 +186,6 @@ export function writeWebGLColorQuadVertices(
   quads: readonly StaticWorldColorQuadFrame[],
   vertices: Float32Array,
   zoom: number,
-  offsetX = 0,
-  offsetY = 0,
 ) {
   const requiredLength = quads.length * COLOR_QUAD_FLOATS;
   if (vertices.length < requiredLength) throw new RangeError("WebGL color quad vertex buffer is too small");
@@ -205,8 +199,8 @@ export function writeWebGLColorQuadVertices(
     vertices[cursor++] = opacity;
   };
   for (const quad of quads) {
-    const left = quad.left * zoom + offsetX;
-    const top = quad.top * zoom + offsetY;
+    const left = quad.left * zoom;
+    const top = quad.top * zoom;
     const right = left + quad.width * zoom;
     const bottom = top + quad.height * zoom;
     const [red, green, blue] = quad.color;
@@ -495,7 +489,7 @@ function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): Stat
         while (capacity < requiredLength) capacity *= 2;
         spriteVertexData = new Float32Array(capacity);
       }
-      const vertices = webGLSpriteBatchVertices(group.sprites, frame.zoom, frame.offsetX, frame.offsetY, spriteVertexData);
+      const vertices = webGLSpriteBatchVertices(group.sprites, frame.zoom, spriteVertexData);
       gl.bindTexture(gl.TEXTURE_2D, texture);
       gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
       gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 4);
@@ -515,8 +509,6 @@ function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): Stat
       frame.colorQuads,
       colorVertexData,
       frame.zoom,
-      frame.offsetX,
-      frame.offsetY,
     );
     gl.useProgram(colorProgram);
     gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
@@ -563,8 +555,8 @@ function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): Stat
 
       const retainedKeys = new Set<string>();
       for (const tile of frame.tiles) {
-        const left = tile.left * frame.zoom + frame.offsetX;
-        const top = tile.top * frame.zoom + frame.offsetY;
+        const left = tile.left * frame.zoom;
+        const top = tile.top * frame.zoom;
         if (left + tile.width * frame.zoom <= 0 || top + tile.height * frame.zoom <= 0
           || left >= frame.width || top >= frame.height) continue;
         retainedKeys.add(tile.key);
@@ -577,8 +569,8 @@ function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): Stat
         textures.delete(key);
       }
       for (const tile of frame.tiles) {
-        const left = tile.left * frame.zoom + frame.offsetX;
-        const top = tile.top * frame.zoom + frame.offsetY;
+        const left = tile.left * frame.zoom;
+        const top = tile.top * frame.zoom;
         const width = tile.width * frame.zoom;
         const height = tile.height * frame.zoom;
         // Callers may include a preload ring for smooth movement. Keep those

@@ -1,6 +1,5 @@
-export const GAME_VERSION = "0.849";
+export const GAME_VERSION = "0.850";
 export const ATTACK_RANGE_VISIBLE_KEY = "wildwood-attack-range-visible-v1";
-export const SCREEN_SHAKE_ENABLED_KEY = "wildwood-screen-shake-enabled-v1";
 export const LOW_PERFORMANCE_MODE_KEY = "wildwood-low-performance-mode-v1";
 export const FPS_VISIBLE_KEY = "wildwood-fps-visible-v1";
 export const LATENCY_VISIBLE_KEY = "wildwood-latency-visible-v1";
@@ -20,7 +19,6 @@ export const APP_SHELL_STORAGE_KEYS = {
   lowPerformance: LOW_PERFORMANCE_MODE_KEY,
   latency: LATENCY_VISIBLE_KEY,
   musicVolume: MUSIC_VOLUME_KEY,
-  screenShake: SCREEN_SHAKE_ENABLED_KEY,
   sfxVolume: SFX_VOLUME_KEY,
   audioUnsynced: AUDIO_UNSYNCED_KEY,
 } as const;

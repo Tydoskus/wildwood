@@ -376,7 +376,8 @@ it("follows the Reflect Only goal instead of prestige's own requirement while a 
   expect(met.pick("confirm").disabled).toBe(false);
   click(met.pick("confirm")); click(met.pick("confirm"));
   await vi.waitFor(() => expect(met.runPrestige).toHaveBeenCalledOnce());
-  await vi.waitFor(() => expect(met.showMessage).toHaveBeenCalledWith(expect.stringContaining("Reflect Only won")));
+  // The win has its own popup (prestige-challenge-win.ts), so the panel adds no toast of its own.
+  expect(met.showMessage).not.toHaveBeenCalled();
 });
 
 it("makes the regular Respec the free one until it is used, then a normal respec", async () => {

@@ -440,8 +440,6 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   }
 
   function drawStaticWorld(
-    offsetX = 0,
-    offsetY = 0,
     extraSprites: readonly StaticWorldSpriteFrame[] = [],
     colorQuads: readonly StaticWorldColorQuadFrame[] = [],
   ) {
@@ -512,8 +510,6 @@ export function createWorldRenderer(options: WorldRendererOptions) {
         height: view.height,
         dpr: options.getDevicePixelRatio(),
         zoom: camera.zoom,
-        offsetX,
-        offsetY,
         tiles: gpuTiles,
         sprites: gpuWorldSprites,
         colorQuads,
