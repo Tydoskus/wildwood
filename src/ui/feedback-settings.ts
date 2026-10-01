@@ -1,7 +1,9 @@
 import { renderBooleanSetting } from "./settings";
+import { setNumberNotation } from "../../shared/compact-number";
 
 const TOOLBAR_HAPTICS_KEY = "wildwood-toolbar-haptics-enabled-v1";
 const SELF_PROFILE_TAP_KEY = "wildstat-self-profile-tap-enabled-v1";
+const SCIENTIFIC_NOTATION_KEY = "wildstat-scientific-notation-v1";
 
 /** Device preferences apply immediately, even when storage is unavailable. */
 export function installFeedbackSettings(doc: Document, storage: Pick<Storage, "getItem" | "setItem"> | undefined, haptic: () => void) {
@@ -9,14 +11,16 @@ export function installFeedbackSettings(doc: Document, storage: Pick<Storage, "g
     try { const value = storage?.getItem(key); return value == null ? fallback : value === "true"; }
     catch { return fallback; }
   };
-  function toggle(id: string, key: string, fallback: boolean) {
+  function toggle(id: string, key: string, fallback: boolean, onChange?: (enabled: boolean) => void) {
     const button = doc.getElementById(id)!;
     let enabled = read(key, fallback);
     renderBooleanSetting(button, enabled);
+    onChange?.(enabled);
     button.addEventListener("click", () => {
       enabled = !enabled;
       try { storage?.setItem(key, String(enabled)); } catch {}
       renderBooleanSetting(button, enabled);
+      onChange?.(enabled);
     });
     return () => enabled;
   }
@@ -24,6 +28,8 @@ export function installFeedbackSettings(doc: Document, storage: Pick<Storage, "g
   // Off by default: the player sprite sits where you are trying to walk, so the
   // tap opened the profile by accident. The HUD card is the deliberate target.
   const selfProfileTapEnabled = toggle("selfProfileTapToggle", SELF_PROFILE_TAP_KEY, false);
+  // Big numbers as 1.23e45 instead of suffixes. Display only: windows pick it up on their next draw.
+  toggle("scientificNotationToggle", SCIENTIFIC_NOTATION_KEY, false, enabled => setNumberNotation(enabled ? "scientific" : "suffix"));
   // Capture before navigation; only direct toolbar buttons, not settings inside it.
   doc.addEventListener("click", event => {
     const target = event.target as Element | null;
@@ -41,6 +47,7 @@ export function installFeedbackControls(doc: Document) {
   for (const [id, label, enabled] of [
     ["toolbarHapticsToggle", "TOOLBAR HAPTICS", true],
     ["selfProfileTapToggle", "TAP SELF TO OPEN PROFILE", false],
+    ["scientificNotationToggle", "SCIENTIFIC NOTATION", false],
     ["keepScreenOnToggle", "KEEP SCREEN ON", false],
     ["gameTickerToggle", "GAME TIPS", true],
     // Account-scoped and server-backed, so this only builds the row; the

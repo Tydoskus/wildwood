@@ -1,6 +1,6 @@
 import { applyAvatarFrame } from "../app/avatar-frames";
 import { appendPlayerNameTags, appendPrestigeBadge } from "../app/player-name-tags";
-import { formatCompactNumber } from "./number-format";
+import { formatCompactNumber, formatRate } from "./number-format";
 import type { LeaderboardEntry } from "../wildstat-coop";
 import { appendPlayerGenderIcon } from "./player-gender";
 
@@ -47,7 +47,7 @@ export function leaderboardValueText(stat: LeaderboardStat, entry: LeaderboardEn
   return stat === "time"
     ? formatPlayedTime(entry.playedSeconds)
     : stat === "regen"
-      ? `${entry.regen < 1_000 ? Number(entry.regen.toFixed(2)) : formatCompactNumber(entry.regen)}/s`
+      ? `${formatRate(entry.regen)}/s`
       : formatCompactNumber(entry[valueKey]);
 }
 

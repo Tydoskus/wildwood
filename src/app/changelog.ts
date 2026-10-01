@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.853": [
+    "New setting: Scientific Notation shows big numbers like 1.23e45",
+    "Regen shows three significant digits everywhere, like 523k/s",
+  ],
   "0.852": [
     "Fixed guild battles failing when a member has maxed attack range and Long Shot",
     "Guild > Quests shows each member's quests today and points this week",
@@ -2597,6 +2601,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.853": "2026-10-01",
   "0.852": "2026-10-01",
   "0.851": "2026-10-01",
   "0.850": "2026-09-30",

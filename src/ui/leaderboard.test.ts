@@ -53,7 +53,7 @@ describe("leaderboard podium", () => {
   });
 
   it("formats podium values with the same rules as leaderboard rows", () => {
-    expect(leaderboardValueText("regen", entry("r", "Regen", { regen: 12.345 }))).toBe("12.35/s");
+    expect(leaderboardValueText("regen", entry("r", "Regen", { regen: 12.345 }))).toBe("12.3/s");
     expect(leaderboardValueText("time", entry("t", "Time", { playedSeconds: 9_000 }))).toBe("2h 30m");
   });
 });

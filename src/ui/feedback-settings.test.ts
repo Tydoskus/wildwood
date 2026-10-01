@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { parseHTML } from "linkedom";
 import { installFeedbackSettings } from "./feedback-settings";
+import { formatCompactNumber, setNumberNotation } from "../../shared/compact-number";
 
 function setup(values = new Map<string, string>(), brokenStorage = false) {
   const { document, Event } = parseHTML(`<html><body><div id="toolbar">
     <button id="home"><span id="icon">Home</span></button><button id="disabled" disabled>Shop</button>
-    <section><button id="toolbarHapticsToggle"></button><button id="selfProfileTapToggle"></button></section>
+    <section><button id="toolbarHapticsToggle"></button><button id="selfProfileTapToggle"></button><button id="scientificNotationToggle"></button></section>
     </div><button id="outside">Other</button></body></html>`);
   const haptic = vi.fn();
   const settings = installFeedbackSettings(document, {
@@ -55,5 +56,16 @@ describe("tapping your own sprite", () => {
     first.click("selfProfileTapToggle");
     expect(first.selfProfileTapEnabled()).toBe(true);
     expect(setup(values).selfProfileTapEnabled()).toBe(true);
+  });
+  it("switches big numbers to scientific notation and remembers it", () => {
+    const values = new Map<string, string>();
+    const first = setup(values);
+    expect(formatCompactNumber(5_000_000)).toBe("5.00m");
+    first.click("scientificNotationToggle");
+    expect(formatCompactNumber(5_000_000)).toBe("5.00e6");
+    setNumberNotation("suffix");
+    setup(values);
+    expect(formatCompactNumber(5_000_000)).toBe("5.00e6");
+    setNumberNotation("suffix");
   });
 });

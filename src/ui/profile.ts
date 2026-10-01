@@ -4,7 +4,7 @@ import { prestigeStatMultiplier } from "../../shared/prestige";
 import { PRESTIGE_PERKS, RIPOSTE_REFLECT_SHARE, prestigeCriticalDamageBonus, prestigePerkValue, type PrestigePerkRanks } from "../../shared/prestige-perks";
 import { effectivePlayerPower, effectivePlayerPowerStats } from "../../shared/player-power";
 import { equipmentDamageMultiplierBonus, equipmentMaxHealthMultiplierBonus, equipmentRegenerationMultiplierBonus } from "../../shared/items";
-import { formatCompactNumber } from "./number-format";
+import { formatCompactNumber, formatRate } from "./number-format";
 import { paysSpeedRating } from "../game/combat";
 import { speedFromAttacksPerSecond } from "../../shared/attack-speed-rating";
 import { upgradeSlotForItem } from "../../shared/slot-upgrades";
@@ -147,7 +147,7 @@ export function profileStatDisplayRows(
   const attackSpeedMaxed = speedRating === null && baseAttackInterval <= minAttackInterval + .0001;
   const baseAttackSpeed = `${(1 / baseAttackInterval).toFixed(2)}/s${attackSpeedMaxed ? " (Max)" : ""}`;
   const attackSpeed = `${(1 / effective.attackRate).toFixed(2)}/s`;
-  const regen = `${effective.regen >= 1_000_000 ? formatCompactNumber(effective.regen) : effective.regen.toFixed(1)}/s`;
+  const regen = `${formatRate(effective.regen)}/s`;
   const healthResearchBonus = researchBonus(ranks.vitality, 2);
   const damageResearchBonus = researchBonus(ranks.warcraft, 2);
   const armorResearchBonus = researchBonus(ranks.precision, 2);
@@ -193,7 +193,7 @@ export function profileStatDisplayRows(
     },
     {
       kind: "regen", label: "Regen:",
-      base: progress.regen >= 1_000_000 ? `${formatCompactNumber(progress.regen)}/s` : `${progress.regen.toFixed(1)}/s`,
+      base: `${formatRate(progress.regen)}/s`,
       equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.regenResearch * (1 + effective.equipment.regen)), total: regen,
       sources: multiplierSources(regenResearchBonus, effective.gear.regen, effective.slotTiers.regen),

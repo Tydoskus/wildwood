@@ -38,6 +38,9 @@ const COMPACT_MULTIPLIERS: Readonly<Record<string, number>> = {
 };
 
 function statRewardValue(amount: string) {
+  // Scientific notation (a setting) reads as mantissa and exponent: +5.00e6.
+  const scientific = /^\+([0-9]+(?:\.[0-9]+)?)e([0-9]+)$/i.exec(amount);
+  if (scientific) { const value = Number(scientific[1]) * 10 ** Number(scientific[2]); return Number.isFinite(value) ? value : null; }
   const match = /^\+([0-9]+(?:\.[0-9]+)?)([a-z]*)$/i.exec(amount);
   if (!match) return null;
   const multiplier = COMPACT_MULTIPLIERS[match[2].toLowerCase()];
