@@ -250,11 +250,27 @@ describe("asynchronous battles and bounded standings", () => {
     f.db.guildMember.identity.update({ ...waiting, eligibleAt: f.ctx.timestamp.microsSinceUnixEpoch + 1n });
     expect(() => f.run(1, ctx => f.service.challenge(ctx, b))).toThrow("not yet eligible");
     f.db.guildMember.identity.update(waiting);
-    const account = f.db.guildAccount.identity.find(identity(2));
-    f.db.guildAccount.identity.update({ ...account, lastAttackDay: guildDay(f.ctx.timestamp.microsSinceUnixEpoch), attackGuild: 99n });
-    expect(() => f.run(1, ctx => f.service.challenge(ctx, b))).toThrow("another guild");
     expect(f.db.guild.id.find(a).attacks).toBe(0);
     expect(f.db.guildBattleReport.count()).toBe(0n);
+  });
+  it("sits out a member who already attacked for another guild today, and the rest still fight", () => {
+    const f = fixture();
+    const a = f.makeGuild(1), b = f.makeGuild(10);
+    const today = guildDay(f.ctx.timestamp.microsSinceUnixEpoch);
+    const account = f.db.guildAccount.identity.find(identity(2));
+    f.db.guildAccount.identity.update({ ...account, lastAttackDay: today, attackGuild: 99n });
+    f.run(1, ctx => f.service.challenge(ctx, b));
+    expect(f.db.guild.id.find(a).attacks).toBe(1);
+    expect([...f.db.guildReportParticipant.identity.filter(identity(2))]).toHaveLength(0);
+    expect([...f.db.guildReportParticipant.identity.filter(identity(1))].map(row => row.side)).toContain("attacker");
+    // Their day still belongs to the other guild.
+    expect(f.db.guildAccount.identity.find(identity(2)).attackGuild).toBe(99n);
+    // A guild with nobody free cannot attack at all.
+    for (const member of [...f.db.guildMember.guildId.filter(a)]) {
+      f.db.guildAccount.identity.update({ ...f.db.guildAccount.identity.find(member.identity), lastAttackDay: today, attackGuild: 99n });
+    }
+    const c = f.makeGuild(20);
+    expect(() => f.run(1, ctx => f.service.challenge(ctx, c))).toThrow("Every member");
   });
   it("keeps only ten reports per guild, even with many intervening battles", () => {
     const f = fixture();

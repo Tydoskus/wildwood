@@ -136,8 +136,8 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
   profileFor?: (ctx: Ctx, identity: Identity) => { displayName: string; profileIcon: number } | undefined;
   presenceFor?: (ctx: Ctx, identity: Identity) => { online: boolean; lastSeenAtMs: number };
   announceBattle?: (ctx: Ctx, report: GuildSnapshot["battles"][number]) => void }) {
-  function team(ctx: Ctx, guildId: bigint): GuildFighter[] {
-    const roster = members(ctx, guildId).sort((a, b) => key(a.identity).localeCompare(key(b.identity)));
+  function team(ctx: Ctx, guildId: bigint, lineup = members(ctx, guildId)): GuildFighter[] {
+    const roster = [...lineup].sort((a, b) => key(a.identity).localeCompare(key(b.identity)));
     if (!roster.length) fail("Both guilds need members to battle.");
     if (roster.some(member => member.eligibleAt > now(ctx))) fail("A member is not yet eligible for guild battles.");
     return roster.map(member => {
@@ -218,15 +218,18 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
       if (guild.attacks >= GUILD_DAILY_ATTACKS) fail("Your guild has used its three attacks today.");
       const opponents: string[] = JSON.parse(guild.opponents);
       if (opponents.includes(String(opponentId))) fail("You have already challenged this guild today.");
-      const attacking = team(ctx, guild.id), defending = team(ctx, opponent.id);
-      const actors = members(ctx, guild.id);
+      const day = guildDay(now(ctx));
+      // A member who already attacked for another guild today sits this battle
+      // out; the rest of the guild still fights. One recruit must not stop a
+      // guild from attacking, nor make the leader kick someone to find out who.
+      const actors = members(ctx, guild.id).filter(member => {
+        const participation = account(ctx, member.identity);
+        return !(participation.lastAttackDay === day && participation.attackGuild !== 0n && participation.attackGuild !== guild.id);
+      });
+      if (!actors.length) fail("Every member has already attacked with another guild today.");
+      const attacking = team(ctx, guild.id, actors), defending = team(ctx, opponent.id);
       const participatingIdentities = new Map([...actors, ...members(ctx, opponent.id)]
         .map(member => [key(member.identity), member.identity]));
-      const day = guildDay(now(ctx));
-      for (const member of actors) {
-        const participation = account(ctx, member.identity);
-        if (participation.lastAttackDay === day && participation.attackGuild !== 0n && participation.attackGuild !== guild.id) fail("A member has already attacked with another guild today.");
-      }
       const result = resolveGuildBattle(attacking, defending);
       for (const member of actors) ctx.db.guildAccount.identity.update({ ...account(ctx, member.identity), lastAttackDay: day, attackGuild: guild.id });
       const updated = { ...guild, attacks: guild.attacks + 1, opponents: JSON.stringify([...opponents, String(opponentId)]),

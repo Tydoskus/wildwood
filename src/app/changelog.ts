@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.851": [
+    "Guild battles: members who already attacked with another guild today sit out instead of blocking the attack",
+  ],
   "0.850": [
     "New: search players by name on the leaderboard (jumps to their rank) and in private chat",
     "Reflect Only completes on its own when you reach the goal, with a popup",
@@ -2588,6 +2591,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.851": "2026-10-01",
   "0.850": "2026-09-30",
   "0.849": "2026-09-30",
   "0.848": "2026-09-30",
