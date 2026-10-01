@@ -72,16 +72,16 @@ it("estimates with the stats the report itself grants, as the client had them by
 
 it("charges every kill at least the map's respawn over its whole population, so hopping maps earns no more", () => {
   // However strong the build, the whole map comes back once per respawn, so a
-  // kill here is never worth less than 10 / 30 of a second of the account's
-  // clock. Ten banked seconds buy thirty kills on this map, from whichever
+  // kill here is never worth less than 10 / 32 of a second of the account's
+  // clock. Ten banked seconds buy thirty-two kills on this map, from whichever
   // map's refilled spawn bucket they are claimed.
-  expect(mapEnemyPopulation("crystal_hollows")).toBe(30);
+  expect(mapEnemyPopulation("crystal_hollows")).toBe(32);
   const f = crystalFixture();
   f.patch("playerProgress", { equippedRightHand: STARTER_BOW, inventoryJson: '["starter_bow"]', damage: 1e15, projectileCount: 3 });
   fillDefeatBudget(f, "crystal_hollows", ENEMY);
   f.seed("enemyDefeatBudget", { key: combatTimeKey(f.ctx.sender), identity: f.ctx.sender, tokens: 10, updatedAtMicros: f.ctx.timestamp.microsSinceUnixEpoch });
   reportKills(f, claim(50));
-  expect(kills(f)).toBe(BigInt(10 * 30 / DEFEAT_MIN_RESPAWN_SECONDS));
+  expect(kills(f)).toBe(BigInt(10 * 32 / DEFEAT_MIN_RESPAWN_SECONDS));
   expect(f.db.enemyDefeatBudget.key.find(combatTimeKey(f.ctx.sender)).tokens).toBeCloseTo(0, 6);
   expect(restricted(f)).toBe(false);
 });

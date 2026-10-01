@@ -24,7 +24,7 @@ it("uses generated rewards for all four lanes even when they share the same spri
   for (const n of [1, 2] as const) {
     const rows = result.enemyMetrics[`endless_${n}`];
     expect(rows).toHaveLength(5); // two damage roles plus health, armor, regen
-    expect(rows.reduce((sum, row) => sum + row.spawnCount, 0)).toBe(31);
+    expect(rows.reduce((sum, row) => sum + row.spawnCount, 0)).toBe(33);
     for (const lane of ["Cindermaw", "Dread Warden", "Bramble", "Mossback", "Brood"] as const) {
       const expected = resolveMapBalance(`endless_${n}`, defaultBalanceSettings(), 0).lanes[lane];
       const row = rows.find(r => r.hp === expected.hp && r.rewardType === expected.reward.type)!;
@@ -36,7 +36,7 @@ it("uses generated rewards for all four lanes even when they share the same spri
 it("farms generated sites instead of their sprite's Forest stats", () => {
   const result = simulateExistingPlayer({ durationSeconds: 3600, endlessMaps: 1, requiredClears: 1,
     stopAfterCampaign: true, researchPlan: "off", steadyEquipmentUpgrades: false, strategy: "efficient" }, { ...ready, mapIndex: 15 });
-  expect(result.maps[0].regularKills).toBe(31);
+  expect(result.maps[0].regularKills).toBe(33);
   expect(result.maps[0].statInvestments.health.rewardEvents).toBe(7); // 6 enemies + boss
   const snapshot = resolveMapBalance("endless_1", defaultBalanceSettings(), 0);
   const expectedHealth = ready.stats.maxHp + 6 * snapshot.lanes.Bramble.reward.amount + snapshot.boss!.rewards.health;

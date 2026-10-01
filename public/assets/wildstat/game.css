@@ -4644,12 +4644,8 @@
 .chat-conversation-heading[role="button"]:focus-visible,
 .chat-conversation-portrait[role="button"]:focus-visible { outline: 2px solid #ece7d2; outline-offset: 3px; }
 
-/* Map identity sits on the minimap, along its bottom edge inside the frame; online count and version stay below. */
+/* Map name under the minimap, above the online count and version. */
 .minimap-map-name {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 5px);
-  left: 0;
   color: #fff;
   font: 800 var(--font-readable-min)/1.2 var(--font-rounded);
   text-align: center;

@@ -26,7 +26,7 @@ describe("Ion Citadel", () => {
     expect(reachable.size).toBe(paths.length);
     expect(mapSpawnCamps(map)).toHaveLength(5);
     const sites = createSpawnSites({ x: 4050, y: 4050 }, map);
-    expect(sites).toHaveLength(30);
+    expect(sites).toHaveLength(32);
     expect(new Set(sites.map(site => ENEMY_TYPES[site.type].reward.type)).size).toBe(4);
     for (const site of sites) expect(MAP_ASSET_GROUPS[map].enemies as readonly string[]).toContain(site.type);
     expect(decor.length).toBeGreaterThan(50);

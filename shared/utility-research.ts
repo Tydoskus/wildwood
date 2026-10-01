@@ -11,7 +11,7 @@ export function slotUpgradeDurationWithResearch(baseMs: number, speedRank: numbe
 }
 
 export function enemyRespawnSecondsWithResearch(baseSeconds: number, respawnRank: number) {
-  return Math.max(1, baseSeconds - rank(respawnRank, 5) * .5);
+  return Math.max(1, baseSeconds - rank(respawnRank, 10) * .5);
 }
 
 export function bossRespawnSecondsWithResearch(baseSeconds: number, respawnRank: number) {

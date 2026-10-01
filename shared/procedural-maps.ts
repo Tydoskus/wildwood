@@ -135,7 +135,7 @@ export function generateMap(id: ProceduralMapId): GeneratedMap {
     name: `${["Damage", "Health", "Armor", "Regen"][["damage", "health", "armor", "regen"].indexOf(lanes[i][1])]} Camp`,
     lane: lanes[i][0],
     stat: lanes[i][1],
-    count: lanes[i][1] === "damage" ? 13 : 6,
+    count: lanes[i][1] === "damage" ? 13 : lanes[i][1] === "regen" ? 8 : 6,
     radius: 330,
   }));
   const paths: MapPath[] = [

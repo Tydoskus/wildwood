@@ -46,9 +46,10 @@ function nodeId(researchId: ResearchId, rankBandIndex: number) {
 
 export function createTechTreeLayout(tree: ResearchTree = "power"): TechTreeLayout {
   if (tree === "utility") {
-    const node = (researchId: typeof UTILITY_RESEARCH_IDS[number]): TechTreeNode => ({
-      id: `tech-utility-${researchId}`, researchId, rankBandIndex: 0,
-      startRank: 0, endRank: RESEARCH_DEFINITIONS[researchId].maxRank,
+    const node = (researchId: typeof UTILITY_RESEARCH_IDS[number], rankBandIndex = 0): TechTreeNode => ({
+      id: `tech-utility-${researchId}${rankBandIndex ? `-${rankBandIndex + 1}` : ""}`, researchId, rankBandIndex,
+      startRank: researchRankBandStart(researchId, rankBandIndex),
+      endRank: Math.min(RESEARCH_DEFINITIONS[researchId].maxRank, researchRankBandEnd(researchId, rankBandIndex)),
     });
     const rows: TechTreeNode[][] = [
       [node("researchSpeed")],
@@ -56,6 +57,7 @@ export function createTechTreeLayout(tree: ResearchTree = "power"): TechTreeLayo
       [node("bossRespawn")],
       [node("offlineWindow"), node("utilityMoveSpeed")],
       [node("utilityAttackRange")],
+      [node("enemyRespawn", 1)],
     ];
     const paths: TechTreeLayout["paths"] = [];
     for (let row = 0; row < rows.length - 1; row += 1) {

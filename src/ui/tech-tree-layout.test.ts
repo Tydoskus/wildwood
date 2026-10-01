@@ -14,11 +14,13 @@ describe("tech tree layout", () => {
     expect(new Set(layout.nodes.map((node) => node.id)).size).toBe(layout.nodes.length);
   });
 
-  it("shows each utility technology once with its own rank cap", () => {
+  it("shows each utility technology once with its own rank cap, and Enemy Respawn again at the bottom", () => {
     const layout = createTechTreeLayout("utility");
-    expect(layout.nodes.map(node => node.researchId)).toEqual([...UTILITY_RESEARCH_IDS]);
-    expect(layout.rows.map(row => row.length)).toEqual([1, 2, 1, 2, 1]);
-    expect(layout.nodes.map(node => node.endRank)).toEqual(UTILITY_RESEARCH_IDS.map(id => RESEARCH_DEFINITIONS[id].maxRank));
+    expect(layout.nodes.map(node => node.researchId)).toEqual([...UTILITY_RESEARCH_IDS, "enemyRespawn"]);
+    expect(layout.rows.map(row => row.length)).toEqual([1, 2, 1, 2, 1, 1]);
+    expect(layout.nodes.slice(0, -1).map(node => node.endRank))
+      .toEqual(UTILITY_RESEARCH_IDS.map(id => Math.min(5, RESEARCH_DEFINITIONS[id].maxRank)));
+    expect(layout.nodes.at(-1)).toMatchObject({ id: "tech-utility-enemyRespawn-2", startRank: 5, endRank: 10 });
     expect(layout.paths).toEqual([
       ["tech-utility-researchSpeed", "tech-utility-slotUpgradeSpeed"],
       ["tech-utility-researchSpeed", "tech-utility-enemyRespawn"],
@@ -28,6 +30,7 @@ describe("tech tree layout", () => {
       ["tech-utility-bossRespawn", "tech-utility-utilityMoveSpeed"],
       ["tech-utility-offlineWindow", "tech-utility-utilityAttackRange"],
       ["tech-utility-utilityMoveSpeed", "tech-utility-utilityAttackRange"],
+      ["tech-utility-utilityAttackRange", "tech-utility-enemyRespawn-2"],
     ]);
   });
 

@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.859": [
+    "Every regen camp has 2 more enemies",
+    "Utility Research: a second Enemy Respawn node under Attack Range, 5 more ranks of -0.5s",
+    "The map name now sits under the minimap, above the player count",
+  ],
   "0.858": [
     "Collecting quests now draws from your guild's weekly pool (15 per member) instead of taking a member's quests",
     "A guild's quest points for the week stop at its pool",
@@ -2629,6 +2634,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.859": "2026-10-01",
   "0.858": "2026-10-01",
   "0.857": "2026-10-01",
   "0.856": "2026-10-01",

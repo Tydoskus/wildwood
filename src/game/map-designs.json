@@ -3163,7 +3163,7 @@
           "y": 2300,
           "minRadius": 220,
           "radius": 380,
-          "count": 5,
+          "count": 7,
           "types": [
             "Brood"
           ],
@@ -6236,7 +6236,7 @@
           "y": 780,
           "minRadius": 90,
           "radius": 230,
-          "count": 3,
+          "count": 5,
           "types": [
             "Blight Oracle"
           ]
@@ -7955,7 +7955,7 @@
           "y": 4050,
           "minRadius": 210,
           "radius": 380,
-          "count": 4,
+          "count": 6,
           "types": [
             "Tempest Oracle"
           ],

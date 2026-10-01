@@ -42,7 +42,7 @@ describe("generated campaign runtime adapters", () => {
     const enemies: EnemyState[] = [];
     const lifecycle = createEnemyLifecycle(enemies, sites, () => {});
     sites.forEach(lifecycle.spawnFromSite);
-    expect(enemies).toHaveLength(31);
+    expect(enemies).toHaveLength(33);
     for (let i = 0; i < sites.length; i++) {
       expect(enemies[i].maxHp).toBe(sites[i].definition!.hp);
       expect(enemies[i].reward).toEqual(sites[i].definition!.reward);

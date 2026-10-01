@@ -39,6 +39,8 @@ export type ResearchDefinition = {
   prerequisites?: Partial<Record<ResearchId, number>>;
   /** One rank in any listed technology unlocks this node. */
   prerequisiteAny?: ResearchId[];
+  /** Stored ranks that open every band past the first, for a node the tree shows again further down. */
+  laterBandPrerequisites?: Partial<Record<ResearchId, number>>;
 };
 
 function repeatedDefinition(definition: Omit<ResearchDefinition, "maxRank">): ResearchDefinition {
@@ -85,8 +87,10 @@ export const RESEARCH_DEFINITIONS: Record<ResearchId, ResearchDefinition> = {
     effect: "RESEARCH SPEED", valuePerRank: 1, unit: "%", durationStartMs: 45_000 },
   slotUpgradeSpeed: { id: "slotUpgradeSpeed", title: "SLOT SPEED", icon: "⚒", ranksPerBand: 5, maxRank: 5,
     effect: "SLOT UPGRADE SPEED", valuePerRank: 1, unit: "%", durationStartMs: 45_000, prerequisites: { researchSpeed: 1 } },
-  enemyRespawn: { id: "enemyRespawn", title: "ENEMY RESPAWN", icon: "↻", ranksPerBand: 5, maxRank: 5,
-    effect: "ENEMY RESPAWN", valuePerRank: .5, unit: "s", durationStartMs: 60_000, prerequisites: { researchSpeed: 1 } },
+  // Ranks 6-10 are a second node at the bottom of the utility tree, behind Attack Range.
+  enemyRespawn: { id: "enemyRespawn", title: "ENEMY RESPAWN", icon: "↻", ranksPerBand: 5, maxRank: 10,
+    effect: "ENEMY RESPAWN", valuePerRank: .5, unit: "s", durationStartMs: 60_000, prerequisites: { researchSpeed: 1 },
+    laterBandPrerequisites: { utilityAttackRange: 1 } },
   bossRespawn: { id: "bossRespawn", title: "BOSS RESPAWN", icon: "♛", ranksPerBand: 5, maxRank: 5,
     effect: "BOSS RESPAWN", valuePerRank: 1, unit: "s", durationStartMs: 60_000, prerequisiteAny: ["slotUpgradeSpeed", "enemyRespawn"] },
   offlineWindow: { id: "offlineWindow", title: "OFFLINE TIME", icon: "☾", ranksPerBand: 3, maxRank: 3,
@@ -155,6 +159,8 @@ export function researchRankBandIndex(researchId: ResearchId, completedRanks: nu
 /** Resolves same-band requirements into cumulative stored-rank thresholds. */
 export function researchPrerequisitesForNextRank(researchId: ResearchId, completedRanks: number) {
   const rankBandIndex = researchRankBandIndex(researchId, completedRanks);
+  const later = RESEARCH_DEFINITIONS[researchId].laterBandPrerequisites;
+  if (later && rankBandIndex > 0) return { ...later };
   const requirements: Partial<Record<ResearchId, number>> = {};
   for (const [requiredId, requiredRank] of Object.entries(RESEARCH_DEFINITIONS[researchId].prerequisites ?? {})) {
     const id = requiredId as ResearchId;

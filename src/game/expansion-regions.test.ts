@@ -35,7 +35,7 @@ describe("Clockwork Ruins and Duskfall Orchard", () => {
     expect(camps).toHaveLength(5);
     expect(new Set(camps.map(camp => ENEMY_TYPES[camp.types[0]].reward.type)).size).toBe(4);
     const sites = createSpawnSites({ x: 4050, y: 4050 }, map);
-    expect(sites).toHaveLength(30);
+    expect(sites).toHaveLength(32);
     for (const site of sites) expect(MAP_ASSET_GROUPS[map].enemies as readonly string[]).toContain(site.type);
     for (const item of decor) expect(Math.hypot(item.x - 4050, item.y - 4050)).toBeGreaterThan(680);
   });

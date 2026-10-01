@@ -118,8 +118,8 @@ const CEILING = MAP_POPULATION / DEFEAT_MIN_RESPAWN_SECONDS;
 
 describe("farming rate under the respawn ceiling", () => {
   it("prices the map the way the ceiling is meant to", () => {
-    expect(MAP_POPULATION).toBe(30);
-    expect(CEILING).toBe(3);
+    expect(MAP_POPULATION).toBe(32);
+    expect(CEILING).toBe(3.2);
   });
 
   it("uses the same ceiling for a pinned snapshot, and follows a tuned respawn", () => {
