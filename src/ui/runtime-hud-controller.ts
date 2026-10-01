@@ -18,6 +18,7 @@ import {
   statRewardToastModel,
 } from "./stat-reward-toast";
 import type { PlayerGender } from "../../shared/player-gender";
+import { statPopupsEnabled } from "./stat-popup-setting";
 
 
 const GEM_DROP_ART = "assets/wildstat/gems/gem-icon-v2.webp";
@@ -133,8 +134,9 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
     }
     const attackSpeedCapped = dependencies.player.attackRate <= (dependencies.minimumAttackInterval?.() ?? MIN_ATTACK_INTERVAL) + 1e-7;
     const model = statRewardToastModel(text, attackSpeedCapped);
-    // A stat reward of nothing is not news, whoever paid it.
+    // A stat reward of nothing is not news, whoever paid it; and none show with stat gain popups off.
     if (model && !model.capped && !(model.value > 0)) return;
+    if (model && !statPopupsEnabled()) return;
     const active = model ? activeStatRewards.get(model.stat) : undefined;
     if (model && active && active.entry.parentElement === elements.pickupLog) {
       active.total = model.capped ? 0 : active.total + model.value;

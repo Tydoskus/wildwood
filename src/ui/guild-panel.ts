@@ -445,8 +445,8 @@ export function createGuildPanel(options: Options) {
   /**
    * Who has done their quests: the week's fifteen as a line of segments, green
    * for done and gold for collected by someone else, and this week's points,
-   * most first. Any member whose own fifteen are done can collect another's
-   * unfinished ones here.
+   * most first. Any member whose own fifteen are done can take more from the
+   * guild's weekly pool here.
    */
   function renderQuestMembers(body: HTMLElement) {
     const own = snapshot?.guild;
@@ -459,9 +459,27 @@ export function createGuildPanel(options: Options) {
     const joinedThisWeek = (member: { eligibleAt: string }) => questWeek(questDay(BigInt(member.eligibleAt))) >= questWeek(today);
     if (self && joinedToday(self)) hint(body, "Your quests count for this guild from tomorrow; today's go to your own bonus. The guild's bonus reaches you next week.");
     else if (self && joinedThisWeek(self)) hint(body, "You joined this week: the guild's bonus reaches you next week. Until then you keep your own.");
+    // The guild's pool: fifteen quests a member this week. Anyone whose own are done draws extra from it.
     const collect = own.questCollect;
-    if (collect) hint(body, !collect.ready ? `Finish your own ${WEEKLY_QUEST_COUNT} quests to collect up to ${GUILD_QUEST_COLLECT_LIMIT} of your members' unfinished ones.`
-      : collect.left ? `You can collect ${collect.left} more of your members' unfinished quests this week.` : "You have collected all you can this week.");
+    if (collect && collect.poolSize !== undefined) {
+      const pool = element("div", undefined, "guild-quest-pool");
+      const copy = element("div", undefined, "guild-row-copy");
+      copy.append(element("strong", `Guild pool: ${collect.pool ?? 0} of ${collect.poolSize} quests left`),
+        element("span", !collect.ready ? `Finish your own ${WEEKLY_QUEST_COUNT} to take up to ${GUILD_QUEST_COLLECT_LIMIT} more from it.`
+          : !collect.left ? "You have taken all you can this week."
+          : collect.pool ? `You can take ${Math.min(collect.left, collect.pool)} more this week, three on your board at a time.`
+          : "The pool is used up this week."));
+      pool.append(copy);
+      const count = Math.min(collect.left, collect.pool ?? 0);
+      if (collect.ready && count > 0) {
+        const take = button("Collect", () => ask(`Collect ${count} quest${count === 1 ? "" : "s"}?`,
+          `They come from the guild's pool and go on your Quest Board, three at a time. The points count as yours.`,
+          "Collect", { kind: "collectQuests", identity: snapshot!.identity }), "secondary", busy, "collect-pool");
+        take.classList.add("guild-quest-collect");
+        pool.append(take);
+      }
+      body.append(pool);
+    }
     const members = [...own.members].sort((a, b) => (b.questPoints ?? 0) - (a.questPoints ?? 0) || a.name.localeCompare(b.name));
     const list = element("ol", undefined, "guild-quest-members");
     for (const member of members) {
@@ -482,13 +500,6 @@ export function createGuildPanel(options: Options) {
       const score = element("div", undefined, "guild-score");
       score.append(element("strong", number(member.questPoints ?? 0)), element("span", "pts"));
       item.append(portrait, copy, score);
-      if (collect?.ready && collect.left && member.identity !== snapshot!.identity && (member.questsOpen ?? 0) > 0 && !joinedToday(member)) {
-        const take = button("Collect", () => ask(`Collect ${member.name}'s quests?`,
-          `Up to ${Math.min(collect.left, member.questsOpen ?? 0)} of their unfinished quests move to your Quest Board, three at a time. The points count as yours.`,
-          "Collect", { kind: "collectQuests", identity: member.identity }), "secondary", busy, `collect-${member.identity}`);
-        take.classList.add("guild-quest-collect");
-        item.append(take);
-      }
       list.append(item);
     }
     body.append(list);

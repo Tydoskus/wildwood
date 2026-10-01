@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.858": [
+    "Collecting quests now draws from your guild's weekly pool (15 per member) instead of taking a member's quests",
+    "A guild's quest points for the week stop at its pool",
+    "New setting: Stat Gain Popups, to turn off the stat gain pop-ups",
+  ],
   "0.857": [
     "New: a quest tracker on the HUD shows your three quests in play; drag it anywhere, tap to fold it, or switch it off on the Quest Board",
     "The player you duel gets the result and replay in private chat, gone after a day",
@@ -2623,6 +2628,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.858": "2026-10-01",
   "0.857": "2026-10-01",
   "0.856": "2026-10-01",
   "0.855": "2026-10-01",

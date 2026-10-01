@@ -37,7 +37,7 @@ export type GuildSnapshot = {
       /** Today's quests a leader collected from them. */
       questsTaken?: number }[];
     /** Whether the viewer may collect members' quests this week (their own fifteen done), and how many more. */
-    questCollect?: { ready: boolean; left: number } | null };
+    questCollect?: { ready: boolean; left: number; pool?: number; poolSize?: number } | null };
   directory: { id: string; name: string; emblem?: number; members: number; totalPower?: number; requestOnly?: boolean; challengedToday: boolean }[]; nextPage: string | null;
   standings: GuildStanding[];
   battles: GuildReport[];

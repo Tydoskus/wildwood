@@ -4,7 +4,7 @@ import { crystalFixture } from "../../tests/helpers/crystal-hollows-fixture";
 import { fillDefeatBudget, reportKills } from "../../tests/helpers/enemy-defeat";
 import { STARTER_BOW } from "../../shared/items";
 import { WEEKLY_QUEST_COUNT, questDay, questWeek } from "../../shared/daily-quests";
-import { collectMemberQuests, ensureDailyQuests, guildQuestBonusFor, memberQuestStanding, questCollectStanding } from "./daily-quests";
+import { GUILD_POOL_FROM, collectGuildQuests, collectMemberQuests, ensureDailyQuests, guildQuestBonusFor, memberQuestStanding, questCollectStanding } from "./daily-quests";
 import { Identity } from "spacetimedb";
 import { statRewardMultiplier } from "./prestige";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
@@ -122,36 +122,44 @@ const member = (f: any, last: string, joinedAt = 0n) => {
 };
 const finishedWeek = () => JSON.stringify(Array.from({ length: WEEKLY_QUEST_COUNT }, () => ({ mapId: "tutorial_forest", enemy: "Spitter", target: 50, progress: 50 })));
 
-it("lets any member whose own fifteen are done collect up to fifteen of another's unfinished ones", () => {
+it("lets a member whose own fifteen are done take more from the guild's pool, without touching anyone's quests", () => {
   const { f, day } = questing();
+  // The guild: the sender (with two quests open) and two members.
   const sleepy = member(f, "42"), helper = member(f, "44");
+  f.db.guild.id.update({ ...f.db.guild.id.find(7n), members: 3 });
   f.seed("playerDailyQuest", { identity: sleepy, day, bonus: 1, guildPoints: 0, guildName: "Oaks", questsJson: JSON.stringify([
     { mapId: "tutorial_forest", enemy: "Spitter", target: 60, progress: 10 },
-    { mapId: "tutorial_forest", enemy: "Bramble", target: 70, progress: 70 },
   ]) });
-  // The collector's own week is still open.
-  expect(() => collectMemberQuests(f.ctx, f.ctx.sender, sleepy)).toThrow("Finish your own quests first");
-  // Not only leaders: an ordinary member with a finished week can collect.
   f.seed("playerDailyQuest", { identity: helper, day, bonus: 1, guildPoints: 0, guildName: "Oaks", questsJson: finishedWeek() });
-  expect(questCollectStanding(f.ctx, helper)).toEqual({ ready: true, left: 15 });
-  // Their 14 open (one started, thirteen drawn to top the week up) all move.
-  expect(collectMemberQuests(f.ctx, helper, sleepy)).toBe(14);
-  const theirs = JSON.parse(f.db.playerDailyQuest.identity.find(sleepy).questsJson);
-  expect(theirs.filter((quest: any) => quest.takenBy === "M44" || quest.takenBy)).toHaveLength(14);
+  f.seed("guildQuestWeek", { key: `${questWeek(day)}:7`, week: questWeek(day), guildId: 7n, guildName: "Oaks", points: 15 });
+  // 45 in the pool, 15 earned so far.
+  expect(questCollectStanding(f.ctx, helper)).toMatchObject({ ready: true, left: 15, pool: 30, poolSize: 45 });
+  expect(collectGuildQuests(f.ctx, helper)).toBe(15);
   const mine = JSON.parse(f.db.playerDailyQuest.identity.find(helper).questsJson);
-  expect(mine.filter((quest: any) => quest.from).map((quest: any) => quest.progress).slice(0, 2)).toEqual([10, 0]);
-  expect(questCollectStanding(f.ctx, helper).left).toBe(1);
-  expect(memberQuestStanding(f.ctx, sleepy, 7n)).toMatchObject({ questsDone: 1, questsTaken: 14, questsOpen: 0 });
-  expect(() => collectMemberQuests(f.ctx, helper, sleepy)).toThrow("no unfinished quests");
+  expect(mine.filter((quest: any) => quest.from === GUILD_POOL_FROM)).toHaveLength(15);
+  // Nobody's quests were taken.
+  expect(JSON.parse(f.db.playerDailyQuest.identity.find(sleepy).questsJson).some((quest: any) => quest.takenBy)).toBe(false);
+  // Open pool quests count against the pool until they are done.
+  expect(questCollectStanding(f.ctx, helper)).toMatchObject({ left: 0, pool: 15 });
+  expect(() => collectGuildQuests(f.ctx, helper)).toThrow("collected 15");
+  // The old reducer still collects, from the pool.
+  expect(() => collectMemberQuests(f.ctx, f.ctx.sender, sleepy)).toThrow("Finish your own quests first");
 });
 
-it("does not collect from or for a member who joined today", () => {
+it("never pays a guild more than its pool in a week", () => {
+  const { f, day } = questing();
+  f.db.guild.id.update({ ...f.db.guild.id.find(7n), members: 1 });
+  f.seed("guildQuestWeek", { key: `${questWeek(day)}:7`, week: questWeek(day), guildId: 7n, guildName: "Oaks", points: 15 });
+  spitters(f, 10);
+  expect(f.db.guildQuestWeek.key.find(`${questWeek(day)}:7`).points).toBe(15);
+});
+
+it("does not let a member who joined today collect", () => {
   const { f } = questing();
   const fresh = member(f, "43", f.ctx.timestamp.microsSinceUnixEpoch);
-  f.patch("playerDailyQuest", { questsJson: finishedWeek() });
-  expect(() => collectMemberQuests(f.ctx, f.ctx.sender, fresh)).toThrow("from tomorrow");
-  expect(() => collectMemberQuests(f.ctx, fresh, f.ctx.sender)).toThrow("from tomorrow");
+  expect(() => collectGuildQuests(f.ctx, fresh)).toThrow("from tomorrow");
 });
+
 
 it("pays the full solo week when quests were finished before the solo count began, and keeps it past the new draw", () => {
   const { f, day } = questing(false);

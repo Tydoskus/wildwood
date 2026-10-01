@@ -69,3 +69,22 @@ describe("tapping your own sprite", () => {
     setNumberNotation("suffix");
   });
 });
+
+it("turns stat gain popups off and remembers it", async () => {
+  const { parseHTML } = await import("linkedom");
+  const { statPopupsEnabled, setStatPopupsEnabled } = await import("./stat-popup-setting");
+  const values = new Map<string, string>();
+  const make = () => {
+    const { document, Event } = parseHTML(`<html><body><div id="toolbar"></div><section><button id="toolbarHapticsToggle"></button><button id="selfProfileTapToggle"></button><button id="scientificNotationToggle"></button><button id="statPopupsToggle"></button></section></body></html>`);
+    installFeedbackSettings(document, { getItem: key => values.get(key) ?? null, setItem: (key, value) => { values.set(key, value); } }, () => {});
+    return () => document.getElementById("statPopupsToggle")!.dispatchEvent(new Event("click", { bubbles: true }));
+  };
+  const click = make();
+  expect(statPopupsEnabled()).toBe(true);
+  click();
+  expect(statPopupsEnabled()).toBe(false);
+  setStatPopupsEnabled(true);
+  make();
+  expect(statPopupsEnabled()).toBe(false);
+  setStatPopupsEnabled(true);
+});

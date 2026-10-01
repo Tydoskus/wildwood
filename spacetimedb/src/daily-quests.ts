@@ -1,5 +1,5 @@
 import { table, t, SenderError } from "spacetimedb/server";
-import { WEEKLY_QUEST_COUNT, GUILD_QUEST_COLLECT_LIMIT, applyQuestKills, dailyQuestCandidates, weeklyQuestsFor, guildQuestBonus, ownQuest, parseDailyQuests, questDay, questDone, questOpen, questWeek, soloQuestBonus, type DailyQuest } from "../../shared/daily-quests";
+import { WEEKLY_QUEST_COUNT, GUILD_QUEST_COLLECT_LIMIT, applyQuestKills, weeklyQuestsFor, guildQuestBonus, ownQuest, parseDailyQuests, questDay, questDone, questOpen, questWeek, soloQuestBonus, type DailyQuest } from "../../shared/daily-quests";
 import { readPlayerProgress } from "./wide-stats";
 
 /**
@@ -158,15 +158,17 @@ export function recordDailyQuestKills(ctx: Ctx, identity: any, mapId: string, ki
     const week = questWeek(row.day);
     settleSoloWeek(ctx, identity, week, soloPoints(ctx, identity, week) + completed);
   }
-  if (guild) {
+  // A guild's week is worth at most its pool: fifteen quests a member.
+  const credited = guild ? Math.min(completed, Math.max(0, (ctx.db.guild.id.find(guild.id)?.members ?? 0) * WEEKLY_QUEST_COUNT - weekPoints(ctx, questWeek(row.day), guild.id))) : 0;
+  if (guild && credited) {
     const week = questWeek(row.day), key = weekKey(week, guild.id);
     const current = ctx.db.guildQuestWeek.key.find(key);
-    const next = { key, week, guildId: guild.id, guildName: guild.name, points: (current?.points ?? 0) + completed };
+    const next = { key, week, guildId: guild.id, guildName: guild.name, points: (current?.points ?? 0) + credited };
     if (current) ctx.db.guildQuestWeek.key.update(next); else ctx.db.guildQuestWeek.insert(next);
     guildPoints = next.points;
     const mine = ctx.db.guildMemberQuestWeek.identity.find(identity);
     const carried = mine && mine.week === week && mine.guildId === guild.id ? mine.points : 0;
-    const tally = { identity, week, guildId: guild.id, points: carried + completed };
+    const tally = { identity, week, guildId: guild.id, points: carried + credited };
     if (mine) ctx.db.guildMemberQuestWeek.identity.update(tally); else ctx.db.guildMemberQuestWeek.insert(tally);
   }
   // Without a guild the row shows the player's own solo count, from the updated list.
@@ -208,44 +210,58 @@ export function memberQuestStanding(ctx: Ctx, identity: any, guildId: bigint) {
 /** Whether a member may collect this week, and how many more: their own fifteen must all be done first. */
 export function questCollectStanding(ctx: Ctx, identity: any) {
   const quests = weeksQuests(ctx, identity);
+  const seat = ctx.db.guildMember.identity.find(identity);
+  const pool = seat ? guildQuestPool(ctx, seat.guildId) : { size: 0, left: 0 };
   return { ready: Boolean(quests?.length) && !quests!.filter(ownQuest).some(questOpen),
-    left: Math.max(0, GUILD_QUEST_COLLECT_LIMIT - (quests ?? []).filter(quest => quest.from).length) };
+    left: Math.max(0, GUILD_QUEST_COLLECT_LIMIT - (quests ?? []).filter(quest => quest.from).length),
+    pool: pool.left, poolSize: pool.size };
+}
+
+/** Who a quest drawn from the guild's pool is for, on the collector's board. */
+export const GUILD_POOL_FROM = "your guild";
+
+/**
+ * A guild's quest pool for the week: fifteen quests for each member. Its
+ * points and the pool quests still open on members' boards use it up; the
+ * rest is what members who have finished their own can still collect.
+ */
+export function guildQuestPool(ctx: Ctx, guildId: bigint) {
+  const week = questWeek(questDay(ctx.timestamp.microsSinceUnixEpoch));
+  const members = [...ctx.db.guildMember.guildId.filter(guildId)] as any[];
+  const size = members.length * WEEKLY_QUEST_COUNT;
+  let outstanding = 0;
+  for (const member of members) outstanding += (weeksQuests(ctx, member.identity) ?? []).filter(quest => quest.from && questOpen(quest)).length;
+  return { size, left: Math.max(0, size - weekPoints(ctx, week, guildId) - outstanding) };
 }
 
 /**
- * A member takes another member's unfinished quests onto their own board, up
- * to fifteen a week and only once their own fifteen are done. The member's
- * copies are marked taken, so a quest pays the guild once. Only quests on
- * maps the collector has unlocked can be taken.
+ * A member whose own fifteen are done draws extra quests from the guild's
+ * pool, fresh from the maps they can reach, up to fifteen a week. Nothing is
+ * taken from anyone: the pool is the guild's whole week, so a member who
+ * misses theirs leaves room for the rest to make it up.
  */
-export function collectMemberQuests(ctx: Ctx, leader: any, memberIdentity: any) {
+export function collectGuildQuests(ctx: Ctx, collector: any) {
   const fail = (message: string): never => { throw new SenderError(message); };
-  const seat = ctx.db.guildMember.identity.find(leader) ?? fail("Join a guild first.");
-  const guild = ctx.db.guild.id.find(seat.guildId) ?? fail("Guild no longer exists.");
-  if (memberIdentity.equals(leader)) fail("Choose another member.");
-  const target = ctx.db.guildMember.identity.find(memberIdentity);
-  if (!target || target.guildId !== guild.id) fail("Choose a member of your guild.");
-  const today = questDay(ctx.timestamp.microsSinceUnixEpoch);
-  if (questDay(seat.joinedAt) >= today) fail("Your quests count for this guild from tomorrow.");
-  if (questDay(target.joinedAt) >= today) fail("New members' quests count for the guild from tomorrow.");
-  const mine = ensureDailyQuests(ctx, leader);
-  const standing = questCollectStanding(ctx, leader);
+  const seat = ctx.db.guildMember.identity.find(collector) ?? fail("Join a guild first.");
+  if (!ctx.db.guild.id.find(seat.guildId)) fail("Guild no longer exists.");
+  const day = questDay(ctx.timestamp.microsSinceUnixEpoch);
+  if (questDay(seat.joinedAt) >= day) fail("Your quests count for this guild from tomorrow.");
+  const mine = ensureDailyQuests(ctx, collector);
+  const standing = questCollectStanding(ctx, collector);
   if (!standing.ready) fail("Finish your own quests first.");
   if (!standing.left) fail(`You have collected ${GUILD_QUEST_COLLECT_LIMIT} quests this week.`);
-  const theirs = ensureDailyQuests(ctx, memberIdentity);
-  const reachable = new Set(dailyQuestCandidates(readPlayerProgress(ctx, leader) ?? {}).map(quest => `${quest.mapId}:${quest.enemy}`));
-  const leaderName = ctx.db.playerProfile.identity.find(leader)?.displayName ?? "A guildmate";
-  const memberName = ctx.db.playerProfile.identity.find(memberIdentity)?.displayName ?? target.name;
-  const collected: DailyQuest[] = [];
-  let unreachable = 0;
-  const remaining = parseDailyQuests(theirs.questsJson).map(quest => {
-    if (collected.length >= standing.left || !ownQuest(quest) || !questOpen(quest)) return quest;
-    if (!reachable.has(`${quest.mapId}:${quest.enemy}`)) { unreachable += 1; return quest; }
-    collected.push({ mapId: quest.mapId, enemy: quest.enemy, target: quest.target, progress: quest.progress, from: memberName });
-    return { ...quest, takenBy: leaderName };
-  });
-  if (!collected.length) fail(unreachable ? "Their unfinished quests are on maps you have not unlocked." : `${memberName} has no unfinished quests this week.`);
-  ctx.db.playerDailyQuest.identity.update({ ...theirs, questsJson: JSON.stringify(remaining) });
-  ctx.db.playerDailyQuest.identity.update({ ...mine, questsJson: JSON.stringify([...parseDailyQuests(mine.questsJson), ...collected]) });
-  return collected.length;
+  const pool = guildQuestPool(ctx, seat.guildId);
+  const count = Math.min(standing.left, pool.left);
+  if (!count) fail("Your guild's quests are all taken for this week.");
+  const quests = parseDailyQuests(mine.questsJson);
+  const taken = quests.filter(quest => quest.from).length;
+  const drawn = weeklyQuestsFor(`${collector.toHexString()}:pool:${taken}`, questWeek(day), readPlayerProgress(ctx, collector) ?? {})
+    .slice(0, count).map(quest => ({ ...quest, from: GUILD_POOL_FROM }));
+  ctx.db.playerDailyQuest.identity.update({ ...mine, questsJson: JSON.stringify([...quests, ...drawn]) });
+  return drawn.length;
+}
+
+/** The 0.852 reducer's entry point: it named a member to take from; now every collect draws from the guild's pool. */
+export function collectMemberQuests(ctx: Ctx, collector: any, _member?: any) {
+  return collectGuildQuests(ctx, collector);
 }

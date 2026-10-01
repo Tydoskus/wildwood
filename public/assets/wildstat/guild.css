@@ -220,4 +220,7 @@ body:has(.guild-overlay:not([hidden])) #profileIconPicker { z-index: 14; }
 .guild-quest-member .guild-row-copy .guild-quest-step { flex: none; width: 4px; height: 14px; border-radius: 2px; background: rgba(255,255,255,.85); }
 .guild-quest-member .guild-row-copy .guild-quest-step.is-done { background: #69e56f; }
 .guild-quest-member .guild-row-copy .guild-quest-step.is-taken { background: #ffd66b; }
-.guild-quest-member .guild-quest-collect { flex-shrink: 0; min-height: 34px; margin: 0; padding: 4px 10px; font-size: 12px; }
+.guild-quest-pool { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding: 10px 12px; border: 2px solid rgba(255,214,107,.3); border-radius: 10px; background: rgba(255,214,107,.07); }
+.guild-quest-pool .guild-row-copy { flex: 1; min-width: 0; }
+.guild-quest-pool .guild-row-copy strong { color: #ffd66b; }
+.guild-quest-pool .guild-quest-collect, .guild-quest-member .guild-quest-collect { flex-shrink: 0; min-height: 34px; margin: 0; padding: 4px 10px; font-size: 12px; }
