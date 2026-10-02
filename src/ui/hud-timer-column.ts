@@ -37,7 +37,10 @@ export function createHudTimerColumn(elements: Elements, dependencies: Dependenc
   const slotOneTimer = timer("slot", "Slot 1");
   const slotTwoTimer = timer("slot", "Slot 2");
   const slotThreeTimer = timer("slot", "Slot 3");
-  elements.enemyRespawnAdBtn.before(column);
+  // In the minimap's stack, under the map name, players online and version, so a
+  // longer map name pushes the timers down instead of drawing over them.
+  const meta = document.querySelector(".minimap-meta");
+  if (meta) meta.append(column); else elements.enemyRespawnAdBtn.before(column);
   column.append(researchTimer, slotOneTimer, slotTwoTimer, slotThreeTimer, elements.enemyRespawnAdBtn);
 
   let storage: Storage | null = null;

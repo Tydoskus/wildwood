@@ -1,11 +1,13 @@
 import { renderBooleanSetting } from "./settings";
 import { setNumberNotation } from "../../shared/compact-number";
 import { setStatPopupsEnabled } from "./stat-popup-setting";
+import { setChatTimestampsEnabled } from "./chat-timestamp-setting";
 
 const TOOLBAR_HAPTICS_KEY = "wildwood-toolbar-haptics-enabled-v1";
 const SELF_PROFILE_TAP_KEY = "wildstat-self-profile-tap-enabled-v1";
 const SCIENTIFIC_NOTATION_KEY = "wildstat-scientific-notation-v1";
 const STAT_POPUPS_KEY = "wildstat-stat-popups-v1";
+const CHAT_TIMESTAMPS_KEY = "wildstat-chat-timestamps-v1";
 
 /** Device preferences apply immediately, even when storage is unavailable. */
 export function installFeedbackSettings(doc: Document, storage: Pick<Storage, "getItem" | "setItem"> | undefined, haptic: () => void) {
@@ -33,6 +35,7 @@ export function installFeedbackSettings(doc: Document, storage: Pick<Storage, "g
   // Big numbers as 1.23e45 instead of suffixes. Display only: windows pick it up on their next draw.
   toggle("scientificNotationToggle", SCIENTIFIC_NOTATION_KEY, false, enabled => setNumberNotation(enabled ? "scientific" : "suffix"));
   if (doc.getElementById("statPopupsToggle")) toggle("statPopupsToggle", STAT_POPUPS_KEY, true, setStatPopupsEnabled);
+  if (doc.getElementById("chatTimestampsToggle")) toggle("chatTimestampsToggle", CHAT_TIMESTAMPS_KEY, false, setChatTimestampsEnabled);
   // Capture before navigation; only direct toolbar buttons, not settings inside it.
   doc.addEventListener("click", event => {
     const target = event.target as Element | null;
@@ -52,6 +55,7 @@ export function installFeedbackControls(doc: Document) {
     ["selfProfileTapToggle", "TAP SELF TO OPEN PROFILE", false],
     ["scientificNotationToggle", "SCIENTIFIC NOTATION", false],
     ["statPopupsToggle", "STAT GAIN POPUPS", true],
+    ["chatTimestampsToggle", "CHAT TIMESTAMPS", false],
     ["keepScreenOnToggle", "KEEP SCREEN ON", false],
     ["gameTickerToggle", "GAME TIPS", true],
     // Account-scoped and server-backed, so this only builds the row; the

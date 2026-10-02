@@ -169,6 +169,14 @@ describe("public chat moderation", () => {
       expect(chatModerationReason(message)).toBe("Explicit sexual content");
     });
 
+    it.each(["you cunt", "CUNT", "c u n t", "cunts", "what a cunt!", "cocksucker", "c0cksuck3rs", "MOTHERFUCKER", "motherfucka", "twat", "tw4ts"])("filters vile language: %s", (message) => {
+      expect(chatModerationReason(message)).toBe("Vile language");
+    });
+
+    it.each(["Scunthorpe", "count to ten", "can't stop", "a cute hunt", "oh shit", "this is shit", "watch the twatter", "between"])("leaves ordinary words and everyday swearing alone: %s", (message) => {
+      expect(chatModerationReason(message)).toBeNull();
+    });
+
     it("applies the look-alike fold to guild names", () => {
       expect(guildNameModerationReason("NlGS")).not.toBeNull();
       expect(guildNameModerationReason("QOOK")).toBe("Offensive guild name");

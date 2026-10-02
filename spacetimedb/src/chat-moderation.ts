@@ -33,6 +33,11 @@ const EXPLICIT_SEXUAL_PATTERNS = [
   /(?:^|[^a-z0-9])r+[^a-z0-9]*a+[^a-z0-9]*p+[^a-z0-9]*e+(?:$|[^a-z0-9])/,
 ] as const;
 
+/** A whole word, letters optionally repeated or spaced out ("c u n t"), plural allowed. */
+const spacedWord = (word: string) => new RegExp(`(?:^|[^a-z0-9])${[...word].map(letter => `${letter}+`).join("[^a-z0-9]*")}s*(?:$|[^a-z0-9])`);
+// The few words vile enough to take the whole message; everyday swearing still goes through.
+const VILE_LANGUAGE_PATTERNS = ["cunt", "cocksucker", "motherfucker", "motherfucka", "twat"].map(spacedWord);
+
 const CREDIBLE_THREAT_PATTERNS = [
   /(?:^|[^a-z0-9])(?:kill|shoot|stab)[^a-z0-9]+(?:you|u)[^a-z0-9]+(?:irl|in[^a-z0-9]+real[^a-z0-9]+life)(?:$|[^a-z0-9])/,
   /(?:^|[^a-z0-9])i[^a-z0-9]+know[^a-z0-9]+where[^a-z0-9]+you[^a-z0-9]+live(?:$|[^a-z0-9])/,
@@ -191,6 +196,7 @@ export const MODERATION_RULE_VERSION = "content-filter-v5";
 
 const LOOKALIKE_SEVERE_HATE_PATTERNS = SEVERE_HATE_PATTERNS.map(lookalikePattern);
 const LOOKALIKE_EXPLICIT_SEXUAL_PATTERNS = EXPLICIT_SEXUAL_PATTERNS.map(lookalikePattern);
+const LOOKALIKE_VILE_LANGUAGE_PATTERNS = VILE_LANGUAGE_PATTERNS.map(lookalikePattern);
 // Compound usernames have no word boundaries: appending a title must not
 // make this racial slur acceptable. Keep this separate from chat discussion.
 const HATEFUL_USERNAME_PATTERN = /(?:n+i+g+g+(?:e+r+|a+)|nword(?:slayer|killer))/;
@@ -205,6 +211,8 @@ export function chatModerationReason(message: string): string | null {
     || LOOKALIKE_SEVERE_HATE_PATTERNS.some(pattern => pattern.test(lookalike))) return "Hateful language";
   if (EXPLICIT_SEXUAL_PATTERNS.some(pattern => pattern.test(folded))
     || LOOKALIKE_EXPLICIT_SEXUAL_PATTERNS.some(pattern => pattern.test(lookalike))) return "Explicit sexual content";
+  if (VILE_LANGUAGE_PATTERNS.some(pattern => pattern.test(folded))
+    || LOOKALIKE_VILE_LANGUAGE_PATTERNS.some(pattern => pattern.test(lookalike))) return "Vile language";
   if (SEXUAL_SOLICITATION_PATTERNS.some(pattern => pattern.test(normalized))) return "Sexual solicitation";
   if (DIRECTED_SEXUAL_INSULT_PATTERN.test(normalized)) return "Sexual harassment";
   if (CREDIBLE_THREAT_PATTERNS.some(pattern => pattern.test(folded))) return "Threat of real-world harm";

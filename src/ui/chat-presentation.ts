@@ -13,6 +13,12 @@ export function formatChatTime(date: Date) {
   return `${hour}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
+/** The time beside a name: "3:42 PM" today, "9/30 3:42 PM" before. */
+export function formatChatStamp(date: Date, now = new Date()) {
+  const time = `${formatChatTime(date)} ${date.getHours() < 12 ? "AM" : "PM"}`;
+  return date.toDateString() === now.toDateString() ? time : `${date.getMonth() + 1}/${date.getDate()} ${time}`;
+}
+
 export function formatChatDateTime(date: Date) {
   return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()} · ${formatChatTime(date)} ${date.getHours() < 12 ? "AM" : "PM"}`;
 }

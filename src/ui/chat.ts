@@ -12,8 +12,10 @@ import { playerNamePrefix } from "../app/player-name-tags";
 import {
   duelReplayIsInteractive,
   formatChatReplyPreview,
+  formatChatStamp,
   shouldShowGlobalChatMessage,
 } from "./chat-presentation";
+import { chatTimestampsEnabled, onChatTimestampsChange } from "./chat-timestamp-setting";
 import { appendPlayerIdentity } from "./player-identity";
 import { PLAYER_GENDER_UNSET, normalizePlayerGender, type PlayerGender } from "../../shared/player-gender";
 import { MODERATED_CHAT_MESSAGE } from "../../shared/chat-message";
@@ -422,6 +424,9 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     updateChatCooldown();
   }
 
+  // Turning timestamps on or off redraws every row.
+  onChatTimestampsChange(() => { renderedRevision = ""; refresh(); });
+
   /** Everything a drawn row shows. An unchanged signature keeps its element. */
   function presentMessage(coop: CoopClient | null, identity: string, message: ChatMessage) {
     const cachedGender = normalizePlayerGender(coop?.playerGender?.(message.sender));
@@ -436,7 +441,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       message.sender, message.senderName, message.message, String(message.replayId), message.guildReplayKey,
       message.powerLevel, displayedGender, message.moderated, String(message.replyToMessageId),
       message.replyToSenderName, message.replyToMessage, message.sentAtMs, guest, iconIndex,
-      playerNamePrefix(message.sender), large ? reactionCountsJson : "",
+      playerNamePrefix(message.sender), large ? reactionCountsJson : "", large && chatTimestampsEnabled(),
     ]);
     return { displayedGender, guest, iconIndex, reactionChannel, reactionCountsJson, rowKey, signature };
   }
@@ -655,6 +660,14 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       const content = document.createElement("div");
       content.className = "chat-message-content";
       content.append(name, text);
+      if (large && chatTimestampsEnabled() && Number.isFinite(message.sentAtMs)) {
+        const time = document.createElement("time");
+        time.className = "chat-time";
+        time.dateTime = new Date(message.sentAtMs).toISOString();
+        time.textContent = formatChatStamp(new Date(message.sentAtMs));
+        name.after(time);
+        content.classList.add("has-time");
+      }
       line.append(icon, content);
       if (large) {
         if (!message.moderated) appendChatReactions(text, reactionCountsJson);
@@ -786,7 +799,19 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       elements.messages.addEventListener(event, () => scrollIdle.touchEnd(), { passive: true });
     }
     elements.messages.addEventListener("wheel", () => scrollIdle.activity(), { passive: true });
-    window.addEventListener("resize", () => { if (large) { viewportRevision++; refresh(); } });
+    // A phone finishes laying out a rotation after "resize" fires, so rows can be
+    // measured mid-turn and keep the wrong heights (squished together). Measure
+    // again once the rotation settles.
+    let settleTimer = 0;
+    const relayout = () => {
+      if (!large) return;
+      viewportRevision++; refresh();
+      window.clearTimeout(settleTimer);
+      settleTimer = window.setTimeout(() => { if (large) { viewportRevision++; refresh(); } }, 400);
+    };
+    window.addEventListener("resize", relayout);
+    window.addEventListener("orientationchange", relayout);
+    window.visualViewport?.addEventListener("resize", relayout);
     elements.toggle.addEventListener("click", () => {
       enabled = !enabled;
       updateVisibility();

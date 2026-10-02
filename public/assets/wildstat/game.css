@@ -1117,6 +1117,8 @@
     pointer-events: none;
   }
 
+  .minimap-meta .hud-timer-column { position: static; justify-self: stretch; width: auto; margin-top: 6px; }
+
   .hud-progress-timer {
     box-sizing: border-box;
     padding: 4px 2px;
@@ -1782,6 +1784,7 @@
   #chatPanel.is-large .chat-power-icon { width: 18px; height: 18px; }
   #chatPanel.is-large .chat-name-core { --prestige-badge-size: 18px; }
   #chatPanel.is-large .chat-time { grid-column: 2; grid-row: 1; justify-self: end; color: rgba(255,255,255,.45); font-size: 11px; font-weight: 800; text-align: right; }
+  #chatPanel.is-large .chat-message-content.has-time .chat-name { grid-column: 1; }
   #chatPanel.is-large .chat-text { grid-column: 1 / -1; grid-row: 2; display: block; align-self: start; justify-self: stretch; width: auto; max-width: 100%; min-width: 0; min-height: 29px; height: auto; margin: 0 0 10px; padding: 6px 12px; overflow-wrap: anywhere; font-size: 15px; line-height: 1.4; }
   #chatPanel.is-large .chat-text.is-actionable { cursor: pointer; }
   #chatPanel.is-large .chat-text.is-actionable:focus-visible { outline: 2px solid rgba(217,184,255,.9); outline-offset: 2px; }
@@ -4516,6 +4519,10 @@
 .game-confirm-actions { display: flex; justify-content: center; gap: 10px; margin: 16px 0 0; }
 .game-confirm-actions .window-back-button { width: auto; min-width: 104px; flex: 0 1 auto; margin: 0; }
 .game-confirm-cancel { border-color: #29302c; background: linear-gradient(#5d6a61, #37423b); box-shadow: 0 3px 0 #212824; }
+/* The Back-button shape sets display, which would show a hidden Cancel as a blank button. */
+.game-confirm-actions [hidden] { display: none; }
+/* Going ahead is green; only a dangerous confirm turns it red, below. */
+.game-confirm-accept { border-color: #18371b; background: linear-gradient(#63ad5c, #347536); box-shadow: 0 3px 0 #18371b; }
 .game-confirm-modal.is-danger .game-confirm-accept { border-color: #4a1414; background: linear-gradient(#d9544a, #8f2b25); box-shadow: 0 3px 0 #3d1512; }
 
 .dev-offline-progress { flex-wrap: wrap; gap: 8px; }
