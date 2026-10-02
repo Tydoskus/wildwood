@@ -259,7 +259,7 @@ export function profileStatDisplayRows(
   };
   perkRow("doubleStrike", "double-strike", "(Chance a hit lands twice)");
   perkRow("splitShot", "split-shot", "(Chance to strike a second enemy)");
-  perkRow("riposte", "riposte", "(Reflects each hit before armor, up to your damage; half in duels)");
+  perkRow("riposte", "riposte", "(Reflects 100% of each hit before armor, up to your max health; no cap in Reflect Only; half in duels)");
   return stats;
 }
 

@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.866": [
+    "Reflect throws back the whole hit, up to your max health instead of your damage; still no cap in Reflect Only",
+  ],
   "0.865": [
     "Reflect now throws back the whole hit, but never more than your own damage (weapon and bonuses count); no cap in Reflect Only, duels unchanged",
   ],
@@ -2661,6 +2664,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.866": "2026-10-01",
   "0.865": "2026-10-01",
   "0.864": "2026-10-01",
   "0.863": "2026-10-01",

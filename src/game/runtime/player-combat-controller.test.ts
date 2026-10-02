@@ -146,12 +146,12 @@ describe("player attack timing", () => {
   });
 
   it("reflects the whole landed hit back at the enemy that dealt it, an Endless boss included", () => {
-    const spawn = (state: ReturnType<typeof createCombatHarness>, damage = 1_000) => {
+    const spawn = (state: ReturnType<typeof createCombatHarness>, maxHp = 1_000) => {
       state.enemies.length = 0;
       createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Spitter", x: 520, y: 500,
         campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
       const enemy = state.enemies[0]; enemy.hp = enemy.maxHp = 1000;
-      Object.assign(state.player, { x: 500, y: 500, hp: 1000, maxHp: 1000, hurtClock: 0, damage });
+      Object.assign(state.player, { x: 500, y: 500, hp: 1000, maxHp, hurtClock: 0 });
       return enemy;
     };
     const reflecting = createCombatHarness({ prestigeReflect: () => 1 });
@@ -160,14 +160,14 @@ describe("player attack timing", () => {
     expect(reflecting.player.hp).toBe(960);
     expect(attacker.hp).toBe(960);
 
-    // Never more than one of the player's own hits: a weak player reflects little of a big hit.
-    const weak = createCombatHarness({ prestigeReflect: () => 1 });
-    const bruiser = spawn(weak, 10);
-    weak.controller.damagePlayer(40, bruiser);
-    expect(bruiser.hp).toBe(990);
+    // Never more than the player's max health, whatever their damage: a hit bigger than that is cut to it.
+    const fragile = createCombatHarness({ prestigeReflect: () => 1 });
+    const bruiser = spawn(fragile, 30);
+    fragile.controller.damagePlayer(40, bruiser);
+    expect(bruiser.hp).toBe(970);
     // A Reflect Only run has no cap: Reflect is all the damage it has.
     const challenge = createCombatHarness({ prestigeReflect: () => 1, reflectOnly: () => true });
-    const challenger = spawn(challenge, 10);
+    const challenger = spawn(challenge, 30);
     challenge.controller.damagePlayer(40, challenger);
     expect(challenger.hp).toBe(960);
 
@@ -189,7 +189,7 @@ describe("player attack timing", () => {
     createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Spitter", x: 520, y: 500,
       campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
     const mob = state.enemies[0]; mob.hp = mob.maxHp = 1000;
-    Object.assign(state.player, { x: 500, y: 500, hp: 1000, maxHp: 1000, hurtClock: 0, damage: 1_000 });
+    Object.assign(state.player, { x: 500, y: 500, hp: 1000, maxHp: 1000, hurtClock: 0 });
     state.controller.damagePlayer(40, mob);
     expect(state.player.hp).toBe(980);   // 20 got through
     expect(mob.hp).toBe(960);            // the 40 that arrived, not the 20
@@ -199,7 +199,7 @@ describe("player attack timing", () => {
     const hitPersonalBoss = vi.fn();
     const state = createCombatHarness({ prestigeReflect: () => 1, prestigeBossSlayer: () => .5, hitPersonalBoss });
     Object.assign(state.boss, { dead: false, x: 700, y: 500 });
-    Object.assign(state.player, { x: 500, y: 500, hp: 1000, maxHp: 1000, hurtClock: 0, damage: 1_000 });
+    Object.assign(state.player, { x: 500, y: 500, hp: 1000, maxHp: 1000, hurtClock: 0 });
     expect(state.controller.damagePlayerFromBoss(40)).toBe(true);
     expect(hitPersonalBoss).toHaveBeenCalledOnce();
     expect(hitPersonalBoss.mock.calls[0]).toEqual([40, 700, 500 + (state.boss.hitboxOffsetY ?? 0), false, true]);
@@ -219,7 +219,7 @@ describe("player attack timing", () => {
       campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
     const mob = state.enemies[0]; mob.hp = mob.maxHp = 1e9;
     const gone = { ...mob, dead: true } as typeof mob;
-    Object.assign(state.player, { x: 500, y: 500, hp: 1e9, maxHp: 1e9, damage: 1_000 });
+    Object.assign(state.player, { x: 500, y: 500, hp: 1e9, maxHp: 1e9 });
     for (let hit = 0; hit < 40; hit++) {
       state.player.hurtClock = 0; state.controller.damagePlayer(40, mob);
       // A shot from an enemy already dead draws no marble, so it cannot eat a reflect the living were owed.
