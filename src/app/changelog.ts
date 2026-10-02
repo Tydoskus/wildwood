@@ -1,6 +1,6 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.865": [
-    "Reflect now throws back the whole hit, but never more than your own damage (weapon and bonuses count); duels unchanged",
+    "Reflect now throws back the whole hit, but never more than your own damage (weapon and bonuses count); no cap in Reflect Only, duels unchanged",
   ],
   "0.864": [
     "Clearer welcome text for new players",

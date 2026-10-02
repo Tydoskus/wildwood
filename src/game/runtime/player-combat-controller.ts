@@ -557,10 +557,11 @@ export function createPlayerCombatController(options: {
     player.hp -= dealt;
     // Reflect throws the hit back at whoever dealt it, bosses included, as it
     // arrived (before armor, which spares only the player), but never more
-    // than one of the player's own normal hits. The server's bounds allow it.
+    // than one of the player's own normal hits; a Reflect Only run has no cap.
+    // The server's bounds allow it.
     const reflectChance = options.prestigeReflect?.() ?? 0;
     if (source && !source.dead && dealt > 0 && reflectChance > 0 && reflectBag.draw(reflectChance)) {
-      applyPlayerHit(source, worldReflectDamage(amount, weaponDamage(false)), false, Math.atan2(source.y - player.y, source.x - player.x), true);
+      applyPlayerHit(source, worldReflectDamage(amount, weaponDamage(false), options.reflectOnly?.() === true), false, Math.atan2(source.y - player.y, source.x - player.x), true);
     }
     spawnDamageNumber(player.x, player.y, dealt, false, true);
     player.hurtClock = .1;

@@ -165,6 +165,11 @@ describe("player attack timing", () => {
     const bruiser = spawn(weak, 10);
     weak.controller.damagePlayer(40, bruiser);
     expect(bruiser.hp).toBe(990);
+    // A Reflect Only run has no cap: Reflect is all the damage it has.
+    const challenge = createCombatHarness({ prestigeReflect: () => 1, reflectOnly: () => true });
+    const challenger = spawn(challenge, 10);
+    challenge.controller.damagePlayer(40, challenger);
+    expect(challenger.hp).toBe(960);
 
     const plain = createCombatHarness();
     const untouched = spawn(plain);
