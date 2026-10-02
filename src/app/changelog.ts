@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.861": [
+    "Shop: a note from the dev, and a look at the three Patreon supporter frames",
+  ],
   "0.860": [
     "Research can be paused: it keeps its time left, and starting it again resumes it",
     "Autofarm: new tick to aggro the whole group as it spawns, handy for Reflect runs",
@@ -2639,6 +2642,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.861": "2026-10-01",
   "0.860": "2026-10-01",
   "0.859": "2026-10-01",
   "0.858": "2026-10-01",

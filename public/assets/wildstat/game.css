@@ -4451,6 +4451,16 @@
 .shop-patreon-button small { display: block; margin-top: 4px; font-size: 12px; line-height: 1.4; color: #ead9e4; }
 .shop-patreon-heart { font-size: 28px; color: #edc1dc; text-shadow: 0 0 12px #edc1dc40; }
 .shop-patreon-arrow { margin-left: auto; font-size: 22px; color: #ead9e4; }
+.shop-dev-note { display: grid; gap: 10px; padding: 16px 16px 18px; border: 1px solid #ffffff1f; border-radius: 12px; background: #ffffff08; color: #fff; text-align: left; }
+.shop-dev-note h2 { margin: 0; color: #f0d7e7; font-size: 14px; letter-spacing: .04em; text-transform: uppercase; }
+.shop-dev-note p { margin: 0; color: #e3e6ea; font-size: 14px; font-weight: 700; line-height: 1.45; -webkit-text-stroke: 0; text-shadow: none; }
+.shop-frame-tiers { display: flex; justify-content: space-around; gap: 10px; margin-top: 8px; }
+.shop-frame-tier { display: grid; justify-items: center; gap: 10px; }
+.shop-frame-portrait { display: block; width: 64px; height: 64px; border-radius: 8px; background-color: #2a2f36; }
+.shop-frame-name { color: #fff; font-size: 12px; font-weight: 900; }
+.shop-frame-tier:nth-child(1) .shop-frame-name { color: #dfe8f2; }
+.shop-frame-tier:nth-child(2) .shop-frame-name { color: #ffd77a; }
+.shop-frame-tier:nth-child(3) .shop-frame-name { color: #9fdcff; }
 
 /* A clipped overlay above mini chat: no reserved space or hit target. */
 .game-ticker { position: fixed; left: 0; right: 0; bottom: calc(var(--toolbar-height) + var(--mini-chat-height) + 2px); height: 20px; overflow: hidden; pointer-events: none; background: none; border: 0; }
