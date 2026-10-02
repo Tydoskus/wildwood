@@ -55,6 +55,7 @@ export const ERASURE_TARGETS: readonly ErasureTarget[] = [
   { table: "chatReaction", columns: ["actor"], pk: "key", mode: "index", index: "actor" },
   { table: "chatReactionCooldown", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "chatReactionUnlock", columns: ["identity"], pk: "identity", mode: "key" },
+  { table: "chatModerator", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "connectionDiagnostic", columns: ["identity"], pk: "id", mode: "index", index: "byIdentity" },
   { table: "connectionDiagnosticRate", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "dailyGemBonus", columns: ["identity"], pk: "identity", mode: "key" },

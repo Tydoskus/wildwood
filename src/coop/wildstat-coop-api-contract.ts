@@ -120,6 +120,8 @@ type ExpectedApiKey =
   | "remotePlayers"
   | "setRemotePlayersVisible"
   | "loadChatMessageReactions"
+  | "loadChatRole"
+  | "restoreChatMessage"
   | "setChatMessageReaction"
   | "reportChatMessage"
   | "reportPlayer"

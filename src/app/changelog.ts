@@ -1,6 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.861": [
     "Shop: a note from the dev, and a look at the three Patreon supporter frames",
+    "Chat moderators: reporting a message removes it, and Restore Message brings it back",
+    "New green gem heart, a moderator's own like the purple one",
   ],
   "0.860": [
     "Research can be paused: it keeps its time left, and starting it again resumes it",

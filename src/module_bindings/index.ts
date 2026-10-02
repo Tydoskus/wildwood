@@ -108,6 +108,7 @@ import DevReviewBugReducer from "./dev_review_bug_reducer";
 import DevReviewReportReducer from "./dev_review_report_reducer";
 import DevRollbackPlayerProgressionReducer from "./dev_rollback_player_progression_reducer";
 import DevSetAccessAuditLabelReducer from "./dev_set_access_audit_label_reducer";
+import DevSetChatModeratorReducer from "./dev_set_chat_moderator_reducer";
 import DevSetChatMuteReducer from "./dev_set_chat_mute_reducer";
 import DevSetEndlessTravelAccessReducer from "./dev_set_endless_travel_access_reducer";
 import DevSuspendPlayerAccountReducer from "./dev_suspend_player_account_reducer";
@@ -163,6 +164,7 @@ import ReserveGemPurchaseReducer from "./reserve_gem_purchase_reducer";
 import ResetPlayerProgressReducer from "./reset_player_progress_reducer";
 import ResolveEquipmentOfferReducer from "./resolve_equipment_offer_reducer";
 import RespecPrestigePerksReducer from "./respec_prestige_perks_reducer";
+import RestoreChatMessageReducer from "./restore_chat_message_reducer";
 import RestoreMapBalanceReducer from "./restore_map_balance_reducer";
 import ResumeSessionReducer from "./resume_session_reducer";
 import SavePlayerProgressReducer from "./save_player_progress_reducer";
@@ -223,6 +225,7 @@ import * as GetBalanceEditorProcedure from "./get_balance_editor_procedure";
 import * as GetChatHistoryProcedure from "./get_chat_history_procedure";
 import * as GetChatHistoryWithReactionsProcedure from "./get_chat_history_with_reactions_procedure";
 import * as GetChatMessageReactionsProcedure from "./get_chat_message_reactions_procedure";
+import * as GetChatRoleProcedure from "./get_chat_role_procedure";
 import * as GetDevConsoleProcedure from "./get_dev_console_procedure";
 import * as GetDevPlayerCardProcedure from "./get_dev_player_card_procedure";
 import * as GetDevReviewQueueProcedure from "./get_dev_review_queue_procedure";
@@ -1634,6 +1637,7 @@ const reducersSchema = __reducers(
   __reducerSchema("dev_review_report", DevReviewReportReducer),
   __reducerSchema("dev_rollback_player_progression", DevRollbackPlayerProgressionReducer),
   __reducerSchema("dev_set_access_audit_label", DevSetAccessAuditLabelReducer),
+  __reducerSchema("dev_set_chat_moderator", DevSetChatModeratorReducer),
   __reducerSchema("dev_set_chat_mute", DevSetChatMuteReducer),
   __reducerSchema("dev_set_endless_travel_access", DevSetEndlessTravelAccessReducer),
   __reducerSchema("dev_suspend_player_account", DevSuspendPlayerAccountReducer),
@@ -1689,6 +1693,7 @@ const reducersSchema = __reducers(
   __reducerSchema("reset_player_progress", ResetPlayerProgressReducer),
   __reducerSchema("resolve_equipment_offer", ResolveEquipmentOfferReducer),
   __reducerSchema("respec_prestige_perks", RespecPrestigePerksReducer),
+  __reducerSchema("restore_chat_message", RestoreChatMessageReducer),
   __reducerSchema("restore_map_balance", RestoreMapBalanceReducer),
   __reducerSchema("resume_session", ResumeSessionReducer),
   __reducerSchema("save_player_progress", SavePlayerProgressReducer),
@@ -1751,6 +1756,7 @@ const proceduresSchema = __procedures(
   __procedureSchema("get_chat_history", GetChatHistoryProcedure.params, GetChatHistoryProcedure.returnType),
   __procedureSchema("get_chat_history_with_reactions", GetChatHistoryWithReactionsProcedure.params, GetChatHistoryWithReactionsProcedure.returnType),
   __procedureSchema("get_chat_message_reactions", GetChatMessageReactionsProcedure.params, GetChatMessageReactionsProcedure.returnType),
+  __procedureSchema("get_chat_role", GetChatRoleProcedure.params, GetChatRoleProcedure.returnType),
   __procedureSchema("get_dev_console", GetDevConsoleProcedure.params, GetDevConsoleProcedure.returnType),
   __procedureSchema("get_dev_player_card", GetDevPlayerCardProcedure.params, GetDevPlayerCardProcedure.returnType),
   __procedureSchema("get_dev_review_queue", GetDevReviewQueueProcedure.params, GetDevReviewQueueProcedure.returnType),

@@ -272,6 +272,12 @@ export const ChatMessageReportRateLimit = __t.object("ChatMessageReportRateLimit
 });
 export type ChatMessageReportRateLimit = __Infer<typeof ChatMessageReportRateLimit>;
 
+export const ChatModerator = __t.object("ChatModerator", {
+  identity: __t.identity(),
+  heart: __t.string(),
+});
+export type ChatModerator = __Infer<typeof ChatModerator>;
+
 export const ChatReaction = __t.object("ChatReaction", {
   key: __t.string(),
   messageKey: __t.string(),

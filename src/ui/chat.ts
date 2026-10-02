@@ -7,7 +7,7 @@ import { applyAvatarFrame } from "../app/avatar-frames";
 import { applyProfileIcon } from "../app/profile-icons";
 import { normalizeProfileIcon } from "../../shared/profile-icons";
 import { appendChatReactions } from "./chat-reactions";
-import type { ChatReaction, ChatReactionState } from "../../shared/chat-reactions";
+import type { ChatReaction, ChatReactionState, ChatRole } from "../../shared/chat-reactions";
 import { playerNamePrefix } from "../app/player-name-tags";
 import {
   duelReplayIsInteractive,
@@ -64,6 +64,8 @@ type ChatMessage = {
 type CoopClient = {
   guild?: GuildApi;
   loadChatMessageReactions?: (channel: string, id: bigint) => Promise<ChatReactionState>;
+  loadChatRole?: () => Promise<ChatRole>;
+  restoreChatMessage?: (channel: string, id: bigint) => Promise<void>;
   setChatMessageReaction?: (channel: string, id: bigint, reaction: ChatReaction, active: boolean) => Promise<void>;
   social?: {
     historyRevision?: () => number;
@@ -291,6 +293,12 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
   const messageActions = createChatMessageActionsController({
     elements: elements.messageActions,
     isMuted: () => muteDisplay.isMuted(),
+    loadRole: async () => getCoop()?.loadChatRole?.() ?? { moderatorHeart: null, canModerate: false },
+    restoreMessage: async target => {
+      const coop = getCoop();
+      if (!coop?.restoreChatMessage) throw new Error("Reconnect to restore.");
+      await coop.restoreChatMessage(target.channel ?? "public", target.id);
+    },
     loadReactions: async target => {
       const coop = getCoop();
       if (!coop?.loadChatMessageReactions) throw new Error("Reconnect to react.");

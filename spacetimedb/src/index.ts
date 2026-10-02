@@ -36,7 +36,7 @@ import { createAutoEquip } from "./auto-equip";
 import { allowedLoadout, blankHandWeapon, canonicalSavedHand } from "./loadout";
 import { ERASURE_ROW_BUDGET, eraseIdentityRows, linkedIdentities, requireErasureConfirmation } from "./account-erasure";
 import { LOADOUT_FIELDS } from "../../shared/combat-progress";
-import { chatHeartAllowance, chatReactionCooldown, chatReactionSummary, chatReactionUnlock, playerChatHearts, reactionCountsFor, chatReaction, readChatReactions, setChatReaction, grantGemHeartUnlock, removeMessageReactions, removeAccountReactions } from "./chat-reactions";
+import { chatHeartAllowance, chatReactionCooldown, chatReactionSummary, chatReactionUnlock, playerChatHearts, reactionCountsFor, chatReaction, readChatReactions, setChatReaction, grantGemHeartUnlock, isChatModerator, chatModerator, moderatorHeartFor, setChatModerator, removeMessageReactions, removeAccountReactions } from "./chat-reactions";
 import { regularEnemyLootCursor, rollRegularEnemyLoot } from "./regular-enemy-loot";
 import { BLACK_BOOTS, BLACK_BOOTS_SPEED_BONUS } from "../../shared/items";
 import { playerOnboarding, advanceOnboarding, needsOnboarding } from "./onboarding";
@@ -84,7 +84,7 @@ import { schema, SenderError, Router, table, t, type InferSchema, type ReducerCt
 import { Identity, ScheduleAt, Timestamp } from "spacetimedb";
 import { accountEmail, otherCharacterForLogin, recordAccountEmail } from "./account-email";
 import { beginLoginMove, claimLoginMove, loginMove, swapCharacterLogins } from "./account-transfer";
-import { devReviewTables, findDevPlayers, liftPlayerSuspension, readDevReviewQueue, recordBugDeletion, reviewBug, reviewReport } from "./dev-review";
+import { devReviewTables, findDevPlayers, liftPlayerSuspension, readDevReviewQueue, recordBugDeletion, restoreMessageFromChat, reviewBug, reviewReport } from "./dev-review";
 import { portalCutsceneBit, unlockedPortalCutsceneMask } from "../../shared/portal-cutscenes";
 import { playerBlockKey, playerReportValidationError } from "../../shared/player-safety";
 import {
@@ -1791,7 +1791,7 @@ const spacetimedb = schema({
   regularEnemyLootCursor, enemyDefeatBudget, bossDefeatWindow, bossMapDefeatWindow,
   enemyDefeatReview,
   playerMultiplayerPreference,
-  chatReaction, chatHeartAllowance, chatReactionCooldown, chatReactionSummary, chatReactionUnlock, playerChatHearts,
+  chatReaction, chatHeartAllowance, chatReactionCooldown, chatReactionSummary, chatReactionUnlock, chatModerator, playerChatHearts,
   playerUpgradeBench,
   playerUpgradeBenchThirdSlot,
   playerInventoryCapacity,
@@ -5710,8 +5710,8 @@ export const reportChatMessage = spacetimedb.reducer(
       replyToSenderName: message.replyToSenderName,
       replyToMessage: message.replyToMessage,
     });
-    if (isDeveloperIdentity(ctx.sender) && hasSpacetimeAuthAccount(ctx)) {
-      moderateReportedMessage(ctx, "public", messageId, reason, "chat_message_report", report.id.toString());
+    if ((isDeveloperIdentity(ctx.sender) || isChatModerator(ctx, ctx.sender)) && hasSpacetimeAuthAccount(ctx)) {
+      moderateReportedMessage(ctx, "public", messageId, reason, "chat_message_report", report.id.toString(), isDeveloperIdentity(ctx.sender) ? "developer" : "moderator");
       ctx.db.chatMessageReport.id.update({ ...report, status: "resolved" });
     }
   },
@@ -6140,6 +6140,18 @@ function requireSocialPlayer(ctx: ModuleReducerCtx) {
   requireControllingPlayer(ctx);
   if (isVirtualPlayer(ctx, ctx.sender)) throw new SenderError("Use your main character connection.");
 }
+/** The viewer's chat role: their moderator heart, and whether their reports remove messages. */
+export const getChatRole = spacetimedb.procedure({}, t.string(), ctx => ctx.withTx(tx => { requireSocialPlayer(tx); return JSON.stringify({ moderatorHeart: moderatorHeartFor(tx, tx.sender), canModerate: (isDeveloperIdentity(tx.sender) || isChatModerator(tx, tx.sender)) && hasSpacetimeAuthAccount(tx) }); }));
+/** Undo a removal from the chat itself; developers and moderators, signed in. */
+export const restoreChatMessage = spacetimedb.reducer({ channel: t.string(), messageId: t.u64() }, (ctx, { channel, messageId }) => {
+  requireSocialPlayer(ctx); const developer = isDeveloperIdentity(ctx.sender);
+  if (!(developer || isChatModerator(ctx, ctx.sender)) || !hasSpacetimeAuthAccount(ctx)) throw new SenderError("Only moderators can restore messages.");
+  if (channel === "social" && !visibleSocialMessages(ctx).some(row => row.id === messageId)) throw new SenderError("Message unavailable.");
+  restoreMessageFromChat(ctx, channel, messageId, developer ? "developer" : "moderator");
+});
+export const devSetChatModerator = spacetimedb.reducer({ identity: t.identity(), heart: t.string() }, (ctx, { identity, heart }) => {
+  if (!isDatabaseOwnerIdentity(ctx.sender)) denyPrivilegedAccess(ctx, "dev_set_chat_moderator", "Database owner required."); setChatModerator(ctx, identity, heart);
+});
 export const getChatMessageReactions = spacetimedb.procedure(
   { channel: t.string(), messageId: t.u64() }, t.string(), (ctx, { channel, messageId }) => ctx.withTx(tx => {
     requireSocialPlayer(tx); return JSON.stringify(readChatReactions(tx, channel, messageId));
@@ -6195,8 +6207,8 @@ export const reportSocialMessage = spacetimedb.reducer({ messageId: t.u64(), rea
     target: row.sender, targetName: row.senderName, reason,
     note: `[${row.channel === "dm" ? "Private message" : "Guild chat"} #${row.id}] ${row.message}`,
     status: "pending", reportedAt: ctx.timestamp });
-  if (isDeveloperIdentity(ctx.sender) && hasSpacetimeAuthAccount(ctx)) {
-    moderateReportedMessage(ctx, "social", messageId, reason, "social_report", key);
+  if ((isDeveloperIdentity(ctx.sender) || isChatModerator(ctx, ctx.sender)) && hasSpacetimeAuthAccount(ctx)) {
+    moderateReportedMessage(ctx, "social", messageId, reason, "social_report", key, isDeveloperIdentity(ctx.sender) ? "developer" : "moderator");
     ctx.db.playerReport.id.update({ ...report, status: "resolved" });
   }
 });

@@ -1,4 +1,4 @@
-import type { ChatReaction, ChatReactionState } from "../../../shared/chat-reactions";
+import type { ChatReaction, ChatReactionState, ChatRole } from "../../../shared/chat-reactions";
 import type { Identity } from "spacetimedb";
 import type { ChatReportReason } from "../../../shared/chat-report";
 import { isPresenceChatMessage } from "../../../shared/presence-chat";
@@ -110,6 +110,16 @@ export function createChatService(dependencies: ChatServiceDependencies) {
         const value = await withRequestDeadline(connection.procedures.getChatMessageReactions({ channel, messageId }));
         if (session !== started || connection !== dependencies.reducers.connection()) throw new Error("Session changed.");
         return JSON.parse(value) as ChatReactionState;
+      },
+      async loadChatRole(): Promise<ChatRole> {
+        const connection = dependencies.reducers.connection();
+        if (!connection?.isActive || dependencies.reducers.protocolBlocked()) return { moderatorHeart: null, canModerate: false };
+        return JSON.parse(await withRequestDeadline(connection.procedures.getChatRole({}))) as ChatRole;
+      },
+      async restoreChatMessage(channel: string, messageId: bigint) {
+        const connection = dependencies.reducers.connection();
+        if (!connection?.isActive || dependencies.reducers.protocolBlocked()) throw new Error("Reconnect to restore.");
+        await withRequestDeadline(dependencies.reducers.runWorldReducer(() => connection.reducers.restoreChatMessage({ channel, messageId })));
       },
       async setChatMessageReaction(channel: string, messageId: bigint, reaction: ChatReaction, active: boolean) {
         const connection = dependencies.reducers.connection();

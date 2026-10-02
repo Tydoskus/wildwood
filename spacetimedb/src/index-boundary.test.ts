@@ -170,7 +170,10 @@ import { describe, expect, it } from "vitest";
 // 6_579: research pause added the paused_research table and its import, the
 // pause_research declaration, the resume line in start_research and the
 // prestige cleanup call. The rules live in research-pause.ts.
-const MAX_LINES = 6_579;
+// 6_591: chat moderators added the chat_moderator table, the get_chat_role
+// procedure and the restore_chat_message and dev_set_chat_moderator reducers.
+// The rules live in chat-reactions.ts and dev-review.ts.
+const MAX_LINES = 6_591;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

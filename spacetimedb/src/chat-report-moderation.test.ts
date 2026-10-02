@@ -65,3 +65,51 @@ describe("developer report moderation", () => {
     expect(f.db.socialReport.count()).toBe(0n);
   });
 });
+
+describe("moderator report moderation", () => {
+  it.each(["public", "social"] as const)("lets a gem-heart moderator remove a %s message, logged as a moderator", channel => {
+    const f = fixture(false), table = channel === "public" ? "chatMessage" : "socialMessage";
+    f.seed("chatReactionUnlock", { identity: f.ctx.sender, gemHeart: true });
+    f.run(channel === "public" ? server.reportChatMessage : server.reportSocialMessage, { messageId: 1n, reason: "harassment" });
+    expect(f.db[table].id.find(1n)).toMatchObject({ message: MODERATED_CHAT_MESSAGE, moderated: true });
+    expect([...f.db.moderationAction.iter()][0]).toMatchObject({ action: "Message removed", actorType: "moderator", actorIdentity: f.ctx.sender.toHexString() });
+  });
+
+  it("still needs a signed-in account, and the gem heart, to remove a message", () => {
+    const guest = fixture(false, false);
+    guest.seed("chatReactionUnlock", { identity: guest.ctx.sender, gemHeart: true });
+    guest.run(server.reportChatMessage, { messageId: 1n, reason: "harassment" });
+    expect(guest.db.chatMessage.id.find(1n).message).toBe("Original message");
+    const player = fixture(false);
+    player.run(server.reportChatMessage, { messageId: 1n, reason: "harassment" });
+    expect(player.db.chatMessage.id.find(1n).message).toBe("Original message");
+  });
+});
+
+describe("moderator hearts and restoring from chat", () => {
+  it("gives each moderator their own heart and nobody else's", () => {
+    const f = fixture(false);
+    f.seed("chatModerator", { identity: f.ctx.sender, heart: "greenHeart" });
+    f.run(server.setChatMessageReaction, { channel: "public", messageId: 1n, reaction: "greenHeart", active: true });
+    expect(() => f.run(server.setChatMessageReaction, { channel: "public", messageId: 1n, reaction: "gemHeart", active: true })).toThrow("belongs to a moderator");
+    f.run(server.reportChatMessage, { messageId: 1n, reason: "harassment" });
+    expect(f.db.chatMessage.id.find(1n).moderated).toBe(true);
+  });
+
+  it.each(["public", "social"] as const)("lets a moderator restore a %s message they removed", channel => {
+    const f = fixture(false), table = channel === "public" ? "chatMessage" : "socialMessage";
+    f.seed("chatModerator", { identity: f.ctx.sender, heart: "greenHeart" });
+    f.run(channel === "public" ? server.reportChatMessage : server.reportSocialMessage, { messageId: 1n, reason: "harassment" });
+    f.run(server.restoreChatMessage, { channel, messageId: 1n });
+    expect(f.db[table].id.find(1n)).toMatchObject({ message: "Original message", moderated: false });
+    expect([...f.db.moderationAction.iter()].at(-1)).toMatchObject({ action: "Message restored", actorType: "moderator" });
+  });
+
+  it("does not let an ordinary player restore a message", () => {
+    const f = fixture(false);
+    f.seed("chatModerator", { identity: f.ctx.sender, heart: "greenHeart" });
+    f.run(server.reportChatMessage, { messageId: 1n, reason: "harassment" });
+    f.db.chatModerator.identity.delete(f.ctx.sender);
+    expect(() => f.run(server.restoreChatMessage, { channel: "public", messageId: 1n })).toThrow("Only moderators");
+  });
+});

@@ -16,6 +16,7 @@ import * as GetBalanceEditorProcedure from "../get_balance_editor_procedure";
 import * as GetChatHistoryProcedure from "../get_chat_history_procedure";
 import * as GetChatHistoryWithReactionsProcedure from "../get_chat_history_with_reactions_procedure";
 import * as GetChatMessageReactionsProcedure from "../get_chat_message_reactions_procedure";
+import * as GetChatRoleProcedure from "../get_chat_role_procedure";
 import * as GetDevConsoleProcedure from "../get_dev_console_procedure";
 import * as GetDevPlayerCardProcedure from "../get_dev_player_card_procedure";
 import * as GetDevReviewQueueProcedure from "../get_dev_review_queue_procedure";
@@ -62,6 +63,8 @@ export type GetChatHistoryWithReactionsArgs = __Infer<typeof GetChatHistoryWithR
 export type GetChatHistoryWithReactionsResult = __Infer<typeof GetChatHistoryWithReactionsProcedure.returnType>;
 export type GetChatMessageReactionsArgs = __Infer<typeof GetChatMessageReactionsProcedure.params>;
 export type GetChatMessageReactionsResult = __Infer<typeof GetChatMessageReactionsProcedure.returnType>;
+export type GetChatRoleArgs = __Infer<typeof GetChatRoleProcedure.params>;
+export type GetChatRoleResult = __Infer<typeof GetChatRoleProcedure.returnType>;
 export type GetDevConsoleArgs = __Infer<typeof GetDevConsoleProcedure.params>;
 export type GetDevConsoleResult = __Infer<typeof GetDevConsoleProcedure.returnType>;
 export type GetDevPlayerCardArgs = __Infer<typeof GetDevPlayerCardProcedure.params>;

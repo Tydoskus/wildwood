@@ -34,13 +34,13 @@ it("counts distinct reactions and credits each received heart only once", () => 
 });
 it("counts gem hearts separately without increasing ordinary lifetime hearts", () => {
   const f = fixture();
-  expect(() => f.react("gemHeart")).toThrow("Gem heart reaction is locked.");
+  expect(() => f.react("gemHeart")).toThrow("That heart belongs to a moderator.");
   f.seed("chatReactionUnlock", { identity: f.ctx.sender, gemHeart: true });
   f.react("gemHeart");
-  expect(readChatReactions(f.ctx as any, "public", 1n)).toEqual({ counts: { gemHeart: 1 }, selected: ["gemHeart"], gemHeartUnlocked: true });
+  expect(readChatReactions(f.ctx as any, "public", 1n)).toEqual({ counts: { gemHeart: 1 }, selected: ["gemHeart"], gemHeartUnlocked: true, moderatorHeart: "gemHeart" });
   expect(f.db.playerChatHearts.identity.find(f.author)).toBeNull();
   f.react("heart");
-  expect(readChatReactions(f.ctx as any, "public", 1n)).toEqual({ counts: { heart: 1 }, selected: ["heart"], gemHeartUnlocked: true });
+  expect(readChatReactions(f.ctx as any, "public", 1n)).toEqual({ counts: { heart: 1 }, selected: ["heart"], gemHeartUnlocked: true, moderatorHeart: "gemHeart" });
   expect(f.db.playerChatHearts.identity.find(f.author).chatHeartsReceived).toBe(1n);
 });
 it("lets only the database owner grant or revoke the gem heart", () => {

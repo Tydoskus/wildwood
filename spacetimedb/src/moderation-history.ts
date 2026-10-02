@@ -15,7 +15,7 @@ export const moderationTables = { moderationAction, moderationHead };
 
 type Action = {
   targetIdentity: string; targetName: string; channel: string; messageId?: bigint;
-  action: string; reason: string; actorType: "automatic" | "developer" | "owner"; rule?: string;
+  action: string; reason: string; actorType: "automatic" | "developer" | "moderator" | "owner"; rule?: string;
   reportTable?: string; reportId?: string; before: string; after: string;
 };
 

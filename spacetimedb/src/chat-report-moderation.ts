@@ -2,18 +2,18 @@ import { MODERATED_CHAT_MESSAGE } from "../../shared/chat-message";
 import type { GameReducerContext } from "./index";
 import { recordModerationAction } from "./moderation-history";
 
-/** Called only after the report reducer or dev_review_report verifies the
- * authenticated developer (or, for dev_review_report, the database owner).
+/** Called only after the report reducer verifies an authenticated developer or
+ * moderator, or dev_review_report verifies the database owner.
  * Keep the original evidence in the private report; redact displayed copies. */
 export function moderateReportedMessage(ctx: GameReducerContext, channel: "public" | "social", id: bigint,
-  reason: string, reportTable: string, reportId: string) {
+  reason: string, reportTable: string, reportId: string, actorType: "developer" | "moderator" = "developer") {
   const original = channel === "public" ? ctx.db.chatMessage.id.find(id) : ctx.db.socialMessage.id.find(id);
   if (!original) return;
   recordModerationAction(ctx, {
     targetIdentity: original.sender.toHexString(), targetName: original.senderName,
     channel: channel === "public" ? "world" : "channel" in original ? original.channel : "social", messageId: id,
     action: original.moderated ? "Report reviewed" : "Message removed", reason,
-    actorType: "developer", reportTable, reportId, before: original.message, after: MODERATED_CHAT_MESSAGE,
+    actorType, reportTable, reportId, before: original.message, after: MODERATED_CHAT_MESSAGE,
   });
   const clearedReply = { replyToMessageId: 0n, replyToSenderName: "", replyToMessage: "" };
   if (channel === "public") {

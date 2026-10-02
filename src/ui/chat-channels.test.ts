@@ -89,8 +89,9 @@ describe("chat channels", () => {
     await settle();
     expect(loadChatMessageReactions).toHaveBeenCalledWith("public", 1n);
     const buttons = [...h.document.querySelectorAll<HTMLButtonElement>("#chatMessageReactions button")];
-    expect(buttons).toHaveLength(5);
-    expect(buttons.every(button => button.disabled && !button.hidden)).toBe(true);
+    // Every reaction plus their own (purple) heart; the green one is another moderator's.
+    expect(buttons.filter(button => !button.hidden).map(button => button.dataset.reaction)).toEqual(["like", "laugh", "heart", "dislike", "gemHeart"]);
+    expect(buttons.every(button => button.disabled)).toBe(true);
   });
   it("changes only the matching sender's portraits and retains other players' pictures", () => {
     const h = setup();

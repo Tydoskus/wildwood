@@ -264,7 +264,7 @@ function removeReportedMessage(ctx: GameReducerContext, report: ReportRow) {
 }
 
 /** Restore only retained evidence belonging to this report's actual message. */
-function restoreReportedMessage(ctx: GameReducerContext, report: ReportRow) {
+function restoreReportedMessage(ctx: GameReducerContext, report: ReportRow, actor: "developer" | "moderator" | "owner" = actorType(ctx)) {
   const social = report.table === "player" ? socialReference(report.row.note) : null;
   const message = report.table === "chat" ? reportedChatMessage(ctx, report.row) : reportedSocialMessage(ctx, report.row);
   if (!message) throw new SenderError("That message no longer exists in chat history.");
@@ -289,9 +289,28 @@ function restoreReportedMessage(ctx: GameReducerContext, report: ReportRow) {
   recordModerationAction(ctx, {
     targetIdentity: message.sender.toHexString(), targetName: message.senderName,
     channel: "channel" in message ? message.channel : "world", messageId: message.id,
-    action: "Message restored", reason: "Developer restored reported message", actorType: actorType(ctx),
+    action: "Message restored", reason: actor === "moderator" ? "Moderator restored message" : "Developer restored reported message", actorType: actor,
     reportTable: report.table, reportId: report.row.id.toString(), before: message.message, after: original,
   });
+}
+
+/**
+ * Restore Message from the chat itself: finds the report that removed this
+ * message and restores it exactly as the dev console does, closing its reports
+ * as dismissed. The reducer verifies a developer or moderator first.
+ */
+export function restoreMessageFromChat(ctx: GameReducerContext, channel: string, messageId: bigint, actor: "developer" | "moderator") {
+  let report: ReportRow | undefined;
+  if (channel === "public") {
+    const row = [...ctx.db.chatMessageReport.iter()].reverse().find(row => row.messageId === messageId);
+    if (row) report = { key: `chat:${row.id}`, table: "chat", row };
+  } else if (channel === "social") {
+    const row = [...ctx.db.playerReport.iter()].reverse().find(row => socialReference(row.note)?.messageId === messageId);
+    if (row) report = { key: `player:${row.id}`, table: "player", row };
+  } else throw new SenderError("Unknown chat channel.");
+  if (!report) throw new SenderError("No report removed this message, so there is nothing to restore.");
+  restoreReportedMessage(ctx, report, actor);
+  for (const current of [report, ...siblingReports(ctx, report)]) setReportStatus(ctx, current, "dismissed");
 }
 
 function setReportStatus(ctx: GameReducerContext, report: ReportRow, status: string) {

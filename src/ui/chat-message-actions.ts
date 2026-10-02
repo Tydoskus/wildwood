@@ -1,4 +1,4 @@
-import { CHAT_REACTIONS, type ChatReaction, type ChatReactionState } from "../../shared/chat-reactions";
+import { CHAT_REACTIONS, isModeratorHeart, type ChatReaction, type ChatReactionState, type ChatRole } from "../../shared/chat-reactions";
 import { formatChatDateTime } from "./chat-presentation";
 import {
   CHAT_REPORT_REASONS,
@@ -56,6 +56,10 @@ type ChatMessageActionsOptions = {
   showMessage: (text: string, color?: string) => void;
   /** A muted account still reads every message and reaction; it cannot react or reply. */
   isMuted?: () => boolean;
+  /** The viewer's moderator heart and whether their reports remove messages. */
+  loadRole?: () => Promise<ChatRole>;
+  /** Bring back a message a report removed; developers and moderators. */
+  restoreMessage?: (target: ChatMessageActionTarget) => Promise<void>;
 };
 
 export function canReactToMessage(target: ChatMessageActionTarget, localIdentity: string, muted = false) {
@@ -118,9 +122,14 @@ export function createChatMessageActionsController({
   reportMessage,
   showMessage,
   isMuted = () => false,
+  loadRole,
+  restoreMessage,
 }: ChatMessageActionsOptions) {
   let selectedReactions: ChatReaction[] = [];
-  let gemHeartUnlocked = false;
+  // Kept across opens: the role changes only when the owner grants or removes it.
+  let role: ChatRole = { moderatorHeart: null, canModerate: false };
+  let restoreButton: HTMLButtonElement | null = null;
+  let restorePending = false;
   let reactionPending = false;
   let selectedMessage: ChatMessageActionTarget | null = null;
   let selectedReason: ChatReportReason | null = null;
@@ -138,7 +147,8 @@ export function createChatMessageActionsController({
 
   function updateReportSubmit() {
     elements.reportSubmitButton.disabled = reportPending || selectedReason === null;
-    elements.reportSubmitButton.textContent = reportPending ? "Sending…" : "Submit Report";
+    // A moderator's or developer's report removes the message at once.
+    elements.reportSubmitButton.textContent = reportPending ? "Sending…" : role.canModerate ? "Remove Message" : "Submit Report";
   }
 
   function selectReason(reason: ChatReportReason | null) {
@@ -177,6 +187,13 @@ export function createChatMessageActionsController({
     elements.directMessageButton.hidden = !availability.directMessage;
     elements.replyButton.hidden = !availability.reply;
     elements.reportButton.hidden = !availability.report;
+    updateRestore();
+  }
+
+  function updateRestore() {
+    if (!restoreButton) return;
+    restoreButton.hidden = !(selectedMessage?.moderated && role.canModerate && restoreMessage);
+    restoreButton.disabled = restorePending;
   }
 
   function showReportForm() {
@@ -222,14 +239,19 @@ export function createChatMessageActionsController({
     elements.layer.hidden = false;
     showActionMenu();
     selectedReactions = [];
-    gemHeartUnlocked = false;
     reactionPending = true;
     updateReactions();
     const openedRevision = presentationRevision;
+    if (getLocalIdentity()) void loadRole?.().then(next => {
+      role = next;
+      if (openedRevision !== presentationRevision) return;
+      updateReactions(); updateRestore(); updateReportSubmit();
+    }).catch(() => {});
     if (target.sender && getLocalIdentity() && !target.moderated) void loadReactions(target).then(state => {
       if (openedRevision !== presentationRevision) return;
       selectedReactions = state.selected;
-      gemHeartUnlocked = state.gemHeartUnlocked === true;
+      const heart = state.moderatorHeart ?? (state.gemHeartUnlocked ? "gemHeart" : null);
+      if (heart) role = { ...role, moderatorHeart: heart };
       reactionPending = false;
       updateReactions();
     }).catch(() => {
@@ -262,7 +284,8 @@ export function createChatMessageActionsController({
 
   function updateReactions() {
     for (const button of elements.reactions.querySelectorAll<HTMLButtonElement>("button")) {
-      button.hidden = button.dataset.reaction === "gemHeart" && !gemHeartUnlocked;
+      // Each moderator heart shows only for its owner.
+      button.hidden = isModeratorHeart(button.dataset.reaction ?? "") && button.dataset.reaction !== role.moderatorHeart;
       button.disabled = reactionPending || !selectedMessage || !canReactToMessage(selectedMessage, getLocalIdentity(), isMuted());
       button.setAttribute("aria-pressed", String(selectedReactions.includes(button.dataset.reaction as ChatReaction)));
     }
@@ -347,6 +370,18 @@ export function createChatMessageActionsController({
       onReply(replyTarget);
     });
     elements.reportButton.addEventListener("click", showReportForm);
+    restoreButton = document.createElement("button");
+    restoreButton.type = "button"; restoreButton.className = elements.reportButton.className;
+    restoreButton.textContent = "Restore Message"; restoreButton.hidden = true;
+    elements.reportButton.after(restoreButton);
+    restoreButton.addEventListener("click", async () => {
+      const target = selectedMessage;
+      if (!target || restorePending || !restoreMessage) return;
+      restorePending = true; updateRestore();
+      try { await restoreMessage(target); close(); showMessage("MESSAGE RESTORED", "#72ef58"); }
+      catch (error) { showMessage(error instanceof Error ? error.message : "RESTORE FAILED", "#ff9b91"); }
+      finally { restorePending = false; updateRestore(); }
+    });
     elements.reportBackButton.addEventListener("click", () => {
       showActionMenu();
       elements.reportButton.focus({ preventScroll: true });

@@ -1,10 +1,14 @@
 import { table, t, SenderError } from "spacetimedb/server";
 import type { Identity } from "spacetimedb";
 import type { ModuleReducerCtx, ModuleViewCtx } from "./index";
-import { CHAT_REACTIONS, chatReactionCounts, isChatReaction } from "../../shared/chat-reactions";
+import { CHAT_REACTIONS, chatReactionCounts, isChatReaction, isModeratorHeart, type ModeratorHeart } from "../../shared/chat-reactions";
 import { assertChatNotMuted } from "./chat-mute";
 export const chatReactionUnlock = table({ name: "chat_reaction_unlock", public: false }, {
   identity: t.identity().primaryKey(), gemHeart: t.bool().default(false),
+});
+/** Chat moderators and the heart that is theirs alone. Private; set by the database owner. */
+export const chatModerator = table({ name: "chat_moderator", public: false }, {
+  identity: t.identity().primaryKey(), heart: t.string(),
 });
 export const chatReaction = table({ name: "chat_reaction" }, {
   key: t.string().primaryKey(), messageKey: t.string().index("btree"),
@@ -65,8 +69,35 @@ function writeCounts(ctx: ModuleReducerCtx, key: string, counts: ReturnType<type
   else ctx.db.chatReactionSummary.insert(next);
 }
 type ReadContext = Pick<ModuleViewCtx, "db" | "sender">;
+/** A moderator's heart: their chat_moderator row, or the purple gem heart granted before moderators had rows. */
+export function moderatorHeartFor(ctx: Pick<ModuleViewCtx, "db">, identity: Identity): ModeratorHeart | null {
+  const heart = ctx.db.chatModerator.identity.find(identity)?.heart;
+  if (heart && isModeratorHeart(heart)) return heart;
+  return ctx.db.chatReactionUnlock.identity.find(identity)?.gemHeart ? "gemHeart" : null;
+}
 function gemHeartUnlocked(ctx: ReadContext) {
-  return Boolean(ctx.db.chatReactionUnlock.identity.find(ctx.sender)?.gemHeart);
+  return moderatorHeartFor(ctx, ctx.sender) === "gemHeart";
+}
+/**
+ * Moderators each hold a heart of their own (Skittle purple, tacomel green):
+ * only they can react with it, and their reports remove the message on the
+ * spot, as a developer's do. The database owner sets them with
+ * dev_set_chat_moderator; an earlier dev_grant_gem_heart still counts as purple.
+ */
+export function isChatModerator(ctx: Pick<ModuleViewCtx, "db">, identity: Identity) {
+  return moderatorHeartFor(ctx, identity) !== null;
+}
+/** An empty heart removes the moderator, including an older purple grant. */
+export function setChatModerator(ctx: ModuleReducerCtx, identity: Identity, heart: string) {
+  if (heart && !isModeratorHeart(heart)) throw new SenderError("Unknown moderator heart.");
+  const existing = ctx.db.chatModerator.identity.find(identity);
+  if (!heart) {
+    if (existing) ctx.db.chatModerator.identity.delete(identity);
+    if (ctx.db.chatReactionUnlock.identity.find(identity)) ctx.db.chatReactionUnlock.identity.delete(identity);
+    return;
+  }
+  if (existing) ctx.db.chatModerator.identity.update({ identity, heart });
+  else ctx.db.chatModerator.insert({ identity, heart });
 }
 export function grantGemHeartUnlock(ctx: ModuleReducerCtx, identity: Identity, enabled: boolean) {
   const existing = ctx.db.chatReactionUnlock.identity.find(identity);
@@ -95,7 +126,8 @@ export function readChatReactions(ctx: ReadContext, channel: string, id: bigint)
   const prefix = `${messageKey(channel, id)}:${ctx.sender.toHexString()}:`;
   return { counts: chatReactionCounts(reactionCountsFor(ctx, channel, id)), selected: CHAT_REACTIONS
     .filter(reaction => ctx.db.chatReaction.key.find(prefix + reaction.id)?.active).map(reaction => reaction.id),
-    ...(gemHeartUnlocked(ctx) ? { gemHeartUnlocked: true } : {}) };
+    ...(gemHeartUnlocked(ctx) ? { gemHeartUnlocked: true } : {}),
+    ...(moderatorHeartFor(ctx, ctx.sender) ? { moderatorHeart: moderatorHeartFor(ctx, ctx.sender)! } : {}) };
 }
 /** Indexed lookups keep switching atomic without scanning other players. */
 function clearOtherReactions(ctx: ModuleReducerCtx, target: string, actor: Identity, keep: string,
@@ -115,7 +147,7 @@ export function setChatReaction(ctx: ModuleReducerCtx, channel: string, id: bigi
   // Muted players still see reactions; they cannot add or take one back.
   assertChatNotMuted(ctx);
   if (!isChatReaction(reaction)) throw new SenderError("Unknown reaction.");
-  if (reaction === "gemHeart" && active && !gemHeartUnlocked(ctx)) throw new SenderError("Gem heart reaction is locked.");
+  if (isModeratorHeart(reaction) && active && moderatorHeartFor(ctx, ctx.sender) !== reaction) throw new SenderError("That heart belongs to a moderator.");
   const row = readableMessage(ctx, channel, id);
   if (active && row.sender.equals(ctx.sender)) throw new SenderError("You cannot react to your own message.");
   const target = messageKey(channel, id), key = `${target}:${ctx.sender.toHexString()}:${reaction}`;
