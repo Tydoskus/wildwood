@@ -502,7 +502,7 @@ export function createGuildPanel(options: Options) {
       for (let index = 0; index < countedPool; index++) line.append(element("span", undefined, "guild-quest-step is-taken"));
       copy.append(element("strong", member.name), line);
       if (uncounted) {
-        copy.append(element("span", member.joinedThisWeek ? `${uncounted} done before joining · solo bonus` : `${uncounted} not counted for this guild`, "guild-quest-note"));
+        copy.append(element("span", `${uncounted} not counted for this guild`, "guild-quest-note"));
       }
       const score = element("div", undefined, "guild-score");
       score.append(element("strong", number(member.questPoints ?? 0)), element("span", "pts"));

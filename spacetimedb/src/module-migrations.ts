@@ -43,8 +43,9 @@ import { GEM_KILL_CREDIT_PER_GEM } from "../../shared/gem-drops";
 import { syncPlayerJoinDate } from "./mailbox";
 import { enrollInPrestigeChallenge } from "./prestige-challenge";
 import { readPlayerProgress, iterPlayerProgress } from "./wide-stats";
+import { moveSoloQuestsToGuild } from "./daily-quests";
 
-export const MODULE_MIGRATION_VERSION = 50;
+export const MODULE_MIGRATION_VERSION = 51;
 
 /**
  * Migration 50 (0.856): the ranking snapshot moves to leaderboard_entry_v2,
@@ -546,6 +547,10 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     // 49: Endless eased to campaign-level hits and ~8% more time a map.
     if (currentVersion < 49) applyCampaignRebalance(ctx, ENDLESS_EASE);
     if (currentVersion < 50) moveToWideTables(ctx);
+    // 51 (0.863): quests count for a guild from the moment of joining, and a
+    // new member's guildless quests from this week move to it. Members who
+    // joined this week before the change get theirs now (Jasmean's ten).
+    if (currentVersion < 51) for (const member of [...ctx.db.guildMember.iter()] as any[]) moveSoloQuestsToGuild(ctx, member.identity);
     const next = { id: 0, version: MODULE_MIGRATION_VERSION };
     if (state) ctx.db.moduleMigrationState.id.update(next);
     else ctx.db.moduleMigrationState.insert(next);

@@ -137,6 +137,8 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
   presenceFor?: (ctx: Ctx, identity: Identity) => { online: boolean; lastSeenAtMs: number };
   /** Daily quest standing for the Guild window's member list (daily-quests.ts). */
   questFor?: (ctx: Ctx, identity: Identity, guildId: bigint) => { questsDone: number; questsTotal: number; questsOpen: number; questsTaken: number; questsCollected: number; questPoints: number; joinedThisWeek?: boolean };
+  /** A new member's quests from this week that counted for no guild move to theirs (daily-quests.ts). */
+  onJoin?: (ctx: Ctx, identity: Identity) => void;
   /** Whether the viewer may collect members' quests this week and how many more. */
   questCollect?: (ctx: Ctx, identity: Identity) => { ready: boolean; left: number; pool: number; poolSize: number };
   announceBattle?: (ctx: Ctx, report: GuildSnapshot["battles"][number]) => void;
@@ -158,6 +160,7 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
     ctx.db.guildMember.insert({ identity, guildId, name, joinedAt: now(ctx),
       eligibleAt: now(ctx), champion: false, fighter: "", power: 0, vicePresident: false });
     syncGuildTag(ctx, identity);
+    deps.onJoin?.(ctx, identity);
   }
   function joinApproved(ctx: Ctx, guildId: bigint, identity: Identity) {
     assertCanJoin(ctx, identity);

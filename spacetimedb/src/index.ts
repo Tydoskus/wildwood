@@ -1,5 +1,5 @@
 import { playerPrestigeChallenge, playerPrestigeChallengeParked, prestigeChallengeBackup, prestigeChallengeRun, restorePrestigeChallenge } from "./prestige-challenge";
-import { playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, ensureDailyQuests, recordDailyQuestKills, memberQuestStanding, questCollectStanding, collectMemberQuests } from "./daily-quests";
+import { playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, ensureDailyQuests, recordDailyQuestKills, memberQuestStanding, questCollectStanding, collectMemberQuests, moveSoloQuestsToGuild } from "./daily-quests";
 import { challengeAttackInterval, challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { duelCombatSnapshot } from "./duel-combat-snapshot";
 import { playerEquipmentLock, setEquipmentLock } from "./equipment-locks";
@@ -6028,7 +6028,7 @@ const guildService = createGuildService({
     lastSeenAtMs: Number(ctx.db.playerLifetime.identity.find(identity)?.sessionStartedAt.microsSinceUnixEpoch ?? 0n) / 1000,
   }),
   profileFor: (ctx, identity) => ctx.db.playerProfile.identity.find(identity) ?? undefined,
-  questFor: memberQuestStanding, questCollect: questCollectStanding,
+  questFor: memberQuestStanding, questCollect: questCollectStanding, onJoin: moveSoloQuestsToGuild,
   battleShared: (ctx, replayKey) => !ctx.db.chatMessage.byGuildReplay.filter(replayKey)[Symbol.iterator]().next().done,
   announceBattle: (ctx, report) => {
     const result = report.result;

@@ -4,7 +4,7 @@ import { crystalFixture } from "../../tests/helpers/crystal-hollows-fixture";
 import { fillDefeatBudget, reportKills } from "../../tests/helpers/enemy-defeat";
 import { STARTER_BOW } from "../../shared/items";
 import { WEEKLY_QUEST_COUNT, questDay, questWeek } from "../../shared/daily-quests";
-import { GUILD_POOL_FROM, collectGuildQuests, collectMemberQuests, ensureDailyQuests, guildQuestBonusFor, memberQuestStanding, questCollectStanding } from "./daily-quests";
+import { GUILD_POOL_FROM, collectGuildQuests, collectMemberQuests, ensureDailyQuests, guildQuestBonusFor, memberQuestStanding, moveSoloQuestsToGuild, questCollectStanding } from "./daily-quests";
 import { Identity } from "spacetimedb";
 import { statRewardMultiplier } from "./prestige";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
@@ -93,16 +93,16 @@ it("draws fifteen when the week turns, and tops a daily list up to fifteen keepi
   expect(quests.every((q: any) => q.progress === 0)).toBe(true);
 });
 
-it("counts a new member's quests for the guild from tomorrow (today's go solo), and its bonus from next week", () => {
+it("counts a new member's quests for the guild from the moment they join, and its bonus from next week", () => {
   const { f, day } = questing();
   f.patch("guildMember", { joinedAt: f.ctx.timestamp.microsSinceUnixEpoch });
   f.seed("guildQuestWeek", { key: `${questWeek(day) - 1}:7`, week: questWeek(day) - 1, guildId: 7n, guildName: "Oaks", points: 420 });
   expect(guildQuestBonusFor(f.ctx, f.ctx.sender)).toBe(1);
   spitters(f, 10);
-  expect(f.db.guildQuestWeek.key.find(`${questWeek(day)}:7`)).toBeNull();
-  expect(f.db.soloQuestWeek.identity.find(f.ctx.sender)).toMatchObject({ week: questWeek(day), points: 1 });
+  expect(f.db.guildQuestWeek.key.find(`${questWeek(day)}:7`).points).toBe(1);
+  expect(f.db.soloQuestWeek.identity.find(f.ctx.sender)).toBeNull();
   // In the guild when the week turns: its bonus, not the solo one.
-  f.seed("guildQuestWeek", { key: `${questWeek(day)}:7`, week: questWeek(day), guildId: 7n, guildName: "Oaks", points: 100 });
+  f.db.guildQuestWeek.key.update({ ...f.db.guildQuestWeek.key.find(`${questWeek(day)}:7`), points: 100 });
   f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + 7n * DAY);
   expect(guildQuestBonusFor(f.ctx, f.ctx.sender)).toBeCloseTo(1.1);
   expect(JSON.parse(f.db.playerDailyQuest.identity.find(f.ctx.sender).questsJson)[0].progress).toBe(50);
@@ -158,10 +158,30 @@ it("never pays a guild more than its pool in a week", () => {
   expect(f.db.guildQuestWeek.key.find(`${questWeek(day)}:7`).points).toBe(15);
 });
 
-it("does not let a member who joined today collect", () => {
-  const { f } = questing();
-  const fresh = member(f, "43", f.ctx.timestamp.microsSinceUnixEpoch);
-  expect(() => collectGuildQuests(f.ctx, fresh)).toThrow("from tomorrow");
+it("moves a new member's guildless quests from this week to their guild, up to its pool", () => {
+  const { f, day } = questing();
+  const week = questWeek(day);
+  f.patch("guildMember", { joinedAt: f.ctx.timestamp.microsSinceUnixEpoch });
+  f.seed("soloQuestWeek", { identity: f.ctx.sender, week, points: 10, lastWeek: 0, lastPoints: 0 });
+  expect(moveSoloQuestsToGuild(f.ctx, f.ctx.sender)).toBe(10);
+  expect(f.db.guildQuestWeek.key.find(`${week}:7`).points).toBe(10);
+  expect(f.db.guildMemberQuestWeek.identity.find(f.ctx.sender)).toMatchObject({ week, guildId: 7n, points: 10 });
+  expect(f.db.soloQuestWeek.identity.find(f.ctx.sender).points).toBe(0);
+  expect(memberQuestStanding(f.ctx, f.ctx.sender, 7n).questPoints).toBe(10);
+  // Nothing left to move the second time; a full pool takes no more.
+  expect(moveSoloQuestsToGuild(f.ctx, f.ctx.sender)).toBe(0);
+  f.db.soloQuestWeek.identity.update({ ...f.db.soloQuestWeek.identity.find(f.ctx.sender), points: 9 });
+  expect(moveSoloQuestsToGuild(f.ctx, f.ctx.sender)).toBe(5);
+  expect(f.db.soloQuestWeek.identity.find(f.ctx.sender).points).toBe(4);
+});
+
+it("leaves last week's guildless quests with the solo bonus", () => {
+  const { f, day } = questing();
+  const week = questWeek(day);
+  const joiner = member(f, "45", f.ctx.timestamp.microsSinceUnixEpoch);
+  f.seed("soloQuestWeek", { identity: joiner, week: week - 1, points: 7, lastWeek: 0, lastPoints: 0 });
+  expect(moveSoloQuestsToGuild(f.ctx, joiner)).toBe(0);
+  expect(f.db.soloQuestWeek.identity.find(joiner).points).toBe(7);
 });
 
 

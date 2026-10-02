@@ -54,6 +54,16 @@ describe("guild root reducer integration", () => {
     f.actor("2"); f.run(server.joinGuild, { guildId: BigInt(guildId) });
     expect(f.snapshot().guild!.members).toHaveLength(2);
   });
+  it("moves a joiner's guildless quests from this week to the guild they join", () => {
+    const f = fixture(); f.guild(["1"], "Rose");
+    const guildId = f.db.guildMember.identity.find(f.ctx.sender).guildId;
+    f.actor("2");
+    const week = Math.floor((Number(f.ctx.timestamp.microsSinceUnixEpoch / 86_400_000_000n) + 3) / 7);
+    f.seed("soloQuestWeek", { identity: f.ctx.sender, week, points: 6, lastWeek: 0, lastPoints: 0 });
+    f.run(server.joinGuild, { guildId });
+    expect(f.db.guildQuestWeek.key.find(`${week}:${guildId}`).points).toBe(6);
+    expect(f.db.soloQuestWeek.identity.find(f.ctx.sender).points).toBe(0);
+  });
   it("includes root presence even with the eye off and retains offline last seen", () => {
     const f = fixture(); f.guild(["1", "2"], "Rose");
     const who = identity("2");

@@ -443,7 +443,7 @@ describe("guild quests tab", () => {
     const row = (name: string) => rows.find(item => item.querySelector("strong")?.textContent === name.toUpperCase())!;
     expect([marks(row("a"), "is-done"), marks(row("a"), "is-taken"), marks(row("a"), "is-elsewhere")]).toEqual([15, 2, 0]);
     expect([marks(row("b"), "is-done"), marks(row("b"), "is-elsewhere")]).toEqual([0, 7]);
-    expect(row("b").querySelector(".guild-quest-note")?.textContent).toBe("7 done before joining · solo bonus");
+    expect(row("b").querySelector(".guild-quest-note")?.textContent).toBe("7 not counted for this guild");
     expect([marks(row("c"), "is-done"), marks(row("c"), "is-elsewhere")]).toEqual([2, 3]);
     expect(row("a").querySelector(".guild-quest-note")).toBeNull();
   });

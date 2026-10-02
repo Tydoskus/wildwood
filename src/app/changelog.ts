@@ -5,6 +5,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "The timers under the minimap no longer cover the player count",
     "Popups with one button no longer show an empty second button, and going ahead is green",
     "The chat filter catches a few more vile words",
+    "Guild quests count from the moment you join, not the next day, and quests you did this week without a guild move to the guild you join",
   ],
   "0.862": [
     "Shop: no more scrollbar",

@@ -82,6 +82,32 @@ function settleSoloWeek(ctx: Ctx, identity: any, week: number, points: number) {
   if (solo) ctx.db.soloQuestWeek.identity.update(next); else ctx.db.soloQuestWeek.insert(next);
 }
 
+/**
+ * On joining a guild: this week's quests that counted for no guild (done while
+ * guildless, or on a joining day before 0.863) move to it, up to its pool.
+ * Quests already counted for another guild stay there.
+ */
+export function moveSoloQuestsToGuild(ctx: Ctx, identity: any) {
+  const guild = guildOf(ctx, identity);
+  if (!guild) return 0;
+  const week = questWeek(questDay(ctx.timestamp.microsSinceUnixEpoch));
+  const solo = ctx.db.soloQuestWeek.identity.find(identity);
+  const owned = solo?.week === week ? solo.points : 0;
+  const room = Math.max(0, (ctx.db.guild.id.find(guild.id)?.members ?? 0) * WEEKLY_QUEST_COUNT - weekPoints(ctx, week, guild.id));
+  const moved = Math.min(owned, room);
+  if (!moved) return 0;
+  ctx.db.soloQuestWeek.identity.update({ ...solo, points: owned - moved });
+  const key = weekKey(week, guild.id), current = ctx.db.guildQuestWeek.key.find(key);
+  const total = { key, week, guildId: guild.id, guildName: guild.name, points: (current?.points ?? 0) + moved };
+  if (current) ctx.db.guildQuestWeek.key.update(total); else ctx.db.guildQuestWeek.insert(total);
+  const mine = ctx.db.guildMemberQuestWeek.identity.find(identity);
+  const tally = { identity, week, guildId: guild.id, points: (mine && mine.week === week && mine.guildId === guild.id ? mine.points : 0) + moved };
+  if (mine) ctx.db.guildMemberQuestWeek.identity.update(tally); else ctx.db.guildMemberQuestWeek.insert(tally);
+  const row = ctx.db.playerDailyQuest.identity.find(identity);
+  if (row && questWeek(row.day) === week) ctx.db.playerDailyQuest.identity.update({ ...row, guildPoints: total.points });
+  return moved;
+}
+
 function guildOf(ctx: Ctx, identity: any): { id: bigint; name: string; joinedDay: number } | null {
   const member = ctx.db.guildMember.identity.find(identity);
   if (!member) return null;
@@ -148,13 +174,14 @@ export function recordDailyQuestKills(ctx: Ctx, identity: any, mapId: string, ki
   const row = ensureDailyQuests(ctx, identity);
   const { quests, completed } = applyQuestKills(parseDailyQuests(row.questsJson), mapId, kills);
   let guildPoints = row.guildPoints;
-  // A member's quests count for their guild from the day after they join, so
-  // joining a guild for the day sends it nothing. Points earned stay with the
-  // guild that earned them, whatever the player joins afterwards.
+  // A member's quests count for their guild from the moment they join (0.863;
+  // before, from the UTC day after, which cost late-evening joiners most of a
+  // day). Each quest counts once, for the guild they are in when it finishes,
+  // and stays with that guild whatever they join afterwards.
   const member = completed ? guildOf(ctx, identity) : null;
-  const guild = member && member.joinedDay < row.day ? member : null;
+  const guild = member;
   if (completed && !guild) {
-    // No guild, or joined today: the quest counts toward next week's solo bonus instead, so none is wasted.
+    // No guild: the quest counts toward next week's solo bonus, and moves to a guild they join this week.
     const week = questWeek(row.day);
     settleSoloWeek(ctx, identity, week, soloPoints(ctx, identity, week) + completed);
   }
@@ -251,7 +278,6 @@ export function collectGuildQuests(ctx: Ctx, collector: any) {
   const seat = ctx.db.guildMember.identity.find(collector) ?? fail("Join a guild first.");
   if (!ctx.db.guild.id.find(seat.guildId)) fail("Guild no longer exists.");
   const day = questDay(ctx.timestamp.microsSinceUnixEpoch);
-  if (questDay(seat.joinedAt) >= day) fail("Your quests count for this guild from tomorrow.");
   const mine = ensureDailyQuests(ctx, collector);
   const standing = questCollectStanding(ctx, collector);
   if (!standing.ready) fail("Finish your own quests first.");
