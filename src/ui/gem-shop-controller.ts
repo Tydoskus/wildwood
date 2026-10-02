@@ -73,7 +73,8 @@ export function createGemShopController(options: {
       connect.type = 'button'; connect.className = 'shop-patreon-connect';
       connect.textContent = 'Already supporting? Connect your frame';
       connect.addEventListener('click', () => { close(); options.openSupporter!(); });
-      support.after(connect);
+      // Supporters looking for their frame see this first; the Support button follows.
+      support.before(connect);
     }
     // A note from the dev, in his words, with the three supporter frames under it.
     const note = document.createElement('section');
@@ -83,6 +84,7 @@ export function createGemShopController(options: {
       + '<p>I’m a solo dev and I’ve been making WildStat since late July 2026. I’m building it to be the kind of game I’d want to play myself.</p>'
       + '<p>It’s still in alpha, so expect changes and the odd bug. Thanks for playing it this early.</p>'
       + '<p>Supporting on Patreon really helps. It covers the servers and lets me spend more time working on the game. More cosmetics for supporters are coming too.</p>'
+      + '<p class="shop-dev-sign">- RyMel</p>'
       + '<div class="shop-frame-tiers" role="list" aria-label="Patreon supporter frames"></div>';
     const tiers = note.querySelector('.shop-frame-tiers')!;
     // A face in each frame, from the featured portrait sheet, so they read like they do in game.

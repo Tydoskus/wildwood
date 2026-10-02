@@ -4444,6 +4444,7 @@
 .patreon-support-form button, .shop-patreon-connect { min-height: 44px; padding: 8px 12px; border: 1px solid #777; border-radius: 5px; background: #222; color: #fff; box-shadow: none; font-size: 12px; }
 .shop-patreon-connect { display: block; margin: 12px auto; }
 .shop-patreon-status { text-align: center; color: #ddd; font-size: 12px; }
+.shop-patreon-status:empty { display: none; }
 .shop-patreon-button { display: flex; align-items: center; gap: 13px; min-height: 74px; padding: 14px 18px; margin: 0 0 18px; border: 1px solid #c589af; border-radius: 12px; background: linear-gradient(135deg, #502b47, #241d2c); box-shadow: inset 0 1px 0 #ffffff19, 0 3px 0 #09070c; color: #fff; text-decoration: none; text-align: left; }
 .shop-patreon-button:hover { border-color: #f4c8e6; background: linear-gradient(135deg, #623655, #302436); }
 .shop-patreon-button:focus-visible { outline: 2px solid white; outline-offset: 3px; }
@@ -4454,6 +4455,7 @@
 .shop-dev-note { display: grid; gap: 10px; padding: 16px 16px 18px; border: 1px solid #ffffff1f; border-radius: 12px; background: #ffffff08; color: #fff; text-align: left; }
 .shop-dev-note h2 { margin: 0; color: #f0d7e7; font-size: 14px; letter-spacing: .04em; text-transform: uppercase; }
 .shop-dev-note p { margin: 0; color: #e3e6ea; font-size: 14px; font-weight: 700; line-height: 1.45; -webkit-text-stroke: 0; text-shadow: none; }
+.shop-dev-note .shop-dev-sign { color: #f0d7e7; font-weight: 900; }
 .shop-frame-tiers { display: flex; justify-content: space-around; gap: 10px; margin-top: 8px; }
 .shop-frame-tier { display: grid; justify-items: center; gap: 10px; }
 .shop-frame-portrait { display: block; width: 64px; height: 64px; border-radius: 8px; background-color: #2a2f36; }
