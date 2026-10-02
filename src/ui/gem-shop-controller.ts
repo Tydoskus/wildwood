@@ -82,7 +82,7 @@ export function createGemShopController(options: {
     note.setAttribute('aria-labelledby', 'shopDevNoteTitle');
     note.innerHTML = '<h2 id="shopDevNoteTitle">From the dev</h2>'
       + '<p>I’m a solo dev and I’ve been making WildStat since late July 2026. I’m building it to be the kind of game I’d want to play myself.</p>'
-      + '<p>It’s still in alpha, so expect changes and the odd bug. Thanks for playing it this early.</p>'
+      + '<p>It’s still an alpha prototype, so expect changes and the odd bug. Thanks for playing it this early.</p>'
       + '<p>Supporting on Patreon really helps. It covers the servers and lets me spend more time working on the game. More cosmetics for supporters are coming too.</p>'
       + '<p class="shop-dev-sign">- RyMel</p>'
       + '<div class="shop-frame-tiers" role="list" aria-label="Patreon supporter frames"></div>';

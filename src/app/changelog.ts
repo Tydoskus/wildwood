@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.862": [
+    "Shop: no more scrollbar",
+  ],
   "0.861": [
     "Shop: a note from the dev, and a look at the three Patreon supporter frames",
     "Chat moderators: reporting a message removes it, and Restore Message brings it back",
@@ -2644,6 +2647,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.862": "2026-10-01",
   "0.861": "2026-10-01",
   "0.860": "2026-10-01",
   "0.859": "2026-10-01",
