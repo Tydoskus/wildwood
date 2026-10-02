@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.864": [
+    "Clearer welcome text for new players",
+  ],
   "0.863": [
     "New setting: Chat Timestamps (off by default) shows the time beside each name",
     "Chat no longer squishes messages together after turning a phone sideways and back",
@@ -2655,6 +2658,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.864": "2026-10-01",
   "0.863": "2026-10-01",
   "0.862": "2026-10-01",
   "0.861": "2026-10-01",
