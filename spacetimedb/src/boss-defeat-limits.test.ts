@@ -186,12 +186,12 @@ it("rewards consecutive legitimate 100-second boss fights across save windows", 
   }
 });
 it("lets Reflect's share of the player's health shorten a clear, and only for a player who has Reflect", () => {
-  // A 100-second fight by damage alone. Reflect throws back at most half of
-  // everything taken, which a player can take no more of than their health:
-  // with health equal to the boss's, half the boss can come from Reflect.
+  // A 100-second fight by damage alone. Reflect throws back at most everything
+  // taken, which a player can take no more of than their health: with health
+  // half the boss's, half the boss can come from Reflect.
   const clears = (riposte: number) => {
     const f = fixture(); f.begin();
-    const stats = { ...f.stats, maxHp: personalBossDefinition("tutorial_forest")!.hp, regen: 0 };
+    const stats = { ...f.stats, maxHp: personalBossDefinition("tutorial_forest")!.hp / 2, regen: 0 };
     f.patch("playerProgress", stats);
     if (riposte) f.seed("playerPrestigePerk", { identity: f.ctx.sender, keenEdge: 0, doubleStrike: 0, splitShot: 0, riposte });
     for (const seconds of [60, 155, 250, 345]) { f.at(seconds); f.claim(); f.patch("playerProgress", stats); }
@@ -206,7 +206,7 @@ it("scales Reflect's share of a clear by the player's armor, since it returns th
   // arrived before armor, and so what Reflect can return, is twice what got through.
   const clears = (armor: number) => {
     const f = fixture(); f.begin();
-    const stats = { ...f.stats, maxHp: personalBossDefinition("tutorial_forest")!.hp / 2, regen: 0, armor };
+    const stats = { ...f.stats, maxHp: personalBossDefinition("tutorial_forest")!.hp / 4, regen: 0, armor };
     f.patch("playerProgress", stats);
     f.seed("playerPrestigePerk", { identity: f.ctx.sender, keenEdge: 0, doubleStrike: 0, splitShot: 0, riposte: 1 });
     for (const seconds of [60, 155, 250, 345]) { f.at(seconds); f.claim(); f.patch("playerProgress", stats); }

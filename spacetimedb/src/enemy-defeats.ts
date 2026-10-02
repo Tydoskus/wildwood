@@ -4,7 +4,7 @@ import { personalBossDefinition } from "../../shared/personal-bosses";
 import { Range, SenderError, table, t } from "spacetimedb/server";
 import { defeatBudget, defeatMinRespawnSeconds, enemyDefeatDefinition, mapEnemyPopulation, DEFEAT_BUDGET_WINDOW_SECONDS, ENEMY_DEFEAT_BATCH_MAX, SIM_CLOCK_BANK_SECONDS, type EnemyDefeat } from "../../shared/enemy-defeats";
 import { bossDefeatLimits, BOSS_REWARD_WINDOW_SECONDS } from "./boss-defeat-limits";
-import { RIPOSTE_REFLECT_SHARE } from "../../shared/prestige-perks";
+import { WORLD_REFLECT_SHARE } from "../../shared/prestige-perks";
 import { bossRespawnSecondsWithResearch, enemyRespawnSecondsWithResearch } from "../../shared/utility-research";
 import { KILL_REPORT_BURST, KILL_REPORT_REFILL_SECONDS, REGULAR_ENEMY_RESPAWN_SECONDS } from "../../shared/rules";
 import { recordModerationAction } from "./moderation-history";
@@ -524,10 +524,10 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
       const combat = bossCombat(rewards);
       // A boss is one target, so reach adds nothing here; Arrow Storm's extra
       // arrows on it are damage, and bossDps carries them.
-      // Reflect covers up to half the player's health pool and half their regen
+      // Reflect covers up to the player's health pool and their regen
       // of the boss's HP, scaled up by their armor since it returns the hit
       // before armor; their own damage has to cover the rest.
-      const reflected = combat.reflect ? RIPOSTE_REFLECT_SHARE * (combat.reflect.preArmor ?? 1) : 0;
+      const reflected = combat.reflect ? WORLD_REFLECT_SHARE * (combat.reflect.preArmor ?? 1) : 0;
       // A curve map's boss regen, which its gate makes decisive; the authored maps' bound never counted regen.
       const gateRegen = balance?.rules.ARMOR_CURVE === 1 ? boss.hp * ((boss as { regenFraction?: number }).regenFraction ?? 0) : 0;
       const limits = bossDefeatLimits(Math.max(1, boss.hp - reflected * (combat.reflect?.maxHp ?? 0)),

@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.865": [
+    "Reflect now throws back the whole hit, but never more than your own damage (weapon and bonuses count); duels unchanged",
+  ],
   "0.864": [
     "Clearer welcome text for new players",
   ],
@@ -2658,6 +2661,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.865": "2026-10-01",
   "0.864": "2026-10-01",
   "0.863": "2026-10-01",
   "0.862": "2026-10-01",

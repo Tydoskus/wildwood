@@ -319,7 +319,7 @@ it("refuses a respec with nothing spent, and changes nothing", () => {
 it("pays a Reflect Only run for what Reflect could have killed, and nothing without it", () => {
   const accepted = (ranks: Record<string, number>, challenge: boolean) => {
     const f = farmer(1);
-    f.patch("playerProgress", { maxHp: 4, regen: 0 });
+    f.patch("playerProgress", { maxHp: 2, regen: 0 });
     if (Object.keys(ranks).length) f.seed("playerPrestigePerk", { identity: f.ctx.sender, ...ranks });
     if (challenge) f.seed("playerPrestigeChallenge", { identity: f.ctx.sender, active: true, completed: 0 });
     fillDefeatBudget(f, "tutorial_forest", "Spitter");

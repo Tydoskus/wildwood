@@ -1,7 +1,7 @@
 import type { PlayerProfileData, PlayerResearch } from "../wildstat-coop";
 import { createEmptyResearchRanks, researchStatRewardMultiplier, utilityMovementSpeedBonus } from "../../shared/research";
 import { prestigeStatMultiplier } from "../../shared/prestige";
-import { PRESTIGE_PERKS, RIPOSTE_REFLECT_SHARE, prestigeCriticalDamageBonus, prestigePerkValue, type PrestigePerkRanks } from "../../shared/prestige-perks";
+import { PRESTIGE_PERKS, prestigeCriticalDamageBonus, prestigePerkValue, type PrestigePerkRanks } from "../../shared/prestige-perks";
 import { effectivePlayerPower, effectivePlayerPowerStats } from "../../shared/player-power";
 import { equipmentDamageMultiplierBonus, equipmentMaxHealthMultiplierBonus, equipmentRegenerationMultiplierBonus } from "../../shared/items";
 import { formatCompactNumber, formatRate } from "./number-format";
@@ -259,7 +259,7 @@ export function profileStatDisplayRows(
   };
   perkRow("doubleStrike", "double-strike", "(Chance a hit lands twice)");
   perkRow("splitShot", "split-shot", "(Chance to strike a second enemy)");
-  perkRow("riposte", "riposte", `(Reflects ${percentPoints(RIPOSTE_REFLECT_SHARE)} of each hit, before armor)`);
+  perkRow("riposte", "riposte", "(Reflects each hit before armor, up to your damage; half in duels)");
   return stats;
 }
 

@@ -78,7 +78,7 @@ import {
 } from "../../shared/items";
 import { applyEnemyRewards } from "../../shared/enemy-defeats";
 import { statRewardMultiplier, prestigePerkRanks } from "./prestige";
-import { RIPOSTE_REFLECT_SHARE, preArmorFactor, prestigeCriticalDamageBonus, prestigePerkValue, prestigeReachMultiplier, prestigeSwingMultiplier } from "../../shared/prestige-perks";
+import { WORLD_REFLECT_SHARE, preArmorFactor, prestigeCriticalDamageBonus, prestigePerkValue, prestigeReachMultiplier, prestigeSwingMultiplier } from "../../shared/prestige-perks";
 import { armorDamageReduction } from "../../shared/combat";
 import { pinnedBossReward } from "./map-balance";
 import { bowSkillRollFor } from "./bow-skills";
@@ -213,20 +213,20 @@ export function createBossCombat(deps: BossCombatDeps) {
         const attackInterval = attackIntervalForProgress(progress);
         if (!gear) return { dps: 0, attackInterval, projectiles: 1 };
         const dps = gear.loadout.damage(progress.damage) * gear.critical * gear.swing * gear.projectiles / attackInterval;
-        // Reflect throws half of a hit back, at bosses too, as it arrived before
+        // Reflect throws a hit back (capped at the player's own damage), at bosses too, as it arrived before
         // armor. What got through can never total more than the player's health
         // and what regen restores before they fall, and a hit before armor is
-        // what got through times preArmorFactor: so half of that, scaled, is
+        // what got through times preArmorFactor: so that, scaled, is
         // the most Reflect can shorten a clear, whatever its bag drew.
         const reflect = gear.reflects ? (({ maxHp, regen, armor }) => ({ maxHp, regen, preArmor: preArmorFactor(armorDamageReduction(armor)) }))(
           effectivePlayerPowerStats(progress, report().research, gear.loadout.levelFor)) : null;
         // Reflect Only: the weapon counts for nothing, and every kill has to come
         // from hits taken. What got through is at most a full health bar per life
-        // plus regen, a life being no shorter than REFLECT_ONLY_LIFE_SECONDS; half
-        // of that, scaled up by armor, is what Reflect can return. The perk's
+        // plus regen, a life being no shorter than REFLECT_ONLY_LIFE_SECONDS; that,
+        // scaled up by armor, is the most Reflect can return. The perk's
         // chance is left out, so the bound only ever errs towards paying.
         if (gear.reflectOnly) {
-          const reflected = reflect ? RIPOSTE_REFLECT_SHARE * reflect.preArmor * (reflect.regen + reflect.maxHp / REFLECT_ONLY_LIFE_SECONDS) : 0;
+          const reflected = reflect ? WORLD_REFLECT_SHARE * reflect.preArmor * (reflect.regen + reflect.maxHp / REFLECT_ONLY_LIFE_SECONDS) : 0;
           return { attackInterval: REFLECT_ONLY_TICK_SECONDS, projectiles: 1, reach: 1, dps: reflected, bossDps: reflected, reflect: null };
         }
         return { attackInterval, projectiles: gear.projectiles, reach: gear.reach, dps, bossDps: dps * gear.bossDamage, reflect };

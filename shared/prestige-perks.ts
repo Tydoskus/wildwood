@@ -15,7 +15,7 @@ export const PRESTIGE_PERKS = {
     detail: "Chance to strike a second enemy at the same time. Nothing to split against a boss." },
   // Shown as Reflect; the id stays riposte because it names a database column.
   riposte: { title: "Reflect", perRank: .06,
-    detail: "Chance to throw half of a hit, before your armor, back at whoever dealt it: enemies, bosses and duel opponents." },
+    detail: "Chance to throw a hit, before your armor, back at whoever dealt it, up to your own damage. Duels throw back half." },
   bossSlayer: { title: "Boss Slayer", perRank: .10, detail: "Deal more weapon damage to bosses. Does not amplify reflected damage." },
   secondWind: { title: "Second Wind", perRank: .01, detail: "Restore a share of your maximum health after each regular enemy kill." },
   longShot: { title: "Long Shot", perRank: 5, detail: "Extend your attack range, for bows and melee weapons alike." },
@@ -36,6 +36,16 @@ export const KEEN_EDGE_CRITICAL_DAMAGE_PER_RANK = .12;
  * before the defender's armor: armor spares the defender, not the attacker.
  */
 export const RIPOSTE_REFLECT_SHARE = .5;
+/**
+ * Against enemies and bosses (0.865), Reflect throws back the whole hit before
+ * armor, but never more than one of the player's own normal hits. Uncapped, it
+ * grew with the enemy, so deep Endless was easier with Reflect than anything.
+ */
+export const WORLD_REFLECT_SHARE = 1;
+/** What one reflected hit deals: the whole hit, up to the player's own damage. */
+export function worldReflectDamage(hit: number, ownDamage: number) {
+  return Math.max(0, Math.min(Math.max(0, hit) * WORLD_REFLECT_SHARE, Number.isFinite(ownDamage) ? ownDamage : 0));
+}
 
 /** The chance a hit taken is thrown back, at this player's rank. */
 export function prestigeRiposteChance(ranks: Partial<PrestigePerkRanks> | null | undefined) {
@@ -91,7 +101,7 @@ export function prestigePerkEffectLabel(perk: PrestigePerkId, rank: number) {
   if (perk === "secondWind") return `Restore ${chance} maximum health per kill`;
   if (perk === "longShot") return `+${prestigePerkValue(ranks, perk)} attack range`;
   if (perk === "fleetFoot") return `+${chance} move speed`;
-  return `+${chance} chance to reflect ${percent(RIPOSTE_REFLECT_SHARE)} of the hit`;
+  return `+${chance} chance to reflect a hit, up to your damage`;
 }
 
 /** Extra critical damage from Keen Edge, added to the research multiplier. */
@@ -115,7 +125,7 @@ export function prestigeReachMultiplier(ranks: Partial<PrestigePerkRanks> | null
   // Riposte only reflects part of a hit, and only sometimes, so the claim bound
   // widens by what it is worth on average rather than by its full chance.
   return 1 + prestigePerkValue(ranks, "splitShot")
-    + prestigeRiposteChance(ranks) * RIPOSTE_REFLECT_SHARE * preArmorFactor(armorReduction);
+    + prestigeRiposteChance(ranks) * WORLD_REFLECT_SHARE * preArmorFactor(armorReduction);
 }
 
 /** How much bigger a hit was before armor than what got through: 2 at half reduction. */

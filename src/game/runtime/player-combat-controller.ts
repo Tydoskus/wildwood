@@ -12,7 +12,7 @@ import { createSpatialGrid } from "./spatial-grid";
 import type { BossTarget, DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, AegisPrimeBossState, PlayerState, Projectile, RuntimeReward, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
 import type { SpawnSite } from "../world";
 import { equipmentDamage, itemDefinition } from "../../../shared/items";
-import { RIPOSTE_REFLECT_SHARE } from "../../../shared/prestige-perks";
+import { worldReflectDamage } from "../../../shared/prestige-perks";
 import { createMarbleBag } from "../../../shared/marble-bag";
 import { ARROW_STORM_DAMAGE_SHARE, ARROW_STORM_RADIUS, RICOCHET_DAMAGE_SHARE, hasBowSkills, rollArrowSkillProcs, type BowSkillRoll } from "../../../shared/bow-skills";
 import { ARROW_STORM_FLIGHT_SECONDS, ARROW_STORM_STAGGER_SECONDS } from "./combat-effects";
@@ -555,12 +555,12 @@ export function createPlayerCombatController(options: {
     if (dealt > 0) options.onCombat?.();
     if (dealt > 0 && source && !source.isBoss && !source.generatedBoss) noteHitTaken(source as EnemyState, dealt, player.maxHp);
     player.hp -= dealt;
-    // Reflect throws half of the hit back at whoever dealt it, bosses
-    // included, as it arrived: before armor, which spares only the player.
-    // The server widens its kill and boss bounds by what that can add.
+    // Reflect throws the hit back at whoever dealt it, bosses included, as it
+    // arrived (before armor, which spares only the player), but never more
+    // than one of the player's own normal hits. The server's bounds allow it.
     const reflectChance = options.prestigeReflect?.() ?? 0;
     if (source && !source.dead && dealt > 0 && reflectChance > 0 && reflectBag.draw(reflectChance)) {
-      applyPlayerHit(source, Math.max(0, amount) * RIPOSTE_REFLECT_SHARE, false, Math.atan2(source.y - player.y, source.x - player.x), true);
+      applyPlayerHit(source, worldReflectDamage(amount, weaponDamage(false)), false, Math.atan2(source.y - player.y, source.x - player.x), true);
     }
     spawnDamageNumber(player.x, player.y, dealt, false, true);
     player.hurtClock = .1;

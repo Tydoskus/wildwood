@@ -145,20 +145,26 @@ describe("player attack timing", () => {
     state.controller.damagePlayer(5); expect(combat).toHaveBeenCalledTimes(2);
   });
 
-  it("reflects half of a landed hit back at the enemy that dealt it, an Endless boss included", () => {
-    const spawn = (state: ReturnType<typeof createCombatHarness>) => {
+  it("reflects the whole landed hit back at the enemy that dealt it, an Endless boss included", () => {
+    const spawn = (state: ReturnType<typeof createCombatHarness>, damage = 1_000) => {
       state.enemies.length = 0;
       createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Spitter", x: 520, y: 500,
         campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
       const enemy = state.enemies[0]; enemy.hp = enemy.maxHp = 1000;
-      Object.assign(state.player, { x: 500, y: 500, hp: 1000, maxHp: 1000, hurtClock: 0 });
+      Object.assign(state.player, { x: 500, y: 500, hp: 1000, maxHp: 1000, hurtClock: 0, damage });
       return enemy;
     };
     const reflecting = createCombatHarness({ prestigeReflect: () => 1 });
     const attacker = spawn(reflecting);
     expect(reflecting.controller.damagePlayer(40, attacker)).toBe(true);
     expect(reflecting.player.hp).toBe(960);
-    expect(attacker.hp).toBe(980);
+    expect(attacker.hp).toBe(960);
+
+    // Never more than one of the player's own hits: a weak player reflects little of a big hit.
+    const weak = createCombatHarness({ prestigeReflect: () => 1 });
+    const bruiser = spawn(weak, 10);
+    weak.controller.damagePlayer(40, bruiser);
+    expect(bruiser.hp).toBe(990);
 
     const plain = createCombatHarness();
     const untouched = spawn(plain);
@@ -169,29 +175,29 @@ describe("player attack timing", () => {
     const bossFight = createCombatHarness({ prestigeReflect: () => 1, hitGeneratedBoss });
     const boss = spawn(bossFight); boss.generatedBoss = true;
     bossFight.controller.damagePlayer(40, boss);
-    expect(hitGeneratedBoss).toHaveBeenCalledWith(boss, 20, false, true);
+    expect(hitGeneratedBoss).toHaveBeenCalledWith(boss, 40, false, true);
   });
 
-  it("reflects half of the hit before armor, so armor spares the player and not the attacker", () => {
+  it("reflects the hit before armor, so armor spares the player and not the attacker", () => {
     const state = createCombatHarness({ prestigeReflect: () => 1, effectiveArmor: () => 1_000 });   // armor halves damage
     state.enemies.length = 0;
     createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Spitter", x: 520, y: 500,
       campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
     const mob = state.enemies[0]; mob.hp = mob.maxHp = 1000;
-    Object.assign(state.player, { x: 500, y: 500, hp: 1000, maxHp: 1000, hurtClock: 0 });
+    Object.assign(state.player, { x: 500, y: 500, hp: 1000, maxHp: 1000, hurtClock: 0, damage: 1_000 });
     state.controller.damagePlayer(40, mob);
     expect(state.player.hp).toBe(980);   // 20 got through
-    expect(mob.hp).toBe(980);            // half of the 40 that arrived, not half of the 20
+    expect(mob.hp).toBe(960);            // the 40 that arrived, not the 20
   });
 
   it("reflects a campaign boss's hit back at that boss, drawn blue", () => {
     const hitPersonalBoss = vi.fn();
     const state = createCombatHarness({ prestigeReflect: () => 1, prestigeBossSlayer: () => .5, hitPersonalBoss });
     Object.assign(state.boss, { dead: false, x: 700, y: 500 });
-    Object.assign(state.player, { x: 500, y: 500, hp: 1000, maxHp: 1000, hurtClock: 0 });
+    Object.assign(state.player, { x: 500, y: 500, hp: 1000, maxHp: 1000, hurtClock: 0, damage: 1_000 });
     expect(state.controller.damagePlayerFromBoss(40)).toBe(true);
     expect(hitPersonalBoss).toHaveBeenCalledOnce();
-    expect(hitPersonalBoss.mock.calls[0]).toEqual([20, 700, 500 + (state.boss.hitboxOffsetY ?? 0), false, true]);
+    expect(hitPersonalBoss.mock.calls[0]).toEqual([40, 700, 500 + (state.boss.hitboxOffsetY ?? 0), false, true]);
     // A dead boss's lingering hazard has no one to answer.
     state.boss.dead = true; state.player.hurtClock = 0;
     state.controller.damagePlayerFromBoss(40);
@@ -208,7 +214,7 @@ describe("player attack timing", () => {
       campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
     const mob = state.enemies[0]; mob.hp = mob.maxHp = 1e9;
     const gone = { ...mob, dead: true } as typeof mob;
-    Object.assign(state.player, { x: 500, y: 500, hp: 1e9, maxHp: 1e9 });
+    Object.assign(state.player, { x: 500, y: 500, hp: 1e9, maxHp: 1e9, damage: 1_000 });
     for (let hit = 0; hit < 40; hit++) {
       state.player.hurtClock = 0; state.controller.damagePlayer(40, mob);
       // A shot from an enemy already dead draws no marble, so it cannot eat a reflect the living were owed.
@@ -216,8 +222,8 @@ describe("player attack timing", () => {
     }
     const blue = spawnDamageNumber.mock.calls.filter(call => call[5] === true);
     expect(blue).toHaveLength(12);                      // exactly 30% of 40, not a coin's luck
-    expect(mob.hp).toBe(1e9 - 12 * 20);                 // each one half of the 40 that landed
-    expect(blue.every(call => call[2] === 20 && call[4] === false)).toBe(true);
+    expect(mob.hp).toBe(1e9 - 12 * 40);                 // each one the whole 40 that landed
+    expect(blue.every(call => call[2] === 40 && call[4] === false)).toBe(true);
   });
 
   it("prioritizes an aggroed attacker over its selected farm type, then returns to farming", () => {
