@@ -125,9 +125,33 @@ function resolvedSnapshotJson(mapId: string, head: BalanceEditorState, version: 
   return json;
 }
 
+/**
+ * Parsed snapshots by their JSON. Every player on a map at one revision pins
+ * the same text, and each kill report read it, so the parse ran once a report.
+ * Frozen, since one object now serves every reader; bounded, since a revision
+ * change leaves the old texts behind.
+ */
+const parsedSnapshots = new Map<string, MapBalanceSnapshot>();
+const PARSED_SNAPSHOT_LIMIT = 128;
+function deepFreeze<T>(value: T): T {
+  if (value && typeof value === "object" && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const child of Object.values(value)) deepFreeze(child);
+  }
+  return value;
+}
+export function parsedMapBalance(snapshotJson: string): MapBalanceSnapshot {
+  let snapshot = parsedSnapshots.get(snapshotJson);
+  if (!snapshot) {
+    if (parsedSnapshots.size >= PARSED_SNAPSHOT_LIMIT) parsedSnapshots.clear();
+    snapshot = deepFreeze(JSON.parse(snapshotJson) as MapBalanceSnapshot);
+    parsedSnapshots.set(snapshotJson, snapshot);
+  }
+  return snapshot;
+}
 export function pinnedMapBalance(ctx: Pick<Context, 'db'>, identity: Context['sender'], mapId: string): MapBalanceSnapshot | null {
   const row = ctx.db.playerMapBalance.identity.find(identity);
-  return row?.mapId === mapId ? JSON.parse(row.snapshotJson) : null;
+  return row?.mapId === mapId ? parsedMapBalance(row.snapshotJson) : null;
 }
 export function pinnedBossReward(ctx: Pick<Context, 'db'>, identity: Context['sender'], mapId: string, stat: string, fallback: number) {
   return pinnedMapBalance(ctx, identity, mapId)?.boss?.rewards[stat] ?? fallback;
@@ -143,5 +167,5 @@ export function liveMapBalance(ctx: Pick<Context, 'db'>, identity: Context['send
   const pinned = pinnedMapBalance(ctx, identity, mapId);
   if (pinned) return pinned;
   const head = balanceEditorState(ctx);
-  return JSON.parse(resolvedSnapshotJson(mapId, head, 2, Boolean(storedSettings(ctx, head.revision))));
+  return parsedMapBalance(resolvedSnapshotJson(mapId, head, 2, Boolean(storedSettings(ctx, head.revision))));
 }

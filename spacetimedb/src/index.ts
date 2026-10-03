@@ -1809,6 +1809,21 @@ const spacetimedb = schema({
 });
 export default spacetimedb;
 
+// Row-level visibility. Subscription filters are the client's own choice, so
+// without these a modified client could read where an invisible player (a
+// developer, often) is standing, or anyone's quests, drops and movement
+// frames. Rules on one table are OR'd: a row reaches its owner, and a
+// presence row reaches everyone only while its player is visible.
+export const visiblePlayerRows = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player WHERE is_visible = true");
+export const ownPlayerRow = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player WHERE identity = :sender");
+export const visibleMotionIdentityRows = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_motion_identity WHERE is_visible = true");
+export const ownMotionIdentityRow = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_motion_identity WHERE identity = :sender");
+export const visibleMapMarkerRows = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_map_marker WHERE is_visible = true");
+export const ownMapMarkerRow = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_map_marker WHERE identity = :sender");
+export const ownMotionDetailFrames = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_motion_detail_frame WHERE recipient = :sender");
+export const ownDailyQuestRow = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_daily_quest WHERE identity = :sender");
+export const ownItemDropRows = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_item_drop WHERE identity = :sender");
+
 export type ModuleViewCtx = import("spacetimedb/server").ViewCtx<InferSchema<typeof spacetimedb>>;
 export type ModuleReducerCtx = ReducerCtx<InferSchema<typeof spacetimedb>>;
 

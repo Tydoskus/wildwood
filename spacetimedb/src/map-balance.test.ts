@@ -141,7 +141,8 @@ it('serves byte-identical snapshots whether or not the caches are warm', () => {
 
  it.each(['tutorial_forest', 'ion_citadel', 'endless_40'])('restores damage for an existing %s visit without changing anything else', (mapId) => {
   const ctx = fixture(); pinMapBalance(ctx, mapId, true, 2);
-  const original = pinnedMapBalance(ctx, ctx.sender, mapId)!;
+  // Snapshots come back frozen and shared; edit a copy.
+  const original = JSON.parse(JSON.stringify(pinnedMapBalance(ctx, ctx.sender, mapId)!));
   const old = JSON.parse(JSON.stringify(original)); delete old.enemyDamageVersion;
   for (const row of [...Object.values(old.enemies), ...Object.values(old.lanes)] as any[]) row.damage = row.hp * .1;
   // A pinned reward may predate a reward buff; the damage hotfix must leave it alone.

@@ -175,7 +175,9 @@ import { describe, expect, it } from "vitest";
 // The rules live in chat-reactions.ts and dev-review.ts.
 // 6_546: map portals and arrivals moved to shared/map-gateways.ts (0.877),
 // shared with the client instead of copied by hand.
-const MAX_LINES = 6_546;
+// 6_561: row-level visibility filters (clientVisibilityFilter) must be exports
+// of the entry module; the raise is those declarations and their comment.
+const MAX_LINES = 6_561;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {
