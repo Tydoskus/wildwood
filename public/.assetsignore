@@ -1,0 +1,3 @@
+# Wrangler skips these when it uploads dist to Cloudflare. A manual deploy from a
+# Mac otherwise publishes Finder's folder metadata.
+.DS_Store
