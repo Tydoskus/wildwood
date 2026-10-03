@@ -2443,6 +2443,14 @@ export const RegularEnemyLootCursor = __t.object("RegularEnemyLootCursor", {
 });
 export type RegularEnemyLootCursor = __Infer<typeof RegularEnemyLootCursor>;
 
+export const RegularEnemyStream = __t.object("RegularEnemyStream", {
+  key: __t.string(),
+  identity: __t.identity(),
+  sequence: __t.u64(),
+  updatedAtMicros: __t.u64(),
+});
+export type RegularEnemyStream = __Infer<typeof RegularEnemyStream>;
+
 export const ReleaseAcknowledgement = __t.object("ReleaseAcknowledgement", {
   identity: __t.identity(),
   releaseId: __t.string(),

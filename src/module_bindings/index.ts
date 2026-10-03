@@ -812,12 +812,6 @@ const tablesSchema = __schema({
       { accessor: 'identity', name: 'player_identity_idx_btree', algorithm: 'btree', columns: [
         'identity',
       ] },
-      { accessor: 'byMapZone', name: 'player_map_id_is_visible_zone_x_zone_y_idx_btree', algorithm: 'btree', columns: [
-        'mapId',
-        'isVisible',
-        'zoneX',
-        'zoneY',
-      ] },
     ],
     constraints: [
       { name: 'player_identity_key', constraint: 'unique', columns: ['identity'] },
@@ -861,11 +855,6 @@ const tablesSchema = __schema({
     indexes: [
       { accessor: 'byMap', name: 'player_death_frame_map_id_idx_btree', algorithm: 'btree', columns: [
         'mapId',
-      ] },
-      { accessor: 'byMapZone', name: 'player_death_frame_map_id_zone_x_zone_y_idx_btree', algorithm: 'btree', columns: [
-        'mapId',
-        'zoneX',
-        'zoneY',
       ] },
     ],
     constraints: [
@@ -992,12 +981,6 @@ const tablesSchema = __schema({
       ] },
       { accessor: 'byMap', name: 'player_motion_identity_map_id_idx_btree', algorithm: 'btree', columns: [
         'mapId',
-      ] },
-      { accessor: 'byMapZone', name: 'player_motion_identity_map_id_is_visible_zone_x_zone_y_idx_btree', algorithm: 'btree', columns: [
-        'mapId',
-        'isVisible',
-        'zoneX',
-        'zoneY',
       ] },
       { accessor: 'networkId', name: 'player_motion_identity_network_id_idx_btree', algorithm: 'btree', columns: [
         'networkId',
