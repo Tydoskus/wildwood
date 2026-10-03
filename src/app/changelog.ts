@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.871": [
+    "Enemy camps are twice as big and enemies spread anywhere inside them, no more formations",
+    "No portal or respawn point puts you next to enemies, on any map including Endless",
+    "The World Map shows each camp's real area",
+  ],
   "0.870": [
     "The health bar slides instead of resizing, and the player card no longer blurs the game behind it: less work every frame",
   ],
@@ -2682,6 +2687,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.871": "2026-10-03",
   "0.870": "2026-10-03",
   "0.869": "2026-10-03",
   "0.868": "2026-10-02",

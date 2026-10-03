@@ -371,8 +371,7 @@ function selectionInspectorHtml() {
     fields += `<label class="field"><span>Name</span><input value="${escapeHtml(entity.name)}" maxlength="60" data-selection-field="name"></label>`;
     fields += `<div class="field"><span>Enemy mix</span><div class="enemy-mix">${entity.types.map((kind, index) => `<div class="enemy-row"><select data-camp-enemy="${index}">${enemyOptions(kind)}</select><button type="button" data-remove-enemy="${index}" aria-label="Remove ${escapeHtml(kind)}" ${entity.types.length === 1 ? "disabled" : ""}>−</button></div>`).join("")}</div><button type="button" data-action="add-enemy" ${entity.types.length >= 20 ? "disabled" : ""}>Add enemy to mix</button><p class="hint">The list repeats across the camp, so duplicate rows act as weights. Mixed enemies must award the same stat.</p></div>`;
     fields += `<div class="field-row">${numberField("Count", "count", entity.count, { min: 1, max: 100 })}${numberField("Radius", "radius", entity.radius, { min: 0, max: 1400 })}</div>`;
-    fields += `<div class="field-row">${numberField("Inner radius", "minRadius", entity.minRadius, { min: 0, max: 1200 })}<label class="field"><span>Formation</span><select data-selection-field="formation">${["scatter", "crescent", "shoal", "ranks"].map((value) => `<option value="${value}"${(entity.formation ?? "scatter") === value ? " selected" : ""}>${titleCase(value)}</option>`).join("")}</select></label></div>`;
-    fields += numberField("Rotation (degrees)", "rotationDegrees", (entity.rotation ?? 0) * 180 / Math.PI, { min: -360, max: 360, step: 1 });
+    fields += `<p class="hint">Enemies spawn anywhere inside the radius.</p>`;
     canDuplicate = canDelete = true;
   } else if (selection.kind === "portal") {
     const destinations = maps.filter((map) => map.status === "live" && map.id !== currentMap.id).map((map) => `<option value="${map.id}"${entity.destination === map.id ? " selected" : ""}>${escapeHtml(map.name)}</option>`).join("");
@@ -444,15 +443,10 @@ function bindInspector() {
 function updateSelectedField(field, value) {
   const entity = selectedEntity();
   if (!entity) return;
-  if (["x", "y", "w", "h", "s", "variant", "count", "radius", "minRadius", "width", "height", "depth"].includes(field)) {
+  if (["x", "y", "w", "h", "s", "variant", "count", "radius", "width", "height", "depth"].includes(field)) {
     entity[field] = Number(value);
     if (field === "x" || field === "y") entity[field] = Math.max(0, Math.min(4800, entity[field]));
     if (selection.kind === "portal" && field === "y") entity.depth = entity.y;
-  } else if (field === "rotationDegrees") {
-    entity.rotation = Number(value) * Math.PI / 180;
-  } else if (field === "formation") {
-    if (value === "scatter") delete entity.formation;
-    else entity.formation = value;
   } else {
     entity[field] = value;
   }
@@ -749,7 +743,7 @@ function addAt(worldPoint) {
       selection = { kind: "decor", index: currentMap.decor.length - 1 };
     } else if (addMode.kind === "camp") {
       const type = currentMap.spawnCamps[0]?.types[0] ?? (typeof catalog.enemyKinds[0] === "string" ? catalog.enemyKinds[0] : catalog.enemyKinds[0].id);
-      currentMap.spawnCamps.push({ name: "New Camp", x, y, minRadius: 120, radius: 320, count: 5, types: [type] });
+      currentMap.spawnCamps.push({ name: "New Camp", x, y, radius: 640, count: 5, types: [type] });
       selection = { kind: "camp", index: currentMap.spawnCamps.length - 1 };
     } else if (addMode.kind === "portal" && currentMap.gameplay.portals.length < 2) {
       const destination = maps.find((map) => map.status === "live" && map.id !== currentMap.id)?.id ?? "tutorial_forest";

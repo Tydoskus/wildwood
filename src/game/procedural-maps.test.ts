@@ -26,9 +26,10 @@ describe("generated campaign runtime adapters", () => {
       expect(content.decor.length).toBeGreaterThan(0);
       for (const d of content.decor) {
         expect(["rock", "grass"]).toContain(d.type);
+        // Clear of where enemies stand, not of whole regions: those cover half the map.
         expect(
-          content.camps.every(
-            (c) => Math.hypot(d.x - c.x, d.y - c.y) > c.radius + 100,
+          content.sites.every(
+            (site) => Math.hypot(d.x - site.x, d.y - site.y) > 200,
           ),
         ).toBe(true);
         expect(

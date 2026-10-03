@@ -105,6 +105,8 @@ export function proceduralPalette(index: number) {
     accent: hslHex(hue, saturation, 23),
   };
 }
+export const PROCEDURAL_CAMP_RADIUS = 660;
+export const PROCEDURAL_CAMP_JITTER = 80;
 export function proceduralMapCore(id: string) {
   const number = proceduralMapNumber(id);
   if (number === null) throw new RangeError("Invalid generated map");
@@ -115,11 +117,14 @@ export function generateMap(id: ProceduralMapId): GeneratedMap {
   const { number, tier, arrival, boss } = proceduralMapCore(id);
   const seed = Math.imul(number, 2654435761) ^ PROCEDURAL_MAP_VERSION;
   const random = mapRandom(seed);
+  // Regions doubled in 0.871 (radius 330 to 660). The slots were pushed apart
+  // until a region jittered anywhere within ±80 still clears its neighbours by
+  // 120, the arrival by 450 and the boss's 900 arena (src/game/world.test.ts).
   const slots = [
-    { x: 1150, y: 1250 },
-    { x: 3050, y: 1100 },
-    { x: 1250, y: 2650 },
-    { x: 3250, y: 2550 },
+    { x: 1150, y: 1120 },
+    { x: 2970, y: 900 },
+    { x: 1200, y: 2790 },
+    { x: 3620, y: 2430 },
   ];
   const lanes: Array<[ForestProgressionLane, RewardStat]> = [
     ["Cindermaw", "damage"],
@@ -132,13 +137,13 @@ export function generateMap(id: ProceduralMapId): GeneratedMap {
     [lanes[i], lanes[j]] = [lanes[j], lanes[i]];
   }
   const camps = slots.map((slot, i) => ({
-    x: slot.x + Math.round((random() - 0.5) * 260),
-    y: slot.y + Math.round((random() - 0.5) * 260),
+    x: slot.x + Math.round((random() - 0.5) * 2 * PROCEDURAL_CAMP_JITTER),
+    y: slot.y + Math.round((random() - 0.5) * 2 * PROCEDURAL_CAMP_JITTER),
     name: `${["Damage", "Health", "Armor", "Regen"][["damage", "health", "armor", "regen"].indexOf(lanes[i][1])]} Camp`,
     lane: lanes[i][0],
     stat: lanes[i][1],
     count: lanes[i][1] === "damage" ? 13 : lanes[i][1] === "regen" ? 8 : 6,
-    radius: 330,
+    radius: PROCEDURAL_CAMP_RADIUS,
   }));
   const paths: MapPath[] = [
     { x: PORTAL_CENTER.x - 240, y: PORTAL_CENTER.y - 230, w: 480, h: 470 },

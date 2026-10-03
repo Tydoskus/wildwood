@@ -13,6 +13,7 @@ import {
   type ItemId,
 } from "../../shared/items";
 import { WORLD } from "../game/constants";
+import { mapSpawnCamps } from "../game/world";
 import { ENEMY_TYPES, REWARD_DATA, type RewardType } from "../game/enemies";
 import { itemPresentation } from "../game/item-presentation";
 import { drawPortalMapMarker } from "../game/portal-presentation";
@@ -133,8 +134,12 @@ export function mapGuideDrops(mapId: MapId): readonly MapGuideDrop[] {
   return [...regularDrops, ...MAP_GUIDE_DROPS[mapId]];
 }
 
-/** Groups the live spawn layout into readable reward zones for the enlarged map. */
-export function mapGuideZones(spawnSites: readonly SpawnSite[]): MapGuideZone[] {
+/**
+ * Groups the live spawn layout into readable reward zones for the enlarged map.
+ * With the camps' regions given, a zone is its region; enemies fill whole
+ * regions now, and a circle fitted round them overlapped its neighbours.
+ */
+export function mapGuideZones(spawnSites: readonly SpawnSite[], regions: readonly { name: string; x: number; y: number; radius: number }[] = []): MapGuideZone[] {
   const groups = new Map<string, SpawnSite[]>();
   for (const site of spawnSites) {
     const group = groups.get(site.campName);
@@ -143,9 +148,11 @@ export function mapGuideZones(spawnSites: readonly SpawnSite[]): MapGuideZone[] 
   }
 
   return [...groups.entries()].map(([name, sites]) => {
-    const x = sites.reduce((sum, site) => sum + site.x, 0) / sites.length;
-    const y = sites.reduce((sum, site) => sum + site.y, 0) / sites.length;
-    const radius = Math.max(120, ...sites.map((site) => Math.hypot(site.x - x, site.y - y) + 80));
+    const region = regions.find((camp) => camp.name === name);
+    const x = region?.x ?? sites.reduce((sum, site) => sum + site.x, 0) / sites.length;
+    const y = region?.y ?? sites.reduce((sum, site) => sum + site.y, 0) / sites.length;
+    const radius = region ? Math.max(120, region.radius)
+      : Math.max(120, ...sites.map((site) => Math.hypot(site.x - x, site.y - y) + 80));
     const rewardTypes = new Set<RewardType>();
     for (const site of sites) rewardTypes.add((site.definition ?? ENEMY_TYPES[site.type]).reward.type);
     const rewards = [...rewardTypes].map((type) => ({
@@ -296,7 +303,7 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
       context.fillRect(path.x * scaleX, path.y * scaleY, path.w * scaleX, path.h * scaleY);
     }
 
-    const zones = mapGuideZones(dependencies.spawnSites);
+    const zones = mapGuideZones(dependencies.spawnSites, mapSpawnCamps(dependencies.currentMapId()));
     for (const zone of zones) {
       const radius = Math.max(16, zone.radius * Math.min(scaleX, scaleY));
       const color = zone.rewards[0]?.color ?? theme.glow;

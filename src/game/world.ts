@@ -6,10 +6,10 @@ import { createVerdantCatacombsLayout } from "./verdant-layout";
 import { createNeonBastionLayout } from "./neon-layout";
 import { HOME_EXTERIOR_MAP_ID, HOME_BENCH_POSITION, HOME_QUEST_BOARD_POSITION, HOME_RESEARCH_POSITION, HOME_ART_OFFSET, HOME_WORLD_WIDTH, HOME_WORLD_HEIGHT } from "../../shared/home";
 import { createExpansionLayout } from "./expansion-layouts";
-import { BOSS_ENEMY_SAFE_DISTANCE, WORLD } from "./constants";
+import { WORLD } from "./constants";
 import { CAMPS, ENEMY_TYPES, type EnemyKind } from "./enemies";
 import { savedMapDesign } from "./map-design";
-import { clamp } from "./math";
+import { isNearRegionSpawns, regionSpawnPoints } from "./region-scatter";
 
 export type WorldPath = { x: number; y: number; w: number; h: number };
 type WorldDecorPlacement = { x: number; y: number; color?: string };
@@ -84,7 +84,12 @@ export type MapId =
 import { DESERT_CAMPS, SNOW_CAMPS, LAVA_CAMPS, INFERNAL_CAMPS, WATER_CAMPS, SAMURAI_CAMPS, CLOUDSPIRE_CAMPS, MOONFEN_CAMPS, CRYSTAL_HOLLOWS_CAMPS, CLOCKWORK_RUINS_CAMPS, DUSKFALL_ORCHARD_CAMPS, NEON_BASTION_CAMPS, VERDANT_CATACOMBS_CAMPS, ION_CITADEL_CAMPS, type SpawnCamp } from "../../shared/enemy-camps";
 export type { SpawnCamp } from "../../shared/enemy-camps";
 
-const CAMP_CLEARANCE = 160;
+/**
+ * Regions may not touch. They used to keep 160 apart, but at twice their old
+ * size (0.871) the forest's nine fit only closer; every map was laid out by
+ * pushing its centres apart until this and the arrival and boss clearances held.
+ */
+const CAMP_CLEARANCE = 20;
 
 function assertCampContracts(camps: readonly SpawnCamp[]) {
   for (const camp of camps) {
@@ -106,8 +111,9 @@ function assertCampContracts(camps: readonly SpawnCamp[]) {
   }
 }
 
+/** Decor keeps clear of where enemies actually spawn, not of whole regions: those cover half a map. */
 function isNearSpawnCamp(camps: readonly SpawnCamp[], x: number, y: number, padding: number) {
-  return camps.some((camp) => Math.hypot(x - camp.x, y - camp.y) < camp.radius + padding);
+  return isNearRegionSpawns(camps, x, y, padding);
 }
 
 function seededUnit(index: number, salt: number) {
@@ -132,59 +138,6 @@ function seededCampTypes(camp: SpawnCamp, campIndex: number, mapSeed: number) {
     [types[index], types[swapIndex]] = [types[swapIndex], types[index]];
   }
   return types;
-}
-
-function rotateOffset(x: number, y: number, rotation: number) {
-  return {
-    x: x * Math.cos(rotation) - y * Math.sin(rotation),
-    y: x * Math.sin(rotation) + y * Math.cos(rotation),
-  };
-}
-
-function campSpawnOffset(camp: SpawnCamp, index: number, campIndex: number, mapSeed: number) {
-  const variation = mapSeed ? 1 : 0;
-  const rotationJitter = (seededUnit(campIndex + 1, mapSeed + 11) - .5) * .36 * variation;
-  const rotation = (camp.rotation ?? campIndex * .71) + rotationJitter;
-  const angleJitter = (seededUnit(index + campIndex * 17, mapSeed + 23) - .5) * .18 * variation;
-  const distanceScale = 1 + (seededUnit(index + campIndex * 19, mapSeed + 41) - .5) * .12 * variation;
-  if (camp.formation === "crescent") {
-    const progress = camp.count <= 1 ? .5 : index / (camp.count - 1);
-    const angle = rotation + (progress - .5) * 2.35 + angleJitter;
-    const baseDistance = camp.minRadius + (camp.radius - camp.minRadius) * (.62 + (index % 2) * .33);
-    const distance = clamp(baseDistance * distanceScale, camp.minRadius, camp.radius);
-    return { x: Math.cos(angle) * distance, y: Math.sin(angle) * distance };
-  }
-  if (camp.formation === "shoal") {
-    const centeredIndex = index - (camp.count - 1) / 2;
-    const spacing = Math.min(142, camp.radius * .36);
-    const jitter = Math.min(16, spacing * .16) * variation;
-    const localX = centeredIndex * spacing + (seededUnit(index, mapSeed + 53) - .5) * jitter * 2;
-    const localY = Math.abs(centeredIndex) * spacing * .46 - camp.radius * .2 +
-      (seededUnit(index, mapSeed + 59) - .5) * jitter * 2;
-    return rotateOffset(localX, localY, rotation);
-  }
-  if (camp.formation === "ranks") {
-    const columns = 3;
-    const row = Math.floor(index / columns);
-    const rowStart = row * columns;
-    const itemsInRow = Math.min(columns, camp.count - rowStart);
-    const column = index - rowStart;
-    const rows = Math.ceil(camp.count / columns);
-    const spacingX = Math.min(170, camp.radius * .42);
-    const spacingY = Math.min(185, camp.radius * .44);
-    const jitter = Math.min(14, spacingX * .12) * variation;
-    const localX = (column - (itemsInRow - 1) / 2) * spacingX +
-      (seededUnit(index, mapSeed + 67) - .5) * jitter * 2;
-    const localY = (row - (rows - 1) / 2) * spacingY +
-      (seededUnit(index, mapSeed + 71) - .5) * jitter * 2;
-    return rotateOffset(localX, localY, rotation);
-  }
-  const angle = index * 2.399963 + rotation + angleJitter;
-  const fraction = mapSeed
-    ? seededUnit(index + campIndex * 29, mapSeed + 83)
-    : ((index * 37 + campIndex * 19) % 101) / 100;
-  const distance = camp.minRadius + (camp.radius - camp.minRadius) * fraction;
-  return { x: Math.cos(angle) * distance, y: Math.sin(angle) * distance };
 }
 
 function createDesertLayout() {
@@ -741,7 +694,8 @@ export function mapSpawnCamps(mapId: MapId = TUTORIAL_FOREST_MAP_ID): readonly S
                     : mapId === CLOCKWORK_RUINS_MAP_ID ? CLOCKWORK_RUINS_CAMPS : mapId === ION_CITADEL_MAP_ID ? ION_CITADEL_CAMPS : mapId === VERDANT_CATACOMBS_MAP_ID ? VERDANT_CATACOMBS_CAMPS : mapId === NEON_BASTION_MAP_ID ? NEON_BASTION_CAMPS : mapId === DUSKFALL_ORCHARD_MAP_ID ? DUSKFALL_ORCHARD_CAMPS : CAMPS;
 }
 
-export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID): SpawnSite[] {
+/** `_boss` is kept for callers: regions are laid out clear of the boss, so nothing is pushed from it any more. */
+export function createSpawnSites(_boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID): SpawnSite[] {
   if (isProceduralMap(mapId)) return generatedMapContent(mapId).sites;
   if (mapId === HOME_EXTERIOR_MAP_ID || mapId === ONBOARDING_MAP_ID) return [];
   const sites: SpawnSite[] = [];
@@ -755,26 +709,16 @@ export function createSpawnSites(boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP
   // layouts gain variety, but every client still derives identical sites.
   // This seed is part of the existing world layout, independent of the game's display name.
   const mapSeed = mapId === TUTORIAL_FOREST_MAP_ID ? 0 : stableStringSeed(`wildwood-spawns-v2:${mapId}`);
-  const editedBoss = savedMapDesign(mapId)?.gameplay.boss;
   let id = 0;
   for (let campIndex = 0; campIndex < camps.length; campIndex += 1) {
     const camp = camps[campIndex];
     const campTypes = seededCampTypes(camp, campIndex, mapSeed);
+    // Anywhere in the region. Regions are laid out clear of the arrival and
+    // of the boss's arena (world.test.ts holds every map to it), so nothing
+    // has to be pushed out of either here.
+    const points = regionSpawnPoints(camp, WORLD.w, WORLD.h);
     for (let index = 0; index < camp.count; index += 1) {
-      const offset = campSpawnOffset(camp, index, campIndex, mapSeed);
-      let x = clamp(camp.x + offset.x, 45, WORLD.w - 45);
-      let y = clamp(camp.y + offset.y, 45, WORLD.h - 45);
-      if (mapId === TUTORIAL_FOREST_MAP_ID || mapId === ADVANCED_LAVA_WASTES_MAP_ID || mapId === INFERNAL_DEPTHS_MAP_ID || mapId === WATER_REACH_MAP_ID || mapId === SAMURAI_GARDEN_MAP_ID || mapId === CLOUDSPIRE_MAP_ID || mapId === MOONFEN_MAP_ID || mapId === CRYSTAL_HOLLOWS_MAP_ID || mapId === CLOCKWORK_RUINS_MAP_ID || mapId === DUSKFALL_ORCHARD_MAP_ID || mapId === NEON_BASTION_MAP_ID || mapId === VERDANT_CATACOMBS_MAP_ID) {
-        const activeBoss = editedBoss ?? (mapId === TUTORIAL_FOREST_MAP_ID ? boss : { x: 4050, y: 4050 });
-        const bossDx = x - activeBoss.x;
-        const bossDy = y - activeBoss.y;
-        const bossDistance = Math.hypot(bossDx, bossDy) || 1;
-        if (bossDistance < BOSS_ENEMY_SAFE_DISTANCE) {
-          const safeDistance = BOSS_ENEMY_SAFE_DISTANCE + 1;
-          x = clamp(activeBoss.x + bossDx / bossDistance * safeDistance, 45, WORLD.w - 45);
-          y = clamp(activeBoss.y + bossDy / bossDistance * safeDistance, 45, WORLD.h - 45);
-        }
-      }
+      const { x, y } = points[index];
       const type = campTypes[index];
       sites.push({
         id: id++, x, y, campName: camp.name, type,

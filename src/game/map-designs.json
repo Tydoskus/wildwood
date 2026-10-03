@@ -3120,10 +3120,9 @@
       "spawnCamps": [
         {
           "name": "Ember Fen",
-          "x": 850,
-          "y": 1700,
-          "minRadius": 230,
-          "radius": 420,
+          "x": 480,
+          "y": 2020,
+          "radius": 840,
           "count": 6,
           "types": [
             "Bramble"
@@ -3133,10 +3132,9 @@
         },
         {
           "name": "Thornshot Rise",
-          "x": 1750,
-          "y": 800,
-          "minRadius": 210,
-          "radius": 360,
+          "x": 2150,
+          "y": 520,
+          "radius": 720,
           "count": 5,
           "types": [
             "Spitter"
@@ -3146,10 +3144,9 @@
         },
         {
           "name": "Glass Thicket",
-          "x": 2450,
-          "y": 2400,
-          "minRadius": 210,
-          "radius": 360,
+          "x": 2950,
+          "y": 1760,
+          "radius": 720,
           "count": 5,
           "types": [
             "Needle"
@@ -3159,10 +3156,9 @@
         },
         {
           "name": "Brine Marsh",
-          "x": 4150,
-          "y": 2300,
-          "minRadius": 220,
-          "radius": 380,
+          "x": 4360,
+          "y": 2330,
+          "radius": 760,
           "count": 7,
           "types": [
             "Brood"
@@ -3172,10 +3168,9 @@
         },
         {
           "name": "Mossfall Ruins",
-          "x": 850,
-          "y": 2850,
-          "minRadius": 230,
-          "radius": 400,
+          "x": 1900,
+          "y": 2910,
+          "radius": 800,
           "count": 6,
           "types": [
             "Mossback"
@@ -3185,10 +3180,9 @@
         },
         {
           "name": "Cinder Quarry",
-          "x": 4000,
-          "y": 900,
-          "minRadius": 230,
-          "radius": 400,
+          "x": 4140,
+          "y": 740,
+          "radius": 800,
           "count": 6,
           "types": [
             "Cindermaw",
@@ -3201,10 +3195,9 @@
         },
         {
           "name": "Moonroot Grove",
-          "x": 1150,
-          "y": 4200,
-          "minRadius": 200,
-          "radius": 360,
+          "x": 960,
+          "y": 4190,
+          "radius": 720,
           "count": 4,
           "types": [
             "Bramble"
@@ -3214,10 +3207,9 @@
         },
         {
           "name": "Sunken Yard",
-          "x": 2700,
-          "y": 4100,
-          "minRadius": 200,
-          "radius": 360,
+          "x": 2430,
+          "y": 4380,
+          "radius": 720,
           "count": 4,
           "types": [
             "Mossback"
@@ -3227,10 +3219,9 @@
         },
         {
           "name": "Royal Hollow",
-          "x": 3750,
-          "y": 3550,
-          "minRadius": 150,
-          "radius": 260,
+          "x": 3260,
+          "y": 3060,
+          "radius": 520,
           "count": 2,
           "types": [
             "King Slime"
@@ -6205,10 +6196,9 @@
       "spawnCamps": [
         {
           "name": "Sunbaked Burrow",
-          "x": 1120,
-          "y": 1160,
-          "minRadius": 150,
-          "radius": 350,
+          "x": 1040,
+          "y": 1870,
+          "radius": 700,
           "count": 6,
           "types": [
             "Dune Raider"
@@ -6216,10 +6206,9 @@
         },
         {
           "name": "Copper Flats",
-          "x": 2780,
-          "y": 1260,
-          "minRadius": 180,
-          "radius": 410,
+          "x": 2490,
+          "y": 880,
+          "radius": 820,
           "count": 6,
           "types": [
             "Dune Archer",
@@ -6232,10 +6221,9 @@
         },
         {
           "name": "Oracle Mesa",
-          "x": 4140,
-          "y": 780,
-          "minRadius": 90,
-          "radius": 230,
+          "x": 4150,
+          "y": 750,
+          "radius": 460,
           "count": 5,
           "types": [
             "Blight Oracle"
@@ -6243,9 +6231,8 @@
         },
         {
           "name": "Reaper Approach",
-          "x": 1740,
-          "y": 1420,
-          "minRadius": 0,
+          "x": 1770,
+          "y": 1480,
           "radius": 0,
           "count": 1,
           "types": [
@@ -6254,10 +6241,9 @@
         },
         {
           "name": "Needle Dunes",
-          "x": 3950,
-          "y": 2550,
-          "minRadius": 200,
-          "radius": 470,
+          "x": 3800,
+          "y": 2230,
+          "radius": 940,
           "count": 7,
           "types": [
             "Venom Guard"
@@ -6267,8 +6253,7 @@
           "name": "Drybone Basin",
           "x": 2050,
           "y": 3650,
-          "minRadius": 210,
-          "radius": 490,
+          "radius": 980,
           "count": 7,
           "types": [
             "Venom Guard"
@@ -7894,23 +7879,19 @@
       "spawnCamps": [
         {
           "name": "Zephyr Landing",
-          "x": 1050,
-          "y": 1350,
-          "minRadius": 230,
-          "radius": 400,
+          "x": 1370,
+          "y": 1740,
+          "radius": 800,
           "count": 6,
           "types": [
             "Gale Prowler"
-          ],
-          "formation": "crescent",
-          "rotation": -0.25
+          ]
         },
         {
           "name": "Nimbus Causeway",
-          "x": 3000,
-          "y": 900,
-          "minRadius": 230,
-          "radius": 400,
+          "x": 2990,
+          "y": 880,
+          "radius": 800,
           "count": 6,
           "types": [
             "Nimbus Archer",
@@ -7919,48 +7900,37 @@
             "Nimbus Archer",
             "Nimbus Archer",
             "Nimbus Regent"
-          ],
-          "formation": "ranks",
-          "rotation": 0.2
+          ]
         },
         {
           "name": "Sunvault Bastion",
-          "x": 4100,
-          "y": 2350,
-          "minRadius": 250,
-          "radius": 440,
+          "x": 4040,
+          "y": 2270,
+          "radius": 880,
           "count": 7,
           "types": [
             "Skyguard Colossus"
-          ],
-          "formation": "crescent",
-          "rotation": 1.15
+          ]
         },
         {
           "name": "Thunderhead",
-          "x": 1000,
-          "y": 3600,
-          "minRadius": 240,
-          "radius": 420,
+          "x": 840,
+          "y": 3540,
+          "radius": 840,
           "count": 7,
           "types": [
             "Thunder Reaper"
-          ],
-          "formation": "crescent",
-          "rotation": -0.45
+          ]
         },
         {
           "name": "Eye of the Storm",
-          "x": 2600,
-          "y": 4050,
-          "minRadius": 210,
-          "radius": 380,
+          "x": 2390,
+          "y": 4130,
+          "radius": 760,
           "count": 6,
           "types": [
             "Tempest Oracle"
-          ],
-          "formation": "ranks",
-          "rotation": 0.15
+          ]
         }
       ],
       "gameplay": {

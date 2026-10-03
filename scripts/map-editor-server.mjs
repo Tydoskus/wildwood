@@ -55,7 +55,6 @@ const variantDecor = new Set([
   "snowTuft", "lavaPool", "lavaRock", "charredTree", "coral", "shell", "cloud",
   "skyShard", "gear", "pumpkin", "glowMushroom", "lilyPad",
 ]);
-const formations = new Set(["scatter", "crescent", "shoal", "ranks"]);
 const cssColorPattern = /^(#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})|rgba?\([\d\s.,%+-]+\)|hsla?\([\d\s.,%+-]+\))$/i;
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -172,14 +171,10 @@ function normalizeDesign(value, enemyKinds, enemyRewards) {
     const normalized = {
       name: text(camp.name, `Camp ${index + 1} name`, 60),
       ...point(camp, `Camp ${index + 1}`),
-      minRadius: number(camp.minRadius ?? 0, `Camp ${index + 1} inner radius`, 0, 1200),
       radius: number(camp.radius, `Camp ${index + 1} radius`, 0, 1400),
       count: Math.round(number(camp.count, `Camp ${index + 1} count`, 1, 100)),
       types: [...camp.types],
     };
-    if (normalized.minRadius > normalized.radius) throw new Error(`Camp ${index + 1} inner radius cannot exceed its radius.`);
-    if (camp.formation && formations.has(camp.formation)) normalized.formation = camp.formation;
-    if (camp.rotation !== undefined) normalized.rotation = number(camp.rotation, `Camp ${index + 1} rotation`, -6.284, 6.284);
     if (camp.ground) normalized.ground = color(camp.ground, `Camp ${index + 1} ground color`);
     if (camp.ring) normalized.ring = color(camp.ring, `Camp ${index + 1} ring color`);
     if (new Set(normalized.types.map((kind) => enemyRewards.get(kind))).size > 1) {
@@ -191,7 +186,8 @@ function normalizeDesign(value, enemyKinds, enemyRewards) {
     for (let right = left + 1; right < spawnCamps.length; right += 1) {
       const first = spawnCamps[left];
       const second = spawnCamps[right];
-      if (Math.hypot(first.x - second.x, first.y - second.y) < first.radius + second.radius + 160) {
+      // Same clearance as CAMP_CLEARANCE in src/game/world.ts.
+      if (Math.hypot(first.x - second.x, first.y - second.y) < first.radius + second.radius + 20) {
         throw new Error(`${first.name} overlaps ${second.name}. Move the camps farther apart or reduce their radii.`);
       }
     }

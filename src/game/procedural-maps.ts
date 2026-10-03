@@ -10,6 +10,7 @@ import {
 import { campaignMeleeChaseSpeed } from "../../shared/enemy-definitions";
 import { ENEMY_TYPES, type EnemyKind } from "./enemies";
 import type { SpawnSite, SpawnCamp, WorldDecor } from "./world";
+import { isNearRegionSpawns, regionSpawnPoints } from "./region-scatter";
 
 export { GENERATED_ENEMY_ART, generatedEnemyArt } from "../../shared/procedural-enemy-art";
 import { GENERATED_ENEMY_MAX_RADIUS, generatedEnemyArt } from "../../shared/procedural-enemy-art";
@@ -18,20 +19,19 @@ export function generatedMapContent(id: ProceduralMapId) {
   const random = mapRandom(map.seed ^ 0x34ac913);
   const kind = generatedEnemyArt(id);
   const kinds = [kind];
-  const camps: SpawnCamp[] = map.camps.map(camp => ({
-    ...camp, minRadius: 140, types: kinds,
-  }));
+  const camps: SpawnCamp[] = map.camps.map(camp => ({ ...camp, types: kinds }));
   const sites: SpawnSite[] = [];
   for (let i = 0; i < map.camps.length; i++) {
     const camp = map.camps[i];
+    // Anywhere in the region, like the campaign; site order and counts per
+    // camp are what the server's site:N kill ids rely on, and they are unchanged.
+    const points = regionSpawnPoints(camps[i]);
     for (let j = 0; j < camp.count; j++) {
-      const angle = (j / camp.count) * Math.PI * 2;
-      const radius = 170 + random() * 120;
       const elite = camp.stat === "damage" && j >= 6;
       sites.push({
         id: sites.length,
-        x: camp.x + Math.cos(angle) * radius,
-        y: camp.y + Math.sin(angle) * radius,
+        x: points[j].x,
+        y: points[j].y,
         type: kind,
         campName: camp.name,
         leashRange: 600,
@@ -56,7 +56,7 @@ export function generatedMapContent(id: ProceduralMapId) {
       Math.hypot(x - map.boss.x, y - map.boss.y) < 750
     )
       continue;
-    if (map.camps.some((c) => Math.hypot(x - c.x, y - c.y) < c.radius + 150))
+    if (isNearRegionSpawns(camps, x, y, 150))
       continue;
     if (
       map.paths.some(

@@ -18,7 +18,10 @@ import {
   WATER_REACH_MAP_ID,
   createSpawnSites,
   createWorldLayout,
+  mapSpawnCamps,
 } from "./world";
+import { savedMapDesign } from "./map-design";
+import { generatedMapContent } from "./procedural-maps";
 
 describe("Advanced Lava Lake", () => {
   it("builds a deterministic lava environment without overlapping rocks or ember dots", () => {
@@ -363,6 +366,52 @@ describe("regional group aggro", () => {
     expect(createSpawnSites({ x: 4050, y: 4050 }, mapId)).toEqual(sites);
     if (mapId === BEGINNER_DESERT_MAP_ID) {
       expect(grouped.some((site) => site.type === "Dune Archer")).toBe(true);
+    }
+  });
+});
+
+describe("enemy regions (0.871)", () => {
+  const CAMPAIGN = [
+    TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID,
+    INFERNAL_DEPTHS_MAP_ID, WATER_REACH_MAP_ID, SAMURAI_GARDEN_MAP_ID, CLOUDSPIRE_MAP_ID, MOONFEN_MAP_ID,
+    CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID,
+    "neon_bastion", "verdant_catacombs", "ion_citadel",
+  ] as const;
+  /** Past an elite's 300 aggro with room to spare: a player who walks through a portal lands clear of every enemy. */
+  const ARRIVAL_ENEMY_CLEARANCE = 450;
+  const bossOf = (mapId: string) => savedMapDesign(mapId as never)?.gameplay.boss ?? { x: 4050, y: 4050 };
+
+  it.each(CAMPAIGN)("keeps %s's arrival, boss arena and map edge clear, and every enemy inside its region", (mapId) => {
+    const { arrival } = createGameBootstrap().mapConfig[mapId];
+    const camps = mapSpawnCamps(mapId);
+    const sites = createSpawnSites({ x: 4040, y: 4240 }, mapId);
+    const boss = bossOf(mapId);
+    expect(sites).toHaveLength(camps.reduce((sum, camp) => sum + camp.count, 0));
+    for (const site of sites) {
+      const camp = camps.find(c => c.name === site.campName)!;
+      expect(Math.hypot(site.x - arrival.x, site.y - arrival.y)).toBeGreaterThanOrEqual(ARRIVAL_ENEMY_CLEARANCE);
+      expect(Math.hypot(site.x - boss.x, site.y - boss.y)).toBeGreaterThan(900);
+      expect(Math.hypot(site.x - camp.x, site.y - camp.y)).toBeLessThanOrEqual(camp.radius + .001);
+      expect(site.x).toBeGreaterThanOrEqual(45); expect(site.x).toBeLessThanOrEqual(4755);
+      expect(site.y).toBeGreaterThanOrEqual(45); expect(site.y).toBeLessThanOrEqual(4755);
+    }
+    // Spread across the region, not stacked: campmates keep apart.
+    for (const camp of camps) {
+      const mates = sites.filter(s => s.campName === camp.name);
+      for (let a = 0; a < mates.length; a++) for (let b = a + 1; b < mates.length; b++) {
+        expect(Math.hypot(mates[a].x - mates[b].x, mates[a].y - mates[b].y)).toBeGreaterThan(camp.radius * .25);
+      }
+    }
+  });
+
+  it("lands Endless arrivals clear of every enemy and keeps them out of the boss's arena, on every map", () => {
+    for (let n = 1; n <= 300; n++) {
+      const sites = createSpawnSites({ x: 4050, y: 4050 }, `endless_${n}` as never);
+      const { arrival, boss } = generatedMapContent(`endless_${n}`).map;
+      for (const site of sites) {
+        expect(Math.hypot(site.x - arrival.x, site.y - arrival.y)).toBeGreaterThanOrEqual(ARRIVAL_ENEMY_CLEARANCE);
+        expect(Math.hypot(site.x - boss.x, site.y - boss.y)).toBeGreaterThan(900);
+      }
     }
   });
 });
