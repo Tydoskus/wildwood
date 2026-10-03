@@ -139,6 +139,12 @@
     scrollbar-color: rgba(205, 216, 208, .62) transparent;
     scrollbar-width: thin;
   }
+  /* Safari on a Mac lifts an image out of the page when a click drags it a
+     pixel, and a firm trackpad click opens its own preview of it: a player
+     tapping the settings gear saw the gear fill the screen. Images never
+     drag, and an icon inside a button leaves the click to the button. */
+  img { -webkit-user-drag: none; }
+  button img { pointer-events: none; }
 
   *::-webkit-scrollbar { width: 7px; height: 7px; background: transparent; }
   *::-webkit-scrollbar-track,
