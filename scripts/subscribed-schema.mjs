@@ -7,6 +7,10 @@
 //   node scripts/subscribed-schema.mjs            check (part of check:release)
 //   node scripts/subscribed-schema.mjs --stamp    record the current columns
 //
+// Each column is stamped as "name:type" (type as the bindings declare it, minus
+// key and wire-name markers), so a changed type is caught as well as a changed
+// list. An entry stamped before types were recorded compares by name alone.
+//
 // A changed column list on an existing table needs a PROTOCOL_VERSION bump
 // (old clients are then turned away at registerProtocol and reload). New or
 // removed tables are safe and only need a restamp.
@@ -24,19 +28,27 @@ async function protocolVersion() {
   return Number(match[1]);
 }
 
+/** `__t.u64().primaryKey().name("x")` -> `u64`; nested types keep their shape: `array(u64)`. */
+export function columnType(declaration) {
+  return declaration.replace(/__t\./g, "").replace(/\.(primaryKey|unique|index|autoInc|name)\([^)]*\)/g, "").replace(/\(\)/g, "").trim();
+}
+
 export async function currentTables() {
   const tables = {};
   for (const file of (await readdir(bindings)).filter(name => name.endsWith("_table.ts")).sort()) {
     const source = await readFile(resolve(bindings, file), "utf8");
     const body = source.match(/__t\.row\(\{([\s\S]*?)\n\}\);/);
     if (!body) throw new Error(`Unrecognised binding layout: src/module_bindings/${file}`);
-    tables[file.replace(/_table\.ts$/, "")] = [...body[1].matchAll(/^\s+([A-Za-z0-9_]+):/gm)].map(match => match[1]);
+    tables[file.replace(/_table\.ts$/, "")] = [...body[1].matchAll(/^\s+([A-Za-z0-9_]+): (.*?),?$/gm)]
+      .map(([, name, type]) => `${name}:${columnType(type)}`);
   }
   return tables;
 }
 
+const sameColumn = (stamped, current) => stamped.includes(":") ? stamped === current : stamped === current.split(":")[0];
 export function changedTables(stamped, current) {
-  return Object.keys(current).filter(name => name in stamped && stamped[name].join(",") !== current[name].join(","));
+  return Object.keys(current).filter(name => name in stamped && (stamped[name].length !== current[name].length
+    || stamped[name].some((column, index) => !sameColumn(column, current[name][index]))));
 }
 
 async function main() {

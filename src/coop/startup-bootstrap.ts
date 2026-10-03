@@ -4,6 +4,7 @@ import { AUDIO_UNSYNCED_KEY, MUSIC_VOLUME_KEY } from "../game/runtime/game-setti
 import {
   createStartupAuthGate,
   loadDeferredGameBundle,
+  prefetchDeferredGameBundle,
   type StartupAccountState,
   type StartupActionResult,
 } from "./startup-auth-gate";
@@ -58,6 +59,8 @@ export function startStartupBootstrap(dependencies: StartupBootstrapDependencies
   }).start();
   // A usable sign-in shell is healthy even when offline; never gate OTA health on server login.
   requestAnimationFrame(() => signalNativeBootReady());
+  const whenIdle = window.requestIdleCallback ?? ((callback: () => void) => window.setTimeout(callback, 2_000));
+  whenIdle(() => { if (!gameBundleRequested) prefetchDeferredGameBundle(); });
 
   void Promise.resolve()
     .then(() => dependencies.restoreKnownAccount())

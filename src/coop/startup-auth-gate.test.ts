@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createStartupAuthGate, loadDeferredGameBundle, requestDeferredGameAssets, type StartupAuthElements } from "./startup-auth-gate";
+import { createStartupAuthGate, loadDeferredGameBundle, prefetchDeferredGameBundle, requestDeferredGameAssets, type StartupAuthElements } from "./startup-auth-gate";
 
 class FakeElement {
   hidden = false;
@@ -368,6 +368,25 @@ describe("startup auth gate", () => {
 });
 
 describe("deferred game assets", () => {
+  function prefetchDocument(present: string[] = []) {
+    const appended: Record<string, string>[] = [];
+    const doc = {
+      head: { append: (link: Record<string, string>) => { appended.push(link); present.push(link.id); } },
+      getElementById: (id: string) => id === "wildstatCoopScript" ? { dataset: { gameSrc: "assets/wildstat/game.abc.js" } } : present.includes(id) ? {} : null,
+      createElement: () => ({}),
+    } as unknown as Document;
+    return { doc, appended };
+  }
+  it("prefetches game.js once from the sign-in screen", () => {
+    const { doc, appended } = prefetchDocument();
+    expect(prefetchDeferredGameBundle(doc, false)).toBe(true);
+    expect(prefetchDeferredGameBundle(doc, false)).toBe(false);
+    expect(appended).toEqual([{ id: "wildstatGamePrefetch", rel: "prefetch", as: "script", href: "assets/wildstat/game.abc.js" }]);
+  });
+  it("does not prefetch under Data Saver or once game.js is loading", () => {
+    expect(prefetchDeferredGameBundle(prefetchDocument().doc, true)).toBe(false);
+    expect(prefetchDeferredGameBundle(prefetchDocument(["wildstatGameScript"]).doc, false)).toBe(false);
+  });
   it("checks the deployed version when an old hashed game bundle fails", async () => {
     const listeners = new Map<string, () => void>();
     const script = {

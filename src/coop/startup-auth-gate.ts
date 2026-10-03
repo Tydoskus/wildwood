@@ -317,6 +317,24 @@ export function requestDeferredGameAssets(documentValue = document) {
   }
 }
 
+/**
+ * Starts downloading game.js while the player is still on the sign-in screen,
+ * so pressing Play waits only for it to run. A hint the browser may ignore;
+ * skipped under Data Saver, and once the bundle is already loading.
+ */
+export function prefetchDeferredGameBundle(documentValue = document, saveData = Boolean((navigator as { connection?: { saveData?: boolean } }).connection?.saveData)) {
+  if (saveData || documentValue.getElementById("wildstatGameScript") || documentValue.getElementById("wildstatGamePrefetch")) return false;
+  const source = (documentValue.getElementById("wildstatCoopScript") as HTMLScriptElement | null)?.dataset.gameSrc;
+  if (!source) return false;
+  const link = documentValue.createElement("link");
+  link.id = "wildstatGamePrefetch";
+  link.rel = "prefetch";
+  link.as = "script";
+  link.href = source;
+  documentValue.head.append(link);
+  return true;
+}
+
 export function loadDeferredGameBundle(documentValue = document, checkForUpdate = () => enforceLatestVersion(GAME_VERSION)) {
   requestDeferredGameAssets(documentValue);
   const existing = documentValue.getElementById("wildstatGameScript") as HTMLScriptElement | null;
