@@ -23,8 +23,8 @@ const liveVersionUrls = [
   { url: "https://tydoskus.github.io/wildwood/version.json", required: true },
   { url: "https://wildstatmmo.com/version.json", required: false },
 ];
-// map-designs.json is compiled into the server module as well as the client.
-const serverPathPrefixes = ["shared/", "spacetimedb/", "src/module_bindings/", "src/game/map-designs.json"];
+// shared/ covers shared/map-designs.json, which the server module compiles too.
+const serverPathPrefixes = ["shared/", "spacetimedb/", "src/module_bindings/"];
 
 function versionParts(version) {
   if (!/^\d+(?:\.\d+)+$/.test(version)) throw new Error(`Invalid version: ${version}`);

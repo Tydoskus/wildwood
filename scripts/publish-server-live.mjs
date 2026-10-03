@@ -17,11 +17,11 @@ const allowClientBreak = process.argv.includes("--allow-client-break");
 const allowUnreleased = process.argv.includes("--allow-unreleased");
 
 /**
- * Files compiled into the server bundle. src/game/map-designs.json is imported
- * by shared/ (spawn counts and kill budgets), so a map-editor change is a
- * server change too.
+ * Files compiled into the server bundle. shared/map-designs.json (spawn counts
+ * and kill budgets) lives under shared/, so a map-editor change is a server
+ * change too.
  */
-export const SERVER_INPUTS = ["spacetimedb", "shared", "src/game/map-designs.json"];
+export const SERVER_INPUTS = ["spacetimedb", "shared"];
 
 function run(command, args, label) {
   const result = spawnSync(command, args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 600_000 });

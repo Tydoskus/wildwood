@@ -10,7 +10,7 @@ browser. Its Terminal window can be closed after the browser opens.
   scale, variants, enemy formation, and colors.
 - Use the mouse wheel to zoom and Space-drag to pan. Common undo, redo, copy,
   paste, duplicate, delete, and save keyboard shortcuts work.
-- Saving an existing map writes its layout to `src/game/map-designs.json` and
+- Saving an existing map writes its layout to `shared/map-designs.json` and
   its shared gameplay coordinates to `shared/map-editor-overrides.ts`. The
   saved source takes effect in the next game build or release.
 - New maps can start from a blank canvas or a copy of any game map and are

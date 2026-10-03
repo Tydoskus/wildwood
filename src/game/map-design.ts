@@ -1,5 +1,5 @@
 import { generateMap, isProceduralMap } from "../../shared/procedural-maps";
-import storedMapDesigns from "./map-designs.json";
+import storedMapDesigns from "../../shared/map-designs.json";
 import type { MapId, SpawnCamp, WorldDecor, WorldPath } from "./world";
 
 export const MAP_DECOR_TYPES = [

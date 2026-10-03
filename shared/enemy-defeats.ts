@@ -3,7 +3,7 @@ import type { MapBalanceSnapshot } from "./map-balance-types";
 import { personalBossDefinition } from "./personal-bosses";
 import { ENEMY_TYPES, type EnemyKind } from "./enemy-definitions";
 import * as camps from "./enemy-camps";
-import designs from "../src/game/map-designs.json";
+import designs from "./map-designs.json";
 import { generateMap, generatedEnemyStats, isProceduralMap } from "./procedural-maps";
 import { MAX_ARMOR, MAX_PLAYER_STAT, MIN_ATTACK_INTERVAL, REGULAR_ENEMY_RESPAWN_SECONDS, REGULAR_KILL_REPORT_SECONDS } from "./rules";
 

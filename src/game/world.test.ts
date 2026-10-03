@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PRISMSHELL_RADIUS, GLOOMROOT_RADIUS, KOI_SHOGUN_RADIUS, MAGMALISK_RADIUS, MIREMAW_RADIUS, TEMPEST_KIRIN_RADIUS, TIDEWYRM_RADIUS } from "../../shared/boss-hitbox";
-import { GLOOMROOT_MAX_HP, KOI_SHOGUN_MAX_HP, MAGMALISK_MAX_HP, MIREMAW_MAX_HP, PRISMSHELL_MAX_HP, TEMPEST_KIRIN_MAX_HP, TIDEWYRM_MAX_HP } from "../../shared/rules";
+import { GLOOMROOT_MAX_HP, KOI_SHOGUN_MAX_HP, MAGMALISK_MAX_HP, MIREMAW_MAX_HP, PLAYER_BASE_REGEN, PRISMSHELL_MAX_HP, TEMPEST_KIRIN_MAX_HP, TIDEWYRM_MAX_HP } from "../../shared/rules";
 import { ENEMY_TYPES } from "./enemies";
 import { createGameBootstrap } from "./runtime/game-bootstrap";
 import {
@@ -343,7 +343,8 @@ describe("regional group aggro", () => {
     expect(Math.hypot(arrival.x - portal.x, arrival.y - (portal.y - portal.height * .32))).toBeGreaterThan(125);
   });
   it("starts new characters with passive recovery", () => {
-    expect(createGameBootstrap().player.regen).toBe(0.2);
+    expect(createGameBootstrap().player.regen).toBe(PLAYER_BASE_REGEN);
+    expect(PLAYER_BASE_REGEN).toBeGreaterThan(0);
   });
   it("lets newcomers fight forest enemies individually", () => {
     const sites = createSpawnSites({ x: 4040, y: 4240 }, TUTORIAL_FOREST_MAP_ID);

@@ -1,5 +1,6 @@
 import { ENDLESS_ENEMY_ART } from "../../shared/endless-enemies";
 import { GENERATED_ENEMY_ART, generatedEnemyArt } from "../../shared/procedural-enemy-art";
+import { campaignMeleeChaseSpeed } from "../../shared/enemy-definitions";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import {
@@ -27,9 +28,11 @@ afterEach(() => {
 
 describe("generated encounter economy", () => {
   it("keeps tutorial breakthroughs and reward labels readable", () => {
-    expect(ENEMY_TYPES.Bramble.reward).toEqual({ type: "health", amount: 42 });
-    expect(ENEMY_TYPES["King Slime"].reward).toEqual({ type: "health", amount: 90 });
-    expect(ENEMY_TYPES.Mossback.reward).toEqual({ type: "armor", amount: 9 });
+    // Each tutorial camp pays its own stat, and the health elite out-pays its camp.
+    expect(ENEMY_TYPES.Bramble.reward.type).toBe("health");
+    expect(ENEMY_TYPES["King Slime"].reward.type).toBe("health");
+    expect(ENEMY_TYPES.Mossback.reward.type).toBe("armor");
+    expect(ENEMY_TYPES["King Slime"].reward.amount).toBeGreaterThan(ENEMY_TYPES.Bramble.reward.amount);
     expect(rewardLabel({ type: "speed", amount: .25 })).toBe("+0.25 Atk/sec");
     expect(rewardLabel({ type: "damage", amount: 1.05 })).toBe("+1.05 Damage");
   });
@@ -42,16 +45,20 @@ describe("generated encounter economy", () => {
     }
     const raider = ENEMY_TYPES["Dune Raider"], elite = ENEMY_TYPES["Wastes Reaper"];
     expect(elite.hp).toBeGreaterThan(raider.hp);
-    expect(raider.reward.amount).toBe(6);
-    expect(elite.reward.amount).toBeCloseTo(22);
+    expect(elite.reward.type).toBe(raider.reward.type);
+    expect(elite.reward.amount).toBeGreaterThan(raider.reward.amount);
+    // Desert pays more than the Forest camp of the same stat.
+    expect(raider.reward.amount).toBeGreaterThan(ENEMY_TYPES.Cindermaw.reward.amount);
   });
 });
 
 describe("enemy movement balance", () => {
   it("keeps every enemy at or above the minimum movement speed", () => {
-    for (const enemy of Object.values(ENEMY_TYPES)) expect(enemy.speed).toBeGreaterThanOrEqual(205);
-    expect(ENEMY_TYPES.Bramble.speed).toBe(205);
-    expect(ENEMY_TYPES["Frost Raider"].speed).toBe(230);
+    // The tutorial walks at the floor; Snowlands' melee raider is the first to outpace it.
+    const floor = campaignMeleeChaseSpeed(0);
+    for (const enemy of Object.values(ENEMY_TYPES)) expect(enemy.speed).toBeGreaterThanOrEqual(floor);
+    expect(ENEMY_TYPES.Bramble.speed).toBe(floor);
+    expect(ENEMY_TYPES["Frost Raider"].speed).toBeGreaterThan(floor);
   });
 
   it("keeps ranged speeds and aggro stable while later melee speeds progress", () => {

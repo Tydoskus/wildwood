@@ -1,23 +1,5 @@
 // Baked from live balance revision 73 (2026-09-25). Values already include campaign tuning
 // and reward boosts. Do not multiply them by the old progression reward scales again.
-export const BOSS_DAMAGE_REFERENCE = {
-  "dragon": 480,
-  "spider": 5759.411936994827,
-  "frostclaw": 16756.529600881422,
-  "magmalisk": 66033.19993650304,
-  "gloomroot": 221186.96759149324,
-  "tidewyrm": 740895.1054827704,
-  "koiShogun": 2481726.4927747804,
-  "tempestKirin": 8312872.280249446,
-  "miremaw": 27845069.047264617,
-  "prismshell": 93270754.57289095,
-  "ironhorn": 312422772.0114435,
-  "dreadreaper": 1046501541.8636277,
-  "voltwarden": 3505395813.730366,
-  "gravebloom": 11741788539.590723,
-  "aegisPrime": 39330679168.50915
-} as const;
-
 export const BOSS_DAMAGE_PROFILES = {
   "dragon": {
     "rain": 96,
@@ -96,3 +78,13 @@ export const BOSS_DAMAGE_PROFILES = {
     "contact": 19665339584.254574
   }
 } as const;
+
+/**
+ * Each boss's heaviest attack. Derived, not authored: it was a second copy of
+ * the largest value in each profile above (src/game/boss-damage.test.ts held
+ * them equal). Computed once at load, before a map snapshot can retune the
+ * profiles, so it stays the authored reference the campaign baseline expects.
+ */
+export const BOSS_DAMAGE_REFERENCE: { readonly [K in keyof typeof BOSS_DAMAGE_PROFILES]: number } = Object.freeze(
+  Object.fromEntries(Object.entries(BOSS_DAMAGE_PROFILES).map(([boss, profile]) => [boss, Math.max(...Object.values(profile))])),
+) as { readonly [K in keyof typeof BOSS_DAMAGE_PROFILES]: number };

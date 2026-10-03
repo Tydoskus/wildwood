@@ -3,7 +3,7 @@ import { CAMPAIGN_MAPS } from "./campaign-registry";
 import { ENEMY_TYPES, type EnemyDefinition } from "./enemy-definitions";
 import * as camps from "./enemy-camps";
 import * as rules from "./rules";
-import designs from "../src/game/map-designs.json";
+import designs from "./map-designs.json";
 import { BOSS_DAMAGE_REFERENCE } from "./boss-damage";
 import { desertLaneCombatValue, desertLaneRewardValue, desertBossHealthAt, bossHeavyHitAt, bossRewardValue, type ForestProgressionLane, type RewardStat } from "./progression";
 

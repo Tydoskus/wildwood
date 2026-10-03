@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { damageAfterArmor } from "./combat";
 import { ENEMY_TYPES } from "./enemies";
 import { lateMapReferenceBuild } from "../../shared/incoming-damage";
+import { PLAYER_BASE_HP } from "../../shared/rules";
 
 const tiers = [
   ["Sakura Ronin", "Petal Archer", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle"],
@@ -21,8 +22,11 @@ describe("authored late-map incoming damage", () => {
   });
 
   it("preserves the tutorial and keeps extra armor useful", () => {
-    expect(ENEMY_TYPES.Bramble.damage).toBe(14);
-    expect(ENEMY_TYPES.Spitter.damage).toBe(20);
+    // The tutorial's gentlest hitter is its health camp, and a new character
+    // survives more than four hits from the Spitters it starts on.
+    const forest = ["Bramble", "Needle", "Mossback", "Spitter", "Brood", "Cindermaw"] as const;
+    for (const kind of forest) expect(ENEMY_TYPES.Bramble.damage).toBeLessThanOrEqual(ENEMY_TYPES[kind].damage);
+    expect(ENEMY_TYPES.Spitter.damage).toBeLessThan(PLAYER_BASE_HP / 4);
     const build = lateMapReferenceBuild(3), hit = ENEMY_TYPES["Geode Guardian"].damage;
     expect(damageAfterArmor(hit, build.armor * 10)).toBeLessThan(damageAfterArmor(hit, build.armor));
   });

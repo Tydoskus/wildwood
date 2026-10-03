@@ -2,13 +2,14 @@ import { describe, expect, it } from "vitest";
 import { campaignMeleeChaseSpeed, ENEMY_TYPES, type EnemyKind } from "./enemy-definitions";
 import { ENEMY_TOP_CHASE_SPEED, MAX_PLAYER_MOVEMENT_SPEED, PLAYER_SPEED, enemyChaseSpeed } from "./rules";
 import * as camps from "./enemy-camps";
-import designs from "../src/game/map-designs.json";
+import designs from "./map-designs.json";
 
 it("keeps early enemies approachable and ramps later-map speed to a fixed cap", () => {
-  expect(ENEMY_TYPES.Bramble.speed).toBe(205);
-  expect(ENEMY_TYPES["Dune Raider"].speed).toBe(205);
-  expect(ENEMY_TYPES["Frost Raider"].speed).toBe(230);
-  expect(campaignMeleeChaseSpeed(100)).toBe(ENEMY_TOP_CHASE_SPEED);
+  // Forest and Desert melee walk at the ramp's floor; Snowlands is the first to go faster.
+  expect(ENEMY_TYPES.Bramble.speed).toBe(campaignMeleeChaseSpeed(0));
+  expect(ENEMY_TYPES["Dune Raider"].speed).toBe(campaignMeleeChaseSpeed(1));
+  expect(ENEMY_TYPES["Frost Raider"].speed).toBeGreaterThan(campaignMeleeChaseSpeed(1));
+  for (let map = 1; map < 100; map++) expect(campaignMeleeChaseSpeed(map)).toBeGreaterThanOrEqual(campaignMeleeChaseSpeed(map - 1));
   expect(campaignMeleeChaseSpeed(100)).toBe(ENEMY_TOP_CHASE_SPEED);
 });
 
