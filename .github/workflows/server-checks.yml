@@ -10,7 +10,6 @@ on:
     paths:
       - "spacetimedb/**"
       - "shared/**"
-      - "src/game/map-designs.json"
       - "src/module_bindings/**"
       - ".github/workflows/server-checks.yml"
   pull_request:

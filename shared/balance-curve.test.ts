@@ -48,7 +48,7 @@ describe("balance curve", () => {
   });
 
   it("gives each camp's elite its own health and hit, and a bigger reward than its camp", () => {
-    expect(curveEnemy(1, "health", true)).toMatchObject({ hp: 1_200, damage: 250 });   // King Slime
+    expect(curveEnemy(1, "health", true)).toMatchObject({ hp: curve.healthEliteHp, damage: curve.healthEliteHit });   // King Slime: map 1 is the unscaled table
     const regular = curveEnemy(5, "health", false), elite = curveEnemy(5, "health", true);
     expect(elite.hp).toBeCloseTo(curve.healthEliteHp * curveEnemyScale(5));
     expect(elite.damage).toBeCloseTo(curve.healthEliteHit * curveEnemyScale(5));
