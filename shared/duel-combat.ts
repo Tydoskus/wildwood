@@ -10,11 +10,18 @@ export type DuelFighter = { maxHp: number; damage: number; armor: number; regen:
  * 4: bow skills (Arrow Storm, Ricochet, Piercing Shot) roll in the fight.
  * 5: Riposte (Reflect) draws from a marble bag instead of a coin per hit.
  * 6: Riposte throws back half the hit before the defender's armor, not after.
+ * 7: a thrown-back hit is capped at the reflecting player's max health (0.867).
  */
-export const DUEL_COMBAT_VERSION = 6;
+export const DUEL_COMBAT_VERSION = 7;
 export const DUEL_BOW_SKILLS_VERSION = 4;
 export const DUEL_RIPOSTE_BAG_VERSION = 5;
 export const DUEL_RIPOSTE_PRE_ARMOR_VERSION = 6;
+export const DUEL_RIPOSTE_MAX_HP_VERSION = 7;
+/** Half the hit, and since version 7 never more than the reflecting player's own max health. */
+function riposteThrown(duel: DuelCombat, base: number, reflectorMaxHp: number) {
+  const half = base * RIPOSTE_REFLECT_SHARE;
+  return (duel.combatVersion ?? 0) >= DUEL_RIPOSTE_MAX_HP_VERSION ? Math.min(half, Math.max(0, reflectorMaxHp)) : half;
+}
 /** What Riposte throws back from one attack: the hit as it arrived since version 6, what got through before. */
 function riposteBase(duel: DuelCombat, hit: { dealt: number; blocked: number }, taken: number) {
   return (duel.combatVersion ?? 0) >= DUEL_RIPOSTE_PRE_ARMOR_VERSION ? hit.dealt + hit.blocked : taken;
@@ -143,7 +150,7 @@ export function advanceDuelCombat(
       state.opponentHp -= taken; state.challengerDamageDealt += taken;
       state.opponentBlocked += challengerHit.blocked;
       if (taken > 0 && duelRiposted(duel, "opponent", state.challengerAttacks)) {
-        const thrown = Math.min(state.challengerHp, riposteBase(duel, challengerHit, taken) * RIPOSTE_REFLECT_SHARE);
+        const thrown = Math.min(state.challengerHp, riposteThrown(duel, riposteBase(duel, challengerHit, taken), duel.opponentMaxHp));
         state.challengerHp -= thrown; state.opponentDamageDealt += thrown;
       }
     }
@@ -155,7 +162,7 @@ export function advanceDuelCombat(
       state.challengerHp -= taken; state.opponentDamageDealt += taken;
       state.challengerBlocked += opponentHit.blocked;
       if (taken > 0 && duelRiposted(duel, "challenger", state.opponentAttacks)) {
-        const thrown = Math.min(state.opponentHp, riposteBase(duel, opponentHit, taken) * RIPOSTE_REFLECT_SHARE);
+        const thrown = Math.min(state.opponentHp, riposteThrown(duel, riposteBase(duel, opponentHit, taken), duel.challengerMaxHp));
         state.opponentHp -= thrown; state.challengerDamageDealt += thrown;
       }
     }

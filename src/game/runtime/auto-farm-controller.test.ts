@@ -3,7 +3,7 @@ import { parseHTML } from 'linkedom';
 import { createBalanceApologyGiftController } from '../../ui/balance-apology-gift-controller';
 import { createGameBootstrap } from './game-bootstrap';
 import { createEnemyLifecycle } from './enemy-lifecycle';
-import { createAutoFarmController, autoFarmStandoff, AUTO_FARM_DEFEAT_LIMIT, AUTO_FARM_DEFEAT_WINDOW_MS } from './auto-farm-controller';
+import { createAutoFarmController, autoFarmStandoff, AUTO_FARM_DEFEAT_LIMIT, AUTO_FARM_DEFEAT_WINDOW_MS, AUTO_FARM_REACH_MARGIN } from './auto-farm-controller';
 import { createEnemySimulation } from './enemy-simulation';
 import { rangedEnemyHoldBand } from './ranged-enemy-range';
 import { attackRangeWithResearch } from '../../../shared/utility-research';
@@ -118,7 +118,9 @@ describe('autofarm', () => {
     const first = s.tick();
     expect(first).toEqual({ x: 1, y: 0, source: 'steer' });
     for (let i = 0; i < 300; i++) s.tick();
-    expect(s.player.x).toBeCloseTo(1344);
+    // Holds at the edge of its 200 reach: inside it, and no further in than the margin and one step.
+    expect(1500 - s.player.x).toBeLessThan(200);
+    expect(1500 - s.player.x).toBeGreaterThan(200 - AUTO_FARM_REACH_MARGIN - 6);
     expect(s.player.y).toBe(500);
     expect(s.farm.state().status).toBe('Farming');
     expect(s.farm.targetType()).toBe('Bramble');
@@ -419,10 +421,10 @@ describe("autofarm against a ranged enemy with researched attack range", () => {
     }
   });
 
-  it("keeps the base margin for melee enemies, so researched range moves the stop point out one for one", () => {
+  it("stops at the edge of full reach, research and Long Shot included, never further in", () => {
     const at = (range: number) => autoFarmStandoff({ weaponRange: range, playerAttackRange: range, melee: false, playerRadius: 18,
       destination: { x: 0, y: 0, r: 16, type: "Bramble" }, enemy: true });
-    expect(at(200).stop).toBeCloseTo(200 * .78);
+    expect(at(200).stop).toBeCloseTo(200 - AUTO_FARM_REACH_MARGIN);
     for (let rank = 1; rank <= 5; rank++) {
       const range = attackRangeWithResearch(rank);
       expect(range - at(range).stop).toBeCloseTo(200 - at(200).stop);
@@ -433,7 +435,7 @@ describe("autofarm against a ranged enemy with researched attack range", () => {
   it("gives a melee weapon its researched range on top of its own reach", () => {
     const standoff = autoFarmStandoff({ weaponRange: 75 + 50, playerAttackRange: 250, melee: true, playerRadius: 18,
       destination: { x: 0, y: 0, r: 16, type: "Bramble" }, enemy: true });
-    expect(standoff.stop).toBeCloseTo(75 * .78 + 50 + 16);
+    expect(standoff.stop).toBeCloseTo(75 + 50 + 16 - AUTO_FARM_REACH_MARGIN);
   });
 });
 

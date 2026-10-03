@@ -19,6 +19,8 @@ export const AUTO_FARM_DEFEAT_LIMIT = 5;
 export const AUTO_FARM_DEFEAT_WINDOW_MS = 180_000;
 /** Clearance kept outside a ranged enemy's back-away distance when standing to shoot it. */
 export const AUTO_FARM_RANGED_STANDOFF_MARGIN = 10;
+/** How far inside its full reach autofarm stops: enough that a target at the stop point is still in range. */
+export const AUTO_FARM_REACH_MARGIN = 6;
 
 /**
  * Where autofarm stops walking (`stop`) and how far the destination may then
@@ -42,17 +44,17 @@ export function autoFarmStandoff(options: {
 }) {
   const reachPadding = options.melee && options.enemy ? options.destination.r ?? 0 : 0;
   const reach = Math.max(8, options.weaponRange) + reachPadding;
-  // The approach margin is 22% of the weapon's unresearched reach. Researched
-  // range moves the stop point out one for one; scaling the margin with it
-  // walked a player with more range further inside their reach than needed.
-  const researched = Math.max(0, options.playerAttackRange - DEFAULT_ATTACK_RANGE);
-  let stop = Math.max(8, Math.max(0, options.weaponRange - researched) * .78 + researched) + reachPadding;
+  // Fight from the edge of the full reach, research and Long Shot included
+  // (0.867): walk only until the target is in range, never closer. The old
+  // stop sat 22% of the base reach inside it.
+  let stop = Math.max(8, reach - AUTO_FARM_REACH_MARGIN);
   const kind = options.enemy ? options.destination.type : undefined;
   const ranged = kind !== undefined && (options.destination.definition ?? ENEMY_TYPES[kind])?.ranged;
   if (ranged && !options.melee) {
     const band = rangedEnemyHoldBand(options.playerAttackRange, options.playerRadius + (options.destination.r ?? 0) + 4);
     stop = Math.min(reach, Math.max(stop, band.retreatBelow + AUTO_FARM_RANGED_STANDOFF_MARGIN));
   }
+  // Walk again a little before the target leaves reach, so the shot is never lost.
   return { stop, resume: stop + (reach - stop) / 2 };
 }
 
@@ -260,7 +262,8 @@ export function createAutoFarmController(options: {
     });
     const range = standoff.stop;
     const remaining = distance(destination);
-    holding = remaining <= (holding ? standoff.resume : standoff.stop);
+    // A pixel of slack: arriving at the stop point by floating-point steps can land a hair outside it.
+    holding = remaining <= (holding ? standoff.resume : standoff.stop) + 1;
     if (holding) {
       status = threat ? 'Defending' : target ? 'Farming' : 'Waiting for respawn';
       route = [];
@@ -276,7 +279,16 @@ export function createAutoFarmController(options: {
       const obstacles = options.obstacles();
       route = farmRoute(player, goal, obstacles, WORLD, player.r);
       // The nearest firing position can fall inside a portal avoidance circle.
-      // Approach the enemy along a full route instead; range checks still stop us early.
+      // Try other firing positions at the same range around the target, nearest
+      // first, then the target itself; range checks still stop us early.
+      if (!route.length) {
+        const away = Math.atan2(player.y - destination.y, player.x - destination.x);
+        for (const turn of [1, -1, 2, -2, 3, -3, 4]) {
+          const angle = away + turn * Math.PI / 4;
+          route = farmRoute(player, { x: destination.x + Math.cos(angle) * range, y: destination.y + Math.sin(angle) * range }, obstacles, WORLD, player.r);
+          if (route.length) break;
+        }
+      }
       if (!route.length) route = farmRoute(player, destination, obstacles, WORLD, player.r);
       lastGoal = goal;
       routeClock = .5;

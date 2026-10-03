@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { advanceDuelCombat, duelRiposted, initialDuelCombatState, DUEL_COMBAT_VERSION, DUEL_RIPOSTE_BAG_VERSION, DUEL_RIPOSTE_PRE_ARMOR_VERSION, type DuelCombat } from "./duel-combat";
+import { advanceDuelCombat, duelRiposted, initialDuelCombatState, DUEL_COMBAT_VERSION, DUEL_RIPOSTE_BAG_VERSION, DUEL_RIPOSTE_MAX_HP_VERSION, DUEL_RIPOSTE_PRE_ARMOR_VERSION, type DuelCombat } from "./duel-combat";
 import { regularEnemySeededUnit } from "./regular-enemy-simulation";
 import { PRESTIGE_PERK_MAX_RANK, RIPOSTE_REFLECT_SHARE, prestigeRiposteChance } from "./prestige-perks";
 
@@ -76,4 +76,18 @@ it("reflects half of what it takes, never more than the attacker has left", () =
   const duel = fighters({ challengerMaxHp: 10, opponentRiposte: 1, riposteSeed: 5 });
   const result = run(duel);
   expect(result.challengerHp).toBeGreaterThanOrEqual(0);
+});
+
+it("caps a thrown-back hit at the reflecting player's max health from version 7, and leaves older replays as they were", () => {
+  // A 1,000 hit at a 100-health reflector, every hit reflected, against an attacker who cannot fall.
+  const duel = (combatVersion: number) => fighters({ combatVersion, challengerDamage: 1_000, challengerMaxHp: 1_000_000,
+    opponentMaxHp: 100, opponentDamage: 0, opponentRiposte: 1, riposteSeed: 5 });
+  const thrownOnFirstHit = (combatVersion: number) => {
+    const state = advanceDuelCombat(duel(combatVersion), initialDuelCombatState(duel(combatVersion)), 0, 1_100_000);
+    expect(state.challengerAttacks).toBe(1);
+    return 1_000_000 - state.challengerHp - state.opponentAttacks;
+  };
+  expect(DUEL_COMBAT_VERSION).toBe(DUEL_RIPOSTE_MAX_HP_VERSION);
+  expect(thrownOnFirstHit(DUEL_RIPOSTE_MAX_HP_VERSION)).toBeCloseTo(100, 0);     // the reflector's 100, not half of 1,000
+  expect(thrownOnFirstHit(DUEL_RIPOSTE_MAX_HP_VERSION - 1)).toBeCloseTo(500, 0); // a version 6 replay still throws back 500
 });

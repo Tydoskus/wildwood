@@ -12,7 +12,7 @@ import { ENEMY_TYPES, type EnemyKind } from "./enemies";
 import type { SpawnSite, SpawnCamp, WorldDecor } from "./world";
 
 export { GENERATED_ENEMY_ART, generatedEnemyArt } from "../../shared/procedural-enemy-art";
-import { generatedEnemyArt } from "../../shared/procedural-enemy-art";
+import { GENERATED_ENEMY_MAX_RADIUS, generatedEnemyArt } from "../../shared/procedural-enemy-art";
 export function generatedMapContent(id: ProceduralMapId) {
   const map = generateMap(id);
   const random = mapRandom(map.seed ^ 0x34ac913);
@@ -40,6 +40,7 @@ export function generatedMapContent(id: ProceduralMapId) {
         definition: {
           ...ENEMY_TYPES[kind],
           ...generatedEnemyStats(map, elite ? "Dread Warden" : camp.lane),
+          r: Math.min(GENERATED_ENEMY_MAX_RADIUS, ENEMY_TYPES[kind].r),
           speed: runtimeMapBalance(id)?.enemies[kind]?.speed ?? campaignMeleeChaseSpeed(PROCEDURAL_FIRST_TIER),
           elite: false,
         },

@@ -93,14 +93,16 @@ export function proceduralPalette(index: number) {
   // forest's muted saturation and lightness rather than the pale wash it used
   // to have. Saturation starts well above zero; at zero the first map was white.
   const hue = (104 + (index - 1) * 7) % 360;
-  const saturation = Math.min(46, 26 + (index - 1) * 2.5);
+  const saturation = Math.min(38, 24 + (index - 1) * 2);
   // Hex colors work in both the canvas tile painter and the WebGL backdrop.
   // Keep path lighter than ground, and both lighter than detail and accent.
+  // Ground sits near the Tutorial Forest's lightness (about 39%) since 0.867;
+  // at 53% with a 67% path, Endless read as a bright wash.
   return {
-    ground: hslHex(hue, saturation, 53),
-    path: hslHex(hue, saturation * 0.6, 67),
-    pathDetail: hslHex(hue, saturation, 39),
-    accent: hslHex(hue, saturation, 29),
+    ground: hslHex(hue, saturation, 41),
+    path: hslHex(hue, saturation * 0.6, 56),
+    pathDetail: hslHex(hue, saturation, 31),
+    accent: hslHex(hue, saturation, 23),
   };
 }
 export function proceduralMapCore(id: string) {
