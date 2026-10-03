@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.870": [
+    "The health bar slides instead of resizing, and the player card no longer blurs the game behind it: less work every frame",
+  ],
   "0.869": [
     "Firefox uses far less battery: outlined text is drawn by the graphics card instead of redrawn on the processor",
     "Ion Citadel, Neon Bastion and Verdant Catacombs enemies and Aegis Prime are cheaper to draw",
@@ -2679,6 +2682,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.870": "2026-10-03",
   "0.869": "2026-10-03",
   "0.868": "2026-10-02",
   "0.867": "2026-10-02",

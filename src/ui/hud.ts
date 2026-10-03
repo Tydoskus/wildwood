@@ -37,8 +37,11 @@ export function renderPlayerHud(
   guest = false,
 ) {
   const hpRatio = Math.max(0, Math.min(1, player.hp / player.maxHp));
-  const hpWidth = `${(hpRatio * 100).toFixed(1)}%`;
-  if (elements.hpFill.style.width !== hpWidth) elements.hpFill.style.width = hpWidth;
+  // Slid rather than resized: a transform is moved by the compositor, where a
+  // changing width re-laid out and repainted the HUD on every frame of its
+  // transition, which in combat was every frame.
+  const hpShift = `translateX(${((hpRatio - 1) * 100).toFixed(1)}%)`;
+  if (elements.hpFill.style.transform !== hpShift) elements.hpFill.style.transform = hpShift;
   const hpText = `${formatCompactNumber(Math.max(0, Math.ceil(player.hp)))} / ${formatCompactNumber(Math.ceil(player.maxHp))}`;
   if (elements.hpText.textContent !== hpText) elements.hpText.textContent = hpText;
   if (elements.playerName) {
@@ -61,14 +64,18 @@ export function renderPlayerHud(
   }
   const powerText = formatCompactNumber(power);
   if (elements.playerPower.dataset.renderedPower !== powerText) {
-    const powerIcon = document.createElement("img");
-    powerIcon.className = "power-icon power-icon-hud";
-    powerIcon.src = "assets/wildstat/icons/Icon_Battle_Candy_v2.webp";
-    powerIcon.alt = "Power";
-    const powerValue = document.createElement("span");
-    powerValue.className = "power-value";
+    // Power climbs with nearly every kill: change the number, keep the icon.
+    let powerValue = elements.playerPower.querySelector<HTMLElement>(":scope > .power-value");
+    if (!powerValue || !elements.playerPower.querySelector(":scope > .power-icon")) {
+      const powerIcon = document.createElement("img");
+      powerIcon.className = "power-icon power-icon-hud";
+      powerIcon.src = "assets/wildstat/icons/Icon_Battle_Candy_v2.webp";
+      powerIcon.alt = "Power";
+      powerValue = document.createElement("span");
+      powerValue.className = "power-value";
+      elements.playerPower.replaceChildren(powerValue, powerIcon);
+    }
     powerValue.textContent = powerText;
-    elements.playerPower.replaceChildren(powerValue, powerIcon);
     elements.playerPower.dataset.renderedPower = powerText;
   }
   const status = `players online: ${playerCount}`;
