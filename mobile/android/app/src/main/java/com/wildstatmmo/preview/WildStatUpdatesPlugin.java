@@ -33,6 +33,24 @@ public class WildStatUpdatesPlugin extends Plugin {
             .addOnFailureListener(error -> call.reject("Google Play update check unavailable.", error));
     }
 
+    /**
+     * The closed test's opt-in page. The store listing (openStore) shows an
+     * internal tester the internal track, so the closed beta invite sent them
+     * back where they already were; this page is where they accept the closed test.
+     */
+    @PluginMethod
+    public void openTesting(PluginCall call) {
+        getActivity().runOnUiThread(() -> {
+            try {
+                getActivity().startActivity(new Intent(Intent.ACTION_VIEW,
+                    Uri.parse("https://play.google.com/apps/testing/" + getContext().getPackageName())));
+                call.resolve();
+            } catch (Exception error) {
+                call.reject("Could not open the Google Play test page.", error);
+            }
+        });
+    }
+
     @PluginMethod
     public void openStore(PluginCall call) {
         getActivity().runOnUiThread(() -> {

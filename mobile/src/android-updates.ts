@@ -5,8 +5,9 @@ import { installClosedBetaInvite } from './closed-beta-invite';
 
 /** Google Play decides availability for this tester and installed build. */
 export function installAndroidUpdates() {
-  const bridge = registerPlugin<AndroidUpdateBridge>('WildStatUpdates');
-  installClosedBetaInvite(() => bridge.openStore());
+  const bridge = registerPlugin<AndroidUpdateBridge & { openTesting(): Promise<void> }>('WildStatUpdates');
+  // The closed test's opt-in page: the store listing showed internal testers their own track.
+  installClosedBetaInvite(() => bridge.openTesting());
   const mount = () => {
     const banner = document.createElement('section');
     banner.id = 'androidUpdateBanner'; banner.hidden = true;

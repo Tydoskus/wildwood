@@ -1,8 +1,10 @@
 /**
  * The move from internal testing to the closed beta (0.860, build 861). Play
  * only moves a tester when they accept the closed test themselves, so the
- * last internal build asks once: Join opens this app's Play Store page, where
- * a tester on the closed list accepts. Later asks again on the next launch.
+ * last internal build asks once: Join opens the closed test's opt-in page
+ * (play.google.com/apps/testing/<package>), where a tester on the closed list
+ * accepts. The store listing showed them the internal track instead. Later
+ * asks again on the next launch.
  * Switch it off (CLOSED_BETA_INVITE = false) in builds made for the closed track.
  */
 export const CLOSED_BETA_INVITE = true;
