@@ -1,0 +1,62 @@
+name: Server checks
+
+# Builds the SpacetimeDB module and checks the committed client bindings match
+# it. Separate from the Pages deploy so a flaky CLI download cannot block a
+# client release; a failure still shows in `gh run list`.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "spacetimedb/**"
+      - "shared/**"
+      - "src/game/map-designs.json"
+      - "src/module_bindings/**"
+      - ".github/workflows/server-checks.yml"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            spacetimedb/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm ci --prefix spacetimedb
+
+      - name: Typecheck server
+        run: npm run typecheck:server
+
+      - name: Install SpacetimeDB CLI
+        run: |
+          curl -sSf https://install.spacetimedb.com | sh -s -- -y
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Pin CLI version
+        run: spacetime version install 2.10.1 --use -y
+
+      - name: Build module
+        run: npm run spacetime:build
+
+      # Into a fresh folder, so a committed file the module no longer
+      # generates also fails the check.
+      - name: Bindings match the module
+        run: |
+          spacetime generate --lang typescript --out-dir "$RUNNER_TEMP/bindings" --module-path spacetimedb -y
+          diff -r "$RUNNER_TEMP/bindings" src/module_bindings

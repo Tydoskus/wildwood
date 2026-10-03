@@ -15,9 +15,16 @@ const releaseFilePaths = [
   settingsPath,
   resolve(root, "public/index.html"),
   resolve(root, "public/version.json"),
+  resolve(root, "config/shipped-assets.json"),
 ];
-const liveVersionUrl = "https://tydoskus.github.io/wildwood/version.json";
-const serverPathPrefixes = ["shared/", "spacetimedb/", "src/module_bindings/"];
+// GitHub Pages is the deploy this script triggers; wildstatmmo.com is the
+// Cloudflare copy, which may lag, so only a Pages timeout fails the release.
+const liveVersionUrls = [
+  { url: "https://tydoskus.github.io/wildwood/version.json", required: true },
+  { url: "https://wildstatmmo.com/version.json", required: false },
+];
+// map-designs.json is compiled into the server module as well as the client.
+const serverPathPrefixes = ["shared/", "spacetimedb/", "src/module_bindings/", "src/game/map-designs.json"];
 
 function versionParts(version) {
   if (!/^\d+(?:\.\d+)+$/.test(version)) throw new Error(`Invalid version: ${version}`);
@@ -179,25 +186,28 @@ async function currentVersion() {
 
 async function waitForLiveVersion(version, timeoutMs = 10 * 60_000) {
   const deadline = Date.now() + timeoutMs;
-  process.stdout.write(`Waiting for live v${version}`);
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(`${liveVersionUrl}?release-check=${Date.now()}`, {
-        cache: "no-store",
-        signal: AbortSignal.timeout(10_000),
-      });
-      const release = response.ok ? await response.json() : null;
-      if (release?.version === version) {
-        process.stdout.write("\n");
-        console.log(`Live: ${liveVersionUrl} reports v${version}`);
-        return;
+  for (const { url, required } of liveVersionUrls) {
+    process.stdout.write(`Waiting for ${new URL(url).host} v${version}`);
+    let live = false;
+    while (!live && Date.now() < deadline) {
+      try {
+        const response = await fetch(`${url}?release-check=${Date.now()}`, {
+          cache: "no-store",
+          signal: AbortSignal.timeout(10_000),
+        });
+        const release = response.ok ? await response.json() : null;
+        live = release?.version === version;
+      } catch {}
+      if (!live) {
+        process.stdout.write(".");
+        await new Promise((resolveDelay) => setTimeout(resolveDelay, 5_000));
       }
-    } catch {}
-    process.stdout.write(".");
-    await new Promise((resolveDelay) => setTimeout(resolveDelay, 5_000));
+    }
+    process.stdout.write("\n");
+    if (live) console.log(`Live: ${url} reports v${version}`);
+    else if (required) throw new Error(`Timed out waiting for live v${version}. Check GitHub Actions.`);
+    else console.warn(`Warning: ${url} has not reached v${version}. Check the Cloudflare deploy.`);
   }
-  process.stdout.write("\n");
-  throw new Error(`Timed out waiting for live v${version}. Check GitHub Actions.`);
 }
 
 async function main() {

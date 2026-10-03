@@ -55,7 +55,7 @@ if [[ ! -d node_modules ]]; then
 fi
 
 print "Checking server TypeScript..."
-"$NPM_BIN" run typecheck:coop || fail "Server typecheck failed."
+"$NPM_BIN" run typecheck:server || fail "Server typecheck failed."
 print "Building server..."
 "$NPM_BIN" run spacetime:build || fail "Server build failed."
 print ""

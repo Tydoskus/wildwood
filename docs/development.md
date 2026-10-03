@@ -265,13 +265,11 @@ that function, not the version list, is what keeps an old decoder out.
 
 ## Kill gem invariants
 
-- Gems from kills are deterministic, not rolled. Every accepted manual defeat
-  adds six credits, whether the player is visible or hidden. An Auto Farm kill
-  adds four credits. Each 6,000 credits pays one gem: 1 per 1,000 manual kills
-  or 1 per 1,500 Auto Farm kills (`shared/gem-drops.ts`).
-- The client records Auto Farm status with each persisted defeat batch. The
-  server validates accepted kills and uses the matching reducer to apply the
-  lower Auto Farm credit rate. Older clients use the manual reducer.
+- Gems from kills are deterministic, not rolled. Every accepted defeat adds
+  five credits, manual or Auto Farm alike, and each 6,000 credits pays one gem:
+  1 per 1,200 kills (`shared/gem-drops.ts`). The rates used to differ, but only
+  the client knew which kind a kill was, so a modified client could claim the
+  higher one.
 - The grant runs inside the root defeat reducer, from the same
   `accepted.count` that advances lifetime kills, so the two can never drift.
   Its ledger reference carries the lifetime kill count after the batch, which

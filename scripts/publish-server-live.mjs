@@ -13,6 +13,42 @@ const preflightOnly = process.argv.includes("--preflight");
 // Every player is disconnected and reconnects. One reconnect covers any number
 // of schema changes, so batch schema debt into a single flagged release.
 const allowClientBreak = process.argv.includes("--allow-client-break");
+// Emergencies only: publish a branch or uncommitted server change.
+const allowUnreleased = process.argv.includes("--allow-unreleased");
+
+/**
+ * Files compiled into the server bundle. src/game/map-designs.json is imported
+ * by shared/ (spawn counts and kill budgets), so a map-editor change is a
+ * server change too.
+ */
+export const SERVER_INPUTS = ["spacetimedb", "shared", "src/game/map-designs.json"];
+
+function run(command, args, label) {
+  const result = spawnSync(command, args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 600_000 });
+  if (result.error) fail(`${label}: ${result.error.message}`);
+  if (result.status !== 0) fail(`${label} failed:\n${(result.stdout + result.stderr).trim().split("\n").slice(-20).join("\n")}`);
+  return result.stdout.trim();
+}
+
+/**
+ * What used to go wrong: the script published whatever bundle.js was on disk,
+ * built from whatever was checked out. It now publishes only main, with no
+ * uncommitted server changes, typechecked and freshly built, and records the
+ * commit it published.
+ */
+function verifyAndBuild() {
+  const branch = run("git", ["branch", "--show-current"], "Reading the branch");
+  const dirty = run("git", ["status", "--porcelain", "--", ...SERVER_INPUTS], "Checking for uncommitted server changes");
+  if (!allowUnreleased) {
+    if (branch !== "main") fail(`Publish from main, not "${branch}" (or pass --allow-unreleased in an emergency).`);
+    if (dirty) fail(`Uncommitted server changes would be published:\n${dirty}\nCommit them first (or pass --allow-unreleased).`);
+  }
+  console.log("Typechecking the server...");
+  run("npx", ["tsc", "-p", "spacetimedb/tsconfig.json"], "Server typecheck");
+  console.log("Building the server...");
+  run(spacetimeBin, ["build", "--module-path", "spacetimedb"], "Server build");
+  return { branch, commit: run("git", ["rev-parse", "HEAD"], "Reading the commit"), dirty: Boolean(dirty) };
+}
 
 function fail(message) {
   throw new Error(message);
@@ -47,6 +83,7 @@ async function loadProgram(path, label) {
 async function main() {
   // The credential lives in a table whose name predates the single-database
   // model; it is the deployment credential, nothing more.
+  const source = verifyAndBuild();
   const token = readOperatorToken();
   const program = await loadProgram("spacetimedb/dist/bundle.js", "Server");
   const api = createReleaseApi({ host, database, token, allowClientBreak });
@@ -67,6 +104,9 @@ async function main() {
     host,
     root: database,
     maps: [],
+    commit: source.commit,
+    branch: source.branch,
+    uncommittedChanges: source.dirty,
     publishedAt: new Date().toISOString(),
   };
   const outputDir = resolve(root, "local-data/releases");
@@ -75,7 +115,7 @@ async function main() {
   console.log(`Server publish complete. Saved ${resolve(outputDir, "latest-server-release.json")}.`);
 }
 
-main().catch(error => {
+if (process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname)) main().catch(error => {
   console.error(`Server publish stopped: ${error.message}`);
   process.exitCode = 1;
 });

@@ -1,6 +1,6 @@
 # WildStat
 
-Browser MMO. Web client on GitHub Pages + Cloudflare Pages, game server on SpacetimeDB
+Browser MMO. Web client on GitHub Pages + Cloudflare (wildstatmmo.com), game server on SpacetimeDB
 Maincloud (`wildwood-coop`, one database — sharding was removed in 0.766).
 
 ## Shipping a version
@@ -17,17 +17,18 @@ client by itself; it never touches the server.
 **Client (Ryan commits).** Committing to `main` auto-pushes — `.githooks/post-commit`,
 main only, not branches. That is why Claude does not commit there: the commit *is*
 the deploy. The push triggers `.github/workflows/pages.yml`, which runs
-`check:release`, `typecheck:coop`, `test:unit`, `build:client` and deploys to GitHub
-Pages. That is the only deploy this repository performs, and the live site it is
-checked against is `https://tydoskus.github.io/wildwood/version.json`.
+`check:release`, `typecheck:coop`, `typecheck:server`, `test:unit`, `build:client`
+and deploys the same `dist` to two places:
 
-Nothing here deploys to Cloudflare. There is no workflow, no `wrangler.toml` and no
-worker in the repository, and there never has been. The only Cloudflare artifact is
-the `_headers` file `scripts/fingerprint-client.mjs` writes into `dist` — a
-Cloudflare Pages convention that is carried in the bundle whether or not anything
-consumes it. If a Cloudflare Pages project is serving this game it is wired up in
-the Cloudflare dashboard against the GitHub repository, which is invisible from
-here; do not claim it deployed without checking that dashboard.
+- GitHub Pages — `https://tydoskus.github.io/wildwood/version.json`.
+- wildstatmmo.com — the Cloudflare Worker `wildstat`, via `wrangler deploy` with
+  static assets from `dist` (`dist/_headers` sets its cache rules). This step runs
+  only once the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repo secrets
+  exist. Until then the Cloudflare dashboard's own Git build deploys it, and that
+  build skips every test. Check `https://wildstatmmo.com/version.json` too.
+
+`.github/workflows/server-checks.yml` builds the server module and checks the
+committed `src/module_bindings` match it. It never deploys anything.
 
 After a push to main, confirm `gh run list --limit 2` is green.
 

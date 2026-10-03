@@ -3,9 +3,13 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "spacetime:generate": "spacetime generate --lang typescript --out-dir src/module_bindings --module-path spacetimedb",
     "spacetime:build": "spacetime build --module-path spacetimedb",
+    "typecheck:server": "tsc -p spacetimedb/tsconfig.json",
     "spacetime:publish:local": "spacetime publish wildwood-coop --module-path spacetimedb --server local",
     "spacetime:publish:cloud": "spacetime publish wildwood-coop --module-path spacetimedb --server maincloud",
     "spacetime:publish:live": "node scripts/publish-server-live.mjs",

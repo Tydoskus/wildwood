@@ -32,14 +32,17 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             mobile/package-lock.json
+            spacetimedb/package-lock.json
 
       - name: Validate and build client
         run: |
           npm ci
           # The shared unit suite includes native bridge tests.
           npm ci --prefix mobile
+          npm ci --prefix spacetimedb
           npm run check:release
           npm run typecheck:coop
+          npm run typecheck:server
           npm run test:unit
           npm run build:client
           node scripts/check-client-build.mjs
@@ -55,3 +58,21 @@ jobs:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v5
+
+      # wildstatmmo.com. Ships the same tested dist as Pages, so turn off the
+      # Cloudflare dashboard's own Git build once these secrets exist.
+      # A step's own env is not visible to its `if`, so check the secret here.
+      - name: Check Cloudflare secrets
+        id: cloudflare
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: echo "enabled=${TOKEN:+yes}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to Cloudflare
+        if: steps.cloudflare.outputs.enabled == 'yes'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          command: deploy --name wildstat --compatibility-date 2026-09-02 --assets ./dist

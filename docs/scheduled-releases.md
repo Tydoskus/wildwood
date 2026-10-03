@@ -1,5 +1,9 @@
 # Scheduled releases
 
+> Not in use. Releases ship through `npm run release:live` and
+> `npm run spacetime:publish:live`; the protocol and version numbers below are
+> from when this was written.
+
 Use prepared releases for planned updates. This separates builds and testing from
 player interruption. No live update is scheduled by building this feature.
 

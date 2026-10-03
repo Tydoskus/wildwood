@@ -434,9 +434,6 @@
       "rightHandItem",
       "leftHandItem"
     ],
-    "local_movement_demand": [
-      "identity"
-    ],
     "magmalisk_boss": [
       "id",
       "encounter",
@@ -593,15 +590,6 @@
       "autoKeepBest",
       "autoEquipBest",
       "updatedAt"
-    ],
-    "my_mailbox": [
-      "id",
-      "title",
-      "body",
-      "gems",
-      "createdAt",
-      "read",
-      "claimed"
     ],
     "my_mailbox_v_2": [
       "id",
