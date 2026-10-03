@@ -1,5 +1,4 @@
 import { isMeleeWeapon, weaponAttackRange } from "../weapon-combat";
-import { DEFAULT_ATTACK_RANGE } from '../../../shared/rules';
 import { isProceduralMap } from '../../../shared/procedural-maps';
 import { WORLD } from '../constants';
 import { monotonicNowMs } from '../../app/trusted-clock';
