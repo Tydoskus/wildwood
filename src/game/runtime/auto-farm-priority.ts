@@ -1,4 +1,20 @@
+import { ENEMY_TYPES, type EnemyDefinition, type EnemyKind, type RewardType } from '../enemies';
+
 export type AutoFarmPriority = 'closest' | 'lowest' | 'strongest';
+
+/**
+ * What autofarm farms: every enemy that pays one stat ("stat:health"), so a
+ * camp's regulars and elites, and every camp paying that stat, are one choice.
+ * A bare enemy kind still names that kind alone.
+ */
+export type AutoFarmGroup = `stat:${RewardType}` | EnemyKind;
+export const farmStatGroup = (stat: RewardType): AutoFarmGroup => `stat:${stat}`;
+export function enemyRewardStat(enemy: { type: EnemyKind; definition?: EnemyDefinition }): RewardType {
+  return (enemy.definition ?? ENEMY_TYPES[enemy.type]).reward.type;
+}
+export function farmGroupMatches(enemy: { type: EnemyKind; definition?: EnemyDefinition }, group: AutoFarmGroup) {
+  return group.startsWith('stat:') ? `stat:${enemyRewardStat(enemy)}` === group : enemy.type === group;
+}
 
 export const AUTO_FARM_PRIORITIES: readonly { id: AutoFarmPriority; label: string }[] = [
   { id: 'closest', label: 'Closest' },

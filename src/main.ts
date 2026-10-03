@@ -26,6 +26,7 @@ import { createOnboardingTutorial } from "./ui/onboarding-tutorial";
 import { createItemGiftController } from "./ui/item-gift-controller";
 import { createReconnectRecovery } from "./ui/reconnect-recovery";
 import { isProceduralMap, proceduralMapId } from "../shared/procedural-maps";
+import { createAutoFarmProgress } from "./game/runtime/auto-farm-build";
 import { prestigePerkValue } from "../shared/prestige-perks";
 import { createPrestigeExpansionRuntime } from "./ui/prestige-expansion-runtime";
 import { leaderboardEligible } from "../shared/leaderboard-window";
@@ -330,6 +331,7 @@ import {
     if (!shouldPause) session.refreshFrameClock();
   }
 
+  // Only states the game can't be played through pause it; menus and windows never do (0.873).
   function setGameplayPause(reason: string, active: boolean) {
     if (active) gameplayPauseReasons.add(reason);
     else gameplayPauseReasons.delete(reason);
@@ -555,6 +557,10 @@ import {
     return null;
   };
   let farmConnection: 'ready' | 'recovering' | 'ended' = 'recovering';
+  const farmProgress = createAutoFarmProgress({ mapId: () => currentMapId, base: () => ({ maxHp: player.baseMaxHp, damage: player.damage, attackRate: player.attackRate, armor: player.armor, regen: player.regen }),
+    equipment: () => ({ equippedHead: inventory.equippedHead, equippedChest: inventory.equippedChest, equippedRightHand: inventory.equippedRightHand, equippedLeftHand: inventory.equippedLeftHand }),
+    research: () => researchRanks(), upgradeLevel: itemId => coop?.itemUpgradeLevel?.(itemId) ?? 0, rewardMultiplier: () => researchRewardMultiplier(), minAttackInterval: () => challengeMinimumInterval(coop?.prestigeChallenge?.()), criticalChance: () => researchCriticalChance(), criticalMultiplier: () => researchCriticalDamageMultiplier(),
+    mapBoss: () => proceduralBoss.boss() ?? farmBosses.get(currentMapId), portalUnlocked: portal => mapController.portalIsUnlocked(portal as never), portals: () => { const config = MAP_CONFIG[currentMapId]; return [config.portal, "secondaryPortal" in config ? config.secondaryPortal : null]; } });
   const autoFarm = createAutoFarmController({
     resumeStore: createAutoFarmResumeStore(),
     player, enemies, spawnSites, mapId: () => currentMapId,
@@ -573,6 +579,7 @@ import {
       if (mapBoss && !mapBoss.dead) obstacles.push({ x: mapBoss.x, y: mapBoss.y, r: mapBoss.r + player.r + 40 });
       return obstacles;
     },
+    ...farmProgress,
   });
   let playerCombat: PlayerCombatController;
   const personalBosses = createPersonalBosses({
@@ -789,7 +796,7 @@ import {
   let playerController: PlayerController;
   const mapController = createMapController({
     openHomeTravel: () => homeTravel.open(),
-    onTravelStarted: () => autoFarm.stop("Map changed · choose an enemy"),
+    onTravelStarted: () => autoFarm.travelStarted(),
     markPortalCutsceneSeen: (cutscene) => coop?.markPortalCutsceneSeen?.(cutscene),
     mapConfig: MAP_CONFIG,
     tutorialMapId: TUTORIAL_FOREST_MAP_ID,
@@ -874,8 +881,8 @@ import {
   });
   const questTracker = createQuestTrackerSetting(localStorage);
   const quests = createQuestBoardRuntime({ source: () => coop, atHome: () => currentMapId === "home_exterior", tracker: questTracker,
-    pause: paused => setGameplayPause("quest-board", paused), clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id as MapId]?.name ?? id, showProgress: (enemy, count, target) => runtimeHud.showQuestProgress(enemy, count, target) });
-  const homeTravel = createHomeTravelController({ source: () => coop, travel: mapController.travelFromHome, departure: mapController.homeDeparture, atHome: () => currentMapId === "home_exterior", pause: paused => setGameplayPause("home-travel", paused), clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id].name });
+    pause: () => {}, clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id as MapId]?.name ?? id, showProgress: (enemy, count, target) => runtimeHud.showQuestProgress(enemy, count, target) });
+  const homeTravel = createHomeTravelController({ source: () => coop, travel: mapController.travelFromHome, departure: mapController.homeDeparture, atHome: () => currentMapId === "home_exterior", pause: () => {}, clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id].name });
   const { activePortal, secondaryPortal, portalIsUnlocked, startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene, startSamuraiPortalCutscene } = mapController;
 
   const bossController = createBossController({
@@ -1335,7 +1342,7 @@ import {
   let offlineProgressSetting: { refresh: () => void } | undefined;
   const expansionNotice = createPrestigeExpansionRuntime({ coop, started: () => Boolean(session?.hasStarted()), mapName: () => MAP_CONFIG[currentMapId].name, mapLabel: gameElements.minimapMapNameEl });
   const prestigeUnlock = createPrestigeUnlockRuntime({ coop, expanded: expansionNotice.unlocked, showMessage, runPrestige, playing: () => session?.hasStarted() && !inTutorial(),
-    blocked: () => session.isPaused(), pause: (paused: boolean) => setGameplayPause("prestige-unlock", paused) });
+    blocked: () => session.isPaused(), pause: () => {} });
   const duplicateLogin = createDuplicateLoginRuntime({ coop, started: () => session?.hasStarted(), pause: (paused: boolean) => setGameplayPause("duplicate-login", paused) });
   function updateHud(force = false) {
     runtimeHud.updateHud(force);
@@ -1458,12 +1465,11 @@ import {
     sessionKey: () => `${coop?.localIdentity?.() ?? ""}:${coop?.sessionGeneration?.() ?? 0}:${coop?.isConnected?.() ?? false}`,
     beforeOpen: () => {
       playerInput.clear();
-      setGameplayPause("guild", true);
       profileWindow.close();
       closeProfileIconPicker();
       panels.closeAllExcept("guild");
     },
-    onClose: () => { playerInput.clear(); setGameplayPause("guild", false); },
+    onClose: () => { playerInput.clear(); },
   });
 
   const leaderboard = createLeaderboardPanel({ e: gameElements, options: {
@@ -1578,7 +1584,7 @@ import {
     unlockSecondSlot: async () => coop?.unlockSecondUpgradeSlot?.(),
     unlockThirdSlot: async () => coop?.unlockThirdUpgradeSlot?.(),
     beforeOpen: () => panels.closeAllExcept("upgradeBench"),
-    setPaused: (paused) => setGameplayPause("upgrade-bench", paused),
+    setPaused: () => {},
     clearPlayerInput: playerInput.clear,
     onInventoryChanged: () => {
       if (inventory.selectedItemId && !inventory.itemIds.includes(inventory.selectedItemId)) {
@@ -1655,7 +1661,7 @@ import {
     adGemReward: () => coop?.adGemReward?.() ?? null,
     claimAdGems: () => coop?.claimAdGems?.() ?? Promise.resolve({ ok: false, error: "NOT CONNECTED" }),
     showGemReward: amount => runtimeHud.showGemDrop(amount, "Ad reward"),
-    setPromptActive: (active) => setGameplayPause("rewarded-ad-prompt", active),
+    setPromptActive: () => {},
     setAdPlaybackActive: (active) => {
       setGameplayPause("rewarded-ad", active);
       if (active) mapMusic.pause();
@@ -1697,7 +1703,7 @@ import {
     presentationUiActive: () => chatRuntime.isInteracting() || profileWindow.isOpen(),
     isReplayActive: () => duelRuntime.isReplayActive(),
     ensureMusicPlaying: appShell.ensureMusicPlaying,
-    hideStart: startup.hideStart,
+    hideStart: () => { startup.hideStart(); setTimeout(refreshReconnectOverlay, 0); }, // a quiet server sends no change after Play to refresh autofarm's connection state
     hideGameOver: () => { localPlayerDeath = null; deathScreen.hide(); },
     showGameOver: () => {
       bossFightMemory.flush();
@@ -1770,7 +1776,7 @@ import {
     identity: () => coop?.localIdentity?.() ?? "",
     gift: () => coop?.pendingItemGift?.() ?? null,
     claim: async key => coop?.claimItemGift?.(key),
-    setPaused: paused => { if (paused) guildPanel?.close(); setGameplayPause("developer-item-gift", paused); },
+    setPaused: paused => { if (paused) guildPanel?.close(); },
     showMessage,
     afterDismiss: () => refreshDailyGemBonus(),
   });
@@ -2007,14 +2013,14 @@ import {
     rewardAmount: rewardDisplay.displayedAmount,
     visible: () => farmUnlocked() && currentMapId !== "home_exterior" && Boolean(session?.isRunning()) && player.hp > 0 && !isDueling() && !mapController.isMapTransitioning() && !mapController.isCutsceneActive(),
     unavailable: farmUnavailable,
-    setPaused: (paused) => setGameplayPause("autofarm-picker", paused),
+    setPaused: () => {},
     clearInput: () => { playerInput.clear(); player.moving = false; coop?.correctMovementPosition?.(player.x, player.y, true); },
   });
 
   inputEscapeHandler = createGameActionsRuntime({
     coop,
     openSupporter: openProfileIconPicker,
-    setShopOpen: (open: boolean) => { playerInput.clear(); setGameplayPause("shop", open); },
+    setShopOpen: () => { playerInput.clear(); },
     e: gameElements, inventory, renderInventory, logPickup, showMessage, leaveDuelResult,
     itemInspectionController,
     minimizeChat: minimizeMaximizedChat,

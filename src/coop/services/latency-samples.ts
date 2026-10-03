@@ -1,6 +1,9 @@
 /** How many round trips the reading is taken from. Odd, so there is a middle. */
 export const LATENCY_WINDOW = 7;
 
+/** A reading covers only the last few seconds (0.873); at idle the 7 samples could span 15 s or more. */
+export const LATENCY_MAX_AGE_MS = 5_000;
+
 /**
  * The connection's latency, as the median of its recent reducer round trips.
  *
@@ -13,22 +16,27 @@ export const LATENCY_WINDOW = 7;
  * produces a burst of fast reducers that drag the average back down.
  *
  * A median ignores a single slow sample outright, and still follows a real
- * change once most of the window agrees with it — about four seconds at one
- * sample a second.
+ * change once most of the window agrees with it. Samples come only with the
+ * player's own reducers, at most one a second, so a quiet player's window
+ * reached back 15 seconds or more: now only the last five seconds count, and
+ * with nothing that recent, the newest sample stands.
  */
-export function createLatencySamples(window = LATENCY_WINDOW) {
-  let samples: number[] = [];
+export function createLatencySamples(window = LATENCY_WINDOW, maxAgeMs = LATENCY_MAX_AGE_MS, now = () => performance.now()) {
+  let samples: { value: number; at: number }[] = [];
 
   return {
     record(sample: number) {
       if (!Number.isFinite(sample) || sample < 0) return;
-      samples.push(sample);
+      samples.push({ value: sample, at: now() });
       if (samples.length > window) samples.shift();
     },
     /** Null until there is anything to report, which the HUD shows as blank. */
     value(): number | null {
       if (!samples.length) return null;
-      const sorted = [...samples].sort((left, right) => left - right);
+      const since = now() - maxAgeMs;
+      const recent = samples.filter(sample => sample.at >= since);
+      if (!recent.length) return samples[samples.length - 1].value;
+      const sorted = recent.map(sample => sample.value).sort((left, right) => left - right);
       return sorted[Math.floor(sorted.length / 2)];
     },
     reset() { samples = []; },

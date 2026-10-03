@@ -47,4 +47,15 @@ describe("connection latency", () => {
     latency.record(-5);
     expect(latency.value()).toBeNull();
   });
+
+  it("reads only the last five seconds, so a quiet player's ping is never 15 seconds old", () => {
+    let clock = 0;
+    const latency = createLatencySamples(7, 5_000, () => clock);
+    for (const sample of [40, 41, 42, 43]) { latency.record(sample); clock += 4_000; }
+    latency.record(300); clock += 1_000; latency.record(310);
+    // 43, 300 and 310 are within five seconds; the older 40s no longer hold it down.
+    expect(latency.value()).toBe(300);
+    clock += 60_000;
+    expect(latency.value()).toBe(310);
+  });
 });

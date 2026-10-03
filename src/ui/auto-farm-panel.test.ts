@@ -4,7 +4,7 @@ import { createAutoFarmPanel } from './auto-farm-panel';
 import { createAutoFarmController } from '../game/runtime/auto-farm-controller';
 import { createSpawnSites } from '../game/world';
 import { createGameBootstrap } from '../game/runtime/game-bootstrap';
-import { ENEMY_TYPES, rewardLabel } from '../game/enemies';
+import { ENEMY_TYPES, rewardAmountLabel } from '../game/enemies';
 import { researchStatRewardMultiplier } from '../../shared/research';
 import { prestigeStatMultiplier } from '../../shared/prestige';
 
@@ -36,19 +36,20 @@ function setup(empty = false, map = "forest") {
     setShowBase: (value: boolean) => { showBase = value; }, setRewardMultiplier: (value: number) => { rewardMultiplier = value; },
     setDamageBonus: (value: number) => { damageBonus = value; } };
 }
-it('opens the picker, requires a selection, starts farming, and stops from the floating button', () => {
+it('opens on Auto, numbers picked camps in order, starts farming, and stops from the floating button', () => {
   const s = setup();
   s.click('.farm-toggle');
   expect(s.sheet.open).toBe(true);
-  expect(s.pause).toHaveBeenLastCalledWith(true);
-  expect(s.document.querySelector<HTMLButtonElement>('.farm-start')!.disabled).toBe(true);
-  s.click('[data-enemy="Bramble"]');
-  expect(s.document.querySelector('[data-enemy="Bramble"]')!.getAttribute('aria-pressed')).toBe('true');
+  // Nothing picked is Auto, which can always start.
+  expect(s.document.querySelector('.farm-auto')!.getAttribute('aria-pressed')).toBe('true');
   expect(s.document.querySelector<HTMLButtonElement>('.farm-start')!.disabled).toBe(false);
+  s.click('[data-enemy="stat:health"]');
+  expect(s.document.querySelector('[data-enemy="stat:health"]')!.getAttribute('aria-pressed')).toBe('true');
+  expect(s.document.querySelector('[data-enemy="stat:health"] .farm-check')!.textContent).toBe('1');
+  expect(s.document.querySelector('.farm-auto')!.getAttribute('aria-pressed')).toBe('false');
   s.click('.farm-start');
   expect(s.sheet.open).toBe(false);
-  expect(s.farm.state()).toMatchObject({ active: true, selected: 'Bramble' });
-  expect(s.pause).toHaveBeenLastCalledWith(false);
+  expect(s.farm.state()).toMatchObject({ active: true, selected: 'stat:health', plan: ['stat:health'] });
   expect(s.document.querySelector('.farm-toggle')!.getAttribute('aria-pressed')).toBe('true');
   s.click('.farm-toggle');
   expect(s.farm.state().active).toBe(false);
@@ -60,12 +61,13 @@ it('canceling the picker preserves the selected enemy without starting farming',
   s.sheet.dispatchEvent(new s.window.Event('cancel', { cancelable: true }));
   expect(s.sheet.open).toBe(false);
   expect(s.pause).toHaveBeenLastCalledWith(false);
-  expect(s.farm.state()).toMatchObject({ active: false, selected: 'Bramble' });
+  expect(s.farm.state()).toMatchObject({ active: false, selected: 'stat:health' });
 });
 it('explains an empty map and disables starting when gameplay becomes unavailable', () => {
   const s = setup(true); s.click('.farm-toggle');
   expect(s.document.querySelector('.farm-empty')!.textContent).toContain('No enemies here');
   expect(s.document.querySelector<HTMLButtonElement>('.farm-start')!.disabled).toBe(true);
+  expect(s.document.querySelector<HTMLElement>('.farm-auto')!.hidden).toBe(true);
   s.setUnavailable('Equip a weapon to farm'); s.panel.refresh();
   expect(s.document.querySelector('.farm-selection')!.textContent).toBe('Equip a weapon to farm');
   s.setVisible(false); s.panel.refresh();
@@ -78,15 +80,15 @@ it('shows four reward camp choices for a generated map with one species', () => 
   const s = setup(true, 'endless_1');
   s.spawnSites.push(...createSpawnSites({x: 580, y: 770}, 'endless_1'));
   s.click('.farm-toggle');
-  const choices = [...s.document.querySelectorAll('.farm-enemy')];
+  const choices = [...s.document.querySelectorAll('[data-enemy]')];
   expect(choices).toHaveLength(4);
-  const damage = choices.find(button => button.querySelector('.farm-reward')?.textContent?.includes('Damage'))!;
-  expect(damage.textContent).toContain(`13 × ${s.spawnSites[0].type}`);
+  const damage = choices.find(button => button.querySelector('strong')?.textContent === 'Damage')!;
+  expect(damage.textContent).toContain('13 enemies');
   expect(damage.querySelector('.farm-reward')!.textContent).toContain('–');
   expect(s.document.querySelector('.farm-choices')!.textContent).not.toContain('Attack Speed');
   damage.dispatchEvent(new s.window.Event('click', { bubbles: true }));
   s.click('.farm-start');
-  expect(s.farm.targetCamp()).toBe('Damage Camp');
+  expect(s.farm.targetType()).toBe('stat:damage');
 });
 
 it('shows earned research and prestige rewards by default, then base rewards when selected', () => {
@@ -95,14 +97,14 @@ it('shows earned research and prestige rewards by default, then base rewards whe
   const multiplier = researchStatRewardMultiplier({ foraging: 5, prosperity: 4 }) * prestigeStatMultiplier(2);
   s.setRewardMultiplier(multiplier);
   s.click('.farm-toggle');
-  const displayedReward = () => s.document.querySelector('.farm-reward')!.textContent;
-  expect(displayedReward()).toBe(rewardLabel({ ...base, amount: base.amount * multiplier }));
+  const displayedReward = () => s.document.querySelector('[data-enemy] .farm-reward')!.textContent;
+  expect(displayedReward()).toBe(`${rewardAmountLabel({ ...base, amount: base.amount * multiplier })} · 1 enemy`);
   s.setShowBase(true);
   s.panel.refresh();
-  expect(displayedReward()).toBe(rewardLabel(base));
+  expect(displayedReward()).toBe(`${rewardAmountLabel(base)} · 1 enemy`);
   s.setShowBase(false);
   s.panel.refresh();
-  expect(displayedReward()).toBe(rewardLabel({ ...base, amount: base.amount * multiplier }));
+  expect(displayedReward()).toBe(`${rewardAmountLabel({ ...base, amount: base.amount * multiplier })} · 1 enemy`);
 });
 
 it('shows damage rewards after a 75% damage bonus when base rewards are off', () => {
@@ -112,10 +114,10 @@ it('shows damage rewards after a 75% damage bonus when base rewards are off', ()
   s.setDamageBonus(1.75);
   s.click('.farm-toggle');
   const reward = ENEMY_TYPES.Spitter.reward;
-  expect(s.document.querySelector('.farm-reward')!.textContent).toBe(rewardLabel({ ...reward, amount: reward.amount * 1.2 * 1.75 }));
+  expect(s.document.querySelector('[data-enemy] .farm-reward')!.textContent).toBe(`${rewardAmountLabel({ ...reward, amount: reward.amount * 1.2 * 1.75 })} · 1 enemy`);
   s.setShowBase(true);
   s.panel.refresh();
-  expect(s.document.querySelector('.farm-reward')!.textContent).toBe(rewardLabel(reward));
+  expect(s.document.querySelector('[data-enemy] .farm-reward')!.textContent).toBe(`${rewardAmountLabel(reward)} · 1 enemy`);
 });
 it('switches the target priority from the window and marks the chosen one', () => {
   const s = setup();

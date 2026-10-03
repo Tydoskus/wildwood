@@ -36,6 +36,11 @@
 .farm-floating.is-farming .farm-toggle > svg { color: #98efaa; }
 .farm-floating button:active { background: transparent; }
 .farm-floating button:focus-visible { outline: 2px solid #e7cc83; outline-offset: -3px; }
+/* What the farm is doing, under the button: Auto, 2/3, Boss, Next map. */
+.farm-floating { overflow: visible; }
+.farm-floating .farm-toggle { border-radius: 50%; overflow: hidden; }
+.farm-badge { position: absolute; top: calc(100% + 3px); left: 50%; transform: translateX(-50%); padding: 1px 6px; border-radius: 8px; background: #000a; color: #98efaa; font-size: 10px; font-weight: 900; line-height: 14px; white-space: nowrap; pointer-events: none; }
+.farm-badge[hidden], .farm-badge:empty { display: none; }
 /* A centered game window, framed like the Mailbox: ribbon banner, readable
  * outlined text, and the red Back button beside the action. */
 .farm-sheet {
@@ -67,12 +72,9 @@
   display: flex;
   flex-shrink: 0;
   align-items: stretch;
-  margin: 0 14px 10px;
+  margin: 0 14px 4px;
   border-bottom: 1px solid #ffffff1c;
 }
-.farm-pull { display: flex; flex-shrink: 0; align-items: center; gap: 8px; margin: -2px 14px 10px; color: var(--muted); font-size: 12px; cursor: pointer; }
-.farm-pull input { flex: 0 0 auto; width: 18px; height: 18px; margin: 0; accent-color: var(--green); cursor: pointer; }
-.farm-pull:has(input:checked) { color: #fff; }
 .farm-sheet .farm-priority button {
   flex: 1;
   min-width: 0;
@@ -90,6 +92,17 @@
 }
 .farm-sheet .farm-priority button + button { border-left: 1px solid #ffffff1c; }
 .farm-sheet .farm-priority button[aria-checked="true"] { color: #fff; background: #ffffff09; box-shadow: inset 0 -2px var(--green); }
+/* Camps: a heading with a quiet hint, then Auto and the camps. Picked camps show their place in the route. */
+.farm-plan-head { display: flex; flex-shrink: 0; align-items: baseline; gap: 8px; margin: 0 14px 6px; }
+.farm-plan-title { font-size: 13px; }
+.farm-plan-hint { flex: 1; color: var(--muted); font-size: 11px; -webkit-text-stroke: 0; text-shadow: none; }
+.farm-sheet .farm-clear { padding: 2px 6px; border: 0; background: none; box-shadow: none; color: #ffcf7a; font: inherit; font-size: 11px; cursor: pointer; }
+.farm-clear[hidden] { display: none; }
+.farm-camps { display: grid; gap: 8px; }
+.farm-sheet .farm-auto { --farm-stat-color: #ffe08a; border-style: dashed; }
+.farm-sheet .farm-auto[aria-pressed="true"] { border-style: solid; }
+.farm-auto[hidden] { display: none; }
+.farm-auto .farm-reward { color: var(--muted); }
 .farm-choices {
   display: grid;
   align-content: start;
@@ -149,7 +162,24 @@
   -webkit-text-stroke: 0;
   text-shadow: none;
 }
-.farm-enemy[aria-pressed="true"] .farm-check { border-color: var(--green); background: var(--green); color: #0a120c; }
+.farm-enemy[aria-pressed="true"] .farm-check { border-color: var(--green); background: var(--green); color: #0a120c; font-size: 13px; }
+/* Two switches and the priority, compact under the list. */
+.farm-switches { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); flex-shrink: 0; gap: 8px; margin: 10px 14px 8px; }
+.farm-sheet .farm-switch {
+  display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 44px; padding: 6px 10px;
+  border: 2px solid rgba(255,255,255,.14); border-radius: 10px; background: #ffffff06; box-shadow: none;
+  color: var(--muted); font: inherit; font-size: 12px; line-height: 1.15; text-align: left; cursor: pointer;
+}
+.farm-switch > span:nth-child(2) { flex: 1; min-width: 0; }
+.farm-boss-status { display: block; color: #ffcf7a; font-size: 10px; line-height: 1.2; -webkit-text-stroke: 0; text-shadow: none; }
+.farm-boss-status:empty { display: none; }
+.farm-boss-status.is-ready { color: #98efaa; }
+.farm-switch-icon { flex-shrink: 0; width: 18px; color: #ffe08a; font-size: 16px; text-align: center; -webkit-text-stroke: 0; text-shadow: none; }
+.farm-knob { position: relative; flex-shrink: 0; width: 30px; height: 18px; border-radius: 9px; background: #0008; box-shadow: inset 0 0 0 2px rgba(255,255,255,.18); }
+.farm-knob::after { content: ""; position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; border-radius: 50%; background: #9aa39b; transition: transform .12s ease; }
+.farm-sheet .farm-switch[aria-checked="true"] { border-color: var(--green); color: #fff; background: rgba(105,229,111,.08); }
+.farm-switch[aria-checked="true"] .farm-knob { background: #2f7d38; box-shadow: none; }
+.farm-switch[aria-checked="true"] .farm-knob::after { transform: translateX(12px); background: #fff; }
 .farm-footer { flex-shrink: 0; padding: 8px 14px max(12px, env(safe-area-inset-bottom, 0px)); }
 .farm-selection { min-height: 0; margin: 0 0 8px; color: #ffcf7a; text-align: center; font-size: 12px; line-height: 1.35; }
 .farm-selection[hidden] { display: none; }

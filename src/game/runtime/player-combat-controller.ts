@@ -1,11 +1,11 @@
-import { compareAutoFarmTargets, type AutoFarmPriority } from './auto-farm-priority';
+import { compareAutoFarmTargets, farmGroupMatches, type AutoFarmGroup, type AutoFarmPriority } from './auto-farm-priority';
 import { isMeleeWeapon, weaponAttackRange, segmentCircleHit, segmentEllipseHit } from "../weapon-combat";
 import { isProceduralMap } from "../../../shared/procedural-maps";
 import { bossSurfaceDistance, bossVerticalRadius } from "../../../shared/boss-hitbox";
 import { isEnemyAttackingPlayer } from "./enemy-threat";
 import { ENEMY_HP_LOSS_FLASH_SECONDS, PLAYER_KNOCKBACK_FORCE, WORLD } from "../constants";
 import { damageAfterArmor } from "../combat";
-import { ENEMY_TYPES, REWARD_DATA, rewardLabel, type EnemyKind } from "../enemies";
+import { ENEMY_TYPES, REWARD_DATA, rewardLabel } from "../enemies";
 import { circlesOverlap } from "../math";
 import type { ProjectileStore } from "./projectile-store";
 import { createSpatialGrid } from "./spatial-grid";
@@ -18,7 +18,6 @@ import { ARROW_STORM_DAMAGE_SHARE, ARROW_STORM_RADIUS, RICOCHET_DAMAGE_SHARE, ha
 import { ARROW_STORM_FLIGHT_SECONDS, ARROW_STORM_STAGGER_SECONDS } from "./combat-effects";
 import { arrowPassesThrough, isSkillSecondaryTarget, rainArrowStorm, ricochetChain } from "./bow-skill-procs";
 import { addPlayerBaseMaxHealth } from "./player-health";
-import { noteHitDealt, noteHitTaken, noteKill } from "./fight-readout";
 import {
   absoluteAttackTimestamps,
   attackAnimationClockAt,
@@ -73,7 +72,7 @@ export function attackReadyAtWithoutTarget(nextAttackAtSeconds: number, nowSecon
 }
 
 export type PlayerCombatController = {
-  attackNearest: (enemyType?: EnemyKind | null, campName?: string | null, priority?: AutoFarmPriority) => void;
+  attackNearest: (enemyType?: AutoFarmGroup | null, campName?: string | null, priority?: AutoFarmPriority) => void;
   updateProjectiles: (dt: number) => void;
   /** `source` is who dealt it, which Reflect answers. */
   damagePlayer: (amount: number, source?: EnemyState | BossTarget | null) => boolean;
@@ -215,7 +214,7 @@ export function createPlayerCombatController(options: {
   let retainedTarget: EnemyState | BossTarget | null = null;
   let nextTargetSearchAt = 0;
   let searchedEnemyCount = -1;
-  let searchedEnemyType: EnemyKind | null = null;
+  let searchedEnemyType: AutoFarmGroup | null = null;
   let searchedPriority: AutoFarmPriority = 'closest';
   let searchedCampName: string | null = null;
   let searchedRange = 0;
@@ -423,7 +422,7 @@ export function createPlayerCombatController(options: {
     player.throwClock = 0;
   }
 
-  function targetIsEligible(target: EnemyState | BossTarget, enemyType: EnemyKind | null, campName: string | null, mapBoss: BossTarget | null) {
+  function targetIsEligible(target: EnemyState | BossTarget, enemyType: AutoFarmGroup | null, campName: string | null, mapBoss: BossTarget | null) {
     if (target.dead) return false;
     if (target.isBoss) return !enemyType && target === mapBoss &&
       targetDistance(target) < attackRange();
@@ -431,10 +430,10 @@ export function createPlayerCombatController(options: {
     if (!enemyType) return true;
     return !target.generatedBoss && !target.remoteCombatGhost &&
       (isEnemyAttackingPlayer(target, options.localIdentity?.()) ||
-        (target.type === enemyType && (!campName || target.campName === campName)));
+        (farmGroupMatches(target, enemyType) && (!campName || target.campName === campName)));
   }
 
-  function findAttackTarget(enemyType: EnemyKind | null, campName: string | null, mapBoss: BossTarget | null, priority: AutoFarmPriority) {
+  function findAttackTarget(enemyType: AutoFarmGroup | null, campName: string | null, mapBoss: BossTarget | null, priority: AutoFarmPriority) {
     // Priority only applies to an Autofarm target type; manual play aims at the nearest.
     const ranked = enemyType !== null && priority !== 'closest';
     let target: EnemyState | BossTarget | null = null;
@@ -446,7 +445,7 @@ export function createPlayerCombatController(options: {
     for (const enemy of enemies) {
       if (enemy.dead || (enemyType && enemy.generatedBoss)) continue;
       const threat = Boolean(enemyType && isEnemyAttackingPlayer(enemy, options.localIdentity?.()));
-      if (enemyType && ((!threat && (enemy.type !== enemyType || Boolean(campName && enemy.campName !== campName))) || enemy.remoteCombatGhost)) continue;
+      if (enemyType && ((!threat && (!farmGroupMatches(enemy, enemyType) || Boolean(campName && enemy.campName !== campName))) || enemy.remoteCombatGhost)) continue;
       const distance = targetDistance(enemy) ** 2;
       if (distance >= attackRange() * attackRange()) continue;
       if (enemy === retainedTarget) { retainedDistance = distance; retainedThreat = threat; }
@@ -470,7 +469,7 @@ export function createPlayerCombatController(options: {
     return target;
   }
 
-  function attackNearest(enemyType: EnemyKind | null = null, campName: string | null = null, priority: AutoFarmPriority = 'closest') {
+  function attackNearest(enemyType: AutoFarmGroup | null = null, campName: string | null = null, priority: AutoFarmPriority = 'closest') {
     const nowSeconds = options.nowSeconds();
     syncAttackTimeline(nowSeconds);
     const mapBoss = activeMapBoss();
@@ -523,7 +522,6 @@ export function createPlayerCombatController(options: {
   function killEnemy(enemy: EnemyState) {
     if (enemy.dead) return;
     enemy.dead = true;
-    noteKill(enemy);
     if (options.onEnemyDefeated?.(enemy)) {
       spawnBurst(enemy.x, enemy.y, DEATH_PARTICLE_COLOR, 12, 90);
       return;
@@ -553,7 +551,6 @@ export function createPlayerCombatController(options: {
     if (isDueling() || player.hurtClock > 0) return false;
     const dealt = damageAfterArmor(amount, effectiveArmor());
     if (dealt > 0) options.onCombat?.();
-    if (dealt > 0 && source && !source.isBoss && !source.generatedBoss) noteHitTaken(source as EnemyState, dealt, player.maxHp);
     player.hp -= dealt;
     // Reflect throws the hit back at whoever dealt it, bosses included, as it
     // arrived (before armor, which spares only the player), but never more
@@ -632,7 +629,6 @@ export function createPlayerCombatController(options: {
       // The generated-boss controller owns its health and defeat handling.
     } else {
       engageEnemy(target);
-      noteHitDealt(target, player.maxHp);
       // Hits in quick succession grow one chunk from the health before the first.
       if (!((target.hpLossFlashTimer ?? 0) > 0)) target.hpLossFlashFrom = target.hp;
       target.hpLossFlashTimer = ENEMY_HP_LOSS_FLASH_SECONDS;

@@ -9,7 +9,7 @@ import { rangedEnemyHoldBand } from './ranged-enemy-range';
 import { attackRangeWithResearch } from '../../../shared/utility-research';
 import { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 import type { SpawnSite } from '../world';
-import type { EnemyKind } from '../enemies';
+import { ENEMY_TYPES, type EnemyKind } from '../enemies';
 import type { Circle } from './types';
 import type { Movement } from './player-input-controller';
 const idle: Movement = { x: 0, y: 0, source: 'none' };
@@ -89,24 +89,36 @@ describe('autofarm', () => {
       await Promise.resolve(); await Promise.resolve();
       expect(gift.isOpen()).toBe(false);
       expect(s.tick().x).toBeGreaterThan(0);
-      expect(s.farm.targetType()).toBe('Bramble');
+      expect(s.farm.targetType()).toBe('stat:health');
     } finally { vi.unstubAllGlobals(); }
   });
 
-  it('keeps same-species generated camps separate when routing', () => {
+  it('keeps same-species generated camps apart by the stat they pay', () => {
     const s = setup(); s.setMap('endless_1');
     const armor = s.add('Bramble', 550, 500), health = s.add('Bramble', 1500, 500);
     armor.campName = s.spawnSites[0].campName = 'Armor Camp';
     health.campName = s.spawnSites[1].campName = 'Health Camp';
+    const armorDefinition = { ...armor.definition ?? ENEMY_TYPES.Bramble, reward: { type: 'armor' as const, amount: 3 } };
+    armor.definition = s.spawnSites[0].definition = armorDefinition;
     const choices = s.farm.choices();
-    expect(choices).toHaveLength(2);
-    const choice = choices.find(c => c.camp === 'Health Camp')!;
-    expect(s.farm.start(choice.key)).toBe(true);
+    expect(choices.map(c => c.key).sort()).toEqual(['stat:armor', 'stat:health']);
+    expect(s.farm.start('stat:health')).toBe(true);
     expect(s.tick().x).toBeGreaterThan(0);
-    expect(s.farm.targetType()).toBe('Bramble');
-    expect(s.farm.targetCamp()).toBe('Health Camp');
+    expect(s.farm.targetType()).toBe('stat:health');
     health.dead = true;
     expect(s.tick().x).toBeGreaterThan(0);
+  });
+
+  it("farms a camp's regulars and elites, and every camp paying the stat, as one choice", () => {
+    const s = setup();
+    s.add('Cindermaw', 900, 500); s.add('Dread Warden', 1400, 500); s.add('Bramble', 600, 500);
+    expect(ENEMY_TYPES.Cindermaw.reward.type).toBe(ENEMY_TYPES['Dread Warden'].reward.type);
+    const damage = s.farm.choices().find(c => c.key === `stat:${ENEMY_TYPES.Cindermaw.reward.type}`)!;
+    expect(damage.total).toBe(2);
+    expect(damage.kinds.sort()).toEqual(['Cindermaw', 'Dread Warden']);
+    // An old saved choice by kind still finds its stat.
+    expect(s.farm.start('Dread Warden')).toBe(true);
+    expect(s.farm.state().selected).toBe(damage.key);
   });
 
   it('never detours toward an engaged generated boss', () => {
@@ -136,7 +148,7 @@ describe('autofarm', () => {
     expect(1500 - s.player.x).toBeGreaterThan(200 - AUTO_FARM_REACH_MARGIN - 6);
     expect(s.player.y).toBe(500);
     expect(s.farm.state().status).toBe('Farming');
-    expect(s.farm.targetType()).toBe('Bramble');
+    expect(s.farm.targetType()).toBe('stat:health');
   });
 
   it('stops to fight an attacker of another type, then resumes its original farm route', () => {
@@ -148,10 +160,10 @@ describe('autofarm', () => {
     attacker.engaged = true;
     attacker.aggroTargetId = 'local-player';
     expect(s.tick()).toEqual(idle);
-    expect(s.farm.state()).toMatchObject({ active: true, selected: 'Bramble', status: 'Defending' });
+    expect(s.farm.state()).toMatchObject({ active: true, selected: 'stat:health', status: 'Defending' });
     attacker.dead = true;
     expect(s.tick().x).toBeGreaterThan(0);
-    expect(s.farm.targetType()).toBe('Bramble');
+    expect(s.farm.targetType()).toBe('stat:health');
   });
 
   it('does not detour for enemies fighting someone else or returning to their spawn', () => {
@@ -212,7 +224,7 @@ describe('autofarm', () => {
     expect(s.farm.targetCamp()).toBeNull();
     expect(s.farm.state()).toMatchObject({ active: true, status: 'Manual control' });
     expect(s.tick().x).toBeGreaterThan(0);
-    expect(s.farm.targetType()).toBe('Bramble');
+    expect(s.farm.targetType()).toBe('stat:health');
     expect(s.farm.state().active).toBe(true);
   });
 
@@ -273,7 +285,7 @@ describe('autofarm', () => {
     s.farm.refresh(); s.advance(120_000);
     expect(s.tick()).toEqual(idle);
     expect(s.farm.state()).toMatchObject({ active: true, status: 'Reconnecting · farming will resume' });
-    expect(s.farm.targetCamp()).toBe('Health Camp');
+    expect(s.farm.targetType()).toBe('stat:health');
     s.enemies.length = 0; s.spawnSites.length = 0;
     const fresh = s.add('Bramble', s.player.x, 1500);
     fresh.campName = s.spawnSites[0].campName = 'Health Camp';
@@ -350,7 +362,7 @@ describe('autofarm update handoff', () => {
     expect(after.tick()).toEqual(idle);
     after.setUnavailable(null); after.advance(1);
     expect(after.tick().x).toBeGreaterThan(0);
-    expect(after.farm.targetCamp()).toBe('Armor Camp');
+    expect(after.farm.targetType()).toBe('stat:health');
   });
   it('ignores a temporary default map during an ordinary reconnect', () => {
     const s = setup(); s.add('Bramble', 1000, 500); s.farm.start('Bramble');
@@ -471,5 +483,82 @@ describe('autofarm target priority', () => {
     const reloaded = createAutoFarmController({ ...s, mapId: () => 'forest', unavailable: () => null, paused: () => false,
       speed: () => s.player.speed, obstacles: () => [], priorityStorage: () => storage });
     expect(reloaded.priority()).toBe('lowest');
+  });
+});
+
+describe('autofarm plans: camp order, the boss and the next map', () => {
+  function planned(extra: Partial<Parameters<typeof createAutoFarmController>[0]> = {}) {
+    const state = createGameBootstrap();
+    state.enemies.length = 0; state.spawnSites.length = 0;
+    Object.assign(state.player, { x: 500, y: 500, attackRange: 200, speed: 300 });
+    let map = 'forest', now = 0;
+    const values = new Map<string, string>();
+    const memory = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); }, removeItem: (key: string) => { values.delete(key); } };
+    const resumeStore = createAutoFarmResumeStore(() => memory);
+    const lifecycle = createEnemyLifecycle(state.enemies, state.spawnSites, () => {});
+    const add = (type: EnemyKind, x: number, y: number) => {
+      const site: SpawnSite = { id: state.spawnSites.length, type, x, y, campName: type, leashRange: 500, alive: false, respawnAt: 0 };
+      state.spawnSites.push(site); lifecycle.spawnFromSite(site);
+      return state.enemies[state.enemies.length - 1];
+    };
+    const farm = createAutoFarmController({ ...state, mapId: () => map, unavailable: () => null, paused: () => false,
+      speed: () => 300, obstacles: () => [], localIdentity: () => 'me', now: () => now, resumeStore, priorityStorage: () => memory, ...extra });
+    const tick = () => farm.movement(idle, 1 / 60);
+    return { ...state, farm, add, tick, resumeStore, setMap: (value: string) => { map = value; }, advance: (ms: number) => { now += ms; } };
+  }
+  const health = `stat:${ENEMY_TYPES.Bramble.reward.type}`, speed = `stat:${ENEMY_TYPES.Needle.reward.type}`;
+
+  it("farms the player's camps in order, moving on when one is cleared and looping back", () => {
+    const s = planned();
+    const bramble = s.add('Bramble', 1500, 500), needle = s.add('Needle', 600, 900);
+    expect(s.farm.start([health, speed])).toBe(true);
+    s.tick();
+    expect(s.farm.state().selected).toBe(health);
+    bramble.dead = true;
+    s.tick();
+    expect(s.farm.state().selected).toBe(speed);
+    needle.dead = true; bramble.dead = false; bramble.hp = bramble.maxHp;
+    s.tick();
+    expect(s.farm.state().selected).toBe(health);
+  });
+
+  it('fights the boss once the build is ready, and comes back to it later after dying there', () => {
+    let ready = false;
+    const s = planned({
+      evaluate: () => ({ power: 1, fightSeconds: ready ? 30 : 400, hitShare: .1 }),
+      mapBoss: () => ({ x: 2500, y: 500, r: 80 }),
+    });
+    s.add('Bramble', 900, 500);
+    s.farm.setAdvance(true);
+    s.farm.start([]);
+    s.tick();
+    expect(s.farm.state().phase).toBe('farm');
+    ready = true;
+    expect(s.tick().x).toBeGreaterThan(0);
+    expect(s.farm.state().phase).toBe('boss');
+    expect(s.farm.targetType()).toBeNull();
+    s.farm.defeated();
+    s.tick();
+    expect(s.farm.state().phase).toBe('farm');
+    s.advance(5 * 60_000);
+    s.tick();
+    expect(s.farm.state().phase).toBe('boss');
+  });
+
+  it("walks into the next map's portal and carries the farm across on Auto", () => {
+    const s = planned({ nextPortal: () => ({ x: 200, y: 500, destination: 'beginner_desert' }) });
+    s.add('Bramble', 900, 500);
+    s.farm.setAdvance(true);
+    s.farm.start([health]);
+    expect(s.tick().x).toBeLessThan(0);
+    expect(s.farm.state()).toMatchObject({ phase: 'portal', status: 'Heading to the next map' });
+    s.farm.travelStarted();
+    expect(s.farm.state()).toMatchObject({ active: false, status: 'Moving to the next map' });
+    expect(s.resumeStore.read()).toEqual({ identity: 'me', map: 'beginner_desert', choice: 'auto' });
+    // Without the switch, travel ends the farm as it always has.
+    const off = planned({ nextPortal: () => ({ x: 200, y: 500, destination: 'beginner_desert' }) });
+    off.add('Bramble', 900, 500); off.farm.start([]); off.tick();
+    off.farm.travelStarted();
+    expect(off.resumeStore.read()).toBeNull();
   });
 });

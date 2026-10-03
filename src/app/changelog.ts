@@ -1,4 +1,11 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.873": [
+    "Autofarm redesign: pick camps in the order to farm them, or let Auto choose the best camp for you",
+    "Autofarm can fight the boss when you're ready and move on to the next map (Boss & next map)",
+    "Autofarm camps are grouped by the stat they give, regular and elite enemies together",
+    "Menus and windows no longer pause the game",
+    "Ping updates faster: it shows the last 5 seconds",
+  ],
   "0.872": [
     "Autofarm's aggro pull keeps working while you steer by hand",
   ],
@@ -2690,6 +2697,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.873": "2026-10-03",
   "0.872": "2026-10-03",
   "0.871": "2026-10-03",
   "0.870": "2026-10-03",
