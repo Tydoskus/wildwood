@@ -10,18 +10,23 @@ import { effectiveMovementSpeedForProgress } from "./player-speed";
 import { mergeLinkedPrestige } from "./prestige-transfer";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
+/** The launch as live had it: a shared 30-minute countdown. */
 function expansion() {
   const f = crystalFixture();
-  ensurePrestigeExpansion(f.ctx as any);
+  f.seed("prestigeExpansion", { id: 0, launchedAt: f.ctx.timestamp,
+    unlocksAt: new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + BigInt(PRESTIGE_EXPANSION_DELAY_MS) * 1000n) });
   const launch = f.db.prestigeExpansion.id.find(0);
   const unlock = () => { f.ctx.timestamp = launch.unlocksAt; };
   f.seed("playerPrestige", { identity: f.ctx.sender, level: 20, perkPoints: 10, peakPower: 0, prestigedAt: f.ctx.timestamp });
   return { ...f, launch, unlock };
 }
 
-it("persists one shared 30-minute deadline across connects and subsequent publishes", () => {
+it("starts a new database unlocked, and never rewrites an existing deadline", () => {
+  const fresh = crystalFixture();
+  ensurePrestigeExpansion(fresh.ctx as any);
+  const row = fresh.db.prestigeExpansion.id.find(0);
+  expect(row.unlocksAt.microsSinceUnixEpoch).toBe(row.launchedAt.microsSinceUnixEpoch);
   const f = expansion();
-  expect(f.launch.unlocksAt.microsSinceUnixEpoch - f.launch.launchedAt.microsSinceUnixEpoch).toBe(BigInt(PRESTIGE_EXPANSION_DELAY_MS) * 1000n);
   f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + 60_000_000n);
   ensurePrestigeExpansion(f.ctx as any);
   expect(f.db.prestigeExpansion.id.find(0)).toEqual(f.launch);

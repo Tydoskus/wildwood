@@ -1,6 +1,4 @@
 import { table, t } from "spacetimedb/server";
-import { Timestamp } from "spacetimedb";
-import { PRESTIGE_EXPANSION_DELAY_MS } from "../../shared/prestige-expansion";
 import type { GameReducerContext } from "./index";
 
 // Additive tables: shipped clients can still decode the original perk table.
@@ -13,11 +11,15 @@ export const playerPrestigeExpansionPerk = table({ name: "player_prestige_expans
 
 type Context = Pick<GameReducerContext, "db" | "timestamp">;
 
-/** First post-publish maintenance/connect starts it once; later publishes never restart it. */
+/**
+ * The live database's row was written at launch with a 30-minute countdown
+ * and has long since unlocked; it is never rewritten. A database created
+ * after that (a local or test one) starts unlocked rather than replaying the
+ * launch countdown.
+ */
 export function ensurePrestigeExpansion(ctx: Context) {
   if (ctx.db.prestigeExpansion.id.find(0)) return;
-  ctx.db.prestigeExpansion.insert({ id: 0, launchedAt: ctx.timestamp,
-    unlocksAt: new Timestamp(ctx.timestamp.microsSinceUnixEpoch + BigInt(PRESTIGE_EXPANSION_DELAY_MS) * 1000n) });
+  ctx.db.prestigeExpansion.insert({ id: 0, launchedAt: ctx.timestamp, unlocksAt: ctx.timestamp });
 }
 
 export function prestigeExpanded(ctx: Context) {

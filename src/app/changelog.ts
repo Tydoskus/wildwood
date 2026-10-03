@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.877": [
+    "Faster start: the game downloads while you're on the sign-in screen",
+    "Invisible players can no longer be found on the map by other players",
+    "Server efficiency pass: leaderboard, kill reports, quests and old data cleanup",
+    "Behind the scenes: bosses rebuilt on one shared system (they play exactly the same)",
+  ],
   "0.876": [
     "Faster loading: smaller game files, music half the size, and art and music cached between visits",
     "Music isn't downloaded at all while it's muted",
@@ -2717,6 +2723,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.877": "2026-10-03",
   "0.876": "2026-10-03",
   "0.875": "2026-10-03",
   "0.874": "2026-10-03",
