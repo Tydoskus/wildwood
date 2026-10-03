@@ -57,9 +57,13 @@ export function createPrestigeChallengePanel(d: {
   goalLadder.textContent = `Map ${challengeGoal(0).label.match(/map (\d+)/)?.[1] ?? 15} boss → `
     + Array.from({ length: PRESTIGE_CHALLENGE_LIMIT - 1 }, (_, index) => `Endless ${index + 1}`).join(" → ");
   pips.innerHTML = Array.from({ length: PRESTIGE_CHALLENGE_LIMIT }, () => "<li></li>").join("");
-  let pending = false;
+  let pending = false, shown = "";
   function render() {
     const current = d.state(), locked = d.locked(), done = current.completed >= PRESTIGE_CHALLENGE_LIMIT;
+    // Called every frame: rebuilding the same panel each time cost a layout and repaint per frame.
+    const key = JSON.stringify([current.active, current.completed, current.parked === true, locked, pending]);
+    if (key === shown) return;
+    shown = key;
     card.classList.toggle("is-active", current.active);
     const number = `Challenge ${current.completed + 1} of ${PRESTIGE_CHALLENGE_LIMIT}`;
     const parked = !current.active && !done && current.parked === true;

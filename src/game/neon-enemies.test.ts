@@ -11,9 +11,20 @@ it("uses the same animated sword sentry across Neon Bastion", () => {
     for (const motion of Object.values(animation.animations)) expect(motion.frames).toHaveLength(8);
     const path = animation.pages[0].src;
     sheets.add(path);
-    const source = readFileSync(new URL("../../public/" + path, import.meta.url), "utf8");
+    const source = readFileSync(new URL("../../public/" + path.replace(/\.webp$/, ".svg"), import.meta.url), "utf8");
     expect(source).toContain('width="1024" height="384"');
     expect(source.length).toBeLessThan(40_000);
   }
-  expect([...sheets]).toEqual(["assets/wildstat/enemies/neon-sentry/reaver.svg"]);
+  expect([...sheets]).toEqual(["assets/wildstat/enemies/neon-sentry/reaver.webp"]);
+});
+
+it("draws no enemy or boss from an SVG, which Firefox re-rasterizes on every draw", async () => {
+  const sharp = (await import("sharp")).default;
+  const { AEGIS_PRIME_ART_SOURCE } = await import("./runtime/ion-boss-art");
+  const pages = Object.values(ENEMY_SPRITE_LAYOUTS).flatMap(sprite => sprite.animation?.pages ?? []);
+  for (const page of [...pages, { src: AEGIS_PRIME_ART_SOURCE, width: 1024, height: 1024 }]) {
+    expect(page.src).not.toMatch(/\.svg$/);
+    const { width, height } = await sharp(new URL("../../public/" + page.src, import.meta.url).pathname).metadata();
+    expect({ src: page.src, width, height }).toEqual({ src: page.src, width: page.width, height: page.height });
+  }
 });

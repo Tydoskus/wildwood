@@ -1,5 +1,6 @@
 import { installFeedbackControls } from "./feedback-settings";
 import { installSettingsTabs } from "./settings-tabs";
+import { applyTextOutlineMode } from "./text-outline-mode";
 
 const beforeStartShell = String.raw`
 <div id="dailyGemBonus" class="daily-gem-bonus" hidden>
@@ -477,4 +478,7 @@ export function installGameShell(doc: Document = document) {
   }
 }
 
-if (typeof document !== "undefined") installGameShell(document);
+if (typeof document !== "undefined") {
+  applyTextOutlineMode(document, navigator.userAgent);
+  installGameShell(document);
+}

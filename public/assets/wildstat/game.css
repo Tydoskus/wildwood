@@ -4695,3 +4695,27 @@
   font-variant-numeric: tabular-nums;
 }
 .prestige-expansion-notice[hidden] { display: none; }
+
+/* Firefox draws -webkit-text-stroke on the CPU, redrawing every outlined label
+   and the icons beside it whenever something near them changes. There
+   (src/ui/text-outline-mode.ts) the outline is a ring of text shadows at half
+   the stroke's width, the part paint-order: stroke fill leaves visible, which
+   the GPU draws. Rules with their own literal stroke get their own ring. */
+html.text-outline-shadow {
+  --text-outline-ring: .04em 0 0 #000, -.04em 0 0 #000, 0 .04em 0 #000, 0 -.04em 0 #000, .028em .028em 0 #000, -.028em .028em 0 #000, .028em -.028em 0 #000, -.028em -.028em 0 #000;
+  --text-shadow: var(--text-outline-ring), .06em .10em 0 #000;
+  --text-shadow-large: var(--text-outline-ring), .06em .10em 0 #000;
+}
+html.text-outline-shadow * { -webkit-text-stroke-width: 0 !important; }
+html.text-outline-shadow :is(.chat-reply-prefix, .chat-guild-requests .guild-requests-refresh) { text-shadow: .06em .10em 0 #000; }
+html.text-outline-shadow :is(.item-tier-label, .inventory-upgrade-level) { text-shadow: 1px 0 0 #080b08, -1px 0 0 #080b08, 0 1px 0 #080b08, 0 -1px 0 #080b08, .7px .7px 0 #080b08, -.7px .7px 0 #080b08, .7px -.7px 0 #080b08, -.7px -.7px 0 #080b08; }
+html.text-outline-shadow :is(.item-drop-name, .item-drop-stats) { text-shadow: .045em 0 0 #000, -.045em 0 0 #000, 0 .045em 0 #000, 0 -.045em 0 #000, .032em .032em 0 #000, -.032em .032em 0 #000, .032em -.032em 0 #000, -.032em -.032em 0 #000, .06em .11em 0 #000; }
+html.text-outline-shadow .death-screen h1 { text-shadow: .045em 0 0 #000, -.045em 0 0 #000, 0 .045em 0 #000, 0 -.045em 0 #000, .032em .032em 0 #000, -.032em .032em 0 #000, .032em -.032em 0 #000, -.032em -.032em 0 #000; }
+html.text-outline-shadow :is(.map-guide-zone-label, .map-guide-boss-label) { text-shadow: .05em 0 0 #000, -.05em 0 0 #000, 0 .05em 0 #000, 0 -.05em 0 #000, .035em .035em 0 #000, -.035em .035em 0 #000, .035em -.035em 0 #000, -.035em -.035em 0 #000, 1px 1px 0 #000; }
+html.text-outline-shadow :is(.leaderboard-podium-value, .leaderboard-podium-name, .leaderboard-podium-name *, .leaderboard-name, .leaderboard-name *, .window-banner.window-banner, .window-banner > span) { text-shadow: 2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000, 1.4px 1.4px 0 #000, -1.4px 1.4px 0 #000, 1.4px -1.4px 0 #000, -1.4px -1.4px 0 #000; }
+html.text-outline-shadow .leaderboard-podium-rank-label { text-shadow: 1.25px 0 0 #2b2b21, -1.25px 0 0 #2b2b21, 0 1.25px 0 #2b2b21, 0 -1.25px 0 #2b2b21, .9px .9px 0 #2b2b21, -.9px .9px 0 #2b2b21, .9px -.9px 0 #2b2b21, -.9px -.9px 0 #2b2b21, 0 2px 0 #2b2b21; }
+html.text-outline-shadow .player-prestige-badge { --badge-ring: calc(var(--prestige-badge-size, 16px) * .096); --badge-diag: calc(var(--prestige-badge-size, 16px) * .068);
+  text-shadow: var(--badge-ring) 0 0 #000, calc(-1 * var(--badge-ring)) 0 0 #000, 0 var(--badge-ring) 0 #000, 0 calc(-1 * var(--badge-ring)) 0 #000,
+    var(--badge-diag) var(--badge-diag) 0 #000, calc(-1 * var(--badge-diag)) var(--badge-diag) 0 #000, var(--badge-diag) calc(-1 * var(--badge-diag)) 0 #000, calc(-1 * var(--badge-diag)) calc(-1 * var(--badge-diag)) 0 #000; }
+html.text-outline-shadow .hud-gem-balance { text-shadow: var(--text-outline-ring), 0 1px #071c29; }
+html.text-outline-shadow .death-countdown { text-shadow: var(--text-outline-ring); }

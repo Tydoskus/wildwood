@@ -1,7 +1,8 @@
 import { AEGIS_PRIME_SPRITE_GROUND_OFFSET } from "../constants";
 export { AEGIS_PRIME_ART_TOP } from "../constants";
 import { drawBossSheetFrame } from "./boss-frame-crop";
-export const AEGIS_PRIME_ART_SOURCE = 'assets/wildstat/aegis-prime-boss-v1.svg';
+// A bitmap of the vector chassis (scripts/rasterize-vector-sprites.mjs): Firefox re-rasterizes an SVG on every draw.
+export const AEGIS_PRIME_ART_SOURCE = 'assets/wildstat/aegis-prime-boss-v1.webp';
 
 /** The shield commander uses an original vector chassis matched to the reserved sentry. */
 export function drawAegisPrimeArt(ctx: CanvasRenderingContext2D, x: number, y: number, time: number, pose: 'idle' | 'laser' | 'emp', hurt: number, sprite?: HTMLImageElement) {

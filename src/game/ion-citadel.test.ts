@@ -45,6 +45,6 @@ it("reuses the original reserved shield sentry for every citadel camp role", asy
   ]);
   expect(promoted).toBe(reserved);
   for (const kind of new Set(mapSpawnCamps('ion_citadel').flatMap(c => c.types))) {
-    expect(enemySpriteAssetSources(ENEMY_SPRITE_LAYOUTS[kind])).toEqual(['assets/wildstat/enemies/ion-guardian/guardian.svg']);
+    expect(enemySpriteAssetSources(ENEMY_SPRITE_LAYOUTS[kind])).toEqual(['assets/wildstat/enemies/ion-guardian/guardian.webp']);
   }
 });

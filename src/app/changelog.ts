@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.869": [
+    "Firefox uses far less battery: outlined text is drawn by the graphics card instead of redrawn on the processor",
+    "Ion Citadel, Neon Bastion and Verdant Catacombs enemies and Aegis Prime are cheaper to draw",
+    "The game no longer rewrites hidden panels every frame",
+  ],
   "0.868": [
     "Ranged enemies: every shot in a volley now lands and can be reflected, instead of only the first",
   ],
@@ -2674,6 +2679,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.869": "2026-10-03",
   "0.868": "2026-10-02",
   "0.867": "2026-10-02",
   "0.866": "2026-10-01",

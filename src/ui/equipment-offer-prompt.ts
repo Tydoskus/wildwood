@@ -158,10 +158,13 @@ export function createEquipmentOfferPrompt(options: EquipmentOfferPromptOptions)
     for (const set of [answered, deferred]) for (const id of set) if (!known.has(id)) set.delete(id);
     const offers = waiting();
     const count = offers.length;
+    // Refreshed every second; the badge sits in the toolbar, which repaints with any text it is handed.
+    const badgeText = count > 9 ? "9+" : String(count);
+    const reviewText = count === 1 ? "1 duplicate item waiting · Review" : `${count} duplicate items waiting · Review`;
     badge.hidden = count === 0;
-    badge.textContent = count > 9 ? "9+" : String(count);
+    if (badge.textContent !== badgeText) badge.textContent = badgeText;
     review.hidden = count === 0;
-    review.textContent = count === 1 ? "1 duplicate item waiting · Review" : `${count} duplicate items waiting · Review`;
+    if (review.textContent !== reviewText) review.textContent = reviewText;
     const signature = (options.coop?.equipmentCopies?.() ?? []).map(copy => `${copy.id}:${copy.itemId}`).join(",");
     if (signature !== copiesSignature) {
       copiesSignature = signature;

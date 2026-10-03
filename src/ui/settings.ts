@@ -8,8 +8,11 @@ export function setText(element: HTMLElement, text: string) {
 }
 
 export function renderBooleanSetting(button: HTMLElement, enabled: boolean) {
-  button.textContent = enabled ? "ON" : "OFF";
-  button.setAttribute("aria-pressed", String(enabled));
+  // Some callers refresh every frame; rewriting the same text still replaces
+  // the text node, and the browser lays it out and repaints it again.
+  const label = enabled ? "ON" : "OFF";
+  if (button.textContent !== label) button.textContent = label;
+  if (button.getAttribute("aria-pressed") !== String(enabled)) button.setAttribute("aria-pressed", String(enabled));
   button.classList.toggle("is-off", !enabled);
 }
 

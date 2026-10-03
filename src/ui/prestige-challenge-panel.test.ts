@@ -69,3 +69,17 @@ it("offers to drop back in to a parked challenge run", async () => {
   await vi.waitFor(() => expect(start).toHaveBeenCalledOnce());
   expect(confirm.mock.calls[0][0]).toMatchObject({ confirmLabel: "Drop back in" });
 });
+
+it("leaves the panel's nodes alone when it is rendered every frame with nothing changed", () => {
+  const { document } = parseHTML("<html><body><div id='panel'></div></body></html>");
+  const container = document.getElementById("panel") as unknown as HTMLElement;
+  let state = { active: false, completed: 1 };
+  const panel = createPrestigeChallengePanel({ container, state: () => state, locked: () => null,
+    start: async () => ({ ok: true }), abandon: async () => ({ ok: true }) });
+  const term = container.querySelector(".prestige-challenge-terms li");
+  panel.render(); panel.render();
+  expect(container.querySelector(".prestige-challenge-terms li")).toBe(term);
+  state = { active: true, completed: 1 }; panel.render();
+  expect(container.querySelector(".prestige-challenge-terms li")).not.toBe(term);
+  expect(container.textContent).toContain("Challenge 2 of 4 · in progress");
+});

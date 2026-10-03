@@ -14,8 +14,9 @@ export function createPrestigeExpansionNotice(d: {
   return {
     tick() {
       const deadline = d.unlocksAt(), now = d.now();
-      element.hidden = !d.visible() || !deadline || now >= deadline + 5 * 60_000;
-      if (element.hidden || !deadline) return;
+      const hidden = !d.visible() || !deadline || now >= deadline + 5 * 60_000;
+      if (element.hidden !== hidden) element.hidden = hidden;
+      if (hidden || !deadline) return;
       const label = prestigeExpansionLabel(deadline, now);
       if (element.textContent !== label) element.textContent = label;
     },
