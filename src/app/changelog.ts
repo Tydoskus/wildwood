@@ -1,7 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.867": [
     "Reflect kills are no longer cut back by the server for sturdy builds or with Second Wind, so their stats stop rolling back",
-    "Endless picks from every enemy type in the game (84 of them, ranged ones included) instead of a few, and never the forest slimes",
+    "Endless has 41 new monsters (toads, orcs, horses, worms, wing demons and more) plus the campaign's non-slime sets, one per map; some maps fight at range",
     "Endless colours are darker and softer, closer to the forest",
     "Duels: a reflected hit is capped at the reflecting player's max health",
     "Autofarm attacks from the edge of your full range, Long Shot included, and only walks closer when a target is out of reach",

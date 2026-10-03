@@ -7,6 +7,48 @@ import tulipAtlas from "./enemy-atlases/flower-tulip.mjs";
 import beeAtlas from "./enemy-atlases/wingdemon-bee.mjs";
 import fungusAtlas from "./enemy-atlases/fungus-rock.mjs";
 import crystalAtlas from "./enemy-atlases/hornrabbit-crystal.mjs";
+// Endless-only Layer Lab captures (0.867); names in shared/endless-enemies.ts.
+import carapaceCastleAtlas from "./enemy-atlases/carapace-castle.mjs";
+import carapaceGreenAtlas from "./enemy-atlases/carapace-green.mjs";
+import carapaceIronAtlas from "./enemy-atlases/carapace-iron.mjs";
+import evilmassAngryAtlas from "./enemy-atlases/evilmass-angry.mjs";
+import evilmassBoxerAtlas from "./enemy-atlases/evilmass-boxer.mjs";
+import evilmassKnightAtlas from "./enemy-atlases/evilmass-knight.mjs";
+import flowerBerryAtlas from "./enemy-atlases/flower-berry.mjs";
+import flowerCandyAtlas from "./enemy-atlases/flower-candy.mjs";
+import flowerDaisyAtlas from "./enemy-atlases/flower-daisy.mjs";
+import flowerDandelionAtlas from "./enemy-atlases/flower-dandelion.mjs";
+import fungusHornAtlas from "./enemy-atlases/fungus-horn.mjs";
+import hornrabbitDemonAtlas from "./enemy-atlases/hornrabbit-demon.mjs";
+import hornrabbitJellyAtlas from "./enemy-atlases/hornrabbit-jelly.mjs";
+import horseBroncoAtlas from "./enemy-atlases/horse-bronco.mjs";
+import horseNightmareAtlas from "./enemy-atlases/horse-nightmare.mjs";
+import horseUnicornAtlas from "./enemy-atlases/horse-unicorn.mjs";
+import larvaGreenAtlas from "./enemy-atlases/larva-green.mjs";
+import larvaKnightAtlas from "./enemy-atlases/larva-knight.mjs";
+import larvaLeechAtlas from "./enemy-atlases/larva-leech.mjs";
+import orcsmasherBerserkerAtlas from "./enemy-atlases/orcsmasher-berserker.mjs";
+import orcsmasherRedAtlas from "./enemy-atlases/orcsmasher-red.mjs";
+import orcsmasherWarlordAtlas from "./enemy-atlases/orcsmasher-warlord.mjs";
+import orcswordButcherAtlas from "./enemy-atlases/orcsword-butcher.mjs";
+import orcswordRookieAtlas from "./enemy-atlases/orcsword-rookie.mjs";
+import orcswordVeteranAtlas from "./enemy-atlases/orcsword-veteran.mjs";
+import pumpkinSteelAtlas from "./enemy-atlases/pumpkin-steel.mjs";
+import raptorSwampAtlas from "./enemy-atlases/raptor-swamp.mjs";
+import reaperBloodAtlas from "./enemy-atlases/reaper-blood.mjs";
+import rhinoHugeAtlas from "./enemy-atlases/rhino-huge.mjs";
+import toadGiantAtlas from "./enemy-atlases/toad-giant.mjs";
+import toadHornAtlas from "./enemy-atlases/toad-horn.mjs";
+import toadKingAtlas from "./enemy-atlases/toad-king.mjs";
+import wingdemonAppleAtlas from "./enemy-atlases/wingdemon-apple.mjs";
+import wingdemonBombAtlas from "./enemy-atlases/wingdemon-bomb.mjs";
+import wingdemonEyeAtlas from "./enemy-atlases/wingdemon-eye.mjs";
+import wingdemonVampireAtlas from "./enemy-atlases/wingdemon-vampire.mjs";
+import winterIceAtlas from "./enemy-atlases/winter-ice.mjs";
+import winterIronAtlas from "./enemy-atlases/winter-iron.mjs";
+import winterSnowAtlas from "./enemy-atlases/winter-snow.mjs";
+import wormLightningAtlas from "./enemy-atlases/worm-lightning.mjs";
+import wormPoisonAtlas from "./enemy-atlases/worm-poison.mjs";
 
 /** One family within each map, not one recolored slime across the whole game.
  * Keep this browser JavaScript: the local layer aligner imports it directly.
@@ -172,6 +214,48 @@ const ionCitadel = (options) => {
 };
 
 export const ENEMY_SPRITE_LAYOUTS = {
+  // Endless-only: one Layer Lab capture each (shared/endless-enemies.ts).
+  "Castle Carapace": animatedSprite("carapace-castle", carapaceCastleAtlas),
+  "Green Carapace": animatedSprite("carapace-green", carapaceGreenAtlas),
+  "Iron Carapace": animatedSprite("carapace-iron", carapaceIronAtlas),
+  "Angry Evilmass": animatedSprite("evilmass-angry", evilmassAngryAtlas),
+  "Boxer Evilmass": animatedSprite("evilmass-boxer", evilmassBoxerAtlas),
+  "Knight Evilmass": animatedSprite("evilmass-knight", evilmassKnightAtlas),
+  "Berry Bloom": animatedSprite("flower-berry", flowerBerryAtlas),
+  "Candy Bloom": animatedSprite("flower-candy", flowerCandyAtlas),
+  "Daisy Bloom": animatedSprite("flower-daisy", flowerDaisyAtlas),
+  "Dandelion Bloom": animatedSprite("flower-dandelion", flowerDandelionAtlas),
+  "Horned Fungus": animatedSprite("fungus-horn", fungusHornAtlas),
+  "Demon Hornrabbit": animatedSprite("hornrabbit-demon", hornrabbitDemonAtlas),
+  "Jelly Hornrabbit": animatedSprite("hornrabbit-jelly", hornrabbitJellyAtlas),
+  "Bronco": animatedSprite("horse-bronco", horseBroncoAtlas),
+  "Nightmare": animatedSprite("horse-nightmare", horseNightmareAtlas),
+  "Unicorn": animatedSprite("horse-unicorn", horseUnicornAtlas),
+  "Green Larva": animatedSprite("larva-green", larvaGreenAtlas),
+  "Knight Larva": animatedSprite("larva-knight", larvaKnightAtlas),
+  "Leech Larva": animatedSprite("larva-leech", larvaLeechAtlas),
+  "Orc Berserker": animatedSprite("orcsmasher-berserker", orcsmasherBerserkerAtlas),
+  "Red Orc Smasher": animatedSprite("orcsmasher-red", orcsmasherRedAtlas),
+  "Orc Warlord": animatedSprite("orcsmasher-warlord", orcsmasherWarlordAtlas),
+  "Orc Butcher": animatedSprite("orcsword-butcher", orcswordButcherAtlas),
+  "Orc Rookie": animatedSprite("orcsword-rookie", orcswordRookieAtlas),
+  "Orc Veteran": animatedSprite("orcsword-veteran", orcswordVeteranAtlas),
+  "Steel Pumpkin": animatedSprite("pumpkin-steel", pumpkinSteelAtlas),
+  "Swamp Raptor": animatedSprite("raptor-swamp", raptorSwampAtlas),
+  "Blood Reaper": animatedSprite("reaper-blood", reaperBloodAtlas),
+  "Huge Rhino": animatedSprite("rhino-huge", rhinoHugeAtlas),
+  "Giant Toad": animatedSprite("toad-giant", toadGiantAtlas),
+  "Horned Toad": animatedSprite("toad-horn", toadHornAtlas),
+  "Toad King": animatedSprite("toad-king", toadKingAtlas),
+  "Apple Wingdemon": animatedSprite("wingdemon-apple", wingdemonAppleAtlas),
+  "Bomb Wingdemon": animatedSprite("wingdemon-bomb", wingdemonBombAtlas),
+  "Eye Wingdemon": animatedSprite("wingdemon-eye", wingdemonEyeAtlas),
+  "Vampire Wingdemon": animatedSprite("wingdemon-vampire", wingdemonVampireAtlas),
+  "Ice Winterling": animatedSprite("winter-ice", winterIceAtlas),
+  "Iron Winterling": animatedSprite("winter-iron", winterIronAtlas),
+  "Snow Winterling": animatedSprite("winter-snow", winterSnowAtlas),
+  "Lightning Worm": animatedSprite("worm-lightning", wormLightningAtlas),
+  "Poison Worm": animatedSprite("worm-poison", wormPoisonAtlas),
   "Ion Patrol": ionCitadel(),
   "Capacitor Gunner": ionCitadel({ ranged: true }),
   "Citadel Marshal": ionCitadel({ elite: true }),

@@ -1,3 +1,5 @@
+import { ENDLESS_ENEMY_ART } from "../../shared/endless-enemies";
+import { GENERATED_ENEMY_ART, generatedEnemyArt } from "../../shared/procedural-enemy-art";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import {
@@ -101,7 +103,20 @@ describe("enemy sprite loading", () => {
         if (sprite.animation) expect(sprite.animation.pages.every((page) => page.src.includes(`/enemies/${family}/`))).toBe(true);
       }
     }
-    expect([...covered].sort()).toEqual(Object.keys(ENEMY_TYPES).sort());
+    // Every enemy spawns on a campaign map except the Endless-only captures.
+    expect([...covered].sort()).toEqual(Object.keys(ENEMY_TYPES).filter(kind => !(kind in ENDLESS_ENEMY_ART)).sort());
+  });
+
+  it("gives every Endless-only enemy its own WebP capture, and never draws a slime in Endless", () => {
+    for (const [kind, art] of Object.entries(ENDLESS_ENEMY_ART)) {
+      const sprite = ENEMY_SPRITE_LAYOUTS[kind as keyof typeof ENEMY_SPRITE_LAYOUTS];
+      expect(sprite.family).toBe(art);
+      expect(sprite.animation?.pages.every((page) => page.src.includes(`/enemies/${art}/`) && page.src.endsWith(".webp"))).toBe(true);
+      expect(ENEMY_TYPES[kind as keyof typeof ENEMY_TYPES].ranged).toBeFalsy();
+    }
+    for (const kind of GENERATED_ENEMY_ART) expect(ENEMY_SPRITE_LAYOUTS[kind].family).not.toMatch(/^slime/);
+    const drawn = new Set(Array.from({ length: 400 }, (_, i) => ENEMY_SPRITE_LAYOUTS[generatedEnemyArt(`endless_${i + 1}`)].family));
+    expect(drawn.size).toBeGreaterThan(40);
   });
 
   it("ships every referenced image and reuses the original stone/crowned slime art", () => {

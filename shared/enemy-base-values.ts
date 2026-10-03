@@ -1,8 +1,10 @@
 // Baked from live balance revision 73 (2026-09-25). Values already include campaign tuning
 // and reward boosts. Do not multiply them by the old progression reward scales again.
 import type { EnemyDefinition } from "./enemy-definitions";
+import { ENDLESS_ENEMY_BASE_VALUES } from "./endless-enemies";
 
 export const ENEMY_BASE_VALUES = {
+  ...ENDLESS_ENEMY_BASE_VALUES,
   "Bramble": {"speed": 205, "attackSpeed": 1, "r": 14, "color": "#d95738", "outline": "#5c1b13", "hp": 42, "damage": 14, "reward": {"type": "health", "amount": 42}},
   "Needle": {"speed": 205, "attackSpeed": 1, "r": 10, "color": "#ffd34d", "outline": "#6f4a12", "hp": 90, "damage": 24, "reward": {"type": "speed", "amount": 0.05}},
   "Mossback": {"speed": 205, "attackSpeed": 1, "r": 22, "color": "#768d51", "outline": "#2c3b20", "hp": 180, "damage": 29, "reward": {"type": "armor", "amount": 9}},
