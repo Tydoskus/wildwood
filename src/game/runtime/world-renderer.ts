@@ -8,8 +8,9 @@ import { ENEMY_TYPES, REWARD_DATA } from "../enemies";
 import { drawPortalMapMarker, portalDestinationColor, portalDestinationTextColor } from "../portal-presentation";
 import type { MapPlayerMarker } from "../../wildstat-coop";
 import type { Camera } from "./camera";
-import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, AegisPrimeBossState, PlayerState, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
-import { CLOUDSPIRE_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, NEON_BASTION_MAP_ID, VERDANT_CATACOMBS_MAP_ID, ION_CITADEL_MAP_ID, SAMURAI_GARDEN_MAP_ID, type MapId, type WorldDecor, type WorldPath } from "../world";
+import type { EnemyState, PlayerState } from "./types";
+import { bossForMap, type BossStates } from "./boss-registry";
+import { NEON_BASTION_MAP_ID, VERDANT_CATACOMBS_MAP_ID, ION_CITADEL_MAP_ID, SAMURAI_GARDEN_MAP_ID, type MapId, type WorldDecor, type WorldPath } from "../world";
 import type { StaticWorldColorQuadFrame, StaticWorldLayer, StaticWorldSpriteFrame, StaticWorldTileFrame } from "./webgl-static-world-layer";
 import {
   paintStaticTile,
@@ -87,40 +88,13 @@ export type WorldRendererOptions = {
   portalIsUnlocked: (portal: Portal) => boolean;
   portalRevealIntensity: () => number;
   portalDestinationOpacity: () => number;
-  tutorialMapId: MapId;
-  desertMapId: MapId;
-  snowMapId: MapId;
-  lavaMapId: MapId;
   infernalMapId: MapId;
-  waterMapId: MapId;
-  samuraiMapId: MapId;
-  cloudspireMapId: MapId;
-  moonfenMapId: MapId;
-  crystalHollowsMapId: MapId;
-  clockworkRuinsMapId: MapId;
-  duskfallOrchardMapId: MapId;
-  neonBastionMapId: MapId;
-  verdantCatacombsMapId: MapId;
-  ionCitadelMapId: MapId;
   paths: WorldPath[];
   decor: WorldDecor[];
   enemies: EnemyState[];
   player: PlayerState;
-  boss: DragonBossState;
-  spiderBoss: SpiderBossState;
-  frostclawBoss: FrostclawBossState;
-  magmaliskBoss: MagmaliskBossState;
-  gloomrootBoss: GloomrootBossState;
-  tidewyrmBoss: TidewyrmBossState;
-  koiShogunBoss: KoiShogunBossState;
-  tempestKirinBoss: TempestKirinBossState;
-  miremawBoss: MiremawBossState;
-  prismshellBoss: PrismshellBossState;
-  ironhornBoss: IronhornBossState;
-  dreadreaperBoss: DreadreaperBossState;
-  voltwardenBoss: VoltwardenBossState;
-  gravebloomBoss: GravebloomBossState;
-  aegisPrimeBoss: AegisPrimeBossState;
+  /** Every world boss; the current map's is marked on the minimap. */
+  bosses: BossStates;
   duelSpaceBackground: HTMLImageElement;
   treeSpritesheet: HTMLImageElement;
   nightTreeSpritesheet: HTMLImageElement;
@@ -921,8 +895,6 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     const draw = minimapCtx;
     draw.save(); minimapRoundedRect(draw, 0, 0, size, size, 4); draw.clip();
     const innerX = 0; const innerY = 0; const innerSize = size; const sx = innerSize / WORLD.w; const sy = innerSize / WORLD.h;
-    const desert = options.getMapId() === options.desertMapId;
-    const snow = options.getMapId() === options.snowMapId;
     const colors = mapColors();
     draw.fillStyle = colors.ground; draw.fillRect(innerX, innerY, innerSize, innerSize);
     draw.fillStyle = colors.path; for (const path of options.paths) draw.fillRect(innerX + path.x * sx, innerY + path.y * sy, path.w * sx, path.h * sy);
@@ -949,33 +921,14 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     const secondary = options.secondaryPortal();
     if (secondary) drawPortalMarker(secondary);
 
-    const mapBoss = options.getMapId() === options.tutorialMapId
-      ? { state: options.boss, color: "#ff6b52" }
-      : desert
-        ? { state: options.spiderBoss, color: "#e9ac4e" }
-        : snow
-          ? { state: options.frostclawBoss, color: "#67dcff" }
-          : options.getMapId() === options.lavaMapId
-            ? { state: options.magmaliskBoss, color: "#ff752f" }
-            : options.getMapId() === options.infernalMapId
-              ? { state: options.gloomrootBoss, color: "#69f0e7" }
-              : options.getMapId() === options.waterMapId
-                ? { state: options.tidewyrmBoss, color: "#55ddf4" }
-                : options.getMapId() === options.samuraiMapId
-                  ? { state: options.koiShogunBoss, color: "#e48a35" }
-                  : options.getMapId() === CLOUDSPIRE_MAP_ID
-                    ? { state: options.tempestKirinBoss, color: "#7fd8ff" }
-                    : options.getMapId() === MOONFEN_MAP_ID
-                      ? { state: options.miremawBoss, color: "#79efc3" }
-                      : options.getMapId() === CRYSTAL_HOLLOWS_MAP_ID
-                        ? { state: options.prismshellBoss, color: "#c3a6ff" }
-                        : options.getMapId() === CLOCKWORK_RUINS_MAP_ID ? { state: options.ironhornBoss, color: "#c3a6ff" } : options.getMapId() === ION_CITADEL_MAP_ID ? { state: options.aegisPrimeBoss, color: "#c3a6ff" } : options.getMapId() === VERDANT_CATACOMBS_MAP_ID ? { state: options.gravebloomBoss, color: "#c3a6ff" } : options.getMapId() === NEON_BASTION_MAP_ID ? { state: options.voltwardenBoss, color: "#c3a6ff" } : options.getMapId() === DUSKFALL_ORCHARD_MAP_ID ? { state: options.dreadreaperBoss, color: "#c3a6ff" } : null;
+    const mapBoss = bossForMap(options.getMapId());
     if (mapBoss) {
-      const bx = Math.round(innerX + mapBoss.state.x * sx); const by = Math.round(innerY + mapBoss.state.y * sy);
+      const state = options.bosses[mapBoss.kind];
+      const bx = Math.round(innerX + state.x * sx); const by = Math.round(innerY + state.y * sy);
       draw.save();
-      draw.globalAlpha = mapBoss.state.dead ? .46 : 1;
+      draw.globalAlpha = state.dead ? .46 : 1;
       draw.fillStyle = "#101820"; draw.fillRect(bx - 5, by - 4, 11, 9);
-      draw.fillStyle = mapBoss.color; draw.fillRect(bx - 4, by - 3, 9, 6); draw.fillRect(bx - 3, by - 5, 2, 2); draw.fillRect(bx + 2, by - 5, 2, 2); draw.fillRect(bx - 3, by + 3, 2, 2); draw.fillRect(bx + 2, by + 3, 2, 2);
+      draw.fillStyle = mapBoss.minimapColor; draw.fillRect(bx - 4, by - 3, 9, 6); draw.fillRect(bx - 3, by - 5, 2, 2); draw.fillRect(bx + 2, by - 5, 2, 2); draw.fillRect(bx - 3, by + 3, 2, 2); draw.fillRect(bx + 2, by + 3, 2, 2);
       draw.fillStyle = "#fff"; draw.fillRect(bx - 2, by - 1, 2, 2); draw.fillRect(bx + 2, by - 1, 2, 2);
       draw.restore();
     }

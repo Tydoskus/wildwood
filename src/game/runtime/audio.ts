@@ -1,4 +1,8 @@
-import { CLOUDSPIRE_MAP_ID, INFERNAL_DEPTHS_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, NEON_BASTION_MAP_ID, VERDANT_CATACOMBS_MAP_ID, ION_CITADEL_MAP_ID, SAMURAI_GARDEN_MAP_ID, WATER_REACH_MAP_ID, type MapId } from "../world";
+import {
+  ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, CLOCKWORK_RUINS_MAP_ID, CLOUDSPIRE_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID,
+  DUSKFALL_ORCHARD_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ION_CITADEL_MAP_ID, MOONFEN_MAP_ID,
+  NEON_BASTION_MAP_ID, SAMURAI_GARDEN_MAP_ID, VERDANT_CATACOMBS_MAP_ID, WATER_REACH_MAP_ID, type MapId,
+} from "../world";
 
 const FOREST_MUSIC_SOURCE = "assets/wildstat/audio/forest.mp3";
 const DESERT_MUSIC_SOURCE = "assets/wildstat/audio/desert.mp3";
@@ -59,22 +63,32 @@ type WebkitAudioWindow = Window & typeof globalThis & {
   webkitAudioContext?: typeof AudioContext;
 };
 
-export function musicSourceForMap(mapId: MapId, desertMapId: MapId, snowMapId: MapId, lavaMapId: MapId) {
-  if (mapId === INFERNAL_DEPTHS_MAP_ID) return NIGHT_FOREST_MUSIC_SOURCE;
+/** Every map without its own entry plays the Forest arrangement. */
+const MAP_MUSIC_SOURCES: Partial<Record<MapId, string>> = {
+  [BEGINNER_DESERT_MAP_ID]: DESERT_MUSIC_SOURCE,
+  [INTERMEDIATE_SNOWLANDS_MAP_ID]: SNOW_MUSIC_SOURCE,
+  [ADVANCED_LAVA_WASTES_MAP_ID]: LAVA_MUSIC_SOURCE,
+  [INFERNAL_DEPTHS_MAP_ID]: NIGHT_FOREST_MUSIC_SOURCE,
   // Water Reach deliberately borrows the airy snow arrangement until its own
   // soundtrack is produced; it should never silently fall back to Forest.
-  if (mapId === WATER_REACH_MAP_ID) return SNOW_MUSIC_SOURCE;
+  [WATER_REACH_MAP_ID]: SNOW_MUSIC_SOURCE,
   // Samurai Garden intentionally returns to the warmer Forest arrangement.
-  if (mapId === SAMURAI_GARDEN_MAP_ID) return FOREST_MUSIC_SOURCE;
+  [SAMURAI_GARDEN_MAP_ID]: FOREST_MUSIC_SOURCE,
   // Cloudspire shares Snowlands' airy arrangement until its own theme lands.
-  if (mapId === CLOUDSPIRE_MAP_ID) return SNOW_MUSIC_SOURCE;
-  // Moonfen shares Night Forest's quieter arrangement until its own theme lands.
-  if (mapId === MOONFEN_MAP_ID) return NIGHT_FOREST_MUSIC_SOURCE;
-  if (mapId === CLOCKWORK_RUINS_MAP_ID) return NIGHT_FOREST_MUSIC_SOURCE; else if (mapId === ION_CITADEL_MAP_ID) return NIGHT_FOREST_MUSIC_SOURCE; else if (mapId === VERDANT_CATACOMBS_MAP_ID) return NIGHT_FOREST_MUSIC_SOURCE; else if (mapId === NEON_BASTION_MAP_ID) return NIGHT_FOREST_MUSIC_SOURCE; else if (mapId === DUSKFALL_ORCHARD_MAP_ID) return NIGHT_FOREST_MUSIC_SOURCE; else if (mapId === CRYSTAL_HOLLOWS_MAP_ID) return NIGHT_FOREST_MUSIC_SOURCE;
-  if (mapId === lavaMapId) return LAVA_MUSIC_SOURCE;
-  if (mapId === desertMapId) return DESERT_MUSIC_SOURCE;
-  if (mapId === snowMapId) return SNOW_MUSIC_SOURCE;
-  return FOREST_MUSIC_SOURCE;
+  [CLOUDSPIRE_MAP_ID]: SNOW_MUSIC_SOURCE,
+  // Moonfen and the maps after it share Night Forest's quieter arrangement
+  // until their own themes land.
+  [MOONFEN_MAP_ID]: NIGHT_FOREST_MUSIC_SOURCE,
+  [CRYSTAL_HOLLOWS_MAP_ID]: NIGHT_FOREST_MUSIC_SOURCE,
+  [CLOCKWORK_RUINS_MAP_ID]: NIGHT_FOREST_MUSIC_SOURCE,
+  [DUSKFALL_ORCHARD_MAP_ID]: NIGHT_FOREST_MUSIC_SOURCE,
+  [NEON_BASTION_MAP_ID]: NIGHT_FOREST_MUSIC_SOURCE,
+  [VERDANT_CATACOMBS_MAP_ID]: NIGHT_FOREST_MUSIC_SOURCE,
+  [ION_CITADEL_MAP_ID]: NIGHT_FOREST_MUSIC_SOURCE,
+};
+
+export function musicSourceForMap(mapId: MapId) {
+  return MAP_MUSIC_SOURCES[mapId] ?? FOREST_MUSIC_SOURCE;
 }
 
 export type MapMusicController = {
@@ -102,9 +116,6 @@ export function bowAttackPlaybackRate(randomValue = Math.random()) {
 
 export function createMapMusicController(
   storageKey: string,
-  desertMapId: MapId,
-  snowMapId: MapId,
-  lavaMapId: MapId,
   sfxStorageKey?: string,
 ): MapMusicController {
   const audio = new Audio();
@@ -300,7 +311,7 @@ export function createMapMusicController(
   }
 
   function syncMap(mapId: MapId) {
-    const nextSource = musicSourceForMap(mapId, desertMapId, snowMapId, lavaMapId);
+    const nextSource = musicSourceForMap(mapId);
     if (requestedMusicSource === nextSource) return;
     playbackRequested = playbackRequested || !audio.paused;
     requestedMusicSource = nextSource;

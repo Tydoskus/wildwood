@@ -34,20 +34,20 @@ describe("map music", () => {
   });
 
   it("uses Ambient 10 for Snowlands", () => {
-    expect(musicSourceForMap(INTERMEDIATE_SNOWLANDS_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildstat/audio/snow.mp3");
+    expect(musicSourceForMap(INTERMEDIATE_SNOWLANDS_MAP_ID)).toBe("assets/wildstat/audio/snow.mp3");
   });
 
   it("keeps existing forest and desert tracks", () => {
-    expect(musicSourceForMap(TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildstat/audio/forest.mp3");
-    expect(musicSourceForMap(BEGINNER_DESERT_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildstat/audio/desert.mp3");
+    expect(musicSourceForMap(TUTORIAL_FOREST_MAP_ID)).toBe("assets/wildstat/audio/forest.mp3");
+    expect(musicSourceForMap(BEGINNER_DESERT_MAP_ID)).toBe("assets/wildstat/audio/desert.mp3");
   });
 
   it("uses Night Ambient 5 for Lava Lake", () => {
-    expect(musicSourceForMap(ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildstat/audio/lava.mp3");
+    expect(musicSourceForMap(ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildstat/audio/lava.mp3");
   });
 
   it("uses Night Ambient 3 for Night Forest", () => {
-    expect(musicSourceForMap(INFERNAL_DEPTHS_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID)).toBe("assets/wildstat/audio/night-forest.mp3");
+    expect(musicSourceForMap(INFERNAL_DEPTHS_MAP_ID)).toBe("assets/wildstat/audio/night-forest.mp3");
   });
 
   it("loads a map soundtrack once into a Blob URL before looping it", async () => {
@@ -70,9 +70,6 @@ describe("map music", () => {
 
     const controller = createMapMusicController(
       "test-volume",
-      BEGINNER_DESERT_MAP_ID,
-      INTERMEDIATE_SNOWLANDS_MAP_ID,
-      ADVANCED_LAVA_WASTES_MAP_ID,
     );
     const music = instances[0]!;
     music.paused = false;
@@ -130,9 +127,6 @@ describe("map music", () => {
 
     const controller = createMapMusicController(
       "test-volume",
-      BEGINNER_DESERT_MAP_ID,
-      INTERMEDIATE_SNOWLANDS_MAP_ID,
-      ADVANCED_LAVA_WASTES_MAP_ID,
       "test-sfx-volume",
     );
     controller.setVolume(.25);
@@ -160,7 +154,7 @@ describe("map music", () => {
     vi.stubGlobal("window", { AudioContext: class { constructor() { return context; } } });
     vi.stubGlobal("localStorage", { getItem: () => null });
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false })));
-    const controller = createMapMusicController("test-volume", BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID);
+    const controller = createMapMusicController("test-volume");
     controller.ensurePlaying(false);
     context.state = state;
     controller.ensurePlaying(false);
@@ -174,7 +168,7 @@ describe("map music", () => {
     vi.stubGlobal("Audio", FakeAudio);
     vi.stubGlobal("window", {});
     vi.stubGlobal("localStorage", { getItem: (key: string) => key === "test-volume" ? "0" : null });
-    const controller = createMapMusicController("test-volume", BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, "test-sfx-volume");
+    const controller = createMapMusicController("test-volume", "test-sfx-volume");
     expect(controller.volume).toBe(0);
     expect(controller.sfxVolume).toBe(DEFAULT_SFX_VOLUME);
   });
@@ -185,7 +179,7 @@ describe("map music", () => {
     vi.stubGlobal("window", { AudioContext: class { constructor() { return context; } } });
     vi.stubGlobal("localStorage", { getItem: () => null });
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false })));
-    const controller = createMapMusicController("test-volume", BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, "test-sfx-volume");
+    const controller = createMapMusicController("test-volume", "test-sfx-volume");
     controller.ensurePlaying(false);
     expect(context.gains[2]?.gain.value).toBe(DEATH_SOUND_GAIN);
     expect(context.gains[2]?.connect).toHaveBeenCalledWith(context.gains[1]);
@@ -197,7 +191,7 @@ describe("map music", () => {
     vi.stubGlobal("window", { AudioContext: class { constructor() { return context; } } });
     vi.stubGlobal("localStorage", { getItem: () => null });
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false })));
-    const controller = createMapMusicController("test-volume", BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID);
+    const controller = createMapMusicController("test-volume");
     controller.ensurePlaying(false);
     controller.syncMap(TUTORIAL_FOREST_MAP_ID);
     expect(context.gains[0]?.gain.value).toBeCloseTo(.35 * musicGainForSource("assets/wildstat/audio/forest.mp3"));
@@ -222,9 +216,6 @@ describe("map music", () => {
 
     const controller = createMapMusicController(
       "test-volume",
-      BEGINNER_DESERT_MAP_ID,
-      INTERMEDIATE_SNOWLANDS_MAP_ID,
-      ADVANCED_LAVA_WASTES_MAP_ID,
       "test-sfx-volume",
     );
     controller.ensurePlaying(false);
@@ -252,7 +243,7 @@ describe("map music", () => {
     vi.stubGlobal("window", { AudioContext: class { constructor() { return context; } } });
     vi.stubGlobal("localStorage", { getItem: () => null });
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(4) })));
-    const controller = createMapMusicController("test-volume", BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, "test-sfx-volume");
+    const controller = createMapMusicController("test-volume", "test-sfx-volume");
     controller.ensurePlaying(false);
     await vi.waitFor(() => expect(context.decodeAudioData).toHaveBeenCalled());
     controller.playBowAttackSound();                 // fired before the clip exists
@@ -269,7 +260,7 @@ describe("map music", () => {
     vi.stubGlobal("window", { AudioContext: class { constructor() { return context; } } });
     vi.stubGlobal("localStorage", { getItem: () => null });
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(4) })));
-    const controller = createMapMusicController("test-volume", BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, "test-sfx-volume");
+    const controller = createMapMusicController("test-volume", "test-sfx-volume");
     controller.playDeathSound();                     // graph just created, nothing decoded yet
     expect(instances[1]?.play).toHaveBeenCalledOnce();
     await vi.waitFor(() => expect(context.decodeAudioData).toHaveBeenCalledOnce());

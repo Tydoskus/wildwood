@@ -7,20 +7,15 @@ import {
   type MapId,
 } from "../src/game/world";
 import { createGameBootstrap } from "../src/game/runtime/game-bootstrap";
+import { bossStateForMap } from "../src/game/runtime/boss-registry";
 
 const bootstrap = createGameBootstrap();
-const bossByMap: Record<MapId, { x: number; y: number }> = {
-  tutorial_forest: bootstrap.boss,
-  beginner_desert: bootstrap.spiderBoss,
-  intermediate_snowlands: bootstrap.frostclawBoss,
-  advanced_lava_wastes: bootstrap.magmaliskBoss,
-  infernal_depths: bootstrap.gloomrootBoss,
-  water_reach: bootstrap.tidewyrmBoss,
-  samurai_garden: bootstrap.koiShogunBoss,
-  cloudspire: bootstrap.tempestKirinBoss,
-  moonfen: bootstrap.miremawBoss,
-  crystal_hollows: bootstrap.prismshellBoss, clockwork_ruins: bootstrap.ironhornBoss, duskfall_orchard: bootstrap.dreadreaperBoss, neon_bastion: bootstrap.voltwardenBoss, verdant_catacombs: bootstrap.gravebloomBoss, ion_citadel: bootstrap.aegisPrimeBoss,
-};
+/** Where each campaign map's world boss stands, as the game places it. */
+function bossPosition(id: MapId) {
+  const boss = bossStateForMap(bootstrap.bosses, id);
+  if (!boss) throw new Error(`${id} has no world boss`);
+  return { x: boss.x, y: boss.y };
+}
 
 const maps = (MAP_IDS as MapId[]).map((id): SavedMapDesign => {
   const config = bootstrap.mapConfig[id];
@@ -38,7 +33,7 @@ const maps = (MAP_IDS as MapId[]).map((id): SavedMapDesign => {
     spawnCamps: mapSpawnCamps(id).map((camp) => ({ ...camp, types: [...camp.types] })),
     gameplay: {
       arrival: { ...config.arrival },
-      boss: { x: bossByMap[id].x, y: bossByMap[id].y },
+      boss: bossPosition(id),
       ...(id === "tutorial_forest" ? { bootsPickup: { x: bootstrap.bootsPickup.x, y: bootstrap.bootsPickup.y } } : {}),
       portals: [config.portal, config.secondaryPortal].filter((portal) => portal !== undefined).map((portal) => ({ ...portal })),
     },

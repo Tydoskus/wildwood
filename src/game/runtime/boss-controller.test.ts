@@ -8,92 +8,45 @@ import {DRAGON_MAX_HP, FROSTCLAW_MAX_HP, FROSTCLAW_REWARD_ARMOR, FROSTCLAW_REWAR
 import {bossAbilityTimelineAt} from "../../../shared/boss-simulation";
 import {ION_SWEEP} from "../../../shared/ion-attacks";
 import {rewardLabel} from "../enemies";
+import {ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, CLOUDSPIRE_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ION_CITADEL_MAP_ID, MOONFEN_MAP_ID, NEON_BASTION_MAP_ID, SAMURAI_GARDEN_MAP_ID, WATER_REACH_MAP_ID} from "../world";
+import type {BossKind} from "./boss-registry";
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Dragon boss", () => {
   it("starts at the shared tutorial health balance", () => {
-    const { boss } = createGameBootstrap();
+    const { bosses: { dragon: boss } } = createGameBootstrap();
     expect(DRAGON_MAX_HP).toBe(BOSS_BASE_MAX_HP * TUTORIAL_BOSS_HEALTH_SCALE);
     expect(boss.maxHp).toBe(DRAGON_MAX_HP);
     expect(boss.hp).toBe(DRAGON_MAX_HP);
   });
 });
 
+/** Shared state or a result for one boss; every other boss has none. */
+function forKind<T>(kind: BossKind, value: () => T) {
+  return (requested: BossKind) => requested === kind ? value() : null;
+}
+
 function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossController>[0]> = {}) {
   const state = createGameBootstrap();
-  state.player.x = state.frostclawBoss.x + 300;
-  state.player.y = state.frostclawBoss.y;
+  state.player.x = state.bosses.frostclaw.x + 300;
+  state.player.y = state.bosses.frostclaw.y;
   state.player.hp = 1_000_000_000;
   state.player.maxHp = 1_000_000_000;
-  state.frostclawBoss.attackClock = 0;
+  state.bosses.frostclaw.attackClock = 0;
   const damagePlayer = vi.fn(() => true);
+  const seen = { seen: () => true, start: () => undefined };
   const controller = createBossController({
-    boss: state.boss,
-    spiderBoss: state.spiderBoss,
-    frostclawBoss: state.frostclawBoss,
-    magmaliskBoss: state.magmaliskBoss,
-    gloomrootBoss: state.gloomrootBoss,
-    tidewyrmBoss: state.tidewyrmBoss,
-    koiShogunBoss: state.koiShogunBoss,
-    tempestKirinBoss: state.tempestKirinBoss,
-    miremawBoss: state.miremawBoss,
-    prismshellBoss: state.prismshellBoss, ironhornBoss: state.ironhornBoss, dreadreaperBoss: state.dreadreaperBoss, voltwardenBoss: state.voltwardenBoss, gravebloomBoss: state.gravebloomBoss, aegisPrimeBoss: state.aegisPrimeBoss,
-    bossRain: state.bossRain,
-    spiderVenom: state.spiderVenom,
-    frostclawIcefalls: state.frostclawIcefalls,
-    magmaliskEruptions: state.magmaliskEruptions,
-    gloomrootBlooms: state.gloomrootBlooms,
-    tidewyrmWhirlpools: state.tidewyrmWhirlpools,
-    koiShogunWhirlpools: state.koiShogunWhirlpools,
-    tempestKirinThunderbolts: state.tempestKirinThunderbolts,
-    miremawBogBursts: state.miremawBogBursts,
-    prismshellCrystalBursts: state.prismshellCrystalBursts, ironhornCrystalBursts: state.ironhornCrystalBursts, dreadreaperCrystalBursts: state.dreadreaperCrystalBursts, voltwardenCrystalBursts: state.voltwardenCrystalBursts, gravebloomCrystalBursts: state.gravebloomCrystalBursts, aegisPrimeCrystalBursts: state.aegisPrimeCrystalBursts,
+    bosses: state.bosses,
+    hazards: state.bossHazards,
     player: state.player,
-    getDragonBoss: () => null,
-    getSpiderBoss: () => null,
-    getFrostclawBoss: () => null,
-    getMagmaliskBoss: () => null,
-    getGloomrootBoss: () => null,
-    getTidewyrmBoss: () => null,
-    getKoiShogunBoss: () => null,
-    getTempestKirinBoss: () => null,
-    getMiremawBoss: () => null,
-    getPrismshellBoss: () => null, getIronhornBoss: () => null, getDreadreaperBoss: () => null, getVoltwardenBoss: () => null, getGravebloomBoss: () => null, getAegisPrimeBoss: () => null,
-    getDragonResult: () => null,
-    getSpiderResult: () => null,
-    getFrostclawResult: () => null,
-    getMagmaliskResult: () => null,
-    getGloomrootResult: () => null,
-    getTidewyrmResult: () => null,
-    getKoiShogunResult: () => null,
-    getTempestKirinResult: () => null,
-    getMiremawResult: () => null,
-    getPrismshellResult: () => null, getIronhornResult: () => null, getDreadreaperResult: () => null, getVoltwardenResult: () => null, getGravebloomResult: () => null, getAegisPrimeResult: () => null,
+    sharedBoss: () => null,
+    bossResult: () => null,
     localIdentity: () => "local",
     running: () => true,
-    currentMapIsDesert: () => false,
-    currentMapIsSnow: () => true,
-    currentMapIsLava: () => false,
-    currentMapIsInfernal: () => false,
-    currentMapIsWater: () => false,
-    currentMapIsSamurai: () => false,
-    currentMapIsCloudspire: () => false,
-    currentMapIsMoonfen: () => false,
-    currentMapIsCrystalHollows: () => false, currentMapIsClockworkRuins: () => false, currentMapIsDuskfallOrchard: () => false, currentMapIsNeonBastion: () => false, currentMapIsVerdantCatacombs: () => false, currentMapIsIonCitadel: () => false,
+    currentMapId: () => INTERMEDIATE_SNOWLANDS_MAP_ID,
     portalCutsceneActive: () => false,
-    hasSeenDragonPortalCutscene: () => true,
-    hasSeenSnowlandsPortalCutscene: () => true,
-    hasSeenLavaPortalCutscene: () => true,
-    hasSeenInfernalPortalCutscene: () => true,
-    hasSeenWaterPortalCutscene: () => true,
-    hasSeenSamuraiPortalCutscene: () => true,
-    startDragonPortalCutscene: () => undefined,
-    startSnowlandsPortalCutscene: () => undefined,
-    startLavaPortalCutscene: () => undefined,
-    startInfernalPortalCutscene: () => undefined,
-    startWaterPortalCutscene: () => undefined,
-    startSamuraiPortalCutscene: () => undefined,
+    portalCutscenes: { dragon: seen, spider: seen, frostclaw: seen, magmalisk: seen, gloomroot: seen, tidewyrm: seen },
     spawnBurst: () => undefined,
     damagePlayer,
     logPickup: () => undefined,
@@ -106,25 +59,23 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
 type BossHarness = ReturnType<typeof createFrostclawHarness>;
 
 it.each([
-  ["Desert", "currentMapIsDesert", "getSpiderBoss", "getSpiderResult", "hasSeenSnowlandsPortalCutscene", "startSnowlandsPortalCutscene", "syncSpiderState"],
-  ["Snowlands", "currentMapIsSnow", "getFrostclawBoss", "getFrostclawResult", "hasSeenLavaPortalCutscene", "startLavaPortalCutscene", "syncFrostclawState"],
-  ["Lava", "currentMapIsLava", "getMagmaliskBoss", "getMagmaliskResult", "hasSeenInfernalPortalCutscene", "startInfernalPortalCutscene", "syncMagmaliskState"],
-  ["Infernal", "currentMapIsInfernal", "getGloomrootBoss", "getGloomrootResult", "hasSeenWaterPortalCutscene", "startWaterPortalCutscene", "syncGloomrootState"],
-  ["Water", "currentMapIsWater", "getTidewyrmBoss", "getTidewyrmResult", "hasSeenSamuraiPortalCutscene", "startSamuraiPortalCutscene", "syncTidewyrmState"],
-] as const)("retries the %s first-kill reveal after the server unlock arrives", (_zone, mapCheck, bossGetter, resultGetter, seenGetter, starter, syncName) => {
+  ["Desert", BEGINNER_DESERT_MAP_ID, "spider"],
+  ["Snowlands", INTERMEDIATE_SNOWLANDS_MAP_ID, "frostclaw"],
+  ["Lava", ADVANCED_LAVA_WASTES_MAP_ID, "magmalisk"],
+  ["Infernal", INFERNAL_DEPTHS_MAP_ID, "gloomroot"],
+  ["Water", WATER_REACH_MAP_ID, "tidewyrm"],
+] as const)("retries the %s first-kill reveal after the server unlock arrives", (_zone, mapId, kind) => {
   let shared = { encounter: 83n, hp: 100, maxHp: 100, alive: true };
   const startCutscene = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true);
   const overrides = {
-    currentMapIsSnow: () => false,
-    [mapCheck]: () => true,
-    [bossGetter]: () => shared,
-    [resultGetter]: () => ({ encounter: 83n, totalDamage: 100,
-      contributors: [{ identity: "local", name: "Local", gender: 0, damage: 100, percentage: 100 }] }),
-    [seenGetter]: () => false,
-    [starter]: startCutscene,
+    currentMapId: () => mapId,
+    sharedBoss: forKind(kind, () => shared),
+    bossResult: forKind(kind, () => ({ encounter: 83n, totalDamage: 100,
+      contributors: [{ identity: "local", name: "Local", gender: 0, damage: 100, percentage: 100 }] })),
+    portalCutscenes: { [kind]: { seen: () => false, start: startCutscene } },
   } as Partial<Parameters<typeof createBossController>[0]>;
   const { controller } = createFrostclawHarness(overrides);
-  const sync = controller[syncName];
+  const sync = controller.byKind[kind].sync;
   sync();
   shared = { ...shared, hp: 0, alive: false };
   sync();
@@ -141,16 +92,16 @@ const areaKnockbackBosses: Array<{
   state: (harness: BossHarness) => { x: number; y: number; r: number; attackClock: number };
   update: (harness: BossHarness) => void;
 }> = [
-  { name: "Dragon cone", range: BOSS_CONE_RANGE, state: (harness) => harness.boss, update: (harness) => harness.controller.updateBoss(.05) },
-  { name: "Desert Scorpion web", range: SPIDER_WEB_RANGE, state: (harness) => harness.spiderBoss, update: (harness) => harness.controller.updateSpiderBoss(.05) },
-  { name: "Frostclaw roar", range: FROSTCLAW_ROAR_RANGE, state: (harness) => harness.frostclawBoss, update: (harness) => harness.controller.updateFrostclawBoss(.05) },
-  { name: "Magmalisk bite", range: MAGMALISK_BITE_RANGE, state: (harness) => harness.magmaliskBoss, update: (harness) => harness.controller.updateMagmaliskBoss(.05) },
-  { name: "Gloomroot sweep", range: GLOOMROOT_SWEEP_RANGE, state: (harness) => harness.gloomrootBoss, update: (harness) => harness.controller.updateGloomrootBoss(.05) },
-  { name: "Tidewyrm surge", range: TIDEWYRM_SURGE_RANGE, state: (harness) => harness.tidewyrmBoss, update: (harness) => harness.controller.updateTidewyrmBoss(.05) },
-  { name: "Koi Shogun slash", range: KOI_SHOGUN_SLASH_RANGE, state: (harness) => harness.koiShogunBoss, update: (harness) => harness.controller.updateKoiShogunBoss(.05) },
-  { name: "Tempest Kirin charge", range: TEMPEST_KIRIN_CHARGE_RANGE, state: (harness) => harness.tempestKirinBoss, update: (harness) => harness.controller.updateTempestKirinBoss(.05) },
-  { name: "Miremaw tongue", range: MIREMAW_TONGUE_RANGE, state: (harness) => harness.miremawBoss, update: (harness) => harness.controller.updateMiremawBoss(.05) },
-  { name: "Prismshell shatter", range: PRISMSHELL_SHATTER_RANGE, state: (harness) => harness.prismshellBoss, update: (harness) => harness.controller.updatePrismshellBoss(.05) },
+  { name: "Dragon cone", range: BOSS_CONE_RANGE, state: (harness) => harness.bosses.dragon, update: (harness) => harness.controller.byKind.dragon.update(.05) },
+  { name: "Desert Scorpion web", range: SPIDER_WEB_RANGE, state: (harness) => harness.bosses.spider, update: (harness) => harness.controller.byKind.spider.update(.05) },
+  { name: "Frostclaw roar", range: FROSTCLAW_ROAR_RANGE, state: (harness) => harness.bosses.frostclaw, update: (harness) => harness.controller.byKind.frostclaw.update(.05) },
+  { name: "Magmalisk bite", range: MAGMALISK_BITE_RANGE, state: (harness) => harness.bosses.magmalisk, update: (harness) => harness.controller.byKind.magmalisk.update(.05) },
+  { name: "Gloomroot sweep", range: GLOOMROOT_SWEEP_RANGE, state: (harness) => harness.bosses.gloomroot, update: (harness) => harness.controller.byKind.gloomroot.update(.05) },
+  { name: "Tidewyrm surge", range: TIDEWYRM_SURGE_RANGE, state: (harness) => harness.bosses.tidewyrm, update: (harness) => harness.controller.byKind.tidewyrm.update(.05) },
+  { name: "Koi Shogun slash", range: KOI_SHOGUN_SLASH_RANGE, state: (harness) => harness.bosses.koiShogun, update: (harness) => harness.controller.byKind.koiShogun.update(.05) },
+  { name: "Tempest Kirin charge", range: TEMPEST_KIRIN_CHARGE_RANGE, state: (harness) => harness.bosses.tempestKirin, update: (harness) => harness.controller.byKind.tempestKirin.update(.05) },
+  { name: "Miremaw tongue", range: MIREMAW_TONGUE_RANGE, state: (harness) => harness.bosses.miremaw, update: (harness) => harness.controller.byKind.miremaw.update(.05) },
+  { name: "Prismshell shatter", range: PRISMSHELL_SHATTER_RANGE, state: (harness) => harness.bosses.prismshell, update: (harness) => harness.controller.byKind.prismshell.update(.05) },
 ];
 
 describe("Boss area knockback", () => {
@@ -211,19 +162,19 @@ describe("Boss defeat presentation", () => {
     let shared = { encounter: 71n, hp: FROSTCLAW_MAX_HP, maxHp: FROSTCLAW_MAX_HP, alive: true };
     const logPickup = vi.fn();
     const { controller } = createFrostclawHarness({
-      getFrostclawBoss: () => shared,
-      getFrostclawResult: () => ({
+      sharedBoss: forKind("frostclaw", () => shared),
+      bossResult: forKind("frostclaw", () => ({
         encounter: 71n,
         totalDamage: 100,
         contributors: [{ identity: "local", name: "Local", gender: 0, damage: 100, percentage: 100 }],
-      }),
+      })),
       logPickup,
       rewardMultiplier: () => 1.2,
     });
 
-    controller.syncFrostclawState();
+    controller.byKind.frostclaw.sync();
     shared = { ...shared, hp: 0, alive: false };
-    controller.syncFrostclawState();
+    controller.byKind.frostclaw.sync();
 
     expect(logPickup).toHaveBeenCalledTimes(3);
     expect(logPickup).toHaveBeenCalledWith(
@@ -243,19 +194,19 @@ describe("Frostclaw boss", () => {
   });
 
   it("cycles roar, icefall, and rift as three distinct attacks", () => {
-    const { controller, frostclawBoss, frostclawIcefalls } = createFrostclawHarness();
+    const { controller, bosses: { frostclaw: frostclawBoss }, bossHazards: { frostclaw: frostclawIcefalls } } = createFrostclawHarness();
 
-    controller.updateFrostclawBoss(.016);
+    controller.byKind.frostclaw.update(.016);
     expect(frostclawBoss.roar).not.toBeNull();
     expect(frostclawBoss.nextAttack).toBe("icefall");
 
-    controller.updateFrostclawBoss(.85);
-    controller.updateFrostclawBoss(1);
-    controller.updateFrostclawBoss(2.7);
+    controller.byKind.frostclaw.update(.85);
+    controller.byKind.frostclaw.update(1);
+    controller.byKind.frostclaw.update(2.7);
     expect(frostclawIcefalls).toHaveLength(9);
     expect(frostclawBoss.nextAttack).toBe("rift");
 
-    controller.updateFrostclawBoss(5);
+    controller.byKind.frostclaw.update(5);
     expect(frostclawBoss.rift).not.toBeNull();
     expect(frostclawBoss.nextAttack).toBe("roar");
   });
@@ -275,30 +226,30 @@ describe("Frostclaw boss", () => {
       serverNowMs: () => serverNowMs,
       bossTargets: () => sharedTargets,
     });
-    first.frostclawBoss.encounter = encounter;
-    first.player.x = first.frostclawBoss.x + 300;
-    first.controller.updateFrostclawBoss(.016);
+    first.bosses.frostclaw.encounter = encounter;
+    first.player.x = first.bosses.frostclaw.x + 300;
+    first.controller.byKind.frostclaw.update(.016);
 
     serverNowMs = phase.startedAtMs + 300;
     const second = createFrostclawHarness({
       serverNowMs: () => serverNowMs,
       bossTargets: () => sharedTargets,
     });
-    second.frostclawBoss.encounter = encounter;
-    second.player.x = second.frostclawBoss.x - 300;
-    first.controller.updateFrostclawBoss(.016);
-    second.controller.updateFrostclawBoss(.016);
+    second.bosses.frostclaw.encounter = encounter;
+    second.player.x = second.bosses.frostclaw.x - 300;
+    first.controller.byKind.frostclaw.update(.016);
+    second.controller.byKind.frostclaw.update(.016);
 
     const snapshot = (harness: typeof first) => ({
-      nextAttack: harness.frostclawBoss.nextAttack,
-      roar: harness.frostclawBoss.roar,
-      rift: harness.frostclawBoss.rift,
-      icefalls: harness.frostclawIcefalls,
+      nextAttack: harness.bosses.frostclaw.nextAttack,
+      roar: harness.bosses.frostclaw.roar,
+      rift: harness.bosses.frostclaw.rift,
+      icefalls: harness.bossHazards.frostclaw,
     });
     expect(Boolean(
-      first.frostclawBoss.roar ||
-      first.frostclawBoss.rift ||
-      first.frostclawIcefalls.length,
+      first.bosses.frostclaw.roar ||
+      first.bosses.frostclaw.rift ||
+      first.bossHazards.frostclaw.length,
     )).toBe(true);
     expect(snapshot(first)).toEqual(snapshot(second));
   });
@@ -309,21 +260,21 @@ describe("Frostclaw boss", () => {
     const roar = bossAbilityTimelineAt({ kind: "frostclaw", serverNowMs: now });
     const arrive = (afterMs: number) => {
       const harness = createFrostclawHarness({ serverNowMs: () => roar.startedAtMs + afterMs, bossTargets: () => [{ id: "network:1", x: 4_350, y: 4_050 }] });
-      harness.frostclawBoss.encounter = 5n;
-      harness.controller.updateFrostclawBoss(.016);
-      return harness.frostclawBoss.roar;
+      harness.bosses.frostclaw.encounter = 5n;
+      harness.controller.byKind.frostclaw.update(.016);
+      return harness.bosses.frostclaw.roar;
     };
     expect(arrive(800)?.windup).toBeCloseTo(.85 - .016, 5); // the roar's whole windup, less the one frame run
     expect(arrive(roar.slotDurationMs - roar.activeDurationMs + 100)).toBeNull(); // would be cut off: wait for the next
   });
 
   it("uses Glacial Roar to damage players without pushing them", () => {
-    const { controller, frostclawBoss, player, damagePlayer } = createFrostclawHarness();
+    const { controller, bosses: { frostclaw: frostclawBoss }, player, damagePlayer } = createFrostclawHarness();
 
-    controller.updateFrostclawBoss(.016);
-    controller.updateFrostclawBoss(.85);
+    controller.byKind.frostclaw.update(.016);
+    controller.byKind.frostclaw.update(.85);
     for (let frame = 0; frame < 8 && damagePlayer.mock.calls.length === 0; frame += 1) {
-      controller.updateFrostclawBoss(.05);
+      controller.byKind.frostclaw.update(.05);
     }
 
     expect(damagePlayer).toHaveBeenCalledWith(BOSS_DAMAGE_PROFILES.frostclaw.roar);
@@ -337,19 +288,18 @@ describe("Frostclaw boss", () => {
     let shared = { encounter: 7n, hp: FROSTCLAW_MAX_HP, maxHp: FROSTCLAW_MAX_HP, alive: true };
     const startLavaPortalCutscene = vi.fn();
     const { controller } = createFrostclawHarness({
-      getFrostclawBoss: () => shared,
-      getFrostclawResult: () => ({
+      sharedBoss: forKind("frostclaw", () => shared),
+      bossResult: forKind("frostclaw", () => ({
         encounter: 7n,
         totalDamage: 100,
         contributors: [{ identity: "local", name: "Local", gender: 0, damage: 100, percentage: 100 }],
-      }),
-      hasSeenLavaPortalCutscene: () => false,
-      startLavaPortalCutscene,
+      })),
+      portalCutscenes: { frostclaw: { seen: () => false, start: startLavaPortalCutscene } },
     });
 
-    controller.syncFrostclawState();
+    controller.byKind.frostclaw.sync();
     shared = { ...shared, hp: 0, alive: false };
-    controller.syncFrostclawState();
+    controller.byKind.frostclaw.sync();
 
     expect(startLavaPortalCutscene).toHaveBeenCalledOnce();
   });
@@ -358,17 +308,16 @@ describe("Frostclaw boss", () => {
     const shared = { encounter: 8n, hp: 0, maxHp: FROSTCLAW_MAX_HP, alive: false };
     const startLavaPortalCutscene = vi.fn();
     const { controller } = createFrostclawHarness({
-      getFrostclawBoss: () => shared,
-      getFrostclawResult: () => ({
+      sharedBoss: forKind("frostclaw", () => shared),
+      bossResult: forKind("frostclaw", () => ({
         encounter: 8n,
         totalDamage: 100,
         contributors: [{ identity: "local", name: "Local", gender: 0, damage: 100, percentage: 100 }],
-      }),
-      hasSeenLavaPortalCutscene: () => false,
-      startLavaPortalCutscene,
+      })),
+      portalCutscenes: { frostclaw: { seen: () => false, start: startLavaPortalCutscene } },
     });
 
-    controller.syncFrostclawState();
+    controller.byKind.frostclaw.sync();
 
     expect(startLavaPortalCutscene).toHaveBeenCalledOnce();
   });
@@ -384,21 +333,20 @@ describe("Magmalisk boss", () => {
   });
 
   it("cycles bite and eruption using the selected attack frames", () => {
-    const { controller, magmaliskBoss, magmaliskEruptions, player } = createFrostclawHarness({
-      currentMapIsSnow: () => false,
-      currentMapIsLava: () => true,
+    const { controller, bosses: { magmalisk: magmaliskBoss }, bossHazards: { magmalisk: magmaliskEruptions }, player } = createFrostclawHarness({
+      currentMapId: () => ADVANCED_LAVA_WASTES_MAP_ID,
     });
     player.x = magmaliskBoss.x + 300;
     player.y = magmaliskBoss.y;
     magmaliskBoss.attackClock = 0;
 
-    controller.updateMagmaliskBoss(.016);
+    controller.byKind.magmalisk.update(.016);
     expect(magmaliskBoss.bite).not.toBeNull();
     expect(magmaliskBoss.nextAttack).toBe("eruption");
 
-    controller.updateMagmaliskBoss(.72);
-    controller.updateMagmaliskBoss(1);
-    controller.updateMagmaliskBoss(2.5);
+    controller.byKind.magmalisk.update(.72);
+    controller.byKind.magmalisk.update(1);
+    controller.byKind.magmalisk.update(2.5);
     expect(magmaliskEruptions).toHaveLength(11);
     expect(magmaliskBoss.nextAttack).toBe("bite");
   });
@@ -407,21 +355,19 @@ describe("Magmalisk boss", () => {
     let shared = { encounter: 9n, hp: MAGMALISK_MAX_HP, maxHp: MAGMALISK_MAX_HP, alive: true };
     const startInfernalPortalCutscene = vi.fn();
     const { controller } = createFrostclawHarness({
-      currentMapIsSnow: () => false,
-      currentMapIsLava: () => true,
-      getMagmaliskBoss: () => shared,
-      getMagmaliskResult: () => ({
+      currentMapId: () => ADVANCED_LAVA_WASTES_MAP_ID,
+      sharedBoss: forKind("magmalisk", () => shared),
+      bossResult: forKind("magmalisk", () => ({
         encounter: 9n,
         totalDamage: 100,
         contributors: [{ identity: "local", name: "Local", gender: 0, damage: 100, percentage: 100 }],
-      }),
-      hasSeenInfernalPortalCutscene: () => false,
-      startInfernalPortalCutscene,
+      })),
+      portalCutscenes: { magmalisk: { seen: () => false, start: startInfernalPortalCutscene } },
     });
 
-    controller.syncMagmaliskState();
+    controller.byKind.magmalisk.sync();
     shared = { ...shared, hp: 0, alive: false };
-    controller.syncMagmaliskState();
+    controller.byKind.magmalisk.sync();
 
     expect(startInfernalPortalCutscene).toHaveBeenCalledOnce();
   });
@@ -437,21 +383,20 @@ describe("Gloomroot boss", () => {
   });
 
   it("cycles a readable root sweep into staggered Gloom Blooms", () => {
-    const { controller, gloomrootBoss, gloomrootBlooms, player } = createFrostclawHarness({
-      currentMapIsSnow: () => false,
-      currentMapIsInfernal: () => true,
+    const { controller, bosses: { gloomroot: gloomrootBoss }, bossHazards: { gloomroot: gloomrootBlooms }, player } = createFrostclawHarness({
+      currentMapId: () => INFERNAL_DEPTHS_MAP_ID,
     });
     player.x = gloomrootBoss.x + 300;
     player.y = gloomrootBoss.y;
     gloomrootBoss.attackClock = 0;
 
-    controller.updateGloomrootBoss(.016);
+    controller.byKind.gloomroot.update(.016);
     expect(gloomrootBoss.sweep).not.toBeNull();
     expect(gloomrootBoss.nextAttack).toBe("bloom");
 
-    controller.updateGloomrootBoss(.85);
-    controller.updateGloomrootBoss(1.1);
-    controller.updateGloomrootBoss(2.6);
+    controller.byKind.gloomroot.update(.85);
+    controller.byKind.gloomroot.update(1.1);
+    controller.byKind.gloomroot.update(2.6);
     expect(gloomrootBlooms.length).toBeGreaterThan(0);
     expect(gloomrootBoss.nextAttack).toBe("sweep");
   });
@@ -460,21 +405,19 @@ describe("Gloomroot boss", () => {
     let shared = { encounter: 10n, hp: GLOOMROOT_MAX_HP, maxHp: GLOOMROOT_MAX_HP, alive: true };
     const startWaterPortalCutscene = vi.fn();
     const { controller } = createFrostclawHarness({
-      currentMapIsSnow: () => false,
-      currentMapIsInfernal: () => true,
-      getGloomrootBoss: () => shared,
-      getGloomrootResult: () => ({
+      currentMapId: () => INFERNAL_DEPTHS_MAP_ID,
+      sharedBoss: forKind("gloomroot", () => shared),
+      bossResult: forKind("gloomroot", () => ({
         encounter: 10n,
         totalDamage: 100,
         contributors: [{ identity: "local", name: "Local", gender: 0, damage: 100, percentage: 100 }],
-      }),
-      hasSeenWaterPortalCutscene: () => false,
-      startWaterPortalCutscene,
+      })),
+      portalCutscenes: { gloomroot: { seen: () => false, start: startWaterPortalCutscene } },
     });
 
-    controller.syncGloomrootState();
+    controller.byKind.gloomroot.sync();
     shared = { ...shared, hp: 0, alive: false };
-    controller.syncGloomrootState();
+    controller.byKind.gloomroot.sync();
 
     expect(startWaterPortalCutscene).toHaveBeenCalledOnce();
   });
@@ -490,21 +433,20 @@ describe("Tidewyrm boss", () => {
   });
 
   it("cycles a tidal surge into staggered whirlpools", () => {
-    const { controller, tidewyrmBoss, tidewyrmWhirlpools, player } = createFrostclawHarness({
-      currentMapIsSnow: () => false,
-      currentMapIsWater: () => true,
+    const { controller, bosses: { tidewyrm: tidewyrmBoss }, bossHazards: { tidewyrm: tidewyrmWhirlpools }, player } = createFrostclawHarness({
+      currentMapId: () => WATER_REACH_MAP_ID,
     });
     player.x = tidewyrmBoss.x + 300;
     player.y = tidewyrmBoss.y;
     tidewyrmBoss.attackClock = 0;
 
-    controller.updateTidewyrmBoss(.016);
+    controller.byKind.tidewyrm.update(.016);
     expect(tidewyrmBoss.surge).not.toBeNull();
     expect(tidewyrmBoss.nextAttack).toBe("whirlpool");
 
-    controller.updateTidewyrmBoss(.82);
-    controller.updateTidewyrmBoss(1.1);
-    controller.updateTidewyrmBoss(2.5);
+    controller.byKind.tidewyrm.update(.82);
+    controller.byKind.tidewyrm.update(1.1);
+    controller.byKind.tidewyrm.update(2.5);
     expect(tidewyrmWhirlpools.length).toBeGreaterThan(0);
     expect(tidewyrmBoss.nextAttack).toBe("surge");
   });
@@ -513,21 +455,19 @@ describe("Tidewyrm boss", () => {
     let shared = { encounter: 11n, hp: TIDEWYRM_MAX_HP, maxHp: TIDEWYRM_MAX_HP, alive: true };
     const startSamuraiPortalCutscene = vi.fn();
     const { controller } = createFrostclawHarness({
-      currentMapIsSnow: () => false,
-      currentMapIsWater: () => true,
-      getTidewyrmBoss: () => shared,
-      getTidewyrmResult: () => ({
+      currentMapId: () => WATER_REACH_MAP_ID,
+      sharedBoss: forKind("tidewyrm", () => shared),
+      bossResult: forKind("tidewyrm", () => ({
         encounter: 11n,
         totalDamage: 100,
         contributors: [{ identity: "local", name: "Local", gender: 0, damage: 100, percentage: 100 }],
-      }),
-      hasSeenSamuraiPortalCutscene: () => false,
-      startSamuraiPortalCutscene,
+      })),
+      portalCutscenes: { tidewyrm: { seen: () => false, start: startSamuraiPortalCutscene } },
     });
 
-    controller.syncTidewyrmState();
+    controller.byKind.tidewyrm.sync();
     shared = { ...shared, hp: 0, alive: false };
-    controller.syncTidewyrmState();
+    controller.byKind.tidewyrm.sync();
 
     expect(startSamuraiPortalCutscene).toHaveBeenCalledOnce();
   });
@@ -536,21 +476,19 @@ describe("Tidewyrm boss", () => {
     const shared = { encounter: 12n, hp: 0, maxHp: TIDEWYRM_MAX_HP, alive: false };
     const startSamuraiPortalCutscene = vi.fn();
     const { controller, player } = createFrostclawHarness({
-      currentMapIsSnow: () => false,
-      currentMapIsWater: () => true,
-      getTidewyrmBoss: () => shared,
-      getTidewyrmResult: () => ({
+      currentMapId: () => WATER_REACH_MAP_ID,
+      sharedBoss: forKind("tidewyrm", () => shared),
+      bossResult: forKind("tidewyrm", () => ({
         encounter: 12n,
         totalDamage: 100,
         contributors: [{ identity: "local", name: "Local", gender: 0, damage: 100, percentage: 100 }],
-      }),
-      hasSeenSamuraiPortalCutscene: () => false,
-      startSamuraiPortalCutscene,
+      })),
+      portalCutscenes: { tidewyrm: { seen: () => false, start: startSamuraiPortalCutscene } },
     });
     const damageBefore = player.damage;
     const maxHealthBefore = player.baseMaxHp;
 
-    controller.syncTidewyrmState();
+    controller.byKind.tidewyrm.sync();
 
     expect(startSamuraiPortalCutscene).toHaveBeenCalledOnce();
     expect(player.damage).toBe(damageBefore);
@@ -568,21 +506,20 @@ describe("Koi Shogun boss", () => {
   });
 
   it("cycles a water slash into staggered whirlpools", () => {
-    const { controller, koiShogunBoss, koiShogunWhirlpools, player } = createFrostclawHarness({
-      currentMapIsSnow: () => false,
-      currentMapIsSamurai: () => true,
+    const { controller, bosses: { koiShogun: koiShogunBoss }, bossHazards: { koiShogun: koiShogunWhirlpools }, player } = createFrostclawHarness({
+      currentMapId: () => SAMURAI_GARDEN_MAP_ID,
     });
     player.x = koiShogunBoss.x + 300;
     player.y = koiShogunBoss.y;
     koiShogunBoss.attackClock = 0;
 
-    controller.updateKoiShogunBoss(.016);
+    controller.byKind.koiShogun.update(.016);
     expect(koiShogunBoss.slash).not.toBeNull();
     expect(koiShogunBoss.nextAttack).toBe("whirlpool");
 
-    controller.updateKoiShogunBoss(.78);
-    controller.updateKoiShogunBoss(1.1);
-    controller.updateKoiShogunBoss(2.5);
+    controller.byKind.koiShogun.update(.78);
+    controller.byKind.koiShogun.update(1.1);
+    controller.byKind.koiShogun.update(2.5);
     expect(koiShogunWhirlpools.length).toBeGreaterThan(0);
     expect(koiShogunBoss.nextAttack).toBe("slash");
   });
@@ -598,21 +535,20 @@ describe("Tempest Kirin boss", () => {
   });
 
   it("cycles a charge wave into targeted thunder circles", () => {
-    const { controller, tempestKirinBoss, tempestKirinThunderbolts, player } = createFrostclawHarness({
-      currentMapIsSnow: () => false,
-      currentMapIsCloudspire: () => true,
+    const { controller, bosses: { tempestKirin: tempestKirinBoss }, bossHazards: { tempestKirin: tempestKirinThunderbolts }, player } = createFrostclawHarness({
+      currentMapId: () => CLOUDSPIRE_MAP_ID,
     });
     player.x = tempestKirinBoss.x + 300;
     player.y = tempestKirinBoss.y;
     tempestKirinBoss.attackClock = 0;
 
-    controller.updateTempestKirinBoss(.016);
+    controller.byKind.tempestKirin.update(.016);
     expect(tempestKirinBoss.charge).not.toBeNull();
     expect(tempestKirinBoss.nextAttack).toBe("thunder");
 
-    controller.updateTempestKirinBoss(.75);
-    controller.updateTempestKirinBoss(1.05);
-    controller.updateTempestKirinBoss(2.4);
+    controller.byKind.tempestKirin.update(.75);
+    controller.byKind.tempestKirin.update(1.05);
+    controller.byKind.tempestKirin.update(2.4);
     expect(tempestKirinThunderbolts.length).toBeGreaterThan(0);
     expect(tempestKirinBoss.nextAttack).toBe("charge");
   });
@@ -620,18 +556,18 @@ describe("Tempest Kirin boss", () => {
 
 describe("Miremaw boss", () => {
   it("uses the tuned body edge for contact damage", () => {
-    const { controller, miremawBoss, player, damagePlayer } = createFrostclawHarness();
+    const { controller, bosses: { miremaw: miremawBoss }, player, damagePlayer } = createFrostclawHarness();
     expect(miremawBoss.ry).toBe(95);
     expect(miremawBoss.hitboxOffsetY).toBe(63);
     const top = miremawBoss.y + (miremawBoss.hitboxOffsetY ?? 0) - (miremawBoss.ry ?? miremawBoss.r) - player.r;
     player.x = miremawBoss.x;
     player.y = top - 1;
-    controller.resolveMiremawCollision();
+    controller.byKind.miremaw.resolveCollision();
     expect(damagePlayer).not.toHaveBeenCalled();
     expect(player.y).toBe(top - 1);
 
     player.y = top + 1;
-    controller.resolveMiremawCollision();
+    controller.byKind.miremaw.resolveCollision();
     expect(damagePlayer).toHaveBeenCalledOnce();
     expect(player.y).toBeCloseTo(top);
   });
@@ -645,21 +581,20 @@ describe("Miremaw boss", () => {
   });
 
   it("cycles a tongue sweep into staggered bog bursts", () => {
-    const { controller, miremawBoss, miremawBogBursts, player } = createFrostclawHarness({
-      currentMapIsSnow: () => false,
-      currentMapIsMoonfen: () => true,
+    const { controller, bosses: { miremaw: miremawBoss }, bossHazards: { miremaw: miremawBogBursts }, player } = createFrostclawHarness({
+      currentMapId: () => MOONFEN_MAP_ID,
     });
     player.x = miremawBoss.x + 300;
     player.y = miremawBoss.y;
     miremawBoss.attackClock = 0;
 
-    controller.updateMiremawBoss(.016);
+    controller.byKind.miremaw.update(.016);
     expect(miremawBoss.tongue).not.toBeNull();
     expect(miremawBoss.nextAttack).toBe("bogBurst");
 
-    controller.updateMiremawBoss(.7);
-    controller.updateMiremawBoss(.6);
-    controller.updateMiremawBoss(2.4);
+    controller.byKind.miremaw.update(.7);
+    controller.byKind.miremaw.update(.6);
+    controller.byKind.miremaw.update(2.4);
     expect(miremawBogBursts.length).toBeGreaterThan(0);
     expect(miremawBoss.nextAttack).toBe("tongue");
   });
@@ -675,24 +610,23 @@ describe("Prismshell boss", () => {
   });
 
   it("cycles its wider shatter sweep into eight staggered crystal bursts", () => {
-    const { controller, prismshellBoss, prismshellCrystalBursts, player } = createFrostclawHarness({
-      currentMapIsSnow: () => false,
-      currentMapIsCrystalHollows: () => true,
+    const { controller, bosses: { prismshell: prismshellBoss }, bossHazards: { prismshell: prismshellCrystalBursts }, player } = createFrostclawHarness({
+      currentMapId: () => CRYSTAL_HOLLOWS_MAP_ID,
     });
     player.x = prismshellBoss.x + 300;
     player.y = prismshellBoss.y;
     prismshellBoss.attackClock = 0;
-    controller.updatePrismshellBoss(.016);
+    controller.byKind.prismshell.update(.016);
     expect(prismshellBoss.shatter).toMatchObject({ windup: .85, duration: .8 });
     expect(prismshellBoss.nextAttack).toBe("crystalBurst");
-    controller.updatePrismshellBoss(.86);
-    controller.updatePrismshellBoss(.81);
-    controller.updatePrismshellBoss(2.4);
+    controller.byKind.prismshell.update(.86);
+    controller.byKind.prismshell.update(.81);
+    controller.byKind.prismshell.update(2.4);
     expect(prismshellCrystalBursts).toHaveLength(8);
     expect(prismshellCrystalBursts.every((burst) => burst.r === 86)).toBe(true);
     expect(new Set(prismshellCrystalBursts.map((burst) => burst.maxTimer)).size).toBe(8);
     expect(prismshellBoss.nextAttack).toBe("shatter");
-    controller.resetPrismshellBoss();
+    controller.byKind.prismshell.reset();
     expect(prismshellBoss.shatter).toBeNull();
     expect(prismshellCrystalBursts).toHaveLength(0);
   });
@@ -702,83 +636,83 @@ describe("Prismshell boss", () => {
 describe("expansion boss patterns", () => {
   it("Ironhorn alternates a narrow wave with two rows of scrap and clears on reset", () => {
     const h = createFrostclawHarness();
-    h.player.x = h.ironhornBoss.x + 300; h.player.y = h.ironhornBoss.y;
-    h.ironhornBoss.attackClock = 0;
-    h.controller.updateIronhornBoss(.016);
-    expect(h.ironhornBoss.shatter).toMatchObject({ windup: 1.05, duration: .8 });
-    h.controller.updateIronhornBoss(1.06); h.controller.updateIronhornBoss(.81); h.controller.updateIronhornBoss(2.4);
-    expect(h.ironhornCrystalBursts).toHaveLength(6);
-    expect(new Set(h.ironhornCrystalBursts.map(burst => burst.maxTimer)).size).toBe(2);
-    h.controller.resetIronhornBoss();
-    expect(h.ironhornCrystalBursts).toHaveLength(0);
-    expect(h.ironhornBoss.shatter).toBeNull();
+    h.player.x = h.bosses.ironhorn.x + 300; h.player.y = h.bosses.ironhorn.y;
+    h.bosses.ironhorn.attackClock = 0;
+    h.controller.byKind.ironhorn.update(.016);
+    expect(h.bosses.ironhorn.shatter).toMatchObject({ windup: 1.05, duration: .8 });
+    h.controller.byKind.ironhorn.update(1.06); h.controller.byKind.ironhorn.update(.81); h.controller.byKind.ironhorn.update(2.4);
+    expect(h.bossHazards.ironhorn).toHaveLength(6);
+    expect(new Set(h.bossHazards.ironhorn.map(burst => burst.maxTimer)).size).toBe(2);
+    h.controller.byKind.ironhorn.reset();
+    expect(h.bossHazards.ironhorn).toHaveLength(0);
+    expect(h.bosses.ironhorn.shatter).toBeNull();
   });
   it("Dreadreaper surrounds its target with a ring that leaves the center safe", () => {
     const h = createFrostclawHarness();
-    h.player.x = h.dreadreaperBoss.x - 300; h.player.y = h.dreadreaperBoss.y;
-    h.dreadreaperBoss.attackClock = 0;
-    h.controller.updateDreadreaperBoss(.016);
-    expect(h.dreadreaperBoss.shatter).toMatchObject({ windup: 1.1, duration: .8 });
-    h.controller.updateDreadreaperBoss(1.11); h.controller.updateDreadreaperBoss(.81); h.controller.updateDreadreaperBoss(2.4);
-    expect(h.dreadreaperCrystalBursts).toHaveLength(10);
-    for (const burst of h.dreadreaperCrystalBursts) expect(Math.hypot(burst.x - h.player.x, burst.y - h.player.y)).toBeGreaterThan(burst.r);
-    h.controller.resetDreadreaperBoss();
-    expect(h.dreadreaperCrystalBursts).toHaveLength(0);
-    expect(h.dreadreaperBoss.shatter).toBeNull();
+    h.player.x = h.bosses.dreadreaper.x - 300; h.player.y = h.bosses.dreadreaper.y;
+    h.bosses.dreadreaper.attackClock = 0;
+    h.controller.byKind.dreadreaper.update(.016);
+    expect(h.bosses.dreadreaper.shatter).toMatchObject({ windup: 1.1, duration: .8 });
+    h.controller.byKind.dreadreaper.update(1.11); h.controller.byKind.dreadreaper.update(.81); h.controller.byKind.dreadreaper.update(2.4);
+    expect(h.bossHazards.dreadreaper).toHaveLength(10);
+    for (const burst of h.bossHazards.dreadreaper) expect(Math.hypot(burst.x - h.player.x, burst.y - h.player.y)).toBeGreaterThan(burst.r);
+    h.controller.byKind.dreadreaper.reset();
+    expect(h.bossHazards.dreadreaper).toHaveLength(0);
+    expect(h.bosses.dreadreaper.shatter).toBeNull();
   });
 });
 
 it("runs Voltwarden's laser lanes and staggered EMP rings on the shared clock", () => {
   let serverNowMs = 100;
-  const h = createFrostclawHarness({ serverNowMs: () => serverNowMs, currentMapIsSnow: () => false, currentMapIsNeonBastion: () => true });
-  h.voltwardenBoss.dead = false;
-  h.player.x = h.voltwardenBoss.x + 500; h.player.y = h.voltwardenBoss.y;
-  h.controller.updateVoltwardenBoss(.01);
-  expect(h.voltwardenBoss.shatter).not.toBeNull();
-  expect(h.voltwardenBoss.nextAttack).toBe("empPulse");
+  const h = createFrostclawHarness({ serverNowMs: () => serverNowMs, currentMapId: () => NEON_BASTION_MAP_ID });
+  h.bosses.voltwarden.dead = false;
+  h.player.x = h.bosses.voltwarden.x + 500; h.player.y = h.bosses.voltwarden.y;
+  h.controller.byKind.voltwarden.update(.01);
+  expect(h.bosses.voltwarden.shatter).not.toBeNull();
+  expect(h.bosses.voltwarden.nextAttack).toBe("empPulse");
   h.player.y += 95;
   serverNowMs = 1500;
-  h.controller.updateVoltwardenBoss(1.4);
+  h.controller.byKind.voltwarden.update(1.4);
   expect(h.damagePlayer).not.toHaveBeenCalled();
   serverNowMs = 4800;
-  h.controller.updateVoltwardenBoss(.01);
-  expect(h.voltwardenBoss.shatter).toBeNull();
-  expect(h.voltwardenCrystalBursts).toHaveLength(3);
-  for (const pulse of h.voltwardenCrystalBursts) {
-    expect(pulse.x).toBe(h.voltwardenBoss.x); expect(pulse.y).toBe(h.voltwardenBoss.y);
+  h.controller.byKind.voltwarden.update(.01);
+  expect(h.bosses.voltwarden.shatter).toBeNull();
+  expect(h.bossHazards.voltwarden).toHaveLength(3);
+  for (const pulse of h.bossHazards.voltwarden) {
+    expect(pulse.x).toBe(h.bosses.voltwarden.x); expect(pulse.y).toBe(h.bosses.voltwarden.y);
   }
 });
 
 it("alternates Aegis Prime's shared-clock volley direction and clears attacks on reset", () => {
   let serverNowMs = 4900;
-  const h = createFrostclawHarness({ serverNowMs: () => serverNowMs, currentMapIsSnow: () => false, currentMapIsIonCitadel: () => true });
-  h.aegisPrimeBoss.dead = false;
-  h.player.x = h.aegisPrimeBoss.x - 400; h.player.y = h.aegisPrimeBoss.y;
-  h.controller.updateAegisPrimeBoss(.01);
-  expect(h.aegisPrimeCrystalBursts).toHaveLength(3);
-  expect(h.aegisPrimeCrystalBursts.every(p => Math.abs(p.y - h.player.y) < .001)).toBe(true);
+  const h = createFrostclawHarness({ serverNowMs: () => serverNowMs, currentMapId: () => ION_CITADEL_MAP_ID });
+  h.bosses.aegisPrime.dead = false;
+  h.player.x = h.bosses.aegisPrime.x - 400; h.player.y = h.bosses.aegisPrime.y;
+  h.controller.byKind.aegisPrime.update(.01);
+  expect(h.bossHazards.aegisPrime).toHaveLength(3);
+  expect(h.bossHazards.aegisPrime.every(p => Math.abs(p.y - h.player.y) < .001)).toBe(true);
   serverNowMs += 9900;
-  h.controller.updateAegisPrimeBoss(.01);
-  expect(h.aegisPrimeCrystalBursts).toHaveLength(3);
-  expect(h.aegisPrimeCrystalBursts.every(p => Math.abs(p.x - h.player.x) < .001)).toBe(true);
-  h.controller.resetAegisPrimeBoss();
-  expect(h.aegisPrimeCrystalBursts).toHaveLength(0);
-  expect(h.aegisPrimeBoss.shatter).toBeNull();
+  h.controller.byKind.aegisPrime.update(.01);
+  expect(h.bossHazards.aegisPrime).toHaveLength(3);
+  expect(h.bossHazards.aegisPrime.every(p => Math.abs(p.x - h.player.x) < .001)).toBe(true);
+  h.controller.byKind.aegisPrime.reset();
+  expect(h.bossHazards.aegisPrime).toHaveLength(0);
+  expect(h.bosses.aegisPrime.shatter).toBeNull();
 });
 
 it("lands Aegis Prime's shield sweep where its drawn wave is, not across the whole arc at once", () => {
   // Where the travelling wave is drawn when the hit lands, for a player this far in front.
   const waveRadiusAtHit = (distance: number) => {
     let serverNowMs = 100; // the opening Shield Sweep slot
-    const h = createFrostclawHarness({ serverNowMs: () => serverNowMs, currentMapIsSnow: () => false, currentMapIsIonCitadel: () => true });
-    h.aegisPrimeBoss.dead = false;
-    h.player.x = h.aegisPrimeBoss.x - distance; h.player.y = h.aegisPrimeBoss.y;
+    const h = createFrostclawHarness({ serverNowMs: () => serverNowMs, currentMapId: () => ION_CITADEL_MAP_ID });
+    h.bosses.aegisPrime.dead = false;
+    h.player.x = h.bosses.aegisPrime.x - distance; h.player.y = h.bosses.aegisPrime.y;
     for (let frame = 0; frame < 150 && !h.damagePlayer.mock.calls.length; frame++) {
       serverNowMs += 1_000 / 60;
-      h.controller.updateAegisPrimeBoss(1 / 60);
+      h.controller.byKind.aegisPrime.update(1 / 60);
     }
     expect(h.damagePlayer).toHaveBeenCalledTimes(1);
-    const sweep = h.aegisPrimeBoss.shatter!;
+    const sweep = h.bosses.aegisPrime.shatter!;
     expect(sweep.windup).toBe(0);
     return ION_SWEEP.innerRange + (1 - Math.max(0, sweep.timer) / sweep.duration) * (ION_SWEEP.range - ION_SWEEP.innerRange);
   };
@@ -787,21 +721,21 @@ it("lands Aegis Prime's shield sweep where its drawn wave is, not across the who
 });
 
 it("leads Angler hits by half a second without replaying on staggered circles", () => {
-  const h = createFrostclawHarness({ currentMapIsSnow: () => false, currentMapIsWater: () => true });
-  h.player.x = h.tidewyrmBoss.x + 300; h.player.y = h.tidewyrmBoss.y;
-  h.tidewyrmBoss.attackClock = 0;
-  h.controller.updateTidewyrmBoss(.016);
-  expect(h.tidewyrmBoss.spriteAttackElapsed).toBeCloseTo(-.32);
-  h.controller.updateTidewyrmBoss(.82);
-  expect(h.tidewyrmBoss.spriteAttackElapsed).toBeCloseTo(.5);
-  h.controller.updateTidewyrmBoss(1.1);
-  h.controller.updateTidewyrmBoss(2.5);
-  expect(h.tidewyrmWhirlpools.length).toBeGreaterThan(0);
-  expect(h.tidewyrmBoss.spriteAttackElapsed).toBeCloseTo(-.35);
-  h.controller.updateTidewyrmBoss(.36);
-  expect(h.tidewyrmBoss.spriteAttackElapsed).toBeCloseTo(.01);
-  h.controller.updateTidewyrmBoss(.5);
-  expect(h.tidewyrmBoss.spriteAttackElapsed).toBeCloseTo(.51);
-  h.controller.resetTidewyrmBoss();
-  expect(h.tidewyrmBoss.spriteAttackElapsed).toBeUndefined();
+  const h = createFrostclawHarness({ currentMapId: () => WATER_REACH_MAP_ID });
+  h.player.x = h.bosses.tidewyrm.x + 300; h.player.y = h.bosses.tidewyrm.y;
+  h.bosses.tidewyrm.attackClock = 0;
+  h.controller.byKind.tidewyrm.update(.016);
+  expect(h.bosses.tidewyrm.spriteAttackElapsed).toBeCloseTo(-.32);
+  h.controller.byKind.tidewyrm.update(.82);
+  expect(h.bosses.tidewyrm.spriteAttackElapsed).toBeCloseTo(.5);
+  h.controller.byKind.tidewyrm.update(1.1);
+  h.controller.byKind.tidewyrm.update(2.5);
+  expect(h.bossHazards.tidewyrm.length).toBeGreaterThan(0);
+  expect(h.bosses.tidewyrm.spriteAttackElapsed).toBeCloseTo(-.35);
+  h.controller.byKind.tidewyrm.update(.36);
+  expect(h.bosses.tidewyrm.spriteAttackElapsed).toBeCloseTo(.01);
+  h.controller.byKind.tidewyrm.update(.5);
+  expect(h.bosses.tidewyrm.spriteAttackElapsed).toBeCloseTo(.51);
+  h.controller.byKind.tidewyrm.reset();
+  expect(h.bosses.tidewyrm.spriteAttackElapsed).toBeUndefined();
 });

@@ -80,7 +80,7 @@ describe("game session frame scheduling", () => {
     const updatePlayer = vi.fn(), updateEnemies = vi.fn(), updateProjectiles = vi.fn(), updatePortal = vi.fn(() => { ready = false; });
     try {
       const session = createGameSessionController({
-        getMapId: () => "test", cutsceneActive: () => false, worldCombatReady: () => ready,
+        getMapId: () => "test", cutsceneActive: () => false, worldCombatReady: () => ready, syncBoss: vi.fn(), updateBoss: vi.fn(),
         capturePresentationState: vi.fn(), updateVisuals: vi.fn(), updateMessage: vi.fn(), updateHud: vi.fn(),
         updatePlayer, updateEnemies, updateProjectiles, updatePortal, updateUpgradeBench: vi.fn(), isDueling: () => false,
       } as any);
@@ -100,7 +100,7 @@ describe("game session frame scheduling", () => {
       const noop = vi.fn();
       const session = createGameSessionController({
         hideStart: noop, hideGameOver: noop, mapMusicSync: noop, beginAdventure: noop, ensureMusicPlaying: noop,
-        resetPresentationState: noop, tutorialMapId: "t", desertMapId: "d", snowMapId: "s", lavaMapId: "l", infernalMapId: "i", waterMapId: "w",
+        resetPresentationState: noop, syncBoss: noop, updateBoss: noop,
         resolvePortalCollision: noop, capturePresentationState: noop, updateHud: noop, updateVisuals: noop, updateMessage: noop,
         resetPlayer: () => { player.x = 100; player.y = 100; },                    // the map's spawn
         serverMapId: () => serverState ? "test" : undefined, serverPlayerState: () => serverState,
@@ -230,7 +230,7 @@ describe("game session frame scheduling", () => {
     const noop = () => {};
     try {
       const session = createGameSessionController({
-        player: { moving: false }, camera: {}, getMapId: () => "test", validMapIds: ["test"],
+        player: { moving: false }, camera: {}, getMapId: () => "test", validMapIds: ["test"], syncBoss: noop, updateBoss: noop,
         hideStart: noop, hideGameOver: noop, mapMusicSync: noop, resetPlayer: noop,
         serverMapId: () => undefined, serverPlayerState: () => ({ x: 0, y: 0, facing: 0 }),
         resolvePortalCollision: noop, connected: () => false, beginAdventure: noop,
@@ -355,7 +355,7 @@ describe("game session frame scheduling", () => {
     const noop = () => {};
     try {
       const session = createGameSessionController({
-        player: { moving: false, hp: 100 }, camera: {}, getMapId: () => "test", validMapIds: ["test"],
+        player: { moving: false, hp: 100 }, camera: {}, getMapId: () => "test", validMapIds: ["test"], syncBoss: noop, updateBoss: noop,
         hideStart: noop, hideGameOver: noop, mapMusicSync: noop, resetPlayer: noop,
         serverMapId: () => undefined, serverPlayerState: () => ({ x: 0, y: 0, facing: 0 }),
         resolvePortalCollision: noop, connected: () => false, beginAdventure: noop,

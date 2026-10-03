@@ -74,7 +74,11 @@ import { describe, expect, it } from "vitest";
 // view and refresh live in quest-board-controller.ts.
 // 2_150: the leaderboard's player search hook. The search lives in
 // player-search.ts and the directory in the social service.
-const MAX_LINES = 2_150;
+// 1_943: the world boss registry (boss-registry.ts). Main no longer hands every
+// runtime module fifteen boss states, fifteen hazard lists, and a sync, update,
+// reset, collision and map check per boss: it passes the two boss records and
+// one hook per concern, and the registry says which boss a map has.
+const MAX_LINES = 1_943;
 const TARGET_LINES = 1_000;
 
 describe("game composition boundary", () => {

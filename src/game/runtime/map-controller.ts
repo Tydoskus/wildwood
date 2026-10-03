@@ -1,7 +1,8 @@
 import { beginHomeTeleport, endHomeTeleport } from "./home-teleport";
 import { createPortalCutscene } from "./cutscene";
 import { snapCameraToPlayer, type Camera } from "./camera";
-import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, MiremawBogBurst, PrismshellCrystalBurst, IronhornCrystalBurst, DreadreaperCrystalBurst, VoltwardenCrystalBurst, GravebloomCrystalBurst, AegisPrimeCrystalBurst, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, AegisPrimeBossState, PlayerState, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
+import type { EnemyState, PlayerState } from "./types";
+import { BOSS_KINDS, clearBossAttack, type BossHazards, type BossStates } from "./boss-registry";
 import type { MapId, SpawnSite } from "../world";
 
 export type MapPortal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId; label?: string };
@@ -113,36 +114,8 @@ export function createMapController(options: {
   enemies: EnemyState[];
   spawnSites: SpawnSite[];
   clearTransientCombat: () => void;
-  bossRain: BossRainStrike[];
-  spiderVenom: SpiderVenomPool[];
-  frostclawIcefalls: FrostclawIcefall[];
-  magmaliskEruptions: MagmaliskEruption[];
-  gloomrootBlooms: GloomrootBloom[];
-  tidewyrmWhirlpools: TidewyrmWhirlpool[];
-  koiShogunWhirlpools: KoiShogunWhirlpool[];
-  tempestKirinThunderbolts: TempestKirinThunderbolt[];
-  miremawBogBursts: MiremawBogBurst[];
-  prismshellCrystalBursts: PrismshellCrystalBurst[];
-  ironhornCrystalBursts: IronhornCrystalBurst[];
-  dreadreaperCrystalBursts: DreadreaperCrystalBurst[];
-  voltwardenCrystalBursts: VoltwardenCrystalBurst[];
-  gravebloomCrystalBursts: GravebloomCrystalBurst[];
-  aegisPrimeCrystalBursts: AegisPrimeCrystalBurst[];
-  boss: DragonBossState;
-  spiderBoss: SpiderBossState;
-  frostclawBoss: FrostclawBossState;
-  magmaliskBoss: MagmaliskBossState;
-  gloomrootBoss: GloomrootBossState;
-  tidewyrmBoss: TidewyrmBossState;
-  koiShogunBoss: KoiShogunBossState;
-  tempestKirinBoss: TempestKirinBossState;
-  miremawBoss: MiremawBossState;
-  prismshellBoss: PrismshellBossState;
-  ironhornBoss: IronhornBossState;
-  dreadreaperBoss: DreadreaperBossState;
-  voltwardenBoss: VoltwardenBossState;
-  gravebloomBoss: GravebloomBossState;
-  aegisPrimeBoss: AegisPrimeBossState;
+  bosses: BossStates;
+  bossHazards: BossHazards;
   onCutsceneFinished: () => void;
 }): MapController {
   const {
@@ -150,7 +123,7 @@ export function createMapController(options: {
     getCurrentMapId, setCurrentMapId, player, camera, viewport, keys, stopTouchMove, cutsceneOverlay, resizeViewport,
     isDueling, running, localMapState, changeMap, syncStoppedPosition, resetPresentationState, fadeToWorld, mapUnlocked, syncMapMusic,
     rebuildWorld, spawnFromSite, enemies, spawnSites, clearTransientCombat,
-    bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, miremawBogBursts, prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, gravebloomCrystalBursts, aegisPrimeCrystalBursts, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss, onCutsceneFinished,
+    bosses, bossHazards, onCutsceneFinished,
   } = options;
   const portalCutscene = createPortalCutscene();
   let mapTransitioning = false;
@@ -275,37 +248,11 @@ export function createMapController(options: {
     enemies.length = 0;
     spawnSites.length = 0;
     clearTransientCombat();
-    bossRain.length = 0;
-    boss.cone = null;
-    spiderVenom.length = 0;
-    spiderBoss.web = null;
-    frostclawIcefalls.length = 0;
-    frostclawBoss.roar = null;
-    frostclawBoss.rift = null;
-    magmaliskEruptions.length = 0;
-    magmaliskBoss.bite = null;
-    gloomrootBlooms.length = 0;
-    gloomrootBoss.sweep = null;
-    tidewyrmWhirlpools.length = 0;
-    tidewyrmBoss.surge = null;
-    koiShogunWhirlpools.length = 0;
-    koiShogunBoss.slash = null;
-    tempestKirinThunderbolts.length = 0;
-    tempestKirinBoss.charge = null;
-    miremawBogBursts.length = 0;
-    prismshellCrystalBursts.length = 0;
-    ironhornCrystalBursts.length = 0;
-    dreadreaperCrystalBursts.length = 0;
-    voltwardenCrystalBursts.length = 0;
-    gravebloomCrystalBursts.length = 0;
-    aegisPrimeCrystalBursts.length = 0;
-    miremawBoss.tongue = null;
-    prismshellBoss.shatter = null;
-    ironhornBoss.shatter = null;
-    dreadreaperBoss.shatter = null;
-    voltwardenBoss.shatter = null;
-    gravebloomBoss.shatter = null;
-    aegisPrimeBoss.shatter = null;
+    // No boss attack or hazard follows the player to the next map.
+    for (const kind of BOSS_KINDS) {
+      bossHazards[kind].length = 0;
+      clearBossAttack(kind, bosses[kind]);
+    }
     rebuildWorld();
     for (const site of spawnSites) spawnFromSite(site);
   }

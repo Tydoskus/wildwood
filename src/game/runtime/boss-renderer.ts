@@ -101,7 +101,7 @@ import {
   bossStatusLabelOffsets,
 } from "./boss-label-style";
 import { healthBarTextY } from "./health-bar-layout";
-import type { BossRainStrike, DragonBossState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, MiremawBogBurst, PrismshellCrystalBurst, IronhornCrystalBurst, DreadreaperCrystalBurst, VoltwardenCrystalBurst, GravebloomCrystalBurst, AegisPrimeCrystalBurst, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, AegisPrimeBossState, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
+import { BOSS_KINDS, type BossArtAssets, type BossHazards, type BossKind, type BossStates } from "./boss-registry";
 import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
 import { scorpionSpriteFrame } from "./scorpion-sprite";
 import { prismshellSpriteFrame } from "./prismshell-sprite";
@@ -112,6 +112,37 @@ type PixelCircle = (x: number, y: number, radius: number) => void;
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
 type DrawShadow = (x: number, y: number, width: number, alpha?: number) => void;
 
+/** The colours that set apart the crystal-shatter telegraph three bosses share. */
+type ShatterPalette = {
+  windupFill: string;
+  windupStroke: string;
+  activeFill: string;
+  activeStroke: string;
+  /** "r,g,b" of the burst fill; its alpha grows as the burst lands. */
+  burstFill: string;
+  burstStroke: string;
+  oddShard: string;
+  evenShard: string;
+};
+const PRISMSHELL_PALETTE: ShatterPalette = {
+  windupFill: "rgba(171,139,230,.17)", windupStroke: "rgba(208,181,255,.96)",
+  activeFill: "rgba(148,232,244,.24)", activeStroke: "rgba(213,252,255,.98)",
+  burstFill: "172,142,226", burstStroke: "rgba(222,204,255,.96)",
+  oddShard: "rgba(180,243,255,.92)", evenShard: "rgba(220,181,255,.92)",
+};
+const IRONHORN_PALETTE: ShatterPalette = {
+  windupFill: "rgba(223,162,69,.17)", windupStroke: "rgba(255,215,139,.96)",
+  activeFill: "rgba(247,202,107,.24)", activeStroke: "rgba(255,234,182,.98)",
+  burstFill: "217,149,64", burstStroke: "rgba(255,213,127,.96)",
+  oddShard: "rgba(255,193,96,.92)", evenShard: "rgba(201,220,207,.92)",
+};
+const DREADREAPER_PALETTE: ShatterPalette = {
+  windupFill: "rgba(141,206,109,.17)", windupStroke: "rgba(205,255,162,.96)",
+  activeFill: "rgba(210,244,137,.24)", activeStroke: "rgba(231,255,203,.98)",
+  burstFill: "132,201,104", burstStroke: "rgba(224,255,176,.96)",
+  oddShard: "rgba(179,235,116,.92)", evenShard: "rgba(240,175,91,.92)",
+};
+
 const BOSS_LABEL_FONT_FAMILY = '"Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
 const bossLabelFont = (size: number) => `900 ${size}px ${BOSS_LABEL_FONT_FAMILY}`;
 
@@ -119,66 +150,9 @@ export function createBossRenderer(options: {
   ctx: CanvasRenderingContext2D;
   camera: Camera;
   devicePixelRatio: () => number;
-  boss: DragonBossState;
-  spiderBoss: SpiderBossState;
-  frostclawBoss: FrostclawBossState;
-  magmaliskBoss: MagmaliskBossState;
-  gloomrootBoss: GloomrootBossState;
-  tidewyrmBoss: TidewyrmBossState;
-  koiShogunBoss: KoiShogunBossState;
-  tempestKirinBoss: TempestKirinBossState;
-  miremawBoss: MiremawBossState;
-  prismshellBoss: PrismshellBossState;
-  ironhornBoss: IronhornBossState;
-  dreadreaperBoss: DreadreaperBossState;
-  voltwardenBoss: VoltwardenBossState;
-  gravebloomBoss: GravebloomBossState;
-  aegisPrimeBoss: AegisPrimeBossState;
-  bossRain: BossRainStrike[];
-  spiderVenom: SpiderVenomPool[];
-  frostclawIcefalls: FrostclawIcefall[];
-  magmaliskEruptions: MagmaliskEruption[];
-  gloomrootBlooms: GloomrootBloom[];
-  tidewyrmWhirlpools: TidewyrmWhirlpool[];
-  koiShogunWhirlpools: KoiShogunWhirlpool[];
-  tempestKirinThunderbolts: TempestKirinThunderbolt[];
-  miremawBogBursts: MiremawBogBurst[];
-  prismshellCrystalBursts: PrismshellCrystalBurst[];
-  ironhornCrystalBursts: IronhornCrystalBurst[];
-  dreadreaperCrystalBursts: DreadreaperCrystalBurst[];
-  voltwardenCrystalBursts: VoltwardenCrystalBurst[];
-  gravebloomCrystalBursts: GravebloomCrystalBurst[];
-  aegisPrimeCrystalBursts: AegisPrimeCrystalBurst[];
-  dragonSpriteCanvas: HTMLCanvasElement;
-  spiderSpriteCanvas: HTMLCanvasElement;
-  frostclawSpriteCanvas: HTMLCanvasElement;
-  magmaliskSpriteCanvas: HTMLCanvasElement;
-  gloomrootSpriteCanvas: HTMLCanvasElement;
-  tidewyrmSpritePages: HTMLImageElement[];
-  koiShogunSpriteCanvas: HTMLCanvasElement;
-  tempestKirinSpriteCanvas: HTMLCanvasElement;
-  miremawSpriteCanvas: HTMLCanvasElement;
-  prismshellSpritePages: HTMLImageElement[];
-  ironhornSpritePages: HTMLImageElement[];
-  dreadreaperSpritePages: HTMLImageElement[];
-  voltwardenSpritePages: HTMLImageElement[];
-  gravebloomSpritePages: HTMLImageElement[];
-  aegisPrimeSpritePages: HTMLImageElement[];
-  dragonReady: () => boolean;
-  spiderReady: () => boolean;
-  frostclawReady: () => boolean;
-  magmaliskReady: () => boolean;
-  gloomrootReady: () => boolean;
-  tidewyrmReady: () => boolean;
-  koiShogunReady: () => boolean;
-  tempestKirinReady: () => boolean;
-  miremawReady: () => boolean;
-  prismshellReady: () => boolean;
-  ironhornReady: () => boolean;
-  dreadreaperReady: () => boolean;
-  voltwardenReady: () => boolean;
-  gravebloomReady: () => boolean;
-  aegisPrimeReady: () => boolean;
+  bosses: BossStates;
+  hazards: BossHazards;
+  art: BossArtAssets;
   gameTime: () => number;
   pixelCircle: PixelCircle;
   outlinedText: OutlinedText;
@@ -190,7 +164,13 @@ export function createBossRenderer(options: {
   rewardMultiplier: () => number;
   rewardAmount?: (type: RewardType, amount: number) => number;
 }) {
-  const { ctx, camera, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss } = options;
+  const { ctx, camera, bosses, hazards, art } = options;
+  const {
+    dragon: boss, spider: spiderBoss, frostclaw: frostclawBoss, magmalisk: magmaliskBoss, gloomroot: gloomrootBoss,
+    tidewyrm: tidewyrmBoss, koiShogun: koiShogunBoss, tempestKirin: tempestKirinBoss, miremaw: miremawBoss,
+    prismshell: prismshellBoss, ironhorn: ironhornBoss, dreadreaper: dreadreaperBoss, voltwarden: voltwardenBoss,
+    gravebloom: gravebloomBoss, aegisPrime: aegisPrimeBoss,
+  } = bosses;
   const screenX = (worldX: number) => snapWorldRenderCoordinate(worldX - camera.x, camera.zoom, options.devicePixelRatio());
   const screenY = (worldY: number) => snapWorldRenderCoordinate(worldY - camera.y, camera.zoom, options.devicePixelRatio());
   const gloomrootSprites = createGloomrootSpriteCache();
@@ -204,15 +184,9 @@ export function createBossRenderer(options: {
    */
   function drawBossHitboxes() {
     if (!options.showBossHitboxes?.()) return;
-    const bosses = [
-      options.boss, options.spiderBoss, options.frostclawBoss, options.magmaliskBoss,
-      options.gloomrootBoss, options.tidewyrmBoss, options.koiShogunBoss, options.tempestKirinBoss,
-      options.miremawBoss, options.prismshellBoss, options.ironhornBoss, options.dreadreaperBoss,
-      options.voltwardenBoss, options.gravebloomBoss, options.aegisPrimeBoss,
-    ];
     ctx.save();
     ctx.lineWidth = 3;
-    for (const boss of bosses) {
+    for (const boss of BOSS_KINDS.map((kind) => bosses[kind])) {
       if (!boss || boss.dead || !(boss.r > 0)) continue;
       const x = screenX(boss.x);
       const y = screenY(boss.y);
@@ -239,6 +213,33 @@ export function createBossRenderer(options: {
     const amount = options.rewardAmount?.(type, baseAmount) ?? baseAmount * options.rewardMultiplier();
     return amount > 0 ? rewardLabel({ type, amount }) : "";
   };
+  /** A boss's reward lines in the fixed order: damage, then health, armor and regen when it pays them. */
+  const statRewards = (damage: number, health?: number, armor?: number, regen?: number) => [
+    { text: rewardText("damage", damage), color: "#ff655a" },
+    ...(health === undefined ? [] : [{ text: rewardText("health", health), color: "#6fe48e" }]),
+    ...(armor === undefined ? [] : [{ text: rewardText("armor", armor), color: REWARD_DATA.armor.color }]),
+    ...(regen === undefined ? [] : [{ text: rewardText("regen", regen), color: REWARD_DATA.regen.color }]),
+  ];
+  /** The stand-in for a horned boss whose art did not load: a body and two horns. */
+  function drawHornedSilhouette(body: string, outline: string, horns: string) {
+    ctx.fillStyle = body;
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 10;
+    ctx.beginPath();
+    ctx.ellipse(0, 55, 160, 105, 0, 0, TAU);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = horns;
+    ctx.beginPath();
+    ctx.moveTo(-105, -5);
+    ctx.lineTo(-70, -130);
+    ctx.lineTo(-25, -5);
+    ctx.moveTo(25, -5);
+    ctx.lineTo(70, -130);
+    ctx.lineTo(105, -5);
+    ctx.fill();
+    ctx.stroke();
+  }
   function drawBossStatus(options_: {
     x: number;
     spriteTopY: number;
@@ -307,11 +308,11 @@ export function createBossRenderer(options: {
       if (cone.windup <= 0) { const waveRadius = boss.r + (BOSS_CONE_RANGE - boss.r) * clamp(1 - cone.timer / cone.duration, 0, 1); for (let index = 0; index < 9; index += 1) { const angle = cone.angle - BOSS_CONE_HALF_ANGLE + index / 8 * BOSS_CONE_HALF_ANGLE * 2; const fireX = x + Math.cos(angle) * waveRadius; const fireY = y + Math.sin(angle) * waveRadius; ctx.fillStyle = "#a83218"; options.pixelCircle(fireX, fireY, 15); ctx.fillStyle = "#ff6a28"; options.pixelCircle(fireX, fireY - 2, 11); ctx.fillStyle = "#ffd05c"; options.pixelCircle(fireX, fireY - 4, 6); } }
       ctx.restore();
     }
-    for (const strike of options.bossRain) { const x = screenX(strike.x); const y = screenY(strike.y); const progress = 1 - clamp(strike.timer / strike.maxTimer, 0, 1); const fallY = y - 150 * (1 - progress); ctx.save(); ctx.strokeStyle = "rgba(255,70,54,.92)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, strike.r, 0, TAU); ctx.stroke(); ctx.fillStyle = "#ff5b36"; options.pixelCircle(x, fallY, 9); ctx.fillStyle = "#ffd05c"; options.pixelCircle(x, fallY, 5); ctx.restore(); }
+    for (const strike of hazards.dragon) { const x = screenX(strike.x); const y = screenY(strike.y); const progress = 1 - clamp(strike.timer / strike.maxTimer, 0, 1); const fallY = y - 150 * (1 - progress); ctx.save(); ctx.strokeStyle = "rgba(255,70,54,.92)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, strike.r, 0, TAU); ctx.stroke(); ctx.fillStyle = "#ff5b36"; options.pixelCircle(x, fallY, 9); ctx.fillStyle = "#ffd05c"; options.pixelCircle(x, fallY, 5); ctx.restore(); }
   }
   function drawBoss() {
-    if (boss.dead || !options.dragonReady()) return;
-    const canvas = options.dragonSpriteCanvas; const cellW = canvas.width / 4; const drawW = BOSS_ART.DRAGON.drawWidth; const drawH = BOSS_ART.DRAGON.drawHeight; const x = screenX(boss.x); const y = screenY(boss.y);
+    if (boss.dead || !art.dragon.ready()) return;
+    const canvas = art.dragon.canvas; const cellW = canvas.width / 4; const drawW = BOSS_ART.DRAGON.drawWidth; const drawH = BOSS_ART.DRAGON.drawHeight; const x = screenX(boss.x); const y = screenY(boss.y);
     const frame = Math.floor(options.gameTime() * 4) % 4;
     options.drawShadow(x, y + DRAGON_SPRITE_Y_OFFSET + DRAGON_SPRITE_GROUND_OFFSET, BOSS_ART.DRAGON.shadowWidth, .24);
     ctx.save(); ctx.translate(x, y + DRAGON_SPRITE_Y_OFFSET);
@@ -330,19 +331,17 @@ export function createBossRenderer(options: {
       fillColor: "#d8352d",
       name: { text: "Dragon", color: "#f5e9c4" },
       rewardBottomOffsetY: -5,
-      rewards: [
-        { text: rewardText("damage", DRAGON_REWARD_DAMAGE), color: "#ff655a" },
-      ],
+      rewards: statRewards(DRAGON_REWARD_DAMAGE),
     });
   }
   function drawSpiderTelegraphs() {
     if (spiderBoss.dead) return; const x = screenX(spiderBoss.x); const y = screenY(spiderBoss.y);
     if (spiderBoss.web) { const radius = spiderBoss.r + (options.spiderWebRange - spiderBoss.r) * clamp(1 - spiderBoss.web.timer / spiderBoss.web.duration, 0, 1); ctx.save(); ctx.strokeStyle = "rgba(235,239,218,.9)"; ctx.lineWidth = 7; ctx.setLineDash([13, 10]); ctx.beginPath(); ctx.arc(x, y, radius, 0, TAU); ctx.stroke(); ctx.restore(); }
-    for (const pool of options.spiderVenom) { const progress = 1 - clamp(pool.timer / pool.maxTimer, 0, 1); ctx.save(); ctx.fillStyle = `rgba(113,214,71,${.12 + progress * .18})`; ctx.strokeStyle = "rgba(155,238,88,.95)"; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(screenX(pool.x), screenY(pool.y), pool.r, 0, TAU); ctx.fill(); ctx.stroke(); ctx.restore(); }
+    for (const pool of hazards.spider) { const progress = 1 - clamp(pool.timer / pool.maxTimer, 0, 1); ctx.save(); ctx.fillStyle = `rgba(113,214,71,${.12 + progress * .18})`; ctx.strokeStyle = "rgba(155,238,88,.95)"; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(screenX(pool.x), screenY(pool.y), pool.r, 0, TAU); ctx.fill(); ctx.stroke(); ctx.restore(); }
   }
   function drawSpiderBoss() {
-    if (spiderBoss.dead || !options.spiderReady()) return;
-    const canvas = options.spiderSpriteCanvas;
+    if (spiderBoss.dead || !art.spider.ready()) return;
+    const canvas = art.spider.canvas;
     const frame = scorpionSpriteFrame(options.gameTime(), canvas.width, canvas.height);
     const x = screenX(spiderBoss.x);
     const y = screenY(spiderBoss.y);
@@ -373,10 +372,7 @@ export function createBossRenderer(options: {
       fillColor: "#9f5c2f",
       name: { text: "Desert Scorpion", color: "#f5e9c4" },
       rewardBottomOffsetY: -5,
-      rewards: [
-        { text: rewardText("damage", SPIDER_REWARD_DAMAGE), color: "#ff655a" },
-        { text: rewardText("health", SPIDER_REWARD_HEALTH), color: "#6fe48e" },
-      ],
+      rewards: statRewards(SPIDER_REWARD_DAMAGE, SPIDER_REWARD_HEALTH),
     });
   }
 
@@ -442,7 +438,7 @@ export function createBossRenderer(options: {
       }
       ctx.restore();
     }
-    for (const strike of options.frostclawIcefalls) {
+    for (const strike of hazards.frostclaw) {
       const progress = 1 - clamp(strike.timer / strike.maxTimer, 0, 1);
       const strikeX = screenX(strike.x);
       const strikeY = screenY(strike.y);
@@ -465,15 +461,15 @@ export function createBossRenderer(options: {
   }
 
   function drawFrostclawBoss() {
-    if (frostclawBoss.dead || !options.frostclawReady()) return;
-    const canvas = options.frostclawSpriteCanvas;
+    if (frostclawBoss.dead || !art.frostclaw.ready()) return;
+    const canvas = art.frostclaw.canvas;
     const cellW = canvas.width / 4;
     const drawW = BOSS_ART.FROSTCLAW.drawWidth;
     const drawH = BOSS_ART.FROSTCLAW.drawHeight;
     const x = screenX(frostclawBoss.x);
     const y = screenY(frostclawBoss.y);
     const visualY = y + FROSTCLAW_SPRITE_Y_OFFSET;
-    const frame = frostclawBoss.roar ? 2 : frostclawBoss.rift ? 1 : options.frostclawIcefalls.length ? 3 : Math.floor(options.gameTime() * 3.5) % 4;
+    const frame = frostclawBoss.roar ? 2 : frostclawBoss.rift ? 1 : hazards.frostclaw.length ? 3 : Math.floor(options.gameTime() * 3.5) % 4;
     const pulse = frostclawBoss.roar ? 1 + Math.sin(options.gameTime() * 15) * .018 : 1;
     options.drawShadow(x, visualY + FROSTCLAW_SPRITE_GROUND_OFFSET, BOSS_ART.FROSTCLAW.shadowWidth, .27);
     ctx.save(); ctx.translate(x, visualY + 2); ctx.scale(pulse, pulse);
@@ -491,11 +487,7 @@ export function createBossRenderer(options: {
       backgroundColor: "#17364b",
       fillColor: "#42c9f5",
       name: { text: "Frostclaw", color: "#dff8ff" },
-      rewards: [
-        { text: rewardText("damage", FROSTCLAW_REWARD_DAMAGE), color: "#ff655a" },
-        { text: rewardText("health", FROSTCLAW_REWARD_HEALTH), color: "#6fe48e" },
-        { text: rewardText("armor", FROSTCLAW_REWARD_ARMOR), color: REWARD_DATA.armor.color },
-      ],
+      rewards: statRewards(FROSTCLAW_REWARD_DAMAGE, FROSTCLAW_REWARD_HEALTH, FROSTCLAW_REWARD_ARMOR),
     });
   }
 
@@ -526,7 +518,7 @@ export function createBossRenderer(options: {
       }
       ctx.restore();
     }
-    for (const eruption of options.magmaliskEruptions) {
+    for (const eruption of hazards.magmalisk) {
       const progress = 1 - clamp(eruption.timer / eruption.maxTimer, 0, 1);
       const strikeX = screenX(eruption.x);
       const strikeY = screenY(eruption.y);
@@ -547,18 +539,18 @@ export function createBossRenderer(options: {
   }
 
   function drawMagmaliskBoss() {
-    if (magmaliskBoss.dead || !options.magmaliskReady()) return;
-    const canvas = options.magmaliskSpriteCanvas;
+    if (magmaliskBoss.dead || !art.magmalisk.ready()) return;
+    const canvas = art.magmalisk.canvas;
     const cellW = canvas.width / 4;
     // The selected Magmalisk animation deliberately uses only source frames 0–2.
-    const frame = options.magmaliskEruptions.length > 0 ? 2 : magmaliskBoss.bite ? 1 : 0;
+    const frame = hazards.magmalisk.length > 0 ? 2 : magmaliskBoss.bite ? 1 : 0;
     // Preprocessing isolates and re-packs each connected pose before rendering.
     const drawW = BOSS_ART.MAGMALISK.drawWidth;
     const drawH = BOSS_ART.MAGMALISK.drawHeight;
     const x = screenX(magmaliskBoss.x);
     const y = screenY(magmaliskBoss.y);
     const visualY = y + MAGMALISK_SPRITE_Y_OFFSET;
-    const pulse = options.magmaliskEruptions.length > 0 ? 1 + Math.sin(options.gameTime() * 14) * .016 : 1;
+    const pulse = hazards.magmalisk.length > 0 ? 1 + Math.sin(options.gameTime() * 14) * .016 : 1;
     options.drawShadow(x, visualY + MAGMALISK_SPRITE_GROUND_OFFSET, BOSS_ART.MAGMALISK.shadowWidth, .29);
     ctx.save();
     ctx.translate(x, visualY);
@@ -578,12 +570,7 @@ export function createBossRenderer(options: {
       backgroundColor: "#4b2119",
       fillColor: "#ef6428",
       name: { text: "Magmalisk", color: "#ffe0ad" },
-      rewards: [
-        { text: rewardText("damage", MAGMALISK_REWARD_DAMAGE), color: "#ff655a" },
-        { text: rewardText("health", MAGMALISK_REWARD_HEALTH), color: "#6fe48e" },
-        { text: rewardText("armor", MAGMALISK_REWARD_ARMOR), color: REWARD_DATA.armor.color },
-        { text: rewardText("regen", MAGMALISK_REWARD_REGEN), color: REWARD_DATA.regen.color },
-      ],
+      rewards: statRewards(MAGMALISK_REWARD_DAMAGE, MAGMALISK_REWARD_HEALTH, MAGMALISK_REWARD_ARMOR, MAGMALISK_REWARD_REGEN),
     });
   }
 
@@ -614,7 +601,7 @@ export function createBossRenderer(options: {
       }
       ctx.restore();
     }
-    for (const bloom of options.gloomrootBlooms) {
+    for (const bloom of hazards.gloomroot) {
       const progress = 1 - clamp(bloom.timer / bloom.maxTimer, 0, 1);
       const bloomX = screenX(bloom.x);
       const bloomY = screenY(bloom.y);
@@ -638,14 +625,14 @@ export function createBossRenderer(options: {
 
   function drawGloomrootBoss() {
     if (gloomrootBoss.dead) return;
-    const canvas = options.gloomrootSpriteCanvas;
-    const frame = options.gloomrootBlooms.length > 0 ? 3 : gloomrootBoss.sweep ? 1 : 0;
+    const canvas = art.gloomroot.canvas;
+    const frame = hazards.gloomroot.length > 0 ? 3 : gloomrootBoss.sweep ? 1 : 0;
     const drawW = BOSS_ART.GLOOMROOT.drawWidth;
     const drawH = BOSS_ART.GLOOMROOT.drawHeight;
     const x = screenX(gloomrootBoss.x);
     const y = screenY(gloomrootBoss.y);
     const visualY = y + GLOOMROOT_SPRITE_Y_OFFSET;
-    const pulse = options.gloomrootBlooms.length > 0 ? 1 + Math.sin(options.gameTime() * 13) * .018 : 1;
+    const pulse = hazards.gloomroot.length > 0 ? 1 + Math.sin(options.gameTime() * 13) * .018 : 1;
     options.drawShadow(x, visualY + GLOOMROOT_SPRITE_GROUND_OFFSET, BOSS_ART.GLOOMROOT.shadowWidth, .3);
 
     // A soft moon-sap aura separates the dark treant from the Night Forest,
@@ -655,7 +642,7 @@ export function createBossRenderer(options: {
 
     ctx.save();
     ctx.translate(x, visualY);
-    if (options.gloomrootReady() && canvas.width >= 2 && canvas.height >= 2) {
+    if (art.gloomroot.ready() && canvas.width >= 2 && canvas.height >= 2) {
       const cellW = canvas.width / 2;
       const cellH = canvas.height / 2;
       const sheetFrame = { bossId: "GLOOMROOT", frame, cellWidth: cellW, cellHeight: cellH, columns: 2, drawWidth: drawW, drawHeight: drawH };
@@ -701,12 +688,7 @@ export function createBossRenderer(options: {
       backgroundColor: "#14293a",
       fillColor: "#39cbd3",
       name: { text: "Gloomroot", color: "#b9fbf5" },
-      rewards: [
-        { text: rewardText("damage", GLOOMROOT_REWARD_DAMAGE), color: "#ff655a" },
-        { text: rewardText("health", GLOOMROOT_REWARD_HEALTH), color: "#6fe48e" },
-        { text: rewardText("armor", GLOOMROOT_REWARD_ARMOR), color: REWARD_DATA.armor.color },
-        { text: rewardText("regen", GLOOMROOT_REWARD_REGEN), color: REWARD_DATA.regen.color },
-      ],
+      rewards: statRewards(GLOOMROOT_REWARD_DAMAGE, GLOOMROOT_REWARD_HEALTH, GLOOMROOT_REWARD_ARMOR, GLOOMROOT_REWARD_REGEN),
     });
   }
 
@@ -741,7 +723,7 @@ export function createBossRenderer(options: {
       }
       ctx.restore();
     }
-    for (const pool of options.tidewyrmWhirlpools) {
+    for (const pool of hazards.tidewyrm) {
       const progress = 1 - clamp(pool.timer / pool.maxTimer, 0, 1);
       const poolX = screenX(pool.x);
       const poolY = screenY(pool.y);
@@ -770,7 +752,7 @@ export function createBossRenderer(options: {
     const surge = tidewyrmBoss.surge;
     const attackElapsed = tidewyrmBoss.spriteAttackElapsed;
     const frame = carapaceAnglerSpriteFrame(options.gameTime(), attackElapsed);
-    const page = options.tidewyrmSpritePages[frame.page];
+    const page = art.tidewyrm.pages[frame.page];
     const x = screenX(tidewyrmBoss.x);
     const y = screenY(tidewyrmBoss.y);
     const visualY = y + TIDEWYRM_SPRITE_Y_OFFSET;
@@ -778,7 +760,7 @@ export function createBossRenderer(options: {
     ctx.save();
     ctx.translate(x, visualY);
     if (surge && Math.cos(surge.angle) > 0) ctx.scale(-1, 1);
-    if (options.tidewyrmReady() && page?.naturalWidth > 0) {
+    if (art.tidewyrm.ready() && page?.naturalWidth > 0) {
       // Separate crop identity preserves the user's original Tidewyrm adjustments.
       drawBossAtlasFrame(ctx, page, frame, "CARAPACE_ANGLER");
     } else {
@@ -816,12 +798,7 @@ export function createBossRenderer(options: {
       backgroundColor: "#123b56",
       fillColor: "#35cce5",
       name: { text: "Carapace Angler", color: "#c7faff" },
-      rewards: [
-        { text: rewardText("damage", TIDEWYRM_REWARD_DAMAGE), color: "#ff655a" },
-        { text: rewardText("health", TIDEWYRM_REWARD_HEALTH), color: "#6fe48e" },
-        { text: rewardText("armor", TIDEWYRM_REWARD_ARMOR), color: REWARD_DATA.armor.color },
-        { text: rewardText("regen", TIDEWYRM_REWARD_REGEN), color: REWARD_DATA.regen.color },
-      ],
+      rewards: statRewards(TIDEWYRM_REWARD_DAMAGE, TIDEWYRM_REWARD_HEALTH, TIDEWYRM_REWARD_ARMOR, TIDEWYRM_REWARD_REGEN),
     });
   }
 
@@ -856,7 +833,7 @@ export function createBossRenderer(options: {
       }
       ctx.restore();
     }
-    for (const pool of options.koiShogunWhirlpools) {
+    for (const pool of hazards.koiShogun) {
       const progress = 1 - clamp(pool.timer / pool.maxTimer, 0, 1);
       const poolX = screenX(pool.x);
       const poolY = screenY(pool.y);
@@ -882,20 +859,20 @@ export function createBossRenderer(options: {
 
   function drawKoiShogunBoss() {
     if (koiShogunBoss.dead) return;
-    const canvas = options.koiShogunSpriteCanvas;
-    const frame = options.koiShogunWhirlpools.length > 0 ? 3 : koiShogunBoss.slash ? (koiShogunBoss.slash.windup > 0 ? 2 : 1) : 0;
+    const canvas = art.koiShogun.canvas;
+    const frame = hazards.koiShogun.length > 0 ? 3 : koiShogunBoss.slash ? (koiShogunBoss.slash.windup > 0 ? 2 : 1) : 0;
     const drawW = BOSS_ART.KOI_SHOGUN.drawWidth;
     const drawH = BOSS_ART.KOI_SHOGUN.drawHeight;
     const x = screenX(koiShogunBoss.x);
     const y = screenY(koiShogunBoss.y);
     const visualY = y + KOI_SHOGUN_SPRITE_Y_OFFSET;
-    const pulse = options.koiShogunWhirlpools.length > 0 ? 1 + Math.sin(options.gameTime() * 14) * .016 : 1;
+    const pulse = hazards.koiShogun.length > 0 ? 1 + Math.sin(options.gameTime() * 14) * .016 : 1;
     const flipHorizontally = frame === 0 || frame === 1;
     options.drawShadow(x, visualY + KOI_SHOGUN_SPRITE_GROUND_OFFSET, BOSS_ART.KOI_SHOGUN.shadowWidth, .3);
     ctx.save();
     ctx.translate(x, visualY);
     ctx.scale(flipHorizontally ? -pulse : pulse, pulse);
-    if (options.koiShogunReady() && canvas.width >= 4 && canvas.height >= 2) {
+    if (art.koiShogun.ready() && canvas.width >= 4 && canvas.height >= 2) {
       const cellW = canvas.width / 4;
       drawBossSheetFrame(ctx, canvas, { bossId: "KOI_SHOGUN", frame, cellWidth: cellW, cellHeight: canvas.height, drawWidth: drawW, drawHeight: drawH });
     } else {
@@ -929,12 +906,7 @@ export function createBossRenderer(options: {
       backgroundColor: "#482719",
       fillColor: "#e2832d",
       name: { text: "Koi Shogun", color: "#ffe6a4" },
-      rewards: [
-        { text: rewardText("damage", KOI_SHOGUN_REWARD_DAMAGE), color: "#ff655a" },
-        { text: rewardText("health", KOI_SHOGUN_REWARD_HEALTH), color: "#6fe48e" },
-        { text: rewardText("armor", KOI_SHOGUN_REWARD_ARMOR), color: REWARD_DATA.armor.color },
-        { text: rewardText("regen", KOI_SHOGUN_REWARD_REGEN), color: REWARD_DATA.regen.color },
-      ],
+      rewards: statRewards(KOI_SHOGUN_REWARD_DAMAGE, KOI_SHOGUN_REWARD_HEALTH, KOI_SHOGUN_REWARD_ARMOR, KOI_SHOGUN_REWARD_REGEN),
     });
   }
 
@@ -965,7 +937,7 @@ export function createBossRenderer(options: {
       }
       ctx.restore();
     }
-    for (const bolt of options.tempestKirinThunderbolts) {
+    for (const bolt of hazards.tempestKirin) {
       const progress = 1 - clamp(bolt.timer / bolt.maxTimer, 0, 1);
       const boltX = screenX(bolt.x);
       const boltY = screenY(bolt.y);
@@ -991,8 +963,8 @@ export function createBossRenderer(options: {
 
   function drawTempestKirinBoss() {
     if (tempestKirinBoss.dead) return;
-    const canvas = options.tempestKirinSpriteCanvas;
-    const frame = options.tempestKirinThunderbolts.length > 0
+    const canvas = art.tempestKirin.canvas;
+    const frame = hazards.tempestKirin.length > 0
       ? 3
       : tempestKirinBoss.charge
         ? (tempestKirinBoss.charge.windup > 0 ? 1 : 2)
@@ -1002,12 +974,12 @@ export function createBossRenderer(options: {
     const x = screenX(tempestKirinBoss.x);
     const y = screenY(tempestKirinBoss.y);
     const visualY = y + TEMPEST_KIRIN_SPRITE_Y_OFFSET;
-    const pulse = options.tempestKirinThunderbolts.length > 0 ? 1 + Math.sin(options.gameTime() * 15) * .016 : 1;
+    const pulse = hazards.tempestKirin.length > 0 ? 1 + Math.sin(options.gameTime() * 15) * .016 : 1;
     options.drawShadow(x, visualY + TEMPEST_KIRIN_SPRITE_GROUND_OFFSET, BOSS_ART.TEMPEST_KIRIN.shadowWidth, .3);
     ctx.save();
     ctx.translate(x, visualY);
     ctx.scale(pulse, pulse);
-    if (options.tempestKirinReady() && canvas.width >= 4 && canvas.height >= 2) {
+    if (art.tempestKirin.ready() && canvas.width >= 4 && canvas.height >= 2) {
       const cellW = canvas.width / 4;
       drawBossSheetFrame(ctx, canvas, { bossId: "TEMPEST_KIRIN", frame, cellWidth: cellW, cellHeight: canvas.height, drawWidth: drawW, drawHeight: drawH });
     } else {
@@ -1041,12 +1013,7 @@ export function createBossRenderer(options: {
       backgroundColor: "#193a67",
       fillColor: "#65c8ff",
       name: { text: "Tempest Kirin", color: "#e9fbff" },
-      rewards: [
-        { text: rewardText("damage", TEMPEST_KIRIN_REWARD_DAMAGE), color: "#ff655a" },
-        { text: rewardText("health", TEMPEST_KIRIN_REWARD_HEALTH), color: "#6fe48e" },
-        { text: rewardText("armor", TEMPEST_KIRIN_REWARD_ARMOR), color: REWARD_DATA.armor.color },
-        { text: rewardText("regen", TEMPEST_KIRIN_REWARD_REGEN), color: REWARD_DATA.regen.color },
-      ],
+      rewards: statRewards(TEMPEST_KIRIN_REWARD_DAMAGE, TEMPEST_KIRIN_REWARD_HEALTH, TEMPEST_KIRIN_REWARD_ARMOR, TEMPEST_KIRIN_REWARD_REGEN),
     });
   }
 
@@ -1077,7 +1044,7 @@ export function createBossRenderer(options: {
       }
       ctx.restore();
     }
-    for (const burst of options.miremawBogBursts) {
+    for (const burst of hazards.miremaw) {
       const progress = 1 - clamp(burst.timer / burst.maxTimer, 0, 1);
       const burstX = screenX(burst.x);
       const burstY = screenY(burst.y);
@@ -1104,31 +1071,41 @@ export function createBossRenderer(options: {
       ctx.restore();
     }
   }
-  function drawPrismshellTelegraphs() {
-    if (prismshellBoss.dead) return;
-    const x = screenX(prismshellBoss.x);
-    const y = screenY(prismshellBoss.y);
+  /**
+   * Prismshell, Ironhorn and Dreadreaper share one telegraph: a jagged cone
+   * front and six-shard bursts, differing only in palette.
+   */
+  function drawShatterTelegraphs(
+    state: typeof prismshellBoss | typeof ironhornBoss | typeof dreadreaperBoss,
+    bursts: readonly { x: number; y: number; r: number; timer: number; maxTimer: number }[],
+    range: number,
+    halfAngle: number,
+    palette: ShatterPalette,
+  ) {
+    if (state.dead) return;
+    const x = screenX(state.x);
+    const y = screenY(state.y);
     const time = options.gameTime();
-    if (prismshellBoss.shatter) {
-      const shatter = prismshellBoss.shatter;
+    if (state.shatter) {
+      const shatter = state.shatter;
       ctx.save();
-      ctx.fillStyle = shatter.windup > 0 ? "rgba(171,139,230,.17)" : "rgba(148,232,244,.24)";
-      ctx.strokeStyle = shatter.windup > 0 ? "rgba(208,181,255,.96)" : "rgba(213,252,255,.98)";
+      ctx.fillStyle = shatter.windup > 0 ? palette.windupFill : palette.activeFill;
+      ctx.strokeStyle = shatter.windup > 0 ? palette.windupStroke : palette.activeStroke;
       ctx.lineWidth = 5;
       ctx.beginPath();
       ctx.moveTo(x, y);
-      ctx.arc(x, y, PRISMSHELL_SHATTER_RANGE, shatter.angle - PRISMSHELL_SHATTER_HALF_ANGLE, shatter.angle + PRISMSHELL_SHATTER_HALF_ANGLE);
+      ctx.arc(x, y, range, shatter.angle - halfAngle, shatter.angle + halfAngle);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
       if (shatter.windup <= 0) {
-        const radius = prismshellBoss.r + (PRISMSHELL_SHATTER_RANGE - prismshellBoss.r) * clamp(1 - shatter.timer / shatter.duration, 0, 1);
-        ctx.strokeStyle = "rgba(213,252,255,.98)";
+        const radius = state.r + (range - state.r) * clamp(1 - shatter.timer / shatter.duration, 0, 1);
+        ctx.strokeStyle = palette.activeStroke;
         ctx.lineWidth = 9;
         ctx.beginPath();
         for (let point = 0; point <= 12; point += 1) {
-          const angle = shatter.angle - PRISMSHELL_SHATTER_HALF_ANGLE + point / 12 * PRISMSHELL_SHATTER_HALF_ANGLE * 2;
-          const reach = Math.max(prismshellBoss.r, radius - (point % 2 ? 24 : 0));
+          const angle = shatter.angle - halfAngle + point / 12 * halfAngle * 2;
+          const reach = Math.max(state.r, radius - (point % 2 ? 24 : 0));
           const pointX = x + Math.cos(angle) * reach;
           const pointY = y + Math.sin(angle) * reach;
           if (point === 0) ctx.moveTo(pointX, pointY);
@@ -1138,13 +1115,13 @@ export function createBossRenderer(options: {
       }
       ctx.restore();
     }
-    for (const burst of options.prismshellCrystalBursts) {
+    for (const burst of bursts) {
       const progress = 1 - clamp(burst.timer / burst.maxTimer, 0, 1);
       const burstX = screenX(burst.x);
       const burstY = screenY(burst.y);
       ctx.save();
-      ctx.fillStyle = `rgba(172,142,226,${.1 + progress * .22})`;
-      ctx.strokeStyle = "rgba(222,204,255,.96)";
+      ctx.fillStyle = `rgba(${palette.burstFill},${.1 + progress * .22})`;
+      ctx.strokeStyle = palette.burstStroke;
       ctx.lineWidth = 5;
       ctx.setLineDash([10, 8]);
       ctx.lineDashOffset = -time * 44;
@@ -1159,7 +1136,7 @@ export function createBossRenderer(options: {
         const shardX = burstX + Math.cos(angle) * radius;
         const shardY = burstY + Math.sin(angle) * radius;
         const length = 7 + progress * 12;
-        ctx.fillStyle = shard % 2 ? "rgba(180,243,255,.92)" : "rgba(220,181,255,.92)";
+        ctx.fillStyle = shard % 2 ? palette.oddShard : palette.evenShard;
         ctx.beginPath();
         ctx.moveTo(shardX + Math.cos(angle) * length, shardY + Math.sin(angle) * length);
         ctx.lineTo(shardX - Math.sin(angle) * 5, shardY + Math.cos(angle) * 5);
@@ -1171,154 +1148,23 @@ export function createBossRenderer(options: {
       ctx.restore();
     }
   }
-  function drawIronhornTelegraphs() {
-    if (ironhornBoss.dead) return;
-    const x = screenX(ironhornBoss.x);
-    const y = screenY(ironhornBoss.y);
-    const time = options.gameTime();
-    if (ironhornBoss.shatter) {
-      const shatter = ironhornBoss.shatter;
-      ctx.save();
-      ctx.fillStyle = shatter.windup > 0 ? "rgba(223,162,69,.17)" : "rgba(247,202,107,.24)";
-      ctx.strokeStyle = shatter.windup > 0 ? "rgba(255,215,139,.96)" : "rgba(255,234,182,.98)";
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.arc(x, y, IRONHORN_SHATTER_RANGE, shatter.angle - IRONHORN_SHATTER_HALF_ANGLE, shatter.angle + IRONHORN_SHATTER_HALF_ANGLE);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      if (shatter.windup <= 0) {
-        const radius = ironhornBoss.r + (IRONHORN_SHATTER_RANGE - ironhornBoss.r) * clamp(1 - shatter.timer / shatter.duration, 0, 1);
-        ctx.strokeStyle = "rgba(255,234,182,.98)";
-        ctx.lineWidth = 9;
-        ctx.beginPath();
-        for (let point = 0; point <= 12; point += 1) {
-          const angle = shatter.angle - IRONHORN_SHATTER_HALF_ANGLE + point / 12 * IRONHORN_SHATTER_HALF_ANGLE * 2;
-          const reach = Math.max(ironhornBoss.r, radius - (point % 2 ? 24 : 0));
-          const pointX = x + Math.cos(angle) * reach;
-          const pointY = y + Math.sin(angle) * reach;
-          if (point === 0) ctx.moveTo(pointX, pointY);
-          else ctx.lineTo(pointX, pointY);
-        }
-        ctx.stroke();
-      }
-      ctx.restore();
-    }
-    for (const burst of options.ironhornCrystalBursts) {
-      const progress = 1 - clamp(burst.timer / burst.maxTimer, 0, 1);
-      const burstX = screenX(burst.x);
-      const burstY = screenY(burst.y);
-      ctx.save();
-      ctx.fillStyle = `rgba(217,149,64,${.1 + progress * .22})`;
-      ctx.strokeStyle = "rgba(255,213,127,.96)";
-      ctx.lineWidth = 5;
-      ctx.setLineDash([10, 8]);
-      ctx.lineDashOffset = -time * 44;
-      ctx.beginPath();
-      ctx.arc(burstX, burstY, burst.r, 0, TAU);
-      ctx.fill();
-      ctx.stroke();
-      ctx.setLineDash([]);
-      for (let shard = 0; shard < 6; shard += 1) {
-        const angle = shard * TAU / 6 - Math.PI / 2;
-        const radius = burst.r * (.24 + progress * .32);
-        const shardX = burstX + Math.cos(angle) * radius;
-        const shardY = burstY + Math.sin(angle) * radius;
-        const length = 7 + progress * 12;
-        ctx.fillStyle = shard % 2 ? "rgba(255,193,96,.92)" : "rgba(201,220,207,.92)";
-        ctx.beginPath();
-        ctx.moveTo(shardX + Math.cos(angle) * length, shardY + Math.sin(angle) * length);
-        ctx.lineTo(shardX - Math.sin(angle) * 5, shardY + Math.cos(angle) * 5);
-        ctx.lineTo(shardX - Math.cos(angle) * length, shardY - Math.sin(angle) * length);
-        ctx.lineTo(shardX + Math.sin(angle) * 5, shardY - Math.cos(angle) * 5);
-        ctx.closePath();
-        ctx.fill();
-      }
-      ctx.restore();
-    }
-  }
-  function drawDreadreaperTelegraphs() {
-    if (dreadreaperBoss.dead) return;
-    const x = screenX(dreadreaperBoss.x);
-    const y = screenY(dreadreaperBoss.y);
-    const time = options.gameTime();
-    if (dreadreaperBoss.shatter) {
-      const shatter = dreadreaperBoss.shatter;
-      ctx.save();
-      ctx.fillStyle = shatter.windup > 0 ? "rgba(141,206,109,.17)" : "rgba(210,244,137,.24)";
-      ctx.strokeStyle = shatter.windup > 0 ? "rgba(205,255,162,.96)" : "rgba(231,255,203,.98)";
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.arc(x, y, DREADREAPER_SHATTER_RANGE, shatter.angle - DREADREAPER_SHATTER_HALF_ANGLE, shatter.angle + DREADREAPER_SHATTER_HALF_ANGLE);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      if (shatter.windup <= 0) {
-        const radius = dreadreaperBoss.r + (DREADREAPER_SHATTER_RANGE - dreadreaperBoss.r) * clamp(1 - shatter.timer / shatter.duration, 0, 1);
-        ctx.strokeStyle = "rgba(231,255,203,.98)";
-        ctx.lineWidth = 9;
-        ctx.beginPath();
-        for (let point = 0; point <= 12; point += 1) {
-          const angle = shatter.angle - DREADREAPER_SHATTER_HALF_ANGLE + point / 12 * DREADREAPER_SHATTER_HALF_ANGLE * 2;
-          const reach = Math.max(dreadreaperBoss.r, radius - (point % 2 ? 24 : 0));
-          const pointX = x + Math.cos(angle) * reach;
-          const pointY = y + Math.sin(angle) * reach;
-          if (point === 0) ctx.moveTo(pointX, pointY);
-          else ctx.lineTo(pointX, pointY);
-        }
-        ctx.stroke();
-      }
-      ctx.restore();
-    }
-    for (const burst of options.dreadreaperCrystalBursts) {
-      const progress = 1 - clamp(burst.timer / burst.maxTimer, 0, 1);
-      const burstX = screenX(burst.x);
-      const burstY = screenY(burst.y);
-      ctx.save();
-      ctx.fillStyle = `rgba(132,201,104,${.1 + progress * .22})`;
-      ctx.strokeStyle = "rgba(224,255,176,.96)";
-      ctx.lineWidth = 5;
-      ctx.setLineDash([10, 8]);
-      ctx.lineDashOffset = -time * 44;
-      ctx.beginPath();
-      ctx.arc(burstX, burstY, burst.r, 0, TAU);
-      ctx.fill();
-      ctx.stroke();
-      ctx.setLineDash([]);
-      for (let shard = 0; shard < 6; shard += 1) {
-        const angle = shard * TAU / 6 - Math.PI / 2;
-        const radius = burst.r * (.24 + progress * .32);
-        const shardX = burstX + Math.cos(angle) * radius;
-        const shardY = burstY + Math.sin(angle) * radius;
-        const length = 7 + progress * 12;
-        ctx.fillStyle = shard % 2 ? "rgba(179,235,116,.92)" : "rgba(240,175,91,.92)";
-        ctx.beginPath();
-        ctx.moveTo(shardX + Math.cos(angle) * length, shardY + Math.sin(angle) * length);
-        ctx.lineTo(shardX - Math.sin(angle) * 5, shardY + Math.cos(angle) * 5);
-        ctx.lineTo(shardX - Math.cos(angle) * length, shardY - Math.sin(angle) * length);
-        ctx.lineTo(shardX + Math.sin(angle) * 5, shardY - Math.cos(angle) * 5);
-        ctx.closePath();
-        ctx.fill();
-      }
-      ctx.restore();
-    }
-  }
+  const drawPrismshellTelegraphs = () => drawShatterTelegraphs(prismshellBoss, hazards.prismshell, PRISMSHELL_SHATTER_RANGE, PRISMSHELL_SHATTER_HALF_ANGLE, PRISMSHELL_PALETTE);
+  const drawIronhornTelegraphs = () => drawShatterTelegraphs(ironhornBoss, hazards.ironhorn, IRONHORN_SHATTER_RANGE, IRONHORN_SHATTER_HALF_ANGLE, IRONHORN_PALETTE);
+  const drawDreadreaperTelegraphs = () => drawShatterTelegraphs(dreadreaperBoss, hazards.dreadreaper, DREADREAPER_SHATTER_RANGE, DREADREAPER_SHATTER_HALF_ANGLE, DREADREAPER_PALETTE);
   function drawVoltwardenTelegraphs() {
-    if (!voltwardenBoss.dead) drawNeonAttacks(ctx, voltwardenBoss, options.voltwardenCrystalBursts, camera);
+    if (!voltwardenBoss.dead) drawNeonAttacks(ctx, voltwardenBoss, hazards.voltwarden, camera);
   }
   function drawGravebloomTelegraphs() {
-    if (!gravebloomBoss.dead) drawVerdantAttacks(ctx, gravebloomBoss, options.gravebloomCrystalBursts, camera);
+    if (!gravebloomBoss.dead) drawVerdantAttacks(ctx, gravebloomBoss, hazards.gravebloom, camera);
   }
   function drawAegisPrimeTelegraphs() {
-    if (!aegisPrimeBoss.dead) drawIonAttacks(ctx, aegisPrimeBoss, options.aegisPrimeCrystalBursts, camera);
+    if (!aegisPrimeBoss.dead) drawIonAttacks(ctx, aegisPrimeBoss, hazards.aegisPrime, camera);
   }
 
   function drawMiremawBoss() {
     if (miremawBoss.dead) return;
-    const canvas = options.miremawSpriteCanvas;
-    const frame = options.miremawBogBursts.length > 0
+    const canvas = art.miremaw.canvas;
+    const frame = hazards.miremaw.length > 0
       ? 3
       : miremawBoss.tongue
         ? (miremawBoss.tongue.windup > 0 ? 1 : 2)
@@ -1328,32 +1174,16 @@ export function createBossRenderer(options: {
     const x = screenX(miremawBoss.x);
     const y = screenY(miremawBoss.y);
     const visualY = y + MIREMAW_SPRITE_Y_OFFSET;
-    const pulse = options.miremawBogBursts.length > 0 ? 1 + Math.sin(options.gameTime() * 14) * .018 : 1;
+    const pulse = hazards.miremaw.length > 0 ? 1 + Math.sin(options.gameTime() * 14) * .018 : 1;
     options.drawShadow(x, visualY + MIREMAW_SPRITE_GROUND_OFFSET, BOSS_ART.MIREMAW.shadowWidth, .3);
     ctx.save();
     ctx.translate(x, visualY);
     ctx.scale(pulse, pulse);
-    if (options.miremawReady() && canvas.width >= 4 && canvas.height >= 2) {
+    if (art.miremaw.ready() && canvas.width >= 4 && canvas.height >= 2) {
       const cellW = canvas.width / 4;
       drawBossSheetFrame(ctx, canvas, { bossId: "MIREMAW", frame, cellWidth: cellW, cellHeight: canvas.height, drawWidth: drawW, drawHeight: drawH });
     } else {
-      ctx.fillStyle = "#3caa86";
-      ctx.strokeStyle = "#102b27";
-      ctx.lineWidth = 10;
-      ctx.beginPath();
-      ctx.ellipse(0, 55, 160, 105, 0, 0, TAU);
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = "#b788f4";
-      ctx.beginPath();
-      ctx.moveTo(-105, -5);
-      ctx.lineTo(-70, -130);
-      ctx.lineTo(-25, -5);
-      ctx.moveTo(25, -5);
-      ctx.lineTo(70, -130);
-      ctx.lineTo(105, -5);
-      ctx.fill();
-      ctx.stroke();
+      drawHornedSilhouette("#3caa86", "#102b27", "#b788f4");
     }
     ctx.restore();
     drawBossStatus({
@@ -1369,12 +1199,7 @@ export function createBossRenderer(options: {
       backgroundColor: "#193c38",
       fillColor: "#55d6a8",
       name: { text: "Miremaw", color: "#e9fff5" },
-      rewards: [
-        { text: rewardText("damage", MIREMAW_REWARD_DAMAGE), color: "#ff655a" },
-        { text: rewardText("health", MIREMAW_REWARD_HEALTH), color: "#6fe48e" },
-        { text: rewardText("armor", MIREMAW_REWARD_ARMOR), color: REWARD_DATA.armor.color },
-        { text: rewardText("regen", MIREMAW_REWARD_REGEN), color: REWARD_DATA.regen.color },
-      ],
+      rewards: statRewards(MIREMAW_REWARD_DAMAGE, MIREMAW_REWARD_HEALTH, MIREMAW_REWARD_ARMOR, MIREMAW_REWARD_REGEN),
     });
   }
   function drawPrismshellBoss() {
@@ -1382,11 +1207,11 @@ export function createBossRenderer(options: {
     const shatter = prismshellBoss.shatter;
     const attackElapsed = shatter
       ? 1.65 - shatter.windup - shatter.timer
-      : options.prismshellCrystalBursts.length > 0
-        ? Math.max(...options.prismshellCrystalBursts.map((burst) => burst.maxTimer - burst.timer))
+      : hazards.prismshell.length > 0
+        ? Math.max(...hazards.prismshell.map((burst) => burst.maxTimer - burst.timer))
         : undefined;
     const frame = prismshellSpriteFrame(options.gameTime(), attackElapsed);
-    const page = options.prismshellSpritePages[frame.page];
+    const page = art.prismshell.pages[frame.page];
     const x = screenX(prismshellBoss.x);
     const y = screenY(prismshellBoss.y);
     const visualY = y + PRISMSHELL_SPRITE_Y_OFFSET;
@@ -1406,27 +1231,11 @@ export function createBossRenderer(options: {
     ctx.restore();
     // The amethyst artwork faces left.
     if (shatter && Math.cos(shatter.angle) > 0) ctx.scale(-1, 1);
-    if (options.prismshellReady() && page?.naturalWidth > 0) {
+    if (art.prismshell.ready() && page?.naturalWidth > 0) {
       drawBossAtlasFrame(ctx, page, frame, "PRISMSHELL");
     } else {
       // A readable armored silhouette remains if the network fails an image.
-      ctx.fillStyle = "#74749c";
-      ctx.strokeStyle = "#25273e";
-      ctx.lineWidth = 10;
-      ctx.beginPath();
-      ctx.ellipse(0, 55, 160, 105, 0, 0, TAU);
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = "#9adff0";
-      ctx.beginPath();
-      ctx.moveTo(-105, -5);
-      ctx.lineTo(-70, -130);
-      ctx.lineTo(-25, -5);
-      ctx.moveTo(25, -5);
-      ctx.lineTo(70, -130);
-      ctx.lineTo(105, -5);
-      ctx.fill();
-      ctx.stroke();
+      drawHornedSilhouette("#74749c", "#25273e", "#9adff0");
     }
     ctx.restore();
     drawBossStatus({
@@ -1442,233 +1251,135 @@ export function createBossRenderer(options: {
       backgroundColor: "#333149",
       fillColor: "#ab8be6",
       name: { text: "Prismshell", color: "#f1e9ff" },
-      rewards: [
-        { text: rewardText("damage", PRISMSHELL_REWARD_DAMAGE), color: "#ff655a" },
-        { text: rewardText("health", PRISMSHELL_REWARD_HEALTH), color: "#6fe48e" },
-        { text: rewardText("armor", PRISMSHELL_REWARD_ARMOR), color: REWARD_DATA.armor.color },
-        { text: rewardText("regen", PRISMSHELL_REWARD_REGEN), color: REWARD_DATA.regen.color },
-      ],
+      rewards: statRewards(PRISMSHELL_REWARD_DAMAGE, PRISMSHELL_REWARD_HEALTH, PRISMSHELL_REWARD_ARMOR, PRISMSHELL_REWARD_REGEN),
     });
   }
-  function drawIronhornBoss() {
-    if (ironhornBoss.dead) return;
-    const shatter = ironhornBoss.shatter;
-    const attackElapsed = ironhornBoss.spriteAttackElapsed;
-    const frame = ironhornSpriteFrame(options.gameTime(), attackElapsed);
-    const page = options.ironhornSpritePages[frame.page];
-    const x = screenX(ironhornBoss.x);
-    const y = screenY(ironhornBoss.y);
-    const visualY = y + IRONHORN_SPRITE_Y_OFFSET;
+  /** An imported atlas prefab, which faces left and carries its own shadow. */
+  function drawAtlasClipBoss(
+    state: typeof ironhornBoss | typeof dreadreaperBoss,
+    kind: "ironhorn" | "dreadreaper",
+    look: {
+      atlasId: "IRONHORN" | "DREADREAPER";
+      spriteFrame: typeof ironhornSpriteFrame;
+      spriteYOffset: number;
+      artTop: number;
+      fillColor: string;
+      name: string;
+      rewards: readonly { text: string; color: string }[];
+    },
+  ) {
+    if (state.dead) return;
+    const shatter = state.shatter;
+    const attackElapsed = state.spriteAttackElapsed;
+    const frame = look.spriteFrame(options.gameTime(), attackElapsed);
+    const page = art[kind].pages[frame.page];
+    const x = screenX(state.x);
+    const y = screenY(state.y);
+    const visualY = y + look.spriteYOffset;
     ctx.save();
     ctx.translate(x, visualY);
     // The imported prefab faces left and already contains its own shadow.
     if (shatter && Math.cos(shatter.angle) > 0) ctx.scale(-1, 1);
-    if (options.ironhornReady() && page?.naturalWidth > 0) {
-      drawBossAtlasFrame(ctx, page, frame, "IRONHORN");
+    if (art[kind].ready() && page?.naturalWidth > 0) {
+      drawBossAtlasFrame(ctx, page, frame, look.atlasId);
     } else {
       // A readable armored silhouette remains if the network fails an image.
-      ctx.fillStyle = "#74749c";
-      ctx.strokeStyle = "#25273e";
-      ctx.lineWidth = 10;
-      ctx.beginPath();
-      ctx.ellipse(0, 55, 160, 105, 0, 0, TAU);
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = "#9adff0";
-      ctx.beginPath();
-      ctx.moveTo(-105, -5);
-      ctx.lineTo(-70, -130);
-      ctx.lineTo(-25, -5);
-      ctx.moveTo(25, -5);
-      ctx.lineTo(70, -130);
-      ctx.lineTo(105, -5);
-      ctx.fill();
-      ctx.stroke();
+      drawHornedSilhouette("#74749c", "#25273e", "#9adff0");
     }
     ctx.restore();
     drawBossStatus({
       x,
-      spriteTopY: visualY + IRONHORN_ART_TOP + (bossFrameCrop("IRONHORN", frame.tuningFrame).statusOffsetY ?? 0),
+      spriteTopY: visualY + look.artTop + (bossFrameCrop(look.atlasId, frame.tuningFrame).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 330,
       barHeight: 23,
-      hp: ironhornBoss.hp,
-      maxHp: ironhornBoss.maxHp,
-      hpLossFlashTimer: ironhornBoss.hpLossFlashTimer,
-      hpLossFlashFrom: ironhornBoss.hpLossFlashFrom,
+      hp: state.hp,
+      maxHp: state.maxHp,
+      hpLossFlashTimer: state.hpLossFlashTimer,
+      hpLossFlashFrom: state.hpLossFlashFrom,
       backgroundColor: "#333149",
-      fillColor: "#d9a64e",
-      name: { text: "Ironhorn", color: "#f1e9ff" },
-      rewards: [
-        { text: rewardText("damage", IRONHORN_REWARD_DAMAGE), color: "#ff655a" },
-        { text: rewardText("health", IRONHORN_REWARD_HEALTH), color: "#6fe48e" },
-        { text: rewardText("armor", IRONHORN_REWARD_ARMOR), color: REWARD_DATA.armor.color },
-        { text: rewardText("regen", IRONHORN_REWARD_REGEN), color: REWARD_DATA.regen.color },
-      ],
+      fillColor: look.fillColor,
+      name: { text: look.name, color: "#f1e9ff" },
+      rewards: look.rewards,
     });
   }
-  function drawDreadreaperBoss() {
-    if (dreadreaperBoss.dead) return;
-    const shatter = dreadreaperBoss.shatter;
-    const attackElapsed = dreadreaperBoss.spriteAttackElapsed;
-    const frame = dreadreaperSpriteFrame(options.gameTime(), attackElapsed);
-    const page = options.dreadreaperSpritePages[frame.page];
-    const x = screenX(dreadreaperBoss.x);
-    const y = screenY(dreadreaperBoss.y);
-    const visualY = y + DREADREAPER_SPRITE_Y_OFFSET;
-    ctx.save();
-    ctx.translate(x, visualY);
-    // The imported prefab faces left and already contains its own shadow.
-    if (shatter && Math.cos(shatter.angle) > 0) ctx.scale(-1, 1);
-    if (options.dreadreaperReady() && page?.naturalWidth > 0) {
-      drawBossAtlasFrame(ctx, page, frame, "DREADREAPER");
-    } else {
-      // A readable armored silhouette remains if the network fails an image.
-      ctx.fillStyle = "#74749c";
-      ctx.strokeStyle = "#25273e";
-      ctx.lineWidth = 10;
-      ctx.beginPath();
-      ctx.ellipse(0, 55, 160, 105, 0, 0, TAU);
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = "#9adff0";
-      ctx.beginPath();
-      ctx.moveTo(-105, -5);
-      ctx.lineTo(-70, -130);
-      ctx.lineTo(-25, -5);
-      ctx.moveTo(25, -5);
-      ctx.lineTo(70, -130);
-      ctx.lineTo(105, -5);
-      ctx.fill();
-      ctx.stroke();
-    }
-    ctx.restore();
+  const drawIronhornBoss = () => drawAtlasClipBoss(ironhornBoss, "ironhorn", {
+    atlasId: "IRONHORN", spriteFrame: ironhornSpriteFrame, spriteYOffset: IRONHORN_SPRITE_Y_OFFSET, artTop: IRONHORN_ART_TOP,
+    fillColor: "#d9a64e", name: "Ironhorn",
+    rewards: statRewards(IRONHORN_REWARD_DAMAGE, IRONHORN_REWARD_HEALTH, IRONHORN_REWARD_ARMOR, IRONHORN_REWARD_REGEN),
+  });
+  const drawDreadreaperBoss = () => drawAtlasClipBoss(dreadreaperBoss, "dreadreaper", {
+    atlasId: "DREADREAPER", spriteFrame: dreadreaperSpriteFrame, spriteYOffset: DREADREAPER_SPRITE_Y_OFFSET, artTop: DREADREAPER_ART_TOP,
+    fillColor: "#a3c563", name: "Dreadreaper",
+    rewards: statRewards(DREADREAPER_REWARD_DAMAGE, DREADREAPER_REWARD_HEALTH, DREADREAPER_REWARD_ARMOR, DREADREAPER_REWARD_REGEN),
+  });
+  /** The expansion bosses pose by attack: a laser while the cone plays, a pulse while hazards stand. */
+  function drawPosedBoss(
+    state: typeof voltwardenBoss | typeof gravebloomBoss | typeof aegisPrimeBoss,
+    kind: "voltwarden" | "gravebloom" | "aegisPrime",
+    look: {
+      drawArt: typeof drawVoltwardenArt;
+      cropId: "VOLTWARDEN" | "GRAVEBLOOM" | "AEGIS_PRIME";
+      /** Voltwarden's status sits on its posed frame; the others keep their idle frame's. */
+      posedStatus: boolean;
+      spriteYOffset: number;
+      artTop: number;
+      name: string;
+      rewards: readonly { text: string; color: string }[];
+    },
+  ) {
+    if (state.dead) return;
+    const x = screenX(state.x);
+    const y = screenY(state.y);
+    const visualY = y + look.spriteYOffset;
+    const pulsing = hazards[kind].length > 0;
+    look.drawArt(ctx, x, visualY, options.gameTime(), state.shatter ? "laser" : pulsing ? "emp" : "idle",
+      state.hurt, art[kind].ready() ? art[kind].pages[0] : undefined);
+    const statusFrame = look.posedStatus ? (state.shatter ? 1 : pulsing ? 2 : 0) : 0;
     drawBossStatus({
       x,
-      spriteTopY: visualY + DREADREAPER_ART_TOP + (bossFrameCrop("DREADREAPER", frame.tuningFrame).statusOffsetY ?? 0),
+      spriteTopY: visualY + look.artTop + (bossFrameCrop(look.cropId, statusFrame).statusOffsetY ?? 0),
       barGap: 34,
       barWidth: 330,
       barHeight: 23,
-      hp: dreadreaperBoss.hp,
-      maxHp: dreadreaperBoss.maxHp,
-      hpLossFlashTimer: dreadreaperBoss.hpLossFlashTimer,
-      hpLossFlashFrom: dreadreaperBoss.hpLossFlashFrom,
-      backgroundColor: "#333149",
-      fillColor: "#a3c563",
-      name: { text: "Dreadreaper", color: "#f1e9ff" },
-      rewards: [
-        { text: rewardText("damage", DREADREAPER_REWARD_DAMAGE), color: "#ff655a" },
-        { text: rewardText("health", DREADREAPER_REWARD_HEALTH), color: "#6fe48e" },
-        { text: rewardText("armor", DREADREAPER_REWARD_ARMOR), color: REWARD_DATA.armor.color },
-        { text: rewardText("regen", DREADREAPER_REWARD_REGEN), color: REWARD_DATA.regen.color },
-      ],
-    });
-  }
-  function drawVoltwardenBoss() {
-    if (voltwardenBoss.dead) return;
-    const x = screenX(voltwardenBoss.x);
-    const y = screenY(voltwardenBoss.y);
-    const visualY = y + VOLTWARDEN_SPRITE_Y_OFFSET;
-    drawVoltwardenArt(ctx, x, visualY, options.gameTime(), voltwardenBoss.shatter ? "laser" : options.voltwardenCrystalBursts.length > 0 ? "emp" : "idle",
-      voltwardenBoss.hurt, options.voltwardenReady() ? options.voltwardenSpritePages[0] : undefined);
-    drawBossStatus({
-      x,
-      spriteTopY: visualY + VOLTWARDEN_ART_TOP + (bossFrameCrop("VOLTWARDEN", voltwardenBoss.shatter ? 1 : options.voltwardenCrystalBursts.length > 0 ? 2 : 0).statusOffsetY ?? 0),
-      barGap: 34,
-      barWidth: 330,
-      barHeight: 23,
-      hp: voltwardenBoss.hp,
-      maxHp: voltwardenBoss.maxHp,
-      hpLossFlashTimer: voltwardenBoss.hpLossFlashTimer,
-      hpLossFlashFrom: voltwardenBoss.hpLossFlashFrom,
+      hp: state.hp,
+      maxHp: state.maxHp,
+      hpLossFlashTimer: state.hpLossFlashTimer,
+      hpLossFlashFrom: state.hpLossFlashFrom,
       backgroundColor: "#333149",
       fillColor: "#35dae6",
-      name: { text: "Voltwarden", color: "#f1e9ff" },
-      rewards: [
-        { text: rewardText("damage", VOLTWARDEN_REWARD_DAMAGE), color: "#ff655a" },
-        { text: rewardText("health", VOLTWARDEN_REWARD_HEALTH), color: "#6fe48e" },
-        { text: rewardText("armor", VOLTWARDEN_REWARD_ARMOR), color: REWARD_DATA.armor.color },
-        { text: rewardText("regen", VOLTWARDEN_REWARD_REGEN), color: REWARD_DATA.regen.color },
-      ],
+      name: { text: look.name, color: "#f1e9ff" },
+      rewards: look.rewards,
     });
   }
-  function drawGravebloomBoss() {
-    if (gravebloomBoss.dead) return;
-    const x = screenX(gravebloomBoss.x);
-    const y = screenY(gravebloomBoss.y);
-    const visualY = y + GRAVEBLOOM_SPRITE_Y_OFFSET;
-    drawGravebloomArt(ctx, x, visualY, options.gameTime(), gravebloomBoss.shatter ? "laser" : options.gravebloomCrystalBursts.length > 0 ? "emp" : "idle",
-      gravebloomBoss.hurt, options.gravebloomReady() ? options.gravebloomSpritePages[0] : undefined);
-    drawBossStatus({
-      x,
-      spriteTopY: visualY + GRAVEBLOOM_ART_TOP + (bossFrameCrop("GRAVEBLOOM", 0).statusOffsetY ?? 0),
-      barGap: 34,
-      barWidth: 330,
-      barHeight: 23,
-      hp: gravebloomBoss.hp,
-      maxHp: gravebloomBoss.maxHp,
-      hpLossFlashTimer: gravebloomBoss.hpLossFlashTimer,
-      hpLossFlashFrom: gravebloomBoss.hpLossFlashFrom,
-      backgroundColor: "#333149",
-      fillColor: "#35dae6",
-      name: { text: "Gravebloom", color: "#f1e9ff" },
-      rewards: [
-        { text: rewardText("damage", GRAVEBLOOM_REWARD_DAMAGE), color: "#ff655a" },
-        { text: rewardText("health", GRAVEBLOOM_REWARD_HEALTH), color: "#6fe48e" },
-        { text: rewardText("armor", GRAVEBLOOM_REWARD_ARMOR), color: REWARD_DATA.armor.color },
-        { text: rewardText("regen", GRAVEBLOOM_REWARD_REGEN), color: REWARD_DATA.regen.color },
-      ],
-    });
-  }
-  function drawAegisPrimeBoss() {
-    if (aegisPrimeBoss.dead) return;
-    const x = screenX(aegisPrimeBoss.x);
-    const y = screenY(aegisPrimeBoss.y);
-    const visualY = y + AEGIS_PRIME_SPRITE_Y_OFFSET;
-    drawAegisPrimeArt(ctx, x, visualY, options.gameTime(), aegisPrimeBoss.shatter ? "laser" : options.aegisPrimeCrystalBursts.length > 0 ? "emp" : "idle",
-      aegisPrimeBoss.hurt, options.aegisPrimeReady() ? options.aegisPrimeSpritePages[0] : undefined);
-    drawBossStatus({
-      x,
-      spriteTopY: visualY + AEGIS_PRIME_ART_TOP + (bossFrameCrop("AEGIS_PRIME", 0).statusOffsetY ?? 0),
-      barGap: 34,
-      barWidth: 330,
-      barHeight: 23,
-      hp: aegisPrimeBoss.hp,
-      maxHp: aegisPrimeBoss.maxHp,
-      hpLossFlashTimer: aegisPrimeBoss.hpLossFlashTimer,
-      hpLossFlashFrom: aegisPrimeBoss.hpLossFlashFrom,
-      backgroundColor: "#333149",
-      fillColor: "#35dae6",
-      name: { text: "Aegis Prime", color: "#f1e9ff" },
-      rewards: [
-        { text: rewardText("damage", AEGIS_PRIME_REWARD_DAMAGE), color: "#ff655a" },
-        { text: rewardText("health", AEGIS_PRIME_REWARD_HEALTH), color: "#6fe48e" },
-        { text: rewardText("armor", AEGIS_PRIME_REWARD_ARMOR), color: REWARD_DATA.armor.color },
-        { text: rewardText("regen", AEGIS_PRIME_REWARD_REGEN), color: REWARD_DATA.regen.color },
-      ],
-    });
-  }
+  const drawVoltwardenBoss = () => drawPosedBoss(voltwardenBoss, "voltwarden", {
+    drawArt: drawVoltwardenArt, cropId: "VOLTWARDEN", posedStatus: true,
+    spriteYOffset: VOLTWARDEN_SPRITE_Y_OFFSET, artTop: VOLTWARDEN_ART_TOP, name: "Voltwarden",
+    rewards: statRewards(VOLTWARDEN_REWARD_DAMAGE, VOLTWARDEN_REWARD_HEALTH, VOLTWARDEN_REWARD_ARMOR, VOLTWARDEN_REWARD_REGEN),
+  });
+  const drawGravebloomBoss = () => drawPosedBoss(gravebloomBoss, "gravebloom", {
+    drawArt: drawGravebloomArt, cropId: "GRAVEBLOOM", posedStatus: false,
+    spriteYOffset: GRAVEBLOOM_SPRITE_Y_OFFSET, artTop: GRAVEBLOOM_ART_TOP, name: "Gravebloom",
+    rewards: statRewards(GRAVEBLOOM_REWARD_DAMAGE, GRAVEBLOOM_REWARD_HEALTH, GRAVEBLOOM_REWARD_ARMOR, GRAVEBLOOM_REWARD_REGEN),
+  });
+  const drawAegisPrimeBoss = () => drawPosedBoss(aegisPrimeBoss, "aegisPrime", {
+    drawArt: drawAegisPrimeArt, cropId: "AEGIS_PRIME", posedStatus: false,
+    spriteYOffset: AEGIS_PRIME_SPRITE_Y_OFFSET, artTop: AEGIS_PRIME_ART_TOP, name: "Aegis Prime",
+    rewards: statRewards(AEGIS_PRIME_REWARD_DAMAGE, AEGIS_PRIME_REWARD_HEALTH, AEGIS_PRIME_REWARD_ARMOR, AEGIS_PRIME_REWARD_REGEN),
+  });
   return {
-    drawBossTelegraphs,
-    drawBoss,
-    drawSpiderTelegraphs,
-    drawSpiderBoss,
-    drawFrostclawTelegraphs,
-    drawFrostclawBoss,
-    drawMagmaliskTelegraphs,
-    drawMagmaliskBoss,
-    drawGloomrootTelegraphs,
-    drawGloomrootBoss,
-    drawTidewyrmTelegraphs,
-    drawTidewyrmBoss,
-    drawKoiShogunTelegraphs,
-    drawKoiShogunBoss,
-    drawTempestKirinTelegraphs,
-    drawTempestKirinBoss,
-    drawMiremawTelegraphs,
-    drawPrismshellTelegraphs, drawIronhornTelegraphs, drawDreadreaperTelegraphs, drawVoltwardenTelegraphs, drawGravebloomTelegraphs, drawAegisPrimeTelegraphs,
-    drawMiremawBoss,
-    drawPrismshellBoss, drawIronhornBoss, drawDreadreaperBoss, drawVoltwardenBoss, drawGravebloomBoss, drawAegisPrimeBoss,
+    drawBoss: {
+      dragon: drawBoss, spider: drawSpiderBoss, frostclaw: drawFrostclawBoss, magmalisk: drawMagmaliskBoss,
+      gloomroot: drawGloomrootBoss, tidewyrm: drawTidewyrmBoss, koiShogun: drawKoiShogunBoss, tempestKirin: drawTempestKirinBoss,
+      miremaw: drawMiremawBoss, prismshell: drawPrismshellBoss, ironhorn: drawIronhornBoss, dreadreaper: drawDreadreaperBoss,
+      voltwarden: drawVoltwardenBoss, gravebloom: drawGravebloomBoss, aegisPrime: drawAegisPrimeBoss,
+    } satisfies Record<BossKind, () => void>,
+    drawBossTelegraphs: {
+      dragon: drawBossTelegraphs, spider: drawSpiderTelegraphs, frostclaw: drawFrostclawTelegraphs, magmalisk: drawMagmaliskTelegraphs,
+      gloomroot: drawGloomrootTelegraphs, tidewyrm: drawTidewyrmTelegraphs, koiShogun: drawKoiShogunTelegraphs, tempestKirin: drawTempestKirinTelegraphs,
+      miremaw: drawMiremawTelegraphs, prismshell: drawPrismshellTelegraphs, ironhorn: drawIronhornTelegraphs, dreadreaper: drawDreadreaperTelegraphs,
+      voltwarden: drawVoltwardenTelegraphs, gravebloom: drawGravebloomTelegraphs, aegisPrime: drawAegisPrimeTelegraphs,
+    } satisfies Record<BossKind, () => void>,
     drawBossHitboxes,
   };
 }

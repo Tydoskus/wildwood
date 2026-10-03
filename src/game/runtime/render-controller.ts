@@ -50,42 +50,15 @@ export function createRenderController(options: {
   drawDuelArena: (active: boolean, arena: typeof DUEL_ARENA) => void;
   drawDuelScene: (scene: DuelScene) => void;
   drawDecor: () => void;
+  /** The current map's boss attacks, under the actors. */
   drawBossTelegraphs: () => void;
-  drawSpiderTelegraphs: () => void;
-  drawFrostclawTelegraphs: () => void;
-  drawMagmaliskTelegraphs: () => void;
-  drawGloomrootTelegraphs: () => void;
-  drawTidewyrmTelegraphs: () => void;
-  drawKoiShogunTelegraphs: () => void;
-  drawTempestKirinTelegraphs: () => void;
-  drawMiremawTelegraphs: () => void;
-  drawPrismshellTelegraphs: () => void;
-  drawIronhornTelegraphs: () => void;
-  drawDreadreaperTelegraphs: () => void;
-  drawVoltwardenTelegraphs: () => void;
-  drawGravebloomTelegraphs: () => void;
-  drawAegisPrimeTelegraphs: () => void;
   drawProjectile: (projectile: Projectile | EnemyShot, enemy: boolean) => void;
   drawDepthSortedWorld: (remotePlayers: RemotePlayer[], includePortal: boolean) => void;
   drawMinimap: (players: MapPlayerMarker[]) => void;
   drawCutscenePortal: () => void;
   drawParticles: (ctx: CanvasRenderingContext2D, camera: Camera) => void;
   drawDamageNumbers: (ctx: CanvasRenderingContext2D, camera: Camera) => void;
-  currentMapIsTutorial: () => boolean;
-  currentMapIsDesert: () => boolean;
-  currentMapIsSnow: () => boolean;
-  currentMapIsLava: () => boolean;
   currentMapIsInfernal: () => boolean;
-  currentMapIsWater: () => boolean;
-  currentMapIsSamurai: () => boolean;
-  currentMapIsCloudspire: () => boolean;
-  currentMapIsMoonfen: () => boolean;
-  currentMapIsCrystalHollows: () => boolean;
-  currentMapIsClockworkRuins: () => boolean;
-  currentMapIsDuskfallOrchard: () => boolean;
-  currentMapIsNeonBastion: () => boolean;
-  currentMapIsVerdantCatacombs: () => boolean;
-  currentMapIsIonCitadel: () => boolean;
   portalCutsceneActive: () => boolean;
   portalBlackoutOpacity: () => number;
   attackRangeVisible: () => boolean;
@@ -100,8 +73,8 @@ export function createRenderController(options: {
     isDueling, isArenaScene, isReplayActive, replayScene, liveScene, heldScene, duelResultHeld,
     setRenderedDuelScene, setDuelCountdown, drawProfileCharacterPreview, updateSpeechBubbles,
     drawGround, drawStaticWorld, drawDuelArena, drawDuelScene, drawDecor, drawBossTelegraphs,
-    drawSpiderTelegraphs, drawFrostclawTelegraphs, drawMagmaliskTelegraphs, drawGloomrootTelegraphs, drawTidewyrmTelegraphs, drawKoiShogunTelegraphs, drawTempestKirinTelegraphs, drawMiremawTelegraphs, drawPrismshellTelegraphs, drawIronhornTelegraphs, drawDreadreaperTelegraphs, drawVoltwardenTelegraphs, drawGravebloomTelegraphs, drawAegisPrimeTelegraphs, drawProjectile, drawDepthSortedWorld, drawMinimap, drawCutscenePortal,
-    drawParticles, drawDamageNumbers, currentMapIsTutorial, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, currentMapIsWater, currentMapIsSamurai, currentMapIsCloudspire, currentMapIsMoonfen, currentMapIsCrystalHollows, currentMapIsClockworkRuins, currentMapIsDuskfallOrchard, currentMapIsNeonBastion, currentMapIsVerdantCatacombs, currentMapIsIonCitadel, portalCutsceneActive,
+    drawProjectile, drawDepthSortedWorld, drawMinimap, drawCutscenePortal,
+    drawParticles, drawDamageNumbers, currentMapIsInfernal, portalCutsceneActive,
     portalBlackoutOpacity, attackRangeVisible, projectiles, enemyShots, webGLProjectileBatch, webGLParticleBatch,
   } = options;
 
@@ -284,16 +257,7 @@ export function createRenderController(options: {
     const particlesRenderedByWebGL = staticWorldRenderedByWebGL && particleBatch.complete;
     drawDuelArena(isArenaScene(), DUEL_ARENA);
     if (!isDueling()) { drawDecor(); options.drawMapHazards?.(); }
-    if (!isDueling() && currentMapIsTutorial()) drawBossTelegraphs();
-    if (!isDueling() && currentMapIsDesert()) drawSpiderTelegraphs();
-    if (!isDueling() && currentMapIsSnow()) drawFrostclawTelegraphs();
-    if (!isDueling() && currentMapIsLava()) drawMagmaliskTelegraphs();
-    if (!isDueling() && currentMapIsInfernal()) drawGloomrootTelegraphs();
-    if (!isDueling() && currentMapIsWater()) drawTidewyrmTelegraphs();
-    if (!isDueling() && currentMapIsSamurai()) drawKoiShogunTelegraphs();
-    if (!isDueling() && currentMapIsCloudspire()) drawTempestKirinTelegraphs();
-    if (!isDueling() && currentMapIsMoonfen()) drawMiremawTelegraphs();
-    if (!isDueling() && currentMapIsClockworkRuins()) drawIronhornTelegraphs(); else if (!isDueling() && currentMapIsIonCitadel()) drawAegisPrimeTelegraphs(); else if (!isDueling() && currentMapIsVerdantCatacombs()) drawGravebloomTelegraphs(); else if (!isDueling() && currentMapIsNeonBastion()) drawVoltwardenTelegraphs(); else if (!isDueling() && currentMapIsDuskfallOrchard()) drawDreadreaperTelegraphs(); else if (!isDueling() && currentMapIsCrystalHollows()) drawPrismshellTelegraphs();
+    if (!isDueling()) drawBossTelegraphs();
     drawAttackRange();
     if (!projectilesRenderedByWebGL) {
       for (const projectile of projectiles) drawProjectile(projectile, false);

@@ -1,20 +1,8 @@
 import { CAMPAIGN_MAPS } from "../../../shared/campaign-registry";
-import { DRAGON_RADIUS, DRAGON_VERTICAL_RADIUS, DRAGON_HITBOX_OFFSET_Y, PRISMSHELL_RADIUS, PRISMSHELL_VERTICAL_RADIUS, PRISMSHELL_HITBOX_OFFSET_Y, IRONHORN_RADIUS, IRONHORN_VERTICAL_RADIUS, IRONHORN_HITBOX_OFFSET_Y, DREADREAPER_RADIUS, DREADREAPER_VERTICAL_RADIUS, DREADREAPER_HITBOX_OFFSET_Y, VOLTWARDEN_RADIUS, VOLTWARDEN_VERTICAL_RADIUS, VOLTWARDEN_HITBOX_OFFSET_Y, GRAVEBLOOM_RADIUS, GRAVEBLOOM_VERTICAL_RADIUS, GRAVEBLOOM_HITBOX_OFFSET_Y, AEGIS_PRIME_RADIUS, AEGIS_PRIME_VERTICAL_RADIUS, AEGIS_PRIME_HITBOX_OFFSET_Y } from "../../../shared/boss-hitbox";
 import { HOME_TRAVEL_PORTAL, HOME_EXTERIOR_SPAWN } from "../../../shared/home";
-import {
-  FROSTCLAW_HITBOX_OFFSET_Y, FROSTCLAW_VERTICAL_RADIUS, FROSTCLAW_RADIUS,
-  GLOOMROOT_HITBOX_OFFSET_Y, GLOOMROOT_VERTICAL_RADIUS, GLOOMROOT_RADIUS,
-  KOI_SHOGUN_HITBOX_OFFSET_Y, KOI_SHOGUN_VERTICAL_RADIUS, KOI_SHOGUN_RADIUS,
-  MAGMALISK_HITBOX_OFFSET_Y, MAGMALISK_VERTICAL_RADIUS, MAGMALISK_RADIUS,
-  MIREMAW_HITBOX_OFFSET_Y, MIREMAW_VERTICAL_RADIUS, MIREMAW_RADIUS,
-  SPIDER_HITBOX_OFFSET_Y, SPIDER_VERTICAL_RADIUS, SPIDER_RADIUS,
-  TEMPEST_KIRIN_HITBOX_OFFSET_Y, TEMPEST_KIRIN_VERTICAL_RADIUS, TEMPEST_KIRIN_RADIUS,
-  TIDEWYRM_HITBOX_OFFSET_Y, TIDEWYRM_VERTICAL_RADIUS, TIDEWYRM_RADIUS,
-} from "../../../shared/boss-hitbox";
 import { ONBOARDING_MAP_ID, ONBOARDING_WORLD } from "../../../shared/onboarding";
 import { generateMap, proceduralMapId, PROCEDURAL_ENTRY_MAP } from "../../../shared/procedural-maps";
 import { withGeneratedMaps } from "../procedural-maps";
-import { WORLD } from "../constants";
 import { STARTER_STONE, type EquipmentSlot, type InventoryState } from "../inventory";
 import { loadActorShadowSprite, loadEnemySprites, type EnemyKind } from "../enemies";
 import { loadPlayerAppearanceAssets } from "../player-appearance";
@@ -25,14 +13,10 @@ import { createProfileCharacterPreview } from "./profile-character-preview";
 import { createLeaderboardPodiumPreview } from "./leaderboard-podium-preview";
 import { createInventoryCharacterPreview } from "./inventory-character-preview";
 import { updateCamera } from "./camera";
-import type { BossRainStrike, DragonBossState, EnemyState, FrostclawBossState, FrostclawIcefall, GloomrootBloom, GloomrootBossState, KoiShogunBossState, KoiShogunWhirlpool, MagmaliskBossState, MagmaliskEruption, MiremawBogBurst, PrismshellCrystalBurst, IronhornCrystalBurst, DreadreaperCrystalBurst, VoltwardenCrystalBurst, GravebloomCrystalBurst, AegisPrimeCrystalBurst, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, AegisPrimeBossState, PlayerState, SpiderBossState, SpiderVenomPool, TempestKirinBossState, TempestKirinThunderbolt, TidewyrmBossState, TidewyrmWhirlpool } from "./types";
+import type { EnemyState, PlayerState } from "./types";
+import { BOSSES, perBoss, type BossHazards, type BossKind, type BossStates } from "./boss-registry";
 import {
   DEFAULT_ATTACK_INTERVAL,
-  DRAGON_MAX_HP,
-  FROSTCLAW_MAX_HP,
-  GLOOMROOT_MAX_HP,
-  KOI_SHOGUN_MAX_HP,
-  MAGMALISK_MAX_HP,
   MAP_DISPLAY_NAMES,
   numberedMapName,
   PLAYER_BASE_HP,
@@ -40,11 +24,6 @@ import {
   PLAYER_BASE_REGEN,
   PLAYER_SPAWN,
   PLAYER_SPEED,
-  SPIDER_MAX_HP,
-  TEMPEST_KIRIN_MAX_HP,
-  MIREMAW_MAX_HP,
-  PRISMSHELL_MAX_HP, IRONHORN_MAX_HP, DREADREAPER_MAX_HP, VOLTWARDEN_MAX_HP, GRAVEBLOOM_MAX_HP, AEGIS_PRIME_MAX_HP,
-  TIDEWYRM_MAX_HP,
 } from "../../../shared/rules";
 import { BASE_ATTACK_RANGE, BASE_PROJECTILE_SPEED } from "../constants";
 import { createProjectileStore } from "./projectile-store";
@@ -73,6 +52,34 @@ function editedBossPosition(mapId: MapId, fallback: { x: number; y: number }) {
   return boss ? { ...boss } : fallback;
 }
 
+/** A world boss at full health on its spawn, as the registry describes it. */
+function createBossState<K extends BossKind>(kind: K): BossStates[K] {
+  const { mapId, spawn, body, firstAttack, attackSlots } = BOSSES[kind];
+  const position = editedBossPosition(mapId, spawn);
+  const maxHp = BOSSES[kind].maxHp();
+  return {
+    isBoss: true,
+    // The Dragon predates boss kinds and is recognised by having none.
+    ...(kind === "dragon" ? {} : { bossKind: kind }),
+    x: position.x,
+    y: position.y,
+    r: body.radius,
+    ry: body.verticalRadius,
+    hitboxOffsetY: body.hitboxOffsetY,
+    maxHp,
+    hp: maxHp,
+    dead: false,
+    hurt: 0,
+    hpLossFlashFrom: maxHp,
+    hpLossFlashTimer: 0,
+    contactDamageClock: 0,
+    attackClock: 3,
+    nextAttack: firstAttack,
+    ...Object.fromEntries(attackSlots.map((slot) => [slot, null])),
+    encounter: null,
+  } as unknown as BossStates[K];
+}
+
 export type BootstrapInventory = InventoryState & {
   selectedItemId: string;
   selectedItemLocation: EquipmentSlot | "BAG" | "";
@@ -86,21 +93,7 @@ export function createGameBootstrap() {
   const spawnSites: SpawnSite[] = [];
   const decor: WorldDecor[] = [];
   const paths: WorldPath[] = [];
-  const bossRain: BossRainStrike[] = [];
-  const spiderVenom: SpiderVenomPool[] = [];
-  const frostclawIcefalls: FrostclawIcefall[] = [];
-  const magmaliskEruptions: MagmaliskEruption[] = [];
-  const gloomrootBlooms: GloomrootBloom[] = [];
-  const tidewyrmWhirlpools: TidewyrmWhirlpool[] = [];
-  const koiShogunWhirlpools: KoiShogunWhirlpool[] = [];
-  const tempestKirinThunderbolts: TempestKirinThunderbolt[] = [];
-  const miremawBogBursts: MiremawBogBurst[] = [];
-  const prismshellCrystalBursts: PrismshellCrystalBurst[] = [];
-  const ironhornCrystalBursts: IronhornCrystalBurst[] = [];
-  const dreadreaperCrystalBursts: DreadreaperCrystalBurst[] = [];
-  const voltwardenCrystalBursts: VoltwardenCrystalBurst[] = [];
-  const gravebloomCrystalBursts: GravebloomCrystalBurst[] = [];
-  const aegisPrimeCrystalBursts: AegisPrimeCrystalBurst[] = [];
+  const bossHazards = perBoss(() => []) as BossHazards;
   const startSpawn = { ...PLAYER_SPAWN };
   const authoredMapConfig = {
     [ONBOARDING_MAP_ID]: { name: "First Steps", portal: null, arrival: ONBOARDING_WORLD.spawn },
@@ -226,321 +219,7 @@ export function createGameBootstrap() {
     combatFacing: null,
     moving: false,
   };
-  const dragonPosition = editedBossPosition(TUTORIAL_FOREST_MAP_ID, { x: WORLD.w - 760, y: WORLD.h - 560 });
-  const boss: DragonBossState = {
-    isBoss: true,
-    x: dragonPosition.x,
-    y: dragonPosition.y,
-    r: DRAGON_RADIUS,
-    ry: DRAGON_VERTICAL_RADIUS,
-    hitboxOffsetY: DRAGON_HITBOX_OFFSET_Y,
-    maxHp: DRAGON_MAX_HP,
-    hp: DRAGON_MAX_HP,
-    dead: false,
-    hurt: 0,
-    hpLossFlashFrom: DRAGON_MAX_HP,
-    hpLossFlashTimer: 0,
-    contactDamageClock: 0,
-    attackClock: 3,
-    nextAttack: "cone",
-    cone: null,
-    encounter: null,
-  };
-  const spiderPosition = editedBossPosition(BEGINNER_DESERT_MAP_ID, { x: 4050, y: 4050 });
-  const spiderBoss: SpiderBossState = {
-    isBoss: true,
-    bossKind: "spider",
-    x: spiderPosition.x,
-    y: spiderPosition.y,
-    r: SPIDER_RADIUS,
-    ry: SPIDER_VERTICAL_RADIUS,
-    hitboxOffsetY: SPIDER_HITBOX_OFFSET_Y,
-    maxHp: SPIDER_MAX_HP,
-    hp: SPIDER_MAX_HP,
-    dead: false,
-    hurt: 0,
-    hpLossFlashFrom: SPIDER_MAX_HP,
-    hpLossFlashTimer: 0,
-    contactDamageClock: 0,
-    attackClock: 3,
-    nextAttack: "web",
-    web: null,
-    encounter: null,
-  };
-  const frostclawPosition = editedBossPosition(INTERMEDIATE_SNOWLANDS_MAP_ID, { x: 4050, y: 4050 });
-  const frostclawBoss: FrostclawBossState = {
-    isBoss: true,
-    bossKind: "frostclaw",
-    x: frostclawPosition.x,
-    y: frostclawPosition.y,
-    r: FROSTCLAW_RADIUS,
-    ry: FROSTCLAW_VERTICAL_RADIUS,
-    hitboxOffsetY: FROSTCLAW_HITBOX_OFFSET_Y,
-    maxHp: FROSTCLAW_MAX_HP,
-    hp: FROSTCLAW_MAX_HP,
-    dead: false,
-    hurt: 0,
-    hpLossFlashFrom: FROSTCLAW_MAX_HP,
-    hpLossFlashTimer: 0,
-    contactDamageClock: 0,
-    attackClock: 3,
-    nextAttack: "roar",
-    roar: null,
-    rift: null,
-    encounter: null,
-  };
-  const magmaliskPosition = editedBossPosition(ADVANCED_LAVA_WASTES_MAP_ID, { x: 4050, y: 4050 });
-  const magmaliskBoss: MagmaliskBossState = {
-    isBoss: true,
-    bossKind: "magmalisk",
-    x: magmaliskPosition.x,
-    y: magmaliskPosition.y,
-    r: MAGMALISK_RADIUS,
-    ry: MAGMALISK_VERTICAL_RADIUS,
-    hitboxOffsetY: MAGMALISK_HITBOX_OFFSET_Y,
-    maxHp: MAGMALISK_MAX_HP,
-    hp: MAGMALISK_MAX_HP,
-    dead: false,
-    hurt: 0,
-    hpLossFlashFrom: MAGMALISK_MAX_HP,
-    hpLossFlashTimer: 0,
-    contactDamageClock: 0,
-    attackClock: 3,
-    nextAttack: "bite",
-    bite: null,
-    encounter: null,
-  };
-  const gloomrootPosition = editedBossPosition(INFERNAL_DEPTHS_MAP_ID, { x: 4050, y: 4050 });
-  const gloomrootBoss: GloomrootBossState = {
-    isBoss: true,
-    bossKind: "gloomroot",
-    x: gloomrootPosition.x,
-    y: gloomrootPosition.y,
-    r: GLOOMROOT_RADIUS,
-    ry: GLOOMROOT_VERTICAL_RADIUS,
-    hitboxOffsetY: GLOOMROOT_HITBOX_OFFSET_Y,
-    maxHp: GLOOMROOT_MAX_HP,
-    hp: GLOOMROOT_MAX_HP,
-    dead: false,
-    hurt: 0,
-    hpLossFlashFrom: GLOOMROOT_MAX_HP,
-    hpLossFlashTimer: 0,
-    contactDamageClock: 0,
-    attackClock: 3,
-    nextAttack: "sweep",
-    sweep: null,
-    encounter: null,
-  };
-  const tidewyrmPosition = editedBossPosition(WATER_REACH_MAP_ID, { x: 4050, y: 4050 });
-  const tidewyrmBoss: TidewyrmBossState = {
-    isBoss: true,
-    bossKind: "tidewyrm",
-    x: tidewyrmPosition.x,
-    y: tidewyrmPosition.y,
-    r: TIDEWYRM_RADIUS,
-    ry: TIDEWYRM_VERTICAL_RADIUS,
-    hitboxOffsetY: TIDEWYRM_HITBOX_OFFSET_Y,
-    maxHp: TIDEWYRM_MAX_HP,
-    hp: TIDEWYRM_MAX_HP,
-    dead: false,
-    hurt: 0,
-    hpLossFlashFrom: TIDEWYRM_MAX_HP,
-    hpLossFlashTimer: 0,
-    contactDamageClock: 0,
-    attackClock: 3,
-    nextAttack: "surge",
-    surge: null,
-    encounter: null,
-  };
-  const koiShogunPosition = editedBossPosition(SAMURAI_GARDEN_MAP_ID, { x: 4050, y: 4050 });
-  const koiShogunBoss: KoiShogunBossState = {
-    isBoss: true,
-    bossKind: "koiShogun",
-    x: koiShogunPosition.x,
-    y: koiShogunPosition.y,
-    r: KOI_SHOGUN_RADIUS,
-    ry: KOI_SHOGUN_VERTICAL_RADIUS,
-    hitboxOffsetY: KOI_SHOGUN_HITBOX_OFFSET_Y,
-    maxHp: KOI_SHOGUN_MAX_HP,
-    hp: KOI_SHOGUN_MAX_HP,
-    dead: false,
-    hurt: 0,
-    hpLossFlashFrom: KOI_SHOGUN_MAX_HP,
-    hpLossFlashTimer: 0,
-    contactDamageClock: 0,
-    attackClock: 3,
-    nextAttack: "slash",
-    slash: null,
-    encounter: null,
-  };
-  const tempestKirinPosition = editedBossPosition(CLOUDSPIRE_MAP_ID, { x: 4050, y: 4050 });
-  const tempestKirinBoss: TempestKirinBossState = {
-    isBoss: true,
-    bossKind: "tempestKirin",
-    x: tempestKirinPosition.x,
-    y: tempestKirinPosition.y,
-    r: TEMPEST_KIRIN_RADIUS,
-    ry: TEMPEST_KIRIN_VERTICAL_RADIUS,
-    hitboxOffsetY: TEMPEST_KIRIN_HITBOX_OFFSET_Y,
-    maxHp: TEMPEST_KIRIN_MAX_HP,
-    hp: TEMPEST_KIRIN_MAX_HP,
-    dead: false,
-    hurt: 0,
-    hpLossFlashFrom: TEMPEST_KIRIN_MAX_HP,
-    hpLossFlashTimer: 0,
-    contactDamageClock: 0,
-    attackClock: 3,
-    nextAttack: "charge",
-    charge: null,
-    encounter: null,
-  };
-  const miremawPosition = editedBossPosition(MOONFEN_MAP_ID, { x: 4050, y: 4050 });
-  const prismshellPosition = editedBossPosition(CRYSTAL_HOLLOWS_MAP_ID, { x: 4050, y: 4050 });
-  const ironhornPosition = editedBossPosition(CLOCKWORK_RUINS_MAP_ID, { x: 4050, y: 4050 });
-  const dreadreaperPosition = editedBossPosition(DUSKFALL_ORCHARD_MAP_ID, { x: 4050, y: 4050 });
-  const voltwardenPosition = editedBossPosition(NEON_BASTION_MAP_ID, { x: 4050, y: 4050 });
-  const gravebloomPosition = editedBossPosition(VERDANT_CATACOMBS_MAP_ID, { x: 4050, y: 4050 });
-  const aegisPrimePosition = editedBossPosition(ION_CITADEL_MAP_ID, { x: 4050, y: 4050 });
-  const miremawBoss: MiremawBossState = {
-    isBoss: true,
-    bossKind: "miremaw",
-    x: miremawPosition.x,
-    y: miremawPosition.y,
-    r: MIREMAW_RADIUS,
-    ry: MIREMAW_VERTICAL_RADIUS,
-    hitboxOffsetY: MIREMAW_HITBOX_OFFSET_Y,
-    maxHp: MIREMAW_MAX_HP,
-    hp: MIREMAW_MAX_HP,
-    dead: false,
-    hurt: 0,
-    hpLossFlashFrom: MIREMAW_MAX_HP,
-    hpLossFlashTimer: 0,
-    contactDamageClock: 0,
-    attackClock: 3,
-    nextAttack: "tongue",
-    tongue: null,
-    encounter: null,
-  };
-  const prismshellBoss: PrismshellBossState = {
-    isBoss: true,
-    bossKind: "prismshell",
-    x: prismshellPosition.x,
-    y: prismshellPosition.y,
-    r: PRISMSHELL_RADIUS,
-    ry: PRISMSHELL_VERTICAL_RADIUS,
-    hitboxOffsetY: PRISMSHELL_HITBOX_OFFSET_Y,
-    maxHp: PRISMSHELL_MAX_HP,
-    hp: PRISMSHELL_MAX_HP,
-    dead: false,
-    hurt: 0,
-    hpLossFlashFrom: PRISMSHELL_MAX_HP,
-    hpLossFlashTimer: 0,
-    contactDamageClock: 0,
-    attackClock: 3,
-    nextAttack: "shatter",
-    shatter: null,
-    encounter: null,
-  };
-  const ironhornBoss: IronhornBossState = {
-    isBoss: true,
-    bossKind: "ironhorn",
-    x: ironhornPosition.x,
-    y: ironhornPosition.y,
-    r: IRONHORN_RADIUS,
-    ry: IRONHORN_VERTICAL_RADIUS,
-    hitboxOffsetY: IRONHORN_HITBOX_OFFSET_Y,
-    maxHp: IRONHORN_MAX_HP,
-    hp: IRONHORN_MAX_HP,
-    dead: false,
-    hurt: 0,
-    hpLossFlashFrom: IRONHORN_MAX_HP,
-    hpLossFlashTimer: 0,
-    contactDamageClock: 0,
-    attackClock: 3,
-    nextAttack: "shatter",
-    shatter: null,
-    encounter: null,
-  };
-  const dreadreaperBoss: DreadreaperBossState = {
-    isBoss: true,
-    bossKind: "dreadreaper",
-    x: dreadreaperPosition.x,
-    y: dreadreaperPosition.y,
-    r: DREADREAPER_RADIUS,
-    ry: DREADREAPER_VERTICAL_RADIUS,
-    hitboxOffsetY: DREADREAPER_HITBOX_OFFSET_Y,
-    maxHp: DREADREAPER_MAX_HP,
-    hp: DREADREAPER_MAX_HP,
-    dead: false,
-    hurt: 0,
-    hpLossFlashFrom: DREADREAPER_MAX_HP,
-    hpLossFlashTimer: 0,
-    contactDamageClock: 0,
-    attackClock: 3,
-    nextAttack: "shatter",
-    shatter: null,
-    encounter: null,
-  };
-  const voltwardenBoss: VoltwardenBossState = {
-    isBoss: true,
-    bossKind: "voltwarden",
-    x: voltwardenPosition.x,
-    y: voltwardenPosition.y,
-    r: VOLTWARDEN_RADIUS,
-    ry: VOLTWARDEN_VERTICAL_RADIUS,
-    hitboxOffsetY: VOLTWARDEN_HITBOX_OFFSET_Y,
-    maxHp: VOLTWARDEN_MAX_HP,
-    hp: VOLTWARDEN_MAX_HP,
-    dead: false,
-    hurt: 0,
-    hpLossFlashFrom: VOLTWARDEN_MAX_HP,
-    hpLossFlashTimer: 0,
-    contactDamageClock: 0,
-    attackClock: 3,
-    nextAttack: "laserGrid",
-    shatter: null,
-    encounter: null,
-  };
-  const gravebloomBoss: GravebloomBossState = {
-    isBoss: true,
-    bossKind: "gravebloom",
-    x: gravebloomPosition.x,
-    y: gravebloomPosition.y,
-    r: GRAVEBLOOM_RADIUS,
-    ry: GRAVEBLOOM_VERTICAL_RADIUS,
-    hitboxOffsetY: GRAVEBLOOM_HITBOX_OFFSET_Y,
-    maxHp: GRAVEBLOOM_MAX_HP,
-    hp: GRAVEBLOOM_MAX_HP,
-    dead: false,
-    hurt: 0,
-    hpLossFlashFrom: GRAVEBLOOM_MAX_HP,
-    hpLossFlashTimer: 0,
-    contactDamageClock: 0,
-    attackClock: 3,
-    nextAttack: "rootGrasp",
-    shatter: null,
-    encounter: null,
-  };
-  const aegisPrimeBoss: AegisPrimeBossState = {
-    isBoss: true,
-    bossKind: "aegisPrime",
-    x: aegisPrimePosition.x,
-    y: aegisPrimePosition.y,
-    r: AEGIS_PRIME_RADIUS,
-    ry: AEGIS_PRIME_VERTICAL_RADIUS,
-    hitboxOffsetY: AEGIS_PRIME_HITBOX_OFFSET_Y,
-    maxHp: AEGIS_PRIME_MAX_HP,
-    hp: AEGIS_PRIME_MAX_HP,
-    dead: false,
-    hurt: 0,
-    hpLossFlashFrom: AEGIS_PRIME_MAX_HP,
-    hpLossFlashTimer: 0,
-    contactDamageClock: 0,
-    attackClock: 3,
-    nextAttack: "shieldSweep",
-    shatter: null,
-    encounter: null,
-  };
+  const bosses = perBoss(createBossState) as BossStates;
   const editedBootsPickup = MAP_EDITOR_GAMEPLAY_OVERRIDES[TUTORIAL_FOREST_MAP_ID]?.bootsPickup;
   const bootsPickup = { x: editedBootsPickup?.x ?? 940, y: editedBootsPickup?.y ?? 3660, r: 18, collected: true };
   const inventory: BootstrapInventory = {
@@ -561,38 +240,20 @@ export function createGameBootstrap() {
   };
 
   return {
-    boss,
-    bossRain,
+    bossHazards,
+    bosses,
     bootsPickup,
     decor,
     enemies,
     enemyShots,
-    frostclawBoss,
-    frostclawIcefalls,
-    gloomrootBlooms,
-    gloomrootBoss,
-    koiShogunBoss,
-    koiShogunWhirlpools,
     inventory,
-    magmaliskBoss,
-    magmaliskEruptions,
     mapConfig,
     paths,
     player,
     projectiles,
     projectileStore,
     spawnSites,
-    spiderBoss,
-    spiderVenom,
     startSpawn,
-    tidewyrmBoss,
-    tidewyrmWhirlpools,
-    tempestKirinBoss,
-    tempestKirinThunderbolts,
-    miremawBoss,
-    prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss,
-    miremawBogBursts,
-    prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, gravebloomCrystalBursts, aegisPrimeCrystalBursts,
   };
 }
 

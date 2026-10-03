@@ -727,9 +727,9 @@ export function createMapDefinitions(endlessMaps = 0, settings: BalanceSettings 
       boss: {
         kind: "dragon",
         name: "Dragon",
-        hp: bootstrap.boss.maxHp,
-        x: bootstrap.boss.x,
-        y: bootstrap.boss.y,
+        hp: bootstrap.bosses.dragon.maxHp,
+        x: bootstrap.bosses.dragon.x,
+        y: bootstrap.bosses.dragon.y,
         rewards: [{ type: "damage", amount: DRAGON_REWARD_DAMAGE }],
         drops: [],
       },
@@ -742,9 +742,9 @@ export function createMapDefinitions(endlessMaps = 0, settings: BalanceSettings 
       boss: {
         kind: "spider",
         name: "Desert Scorpion",
-        hp: bootstrap.spiderBoss.maxHp,
-        x: bootstrap.spiderBoss.x,
-        y: bootstrap.spiderBoss.y,
+        hp: bootstrap.bosses.spider.maxHp,
+        x: bootstrap.bosses.spider.x,
+        y: bootstrap.bosses.spider.y,
         rewards: [
           { type: "damage", amount: SPIDER_REWARD_DAMAGE },
           { type: "health", amount: SPIDER_REWARD_HEALTH },
@@ -760,9 +760,9 @@ export function createMapDefinitions(endlessMaps = 0, settings: BalanceSettings 
       boss: {
         kind: "frostclaw",
         name: "Frostclaw",
-        hp: bootstrap.frostclawBoss.maxHp,
-        x: bootstrap.frostclawBoss.x,
-        y: bootstrap.frostclawBoss.y,
+        hp: bootstrap.bosses.frostclaw.maxHp,
+        x: bootstrap.bosses.frostclaw.x,
+        y: bootstrap.bosses.frostclaw.y,
         rewards: [
           { type: "damage", amount: FROSTCLAW_REWARD_DAMAGE },
           { type: "health", amount: FROSTCLAW_REWARD_HEALTH },
@@ -782,9 +782,9 @@ export function createMapDefinitions(endlessMaps = 0, settings: BalanceSettings 
       boss: {
         kind: "magmalisk",
         name: "Magmalisk",
-        hp: bootstrap.magmaliskBoss.maxHp,
-        x: bootstrap.magmaliskBoss.x,
-        y: bootstrap.magmaliskBoss.y,
+        hp: bootstrap.bosses.magmalisk.maxHp,
+        x: bootstrap.bosses.magmalisk.x,
+        y: bootstrap.bosses.magmalisk.y,
         rewards: [
           { type: "damage", amount: MAGMALISK_REWARD_DAMAGE },
           { type: "health", amount: MAGMALISK_REWARD_HEALTH },
@@ -802,9 +802,9 @@ export function createMapDefinitions(endlessMaps = 0, settings: BalanceSettings 
       boss: {
         kind: "gloomroot",
         name: "Gloomroot",
-        hp: bootstrap.gloomrootBoss.maxHp,
-        x: bootstrap.gloomrootBoss.x,
-        y: bootstrap.gloomrootBoss.y,
+        hp: bootstrap.bosses.gloomroot.maxHp,
+        x: bootstrap.bosses.gloomroot.x,
+        y: bootstrap.bosses.gloomroot.y,
         rewards: [
           { type: "damage", amount: GLOOMROOT_REWARD_DAMAGE },
           { type: "health", amount: GLOOMROOT_REWARD_HEALTH },
@@ -822,9 +822,9 @@ export function createMapDefinitions(endlessMaps = 0, settings: BalanceSettings 
       boss: {
         kind: "tidewyrm",
         name: "Tidewyrm",
-        hp: bootstrap.tidewyrmBoss.maxHp,
-        x: bootstrap.tidewyrmBoss.x,
-        y: bootstrap.tidewyrmBoss.y,
+        hp: bootstrap.bosses.tidewyrm.maxHp,
+        x: bootstrap.bosses.tidewyrm.x,
+        y: bootstrap.bosses.tidewyrm.y,
         rewards: [
           { type: "damage", amount: TIDEWYRM_REWARD_DAMAGE },
           { type: "health", amount: TIDEWYRM_REWARD_HEALTH },
@@ -842,9 +842,9 @@ export function createMapDefinitions(endlessMaps = 0, settings: BalanceSettings 
       boss: {
         kind: "koiShogun",
         name: "Koi Shogun",
-        hp: bootstrap.koiShogunBoss.maxHp,
-        x: bootstrap.koiShogunBoss.x,
-        y: bootstrap.koiShogunBoss.y,
+        hp: bootstrap.bosses.koiShogun.maxHp,
+        x: bootstrap.bosses.koiShogun.x,
+        y: bootstrap.bosses.koiShogun.y,
         rewards: [
           { type: "damage", amount: KOI_SHOGUN_REWARD_DAMAGE },
           { type: "health", amount: KOI_SHOGUN_REWARD_HEALTH },
@@ -862,9 +862,9 @@ export function createMapDefinitions(endlessMaps = 0, settings: BalanceSettings 
       boss: {
         kind: "tempestKirin",
         name: "Tempest Kirin",
-        hp: bootstrap.tempestKirinBoss.maxHp,
-        x: bootstrap.tempestKirinBoss.x,
-        y: bootstrap.tempestKirinBoss.y,
+        hp: bootstrap.bosses.tempestKirin.maxHp,
+        x: bootstrap.bosses.tempestKirin.x,
+        y: bootstrap.bosses.tempestKirin.y,
         rewards: [
           { type: "damage", amount: TEMPEST_KIRIN_REWARD_DAMAGE },
           { type: "health", amount: TEMPEST_KIRIN_REWARD_HEALTH },
@@ -882,9 +882,9 @@ export function createMapDefinitions(endlessMaps = 0, settings: BalanceSettings 
       boss: {
         kind: "miremaw",
         name: "Miremaw",
-        hp: bootstrap.miremawBoss.maxHp,
-        x: bootstrap.miremawBoss.x,
-        y: bootstrap.miremawBoss.y,
+        hp: bootstrap.bosses.miremaw.maxHp,
+        x: bootstrap.bosses.miremaw.x,
+        y: bootstrap.bosses.miremaw.y,
         rewards: [
           { type: "damage", amount: MIREMAW_REWARD_DAMAGE },
           { type: "health", amount: MIREMAW_REWARD_HEALTH },
@@ -902,9 +902,9 @@ export function createMapDefinitions(endlessMaps = 0, settings: BalanceSettings 
       boss: {
         kind: "prismshell",
         name: "Prismshell",
-        hp: bootstrap.prismshellBoss.maxHp,
-        x: bootstrap.prismshellBoss.x,
-        y: bootstrap.prismshellBoss.y,
+        hp: bootstrap.bosses.prismshell.maxHp,
+        x: bootstrap.bosses.prismshell.x,
+        y: bootstrap.bosses.prismshell.y,
         rewards: [
           { type: "damage", amount: PRISMSHELL_REWARD_DAMAGE },
           { type: "health", amount: PRISMSHELL_REWARD_HEALTH },
@@ -921,9 +921,9 @@ export function createMapDefinitions(endlessMaps = 0, settings: BalanceSettings 
       boss: {
         kind: "ironhorn",
         name: "Ironhorn",
-        hp: bootstrap.ironhornBoss.maxHp,
-        x: bootstrap.ironhornBoss.x,
-        y: bootstrap.ironhornBoss.y,
+        hp: bootstrap.bosses.ironhorn.maxHp,
+        x: bootstrap.bosses.ironhorn.x,
+        y: bootstrap.bosses.ironhorn.y,
         rewards: [
           { type: "damage", amount: IRONHORN_REWARD_DAMAGE },
           { type: "health", amount: IRONHORN_REWARD_HEALTH },
@@ -940,9 +940,9 @@ export function createMapDefinitions(endlessMaps = 0, settings: BalanceSettings 
       boss: {
         kind: "dreadreaper",
         name: "Dreadreaper",
-        hp: bootstrap.dreadreaperBoss.maxHp,
-        x: bootstrap.dreadreaperBoss.x,
-        y: bootstrap.dreadreaperBoss.y,
+        hp: bootstrap.bosses.dreadreaper.maxHp,
+        x: bootstrap.bosses.dreadreaper.x,
+        y: bootstrap.bosses.dreadreaper.y,
         rewards: [
           { type: "damage", amount: DREADREAPER_REWARD_DAMAGE },
           { type: "health", amount: DREADREAPER_REWARD_HEALTH },
@@ -959,9 +959,9 @@ export function createMapDefinitions(endlessMaps = 0, settings: BalanceSettings 
       boss: {
         kind: "voltwarden",
         name: "Voltwarden",
-        hp: bootstrap.voltwardenBoss.maxHp,
-        x: bootstrap.voltwardenBoss.x,
-        y: bootstrap.voltwardenBoss.y,
+        hp: bootstrap.bosses.voltwarden.maxHp,
+        x: bootstrap.bosses.voltwarden.x,
+        y: bootstrap.bosses.voltwarden.y,
         rewards: [
           { type: "damage", amount: VOLTWARDEN_REWARD_DAMAGE },
           { type: "health", amount: VOLTWARDEN_REWARD_HEALTH },
@@ -978,9 +978,9 @@ export function createMapDefinitions(endlessMaps = 0, settings: BalanceSettings 
       boss: {
         kind: "gravebloom",
         name: "Gravebloom",
-        hp: bootstrap.gravebloomBoss.maxHp,
-        x: bootstrap.gravebloomBoss.x,
-        y: bootstrap.gravebloomBoss.y,
+        hp: bootstrap.bosses.gravebloom.maxHp,
+        x: bootstrap.bosses.gravebloom.x,
+        y: bootstrap.bosses.gravebloom.y,
         rewards: [
           { type: "damage", amount: GRAVEBLOOM_REWARD_DAMAGE },
           { type: "health", amount: GRAVEBLOOM_REWARD_HEALTH },
@@ -997,9 +997,9 @@ export function createMapDefinitions(endlessMaps = 0, settings: BalanceSettings 
       boss: {
         kind: "aegisPrime",
         name: "Aegis Prime",
-        hp: bootstrap.aegisPrimeBoss.maxHp,
-        x: bootstrap.aegisPrimeBoss.x,
-        y: bootstrap.aegisPrimeBoss.y,
+        hp: bootstrap.bosses.aegisPrime.maxHp,
+        x: bootstrap.bosses.aegisPrime.x,
+        y: bootstrap.bosses.aegisPrime.y,
         rewards: [
           { type: "damage", amount: AEGIS_PRIME_REWARD_DAMAGE },
           { type: "health", amount: AEGIS_PRIME_REWARD_HEALTH },
