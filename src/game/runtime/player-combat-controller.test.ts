@@ -231,6 +231,23 @@ describe("player attack timing", () => {
     expect(blue.every(call => call[2] === 40 && call[4] === false)).toBe(true);
   });
 
+  it("lands every shot of a ranged volley, each one rolled for Reflect, instead of dropping those inside the hurt window", () => {
+    const state = createCombatHarness({ prestigeReflect: () => 1 });
+    state.enemies.length = 0;
+    createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Spitter", x: 520, y: 500,
+      campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
+    const archer = state.enemies[0]; archer.hp = archer.maxHp = 1000;
+    Object.assign(state.player, { x: 500, y: 500, hp: 1000, maxHp: 1000, hurtClock: 0 });
+    for (let shot = 0; shot < 3; shot++) state.projectileStore.spawnEnemyShot(500, 500, 0, 0, 6, 40, 4, archer);
+    for (let frame = 0; frame < 30; frame++) {
+      state.controller.updateProjectiles(1 / 60);
+      state.player.hurtClock = Math.max(0, state.player.hurtClock - 1 / 60);
+    }
+    expect(state.player.hp).toBe(880);
+    expect(archer.hp).toBe(880);
+    expect(state.projectileStore.enemyShots).toHaveLength(0);
+  });
+
   it("prioritizes an aggroed attacker over its selected farm type, then returns to farming", () => {
     const state = createCombatHarness({ localIdentity: () => "my-account" });
     state.enemies.length = 0;

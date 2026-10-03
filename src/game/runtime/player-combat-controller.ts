@@ -743,7 +743,12 @@ export function createPlayerCombatController(options: {
       shot.life -= dt;
       shot.x += shot.vx * dt;
       shot.y += shot.vy * dt;
-      if (circlesOverlap(shot, player)) { damagePlayer(shot.damage, shot.source); shot.life = 0; }
+      if (!circlesOverlap(shot, player)) continue;
+      // A shot that lands inside the hurt window waits on the player for it to
+      // pass, as a melee swing does. It used to vanish there, so a ranged pack's
+      // volley landed one hit and threw away the rest unrolled for Reflect.
+      if (damagePlayer(shot.damage, shot.source) || isDueling() || player.hp <= 0) shot.life = 0;
+      else { shot.x = player.x; shot.y = player.y; shot.vx = 0; shot.vy = 0; }
     }
     projectileStore.compactEnemyShots();
   }

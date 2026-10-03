@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.868": [
+    "Ranged enemies: every shot in a volley now lands and can be reflected, instead of only the first",
+  ],
   "0.867": [
     "Reflect kills are no longer cut back by the server for sturdy builds or with Second Wind, so their stats stop rolling back",
     "Endless has 41 new monsters (toads, orcs, horses, worms, wing demons and more) plus the campaign's non-slime sets, one per map; some maps fight at range",
@@ -2671,6 +2674,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.868": "2026-10-02",
   "0.867": "2026-10-02",
   "0.866": "2026-10-01",
   "0.865": "2026-10-01",
