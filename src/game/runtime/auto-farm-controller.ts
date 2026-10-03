@@ -7,7 +7,6 @@ import type { Circle, EnemyState, PlayerState, Position } from './types';
 import type { Movement } from './player-input-controller';
 import { isEnemyAttackingPlayer } from './enemy-threat';
 import { farmRoute } from './auto-farm-navigation';
-import { rangedEnemyHoldBand } from './ranged-enemy-range';
 import { compareAutoFarmTargets, enemyRewardStat, farmGroupMatches, farmStatGroup, readAutoFarmPriority, readAutoFarmPull, writeAutoFarmPriority, writeAutoFarmPull, type AutoFarmGroup, type AutoFarmPriority } from './auto-farm-priority';
 import type { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 import {
@@ -21,8 +20,6 @@ export const AUTO_FARM_DEFEAT_LIMIT = 5;
 export const AUTO_FARM_DEFEAT_WINDOW_MS = 180_000;
 /** After walking back a map from repeated defeats, how long before it may go forward again. */
 export const RETREAT_HOLD_MS = 20 * 60_000;
-/** Clearance kept outside a ranged enemy's back-away distance when standing to shoot it. */
-export const AUTO_FARM_RANGED_STANDOFF_MARGIN = 10;
 /** How far inside its full reach autofarm stops: enough that a target at the stop point is still in range. */
 export const AUTO_FARM_REACH_MARGIN = 6;
 /** How long a pulled group may take to arrive before autofarm walks out to it. */
@@ -31,14 +28,8 @@ export const PULL_WAIT_SECONDS = 4;
 /**
  * Where autofarm stops walking (`stop`) and how far the destination may then
  * drift before it walks again (`resume`). Both sit inside the weapon's reach.
- *
- * A ranged enemy backs away from a player closer than its hold band, and the
- * band scales with the player's attack range while the plain 78% stop does
- * not keep pace: past the base range the stop point lands inside the band, so
- * the enemy retreats one step, the player follows one step, and the walk
- * flickers on and off every few frames. Standing just outside the band, and
- * not walking again until the destination is well past the stop point, keeps
- * both sides still.
+ * Ranged enemies no longer back away from a player inside their range, so the
+ * edge of reach suits them as it does everything else.
  */
 export function autoFarmStandoff(options: {
   weaponRange: number;
@@ -51,15 +42,8 @@ export function autoFarmStandoff(options: {
   const reachPadding = options.melee && options.enemy ? options.destination.r ?? 0 : 0;
   const reach = Math.max(8, options.weaponRange) + reachPadding;
   // Fight from the edge of the full reach, research and Long Shot included
-  // (0.867): walk only until the target is in range, never closer. The old
-  // stop sat 22% of the base reach inside it.
-  let stop = Math.max(8, reach - AUTO_FARM_REACH_MARGIN);
-  const kind = options.enemy ? options.destination.type : undefined;
-  const ranged = kind !== undefined && (options.destination.definition ?? ENEMY_TYPES[kind])?.ranged;
-  if (ranged && !options.melee) {
-    const band = rangedEnemyHoldBand(options.playerAttackRange, options.playerRadius + (options.destination.r ?? 0) + 4);
-    stop = Math.min(reach, Math.max(stop, band.retreatBelow + AUTO_FARM_RANGED_STANDOFF_MARGIN));
-  }
+  // (0.867): walk only until the target is in range, never closer.
+  const stop = Math.max(8, reach - AUTO_FARM_REACH_MARGIN);
   // Walk again a little before the target leaves reach, so the shot is never lost.
   return { stop, resume: stop + (reach - stop) / 2 };
 }

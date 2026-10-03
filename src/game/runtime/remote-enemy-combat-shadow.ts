@@ -119,13 +119,9 @@ function moveGhost(
     moveToward(ghost, targetX, targetY, speed, dt, ghost.r + 16);
   } else {
     const preferredDistance = rangedEnemyPreferredDistance(targetAttackRange, ghost.r + 21);
+    // In to range, then hold: as enemy-simulation.ts, it never backs away.
     if (distance > preferredDistance + 5) {
       moveToward(ghost, targetX, targetY, speed, dt, preferredDistance);
-    } else if (distance < preferredDistance - 20) {
-      const retreat = Math.min(speed * dt, preferredDistance - distance);
-      ghost.x -= dx / distance * retreat;
-      ghost.y -= dy / distance * retreat;
-      if (Math.abs(dx) > .5) ghost.facingX = dx < 0 ? -1 : 1;
     } else if (Math.abs(dx) > .5) {
       ghost.facingX = dx < 0 ? -1 : 1;
     }

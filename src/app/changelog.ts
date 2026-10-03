@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.881": [
+    "Ranged enemies walk closer to get in range, but no longer back away when you walk up to them",
+  ],
   "0.880": [
     "Autofarm stops re-killing a boss once the next map is open (bosses give no stats)",
     "Autofarm judges fights by the damage you actually deal, so multishot, Double Strike and bow skills count",
@@ -2739,6 +2742,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.881": "2026-10-03",
   "0.880": "2026-10-03",
   "0.879": "2026-10-03",
   "0.878": "2026-10-03",

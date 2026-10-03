@@ -218,6 +218,24 @@ describe("deterministic enemy simulation", () => {
     expect(Math.hypot(second.x - local.x, second.y - local.y)).toBeGreaterThanOrEqual(second.r + local.r);
   });
 
+  it("walks a ranged enemy in to its range, and never backs it away from a player who closes in", () => {
+    const enemy = idleEnemyAt(100, 100);
+    enemy.type = "Moonblade Reaper";
+    enemy.aggroRadius = 800;
+    enemy.leashRange = 800;
+    engage(enemy, "local-player");
+    const local = playerAt(600, 100);
+    const simulation = createEnemySimulation([enemy], () => {}, local, () => ({ width: 800, height: 800, zoom: 1 }), engage, () => false,
+      { localIdentity: () => "local-player" });
+    for (let frame = 0; frame < 120; frame++) simulation.update(1 / 60);
+    expect(enemy.x).toBeGreaterThan(100);
+    // The player walks right up to it: it stays put and keeps firing.
+    local.x = enemy.x + enemy.r + local.r + 10;
+    const held = enemy.x;
+    for (let frame = 0; frame < 60; frame++) simulation.update(1 / 60);
+    expect(enemy.x).toBeGreaterThanOrEqual(held - 1);
+  });
+
   it("does not flicker an engaged ranged enemy when acquisition exceeds its authored leash", () => {
     const enemy = idleEnemyAt(100, 100);
     enemy.type = "Moonblade Reaper";

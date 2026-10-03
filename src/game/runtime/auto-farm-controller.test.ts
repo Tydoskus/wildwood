@@ -5,7 +5,6 @@ import { createGameBootstrap } from './game-bootstrap';
 import { createEnemyLifecycle } from './enemy-lifecycle';
 import { createAutoFarmController, autoFarmStandoff, AUTO_FARM_DEFEAT_LIMIT, AUTO_FARM_DEFEAT_WINDOW_MS, AUTO_FARM_REACH_MARGIN, PULL_WAIT_SECONDS } from './auto-farm-controller';
 import { createEnemySimulation } from './enemy-simulation';
-import { rangedEnemyHoldBand } from './ranged-enemy-range';
 import { attackRangeWithResearch } from '../../../shared/utility-research';
 import { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 import type { SpawnSite } from '../world';
@@ -394,8 +393,8 @@ it("closes to sword reach without changing the player camera range", () => {
 });
 
 describe("autofarm against a ranged enemy with researched attack range", () => {
-  // Drives the real enemy simulation: a hit engages the enemy, and an engaged
-  // ranged enemy backs away from a player standing inside its hold band.
+  // Drives the real enemy simulation: a hit engages the enemy, which walks in
+  // to its own range and holds there.
   function farmBrood(attackRange: number) {
     const s = setup();
     s.player.attackRange = attackRange;
@@ -424,26 +423,12 @@ describe("autofarm against a ranged enemy with researched attack range", () => {
     return { walkStarts, distance: Math.hypot(brood.x - s.player.x, brood.y - s.player.y), brood };
   }
 
-  it.each([1, 2, 3, 4, 5])("stands still instead of stepping after a retreating enemy at range rank %i", rank => {
+  it.each([1, 2, 3, 4, 5])("stands still and keeps the ranged enemy in range at range rank %i", rank => {
     const range = attackRangeWithResearch(rank);
     const { walkStarts, distance, brood } = farmBrood(range);
-    const band = rangedEnemyHoldBand(range, 18 + brood.r + 4);
     expect(brood.engaged).toBe(true);
     expect(walkStarts).toBeLessThanOrEqual(1);
-    expect(distance).toBeGreaterThanOrEqual(band.retreatBelow);
     expect(distance).toBeLessThanOrEqual(range);
-  });
-
-  it("stops outside the ranged enemy's retreat distance and holds until it walks back in", () => {
-    for (let rank = 0; rank <= 5; rank++) {
-      const range = attackRangeWithResearch(rank);
-      const destination = { x: 0, y: 0, r: 16, type: "Brood" as EnemyKind };
-      const standoff = autoFarmStandoff({ weaponRange: range, playerAttackRange: range, melee: false, playerRadius: 18, destination, enemy: true });
-      const band = rangedEnemyHoldBand(range, 18 + 16 + 4);
-      expect(standoff.stop).toBeGreaterThan(band.retreatBelow);
-      expect(standoff.resume).toBeGreaterThan(band.approachAbove);
-      expect(standoff.resume).toBeLessThan(range);
-    }
   });
 
   it("stops at the edge of full reach, research and Long Shot included, never further in", () => {

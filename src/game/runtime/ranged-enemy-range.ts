@@ -20,17 +20,13 @@ export function rangedEnemyPreferredDistance(playerAttackRange: number, minimumD
 
 /** An engaged ranged enemy walks in beyond this far past its preferred distance. */
 export const RANGED_ENEMY_APPROACH_DEAD_BAND = 5;
-/** An engaged ranged enemy backs away when its target is this far inside its preferred distance. */
-export const RANGED_ENEMY_RETREAT_DEAD_BAND = 20;
 
 /**
- * The distance band an engaged ranged enemy holds still in. Closer than
- * `retreatBelow` it backs away; farther than `approachAbove` it walks in.
+ * How far an engaged ranged enemy lets its target get before walking in.
+ * Inside it the enemy holds still and fires: it walks closer to get in range,
+ * and never backs away from a player who closes in (it used to retreat inside
+ * its preferred distance, which made melee and short-range builds chase it).
  */
 export function rangedEnemyHoldBand(playerAttackRange: number, minimumDistance = 0) {
-  const preferred = rangedEnemyPreferredDistance(playerAttackRange, minimumDistance);
-  return {
-    retreatBelow: preferred - RANGED_ENEMY_RETREAT_DEAD_BAND,
-    approachAbove: preferred + RANGED_ENEMY_APPROACH_DEAD_BAND,
-  };
+  return { approachAbove: rangedEnemyPreferredDistance(playerAttackRange, minimumDistance) + RANGED_ENEMY_APPROACH_DEAD_BAND };
 }

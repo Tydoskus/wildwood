@@ -135,16 +135,9 @@ export function createEnemySimulation(
     const dy = target.y - enemy.y;
     const distance = Math.hypot(dx, dy) || 1;
     let direction = 1;
-    if (ranged) {
-      const band = rangedEnemyHoldBand(player.attackRange, player.r + enemy.r + 4);
-      let rangedMove = 0;
-      if (distance > band.approachAbove) {
-        rangedMove = 1;
-      } else if (distance < band.retreatBelow) {
-        rangedMove = -1;
-      }
-      direction = rangedMove;
-    }
+    // A ranged enemy walks in until it is in range, then stands and fires,
+    // however close the player comes.
+    if (ranged) direction = distance > rangedEnemyHoldBand(player.attackRange, player.r + enemy.r + 4).approachAbove ? 1 : 0;
     // Exponential easing makes authored speed the actual cruising speed at
     // both low and high frame rates, instead of acceleration/damping overshoot.
     const blend = 1 - Math.exp(-6 * dt);
