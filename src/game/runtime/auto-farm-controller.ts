@@ -11,7 +11,7 @@ import { rangedEnemyHoldBand } from './ranged-enemy-range';
 import { compareAutoFarmTargets, enemyRewardStat, farmGroupMatches, farmStatGroup, readAutoFarmPriority, readAutoFarmPull, writeAutoFarmPriority, writeAutoFarmPull, type AutoFarmGroup, type AutoFarmPriority } from './auto-farm-priority';
 import type { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 import {
-  BOSS_READY_HIT_SHARE, BOSS_RETRY_MS, bestFarmCandidate, bossReady, decodeFarmPlan, encodeFarmPlan, nextRouteKey, readFarmAdvance, readFarmRoute,
+  AUTO_REPLAN_SECONDS, BOSS_READY_HIT_SHARE, BOSS_RETRY_MS, bestFarmCandidate, bossReady, decodeFarmPlan, encodeFarmPlan, nextRouteKey, readFarmAdvance, readFarmRoute,
   writeFarmAdvance, writeFarmRoute, type FarmEvaluation, type FarmReward,
 } from './auto-farm-plan';
 
@@ -23,6 +23,8 @@ export const AUTO_FARM_DEFEAT_WINDOW_MS = 180_000;
 export const AUTO_FARM_RANGED_STANDOFF_MARGIN = 10;
 /** How far inside its full reach autofarm stops: enough that a target at the stop point is still in range. */
 export const AUTO_FARM_REACH_MARGIN = 6;
+/** How long a pulled group may take to arrive before autofarm walks out to it. */
+export const PULL_WAIT_SECONDS = 4;
 
 /**
  * Where autofarm stops walking (`stop`) and how far the destination may then
@@ -80,7 +82,11 @@ export function createAutoFarmController(options: {
   /** Damage per second against regular enemies, for how long a kill takes. */
   farmDps?: () => number;
   /** This map's boss while it stands (null once it is down or respawning). */
-  mapBoss?: () => (Position & { r: number; dead?: boolean }) | null;
+  mapBoss?: () => (Position & { r: number; dead?: boolean; isBoss?: boolean; ry?: number; hitboxOffsetY?: number }) | null;
+  /** The next map exists and is unlocked but this build would not survive farming it. */
+  nextMapTooHard?: () => boolean;
+  /** Reflect Only: the bow does nothing, so enemies must be stood among to be hit and hit back. */
+  reflectOnly?: () => boolean;
   /** The unlocked portal forward to the next map, at its trigger point. */
   nextPortal?: () => (Position & { destination: string }) | null;
 }) {
@@ -94,6 +100,11 @@ export function createAutoFarmController(options: {
   let travellingTo: string | null = null;
   let bossRetryAt = 0;
   let planClock = 0;
+  /** Kills of the current camp since it was chosen: a route moves on after a camp's worth. */
+  let groupKills = 0;
+  const seenAlive = new WeakSet<EnemyState>();
+  /** How long it has stood waiting for a pulled group that never arrives. */
+  let pullWait = 0;
   let selected: string | null = null;
   let selectedType: AutoFarmGroup | null = null;
   let selectedCamp: string | null = null;
@@ -228,7 +239,7 @@ export function createAutoFarmController(options: {
   function select(key: string) {
     const choice = choices().find(entry => entry.key === key);
     if (!choice) return false;
-    if (selected !== key) { target = null; route = []; lastGoal = null; routeClock = 0; holding = false; }
+    if (selected !== key) { target = null; route = []; lastGoal = null; routeClock = 0; holding = false; groupKills = 0; pullWait = 0; }
     selected = key;
     selectedType = choice.key;
     selectedCamp = choice.camp;
@@ -240,29 +251,36 @@ export function createAutoFarmController(options: {
   function chooseCamp(dt: number) {
     const all = choices();
     if (plan.length) {
-      const alive = (key: string) => all.find(entry => entry.key === key)?.alive ?? 0;
+      // A camp with respawns is never empty for long, so the route moves on
+      // once it has taken a camp's worth of kills here, or found it empty.
+      const current = all.find(entry => entry.key === selected);
+      const done = current && groupKills >= current.total;
+      const alive = (key: string) => key === selected && done ? 0 : all.find(entry => entry.key === key)?.alive ?? 0;
       const key = nextRouteKey(plan, alive, selected);
       if (key) select(key);
       return;
     }
     planClock -= dt;
     const current = all.find(entry => entry.key === selected);
+    // Choosing again often meant walking between camps half the time.
     if (current && current.alive > 0 && planClock > 0) return;
-    planClock = 2;
+    planClock = AUTO_REPLAN_SECONDS;
     const dps = Math.max(1e-9, options.farmDps?.() ?? player.damage);
     const speed = Math.max(1, options.speed());
     const evaluate = options.evaluate ?? (() => ({ power: 0, fightSeconds: null, hitShare: null }));
     const key = bestFarmCandidate(all.map(entry => ({
       key: entry.key, alive: entry.alive,
       reward: entry.reward ?? ENEMY_TYPES[entry.type].reward,
-      secondsPerKill: entry.hp / dps + (entry.key === selected || !Number.isFinite(entry.nearest) ? 0 : entry.nearest / speed / Math.max(1, entry.alive)),
+      // The walk is paid in full: a camp across the map has to be worth it.
+      secondsPerKill: entry.hp / dps + (entry.key === selected || !Number.isFinite(entry.nearest) ? 0 : entry.nearest / speed),
     })), evaluate, advance && Boolean(options.mapBoss?.()), selected);
     if (key) select(key);
   }
 
   /** Boss, next map or a camp. Moving on needs the toggle; the boss also needs the build to be ready for it. */
   function choosePhase(dt: number) {
-    if (advance) {
+    // Reflect Only leaves the boss to the player: the fight is won by taking its hits, which readiness does not model.
+    if (advance && !options.reflectOnly?.()) {
       const portal = options.nextPortal?.();
       if (portal) { phase = 'portal'; travellingTo = portal.destination; return; }
       const boss = options.mapBoss?.();
@@ -343,6 +361,11 @@ export function createAutoFarmController(options: {
       return manual;
     }
     if (!active || options.paused()) return manual;
+    for (const enemy of enemies) {
+      if (selectedType === null || enemy.generatedBoss || !farmGroupMatches(enemy, selectedType)) continue;
+      if (!enemy.dead && enemy.hp > 0) seenAlive.add(enemy);
+      else if (seenAlive.delete(enemy)) { groupKills++; pullWait = 0; }
+    }
     choosePhase(dt);
     const boss = phase === 'boss' ? options.mapBoss?.() ?? null : null;
     const portal = phase === 'portal' ? options.nextPortal?.() ?? null : null;
@@ -357,26 +380,49 @@ export function createAutoFarmController(options: {
     let threat: EnemyState | null = null;
     // On the way to the boss or the next map it shoots what it passes but
     // chases nobody: a group camp's attackers respawn faster than they die,
-    // and turning to each one meant never arriving.
-    if (phase === 'farm') for (const enemy of enemies) {
+    // and turning to each one meant never arriving. A pulled group is coming
+    // anyway, so walking out to meet each of them only zig-zags.
+    if (phase === 'farm' && !pullAll) for (const enemy of enemies) {
       if (!enemy.generatedBoss && isEnemyAttackingPlayer(enemy, options.localIdentity?.()) && (!threat || distance(enemy) < distance(threat))) threat = enemy;
     }
+    // With the group pulled and on its way, stand and let it come; walk out
+    // only if nothing has reached range for a few seconds (stuck, or ranged).
+    const reach = weaponAttackRange(options.equippedWeapon?.(), player.attackRange);
+    if (phase === 'farm' && pullAll && !threat) {
+      const coming = enemies.some(enemy => validEnemy(enemy) && enemy.engaged);
+      const inReach = enemies.some(enemy => validEnemy(enemy) && distance(enemy) <= reach + enemy.r);
+      pullWait = coming && !inReach ? pullWait + dt : 0;
+      if (coming && (inReach || pullWait < PULL_WAIT_SECONDS)) { holding = true; route = []; status = inReach ? 'Farming' : 'Pulling'; return idle(); }
+    }
     // Walking to the portal, nothing stops it but a fight that finds it.
-    let destination: Position | null = threat ?? target ?? portal ?? boss;
+    // A boss is aimed at its hitbox, not its sprite's foot.
+    const bossPoint = boss ? { x: boss.x, y: boss.y + (boss.hitboxOffsetY ?? 0) } : null;
+    let destination: Position | null = threat ?? target ?? portal ?? bossPoint;
     if (!destination) {
       for (const site of spawnSites) if (choiceKey(site) === selected && (!destination || distance(site) < distance(destination))) destination = site;
     }
     if (!destination) { stop('No matching enemies in this map'); return idle(); }
     const weapon = options.equippedWeapon?.();
     const enemy = threat ?? target;
-    const standoff = !enemy && portal ? { stop: 0, resume: 0 } : autoFarmStandoff({
-      weaponRange: weaponAttackRange(weapon, player.attackRange) + (!enemy && boss ? boss.r : 0),
+    // A campaign boss is hit at its surface (its narrower radius, to be safe);
+    // an Endless boss is a regular enemy, hit at its centre unless melee.
+    const bossReach = !enemy && boss ? (boss.isBoss ? Math.min(boss.r, boss.ry ?? boss.r) : isMeleeWeapon(weapon) ? boss.r : 0) : 0;
+    let standoff = !enemy && portal ? { stop: 0, resume: 0 } : autoFarmStandoff({
+      weaponRange: weaponAttackRange(weapon, player.attackRange) + bossReach,
       playerAttackRange: player.attackRange,
       melee: isMeleeWeapon(weapon),
       playerRadius: player.r,
       destination: enemy ?? destination,
       enemy: Boolean(enemy),
     });
+    if (enemy && options.reflectOnly?.()) {
+      // Nothing the bow does lands here: stand at the enemy so it attacks, and Reflect does the killing.
+      const contact = player.r + enemy.r + 6;
+      standoff = { stop: contact, resume: contact + 20 };
+    } else if (enemy && (enemy.vx * (enemy.x - player.x) + enemy.vy * (enemy.y - player.y)) > 0 && Math.hypot(enemy.vx, enemy.vy) > 10) {
+      // Walking away: close in further, or every step it takes puts it back out of range before a shot.
+      standoff = { stop: standoff.stop * .6, resume: standoff.stop * .8 };
+    }
     const range = standoff.stop;
     const remaining = distance(destination);
     // A pixel of slack: arriving at the stop point by floating-point steps can land a hair outside it.
@@ -434,7 +480,9 @@ export function createAutoFarmController(options: {
     },
     /** Why it will or won't take on the boss, in a word or two for the panel. */
     bossStatus() {
+      if (options.reflectOnly?.()) return 'Off in Reflect Only';
       if (options.nextPortal?.()) return 'Next map open';
+      if (options.nextMapTooHard?.()) return 'Next map too hard';
       const boss = options.mapBoss?.();
       const evaluation = options.evaluate?.();
       if (!boss || !evaluation || evaluation.fightSeconds === null) return '';

@@ -5,6 +5,7 @@ import type { FarmEvaluation, FarmReward } from './auto-farm-plan';
 import { runtimeMapBalance } from '../../../shared/map-balance-runtime';
 import { isProceduralMap, proceduralMapNumber } from '../../../shared/procedural-maps';
 import { MAP_IDS as CAMPAIGN_MAP_IDS } from '../../../shared/rules';
+import { simulateOfflineFarming } from '../../../shared/offline-progress';
 
 export type FarmBoss = { hp: number; strongestHit: number; regenFraction?: number; mapId: string };
 
@@ -57,6 +58,8 @@ export function createFarmEvaluator(deps: {
         hitShare: damageAfterArmor(boss.strongestHit, stats.armor) / Math.max(1, stats.maxHp),
       };
     },
+    /** The live build's effective stats. */
+    stats: () => build(),
     /** Damage per second against a regular enemy, crits included. */
     dps() {
       const stats = build();
@@ -66,7 +69,13 @@ export function createFarmEvaluator(deps: {
 }
 
 type FarmPortal = { x: number; y: number; height: number; destination: string };
-type LiveBoss = { x: number; y: number; r: number; dead?: boolean };
+type LiveBoss = { x: number; y: number; r: number; dead?: boolean; isBoss?: boolean; ry?: number; hitboxOffsetY?: number };
+/**
+ * Long enough that a map that only kills slowly still counts as too hard.
+ * Players reported autofarm beating a boss and walking on to a map it could
+ * not hold, which cost a night of farming.
+ */
+export const NEXT_MAP_HOLD_SECONDS = 30 * 60;
 
 /** How deep a map is: the campaign in order, then Endless. Forward is a higher rank. */
 export function farmMapRank(mapId: string) {
@@ -83,19 +92,33 @@ export function createAutoFarmProgress(deps: Omit<Parameters<typeof createFarmEv
   mapBoss: () => LiveBoss | null | undefined;
   portals: () => readonly (FarmPortal | null | undefined)[];
   portalUnlocked: (portal: FarmPortal) => boolean;
+  reflectOnly: () => boolean;
 }) {
   const evaluator = createFarmEvaluator({ ...deps, boss: () => {
     const boss = runtimeMapBalance(deps.mapId())?.boss;
     return boss ? { hp: boss.hp, strongestHit: Math.max(boss.damage, ...Object.values(boss.attacks)), regenFraction: boss.regenFraction, mapId: deps.mapId() } : null;
   } });
+  const forward = () => {
+    const here = farmMapRank(deps.mapId());
+    return deps.portals().find((portal): portal is FarmPortal => Boolean(portal) && farmMapRank(portal!.destination) > here && deps.portalUnlocked(portal!)) ?? null;
+  };
+  // The offline estimate the server already trusts: can this build hold the map, unattended?
+  let holdable: { key: string; ok: boolean } | null = null;
+  const canHold = (mapId: string) => {
+    const stats = evaluator.stats();
+    const key = `${mapId}:${stats.maxHp}:${stats.damage}:${stats.armor}:${stats.regen}:${stats.attackRate}`;
+    if (holdable?.key !== key) holdable = { key, ok: simulateOfflineFarming(mapId, stats, NEXT_MAP_HOLD_SECONDS).survivable };
+    return holdable.ok;
+  };
   return {
     evaluate: (reward?: FarmReward) => evaluator.evaluate(reward),
     farmDps: () => evaluator.dps(),
     mapBoss: () => { const boss = deps.mapBoss(); return boss && !boss.dead ? boss : null; },
     nextPortal: () => {
-      const here = farmMapRank(deps.mapId());
-      const forward = deps.portals().find((portal): portal is FarmPortal => Boolean(portal) && farmMapRank(portal!.destination) > here && deps.portalUnlocked(portal!));
-      return forward ? { x: forward.x, y: forward.y - forward.height * .32, destination: forward.destination } : null;
+      const portal = forward();
+      return portal && canHold(portal.destination) ? { x: portal.x, y: portal.y - portal.height * .32, destination: portal.destination } : null;
     },
+    nextMapTooHard: () => { const portal = forward(); return Boolean(portal && !canHold(portal.destination)); },
+    reflectOnly: deps.reflectOnly,
   };
 }

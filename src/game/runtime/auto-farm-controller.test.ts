@@ -3,7 +3,7 @@ import { parseHTML } from 'linkedom';
 import { createBalanceApologyGiftController } from '../../ui/balance-apology-gift-controller';
 import { createGameBootstrap } from './game-bootstrap';
 import { createEnemyLifecycle } from './enemy-lifecycle';
-import { createAutoFarmController, autoFarmStandoff, AUTO_FARM_DEFEAT_LIMIT, AUTO_FARM_DEFEAT_WINDOW_MS, AUTO_FARM_REACH_MARGIN } from './auto-farm-controller';
+import { createAutoFarmController, autoFarmStandoff, AUTO_FARM_DEFEAT_LIMIT, AUTO_FARM_DEFEAT_WINDOW_MS, AUTO_FARM_REACH_MARGIN, PULL_WAIT_SECONDS } from './auto-farm-controller';
 import { createEnemySimulation } from './enemy-simulation';
 import { rangedEnemyHoldBand } from './ranged-enemy-range';
 import { attackRangeWithResearch } from '../../../shared/utility-research';
@@ -560,5 +560,56 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
     off.add('Bramble', 900, 500); off.farm.start([]); off.tick();
     off.farm.travelStarted();
     expect(off.resumeStore.read()).toBeNull();
+  });
+
+  it("moves along a route after a camp's worth of kills, even while that camp keeps respawning", () => {
+    const s = planned();
+    const first = s.add('Bramble', 900, 500);
+    s.add('Needle', 600, 900);
+    s.farm.start([health, speed]);
+    s.tick();
+    expect(s.farm.state().selected).toBe(health);
+    // Killed and straight back (a respawn): one kill of a one-enemy camp is its worth.
+    first.dead = true; s.tick();
+    first.dead = false; first.hp = first.maxHp; s.tick();
+    expect(s.farm.state().selected).toBe(speed);
+  });
+
+  it('stands still while a pulled group walks in, and only goes out to it if it never arrives', () => {
+    const s = planned();
+    const far = s.add('Bramble', 2500, 500);
+    s.farm.setPullAll(true);
+    s.farm.start([health]);
+    far.engaged = true;
+    expect(s.tick()).toEqual(idle);
+    expect(s.farm.state().status).toBe('Pulling');
+    for (let frame = 0; frame < 60 * PULL_WAIT_SECONDS + 5; frame++) s.tick();
+    expect(s.tick().x).toBeGreaterThan(0);
+  });
+
+  it('in Reflect Only walks into the enemy instead of shooting from range, and leaves the boss alone', () => {
+    const s = planned({ reflectOnly: () => true, evaluate: () => ({ power: 1, fightSeconds: 1, hitShare: 0 }), mapBoss: () => ({ x: 3000, y: 500, r: 80 }) });
+    const mob = s.add('Bramble', 900, 500);
+    s.farm.setAdvance(true);
+    s.farm.start([health]);
+    for (let frame = 0; frame < 200; frame++) { const step = s.tick(); s.player.x += step.x * 5; s.player.y += step.y * 5; }
+    expect(s.farm.state().phase).toBe('farm');
+    expect(Math.hypot(mob.x - s.player.x, mob.y - s.player.y)).toBeLessThan(s.player.r + mob.r + 30);
+    expect(s.farm.bossStatus()).toBe('Off in Reflect Only');
+  });
+
+  it("stands within reach of a campaign boss's hitbox, and of an Endless boss's centre", () => {
+    for (const [boss, reachFromCentre] of [
+      [{ x: 2500, y: 500, r: 150, ry: 90, isBoss: true, hitboxOffsetY: 0 }, 200 + 90],
+      [{ x: 2500, y: 500, r: 60 }, 200],
+    ] as const) {
+      const s = planned({ evaluate: () => ({ power: 1, fightSeconds: 10, hitShare: .1 }), mapBoss: () => ({ ...boss }) });
+      s.add('Bramble', 600, 900);
+      s.farm.setAdvance(true);
+      s.farm.start([]);
+      for (let frame = 0; frame < 2000; frame++) { const step = s.tick(); s.player.x += step.x * 5; s.player.y += step.y * 5; }
+      expect(s.farm.state().phase).toBe('boss');
+      expect(Math.hypot(boss.x - s.player.x, boss.y - s.player.y)).toBeLessThanOrEqual(reachFromCentre);
+    }
   });
 });

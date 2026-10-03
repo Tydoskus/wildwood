@@ -15,8 +15,10 @@ import type { RewardType } from '../enemies';
  */
 export const BOSS_READY_FIGHT_SECONDS = BOSS_TARGET_SECONDS;
 export const BOSS_READY_HIT_SHARE = .3;
-/** A camp has to beat the current one by this much before Auto walks over to it. */
-export const AUTO_SWITCH_MARGIN = 1.15;
+/** A camp has to beat the current one by this much before Auto walks over to it (players saw it hop camps). */
+export const AUTO_SWITCH_MARGIN = 1.5;
+/** How often Auto looks again while its camp still has enemies. */
+export const AUTO_REPLAN_SECONDS = 20;
 /** After a death at the boss, farm this long before trying again. */
 export const BOSS_RETRY_MS = 5 * 60_000;
 

@@ -1,4 +1,13 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.874": [
+    "Autofarm: pulling a group now stands still and lets it come, instead of running to each enemy",
+    "Autofarm: a camp order moves on after a camp's worth of kills, even while it keeps respawning",
+    "Autofarm: stands in range of the boss (it stood just out of range before)",
+    "Autofarm: only moves to the next map when you can survive farming it",
+    "Autofarm in Reflect Only walks up to enemies so they attack, and leaves the boss to you",
+    "Autofarm: Auto changes camp less often and stops walking far for small gains",
+    "Autofarm: no more stutter-stepping after enemies that walk away",
+  ],
   "0.873": [
     "Autofarm redesign: pick camps in the order to farm them, or let Auto choose the best camp for you",
     "Autofarm can fight the boss when you're ready and move on to the next map (Boss & next map)",
@@ -2697,6 +2706,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.874": "2026-10-03",
   "0.873": "2026-10-03",
   "0.872": "2026-10-03",
   "0.871": "2026-10-03",

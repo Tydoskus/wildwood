@@ -560,7 +560,7 @@ import {
   const farmProgress = createAutoFarmProgress({ mapId: () => currentMapId, base: () => ({ maxHp: player.baseMaxHp, damage: player.damage, attackRate: player.attackRate, armor: player.armor, regen: player.regen }),
     equipment: () => ({ equippedHead: inventory.equippedHead, equippedChest: inventory.equippedChest, equippedRightHand: inventory.equippedRightHand, equippedLeftHand: inventory.equippedLeftHand }),
     research: () => researchRanks(), upgradeLevel: itemId => coop?.itemUpgradeLevel?.(itemId) ?? 0, rewardMultiplier: () => researchRewardMultiplier(), minAttackInterval: () => challengeMinimumInterval(coop?.prestigeChallenge?.()), criticalChance: () => researchCriticalChance(), criticalMultiplier: () => researchCriticalDamageMultiplier(),
-    mapBoss: () => proceduralBoss.boss() ?? farmBosses.get(currentMapId), portalUnlocked: portal => mapController.portalIsUnlocked(portal as never), portals: () => { const config = MAP_CONFIG[currentMapId]; return [config.portal, "secondaryPortal" in config ? config.secondaryPortal : null]; } });
+    reflectOnly: () => Boolean(coop?.prestigeChallenge?.()?.active), mapBoss: () => proceduralBoss.boss() ?? farmBosses.get(currentMapId), portalUnlocked: portal => mapController.portalIsUnlocked(portal as never), portals: () => { const config = MAP_CONFIG[currentMapId]; return [config.portal, "secondaryPortal" in config ? config.secondaryPortal : null]; } });
   const autoFarm = createAutoFarmController({
     resumeStore: createAutoFarmResumeStore(),
     player, enemies, spawnSites, mapId: () => currentMapId,
