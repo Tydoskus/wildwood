@@ -57,6 +57,14 @@ it("an old response cannot replace a reopened profile for the same player", asyn
   f.subscriptions[1].apply();
   expect(await first).toBeNull(); expect(await second).toBeNull();
 });
+it("asks the server whether an eye-off player is on, since their row is withheld", async () => {
+  const f = fixture();
+  Object.assign(f.connection.procedures, { getPlayerPresence: vi.fn(async () => JSON.stringify({ online: true, mapId: "water_reach", lastSeenAtMs: 1 })) });
+  const pending = f.service.api.loadPlayerProfile("friend");
+  f.subscriptions[0].apply();
+  await pending;
+  await vi.waitFor(() => expect(f.service.api.activePlayerMap("friend")).toBe("water_reach"));
+});
 it("a stalled profile request times out safely and still disposes a late subscription", async () => {
   vi.useFakeTimers();
   const f = fixture();

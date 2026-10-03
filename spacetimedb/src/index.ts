@@ -5985,18 +5985,22 @@ function guildFighterFor(ctx: ModuleReducerCtx, identity: Identity): DuelFighter
   };
 }
 
+/** Online and where, for profiles and guilds: survives eye-off and autofarming; an invisible developer is offline. */
+function playerPresence(ctx: any, identity: any) {
+  const active = ctx.db.player.identity.find(identity);
+  const online = Boolean(active)
+    && (!isDeveloperIdentity(identity) || (ctx.db.developerPresencePreference.identity.find(identity)?.visible ?? false));
+  return { online, mapId: online ? active.mapId as string : "",
+    lastSeenAtMs: Number(ctx.db.playerLifetime.identity.find(identity)?.sessionStartedAt.microsSinceUnixEpoch ?? 0n) / 1000 };
+}
 const guildService = createGuildService({
   prestigeFor: (ctx, identity) => ctx.db.playerPrestige.identity.find(identity)?.level ?? 0,
   powerFor: (ctx, identity) => {
     const progress = readPlayerProgress(ctx, identity);
     return progress ? effectivePowerForProgress(ctx, progress) : 0;
   },
-  presenceFor: (ctx, identity) => ({
-    // Root presence survives eye-off and autofarming; no movement subscription needed.
-    online: Boolean(ctx.db.player.identity.find(identity))
-      && (!isDeveloperIdentity(identity) || (ctx.db.developerPresencePreference.identity.find(identity)?.visible ?? false)),
-    lastSeenAtMs: Number(ctx.db.playerLifetime.identity.find(identity)?.sessionStartedAt.microsSinceUnixEpoch ?? 0n) / 1000,
-  }),
+  // Guild rows show online and last seen, never the map.
+  presenceFor: (ctx, identity) => { const { online, lastSeenAtMs } = playerPresence(ctx, identity); return { online, lastSeenAtMs }; },
   profileFor: (ctx, identity) => ctx.db.playerProfile.identity.find(identity) ?? undefined,
   questFor: memberQuestStanding, questCollect: questCollectStanding, onJoin: moveSoloQuestsToGuild,
   battleShared: (ctx, replayKey) => !ctx.db.chatMessage.byGuildReplay.filter(replayKey)[Symbol.iterator]().next().done,
@@ -6111,6 +6115,8 @@ function requireSocialPlayer(ctx: ModuleReducerCtx) {
   if (isVirtualPlayer(ctx, ctx.sender)) throw new SenderError("Use your main character connection.");
 }
 /** The viewer's chat role: their moderator heart, and whether their reports remove messages. */
+// A profile's online line: player rows of eye-off players are withheld from other clients (0.877).
+export const getPlayerPresence = spacetimedb.procedure({ identity: t.identity() }, t.string(), (ctx, { identity }) => ctx.withTx(tx => JSON.stringify(playerPresence(tx, identity))));
 export const getChatRole = spacetimedb.procedure({}, t.string(), ctx => ctx.withTx(tx => { requireSocialPlayer(tx); return JSON.stringify({ moderatorHeart: moderatorHeartFor(tx, tx.sender), canModerate: (isDeveloperIdentity(tx.sender) || isChatModerator(tx, tx.sender)) && hasSpacetimeAuthAccount(tx) }); }));
 /** Undo a removal from the chat itself; developers and moderators, signed in. */
 export const restoreChatMessage = spacetimedb.reducer({ channel: t.string(), messageId: t.u64() }, (ctx, { channel, messageId }) => {

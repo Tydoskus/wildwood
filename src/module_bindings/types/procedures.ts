@@ -36,6 +36,7 @@ import * as GetOtherCharacterForLoginProcedure from "../get_other_character_for_
 import * as GetPatreonStatusProcedure from "../get_patreon_status_procedure";
 import * as GetPlayerDirectoryProcedure from "../get_player_directory_procedure";
 import * as GetPlayerModerationHistoryProcedure from "../get_player_moderation_history_procedure";
+import * as GetPlayerPresenceProcedure from "../get_player_presence_procedure";
 import * as GetPrestigeLeaderboardPageProcedure from "../get_prestige_leaderboard_page_procedure";
 import * as GetSocialChatHistoryProcedure from "../get_social_chat_history_procedure";
 import * as GetSocialChatHistoryWithReactionsProcedure from "../get_social_chat_history_with_reactions_procedure";
@@ -103,6 +104,8 @@ export type GetPlayerDirectoryArgs = __Infer<typeof GetPlayerDirectoryProcedure.
 export type GetPlayerDirectoryResult = __Infer<typeof GetPlayerDirectoryProcedure.returnType>;
 export type GetPlayerModerationHistoryArgs = __Infer<typeof GetPlayerModerationHistoryProcedure.params>;
 export type GetPlayerModerationHistoryResult = __Infer<typeof GetPlayerModerationHistoryProcedure.returnType>;
+export type GetPlayerPresenceArgs = __Infer<typeof GetPlayerPresenceProcedure.params>;
+export type GetPlayerPresenceResult = __Infer<typeof GetPlayerPresenceProcedure.returnType>;
 export type GetPrestigeLeaderboardPageArgs = __Infer<typeof GetPrestigeLeaderboardPageProcedure.params>;
 export type GetPrestigeLeaderboardPageResult = __Infer<typeof GetPrestigeLeaderboardPageProcedure.returnType>;
 export type GetSocialChatHistoryArgs = __Infer<typeof GetSocialChatHistoryProcedure.params>;

@@ -215,10 +215,21 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
             if (row.identity.toHexString() === identity) dependencies.directory.tables.upsertAccountStatus(row);
           }
           profilePlayerMaps.set(identity, "");
+          let rowVisible = false;
           for (const row of connection.db.player.iter()) {
             if (row.identity.toHexString() !== identity) continue;
+            rowVisible = true;
             profilePlayerMaps.set(identity, isDeveloperIdentity(identity) && !row.isVisible ? "" : row.mapId);
           }
+          // An eye-off player's row is withheld from other clients (0.877), so
+          // ask the server whether they are on; an older server without it leaves them offline.
+          if (!rowVisible) void Promise.resolve().then(() => connection.procedures.getPlayerPresence({ identity: dbIdentity })).then(json => {
+            const presence = JSON.parse(json) as { online?: boolean; mapId?: string };
+            if (presence.online && presence.mapId && generation === profileGeneration && activeIdentity === identity) {
+              profilePlayerMaps.set(identity, presence.mapId);
+              dependencies.notify();
+            }
+          }).catch(() => {});
           finish(cachedPlayerProfile(identity));
         })
         .onError(() => {

@@ -245,6 +245,7 @@ import * as GetOtherCharacterForLoginProcedure from "./get_other_character_for_l
 import * as GetPatreonStatusProcedure from "./get_patreon_status_procedure";
 import * as GetPlayerDirectoryProcedure from "./get_player_directory_procedure";
 import * as GetPlayerModerationHistoryProcedure from "./get_player_moderation_history_procedure";
+import * as GetPlayerPresenceProcedure from "./get_player_presence_procedure";
 import * as GetPrestigeLeaderboardPageProcedure from "./get_prestige_leaderboard_page_procedure";
 import * as GetSocialChatHistoryProcedure from "./get_social_chat_history_procedure";
 import * as GetSocialChatHistoryWithReactionsProcedure from "./get_social_chat_history_with_reactions_procedure";
@@ -1759,6 +1760,7 @@ const proceduresSchema = __procedures(
   __procedureSchema("get_patreon_status", GetPatreonStatusProcedure.params, GetPatreonStatusProcedure.returnType),
   __procedureSchema("get_player_directory", GetPlayerDirectoryProcedure.params, GetPlayerDirectoryProcedure.returnType),
   __procedureSchema("get_player_moderation_history", GetPlayerModerationHistoryProcedure.params, GetPlayerModerationHistoryProcedure.returnType),
+  __procedureSchema("get_player_presence", GetPlayerPresenceProcedure.params, GetPlayerPresenceProcedure.returnType),
   __procedureSchema("get_prestige_leaderboard_page", GetPrestigeLeaderboardPageProcedure.params, GetPrestigeLeaderboardPageProcedure.returnType),
   __procedureSchema("get_social_chat_history", GetSocialChatHistoryProcedure.params, GetSocialChatHistoryProcedure.returnType),
   __procedureSchema("get_social_chat_history_with_reactions", GetSocialChatHistoryWithReactionsProcedure.params, GetSocialChatHistoryWithReactionsProcedure.returnType),

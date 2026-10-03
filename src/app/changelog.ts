@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.879": [
+    "Profiles show players as online again when they have multiplayer turned off",
+  ],
   "0.878": [
     "Autofarm shoots the boss when nothing it's farming is in range (it only did while you moved)",
     "Autofarm only fights the boss once it can survive the whole fight, not just one hit",
@@ -2731,6 +2734,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.879": "2026-10-03",
   "0.878": "2026-10-03",
   "0.877": "2026-10-03",
   "0.876": "2026-10-03",

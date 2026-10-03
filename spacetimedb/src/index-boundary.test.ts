@@ -177,7 +177,9 @@ import { describe, expect, it } from "vitest";
 // shared with the client instead of copied by hand.
 // 6_561: row-level visibility filters (clientVisibilityFilter) must be exports
 // of the entry module; the raise is those declarations and their comment.
-const MAX_LINES = 6_561;
+// 6_567: get_player_presence, the profile's online line now that eye-off
+// players' rows are withheld; the presence rule moved out of the guild wiring.
+const MAX_LINES = 6_567;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {
