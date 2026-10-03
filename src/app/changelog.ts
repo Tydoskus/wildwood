@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.872": [
+    "Autofarm's aggro pull keeps working while you steer by hand",
+  ],
   "0.871": [
     "Enemy camps are twice as big and enemies spread anywhere inside them, no more formations",
     "No portal or respawn point puts you next to enemies, on any map including Endless",
@@ -2687,6 +2690,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.872": "2026-10-03",
   "0.871": "2026-10-03",
   "0.870": "2026-10-03",
   "0.869": "2026-10-03",

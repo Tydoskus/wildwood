@@ -312,7 +312,8 @@ export function createAutoFarmController(options: {
       writeAutoFarmPull(next, options.priorityStorage);
     },
     /** With "aggro on spawn" ticked, every live enemy of the farmed group comes for the player, from anywhere. */
-    pulls: (enemy: EnemyState) => pullAll && active && !manualControl && !recovering && !pendingResume && !options.paused() && validEnemy(enemy),
+    // Steering by hand keeps the pull: the group follows the player while they move.
+    pulls: (enemy: EnemyState) => pullAll && active && !recovering && !pendingResume && !options.paused() && validEnemy(enemy),
     setPriority(next: AutoFarmPriority) {
       if (next === priority) return;
       priority = next;

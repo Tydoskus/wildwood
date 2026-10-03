@@ -52,6 +52,19 @@ function setup(obstacles: Circle[] = [], weapon = "starter_bow", resumeStore?: R
 }
 
 describe('autofarm', () => {
+  it('keeps pulling the whole group while the player steers by hand', () => {
+    const s = setup();
+    const mob = s.add('Bramble', 1500, 500);
+    s.farm.setPullAll(true);
+    s.farm.start('Bramble');
+    s.tick();
+    expect(s.farm.pulls(mob)).toBe(true);
+    s.farm.movement({ x: 1, y: 0, source: 'keyboard' } as Movement, 1 / 60);
+    expect(s.farm.pulls(mob)).toBe(true);
+    s.farm.setPullAll(false);
+    expect(s.farm.pulls(mob)).toBe(false);
+  });
+
   it('keeps moving while a 15-gem gift is visible, acknowledging, and dismissed', async () => {
     const s = setup();
     s.add('Bramble', 1500, 500);
