@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.867": [
+    "Reflect kills are no longer cut back by the server for sturdy builds or with Second Wind, so their stats stop rolling back",
+    "Endless uses later maps' enemies instead of the forest slimes",
+  ],
   "0.866": [
     "Reflect throws back the whole hit, up to your max health instead of your damage; still no cap in Reflect Only",
   ],
@@ -2664,6 +2668,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.867": "2026-10-02",
   "0.866": "2026-10-01",
   "0.865": "2026-10-01",
   "0.864": "2026-10-01",

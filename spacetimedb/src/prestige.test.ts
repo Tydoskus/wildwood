@@ -334,6 +334,31 @@ it("pays a Reflect Only run for what Reflect could have killed, and nothing with
   expect(reflected).toBeLessThan(weapon);
 });
 
+it("pays an unarmed Reflect Only run, which has no weapon but still earns through Reflect", () => {
+  const f = farmer(1);
+  f.patch("playerProgress", { equippedRightHand: "", equippedLeftHand: "", maxHp: 2, regen: 0 });
+  f.seed("playerPrestigePerk", { identity: f.ctx.sender, riposte: PRESTIGE_PERK_MAX_RANK });
+  f.seed("playerPrestigeChallenge", { identity: f.ctx.sender, active: true, completed: 0 });
+  fillDefeatBudget(f, "tutorial_forest", "Spitter");
+  farmSpitters(f, 100);
+  expect(Number(f.db.playerLifetime.identity.find(f.ctx.sender)?.enemyKills ?? 0n)).toBeGreaterThan(0);
+});
+
+it("counts Reflect's own kills outside the challenge, so a sturdy player with a weak bow is not clipped", () => {
+  const kills = (riposte: number) => {
+    const f = farmer(1);
+    // A bow too weak to kill a Spitter fast, and a health pool big enough to reflect whole hits.
+    f.patch("playerProgress", { damage: .0001, maxHp: 1_000, regen: 0 });
+    if (riposte) f.seed("playerPrestigePerk", { identity: f.ctx.sender, riposte });
+    // Mossbacks pay armor, so the report's own rewards cannot make the bow strong mid-report.
+    fillDefeatBudget(f, "tutorial_forest", "Mossback");
+    reportKills(f, { streamId: "prestige-stream-02", sequence: 1n, mapId: "tutorial_forest", enemies: [{ enemy: "Mossback", count: 30 }] });
+    return Number(f.db.playerLifetime.identity.find(f.ctx.sender)?.enemyKills ?? 0n);
+  };
+  expect(kills(0)).toBe(0);
+  expect(kills(PRESTIGE_PERK_MAX_RANK)).toBeGreaterThan(0);
+});
+
 it("raises Reflect's cap by one for each Reflect Only win, while every other perk stops at 5", () => {
   const f = crystalFixture();
   f.seed("playerPrestige", { identity: f.ctx.sender, level: 20, perkPoints: 20, peakPower: 0, prestigedAt: f.ctx.timestamp });

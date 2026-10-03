@@ -125,6 +125,8 @@ export type BossCombatDeps = {
 export const REFLECT_ONLY_LIFE_SECONDS = 4;
 /** Reflect lands whenever a hit does, with no swing to round kills to; a short tick keeps the bound continuous. */
 export const REFLECT_ONLY_TICK_SECONDS = .1;
+/** More kills a second than any map respawns (about 3.3 on Endless): Second Wind heals once per kill. */
+export const SECOND_WIND_KILLS_PER_SECOND = 4;
 
 export function createBossCombat(deps: BossCombatDeps) {
   const {
@@ -175,7 +177,10 @@ export function createBossCombat(deps: BossCombatDeps) {
       const research = ctx.db.playerResearch.identity.find(ctx.sender);
       const statMultiplier = statRewardMultiplier(ctx, ctx.sender);
       const loadout = saved ? damageLoadout(ctx, saved, research) : null;
-      if (!saved || !loadout?.weapon) return { saved, research, loadout, statMultiplier, gear: null };
+      if (!saved || !loadout) return { saved, research, loadout, statMultiplier, gear: null };
+      // Empty hands still earn through Reflect (an unarmed Reflect run): the
+      // bound must not read no weapon as no combat, which paid them nothing.
+      const armed = Boolean(loadout.weapon);
       // Every personal boss can receive criticals. Use the possible maximum so
       // legitimate lucky streaks do not cause first-clear rewards to be rejected.
       // Keen Edge grants crit on its own, so a player with no crit research can
@@ -194,12 +199,14 @@ export function createBossCombat(deps: BossCombatDeps) {
       return { saved, research, loadout, statMultiplier, gear: {
         loadout, critical, swing: prestigeSwingMultiplier(ranks),
         // Projectile count is not a kill reward, so the saved row holds for the whole report.
-        projectiles: itemDefinition(loadout.weapon)?.weapon?.mode === "MELEE" ? 1 : Math.max(1, saved.projectileCount),
+        armed,
+        projectiles: !armed || itemDefinition(loadout.weapon)?.weapon?.mode === "MELEE" ? 1 : Math.max(1, saved.projectileCount),
         // Reflect returns the hit before armor, so armor raises what it adds.
         reach: prestigeReachMultiplier(ranks, armorDamageReduction(effectivePlayerPowerStats(saved, research, loadout.levelFor).armor))
           * bowSkillReachMultiplier(bowSkills),
         bossDamage: bowSkillBossDamageMultiplier(bowSkills) * (1 + prestigePerkValue(ranks, "bossSlayer")),
         reflects: prestigePerkValue(ranks, "riposte") > 0,
+        secondWind: prestigePerkValue(ranks, "secondWind"),
         reflectOnly: Boolean(ctx.db.playerPrestigeChallenge.identity.find(ctx.sender)?.active),
       } };
     }
@@ -212,24 +219,28 @@ export function createBossCombat(deps: BossCombatDeps) {
         const progress = earned.length ? applyEnemyRewards(saved, earned, statMultiplier, challengeMinimumInterval(ctx.db.playerPrestigeChallenge.identity.find(ctx.sender))) : saved;
         const attackInterval = attackIntervalForProgress(progress);
         if (!gear) return { dps: 0, attackInterval, projectiles: 1 };
-        const dps = gear.loadout.damage(progress.damage) * gear.critical * gear.swing * gear.projectiles / attackInterval;
-        // Reflect throws a hit back (capped at the player's own damage), at bosses too, as it arrived before
-        // armor. What got through can never total more than the player's health
-        // and what regen restores before they fall, and a hit before armor is
-        // what got through times preArmorFactor: so that, scaled, is
-        // the most Reflect can shorten a clear, whatever its bag drew.
-        const reflect = gear.reflects ? (({ maxHp, regen, armor }) => ({ maxHp, regen, preArmor: preArmorFactor(armorDamageReduction(armor)) }))(
-          effectivePlayerPowerStats(progress, report().research, gear.loadout.levelFor)) : null;
-        // Reflect Only: the weapon counts for nothing, and every kill has to come
-        // from hits taken. What got through is at most a full health bar per life
-        // plus regen, a life being no shorter than REFLECT_ONLY_LIFE_SECONDS; that,
-        // scaled up by armor, is the most Reflect can return. The perk's
-        // chance is left out, so the bound only ever errs towards paying.
+        const dps = gear.armed ? gear.loadout.damage(progress.damage) * gear.critical * gear.swing * gear.projectiles / attackInterval : 0;
+        // Reflect throws a hit back, at bosses too, as it arrived before armor
+        // (capped at max health outside Reflect Only). What got through can
+        // never total more than the player's health, what regen restores and
+        // what Second Wind heals on kills before they fall, and a hit before
+        // armor is what got through times preArmorFactor: so that, scaled, is
+        // the most Reflect can deal, whatever its bag drew.
+        const stats = gear.reflects ? effectivePlayerPowerStats(progress, report().research, gear.loadout.levelFor) : null;
+        const reflect = stats ? { maxHp: stats.maxHp, regen: stats.regen, preArmor: preArmorFactor(armorDamageReduction(stats.armor)) } : null;
+        // Damage taken per second that Reflect can answer: regen, a health bar
+        // per life (a life no shorter than REFLECT_ONLY_LIFE_SECONDS), and
+        // Second Wind's heal at the most kills a second any map can respawn.
+        const absorbed = reflect ? reflect.regen + reflect.maxHp / REFLECT_ONLY_LIFE_SECONDS + gear.secondWind * reflect.maxHp * SECOND_WIND_KILLS_PER_SECOND : 0;
+        // The perk's chance is left out, so the bound only ever errs towards paying.
+        const reflectDps = reflect ? WORLD_REFLECT_SHARE * reflect.preArmor * absorbed : 0;
+        // Reflect Only: the weapon counts for nothing, and every kill has to come from hits taken.
         if (gear.reflectOnly) {
-          const reflected = reflect ? WORLD_REFLECT_SHARE * reflect.preArmor * (reflect.regen + reflect.maxHp / REFLECT_ONLY_LIFE_SECONDS) : 0;
-          return { attackInterval: REFLECT_ONLY_TICK_SECONDS, projectiles: 1, reach: 1, dps: reflected, bossDps: reflected, reflect: null };
+          return { attackInterval: REFLECT_ONLY_TICK_SECONDS, projectiles: 1, reach: 1, dps: reflectDps, bossDps: reflectDps, reflect: null, reflectDps: 0, reflectTick: REFLECT_ONLY_TICK_SECONDS };
         }
-        return { attackInterval, projectiles: gear.projectiles, reach: gear.reach, dps, bossDps: dps * gear.bossDamage, reflect };
+        // Outside it, Reflect is its own damage on top of the weapon's: a hit
+        // as big as max health is no share of a weak bow's kills.
+        return { attackInterval, projectiles: gear.projectiles, reach: gear.reach, dps, bossDps: dps * gear.bossDamage, reflect, reflectDps, reflectTick: REFLECT_ONLY_TICK_SECONDS };
       },
       /** statRewardMultiplier: research and prestige cannot change inside one report. */
       statMultiplier: () => report().statMultiplier,

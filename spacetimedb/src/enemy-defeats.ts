@@ -437,7 +437,7 @@ export type EnemyDefeatBatch = { streamId: string; sequence: bigint; mapId: stri
  */
 export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBatch, activeMapIds: string | readonly string[],
   bossCombat: (earned: { type: string; amount: number; count: number }[]) => { dps: number; attackInterval: number; projectiles?: number; reach?: number; bossDps?: number;
-    reflect?: { maxHp: number; regen: number; preArmor?: number } | null }) {
+    reflect?: { maxHp: number; regen: number; preArmor?: number } | null; reflectDps?: number; reflectTick?: number }) {
   if (!/^[a-zA-Z0-9-]{16,80}$/.test(batch.streamId) || batch.sequence < 1n || !batch.enemies.length)
     throw new SenderError("Invalid enemy defeat batch.");
   const key = `${ctx.sender.toHexString()}:${batch.streamId}`;
@@ -579,8 +579,10 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
       // them by its last kill; anything less pays a fast-growing farmer at
       // the rate they started the report with.
       const combat = bossCombat([...rewards, { ...definition.reward, count: acceptedCount }]);
-      const plausibleRate = plausibleKillsPerSecond(definition.hp, combat.dps, combat.attackInterval, combat.projectiles ?? 1)
-        * (combat.reach ?? 1) * PLAUSIBLE_KILL_TOLERANCE;
+      // Reflect's own kills add to the weapon's: outside Reflect Only a reflected
+      // hit can be as big as max health, so it is no share of the bow's kills.
+      const plausibleRate = (plausibleKillsPerSecond(definition.hp, combat.dps, combat.attackInterval, combat.projectiles ?? 1) * (combat.reach ?? 1)
+        + (combat.reflectDps ? plausibleKillsPerSecond(definition.hp, combat.reflectDps, combat.reflectTick ?? .1) : 0)) * PLAUSIBLE_KILL_TOLERANCE;
       const floorCost = PAY_CEILING.enforced ? Math.max(wallSecondsPerKill, ceilingSecondsPerKill) : wallSecondsPerKill;
       const costPerKill = plausibleRate > 0 ? Math.max(1 / plausibleRate, floorCost) : Infinity;
       const plausible = Number.isFinite(costPerKill) ? Math.max(0, Math.floor(combatSeconds / costPerKill + 1e-6)) : 0;
