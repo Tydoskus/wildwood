@@ -1,5 +1,6 @@
 import { createSessionSubscriptions } from "./session-subscriptions";
 import { PATREON_TICKER_CHANGED } from "../../../shared/patreon-ticker";
+import { questDay, questWeek } from "../../../shared/daily-quests";
 import type { Identity } from "spacetimedb";
 import { tables, type DbConnection } from "../../module_bindings";
 import { withWideDuel, withWideProgress } from "./wide-progress";
@@ -475,8 +476,9 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.playerPrestigeChallengeParked.where(row => row.identity.eq(dependencies.identity)),
       tables.playerFreeRespec.where(row => row.identity.eq(dependencies.identity)),
       tables.playerDailyQuest.where(row => row.identity.eq(dependencies.identity)),
-      // Every guild's weekly quest points: a few rows a guild a week, read for the ranking.
-      tables.guildQuestWeek,
+      // Every guild's quest points this week, for the ranking. From this week
+      // on, so a tab left open past the turn of the week still gets the new one.
+      tables.guildQuestWeek.where(row => row.week.gte(questWeek(questDay(BigInt(Date.now()) * 1000n)))),
       tables.prestigeExpansion,
       tables.playerPrestigeExpansionPerk.where(row => row.identity.eq(dependencies.identity)),
       tables.playerPrestigePerk.where((prestigePerk) => prestigePerk.identity.eq(dependencies.identity)),

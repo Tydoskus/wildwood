@@ -12,7 +12,7 @@ const socialMessage = table({ name: "social_message", public: false }, {
   id: t.u64().primaryKey().autoInc(), channel: t.string(), conversation: t.string().index("btree"), guildId: t.u64(),
   sender: t.identity().index("btree"), recipient: t.identity().index("btree"), recipientName: t.string(),
   senderName: t.string(), senderGender: t.u8(), powerLevel: t.f64(), senderIsGuest: t.bool(),
-  message: t.string(), moderated: t.bool(), sentAt: t.timestamp(),
+  message: t.string(), moderated: t.bool(), sentAt: t.timestamp().index("btree"),
   replySender: t.identity().index("btree"), replyToMessageId: t.u64(), replyToSenderName: t.string(), replyToMessage: t.string(),
 });
 /**

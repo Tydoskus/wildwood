@@ -11,8 +11,8 @@ import { BOSS_DAMAGE_REFERENCE } from "./boss-damage";
 describe("Neon Bastion", () => {
   it("extends the campaign with a return portal and the next combat tier", () => {
     const { mapConfig } = createGameBootstrap();
-    expect(mapConfig.duskfall_orchard.secondaryPortal.destination).toBe("neon_bastion");
-    expect(mapConfig.neon_bastion.portal.destination).toBe("duskfall_orchard");
+    expect(mapConfig.duskfall_orchard.secondaryPortal?.destination).toBe("neon_bastion");
+    expect(mapConfig.neon_bastion.portal?.destination).toBe("duskfall_orchard");
     expect(VOLTWARDEN_MAX_HP / DREADREAPER_MAX_HP).toBeCloseTo(3);
     expect(BOSS_DAMAGE_REFERENCE.voltwarden).toBeGreaterThan(BOSS_DAMAGE_REFERENCE.dreadreaper);
     expect(ENEMY_TYPES["Circuit Prowler"].hp / ENEMY_TYPES["Gourd Prowler"].hp)

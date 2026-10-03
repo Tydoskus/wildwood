@@ -388,28 +388,6 @@ describe("the current client, held to the server's clock", () => {
       expect(honest.moderation).toEqual([]);
   }, SIMULATION_TIMEOUT_MS);
 
-  it("watches the pay ceiling without clipping: the edited client is written down, honest play is not", () => {
-    const script = currentClient({ lapSeconds: .5, minutes: 60, says: "real" });
-    expect(script.moderation.filter(row => row.rule === "pay_ceiling_shadow")).toHaveLength(1);
-    expect(script.paidPerSecond).toBeGreaterThan(KILL_RATE_WATCH_PER_SECOND);   // paid as before
-    for (const honest of [currentClient({ lapSeconds: HONEST_LAP, minutes: 60 }), currentClient({ lapSeconds: HONEST_LAP, minutes: 20, offline: { from: 120, seconds: 240 } }),
-      currentClient({ lapSeconds: HONEST_LAP, minutes: 60, speed: 3 })])
-      expect(honest.moderation.filter(row => row.rule === "pay_ceiling_shadow")).toEqual([]);
-  }, SIMULATION_TIMEOUT_MS);
-
-  it("counts one would-clip episode through short breaks, and writes its total when it ends", () => {
-    // Two minutes away in the middle of an hour at the ceiling is the same episode.
-    const script = currentClient({ lapSeconds: .5, minutes: 60, says: "real", offline: { from: 1_200, seconds: 120 } });
-    expect(script.moderation.filter(row => row.action === "pay_ceiling_would_clip")).toHaveLength(1);
-    // A client claiming the spawn wall (3/s) is caught once the fifteen-minute
-    // bank runs dry, about 41 minutes in. Fifty minutes of that, then an
-    // honest lap: the shadow recovers within twenty and the episode closes.
-    const reformed = currentClient({ lapSeconds: 10, minutes: 75, says: "real", reformAfterMinutes: 50, reformLapSeconds: HONEST_LAP });
-    const rows = reformed.moderation.filter(row => row.rule === "pay_ceiling_shadow");
-    expect(rows.map(row => row.action)).toEqual(["pay_ceiling_would_clip", "pay_ceiling_episode_total"]);
-    expect(Number(/would have paid (\d+) fewer kills in all/.exec(rows[1].reason)?.[1])).toBeGreaterThan(100);
-  }, SIMULATION_TIMEOUT_MS);
-
   it("once enforced, pays an honest burst at 2.65/s in full from a full bank", () => {
     PAY_CEILING.enforced = true;
     try {
@@ -427,7 +405,6 @@ describe("the current client, held to the server's clock", () => {
       expect(honest.paid).toBe(honest.claimed);
       const script = currentClient({ lapSeconds: .5, minutes: 60, says: "real" });
       expect(script.sustainedPerSecond).toBeLessThanOrEqual(KILL_RATE_WATCH_PER_SECOND * 1.02);
-      expect(script.moderation.filter(row => row.rule === "pay_ceiling_shadow")).toEqual([]);
       expect(script.restricted).toBe(false);
       expect(script.stillInWorld).toBe(true);
     } finally { PAY_CEILING.enforced = false; }
@@ -487,7 +464,7 @@ describe("the current client, held to the server's clock", () => {
     expect(run.scaledWarnings).toBe(0);
     // Never scaled; but fifteen minutes paid at the spawn wall out of the bank
     // is faster than any honest account has farmed, and is written down once.
-    expect(run.moderation.map(row => row.rule).sort()).toEqual(["pay_ceiling_shadow", "sustained_kill_rate"]);
+    expect(run.moderation.map(row => row.rule)).toEqual(["sustained_kill_rate"]);
     // The combat clock refills with game time the server accepted, and a
     // report that claims none adds none: once the fifteen-minute bank is
     // spent, a client that says nothing (or was taken apart to) earns nothing.

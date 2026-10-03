@@ -139,7 +139,7 @@ describe("simulation clock on report_enemy_defeats", () => {
     f.report(3, 60_000);
     warn.mockRestore();
     expect(f.kills()).toBe(0);
-    expect([...f.db.regularEnemyLootCursor.iter()]).toMatchObject([{ sequence: 1n }]);
+    expect([...f.db.regularEnemyStream.iter()]).toMatchObject([{ sequence: 1n }]);
     f.advance(30); f.report(3, 30_000);
     expect(f.kills()).toBe(3);
   });
@@ -178,7 +178,7 @@ describe("kill report throttle", () => {
     for (let i = 0; i < KILL_REPORT_BURST; i++) f.report(1, 0);
     expect(() => f.report(1, 0)).toThrow("Enemy rewards are catching up.");
     // The refused report was never processed: the next attempt reuses its sequence.
-    expect([...f.db.regularEnemyLootCursor.iter()]).toMatchObject([{ sequence: BigInt(KILL_REPORT_BURST) }]);
+    expect([...f.db.regularEnemyStream.iter()]).toMatchObject([{ sequence: BigInt(KILL_REPORT_BURST) }]);
     f.advance(KILL_REPORT_REFILL_SECONDS - .01);
     expect(() => f.report(1, 0, { sequence: BigInt(KILL_REPORT_BURST + 1) })).toThrow("Enemy rewards are catching up.");
     f.advance(.01);

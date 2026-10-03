@@ -1,9 +1,10 @@
 import { playerPrestigeChallenge, playerPrestigeChallengeParked, prestigeChallengeBackup, prestigeChallengeRun, restorePrestigeChallenge } from "./prestige-challenge";
-import { playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, ensureDailyQuests, recordDailyQuestKills, memberQuestStanding, questCollectStanding, collectMemberQuests, moveSoloQuestsToGuild } from "./daily-quests";
+import { playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, ensureDailyQuests, pruneOldGuildQuestWeeks, recordDailyQuestKills, memberQuestStanding, questCollectStanding, collectMemberQuests, moveSoloQuestsToGuild } from "./daily-quests";
 import { challengeAttackInterval, challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { duelCombatSnapshot } from "./duel-combat-snapshot";
 import { playerEquipmentLock, setEquipmentLock } from "./equipment-locks";
-import { CAMPAIGN_MAPS, fillCampaignPortals } from "../../shared/campaign-registry";
+import { CAMPAIGN_MAPS } from "../../shared/campaign-registry";
+import { CAMPAIGN_GATEWAYS, portalUsePoint } from "../../shared/map-gateways";
 import { campaignMapUnlocked } from "../../shared/equipment-access";
 import { compactNumberChanged } from "../../shared/compact-number";
 import { auditPrivilegedAccess, denyPrivilegedAccess } from "./privileged-access-audit";
@@ -37,7 +38,7 @@ import { allowedLoadout, blankHandWeapon, canonicalSavedHand } from "./loadout";
 import { ERASURE_ROW_BUDGET, eraseIdentityRows, linkedIdentities, requireErasureConfirmation } from "./account-erasure";
 import { LOADOUT_FIELDS } from "../../shared/combat-progress";
 import { chatHeartAllowance, chatReactionCooldown, chatReactionSummary, chatReactionUnlock, playerChatHearts, reactionCountsFor, chatReaction, readChatReactions, setChatReaction, grantGemHeartUnlock, isChatModerator, chatModerator, moderatorHeartFor, setChatModerator, removeMessageReactions, removeAccountReactions } from "./chat-reactions";
-import { regularEnemyLootCursor, rollRegularEnemyLoot } from "./regular-enemy-loot";
+import { pruneIdleStreams, regularEnemyLootCursor, regularEnemyStream, rollRegularEnemyLoot } from "./regular-enemy-loot";
 import { BLACK_BOOTS, BLACK_BOOTS_SPEED_BONUS } from "../../shared/items";
 import { playerOnboarding, advanceOnboarding, needsOnboarding } from "./onboarding";
 import { isUpgradeSlot, normalizeSlotTier, upgradeSlotForItem, UPGRADE_SLOT_LABELS } from "../../shared/slot-upgrades";
@@ -195,19 +196,13 @@ import {
 import { PLAYER_MOTION_INTEREST_LIMIT } from "../../shared/player-motion-interest";
 import {
   ATTACK_BALANCE_VERSION,
-  ADVANCED_LAVA_WASTES_MAP_ID,
   BOSS_REWARD_CLAIM_BITS,
-  BEGINNER_DESERT_MAP_ID,
-  CLOUDSPIRE_MAP_ID,
   DEFAULT_ATTACK_INTERVAL,
   DEFAULT_ATTACK_RANGE,
   effectivePlayerMovementSpeed,
-  INFERNAL_DEPTHS_MAP_ID,
   INTERMEDIATE_SNOWLANDS_MAP_ID,
   MAP_DISPLAY_NAMES,
   MAP_IDS,
-  MOONFEN_MAP_ID,
-  CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, NEON_BASTION_MAP_ID, VERDANT_CATACOMBS_MAP_ID, ION_CITADEL_MAP_ID,
   MAX_ARMOR,
   MAX_MOVEMENT_SPEED_OVERRIDE,
   MAX_PLAYER_STAT,
@@ -224,13 +219,10 @@ import {
   playerBaseMovementSpeed,
   PROTOCOL_VERSION,
   COMPATIBLE_PROTOCOL_VERSIONS,
-  SAMURAI_GARDEN_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
-  WATER_REACH_MAP_ID,
   WORLD_HEIGHT,
   WORLD_WIDTH, isBaseStoredSpeed,
 } from "../../shared/rules";
-import { MAP_EDITOR_GAMEPLAY_OVERRIDES } from "../../shared/map-editor-overrides";
 import { readPlayerProgress, iterPlayerProgress, withDuelWide, deleteReplayWide } from "./wide-stats";
 import { playerWideStats, duelWideStats, duelReplayWideStats } from "./wide-stats-table";
 import { narrowStat } from "../../shared/wide-stats";
@@ -254,73 +246,11 @@ const DEVELOPER_IDENTITY = new Identity(DEVELOPER_IDENTITY_HEX);
 // Maincloud database owner. CLI maintenance calls run as this identity, while
 // in-game developer actions run as DEVELOPER_IDENTITY above.
 const DATABASE_OWNER_IDENTITY_HEX = "c200383520521c925f3cf6deafb20cd6a7d6168d1c31cb3c0ddb731c197a2d79";
-const DEFAULT_MAP_PORTALS = {
-  [TUTORIAL_FOREST_MAP_ID]: [{ x: 190, y: 385, destination: BEGINNER_DESERT_MAP_ID }],
-  [BEGINNER_DESERT_MAP_ID]: [
-    { x: 360, y: 617, destination: TUTORIAL_FOREST_MAP_ID },
-    { x: 580, y: 617, destination: INTERMEDIATE_SNOWLANDS_MAP_ID },
-  ],
-  [INTERMEDIATE_SNOWLANDS_MAP_ID]: [
-    { x: 360, y: 617, destination: BEGINNER_DESERT_MAP_ID },
-    { x: 580, y: 617, destination: ADVANCED_LAVA_WASTES_MAP_ID },
-  ],
-  [ADVANCED_LAVA_WASTES_MAP_ID]: [
-    { x: 360, y: 617, destination: INTERMEDIATE_SNOWLANDS_MAP_ID },
-    { x: 580, y: 617, destination: INFERNAL_DEPTHS_MAP_ID },
-  ],
-  [INFERNAL_DEPTHS_MAP_ID]: [
-    { x: 360, y: 617, destination: ADVANCED_LAVA_WASTES_MAP_ID },
-    { x: 580, y: 617, destination: WATER_REACH_MAP_ID },
-  ],
-  [WATER_REACH_MAP_ID]: [
-    { x: 360, y: 617, destination: INFERNAL_DEPTHS_MAP_ID },
-    { x: 580, y: 617, destination: SAMURAI_GARDEN_MAP_ID },
-  ],
-  [SAMURAI_GARDEN_MAP_ID]: [
-    { x: 360, y: 617, destination: WATER_REACH_MAP_ID },
-    { x: 580, y: 617, destination: CLOUDSPIRE_MAP_ID },
-  ],
-  [CLOUDSPIRE_MAP_ID]: [
-    { x: 360, y: 617, destination: SAMURAI_GARDEN_MAP_ID },
-    { x: 580, y: 617, destination: MOONFEN_MAP_ID },
-  ],
-  [MOONFEN_MAP_ID]: [
-    { x: 360, y: 617, destination: CLOUDSPIRE_MAP_ID },
-    { x: 580, y: 617, destination: CRYSTAL_HOLLOWS_MAP_ID },
-  ],
-  [CRYSTAL_HOLLOWS_MAP_ID]: [{ x: 360, y: 617, destination: MOONFEN_MAP_ID }, { x: 580, y: 617, destination: CLOCKWORK_RUINS_MAP_ID }], [CLOCKWORK_RUINS_MAP_ID]: [{ x: 360, y: 617, destination: CRYSTAL_HOLLOWS_MAP_ID }, { x: 580, y: 617, destination: DUSKFALL_ORCHARD_MAP_ID }], [DUSKFALL_ORCHARD_MAP_ID]: [{ x: 360, y: 617, destination: CLOCKWORK_RUINS_MAP_ID }, { x: 580, y: 617, destination: NEON_BASTION_MAP_ID }], [NEON_BASTION_MAP_ID]: [{ x: 360, y: 617, destination: DUSKFALL_ORCHARD_MAP_ID }, { x: 580, y: 617, destination: VERDANT_CATACOMBS_MAP_ID }], [VERDANT_CATACOMBS_MAP_ID]: [{ x: 360, y: 617, destination: NEON_BASTION_MAP_ID }, { x: 580, y: 617, destination: ION_CITADEL_MAP_ID }], [ION_CITADEL_MAP_ID]: [{ x: 360, y: 617, destination: VERDANT_CATACOMBS_MAP_ID }],
-} as const;
-const DEFAULT_MAP_ARRIVALS = {
-  [TUTORIAL_FOREST_MAP_ID]: { x: 190, y: 540 },
-  [BEGINNER_DESERT_MAP_ID]: { x: 360, y: 770 },
-  [INTERMEDIATE_SNOWLANDS_MAP_ID]: { x: 580, y: 770 },
-  [ADVANCED_LAVA_WASTES_MAP_ID]: { x: 580, y: 770 },
-  [INFERNAL_DEPTHS_MAP_ID]: { x: 580, y: 770 },
-  [WATER_REACH_MAP_ID]: { x: 580, y: 770 },
-  [SAMURAI_GARDEN_MAP_ID]: { x: 580, y: 770 },
-  [CLOUDSPIRE_MAP_ID]: { x: 580, y: 770 },
-  [MOONFEN_MAP_ID]: { x: 580, y: 770 },
-  [CRYSTAL_HOLLOWS_MAP_ID]: { x: 580, y: 770 }, [CLOCKWORK_RUINS_MAP_ID]: { x: 580, y: 770 }, [DUSKFALL_ORCHARD_MAP_ID]: { x: 580, y: 770 }, [NEON_BASTION_MAP_ID]: { x: 580, y: 770 }, [VERDANT_CATACOMBS_MAP_ID]: { x: 580, y: 770 }, [ION_CITADEL_MAP_ID]: { x: 580, y: 770 },
-} as const;
-const MAP_PORTALS: Record<string, { x: number; y: number; destination: string }[]> = Object.fromEntries(
-  Object.entries(DEFAULT_MAP_PORTALS).map(([mapId, portals]) => {
-    const edited = MAP_EDITOR_GAMEPLAY_OVERRIDES[mapId]?.portals;
-    return [mapId, edited?.length
-      ? edited.map((portal) => ({
-        x: portal.x,
-        y: portal.y - portal.height * .32,
-        destination: portal.destination,
-      }))
-      : portals.map((portal) => ({ ...portal }))];
-  }),
-);
-const MAP_ARRIVALS: Record<string, { x: number; y: number }> = Object.fromEntries(
-  Object.entries(DEFAULT_MAP_ARRIVALS).map(([mapId, arrival]) => [
-    mapId,
-    MAP_EDITOR_GAMEPLAY_OVERRIDES[mapId]?.arrival ?? arrival,
-  ]),
-);
-fillCampaignPortals(MAP_ARRIVALS, MAP_PORTALS, MAP_EDITOR_GAMEPLAY_OVERRIDES);
+// Shared with the client (shared/map-gateways.ts): portals are checked at their use point.
+const MAP_PORTALS: Record<string, { x: number; y: number; destination: string }[]> =
+  Object.fromEntries(Object.entries(CAMPAIGN_GATEWAYS).map(([mapId, gateways]) => [mapId, gateways.portals.map(portalUsePoint)]));
+const MAP_ARRIVALS: Record<string, { x: number; y: number }> =
+  Object.fromEntries(Object.entries(CAMPAIGN_GATEWAYS).map(([mapId, gateways]) => [mapId, gateways.arrival]));
 const MAP_PORTAL_USE_RANGE = 125;
 const CHAT_MESSAGE_MAX_LENGTH = 250;
 const CHAT_COOLDOWN_MICROS = 3_000_000n;
@@ -330,6 +260,9 @@ const MAINTENANCE_INTERVAL_MICROS = 60_000_000n;
 const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 const VIRTUAL_PLAYER_RUN_LIFETIME_MICROS = 3_600_000_000n;
 const LEADERBOARD_REFRESH_VERSION = 13;
+/** A version no build uses, so refreshLeaderboardIfDue rebuilds on its next pass. */
+const LEADERBOARD_REFRESH_QUEUED = 0;
+const LEADERBOARD_PLAYER_REFRESH_MIN_MICROS = 60_000_000n;
 // Auto equip (auto-equip.ts) borrows only hoisted functions, so it exists
 // before the boss rewards that call it.
 const autoEquip = createAutoEquip({ inventoryForProgress, itemUpgradeLevelFor, writeProgressAndPresentation });
@@ -378,13 +311,10 @@ const { runPendingModuleMigrations, migratePlayerBalance } = createModuleMigrati
 // Exact-own lifecycle and physical compatibility row. Current clients never
 // subscribe to remote rows; continuous coordinates live in private analytical
 // anchors and remote presentation lives in playerMotionIdentity below.
+// Zone indexes were dropped in 0.877: nothing filtered on them, and the
+// subscription planner ignores an index wider than three columns.
 const player = table(
-  {
-    public: true,
-    indexes: [
-      { accessor: "byMapZone", algorithm: "btree", columns: ["mapId", "isVisible", "zoneX", "zoneY"] as const },
-    ],
-  },
+  { public: true },
   {
     identity: t.identity().primaryKey(),
     x: t.f64(),
@@ -448,7 +378,7 @@ const playerMotion = table(
     y: t.f64(),
     facing: t.f64(),
     moving: t.bool(),
-    lastInputAt: t.timestamp().index("btree"),
+    lastInputAt: t.timestamp(),
     lastInputSequence: t.u32(),
     inputIntervalMicros: t.u64(),
     zoneX: t.i32(),
@@ -482,7 +412,6 @@ const playerMotionIdentity = table(
   {
     public: true,
     indexes: [
-      { accessor: "byMapZone", algorithm: "btree", columns: ["mapId", "isVisible", "zoneX", "zoneY"] as const },
       { accessor: "byMap", algorithm: "btree", columns: ["mapId"] as const },
     ],
   },
@@ -614,7 +543,6 @@ const playerDeathFrame = table(
     public: true,
     event: true,
     indexes: [
-      { accessor: "byMapZone", algorithm: "btree", columns: ["mapId", "zoneX", "zoneY"] as const },
       { accessor: "byMap", algorithm: "btree", columns: ["mapId"] as const },
     ],
   },
@@ -1788,7 +1716,7 @@ const spacetimedb = schema({
   playerEquipmentLock, playerItemGift, playerBowSkill, playerEquipmentCopy, pendingEquipmentOffer, playerIgnoredDrop, playerLootSetting,
   mailboxLetter, mailboxReceipt, playerJoinDate, mailboxEquipment, accountDeletionRequest,
   playerOnboarding,
-  regularEnemyLootCursor, enemyDefeatBudget, bossDefeatWindow, bossMapDefeatWindow,
+  regularEnemyLootCursor, regularEnemyStream, enemyDefeatBudget, bossDefeatWindow, bossMapDefeatWindow,
   enemyDefeatReview,
   playerMultiplayerPreference,
   chatReaction, chatHeartAllowance, chatReactionCooldown, chatReactionSummary, chatReactionUnlock, chatModerator, playerChatHearts,
@@ -2198,7 +2126,7 @@ export const startLoginMove = spacetimedb.reducer({ code: t.string() }, (ctx, { 
 export const finishLoginMove = spacetimedb.reducer({ code: t.string() }, (ctx, { code }) => {
   requireSupportedSessionProtocol(ctx);
   claimLoginMove(ctx, code);
-  refreshLeaderboard(ctx);
+  requestLeaderboardRefresh(ctx);
 });
 
 // Swaps two characters between logins (account-transfer.ts). Owner-only, from the CLI.
@@ -2629,6 +2557,26 @@ function refreshLeaderboard(ctx: any) {
   const nextState = { id: 1, refreshedAtMicros: ctx.timestamp.microsSinceUnixEpoch, version: LEADERBOARD_REFRESH_VERSION };
   if (refreshState) ctx.db.leaderboardRefreshState.id.update(nextState);
   else ctx.db.leaderboardRefreshState.insert(nextState);
+}
+
+/**
+ * Rebuild for a player's own action (reset, respec, prestige, login move).
+ * A rebuild walks every player, so at most one runs per minute: a second
+ * request inside that minute only marks the board stale, and the per-minute
+ * maintenance pass rebuilds it. Otherwise a script looping a free reset
+ * could make the server rank everyone on every call.
+ */
+function requestLeaderboardRefresh(ctx: any) {
+  const state = ctx.db.leaderboardRefreshState.id.find(1);
+  if (state?.version === LEADERBOARD_REFRESH_QUEUED) return;
+  if (
+    state?.version === LEADERBOARD_REFRESH_VERSION &&
+    ctx.timestamp.microsSinceUnixEpoch - state.refreshedAtMicros < LEADERBOARD_PLAYER_REFRESH_MIN_MICROS
+  ) {
+    ctx.db.leaderboardRefreshState.id.update({ ...state, version: LEADERBOARD_REFRESH_QUEUED });
+    return;
+  }
+  refreshLeaderboard(ctx);
 }
 
 function refreshLeaderboardIfDue(ctx: any) {
@@ -3727,8 +3675,13 @@ export const runMaintenanceSweep = spacetimedb.reducer(
     clearOrphanVirtualPlayers(ctx);
     clearExpiredVirtualPlayerRuns(ctx);
     pruneIdleDefeatBudgets(ctx);
+    pruneIdleStreams(ctx);
     reconcileOnlinePlayers(ctx);
     ensureRealtimeFrameSchedules(ctx);   // a frame loop a publish left dead restarts within one sweep
+    // Timers have exact schedules; this only recovers one a publish lost, and
+    // reads every player's, online or not. Once an hour: the sweep in its first five minutes.
+    if ((ctx.timestamp.microsSinceUnixEpoch / 60_000_000n) % 60n >= 5n) return;
+    pruneOldGuildQuestWeeks(ctx);
     for (const active of [...ctx.db.activeResearch.iter()] as any[]) reconcileActiveResearch(ctx, active);
     for (const active of [...ctx.db.activeItemUpgrade.iter()] as any[]) {
       reconcileActiveItemUpgrade(ctx, active, UPGRADE_BENCH_SLOT_ONE);
@@ -4075,17 +4028,18 @@ function changePlayerDisplayName(ctx: ModuleReducerCtx, displayName: string, exp
 
   const existing = ctx.db.playerProfile.identity.find(ctx.sender);
   if (existing?.displayName === normalized) return;
+  const cooldown = ctx.db.playerNameCooldown.identity.find(ctx.sender);
+  const terms = nameChangeStatus(cooldown ? Number(cooldown.changedAt.microsSinceUnixEpoch / 1000n) : null,
+    Number(ctx.timestamp.microsSinceUnixEpoch / 1000n), Number(ctx.db.playerGemWallet.identity.find(ctx.sender)?.balance ?? 0n));
+  if (terms.availableAtMs > terms.serverNowMs) throw new SenderError("You can change your name once every 24 hours.");
+  if (expectedCost !== terms.cost) throw new SenderError("Name changes cost 50 Gems after the first free change. Reopen the name editor to continue.");
+  // Every profile is read here, so only after the cheap refusals: a call on cooldown never pays for it.
   const normalizedComparison = normalized.toLowerCase();
   for (const profile of ctx.db.playerProfile.iter() as Iterable<any>) {
     if (!sameIdentity(profile.identity, ctx.sender) && profile.displayName.toLowerCase() === normalizedComparison) {
       throw new SenderError("Player name is already taken.");
     }
   }
-  const cooldown = ctx.db.playerNameCooldown.identity.find(ctx.sender);
-  const terms = nameChangeStatus(cooldown ? Number(cooldown.changedAt.microsSinceUnixEpoch / 1000n) : null,
-    Number(ctx.timestamp.microsSinceUnixEpoch / 1000n), Number(ctx.db.playerGemWallet.identity.find(ctx.sender)?.balance ?? 0n));
-  if (terms.availableAtMs > terms.serverNowMs) throw new SenderError("You can change your name once every 24 hours.");
-  if (expectedCost !== terms.cost) throw new SenderError("Name changes cost 50 Gems after the first free change. Reopen the name editor to continue.");
   if (terms.cost > 0) applyGemBalanceChange(ctx, { identity: ctx.sender, delta: -BigInt(terms.cost), kind: "name_change",
     note: "Player name change", externalReference: `name-change:${ctx.sender.toHexString()}:${ctx.timestamp.microsSinceUnixEpoch}` });
 
@@ -5570,8 +5524,9 @@ function respawnWithProgress(ctx: any, activePlayer: any, next: any, destination
     persistWorldLocation(ctx, transitionPlayerMap(ctx, nextPlayer, destination.mapId, destination, 0));
     // The board is built from saved stats on a timer, so without this the
     // player keeps their old rank until the next sweep, which reads to
-    // everyone else as a reset player still sitting at the top.
-    refreshLeaderboard(ctx);
+    // everyone else as a reset player still sitting at the top. Throttled
+    // to one rebuild a minute; a reset inside that minute waits for it.
+    requestLeaderboardRefresh(ctx);
 }
 const prestige = createPrestige({
   requireControllingPlayer,

@@ -60,6 +60,12 @@ function zero(type: any): any {
   return 0;
 }
 
+/**
+ * Timestamps order by their micros. Checked by shape: the server and the tests
+ * load separate SDK installs, so a server-built Timestamp is not instanceof this one.
+ */
+const orderedValue = (value: any) => value && typeof value === "object" && typeof value.microsSinceUnixEpoch === "bigint" ? value.microsSinceUnixEpoch : value;
+
 /** Schema-driven test storage; no host networking, scheduling, or production DB.
  * Supports the point/prefix indexes used by these reducers, unique constraints,
  * copy-on-read, auto-increment, and rollback. Not a replacement for a host test.
@@ -78,7 +84,7 @@ export function createMemoryDatabase(moduleSchema: { schemaType: { tables: Recor
           const { from, to } = value;
           // Timestamps order by their micros on the server; plain `<` on the
           // objects would compare nothing and quietly return an empty range.
-          const ordered = (candidate: any) => candidate instanceof Timestamp ? candidate.microsSinceUnixEpoch : candidate;
+          const ordered = orderedValue;
           const actual = ordered(row[columns[i]]);
           return (from.tag === "unbounded" || (from.tag === "included" ? actual >= ordered(from.value) : actual > ordered(from.value))) &&
             (to.tag === "unbounded" || (to.tag === "included" ? actual <= ordered(to.value) : actual < ordered(to.value)));
@@ -132,10 +138,11 @@ export function createMemoryDatabase(moduleSchema: { schemaType: { tables: Recor
           // Committed B-tree range reads are sorted by indexed key. Dedicated
           // guild tests additionally model transaction-local rows appearing first.
           if ((Array.isArray(key) ? key : [key]).some(value => value && typeof value === "object" && "from" in value && "to" in value)) {
+            const ordered = orderedValue;
             rows.sort((a, b) => {
               for (const column of index.columns) {
-                if (a[column] < b[column]) return -1;
-                if (a[column] > b[column]) return 1;
+                if (ordered(a[column]) < ordered(b[column])) return -1;
+                if (ordered(a[column]) > ordered(b[column])) return 1;
               }
               return 0;
             });

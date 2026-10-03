@@ -121,5 +121,5 @@ for (const [key, rows] of [...byAccount].sort((a, b) => b[1].length - a[1].lengt
   const cut = rows.reduce((sum, row) => sum + Number(/would have paid (\d+) fewer kills in all/.exec(row.reason)?.[1] ?? 0), 0);
   console.log(`  ${(name || "?").padEnd(22)} ${rule.padEnd(26)} ${String(rows.length).padStart(3)}x  ${when(times[0])}${rows.length > 1 ? ` .. ${when(times.at(-1)!)}` : ""}${cut ? `   ${cut} kills over the ceiling` : ""}`);
 }
-console.log("\npay_ceiling_shadow: the pay ceiling would have paid this account less (watching only; nothing clipped). Before enforcing it, every name here should be a cheater.");
+console.log("\npay_ceiling_shadow: the pay ceiling would have paid this account less (watching only; nothing clipped). Rows before 0.877 only: the shadow check was removed.");
 console.log("sustained_kill_rate and simulation_clock_ahead are written by 0.827 and later; enemy_defeat_allowance and movement_speed_allowance are the retired rules from 09-18 to 09-21, which also caught honest players.");

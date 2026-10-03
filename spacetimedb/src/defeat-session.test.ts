@@ -35,7 +35,7 @@ it("commits the guest restriction, receipt and private audit together", () => {
   expect(f.db.playerLifetime.identity.find(f.ctx.sender)?.enemyKills ?? 0n).toBe(0n);
   expect(f.db.playerProgress.identity.find(f.ctx.sender).inventoryJson).toBe(before.inventoryJson);
   expect([...f.db.moderationAction.iter()]).toMatchObject([{ action: "guest_connection_blocked", rule: "enemy_defeat_allowance" }]);
-  expect([...f.db.regularEnemyLootCursor.iter()]).toMatchObject([{ sequence: 1n }]);
+  expect([...f.db.regularEnemyStream.iter()]).toMatchObject([{ sequence: 1n }]);
   expect(() => f.run(server.registerProtocol, { protocolVersion: PROTOCOL_VERSION })).toThrow("DEFEAT_SESSION_COOLDOWN");
   f.ctx.timestamp = new Timestamp(39_999_999n);
   expect(() => requireAllowedDefeatSession(f.ctx as any)).toThrow("DEFEAT_SESSION_COOLDOWN");

@@ -1,9 +1,10 @@
-import { table, t } from "spacetimedb/server";
+import { Range, table, t } from "spacetimedb/server";
 import { Timestamp } from "spacetimedb";
 import { CONNECTION_DIAGNOSTIC_BATCH_LIMIT, normalizeConnectionDiagnostic } from "../../shared/connection-diagnostics";
 
 export const connectionDiagnosticTables = {
-  connectionDiagnostic: table({ public: false, indexes: [{ accessor: "byIdentity", algorithm: "btree", columns: ["identity"] as const }] }, {
+  connectionDiagnostic: table({ public: false, indexes: [{ accessor: "byIdentity", algorithm: "btree", columns: ["identity"] as const },
+    { accessor: "byReceivedAt", algorithm: "btree", columns: ["receivedAt"] as const }] }, {
     id: t.string().primaryKey(), identity: t.identity(), playerName: t.string(), kind: t.string(),
     mapId: t.string(), clientVersion: t.string(), occurredAt: t.timestamp(), receivedAt: t.timestamp(), detailsJson: t.string(),
   }),
@@ -12,6 +13,7 @@ export const connectionDiagnosticTables = {
   }),
 };
 const RETENTION = 7n * 86400n * 1_000_000n;
+export const CONNECTION_DIAGNOSTIC_CAP = 50_000;
 export function recordConnectionDiagnostics(ctx: any, payload: string) {
   if (payload.length > 24_000) return;
   let input: unknown;
@@ -38,16 +40,18 @@ export function recordConnectionDiagnostics(ctx: any, payload: string) {
   if (previous) ctx.db.connectionDiagnosticRate.identity.update(rate);
   else ctx.db.connectionDiagnosticRate.insert(rate);
 }
+/** Drops rows past retention, then the oldest past the cap, read in order from the receivedAt index. */
 export function cleanupConnectionDiagnostics(ctx: any) {
   const now = ctx.timestamp.microsSinceUnixEpoch;
-  const retained: { id: string; receivedAt: Timestamp }[] = [];
-  for (const row of ctx.db.connectionDiagnostic.iter()) {
-    if (row.receivedAt.microsSinceUnixEpoch < now - RETENTION) ctx.db.connectionDiagnostic.id.delete(row.id);
-    else retained.push(row);
-  }
-  retained.sort((a, b) => Number(a.receivedAt.microsSinceUnixEpoch - b.receivedAt.microsSinceUnixEpoch));
-  for (const row of retained.slice(0, Math.max(0, retained.length - 50_000))) ctx.db.connectionDiagnostic.id.delete(row.id);
-  for (const row of ctx.db.connectionDiagnosticRate.iter()) {
+  const oldestFirst = (to: { tag: "unbounded" } | { tag: "excluded"; value: Timestamp }) =>
+    ctx.db.connectionDiagnostic.byReceivedAt.filter(new Range({ tag: "unbounded" }, to)) as Iterable<{ id: string }>;
+  const expired = [...oldestFirst({ tag: "excluded", value: new Timestamp(now - RETENTION) })].map(row => row.id);
+  for (const id of expired) ctx.db.connectionDiagnostic.id.delete(id);
+  let excess = Number(ctx.db.connectionDiagnostic.count()) - CONNECTION_DIAGNOSTIC_CAP;
+  const overCap: string[] = [];
+  if (excess > 0) for (const row of oldestFirst({ tag: "unbounded" })) { overCap.push(row.id); if (--excess <= 0) break; }
+  for (const id of overCap) ctx.db.connectionDiagnostic.id.delete(id);
+  for (const row of [...ctx.db.connectionDiagnosticRate.iter()]) {
     if (now - row.startedAt.microsSinceUnixEpoch >= 60_000_000n) ctx.db.connectionDiagnosticRate.identity.delete(row.identity);
   }
 }

@@ -1,7 +1,7 @@
 import { removeMessageReactions } from "./chat-reactions";
 import { recordModerationAction } from "./moderation-history";
-import { Identity } from "spacetimedb";
-import { SenderError } from "spacetimedb/server";
+import { Identity, Timestamp } from "spacetimedb";
+import { Range, SenderError } from "spacetimedb/server";
 import type { ModuleReducerCtx, ModuleViewCtx } from "./index";
 import { SOCIAL_FRIEND_LIMIT, SOCIAL_REQUEST_LIMIT, SOCIAL_MESSAGE_LIMIT, SOCIAL_MESSAGE_RETENTION_DAYS, type SocialConversation, type SocialSnapshot } from "../../shared/social";
 import { moderatePublicChatMessage, chatModerationReason, MODERATION_RULE_VERSION } from "./chat-moderation";
@@ -210,8 +210,8 @@ export function pruneExpiredSocialMessages(ctx: Ctx, nowMicros: bigint) {
     ctx.db.socialMessage.id.delete(link.messageId);
     ctx.db.socialDuelMessage.messageId.delete(link.messageId);
   }
-  for (const row of [...ctx.db.socialMessage.iter()]) {
-    if (row.sentAt.microsSinceUnixEpoch >= cutoff) continue;
+  // Oldest first from the sentAt index: only the expired rows are read, not a year of messages.
+  for (const row of [...ctx.db.socialMessage.sentAt.filter(new Range({ tag: "unbounded" }, { tag: "excluded", value: new Timestamp(cutoff) }))]) {
     removeMessageReactions(ctx, "social", row.id);
     ctx.db.socialMessage.id.delete(row.id);
   }

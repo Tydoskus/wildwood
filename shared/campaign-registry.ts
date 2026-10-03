@@ -11,18 +11,3 @@ export function campaignEndpoint(maps: readonly CampaignMapDefinition[] = CAMPAI
 }
 export const CAMPAIGN_ENDPOINT = campaignEndpoint();
 
-/** Fill neighboring campaign portals; authored positions always win. */
-export function fillCampaignPortals(
-  arrivals: Record<string, { x: number; y: number }>,
-  portals: Record<string, { x: number; y: number; destination: string }[]>,
-  overrides: Record<string, { arrival?: { x: number; y: number } }>,
-) {
-  for (const [index, map] of CAMPAIGN_MAPS.entries()) {
-    arrivals[map.id] ??= overrides[map.id]?.arrival ?? { x: 580, y: 770 };
-    portals[map.id] ??= index > 0 ? [{ x: 360, y: 617, destination: CAMPAIGN_MAPS[index - 1].id }] : [];
-    const next = CAMPAIGN_MAPS[index + 1];
-    if (next && !portals[map.id].some(portal => portal.destination === next.id)) {
-      portals[map.id].push({ x: 580, y: 617, destination: next.id });
-    }
-  }
-}

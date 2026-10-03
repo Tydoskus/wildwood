@@ -10,10 +10,10 @@ import { IRONHORN_MAX_HP, DREADREAPER_MAX_HP, PRISMSHELL_MAX_HP } from "../../sh
 describe("Clockwork Ruins and Duskfall Orchard", () => {
   it("extends the portal chain in both directions and scales each boss one full tier", () => {
     const { mapConfig } = createGameBootstrap();
-    expect(mapConfig.crystal_hollows.secondaryPortal.destination).toBe("clockwork_ruins");
-    expect(mapConfig.clockwork_ruins.portal.destination).toBe("crystal_hollows");
-    expect(mapConfig.clockwork_ruins.secondaryPortal.destination).toBe("duskfall_orchard");
-    expect(mapConfig.duskfall_orchard.portal.destination).toBe("clockwork_ruins");
+    expect(mapConfig.crystal_hollows.secondaryPortal?.destination).toBe("clockwork_ruins");
+    expect(mapConfig.clockwork_ruins.portal?.destination).toBe("crystal_hollows");
+    expect(mapConfig.clockwork_ruins.secondaryPortal?.destination).toBe("duskfall_orchard");
+    expect(mapConfig.duskfall_orchard.portal?.destination).toBe("clockwork_ruins");
     expect(IRONHORN_MAX_HP / PRISMSHELL_MAX_HP).toBeCloseTo(3);
     expect(DREADREAPER_MAX_HP / IRONHORN_MAX_HP).toBeCloseTo(3);
   });

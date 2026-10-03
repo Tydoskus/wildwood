@@ -10,8 +10,8 @@ import { BOSS_DAMAGE_REFERENCE } from "./boss-damage";
 describe("Ion Citadel", () => {
   it("extends the campaign with a return portal and the next combat tier", () => {
     const { mapConfig } = createGameBootstrap();
-    expect(mapConfig.verdant_catacombs.secondaryPortal.destination).toBe("ion_citadel");
-    expect(mapConfig.ion_citadel.portal.destination).toBe("verdant_catacombs");
+    expect(mapConfig.verdant_catacombs.secondaryPortal?.destination).toBe("ion_citadel");
+    expect(mapConfig.ion_citadel.portal?.destination).toBe("verdant_catacombs");
     expect(AEGIS_PRIME_MAX_HP / GRAVEBLOOM_MAX_HP).toBeCloseTo(3);
     expect(BOSS_DAMAGE_REFERENCE.aegisPrime).toBeGreaterThan(BOSS_DAMAGE_REFERENCE.gravebloom);
     expect(ENEMY_TYPES["Ion Patrol"].hp / ENEMY_TYPES["Mossbound Stalker"].hp).toBeCloseTo(3);

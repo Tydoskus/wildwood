@@ -11,8 +11,8 @@ import { BOSS_DAMAGE_REFERENCE } from "./boss-damage";
 describe("Verdant Catacombs", () => {
   it("extends the campaign with a return portal and the next combat tier", () => {
     const { mapConfig } = createGameBootstrap();
-    expect(mapConfig.neon_bastion.secondaryPortal.destination).toBe("verdant_catacombs");
-    expect(mapConfig.verdant_catacombs.portal.destination).toBe("neon_bastion");
+    expect(mapConfig.neon_bastion.secondaryPortal?.destination).toBe("verdant_catacombs");
+    expect(mapConfig.verdant_catacombs.portal?.destination).toBe("neon_bastion");
     expect(GRAVEBLOOM_MAX_HP / VOLTWARDEN_MAX_HP).toBeCloseTo(3);
     expect(BOSS_DAMAGE_REFERENCE.gravebloom).toBeGreaterThan(BOSS_DAMAGE_REFERENCE.voltwarden);
     expect(ENEMY_TYPES["Mossbound Stalker"].hp / ENEMY_TYPES["Circuit Prowler"].hp)

@@ -25,7 +25,7 @@ export function reportEnemy(f: any, enemy?: string, count = 1, simulatedMillis?:
   enemy ??= mapId.startsWith("endless_") ? "site:0" : Object.keys(ENEMY_TYPES).find(kind => enemyDefeatDefinition(mapId, kind))!;
   const streamId = "test-defeats-stream-0001";
   const key = `${f.ctx.sender.toHexString()}:${streamId}`;
-  const sequence = (f.db.regularEnemyLootCursor.key.find(key)?.sequence ?? 0n) + 1n;
+  const sequence = (f.db.regularEnemyStream.key.find(key)?.sequence ?? f.db.regularEnemyLootCursor.key.find(key)?.sequence ?? 0n) + 1n;
   return reportKills(f, { mapId, streamId, sequence, enemies: [{ enemy, count }], ...(simulatedMillis === undefined ? {} : { simulatedMillis }) });
 }
 

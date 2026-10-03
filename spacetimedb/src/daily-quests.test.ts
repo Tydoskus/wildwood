@@ -4,7 +4,7 @@ import { crystalFixture } from "../../tests/helpers/crystal-hollows-fixture";
 import { fillDefeatBudget, reportKills } from "../../tests/helpers/enemy-defeat";
 import { STARTER_BOW } from "../../shared/items";
 import { WEEKLY_QUEST_COUNT, questDay, questWeek } from "../../shared/daily-quests";
-import { GUILD_POOL_FROM, collectGuildQuests, collectMemberQuests, ensureDailyQuests, guildQuestBonusFor, memberQuestStanding, moveSoloQuestsToGuild, questCollectStanding } from "./daily-quests";
+import { GUILD_POOL_FROM, collectGuildQuests, collectMemberQuests, ensureDailyQuests, guildQuestBonusFor, memberQuestStanding, moveSoloQuestsToGuild, pruneOldGuildQuestWeeks, questCollectStanding } from "./daily-quests";
 import { Identity } from "spacetimedb";
 import { statRewardMultiplier } from "./prestige";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
@@ -213,4 +213,13 @@ it("never shows a member fewer points than their list shows done", () => {
   // A tally ahead of the list (earlier days' daily quests) stands.
   f.patch("guildMemberQuestWeek", { points: 9 });
   expect(memberQuestStanding(f.ctx, f.ctx.sender, 7n).questPoints).toBe(9);
+});
+
+it("drops guild weeks before last week, keeping last week's for the bonus and this week's for the board", () => {
+  const f = crystalFixture();
+  f.ctx.timestamp = new Timestamp(DAY * 20_000n);
+  const week = questWeek(questDay(f.ctx.timestamp.microsSinceUnixEpoch));
+  for (const offset of [3, 2, 1, 0]) f.seed("guildQuestWeek", { key: `${week - offset}:1`, week: week - offset, guildId: 1n, guildName: "Oak", points: 5 });
+  expect(pruneOldGuildQuestWeeks(f.ctx)).toBe(2);
+  expect([...f.db.guildQuestWeek.iter()].map((row: any) => row.week).sort()).toEqual([week - 1, week]);
 });

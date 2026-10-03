@@ -22,7 +22,7 @@ it('consumes an excessive boss backlog once and keeps the player in the world', 
   expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(2n);
   expect(() => reportKills(f, { mapId: 'endless_40', streamId: 'test-defeats-stream-0001', sequence: 1n, enemies: [{ enemy: 'boss', count: 100 }] })).not.toThrow();
   expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(2n);
-  expect(f.db.regularEnemyLootCursor.key.find(`${f.ctx.sender.toHexString()}:test-defeats-stream-0001`).sequence).toBe(1n);
+  expect(f.db.regularEnemyStream.key.find(`${f.ctx.sender.toHexString()}:test-defeats-stream-0001`).sequence).toBe(1n);
   // The excess earns nothing and nothing is queued for review. It never costs
   // the session: a client can send this many boss kills honestly enough.
   expect([...f.db.enemyDefeatReview.iter()]).toEqual([]);

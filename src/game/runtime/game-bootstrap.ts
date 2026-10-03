@@ -48,6 +48,7 @@ import {
 } from "../../../shared/rules";
 import { BASE_ATTACK_RANGE, BASE_PROJECTILE_SPEED } from "../constants";
 import { createProjectileStore } from "./projectile-store";
+import { CAMPAIGN_GATEWAYS } from "../../../shared/map-gateways";
 import { MAP_EDITOR_GAMEPLAY_OVERRIDES } from "../../../shared/map-editor-overrides";
 import { savedMapDesign, savedMapName } from "../map-design";
 import { requestFrame } from "../../app/trusted-clock";
@@ -55,17 +56,11 @@ import { requestFrame } from "../../app/trusted-clock";
 type BootstrapMapPortal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
 type BootstrapMapEntry = { name: string; portal: BootstrapMapPortal | null; arrival: { x: number; y: number }; secondaryPortal?: BootstrapMapPortal };
 
-function editedMapEntry<T extends BootstrapMapEntry>(mapId: MapId, fallback: T): T {
-  const edit = MAP_EDITOR_GAMEPLAY_OVERRIDES[mapId];
-  const name = numberedMapName(mapId, savedMapName(mapId) ?? edit?.name ?? fallback.name);
-  if (!edit || edit.portals.length === 0) return { ...fallback, name };
-  const portals = edit.portals.map((portal) => ({ ...portal, destination: portal.destination as MapId }));
-  return {
-    name,
-    arrival: { ...edit.arrival },
-    portal: portals[0],
-    ...(portals[1] ? { secondaryPortal: portals[1] } : {}),
-  } as T;
+function campaignMapEntry(mapId: MapId): BootstrapMapEntry {
+  const gateways = CAMPAIGN_GATEWAYS[mapId];
+  const name = numberedMapName(mapId, savedMapName(mapId) ?? MAP_EDITOR_GAMEPLAY_OVERRIDES[mapId]?.name ?? MAP_DISPLAY_NAMES[mapId]);
+  const [portal, secondaryPortal] = gateways.portals.map(portal => ({ ...portal, destination: portal.destination as MapId }));
+  return { name, arrival: { ...gateways.arrival }, portal: portal ?? null, ...(secondaryPortal ? { secondaryPortal } : {}) };
 }
 
 function editedBossPosition(mapId: MapId, fallback: { x: number; y: number }) {
@@ -103,103 +98,11 @@ export function createGameBootstrap() {
   const aegisPrimeCrystalBursts: AegisPrimeCrystalBurst[] = [];
   const startSpawn = { ...PLAYER_SPAWN };
   const authoredMapConfig = {
+    // Campaign portals and arrivals are shared with the server (shared/map-gateways.ts).
+    ...Object.fromEntries(CAMPAIGN_MAPS.map(map => [map.id, campaignMapEntry(map.id as MapId)])) as Record<MapId, BootstrapMapEntry>,
     [ONBOARDING_MAP_ID]: { name: "First Steps", portal: null, arrival: ONBOARDING_WORLD.spawn },
     home_exterior: { name: "Home", portal: HOME_TRAVEL_PORTAL, arrival: HOME_EXTERIOR_SPAWN },
-    [TUTORIAL_FOREST_MAP_ID]: editedMapEntry(TUTORIAL_FOREST_MAP_ID, {
-      name: MAP_DISPLAY_NAMES[TUTORIAL_FOREST_MAP_ID],
-      portal: { x: 190, y: 448, width: 198, height: 198, depth: 448, destination: BEGINNER_DESERT_MAP_ID },
-      arrival: { x: 190, y: 540 },
-    }),
-    [BEGINNER_DESERT_MAP_ID]: editedMapEntry(BEGINNER_DESERT_MAP_ID, {
-      name: MAP_DISPLAY_NAMES[BEGINNER_DESERT_MAP_ID],
-      portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: TUTORIAL_FOREST_MAP_ID },
-      secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: INTERMEDIATE_SNOWLANDS_MAP_ID },
-      arrival: { x: 360, y: 770 },
-    }),
-    [INTERMEDIATE_SNOWLANDS_MAP_ID]: editedMapEntry(INTERMEDIATE_SNOWLANDS_MAP_ID, {
-      name: MAP_DISPLAY_NAMES[INTERMEDIATE_SNOWLANDS_MAP_ID],
-      portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: BEGINNER_DESERT_MAP_ID },
-      secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: ADVANCED_LAVA_WASTES_MAP_ID },
-      arrival: { x: 580, y: 770 },
-    }),
-    [ADVANCED_LAVA_WASTES_MAP_ID]: editedMapEntry(ADVANCED_LAVA_WASTES_MAP_ID, {
-      name: MAP_DISPLAY_NAMES[ADVANCED_LAVA_WASTES_MAP_ID],
-      portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: INTERMEDIATE_SNOWLANDS_MAP_ID },
-      secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: INFERNAL_DEPTHS_MAP_ID },
-      arrival: { x: 580, y: 770 },
-    }),
-    [INFERNAL_DEPTHS_MAP_ID]: editedMapEntry(INFERNAL_DEPTHS_MAP_ID, {
-      name: MAP_DISPLAY_NAMES[INFERNAL_DEPTHS_MAP_ID],
-      portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: ADVANCED_LAVA_WASTES_MAP_ID },
-      secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: WATER_REACH_MAP_ID },
-      arrival: { x: 580, y: 770 },
-    }),
-    [WATER_REACH_MAP_ID]: editedMapEntry(WATER_REACH_MAP_ID, {
-      name: MAP_DISPLAY_NAMES[WATER_REACH_MAP_ID],
-      portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: INFERNAL_DEPTHS_MAP_ID },
-      secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: SAMURAI_GARDEN_MAP_ID },
-      arrival: { x: 580, y: 770 },
-    }),
-    [SAMURAI_GARDEN_MAP_ID]: editedMapEntry(SAMURAI_GARDEN_MAP_ID, {
-      name: MAP_DISPLAY_NAMES[SAMURAI_GARDEN_MAP_ID],
-      portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: WATER_REACH_MAP_ID },
-      secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: CLOUDSPIRE_MAP_ID },
-      arrival: { x: 580, y: 770 },
-    }),
-    [CLOUDSPIRE_MAP_ID]: editedMapEntry(CLOUDSPIRE_MAP_ID, {
-      name: MAP_DISPLAY_NAMES[CLOUDSPIRE_MAP_ID],
-      portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: SAMURAI_GARDEN_MAP_ID },
-      secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: MOONFEN_MAP_ID },
-      arrival: { x: 580, y: 770 },
-    }),
-    [MOONFEN_MAP_ID]: editedMapEntry(MOONFEN_MAP_ID, {
-      name: MAP_DISPLAY_NAMES[MOONFEN_MAP_ID],
-      portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: CLOUDSPIRE_MAP_ID },
-      secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: CRYSTAL_HOLLOWS_MAP_ID },
-      arrival: { x: 580, y: 770 },
-    }),
-    [CRYSTAL_HOLLOWS_MAP_ID]: editedMapEntry(CRYSTAL_HOLLOWS_MAP_ID, {
-      name: MAP_DISPLAY_NAMES[CRYSTAL_HOLLOWS_MAP_ID],
-      portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: MOONFEN_MAP_ID },
-      secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: CLOCKWORK_RUINS_MAP_ID },
-      arrival: { x: 580, y: 770 },
-    }), [CLOCKWORK_RUINS_MAP_ID]: editedMapEntry(CLOCKWORK_RUINS_MAP_ID, {
-      name: MAP_DISPLAY_NAMES[CLOCKWORK_RUINS_MAP_ID],
-      portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: CRYSTAL_HOLLOWS_MAP_ID },
-      secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: DUSKFALL_ORCHARD_MAP_ID },
-      arrival: { x: 580, y: 770 },
-    }), [DUSKFALL_ORCHARD_MAP_ID]: editedMapEntry(DUSKFALL_ORCHARD_MAP_ID, {
-      name: MAP_DISPLAY_NAMES[DUSKFALL_ORCHARD_MAP_ID],
-      portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: CLOCKWORK_RUINS_MAP_ID },
-      secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: NEON_BASTION_MAP_ID },
-      arrival: { x: 580, y: 770 },
-    }), [NEON_BASTION_MAP_ID]: editedMapEntry(NEON_BASTION_MAP_ID, {
-      name: MAP_DISPLAY_NAMES[NEON_BASTION_MAP_ID],
-      portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: DUSKFALL_ORCHARD_MAP_ID },
-      secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: VERDANT_CATACOMBS_MAP_ID },
-      arrival: { x: 580, y: 770 },
-    }), [VERDANT_CATACOMBS_MAP_ID]: editedMapEntry(VERDANT_CATACOMBS_MAP_ID, {
-      name: MAP_DISPLAY_NAMES[VERDANT_CATACOMBS_MAP_ID],
-      portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: NEON_BASTION_MAP_ID },
-      secondaryPortal: { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: ION_CITADEL_MAP_ID },
-      arrival: { x: 580, y: 770 },
-    }), [ION_CITADEL_MAP_ID]: editedMapEntry(ION_CITADEL_MAP_ID, {
-      name: MAP_DISPLAY_NAMES[ION_CITADEL_MAP_ID],
-      portal: { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: VERDANT_CATACOMBS_MAP_ID },
-      arrival: { x: 580, y: 770 },
-    }),
-  } satisfies Record<MapId, BootstrapMapEntry>;
-  const campaignConfig = authoredMapConfig as Record<string, BootstrapMapEntry>;
-  for (const [index, map] of CAMPAIGN_MAPS.entries()) {
-    campaignConfig[map.id] ??= editedMapEntry(map.id as MapId, {
-      name: MAP_DISPLAY_NAMES[map.id], arrival: { x: 580, y: 770 },
-      portal: index ? { x: 360, y: 680, width: 198, height: 198, depth: 680, destination: CAMPAIGN_MAPS[index - 1].id as MapId } : null,
-    });
-    const next = CAMPAIGN_MAPS[index + 1];
-    if (next && ![campaignConfig[map.id].portal, campaignConfig[map.id].secondaryPortal].some(portal => portal?.destination === next.id)) {
-      campaignConfig[map.id].secondaryPortal = { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: next.id as MapId };
-    }
-  }
+  };
   const mapConfig = withGeneratedMaps<BootstrapMapEntry>(authoredMapConfig, id => {
     const map = generateMap(id);
     return { name: map.name, arrival: map.arrival, portal: { ...map.portals[0], destination: map.portals[0].destination as MapId }, secondaryPortal: map.portals[1] ? { ...map.portals[1], destination: map.portals[1].destination as MapId } : undefined };

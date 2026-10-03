@@ -179,6 +179,7 @@ export const ERASURE_TARGETS: readonly ErasureTarget[] = [
   { table: "proceduralInstanceContribution", columns: ["identity"], pk: "key", mode: "index", index: "byIdentity" },
   { table: "proceduralProgress", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "regularEnemyLootCursor", columns: ["identity"], pk: "key", mode: "index", index: "identity" },
+  { table: "regularEnemyStream", columns: ["identity"], pk: "key", mode: "index", index: "identity" },
   { table: "releaseAcknowledgement", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "researchCompletionSchedule", columns: ["identity"], pk: "scheduled_id", mode: "scan" },
   { table: "socialFriend", columns: ["owner","peer"], pk: "key", mode: "index", index: "owner" },

@@ -11,6 +11,7 @@ import { mergeEquipmentLocks, removeEquipmentLocks } from "./equipment-locks";
 import { SenderError } from "spacetimedb/server";
 import { removePlayerJoinDate, syncPlayerJoinDate } from "./mailbox";
 import { removePausedResearch } from "./research-pause";
+import { removeStreamCursors } from "./regular-enemy-loot";
 import {
   ATTACK_BALANCE_VERSION,
   DEFAULT_ATTACK_INTERVAL,
@@ -763,7 +764,7 @@ for (const [contributionTable, attackWindowTable] of [
     removeLootSettings(ctx, identity);
     removeEquipmentLocks(ctx, identity);
     removeIgnoredDrops(ctx, identity);
-    for (const cursor of ctx.db.regularEnemyLootCursor.identity.filter(identity)) ctx.db.regularEnemyLootCursor.key.delete(cursor.key);
+    removeStreamCursors(ctx, identity);
     if (ctx.db.playerOnboarding.identity.find(identity)) ctx.db.playerOnboarding.identity.delete(identity);
     if (ctx.db.playerMapBalance.identity.find(identity)) ctx.db.playerMapBalance.identity.delete(identity);
     if (ctx.db.playerUpgradeBench.identity.find(identity)) ctx.db.playerUpgradeBench.identity.delete(identity);
@@ -874,7 +875,7 @@ for (const [contributionTable, attackWindowTable] of [
     removeLootSettings(ctx, identity);
     removeEquipmentLocks(ctx, identity);
     removeIgnoredDrops(ctx, identity);
-    for (const cursor of ctx.db.regularEnemyLootCursor.identity.filter(identity)) ctx.db.regularEnemyLootCursor.key.delete(cursor.key);
+    removeStreamCursors(ctx, identity);
     if (ctx.db.playerOnboarding.identity.find(identity)) ctx.db.playerOnboarding.identity.delete(identity);
     if (ctx.db.playerMapBalance.identity.find(identity)) ctx.db.playerMapBalance.identity.delete(identity);
     if (ctx.db.playerUpgradeBench.identity.find(identity)) ctx.db.playerUpgradeBench.identity.delete(identity);

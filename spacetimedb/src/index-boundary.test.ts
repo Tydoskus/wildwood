@@ -173,7 +173,9 @@ import { describe, expect, it } from "vitest";
 // 6_591: chat moderators added the chat_moderator table, the get_chat_role
 // procedure and the restore_chat_message and dev_set_chat_moderator reducers.
 // The rules live in chat-reactions.ts and dev-review.ts.
-const MAX_LINES = 6_591;
+// 6_546: map portals and arrivals moved to shared/map-gateways.ts (0.877),
+// shared with the client instead of copied by hand.
+const MAX_LINES = 6_546;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

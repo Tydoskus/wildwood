@@ -4,7 +4,7 @@ import { expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { reportKills } from "../../tests/helpers/enemy-defeat";
 import { enemyDefeatDefinition, defeatBudget } from "../../shared/enemy-defeats";
-import { combatTimeKey, reportRateKey, simulationClockKey, killRateKey, payCeilingKey } from "./enemy-defeats";
+import { combatTimeKey, reportRateKey, simulationClockKey, killRateKey } from "./enemy-defeats";
 import { ENEMY_TYPES } from "../../shared/enemy-definitions";
 import { rollRegularEnemyLoot } from "./regular-enemy-loot";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
@@ -40,7 +40,7 @@ it.each([
 ])("rejects invalid identities/counts without consuming a receipt %s", change => {
   const f = fixture();
   expect(() => reportKills(f, { ...batch, ...change })).toThrow();
-  expect([...f.db.regularEnemyLootCursor.iter()]).toHaveLength(0);
+  expect([...f.db.regularEnemyStream.iter()]).toHaveLength(0);
   expect([...f.db.enemyDefeatBudget.iter()]).toHaveLength(0);
 });
 it("honours a report for the map the player left for Home, paid by that map's budget", () => {
@@ -51,7 +51,7 @@ it("honours a report for the map the player left for Home, paid by that map's bu
   expect(f.db.playerProgress.identity.find(f.ctx.sender).damage).toBeCloseTo(base.damage + enemyDefeatDefinition(batch.mapId, enemy)!.reward.amount * 20);
   // Spawn budgets are the map's own; the account-wide clocks and the report
   // limiter have no map.
-  const accountWide = [combatTimeKey, reportRateKey, simulationClockKey, killRateKey, payCeilingKey].map(key => key(f.ctx.sender));
+  const accountWide = [combatTimeKey, reportRateKey, simulationClockKey, killRateKey].map(key => key(f.ctx.sender));
   expect([...f.db.enemyDefeatBudget.iter()].filter(row => !accountWide.includes(row.key))
     .every(row => row.key.includes(`:${batch.mapId}:`))).toBe(true);
 });
@@ -59,14 +59,14 @@ it("still rejects a report for a map the player did not come Home from, even whe
   const f = fixture(); f.patch("player", { mapId: "home_exterior" }); f.patch("playerProgress", { waterUnlocked: true });
   f.db.homeReturnLocation.insert({ identity: f.ctx.sender, mapId: "cloudspire", x: 1, y: 1, facing: 0 });
   expect(() => reportKills(f, batch)).toThrow("another map");
-  expect([...f.db.regularEnemyLootCursor.iter()]).toHaveLength(0);
+  expect([...f.db.regularEnemyStream.iter()]).toHaveLength(0);
 });
 it("rolls back reward, budget, receipt and loot if a write fails", () => {
   const f = fixture(), base = f.db.playerProgress.identity.find(f.ctx.sender);
   f.ctx.random.integerInRange = () => 1;
   const insert = vi.spyOn(f.db.playerItemDrop, "insert").mockImplementationOnce(() => { throw new Error("write failure"); });
   expect(() => reportKills(f, batch)).toThrow("write failure");
-  expect([...f.db.regularEnemyLootCursor.iter()]).toHaveLength(0);
+  expect([...f.db.regularEnemyStream.iter()]).toHaveLength(0);
   expect([...f.db.enemyDefeatBudget.iter()]).toHaveLength(0);
   expect(f.db.playerProgress.identity.find(f.ctx.sender)).toEqual(base);
   insert.mockRestore(); reportKills(f, batch);
@@ -113,7 +113,7 @@ it("consumes a 100-kill Endless report exceeding the one-site capacity and keeps
   expect(() => reportKills(f, report)).not.toThrow();
   expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(BigInt(capacity));
   expect(f.db.defeatSessionRestriction.identity.find(f.ctx.sender)).toBeNull();
-  expect(f.db.regularEnemyLootCursor.key.find(`${f.ctx.sender.toHexString()}:${report.streamId}`).sequence).toBe(1n);
+  expect(f.db.regularEnemyStream.key.find(`${f.ctx.sender.toHexString()}:${report.streamId}`).sequence).toBe(1n);
 });
 
 it('rolls pinned server drop chances instead of the current compiled table', () => {

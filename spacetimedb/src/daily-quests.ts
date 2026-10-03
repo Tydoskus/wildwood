@@ -1,4 +1,4 @@
-import { table, t, SenderError } from "spacetimedb/server";
+import { Range, table, t, SenderError } from "spacetimedb/server";
 import { WEEKLY_QUEST_COUNT, GUILD_QUEST_COLLECT_LIMIT, applyQuestKills, weeklyQuestsFor, guildQuestBonus, ownQuest, parseDailyQuests, questDay, questDone, questOpen, questWeek, soloQuestBonus, type DailyQuest } from "../../shared/daily-quests";
 import { readPlayerProgress } from "./wide-stats";
 
@@ -19,6 +19,18 @@ export const playerDailyQuest = table({ name: "player_daily_quest", public: true
 export const guildQuestWeek = table({ name: "guild_quest_week", public: true }, {
   key: t.string().primaryKey(), week: t.u32().index("btree"), guildId: t.u64(), guildName: t.string(), points: t.u32(),
 });
+
+/**
+ * Drops guild weeks before last week: the board shows this week, and this
+ * week's bonus reads last week's points. Every client subscribed to the whole
+ * table, so it grew for every guild every week.
+ */
+export function pruneOldGuildQuestWeeks(ctx: Ctx) {
+  const lastWeek = questWeek(questDay(ctx.timestamp.microsSinceUnixEpoch)) - 1;
+  const old = [...ctx.db.guildQuestWeek.week.filter(new Range({ tag: "unbounded" }, { tag: "excluded", value: lastWeek }))];
+  for (const row of old) ctx.db.guildQuestWeek.key.delete(row.key);
+  return old.length;
+}
 
 /**
  * Each player's quest points this week, for the guild they earned them in:
@@ -161,7 +173,10 @@ export function ensureDailyQuests(ctx: Ctx, identity: any) {
     questsJson = JSON.stringify([...kept.filter(ownQuest), ...drawn.slice(own), ...kept.filter(quest => !ownQuest(quest))]);
   }
   const row = { identity, day, questsJson, ...guildFields };
-  if (existing) ctx.db.playerDailyQuest.identity.update(row); else ctx.db.playerDailyQuest.insert(row);
+  // Runs on every kill report; a public row rewritten unchanged still goes out to subscribers.
+  if (!existing) ctx.db.playerDailyQuest.insert(row);
+  else if (existing.day !== row.day || existing.questsJson !== row.questsJson || existing.bonus !== row.bonus
+    || existing.guildPoints !== row.guildPoints || existing.guildName !== row.guildName) ctx.db.playerDailyQuest.identity.update(row);
   return row;
 }
 
@@ -200,7 +215,8 @@ export function recordDailyQuestKills(ctx: Ctx, identity: any, mapId: string, ki
   }
   // Without a guild the row shows the player's own solo count, from the updated list.
   if (completed && !member) guildPoints = soloQuestsFor(ctx, identity, questWeek(row.day), quests);
-  ctx.db.playerDailyQuest.identity.update({ ...row, questsJson: JSON.stringify(quests), guildPoints });
+  const questsJson = JSON.stringify(quests);
+  if (questsJson !== row.questsJson || guildPoints !== row.guildPoints) ctx.db.playerDailyQuest.identity.update({ ...row, questsJson, guildPoints });
   return completed;
 }
 
