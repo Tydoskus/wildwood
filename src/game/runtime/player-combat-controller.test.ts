@@ -5,6 +5,11 @@ import {
   projectileSimulationSeconds,
 } from "./player-combat-controller";
 import { createGameBootstrap } from "./game-bootstrap";
+import {
+  ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, CLOCKWORK_RUINS_MAP_ID, CLOUDSPIRE_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID,
+  DUSKFALL_ORCHARD_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ION_CITADEL_MAP_ID, MOONFEN_MAP_ID,
+  NEON_BASTION_MAP_ID, SAMURAI_GARDEN_MAP_ID, TUTORIAL_FOREST_MAP_ID, VERDANT_CATACOMBS_MAP_ID, WATER_REACH_MAP_ID,
+} from "../world";
 import { bossPlayerAttackCycle } from "../../../shared/boss-simulation";
 import { absoluteAttackTimestamps, attackAnimationClockAt } from "../attack-timeline";
 import { createEnemyLifecycle } from "./enemy-lifecycle";
@@ -20,27 +25,9 @@ function createCombatHarness(overrides: Partial<Parameters<typeof createPlayerCo
     enemies: state.enemies,
     spawnSites: state.spawnSites,
     projectileStore: state.projectileStore,
-    boss: state.boss,
-    spiderBoss: state.spiderBoss,
-    frostclawBoss: state.frostclawBoss,
-    magmaliskBoss: state.magmaliskBoss,
-    gloomrootBoss: state.gloomrootBoss,
-    tidewyrmBoss: state.tidewyrmBoss,
-    koiShogunBoss: state.koiShogunBoss,
-    tempestKirinBoss: state.tempestKirinBoss,
-    miremawBoss: state.miremawBoss,
-    prismshellBoss: state.prismshellBoss, ironhornBoss: state.ironhornBoss, dreadreaperBoss: state.dreadreaperBoss, voltwardenBoss: state.voltwardenBoss, gravebloomBoss: state.gravebloomBoss, aegisPrimeBoss: state.aegisPrimeBoss,
+    bosses: state.bosses,
     nowSeconds: () => 1,
-    isTutorialMap: () => true,
-    isDesertMap: () => false,
-    isSnowMap: () => false,
-    isLavaMap: () => false,
-    isInfernalMap: () => false,
-    isWaterMap: () => false,
-    isSamuraiMap: () => false,
-    isCloudspireMap: () => false,
-    isMoonfenMap: () => false,
-    isCrystalHollowsMap: () => false, isClockworkRuinsMap: () => false, isDuskfallOrchardMap: () => false, isNeonBastionMap: () => false, isVerdantCatacombsMap: () => false, isIonCitadelMap: () => false,
+    currentMapId: () => TUTORIAL_FOREST_MAP_ID,
     engageEnemy: noop,
     researchDamageMultiplier: () => 1,
     researchCriticalChance: () => 0,
@@ -73,7 +60,7 @@ describe("player attack timing", () => {
     let now = 0;
     const engageEnemy = vi.fn();
     const state = createCombatHarness({ nowSeconds: () => now, engageEnemy });
-    state.boss.dead = true;
+    state.bosses.dragon.dead = true;
     Object.assign(state.player, { x: 500, y: 500, damage: 1, attackRange: 400 });
     createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Bramble", x: 800, y: 500,
       campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
@@ -91,7 +78,7 @@ describe("player attack timing", () => {
     let now = 0;
     const state = createCombatHarness({ nowSeconds: () => now, researchRewardMultiplier: () => multiplier,
       displayRewardAmount: (type, amount) => amount * multiplier * (type === "damage" ? 1.75 : 1), logPickup });
-    state.boss.dead = true;
+    state.bosses.dragon.dead = true;
     Object.assign(state.player, { x: 500, y: 500, damage: 100, attackRange: 200 });
     createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Spitter", x: 550, y: 500,
       campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
@@ -108,7 +95,7 @@ describe("player attack timing", () => {
   it("heals once after a regular kill with Second Wind", () => {
     let now = 0;
     const state = createCombatHarness({ nowSeconds: () => now, prestigeSecondWind: () => .05 });
-    state.boss.dead = true;
+    state.bosses.dragon.dead = true;
     Object.assign(state.player, { x: 500, y: 500, damage: 100, attackRange: 200, hp: 50, maxHp: 100 });
     createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Spitter", x: 550, y: 500,
       campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
@@ -121,7 +108,7 @@ describe("player attack timing", () => {
   it("routes a tutorial kill to its acknowledgement without ordinary loot, stats, or respawns", () => {
     const saveProgress = vi.fn(), loot = vi.fn(), schedule = vi.fn(), killed = vi.fn(() => true);
     let now = 0;
-    const state = createCombatHarness({ isTutorialMap: () => false, nowSeconds: () => now,
+    const state = createCombatHarness({ currentMapId: () => "", nowSeconds: () => now,
       onEnemyDefeated: killed, saveProgress, recordRegularEnemyDefeat: loot, scheduleEnemyRespawn: schedule });
     Object.assign(state.player, { x: 500, y: 500, damage: 4, attackRange: 200 });
     createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Spitter", x: 550, y: 500,
@@ -136,7 +123,7 @@ describe("player attack timing", () => {
   it("marks actual attack starts and accepted damage as combat for travel boots", () => {
     const combat = vi.fn();
     const state = createCombatHarness({ onCombat: combat });
-    Object.assign(state.player, { x: 500, y: 500, attackRange: 200 }); state.boss.dead = true;
+    Object.assign(state.player, { x: 500, y: 500, attackRange: 200 }); state.bosses.dragon.dead = true;
     state.controller.attackNearest(); expect(combat).not.toHaveBeenCalled();
     createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Spitter", x: 550, y: 500,
       campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
@@ -198,13 +185,13 @@ describe("player attack timing", () => {
   it("reflects a campaign boss's hit back at that boss, drawn blue", () => {
     const hitPersonalBoss = vi.fn();
     const state = createCombatHarness({ prestigeReflect: () => 1, prestigeBossSlayer: () => .5, hitPersonalBoss });
-    Object.assign(state.boss, { dead: false, x: 700, y: 500 });
+    Object.assign(state.bosses.dragon, { dead: false, x: 700, y: 500 });
     Object.assign(state.player, { x: 500, y: 500, hp: 1000, maxHp: 1000, hurtClock: 0 });
     expect(state.controller.damagePlayerFromBoss(40)).toBe(true);
     expect(hitPersonalBoss).toHaveBeenCalledOnce();
-    expect(hitPersonalBoss.mock.calls[0]).toEqual([40, 700, 500 + (state.boss.hitboxOffsetY ?? 0), false, true]);
+    expect(hitPersonalBoss.mock.calls[0]).toEqual([40, 700, 500 + (state.bosses.dragon.hitboxOffsetY ?? 0), false, true]);
     // A dead boss's lingering hazard has no one to answer.
-    state.boss.dead = true; state.player.hurtClock = 0;
+    state.bosses.dragon.dead = true; state.player.hurtClock = 0;
     state.controller.damagePlayerFromBoss(40);
     expect(hitPersonalBoss).toHaveBeenCalledOnce();
   });
@@ -252,7 +239,7 @@ describe("player attack timing", () => {
     const state = createCombatHarness({ localIdentity: () => "my-account" });
     state.enemies.length = 0;
     Object.assign(state.player, { x: 500, y: 500, attackRange: 250 });
-    state.boss.dead = true;
+    state.bosses.dragon.dead = true;
     const lifecycle = createEnemyLifecycle(state.enemies, state.spawnSites, () => {});
     for (const [id, type, x, y] of [[0, "Needle", 500, 650], [1, "Bramble", 550, 500]] as const) {
       lifecycle.spawnFromSite({ id, type, x, y, campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
@@ -288,7 +275,7 @@ describe("player attack timing", () => {
   it("autofarm ignores an engaged generated boss even when it shares the farm species", () => {
     const state = createCombatHarness();
     state.enemies.length = 0;
-    state.boss.dead = true;
+    state.bosses.dragon.dead = true;
     Object.assign(state.player, { x: 500, y: 500, attackRange: 250 });
     const lifecycle = createEnemyLifecycle(state.enemies, state.spawnSites, () => {});
     for (const [id, campName, x, y] of [[0, "Warden", 550, 500], [1, "Health Camp", 500, 650]] as const)
@@ -307,7 +294,7 @@ describe("player attack timing", () => {
     const state = createCombatHarness();
     state.enemies.length = 0;
     Object.assign(state.player, { x: 500, y: 500, attackRange: 250 });
-    Object.assign(state.boss, { x: 550, y: 500, dead: false });
+    Object.assign(state.bosses.dragon, { x: 550, y: 500, dead: false });
     const lifecycle = createEnemyLifecycle(state.enemies, state.spawnSites, () => {});
     for (const [id, type, x, y] of [[0, "Needle", 525, 500], [1, "Bramble", 500, 650]] as const) {
       lifecycle.spawnFromSite({ id, type, x, y, campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
@@ -320,7 +307,7 @@ describe("player attack timing", () => {
     expect(state.player.combatFacing).toBeNull();
     expect(state.player.throwClock).toBe(0);
     state.controller.attackNearest();
-    expect(state.player.combatFacing).toBeCloseTo(Math.atan2(state.boss.y + (state.boss.hitboxOffsetY ?? 0) - state.player.y, state.boss.x - state.player.x));
+    expect(state.player.combatFacing).toBeCloseTo(Math.atan2(state.bosses.dragon.y + (state.bosses.dragon.hitboxOffsetY ?? 0) - state.player.y, state.bosses.dragon.x - state.player.x));
   });
 
   it.each(["starter_stone", "starter_bow"])("plays one release sound for %s at launch, including multishot", (weapon) => {
@@ -328,9 +315,9 @@ describe("player attack timing", () => {
     const sound = vi.fn();
     const state = createCombatHarness({ nowSeconds: () => now, equippedWeapon: () => weapon, playBowAttackSound: sound });
     state.enemies.length = 0;
-    state.boss.dead = false;
-    state.player.x = state.boss.x + state.boss.r + 30;
-    state.player.y = state.boss.y;
+    state.bosses.dragon.dead = false;
+    state.player.x = state.bosses.dragon.x + state.bosses.dragon.r + 30;
+    state.player.y = state.bosses.dragon.y;
     state.player.projectileCount = 3;
     state.controller.attackNearest();
     expect(sound).not.toHaveBeenCalled();
@@ -372,10 +359,10 @@ describe("player attack timing", () => {
         localIdentity: () => identity,
       });
       harness.enemies.length = 0;
-      harness.boss.encounter = encounter;
-      harness.boss.dead = false;
-      harness.player.x = harness.boss.x + harness.boss.r + harness.player.attackRange - 20;
-      harness.player.y = harness.boss.y;
+      harness.bosses.dragon.encounter = encounter;
+      harness.bosses.dragon.dead = false;
+      harness.player.x = harness.bosses.dragon.x + harness.bosses.dragon.r + harness.player.attackRange - 20;
+      harness.player.y = harness.bosses.dragon.y;
       harness.controller.attackNearest();
       return harness;
     };
@@ -399,8 +386,7 @@ describe("player attack timing", () => {
   it("records a Snowlands loot roll when a regular enemy dies", () => {
     const recordRegularEnemyDefeat = vi.fn();
     const state = createCombatHarness({
-      isTutorialMap: () => false,
-      isSnowMap: () => true,
+      currentMapId: () => INTERMEDIATE_SNOWLANDS_MAP_ID,
       recordRegularEnemyDefeat,
     });
     const site = {
@@ -429,7 +415,6 @@ describe("player attack timing", () => {
   it.each(["water_reach", "samurai_garden", "cloudspire", "moonfen"])("records a %s loot roll when a regular enemy dies", mapId => {
     const recordRegularEnemyDefeat = vi.fn();
     const state = createCombatHarness({
-      isTutorialMap: () => false,
       currentMapId: () => mapId,
       recordRegularEnemyDefeat,
     });
@@ -464,7 +449,7 @@ describe("stable player combat aim", () => {
     let now = 0;
     const state = createCombatHarness({ nowSeconds: () => now, localIdentity: () => "me" });
     state.enemies.length = 0;
-    state.boss.dead = true;
+    state.bosses.dragon.dead = true;
     Object.assign(state.player, { x: 500, y: 500, attackRange: 200 });
     const lifecycle = createEnemyLifecycle(state.enemies, state.spawnSites, () => {});
     for (const [id, x] of [[0, 450], [1, 551]] as const) lifecycle.spawnFromSite({
@@ -538,7 +523,7 @@ describe("local sword combat", () => {
   function swordHarness(overrides: Partial<Parameters<typeof createPlayerCombatController>[0]> = {}) {
     let now = 0, weapon = "wooden_sword";
     const state = createCombatHarness({ nowSeconds: () => now, equippedWeapon: () => weapon, ...overrides });
-    state.enemies.length = 0; state.boss.dead = true;
+    state.enemies.length = 0; state.bosses.dragon.dead = true;
     Object.assign(state.player, { x: 500, y: 500, damage: 10, projectileCount: 3, attackRate: 1, attackRange: 200 });
     const add = (x: number, radius = 15) => {
       createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: state.enemies.length, type: "Spitter", x, y: 500,
@@ -588,24 +573,23 @@ describe("local sword combat", () => {
 });
 
 const personalBossCases = [
-  ['isTutorialMap', 'boss'], ['isDesertMap', 'spiderBoss'], ['isSnowMap', 'frostclawBoss'],
-  ['isLavaMap', 'magmaliskBoss'], ['isInfernalMap', 'gloomrootBoss'], ['isWaterMap', 'tidewyrmBoss'],
-  ['isSamuraiMap', 'koiShogunBoss'], ['isCloudspireMap', 'tempestKirinBoss'], ['isMoonfenMap', 'miremawBoss'],
-  ['isCrystalHollowsMap', 'prismshellBoss'], ['isClockworkRuinsMap', 'ironhornBoss'],
-  ['isDuskfallOrchardMap', 'dreadreaperBoss'], ['isNeonBastionMap', 'voltwardenBoss'],
-  ['isVerdantCatacombsMap', 'gravebloomBoss'], ['isIonCitadelMap', 'aegisPrimeBoss'],
+  [TUTORIAL_FOREST_MAP_ID, 'dragon'], [BEGINNER_DESERT_MAP_ID, 'spider'], [INTERMEDIATE_SNOWLANDS_MAP_ID, 'frostclaw'],
+  [ADVANCED_LAVA_WASTES_MAP_ID, 'magmalisk'], [INFERNAL_DEPTHS_MAP_ID, 'gloomroot'], [WATER_REACH_MAP_ID, 'tidewyrm'],
+  [SAMURAI_GARDEN_MAP_ID, 'koiShogun'], [CLOUDSPIRE_MAP_ID, 'tempestKirin'], [MOONFEN_MAP_ID, 'miremaw'],
+  [CRYSTAL_HOLLOWS_MAP_ID, 'prismshell'], [CLOCKWORK_RUINS_MAP_ID, 'ironhorn'],
+  [DUSKFALL_ORCHARD_MAP_ID, 'dreadreaper'], [NEON_BASTION_MAP_ID, 'voltwarden'],
+  [VERDANT_CATACOMBS_MAP_ID, 'gravebloom'], [ION_CITADEL_MAP_ID, 'aegisPrime'],
 ] as const;
 
 it("only hits Miremaw where its tuned oval reaches", () => {
   const hit = vi.fn();
   const state = createCombatHarness({
-    isTutorialMap: () => false,
-    isMoonfenMap: () => true,
+    currentMapId: () => MOONFEN_MAP_ID,
     hitPersonalBoss: hit,
     prestigeBossSlayer: () => .5,
   });
   state.enemies.length = 0;
-  Object.assign(state.miremawBoss, { x: 500, y: 500, dead: false });
+  Object.assign(state.bosses.miremaw, { x: 500, y: 500, dead: false });
   const fireAcross = (y: number) => {
     const projectile = state.projectileStore.acquirePlayerProjectile();
     Object.assign(projectile, {
@@ -627,9 +611,9 @@ it("only hits Miremaw where its tuned oval reaches", () => {
 });
 
 it("aims at Miremaw's body instead of the anchor above it", () => {
-  const state = createCombatHarness({ isTutorialMap: () => false, isMoonfenMap: () => true });
+  const state = createCombatHarness({ currentMapId: () => MOONFEN_MAP_ID });
   state.enemies.length = 0;
-  Object.assign(state.miremawBoss, { x: 500, y: 500, dead: false });
+  Object.assign(state.bosses.miremaw, { x: 500, y: 500, dead: false });
   Object.assign(state.player, { x: 300, y: 500, attackRange: 300 });
 
   state.controller.attackNearest();
@@ -637,15 +621,15 @@ it("aims at Miremaw's body instead of the anchor above it", () => {
   expect(state.player.combatFacing).toBeCloseTo(Math.atan2(63, 200));
 });
 
-it.each(personalBossCases)('applies ranged and sword criticals to %s', (flag, key) => {
+it.each(personalBossCases)('applies ranged and sword criticals to %s', (mapId, kind) => {
   for (const weapon of ['starter_stone', 'wooden_sword']) {
     let now = 1;
     const hit = vi.fn();
-    const state = createCombatHarness({ isTutorialMap: () => false, [flag]: () => true,
+    const state = createCombatHarness({ currentMapId: () => mapId,
       nowSeconds: () => now, equippedWeapon: () => weapon, hitPersonalBoss: hit,
       researchCriticalChance: () => 1, researchCriticalDamageMultiplier: () => 2 });
     state.enemies.length = 0;
-    const boss = state[key];
+    const boss = state.bosses[kind];
     Object.assign(boss, { dead: false, x: 550, y: 500 });
     Object.assign(state.player, { x: 500 - boss.r, y: 500, damage: 10, projectileCount: 1, attackRange: 200, hp: 100 });
     for (let i = 0; i < 90; i++) {
@@ -659,7 +643,7 @@ it.each(personalBossCases)('applies ranged and sword criticals to %s', (flag, ke
 
 it('passes Endless critical damage and the critical flag to its hit display', () => {
   let now = 1; const hit = vi.fn(() => true);
-  const state = createCombatHarness({ isTutorialMap: () => false, nowSeconds: () => now,
+  const state = createCombatHarness({ currentMapId: () => "", nowSeconds: () => now,
     researchCriticalChance: () => 1, researchCriticalDamageMultiplier: () => 2, hitGeneratedBoss: hit });
   state.enemies.length = 0;
   Object.assign(state.player, { x: 500, y: 500, damage: 10, attackRange: 200, hp: 100 });
@@ -675,7 +659,7 @@ describe("autofarm target priority", () => {
   // out, and a tougher one furthest away.
   function harness() {
     const state = createCombatHarness();
-    state.boss.dead = true;
+    state.bosses.dragon.dead = true;
     const template = state.enemies.find(enemy => !enemy.dead)!;
     const at = (dx: number, hp: number, maxHp: number) => ({ ...template, x: state.player.x + dx, y: state.player.y, hp, maxHp, dead: false, generatedBoss: false, remoteCombatGhost: false });
     const near = at(40, 100, 100), wounded = at(80, 10, 100), tough = at(120, 150, 300);
@@ -709,7 +693,7 @@ describe("bow skills", () => {
   const sequence = (...values: number[]) => { let index = 0; return () => values[index++ % values.length]; };
   function field(xs: number[], overrides: Parameters<typeof createCombatHarness>[0] = {}) {
     const state = createCombatHarness(overrides);
-    state.boss.dead = true;
+    state.bosses.dragon.dead = true;
     state.enemies.length = 0;
     const lifecycle = createEnemyLifecycle(state.enemies, state.spawnSites, () => {});
     xs.forEach((x, id) => lifecycle.spawnFromSite({ id, type: "Spitter", x, y: 500, campName: "Test", leashRange: 500, alive: false, respawnAt: 0 }));
@@ -765,9 +749,9 @@ describe("bow skills", () => {
   it("puts every Arrow Storm arrow on a boss, and nothing bounces off it", () => {
     const hit = vi.fn();
     let now = 1;
-    const state = createCombatHarness({ isTutorialMap: () => false, isMoonfenMap: () => true, hitPersonalBoss: hit, nowSeconds: () => now });
+    const state = createCombatHarness({ currentMapId: () => MOONFEN_MAP_ID, hitPersonalBoss: hit, nowSeconds: () => now });
     state.enemies.length = 0;
-    Object.assign(state.miremawBoss, { x: 700, y: 500, dead: false });
+    Object.assign(state.bosses.miremaw, { x: 700, y: 500, dead: false });
     const projectile = state.projectileStore.acquirePlayerProjectile();
     Object.assign(projectile, { x: 300, y: 500, vx: 1_000, vy: 0, r: 6, damage: 10, critical: false, hitLife: 1, life: 1, trail: 1,
       skills: { arrowStorm: true, ricochet: true, piercingShot: true }, pierced: null });
@@ -817,7 +801,7 @@ describe("enemy health bar loss chunk", () => {
   it("remembers the health before a run of hits and keeps it while hits keep landing", () => {
     let now = 0;
     const state = createCombatHarness({ nowSeconds: () => now });
-    state.boss.dead = true;
+    state.bosses.dragon.dead = true;
     Object.assign(state.player, { x: 500, y: 500, damage: 100, attackRange: 200 });
     createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Spitter", x: 550, y: 500,
       campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
@@ -834,7 +818,7 @@ describe("Arrow Storm across a map change", () => {
   it("drops arrows still in flight when their enemies are no longer on the map", () => {
     let now = 1;
     const state = createCombatHarness({ random: () => 0, nowSeconds: () => now });
-    state.boss.dead = true;
+    state.bosses.dragon.dead = true;
     state.enemies.length = 0;
     createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Spitter", x: 560, y: 500, campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
     const enemy = state.enemies[0];

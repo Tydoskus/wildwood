@@ -9,7 +9,8 @@ import { ENEMY_TYPES, REWARD_DATA, rewardLabel } from "../enemies";
 import { circlesOverlap } from "../math";
 import type { ProjectileStore } from "./projectile-store";
 import { createSpatialGrid } from "./spatial-grid";
-import type { BossTarget, DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, AegisPrimeBossState, PlayerState, Projectile, RuntimeReward, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
+import type { BossTarget, EnemyState, PlayerState, Projectile, RuntimeReward } from "./types";
+import { bossStateForMap, type BossStates } from "./boss-registry";
 import type { SpawnSite } from "../world";
 import { equipmentDamage, itemDefinition } from "../../../shared/items";
 import { worldReflectDamage } from "../../../shared/prestige-perks";
@@ -87,39 +88,11 @@ export function createPlayerCombatController(options: {
   enemies: EnemyState[];
   spawnSites: SpawnSite[];
   projectileStore: ProjectileStore;
-  boss: DragonBossState;
-  spiderBoss: SpiderBossState;
-  frostclawBoss: FrostclawBossState;
-  magmaliskBoss: MagmaliskBossState;
-  gloomrootBoss: GloomrootBossState;
-  tidewyrmBoss: TidewyrmBossState;
-  koiShogunBoss: KoiShogunBossState;
-  tempestKirinBoss: TempestKirinBossState;
-  miremawBoss: MiremawBossState;
-  prismshellBoss: PrismshellBossState;
-  ironhornBoss: IronhornBossState;
-  dreadreaperBoss: DreadreaperBossState;
-  voltwardenBoss: VoltwardenBossState;
-  gravebloomBoss: GravebloomBossState;
-  aegisPrimeBoss: AegisPrimeBossState;
+  /** Every world boss; the current map's is the one that can be targeted. */
+  bosses: BossStates;
   nowSeconds: () => number;
   serverNowMs?: () => number;
   localIdentity?: () => string | undefined;
-  isTutorialMap: () => boolean;
-  isDesertMap: () => boolean;
-  isSnowMap: () => boolean;
-  isLavaMap: () => boolean;
-  isInfernalMap: () => boolean;
-  isWaterMap: () => boolean;
-  isSamuraiMap: () => boolean;
-  isCloudspireMap: () => boolean;
-  isMoonfenMap: () => boolean;
-  isCrystalHollowsMap: () => boolean;
-  isClockworkRuinsMap: () => boolean;
-  isDuskfallOrchardMap: () => boolean;
-  isNeonBastionMap: () => boolean;
-  isVerdantCatacombsMap: () => boolean;
-  isIonCitadelMap: () => boolean;
   engageEnemy: (enemy: EnemyState) => void;
   researchDamageMultiplier: () => number;
   researchCriticalChance: () => number;
@@ -164,7 +137,7 @@ export function createPlayerCombatController(options: {
     spawnSkillStreak: (x: number, y: number, toX: number, toY: number, color: string, width?: number, life?: number, jagged?: boolean) => void;
     spawnSkillRing: (x: number, y: number, color: string, radius?: number, life?: number) => void;
   };
-  currentMapId?: () => string;
+  currentMapId: () => string;
   onEnemyDefeated?: (enemy: EnemyState) => boolean;
   onCombat?: () => void;
   playBowAttackSound?: () => void;
@@ -174,8 +147,8 @@ export function createPlayerCombatController(options: {
   endGame: () => void;
 }): PlayerCombatController {
   const {
-    player, enemies, spawnSites, projectileStore, boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss,
-    isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, isWaterMap, isSamuraiMap, isCloudspireMap, isMoonfenMap, isCrystalHollowsMap, isClockworkRuinsMap, isDuskfallOrchardMap, isNeonBastionMap, isVerdantCatacombsMap, isIonCitadelMap, engageEnemy, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
+    player, enemies, spawnSites, projectileStore, bosses,
+    engageEnemy, researchDamageMultiplier, researchCriticalChance, researchCriticalDamageMultiplier,
     researchRewardMultiplier, minAttackInterval, effectiveArmor, isDueling, scheduleEnemyRespawn,
     incrementKills, recordRegularEnemyDefeat, spawnBurst, spawnParticle,
     spawnDamageNumber, logPickup, saveProgress, recordDeath, endGame,
@@ -226,17 +199,7 @@ export function createPlayerCombatController(options: {
   let lastBossAttackCycleKey = "";
 
   function activeMapBoss(): BossTarget | null {
-    if (isTutorialMap()) return boss;
-    if (isDesertMap()) return spiderBoss;
-    if (isSnowMap()) return frostclawBoss;
-    if (isLavaMap()) return magmaliskBoss;
-    if (isInfernalMap()) return gloomrootBoss;
-    if (isWaterMap()) return tidewyrmBoss;
-    if (isSamuraiMap()) return koiShogunBoss;
-    if (isCloudspireMap()) return tempestKirinBoss;
-    if (isMoonfenMap()) return miremawBoss;
-    if (isClockworkRuinsMap()) return ironhornBoss; else if (isIonCitadelMap()) return aegisPrimeBoss; else if (isVerdantCatacombsMap()) return gravebloomBoss; else if (isNeonBastionMap()) return voltwardenBoss; else if (isDuskfallOrchardMap()) return dreadreaperBoss; else if (isCrystalHollowsMap()) return prismshellBoss;
-    return null;
+    return bossStateForMap(bosses, options.currentMapId());
   }
 
   const targetAimY = (target: AttackTarget) =>
@@ -533,7 +496,7 @@ export function createPlayerCombatController(options: {
     if (site) scheduleEnemyRespawn(site);
     const base = enemy.definition ?? ENEMY_TYPES[enemy.type];
     applyReward(enemy.reward, enemy.x, enemy.y);
-    const mapId = options.currentMapId?.() ?? (isTutorialMap() ? "tutorial_forest" : isDesertMap() ? "beginner_desert" : isSnowMap() ? "intermediate_snowlands" : isLavaMap() ? "advanced_lava_wastes" : isInfernalMap() ? "infernal_depths" : "");
+    const mapId = options.currentMapId();
     recordRegularEnemyDefeat(mapId, isProceduralMap(mapId) ? `site:${enemy.siteId}` : enemy.type);
     spawnBurst(enemy.x, enemy.y, DEATH_PARTICLE_COLOR, base.elite ? 28 : 12, base.elite ? 150 : 90);
   }

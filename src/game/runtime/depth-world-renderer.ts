@@ -1,21 +1,8 @@
 import type { RemotePlayer } from "../../wildstat-coop";
-import {
-  ADVANCED_LAVA_WASTES_MAP_ID,
-  BEGINNER_DESERT_MAP_ID,
-  CLOUDSPIRE_MAP_ID,
-  INFERNAL_DEPTHS_MAP_ID,
-  INTERMEDIATE_SNOWLANDS_MAP_ID,
-  MOONFEN_MAP_ID,
-  CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, NEON_BASTION_MAP_ID, VERDANT_CATACOMBS_MAP_ID, ION_CITADEL_MAP_ID,
-  SAMURAI_GARDEN_MAP_ID,
-  TUTORIAL_FOREST_MAP_ID,
-  WATER_REACH_MAP_ID,
-  type MapId,
-  type WorldDecor,
-} from "../world";
-import { DRAGON_DEPTH_OFFSET, SPIDER_DEPTH_OFFSET, FROSTCLAW_DEPTH_OFFSET, MAGMALISK_DEPTH_OFFSET, GLOOMROOT_DEPTH_OFFSET, TIDEWYRM_DEPTH_OFFSET, KOI_SHOGUN_DEPTH_OFFSET, TEMPEST_KIRIN_DEPTH_OFFSET, MIREMAW_DEPTH_OFFSET, PRISMSHELL_DEPTH_OFFSET, IRONHORN_DEPTH_OFFSET, DREADREAPER_DEPTH_OFFSET, VOLTWARDEN_DEPTH_OFFSET, GRAVEBLOOM_DEPTH_OFFSET, AEGIS_PRIME_DEPTH_OFFSET } from "../constants";
+import { type MapId, type WorldDecor } from "../world";
 import type { Camera } from "./camera";
-import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, AegisPrimeBossState, PlayerState, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
+import type { EnemyState, PlayerState } from "./types";
+import { bossForMap, type BossKind, type BossStates } from "./boss-registry";
 
 type Viewport = { width: number; height: number };
 type TreeDecor = Extract<WorldDecor, { type: "tree" }>;
@@ -26,7 +13,7 @@ type CharredTreeDecor = Extract<WorldDecor, { type: "charredTree" }>;
 type TallDecor = TreeDecor | CactusDecor | SnowPineDecor | UpgradeBenchDecor | CharredTreeDecor;
 type Portal = { depth: number };
 type BootsPickup = { y: number; r: number; collected: boolean };
-type DepthLayerKind = "enemy" | "dragon" | "spider" | "frostclaw" | "magmalisk" | "gloomroot" | "tidewyrm" | "koiShogun" | "tempestKirin" | "miremaw" | "prismshell" | "ironhorn" | "dreadreaper" | "voltwarden" | "gravebloom" | "aegisPrime" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
+type DepthLayerKind = "enemy" | "boss" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
 type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer; opacity: number };
 
 /**
@@ -40,21 +27,8 @@ export function createDepthWorldRenderer(options: {
   enemies: EnemyState[];
   remoteEnemies?: () => readonly EnemyState[];
   player: PlayerState;
-  boss: DragonBossState;
-  spiderBoss: SpiderBossState;
-  frostclawBoss: FrostclawBossState;
-  magmaliskBoss: MagmaliskBossState;
-  gloomrootBoss: GloomrootBossState;
-  tidewyrmBoss: TidewyrmBossState;
-  koiShogunBoss: KoiShogunBossState;
-  tempestKirinBoss: TempestKirinBossState;
-  miremawBoss: MiremawBossState;
-  prismshellBoss: PrismshellBossState;
-  ironhornBoss: IronhornBossState;
-  dreadreaperBoss: DreadreaperBossState;
-  voltwardenBoss: VoltwardenBossState;
-  gravebloomBoss: GravebloomBossState;
-  aegisPrimeBoss: AegisPrimeBossState;
+  /** Every world boss; only the current map's is queued. */
+  bosses: BossStates;
   bootsPickup: BootsPickup;
   currentMapId: () => MapId;
   activePortal: () => Portal | null;
@@ -66,23 +40,9 @@ export function createDepthWorldRenderer(options: {
   drawCharredTree: (tree: CharredTreeDecor) => void;
   drawEnemy: (enemy: EnemyState, opacity?: number) => void;
   enemyOpacity?: (enemy: EnemyState) => number;
-  drawBoss: () => void;
-  drawSpiderBoss: () => void;
-  drawFrostclawBoss: () => void;
-  drawMagmaliskBoss: () => void;
-  drawGloomrootBoss: () => void;
-  drawTidewyrmBoss: () => void;
-  drawKoiShogunBoss: () => void;
-  drawTempestKirinBoss: () => void;
-  drawMiremawBoss: () => void;
+  drawBoss: (kind: BossKind) => void;
   /** Developer overlay, drawn over the finished world. */
   drawBossHitboxes?: () => void;
-  drawPrismshellBoss: () => void;
-  drawIronhornBoss: () => void;
-  drawDreadreaperBoss: () => void;
-  drawVoltwardenBoss: () => void;
-  drawGravebloomBoss: () => void;
-  drawAegisPrimeBoss: () => void;
   drawBootPickup: () => void;
   drawPortal: () => void;
   drawSecondaryPortal: () => void;
@@ -93,6 +53,8 @@ export function createDepthWorldRenderer(options: {
   const visibleStaticDecor: TallDecor[] = [];
   let staticDepthDecor: TallDecor[] = [];
   let staticDepthDirty = true;
+  // The current map's boss, when it was queued this frame.
+  let queuedBoss: BossKind | null = null;
 
   function invalidateDepthOrder() {
     staticDepthDirty = true;
@@ -188,21 +150,7 @@ export function createDepthWorldRenderer(options: {
   function drawDynamicLayer(layer: DepthLayer) {
     switch (layer.kind) {
       case "enemy": options.drawEnemy(layer.entity as EnemyState, layer.opacity); break;
-      case "dragon": options.drawBoss(); break;
-      case "spider": options.drawSpiderBoss(); break;
-      case "frostclaw": options.drawFrostclawBoss(); break;
-      case "magmalisk": options.drawMagmaliskBoss(); break;
-      case "gloomroot": options.drawGloomrootBoss(); break;
-      case "tidewyrm": options.drawTidewyrmBoss(); break;
-      case "koiShogun": options.drawKoiShogunBoss(); break;
-      case "tempestKirin": options.drawTempestKirinBoss(); break;
-      case "miremaw": options.drawMiremawBoss(); break;
-      case "prismshell": options.drawPrismshellBoss(); break;
-      case "ironhorn": options.drawIronhornBoss(); break;
-      case "voltwarden": options.drawVoltwardenBoss(); break;
-      case "gravebloom": options.drawGravebloomBoss(); break;
-      case "aegisPrime": options.drawAegisPrimeBoss(); break;
-      case "dreadreaper": options.drawDreadreaperBoss(); break;
+      case "boss": if (queuedBoss) options.drawBoss(queuedBoss); break;
       case "boots": options.drawBootPickup(); break;
       case "portal": options.drawPortal(); break;
       case "secondaryPortal": options.drawSecondaryPortal(); break;
@@ -250,47 +198,9 @@ export function createDepthWorldRenderer(options: {
     const bossVisible = (boss: { x: number; y: number; dead: boolean }) => !boss.dead
       && boss.x >= camera.x - 600 && boss.x <= camera.x + visibleW + 600
       && boss.y >= camera.y - 600 && boss.y <= camera.y + visibleH + 600;
-    const currentMapId = options.currentMapId();
-    if (currentMapId === TUTORIAL_FOREST_MAP_ID && bossVisible(options.boss)) {
-      queueLayer(options.boss.y + DRAGON_DEPTH_OFFSET, 1, "dragon");
-    }
-    if (currentMapId === BEGINNER_DESERT_MAP_ID && bossVisible(options.spiderBoss)) {
-      queueLayer(options.spiderBoss.y + SPIDER_DEPTH_OFFSET, 1, "spider");
-    }
-    if (currentMapId === INTERMEDIATE_SNOWLANDS_MAP_ID && bossVisible(options.frostclawBoss)) {
-      queueLayer(options.frostclawBoss.y + FROSTCLAW_DEPTH_OFFSET, 1, "frostclaw");
-    }
-    if (currentMapId === ADVANCED_LAVA_WASTES_MAP_ID && bossVisible(options.magmaliskBoss)) {
-      queueLayer(options.magmaliskBoss.y + MAGMALISK_DEPTH_OFFSET, 1, "magmalisk");
-    }
-    if (currentMapId === INFERNAL_DEPTHS_MAP_ID && bossVisible(options.gloomrootBoss)) {
-      queueLayer(options.gloomrootBoss.y + GLOOMROOT_DEPTH_OFFSET, 1, "gloomroot");
-    }
-    if (currentMapId === WATER_REACH_MAP_ID && bossVisible(options.tidewyrmBoss)) {
-      queueLayer(options.tidewyrmBoss.y + TIDEWYRM_DEPTH_OFFSET, 1, "tidewyrm");
-    }
-    if (currentMapId === SAMURAI_GARDEN_MAP_ID && bossVisible(options.koiShogunBoss)) {
-      queueLayer(options.koiShogunBoss.y + KOI_SHOGUN_DEPTH_OFFSET, 1, "koiShogun");
-    }
-    if (currentMapId === CLOUDSPIRE_MAP_ID && bossVisible(options.tempestKirinBoss)) {
-      queueLayer(options.tempestKirinBoss.y + TEMPEST_KIRIN_DEPTH_OFFSET, 1, "tempestKirin");
-    }
-    if (currentMapId === MOONFEN_MAP_ID && bossVisible(options.miremawBoss)) {
-      queueLayer(options.miremawBoss.y + MIREMAW_DEPTH_OFFSET, 1, "miremaw");
-    }
-    if (currentMapId === CLOCKWORK_RUINS_MAP_ID && bossVisible(options.ironhornBoss)) {
-      queueLayer(options.ironhornBoss.y + IRONHORN_DEPTH_OFFSET, 1, "ironhorn");
-    } else if (currentMapId === ION_CITADEL_MAP_ID && bossVisible(options.aegisPrimeBoss)) {
-      queueLayer(options.aegisPrimeBoss.y + AEGIS_PRIME_DEPTH_OFFSET, 1, "aegisPrime");
-    } else if (currentMapId === VERDANT_CATACOMBS_MAP_ID && bossVisible(options.gravebloomBoss)) {
-      queueLayer(options.gravebloomBoss.y + GRAVEBLOOM_DEPTH_OFFSET, 1, "gravebloom");
-    } else if (currentMapId === NEON_BASTION_MAP_ID && bossVisible(options.voltwardenBoss)) {
-      queueLayer(options.voltwardenBoss.y + VOLTWARDEN_DEPTH_OFFSET, 1, "voltwarden");
-    } else if (currentMapId === DUSKFALL_ORCHARD_MAP_ID && bossVisible(options.dreadreaperBoss)) {
-      queueLayer(options.dreadreaperBoss.y + DREADREAPER_DEPTH_OFFSET, 1, "dreadreaper");
-    } else if (currentMapId === CRYSTAL_HOLLOWS_MAP_ID && bossVisible(options.prismshellBoss)) {
-      queueLayer(options.prismshellBoss.y + PRISMSHELL_DEPTH_OFFSET, 1, "prismshell");
-    }
+    const mapBoss = bossForMap(options.currentMapId());
+    queuedBoss = mapBoss && bossVisible(options.bosses[mapBoss.kind]) ? mapBoss.kind : null;
+    if (mapBoss && queuedBoss) queueLayer(options.bosses[mapBoss.kind].y + mapBoss.depthOffset, 1, "boss");
     const portal = options.activePortal();
     if (includePortal && portal) queueLayer(portal.depth, 2, "portal");
     const secondary = options.secondaryPortal();

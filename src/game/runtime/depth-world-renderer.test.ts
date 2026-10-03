@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID, type MapId, type WorldDecor } from "../world";
 import { createDepthWorldRenderer } from "./depth-world-renderer";
 import type { Camera } from "./camera";
-import type { DragonBossState, EnemyState, FrostclawBossState, GloomrootBossState, KoiShogunBossState, MagmaliskBossState, MiremawBossState, PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, AegisPrimeBossState, PlayerState, SpiderBossState, TempestKirinBossState, TidewyrmBossState } from "./types";
+import type { EnemyState, PlayerState } from "./types";
+import type { BossKind, BossStates } from "./boss-registry";
 
 function renderer(
   decor: WorldDecor[],
@@ -20,17 +21,19 @@ function renderer(
     enemies: [],
     remoteEnemies: () => remoteEnemies,
     player: { y: 170 } as PlayerState,
-    boss: { dead: true, x: 120, y: 0 } as DragonBossState,
-    spiderBoss: { dead: true, x: 120, y: 0 } as SpiderBossState,
-    frostclawBoss: { dead: true, x: 120, y: 0 } as FrostclawBossState,
-    magmaliskBoss: { dead: true, x: 120, y: 0 } as MagmaliskBossState,
-    gloomrootBoss: { dead: true, x: 120, y: 0 } as GloomrootBossState,
-    tidewyrmBoss: { dead: tidewyrmDead, x: 120, y: 120 } as TidewyrmBossState,
-    koiShogunBoss: { dead: true, x: 120, y: 120 } as KoiShogunBossState,
-    tempestKirinBoss: { dead: true, x: 120, y: 120 } as TempestKirinBossState,
-    miremawBoss: { dead: mapId !== MOONFEN_MAP_ID, x: 120, y: 120 } as MiremawBossState,
-    prismshellBoss: { dead: mapId !== CRYSTAL_HOLLOWS_MAP_ID, x: 120, y: 120 } as PrismshellBossState, ironhornBoss: { dead: mapId !== "clockwork_ruins", x: 120, y: 120 } as IronhornBossState, dreadreaperBoss: { dead: mapId !== "duskfall_orchard", x: 120, y: 120 } as DreadreaperBossState, voltwardenBoss: { dead: mapId !== "neon_bastion", x: 120, y: 120 } as VoltwardenBossState,
-    gravebloomBoss: { dead: mapId !== "verdant_catacombs", x: 120, y: 120 } as GravebloomBossState, aegisPrimeBoss: { dead: mapId !== "ion_citadel", x: 120, y: 120 } as AegisPrimeBossState,
+    bosses: {
+      dragon: { dead: true, x: 120, y: 0 },
+      spider: { dead: true, x: 120, y: 0 },
+      frostclaw: { dead: true, x: 120, y: 0 },
+      magmalisk: { dead: true, x: 120, y: 0 },
+      gloomroot: { dead: true, x: 120, y: 0 },
+      tidewyrm: { dead: tidewyrmDead, x: 120, y: 120 },
+      koiShogun: { dead: true, x: 120, y: 120 },
+      tempestKirin: { dead: true, x: 120, y: 120 },
+      miremaw: { dead: mapId !== MOONFEN_MAP_ID, x: 120, y: 120 },
+      prismshell: { dead: mapId !== CRYSTAL_HOLLOWS_MAP_ID, x: 120, y: 120 }, ironhorn: { dead: mapId !== "clockwork_ruins", x: 120, y: 120 }, dreadreaper: { dead: mapId !== "duskfall_orchard", x: 120, y: 120 }, voltwarden: { dead: mapId !== "neon_bastion", x: 120, y: 120 },
+      gravebloom: { dead: mapId !== "verdant_catacombs", x: 120, y: 120 }, aegisPrime: { dead: mapId !== "ion_citadel", x: 120, y: 120 },
+    } as unknown as BossStates,
     bootsPickup: { y: 0, r: 0, collected: true },
     currentMapId: () => mapId,
     activePortal: () => mapId === "home_exterior" ? null : ({ depth: 0 }),
@@ -41,16 +44,7 @@ function renderer(
     drawUpgradeBench: (bench) => calls.push(`bench:${bench.y}`),
     drawCharredTree: (tree) => calls.push(`charred-tree:${tree.y}`),
     drawEnemy: (_enemy, opacity = 1) => { calls.push("enemy"); enemyOpacities.push(opacity); },
-    drawBoss: () => calls.push("boss"),
-    drawSpiderBoss: () => calls.push("spider"),
-    drawFrostclawBoss: () => calls.push("frostclaw"),
-    drawMagmaliskBoss: () => calls.push("magmalisk"),
-    drawGloomrootBoss: () => calls.push("gloomroot"),
-    drawTidewyrmBoss: () => calls.push("tidewyrm"),
-    drawKoiShogunBoss: () => calls.push("koi-shogun"),
-    drawTempestKirinBoss: () => calls.push("tempest-kirin"),
-    drawMiremawBoss: () => calls.push("miremaw"),
-    drawPrismshellBoss: () => calls.push("prismshell"), drawIronhornBoss: () => calls.push("ironhorn"), drawDreadreaperBoss: () => calls.push("dreadreaper"), drawVoltwardenBoss: () => calls.push("voltwarden"), drawGravebloomBoss: () => calls.push("gravebloom"), drawAegisPrimeBoss: () => calls.push("aegisPrime"),
+    drawBoss: (kind) => calls.push(({ dragon: "boss", koiShogun: "koi-shogun", tempestKirin: "tempest-kirin" } as Partial<Record<BossKind, string>>)[kind] ?? kind),
     drawBootPickup: () => calls.push("boots"),
     drawPortal: () => calls.push("portal"),
     drawSecondaryPortal: () => calls.push("secondary"),

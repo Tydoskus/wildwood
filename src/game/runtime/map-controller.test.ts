@@ -75,26 +75,8 @@ function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
     enemies: [],
     spawnSites: [],
     clearTransientCombat: vi.fn(),
-    bossRain: [],
-    spiderVenom: [],
-    frostclawIcefalls: [],
-    magmaliskEruptions: [],
-    gloomrootBlooms: [],
-    tidewyrmWhirlpools: [],
-    koiShogunWhirlpools: [],
-    tempestKirinThunderbolts: [],
-    miremawBogBursts: [],
-    prismshellCrystalBursts: bootstrap.prismshellCrystalBursts, ironhornCrystalBursts: bootstrap.ironhornCrystalBursts, dreadreaperCrystalBursts: bootstrap.dreadreaperCrystalBursts, voltwardenCrystalBursts: bootstrap.voltwardenCrystalBursts, gravebloomCrystalBursts: bootstrap.gravebloomCrystalBursts, aegisPrimeCrystalBursts: bootstrap.aegisPrimeCrystalBursts,
-    boss: {} as never,
-    spiderBoss: {} as never,
-    frostclawBoss: {} as never,
-    magmaliskBoss: {} as never,
-    gloomrootBoss: {} as never,
-    tidewyrmBoss: {} as never,
-    koiShogunBoss: {} as never,
-    tempestKirinBoss: {} as never,
-    miremawBoss: {} as never,
-    prismshellBoss: bootstrap.prismshellBoss, ironhornBoss: bootstrap.ironhornBoss, dreadreaperBoss: bootstrap.dreadreaperBoss, voltwardenBoss: bootstrap.voltwardenBoss, gravebloomBoss: bootstrap.gravebloomBoss, aegisPrimeBoss: bootstrap.aegisPrimeBoss,
+    bosses: bootstrap.bosses,
+    bossHazards: bootstrap.bossHazards,
     onCutsceneFinished: vi.fn(),
   } as unknown as Parameters<typeof createMapController>[0]);
   return {
@@ -181,14 +163,14 @@ describe("portal arrival activation", () => {
     expect(prepareMapAssets).toHaveBeenCalledWith(CRYSTAL_HOLLOWS_MAP_ID);
     expect(player).toMatchObject({ x: 580, y: 770 });
 
-    bootstrap.prismshellCrystalBursts.push({ x: 100, y: 100, r: 86, timer: .5, maxTimer: 1 });
+    bootstrap.bossHazards.prismshell.push({ x: 100, y: 100, r: 86, timer: .5, maxTimer: 1 });
     player.x = 360;
     player.y = 617;
     controller.updatePortal(1 / 60);
     await vi.waitFor(() => expect(harness.currentMapId()).toBe(MOONFEN_MAP_ID));
     expect(changeMap).toHaveBeenLastCalledWith(MOONFEN_MAP_ID, 360, 617);
-    expect(bootstrap.prismshellCrystalBursts).toHaveLength(0);
-    expect(bootstrap.prismshellBoss.shatter).toBeNull();
+    expect(bootstrap.bossHazards.prismshell).toHaveLength(0);
+    expect(bootstrap.bosses.prismshell.shatter).toBeNull();
   });
 
   it("accepts a restored Crystal Hollows location from the server", async () => {

@@ -5,7 +5,6 @@ import { createGameDocument } from "../../tests/helpers/game-document";
 
 const doc = createGameDocument();
 const asset = (path: string) => readFileSync(new URL(`../../public/${path.split("?")[0]}`, import.meta.url));
-const version = JSON.parse(asset("version.json").toString()).version;
 
 function expectPng(png: Buffer, width: number, height: number, opaque = false) {
   expect(png.subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
@@ -14,7 +13,8 @@ function expectPng(png: Buffer, width: number, height: number, opaque = false) {
 }
 
 describe("startup image and install assets", () => {
-  it("matches wordmark dimensions and cache versions to the shipped WebP", () => {
+  // No ?v= stamps: the build gives every one of these URLs a content-hashed name.
+  it("matches wordmark dimensions to the shipped WebP, with plain URLs", () => {
     const images = [...doc.querySelectorAll('img[src*="wildstat-wordmark."]')];
     expect(images.length).toBeGreaterThan(0);
     const data = asset(images[0].getAttribute("src")!);
@@ -25,7 +25,7 @@ describe("startup image and install assets", () => {
     for (const img of images) {
       expect(Number(img.getAttribute("width"))).toBe(width);
       expect(Number(img.getAttribute("height"))).toBe(height);
-      expect(new URL(img.getAttribute("src")!, "https://example.test/").searchParams.get("v")).toBe(version);
+      expect(new URL(img.getAttribute("src")!, "https://example.test/").search).toBe("");
     }
     expect(doc.querySelector('link[rel="preload"][as="image"]')!.getAttribute("href")).toBe(images[0].getAttribute("src"));
   });
@@ -42,7 +42,7 @@ describe("startup image and install assets", () => {
     for (const base of ["https://example.test/", "https://example.test/wildwood/"]) {
       const resolved = new URL(relative!, new URL("assets/wildstat/game.css", base));
       expect(resolved.href).toBe(new URL(descriptor, base).href);
-      expect(resolved.searchParams.get("v")).toBe(version);
+      expect(resolved.search).toBe("");
     }
   });
 

@@ -46,37 +46,9 @@ export function createPlayerController(options: {
   movement: (dt: number) => Movement;
   isMapTransitioning: () => boolean;
   resolvePortalCollision: () => void;
-  resolveDragonCollision: () => void;
-  resolveSpiderCollision: () => void;
-  resolveFrostclawCollision: () => void;
-  resolveMagmaliskCollision: () => void;
-  resolveGloomrootCollision: () => void;
-  resolveTidewyrmCollision: () => void;
-  resolveKoiShogunCollision: () => void;
-  resolveTempestKirinCollision: () => void;
-  resolveMiremawCollision: () => void;
-  resolvePrismshellCollision: () => void;
-  resolveIronhornCollision: () => void;
-  resolveDreadreaperCollision: () => void;
-  resolveVoltwardenCollision: () => void;
-  resolveGravebloomCollision: () => void;
-  resolveAegisPrimeCollision: () => void;
+  /** Keeps the player out of the current map's world boss. */
+  resolveBossCollision: () => void;
   applyBossKnockback: (dt: number) => void;
-  isTutorialMap: () => boolean;
-  isDesertMap: () => boolean;
-  isSnowMap: () => boolean;
-  isLavaMap: () => boolean;
-  isInfernalMap: () => boolean;
-  isWaterMap: () => boolean;
-  isSamuraiMap: () => boolean;
-  isCloudspireMap: () => boolean;
-  isMoonfenMap: () => boolean;
-  isCrystalHollowsMap: () => boolean;
-  isClockworkRuinsMap: () => boolean;
-  isDuskfallOrchardMap: () => boolean;
-  isNeonBastionMap: () => boolean;
-  isVerdantCatacombsMap: () => boolean;
-  isIonCitadelMap: () => boolean;
   viewport: () => { width: number; height: number; zoom: number };
   cameraPosition: () => { x: number; y: number };
   isConnected: () => boolean;
@@ -104,7 +76,7 @@ export function createPlayerController(options: {
     player, boss, enemies, spawnSites, decor, paths, clearTransientCombat,
     getCurrentMapId, mapSpawn, initialStats, invalidateStaticWorld, spawnFromSite,
     clearPlayerCombat, resetBosses, onResetUI, movement, isMapTransitioning, resolvePortalCollision,
-    resolveDragonCollision, resolveSpiderCollision, resolveFrostclawCollision, resolveMagmaliskCollision, resolveGloomrootCollision, resolveTidewyrmCollision, resolveKoiShogunCollision, resolveTempestKirinCollision, resolveMiremawCollision, resolvePrismshellCollision, resolveIronhornCollision, resolveDreadreaperCollision, resolveVoltwardenCollision, resolveGravebloomCollision, resolveAegisPrimeCollision, applyBossKnockback, isTutorialMap, isDesertMap, isSnowMap, isLavaMap, isInfernalMap, isWaterMap, isSamuraiMap, isCloudspireMap, isMoonfenMap, isCrystalHollowsMap, isClockworkRuinsMap, isDuskfallOrchardMap, isNeonBastionMap, isVerdantCatacombsMap, isIonCitadelMap,
+    resolveBossCollision, applyBossKnockback,
     viewport, cameraPosition, isConnected, syncSpeed, movementSpeedMultiplier, regenerationPerSecond, syncMovementState, autoAttack, isAutoAttackEnabled,
     activeDuel, isDueling, localIdentity, localState, syncLiveDuelDamage, liveDuelScene, setHeldDuelScene,
     pulseDuel, resetLiveDuelPresentation, loadDuelReplay, showDuelResult, showDuelResultUnavailable,
@@ -205,16 +177,7 @@ export function createPlayerController(options: {
     }
     applyBossKnockback(dt);
     resolvePortalCollision();
-    if (isTutorialMap()) resolveDragonCollision();
-    if (isDesertMap()) resolveSpiderCollision();
-    if (isSnowMap()) resolveFrostclawCollision();
-    if (isLavaMap()) resolveMagmaliskCollision();
-    if (isInfernalMap()) resolveGloomrootCollision();
-    if (isWaterMap()) resolveTidewyrmCollision();
-    if (isSamuraiMap()) resolveKoiShogunCollision();
-    if (isCloudspireMap()) resolveTempestKirinCollision();
-    if (isMoonfenMap()) resolveMiremawCollision();
-    if (isClockworkRuinsMap()) resolveIronhornCollision(); else if (isIonCitadelMap()) resolveAegisPrimeCollision(); else if (isVerdantCatacombsMap()) resolveGravebloomCollision(); else if (isNeonBastionMap()) resolveVoltwardenCollision(); else if (isDuskfallOrchardMap()) resolveDreadreaperCollision(); else if (isCrystalHollowsMap()) resolvePrismshellCollision();
+    resolveBossCollision();
     player.x = clamp(player.x, player.r, WORLD.w - player.r);
     player.y = clamp(player.y, player.r, WORLD.h - player.r);
     if (connected) {

@@ -1,5 +1,3 @@
-import { CARAPACE_ANGLER_ATLAS, CARAPACE_ANGLER_USED_PAGES } from "./carapace-angler-sprite";
-import { BOSS_ART } from "./boss-art";
 import { isProceduralMap } from "../../../shared/procedural-maps";
 import { DUEL_PLATFORM_ART_SOURCE, DUEL_SPACE_BACKGROUND_SOURCE } from "../duel";
 import { requiredCanvasContext } from "./dom";
@@ -8,14 +6,8 @@ import { PORTAL_SWIRL_SOURCE } from "../portal-presentation";
 import { type MapId } from "../world";
 import { centerFramesOnGround, keepLargestFrameComponents, removeGreenPixels, repackLargestComponentsIntoFrames } from "./sprite-pixels";
 import { MAP_ASSET_GROUPS, type MapArtAssetGroup } from "./map-asset-groups";
-import { SCORPION_SPRITE } from "./scorpion-sprite";
 import { savedMapDesign } from "../map-design";
-import { PRISMSHELL_ATLAS, PRISMSHELL_USED_PAGES } from "./prismshell-sprite";
-import { IRONHORN_ATLAS, IRONHORN_USED_PAGES } from "./ironhorn-sprite";
-import { VOLTWARDEN_ART_SOURCE } from "./neon-boss-art";
-import { GRAVEBLOOM_ART_SOURCE } from "./verdant-boss-art";
-import { AEGIS_PRIME_ART_SOURCE } from "./ion-boss-art";
-import { DREADREAPER_ATLAS, DREADREAPER_USED_PAGES } from "./dreadreaper-sprite";
+import { BOSSES, BOSS_KINDS, perBoss, type BossArtAssets, type BossArtSource } from "./boss-registry";
 
 export type TreeSpriteBound = {
   x: number;
@@ -172,120 +164,43 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   /** A processed canvas takes its memory back by shrinking to nothing. */
   const emptyCanvas = (canvas: HTMLCanvasElement) => { canvas.width = 0; canvas.height = 0; };
 
-  const dragonSpriteCanvas = document.createElement("canvas");
-  const dragonSpriteContext = requiredCanvasContext(dragonSpriteCanvas, { willReadFrequently: true });
-  let dragonReady = false;
-  const dragonAsset = createLazyImageAsset(`assets/wildstat/${BOSS_ART.DRAGON.sheet}`, (image, settle) => {
-    dragonSpriteCanvas.width = image.naturalWidth;
-    dragonSpriteCanvas.height = image.naturalHeight;
-    dragonSpriteContext.drawImage(image, 0, 0);
-    removeGreen(dragonSpriteContext, dragonSpriteCanvas.width, dragonSpriteCanvas.height, 145, 1.45, () => {
-      dragonReady = true;
-      settle();
-    });
-  }, () => { dragonReady = false; emptyCanvas(dragonSpriteCanvas); });
-
-  const spiderSpriteCanvas = document.createElement("canvas");
-  const spiderSpriteContext = requiredCanvasContext(spiderSpriteCanvas, { willReadFrequently: true });
-  let spiderReady = false;
-  const spiderAsset = createLazyImageAsset(SCORPION_SPRITE.source, (image, settle) => {
-    spiderSpriteCanvas.width = image.naturalWidth;
-    spiderSpriteCanvas.height = image.naturalHeight;
-    spiderSpriteContext.drawImage(image, 0, 0);
-    removeGreen(spiderSpriteContext, spiderSpriteCanvas.width, spiderSpriteCanvas.height, 135, 1.35, () => {
-      spiderReady = true;
-      settle();
-    }, SCORPION_SPRITE.frames);
-  }, () => { spiderReady = false; emptyCanvas(spiderSpriteCanvas); });
-
-  const frostclawSpriteCanvas = document.createElement("canvas");
-  const frostclawSpriteContext = requiredCanvasContext(frostclawSpriteCanvas, { willReadFrequently: true });
-  let frostclawReady = false;
-  const frostclawAsset = createLazyImageAsset(`assets/wildstat/${BOSS_ART.FROSTCLAW.sheet}`, (image, settle) => {
-    frostclawSpriteCanvas.width = image.naturalWidth;
-    frostclawSpriteCanvas.height = image.naturalHeight;
-    frostclawSpriteContext.drawImage(image, 0, 0);
-    removeGreen(frostclawSpriteContext, frostclawSpriteCanvas.width, frostclawSpriteCanvas.height, 145, 1.45, () => {
-      frostclawReady = true;
-      settle();
-    }, 4);
-  }, () => { frostclawReady = false; emptyCanvas(frostclawSpriteCanvas); });
-
-  const magmaliskSpriteCanvas = document.createElement("canvas");
-  const magmaliskSpriteContext = requiredCanvasContext(magmaliskSpriteCanvas, { willReadFrequently: true });
-  let magmaliskReady = false;
-  const magmaliskAsset = createLazyImageAsset(`assets/wildstat/${BOSS_ART.MAGMALISK.sheet}`, (image, settle) => {
-    magmaliskSpriteCanvas.width = image.naturalWidth;
-    magmaliskSpriteCanvas.height = image.naturalHeight;
-    magmaliskSpriteContext.drawImage(image, 0, 0);
-    removeGreen(magmaliskSpriteContext, magmaliskSpriteCanvas.width, magmaliskSpriteCanvas.height, 145, 1.45, () => {
-      magmaliskReady = true;
-      settle();
-    }, 4, true);
-  }, () => { magmaliskReady = false; emptyCanvas(magmaliskSpriteCanvas); });
-
-  const gloomrootSpriteCanvas = document.createElement("canvas");
-  const gloomrootSpriteContext = requiredCanvasContext(gloomrootSpriteCanvas, { willReadFrequently: true });
-  let gloomrootReady = false;
-  const gloomrootAsset = createLazyImageAsset(`assets/wildstat/${BOSS_ART.GLOOMROOT.sheet}`, (image, settle) => {
-    gloomrootSpriteCanvas.width = image.naturalWidth;
-    gloomrootSpriteCanvas.height = image.naturalHeight;
-    gloomrootSpriteContext.drawImage(image, 0, 0);
-    const pixels = gloomrootSpriteContext.getImageData(0, 0, gloomrootSpriteCanvas.width, gloomrootSpriteCanvas.height);
-    removeGreenPixels(pixels.data, 145, 1.45);
-    gloomrootSpriteContext.putImageData(pixels, 0, 0);
-    gloomrootReady = true;
-    settle();
-  }, () => { gloomrootReady = false; emptyCanvas(gloomrootSpriteCanvas); });
-
-  const tidewyrmPageAssets = CARAPACE_ANGLER_ATLAS.pages.map(page => createLazyImageAsset(page.src));
-  const tidewyrmAssets = CARAPACE_ANGLER_USED_PAGES.map(index => tidewyrmPageAssets[index]);
-
-  const koiShogunSpriteCanvas = document.createElement("canvas");
-  const koiShogunSpriteContext = requiredCanvasContext(koiShogunSpriteCanvas, { willReadFrequently: true });
-  let koiShogunReady = false;
-  const koiShogunAsset = createLazyImageAsset(`assets/wildstat/${BOSS_ART.KOI_SHOGUN.sheet}`, (image, settle) => {
-    koiShogunSpriteCanvas.width = image.naturalWidth;
-    koiShogunSpriteCanvas.height = image.naturalHeight;
-    koiShogunSpriteContext.drawImage(image, 0, 0);
-    removeGreen(koiShogunSpriteContext, koiShogunSpriteCanvas.width, koiShogunSpriteCanvas.height, 145, 1.45, () => {
-      koiShogunReady = true;
-      settle();
-    }, 4);
-  }, () => { koiShogunReady = false; emptyCanvas(koiShogunSpriteCanvas); });
-
-  const tempestKirinSpriteCanvas = document.createElement("canvas");
-  const tempestKirinSpriteContext = requiredCanvasContext(tempestKirinSpriteCanvas, { willReadFrequently: true });
-  let tempestKirinReady = false;
-  const tempestKirinAsset = createLazyImageAsset(`assets/wildstat/${BOSS_ART.TEMPEST_KIRIN.sheet}`, (image, settle) => {
-    tempestKirinSpriteCanvas.width = image.naturalWidth;
-    tempestKirinSpriteCanvas.height = image.naturalHeight;
-    tempestKirinSpriteContext.drawImage(image, 0, 0);
-    tempestKirinReady = true;
-    settle();
-  }, () => { tempestKirinReady = false; emptyCanvas(tempestKirinSpriteCanvas); });
-  const miremawSpriteCanvas = document.createElement("canvas");
-  const miremawSpriteContext = requiredCanvasContext(miremawSpriteCanvas, { willReadFrequently: true });
-  let miremawReady = false;
-  const miremawAsset = createLazyImageAsset(`assets/wildstat/${BOSS_ART.MIREMAW.sheet}`, (image, settle) => {
-    miremawSpriteCanvas.width = image.naturalWidth;
-    miremawSpriteCanvas.height = image.naturalHeight;
-    miremawSpriteContext.drawImage(image, 0, 0);
-    miremawReady = true;
-    settle();
-  }, () => { miremawReady = false; emptyCanvas(miremawSpriteCanvas); });
-  const prismshellPageAssets = PRISMSHELL_ATLAS.pages.map((page) => createLazyImageAsset(page.src));
-  const ironhornPageAssets = IRONHORN_ATLAS.pages.map((page) => createLazyImageAsset(page.src));
-  const dreadreaperPageAssets = DREADREAPER_ATLAS.pages.map((page) => createLazyImageAsset(page.src));
-  const voltwardenPageAssets = [createLazyImageAsset(VOLTWARDEN_ART_SOURCE)];
-  const gravebloomPageAssets = [createLazyImageAsset(GRAVEBLOOM_ART_SOURCE)];
-  const aegisPrimePageAssets = [createLazyImageAsset(AEGIS_PRIME_ART_SOURCE)];
-  const prismshellAssets = PRISMSHELL_USED_PAGES.map((index) => prismshellPageAssets[index]);
-  const ironhornAssets = IRONHORN_USED_PAGES.map((index) => ironhornPageAssets[index]);
-  const dreadreaperAssets = DREADREAPER_USED_PAGES.map((index) => dreadreaperPageAssets[index]);
-  const voltwardenAssets = voltwardenPageAssets;
-  const gravebloomAssets = gravebloomPageAssets;
-  const aegisPrimeAssets = aegisPrimePageAssets;
+  /**
+   * One world boss's art, as the registry describes it: a sheet drawn into a
+   * canvas (its green backdrop keyed out first when it has one), or the pages
+   * of an atlas, of which only the used ones are loaded with the map.
+   */
+  function createBossArt(source: BossArtSource) {
+    if ("pages" in source) {
+      const pages = source.pages.map((page) => createLazyImageAsset(page));
+      const used = source.used.map((index) => pages[index]);
+      return {
+        assets: used,
+        art: { pages: pages.map((asset) => asset.image), ready: () => used.every((asset) => asset.settled() && !asset.failed()) },
+      };
+    }
+    const canvas = document.createElement("canvas");
+    const context = requiredCanvasContext(canvas, { willReadFrequently: true });
+    const { chroma } = source;
+    let ready = false;
+    const asset = createLazyImageAsset(source.sheet, (image, settle) => {
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      context.drawImage(image, 0, 0);
+      const finish = () => {
+        ready = true;
+        settle();
+      };
+      if (!chroma) finish();
+      else if (chroma.inline) {
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+        removeGreenPixels(pixels.data, chroma.greenThreshold, chroma.ratio);
+        context.putImageData(pixels, 0, 0);
+        finish();
+      } else removeGreen(context, canvas.width, canvas.height, chroma.greenThreshold, chroma.ratio, finish, chroma.frameColumns, chroma.repack);
+    }, () => { ready = false; emptyCanvas(canvas); });
+    return { assets: [asset], art: { canvas, ready: () => ready } };
+  }
+  const bossArt = perBoss((kind) => createBossArt(BOSSES[kind].art));
 
   const portalArchAsset = createLazyImageAsset("assets/wildstat/stone-portal-arch.webp");
   const portalSwirlAsset = createLazyImageAsset(PORTAL_SWIRL_SOURCE);
@@ -359,24 +274,15 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     "assets/wildstat/lava/charred-tree-2.webp",
   ];
   const lavaAssets = lavaAssetSources.map((source) => createLazyImageAsset(source));
-  const assetGroups: Record<MapArtAssetGroup, LazyImageAsset[]> = {
-    forestBoss: [dragonAsset],
+  const assetGroups = {
     forestDecor: [treeAsset],
     orchardDecor: lavaAssets.slice(6),
-    desertBoss: [spiderAsset],
-    snowBoss: [frostclawAsset],
     snowDecor: [snowPineAsset, upgradeBenchAsset],
-    lavaBoss: [magmaliskAsset],
     lavaDecor: lavaAssets,
-    nightBoss: [gloomrootAsset],
     nightDecor: [nightTreeAsset],
     cherryDecor: [cherryTreeAsset],
-    waterBoss: tidewyrmAssets,
-    samuraiBoss: [koiShogunAsset],
-    cloudspireBoss: [tempestKirinAsset],
-    moonfenBoss: [miremawAsset],
-    crystalHollowsBoss: prismshellAssets, clockworkRuinsBoss: ironhornAssets, duskfallOrchardBoss: dreadreaperAssets, neonBastionBoss: voltwardenAssets, verdantCatacombsBoss: gravebloomAssets, ionCitadelBoss: aegisPrimeAssets,
-  };
+    ...Object.fromEntries(BOSS_KINDS.map((kind) => [BOSSES[kind].assetGroup, bossArt[kind].assets])),
+  } as Record<MapArtAssetGroup, LazyImageAsset[]>;
   const mapAssets = {} as Record<MapId, LazyImageAsset[]>;
   for (const mapId of Object.keys(MAP_ASSET_GROUPS) as MapId[]) {
     const groups = new Set<MapArtAssetGroup>(MAP_ASSET_GROUPS[mapId].art);
@@ -416,41 +322,22 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   }
 
   return {
-    dragonReady: () => dragonReady,
-    dragonSpriteCanvas,
+    bossArt: perBoss((kind) => bossArt[kind].art) as BossArtAssets,
     duelPlatformArt: duelPlatformAsset.image,
     duelSpaceBackground: duelSpaceAsset.image,
     portalArch: portalArchAsset.image,
     portalSwirl: portalSwirlAsset.image,
-    frostclawReady: () => frostclawReady,
-    frostclawSpriteCanvas,
-    gloomrootReady: () => gloomrootReady,
-    gloomrootSpriteCanvas,
     charredTrees: lavaAssets.slice(6).map((asset) => asset.image),
     lavaPools: lavaAssets.slice(0, 3).map((asset) => asset.image),
     lavaRocks: lavaAssets.slice(3, 6).map((asset) => asset.image),
-    magmaliskReady: () => magmaliskReady,
-    magmaliskSpriteCanvas,
     nightTreeSpriteBounds: () => nightTreeBounds,
     nightTreeSpritesheet: nightTreeAsset.image,
     cherryTreeSpriteBounds: () => cherryTreeBounds,
     cherryTreeSpritesheet: cherryTreeAsset.image,
     snowPine: snowPineAsset.image,
     upgradeBench: upgradeBenchAsset.image,
-    spiderReady: () => spiderReady,
-    spiderSpriteCanvas,
     treeSpriteBounds: () => treeBounds,
     treeSpritesheet: treeAsset.image,
-    tidewyrmReady: () => tidewyrmAssets.every(asset => asset.settled() && !asset.failed()),
-    tidewyrmSpritePages: tidewyrmPageAssets.map(asset => asset.image),
-    koiShogunReady: () => koiShogunReady,
-    koiShogunSpriteCanvas,
-    tempestKirinReady: () => tempestKirinReady,
-    tempestKirinSpriteCanvas,
-    miremawReady: () => miremawReady,
-    prismshellReady: () => prismshellAssets.every((asset) => asset.settled() && !asset.failed()), ironhornReady: () => ironhornAssets.every((asset) => asset.settled() && !asset.failed()), dreadreaperReady: () => dreadreaperAssets.every((asset) => asset.settled() && !asset.failed()), voltwardenReady: () => voltwardenAssets.every((asset) => asset.settled() && !asset.failed()), gravebloomReady: () => gravebloomAssets.every((asset) => asset.settled() && !asset.failed()), aegisPrimeReady: () => aegisPrimeAssets.every((asset) => asset.settled() && !asset.failed()),
-    miremawSpriteCanvas,
-    prismshellSpritePages: prismshellPageAssets.map((asset) => asset.image), ironhornSpritePages: ironhornPageAssets.map((asset) => asset.image), dreadreaperSpritePages: dreadreaperPageAssets.map((asset) => asset.image), voltwardenSpritePages: voltwardenPageAssets.map((asset) => asset.image), gravebloomSpritePages: gravebloomPageAssets.map((asset) => asset.image), aegisPrimeSpritePages: aegisPrimePageAssets.map((asset) => asset.image),
     ensureDuelAssets,
     duelAssetsReady: () => duelSpaceAsset.settled() && duelPlatformAsset.settled(),
     ensureMapAssets,

@@ -83,21 +83,6 @@ type SessionDependencies = {
   player: PlayerState;
   camera: { x: number; y: number; zoom: number };
   viewport: () => { width: number; height: number };
-  tutorialMapId: MapId;
-  desertMapId: MapId;
-  snowMapId: MapId;
-  lavaMapId: MapId;
-  infernalMapId: MapId;
-  waterMapId: MapId;
-  samuraiMapId: MapId;
-  cloudspireMapId: MapId;
-  moonfenMapId: MapId;
-  crystalHollowsMapId: MapId;
-  clockworkRuinsMapId: MapId;
-  duskfallOrchardMapId: MapId;
-  neonBastionMapId: MapId;
-  verdantCatacombsMapId: MapId;
-  ionCitadelMapId: MapId;
   validMapIds: readonly MapId[];
   getMapId: () => MapId;
   setMapId: (mapId: MapId) => void;
@@ -122,21 +107,8 @@ type SessionDependencies = {
   mapMusicSync: () => void;
   isDueling: () => boolean;
   activeDuel: () => RuntimeDuel;
-  syncDragon: () => void;
-  syncSpider: () => void;
-  syncFrostclaw: () => void;
-  syncMagmalisk: () => void;
-  syncGloomroot: () => void;
-  syncTidewyrm: () => void;
-  syncKoiShogun: () => void;
-  syncTempestKirin: () => void;
-  syncMiremaw: () => void;
-  syncPrismshell: () => void;
-  syncIronhorn: () => void;
-  syncDreadreaper: () => void;
-  syncVoltwarden: () => void;
-  syncGravebloom: () => void;
-  syncAegisPrime: () => void;
+  /** Pulls the current map's world boss from the server's copy. */
+  syncBoss: () => void;
   cutsceneActive: () => boolean;
   worldCombatReady?: () => boolean;
   updateCutscene: (dt: number) => void;
@@ -144,21 +116,8 @@ type SessionDependencies = {
   updateUpgradeBench: () => void;
   updatePortal: (dt: number) => void;
   updateEnemies: (dt: number) => void;
-  updateDragon: (dt: number) => void;
-  updateSpider: (dt: number) => void;
-  updateFrostclaw: (dt: number) => void;
-  updateMagmalisk: (dt: number) => void;
-  updateGloomroot: (dt: number) => void;
-  updateTidewyrm: (dt: number) => void;
-  updateKoiShogun: (dt: number) => void;
-  updateTempestKirin: (dt: number) => void;
-  updateMiremaw: (dt: number) => void;
-  updatePrismshell: (dt: number) => void;
-  updateIronhorn: (dt: number) => void;
-  updateDreadreaper: (dt: number) => void;
-  updateVoltwarden: (dt: number) => void;
-  updateGravebloom: (dt: number) => void;
-  updateAegisPrime: (dt: number) => void;
+  /** Runs the current map's world boss for one step. */
+  updateBoss: (dt: number) => void;
   updateProjectiles: (dt: number) => void;
   updateRespawns: (gameTime: number) => void;
   clearDuelCombat: () => void;
@@ -207,16 +166,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
   let fading = false;
 
   function syncSharedWorldState() {
-    if (dependencies.getMapId() === dependencies.tutorialMapId) dependencies.syncDragon();
-    if (dependencies.getMapId() === dependencies.desertMapId) dependencies.syncSpider();
-    if (dependencies.getMapId() === dependencies.snowMapId) dependencies.syncFrostclaw();
-    if (dependencies.getMapId() === dependencies.lavaMapId) dependencies.syncMagmalisk();
-    if (dependencies.getMapId() === dependencies.infernalMapId) dependencies.syncGloomroot();
-    if (dependencies.getMapId() === dependencies.waterMapId) dependencies.syncTidewyrm();
-    if (dependencies.getMapId() === dependencies.samuraiMapId) dependencies.syncKoiShogun();
-    if (dependencies.getMapId() === dependencies.cloudspireMapId) dependencies.syncTempestKirin();
-    if (dependencies.getMapId() === dependencies.moonfenMapId) dependencies.syncMiremaw();
-    if (dependencies.getMapId() === dependencies.clockworkRuinsMapId) dependencies.syncIronhorn(); else if (dependencies.getMapId() === dependencies.neonBastionMapId) dependencies.syncVoltwarden(); else if (dependencies.getMapId() === dependencies.ionCitadelMapId) dependencies.syncAegisPrime(); else if (dependencies.getMapId() === dependencies.verdantCatacombsMapId) dependencies.syncGravebloom(); else if (dependencies.getMapId() === dependencies.duskfallOrchardMapId) dependencies.syncDreadreaper(); else if (dependencies.getMapId() === dependencies.crystalHollowsMapId) dependencies.syncPrismshell();
+    dependencies.syncBoss();
   }
 
   function simulate(dt: number) {
@@ -238,16 +188,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
       // A portal can start its asynchronous handoff during this very step.
       if (dependencies.cutsceneActive() || dependencies.worldCombatReady?.() === false) return;
       dependencies.updateEnemies(dt);
-      if (dependencies.getMapId() === dependencies.tutorialMapId) dependencies.updateDragon(dt);
-      if (dependencies.getMapId() === dependencies.desertMapId) dependencies.updateSpider(dt);
-      if (dependencies.getMapId() === dependencies.snowMapId) dependencies.updateFrostclaw(dt);
-      if (dependencies.getMapId() === dependencies.lavaMapId) dependencies.updateMagmalisk(dt);
-      if (dependencies.getMapId() === dependencies.infernalMapId) dependencies.updateGloomroot(dt);
-      if (dependencies.getMapId() === dependencies.waterMapId) dependencies.updateTidewyrm(dt);
-      if (dependencies.getMapId() === dependencies.samuraiMapId) dependencies.updateKoiShogun(dt);
-      if (dependencies.getMapId() === dependencies.cloudspireMapId) dependencies.updateTempestKirin(dt);
-      if (dependencies.getMapId() === dependencies.moonfenMapId) dependencies.updateMiremaw(dt);
-      if (dependencies.getMapId() === dependencies.clockworkRuinsMapId) dependencies.updateIronhorn(dt); else if (dependencies.getMapId() === dependencies.neonBastionMapId) dependencies.updateVoltwarden(dt); else if (dependencies.getMapId() === dependencies.ionCitadelMapId) dependencies.updateAegisPrime(dt); else if (dependencies.getMapId() === dependencies.verdantCatacombsMapId) dependencies.updateGravebloom(dt); else if (dependencies.getMapId() === dependencies.duskfallOrchardMapId) dependencies.updateDreadreaper(dt); else if (dependencies.getMapId() === dependencies.crystalHollowsMapId) dependencies.updatePrismshell(dt);
+      dependencies.updateBoss(dt);
       dependencies.updateProjectiles(dt);
       dependencies.updateRespawns(gameTime);
     } else {

@@ -76,35 +76,13 @@ import {
   bossSeededUnit,
   seededBossHazardPolar,
   type BossAbilityName,
-  type BossSimulationKind,
 } from "../../../shared/boss-simulation";
 import { REWARD_DATA, rewardLabel, type RewardType } from "../enemies";
 import { BOSS_DAMAGE_PROFILES } from "../boss-damage";
 import { clamp } from "../math";
 import type { PlayerGender } from "../../../shared/player-gender";
-import type {
-  BossRainStrike,
-  DragonBossState,
-  FrostclawBossState,
-  FrostclawIcefall,
-  GloomrootBloom,
-  GloomrootBossState,
-  KoiShogunBossState,
-  KoiShogunWhirlpool,
-  MagmaliskBossState,
-  MagmaliskEruption,
-  MiremawBogBurst,
-  PrismshellCrystalBurst, IronhornCrystalBurst, DreadreaperCrystalBurst, VoltwardenCrystalBurst, GravebloomCrystalBurst, AegisPrimeCrystalBurst,
-  MiremawBossState,
-  PrismshellBossState, IronhornBossState, DreadreaperBossState, VoltwardenBossState, GravebloomBossState, AegisPrimeBossState,
-  PlayerState,
-  SpiderBossState,
-  SpiderVenomPool,
-  TempestKirinBossState,
-  TempestKirinThunderbolt,
-  TidewyrmBossState,
-  TidewyrmWhirlpool,
-} from "./types";
+import type { BossCone, PlayerState } from "./types";
+import { BOSSES, BOSS_KINDS, bossForMap, clearBossAttack, perBoss, type BossHazards, type BossKind, type BossStates } from "./boss-registry";
 import { addPlayerBaseMaxHealth } from "./player-health";
 
 export const BOSS_HP_LOSS_FLASH_DURATION = .18;
@@ -145,84 +123,215 @@ const IRONHORN_SHATTER_DURATION = .8;
 const DREADREAPER_SHATTER_DURATION = .8;
 const DEATH_PARTICLE_COLOR = "#e53935";
 
-type SharedBossState = {
+export type SharedBossState = {
   encounter: bigint;
   hp: number;
   maxHp: number;
   alive: boolean;
 };
 
-type BossResult = {
+export type BossResult = {
   encounter: bigint;
   totalDamage: number;
   contributors: Array<{ identity: string; name: string; gender: PlayerGender; damage: number; percentage: number }>;
 };
 
 type BossAbilityTarget = { id: string; x: number; y: number };
+type AbilityTarget = Pick<BossAbilityTarget, "x" | "y">;
+type Burst = readonly [color: string, count: number, speed: number];
+type StatReward = "damage" | "health" | "armor" | "regen";
+type Hazard = { x: number; y: number; r: number; timer: number; maxTimer: number };
+type PortalCutscene = { seen: () => boolean; start: () => boolean | void };
 
-type BossController = {
-  resetBoss: () => void;
-  resetSpiderBoss: () => void;
-  resetFrostclawBoss: () => void;
-  resetMagmaliskBoss: () => void;
-  resetGloomrootBoss: () => void;
-  resetTidewyrmBoss: () => void;
-  resetKoiShogunBoss: () => void;
-  resetTempestKirinBoss: () => void;
-  resetMiremawBoss: () => void;
-  resetPrismshellBoss: () => void;
-  resetIronhornBoss: () => void;
-  resetDreadreaperBoss: () => void;
-  resetVoltwardenBoss: () => void;
-  resetGravebloomBoss: () => void;
-  resetAegisPrimeBoss: () => void;
-  syncDragonState: () => void;
-  syncSpiderState: () => void;
-  syncFrostclawState: () => void;
-  syncMagmaliskState: () => void;
-  syncGloomrootState: () => void;
-  syncTidewyrmState: () => void;
-  syncKoiShogunState: () => void;
-  syncTempestKirinState: () => void;
-  syncMiremawState: () => void;
-  syncPrismshellState: () => void;
-  syncIronhornState: () => void;
-  syncDreadreaperState: () => void;
-  syncVoltwardenState: () => void;
-  syncGravebloomState: () => void;
-  syncAegisPrimeState: () => void;
-  updateBoss: (dt: number) => void;
-  updateSpiderBoss: (dt: number) => void;
-  updateFrostclawBoss: (dt: number) => void;
-  updateMagmaliskBoss: (dt: number) => void;
-  updateGloomrootBoss: (dt: number) => void;
-  updateTidewyrmBoss: (dt: number) => void;
-  updateKoiShogunBoss: (dt: number) => void;
-  updateTempestKirinBoss: (dt: number) => void;
-  updateMiremawBoss: (dt: number) => void;
-  updatePrismshellBoss: (dt: number) => void;
-  updateIronhornBoss: (dt: number) => void;
-  updateDreadreaperBoss: (dt: number) => void;
-  updateVoltwardenBoss: (dt: number) => void;
-  updateGravebloomBoss: (dt: number) => void;
-  updateAegisPrimeBoss: (dt: number) => void;
-  resolveDragonCollision: () => void;
-  resolveSpiderCollision: () => void;
-  resolveFrostclawCollision: () => void;
-  resolveMagmaliskCollision: () => void;
-  resolveGloomrootCollision: () => void;
-  resolveTidewyrmCollision: () => void;
-  resolveKoiShogunCollision: () => void;
-  resolveTempestKirinCollision: () => void;
-  resolveMiremawCollision: () => void;
-  resolvePrismshellCollision: () => void;
-  resolveIronhornCollision: () => void;
-  resolveDreadreaperCollision: () => void;
-  resolveVoltwardenCollision: () => void;
-  resolveGravebloomCollision: () => void;
-  resolveAegisPrimeCollision: () => void;
+/** What the frame loop, collision and map changes call on one world boss. */
+export type BossBehaviour = {
+  reset: () => void;
+  sync: () => void;
+  update: (dt: number) => void;
+  resolveCollision: () => void;
+};
+
+export type BossController = {
+  byKind: Record<BossKind, BossBehaviour>;
+  /** The boss that lives on `mapId`, or null on a map without a world boss. */
+  forMap: (mapId: string) => BossBehaviour | null;
+  resetAll: () => void;
   applyBossKnockback: (dt: number) => void;
   onPortalCutsceneFinished: () => void;
+};
+
+type StandardKind = Exclude<BossKind, "dragon">;
+
+/** How a boss other than the Dragon dies and pays out. */
+type BossOutcome = {
+  /** Read when paid: a map's balance replaces the reward values once it loads. */
+  rewards: () => readonly (readonly [StatReward, number])[];
+  deathBurst: Burst;
+  /**
+   * A boss already dead when the player arrives still shows that player's
+   * reward. Frostclaw only did so while its portal reveal was unseen.
+   */
+  rewardOnArrival: boolean | "beforeCutscene";
+  /**
+   * The Scorpion predates two details every later boss shares: a heal clears
+   * the health-loss flash, and a reset clears `hurt`.
+   */
+  scorpion?: true;
+  /** Bosses drawn from an attack clip advance and reset that clip's clock. */
+  spriteClock?: true;
+};
+
+const BOSS_OUTCOMES: Record<StandardKind, BossOutcome> = {
+  spider: {
+    rewards: () => [["damage", SPIDER_REWARD_DAMAGE], ["health", SPIDER_REWARD_HEALTH]],
+    deathBurst: [DEATH_PARTICLE_COLOR, 64, 230], rewardOnArrival: false, scorpion: true,
+  },
+  frostclaw: {
+    rewards: () => [["damage", FROSTCLAW_REWARD_DAMAGE], ["health", FROSTCLAW_REWARD_HEALTH], ["armor", FROSTCLAW_REWARD_ARMOR]],
+    deathBurst: ["#8eeeff", 76, 260], rewardOnArrival: "beforeCutscene",
+  },
+  magmalisk: {
+    rewards: () => [["damage", MAGMALISK_REWARD_DAMAGE], ["health", MAGMALISK_REWARD_HEALTH], ["armor", MAGMALISK_REWARD_ARMOR], ["regen", MAGMALISK_REWARD_REGEN]],
+    deathBurst: ["#ff6b24", 88, 280], rewardOnArrival: true,
+  },
+  gloomroot: {
+    rewards: () => [["damage", GLOOMROOT_REWARD_DAMAGE], ["health", GLOOMROOT_REWARD_HEALTH], ["armor", GLOOMROOT_REWARD_ARMOR], ["regen", GLOOMROOT_REWARD_REGEN]],
+    deathBurst: ["#43d9e6", 96, 290], rewardOnArrival: true,
+  },
+  tidewyrm: {
+    rewards: () => [["damage", TIDEWYRM_REWARD_DAMAGE], ["health", TIDEWYRM_REWARD_HEALTH], ["armor", TIDEWYRM_REWARD_ARMOR], ["regen", TIDEWYRM_REWARD_REGEN]],
+    deathBurst: ["#40d9f2", 104, 310], rewardOnArrival: true, spriteClock: true,
+  },
+  koiShogun: {
+    rewards: () => [["damage", KOI_SHOGUN_REWARD_DAMAGE], ["health", KOI_SHOGUN_REWARD_HEALTH], ["armor", KOI_SHOGUN_REWARD_ARMOR], ["regen", KOI_SHOGUN_REWARD_REGEN]],
+    deathBurst: ["#f0a044", 112, 320], rewardOnArrival: true,
+  },
+  tempestKirin: {
+    rewards: () => [["damage", TEMPEST_KIRIN_REWARD_DAMAGE], ["health", TEMPEST_KIRIN_REWARD_HEALTH], ["armor", TEMPEST_KIRIN_REWARD_ARMOR], ["regen", TEMPEST_KIRIN_REWARD_REGEN]],
+    deathBurst: ["#9fe9ff", 120, 340], rewardOnArrival: true,
+  },
+  miremaw: {
+    rewards: () => [["damage", MIREMAW_REWARD_DAMAGE], ["health", MIREMAW_REWARD_HEALTH], ["armor", MIREMAW_REWARD_ARMOR], ["regen", MIREMAW_REWARD_REGEN]],
+    deathBurst: ["#71efc1", 120, 340], rewardOnArrival: true,
+  },
+  prismshell: {
+    rewards: () => [["damage", PRISMSHELL_REWARD_DAMAGE], ["health", PRISMSHELL_REWARD_HEALTH], ["armor", PRISMSHELL_REWARD_ARMOR], ["regen", PRISMSHELL_REWARD_REGEN]],
+    deathBurst: ["#c3a6ff", 120, 340], rewardOnArrival: true,
+  },
+  ironhorn: {
+    rewards: () => [["damage", IRONHORN_REWARD_DAMAGE], ["health", IRONHORN_REWARD_HEALTH], ["armor", IRONHORN_REWARD_ARMOR], ["regen", IRONHORN_REWARD_REGEN]],
+    deathBurst: ["#c3a6ff", 120, 340], rewardOnArrival: true, spriteClock: true,
+  },
+  dreadreaper: {
+    rewards: () => [["damage", DREADREAPER_REWARD_DAMAGE], ["health", DREADREAPER_REWARD_HEALTH], ["armor", DREADREAPER_REWARD_ARMOR], ["regen", DREADREAPER_REWARD_REGEN]],
+    deathBurst: ["#c3a6ff", 120, 340], rewardOnArrival: true, spriteClock: true,
+  },
+  voltwarden: {
+    rewards: () => [["damage", VOLTWARDEN_REWARD_DAMAGE], ["health", VOLTWARDEN_REWARD_HEALTH], ["armor", VOLTWARDEN_REWARD_ARMOR], ["regen", VOLTWARDEN_REWARD_REGEN]],
+    deathBurst: ["#c3a6ff", 120, 340], rewardOnArrival: true,
+  },
+  gravebloom: {
+    rewards: () => [["damage", GRAVEBLOOM_REWARD_DAMAGE], ["health", GRAVEBLOOM_REWARD_HEALTH], ["armor", GRAVEBLOOM_REWARD_ARMOR], ["regen", GRAVEBLOOM_REWARD_REGEN]],
+    deathBurst: ["#c3a6ff", 120, 340], rewardOnArrival: true,
+  },
+  aegisPrime: {
+    rewards: () => [["damage", AEGIS_PRIME_REWARD_DAMAGE], ["health", AEGIS_PRIME_REWARD_HEALTH], ["armor", AEGIS_PRIME_REWARD_ARMOR], ["regen", AEGIS_PRIME_REWARD_REGEN]],
+    deathBurst: ["#c3a6ff", 120, 340], rewardOnArrival: true,
+  },
+};
+
+const REWARD_LOG_COLORS: Record<StatReward, string> = {
+  damage: "#ff655a",
+  health: "#6fe48e",
+  armor: REWARD_DATA.armor.color,
+  regen: REWARD_DATA.regen.color,
+};
+
+/** A ring of hazards seeded from the encounter, dropped around the target. */
+type SeededHazards = {
+  pattern: BossAbilityName;
+  count: number;
+  angleJitter: number;
+  minimumRadius: number;
+  maximumRadius: number;
+  centerFirst?: boolean;
+  /** The first hazard lands after this many seconds, each later one `timerStep` after it. */
+  firstTimer: number;
+  timerStep: number;
+  /** Hazards stay this far inside the world's edge. */
+  margin: number;
+  radius: number;
+  /** Seconds until the next attack once these are down. */
+  attackClock: number;
+  next: string;
+  /** Leads the sprite's attack clip into the first landing. */
+  spriteLead?: number;
+};
+
+const DRAGON_RAIN: SeededHazards = {
+  pattern: "rain", count: 8, angleJitter: .25, minimumRadius: 24, maximumRadius: BOSS_RAIN_RANGE,
+  firstTimer: .8, timerStep: .14, margin: 60, radius: 52, attackClock: 4.8, next: "cone",
+};
+const SPIDER_VENOM: SeededHazards = {
+  pattern: "venom", count: 6, angleJitter: .25, minimumRadius: 15, maximumRadius: 125,
+  firstTimer: .9, timerStep: .13, margin: 60, radius: 58, attackClock: 4.2, next: "web",
+};
+const FROSTCLAW_ICEFALL: SeededHazards = {
+  pattern: "icefall", count: 9, angleJitter: .32, minimumRadius: 42, maximumRadius: 185, centerFirst: true,
+  firstTimer: .8, timerStep: .13, margin: 70, radius: 66, attackClock: 4.8, next: "rift",
+};
+
+type ConeKind = "magmalisk" | "gloomroot" | "tidewyrm" | "koiShogun" | "tempestKirin" | "miremaw" | "prismshell" | "ironhorn" | "dreadreaper";
+
+/**
+ * Bosses that alternate a widening cone with a field of ground hazards. The
+ * hazards land first; the cone waits for the last of them.
+ */
+type ConeBoss = {
+  aggroRange: number;
+  cone: {
+    ability: BossAbilityName;
+    windup: number;
+    duration: number;
+    range: number;
+    halfAngle: number;
+    /** Slack either side of the travelling front that still counts as a hit. */
+    reach: number;
+    hitBurst: Burst;
+    /** Seconds until the next attack once the cone has passed. */
+    recover: number;
+  };
+  hazards: {
+    ability: BossAbilityName;
+    landBurst: Burst;
+    /** Seeded ring, or a hand-placed pattern. */
+    pattern: SeededHazards | ((elapsedSeconds: number, patternIndex: number | undefined, target: AbilityTarget) => void);
+  };
+  /** Drawn from an attack clip whose clock leads into the cone. */
+  spriteClock?: true;
+};
+
+type PulseKind = "voltwarden" | "gravebloom" | "aegisPrime";
+
+/**
+ * The expansion bosses alternate a laser with rings that pulse outward; the
+ * shared attack art in shared/*-attacks.ts decides what each one hits.
+ */
+type PulseBoss = {
+  aggroRange: number;
+  laser: {
+    ability: BossAbilityName;
+    start: (elapsedSeconds: number, target: AbilityTarget) => void;
+    hits: (dx: number, dy: number, angle: number, playerRadius: number) => boolean;
+    /** Only the wave's travelling front hits, from `innerRange` out to `range`. */
+    front?: { innerRange: number; range: number };
+  };
+  pulses: {
+    ability: BossAbilityName;
+    start: (elapsedSeconds: number, attackIndex: number | undefined, target: AbilityTarget) => void;
+    hits: (distance: number, previousElapsed: number, elapsed: number, playerRadius: number) => boolean;
+    hitColor: string;
+  };
 };
 
 /**
@@ -231,100 +340,21 @@ type BossController = {
  */
 export function createBossController(options: {
   serverOwnsRewards?: boolean;
-  boss: DragonBossState;
-  spiderBoss: SpiderBossState;
-  frostclawBoss: FrostclawBossState;
-  magmaliskBoss: MagmaliskBossState;
-  gloomrootBoss: GloomrootBossState;
-  tidewyrmBoss: TidewyrmBossState;
-  koiShogunBoss: KoiShogunBossState;
-  tempestKirinBoss: TempestKirinBossState;
-  miremawBoss: MiremawBossState;
-  prismshellBoss: PrismshellBossState;
-  ironhornBoss: IronhornBossState;
-  dreadreaperBoss: DreadreaperBossState;
-  voltwardenBoss: VoltwardenBossState;
-  gravebloomBoss: GravebloomBossState;
-  aegisPrimeBoss: AegisPrimeBossState;
-  bossRain: BossRainStrike[];
-  spiderVenom: SpiderVenomPool[];
-  frostclawIcefalls: FrostclawIcefall[];
-  magmaliskEruptions: MagmaliskEruption[];
-  gloomrootBlooms: GloomrootBloom[];
-  tidewyrmWhirlpools: TidewyrmWhirlpool[];
-  koiShogunWhirlpools: KoiShogunWhirlpool[];
-  tempestKirinThunderbolts: TempestKirinThunderbolt[];
-  miremawBogBursts: MiremawBogBurst[];
-  prismshellCrystalBursts: PrismshellCrystalBurst[];
-  ironhornCrystalBursts: IronhornCrystalBurst[];
-  dreadreaperCrystalBursts: DreadreaperCrystalBurst[];
-  voltwardenCrystalBursts: VoltwardenCrystalBurst[];
-  gravebloomCrystalBursts: GravebloomCrystalBurst[];
-  aegisPrimeCrystalBursts: AegisPrimeCrystalBurst[];
+  bosses: BossStates;
+  hazards: BossHazards;
   player: PlayerState;
-  getDragonBoss: () => SharedBossState | null | undefined;
-  getSpiderBoss: () => SharedBossState | null | undefined;
-  getFrostclawBoss: () => SharedBossState | null | undefined;
-  getMagmaliskBoss: () => SharedBossState | null | undefined;
-  getGloomrootBoss: () => SharedBossState | null | undefined;
-  getTidewyrmBoss: () => SharedBossState | null | undefined;
-  getKoiShogunBoss: () => SharedBossState | null | undefined;
-  getTempestKirinBoss: () => SharedBossState | null | undefined;
-  getMiremawBoss: () => SharedBossState | null | undefined;
-  getPrismshellBoss: () => SharedBossState | null | undefined;
-  getIronhornBoss: () => SharedBossState | null | undefined;
-  getDreadreaperBoss: () => SharedBossState | null | undefined;
-  getVoltwardenBoss: () => SharedBossState | null | undefined;
-  getGravebloomBoss: () => SharedBossState | null | undefined;
-  getAegisPrimeBoss: () => SharedBossState | null | undefined;
-  getDragonResult: () => BossResult | null | undefined;
-  getSpiderResult: () => BossResult | null | undefined;
-  getFrostclawResult: () => BossResult | null | undefined;
-  getMagmaliskResult: () => BossResult | null | undefined;
-  getGloomrootResult: () => BossResult | null | undefined;
-  getTidewyrmResult: () => BossResult | null | undefined;
-  getKoiShogunResult: () => BossResult | null | undefined;
-  getTempestKirinResult: () => BossResult | null | undefined;
-  getMiremawResult: () => BossResult | null | undefined;
-  getPrismshellResult: () => BossResult | null | undefined;
-  getIronhornResult: () => BossResult | null | undefined;
-  getDreadreaperResult: () => BossResult | null | undefined;
-  getVoltwardenResult: () => BossResult | null | undefined;
-  getGravebloomResult: () => BossResult | null | undefined;
-  getAegisPrimeResult: () => BossResult | null | undefined;
+  sharedBoss: (kind: BossKind) => SharedBossState | null | undefined;
+  bossResult: (kind: BossKind) => BossResult | null | undefined;
   localIdentity: () => string | undefined;
   /** Estimated server clock used to keep boss abilities in one shared phase. */
   serverNowMs?: () => number;
   /** Consensus-time players already known by the client; no extra server state. */
   bossTargets?: () => readonly BossAbilityTarget[];
   running: () => boolean;
-  currentMapIsDesert: () => boolean;
-  currentMapIsSnow: () => boolean;
-  currentMapIsLava: () => boolean;
-  currentMapIsInfernal: () => boolean;
-  currentMapIsWater: () => boolean;
-  currentMapIsSamurai: () => boolean;
-  currentMapIsCloudspire: () => boolean;
-  currentMapIsMoonfen: () => boolean;
-  currentMapIsCrystalHollows: () => boolean;
-  currentMapIsClockworkRuins: () => boolean;
-  currentMapIsDuskfallOrchard: () => boolean;
-  currentMapIsNeonBastion: () => boolean;
-  currentMapIsVerdantCatacombs: () => boolean;
-  currentMapIsIonCitadel: () => boolean;
+  currentMapId: () => string;
   portalCutsceneActive: () => boolean;
-  hasSeenDragonPortalCutscene: () => boolean;
-  hasSeenSnowlandsPortalCutscene: () => boolean;
-  hasSeenLavaPortalCutscene: () => boolean;
-  hasSeenInfernalPortalCutscene: () => boolean;
-  hasSeenWaterPortalCutscene: () => boolean;
-  hasSeenSamuraiPortalCutscene: () => boolean;
-  startDragonPortalCutscene: () => void;
-  startSnowlandsPortalCutscene: () => boolean | void;
-  startLavaPortalCutscene: () => boolean | void;
-  startInfernalPortalCutscene: () => boolean | void;
-  startWaterPortalCutscene: () => boolean | void;
-  startSamuraiPortalCutscene: () => boolean | void;
+  /** The portal reveal a boss's first kill plays, for the bosses that open one. */
+  portalCutscenes: Partial<Record<BossKind, PortalCutscene>>;
   spawnBurst: (x: number, y: number, color: string, count: number, speed: number) => void;
   damagePlayer: (amount: number) => boolean;
   logPickup: (text: string, color: string, baseText?: string) => void;
@@ -333,122 +363,51 @@ export function createBossController(options: {
   rewardMultiplier?: () => number;
   displayRewardAmount?: (type: RewardType, baseAmount: number) => number;
 }): BossController {
-  const {
-    boss, spiderBoss, frostclawBoss, magmaliskBoss, gloomrootBoss, tidewyrmBoss, koiShogunBoss, tempestKirinBoss, miremawBoss, prismshellBoss, ironhornBoss, dreadreaperBoss, voltwardenBoss, gravebloomBoss, aegisPrimeBoss, bossRain, spiderVenom, frostclawIcefalls, magmaliskEruptions, gloomrootBlooms, tidewyrmWhirlpools, koiShogunWhirlpools, tempestKirinThunderbolts, miremawBogBursts, prismshellCrystalBursts, ironhornCrystalBursts, dreadreaperCrystalBursts, voltwardenCrystalBursts, gravebloomCrystalBursts, aegisPrimeCrystalBursts, player,
-    getDragonBoss, getSpiderBoss, getFrostclawBoss, getMagmaliskBoss, getGloomrootBoss, getTidewyrmBoss, getKoiShogunBoss, getTempestKirinBoss, getMiremawBoss, getPrismshellBoss, getIronhornBoss, getDreadreaperBoss, getVoltwardenBoss, getGravebloomBoss, getAegisPrimeBoss, getDragonResult, getSpiderResult, getFrostclawResult, getMagmaliskResult, getGloomrootResult, getTidewyrmResult, getKoiShogunResult, getTempestKirinResult, getMiremawResult, getPrismshellResult, getIronhornResult, getDreadreaperResult, getVoltwardenResult, getGravebloomResult, getAegisPrimeResult,
-    localIdentity, running, currentMapIsDesert, currentMapIsSnow, currentMapIsLava, currentMapIsInfernal, currentMapIsWater, currentMapIsSamurai, currentMapIsCloudspire, currentMapIsMoonfen, currentMapIsCrystalHollows, currentMapIsClockworkRuins, currentMapIsDuskfallOrchard, currentMapIsNeonBastion, currentMapIsVerdantCatacombs, currentMapIsIonCitadel, portalCutsceneActive,
-    hasSeenDragonPortalCutscene, hasSeenSnowlandsPortalCutscene, hasSeenLavaPortalCutscene, hasSeenInfernalPortalCutscene, hasSeenWaterPortalCutscene, hasSeenSamuraiPortalCutscene,
-    startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene, startSamuraiPortalCutscene,
-    spawnBurst, damagePlayer, logPickup, saveProgress,
-  } = options;
-  let observedDragonEncounter: bigint | null = null;
-  let dragonWasAlive: boolean | null = null;
-  let pendingDragonResultEncounter: bigint | null = null;
-  let shownDragonResultEncounter: bigint | null = null;
-  let observedSpiderEncounter: bigint | null = null;
-  let spiderWasAlive: boolean | null = null;
-  let pendingSpiderResultEncounter: bigint | null = null;
-  let shownSpiderResultEncounter: bigint | null = null;
-  let queuedDragonResult: BossResult | null = null;
-  let queuedSpiderResult: BossResult | null = null;
-  let queuedFrostclawResult: BossResult | null = null;
-  let queuedMagmaliskResult: BossResult | null = null;
-  let observedFrostclawEncounter: bigint | null = null;
-  let frostclawWasAlive: boolean | null = null;
-  let pendingFrostclawResultEncounter: bigint | null = null;
-  let shownFrostclawResultEncounter: bigint | null = null;
-  let observedMagmaliskEncounter: bigint | null = null;
-  let magmaliskWasAlive: boolean | null = null;
-  let pendingMagmaliskResultEncounter: bigint | null = null;
-  let shownMagmaliskResultEncounter: bigint | null = null;
-  let queuedGloomrootResult: BossResult | null = null;
-  let observedGloomrootEncounter: bigint | null = null;
-  let gloomrootWasAlive: boolean | null = null;
-  let pendingGloomrootResultEncounter: bigint | null = null;
-  let shownGloomrootResultEncounter: bigint | null = null;
-  let queuedTidewyrmResult: BossResult | null = null;
-  let observedTidewyrmEncounter: bigint | null = null;
-  let tidewyrmWasAlive: boolean | null = null;
-  let pendingTidewyrmResultEncounter: bigint | null = null;
-  let shownTidewyrmResultEncounter: bigint | null = null;
-  let observedKoiShogunEncounter: bigint | null = null;
-  let koiShogunWasAlive: boolean | null = null;
-  let pendingKoiShogunResultEncounter: bigint | null = null;
-  let shownKoiShogunResultEncounter: bigint | null = null;
-  let observedTempestKirinEncounter: bigint | null = null;
-  let tempestKirinWasAlive: boolean | null = null;
-  let pendingTempestKirinResultEncounter: bigint | null = null;
-  let shownTempestKirinResultEncounter: bigint | null = null;
-  let observedMiremawEncounter: bigint | null = null;
-  let observedPrismshellEncounter: bigint | null = null;
-  let observedIronhornEncounter: bigint | null = null;
-  let observedDreadreaperEncounter: bigint | null = null;
-  let observedVoltwardenEncounter: bigint | null = null;
-  let observedGravebloomEncounter: bigint | null = null;
-  let observedAegisPrimeEncounter: bigint | null = null;
-  let miremawWasAlive: boolean | null = null;
-  let prismshellWasAlive: boolean | null = null;
-  let ironhornWasAlive: boolean | null = null;
-  let dreadreaperWasAlive: boolean | null = null;
-  let voltwardenWasAlive: boolean | null = null;
-  let gravebloomWasAlive: boolean | null = null;
-  let aegisPrimeWasAlive: boolean | null = null;
-  let pendingMiremawResultEncounter: bigint | null = null;
-  let pendingPrismshellResultEncounter: bigint | null = null;
-  let pendingIronhornResultEncounter: bigint | null = null;
-  let pendingDreadreaperResultEncounter: bigint | null = null;
-  let pendingVoltwardenResultEncounter: bigint | null = null;
-  let pendingGravebloomResultEncounter: bigint | null = null;
-  let pendingAegisPrimeResultEncounter: bigint | null = null;
-  let shownMiremawResultEncounter: bigint | null = null;
-  let shownPrismshellResultEncounter: bigint | null = null;
-  let shownIronhornResultEncounter: bigint | null = null;
-  let shownDreadreaperResultEncounter: bigint | null = null;
-  let shownVoltwardenResultEncounter: bigint | null = null;
-  let shownGravebloomResultEncounter: bigint | null = null;
-  let shownAegisPrimeResultEncounter: bigint | null = null;
-  const locallyRewardedDragonEncounters = new Set<string>();
-  const locallyRewardedSpiderEncounters = new Set<string>();
-  const locallyRewardedFrostclawEncounters = new Set<string>();
-  const locallyRewardedMagmaliskEncounters = new Set<string>();
-  const locallyRewardedGloomrootEncounters = new Set<string>();
-  const locallyRewardedTidewyrmEncounters = new Set<string>();
-  const locallyRewardedKoiShogunEncounters = new Set<string>();
-  const locallyRewardedTempestKirinEncounters = new Set<string>();
-  const locallyRewardedMiremawEncounters = new Set<string>();
-  const locallyRewardedPrismshellEncounters = new Set<string>();
-  const locallyRewardedIronhornEncounters = new Set<string>();
-  const locallyRewardedDreadreaperEncounters = new Set<string>();
-  const locallyRewardedVoltwardenEncounters = new Set<string>();
-  const locallyRewardedGravebloomEncounters = new Set<string>();
-  const locallyRewardedAegisPrimeEncounters = new Set<string>();
-  let dragonRainPatternIndex = 0;
-  let spiderVenomPatternIndex = 0;
-  let frostclawIcefallPatternIndex = 0;
-  let magmaliskEruptionPatternIndex = 0;
-  let gloomrootBloomPatternIndex = 0;
-  let tidewyrmWhirlpoolPatternIndex = 0;
-  let koiShogunWhirlpoolPatternIndex = 0;
-  let tempestKirinThunderPatternIndex = 0;
-  let miremawBogBurstPatternIndex = 0;
-  let prismshellCrystalBurstPatternIndex = 0;
-  let ironhornCrystalBurstPatternIndex = 0;
-  let dreadreaperCrystalBurstPatternIndex = 0;
-  let aegisPrimeBurstPatternIndex = 0;
+  const { bosses, hazards, player, localIdentity, running, portalCutsceneActive, spawnBurst, damagePlayer, logPickup, saveProgress } = options;
+  const boss = bosses.dragon;
+  const bossRain = hazards.dragon;
+  const spiderBoss = bosses.spider;
+  const spiderVenom = hazards.spider;
+  const frostclawBoss = bosses.frostclaw;
+  const frostclawIcefalls = hazards.frostclaw;
+  const ironhornBoss = bosses.ironhorn;
+  const ironhornCrystalBursts = hazards.ironhorn;
+  const voltwardenBoss = bosses.voltwarden;
+  const voltwardenCrystalBursts = hazards.voltwarden;
+  const gravebloomBoss = bosses.gravebloom;
+  const gravebloomCrystalBursts = hazards.gravebloom;
+  const aegisPrimeBoss = bosses.aegisPrime;
+  const aegisPrimeCrystalBursts = hazards.aegisPrime;
+
+  // Which encounter each boss was last seen in, whether it was alive then, and
+  // the reward result waiting to be shown, shown already, or held back while a
+  // portal reveal plays.
+  const encounters = perBoss(() => ({
+    observed: null as bigint | null,
+    wasAlive: null as boolean | null,
+    pendingResult: null as bigint | null,
+    shownResult: null as bigint | null,
+    queuedResult: null as BossResult | null,
+    locallyRewarded: new Set<string>(),
+  }));
+  const patternIndex = perBoss(() => 0);
 
   let bossKnockbackAngle = 0;
   let bossKnockbackTimeRemaining = 0;
   let bossKnockbackDistanceRemaining = 0;
-  const observedAbilityKeys = new Map<BossSimulationKind, string>();
-  const activatedAbilityKeys = new Map<BossSimulationKind, string>();
+  const observedAbilityKeys = new Map<BossKind, string>();
+  const activatedAbilityKeys = new Map<BossKind, string>();
 
-  function resetAbilityTimeline(kind: BossSimulationKind) {
+  const onMap = (kind: BossKind) => options.currentMapId() === BOSSES[kind].mapId;
+  const damageFor = (kind: BossKind, ability: string) => (BOSS_DAMAGE_PROFILES[kind] as Record<string, number>)[ability];
+
+  function resetAbilityTimeline(kind: BossKind) {
     observedAbilityKeys.delete(kind);
     activatedAbilityKeys.delete(kind);
   }
 
   function syncAbilityTimeline(options: {
-    kind: BossSimulationKind;
+    kind: BossKind;
     encounter: bigint | null;
     targetForAttack: (attackIndex: number) => BossAbilityTarget | null;
     clear: () => void;
@@ -480,7 +439,7 @@ export function createBossController(options: {
   }
 
   function selectAbilityTarget(
-    kind: BossSimulationKind,
+    kind: BossKind,
     encounter: bigint | null,
     attackIndex: number,
     bossX: number,
@@ -542,662 +501,64 @@ export function createBossController(options: {
     bossKnockbackDistanceRemaining = 0;
   }
 
-  function resetBoss() {
-    clearBossKnockback();
-    const shared = getDragonBoss();
-    if (shared) {
-      boss.encounter = shared.encounter;
-      boss.hp = shared.hp;
-      boss.maxHp = shared.maxHp;
-      boss.dead = !shared.alive;
-    }
-    boss.hurt = 0;
-    boss.hpLossFlashFrom = boss.hp;
-    boss.hpLossFlashTimer = 0;
-    boss.contactDamageClock = 0;
-    boss.attackClock = 3;
-    boss.nextAttack = "cone";
-    boss.cone = null;
-    bossRain.length = 0;
-    dragonRainPatternIndex = 0;
-    resetAbilityTimeline("dragon");
+  /** Ends the attack in play and sweeps its hazards off the ground. */
+  function clearAttacks(kind: BossKind) {
+    clearBossAttack(kind, bosses[kind]);
+    hazards[kind].length = 0;
   }
 
-  function resetSpiderBoss() {
-    const shared = getSpiderBoss();
+  function resetBoss(kind: BossKind) {
+    const state = bosses[kind];
+    if (kind !== "dragon" && BOSS_OUTCOMES[kind].spriteClock) state.spriteAttackElapsed = undefined;
+    if (kind === "dragon") clearBossKnockback();
+    const shared = options.sharedBoss(kind);
     if (shared) {
-      spiderBoss.encounter = shared.encounter;
-      spiderBoss.hp = shared.hp;
-      spiderBoss.maxHp = shared.maxHp;
-      spiderBoss.dead = !shared.alive;
+      state.encounter = shared.encounter;
+      state.hp = shared.hp;
+      state.maxHp = shared.maxHp;
+      state.dead = !shared.alive;
     }
-    spiderBoss.hpLossFlashFrom = spiderBoss.hp;
-    spiderBoss.hpLossFlashTimer = 0;
-    spiderBoss.contactDamageClock = 0;
-    spiderBoss.attackClock = 3;
-    spiderBoss.nextAttack = "web";
-    spiderBoss.web = null;
-    spiderVenom.length = 0;
-    spiderVenomPatternIndex = 0;
-    resetAbilityTimeline("spider");
+    if (kind === "dragon" || !BOSS_OUTCOMES[kind].scorpion) state.hurt = 0;
+    state.hpLossFlashFrom = state.hp;
+    state.hpLossFlashTimer = 0;
+    state.contactDamageClock = 0;
+    state.attackClock = 3;
+    state.nextAttack = BOSSES[kind].firstAttack;
+    clearAttacks(kind);
+    patternIndex[kind] = 0;
+    resetAbilityTimeline(kind);
   }
 
-  function resetFrostclawBoss() {
-    const shared = getFrostclawBoss();
-    if (shared) {
-      frostclawBoss.encounter = shared.encounter;
-      frostclawBoss.hp = shared.hp;
-      frostclawBoss.maxHp = shared.maxHp;
-      frostclawBoss.dead = !shared.alive;
-    }
-    frostclawBoss.hurt = 0;
-    frostclawBoss.hpLossFlashFrom = frostclawBoss.hp;
-    frostclawBoss.hpLossFlashTimer = 0;
-    frostclawBoss.contactDamageClock = 0;
-    frostclawBoss.attackClock = 3;
-    frostclawBoss.nextAttack = "roar";
-    frostclawBoss.roar = null;
-    frostclawBoss.rift = null;
-    frostclawIcefalls.length = 0;
-    frostclawIcefallPatternIndex = 0;
-    resetAbilityTimeline("frostclaw");
-  }
-
-  function resetMagmaliskBoss() {
-    const shared = getMagmaliskBoss();
-    if (shared) {
-      magmaliskBoss.encounter = shared.encounter;
-      magmaliskBoss.hp = shared.hp;
-      magmaliskBoss.maxHp = shared.maxHp;
-      magmaliskBoss.dead = !shared.alive;
-    }
-    magmaliskBoss.hurt = 0;
-    magmaliskBoss.hpLossFlashFrom = magmaliskBoss.hp;
-    magmaliskBoss.hpLossFlashTimer = 0;
-    magmaliskBoss.contactDamageClock = 0;
-    magmaliskBoss.attackClock = 3;
-    magmaliskBoss.nextAttack = "bite";
-    magmaliskBoss.bite = null;
-    magmaliskEruptions.length = 0;
-    magmaliskEruptionPatternIndex = 0;
-    resetAbilityTimeline("magmalisk");
-  }
-
-  function resetGloomrootBoss() {
-    const shared = getGloomrootBoss();
-    if (shared) {
-      gloomrootBoss.encounter = shared.encounter;
-      gloomrootBoss.hp = shared.hp;
-      gloomrootBoss.maxHp = shared.maxHp;
-      gloomrootBoss.dead = !shared.alive;
-    }
-    gloomrootBoss.hurt = 0;
-    gloomrootBoss.hpLossFlashFrom = gloomrootBoss.hp;
-    gloomrootBoss.hpLossFlashTimer = 0;
-    gloomrootBoss.contactDamageClock = 0;
-    gloomrootBoss.attackClock = 3;
-    gloomrootBoss.nextAttack = "sweep";
-    gloomrootBoss.sweep = null;
-    gloomrootBlooms.length = 0;
-    gloomrootBloomPatternIndex = 0;
-    resetAbilityTimeline("gloomroot");
-  }
-
-  function resetTidewyrmBoss() {
-    tidewyrmBoss.spriteAttackElapsed = undefined;
-    const shared = getTidewyrmBoss();
-    if (shared) {
-      tidewyrmBoss.encounter = shared.encounter;
-      tidewyrmBoss.hp = shared.hp;
-      tidewyrmBoss.maxHp = shared.maxHp;
-      tidewyrmBoss.dead = !shared.alive;
-    }
-    tidewyrmBoss.hurt = 0;
-    tidewyrmBoss.hpLossFlashFrom = tidewyrmBoss.hp;
-    tidewyrmBoss.hpLossFlashTimer = 0;
-    tidewyrmBoss.contactDamageClock = 0;
-    tidewyrmBoss.attackClock = 3;
-    tidewyrmBoss.nextAttack = "surge";
-    tidewyrmBoss.surge = null;
-    tidewyrmWhirlpools.length = 0;
-    tidewyrmWhirlpoolPatternIndex = 0;
-    resetAbilityTimeline("tidewyrm");
-  }
-
-  function resetKoiShogunBoss() {
-    const shared = getKoiShogunBoss();
-    if (shared) {
-      koiShogunBoss.encounter = shared.encounter;
-      koiShogunBoss.hp = shared.hp;
-      koiShogunBoss.maxHp = shared.maxHp;
-      koiShogunBoss.dead = !shared.alive;
-    }
-    koiShogunBoss.hurt = 0;
-    koiShogunBoss.hpLossFlashFrom = koiShogunBoss.hp;
-    koiShogunBoss.hpLossFlashTimer = 0;
-    koiShogunBoss.contactDamageClock = 0;
-    koiShogunBoss.attackClock = 3;
-    koiShogunBoss.nextAttack = "slash";
-    koiShogunBoss.slash = null;
-    koiShogunWhirlpools.length = 0;
-    koiShogunWhirlpoolPatternIndex = 0;
-    resetAbilityTimeline("koiShogun");
-  }
-
-  function resetTempestKirinBoss() {
-    const shared = getTempestKirinBoss();
-    if (shared) {
-      tempestKirinBoss.encounter = shared.encounter;
-      tempestKirinBoss.hp = shared.hp;
-      tempestKirinBoss.maxHp = shared.maxHp;
-      tempestKirinBoss.dead = !shared.alive;
-    }
-    tempestKirinBoss.hurt = 0;
-    tempestKirinBoss.hpLossFlashFrom = tempestKirinBoss.hp;
-    tempestKirinBoss.hpLossFlashTimer = 0;
-    tempestKirinBoss.contactDamageClock = 0;
-    tempestKirinBoss.attackClock = 3;
-    tempestKirinBoss.nextAttack = "charge";
-    tempestKirinBoss.charge = null;
-    tempestKirinThunderbolts.length = 0;
-    tempestKirinThunderPatternIndex = 0;
-    resetAbilityTimeline("tempestKirin");
-  }
-
-function resetMiremawBoss() {
-    const shared = getMiremawBoss();
-    if (shared) {
-      miremawBoss.encounter = shared.encounter;
-      miremawBoss.hp = shared.hp;
-      miremawBoss.maxHp = shared.maxHp;
-      miremawBoss.dead = !shared.alive;
-    }
-    miremawBoss.hurt = 0;
-    miremawBoss.hpLossFlashFrom = miremawBoss.hp;
-    miremawBoss.hpLossFlashTimer = 0;
-    miremawBoss.contactDamageClock = 0;
-    miremawBoss.attackClock = 3;
-    miremawBoss.nextAttack = "tongue";
-    miremawBoss.tongue = null;
-    miremawBogBursts.length = 0;
-    miremawBogBurstPatternIndex = 0;
-    resetAbilityTimeline("miremaw");
-  }
-
-  function resetPrismshellBoss() {
-    const shared = getPrismshellBoss();
-    if (shared) {
-      prismshellBoss.encounter = shared.encounter;
-      prismshellBoss.hp = shared.hp;
-      prismshellBoss.maxHp = shared.maxHp;
-      prismshellBoss.dead = !shared.alive;
-    }
-    prismshellBoss.hurt = 0;
-    prismshellBoss.hpLossFlashFrom = prismshellBoss.hp;
-    prismshellBoss.hpLossFlashTimer = 0;
-    prismshellBoss.contactDamageClock = 0;
-    prismshellBoss.attackClock = 3;
-    prismshellBoss.nextAttack = "shatter";
-    prismshellBoss.shatter = null;
-    prismshellCrystalBursts.length = 0;
-    prismshellCrystalBurstPatternIndex = 0;
-    resetAbilityTimeline("prismshell");
-  }
-  function resetIronhornBoss() {
-    ironhornBoss.spriteAttackElapsed = undefined;
-    const shared = getIronhornBoss();
-    if (shared) {
-      ironhornBoss.encounter = shared.encounter;
-      ironhornBoss.hp = shared.hp;
-      ironhornBoss.maxHp = shared.maxHp;
-      ironhornBoss.dead = !shared.alive;
-    }
-    ironhornBoss.hurt = 0;
-    ironhornBoss.hpLossFlashFrom = ironhornBoss.hp;
-    ironhornBoss.hpLossFlashTimer = 0;
-    ironhornBoss.contactDamageClock = 0;
-    ironhornBoss.attackClock = 3;
-    ironhornBoss.nextAttack = "shatter";
-    ironhornBoss.shatter = null;
-    ironhornCrystalBursts.length = 0;
-    ironhornCrystalBurstPatternIndex = 0;
-    resetAbilityTimeline("ironhorn");
-  }
-  function resetDreadreaperBoss() {
-    dreadreaperBoss.spriteAttackElapsed = undefined;
-    const shared = getDreadreaperBoss();
-    if (shared) {
-      dreadreaperBoss.encounter = shared.encounter;
-      dreadreaperBoss.hp = shared.hp;
-      dreadreaperBoss.maxHp = shared.maxHp;
-      dreadreaperBoss.dead = !shared.alive;
-    }
-    dreadreaperBoss.hurt = 0;
-    dreadreaperBoss.hpLossFlashFrom = dreadreaperBoss.hp;
-    dreadreaperBoss.hpLossFlashTimer = 0;
-    dreadreaperBoss.contactDamageClock = 0;
-    dreadreaperBoss.attackClock = 3;
-    dreadreaperBoss.nextAttack = "shatter";
-    dreadreaperBoss.shatter = null;
-    dreadreaperCrystalBursts.length = 0;
-    dreadreaperCrystalBurstPatternIndex = 0;
-    resetAbilityTimeline("dreadreaper");
-  }
-  function resetVoltwardenBoss() {
-    const shared = getVoltwardenBoss();
-    if (shared) {
-      voltwardenBoss.encounter = shared.encounter;
-      voltwardenBoss.hp = shared.hp;
-      voltwardenBoss.maxHp = shared.maxHp;
-      voltwardenBoss.dead = !shared.alive;
-    }
-    voltwardenBoss.hurt = 0;
-    voltwardenBoss.hpLossFlashFrom = voltwardenBoss.hp;
-    voltwardenBoss.hpLossFlashTimer = 0;
-    voltwardenBoss.contactDamageClock = 0;
-    voltwardenBoss.attackClock = 3;
-    voltwardenBoss.nextAttack = "laserGrid";
-    voltwardenBoss.shatter = null;
-    voltwardenCrystalBursts.length = 0;
-
-    resetAbilityTimeline("voltwarden");
-  }
-  function resetGravebloomBoss() {
-    const shared = getGravebloomBoss();
-    if (shared) {
-      gravebloomBoss.encounter = shared.encounter;
-      gravebloomBoss.hp = shared.hp;
-      gravebloomBoss.maxHp = shared.maxHp;
-      gravebloomBoss.dead = !shared.alive;
-    }
-    gravebloomBoss.hurt = 0;
-    gravebloomBoss.hpLossFlashFrom = gravebloomBoss.hp;
-    gravebloomBoss.hpLossFlashTimer = 0;
-    gravebloomBoss.contactDamageClock = 0;
-    gravebloomBoss.attackClock = 3;
-    gravebloomBoss.nextAttack = "rootGrasp";
-    gravebloomBoss.shatter = null;
-    gravebloomCrystalBursts.length = 0;
-
-    resetAbilityTimeline("gravebloom");
-  }
-  function resetAegisPrimeBoss() {
-    const shared = getAegisPrimeBoss();
-    if (shared) {
-      aegisPrimeBoss.encounter = shared.encounter;
-      aegisPrimeBoss.hp = shared.hp;
-      aegisPrimeBoss.maxHp = shared.maxHp;
-      aegisPrimeBoss.dead = !shared.alive;
-    }
-    aegisPrimeBoss.hurt = 0;
-    aegisPrimeBoss.hpLossFlashFrom = aegisPrimeBoss.hp;
-    aegisPrimeBoss.hpLossFlashTimer = 0;
-    aegisPrimeBoss.contactDamageClock = 0;
-    aegisPrimeBoss.attackClock = 3;
-    aegisPrimeBoss.nextAttack = "shieldSweep";
-    aegisPrimeBoss.shatter = null;
-    aegisPrimeCrystalBursts.length = 0;
-
-    aegisPrimeBurstPatternIndex = 0;
-      resetAbilityTimeline("aegisPrime");
-  }
-
-
-  function showSpiderResult(result: BossResult | null | undefined) {
-    if (!result || shownSpiderResultEncounter === result.encounter || (portalCutsceneActive() && queuedSpiderResult?.encounter === result.encounter)) return;
+  function showResult(kind: StandardKind, result: BossResult | null | undefined) {
+    const encounter = encounters[kind];
+    if (!result || encounter.shownResult === result.encounter || (portalCutsceneActive() && encounter.queuedResult?.encounter === result.encounter)) return;
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    if (localContribution && currentMapIsDesert() && !hasSeenSnowlandsPortalCutscene()) {
-      if (startSnowlandsPortalCutscene() === false) return;
-      pendingSpiderResultEncounter = null;
-      queuedSpiderResult = result;
+    const cutscene = options.portalCutscenes[kind];
+    if (localContribution && cutscene && onMap(kind) && !cutscene.seen()) {
+      if (cutscene.start() === false) return;
+      encounter.pendingResult = null;
+      encounter.queuedResult = result;
       return;
     }
-    pendingSpiderResultEncounter = null;
-    shownSpiderResultEncounter = result.encounter;
+    encounter.pendingResult = null;
+    encounter.shownResult = result.encounter;
     if (!localContribution) return;
-    const damageReward = scaledReward("damage", SPIDER_REWARD_DAMAGE);
-    const healthReward = scaledReward("health", SPIDER_REWARD_HEALTH);
+    const rewards = BOSS_OUTCOMES[kind].rewards().map(([type, amount]) => scaledReward(type, amount));
     const encounterKey = String(result.encounter);
-    if (!options.serverOwnsRewards && !locallyRewardedSpiderEncounters.has(encounterKey)) {
+    if (!options.serverOwnsRewards && !encounter.locallyRewarded.has(encounterKey)) {
       // The authoritative reward arrives through the server result. Mirror it
       // into the active runtime now so the overhead HP and Power labels change
       // in the same frame as the reward notice, not after a later save sync.
-      locallyRewardedSpiderEncounters.add(encounterKey);
-      player.damage += damageReward.amount;
-      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplierBonus?.() ?? 0);
+      encounter.locallyRewarded.add(encounterKey);
+      for (const reward of rewards) {
+        if (reward.type === "damage") player.damage += reward.amount;
+        else if (reward.type === "health") addPlayerBaseMaxHealth(player, reward.amount, options.healthMultiplierBonus?.() ?? 0);
+        else if (reward.type === "armor") player.armor += reward.amount;
+        else player.regen += reward.amount;
+      }
     }
-    logReward(damageReward, "#ff655a");
-    logReward(healthReward, "#6fe48e");
+    for (const reward of rewards) logReward(reward, REWARD_LOG_COLORS[reward.type as StatReward]);
   }
-
-  function showFrostclawResult(result: BossResult | null | undefined) {
-    if (!result || shownFrostclawResultEncounter === result.encounter || (portalCutsceneActive() && queuedFrostclawResult?.encounter === result.encounter)) return;
-    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    if (localContribution && currentMapIsSnow() && !hasSeenLavaPortalCutscene()) {
-      if (startLavaPortalCutscene() === false) return;
-      pendingFrostclawResultEncounter = null;
-      queuedFrostclawResult = result;
-      return;
-    }
-    pendingFrostclawResultEncounter = null;
-    shownFrostclawResultEncounter = result.encounter;
-    if (!localContribution) return;
-    const damageReward = scaledReward("damage", FROSTCLAW_REWARD_DAMAGE);
-    const healthReward = scaledReward("health", FROSTCLAW_REWARD_HEALTH);
-    const armorReward = scaledReward("armor", FROSTCLAW_REWARD_ARMOR);
-    const encounterKey = String(result.encounter);
-    if (!options.serverOwnsRewards && !locallyRewardedFrostclawEncounters.has(encounterKey)) {
-      locallyRewardedFrostclawEncounters.add(encounterKey);
-      player.damage += damageReward.amount;
-      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplierBonus?.() ?? 0);
-      player.armor += armorReward.amount;
-    }
-    logReward(damageReward, "#ff655a");
-    logReward(healthReward, "#6fe48e");
-    logReward(armorReward, REWARD_DATA.armor.color);
-  }
-
-  function showMagmaliskResult(result: BossResult | null | undefined) {
-    if (!result || shownMagmaliskResultEncounter === result.encounter || (portalCutsceneActive() && queuedMagmaliskResult?.encounter === result.encounter)) return;
-    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    if (localContribution && currentMapIsLava() && !hasSeenInfernalPortalCutscene()) {
-      if (startInfernalPortalCutscene() === false) return;
-      pendingMagmaliskResultEncounter = null;
-      queuedMagmaliskResult = result;
-      return;
-    }
-    pendingMagmaliskResultEncounter = null;
-    shownMagmaliskResultEncounter = result.encounter;
-    if (!localContribution) return;
-    const damageReward = scaledReward("damage", MAGMALISK_REWARD_DAMAGE);
-    const healthReward = scaledReward("health", MAGMALISK_REWARD_HEALTH);
-    const armorReward = scaledReward("armor", MAGMALISK_REWARD_ARMOR);
-    const regenReward = scaledReward("regen", MAGMALISK_REWARD_REGEN);
-    const encounterKey = String(result.encounter);
-    if (!options.serverOwnsRewards && !locallyRewardedMagmaliskEncounters.has(encounterKey)) {
-      locallyRewardedMagmaliskEncounters.add(encounterKey);
-      player.damage += damageReward.amount;
-      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplierBonus?.() ?? 0);
-      player.armor += armorReward.amount;
-      player.regen += regenReward.amount;
-    }
-    logReward(damageReward, "#ff655a");
-    logReward(healthReward, "#6fe48e");
-    logReward(armorReward, REWARD_DATA.armor.color);
-    logReward(regenReward, REWARD_DATA.regen.color);
-  }
-
-  function showGloomrootResult(result: BossResult | null | undefined) {
-    if (!result || shownGloomrootResultEncounter === result.encounter || (portalCutsceneActive() && queuedGloomrootResult?.encounter === result.encounter)) return;
-    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    if (localContribution && currentMapIsInfernal() && !hasSeenWaterPortalCutscene()) {
-      if (startWaterPortalCutscene() === false) return;
-      pendingGloomrootResultEncounter = null;
-      queuedGloomrootResult = result;
-      return;
-    }
-    pendingGloomrootResultEncounter = null;
-    shownGloomrootResultEncounter = result.encounter;
-    if (!localContribution) return;
-    const damageReward = scaledReward("damage", GLOOMROOT_REWARD_DAMAGE);
-    const healthReward = scaledReward("health", GLOOMROOT_REWARD_HEALTH);
-    const armorReward = scaledReward("armor", GLOOMROOT_REWARD_ARMOR);
-    const regenReward = scaledReward("regen", GLOOMROOT_REWARD_REGEN);
-    const encounterKey = String(result.encounter);
-    if (!options.serverOwnsRewards && !locallyRewardedGloomrootEncounters.has(encounterKey)) {
-      locallyRewardedGloomrootEncounters.add(encounterKey);
-      player.damage += damageReward.amount;
-      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplierBonus?.() ?? 0);
-      player.armor += armorReward.amount;
-      player.regen += regenReward.amount;
-    }
-    logReward(damageReward, "#ff655a");
-    logReward(healthReward, "#6fe48e");
-    logReward(armorReward, REWARD_DATA.armor.color);
-    logReward(regenReward, REWARD_DATA.regen.color);
-  }
-
-  function showTidewyrmResult(result: BossResult | null | undefined) {
-    if (!result || shownTidewyrmResultEncounter === result.encounter || (portalCutsceneActive() && queuedTidewyrmResult?.encounter === result.encounter)) return;
-    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    if (localContribution && currentMapIsWater() && !hasSeenSamuraiPortalCutscene()) {
-      if (startSamuraiPortalCutscene() === false) return;
-      pendingTidewyrmResultEncounter = null;
-      queuedTidewyrmResult = result;
-      return;
-    }
-    pendingTidewyrmResultEncounter = null;
-    shownTidewyrmResultEncounter = result.encounter;
-    if (!localContribution) return;
-    const damageReward = scaledReward("damage", TIDEWYRM_REWARD_DAMAGE);
-    const healthReward = scaledReward("health", TIDEWYRM_REWARD_HEALTH);
-    const armorReward = scaledReward("armor", TIDEWYRM_REWARD_ARMOR);
-    const regenReward = scaledReward("regen", TIDEWYRM_REWARD_REGEN);
-    const encounterKey = String(result.encounter);
-    if (!options.serverOwnsRewards && !locallyRewardedTidewyrmEncounters.has(encounterKey)) {
-      locallyRewardedTidewyrmEncounters.add(encounterKey);
-      player.damage += damageReward.amount;
-      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplierBonus?.() ?? 0);
-      player.armor += armorReward.amount;
-      player.regen += regenReward.amount;
-    }
-    logReward(damageReward, "#ff655a");
-    logReward(healthReward, "#6fe48e");
-    logReward(armorReward, REWARD_DATA.armor.color);
-    logReward(regenReward, REWARD_DATA.regen.color);
-  }
-
-  function showKoiShogunResult(result: BossResult | null | undefined) {
-    if (!result || shownKoiShogunResultEncounter === result.encounter) return;
-    pendingKoiShogunResultEncounter = null;
-    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    shownKoiShogunResultEncounter = result.encounter;
-    if (!localContribution) return;
-    const damageReward = scaledReward("damage", KOI_SHOGUN_REWARD_DAMAGE);
-    const healthReward = scaledReward("health", KOI_SHOGUN_REWARD_HEALTH);
-    const armorReward = scaledReward("armor", KOI_SHOGUN_REWARD_ARMOR);
-    const regenReward = scaledReward("regen", KOI_SHOGUN_REWARD_REGEN);
-    const encounterKey = String(result.encounter);
-    if (!options.serverOwnsRewards && !locallyRewardedKoiShogunEncounters.has(encounterKey)) {
-      locallyRewardedKoiShogunEncounters.add(encounterKey);
-      player.damage += damageReward.amount;
-      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplierBonus?.() ?? 0);
-      player.armor += armorReward.amount;
-      player.regen += regenReward.amount;
-    }
-    logReward(damageReward, "#ff655a");
-    logReward(healthReward, "#6fe48e");
-    logReward(armorReward, REWARD_DATA.armor.color);
-    logReward(regenReward, REWARD_DATA.regen.color);
-  }
-
-  function showTempestKirinResult(result: BossResult | null | undefined) {
-    if (!result || shownTempestKirinResultEncounter === result.encounter) return;
-    pendingTempestKirinResultEncounter = null;
-    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    shownTempestKirinResultEncounter = result.encounter;
-    if (!localContribution) return;
-    const damageReward = scaledReward("damage", TEMPEST_KIRIN_REWARD_DAMAGE);
-    const healthReward = scaledReward("health", TEMPEST_KIRIN_REWARD_HEALTH);
-    const armorReward = scaledReward("armor", TEMPEST_KIRIN_REWARD_ARMOR);
-    const regenReward = scaledReward("regen", TEMPEST_KIRIN_REWARD_REGEN);
-    const encounterKey = String(result.encounter);
-    if (!options.serverOwnsRewards && !locallyRewardedTempestKirinEncounters.has(encounterKey)) {
-      locallyRewardedTempestKirinEncounters.add(encounterKey);
-      player.damage += damageReward.amount;
-      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplierBonus?.() ?? 0);
-      player.armor += armorReward.amount;
-      player.regen += regenReward.amount;
-    }
-    logReward(damageReward, "#ff655a");
-    logReward(healthReward, "#6fe48e");
-    logReward(armorReward, REWARD_DATA.armor.color);
-    logReward(regenReward, REWARD_DATA.regen.color);
-  }
-
-function showMiremawResult(result: BossResult | null | undefined) {
-    if (!result || shownMiremawResultEncounter === result.encounter) return;
-    pendingMiremawResultEncounter = null;
-    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    shownMiremawResultEncounter = result.encounter;
-    if (!localContribution) return;
-    const damageReward = scaledReward("damage", MIREMAW_REWARD_DAMAGE);
-    const healthReward = scaledReward("health", MIREMAW_REWARD_HEALTH);
-    const armorReward = scaledReward("armor", MIREMAW_REWARD_ARMOR);
-    const regenReward = scaledReward("regen", MIREMAW_REWARD_REGEN);
-    const encounterKey = String(result.encounter);
-    if (!options.serverOwnsRewards && !locallyRewardedMiremawEncounters.has(encounterKey)) {
-      locallyRewardedMiremawEncounters.add(encounterKey);
-      player.damage += damageReward.amount;
-      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplierBonus?.() ?? 0);
-      player.armor += armorReward.amount;
-      player.regen += regenReward.amount;
-    }
-    logReward(damageReward, "#ff655a");
-    logReward(healthReward, "#6fe48e");
-    logReward(armorReward, REWARD_DATA.armor.color);
-    logReward(regenReward, REWARD_DATA.regen.color);
-  }
-
-  function showPrismshellResult(result: BossResult | null | undefined) {
-    if (!result || shownPrismshellResultEncounter === result.encounter) return;
-    pendingPrismshellResultEncounter = null;
-    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    shownPrismshellResultEncounter = result.encounter;
-    if (!localContribution) return;
-    const damageReward = scaledReward("damage", PRISMSHELL_REWARD_DAMAGE);
-    const healthReward = scaledReward("health", PRISMSHELL_REWARD_HEALTH);
-    const armorReward = scaledReward("armor", PRISMSHELL_REWARD_ARMOR);
-    const regenReward = scaledReward("regen", PRISMSHELL_REWARD_REGEN);
-    const encounterKey = String(result.encounter);
-    if (!options.serverOwnsRewards && !locallyRewardedPrismshellEncounters.has(encounterKey)) {
-      locallyRewardedPrismshellEncounters.add(encounterKey);
-      player.damage += damageReward.amount;
-      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplierBonus?.() ?? 0);
-      player.armor += armorReward.amount;
-      player.regen += regenReward.amount;
-    }
-    logReward(damageReward, "#ff655a");
-    logReward(healthReward, "#6fe48e");
-    logReward(armorReward, REWARD_DATA.armor.color);
-    logReward(regenReward, REWARD_DATA.regen.color);
-  }
-  function showIronhornResult(result: BossResult | null | undefined) {
-    if (!result || shownIronhornResultEncounter === result.encounter) return;
-    pendingIronhornResultEncounter = null;
-    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    shownIronhornResultEncounter = result.encounter;
-    if (!localContribution) return;
-    const damageReward = scaledReward("damage", IRONHORN_REWARD_DAMAGE);
-    const healthReward = scaledReward("health", IRONHORN_REWARD_HEALTH);
-    const armorReward = scaledReward("armor", IRONHORN_REWARD_ARMOR);
-    const regenReward = scaledReward("regen", IRONHORN_REWARD_REGEN);
-    const encounterKey = String(result.encounter);
-    if (!options.serverOwnsRewards && !locallyRewardedIronhornEncounters.has(encounterKey)) {
-      locallyRewardedIronhornEncounters.add(encounterKey);
-      player.damage += damageReward.amount;
-      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplierBonus?.() ?? 0);
-      player.armor += armorReward.amount;
-      player.regen += regenReward.amount;
-    }
-    logReward(damageReward, "#ff655a");
-    logReward(healthReward, "#6fe48e");
-    logReward(armorReward, REWARD_DATA.armor.color);
-    logReward(regenReward, REWARD_DATA.regen.color);
-  }
-  function showDreadreaperResult(result: BossResult | null | undefined) {
-    if (!result || shownDreadreaperResultEncounter === result.encounter) return;
-    pendingDreadreaperResultEncounter = null;
-    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    shownDreadreaperResultEncounter = result.encounter;
-    if (!localContribution) return;
-    const damageReward = scaledReward("damage", DREADREAPER_REWARD_DAMAGE);
-    const healthReward = scaledReward("health", DREADREAPER_REWARD_HEALTH);
-    const armorReward = scaledReward("armor", DREADREAPER_REWARD_ARMOR);
-    const regenReward = scaledReward("regen", DREADREAPER_REWARD_REGEN);
-    const encounterKey = String(result.encounter);
-    if (!options.serverOwnsRewards && !locallyRewardedDreadreaperEncounters.has(encounterKey)) {
-      locallyRewardedDreadreaperEncounters.add(encounterKey);
-      player.damage += damageReward.amount;
-      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplierBonus?.() ?? 0);
-      player.armor += armorReward.amount;
-      player.regen += regenReward.amount;
-    }
-    logReward(damageReward, "#ff655a");
-    logReward(healthReward, "#6fe48e");
-    logReward(armorReward, REWARD_DATA.armor.color);
-    logReward(regenReward, REWARD_DATA.regen.color);
-  }
-  function showVoltwardenResult(result: BossResult | null | undefined) {
-    if (!result || shownVoltwardenResultEncounter === result.encounter) return;
-    pendingVoltwardenResultEncounter = null;
-    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    shownVoltwardenResultEncounter = result.encounter;
-    if (!localContribution) return;
-    const damageReward = scaledReward("damage", VOLTWARDEN_REWARD_DAMAGE);
-    const healthReward = scaledReward("health", VOLTWARDEN_REWARD_HEALTH);
-    const armorReward = scaledReward("armor", VOLTWARDEN_REWARD_ARMOR);
-    const regenReward = scaledReward("regen", VOLTWARDEN_REWARD_REGEN);
-    const encounterKey = String(result.encounter);
-    if (!options.serverOwnsRewards && !locallyRewardedVoltwardenEncounters.has(encounterKey)) {
-      locallyRewardedVoltwardenEncounters.add(encounterKey);
-      player.damage += damageReward.amount;
-      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplierBonus?.() ?? 0);
-      player.armor += armorReward.amount;
-      player.regen += regenReward.amount;
-    }
-    logReward(damageReward, "#ff655a");
-    logReward(healthReward, "#6fe48e");
-    logReward(armorReward, REWARD_DATA.armor.color);
-    logReward(regenReward, REWARD_DATA.regen.color);
-  }
-  function showGravebloomResult(result: BossResult | null | undefined) {
-    if (!result || shownGravebloomResultEncounter === result.encounter) return;
-    pendingGravebloomResultEncounter = null;
-    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    shownGravebloomResultEncounter = result.encounter;
-    if (!localContribution) return;
-    const damageReward = scaledReward("damage", GRAVEBLOOM_REWARD_DAMAGE);
-    const healthReward = scaledReward("health", GRAVEBLOOM_REWARD_HEALTH);
-    const armorReward = scaledReward("armor", GRAVEBLOOM_REWARD_ARMOR);
-    const regenReward = scaledReward("regen", GRAVEBLOOM_REWARD_REGEN);
-    const encounterKey = String(result.encounter);
-    if (!options.serverOwnsRewards && !locallyRewardedGravebloomEncounters.has(encounterKey)) {
-      locallyRewardedGravebloomEncounters.add(encounterKey);
-      player.damage += damageReward.amount;
-      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplierBonus?.() ?? 0);
-      player.armor += armorReward.amount;
-      player.regen += regenReward.amount;
-    }
-    logReward(damageReward, "#ff655a");
-    logReward(healthReward, "#6fe48e");
-    logReward(armorReward, REWARD_DATA.armor.color);
-    logReward(regenReward, REWARD_DATA.regen.color);
-  }
-  function showAegisPrimeResult(result: BossResult | null | undefined) {
-    if (!result || shownAegisPrimeResultEncounter === result.encounter) return;
-    pendingAegisPrimeResultEncounter = null;
-    const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    shownAegisPrimeResultEncounter = result.encounter;
-    if (!localContribution) return;
-    const damageReward = scaledReward("damage", AEGIS_PRIME_REWARD_DAMAGE);
-    const healthReward = scaledReward("health", AEGIS_PRIME_REWARD_HEALTH);
-    const armorReward = scaledReward("armor", AEGIS_PRIME_REWARD_ARMOR);
-    const regenReward = scaledReward("regen", AEGIS_PRIME_REWARD_REGEN);
-    const encounterKey = String(result.encounter);
-    if (!options.serverOwnsRewards && !locallyRewardedAegisPrimeEncounters.has(encounterKey)) {
-      locallyRewardedAegisPrimeEncounters.add(encounterKey);
-      player.damage += damageReward.amount;
-      addPlayerBaseMaxHealth(player, healthReward.amount, options.healthMultiplierBonus?.() ?? 0);
-      player.armor += armorReward.amount;
-      player.regen += regenReward.amount;
-    }
-    logReward(damageReward, "#ff655a");
-    logReward(healthReward, "#6fe48e");
-    logReward(armorReward, REWARD_DATA.armor.color);
-    logReward(regenReward, REWARD_DATA.regen.color);
-  }
-
 
   function killBoss() {
     if (boss.dead) return;
@@ -1208,858 +569,136 @@ function showMiremawResult(result: BossResult | null | undefined) {
   }
 
   function showDragonResult(result: BossResult | null | undefined) {
-    if (!result || shownDragonResultEncounter === result.encounter) return;
-    if (portalCutsceneActive() && queuedDragonResult?.encounter === result.encounter) return;
+    const encounter = encounters.dragon;
+    if (!result || encounter.shownResult === result.encounter) return;
+    if (portalCutsceneActive() && encounter.queuedResult?.encounter === result.encounter) return;
     if (!running()) {
-      shownDragonResultEncounter = result.encounter;
-      pendingDragonResultEncounter = null;
+      encounter.shownResult = result.encounter;
+      encounter.pendingResult = null;
       return;
     }
     const localContribution = result.contributors.find((entry) => entry.identity === localIdentity());
-    if (localContribution && !hasSeenDragonPortalCutscene()) {
-      queuedDragonResult = result;
-      startDragonPortalCutscene();
+    const cutscene = options.portalCutscenes.dragon;
+    if (localContribution && cutscene && !cutscene.seen()) {
+      encounter.queuedResult = result;
+      cutscene.start();
       return;
     }
-    shownDragonResultEncounter = result.encounter;
-    pendingDragonResultEncounter = null;
+    encounter.shownResult = result.encounter;
+    encounter.pendingResult = null;
     if (!localContribution) return;
     const damageReward = scaledReward("damage", DRAGON_REWARD_DAMAGE);
     const encounterKey = String(result.encounter);
-    if (!options.serverOwnsRewards && !locallyRewardedDragonEncounters.has(encounterKey)) {
-      locallyRewardedDragonEncounters.add(encounterKey);
+    if (!options.serverOwnsRewards && !encounter.locallyRewarded.has(encounterKey)) {
+      encounter.locallyRewarded.add(encounterKey);
       player.damage += damageReward.amount;
       logReward(damageReward, "#ff655a");
       saveProgress();
     }
   }
 
-  function syncSpiderState() {
-    const shared = getSpiderBoss();
+  function syncState(kind: StandardKind) {
+    const shared = options.sharedBoss(kind);
     if (!shared) return;
-    const initialized = observedSpiderEncounter !== null;
-    const encounterChanged = initialized && observedSpiderEncounter !== shared.encounter;
-    const previousHp = spiderBoss.hp;
+    const state = bosses[kind];
+    const outcome = BOSS_OUTCOMES[kind];
+    const encounter = encounters[kind];
+    const initialized = encounter.observed !== null;
+    const encounterChanged = initialized && encounter.observed !== shared.encounter;
+    const previousHp = state.hp;
     if (!initialized || encounterChanged) {
-      observedSpiderEncounter = shared.encounter;
-      spiderWasAlive = shared.alive;
-      spiderBoss.dead = !shared.alive;
-      spiderBoss.attackClock = 3;
-      spiderBoss.nextAttack = "web";
-      spiderBoss.web = null;
-      spiderVenom.length = 0;
-      spiderVenomPatternIndex = 0;
-      resetAbilityTimeline("spider");
-      spiderBoss.hpLossFlashFrom = shared.hp;
-      spiderBoss.hpLossFlashTimer = 0;
-    } else if (spiderWasAlive && !shared.alive) {
-      spiderWasAlive = false;
-      spiderBoss.dead = true;
-      spiderBoss.web = null;
-      spiderVenom.length = 0;
-      pendingSpiderResultEncounter = shared.encounter;
-      spawnBurst(spiderBoss.x, spiderBoss.y, DEATH_PARTICLE_COLOR, 64, 230);
-    } else if (!spiderWasAlive && shared.alive) {
-      spiderWasAlive = true;
-      spiderBoss.dead = false;
-      spiderBoss.attackClock = 3;
-      spiderBoss.nextAttack = "web";
-      spiderVenomPatternIndex = 0;
-      resetAbilityTimeline("spider");
+      encounter.observed = shared.encounter;
+      encounter.wasAlive = shared.alive;
+      state.dead = !shared.alive;
+      state.attackClock = 3;
+      state.nextAttack = BOSSES[kind].firstAttack;
+      clearAttacks(kind);
+      patternIndex[kind] = 0;
+      resetAbilityTimeline(kind);
+      state.hpLossFlashFrom = shared.hp;
+      state.hpLossFlashTimer = 0;
+    } else if (encounter.wasAlive && !shared.alive) {
+      encounter.wasAlive = false;
+      state.dead = true;
+      clearAttacks(kind);
+      encounter.pendingResult = shared.encounter;
+      spawnBurst(state.x, state.y, ...outcome.deathBurst);
+    } else if (!encounter.wasAlive && shared.alive) {
+      encounter.wasAlive = true;
+      state.dead = false;
+      state.attackClock = 3;
+      state.nextAttack = BOSSES[kind].firstAttack;
+      patternIndex[kind] = 0;
+      resetAbilityTimeline(kind);
     } else if (shared.alive && shared.hp < previousHp) {
-      spiderBoss.hpLossFlashFrom = spiderBoss.hpLossFlashTimer > 0 ? Math.max(spiderBoss.hpLossFlashFrom, previousHp) : previousHp;
-      spiderBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
-    }
-    spiderBoss.encounter = shared.encounter;
-    spiderBoss.maxHp = shared.maxHp;
-    spiderBoss.hp = shared.hp;
-    if (pendingSpiderResultEncounter !== null) {
-      const result = getSpiderResult();
-      if (result?.encounter === pendingSpiderResultEncounter) showSpiderResult(result);
-    }
-  }
-
-  function syncFrostclawState() {
-    const shared = getFrostclawBoss();
-    if (!shared) return;
-    const initialized = observedFrostclawEncounter !== null;
-    const encounterChanged = initialized && observedFrostclawEncounter !== shared.encounter;
-    const previousHp = frostclawBoss.hp;
-    if (!initialized || encounterChanged) {
-      observedFrostclawEncounter = shared.encounter;
-      frostclawWasAlive = shared.alive;
-      frostclawBoss.dead = !shared.alive;
-      frostclawBoss.attackClock = 3;
-      frostclawBoss.nextAttack = "roar";
-      frostclawBoss.roar = null;
-      frostclawBoss.rift = null;
-      frostclawIcefalls.length = 0;
-      frostclawIcefallPatternIndex = 0;
-      resetAbilityTimeline("frostclaw");
-      frostclawBoss.hpLossFlashFrom = shared.hp;
-      frostclawBoss.hpLossFlashTimer = 0;
-    } else if (frostclawWasAlive && !shared.alive) {
-      frostclawWasAlive = false;
-      frostclawBoss.dead = true;
-      frostclawBoss.roar = null;
-      frostclawBoss.rift = null;
-      frostclawIcefalls.length = 0;
-      pendingFrostclawResultEncounter = shared.encounter;
-      spawnBurst(frostclawBoss.x, frostclawBoss.y, "#8eeeff", 76, 260);
-    } else if (!frostclawWasAlive && shared.alive) {
-      frostclawWasAlive = true;
-      frostclawBoss.dead = false;
-      frostclawBoss.attackClock = 3;
-      frostclawBoss.nextAttack = "roar";
-      frostclawIcefallPatternIndex = 0;
-      resetAbilityTimeline("frostclaw");
-    } else if (shared.alive && shared.hp < previousHp) {
-      frostclawBoss.hpLossFlashFrom = frostclawBoss.hpLossFlashTimer > 0
-        ? Math.max(frostclawBoss.hpLossFlashFrom, previousHp)
+      state.hpLossFlashFrom = state.hpLossFlashTimer > 0
+        ? Math.max(state.hpLossFlashFrom, previousHp)
         : previousHp;
-      frostclawBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
-    } else if (shared.hp > previousHp) {
-      frostclawBoss.hpLossFlashFrom = shared.hp;
-      frostclawBoss.hpLossFlashTimer = 0;
+      state.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
+    } else if (!outcome.scorpion && shared.hp > previousHp) {
+      state.hpLossFlashFrom = shared.hp;
+      state.hpLossFlashTimer = 0;
     }
-    frostclawBoss.encounter = shared.encounter;
-    frostclawBoss.maxHp = shared.maxHp;
-    frostclawBoss.hp = shared.hp;
-    if (!initialized && !shared.alive && currentMapIsSnow() && !hasSeenLavaPortalCutscene()) {
-      const result = getFrostclawResult();
+    state.encounter = shared.encounter;
+    state.maxHp = shared.maxHp;
+    state.hp = shared.hp;
+    const rewardOnArrival = () => outcome.rewardOnArrival === "beforeCutscene"
+      ? !options.portalCutscenes[kind]?.seen()
+      : outcome.rewardOnArrival;
+    if (!initialized && !shared.alive && onMap(kind) && rewardOnArrival()) {
+      const result = options.bossResult(kind);
       if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
-        locallyRewardedFrostclawEncounters.add(String(result.encounter));
-        showFrostclawResult(result);
+        encounter.locallyRewarded.add(String(result.encounter));
+        showResult(kind, result);
       }
     }
-    if (pendingFrostclawResultEncounter !== null) {
-      const result = getFrostclawResult();
-      if (result?.encounter === pendingFrostclawResultEncounter) showFrostclawResult(result);
+    if (encounter.pendingResult !== null) {
+      const result = options.bossResult(kind);
+      if (result?.encounter === encounter.pendingResult) showResult(kind, result);
     }
   }
-
-  function syncMagmaliskState() {
-    const shared = getMagmaliskBoss();
-    if (!shared) return;
-    const initialized = observedMagmaliskEncounter !== null;
-    const encounterChanged = initialized && observedMagmaliskEncounter !== shared.encounter;
-    const previousHp = magmaliskBoss.hp;
-    if (!initialized || encounterChanged) {
-      observedMagmaliskEncounter = shared.encounter;
-      magmaliskWasAlive = shared.alive;
-      magmaliskBoss.dead = !shared.alive;
-      magmaliskBoss.attackClock = 3;
-      magmaliskBoss.nextAttack = "bite";
-      magmaliskBoss.bite = null;
-      magmaliskEruptions.length = 0;
-      magmaliskEruptionPatternIndex = 0;
-      resetAbilityTimeline("magmalisk");
-      magmaliskBoss.hpLossFlashFrom = shared.hp;
-      magmaliskBoss.hpLossFlashTimer = 0;
-    } else if (magmaliskWasAlive && !shared.alive) {
-      magmaliskWasAlive = false;
-      magmaliskBoss.dead = true;
-      magmaliskBoss.bite = null;
-      magmaliskEruptions.length = 0;
-      pendingMagmaliskResultEncounter = shared.encounter;
-      spawnBurst(magmaliskBoss.x, magmaliskBoss.y, "#ff6b24", 88, 280);
-    } else if (!magmaliskWasAlive && shared.alive) {
-      magmaliskWasAlive = true;
-      magmaliskBoss.dead = false;
-      magmaliskBoss.attackClock = 3;
-      magmaliskBoss.nextAttack = "bite";
-      magmaliskEruptionPatternIndex = 0;
-      resetAbilityTimeline("magmalisk");
-    } else if (shared.alive && shared.hp < previousHp) {
-      magmaliskBoss.hpLossFlashFrom = magmaliskBoss.hpLossFlashTimer > 0
-        ? Math.max(magmaliskBoss.hpLossFlashFrom, previousHp)
-        : previousHp;
-      magmaliskBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
-    } else if (shared.hp > previousHp) {
-      magmaliskBoss.hpLossFlashFrom = shared.hp;
-      magmaliskBoss.hpLossFlashTimer = 0;
-    }
-    magmaliskBoss.encounter = shared.encounter;
-    magmaliskBoss.maxHp = shared.maxHp;
-    magmaliskBoss.hp = shared.hp;
-    if (!initialized && !shared.alive && currentMapIsLava()) {
-      const result = getMagmaliskResult();
-      if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
-        locallyRewardedMagmaliskEncounters.add(String(result.encounter));
-        showMagmaliskResult(result);
-      }
-    }
-    if (pendingMagmaliskResultEncounter !== null) {
-      const result = getMagmaliskResult();
-      if (result?.encounter === pendingMagmaliskResultEncounter) showMagmaliskResult(result);
-    }
-  }
-
-  function syncGloomrootState() {
-    const shared = getGloomrootBoss();
-    if (!shared) return;
-    const initialized = observedGloomrootEncounter !== null;
-    const encounterChanged = initialized && observedGloomrootEncounter !== shared.encounter;
-    const previousHp = gloomrootBoss.hp;
-    if (!initialized || encounterChanged) {
-      observedGloomrootEncounter = shared.encounter;
-      gloomrootWasAlive = shared.alive;
-      gloomrootBoss.dead = !shared.alive;
-      gloomrootBoss.attackClock = 3;
-      gloomrootBoss.nextAttack = "sweep";
-      gloomrootBoss.sweep = null;
-      gloomrootBlooms.length = 0;
-      gloomrootBloomPatternIndex = 0;
-      resetAbilityTimeline("gloomroot");
-      gloomrootBoss.hpLossFlashFrom = shared.hp;
-      gloomrootBoss.hpLossFlashTimer = 0;
-    } else if (gloomrootWasAlive && !shared.alive) {
-      gloomrootWasAlive = false;
-      gloomrootBoss.dead = true;
-      gloomrootBoss.sweep = null;
-      gloomrootBlooms.length = 0;
-      pendingGloomrootResultEncounter = shared.encounter;
-      spawnBurst(gloomrootBoss.x, gloomrootBoss.y, "#43d9e6", 96, 290);
-    } else if (!gloomrootWasAlive && shared.alive) {
-      gloomrootWasAlive = true;
-      gloomrootBoss.dead = false;
-      gloomrootBoss.attackClock = 3;
-      gloomrootBoss.nextAttack = "sweep";
-      gloomrootBloomPatternIndex = 0;
-      resetAbilityTimeline("gloomroot");
-    } else if (shared.alive && shared.hp < previousHp) {
-      gloomrootBoss.hpLossFlashFrom = gloomrootBoss.hpLossFlashTimer > 0
-        ? Math.max(gloomrootBoss.hpLossFlashFrom, previousHp)
-        : previousHp;
-      gloomrootBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
-    } else if (shared.hp > previousHp) {
-      gloomrootBoss.hpLossFlashFrom = shared.hp;
-      gloomrootBoss.hpLossFlashTimer = 0;
-    }
-    gloomrootBoss.encounter = shared.encounter;
-    gloomrootBoss.maxHp = shared.maxHp;
-    gloomrootBoss.hp = shared.hp;
-    if (!initialized && !shared.alive && currentMapIsInfernal()) {
-      const result = getGloomrootResult();
-      if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
-        locallyRewardedGloomrootEncounters.add(String(result.encounter));
-        showGloomrootResult(result);
-      }
-    }
-    if (pendingGloomrootResultEncounter !== null) {
-      const result = getGloomrootResult();
-      if (result?.encounter === pendingGloomrootResultEncounter) showGloomrootResult(result);
-    }
-  }
-
-  function syncTidewyrmState() {
-    const shared = getTidewyrmBoss();
-    if (!shared) return;
-    const initialized = observedTidewyrmEncounter !== null;
-    const encounterChanged = initialized && observedTidewyrmEncounter !== shared.encounter;
-    const previousHp = tidewyrmBoss.hp;
-    if (!initialized || encounterChanged) {
-      observedTidewyrmEncounter = shared.encounter;
-      tidewyrmWasAlive = shared.alive;
-      tidewyrmBoss.dead = !shared.alive;
-      tidewyrmBoss.attackClock = 3;
-      tidewyrmBoss.nextAttack = "surge";
-      tidewyrmBoss.surge = null;
-      tidewyrmWhirlpools.length = 0;
-      tidewyrmWhirlpoolPatternIndex = 0;
-      resetAbilityTimeline("tidewyrm");
-      tidewyrmBoss.hpLossFlashFrom = shared.hp;
-      tidewyrmBoss.hpLossFlashTimer = 0;
-    } else if (tidewyrmWasAlive && !shared.alive) {
-      tidewyrmWasAlive = false;
-      tidewyrmBoss.dead = true;
-      tidewyrmBoss.surge = null;
-      tidewyrmWhirlpools.length = 0;
-      pendingTidewyrmResultEncounter = shared.encounter;
-      spawnBurst(tidewyrmBoss.x, tidewyrmBoss.y, "#40d9f2", 104, 310);
-    } else if (!tidewyrmWasAlive && shared.alive) {
-      tidewyrmWasAlive = true;
-      tidewyrmBoss.dead = false;
-      tidewyrmBoss.attackClock = 3;
-      tidewyrmBoss.nextAttack = "surge";
-      tidewyrmWhirlpoolPatternIndex = 0;
-      resetAbilityTimeline("tidewyrm");
-    } else if (shared.alive && shared.hp < previousHp) {
-      tidewyrmBoss.hpLossFlashFrom = tidewyrmBoss.hpLossFlashTimer > 0
-        ? Math.max(tidewyrmBoss.hpLossFlashFrom, previousHp)
-        : previousHp;
-      tidewyrmBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
-    } else if (shared.hp > previousHp) {
-      tidewyrmBoss.hpLossFlashFrom = shared.hp;
-      tidewyrmBoss.hpLossFlashTimer = 0;
-    }
-    tidewyrmBoss.encounter = shared.encounter;
-    tidewyrmBoss.maxHp = shared.maxHp;
-    tidewyrmBoss.hp = shared.hp;
-    if (!initialized && !shared.alive && currentMapIsWater()) {
-      const result = getTidewyrmResult();
-      if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
-        locallyRewardedTidewyrmEncounters.add(String(result.encounter));
-        showTidewyrmResult(result);
-      }
-    }
-    if (pendingTidewyrmResultEncounter !== null) {
-      const result = getTidewyrmResult();
-      if (result?.encounter === pendingTidewyrmResultEncounter) showTidewyrmResult(result);
-    }
-  }
-
-  function syncKoiShogunState() {
-    const shared = getKoiShogunBoss();
-    if (!shared) return;
-    const initialized = observedKoiShogunEncounter !== null;
-    const encounterChanged = initialized && observedKoiShogunEncounter !== shared.encounter;
-    const previousHp = koiShogunBoss.hp;
-    if (!initialized || encounterChanged) {
-      observedKoiShogunEncounter = shared.encounter;
-      koiShogunWasAlive = shared.alive;
-      koiShogunBoss.dead = !shared.alive;
-      koiShogunBoss.attackClock = 3;
-      koiShogunBoss.nextAttack = "slash";
-      koiShogunBoss.slash = null;
-      koiShogunWhirlpools.length = 0;
-      koiShogunWhirlpoolPatternIndex = 0;
-      resetAbilityTimeline("koiShogun");
-      koiShogunBoss.hpLossFlashFrom = shared.hp;
-      koiShogunBoss.hpLossFlashTimer = 0;
-    } else if (koiShogunWasAlive && !shared.alive) {
-      koiShogunWasAlive = false;
-      koiShogunBoss.dead = true;
-      koiShogunBoss.slash = null;
-      koiShogunWhirlpools.length = 0;
-      pendingKoiShogunResultEncounter = shared.encounter;
-      spawnBurst(koiShogunBoss.x, koiShogunBoss.y, "#f0a044", 112, 320);
-    } else if (!koiShogunWasAlive && shared.alive) {
-      koiShogunWasAlive = true;
-      koiShogunBoss.dead = false;
-      koiShogunBoss.attackClock = 3;
-      koiShogunBoss.nextAttack = "slash";
-      koiShogunWhirlpoolPatternIndex = 0;
-      resetAbilityTimeline("koiShogun");
-    } else if (shared.alive && shared.hp < previousHp) {
-      koiShogunBoss.hpLossFlashFrom = koiShogunBoss.hpLossFlashTimer > 0
-        ? Math.max(koiShogunBoss.hpLossFlashFrom, previousHp)
-        : previousHp;
-      koiShogunBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
-    } else if (shared.hp > previousHp) {
-      koiShogunBoss.hpLossFlashFrom = shared.hp;
-      koiShogunBoss.hpLossFlashTimer = 0;
-    }
-    koiShogunBoss.encounter = shared.encounter;
-    koiShogunBoss.maxHp = shared.maxHp;
-    koiShogunBoss.hp = shared.hp;
-    if (!initialized && !shared.alive && currentMapIsSamurai()) {
-      const result = getKoiShogunResult();
-      if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
-        locallyRewardedKoiShogunEncounters.add(String(result.encounter));
-        showKoiShogunResult(result);
-      }
-    }
-    if (pendingKoiShogunResultEncounter !== null) {
-      const result = getKoiShogunResult();
-      if (result?.encounter === pendingKoiShogunResultEncounter) showKoiShogunResult(result);
-    }
-  }
-
-  function syncTempestKirinState() {
-    const shared = getTempestKirinBoss();
-    if (!shared) return;
-    const initialized = observedTempestKirinEncounter !== null;
-    const encounterChanged = initialized && observedTempestKirinEncounter !== shared.encounter;
-    const previousHp = tempestKirinBoss.hp;
-    if (!initialized || encounterChanged) {
-      observedTempestKirinEncounter = shared.encounter;
-      tempestKirinWasAlive = shared.alive;
-      tempestKirinBoss.dead = !shared.alive;
-      tempestKirinBoss.attackClock = 3;
-      tempestKirinBoss.nextAttack = "charge";
-      tempestKirinBoss.charge = null;
-      tempestKirinThunderbolts.length = 0;
-      tempestKirinThunderPatternIndex = 0;
-      resetAbilityTimeline("tempestKirin");
-      tempestKirinBoss.hpLossFlashFrom = shared.hp;
-      tempestKirinBoss.hpLossFlashTimer = 0;
-    } else if (tempestKirinWasAlive && !shared.alive) {
-      tempestKirinWasAlive = false;
-      tempestKirinBoss.dead = true;
-      tempestKirinBoss.charge = null;
-      tempestKirinThunderbolts.length = 0;
-      pendingTempestKirinResultEncounter = shared.encounter;
-      spawnBurst(tempestKirinBoss.x, tempestKirinBoss.y, "#9fe9ff", 120, 340);
-    } else if (!tempestKirinWasAlive && shared.alive) {
-      tempestKirinWasAlive = true;
-      tempestKirinBoss.dead = false;
-      tempestKirinBoss.attackClock = 3;
-      tempestKirinBoss.nextAttack = "charge";
-      tempestKirinThunderPatternIndex = 0;
-      resetAbilityTimeline("tempestKirin");
-    } else if (shared.alive && shared.hp < previousHp) {
-      tempestKirinBoss.hpLossFlashFrom = tempestKirinBoss.hpLossFlashTimer > 0
-        ? Math.max(tempestKirinBoss.hpLossFlashFrom, previousHp)
-        : previousHp;
-      tempestKirinBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
-    } else if (shared.hp > previousHp) {
-      tempestKirinBoss.hpLossFlashFrom = shared.hp;
-      tempestKirinBoss.hpLossFlashTimer = 0;
-    }
-    tempestKirinBoss.encounter = shared.encounter;
-    tempestKirinBoss.maxHp = shared.maxHp;
-    tempestKirinBoss.hp = shared.hp;
-    if (!initialized && !shared.alive && currentMapIsCloudspire()) {
-      const result = getTempestKirinResult();
-      if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
-        locallyRewardedTempestKirinEncounters.add(String(result.encounter));
-        showTempestKirinResult(result);
-      }
-    }
-    if (pendingTempestKirinResultEncounter !== null) {
-      const result = getTempestKirinResult();
-      if (result?.encounter === pendingTempestKirinResultEncounter) showTempestKirinResult(result);
-    }
-  }
-
-function syncMiremawState() {
-    const shared = getMiremawBoss();
-    if (!shared) return;
-    const initialized = observedMiremawEncounter !== null;
-    const encounterChanged = initialized && observedMiremawEncounter !== shared.encounter;
-    const previousHp = miremawBoss.hp;
-    if (!initialized || encounterChanged) {
-      observedMiremawEncounter = shared.encounter;
-      miremawWasAlive = shared.alive;
-      miremawBoss.dead = !shared.alive;
-      miremawBoss.attackClock = 3;
-      miremawBoss.nextAttack = "tongue";
-      miremawBoss.tongue = null;
-      miremawBogBursts.length = 0;
-      miremawBogBurstPatternIndex = 0;
-      resetAbilityTimeline("miremaw");
-      miremawBoss.hpLossFlashFrom = shared.hp;
-      miremawBoss.hpLossFlashTimer = 0;
-    } else if (miremawWasAlive && !shared.alive) {
-      miremawWasAlive = false;
-      miremawBoss.dead = true;
-      miremawBoss.tongue = null;
-      miremawBogBursts.length = 0;
-      pendingMiremawResultEncounter = shared.encounter;
-      spawnBurst(miremawBoss.x, miremawBoss.y, "#71efc1", 120, 340);
-    } else if (!miremawWasAlive && shared.alive) {
-      miremawWasAlive = true;
-      miremawBoss.dead = false;
-      miremawBoss.attackClock = 3;
-      miremawBoss.nextAttack = "tongue";
-      miremawBogBurstPatternIndex = 0;
-      resetAbilityTimeline("miremaw");
-    } else if (shared.alive && shared.hp < previousHp) {
-      miremawBoss.hpLossFlashFrom = miremawBoss.hpLossFlashTimer > 0
-        ? Math.max(miremawBoss.hpLossFlashFrom, previousHp)
-        : previousHp;
-      miremawBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
-    } else if (shared.hp > previousHp) {
-      miremawBoss.hpLossFlashFrom = shared.hp;
-      miremawBoss.hpLossFlashTimer = 0;
-    }
-    miremawBoss.encounter = shared.encounter;
-    miremawBoss.maxHp = shared.maxHp;
-    miremawBoss.hp = shared.hp;
-    if (!initialized && !shared.alive && currentMapIsMoonfen()) {
-      const result = getMiremawResult();
-      if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
-        locallyRewardedMiremawEncounters.add(String(result.encounter));
-        showMiremawResult(result);
-      }
-    }
-    if (pendingMiremawResultEncounter !== null) {
-      const result = getMiremawResult();
-      if (result?.encounter === pendingMiremawResultEncounter) showMiremawResult(result);
-    }
-  }
-
-  function syncPrismshellState() {
-    const shared = getPrismshellBoss();
-    if (!shared) return;
-    const initialized = observedPrismshellEncounter !== null;
-    const encounterChanged = initialized && observedPrismshellEncounter !== shared.encounter;
-    const previousHp = prismshellBoss.hp;
-    if (!initialized || encounterChanged) {
-      observedPrismshellEncounter = shared.encounter;
-      prismshellWasAlive = shared.alive;
-      prismshellBoss.dead = !shared.alive;
-      prismshellBoss.attackClock = 3;
-      prismshellBoss.nextAttack = "shatter";
-      prismshellBoss.shatter = null;
-      prismshellCrystalBursts.length = 0;
-      prismshellCrystalBurstPatternIndex = 0;
-      resetAbilityTimeline("prismshell");
-      prismshellBoss.hpLossFlashFrom = shared.hp;
-      prismshellBoss.hpLossFlashTimer = 0;
-    } else if (prismshellWasAlive && !shared.alive) {
-      prismshellWasAlive = false;
-      prismshellBoss.dead = true;
-      prismshellBoss.shatter = null;
-      prismshellCrystalBursts.length = 0;
-      pendingPrismshellResultEncounter = shared.encounter;
-      spawnBurst(prismshellBoss.x, prismshellBoss.y, "#c3a6ff", 120, 340);
-    } else if (!prismshellWasAlive && shared.alive) {
-      prismshellWasAlive = true;
-      prismshellBoss.dead = false;
-      prismshellBoss.attackClock = 3;
-      prismshellBoss.nextAttack = "shatter";
-      prismshellCrystalBurstPatternIndex = 0;
-      resetAbilityTimeline("prismshell");
-    } else if (shared.alive && shared.hp < previousHp) {
-      prismshellBoss.hpLossFlashFrom = prismshellBoss.hpLossFlashTimer > 0
-        ? Math.max(prismshellBoss.hpLossFlashFrom, previousHp)
-        : previousHp;
-      prismshellBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
-    } else if (shared.hp > previousHp) {
-      prismshellBoss.hpLossFlashFrom = shared.hp;
-      prismshellBoss.hpLossFlashTimer = 0;
-    }
-    prismshellBoss.encounter = shared.encounter;
-    prismshellBoss.maxHp = shared.maxHp;
-    prismshellBoss.hp = shared.hp;
-    if (!initialized && !shared.alive && currentMapIsCrystalHollows()) {
-      const result = getPrismshellResult();
-      if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
-        locallyRewardedPrismshellEncounters.add(String(result.encounter));
-        showPrismshellResult(result);
-      }
-    }
-    if (pendingPrismshellResultEncounter !== null) {
-      const result = getPrismshellResult();
-      if (result?.encounter === pendingPrismshellResultEncounter) showPrismshellResult(result);
-    }
-  }
-  function syncIronhornState() {
-    const shared = getIronhornBoss();
-    if (!shared) return;
-    const initialized = observedIronhornEncounter !== null;
-    const encounterChanged = initialized && observedIronhornEncounter !== shared.encounter;
-    const previousHp = ironhornBoss.hp;
-    if (!initialized || encounterChanged) {
-      observedIronhornEncounter = shared.encounter;
-      ironhornWasAlive = shared.alive;
-      ironhornBoss.dead = !shared.alive;
-      ironhornBoss.attackClock = 3;
-      ironhornBoss.nextAttack = "shatter";
-      ironhornBoss.shatter = null;
-      ironhornCrystalBursts.length = 0;
-      ironhornCrystalBurstPatternIndex = 0;
-      resetAbilityTimeline("ironhorn");
-      ironhornBoss.hpLossFlashFrom = shared.hp;
-      ironhornBoss.hpLossFlashTimer = 0;
-    } else if (ironhornWasAlive && !shared.alive) {
-      ironhornWasAlive = false;
-      ironhornBoss.dead = true;
-      ironhornBoss.shatter = null;
-      ironhornCrystalBursts.length = 0;
-      pendingIronhornResultEncounter = shared.encounter;
-      spawnBurst(ironhornBoss.x, ironhornBoss.y, "#c3a6ff", 120, 340);
-    } else if (!ironhornWasAlive && shared.alive) {
-      ironhornWasAlive = true;
-      ironhornBoss.dead = false;
-      ironhornBoss.attackClock = 3;
-      ironhornBoss.nextAttack = "shatter";
-      ironhornCrystalBurstPatternIndex = 0;
-      resetAbilityTimeline("ironhorn");
-    } else if (shared.alive && shared.hp < previousHp) {
-      ironhornBoss.hpLossFlashFrom = ironhornBoss.hpLossFlashTimer > 0
-        ? Math.max(ironhornBoss.hpLossFlashFrom, previousHp)
-        : previousHp;
-      ironhornBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
-    } else if (shared.hp > previousHp) {
-      ironhornBoss.hpLossFlashFrom = shared.hp;
-      ironhornBoss.hpLossFlashTimer = 0;
-    }
-    ironhornBoss.encounter = shared.encounter;
-    ironhornBoss.maxHp = shared.maxHp;
-    ironhornBoss.hp = shared.hp;
-    if (!initialized && !shared.alive && currentMapIsClockworkRuins()) {
-      const result = getIronhornResult();
-      if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
-        locallyRewardedIronhornEncounters.add(String(result.encounter));
-        showIronhornResult(result);
-      }
-    }
-    if (pendingIronhornResultEncounter !== null) {
-      const result = getIronhornResult();
-      if (result?.encounter === pendingIronhornResultEncounter) showIronhornResult(result);
-    }
-  }
-  function syncDreadreaperState() {
-    const shared = getDreadreaperBoss();
-    if (!shared) return;
-    const initialized = observedDreadreaperEncounter !== null;
-    const encounterChanged = initialized && observedDreadreaperEncounter !== shared.encounter;
-    const previousHp = dreadreaperBoss.hp;
-    if (!initialized || encounterChanged) {
-      observedDreadreaperEncounter = shared.encounter;
-      dreadreaperWasAlive = shared.alive;
-      dreadreaperBoss.dead = !shared.alive;
-      dreadreaperBoss.attackClock = 3;
-      dreadreaperBoss.nextAttack = "shatter";
-      dreadreaperBoss.shatter = null;
-      dreadreaperCrystalBursts.length = 0;
-      dreadreaperCrystalBurstPatternIndex = 0;
-      resetAbilityTimeline("dreadreaper");
-      dreadreaperBoss.hpLossFlashFrom = shared.hp;
-      dreadreaperBoss.hpLossFlashTimer = 0;
-    } else if (dreadreaperWasAlive && !shared.alive) {
-      dreadreaperWasAlive = false;
-      dreadreaperBoss.dead = true;
-      dreadreaperBoss.shatter = null;
-      dreadreaperCrystalBursts.length = 0;
-      pendingDreadreaperResultEncounter = shared.encounter;
-      spawnBurst(dreadreaperBoss.x, dreadreaperBoss.y, "#c3a6ff", 120, 340);
-    } else if (!dreadreaperWasAlive && shared.alive) {
-      dreadreaperWasAlive = true;
-      dreadreaperBoss.dead = false;
-      dreadreaperBoss.attackClock = 3;
-      dreadreaperBoss.nextAttack = "shatter";
-      dreadreaperCrystalBurstPatternIndex = 0;
-      resetAbilityTimeline("dreadreaper");
-    } else if (shared.alive && shared.hp < previousHp) {
-      dreadreaperBoss.hpLossFlashFrom = dreadreaperBoss.hpLossFlashTimer > 0
-        ? Math.max(dreadreaperBoss.hpLossFlashFrom, previousHp)
-        : previousHp;
-      dreadreaperBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
-    } else if (shared.hp > previousHp) {
-      dreadreaperBoss.hpLossFlashFrom = shared.hp;
-      dreadreaperBoss.hpLossFlashTimer = 0;
-    }
-    dreadreaperBoss.encounter = shared.encounter;
-    dreadreaperBoss.maxHp = shared.maxHp;
-    dreadreaperBoss.hp = shared.hp;
-    if (!initialized && !shared.alive && currentMapIsDuskfallOrchard()) {
-      const result = getDreadreaperResult();
-      if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
-        locallyRewardedDreadreaperEncounters.add(String(result.encounter));
-        showDreadreaperResult(result);
-      }
-    }
-    if (pendingDreadreaperResultEncounter !== null) {
-      const result = getDreadreaperResult();
-      if (result?.encounter === pendingDreadreaperResultEncounter) showDreadreaperResult(result);
-    }
-  }
-  function syncVoltwardenState() {
-    const shared = getVoltwardenBoss();
-    if (!shared) return;
-    const initialized = observedVoltwardenEncounter !== null;
-    const encounterChanged = initialized && observedVoltwardenEncounter !== shared.encounter;
-    const previousHp = voltwardenBoss.hp;
-    if (!initialized || encounterChanged) {
-      observedVoltwardenEncounter = shared.encounter;
-      voltwardenWasAlive = shared.alive;
-      voltwardenBoss.dead = !shared.alive;
-      voltwardenBoss.attackClock = 3;
-      voltwardenBoss.nextAttack = "laserGrid";
-      voltwardenBoss.shatter = null;
-      voltwardenCrystalBursts.length = 0;
-
-      resetAbilityTimeline("voltwarden");
-      voltwardenBoss.hpLossFlashFrom = shared.hp;
-      voltwardenBoss.hpLossFlashTimer = 0;
-    } else if (voltwardenWasAlive && !shared.alive) {
-      voltwardenWasAlive = false;
-      voltwardenBoss.dead = true;
-      voltwardenBoss.shatter = null;
-      voltwardenCrystalBursts.length = 0;
-      pendingVoltwardenResultEncounter = shared.encounter;
-      spawnBurst(voltwardenBoss.x, voltwardenBoss.y, "#c3a6ff", 120, 340);
-    } else if (!voltwardenWasAlive && shared.alive) {
-      voltwardenWasAlive = true;
-      voltwardenBoss.dead = false;
-      voltwardenBoss.attackClock = 3;
-      voltwardenBoss.nextAttack = "laserGrid";
-
-      resetAbilityTimeline("voltwarden");
-    } else if (shared.alive && shared.hp < previousHp) {
-      voltwardenBoss.hpLossFlashFrom = voltwardenBoss.hpLossFlashTimer > 0
-        ? Math.max(voltwardenBoss.hpLossFlashFrom, previousHp)
-        : previousHp;
-      voltwardenBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
-    } else if (shared.hp > previousHp) {
-      voltwardenBoss.hpLossFlashFrom = shared.hp;
-      voltwardenBoss.hpLossFlashTimer = 0;
-    }
-    voltwardenBoss.encounter = shared.encounter;
-    voltwardenBoss.maxHp = shared.maxHp;
-    voltwardenBoss.hp = shared.hp;
-    if (!initialized && !shared.alive && currentMapIsNeonBastion()) {
-      const result = getVoltwardenResult();
-      if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
-        locallyRewardedVoltwardenEncounters.add(String(result.encounter));
-        showVoltwardenResult(result);
-      }
-    }
-    if (pendingVoltwardenResultEncounter !== null) {
-      const result = getVoltwardenResult();
-      if (result?.encounter === pendingVoltwardenResultEncounter) showVoltwardenResult(result);
-    }
-  }
-  function syncGravebloomState() {
-    const shared = getGravebloomBoss();
-    if (!shared) return;
-    const initialized = observedGravebloomEncounter !== null;
-    const encounterChanged = initialized && observedGravebloomEncounter !== shared.encounter;
-    const previousHp = gravebloomBoss.hp;
-    if (!initialized || encounterChanged) {
-      observedGravebloomEncounter = shared.encounter;
-      gravebloomWasAlive = shared.alive;
-      gravebloomBoss.dead = !shared.alive;
-      gravebloomBoss.attackClock = 3;
-      gravebloomBoss.nextAttack = "rootGrasp";
-      gravebloomBoss.shatter = null;
-      gravebloomCrystalBursts.length = 0;
-
-      resetAbilityTimeline("gravebloom");
-      gravebloomBoss.hpLossFlashFrom = shared.hp;
-      gravebloomBoss.hpLossFlashTimer = 0;
-    } else if (gravebloomWasAlive && !shared.alive) {
-      gravebloomWasAlive = false;
-      gravebloomBoss.dead = true;
-      gravebloomBoss.shatter = null;
-      gravebloomCrystalBursts.length = 0;
-      pendingGravebloomResultEncounter = shared.encounter;
-      spawnBurst(gravebloomBoss.x, gravebloomBoss.y, "#c3a6ff", 120, 340);
-    } else if (!gravebloomWasAlive && shared.alive) {
-      gravebloomWasAlive = true;
-      gravebloomBoss.dead = false;
-      gravebloomBoss.attackClock = 3;
-      gravebloomBoss.nextAttack = "rootGrasp";
-
-      resetAbilityTimeline("gravebloom");
-    } else if (shared.alive && shared.hp < previousHp) {
-      gravebloomBoss.hpLossFlashFrom = gravebloomBoss.hpLossFlashTimer > 0
-        ? Math.max(gravebloomBoss.hpLossFlashFrom, previousHp)
-        : previousHp;
-      gravebloomBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
-    } else if (shared.hp > previousHp) {
-      gravebloomBoss.hpLossFlashFrom = shared.hp;
-      gravebloomBoss.hpLossFlashTimer = 0;
-    }
-    gravebloomBoss.encounter = shared.encounter;
-    gravebloomBoss.maxHp = shared.maxHp;
-    gravebloomBoss.hp = shared.hp;
-    if (!initialized && !shared.alive && currentMapIsVerdantCatacombs()) {
-      const result = getGravebloomResult();
-      if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
-        locallyRewardedGravebloomEncounters.add(String(result.encounter));
-        showGravebloomResult(result);
-      }
-    }
-    if (pendingGravebloomResultEncounter !== null) {
-      const result = getGravebloomResult();
-      if (result?.encounter === pendingGravebloomResultEncounter) showGravebloomResult(result);
-    }
-  }
-  function syncAegisPrimeState() {
-    const shared = getAegisPrimeBoss();
-    if (!shared) return;
-    const initialized = observedAegisPrimeEncounter !== null;
-    const encounterChanged = initialized && observedAegisPrimeEncounter !== shared.encounter;
-    const previousHp = aegisPrimeBoss.hp;
-    if (!initialized || encounterChanged) {
-      observedAegisPrimeEncounter = shared.encounter;
-      aegisPrimeWasAlive = shared.alive;
-      aegisPrimeBoss.dead = !shared.alive;
-      aegisPrimeBoss.attackClock = 3;
-      aegisPrimeBoss.nextAttack = "shieldSweep";
-      aegisPrimeBoss.shatter = null;
-      aegisPrimeCrystalBursts.length = 0;
-
-      aegisPrimeBurstPatternIndex = 0;
-      resetAbilityTimeline("aegisPrime");
-      aegisPrimeBoss.hpLossFlashFrom = shared.hp;
-      aegisPrimeBoss.hpLossFlashTimer = 0;
-    } else if (aegisPrimeWasAlive && !shared.alive) {
-      aegisPrimeWasAlive = false;
-      aegisPrimeBoss.dead = true;
-      aegisPrimeBoss.shatter = null;
-      aegisPrimeCrystalBursts.length = 0;
-      pendingAegisPrimeResultEncounter = shared.encounter;
-      spawnBurst(aegisPrimeBoss.x, aegisPrimeBoss.y, "#c3a6ff", 120, 340);
-    } else if (!aegisPrimeWasAlive && shared.alive) {
-      aegisPrimeWasAlive = true;
-      aegisPrimeBoss.dead = false;
-      aegisPrimeBoss.attackClock = 3;
-      aegisPrimeBoss.nextAttack = "shieldSweep";
-
-      aegisPrimeBurstPatternIndex = 0;
-      resetAbilityTimeline("aegisPrime");
-    } else if (shared.alive && shared.hp < previousHp) {
-      aegisPrimeBoss.hpLossFlashFrom = aegisPrimeBoss.hpLossFlashTimer > 0
-        ? Math.max(aegisPrimeBoss.hpLossFlashFrom, previousHp)
-        : previousHp;
-      aegisPrimeBoss.hpLossFlashTimer = BOSS_HP_LOSS_FLASH_DURATION;
-    } else if (shared.hp > previousHp) {
-      aegisPrimeBoss.hpLossFlashFrom = shared.hp;
-      aegisPrimeBoss.hpLossFlashTimer = 0;
-    }
-    aegisPrimeBoss.encounter = shared.encounter;
-    aegisPrimeBoss.maxHp = shared.maxHp;
-    aegisPrimeBoss.hp = shared.hp;
-    if (!initialized && !shared.alive && currentMapIsIonCitadel()) {
-      const result = getAegisPrimeResult();
-      if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
-        locallyRewardedAegisPrimeEncounters.add(String(result.encounter));
-        showAegisPrimeResult(result);
-      }
-    }
-    if (pendingAegisPrimeResultEncounter !== null) {
-      const result = getAegisPrimeResult();
-      if (result?.encounter === pendingAegisPrimeResultEncounter) showAegisPrimeResult(result);
-    }
-  }
-
 
   function syncDragonState() {
-    const shared = getDragonBoss();
+    const shared = options.sharedBoss("dragon");
     if (!shared) return;
-    const initialized = observedDragonEncounter !== null;
-    const encounterChanged = initialized && observedDragonEncounter !== shared.encounter;
+    const encounter = encounters.dragon;
+    const initialized = encounter.observed !== null;
+    const encounterChanged = initialized && encounter.observed !== shared.encounter;
     const previousHp = boss.hp;
     if (!initialized) {
-      observedDragonEncounter = shared.encounter;
-      dragonWasAlive = shared.alive;
+      encounter.observed = shared.encounter;
+      encounter.wasAlive = shared.alive;
       boss.dead = !shared.alive;
       if (boss.dead) { boss.cone = null; bossRain.length = 0; }
-      dragonRainPatternIndex = 0;
+      patternIndex.dragon = 0;
       resetAbilityTimeline("dragon");
       boss.hpLossFlashFrom = shared.hp;
       boss.hpLossFlashTimer = 0;
     } else if (encounterChanged) {
-      observedDragonEncounter = shared.encounter;
-      dragonWasAlive = shared.alive;
-      pendingDragonResultEncounter = null;
+      encounter.observed = shared.encounter;
+      encounter.wasAlive = shared.alive;
+      encounter.pendingResult = null;
       boss.attackClock = 3;
       boss.nextAttack = "cone";
       boss.cone = null;
       bossRain.length = 0;
-      dragonRainPatternIndex = 0;
+      patternIndex.dragon = 0;
       resetAbilityTimeline("dragon");
       boss.dead = !shared.alive;
       boss.hpLossFlashFrom = shared.hp;
       boss.hpLossFlashTimer = 0;
-    } else if (dragonWasAlive && !shared.alive) {
-      pendingDragonResultEncounter = shared.encounter;
+    } else if (encounter.wasAlive && !shared.alive) {
+      encounter.pendingResult = shared.encounter;
       killBoss();
-      dragonWasAlive = false;
-    } else if (!dragonWasAlive && shared.alive) {
-      dragonWasAlive = true;
+      encounter.wasAlive = false;
+    } else if (!encounter.wasAlive && shared.alive) {
+      encounter.wasAlive = true;
       boss.dead = false;
       boss.attackClock = 3;
       boss.nextAttack = "cone";
       boss.cone = null;
       bossRain.length = 0;
-      dragonRainPatternIndex = 0;
+      patternIndex.dragon = 0;
       resetAbilityTimeline("dragon");
       boss.hpLossFlashFrom = shared.hp;
       boss.hpLossFlashTimer = 0;
@@ -2074,46 +713,91 @@ function syncMiremawState() {
     boss.maxHp = shared.maxHp;
     boss.hp = shared.hp;
     if (!shared.alive) boss.dead = true;
-    if (pendingDragonResultEncounter !== null && shownDragonResultEncounter !== pendingDragonResultEncounter) {
-      const result = getDragonResult();
-      if (result?.encounter === pendingDragonResultEncounter) showDragonResult(result);
+    if (encounter.pendingResult !== null && encounter.shownResult !== encounter.pendingResult) {
+      const result = options.bossResult("dragon");
+      if (result?.encounter === encounter.pendingResult) showDragonResult(result);
     }
   }
 
-  function startBossCone(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+  /** A cone aimed at the target, its windup and sweep already advanced by `elapsedSeconds`. */
+  function coneAttack(
+    state: { x: number; y: number },
+    windup: number,
+    duration: number,
+    elapsedSeconds: number,
+    target: AbilityTarget,
+  ): BossCone {
     const elapsed = Math.max(0, elapsedSeconds);
-    boss.cone = {
-      angle: Math.atan2(target.y - boss.y, target.x - boss.x),
-      windup: Math.max(0, DRAGON_CONE_WINDUP - elapsed),
-      timer: Math.max(0, DRAGON_CONE_DURATION - Math.max(0, elapsed - DRAGON_CONE_WINDUP)),
-      duration: DRAGON_CONE_DURATION,
+    return {
+      angle: Math.atan2(target.y - state.y, target.x - state.x),
+      windup: Math.max(0, windup - elapsed),
+      timer: Math.max(0, duration - Math.max(0, elapsed - windup)),
+      duration,
       hitPlayer: false,
     };
+  }
+
+  function startSeededHazards(
+    kind: BossKind,
+    spec: SeededHazards,
+    elapsedSeconds = 0,
+    deterministicPatternIndex?: number,
+    target: AbilityTarget = player,
+  ) {
+    const state = bosses[kind];
+    const ground: Hazard[] = hazards[kind];
+    if (spec.spriteLead !== undefined) state.spriteAttackElapsed = Math.max(0, elapsedSeconds) - spec.spriteLead + .5;
+    const pattern = deterministicPatternIndex ?? patternIndex[kind];
+    for (let index = 0; index < spec.count; index += 1) {
+      const { angle, radius } = seededBossHazardPolar({
+        kind,
+        encounter: state.encounter,
+        pattern: spec.pattern,
+        patternIndex: pattern,
+        hazardIndex: index,
+        hazardCount: spec.count,
+        angleJitter: spec.angleJitter,
+        minimumRadius: spec.minimumRadius,
+        maximumRadius: spec.maximumRadius,
+        centerFirst: spec.centerFirst,
+      });
+      const maxTimer = spec.firstTimer + index * spec.timerStep;
+      const timer = maxTimer - Math.max(0, elapsedSeconds);
+      if (timer <= 0) continue;
+      ground.push({
+        x: clamp(target.x + Math.cos(angle) * radius, spec.margin, WORLD.w - spec.margin),
+        y: clamp(target.y + Math.sin(angle) * radius, spec.margin, WORLD.h - spec.margin),
+        r: spec.radius,
+        timer,
+        maxTimer,
+      });
+    }
+    if (deterministicPatternIndex === undefined) patternIndex[kind] += 1;
+    state.attackClock = spec.attackClock;
+    (state as { nextAttack: string }).nextAttack = spec.next;
+  }
+
+  /** Counts hazards down; each that lands hurts a player standing in it. */
+  function landHazards(ground: Hazard[], dt: number, damage: () => number, burst: Burst) {
+    for (let index = ground.length - 1; index >= 0; index -= 1) {
+      const hazard = ground[index];
+      hazard.timer -= dt;
+      if (hazard.timer > 0) continue;
+      const dx = player.x - hazard.x;
+      const dy = player.y - hazard.y;
+      if (dx * dx + dy * dy <= hazard.r * hazard.r) damagePlayer(damage());
+      spawnBurst(hazard.x, hazard.y, ...burst);
+      ground.splice(index, 1);
+    }
+  }
+
+  function startBossCone(elapsedSeconds = 0, target: AbilityTarget = player) {
+    boss.cone = coneAttack(boss, DRAGON_CONE_WINDUP, DRAGON_CONE_DURATION, elapsedSeconds, target);
     boss.nextAttack = "rain";
   }
 
-  function startBossRain(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    const patternIndex = deterministicPatternIndex ?? dragonRainPatternIndex;
-    for (let i = 0; i < 8; i++) {
-      const { angle, radius } = seededBossHazardPolar({
-        kind: "dragon",
-        encounter: boss.encounter,
-        pattern: "rain",
-        patternIndex,
-        hazardIndex: i,
-        hazardCount: 8,
-        angleJitter: .25,
-        minimumRadius: 24,
-        maximumRadius: BOSS_RAIN_RANGE,
-      });
-      const maxTimer = .8 + i * .14;
-      const timer = maxTimer - Math.max(0, elapsedSeconds);
-      if (timer <= 0) continue;
-      bossRain.push({ x: clamp(target.x + Math.cos(angle) * radius, 60, WORLD.w - 60), y: clamp(target.y + Math.sin(angle) * radius, 60, WORLD.h - 60), timer, maxTimer, r: 52 });
-    }
-    if (deterministicPatternIndex === undefined) dragonRainPatternIndex += 1;
-    boss.attackClock = 4.8;
-    boss.nextAttack = "cone";
+  function startBossRain(elapsedSeconds = 0, deterministicPatternIndex?: number, target: AbilityTarget = player) {
+    startSeededHazards("dragon", DRAGON_RAIN, elapsedSeconds, deterministicPatternIndex, target);
   }
 
   function updateBoss(dt: number) {
@@ -2132,17 +816,7 @@ function syncMiremawState() {
       },
       setAttackClock: (seconds) => { boss.attackClock = seconds; },
     });
-    for (let i = bossRain.length - 1; i >= 0; i--) {
-      const strike = bossRain[i];
-      strike.timer -= dt;
-      if (strike.timer <= 0) {
-        const dx = player.x - strike.x;
-        const dy = player.y - strike.y;
-        if (dx * dx + dy * dy <= strike.r * strike.r) damagePlayer(BOSS_DAMAGE_PROFILES.dragon.rain);
-        spawnBurst(strike.x, strike.y, "#ff5d32", 22, 170);
-        bossRain.splice(i, 1);
-      }
-    }
+    landHazards(bossRain, dt, () => BOSS_DAMAGE_PROFILES.dragon.rain, ["#ff5d32", 22, 170]);
     if (boss.cone) {
       const cone = boss.cone;
       if (cone.windup > 0) { cone.windup -= dt; return; }
@@ -2187,34 +861,8 @@ function syncMiremawState() {
     spiderBoss.nextAttack = "venom";
   }
 
-  function startSpiderVenom(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    const patternIndex = deterministicPatternIndex ?? spiderVenomPatternIndex;
-    for (let index = 0; index < 6; index += 1) {
-      const { angle, radius } = seededBossHazardPolar({
-        kind: "spider",
-        encounter: spiderBoss.encounter,
-        pattern: "venom",
-        patternIndex,
-        hazardIndex: index,
-        hazardCount: 6,
-        angleJitter: .25,
-        minimumRadius: 15,
-        maximumRadius: 125,
-      });
-      const maxTimer = .9 + index * .13;
-      const timer = maxTimer - Math.max(0, elapsedSeconds);
-      if (timer <= 0) continue;
-      spiderVenom.push({
-        x: clamp(target.x + Math.cos(angle) * radius, 60, WORLD.w - 60),
-        y: clamp(target.y + Math.sin(angle) * radius, 60, WORLD.h - 60),
-        timer,
-        maxTimer,
-        r: 58,
-      });
-    }
-    if (deterministicPatternIndex === undefined) spiderVenomPatternIndex += 1;
-    spiderBoss.attackClock = 4.2;
-    spiderBoss.nextAttack = "web";
+  function startSpiderVenom(elapsedSeconds = 0, deterministicPatternIndex?: number, target: AbilityTarget = player) {
+    startSeededHazards("spider", SPIDER_VENOM, elapsedSeconds, deterministicPatternIndex, target);
   }
 
   function updateSpiderBoss(dt: number) {
@@ -2232,17 +880,7 @@ function syncMiremawState() {
       },
       setAttackClock: (seconds) => { spiderBoss.attackClock = seconds; },
     });
-    for (let i = spiderVenom.length - 1; i >= 0; i--) {
-      const pool = spiderVenom[i];
-      pool.timer -= dt;
-      if (pool.timer <= 0) {
-        const dx = player.x - pool.x;
-        const dy = player.y - pool.y;
-        if (dx * dx + dy * dy <= pool.r * pool.r) damagePlayer(BOSS_DAMAGE_PROFILES.spider.venom);
-        spawnBurst(pool.x, pool.y, "#89e255", 22, 150);
-        spiderVenom.splice(i, 1);
-      }
-    }
+    landHazards(spiderVenom, dt, () => BOSS_DAMAGE_PROFILES.spider.venom, ["#89e255", 22, 150]);
     if (spiderBoss.web) {
       const web = spiderBoss.web;
       const previousProgress = clamp(1 - web.timer / web.duration, 0, 1);
@@ -2280,46 +918,12 @@ function syncMiremawState() {
     frostclawBoss.nextAttack = "icefall";
   }
 
-  function startFrostclawIcefall(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    const patternIndex = deterministicPatternIndex ?? frostclawIcefallPatternIndex;
-    for (let index = 0; index < 9; index += 1) {
-      const { angle, radius } = seededBossHazardPolar({
-        kind: "frostclaw",
-        encounter: frostclawBoss.encounter,
-        pattern: "icefall",
-        patternIndex,
-        hazardIndex: index,
-        hazardCount: 9,
-        angleJitter: .32,
-        minimumRadius: 42,
-        maximumRadius: 185,
-        centerFirst: true,
-      });
-      const maxTimer = .8 + index * .13;
-      const timer = maxTimer - Math.max(0, elapsedSeconds);
-      if (timer <= 0) continue;
-      frostclawIcefalls.push({
-        x: clamp(target.x + Math.cos(angle) * radius, 70, WORLD.w - 70),
-        y: clamp(target.y + Math.sin(angle) * radius, 70, WORLD.h - 70),
-        r: 66,
-        timer,
-        maxTimer,
-      });
-    }
-    if (deterministicPatternIndex === undefined) frostclawIcefallPatternIndex += 1;
-    frostclawBoss.attackClock = 4.8;
-    frostclawBoss.nextAttack = "rift";
+  function startFrostclawIcefall(elapsedSeconds = 0, deterministicPatternIndex?: number, target: AbilityTarget = player) {
+    startSeededHazards("frostclaw", FROSTCLAW_ICEFALL, elapsedSeconds, deterministicPatternIndex, target);
   }
 
-  function startFrostclawRift(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    const elapsed = Math.max(0, elapsedSeconds);
-    frostclawBoss.rift = {
-      angle: Math.atan2(target.y - frostclawBoss.y, target.x - frostclawBoss.x),
-      windup: Math.max(0, FROSTCLAW_RIFT_WINDUP - elapsed),
-      timer: Math.max(0, FROSTCLAW_RIFT_DURATION - Math.max(0, elapsed - FROSTCLAW_RIFT_WINDUP)),
-      duration: FROSTCLAW_RIFT_DURATION,
-      hitPlayer: false,
-    };
+  function startFrostclawRift(elapsedSeconds = 0, target: AbilityTarget = player) {
+    frostclawBoss.rift = coneAttack(frostclawBoss, FROSTCLAW_RIFT_WINDUP, FROSTCLAW_RIFT_DURATION, elapsedSeconds, target);
     frostclawBoss.nextAttack = "roar";
   }
 
@@ -2345,16 +949,7 @@ function syncMiremawState() {
       setAttackClock: (seconds) => { frostclawBoss.attackClock = seconds; },
     });
 
-    for (let index = frostclawIcefalls.length - 1; index >= 0; index -= 1) {
-      const strike = frostclawIcefalls[index];
-      strike.timer -= dt;
-      if (strike.timer > 0) continue;
-      const dx = player.x - strike.x;
-      const dy = player.y - strike.y;
-      if (dx * dx + dy * dy <= strike.r * strike.r) damagePlayer(BOSS_DAMAGE_PROFILES.frostclaw.icefall);
-      spawnBurst(strike.x, strike.y, "#a9f5ff", 28, 190);
-      frostclawIcefalls.splice(index, 1);
-    }
+    landHazards(frostclawIcefalls, dt, () => BOSS_DAMAGE_PROFILES.frostclaw.icefall, ["#a9f5ff", 28, 190]);
 
     if (frostclawBoss.roar) {
       const roar = frostclawBoss.roar;
@@ -2432,657 +1027,11 @@ function syncMiremawState() {
     else startFrostclawRift();
   }
 
-  function startMagmaliskBite(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    const elapsed = Math.max(0, elapsedSeconds);
-    magmaliskBoss.bite = {
-      angle: Math.atan2(target.y - magmaliskBoss.y, target.x - magmaliskBoss.x),
-      windup: Math.max(0, MAGMALISK_BITE_WINDUP - elapsed),
-      timer: Math.max(0, MAGMALISK_BITE_DURATION - Math.max(0, elapsed - MAGMALISK_BITE_WINDUP)),
-      duration: MAGMALISK_BITE_DURATION,
-      hitPlayer: false,
-    };
-    magmaliskBoss.nextAttack = "eruption";
-  }
-
-  function startMagmaliskEruption(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    const patternIndex = deterministicPatternIndex ?? magmaliskEruptionPatternIndex;
-    for (let index = 0; index < 11; index += 1) {
-      const { angle, radius } = seededBossHazardPolar({
-        kind: "magmalisk",
-        encounter: magmaliskBoss.encounter,
-        pattern: "eruption",
-        patternIndex,
-        hazardIndex: index,
-        hazardCount: 11,
-        angleJitter: .3,
-        minimumRadius: 48,
-        maximumRadius: 230,
-        centerFirst: true,
-      });
-      const maxTimer = .8 + index * .11;
-      const timer = maxTimer - Math.max(0, elapsedSeconds);
-      if (timer <= 0) continue;
-      magmaliskEruptions.push({
-        x: clamp(target.x + Math.cos(angle) * radius, 72, WORLD.w - 72),
-        y: clamp(target.y + Math.sin(angle) * radius, 72, WORLD.h - 72),
-        r: 72,
-        timer,
-        maxTimer,
-      });
-    }
-    if (deterministicPatternIndex === undefined) magmaliskEruptionPatternIndex += 1;
-    magmaliskBoss.attackClock = 3.1;
-    magmaliskBoss.nextAttack = "bite";
-  }
-
-  function updateMagmaliskBoss(dt: number) {
-    magmaliskBoss.hpLossFlashTimer = Math.max(0, magmaliskBoss.hpLossFlashTimer - dt);
-    magmaliskBoss.contactDamageClock = Math.max(0, magmaliskBoss.contactDamageClock - dt);
-    if (magmaliskBoss.dead) return;
-    magmaliskBoss.hurt = Math.max(0, magmaliskBoss.hurt - dt);
-    const sharedTimeline = syncAbilityTimeline({
-      kind: "magmalisk",
-      encounter: magmaliskBoss.encounter,
-      targetForAttack: (attackIndex) => selectAbilityTarget("magmalisk", magmaliskBoss.encounter, attackIndex, magmaliskBoss.x, magmaliskBoss.y, MAGMALISK_AGGRO_RANGE),
-      clear: () => { magmaliskBoss.bite = null; magmaliskEruptions.length = 0; },
-      start: (ability, elapsedSeconds, attackIndex, target) => {
-        if (ability === "bite") startMagmaliskBite(elapsedSeconds, target);
-        else if (ability === "eruption") startMagmaliskEruption(elapsedSeconds, attackIndex, target);
-      },
-      setAttackClock: (seconds) => { magmaliskBoss.attackClock = seconds; },
-    });
-
-    for (let index = magmaliskEruptions.length - 1; index >= 0; index -= 1) {
-      const eruption = magmaliskEruptions[index];
-      eruption.timer -= dt;
-      if (eruption.timer > 0) continue;
-      const dx = player.x - eruption.x;
-      const dy = player.y - eruption.y;
-      if (dx * dx + dy * dy <= eruption.r * eruption.r) damagePlayer(BOSS_DAMAGE_PROFILES.magmalisk.eruption);
-      spawnBurst(eruption.x, eruption.y, "#ff7a24", 32, 220);
-      magmaliskEruptions.splice(index, 1);
-    }
-    if (magmaliskEruptions.length > 0) return;
-
-    if (magmaliskBoss.bite) {
-      const bite = magmaliskBoss.bite;
-      if (bite.windup > 0) {
-        bite.windup -= dt;
-        return;
-      }
-      const previousProgress = clamp(1 - bite.timer / bite.duration, 0, 1);
-      bite.timer -= dt;
-      const progress = clamp(1 - bite.timer / bite.duration, 0, 1);
-      const minRadius = magmaliskBoss.r + (MAGMALISK_BITE_RANGE - magmaliskBoss.r) * previousProgress;
-      const maxRadius = magmaliskBoss.r + (MAGMALISK_BITE_RANGE - magmaliskBoss.r) * progress;
-      if (!bite.hitPlayer) {
-        const dx = player.x - magmaliskBoss.x;
-        const dy = player.y - magmaliskBoss.y;
-        const distance = Math.hypot(dx, dy) || 1;
-        const angleDelta = Math.atan2(
-          Math.sin(Math.atan2(dy, dx) - bite.angle),
-          Math.cos(Math.atan2(dy, dx) - bite.angle),
-        );
-        if (distance >= minRadius - 38 && distance <= maxRadius + 38 && Math.abs(angleDelta) <= MAGMALISK_BITE_HALF_ANGLE) {
-          bite.hitPlayer = true;
-          damagePlayer(BOSS_DAMAGE_PROFILES.magmalisk.bite);
-          queueBossAreaKnockback(magmaliskBoss.x, magmaliskBoss.y, MAGMALISK_BITE_RANGE, magmaliskBoss.r);
-          spawnBurst(player.x, player.y, "#ffb13b", 28, 230);
-        }
-      }
-      if (bite.timer <= 0) {
-        magmaliskBoss.bite = null;
-        magmaliskBoss.attackClock = 2.4;
-      }
-      return;
-    }
-
-    if (sharedTimeline) return;
-    magmaliskBoss.attackClock -= dt;
-    if (magmaliskBoss.attackClock > 0) return;
-    const dx = player.x - magmaliskBoss.x;
-    const dy = player.y - magmaliskBoss.y;
-    if (dx * dx + dy * dy > MAGMALISK_AGGRO_RANGE * MAGMALISK_AGGRO_RANGE) return;
-    if (magmaliskBoss.nextAttack === "bite") startMagmaliskBite();
-    else startMagmaliskEruption();
-  }
-
-  function startGloomrootSweep(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    const elapsed = Math.max(0, elapsedSeconds);
-    gloomrootBoss.sweep = {
-      angle: Math.atan2(target.y - gloomrootBoss.y, target.x - gloomrootBoss.x),
-      windup: Math.max(0, GLOOMROOT_SWEEP_WINDUP - elapsed),
-      timer: Math.max(0, GLOOMROOT_SWEEP_DURATION - Math.max(0, elapsed - GLOOMROOT_SWEEP_WINDUP)),
-      duration: GLOOMROOT_SWEEP_DURATION,
-      hitPlayer: false,
-    };
-    gloomrootBoss.nextAttack = "bloom";
-  }
-
-  function startGloomrootBloom(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    const patternIndex = deterministicPatternIndex ?? gloomrootBloomPatternIndex;
-    for (let index = 0; index < 12; index += 1) {
-      const { angle, radius } = seededBossHazardPolar({
-        kind: "gloomroot",
-        encounter: gloomrootBoss.encounter,
-        pattern: "bloom",
-        patternIndex,
-        hazardIndex: index,
-        hazardCount: 12,
-        angleJitter: .28,
-        minimumRadius: 55,
-        maximumRadius: 255,
-        centerFirst: true,
-      });
-      const maxTimer = .9 + index * .1;
-      const timer = maxTimer - Math.max(0, elapsedSeconds);
-      if (timer <= 0) continue;
-      gloomrootBlooms.push({
-        x: clamp(target.x + Math.cos(angle) * radius, 74, WORLD.w - 74),
-        y: clamp(target.y + Math.sin(angle) * radius, 74, WORLD.h - 74),
-        r: 74,
-        timer,
-        maxTimer,
-      });
-    }
-    if (deterministicPatternIndex === undefined) gloomrootBloomPatternIndex += 1;
-    gloomrootBoss.attackClock = 3.2;
-    gloomrootBoss.nextAttack = "sweep";
-  }
-
-  function updateGloomrootBoss(dt: number) {
-    gloomrootBoss.hpLossFlashTimer = Math.max(0, gloomrootBoss.hpLossFlashTimer - dt);
-    gloomrootBoss.contactDamageClock = Math.max(0, gloomrootBoss.contactDamageClock - dt);
-    if (gloomrootBoss.dead) return;
-    gloomrootBoss.hurt = Math.max(0, gloomrootBoss.hurt - dt);
-    const sharedTimeline = syncAbilityTimeline({
-      kind: "gloomroot",
-      encounter: gloomrootBoss.encounter,
-      targetForAttack: (attackIndex) => selectAbilityTarget("gloomroot", gloomrootBoss.encounter, attackIndex, gloomrootBoss.x, gloomrootBoss.y, GLOOMROOT_AGGRO_RANGE),
-      clear: () => { gloomrootBoss.sweep = null; gloomrootBlooms.length = 0; },
-      start: (ability, elapsedSeconds, attackIndex, target) => {
-        if (ability === "sweep") startGloomrootSweep(elapsedSeconds, target);
-        else if (ability === "bloom") startGloomrootBloom(elapsedSeconds, attackIndex, target);
-      },
-      setAttackClock: (seconds) => { gloomrootBoss.attackClock = seconds; },
-    });
-
-    for (let index = gloomrootBlooms.length - 1; index >= 0; index -= 1) {
-      const bloom = gloomrootBlooms[index];
-      bloom.timer -= dt;
-      if (bloom.timer > 0) continue;
-      const dx = player.x - bloom.x;
-      const dy = player.y - bloom.y;
-      if (dx * dx + dy * dy <= bloom.r * bloom.r) damagePlayer(BOSS_DAMAGE_PROFILES.gloomroot.bloom);
-      spawnBurst(bloom.x, bloom.y, "#58e2ee", 34, 225);
-      gloomrootBlooms.splice(index, 1);
-    }
-    if (gloomrootBlooms.length > 0) return;
-
-    if (gloomrootBoss.sweep) {
-      const sweep = gloomrootBoss.sweep;
-      if (sweep.windup > 0) {
-        sweep.windup -= dt;
-        return;
-      }
-      const previousProgress = clamp(1 - sweep.timer / sweep.duration, 0, 1);
-      sweep.timer -= dt;
-      const progress = clamp(1 - sweep.timer / sweep.duration, 0, 1);
-      const minRadius = gloomrootBoss.r + (GLOOMROOT_SWEEP_RANGE - gloomrootBoss.r) * previousProgress;
-      const maxRadius = gloomrootBoss.r + (GLOOMROOT_SWEEP_RANGE - gloomrootBoss.r) * progress;
-      if (!sweep.hitPlayer) {
-        const dx = player.x - gloomrootBoss.x;
-        const dy = player.y - gloomrootBoss.y;
-        const distance = Math.hypot(dx, dy) || 1;
-        const angleDelta = Math.atan2(
-          Math.sin(Math.atan2(dy, dx) - sweep.angle),
-          Math.cos(Math.atan2(dy, dx) - sweep.angle),
-        );
-        if (distance >= minRadius - 40 && distance <= maxRadius + 40 && Math.abs(angleDelta) <= GLOOMROOT_SWEEP_HALF_ANGLE) {
-          sweep.hitPlayer = true;
-          damagePlayer(BOSS_DAMAGE_PROFILES.gloomroot.sweep);
-          queueBossAreaKnockback(gloomrootBoss.x, gloomrootBoss.y, GLOOMROOT_SWEEP_RANGE, gloomrootBoss.r);
-          spawnBurst(player.x, player.y, "#8af4f3", 30, 235);
-        }
-      }
-      if (sweep.timer <= 0) {
-        gloomrootBoss.sweep = null;
-        gloomrootBoss.attackClock = 2.5;
-      }
-      return;
-    }
-
-    if (sharedTimeline) return;
-    gloomrootBoss.attackClock -= dt;
-    if (gloomrootBoss.attackClock > 0) return;
-    const dx = player.x - gloomrootBoss.x;
-    const dy = player.y - gloomrootBoss.y;
-    if (dx * dx + dy * dy > GLOOMROOT_AGGRO_RANGE * GLOOMROOT_AGGRO_RANGE) return;
-    if (gloomrootBoss.nextAttack === "sweep") startGloomrootSweep();
-    else startGloomrootBloom();
-  }
-
-  function startTidewyrmSurge(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    tidewyrmBoss.spriteAttackElapsed = Math.max(0, elapsedSeconds) - TIDEWYRM_SURGE_WINDUP + .5;
-    const elapsed = Math.max(0, elapsedSeconds);
-    tidewyrmBoss.surge = {
-      angle: Math.atan2(target.y - tidewyrmBoss.y, target.x - tidewyrmBoss.x),
-      windup: Math.max(0, TIDEWYRM_SURGE_WINDUP - elapsed),
-      timer: Math.max(0, TIDEWYRM_SURGE_DURATION - Math.max(0, elapsed - TIDEWYRM_SURGE_WINDUP)),
-      duration: TIDEWYRM_SURGE_DURATION,
-      hitPlayer: false,
-    };
-    tidewyrmBoss.nextAttack = "whirlpool";
-  }
-
-  function startTidewyrmWhirlpools(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    tidewyrmBoss.spriteAttackElapsed = Math.max(0, elapsedSeconds) - .85 + .5;
-    const patternIndex = deterministicPatternIndex ?? tidewyrmWhirlpoolPatternIndex;
-    for (let index = 0; index < 11; index += 1) {
-      const { angle, radius } = seededBossHazardPolar({
-        kind: "tidewyrm",
-        encounter: tidewyrmBoss.encounter,
-        pattern: "whirlpool",
-        patternIndex,
-        hazardIndex: index,
-        hazardCount: 11,
-        angleJitter: .25,
-        minimumRadius: 70,
-        maximumRadius: 290,
-        centerFirst: true,
-      });
-      const maxTimer = .85 + index * .11;
-      const timer = maxTimer - Math.max(0, elapsedSeconds);
-      if (timer <= 0) continue;
-      tidewyrmWhirlpools.push({
-        x: clamp(target.x + Math.cos(angle) * radius, 82, WORLD.w - 82),
-        y: clamp(target.y + Math.sin(angle) * radius, 82, WORLD.h - 82),
-        r: 82,
-        timer,
-        maxTimer,
-      });
-    }
-    if (deterministicPatternIndex === undefined) tidewyrmWhirlpoolPatternIndex += 1;
-    tidewyrmBoss.attackClock = 3.15;
-    tidewyrmBoss.nextAttack = "surge";
-  }
-
-  function updateTidewyrmBoss(dt: number) {
-    if (tidewyrmBoss.spriteAttackElapsed !== undefined) tidewyrmBoss.spriteAttackElapsed += dt;
-    tidewyrmBoss.hpLossFlashTimer = Math.max(0, tidewyrmBoss.hpLossFlashTimer - dt);
-    tidewyrmBoss.contactDamageClock = Math.max(0, tidewyrmBoss.contactDamageClock - dt);
-    if (tidewyrmBoss.dead) return;
-    tidewyrmBoss.hurt = Math.max(0, tidewyrmBoss.hurt - dt);
-    const sharedTimeline = syncAbilityTimeline({
-      kind: "tidewyrm",
-      encounter: tidewyrmBoss.encounter,
-      targetForAttack: (attackIndex) => selectAbilityTarget("tidewyrm", tidewyrmBoss.encounter, attackIndex, tidewyrmBoss.x, tidewyrmBoss.y, TIDEWYRM_AGGRO_RANGE),
-      clear: () => { tidewyrmBoss.surge = null; tidewyrmWhirlpools.length = 0; },
-      start: (ability, elapsedSeconds, attackIndex, target) => {
-        if (ability === "surge") startTidewyrmSurge(elapsedSeconds, target);
-        else if (ability === "whirlpool") startTidewyrmWhirlpools(elapsedSeconds, attackIndex, target);
-      },
-      setAttackClock: (seconds) => { tidewyrmBoss.attackClock = seconds; },
-    });
-
-    for (let index = tidewyrmWhirlpools.length - 1; index >= 0; index -= 1) {
-      const pool = tidewyrmWhirlpools[index];
-      pool.timer -= dt;
-      if (pool.timer > 0) continue;
-      const dx = player.x - pool.x;
-      const dy = player.y - pool.y;
-      if (dx * dx + dy * dy <= pool.r * pool.r) damagePlayer(BOSS_DAMAGE_PROFILES.tidewyrm.whirlpool);
-      spawnBurst(pool.x, pool.y, "#5eeaff", 38, 245);
-      tidewyrmWhirlpools.splice(index, 1);
-    }
-    if (tidewyrmWhirlpools.length > 0) return;
-
-    if (tidewyrmBoss.surge) {
-      const surge = tidewyrmBoss.surge;
-      if (surge.windup > 0) {
-        surge.windup -= dt;
-        return;
-      }
-      const previousProgress = clamp(1 - surge.timer / surge.duration, 0, 1);
-      surge.timer -= dt;
-      const progress = clamp(1 - surge.timer / surge.duration, 0, 1);
-      const minRadius = tidewyrmBoss.r + (TIDEWYRM_SURGE_RANGE - tidewyrmBoss.r) * previousProgress;
-      const maxRadius = tidewyrmBoss.r + (TIDEWYRM_SURGE_RANGE - tidewyrmBoss.r) * progress;
-      if (!surge.hitPlayer) {
-        const dx = player.x - tidewyrmBoss.x;
-        const dy = player.y - tidewyrmBoss.y;
-        const distance = Math.hypot(dx, dy) || 1;
-        const angleDelta = Math.atan2(
-          Math.sin(Math.atan2(dy, dx) - surge.angle),
-          Math.cos(Math.atan2(dy, dx) - surge.angle),
-        );
-        if (distance >= minRadius - 42 && distance <= maxRadius + 42 && Math.abs(angleDelta) <= TIDEWYRM_SURGE_HALF_ANGLE) {
-          surge.hitPlayer = true;
-          damagePlayer(BOSS_DAMAGE_PROFILES.tidewyrm.surge);
-          queueBossAreaKnockback(tidewyrmBoss.x, tidewyrmBoss.y, TIDEWYRM_SURGE_RANGE, tidewyrmBoss.r);
-          spawnBurst(player.x, player.y, "#b7f7ff", 32, 250);
-        }
-      }
-      if (surge.timer <= 0) {
-        tidewyrmBoss.surge = null;
-        tidewyrmBoss.attackClock = 2.45;
-      }
-      return;
-    }
-
-    if (sharedTimeline) return;
-    tidewyrmBoss.attackClock -= dt;
-    if (tidewyrmBoss.attackClock > 0) return;
-    const dx = player.x - tidewyrmBoss.x;
-    const dy = player.y - tidewyrmBoss.y;
-    if (dx * dx + dy * dy > TIDEWYRM_AGGRO_RANGE * TIDEWYRM_AGGRO_RANGE) return;
-    if (tidewyrmBoss.nextAttack === "surge") startTidewyrmSurge();
-    else startTidewyrmWhirlpools();
-  }
-
-  function startKoiShogunSlash(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    const elapsed = Math.max(0, elapsedSeconds);
-    koiShogunBoss.slash = {
-      angle: Math.atan2(target.y - koiShogunBoss.y, target.x - koiShogunBoss.x),
-      windup: Math.max(0, KOI_SHOGUN_SLASH_WINDUP - elapsed),
-      timer: Math.max(0, KOI_SHOGUN_SLASH_DURATION - Math.max(0, elapsed - KOI_SHOGUN_SLASH_WINDUP)),
-      duration: KOI_SHOGUN_SLASH_DURATION,
-      hitPlayer: false,
-    };
-    koiShogunBoss.nextAttack = "whirlpool";
-  }
-
-  function startKoiShogunWhirlpools(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    const patternIndex = deterministicPatternIndex ?? koiShogunWhirlpoolPatternIndex;
-    for (let index = 0; index < 11; index += 1) {
-      const { angle, radius } = seededBossHazardPolar({
-        kind: "koiShogun",
-        encounter: koiShogunBoss.encounter,
-        pattern: "whirlpool",
-        patternIndex,
-        hazardIndex: index,
-        hazardCount: 11,
-        angleJitter: .25,
-        minimumRadius: 70,
-        maximumRadius: 300,
-        centerFirst: true,
-      });
-      const maxTimer = .82 + index * .105;
-      const timer = maxTimer - Math.max(0, elapsedSeconds);
-      if (timer <= 0) continue;
-      koiShogunWhirlpools.push({
-        x: clamp(target.x + Math.cos(angle) * radius, 82, WORLD.w - 82),
-        y: clamp(target.y + Math.sin(angle) * radius, 82, WORLD.h - 82),
-        r: 84,
-        timer,
-        maxTimer,
-      });
-    }
-    if (deterministicPatternIndex === undefined) koiShogunWhirlpoolPatternIndex += 1;
-    koiShogunBoss.attackClock = 3.1;
-    koiShogunBoss.nextAttack = "slash";
-  }
-
-  function updateKoiShogunBoss(dt: number) {
-    koiShogunBoss.hpLossFlashTimer = Math.max(0, koiShogunBoss.hpLossFlashTimer - dt);
-    koiShogunBoss.contactDamageClock = Math.max(0, koiShogunBoss.contactDamageClock - dt);
-    if (koiShogunBoss.dead) return;
-    koiShogunBoss.hurt = Math.max(0, koiShogunBoss.hurt - dt);
-    const sharedTimeline = syncAbilityTimeline({
-      kind: "koiShogun",
-      encounter: koiShogunBoss.encounter,
-      targetForAttack: (attackIndex) => selectAbilityTarget("koiShogun", koiShogunBoss.encounter, attackIndex, koiShogunBoss.x, koiShogunBoss.y, KOI_SHOGUN_AGGRO_RANGE),
-      clear: () => { koiShogunBoss.slash = null; koiShogunWhirlpools.length = 0; },
-      start: (ability, elapsedSeconds, attackIndex, target) => {
-        if (ability === "slash") startKoiShogunSlash(elapsedSeconds, target);
-        else if (ability === "whirlpool") startKoiShogunWhirlpools(elapsedSeconds, attackIndex, target);
-      },
-      setAttackClock: (seconds) => { koiShogunBoss.attackClock = seconds; },
-    });
-
-    for (let index = koiShogunWhirlpools.length - 1; index >= 0; index -= 1) {
-      const pool = koiShogunWhirlpools[index];
-      pool.timer -= dt;
-      if (pool.timer > 0) continue;
-      const dx = player.x - pool.x;
-      const dy = player.y - pool.y;
-      if (dx * dx + dy * dy <= pool.r * pool.r) damagePlayer(BOSS_DAMAGE_PROFILES.koiShogun.whirlpool);
-      spawnBurst(pool.x, pool.y, "#71e9ff", 40, 250);
-      koiShogunWhirlpools.splice(index, 1);
-    }
-    if (koiShogunWhirlpools.length > 0) return;
-
-    if (koiShogunBoss.slash) {
-      const slash = koiShogunBoss.slash;
-      if (slash.windup > 0) {
-        slash.windup -= dt;
-        return;
-      }
-      const previousProgress = clamp(1 - slash.timer / slash.duration, 0, 1);
-      slash.timer -= dt;
-      const progress = clamp(1 - slash.timer / slash.duration, 0, 1);
-      const minRadius = koiShogunBoss.r + (KOI_SHOGUN_SLASH_RANGE - koiShogunBoss.r) * previousProgress;
-      const maxRadius = koiShogunBoss.r + (KOI_SHOGUN_SLASH_RANGE - koiShogunBoss.r) * progress;
-      if (!slash.hitPlayer) {
-        const dx = player.x - koiShogunBoss.x;
-        const dy = player.y - koiShogunBoss.y;
-        const distance = Math.hypot(dx, dy) || 1;
-        const angleDelta = Math.atan2(
-          Math.sin(Math.atan2(dy, dx) - slash.angle),
-          Math.cos(Math.atan2(dy, dx) - slash.angle),
-        );
-        if (distance >= minRadius - 42 && distance <= maxRadius + 42 && Math.abs(angleDelta) <= KOI_SHOGUN_SLASH_HALF_ANGLE) {
-          slash.hitPlayer = true;
-          damagePlayer(BOSS_DAMAGE_PROFILES.koiShogun.slash);
-          queueBossAreaKnockback(koiShogunBoss.x, koiShogunBoss.y, KOI_SHOGUN_SLASH_RANGE, koiShogunBoss.r);
-          spawnBurst(player.x, player.y, "#d7fbff", 34, 255);
-        }
-      }
-      if (slash.timer <= 0) {
-        koiShogunBoss.slash = null;
-        koiShogunBoss.attackClock = 2.4;
-      }
-      return;
-    }
-
-    if (sharedTimeline) return;
-    koiShogunBoss.attackClock -= dt;
-    if (koiShogunBoss.attackClock > 0) return;
-    const dx = player.x - koiShogunBoss.x;
-    const dy = player.y - koiShogunBoss.y;
-    if (dx * dx + dy * dy > KOI_SHOGUN_AGGRO_RANGE * KOI_SHOGUN_AGGRO_RANGE) return;
-    if (koiShogunBoss.nextAttack === "slash") startKoiShogunSlash();
-    else startKoiShogunWhirlpools();
-  }
-
-  function startTempestKirinCharge(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    const elapsed = Math.max(0, elapsedSeconds);
-    tempestKirinBoss.charge = {
-      angle: Math.atan2(target.y - tempestKirinBoss.y, target.x - tempestKirinBoss.x),
-      windup: Math.max(0, TEMPEST_KIRIN_CHARGE_WINDUP - elapsed),
-      timer: Math.max(0, TEMPEST_KIRIN_CHARGE_DURATION - Math.max(0, elapsed - TEMPEST_KIRIN_CHARGE_WINDUP)),
-      duration: TEMPEST_KIRIN_CHARGE_DURATION,
-      hitPlayer: false,
-    };
-    tempestKirinBoss.nextAttack = "thunder";
-  }
-
-function startMiremawTongue(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    const elapsed = Math.max(0, elapsedSeconds);
-    miremawBoss.tongue = {
-      angle: Math.atan2(target.y - miremawBoss.y, target.x - miremawBoss.x),
-      windup: Math.max(0, MIREMAW_TONGUE_WINDUP - elapsed),
-      timer: Math.max(0, MIREMAW_TONGUE_DURATION - Math.max(0, elapsed - MIREMAW_TONGUE_WINDUP)),
-      duration: MIREMAW_TONGUE_DURATION,
-      hitPlayer: false,
-    };
-    miremawBoss.nextAttack = "bogBurst";
-  }
-
-  function startPrismshellShatter(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    const elapsed = Math.max(0, elapsedSeconds);
-    prismshellBoss.shatter = {
-      angle: Math.atan2(target.y - prismshellBoss.y, target.x - prismshellBoss.x),
-      windup: Math.max(0, PRISMSHELL_SHATTER_WINDUP - elapsed),
-      timer: Math.max(0, PRISMSHELL_SHATTER_DURATION - Math.max(0, elapsed - PRISMSHELL_SHATTER_WINDUP)),
-      duration: PRISMSHELL_SHATTER_DURATION,
-      hitPlayer: false,
-    };
-    prismshellBoss.nextAttack = "crystalBurst";
-  }
-  function startIronhornShatter(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    ironhornBoss.spriteAttackElapsed = Math.max(0, elapsedSeconds) - IRONHORN_SHATTER_WINDUP + .5;
-    const elapsed = Math.max(0, elapsedSeconds);
-    ironhornBoss.shatter = {
-      angle: Math.atan2(target.y - ironhornBoss.y, target.x - ironhornBoss.x),
-      windup: Math.max(0, IRONHORN_SHATTER_WINDUP - elapsed),
-      timer: Math.max(0, IRONHORN_SHATTER_DURATION - Math.max(0, elapsed - IRONHORN_SHATTER_WINDUP)),
-      duration: IRONHORN_SHATTER_DURATION,
-      hitPlayer: false,
-    };
-    ironhornBoss.nextAttack = "crystalBurst";
-  }
-  function startDreadreaperShatter(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    dreadreaperBoss.spriteAttackElapsed = Math.max(0, elapsedSeconds) - DREADREAPER_SHATTER_WINDUP + .5;
-    const elapsed = Math.max(0, elapsedSeconds);
-    dreadreaperBoss.shatter = {
-      angle: Math.atan2(target.y - dreadreaperBoss.y, target.x - dreadreaperBoss.x),
-      windup: Math.max(0, DREADREAPER_SHATTER_WINDUP - elapsed),
-      timer: Math.max(0, DREADREAPER_SHATTER_DURATION - Math.max(0, elapsed - DREADREAPER_SHATTER_WINDUP)),
-      duration: DREADREAPER_SHATTER_DURATION,
-      hitPlayer: false,
-    };
-    dreadreaperBoss.nextAttack = "crystalBurst";
-  }
-  function startVoltwardenShatter(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    const elapsed = Math.max(0, elapsedSeconds);
-    voltwardenBoss.shatter = {
-      angle: Math.atan2(target.y - voltwardenBoss.y, target.x - voltwardenBoss.x),
-      windup: Math.max(0, NEON_LASER.windup - elapsed),
-      timer: Math.max(0, NEON_LASER.duration - Math.max(0, elapsed - NEON_LASER.windup)),
-      duration: NEON_LASER.duration, hitPlayer: false,
-    };
-    voltwardenBoss.nextAttack = "empPulse";
-  }
-  function startGravebloomShatter(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    const elapsed = Math.max(0, elapsedSeconds);
-    gravebloomBoss.shatter = {
-      angle: Math.atan2(target.y - gravebloomBoss.y, target.x - gravebloomBoss.x),
-      windup: Math.max(0, VERDANT_ROOTS.windup - elapsed),
-      timer: Math.max(0, VERDANT_ROOTS.duration - Math.max(0, elapsed - VERDANT_ROOTS.windup)),
-      duration: VERDANT_ROOTS.duration, hitPlayer: false,
-    };
-    gravebloomBoss.nextAttack = "sporeBurst";
-  }
-  function startAegisPrimeShatter(elapsedSeconds = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    const elapsed = Math.max(0, elapsedSeconds);
-    aegisPrimeBoss.shatter = {
-      angle: Math.atan2(target.y - aegisPrimeBoss.y, target.x - aegisPrimeBoss.x),
-      windup: Math.max(0, ION_SWEEP.windup - elapsed),
-      timer: Math.max(0, ION_SWEEP.duration - Math.max(0, elapsed - ION_SWEEP.windup)),
-      duration: ION_SWEEP.duration, hitPlayer: false,
-    };
-    aegisPrimeBoss.nextAttack = "ionVolley";
-  }
-
-
-  function startTempestKirinThunder(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    const patternIndex = deterministicPatternIndex ?? tempestKirinThunderPatternIndex;
-    for (let index = 0; index < 12; index += 1) {
-      const { angle, radius } = seededBossHazardPolar({
-        kind: "tempestKirin",
-        encounter: tempestKirinBoss.encounter,
-        pattern: "thunder",
-        patternIndex,
-        hazardIndex: index,
-        hazardCount: 12,
-        angleJitter: .22,
-        minimumRadius: 64,
-        maximumRadius: 320,
-        centerFirst: true,
-      });
-      const maxTimer = .72 + index * .1;
-      const timer = maxTimer - Math.max(0, elapsedSeconds);
-      if (timer <= 0) continue;
-      tempestKirinThunderbolts.push({
-        x: clamp(target.x + Math.cos(angle) * radius, 82, WORLD.w - 82),
-        y: clamp(target.y + Math.sin(angle) * radius, 82, WORLD.h - 82),
-        r: 82,
-        timer,
-        maxTimer,
-      });
-    }
-    if (deterministicPatternIndex === undefined) tempestKirinThunderPatternIndex += 1;
-    tempestKirinBoss.attackClock = 3.1;
-    tempestKirinBoss.nextAttack = "charge";
-  }
-
-function startMiremawBogBurst(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    const patternIndex = deterministicPatternIndex ?? miremawBogBurstPatternIndex;
-    for (let index = 0; index < 10; index += 1) {
-      const { angle, radius } = seededBossHazardPolar({
-        kind: "miremaw",
-        encounter: miremawBoss.encounter,
-        pattern: "bogBurst",
-        patternIndex,
-        hazardIndex: index,
-        hazardCount: 10,
-        angleJitter: .28,
-        minimumRadius: 72,
-        maximumRadius: 340,
-        centerFirst: true,
-      });
-      const maxTimer = .76 + index * .11;
-      const timer = maxTimer - Math.max(0, elapsedSeconds);
-      if (timer <= 0) continue;
-      miremawBogBursts.push({
-        x: clamp(target.x + Math.cos(angle) * radius, 82, WORLD.w - 82),
-        y: clamp(target.y + Math.sin(angle) * radius, 82, WORLD.h - 82),
-        r: 96,
-        timer,
-        maxTimer,
-      });
-    }
-    if (deterministicPatternIndex === undefined) miremawBogBurstPatternIndex += 1;
-    miremawBoss.attackClock = 3.1;
-    miremawBoss.nextAttack = "tongue";
-  }
-
-  function startPrismshellCrystalBurst(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    const patternIndex = deterministicPatternIndex ?? prismshellCrystalBurstPatternIndex;
-    for (let index = 0; index < 8; index += 1) {
-      const { angle, radius } = seededBossHazardPolar({
-        kind: "prismshell",
-        encounter: prismshellBoss.encounter,
-        pattern: "crystalBurst",
-        patternIndex,
-        hazardIndex: index,
-        hazardCount: 8,
-        angleJitter: .12,
-        minimumRadius: 105,
-        maximumRadius: 330,
-        centerFirst: true,
-      });
-      const maxTimer = .95 + index * .15;
-      const timer = maxTimer - Math.max(0, elapsedSeconds);
-      if (timer <= 0) continue;
-      prismshellCrystalBursts.push({
-        x: clamp(target.x + Math.cos(angle) * radius, 82, WORLD.w - 82),
-        y: clamp(target.y + Math.sin(angle) * radius, 82, WORLD.h - 82),
-        r: 86,
-        timer,
-        maxTimer,
-      });
-    }
-    if (deterministicPatternIndex === undefined) prismshellCrystalBurstPatternIndex += 1;
-    prismshellBoss.attackClock = 3.1;
-    prismshellBoss.nextAttack = "shatter";
-  }
-  function startIronhornCrystalBurst(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+  function startIronhornCrystalBurst(elapsedSeconds = 0, deterministicPatternIndex?: number, target: AbilityTarget = player) {
     ironhornBoss.spriteAttackElapsed = Math.max(0, elapsedSeconds) - 1.05 + .5;
-    const patternIndex = deterministicPatternIndex ?? ironhornCrystalBurstPatternIndex;
+    const pattern = deterministicPatternIndex ?? patternIndex.ironhorn;
     // Two staggered rows of scrap leave alternating escape lanes.
-    const angle = Math.atan2(target.y - ironhornBoss.y, target.x - ironhornBoss.x) + (patternIndex % 2 ? Math.PI / 2 : 0);
+    const angle = Math.atan2(target.y - ironhornBoss.y, target.x - ironhornBoss.x) + (pattern % 2 ? Math.PI / 2 : 0);
     for (let index = 0; index < 6; index += 1) {
       const along = (index % 3 - 1) * 200;
       const across = (index < 3 ? -1 : 1) * 135;
@@ -3097,41 +1046,188 @@ function startMiremawBogBurst(elapsedSeconds = 0, deterministicPatternIndex?: nu
         maxTimer,
       });
     }
-    if (deterministicPatternIndex === undefined) ironhornCrystalBurstPatternIndex += 1;
+    if (deterministicPatternIndex === undefined) patternIndex.ironhorn += 1;
     ironhornBoss.attackClock = 3.1;
     ironhornBoss.nextAttack = "shatter";
   }
-  function startDreadreaperCrystalBurst(elapsedSeconds = 0, deterministicPatternIndex?: number, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    dreadreaperBoss.spriteAttackElapsed = Math.max(0, elapsedSeconds) - 1.15 + .5;
-    const patternIndex = deterministicPatternIndex ?? dreadreaperCrystalBurstPatternIndex;
-    for (let index = 0; index < 10; index += 1) {
-      const { angle, radius } = seededBossHazardPolar({
-        kind: "dreadreaper",
-        encounter: dreadreaperBoss.encounter,
-        pattern: "crystalBurst",
-        patternIndex,
-        hazardIndex: index,
-        hazardCount: 10,
-        angleJitter: 0,
-        minimumRadius: 240,
-        maximumRadius: 240,
-        centerFirst: false,
-      });
-      const maxTimer = 1.15 + index * .07;
-      const timer = maxTimer - Math.max(0, elapsedSeconds);
-      if (timer <= 0) continue;
-      dreadreaperCrystalBursts.push({
-        x: clamp(target.x + Math.cos(angle) * radius, 82, WORLD.w - 82),
-        y: clamp(target.y + Math.sin(angle) * radius, 82, WORLD.h - 82),
-        r: 68,
-        timer,
-        maxTimer,
-      });
-    }
-    if (deterministicPatternIndex === undefined) dreadreaperCrystalBurstPatternIndex += 1;
-    dreadreaperBoss.attackClock = 3.1;
-    dreadreaperBoss.nextAttack = "shatter";
+
+  const CONE_BOSSES: Record<ConeKind, ConeBoss> = {
+    magmalisk: {
+      aggroRange: MAGMALISK_AGGRO_RANGE,
+      cone: { ability: "bite", windup: MAGMALISK_BITE_WINDUP, duration: MAGMALISK_BITE_DURATION, range: MAGMALISK_BITE_RANGE, halfAngle: MAGMALISK_BITE_HALF_ANGLE, reach: 38, hitBurst: ["#ffb13b", 28, 230], recover: 2.4 },
+      hazards: { ability: "eruption", landBurst: ["#ff7a24", 32, 220], pattern: {
+        pattern: "eruption", count: 11, angleJitter: .3, minimumRadius: 48, maximumRadius: 230, centerFirst: true,
+        firstTimer: .8, timerStep: .11, margin: 72, radius: 72, attackClock: 3.1, next: "bite",
+      } },
+    },
+    gloomroot: {
+      aggroRange: GLOOMROOT_AGGRO_RANGE,
+      cone: { ability: "sweep", windup: GLOOMROOT_SWEEP_WINDUP, duration: GLOOMROOT_SWEEP_DURATION, range: GLOOMROOT_SWEEP_RANGE, halfAngle: GLOOMROOT_SWEEP_HALF_ANGLE, reach: 40, hitBurst: ["#8af4f3", 30, 235], recover: 2.5 },
+      hazards: { ability: "bloom", landBurst: ["#58e2ee", 34, 225], pattern: {
+        pattern: "bloom", count: 12, angleJitter: .28, minimumRadius: 55, maximumRadius: 255, centerFirst: true,
+        firstTimer: .9, timerStep: .1, margin: 74, radius: 74, attackClock: 3.2, next: "sweep",
+      } },
+    },
+    tidewyrm: {
+      aggroRange: TIDEWYRM_AGGRO_RANGE,
+      cone: { ability: "surge", windup: TIDEWYRM_SURGE_WINDUP, duration: TIDEWYRM_SURGE_DURATION, range: TIDEWYRM_SURGE_RANGE, halfAngle: TIDEWYRM_SURGE_HALF_ANGLE, reach: 42, hitBurst: ["#b7f7ff", 32, 250], recover: 2.45 },
+      hazards: { ability: "whirlpool", landBurst: ["#5eeaff", 38, 245], pattern: {
+        pattern: "whirlpool", count: 11, angleJitter: .25, minimumRadius: 70, maximumRadius: 290, centerFirst: true,
+        firstTimer: .85, timerStep: .11, margin: 82, radius: 82, attackClock: 3.15, next: "surge", spriteLead: .85,
+      } },
+      spriteClock: true,
+    },
+    koiShogun: {
+      aggroRange: KOI_SHOGUN_AGGRO_RANGE,
+      cone: { ability: "slash", windup: KOI_SHOGUN_SLASH_WINDUP, duration: KOI_SHOGUN_SLASH_DURATION, range: KOI_SHOGUN_SLASH_RANGE, halfAngle: KOI_SHOGUN_SLASH_HALF_ANGLE, reach: 42, hitBurst: ["#d7fbff", 34, 255], recover: 2.4 },
+      hazards: { ability: "whirlpool", landBurst: ["#71e9ff", 40, 250], pattern: {
+        pattern: "whirlpool", count: 11, angleJitter: .25, minimumRadius: 70, maximumRadius: 300, centerFirst: true,
+        firstTimer: .82, timerStep: .105, margin: 82, radius: 84, attackClock: 3.1, next: "slash",
+      } },
+    },
+    tempestKirin: {
+      aggroRange: TEMPEST_KIRIN_AGGRO_RANGE,
+      cone: { ability: "charge", windup: TEMPEST_KIRIN_CHARGE_WINDUP, duration: TEMPEST_KIRIN_CHARGE_DURATION, range: TEMPEST_KIRIN_CHARGE_RANGE, halfAngle: TEMPEST_KIRIN_CHARGE_HALF_ANGLE, reach: 42, hitBurst: ["#f3fdff", 38, 280], recover: 2.35 },
+      hazards: { ability: "thunder", landBurst: ["#d6f7ff", 44, 270], pattern: {
+        pattern: "thunder", count: 12, angleJitter: .22, minimumRadius: 64, maximumRadius: 320, centerFirst: true,
+        firstTimer: .72, timerStep: .1, margin: 82, radius: 82, attackClock: 3.1, next: "charge",
+      } },
+    },
+    miremaw: {
+      aggroRange: MIREMAW_AGGRO_RANGE,
+      cone: { ability: "tongue", windup: MIREMAW_TONGUE_WINDUP, duration: MIREMAW_TONGUE_DURATION, range: MIREMAW_TONGUE_RANGE, halfAngle: MIREMAW_TONGUE_HALF_ANGLE, reach: 42, hitBurst: ["#e1fff2", 38, 280], recover: 2.35 },
+      hazards: { ability: "bogBurst", landBurst: ["#a9ffe0", 44, 270], pattern: {
+        pattern: "bogBurst", count: 10, angleJitter: .28, minimumRadius: 72, maximumRadius: 340, centerFirst: true,
+        firstTimer: .76, timerStep: .11, margin: 82, radius: 96, attackClock: 3.1, next: "tongue",
+      } },
+    },
+    prismshell: {
+      aggroRange: PRISMSHELL_AGGRO_RANGE,
+      cone: { ability: "shatter", windup: PRISMSHELL_SHATTER_WINDUP, duration: PRISMSHELL_SHATTER_DURATION, range: PRISMSHELL_SHATTER_RANGE, halfAngle: PRISMSHELL_SHATTER_HALF_ANGLE, reach: 42, hitBurst: ["#d5fcff", 38, 280], recover: 2.35 },
+      hazards: { ability: "crystalBurst", landBurst: ["#c3a6ff", 44, 270], pattern: {
+        pattern: "crystalBurst", count: 8, angleJitter: .12, minimumRadius: 105, maximumRadius: 330, centerFirst: true,
+        firstTimer: .95, timerStep: .15, margin: 82, radius: 86, attackClock: 3.1, next: "shatter",
+      } },
+    },
+    ironhorn: {
+      aggroRange: IRONHORN_AGGRO_RANGE,
+      cone: { ability: "shatter", windup: IRONHORN_SHATTER_WINDUP, duration: IRONHORN_SHATTER_DURATION, range: IRONHORN_SHATTER_RANGE, halfAngle: IRONHORN_SHATTER_HALF_ANGLE, reach: 42, hitBurst: ["#d5fcff", 38, 280], recover: 2.35 },
+      hazards: { ability: "crystalBurst", landBurst: ["#c3a6ff", 44, 270], pattern: startIronhornCrystalBurst },
+      spriteClock: true,
+    },
+    dreadreaper: {
+      aggroRange: DREADREAPER_AGGRO_RANGE,
+      cone: { ability: "shatter", windup: DREADREAPER_SHATTER_WINDUP, duration: DREADREAPER_SHATTER_DURATION, range: DREADREAPER_SHATTER_RANGE, halfAngle: DREADREAPER_SHATTER_HALF_ANGLE, reach: 42, hitBurst: ["#d5fcff", 38, 280], recover: 2.35 },
+      hazards: { ability: "crystalBurst", landBurst: ["#c3a6ff", 44, 270], pattern: {
+        pattern: "crystalBurst", count: 10, angleJitter: 0, minimumRadius: 240, maximumRadius: 240, centerFirst: false,
+        firstTimer: 1.15, timerStep: .07, margin: 82, radius: 68, attackClock: 3.1, next: "shatter", spriteLead: 1.15,
+      } },
+      spriteClock: true,
+    },
+  };
+
+  /** The cone a cone boss is playing, held in the attack slot the registry names. */
+  const coneSlot = (kind: ConeKind) => BOSSES[kind].attackSlots[0] as string;
+  const coneOf = (kind: ConeKind) => (bosses[kind] as unknown as Record<string, BossCone | null>)[coneSlot(kind)];
+  const setCone = (kind: ConeKind, cone: BossCone | null) => {
+    (bosses[kind] as unknown as Record<string, BossCone | null>)[coneSlot(kind)] = cone;
+  };
+
+  function startCone(kind: ConeKind, elapsedSeconds = 0, target: AbilityTarget = player) {
+    const rules = CONE_BOSSES[kind];
+    const state = bosses[kind];
+    if (rules.spriteClock) state.spriteAttackElapsed = Math.max(0, elapsedSeconds) - rules.cone.windup + .5;
+    setCone(kind, coneAttack(state, rules.cone.windup, rules.cone.duration, elapsedSeconds, target));
+    (state as { nextAttack: string }).nextAttack = rules.hazards.ability;
   }
+
+  function startConeHazards(kind: ConeKind, elapsedSeconds = 0, deterministicPatternIndex?: number, target: AbilityTarget = player) {
+    const pattern = CONE_BOSSES[kind].hazards.pattern;
+    if (typeof pattern === "function") pattern(elapsedSeconds, deterministicPatternIndex, target);
+    else startSeededHazards(kind, pattern, elapsedSeconds, deterministicPatternIndex, target);
+  }
+
+  function updateConeBoss(kind: ConeKind, dt: number) {
+    const rules = CONE_BOSSES[kind];
+    const state = bosses[kind];
+    const ground = hazards[kind];
+    if (rules.spriteClock && state.spriteAttackElapsed !== undefined) state.spriteAttackElapsed += dt;
+    state.hpLossFlashTimer = Math.max(0, state.hpLossFlashTimer - dt);
+    state.contactDamageClock = Math.max(0, state.contactDamageClock - dt);
+    if (state.dead) return;
+    state.hurt = Math.max(0, state.hurt - dt);
+    const sharedTimeline = syncAbilityTimeline({
+      kind,
+      encounter: state.encounter,
+      targetForAttack: (attackIndex) => selectAbilityTarget(kind, state.encounter, attackIndex, state.x, state.y, rules.aggroRange),
+      clear: () => { setCone(kind, null); ground.length = 0; },
+      start: (ability, elapsedSeconds, attackIndex, target) => {
+        if (ability === rules.cone.ability) startCone(kind, elapsedSeconds, target);
+        else if (ability === rules.hazards.ability) startConeHazards(kind, elapsedSeconds, attackIndex, target);
+      },
+      setAttackClock: (seconds) => { state.attackClock = seconds; },
+    });
+
+    landHazards(ground, dt, () => damageFor(kind, rules.hazards.ability), rules.hazards.landBurst);
+    if (ground.length > 0) return;
+
+    const cone = coneOf(kind);
+    if (cone) {
+      if (cone.windup > 0) {
+        cone.windup -= dt;
+        return;
+      }
+      const range = rules.cone.range;
+      const previousProgress = clamp(1 - cone.timer / cone.duration, 0, 1);
+      cone.timer -= dt;
+      const progress = clamp(1 - cone.timer / cone.duration, 0, 1);
+      const minRadius = state.r + (range - state.r) * previousProgress;
+      const maxRadius = state.r + (range - state.r) * progress;
+      if (!cone.hitPlayer) {
+        const dx = player.x - state.x;
+        const dy = player.y - state.y;
+        const distance = Math.hypot(dx, dy) || 1;
+        const angleDelta = Math.atan2(
+          Math.sin(Math.atan2(dy, dx) - cone.angle),
+          Math.cos(Math.atan2(dy, dx) - cone.angle),
+        );
+        if (distance >= minRadius - rules.cone.reach && distance <= maxRadius + rules.cone.reach && Math.abs(angleDelta) <= rules.cone.halfAngle) {
+          cone.hitPlayer = true;
+          damagePlayer(damageFor(kind, rules.cone.ability));
+          queueBossAreaKnockback(state.x, state.y, range, state.r);
+          spawnBurst(player.x, player.y, ...rules.cone.hitBurst);
+        }
+      }
+      if (cone.timer <= 0) {
+        setCone(kind, null);
+        state.attackClock = rules.cone.recover;
+      }
+      return;
+    }
+
+    if (sharedTimeline) return;
+    state.attackClock -= dt;
+    if (state.attackClock > 0) return;
+    const dx = player.x - state.x;
+    const dy = player.y - state.y;
+    if (dx * dx + dy * dy > rules.aggroRange * rules.aggroRange) return;
+    if (state.nextAttack === rules.cone.ability) startCone(kind);
+    else startConeHazards(kind);
+  }
+
+  function startVoltwardenShatter(elapsedSeconds = 0, target: AbilityTarget = player) {
+    voltwardenBoss.shatter = coneAttack(voltwardenBoss, NEON_LASER.windup, NEON_LASER.duration, elapsedSeconds, target);
+    voltwardenBoss.nextAttack = "empPulse";
+  }
+  function startGravebloomShatter(elapsedSeconds = 0, target: AbilityTarget = player) {
+    gravebloomBoss.shatter = coneAttack(gravebloomBoss, VERDANT_ROOTS.windup, VERDANT_ROOTS.duration, elapsedSeconds, target);
+    gravebloomBoss.nextAttack = "sporeBurst";
+  }
+  function startAegisPrimeShatter(elapsedSeconds = 0, target: AbilityTarget = player) {
+    aegisPrimeBoss.shatter = coneAttack(aegisPrimeBoss, ION_SWEEP.windup, ION_SWEEP.duration, elapsedSeconds, target);
+    aegisPrimeBoss.nextAttack = "ionVolley";
+  }
+
   function startVoltwardenCrystalBurst(elapsedSeconds = 0) {
     const duration = NEON_EMP.windup + NEON_EMP.duration;
     for (let index = 0; index < 3; index++) {
@@ -3143,7 +1239,7 @@ function startMiremawBogBurst(elapsedSeconds = 0, deterministicPatternIndex?: nu
     voltwardenBoss.attackClock = 3.8;
     voltwardenBoss.nextAttack = "laserGrid";
   }
-function startGravebloomCrystalBurst(elapsedSeconds = 0, patternIndex = 0, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
+  function startGravebloomCrystalBurst(elapsedSeconds = 0, patternIndex = 0, target: AbilityTarget = player) {
     const duration = VERDANT_SPORES.windup + VERDANT_SPORES.duration;
     for (const site of verdantSporeSites(target.x, target.y, patternIndex)) {
       const elapsed = elapsedSeconds - site.delay;
@@ -3154,10 +1250,10 @@ function startGravebloomCrystalBurst(elapsedSeconds = 0, patternIndex = 0, targe
     gravebloomBoss.attackClock = 3.8;
     gravebloomBoss.nextAttack = "rootGrasp";
   }
-function startAegisPrimeCrystalBurst(elapsedSeconds = 0, deterministicPatternIndex: number | undefined = undefined, target: Pick<BossAbilityTarget, "x" | "y"> = player) {
-    const patternIndex = deterministicPatternIndex ?? aegisPrimeBurstPatternIndex++;
+  function startAegisPrimeCrystalBurst(elapsedSeconds = 0, deterministicPatternIndex: number | undefined = undefined, target: AbilityTarget = player) {
+    const pattern = deterministicPatternIndex ?? patternIndex.aegisPrime++;
     const duration = ION_BURSTS.windup + ION_BURSTS.duration;
-    for (const site of ionBurstSites(target.x, target.y, patternIndex, aegisPrimeBoss)) {
+    for (const site of ionBurstSites(target.x, target.y, pattern, aegisPrimeBoss)) {
       const elapsed = elapsedSeconds - site.delay;
       if (elapsed >= duration) continue;
       aegisPrimeCrystalBursts.push({ x: clamp(site.x, 100, WORLD.w - 100), y: clamp(site.y, 100, WORLD.h - 100), r: ION_BURSTS.range,
@@ -3167,513 +1263,98 @@ function startAegisPrimeCrystalBurst(elapsedSeconds = 0, deterministicPatternInd
     aegisPrimeBoss.nextAttack = "shieldSweep";
   }
 
-  function updateTempestKirinBoss(dt: number) {
-    tempestKirinBoss.hpLossFlashTimer = Math.max(0, tempestKirinBoss.hpLossFlashTimer - dt);
-    tempestKirinBoss.contactDamageClock = Math.max(0, tempestKirinBoss.contactDamageClock - dt);
-    if (tempestKirinBoss.dead) return;
-    tempestKirinBoss.hurt = Math.max(0, tempestKirinBoss.hurt - dt);
+  const PULSE_BOSSES: Record<PulseKind, PulseBoss> = {
+    voltwarden: {
+      aggroRange: VOLTWARDEN_AGGRO_RANGE,
+      laser: { ability: "laserGrid", start: startVoltwardenShatter, hits: neonLaserHits },
+      pulses: { ability: "empPulse", start: (elapsedSeconds) => startVoltwardenCrystalBurst(elapsedSeconds), hits: neonEmpHits, hitColor: "#ff48dc" },
+    },
+    gravebloom: {
+      aggroRange: GRAVEBLOOM_AGGRO_RANGE,
+      laser: { ability: "rootGrasp", start: startGravebloomShatter, hits: verdantRootHits },
+      pulses: { ability: "sporeBurst", start: startGravebloomCrystalBurst, hits: verdantSporeHits, hitColor: "#8bf2c3" },
+    },
+    aegisPrime: {
+      aggroRange: AEGIS_PRIME_AGGRO_RANGE,
+      // The sweep is drawn as a wave travelling out from the shield
+      // (ion-attack-art.ts), but it used to hit the whole arc on its first
+      // active frame: a player near the far edge took the damage while the
+      // wave was still at the boss's feet. Only the wave's front hits now,
+      // as it does for every other boss that draws one.
+      laser: { ability: "shieldSweep", start: startAegisPrimeShatter, hits: ionSweepHits, front: ION_SWEEP },
+      pulses: {
+        ability: "ionVolley",
+        // Each volley direction holds for two shared slots.
+        start: (elapsedSeconds, attackIndex, target) => startAegisPrimeCrystalBurst(elapsedSeconds, attackIndex === undefined ? undefined : Math.floor(attackIndex / 2), target),
+        hits: ionBurstHits,
+        hitColor: "#8bf2c3",
+      },
+    },
+  };
+
+  function updatePulseBoss(kind: PulseKind, dt: number) {
+    const rules = PULSE_BOSSES[kind];
+    const state = bosses[kind];
+    const pulses: (Hazard & { hitPlayer?: boolean })[] = hazards[kind];
+    state.hpLossFlashTimer = Math.max(0, state.hpLossFlashTimer - dt);
+    state.contactDamageClock = Math.max(0, state.contactDamageClock - dt);
+    if (state.dead) return;
+    state.hurt = Math.max(0, state.hurt - dt);
     const sharedTimeline = syncAbilityTimeline({
-      kind: "tempestKirin",
-      encounter: tempestKirinBoss.encounter,
-      targetForAttack: (attackIndex) => selectAbilityTarget("tempestKirin", tempestKirinBoss.encounter, attackIndex, tempestKirinBoss.x, tempestKirinBoss.y, TEMPEST_KIRIN_AGGRO_RANGE),
-      clear: () => { tempestKirinBoss.charge = null; tempestKirinThunderbolts.length = 0; },
+      kind, encounter: state.encounter,
+      targetForAttack: (attackIndex) => selectAbilityTarget(kind, state.encounter, attackIndex, state.x, state.y, rules.aggroRange),
+      clear: () => { state.shatter = null; pulses.length = 0; },
       start: (ability, elapsedSeconds, attackIndex, target) => {
-        if (ability === "charge") startTempestKirinCharge(elapsedSeconds, target);
-        else if (ability === "thunder") startTempestKirinThunder(elapsedSeconds, attackIndex, target);
+        if (ability === rules.laser.ability) rules.laser.start(elapsedSeconds, target);
+        else if (ability === rules.pulses.ability) rules.pulses.start(elapsedSeconds, attackIndex, target);
       },
-      setAttackClock: (seconds) => { tempestKirinBoss.attackClock = seconds; },
+      setAttackClock: seconds => { state.attackClock = seconds; },
     });
-
-    for (let index = tempestKirinThunderbolts.length - 1; index >= 0; index -= 1) {
-      const bolt = tempestKirinThunderbolts[index];
-      bolt.timer -= dt;
-      if (bolt.timer > 0) continue;
-      const dx = player.x - bolt.x;
-      const dy = player.y - bolt.y;
-      if (dx * dx + dy * dy <= bolt.r * bolt.r) damagePlayer(BOSS_DAMAGE_PROFILES.tempestKirin.thunder);
-      spawnBurst(bolt.x, bolt.y, "#d6f7ff", 44, 270);
-      tempestKirinThunderbolts.splice(index, 1);
-    }
-    if (tempestKirinThunderbolts.length > 0) return;
-
-    if (tempestKirinBoss.charge) {
-      const charge = tempestKirinBoss.charge;
-      if (charge.windup > 0) {
-        charge.windup -= dt;
-        return;
-      }
-      const previousProgress = clamp(1 - charge.timer / charge.duration, 0, 1);
-      charge.timer -= dt;
-      const progress = clamp(1 - charge.timer / charge.duration, 0, 1);
-      const minRadius = tempestKirinBoss.r + (TEMPEST_KIRIN_CHARGE_RANGE - tempestKirinBoss.r) * previousProgress;
-      const maxRadius = tempestKirinBoss.r + (TEMPEST_KIRIN_CHARGE_RANGE - tempestKirinBoss.r) * progress;
-      if (!charge.hitPlayer) {
-        const dx = player.x - tempestKirinBoss.x;
-        const dy = player.y - tempestKirinBoss.y;
-        const distance = Math.hypot(dx, dy) || 1;
-        const angleDelta = Math.atan2(
-          Math.sin(Math.atan2(dy, dx) - charge.angle),
-          Math.cos(Math.atan2(dy, dx) - charge.angle),
-        );
-        if (distance >= minRadius - 42 && distance <= maxRadius + 42 && Math.abs(angleDelta) <= TEMPEST_KIRIN_CHARGE_HALF_ANGLE) {
-          charge.hitPlayer = true;
-          damagePlayer(BOSS_DAMAGE_PROFILES.tempestKirin.charge);
-          queueBossAreaKnockback(tempestKirinBoss.x, tempestKirinBoss.y, TEMPEST_KIRIN_CHARGE_RANGE, tempestKirinBoss.r);
-          spawnBurst(player.x, player.y, "#f3fdff", 38, 280);
-        }
-      }
-      if (charge.timer <= 0) {
-        tempestKirinBoss.charge = null;
-        tempestKirinBoss.attackClock = 2.35;
-      }
-      return;
-    }
-
-    if (sharedTimeline) return;
-    tempestKirinBoss.attackClock -= dt;
-    if (tempestKirinBoss.attackClock > 0) return;
-    const dx = player.x - tempestKirinBoss.x;
-    const dy = player.y - tempestKirinBoss.y;
-    if (dx * dx + dy * dy > TEMPEST_KIRIN_AGGRO_RANGE * TEMPEST_KIRIN_AGGRO_RANGE) return;
-    if (tempestKirinBoss.nextAttack === "charge") startTempestKirinCharge();
-    else startTempestKirinThunder();
-  }
-
-function updateMiremawBoss(dt: number) {
-    miremawBoss.hpLossFlashTimer = Math.max(0, miremawBoss.hpLossFlashTimer - dt);
-    miremawBoss.contactDamageClock = Math.max(0, miremawBoss.contactDamageClock - dt);
-    if (miremawBoss.dead) return;
-    miremawBoss.hurt = Math.max(0, miremawBoss.hurt - dt);
-    const sharedTimeline = syncAbilityTimeline({
-      kind: "miremaw",
-      encounter: miremawBoss.encounter,
-      targetForAttack: (attackIndex) => selectAbilityTarget("miremaw", miremawBoss.encounter, attackIndex, miremawBoss.x, miremawBoss.y, MIREMAW_AGGRO_RANGE),
-      clear: () => { miremawBoss.tongue = null; miremawBogBursts.length = 0; },
-      start: (ability, elapsedSeconds, attackIndex, target) => {
-        if (ability === "tongue") startMiremawTongue(elapsedSeconds, target);
-        else if (ability === "bogBurst") startMiremawBogBurst(elapsedSeconds, attackIndex, target);
-      },
-      setAttackClock: (seconds) => { miremawBoss.attackClock = seconds; },
-    });
-
-    for (let index = miremawBogBursts.length - 1; index >= 0; index -= 1) {
-      const bolt = miremawBogBursts[index];
-      bolt.timer -= dt;
-      if (bolt.timer > 0) continue;
-      const dx = player.x - bolt.x;
-      const dy = player.y - bolt.y;
-      if (dx * dx + dy * dy <= bolt.r * bolt.r) damagePlayer(BOSS_DAMAGE_PROFILES.miremaw.bogBurst);
-      spawnBurst(bolt.x, bolt.y, "#a9ffe0", 44, 270);
-      miremawBogBursts.splice(index, 1);
-    }
-    if (miremawBogBursts.length > 0) return;
-
-    if (miremawBoss.tongue) {
-      const tongue = miremawBoss.tongue;
-      if (tongue.windup > 0) {
-        tongue.windup -= dt;
-        return;
-      }
-      const previousProgress = clamp(1 - tongue.timer / tongue.duration, 0, 1);
-      tongue.timer -= dt;
-      const progress = clamp(1 - tongue.timer / tongue.duration, 0, 1);
-      const minRadius = miremawBoss.r + (MIREMAW_TONGUE_RANGE - miremawBoss.r) * previousProgress;
-      const maxRadius = miremawBoss.r + (MIREMAW_TONGUE_RANGE - miremawBoss.r) * progress;
-      if (!tongue.hitPlayer) {
-        const dx = player.x - miremawBoss.x;
-        const dy = player.y - miremawBoss.y;
-        const distance = Math.hypot(dx, dy) || 1;
-        const angleDelta = Math.atan2(
-          Math.sin(Math.atan2(dy, dx) - tongue.angle),
-          Math.cos(Math.atan2(dy, dx) - tongue.angle),
-        );
-        if (distance >= minRadius - 42 && distance <= maxRadius + 42 && Math.abs(angleDelta) <= MIREMAW_TONGUE_HALF_ANGLE) {
-          tongue.hitPlayer = true;
-          damagePlayer(BOSS_DAMAGE_PROFILES.miremaw.tongue);
-          queueBossAreaKnockback(miremawBoss.x, miremawBoss.y, MIREMAW_TONGUE_RANGE, miremawBoss.r);
-          spawnBurst(player.x, player.y, "#e1fff2", 38, 280);
-        }
-      }
-      if (tongue.timer <= 0) {
-        miremawBoss.tongue = null;
-        miremawBoss.attackClock = 2.35;
-      }
-      return;
-    }
-
-    if (sharedTimeline) return;
-    miremawBoss.attackClock -= dt;
-    if (miremawBoss.attackClock > 0) return;
-    const dx = player.x - miremawBoss.x;
-    const dy = player.y - miremawBoss.y;
-    if (dx * dx + dy * dy > MIREMAW_AGGRO_RANGE * MIREMAW_AGGRO_RANGE) return;
-    if (miremawBoss.nextAttack === "tongue") startMiremawTongue();
-    else startMiremawBogBurst();
-  }
-
-  function updatePrismshellBoss(dt: number) {
-    prismshellBoss.hpLossFlashTimer = Math.max(0, prismshellBoss.hpLossFlashTimer - dt);
-    prismshellBoss.contactDamageClock = Math.max(0, prismshellBoss.contactDamageClock - dt);
-    if (prismshellBoss.dead) return;
-    prismshellBoss.hurt = Math.max(0, prismshellBoss.hurt - dt);
-    const sharedTimeline = syncAbilityTimeline({
-      kind: "prismshell",
-      encounter: prismshellBoss.encounter,
-      targetForAttack: (attackIndex) => selectAbilityTarget("prismshell", prismshellBoss.encounter, attackIndex, prismshellBoss.x, prismshellBoss.y, PRISMSHELL_AGGRO_RANGE),
-      clear: () => { prismshellBoss.shatter = null; prismshellCrystalBursts.length = 0; },
-      start: (ability, elapsedSeconds, attackIndex, target) => {
-        if (ability === "shatter") startPrismshellShatter(elapsedSeconds, target);
-        else if (ability === "crystalBurst") startPrismshellCrystalBurst(elapsedSeconds, attackIndex, target);
-      },
-      setAttackClock: (seconds) => { prismshellBoss.attackClock = seconds; },
-    });
-
-    for (let index = prismshellCrystalBursts.length - 1; index >= 0; index -= 1) {
-      const burst = prismshellCrystalBursts[index];
-      burst.timer -= dt;
-      if (burst.timer > 0) continue;
-      const dx = player.x - burst.x;
-      const dy = player.y - burst.y;
-      if (dx * dx + dy * dy <= burst.r * burst.r) damagePlayer(BOSS_DAMAGE_PROFILES.prismshell.crystalBurst);
-      spawnBurst(burst.x, burst.y, "#c3a6ff", 44, 270);
-      prismshellCrystalBursts.splice(index, 1);
-    }
-    if (prismshellCrystalBursts.length > 0) return;
-
-    if (prismshellBoss.shatter) {
-      const shatter = prismshellBoss.shatter;
-      if (shatter.windup > 0) {
-        shatter.windup -= dt;
-        return;
-      }
-      const previousProgress = clamp(1 - shatter.timer / shatter.duration, 0, 1);
-      shatter.timer -= dt;
-      const progress = clamp(1 - shatter.timer / shatter.duration, 0, 1);
-      const minRadius = prismshellBoss.r + (PRISMSHELL_SHATTER_RANGE - prismshellBoss.r) * previousProgress;
-      const maxRadius = prismshellBoss.r + (PRISMSHELL_SHATTER_RANGE - prismshellBoss.r) * progress;
-      if (!shatter.hitPlayer) {
-        const dx = player.x - prismshellBoss.x;
-        const dy = player.y - prismshellBoss.y;
-        const distance = Math.hypot(dx, dy) || 1;
-        const angleDelta = Math.atan2(
-          Math.sin(Math.atan2(dy, dx) - shatter.angle),
-          Math.cos(Math.atan2(dy, dx) - shatter.angle),
-        );
-        if (distance >= minRadius - 42 && distance <= maxRadius + 42 && Math.abs(angleDelta) <= PRISMSHELL_SHATTER_HALF_ANGLE) {
-          shatter.hitPlayer = true;
-          damagePlayer(BOSS_DAMAGE_PROFILES.prismshell.shatter);
-          queueBossAreaKnockback(prismshellBoss.x, prismshellBoss.y, PRISMSHELL_SHATTER_RANGE, prismshellBoss.r);
-          spawnBurst(player.x, player.y, "#d5fcff", 38, 280);
-        }
-      }
-      if (shatter.timer <= 0) {
-        prismshellBoss.shatter = null;
-        prismshellBoss.attackClock = 2.35;
-      }
-      return;
-    }
-
-    if (sharedTimeline) return;
-    prismshellBoss.attackClock -= dt;
-    if (prismshellBoss.attackClock > 0) return;
-    const dx = player.x - prismshellBoss.x;
-    const dy = player.y - prismshellBoss.y;
-    if (dx * dx + dy * dy > PRISMSHELL_AGGRO_RANGE * PRISMSHELL_AGGRO_RANGE) return;
-    if (prismshellBoss.nextAttack === "shatter") startPrismshellShatter();
-    else startPrismshellCrystalBurst();
-  }
-  function updateIronhornBoss(dt: number) {
-    if (ironhornBoss.spriteAttackElapsed !== undefined) ironhornBoss.spriteAttackElapsed += dt;
-    ironhornBoss.hpLossFlashTimer = Math.max(0, ironhornBoss.hpLossFlashTimer - dt);
-    ironhornBoss.contactDamageClock = Math.max(0, ironhornBoss.contactDamageClock - dt);
-    if (ironhornBoss.dead) return;
-    ironhornBoss.hurt = Math.max(0, ironhornBoss.hurt - dt);
-    const sharedTimeline = syncAbilityTimeline({
-      kind: "ironhorn",
-      encounter: ironhornBoss.encounter,
-      targetForAttack: (attackIndex) => selectAbilityTarget("ironhorn", ironhornBoss.encounter, attackIndex, ironhornBoss.x, ironhornBoss.y, IRONHORN_AGGRO_RANGE),
-      clear: () => { ironhornBoss.shatter = null; ironhornCrystalBursts.length = 0; },
-      start: (ability, elapsedSeconds, attackIndex, target) => {
-        if (ability === "shatter") startIronhornShatter(elapsedSeconds, target);
-        else if (ability === "crystalBurst") startIronhornCrystalBurst(elapsedSeconds, attackIndex, target);
-      },
-      setAttackClock: (seconds) => { ironhornBoss.attackClock = seconds; },
-    });
-
-    for (let index = ironhornCrystalBursts.length - 1; index >= 0; index -= 1) {
-      const burst = ironhornCrystalBursts[index];
-      burst.timer -= dt;
-      if (burst.timer > 0) continue;
-      const dx = player.x - burst.x;
-      const dy = player.y - burst.y;
-      if (dx * dx + dy * dy <= burst.r * burst.r) damagePlayer(BOSS_DAMAGE_PROFILES.ironhorn.crystalBurst);
-      spawnBurst(burst.x, burst.y, "#c3a6ff", 44, 270);
-      ironhornCrystalBursts.splice(index, 1);
-    }
-    if (ironhornCrystalBursts.length > 0) return;
-
-    if (ironhornBoss.shatter) {
-      const shatter = ironhornBoss.shatter;
-      if (shatter.windup > 0) {
-        shatter.windup -= dt;
-        return;
-      }
-      const previousProgress = clamp(1 - shatter.timer / shatter.duration, 0, 1);
-      shatter.timer -= dt;
-      const progress = clamp(1 - shatter.timer / shatter.duration, 0, 1);
-      const minRadius = ironhornBoss.r + (IRONHORN_SHATTER_RANGE - ironhornBoss.r) * previousProgress;
-      const maxRadius = ironhornBoss.r + (IRONHORN_SHATTER_RANGE - ironhornBoss.r) * progress;
-      if (!shatter.hitPlayer) {
-        const dx = player.x - ironhornBoss.x;
-        const dy = player.y - ironhornBoss.y;
-        const distance = Math.hypot(dx, dy) || 1;
-        const angleDelta = Math.atan2(
-          Math.sin(Math.atan2(dy, dx) - shatter.angle),
-          Math.cos(Math.atan2(dy, dx) - shatter.angle),
-        );
-        if (distance >= minRadius - 42 && distance <= maxRadius + 42 && Math.abs(angleDelta) <= IRONHORN_SHATTER_HALF_ANGLE) {
-          shatter.hitPlayer = true;
-          damagePlayer(BOSS_DAMAGE_PROFILES.ironhorn.shatter);
-          queueBossAreaKnockback(ironhornBoss.x, ironhornBoss.y, IRONHORN_SHATTER_RANGE, ironhornBoss.r);
-          spawnBurst(player.x, player.y, "#d5fcff", 38, 280);
-        }
-      }
-      if (shatter.timer <= 0) {
-        ironhornBoss.shatter = null;
-        ironhornBoss.attackClock = 2.35;
-      }
-      return;
-    }
-
-    if (sharedTimeline) return;
-    ironhornBoss.attackClock -= dt;
-    if (ironhornBoss.attackClock > 0) return;
-    const dx = player.x - ironhornBoss.x;
-    const dy = player.y - ironhornBoss.y;
-    if (dx * dx + dy * dy > IRONHORN_AGGRO_RANGE * IRONHORN_AGGRO_RANGE) return;
-    if (ironhornBoss.nextAttack === "shatter") startIronhornShatter();
-    else startIronhornCrystalBurst();
-  }
-  function updateDreadreaperBoss(dt: number) {
-    if (dreadreaperBoss.spriteAttackElapsed !== undefined) dreadreaperBoss.spriteAttackElapsed += dt;
-    dreadreaperBoss.hpLossFlashTimer = Math.max(0, dreadreaperBoss.hpLossFlashTimer - dt);
-    dreadreaperBoss.contactDamageClock = Math.max(0, dreadreaperBoss.contactDamageClock - dt);
-    if (dreadreaperBoss.dead) return;
-    dreadreaperBoss.hurt = Math.max(0, dreadreaperBoss.hurt - dt);
-    const sharedTimeline = syncAbilityTimeline({
-      kind: "dreadreaper",
-      encounter: dreadreaperBoss.encounter,
-      targetForAttack: (attackIndex) => selectAbilityTarget("dreadreaper", dreadreaperBoss.encounter, attackIndex, dreadreaperBoss.x, dreadreaperBoss.y, DREADREAPER_AGGRO_RANGE),
-      clear: () => { dreadreaperBoss.shatter = null; dreadreaperCrystalBursts.length = 0; },
-      start: (ability, elapsedSeconds, attackIndex, target) => {
-        if (ability === "shatter") startDreadreaperShatter(elapsedSeconds, target);
-        else if (ability === "crystalBurst") startDreadreaperCrystalBurst(elapsedSeconds, attackIndex, target);
-      },
-      setAttackClock: (seconds) => { dreadreaperBoss.attackClock = seconds; },
-    });
-
-    for (let index = dreadreaperCrystalBursts.length - 1; index >= 0; index -= 1) {
-      const burst = dreadreaperCrystalBursts[index];
-      burst.timer -= dt;
-      if (burst.timer > 0) continue;
-      const dx = player.x - burst.x;
-      const dy = player.y - burst.y;
-      if (dx * dx + dy * dy <= burst.r * burst.r) damagePlayer(BOSS_DAMAGE_PROFILES.dreadreaper.crystalBurst);
-      spawnBurst(burst.x, burst.y, "#c3a6ff", 44, 270);
-      dreadreaperCrystalBursts.splice(index, 1);
-    }
-    if (dreadreaperCrystalBursts.length > 0) return;
-
-    if (dreadreaperBoss.shatter) {
-      const shatter = dreadreaperBoss.shatter;
-      if (shatter.windup > 0) {
-        shatter.windup -= dt;
-        return;
-      }
-      const previousProgress = clamp(1 - shatter.timer / shatter.duration, 0, 1);
-      shatter.timer -= dt;
-      const progress = clamp(1 - shatter.timer / shatter.duration, 0, 1);
-      const minRadius = dreadreaperBoss.r + (DREADREAPER_SHATTER_RANGE - dreadreaperBoss.r) * previousProgress;
-      const maxRadius = dreadreaperBoss.r + (DREADREAPER_SHATTER_RANGE - dreadreaperBoss.r) * progress;
-      if (!shatter.hitPlayer) {
-        const dx = player.x - dreadreaperBoss.x;
-        const dy = player.y - dreadreaperBoss.y;
-        const distance = Math.hypot(dx, dy) || 1;
-        const angleDelta = Math.atan2(
-          Math.sin(Math.atan2(dy, dx) - shatter.angle),
-          Math.cos(Math.atan2(dy, dx) - shatter.angle),
-        );
-        if (distance >= minRadius - 42 && distance <= maxRadius + 42 && Math.abs(angleDelta) <= DREADREAPER_SHATTER_HALF_ANGLE) {
-          shatter.hitPlayer = true;
-          damagePlayer(BOSS_DAMAGE_PROFILES.dreadreaper.shatter);
-          queueBossAreaKnockback(dreadreaperBoss.x, dreadreaperBoss.y, DREADREAPER_SHATTER_RANGE, dreadreaperBoss.r);
-          spawnBurst(player.x, player.y, "#d5fcff", 38, 280);
-        }
-      }
-      if (shatter.timer <= 0) {
-        dreadreaperBoss.shatter = null;
-        dreadreaperBoss.attackClock = 2.35;
-      }
-      return;
-    }
-
-    if (sharedTimeline) return;
-    dreadreaperBoss.attackClock -= dt;
-    if (dreadreaperBoss.attackClock > 0) return;
-    const dx = player.x - dreadreaperBoss.x;
-    const dy = player.y - dreadreaperBoss.y;
-    if (dx * dx + dy * dy > DREADREAPER_AGGRO_RANGE * DREADREAPER_AGGRO_RANGE) return;
-    if (dreadreaperBoss.nextAttack === "shatter") startDreadreaperShatter();
-    else startDreadreaperCrystalBurst();
-  }
-  function updateVoltwardenBoss(dt: number) {
-    voltwardenBoss.hpLossFlashTimer = Math.max(0, voltwardenBoss.hpLossFlashTimer - dt);
-    voltwardenBoss.contactDamageClock = Math.max(0, voltwardenBoss.contactDamageClock - dt);
-    if (voltwardenBoss.dead) return;
-    voltwardenBoss.hurt = Math.max(0, voltwardenBoss.hurt - dt);
-    const sharedTimeline = syncAbilityTimeline({
-      kind: "voltwarden", encounter: voltwardenBoss.encounter,
-      targetForAttack: (attackIndex) => selectAbilityTarget("voltwarden", voltwardenBoss.encounter, attackIndex, voltwardenBoss.x, voltwardenBoss.y, VOLTWARDEN_AGGRO_RANGE),
-      clear: () => { voltwardenBoss.shatter = null; voltwardenCrystalBursts.length = 0; },
-      start: (ability, elapsedSeconds, _attackIndex, target) => {
-        if (ability === "laserGrid") startVoltwardenShatter(elapsedSeconds, target);
-        else if (ability === "empPulse") startVoltwardenCrystalBurst(elapsedSeconds);
-      },
-      setAttackClock: seconds => { voltwardenBoss.attackClock = seconds; },
-    });
-    for (let index = voltwardenCrystalBursts.length - 1; index >= 0; index--) {
-      const pulse = voltwardenCrystalBursts[index], previous = pulse.maxTimer - pulse.timer;
+    for (let index = pulses.length - 1; index >= 0; index--) {
+      const pulse = pulses[index], previous = pulse.maxTimer - pulse.timer;
       pulse.timer -= dt;
-      if (!pulse.hitPlayer && neonEmpHits(Math.hypot(player.x - pulse.x, player.y - pulse.y), previous, pulse.maxTimer - pulse.timer, player.r)) {
-        pulse.hitPlayer = true; damagePlayer(BOSS_DAMAGE_PROFILES.voltwarden.crystalBurst);
-        spawnBurst(player.x, player.y, "#ff48dc", 24, 210);
+      if (!pulse.hitPlayer && rules.pulses.hits(Math.hypot(player.x - pulse.x, player.y - pulse.y), previous, pulse.maxTimer - pulse.timer, player.r)) {
+        pulse.hitPlayer = true; damagePlayer(BOSS_DAMAGE_PROFILES[kind].crystalBurst);
+        spawnBurst(player.x, player.y, rules.pulses.hitColor, 24, 210);
       }
-      if (pulse.timer <= 0) voltwardenCrystalBursts.splice(index, 1);
+      if (pulse.timer <= 0) pulses.splice(index, 1);
     }
-    const laser = voltwardenBoss.shatter;
-    if (laser) {
-      const activeDt = Math.max(0, dt - Math.max(0, laser.windup));
-      laser.windup = Math.max(0, laser.windup - dt);
-      if (activeDt > 0) {
-        laser.timer -= activeDt;
-        if (!laser.hitPlayer && neonLaserHits(player.x - voltwardenBoss.x, player.y - voltwardenBoss.y, laser.angle, player.r)) {
-          laser.hitPlayer = true; damagePlayer(BOSS_DAMAGE_PROFILES.voltwarden.shatter);
-          spawnBurst(player.x, player.y, "#56f7ff", 24, 240);
-        }
-        if (laser.timer <= 0) { voltwardenBoss.shatter = null; voltwardenBoss.attackClock = 2.8; }
-      }
-    }
-    if (sharedTimeline || voltwardenBoss.shatter || voltwardenCrystalBursts.length) return;
-    voltwardenBoss.attackClock -= dt;
-    if (voltwardenBoss.attackClock > 0 || Math.hypot(player.x - voltwardenBoss.x, player.y - voltwardenBoss.y) > VOLTWARDEN_AGGRO_RANGE) return;
-    if (voltwardenBoss.nextAttack === "laserGrid") startVoltwardenShatter(); else startVoltwardenCrystalBurst();
-  }
-  function updateGravebloomBoss(dt: number) {
-    gravebloomBoss.hpLossFlashTimer = Math.max(0, gravebloomBoss.hpLossFlashTimer - dt);
-    gravebloomBoss.contactDamageClock = Math.max(0, gravebloomBoss.contactDamageClock - dt);
-    if (gravebloomBoss.dead) return;
-    gravebloomBoss.hurt = Math.max(0, gravebloomBoss.hurt - dt);
-    const sharedTimeline = syncAbilityTimeline({
-      kind: "gravebloom", encounter: gravebloomBoss.encounter,
-      targetForAttack: (attackIndex) => selectAbilityTarget("gravebloom", gravebloomBoss.encounter, attackIndex, gravebloomBoss.x, gravebloomBoss.y, GRAVEBLOOM_AGGRO_RANGE),
-      clear: () => { gravebloomBoss.shatter = null; gravebloomCrystalBursts.length = 0; },
-      start: (ability, elapsedSeconds, attackIndex, target) => {
-        if (ability === "rootGrasp") startGravebloomShatter(elapsedSeconds, target);
-        else if (ability === "sporeBurst") startGravebloomCrystalBurst(elapsedSeconds, attackIndex, target);
-      },
-      setAttackClock: seconds => { gravebloomBoss.attackClock = seconds; },
-    });
-    for (let index = gravebloomCrystalBursts.length - 1; index >= 0; index--) {
-      const pulse = gravebloomCrystalBursts[index], previous = pulse.maxTimer - pulse.timer;
-      pulse.timer -= dt;
-      if (!pulse.hitPlayer && verdantSporeHits(Math.hypot(player.x - pulse.x, player.y - pulse.y), previous, pulse.maxTimer - pulse.timer, player.r)) {
-        pulse.hitPlayer = true; damagePlayer(BOSS_DAMAGE_PROFILES.gravebloom.crystalBurst);
-        spawnBurst(player.x, player.y, "#8bf2c3", 24, 210);
-      }
-      if (pulse.timer <= 0) gravebloomCrystalBursts.splice(index, 1);
-    }
-    const laser = gravebloomBoss.shatter;
-    if (laser) {
-      const activeDt = Math.max(0, dt - Math.max(0, laser.windup));
-      laser.windup = Math.max(0, laser.windup - dt);
-      if (activeDt > 0) {
-        laser.timer -= activeDt;
-        if (!laser.hitPlayer && verdantRootHits(player.x - gravebloomBoss.x, player.y - gravebloomBoss.y, laser.angle, player.r)) {
-          laser.hitPlayer = true; damagePlayer(BOSS_DAMAGE_PROFILES.gravebloom.shatter);
-          spawnBurst(player.x, player.y, "#56f7ff", 24, 240);
-        }
-        if (laser.timer <= 0) { gravebloomBoss.shatter = null; gravebloomBoss.attackClock = 2.8; }
-      }
-    }
-    if (sharedTimeline || gravebloomBoss.shatter || gravebloomCrystalBursts.length) return;
-    gravebloomBoss.attackClock -= dt;
-    if (gravebloomBoss.attackClock > 0 || Math.hypot(player.x - gravebloomBoss.x, player.y - gravebloomBoss.y) > GRAVEBLOOM_AGGRO_RANGE) return;
-    if (gravebloomBoss.nextAttack === "rootGrasp") startGravebloomShatter(); else startGravebloomCrystalBurst();
-  }
-  function updateAegisPrimeBoss(dt: number) {
-    aegisPrimeBoss.hpLossFlashTimer = Math.max(0, aegisPrimeBoss.hpLossFlashTimer - dt);
-    aegisPrimeBoss.contactDamageClock = Math.max(0, aegisPrimeBoss.contactDamageClock - dt);
-    if (aegisPrimeBoss.dead) return;
-    aegisPrimeBoss.hurt = Math.max(0, aegisPrimeBoss.hurt - dt);
-    const sharedTimeline = syncAbilityTimeline({
-      kind: "aegisPrime", encounter: aegisPrimeBoss.encounter,
-      targetForAttack: (attackIndex) => selectAbilityTarget("aegisPrime", aegisPrimeBoss.encounter, attackIndex, aegisPrimeBoss.x, aegisPrimeBoss.y, AEGIS_PRIME_AGGRO_RANGE),
-      clear: () => { aegisPrimeBoss.shatter = null; aegisPrimeCrystalBursts.length = 0; },
-      start: (ability, elapsedSeconds, attackIndex, target) => {
-        if (ability === "shieldSweep") startAegisPrimeShatter(elapsedSeconds, target);
-        else if (ability === "ionVolley") startAegisPrimeCrystalBurst(elapsedSeconds, Math.floor(attackIndex / 2), target);
-      },
-      setAttackClock: seconds => { aegisPrimeBoss.attackClock = seconds; },
-    });
-    for (let index = aegisPrimeCrystalBursts.length - 1; index >= 0; index--) {
-      const pulse = aegisPrimeCrystalBursts[index], previous = pulse.maxTimer - pulse.timer;
-      pulse.timer -= dt;
-      if (!pulse.hitPlayer && ionBurstHits(Math.hypot(player.x - pulse.x, player.y - pulse.y), previous, pulse.maxTimer - pulse.timer, player.r)) {
-        pulse.hitPlayer = true; damagePlayer(BOSS_DAMAGE_PROFILES.aegisPrime.crystalBurst);
-        spawnBurst(player.x, player.y, "#8bf2c3", 24, 210);
-      }
-      if (pulse.timer <= 0) aegisPrimeCrystalBursts.splice(index, 1);
-    }
-    const laser = aegisPrimeBoss.shatter;
+    const laser = state.shatter;
     if (laser) {
       const activeDt = Math.max(0, dt - Math.max(0, laser.windup));
       laser.windup = Math.max(0, laser.windup - dt);
       if (activeDt > 0) {
         const previousProgress = clamp(1 - laser.timer / laser.duration, 0, 1);
         laser.timer -= activeDt;
-        const progress = clamp(1 - laser.timer / laser.duration, 0, 1);
-        // The sweep is drawn as a wave travelling out from the shield
-        // (ion-attack-art.ts), but it used to hit the whole arc on its first
-        // active frame: a player near the far edge took the damage while the
-        // wave was still at the boss's feet. Only the wave's front hits now,
-        // as it does for every other boss that draws one.
-        const span = ION_SWEEP.range - ION_SWEEP.innerRange;
-        const minRadius = ION_SWEEP.innerRange + span * previousProgress;
-        const maxRadius = ION_SWEEP.innerRange + span * progress;
-        const distance = Math.hypot(player.x - aegisPrimeBoss.x, player.y - aegisPrimeBoss.y);
-        if (!laser.hitPlayer && distance >= minRadius - 42 && distance <= maxRadius + 42
-          && ionSweepHits(player.x - aegisPrimeBoss.x, player.y - aegisPrimeBoss.y, laser.angle, player.r)) {
-          laser.hitPlayer = true; damagePlayer(BOSS_DAMAGE_PROFILES.aegisPrime.shatter);
+        let onFront = true;
+        if (rules.laser.front) {
+          const progress = clamp(1 - laser.timer / laser.duration, 0, 1);
+          const span = rules.laser.front.range - rules.laser.front.innerRange;
+          const minRadius = rules.laser.front.innerRange + span * previousProgress;
+          const maxRadius = rules.laser.front.innerRange + span * progress;
+          const distance = Math.hypot(player.x - state.x, player.y - state.y);
+          onFront = distance >= minRadius - 42 && distance <= maxRadius + 42;
+        }
+        if (!laser.hitPlayer && onFront && rules.laser.hits(player.x - state.x, player.y - state.y, laser.angle, player.r)) {
+          laser.hitPlayer = true; damagePlayer(BOSS_DAMAGE_PROFILES[kind].shatter);
           spawnBurst(player.x, player.y, "#56f7ff", 24, 240);
         }
-        if (laser.timer <= 0) { aegisPrimeBoss.shatter = null; aegisPrimeBoss.attackClock = 2.8; }
+        if (laser.timer <= 0) { state.shatter = null; state.attackClock = 2.8; }
       }
     }
-    if (sharedTimeline || aegisPrimeBoss.shatter || aegisPrimeCrystalBursts.length) return;
-    aegisPrimeBoss.attackClock -= dt;
-    if (aegisPrimeBoss.attackClock > 0 || Math.hypot(player.x - aegisPrimeBoss.x, player.y - aegisPrimeBoss.y) > AEGIS_PRIME_AGGRO_RANGE) return;
-    if (aegisPrimeBoss.nextAttack === "shieldSweep") startAegisPrimeShatter(); else startAegisPrimeCrystalBurst();
+    if (sharedTimeline || state.shatter || pulses.length) return;
+    state.attackClock -= dt;
+    if (state.attackClock > 0 || Math.hypot(player.x - state.x, player.y - state.y) > rules.aggroRange) return;
+    if (state.nextAttack === rules.laser.ability) rules.laser.start(0, player); else rules.pulses.start(0, undefined, player);
   }
 
-
-  function resolveCollision(target: DragonBossState | SpiderBossState | FrostclawBossState | MagmaliskBossState | GloomrootBossState | TidewyrmBossState | KoiShogunBossState | TempestKirinBossState | MiremawBossState | PrismshellBossState | IronhornBossState | DreadreaperBossState | VoltwardenBossState | GravebloomBossState | AegisPrimeBossState, damage: number, cooldown: number) {
+  function resolveCollision(target: BossStates[BossKind], damage: number, cooldown: number) {
     if (target.dead) return;
     const dx = player.x - target.x;
-    const hitbox = target as typeof target & { ry?: number; hitboxOffsetY?: number };
-    const centreY = target.y + (hitbox.hitboxOffsetY ?? 0);
+    const centreY = target.y + (target.hitboxOffsetY ?? 0);
     const dy = player.y - centreY;
     const horizontal = target.r + player.r;
-    const vertical = bossVerticalRadius(target.r, hitbox.ry) + player.r;
+    const vertical = bossVerticalRadius(target.r, target.ry) + player.r;
     // Expand the tuned ellipse by the player's radius for body contact.
     // The old circle pushed players away from empty air above short bosses.
     const scaledDistance = Math.hypot(dx / horizontal, dy / vertical);
@@ -3693,67 +1374,52 @@ function updateMiremawBoss(dt: number) {
     bossKnockbackDistanceRemaining = Math.max(0, bossKnockbackDistanceRemaining - distance);
   }
 
+  const UPDATES: Record<BossKind, (dt: number) => void> = {
+    dragon: updateBoss,
+    spider: updateSpiderBoss,
+    frostclaw: updateFrostclawBoss,
+    magmalisk: (dt) => updateConeBoss("magmalisk", dt),
+    gloomroot: (dt) => updateConeBoss("gloomroot", dt),
+    tidewyrm: (dt) => updateConeBoss("tidewyrm", dt),
+    koiShogun: (dt) => updateConeBoss("koiShogun", dt),
+    tempestKirin: (dt) => updateConeBoss("tempestKirin", dt),
+    miremaw: (dt) => updateConeBoss("miremaw", dt),
+    prismshell: (dt) => updateConeBoss("prismshell", dt),
+    ironhorn: (dt) => updateConeBoss("ironhorn", dt),
+    dreadreaper: (dt) => updateConeBoss("dreadreaper", dt),
+    voltwarden: (dt) => updatePulseBoss("voltwarden", dt),
+    gravebloom: (dt) => updatePulseBoss("gravebloom", dt),
+    aegisPrime: (dt) => updatePulseBoss("aegisPrime", dt),
+  };
+
+  const byKind = perBoss((kind): BossBehaviour => ({
+    reset: () => resetBoss(kind),
+    sync: kind === "dragon" ? syncDragonState : () => syncState(kind as StandardKind),
+    update: UPDATES[kind],
+    resolveCollision: () => resolveCollision(
+      bosses[kind],
+      BOSS_DAMAGE_PROFILES[kind].contact,
+      kind === "dragon" ? DRAGON_CONTACT_DAMAGE_COOLDOWN : .75,
+    ),
+  }));
+
   return {
-    resetBoss,
-    resetSpiderBoss,
-    resetFrostclawBoss,
-    resetMagmaliskBoss,
-    resetGloomrootBoss,
-    resetTidewyrmBoss,
-    resetKoiShogunBoss,
-    resetTempestKirinBoss,
-    resetMiremawBoss,
-    resetPrismshellBoss, resetIronhornBoss, resetDreadreaperBoss, resetVoltwardenBoss, resetGravebloomBoss, resetAegisPrimeBoss,
-    syncDragonState,
-    syncSpiderState,
-    syncFrostclawState,
-    syncMagmaliskState,
-    syncGloomrootState,
-    syncTidewyrmState,
-    syncKoiShogunState,
-    syncTempestKirinState,
-    syncMiremawState,
-    syncPrismshellState, syncIronhornState, syncDreadreaperState, syncVoltwardenState, syncGravebloomState, syncAegisPrimeState,
-    updateBoss,
-    updateSpiderBoss,
-    updateFrostclawBoss,
-    updateMagmaliskBoss,
-    updateGloomrootBoss,
-    updateTidewyrmBoss,
-    updateKoiShogunBoss,
-    updateTempestKirinBoss,
-    updateMiremawBoss,
-    updatePrismshellBoss, updateIronhornBoss, updateDreadreaperBoss, updateVoltwardenBoss, updateGravebloomBoss, updateAegisPrimeBoss,
-    resolveDragonCollision: () => resolveCollision(boss, BOSS_DAMAGE_PROFILES.dragon.contact, DRAGON_CONTACT_DAMAGE_COOLDOWN),
-    resolveSpiderCollision: () => resolveCollision(spiderBoss, BOSS_DAMAGE_PROFILES.spider.contact, .75),
-    resolveFrostclawCollision: () => resolveCollision(frostclawBoss, BOSS_DAMAGE_PROFILES.frostclaw.contact, .75),
-    resolveMagmaliskCollision: () => resolveCollision(magmaliskBoss, BOSS_DAMAGE_PROFILES.magmalisk.contact, .75),
-    resolveGloomrootCollision: () => resolveCollision(gloomrootBoss, BOSS_DAMAGE_PROFILES.gloomroot.contact, .75),
-    resolveTidewyrmCollision: () => resolveCollision(tidewyrmBoss, BOSS_DAMAGE_PROFILES.tidewyrm.contact, .75),
-    resolveKoiShogunCollision: () => resolveCollision(koiShogunBoss, BOSS_DAMAGE_PROFILES.koiShogun.contact, .75),
-    resolveTempestKirinCollision: () => resolveCollision(tempestKirinBoss, BOSS_DAMAGE_PROFILES.tempestKirin.contact, .75),
-    resolveMiremawCollision: () => resolveCollision(miremawBoss, BOSS_DAMAGE_PROFILES.miremaw.contact, .75),
-    resolvePrismshellCollision: () => resolveCollision(prismshellBoss, BOSS_DAMAGE_PROFILES.prismshell.contact, .75), resolveIronhornCollision: () => resolveCollision(ironhornBoss, BOSS_DAMAGE_PROFILES.ironhorn.contact, .75), resolveDreadreaperCollision: () => resolveCollision(dreadreaperBoss, BOSS_DAMAGE_PROFILES.dreadreaper.contact, .75), resolveVoltwardenCollision: () => resolveCollision(voltwardenBoss, BOSS_DAMAGE_PROFILES.voltwarden.contact, .75), resolveGravebloomCollision: () => resolveCollision(gravebloomBoss, BOSS_DAMAGE_PROFILES.gravebloom.contact, .75), resolveAegisPrimeCollision: () => resolveCollision(aegisPrimeBoss, BOSS_DAMAGE_PROFILES.aegisPrime.contact, .75),
+    byKind,
+    forMap: (mapId) => {
+      const definition = bossForMap(mapId);
+      return definition ? byKind[definition.kind] : null;
+    },
+    resetAll: () => { for (const kind of BOSS_KINDS) byKind[kind].reset(); },
     applyBossKnockback,
     onPortalCutsceneFinished() {
-      const dragon = queuedDragonResult;
-      queuedDragonResult = null;
-      if (dragon) showDragonResult(dragon);
-      const spider = queuedSpiderResult;
-      queuedSpiderResult = null;
-      if (spider) showSpiderResult(spider);
-      const frostclaw = queuedFrostclawResult;
-      queuedFrostclawResult = null;
-      if (frostclaw) showFrostclawResult(frostclaw);
-      const magmalisk = queuedMagmaliskResult;
-      queuedMagmaliskResult = null;
-      if (magmalisk) showMagmaliskResult(magmalisk);
-      const gloomroot = queuedGloomrootResult;
-      queuedGloomrootResult = null;
-      if (gloomroot) showGloomrootResult(gloomroot);
-      const tidewyrm = queuedTidewyrmResult;
-      queuedTidewyrmResult = null;
-      if (tidewyrm) showTidewyrmResult(tidewyrm);
+      // Rewards held back while a first kill's portal reveal played, in map order.
+      for (const kind of BOSS_KINDS) {
+        const result = encounters[kind].queuedResult;
+        encounters[kind].queuedResult = null;
+        if (!result) continue;
+        if (kind === "dragon") showDragonResult(result);
+        else showResult(kind, result);
+      }
     },
   };
 }
