@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.875": [
+    "Minimap enemies are colored by the stat they give: health green, damage red, regen pink, armor blue",
+    "You show as a white diamond on the minimap, other players as white squares",
+  ],
   "0.874": [
     "Autofarm: pulling a group now stands still and lets it come, instead of running to each enemy",
     "Autofarm: a camp order moves on after a camp's worth of kills, even while it keeps respawning",
@@ -2706,6 +2710,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.875": "2026-10-03",
   "0.874": "2026-10-03",
   "0.873": "2026-10-03",
   "0.872": "2026-10-03",

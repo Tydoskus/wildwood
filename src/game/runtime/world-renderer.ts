@@ -4,7 +4,7 @@ import { drawIonRoads } from "./ion-ground";
 import { drawVerdantRoads } from "./verdant-ground";
 import { drawNeonRoads } from "./neon-ground";
 import { TAU, WORLD } from "../constants";
-import { ENEMY_TYPES } from "../enemies";
+import { ENEMY_TYPES, REWARD_DATA } from "../enemies";
 import { drawPortalMapMarker, portalDestinationColor, portalDestinationTextColor } from "../portal-presentation";
 import type { MapPlayerMarker } from "../../wildstat-coop";
 import type { Camera } from "./camera";
@@ -928,9 +928,14 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     draw.fillStyle = colors.path; for (const path of options.paths) draw.fillRect(innerX + path.x * sx, innerY + path.y * sy, path.w * sx, path.h * sy);
     draw.save();
     draw.globalAlpha = options.getMapId() === options.infernalMapId ? .5 : 1;
-    draw.fillStyle = "#ff5d5d"; for (const enemy of options.enemies) {
-      const marker = enemy.generatedBoss || (enemy.definition ?? ENEMY_TYPES[enemy.type]).elite ? 5 : 3;
-      draw.fillRect(innerX + enemy.x * sx - 1, innerY + enemy.y * sy - 1, marker, marker);
+    // Each enemy in the colour of the stat it pays (the autofarm tiles' colours), outlined so
+    // green health dots still read on a green map. Elites and bosses are larger.
+    for (const enemy of options.enemies) {
+      const definition = enemy.definition ?? ENEMY_TYPES[enemy.type];
+      const marker = enemy.generatedBoss || definition.elite ? 5 : 3;
+      const ex = innerX + enemy.x * sx - 1, ey = innerY + enemy.y * sy - 1;
+      draw.fillStyle = "#0b120e"; draw.fillRect(ex - 1, ey - 1, marker + 2, marker + 2);
+      draw.fillStyle = REWARD_DATA[definition.reward.type]?.color ?? "#ff5d5d"; draw.fillRect(ex, ey, marker, marker);
     }
     draw.restore();
 
@@ -975,9 +980,17 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
       draw.restore();
     }
 
-    draw.fillStyle = "#58e878"; for (const player of remotePlayers) draw.fillRect(innerX + player.x * sx - 2, innerY + player.y * sy - 2, 5, 5);
-    // Self is always drawn from local simulation, even with the eye off or no connection.
-    draw.fillStyle = "#58e878"; draw.fillRect(innerX + options.player.x * sx - 2, innerY + options.player.y * sy - 2, 5, 5);
+    // Players are white, so they never read as an enemy's stat colour: others a small outlined square,
+    // yourself an outlined diamond on top. Self is drawn from local simulation, even with the eye off.
+    for (const player of remotePlayers) {
+      const px = innerX + player.x * sx, py = innerY + player.y * sy;
+      draw.fillStyle = "#0b120e"; draw.fillRect(px - 3, py - 3, 6, 6);
+      draw.fillStyle = "#f4f1e8"; draw.fillRect(px - 2, py - 2, 4, 4);
+    }
+    const selfX = innerX + options.player.x * sx, selfY = innerY + options.player.y * sy;
+    const diamond = (radius: number) => { draw.beginPath(); draw.moveTo(selfX, selfY - radius); draw.lineTo(selfX + radius, selfY); draw.lineTo(selfX, selfY + radius); draw.lineTo(selfX - radius, selfY); draw.closePath(); draw.fill(); };
+    draw.fillStyle = "#0b120e"; diamond(6);
+    draw.fillStyle = "#ffffff"; diamond(4);
     draw.strokeStyle = "rgba(255,255,255,.52)"; draw.lineWidth = 1; draw.strokeRect(innerX + camera.x * sx, innerY + camera.y * sy, (view.width / camera.zoom) * sx, (view.height / camera.zoom) * sy); draw.restore();
     minimapCacheKey = cacheKey;
   }
