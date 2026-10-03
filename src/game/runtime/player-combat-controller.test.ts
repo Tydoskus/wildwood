@@ -290,7 +290,7 @@ describe("player attack timing", () => {
     expect(state.player.combatFacing).toBe(0);
   });
 
-  it("autofarm aims only at the chosen type and leaves bosses out of targeting", () => {
+  it("autofarm aims at the chosen type first, and at the boss only once none of it is in range", () => {
     const state = createCombatHarness();
     state.enemies.length = 0;
     Object.assign(state.player, { x: 500, y: 500, attackRange: 250 });
@@ -303,10 +303,8 @@ describe("player attack timing", () => {
     expect(state.player.combatFacing).toBeCloseTo(Math.PI / 2);
     state.controller.clearPendingThrow();
     state.enemies[1].dead = true;
+    // Other enemies stay ignored, but a boss in range is shot: autofarm used to stand beside it doing nothing.
     state.controller.attackNearest("Bramble");
-    expect(state.player.combatFacing).toBeNull();
-    expect(state.player.throwClock).toBe(0);
-    state.controller.attackNearest();
     expect(state.player.combatFacing).toBeCloseTo(Math.atan2(state.bosses.dragon.y + (state.bosses.dragon.hitboxOffsetY ?? 0) - state.player.y, state.bosses.dragon.x - state.player.x));
   });
 

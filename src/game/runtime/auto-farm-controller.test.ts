@@ -525,7 +525,7 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
   it('fights the boss once the build is ready, and comes back to it later after dying there', () => {
     let ready = false;
     const s = planned({
-      evaluate: () => ({ power: 1, fightSeconds: ready ? 30 : 400, hitShare: .1 }),
+      evaluate: () => ({ power: 1, fightSeconds: ready ? 30 : 400, hitShare: .1, fightDamageShare: .1 }),
       mapBoss: () => ({ x: 2500, y: 500, r: 80 }),
     });
     s.add('Bramble', 900, 500);
@@ -588,7 +588,7 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
   });
 
   it('in Reflect Only walks into the enemy instead of shooting from range, and leaves the boss alone', () => {
-    const s = planned({ reflectOnly: () => true, evaluate: () => ({ power: 1, fightSeconds: 1, hitShare: 0 }), mapBoss: () => ({ x: 3000, y: 500, r: 80 }) });
+    const s = planned({ reflectOnly: () => true, evaluate: () => ({ power: 1, fightSeconds: 1, hitShare: 0, fightDamageShare: 0 }), mapBoss: () => ({ x: 3000, y: 500, r: 80 }) });
     const mob = s.add('Bramble', 900, 500);
     s.farm.setAdvance(true);
     s.farm.start([health]);
@@ -603,7 +603,7 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
       [{ x: 2500, y: 500, r: 150, ry: 90, isBoss: true, hitboxOffsetY: 0 }, 200 + 90],
       [{ x: 2500, y: 500, r: 60 }, 200],
     ] as const) {
-      const s = planned({ evaluate: () => ({ power: 1, fightSeconds: 10, hitShare: .1 }), mapBoss: () => ({ ...boss }) });
+      const s = planned({ evaluate: () => ({ power: 1, fightSeconds: 10, hitShare: .1, fightDamageShare: .1 }), mapBoss: () => ({ ...boss }) });
       s.add('Bramble', 600, 900);
       s.farm.setAdvance(true);
       s.farm.start([]);
@@ -611,5 +611,46 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
       expect(s.farm.state().phase).toBe('boss');
       expect(Math.hypot(boss.x - s.player.x, boss.y - s.player.y)).toBeLessThanOrEqual(reachFromCentre);
     }
+  });
+
+  it("farms a pipped camp for that many camps' worth before moving along the route", () => {
+    const s = planned();
+    const first = s.add('Bramble', 900, 500);
+    s.add('Needle', 600, 900);
+    s.farm.start([`${health}*2`, speed]);
+    s.tick();
+    const respawn = () => { first.dead = true; s.tick(); first.dead = false; first.hp = first.maxHp; s.tick(); };
+    respawn();
+    expect(s.farm.state().selected).toBe(health);
+    respawn();
+    expect(s.farm.state().selected).toBe(speed);
+    expect(s.farm.state().plan).toEqual([`${health}*2`, speed]);
+  });
+
+  it('walks back a map after repeated defeats instead of stopping', () => {
+    const s = planned({ previousPortal: () => ({ x: 200, y: 500, destination: 'tutorial_forest' }) });
+    s.add('Bramble', 900, 500);
+    s.farm.start([health]);
+    s.tick();
+    for (let death = 0; death < AUTO_FARM_DEFEAT_LIMIT; death++) s.farm.defeated();
+    expect(s.farm.state().active).toBe(true);
+    expect(s.tick().x).toBeLessThan(0);
+    expect(s.farm.state()).toMatchObject({ phase: 'portal', status: 'Moving back a map' });
+    s.farm.travelStarted();
+    expect(s.resumeStore.read()).toMatchObject({ map: 'tutorial_forest' });
+    // Without a map behind it, it stops as before.
+    const first = planned();
+    first.add('Bramble', 900, 500); first.farm.start([health]); first.tick();
+    for (let death = 0; death < AUTO_FARM_DEFEAT_LIMIT; death++) first.farm.defeated();
+    expect(first.farm.state().active).toBe(false);
+  });
+
+  it('keeps Auto off a camp that would kill it', () => {
+    const s = planned({ campDanger: (group: string) => group === health ? 2 : .2 });
+    s.add('Bramble', 900, 500);
+    s.add('Needle', 600, 900);
+    s.farm.start([]);
+    s.tick();
+    expect(s.farm.state().selected).toBe(speed);
   });
 });

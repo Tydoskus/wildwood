@@ -148,6 +148,8 @@
 }
 .farm-enemy-copy { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .farm-enemy-copy strong { overflow: hidden; font-size: 14px; white-space: nowrap; text-overflow: ellipsis; }
+.farm-enemy-title { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.farm-pips { flex: none; color: var(--farm-stat-color, var(--green)); font-size: 14px; letter-spacing: 3px; line-height: 1; }
 .farm-reward { color: var(--farm-stat-color); font-size: 12px; }
 .farm-check {
   display: grid;

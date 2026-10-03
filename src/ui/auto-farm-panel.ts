@@ -1,14 +1,16 @@
 import { ENEMY_TYPES, REWARD_DATA, rewardAmountLabel, rewardStatLabel, type EnemyDefinition } from '../game/enemies';
 import type { AutoFarmController } from '../game/runtime/auto-farm-controller';
 import { AUTO_FARM_PRIORITIES } from '../game/runtime/auto-farm-priority';
+import { MAX_ROUTE_WEIGHT, routeEntry, routeEntryText } from '../game/runtime/auto-farm-plan';
 
 const farmIcon = '<img class="farm-swords-icon" src="assets/wildstat/icons/Icon_AutoFarm.svg" alt="" aria-hidden="true">';
 const STAT_MARKS: Record<string, string> = { damage: '⚔', health: '♥', speed: '↗', armor: '◇', regen: '+' };
 
 /**
  * The autofarm window. One list does the planning: tap camps in the order to
- * farm them (tap again to drop one); with none picked, Auto chooses. Two
- * switches and the target priority sit under it. The floating button shows
+ * farm them; tapping a picked camp again adds a pip (more time there each
+ * lap), up to three, and once more drops it. With none picked, Auto chooses.
+ * Two switches and the target priority sit under it. The floating button shows
  * what the farm is doing at a glance and stops it with a tap.
  */
 export function createAutoFarmPanel(options: {
@@ -33,11 +35,11 @@ export function createAutoFarmPanel(options: {
   sheet.setAttribute('aria-labelledby', 'autoFarmTitle');
   sheet.innerHTML = `<header class="farm-header"><h2 id="autoFarmTitle" class="window-banner"><span>Auto Farm</span></h2></header>`
     + `<p class="farm-map"></p>`
-    + `<div class="farm-plan-head"><span class="farm-plan-title">Camps</span><span class="farm-plan-hint">Tap in order</span>`
+    + `<div class="farm-plan-head"><span class="farm-plan-title">Camps</span><span class="farm-plan-hint">Tap in order · tap again for more time</span>`
     + `<button type="button" class="farm-clear" hidden>Clear</button></div>`
     + `<div class="farm-choices" role="group" aria-label="Camps to farm, in order">`
     + `<button type="button" class="farm-enemy farm-auto" aria-pressed="true"><span class="farm-enemy-mark" aria-hidden="true">✦</span>`
-    + `<span class="farm-enemy-copy"><strong>Auto</strong><span class="farm-reward">Picks the best camp</span></span><span class="farm-check" aria-hidden="true">✓</span></button>`
+    + `<span class="farm-enemy-copy"><strong>Auto</strong><span class="farm-reward">Safest camp that gets you strongest</span></span><span class="farm-check" aria-hidden="true">✓</span></button>`
     + `<div class="farm-camps"></div></div>`
     + `<div class="farm-switches">`
     + `<button type="button" class="farm-switch" role="switch" data-switch="advance" aria-checked="false"><span class="farm-switch-icon" aria-hidden="true">♛</span><span>Boss &amp; next map<small class="farm-boss-status"></small></span><span class="farm-knob" aria-hidden="true"></span></button>`
@@ -58,8 +60,9 @@ export function createAutoFarmPanel(options: {
   const clearButton = element<HTMLButtonElement>('.farm-clear');
   const startButton = element<HTMLButtonElement>('.farm-start');
   const selection = element('.farm-selection');
-  /** The camps picked in this window, in order; empty is Auto. */
+  /** The camps picked in this window, in order, as route entries (key, with pips); empty is Auto. */
   let draft: string[] = [];
+  const draftKeys = () => draft.map(entry => routeEntry(entry).key);
   let priorFocus: HTMLElement | null = null;
   let choiceKey = '';
 
@@ -68,9 +71,14 @@ export function createAutoFarmPanel(options: {
   const pullSwitch = element<HTMLButtonElement>('[data-switch="pull"]');
   function updateSelection() {
     for (const button of list.querySelectorAll<HTMLButtonElement>('[data-enemy]')) {
-      const order = draft.indexOf(button.dataset.enemy!);
+      const order = draftKeys().indexOf(button.dataset.enemy!);
+      const weight = order >= 0 ? routeEntry(draft[order]).weight : 0;
       button.setAttribute('aria-pressed', String(order >= 0));
       button.querySelector('.farm-check')!.textContent = order >= 0 ? String(order + 1) : '';
+      // A pip per share of the lap, beside the camp's name.
+      const pips = button.querySelector<HTMLElement>('.farm-pips')!;
+      pips.textContent = weight > 1 ? '●'.repeat(weight) : '';
+      button.setAttribute('aria-label', `${button.querySelector('strong')!.textContent}${order >= 0 ? `, ${order + 1} in order${weight > 1 ? `, ${weight} shares` : ''}` : ''}`);
     }
     autoButton.setAttribute('aria-pressed', String(!draft.length));
     clearButton.hidden = draft.length < 2;
@@ -104,7 +112,7 @@ export function createAutoFarmPanel(options: {
       element('.farm-map').textContent = options.mapName();
       const previousType = (document.activeElement as HTMLElement | null)?.dataset?.enemy;
       list.replaceChildren();
-      draft = draft.filter(entry => choices.some(choice => choice.key === entry));
+      draft = draft.filter(entry => choices.some(choice => choice.key === routeEntry(entry).key));
       for (const choice of choices) {
         const reward = choice.reward ?? ENEMY_TYPES[choice.type].reward;
         const button = document.createElement('button');
@@ -112,7 +120,7 @@ export function createAutoFarmPanel(options: {
         button.className = 'farm-enemy';
         button.dataset.enemy = choice.key;
         button.style.setProperty('--farm-stat-color', REWARD_DATA[reward.type].color);
-        button.innerHTML = '<span class="farm-enemy-mark" aria-hidden="true"></span><span class="farm-enemy-copy"><strong></strong><span class="farm-reward"></span></span><span class="farm-check" aria-hidden="true"></span>';
+        button.innerHTML = '<span class="farm-enemy-mark" aria-hidden="true"></span><span class="farm-enemy-copy"><span class="farm-enemy-title"><strong></strong><span class="farm-pips" aria-hidden="true"></span></span><span class="farm-reward"></span></span><span class="farm-check" aria-hidden="true"></span>';
         // The stat is the choice; the amount and how many pay it are the detail.
         button.querySelector('strong')!.textContent = rewardStatLabel(reward);
         button.querySelector('.farm-enemy-mark')!.textContent = STAT_MARKS[reward.type];
@@ -123,7 +131,11 @@ export function createAutoFarmPanel(options: {
         button.querySelector('.farm-reward')!.textContent = `${amount} · ${choice.total} ${choice.total === 1 ? 'enemy' : 'enemies'}`;
         button.title = choice.kinds.join(', ');
         button.addEventListener('click', () => {
-          draft = draft.includes(choice.key) ? draft.filter(entry => entry !== choice.key) : [...draft, choice.key];
+          const at = draftKeys().indexOf(choice.key);
+          const weight = at >= 0 ? routeEntry(draft[at]).weight : 0;
+          if (at < 0) draft = [...draft, choice.key];
+          else if (weight >= MAX_ROUTE_WEIGHT) draft = draft.filter((_entry, index) => index !== at);
+          else draft = draft.map((entry, index) => index === at ? routeEntryText(choice.key, weight + 1) : entry);
           updateSelection();
         });
         list.append(button);
@@ -170,7 +182,7 @@ export function createAutoFarmPanel(options: {
     if (!state.active) return '';
     if (state.phase === 'boss') return 'Boss';
     if (state.phase === 'portal') return 'Next map';
-    if (state.plan.length > 1) return `${state.plan.indexOf(state.selected ?? '') + 1}/${state.plan.length}`;
+    if (state.plan.length > 1) return `${state.plan.map(entry => routeEntry(entry).key).indexOf(state.selected ?? '') + 1}/${state.plan.length}`;
     return state.plan.length ? '' : 'Auto';
   }
 

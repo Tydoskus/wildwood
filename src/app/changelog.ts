@@ -1,4 +1,12 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.878": [
+    "Autofarm shoots the boss when nothing it's farming is in range (it only did while you moved)",
+    "Autofarm only fights the boss once it can survive the whole fight, not just one hit",
+    "Auto avoids camps that would kill you, and only moves on when the next map has a camp you can survive",
+    "Autofarm counts Reflect when judging fights",
+    "After repeated deaths, autofarm moves back a map instead of turning off",
+    "Camp order pips: tap a picked camp again to spend more time there each lap (up to 3)",
+  ],
   "0.877": [
     "Faster start: the game downloads while you're on the sign-in screen",
     "Invisible players can no longer be found on the map by other players",
@@ -2723,6 +2731,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.878": "2026-10-03",
   "0.877": "2026-10-03",
   "0.876": "2026-10-03",
   "0.875": "2026-10-03",

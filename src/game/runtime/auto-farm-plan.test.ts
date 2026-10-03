@@ -1,22 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { AUTO_SWITCH_MARGIN, bestFarmCandidate, bossReady, decodeFarmPlan, encodeFarmPlan, nextRouteKey, type FarmEvaluation, type FarmReward } from './auto-farm-plan';
+import { AUTO_SWITCH_MARGIN, bestFarmCandidate, bossReady, decodeFarmPlan, encodeFarmPlan, nextRouteKey, routeEntry, routeEntryText, type FarmEvaluation, type FarmReward } from './auto-farm-plan';
 
-const build = (power: number, fightSeconds: number | null = null, hitShare: number | null = null): FarmEvaluation => ({ power, fightSeconds, hitShare });
+const build = (power: number, fightSeconds: number | null = null, fightDamageShare: number | null = null): FarmEvaluation =>
+  ({ power, fightSeconds, hitShare: fightDamageShare, fightDamageShare });
 
 describe('autofarm planning', () => {
-  it("calls the boss ready on the simulator's gate: a fight of 90 s or less, its hardest hit at most 30% of health", () => {
-    expect(bossReady(build(1, 90, .3))).toBe(true);
+  it("calls the boss ready when the fight takes 90 s or less and costs at most 60% of health over it", () => {
+    expect(bossReady(build(1, 90, .6))).toBe(true);
     expect(bossReady(build(1, 91, .1))).toBe(false);
-    expect(bossReady(build(1, 30, .31))).toBe(false);
+    expect(bossReady(build(1, 30, .61))).toBe(false);
     expect(bossReady(build(1))).toBe(false);
   });
 
-  it('farms health while the boss hits too hard, then whatever shortens the fight, then power', () => {
+  it('farms whatever closes the larger gap to the boss: health while it would kill, damage while the fight is too long', () => {
     const candidates = [
       { key: 'stat:health', alive: 3, reward: { type: 'health', amount: 10 } as FarmReward, secondsPerKill: 2 },
       { key: 'stat:damage', alive: 3, reward: { type: 'damage', amount: 1 } as FarmReward, secondsPerKill: 2 },
     ];
-    const hardHits = (reward?: FarmReward) => build(100 + (reward?.amount ?? 0) * 5, 200 - (reward?.type === 'damage' ? 20 : 0), .5 - (reward?.type === 'health' ? .05 : 0));
+    // The fight would cost three times the player's health: health closes that gap, damage only the fight's length.
+    const hardHits = (reward?: FarmReward) => build(100 + (reward?.amount ?? 0) * 5, 100 - (reward?.type === 'damage' ? 5 : 0), 3 - (reward?.type === 'health' ? .5 : 0));
     expect(bestFarmCandidate(candidates, hardHits, true)).toBe('stat:health');
     const survivable = (reward?: FarmReward) => build(100 + (reward?.amount ?? 0) * 5, 200 - (reward?.type === 'damage' ? 20 : 0), .2);
     expect(bestFarmCandidate(candidates, survivable, true)).toBe('stat:damage');
@@ -34,6 +36,24 @@ describe('autofarm planning', () => {
     expect(bestFarmCandidate(candidates, evaluate, false, 'stat:health')).toBe('stat:health');
     expect(bestFarmCandidate(candidates, evaluate, false, null)).toBe('stat:armor');
     expect(bestFarmCandidate([{ ...candidates[0], alive: 0 }, candidates[1]], evaluate, false, 'stat:health')).toBe('stat:armor');
+  });
+
+  it('never picks a camp it would die in while another is safe, and the least dangerous when none is', () => {
+    const evaluate = (reward?: FarmReward) => build(reward?.type === 'armor' ? 100 : 1);
+    const candidates = [
+      { key: 'stat:armor', alive: 3, reward: { type: 'armor', amount: 1 } as FarmReward, secondsPerKill: 1, danger: 1.4 },
+      { key: 'stat:health', alive: 3, reward: { type: 'health', amount: 1 } as FarmReward, secondsPerKill: 1, danger: .3 },
+    ];
+    expect(bestFarmCandidate(candidates, evaluate, false)).toBe('stat:health');
+    expect(bestFarmCandidate(candidates.map(candidate => ({ ...candidate, danger: candidate.danger + 1 })), evaluate, false)).toBe('stat:health');
+  });
+
+  it('reads and writes route pips, three at most', () => {
+    expect(routeEntry('stat:damage')).toEqual({ key: 'stat:damage', weight: 1 });
+    expect(routeEntry('stat:damage*2')).toEqual({ key: 'stat:damage', weight: 2 });
+    expect(routeEntry('stat:damage*9').weight).toBe(3);
+    expect(routeEntryText('stat:damage', 1)).toBe('stat:damage');
+    expect(routeEntryText('stat:damage', 2)).toBe('stat:damage*2');
   });
 
   it('walks a route in order, staying while a camp has enemies, and loops', () => {

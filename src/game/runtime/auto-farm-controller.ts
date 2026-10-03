@@ -11,14 +11,16 @@ import { rangedEnemyHoldBand } from './ranged-enemy-range';
 import { compareAutoFarmTargets, enemyRewardStat, farmGroupMatches, farmStatGroup, readAutoFarmPriority, readAutoFarmPull, writeAutoFarmPriority, writeAutoFarmPull, type AutoFarmGroup, type AutoFarmPriority } from './auto-farm-priority';
 import type { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 import {
-  AUTO_REPLAN_SECONDS, BOSS_READY_HIT_SHARE, BOSS_RETRY_MS, bestFarmCandidate, bossReady, decodeFarmPlan, encodeFarmPlan, nextRouteKey, readFarmAdvance, readFarmRoute,
-  writeFarmAdvance, writeFarmRoute, type FarmEvaluation, type FarmReward,
+  AUTO_REPLAN_SECONDS, BOSS_READY_DAMAGE_SHARE, BOSS_READY_FIGHT_SECONDS, BOSS_RETRY_MS, bestFarmCandidate, bossReady, decodeFarmPlan, encodeFarmPlan, nextRouteKey,
+  readFarmAdvance, readFarmRoute, routeEntry, routeEntryText, writeFarmAdvance, writeFarmRoute, type FarmEvaluation, type FarmReward,
 } from './auto-farm-plan';
 
 export type AutoFarmController = ReturnType<typeof createAutoFarmController>;
 const idle = (): Movement => ({ x: 0, y: 0, source: 'none' });
 export const AUTO_FARM_DEFEAT_LIMIT = 5;
 export const AUTO_FARM_DEFEAT_WINDOW_MS = 180_000;
+/** After walking back a map from repeated defeats, how long before it may go forward again. */
+export const RETREAT_HOLD_MS = 20 * 60_000;
 /** Clearance kept outside a ranged enemy's back-away distance when standing to shoot it. */
 export const AUTO_FARM_RANGED_STANDOFF_MARGIN = 10;
 /** How far inside its full reach autofarm stops: enough that a target at the stop point is still in range. */
@@ -89,15 +91,23 @@ export function createAutoFarmController(options: {
   reflectOnly?: () => boolean;
   /** The unlocked portal forward to the next map, at its trigger point. */
   nextPortal?: () => (Position & { destination: string }) | null;
+  /** The portal back to the previous map, for a farm that keeps dying here. */
+  previousPortal?: () => (Position & { destination: string }) | null;
+  /** How close fighting a stat group comes to killing the player: above .75, Auto keeps away. */
+  campDanger?: (group: AutoFarmGroup) => number;
 }) {
   let priority: AutoFarmPriority = readAutoFarmPriority(options.priorityStorage);
   let pullAll = readAutoFarmPull(options.priorityStorage);
   let advance = readFarmAdvance(options.priorityStorage);
-  /** The player's camps in order; empty is Auto. */
+  /** The player's route entries in order (camp keys, with weights); empty is Auto. */
   let plan: string[] = [];
-  /** What it is doing now: a camp, the boss, or walking to the next map. */
+  const planKeys = () => plan.map(entry => routeEntry(entry).key);
+  /** What it is doing now: a camp, the boss, or walking to another map. */
   let phase: 'farm' | 'boss' | 'portal' = 'farm';
   let travellingTo: string | null = null;
+  /** Walking back a map after too many defeats, and the map it may not return to before `until`. */
+  let retreating = false;
+  let forwardBlocked: { mapId: string; until: number } | null = null;
   let bossRetryAt = 0;
   let planClock = 0;
   /** Kills of the current camp since it was chosen: a route moves on after a camp's worth. */
@@ -181,12 +191,20 @@ export function createAutoFarmController(options: {
     if (phase === 'boss') { bossRetryAt = at + BOSS_RETRY_MS; phase = 'farm'; }
     defeats = defeats.filter(previous => at - previous < AUTO_FARM_DEFEAT_WINDOW_MS);
     defeats.push(at);
-    if (defeats.length >= AUTO_FARM_DEFEAT_LIMIT) { defeats = []; stop(`Autofarm stopped after ${AUTO_FARM_DEFEAT_LIMIT} defeats in a row`); }
+    if (defeats.length < AUTO_FARM_DEFEAT_LIMIT) return;
+    defeats = [];
+    // Too strong here: farm the map before it for a while rather than stop (players woke to a dead farm).
+    const back = options.previousPortal?.();
+    if (!back) { stop(`Autofarm stopped after ${AUTO_FARM_DEFEAT_LIMIT} defeats in a row`); return; }
+    retreating = true;
+    forwardBlocked = { mapId: options.mapId(), until: at + RETREAT_HOLD_MS };
+    status = 'Too strong here · moving back a map';
   }
 
   function stop(reason = 'Autofarm stopped') {
     pendingResume = null;
     travellingTo = null;
+    retreating = false;
     phase = 'farm';
     options.resumeStore?.clear();
     active = false;
@@ -252,11 +270,15 @@ export function createAutoFarmController(options: {
     const all = choices();
     if (plan.length) {
       // A camp with respawns is never empty for long, so the route moves on
-      // once it has taken a camp's worth of kills here, or found it empty.
+      // once it has taken a camp's worth of kills here for each of its pips,
+      // or found it empty.
       const current = all.find(entry => entry.key === selected);
-      const done = current && groupKills >= current.total;
-      const alive = (key: string) => key === selected && done ? 0 : all.find(entry => entry.key === key)?.alive ?? 0;
-      const key = nextRouteKey(plan, alive, selected);
+      const weight = routeEntry(plan.find(entry => routeEntry(entry).key === selected) ?? '').weight;
+      const done = current && groupKills >= current.total * weight;
+      // A pipped camp waits out its respawn until it has had its share; one pip moves on when it is empty.
+      const alive = (key: string) => key !== selected ? all.find(entry => entry.key === key)?.alive ?? 0
+        : done ? 0 : Math.max(weight > 1 ? 1 : 0, current?.alive ?? 0);
+      const key = nextRouteKey(planKeys(), alive, selected);
       if (key) select(key);
       return;
     }
@@ -267,21 +289,33 @@ export function createAutoFarmController(options: {
     planClock = AUTO_REPLAN_SECONDS;
     const dps = Math.max(1e-9, options.farmDps?.() ?? player.damage);
     const speed = Math.max(1, options.speed());
-    const evaluate = options.evaluate ?? (() => ({ power: 0, fightSeconds: null, hitShare: null }));
+    const evaluate = options.evaluate ?? (() => ({ power: 0, fightSeconds: null, hitShare: null, fightDamageShare: null }));
     const key = bestFarmCandidate(all.map(entry => ({
       key: entry.key, alive: entry.alive,
       reward: entry.reward ?? ENEMY_TYPES[entry.type].reward,
       // The walk is paid in full: a camp across the map has to be worth it.
       secondsPerKill: entry.hp / dps + (entry.key === selected || !Number.isFinite(entry.nearest) ? 0 : entry.nearest / speed),
+      danger: options.campDanger?.(entry.key),
     })), evaluate, advance && Boolean(options.mapBoss?.()), selected);
     if (key) select(key);
   }
 
   /** Boss, next map or a camp. Moving on needs the toggle; the boss also needs the build to be ready for it. */
+  /** The portal it is walking to: back a map after repeated defeats, otherwise forward unless that map just beat it. */
+  function exitPortal() {
+    if (retreating) return options.previousPortal?.() ?? null;
+    const portal = options.nextPortal?.();
+    return portal && !(forwardBlocked && forwardBlocked.mapId === portal.destination && now() < forwardBlocked.until) ? portal : null;
+  }
   function choosePhase(dt: number) {
+    if (retreating) {
+      const back = exitPortal();
+      if (back) { phase = 'portal'; travellingTo = back.destination; return; }
+      retreating = false;
+    }
     // Reflect Only leaves the boss to the player: the fight is won by taking its hits, which readiness does not model.
     if (advance && !options.reflectOnly?.()) {
-      const portal = options.nextPortal?.();
+      const portal = exitPortal();
       if (portal) { phase = 'portal'; travellingTo = portal.destination; return; }
       const boss = options.mapBoss?.();
       const evaluation = options.evaluate?.();
@@ -303,9 +337,12 @@ export function createAutoFarmController(options: {
     }
     const reason = options.unavailable();
     if (reason) { stop(reason); return false; }
-    const keys = [...new Set((typeof next === 'string' ? decodeFarmPlan(next) : [...next]).map(normalizeKey))];
+    const entries = (typeof next === 'string' ? decodeFarmPlan(next) : [...next]).map(routeEntry)
+      .map(entry => ({ ...entry, key: normalizeKey(entry.key) }));
+    const keys = [...new Set(entries.map(entry => entry.key))];
     const available = new Set<string>(choices().map(choice => choice.key));
-    const kept = keys.filter(key => available.has(key));
+    const kept = keys.filter(key => available.has(key))
+      .map(key => routeEntryText(key, Math.max(...entries.filter(entry => entry.key === key).map(entry => entry.weight))));
     if (keys.length && !kept.length) { stop('No matching enemies in this map'); return false; }
     if (!available.size) { stop('No matching enemies in this map'); return false; }
     plan = kept;
@@ -340,10 +377,11 @@ export function createAutoFarmController(options: {
   function travelStarted() {
     if (!active || phase !== 'portal' || !travellingTo || !startedIdentity) { stop('Map changed · choose an enemy'); return; }
     const intent = { identity: startedIdentity, map: travellingTo, choice: encodeFarmPlan(readFarmRoute(travellingTo, options.priorityStorage)) };
-    stop('Moving to the next map');
+    const label = retreating ? 'Moving back a map' : 'Moving to the next map';
+    stop(label);
     pendingResume = intent;
     options.resumeStore?.write(intent);
-    status = 'Moving to the next map';
+    status = label;
   }
 
   function movement(manual: Movement, dt: number): Movement {
@@ -368,7 +406,7 @@ export function createAutoFarmController(options: {
     }
     choosePhase(dt);
     const boss = phase === 'boss' ? options.mapBoss?.() ?? null : null;
-    const portal = phase === 'portal' ? options.nextPortal?.() ?? null : null;
+    const portal = phase === 'portal' ? exitPortal() : null;
     if (phase !== 'farm') target = null;
     else if (!target || !validEnemy(target) || !enemies.includes(target)) {
       target = null;
@@ -461,7 +499,7 @@ export function createAutoFarmController(options: {
     while (route.length && distance(route[0]) < 2) route.shift();
     const waypoint = route[0];
     if (!waypoint) { status = 'Waiting for a clear route'; return idle(); }
-    status = threat ? 'Moving to attacker' : portal ? 'Heading to the next map' : boss ? 'Moving to the boss' : target ? 'Moving to enemy' : 'Moving to spawn';
+    status = threat ? 'Moving to attacker' : portal ? (retreating ? 'Moving back a map' : 'Heading to the next map') : boss ? 'Moving to the boss' : target ? 'Moving to enemy' : 'Moving to spawn';
     const length = distance(waypoint);
     const magnitude = Math.min(1, length / Math.max(1, options.speed() * dt));
     return { x: (waypoint.x - player.x) / length * magnitude, y: (waypoint.y - player.y) / length * magnitude, source: 'steer' };
@@ -481,13 +519,15 @@ export function createAutoFarmController(options: {
     /** Why it will or won't take on the boss, in a word or two for the panel. */
     bossStatus() {
       if (options.reflectOnly?.()) return 'Off in Reflect Only';
-      if (options.nextPortal?.()) return 'Next map open';
+      if (retreating) return 'Moving back a map';
+      if (exitPortal()) return 'Next map open';
       if (options.nextMapTooHard?.()) return 'Next map too hard';
       const boss = options.mapBoss?.();
       const evaluation = options.evaluate?.();
       if (!boss || !evaluation || evaluation.fightSeconds === null) return '';
       if (bossReady(evaluation)) return now() < bossRetryAt ? 'Retrying soon' : 'Ready';
-      return (evaluation.hitShare ?? 0) > BOSS_READY_HIT_SHARE ? 'Needs defense' : 'Needs damage';
+      // Whichever limit is further off: the fight is too long, or it hits too hard over it.
+      return (evaluation.fightDamageShare ?? 0) / BOSS_READY_DAMAGE_SHARE > (evaluation.fightSeconds ?? 0) / BOSS_READY_FIGHT_SECONDS ? 'Needs defense' : 'Needs damage';
     },
     /** The route saved for this map, for the panel to show. */
     savedPlan: () => readFarmRoute(options.mapId(), options.priorityStorage),

@@ -387,8 +387,8 @@ export function createPlayerCombatController(options: {
 
   function targetIsEligible(target: EnemyState | BossTarget, enemyType: AutoFarmGroup | null, campName: string | null, mapBoss: BossTarget | null) {
     if (target.dead) return false;
-    if (target.isBoss) return !enemyType && target === mapBoss &&
-      targetDistance(target) < attackRange();
+    // Farming, the boss is shot only while nothing it farms is in range (findAttackTarget looks again each search).
+    if (target.isBoss) return target === mapBoss && targetDistance(target) < attackRange();
     if (targetDistance(target) >= attackRange()) return false;
     if (!enemyType) return true;
     return !target.generatedBoss && !target.remoteCombatGhost &&
@@ -419,7 +419,10 @@ export function createPlayerCombatController(options: {
         best = distance; target = enemy; defending = threat;
       }
     }
-    if (!enemyType && mapBoss && !mapBoss.dead) {
+    // While farming, a boss in range is fair game once nothing of the farmed
+    // group (or attacking) is: it used to be skipped, so autofarm stood beside
+    // the boss and shot only while the player steered by hand.
+    if ((!enemyType || !target) && mapBoss && !mapBoss.dead) {
       const edgeDistance = Math.max(0, Math.hypot(player.x - mapBoss.x, player.y - mapBoss.y) - mapBoss.r);
       if (mapBoss === retainedTarget && edgeDistance < attackRange()) retainedDistance = edgeDistance * edgeDistance;
       if (edgeDistance * edgeDistance < best) { best = edgeDistance * edgeDistance; target = mapBoss; }
