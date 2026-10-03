@@ -9,6 +9,7 @@ import { offlineEnemyRoster, simulateOfflineFarming, type OfflineEnemy } from '.
 import { worldReflectDamage } from '../../../shared/prestige-perks';
 import { farmStatGroup, type AutoFarmGroup } from './auto-farm-priority';
 import type { RewardType } from '../enemies';
+import { createDamageMeter } from './damage-meter';
 
 /** A boss's hits: the hardest one, the average one, and how often one lands on a player who stands and fights. */
 export type FarmBoss = { hp: number; strongestHit: number; averageHit?: number; regenFraction?: number; mapId: string };
@@ -22,6 +23,9 @@ export const BOSS_ATTACK_SECONDS = 3;
  * two of its camp it wakes. A pulled group comes all at once.
  */
 export const UNPULLED_ATTACKERS = 3;
+/** How far measured damage may move the estimate: a short or odd sample cannot swing it further. */
+export const CALIBRATION_MIN = .5;
+export const CALIBRATION_MAX = 20;
 
 /** One kind of enemy in a stat group, as a fight sees it. */
 export type GroupEnemy = Pick<OfflineEnemy, 'hp' | 'damage' | 'attacksPerSecond' | 'population'>;
@@ -94,6 +98,10 @@ export function createFarmEvaluator(deps: {
   reflectOnly?: () => boolean;
   /** Second Wind: share of max health healed per regular kill. */
   healPerKill?: () => number;
+  /** Boss Slayer: extra damage on bosses, as a share (0.2 is +20%). */
+  bossSlayer?: () => number;
+  /** The weapon damage per second actually landing (damage-meter.ts), or null before there is enough to go on. */
+  measuredDps?: () => number | null;
 }) {
   function build(reward?: FarmReward) {
     const stats = { ...deps.base() };
@@ -113,7 +121,18 @@ export function createFarmEvaluator(deps: {
     const chance = Math.min(1, Math.max(0, deps.criticalChance()));
     return stats.damage * (1 + chance * (Math.max(1, deps.criticalMultiplier()) - 1));
   };
-  const weaponDps = (stats: PlayerPowerStats) => deps.reflectOnly?.() ? 0 : averageHit(stats) / interval(stats);
+  /**
+   * Measured over modelled damage for the live build: what multishot, Double
+   * Strike, bow skills and the rest add on top of damage and crits. Applied to
+   * every estimate, so a reward's worth scales with what the build really does.
+   */
+  const calibration = () => {
+    const measured = deps.measuredDps?.();
+    const modelled = averageHit(build()) / interval(build());
+    return measured && modelled > 0 ? Math.min(CALIBRATION_MAX, Math.max(CALIBRATION_MIN, measured / modelled)) : 1;
+  };
+  const realHit = (stats: PlayerPowerStats, scale: number) => averageHit(stats) * scale;
+  const weaponDps = (stats: PlayerPowerStats, scale = calibration()) => deps.reflectOnly?.() ? 0 : realHit(stats, scale) / interval(stats);
   const fighter = (stats: PlayerPowerStats): GroupFighter => ({ maxHp: stats.maxHp, armor: stats.armor, regen: stats.regen, dps: weaponDps(stats),
     reflectChance: Math.max(0, deps.reflectChance?.() ?? 0), reflectOnly: Boolean(deps.reflectOnly?.()), healPerKill: Math.max(0, deps.healPerKill?.() ?? 0) });
   return {
@@ -125,7 +144,8 @@ export function createFarmEvaluator(deps: {
       // Reflect fights the boss too: each of its hits, some of the time, comes straight back.
       const averageBossHit = boss.averageHit ?? boss.strongestHit;
       const reflectDps = Math.max(0, deps.reflectChance?.() ?? 0) * worldReflectDamage(averageBossHit, stats.maxHp, Boolean(deps.reflectOnly?.())) / BOSS_ATTACK_SECONDS;
-      const hit = (deps.reflectOnly?.() ? 0 : averageHit(stats)) + reflectDps * step;
+      const bossHit = realHit(stats, calibration()) * (1 + Math.max(0, deps.bossSlayer?.() ?? 0));
+      const hit = (deps.reflectOnly?.() ? 0 : bossHit) + reflectDps * step;
       const hits = hit > 0 ? bossHitsToDefeat(boss.hp, hit, step, boss.regenFraction ?? bossRegenFractionFor(boss.mapId)) : Number.POSITIVE_INFINITY;
       const fightSeconds = Number.isFinite(hits) ? hits * step : Number.POSITIVE_INFINITY;
       // Every hit it lands over the whole fight, less regeneration: one hit at
@@ -142,11 +162,13 @@ export function createFarmEvaluator(deps: {
     },
     /** The live build's effective stats. */
     stats: () => build(),
-    /** Damage per second against a regular enemy, crits included. */
+    /** Damage per second against a regular enemy, as the player really deals it. */
     dps() {
       const stats = build();
-      return averageHit(stats) / interval(stats);
+      return realHit(stats, calibration()) / interval(stats);
     },
+    /** How much more (or less) the build really deals than damage and crits predict. */
+    calibration,
     /** How close a fight with this group comes to killing the live build: see groupFightDanger. */
     danger(group: readonly GroupEnemy[], pulled: boolean) {
       const population = group.reduce((sum, entry) => sum + entry.population, 0);
@@ -182,8 +204,10 @@ export function createAutoFarmProgress(deps: Omit<Parameters<typeof createFarmEv
   reflectOnly: () => boolean;
   /** Whether "Pull whole group" is on, which brings a group in all at once. */
   pullAll?: () => boolean;
+  now?: () => number;
 }) {
-  const evaluator = createFarmEvaluator({ ...deps, boss: () => {
+  const meter = createDamageMeter(deps.now ?? (() => performance.now()));
+  const evaluator = createFarmEvaluator({ ...deps, measuredDps: () => meter.dps(), boss: () => {
     const boss = runtimeMapBalance(deps.mapId())?.boss;
     if (!boss) return null;
     const attacks = Object.values(boss.attacks).filter(value => value > 0);
@@ -201,10 +225,12 @@ export function createAutoFarmProgress(deps: Omit<Parameters<typeof createFarmEv
   // swings landing; autofarm walked on and died in the first group.
   const holdable = new Map<string, { key: string; ok: boolean }>();
   const canHold = (mapId: string) => {
-    const key = `${statsKey()}:${deps.pullAll?.() ? 1 : 0}`;
+    const key = `${statsKey()}:${deps.pullAll?.() ? 1 : 0}:${evaluator.calibration().toFixed(2)}`;
     const cached = holdable.get(mapId);
     if (cached?.key === key) return cached.ok;
-    const ok = simulateOfflineFarming(mapId, evaluator.stats(), NEXT_MAP_HOLD_SECONDS).survivable
+    // The offline estimate prices damage alone; give it the damage the build really deals.
+    const stats = evaluator.stats();
+    const ok = simulateOfflineFarming(mapId, { ...stats, damage: stats.damage * evaluator.calibration() }, NEXT_MAP_HOLD_SECONDS).survivable
       && [...mapStatGroups(mapId).values()].some(group => evaluator.danger(group, Boolean(deps.pullAll?.())) <= SAFE_CAMP_DANGER);
     holdable.set(mapId, { key, ok });
     return ok;
@@ -225,6 +251,17 @@ export function createAutoFarmProgress(deps: Omit<Parameters<typeof createFarmEv
     nextMapTooHard: () => { const portal = ranked(1); return Boolean(portal && !canHold(portal.destination)); },
     /** The portal back to the previous map, for a farm that keeps dying here. */
     previousPortal: () => point(ranked(-1)),
+    /**
+     * Whether beating this map's boss opens anything: a way forward that is
+     * still locked. Bosses pay no stats, so once the next map is open a fight
+     * is time not spent farming (players watched autofarm kill one boss three times).
+     */
+    bossUnlocksNext: () => {
+      const here = farmMapRank(deps.mapId());
+      return deps.portals().some(portal => Boolean(portal) && farmMapRank(portal!.destination) > here && !deps.portalUnlocked(portal!));
+    },
+    /** A hit the player's weapon landed, for the damage meter. */
+    recordDamage: (damage: number) => meter.record(damage),
     reflectOnly: deps.reflectOnly,
   };
 }

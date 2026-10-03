@@ -95,6 +95,8 @@ export function createAutoFarmController(options: {
   previousPortal?: () => (Position & { destination: string }) | null;
   /** How close fighting a stat group comes to killing the player: above .75, Auto keeps away. */
   campDanger?: (group: AutoFarmGroup) => number;
+  /** Whether beating this map's boss opens a locked way forward; it is not fought otherwise. */
+  bossUnlocksNext?: () => boolean;
 }) {
   let priority: AutoFarmPriority = readAutoFarmPriority(options.priorityStorage);
   let pullAll = readAutoFarmPull(options.priorityStorage);
@@ -319,7 +321,9 @@ export function createAutoFarmController(options: {
       if (portal) { phase = 'portal'; travellingTo = portal.destination; return; }
       const boss = options.mapBoss?.();
       const evaluation = options.evaluate?.();
-      if (boss && !boss.dead && evaluation && bossReady(evaluation) && now() >= bossRetryAt) { phase = 'boss'; travellingTo = null; return; }
+      if (boss && !boss.dead && options.bossUnlocksNext?.() !== false && evaluation && bossReady(evaluation) && now() >= bossRetryAt) {
+        phase = 'boss'; travellingTo = null; return;
+      }
     }
     if (phase !== 'farm') { target = null; route = []; lastGoal = null; routeClock = 0; holding = false; }
     phase = 'farm';
@@ -522,6 +526,7 @@ export function createAutoFarmController(options: {
       if (retreating) return 'Moving back a map';
       if (exitPortal()) return 'Next map open';
       if (options.nextMapTooHard?.()) return 'Next map too hard';
+      if (options.bossUnlocksNext?.() === false) return 'Boss beaten';
       const boss = options.mapBoss?.();
       const evaluation = options.evaluate?.();
       if (!boss || !evaluation || evaluation.fightSeconds === null) return '';

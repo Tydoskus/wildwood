@@ -653,4 +653,21 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
     s.tick();
     expect(s.farm.state().selected).toBe(speed);
   });
+
+  it('leaves a beaten boss alone once the next map is open: it pays no stats', () => {
+    let locked = true;
+    const s = planned({
+      evaluate: () => ({ power: 1, fightSeconds: 10, hitShare: .1, fightDamageShare: .1 }),
+      mapBoss: () => ({ x: 2500, y: 500, r: 80 }), bossUnlocksNext: () => locked,
+    });
+    s.add('Bramble', 900, 500);
+    s.farm.setAdvance(true);
+    s.farm.start([health]);
+    s.tick();
+    expect(s.farm.state().phase).toBe('boss');
+    locked = false;
+    s.tick();
+    expect(s.farm.state().phase).toBe('farm');
+    expect(s.farm.bossStatus()).toBe('Boss beaten');
+  });
 });

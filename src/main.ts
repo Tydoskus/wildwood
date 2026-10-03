@@ -531,7 +531,7 @@ import {
   const farmProgress = createAutoFarmProgress({ mapId: () => currentMapId, base: () => ({ maxHp: player.baseMaxHp, damage: player.damage, attackRate: player.attackRate, armor: player.armor, regen: player.regen }),
     equipment: () => ({ equippedHead: inventory.equippedHead, equippedChest: inventory.equippedChest, equippedRightHand: inventory.equippedRightHand, equippedLeftHand: inventory.equippedLeftHand }),
     research: () => researchRanks(), upgradeLevel: itemId => coop?.itemUpgradeLevel?.(itemId) ?? 0, rewardMultiplier: () => researchRewardMultiplier(), minAttackInterval: () => challengeMinimumInterval(coop?.prestigeChallenge?.()), criticalChance: () => researchCriticalChance(), criticalMultiplier: () => researchCriticalDamageMultiplier(),
-    reflectOnly: () => Boolean(coop?.prestigeChallenge?.()?.active), pullAll: () => autoFarm.pullAll(), reflectChance: () => prestigePerkValue(coop?.prestigePerks?.(), "riposte"), healPerKill: () => prestigePerkValue(coop?.prestigePerks?.(), "secondWind"), mapBoss: () => proceduralBoss.boss() ?? bossStateForMap(bosses, currentMapId), portalUnlocked: portal => mapController.portalIsUnlocked(portal as never), portals: () => { const config = MAP_CONFIG[currentMapId]; return [config.portal, "secondaryPortal" in config ? config.secondaryPortal : null]; } });
+    reflectOnly: () => Boolean(coop?.prestigeChallenge?.()?.active), pullAll: () => autoFarm.pullAll(), reflectChance: () => prestigePerkValue(coop?.prestigePerks?.(), "riposte"), healPerKill: () => prestigePerkValue(coop?.prestigePerks?.(), "secondWind"), bossSlayer: () => prestigePerkValue(coop?.prestigePerks?.(), "bossSlayer"), mapBoss: () => proceduralBoss.boss() ?? bossStateForMap(bosses, currentMapId), portalUnlocked: portal => mapController.portalIsUnlocked(portal as never), portals: () => { const config = MAP_CONFIG[currentMapId]; return [config.portal, "secondaryPortal" in config ? config.secondaryPortal : null]; } });
   const autoFarm = createAutoFarmController({
     resumeStore: createAutoFarmResumeStore(),
     player, enemies, spawnSites, mapId: () => currentMapId,
@@ -655,7 +655,7 @@ import {
     researchCriticalDamageMultiplier,
     researchRewardMultiplier,
     displayRewardAmount: rewardDisplay.totalAmount,
-    prestigeBossSlayer: () => prestigePerkValue(coop?.prestigePerks?.(), "bossSlayer"),
+    prestigeBossSlayer: () => prestigePerkValue(coop?.prestigePerks?.(), "bossSlayer"), recordDamageDealt: damage => farmProgress.recordDamage(damage),
     prestigeSecondWind: () => prestigePerkValue(coop?.prestigePerks?.(), "secondWind"),
     prestigeDoubleStrike: () => prestigePerkValue(coop?.prestigePerks?.(), "doubleStrike"),
     prestigeSplitShot: () => prestigePerkValue(coop?.prestigePerks?.(), "splitShot"), prestigeReflect: () => prestigePerkValue(coop?.prestigePerks?.(), "riposte"),

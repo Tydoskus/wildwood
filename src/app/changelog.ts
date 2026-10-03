@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.880": [
+    "Autofarm stops re-killing a boss once the next map is open (bosses give no stats)",
+    "Autofarm judges fights by the damage you actually deal, so multishot, Double Strike and bow skills count",
+    "Autofarm's Clear button shows with one camp picked",
+  ],
   "0.879": [
     "Profiles show players as online again when they have multiplayer turned off",
   ],
@@ -2734,6 +2739,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.880": "2026-10-03",
   "0.879": "2026-10-03",
   "0.878": "2026-10-03",
   "0.877": "2026-10-03",

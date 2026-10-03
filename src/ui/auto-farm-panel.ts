@@ -81,7 +81,7 @@ export function createAutoFarmPanel(options: {
       button.setAttribute('aria-label', `${button.querySelector('strong')!.textContent}${order >= 0 ? `, ${order + 1} in order${weight > 1 ? `, ${weight} shares` : ''}` : ''}`);
     }
     autoButton.setAttribute('aria-pressed', String(!draft.length));
-    clearButton.hidden = draft.length < 2;
+    clearButton.hidden = !draft.length;
     const priority = options.farm.priority();
     for (const button of priorityButtons) button.setAttribute('aria-checked', String(button.dataset.priority === priority));
     advanceSwitch.setAttribute('aria-checked', String(options.farm.advance()));

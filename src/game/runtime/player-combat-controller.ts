@@ -106,6 +106,8 @@ export function createPlayerCombatController(options: {
   /** Chance for a hit taken to be thrown back at its enemy, from the Reflect perk. */
   prestigeReflect?: () => number;
   prestigeBossSlayer?: () => number;
+  /** Each hit the weapon lands (not Reflect), before Boss Slayer: autofarm's damage meter. */
+  recordDamageDealt?: (damage: number) => void;
   prestigeSecondWind?: () => number;
   /** The equipped bow's skill roll (Arrow Storm, Ricochet, Piercing Shot), if it has one. */
   bowSkills?: () => Partial<BowSkillRoll> | null | undefined;
@@ -582,6 +584,8 @@ export function createPlayerCombatController(options: {
 
   function applyPlayerHit(target: EnemyState | BossTarget, damage: number, critical: boolean, angle: number, reflected = false) {
     if (!reflected && options.reflectOnly?.()) return;
+    // What the weapon really lands, before the boss-only bonus, for autofarm's estimates.
+    if (!reflected) options.recordDamageDealt?.(damage);
     if ((target.isBoss || target.generatedBoss) && !reflected) damage *= 1 + (options.prestigeBossSlayer?.() ?? 0);
     // A reflected hit shows blue, so the player can see Reflect fire.
     if (!target.isBoss && !target.generatedBoss) spawnDamageNumber(target.x, target.y, damage, critical, false, reflected);
