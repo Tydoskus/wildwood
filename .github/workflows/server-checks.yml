@@ -1,7 +1,7 @@
 name: Server checks
 
-# Builds the SpacetimeDB module and checks the committed client bindings match
-# it. Separate from the Pages deploy so a flaky CLI download cannot block a
+# Builds the SpacetimeDB module, checks the committed client bindings match it,
+# and runs a guest through a real local server (scripts/smoke-server.mts). Separate from the Pages deploy so a flaky CLI download cannot block a
 # client release; a failure still shows in `gh run list`.
 
 on:
@@ -11,6 +11,7 @@ on:
       - "spacetimedb/**"
       - "shared/**"
       - "src/module_bindings/**"
+      - "scripts/smoke-server.mts"
       - ".github/workflows/server-checks.yml"
   pull_request:
   workflow_dispatch:
@@ -59,3 +60,10 @@ jobs:
         run: |
           spacetime generate --lang typescript --out-dir "$RUNNER_TEMP/bindings" --module-path spacetimedb -y
           diff -r "$RUNNER_TEMP/bindings" src/module_bindings
+
+      - name: Smoke test on a local server
+        run: |
+          spacetime start --in-memory --listen-addr 127.0.0.1:3000 > "$RUNNER_TEMP/spacetime.log" 2>&1 &
+          for attempt in $(seq 1 30); do curl -sf http://127.0.0.1:3000/v1/ping >/dev/null && break; sleep 1; done
+          spacetime publish --server http://127.0.0.1:3000 --anonymous --module-path spacetimedb -y wildstat-smoke
+          npx tsx scripts/smoke-server.mts ws://127.0.0.1:3000 wildstat-smoke || { tail -50 "$RUNNER_TEMP/spacetime.log"; exit 1; }
