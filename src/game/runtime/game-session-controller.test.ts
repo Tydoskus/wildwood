@@ -11,6 +11,7 @@ import {
   SIMULATION_STEP_SECONDS,
   presentationFrameDue,
   presentationCombatActive,
+  presentationActivity,
   createGameSessionController,
 } from "./game-session-controller";
 
@@ -190,6 +191,13 @@ describe("game session frame scheduling", () => {
       for (let index = 1; index <= 120; index++) session.loop(start + 2_000 + index * 1000 / 120);
       expect(render).toHaveBeenCalledTimes(30);
     } finally { vi.unstubAllGlobals(); }
+  });
+  it("lets autofarm's fighting idle down to 30 FPS, but not the player's own fighting or input", () => {
+    expect(presentationActivity(false, false, false, true, false)).toBe(true);
+    expect(presentationActivity(false, false, false, true, true)).toBe(false);
+    expect(presentationActivity(false, false, true, true, true)).toBe(true);
+    expect(presentationActivity(true, false, false, true, true)).toBe(true);
+    expect(presentationActivity(false, true, false, false, true)).toBe(true);
   });
   it("does no update or render work while the document is hidden", () => {
     vi.stubGlobal("document", { hidden: true, addEventListener: vi.fn() });

@@ -1,4 +1,11 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.876": [
+    "Faster loading: smaller game files, music half the size, and art and music cached between visits",
+    "Music isn't downloaded at all while it's muted",
+    "Less battery use: autofarm drops to 30 FPS when you're not touching the game, and hidden tabs do less",
+    "Fewer movement updates while walking",
+    "Hidden tabs no longer check for updates every 2 minutes",
+  ],
   "0.875": [
     "Minimap enemies are colored by the stat they give: health green, damage red, regen pink, armor blue",
     "You show as a white diamond on the minimap, other players as white squares",
@@ -2710,6 +2717,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.876": "2026-10-03",
   "0.875": "2026-10-03",
   "0.874": "2026-10-03",
   "0.873": "2026-10-03",

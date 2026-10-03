@@ -305,6 +305,7 @@ export function createDevPanelController(dependencies: DevPanelDependencies) {
    */
   async function open() {
     if (!dependencies.isDeveloper()) return;
+    loadDeveloperStyles();
     const request = ++openGeneration;
     panel.hidden = false;
     button.setAttribute("aria-expanded", "true");
@@ -505,3 +506,13 @@ function formatSeconds(value: number | null) { return value === null ? "—" : `
 function formatNumber(value: number | null) { return value === null ? "—" : value.toFixed(2); }
 function formatRate(count: number | null, percentage: number | null) { return count === null ? "—" : `${count} · ${percentage}%`; }
 function sumCounts(values: Record<string, number>) { return Object.values(values).reduce((sum, count) => sum + count, 0); }
+
+/** The balance editor's stylesheet loads with the panel: every player's sign-in used to block on it. */
+function loadDeveloperStyles(doc: Document = document) {
+  if (doc.querySelector("link[data-developer-styles]")) return;
+  const link = doc.createElement("link");
+  link.rel = "stylesheet";
+  link.href = "assets/wildstat/balance-editor.css";
+  link.dataset.developerStyles = "";
+  doc.head.append(link);
+}

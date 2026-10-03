@@ -1699,7 +1699,7 @@ import {
     connected: () => Boolean(coop?.isConnected?.()),
     accountInConflict: () => Boolean(coop?.accountState?.().sessionConflict),
     lowPerformanceMode: appShell.lowPerformanceMode,
-    presentationInputActive: () => playerInput.movement().source !== "none",
+    presentationInputActive: () => playerInput.movement().source !== "none", autoFarmActive: () => autoFarm.state().active,
     presentationUiActive: () => chatRuntime.isInteracting() || profileWindow.isOpen(),
     isReplayActive: () => duelRuntime.isReplayActive(),
     ensureMusicPlaying: appShell.ensureMusicPlaying,

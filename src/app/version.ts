@@ -35,7 +35,7 @@ export function enforceLatestVersion(version: string, onUpdateDetected?: UpdateD
   if (versionCheckInFlight || reloadScheduled) return;
   versionCheckInFlight = true;
   // This request must bypass HTTP cache so a freshly deployed version is
-  // detected, but it is intentionally infrequent (boot plus two-minute poll).
+  // detected, but it is intentionally infrequent (boot, a visible tab every 15 minutes, a return to the tab).
   fetch(`version.json?cache=${Date.now()}`, { cache: "no-store" })
     .then((response) => response.ok ? response.json() : null)
     .then(async (release) => {

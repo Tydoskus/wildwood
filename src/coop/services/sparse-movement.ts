@@ -13,6 +13,13 @@ export const STEER_MOVEMENT_DRIFT_PX = 64;
 export const STEER_MOVEMENT_MIN_INTERVAL_MS = 250;
 /** Long enough to be nearly free, short enough that a lost packet is corrected before anyone notices. */
 export const STEER_MOVEMENT_HEARTBEAT_MS = 5_000;
+/**
+ * Walking by keyboard or touch: direction changes are sent at once, so a
+ * straight walk is as predictable as a steered one. It used to send a
+ * heartbeat every half second regardless; now it sends when the prediction
+ * goes wrong (a wall or collider stopped the player) and every two seconds.
+ */
+export const WALK_MOVEMENT_HEARTBEAT_MS = 2_000;
 export const TOUCH_MOVEMENT_VECTOR_THRESHOLD = .12;
 export const TOUCH_MOVEMENT_DIRECTION_SECTORS = 24;
 
@@ -83,6 +90,12 @@ export function movementUpdateReason(options: {
     (directionChanged || magnitudeChanged) &&
     elapsed >= TOUCH_MOVEMENT_MIN_INTERVAL_MS
   ) return "direction";
+  if (options.position && lastSent.x !== undefined && lastSent.y !== undefined) {
+    const predictedX = lastSent.x + lastSent.vx * elapsed / 1_000, predictedY = lastSent.y + lastSent.vy * elapsed / 1_000;
+    if (elapsed >= TOUCH_MOVEMENT_MIN_INTERVAL_MS
+      && Math.hypot(options.position.x - predictedX, options.position.y - predictedY) > STEER_MOVEMENT_DRIFT_PX) return "direction";
+    return elapsed >= WALK_MOVEMENT_HEARTBEAT_MS ? "heartbeat" : null;
+  }
   if (elapsed >= MOVEMENT_HEARTBEAT_MS) return "heartbeat";
   return null;
 }

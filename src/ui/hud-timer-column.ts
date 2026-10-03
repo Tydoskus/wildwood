@@ -71,7 +71,7 @@ export function createHudTimerColumn(elements: Elements, dependencies: Dependenc
     slotThree: settings.visible("slotThree"),
   }) });
   // The ad's wait counts down on the same second; it does nothing while hidden.
-  window.setInterval(() => { timers.tick(); rewardedGemAd.sync(); }, 1_000);
+  window.setInterval(() => { if (!document.hidden) { timers.tick(); rewardedGemAd.sync(); } }, 1_000);
   document.addEventListener("visibilitychange", () => { timers.tick(); rewardedGemAd.sync(); });
   return rewardedGemAd;
 }

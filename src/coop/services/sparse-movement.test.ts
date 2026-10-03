@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
+import { WALK_MOVEMENT_HEARTBEAT_MS,
   MOVEMENT_HEARTBEAT_MS,
   SOLO_MOVEMENT_CHECKPOINT_MS,
   TOUCH_MOVEMENT_DIRECTION_SECTORS,
@@ -112,5 +112,19 @@ describe("movement the game or the mouse aims", () => {
     }
     expect(correctedAt).toBeGreaterThanOrEqual(STEER_MOVEMENT_MIN_INTERVAL_MS);
     expect(correctedAt).toBeLessThanOrEqual(340);
+  });
+});
+
+describe("walking by keyboard or touch with a known position", () => {
+  const lastSent = { vx: 300, vy: 0, moving: true, sentAt: 0, x: 0, y: 0 };
+  const velocity = { vx: 300, vy: 0, moving: true };
+  it("sends a straight walk every two seconds instead of every half second", () => {
+    for (const inputKind of ["keyboard", "touch"] as const) {
+      expect(movementUpdateReason({ now: 600, velocity, inputKind, lastSent, position: { x: 180, y: 0 } })).toBeNull();
+      expect(movementUpdateReason({ now: WALK_MOVEMENT_HEARTBEAT_MS, velocity, inputKind, lastSent, position: { x: 600, y: 0 } })).toBe("heartbeat");
+    }
+  });
+  it("sends at once when a wall stops the player where the prediction says they kept walking", () => {
+    expect(movementUpdateReason({ now: 600, velocity, inputKind: "keyboard", lastSent, position: { x: 20, y: 0 } })).toBe("direction");
   });
 });

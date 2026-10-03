@@ -65,7 +65,7 @@ export function createChatRuntimeController(options: Pick<ChatOptions, "getCoop"
       const detail = (event as CustomEvent<{ username?: unknown; identity?: unknown }>).detail;
       if (typeof detail?.username === "string") chat.openPrivate(detail.username, typeof detail.identity === "string" ? detail.identity : undefined);
     });
-    window.setInterval(requestRefresh, 1_000);
+    window.setInterval(() => { if (!document.hidden) requestRefresh(); }, 1_000);
   }
 
   return {

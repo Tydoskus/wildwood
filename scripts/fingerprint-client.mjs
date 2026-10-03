@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import { posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -78,13 +78,31 @@ export async function fingerprintClient(directory) {
 
   // Only content-addressed files get immutable caching. Never apply it to
   // stable URLs, HTML, version.json, or runtime-generated media paths.
+  const hashed = [...assets.values()].sort();
   const headers = [
     "/", "  Cache-Control: no-cache", "/index.html", "  Cache-Control: no-cache",
     "/version.json", "  Cache-Control: no-store", "/asset-manifest.json", "  Cache-Control: no-cache",
     "/ota/*", "  Cache-Control: no-store", "  Access-Control-Allow-Origin: *",
-    ...[...assets.values()].sort().flatMap((path) => [`/${path}`, "  Cache-Control: public, max-age=31536000, immutable"]),
+    ...hashed.flatMap((path) => [`/${path}`, "  Cache-Control: public, max-age=31536000, immutable"]),
   ];
+  // The images and music the game loads by URL at runtime have stable names,
+  // which left them on the host default: revalidated on every page load on
+  // Cloudflare. An hour fresh, then served while refreshing in the background,
+  // still brings art changed in place to players within the hour. Rules never
+  // overlap a hashed file: Cloudflare merges every matching rule's headers.
+  const revalidate = "  Cache-Control: public, max-age=3600, stale-while-revalidate=86400";
+  const media = /\.(?:png|webp|jpe?g|svg|mp3|m4a|ogg)$/i;
+  const root = "assets/wildstat";
+  const entries = await readdir(resolve(directory, root), { withFileTypes: true }).catch(() => []);
+  const runtime = entries.flatMap((entry) => {
+    if (/\s/.test(entry.name)) return [];
+    if (entry.isDirectory()) return hashed.some((path) => path.startsWith(`${root}/${entry.name}/`)) ? [] : [`/${root}/${entry.name}/*`];
+    return media.test(entry.name) && !hashed.includes(`${root}/${entry.name}`) ? [`/${root}/${entry.name}`] : [];
+  }).sort((a, b) => Number(b.endsWith("/*")) - Number(a.endsWith("/*")) || a.localeCompare(b));
   if (assets.size + 5 > 100) throw new Error("Cloudflare header rule limit exceeded");
+  // Cloudflare stops at 100 rules. These are a nicety, so they take whatever
+  // room the required rules leave, whole folders first, and never fail a build.
+  headers.push(...runtime.slice(0, 100 - 5 - assets.size).flatMap((rule) => [rule, revalidate]));
   await writeFile(resolve(directory, "_headers"), headers.join("\n") + "\n");
   return Object.fromEntries(assets);
 }

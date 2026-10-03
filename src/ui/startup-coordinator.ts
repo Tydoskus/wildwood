@@ -174,8 +174,16 @@ export function createStartupCoordinator(dependencies: StartupCoordinatorDepende
   }
 
   function startVersionPolling() {
-    enforceLatestVersion(dependencies.version, showGameUpdating, dependencies.updateHandoff);
-    window.setInterval(() => enforceLatestVersion(dependencies.version, showGameUpdating, dependencies.updateHandoff), 120_000);
+    let lastCheckAt = Date.now();
+    const check = () => { lastCheckAt = Date.now(); enforceLatestVersion(dependencies.version, showGameUpdating, dependencies.updateHandoff); };
+    check();
+    // Every visible tab polled every two minutes, hidden ones too, and past
+    // every cache: ~131k requests a day. Server-side updates are pushed to the
+    // tab anyway (account.updating, the release notice), so this only catches
+    // client-only releases: often enough when visible, never when hidden, and
+    // once on coming back to a tab that has been away a while.
+    window.setInterval(() => { if (versionCheckDue(Date.now(), lastCheckAt, document.hidden, "poll")) check(); }, 60_000);
+    document.addEventListener("visibilitychange", () => { if (versionCheckDue(Date.now(), lastCheckAt, document.hidden, "visible")) check(); });
     let updatingSince = 0;
     window.setInterval(() => {
       if (!dependencies.accountState()?.updating) { updatingSince = 0; return; }
@@ -200,4 +208,12 @@ export function createStartupCoordinator(dependencies: StartupCoordinatorDepende
     state: machine.state,
     updateProtocolGate,
   };
+}
+
+export const VERSION_POLL_MS = 15 * 60_000;
+export const VERSION_RECHECK_ON_RETURN_MS = 5 * 60_000;
+/** Whether a client-only release check is worth a request now. */
+export function versionCheckDue(now: number, lastCheckAt: number, hidden: boolean, reason: "poll" | "visible") {
+  if (hidden) return false;
+  return now - lastCheckAt >= (reason === "poll" ? VERSION_POLL_MS : VERSION_RECHECK_ON_RETURN_MS);
 }

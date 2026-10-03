@@ -23,6 +23,9 @@ async function fixture(version = "1.0", image = "artwork", font = "font") {
     "assets/wildstat/logo.webp": "logo",
     "assets/wildstat/coop-client.js": "window.coop = true;",
     "assets/wildstat/game.js": `window.version = "${version}";`,
+    "assets/wildstat/enemies/toad/idle-0.webp": "toad",
+    "assets/wildstat/audio/forest.mp3": "music",
+    "assets/wildstat/dragon-sheet.webp": "dragon",
     "manifest.webmanifest": JSON.stringify({ id: "./", scope: "./", start_url: "./", icons: [{ src: "assets/wildstat/logo.webp" }] }),
   };
   for (const [path, content] of Object.entries(files)) {
@@ -87,6 +90,19 @@ describe("content-addressed client build", () => {
     expect(headers).not.toContain("/assets/*");
     expect(headers).not.toContain("/assets/wildstat/game.js\n");
     for (const path of Object.values(assets)) expect(headers).toContain(`/${path}\n  Cache-Control: public, max-age=31536000, immutable`);
+  });
+
+  it("lets runtime-loaded art and music revalidate in the background, never overlapping a hashed file", async () => {
+    const { root } = await fixture();
+    const headers = await readFile(join(root, "_headers"), "utf8");
+    const revalidate = "  Cache-Control: public, max-age=3600, stale-while-revalidate=86400";
+    expect(headers).toContain(`/assets/wildstat/enemies/*\n${revalidate}`);
+    expect(headers).toContain(`/assets/wildstat/audio/*\n${revalidate}`);
+    expect(headers).toContain(`/assets/wildstat/dragon-sheet.webp\n${revalidate}`);
+    // signin/ and fonts/ hold hashed files, so no folder rule may cover them.
+    expect(headers).not.toContain("/assets/wildstat/signin/*");
+    expect(headers).not.toContain("/assets/wildstat/fonts/*");
+    expect(headers).not.toContain("/assets/wildstat/game.js\n");
   });
 
   it("fails the build instead of shipping missing asset references", async () => {

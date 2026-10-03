@@ -19,6 +19,19 @@ export function musicGainForSource(source: string) {
   return loudness === undefined ? 1 : 10 ** ((-20 - loudness) / 20);
 }
 export const SIGN_IN_MUSIC_SOURCE = "assets/wildstat/audio/signin.mp3";
+
+/**
+ * Each track also ships as 128 kbps AAC beside its MP3 (most were 320 kbps
+ * MP3, 35 MB in all; the AAC set is 16 MB). Tracks keep their .mp3 path as
+ * their identity, for gain and caching; only the download is the .m4a, where
+ * the browser plays AAC, falling back to the MP3 if that fetch fails.
+ */
+export function compactMusicSource(source: string, probe: Pick<HTMLMediaElement, "canPlayType"> | null) {
+  if (!/\/audio\/[^/]+\.mp3$/.test(source) || source.endsWith("/death.mp3") || source.endsWith("/bow-release.mp3")) return source;
+  let playable = "";
+  try { playable = probe?.canPlayType('audio/mp4; codecs="mp4a.40.2"') ?? ""; } catch {}
+  return playable ? source.replace(/\.mp3$/, ".m4a") : source;
+}
 export const DEATH_SOUND_SOURCE = "assets/wildstat/audio/death.mp3";
 export const BOW_ATTACK_SOUND_SOURCE = "assets/wildstat/audio/bow-release.mp3";
 // Clip levels, measured 2026-09-25. The release clip peaks at -3.6 dBFS but
@@ -98,7 +111,9 @@ export function createMapMusicController(
   audio.loop = true;
   audio.preload = "auto";
   const deathAudio = new Audio(DEATH_SOUND_SOURCE);
-  deathAudio.preload = "auto";
+  // Only the fallback when Web Audio is unavailable; the decoded buffer below
+  // already fetches the clip, so preloading here downloaded it twice.
+  deathAudio.preload = "none";
 
   let volume = .35;
   try {
@@ -164,11 +179,13 @@ export function createMapMusicController(
       abortController,
       promise: Promise.resolve<string | null>(null),
     };
-    request.promise = fetch(source, { cache: "force-cache", signal: abortController.signal })
+    const fetchTrack = (url: string) => fetch(url, { cache: "force-cache", signal: abortController.signal })
       .then((response) => {
         if (!response.ok) throw new Error(`Music request failed: ${response.status}`);
         return response.blob();
-      })
+      });
+    const compact = compactMusicSource(source, audio);
+    request.promise = (compact === source ? fetchTrack(source) : fetchTrack(compact).catch(() => fetchTrack(source)))
       .then((blob) => {
         const objectUrl = URL.createObjectURL(blob);
         musicObjectUrls.set(source, objectUrl);
@@ -289,6 +306,9 @@ export function createMapMusicController(
     requestedMusicSource = nextSource;
     applyMusicVolume();
     audio.pause();
+    // A muted player never downloads the track: 4-8 MB a map. Unmuting calls
+    // ensurePlaying, which fetches it then.
+    if (!playbackRequested || volume <= 0) return;
     // Fetch the complete encoded track without blocking the map transition.
     // Looping the resulting Blob URL cannot trigger another HTTP range request.
     void attachRequestedMusic(nextSource);

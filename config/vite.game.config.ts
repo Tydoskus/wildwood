@@ -1,8 +1,10 @@
 import { defineConfig } from "vite";
+import { recentChangelog } from "./vite-recent-changelog";
 
 // Paths remain relative to the repository root, where npm scripts run.
 
 export default defineConfig({
+  plugins: [recentChangelog()],
   // Worker URLs stay relative so the same artifact works at localhost `/`
   // and the GitHub Pages `/wildwood/` project path.
   base: "./",

@@ -151,18 +151,39 @@ export function createRenderController(options: {
     }
   }
 
+  // The camera keeps the player centred, so the vignette is nearly always the
+  // same picture: paint it once and copy it, instead of a full-screen radial
+  // gradient every frame. It is repainted when size, zoom or position change.
+  const vignetteCanvas = typeof document === "undefined" ? null : document.createElement("canvas");
+  let vignetteKey = "";
   function drawVignette() {
     if (currentMapIsInfernal() && !isDueling()) return;
     const { width, height, dpr } = viewport();
-    const x = snapToDevicePixel((player.x - camera.x) * camera.zoom, dpr);
-    const y = snapToDevicePixel((player.y - camera.y) * camera.zoom, dpr);
+    // Four-pixel steps: camera smoothing moves the player a pixel or two a
+    // frame while walking, which would repaint every frame; four is invisible.
+    const x = Math.round(((player.x - camera.x) * camera.zoom) / 4) * 4;
+    const y = Math.round(((player.y - camera.y) * camera.zoom) / 4) * 4;
     const farthestCorner = Math.max(Math.hypot(x, y), Math.hypot(width - x, y), Math.hypot(x, height - y), Math.hypot(width - x, height - y));
-    const innerRadius = clamp(player.attackRange * camera.zoom * 1.08, 56, farthestCorner * .72);
-    const gradient = ctx.createRadialGradient(x, y, innerRadius, x, y, farthestCorner);
-    gradient.addColorStop(0, "rgba(0,0,0,0)");
-    gradient.addColorStop(1, "rgba(0,0,0,.33)");
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
+    const innerRadius = Math.round(clamp(player.attackRange * camera.zoom * 1.08, 56, farthestCorner * .72));
+    const paint = (target: CanvasRenderingContext2D) => {
+      const gradient = target.createRadialGradient(x, y, innerRadius, x, y, farthestCorner);
+      gradient.addColorStop(0, "rgba(0,0,0,0)");
+      gradient.addColorStop(1, "rgba(0,0,0,.33)");
+      target.fillStyle = gradient;
+      target.fillRect(0, 0, width, height);
+    };
+    const cache = vignetteCanvas?.getContext("2d");
+    if (!vignetteCanvas || !cache) { paint(ctx); return; }
+    const key = `${width}x${height}@${dpr}:${x},${y}:${innerRadius}`;
+    if (key !== vignetteKey) {
+      vignetteKey = key;
+      vignetteCanvas.width = Math.max(1, Math.round(width * dpr));
+      vignetteCanvas.height = Math.max(1, Math.round(height * dpr));
+      cache.setTransform(dpr, 0, 0, dpr, 0, 0);
+      cache.clearRect(0, 0, width, height);
+      paint(cache);
+    }
+    ctx.drawImage(vignetteCanvas, 0, 0, width, height);
   }
 
   function drawNightMask() {

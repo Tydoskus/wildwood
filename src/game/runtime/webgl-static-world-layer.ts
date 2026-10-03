@@ -307,7 +307,8 @@ function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): Stat
     premultipliedAlpha: false,
     preserveDrawingBuffer: false,
     failIfMajorPerformanceCaveat: true,
-    powerPreference: "high-performance",
+    // "high-performance" woke the discrete GPU on dual-GPU laptops for a static world layer.
+    powerPreference: "default",
   });
   if (!context) {
     canvas.remove();

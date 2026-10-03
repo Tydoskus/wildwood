@@ -13,7 +13,7 @@
     "build:game": "vite build --config config/vite.game.config.ts",
     "build:balance": "vite build --config config/vite.balance.config.ts",
     "build:stat-graph": "vite build --config config/vite.stat-graph.config.ts",
-    "build:client": "npm run build:coop && npm run build:game && node scripts/fingerprint-client.mjs && node scripts/check-client-build.mjs",
+    "build:client": "npm run build:coop && npm run build:game && node scripts/prune-client-build.mjs && node scripts/fingerprint-client.mjs && node scripts/check-client-build.mjs",
     "dev:local": "node scripts/local-dev.mjs",
     "balance:lab": "vite --config config/vite.balance.config.ts --host 127.0.0.1 --open /balance-lab.html",
     "balance:stat-graph": "vite --config config/vite.stat-graph.config.ts --host 127.0.0.1 --open /balance-stat-graph.html",

@@ -1,7 +1,7 @@
 import { recordConnectionDiagnostic } from "../coop/services/connection-diagnostic-runtime";
 vi.mock("../coop/services/connection-diagnostic-runtime", () => ({ recordConnectionDiagnostic: vi.fn() }));
 import { describe, expect, it, vi } from "vitest";
-import { createStartupCoordinator } from "./startup-coordinator";
+import { createStartupCoordinator, versionCheckDue, VERSION_POLL_MS, VERSION_RECHECK_ON_RETURN_MS } from "./startup-coordinator";
 
 function dependencies(running: boolean) {
   const prepareUpdateReload = vi.fn();
@@ -238,4 +238,14 @@ it("records the reason when an active player returns to account choice, once per
   coordinator.finishStartup(); coordinator.finishStartup();
   expect(recordConnectionDiagnostic).toHaveBeenCalledOnce();
   expect(recordConnectionDiagnostic).toHaveBeenCalledWith("title-screen", expect.objectContaining({ detail: expect.stringContaining("account-choice;") }));
+});
+
+describe("client-only release checks", () => {
+  it("polls a visible tab every 15 minutes, never a hidden one, and checks on return after 5 minutes away", () => {
+    expect(versionCheckDue(VERSION_POLL_MS - 1, 0, false, "poll")).toBe(false);
+    expect(versionCheckDue(VERSION_POLL_MS, 0, false, "poll")).toBe(true);
+    expect(versionCheckDue(VERSION_POLL_MS * 10, 0, true, "poll")).toBe(false);
+    expect(versionCheckDue(VERSION_RECHECK_ON_RETURN_MS, 0, false, "visible")).toBe(true);
+    expect(versionCheckDue(VERSION_RECHECK_ON_RETURN_MS - 1, 0, false, "visible")).toBe(false);
+  });
 });

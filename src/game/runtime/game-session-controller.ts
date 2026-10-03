@@ -38,6 +38,16 @@ export function idlePresentationThrottleActive(
   return now - lastActivityAt >= Math.max(0, delayMs);
 }
 
+/**
+ * Whether the frame is worth drawing at 60 fps. Autofarm was always "in
+ * combat", so the main idle loop never dropped to 30: its fighting counts as
+ * idle once the player stops touching the game. The 60 Hz simulation
+ * underneath is unchanged.
+ */
+export function presentationActivity(replay: boolean, ui: boolean, input: boolean, combat: boolean, autoFarm: boolean) {
+  return replay || ui || input || (combat && !autoFarm);
+}
+
 export function presentationCombatActive(
   player: Pick<PlayerState, "hp" | "combatFacing" | "throwClock" | "hurtClock">,
   dueling: boolean,
@@ -98,6 +108,8 @@ type SessionDependencies = {
   lowPerformanceMode: () => boolean;
   isReplayActive: () => boolean;
   presentationInputActive: () => boolean;
+  /** Autofarm is fighting on the player's behalf: combat alone then is not a reason to draw at 60 fps. */
+  autoFarmActive?: () => boolean;
   presentationUiActive?: () => boolean;
   ensureMusicPlaying: () => void;
   hideStart: () => void;
@@ -335,7 +347,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     const uiActive = dependencies.presentationUiActive?.() ?? false;
     const combatActive = running && !paused && !dependencies.accountInConflict()
       && presentationCombatActive(dependencies.player, dependencies.isDueling());
-    const activityActive = replayActive || uiActive || dependencies.presentationInputActive() || combatActive;
+    const activityActive = presentationActivity(replayActive, uiActive, dependencies.presentationInputActive(), combatActive, dependencies.autoFarmActive?.() ?? false);
     if (activityActive) lastPresentationActivityAt = now;
     const idleThrottled = !lowPerformanceMode
       && idlePresentationThrottleActive(activityActive, now, lastPresentationActivityAt);

@@ -215,7 +215,8 @@ export function createAutoFarmPanel(options: {
     if (options.farm.start(draft)) close();
     else updateSelection();
   });
-  const timer = window.setInterval(refresh, 250);
+  // Hidden, there is no button to update; autofarm itself refreshes from its movement step.
+  const timer = window.setInterval(() => { if (!document.hidden || sheet.open) refresh(); }, 250);
   refresh();
   return { close, refresh, destroy() { close(); window.clearInterval(timer); floating.remove(); sheet.remove(); } };
 }

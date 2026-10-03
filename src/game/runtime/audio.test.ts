@@ -1,6 +1,7 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  compactMusicSource,
   BOW_ATTACK_SOUND_GAIN,
   BOW_ATTACK_SOUND_RATE_MAX,
   BOW_ATTACK_SOUND_RATE_MIN,
@@ -344,3 +345,18 @@ class FakeAudioContext {
   createMediaElementSource = () => ({ connect: vi.fn() });
   resume = vi.fn(async () => {});
 }
+
+describe("compact music downloads", () => {
+  const aac = { canPlayType: () => "probably" as CanPlayTypeResult };
+  const none = { canPlayType: () => "" as CanPlayTypeResult };
+  it("downloads a track's AAC copy where the browser plays it, and the MP3 otherwise", () => {
+    expect(compactMusicSource("assets/wildstat/audio/desert.mp3", aac)).toBe("assets/wildstat/audio/desert.m4a");
+    expect(compactMusicSource("assets/wildstat/audio/desert.mp3", none)).toBe("assets/wildstat/audio/desert.mp3");
+    expect(compactMusicSource("assets/wildstat/audio/death.mp3", aac)).toBe("assets/wildstat/audio/death.mp3");
+  });
+  it("has an AAC copy of every music track", () => {
+    for (const track of ["desert", "forest", "lava", "night-forest", "signin", "snow"]) {
+      expect(existsSync(new URL(`../../../public/assets/wildstat/audio/${track}.m4a`, import.meta.url))).toBe(true);
+    }
+  });
+});

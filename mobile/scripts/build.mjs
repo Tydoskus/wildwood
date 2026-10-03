@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { compatibility, writeJson } from './ota/common.mjs';
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
@@ -34,7 +35,11 @@ if (result.status !== 0) process.exit(result.status ?? 1);
 const webDir = resolve(mobile, "www");
 await rm(webDir, { recursive: true, force: true });
 await mkdir(webDir, { recursive: true });
-await cp(resolve(root, "dist"), webDir, { recursive: true });
+// The app plays AAC, so a music track's MP3 twin is dead weight in every
+// download and update; source maps only help debug the web build.
+const appSkips = (source) => source.endsWith(".map")
+  || (/[\\/]audio[\\/][^\\/]+\.mp3$/.test(source) && existsSync(source.replace(/\.mp3$/, ".m4a")));
+await cp(resolve(root, "dist"), webDir, { recursive: true, filter: (source) => !appSkips(source) });
 await writeFile(resolve(webDir, "native-build.json"), JSON.stringify({ testPurchasesEnabled }));
 const path = resolve(webDir, "index.html");
 let html = await readFile(path, "utf8");

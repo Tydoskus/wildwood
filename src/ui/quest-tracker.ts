@@ -143,7 +143,8 @@ export function installQuestTracker(options: {
       return row;
     }));
   }
-  const timer = window.setInterval(render, 400);
+  // Nothing to repaint while the tab is hidden; it catches up on the next tick after.
+  const timer = window.setInterval(() => { if (!document.hidden) render(); }, 400);
   render();
   return { render, destroy() { window.clearInterval(timer); panel.remove(); } };
 }
