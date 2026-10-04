@@ -18,6 +18,7 @@ import type { Particle } from "./combat-effects";
 import { parseHexColorOrNull, type StaticWorldColorQuadFrame, type StaticWorldLayer, type StaticWorldSpriteFrame } from "./webgl-static-world-layer";
 import { nightEnemyOpacity, nightGroundShadowsVisible } from "./night-visibility";
 import { snapWorldRenderCoordinate } from "./render-space";
+import { createMapEnemySigns, mapSignPosition, mapSignRows, type MapSignRow } from "./map-enemy-sign";
 
 type Viewport = { width: number; height: number; dpr: number };
 type Portal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
@@ -292,6 +293,20 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       }
       return webGLParticleBatchState;
     };
+    // The map's enemy sign: its rows are read from the live enemies at most once a second.
+    const signs = createMapEnemySigns({ pixelRatio: options.devicePixelRatio });
+    let signRows: MapSignRow[] = [], signRowsAt = -Infinity, signMap = "";
+    const mapSign = () => {
+      const at = mapSignPosition(options.currentMapId());
+      if (!at) return null;
+      const now = performance.now();
+      if (signMap !== options.currentMapId() || now - signRowsAt > 1_000) {
+        signRows = mapSignRows(options.enemies, (type, amount) => options.rewardAmount?.(type, amount) ?? amount * options.rewardMultiplier());
+        signRowsAt = now; signMap = options.currentMapId();
+      }
+      const image = signs.sign(signRows);
+      return image && { ...at, width: image.width, height: image.height, canvas: image.canvas };
+    };
     const depth = createDepthWorldRenderer({
       camera: options.camera,
       viewport: () => options.viewport(),
@@ -318,6 +333,15 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawBootPickup: () => renderer.drawBootPickup(),
       drawPortal: world.drawPortal,
       drawSecondaryPortal: world.drawSecondaryPortal,
+      mapSign,
+      drawMapSign: () => {
+        const sign = mapSign();
+        if (!sign) return;
+        const x = snapWorldRenderCoordinate(sign.x - options.camera.x, options.camera.zoom, options.devicePixelRatio());
+        const y = snapWorldRenderCoordinate(sign.y - options.camera.y, options.camera.zoom, options.devicePixelRatio());
+        options.drawShadow(x, y - 2, sign.width * .8, .18);
+        options.ctx.drawImage(sign.canvas, x - sign.width / 2, y - sign.height, sign.width, sign.height);
+      },
       drawRemotePlayer: actor.drawRemotePlayer,
       drawPlayer: () => drawHomeTeleport(options.ctx, options.player.x - options.camera.x, options.player.y - options.camera.y, () => actor.drawPlayer(
         frame.localIdentity(),

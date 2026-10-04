@@ -2,6 +2,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
   "0.889": [
     "Enemy health bars are slim pills with no numbers",
     "Damage numbers are smaller and pop up a little higher",
+    "A wooden sign by each map's entrance lists its enemies: HP, attack and reward",
   ],
   "0.888": [
     "Autofarm remembers your last pick on every map, instead of going back to what each map was farmed with before",
