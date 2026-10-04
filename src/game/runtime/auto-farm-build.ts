@@ -10,6 +10,7 @@ import { worldReflectDamage } from '../../../shared/prestige-perks';
 import { farmStatGroup, type AutoFarmGroup } from './auto-farm-priority';
 import type { RewardType } from '../enemies';
 import { createDamageMeter } from './damage-meter';
+import { referenceBuildForMap } from '../../../shared/progression';
 
 /** A boss's hits: the hardest one, the average one, and how often one lands on a player who stands and fights. */
 export type FarmBoss = { hp: number; strongestHit: number; averageHit?: number; regenFraction?: number; mapId: string };
@@ -64,6 +65,32 @@ export function groupFightDanger(group: readonly GroupEnemy[], fighter: GroupFig
     lost = Math.max(0, lost - fighter.healPerKill * fighter.maxHp);
   }
   return worst / Math.max(1, fighter.maxHp);
+}
+
+/** How long a build lasts against a group's hardest-hitting attackers, standing: the defence half of the map gate. */
+export function groupSurvivalSeconds(group: readonly GroupEnemy[], stats: Pick<PlayerPowerStats, 'maxHp' | 'armor' | 'regen'>, attackers = UNPULLED_ATTACKERS) {
+  const population = group.reduce((sum, entry) => sum + entry.population, 0);
+  if (!population) return Number.POSITIVE_INFINITY;
+  const incoming = Math.min(attackers, population) * group.reduce((sum, entry) =>
+    sum + entry.population * damageAfterArmor(entry.damage, stats.armor) * entry.attacksPerSecond, 0) / population - stats.regen;
+  return incoming > 0 ? stats.maxHp / incoming : Number.POSITIVE_INFINITY;
+}
+
+/**
+ * Whether a build is at least what the balance expects on arrival at a
+ * campaign map (shared/progression.ts referenceBuildForMap): its real damage
+ * per second, and how long it lasts against the map's hardest-hitting group.
+ * Ryan saw autofarm move on with half the stats a map needs; a map with one
+ * easy camp passed the old "any camp is safe" test. Null off the campaign.
+ */
+export function meetsMapReference(mapId: string, stats: PlayerPowerStats, realDps: number) {
+  const index = CAMPAIGN_MAP_IDS.indexOf(mapId as never);
+  if (index < 0) return null;
+  const reference = referenceBuildForMap(index);
+  if (realDps < reference.damage / reference.attackInterval) return false;
+  const groups = [...mapStatGroups(mapId).values()];
+  const hardest = groups.reduce((worst, group) => groupSurvivalSeconds(group, reference) < groupSurvivalSeconds(worst, reference) ? group : worst, groups[0] ?? []);
+  return groupSurvivalSeconds(hardest, stats) >= groupSurvivalSeconds(hardest, reference);
 }
 
 /** A map's enemies by the stat they pay, as autofarm groups them. */
@@ -230,7 +257,8 @@ export function createAutoFarmProgress(deps: Omit<Parameters<typeof createFarmEv
     if (cached?.key === key) return cached.ok;
     // The offline estimate prices damage alone; give it the damage the build really deals.
     const stats = evaluator.stats();
-    const ok = simulateOfflineFarming(mapId, { ...stats, damage: stats.damage * evaluator.calibration() }, NEXT_MAP_HOLD_SECONDS).survivable
+    const ok = meetsMapReference(mapId, stats, evaluator.dps()) !== false
+      && simulateOfflineFarming(mapId, { ...stats, damage: stats.damage * evaluator.calibration() }, NEXT_MAP_HOLD_SECONDS).survivable
       && [...mapStatGroups(mapId).values()].some(group => evaluator.danger(group, Boolean(deps.pullAll?.())) <= SAFE_CAMP_DANGER);
     holdable.set(mapId, { key, ok });
     return ok;

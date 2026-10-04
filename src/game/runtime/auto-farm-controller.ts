@@ -20,6 +20,9 @@ export const AUTO_FARM_DEFEAT_LIMIT = 5;
 export const AUTO_FARM_DEFEAT_WINDOW_MS = 180_000;
 /** After walking back a map from repeated defeats, how long before it may go forward again. */
 export const RETREAT_HOLD_MS = 20 * 60_000;
+/** Freshly moved forward, this many defeats this soon send it straight back: the map was too much after all. */
+export const ARRIVAL_DEFEAT_LIMIT = 2;
+export const ARRIVAL_PROBATION_MS = 10 * 60_000;
 /** How far inside its full reach autofarm stops: enough that a target at the stop point is still in range. */
 export const AUTO_FARM_REACH_MARGIN = 6;
 /** How long a pulled group may take to arrive before autofarm walks out to it. */
@@ -94,6 +97,8 @@ export function createAutoFarmController(options: {
   /** Walking back a map after too many defeats, and the map it may not return to before `until`. */
   let retreating = false;
   let forwardBlocked: { mapId: string; until: number } | null = null;
+  /** When autofarm last walked forward a map, for the arrival probation. */
+  let advancedAt: number | null = null;
   let bossRetryAt = 0;
   let planClock = 0;
   /** Kills of the current camp since it was chosen: a route moves on after a camp's worth. */
@@ -177,7 +182,9 @@ export function createAutoFarmController(options: {
     if (phase === 'boss') { bossRetryAt = at + BOSS_RETRY_MS; phase = 'farm'; }
     defeats = defeats.filter(previous => at - previous < AUTO_FARM_DEFEAT_WINDOW_MS);
     defeats.push(at);
-    if (defeats.length < AUTO_FARM_DEFEAT_LIMIT) return;
+    const probation = advancedAt !== null && at - advancedAt < ARRIVAL_PROBATION_MS;
+    if (defeats.length < (probation ? ARRIVAL_DEFEAT_LIMIT : AUTO_FARM_DEFEAT_LIMIT)) return;
+    advancedAt = null;
     defeats = [];
     // Too strong here: farm the map before it for a while rather than stop (players woke to a dead farm).
     const back = options.previousPortal?.();
@@ -366,6 +373,7 @@ export function createAutoFarmController(options: {
     if (!active || phase !== 'portal' || !travellingTo || !startedIdentity) { stop('Map changed · choose an enemy'); return; }
     const intent = { identity: startedIdentity, map: travellingTo, choice: encodeFarmPlan(readFarmRoute(travellingTo, options.priorityStorage)) };
     const label = retreating ? 'Moving back a map' : 'Moving to the next map';
+    advancedAt = retreating ? null : now();
     stop(label);
     pendingResume = intent;
     options.resumeStore?.write(intent);

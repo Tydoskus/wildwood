@@ -66,14 +66,14 @@ it("pays out the highest map the build can hold, and closes the window behind it
 it("caps a long absence at the window", () => {
   const fixture = away(OFFLINE_WINDOW_SECONDS * 20);
   enter(fixture);
-  expect(fixture.db.offlineProgress.identity.find(fixture.ctx.sender).seconds).toBe(60 * 60);
+  expect(fixture.db.offlineProgress.identity.find(fixture.ctx.sender).seconds).toBe(4 * 60 * 60);
 });
 
-it("credits ninety minutes to a player with all three offline-time ranks", () => {
+it("credits six hours to a player with all three offline-time ranks", () => {
   const fixture = away(3 * OFFLINE_WINDOW_SECONDS);
   fixture.seed("playerResearch", { identity: fixture.ctx.sender, offlineWindow: 3 });
   enter(fixture);
-  expect(fixture.db.offlineProgress.identity.find(fixture.ctx.sender).seconds).toBe(90 * 60);
+  expect(fixture.db.offlineProgress.identity.find(fixture.ctx.sender).seconds).toBe(6 * 60 * 60);
 });
 
 it("pays nothing for a reconnect", () => {

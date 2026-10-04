@@ -8,8 +8,14 @@ import { MAP_IDS, REGULAR_ENEMY_RESPAWN_SECONDS } from "./rules";
 import { campaignMapUnlocked, type CampaignAccess } from "./equipment-access";
 import type { PlayerPowerStats } from "./player-power";
 
-/** The most farming one absence is worth, however long the player was gone. */
-export const OFFLINE_WINDOW_SECONDS = 60 * 60;
+/** The most farming one absence is worth, however long the player was gone (Offline Time research adds to it). */
+export const OFFLINE_WINDOW_SECONDS = 4 * 60 * 60;
+/**
+ * How long a build has to hold a map for offline farming to stay on it. The
+ * pressure below was tuned against an hour; the window grew to four (0.882)
+ * without moving anyone to an easier map.
+ */
+export const OFFLINE_SURVIVAL_SECONDS = 60 * 60;
 /**
  * Below this there is nothing to report: a reconnect, a tab reload, or a
  * dropped socket should not open a summary for four seconds of loot.
@@ -172,7 +178,7 @@ export function simulateOfflineFarming(
   const contactShare = meanFightSeconds / cycleSeconds;
   const sustainedIncoming = meanIncomingPerSecond * OFFLINE_INCOMING_PRESSURE * contactShare - stats.regen;
   const secondsToDie = sustainedIncoming <= 0 ? Infinity : stats.maxHp / sustainedIncoming;
-  const survivable = secondsToDie >= seconds;
+  const survivable = secondsToDie >= Math.min(seconds, OFFLINE_SURVIVAL_SECONDS);
   if (!survivable) return { ...empty, secondsToDie, killsPerSecond };
 
   const kills = Math.floor(killsPerSecond * seconds);

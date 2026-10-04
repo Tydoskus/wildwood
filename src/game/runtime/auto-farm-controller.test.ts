@@ -655,4 +655,25 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
     expect(s.farm.state().phase).toBe('farm');
     expect(s.farm.bossStatus()).toBe('Boss beaten');
   });
+
+  it('walks straight back after two defeats soon after moving forward', () => {
+    const s = planned({
+      nextPortal: () => ({ x: 200, y: 500, destination: 'beginner_desert' }),
+      previousPortal: () => ({ x: 200, y: 500, destination: 'tutorial_forest' }),
+    });
+    s.add('Bramble', 900, 500);
+    s.farm.setAdvance(true);
+    s.farm.start([health]);
+    s.tick();
+    s.farm.travelStarted();
+    // The farm picks up on the new map (the fixture keeps one map id, so start it again there).
+    s.farm.start([health]);
+    s.tick();
+    s.farm.defeated();
+    expect(s.farm.state().status).not.toBe('Too strong here · moving back a map');
+    s.farm.defeated();
+    expect(s.farm.state().active).toBe(true);
+    expect(s.tick().x).toBeLessThan(0);
+    expect(s.farm.state()).toMatchObject({ phase: 'portal', status: 'Moving back a map' });
+  });
 });

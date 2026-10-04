@@ -94,7 +94,7 @@ export const RESEARCH_DEFINITIONS: Record<ResearchId, ResearchDefinition> = {
   bossRespawn: { id: "bossRespawn", title: "BOSS RESPAWN", icon: "♛", ranksPerBand: 5, maxRank: 5,
     effect: "BOSS RESPAWN", valuePerRank: 1, unit: "s", durationStartMs: 60_000, prerequisiteAny: ["slotUpgradeSpeed", "enemyRespawn"] },
   offlineWindow: { id: "offlineWindow", title: "OFFLINE TIME", icon: "☾", ranksPerBand: 3, maxRank: 3,
-    effect: "OFFLINE REWARD TIME", valuePerRank: 10, unit: "min", durationStartMs: 90_000, prerequisites: { bossRespawn: 1 } },
+    effect: "OFFLINE REWARD TIME", valuePerRank: 40, unit: "min", durationStartMs: 90_000, prerequisites: { bossRespawn: 1 } },
   utilityMoveSpeed: { id: "utilityMoveSpeed", title: "SWIFTNESS", icon: "➜", ranksPerBand: 5, maxRank: 5,
     effect: "MOVE SPEED", valuePerRank: 3, unit: "speed", durationStartMs: 60_000, prerequisites: { bossRespawn: 1 } },
   utilityAttackRange: { id: "utilityAttackRange", title: "ATTACK RANGE", icon: "◎", ranksPerBand: 5, maxRank: 5,

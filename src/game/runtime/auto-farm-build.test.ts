@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { CALIBRATION_MAX, createFarmEvaluator, groupFightDanger } from './auto-farm-build';
+import { CALIBRATION_MAX, createFarmEvaluator, groupFightDanger, meetsMapReference } from './auto-farm-build';
+import { referenceBuildForMap } from '../../../shared/progression';
+import { MAP_IDS } from '../../../shared/rules';
 
 const evaluator = (measuredDps: number | null, extra: Partial<Parameters<typeof createFarmEvaluator>[0]> = {}) => createFarmEvaluator({
   base: () => ({ maxHp: 1_000, damage: 100, armor: 0, regen: 0, attackRate: 1 }),
@@ -33,5 +35,17 @@ describe('autofarm build estimates', () => {
     expect(pulled).toBeGreaterThan(unpulled);
     expect(groupFightDanger(group, { ...fighter, healPerKill: .1 }, 10)).toBeLessThan(pulled);
     expect(groupFightDanger(group, { ...fighter, reflectChance: 1 }, 10)).toBeLessThan(pulled);
+  });
+
+  it("moves on only with the next map's expected arrival build: half the damage or half the toughness is not enough", () => {
+    for (const [index, mapId] of MAP_IDS.entries()) {
+      const reference = referenceBuildForMap(index);
+      const stats = { maxHp: reference.maxHp, damage: reference.damage, armor: reference.armor, regen: reference.regen, attackRate: reference.attackInterval };
+      const dps = reference.damage / reference.attackInterval;
+      expect(meetsMapReference(mapId, stats, dps), mapId).toBe(true);
+      expect(meetsMapReference(mapId, stats, dps / 2), mapId).toBe(false);
+      expect(meetsMapReference(mapId, { ...stats, maxHp: stats.maxHp / 2, armor: stats.armor / 2, regen: stats.regen / 2 }, dps), mapId).toBe(false);
+    }
+    expect(meetsMapReference('endless_3', referenceBuildForMap(1) as never, 1)).toBeNull();
   });
 });

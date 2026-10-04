@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.882": [
+    "Offline progress lasts up to 4 hours, and the Offline Time research takes it to 6",
+    "Autofarm only moves to the next map once your damage and toughness match what that map expects",
+    "Autofarm heads straight back if it dies twice soon after moving to a new map",
+  ],
   "0.881": [
     "Ranged enemies walk closer to get in range, but no longer back away when you walk up to them",
   ],
@@ -2742,6 +2747,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.882": "2026-10-03",
   "0.881": "2026-10-03",
   "0.880": "2026-10-03",
   "0.879": "2026-10-03",

@@ -19,7 +19,8 @@ export function bossRespawnSecondsWithResearch(baseSeconds: number, respawnRank:
 }
 
 export function offlineWindowSecondsWithResearch(offlineRank: number) {
-  return OFFLINE_WINDOW_SECONDS + rank(offlineRank, 3) * 10 * 60;
+  // Four hours, and forty minutes a rank: six at the third.
+  return OFFLINE_WINDOW_SECONDS + rank(offlineRank, 3) * 40 * 60;
 }
 
 export function attackRangeWithResearch(rangeRank: number) {
