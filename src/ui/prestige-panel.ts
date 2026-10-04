@@ -121,7 +121,7 @@ export function createPrestigeController(options: {
    * them on every render replaced the button between a press and its click,
    * which is why spending a point sometimes took several taps.
    */
-  const perkRows = new Map<PrestigePerkId, { title: HTMLElement; value: HTMLElement; spend: HTMLButtonElement }>();
+  const perkRows = new Map<PrestigePerkId, { element: HTMLElement; rank: HTMLElement; value: HTMLElement; next: HTMLElement; spend: HTMLButtonElement }>();
   /**
    * Respec: every spent point back to place again, for the run's power. It
    * sits under the perks it undoes, appears once a point is spent, and is
@@ -178,14 +178,40 @@ export function createPrestigeController(options: {
       const row = create('div');
       row.className = 'prestige-perk';
       row.dataset.perk = id;
-      const title = create('div');
+      // Closed, a row is its name, rank and what it gives now; a tap opens
+      // what it does and what the next rank buys. All eight open at once was
+      // a wall of small text on a phone.
+      const head = create('button') as HTMLButtonElement;
+      head.type = 'button';
+      head.className = 'prestige-perk-head';
+      head.setAttribute('aria-expanded', 'false');
+      const title = create('span');
       title.className = 'prestige-perk-title';
-      const detail = create('div');
+      title.textContent = PRESTIGE_PERKS[id].title;
+      const rank = create('span');
+      rank.className = 'prestige-perk-rank';
+      const chevron = create('span');
+      chevron.className = 'prestige-perk-chevron';
+      chevron.setAttribute('aria-hidden', 'true');
+      const value = create('span');
+      value.className = 'prestige-perk-value';
+      head.append(title, rank, chevron, value);
+      const more = create('div');
+      more.className = 'prestige-perk-more';
+      more.id = `prestigePerkMore-${id}`;
+      more.hidden = true;
+      head.setAttribute('aria-controls', more.id);
+      const detail = create('p');
       detail.className = 'prestige-perk-detail';
       detail.textContent = PRESTIGE_PERKS[id].detail;
-      // What the rank owned is worth, and what one more point would buy.
-      const value = create('div');
-      value.className = 'prestige-perk-value';
+      const next = create('p');
+      next.className = 'prestige-perk-next';
+      more.append(detail, next);
+      head.addEventListener('click', () => {
+        more.hidden = !more.hidden;
+        head.setAttribute('aria-expanded', String(!more.hidden));
+        row.classList.toggle('is-open', !more.hidden);
+      });
       const spend = create('button') as HTMLButtonElement;
       spend.type = 'button';
       spend.className = 'prestige-perk-spend';
@@ -208,8 +234,8 @@ export function createPrestigeController(options: {
           pending = false; render();
         }
       });
-      row.append(title, detail, value, spend);
-      perkRows.set(id, { title, value, spend });
+      row.append(head, spend, more);
+      perkRows.set(id, { element: row, rank, value, next, spend });
       return row;
     });
     options.perkList.replaceChildren(...rows, buildRespecRow(create));
@@ -225,10 +251,11 @@ export function createPrestigeController(options: {
       const coming = !expanded() && (PRESTIGE_EXPANSION_PERK_IDS as readonly string[]).includes(id);
       const cap = prestigePerkMaxRank(id, options.challengesWon?.() ?? 0);
       const maxed = rank >= cap;
-      row.title.textContent = `${PRESTIGE_PERKS[id].title} ${rank}/${cap}`;
-      row.value.textContent = maxed
-        ? `Now ${prestigePerkEffectLabel(id, rank)}`
-        : `Now ${prestigePerkEffectLabel(id, rank)} · Next ${prestigePerkEffectLabel(id, rank + 1)}`;
+      row.rank.textContent = `${rank}/${cap}`;
+      row.element.classList.toggle('is-unowned', rank < 1);
+      // Unowned, the line says what the first point gives instead of "+0%".
+      row.value.textContent = rank > 0 ? prestigePerkEffectLabel(id, rank) : `Rank 1: ${prestigePerkEffectLabel(id, 1)}`;
+      row.next.textContent = maxed ? 'Fully upgraded.' : `Next rank: ${prestigePerkEffectLabel(id, rank + 1)}`;
       row.spend.textContent = coming ? 'Coming soon' : maxed ? 'Maxed' : 'Spend';
       row.spend.disabled = Boolean(options.challenge?.()) || coming || pending || maxed || points < 1;
     }

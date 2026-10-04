@@ -379,7 +379,8 @@
   .settings-panel .setting-toggle { min-height: 44px; }
   .settings-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding-bottom: 8px; }
   .settings-panel .settings-connection { min-height: 28px; margin: 0 0 8px; font-size: 11px; opacity: .8; }
-  .settings-panel > .settings-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 2px 3px 12px; }
+  .settings-panel > .settings-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding: 2px 3px 12px; }
+  .settings-panel > .settings-content::-webkit-scrollbar { display: none; }
   .settings-tab-panel[hidden] { display: none; }
   .settings-tab-panel .setting-reset { margin-top: 28px; }
 
@@ -2856,7 +2857,13 @@
 
   #prestigeOverlay { position: fixed; inset: 0; z-index: 13; display: grid; place-items: center; padding: max(14px, env(safe-area-inset-left)); background: rgba(0,0,0,.78); }
   #prestigeOverlay[hidden] { display: none; }
-  .prestige-window { display: grid; gap: 10px; width: min(420px, 100%); max-height: 100%; overflow: auto; padding: 12px; background: var(--window-surface-blue); border: 2px solid #2b3a52; border-radius: 10px; }
+  .prestige-window { display: grid; gap: 10px; width: min(420px, 100%); max-height: 100%; overflow: auto; overscroll-behavior: contain; scrollbar-width: none; padding: 12px; background: var(--window-surface-blue); border: 2px solid #2b3a52; border-radius: 10px; }
+  .prestige-window::-webkit-scrollbar { display: none; }
+  /* The prestige window scrolls only its open tab: the title, tabs and Back stay on screen. */
+  #prestigeOverlay > .prestige-window { display: flex; flex-direction: column; overflow: hidden; }
+  #prestigeOverlay > .prestige-window > * { flex: 0 0 auto; }
+  #prestigeOverlay > .prestige-window > .prestige-tab-panel { flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+  #prestigeOverlay > .prestige-window > .prestige-tab-panel::-webkit-scrollbar { display: none; }
   .prestige-header { display: grid; justify-items: center; gap: 4px; }
   .prestige-level { color: #c2c7ce; font-size: clamp(7px, 1.7vw, 10px); letter-spacing: .06em; }
   .prestige-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0; text-align: center; }
@@ -2872,11 +2879,22 @@
   .prestige-tab-panel { display: grid; gap: 10px; }
   .prestige-tab-panel[hidden] { display: none; }
   .prestige-perks { display: grid; gap: 6px; }
-  .prestige-perk { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 8px; padding: 6px 8px; background: rgba(0,0,0,.25); border-radius: 6px; }
-  .prestige-perk-title { color: #fff; font-size: 12px; }
-  .prestige-perk-detail { grid-column: 1; color: #8c94a1; font-size: 10px; line-height: 1.4; }
-  .prestige-perk-value { grid-column: 1; color: #f0c674; font-size: 10px; line-height: 1.4; }
-  .prestige-perk-spend { grid-column: 2; grid-row: 1 / span 3; min-height: 36px; padding: 0 12px; font-size: 11px; }
+  /* A perk closed is one tap target (name, rank, what it gives now) beside
+     Spend; open, what it does and the next rank sit underneath. */
+  .prestige-perk { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 8px; padding: 4px 8px 4px 4px; background: rgba(0,0,0,.25); border-radius: 6px; }
+  .prestige-perk.is-open { background: rgba(0,0,0,.38); }
+  .prestige-perk-head { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: baseline; gap: 2px 8px; min-width: 0; min-height: 48px; margin: 0; padding: 6px; border: 0; border-radius: 4px; background: transparent; box-shadow: none; color: #fff; font: 900 15px/1.2 var(--font-rounded); text-align: left; text-shadow: none; }
+  .prestige-perk-head:focus-visible { outline: 2px solid #fff4d6; outline-offset: -2px; }
+  .prestige-perk-rank { color: #8c94a1; font-size: 13px; }
+  .prestige-perk-chevron { grid-column: 4; width: 8px; height: 8px; border-right: 2px solid #8c94a1; border-bottom: 2px solid #8c94a1; transform: translateY(-3px) rotate(45deg); transition: transform .15s; }
+  .prestige-perk.is-open .prestige-perk-chevron { transform: translateY(1px) rotate(-135deg); }
+  .prestige-perk-value { grid-column: 1 / -1; color: #f0c674; font-size: 13px; font-weight: 700; }
+  .prestige-perk.is-unowned .prestige-perk-value { color: #aab2bd; }
+  .prestige-perk-more { grid-column: 1 / -1; display: grid; gap: 4px; padding: 0 6px 6px; }
+  .prestige-perk-more[hidden] { display: none; }
+  .prestige-perk-detail, .prestige-perk-next { margin: 0; color: #c2c7ce; font-size: 13px; line-height: 1.4; }
+  .prestige-perk-next { color: #8c94a1; }
+  .prestige-perk-spend { grid-column: 2; grid-row: 1; min-height: 40px; margin: 0; padding: 0 14px; font-size: 13px; }
   .prestige-perk-spend:disabled { filter: grayscale(.8); opacity: .5; }
   /* Respec: under the perks it undoes, set apart by a dashed edge because it
      costs the run's power; armed in the same amber as an armed Prestige. */
@@ -2919,7 +2937,7 @@
   .prestige-cost { margin: 0; color: #c2c7ce; font-size: 11px; line-height: 1.5; text-align: center; }
   .prestige-status { min-height: 16px; color: #f0c674; font-size: 11px; text-align: center; }
   .prestige-footer { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
-  .prestige-footer button { min-height: 44px; font-size: 12px; }
+  .prestige-footer button { min-height: 44px; margin: 0; font-size: 12px; }
   .prestige-confirm { border-color: #67272b; background: linear-gradient(#c85050, #842f34); color: #fff; }
   .prestige-confirm.is-armed { border-color: #8a3a1e; background: linear-gradient(#e08a3c, #a04f1c); }
   .prestige-confirm:disabled { filter: grayscale(.7); opacity: .6; }

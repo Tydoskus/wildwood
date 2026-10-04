@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.886": [
+    "Prestige perks are easier to read on phones: bigger text, shorter wording, tap a perk for details",
+    "The Prestige window keeps Back on screen, and its scrollbar is hidden, as in Settings",
+  ],
   "0.885": [
     "Autofarm keeps the stats you picked when it moves to the next map, instead of switching to Auto",
   ],
@@ -2758,6 +2762,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.886": "2026-10-04",
   "0.885": "2026-10-04",
   "0.884": "2026-10-04",
   "0.883": "2026-10-04",

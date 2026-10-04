@@ -51,7 +51,7 @@ describe("prestige panel", () => {
     expect(s.pick("open").disabled).toBe(false);
     s.controller.open();
     expect(s.pick("overlay").hidden).toBe(false);
-    const spend = [...s.pick("perks").children].map((row: any) => row.querySelector("button"));
+    const spend = [...s.pick("perks").querySelectorAll(".prestige-perk-spend")] as any[];
     expect(spend.some((button: any) => !button.disabled)).toBe(true);
     // The button stays reachable; what is missing is said beside it.
     expect(s.pick("confirm").hidden).toBe(false);
@@ -136,29 +136,37 @@ describe("prestige panel", () => {
     none.controller.open();
     const rows = () => [...none.pick("perks").querySelectorAll(".prestige-perk")] as any[];
     expect(rows()).toHaveLength(8);
-    expect(rows()[0].querySelector(".prestige-perk-title").textContent).toBe("Keen Edge 2/5");
-    // Both what the rank owned is worth and what one more point buys.
-    const value = rows()[0].querySelector(".prestige-perk-value").textContent;
-    expect(value).toContain("Now +10% critical chance, +24% critical damage");
-    expect(value).toContain("Next +15% critical chance, +36% critical damage");
-    expect(rows().every((row: any) => row.querySelector("button").disabled)).toBe(true);
+    expect(rows()[0].querySelector(".prestige-perk-title").textContent).toBe("Keen Edge");
+    expect(rows()[0].querySelector(".prestige-perk-rank").textContent).toBe("2/5");
+    // Closed: what the rank owned is worth. Open: what it does and what one more point buys.
+    expect(rows()[0].querySelector(".prestige-perk-value").textContent).toBe("+10% crit chance, +24% crit damage");
+    const more = rows()[0].querySelector(".prestige-perk-more");
+    expect(more.hidden).toBe(true);
+    rows()[0].querySelector(".prestige-perk-head").click();
+    expect(more.hidden).toBe(false);
+    expect(rows()[0].querySelector(".prestige-perk-head").getAttribute("aria-expanded")).toBe("true");
+    expect(more.textContent).toContain("Next rank: +15% crit chance, +36% crit damage");
+    // Unowned, it says what the first point gives rather than "+0%".
+    expect(rows()[1].querySelector(".prestige-perk-value").textContent).toBe("Rank 1: 4% chance to hit twice");
+    expect(rows().every((row: any) => row.querySelector(".prestige-perk-spend").disabled)).toBe(true);
 
     const banked = setup({ unlocked: true, row: { level: 3, perkPoints: 1, peakPower: 0 }, perks: { riposte: 5 } });
     banked.controller.open();
     const perkRows = [...banked.pick("perks").querySelectorAll(".prestige-perk")] as any[];
-    expect(perkRows[0].querySelector("button").disabled).toBe(false);
+    expect(perkRows[0].querySelector(".prestige-perk-spend").disabled).toBe(false);
     const maxed = perkRows.find((row: any) => row.dataset.perk === "riposte");
-    expect(maxed.querySelector("button").textContent).toBe("Maxed");
-    expect(maxed.querySelector(".prestige-perk-value").textContent).not.toContain("Next");
-    expect(maxed.querySelector(".prestige-perk-title").textContent).toBe("Reflect 5/5");
-    expect(maxed.querySelector("button").disabled).toBe(true);
+    expect(maxed.querySelector(".prestige-perk-spend").textContent).toBe("Maxed");
+    expect(maxed.querySelector(".prestige-perk-more").textContent).not.toContain("Next");
+    expect(maxed.querySelector(".prestige-perk-title").textContent).toBe("Reflect");
+    expect(maxed.querySelector(".prestige-perk-rank").textContent).toBe("5/5");
+    expect(maxed.querySelector(".prestige-perk-spend").disabled).toBe(true);
   });
 
   it("spends a point on the perk whose button was pressed", async () => {
     const s = setup({ unlocked: true, row: { level: 1, perkPoints: 1, peakPower: 0 }, perks: {} });
     s.controller.open();
     const row = [...s.pick("perks").children].find((entry: any) => entry.dataset.perk === "splitShot") as any;
-    row.querySelector("button").click();
+    row.querySelector(".prestige-perk-spend").click();
     await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
     expect(s.spendPerk).toHaveBeenCalledWith("splitShot");
     expect(s.pick("status").textContent).toContain("rank 1");
@@ -170,7 +178,7 @@ describe("prestige panel", () => {
     const s = setup({ unlocked: true, row: { level: 1, perkPoints: 1, peakPower: 0 }, perks: {} });
     s.controller.open();
     const button = () => ([...s.pick("perks").children]
-      .find((entry: any) => entry.dataset.perk === "splitShot") as any).querySelector("button");
+      .find((entry: any) => entry.dataset.perk === "splitShot") as any).querySelector(".prestige-perk-spend");
     const before = button();
     s.controller.refresh(true);
     s.controller.render();
@@ -304,7 +312,7 @@ it.each([undefined, false, { ok: false, error: "Not ready" }])("does not announc
 it("does not announce a perk purchase when its API returns no result", async () => {
   const s = setup({ row: { level: 1, perkPoints: 1, peakPower: 100 }, spend: async () => undefined });
   s.controller.open();
-  click(s.pick("perks").querySelector("button"));
+  click(s.pick("perks").querySelector(".prestige-perk-spend"));
   await Promise.resolve();
   expect(s.pick("status").textContent).toBe("Couldn't spend that point.");
 });

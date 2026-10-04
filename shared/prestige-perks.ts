@@ -8,18 +8,18 @@ export const PRESTIGE_PERK_MAX_RANK = 5;
 
 export const PRESTIGE_PERKS = {
   keenEdge: { title: "Keen Edge", perRank: .05,
-    detail: "Critical chance and harder criticals, on top of research." },
+    detail: "More critical hit chance and bigger critical hits. Adds to research." },
   doubleStrike: { title: "Double Strike", perRank: .04,
     detail: "Chance for a hit to land twice." },
   splitShot: { title: "Split Shot", perRank: .08,
-    detail: "Chance to strike a second enemy at the same time. Nothing to split against a boss." },
+    detail: "Chance for a shot to also hit a second nearby enemy. Not against bosses." },
   // Shown as Reflect; the id stays riposte because it names a database column.
   riposte: { title: "Reflect", perRank: .06,
-    detail: "Chance to throw an enemy's whole hit, before your armor, back at them, up to your max health. No cap in Reflect Only. Duels throw back half." },
-  bossSlayer: { title: "Boss Slayer", perRank: .10, detail: "Deal more weapon damage to bosses. Does not amplify reflected damage." },
-  secondWind: { title: "Second Wind", perRank: .01, detail: "Restore a share of your maximum health after each regular enemy kill." },
-  longShot: { title: "Long Shot", perRank: 5, detail: "Extend your attack range, for bows and melee weapons alike." },
-  fleetFoot: { title: "Fleet Foot", perRank: .02, detail: "Move faster, on top of Move Speed research." },
+    detail: "Chance to send an enemy's hit back at it, up to your max health. No limit in Reflect Only. Half in duels." },
+  bossSlayer: { title: "Boss Slayer", perRank: .10, detail: "More weapon damage to bosses. Reflected damage is not boosted." },
+  secondWind: { title: "Second Wind", perRank: .01, detail: "Heal part of your max health each time you kill a regular enemy." },
+  longShot: { title: "Long Shot", perRank: 5, detail: "Longer attack range, for bows and melee weapons." },
+  fleetFoot: { title: "Fleet Foot", perRank: .02, detail: "Move faster. Adds to Move Speed research." },
 } as const;
 
 /**
@@ -98,14 +98,14 @@ export function prestigePerkEffectLabel(perk: PrestigePerkId, rank: number) {
   const percent = (value: number) => `${Math.round(value * 100)}%`;
   const ranks = { [perk]: rank } as Partial<PrestigePerkRanks>;
   const chance = percent(prestigePerkValue(ranks, perk));
-  if (perk === "keenEdge") return `+${chance} critical chance, +${percent(prestigeCriticalDamageBonus(ranks))} critical damage`;
-  if (perk === "doubleStrike") return `+${chance} chance to strike twice`;
-  if (perk === "splitShot") return `+${chance} chance to hit a second enemy`;
-  if (perk === "bossSlayer") return `+${chance} weapon damage to bosses`;
-  if (perk === "secondWind") return `Restore ${chance} maximum health per kill`;
+  if (perk === "keenEdge") return `+${chance} crit chance, +${percent(prestigeCriticalDamageBonus(ranks))} crit damage`;
+  if (perk === "doubleStrike") return `${chance} chance to hit twice`;
+  if (perk === "splitShot") return `${chance} chance to hit a 2nd enemy`;
+  if (perk === "bossSlayer") return `+${chance} damage to bosses`;
+  if (perk === "secondWind") return `Heal ${chance} max health per kill`;
   if (perk === "longShot") return `+${prestigePerkValue(ranks, perk)} attack range`;
   if (perk === "fleetFoot") return `+${chance} move speed`;
-  return `+${chance} chance to reflect a hit, up to your max health`;
+  return `${chance} chance to reflect a hit`;
 }
 
 /** Extra critical damage from Keen Edge, added to the research multiplier. */
