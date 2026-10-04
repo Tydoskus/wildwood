@@ -4769,3 +4769,6 @@ html.text-outline-shadow .death-countdown { text-shadow: var(--text-outline-ring
 .enemy-index-note { margin: 0; color: #8c94a1; font-size: 13px; line-height: 1.4; text-align: center; }
 .enemy-index-window .window-back-footer { display: flex; justify-content: center; }
 .enemy-index-window .window-back-button { margin: 0; }
+.enemy-index-table tr.is-boss th { color: #ffb347; }
+.enemy-index-boss-tag { display: block; color: #ffb347; font-size: 13px; font-weight: 700; }
+.enemy-index-reward { display: block; }

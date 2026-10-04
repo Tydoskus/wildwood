@@ -9,7 +9,24 @@
  * Prestige, which hands back the main run; each win lets Pull aggro one more
  * of the player's picked camps at once, up to five.
  */
+import { prestigeCampaignComplete, prestigeCampaignTarget } from "./prestige";
+import { CAMPAIGN_MAPS } from "./campaign-registry";
+
 export const AGGRO_CHALLENGE_LIMIT = 4;
+
+/**
+ * Every run's goal is a first prestige's: the campaign's last boss. It used
+ * to be the player's own next prestige, which for a high prestige meant a deep
+ * Endless stage (Agnero, prestige 27, 2026-10-04) and showed that stage on the
+ * card before a run even started.
+ */
+export function aggroGoal() {
+  const target = prestigeCampaignTarget(1);
+  return { label: `Defeat ${target.bossName} (map ${CAMPAIGN_MAPS.indexOf(target) + 1})` };
+}
+export function aggroGoalMet(bossRewardClaims: number) {
+  return prestigeCampaignComplete(bossRewardClaims, 1);
+}
 export const AGGRO_MAX_PULL_CAMPS = 1 + AGGRO_CHALLENGE_LIMIT;
 
 export type AggroChallenge = { active: boolean; completed: number };

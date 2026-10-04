@@ -28,7 +28,7 @@ export function createAggroChallengePanel(d: {
     </header>
     <p class="prestige-challenge-rule"></p>
     <ul class="prestige-challenge-terms"></ul>
-    <div class="prestige-challenge-goal"><span>Goal</span><strong></strong><small>Your next prestige's requirement</small></div>
+    <div class="prestige-challenge-goal"><span>Goal</span><strong></strong><small>The same as a first prestige</small></div>
     <div class="prestige-challenge-reward"><span>Reward</span><strong></strong><small>Autofarm's Pull aggroes one more of your picked camps at once, for good</small></div>
     <p class="prestige-challenge-earned"></p>
     <button type="button" class="prestige-challenge-action"></button>

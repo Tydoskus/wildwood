@@ -16,9 +16,10 @@ it("lists each kind of enemy once, weakest first, with rewards as the player is 
   expect(rows[0]).toMatchObject({ hp: 42, hit: 4.2, reward: { type: "damage", amount: 6 } });
 });
 
-it("stands beside each campaign map's arrival, and nowhere else", () => {
-  const arrival = CAMPAIGN_GATEWAYS.tutorial_forest.arrival;
-  expect(mapSignPosition("tutorial_forest")).toEqual({ x: arrival.x + 190, y: arrival.y + 30 });
+it("stands beside each campaign map's arrival, behind its portals, and nowhere else", () => {
+  // Right of the arrival, a little behind the portals' line so it stands behind them, not in front.
+  const { arrival, portals } = CAMPAIGN_GATEWAYS.tutorial_forest;
+  expect(mapSignPosition("tutorial_forest")).toEqual({ x: arrival.x + 190, y: Math.min(...portals.map(portal => portal.y)) - 40 });
   expect(mapSignPosition("home_exterior")).toBeNull();
 });
 

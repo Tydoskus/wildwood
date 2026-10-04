@@ -12,6 +12,7 @@ import { prestigeExpanded } from "./prestige-expansion";
 import { attackRangeWithResearch } from "../../shared/utility-research";
 import { readPlayerProgress } from "./wide-stats";
 import { aggroChallengeActive } from "./aggro-challenge";
+import { aggroGoal, aggroGoalMet } from "../../shared/aggro-challenge";
 
 // Prestige bodies. The player_prestige table and the reducer declaration stay
 // in index.ts; this module owns what they call. The reset arrives through deps
@@ -75,14 +76,9 @@ export function createPrestige(deps: PrestigeDeps) {
     const progress = readPlayerProgress(ctx, ctx.sender);
     const current = ctx.db.playerPrestige.identity.find(ctx.sender);
     // A Reflect Only run wins on its own goal, not the next prestige's requirement or cap.
-    // An Aggro run wins on the regular requirement for the next level, cap or not.
+    // An Aggro run wins on a first prestige's requirement: the campaign's last boss.
     if (aggroChallengeActive(ctx, ctx.sender)) {
-      const endless = ctx.db.proceduralProgress.identity.find(ctx.sender)?.completed ?? 0;
-      const nextLevel = (current?.level ?? 0) + 1;
-      if (!progress || !prestigeUnlocked(progress.bossRewardClaims, endless, nextLevel, undefined, prestigeExpanded(ctx))) {
-        throw new SenderError(`Aggro: ${progress && prestigeCampaignComplete(progress.bossRewardClaims, nextLevel) && prestigeEndlessRequirement(nextLevel) > 0
-          ? `clear Endless ${prestigeEndlessRequirement(nextLevel)}` : `defeat ${prestigeCampaignTarget(nextLevel).bossName}`} to win.`);
-      }
+      if (!progress || !aggroGoalMet(progress.bossRewardClaims)) throw new SenderError(`Aggro: ${aggroGoal().label} to win.`);
       deps.winAggro(ctx, activePlayer);
       return current;
     }

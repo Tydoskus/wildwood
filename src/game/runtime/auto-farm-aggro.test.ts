@@ -76,3 +76,13 @@ describe('Aggro challenge on the client', () => {
     expect(chased()).toEqual([]);
   });
 });
+
+describe('Aggro goal', () => {
+  it("is a first prestige's for everyone: the campaign's last boss", async () => {
+    const { aggroGoal, aggroGoalMet } = await import('../../../shared/aggro-challenge');
+    const { BOSS_REWARD_CLAIM_BITS } = await import('../../../shared/rules');
+    expect(aggroGoal().label).toBe('Defeat Aegis Prime (map 15)');
+    expect(aggroGoalMet(0)).toBe(false);
+    expect(aggroGoalMet(BOSS_REWARD_CLAIM_BITS.aegisPrime)).toBe(true);
+  });
+});

@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.891": [
+    "Aggro's goal is Defeat Aegis Prime for every run, not your next prestige's Endless stage",
+    "Your profile no longer shows prestige stat gain during an Aggro run (it was never paid)",
+    "The Enemy Index lists the map's boss: its HP, strongest hit and rewards",
+    "Enemy Index signs stand back by the portals instead of in front of them",
+  ],
   "0.890": [
     "New prestige challenge, Aggro: random camps chase you on every map, dying restarts the run, and no prestige bonuses",
     "Win Aggro by reaching your next prestige; each win lets Autofarm's Pull aggro one more of your picked camps at once (up to 5)",
@@ -2781,6 +2787,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.891": "2026-10-04",
   "0.890": "2026-10-04",
   "0.889": "2026-10-04",
   "0.888": "2026-10-04",

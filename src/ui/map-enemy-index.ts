@@ -47,8 +47,15 @@ export function createMapEnemyIndex(doc: Document = document) {
       name.textContent = `${row.elite ? "★ " : ""}${row.name}`;
       name.classList.toggle("is-elite", row.elite);
       const reward = doc.createElement("td");
-      reward.textContent = `${rewardAmountLabel(row.reward)} ${SHORT_STAT[row.reward.type]}`;
-      reward.style.color = REWARD_DATA[row.reward.type].color;
+      const rewards = row.boss ? row.boss.rewards : [row.reward];
+      reward.replaceChildren(...rewards.map(paid => Object.assign(doc.createElement("span"), {
+        className: "enemy-index-reward", textContent: `${rewardAmountLabel(paid)} ${SHORT_STAT[paid.type]}` })));
+      reward.querySelectorAll<HTMLElement>("span").forEach((span, index) => { span.style.color = REWARD_DATA[rewards[index].type].color; });
+      if (!rewards.length) reward.textContent = "—";
+      if (row.boss) {
+        tr.className = "is-boss";
+        name.append(Object.assign(doc.createElement("small"), { className: "enemy-index-boss-tag", textContent: "Boss" }));
+      }
       tr.append(name, ...[formatCompactNumber(row.hp), formatCompactNumber(row.hit)].map(value => Object.assign(doc.createElement("td"), { textContent: value })), reward);
       return tr;
     }));

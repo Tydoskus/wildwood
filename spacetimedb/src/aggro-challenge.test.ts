@@ -17,10 +17,9 @@ function fixture() {
   f.seed("proceduralProgress", { identity: f.ctx.sender, completed: 12 });
   const saved = { ...f.db.playerProgress.identity.find(f.ctx.sender) };
   const ranks = prestigePerkRanks(f.ctx, f.ctx.sender);
-  // Level 2's regular requirement: the campaign and Endless 1.
+  // A first prestige's requirement, whatever the player's level: the campaign's last boss. No Endless stage.
   const reachNextPrestige = () => {
     f.patch("playerProgress", { bossRewardClaims: BOSS_REWARD_CLAIM_BITS.aegisPrime });
-    f.seed("proceduralProgress", { identity: f.ctx.sender, completed: 1 });
   };
   return { ...f, saved, ranks, reachNextPrestige };
 }
@@ -56,7 +55,7 @@ it("restarts the run on death", () => {
   expect(g.db.playerProgress.identity.find(g.ctx.sender).damage).toBe(12345);
 });
 
-it("is won at the next regular prestige's requirement, handing back the main run and its bonuses", () => {
+it("is won at a first prestige's requirement (the campaign's last boss), handing back the main run and its bonuses", () => {
   const f = fixture();
   f.run(server.startAggroRun);
   expect(() => f.run(server.prestigeAccount)).toThrow("Aggro");

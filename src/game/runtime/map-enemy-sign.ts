@@ -1,5 +1,7 @@
 import { CAMPAIGN_GATEWAYS } from "../../../shared/map-gateways";
 import { ENEMY_TYPES, type EnemyDefinition, type EnemyKind, type RewardType } from "../enemies";
+import { runtimeMapBalance } from "../../../shared/map-balance-runtime";
+import { bossForMap } from "./boss-registry";
 import type { EnemyState } from "./types";
 
 /**
@@ -8,15 +10,29 @@ import type { EnemyState } from "./types";
  * health, one hit before armor, and what a kill pays, as the enemies' own
  * labels show it. The sign is drawn once to its own canvas and then as one image.
  */
-export type MapSignRow = { name: string; elite: boolean; hp: number; hit: number; reward: EnemyDefinition["reward"] };
+export type MapSignRow = { name: string; elite: boolean; hp: number; hit: number; reward: EnemyDefinition["reward"];
+  /** The map's boss: its hit is its strongest attack, and it may pay several rewards (or none). */
+  boss?: { rewards: EnemyDefinition["reward"][] } };
 
 const FONT = '"Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-/** Where the sign stands from the arrival point: to the right, clear of the portals behind it. */
-export const MAP_SIGN_OFFSET = { x: 190, y: 30 };
+/** Where the sign stands: right of the arrival point, a little behind the portals' line rather than in front of it. */
+export const MAP_SIGN_OFFSET = { x: 190, behindPortals: 40 };
 
 export function mapSignPosition(mapId: string) {
-  const arrival = CAMPAIGN_GATEWAYS[mapId]?.arrival;
-  return arrival ? { x: arrival.x + MAP_SIGN_OFFSET.x, y: arrival.y + MAP_SIGN_OFFSET.y } : null;
+  const gateways = CAMPAIGN_GATEWAYS[mapId];
+  if (!gateways) return null;
+  const portalLine = gateways.portals.length ? Math.min(...gateways.portals.map(portal => portal.y)) : gateways.arrival.y - 90;
+  return { x: gateways.arrival.x + MAP_SIGN_OFFSET.x, y: portalLine - MAP_SIGN_OFFSET.behindPortals };
+}
+
+/** The map's boss as an index row: its health, strongest hit and rewards, from the map's live balance. */
+export function mapBossRow(mapId: string, rewardAmount: (type: RewardType, amount: number) => number): MapSignRow | null {
+  const balance = runtimeMapBalance(mapId)?.boss, boss = bossForMap(mapId);
+  if (!balance || !boss) return null;
+  const rewards = Object.entries(balance.rewards).filter(([, amount]) => amount > 0)
+    .map(([type, amount]) => ({ type: type as RewardType, amount: rewardAmount(type as RewardType, amount) }));
+  return { name: boss.name, elite: false, hp: balance.hp, hit: Math.max(balance.damage, ...Object.values(balance.attacks)),
+    reward: rewards[0] ?? { type: "damage", amount: 0 }, boss: { rewards } };
 }
 
 /** One row per kind of enemy on the map, weakest first. Bosses and other players' ghosts are left off. */

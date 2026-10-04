@@ -18,3 +18,15 @@ it("lists the map's enemies with short reward names, and closes with Back", () =
   index.open("Empty", []);
   expect(index.isOpen()).toBe(false);
 });
+
+it("lists the boss last, tagged, with its rewards", () => {
+  const { document } = parseHTML("<html><body></body></html>");
+  const index = createMapEnemyIndex(document as unknown as Document);
+  index.open("Samurai Garden", [
+    { name: "Koi Shogun", elite: false, hp: 9_000_000, hit: 120_000, reward: { type: "damage", amount: 50 },
+      boss: { rewards: [{ type: "damage", amount: 50 }, { type: "health", amount: 900 }] } },
+  ]);
+  const row = document.querySelector(".enemy-index-table tbody tr.is-boss")!;
+  expect(row.querySelector("th")?.textContent).toBe("Koi ShogunBoss");
+  expect([...row.querySelectorAll(".enemy-index-reward")].map(span => span.textContent)).toEqual(["+50 Atk", "+900 HP"]);
+});

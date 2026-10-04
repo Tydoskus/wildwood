@@ -18,7 +18,7 @@ import type { Particle } from "./combat-effects";
 import { parseHexColorOrNull, type StaticWorldColorQuadFrame, type StaticWorldLayer, type StaticWorldSpriteFrame } from "./webgl-static-world-layer";
 import { nightEnemyOpacity, nightGroundShadowsVisible } from "./night-visibility";
 import { snapWorldRenderCoordinate } from "./render-space";
-import { createMapEnemySigns, mapSignPosition, mapSignRows, touchingMapSign } from "./map-enemy-sign";
+import { createMapEnemySigns, mapBossRow, mapSignPosition, mapSignRows, touchingMapSign } from "./map-enemy-sign";
 import { createMapEnemyIndex } from "../../ui/map-enemy-index";
 
 type Viewport = { width: number; height: number; dpr: number };
@@ -306,8 +306,9 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       if (!at) { touchingSign = false; return null; }
       const touching = touchingMapSign(at, options.player);
       if (touching && !touchingSign && !options.mapSignBlocked?.() && !enemyIndex.isOpen()) {
-        enemyIndex.open(options.mapName(options.currentMapId()), mapSignRows(options.enemies,
-          (type, amount) => options.rewardAmount?.(type, amount) ?? amount * options.rewardMultiplier()));
+        const paid = (type: RewardType, amount: number) => options.rewardAmount?.(type, amount) ?? amount * options.rewardMultiplier();
+        const boss = mapBossRow(options.currentMapId(), paid);
+        enemyIndex.open(options.mapName(options.currentMapId()), [...mapSignRows(options.enemies, paid), ...boss ? [boss] : []]);
       }
       touchingSign = touching;
       const image = signs.sign();

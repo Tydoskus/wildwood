@@ -6,8 +6,7 @@ import { createPrestigeChallengePanel, installPrestigeTabs } from "./prestige-ch
 import { gameConfirm } from "./confirm-dialog";
 import { challengeWinReached, reflectOnlyWinNotice } from "./prestige-challenge-win";
 import { createAggroChallengePanel } from "./aggro-challenge-panel";
-import { AGGRO_CHALLENGE_LIMIT, aggroPullCamps } from "../../shared/aggro-challenge";
-import { prestigeCampaignTarget, prestigeEndlessRequirement } from "../../shared/prestige";
+import { AGGRO_CHALLENGE_LIMIT, aggroGoal, aggroPullCamps } from "../../shared/aggro-challenge";
 
 /** Compose the shared launch notice, map label and account prestige controls. */
 export function createPrestigeExpansionRuntime(d: {
@@ -28,13 +27,8 @@ export function createPrestigeExpansionRuntime(d: {
   const both = async <T,>(action: Promise<T>) => {
     try { return await action; } finally { challengePanel?.render(); aggroPanel?.render(); }
   };
-  /** An Aggro run's goal: the regular requirement of the player's next prestige. */
-  const aggroGoal = () => {
-    const next = (coop?.prestige?.()?.level ?? 0) + 1, endless = prestigeEndlessRequirement(next);
-    const campaign = Boolean(coop?.prestigeCampaignComplete?.(next));
-    return { label: campaign && endless > 0 ? `Clear Endless ${endless}` : `Defeat ${prestigeCampaignTarget(next).bossName}`,
-      met: campaign && (coop?.proceduralCompleted?.() ?? 0) >= endless };
-  };
+  /** An Aggro run's goal, the same for every run and player: a first prestige's (shared/aggro-challenge.ts). */
+  const aggroRunGoal = () => ({ label: aggroGoal().label, met: Boolean(coop?.prestigeCampaignComplete?.(1)) });
   return {
     unlocked: notice.unlocked,
     tick() {
@@ -71,7 +65,7 @@ export function createPrestigeExpansionRuntime(d: {
         challenge: () => Boolean(coop?.prestigeChallenge?.()?.active || coop?.aggroChallenge?.()?.active),
         challengesWon: () => coop?.prestigeChallenge?.()?.completed ?? 0,
         challengeGoal: () => {
-          if (coop?.aggroChallenge?.()?.active) return { ...aggroGoal(), name: "Aggro", reward: "+1 Pull camp" };
+          if (coop?.aggroChallenge?.()?.active) return { ...aggroRunGoal(), name: "Aggro", reward: "+1 Pull camp" };
           const state = coop?.prestigeChallenge?.(); return state?.active ? coop?.prestigeChallengeGoal?.(state.completed) ?? null : null;
         },
         respec: () => options.runPrestige(coop?.respecPrestigePerks),
