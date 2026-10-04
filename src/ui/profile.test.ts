@@ -199,10 +199,10 @@ describe("profile stat display", () => {
     expect(rows[0]).toEqual({
       kind: "health",
       label: "Max Hp:",
-      base: "91",
+      base: "100",
       equationOperator: "×",
       multiplier: "1.23",
-      total: "111",
+      total: "123",
       sources: [
         { label: "Tech", value: "+10%" },
         { label: "Equipment", value: "+11.43%" },

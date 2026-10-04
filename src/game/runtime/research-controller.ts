@@ -1,4 +1,3 @@
-import { clamp } from "../math";
 import type { PlayerState } from "./types";
 import { createEmptyResearchRanks, researchStatRewardMultiplier, utilityMovementSpeedBonus, type ResearchRanks } from "../../../shared/research";
 import { applyPlayerMaxHealthMultiplierBonus } from "./player-health";
@@ -42,16 +41,18 @@ export function createResearchController(options: ResearchControllerOptions) {
     criticalChance: () => ranks().criticalChance * .01 + prestigePerkValue(options.prestigePerks?.(), "keenEdge"),
     criticalDamageMultiplier: () => 1.05 + ranks().criticalDamage * .05 + prestigeCriticalDamageBonus(options.prestigePerks?.()),
     setAppliedVitalityRank: (rank: number) => { appliedVitalityRank = rank; },
+    /**
+     * Vitality is part of the health bonus (main.ts healthMultiplierBonus), so a
+     * new rank only re-applies it. It used to rewrite saved health, which the
+     * server ignores: the boost vanished on the next sync, and a login where
+     * research arrived after stats applied every rank a second time.
+     */
     applyVitality() {
       if (options.isDueling()) return;
       const nextRank = ranks().vitality;
       if (nextRank === appliedVitalityRank) return;
-      const previousMultiplier = 1 + appliedVitalityRank * .02;
-      const nextMultiplier = 1 + nextRank * .02;
-      options.player.baseMaxHp = clamp(options.player.baseMaxHp / previousMultiplier * nextMultiplier, 1, options.maxPlayerStat);
-      applyPlayerMaxHealthMultiplierBonus(options.player, options.healthMultiplierBonus?.() ?? 0);
       appliedVitalityRank = nextRank;
-      options.saveProgress();
+      applyPlayerMaxHealthMultiplierBonus(options.player, options.healthMultiplierBonus?.() ?? 0);
     },
   };
 }

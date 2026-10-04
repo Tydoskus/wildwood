@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.883": [
+    "Vitality research works again: +2% max health per rank, on top of your gear",
+    "Fixed max health jumping up after logging in, then dropping back when changing maps",
+  ],
   "0.882": [
     "Offline progress lasts up to 4 hours, and the Offline Time research takes it to 6",
     "Autofarm only moves to the next map once your damage and toughness match what that map expects",
@@ -2747,6 +2751,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.883": "2026-10-04",
   "0.882": "2026-10-03",
   "0.881": "2026-10-03",
   "0.880": "2026-10-03",

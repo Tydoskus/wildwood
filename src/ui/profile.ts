@@ -158,7 +158,8 @@ export function profileStatDisplayRows(
   const stats: ProfileStatDisplayRow[] = [
     {
       kind: "health", label: "Max Hp:",
-      base: statValue(progress.maxHp / effective.multipliers.healthResearch),
+      // Saved health is the base: Vitality multiplies it live (0.883), it is not baked in.
+      base: statValue(progress.maxHp),
       equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.healthResearch * (1 + effective.equipment.health)),
       total: statValue(effective.maxHp),

@@ -25,10 +25,11 @@ describe("player power", () => {
     expect(effectivePlayerPower(progress, research)).toBe(playerPowerForStats(effective));
   });
 
-  it("boosts gear health with Vitality without multiplying already-researched saved health twice", () => {
+  it("multiplies saved health by Vitality live, on top of gear", () => {
     const stats = { maxHp: 120, damage: 100, attackRate: 1, armor: 0, regen: 0, equippedChest: WOODEN_ARMOR };
-    expect(effectivePlayerPowerStats(stats, { vitality: 10 }).maxHp).toBeCloseTo(126);
-    expect(effectivePlayerPowerStats({ ...stats, equippedChest: "" }, { vitality: 10 }).maxHp).toBeCloseTo(120);
+    // Wooden armor's +5% and Vitality 10's +20% multiply: 120 x 1.05 x 1.2.
+    expect(effectivePlayerPowerStats(stats, { vitality: 10 }).maxHp).toBeCloseTo(151.2);
+    expect(effectivePlayerPowerStats({ ...stats, equippedChest: "" }, { vitality: 10 }).maxHp).toBeCloseTo(144);
   });
 
   it("continues above the legacy u32 ceiling", () => {

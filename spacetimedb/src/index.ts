@@ -2964,7 +2964,7 @@ function maxHealthForProgress(ctx: any, identity: any, progress: any) {
   const headItem = equippedHeadForProgress(progress);
   const chestItem = equippedChestForProgress(progress);
   const vitalityMultiplier = 1 + (ctx.db.playerResearch.identity.find(identity)?.vitality ?? 0) * .02;
-  return equipmentMaxHealth(progress.maxHp / vitalityMultiplier,
+  return equipmentMaxHealth(progress.maxHp,
     headItem,
     chestItem,
     vitalityMultiplier,

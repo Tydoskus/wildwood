@@ -1283,9 +1283,6 @@ export function advanceTime(
       const id = state.activeResearch.id;
       const previousRank = state.research[id];
       state.research[id] = Math.min(RESEARCH_DEFINITIONS[id].maxRank, previousRank + 1);
-      if (id === "vitality") {
-        state.stats.maxHp = state.stats.maxHp / (1 + previousRank * .02) * (1 + state.research.vitality * .02);
-      }
       startNextResearch(state, plan);
     }
     if (state.activeUpgrade && upgradeAt === nextAt) {
@@ -2002,10 +1999,13 @@ function simulateTrial(
       state.lastCombatAt = state.time;
       applyBossReward(record, map, config.mapAdjustments[map.id], false);
       rollDrops(state, map.boss.drops, null, random, recordHistory);
+      // What the kill paid, read before the loot pause: research finishing in
+      // that pause (Vitality is live since 0.883) is not the boss's doing.
+      const repeatGain = Math.max(0, powerForState(state) - powerBeforeRepeat);
       if (!spendTime(record, "lootRetargetSeconds", LOOT_AND_RETARGET_SECONDS, record.repeatTimeBudget)) break;
       repeats += 1;
       record.repeatBossKills += 1;
-      record.repeatBossPowerGain += Math.max(0, powerForState(state) - powerBeforeRepeat);
+      record.repeatBossPowerGain += repeatGain;
       recordHistory();
     }
   };

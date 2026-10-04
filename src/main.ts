@@ -229,12 +229,10 @@ import {
     singletons: [camera, player, ...BOSS_KINDS.map((kind) => bosses[kind])],
     collections: [enemies, projectiles, enemyShots, ...BOSS_KINDS.map((kind) => bossHazards[kind]), particles, damageNumbers],
   });
-  const healthMultiplierBonus = () => equipmentMaxHealthMultiplierBonus(
-    inventory.equippedHead,
-    inventory.equippedChest,
-    coop?.itemUpgradeLevel?.(inventory.equippedHead) ?? 0,
-    coop?.itemUpgradeLevel?.(inventory.equippedChest) ?? 0,
-  );
+  // Gear and Vitality together, as one bonus on saved health (Vitality is live since 0.883, like other research).
+  const healthMultiplierBonus = () => (1 + equipmentMaxHealthMultiplierBonus(inventory.equippedHead, inventory.equippedChest,
+    coop?.itemUpgradeLevel?.(inventory.equippedHead) ?? 0, coop?.itemUpgradeLevel?.(inventory.equippedChest) ?? 0))
+    * (1 + Math.max(0, coop?.research?.()?.vitality ?? 0) * .02) - 1;
   const LEGACY_SAVE_KEY = "wildwood-player-progress-v1";
   const respawnMemory = createRespawnMemory(localStorage, () => coop?.localIdentity?.() ?? '');
   const bossFightMemory = createBossFightMemory(localStorage, () => coop?.localIdentity?.() ?? '');

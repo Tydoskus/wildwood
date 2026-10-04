@@ -54,11 +54,12 @@ export function effectivePlayerPowerStats(
   const weaponLevel = itemUpgradeLevel(weaponItem);
   const headLevel = itemUpgradeLevel(headItem);
   const chestLevel = itemUpgradeLevel(chestItem);
-  // Saved maxHp already includes Vitality. Undo that part before multiplying
-  // equipment and research, so existing earned health is not boosted twice.
+  // Vitality multiplies saved health live, like every other research (0.883).
+  // It used to be baked into the saved number by the client at each rank-up,
+  // which the server stopped accepting in 0.695, so ranks since did nothing.
   const vitalityMultiplier = 1 + researchRank(research?.vitality) * .02;
   return {
-    maxHp: equipmentMaxHealth(progress.maxHp / vitalityMultiplier, headItem, chestItem, vitalityMultiplier, headLevel, chestLevel),
+    maxHp: equipmentMaxHealth(progress.maxHp, headItem, chestItem, vitalityMultiplier, headLevel, chestLevel),
     damage: equipmentDamage(progress.damage,
       weaponItem,
       headItem,
