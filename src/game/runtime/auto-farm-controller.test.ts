@@ -10,6 +10,9 @@ import { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 import type { SpawnSite } from '../world';
 import { ENEMY_TYPES, type EnemyKind } from '../enemies';
 import type { Circle } from './types';
+import { BOSS_KINDS } from './boss-registry';
+import { bossSurfaceDistance } from '../../../shared/boss-hitbox';
+import { weaponAttackRange } from '../weapon-combat';
 import type { Movement } from './player-input-controller';
 const idle: Movement = { x: 0, y: 0, source: 'none' };
 
@@ -530,6 +533,30 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
     expect(s.farm.state().phase).toBe('boss');
   });
 
+  it("parks in real attack range of every boss, from any side", () => {
+    const bosses = createGameBootstrap().bosses;
+    for (const kind of BOSS_KINDS) {
+      const { r, ry, hitboxOffsetY } = bosses[kind] as { r: number; ry?: number; hitboxOffsetY?: number };
+      for (let side = 0; side < 8; side += 1) {
+        const boss = { x: 2_000, y: 2_000, r, ry, hitboxOffsetY, isBoss: true };
+        const s = planned({ mapBoss: () => boss, equippedWeapon: () => 'starter_bow',
+          evaluate: () => ({ power: 1, fightSeconds: 30, hitShare: .1, fightDamageShare: .1 }) });
+        s.add('Bramble', 200, 200);
+        s.farm.setAdvance(true);
+        s.farm.start([]);
+        const angle = side * Math.PI / 4;
+        Object.assign(s.player, { x: boss.x + Math.cos(angle) * 1_200, y: boss.y + Math.sin(angle) * 1_200 });
+        for (let step = 0; step < 600 && s.farm.state().status !== 'Fighting the boss'; step += 1) {
+          const move = s.tick();
+          s.player.x += move.x * 300 / 60; s.player.y += move.y * 300 / 60;
+        }
+        expect(s.farm.state().status, `${kind} side ${side}`).toBe('Fighting the boss');
+        const gap = bossSurfaceDistance(s.player.x - boss.x, s.player.y - boss.y, r, ry, hitboxOffsetY);
+        expect(gap, `${kind} side ${side}`).toBeLessThan(weaponAttackRange('starter_bow', s.player.attackRange));
+      }
+    }
+  });
+
   it("walks into the next map's portal and carries the farm across on Auto", () => {
     const s = planned({ nextPortal: () => ({ x: 200, y: 500, destination: 'beginner_desert' }) });
     s.add('Bramble', 900, 500);
@@ -584,17 +611,19 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
   });
 
   it("stands within reach of a campaign boss's hitbox, and of an Endless boss's centre", () => {
-    for (const [boss, reachFromCentre] of [
-      [{ x: 2500, y: 500, r: 150, ry: 90, isBoss: true, hitboxOffsetY: 0 }, 200 + 90],
-      [{ x: 2500, y: 500, r: 60 }, 200],
-    ] as const) {
+    for (const boss of [
+      { x: 2500, y: 500, r: 150, ry: 90, isBoss: true, hitboxOffsetY: 0 },
+      { x: 2500, y: 500, r: 60 },
+    ]) {
       const s = planned({ evaluate: () => ({ power: 1, fightSeconds: 10, hitShare: .1, fightDamageShare: .1 }), mapBoss: () => ({ ...boss }) });
       s.add('Bramble', 600, 900);
       s.farm.setAdvance(true);
       s.farm.start([]);
       for (let frame = 0; frame < 2000; frame++) { const step = s.tick(); s.player.x += step.x * 5; s.player.y += step.y * 5; }
       expect(s.farm.state().phase).toBe('boss');
-      expect(Math.hypot(boss.x - s.player.x, boss.y - s.player.y)).toBeLessThanOrEqual(reachFromCentre);
+      const gap = 'isBoss' in boss ? bossSurfaceDistance(s.player.x - boss.x, s.player.y - boss.y, boss.r, boss.ry, boss.hitboxOffsetY)
+        : Math.hypot(boss.x - s.player.x, boss.y - s.player.y);
+      expect(gap).toBeLessThan(200);
     }
   });
 

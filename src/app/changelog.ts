@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.884": [
+    "Autofarm gets in range of every boss from any side, including the Koi Shogun",
+    "Fixed autofarm sometimes stopping just short of a boss, stuck on \"Waiting for a clear route\"",
+  ],
   "0.883": [
     "Vitality research works again: +2% max health per rank, on top of your gear",
     "Fixed max health jumping up after logging in, then dropping back when changing maps",
@@ -2751,6 +2755,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.884": "2026-10-04",
   "0.883": "2026-10-04",
   "0.882": "2026-10-03",
   "0.881": "2026-10-03",

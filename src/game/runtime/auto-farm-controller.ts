@@ -7,6 +7,7 @@ import type { Circle, EnemyState, PlayerState, Position } from './types';
 import type { Movement } from './player-input-controller';
 import { isEnemyAttackingPlayer } from './enemy-threat';
 import { farmRoute } from './auto-farm-navigation';
+import { bossSurfaceDistance, bossVerticalRadius } from '../../../shared/boss-hitbox';
 import { compareAutoFarmTargets, enemyRewardStat, farmGroupMatches, farmStatGroup, readAutoFarmPriority, readAutoFarmPull, writeAutoFarmPriority, writeAutoFarmPull, type AutoFarmGroup, type AutoFarmPriority } from './auto-farm-priority';
 import type { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 import {
@@ -25,6 +26,8 @@ export const ARRIVAL_DEFEAT_LIMIT = 2;
 export const ARRIVAL_PROBATION_MS = 10 * 60_000;
 /** How far inside its full reach autofarm stops: enough that a target at the stop point is still in range. */
 export const AUTO_FARM_REACH_MARGIN = 6;
+/** A waypoint this close is reached; the stop point gets the same slack. */
+const WAYPOINT_REACHED = 2;
 /** How long a pulled group may take to arrive before autofarm walks out to it. */
 export const PULL_WAIT_SECONDS = 4;
 
@@ -438,9 +441,12 @@ export function createAutoFarmController(options: {
     if (!destination) { stop('No matching enemies in this map'); return idle(); }
     const weapon = options.equippedWeapon?.();
     const enemy = threat ?? target;
-    // A campaign boss is hit at its surface (its narrower radius, to be safe);
-    // an Endless boss is a regular enemy, hit at its centre unless melee.
-    const bossReach = !enemy && boss ? (boss.isBoss ? Math.min(boss.r, boss.ry ?? boss.r) : isMeleeWeapon(weapon) ? boss.r : 0) : 0;
+    // A campaign boss is hit at the surface of its hitbox, an oval off its feet,
+    // and measured exactly as combat measures it: parking by its narrower radius
+    // left a squat boss out of range above and below. An Endless boss is a
+    // regular enemy, hit at its centre unless melee.
+    const hitbox = !enemy && boss?.isBoss ? boss : null;
+    const bossReach = !enemy && boss && !hitbox && isMeleeWeapon(weapon) ? boss.r : 0;
     let standoff = !enemy && portal ? { stop: 0, resume: 0 } : autoFarmStandoff({
       weaponRange: weaponAttackRange(weapon, player.attackRange) + bossReach,
       playerAttackRange: player.attackRange,
@@ -458,19 +464,24 @@ export function createAutoFarmController(options: {
       standoff = { stop: standoff.stop * .6, resume: standoff.stop * .8 };
     }
     const range = standoff.stop;
-    const remaining = distance(destination);
-    // A pixel of slack: arriving at the stop point by floating-point steps can land a hair outside it.
-    holding = remaining <= (holding ? standoff.resume : standoff.stop) + 1;
+    const remaining = hitbox ? bossSurfaceDistance(player.x - hitbox.x, player.y - hitbox.y, hitbox.r, hitbox.ry, hitbox.hitboxOffsetY) : distance(destination);
+    // Where to stand, in a direction from the destination, to be `range` from it (or from the boss's surface).
+    const standAt = (angle: number) => {
+      const ux = Math.cos(angle), uy = Math.sin(angle);
+      const reachFromCentre = hitbox ? (range + hitbox.r) / Math.hypot(ux, uy * hitbox.r / bossVerticalRadius(hitbox.r, hitbox.ry)) : range;
+      return { x: destination.x + ux * reachFromCentre, y: destination.y + uy * reachFromCentre };
+    };
+    // Slack as wide as the waypoint drop below (2px): a step landing 1-2px short
+    // dropped the last waypoint without arriving, and it stood there for good,
+    // "Waiting for a clear route", beside a boss that never moves.
+    holding = remaining <= (holding ? standoff.resume : standoff.stop) + WAYPOINT_REACHED;
     if (holding && !portal) {
       status = threat ? 'Defending' : boss ? 'Fighting the boss' : target ? 'Farming' : 'Waiting for respawn';
       route = [];
       routeClock = 0;
       return idle();
     }
-    const goal = remaining > 0 ? {
-      x: destination.x + (player.x - destination.x) / remaining * range,
-      y: destination.y + (player.y - destination.y) / remaining * range,
-    } : { x: destination.x, y: destination.y };
+    const goal = distance(destination) > 0 ? standAt(Math.atan2(player.y - destination.y, player.x - destination.x)) : { x: destination.x, y: destination.y };
     routeClock -= dt;
     if (routeClock <= 0 || !lastGoal || Math.hypot(goal.x - lastGoal.x, goal.y - lastGoal.y) > 60) {
       // Its own goal is no obstacle: the portal it is walking into, the boss it is going to fight.
@@ -484,7 +495,7 @@ export function createAutoFarmController(options: {
         const away = Math.atan2(player.y - destination.y, player.x - destination.x);
         for (const turn of [1, -1, 2, -2, 3, -3, 4]) {
           const angle = away + turn * Math.PI / 4;
-          route = farmRoute(player, { x: destination.x + Math.cos(angle) * range, y: destination.y + Math.sin(angle) * range }, obstacles, WORLD, player.r);
+          route = farmRoute(player, standAt(angle), obstacles, WORLD, player.r);
           if (route.length) break;
         }
       }
@@ -492,7 +503,7 @@ export function createAutoFarmController(options: {
       lastGoal = goal;
       routeClock = .5;
     }
-    while (route.length && distance(route[0]) < 2) route.shift();
+    while (route.length && distance(route[0]) < WAYPOINT_REACHED) route.shift();
     const waypoint = route[0];
     if (!waypoint) { status = 'Waiting for a clear route'; return idle(); }
     status = threat ? 'Moving to attacker' : portal ? (retreating ? 'Moving back a map' : 'Heading to the next map') : boss ? 'Moving to the boss' : target ? 'Moving to enemy' : 'Moving to spawn';

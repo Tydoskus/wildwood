@@ -425,7 +425,9 @@ export function createPlayerCombatController(options: {
     // group (or attacking) is: it used to be skipped, so autofarm stood beside
     // the boss and shot only while the player steered by hand.
     if ((!enemyType || !target) && mapBoss && !mapBoss.dead) {
-      const edgeDistance = Math.max(0, Math.hypot(player.x - mapBoss.x, player.y - mapBoss.y) - mapBoss.r);
+      // Its real hitbox, as every other range check uses: a circle at its feet
+      // left autofarm parked in range on one side and never firing (Koi Shogun).
+      const edgeDistance = targetDistance(mapBoss);
       if (mapBoss === retainedTarget && edgeDistance < attackRange()) retainedDistance = edgeDistance * edgeDistance;
       if (edgeDistance * edgeDistance < best) { best = edgeDistance * edgeDistance; target = mapBoss; }
     }

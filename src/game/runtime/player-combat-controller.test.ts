@@ -308,6 +308,16 @@ describe("player attack timing", () => {
     expect(state.player.combatFacing).toBeCloseTo(Math.atan2(state.bosses.dragon.y + (state.bosses.dragon.hitboxOffsetY ?? 0) - state.player.y, state.bosses.dragon.x - state.player.x));
   });
 
+  it("finds the boss by its real hitbox, so standing in range above Koi Shogun shoots it", () => {
+    const state = createCombatHarness({ currentMapId: () => SAMURAI_GARDEN_MAP_ID, equippedWeapon: () => "starter_bow" });
+    state.enemies.length = 0;
+    const boss = Object.assign(state.bosses.koiShogun, { x: 1_000, y: 1_000, dead: false });
+    // 400 above its feet: in range of its tall oval, out of range of a circle at its feet.
+    Object.assign(state.player, { x: 1_000, y: 600, attackRange: 250 });
+    state.controller.attackNearest();
+    expect(state.player.combatFacing).toBeCloseTo(Math.atan2(boss.y + (boss.hitboxOffsetY ?? 0) - 600, 0));
+  });
+
   it.each(["starter_stone", "starter_bow"])("plays one release sound for %s at launch, including multishot", (weapon) => {
     let now = 10;
     const sound = vi.fn();
