@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { createMapEnemySigns, mapSignPosition, mapSignRows } from "./map-enemy-sign";
+import { createMapEnemySigns, mapSignPosition, mapSignRows, touchingMapSign } from "./map-enemy-sign";
 import { CAMPAIGN_GATEWAYS } from "../../../shared/map-gateways";
 import type { EnemyState } from "./types";
 
@@ -22,15 +22,16 @@ it("stands beside each campaign map's arrival, and nowhere else", () => {
   expect(mapSignPosition("home_exterior")).toBeNull();
 });
 
-it("draws the sign once and reuses it until its numbers change", () => {
+it("draws the small sign once per pixel ratio, and opens only to a player standing at it", () => {
   let made = 0;
   const context = new Proxy({} as Record<string, unknown>, { get: (target, key: string) => key in target ? target[key] : () => {}, set: (target, key: string, value) => { target[key] = value; return true; } });
-  const signs = createMapEnemySigns({ pixelRatio: () => 1, createCanvas: () => { made++; return { width: 0, height: 0, getContext: () => context } as unknown as HTMLCanvasElement; } });
-  const rows = mapSignRows([enemy("Bramble", 42)], (_type, amount) => amount);
-  const first = signs.sign(rows);
-  expect(signs.sign(mapSignRows([enemy("Bramble", 42)], (_type, amount) => amount))).toBe(first);
-  expect(made).toBe(1);
-  signs.sign(mapSignRows([enemy("Bramble", 50)], (_type, amount) => amount));
+  let ratio = 1;
+  const signs = createMapEnemySigns({ pixelRatio: () => ratio, createCanvas: () => { made++; return { width: 0, height: 0, getContext: () => context } as unknown as HTMLCanvasElement; } });
+  expect(signs.sign()).toBe(signs.sign());
+  ratio = 2; signs.sign();
   expect(made).toBe(2);
-  expect(signs.sign([])).toBeNull();
+  const sign = { x: 500, y: 500 };
+  expect(touchingMapSign(sign, { x: 520, y: 480 })).toBe(true);
+  expect(touchingMapSign(sign, { x: 600, y: 500 })).toBe(false);
+  expect(touchingMapSign(sign, { x: 500, y: 600 })).toBe(false);
 });

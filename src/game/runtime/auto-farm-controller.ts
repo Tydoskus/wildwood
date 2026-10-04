@@ -88,41 +88,36 @@ export function createAutoFarmController(options: {
   campDanger?: (group: AutoFarmGroup) => number;
   /** Whether beating this map's boss opens a locked way forward; it is not fought otherwise. */
   bossUnlocksNext?: () => boolean;
-  /** How many camps Pull brings at once: one, and one more per Aggro challenge win. */
+  /** How many picked camps (stat groups) Pull aggroes at once: one, one more per Aggro win, and none during a run. */
   pullCamps?: () => number;
-  /** During an Aggro run: how many camps chase the player on every map, farming or not. */
+  /** During an Aggro run: how many stat groups chase the player on every map, farming or not. */
   forcedCamps?: () => number;
 }) {
   let priority: AutoFarmPriority = readAutoFarmPriority(options.priorityStorage);
-  // Pull's camps, nearest first, looked at again at most once a second.
-  let pulled = new Set<string>(), pulledKey = '', pulledAt = -Infinity;
-  function pulledCamps() {
-    const count = Math.max(1, options.pullCamps?.() ?? 1), at = now(), key = `${options.mapId()}|${selected}|${count}`;
-    if (key === pulledKey && at - pulledAt < 1_000) return pulled;
-    const camps = new Map<string, { x: number; y: number; sites: number }>();
-    for (const site of spawnSites) {
-      if (choiceKey(site) !== selected) continue;
-      const camp = camps.get(site.campName) ?? { x: 0, y: 0, sites: 0 };
-      camp.x += site.x; camp.y += site.y; camp.sites += 1;
-      camps.set(site.campName, camp);
-    }
-    const nearest = [...camps.entries()].map(([name, camp]) => ({ name, distance: Math.hypot(camp.x / camp.sites - player.x, camp.y / camp.sites - player.y) }))
-      .sort((a, b) => a.distance - b.distance).slice(0, count);
-    pulled = new Set(nearest.map(camp => camp.name)); pulledKey = key; pulledAt = at;
+  // A camp is a stat group: every enemy on the map paying one stat, as the panel offers them.
+  // Pull's groups: the one being farmed, then the route's next picks, one more per Aggro win.
+  let pulled = new Set<string>(), pulledKey = '';
+  function pulledGroups() {
+    // Zero during an Aggro run: its own chasing groups are the run's pull.
+    const count = Math.max(0, options.pullCamps?.() ?? 1), key = `${selected}|${count}|${plan.join()}`;
+    if (key === pulledKey) return pulled;
+    const keys = planKeys(), at = Math.max(0, keys.indexOf(selected ?? ''));
+    const order = [selected, ...keys.slice(at + 1), ...keys.slice(0, at)].filter((group): group is string => Boolean(group));
+    pulled = new Set([...new Set(order)].slice(0, count)); pulledKey = key;
     return pulled;
   }
-  // An Aggro run's camps: a new random pick on each arrival, kept while the player stays.
+  // An Aggro run's groups: a new random pick on each arrival (and respawn), kept while the player stays.
   let forcedSet = new Set<string>(), forcedMap = '', forcedCount = 0, forcedCheckedAt = -Infinity;
-  function forcedCampSet() {
+  function forcedGroups() {
     const count = options.forcedCamps?.() ?? 0;
     if (count <= 0) { if (forcedSet.size) forcedSet = new Set(); forcedCount = 0; return forcedSet; }
     const map = options.mapId(), at = now();
     if (map === forcedMap && count === forcedCount && at - forcedCheckedAt < 500) return forcedSet;
     forcedCheckedAt = at;
-    const names = [...new Set(spawnSites.map(site => site.campName))];
-    // A new map, a new count, or camps that are not here (the map was still loading): pick again.
-    if (map !== forcedMap || count !== forcedCount || forcedSet.size < Math.min(count, names.length) || [...forcedSet].some(name => !names.includes(name))) {
-      forcedSet = new Set(pickForcedCamps(names, count)); forcedMap = map; forcedCount = count;
+    const groups: string[] = [...new Set(spawnSites.map(site => choiceKey(site)))];
+    // A new map, a new count, or groups that are not here (the map was still loading): pick again.
+    if (map !== forcedMap || count !== forcedCount || forcedSet.size < Math.min(count, groups.length) || [...forcedSet].some(group => !groups.includes(group))) {
+      forcedSet = new Set(pickForcedCamps(groups, count)); forcedMap = map; forcedCount = count;
     }
     return forcedSet;
   }
@@ -586,19 +581,22 @@ export function createAutoFarmController(options: {
     savedPlan: () => readFarmChoice(options.mapId(), options.priorityStorage),
     priority: () => priority,
     pullAll: () => pullAll,
+    /** False during an Aggro run, when Pull is off. */
+    pullAvailable: () => (options.pullCamps?.() ?? 1) > 0,
     setPullAll(next: boolean) {
       pullAll = next;
       writeAutoFarmPull(next, options.priorityStorage);
     },
     /**
-     * With "aggro on spawn" ticked, the farmed group's nearest camps come for
-     * the player from anywhere: one camp, and one more per Aggro challenge win.
+     * With "aggro on spawn" ticked, every live enemy of the farmed stat comes
+     * for the player from anywhere; each Aggro challenge win adds the route's
+     * next pick to the pull.
      */
     // Steering by hand keeps the pull: the group follows the player while they move.
-    pulls: (enemy: EnemyState) => pullAll && active && phase === 'farm' && !recovering && !pendingResume && !options.paused() && validEnemy(enemy)
-      && pulledCamps().has(enemy.campName),
-    /** An Aggro run's camps on this map: they chase the player from arrival, whatever autofarm is doing. */
-    forced: (enemy: EnemyState) => !enemy.dead && !enemy.generatedBoss && !enemy.remoteCombatGhost && forcedCampSet().has(enemy.campName),
+    pulls: (enemy: EnemyState) => pullAll && active && phase === 'farm' && !recovering && !pendingResume && !options.paused()
+      && !enemy.dead && !enemy.remoteCombatGhost && !enemy.generatedBoss && enemy.hp > 0 && pulledGroups().has(choiceKey(enemy)),
+    /** An Aggro run's groups on this map: they chase the player from arrival, whatever autofarm is doing. */
+    forced: (enemy: EnemyState) => !enemy.dead && !enemy.generatedBoss && !enemy.remoteCombatGhost && forcedGroups().has(choiceKey(enemy)),
     setPriority(next: AutoFarmPriority) {
       if (next === priority) return;
       priority = next;

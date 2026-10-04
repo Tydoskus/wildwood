@@ -18,7 +18,8 @@ import type { Particle } from "./combat-effects";
 import { parseHexColorOrNull, type StaticWorldColorQuadFrame, type StaticWorldLayer, type StaticWorldSpriteFrame } from "./webgl-static-world-layer";
 import { nightEnemyOpacity, nightGroundShadowsVisible } from "./night-visibility";
 import { snapWorldRenderCoordinate } from "./render-space";
-import { createMapEnemySigns, mapSignPosition, mapSignRows, type MapSignRow } from "./map-enemy-sign";
+import { createMapEnemySigns, mapSignPosition, mapSignRows, touchingMapSign } from "./map-enemy-sign";
+import { createMapEnemyIndex } from "../../ui/map-enemy-index";
 
 type Viewport = { width: number; height: number; dpr: number };
 type Portal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
@@ -99,6 +100,8 @@ export type WorldRenderRuntimeOptions = {
   publicPlayerName: (identity: string | undefined, name: string | undefined) => string;
   playerPower: (player: PlayerState) => number;
   worldHealthBarHeight: number;
+  /** True while the enemy sign must not open its window: autofarm walks past it. */
+  mapSignBlocked?: () => boolean;
 };
 
 export type FrameRendererOptions = {
@@ -293,19 +296,22 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       }
       return webGLParticleBatchState;
     };
-    // The map's enemy sign: its rows are read from the live enemies at most once a second.
+    // The map's enemy sign. Walking into it opens the enemy window, once per
+    // visit to it: never while autofarm is driving, which walks past it.
     const signs = createMapEnemySigns({ pixelRatio: options.devicePixelRatio });
-    let signRows: MapSignRow[] = [], signRowsAt = -Infinity, signMap = "";
+    const enemyIndex = createMapEnemyIndex();
+    let touchingSign = false;
     const mapSign = () => {
       const at = mapSignPosition(options.currentMapId());
-      if (!at) return null;
-      const now = performance.now();
-      if (signMap !== options.currentMapId() || now - signRowsAt > 1_000) {
-        signRows = mapSignRows(options.enemies, (type, amount) => options.rewardAmount?.(type, amount) ?? amount * options.rewardMultiplier());
-        signRowsAt = now; signMap = options.currentMapId();
+      if (!at) { touchingSign = false; return null; }
+      const touching = touchingMapSign(at, options.player);
+      if (touching && !touchingSign && !options.mapSignBlocked?.() && !enemyIndex.isOpen()) {
+        enemyIndex.open(options.mapName(options.currentMapId()), mapSignRows(options.enemies,
+          (type, amount) => options.rewardAmount?.(type, amount) ?? amount * options.rewardMultiplier()));
       }
-      const image = signs.sign(signRows);
-      return image && { ...at, width: image.width, height: image.height, canvas: image.canvas };
+      touchingSign = touching;
+      const image = signs.sign();
+      return { ...at, width: image.width, height: image.height, canvas: image.canvas };
     };
     const depth = createDepthWorldRenderer({
       camera: options.camera,

@@ -1,13 +1,14 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.890": [
     "New prestige challenge, Aggro: random camps chase you on every map, dying restarts the run, and no prestige bonuses",
-    "Win Aggro by reaching your next prestige; each win lets Autofarm's Pull bring one more camp (up to 5)",
-    "Autofarm's Pull brings the nearest camp of your pick (more with Aggro wins)",
+    "Win Aggro by reaching your next prestige; each win lets Autofarm's Pull aggro one more of your picked camps at once (up to 5)",
+    "Autofarm's Pull is off during an Aggro run",
+    "On phones, your profile bar now reaches the zoom buttons",
   ],
   "0.889": [
     "Enemy health bars are slim pills with no numbers",
     "Damage numbers are smaller and pop up a little higher",
-    "A wooden sign by each map's entrance lists its enemies: HP, attack and reward",
+    "Walk into the Enemy Index sign by each map's entrance to see its enemies' HP, attack and rewards",
   ],
   "0.888": [
     "Autofarm remembers your last pick on every map, instead of going back to what each map was farmed with before",

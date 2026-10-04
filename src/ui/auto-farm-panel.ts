@@ -89,7 +89,11 @@ export function createAutoFarmPanel(options: {
     const statusElement = advanceSwitch.querySelector<HTMLElement>('.farm-boss-status')!;
     if (statusElement.textContent !== bossStatus) statusElement.textContent = bossStatus;
     statusElement.classList.toggle('is-ready', bossStatus === 'Ready' || bossStatus === 'Next map open');
-    pullSwitch.setAttribute('aria-checked', String(options.farm.pullAll()));
+    // Off during an Aggro run: the run's own chasing groups are its pull.
+    const pullOff = options.farm.pullAvailable?.() === false;
+    pullSwitch.setAttribute('aria-checked', String(options.farm.pullAll() && !pullOff));
+    pullSwitch.disabled = pullOff;
+    pullSwitch.title = pullOff ? 'Off during an Aggro run' : '';
     const reason = options.unavailable();
     const empty = !options.farm.choices().length;
     startButton.disabled = empty || Boolean(reason);

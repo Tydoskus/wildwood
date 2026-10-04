@@ -29,7 +29,7 @@ export function createAggroChallengePanel(d: {
     <p class="prestige-challenge-rule"></p>
     <ul class="prestige-challenge-terms"></ul>
     <div class="prestige-challenge-goal"><span>Goal</span><strong></strong><small>Your next prestige's requirement</small></div>
-    <div class="prestige-challenge-reward"><span>Reward</span><strong></strong><small>Autofarm's Pull brings one more camp at once, for good</small></div>
+    <div class="prestige-challenge-reward"><span>Reward</span><strong></strong><small>Autofarm's Pull aggroes one more of your picked camps at once, for good</small></div>
     <p class="prestige-challenge-earned"></p>
     <button type="button" class="prestige-challenge-action"></button>
     <p class="prestige-challenge-status" role="status"></p>`;
@@ -56,16 +56,16 @@ export function createAggroChallengePanel(d: {
     const chasing = aggroForcedCamps({ active: true, completed: current.completed });
     rule.textContent = done ? "" : `On every map, ${chasing === 1 ? "a random camp chases" : `${chasing} random camps chase`} you from the moment you arrive. Dying starts the run over.`;
     const lines = done ? [] : current.active
-      ? ["No prestige bonuses this run: stat gain, perks and challenge rewards are off.",
+      ? ["No prestige bonuses this run: stat gain, perks and challenge rewards are off. Autofarm's Pull is off too.",
         "Dropping out ends this run, and your main run comes back.", "Reach the goal, then press Prestige to win."]
       : ["Starting saves your run and puts you back in the forest with starting stats.",
-        "No prestige bonuses: stat gain, perks and challenge rewards are off. Research and gear stay.",
+        "No prestige bonuses: stat gain, perks and challenge rewards are off, and so is Autofarm's Pull. Research and gear stay.",
         "Reach the goal, then press Prestige to win and get your run back."];
     terms.replaceChildren(...lines.map(line => Object.assign(root.createElement("li"), { textContent: line })));
     goal.hidden = reward.hidden = done;
     goalLabel.textContent = done ? "" : target;
-    rewardLabel.textContent = `Pull brings ${camps(aggroPullCamps(current) + 1)}`;
-    earned.textContent = current.completed ? `${done ? "Won" : "Won so far"}: Pull brings ${camps(aggroPullCamps(current))} at once` : "";
+    rewardLabel.textContent = `Pull aggroes ${camps(aggroPullCamps(current) + 1)}`;
+    earned.textContent = current.completed ? `${done ? "Won" : "Won so far"}: Pull aggroes ${camps(aggroPullCamps(current))} at once` : "";
     button.textContent = current.active ? "Drop out" : done ? "All challenges won" : "Start Aggro";
     button.classList.toggle("is-abandon", current.active);
     button.disabled = pending || (!current.active && (done || locked !== null));

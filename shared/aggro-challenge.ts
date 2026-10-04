@@ -2,10 +2,12 @@
  * Aggro: the second prestige challenge. A run starts over from the forest
  * with no prestige bonuses at all (stat gain, perks, Reflect Only's attack
  * speed), and on every map some camps chase the player from the moment they
- * arrive: one camp on the first run, one more on each run after. Dying starts
- * the run over. It is won by reaching the player's next regular prestige and
- * pressing Prestige, which hands back the main run; each win lets Autofarm's
- * Pull bring one more camp at once, up to five.
+ * arrive: one camp on the first run, one more on each run after. A camp is a
+ * stat group, every enemy on the map paying one stat, as Autofarm offers them.
+ * Dying starts the run over, and Autofarm's own Pull is off during a run. It
+ * is won by reaching the player's next regular prestige and pressing
+ * Prestige, which hands back the main run; each win lets Pull aggro one more
+ * of the player's picked camps at once, up to five.
  */
 export const AGGRO_CHALLENGE_LIMIT = 4;
 export const AGGRO_MAX_PULL_CAMPS = 1 + AGGRO_CHALLENGE_LIMIT;
@@ -20,7 +22,7 @@ export function aggroForcedCamps(challenge: AggroChallenge | null | undefined) {
   return challenge?.active ? wins(challenge) + 1 : 0;
 }
 
-/** How many camps Autofarm's Pull brings at once: one, and one more per win. */
+/** How many picked camps (stat groups) Autofarm's Pull aggroes at once: one, and one more per win. */
 export function aggroPullCamps(challenge: AggroChallenge | null | undefined) {
   return 1 + wins(challenge);
 }

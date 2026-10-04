@@ -24,7 +24,7 @@ function setup(options: { pullCamps?: number; forcedCamps?: number } = {}) {
     pullCamps: () => options.pullCamps ?? 1, forcedCamps: () => forced });
   return { ...state, farm, add, setMap: (value: string) => { map = value; }, advance: (ms: number) => { now += ms; }, setForced: (value: number) => { forced = value; } };
 }
-const health = `stat:${ENEMY_TYPES.Bramble.reward.type}`;
+const health = `stat:${ENEMY_TYPES.Bramble.reward.type}`, speed = `stat:${ENEMY_TYPES.Needle.reward.type}`;
 
 describe('Aggro challenge on the client', () => {
   it('counts camps: one more chasing each run, one more pulled each win', () => {
@@ -35,22 +35,26 @@ describe('Aggro challenge on the client', () => {
     expect(new Set(pickForcedCamps(['a', 'b', 'c'], 5))).toEqual(new Set(['a', 'b', 'c']));
   });
 
-  it("Pull brings the farmed group's nearest camp, and one more per win", () => {
-    for (const [pullCamps, expected] of [[1, ['near']], [2, ['near', 'middle']]] as const) {
+  it("Pull brings every enemy of the farmed stat, the route's next stat per win, and nothing during a run", () => {
+    for (const [pullCamps, expected] of [[1, ['near', 'far']], [2, ['near', 'far', 'needle']], [0, []]] as const) {
       const s = setup({ pullCamps });
-      const near = s.add('Bramble', 700, 500, 'near'), middle = s.add('Bramble', 1200, 500, 'middle'), far = s.add('Bramble', 2400, 500, 'far');
+      const near = s.add('Bramble', 700, 500, 'near'), far = s.add('Bramble', 2400, 500, 'far'), needle = s.add('Needle', 1200, 900, 'needle');
       s.farm.setPullAll(true);
-      s.farm.start([health]);
-      const pulled = [near, middle, far].filter(enemy => s.farm.pulls(enemy)).map(enemy => enemy.campName);
-      expect(pulled).toEqual(expected);
+      s.farm.start([health, speed]);
+      expect([near, far, needle].filter(enemy => s.farm.pulls(enemy)).map(enemy => enemy.campName), `pull ${pullCamps}`).toEqual(expected);
+      expect(s.farm.pullAvailable()).toBe(pullCamps > 0);
     }
   });
 
   it("an Aggro run's camps chase from arrival, farming or not, and are picked again on each new map", () => {
     const s = setup({ forcedCamps: 1 });
-    const enemies = ['a', 'b', 'c', 'd'].map((camp, index) => s.add('Bramble', 600 + index * 300, 500, camp));
-    const chased = () => enemies.filter(enemy => s.farm.forced(enemy)).map(enemy => enemy.campName);
+    // A camp is a stat group: both Bramble spots chase together.
+    const kinds: EnemyKind[] = ['Bramble', 'Bramble', 'Needle', 'Mossback', 'Spitter'];
+    const enemies = kinds.map((type, index) => s.add(type, 600 + index * 300, 500, `${type}${index}`));
+    const groups = () => new Set(enemies.filter(enemy => s.farm.forced(enemy)).map(enemy => enemy.reward.type));
+    const chased = () => [...groups()].sort();
     expect(chased()).toHaveLength(1);
+    if (groups().has(ENEMY_TYPES.Bramble.reward.type)) expect(enemies.slice(0, 2).every(enemy => s.farm.forced(enemy))).toBe(true);
     const first = chased();
     // Same map: the same camp keeps chasing.
     s.advance(5_000);

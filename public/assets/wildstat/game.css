@@ -219,6 +219,13 @@
   /* Clears the minimap and the zoom column left of it (35px and its 5px gap), unless Settings hides the zoom. */
   .player-hud-stack { display: block; width: min(420px, 68vw, calc(100vw - var(--hud-safe-left) - var(--hud-safe-right) - var(--hud-map-size) - var(--hud-edge-gap) - var(--hud-zoom-reserve, 40px))); height: var(--player-hud-height); }
   body.camera-zoom-hidden { --hud-zoom-reserve: 0px; }
+  /* Phones: the card runs right up to the zoom buttons (6px off), not 68% of
+     the screen with a gap before them. Desktop keeps its width. */
+  @media (max-width: 760px) {
+    .player-hud-stack { width: calc(100vw - var(--hud-safe-left) - var(--hud-safe-right) - var(--hud-map-size) - var(--hud-zoom-reserve, 46px)); }
+    body:not(.camera-zoom-hidden) { --hud-zoom-reserve: 46px; }
+    body.camera-zoom-hidden { --hud-zoom-reserve: 6px; }
+  }
 
   .player-summary {
     display: flex;
@@ -3970,7 +3977,7 @@
   /* The card is drawn at --player-hud-scale but was laid out at full size, so
      on a phone its contents were squeezed while the shrunken card left a gap
      before the minimap. Lay it out at the size that fills its slot once scaled. */
-  @media (max-width: 420px) {
+  @media (max-width: 760px) {
     .player-hud-card { width: calc(100% / var(--player-hud-scale)); }
   }
 
@@ -4744,3 +4751,21 @@ html.text-outline-shadow .player-prestige-badge { --badge-ring: calc(var(--prest
     var(--badge-diag) var(--badge-diag) 0 #000, calc(-1 * var(--badge-diag)) var(--badge-diag) 0 #000, var(--badge-diag) calc(-1 * var(--badge-diag)) 0 #000, calc(-1 * var(--badge-diag)) calc(-1 * var(--badge-diag)) 0 #000; }
 html.text-outline-shadow .hud-gem-balance { text-shadow: var(--text-outline-ring), 0 1px #071c29; }
 html.text-outline-shadow .death-countdown { text-shadow: var(--text-outline-ring); }
+
+/* The Enemy Index a map's sign opens: phone-readable, one row per kind of enemy. */
+.enemy-index-overlay { position: fixed; inset: 0; z-index: 13; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-left)); background: rgba(0,0,0,.66); }
+.enemy-index-overlay[hidden] { display: none; }
+.enemy-index-window { display: grid; gap: 10px; width: min(440px, 100%); max-height: 100%; padding: 14px 14px 10px; overflow: hidden; background: var(--window-surface-neutral, #161b18); border: 2px solid #3a4636; border-radius: 10px; color: #fff; }
+.enemy-index-map { margin: 0; color: #c2c7ce; font-size: 14px; text-align: center; }
+.enemy-index-table { width: 100%; border-collapse: collapse; font-size: 15px; line-height: 1.3; }
+.enemy-index-table th, .enemy-index-table td { padding: 7px 4px; border-bottom: 1px solid rgba(255,255,255,.08); text-align: right; white-space: nowrap; }
+.enemy-index-table thead th { color: #8c94a1; font-size: 13px; }
+.enemy-index-table th:first-child { text-align: left; white-space: normal; }
+.enemy-index-table tbody th { color: #fff7e6; font-weight: 900; }
+.enemy-index-table tbody th.is-elite { color: #ffe08a; }
+.enemy-index-table tbody td { font-weight: 900; }
+.enemy-index-table tbody td:nth-child(2) { color: #55d568; }
+.enemy-index-table tbody td:nth-child(3) { color: #ff5a5a; }
+.enemy-index-note { margin: 0; color: #8c94a1; font-size: 13px; line-height: 1.4; text-align: center; }
+.enemy-index-window .window-back-footer { display: flex; justify-content: center; }
+.enemy-index-window .window-back-button { margin: 0; }

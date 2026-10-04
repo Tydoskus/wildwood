@@ -47,7 +47,7 @@ export function createPrestigeExpansionRuntime(d: {
       if (aggro) {
         const next = { identity: who, active: Boolean(aggro.active), completed: aggro.completed ?? 0 };
         if (challengeWinReached(lastAggro, next)) void gameConfirm({ message: "Aggro complete!", details: [
-          { label: "Pull brings", value: `${aggroPullCamps(next)} camps`, kind: "after" },
+          { label: "Pull aggroes", value: `${aggroPullCamps(next)} camps`, kind: "after" },
           { label: "Your saved run", value: "Restored" },
           { label: "Challenges won", value: `${next.completed}/${AGGRO_CHALLENGE_LIMIT}` },
         ], confirmLabel: "Nice!", cancelLabel: "" });
