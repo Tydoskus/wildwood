@@ -1,4 +1,5 @@
 import type { PrestigeChallenge } from "../../../shared/prestige-challenge";
+import { prestigeBonusesOff, type AggroChallenge } from "../../../shared/aggro-challenge";
 import { parseDailyQuests, type DailyQuest } from "../../../shared/daily-quests";
 
 export type DailyQuestState = { day: number; quests: DailyQuest[]; bonus: number; guildPoints: number; guildName: string };
@@ -173,6 +174,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   let prestigeExpansionUnlocksAt: number | null = null;
   let prestigeChallenge: PrestigeChallenge = { active: false, completed: 0 };
   let challengeParked = false;
+  let aggroChallenge: AggroChallenge = { active: false, completed: 0 };
   let freeRespecUsed = false;
   let dailyQuest: DailyQuestState | null = null;
   const guildQuestWeeks = new Map<string, { week: number; guildId: string; guildName: string; points: number }>();
@@ -572,6 +574,16 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     prestigeChallenge = { active: false, completed: 0 };
     dependencies.notify();
   }
+  function upsertAggroChallenge(row: AggroChallenge & { identity: Identity }) {
+    if (row.identity.toHexString() !== dependencies.localIdentity()) return;
+    aggroChallenge = { active: row.active, completed: row.completed };
+    dependencies.notify();
+  }
+  function removeAggroChallenge(row: { identity: Identity }) {
+    if (row.identity.toHexString() !== dependencies.localIdentity()) return;
+    aggroChallenge = { active: false, completed: 0 };
+    dependencies.notify();
+  }
   function upsertDailyQuest(row: { identity: Identity; day: number; questsJson: string; bonus: number; guildPoints: number; guildName: string }) {
     if (row.identity.toHexString() !== dependencies.localIdentity()) return;
     dailyQuest = { day: row.day, quests: parseDailyQuests(row.questsJson), bonus: row.bonus, guildPoints: row.guildPoints, guildName: row.guildName };
@@ -761,6 +773,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       upsertPrestigePerk,
       upsertPrestigeChallenge, removePrestigeChallenge,
       upsertPrestigeChallengeParked, removePrestigeChallengeParked,
+      upsertAggroChallenge, removeAggroChallenge,
       upsertFreeRespec, removeFreeRespec,
       upsertDailyQuest, removeDailyQuest, upsertGuildQuestWeek, removeGuildQuestWeek,
       upsertPrestigeExpansion, removePrestigeExpansion,
@@ -930,6 +943,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       prestige: () => localPrestige ? { ...localPrestige } : null,
       prestigeLevelFor: (identity: string) => prestigeLevelByIdentity.get(identity) ?? 0,
       prestigeChallenge: () => ({ ...prestigeChallenge, parked: challengeParked }),
+      aggroChallenge: () => ({ ...aggroChallenge }),
       /** Every account has one respec that keeps its stats; false once it is spent. */
       freeRespecAvailable: () => !freeRespecUsed,
       /** Today's quests and the guild's standing; null until the server has drawn them. */
@@ -940,7 +954,12 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
         return reducerResult("daily quests", (active) => active.reducers.refreshDailyQuests({}))();
       },
       prestigeExpansionUnlocksAt: () => prestigeExpansionUnlocksAt,
-      prestigePerks: (): PlayerPrestigePerks => ({ keenEdge: 0, doubleStrike: 0, splitShot: 0, riposte: 0, ...localPrestigePerks, ...expansionPerks }),
+      /** The ranks in play: none during an Aggro run, which plays without prestige bonuses. */
+      prestigePerks: (): PlayerPrestigePerks => prestigeBonusesOff(aggroChallenge)
+        ? { keenEdge: 0, doubleStrike: 0, splitShot: 0, riposte: 0, bossSlayer: 0, secondWind: 0, longShot: 0, fleetFoot: 0 }
+        : { keenEdge: 0, doubleStrike: 0, splitShot: 0, riposte: 0, ...localPrestigePerks, ...expansionPerks },
+      /** The ranks the player owns, for the Prestige window. */
+      storedPrestigePerks: (): PlayerPrestigePerks => ({ keenEdge: 0, doubleStrike: 0, splitShot: 0, riposte: 0, ...localPrestigePerks, ...expansionPerks }),
       /** The tier that applies to an item: whatever its slot has earned. */
       itemUpgradeLevel(itemId: string, identity = dependencies.localIdentity()) {
         const slot = upgradeSlotForItem(itemId);
@@ -1050,8 +1069,23 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
         if (result.ok && identity === dependencies.localIdentity() && connection === dependencies.reducers.connection()) { clearPending(identity); enemyLoot.reset(); dependencies.notify(); }
         return result;
       },
+      async startAggroRun() {
+        if (!await enemyLoot.flush(true)) return { ok: false, error: "Rewards are still syncing. Try again in a moment." };
+        const identity = dependencies.localIdentity();
+        const connection = dependencies.reducers.connection();
+        const result = await reducerResult("Aggro challenge", active => active.reducers.startAggroRun({}))();
+        if (result.ok && identity === dependencies.localIdentity() && connection === dependencies.reducers.connection()) { clearPending(identity); enemyLoot.reset(); dependencies.notify(); }
+        return result;
+      },
+      async abandonAggroRun() {
+        const identity = dependencies.localIdentity();
+        const connection = dependencies.reducers.connection();
+        const result = await reducerResult("drop out of Aggro", active => active.reducers.abandonAggroRun({}))();
+        if (result.ok && identity === dependencies.localIdentity() && connection === dependencies.reducers.connection()) { clearPending(identity); enemyLoot.reset(); dependencies.notify(); }
+        return result;
+      },
       async prestigeAccount() {
-        const wasChallenge = prestigeChallenge.active;
+        const wasChallenge = prestigeChallenge.active || aggroChallenge.active;
         const identity = dependencies.localIdentity();
         const connection = dependencies.reducers.connection();
         const result = await reducerResult("prestige", (active) => active.reducers.prestigeAccount({}))();
@@ -1146,7 +1180,11 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
         if (dependencies.reducers.protocolBlocked() || !dependencies.reducers.connection()) return;
         try {
           const connection = dependencies.reducers.connection();
+          // A death in an Aggro run starts it over on the server: drop what this run had not yet reported.
+          const restart = aggroChallenge.active;
+          const identity = dependencies.localIdentity();
           if (connection) await dependencies.reducers.runWorldReducer(() => connection.reducers.recordPlayerDeath({}));
+          if (restart && identity === dependencies.localIdentity()) { clearPending(identity); enemyLoot.reset(); dependencies.notify(); }
         } catch (error) {
           dependencies.reducers.handleFailure("death tracking", error);
         }
@@ -1264,6 +1302,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       pausedResearch.clear();
       prestigeChallenge = { active: false, completed: 0 };
       challengeParked = false;
+      aggroChallenge = { active: false, completed: 0 };
       freeRespecUsed = false;
       dailyQuest = null;
       guildQuestWeeks.clear();
@@ -1311,6 +1350,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       pausedResearch.clear();
       prestigeChallenge = { active: false, completed: 0 };
       challengeParked = false;
+      aggroChallenge = { active: false, completed: 0 };
       freeRespecUsed = false;
       dailyQuest = null;
       guildQuestWeeks.clear();

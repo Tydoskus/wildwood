@@ -1671,6 +1671,13 @@ export const PlayerAdReward = __t.object("PlayerAdReward", {
 });
 export type PlayerAdReward = __Infer<typeof PlayerAdReward>;
 
+export const PlayerAggroChallenge = __t.object("PlayerAggroChallenge", {
+  identity: __t.identity(),
+  active: __t.bool(),
+  completed: __t.u32(),
+});
+export type PlayerAggroChallenge = __Infer<typeof PlayerAggroChallenge>;
+
 export const PlayerAudioSetting = __t.object("PlayerAudioSetting", {
   identity: __t.identity(),
   musicVolume: __t.f32(),

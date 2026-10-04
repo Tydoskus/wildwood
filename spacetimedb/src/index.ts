@@ -1,4 +1,4 @@
-import { playerPrestigeChallenge, playerPrestigeChallengeParked, prestigeChallengeBackup, prestigeChallengeRun, restorePrestigeChallenge } from "./prestige-challenge";
+import { playerPrestigeChallenge, playerPrestigeChallengeParked, prestigeChallengeBackup, prestigeChallengeRun, reflectRewardsInPlay, restorePrestigeChallenge } from "./prestige-challenge";
 import { playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, ensureDailyQuests, pruneOldGuildQuestWeeks, recordDailyQuestKills, memberQuestStanding, questCollectStanding, collectMemberQuests, moveSoloQuestsToGuild } from "./daily-quests";
 import { challengeAttackInterval, challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { duelCombatSnapshot } from "./duel-combat-snapshot";
@@ -165,6 +165,7 @@ import { playerDirectoryJson } from "./player-directory";
 import { guildTables } from "./guild-tables";
 import { createGuildService } from "./guild-service";
 import { registerGuildReducers } from "./guild-reducers";
+import { endAggroChallenge, playerAggroChallenge, registerAggroReducers, restartAggroRunOnDeath } from "./aggro-challenge";
 import { GUILD_MAX_RANGE, guildWeaponRange } from "../../shared/guild-combat";
 import type { DuelFighter } from "../../shared/duel-combat";
 import {
@@ -1749,7 +1750,7 @@ const spacetimedb = schema({
   playerEndlessRebaseBackup,
   playerPrestige,
   playerPrestigePerk,
-  playerPrestigeChallenge, prestigeChallengeBackup, prestigeChallengeRun, playerPrestigeChallengeParked, playerFreeRespec, playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerWideStats, duelWideStats, duelReplayWideStats, prestigeExpansion,
+  playerPrestigeChallenge, prestigeChallengeBackup, prestigeChallengeRun, playerPrestigeChallengeParked, playerAggroChallenge, playerFreeRespec, playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerWideStats, duelWideStats, duelReplayWideStats, prestigeExpansion,
   playerPrestigeExpansionPerk,
   duelRiposte, duelCombatSnapshot,
   playerSessionAnalytics,
@@ -5136,6 +5137,7 @@ export const recordPlayerDeath = spacetimedb.reducer(
     publishPlayerDeathFrame(ctx, activePlayer);
     const lifetime = ensurePlayerLifetime(ctx);
     ctx.db.playerLifetime.identity.update({ ...lifetime, deathCount: lifetime.deathCount + 1n });
+    restartAggroRunOnDeath(ctx, ctx.db.player.identity.find(ctx.sender), startFreshRun);
   },
 );
 
@@ -5191,7 +5193,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
     const base = combat.savedProgress() ?? defaultPlayerProgress(ctx.sender);
     const statMultiplier = combat.statMultiplier();
     if (accepted.rewards.some(reward => reward.type !== "boss")) {
-      const next = applyEnemyRewards(base, accepted.rewards, statMultiplier, challengeMinimumInterval(ctx.db.playerPrestigeChallenge.identity.find(ctx.sender)));
+      const next = applyEnemyRewards(base, accepted.rewards, statMultiplier, challengeMinimumInterval(reflectRewardsInPlay(ctx, ctx.sender)));
       const rewarded = awardRegularEnemyLoot(ctx, batch.mapId, accepted.lootCount, accepted.balance, { progress: next });
       updateSnapshotRow(ctx, "playerProgress", rewarded);
       const power = combat.powerFields(rewarded);
@@ -5218,7 +5220,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
             if (!balance?.boss) throw new SenderError("Boss balance is unavailable.");
             const progress = readPlayerProgress(ctx, ctx.sender)!;
             const rewards = Object.entries(balance.boss.rewards).map(([type, amount]) => ({ type, amount, count: 1 }));
-            const rewarded = applyEnemyRewards(progress, rewards, statMultiplier, challengeMinimumInterval(ctx.db.playerPrestigeChallenge.identity.find(ctx.sender)));
+            const rewarded = applyEnemyRewards(progress, rewards, statMultiplier, challengeMinimumInterval(reflectRewardsInPlay(ctx, ctx.sender)));
             writeProgressAndPresentation(ctx, { ...rewarded, bossRewardClaims: (progress.bossRewardClaims | BOSS_REWARD_CLAIM_BITS[boss.kind]) >>> 0 });
           }
         }
@@ -5228,7 +5230,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
           const row = { identity: ctx.sender, completed: Math.max(previous?.completed ?? 0, map.number) };
           if (previous) ctx.db.proceduralProgress.identity.update(row); else ctx.db.proceduralProgress.insert(row);
           const progress = readPlayerProgress(ctx, ctx.sender)!;
-          writeProgressAndPresentation(ctx, applyEnemyRewards(progress, (balance?.boss ? Object.entries(balance.boss.rewards).map(([type, amount]) => ({ type, amount })) : generatedBossStats(map).rewards).map(reward => ({ ...reward, count: 1 })), statMultiplier, challengeMinimumInterval(ctx.db.playerPrestigeChallenge.identity.find(ctx.sender))));
+          writeProgressAndPresentation(ctx, applyEnemyRewards(progress, (balance?.boss ? Object.entries(balance.boss.rewards).map(([type, amount]) => ({ type, amount })) : generatedBossStats(map).rewards).map(reward => ({ ...reward, count: 1 })), statMultiplier, challengeMinimumInterval(reflectRewardsInPlay(ctx, ctx.sender))));
         }
       }
     }
@@ -5495,7 +5497,7 @@ function resetProgressToDefaults(ctx: any, activePlayer: any, keep: { research?:
     clearProceduralProgress(ctx, ctx.sender);
     const current = readPlayerProgress(ctx, ctx.sender);
     const next = defaultPlayerProgress(ctx.sender);
-    next.attackRate = challengeAttackInterval(next.attackRate, ctx.db.playerPrestigeChallenge.identity.find(ctx.sender));
+    next.attackRate = challengeAttackInterval(next.attackRate, reflectRewardsInPlay(ctx, ctx.sender));
     if (current) next.cosmeticItemsJson = current.cosmeticItemsJson;
     if (keep.research) next.attackRange = attackRangeWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.utilityAttackRange ?? 0) + prestigeRangeBonus(ctx, ctx.sender);
     const history = ctx.db.playerCutsceneHistory.identity.find(ctx.sender);
@@ -5532,6 +5534,8 @@ function resetProgressToDefaults(ctx: any, activePlayer: any, keep: { research?:
     }
     respawnWithProgress(ctx, activePlayer, next);
 }
+/** A prestige's fresh run, which a challenge run also starts with (and an Aggro death restarts). */
+function startFreshRun(ctx: any, player: any) { resetProgressToDefaults(ctx, player, { research: true, lifetimeKills: true, slotTiers: true, items: true }); }
 /** After a reset or respec: full health at the new stats, at the forest spawn, and ranked on them at once. */
 function respawnWithProgress(ctx: any, activePlayer: any, next: any, destination = { mapId: TUTORIAL_FOREST_MAP_ID, ...PLAYER_SPAWN }) {
     const nextPlayer = { ...activePlayer, hp: next.maxHp, maxHp: next.maxHp, ...powerFieldsForProgress(ctx, next),
@@ -5546,7 +5550,7 @@ function respawnWithProgress(ctx: any, activePlayer: any, next: any, destination
 const prestige = createPrestige({
   requireControllingPlayer,
   activeDuelFor,
-  resetProgressToDefaults, respawnWithProgress,
+  resetProgressToDefaults, respawnWithProgress, winAggro: (ctx, player) => endAggroChallenge(ctx, player, true, { respawnWithProgress }),
   restoreChallenge: (ctx, player, reward) => restorePrestigeChallenge(ctx, player, reward,
     restored => respawnWithProgress(ctx, player, restored.progress, restored)),
   refreshPerkEffects: (ctx, player) => refreshPrestigeMovement(ctx, player, updated => syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, updated))),
@@ -5560,6 +5564,7 @@ export const resetPlayerProgress = spacetimedb.reducer({}, (ctx) => {
 // Bodies live in prestige.ts; this is the schema-facing declaration.
 export const startPrestigeChallenge = spacetimedb.reducer({}, ctx => prestige.changeChallenge(ctx, true));
 export const abandonPrestigeChallenge = spacetimedb.reducer({}, ctx => prestige.changeChallenge(ctx, false));
+export const { startAggroRun, abandonAggroRun } = registerAggroReducers(spacetimedb, { requireControllingPlayer, activeDuelFor, startFreshRun, respawnWithProgress });
 export const prestigeAccount = spacetimedb.reducer({}, (ctx) => { prestige.prestigeAccount(ctx); });
 export const spendPrestigePerkPoint = spacetimedb.reducer({ perk: t.string() },
   (ctx, { perk }) => { prestige.spendPerkPoint(ctx, perk); });

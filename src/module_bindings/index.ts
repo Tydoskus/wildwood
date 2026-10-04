@@ -34,6 +34,7 @@ import {
 } from "spacetimedb";
 
 // Import all reducer arg schemas
+import AbandonAggroRunReducer from "./abandon_aggro_run_reducer";
 import AbandonPrestigeChallengeReducer from "./abandon_prestige_challenge_reducer";
 import AcceptDuelReducer from "./accept_duel_reducer";
 import AcceptTermsReducer from "./accept_terms_reducer";
@@ -201,6 +202,7 @@ import SimulateTimeAwayReducer from "./simulate_time_away_reducer";
 import SpeedUpItemUpgradeWithGemsReducer from "./speed_up_item_upgrade_with_gems_reducer";
 import SpeedUpResearchWithGemsReducer from "./speed_up_research_with_gems_reducer";
 import SpendPrestigePerkPointReducer from "./spend_prestige_perk_point_reducer";
+import StartAggroRunReducer from "./start_aggro_run_reducer";
 import StartItemUpgradeReducer from "./start_item_upgrade_reducer";
 import StartLoginMoveReducer from "./start_login_move_reducer";
 import StartPrestigeChallengeReducer from "./start_prestige_challenge_reducer";
@@ -330,6 +332,7 @@ import PatreonTickerSupportersRow from "./patreon_ticker_supporters_table";
 import PausedResearchRow from "./paused_research_table";
 import PlayerRow from "./player_table";
 import PlayerAccountStatusRow from "./player_account_status_table";
+import PlayerAggroChallengeRow from "./player_aggro_challenge_table";
 import PlayerChatHeartsRow from "./player_chat_hearts_table";
 import PlayerDailyQuestRow from "./player_daily_quest_table";
 import PlayerDeathFrameRow from "./player_death_frame_table";
@@ -829,6 +832,17 @@ const tablesSchema = __schema({
       { name: 'player_account_status_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerAccountStatusRow),
+  playerAggroChallenge: __table({
+    name: 'player_aggro_challenge',
+    indexes: [
+      { accessor: 'identity', name: 'player_aggro_challenge_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_aggro_challenge_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerAggroChallengeRow),
   playerChatHearts: __table({
     name: 'player_chat_hearts',
     indexes: [
@@ -1547,6 +1561,7 @@ const tablesSchema = __schema({
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
+  __reducerSchema("abandon_aggro_run", AbandonAggroRunReducer),
   __reducerSchema("abandon_prestige_challenge", AbandonPrestigeChallengeReducer),
   __reducerSchema("accept_duel", AcceptDuelReducer),
   __reducerSchema("accept_terms", AcceptTermsReducer),
@@ -1714,6 +1729,7 @@ const reducersSchema = __reducers(
   __reducerSchema("speed_up_item_upgrade_with_gems", SpeedUpItemUpgradeWithGemsReducer),
   __reducerSchema("speed_up_research_with_gems", SpeedUpResearchWithGemsReducer),
   __reducerSchema("spend_prestige_perk_point", SpendPrestigePerkPointReducer),
+  __reducerSchema("start_aggro_run", StartAggroRunReducer),
   __reducerSchema("start_item_upgrade", StartItemUpgradeReducer),
   __reducerSchema("start_login_move", StartLoginMoveReducer),
   __reducerSchema("start_prestige_challenge", StartPrestigeChallengeReducer),

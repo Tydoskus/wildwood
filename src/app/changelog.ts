@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.890": [
+    "New prestige challenge, Aggro: random camps chase you on every map, dying restarts the run, and no prestige bonuses",
+    "Win Aggro by reaching your next prestige; each win lets Autofarm's Pull bring one more camp (up to 5)",
+    "Autofarm's Pull brings the nearest camp of your pick (more with Aggro wins)",
+  ],
   "0.889": [
     "Enemy health bars are slim pills with no numbers",
     "Damage numbers are smaller and pop up a little higher",
@@ -2775,6 +2780,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.890": "2026-10-04",
   "0.889": "2026-10-04",
   "0.888": "2026-10-04",
   "0.887": "2026-10-04",

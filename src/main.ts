@@ -28,6 +28,7 @@ import { createReconnectRecovery } from "./ui/reconnect-recovery";
 import { isProceduralMap, proceduralMapId } from "../shared/procedural-maps";
 import { createAutoFarmProgress } from "./game/runtime/auto-farm-build";
 import { prestigePerkValue } from "../shared/prestige-perks";
+import { aggroForcedCamps, aggroPullCamps } from "../shared/aggro-challenge";
 import { createPrestigeExpansionRuntime } from "./ui/prestige-expansion-runtime";
 import { leaderboardEligible } from "../shared/leaderboard-window";
 import { createProceduralBossController } from "./game/runtime/procedural-boss-controller";
@@ -528,11 +529,11 @@ import {
   let farmConnection: 'ready' | 'recovering' | 'ended' = 'recovering';
   const farmProgress = createAutoFarmProgress({ mapId: () => currentMapId, base: () => ({ maxHp: player.baseMaxHp, damage: player.damage, attackRate: player.attackRate, armor: player.armor, regen: player.regen }),
     equipment: () => ({ equippedHead: inventory.equippedHead, equippedChest: inventory.equippedChest, equippedRightHand: inventory.equippedRightHand, equippedLeftHand: inventory.equippedLeftHand }),
-    research: () => researchRanks(), upgradeLevel: itemId => coop?.itemUpgradeLevel?.(itemId) ?? 0, rewardMultiplier: () => researchRewardMultiplier(), minAttackInterval: () => challengeMinimumInterval(coop?.prestigeChallenge?.()), criticalChance: () => researchCriticalChance(), criticalMultiplier: () => researchCriticalDamageMultiplier(),
+    research: () => researchRanks(), upgradeLevel: itemId => coop?.itemUpgradeLevel?.(itemId) ?? 0, rewardMultiplier: () => researchRewardMultiplier(), minAttackInterval: () => challengeMinimumInterval(coop?.aggroChallenge?.()?.active ? null : coop?.prestigeChallenge?.()), criticalChance: () => researchCriticalChance(), criticalMultiplier: () => researchCriticalDamageMultiplier(),
     reflectOnly: () => Boolean(coop?.prestigeChallenge?.()?.active), pullAll: () => autoFarm.pullAll(), reflectChance: () => prestigePerkValue(coop?.prestigePerks?.(), "riposte"), healPerKill: () => prestigePerkValue(coop?.prestigePerks?.(), "secondWind"), bossSlayer: () => prestigePerkValue(coop?.prestigePerks?.(), "bossSlayer"), mapBoss: () => proceduralBoss.boss() ?? bossStateForMap(bosses, currentMapId), portalUnlocked: portal => mapController.portalIsUnlocked(portal as never), portals: () => { const config = MAP_CONFIG[currentMapId]; return [config.portal, "secondaryPortal" in config ? config.secondaryPortal : null]; } });
   const autoFarm = createAutoFarmController({
     resumeStore: createAutoFarmResumeStore(),
-    player, enemies, spawnSites, mapId: () => currentMapId,
+    player, enemies, spawnSites, mapId: () => currentMapId, pullCamps: () => aggroPullCamps(coop?.aggroChallenge?.()), forcedCamps: () => aggroForcedCamps(coop?.aggroChallenge?.()),
     equippedWeapon: () => inventory.equippedRightHand || inventory.equippedLeftHand,
     localIdentity: () => coop?.localIdentity?.(),
     connection: () => farmConnection === 'ready' && (!coop?.isConnected?.() || !session?.isRunning()
@@ -586,11 +587,11 @@ import {
       playerMovementSpeed: () => player.speed * movementMultiplier(),
       spawnDamageNumber, remoteGhostsEnabled: appShell.remoteGhostsEnabled,
       spawnBurst,
-      pullAggro: enemy => autoFarm.pulls(enemy),
+      pullAggro: enemy => autoFarm.pulls(enemy) || autoFarm.forced(enemy),
     },
   );
   const research = createResearchController({
-    prestigeLevel: () => coop?.prestige?.()?.level ?? 0,
+    prestigeLevel: () => coop?.aggroChallenge?.()?.active ? 0 : coop?.prestige?.()?.level ?? 0,
     guildQuestBonus: () => coop?.dailyQuests?.()?.bonus ?? 1,
     prestigePerks: () => coop?.prestigePerks?.(),
     player,
@@ -665,7 +666,7 @@ import {
     equippedChest: () => inventory.equippedChest,
     equippedChestUpgradeLevel: () => coop?.itemUpgradeLevel?.(inventory.equippedChest) ?? 0,
     healthMultiplierBonus,
-    minAttackInterval: () => challengeMinimumInterval(coop?.prestigeChallenge?.()),
+    minAttackInterval: () => challengeMinimumInterval(coop?.aggroChallenge?.()?.active ? null : coop?.prestigeChallenge?.()),
     reflectOnly: () => Boolean(coop?.prestigeChallenge?.()?.active),
     effectiveArmor,
     isDueling,

@@ -20,7 +20,12 @@ export const prestigeChallengeRun = table({ name: "prestige_challenge_run", publ
 export const playerPrestigeChallengeParked = table({ name: "player_prestige_challenge_parked", public: true }, {
   identity: t.identity().primaryKey(), parkedAt: t.timestamp(),
 });
-export const challengeActive = (ctx: any, identity: any) => Boolean(ctx.db.playerPrestigeChallenge.identity.find(identity)?.active);
+/** Either challenge under way: perks can be neither spent nor respecced during one. */
+/** The Reflect Only row whose wins count now: none during an Aggro run, which plays without prestige rewards. */
+export const reflectRewardsInPlay = (ctx: any, identity: any) =>
+  ctx.db.playerAggroChallenge?.identity.find(identity)?.active ? null : ctx.db.playerPrestigeChallenge.identity.find(identity);
+export const challengeActive = (ctx: any, identity: any) => Boolean(ctx.db.playerPrestigeChallenge.identity.find(identity)?.active
+  || ctx.db.playerAggroChallenge?.identity.find(identity)?.active);
 
 export function setPrestigeChallenge(ctx: any, active: boolean, player: any) {
   const row = ctx.db.playerPrestigeChallenge.identity.find(ctx.sender);
@@ -78,7 +83,7 @@ export function carryOwnership(restored: any, live: any) {
     bowCount: Math.max(restored.bowCount ?? 0, live.bowCount ?? 0),
     woodenArmorCount: Math.max(restored.woodenArmorCount ?? 0, live.woodenArmorCount ?? 0) };
 }
-function writeEndless(ctx: any, identity: any, completed: number) {
+export function writeEndless(ctx: any, identity: any, completed: number) {
   const endless = { identity, completed };
   if (ctx.db.proceduralProgress.identity.find(identity)) ctx.db.proceduralProgress.identity.update(endless);
   else ctx.db.proceduralProgress.insert(endless);

@@ -11,6 +11,7 @@ import { PRESTIGE_EXPANSION_PERK_IDS } from "../../shared/prestige-expansion";
 import { prestigeExpanded } from "./prestige-expansion";
 import { attackRangeWithResearch } from "../../shared/utility-research";
 import { readPlayerProgress } from "./wide-stats";
+import { aggroChallengeActive } from "./aggro-challenge";
 
 // Prestige bodies. The player_prestige table and the reducer declaration stay
 // in index.ts; this module owns what they call. The reset arrives through deps
@@ -24,13 +25,20 @@ import { readPlayerProgress } from "./wide-stats";
  */
 export function statRewardMultiplier(ctx: any, identity: any) {
   return researchStatRewardMultiplier(ctx.db.playerResearch.identity.find(identity))
-    * prestigeStatMultiplier(ctx.db.playerPrestige.identity.find(identity)?.level ?? 0)
+    // An Aggro run plays with no prestige bonuses at all.
+    * prestigeStatMultiplier(aggroChallengeActive(ctx, identity) ? 0 : ctx.db.playerPrestige.identity.find(identity)?.level ?? 0)
     // The guild's daily quest points last week (daily-quests.ts).
     * guildQuestBonusFor(ctx, identity);
 }
 
-/** The player's perk ranks, zero for anyone who has never prestiged. */
+/** The perk ranks in play: zero for anyone who has never prestiged, and during an Aggro run. */
 export function prestigePerkRanks(ctx: any, identity: any): PrestigePerkRanks {
+  const ranks = storedPrestigePerkRanks(ctx, identity);
+  return aggroChallengeActive(ctx, identity) ? Object.fromEntries(PRESTIGE_PERK_IDS.map(perk => [perk, 0])) as PrestigePerkRanks : ranks;
+}
+
+/** The ranks the player owns, whether or not they are in play: what spending and respeccing work from. */
+export function storedPrestigePerkRanks(ctx: any, identity: any): PrestigePerkRanks {
   const row = ctx.db.playerPrestigePerk.identity.find(identity);
   const expansion = prestigeExpanded(ctx) ? ctx.db.playerPrestigeExpansionPerk.identity.find(identity) : null;
   return { keenEdge: row?.keenEdge ?? 0, doubleStrike: row?.doubleStrike ?? 0, splitShot: row?.splitShot ?? 0, riposte: row?.riposte ?? 0,
@@ -53,6 +61,8 @@ export type PrestigeDeps = {
   recordPrestige: (ctx: any) => void;
   respawnWithProgress: (ctx: any, activePlayer: any, progress: any, destination?: { mapId: string; x: number; y: number }) => void;
   restoreChallenge: (ctx: any, player: any, reward: boolean) => void;
+  /** Wins an Aggro run: the main run comes back and the win counts. */
+  winAggro: (ctx: any, player: any) => void;
   refreshPerkEffects: (ctx: any, activePlayer: any) => void;
 };
 
@@ -65,6 +75,17 @@ export function createPrestige(deps: PrestigeDeps) {
     const progress = readPlayerProgress(ctx, ctx.sender);
     const current = ctx.db.playerPrestige.identity.find(ctx.sender);
     // A Reflect Only run wins on its own goal, not the next prestige's requirement or cap.
+    // An Aggro run wins on the regular requirement for the next level, cap or not.
+    if (aggroChallengeActive(ctx, ctx.sender)) {
+      const endless = ctx.db.proceduralProgress.identity.find(ctx.sender)?.completed ?? 0;
+      const nextLevel = (current?.level ?? 0) + 1;
+      if (!progress || !prestigeUnlocked(progress.bossRewardClaims, endless, nextLevel, undefined, prestigeExpanded(ctx))) {
+        throw new SenderError(`Aggro: ${progress && prestigeCampaignComplete(progress.bossRewardClaims, nextLevel) && prestigeEndlessRequirement(nextLevel) > 0
+          ? `clear Endless ${prestigeEndlessRequirement(nextLevel)}` : `defeat ${prestigeCampaignTarget(nextLevel).bossName}`} to win.`);
+      }
+      deps.winAggro(ctx, activePlayer);
+      return current;
+    }
     const challenge = ctx.db.playerPrestigeChallenge.identity.find(ctx.sender);
     if (challenge?.active) {
       const endless = ctx.db.proceduralProgress.identity.find(ctx.sender)?.completed ?? 0;
@@ -109,7 +130,7 @@ export function createPrestige(deps: PrestigeDeps) {
     }
     const current = ctx.db.playerPrestige.identity.find(ctx.sender);
     if (!current || current.perkPoints < 1) throw new SenderError("No perk points to spend.");
-    const ranks = prestigePerkRanks(ctx, ctx.sender);
+    const ranks = storedPrestigePerkRanks(ctx, ctx.sender);
     if (ranks[perk] >= prestigePerkMaxRank(perk, ctx.db.playerPrestigeChallenge.identity.find(ctx.sender)?.completed ?? 0)) {
       throw new SenderError(perk === "riposte" ? "Reflect is at its cap. Each Reflect Only win raises it by one." : "That perk is already at its highest rank.");
     }
@@ -131,7 +152,7 @@ export function createPrestige(deps: PrestigeDeps) {
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel before respeccing.");
     const current = ctx.db.playerPrestige.identity.find(ctx.sender);
     if (challengeActive(ctx, ctx.sender)) throw new SenderError("Finish or abandon the prestige challenge before respeccing.");
-    const ranks = prestigePerkRanks(ctx, ctx.sender);
+    const ranks = storedPrestigePerkRanks(ctx, ctx.sender);
     const spent = PRESTIGE_PERK_IDS.reduce((sum, perk) => sum + ranks[perk], 0);
     const progress = readPlayerProgress(ctx, ctx.sender);
     if (!current || !progress || spent < 1) throw new SenderError("No perk points to respec.");
@@ -157,7 +178,7 @@ export function createPrestige(deps: PrestigeDeps) {
     if (ctx.db.playerFreeRespec.identity.find(ctx.sender)) throw new SenderError("Your free respec is already used.");
     if (challengeActive(ctx, ctx.sender)) throw new SenderError("Finish or drop out of the prestige challenge before respeccing.");
     const current = ctx.db.playerPrestige.identity.find(ctx.sender);
-    const ranks = prestigePerkRanks(ctx, ctx.sender);
+    const ranks = storedPrestigePerkRanks(ctx, ctx.sender);
     const spent = PRESTIGE_PERK_IDS.reduce((sum, perk) => sum + ranks[perk], 0);
     if (!current || spent < 1) throw new SenderError("No perk points to respec.");
     writePrestigePerkRanks(ctx, ctx.sender, Object.fromEntries(PRESTIGE_PERK_IDS.map(perk => [perk, 0])) as PrestigePerkRanks);

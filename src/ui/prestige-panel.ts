@@ -77,7 +77,8 @@ export function createPrestigeController(options: {
   /** Reflect Only wins so far: each raises Reflect's cap by one. */
   challengesWon?: () => number;
   /** While Reflect Only runs: its goal, and whether this run meets it. Prestige's own requirement and cap step aside. */
-  challengeGoal?: () => { label: string; met: boolean } | null;
+  /** The challenge under way: its goal, whether this run meets it, and (when not Reflect Only) its name and reward. */
+  challengeGoal?: () => { label: string; met: boolean; name?: string; reward?: string } | null;
   expansionCountdown?: () => string;
   runPrestige: () => Promise<PrestigeResult>;
   /** Refund every spent perk point for the run's power. The row stays hidden without it. */
@@ -283,7 +284,7 @@ export function createPrestigeController(options: {
       ? `${PRESTIGE_COST} You would earn ${prestigeRewardLabel(level)}.`
       : `Spend the points you have banked. ${hint()}`;
     const challengeGoal = goal();
-    if (challengeGoal) options.cost.textContent = `Reflect Only goal: ${challengeGoal.label}. Then press Prestige to win +0.5 attacks/sec and restore your saved run.`;
+    if (challengeGoal) options.cost.textContent = `${challengeGoal.name ?? 'Reflect Only'} goal: ${challengeGoal.label}. Then press Prestige to win ${challengeGoal.reward ?? '+0.5 attacks/sec'} and restore your saved run.`;
     renderPerks(row?.perkPoints ?? 0);
     // Enabled whenever the campaign is done, even if this client reads fewer
     // Endless stages than the server has. A missing procedural_progress row
@@ -294,7 +295,7 @@ export function createPrestigeController(options: {
     // server owns the decision and names exactly what is missing.
     confirmButton.disabled = pending || (challengeGoal ? !challengeGoal.met : !options.unlocked() || prestigeCapped(nextLevel(), expanded()));
     confirmButton.hidden = false;
-    if (challengeGoal) { if (!challengeGoal.met && !status.textContent) status.textContent = `Reflect Only: ${challengeGoal.label} to win.`; }
+    if (challengeGoal) { if (!challengeGoal.met && !status.textContent) status.textContent = `${challengeGoal.name ?? 'Reflect Only'}: ${challengeGoal.label} to win.`; }
     else if (!unlocked() && (!status.textContent || status.textContent.startsWith("Prestige 20 uncapped in "))) status.textContent = hint();
   }
 
@@ -332,7 +333,7 @@ export function createPrestigeController(options: {
     // not swallow the press; the server refuses and says why.
     const challengeGoal = goal();
     if (pending || (challengeGoal ? !challengeGoal.met : !options.unlocked())) {
-      if (!pending) status.textContent = challengeGoal ? `Reflect Only: ${challengeGoal.label} to win.` : hint() || LOCKED_HINT;
+      if (!pending) status.textContent = challengeGoal ? `${challengeGoal.name ?? 'Reflect Only'}: ${challengeGoal.label} to win.` : hint() || LOCKED_HINT;
       return;
     }
     // Losing every map unlock deserves a second press, not a single tap.
@@ -341,7 +342,7 @@ export function createPrestigeController(options: {
       armed = true;
       confirmButton.textContent = 'Yes, prestige';
       confirmButton.classList.add('is-armed');
-      status.textContent = challengeGoal ? "Win Reflect Only and restore your saved run." : PRESTIGE_ARMED_WARNING;
+      status.textContent = challengeGoal ? `Win ${challengeGoal.name ?? 'Reflect Only'} and restore your saved run.` : PRESTIGE_ARMED_WARNING;
       render();   // repaints a respec this press disarmed
       return;
     }
@@ -353,7 +354,7 @@ export function createPrestigeController(options: {
       const outcome = await submitPrestige(options.runPrestige, () => options.prestige()?.level ?? 0);
       if (outcome.ok) {
         close();
-        // A Reflect Only win announces itself in its own popup, whichever way it was won.
+        // A challenge win announces itself in its own popup, whichever way it was won.
         if (!completingChallenge) options.showMessage?.(outcome.message);
       } else {
         status.textContent = outcome.error;

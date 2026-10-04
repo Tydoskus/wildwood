@@ -1,10 +1,12 @@
 import { mergePrestigeChallenges } from "./prestige-challenge";
+import { mergeAggroChallenges } from "./aggro-challenge";
 import { PRESTIGE_PERK_IDS, prestigePerkMaxRank, type PrestigePerkRanks } from "../../shared/prestige-perks";
 import { writePrestigePerkRanks } from "./prestige";
 
 /** Move permanent prestige credit when a guest save is claimed by an account. */
 export function mergeLinkedPrestige(ctx: any, guest: any, account: any) {
   mergePrestigeChallenges(ctx, guest, account);
+  mergeAggroChallenges(ctx, guest, account);
   // The free respec belongs to the account: the guest's use of it goes with the guest.
   if (ctx.db.playerFreeRespec.identity.find(guest)) ctx.db.playerFreeRespec.identity.delete(guest);
   const guestPrestige = ctx.db.playerPrestige.identity.find(guest);

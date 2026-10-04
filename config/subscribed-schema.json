@@ -710,6 +710,11 @@
       "identity:identity",
       "isGuest:bool"
     ],
+    "player_aggro_challenge": [
+      "identity:identity",
+      "active:bool",
+      "completed:u32"
+    ],
     "player_chat_hearts": [
       "identity:identity",
       "chatHeartsReceived:u64"

@@ -6,6 +6,7 @@
 import { type Infer as __Infer } from "spacetimedb";
 
 // Import all reducer arg schemas
+import AbandonAggroRunReducer from "../abandon_aggro_run_reducer";
 import AbandonPrestigeChallengeReducer from "../abandon_prestige_challenge_reducer";
 import AcceptDuelReducer from "../accept_duel_reducer";
 import AcceptTermsReducer from "../accept_terms_reducer";
@@ -173,6 +174,7 @@ import SimulateTimeAwayReducer from "../simulate_time_away_reducer";
 import SpeedUpItemUpgradeWithGemsReducer from "../speed_up_item_upgrade_with_gems_reducer";
 import SpeedUpResearchWithGemsReducer from "../speed_up_research_with_gems_reducer";
 import SpendPrestigePerkPointReducer from "../spend_prestige_perk_point_reducer";
+import StartAggroRunReducer from "../start_aggro_run_reducer";
 import StartItemUpgradeReducer from "../start_item_upgrade_reducer";
 import StartLoginMoveReducer from "../start_login_move_reducer";
 import StartPrestigeChallengeReducer from "../start_prestige_challenge_reducer";
@@ -186,6 +188,7 @@ import UnlockThirdUpgradeSlotReducer from "../unlock_third_upgrade_slot_reducer"
 import UpdateMovementStateReducer from "../update_movement_state_reducer";
 import UseFreePrestigeRespecReducer from "../use_free_prestige_respec_reducer";
 
+export type AbandonAggroRunParams = __Infer<typeof AbandonAggroRunReducer>;
 export type AbandonPrestigeChallengeParams = __Infer<typeof AbandonPrestigeChallengeReducer>;
 export type AcceptDuelParams = __Infer<typeof AcceptDuelReducer>;
 export type AcceptTermsParams = __Infer<typeof AcceptTermsReducer>;
@@ -353,6 +356,7 @@ export type SimulateTimeAwayParams = __Infer<typeof SimulateTimeAwayReducer>;
 export type SpeedUpItemUpgradeWithGemsParams = __Infer<typeof SpeedUpItemUpgradeWithGemsReducer>;
 export type SpeedUpResearchWithGemsParams = __Infer<typeof SpeedUpResearchWithGemsReducer>;
 export type SpendPrestigePerkPointParams = __Infer<typeof SpendPrestigePerkPointReducer>;
+export type StartAggroRunParams = __Infer<typeof StartAggroRunReducer>;
 export type StartItemUpgradeParams = __Infer<typeof StartItemUpgradeReducer>;
 export type StartLoginMoveParams = __Infer<typeof StartLoginMoveReducer>;
 export type StartPrestigeChallengeParams = __Infer<typeof StartPrestigeChallengeReducer>;

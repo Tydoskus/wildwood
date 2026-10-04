@@ -202,8 +202,10 @@ export function grantOfflineProgress(ctx: any, progress: any, ports: OfflineGran
   if (!row) return progress;
   // Switched off in settings: close the window without paying it, so turning
   // the setting back on pays for the time since, not for the months before.
-  // Offline farming is weapon farming, so a Reflect Only run earns none either.
-  if (!offlineProgressEnabled(ctx, ctx.sender) || ctx.db.playerPrestigeChallenge?.identity.find(ctx.sender)?.active) {
+  // Offline farming is weapon farming, so a Reflect Only run earns none either,
+  // and an Aggro run is about surviving its camps, which offline time skips.
+  if (!offlineProgressEnabled(ctx, ctx.sender) || ctx.db.playerPrestigeChallenge?.identity.find(ctx.sender)?.active
+    || ctx.db.playerAggroChallenge?.identity.find(ctx.sender)?.active) {
     storeOfflineGrant(ctx, ctx.sender, null, { damage: 0, health: 0, armor: 0, regen: 0, attackSpeed: 0 });
     return progress;
   }

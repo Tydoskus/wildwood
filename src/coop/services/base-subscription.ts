@@ -59,6 +59,7 @@ export type BaseSubscriptionHandlers = {
   prestigePerk: RowHandler;
   prestigeChallenge: RowHandler; removePrestigeChallenge: RowHandler;
   prestigeChallengeParked: RowHandler; removePrestigeChallengeParked: RowHandler;
+  aggroChallenge: RowHandler; removeAggroChallenge: RowHandler;
   freeRespec: RowHandler; removeFreeRespec: RowHandler;
   dailyQuest: RowHandler; removeDailyQuest: RowHandler; guildQuestWeek: RowHandler; removeGuildQuestWeek: RowHandler;
   prestigeExpansion: RowHandler;
@@ -121,6 +122,7 @@ type BaseSubscriptionHandlerSources = {
     upsertPrestigePerk: BaseSubscriptionHandlers["prestigePerk"];
     upsertPrestigeChallenge: RowHandler; removePrestigeChallenge: RowHandler;
     upsertPrestigeChallengeParked: RowHandler; removePrestigeChallengeParked: RowHandler;
+    upsertAggroChallenge: RowHandler; removeAggroChallenge: RowHandler;
     upsertFreeRespec: RowHandler; removeFreeRespec: RowHandler;
     upsertDailyQuest: RowHandler; removeDailyQuest: RowHandler; upsertGuildQuestWeek: RowHandler; removeGuildQuestWeek: RowHandler;
     upsertPrestigeExpansion: RowHandler; removePrestigeExpansion: RowHandler;
@@ -221,6 +223,7 @@ export function createBaseSubscriptionHandlers(sources: BaseSubscriptionHandlerS
     prestigePerk: progression.upsertPrestigePerk,
     prestigeChallenge: progression.upsertPrestigeChallenge, removePrestigeChallenge: progression.removePrestigeChallenge,
     prestigeChallengeParked: progression.upsertPrestigeChallengeParked, removePrestigeChallengeParked: progression.removePrestigeChallengeParked,
+    aggroChallenge: progression.upsertAggroChallenge, removeAggroChallenge: progression.removeAggroChallenge,
     freeRespec: progression.upsertFreeRespec, removeFreeRespec: progression.removeFreeRespec,
     dailyQuest: progression.upsertDailyQuest, removeDailyQuest: progression.removeDailyQuest,
     guildQuestWeek: progression.upsertGuildQuestWeek, removeGuildQuestWeek: progression.removeGuildQuestWeek,
@@ -368,6 +371,9 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   connection.db.playerPrestigeChallenge.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removePrestigeChallenge(row); });
   connection.db.playerPrestigeChallengeParked.onInsert((_ctx, row) => { if (shouldHandle()) handlers.prestigeChallengeParked(row); });
   connection.db.playerPrestigeChallengeParked.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removePrestigeChallengeParked(row); });
+  connection.db.playerAggroChallenge.onInsert((_ctx, row) => { if (shouldHandle()) handlers.aggroChallenge(row); });
+  connection.db.playerAggroChallenge.onUpdate((_ctx, _old, row) => { if (shouldHandle()) handlers.aggroChallenge(row); });
+  connection.db.playerAggroChallenge.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeAggroChallenge(row); });
   connection.db.playerFreeRespec.onInsert((_ctx, row) => { if (shouldHandle()) handlers.freeRespec(row); });
   connection.db.playerFreeRespec.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeFreeRespec(row); });
   connection.db.playerDailyQuest.onInsert((_ctx, row) => { if (shouldHandle()) handlers.dailyQuest(row); });
@@ -474,6 +480,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.playerPrestige,
       tables.playerPrestigeChallenge.where(row => row.identity.eq(dependencies.identity)),
       tables.playerPrestigeChallengeParked.where(row => row.identity.eq(dependencies.identity)),
+      tables.playerAggroChallenge.where(row => row.identity.eq(dependencies.identity)),
       tables.playerFreeRespec.where(row => row.identity.eq(dependencies.identity)),
       tables.playerDailyQuest.where(row => row.identity.eq(dependencies.identity)),
       // Every guild's quest points this week, for the ranking. From this week
@@ -532,6 +539,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
         for (const row of connection.db.playerPrestigePerk.iter()) handlers.prestigePerk(row);
         for (const row of connection.db.playerPrestigeChallenge.iter()) handlers.prestigeChallenge(row);
         for (const row of connection.db.playerPrestigeChallengeParked.iter()) handlers.prestigeChallengeParked(row);
+        for (const row of connection.db.playerAggroChallenge.iter()) handlers.aggroChallenge(row);
         for (const row of connection.db.playerFreeRespec.iter()) handlers.freeRespec(row);
         for (const row of connection.db.playerDailyQuest.iter()) handlers.dailyQuest(row);
         for (const row of connection.db.guildQuestWeek.iter()) handlers.guildQuestWeek(row);

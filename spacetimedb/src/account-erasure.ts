@@ -160,6 +160,7 @@ export const ERASURE_TARGETS: readonly ErasureTarget[] = [
   { table: "prestigeChallengeBackup", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "prestigeChallengeRun", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerPrestigeChallengeParked", columns: ["identity"], pk: "identity", mode: "key" },
+  { table: "playerAggroChallenge", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerFreeRespec", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerDailyQuest", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "guildMemberQuestWeek", columns: ["identity"], pk: "identity", mode: "key" },
