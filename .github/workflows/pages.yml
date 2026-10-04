@@ -59,11 +59,13 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v5
 
-      # wildstatmmo.com. Ships the same tested dist as Pages, so turn off the
-      # Cloudflare dashboard's own Git build once these secrets exist.
+      # wildstatmmo.com. Off for now: the Cloudflare dashboard's own Git build
+      # deploys it, and both running deployed every push twice. Turn this on
+      # (and that build off) with: gh variable set CLOUDFLARE_DEPLOY --body on
       # A step's own env is not visible to its `if`, so check the secret here.
       - name: Check Cloudflare secrets
         id: cloudflare
+        if: vars.CLOUDFLARE_DEPLOY == 'on'
         env:
           TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: echo "enabled=${TOKEN:+yes}" >> "$GITHUB_OUTPUT"

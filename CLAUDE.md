@@ -21,11 +21,12 @@ the deploy. The push triggers `.github/workflows/pages.yml`, which runs
 and deploys the same `dist` to two places:
 
 - GitHub Pages — `https://tydoskus.github.io/wildwood/version.json`.
-- wildstatmmo.com — the Cloudflare Worker `wildstat`, via `wrangler deploy` with
-  static assets from `dist` (`dist/_headers` sets its cache rules). This step runs
-  only once the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repo secrets
-  exist. Until then the Cloudflare dashboard's own Git build deploys it, and that
-  build skips every test. Check `https://wildstatmmo.com/version.json` too.
+- wildstatmmo.com — the Cloudflare Worker `wildstat`. For now the Cloudflare
+  dashboard's own Git build deploys it (Ryan's choice), and that build skips
+  every test. The workflow's `wrangler deploy` step ships the same tested `dist`
+  instead, but is off unless the repo variable `CLOUDFLARE_DEPLOY` is `on`;
+  running both deployed every push twice. Check
+  `https://wildstatmmo.com/version.json` too.
 
 `.github/workflows/server-checks.yml` builds the server module and checks the
 committed `src/module_bindings` match it. It never deploys anything.
