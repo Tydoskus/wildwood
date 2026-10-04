@@ -144,7 +144,8 @@ export function createPlayerInputController(options: {
   }
 
   window.addEventListener("keydown", (event) => {
-    if (event.code === "Escape") { desktop?.clear(); if (onEscape()) return; }
+    // A window that handled Escape itself (and said so) has closed; one Escape closes one window.
+    if (event.code === "Escape") { desktop?.clear(); if (event.defaultPrevented || onEscape()) return; }
     if (swallowsGameKeys(event.target, event.code)) return;
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(event.code)) event.preventDefault();
     keys.add(event.code);

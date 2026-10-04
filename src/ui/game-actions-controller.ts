@@ -1,4 +1,5 @@
 import { gameConfirm, type ConfirmPrompt } from "./confirm-dialog";
+import { pressTopBack } from "./desktop-hotkeys";
 import {
   BASIC_PAPER_HAT,
   LEGENDARY_WHITE_GOLD_ARMOR,
@@ -161,6 +162,8 @@ export function createGameActionsController(dependencies: GameActionsDependencie
 
   function handleInputEscape() {
     if (dependencies.shop.isOpen()) { dependencies.shop.close(); return true; }
+    // The Back of whichever window is on top: every window, not only the ones listed below.
+    if (pressTopBack(elements.settingsPanel.ownerDocument)) return true;
     if (!elements.settingsPanel.hidden) { closeSettings(); elements.settingsButton.focus(); return true; }
     const windows = dependencies.escapeWindows;
     if (windows.isRespawnAdPromptOpen()) { windows.closeRespawnAdPrompt(); return true; }

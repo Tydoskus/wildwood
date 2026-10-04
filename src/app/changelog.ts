@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.887": [
+    "Escape works as Back in every window, closing the top one first",
+    "PC shortcuts: I inventory, L leaderboard, G guilds, M map, P profile, F autofarm (press again to close)",
+    "Enter opens chat to type; Escape closes it",
+  ],
   "0.886": [
     "Prestige perks are easier to read on phones: bigger text, shorter wording, tap a perk for details",
     "The Prestige window keeps Back on screen, and its scrollbar is hidden, as in Settings",
@@ -2762,6 +2767,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.887": "2026-10-04",
   "0.886": "2026-10-04",
   "0.885": "2026-10-04",
   "0.884": "2026-10-04",

@@ -1,6 +1,7 @@
 import { challengeMinimumInterval } from "../../shared/prestige-challenge";
 export { challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { createGemShopController } from "./gem-shop-controller";
+import { installDesktopHotkeys } from "./desktop-hotkeys";
 import { HOME_QUEST_BOARD_POSITION, HOME_RESEARCH_POSITION } from "../../shared/home";
 import { recentReleaseNotes } from "../app/changelog";
 import { isDeveloperIdentity } from "../app/developer";
@@ -189,6 +190,7 @@ export function createLeaderboardPanel(d: Record<string, any>) {
 export function createGameActionsRuntime(d: Record<string, any>) {
   const e = d.e;
   const shop = createGemShopController({ button: e.shopBtn, setOpen: d.setShopOpen, openSupporter: d.openSupporter, supporter: d.coop });
+  installDesktopHotkeys(e.shopBtn.ownerDocument);
   return createGameActionsController({
     shop,
     elements: {
