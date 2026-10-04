@@ -12,7 +12,7 @@ import { compareAutoFarmTargets, enemyRewardStat, farmGroupMatches, farmStatGrou
 import type { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 import {
   AUTO_REPLAN_SECONDS, BOSS_READY_DAMAGE_SHARE, BOSS_READY_FIGHT_SECONDS, BOSS_RETRY_MS, bestFarmCandidate, bossReady, decodeFarmPlan, encodeFarmPlan, nextRouteKey,
-  readFarmAdvance, readFarmRoute, routeEntry, routeEntryText, writeFarmAdvance, writeFarmRoute, type FarmEvaluation, type FarmReward,
+  readFarmAdvance, readFarmChoice, routeEntry, routeEntryText, writeFarmAdvance, writeFarmChoice, type FarmEvaluation, type FarmReward,
 } from './auto-farm-plan';
 
 export type AutoFarmController = ReturnType<typeof createAutoFarmController>;
@@ -246,11 +246,12 @@ export function createAutoFarmController(options: {
     if (pendingResume) {
       const choice = pendingResume.choice;
       pendingResume = null;
-      // Picks carried from another map keep the stats this map pays; with none of them here, Auto.
+      // Picks carried from another map keep the stats this map pays; with none
+      // of them here, Auto. Either way the pick itself is remembered as it was.
       const available = new Set<string>(choices().map(entry => entry.key));
       const plan = decodeFarmPlan(choice);
       const kept = plan.filter(entry => available.has(normalizeKey(routeEntry(entry).key)));
-      start(kept);
+      start(kept, false);
     }
   }
 
@@ -333,7 +334,8 @@ export function createAutoFarmController(options: {
    * Starts farming: a single camp, the player's camps in order, or Auto
    * (an empty plan, or "auto"). A plain camp key is the plan it always was.
    */
-  function start(next: string | readonly string[]) {
+  /** `remember` is false when autofarm restarts itself: only the player's own pick is saved. */
+  function start(next: string | readonly string[], remember = true) {
     if (options.connection && options.connection() !== 'ready') {
       stop('Connect to the server to farm'); return false;
     }
@@ -357,7 +359,7 @@ export function createAutoFarmController(options: {
     startedMap = options.mapId();
     startedIdentity = options.localIdentity?.();
     pendingResume = null;
-    writeFarmRoute(startedMap, plan, options.priorityStorage);
+    if (remember) writeFarmChoice(plan, options.priorityStorage);
     if (startedIdentity) options.resumeStore?.write({ identity: startedIdentity, map: startedMap, choice: encodeFarmPlan(plan) });
     recovering = false;
     readySince = null;
@@ -372,15 +374,13 @@ export function createAutoFarmController(options: {
   }
 
   /**
-   * A portal autofarm walked into on purpose carries the farm across: it picks
-   * up on the new map with the route saved for it, else the stats picked here
-   * (picking them used to fall back to Auto on every new map), else Auto. Any
-   * other travel ends it, as before.
+   * A portal autofarm walked into on purpose carries the farm across with the
+   * player's last pick, the same on every map (it used to switch to whatever
+   * that map was last farmed with). Any other travel ends it, as before.
    */
   function travelStarted() {
     if (!active || phase !== 'portal' || !travellingTo || !startedIdentity) { stop('Map changed · choose an enemy'); return; }
-    const saved = readFarmRoute(travellingTo, options.priorityStorage);
-    const intent = { identity: startedIdentity, map: travellingTo, choice: encodeFarmPlan(saved.length ? saved : plan) };
+    const intent = { identity: startedIdentity, map: travellingTo, choice: encodeFarmPlan(readFarmChoice(startedMap, options.priorityStorage)) };
     const label = retreating ? 'Moving back a map' : 'Moving to the next map';
     advancedAt = retreating ? null : now();
     stop(label);
@@ -544,7 +544,7 @@ export function createAutoFarmController(options: {
       return (evaluation.fightDamageShare ?? 0) / BOSS_READY_DAMAGE_SHARE > (evaluation.fightSeconds ?? 0) / BOSS_READY_FIGHT_SECONDS ? 'Needs defense' : 'Needs damage';
     },
     /** The route saved for this map, for the panel to show. */
-    savedPlan: () => readFarmRoute(options.mapId(), options.priorityStorage),
+    savedPlan: () => readFarmChoice(options.mapId(), options.priorityStorage),
     priority: () => priority,
     pullAll: () => pullAll,
     setPullAll(next: boolean) {

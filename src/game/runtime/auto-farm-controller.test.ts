@@ -590,6 +590,38 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
     }
   });
 
+  it("remembers one pick for every map: an older pick on the next map, or a map without the stat, does not replace it", () => {
+    let next = 'beginner_desert';
+    const s = planned({ nextPortal: () => ({ x: 200, y: 500, destination: next }) });
+    const travel = (to: string, arrivals: EnemyKind[]) => {
+      next = to;
+      s.tick(); s.tick();
+      expect(s.farm.state().phase).toBe('portal');
+      s.farm.travelStarted();
+      s.enemies.length = 0; s.spawnSites.length = 0;
+      s.setMap(to);
+      arrivals.forEach((type, index) => s.add(type, 900 + index * 200, 900));
+      s.tick(); s.advance(1_000); s.tick();
+    };
+    // The next map was farmed for Speed before the player picked Health.
+    s.setMap('beginner_desert'); s.add('Needle', 900, 500); s.farm.start([speed]);
+    s.enemies.length = 0; s.spawnSites.length = 0;
+    s.setMap('forest'); s.add('Bramble', 900, 500);
+    s.farm.setAdvance(true);
+    s.farm.start([health]);
+    travel('beginner_desert', ['Needle', 'Bramble']);
+    expect(s.farm.state()).toMatchObject({ active: true, plan: [health] });
+    // No Health here: Auto for this map, and Health is still the pick.
+    travel('intermediate_snowlands', ['Needle']);
+    expect(s.farm.state()).toMatchObject({ active: true, plan: [] });
+    expect(s.farm.savedPlan()).toEqual([health]);
+    travel('beginner_desert', ['Bramble']);
+    expect(s.farm.state()).toMatchObject({ active: true, plan: [health] });
+    // Walked out by hand, the window offers the same pick on the next map.
+    s.farm.stop(); s.setMap('forest');
+    expect(s.farm.savedPlan()).toEqual([health]);
+  });
+
   it("moves along a route after a camp's worth of kills, even while that camp keeps respawning", () => {
     const s = planned();
     const first = s.add('Bramble', 900, 500);

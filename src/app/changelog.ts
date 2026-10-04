@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.888": [
+    "Autofarm remembers your last pick on every map, instead of going back to what each map was farmed with before",
+  ],
   "0.887": [
     "Escape works as Back in every window, closing the top one first",
     "PC shortcuts: I inventory, L leaderboard, G guilds, M map, P profile, F autofarm (press again to close)",
@@ -2767,6 +2770,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.888": "2026-10-04",
   "0.887": "2026-10-04",
   "0.886": "2026-10-04",
   "0.885": "2026-10-04",

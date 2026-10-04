@@ -133,21 +133,25 @@ type Storage = Pick<globalThis.Storage, 'getItem' | 'setItem'>;
 export const AUTO_FARM_ROUTES_KEY = 'wildstat:autofarm-routes:v1';
 export const AUTO_FARM_ADVANCE_KEY = 'wildstat:autofarm-advance:v1';
 
-/** Routes are kept per map, so coming back to a map farms it the way the player set it up. */
-export function readFarmRoute(mapId: string, storage: () => Storage | undefined = () => localStorage): string[] {
+/**
+ * The player's last pick, one for every map: picks are stats, which every map
+ * names the same way. Routes used to be kept per map, so a map once farmed on
+ * Auto went back to Auto whatever the player had picked since. An empty list
+ * is Auto, picked on purpose. Before the first pick, the old per-map route.
+ */
+export const AUTO_FARM_CHOICE_KEY = 'wildstat:autofarm-choice:v1';
+const routeKeys = (value: unknown) => Array.isArray(value) ? value.filter((key): key is string => typeof key === 'string' && key.length > 0) : null;
+
+export function readFarmChoice(mapId: string, storage: () => Storage | undefined = () => localStorage): string[] {
   try {
-    const routes = JSON.parse(storage()?.getItem(AUTO_FARM_ROUTES_KEY) ?? '{}');
-    const route = routes?.[mapId];
-    return Array.isArray(route) ? route.filter((key): key is string => typeof key === 'string' && key.length > 0) : [];
+    const choice = routeKeys(JSON.parse(storage()?.getItem(AUTO_FARM_CHOICE_KEY) ?? 'null'));
+    if (choice) return choice;
+    return routeKeys(JSON.parse(storage()?.getItem(AUTO_FARM_ROUTES_KEY) ?? '{}')?.[mapId]) ?? [];
   } catch { return []; }
 }
 
-export function writeFarmRoute(mapId: string, route: readonly string[], storage: () => Storage | undefined = () => localStorage) {
-  try {
-    const routes = JSON.parse(storage()?.getItem(AUTO_FARM_ROUTES_KEY) ?? '{}') ?? {};
-    if (route.length) routes[mapId] = [...route]; else delete routes[mapId];
-    storage()?.setItem(AUTO_FARM_ROUTES_KEY, JSON.stringify(routes));
-  } catch { /* The route still applies this session. */ }
+export function writeFarmChoice(route: readonly string[], storage: () => Storage | undefined = () => localStorage) {
+  try { storage()?.setItem(AUTO_FARM_CHOICE_KEY, JSON.stringify([...route])); } catch { /* The pick still applies this session. */ }
 }
 
 export function readFarmAdvance(storage: () => Storage | undefined = () => localStorage) {
