@@ -42,7 +42,7 @@ export type SkillEffect = {
   width: number; color: string; jagged: boolean;
 };
 
-const DAMAGE_NUMBER_START_HEIGHT = 52;
+const DAMAGE_NUMBER_START_HEIGHT = 62;
 
 type CameraPosition = { x: number; y: number; zoom: number };
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
@@ -328,14 +328,14 @@ export function createCombatEffects() {
       drawScreenSpaceAt(ctx, camera.zoom, x, y, () => {
         ctx.globalAlpha = number.opacity;
         ctx.font = number.critical
-          ? '900 22px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'
-          : '900 20px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+          ? '900 17.6px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'
+          : '900 16px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
         outlinedText(
           number.text,
           0,
           0,
           number.damageTaken ? "#ff5a5a" : number.reflected ? "#6fc8ff" : number.critical ? "#ffe36b" : "#ffffff",
-          4,
+          3,
         );
       });
     }

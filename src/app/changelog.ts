@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.889": [
+    "Enemy health bars are slim pills with no numbers",
+    "Damage numbers are smaller and pop up a little higher",
+  ],
   "0.888": [
     "Autofarm remembers your last pick on every map, instead of going back to what each map was farmed with before",
   ],
@@ -2770,6 +2774,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.889": "2026-10-04",
   "0.888": "2026-10-04",
   "0.887": "2026-10-04",
   "0.886": "2026-10-04",
