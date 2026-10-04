@@ -246,7 +246,11 @@ export function createAutoFarmController(options: {
     if (pendingResume) {
       const choice = pendingResume.choice;
       pendingResume = null;
-      start(decodeFarmPlan(choice));
+      // Picks carried from another map keep the stats this map pays; with none of them here, Auto.
+      const available = new Set<string>(choices().map(entry => entry.key));
+      const plan = decodeFarmPlan(choice);
+      const kept = plan.filter(entry => available.has(normalizeKey(routeEntry(entry).key)));
+      start(kept);
     }
   }
 
@@ -369,12 +373,14 @@ export function createAutoFarmController(options: {
 
   /**
    * A portal autofarm walked into on purpose carries the farm across: it picks
-   * up on the new map with the route saved for it, or Auto. Any other travel
-   * ends it, as before.
+   * up on the new map with the route saved for it, else the stats picked here
+   * (picking them used to fall back to Auto on every new map), else Auto. Any
+   * other travel ends it, as before.
    */
   function travelStarted() {
     if (!active || phase !== 'portal' || !travellingTo || !startedIdentity) { stop('Map changed · choose an enemy'); return; }
-    const intent = { identity: startedIdentity, map: travellingTo, choice: encodeFarmPlan(readFarmRoute(travellingTo, options.priorityStorage)) };
+    const saved = readFarmRoute(travellingTo, options.priorityStorage);
+    const intent = { identity: startedIdentity, map: travellingTo, choice: encodeFarmPlan(saved.length ? saved : plan) };
     const label = retreating ? 'Moving back a map' : 'Moving to the next map';
     advancedAt = retreating ? null : now();
     stop(label);

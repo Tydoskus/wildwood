@@ -566,12 +566,28 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
     expect(s.farm.state()).toMatchObject({ phase: 'portal', status: 'Heading to the next map' });
     s.farm.travelStarted();
     expect(s.farm.state()).toMatchObject({ active: false, status: 'Moving to the next map' });
-    expect(s.resumeStore.read()).toEqual({ identity: 'me', map: 'beginner_desert', choice: 'auto' });
+    expect(s.resumeStore.read()).toEqual({ identity: 'me', map: 'beginner_desert', choice: health });
     // Without the switch, travel ends the farm as it always has.
     const off = planned({ nextPortal: () => ({ x: 200, y: 500, destination: 'beginner_desert' }) });
     off.add('Bramble', 900, 500); off.farm.start([]); off.tick();
     off.farm.travelStarted();
     expect(off.resumeStore.read()).toBeNull();
+  });
+
+  it("keeps the stats the player picked on the next map, and uses Auto only where none of them is paid", () => {
+    for (const [arrivals, expected] of [[['Needle', 'Bramble'], [health]], [['Needle'], []]] as const) {
+      const s = planned({ nextPortal: () => ({ x: 200, y: 500, destination: 'beginner_desert' }) });
+      s.add('Bramble', 900, 500);
+      s.farm.setAdvance(true);
+      s.farm.start([health]);
+      s.tick();
+      s.farm.travelStarted();
+      s.enemies.length = 0; s.spawnSites.length = 0;
+      s.setMap('beginner_desert');
+      arrivals.forEach((type, index) => s.add(type, 900 + index * 200, 900));
+      s.tick(); s.advance(1_000); s.tick();
+      expect(s.farm.state()).toMatchObject({ active: true, plan: expected });
+    }
   });
 
   it("moves along a route after a camp's worth of kills, even while that camp keeps respawning", () => {

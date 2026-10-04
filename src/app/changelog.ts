@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.885": [
+    "Autofarm keeps the stats you picked when it moves to the next map, instead of switching to Auto",
+  ],
   "0.884": [
     "Autofarm gets in range of every boss from any side, including the Koi Shogun",
     "Fixed autofarm sometimes stopping just short of a boss, stuck on \"Waiting for a clear route\"",
@@ -2755,6 +2758,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.885": "2026-10-04",
   "0.884": "2026-10-04",
   "0.883": "2026-10-04",
   "0.882": "2026-10-03",
