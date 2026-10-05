@@ -272,7 +272,7 @@ describe("player attack timing", () => {
     expect(state.player.combatFacing).toBeNull();
   });
 
-  it("autofarm ignores an engaged generated boss even when it shares the farm species", () => {
+  it("autofarm never takes a generated boss for the farmed group, and shoots it once nothing farmed is in range", () => {
     const state = createCombatHarness();
     state.enemies.length = 0;
     state.bosses.dragon.dead = true;
@@ -284,8 +284,9 @@ describe("player attack timing", () => {
     state.controller.attackNearest("Bramble", "Health Camp");
     expect(state.player.combatFacing).toBeCloseTo(Math.PI / 2);
     state.enemies[1].dead = true;
+    // Nothing farmed in range: the boss is fair game, as a campaign boss is (players stood beside it, never firing).
     state.controller.attackNearest("Bramble", "Health Camp");
-    expect(state.player.combatFacing).toBeNull();
+    expect(state.player.combatFacing).toBe(0);
     state.controller.attackNearest();
     expect(state.player.combatFacing).toBe(0);
   });

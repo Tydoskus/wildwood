@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.899.1": [
+    "Everyone on your map shows up with the eye on, not just the nearest few, and nobody flickers in and out",
+    "Players standing still or chatting stay visible",
+    "With autofarm on, you attack the Endless boss when nothing you farm is in range",
+  ],
   "0.899.0": [
     "Autofarming players no longer teleport: they walk at their own speed and keep their route",
     "Auto autofarm pulls one more group per Aggro win, like a route does",
@@ -2858,6 +2863,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.899.1": "2026-10-05",
   "0.899.0": "2026-10-05",
   "0.898.8": "2026-10-04",
   "0.898.7": "2026-10-04",

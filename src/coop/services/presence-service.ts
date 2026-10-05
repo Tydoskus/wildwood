@@ -96,8 +96,10 @@ type PlayerInterestArea = { left: number; top: number; right: number; bottom: nu
 type AutoFarmPuppetRow = { identity: Identity; mapId: string; group: string; camp: string; x: number; y: number; startedAt: { microsSinceUnixEpoch: bigint } };
 /** What the local player is autofarming, and the map's spawn sites, passed along with each movement frame. */
 export type AutoFarmMovementContext = { group: string | null; camp: string | null; sites: readonly PuppetSite[] };
-type AutoFarmPuppet = { row: AutoFarmPuppetRow; plan: PuppetPlan; legs: PuppetLeg[] | null; sites: readonly PuppetSite[] | null;
-  player: RemotePlayerTarget | null; drawnAt: number };
+type AutoFarmPuppet = { row: AutoFarmPuppetRow; plan: PuppetPlan; legs: PuppetLeg[] | null; sites: readonly PuppetSite[] | null };
+/** What is drawn for one remote player, kept from frame to frame so a change of source is walked, never jumped. */
+type Figure = { figure: RemotePlayerTarget; drawnAt: number; presentation: PlayerPresentationRow };
+type FigureTarget = { pose: { x: number; y: number; facing: number; moving: boolean }; simulationX: number; simulationY: number };
 
 type PresenceServiceDependencies = {
   multiplayerEnabled?: () => boolean;
@@ -171,6 +173,10 @@ function samePlayerPresentation(left: PlayerPresentationRow | undefined, right: 
 const REMOTE_SAMPLE_LIMIT = 8;
 /** A figure closes a gap at its own walking speed: it walks there, never runs or jumps. */
 const PUPPET_CATCH_UP = 1;
+/** A figure not drawn for this long (gone, or past the nearest few dozen) is forgotten. */
+const FIGURE_FORGET_MS = 2_000;
+/** Off the farm this long, our puppet ends; shorter pauses keep it, so it never flickers. */
+const PUPPET_END_GRACE_MS = 3_000;
 const REMOTE_PLAYER_DEATH_TTL_MS = 4_250;
 
 function serverTimestampMs(timestamp: { microsSinceUnixEpoch: bigint }) {
@@ -253,8 +259,17 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   let serverClockAnchor: { serverAtMs: number; receivedAt: number } | null = null;
   // Autofarm puppets: other farmers played locally from one row each, and our own plan as sent.
   const puppets = new Map<string, AutoFarmPuppet>();
-  /** A farmer whose puppet just ended: their figure walks over to where the live stream has them. */
-  const handoffs = new Map<string, { figure: RemotePlayerTarget; drawnAt: number }>();
+  /**
+   * One figure per remote player in sight, nearest first. Whatever says where
+   * they are (the live stream for the nearest few, their autofarm puppet, or
+   * the once-a-second map frame for everyone else), the figure walks there at
+   * their own speed: nobody pops in and out as the nearest few change, and a
+   * change of source never jumps.
+   */
+  const figures = new Map<string, Figure>();
+  let drawnFigureCount = 0;
+  /** Our farm intent went away this long ago: a moment's pause (the boss, a tap) keeps the puppet. */
+  let farmIntentLostAt: number | null = null;
   let puppetSiteList: readonly PuppetSite[] = [];
   let puppetTableConnection: unknown = null;
   let farmIntent: { group: string; camp: string } | null = null;
@@ -488,7 +503,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         mapPlayerMarkers.clear();
         motionIdentities.clear();
         activeMotionIdentities.clear();
-        puppets.clear(); handoffs.clear();
+        puppets.clear(); figures.clear();
         playerMaps.clear();
         playerMaps.set(id, nextMapId);
         dependencies.changes.batch(() => {
@@ -695,7 +710,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     if (!remotePlayersVisible) return;
     if (row.mapId !== currentMapId) return;
     const identity = motionIdentities.get(row.networkId);
-    const figure = identity ? players.get(identity) ?? puppets.get(identity)?.player : undefined;
+    const figure = identity ? figures.get(identity)?.figure ?? players.get(identity) : undefined;
     if (!identity || identity === dependencies.localIdentity() || !figure) return;
     const death = {
       id: identity,
@@ -724,30 +739,25 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   function upsertAutoFarmPuppet(row: AutoFarmPuppetRow) {
     const identity = row.identity.toHexString();
     if (!remotePlayersVisible || identity === dependencies.localIdentity() || row.mapId !== currentMapId) return;
-    const existing = puppets.get(identity);
-    const shown = existing?.player && existing.drawnAt ? existing : null;
-    // Realistic over accurate (Ryan): a puppet on screen keeps its own route
-    // through the farmer's 30-second re-anchors, and only a new group or camp
-    // re-plans it, from where its figure stands now at the speed it already
-    // walks. Snapping it onto each anchor made autofarmers teleport.
-    if (shown && shown.row.group === row.group && shown.row.camp === row.camp) { shown.row = row; return; }
+    const existing = puppets.get(identity), shown = figures.get(identity)?.figure;
+    // Realistic over accurate (Ryan): a puppet keeps its own route through the
+    // farmer's 30-second re-anchors, and only a new group or camp re-plans it.
+    // Any plan starts where their figure already stands (from a puppet, the
+    // stream or the map frame), at the speed it already walks: snapping onto
+    // each anchor made autofarmers teleport.
+    if (existing && existing.row.group === row.group && existing.row.camp === row.camp) { existing.row = row; return; }
     const startedAtMs = shown ? estimatedServerNowMs() : Number(row.startedAt.microsSinceUnixEpoch) / 1_000;
     puppets.set(identity, {
       row,
-      plan: { seed: `${identity}:${startedAtMs}`, anchorX: shown ? shown.player!.x : row.x, anchorY: shown ? shown.player!.y : row.y,
-        startedAtMs, speed: shown?.plan.speed ?? 0 },
+      plan: { seed: `${identity}:${startedAtMs}`, anchorX: shown?.x ?? row.x, anchorY: shown?.y ?? row.y, startedAtMs, speed: existing?.plan.speed ?? 0 },
       legs: null,
       sites: null,
-      player: existing?.player ?? null,
-      drawnAt: existing?.drawnAt ?? 0,
     });
     if (!existing) refreshMotionInterest();
   }
 
   function removeAutoFarmPuppet(row: { identity: Identity }) {
-    const identity = row.identity.toHexString(), puppet = puppets.get(identity);
-    if (puppet?.player && puppet.drawnAt) handoffs.set(identity, { figure: puppet.player, drawnAt: puppet.drawnAt });
-    if (puppets.delete(identity)) refreshMotionInterest();
+    if (puppets.delete(row.identity.toHexString())) refreshMotionInterest();
   }
 
   /**
@@ -779,57 +789,53 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     connection.db.playerAutoFarmPuppet.onDelete((_ctx, row) => { if (current()) removeAutoFarmPuppet(row); });
   }
 
-  /**
-   * Where each puppet is now, nearest first up to the draw limit. A new anchor
-   * glides the figure to its new route rather than jumping (a teleport-sized
-   * gap still snaps), so a re-anchor reads as walking.
-   */
-  function drawPuppets(now: number, out: RemotePlayer[]) {
-    if (!puppets.size || !localState) return;
-    const serverNow = estimatedServerNowMs(now);
-    const ordered = [...puppets.entries()]
-      .filter(([identity]) => presentations.has(identity))
-      .sort(([, a], [, b]) => Math.hypot(a.row.x - localState!.x, a.row.y - localState!.y) - Math.hypot(b.row.x - localState!.x, b.row.y - localState!.y))
-      .slice(0, AUTO_FARM_PUPPET_DRAW_LIMIT);
-    for (const [identity, puppet] of ordered) {
-      const presentation = presentations.get(identity)!;
-      if (!puppet.player) {
-        // Taking over from the live stream (or an earlier puppet), start where they were last drawn, and walk on from there.
-        const seen = handoffs.get(identity)?.figure ?? (detailedMotionIdentities.has(identity) ? players.get(identity) : undefined);
-        handoffs.delete(identity);
-        puppet.player = createRemotePlayer(identity, presentation, { networkId: presentation.networkId, x: seen?.x ?? puppet.row.x, y: seen?.y ?? puppet.row.y,
-          vx: 0, vy: 0, simulationTick: 0, motionEpoch: 0 }, serverNow, now);
-        // Its route starts there too: a figure walking at their own speed could never catch a route already under way.
-        if (seen) { puppet.player.facing = seen.facing; puppet.drawnAt = now;
-          puppet.plan = { ...puppet.plan, seed: `${identity}:${serverNow}`, anchorX: seen.x, anchorY: seen.y, startedAtMs: serverNow }; puppet.legs = null; }
-      }
-      const player = puppet.player;
-      // A puppet walks at the speed it was first seen at, for good: re-timing
-      // its route when their speed changed (gear, leaving combat) jumped it along.
-      if (!puppet.legs || puppet.sites !== puppetSiteList) {
-        puppet.sites = puppetSiteList;
-        if (!(puppet.plan.speed > 0)) puppet.plan = { ...puppet.plan, speed: player.speed };
-        puppet.legs = puppetLegs(puppet.plan, puppetSites(puppetSiteList, puppet.row.group, puppet.row.camp));
-      }
-      // A route that has run out carries on from where it ended, rather than standing there for good.
-      for (let more = 0; more < 4 && puppet.legs.length; more += 1) {
-        const lasts = puppet.legs.reduce((sum, leg) => sum + leg.walk + leg.fight, 0) * 1_000;
-        if (serverNow < puppet.plan.startedAtMs + lasts) break;
-        const end = puppet.legs[puppet.legs.length - 1];
-        puppet.plan = { ...puppet.plan, seed: `${puppet.plan.seed}+`, anchorX: end.x, anchorY: end.y, startedAtMs: puppet.plan.startedAtMs + lasts };
-        puppet.legs = puppetLegs(puppet.plan, puppetSites(puppetSiteList, puppet.row.group, puppet.row.camp));
-      }
-      const pose = puppetPoseAt(puppet.plan, puppet.legs, serverNow);
-      // The first sight of a puppet places it; after that it only ever walks.
-      if (!puppet.drawnAt) { player.x = pose.x; player.y = pose.y; player.facing = pose.facing; player.moving = pose.moving; }
-      else walkFigure(player, pose, Math.min(.25, Math.max(0, (now - puppet.drawnAt) / 1_000)));
-      puppet.drawnAt = now;
-      const simulation = puppetPoseAt(puppet.plan, puppet.legs!, serverNow - REGULAR_ENEMY_CONSENSUS_DELAY_MS);
-      player.simulationX = simulation.x;
-      player.simulationY = simulation.y;
-      player.throwClock = undefined;
-      out.push(player);
+  /** Where a puppet is now on its route, and a moment ago for the shared enemy simulation. */
+  function puppetTarget(identity: string, puppet: AutoFarmPuppet, presentation: PlayerPresentationRow, serverNow: number): FigureTarget {
+    // A puppet walks at the speed it was first seen at, for good: re-timing
+    // its route when their speed changed (gear, leaving combat) jumped it along.
+    if (!puppet.legs || puppet.sites !== puppetSiteList) {
+      puppet.sites = puppetSiteList;
+      if (!(puppet.plan.speed > 0)) puppet.plan = { ...puppet.plan, speed: figures.get(identity)?.figure.speed ?? presentation.speed ?? PLAYER_SPEED };
+      puppet.legs = puppetLegs(puppet.plan, puppetSites(puppetSiteList, puppet.row.group, puppet.row.camp));
     }
+    // A route that has run out carries on from where it ended, rather than standing there for good.
+    for (let more = 0; more < 4 && puppet.legs.length; more += 1) {
+      const lasts = puppet.legs.reduce((sum, leg) => sum + leg.walk + leg.fight, 0) * 1_000;
+      if (serverNow < puppet.plan.startedAtMs + lasts) break;
+      const end = puppet.legs[puppet.legs.length - 1];
+      puppet.plan = { ...puppet.plan, seed: `${puppet.plan.seed}+`, anchorX: end.x, anchorY: end.y, startedAtMs: puppet.plan.startedAtMs + lasts };
+      puppet.legs = puppetLegs(puppet.plan, puppetSites(puppetSiteList, puppet.row.group, puppet.row.camp));
+    }
+    const simulation = puppetPoseAt(puppet.plan, puppet.legs, serverNow - REGULAR_ENEMY_CONSENSUS_DELAY_MS);
+    return { pose: puppetPoseAt(puppet.plan, puppet.legs, serverNow), simulationX: simulation.x, simulationY: simulation.y };
+  }
+
+  /** Draws the nearest figures toward their targets: placed when first seen, walked ever after. */
+  function drawFigures(targets: Map<string, FigureTarget>, now: number, serverNow: number, out: RemotePlayer[]) {
+    const origin = localState;
+    const ordered = [...targets].sort(([, a], [, b]) => origin
+      ? Math.hypot(a.pose.x - origin.x, a.pose.y - origin.y) - Math.hypot(b.pose.x - origin.x, b.pose.y - origin.y) : 0)
+      .slice(0, AUTO_FARM_PUPPET_DRAW_LIMIT);
+    for (const [identity, target] of ordered) {
+      const presentation = presentations.get(identity);
+      if (!presentation) continue;
+      let shown = figures.get(identity);
+      if (!shown) {
+        const figure = createRemotePlayer(identity, presentation, { networkId: presentation.networkId, x: target.pose.x, y: target.pose.y,
+          vx: 0, vy: 0, simulationTick: 0, motionEpoch: 0 }, serverNow, now);
+        Object.assign(figure, { facing: target.pose.facing, moving: target.pose.moving });
+        figures.set(identity, shown = { figure, drawnAt: now, presentation });
+      } else {
+        if (shown.presentation !== presentation) { applyPresentation(shown.figure, presentation); shown.presentation = presentation; }
+        walkFigure(shown.figure, target.pose, Math.min(.25, Math.max(0, (now - shown.drawnAt) / 1_000)));
+        shown.drawnAt = now;
+      }
+      Object.assign(shown.figure, { simulationX: target.simulationX, simulationY: target.simulationY, throwClock: undefined });
+      out.push(shown.figure);
+    }
+    drawnFigureCount = out.length;
+    // A figure out of sight a while is forgotten; seen again later, it is placed afresh.
+    for (const [identity, shown] of figures) if (now - shown.drawnAt > FIGURE_FORGET_MS) figures.delete(identity);
   }
 
   /** Our own plan: sent when it starts, changes or stops, and re-anchored on a checkpoint every 30 seconds. */
@@ -933,14 +939,9 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         removed = true;
       }
       for (const row of motionRows) upsertMotionIdentity(row);
-      // Rebuilt from the table, each puppet keeps the figure already on screen.
-      const shown = new Map([...puppets].map(([identity, puppet]) => [identity, puppet]));
+      // Rebuilt from the table, each puppet starts again from its figure on screen.
       puppets.clear();
       for (const row of connection.db.playerAutoFarmPuppet.iter()) upsertAutoFarmPuppet(row);
-      for (const [identity, puppet] of puppets) {
-        const before = shown.get(identity);
-        if (before) { puppet.player = before.player; puppet.drawnAt = before.drawnAt; }
-      }
       refreshMotionInterest();
       if (removed) dependencies.changes.notify();
     });
@@ -1063,7 +1064,12 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     if (farm) {
       puppetSiteList = farm.sites;
       // Eye on or off: an eye-off farmer is still seen, as a puppet, by players with it on.
-      farmIntent = farm.group ? { group: farm.group, camp: farm.camp ?? "" } : null;
+      // A moment off the farm (a boss fight, a tap, a respawn) keeps the puppet; only a pause this long ends it.
+      if (farm.group) { farmIntent = { group: farm.group, camp: farm.camp ?? "" }; farmIntentLostAt = null; }
+      else if (farmIntent) {
+        farmIntentLostAt ??= monotonicNowMs();
+        if (monotonicNowMs() - farmIntentLostAt >= PUPPET_END_GRACE_MS) { farmIntent = null; farmIntentLostAt = null; }
+      }
     }
     localSimulationTick = (localSimulationTick + 1) >>> 0;
     // Kept in the public signature for the renderer boundary; presentation is
@@ -1138,7 +1144,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
           remotePlayerDeaths.clear();
           corpses.clear();
           mapPlayerMarkers.clear();
-          puppets.clear(); handoffs.clear();
+          puppets.clear(); figures.clear();
           playerMaps.clear();
           latestMapSamples = [];
           desiredMotionNetworkIds = [];
@@ -1182,8 +1188,10 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         const result = remotePlayerRenderBuffer;
         result.length = 0;
         if (!remotePlayersVisible || currentMapId === "home_exterior") return result;
-        const now = monotonicNowMs();
-        const consensusServerAtMs = estimatedServerNowMs(now) - REGULAR_ENEMY_CONSENSUS_DELAY_MS;
+        const now = monotonicNowMs(), serverNow = estimatedServerNowMs(now);
+        const consensusServerAtMs = serverNow - REGULAR_ENEMY_CONSENSUS_DELAY_MS;
+        const targets = new Map<string, FigureTarget>();
+        // The nearest few, streamed live.
         for (const player of players.values()) {
           if (player.id === dependencies.localIdentity() || !detailedMotionIdentities.has(player.id) || puppets.has(player.id)) continue;
           const renderAt = adaptiveRemoteRenderAt(player.interpolationClock, now);
@@ -1201,30 +1209,25 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
           player.simulationX = simulationMotion.x;
           player.simulationY = simulationMotion.y;
           player.throwClock = undefined;
-          // Their puppet just ended: its figure walks to the streamed position, then the stream takes over.
-          const handoff = handoffs.get(player.id);
-          if (handoff) {
-            const arrived = walkFigure(handoff.figure, motion, Math.min(.25, Math.max(0, (now - handoff.drawnAt) / 1_000)));
-            handoff.drawnAt = now;
-            if (!arrived) {
-              Object.assign(handoff.figure, { simulationX: player.simulationX, simulationY: player.simulationY, throwClock: undefined });
-              result.push(handoff.figure);
-              continue;
-            }
-            handoffs.delete(player.id);
-          }
-          result.push(player);
+          targets.set(player.id, { pose: motion, simulationX: simulationMotion.x, simulationY: simulationMotion.y });
         }
-        drawPuppets(now, result);
-        // A handover the stream never picked up (they went out of the nearest few) is dropped, not left to jump later.
-        for (const [identity, handoff] of handoffs) if (now - handoff.drawnAt > 2_000) handoffs.delete(identity);
+        // Autofarmers, played locally.
+        for (const [identity, puppet] of puppets) {
+          const presentation = presentations.get(identity);
+          if (presentation) targets.set(identity, puppetTarget(identity, puppet, presentation, serverNow));
+        }
+        // Everyone else on the map, standing or walking, from the once-a-second map frame.
+        for (const sample of latestMapSamples) {
+          const identity = motionIdentities.get(sample.networkId);
+          if (!identity || identity === dependencies.localIdentity() || targets.has(identity) || !presentations.has(identity)) continue;
+          const facing = figures.get(identity)?.figure.facing ?? 0;
+          targets.set(identity, { pose: { x: sample.x, y: sample.y, facing, moving: false }, simulationX: sample.x, simulationY: sample.y });
+        }
+        drawFigures(targets, now, serverNow, result);
         return result;
       },
       remotePlayerCount() {
-        if (!remotePlayersVisible || currentMapId === "home_exterior") return 0;
-        let count = Math.min(puppets.size, AUTO_FARM_PUPPET_DRAW_LIMIT);
-        for (const identity of detailedMotionIdentities) if (!puppets.has(identity)) count += 1;
-        return count;
+        return !remotePlayersVisible || currentMapId === "home_exterior" ? 0 : drawnFigureCount;
       },
       serverNowMs: () => estimatedServerNowMs(),
       regularEnemyLocalPosition: () => regularEnemyLocalPosition(),
@@ -1242,7 +1245,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       },
       // A puppet's dot follows the puppet: the farmer's own updates come only every 30 seconds.
       mapPlayerMarkers: () => !remotePlayersVisible || currentMapId === "home_exterior" ? [] : [...mapPlayerMarkers.values()]
-        .map(marker => { const drawn = puppets.get(marker.id)?.player; return drawn ? { ...marker, x: drawn.x, y: drawn.y } : marker; }),
+        .map(marker => { const drawn = figures.get(marker.id)?.figure; return drawn ? { ...marker, x: drawn.x, y: drawn.y } : marker; }),
       onlinePlayerCount: () => onlinePlayerCount,
       hasRemotePlayerInArea(minX: number, minY: number, maxX: number, maxY: number) {
         if (!remotePlayersVisible) return false;
@@ -1253,9 +1256,8 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
           const y = latest?.y ?? player.y;
           if (x >= minX && x <= maxX && y >= minY && y <= maxY) return true;
         }
-        for (const puppet of puppets.values()) {
-          const x = puppet.player?.x ?? puppet.row.x, y = puppet.player?.y ?? puppet.row.y;
-          if (x >= minX && x <= maxX && y >= minY && y <= maxY) return true;
+        for (const { figure } of figures.values()) {
+          if (figure.x >= minX && figure.x <= maxX && figure.y >= minY && figure.y <= maxY) return true;
         }
         return false;
       },
@@ -1330,7 +1332,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       mapPlayerMarkers.clear();
       motionIdentities.clear();
       activeMotionIdentities.clear();
-      puppets.clear(); handoffs.clear();
+      puppets.clear(); figures.clear();
       resetMotionInterest();
       localMotionNetworkId = null;
       if (!preserveOnlineCount) onlinePlayerCount = 0;

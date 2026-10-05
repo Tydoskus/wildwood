@@ -395,7 +395,9 @@ export function createPlayerCombatController(options: {
     if (target.isBoss) return target === mapBoss && targetDistance(target) < attackRange();
     if (targetDistance(target) >= attackRange()) return false;
     if (!enemyType) return true;
-    return !target.generatedBoss && !target.remoteCombatGhost &&
+    // An Endless boss, like a campaign one, is shot while farming once nothing farmed is in range.
+    if (target.generatedBoss) return !target.remoteCombatGhost;
+    return !target.remoteCombatGhost &&
       (isEnemyAttackingPlayer(target, options.localIdentity?.()) ||
         (farmGroupMatches(target, enemyType) && (!campName || target.campName === campName)));
   }
@@ -432,6 +434,16 @@ export function createPlayerCombatController(options: {
       const edgeDistance = targetDistance(mapBoss);
       if (mapBoss === retainedTarget && edgeDistance < attackRange()) retainedDistance = edgeDistance * edgeDistance;
       if (edgeDistance * edgeDistance < best) { best = edgeDistance * edgeDistance; target = mapBoss; }
+    }
+    // An Endless boss is an enemy with generatedBoss set, which the farming
+    // scan above skips: with autofarm on, a player who walked up to it and
+    // stood still never fired. It gets the campaign boss's rule.
+    if (enemyType && !target) for (const enemy of enemies) {
+      if (!enemy.generatedBoss || enemy.dead || enemy.remoteCombatGhost) continue;
+      const distance = targetDistance(enemy) ** 2;
+      if (distance >= best) continue;
+      if (enemy === retainedTarget) retainedDistance = distance;
+      best = distance; target = enemy;
     }
     // Nearest keeps a target within a small distance margin; a ranked
     // priority keeps its target until it dies or leaves range, so two wounded

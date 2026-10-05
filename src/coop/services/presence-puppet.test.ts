@@ -4,6 +4,7 @@ import { Identity, Timestamp } from "spacetimedb";
 let clock = 1_000_000;
 vi.mock("../../app/trusted-clock", () => ({ monotonicNowMs: () => clock, wallClockNowMs: () => clock }));
 const { createPresenceService } = await import("./presence-service");
+const { encodePlayerMapFrame } = await import("../../../shared/player-motion-frame");
 
 const me = new Identity("1".repeat(64)), farmer = new Identity("2".repeat(64)), walker = new Identity("3".repeat(64));
 const sites = [500, 900, 1300].map(x => ({ x, y: 600, type: "Bramble", campName: "Damage Camp", definition: { reward: { type: "damage" } } }));
@@ -59,7 +60,10 @@ it("sends one plan while farming, and only checkpoints and halts of movement", (
   // A halt still sends, so a reload starts where they stood.
   presence.api.syncMovementState(700, 600, 0, 0, "steer", false, undefined, farm);
   expect(moves()).toBe(before + 1);
-  // Stopping autofarm ends the plan, from a fresh position.
+  // A moment off the farm keeps the plan; three seconds ends it, from a fresh position.
+  presence.api.syncMovementState(700, 600, 0, 0, "keyboard", false, undefined, { group: null, camp: null, sites });
+  expect(sent.filter(s => s.label === "puppet").at(-1)).toEqual({ label: "puppet", args: { group: "stat:damage", camp: "" } });
+  clock += 3_000;
   presence.api.syncMovementState(700, 600, 0, 0, "keyboard", false, undefined, { group: null, camp: null, sites });
   expect(sent.filter(s => s.label === "puppet").at(-1)).toEqual({ label: "puppet", args: { group: "", camp: "" } });
   expect(moves()).toBe(before + 2);
@@ -121,4 +125,35 @@ it("never jumps a puppet: re-anchors and group changes are walked, at no more th
   clock += 30 * 60_000;
   frames(90);
   expect(Math.hypot(last.x - before.x, last.y - before.y)).toBeGreaterThan(0);
+});
+
+it("draws everyone on the map, not only the nearest few, and walks every change of where they are", () => {
+  const { presence, handlers } = harness();
+  presence.api.setRemotePlayersVisible(true);
+  presence.tables.upsertMotionIdentity({ networkId: 10, identity: walker, mapId: "tutorial_forest", isVisible: true, zoneX: 0, zoneY: 0,
+    displayName: "Walker", profileIcon: 0, playerSprite: 0, skinTone: 0, isGuest: false, gender: 0, speed: 150, powerLevel: 1,
+    feetItem: "", headItem: "", chestItem: "", rightHandItem: "", leftHandItem: "" });
+  presence.api.syncMovementState(100, 600, 0, 0, "keyboard", false, undefined, { group: null, camp: null, sites });
+  const frame = (x: number) => presence.tables.upsertPlayerMapFrame({ mapId: "tutorial_forest", emittedAt: new Timestamp(BigInt(Math.round(clock)) * 1_000n),
+    playerCount: 1, payload: encodePlayerMapFrame([{ networkId: 10, x, y: 600 }]) });
+  frame(400);
+  const where = () => presence.api.remotePlayers().find(p => p.id === walker.toHexString());
+  // Not streamed (no detail frame), yet drawn: standing where the map frame has them.
+  expect(where()).toMatchObject({ x: 400, y: 600 });
+  let last = 400, fastest = 0;
+  const frames = (count: number) => { for (let i = 0; i < count; i++) {
+    clock += 1_000 / 30;
+    const x = where()!.x;
+    fastest = Math.max(fastest, Math.abs(x - last));
+    last = x;
+  } };
+  // The map frame jumps a long way: the figure walks it.
+  frame(1400);
+  frames(30);
+  expect(last).toBeLessThan(1400);
+  // They start autofarming: the puppet takes over from where the figure is.
+  handlers.insert(null, { identity: walker, mapId: "tutorial_forest", group: "stat:damage", camp: "", x: 1400, y: 600,
+    startedAt: new Timestamp(BigInt(Math.round(clock)) * 1_000n) });
+  frames(120);
+  expect(fastest).toBeLessThanOrEqual(150 / 30 + 1.01);
 });
