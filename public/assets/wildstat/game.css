@@ -1103,18 +1103,18 @@
     width: 25px;
     height: 25px;
     place-items: center;
-    border: 2px solid rgba(255,255,255,.52);
-    border-radius: 50%;
-    background: rgba(8,13,10,.32);
-    box-shadow: 0 2px 0 rgba(0,0,0,.3);
+    /* Just the mark: no ring or backing behind it (Ryan, 2026-10-05). */
+    border: 0;
+    background: none;
+    box-shadow: none;
     color: #fff;
-    font: 900 16px/1 var(--font-rounded);
+    font: 900 18px/1 var(--font-rounded);
     -webkit-text-stroke: 0;
-    text-shadow: 1px 1px 0 #000;
-    transition: transform 120ms ease, background 120ms ease;
+    text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+    transition: transform 120ms ease;
   }
   .minimap-button:hover .minimap-help-mark,
-  .minimap-button:focus-visible .minimap-help-mark { background: rgba(43,91,61,.48); transform: scale(1.08); }
+  .minimap-button:focus-visible .minimap-help-mark { transform: scale(1.12); }
   body:is(.is-dueling, .is-replaying) .minimap-button,
   body:is(.is-dueling, .is-replaying) .minimap-meta,
   body:is(.is-dueling, .is-replaying) .hud-timer-column { visibility: hidden; pointer-events: none; }
@@ -3253,7 +3253,7 @@
     align-items: center;
     gap: 10px;
     min-height: 62px;
-    padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 10px max(14px, env(safe-area-inset-left));
+    padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right), calc((100% - 480px) / 2)) 10px max(14px, env(safe-area-inset-left), calc((100% - 480px) / 2));
     border-bottom: 2px solid rgba(255,255,255,.15);
     background: rgba(10,15,12,.94);
     box-shadow: 0 4px 12px rgba(0,0,0,.28);
@@ -3268,7 +3268,8 @@
   .map-guide-arrow:focus-visible { outline: 2px solid #fff4d6; outline-offset: 2px; }
   .map-guide-scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; touch-action: pan-y; }
   .map-guide-scroll::-webkit-scrollbar { display: none; width: 0; }
-  .map-guide-content { display: grid; gap: 15px; width: min(820px, 100%); margin: 0 auto; padding: 14px max(12px, env(safe-area-inset-right)) 18px max(12px, env(safe-area-inset-left)); }
+  /* One phone-wide column on every screen: desktop shows the same window a phone does. */
+  .map-guide-content { display: grid; gap: 15px; width: min(480px, 100%); margin: 0 auto; padding: 14px max(12px, env(safe-area-inset-right)) 18px max(12px, env(safe-area-inset-left)); }
   .map-guide-map-frame {
     position: relative;
     justify-self: center;

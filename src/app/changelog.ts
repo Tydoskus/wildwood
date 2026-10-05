@@ -2,7 +2,8 @@ export const RELEASE_NOTES: Record<string, string[]> = {
   "0.897": [
     "The Enemy Index moved into the map (tap the minimap): every enemy's HP, attack and reward, and the boss with each attack",
     "Browse maps in the map with the arrows: back to any map, forward to one past your furthest",
-    "Map window cleaned up: larger text, one map at a time",
+    "Map window cleaned up: larger text, one map at a time, and the same phone-width layout on desktop",
+    "The minimap's ? has no circle behind it",
     "The Enemy Index sign is gone from the maps",
   ],
   "0.896": [
