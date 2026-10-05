@@ -1823,9 +1823,6 @@ export const ownMotionIdentityRow = spacetimedb.clientVisibilityFilter.sql("SELE
 export const visibleMapMarkerRows = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_map_marker WHERE is_visible = true");
 export const ownMapMarkerRow = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_map_marker WHERE identity = :sender");
 export const ownMotionDetailFrames = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_motion_detail_frame WHERE recipient = :sender");
-// A shared duel message is between its two players: no one else may read who sent what to whom.
-export const sentDuelMessages = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM social_duel_message WHERE sender = :sender");
-export const receivedDuelMessages = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM social_duel_message WHERE recipient = :sender");
 export const ownDailyQuestRow = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_daily_quest WHERE identity = :sender");
 export const ownItemDropRows = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_item_drop WHERE identity = :sender");
 

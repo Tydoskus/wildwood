@@ -1,6 +1,5 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.899.7": [
-    "Shared duel messages are visible only to the two players in them",
     "Profiles show a player's map only while their eye is on",
   ],
   "0.899.6": [
