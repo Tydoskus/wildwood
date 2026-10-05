@@ -1,4 +1,6 @@
 import type { QuestTrackerView } from "./quest-board-controller";
+import { REWARD_DATA } from "../game/enemies";
+import { SHORT_STAT } from "./map-enemy-index";
 
 const COLLAPSED_KEY = "wildstat-quest-tracker-collapsed-v1";
 const POSITION_KEY = "wildstat-quest-tracker-position-v1";
@@ -122,10 +124,20 @@ export function installQuestTracker(options: {
       const name = document.createElement("span");
       name.className = "quest-tracker-enemy";
       name.textContent = item.enemy;
+      const label = document.createElement("span");
+      label.className = "quest-tracker-label";
+      label.append(name);
+      if (item.stat) {
+        const stat = document.createElement("span");
+        stat.className = "quest-tracker-stat";
+        stat.textContent = SHORT_STAT[item.stat];
+        stat.style.color = REWARD_DATA[item.stat].color;
+        label.append(stat);
+      }
       const count = document.createElement("span");
       count.className = "quest-tracker-count";
       count.textContent = `${item.count}/${item.target}`;
-      line.append(name, count);
+      line.append(label, count);
       // Bright means this map; a line says where only for the rest, and whose a collected quest was.
       const whereText = item.onMap ? (item.from ? `For ${item.from}` : "") : item.from ? `${item.where} · For ${item.from}` : item.where;
       const where = document.createElement("span");

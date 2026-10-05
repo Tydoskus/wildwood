@@ -719,6 +719,15 @@
       "active:bool",
       "completed:u32"
     ],
+    "player_auto_farm_puppet": [
+      "identity:identity",
+      "mapId:string",
+      "group:string",
+      "camp:string",
+      "x:f32",
+      "y:f32",
+      "startedAt:timestamp"
+    ],
     "player_chat_hearts": [
       "identity:identity",
       "chatHeartsReceived:u64"

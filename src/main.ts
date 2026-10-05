@@ -1058,7 +1058,7 @@ import {
     movementSpeedMultiplier: movementMultiplier,
     regenerationPerSecond,
     healthMultiplierBonus,
-    syncMovementState: (x, y, vx, vy, inputSource, force, interestArea) => { if (!inTutorial()) coop?.syncMovementState?.(x, y, vx, vy, inputSource, force, interestArea); },
+    syncMovementState: (x, y, vx, vy, inputSource, force, interestArea) => { if (!inTutorial()) coop?.syncMovementState?.(x, y, vx, vy, inputSource, force, interestArea, { group: autoFarm.targetType(), camp: autoFarm.targetCamp(), sites: spawnSites }); },
     autoAttack: () => playerCombat.attackNearest(autoFarm.targetType(), autoFarm.targetCamp(), autoFarm.priority()),
     isAutoAttackEnabled: () => !onboarding?.blocksInput() && isWeaponItem(inventory.equippedRightHand || inventory.equippedLeftHand),
     activeDuel,

@@ -39,6 +39,7 @@ it("survives pending/disconnected marker cleanup and discards a late subscriptio
   const identity = new Identity("1".repeat(64));
   const connection = {
     isActive: true,
+    db: { playerAutoFarmPuppet: { iter: () => [], onInsert() {}, onUpdate() {}, onDelete() {} } },
     subscriptionBuilder() {
       const handle: any = {
         active: false,
@@ -96,7 +97,7 @@ it("defaults to no remote subscriptions and fences late data when visibility is 
   const setPlayerMotionInterest = vi.fn();
   const connection = {
     isActive: true, reducers: { setPlayerMotionInterest },
-    db: { playerMotionIdentity: { iter: () => [] } },
+    db: { playerMotionIdentity: { iter: () => [] }, playerAutoFarmPuppet: { iter: () => [], onInsert() {}, onUpdate() {}, onDelete() {} } },
     subscriptionBuilder() {
       const handle: any = {
         active: false, isActive: () => handle.active, isEnded: () => false,
@@ -169,13 +170,13 @@ it("holds speed changes off the wire while the eye is off and flushes once prese
 });
 
 /** The per-map world tables. Presence owns their map-scoped subscription; the base subscription holds our own player/motion-identity rows. */
-const MAP_WORLD_QUERY_TABLES = ["player_motion_identity", "player_death_frame", "player_map_frame", "player_motion_detail_frame"];
+const MAP_WORLD_QUERY_TABLES = ["player_motion_identity", "player_death_frame", "player_auto_farm_puppet", "player_map_frame", "player_motion_detail_frame"];
 
 function rootConnectionFixture() {
   const subscriptions: any[] = [];
   const connection = {
     isActive: true, reducers: { setPlayerMotionInterest: vi.fn() },
-    db: { playerMotionIdentity: { iter: () => [] } },
+    db: { playerMotionIdentity: { iter: () => [] }, playerAutoFarmPuppet: { iter: () => [], onInsert() {}, onUpdate() {}, onDelete() {} } },
     subscriptionBuilder() {
       const handle: any = {
         active: false, ended: false, isActive: () => handle.active, isEnded: () => handle.ended,
@@ -213,7 +214,7 @@ it("swaps the map's world queries on the one root connection when the player cha
   expect(subscriptions).toHaveLength(2);
   for (const handle of subscriptions) handle.applied();
   const forest = subscriptions.flatMap(handle => handle.sql);
-  expect(forest.filter(sql => sql.includes("'tutorial_forest'"))).toHaveLength(3);
+  expect(forest.filter(sql => sql.includes("'tutorial_forest'"))).toHaveLength(4);
 
   // The server moved us: our own player row now names the destination map.
   presence.tables.upsertPlayer(ownRow("beginner_desert"));
@@ -228,7 +229,7 @@ it("swaps the map's world queries on the one root connection when the player cha
   expect(subscriptions[1].unsubscribe).toHaveBeenCalledOnce();
   const desert = subscriptions.slice(2).flatMap(handle => handle.sql);
   expect(desert.join("\n")).not.toContain("tutorial_forest");
-  expect(desert.filter(sql => sql.includes(`"map_id" = 'beginner_desert'`))).toHaveLength(3);
+  expect(desert.filter(sql => sql.includes(`"map_id" = 'beginner_desert'`))).toHaveLength(4);
   expect(desert.map(sql => sql.match(/FROM "([a-z_]+)"/)![1]).sort()).toEqual([...MAP_WORLD_QUERY_TABLES].sort());
   expect(presence.activeSubscriptionCount()).toBe(2);
   // Every subscription rode the connection we already had; nothing asked for another.

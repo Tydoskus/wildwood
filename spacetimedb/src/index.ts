@@ -166,6 +166,7 @@ import { guildTables } from "./guild-tables";
 import { createGuildService } from "./guild-service";
 import { registerGuildReducers } from "./guild-reducers";
 import { aggroChallengeRun, endAggroChallenge, playerAggroChallenge, playerAggroChallengeParked, registerAggroReducers, restartAggroRunOnDeath } from "./aggro-challenge";
+import { clearAutoFarmPuppet, playerAutoFarmPuppet, registerAutoFarmPuppetReducers } from "./autofarm-puppet";
 import { GUILD_MAX_RANGE, guildWeaponRange } from "../../shared/guild-combat";
 import type { DuelFighter } from "../../shared/duel-combat";
 import {
@@ -1750,7 +1751,7 @@ const spacetimedb = schema({
   playerEndlessRebaseBackup,
   playerPrestige,
   playerPrestigePerk,
-  playerPrestigeChallenge, prestigeChallengeBackup, prestigeChallengeRun, playerPrestigeChallengeParked, playerAggroChallenge, aggroChallengeRun, playerAggroChallengeParked, playerFreeRespec, playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerWideStats, duelWideStats, duelReplayWideStats, prestigeExpansion,
+  playerPrestigeChallenge, prestigeChallengeBackup, prestigeChallengeRun, playerPrestigeChallengeParked, playerAggroChallenge, aggroChallengeRun, playerAggroChallengeParked, playerAutoFarmPuppet, playerFreeRespec, playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerWideStats, duelWideStats, duelReplayWideStats, prestigeExpansion,
   playerPrestigeExpansionPerk,
   duelRiposte, duelCombatSnapshot,
   playerSessionAnalytics,
@@ -2479,6 +2480,7 @@ function removePlayerRealtimeState(ctx: any, identity: any) {
   }
   const mapping = ctx.db.playerMotionIdentity.identity.find(identity);
   if (mapping) ctx.db.playerMotionIdentity.networkId.delete(mapping.networkId);
+  clearAutoFarmPuppet(ctx, identity);
 }
 
 function boundedMapPopulation(ctx: any, mapId: string) {
@@ -5565,6 +5567,7 @@ export const resetPlayerProgress = spacetimedb.reducer({}, (ctx) => {
 export const startPrestigeChallenge = spacetimedb.reducer({}, ctx => prestige.changeChallenge(ctx, true));
 export const abandonPrestigeChallenge = spacetimedb.reducer({}, ctx => prestige.changeChallenge(ctx, false));
 export const { startAggroRun, abandonAggroRun } = registerAggroReducers(spacetimedb, { requireControllingPlayer, activeDuelFor, startFreshRun, respawnWithProgress });
+export const { setAutoFarmPuppet } = registerAutoFarmPuppetReducers(spacetimedb, { blockedSession, requireControllingPlayer, playerWithMotion });
 export const prestigeAccount = spacetimedb.reducer({}, (ctx) => { prestige.prestigeAccount(ctx); });
 export const spendPrestigePerkPoint = spacetimedb.reducer({ perk: t.string() },
   (ctx, { perk }) => { prestige.spendPerkPoint(ctx, perk); });

@@ -175,6 +175,7 @@ import SendChatMessageReducer from "./send_chat_message_reducer";
 import SendChatReplyReducer from "./send_chat_reply_reducer";
 import SendSocialMessageReducer from "./send_social_message_reducer";
 import SetAudioSettingsReducer from "./set_audio_settings_reducer";
+import SetAutoFarmPuppetReducer from "./set_auto_farm_puppet_reducer";
 import SetAvatarFrameReducer from "./set_avatar_frame_reducer";
 import SetChatMessageReactionReducer from "./set_chat_message_reaction_reducer";
 import SetDeveloperNameTagReducer from "./set_developer_name_tag_reducer";
@@ -335,6 +336,7 @@ import PlayerRow from "./player_table";
 import PlayerAccountStatusRow from "./player_account_status_table";
 import PlayerAggroChallengeRow from "./player_aggro_challenge_table";
 import PlayerAggroChallengeParkedRow from "./player_aggro_challenge_parked_table";
+import PlayerAutoFarmPuppetRow from "./player_auto_farm_puppet_table";
 import PlayerChatHeartsRow from "./player_chat_hearts_table";
 import PlayerDailyQuestRow from "./player_daily_quest_table";
 import PlayerDeathFrameRow from "./player_death_frame_table";
@@ -856,6 +858,20 @@ const tablesSchema = __schema({
       { name: 'player_aggro_challenge_parked_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerAggroChallengeParkedRow),
+  playerAutoFarmPuppet: __table({
+    name: 'player_auto_farm_puppet',
+    indexes: [
+      { accessor: 'identity', name: 'player_auto_farm_puppet_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+      { accessor: 'byMap', name: 'player_auto_farm_puppet_map_id_idx_btree', algorithm: 'btree', columns: [
+        'mapId',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_auto_farm_puppet_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerAutoFarmPuppetRow),
   playerChatHearts: __table({
     name: 'player_chat_hearts',
     indexes: [
@@ -1715,6 +1731,7 @@ const reducersSchema = __reducers(
   __reducerSchema("send_chat_reply", SendChatReplyReducer),
   __reducerSchema("send_social_message", SendSocialMessageReducer),
   __reducerSchema("set_audio_settings", SetAudioSettingsReducer),
+  __reducerSchema("set_auto_farm_puppet", SetAutoFarmPuppetReducer),
   __reducerSchema("set_avatar_frame", SetAvatarFrameReducer),
   __reducerSchema("set_chat_message_reaction", SetChatMessageReactionReducer),
   __reducerSchema("set_developer_name_tag", SetDeveloperNameTagReducer),

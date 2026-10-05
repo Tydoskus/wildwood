@@ -71,6 +71,8 @@ it("tracks the quests in play away from home, this map's first, counted as far a
   expect(view.items.map(item => [item.enemy, item.onMap, item.count, item.where, item.from])).toEqual([
     ["Spitter", true, 4, "Forest", "Odin"], ["Brood", true, 0, "Forest", ""], ["Dune Raider", false, 12, "Desert", ""],
   ]);
+  // Each names the stat its kills pay.
+  expect(view.items.map(item => item.stat)).toEqual(["damage", "regen", "damage"]);
   expect(questTrackerView({ ...week, quests: [week.quests[0]] }, "tutorial_forest", id => id)).toBeNull();
   expect(questTrackerView(null, "tutorial_forest", id => id)).toBeNull();
 });

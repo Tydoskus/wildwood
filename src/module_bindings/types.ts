@@ -1702,6 +1702,17 @@ export const PlayerAudioSetting = __t.object("PlayerAudioSetting", {
 });
 export type PlayerAudioSetting = __Infer<typeof PlayerAudioSetting>;
 
+export const PlayerAutoFarmPuppet = __t.object("PlayerAutoFarmPuppet", {
+  identity: __t.identity(),
+  mapId: __t.string(),
+  group: __t.string(),
+  camp: __t.string(),
+  x: __t.f32(),
+  y: __t.f32(),
+  startedAt: __t.timestamp(),
+});
+export type PlayerAutoFarmPuppet = __Infer<typeof PlayerAutoFarmPuppet>;
+
 export const PlayerBalanceVersion = __t.object("PlayerBalanceVersion", {
   identity: __t.identity(),
   version: __t.u32(),

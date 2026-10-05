@@ -23,6 +23,8 @@
   .quest-tracker-item.is-here { opacity: 1; }
   .quest-tracker-line { display: flex; justify-content: space-between; gap: 6px; }
   .quest-tracker-enemy { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .quest-tracker-label { display: flex; align-items: baseline; gap: 5px; min-width: 0; }
+  .quest-tracker-stat { flex: none; font-weight: 800; }
   .quest-tracker-count { flex: none; font-variant-numeric: tabular-nums; }
   .quest-tracker-item.is-here .quest-tracker-count { color: #ffd66b; }
   .quest-tracker-bar { height: 3px; overflow: hidden; border-radius: 2px; background: rgba(255,255,255,.18); }

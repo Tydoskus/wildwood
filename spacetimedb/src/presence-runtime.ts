@@ -31,6 +31,7 @@ import {
 } from "../../shared/rules";
 import { accessibleCampaignMap } from "../../shared/equipment-access";
 import { readPlayerProgress } from "./wide-stats";
+import { clearAutoFarmPuppet } from "./autofarm-puppet";
 
 const MAX_PACKED_PLAYER_VELOCITY = 0x7fff / PLAYER_VELOCITY_SCALE;
 // Movement packets are floats, so allow a tiny wire-format margin while
@@ -220,6 +221,11 @@ export function syncPlayerMotionIdentity(ctx: any, activePlayer: any, known?: { 
     rightHandItem: activePlayer.rightHandItem ?? "",
     leftHandItem: activePlayer.leftHandItem ?? "",
   };
+  // Going invisible takes the autofarm puppet with it (the row is public). Only
+  // on that change: a map change pays nothing here, since a client draws a
+  // puppet only for a player visible on its map, and the farmer re-sends theirs
+  // for the map they reach.
+  if (current?.isVisible && !next.isVisible) clearAutoFarmPuppet(ctx, activePlayer.identity);
   if (!current) {
     ctx.db.playerMotionIdentity.insert(next);
     return { persistedLocation: false };

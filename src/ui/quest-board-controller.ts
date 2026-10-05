@@ -1,4 +1,5 @@
 import { renderBooleanSetting } from "./settings";
+import { ENEMY_TYPES, type EnemyKind, type RewardType } from "../game/enemies";
 import { GUILD_QUEST_BONUS_PER_POINT, SOLO_QUEST_BONUS_PER_QUEST, WEEKLY_QUEST_COUNT, activeQuestIndices, ownQuest, questDay, questDone, questOpen, questWeek, questWeekEndsAtMs, type DailyQuest } from "../../shared/daily-quests";
 
 type QuestState = { day: number; quests: DailyQuest[]; bonus: number; guildPoints: number; guildName: string };
@@ -87,7 +88,9 @@ export function questTrackerView(state: QuestState | null, mapId: string, mapNam
     items: active.map(index => {
       const quest = state.quests[index];
       const count = Math.min(quest.target, Math.max(quest.progress, shownCount(`${quest.mapId}:${quest.enemy}:${index}`) ?? 0));
-      return { key: `${index}:${quest.mapId}:${quest.enemy}`, enemy: quest.enemy, where: mapName(quest.mapId), from: quest.from ?? "",
+      // The stat a kill pays, so the tracker says what the quest is farming.
+      const stat: RewardType | null = ENEMY_TYPES[quest.enemy as EnemyKind]?.reward.type ?? null;
+      return { key: `${index}:${quest.mapId}:${quest.enemy}`, enemy: quest.enemy, stat, where: mapName(quest.mapId), from: quest.from ?? "",
         onMap: quest.mapId === mapId, count, target: quest.target, share: quest.target > 0 ? count / quest.target : 0 };
     })
       // Quests on this map first: they are the ones the player is working on now.

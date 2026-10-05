@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.898.6": [
+    "Autofarming players show up for everyone nearby, moving between their camps, at a fraction of the network traffic",
+    "The quest tracker shows the stat each quest's enemy gives (Atk, HP, Armor, Regen, Spd)",
+  ],
   "0.898.5": [
     "Autofarm works on the first map after a prestige",
   ],
@@ -2837,6 +2841,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.898.6": "2026-10-04",
   "0.898.5": "2026-10-04",
   "0.898.4": "2026-10-04",
   "0.898.3": "2026-10-04",

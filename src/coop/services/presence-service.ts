@@ -24,6 +24,7 @@ import {
   type RemoteMotionCorrection,
 } from "./remote-interpolation";
 import { REGULAR_ENEMY_CONSENSUS_DELAY_MS } from "../../../shared/regular-enemy-simulation";
+import { AUTO_FARM_PUPPET_DRAW_LIMIT, AUTO_FARM_PUPPET_REANCHOR_MS, puppetLegs, puppetPoseAt, puppetSites, type PuppetLeg, type PuppetPlan, type PuppetSite } from "../../../shared/autofarm-puppet";
 import {
   decodePlayerMapFrame,
   decodePlayerMotionFrame,
@@ -91,6 +92,12 @@ type RemotePlayerTarget = RemotePlayer & {
 };
 
 type PlayerInterestArea = { left: number; top: number; right: number; bottom: number };
+
+type AutoFarmPuppetRow = { identity: Identity; mapId: string; group: string; camp: string; x: number; y: number; startedAt: { microsSinceUnixEpoch: bigint } };
+/** What the local player is autofarming, and the map's spawn sites, passed along with each movement frame. */
+export type AutoFarmMovementContext = { group: string | null; camp: string | null; sites: readonly PuppetSite[] };
+type AutoFarmPuppet = { row: AutoFarmPuppetRow; plan: PuppetPlan; legs: PuppetLeg[] | null; sites: readonly PuppetSite[] | null;
+  player: RemotePlayerTarget | null; drawnAt: number };
 
 type PresenceServiceDependencies = {
   multiplayerEnabled?: () => boolean;
@@ -242,6 +249,16 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   let localState: LocalPlayerState | null = null;
   let onlinePlayerCount = 0;
   let serverClockAnchor: { serverAtMs: number; receivedAt: number } | null = null;
+  // Autofarm puppets: other farmers played locally from one row each, and our own plan as sent.
+  const puppets = new Map<string, AutoFarmPuppet>();
+  let puppetSiteList: readonly PuppetSite[] = [];
+  let puppetTableConnection: unknown = null;
+  let farmIntent: { group: string; camp: string } | null = null;
+  let sentFarmIntentKey = "";
+  let lastPuppetSentAt = Number.NEGATIVE_INFINITY;
+  let puppetRetryAt = Number.NEGATIVE_INFINITY;
+  /** The server holds our puppet: until then (or if it refused), movement streams as usual. */
+  let puppetLive = false;
 
   function observeServerClock(serverAtMs: number, receivedAt: number) {
     if (!Number.isFinite(serverAtMs) || !Number.isFinite(receivedAt)) return;
@@ -399,7 +416,8 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         originX: position.x,
         originY: position.y,
         localNetworkId: localMotionNetworkId,
-        availableNetworkIds: new Set(motionIdentities.keys()),
+        // A farmer playing as a puppet needs no movement stream: the slots go to players who steer.
+        availableNetworkIds: new Set([...motionIdentities].filter(([, identity]) => !puppets.has(identity)).map(([networkId]) => networkId)),
         previousNetworkIds: desiredMotionNetworkIds,
       })
       : [];
@@ -466,6 +484,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         mapPlayerMarkers.clear();
         motionIdentities.clear();
         activeMotionIdentities.clear();
+        puppets.clear();
         playerMaps.clear();
         playerMaps.set(id, nextMapId);
         dependencies.changes.batch(() => {
@@ -672,7 +691,8 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     if (!remotePlayersVisible) return;
     if (row.mapId !== currentMapId) return;
     const identity = motionIdentities.get(row.networkId);
-    if (!identity || identity === dependencies.localIdentity() || !players.has(identity)) return;
+    const figure = identity ? players.get(identity) ?? puppets.get(identity)?.player : undefined;
+    if (!identity || identity === dependencies.localIdentity() || !figure) return;
     const death = {
       id: identity,
       mapId: row.mapId,
@@ -682,7 +702,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       startedAtMs: monotonicNowMs(),
     };
     remotePlayerDeaths.set(identity, death);
-    corpses.add(players.get(identity)!, death, presentations.get(identity)?.skinTone);
+    corpses.add(figure, death, presentations.get(identity)?.skinTone);
   }
 
   let releaseWindow = parseReleaseWindow(null);
@@ -695,6 +715,104 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     if (row.id !== 0) return;
     onlinePlayerCount = Math.max(0, row.onlinePlayers);
     dependencies.changes.notify();
+  }
+
+  function upsertAutoFarmPuppet(row: AutoFarmPuppetRow) {
+    const identity = row.identity.toHexString();
+    if (!remotePlayersVisible || identity === dependencies.localIdentity() || row.mapId !== currentMapId) return;
+    const startedAtMs = Number(row.startedAt.microsSinceUnixEpoch) / 1_000;
+    const existing = puppets.get(identity);
+    const wasPuppet = Boolean(existing);
+    puppets.set(identity, {
+      row,
+      plan: { seed: `${identity}:${startedAtMs}`, anchorX: row.x, anchorY: row.y, startedAtMs, speed: 0 },
+      legs: null,
+      sites: null,
+      // Keep the figure already on screen: a new anchor glides it over rather than jumping.
+      player: existing?.player ?? null,
+      drawnAt: existing?.drawnAt ?? 0,
+    });
+    if (!wasPuppet) refreshMotionInterest();
+  }
+
+  function removeAutoFarmPuppet(row: { identity: Identity }) {
+    if (puppets.delete(row.identity.toHexString())) refreshMotionInterest();
+  }
+
+  function wireAutoFarmPuppetTable(connection: NonNullable<ReturnType<ReducerPort["connection"]>>) {
+    if (puppetTableConnection === connection) return;
+    puppetTableConnection = connection;
+    const current = () => dependencies.reducers.connection() === connection;
+    connection.db.playerAutoFarmPuppet.onInsert((_ctx, row) => { if (current()) upsertAutoFarmPuppet(row); });
+    connection.db.playerAutoFarmPuppet.onUpdate((_ctx, _old, row) => { if (current()) upsertAutoFarmPuppet(row); });
+    connection.db.playerAutoFarmPuppet.onDelete((_ctx, row) => { if (current()) removeAutoFarmPuppet(row); });
+  }
+
+  /**
+   * Where each puppet is now, nearest first up to the draw limit. A new anchor
+   * glides the figure to its new route rather than jumping (a teleport-sized
+   * gap still snaps), so a re-anchor reads as walking.
+   */
+  function drawPuppets(now: number, out: RemotePlayer[]) {
+    if (!puppets.size || !localState) return;
+    const serverNow = estimatedServerNowMs(now);
+    const ordered = [...puppets.entries()]
+      .filter(([identity]) => presentations.has(identity))
+      .sort(([, a], [, b]) => Math.hypot(a.row.x - localState!.x, a.row.y - localState!.y) - Math.hypot(b.row.x - localState!.x, b.row.y - localState!.y))
+      .slice(0, AUTO_FARM_PUPPET_DRAW_LIMIT);
+    for (const [identity, puppet] of ordered) {
+      const presentation = presentations.get(identity)!;
+      if (!puppet.player) {
+        puppet.player = createRemotePlayer(identity, presentation, { networkId: presentation.networkId, x: puppet.row.x, y: puppet.row.y,
+          vx: 0, vy: 0, simulationTick: 0, motionEpoch: 0 }, serverNow, now);
+      }
+      const player = puppet.player;
+      if (puppet.sites !== puppetSiteList || puppet.plan.speed !== player.speed) {
+        puppet.sites = puppetSiteList;
+        puppet.plan = { ...puppet.plan, speed: player.speed };
+        puppet.legs = puppetLegs(puppet.plan, puppetSites(puppetSiteList, puppet.row.group, puppet.row.camp));
+      }
+      const pose = puppetPoseAt(puppet.plan, puppet.legs!, serverNow);
+      const dt = puppet.drawnAt ? Math.min(.25, Math.max(0, (now - puppet.drawnAt) / 1_000)) : 0;
+      const gap = Math.hypot(pose.x - player.x, pose.y - player.y);
+      const step = player.speed * 1.6 * dt + 1;
+      if (puppet.drawnAt && gap > step && gap < 900) {
+        player.x += (pose.x - player.x) * step / gap;
+        player.y += (pose.y - player.y) * step / gap;
+        player.facing = pose.x < player.x ? Math.PI : 0;
+        player.moving = true;
+      } else {
+        player.x = pose.x; player.y = pose.y; player.facing = pose.facing; player.moving = pose.moving;
+      }
+      puppet.drawnAt = now;
+      const simulation = puppetPoseAt(puppet.plan, puppet.legs!, serverNow - REGULAR_ENEMY_CONSENSUS_DELAY_MS);
+      player.simulationX = simulation.x;
+      player.simulationY = simulation.y;
+      player.throwClock = undefined;
+      out.push(player);
+    }
+  }
+
+  /** Our own plan: sent when it starts, changes or stops, and re-anchored on a checkpoint every 30 seconds. */
+  function syncAutoFarmPuppet(now: number, movementSent: boolean, x: number, y: number) {
+    // The map is part of the plan: arriving somewhere new sends it again for there.
+    const key = farmIntent ? `${currentMapId}|${farmIntent.group}|${farmIntent.camp}` : "";
+    const changed = key !== sentFarmIntentKey && now >= puppetRetryAt;
+    const reanchor = Boolean(farmIntent) && movementSent && now - lastPuppetSentAt >= AUTO_FARM_PUPPET_REANCHOR_MS;
+    if (!changed && !reanchor) return;
+    sentFarmIntentKey = key;
+    lastPuppetSentAt = now;
+    // Anchor (or end) from a fresh position: the server reads the anchor from our validated motion.
+    if (changed && !movementSent) syncMovementState(x, y, lastSentMovement?.vx ?? 0, lastSentMovement?.vy ?? 0, "steer", true);
+    const intent = farmIntent;
+    dependencies.reducers.sendReducer(
+      "autofarm puppet",
+      (current) => current.reducers.setAutoFarmPuppet({ group: intent?.group ?? "", camp: intent?.camp ?? "" }),
+      // Refused: try again in a few seconds, not every frame.
+      () => { puppetLive = false; if (sentFarmIntentKey === key) sentFarmIntentKey = "refused"; puppetRetryAt = monotonicNowMs() + 5_000; },
+      () => { if (sentFarmIntentKey === key) puppetLive = key !== ""; },
+    );
+    if (!intent) puppetLive = false;
   }
 
   function releaseMapPlayerSubscription() {
@@ -776,6 +894,8 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         removed = true;
       }
       for (const row of motionRows) upsertMotionIdentity(row);
+      puppets.clear();
+      for (const row of connection.db.playerAutoFarmPuppet.iter()) upsertAutoFarmPuppet(row);
       refreshMotionInterest();
       if (removed) dependencies.changes.notify();
     });
@@ -808,6 +928,8 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       .mapId.eq(mapId)
       .and(row.isVisible.eq(true)));
     const mapPlayerDeaths = tables.playerDeathFrame.where((row) => row.mapId.eq(mapId));
+    const mapPuppets = tables.playerAutoFarmPuppet.where((row) => row.mapId.eq(mapId));
+    wireAutoFarmPuppetTable(connection);
 
     let next: SubscriptionHandle | null = null;
     const subscribeNext = () => {
@@ -838,7 +960,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
             mapSubscriptionRefreshPending = false;
             window.setTimeout(() => refreshMapPlayerSubscription(true), 1_000);
           })
-          .subscribe([mapPresentations, mapPlayerDeaths]);
+          .subscribe([mapPresentations, mapPlayerDeaths, mapPuppets]);
         mapPlayerSubscription = next;
       } catch (error) {
         if (dependencies.reducers.connection() !== connection || generation !== mapSubscriptionGeneration) return;
@@ -889,9 +1011,15 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     inputKind: MovementInputKind = "keyboard",
     force = false,
     interestArea?: PlayerInterestArea,
+    farm?: AutoFarmMovementContext,
   ) {
     const connection = dependencies.reducers.connection();
     if (dependencies.reducers.protocolBlocked() || !connection || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    if (farm) {
+      puppetSiteList = farm.sites;
+      // Only a visible player has a puppet; the eye off already sends checkpoints alone.
+      farmIntent = farm.group && dependencies.multiplayerEnabled?.() !== false ? { group: farm.group, camp: farm.camp ?? "" } : null;
+    }
     localSimulationTick = (localSimulationTick + 1) >>> 0;
     // Kept in the public signature for the renderer boundary; presentation is
     // stable for the whole map and no longer churns subscriptions with camera motion.
@@ -902,8 +1030,12 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       && syncSpeed(deferredSpeed)) deferredSpeed = null;
     const now = monotonicNowMs();
     const velocity = sanitizeMovementVelocity(vx, vy);
+    // While our puppet plays for us, movement drops to the hidden player's checkpoints.
     if (!movementUpdateReason({ now, velocity, inputKind, lastSent: lastSentMovement, force, position: { x, y },
-      multiplayerEnabled: dependencies.multiplayerEnabled?.() ?? true })) return;
+      multiplayerEnabled: (dependencies.multiplayerEnabled?.() ?? true) && !(farmIntent && puppetLive) })) {
+      if (farm) syncAutoFarmPuppet(now, false, x, y);
+      return;
+    }
 
     lastSentMovement = { ...velocity, sentAt: now, x, y };
     const sequence = ++nextPositionSequence;
@@ -927,6 +1059,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         sequence,
       }),
     );
+    if (farm) syncAutoFarmPuppet(now, true, x, y);
   }
 
   return {
@@ -960,6 +1093,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
           remotePlayerDeaths.clear();
           corpses.clear();
           mapPlayerMarkers.clear();
+          puppets.clear();
           playerMaps.clear();
           latestMapSamples = [];
           desiredMotionNetworkIds = [];
@@ -1006,7 +1140,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         const now = monotonicNowMs();
         const consensusServerAtMs = estimatedServerNowMs(now) - REGULAR_ENEMY_CONSENSUS_DELAY_MS;
         for (const player of players.values()) {
-          if (player.id === dependencies.localIdentity() || !detailedMotionIdentities.has(player.id)) continue;
+          if (player.id === dependencies.localIdentity() || !detailedMotionIdentities.has(player.id) || puppets.has(player.id)) continue;
           const renderAt = adaptiveRemoteRenderAt(player.interpolationClock, now);
           const motion = constrainRemoteMotionToLatestStop(applyRemoteMotionCorrection(
             remoteMotionAt(player.samples, renderAt),
@@ -1024,10 +1158,14 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
           player.throwClock = undefined;
           result.push(player);
         }
+        drawPuppets(now, result);
         return result;
       },
       remotePlayerCount() {
-        return !remotePlayersVisible || currentMapId === "home_exterior" ? 0 : detailedMotionIdentities.size;
+        if (!remotePlayersVisible || currentMapId === "home_exterior") return 0;
+        let count = Math.min(puppets.size, AUTO_FARM_PUPPET_DRAW_LIMIT);
+        for (const identity of detailedMotionIdentities) if (!puppets.has(identity)) count += 1;
+        return count;
       },
       serverNowMs: () => estimatedServerNowMs(),
       regularEnemyLocalPosition: () => regularEnemyLocalPosition(),
@@ -1043,15 +1181,21 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         }
         return { ...death };
       },
-      mapPlayerMarkers: () => !remotePlayersVisible || currentMapId === "home_exterior" ? [] : [...mapPlayerMarkers.values()],
+      // A puppet's dot follows the puppet: the farmer's own updates come only every 30 seconds.
+      mapPlayerMarkers: () => !remotePlayersVisible || currentMapId === "home_exterior" ? [] : [...mapPlayerMarkers.values()]
+        .map(marker => { const drawn = puppets.get(marker.id)?.player; return drawn ? { ...marker, x: drawn.x, y: drawn.y } : marker; }),
       onlinePlayerCount: () => onlinePlayerCount,
       hasRemotePlayerInArea(minX: number, minY: number, maxX: number, maxY: number) {
         if (!remotePlayersVisible) return false;
         for (const player of players.values()) {
-          if (player.id === dependencies.localIdentity() || !detailedMotionIdentities.has(player.id)) continue;
+          if (player.id === dependencies.localIdentity() || !detailedMotionIdentities.has(player.id) || puppets.has(player.id)) continue;
           const latest = player.samples[player.samples.length - 1];
           const x = latest?.x ?? player.x;
           const y = latest?.y ?? player.y;
+          if (x >= minX && x <= maxX && y >= minY && y <= maxY) return true;
+        }
+        for (const puppet of puppets.values()) {
+          const x = puppet.player?.x ?? puppet.row.x, y = puppet.player?.y ?? puppet.row.y;
           if (x >= minX && x <= maxX && y >= minY && y <= maxY) return true;
         }
         return false;
@@ -1091,6 +1235,9 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     },
     beginSession(identityChanged: boolean) {
       serverClockAnchor = null;
+      // The server drops a puppet with its connection; the next frame sends ours again.
+      sentFarmIntentKey = "";
+      puppetLive = false;
       lastSentMovement = null;
       nextPositionSequence = 0;
       localSimulationTick = 0;
@@ -1103,6 +1250,8 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     },
     markDisconnected() {
       serverClockAnchor = null;
+      sentFarmIntentKey = "";
+      puppetLive = false;
       lastSentMovement = null;
       nextPositionSequence = 0;
       localSimulationTick = 0;
@@ -1122,6 +1271,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       mapPlayerMarkers.clear();
       motionIdentities.clear();
       activeMotionIdentities.clear();
+      puppets.clear();
       resetMotionInterest();
       localMotionNetworkId = null;
       if (!preserveOnlineCount) onlinePlayerCount = 0;

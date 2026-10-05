@@ -185,7 +185,10 @@ import { describe, expect, it } from "vitest";
 // start from. Its rules and bodies live in aggro-challenge.ts.
 // 6_573: the get_map_index_balance procedure, so the map window's Enemy Index reads
 // other maps' live balance. The read lives in map-balance.ts.
-const MAX_LINES = 6_573;
+// 6_576: the autofarm puppet table's import and registration, the
+// set_auto_farm_puppet declaration line, and its clear on leaving. Its rules
+// live in autofarm-puppet.ts.
+const MAX_LINES = 6_576;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {
