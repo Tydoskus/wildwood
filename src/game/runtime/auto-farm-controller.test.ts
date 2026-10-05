@@ -635,7 +635,8 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
     expect(s.farm.state().selected).toBe(speed);
   });
 
-  it('stands still while a pulled group walks in, and only goes out to it if it never arrives', () => {
+  it('stands still while a pulled group walks in; with Pull short of the route it goes out to one that never arrives', () => {
+    // Pull covers the whole route: it stands its ground, however long the group takes.
     const s = planned();
     const far = s.add('Bramble', 2500, 500);
     s.farm.setPullAll(true);
@@ -644,7 +645,17 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
     expect(s.tick()).toEqual(idle);
     expect(s.farm.state().status).toBe('Pulling');
     for (let frame = 0; frame < 60 * PULL_WAIT_SECONDS + 5; frame++) s.tick();
-    expect(s.tick().x).toBeGreaterThan(0);
+    expect(s.tick()).toEqual(idle);
+    // Two camps on the route, one pulled: it walks out to a pulled group that never arrives.
+    const t = planned();
+    const away = t.add('Bramble', 2500, 500);
+    t.add('Needle', 600, 2500);
+    t.farm.setPullAll(true);
+    t.farm.start([health, `stat:${ENEMY_TYPES.Needle.reward.type}`]);
+    away.engaged = true;
+    expect(t.tick()).toEqual(idle);
+    for (let frame = 0; frame < 60 * PULL_WAIT_SECONDS + 5; frame++) t.tick();
+    expect(t.tick().x).toBeGreaterThan(0);
   });
 
   it('in Reflect Only walks into the enemy instead of shooting from range, and leaves the boss alone', () => {

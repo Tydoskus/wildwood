@@ -487,18 +487,12 @@ export function createAutoFarmController(options: {
     if (phase === 'farm' && !pullAll) for (const enemy of enemies) {
       if (!enemy.generatedBoss && isEnemyAttackingPlayer(enemy, options.localIdentity?.()) && (!threat || distance(enemy) < distance(threat))) threat = enemy;
     }
-    const reachAll = weaponAttackRange(options.equippedWeapon?.(), player.attackRange);
+    // Everything it farms comes to it: it stands its ground (Ryan: no walking out, whatever arrives).
     if (phase === 'farm' && pullCoversFarm()) {
-      const coming = enemies.some(pulledEnemy);
+      const reachAll = weaponAttackRange(options.equippedWeapon?.(), player.attackRange);
       const inReach = enemies.some(enemy => pulledEnemy(enemy) && distance(enemy) <= reachAll + enemy.r);
-      pullWait = coming && !inReach ? pullWait + dt : 0;
-      if (!coming || inReach || pullWait < PULL_WAIT_SECONDS) {
-        holding = true; route = []; status = inReach ? 'Farming' : coming ? 'Pulling' : 'Waiting for respawn';
-        return idle();
-      }
-      // Nothing has reached it for a while (stuck, or out-ranging it): walk out to the nearest.
-      target = null;
-      for (const enemy of enemies) if (pulledEnemy(enemy) && (!target || distance(enemy) < distance(target))) target = enemy;
+      holding = true; route = []; status = inReach ? 'Farming' : enemies.some(pulledEnemy) ? 'Pulling' : 'Waiting for respawn';
+      return idle();
     }
     // With the group on its way (pulled, or already chasing), stand and let it
     // come; walk out only if nothing has reached range for a few seconds
