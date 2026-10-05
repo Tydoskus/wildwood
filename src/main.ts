@@ -18,6 +18,7 @@ import { createFullscreenMovementGate } from "./ui/fullscreen-movement";
 import { installGameTicker } from "./ui/game-ticker";
 import { createScheduledUpdateController, createScheduledUpdateView } from "./ui/scheduled-update-controller";
 import { afterAccountRenewal, enforceLatestVersion } from "./app/version";
+import { installCanvasPurgeRecovery } from "./app/canvas-purge-recovery";
 import { createPersonalBosses } from "./game/runtime/personal-bosses";
 import { createLocalCorpses } from "./game/runtime/local-corpses";
 import { ONBOARDING_MAP_ID, ONBOARDING_WORLD } from "../shared/onboarding";
@@ -1677,7 +1678,7 @@ import {
     render: createScheduledUpdateView(),
     checkVersion: () => enforceLatestVersion(GAME_VERSION, version => { playerVisibility.suspend(); startupCoordinator.showGameUpdating(version); }, updateHandoff),
   });
-  const updateHandoff = { canReload: scheduledUpdate.canReload, beforeReload: scheduledUpdate.prepareReload };
+  const updateHandoff = { canReload: scheduledUpdate.canReload, beforeReload: scheduledUpdate.prepareReload }; installCanvasPurgeRecovery({ watch: [canvas], reload: async () => { if (!await updateHandoff.beforeReload(GAME_VERSION)) return false; const url = new URL(window.location.href); url.searchParams.set("v", GAME_VERSION); afterAccountRenewal(() => window.location.replace(url.href)); return true; } });
   window.setInterval(scheduledUpdate.tick, 250);
   document.addEventListener("visibilitychange", scheduledUpdate.tick);
 

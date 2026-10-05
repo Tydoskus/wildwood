@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.898.9": [
+    "Fixed sprites, including your own character, vanishing after switching apps on a phone: the game now saves and reloads itself",
+  ],
   "0.898.8": [
     "With the eye on you see idle and autofarming players even if their eye is off",
     "Eye off still means you see no one; others see you only while you stand still or autofarm",
@@ -2850,6 +2853,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.898.9": "2026-10-05",
   "0.898.8": "2026-10-04",
   "0.898.7": "2026-10-04",
   "0.898.6": "2026-10-04",
