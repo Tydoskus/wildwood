@@ -160,6 +160,26 @@ describe("Boss attacks on regular enemies", () => {
   });
 });
 
+describe("Boss body and map enemies", () => {
+  it("pushes enemies out of its body and hits each one touching it once per contact cooldown", () => {
+    vi.useFakeTimers();
+    const pushed = vi.fn(), hits: object[] = [];
+    const harness: BossHarness = createFrostclawHarness({
+      collideEnemies: pushed,
+      damageEnemies: (attack, _amount, inside) => { if (inside(harness.bosses.frostclaw.x + harness.bosses.frostclaw.r + 10, harness.bosses.frostclaw.y, 10)) hits.push(attack); },
+    });
+    harness.player.x = harness.bosses.frostclaw.x + 2_000;
+    for (let i = 0; i < 3; i++) harness.controller.byKind.frostclaw.resolveCollision();
+    expect(pushed).toHaveBeenCalledWith(harness.bosses.frostclaw);
+    // Three frames, one round: the same attack, so each enemy is hit once.
+    expect(new Set(hits).size).toBe(1);
+    vi.advanceTimersByTime(800);
+    harness.controller.byKind.frostclaw.resolveCollision();
+    expect(new Set(hits).size).toBe(2);
+    vi.useRealTimers();
+  });
+});
+
 describe("Boss defeat presentation", () => {
   it("pays participants through the stat reward popups alone", () => {
     type FakeElement = {

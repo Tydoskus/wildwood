@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.899.3": [
+    "Map enemies, elites too, bump into bosses and take their contact damage",
+  ],
   "0.899.2": [
     "Fixed the game reloading itself when you switch tabs or apps",
   ],
@@ -2866,6 +2869,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.899.3": "2026-10-05",
   "0.899.2": "2026-10-05",
   "0.899.1": "2026-10-05",
   "0.899.0": "2026-10-05",

@@ -1,3 +1,4 @@
+import { monotonicNowMs } from "../../app/trusted-clock";
 import { TIDEWYRM_SURGE_WINDUP } from "../constants";
 import { bossVerticalRadius } from "../../../shared/boss-hitbox";
 import { VERDANT_ROOTS, VERDANT_SPORES, verdantRootHits, verdantSporeHits, verdantSporeSites } from "../../../shared/verdant-attacks";
@@ -359,6 +360,8 @@ export function createBossController(options: {
   damagePlayer: (amount: number) => boolean;
   /** Lands an attack on the regular enemies inside it, once each; kills pay nothing. */
   damageEnemies?: (attack: object, amount: number, inside: (x: number, y: number, r: number) => boolean) => void;
+  /** Pushes map enemies out of a boss's body. */
+  collideEnemies?: (boss: { x: number; y: number; r: number; ry?: number; hitboxOffsetY?: number }) => void;
   logPickup: (text: string, color: string, baseText?: string) => void;
   saveProgress: () => void;
   healthMultiplierBonus?: () => number;
@@ -1357,8 +1360,22 @@ export function createBossController(options: {
     if (state.nextAttack === rules.laser.ability) rules.laser.start(0, player); else rules.pulses.start(0, undefined, player);
   }
 
+  /** Each boss's current round of body contact on enemies: every enemy touching it takes one hit per cooldown. */
+  const enemyContactRounds = new WeakMap<object, { token: object; at: number }>();
+  function resolveEnemyContact(target: BossStates[BossKind], damage: number, cooldown: number) {
+    options.collideEnemies?.(target);
+    const at = monotonicNowMs();
+    let round = enemyContactRounds.get(target);
+    if (!round || at - round.at >= cooldown * 1_000) enemyContactRounds.set(target, round = { token: {}, at });
+    const centreY = target.y + (target.hitboxOffsetY ?? 0), vertical = bossVerticalRadius(target.r, target.ry);
+    // Pushed to the edge just now, a touching enemy sits right on it.
+    hitEnemies(round.token, damage, (x, y, r) => Math.hypot((x - target.x) / (target.r + r), (y - centreY) / (vertical + r)) <= 1.01);
+  }
+
   function resolveCollision(target: BossStates[BossKind], damage: number, cooldown: number) {
     if (target.dead) return;
+    // Map enemies collide with the boss's body and take its contact damage, as the player does.
+    resolveEnemyContact(target, damage, cooldown);
     const dx = player.x - target.x;
     const centreY = target.y + (target.hitboxOffsetY ?? 0);
     const dy = player.y - centreY;

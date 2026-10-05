@@ -16,6 +16,9 @@ type BossRow = {
   maxHp: number;
   respawnAtMicros: bigint;
 };
+/** How often an Endless boss's body hits an enemy touching it, as a campaign boss's contact does. */
+const ENEMY_CONTACT_SECONDS = .75;
+
 export function createProceduralBossController(options: {
   mapId: () => string;
   state: (mapId: string) => { boss: BossRow | null; ready?: boolean; completed?: number };
@@ -27,6 +30,8 @@ export function createProceduralBossController(options: {
   damagePlayer: (damage: number, source?: EnemyState) => boolean;
   /** Lands the pulse on the regular enemies inside it; kills pay nothing. */
   damageEnemies?: (attack: object, amount: number, inside: (x: number, y: number, r: number) => boolean) => void;
+  /** Pushes map enemies out of the boss's body. */
+  collideEnemies?: (boss: { x: number; y: number; r: number }) => void;
   burst: (
     x: number,
     y: number,
@@ -51,7 +56,9 @@ export function createProceduralBossController(options: {
     bossKey = "";
   let attackElapsed = 0,
     pulseFired = false,
-    shotElapsed = 0;
+    shotElapsed = 0,
+    contactElapsed = 0,
+    contactRound: object | null = null;
   let observedCompleted: number | null = null, pendingReveal = false;
   let definition: ReturnType<typeof generateMap> | null = null;
   function resetAttacks() {
@@ -131,6 +138,12 @@ export function createProceduralBossController(options: {
       boss.dead = true;
       return;
     }
+    // Map enemies collide with its body and take its touch, as with a campaign boss.
+    options.collideEnemies?.(boss);
+    contactElapsed += Math.max(0, Math.min(dt, .1));
+    if (contactElapsed >= ENEMY_CONTACT_SECONDS || !contactRound) { contactElapsed = 0; contactRound = {}; }
+    const { x: bodyX, y: bodyY, r: bodyR } = boss;
+    options.damageEnemies?.(contactRound, boss.damage, (x, y, r) => Math.hypot(x - bodyX, y - bodyY) <= (bodyR + r) * 1.01);
     const distance = Math.hypot(
       options.player.x - boss.x,
       options.player.y - boss.y,

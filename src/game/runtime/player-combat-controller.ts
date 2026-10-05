@@ -81,6 +81,8 @@ export type PlayerCombatController = {
   damagePlayerFromBoss: (amount: number) => boolean;
   /** A boss attack's hit on the regular enemies inside it; its kills pay nothing. */
   damageEnemiesFromBoss: (attack: object, amount: number, inside: (x: number, y: number, r: number) => boolean) => void;
+  /** Pushes map enemies out of a boss's body. */
+  pushEnemiesFromBoss: (boss: { x: number; y: number; r: number; ry?: number; hitboxOffsetY?: number }) => void;
   clearPendingThrow: () => void;
 };
 
@@ -547,6 +549,23 @@ export function createPlayerCombatController(options: {
     }
   }
 
+  /**
+   * Map enemies (elites too) cannot stand inside a boss's body: each one in it
+   * is pushed to its edge, as the player is. Bosses and other players' ghosts
+   * are left alone.
+   */
+  function pushEnemiesFromBoss(boss: { x: number; y: number; r: number; ry?: number; hitboxOffsetY?: number }) {
+    const centreY = boss.y + (boss.hitboxOffsetY ?? 0), vertical = bossVerticalRadius(boss.r, boss.ry);
+    for (const enemy of enemies) {
+      if (enemy.dead || enemy.generatedBoss || enemy.remoteCombatGhost) continue;
+      const dx = enemy.x - boss.x, dy = enemy.y - centreY;
+      const scaled = Math.hypot(dx / (boss.r + enemy.r), dy / (vertical + enemy.r));
+      if (scaled >= 1) continue;
+      enemy.x = boss.x + (scaled > .001 ? dx / scaled : boss.r + enemy.r);
+      enemy.y = centreY + (scaled > .001 ? dy / scaled : 0);
+    }
+  }
+
   function breakEnemyLeashes() {
     for (const enemy of enemies) {
       if (enemy.dead) continue;
@@ -766,6 +785,7 @@ export function createPlayerCombatController(options: {
     damagePlayer,
     damagePlayerFromBoss: (amount: number) => damagePlayer(amount, activeMapBoss()),
     damageEnemiesFromBoss,
+    pushEnemiesFromBoss,
     clearPendingThrow: () => {
       retainedTarget = null;
       nextTargetSearchAt = 0;

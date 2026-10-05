@@ -870,3 +870,16 @@ it("lets a boss attack hit regular enemies once, and its kills pay nothing", () 
   expect(saveProgress).not.toHaveBeenCalled();
   expect(state.player.damage).toBe(before.damage);
 });
+
+it("pushes map enemies, elites included, out of a boss's body, and leaves bosses alone", () => {
+  const state = createCombatHarness();
+  const lifecycle = createEnemyLifecycle(state.enemies, state.spawnSites, () => {});
+  state.enemies.length = 0;
+  for (const [id, type] of [[0, "Bramble"], [1, "Dread Warden"]] as const)
+    lifecycle.spawnFromSite({ id, type, x: 510, y: 500, campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
+  lifecycle.spawnFromSite({ id: 2, type: "Bramble", x: 505, y: 500, campName: "Warden", leashRange: 500, alive: false, respawnAt: 0 });
+  state.enemies[2].generatedBoss = true;
+  state.controller.pushEnemiesFromBoss({ x: 500, y: 500, r: 80 });
+  for (const enemy of state.enemies.slice(0, 2)) expect(Math.hypot(enemy.x - 500, enemy.y - 500)).toBeCloseTo(80 + enemy.r, 5);
+  expect(state.enemies[2].x).toBe(505);
+});
