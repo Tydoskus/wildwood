@@ -11,6 +11,7 @@ import { farmStatGroup, type AutoFarmGroup } from './auto-farm-priority';
 import type { RewardType } from '../enemies';
 import { createDamageMeter } from './damage-meter';
 import { referenceBuildForMap } from '../../../shared/progression';
+import type { MapBalanceSnapshot } from '../../../shared/map-balance-types';
 
 /** A boss's hits: the hardest one, the average one, and how often one lands on a player who stands and fights. */
 export type FarmBoss = { hp: number; strongestHit: number; averageHit?: number; regenFraction?: number; mapId: string };
@@ -85,20 +86,20 @@ export function groupSurvivalSeconds(group: readonly GroupEnemy[], stats: Pick<P
  * Ryan saw autofarm move on with half the stats a map needs; a map with one
  * easy camp passed the old "any camp is safe" test. Null off the campaign.
  */
-export function meetsMapReference(mapId: string, stats: PlayerPowerStats, realDps: number) {
+export function meetsMapReference(mapId: string, stats: PlayerPowerStats, realDps: number, balance?: MapBalanceSnapshot) {
   const index = CAMPAIGN_MAP_IDS.indexOf(mapId as never);
   if (index < 0) return null;
   const reference = referenceBuildForMap(index);
   if (realDps < reference.damage / reference.attackInterval) return false;
-  const groups = [...mapStatGroups(mapId).values()];
+  const groups = [...mapStatGroups(mapId, balance).values()];
   const hardest = groups.reduce((worst, group) => groupSurvivalSeconds(group, reference) < groupSurvivalSeconds(worst, reference) ? group : worst, groups[0] ?? []);
   return groupSurvivalSeconds(hardest, stats) >= groupSurvivalSeconds(hardest, reference);
 }
 
-/** A map's enemies by the stat they pay, as autofarm groups them. */
-export function mapStatGroups(mapId: string) {
+/** A map's enemies by the stat they pay, as autofarm groups them, by the balance given or the one pinned for it. */
+export function mapStatGroups(mapId: string, balance: MapBalanceSnapshot | undefined = runtimeMapBalance(mapId) ?? undefined) {
   const groups = new Map<AutoFarmGroup, GroupEnemy[]>();
-  for (const entry of offlineEnemyRoster(mapId, runtimeMapBalance(mapId) ?? undefined)) {
+  for (const entry of offlineEnemyRoster(mapId, balance)) {
     const key = farmStatGroup(entry.reward.type as RewardType);
     groups.set(key, [...groups.get(key) ?? [], entry]);
   }
@@ -242,6 +243,8 @@ export function createAutoFarmProgress(deps: Omit<Parameters<typeof createFarmEv
   reflectOnly: () => boolean;
   /** Whether "Pull whole group" is on, which brings a group in all at once. */
   pullAll?: () => boolean;
+  /** Another map's live balance (get_map_index_balance); null when it cannot load. */
+  mapBalance?: (mapId: string) => Promise<MapBalanceSnapshot | null>;
   now?: () => number;
 }) {
   const meter = createDamageMeter(deps.now ?? (() => performance.now()));
@@ -262,15 +265,34 @@ export function createAutoFarmProgress(deps: Omit<Parameters<typeof createFarmEv
   // The offline estimate alone counts one enemy at a time, a quarter of their
   // swings landing; autofarm walked on and died in the first group.
   const holdable = new Map<string, { key: string; ok: boolean }>();
+  // The next map judged by its live balance, fetched once: the client only
+  // holds the live numbers for the map it stands on, and judged any other by
+  // the copy it ships, from before the rebalances (map 15's enemies hit about
+  // 70 times harder live). Autofarm moved on too early. Until a map's live
+  // numbers arrive, it is not judged ready.
+  const liveBalances = new Map<string, MapBalanceSnapshot | null | 'loading'>();
+  const liveBalance = (mapId: string): MapBalanceSnapshot | null | undefined | 'loading' => {
+    if (mapId === deps.mapId()) return runtimeMapBalance(mapId) ?? undefined;
+    if (!deps.mapBalance) return undefined;
+    const known = liveBalances.get(mapId);
+    if (known !== undefined) return known;
+    liveBalances.set(mapId, 'loading');
+    void deps.mapBalance(mapId).then(balance => { liveBalances.set(mapId, balance); }, () => { liveBalances.set(mapId, null); });
+    return 'loading';
+  };
   const canHold = (mapId: string) => {
-    const key = `${statsKey()}:${deps.pullAll?.() ? 1 : 0}:${evaluator.calibration().toFixed(2)}`;
+    const live = liveBalance(mapId);
+    if (live === 'loading') return false;
+    // Could not load: the shipped copy, as before.
+    const balance = live ?? undefined;
+    const key = `${statsKey()}:${deps.pullAll?.() ? 1 : 0}:${evaluator.calibration().toFixed(2)}:${balance?.revision ?? 'shipped'}`;
     const cached = holdable.get(mapId);
     if (cached?.key === key) return cached.ok;
     // The offline estimate prices damage alone; give it the damage the build really deals.
     const stats = evaluator.stats();
-    const ok = meetsMapReference(mapId, stats, evaluator.dps()) !== false
-      && simulateOfflineFarming(mapId, { ...stats, damage: stats.damage * evaluator.calibration() }, NEXT_MAP_HOLD_SECONDS).survivable
-      && [...mapStatGroups(mapId).values()].some(group => evaluator.danger(group, Boolean(deps.pullAll?.())) <= SAFE_CAMP_DANGER);
+    const ok = meetsMapReference(mapId, stats, evaluator.dps(), balance) !== false
+      && simulateOfflineFarming(mapId, { ...stats, damage: stats.damage * evaluator.calibration() }, NEXT_MAP_HOLD_SECONDS, { balance }).survivable
+      && [...mapStatGroups(mapId, balance).values()].some(group => evaluator.danger(group, Boolean(deps.pullAll?.())) <= SAFE_CAMP_DANGER);
     holdable.set(mapId, { key, ok });
     return ok;
   };
