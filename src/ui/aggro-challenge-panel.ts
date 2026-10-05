@@ -1,9 +1,8 @@
 import { gameConfirm, type ConfirmPrompt } from "./confirm-dialog";
 import { AGGRO_CHALLENGE_LIMIT, aggroForcedCamps, aggroPullCamps, type AggroChallenge } from "../../shared/aggro-challenge";
-import { AGGRO_GROUPS } from "../game/runtime/aggro-picks";
+import { AGGRO_GROUPS, AGGRO_GROUP_LABELS as GROUP_LABELS, togglePick } from "../game/runtime/aggro-picks";
 import { REWARD_DATA, type RewardType } from "../game/enemies";
 
-const GROUP_LABELS: Record<RewardType, string> = { damage: "Damage", health: "Max Health", speed: "Atk Speed", armor: "Armor", regen: "Regen" };
 
 const camps = (count: number) => `${count} camp${count === 1 ? "" : "s"}`;
 
@@ -59,12 +58,7 @@ export function createAggroChallengePanel(d: {
     chip.addEventListener("click", () => {
       const current = d.state();
       if (chip.disabled) return;
-      const picks = d.picks(), needed = aggroForcedCamps({ active: true, completed: current.completed });
-      // During a run picks only fill missing places; one already chosen stays.
-      if (current.active && (picks.includes(group) || picks.length >= needed)) return;
-      if (picks.includes(group)) d.setPicks(picks.filter(pick => pick !== group));
-      // Full: the newest pick replaces the oldest, so a tap always does something.
-      else d.setPicks([...picks, group].slice(-needed));
+      d.setPicks(togglePick(d.picks(), group, aggroForcedCamps({ active: true, completed: current.completed }), current.active));
       shown = ""; render();
     });
     chipFor.set(group, chip);
@@ -88,14 +82,14 @@ export function createAggroChallengePanel(d: {
     rule.textContent = done ? "" : `On every map, ${chasing === 1 ? "the group you pick chases" : `the ${chasing} groups you pick chase`} you from the moment you arrive. Dying starts the run over.`;
     picksBox.hidden = done;
     const chosen = picks.slice(0, chasing);
-    // A run started before picks existed has none: it may fill them, then they lock.
-    const filling = current.active && chosen.length < chasing;
-    pickLabel.textContent = current.active && !filling ? `Chasing you: ${chosen.map(pick => GROUP_LABELS[pick]).join(", ")}`
+    // Always the tier's count: pick that many, and switch any time (tap another to swap it in).
+    const filling = chosen.length < chasing;
+    pickLabel.textContent = current.active && !filling ? `Chasing you: ${chosen.map(pick => GROUP_LABELS[pick]).join(", ")} (tap another to switch)`
       : `Pick ${chasing} ${chasing === 1 ? "group" : "groups"} to chase you (${Math.min(picks.length, chasing)}/${chasing})`;
-    pickLabel.classList.toggle("is-needed", filling);
+    pickLabel.classList.toggle("is-needed", current.active && filling);
     for (const [group, chip] of chipFor) {
       chip.setAttribute("aria-pressed", String(chosen.includes(group)));
-      chip.disabled = pending || (current.active && (!filling || chosen.includes(group)));
+      chip.disabled = pending;
     }
     const lines = done ? [] : current.active
       ? ["No prestige bonuses this run: stat gain, perks and challenge rewards are off. Autofarm's Pull is off too.",

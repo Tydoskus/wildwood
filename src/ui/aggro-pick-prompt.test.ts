@@ -1,0 +1,29 @@
+import { expect, it } from "vitest";
+import { parseHTML } from "linkedom";
+import { createAggroPickPrompt } from "./aggro-pick-prompt";
+import { togglePick } from "../game/runtime/aggro-picks";
+import type { RewardType } from "../game/enemies";
+
+it("stays open until the run has its count of groups", () => {
+  const { document } = parseHTML("<html><body></body></html>");
+  let picks: RewardType[] = [];
+  const prompt = createAggroPickPrompt(document as unknown as Document, { picks: () => picks, setPicks: next => { picks = next; } });
+  prompt.open(2);
+  const done = document.querySelector(".aggro-pick-done") as unknown as HTMLButtonElement;
+  const chip = (label: string) => [...document.querySelectorAll(".aggro-pick")].find(element => element.textContent === label) as unknown as HTMLButtonElement;
+  expect(done.disabled).toBe(true);
+  done.click();
+  expect(prompt.isOpen()).toBe(true);
+  chip("Damage").click(); chip("Regen").click();
+  expect(done.disabled).toBe(false);
+  done.click();
+  expect(prompt.isOpen()).toBe(false);
+  expect(picks).toEqual(["damage", "regen"]);
+});
+
+it("switches rather than drops during a run", () => {
+  expect(togglePick(["damage"], "armor", 1, true)).toEqual(["armor"]);
+  expect(togglePick(["damage"], "damage", 1, true)).toEqual(["damage"]);
+  expect(togglePick(["damage"], "damage", 1, false)).toEqual([]);
+  expect(togglePick(["damage", "armor"], "regen", 2, false)).toEqual(["armor", "regen"]);
+});

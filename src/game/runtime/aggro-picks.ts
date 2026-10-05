@@ -11,6 +11,7 @@ export { aggroPullCamps } from "../../../shared/aggro-challenge";
  * group a map does not have simply has no one there to chase.
  */
 export const AGGRO_GROUPS: readonly RewardType[] = ["damage", "health", "speed", "armor", "regen"];
+export const AGGRO_GROUP_LABELS: Record<RewardType, string> = { damage: "Damage", health: "Max Health", speed: "Atk Speed", armor: "Armor", regen: "Regen" };
 const KEY = "wildstat:aggro-picks:v1";
 
 type Storage = Pick<globalThis.Storage, "getItem" | "setItem">;
@@ -32,6 +33,16 @@ export function writeAggroPicks(identity: string | undefined, picks: readonly Re
 /** How many groups this run (or the next) asks for. */
 export function aggroPicksNeeded(challenge: AggroChallenge | null | undefined) {
   return aggroForcedCamps({ active: true, completed: challenge?.completed ?? 0 });
+}
+
+/**
+ * A tap on a group: an unpicked one joins, replacing the oldest pick when the
+ * tier's count is full; a picked one leaves, except during a run, which always
+ * keeps its full count (the player switches, never drops below it).
+ */
+export function togglePick(picks: readonly RewardType[], group: RewardType, needed: number, inRun: boolean): RewardType[] {
+  if (picks.includes(group)) return inRun && picks.length <= needed ? [...picks] : picks.filter(pick => pick !== group);
+  return [...picks, group].slice(-needed);
 }
 
 /** The autofarm groups that chase the player now: the picks during a run, none outside one. */

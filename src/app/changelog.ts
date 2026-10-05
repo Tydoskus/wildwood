@@ -1,6 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.895": [
-    "Aggro runs started before picks existed can pick their chasing groups now (Profile, Prestige, Challenge); until then nothing chases you",
+    "An Aggro run must always have its chasing groups: a run without them opens a picker that stays until you pick",
+    "Switch your Aggro chasing groups any time on the Aggro card; a run never drops below its count",
   ],
   "0.894": [
     "Dropping out of Aggro keeps your run: Drop back in picks it up. Only dying starts it over",

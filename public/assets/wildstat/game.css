@@ -4786,3 +4786,9 @@ html.text-outline-shadow .death-countdown { text-shadow: var(--text-outline-ring
 .aggro-pick:disabled { cursor: default; }
 .aggro-pick:disabled:not([aria-pressed="true"]) { opacity: .45; }
 .aggro-picks-label.is-needed { color: #ffb347; }
+.aggro-pick-overlay { position: fixed; inset: 0; z-index: 14; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-left)); background: rgba(0,0,0,.72); }
+.aggro-pick-overlay[hidden] { display: none; }
+.aggro-pick-window { display: grid; gap: 12px; width: min(420px, 100%); padding: 14px; background: var(--window-surface-neutral, #161b18); border: 2px solid #3a4636; border-radius: 10px; color: #fff; }
+.aggro-pick-note { margin: 0; color: #c2c7ce; font-size: 13px; }
+.aggro-pick-done { min-height: 44px; margin: 0; font-size: 16px; }
+.aggro-pick-done:disabled { filter: grayscale(.8); opacity: .5; }
