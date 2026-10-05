@@ -190,7 +190,9 @@ import { describe, expect, it } from "vitest";
 // live in autofarm-puppet.ts.
 // 6_580: the set_presence declaration (the eye plus "seen while idle or
 // autofarming"), its comment, and the shared applyPresence wrapper lines.
-const MAX_LINES = 6_580;
+// 6_583: the two social_duel_message visibility rules (a duel message is
+// readable only by its sender and recipient) and their comment.
+const MAX_LINES = 6_583;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

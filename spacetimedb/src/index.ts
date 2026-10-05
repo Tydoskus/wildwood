@@ -135,7 +135,7 @@ import {
   createPresenceRuntime, MOTION_DETAIL_FRAME_INTERVAL_MICROS, MAP_FRAME_INTERVAL_MICROS, playerZone,
   playerWithMotion, stoppedMotionFields, adjustPlayerMotionMapState, syncPlayerMotion, syncPlayerMotionIdentity,
   ensureMotionDetailFrameSchedule, ensureRealtimeFrameSchedules, motionSample, persistWorldLocation,
-  syncPlayerMapMarker, ensureWorldStatus, reconcileOnlinePlayers,
+  syncPlayerMapMarker, ensureWorldStatus, reconcileOnlinePlayers, requireScheduler, ensureRepeatingSchedule,
 } from "./presence-runtime";
 import { createDuelRuntime, activeDuelFor, clearExpiredDuelRequests } from "./duel-runtime";
 import { createAccountLifecycle, hasSpacetimeAuthAccount, clearExpiredAccountLinks, dailyGemBonusClaimReference } from "./account-lifecycle";
@@ -1823,6 +1823,9 @@ export const ownMotionIdentityRow = spacetimedb.clientVisibilityFilter.sql("SELE
 export const visibleMapMarkerRows = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_map_marker WHERE is_visible = true");
 export const ownMapMarkerRow = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_map_marker WHERE identity = :sender");
 export const ownMotionDetailFrames = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_motion_detail_frame WHERE recipient = :sender");
+// A shared duel message is between its two players: no one else may read who sent what to whom.
+export const sentDuelMessages = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM social_duel_message WHERE sender = :sender");
+export const receivedDuelMessages = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM social_duel_message WHERE recipient = :sender");
 export const ownDailyQuestRow = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_daily_quest WHERE identity = :sender");
 export const ownItemDropRows = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_item_drop WHERE identity = :sender");
 
@@ -3586,7 +3589,7 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
   // readable so clients can disconnect without mistaking this for an expired
   // guest token and creating a new guest account.
   if (defeatRestrictionError(ctx)) return;
-  ensureMaintenanceSchedule(ctx);
+  ensureMaintenanceSchedule(ctx); ensureMaintenanceSweepSchedule(ctx); ensureRepeatingSchedule(ctx.db.startupTelemetryCleanupSchedule, 15n * MAINTENANCE_INTERVAL_MICROS);
   ensurePatreonSweep(ctx, ScheduleAt.interval(PATREON_SWEEP_INTERVAL_MICROS));
   // Initialization and balance reconciliation run once per module version.
   ensurePrestigeExpansion(ctx);
@@ -3658,7 +3661,7 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
 export const runMaintenance = spacetimedb.reducer(
   { maintenance: maintenanceSchedule.rowType },
   (ctx, { maintenance }) => {
-    void maintenance;
+    void maintenance; requireScheduler(ctx);
     const finishedDuels = [...ctx.db.duel.iter()].map(row => withDuelWide(ctx, row)).filter((current: any) =>
       current.status === "finishing" && ctx.timestamp.microsSinceUnixEpoch >= current.endsAtMicros
     );
@@ -3685,7 +3688,7 @@ export const devCleanupStaleSessions = spacetimedb.reducer({}, (ctx) => {
 export const runMaintenanceSweep = spacetimedb.reducer(
   { maintenance: maintenanceSweepSchedule.rowType },
   (ctx, { maintenance }) => {
-    void maintenance;
+    void maintenance; requireScheduler(ctx);
     clearExpiredHistory(ctx);
     clearExpiredAccountLinks(ctx);
     clearOrphanPresence(ctx);
@@ -3716,7 +3719,7 @@ export const runMaintenanceSweep = spacetimedb.reducer(
 export const cleanupStartupTelemetry = spacetimedb.reducer(
   { schedule: startupTelemetryCleanupSchedule.rowType },
   (ctx, _args) => {
-    cleanupConnectionDiagnostics(ctx);
+    requireScheduler(ctx); cleanupConnectionDiagnostics(ctx);
     trimStartupTelemetry(ctx);
     clearExpiredStartupTelemetryRateLimits(ctx);
   },
@@ -3725,7 +3728,7 @@ export const cleanupStartupTelemetry = spacetimedb.reducer(
 export const publishMotionDetailFrames = spacetimedb.reducer(
   { schedule: motionDetailFrameSchedule.rowType },
   (ctx, _args) => {
-    let continuePublishing = false;
+    requireScheduler(ctx); let continuePublishing = false;
     const staleIdentities: any[] = [];
     const sampleMotion = createPlayerMotionFrameSampler(ctx.timestamp.microsSinceUnixEpoch);
     for (const interest of ctx.db.playerMotionInterest.iter() as Iterable<any>) {
@@ -3770,7 +3773,7 @@ export const publishMotionDetailFrames = spacetimedb.reducer(
 export const publishMapFrames = spacetimedb.reducer(
   { schedule: mapFrameSchedule.rowType },
   (ctx, _args) => {
-    let continuePublishing = false;
+    requireScheduler(ctx); let continuePublishing = false;
     let sampleVisiblePlayers = false;
     const maps = new Map<string, PlayerMapSample[]>();
     for (const state of ctx.db.playerMotionMapState.iter() as Iterable<any>) {
@@ -3810,7 +3813,7 @@ export const publishMapFrames = spacetimedb.reducer(
 export const completeResearch = spacetimedb.reducer(
   { schedule: researchCompletionSchedule.rowType },
   (ctx, { schedule }) => {
-    const active = ctx.db.activeResearch.identity.find(schedule.identity);
+    requireScheduler(ctx); const active = ctx.db.activeResearch.identity.find(schedule.identity);
     if (!active || active.researchId !== schedule.researchId || active.targetRank !== schedule.targetRank) return;
     reconcileActiveResearch(ctx, active);
   },
@@ -3819,7 +3822,7 @@ export const completeResearch = spacetimedb.reducer(
 export const completeItemUpgrade = spacetimedb.reducer(
   { schedule: itemUpgradeCompletionSchedule.rowType },
   (ctx, { schedule }) => {
-    const slot = normalizeUpgradeBenchSlot(schedule.slot);
+    requireScheduler(ctx); const slot = normalizeUpgradeBenchSlot(schedule.slot);
     const active = activeItemUpgradeForSlot(ctx, schedule.identity, slot);
     if (!active || active.paused || active.itemId !== schedule.itemId || active.targetLevel !== schedule.targetLevel) return;
     reconcileActiveItemUpgrade(ctx, active, slot);
@@ -3829,7 +3832,7 @@ export const completeItemUpgrade = spacetimedb.reducer(
 export const resolveScheduledDuel = spacetimedb.reducer(
   { schedule: duelResolutionSchedule.rowType },
   (ctx, { schedule }) => {
-    const current = withDuelWide(ctx, ctx.db.duel.id.find(schedule.duelId));
+    requireScheduler(ctx); const current = withDuelWide(ctx, ctx.db.duel.id.find(schedule.duelId));
     if (current) resolveDuel(ctx, current);
   },
 );
@@ -5752,7 +5755,7 @@ export const setPlayerMotionInterest = spacetimedb.reducer(
     }
     const selected: number[] = [];
     const seen = new Set<number>();
-    for (const networkId of networkIds) {
+    for (const networkId of networkIds.slice(0, PLAYER_MOTION_INTEREST_LIMIT * 4)) { // A longer list is cut, not walked: each id costs a lookup.
       if (selected.length >= PLAYER_MOTION_INTEREST_LIMIT) break;
       if (seen.has(networkId) || networkId === ownMotion.networkId) continue;
       seen.add(networkId);
@@ -6002,7 +6005,7 @@ function playerPresence(ctx: any, identity: any) {
   const active = ctx.db.player.identity.find(identity);
   const online = Boolean(active)
     && (!isDeveloperIdentity(identity) || (ctx.db.developerPresencePreference.identity.find(identity)?.visible ?? false));
-  return { online, mapId: online ? active.mapId as string : "",
+  return { online, mapId: online && active.isVisible !== false ? active.mapId as string : "", // Where they are only while they show themselves (the eye).
     lastSeenAtMs: Number(ctx.db.playerLifetime.identity.find(identity)?.sessionStartedAt.microsSinceUnixEpoch ?? 0n) / 1000 };
 }
 const guildService = createGuildService({

@@ -306,6 +306,23 @@ export function ensureMapFrameSchedule(ctx: any) {
   });
 }
 
+/**
+ * Scheduled reducers are reducers a client could call by name. Called that
+ * way, the frame publishers re-arm themselves and each call would start one
+ * more loop; others would act on a forged schedule row. Only the scheduler,
+ * which calls as the database itself, may run them. (A context without a
+ * database identity is a test harness.)
+ */
+export function requireScheduler(ctx: any) {
+  // Compared as the Patreon sweep's guard does (sameIdentity), which runs on Maincloud every 10 minutes.
+  if (ctx.databaseIdentity && ctx.sender?.toHexString?.() !== ctx.databaseIdentity.toHexString()) throw new SenderError("Scheduler required");
+}
+
+/** Arms a repeating schedule whose row is missing; count() reads no rows. */
+export function ensureRepeatingSchedule(table: any, intervalMicros: bigint) {
+  if (Number(table.count()) === 0) table.insert({ scheduledId: 0n, scheduledAt: ScheduleAt.interval(intervalMicros) });
+}
+
 export function ensureRealtimeFrameSchedules(ctx: any) {
   ensureMotionDetailFrameSchedule(ctx);
   ensureMapFrameSchedule(ctx);
