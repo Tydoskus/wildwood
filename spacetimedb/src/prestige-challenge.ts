@@ -112,11 +112,23 @@ export function challengeWinReady(ctx: any) {
     && ctx.db.prestigeChallengeBackup.identity.find(ctx.sender));
 }
 
+/** The saved main run, or null when it does not parse or its stats are not real numbers. */
+export function savedMainRun(json: string) {
+  try {
+    const saved = JSON.parse(json);
+    const stats = ["maxHp", "damage", "armor", "regen", "attackRate"];
+    return saved && typeof saved === "object" && stats.every(stat => Number.isFinite(saved[stat])) && saved.maxHp > 0 && saved.attackRate > 0 ? saved : null;
+  } catch { return null; }
+}
+
 export function restorePrestigeChallenge(ctx: any, player: any, reward: boolean,
   arrive: (restored: { progress: any; mapId: string; x: number; y: number }) => void) {
   const challenge = ctx.db.playerPrestigeChallenge.identity.find(ctx.sender);
   const backup = ctx.db.prestigeChallengeBackup.identity.find(ctx.sender);
   if (!challenge?.active || !backup) throw new SenderError("No saved prestige challenge is active.");
+  // Read before anything changes: a saved run that cannot be loaded refuses the drop-out and leaves the run as it is.
+  const saved = savedMainRun(backup.progressJson);
+  if (!saved) throw new SenderError("Your saved run couldn't be loaded, so you're still in the challenge. Nothing was lost: report this with /bug.");
   const next = { ...challenge, active: false, completed: challenge.completed + (reward ? 1 : 0) };
   if (next.completed > PRESTIGE_CHALLENGE_LIMIT) throw new SenderError("All four prestige challenges are complete.");
   clearParkedRun(ctx, ctx.sender);
@@ -125,7 +137,7 @@ export function restorePrestigeChallenge(ctx: any, player: any, reward: boolean,
     ctx.db.playerPrestigeChallengeParked.insert({ identity: ctx.sender, parkedAt: ctx.timestamp });
   }
   ctx.db.playerPrestigeChallenge.identity.update(next);
-  const progress = carryOwnership({ ...JSON.parse(backup.progressJson), identity: ctx.sender }, readPlayerProgress(ctx, ctx.sender));
+  const progress = carryOwnership({ ...saved, identity: ctx.sender }, readPlayerProgress(ctx, ctx.sender));
   if (reward) progress.attackRate = Math.max(challengeMinimumInterval(next), 1 / (1 / progress.attackRate + .5));
   updateSnapshotRow(ctx, "playerProgress", progress);
   writeEndless(ctx, ctx.sender, backup.completedEndless);

@@ -1,7 +1,7 @@
 import { table, t, SenderError } from "spacetimedb/server";
 import type spacetimedbType from "./index";
 import { AGGRO_CHALLENGE_LIMIT } from "../../shared/aggro-challenge";
-import { carryOwnership, writeEndless } from "./prestige-challenge";
+import { carryOwnership, savedMainRun, writeEndless } from "./prestige-challenge";
 import { prestigeExpanded } from "./prestige-expansion";
 import { updateSnapshotRow } from "./snapshot-row-writes";
 import { readPlayerProgress } from "./wide-stats";
@@ -63,8 +63,12 @@ export function endAggroChallenge(ctx: any, player: any, won: boolean, deps: Pic
   const row = ctx.db.playerAggroChallenge.identity.find(ctx.sender);
   const backup = ctx.db.prestigeChallengeBackup.identity.find(ctx.sender);
   if (!row?.active || !backup) throw new SenderError("No Aggro run is under way.");
+  // The saved run is read before anything changes: one that cannot be read
+  // refuses the drop-out, so the player stays in the run with it untouched.
+  const saved = savedMainRun(backup.progressJson);
+  if (!saved) throw new SenderError("Your saved run couldn't be loaded, so you're still in the Aggro run. Nothing was lost: report this with /bug.");
   writeRow(ctx, { identity: ctx.sender, active: false, completed: Math.min(AGGRO_CHALLENGE_LIMIT, row.completed + (won ? 1 : 0)) });
-  const progress = carryOwnership({ ...JSON.parse(backup.progressJson), identity: ctx.sender }, readPlayerProgress(ctx, ctx.sender));
+  const progress = carryOwnership({ ...saved, identity: ctx.sender }, readPlayerProgress(ctx, ctx.sender));
   updateSnapshotRow(ctx, "playerProgress", progress);
   writeEndless(ctx, ctx.sender, backup.completedEndless);
   ctx.db.prestigeChallengeBackup.identity.delete(ctx.sender);

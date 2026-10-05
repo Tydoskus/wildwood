@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.893": [
+    "Dropping out of a challenge checks your saved run loads first; if it can't, you stay in the run and nothing is lost",
+  ],
   "0.892": [
     "The Enemy Index lists every boss attack and its damage",
     "Endless maps have an Enemy Index sign too, with their boss",
@@ -2791,6 +2794,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.893": "2026-10-04",
   "0.892": "2026-10-04",
   "0.891": "2026-10-04",
   "0.890": "2026-10-04",

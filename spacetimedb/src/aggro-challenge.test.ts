@@ -108,3 +108,18 @@ it("switching between the challenges never loses the main run or the parked Refl
   expect(prestigePerkRanks(f.ctx, f.ctx.sender)).toEqual(f.ranks);
   clean();
 });
+
+it("refuses to drop out when the saved run can't be read, changing nothing", () => {
+  const f = fixture();
+  f.run(server.startAggroRun);
+  const backup = f.db.prestigeChallengeBackup.identity.find(f.ctx.sender);
+  for (const broken of ["not json", JSON.stringify({ maxHp: 0, damage: 1, armor: 0, regen: 0, attackRate: 1 }), JSON.stringify({ damage: 5 })]) {
+    f.db.prestigeChallengeBackup.identity.update({ ...backup, progressJson: broken });
+    expect(() => f.run(server.abandonAggroRun)).toThrow("still in the Aggro run");
+    expect(f.db.playerAggroChallenge.identity.find(f.ctx.sender).active).toBe(true);
+    expect(f.db.prestigeChallengeBackup.identity.find(f.ctx.sender).progressJson).toBe(broken);
+  }
+  f.db.prestigeChallengeBackup.identity.update(backup);
+  f.run(server.abandonAggroRun);
+  expect(f.db.playerProgress.identity.find(f.ctx.sender)).toEqual(f.saved);
+});
