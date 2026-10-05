@@ -159,3 +159,48 @@ it("stays on through an update, and comes back on after it", () => {
   expect(next.setVisible.mock.calls).toEqual([[true]]);
   expect(next.button.dataset.state).toBe("on");
 });
+
+it("eye on: idle only stops seeing others, and the player stays seen", () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance", "Date"] });
+  const { document } = parseHTML('<button></button>');
+  const button = document.querySelector("button") as unknown as HTMLButtonElement;
+  const setVisible = vi.fn(), setReceiving = vi.fn();
+  const toggle = createPlayerVisibilityToggle({ button, setVisible, setReceiving, storage: { getItem: () => "true", setItem: vi.fn() } });
+  expect(setVisible.mock.calls).toEqual([[true]]);
+  // Autofarming keeps them watching.
+  for (let i = 0; i < 6; i++) { vi.advanceTimersByTime(30_000); toggle.noteActivity(false, true); }
+  expect(setReceiving).not.toHaveBeenCalled();
+  vi.advanceTimersByTime(60_000);
+  expect(setReceiving).toHaveBeenLastCalledWith(false);
+  expect(setVisible.mock.calls).toEqual([[true]]);
+  vi.advanceTimersByTime(6_000);
+  toggle.noteActivity(true, false);
+  expect(setReceiving).toHaveBeenLastCalledWith(true);
+  toggle.dispose();
+});
+
+it("eye off: seen by others only while farming or standing still, never while walking", () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance", "Date"] });
+  const { document } = parseHTML('<button></button>');
+  const button = document.querySelector("button") as unknown as HTMLButtonElement;
+  const setShown = vi.fn();
+  const toggle = createPlayerVisibilityToggle({ button, setVisible: vi.fn(), setShown, storage: { getItem: () => "false", setItem: vi.fn() } });
+  toggle.noteActivity(true, false);
+  expect(setShown).not.toHaveBeenCalled();
+  toggle.noteActivity(false, true);
+  expect(setShown).toHaveBeenLastCalledWith(true);
+  toggle.noteActivity(true, false);
+  expect(setShown).toHaveBeenLastCalledWith(false);
+  vi.advanceTimersByTime(29_000);
+  toggle.noteActivity(false, false);
+  expect(setShown).toHaveBeenCalledTimes(2);
+  vi.advanceTimersByTime(1_000);
+  toggle.noteActivity(false, false);
+  expect(setShown).toHaveBeenLastCalledWith(true);
+  // Turning the eye on makes "shown" moot.
+  vi.advanceTimersByTime(6_000);
+  button.click();
+  toggle.noteActivity(false, false);
+  expect(setShown).toHaveBeenLastCalledWith(false);
+  toggle.dispose();
+});

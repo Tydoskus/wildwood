@@ -193,6 +193,7 @@ import SetOfflineProgressEnabledReducer from "./set_offline_progress_enabled_red
 import SetPlayerBlockedReducer from "./set_player_blocked_reducer";
 import SetPlayerMotionInterestReducer from "./set_player_motion_interest_reducer";
 import SetPlayerSpriteReducer from "./set_player_sprite_reducer";
+import SetPresenceReducer from "./set_presence_reducer";
 import SetProfileIconReducer from "./set_profile_icon_reducer";
 import SetReleaseWindowReducer from "./set_release_window_reducer";
 import SetSkinToneReducer from "./set_skin_tone_reducer";
@@ -1749,6 +1750,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_player_blocked", SetPlayerBlockedReducer),
   __reducerSchema("set_player_motion_interest", SetPlayerMotionInterestReducer),
   __reducerSchema("set_player_sprite", SetPlayerSpriteReducer),
+  __reducerSchema("set_presence", SetPresenceReducer),
   __reducerSchema("set_profile_icon", SetProfileIconReducer),
   __reducerSchema("set_release_window", SetReleaseWindowReducer),
   __reducerSchema("set_skin_tone", SetSkinToneReducer),

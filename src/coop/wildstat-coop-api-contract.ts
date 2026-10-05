@@ -163,6 +163,7 @@ type ExpectedApiKey =
   | "setAccessAuditLabel"
   | "setDeveloperPresence"
   | "setMultiplayerEnabled"
+  | "setPresenceShown"
   | "offlineProgressEnabled"
   | "setOfflineProgressEnabled"
   | "accountAudio"

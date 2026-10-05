@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.898.8": [
+    "With the eye on you see idle and autofarming players even if their eye is off",
+    "Eye off still means you see no one; others see you only while you stand still or autofarm",
+    "Idle with the eye on now just pauses other players after a minute, and you stay visible",
+  ],
   "0.898.7": [
     "Fixed the screen staying mostly black after switching apps on a phone, or after chat was open a long time",
     "Autofarming keeps you visible with the eye on; only standing still for 5 minutes switches it to Idle",
@@ -2845,6 +2850,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.898.8": "2026-10-04",
   "0.898.7": "2026-10-04",
   "0.898.6": "2026-10-04",
   "0.898.5": "2026-10-04",

@@ -390,10 +390,8 @@ const profileDirectory = createProfileDirectory({
 const multiplayerSync = createMultiplayerSync({
   session: () => connection?.isActive && hydrationReady && !protocolBlocked && !worldEntryBlocked
     && worldEntryGeneration === connectionGeneration ? connection : null,
-  send: enabled => {
-    const current = connection!;
-    return reducerPort.runWorldReducer(() => current.reducers.setMultiplayerEnabled({ enabled }));
-  },
+  send: enabled => { const current = connection!; return reducerPort.runWorldReducer(() => current.reducers.setMultiplayerEnabled({ enabled })); },
+  sendPresence: (enabled, shown) => { const current = connection!; return reducerPort.runWorldReducer(() => current.reducers.setPresence({ enabled, shown })); },
 });
 
 const developerService = createDeveloperService({
@@ -862,7 +860,7 @@ function connect() {
 
 export const wildstatCoop = {
   patreonSupporterNames: () => validSupporterNames(connection?.db.patreonTickerSupporters.iter() ?? []),
-  setMultiplayerEnabled: multiplayerSync.setEnabled,
+  setMultiplayerEnabled: multiplayerSync.setEnabled, setPresenceShown: multiplayerSync.setShown,
   host,
   databaseName,
   connect,

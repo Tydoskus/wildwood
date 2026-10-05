@@ -3,7 +3,7 @@ export const GAME_TIPS = [
   "From 1,000 armor onward, every thousandfold increase in armor halves damage taken.",
   "Base attack speed is capped at 2.62/s.",
   "A crossed-out eye keeps multiplayer off. Turn it on to see other players who also have it on.",
-  "With the eye on, 5 minutes without moving or autofarming switches it to Idle—even while chatting. Move to become visible again.",
+  "With the eye on, a minute without moving or autofarming pauses other players until you move; they still see you.",
   "You can use the Fight button to teleport back to where you were before coming Home.",
 ] as const;
 

@@ -515,7 +515,7 @@ import {
   const fullscreenMovement = createFullscreenMovementGate(visible => coop?.setRemotePlayersVisible(visible));
   const playerVisibility = createPlayerVisibilityToggle({
     button: gameElements.playerVisibilityToggle,
-    setVisible: visible => { coop?.setMultiplayerEnabled(visible); fullscreenMovement.setWanted(visible); }, storage: localStorage,
+    setVisible: visible => { coop?.setMultiplayerEnabled(visible); fullscreenMovement.setWanted(visible); }, setReceiving: on => fullscreenMovement.setWanted(on), setShown: shown => coop?.setPresenceShown?.(shown), storage: localStorage,
   });
   const farmUnavailable = () => {
     if (!farmUnlocked()) return "Defeat the Dragon to unlock autofarm";
@@ -1044,7 +1044,7 @@ import {
     movement: (dt) => {
       if (onboarding?.blocksInput()) return { x: 0, y: 0, source: "none" };
       const manual = playerInput.movement(dt);
-      if (manual.x || manual.y || autoFarm.targetType()) playerVisibility.noteManualMovement(); // An autofarmer stays visible: their puppet costs next to nothing.
+      playerVisibility.noteActivity(Boolean(manual.x || manual.y), Boolean(autoFarm.targetType()));
       return autoFarm.movement(manual, dt);
     },
     isMapTransitioning: () => mapController.isMapTransitioning(),

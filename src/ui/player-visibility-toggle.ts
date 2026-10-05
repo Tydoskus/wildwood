@@ -1,4 +1,4 @@
-import { installMultiplayerIdle } from "./multiplayer-idle";
+import { EYE_OFF_SHOWN_IDLE_MS, installMultiplayerIdle } from "./multiplayer-idle";
 import { MULTIPLAYER_TOGGLE_COOLDOWN_MS as COOLDOWN_MS } from "../../shared/multiplayer";
 
 const STORAGE_KEY = "wildstat-show-other-players";
@@ -19,8 +19,17 @@ const STORAGE_KEY = "wildstat-show-other-players";
 export function createPlayerVisibilityToggle(options: {
   button: HTMLButtonElement;
   setVisible: (visible: boolean) => void;
+  /**
+   * Idle stops only seeing others: an idle eye-on player stays seen. Without
+   * it (older callers), idle hides the player as the eye's off does.
+   */
+  setReceiving?: (receiving: boolean) => void;
+  /** Eye off: be seen anyway, by players with it on, while idle or autofarming. */
+  setShown?: (shown: boolean) => void;
   storage?: Pick<Storage, "getItem" | "setItem">;
 }) {
+  const setReceiving = options.setReceiving ?? options.setVisible;
+  let lastManualAt = performance.now(), shown = false;
   let stored: string | null = null;
   try { stored = options.storage?.getItem(STORAGE_KEY) ?? null; } catch { /* Storage may be unavailable. */ }
   let enabled = stored === "true";
@@ -36,7 +45,7 @@ export function createPlayerVisibilityToggle(options: {
   const idle = installMultiplayerIdle(options.button.ownerDocument, () => {
     visible = false;
     refresh();
-    options.setVisible(false);
+    setReceiving(false);
   });
   function refresh() {
     clearTimeout(timer);
@@ -67,6 +76,17 @@ export function createPlayerVisibilityToggle(options: {
   refresh();
   options.setVisible(visible);
   idle.setEnabled(visible);
+  function noteManualMovement() {
+    if (suspended || !enabled || options.button.ownerDocument.hidden) return;
+    if (!visible) {
+      // Only idle wakes automatically; explicit off stays off.
+      if (performance.now() < cooldownUntil) return;
+      visible = true;
+      idle.setEnabled(true);
+      cooldownUntil = performance.now() + COOLDOWN_MS;
+      refresh(); setReceiving(true);
+    } else idle.noteManualMovement();
+  }
   return {
     /**
      * An update is about to reload the page. The setting stays as it is, so
@@ -91,16 +111,19 @@ export function createPlayerVisibilityToggle(options: {
       refresh();
       options.setVisible(true);
     },
-    noteManualMovement() {
-      if (suspended || !enabled || options.button.ownerDocument.hidden) return;
-      if (!visible) {
-        // Only idle hiding wakes automatically; explicit off stays off.
-        if (performance.now() < cooldownUntil) return;
-        visible = true;
-        idle.setEnabled(true);
-        cooldownUntil = performance.now() + COOLDOWN_MS;
-        refresh(); options.setVisible(true);
-      } else idle.noteManualMovement();
+    noteManualMovement,
+    /**
+     * Each frame: whether the player steered by hand, and whether autofarm is
+     * farming. Eye on, either keeps them seeing others (only steering wakes an
+     * idle eye). Eye off, they are seen while farming or once they have stood
+     * still a while, and never while they walk: an eye-off player sends their
+     * position only every 30 seconds.
+     */
+    noteActivity(manual: boolean, farming: boolean) {
+      const now = performance.now();
+      if (manual) { lastManualAt = now; noteManualMovement(); } else if (farming && enabled && visible) idle.noteManualMovement();
+      const next = !enabled && !suspended && (farming || now - lastManualAt >= EYE_OFF_SHOWN_IDLE_MS);
+      if (next !== shown) { shown = next; options.setShown?.(next); }
     },
     dispose() { idle.dispose(); clearTimeout(timer); options.button.removeEventListener("click", click); },
   };

@@ -4152,12 +4152,16 @@ export const setDeveloperPresence = spacetimedb.reducer(
   },
 );
 
-export const setMultiplayerEnabled = spacetimedb.reducer({ enabled: t.bool() }, (ctx, { enabled }) => {
+export const setMultiplayerEnabled = spacetimedb.reducer({ enabled: t.bool() }, (ctx, { enabled }) => applyPresence(ctx, enabled, enabled));
+// The eye (`enabled`: see others, and be seen) and, with it off, whether to be seen anyway while idle or
+// autofarming (`shown`): a still or puppet player costs other players next to nothing (0.898.8).
+export const setPresence = spacetimedb.reducer({ enabled: t.bool(), shown: t.bool() }, (ctx, { enabled, shown }) => applyPresence(ctx, enabled, enabled || shown));
+function applyPresence(ctx: GameReducerContext, enabled: boolean, seen: boolean) {
   const player = requireControllingPlayer(ctx);
   writeMultiplayerPreference(ctx, enabled);
-  const visible = enabled && !needsOnboarding(ctx, ctx.sender) && (!isDeveloperIdentity(ctx.sender)
+  const visible = seen && !needsOnboarding(ctx, ctx.sender) && (!isDeveloperIdentity(ctx.sender)
     || (ctx.db.developerPresencePreference.identity.find(ctx.sender)?.visible ?? false));
-  if (!visible && ctx.db.playerMotionInterest.identity.find(ctx.sender)) ctx.db.playerMotionInterest.identity.delete(ctx.sender);
+  if ((!visible || !enabled) && ctx.db.playerMotionInterest.identity.find(ctx.sender)) ctx.db.playerMotionInterest.identity.delete(ctx.sender);
   if (player.isVisible === visible) return;
   const next = { ...playerWithMotion(ctx, player), isVisible: visible };
   updateSnapshotRow(ctx, "player", next);
@@ -4165,7 +4169,7 @@ export const setMultiplayerEnabled = spacetimedb.reducer({ enabled: t.bool() }, 
   syncPlayerMotionIdentity(ctx, next);
   syncPlayerMapMarker(ctx, next, true);
   ensureRealtimeFrameSchedules(ctx);
-});
+}
 
 // Kill gems: bodies live in kill-gems.ts; this is the schema-facing declaration.
 export const devGrantRetroactiveKillGems = spacetimedb.reducer({}, (ctx) => {

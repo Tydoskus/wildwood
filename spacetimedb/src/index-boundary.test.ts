@@ -188,7 +188,9 @@ import { describe, expect, it } from "vitest";
 // 6_576: the autofarm puppet table's import and registration, the
 // set_auto_farm_puppet declaration line, and its clear on leaving. Its rules
 // live in autofarm-puppet.ts.
-const MAX_LINES = 6_576;
+// 6_580: the set_presence declaration (the eye plus "seen while idle or
+// autofarming"), its comment, and the shared applyPresence wrapper lines.
+const MAX_LINES = 6_580;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

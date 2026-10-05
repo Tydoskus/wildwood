@@ -70,3 +70,14 @@ it("gives up a send that is never answered and sends the state again", async () 
   vi.advanceTimersByTime(1); sync.sync();
   expect(send.mock.calls).toEqual([[true], [true]]);
 });
+
+it("sends the eye and eye-off presence together, once per change", async () => {
+  const session = {};
+  const sendPresence = vi.fn(async () => {});
+  const sync = createMultiplayerSync({ session: () => session, send: vi.fn(), sendPresence });
+  sync.setEnabled(false); await settle();
+  sync.setShown(true); await settle();
+  sync.setShown(true); sync.sync(); await settle();
+  sync.setEnabled(true); await settle();
+  expect(sendPresence.mock.calls).toEqual([[false, false], [false, true], [true, true]]);
+});

@@ -1017,8 +1017,8 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     if (dependencies.reducers.protocolBlocked() || !connection || !Number.isFinite(x) || !Number.isFinite(y)) return;
     if (farm) {
       puppetSiteList = farm.sites;
-      // Only a visible player has a puppet; the eye off already sends checkpoints alone.
-      farmIntent = farm.group && dependencies.multiplayerEnabled?.() !== false ? { group: farm.group, camp: farm.camp ?? "" } : null;
+      // Eye on or off: an eye-off farmer is still seen, as a puppet, by players with it on.
+      farmIntent = farm.group ? { group: farm.group, camp: farm.camp ?? "" } : null;
     }
     localSimulationTick = (localSimulationTick + 1) >>> 0;
     // Kept in the public signature for the renderer boundary; presentation is

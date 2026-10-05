@@ -1,4 +1,6 @@
-export const MULTIPLAYER_IDLE_MS = 5 * 60_000;
+export const MULTIPLAYER_IDLE_MS = 60_000;
+/** With the eye off, a player standing still this long is shown to players with it on (they cost them nothing). */
+export const EYE_OFF_SHOWN_IDLE_MS = 30_000;
 
 /** Only manual gameplay movement renews this, independently of window subscriptions. */
 export function installMultiplayerIdle(doc: Document, expire: () => void) {

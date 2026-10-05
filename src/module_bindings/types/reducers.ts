@@ -165,6 +165,7 @@ import SetOfflineProgressEnabledReducer from "../set_offline_progress_enabled_re
 import SetPlayerBlockedReducer from "../set_player_blocked_reducer";
 import SetPlayerMotionInterestReducer from "../set_player_motion_interest_reducer";
 import SetPlayerSpriteReducer from "../set_player_sprite_reducer";
+import SetPresenceReducer from "../set_presence_reducer";
 import SetProfileIconReducer from "../set_profile_icon_reducer";
 import SetReleaseWindowReducer from "../set_release_window_reducer";
 import SetSkinToneReducer from "../set_skin_tone_reducer";
@@ -348,6 +349,7 @@ export type SetOfflineProgressEnabledParams = __Infer<typeof SetOfflineProgressE
 export type SetPlayerBlockedParams = __Infer<typeof SetPlayerBlockedReducer>;
 export type SetPlayerMotionInterestParams = __Infer<typeof SetPlayerMotionInterestReducer>;
 export type SetPlayerSpriteParams = __Infer<typeof SetPlayerSpriteReducer>;
+export type SetPresenceParams = __Infer<typeof SetPresenceReducer>;
 export type SetProfileIconParams = __Infer<typeof SetProfileIconReducer>;
 export type SetReleaseWindowParams = __Infer<typeof SetReleaseWindowReducer>;
 export type SetSkinToneParams = __Infer<typeof SetSkinToneReducer>;

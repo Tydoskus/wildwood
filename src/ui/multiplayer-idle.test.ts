@@ -17,7 +17,7 @@ function setup() {
   idle.setEnabled(true);
   return { idle, expire, input, document };
 }
-it("expires once after five minutes and stays off until manually enabled", () => {
+it("expires once after the idle time and stays off until manually enabled", () => {
   const s = setup();
   vi.advanceTimersByTime(MULTIPLAYER_IDLE_MS - 1);
   expect(s.expire).not.toHaveBeenCalled();
@@ -31,27 +31,27 @@ it("expires once after five minutes and stays off until manually enabled", () =>
 });
 it("renews only on manual movement, not chat scrolling or typing", () => {
   const s = setup();
-  vi.advanceTimersByTime(240_000);
+  vi.advanceTimersByTime(MULTIPLAYER_IDLE_MS * .8);
   s.idle.noteManualMovement();
-  vi.advanceTimersByTime(240_000);
+  vi.advanceTimersByTime(MULTIPLAYER_IDLE_MS * .8);
   expect(s.expire).not.toHaveBeenCalled();
   for (const type of ["wheel", "input", "keydown", "pointerdown", "pointermove", "touchmove"]) s.input(type);
-  vi.advanceTimersByTime(60_000);
+  vi.advanceTimersByTime(MULTIPLAYER_IDLE_MS * .2);
   expect(s.expire).toHaveBeenCalledOnce();
   s.idle.dispose();
 });
 it("keeps continuous manual movement active but ignores it while backgrounded", () => {
   const s = setup();
   for (let i = 0; i < 12; i++) {
-    vi.advanceTimersByTime(60_000);
+    vi.advanceTimersByTime(MULTIPLAYER_IDLE_MS * .5);
     s.idle.noteManualMovement();
   }
   expect(s.expire).not.toHaveBeenCalled();
   Object.defineProperty(s.document, "hidden", { value: true, configurable: true });
   s.document.dispatchEvent(new s.document.defaultView!.Event("visibilitychange"));
-  vi.advanceTimersByTime(240_000);
+  vi.advanceTimersByTime(MULTIPLAYER_IDLE_MS * .8);
   s.idle.noteManualMovement();
-  vi.advanceTimersByTime(60_000);
+  vi.advanceTimersByTime(MULTIPLAYER_IDLE_MS * .2);
   expect(s.expire).toHaveBeenCalledOnce();
   s.idle.dispose();
 });

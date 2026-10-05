@@ -7,12 +7,18 @@ import { MULTIPLAYER_TOGGLE_COOLDOWN_MS } from "../../../shared/multiplayer";
  */
 export const MULTIPLAYER_SEND_TIMEOUT_MS = 20_000;
 
-/** Coalesce eye changes; retry only dirty state, never poll the server. */
+/**
+ * Coalesce eye changes; retry only dirty state, never poll the server. With
+ * `sendPresence`, the eye travels with whether to be seen anyway while it is
+ * off (idle or autofarming), in one call, so the two can never cross.
+ */
 export function createMultiplayerSync(options: {
   session: () => object | null;
   send: (enabled: boolean) => Promise<unknown>;
+  sendPresence?: (enabled: boolean, shown: boolean) => Promise<unknown>;
 }) {
-  let wanted = false, acknowledged: boolean | undefined;
+  let wanted = false, shown = false, acknowledged: string | undefined;
+  const key = () => `${wanted}:${options.sendPresence ? shown : ""}`;
   let session: object | null = null, pending: object | null = null;
   let retryAt = 0, pendingSince = 0;
   function reset() { session = null; pending = null; acknowledged = undefined; retryAt = 0; }
@@ -20,10 +26,10 @@ export function createMultiplayerSync(options: {
     const current = options.session();
     if (current !== session) { reset(); session = current; }
     if (pending && Date.now() - pendingSince >= MULTIPLAYER_SEND_TIMEOUT_MS) pending = null;
-    if (!current || pending || acknowledged === wanted || Date.now() < retryAt) return;
-    const ticket = {}, value = wanted;
+    if (!current || pending || acknowledged === key() || Date.now() < retryAt) return;
+    const ticket = {}, value = key(), enabled = wanted, seen = shown;
     pending = ticket; pendingSince = Date.now();
-    void options.send(value).then(() => {
+    void (options.sendPresence ? options.sendPresence(enabled, seen) : options.send(enabled)).then(() => {
       if (pending !== ticket) return;
       // Release the send even when the session blipped while its answer was on
       // the way (a world re-entry briefly clears it): keeping it pending left
@@ -40,5 +46,7 @@ export function createMultiplayerSync(options: {
   }
   return { sync, reset, enabled: () => wanted,
     setEnabled(value: boolean) { wanted = value; sync(); },
+    /** Seen with the eye off: while idle or autofarming. Ignored with it on, which already shows the player. */
+    setShown(value: boolean) { shown = value; sync(); },
   };
 }
