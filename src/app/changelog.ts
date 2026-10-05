@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.899.6": [
+    "With Pull covering every group you farm, autofarm stands and fights instead of walking between camps",
+  ],
   "0.899.5": [
     "Removed a console warning about canvas reads",
   ],
@@ -2877,6 +2880,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.899.6": "2026-10-05",
   "0.899.5": "2026-10-05",
   "0.899.4": "2026-10-05",
   "0.899.3": "2026-10-05",

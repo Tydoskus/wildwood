@@ -109,6 +109,20 @@ export function createAutoFarmController(options: {
     pulled = new Set([...new Set(order)].slice(0, count)); pulledKey = key;
     return pulled;
   }
+  /**
+   * Pull brings every group it farms (the route's groups, or every camp Auto
+   * would farm): all of it comes to the player, so walking to camps or
+   * cycling between them only wastes time (Ryan). It stands and fights.
+   */
+  function pullCoversFarm() {
+    if (!pullAll || !active || manualControl || phase !== 'farm') return false;
+    const groups = plan.length ? planKeys() : autoOrder;
+    if (!groups.length) return false;
+    const pulledNow = pulledGroups();
+    return groups.every(group => pulledNow.has(group));
+  }
+  const pulledEnemy = (enemy: EnemyState) => !enemy.dead && !enemy.remoteCombatGhost && !enemy.generatedBoss && enemy.hp > 0 && pulledGroups().has(choiceKey(enemy));
+
   // An Aggro run's groups (aggro-picks.ts), read at most twice a second. A run always has its count:
   // picks this map lacks (or none yet) are filled from its other groups, in order, so nothing is left unchased.
   let forcedSet = new Set<string>(), forcedCheckedAt = -Infinity;
@@ -303,6 +317,8 @@ export function createAutoFarmController(options: {
 
   /** The camp to farm now: the player's route if they set one, otherwise Auto's pick. */
   function chooseCamp(dt: number) {
+    // Everything farmed is already coming: no camp to change to.
+    if (selected && plan.length && pullCoversFarm()) return;
     const all = choices();
     if (plan.length) {
       // A camp with respawns is never empty for long, so the route moves on
@@ -334,6 +350,7 @@ export function createAutoFarmController(options: {
       danger: options.campDanger?.(entry.key),
     })), evaluate, advance && Boolean(options.mapBoss?.()));
     autoOrder = ranked.map(entry => entry.key);
+    if (selected && autoOrder.includes(selected) && pullCoversFarm()) return;
     const key = pickRankedCandidate(ranked, selected);
     if (key) select(key);
   }
@@ -470,6 +487,19 @@ export function createAutoFarmController(options: {
     if (phase === 'farm' && !pullAll) for (const enemy of enemies) {
       if (!enemy.generatedBoss && isEnemyAttackingPlayer(enemy, options.localIdentity?.()) && (!threat || distance(enemy) < distance(threat))) threat = enemy;
     }
+    const reachAll = weaponAttackRange(options.equippedWeapon?.(), player.attackRange);
+    if (phase === 'farm' && pullCoversFarm()) {
+      const coming = enemies.some(pulledEnemy);
+      const inReach = enemies.some(enemy => pulledEnemy(enemy) && distance(enemy) <= reachAll + enemy.r);
+      pullWait = coming && !inReach ? pullWait + dt : 0;
+      if (!coming || inReach || pullWait < PULL_WAIT_SECONDS) {
+        holding = true; route = []; status = inReach ? 'Farming' : coming ? 'Pulling' : 'Waiting for respawn';
+        return idle();
+      }
+      // Nothing has reached it for a while (stuck, or out-ranging it): walk out to the nearest.
+      target = null;
+      for (const enemy of enemies) if (pulledEnemy(enemy) && (!target || distance(enemy) < distance(target))) target = enemy;
+    }
     // With the group on its way (pulled, or already chasing), stand and let it
     // come; walk out only if nothing has reached range for a few seconds
     // (stuck, or ranged). Waiting for `engaged` alone, it stepped out for a
@@ -567,6 +597,8 @@ export function createAutoFarmController(options: {
       status: active && !recovering && options.paused() ? 'Paused' : status }),
     /** The camp being farmed; null at the boss or on the way out, so the boss and anything in the way are fair game. */
     targetType: () => active && !manualControl && phase === 'farm' ? selectedType : null,
+    /** What combat aims at: the farmed camp, or, with every farmed group pulled, whatever is nearest. */
+    attackType: () => active && !manualControl && phase === 'farm' && !pullCoversFarm() ? selectedType : null,
     targetCamp: () => active && !manualControl && phase === 'farm' ? selectedCamp : null,
     advance: () => advance,
     setAdvance(next: boolean) {

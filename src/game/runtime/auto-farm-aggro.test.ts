@@ -63,6 +63,31 @@ describe('Aggro challenge on the client', () => {
     expect(s.farm.state().status).toBe('Pulling');
   });
 
+  it("with Pull covering every farmed group, it stands and fights instead of walking to camps or switching", () => {
+    const s = setup({ pullCamps: 2 });
+    const bramble = s.add('Bramble', 1500, 500, 'far'), needle = s.add('Needle', 500, 1500, 'needle');
+    s.farm.setPullAll(true);
+    s.farm.start([health, speed]);
+    const still = { x: 0, y: 0, source: 'none' as const };
+    expect(s.farm.movement(still, 1 / 60)).toMatchObject({ x: 0, y: 0 });
+    expect(s.farm.state().status).toBe('Pulling');
+    // Combat aims at whatever is nearest, not only the selected camp.
+    expect(s.farm.attackType()).toBeNull();
+    // A whole group dying does not send it to another camp.
+    const before = s.farm.state().selected;
+    bramble.dead = true;
+    for (let i = 0; i < 5; i++) s.farm.movement(still, 1 / 60);
+    expect(s.farm.state().selected).toBe(before);
+    expect(s.farm.movement(still, 1 / 60)).toMatchObject({ x: 0, y: 0 });
+    // One pulled group short of the route: it farms as before.
+    const t = setup({ pullCamps: 1 });
+    t.add('Bramble', 1500, 500, 'far'); t.add('Needle', 500, 1500, 'needle');
+    t.farm.setPullAll(true);
+    t.farm.start([health, speed]);
+    expect(t.farm.attackType()).toBe(health);
+    void needle;
+  });
+
   it("an Aggro run's picked groups chase from arrival, farming or not, and only those", () => {
     const s = setup({ forced: [health] });
     const kinds: EnemyKind[] = ['Bramble', 'Bramble', 'Needle', 'Mossback'];
