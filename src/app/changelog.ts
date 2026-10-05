@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.899.5": [
+    "Removed a console warning about canvas reads",
+  ],
   "0.899.4": [
     "Guild quest pool: members who haven't opened their quests this week no longer hold theirs, so others can collect them",
     "Without a guild bonus, every quest you did last week counts toward your personal bonus, guild quests too",
@@ -2874,6 +2877,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.899.5": "2026-10-05",
   "0.899.4": "2026-10-05",
   "0.899.3": "2026-10-05",
   "0.899.2": "2026-10-05",

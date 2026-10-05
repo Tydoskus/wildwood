@@ -29,18 +29,28 @@ export const LOST_GRACE_MS = 3_000;
 export const RELOAD_COOLDOWN_MS = 5 * 60_000;
 const RELOADED_AT_KEY = "wildstat:canvas-purge-reloaded-at";
 
-type SentinelContext = Pick<CanvasRenderingContext2D, "fillRect" | "getImageData"> & { fillStyle: unknown; isContextLost?: () => boolean };
-type SentinelCanvas = { width: number; height: number; getContext(type: "2d"): SentinelContext | null; addEventListener(type: string, listener: () => void): void };
+type SentinelContext = Pick<CanvasRenderingContext2D, "fillRect" | "getImageData" | "clearRect"> & { fillStyle: unknown; isContextLost?: () => boolean;
+  drawImage(image: unknown, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number): void };
+type SentinelCanvas = { width: number; height: number; getContext(type: "2d", options?: { willReadFrequently?: boolean }): SentinelContext | null;
+  addEventListener(type: string, listener: () => void): void };
+/** The patch of the sentinel copied out for a look. */
+const PROBE = 4;
 type SessionStore = Pick<Storage, "getItem" | "setItem">;
 
-/** A wiped canvas reads back as nothing at all; noise from fingerprinting guards never reads as all zeros everywhere. */
-function wiped(context: SentinelContext) {
+/**
+ * Whether the sentinel is wiped: a wiped canvas reads back as nothing at all,
+ * and noise from a fingerprinting guard never reads as all zeros. A patch of
+ * it is copied onto a tiny canvas kept for reading and read there: reading the
+ * sentinel itself drew Chrome's "multiple readback operations" warning, and
+ * marking it willReadFrequently would keep it off the GPU, where it is never
+ * wiped, which is the one thing it is there to notice.
+ */
+function wiped(sentinel: SentinelCanvas, probe: SentinelContext) {
   try {
-    for (const [x, y] of [[SENTINEL_SIZE / 4, SENTINEL_SIZE / 4], [SENTINEL_SIZE / 2, SENTINEL_SIZE / 2], [SENTINEL_SIZE * 3 / 4, SENTINEL_SIZE * 3 / 4]]) {
-      const data = context.getImageData(x, y, 1, 1).data;
-      if (data[0] || data[1] || data[2] || data[3]) return false;
-    }
-    return true;
+    probe.clearRect(0, 0, PROBE, PROBE);
+    const at = (SENTINEL_SIZE - PROBE) / 2;
+    probe.drawImage(sentinel, at, at, PROBE, PROBE, 0, 0, PROBE, PROBE);
+    return probe.getImageData(0, 0, PROBE, PROBE).data.every(channel => channel === 0);
   } catch { return false; }
 }
 
@@ -64,13 +74,17 @@ export function installCanvasPurgeRecovery(options: {
   if (!context) return { lost: () => false, recover: () => {} };
   context.fillStyle = "#ff00ff";
   context.fillRect(0, 0, SENTINEL_SIZE, SENTINEL_SIZE);
+  const probeCanvas = doc.createElement("canvas");
+  probeCanvas.width = probeCanvas.height = PROBE;
+  const probe = probeCanvas.getContext("2d", { willReadFrequently: true });
+  if (!probe) return { lost: () => false, recover: () => {} };
   // A browser or extension that blocks canvas reads hands back blank pixels from the start: its reads
   // prove nothing, so for this page only a lost game canvas counts (or it would reload on every return).
-  const readsTrusted = !wiped(context);
+  const readsTrusted = !wiped(sentinel, probe);
   const watched = (options.watch ?? []).map(canvas => canvas.getContext("2d")).filter(Boolean) as SentinelContext[];
   let reloading = false, watchedLostSince: number | null = null;
   const watchedLost = () => watched.some(watchedContext => watchedContext.isContextLost?.());
-  const lost = () => (watchedLostSince !== null && now() - watchedLostSince >= LOST_GRACE_MS) || (readsTrusted && wiped(context));
+  const lost = () => (watchedLostSince !== null && now() - watchedLostSince >= LOST_GRACE_MS) || (readsTrusted && wiped(sentinel, probe));
   const recentlyReloaded = () => {
     try { const at = Number(session()?.getItem(RELOADED_AT_KEY)); return Number.isFinite(at) && at > 0 && now() - at < RELOAD_COOLDOWN_MS; } catch { return false; }
   };

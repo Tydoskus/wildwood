@@ -6,7 +6,7 @@ afterEach(() => vi.useRealTimers());
 function page() {
   const listeners: Record<string, () => void> = {};
   let pixel = [255, 0, 255, 255];
-  const context: any = { fillStyle: "", fillRect() {}, getImageData: () => ({ data: pixel }), isContextLost: () => false };
+  const context: any = { fillStyle: "", fillRect() {}, clearRect() {}, drawImage() {}, getImageData: () => ({ data: pixel }), isContextLost: () => false };
   const doc: any = {
     hidden: false,
     addEventListener: (type: string, listener: () => void) => { listeners[type] = listener; },
