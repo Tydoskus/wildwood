@@ -6,11 +6,11 @@ import { aggroForcedCamps, aggroPullCamps } from '../../../shared/aggro-challeng
 import { ENEMY_TYPES, type EnemyKind } from '../enemies';
 import type { SpawnSite } from '../world';
 
-function setup(options: { pullCamps?: number; forced?: string[] } = {}) {
+function setup(options: { pullCamps?: number; forced?: string[]; needed?: number } = {}) {
   const state = createGameBootstrap();
   state.enemies.length = 0; state.spawnSites.length = 0;
   Object.assign(state.player, { x: 500, y: 500, attackRange: 200, speed: 300 });
-  let map = 'forest', now = 0, forced: string[] = options.forced ?? [];
+  let map = 'forest', now = 0, forced: { groups: string[]; needed: number } | null = options.forced ? { groups: options.forced, needed: options.needed ?? options.forced.length } : null;
   const lifecycle = createEnemyLifecycle(state.enemies, state.spawnSites, () => {});
   const add = (type: EnemyKind, x: number, y: number, campName: string) => {
     const site: SpawnSite = { id: state.spawnSites.length, type, x, y, campName, leashRange: 500, alive: false, respawnAt: 0 };
@@ -22,7 +22,7 @@ function setup(options: { pullCamps?: number; forced?: string[] } = {}) {
     speed: () => 300, obstacles: () => [], localIdentity: () => 'me', now: () => now,
     priorityStorage: () => ({ getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); }, removeItem: (key: string) => { values.delete(key); } }),
     pullCamps: () => options.pullCamps ?? 1, forcedGroups: () => forced });
-  return { ...state, farm, add, setMap: (value: string) => { map = value; }, advance: (ms: number) => { now += ms; }, setForced: (value: string[]) => { forced = value; } };
+  return { ...state, farm, add, setMap: (value: string) => { map = value; }, advance: (ms: number) => { now += ms; }, setForced: (value: string[] | null, needed = value?.length ?? 0) => { forced = value ? { groups: value, needed } : null; } };
 }
 const health = `stat:${ENEMY_TYPES.Bramble.reward.type}`, speed = `stat:${ENEMY_TYPES.Needle.reward.type}`;
 
@@ -56,8 +56,19 @@ describe('Aggro challenge on the client', () => {
     // A death keeps the picks: nothing is chosen at random.
     s.farm.defeated(); s.advance(1_000);
     expect(chased()).toEqual(['Bramble', 'Bramble', 'Needle']);
-    s.setForced([]); s.advance(1_000);
+    s.setForced(null); s.advance(1_000);
     expect(chased()).toEqual([]);
+  });
+
+  it("always chases with the run's full count: picks missing here, or none at all, are filled from this map's groups", () => {
+    const s = setup({ forced: [`stat:${ENEMY_TYPES.Spitter.reward.type}`], needed: 1 });
+    // No Spitters on this map: another group chases instead of none.
+    const enemies = (['Bramble', 'Needle'] as EnemyKind[]).map((type, index) => s.add(type, 600 + index * 300, 500, `${type}${index}`));
+    const chasing = () => enemies.filter(enemy => s.farm.forced(enemy)).length;
+    expect(chasing()).toBe(1);
+    // A picker left open with nothing picked still leaves the run's count chasing.
+    s.setForced([], 2); s.advance(1_000);
+    expect(chasing()).toBe(2);
   });
 
   it("saves the picks per account and asks for one more each run", async () => {
@@ -68,9 +79,9 @@ describe('Aggro challenge on the client', () => {
     expect(readAggroPicks('me', storage)).toEqual(['damage', 'regen']);
     expect(readAggroPicks('someone else', storage)).toEqual([]);
     expect([0, 1, 3].map(completed => aggroPicksNeeded({ active: false, completed }))).toEqual([1, 2, 4]);
-    expect(forcedAggroGroups({ active: false, completed: 0 }, 'me', storage)).toEqual([]);
-    expect(forcedAggroGroups({ active: true, completed: 0 }, 'me', storage)).toEqual(['stat:damage']);
-    expect(forcedAggroGroups({ active: true, completed: 1 }, 'me', storage)).toEqual(['stat:damage', 'stat:regen']);
+    expect(forcedAggroGroups({ active: false, completed: 0 }, 'me', storage)).toBeNull();
+    expect(forcedAggroGroups({ active: true, completed: 0 }, 'me', storage)).toEqual({ groups: ['stat:damage', 'stat:regen'], needed: 1 });
+    expect(forcedAggroGroups({ active: true, completed: 1 }, 'me', storage)).toEqual({ groups: ['stat:damage', 'stat:regen'], needed: 2 });
   });
 });
 

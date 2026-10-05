@@ -89,8 +89,8 @@ export function createAutoFarmController(options: {
   bossUnlocksNext?: () => boolean;
   /** How many picked camps (stat groups) Pull aggroes at once: one, one more per Aggro win, and none during a run. */
   pullCamps?: () => number;
-  /** During an Aggro run: the stat groups the player picked, which chase them on every map, farming or not. */
-  forcedGroups?: () => readonly string[];
+  /** During an Aggro run: the stat groups the player picked and how many must chase them on every map, farming or not. */
+  forcedGroups?: () => { groups: readonly string[]; needed: number } | null;
 }) {
   let priority: AutoFarmPriority = readAutoFarmPriority(options.priorityStorage);
   // A camp is a stat group: every enemy on the map paying one stat, as the panel offers them.
@@ -105,14 +105,19 @@ export function createAutoFarmController(options: {
     pulled = new Set([...new Set(order)].slice(0, count)); pulledKey = key;
     return pulled;
   }
-  // An Aggro run's groups: the ones the player picked (aggro-picks.ts), read at most twice a second.
+  // An Aggro run's groups (aggro-picks.ts), read at most twice a second. A run always has its count:
+  // picks this map lacks (or none yet) are filled from its other groups, in order, so nothing is left unchased.
   let forcedSet = new Set<string>(), forcedCheckedAt = -Infinity;
   function forcedGroups() {
     const at = now();
     if (at - forcedCheckedAt < 500) return forcedSet;
     forcedCheckedAt = at;
-    const groups = options.forcedGroups?.() ?? [];
-    if (groups.length !== forcedSet.size || groups.some(group => !forcedSet.has(group))) forcedSet = new Set(groups);
+    const forced = options.forcedGroups?.();
+    if (!forced) { if (forcedSet.size) forcedSet = new Set(); return forcedSet; }
+    const here: string[] = [...new Set(spawnSites.map(site => choiceKey(site)))];
+    const chosen = forced.groups.filter(group => here.includes(group)).slice(0, forced.needed);
+    for (const group of here) if (chosen.length < forced.needed && !chosen.includes(group)) chosen.push(group);
+    if (chosen.length !== forcedSet.size || chosen.some(group => !forcedSet.has(group))) forcedSet = new Set(chosen);
     return forcedSet;
   }
   let pullAll = readAutoFarmPull(options.priorityStorage);

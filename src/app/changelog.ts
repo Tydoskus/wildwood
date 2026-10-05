@@ -4,6 +4,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "Browse maps in the map with the arrows: back to any map, forward to one past your furthest",
     "Map window cleaned up: larger text, one map at a time, and the same phone-width layout on desktop",
     "The minimap's ? has no circle behind it",
+    "An Aggro run always has its chasing groups: the picker changes them only on Done, and any shortfall is filled from the map's groups",
     "The Enemy Index sign is gone from the maps",
   ],
   "0.896": [

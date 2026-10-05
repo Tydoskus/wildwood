@@ -45,7 +45,12 @@ export function togglePick(picks: readonly RewardType[], group: RewardType, need
   return [...picks, group].slice(-needed);
 }
 
-/** The autofarm groups that chase the player now: the picks during a run, none outside one. */
+/**
+ * What chases the player now: during a run, the saved picks as autofarm
+ * groups and how many the run needs (autofarm fills any shortfall from the
+ * map's other groups); outside a run, nothing.
+ */
 export function forcedAggroGroups(challenge: AggroChallenge | null | undefined, identity: string | undefined, storage?: () => Storage | undefined) {
-  return challenge?.active ? readAggroPicks(identity, storage).slice(0, aggroPicksNeeded(challenge)).map(farmStatGroup) : [];
+  if (!challenge?.active) return null;
+  return { groups: readAggroPicks(identity, storage).map(farmStatGroup) as string[], needed: aggroPicksNeeded(challenge) };
 }

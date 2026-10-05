@@ -47,3 +47,17 @@ it("offers only this map's groups, and asks again when a pick is missing here", 
   expect(prompt.isOpen()).toBe(false);
   expect(prompt.lacking(1, here)).toBe(false);
 });
+
+it("changes nothing that chases the player until Done: unpicking everything and leaving it open is not a way out", () => {
+  const { document } = parseHTML("<html><body></body></html>");
+  let picks: RewardType[] = ["damage"];
+  const prompt = createAggroPickPrompt(document as unknown as Document, { picks: () => picks, setPicks: next => { picks = next; } });
+  prompt.open(1);
+  const chip = (label: string) => [...document.querySelectorAll(".aggro-pick")].find(element => element.textContent === label) as unknown as HTMLButtonElement;
+  chip("Damage").click();
+  expect(picks).toEqual(["damage"]);
+  expect((document.querySelector(".aggro-pick-done") as unknown as HTMLButtonElement).disabled).toBe(true);
+  chip("Regen").click();
+  (document.querySelector(".aggro-pick-done") as unknown as HTMLButtonElement).click();
+  expect(picks).toEqual(["regen"]);
+});

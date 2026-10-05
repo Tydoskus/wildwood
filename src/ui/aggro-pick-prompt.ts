@@ -10,11 +10,13 @@ import { REWARD_DATA, type RewardType } from "../game/enemies";
  */
 export function createAggroPickPrompt(doc: Document, deps: { picks: () => RewardType[]; setPicks: (picks: RewardType[]) => void }) {
   let overlay: HTMLElement | null = null, needed = 1, available: readonly RewardType[] = AGGRO_GROUPS;
+  // Taps change a draft; the saved picks (what chases the player) change only on Done, with the full count.
+  let draft: RewardType[] = [];
   let label: HTMLElement, done: HTMLButtonElement;
   const chips = new Map<RewardType, HTMLButtonElement>();
 
   // The picks this map can honour: those it has, in pick order.
-  const here = () => deps.picks().filter(pick => available.includes(pick)).slice(0, needed);
+  const here = () => draft.filter(pick => available.includes(pick)).slice(0, needed);
   function render() {
     const picks = here();
     label.textContent = `Pick ${needed} ${needed === 1 ? "group" : "groups"} to chase you (${picks.length}/${needed})`;
@@ -47,7 +49,7 @@ export function createAggroPickPrompt(doc: Document, deps: { picks: () => Reward
       chip.className = "aggro-pick";
       chip.textContent = AGGRO_GROUP_LABELS[group];
       chip.style.setProperty("--pick-color", REWARD_DATA[group].color);
-      chip.addEventListener("click", () => { deps.setPicks(togglePick(here(), group, needed, false)); render(); });
+      chip.addEventListener("click", () => { draft = togglePick(here(), group, needed, false); render(); });
       chips.set(group, chip);
       box.append(chip);
     }
@@ -66,6 +68,7 @@ export function createAggroPickPrompt(doc: Document, deps: { picks: () => Reward
       if (!overlay) build();
       available = AGGRO_GROUPS.filter(group => groups.includes(group));
       needed = Math.max(1, Math.min(count, available.length));
+      draft = deps.picks();
       render();
       overlay!.hidden = false;
       chips.get(available[0])?.focus();
