@@ -4785,3 +4785,4 @@ html.text-outline-shadow .death-countdown { text-shadow: var(--text-outline-ring
 .aggro-pick[aria-pressed="true"] { background: var(--pick-color); color: #10140f; }
 .aggro-pick:disabled { cursor: default; }
 .aggro-pick:disabled:not([aria-pressed="true"]) { opacity: .45; }
+.aggro-picks-label.is-needed { color: #ffb347; }

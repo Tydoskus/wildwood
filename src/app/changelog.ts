@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.895": [
+    "Aggro runs started before picks existed can pick their chasing groups now (Profile, Prestige, Challenge); until then nothing chases you",
+  ],
   "0.894": [
     "Dropping out of Aggro keeps your run: Drop back in picks it up. Only dying starts it over",
     "Pick which groups chase you in Aggro, one more each run; your picks are saved",
@@ -2800,6 +2803,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.895": "2026-10-04",
   "0.894": "2026-10-04",
   "0.893": "2026-10-04",
   "0.892": "2026-10-04",

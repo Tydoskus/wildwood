@@ -58,8 +58,10 @@ export function createAggroChallengePanel(d: {
     chip.style.setProperty("--pick-color", REWARD_DATA[group].color);
     chip.addEventListener("click", () => {
       const current = d.state();
-      if (current.active || chip.disabled) return;
+      if (chip.disabled) return;
       const picks = d.picks(), needed = aggroForcedCamps({ active: true, completed: current.completed });
+      // During a run picks only fill missing places; one already chosen stays.
+      if (current.active && (picks.includes(group) || picks.length >= needed)) return;
       if (picks.includes(group)) d.setPicks(picks.filter(pick => pick !== group));
       // Full: the newest pick replaces the oldest, so a tap always does something.
       else d.setPicks([...picks, group].slice(-needed));
@@ -86,11 +88,14 @@ export function createAggroChallengePanel(d: {
     rule.textContent = done ? "" : `On every map, ${chasing === 1 ? "the group you pick chases" : `the ${chasing} groups you pick chase`} you from the moment you arrive. Dying starts the run over.`;
     picksBox.hidden = done;
     const chosen = picks.slice(0, chasing);
-    pickLabel.textContent = current.active ? `Chasing you: ${chosen.map(pick => GROUP_LABELS[pick]).join(", ") || "none picked"}`
+    // A run started before picks existed has none: it may fill them, then they lock.
+    const filling = current.active && chosen.length < chasing;
+    pickLabel.textContent = current.active && !filling ? `Chasing you: ${chosen.map(pick => GROUP_LABELS[pick]).join(", ")}`
       : `Pick ${chasing} ${chasing === 1 ? "group" : "groups"} to chase you (${Math.min(picks.length, chasing)}/${chasing})`;
+    pickLabel.classList.toggle("is-needed", filling);
     for (const [group, chip] of chipFor) {
       chip.setAttribute("aria-pressed", String(chosen.includes(group)));
-      chip.disabled = current.active || pending;
+      chip.disabled = pending || (current.active && (!filling || chosen.includes(group)));
     }
     const lines = done ? [] : current.active
       ? ["No prestige bonuses this run: stat gain, perks and challenge rewards are off. Autofarm's Pull is off too.",

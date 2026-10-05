@@ -6,7 +6,7 @@ import { createPrestigeChallengePanel, installPrestigeTabs } from "./prestige-ch
 import { gameConfirm } from "./confirm-dialog";
 import { challengeWinReached, reflectOnlyWinNotice } from "./prestige-challenge-win";
 import { createAggroChallengePanel } from "./aggro-challenge-panel";
-import { readAggroPicks, writeAggroPicks } from "../game/runtime/aggro-picks";
+import { aggroPicksNeeded, readAggroPicks, writeAggroPicks } from "../game/runtime/aggro-picks";
 import { AGGRO_CHALLENGE_LIMIT, aggroGoal, aggroPullCamps } from "../../shared/aggro-challenge";
 
 /** Compose the shared launch notice, map label and account prestige controls. */
@@ -22,6 +22,8 @@ export function createPrestigeExpansionRuntime(d: {
   let lastChallenge: { identity: string; active: boolean; completed: number } | null = null;
   let aggroPanel: ReturnType<typeof createAggroChallengePanel> | undefined;
   let lastAggro: { identity: string; active: boolean; completed: number } | null = null;
+  // Runs started before picks existed have none, so nothing chases them: say so once a session.
+  let missingPicksToldFor = "";
   // Each challenge locks the other while it runs, so a start or drop-out on
   // one card redraws both: the other card has no tick of its own while the
   // window is open, and kept saying "Finish Aggro first" after a drop-out.
@@ -39,6 +41,11 @@ export function createPrestigeExpansionRuntime(d: {
       challengePanel?.render();
       aggroPanel?.render();
       const aggro = coop?.aggroChallenge?.(), who = coop?.localIdentity?.() ?? "";
+      if (aggro?.active && who && d.started() && missingPicksToldFor !== who && readAggroPicks(who).length < aggroPicksNeeded(aggro)) {
+        missingPicksToldFor = who;
+        void gameConfirm({ message: "Your Aggro run has no chasing groups picked yet, so nothing chases you. Pick them on the Aggro card: Profile, Prestige, Challenge.",
+          confirmLabel: "OK", cancelLabel: "" });
+      }
       if (aggro) {
         const next = { identity: who, active: Boolean(aggro.active), completed: aggro.completed ?? 0 };
         if (challengeWinReached(lastAggro, next)) void gameConfirm({ message: "Aggro complete!", details: [
