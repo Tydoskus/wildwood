@@ -127,6 +127,39 @@ describe("Boss area knockback", () => {
   }
 });
 
+describe("Boss attacks on regular enemies", () => {
+  for (const bossCase of areaKnockbackBosses) {
+    it(`${bossCase.name} also hits an enemy standing where the player is`, () => {
+      const struck: { attack: object; amount: number }[] = [];
+      const harness: BossHarness = createFrostclawHarness({
+        damageEnemies: (attack, amount, inside) => { if (inside(harness.player.x, harness.player.y, 20)) struck.push({ attack, amount }); },
+      });
+      const bossState = bossCase.state(harness);
+      bossState.attackClock = 0;
+      harness.player.x = bossState.x + 300;
+      harness.player.y = bossState.y;
+      for (let frame = 0; frame < 60 && harness.damagePlayer.mock.calls.length === 0; frame += 1) bossCase.update(harness);
+      expect(harness.damagePlayer).toHaveBeenCalledOnce();
+      expect(struck.length).toBeGreaterThan(0);
+      expect(struck[0].amount).toBe((harness.damagePlayer.mock.calls[0] as unknown as [number])[0]);
+    });
+  }
+
+  it("lands hazards on enemies inside them", () => {
+    const struck: number[] = [];
+    const harness: BossHarness = createFrostclawHarness({
+      currentMapId: () => ADVANCED_LAVA_WASTES_MAP_ID,
+      damageEnemies: (_attack, amount, inside) => { if (inside(harness.bossHazards.magmalisk[0]?.x ?? 0, harness.bossHazards.magmalisk[0]?.y ?? 0, 20)) struck.push(amount); },
+    });
+    const ground = harness.bossHazards.magmalisk;
+    ground.push({ x: 500, y: 500, r: 60, timer: .01, maxTimer: 1 }, { x: 900, y: 900, r: 60, timer: .01, maxTimer: 1 });
+    harness.bosses.magmalisk.attackClock = 99;
+    harness.controller.byKind.magmalisk.update(.05);
+    expect(ground).toHaveLength(0);
+    expect(struck.length).toBeGreaterThan(0);
+  });
+});
+
 describe("Boss defeat presentation", () => {
   it("pays participants through the stat reward popups alone", () => {
     type FakeElement = {

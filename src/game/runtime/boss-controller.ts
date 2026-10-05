@@ -357,6 +357,8 @@ export function createBossController(options: {
   portalCutscenes: Partial<Record<BossKind, PortalCutscene>>;
   spawnBurst: (x: number, y: number, color: string, count: number, speed: number) => void;
   damagePlayer: (amount: number) => boolean;
+  /** Lands an attack on the regular enemies inside it, once each; kills pay nothing. */
+  damageEnemies?: (attack: object, amount: number, inside: (x: number, y: number, r: number) => boolean) => void;
   logPickup: (text: string, color: string, baseText?: string) => void;
   saveProgress: () => void;
   healthMultiplierBonus?: () => number;
@@ -364,6 +366,7 @@ export function createBossController(options: {
   displayRewardAmount?: (type: RewardType, baseAmount: number) => number;
 }): BossController {
   const { bosses, hazards, player, localIdentity, running, portalCutsceneActive, spawnBurst, damagePlayer, logPickup, saveProgress } = options;
+  const hitEnemies = options.damageEnemies ?? (() => {});
   const boss = bosses.dragon;
   const bossRain = hazards.dragon;
   const spiderBoss = bosses.spider;
@@ -737,6 +740,19 @@ export function createBossController(options: {
     };
   }
 
+  /**
+   * Whether a point is on a sweep's front this frame: between the radii (give
+   * or take `reach`) and, for a cone, within `halfAngle` of its aim.
+   */
+  function onSweep(x: number, y: number, centre: { x: number; y: number }, minRadius: number, maxRadius: number, reach: number, aim?: { angle: number; halfAngle: number }) {
+    const dx = x - centre.x, dy = y - centre.y;
+    const distance = Math.hypot(dx, dy) || 1;
+    if (distance < minRadius - reach || distance > maxRadius + reach) return false;
+    if (!aim) return true;
+    const delta = Math.atan2(dy, dx) - aim.angle;
+    return Math.abs(Math.atan2(Math.sin(delta), Math.cos(delta))) <= aim.halfAngle;
+  }
+
   function startSeededHazards(
     kind: BossKind,
     spec: SeededHazards,
@@ -783,9 +799,9 @@ export function createBossController(options: {
       const hazard = ground[index];
       hazard.timer -= dt;
       if (hazard.timer > 0) continue;
-      const dx = player.x - hazard.x;
-      const dy = player.y - hazard.y;
-      if (dx * dx + dy * dy <= hazard.r * hazard.r) damagePlayer(damage());
+      const inside = (x: number, y: number) => (x - hazard.x) ** 2 + (y - hazard.y) ** 2 <= hazard.r * hazard.r;
+      if (inside(player.x, player.y)) damagePlayer(damage());
+      hitEnemies(hazard, damage(), inside);
       spawnBurst(hazard.x, hazard.y, ...burst);
       ground.splice(index, 1);
     }
@@ -825,12 +841,10 @@ export function createBossController(options: {
       const progress = clamp(1 - cone.timer / cone.duration, 0, 1);
       const minRadius = boss.r + (BOSS_CONE_RANGE - boss.r) * previousProgress;
       const maxRadius = boss.r + (BOSS_CONE_RANGE - boss.r) * progress;
+      const inCone = (x: number, y: number) => onSweep(x, y, boss, minRadius, maxRadius, 34, { angle: cone.angle, halfAngle: BOSS_CONE_HALF_ANGLE });
+      hitEnemies(cone, BOSS_DAMAGE_PROFILES.dragon.cone, inCone);
       if (!cone.hitPlayer) {
-        const dx = player.x - boss.x;
-        const dy = player.y - boss.y;
-        const distance = Math.hypot(dx, dy) || 1;
-        const angleDelta = Math.atan2(Math.sin(Math.atan2(dy, dx) - cone.angle), Math.cos(Math.atan2(dy, dx) - cone.angle));
-        if (distance >= minRadius - 34 && distance <= maxRadius + 34 && Math.abs(angleDelta) <= BOSS_CONE_HALF_ANGLE) {
+        if (inCone(player.x, player.y)) {
           cone.hitPlayer = true;
           damagePlayer(BOSS_DAMAGE_PROFILES.dragon.cone);
           queueBossAreaKnockback(boss.x, boss.y, BOSS_CONE_RANGE, boss.r);
@@ -888,8 +902,9 @@ export function createBossController(options: {
       const progress = clamp(1 - web.timer / web.duration, 0, 1);
       const minRadius = spiderBoss.r + (SPIDER_WEB_RANGE - spiderBoss.r) * previousProgress;
       const maxRadius = spiderBoss.r + (SPIDER_WEB_RANGE - spiderBoss.r) * progress;
-      const distance = Math.hypot(player.x - spiderBoss.x, player.y - spiderBoss.y);
-      if (!web.hitPlayer && distance >= minRadius - 30 && distance <= maxRadius + 30) {
+      const onWeb = (x: number, y: number) => onSweep(x, y, spiderBoss, minRadius, maxRadius, 30);
+      hitEnemies(web, BOSS_DAMAGE_PROFILES.spider.web, onWeb);
+      if (!web.hitPlayer && onWeb(player.x, player.y)) {
         web.hitPlayer = true;
         damagePlayer(BOSS_DAMAGE_PROFILES.spider.web);
         queueBossAreaKnockback(spiderBoss.x, spiderBoss.y, SPIDER_WEB_RANGE, spiderBoss.r);
@@ -962,11 +977,10 @@ export function createBossController(options: {
       const progress = clamp(1 - roar.timer / roar.duration, 0, 1);
       const minRadius = frostclawBoss.r + (FROSTCLAW_ROAR_RANGE - frostclawBoss.r) * previousProgress;
       const maxRadius = frostclawBoss.r + (FROSTCLAW_ROAR_RANGE - frostclawBoss.r) * progress;
+      const inRoar = (x: number, y: number) => onSweep(x, y, frostclawBoss, minRadius, maxRadius, 38);
+      hitEnemies(roar, BOSS_DAMAGE_PROFILES.frostclaw.roar, inRoar);
       if (!roar.hitPlayer) {
-        const dx = player.x - frostclawBoss.x;
-        const dy = player.y - frostclawBoss.y;
-        const distance = Math.hypot(dx, dy) || 1;
-        if (distance >= minRadius - 38 && distance <= maxRadius + 38) {
+        if (inRoar(player.x, player.y)) {
           roar.hitPlayer = true;
           damagePlayer(BOSS_DAMAGE_PROFILES.frostclaw.roar);
           queueBossAreaKnockback(frostclawBoss.x, frostclawBoss.y, FROSTCLAW_ROAR_RANGE, frostclawBoss.r);
@@ -991,19 +1005,20 @@ export function createBossController(options: {
       const progress = clamp(1 - rift.timer / rift.duration, 0, 1);
       const minRadius = frostclawBoss.r + (FROSTCLAW_RIFT_RANGE - frostclawBoss.r) * previousProgress;
       const maxRadius = frostclawBoss.r + (FROSTCLAW_RIFT_RANGE - frostclawBoss.r) * progress;
-      if (!rift.hitPlayer) {
-        const dx = player.x - frostclawBoss.x;
-        const dy = player.y - frostclawBoss.y;
+      // Three prongs, each a little wider for whoever is nearer the boss.
+      const inRift = (x: number, y: number) => {
+        const dx = x - frostclawBoss.x;
+        const dy = y - frostclawBoss.y;
         const distance = Math.hypot(dx, dy) || 1;
-        const playerAngle = Math.atan2(dy, dx);
-        const inRift = [-.28, 0, .28].some((offset) => {
-          const angleDelta = Math.atan2(
-            Math.sin(playerAngle - rift.angle - offset),
-            Math.cos(playerAngle - rift.angle - offset),
-          );
+        const angle = Math.atan2(dy, dx);
+        return distance >= minRadius - 32 && distance <= maxRadius + 32 && [-.28, 0, .28].some((offset) => {
+          const angleDelta = Math.atan2(Math.sin(angle - rift.angle - offset), Math.cos(angle - rift.angle - offset));
           return Math.abs(angleDelta) <= FROSTCLAW_RIFT_HALF_ANGLE + 24 / distance;
         });
-        if (inRift && distance >= minRadius - 32 && distance <= maxRadius + 32) {
+      };
+      hitEnemies(rift, BOSS_DAMAGE_PROFILES.frostclaw.rift, inRift);
+      if (!rift.hitPlayer) {
+        if (inRift(player.x, player.y)) {
           rift.hitPlayer = true;
           damagePlayer(BOSS_DAMAGE_PROFILES.frostclaw.rift);
           spawnBurst(player.x, player.y, "#71dfff", 26, 220);
@@ -1183,15 +1198,10 @@ export function createBossController(options: {
       const progress = clamp(1 - cone.timer / cone.duration, 0, 1);
       const minRadius = state.r + (range - state.r) * previousProgress;
       const maxRadius = state.r + (range - state.r) * progress;
+      const inCone = (x: number, y: number) => onSweep(x, y, state, minRadius, maxRadius, rules.cone.reach, { angle: cone.angle, halfAngle: rules.cone.halfAngle });
+      hitEnemies(cone, damageFor(kind, rules.cone.ability), inCone);
       if (!cone.hitPlayer) {
-        const dx = player.x - state.x;
-        const dy = player.y - state.y;
-        const distance = Math.hypot(dx, dy) || 1;
-        const angleDelta = Math.atan2(
-          Math.sin(Math.atan2(dy, dx) - cone.angle),
-          Math.cos(Math.atan2(dy, dx) - cone.angle),
-        );
-        if (distance >= minRadius - rules.cone.reach && distance <= maxRadius + rules.cone.reach && Math.abs(angleDelta) <= rules.cone.halfAngle) {
+        if (inCone(player.x, player.y)) {
           cone.hitPlayer = true;
           damagePlayer(damageFor(kind, rules.cone.ability));
           queueBossAreaKnockback(state.x, state.y, range, state.r);
@@ -1313,7 +1323,9 @@ export function createBossController(options: {
     for (let index = pulses.length - 1; index >= 0; index--) {
       const pulse = pulses[index], previous = pulse.maxTimer - pulse.timer;
       pulse.timer -= dt;
-      if (!pulse.hitPlayer && rules.pulses.hits(Math.hypot(player.x - pulse.x, player.y - pulse.y), previous, pulse.maxTimer - pulse.timer, player.r)) {
+      const now = pulse.maxTimer - pulse.timer;
+      hitEnemies(pulse, BOSS_DAMAGE_PROFILES[kind].crystalBurst, (x, y, r) => rules.pulses.hits(Math.hypot(x - pulse.x, y - pulse.y), previous, now, r));
+      if (!pulse.hitPlayer && rules.pulses.hits(Math.hypot(player.x - pulse.x, player.y - pulse.y), previous, now, player.r)) {
         pulse.hitPlayer = true; damagePlayer(BOSS_DAMAGE_PROFILES[kind].crystalBurst);
         spawnBurst(player.x, player.y, rules.pulses.hitColor, 24, 210);
       }
@@ -1326,16 +1338,13 @@ export function createBossController(options: {
       if (activeDt > 0) {
         const previousProgress = clamp(1 - laser.timer / laser.duration, 0, 1);
         laser.timer -= activeDt;
-        let onFront = true;
-        if (rules.laser.front) {
-          const progress = clamp(1 - laser.timer / laser.duration, 0, 1);
-          const span = rules.laser.front.range - rules.laser.front.innerRange;
-          const minRadius = rules.laser.front.innerRange + span * previousProgress;
-          const maxRadius = rules.laser.front.innerRange + span * progress;
-          const distance = Math.hypot(player.x - state.x, player.y - state.y);
-          onFront = distance >= minRadius - 42 && distance <= maxRadius + 42;
-        }
-        if (!laser.hitPlayer && onFront && rules.laser.hits(player.x - state.x, player.y - state.y, laser.angle, player.r)) {
+        const front = rules.laser.front;
+        const progress = clamp(1 - laser.timer / laser.duration, 0, 1);
+        const span = front ? front.range - front.innerRange : 0;
+        const inLaser = (x: number, y: number, r: number) => (!front || onSweep(x, y, state,
+          front.innerRange + span * previousProgress, front.innerRange + span * progress, 42)) && rules.laser.hits(x - state.x, y - state.y, laser.angle, r);
+        hitEnemies(laser, BOSS_DAMAGE_PROFILES[kind].shatter, inLaser);
+        if (!laser.hitPlayer && inLaser(player.x, player.y, player.r)) {
           laser.hitPlayer = true; damagePlayer(BOSS_DAMAGE_PROFILES[kind].shatter);
           spawnBurst(player.x, player.y, "#56f7ff", 24, 240);
         }

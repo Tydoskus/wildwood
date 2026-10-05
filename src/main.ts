@@ -568,7 +568,7 @@ import {
   const proceduralBoss = createProceduralBossController({
     mapId: () => currentMapId, state: mapId => ({ ...coop?.proceduralMapState(), boss: personalBosses.proceduralState(mapId) }),
     enemies, player, spawn: spawnFromSite,
-    damagePlayer: (damage, source) => playerCombat.damagePlayer(damage, source), burst: spawnBurst, shot: projectileStore.spawnEnemyShot,
+    damagePlayer: (damage, source) => playerCombat.damagePlayer(damage, source), damageEnemies: (attack, amount, inside) => playerCombat.damageEnemiesFromBoss(attack, amount, inside), burst: spawnBurst, shot: projectileStore.spawnEnemyShot,
   });
   const enemySimulation = createEnemySimulation(
     enemies,
@@ -833,7 +833,7 @@ import {
       tidewyrm: { seen: worldProgression.hasSeenSamuraiPortalCutscene, start: startSamuraiPortalCutscene },
     },
     spawnBurst,
-    damagePlayer: (amount) => playerCombat.damagePlayerFromBoss(amount),
+    damagePlayer: (amount) => playerCombat.damagePlayerFromBoss(amount), damageEnemies: (attack, amount, inside) => playerCombat.damageEnemiesFromBoss(attack, amount, inside),
     logPickup,
     saveProgress,
     healthMultiplierBonus,

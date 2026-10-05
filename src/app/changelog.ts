@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.898.2": [
+    "Boss attacks hit regular enemies too; enemies a boss kills give no rewards",
+  ],
   "0.898.1": [
     "Guild quests cap at 300 a week for every guild, not 15 per member",
     "Extra quests a guildmate collects never stop your own quests from counting",
@@ -2825,6 +2828,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.898.2": "2026-10-04",
   "0.898.1": "2026-10-04",
   "0.898": "2026-10-04",
   "0.897": "2026-10-04",

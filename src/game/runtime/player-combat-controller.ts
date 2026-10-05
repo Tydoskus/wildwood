@@ -79,6 +79,8 @@ export type PlayerCombatController = {
   damagePlayer: (amount: number, source?: EnemyState | BossTarget | null) => boolean;
   /** A hit from this map's boss, which Reflect answers at the boss. */
   damagePlayerFromBoss: (amount: number) => boolean;
+  /** A boss attack's hit on the regular enemies inside it; its kills pay nothing. */
+  damageEnemiesFromBoss: (attack: object, amount: number, inside: (x: number, y: number, r: number) => boolean) => void;
   clearPendingThrow: () => void;
 };
 
@@ -508,6 +510,31 @@ export function createPlayerCombatController(options: {
     spawnBurst(enemy.x, enemy.y, DEATH_PARTICLE_COLOR, base.elite ? 28 : 12, base.elite ? 150 : 90);
   }
 
+  const bossAttackHits = new WeakMap<object, WeakSet<EnemyState>>();
+  /**
+   * A boss attack landing on regular enemies: each one in its area takes the
+   * hit once per attack. One it kills simply dies and respawns as usual: no
+   * reward, kill, heal or quest progress, and nothing reported to the server.
+   */
+  function damageEnemiesFromBoss(attack: object, amount: number, inside: (x: number, y: number, r: number) => boolean) {
+    let hit = bossAttackHits.get(attack);
+    for (const enemy of enemies) {
+      if (enemy.dead || enemy.generatedBoss || enemy.remoteCombatGhost || hit?.has(enemy) || !inside(enemy.x, enemy.y, enemy.r)) continue;
+      if (!hit) bossAttackHits.set(attack, hit = new WeakSet());
+      hit.add(enemy);
+      if (!((enemy.hpLossFlashTimer ?? 0) > 0)) enemy.hpLossFlashFrom = enemy.hp;
+      enemy.hpLossFlashTimer = ENEMY_HP_LOSS_FLASH_SECONDS;
+      enemy.hurt = .12;
+      enemy.hp -= amount;
+      spawnDamageNumber(enemy.x, enemy.y, amount, false, false);
+      if (enemy.hp > 0) continue;
+      enemy.dead = true;
+      const site = spawnSites[enemy.siteId];
+      if (site) scheduleEnemyRespawn(site);
+      spawnBurst(enemy.x, enemy.y, DEATH_PARTICLE_COLOR, 12, 90);
+    }
+  }
+
   function breakEnemyLeashes() {
     for (const enemy of enemies) {
       if (enemy.dead) continue;
@@ -726,6 +753,7 @@ export function createPlayerCombatController(options: {
     updateProjectiles,
     damagePlayer,
     damagePlayerFromBoss: (amount: number) => damagePlayer(amount, activeMapBoss()),
+    damageEnemiesFromBoss,
     clearPendingThrow: () => {
       retainedTarget = null;
       nextTargetSearchAt = 0;

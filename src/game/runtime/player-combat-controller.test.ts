@@ -841,3 +841,31 @@ describe("Arrow Storm across a map change", () => {
     expect(enemy.maxHp - enemy.hp).toBe(10);
   });
 });
+
+it("lets a boss attack hit regular enemies once, and its kills pay nothing", () => {
+  const schedule = vi.fn(), record = vi.fn(), kills = vi.fn(), logPickup = vi.fn(), saveProgress = vi.fn();
+  const state = createCombatHarness({ scheduleEnemyRespawn: schedule, recordRegularEnemyDefeat: record, incrementKills: kills, logPickup, saveProgress });
+  const lifecycle = createEnemyLifecycle(state.enemies, state.spawnSites, () => {});
+  state.spawnSites.length = 0;
+  state.spawnSites.push({ id: 0, type: "Bramble", x: 100, y: 100, campName: "Test", leashRange: 500, alive: false, respawnAt: 0 },
+    { id: 1, type: "Bramble", x: 900, y: 900, campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
+  for (const site of state.spawnSites) lifecycle.spawnFromSite(site);
+  const [near, far] = state.enemies;
+  near.hp = near.maxHp = 10;
+  const before = { damage: state.player.damage, hp: far.hp };
+  const attack = {};
+  const inside = (x: number, y: number) => Math.hypot(x - 100, y - 100) < 50;
+  state.controller.damageEnemiesFromBoss(attack, 6, inside);
+  // The same attack sweeping on over later frames lands once.
+  state.controller.damageEnemiesFromBoss(attack, 6, inside);
+  expect(near.hp).toBe(4);
+  expect(far.hp).toBe(before.hp);
+  state.controller.damageEnemiesFromBoss({}, 6, inside);
+  expect(near.dead).toBe(true);
+  expect(schedule).toHaveBeenCalledTimes(1);
+  expect(record).not.toHaveBeenCalled();
+  expect(kills).not.toHaveBeenCalled();
+  expect(logPickup).not.toHaveBeenCalled();
+  expect(saveProgress).not.toHaveBeenCalled();
+  expect(state.player.damage).toBe(before.damage);
+});

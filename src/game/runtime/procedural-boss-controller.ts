@@ -25,6 +25,8 @@ export function createProceduralBossController(options: {
   spawn: (site: SpawnSite) => void;
   /** `source` is the boss, which Reflect answers. */
   damagePlayer: (damage: number, source?: EnemyState) => boolean;
+  /** Lands the pulse on the regular enemies inside it; kills pay nothing. */
+  damageEnemies?: (attack: object, amount: number, inside: (x: number, y: number, r: number) => boolean) => void;
   burst: (
     x: number,
     y: number,
@@ -154,6 +156,8 @@ export function createProceduralBossController(options: {
       pulseFired = true;
       boss.attackAnimationElapsed = 0;
       if (distance < 330 + options.player.r) options.damagePlayer(boss.damage, boss);
+      const { x, y } = boss;
+      options.damageEnemies?.({}, boss.damage, (ex, ey, r) => Math.hypot(ex - x, ey - y) < 330 + r);
     }
     if (shotElapsed >= 1.6) {
       shotElapsed %= 1.6;
