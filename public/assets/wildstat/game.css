@@ -4772,3 +4772,6 @@ html.text-outline-shadow .death-countdown { text-shadow: var(--text-outline-ring
 .enemy-index-table tr.is-boss th { color: #ffb347; }
 .enemy-index-boss-tag { display: block; color: #ffb347; font-size: 13px; font-weight: 700; }
 .enemy-index-reward { display: block; }
+.enemy-index-table tr.enemy-index-attacks td { padding: 0 4px 8px; text-align: left; white-space: normal; }
+.enemy-index-attack { display: inline-flex; gap: 6px; margin: 2px 14px 2px 0; color: #c2c7ce; font-size: 14px; }
+.enemy-index-attack strong { color: #ff5a5a; }

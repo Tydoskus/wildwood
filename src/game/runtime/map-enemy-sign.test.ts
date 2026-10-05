@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import { createMapEnemySigns, mapSignPosition, mapSignRows, touchingMapSign } from "./map-enemy-sign";
 import { CAMPAIGN_GATEWAYS } from "../../../shared/map-gateways";
+import { generateMap } from "../../../shared/procedural-maps";
 import type { EnemyState } from "./types";
 
 const enemy = (type: string, maxHp: number, extra: Partial<EnemyState> = {}) => ({
@@ -35,4 +36,12 @@ it("draws the small sign once per pixel ratio, and opens only to a player standi
   expect(touchingMapSign(sign, { x: 520, y: 480 })).toBe(true);
   expect(touchingMapSign(sign, { x: 600, y: 500 })).toBe(false);
   expect(touchingMapSign(sign, { x: 500, y: 600 })).toBe(false);
+});
+
+it("stands clear of both Endless portals, behind their line", () => {
+  const spot = mapSignPosition("endless_3")!;
+  const { portals, arrival } = generateMap("endless_3");
+  expect(spot.y).toBe(Math.min(...portals.map(portal => portal.y)) - 40);
+  for (const portal of portals) expect(spot.x - (portal.x + portal.width / 2)).toBeGreaterThanOrEqual(60);
+  expect(spot.x).toBeGreaterThan(arrival.x);
 });

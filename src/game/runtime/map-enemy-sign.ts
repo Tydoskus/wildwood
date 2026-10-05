@@ -1,6 +1,7 @@
 import { CAMPAIGN_GATEWAYS } from "../../../shared/map-gateways";
 import { ENEMY_TYPES, type EnemyDefinition, type EnemyKind, type RewardType } from "../enemies";
 import { runtimeMapBalance } from "../../../shared/map-balance-runtime";
+import { generateMap, isProceduralMap } from "../../../shared/procedural-maps";
 import { bossForMap } from "./boss-registry";
 import type { EnemyState } from "./types";
 
@@ -12,27 +13,52 @@ import type { EnemyState } from "./types";
  */
 export type MapSignRow = { name: string; elite: boolean; hp: number; hit: number; reward: EnemyDefinition["reward"];
   /** The map's boss: its hit is its strongest attack, and it may pay several rewards (or none). */
-  boss?: { rewards: EnemyDefinition["reward"][] } };
+  boss?: { rewards: EnemyDefinition["reward"][]; attacks: { name: string; hit: number }[] } };
 
 const FONT = '"Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-/** Where the sign stands: right of the arrival point, a little behind the portals' line rather than in front of it. */
-export const MAP_SIGN_OFFSET = { x: 190, behindPortals: 40 };
+/**
+ * Where the sign stands: right of the arrival point and clear of the
+ * rightmost portal, a little behind the portals' line rather than in front of
+ * it. Campaign maps and Endless maps alike; Endless puts a portal each side.
+ */
+export const MAP_SIGN_OFFSET = { x: 190, clearOfPortal: 60, behindPortals: 40 };
+const signSpots = new Map<string, { x: number; y: number } | null>();
 
 export function mapSignPosition(mapId: string) {
-  const gateways = CAMPAIGN_GATEWAYS[mapId];
-  if (!gateways) return null;
-  const portalLine = gateways.portals.length ? Math.min(...gateways.portals.map(portal => portal.y)) : gateways.arrival.y - 90;
-  return { x: gateways.arrival.x + MAP_SIGN_OFFSET.x, y: portalLine - MAP_SIGN_OFFSET.behindPortals };
+  if (!signSpots.has(mapId)) {
+    const gateways = CAMPAIGN_GATEWAYS[mapId] ?? (isProceduralMap(mapId) ? generateMap(mapId) : null);
+    signSpots.set(mapId, gateways ? {
+      x: Math.max(gateways.arrival.x + MAP_SIGN_OFFSET.x, ...gateways.portals.map(portal => portal.x + portal.width / 2 + MAP_SIGN_OFFSET.clearOfPortal)),
+      y: (gateways.portals.length ? Math.min(...gateways.portals.map(portal => portal.y)) : gateways.arrival.y - 90) - MAP_SIGN_OFFSET.behindPortals,
+    } : null);
+  }
+  return signSpots.get(mapId) ?? null;
 }
 
-/** The map's boss as an index row: its health, strongest hit and rewards, from the map's live balance. */
-export function mapBossRow(mapId: string, rewardAmount: (type: RewardType, amount: number) => number): MapSignRow | null {
+/** "laserGrid" → "Laser Grid". */
+const attackName = (key: string) => key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, letter => letter.toUpperCase());
+
+/**
+ * The map's boss as an index row: its health, every attack it has (strongest
+ * first) and its rewards. A campaign boss reads the map's live balance; an
+ * Endless boss is a generated enemy and reads its own stats.
+ */
+export function mapBossRow(mapId: string, rewardAmount: (type: RewardType, amount: number) => number, enemies: readonly EnemyState[] = []): MapSignRow | null {
   const balance = runtimeMapBalance(mapId)?.boss, boss = bossForMap(mapId);
-  if (!balance || !boss) return null;
-  const rewards = Object.entries(balance.rewards).filter(([, amount]) => amount > 0)
-    .map(([type, amount]) => ({ type: type as RewardType, amount: rewardAmount(type as RewardType, amount) }));
-  return { name: boss.name, elite: false, hp: balance.hp, hit: Math.max(balance.damage, ...Object.values(balance.attacks)),
-    reward: rewards[0] ?? { type: "damage", amount: 0 }, boss: { rewards } };
+  const paid = (rewards: EnemyDefinition["reward"][]) => rewards.filter(reward => reward.amount > 0)
+    .map(reward => ({ type: reward.type, amount: rewardAmount(reward.type, reward.amount) }));
+  if (balance && boss) {
+    const attacks = Object.entries(balance.attacks).filter(([, hit]) => hit > 0).map(([key, hit]) => ({ name: attackName(key), hit }));
+    if (balance.damage > 0 && !attacks.some(attack => attack.name === "Contact")) attacks.push({ name: "Contact", hit: balance.damage });
+    attacks.sort((a, b) => b.hit - a.hit);
+    const rewards = paid(Object.entries(balance.rewards).map(([type, amount]) => ({ type: type as RewardType, amount })));
+    return { name: boss.name, elite: false, hp: balance.hp, hit: attacks[0]?.hit ?? 0, reward: rewards[0] ?? { type: "damage", amount: 0 }, boss: { rewards, attacks } };
+  }
+  const generated = enemies.find(enemy => enemy.generatedBoss && !enemy.remoteCombatGhost);
+  if (!generated) return null;
+  const rewards = paid(generated.bossRewards ?? []);
+  return { name: generated.displayName ?? generated.campName, elite: false, hp: generated.maxHp, hit: generated.damage,
+    reward: rewards[0] ?? { type: "damage", amount: 0 }, boss: { rewards, attacks: [{ name: "Hit", hit: generated.damage }] } };
 }
 
 /** One row per kind of enemy on the map, weakest first. Bosses and other players' ghosts are left off. */

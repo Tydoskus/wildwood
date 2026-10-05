@@ -307,7 +307,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       const touching = touchingMapSign(at, options.player);
       if (touching && !touchingSign && !options.mapSignBlocked?.() && !enemyIndex.isOpen()) {
         const paid = (type: RewardType, amount: number) => options.rewardAmount?.(type, amount) ?? amount * options.rewardMultiplier();
-        const boss = mapBossRow(options.currentMapId(), paid);
+        const boss = mapBossRow(options.currentMapId(), paid, options.enemies);
         enemyIndex.open(options.mapName(options.currentMapId()), [...mapSignRows(options.enemies, paid), ...boss ? [boss] : []]);
       }
       touchingSign = touching;

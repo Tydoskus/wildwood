@@ -24,9 +24,12 @@ it("lists the boss last, tagged, with its rewards", () => {
   const index = createMapEnemyIndex(document as unknown as Document);
   index.open("Samurai Garden", [
     { name: "Koi Shogun", elite: false, hp: 9_000_000, hit: 120_000, reward: { type: "damage", amount: 50 },
-      boss: { rewards: [{ type: "damage", amount: 50 }, { type: "health", amount: 900 }] } },
+      boss: { rewards: [{ type: "damage", amount: 50 }, { type: "health", amount: 900 }],
+        attacks: [{ name: "Slash", hit: 120_000 }, { name: "Whirlpool", hit: 84_000 }, { name: "Contact", hit: 60_000 }] } },
   ]);
   const row = document.querySelector(".enemy-index-table tbody tr.is-boss")!;
   expect(row.querySelector("th")?.textContent).toBe("Koi ShogunBoss");
   expect([...row.querySelectorAll(".enemy-index-reward")].map(span => span.textContent)).toEqual(["+50 Atk", "+900 HP"]);
+  // Every attack on its own line under the boss, strongest first.
+  expect([...document.querySelectorAll(".enemy-index-attack")].map(line => line.textContent)).toEqual(["Slash120k", "Whirlpool84.0k", "Contact60.0k"]);
 });

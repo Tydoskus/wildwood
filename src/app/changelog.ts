@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.892": [
+    "The Enemy Index lists every boss attack and its damage",
+    "Endless maps have an Enemy Index sign too, with their boss",
+  ],
   "0.891": [
     "Aggro's goal is Defeat Aegis Prime for every run, not your next prestige's Endless stage",
     "Your profile no longer shows prestige stat gain during an Aggro run (it was never paid)",
@@ -2787,6 +2791,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.892": "2026-10-04",
   "0.891": "2026-10-04",
   "0.890": "2026-10-04",
   "0.889": "2026-10-04",

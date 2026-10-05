@@ -56,9 +56,24 @@ export function createMapEnemyIndex(doc: Document = document) {
         tr.className = "is-boss";
         name.append(Object.assign(doc.createElement("small"), { className: "enemy-index-boss-tag", textContent: "Boss" }));
       }
+      // A boss's attacks each on a line of their own under it, strongest first.
+      if (row.boss && row.boss.attacks.length > 1) {
+        const attacks = doc.createElement("tr");
+        attacks.className = "enemy-index-attacks";
+        const cell = Object.assign(doc.createElement("td"), { colSpan: 4 });
+        cell.replaceChildren(...row.boss.attacks.map(attack => {
+          const line = Object.assign(doc.createElement("span"), { className: "enemy-index-attack" });
+          line.append(Object.assign(doc.createElement("span"), { textContent: attack.name }),
+            Object.assign(doc.createElement("strong"), { textContent: formatCompactNumber(attack.hit) }));
+          return line;
+        }));
+        attacks.append(cell);
+        tr.append(name, ...[formatCompactNumber(row.hp), formatCompactNumber(row.hit)].map(value => Object.assign(doc.createElement("td"), { textContent: value })), reward);
+        return [tr, attacks];
+      }
       tr.append(name, ...[formatCompactNumber(row.hp), formatCompactNumber(row.hit)].map(value => Object.assign(doc.createElement("td"), { textContent: value })), reward);
-      return tr;
-    }));
+      return [tr];
+    }).flat());
     overlay!.hidden = false;
     overlay!.querySelector<HTMLButtonElement>(".window-back-button")!.focus();
   }
