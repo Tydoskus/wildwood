@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.899.2": [
+    "Fixed the game reloading itself when you switch tabs or apps",
+  ],
   "0.899.1": [
     "Everyone on your map shows up with the eye on, not just the nearest few, and nobody flickers in and out",
     "Players standing still or chatting stay visible",
@@ -2863,6 +2866,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.899.2": "2026-10-05",
   "0.899.1": "2026-10-05",
   "0.899.0": "2026-10-05",
   "0.898.8": "2026-10-04",
