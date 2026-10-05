@@ -88,3 +88,37 @@ it("plays another farmer from their row, outside the movement stream", () => {
   handlers.delete(null, { identity: farmer });
   expect(presence.api.remotePlayers().some(p => p.id === farmer.toHexString())).toBe(false);
 });
+
+it("never jumps a puppet: re-anchors and group changes are walked, at no more than their own speed", () => {
+  const { presence, handlers } = harness();
+  presence.api.setRemotePlayersVisible(true);
+  presence.tables.upsertMotionIdentity({ networkId: 9, identity: farmer, mapId: "tutorial_forest", isVisible: true, zoneX: 0, zoneY: 0,
+    displayName: "Farmer", profileIcon: 0, playerSprite: 0, skinTone: 0, isGuest: false, gender: 0, speed: 200, powerLevel: 1,
+    feetItem: "", headItem: "", chestItem: "", rightHandItem: "", leftHandItem: "" });
+  const healthSites = [300, 2500].map(x => ({ x, y: 900, type: "Bramble", campName: "Health Camp", definition: { reward: { type: "health" } } }));
+  presence.api.syncMovementState(100, 600, 0, 0, "keyboard", false, undefined, { group: null, camp: null, sites: [...sites, ...healthSites] });
+  const row = (x: number, group: string) => ({ identity: farmer, mapId: "tutorial_forest", group, camp: "", x, y: 600,
+    startedAt: new Timestamp(BigInt(Math.round(clock)) * 1_000n) });
+  handlers.insert(null, row(200, "stat:damage"));
+  const where = () => presence.api.remotePlayers().find(p => p.id === farmer.toHexString())!;
+  let last = { x: where().x, y: where().y }, fastest = 0;
+  const frames = (count: number) => { for (let i = 0; i < count; i++) {
+    clock += 1_000 / 30;
+    const now = where();
+    fastest = Math.max(fastest, Math.hypot(now.x - last.x, now.y - last.y));
+    last = { x: now.x, y: now.y };
+  } };
+  frames(60);
+  // The farmer's 30-second re-anchor, far from where the puppet walks: nothing moves it.
+  handlers.update(null, null, row(2400, "stat:damage"));
+  frames(60);
+  // A new group re-plans from where it stands.
+  handlers.update(null, null, row(2400, "stat:health"));
+  frames(300);
+  expect(fastest).toBeLessThanOrEqual(200 / 30 + 1.01);
+  // Long after its first route would have ended, it is still farming.
+  const before = { ...last };
+  clock += 30 * 60_000;
+  frames(90);
+  expect(Math.hypot(last.x - before.x, last.y - before.y)).toBeGreaterThan(0);
+});

@@ -169,6 +169,8 @@ function samePlayerPresentation(left: PlayerPresentationRow | undefined, right: 
 }
 
 const REMOTE_SAMPLE_LIMIT = 8;
+/** A figure closes a gap at its own walking speed: it walks there, never runs or jumps. */
+const PUPPET_CATCH_UP = 1;
 const REMOTE_PLAYER_DEATH_TTL_MS = 4_250;
 
 function serverTimestampMs(timestamp: { microsSinceUnixEpoch: bigint }) {
@@ -251,6 +253,8 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   let serverClockAnchor: { serverAtMs: number; receivedAt: number } | null = null;
   // Autofarm puppets: other farmers played locally from one row each, and our own plan as sent.
   const puppets = new Map<string, AutoFarmPuppet>();
+  /** A farmer whose puppet just ended: their figure walks over to where the live stream has them. */
+  const handoffs = new Map<string, { figure: RemotePlayerTarget; drawnAt: number }>();
   let puppetSiteList: readonly PuppetSite[] = [];
   let puppetTableConnection: unknown = null;
   let farmIntent: { group: string; camp: string } | null = null;
@@ -484,7 +488,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         mapPlayerMarkers.clear();
         motionIdentities.clear();
         activeMotionIdentities.clear();
-        puppets.clear();
+        puppets.clear(); handoffs.clear();
         playerMaps.clear();
         playerMaps.set(id, nextMapId);
         dependencies.changes.batch(() => {
@@ -720,23 +724,50 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   function upsertAutoFarmPuppet(row: AutoFarmPuppetRow) {
     const identity = row.identity.toHexString();
     if (!remotePlayersVisible || identity === dependencies.localIdentity() || row.mapId !== currentMapId) return;
-    const startedAtMs = Number(row.startedAt.microsSinceUnixEpoch) / 1_000;
     const existing = puppets.get(identity);
-    const wasPuppet = Boolean(existing);
+    const shown = existing?.player && existing.drawnAt ? existing : null;
+    // Realistic over accurate (Ryan): a puppet on screen keeps its own route
+    // through the farmer's 30-second re-anchors, and only a new group or camp
+    // re-plans it, from where its figure stands now at the speed it already
+    // walks. Snapping it onto each anchor made autofarmers teleport.
+    if (shown && shown.row.group === row.group && shown.row.camp === row.camp) { shown.row = row; return; }
+    const startedAtMs = shown ? estimatedServerNowMs() : Number(row.startedAt.microsSinceUnixEpoch) / 1_000;
     puppets.set(identity, {
       row,
-      plan: { seed: `${identity}:${startedAtMs}`, anchorX: row.x, anchorY: row.y, startedAtMs, speed: 0 },
+      plan: { seed: `${identity}:${startedAtMs}`, anchorX: shown ? shown.player!.x : row.x, anchorY: shown ? shown.player!.y : row.y,
+        startedAtMs, speed: shown?.plan.speed ?? 0 },
       legs: null,
       sites: null,
-      // Keep the figure already on screen: a new anchor glides it over rather than jumping.
       player: existing?.player ?? null,
       drawnAt: existing?.drawnAt ?? 0,
     });
-    if (!wasPuppet) refreshMotionInterest();
+    if (!existing) refreshMotionInterest();
   }
 
   function removeAutoFarmPuppet(row: { identity: Identity }) {
-    if (puppets.delete(row.identity.toHexString())) refreshMotionInterest();
+    const identity = row.identity.toHexString(), puppet = puppets.get(identity);
+    if (puppet?.player && puppet.drawnAt) handoffs.set(identity, { figure: puppet.player, drawnAt: puppet.drawnAt });
+    if (puppets.delete(identity)) refreshMotionInterest();
+  }
+
+  /**
+   * Moves a figure toward where it should be, never faster than a brisk walk:
+   * a remote player never jumps (Ryan: "I never want that"); a gap closes as
+   * walking, whether a new anchor, a clock correction or a handover to the
+   * live stream opened it. Returns whether the figure has arrived.
+   */
+  function walkFigure(figure: RemotePlayerTarget, to: { x: number; y: number; facing: number; moving: boolean }, dt: number) {
+    const gap = Math.hypot(to.x - figure.x, to.y - figure.y);
+    const step = figure.speed * PUPPET_CATCH_UP * dt + 1;
+    if (gap <= step) {
+      figure.x = to.x; figure.y = to.y; figure.facing = to.facing; figure.moving = to.moving;
+      return true;
+    }
+    figure.facing = to.x < figure.x ? Math.PI : to.x > figure.x ? 0 : figure.facing;
+    figure.x += (to.x - figure.x) * step / gap;
+    figure.y += (to.y - figure.y) * step / gap;
+    figure.moving = true;
+    return false;
   }
 
   function wireAutoFarmPuppetTable(connection: NonNullable<ReturnType<ReducerPort["connection"]>>) {
@@ -763,27 +794,35 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     for (const [identity, puppet] of ordered) {
       const presentation = presentations.get(identity)!;
       if (!puppet.player) {
-        puppet.player = createRemotePlayer(identity, presentation, { networkId: presentation.networkId, x: puppet.row.x, y: puppet.row.y,
+        // Taking over from the live stream (or an earlier puppet), start where they were last drawn, and walk on from there.
+        const seen = handoffs.get(identity)?.figure ?? (detailedMotionIdentities.has(identity) ? players.get(identity) : undefined);
+        handoffs.delete(identity);
+        puppet.player = createRemotePlayer(identity, presentation, { networkId: presentation.networkId, x: seen?.x ?? puppet.row.x, y: seen?.y ?? puppet.row.y,
           vx: 0, vy: 0, simulationTick: 0, motionEpoch: 0 }, serverNow, now);
+        // Its route starts there too: a figure walking at their own speed could never catch a route already under way.
+        if (seen) { puppet.player.facing = seen.facing; puppet.drawnAt = now;
+          puppet.plan = { ...puppet.plan, seed: `${identity}:${serverNow}`, anchorX: seen.x, anchorY: seen.y, startedAtMs: serverNow }; puppet.legs = null; }
       }
       const player = puppet.player;
-      if (puppet.sites !== puppetSiteList || puppet.plan.speed !== player.speed) {
+      // A puppet walks at the speed it was first seen at, for good: re-timing
+      // its route when their speed changed (gear, leaving combat) jumped it along.
+      if (!puppet.legs || puppet.sites !== puppetSiteList) {
         puppet.sites = puppetSiteList;
-        puppet.plan = { ...puppet.plan, speed: player.speed };
+        if (!(puppet.plan.speed > 0)) puppet.plan = { ...puppet.plan, speed: player.speed };
         puppet.legs = puppetLegs(puppet.plan, puppetSites(puppetSiteList, puppet.row.group, puppet.row.camp));
       }
-      const pose = puppetPoseAt(puppet.plan, puppet.legs!, serverNow);
-      const dt = puppet.drawnAt ? Math.min(.25, Math.max(0, (now - puppet.drawnAt) / 1_000)) : 0;
-      const gap = Math.hypot(pose.x - player.x, pose.y - player.y);
-      const step = player.speed * 1.6 * dt + 1;
-      if (puppet.drawnAt && gap > step && gap < 900) {
-        player.x += (pose.x - player.x) * step / gap;
-        player.y += (pose.y - player.y) * step / gap;
-        player.facing = pose.x < player.x ? Math.PI : 0;
-        player.moving = true;
-      } else {
-        player.x = pose.x; player.y = pose.y; player.facing = pose.facing; player.moving = pose.moving;
+      // A route that has run out carries on from where it ended, rather than standing there for good.
+      for (let more = 0; more < 4 && puppet.legs.length; more += 1) {
+        const lasts = puppet.legs.reduce((sum, leg) => sum + leg.walk + leg.fight, 0) * 1_000;
+        if (serverNow < puppet.plan.startedAtMs + lasts) break;
+        const end = puppet.legs[puppet.legs.length - 1];
+        puppet.plan = { ...puppet.plan, seed: `${puppet.plan.seed}+`, anchorX: end.x, anchorY: end.y, startedAtMs: puppet.plan.startedAtMs + lasts };
+        puppet.legs = puppetLegs(puppet.plan, puppetSites(puppetSiteList, puppet.row.group, puppet.row.camp));
       }
+      const pose = puppetPoseAt(puppet.plan, puppet.legs, serverNow);
+      // The first sight of a puppet places it; after that it only ever walks.
+      if (!puppet.drawnAt) { player.x = pose.x; player.y = pose.y; player.facing = pose.facing; player.moving = pose.moving; }
+      else walkFigure(player, pose, Math.min(.25, Math.max(0, (now - puppet.drawnAt) / 1_000)));
       puppet.drawnAt = now;
       const simulation = puppetPoseAt(puppet.plan, puppet.legs!, serverNow - REGULAR_ENEMY_CONSENSUS_DELAY_MS);
       player.simulationX = simulation.x;
@@ -894,8 +933,14 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         removed = true;
       }
       for (const row of motionRows) upsertMotionIdentity(row);
+      // Rebuilt from the table, each puppet keeps the figure already on screen.
+      const shown = new Map([...puppets].map(([identity, puppet]) => [identity, puppet]));
       puppets.clear();
       for (const row of connection.db.playerAutoFarmPuppet.iter()) upsertAutoFarmPuppet(row);
+      for (const [identity, puppet] of puppets) {
+        const before = shown.get(identity);
+        if (before) { puppet.player = before.player; puppet.drawnAt = before.drawnAt; }
+      }
       refreshMotionInterest();
       if (removed) dependencies.changes.notify();
     });
@@ -1093,7 +1138,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
           remotePlayerDeaths.clear();
           corpses.clear();
           mapPlayerMarkers.clear();
-          puppets.clear();
+          puppets.clear(); handoffs.clear();
           playerMaps.clear();
           latestMapSamples = [];
           desiredMotionNetworkIds = [];
@@ -1156,9 +1201,23 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
           player.simulationX = simulationMotion.x;
           player.simulationY = simulationMotion.y;
           player.throwClock = undefined;
+          // Their puppet just ended: its figure walks to the streamed position, then the stream takes over.
+          const handoff = handoffs.get(player.id);
+          if (handoff) {
+            const arrived = walkFigure(handoff.figure, motion, Math.min(.25, Math.max(0, (now - handoff.drawnAt) / 1_000)));
+            handoff.drawnAt = now;
+            if (!arrived) {
+              Object.assign(handoff.figure, { simulationX: player.simulationX, simulationY: player.simulationY, throwClock: undefined });
+              result.push(handoff.figure);
+              continue;
+            }
+            handoffs.delete(player.id);
+          }
           result.push(player);
         }
         drawPuppets(now, result);
+        // A handover the stream never picked up (they went out of the nearest few) is dropped, not left to jump later.
+        for (const [identity, handoff] of handoffs) if (now - handoff.drawnAt > 2_000) handoffs.delete(identity);
         return result;
       },
       remotePlayerCount() {
@@ -1271,7 +1330,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       mapPlayerMarkers.clear();
       motionIdentities.clear();
       activeMotionIdentities.clear();
-      puppets.clear();
+      puppets.clear(); handoffs.clear();
       resetMotionInterest();
       localMotionNetworkId = null;
       if (!preserveOnlineCount) onlinePlayerCount = 0;
