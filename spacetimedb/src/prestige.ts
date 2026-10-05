@@ -202,7 +202,16 @@ export function createPrestige(deps: PrestigeDeps) {
    */
   function completeChallengeIfMet(ctx: any) {
     const player = ctx.db.player.identity.find(ctx.sender);
-    if (!player || !challengeWinReady(ctx) || activeDuelFor(ctx, ctx.sender)) return false;
+    if (!player || activeDuelFor(ctx, ctx.sender)) return false;
+    // An Aggro run wins the same way, the moment Aegis Prime falls (Teus beat
+    // it and nothing happened until he pressed Prestige, 2026-10-05).
+    if (aggroChallengeActive(ctx, ctx.sender)) {
+      const progress = readPlayerProgress(ctx, ctx.sender);
+      if (!progress || !aggroGoalMet(progress.bossRewardClaims) || !ctx.db.prestigeChallengeBackup.identity.find(ctx.sender)) return false;
+      deps.winAggro(ctx, player);
+      return true;
+    }
+    if (!challengeWinReady(ctx)) return false;
     deps.restoreChallenge(ctx, player, true);
     return true;
   }

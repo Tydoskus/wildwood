@@ -191,3 +191,16 @@ it("rebuilding while a run is under way sets that run's stats in place", async (
   f.run(server.abandonAggroRun);
   expect(f.db.playerProgress.identity.find(f.ctx.sender)).toEqual(f.saved);
 });
+
+it("wins on the spot when a boss clear meets the goal, as Reflect Only does", async () => {
+  const { createPrestige } = await import("./prestige");
+  const f = fixture();
+  f.run(server.startAggroRun);
+  const winAggro = vi.fn();
+  const prestige = createPrestige({ requireControllingPlayer: () => f.db.player.identity.find(f.ctx.sender), activeDuelFor: () => null,
+    resetProgressToDefaults: vi.fn(), recordPrestige: vi.fn(), respawnWithProgress: vi.fn(), restoreChallenge: vi.fn(), refreshPerkEffects: vi.fn(), winAggro });
+  expect(prestige.completeChallengeIfMet(f.ctx)).toBe(false);
+  f.patch("playerProgress", { bossRewardClaims: BOSS_REWARD_CLAIM_BITS.aegisPrime });
+  expect(prestige.completeChallengeIfMet(f.ctx)).toBe(true);
+  expect(winAggro).toHaveBeenCalledTimes(1);
+});

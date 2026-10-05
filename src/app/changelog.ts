@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.896": [
+    "Killing Aegis Prime in an Aggro run wins it on the spot, like Reflect Only, with the win popup",
+  ],
   "0.895": [
     "An Aggro run must always have its chasing groups: a run without them opens a picker that stays until you pick",
     "Switch your Aggro chasing groups any time on the Aggro card; a run never drops below its count",
@@ -2804,6 +2807,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.896": "2026-10-04",
   "0.895": "2026-10-04",
   "0.894": "2026-10-04",
   "0.893": "2026-10-04",
