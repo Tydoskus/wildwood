@@ -435,7 +435,7 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
   function renderEnemyRows(mapId: MapId) {
     if (!enemyRows) return;
     const paid = dependencies.rewardAmount ?? ((_type: RewardType, amount: number) => amount);
-    if (live()) { renderEnemyIndexRows(document, enemyRows, enemyIndexRows(mapId, dependencies.enemies ?? [], paid)); return; }
+    if (live()) { renderEnemyIndexRows(document, enemyRows, enemyIndexRows(mapId, dependencies.enemies ?? [], paid, null, dependencies.spawnSites)); return; }
     if (!dependencies.mapBalance || balances.has(mapId)) {
       renderEnemyIndexRows(document, enemyRows, enemyIndexRows(mapId, null, paid, balances.get(mapId)));
       return;

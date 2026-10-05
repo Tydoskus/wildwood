@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.898.3": [
+    "The Enemy Index lists every enemy on your map, including camps you've just cleared and a dead Endless boss",
+  ],
   "0.898.2": [
     "Boss attacks hit regular enemies too; enemies a boss kills give no rewards",
   ],
@@ -2828,6 +2831,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.898.3": "2026-10-04",
   "0.898.2": "2026-10-04",
   "0.898.1": "2026-10-04",
   "0.898": "2026-10-04",

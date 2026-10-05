@@ -49,3 +49,15 @@ it("lists another map from its live balance when the server sends it", () => {
   expect(boss.boss!.attacks.map(attack => attack.name)).toEqual(["Slam", "Spin"]);
   expect(boss.boss!.rewards).toEqual([{ type: "damage", amount: paid("damage", 50) }]);
 });
+
+it("still lists a camp killed out on the player's map, from its spawn sites", () => {
+  const rows = enemyIndexRows("beginner_desert", [enemy("Bramble", 42)], paid, null, [{ type: "Bramble" }, { type: "Spitter" }]);
+  expect(rows.map(row => row.name)).toEqual(expect.arrayContaining(["Bramble", "Spitter"]));
+  // The live enemy wins over its site.
+  expect(rows.find(row => row.name === "Bramble")!.hp).toBe(42);
+});
+
+it("names an Endless boss as it spawns", () => {
+  const balance = resolveMapBalance("endless_9", defaultBalanceSettings(), 7);
+  expect(plannedEnemyRows("endless_9", paid, balance).at(-1)!.name).toBe("Warden - 9");
+});
