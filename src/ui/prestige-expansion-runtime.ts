@@ -6,6 +6,7 @@ import { createPrestigeChallengePanel, installPrestigeTabs } from "./prestige-ch
 import { gameConfirm } from "./confirm-dialog";
 import { challengeWinReached, reflectOnlyWinNotice } from "./prestige-challenge-win";
 import { createAggroChallengePanel } from "./aggro-challenge-panel";
+import { readAggroPicks, writeAggroPicks } from "../game/runtime/aggro-picks";
 import { AGGRO_CHALLENGE_LIMIT, aggroGoal, aggroPullCamps } from "../../shared/aggro-challenge";
 
 /** Compose the shared launch notice, map label and account prestige controls. */
@@ -88,6 +89,8 @@ export function createPrestigeExpansionRuntime(d: {
           : (coop?.prestige?.()?.level ?? 0) < 1 ? "Prestige once to unlock"
           : coop?.prestigeChallenge?.()?.active ? "Finish Reflect Only first" : null,
         goal: () => aggroGoal().label,
+        picks: () => readAggroPicks(coop?.localIdentity?.()),
+        setPicks: picks => writeAggroPicks(coop?.localIdentity?.(), picks),
         start: () => both(options.runPrestige(coop?.startAggroRun)),
         abandon: () => both(options.runPrestige(coop?.abandonAggroRun)),
       });

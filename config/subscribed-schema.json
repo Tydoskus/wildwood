@@ -710,6 +710,10 @@
       "identity:identity",
       "isGuest:bool"
     ],
+    "player_aggro_challenge_parked": [
+      "identity:identity",
+      "parkedAt:timestamp"
+    ],
     "player_aggro_challenge": [
       "identity:identity",
       "active:bool",

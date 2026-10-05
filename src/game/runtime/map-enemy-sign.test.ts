@@ -45,3 +45,10 @@ it("stands clear of both Endless portals, behind their line", () => {
   for (const portal of portals) expect(spot.x - (portal.x + portal.width / 2)).toBeGreaterThanOrEqual(60);
   expect(spot.x).toBeGreaterThan(arrival.x);
 });
+
+it("lists Endless lanes that share a base kind under their own names", () => {
+  const rows = mapSignRows([
+    enemy("Bramble", 100, { displayName: "Gloom Raider" }), enemy("Bramble", 300, { displayName: "Gloom Regent" }), enemy("Bramble", 100, { displayName: "Gloom Raider" }),
+  ], (_type, amount) => amount);
+  expect(rows.map(row => row.name)).toEqual(["Gloom Raider", "Gloom Regent"]);
+});

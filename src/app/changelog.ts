@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.894": [
+    "Dropping out of Aggro keeps your run: Drop back in picks it up. Only dying starts it over",
+    "Pick which groups chase you in Aggro, one more each run; your picks are saved",
+    "New setting, Enemy HP Numbers: shows health numbers on enemy bars (off by default)",
+    "The Enemy Index on Endless maps lists every enemy",
+  ],
   "0.893": [
     "Dropping out of a challenge checks your saved run loads first; if it can't, you stay in the run and nothing is lost",
   ],
@@ -2794,6 +2800,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.894": "2026-10-04",
   "0.893": "2026-10-04",
   "0.892": "2026-10-04",
   "0.891": "2026-10-04",

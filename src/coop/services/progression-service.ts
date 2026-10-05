@@ -175,6 +175,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   let prestigeChallenge: PrestigeChallenge = { active: false, completed: 0 };
   let challengeParked = false;
   let aggroChallenge: AggroChallenge = { active: false, completed: 0 };
+  let aggroParked = false;
   let freeRespecUsed = false;
   let dailyQuest: DailyQuestState | null = null;
   const guildQuestWeeks = new Map<string, { week: number; guildId: string; guildName: string; points: number }>();
@@ -584,6 +585,16 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     aggroChallenge = { active: false, completed: 0 };
     dependencies.notify();
   }
+  function upsertAggroChallengeParked(row: { identity: Identity }) {
+    if (row.identity.toHexString() !== dependencies.localIdentity()) return;
+    aggroParked = true;
+    dependencies.notify();
+  }
+  function removeAggroChallengeParked(row: { identity: Identity }) {
+    if (row.identity.toHexString() !== dependencies.localIdentity()) return;
+    aggroParked = false;
+    dependencies.notify();
+  }
   function upsertDailyQuest(row: { identity: Identity; day: number; questsJson: string; bonus: number; guildPoints: number; guildName: string }) {
     if (row.identity.toHexString() !== dependencies.localIdentity()) return;
     dailyQuest = { day: row.day, quests: parseDailyQuests(row.questsJson), bonus: row.bonus, guildPoints: row.guildPoints, guildName: row.guildName };
@@ -774,6 +785,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       upsertPrestigeChallenge, removePrestigeChallenge,
       upsertPrestigeChallengeParked, removePrestigeChallengeParked,
       upsertAggroChallenge, removeAggroChallenge,
+      upsertAggroChallengeParked, removeAggroChallengeParked,
       upsertFreeRespec, removeFreeRespec,
       upsertDailyQuest, removeDailyQuest, upsertGuildQuestWeek, removeGuildQuestWeek,
       upsertPrestigeExpansion, removePrestigeExpansion,
@@ -943,7 +955,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       prestige: () => localPrestige ? { ...localPrestige } : null,
       prestigeLevelFor: (identity: string) => prestigeLevelByIdentity.get(identity) ?? 0,
       prestigeChallenge: () => ({ ...prestigeChallenge, parked: challengeParked }),
-      aggroChallenge: () => ({ ...aggroChallenge }),
+      aggroChallenge: () => ({ ...aggroChallenge, parked: aggroParked }),
       /** Every account has one respec that keeps its stats; false once it is spent. */
       freeRespecAvailable: () => !freeRespecUsed,
       /** Today's quests and the guild's standing; null until the server has drawn them. */
@@ -1303,6 +1315,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       prestigeChallenge = { active: false, completed: 0 };
       challengeParked = false;
       aggroChallenge = { active: false, completed: 0 };
+      aggroParked = false;
       freeRespecUsed = false;
       dailyQuest = null;
       guildQuestWeeks.clear();
@@ -1351,6 +1364,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       prestigeChallenge = { active: false, completed: 0 };
       challengeParked = false;
       aggroChallenge = { active: false, completed: 0 };
+      aggroParked = false;
       freeRespecUsed = false;
       dailyQuest = null;
       guildQuestWeeks.clear();

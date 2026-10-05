@@ -28,7 +28,7 @@ import { createReconnectRecovery } from "./ui/reconnect-recovery";
 import { isProceduralMap, proceduralMapId } from "../shared/procedural-maps";
 import { createAutoFarmProgress } from "./game/runtime/auto-farm-build";
 import { prestigePerkValue } from "../shared/prestige-perks";
-import { aggroForcedCamps, aggroPullCamps } from "../shared/aggro-challenge";
+import { aggroPullCamps, forcedAggroGroups } from "./game/runtime/aggro-picks";
 import { createPrestigeExpansionRuntime } from "./ui/prestige-expansion-runtime";
 import { leaderboardEligible } from "../shared/leaderboard-window";
 import { createProceduralBossController } from "./game/runtime/procedural-boss-controller";
@@ -533,7 +533,7 @@ import {
     reflectOnly: () => Boolean(coop?.prestigeChallenge?.()?.active), pullAll: () => autoFarm.pullAll() && !coop?.aggroChallenge?.()?.active, reflectChance: () => prestigePerkValue(coop?.prestigePerks?.(), "riposte"), healPerKill: () => prestigePerkValue(coop?.prestigePerks?.(), "secondWind"), bossSlayer: () => prestigePerkValue(coop?.prestigePerks?.(), "bossSlayer"), mapBoss: () => proceduralBoss.boss() ?? bossStateForMap(bosses, currentMapId), portalUnlocked: portal => mapController.portalIsUnlocked(portal as never), portals: () => { const config = MAP_CONFIG[currentMapId]; return [config.portal, "secondaryPortal" in config ? config.secondaryPortal : null]; } });
   const autoFarm = createAutoFarmController({
     resumeStore: createAutoFarmResumeStore(),
-    player, enemies, spawnSites, mapId: () => currentMapId, pullCamps: () => coop?.aggroChallenge?.()?.active ? 0 : aggroPullCamps(coop?.aggroChallenge?.()), forcedCamps: () => aggroForcedCamps(coop?.aggroChallenge?.()),
+    player, enemies, spawnSites, mapId: () => currentMapId, pullCamps: () => coop?.aggroChallenge?.()?.active ? 0 : aggroPullCamps(coop?.aggroChallenge?.()), forcedGroups: () => forcedAggroGroups(coop?.aggroChallenge?.(), coop?.localIdentity?.()),
     equippedWeapon: () => inventory.equippedRightHand || inventory.equippedLeftHand,
     localIdentity: () => coop?.localIdentity?.(),
     connection: () => farmConnection === 'ready' && (!coop?.isConnected?.() || !session?.isRunning()

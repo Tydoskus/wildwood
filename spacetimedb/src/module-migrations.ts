@@ -44,8 +44,9 @@ import { syncPlayerJoinDate } from "./mailbox";
 import { enrollInPrestigeChallenge } from "./prestige-challenge";
 import { readPlayerProgress, iterPlayerProgress } from "./wide-stats";
 import { moveSoloQuestsToGuild } from "./daily-quests";
+import { rebuildParkedAggroRun } from "./aggro-challenge";
 
-export const MODULE_MIGRATION_VERSION = 51;
+export const MODULE_MIGRATION_VERSION = 52;
 
 /**
  * Migration 50 (0.856): the ranking snapshot moves to leaderboard_entry_v2,
@@ -551,6 +552,9 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     // new member's guildless quests from this week move to it. Members who
     // joined this week before the change get theirs now (Jasmean's ten).
     if (currentVersion < 51) for (const member of [...ctx.db.guildMember.iter()] as any[]) moveSoloQuestsToGuild(ctx, member.identity);
+    // 52 (0.894): Phoe's Aggro run was thrown away on drop-out before drop-outs
+    // parked runs. Park one rebuilt at the power she had, about 317k.
+    if (currentVersion < 52) rebuildParkedAggroRun(ctx, "phoe", 317_000);
     const next = { id: 0, version: MODULE_MIGRATION_VERSION };
     if (state) ctx.db.moduleMigrationState.id.update(next);
     else ctx.db.moduleMigrationState.insert(next);

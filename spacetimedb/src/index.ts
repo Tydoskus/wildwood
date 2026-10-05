@@ -165,7 +165,7 @@ import { playerDirectoryJson } from "./player-directory";
 import { guildTables } from "./guild-tables";
 import { createGuildService } from "./guild-service";
 import { registerGuildReducers } from "./guild-reducers";
-import { endAggroChallenge, playerAggroChallenge, registerAggroReducers, restartAggroRunOnDeath } from "./aggro-challenge";
+import { aggroChallengeRun, endAggroChallenge, playerAggroChallenge, playerAggroChallengeParked, registerAggroReducers, restartAggroRunOnDeath } from "./aggro-challenge";
 import { GUILD_MAX_RANGE, guildWeaponRange } from "../../shared/guild-combat";
 import type { DuelFighter } from "../../shared/duel-combat";
 import {
@@ -1750,7 +1750,7 @@ const spacetimedb = schema({
   playerEndlessRebaseBackup,
   playerPrestige,
   playerPrestigePerk,
-  playerPrestigeChallenge, prestigeChallengeBackup, prestigeChallengeRun, playerPrestigeChallengeParked, playerAggroChallenge, playerFreeRespec, playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerWideStats, duelWideStats, duelReplayWideStats, prestigeExpansion,
+  playerPrestigeChallenge, prestigeChallengeBackup, prestigeChallengeRun, playerPrestigeChallengeParked, playerAggroChallenge, aggroChallengeRun, playerAggroChallengeParked, playerFreeRespec, playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerWideStats, duelWideStats, duelReplayWideStats, prestigeExpansion,
   playerPrestigeExpansionPerk,
   duelRiposte, duelCombatSnapshot,
   playerSessionAnalytics,

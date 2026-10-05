@@ -4775,3 +4775,13 @@ html.text-outline-shadow .death-countdown { text-shadow: var(--text-outline-ring
 .enemy-index-table tr.enemy-index-attacks td { padding: 0 4px 8px; text-align: left; white-space: normal; }
 .enemy-index-attack { display: inline-flex; gap: 6px; margin: 2px 14px 2px 0; color: #c2c7ce; font-size: 14px; }
 .enemy-index-attack strong { color: #ff5a5a; }
+
+/* Aggro: the stat groups the player picks to chase them. */
+.aggro-picks { display: grid; gap: 8px; }
+.aggro-picks[hidden] { display: none; }
+.aggro-picks-label { margin: 0; color: #e8eaed; font-size: 14px; font-weight: 700; }
+.aggro-picks-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.aggro-pick { min-height: 40px; margin: 0; padding: 0 14px; border: 2px solid var(--pick-color); border-radius: 8px; background: rgba(255,255,255,.05); box-shadow: none; color: var(--pick-color); font: 900 14px/1 var(--font-rounded); text-shadow: none; }
+.aggro-pick[aria-pressed="true"] { background: var(--pick-color); color: #10140f; }
+.aggro-pick:disabled { cursor: default; }
+.aggro-pick:disabled:not([aria-pressed="true"]) { opacity: .45; }

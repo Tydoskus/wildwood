@@ -333,6 +333,7 @@ import PausedResearchRow from "./paused_research_table";
 import PlayerRow from "./player_table";
 import PlayerAccountStatusRow from "./player_account_status_table";
 import PlayerAggroChallengeRow from "./player_aggro_challenge_table";
+import PlayerAggroChallengeParkedRow from "./player_aggro_challenge_parked_table";
 import PlayerChatHeartsRow from "./player_chat_hearts_table";
 import PlayerDailyQuestRow from "./player_daily_quest_table";
 import PlayerDeathFrameRow from "./player_death_frame_table";
@@ -843,6 +844,17 @@ const tablesSchema = __schema({
       { name: 'player_aggro_challenge_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerAggroChallengeRow),
+  playerAggroChallengeParked: __table({
+    name: 'player_aggro_challenge_parked',
+    indexes: [
+      { accessor: 'identity', name: 'player_aggro_challenge_parked_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_aggro_challenge_parked_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerAggroChallengeParkedRow),
   playerChatHearts: __table({
     name: 'player_chat_hearts',
     indexes: [

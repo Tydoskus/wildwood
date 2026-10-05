@@ -1,5 +1,5 @@
 import { CAMPAIGN_GATEWAYS } from "../../../shared/map-gateways";
-import { ENEMY_TYPES, type EnemyDefinition, type EnemyKind, type RewardType } from "../enemies";
+import { ENEMY_TYPES, type EnemyDefinition, type RewardType } from "../enemies";
 import { runtimeMapBalance } from "../../../shared/map-balance-runtime";
 import { generateMap, isProceduralMap } from "../../../shared/procedural-maps";
 import { bossForMap } from "./boss-registry";
@@ -63,10 +63,12 @@ export function mapBossRow(mapId: string, rewardAmount: (type: RewardType, amoun
 
 /** One row per kind of enemy on the map, weakest first. Bosses and other players' ghosts are left off. */
 export function mapSignRows(enemies: readonly EnemyState[], rewardAmount: (type: RewardType, amount: number) => number): MapSignRow[] {
-  const rows = new Map<EnemyKind, MapSignRow>();
+  // One row per name: Endless gives several lanes the same base kind under their own names and stats.
+  const rows = new Map<string, MapSignRow>();
   for (const enemy of enemies) {
-    if (enemy.generatedBoss || enemy.remoteCombatGhost || rows.has(enemy.type)) continue;
-    rows.set(enemy.type, { name: enemy.displayName ?? enemy.type, elite: Boolean((enemy.definition ?? ENEMY_TYPES[enemy.type])?.elite),
+    const key = enemy.displayName ?? enemy.type;
+    if (enemy.generatedBoss || enemy.remoteCombatGhost || rows.has(key)) continue;
+    rows.set(key, { name: enemy.displayName ?? enemy.type, elite: Boolean((enemy.definition ?? ENEMY_TYPES[enemy.type])?.elite),
       hp: enemy.maxHp, hit: enemy.damage, reward: { ...enemy.reward, amount: rewardAmount(enemy.reward.type, enemy.reward.amount) } });
   }
   return [...rows.values()].sort((a, b) => a.hp - b.hp);

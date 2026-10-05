@@ -2,9 +2,9 @@
  * Aggro: the second prestige challenge. A run starts over from the forest
  * with no prestige bonuses at all (stat gain, perks, Reflect Only's attack
  * speed), and on every map some camps chase the player from the moment they
- * arrive: one camp on the first run, one more on each run after. A camp is a
+ * arrive: camps the player picks, one on the first run and one more each run. A camp is a
  * stat group, every enemy on the map paying one stat, as Autofarm offers them.
- * Dying starts the run over, and Autofarm's own Pull is off during a run. It
+ * Dying starts the run over (dropping out parks it), and Autofarm's own Pull is off during a run. It
  * is won by reaching the player's next regular prestige and pressing
  * Prestige, which hands back the main run; each win lets Pull aggro one more
  * of the player's picked camps at once, up to five.
@@ -29,7 +29,8 @@ export function aggroGoalMet(bossRewardClaims: number) {
 }
 export const AGGRO_MAX_PULL_CAMPS = 1 + AGGRO_CHALLENGE_LIMIT;
 
-export type AggroChallenge = { active: boolean; completed: number };
+/** `parked`: a run the player dropped out of, waiting for them to drop back in. */
+export type AggroChallenge = { active: boolean; completed: number; parked?: boolean };
 
 const wins = (challenge: AggroChallenge | null | undefined) =>
   Math.max(0, Math.min(AGGRO_CHALLENGE_LIMIT, Math.floor(Number.isFinite(challenge?.completed) ? challenge!.completed : 0)));
@@ -49,12 +50,3 @@ export function prestigeBonusesOff(challenge: AggroChallenge | null | undefined)
   return Boolean(challenge?.active);
 }
 
-/** Picks `count` different camps at random, a new pick each time a player arrives on a map. */
-export function pickForcedCamps(camps: readonly string[], count: number, random: () => number = Math.random) {
-  const pool = [...new Set(camps)];
-  for (let index = pool.length - 1; index > 0; index -= 1) {
-    const swap = Math.floor(random() * (index + 1));
-    [pool[index], pool[swap]] = [pool[swap], pool[index]];
-  }
-  return pool.slice(0, Math.max(0, count));
-}

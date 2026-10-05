@@ -8,6 +8,13 @@ import type { RemotePlayer } from "../../wildstat-coop";
 import type { PlayerGender } from "../../../shared/player-gender";
 import type { Camera } from "./camera";
 import { ENEMY_HEALTH_BAR_HEIGHT, ENEMY_HEALTH_FILL, createEnemyStatusPlates, fillPill } from "./enemy-status-plate";
+import { enemyHpNumbersEnabled } from "../../ui/enemy-hp-setting";
+import { formatCompactNumber } from "../../ui/number-format";
+import { healthBarTextY } from "./health-bar-layout";
+
+/** The health numbers on a bar, when Settings asks for them. */
+const ENEMY_HP_FONT = '900 10px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+const ENEMY_HP_BAR_HEIGHT = 11;
 import type { BossTarget, DuelCombatant, DuelScene, EnemyShot, EnemyState, PlayerState, Projectile } from "./types";
 import { itemPresentation, projectileKindForWeapon } from "../item-presentation";
 import { playerDeathPose, type PlayerDeathAnimationState } from "./player-death-animation";
@@ -215,6 +222,16 @@ export function createActorRenderer(options: {
   const screenY = (worldY: number) => snapWorldRenderCoordinate(worldY - camera.y, camera.zoom, options.devicePixelRatio());
   const enemyLabelCache = new Map<string, { name: LabelBitmap; reward: LabelBitmap }>();
   const statusPlates = createEnemyStatusPlates({ pixelRatio: options.devicePixelRatio });
+  // An enemy's "440 / 500" changes only when its health does: kept per enemy, not formatted every frame.
+  const hpLabels = new WeakMap<EnemyState, { hp: number; maxHp: number; label: string }>();
+  function enemyHpLabel(enemy: EnemyState, hp: number) {
+    const shownHp = Math.max(0, Math.ceil(hp)), shownMax = Math.ceil(enemy.maxHp);
+    const cached = hpLabels.get(enemy);
+    if (cached && cached.hp === shownHp && cached.maxHp === shownMax) return cached.label;
+    const label = `${formatCompactNumber(shownHp)} / ${formatCompactNumber(shownMax)}`;
+    hpLabels.set(enemy, { hp: shownHp, maxHp: shownMax, label });
+    return label;
+  }
   const enemyLabelFont = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
   const projectileCircleSprites = new Map<string, HTMLCanvasElement>();
   let arrowProjectileSprite: HTMLCanvasElement | null | undefined;
@@ -757,10 +774,12 @@ export function createActorRenderer(options: {
     const rewardY = spriteBottom * camera.zoom + 13;
     // A long, thin pill with no numbers: one plate image at full health, one fill when wounded.
     const barW = Math.max(60, Math.min(100, (sprite?.size ?? enemy.r * 2) * 1.35));
-    const barH = ENEMY_HEALTH_BAR_HEIGHT;
+    // Taller with the numbers on it (Settings > Enemy HP Numbers), keeping its bottom edge where it was.
+    const showNumbers = enemyHpNumbersEnabled();
+    const barH = showNumbers ? ENEMY_HP_BAR_HEIGHT : ENEMY_HEALTH_BAR_HEIGHT;
     const barX = -barW / 2;
     const barCenterX = barX + barW / 2;
-    const barY = spriteTop * camera.zoom - 9;
+    const barY = spriteTop * camera.zoom - 4 - barH;
     const displayedHp = enemy.remoteCombatHp ?? enemy.hp;
     const hpRatio = clamp(displayedHp / enemy.maxHp, 0, 1);
 
@@ -789,6 +808,12 @@ export function createActorRenderer(options: {
           fillPill(ctx, barX + barW * hpRatio, barY, Math.max(1, barW * (fromRatio - hpRatio)), barH);
           ctx.restore();
         }
+      }
+      if (showNumbers) {
+        ctx.textAlign = "center";
+        ctx.font = ENEMY_HP_FONT;
+        ctx.textBaseline = "middle";
+        options.outlinedText(enemyHpLabel(enemy, displayedHp), barCenterX, healthBarTextY(barY, barH), "#ffffff", 2);
       }
 
       if (!enemy.remoteCombatGhost) {

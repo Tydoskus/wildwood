@@ -7,7 +7,6 @@ import type { Circle, EnemyState, PlayerState, Position } from './types';
 import type { Movement } from './player-input-controller';
 import { isEnemyAttackingPlayer } from './enemy-threat';
 import { farmRoute } from './auto-farm-navigation';
-import { pickForcedCamps } from '../../../shared/aggro-challenge';
 import { bossSurfaceDistance, bossVerticalRadius } from '../../../shared/boss-hitbox';
 import { compareAutoFarmTargets, enemyRewardStat, farmGroupMatches, farmStatGroup, readAutoFarmPriority, readAutoFarmPull, writeAutoFarmPriority, writeAutoFarmPull, type AutoFarmGroup, type AutoFarmPriority } from './auto-farm-priority';
 import type { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
@@ -90,8 +89,8 @@ export function createAutoFarmController(options: {
   bossUnlocksNext?: () => boolean;
   /** How many picked camps (stat groups) Pull aggroes at once: one, one more per Aggro win, and none during a run. */
   pullCamps?: () => number;
-  /** During an Aggro run: how many stat groups chase the player on every map, farming or not. */
-  forcedCamps?: () => number;
+  /** During an Aggro run: the stat groups the player picked, which chase them on every map, farming or not. */
+  forcedGroups?: () => readonly string[];
 }) {
   let priority: AutoFarmPriority = readAutoFarmPriority(options.priorityStorage);
   // A camp is a stat group: every enemy on the map paying one stat, as the panel offers them.
@@ -106,19 +105,14 @@ export function createAutoFarmController(options: {
     pulled = new Set([...new Set(order)].slice(0, count)); pulledKey = key;
     return pulled;
   }
-  // An Aggro run's groups: a new random pick on each arrival (and respawn), kept while the player stays.
-  let forcedSet = new Set<string>(), forcedMap = '', forcedCount = 0, forcedCheckedAt = -Infinity;
+  // An Aggro run's groups: the ones the player picked (aggro-picks.ts), read at most twice a second.
+  let forcedSet = new Set<string>(), forcedCheckedAt = -Infinity;
   function forcedGroups() {
-    const count = options.forcedCamps?.() ?? 0;
-    if (count <= 0) { if (forcedSet.size) forcedSet = new Set(); forcedCount = 0; return forcedSet; }
-    const map = options.mapId(), at = now();
-    if (map === forcedMap && count === forcedCount && at - forcedCheckedAt < 500) return forcedSet;
+    const at = now();
+    if (at - forcedCheckedAt < 500) return forcedSet;
     forcedCheckedAt = at;
-    const groups: string[] = [...new Set(spawnSites.map(site => choiceKey(site)))];
-    // A new map, a new count, or groups that are not here (the map was still loading): pick again.
-    if (map !== forcedMap || count !== forcedCount || forcedSet.size < Math.min(count, groups.length) || [...forcedSet].some(group => !groups.includes(group))) {
-      forcedSet = new Set(pickForcedCamps(groups, count)); forcedMap = map; forcedCount = count;
-    }
+    const groups = options.forcedGroups?.() ?? [];
+    if (groups.length !== forcedSet.size || groups.some(group => !forcedSet.has(group))) forcedSet = new Set(groups);
     return forcedSet;
   }
   let pullAll = readAutoFarmPull(options.priorityStorage);
@@ -211,8 +205,6 @@ export function createAutoFarmController(options: {
    */
   let defeats: number[] = [];
   function defeated() {
-    // A respawn is a new arrival: an Aggro run picks its camps again, so one deadly pick is not a loop.
-    forcedMap = '';
     if (!active && !pendingResume) return;
     const at = now();
     // Beaten at the boss: farm on and come back to it later, rather than walk into it again.

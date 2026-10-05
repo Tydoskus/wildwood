@@ -122,6 +122,16 @@ export const AegisPrimeResult = __t.object("AegisPrimeResult", {
 });
 export type AegisPrimeResult = __Infer<typeof AegisPrimeResult>;
 
+export const AggroChallengeRun = __t.object("AggroChallengeRun", {
+  identity: __t.identity(),
+  progressJson: __t.string(),
+  completedEndless: __t.f64(),
+  mapId: __t.string(),
+  x: __t.f32(),
+  y: __t.f32(),
+});
+export type AggroChallengeRun = __Infer<typeof AggroChallengeRun>;
+
 export const AnalyticsConversion = __t.object("AnalyticsConversion", {
   id: __t.u64(),
   guestIdentity: __t.identity(),
@@ -1677,6 +1687,12 @@ export const PlayerAggroChallenge = __t.object("PlayerAggroChallenge", {
   completed: __t.u32(),
 });
 export type PlayerAggroChallenge = __Infer<typeof PlayerAggroChallenge>;
+
+export const PlayerAggroChallengeParked = __t.object("PlayerAggroChallengeParked", {
+  identity: __t.identity(),
+  parkedAt: __t.timestamp(),
+});
+export type PlayerAggroChallengeParked = __Infer<typeof PlayerAggroChallengeParked>;
 
 export const PlayerAudioSetting = __t.object("PlayerAudioSetting", {
   identity: __t.identity(),
