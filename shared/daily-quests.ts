@@ -37,6 +37,12 @@ export type DailyQuest = {
  * not cost the guild its points.
  */
 export const GUILD_QUEST_COLLECT_LIMIT = 15;
+/**
+ * The most a guild earns in a week, whatever its size: a full guild's fifteen
+ * each (GUILD_MEMBER_LIMIT 20 x 15 = 300, +30%). A smaller guild reaches it by
+ * collecting extra quests once members' own are done.
+ */
+export const GUILD_WEEK_QUEST_CAP = 20 * WEEKLY_QUEST_COUNT;
 
 /** A quest of the player's own draw, not one they collected; a collected-away one still counts as theirs. */
 export const ownQuest = (quest: DailyQuest) => !quest.from;

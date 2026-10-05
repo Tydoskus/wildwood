@@ -15,7 +15,7 @@ export function trimReleaseNotes(source: string, keep = SHIPPED_RELEASE_NOTES) {
   const end = source.indexOf("\n};\n", start);
   if (start < 0 || end < 0) throw new Error("changelog.ts: RELEASE_NOTES block not found");
   const body = source.slice(source.indexOf("{\n", start) + 2, end);
-  const entries = body.split(/\n(?=  "\d+\.\d+": \[)/);
+  const entries = body.split(/\n(?=  "\d+(?:\.\d+)+": \[)/);
   if (entries.length <= keep) return source;
   return `${source.slice(0, source.indexOf("{\n", start) + 2)}${entries.slice(0, keep).join("\n")}${source.slice(end)}`;
 }

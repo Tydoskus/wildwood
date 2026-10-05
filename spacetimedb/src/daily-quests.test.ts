@@ -132,15 +132,15 @@ it("lets a member whose own fifteen are done take more from the guild's pool, wi
   ]) });
   f.seed("playerDailyQuest", { identity: helper, day, bonus: 1, guildPoints: 0, guildName: "Oaks", questsJson: finishedWeek() });
   f.seed("guildQuestWeek", { key: `${questWeek(day)}:7`, week: questWeek(day), guildId: 7n, guildName: "Oaks", points: 15 });
-  // 45 in the pool, 15 earned so far.
-  expect(questCollectStanding(f.ctx, helper)).toMatchObject({ ready: true, left: 15, pool: 30, poolSize: 45 });
+  // 300 in the pool at any size: 15 earned, and the sender's and sleepy's own unfinished fifteen held for them.
+  expect(questCollectStanding(f.ctx, helper)).toMatchObject({ ready: true, left: 15, pool: 255, poolSize: 300 });
   expect(collectGuildQuests(f.ctx, helper)).toBe(15);
   const mine = JSON.parse(f.db.playerDailyQuest.identity.find(helper).questsJson);
   expect(mine.filter((quest: any) => quest.from === GUILD_POOL_FROM)).toHaveLength(15);
   // Nobody's quests were taken.
   expect(JSON.parse(f.db.playerDailyQuest.identity.find(sleepy).questsJson).some((quest: any) => quest.takenBy)).toBe(false);
   // Open pool quests count against the pool until they are done.
-  expect(questCollectStanding(f.ctx, helper)).toMatchObject({ left: 0, pool: 15 });
+  expect(questCollectStanding(f.ctx, helper)).toMatchObject({ left: 0, pool: 240 });
   // Finished pool quests show beside the member's own fifteen.
   const list = JSON.parse(f.db.playerDailyQuest.identity.find(helper).questsJson);
   f.db.playerDailyQuest.identity.update({ ...f.db.playerDailyQuest.identity.find(helper), questsJson: JSON.stringify(list.map((quest: any, index: number) => index === 15 ? { ...quest, progress: quest.target } : quest)) });
@@ -150,15 +150,36 @@ it("lets a member whose own fifteen are done take more from the guild's pool, wi
   expect(() => collectMemberQuests(f.ctx, f.ctx.sender, sleepy)).toThrow("Finish your own quests first");
 });
 
-it("never pays a guild more than its pool in a week", () => {
+it("caps a guild's week at 300 points whatever its size", () => {
   const { f, day } = questing();
   f.db.guild.id.update({ ...f.db.guild.id.find(7n), members: 1 });
+  // One member past fifteen still pays: the cap is 300, not fifteen a member.
   f.seed("guildQuestWeek", { key: `${questWeek(day)}:7`, week: questWeek(day), guildId: 7n, guildName: "Oaks", points: 15 });
   spitters(f, 10);
-  expect(f.db.guildQuestWeek.key.find(`${questWeek(day)}:7`).points).toBe(15);
+  expect(f.db.guildQuestWeek.key.find(`${questWeek(day)}:7`).points).toBe(16);
+  f.db.guildQuestWeek.key.update({ ...f.db.guildQuestWeek.key.find(`${questWeek(day)}:7`), points: 300 });
+  f.db.playerDailyQuest.identity.update({ ...f.db.playerDailyQuest.identity.find(f.ctx.sender), questsJson: JSON.stringify([
+    { mapId: "tutorial_forest", enemy: "Spitter", target: 50, progress: 49 }]) });
+  spitters(f, 10, 2n);
+  expect(f.db.guildQuestWeek.key.find(`${questWeek(day)}:7`).points).toBe(300);
 });
 
-it("moves a new member's guildless quests from this week to their guild, up to its pool", () => {
+it("holds every member's own fifteen: extras a guildmate collects never leave them paying nothing", () => {
+  const { f, day } = questing();
+  const helper = member(f, "44");
+  f.db.guild.id.update({ ...f.db.guild.id.find(7n), members: 2 });
+  f.seed("playerDailyQuest", { identity: helper, day, bonus: 1, guildPoints: 0, guildName: "Oaks", questsJson: finishedWeek() });
+  f.seed("guildQuestWeek", { key: `${questWeek(day)}:7`, week: questWeek(day), guildId: 7n, guildName: "Oaks", points: 270 });
+  // 30 left: the sender's own fifteen are held, so the helper may collect the other 15.
+  expect(questCollectStanding(f.ctx, helper)).toMatchObject({ pool: 15 });
+  expect(collectGuildQuests(f.ctx, helper)).toBe(15);
+  expect(questCollectStanding(f.ctx, helper).pool).toBe(0);
+  // The sender's own quest still pays.
+  spitters(f, 10);
+  expect(f.db.guildQuestWeek.key.find(`${questWeek(day)}:7`).points).toBe(271);
+});
+
+it("moves a new member's guildless quests from this week to their guild, up to the 300 cap", () => {
   const { f, day } = questing();
   const week = questWeek(day);
   f.patch("guildMember", { joinedAt: f.ctx.timestamp.microsSinceUnixEpoch });
@@ -171,6 +192,7 @@ it("moves a new member's guildless quests from this week to their guild, up to i
   // Nothing left to move the second time; a full pool takes no more.
   expect(moveSoloQuestsToGuild(f.ctx, f.ctx.sender)).toBe(0);
   f.db.soloQuestWeek.identity.update({ ...f.db.soloQuestWeek.identity.find(f.ctx.sender), points: 9 });
+  f.db.guildQuestWeek.key.update({ ...f.db.guildQuestWeek.key.find(`${week}:7`), points: 295 });
   expect(moveSoloQuestsToGuild(f.ctx, f.ctx.sender)).toBe(5);
   expect(f.db.soloQuestWeek.identity.find(f.ctx.sender).points).toBe(4);
 });

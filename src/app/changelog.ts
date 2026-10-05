@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.898.1": [
+    "Guild quests cap at 300 a week for every guild, not 15 per member",
+    "Extra quests a guildmate collects never stop your own quests from counting",
+  ],
   "0.898": [
     "The Enemy Index shows every map's current enemy stats, not only the map you're on",
   ],
@@ -2821,6 +2825,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.898.1": "2026-10-04",
   "0.898": "2026-10-04",
   "0.897": "2026-10-04",
   "0.896": "2026-10-04",

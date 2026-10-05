@@ -1,5 +1,5 @@
 import { Range, table, t, SenderError } from "spacetimedb/server";
-import { WEEKLY_QUEST_COUNT, GUILD_QUEST_COLLECT_LIMIT, applyQuestKills, weeklyQuestsFor, guildQuestBonus, ownQuest, parseDailyQuests, questDay, questDone, questOpen, questWeek, soloQuestBonus, type DailyQuest } from "../../shared/daily-quests";
+import { WEEKLY_QUEST_COUNT, GUILD_QUEST_COLLECT_LIMIT, GUILD_WEEK_QUEST_CAP, applyQuestKills, weeklyQuestsFor, guildQuestBonus, ownQuest, parseDailyQuests, questDay, questDone, questOpen, questWeek, soloQuestBonus, type DailyQuest } from "../../shared/daily-quests";
 import { readPlayerProgress } from "./wide-stats";
 
 /**
@@ -105,7 +105,7 @@ export function moveSoloQuestsToGuild(ctx: Ctx, identity: any) {
   const week = questWeek(questDay(ctx.timestamp.microsSinceUnixEpoch));
   const solo = ctx.db.soloQuestWeek.identity.find(identity);
   const owned = solo?.week === week ? solo.points : 0;
-  const room = Math.max(0, (ctx.db.guild.id.find(guild.id)?.members ?? 0) * WEEKLY_QUEST_COUNT - weekPoints(ctx, week, guild.id));
+  const room = Math.max(0, GUILD_WEEK_QUEST_CAP - weekPoints(ctx, week, guild.id));
   const moved = Math.min(owned, room);
   if (!moved) return 0;
   ctx.db.soloQuestWeek.identity.update({ ...solo, points: owned - moved });
@@ -200,8 +200,8 @@ export function recordDailyQuestKills(ctx: Ctx, identity: any, mapId: string, ki
     const week = questWeek(row.day);
     settleSoloWeek(ctx, identity, week, soloPoints(ctx, identity, week) + completed);
   }
-  // A guild's week is worth at most its pool: fifteen quests a member.
-  const credited = guild ? Math.min(completed, Math.max(0, (ctx.db.guild.id.find(guild.id)?.members ?? 0) * WEEKLY_QUEST_COUNT - weekPoints(ctx, questWeek(row.day), guild.id))) : 0;
+  // A guild's week is worth at most GUILD_WEEK_QUEST_CAP, whatever its size.
+  const credited = guild ? Math.min(completed, Math.max(0, GUILD_WEEK_QUEST_CAP - weekPoints(ctx, questWeek(row.day), guild.id))) : 0;
   if (guild && credited) {
     const week = questWeek(row.day), key = weekKey(week, guild.id);
     const current = ctx.db.guildQuestWeek.key.find(key);
@@ -270,17 +270,23 @@ export function questCollectStanding(ctx: Ctx, identity: any) {
 export const GUILD_POOL_FROM = "your guild";
 
 /**
- * A guild's quest pool for the week: fifteen quests for each member. Its
- * points and the pool quests still open on members' boards use it up; the
- * rest is what members who have finished their own can still collect.
+ * A guild's quest pool for the week: GUILD_WEEK_QUEST_CAP (300) at any size
+ * (it was fifteen a member until 0.897.1). Its points use it up, and so do
+ * the quests still open on members' boards: collected ones, and every
+ * member's own unfinished fifteen, which are held for them, so extras one
+ * member collects never leave a guildmate's own quests paying nothing.
  */
 export function guildQuestPool(ctx: Ctx, guildId: bigint) {
   const week = questWeek(questDay(ctx.timestamp.microsSinceUnixEpoch));
-  const members = [...ctx.db.guildMember.guildId.filter(guildId)] as any[];
-  const size = members.length * WEEKLY_QUEST_COUNT;
   let outstanding = 0;
-  for (const member of members) outstanding += (weeksQuests(ctx, member.identity) ?? []).filter(quest => quest.from && questOpen(quest)).length;
-  return { size, left: Math.max(0, size - weekPoints(ctx, week, guildId) - outstanding) };
+  for (const member of ctx.db.guildMember.guildId.filter(guildId) as Iterable<any>) {
+    const quests = weeksQuests(ctx, member.identity);
+    const own = quests?.filter(ownQuest) ?? [];
+    // Not drawn yet (or a short list from the daily quests): the rest of their fifteen are still to come.
+    outstanding += own.filter(questOpen).length + Math.max(0, WEEKLY_QUEST_COUNT - own.length);
+    outstanding += (quests ?? []).filter(quest => quest.from && questOpen(quest)).length;
+  }
+  return { size: GUILD_WEEK_QUEST_CAP, left: Math.max(0, GUILD_WEEK_QUEST_CAP - weekPoints(ctx, week, guildId) - outstanding) };
 }
 
 /**
