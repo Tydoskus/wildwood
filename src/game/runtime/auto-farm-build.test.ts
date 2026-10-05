@@ -24,6 +24,21 @@ describe('autofarm build estimates', () => {
     expect(evaluator(modelled.dps() * 1_000).calibration()).toBe(CALIBRATION_MAX);
   });
 
+  it("forgets the old build's hits when a run swaps the build, so a fresh run never looks boss-ready", () => {
+    let damage = 10_000, measured: number | null = null;
+    const reset = () => { measured = null; };
+    const farm = evaluator(null, { base: () => ({ maxHp: 1_000, damage, armor: 0, regen: 0, attackRate: 1 }), measuredDps: () => measured, resetMeasured: reset });
+    measured = farm.dps() * 3;
+    expect(farm.calibration()).toBeCloseTo(3);
+    // A farm's own growth keeps the measurement.
+    damage *= 1.1;
+    expect(farm.calibration()).toBeGreaterThan(1);
+    // An Aggro run starts: the build falls to a fresh character's.
+    damage = 100;
+    expect(farm.calibration()).toBe(1);
+    expect(measured).toBeNull();
+  });
+
   it('counts Boss Slayer on the boss fight', () => {
     expect(evaluator(null, { bossSlayer: () => 1 }).evaluate().fightSeconds!).toBeLessThan(evaluator(null).evaluate().fightSeconds!);
   });

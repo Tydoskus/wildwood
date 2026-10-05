@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.898.10": [
+    "Auto autofarm pulls one more group per Aggro win, like a route does",
+    "Autofarm no longer rushes the boss at the start of a run",
+    "Auto autofarm skips stats you have maxed, like capped attack speed",
+    "Autofarm stands and waits for incoming enemies instead of stepping toward them",
+  ],
   "0.898.9": [
     "Fixed sprites, including your own character, vanishing after switching apps on a phone: the game now saves and reloads itself",
   ],
@@ -2853,6 +2859,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.898.10": "2026-10-05",
   "0.898.9": "2026-10-05",
   "0.898.8": "2026-10-04",
   "0.898.7": "2026-10-04",

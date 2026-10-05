@@ -11,7 +11,7 @@ import { bossSurfaceDistance, bossVerticalRadius } from '../../../shared/boss-hi
 import { compareAutoFarmTargets, enemyRewardStat, farmGroupMatches, farmStatGroup, readAutoFarmPriority, readAutoFarmPull, writeAutoFarmPriority, writeAutoFarmPull, type AutoFarmGroup, type AutoFarmPriority } from './auto-farm-priority';
 import type { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 import {
-  AUTO_REPLAN_SECONDS, BOSS_READY_DAMAGE_SHARE, BOSS_READY_FIGHT_SECONDS, BOSS_RETRY_MS, bestFarmCandidate, bossReady, decodeFarmPlan, encodeFarmPlan, nextRouteKey,
+  AUTO_REPLAN_SECONDS, BOSS_READY_DAMAGE_SHARE, BOSS_READY_FIGHT_SECONDS, BOSS_RETRY_MS, bossReady, pickRankedCandidate, rankFarmCandidates, decodeFarmPlan, encodeFarmPlan, nextRouteKey,
   readFarmAdvance, readFarmChoice, routeEntry, routeEntryText, writeFarmAdvance, writeFarmChoice, type FarmEvaluation, type FarmReward,
 } from './auto-farm-plan';
 
@@ -96,12 +96,16 @@ export function createAutoFarmController(options: {
   // A camp is a stat group: every enemy on the map paying one stat, as the panel offers them.
   // Pull's groups: the one being farmed, then the route's next picks, one more per Aggro win.
   let pulled = new Set<string>(), pulledKey = '';
+  /** Auto's camps best first, from its last look: on Auto, Pull's extra camps are the next best. */
+  let autoOrder: string[] = [];
   function pulledGroups() {
     // Zero during an Aggro run: its own chasing groups are the run's pull.
-    const count = Math.max(0, options.pullCamps?.() ?? 1), key = `${selected}|${count}|${plan.join()}`;
+    const count = Math.max(0, options.pullCamps?.() ?? 1), key = `${selected}|${count}|${plan.join()}|${autoOrder.join()}`;
     if (key === pulledKey) return pulled;
     const keys = planKeys(), at = Math.max(0, keys.indexOf(selected ?? ''));
-    const order = [selected, ...keys.slice(at + 1), ...keys.slice(0, at)].filter((group): group is string => Boolean(group));
+    // A route pulls its next picks; Auto pulled only the camp it farmed, whatever the Aggro wins.
+    const order = [selected, ...(plan.length ? [...keys.slice(at + 1), ...keys.slice(0, at)] : autoOrder)]
+      .filter((group): group is string => Boolean(group));
     pulled = new Set([...new Set(order)].slice(0, count)); pulledKey = key;
     return pulled;
   }
@@ -322,13 +326,15 @@ export function createAutoFarmController(options: {
     const dps = Math.max(1e-9, options.farmDps?.() ?? player.damage);
     const speed = Math.max(1, options.speed());
     const evaluate = options.evaluate ?? (() => ({ power: 0, fightSeconds: null, hitShare: null, fightDamageShare: null }));
-    const key = bestFarmCandidate(all.map(entry => ({
+    const ranked = rankFarmCandidates(all.map(entry => ({
       key: entry.key, alive: entry.alive,
       reward: entry.reward ?? ENEMY_TYPES[entry.type].reward,
       // The walk is paid in full: a camp across the map has to be worth it.
       secondsPerKill: entry.hp / dps + (entry.key === selected || !Number.isFinite(entry.nearest) ? 0 : entry.nearest / speed),
       danger: options.campDanger?.(entry.key),
-    })), evaluate, advance && Boolean(options.mapBoss?.()), selected);
+    })), evaluate, advance && Boolean(options.mapBoss?.()));
+    autoOrder = ranked.map(entry => entry.key);
+    const key = pickRankedCandidate(ranked, selected);
     if (key) select(key);
   }
 
@@ -420,6 +426,11 @@ export function createAutoFarmController(options: {
     status = label;
   }
 
+  function pullsEnemy(enemy: EnemyState) {
+    return pullAll && active && phase === 'farm' && !recovering && !pendingResume && !options.paused()
+      && !enemy.dead && !enemy.remoteCombatGhost && !enemy.generatedBoss && enemy.hp > 0 && pulledGroups().has(choiceKey(enemy));
+  }
+
   function movement(manual: Movement, dt: number): Movement {
     refresh();
     manualControl = Boolean(manual.x || manual.y);
@@ -459,14 +470,16 @@ export function createAutoFarmController(options: {
     if (phase === 'farm' && !pullAll) for (const enemy of enemies) {
       if (!enemy.generatedBoss && isEnemyAttackingPlayer(enemy, options.localIdentity?.()) && (!threat || distance(enemy) < distance(threat))) threat = enemy;
     }
-    // With the group pulled and on its way, stand and let it come; walk out
-    // only if nothing has reached range for a few seconds (stuck, or ranged).
+    // With the group on its way (pulled, or already chasing), stand and let it
+    // come; walk out only if nothing has reached range for a few seconds
+    // (stuck, or ranged). Waiting for `engaged` alone, it stepped out for a
+    // frame after every kill, before Pull's aggro landed on the next group.
     const reach = weaponAttackRange(options.equippedWeapon?.(), player.attackRange);
-    if (phase === 'farm' && pullAll && !threat) {
-      const coming = enemies.some(enemy => validEnemy(enemy) && enemy.engaged);
+    if (phase === 'farm' && !threat) {
+      const coming = enemies.some(enemy => validEnemy(enemy) && (enemy.engaged || (pullAll && pullsEnemy(enemy))));
       const inReach = enemies.some(enemy => validEnemy(enemy) && distance(enemy) <= reach + enemy.r);
       pullWait = coming && !inReach ? pullWait + dt : 0;
-      if (coming && (inReach || pullWait < PULL_WAIT_SECONDS)) { holding = true; route = []; status = inReach ? 'Farming' : 'Pulling'; return idle(); }
+      if (coming && (inReach || pullWait < PULL_WAIT_SECONDS)) { holding = true; route = []; status = inReach ? 'Farming' : pullAll ? 'Pulling' : 'Holding ground'; return idle(); }
     }
     // Walking to the portal, nothing stops it but a fight that finds it.
     // A boss is aimed at its hitbox, not its sprite's foot.
@@ -590,8 +603,7 @@ export function createAutoFarmController(options: {
      * next pick to the pull.
      */
     // Steering by hand keeps the pull: the group follows the player while they move.
-    pulls: (enemy: EnemyState) => pullAll && active && phase === 'farm' && !recovering && !pendingResume && !options.paused()
-      && !enemy.dead && !enemy.remoteCombatGhost && !enemy.generatedBoss && enemy.hp > 0 && pulledGroups().has(choiceKey(enemy)),
+    pulls: (enemy: EnemyState) => pullsEnemy(enemy),
     /** An Aggro run's groups on this map: they chase the player from arrival, whatever autofarm is doing. */
     forced: (enemy: EnemyState) => !enemy.dead && !enemy.generatedBoss && !enemy.remoteCombatGhost && forcedGroups().has(choiceKey(enemy)),
     setPriority(next: AutoFarmPriority) {

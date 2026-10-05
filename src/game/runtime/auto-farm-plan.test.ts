@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AUTO_SWITCH_MARGIN, bestFarmCandidate, bossReady, decodeFarmPlan, encodeFarmPlan, nextRouteKey, routeEntry, routeEntryText, type FarmEvaluation, type FarmReward } from './auto-farm-plan';
+import { AUTO_SWITCH_MARGIN, bestFarmCandidate, bossReady, rankFarmCandidates, decodeFarmPlan, encodeFarmPlan, nextRouteKey, routeEntry, routeEntryText, type FarmEvaluation, type FarmReward } from './auto-farm-plan';
 
 const build = (power: number, fightSeconds: number | null = null, fightDamageShare: number | null = null): FarmEvaluation =>
   ({ power, fightSeconds, hitShare: fightDamageShare, fightDamageShare });
@@ -46,6 +46,19 @@ describe('autofarm planning', () => {
     ];
     expect(bestFarmCandidate(candidates, evaluate, false)).toBe('stat:health');
     expect(bestFarmCandidate(candidates.map(candidate => ({ ...candidate, danger: candidate.danger + 1 })), evaluate, false)).toBe('stat:health');
+  });
+
+  it('never farms a stat that can no longer grow while another camp helps, even waiting for that one to respawn', () => {
+    // Attack speed at its cap: a kill there adds nothing.
+    const evaluate = (reward?: FarmReward) => build(10 + (reward && reward.type !== 'speed' ? reward.amount : 0));
+    const candidates = [
+      { key: 'stat:speed', alive: 4, reward: { type: 'speed', amount: 1 } as FarmReward, secondsPerKill: 1 },
+      { key: 'stat:health', alive: 0, reward: { type: 'health', amount: 1 } as FarmReward, secondsPerKill: 1 },
+    ];
+    expect(bestFarmCandidate(candidates, evaluate, false)).toBe('stat:health');
+    expect(rankFarmCandidates(candidates, evaluate, false).map(entry => entry.key)).toEqual(['stat:health']);
+    // With nothing better on the map, it still farms something.
+    expect(bestFarmCandidate([candidates[0]], evaluate, false)).toBe('stat:speed');
   });
 
   it('reads and writes route pips, three at most', () => {

@@ -44,6 +44,25 @@ describe('Aggro challenge on the client', () => {
     }
   });
 
+  it("on Auto, Pull's extra camps per win are Auto's next best, not none", () => {
+    const s = setup({ pullCamps: 2 });
+    const bramble = s.add('Bramble', 700, 500, 'near'), needle = s.add('Needle', 1200, 900, 'needle'), moss = s.add('Mossback', 1500, 500, 'moss');
+    s.farm.setPullAll(true);
+    s.farm.start([]);
+    const pulled = [bramble, needle, moss].filter(enemy => s.farm.pulls(enemy));
+    expect(pulled).toHaveLength(2);
+  });
+
+  it("stands and lets a pulled group come instead of stepping out to it after each kill", () => {
+    const s = setup();
+    s.add('Bramble', 900, 500, 'near');
+    s.farm.setPullAll(true);
+    s.farm.start([health]);
+    // Pulled but not yet chasing: before, it took a step toward it for a frame.
+    expect(s.farm.movement({ x: 0, y: 0, source: 'none' }, 1 / 60)).toMatchObject({ x: 0, y: 0 });
+    expect(s.farm.state().status).toBe('Pulling');
+  });
+
   it("an Aggro run's picked groups chase from arrival, farming or not, and only those", () => {
     const s = setup({ forced: [health] });
     const kinds: EnemyKind[] = ['Bramble', 'Bramble', 'Needle', 'Mossback'];

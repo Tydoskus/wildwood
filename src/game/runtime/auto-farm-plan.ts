@@ -68,17 +68,26 @@ function objective(now: FarmEvaluation, aimForBoss: boolean): (evaluation: FarmE
 }
 
 /**
- * The best camp for Auto, or the current one when nothing beats it by the
- * switch margin. Camps with nobody alive count only when every camp is empty;
- * camps it cannot survive, only when none is safe (then the least dangerous).
+ * Auto's camps, best first, each with its rate. A camp whose stat can no
+ * longer grow (attack speed at its cap) is left out while any other helps:
+ * Auto used to farm a capped speed camp whenever it was the only one alive,
+ * for nothing, over and over. Camps with nobody alive count only when every
+ * useful camp is empty (it waits for one there); camps it cannot survive,
+ * only when none is safe (then the least dangerous alone).
  */
-export function bestFarmCandidate(candidates: readonly FarmCandidate[], evaluate: (reward?: FarmReward) => FarmEvaluation,
-  aimForBoss: boolean, current: string | null = null) {
-  const living = candidates.some(candidate => candidate.alive > 0) ? candidates.filter(candidate => candidate.alive > 0) : candidates;
-  if (!living.length) return null;
-  const safe = living.filter(candidate => (candidate.danger ?? 0) <= SAFE_CAMP_DANGER);
-  if (!safe.length) return living.reduce((least, candidate) => (candidate.danger ?? 0) < (least.danger ?? 0) ? candidate : least).key;
+export function rankFarmCandidates(candidates: readonly FarmCandidate[], evaluate: (reward?: FarmReward) => FarmEvaluation, aimForBoss: boolean) {
   const now = evaluate();
+  const alive = (pool: readonly FarmCandidate[]) => pool.some(candidate => candidate.alive > 0) ? pool.filter(candidate => candidate.alive > 0) : pool;
+  const safeAll = candidates.filter(candidate => (candidate.danger ?? 0) <= SAFE_CAMP_DANGER);
+  if (!safeAll.length) {
+    const living = alive(candidates);
+    if (!living.length) return [];
+    const least = living.reduce((low, candidate) => (candidate.danger ?? 0) < (low.danger ?? 0) ? candidate : low);
+    return [{ key: least.key, rate: 0 }];
+  }
+  // Safe first, then useful, then alive: a useful camp respawning beats a useless one standing there.
+  const useful = safeAll.filter(candidate => evaluate(candidate.reward).power > now.power);
+  const safe = alive(useful.length ? useful : safeAll);
   const rate = (score: (evaluation: FarmEvaluation) => number) => {
     const base = score(now);
     return new Map(safe.map(candidate => {
@@ -89,10 +98,18 @@ export function bestFarmCandidate(candidates: readonly FarmCandidate[], evaluate
   let rates = rate(objective(now, aimForBoss));
   // Nothing on this map helps the goal: fall back to growing power.
   if (![...rates.values()].some(value => value > 0)) rates = rate(objective(now, false));
-  let best = safe[0].key;
-  for (const candidate of safe) if (rates.get(candidate.key)! > rates.get(best)!) best = candidate.key;
-  const held = current !== null ? rates.get(current) : undefined;
-  return held !== undefined && rates.get(best)! <= held * AUTO_SWITCH_MARGIN ? current : best;
+  return safe.map(candidate => ({ key: candidate.key, rate: rates.get(candidate.key)! })).sort((a, b) => b.rate - a.rate);
+}
+
+/** The best camp for Auto (rankFarmCandidates), or the current one when nothing beats it by the switch margin. */
+export function bestFarmCandidate(candidates: readonly FarmCandidate[], evaluate: (reward?: FarmReward) => FarmEvaluation,
+  aimForBoss: boolean, current: string | null = null) {
+  return pickRankedCandidate(rankFarmCandidates(candidates, evaluate, aimForBoss), current);
+}
+export function pickRankedCandidate(ranked: readonly { key: string; rate: number }[], current: string | null = null) {
+  if (!ranked.length) return null;
+  const held = ranked.find(entry => entry.key === current)?.rate;
+  return held !== undefined && ranked[0].rate <= held * AUTO_SWITCH_MARGIN ? current : ranked[0].key;
 }
 
 /**

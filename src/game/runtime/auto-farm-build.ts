@@ -27,6 +27,8 @@ export const UNPULLED_ATTACKERS = 3;
 /** How far measured damage may move the estimate: a short or odd sample cannot swing it further. */
 export const CALIBRATION_MIN = .5;
 export const CALIBRATION_MAX = 20;
+/** A modelled damage rate this many times off the last one is another build (a run started or ended). */
+export const BUILD_CHANGE = 2;
 
 /** One kind of enemy in a stat group, as a fight sees it. */
 export type GroupEnemy = Pick<OfflineEnemy, 'hp' | 'damage' | 'attacksPerSecond' | 'population'>;
@@ -129,7 +131,10 @@ export function createFarmEvaluator(deps: {
   bossSlayer?: () => number;
   /** The weapon damage per second actually landing (damage-meter.ts), or null before there is enough to go on. */
   measuredDps?: () => number | null;
+  /** Forgets the measured hits: they belong to a build that is gone. */
+  resetMeasured?: () => void;
 }) {
+  let measuredFor = 0;
   function build(reward?: FarmReward) {
     const stats = { ...deps.base() };
     if (reward) {
@@ -154,8 +159,14 @@ export function createFarmEvaluator(deps: {
    * every estimate, so a reward's worth scales with what the build really does.
    */
   const calibration = () => {
-    const measured = deps.measuredDps?.();
     const modelled = averageHit(build()) / interval(build());
+    // A run's start or end swaps the whole build at once: a minute of the old
+    // one's hits made a fresh Aggro run look boss-ready, and autofarm walked
+    // into the boss. Halved or doubled since the last look, the measurement
+    // starts over; a farm's own growth, a kill at a time, never jumps so far.
+    if (measuredFor > 0 && (modelled < measuredFor / BUILD_CHANGE || modelled > measuredFor * BUILD_CHANGE)) deps.resetMeasured?.();
+    measuredFor = modelled;
+    const measured = deps.measuredDps?.();
     return measured && modelled > 0 ? Math.min(CALIBRATION_MAX, Math.max(CALIBRATION_MIN, measured / modelled)) : 1;
   };
   const realHit = (stats: PlayerPowerStats, scale: number) => averageHit(stats) * scale;
@@ -234,7 +245,7 @@ export function createAutoFarmProgress(deps: Omit<Parameters<typeof createFarmEv
   now?: () => number;
 }) {
   const meter = createDamageMeter(deps.now ?? (() => performance.now()));
-  const evaluator = createFarmEvaluator({ ...deps, measuredDps: () => meter.dps(), boss: () => {
+  const evaluator = createFarmEvaluator({ ...deps, measuredDps: () => meter.dps(), resetMeasured: () => meter.clear(), boss: () => {
     const boss = runtimeMapBalance(deps.mapId())?.boss;
     if (!boss) return null;
     const attacks = Object.values(boss.attacks).filter(value => value > 0);
