@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.898.5": [
+    "Autofarm works on the first map after a prestige",
+  ],
   "0.898.4": [
     "The Enemy Index shows every Endless enemy's stats on the map you're on, not just one",
   ],
@@ -2834,6 +2837,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.898.5": "2026-10-04",
   "0.898.4": "2026-10-04",
   "0.898.3": "2026-10-04",
   "0.898.2": "2026-10-04",

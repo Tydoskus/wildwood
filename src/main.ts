@@ -509,9 +509,9 @@ import {
       bounds: () => ({ width: WORLD.w, height: WORLD.h, inset: player.r }),
     },
   });
-  // Dragon credit permanently unlocks the Desert; reuse that saved milestone
+  // Dragon credit unlocks autofarm, as does any prestige (which resets that credit but proves the Dragon fell),
   // so autofarm never depends on the current boss's health or respawn state.
-  const farmUnlocked = () => Boolean(coop?.savedProgress?.()?.desertUnlocked);
+  const farmUnlocked = () => leaderboardEligible(coop?.savedProgress?.()?.desertUnlocked, coop?.prestige?.()?.level);
   const fullscreenMovement = createFullscreenMovementGate(visible => coop?.setRemotePlayersVisible(visible));
   const playerVisibility = createPlayerVisibilityToggle({
     button: gameElements.playerVisibilityToggle,
