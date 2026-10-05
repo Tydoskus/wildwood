@@ -107,6 +107,7 @@ const afterUpdateGateShell = String.raw`
             <button id="editPlayerNameBtn" class="profile-name-edit" type="button" aria-label="Change player name" hidden>✎</button>
           </div>
           <div id="playerProfilePresence" class="player-profile-presence">CHECKING STATUS</div>
+          <div id="playerProfileChallenge" class="player-profile-challenge" hidden></div>
         </div>
       </div>
       <button id="settingsBtn" class="profile-settings-button" type="button" aria-label="Open settings" aria-expanded="false" aria-controls="settingsPanel" title="Settings" hidden><img src="assets/wildstat/icons/Icon_Settings.webp" alt="" aria-hidden="true"></button>

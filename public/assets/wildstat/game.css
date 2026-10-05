@@ -3099,6 +3099,9 @@
   .profile-name-edit[hidden] { display: none; }
   .player-profile-presence { margin-top: 4px; color: var(--muted); font-size: 8px; letter-spacing: .08em; }
   .player-profile-presence.is-online { color: #72ef58; }
+  /* "In challenge - Aggro": under the online line, in the same size, cyan. */
+  .player-profile-challenge { margin-top: 2px; color: #5fd8ff; font-size: 8px; letter-spacing: .08em; }
+  .player-profile-challenge[hidden] { display: none; }
   #playerProfilePower { position: absolute; z-index: 2; top: 2px; left: 62px; right: 62px; display: flex; align-items: center; justify-content: center; gap: 3px; color: #fff; font: 900 18px/1 var(--player-name-font); white-space: nowrap; -webkit-text-stroke: var(--text-outline-width) #000; paint-order: stroke fill; text-shadow: var(--text-shadow); pointer-events: none; }
   #playerProfilePower .power-icon { width: 18px; height: 18px; }
   #playerProfileName { --prestige-badge-size: 18px; }
@@ -3709,6 +3712,7 @@
     .player-profile-title-row { gap: 7px; }
     .player-profile-header h2 { font-size: clamp(11px, 3.8vw, 16px); }
     .player-profile-presence { margin-top: 2px; font-size: 7px; line-height: 1.15; }
+    .player-profile-challenge { font-size: 7px; line-height: 1.15; }
     .player-profile-modal .profile-tabs { margin: 8px 0 5px; }
     .player-profile-modal .profile-tab { padding: 5px 9px; font-size: 9px; }
     .player-profile-modal .profile-grid { gap: 4px; }
@@ -3938,6 +3942,7 @@
   .tech-tree-timer-label,
   .tech-tree-action,
   .player-profile-presence,
+  .player-profile-challenge,
   .profile-gender-label,
   .profile-gender-value,
   .profile-tab,

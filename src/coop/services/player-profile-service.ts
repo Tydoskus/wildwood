@@ -99,6 +99,7 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
     return {
       identity,
       prestigeChallenge: (() => { const row = [...(dependencies.connection()?.db.playerPrestigeChallenge.iter() ?? [])].find(row => row.identity.toHexString() === identity); return { active: row?.active ?? false, completed: row?.completed ?? 0 }; })(),
+      aggroChallenge: (() => { const row = [...(dependencies.connection()?.db.playerAggroChallenge?.iter() ?? [])].find(row => row.identity.toHexString() === identity); return { active: row?.active ?? false, completed: row?.completed ?? 0 }; })(),
       prestigeLevel: [...(dependencies.connection()?.db.playerPrestige.iter() ?? [])].find(row => row.identity.toHexString() === identity)?.level ?? 0,
       prestigePerks: (() => {
         const row = [...(dependencies.connection()?.db.playerPrestigePerk.iter() ?? [])].find(row => row.identity.toHexString() === identity);
@@ -247,6 +248,7 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
           tables.playerPrestige.where(row => row.identity.eq(dbIdentity)),
           tables.playerPrestigePerk.where(row => row.identity.eq(dbIdentity)),
           tables.playerPrestigeChallenge.where(row => row.identity.eq(dbIdentity)),
+          tables.playerAggroChallenge.where(row => row.identity.eq(dbIdentity)),
           tables.playerPrestigeExpansionPerk.where(row => row.identity.eq(dbIdentity)),
           tables.playerItemUpgrade.where((upgrade) => upgrade.identity.eq(dbIdentity)),
           tables.player.where((player) => player.identity.eq(dbIdentity)),

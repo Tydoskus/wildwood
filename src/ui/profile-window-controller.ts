@@ -167,6 +167,10 @@ export function createProfileWindowController(elements: {
     api.renderName(elements.name, profile.identity, profile.name, profile.gender);
     elements.guest.hidden = !api.isGuest(profile.identity);
     elements.presence.textContent = presence; elements.presence.classList.toggle("is-online", online);
+    // Under the online line, only while the player is in a challenge.
+    const challenge = profile.aggroChallenge?.active ? "Aggro" : profile.prestigeChallenge?.active ? "Reflect Only" : "";
+    const challengeLine = elements.window.querySelector<HTMLElement>("#playerProfileChallenge");
+    if (challengeLine) { challengeLine.hidden = !challenge; challengeLine.textContent = challenge ? `In challenge - ${challenge}` : ""; }
     api.paintIcon(elements.icon, api.profileIcon(profile.identity));
     applyAvatarFrame(elements.icon, profile.identity);
     elements.icon.classList.toggle("is-editable", own); elements.icon.disabled = !own; elements.icon.setAttribute("aria-label", own ? "Choose profile icon" : `${profile.name}'s profile icon`);
@@ -205,6 +209,7 @@ export function createProfileWindowController(elements: {
     identity = nextIdentity; profileData = null; elements.duel.hidden = nextIdentity === api.localIdentity(); elements.duel.dataset.identity = nextIdentity;
     elements.window.hidden = false; updateDuelButton(); api.renderName(elements.name, nextIdentity, fallbackName, api.playerGender(nextIdentity)); elements.guest.hidden = !api.isGuest(nextIdentity);
     const online = api.isOnline(nextIdentity); elements.presence.textContent = online ? "Online" : "CHECKING LAST SEEN"; elements.presence.classList.toggle("is-online", online);
+    const challengeLine = elements.window.querySelector<HTMLElement>("#playerProfileChallenge"); if (challengeLine) challengeLine.hidden = true;
     api.paintIcon(elements.icon, api.profileIcon(nextIdentity)); applyAvatarFrame(elements.icon, nextIdentity); const own = nextIdentity === api.localIdentity(); elements.icon.classList.toggle("is-editable", own); elements.icon.disabled = !own; elements.editName.hidden = !own; elements.genderSetting.hidden = !own; closeGenderChoices(); if (own) updateGenderChoices(api.playerGender(nextIdentity));
     if (elements.settings) elements.settings.hidden = !own;
     renderEquipment(null); updatePreview(nextIdentity, own); renderPower("—"); selectTab("stats"); loading.show();
