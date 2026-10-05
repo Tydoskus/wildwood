@@ -15,7 +15,7 @@ import { bossForMap, bossStateForMap, type BossArtAssets, type BossHazards, type
 import { BASE_ATTACK_RANGE } from "../constants";
 import type { PlayerDeathAnimationState } from "./player-death-animation";
 import type { Particle } from "./combat-effects";
-import { parseHexColorOrNull, type StaticWorldColorQuadFrame, type StaticWorldLayer, type StaticWorldSpriteFrame } from "./webgl-static-world-layer";
+import { parseHexColorOrNull, STATIC_WORLD_LAYER_RESET_EVENT, type StaticWorldColorQuadFrame, type StaticWorldLayer, type StaticWorldSpriteFrame } from "./webgl-static-world-layer";
 import { nightEnemyOpacity, nightGroundShadowsVisible } from "./night-visibility";
 import { snapWorldRenderCoordinate } from "./render-space";
 
@@ -131,6 +131,9 @@ export type FrameRendererOptions = {
 };
 
 /** Wires the independent world, actor, boss, depth, and frame renderers. */
+/** How long the game must have been out of sight before its ground is redrawn on return (a quick tab switch keeps it). */
+const RESUME_REDRAW_AFTER_MS = 3_000;
+
 export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
   let invalidateDepthOrder = () => {};
   const drawEntityShadow: DrawShadow = (x, y, width, alpha) => {
@@ -381,6 +384,24 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     world.invalidateStaticWorld();
     invalidateDepthOrder();
   }
+
+  // A phone that sends the game to the background (another app, the lock
+  // screen) or holds it under a long chat can drop the GPU context and the
+  // cached ground tiles, and nothing redrew them: most of the screen came back
+  // black. Coming back after a few seconds, or when the WebGL context is lost
+  // or restored, rebuild a lost layer and redraw every ground tile from scratch.
+  let hiddenAt = Number.POSITIVE_INFINITY;
+  const redrawWorld = (rebuild: boolean) => {
+    if (rebuild) options.staticWorldLayer?.recover?.();
+    invalidateStaticWorld();
+  };
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") { hiddenAt = performance.now(); return; }
+    if (performance.now() - hiddenAt >= RESUME_REDRAW_AFTER_MS) redrawWorld(true);
+    hiddenAt = Number.POSITIVE_INFINITY;
+  });
+  window.addEventListener("pageshow", (event) => { if (event.persisted) redrawWorld(true); });
+  window.addEventListener(STATIC_WORLD_LAYER_RESET_EVENT, (event) => redrawWorld((event as CustomEvent).detail === "restored"));
 
   return { ...world, ...boss, ...actor, createFrameRenderer, invalidateStaticWorld };
 }

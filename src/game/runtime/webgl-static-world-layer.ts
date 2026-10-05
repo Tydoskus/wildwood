@@ -45,7 +45,18 @@ export type StaticWorldLayer = {
   invalidate: () => void;
   render: (frame: StaticWorldLayerFrame) => boolean;
   renderer: "webgl";
+  /** Rebuilds a layer whose GPU context was lost, on a fresh canvas; true when WebGL is drawing again. */
+  recover?: () => boolean;
 };
+type WebGLWorldLayer = StaticWorldLayer & { lost: () => boolean; destroy: () => void };
+
+/**
+ * Sent on window when the world layer's GPU context is lost ("lost") or comes
+ * back ("restored"), so the renderer redraws every ground tile: a phone that
+ * backgrounds the game can drop both, and nothing redrew them, leaving most
+ * of the screen black on return.
+ */
+export const STATIC_WORLD_LAYER_RESET_EVENT = "wildstat:static-world-layer-reset";
 
 type TileTexture = {
   source: HTMLCanvasElement | ImageBitmap;
@@ -235,8 +246,10 @@ export function parseHexColor(color: string): [number, number, number] {
 
 export function createWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): StaticWorldLayer | null {
   if (!webGLWorldRequested(window.location.search)) return null;
-  let layer: StaticWorldLayer | null | undefined;
+  let layer: WebGLWorldLayer | null | undefined;
+  let prepared = false;
   const prepare = () => {
+    prepared = true;
     if (layer === undefined) layer = initializeWebGLStaticWorldLayer(overlayCanvas);
     return Boolean(layer?.active());
   };
@@ -247,6 +260,13 @@ export function createWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): S
     invalidate: () => layer?.invalidate(),
     render: (frame) => layer?.render(frame) ?? false,
     renderer: "webgl",
+    recover() {
+      // Only a lost context is rebuilt; a layer that turned itself off for an upload failure stays off.
+      if (!prepared || !layer?.lost()) return false;
+      layer.destroy();
+      layer = undefined;
+      return prepare();
+    },
   };
 }
 
@@ -293,7 +313,7 @@ function createProgram(gl: WebGLRenderingContext, vertexSource = VERTEX_SHADER, 
  * upload, or context failure immediately returns the whole world layer to
  * Canvas2D.
  */
-function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): StaticWorldLayer | null {
+function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): WebGLWorldLayer | null {
   const canvas = document.createElement("canvas");
   canvas.id = "gameGpu";
   canvas.setAttribute("aria-hidden", "true");
@@ -524,8 +544,20 @@ function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): Stat
     gl.disable(gl.BLEND);
   }
 
+  let lost = false;
+  const reset = (detail: "lost" | "restored") => window.dispatchEvent(new CustomEvent(STATIC_WORLD_LAYER_RESET_EVENT, { detail }));
+  function loseContext() {
+    if (lost) return;
+    lost = true;
+    disable();
+    reset("lost");
+  }
+
   function render(frame: StaticWorldLayerFrame) {
     if (!enabled) return false;
+    // A lost context draws nothing without saying so, and its lost event can
+    // arrive frames later: hand this frame to Canvas2D now instead.
+    if (gl.isContextLost()) { loseContext(); return false; }
     try {
       uploadedTexture = false;
       const backingWidth = Math.max(1, Math.round(frame.width * frame.dpr));
@@ -609,8 +641,9 @@ function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): Stat
 
   canvas.addEventListener("webglcontextlost", (event) => {
     event.preventDefault();
-    disable();
+    loseContext();
   });
+  canvas.addEventListener("webglcontextrestored", () => reset("restored"));
   document.body.classList.add("has-webgl-world");
   document.documentElement.dataset.worldRenderer = "webgl";
 
@@ -618,8 +651,10 @@ function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement): Stat
     prepare: () => enabled,
     active: () => enabled,
     hide: () => { canvas.hidden = true; },
-    invalidate: clearTextures,
+    invalidate: () => { if (!lost) clearTextures(); },
     render,
     renderer: "webgl",
+    lost: () => lost,
+    destroy: () => canvas.remove(),
   };
 }

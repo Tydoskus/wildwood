@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.898.7": [
+    "Fixed the screen staying mostly black after switching apps on a phone, or after chat was open a long time",
+    "Autofarming keeps you visible with the eye on; only standing still for 5 minutes switches it to Idle",
+  ],
   "0.898.6": [
     "Autofarming players show up for everyone nearby, moving between their camps, at a fraction of the network traffic",
     "The quest tracker shows the stat each quest's enemy gives (Atk, HP, Armor, Regen, Spd)",
@@ -2841,6 +2845,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.898.7": "2026-10-04",
   "0.898.6": "2026-10-04",
   "0.898.5": "2026-10-04",
   "0.898.4": "2026-10-04",

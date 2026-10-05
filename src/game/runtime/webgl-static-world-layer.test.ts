@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { parseHexColor, webGLSpriteBatchVertices, webGLWorldRequested, writeWebGLColorQuadVertices } from "./webgl-static-world-layer";
+import { describe, expect, it, vi } from "vitest";
+import { createWebGLStaticWorldLayer, parseHexColor, webGLSpriteBatchVertices, webGLWorldRequested, writeWebGLColorQuadVertices } from "./webgl-static-world-layer";
 
 describe("WebGL static world layer", () => {
   it("is enabled by default with an explicit Canvas compatibility switch", () => {
@@ -79,4 +79,40 @@ describe("WebGL static world layer", () => {
       8, 12, .25, .5, .75, 1,
     ]);
   });
+});
+
+it("hands a lost context's frame to Canvas2D, then rebuilds the layer on a fresh canvas", () => {
+  let lost = false;
+  // Enough of a WebGL context for the layer: every call succeeds, constants are numbers.
+  const gl = new Proxy({}, { get: (_target, key) => key === "isContextLost" ? () => lost
+    : key === "getProgramParameter" || key === "getShaderParameter" ? () => true
+    : key === "getError" ? () => 0
+    : typeof key === "string" && /^[A-Z0-9_]+$/.test(key) ? 1
+    : () => ({}) });
+  // Just the page the layer touches: canvases it inserts and removes, and the reset event.
+  const canvases: { removed: boolean }[] = [];
+  const makeCanvas = () => {
+    const canvas = { id: "", hidden: false, width: 0, height: 0, style: {}, removed: false, setAttribute() {}, addEventListener() {},
+      remove() { canvas.removed = true; }, getContext: (type: string) => type === "webgl" ? gl : null };
+    canvases.push(canvas);
+    return canvas;
+  };
+  const resets: string[] = [];
+  vi.stubGlobal("document", { createElement: makeCanvas, body: { classList: { add() {}, remove() {} } }, documentElement: { dataset: {} } });
+  vi.stubGlobal("window", { location: { search: "" }, dispatchEvent: (event: { detail: string }) => { resets.push(event.detail); return true; } });
+  vi.stubGlobal("CustomEvent", class { constructor(public type: string, init: { detail: string }) { Object.assign(this, init); } });
+  const layer = createWebGLStaticWorldLayer({ before() {} } as never)!;
+  expect(layer.prepare()).toBe(true);
+  // Nothing to rebuild while the context holds.
+  expect(layer.recover!()).toBe(false);
+  lost = true;
+  expect(layer.render({ backgroundColor: "#000", width: 10, height: 10, dpr: 1, zoom: 1, tiles: [] })).toBe(false);
+  expect(layer.active()).toBe(false);
+  expect(resets).toEqual(["lost"]);
+  lost = false;
+  expect(layer.recover!()).toBe(true);
+  expect(layer.active()).toBe(true);
+  // The old canvas went with the old context.
+  expect(canvases.map(canvas => canvas.removed)).toEqual([true, false]);
+  vi.unstubAllGlobals();
 });

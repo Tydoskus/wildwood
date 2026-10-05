@@ -1044,7 +1044,7 @@ import {
     movement: (dt) => {
       if (onboarding?.blocksInput()) return { x: 0, y: 0, source: "none" };
       const manual = playerInput.movement(dt);
-      if (manual.x || manual.y) playerVisibility.noteManualMovement();
+      if (manual.x || manual.y || autoFarm.targetType()) playerVisibility.noteManualMovement(); // An autofarmer stays visible: their puppet costs next to nothing.
       return autoFarm.movement(manual, dt);
     },
     isMapTransitioning: () => mapController.isMapTransitioning(),
