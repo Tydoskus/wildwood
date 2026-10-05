@@ -6,8 +6,7 @@ import { createPrestigeChallengePanel, installPrestigeTabs } from "./prestige-ch
 import { gameConfirm } from "./confirm-dialog";
 import { challengeWinReached, reflectOnlyWinNotice } from "./prestige-challenge-win";
 import { createAggroChallengePanel } from "./aggro-challenge-panel";
-import { aggroPicksNeeded, readAggroPicks, writeAggroPicks } from "../game/runtime/aggro-picks";
-import { createAggroPickPrompt } from "./aggro-pick-prompt";
+import { readAggroPicks, writeAggroPicks } from "../game/runtime/aggro-picks";
 import { AGGRO_CHALLENGE_LIMIT, aggroGoal, aggroPullCamps } from "../../shared/aggro-challenge";
 
 /** Compose the shared launch notice, map label and account prestige controls. */
@@ -23,8 +22,6 @@ export function createPrestigeExpansionRuntime(d: {
   let lastChallenge: { identity: string; active: boolean; completed: number } | null = null;
   let aggroPanel: ReturnType<typeof createAggroChallengePanel> | undefined;
   let lastAggro: { identity: string; active: boolean; completed: number } | null = null;
-  // A run must always have its tier's chasing groups: one without them gets a picker it cannot close.
-  let pickPrompt: ReturnType<typeof createAggroPickPrompt> | undefined;
   // Each challenge locks the other while it runs, so a start or drop-out on
   // one card redraws both: the other card has no tick of its own while the
   // window is open, and kept saying "Finish Aggro first" after a drop-out.
@@ -42,11 +39,6 @@ export function createPrestigeExpansionRuntime(d: {
       challengePanel?.render();
       aggroPanel?.render();
       const aggro = coop?.aggroChallenge?.(), who = coop?.localIdentity?.() ?? "";
-      if (aggro?.active && who && d.started() && readAggroPicks(who).length < aggroPicksNeeded(aggro)) {
-        pickPrompt ??= createAggroPickPrompt(document, { picks: () => readAggroPicks(coop?.localIdentity?.()),
-          setPicks: picks => { writeAggroPicks(coop?.localIdentity?.(), picks); aggroPanel?.render(); } });
-        if (!pickPrompt.isOpen()) pickPrompt.open(aggroPicksNeeded(aggro));
-      }
       if (aggro) {
         const next = { identity: who, active: Boolean(aggro.active), completed: aggro.completed ?? 0 };
         if (challengeWinReached(lastAggro, next)) void gameConfirm({ message: "Aggro complete!", details: [

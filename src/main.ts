@@ -1810,11 +1810,11 @@ import {
   minimizeMaximizedChat = chatRuntime.minimize;
 
   createAutoFarmPanel({
-    farm: autoFarm, mapName: () => MAP_CONFIG[currentMapId].name,
+    farm: autoFarm, mapName: () => MAP_CONFIG[currentMapId].name, aggro: () => coop?.aggroChallenge?.(), identity: () => coop?.localIdentity?.(),
     rewardMultiplier: researchRewardMultiplier,
     showBaseStatRewards: appShell.showBaseStatRewards,
     rewardAmount: rewardDisplay.displayedAmount,
-    visible: () => farmUnlocked() && currentMapId !== "home_exterior" && Boolean(session?.isRunning()) && player.hp > 0 && !isDueling() && !mapController.isMapTransitioning() && !mapController.isCutsceneActive(),
+    visible: () => (farmUnlocked() || Boolean(coop?.aggroChallenge?.()?.active)) && currentMapId !== "home_exterior" && Boolean(session?.isRunning()) && player.hp > 0 && !isDueling() && !mapController.isMapTransitioning() && !mapController.isCutsceneActive(),
     unavailable: farmUnavailable,
     setPaused: () => {},
     clearInput: () => { playerInput.clear(); player.moving = false; coop?.correctMovementPosition?.(player.x, player.y, true); },

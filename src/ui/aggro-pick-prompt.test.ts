@@ -27,3 +27,23 @@ it("switches rather than drops during a run", () => {
   expect(togglePick(["damage"], "damage", 1, false)).toEqual([]);
   expect(togglePick(["damage", "armor"], "regen", 2, false)).toEqual(["armor", "regen"]);
 });
+
+it("offers only this map's groups, and asks again when a pick is missing here", () => {
+  const { document } = parseHTML("<html><body></body></html>");
+  let picks: RewardType[] = ["speed"];
+  const prompt = createAggroPickPrompt(document as unknown as Document, { picks: () => picks, setPicks: next => { picks = next; } });
+  // A map with no Atk Speed enemies: the saved pick cannot chase here.
+  const here: RewardType[] = ["damage", "health", "armor"];
+  expect(prompt.lacking(1, here)).toBe(true);
+  expect(prompt.lacking(1, ["speed", "damage"])).toBe(false);
+  prompt.open(1, here);
+  const chips = [...document.querySelectorAll(".aggro-pick")] as unknown as HTMLButtonElement[];
+  expect(chips.filter(chip => !chip.hidden).map(chip => chip.textContent)).toEqual(["Damage", "Max Health", "Armor"]);
+  const done = document.querySelector(".aggro-pick-done") as unknown as HTMLButtonElement;
+  expect(done.disabled).toBe(true);
+  chips.find(chip => chip.textContent === "Armor")!.click();
+  done.click();
+  expect(picks).toEqual(["armor"]);
+  expect(prompt.isOpen()).toBe(false);
+  expect(prompt.lacking(1, here)).toBe(false);
+});

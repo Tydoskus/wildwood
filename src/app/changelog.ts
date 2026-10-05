@@ -1,6 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.896": [
     "Killing Aegis Prime in an Aggro run wins it on the spot, like Reflect Only, with the win popup",
+    "In an Aggro run the autofarm button picks or switches the groups that chase you",
+    "A map without one of your picked groups asks you to pick from the groups it has, so the right number always chase you",
   ],
   "0.895": [
     "An Aggro run must always have its chasing groups: a run without them opens a picker that stays until you pick",

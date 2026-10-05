@@ -2,6 +2,10 @@ import { ENEMY_TYPES, REWARD_DATA, rewardAmountLabel, rewardStatLabel, type Enem
 import type { AutoFarmController } from '../game/runtime/auto-farm-controller';
 import { AUTO_FARM_PRIORITIES } from '../game/runtime/auto-farm-priority';
 import { MAX_ROUTE_WEIGHT, routeEntry, routeEntryText } from '../game/runtime/auto-farm-plan';
+import { aggroPicksNeeded, readAggroPicks, writeAggroPicks } from '../game/runtime/aggro-picks';
+import { createAggroPickPrompt } from './aggro-pick-prompt';
+import type { AggroChallenge } from '../../shared/aggro-challenge';
+import type { RewardType } from '../game/enemies';
 
 const farmIcon = '<img class="farm-swords-icon" src="assets/wildstat/icons/Icon_AutoFarm.svg" alt="" aria-hidden="true">';
 const STAT_MARKS: Record<string, string> = { damage: '⚔', health: '♥', speed: '↗', armor: '◇', regen: '+' };
@@ -23,7 +27,14 @@ export function createAutoFarmPanel(options: {
   rewardMultiplier: () => number;
   showBaseStatRewards: () => boolean;
   rewardAmount?: (type: EnemyDefinition["reward"]["type"], amount: number) => number;
+  /** The Aggro challenge and whose picks to read: during a run this button opens the group picker instead. */
+  aggro?: () => AggroChallenge | null | undefined;
+  identity?: () => string | undefined;
 }) {
+  const aggroRun = () => Boolean(options.aggro?.()?.active);
+  const picker = createAggroPickPrompt(document, { picks: () => readAggroPicks(options.identity?.()), setPicks: picks => writeAggroPicks(options.identity?.(), picks) });
+  /** This map's stat groups, as autofarm offers them; empty while it loads. */
+  const mapGroups = () => options.farm.choices().flatMap(choice => choice.key.startsWith('stat:') ? [choice.key.slice(5) as RewardType] : []);
   const floating = document.createElement('div');
   floating.className = 'farm-floating';
   floating.hidden = true;
@@ -192,6 +203,9 @@ export function createAutoFarmPanel(options: {
 
   function refresh() {
     options.farm.refresh();
+    // A run lacking its picked groups on this map gets the picker, which stays until they are picked.
+    const groups = mapGroups(), needed = aggroPicksNeeded(options.aggro?.());
+    if (aggroRun() && options.visible() && groups.length && !picker.isOpen() && picker.lacking(needed, groups)) picker.open(needed, groups);
     const visible = options.visible();
     floating.hidden = !visible;
     if (!visible && sheet.open) { close(); return; }
@@ -208,6 +222,8 @@ export function createAutoFarmPanel(options: {
   }
 
   toggle.addEventListener('click', () => {
+    // In an Aggro run the button picks or switches the groups that chase you.
+    if (aggroRun()) { const groups = mapGroups(); if (groups.length) picker.open(aggroPicksNeeded(options.aggro?.()), groups); return; }
     if (options.farm.state().active) { options.farm.stop(); refresh(); }
     else open();
   });
