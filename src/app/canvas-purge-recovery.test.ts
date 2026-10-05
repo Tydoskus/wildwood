@@ -63,8 +63,8 @@ it("never reloads twice inside the cooldown, even across the reload itself", () 
   // The reloaded page: a fresh install, the same tab's session.
   const again = vi.fn(async () => true);
   const q = page();
-  q.setPixel([0, 0, 0, 0]);
   installCanvasPurgeRecovery({ reload: again, doc: q.doc, session: p.session, now: () => Date.now() });
+  q.setPixel([0, 0, 0, 0]);
   q.returnToPage();
   expect(again).not.toHaveBeenCalled();
   vi.advanceTimersByTime(RELOAD_COOLDOWN_MS);
@@ -83,4 +83,17 @@ it("waits until it can save, then tries again", async () => {
   p.returnToPage();
   await vi.advanceTimersByTimeAsync(5_000);
   expect(reload).toHaveBeenCalledTimes(2);
+});
+
+it("never trusts a blank read on a browser whose canvas reads were blank from the start", () => {
+  vi.useFakeTimers();
+  const p = page();
+  // Canvas reads blocked: blank before anything could have wiped it.
+  p.setPixel([0, 0, 0, 0]);
+  const reload = vi.fn(async () => true);
+  installCanvasPurgeRecovery({ reload, doc: p.doc, session: p.session, now: () => Date.now() });
+  p.returnToPage();
+  vi.advanceTimersByTime(RELOAD_COOLDOWN_MS * 2);
+  p.returnToPage();
+  expect(reload).not.toHaveBeenCalled();
 });

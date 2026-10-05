@@ -64,10 +64,13 @@ export function installCanvasPurgeRecovery(options: {
   if (!context) return { lost: () => false, recover: () => {} };
   context.fillStyle = "#ff00ff";
   context.fillRect(0, 0, SENTINEL_SIZE, SENTINEL_SIZE);
+  // A browser or extension that blocks canvas reads hands back blank pixels from the start: its reads
+  // prove nothing, so for this page only a lost game canvas counts (or it would reload on every return).
+  const readsTrusted = !wiped(context);
   const watched = (options.watch ?? []).map(canvas => canvas.getContext("2d")).filter(Boolean) as SentinelContext[];
   let reloading = false, watchedLostSince: number | null = null;
   const watchedLost = () => watched.some(watchedContext => watchedContext.isContextLost?.());
-  const lost = () => (watchedLostSince !== null && now() - watchedLostSince >= LOST_GRACE_MS) || wiped(context);
+  const lost = () => (watchedLostSince !== null && now() - watchedLostSince >= LOST_GRACE_MS) || (readsTrusted && wiped(context));
   const recentlyReloaded = () => {
     try { const at = Number(session()?.getItem(RELOADED_AT_KEY)); return Number.isFinite(at) && at > 0 && now() - at < RELOAD_COOLDOWN_MS; } catch { return false; }
   };
