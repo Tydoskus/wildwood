@@ -72,11 +72,16 @@ export function liveEnemyRows(enemies: readonly EnemyState[], paid: Paid, sites:
   return [...rows.values()].sort((a, b) => a.hp - b.hp);
 }
 
-/** Another map's enemies and boss: from its live balance when given, else the copy the game ships. */
-export function plannedEnemyRows(mapId: string, paid: Paid, balance?: MapBalanceSnapshot | null): EnemyIndexRow[] {
-  const rows = offlineEnemyRoster(mapId, balance ?? undefined).map(entry => ({ name: entry.enemy, elite: Boolean(ENEMY_TYPES[entry.enemy as keyof typeof ENEMY_TYPES]?.elite),
+/** A map's enemies, one row per kind (per lane in Endless), from its layout and the balance given. */
+function rosterRows(mapId: string, paid: Paid, balance?: MapBalanceSnapshot | null): EnemyIndexRow[] {
+  return offlineEnemyRoster(mapId, balance ?? undefined).map(entry => ({ name: entry.enemy, elite: Boolean(ENEMY_TYPES[entry.enemy as keyof typeof ENEMY_TYPES]?.elite),
     hp: entry.hp, hit: entry.damage, reward: { type: entry.reward.type as RewardType, amount: paid(entry.reward.type as RewardType, entry.reward.amount) } }))
     .sort((a, b) => a.hp - b.hp);
+}
+
+/** Another map's enemies and boss: from its live balance when given, else the copy the game ships. */
+export function plannedEnemyRows(mapId: string, paid: Paid, balance?: MapBalanceSnapshot | null): EnemyIndexRow[] {
+  const rows = rosterRows(mapId, paid, balance);
   const boss = bossForMap(mapId);
   if (balance?.boss) {
     const rewards = paidRewards(Object.entries(balance.boss.rewards).map(([type, amount]) => ({ type: type as RewardType, amount })), paid);
@@ -91,5 +96,8 @@ export function enemyIndexRows(mapId: string, liveEnemies: readonly EnemyState[]
   sites: readonly Pick<SpawnSite, "type" | "definition">[] = []): EnemyIndexRow[] {
   if (!liveEnemies) return plannedEnemyRows(mapId, paid, balance);
   const boss = liveBossRow(mapId, paid, liveEnemies);
-  return [...liveEnemyRows(liveEnemies, paid, sites), ...boss ? [boss] : []];
+  // Every Endless enemy wears the map's one art kind, so its live enemies cannot
+  // tell the lanes apart: list the lanes from the layout and the pinned balance.
+  const rows = isProceduralMap(mapId) ? rosterRows(mapId, paid, runtimeMapBalance(mapId)) : liveEnemyRows(liveEnemies, paid, sites);
+  return [...rows, ...boss ? [boss] : []];
 }

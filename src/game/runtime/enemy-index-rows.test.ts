@@ -61,3 +61,9 @@ it("names an Endless boss as it spawns", () => {
   const balance = resolveMapBalance("endless_9", defaultBalanceSettings(), 7);
   expect(plannedEnemyRows("endless_9", paid, balance).at(-1)!.name).toBe("Warden - 9");
 });
+
+it("lists each Endless lane on the player's own map, though every enemy shares one art kind", () => {
+  const rows = enemyIndexRows("endless_9", [enemy("Bramble", 42), enemy("Bramble", 42)], paid);
+  expect(rows.map(row => row.name)).toEqual(expect.arrayContaining(["Mossback", "Bramble", "Cindermaw", "Dread Warden", "Brood"]));
+  expect(rows.filter(row => !row.boss).map(row => row.name)).toEqual(plannedEnemyRows("endless_9", paid).filter(row => !row.boss).map(row => row.name));
+});
