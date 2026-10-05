@@ -6002,7 +6002,7 @@ function playerPresence(ctx: any, identity: any) {
   const active = ctx.db.player.identity.find(identity);
   const online = Boolean(active)
     && (!isDeveloperIdentity(identity) || (ctx.db.developerPresencePreference.identity.find(identity)?.visible ?? false));
-  return { online, mapId: online && active.isVisible !== false ? active.mapId as string : "", // Where they are only while they show themselves (the eye).
+  return { online, mapId: online ? active.mapId as string : "",
     lastSeenAtMs: Number(ctx.db.playerLifetime.identity.find(identity)?.sessionStartedAt.microsSinceUnixEpoch ?? 0n) / 1000 };
 }
 const guildService = createGuildService({

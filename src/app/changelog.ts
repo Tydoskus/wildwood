@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.899.8": [
+    "Profiles show an online player's map again, eye on or off",
+  ],
   "0.899.7": [
     "Profiles show a player's map only while their eye is on",
   ],
@@ -2883,6 +2886,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.899.8": "2026-10-05",
   "0.899.7": "2026-10-05",
   "0.899.6": "2026-10-05",
   "0.899.5": "2026-10-05",

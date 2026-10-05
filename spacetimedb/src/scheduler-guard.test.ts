@@ -18,12 +18,3 @@ it("arms a missing repeating schedule once, and leaves a present one alone", () 
   ensureRepeatingSchedule(f.db.startupTelemetryCleanupSchedule, 1_000n);
   expect(f.db.startupTelemetryCleanupSchedule.count()).toBe(1n);
 });
-
-it("tells anyone a player is online, but where only while they show themselves", () => {
-  const f = crystalFixture();
-  const presence = () => JSON.parse((server.getPlayerPresence as any)({ withTx: (run: (ctx: unknown) => unknown) => f.transaction(() => run(f.ctx)) }, { identity: f.ctx.sender }));
-  f.patch("player", { isVisible: true });
-  expect(presence()).toMatchObject({ online: true, mapId: "crystal_hollows" });
-  f.patch("player", { isVisible: false });
-  expect(presence()).toMatchObject({ online: true, mapId: "" });
-});
