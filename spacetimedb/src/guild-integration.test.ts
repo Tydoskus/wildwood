@@ -54,6 +54,21 @@ describe("guild root reducer integration", () => {
     f.actor("2"); f.run(server.joinGuild, { guildId: BigInt(guildId) });
     expect(f.snapshot().guild!.members).toHaveLength(2);
   });
+  it("keeps a member's join time when they leave and come back to the same guild that week", () => {
+    const f = fixture();
+    const guildId = f.guild(["1", "2"], "Rose");
+    const joinedAt = f.db.guildMember.identity.find(identity("2")).joinedAt;
+    f.ctx.timestamp = new (f.ctx.timestamp.constructor as any)(f.ctx.timestamp.microsSinceUnixEpoch + 3_600_000_000n);
+    f.actor("2");
+    f.run(server.leaveGuild);
+    f.run(server.joinGuild, { guildId });
+    expect(f.db.guildMember.identity.find(identity("2")).joinedAt).toBe(joinedAt);
+    // Leaving again and coming back a week later starts over.
+    f.run(server.leaveGuild);
+    f.ctx.timestamp = new (f.ctx.timestamp.constructor as any)(f.ctx.timestamp.microsSinceUnixEpoch + 7n * 86_400_000_000n);
+    f.run(server.joinGuild, { guildId });
+    expect(f.db.guildMember.identity.find(identity("2")).joinedAt).toBe(f.ctx.timestamp.microsSinceUnixEpoch);
+  });
   it("moves a joiner's guildless quests from this week to the guild they join", () => {
     const f = fixture(); f.guild(["1"], "Rose");
     const guildId = f.db.guildMember.identity.find(f.ctx.sender).guildId;

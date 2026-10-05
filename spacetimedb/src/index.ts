@@ -1,5 +1,5 @@
 import { playerPrestigeChallenge, playerPrestigeChallengeParked, prestigeChallengeBackup, prestigeChallengeRun, reflectRewardsInPlay, restorePrestigeChallenge } from "./prestige-challenge";
-import { playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, ensureDailyQuests, pruneOldGuildQuestWeeks, recordDailyQuestKills, memberQuestStanding, questCollectStanding, collectMemberQuests, moveSoloQuestsToGuild } from "./daily-quests";
+import { playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerQuestWeekTotal, ensureDailyQuests, pruneOldGuildQuestWeeks, recordDailyQuestKills, memberQuestStanding, questCollectStanding, collectMemberQuests, moveSoloQuestsToGuild } from "./daily-quests";
 import { challengeAttackInterval, challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { duelCombatSnapshot } from "./duel-combat-snapshot";
 import { playerEquipmentLock, setEquipmentLock } from "./equipment-locks";
@@ -1751,7 +1751,7 @@ const spacetimedb = schema({
   playerEndlessRebaseBackup,
   playerPrestige,
   playerPrestigePerk,
-  playerPrestigeChallenge, prestigeChallengeBackup, prestigeChallengeRun, playerPrestigeChallengeParked, playerAggroChallenge, aggroChallengeRun, playerAggroChallengeParked, playerAutoFarmPuppet, playerFreeRespec, playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerWideStats, duelWideStats, duelReplayWideStats, prestigeExpansion,
+  playerPrestigeChallenge, prestigeChallengeBackup, prestigeChallengeRun, playerPrestigeChallengeParked, playerAggroChallenge, aggroChallengeRun, playerAggroChallengeParked, playerAutoFarmPuppet, playerFreeRespec, playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerQuestWeekTotal, playerWideStats, duelWideStats, duelReplayWideStats, prestigeExpansion,
   playerPrestigeExpansionPerk,
   duelRiposte, duelCombatSnapshot,
   playerSessionAnalytics,

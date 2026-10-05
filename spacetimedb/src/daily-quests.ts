@@ -49,6 +49,16 @@ export const soloQuestWeek = table({ name: "player_solo_quest_week" }, {
   identity: t.identity().primaryKey(), week: t.u32(), points: t.u32(), lastWeek: t.u32(), lastPoints: t.u32(),
 });
 
+/**
+ * Every quest a player finished each week, for a guild or not: this week's
+ * count and last week's. A player without a guild bonus this week (no guild,
+ * or one joined this week) gets the personal bonus from all of last week's,
+ * not only those done without a guild: leaving a guild used to cost both.
+ */
+export const playerQuestWeekTotal = table({ name: "player_quest_week_total" }, {
+  identity: t.identity().primaryKey(), week: t.u32(), done: t.u32(), lastWeek: t.u32(), lastDone: t.u32(),
+});
+
 type Ctx = { db: any; timestamp: { microsSinceUnixEpoch: bigint } };
 
 /** Quests a player finished without a guild in the given week. */
@@ -82,6 +92,25 @@ function soloQuestsFor(ctx: Ctx, identity: any, week: number, quests?: DailyQues
   const stored = soloPoints(ctx, identity, week);
   const done = listDone(ctx, identity, week, quests);
   return done ? Math.max(stored, done.own + done.collected - guildTally(ctx, identity, week)) : stored;
+}
+
+function noteQuestsDone(ctx: Ctx, identity: any, week: number, count: number) {
+  const row = ctx.db.playerQuestWeekTotal.identity.find(identity);
+  const next = !row ? { identity, week, done: count, lastWeek: 0, lastDone: 0 }
+    : row.week === week ? { ...row, done: row.done + count }
+    : row.week < week ? { identity, week, done: count, lastWeek: row.week, lastDone: row.done }
+    : row;
+  if (row) ctx.db.playerQuestWeekTotal.identity.update(next); else ctx.db.playerQuestWeekTotal.insert(next);
+}
+
+/**
+ * Every quest the player finished in `week`, guild or solo. The count began
+ * in 0.899.4; before it, the solo count plus their guild tally stands in.
+ */
+function questsDoneIn(ctx: Ctx, identity: any, week: number) {
+  const row = ctx.db.playerQuestWeekTotal.identity.find(identity);
+  const counted = row?.week === week ? row.done : row?.lastWeek === week ? row.lastDone : 0;
+  return Math.max(counted, soloQuestsFor(ctx, identity, week) + guildTally(ctx, identity, week));
 }
 
 /** Records a week's solo count, keeping the week before it, so it outlives the list it was read from. */
@@ -136,12 +165,12 @@ function weekPoints(ctx: Ctx, week: number, guildId: bigint) {
  * each point their guild earned last week. Only for members who were in the
  * guild before this week began, so hopping into last week's top guild pays
  * nothing until the week after; until then, and for anyone without a guild,
- * it is their own solo week: 1% a quest, up to 15%.
+ * it is their own week: 1% for each quest they finished, guild or not, up to 15%.
  */
 export function guildQuestBonusFor(ctx: Ctx, identity: any) {
   const guild = guildOf(ctx, identity);
   const week = questWeek(questDay(ctx.timestamp.microsSinceUnixEpoch));
-  if (!guild || questWeek(guild.joinedDay) >= week) return soloQuestBonus(soloQuestsFor(ctx, identity, week - 1));
+  if (!guild || questWeek(guild.joinedDay) >= week) return soloQuestBonus(questsDoneIn(ctx, identity, week - 1));
   return guildQuestBonus(weekPoints(ctx, week - 1, guild.id));
 }
 
@@ -188,6 +217,7 @@ export function recordDailyQuestKills(ctx: Ctx, identity: any, mapId: string, ki
   if (!kills.some(kill => kill.count > 0)) return 0;
   const row = ensureDailyQuests(ctx, identity);
   const { quests, completed } = applyQuestKills(parseDailyQuests(row.questsJson), mapId, kills);
+  if (completed) noteQuestsDone(ctx, identity, questWeek(row.day), completed);
   let guildPoints = row.guildPoints;
   // A member's quests count for their guild from the moment they join (0.863;
   // before, from the UTC day after, which cost late-evening joiners most of a
@@ -281,8 +311,12 @@ export function guildQuestPool(ctx: Ctx, guildId: bigint) {
   let outstanding = 0;
   for (const member of ctx.db.guildMember.guildId.filter(guildId) as Iterable<any>) {
     const quests = weeksQuests(ctx, member.identity);
-    const own = quests?.filter(ownQuest) ?? [];
-    // Not drawn yet (or a short list from the daily quests): the rest of their fifteen are still to come.
+    // Only a member who has opened this week's quests has them held. Holding
+    // fifteen for everyone left a full guild's pool at zero all week, its
+    // absent members' quests uncollectable (0.899.4).
+    if (!quests) continue;
+    const own = quests.filter(ownQuest);
+    // A short list from the daily quests: the rest of their fifteen are still to come.
     outstanding += own.filter(questOpen).length + Math.max(0, WEEKLY_QUEST_COUNT - own.length);
     outstanding += (quests ?? []).filter(quest => quest.from && questOpen(quest)).length;
   }

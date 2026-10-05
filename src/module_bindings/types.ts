@@ -969,6 +969,14 @@ export const GuildRank = __t.object("GuildRank", {
 });
 export type GuildRank = __Infer<typeof GuildRank>;
 
+export const GuildRejoin = __t.object("GuildRejoin", {
+  identity: __t.identity(),
+  guildId: __t.u64(),
+  joinedAt: __t.u64(),
+  leftWeek: __t.u32(),
+});
+export type GuildRejoin = __Infer<typeof GuildRejoin>;
+
 export const GuildReportParticipant = __t.object("GuildReportParticipant", {
   key: __t.string(),
   identity: __t.identity(),
@@ -2198,6 +2206,15 @@ export const PlayerProgress = __t.object("PlayerProgress", {
   cosmeticItemsJson: __t.string(),
 });
 export type PlayerProgress = __Infer<typeof PlayerProgress>;
+
+export const PlayerQuestWeekTotal = __t.object("PlayerQuestWeekTotal", {
+  identity: __t.identity(),
+  week: __t.u32(),
+  done: __t.u32(),
+  lastWeek: __t.u32(),
+  lastDone: __t.u32(),
+});
+export type PlayerQuestWeekTotal = __Infer<typeof PlayerQuestWeekTotal>;
 
 export const PlayerReport = __t.object("PlayerReport", {
   id: __t.u64(),

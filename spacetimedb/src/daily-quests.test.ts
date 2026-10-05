@@ -245,3 +245,25 @@ it("drops guild weeks before last week, keeping last week's for the bonus and th
   expect(pruneOldGuildQuestWeeks(f.ctx)).toBe(2);
   expect([...f.db.guildQuestWeek.iter()].map((row: any) => row.week).sort()).toEqual([week - 1, week]);
 });
+
+it("holds own quests only for members who opened this week's: a full guild's absent members leave room in the pool", () => {
+  const { f, day } = questing();
+  const helper = member(f, "44");
+  // Eighteen members who have not opened their quests this week.
+  for (let i = 0; i < 18; i++) member(f, (0x80 + i).toString(16));
+  f.db.guild.id.update({ ...f.db.guild.id.find(7n), members: 20 });
+  f.seed("playerDailyQuest", { identity: helper, day, bonus: 1, guildPoints: 0, guildName: "Oaks", questsJson: finishedWeek() });
+  f.seed("guildQuestWeek", { key: `${questWeek(day)}:7`, week: questWeek(day), guildId: 7n, guildName: "Oaks", points: 15 });
+  // 300 - 15 points - the sender's own fifteen; the absent eighteen hold nothing.
+  expect(questCollectStanding(f.ctx, helper)).toMatchObject({ pool: 270 });
+});
+
+it("pays a player without a guild bonus 1% for every quest they finished last week, guild ones included", () => {
+  const { f, day } = questing();
+  spitters(f, 10);
+  // Next week, after leaving the guild that week's quest counted for.
+  f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + 7n * DAY);
+  f.db.guildMember.identity.delete(f.ctx.sender);
+  expect(questWeek(questDay(f.ctx.timestamp.microsSinceUnixEpoch))).toBe(questWeek(day) + 1);
+  expect(guildQuestBonusFor(f.ctx, f.ctx.sender)).toBeCloseTo(1.01);
+});

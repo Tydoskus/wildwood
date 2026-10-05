@@ -16,6 +16,11 @@ const guildMember = table({ name: "guild_member", public: false }, {
 const guildAccount = table({ name: "guild_account", public: false }, {
   identity: t.identity().primaryKey(), joinAfter: t.u64(), lastAttackDay: t.u32(), attackGuild: t.u64(),
 });
+// Who left which guild, when they had joined it, and in which quest week they left: rejoining
+// the same guild that week restores the join time (and its quest bonus) rather than starting over.
+const guildRejoin = table({ name: "guild_rejoin", public: false }, {
+  identity: t.identity().primaryKey(), guildId: t.u64(), joinedAt: t.u64(), leftWeek: t.u32(),
+});
 const guildRank = table({ name: "guild_rank", public: false }, {
   guildId: t.u64().primaryKey(), rankKey: t.string().index("btree"), payload: t.string(),
 });
@@ -40,4 +45,4 @@ const guildAdmissionPolicy = table({ name: "guild_admission_policy", public: fal
 const guildJoinRequest = table({ name: "guild_join_request", public: false }, {
   identity: t.identity().primaryKey(), guildId: t.u64().index("btree"), requestedAt: t.u64(),
 });
-export const guildTables = { guildAdmissionPolicy, guildJoinRequest, playerNameTag, guild, guildMember, guildAccount, guildRank, guildStanding, guildBattleReport, guildReportParticipant, guildBattleCounter };
+export const guildTables = { guildAdmissionPolicy, guildJoinRequest, playerNameTag, guild, guildMember, guildAccount, guildRejoin, guildRank, guildStanding, guildBattleReport, guildReportParticipant, guildBattleCounter };

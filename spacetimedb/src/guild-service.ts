@@ -2,6 +2,7 @@ import { guildAdmissionAction, guildRequestOnly } from "./guild-admissions";
 import { removeMessageReactions } from "./chat-reactions";
 import { guildNameModerationReason } from "./chat-moderation";
 import { syncGuildTag } from "./player-name-tags";
+import { questDay, questWeek } from "../../shared/daily-quests";
 import type { Identity } from "spacetimedb";
 import { Range, SenderError } from "spacetimedb/server";
 import type { ModuleReducerCtx } from "./index";
@@ -99,6 +100,9 @@ function anonymizeAccountReports(ctx: Ctx, identity: Identity) {
 function removeMember(ctx: Ctx, member: Member) {
   const guild = ctx.db.guild.id.find(member.guildId);
   ctx.db.guildMember.identity.delete(member.identity);
+  // Kept so a change of heart this week costs nothing: see insertMember.
+  const left = { identity: member.identity, guildId: member.guildId, joinedAt: member.joinedAt, leftWeek: questWeek(questDay(now(ctx))) };
+  if (ctx.db.guildRejoin.identity.find(member.identity)) ctx.db.guildRejoin.identity.update(left); else ctx.db.guildRejoin.insert(left);
   syncGuildTag(ctx, member.identity);
   const previous = account(ctx, member.identity);
   ctx.db.guildAccount.identity.update({ ...previous, joinAfter: 0n });
@@ -157,7 +161,12 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
   function insertMember(ctx: Ctx, guildId: bigint, identity = ctx.sender) {
     const { name } = deps.fighterFor(ctx, identity);
     ctx.db.guildJoinRequest.identity.delete(identity);
-    ctx.db.guildMember.insert({ identity, guildId, name, joinedAt: now(ctx),
+    // Back in the guild they left this quest week: they keep the join time they had, and with it this
+    // week's guild bonus, which goes only to members from before the week began (players lost it by rejoining).
+    const left = ctx.db.guildRejoin.identity.find(identity);
+    const rejoined = left && left.guildId === guildId && left.leftWeek === questWeek(questDay(now(ctx)));
+    if (left) ctx.db.guildRejoin.identity.delete(identity);
+    ctx.db.guildMember.insert({ identity, guildId, name, joinedAt: rejoined ? left.joinedAt : now(ctx),
       eligibleAt: now(ctx), champion: false, fighter: "", power: 0, vicePresident: false });
     syncGuildTag(ctx, identity);
     deps.onJoin?.(ctx, identity);
