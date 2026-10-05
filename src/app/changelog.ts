@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.898": [
+    "The Enemy Index shows every map's current enemy stats, not only the map you're on",
+  ],
   "0.897": [
     "The Enemy Index moved into the map (tap the minimap): every enemy's HP, attack and reward, and the boss with each attack",
     "Browse maps in the map with the arrows: back to any map, forward to one past your furthest",
@@ -2818,6 +2821,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.898": "2026-10-04",
   "0.897": "2026-10-04",
   "0.896": "2026-10-04",
   "0.895": "2026-10-04",

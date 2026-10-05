@@ -183,7 +183,9 @@ import { describe, expect, it } from "vitest";
 // start_aggro_run / abandon_aggro_run declaration line, the death reducer's
 // restart hook and startFreshRun (and its comment), the prestige reset both challenges
 // start from. Its rules and bodies live in aggro-challenge.ts.
-const MAX_LINES = 6_572;
+// 6_573: the get_map_index_balance procedure, so the map window's Enemy Index reads
+// other maps' live balance. The read lives in map-balance.ts.
+const MAX_LINES = 6_573;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

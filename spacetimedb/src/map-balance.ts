@@ -2,7 +2,8 @@ import { table, t, SenderError } from 'spacetimedb/server';
 import { defaultBalanceSettings, resolveMapBalance, validateBalanceSettings, BALANCE_MAPS } from '../../shared/map-balance';
 import type { BalanceEditorState, BalanceSettings, MapBalanceSnapshot } from '../../shared/map-balance-types';
 import type { GameReducerContext } from './index';
-import { REGULAR_ENEMY_RESPAWN_SECONDS } from '../../shared/rules';
+import { MAP_IDS, REGULAR_ENEMY_RESPAWN_SECONDS } from '../../shared/rules';
+import { isProceduralMap } from '../../shared/procedural-maps';
 export const mapBalanceVersion = table({ name: 'map_balance_version' }, {
   revision: t.u32().primaryKey(), settingsJson: t.string(), editor: t.identity(), createdAt: t.timestamp(),
 });
@@ -163,6 +164,17 @@ export function pinnedBossReward(ctx: Pick<Context, 'db'>, identity: Context['se
  * not standing on, which used to fall back to the pre-resolver curves and pay
  * a sliver of what the same kill pays in play.
  */
+/**
+ * Any map's balance at the live revision, as the map window's Enemy Index
+ * reads it for maps the player is not on: the same resolve, and the same
+ * cache, a player arriving there would be pinned. Read only; the player's own
+ * pin is untouched. Unknown maps are refused.
+ */
+export function mapBalanceForIndex(ctx: Pick<Context, 'db'>, mapId: string) {
+  if (!(MAP_IDS as readonly string[]).includes(mapId) && !isProceduralMap(mapId)) throw new SenderError('Unknown map.');
+  const head = balanceEditorState(ctx);
+  return resolvedSnapshotJson(mapId, head, 2, Boolean(storedSettings(ctx, head.revision)));
+}
 export function liveMapBalance(ctx: Pick<Context, 'db'>, identity: Context['sender'], mapId: string): MapBalanceSnapshot {
   const pinned = pinnedMapBalance(ctx, identity, mapId);
   if (pinned) return pinned;

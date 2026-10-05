@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import { enemyIndexRows, liveEnemyRows, plannedEnemyRows } from "./enemy-index-rows";
 import type { EnemyState } from "./types";
+import { defaultBalanceSettings, resolveMapBalance } from "../../../shared/map-balance";
 
 const enemy = (type: string, maxHp: number, extra: Partial<EnemyState> = {}) => ({
   type, maxHp, damage: maxHp / 10, reward: { type: "damage", amount: 2 }, ...extra,
@@ -34,4 +35,17 @@ it("lists another map from the shipped balance, its boss last with every attack"
   // Live when the player stands there, planned when not.
   expect(enemyIndexRows("beginner_desert", null, paid)).toEqual(rows);
   expect(enemyIndexRows("beginner_desert", [enemy("Bramble", 42)], paid)[0].name).toBe("Bramble");
+});
+
+it("lists another map from its live balance when the server sends it", () => {
+  const balance = resolveMapBalance("beginner_desert", defaultBalanceSettings(), 7);
+  const firstKind = Object.keys(balance.enemies).find(kind => plannedEnemyRows("beginner_desert", paid).some(row => row.name === kind))!;
+  balance.enemies[firstKind] = { ...balance.enemies[firstKind], damage: 12345 };
+  balance.boss = { ...balance.boss!, hp: 987654, damage: 0, attacks: { slam: 4321, spin: 99 }, rewards: { damage: 50 } };
+  const rows = enemyIndexRows("beginner_desert", null, paid, balance);
+  expect(rows.find(row => row.name === firstKind)!.hit).toBe(12345);
+  const boss = rows[rows.length - 1];
+  expect(boss.hp).toBe(987654);
+  expect(boss.boss!.attacks.map(attack => attack.name)).toEqual(["Slam", "Spin"]);
+  expect(boss.boss!.rewards).toEqual([{ type: "damage", amount: paid("damage", 50) }]);
 });

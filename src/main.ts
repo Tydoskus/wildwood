@@ -1427,7 +1427,7 @@ import {
   }, {
     currentMapId: () => currentMapId,
     mapName: (mapId) => MAP_CONFIG[mapId].name,
-    paths, enemies, rewardAmount: rewardDisplay.displayedAmount, mapUnlocked: (mapId) => mapController.portalIsUnlocked({ destination: mapId } as never),
+    paths, enemies, rewardAmount: rewardDisplay.displayedAmount, mapUnlocked: (mapId) => mapController.portalIsUnlocked({ destination: mapId } as never), mapBalance: (mapId) => coop?.mapIndexBalance?.(mapId) ?? Promise.resolve(null),
     spawnSites,
     player,
     boss: () => {

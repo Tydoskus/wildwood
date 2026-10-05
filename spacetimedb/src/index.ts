@@ -10,7 +10,7 @@ import { compactNumberChanged } from "../../shared/compact-number";
 import { auditPrivilegedAccess, denyPrivilegedAccess } from "./privileged-access-audit";
 import { defeatSessionRestriction, defeatRestrictionError, requireAllowedDefeatSession, restrictDefeatSession, suspendPlayerAccount } from "./defeat-session";
 import { findDeveloperTravelTarget, readDeveloperTravelTarget } from "./developer-travel";
-import { mapBalanceVersion, mapBalanceHead, playerMapBalance, balanceEditorState, saveMapBalance, pinMapBalance, pinnedMapBalance, liveMapBalance } from "./map-balance";
+import { mapBalanceVersion, mapBalanceHead, playerMapBalance, balanceEditorState, saveMapBalance, pinMapBalance, pinnedMapBalance, liveMapBalance, mapBalanceForIndex } from "./map-balance";
 import { resolveMapBalance, validateBalanceSettings } from "../../shared/map-balance";
 import { accountDeletionRequest, queueAccountDeletion } from "./account-deletion";
 import { mailboxEquipment, deliverEquipmentMail } from "./mailbox-equipment";
@@ -6122,6 +6122,7 @@ function requireSocialPlayer(ctx: ModuleReducerCtx) {
 /** The viewer's chat role: their moderator heart, and whether their reports remove messages. */
 // A profile's online line: player rows of eye-off players are withheld from other clients (0.877).
 export const getPlayerPresence = spacetimedb.procedure({ identity: t.identity() }, t.string(), (ctx, { identity }) => ctx.withTx(tx => JSON.stringify(playerPresence(tx, identity))));
+export const getMapIndexBalance = spacetimedb.procedure({ mapId: t.string() }, t.string(), (ctx, { mapId }) => ctx.withTx(tx => mapBalanceForIndex(tx, mapId)));
 export const getChatRole = spacetimedb.procedure({}, t.string(), ctx => ctx.withTx(tx => { requireSocialPlayer(tx); return JSON.stringify({ moderatorHeart: moderatorHeartFor(tx, tx.sender), canModerate: (isDeveloperIdentity(tx.sender) || isChatModerator(tx, tx.sender)) && hasSpacetimeAuthAccount(tx) }); }));
 /** Undo a removal from the chat itself; developers and moderators, signed in. */
 export const restoreChatMessage = spacetimedb.reducer({ channel: t.string(), messageId: t.u64() }, (ctx, { channel, messageId }) => {

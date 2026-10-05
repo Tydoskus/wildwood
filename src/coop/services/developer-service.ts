@@ -34,6 +34,8 @@ type BugReportRow = {
 };
 
 export function createDeveloperService(dependencies: DeveloperServiceDependencies) {
+  // Map balances fetched for the map window, by map; a revision change reaches it on the next session.
+  const indexBalances = new Map<string, Promise<MapBalanceSnapshot | null>>();
   const accessAuditEntries = new Map<string, AccessAuditEntry & { identityValue: Identity }>();
   const bugReportEntries = new Map<string, BugReportEntry>();
   let presenceVisible = true;
@@ -104,6 +106,22 @@ export function createDeveloperService(dependencies: DeveloperServiceDependencie
         const result = await connection.procedures.devTeleportToPlayer({ identity: Identity.fromString(identity), mapId });
         if (connection !== dependencies.reducers.connection() || owner !== dependencies.localIdentity()) throw new Error("Connection changed. Try again.");
         return JSON.parse(result);
+      },
+      /**
+       * Any map's live balance for the map window's Enemy Index, once a
+       * session per map: the game ships an older copy, so other maps showed
+       * stale numbers until the player travelled there. Null when it cannot load.
+       */
+      mapIndexBalance(mapId: string): Promise<MapBalanceSnapshot | null> {
+        const conn = dependencies.reducers.connection();
+        if (!conn) return Promise.resolve(null);
+        let pending = indexBalances.get(mapId);
+        if (!pending) {
+          pending = conn.procedures.getMapIndexBalance({ mapId }).then(json => JSON.parse(json) as MapBalanceSnapshot)
+            .catch(() => { indexBalances.delete(mapId); return null; });
+          indexBalances.set(mapId, pending);
+        }
+        return pending;
       },
       async getMapBalance(mapId: string): Promise<MapBalanceSnapshot> {
         const conn = dependencies.reducers.connection();

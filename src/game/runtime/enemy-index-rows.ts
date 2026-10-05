@@ -4,13 +4,15 @@ import { offlineEnemyRoster } from "../../../shared/offline-progress";
 import { BOSS_DAMAGE_PROFILES } from "../../../shared/boss-damage";
 import { BOSSES, bossForMap } from "./boss-registry";
 import type { EnemyState } from "./types";
+import type { MapBalanceSnapshot } from "../../../shared/map-balance-types";
 
 /**
  * The Enemy Index's rows for a map, shown in the map window: each kind of
  * enemy with its health, one hit before armor and what a kill pays (as the
  * enemies' own labels show it), weakest first, then the map's boss with every
  * attack it has. The map the player is on reads its live enemies and balance;
- * any other map reads the shipped balance, as offline progress does.
+ * any other map reads its live balance from the server (get_map_index_balance),
+ * and only without it the copy the game ships, which lags the balance editor.
  */
 export type EnemyIndexRow = { name: string; elite: boolean; hp: number; hit: number; reward: EnemyDefinition["reward"];
   /** The map's boss: its hit is its strongest attack, and it may pay several rewards (or none). */
@@ -56,19 +58,23 @@ export function liveEnemyRows(enemies: readonly EnemyState[], paid: Paid): Enemy
   return [...rows.values()].sort((a, b) => a.hp - b.hp);
 }
 
-/** Another map's enemies and campaign boss, from the shipped balance. */
-export function plannedEnemyRows(mapId: string, paid: Paid): EnemyIndexRow[] {
-  const rows = offlineEnemyRoster(mapId).map(entry => ({ name: entry.enemy, elite: Boolean(ENEMY_TYPES[entry.enemy as keyof typeof ENEMY_TYPES]?.elite),
+/** Another map's enemies and boss: from its live balance when given, else the copy the game ships. */
+export function plannedEnemyRows(mapId: string, paid: Paid, balance?: MapBalanceSnapshot | null): EnemyIndexRow[] {
+  const rows = offlineEnemyRoster(mapId, balance ?? undefined).map(entry => ({ name: entry.enemy, elite: Boolean(ENEMY_TYPES[entry.enemy as keyof typeof ENEMY_TYPES]?.elite),
     hp: entry.hp, hit: entry.damage, reward: { type: entry.reward.type as RewardType, amount: paid(entry.reward.type as RewardType, entry.reward.amount) } }))
     .sort((a, b) => a.hp - b.hp);
   const boss = bossForMap(mapId);
+  if (balance?.boss) {
+    const rewards = paidRewards(Object.entries(balance.boss.rewards).map(([type, amount]) => ({ type: type as RewardType, amount })), paid);
+    return [...rows, bossRow(boss?.name ?? "Endless Boss", balance.boss.hp, balance.boss.attacks, balance.boss.damage, rewards)];
+  }
   const profile = boss ? BOSS_DAMAGE_PROFILES[boss.kind as keyof typeof BOSS_DAMAGE_PROFILES] : undefined;
   return boss && profile ? [...rows, bossRow(boss.name, BOSSES[boss.kind].maxHp(), profile, 0, [])] : rows;
 }
 
 /** The index for a map: live on the player's own map, shipped balance elsewhere. */
-export function enemyIndexRows(mapId: string, liveEnemies: readonly EnemyState[] | null, paid: Paid): EnemyIndexRow[] {
-  if (!liveEnemies) return plannedEnemyRows(mapId, paid);
+export function enemyIndexRows(mapId: string, liveEnemies: readonly EnemyState[] | null, paid: Paid, balance?: MapBalanceSnapshot | null): EnemyIndexRow[] {
+  if (!liveEnemies) return plannedEnemyRows(mapId, paid, balance);
   const boss = liveBossRow(mapId, paid, liveEnemies);
   return [...liveEnemyRows(liveEnemies, paid), ...boss ? [boss] : []];
 }

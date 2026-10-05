@@ -5,6 +5,7 @@ import { MAP_IDS as CAMPAIGN_MAP_IDS } from "../../shared/rules";
 import { bossForMap } from "../game/runtime/boss-registry";
 import { enemyIndexRows } from "../game/runtime/enemy-index-rows";
 import type { EnemyState } from "../game/runtime/types";
+import type { MapBalanceSnapshot } from "../../shared/map-balance-types";
 import { renderEnemyIndexRows } from "./map-enemy-index";
 import { canvasRenderPixelRatio } from "../game/runtime/render-budget";
 import {
@@ -72,6 +73,8 @@ type MapGuideDependencies = {
   rewardAmount?: (type: RewardType, amount: number) => number;
   /** Whether the player has opened a map: browsing goes back to any map and one past the furthest open. */
   mapUnlocked?: (mapId: MapId) => boolean;
+  /** Another map's live balance, for its Enemy Index (null when it cannot load). */
+  mapBalance?: (mapId: MapId) => Promise<MapBalanceSnapshot | null>;
 };
 
 export type MapGuideDrop = {
@@ -421,11 +424,29 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
     if (kicker) kicker.textContent = index > 0 && !unlocked(mapId) ? `${place} · Locked` : live() ? `${place} · You are here` : place;
     if (prev) prev.disabled = index <= 0;
     if (next) next.disabled = index < 0 || index >= last;
-    if (enemyRows) renderEnemyIndexRows(document, enemyRows, enemyIndexRows(mapId, live() ? dependencies.enemies ?? [] : null,
-      dependencies.rewardAmount ?? ((_type, amount) => amount)));
+    if (enemyRows) renderEnemyRows(mapId);
     renderDrops(mapId);
     lootFilter?.setMap(dependencies.mapName(mapId), mapGuideDrops(mapId).map((drop) => drop.itemId));
     drawMap();
+  }
+
+  // Other maps' live balances as they arrive; the table says Loading until then.
+  const balances = new Map<MapId, MapBalanceSnapshot | null>();
+  function renderEnemyRows(mapId: MapId) {
+    if (!enemyRows) return;
+    const paid = dependencies.rewardAmount ?? ((_type: RewardType, amount: number) => amount);
+    if (live()) { renderEnemyIndexRows(document, enemyRows, enemyIndexRows(mapId, dependencies.enemies ?? [], paid)); return; }
+    if (!dependencies.mapBalance || balances.has(mapId)) {
+      renderEnemyIndexRows(document, enemyRows, enemyIndexRows(mapId, null, paid, balances.get(mapId)));
+      return;
+    }
+    const loading = document.createElement("tr");
+    loading.append(Object.assign(document.createElement("td"), { colSpan: 4, className: "enemy-index-loading", textContent: "Loading…" }));
+    enemyRows.replaceChildren(loading);
+    void dependencies.mapBalance(mapId).then(balance => {
+      balances.set(mapId, balance);
+      if (shown() === mapId && !overlay.hidden) renderEnemyRows(mapId);
+    });
   }
 
   /** Shows the map `step` along: back to any map, forward to one past the furthest open. */

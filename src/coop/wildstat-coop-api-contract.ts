@@ -5,7 +5,7 @@ import type { wildstatCoop } from "../wildstat-coop";
 // contract update.
 type ExpectedApiKey =
   | "findTeleportPlayer" | "devTeleportToPlayer"
-  | "getMapBalance" | "balanceEditor" | "previewBalance" | "saveBalance" | "restoreBalance"
+  | "getMapBalance" | "mapIndexBalance" | "balanceEditor" | "previewBalance" | "saveBalance" | "restoreBalance"
   | "proceduralMapState"
   | "proceduralMapUnlocked"
   | "proceduralCompleted"

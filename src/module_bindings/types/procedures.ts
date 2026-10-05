@@ -29,6 +29,7 @@ import * as GetLeaderboardPageProcedure from "../get_leaderboard_page_procedure"
 import * as GetLeaderboardWindowProcedure from "../get_leaderboard_window_procedure";
 import * as GetMapBalanceProcedure from "../get_map_balance_procedure";
 import * as GetMapConfigurationProcedure from "../get_map_configuration_procedure";
+import * as GetMapIndexBalanceProcedure from "../get_map_index_balance_procedure";
 import * as GetModerationHistoryProcedure from "../get_moderation_history_procedure";
 import * as GetModerationLogProcedure from "../get_moderation_log_procedure";
 import * as GetNameChangeStatusProcedure from "../get_name_change_status_procedure";
@@ -90,6 +91,8 @@ export type GetMapBalanceArgs = __Infer<typeof GetMapBalanceProcedure.params>;
 export type GetMapBalanceResult = __Infer<typeof GetMapBalanceProcedure.returnType>;
 export type GetMapConfigurationArgs = __Infer<typeof GetMapConfigurationProcedure.params>;
 export type GetMapConfigurationResult = __Infer<typeof GetMapConfigurationProcedure.returnType>;
+export type GetMapIndexBalanceArgs = __Infer<typeof GetMapIndexBalanceProcedure.params>;
+export type GetMapIndexBalanceResult = __Infer<typeof GetMapIndexBalanceProcedure.returnType>;
 export type GetModerationHistoryArgs = __Infer<typeof GetModerationHistoryProcedure.params>;
 export type GetModerationHistoryResult = __Infer<typeof GetModerationHistoryProcedure.returnType>;
 export type GetModerationLogArgs = __Infer<typeof GetModerationLogProcedure.params>;

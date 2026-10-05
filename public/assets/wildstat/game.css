@@ -4800,3 +4800,4 @@ html.text-outline-shadow .death-countdown { text-shadow: var(--text-outline-ring
 .aggro-pick-note { margin: 0; color: #c2c7ce; font-size: 13px; }
 .aggro-pick-done { min-height: 44px; margin: 0; font-size: 16px; }
 .aggro-pick-done:disabled { filter: grayscale(.8); opacity: .5; }
+.enemy-index-table td.enemy-index-loading { padding: 14px 4px; color: #8c94a1; text-align: center; font-weight: 700; }
