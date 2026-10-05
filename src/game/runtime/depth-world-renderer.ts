@@ -13,7 +13,7 @@ type CharredTreeDecor = Extract<WorldDecor, { type: "charredTree" }>;
 type TallDecor = TreeDecor | CactusDecor | SnowPineDecor | UpgradeBenchDecor | CharredTreeDecor;
 type Portal = { depth: number };
 type BootsPickup = { y: number; r: number; collected: boolean };
-type DepthLayerKind = "enemy" | "boss" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player" | "mapSign";
+type DepthLayerKind = "enemy" | "boss" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
 type DepthLayer = { depth: number; priority: number; kind: DepthLayerKind; entity?: WorldDecor | EnemyState | RemotePlayer; opacity: number };
 
 /**
@@ -48,9 +48,6 @@ export function createDepthWorldRenderer(options: {
   drawSecondaryPortal: () => void;
   drawRemotePlayer: (player: RemotePlayer) => void;
   drawPlayer: () => void;
-  /** The map's enemy sign: where it stands (bottom centre) and its size, or null on a map without one. */
-  mapSign?: () => { x: number; y: number; width: number; height: number } | null;
-  drawMapSign?: () => void;
 }) {
   const dynamicLayers: DepthLayer[] = [];
   const visibleStaticDecor: TallDecor[] = [];
@@ -159,7 +156,6 @@ export function createDepthWorldRenderer(options: {
       case "secondaryPortal": options.drawSecondaryPortal(); break;
       case "remotePlayer": options.drawRemotePlayer(layer.entity as RemotePlayer); break;
       case "player": options.drawPlayer(); break;
-      case "mapSign": options.drawMapSign?.(); break;
       default: {
         const missingRenderer: never = layer.kind;
         throw new Error("Missing depth renderer: " + missingRenderer);
@@ -218,9 +214,6 @@ export function createDepthWorldRenderer(options: {
       ) continue;
       queueLayer(remotePlayer.y + 29, 1, "remotePlayer", remotePlayer);
     }
-    const sign = options.mapSign?.();
-    if (sign && sign.x + sign.width / 2 >= camera.x && sign.x - sign.width / 2 <= camera.x + visibleW
-      && sign.y >= camera.y && sign.y - sign.height <= camera.y + visibleH) queueLayer(sign.y, 1, "mapSign");
     queueLayer(options.player.y + 29, 1, "player");
     dynamicLayers.length = layerCount;
     dynamicLayers.sort((a, b) => a.depth - b.depth || a.priority - b.priority);

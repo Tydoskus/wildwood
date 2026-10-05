@@ -941,7 +941,7 @@ import {
     viewport: canvasRuntime.renderViewport,
     minimapBounds: () => cachedMinimapBounds,
     devicePixelRatio: canvasRuntime.dpr,
-    currentMapId: () => currentMapId, mapSignBlocked: () => autoFarm.state().active || session.isPaused(),
+    currentMapId: () => currentMapId,
     gameTime: () => session.gameTime(),
     nowMs: () => performance.now(),
     localDeath: () => localPlayerDeath,
@@ -1427,7 +1427,7 @@ import {
   }, {
     currentMapId: () => currentMapId,
     mapName: (mapId) => MAP_CONFIG[mapId].name,
-    paths,
+    paths, enemies, rewardAmount: rewardDisplay.displayedAmount, mapUnlocked: (mapId) => mapController.portalIsUnlocked({ destination: mapId } as never),
     spawnSites,
     player,
     boss: () => {

@@ -236,10 +236,12 @@ const afterUpdateGateShell = String.raw`
 <div id="mapGuide" hidden>
   <section class="map-guide-window" role="dialog" aria-modal="true" aria-labelledby="mapGuideTitle">
     <header class="map-guide-header">
-      <div>
-        <p class="map-guide-kicker">World Map</p>
+      <button id="mapGuidePrev" class="map-guide-arrow is-prev" type="button" aria-label="Previous map"></button>
+      <div class="map-guide-heading">
+        <p id="mapGuideKicker" class="map-guide-kicker">Map 1</p>
         <h2 id="mapGuideTitle" class="window-title">Tutorial Forest</h2>
       </div>
+      <button id="mapGuideNext" class="map-guide-arrow is-next" type="button" aria-label="Next map"></button>
     </header>
     <div class="map-guide-scroll">
       <div class="map-guide-content">
@@ -247,6 +249,14 @@ const afterUpdateGateShell = String.raw`
           <canvas id="mapGuideCanvas" aria-hidden="true"></canvas>
           <div id="mapGuideZoneLabels" class="map-guide-zone-labels" role="list" aria-label="Enemy zone rewards"></div>
         </div>
+        <section class="map-guide-enemies" aria-labelledby="mapGuideEnemiesTitle">
+          <h3 id="mapGuideEnemiesTitle">Enemy Index</h3>
+          <table class="enemy-index-table">
+            <thead><tr><th scope="col">Enemy</th><th scope="col">HP</th><th scope="col">Atk</th><th scope="col">Reward</th></tr></thead>
+            <tbody id="mapGuideEnemyRows"></tbody>
+          </table>
+          <p class="enemy-index-note">Atk is one hit, before your armor. Rewards are per kill.</p>
+        </section>
         <section class="map-guide-drops" aria-labelledby="mapGuideDropsTitle">
           <header>
             <h3 id="mapGuideDropsTitle">Item Drops</h3>

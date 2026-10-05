@@ -1,5 +1,11 @@
 import { regularMapLoot } from "../../shared/regular-map-loot";
-import { generateMap, isProceduralMap } from "../../shared/procedural-maps";
+import { generateMap, isProceduralMap, proceduralMapId, proceduralMapNumber } from "../../shared/procedural-maps";
+import { CAMPAIGN_GATEWAYS } from "../../shared/map-gateways";
+import { MAP_IDS as CAMPAIGN_MAP_IDS } from "../../shared/rules";
+import { bossForMap } from "../game/runtime/boss-registry";
+import { enemyIndexRows } from "../game/runtime/enemy-index-rows";
+import type { EnemyState } from "../game/runtime/types";
+import { renderEnemyIndexRows } from "./map-enemy-index";
 import { canvasRenderPixelRatio } from "../game/runtime/render-budget";
 import {
   FROST_ARMOR,
@@ -13,7 +19,7 @@ import {
   type ItemId,
 } from "../../shared/items";
 import { WORLD } from "../game/constants";
-import { mapSpawnCamps } from "../game/world";
+import { createSpawnSites, createWorldLayout, mapSpawnCamps } from "../game/world";
 import { ENEMY_TYPES, REWARD_DATA, type RewardType } from "../game/enemies";
 import { itemPresentation } from "../game/item-presentation";
 import { drawPortalMapMarker } from "../game/portal-presentation";
@@ -60,6 +66,12 @@ type MapGuideDependencies = {
   clearPlayerInput: () => void;
   /** The coop session, for the account's loot filter. Without it the map has no Loot filter button. */
   lootFilter?: LootFilterPort | null;
+  /** The live enemies of the player's map, for its Enemy Index; other maps read the shipped balance. */
+  enemies?: readonly EnemyState[];
+  /** What a kill's reward is worth to the player, as enemy labels show it. */
+  rewardAmount?: (type: RewardType, amount: number) => number;
+  /** Whether the player has opened a map: browsing goes back to any map and one past the furthest open. */
+  mapUnlocked?: (mapId: MapId) => boolean;
 };
 
 export type MapGuideDrop = {
@@ -117,11 +129,27 @@ const MAP_GUIDE_THEMES: Record<MapId, { ground: string; path: string; glow: stri
 
 const MAP_GUIDE_REWARD_LABELS: Record<RewardType, string> = {
   damage: "Damage",
-  health: "Max health",
-  speed: "Attack speed",
+  health: "Max Health",
+  speed: "Atk Speed",
   armor: "Armor",
-  regen: "Hp/Sec",
+  regen: "Regen",
 };
+
+/**
+ * The maps the window can show, in order: the campaign, then every Endless map
+ * opened and the one after it. It shows back to the first and forward to one
+ * past the furthest the player has opened (that one marked Locked).
+ */
+export function mapGuideBrowseRange(unlocked: (mapId: MapId) => boolean) {
+  const maps: MapId[] = [...CAMPAIGN_MAP_IDS] as MapId[];
+  for (let number = 1; number <= 100_000; number += 1) {
+    maps.push(proceduralMapId(number) as MapId);
+    if (!unlocked(proceduralMapId(number) as MapId)) break;
+  }
+  let furthest = 0;
+  maps.forEach((mapId, index) => { if (index === 0 || unlocked(mapId)) furthest = index; });
+  return { maps, last: Math.min(maps.length - 1, furthest + 1) };
+}
 
 export function mapGuideDrops(mapId: MapId): readonly MapGuideDrop[] {
   if (isProceduralMap(mapId)) return [];
@@ -191,6 +219,34 @@ function displayItemName(itemId: ItemId) {
 /** Owns the clickable minimap help surface and its compact full-window guide. */
 export function createMapGuideController(elements: MapGuideElements, dependencies: MapGuideDependencies) {
   const { trigger, overlay, title, canvas, zoneLabels, dropItems, back } = elements;
+  const prev = overlay.querySelector<HTMLButtonElement>("#mapGuidePrev");
+  const next = overlay.querySelector<HTMLButtonElement>("#mapGuideNext");
+  const kicker = overlay.querySelector<HTMLElement>("#mapGuideKicker");
+  const enemyRows = overlay.querySelector<HTMLElement>("#mapGuideEnemyRows");
+  const unlocked = (mapId: MapId) => dependencies.mapUnlocked?.(mapId) ?? true;
+  /** The map being shown: the player's own when the window opens, then wherever the arrows go. */
+  let viewed: MapId | null = null;
+  const shown = () => viewed ?? dependencies.currentMapId();
+  const live = () => shown() === dependencies.currentMapId();
+  // Another map's layout, built once: its paths and camps never change while it is not loaded.
+  const layouts = new Map<MapId, { paths: WorldPath[]; sites: SpawnSite[] }>();
+  function layoutOf(mapId: MapId) {
+    if (live()) return { paths: dependencies.paths, sites: dependencies.spawnSites };
+    let layout = layouts.get(mapId);
+    if (!layout) layouts.set(mapId, layout = { paths: createWorldLayout({ x: 0, y: 0 }, mapId).paths, sites: createSpawnSites({ x: 0, y: 0 }, mapId) });
+    return layout;
+  }
+  function portalsOf(mapId: MapId): MapGuidePortal[] {
+    if (live()) return dependencies.portals();
+    const gateways = CAMPAIGN_GATEWAYS[mapId] ?? (isProceduralMap(mapId) ? generateMap(mapId) : null);
+    return (gateways?.portals ?? []).map(portal => ({ x: portal.x, y: portal.y, destination: portal.destination as MapId, unlocked: unlocked(portal.destination as MapId) }));
+  }
+  function bossOf(mapId: MapId): MapGuideBoss {
+    if (live()) return dependencies.boss();
+    if (isProceduralMap(mapId)) return { ...generateMap(mapId).boss, name: "Boss" };
+    const boss = bossForMap(mapId);
+    return boss ? { ...boss.spawn, name: boss.name } : null;
+  }
   const dropsHeader = dropItems.parentElement?.querySelector("header");
   const lootFilter = dropsHeader
     ? createLootFilterWindow({ anchor: dropsHeader, cards: dropItems, port: () => dependencies.lootFilter })
@@ -288,7 +344,8 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
     }
     const context = canvas.getContext("2d");
     if (!context) return;
-    const mapId = dependencies.currentMapId();
+    const mapId = shown();
+    const layout = layoutOf(mapId);
     const theme = isProceduralMap(mapId) ? { ...generateMap(mapId).palette, glow: generateMap(mapId).palette.accent } : MAP_GUIDE_THEMES[mapId];
     const scaleX = width / WORLD.w;
     const scaleY = height / WORLD.h;
@@ -299,11 +356,11 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
     context.fillRect(0, 0, width, height);
 
     context.fillStyle = theme.path;
-    for (const path of dependencies.paths) {
+    for (const path of layout.paths) {
       context.fillRect(path.x * scaleX, path.y * scaleY, path.w * scaleX, path.h * scaleY);
     }
 
-    const zones = mapGuideZones(dependencies.spawnSites, mapSpawnCamps(dependencies.currentMapId()));
+    const zones = mapGuideZones(layout.sites, mapSpawnCamps(mapId));
     for (const zone of zones) {
       const radius = Math.max(16, zone.radius * Math.min(scaleX, scaleY));
       const color = zone.rewards[0]?.color ?? theme.glow;
@@ -319,13 +376,13 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
       context.restore();
     }
 
-    for (const portal of dependencies.portals()) {
+    for (const portal of portalsOf(mapId)) {
       const x = portal.x * scaleX;
       const y = portal.y * scaleY;
       drawPortalMapMarker(context, Math.round(x), Math.round(y), portal.destination, portal.unlocked, 2);
     }
 
-    const boss = dependencies.boss();
+    const boss = bossOf(mapId);
     if (boss) {
       const isGloomroot = mapId === INFERNAL_DEPTHS_MAP_ID;
       const isTempestKirin = mapId === CLOUDSPIRE_MAP_ID;
@@ -341,31 +398,53 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
       context.restore();
     }
 
-    const playerX = dependencies.player.x * scaleX;
-    const playerY = dependencies.player.y * scaleY;
-    context.fillStyle = "#fff";
-    context.strokeStyle = "#0a1510";
-    context.lineWidth = 3;
-    context.beginPath();
-    context.arc(playerX, playerY, 6, 0, Math.PI * 2);
-    context.fill();
-    context.stroke();
+    // The player's dot only on the map they stand on.
+    if (live()) {
+      context.fillStyle = "#fff";
+      context.strokeStyle = "#0a1510";
+      context.lineWidth = 3;
+      context.beginPath();
+      context.arc(dependencies.player.x * scaleX, dependencies.player.y * scaleY, 6, 0, Math.PI * 2);
+      context.fill();
+      context.stroke();
+    }
 
     renderZoneLabels(zones, boss);
   }
 
   function render() {
-    const mapId = dependencies.currentMapId();
+    const mapId = shown();
+    const { maps, last } = mapGuideBrowseRange(unlocked);
+    const index = maps.indexOf(mapId);
     title.textContent = dependencies.mapName(mapId);
+    const place = isProceduralMap(mapId) ? `Endless ${proceduralMapNumber(mapId)}` : `Map ${CAMPAIGN_MAP_IDS.indexOf(mapId as never) + 1} of ${CAMPAIGN_MAP_IDS.length}`;
+    if (kicker) kicker.textContent = index > 0 && !unlocked(mapId) ? `${place} · Locked` : live() ? `${place} · You are here` : place;
+    if (prev) prev.disabled = index <= 0;
+    if (next) next.disabled = index < 0 || index >= last;
+    if (enemyRows) renderEnemyIndexRows(document, enemyRows, enemyIndexRows(mapId, live() ? dependencies.enemies ?? [] : null,
+      dependencies.rewardAmount ?? ((_type, amount) => amount)));
     renderDrops(mapId);
     lootFilter?.setMap(dependencies.mapName(mapId), mapGuideDrops(mapId).map((drop) => drop.itemId));
     drawMap();
+  }
+
+  /** Shows the map `step` along: back to any map, forward to one past the furthest open. */
+  function browse(step: number) {
+    const { maps, last } = mapGuideBrowseRange(unlocked);
+    const index = maps.indexOf(shown());
+    const target = index < 0 ? 0 : Math.max(0, Math.min(last, index + step));
+    if (target === index) return;
+    viewed = maps[target];
+    render();
   }
 
   function open() {
     if (!overlay.hidden) return;
     dependencies.beforeOpen();
     dependencies.clearPlayerInput();
+    // Always opens on the player's own map; Home has no map of its own, so the furthest open one.
+    const { maps } = mapGuideBrowseRange(unlocked);
+    viewed = maps.includes(dependencies.currentMapId()) ? null : maps.filter((mapId, index) => index === 0 || unlocked(mapId)).pop() ?? null;
     overlay.hidden = false;
     trigger.setAttribute("aria-expanded", "true");
     render();
@@ -381,6 +460,13 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
   }
 
   trigger.addEventListener("click", open);
+  prev?.addEventListener("click", () => browse(-1));
+  next?.addEventListener("click", () => browse(1));
+  // Arrow keys browse too, on a keyboard.
+  overlay.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowLeft") { event.preventDefault(); browse(-1); }
+    else if (event.key === "ArrowRight") { event.preventDefault(); browse(1); }
+  });
   back.addEventListener("click", () => {
     close();
     trigger.focus({ preventScroll: true });

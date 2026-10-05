@@ -18,8 +18,6 @@ import type { Particle } from "./combat-effects";
 import { parseHexColorOrNull, type StaticWorldColorQuadFrame, type StaticWorldLayer, type StaticWorldSpriteFrame } from "./webgl-static-world-layer";
 import { nightEnemyOpacity, nightGroundShadowsVisible } from "./night-visibility";
 import { snapWorldRenderCoordinate } from "./render-space";
-import { createMapEnemySigns, mapBossRow, mapSignPosition, mapSignRows, touchingMapSign } from "./map-enemy-sign";
-import { createMapEnemyIndex } from "../../ui/map-enemy-index";
 
 type Viewport = { width: number; height: number; dpr: number };
 type Portal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
@@ -100,8 +98,6 @@ export type WorldRenderRuntimeOptions = {
   publicPlayerName: (identity: string | undefined, name: string | undefined) => string;
   playerPower: (player: PlayerState) => number;
   worldHealthBarHeight: number;
-  /** True while the enemy sign must not open its window: autofarm walks past it. */
-  mapSignBlocked?: () => boolean;
 };
 
 export type FrameRendererOptions = {
@@ -296,24 +292,6 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       }
       return webGLParticleBatchState;
     };
-    // The map's enemy sign. Walking into it opens the enemy window, once per
-    // visit to it: never while autofarm is driving, which walks past it.
-    const signs = createMapEnemySigns({ pixelRatio: options.devicePixelRatio });
-    const enemyIndex = createMapEnemyIndex();
-    let touchingSign = false;
-    const mapSign = () => {
-      const at = mapSignPosition(options.currentMapId());
-      if (!at) { touchingSign = false; return null; }
-      const touching = touchingMapSign(at, options.player);
-      if (touching && !touchingSign && !options.mapSignBlocked?.() && !enemyIndex.isOpen()) {
-        const paid = (type: RewardType, amount: number) => options.rewardAmount?.(type, amount) ?? amount * options.rewardMultiplier();
-        const boss = mapBossRow(options.currentMapId(), paid, options.enemies);
-        enemyIndex.open(options.mapName(options.currentMapId()), [...mapSignRows(options.enemies, paid), ...boss ? [boss] : []]);
-      }
-      touchingSign = touching;
-      const image = signs.sign();
-      return { ...at, width: image.width, height: image.height, canvas: image.canvas };
-    };
     const depth = createDepthWorldRenderer({
       camera: options.camera,
       viewport: () => options.viewport(),
@@ -340,15 +318,6 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawBootPickup: () => renderer.drawBootPickup(),
       drawPortal: world.drawPortal,
       drawSecondaryPortal: world.drawSecondaryPortal,
-      mapSign,
-      drawMapSign: () => {
-        const sign = mapSign();
-        if (!sign) return;
-        const x = snapWorldRenderCoordinate(sign.x - options.camera.x, options.camera.zoom, options.devicePixelRatio());
-        const y = snapWorldRenderCoordinate(sign.y - options.camera.y, options.camera.zoom, options.devicePixelRatio());
-        options.drawShadow(x, y - 2, sign.width * .8, .18);
-        options.ctx.drawImage(sign.canvas, x - sign.width / 2, y - sign.height, sign.width, sign.height);
-      },
       drawRemotePlayer: actor.drawRemotePlayer,
       drawPlayer: () => drawHomeTeleport(options.ctx, options.player.x - options.camera.x, options.player.y - options.camera.y, () => actor.drawPlayer(
         frame.localIdentity(),

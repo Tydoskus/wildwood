@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.897": [
+    "The Enemy Index moved into the map (tap the minimap): every enemy's HP, attack and reward, and the boss with each attack",
+    "Browse maps in the map with the arrows: back to any map, forward to one past your furthest",
+    "Map window cleaned up: larger text, one map at a time",
+    "The Enemy Index sign is gone from the maps",
+  ],
   "0.896": [
     "Killing Aegis Prime in an Aggro run wins it on the spot, like Reflect Only, with the win popup",
     "In an Aggro run the autofarm button picks or switches the groups that chase you",
@@ -2809,6 +2815,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.897": "2026-10-04",
   "0.896": "2026-10-04",
   "0.895": "2026-10-04",
   "0.894": "2026-10-04",
