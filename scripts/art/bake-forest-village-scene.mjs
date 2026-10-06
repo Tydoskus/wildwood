@@ -42,8 +42,9 @@ const PREFAB = "Demo/ForestVillage Variant.prefab";
 const guid = [...byGuid].find(([, entry]) => entry.path.endsWith(PREFAB))?.[0];
 if (!guid) throw new Error(`no ${PREFAB} in the package`);
 const objects = expand(guid);
-/** What blocks walking, as Unity colliders do: [left, bottom, right, top] in Unity units. */
+/** What blocks walking, as Unity colliders do: each a polygon in Unity units, with its box. */
 const solids = [], passages = [];
+const shapeOf = points => ({ points, box: [Math.min(...points.map(p => p[0])), Math.min(...points.map(p => p[1])), Math.max(...points.map(p => p[0])), Math.max(...points.map(p => p[1]))] });
 
 // ---- Index the expanded prefab. ----
 const transforms = new Map(), gameObjects = new Map(), byGameObject = new Map();
@@ -169,15 +170,13 @@ for (const [goId] of gameObjects) {
     if (component.classId === 61) {
       const cx = world.x + num(data.m_Offset?.x) * world.sx, cy = world.y + num(data.m_Offset?.y) * world.sy;
       const w = num(data.m_Size?.x) * Math.abs(world.sx), h = num(data.m_Size?.y) * Math.abs(world.sy);
-      solids.push([cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]);
+      solids.push(shapeOf([[cx - w / 2, cy - h / 2], [cx + w / 2, cy - h / 2], [cx + w / 2, cy + h / 2], [cx - w / 2, cy + h / 2]]));
       const unit = unitOf(component, goId);
-      if (unit) unitColliders.set(unit, [...(unitColliders.get(unit) ?? []), [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]]);
+      if (unit) unitColliders.set(unit, [...(unitColliders.get(unit) ?? []), solids.at(-1).box]);
     } else if (component.classId === 60) {
       for (const path of data.m_Points?.m_Paths ?? []) {
         if (!Array.isArray(path) || !path.length) continue;
-        const xs = path.map(point => world.x + (num(point.x) + num(data.m_Offset?.x)) * world.sx);
-        const ys = path.map(point => world.y + (num(point.y) + num(data.m_Offset?.y)) * world.sy);
-        solids.push([Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]);
+        solids.push(shapeOf(path.map(point => [world.x + (num(point.x) + num(data.m_Offset?.x)) * world.sx, world.y + (num(point.y) + num(data.m_Offset?.y)) * world.sy])));
       }
     }
   }
@@ -216,12 +215,11 @@ for (const [goId] of gameObjects) {
       const x = world.x + (num(at.x) + num(anchor.x, .5)) * cw, y = world.y + (num(at.y) + num(anchor.y, .5)) * ch;
       const piece = { order: num(renderer.m_SortingOrder), x, y, sprite, flipX: num(matrix.e00, 1) < 0, flipY: num(matrix.e11, 1) < 0, alpha: num(color.a, 1), seq: seq++ };
       // A tilemap collider takes each tile's own physics shape: points in pixels from the sprite's centre.
-      if (collides) for (const shape of sprite.physicsShape ?? []) {
-        if (!Array.isArray(shape) || shape.length < 3) continue;
+      if (collides) for (const points of sprite.physicsShape ?? []) {
+        if (!Array.isArray(points) || points.length < 3) continue;
         const rect = sprite.rect ?? { width: 256, height: 256 };
         const px = (num(rect.width) * .5 - sprite.pivot[0] * num(rect.width)) / sprite.ppu, py = (num(rect.height) * .5 - sprite.pivot[1] * num(rect.height)) / sprite.ppu;
-        const xs = shape.map(point => x + px + num(point.x) / sprite.ppu * (piece.flipX ? -1 : 1)), ys = shape.map(point => y + py + num(point.y) / sprite.ppu * (piece.flipY ? -1 : 1));
-        solids.push([Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]);
+        solids.push(shapeOf(points.map(point => [x + px + num(point.x) / sprite.ppu * (piece.flipX ? -1 : 1), y + py + num(point.y) / sprite.ppu * (piece.flipY ? -1 : 1)])));
       }
       // Sorted at the tile's pivot, the foot of its posts, as Unity sorts it.
       if (individual) props.push({ ...piece, depthY: y, group: null });
@@ -322,11 +320,10 @@ for (const [unit, parts] of byUnit) {
     strips.push({ prebuilt: { buffer, w: run.right - run.left, h: maxY - minY, pivotX: 0, pivotY: 0 }, strip: true,
       x: run.left / UNITS, y: -minY / UNITS, depthY: -run.depth / UNITS, group: unit, order: 0, unitOrder: 0, seq: seq++ });
   }
-  // An animated part (the windmill's sails) sorts with the strip it stands in, just in front of it.
-  for (const part of parts.filter(p => p.clip)) {
-    const run = runs.find(r => part.x * UNITS >= r.left && part.x * UNITS <= r.right) ?? runs[0];
-    part.depthY = -(run.depth + .5) / UNITS;
-  }
+  // An animated part (the windmill's sails) is on top of its whole building in Unity, and it swings across
+  // more than one strip: it sorts just in front of the building's front-most strip.
+  const front = Math.max(...runs.map(run => run.depth));
+  for (const part of parts.filter(p => p.clip)) part.depthY = -(front + .5) / UNITS;
   for (const part of standing) sliced.add(part);
 }
 props.splice(0, props.length, ...props.filter(prop => !sliced.has(prop)), ...strips);
@@ -443,10 +440,10 @@ await sharp({ create: { width: WIDTH, height: y + shelf, channels: 4, background
 let fountain = null;
 for (const [goId, go] of gameObjects) if (!fountain && active(goId) && /^Fountain/.test(go.m_Name ?? "")) fountain = worldOf(goId);
 const overlaps = (a, b) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
-const solidRects = solids.filter(([l, b, r, t]) => r - l > 1e-3 && t - b > 1e-3)
+const solidShapes = solids.filter(({ box: [l, b, r, t] }) => r - l > 1e-3 && t - b > 1e-3)
   // Inside a passage only the bridge's rails (thin blockers along its sides) still stop anyone.
-  .filter(rect => Math.min(rect[2] - rect[0], rect[3] - rect[1]) < .2 || !passages.some(passage => overlaps(rect, passage)))
-  .map(([l, b, r, t]) => [Math.round(l * UNITS), Math.round(-t * UNITS), Math.round((r - l) * UNITS), Math.round((t - b) * UNITS)]);
+  .filter(({ box }) => Math.min(box[2] - box[0], box[3] - box[1]) < .2 || !passages.some(passage => overlaps(box, passage)))
+  .map(({ points }) => points.flatMap(([x, y]) => [Math.round(x * UNITS), Math.round(-y * UNITS)]));
 const scene = {
   units: UNITS,
   ground: { left: minX / GROUND_SCALE, top: minY / GROUND_SCALE, width: (maxX - minX) / GROUND_SCALE, height: (maxY - minY) / GROUND_SCALE },
@@ -455,10 +452,10 @@ const scene = {
   props: placed.map(p => [p.f, p.x, p.y, p.d, (p.ground ? 1 : 0) | (p.shadow ? 2 : 0)]),
   /** Prop index -> its clip: sprite frames with their start times and the loop's length, or a spin in degrees a second. */
   animations: Object.fromEntries(placed.map((p, index) => [index, p.anim ? { frames: p.anim.frames, times: p.anim.times, length: p.anim.length } : p.spin ? { spin: p.spin } : null]).filter(([, a]) => a)),
-  /** [left, top, width, height] in game units: everything a player cannot walk through. */
-  solids: solidRects,
+  /** Polygons as flat [x, y, x, y…] lists in game units: everything a player cannot walk through, as round as the pack made it. */
+  solids: solidShapes,
   emitters,
   fountain: fountain ? [Math.round(fountain.x * UNITS), Math.round(-fountain.y * UNITS)] : [0, 0],
 };
 writeFileSync(join(root, "src/game/soul-village-scene.json"), JSON.stringify(scene));
-console.log(`ground ${maxX - minX}x${maxY - minY}px, ${frameList.length} frames for ${placed.length} props, ${solidRects.length} solids, ${emitters.length} particle emitters, fountain ${scene.fountain}`);
+console.log(`ground ${maxX - minX}x${maxY - minY}px, ${frameList.length} frames for ${placed.length} props, ${solidShapes.length} solids, ${emitters.length} particle emitters, fountain ${scene.fountain}`);

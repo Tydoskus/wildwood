@@ -5,7 +5,7 @@ import {
 import { HOME_EXTERIOR_MAP_ID, HOME_SOUL_PORTAL } from "../../../shared/home";
 import { isDeveloperIdentity } from "../../app/developer";
 import { ENEMY_TYPES, type EnemyDefinition } from "../enemies";
-import { SOUL_VILLAGE_SOLIDS } from "../soul-village";
+import { SOUL_VILLAGE_SOLIDS, type SoulSolid } from "../soul-village";
 import { soulCampName, soulCampPoints, soulCampStat, soulStatOfCampName, soulWindowCamps, soulWindowDecor, SOUL_ENEMY_SPECIES } from "../soul-world";
 import type { MapId, SpawnSite, WorldDecor } from "../world";
 import type { MapPortal } from "./map-controller";
@@ -28,6 +28,30 @@ const HOME_PORTAL: MapPortal = { ...HOME_SOUL_PORTAL };
 /** The village's water and building footprints: a player cannot walk through them. */
 const SOLIDS = SOUL_VILLAGE_SOLIDS;
 const STRENGTH_REFRESH_SECONDS = 1;
+/** Where the feet are below the player's position (depth-world-renderer sorts the player there too), and how wide. */
+const FEET_OFFSET = 29;
+const FEET_RADIUS = 12;
+
+/** Moves a circle out of a polygon: to the nearest point of its outline, plus the circle's radius. */
+export function pushOutOf(circle: { x: number; y: number; r: number }, solid: SoulSolid) {
+  const { xs, ys } = solid;
+  let inside = false, nearestX = circle.x, nearestY = circle.y, nearest = Infinity;
+  for (let i = 0, j = xs.length - 1; i < xs.length; j = i++) {
+    if ((ys[i] > circle.y) !== (ys[j] > circle.y) && circle.x < (xs[j] - xs[i]) * (circle.y - ys[i]) / (ys[j] - ys[i]) + xs[i]) inside = !inside;
+    const dx = xs[i] - xs[j], dy = ys[i] - ys[j], length = dx * dx + dy * dy;
+    const t = length > 0 ? Math.max(0, Math.min(1, ((circle.x - xs[j]) * dx + (circle.y - ys[j]) * dy) / length)) : 0;
+    const px = xs[j] + dx * t, py = ys[j] + dy * t, distance = Math.hypot(circle.x - px, circle.y - py);
+    if (distance < nearest) { nearest = distance; nearestX = px; nearestY = py; }
+  }
+  if (!inside && nearest >= circle.r) return;
+  // Away from the outline: outward when outside, through it when the centre is already inside.
+  let nx = circle.x - nearestX, ny = circle.y - nearestY;
+  const length = Math.hypot(nx, ny) || 1;
+  nx /= length; ny /= length;
+  if (inside) { nx = -nx; ny = -ny; }
+  circle.x = nearestX + nx * circle.r;
+  circle.y = nearestY + ny * circle.r;
+}
 
 /**
  * Runs the Soul Dimension on the client: streams its chunks (props and camps)
@@ -153,18 +177,19 @@ export function createSoulDimensionRuntime(deps: {
     }
   }
 
+  /**
+   * Collision is at the player's feet, as the pack's colliders sit at the foot of each wall, tree and well:
+   * a small circle where the body stands (the same point the world sorts the player by), not its middle.
+   */
   function resolveVillageCollision() {
     const { player } = deps;
+    const feet = { x: player.x, y: player.y + FEET_OFFSET, r: FEET_RADIUS };
     for (const solid of SOLIDS) {
-      const left = solid.left - player.r, right = solid.right + player.r, top = solid.top - player.r, bottom = solid.bottom + player.r;
-      if (player.x <= left || player.x >= right || player.y <= top || player.y >= bottom) continue;
-      const pushes = [player.x - left, right - player.x, player.y - top, bottom - player.y];
-      const smallest = Math.min(...pushes);
-      if (smallest === pushes[0]) player.x = left;
-      else if (smallest === pushes[1]) player.x = right;
-      else if (smallest === pushes[2]) player.y = top;
-      else player.y = bottom;
+      if (feet.x <= solid.left - feet.r || feet.x >= solid.right + feet.r || feet.y <= solid.top - feet.r || feet.y >= solid.bottom + feet.r) continue;
+      pushOutOf(feet, solid);
     }
+    player.x = feet.x;
+    player.y = feet.y - FEET_OFFSET;
   }
 
   function reset() {
