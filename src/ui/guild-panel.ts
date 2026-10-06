@@ -459,7 +459,7 @@ export function createGuildPanel(options: Options) {
     const joinedThisWeek = (member: { eligibleAt: string }) => questWeek(questDay(BigInt(member.eligibleAt))) >= questWeek(today);
     if (self && joinedToday(self)) hint(body, "Your quests count for this guild from tomorrow; today's go to your own bonus. The guild's bonus reaches you next week.");
     else if (self && joinedThisWeek(self)) hint(body, "You joined this week: the guild's bonus reaches you next week. Until then you keep your own.");
-    // The guild's pool: fifteen quests a member this week. Anyone whose own are done draws extra from it.
+    // The guild's pool: 300 quests a week, gone only as they are finished. Anyone whose own are done draws extra from it.
     const collect = own.questCollect;
     if (collect && collect.poolSize !== undefined) {
       const pool = element("div", undefined, "guild-quest-pool");

@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.899.13": [
+    "The guild quest pool starts each week at 300 and only goes down as quests are finished, so active members can always make up for missing ones",
+  ],
   "0.899.12": [
     "16 new guild badges to choose from, a turtle among them",
   ],
@@ -2898,6 +2901,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.899.13": "2026-10-06",
   "0.899.12": "2026-10-06",
   "0.899.11": "2026-10-06",
   "0.899.10": "2026-10-06",
