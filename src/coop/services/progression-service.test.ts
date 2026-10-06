@@ -281,7 +281,7 @@ describe("server-calculated defeat batches", () => {
     h.service.dispose();
   });
 
-  it("retains boss rewards until the reconnect snapshot has hydrated", async () => {
+  it("retains gate clears until the reconnect snapshot has hydrated", async () => {
     const h = setup(); h.entry.hydrated = false;
     h.service.recordRegularEnemyDefeat("tutorial_forest", "boss");
     expect(await h.service.drainEnemyLoot()).toBe(false);
@@ -291,7 +291,7 @@ describe("server-calculated defeat batches", () => {
     expect(h.reportEnemyDefeats).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ mapId: "tutorial_forest", enemies: [{ enemy: "boss", count: 1 }] }));
     h.service.dispose();
   });
-  it("acknowledges an equipped weapon before boss validation without clearing predicted rewards", async () => {
+  it("reports a local gate without an equipment save or clearing predicted regular rewards", async () => {
     const h = setup(); const base = { ...progress(), equippedRightHand: "" };
     const order: string[] = [];
     h.savePlayerProgress.mockImplementation(async () => { order.push("equipment"); });
@@ -300,20 +300,19 @@ describe("server-calculated defeat batches", () => {
     h.service.api.saveProgress(saveFrom(base, { equippedRightHand: "starter_stone", damage: 50 }));
     h.service.recordRegularEnemyDefeat("tutorial_forest", "boss");
     expect(await h.service.drainEnemyLoot()).toBe(true);
-    expect(order).toEqual(["equipment", "boss"]);
+    expect(order).toEqual(["boss"]);
     expect(h.service.progressFor(identity)?.damage).toBe(50);
     h.service.dispose();
   });
 
-  it("retains the boss report when its equipment save fails", async () => {
+  it("does not hold a gate clear behind a failing equipment save", async () => {
     const h = setup(); const base = { ...progress(), equippedRightHand: "" };
     h.service.tables.upsertProgress({ ...base, identity: { toHexString: () => identity } } as never);
     h.savePlayerProgress.mockRejectedValueOnce(new Error("Connection lost"));
     h.service.api.saveProgress(saveFrom(base, { equippedRightHand: "starter_stone" }));
     h.service.recordRegularEnemyDefeat("tutorial_forest", "boss");
-    expect(await h.service.drainEnemyLoot()).toBe(false);
-    expect(h.reportEnemyDefeats).not.toHaveBeenCalled();
     expect(await h.service.drainEnemyLoot()).toBe(true);
+    expect(h.savePlayerProgress).not.toHaveBeenCalled();
     expect(h.reportEnemyDefeats).toHaveBeenCalledOnce();
     h.service.dispose();
   });

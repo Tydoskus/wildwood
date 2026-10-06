@@ -23,8 +23,6 @@ type Paid = (type: RewardType, amount: number) => number;
 
 /** "laserGrid" → "Laser Grid". */
 const attackName = (key: string) => key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, letter => letter.toUpperCase());
-const paidRewards = (rewards: EnemyDefinition["reward"][], paid: Paid) => rewards.filter(reward => reward.amount > 0)
-  .map(reward => ({ type: reward.type, amount: paid(reward.type, reward.amount) }));
 
 function bossRow(name: string, hp: number, attackHits: Record<string, number>, contact: number, rewards: EnemyDefinition["reward"][]): EnemyIndexRow {
   const attacks = Object.entries(attackHits).filter(([, hit]) => hit > 0).map(([key, hit]) => ({ name: attackName(key), hit }));
@@ -37,14 +35,14 @@ function bossRow(name: string, hp: number, attackHits: Record<string, number>, c
 const endlessBossName = (mapId: string) => isProceduralMap(mapId) ? `Warden - ${mapId.replace(/^\D+/, "")}` : "Endless Boss";
 
 /** The boss of the map the player is on: a campaign boss from the live balance, an Endless boss from its own stats (or its balance while it is dead). */
-export function liveBossRow(mapId: string, paid: Paid, enemies: readonly EnemyState[] = []): EnemyIndexRow | null {
+export function liveBossRow(mapId: string, _paid: Paid, enemies: readonly EnemyState[] = []): EnemyIndexRow | null {
   const balance = runtimeMapBalance(mapId)?.boss, boss = bossForMap(mapId);
   const fromBalance = (name: string) => bossRow(name, balance!.hp, balance!.attacks, balance!.damage,
-    paidRewards(Object.entries(balance!.rewards).map(([type, amount]) => ({ type: type as RewardType, amount })), paid));
+    []);
   if (balance && boss) return fromBalance(boss.name);
   const generated = enemies.find(enemy => enemy.generatedBoss && !enemy.remoteCombatGhost);
   if (!generated) return balance && isProceduralMap(mapId) ? fromBalance(endlessBossName(mapId)) : null;
-  const rewards = paidRewards(generated.bossRewards ?? [], paid);
+  const rewards: EnemyDefinition["reward"][] = [];
   return { name: generated.displayName ?? generated.campName, elite: false, hp: generated.maxHp, hit: generated.damage,
     reward: rewards[0] ?? { type: "damage", amount: 0 }, boss: { rewards, attacks: [{ name: "Hit", hit: generated.damage }] } };
 }
@@ -84,8 +82,7 @@ export function plannedEnemyRows(mapId: string, paid: Paid, balance?: MapBalance
   const rows = rosterRows(mapId, paid, balance);
   const boss = bossForMap(mapId);
   if (balance?.boss) {
-    const rewards = paidRewards(Object.entries(balance.boss.rewards).map(([type, amount]) => ({ type: type as RewardType, amount })), paid);
-    return [...rows, bossRow(boss?.name ?? endlessBossName(mapId), balance.boss.hp, balance.boss.attacks, balance.boss.damage, rewards)];
+    return [...rows, bossRow(boss?.name ?? endlessBossName(mapId), balance.boss.hp, balance.boss.attacks, balance.boss.damage, [])];
   }
   const profile = boss ? BOSS_DAMAGE_PROFILES[boss.kind as keyof typeof BOSS_DAMAGE_PROFILES] : undefined;
   return boss && profile ? [...rows, bossRow(boss.name, BOSSES[boss.kind].maxHp(), profile, 0, [])] : rows;

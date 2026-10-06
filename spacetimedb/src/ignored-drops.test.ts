@@ -7,7 +7,7 @@ import { eraseIdentityRows } from "./account-erasure";
 import { ignoredDropKey, isDropIgnored, keepWantedDrops } from "./ignored-drops";
 import { EQUIPMENT_OFFER_LIFETIME_MS } from "../../shared/equipment-copies";
 import { MAX_LOOT_FILTER_BATCH, isDropFiltered, lootFilterId } from "../../shared/loot-filter";
-import { BASIC_PAPER_HAT, FROST_ARMOR, FROST_BOW, IRON_BOW, SAMURAI_BOW, SAMURAI_HAT, STARTER_STONE, WOODEN_SWORD } from "../../shared/items";
+import { BASIC_PAPER_HAT, FROST_BOW, IRON_BOW, SAMURAI_BOW, SAMURAI_HAT, STARTER_STONE, WOODEN_SWORD } from "../../shared/items";
 import { ATTACK_BALANCE_VERSION, SPACETIME_AUTH_CLIENT_ID, SPACETIME_AUTH_ISSUER } from "../../shared/rules";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
@@ -127,13 +127,12 @@ it("keeps an item filtered by its slot even when the item itself is on, and lets
   expect(drops(f)).toEqual(["crystal_armor", "crystal_bow"]);
 });
 
-it("filters a shared boss's item drops too", () => {
+it("never rolls boss equipment, regardless of the loot filter", () => {
   const f = crystalFixture();
-  filter(f, [FROST_BOW]);
-  f.run((ctx: any) => expect(isDropIgnored(ctx, ctx.sender, FROST_BOW)).toBe(true));
-  f.run((ctx: any) => expect(isDropIgnored(ctx, ctx.sender, FROST_ARMOR)).toBe(false));
-  const combat = readFileSync(new URL("./boss-combat.ts", import.meta.url), "utf8");
-  for (const item of ["FROST_BOW", "FROST_ARMOR", "LAVA_BOW"]) expect(combat).toContain(`!isDropIgnored(ctx, identity, ${item})`);
+  f.patch("player", { mapId: "intermediate_snowlands" });
+  filter(f, [FROST_BOW]); luckyRandom(f);
+  reportEnemy(f, "boss");
+  expect(drops(f)).toEqual([]);
 });
 
 it("clears waiting offers the new entries cover, by item or by slot, and leaves the rest", () => {

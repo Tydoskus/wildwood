@@ -224,7 +224,9 @@ describe("balance simulator", () => {
       (total, metric) => total + metric.investmentSecondsMedian,
       0,
     );
-    expect(trackedStatSeconds).toBeCloseTo(accountedSeconds - budget.respawnWaitSeconds, 5);
+    // Boss travel and combat open a gate but produce no stat investment.
+    expect(trackedStatSeconds).toBeGreaterThanOrEqual(budget.regularCombatSeconds);
+    expect(trackedStatSeconds).toBeLessThanOrEqual(accountedSeconds - budget.respawnWaitSeconds - budget.bossCombatSeconds + 1e-5);
     const activeStatShares = forest.statProgression
       .filter((metric) => metric.investmentSecondsMedian > 0)
       .reduce((total, metric) => total + metric.investmentSharePercent, 0);

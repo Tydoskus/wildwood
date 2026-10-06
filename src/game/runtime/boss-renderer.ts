@@ -55,48 +55,10 @@ import {
   TAU,
 } from "../constants";
 import { clamp } from "../math";
-import { REWARD_DATA, rewardLabel, type RewardType } from "../enemies";
 import { formatCompactNumber } from "../../ui/number-format";
-import {
-  DRAGON_REWARD_DAMAGE,
-  FROSTCLAW_REWARD_ARMOR,
-  FROSTCLAW_REWARD_DAMAGE,
-  FROSTCLAW_REWARD_HEALTH,
-  GLOOMROOT_REWARD_ARMOR,
-  GLOOMROOT_REWARD_DAMAGE,
-  GLOOMROOT_REWARD_HEALTH,
-  GLOOMROOT_REWARD_REGEN,
-  KOI_SHOGUN_REWARD_ARMOR,
-  KOI_SHOGUN_REWARD_DAMAGE,
-  KOI_SHOGUN_REWARD_HEALTH,
-  KOI_SHOGUN_REWARD_REGEN,
-  MAGMALISK_REWARD_ARMOR,
-  MAGMALISK_REWARD_DAMAGE,
-  MAGMALISK_REWARD_HEALTH,
-  MAGMALISK_REWARD_REGEN,
-  MIREMAW_REWARD_ARMOR,
-  PRISMSHELL_REWARD_ARMOR, IRONHORN_REWARD_ARMOR, DREADREAPER_REWARD_ARMOR, VOLTWARDEN_REWARD_ARMOR, GRAVEBLOOM_REWARD_ARMOR, AEGIS_PRIME_REWARD_ARMOR,
-  MIREMAW_REWARD_DAMAGE,
-  PRISMSHELL_REWARD_DAMAGE, IRONHORN_REWARD_DAMAGE, DREADREAPER_REWARD_DAMAGE, VOLTWARDEN_REWARD_DAMAGE, GRAVEBLOOM_REWARD_DAMAGE, AEGIS_PRIME_REWARD_DAMAGE,
-  MIREMAW_REWARD_HEALTH,
-  PRISMSHELL_REWARD_HEALTH, IRONHORN_REWARD_HEALTH, DREADREAPER_REWARD_HEALTH, VOLTWARDEN_REWARD_HEALTH, GRAVEBLOOM_REWARD_HEALTH, AEGIS_PRIME_REWARD_HEALTH,
-  MIREMAW_REWARD_REGEN,
-  PRISMSHELL_REWARD_REGEN, IRONHORN_REWARD_REGEN, DREADREAPER_REWARD_REGEN, VOLTWARDEN_REWARD_REGEN, GRAVEBLOOM_REWARD_REGEN, AEGIS_PRIME_REWARD_REGEN,
-  SPIDER_REWARD_DAMAGE,
-  SPIDER_REWARD_HEALTH,
-  TIDEWYRM_REWARD_ARMOR,
-  TIDEWYRM_REWARD_DAMAGE,
-  TIDEWYRM_REWARD_HEALTH,
-  TIDEWYRM_REWARD_REGEN,
-  TEMPEST_KIRIN_REWARD_ARMOR,
-  TEMPEST_KIRIN_REWARD_DAMAGE,
-  TEMPEST_KIRIN_REWARD_HEALTH,
-  TEMPEST_KIRIN_REWARD_REGEN,
-} from "../../../shared/rules";
 import type { Camera } from "./camera";
 import {
   BOSS_NAME_FONT_SIZE,
-  BOSS_REWARD_FONT_SIZE,
   BOSS_STATUS_HEALTH_FONT_SIZE,
   bossStatusLabelOffsets,
 } from "./boss-label-style";
@@ -161,8 +123,6 @@ export function createBossRenderer(options: {
   showBossHitboxes?: () => boolean;
   hpLossFlashDuration: number;
   spiderWebRange: number;
-  rewardMultiplier: () => number;
-  rewardAmount?: (type: RewardType, amount: number) => number;
 }) {
   const { ctx, camera, bosses, hazards, art } = options;
   const {
@@ -208,18 +168,6 @@ export function createBossRenderer(options: {
     ctx.restore();
   }
 
-  // A boss on the map curve pays nothing (its reward rules are 0), so it shows no reward line.
-  const rewardText = (type: RewardType, baseAmount: number) => {
-    const amount = options.rewardAmount?.(type, baseAmount) ?? baseAmount * options.rewardMultiplier();
-    return amount > 0 ? rewardLabel({ type, amount }) : "";
-  };
-  /** A boss's reward lines in the fixed order: damage, then health, armor and regen when it pays them. */
-  const statRewards = (damage: number, health?: number, armor?: number, regen?: number) => [
-    { text: rewardText("damage", damage), color: "#ff655a" },
-    ...(health === undefined ? [] : [{ text: rewardText("health", health), color: "#6fe48e" }]),
-    ...(armor === undefined ? [] : [{ text: rewardText("armor", armor), color: REWARD_DATA.armor.color }]),
-    ...(regen === undefined ? [] : [{ text: rewardText("regen", regen), color: REWARD_DATA.regen.color }]),
-  ];
   /** The stand-in for a horned boss whose art did not load: a body and two horns. */
   function drawHornedSilhouette(body: string, outline: string, horns: string) {
     ctx.fillStyle = body;
@@ -253,7 +201,6 @@ export function createBossRenderer(options: {
     backgroundColor: string;
     fillColor: string;
     name: { text: string; color: string };
-    rewards: readonly { text: string; color: string }[];
     rewardBottomOffsetY?: number;
   }) {
     drawScreenSpaceAt(ctx, camera.zoom, options_.x, options_.spriteTopY, () => {
@@ -290,14 +237,9 @@ export function createBossRenderer(options: {
         4,
       );
       ctx.textBaseline = "bottom";
-      const rewards = options_.rewards.filter(reward => reward.text);
-      const labelOffsets = bossStatusLabelOffsets(rewards.length, options_.rewardBottomOffsetY);
+      const labelOffsets = bossStatusLabelOffsets(0, options_.rewardBottomOffsetY);
       ctx.font = bossLabelFont(BOSS_NAME_FONT_SIZE);
       options.outlinedText(options_.name.text, 0, barY + labelOffsets.name, options_.name.color, 4);
-      ctx.font = bossLabelFont(BOSS_REWARD_FONT_SIZE);
-      for (const [index, reward] of rewards.entries()) {
-        options.outlinedText(reward.text, 0, barY + labelOffsets.rewards[index], reward.color, 4);
-      }
     });
   }
   function drawBossTelegraphs() {
@@ -331,7 +273,6 @@ export function createBossRenderer(options: {
       fillColor: "#d8352d",
       name: { text: "Dragon", color: "#f5e9c4" },
       rewardBottomOffsetY: -5,
-      rewards: statRewards(DRAGON_REWARD_DAMAGE),
     });
   }
   function drawSpiderTelegraphs() {
@@ -372,7 +313,6 @@ export function createBossRenderer(options: {
       fillColor: "#9f5c2f",
       name: { text: "Desert Scorpion", color: "#f5e9c4" },
       rewardBottomOffsetY: -5,
-      rewards: statRewards(SPIDER_REWARD_DAMAGE, SPIDER_REWARD_HEALTH),
     });
   }
 
@@ -487,7 +427,6 @@ export function createBossRenderer(options: {
       backgroundColor: "#17364b",
       fillColor: "#42c9f5",
       name: { text: "Frostclaw", color: "#dff8ff" },
-      rewards: statRewards(FROSTCLAW_REWARD_DAMAGE, FROSTCLAW_REWARD_HEALTH, FROSTCLAW_REWARD_ARMOR),
     });
   }
 
@@ -570,7 +509,6 @@ export function createBossRenderer(options: {
       backgroundColor: "#4b2119",
       fillColor: "#ef6428",
       name: { text: "Magmalisk", color: "#ffe0ad" },
-      rewards: statRewards(MAGMALISK_REWARD_DAMAGE, MAGMALISK_REWARD_HEALTH, MAGMALISK_REWARD_ARMOR, MAGMALISK_REWARD_REGEN),
     });
   }
 
@@ -688,7 +626,6 @@ export function createBossRenderer(options: {
       backgroundColor: "#14293a",
       fillColor: "#39cbd3",
       name: { text: "Gloomroot", color: "#b9fbf5" },
-      rewards: statRewards(GLOOMROOT_REWARD_DAMAGE, GLOOMROOT_REWARD_HEALTH, GLOOMROOT_REWARD_ARMOR, GLOOMROOT_REWARD_REGEN),
     });
   }
 
@@ -798,7 +735,6 @@ export function createBossRenderer(options: {
       backgroundColor: "#123b56",
       fillColor: "#35cce5",
       name: { text: "Carapace Angler", color: "#c7faff" },
-      rewards: statRewards(TIDEWYRM_REWARD_DAMAGE, TIDEWYRM_REWARD_HEALTH, TIDEWYRM_REWARD_ARMOR, TIDEWYRM_REWARD_REGEN),
     });
   }
 
@@ -906,7 +842,6 @@ export function createBossRenderer(options: {
       backgroundColor: "#482719",
       fillColor: "#e2832d",
       name: { text: "Koi Shogun", color: "#ffe6a4" },
-      rewards: statRewards(KOI_SHOGUN_REWARD_DAMAGE, KOI_SHOGUN_REWARD_HEALTH, KOI_SHOGUN_REWARD_ARMOR, KOI_SHOGUN_REWARD_REGEN),
     });
   }
 
@@ -1013,7 +948,6 @@ export function createBossRenderer(options: {
       backgroundColor: "#193a67",
       fillColor: "#65c8ff",
       name: { text: "Tempest Kirin", color: "#e9fbff" },
-      rewards: statRewards(TEMPEST_KIRIN_REWARD_DAMAGE, TEMPEST_KIRIN_REWARD_HEALTH, TEMPEST_KIRIN_REWARD_ARMOR, TEMPEST_KIRIN_REWARD_REGEN),
     });
   }
 
@@ -1199,7 +1133,6 @@ export function createBossRenderer(options: {
       backgroundColor: "#193c38",
       fillColor: "#55d6a8",
       name: { text: "Miremaw", color: "#e9fff5" },
-      rewards: statRewards(MIREMAW_REWARD_DAMAGE, MIREMAW_REWARD_HEALTH, MIREMAW_REWARD_ARMOR, MIREMAW_REWARD_REGEN),
     });
   }
   function drawPrismshellBoss() {
@@ -1251,7 +1184,6 @@ export function createBossRenderer(options: {
       backgroundColor: "#333149",
       fillColor: "#ab8be6",
       name: { text: "Prismshell", color: "#f1e9ff" },
-      rewards: statRewards(PRISMSHELL_REWARD_DAMAGE, PRISMSHELL_REWARD_HEALTH, PRISMSHELL_REWARD_ARMOR, PRISMSHELL_REWARD_REGEN),
     });
   }
   /** An imported atlas prefab, which faces left and carries its own shadow. */
@@ -1265,7 +1197,6 @@ export function createBossRenderer(options: {
       artTop: number;
       fillColor: string;
       name: string;
-      rewards: readonly { text: string; color: string }[];
     },
   ) {
     if (state.dead) return;
@@ -1300,18 +1231,15 @@ export function createBossRenderer(options: {
       backgroundColor: "#333149",
       fillColor: look.fillColor,
       name: { text: look.name, color: "#f1e9ff" },
-      rewards: look.rewards,
     });
   }
   const drawIronhornBoss = () => drawAtlasClipBoss(ironhornBoss, "ironhorn", {
     atlasId: "IRONHORN", spriteFrame: ironhornSpriteFrame, spriteYOffset: IRONHORN_SPRITE_Y_OFFSET, artTop: IRONHORN_ART_TOP,
     fillColor: "#d9a64e", name: "Ironhorn",
-    rewards: statRewards(IRONHORN_REWARD_DAMAGE, IRONHORN_REWARD_HEALTH, IRONHORN_REWARD_ARMOR, IRONHORN_REWARD_REGEN),
   });
   const drawDreadreaperBoss = () => drawAtlasClipBoss(dreadreaperBoss, "dreadreaper", {
     atlasId: "DREADREAPER", spriteFrame: dreadreaperSpriteFrame, spriteYOffset: DREADREAPER_SPRITE_Y_OFFSET, artTop: DREADREAPER_ART_TOP,
     fillColor: "#a3c563", name: "Dreadreaper",
-    rewards: statRewards(DREADREAPER_REWARD_DAMAGE, DREADREAPER_REWARD_HEALTH, DREADREAPER_REWARD_ARMOR, DREADREAPER_REWARD_REGEN),
   });
   /** The expansion bosses pose by attack: a laser while the cone plays, a pulse while hazards stand. */
   function drawPosedBoss(
@@ -1325,7 +1253,6 @@ export function createBossRenderer(options: {
       spriteYOffset: number;
       artTop: number;
       name: string;
-      rewards: readonly { text: string; color: string }[];
     },
   ) {
     if (state.dead) return;
@@ -1349,23 +1276,19 @@ export function createBossRenderer(options: {
       backgroundColor: "#333149",
       fillColor: "#35dae6",
       name: { text: look.name, color: "#f1e9ff" },
-      rewards: look.rewards,
     });
   }
   const drawVoltwardenBoss = () => drawPosedBoss(voltwardenBoss, "voltwarden", {
     drawArt: drawVoltwardenArt, cropId: "VOLTWARDEN", posedStatus: true,
     spriteYOffset: VOLTWARDEN_SPRITE_Y_OFFSET, artTop: VOLTWARDEN_ART_TOP, name: "Voltwarden",
-    rewards: statRewards(VOLTWARDEN_REWARD_DAMAGE, VOLTWARDEN_REWARD_HEALTH, VOLTWARDEN_REWARD_ARMOR, VOLTWARDEN_REWARD_REGEN),
   });
   const drawGravebloomBoss = () => drawPosedBoss(gravebloomBoss, "gravebloom", {
     drawArt: drawGravebloomArt, cropId: "GRAVEBLOOM", posedStatus: false,
     spriteYOffset: GRAVEBLOOM_SPRITE_Y_OFFSET, artTop: GRAVEBLOOM_ART_TOP, name: "Gravebloom",
-    rewards: statRewards(GRAVEBLOOM_REWARD_DAMAGE, GRAVEBLOOM_REWARD_HEALTH, GRAVEBLOOM_REWARD_ARMOR, GRAVEBLOOM_REWARD_REGEN),
   });
   const drawAegisPrimeBoss = () => drawPosedBoss(aegisPrimeBoss, "aegisPrime", {
     drawArt: drawAegisPrimeArt, cropId: "AEGIS_PRIME", posedStatus: false,
     spriteYOffset: AEGIS_PRIME_SPRITE_Y_OFFSET, artTop: AEGIS_PRIME_ART_TOP, name: "Aegis Prime",
-    rewards: statRewards(AEGIS_PRIME_REWARD_DAMAGE, AEGIS_PRIME_REWARD_HEALTH, AEGIS_PRIME_REWARD_ARMOR, AEGIS_PRIME_REWARD_REGEN),
   });
   return {
     drawBoss: {

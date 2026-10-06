@@ -78,7 +78,7 @@ export function createAutoEquip(deps: {
   }
 
   /**
-   * After loot or a boss reward has been written: gear that is new in the bag
+   * After loot or a boss gate has been written: gear that is new in the bag
    * since `before`, or that a map reached since `before` has made usable, goes
    * on where it beats the slot. Written with the player row's power and
    * looks, so everyone sees the new gear. It runs on every kill report, so

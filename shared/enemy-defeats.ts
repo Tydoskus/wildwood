@@ -1,6 +1,5 @@
 import { CAMPAIGN_MAPS } from "./campaign-registry";
 import type { MapBalanceSnapshot } from "./map-balance-types";
-import { personalBossDefinition } from "./personal-bosses";
 import { ENEMY_TYPES, type EnemyKind } from "./enemy-definitions";
 import * as camps from "./enemy-camps";
 import designs from "./map-designs.json";
@@ -44,6 +43,21 @@ const CAMPS: Record<string, readonly camps.SpawnCamp[]> = {
   ion_citadel: camps.ION_CITADEL_CAMPS,
 };
 const generatedMaps = new Map<string, ReturnType<typeof generateMap>>();
+const campaignPopulations = new Map<string, Map<string, number>>();
+function campaignPopulation(mapId: string) {
+  let populations = campaignPopulations.get(mapId);
+  if (populations) return populations;
+  const saved = (designs.maps as Record<string, { status: string; spawnCamps: camps.SpawnCamp[] }>)[mapId];
+  const rows = saved?.status === "live" && saved.spawnCamps.length ? saved.spawnCamps : CAMPS[mapId];
+  if (!rows) return null;
+  populations = new Map();
+  for (const camp of rows) for (let i = 0; i < camp.count; i++) {
+    const kind = camp.types[i % camp.types.length];
+    populations.set(kind, (populations.get(kind) ?? 0) + 1);
+  }
+  campaignPopulations.set(mapId, populations);
+  return populations;
+}
 function generatedDefinition(mapId: `endless_${number}`) {
   let map = generatedMaps.get(mapId);
   if (!map) {
@@ -53,7 +67,9 @@ function generatedDefinition(mapId: `endless_${number}`) {
   return map;
 }
 export function enemyDefeatDefinition(mapId: string, enemy: string, balance?: MapBalanceSnapshot) {
-  if (enemy === "boss") return personalBossDefinition(mapId) ? { reward: { type: "boss", amount: 0 }, hp: 0, population: 1, loot: false } : null;
+  // A compatibility marker for a gate, without constructing combat/geometry.
+  if (enemy === "boss") return (isProceduralMap(mapId) || CAMPAIGN_MAPS.some(map => map.id === mapId))
+    ? { reward: { type: "boss", amount: 0 }, hp: 0, population: 1, loot: false } : null;
   if (isProceduralMap(mapId)) {
     // Generated art is cosmetic. A stable spawn index identifies its actual reward lane.
     if (!/^site:\d+$/.test(enemy)) return null;
@@ -69,13 +85,9 @@ export function enemyDefeatDefinition(mapId: string, enemy: string, balance?: Ma
     }
     return null;
   }
-  const fallback = CAMPS[mapId];
   if (!Object.prototype.hasOwnProperty.call(ENEMY_TYPES, enemy)) return null;
-  const saved = (designs.maps as Record<string, { status: string; spawnCamps: camps.SpawnCamp[] }>)[mapId];
-  const rows = saved?.status === "live" && saved.spawnCamps.length ? saved.spawnCamps : fallback;
-  if (!rows) return null;
   // Shuffling changes positions, never the number of each species.
-  const population = rows.reduce((sum, camp) => sum + Array.from({ length: camp.count }, (_, i) => camp.types[i % camp.types.length]).filter(type => type === enemy).length, 0);
+  const population = campaignPopulation(mapId)?.get(enemy) ?? 0;
   if (!population) return null;
   const definition = balance?.enemies[enemy] ?? ENEMY_TYPES[enemy as EnemyKind];
   return { reward: definition.reward, hp: definition.hp, population, loot: !(mapId === "beginner_desert" && definition.elite) };

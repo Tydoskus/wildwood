@@ -88,14 +88,13 @@ it("pays a clipped report its bounded share and leaves the session alone", () =>
   // Nothing is queued for a person: the claim is simply paid what it earned.
   expect([...f.db.enemyDefeatReview.iter()]).toEqual([]);
 });
-it("bounds a boss claim the earned-time clock cannot pay without taking the session", () => {
-  // A portal round-trip re-presents a personal boss before the clock has paid
-  // for it. The claim earns nothing and the player keeps playing.
+it("records a local gate clear without a server combat clock or session penalty", () => {
+  // A client-side clear opens the gate even for a saved build with no weapon.
   const f = fixture(); f.patch("playerProgress", { equippedRightHand: "", damage: 1 });
   reportKills(f, { ...report, enemies: [{ enemy: "boss", count: 1 }] });
   expect(f.db.defeatSessionRestriction.identity.find(f.ctx.sender)).toBeNull();
   expect(f.db.player.identity.find(f.ctx.sender)).not.toBeNull();
-  expect(f.db.proceduralProgress.identity.find(f.ctx.sender)).toBeNull();
+  expect(f.db.proceduralProgress.identity.find(f.ctx.sender).completed).toBe(1);
   expect([...f.db.enemyDefeatReview.iter()]).toEqual([]);
 });
 

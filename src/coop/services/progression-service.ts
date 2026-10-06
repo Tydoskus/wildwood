@@ -340,12 +340,6 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     // The cadence runs from reports that go out, so a flush that could not send
     // (a reconnect still hydrating) does not hold the kills back another thirty seconds.
     lastKillReportAt = monotonicNowMs();
-    // Validate a boss against the loadout actually used, not a stale empty slot.
-    // Saving equipment never trusts client stat totals or clears pending kills.
-    if (request.enemies.some(entry => entry.enemy === "boss") && pendingProgress
-      && (!localProgress || LOADOUT_FIELDS.some(field => pendingProgress![field] !== localProgress![field]))) {
-      if (!await flushAsync(true, true)) return false;
-    }
     // simulatedMillis is how much game time this tab ran since its previous
     // report; the server holds kills to what that much play could produce.
     const result = await reducerResult("enemy defeats", connection => withRequestDeadline(

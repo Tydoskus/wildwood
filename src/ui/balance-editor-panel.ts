@@ -7,7 +7,7 @@ export type BalanceEditorDependencies = {
   save: (revision: number, settings: BalanceSettings) => Promise<void>;
   restore: (expected: number, revision: number) => Promise<void>;
 };
-const fields: [keyof BalanceFactors, string][] = [['enemyHealth', 'Health'], ['enemyDamage', 'Damage'], ['enemyRewards', 'Stat rewards'], ['enemySpeed', 'Move speed'], ['enemyRespawn', 'Respawn time'], ['enemyDrops', 'Item drops'], ['bossHealth', 'Health'], ['bossDamage', 'Damage'], ['bossRewards', 'Stat rewards'], ['bossRespawn', 'Respawn time'], ['bossRegen', 'Regeneration']];
+const fields: [keyof BalanceFactors, string][] = [['enemyHealth', 'Health'], ['enemyDamage', 'Damage'], ['enemyRewards', 'Stat rewards'], ['enemySpeed', 'Move speed'], ['enemyRespawn', 'Respawn time'], ['enemyDrops', 'Item drops'], ['bossHealth', 'Health'], ['bossDamage', 'Damage'], ['bossRespawn', 'Respawn time'], ['bossRegen', 'Regeneration']];
 const format = (n: number) => Intl.NumberFormat('en', { notation: n >= 10000 ? 'compact' : 'standard', maximumSignificantDigits: 4 }).format(n);
 export function createBalanceEditorPanel(root: HTMLElement, api: BalanceEditorDependencies) {
   root.classList.add('balance-editor');

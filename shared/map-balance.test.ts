@@ -80,7 +80,7 @@ it('carries the final campaign tuning into Endless while earlier map tuning stay
   expect(changed.lanes.Cindermaw.reward.amount).toBeCloseTo(baseline.lanes.Cindermaw.reward.amount * 4, -1);
   expect(changed.boss!.hp).toBeCloseTo(baseline.boss!.hp * 5, -1);
   expect(changed.boss!.damage).toBeCloseTo(baseline.boss!.damage * 6, -1);
-  expect(changed.boss!.rewards.damage).toBeCloseTo(baseline.boss!.rewards.damage * 7, -1);
+  expect(changed.boss!.rewards).toEqual({});
   settings.maps.tutorial_forest.bossHealth = 9;
   expect(resolveMapBalance('endless_1', settings, 1).boss!.hp).toBe(changed.boss!.hp);
 });

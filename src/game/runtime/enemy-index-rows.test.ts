@@ -47,7 +47,7 @@ it("lists another map from its live balance when the server sends it", () => {
   const boss = rows[rows.length - 1];
   expect(boss.hp).toBe(987654);
   expect(boss.boss!.attacks.map(attack => attack.name)).toEqual(["Slam", "Spin"]);
-  expect(boss.boss!.rewards).toEqual([{ type: "damage", amount: paid("damage", 50) }]);
+  expect(boss.boss!.rewards).toEqual([]);
 });
 
 it("still lists a camp killed out on the player's map, from its spawn sites", () => {

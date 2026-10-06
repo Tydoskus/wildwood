@@ -1,17 +1,16 @@
 import { pinnedMapBalance } from "./map-balance";
 import { isProceduralMap } from "../../shared/procedural-maps";
-import { personalBossDefinition } from "../../shared/personal-bosses";
+import { CAMPAIGN_MAPS } from "../../shared/campaign-registry";
+import type { EnemyStatReward } from "../../shared/enemy-reward-accumulator";
 import { Range, SenderError, table, t } from "spacetimedb/server";
 import { defeatBudget, defeatMinRespawnSeconds, enemyDefeatDefinition, mapEnemyPopulation, DEFEAT_BUDGET_WINDOW_SECONDS, ENEMY_DEFEAT_BATCH_MAX, SIM_CLOCK_BANK_SECONDS, type EnemyDefeat } from "../../shared/enemy-defeats";
-import { bossDefeatLimits, BOSS_REWARD_WINDOW_SECONDS } from "./boss-defeat-limits";
-import { WORLD_REFLECT_SHARE } from "../../shared/prestige-perks";
-import { bossRespawnSecondsWithResearch, enemyRespawnSecondsWithResearch } from "../../shared/utility-research";
+import { enemyRespawnSecondsWithResearch } from "../../shared/utility-research";
 import { KILL_REPORT_BURST, KILL_REPORT_REFILL_SECONDS, REGULAR_ENEMY_RESPAWN_SECONDS } from "../../shared/rules";
 import { recordModerationAction } from "./moderation-history";
 import { advanceStreamCursor, streamCursor } from "./regular-enemy-loot";
 import type { GameReducerContext } from "./index";
 
-type BossRewardContext = Pick<GameReducerContext, "db" | "sender" | "timestamp">;
+type DefeatContext = Pick<GameReducerContext, "db" | "sender" | "timestamp">;
 
 export const enemyDefeatBudget = table({ name: "enemy_defeat_budget" }, {
   key: t.string().primaryKey(), identity: t.identity().index("btree"), tokens: t.f64(), updatedAtMicros: t.u64().index("btree"),
@@ -52,7 +51,6 @@ export const bossMapDefeatWindow = table({ name: "boss_map_defeat_window" }, {
   identity: t.identity().primaryKey(), acceptedAtMicros: t.array(t.u64()), acceptedMapIds: t.array(t.string()),
 });
 
-const bossTimeKey = (identity: { toHexString(): string }, mapId: string) => `${identity.toHexString()}:${mapId}:boss-time-v1`;
 /** Seconds of regular-enemy combat the player has banked, across every map and species. */
 export const combatTimeKey = (identity: { toHexString(): string }) => `${identity.toHexString()}:combat-time-v1`;
 
@@ -78,7 +76,7 @@ export const PLAUSIBLE_KILL_TOLERANCE = 1.25;
 /**
  * The most kills per second this player's combat can produce against one
  * species: one projectile kills at most one enemy, and each enemy needs a whole
- * number of hits. An optimistic bound, like bossDefeatLimits, not a claim that
+ * number of hits. An optimistic bound, not a claim that
  * combat happened.
  */
 export function plausibleKillsPerSecond(hp: number, dps: number, attackInterval: number, projectiles = 1) {
@@ -88,15 +86,6 @@ export function plausibleKillsPerSecond(hp: number, dps: number, attackInterval:
   return projectiles / attackInterval / hitsPerKill;
 }
 
-/** Called only on account-world entry/travel; reconnecting never resets credit. */
-export function beginBossTimeBudget(ctx: BossRewardContext, mapId: string) {
-  const boss = personalBossDefinition(mapId);
-  if (!boss) return;
-  const key = bossTimeKey(ctx.sender, mapId);
-  if (!ctx.db.enemyDefeatBudget.key.find(key)) ctx.db.enemyDefeatBudget.insert({
-    key, identity: ctx.sender, tokens: boss.respawnSeconds, updatedAtMicros: ctx.timestamp.microsSinceUnixEpoch,
-  });
-}
 /**
  * The maps a report may be for: where the player stands, and, while they stand
  * at Home, the combat map they left to get there. A report is sealed on the
@@ -106,7 +95,7 @@ export function beginBossTimeBudget(ctx: BossRewardContext, mapId: string) {
  * the report's own map, so honouring the departed map pays no more than
  * staying on it would have.
  */
-export function permittedDefeatMaps(ctx: BossRewardContext, player: { mapId: string }, homeMapId: string): string[] {
+export function permittedDefeatMaps(ctx: DefeatContext, player: { mapId: string }, homeMapId: string): string[] {
   if (player.mapId !== homeMapId) return [player.mapId];
   const left = ctx.db.homeReturnLocation.identity.find(ctx.sender)?.mapId;
   return left && left !== homeMapId ? [player.mapId, left] : [player.mapId];
@@ -208,7 +197,7 @@ export const PAY_CEILING = { enforced: false };
  * catches what the simulation clock cannot, a client edited to report
  * honest-looking game time, which the spawn wall still pays.
  */
-function watchKillRate(ctx: BossRewardContext, mapId: string, respawnSeconds: number, paidKills: number, creditedSeconds: number) {
+function watchKillRate(ctx: DefeatContext, mapId: string, respawnSeconds: number, paidKills: number, creditedSeconds: number) {
   const key = killRateKey(ctx.sender);
   const previous = ctx.db.enemyDefeatBudget.key.find(key);
   const now = ctx.timestamp.microsSinceUnixEpoch;
@@ -250,7 +239,7 @@ function watchKillRate(ctx: BossRewardContext, mapId: string, respawnSeconds: nu
  * throws later (a wrong map, an invalid enemy) is not counted, and costs the
  * reads up to its throw: the session and controller checks and the cursor.
  */
-export function throttleKillReports(ctx: BossRewardContext) {
+export function throttleKillReports(ctx: DefeatContext) {
   const key = reportRateKey(ctx.sender);
   const previous = ctx.db.enemyDefeatBudget.key.find(key);
   const now = ctx.timestamp.microsSinceUnixEpoch;
@@ -318,11 +307,10 @@ export function simulationClock(previous: { tokens: number; updatedAtMicros: big
 /**
  * A report's claimed counts after the simulation clock's scale; exactly the
  * counts when unscaled. The report's total is rounded once and handed out by
- * largest remainder, `first` entries (a boss clear) before any other, then the
- * earliest entry on a tie. Flooring each entry took a
- * whole kill off every species under any scale below one, and a boss clear,
- * always a count of one, with it; an Endless report, one entry per site,
- * could lose all of it.
+ * largest remainder, optionally prioritized `first` entries before any other,
+ * then the earliest entry on a tie. Flooring each entry took a whole kill off
+ * every species under any scale below one; an Endless report with one entry
+ * per site could lose all of it. Boss gates bypass scaling entirely.
  */
 export function scaledDefeatCounts(counts: readonly number[], scale: number, first: readonly boolean[] = []) {
   if (scale === 1) return [...counts];
@@ -343,7 +331,7 @@ export function scaledDefeatCounts(counts: readonly number[], scale: number, fir
  * the payout scale and the game seconds the server accepts as played: the
  * claim, cut to the real-time share when it ran ahead.
  */
-function chargeSimulationClock(ctx: BossRewardContext, mapId: string, simulatedMillis: number) {
+function chargeSimulationClock(ctx: DefeatContext, mapId: string, simulatedMillis: number) {
   const key = simulationClockKey(ctx.sender);
   const previous = ctx.db.enemyDefeatBudget.key.find(key);
   const now = ctx.timestamp.microsSinceUnixEpoch;
@@ -388,12 +376,13 @@ export type EnemyDefeatBatch = { streamId: string; sequence: bigint; mapId: stri
  *     clock, so rotating maps sustains one map's wall and no more. That clock
  *     refills with the game time the simulation clock accepted (1.), so kills
  *     are paid for with play the server believes.
- *  4. Boss clears have their own earned-time clock, and also spend their fight
- *     seconds from the combat clock, without ever being refused for it.
+ *  Boss clears only record gate access; they never enter reward validation.
  */
-export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBatch, activeMapIds: string | readonly string[],
-  bossCombat: (earned: { type: string; amount: number; count: number }[]) => { dps: number; attackInterval: number; projectiles?: number; reach?: number; bossDps?: number;
-    reflect?: { maxHp: number; regen: number; preArmor?: number } | null; reflectDps?: number; reflectTick?: number }) {
+export function acceptEnemyDefeats(ctx: DefeatContext, batch: EnemyDefeatBatch, activeMapIds: string | readonly string[],
+  combat: {
+    preview: (reward: EnemyStatReward) => { dps: number; attackInterval: number; projectiles?: number; reach?: number; reflectDps?: number; reflectTick?: number };
+    commit: (reward: EnemyStatReward) => void;
+  }) {
   if (!/^[a-zA-Z0-9-]{16,80}$/.test(batch.streamId) || batch.sequence < 1n || !batch.enemies.length)
     throw new SenderError("Invalid enemy defeat batch.");
   const key = `${ctx.sender.toHexString()}:${batch.streamId}`;
@@ -408,7 +397,20 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
   if (batch.enemies.every(entry => Number.isInteger(entry.count) && entry.count > 0)
     && total > ENEMY_DEFEAT_BATCH_MAX) {
     advanceStreamCursor(ctx, key, batch.sequence, prior);
-    return { rewards: [], kills: [], count: 0, lootCount: 0, restrict: true, violations: [{ enemy: "batch", requested: total, accepted: 0 }], balance: null };
+    return { rewards: [], kills: [], count: 0, lootCount: 0, restrict: true, violations: [{ enemy: "batch", requested: total, accepted: 0 }], balance: null, bossCleared: false };
+  }
+  // A boss is a client-side gate. Preserve the existing report/ack protocol,
+  // but never run DPS, respawn, loot or kill-currency accounting for its clear.
+  const bossEntries = batch.enemies.filter(entry => entry.enemy === "boss");
+  const bossCleared = bossEntries.length > 0;
+  if (bossCleared && (bossEntries.length !== 1 || !Number.isInteger(bossEntries[0].count) || bossEntries[0].count < 1
+    || !(isProceduralMap(batch.mapId) || CAMPAIGN_MAPS.some(map => map.id === batch.mapId)))) {
+    throw new SenderError("Invalid enemy for this map.");
+  }
+  const entries = batch.enemies.filter(entry => entry.enemy !== "boss");
+  if (!entries.length) {
+    advanceStreamCursor(ctx, key, batch.sequence, prior);
+    return { rewards: [], kills: [], count: 0, lootCount: 0, restrict: false, violations: [], balance: null, bossCleared };
   }
   // Scale first, then the bounds below, so the spawn wall and combat clock see
   // only what real time allowed and are not drained by the excess.
@@ -441,15 +443,9 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
   let clockSpent = false;
   // The pay ceiling (see PAY_CEILING): the least a kill can cost the clock.
   const ceilingSecondsPerKill = 1 / killRateWatchLine(batch.mapId, defeatMinRespawnSeconds(regularRespawn));
-  const rewards = [];
+  const rewards: EnemyStatReward[] = [];
   const violations: { enemy: string; requested: number; accepted: number }[] = [];
-  // A save can contain regular kills that already raised the client's DPS.
-  // Validate those first, then include only their server-calculated rewards.
-  const entries = batch.enemies.some(entry => entry.enemy === "boss")
-    ? [...batch.enemies.filter(entry => entry.enemy !== "boss"), ...batch.enemies.filter(entry => entry.enemy === "boss")]
-    : batch.enemies;
-  // A boss clear is the one kill a scaled report must not drop on a tie.
-  const scaledCounts = scaledDefeatCounts(entries.map(entry => Number.isInteger(entry.count) ? entry.count : 0), scale, entries.map(entry => entry.enemy === "boss"));
+  const scaledCounts = scaledDefeatCounts(entries.map(entry => Number.isInteger(entry.count) ? entry.count : 0), scale);
   for (const [index, entry] of entries.entries()) {
     const definition = enemyDefeatDefinition(batch.mapId, entry.enemy, balance ?? undefined);
     if (!definition || seen.has(entry.enemy) || !Number.isInteger(entry.count) || entry.count < 1 || (submittedCount += entry.count) > ENEMY_DEFEAT_BATCH_MAX)
@@ -459,84 +455,44 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
     // works from what the simulation clock left of it.
     const claimed = scaledCounts[index];
     if (!claimed) { violations.push({ enemy: entry.enemy, requested: entry.count, accepted: 0 }); continue; }
-    const bossDefinition = entry.enemy === "boss" ? balance?.boss ?? personalBossDefinition(batch.mapId) : null;
-    const boss = bossDefinition && { ...bossDefinition, respawnSeconds: bossRespawnSecondsWithResearch(bossDefinition.respawnSeconds, utility?.bossRespawn ?? 0) };
-    const budget = boss ? { capacity: 1 + Math.ceil(300 / boss.respawnSeconds), perSecond: 1 / boss.respawnSeconds } : defeatBudget(definition.population, defeatMinRespawnSeconds(regularRespawn));
+    const budget = defeatBudget(definition.population, defeatMinRespawnSeconds(regularRespawn));
     const budgetKey = `${ctx.sender.toHexString()}:${batch.mapId}:${entry.enemy}`;
     const previous = ctx.db.enemyDefeatBudget.key.find(budgetKey);
     const elapsed = previous ? Math.max(0, Number(now - previous.updatedAtMicros) / 1e6) : 0;
     const tokens = previous ? Math.min(budget.capacity, previous.tokens + elapsed * budget.perSecond) : ((budget as { initial?: number }).initial ?? budget.capacity);
     let acceptedCount = claimed;
-    if (boss) {
-      const combat = bossCombat(rewards);
-      // A boss is one target, so reach adds nothing here; Arrow Storm's extra
-      // arrows on it are damage, and bossDps carries them.
-      // Reflect covers up to the player's health pool and their regen
-      // of the boss's HP, scaled up by their armor since it returns the hit
-      // before armor; their own damage has to cover the rest.
-      const reflected = combat.reflect ? WORLD_REFLECT_SHARE * (combat.reflect.preArmor ?? 1) : 0;
-      // A curve map's boss regen, which its gate makes decisive; the authored maps' bound never counted regen.
-      const gateRegen = balance?.rules.ARMOR_CURVE === 1 ? boss.hp * ((boss as { regenFraction?: number }).regenFraction ?? 0) : 0;
-      const limits = bossDefeatLimits(Math.max(1, boss.hp - reflected * (combat.reflect?.maxHp ?? 0)),
-        (combat.bossDps ?? combat.dps) + reflected * (combat.reflect?.regen ?? 0), combat.attackInterval, boss.respawnSeconds, gateRegen);
-      const timeKey = bossTimeKey(ctx.sender, batch.mapId);
-      const clock = ctx.db.enemyDefeatBudget.key.find(timeKey);
-      // Existing online clients may have fought before this check was deployed.
-      // Allow at most one ordinary save window, never a full slow-fight credit.
-      const initialCredit = BOSS_REWARD_WINDOW_SECONDS + boss.respawnSeconds;
-      const credit = limits ? Math.min(limits.capacitySeconds, clock
-        ? clock.tokens + Math.max(0, Number(now - clock.updatedAtMicros) / 1e6) : initialCredit) : 0;
-      // The earned-time budget already enforces HP / server DPS + respawn.
-      // Receipt timestamps are not kill timestamps: counting them again in a
-      // rolling per-map window rejects valid boundary kills and delayed saves.
-      acceptedCount = limits ? Math.max(0, Math.min(claimed, Math.floor(tokens + 1e-6),
-        Math.floor(credit / limits.cycleSeconds + 1e-9))) : 0;
-      const nextClock = { key: timeKey, identity: ctx.sender,
-        tokens: Math.max(0, credit - acceptedCount * (limits?.cycleSeconds ?? 0)), updatedAtMicros: now };
-      if (clock) ctx.db.enemyDefeatBudget.key.update(nextClock); else ctx.db.enemyDefeatBudget.insert(nextClock);
-      // Excess claims are consumed without rewards. Never leave an impossible
-      // sealed report blocking saves, portals, or the valid kills behind it.
-      if (acceptedCount < entry.count) violations.push({ enemy: entry.enemy, requested: entry.count, accepted: acceptedCount });
-      if (!acceptedCount) continue;
-      // The fight itself was combat time the player could not spend on
-      // regular enemies, so it comes off the shared clock too. Only after
-      // acceptance, and never below zero: the boss's own clock above is what
-      // bounds clears, and a first clear must not wait on this one.
-      combatSeconds = Math.max(0, combatSeconds - acceptedCount * Math.max(0, limits!.cycleSeconds - boss.respawnSeconds));
-      clockSpent = true;
-    } else {
-      // A sealed batch must be consumable even when it exceeds the maximum
-      // bucket (one Endless spawn holds 91 kills; a report can contain 100).
-      // Award only the server-earned allowance, then acknowledge the report so
-      // it cannot permanently block saving or travel. Retrying a new stream
-      // cannot restore the spent allowance.
-      acceptedCount = Math.max(0, Math.min(claimed, Math.floor(tokens + 1e-6)));
-      if (acceptedCount < entry.count) violations.push({ enemy: entry.enemy, requested: entry.count, accepted: acceptedCount });
-      // The spawn wall above bounds one species on one map. This second bound
-      // is the account's combat clock: could this player's own combat have
-      // produced these kills, and could any player have seen this many
-      // enemies come back in the time? It refills with the game time the tab
-      // ran, so a backlog flushed after a dropped socket is honoured, and it
-      // never restricts: the payout is bounded and that is all.
-      // Kill rewards raise damage and attack speed as they land, and the
-      // client fought the whole report with those gains while the saved row
-      // still shows the stats from before it. Estimate with the stats this
-      // report grants (bounded by the spawn wall above), as the client had
-      // them by its last kill; anything less pays a fast-growing farmer at
-      // the rate they started the report with.
-      const combat = bossCombat([...rewards, { ...definition.reward, count: acceptedCount }]);
-      // Reflect's own kills add to the weapon's: outside Reflect Only a reflected
-      // hit can be as big as max health, so it is no share of the bow's kills.
-      const plausibleRate = (plausibleKillsPerSecond(definition.hp, combat.dps, combat.attackInterval, combat.projectiles ?? 1) * (combat.reach ?? 1)
-        + (combat.reflectDps ? plausibleKillsPerSecond(definition.hp, combat.reflectDps, combat.reflectTick ?? .1) : 0)) * PLAUSIBLE_KILL_TOLERANCE;
-      const floorCost = PAY_CEILING.enforced ? Math.max(wallSecondsPerKill, ceilingSecondsPerKill) : wallSecondsPerKill;
-      const costPerKill = plausibleRate > 0 ? Math.max(1 / plausibleRate, floorCost) : Infinity;
-      const plausible = Number.isFinite(costPerKill) ? Math.max(0, Math.floor(combatSeconds / costPerKill + 1e-6)) : 0;
-      if (acceptedCount > plausible) acceptedCount = plausible;
-      if (acceptedCount) combatSeconds = Math.max(0, combatSeconds - acceptedCount * costPerKill);
-      clockSpent = true;
-      if (!acceptedCount) continue;
-    }
+    // A sealed batch must be consumable even when it exceeds the maximum
+    // bucket (one Endless spawn holds 91 kills; a report can contain 100).
+    // Award only the server-earned allowance, then acknowledge the report so
+    // it cannot permanently block saving or travel. Retrying a new stream
+    // cannot restore the spent allowance.
+    acceptedCount = Math.max(0, Math.min(claimed, Math.floor(tokens + 1e-6)));
+    if (acceptedCount < entry.count) violations.push({ enemy: entry.enemy, requested: entry.count, accepted: acceptedCount });
+    // The spawn wall above bounds one species on one map. This second bound
+    // is the account's combat clock: could this player's own combat have
+    // produced these kills, and could any player have seen this many
+    // enemies come back in the time? It refills with the game time the tab
+    // ran, so a backlog flushed after a dropped socket is honoured, and it
+    // never restricts: the payout is bounded and that is all.
+    // Kill rewards raise damage and attack speed as they land, and the
+    // client fought the whole report with those gains while the saved row
+    // still shows the stats from before it. Estimate with the stats this
+    // report grants (bounded by the spawn wall above), as the client had
+    // them by its last kill; anything less pays a fast-growing farmer at
+    // the rate they started the report with.
+    const bound = combat.preview({ ...definition.reward, count: acceptedCount });
+    // Reflect's own kills add to the weapon's: outside Reflect Only a reflected
+    // hit can be as big as max health, so it is no share of the bow's kills.
+    const plausibleRate = (plausibleKillsPerSecond(definition.hp, bound.dps, bound.attackInterval, bound.projectiles ?? 1) * (bound.reach ?? 1)
+      + (bound.reflectDps ? plausibleKillsPerSecond(definition.hp, bound.reflectDps, bound.reflectTick ?? .1) : 0)) * PLAUSIBLE_KILL_TOLERANCE;
+    const floorCost = PAY_CEILING.enforced ? Math.max(wallSecondsPerKill, ceilingSecondsPerKill) : wallSecondsPerKill;
+    const costPerKill = plausibleRate > 0 ? Math.max(1 / plausibleRate, floorCost) : Infinity;
+    const plausible = Number.isFinite(costPerKill) ? Math.max(0, Math.floor(combatSeconds / costPerKill + 1e-6)) : 0;
+    if (acceptedCount > plausible) acceptedCount = plausible;
+    if (acceptedCount) combatSeconds = Math.max(0, combatSeconds - acceptedCount * costPerKill);
+    clockSpent = true;
+    if (!acceptedCount) continue;
+    combat.commit({ ...definition.reward, count: acceptedCount });
     const next = { key: budgetKey, identity: ctx.sender, tokens: Math.max(0, tokens - acceptedCount), updatedAtMicros: now };
     if (previous) ctx.db.enemyDefeatBudget.key.update(next); else ctx.db.enemyDefeatBudget.insert(next);
     count += acceptedCount;
@@ -556,5 +512,5 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
   // stream against a bucket the last visit drained). Only a report larger than
   // any real client can send still restricts, above. The pinned balance goes
   // back to the caller so the rewards need not read and parse it again.
-  return { rewards, kills, count, lootCount, restrict: false, violations, balance };
+  return { rewards, kills, count, lootCount, restrict: false, violations, balance, bossCleared };
 }

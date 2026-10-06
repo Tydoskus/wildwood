@@ -1,6 +1,6 @@
 import { playerPrestigeChallenge, playerPrestigeChallengeParked, prestigeChallengeBackup, prestigeChallengeRun, reflectRewardsInPlay, restorePrestigeChallenge } from "./prestige-challenge";
 import { playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerQuestWeekTotal, ensureDailyQuests, pruneOldGuildQuestWeeks, recordDailyQuestKills, memberQuestStanding, questCollectStanding, collectMemberQuests, moveSoloQuestsToGuild } from "./daily-quests";
-import { challengeAttackInterval, challengeMinimumInterval } from "../../shared/prestige-challenge";
+import { challengeAttackInterval } from "../../shared/prestige-challenge";
 import { duelCombatSnapshot } from "./duel-combat-snapshot";
 import { playerEquipmentLock, setEquipmentLock } from "./equipment-locks";
 import { CAMPAIGN_MAPS } from "../../shared/campaign-registry";
@@ -21,11 +21,10 @@ import { nameChangeStatus } from "../../shared/name-change";
 import { validPatreonRedirect } from "./patreon-url";
 import { isValidProfileIcon } from "../../shared/profile-icons";
 import { releaseNotice, releaseAcknowledgement, writeReleaseWindow, acknowledgeReleaseWindow } from "./release-control";
-import { personalBossDefinition } from "../../shared/personal-bosses";
+import { recordBossGateClear } from "./boss-gates";
 import { playerMultiplayerPreference, writeMultiplayerPreference } from "./multiplayer-preference";
-import { enemyDefeatBudget, bossDefeatWindow, bossMapDefeatWindow, acceptEnemyDefeats, beginBossTimeBudget, enemyDefeatReview, permittedDefeatMaps, pruneIdleDefeatBudgets, throttleKillReports, type EnemyDefeatBatch } from "./enemy-defeats";
+import { enemyDefeatBudget, bossDefeatWindow, bossMapDefeatWindow, acceptEnemyDefeats, enemyDefeatReview, permittedDefeatMaps, pruneIdleDefeatBudgets, throttleKillReports, type EnemyDefeatBatch } from "./enemy-defeats";
 import { grantVirtualPlayerConsent, revokeVirtualPlayerConsent } from "./virtual-player-consent";
-import { applyEnemyRewards } from "../../shared/enemy-defeats";
 import { offlineProgressTables, beginOfflineWindow, grantOfflineProgress, acknowledgeOfflineProgress, setSimulatedTimeAway } from "./offline-progress";
 import { playerOfflinePreference, writeOfflinePreference } from "./offline-preference";
 import { playerAudioSetting, writeAudioSettings } from "./audio-settings";
@@ -65,7 +64,7 @@ import { cosmeticUnlocks } from "../../shared/cosmetic-conversion";
 import { publicChatCursor, updatePublicChatCursor, readPublicChatPage } from "./public-chat-history";
 import { createKillGems } from "./kill-gems";
 import { createPrestige, statRewardMultiplier } from "./prestige";
-import { generateMap, generatedBossStats, isProceduralMap, proceduralMapId, PROCEDURAL_ENTRY_MAP, PROCEDURAL_ENTRY_BOSS } from "../../shared/procedural-maps";
+import { generateMap, isProceduralMap, proceduralMapId, PROCEDURAL_ENTRY_MAP, PROCEDURAL_ENTRY_BOSS } from "../../shared/procedural-maps";
 import { proceduralMapTables, proceduralBossKey, clearProceduralProgress, generatedMapUnlocked } from "./procedural-maps";
 import { ingestStoreEvent } from "./gem-store-events";
 import { gemPurchaseTables } from "./gem-purchase-tables";
@@ -128,7 +127,7 @@ import {
   tempestKirinBossTables,
   tidewyrmBossTables,
 } from "./boss-tables";
-import { createBossCombat, PRISMSHELL_ID } from "./boss-combat";
+import { createCombatReport, PRISMSHELL_ID } from "./boss-combat";
 import { createModuleMigrations } from "./module-migrations";
 import { UPGRADE_BENCH_SLOT_ONE, UPGRADE_BENCH_SLOT_TWO, UPGRADE_BENCH_SLOT_THREE, normalizeUpgradeBenchSlot, requireUpgradeBenchSlot, activeItemUpgradeForSlot, activeItemUpgradeEntriesFor, insertActiveItemUpgrade, deleteActiveItemUpgrade, secondUpgradeSlotUnlockedFor, thirdUpgradeSlotUnlockedFor, rebaseActiveItemUpgradeTimer, refreshActiveSlotUpgrades } from "./upgrade-bench-slots";
 import {
@@ -265,24 +264,11 @@ const LEADERBOARD_REFRESH_VERSION = 13;
 /** A version no build uses, so refreshLeaderboardIfDue rebuilds on its next pass. */
 const LEADERBOARD_REFRESH_QUEUED = 0;
 const LEADERBOARD_PLAYER_REFRESH_MIN_MICROS = 60_000_000n;
-// Auto equip (auto-equip.ts) borrows only hoisted functions, so it exists
-// before the boss rewards that call it.
 const autoEquip = createAutoEquip({ inventoryForProgress, itemUpgradeLevelFor, writeProgressAndPresentation });
-// Boss kill bounds and clear rewards live in boss-combat.ts; kill validation
-// and bossRewardHandlers below call these names. Placed after autoEquip, whose
-// equipNewUpgrades the rewards borrow.
-const {
-  combatBoundForReport, rewardDragonContributor, rewardSpiderContributor,
-  rewardFrostclawContributor, rewardMagmaliskContributor, rewardGloomrootContributor,
-  rewardTidewyrmContributor, rewardKoiShogunContributor, rewardTempestKirinContributor,
-  rewardMiremawContributor, rewardPrismshellContributor, rewardIronhornContributor,
-  rewardDreadreaperContributor, rewardVoltwardenContributor, rewardGravebloomContributor,
-  rewardAegisPrimeContributor,
-} = createBossCombat({
-  playerWithMotion, syncPlayerMotionIdentity, powerFieldsForProgress, attackIntervalForProgress,
-  playerOwnsItem, publishItemDrop, restoreItemToProgress, itemUpgradeLevelFor, inventoryForProgress,
+// Only regular enemies use server reward/combat bounds. Boss clears persist gates.
+const { combatBoundForReport } = createCombatReport({
+  attackIntervalForProgress, itemUpgradeLevelFor, inventoryForProgress,
   equippedRightHandForProgress, equippedLeftHandForProgress, equippedHeadForProgress, equippedChestForProgress,
-  equipNewUpgrades: autoEquip.equipNewUpgrades,
 });
 // Duel bodies live in duel-runtime.ts; the duel reducers and the equipment
 // snapshot below keep calling the same names. Every dep is a hoisted function,
@@ -3728,19 +3714,24 @@ export const publishMotionDetailFrames = spacetimedb.reducer(
     requireScheduler(ctx); let continuePublishing = false;
     const staleIdentities: any[] = [];
     const sampleMotion = createPlayerMotionFrameSampler(ctx.timestamp.microsSinceUnixEpoch);
+    // This reducer never mutates motion. Share decoded rows (and misses) across
+    // observers as well as sharing sampled positions for this publication only.
+    const motions = new Map<number, ReturnType<typeof ctx.db.playerMotion.networkId.find>>();
     for (const interest of ctx.db.playerMotionInterest.iter() as Iterable<any>) {
       const observer = ctx.db.playerMotion.identity.find(interest.identity);
       if (!observer || !observer.isVisible) {
         staleIdentities.push(interest.identity);
         continue;
       }
+      motions.set(observer.networkId, observer);
       continuePublishing = true;
       const samples: PlayerMotionSample[] = [];
       const sampleLimit = Math.min(interest.networkIds.length, PLAYER_MOTION_INTEREST_LIMIT);
       for (let index = 0; index < sampleLimit; index += 1) {
         const networkId = interest.networkIds[index];
         if (networkId === observer.networkId) continue;
-        const motion = ctx.db.playerMotion.networkId.find(networkId);
+        if (!motions.has(networkId)) motions.set(networkId, ctx.db.playerMotion.networkId.find(networkId));
+        const motion = motions.get(networkId);
         if (
           !motion ||
           motion.mapId !== observer.mapId ||
@@ -3996,7 +3987,6 @@ export const enterWorld = spacetimedb.reducer({ tabId: t.string() }, (ctx, { tab
   requireSupportedSessionProtocol(ctx);
   enterWorldPresence(ctx, tabId);
   pinMapBalance(ctx, ctx.db.player.identity.find(ctx.sender)?.mapId ?? "");
-  beginBossTimeBudget(ctx, ctx.db.player.identity.find(ctx.sender)?.mapId ?? "");
 });
 
 /** Only tutorial-capable clients use this additive entry point. */
@@ -4004,7 +3994,6 @@ export const enterWorldWithTutorial = spacetimedb.reducer({ tabId: t.string(), f
   requireSupportedSessionProtocol(ctx);
   enterWorldPresence(ctx, tabId, forceTakeover, true);
   pinMapBalance(ctx, ctx.db.player.identity.find(ctx.sender)?.mapId ?? "");
-    beginBossTimeBudget(ctx, ctx.db.player.identity.find(ctx.sender)?.mapId ?? "");
 });
 
 export const takeOverSession = spacetimedb.reducer({ tabId: t.string() }, (ctx, { tabId }) => {
@@ -5181,7 +5170,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Enemy rewards require your account world connection.");
     // Everything the combat bound reads, read once for the whole report.
     const combat = combatBoundForReport(ctx);
-    const accepted = acceptEnemyDefeats(ctx, batch, permittedDefeatMaps(ctx, player, HOME_EXTERIOR_MAP_ID), earned => combat.bound(earned));
+    const accepted = acceptEnemyDefeats(ctx, batch, permittedDefeatMaps(ctx, player, HOME_EXTERIOR_MAP_ID), combat);
     if (!accepted) return;
     const enforce = () => {
       // Only a report no real client could have sent. A clipped claim is
@@ -5194,12 +5183,11 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
       removeIdentityPresence(ctx, ctx.sender);
       console.warn("Enemy defeat session restricted", JSON.stringify(restriction));
     };
-    if (!accepted.count) { enforce(); return; }
+    if (!accepted.count && !accepted.bossCleared) { enforce(); return; }
     // Validation wrote no progress, so the row the bound read is still current.
-    const base = combat.savedProgress() ?? defaultPlayerProgress(ctx.sender);
-    const statMultiplier = combat.statMultiplier();
-    if (accepted.rewards.some(reward => reward.type !== "boss")) {
-      const next = applyEnemyRewards(base, accepted.rewards, statMultiplier, challengeMinimumInterval(reflectRewardsInPlay(ctx, ctx.sender)));
+    const base = accepted.count ? combat.savedProgress() : null;
+    if (accepted.count) {
+      const next = combat.rewardedProgress()!;
       const rewarded = awardRegularEnemyLoot(ctx, batch.mapId, accepted.lootCount, accepted.balance, { progress: next });
       updateSnapshotRow(ctx, "playerProgress", rewarded);
       const power = combat.powerFields(rewarded);
@@ -5213,43 +5201,22 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
         syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
       }
     }
-    for (const reward of accepted.rewards) {
-      if (reward.type !== "boss") continue;
-      const boss = personalBossDefinition(batch.mapId)!;
-      // A boss reward never re-pins the map, so the balance validation read holds.
-      const balance = accepted.balance;
-      for (let clear = 0; clear < reward.count; clear++) {
-        if (boss.kind !== "procedural") {
-          const handler = bossRewardHandlers[boss.kind];
-          if (handler) handler(ctx, ctx.sender);
-          else {
-            if (!balance?.boss) throw new SenderError("Boss balance is unavailable.");
-            const progress = readPlayerProgress(ctx, ctx.sender)!;
-            const rewards = Object.entries(balance.boss.rewards).map(([type, amount]) => ({ type, amount, count: 1 }));
-            const rewarded = applyEnemyRewards(progress, rewards, statMultiplier, challengeMinimumInterval(reflectRewardsInPlay(ctx, ctx.sender)));
-            writeProgressAndPresentation(ctx, { ...rewarded, bossRewardClaims: (progress.bossRewardClaims | BOSS_REWARD_CLAIM_BITS[boss.kind]) >>> 0 });
-          }
-        }
-        else {
-          const map = generateMap(batch.mapId as `endless_${number}`);
-          const previous = ctx.db.proceduralProgress.identity.find(ctx.sender);
-          const row = { identity: ctx.sender, completed: Math.max(previous?.completed ?? 0, map.number) };
-          if (previous) ctx.db.proceduralProgress.identity.update(row); else ctx.db.proceduralProgress.insert(row);
-          const progress = readPlayerProgress(ctx, ctx.sender)!;
-          writeProgressAndPresentation(ctx, applyEnemyRewards(progress, (balance?.boss ? Object.entries(balance.boss.rewards).map(([type, amount]) => ({ type, amount })) : generatedBossStats(map).rewards).map(reward => ({ ...reward, count: 1 })), statMultiplier, challengeMinimumInterval(reflectRewardsInPlay(ctx, ctx.sender))));
-        }
-      }
+    const gate = accepted.bossCleared ? recordBossGateClear(ctx, batch.mapId) : null;
+    // New regular loot, or equipment made usable by a newly opened gate.
+    autoEquip.equipNewUpgrades(ctx, ctx.sender, base ?? gate?.previousProgress);
+    if (accepted.count) {
+      const lifetime = ensurePlayerLifetime(ctx);
+      const enemyKills = lifetime.enemyKills + BigInt(accepted.count);
+      ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills });
+      recordAnalyticsMilestone(ctx, "kill");
+      killGems.grantKillGems(ctx, ctx.sender, accepted.count, enemyKills);
+      recordDailyQuestKills(ctx, ctx.sender, batch.mapId, accepted.kills);
     }
-    autoEquip.equipNewUpgrades(ctx, ctx.sender, base); // New loot, and gear a boss's map unlock made usable.
-    const lifetime = ensurePlayerLifetime(ctx);
-    const enemyKills = lifetime.enemyKills + BigInt(accepted.count);
-    ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills });
-    recordAnalyticsMilestone(ctx, "kill");
-    if (accepted.rewards.some(reward => reward.type === "boss")) recordAnalyticsMilestone(ctx, "boss");
-    killGems.grantKillGems(ctx, ctx.sender, accepted.count, enemyKills);
-    recordDailyQuestKills(ctx, ctx.sender, batch.mapId, accepted.kills);
     enforce();
-    if (!accepted.restrict && accepted.rewards.some(reward => reward.type === "boss")) prestige.completeChallengeIfMet(ctx);
+    if (!accepted.restrict && gate) {
+      recordAnalyticsMilestone(ctx, "boss");
+      prestige.completeChallengeIfMet(ctx);
+    }
 }
 // The throttle comes before any other read; throttleKillReports says why.
 const killReport = (ctx: any, batch: any) => {
@@ -5834,7 +5801,6 @@ function transitionPlayerMap(
   ensureRealtimeFrameSchedules(ctx);
   // Home has no enemies: nothing reads a pin there, and the old pin still fits on the way back.
   if (mapId !== HOME_EXTERIOR_MAP_ID) pinMapBalance(ctx, mapId);
-  beginBossTimeBudget(ctx, mapId);
   recordAnalyticsMapVisit(ctx, mapId);
   return nextPlayer;
 }
@@ -5957,12 +5923,6 @@ function requireOperator(ctx: any) {
   const internal = !ctx.connectionId && sameIdentity(ctx.sender, ctx.databaseIdentity);
   if (!internal && !isDatabaseOwnerIdentity(ctx.sender)) throw new SenderError("Database operator required");
 }
-const bossRewardHandlers: Record<string, (ctx: any, identity: any) => void> = {
-  dragon: rewardDragonContributor, spider: rewardSpiderContributor, frostclaw: rewardFrostclawContributor,
-  magmalisk: rewardMagmaliskContributor, gloomroot: rewardGloomrootContributor, tidewyrm: rewardTidewyrmContributor,
-  koiShogun: rewardKoiShogunContributor, tempestKirin: rewardTempestKirinContributor,
-  miremaw: rewardMiremawContributor, prismshell: rewardPrismshellContributor, ironhorn: rewardIronhornContributor, dreadreaper: rewardDreadreaperContributor, voltwarden: rewardVoltwardenContributor, gravebloom: rewardGravebloomContributor, aegisPrime: rewardAegisPrimeContributor,
-};
 export const prepareWorldActionPosition = spacetimedb.reducer({ x: t.f64(), y: t.f64() }, (ctx, { x, y }) => {
   const player = requireControllingPlayer(ctx);
   if (![x, y].every(Number.isFinite) || x < PLAYER_RADIUS || y < PLAYER_RADIUS || x > WORLD.width - PLAYER_RADIUS || y > WORLD.height - PLAYER_RADIUS) {

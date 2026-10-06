@@ -4,7 +4,6 @@ import { runtimeMapBalance } from "./map-balance-runtime";
 import {
   campaignEnemyRewardMultiplier,
   bossHeavyHitAt,
-  bossRewardValue,
   desertBossHealthAt,
   desertLaneCombatValue,
   desertLaneRewardValue,
@@ -228,16 +227,14 @@ export function generatedEnemyStats(
 }
 export function generatedBossStats(map: Pick<GeneratedMap, "number">, authored = false) {
   const remote = !authored && runtimeMapBalance(`endless_${map.number}`)?.boss;
-  if (remote) return { hp: remote.hp, damage: remote.damage, rewards: Object.entries(remote.rewards).map(([type, amount]) => ({ type: type as RewardStat, amount })) };
+  if (remote) return { hp: remote.hp, damage: remote.damage, rewards: [] as { type: RewardStat; amount: number }[] };
   const scale = endlessScaling(map.number);
   const armor = referenceBuildForMap(PROCEDURAL_FIRST_TIER).armor * 3;
   const previous = finalCampaignBoss(), previousTier = PROCEDURAL_FIRST_TIER - 1;
   return {
     hp: previous.hp * desertBossHealthAt(PROCEDURAL_FIRST_TIER) / desertBossHealthAt(previousTier) * scale.combatStats * scale.endurance,
     damage: previous.damage * bossHeavyHitAt(PROCEDURAL_FIRST_TIER) / bossHeavyHitAt(previousTier) * scale.combatStats * (1 - armorDamageReduction(armor)) / (1 - armorDamageReduction(armor * scale.combatStats)),
-    rewards: (["Cindermaw", "Bramble", "Mossback", "Brood"] as const).map(lane => {
-      const reward = generatedEnemyStats(map, lane, authored).reward;
-      return { ...reward, amount: reward.amount * 10 * previous.reward(reward.type) / bossRewardValue(reward.type, previousTier) };
-    }),
+    // Bosses are gates, including before a live balance snapshot has loaded.
+    rewards: [] as { type: RewardStat; amount: number }[],
   };
 }

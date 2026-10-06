@@ -318,10 +318,16 @@ that function, not the version list, is what keeps an old decoder out.
      (`mapEnemyPopulation`). The second closes map hopping: each map's spawn
      buckets refill while the player is away, but they all spend one clock,
      so rotating maps sustains one map's wall.
-  Boss clears are bounded by their own earned-time clock
-  (`boss-defeat-limits.ts`, spec in `boss-defeat-limits.test.ts`) and then
-  also spend their fight seconds from the combat clock, clamped at zero, so a
-  clear is never refused for it.
+  Reward previews incrementally apply each entry to the accepted prefix instead
+  of replaying that prefix. Equipment and research factors are prepared once per
+  report; armor reduction and its reflected-damage factor are reused until the
+  effective armor changes. Clipped previews never become accepted progress.
+- Boss fights run entirely on the client. Their clear reports only persist map
+  gate access and challenge/prestige completion. They do not award stats, items,
+  gems, lifetime kills or quest kills, and do not spend simulation, spawn or
+  combat budgets. Session, map and ordered-report checks still apply. Repeated
+  clears are idempotent; the existing report acknowledgement protocol and
+  historical claim bits remain compatible with saved progress.
 - `report_auto_farm_enemy_defeats` is the same handler under another name,
   so the dashboard shows Auto Farm traffic apart; which one a client calls is
   its own claim, and both pay alike.
