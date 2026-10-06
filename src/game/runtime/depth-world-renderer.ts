@@ -67,7 +67,7 @@ export function createDepthWorldRenderer(options: {
   function sortedStaticDecor() {
     if (!staticDepthDirty) return staticDepthDecor;
     staticDepthDecor = options.decor
-      .filter((decor): decor is TallDecor => decor.type === "tree" || decor.type === "cactus" || decor.type === "snowPine" || decor.type === "upgradeBench" || decor.type === "charredTree" || (decor.type === "soulProp" && !decor.ground))
+      .filter((decor): decor is TallDecor => decor.type === "tree" || decor.type === "cactus" || decor.type === "snowPine" || decor.type === "upgradeBench" || decor.type === "charredTree" || (decor.type === "soulProp" && !decor.ground && !decor.shadow))
       .sort((a, b) => a.y - b.y);
     staticDepthDirty = false;
     return staticDepthDecor;

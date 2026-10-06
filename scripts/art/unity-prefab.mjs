@@ -306,7 +306,8 @@ export function drawList(guid) {
   return items;
 }
 
-export async function spriteImage(item) {
+/** `solidShadow`: a shadow at full strength, for a caller that fades all its shadows together. */
+export async function spriteImage(item, { solidShadow = false } = {}) {
   const { sprite } = item;
   const meta = await sharp(sprite.texture).metadata();
   const rect = sprite.rect ? { x: num(sprite.rect.x), y: num(sprite.rect.y), w: num(sprite.rect.width), h: num(sprite.rect.height) } : { x: 0, y: 0, w: meta.width, h: meta.height };
@@ -325,14 +326,14 @@ export async function spriteImage(item) {
   if (sx < 0) buffer = await sharp(buffer).flop().png().toBuffer();
   if (sy < 0) buffer = await sharp(buffer).flip().png().toBuffer();
   // The pack draws shadows with a translucent material; the sprite itself is solid black.
-  const alpha = (item.color ? num(item.color.a, 1) : 1) * (sprite.shadow ? SHADOW_ALPHA : 1);
+  const alpha = (item.color ? num(item.color.a, 1) : 1) * (sprite.shadow && !solidShadow ? SHADOW_ALPHA : 1);
   if (alpha < 1) buffer = await sharp(buffer).ensureAlpha().composite([{ input: Buffer.from([0, 0, 0, Math.round(255 * alpha)]), raw: { width: 1, height: 1, channels: 4 }, tile: true, blend: "dest-in" }]).png().toBuffer();
   const pivotX = sx < 0 ? 1 - sprite.pivot[0] : sprite.pivot[0];
   const pivotY = sy < 0 ? 1 - sprite.pivot[1] : sprite.pivot[1];
   // Top-left corner in pixels, y down, relative to the prefab origin.
   const left = item.world.x * sprite.ppu - pivotX * pw;
   const top = -item.world.y * sprite.ppu - (1 - pivotY) * ph;
-  return { buffer, left, top, width: pw, height: ph };
+  return { buffer, left, top, width: pw, height: ph, shadow: Boolean(sprite.shadow) };
 }
 
 export async function nineSlice(buffer, w, h, border, outW, outH) {

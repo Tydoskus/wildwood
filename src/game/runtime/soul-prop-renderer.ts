@@ -43,11 +43,12 @@ export function createSoulPropRenderer(options: {
   /** Seconds, for the pack's animations. */
   time: () => number;
 }) {
-  return function drawSoulProp(item: SoulPropDecor) {
+  return function drawSoulProp(item: SoulPropDecor, target?: CanvasRenderingContext2D) {
     const image = item.sheet === "village" ? options.villageProps() : options.atlas();
     const frame = soulFrame(item.anim ? String(animationFrame(item.anim, options.time())) : item.frame, item.sheet);
     if (!image?.complete || image.naturalWidth <= 0 || !frame) return;
-    const { ctx, camera } = options;
+    const { camera } = options;
+    const ctx = target ?? options.ctx;
     const x = snapWorldRenderCoordinate(item.x - camera.x, camera.zoom, options.devicePixelRatio());
     const y = snapWorldRenderCoordinate(item.y + (item.dy ?? 0) - camera.y, camera.zoom, options.devicePixelRatio());
     const w = frame.w * item.s, h = frame.h * item.s;
@@ -77,42 +78,84 @@ export function createSoulPropRenderer(options: {
  * baked image drawn over the ground colour and under everything standing on
  * it. Only the part in view is drawn.
  */
+/** How dark the pack's shadows are: its shadow material draws them at about a fifth. */
+const SHADOW_STRENGTH = .22;
+
 export function createSoulGroundRenderer(options: {
   ctx: CanvasRenderingContext2D;
   camera: Camera;
   ground: () => HTMLImageElement | undefined;
   /** The world's decor: its flat props are drawn here, over the ground, in depth order among themselves. */
   decor: readonly WorldDecor[];
-  drawProp: (prop: SoulPropDecor) => void;
+  drawProp: (prop: SoulPropDecor, target?: CanvasRenderingContext2D) => void;
   viewport: () => { width: number; height: number };
   devicePixelRatio: () => number;
   active: () => boolean;
 }) {
-  const flat: SoulPropDecor[] = [];
-  return function drawSoulGround() {
-    if (!options.active()) return;
-    const { ctx, camera } = options;
-    const view = options.viewport();
-    const viewRight = camera.x + view.width / camera.zoom, viewBottom = camera.y + view.height / camera.zoom;
-    const image = options.ground();
-    const area = SOUL_VILLAGE_GROUND;
-    const left = Math.max(area.x, camera.x), top = Math.max(area.y, camera.y);
-    const right = Math.min(area.x + area.w, viewRight), bottom = Math.min(area.y + area.h, viewBottom);
-    if (image?.complete && image.naturalWidth > 0 && left < right && top < bottom) {
-      const scaleX = image.naturalWidth / area.w, scaleY = image.naturalHeight / area.h;
-      const snap = (value: number) => snapWorldRenderCoordinate(value, camera.zoom, options.devicePixelRatio());
-      ctx.drawImage(image, (left - area.x) * scaleX, (top - area.y) * scaleY, (right - left) * scaleX, (bottom - top) * scaleY,
-        snap(left - camera.x), snap(top - camera.y), right - left, bottom - top);
-    }
-    flat.length = 0;
+  let flat: SoulPropDecor[] = [], shadows: SoulPropDecor[] = [], dirty = true;
+  const visible: SoulPropDecor[] = [];
+  let layer: HTMLCanvasElement | null = null;
+  /** The decor's flat props and shadows, gathered once each time the decor changes, not every frame. */
+  function gather() {
+    flat = []; shadows = [];
     for (const item of options.decor) {
-      if (item.type !== "soulProp" || !item.ground) continue;
-      const extent = soulPropExtent(item);
-      if (item.x + extent.right < camera.x || item.x - extent.left > viewRight || item.y + extent.down < camera.y || item.y - extent.up > viewBottom) continue;
-      flat.push(item);
+      if (item.type !== "soulProp") continue;
+      if (item.shadow) shadows.push(item); else if (item.ground) flat.push(item);
     }
-    // The decor list keeps the village's own order; the sort is stable, so ties keep it.
+    // Stable: ties keep the village's own order.
     flat.sort((a, b) => a.y - b.y);
-    for (const item of flat) options.drawProp(item);
+    dirty = false;
+  }
+  function inView(item: SoulPropDecor, viewRight: number, viewBottom: number) {
+    const extent = soulPropExtent(item);
+    const { camera } = options;
+    return !(item.x + extent.right < camera.x || item.x - extent.left > viewRight || item.y + extent.down < camera.y || item.y - extent.up > viewBottom);
+  }
+  /**
+   * Every shadow in view drawn solid into one layer, then laid over the ground
+   * at the pack's shadow strength once: two shadows that overlap read as one.
+   */
+  function drawShadows(viewRight: number, viewBottom: number) {
+    visible.length = 0;
+    for (const item of shadows) if (inView(item, viewRight, viewBottom)) visible.push(item);
+    if (!visible.length) return;
+    const { ctx } = options;
+    const canvas = ctx.canvas as HTMLCanvasElement;
+    layer ??= document.createElement("canvas");
+    if (layer.width !== canvas.width || layer.height !== canvas.height) { layer.width = canvas.width; layer.height = canvas.height; }
+    const shadowContext = layer.getContext("2d");
+    if (!shadowContext) return;
+    shadowContext.setTransform(1, 0, 0, 1, 0, 0);
+    shadowContext.clearRect(0, 0, layer.width, layer.height);
+    shadowContext.setTransform(ctx.getTransform());
+    shadowContext.imageSmoothingEnabled = ctx.imageSmoothingEnabled;
+    for (const item of visible) options.drawProp(item, shadowContext);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = SHADOW_STRENGTH;
+    ctx.drawImage(layer, 0, 0);
+    ctx.restore();
+  }
+  return {
+    invalidate() { dirty = true; },
+    draw() {
+      if (!options.active()) return;
+      if (dirty) gather();
+      const { ctx, camera } = options;
+      const view = options.viewport();
+      const viewRight = camera.x + view.width / camera.zoom, viewBottom = camera.y + view.height / camera.zoom;
+      const image = options.ground();
+      const area = SOUL_VILLAGE_GROUND;
+      const left = Math.max(area.x, camera.x), top = Math.max(area.y, camera.y);
+      const right = Math.min(area.x + area.w, viewRight), bottom = Math.min(area.y + area.h, viewBottom);
+      if (image?.complete && image.naturalWidth > 0 && left < right && top < bottom) {
+        const scaleX = image.naturalWidth / area.w, scaleY = image.naturalHeight / area.h;
+        const snap = (value: number) => snapWorldRenderCoordinate(value, camera.zoom, options.devicePixelRatio());
+        ctx.drawImage(image, (left - area.x) * scaleX, (top - area.y) * scaleY, (right - left) * scaleX, (bottom - top) * scaleY,
+          snap(left - camera.x), snap(top - camera.y), right - left, bottom - top);
+      }
+      for (const item of flat) if (inView(item, viewRight, viewBottom)) options.drawProp(item);
+      drawShadows(viewRight, viewBottom);
+    },
   };
 }

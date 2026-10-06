@@ -42,6 +42,8 @@ export type WorldDecor = WorldDecorPlacement & (
   | { type: "soulProp"; s: number; frame: string; flip?: boolean; sheet?: "village"; dy?: number;
     /** Lies flat: drawn with the ground, under everyone, never sorted against them (garden beds, bridges, grass). */
     ground?: boolean;
+    /** A shadow: drawn with the ground, every shadow faded together so overlapping ones do not stack darker. */
+    shadow?: boolean;
     /** The pack's own clips: sprite frames on a loop (fires, the fountain), or a spin in degrees a second (the windmill). */
     anim?: { frames: readonly number[]; times: readonly number[]; length: number }; spin?: number }
 );

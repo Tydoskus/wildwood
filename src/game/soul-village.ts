@@ -25,10 +25,11 @@ export const SOUL_VILLAGE_GROUND = Object.freeze({
 
 /** Every village prop as world decor: drawn at its own point, sorted by its group's depth. */
 const animations = scene.animations as Record<string, { frames?: number[]; times?: number[]; length?: number; spin?: number } | undefined>;
-export const SOUL_VILLAGE_DECOR: readonly WorldDecor[] = scene.props.map(([frame, x, y, depth, ground], index) => {
+export const SOUL_VILLAGE_DECOR: readonly WorldDecor[] = scene.props.map(([frame, x, y, depth, flags], index) => {
   const clip = animations[index];
   return {
-    type: "soulProp", sheet: "village", frame: String(frame), s: 1, x: originX + x, y: originY + depth, dy: y - depth, ground: ground === 1,
+    type: "soulProp", sheet: "village", frame: String(frame), s: 1, x: originX + x, y: originY + depth, dy: y - depth,
+    ground: (flags & 1) === 1, shadow: (flags & 2) === 2,
     ...(clip?.frames ? { anim: { frames: clip.frames, times: clip.times ?? [], length: clip.length ?? 1 } } : {}),
     ...(clip?.spin ? { spin: clip.spin } : {}),
   };

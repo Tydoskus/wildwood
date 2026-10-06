@@ -36,7 +36,6 @@ const UNITS = 60;
 /** Ground pixels per game unit: half resolution keeps the decoded image small on phones. */
 const GROUND_SCALE = .5;
 const PROP_SCALE = .6;
-const SHADOW_ALPHA = .22;
 // The demo scene's village: the base village prefab plus its chimney smoke and campfire particles.
 const PREFAB = "Demo/ForestVillage Variant.prefab";
 
@@ -245,7 +244,8 @@ for (const [goId] of gameObjects) {
     depthY: groupWorld.y, unitOrder, order: num(renderer.m_SortingOrder), seq: seq++, x: world.x, y: world.y, sprite, group,
     flipX: String(renderer.m_FlipX) === "1" !== (world.sx < 0), flipY: String(renderer.m_FlipY) === "1",
     size: num(renderer.m_DrawMode) === 1 && renderer.m_Size ? { x: num(renderer.m_Size.x) * Math.abs(world.sx), y: num(renderer.m_Size.y) * Math.abs(world.sy) } : null,
-    scale: Math.abs(world.sx), alpha: num(renderer.m_Color?.a, 1) * (shadow ? SHADOW_ALPHA : 1),
+    // Shadows at full strength: the game fades them all together, so overlapping ones do not stack darker.
+    scale: Math.abs(world.sx), alpha: num(renderer.m_Color?.a, 1), shadow,
   });
 }
 
@@ -281,7 +281,7 @@ for (const prop of props) {
   const frame = frames.get(key);
   const item = { f: frame.id, x: Math.round(prop.x * UNITS), y: Math.round(-prop.y * UNITS), d: Math.round(-prop.depthY * UNITS),
     // Unity draws a negative order under anything at zero (the characters): garden beds, campfire rings, bridge planks.
-    ground: (prop.unitOrder ?? prop.order) < 0 };
+    ground: !prop.shadow && (prop.unitOrder ?? prop.order) < 0, shadow: Boolean(prop.shadow) };
   if (prop.clip?.kind === "frames") {
     const ids = [];
     for (const key of prop.clip.frames) {
@@ -389,7 +389,8 @@ const scene = {
   units: UNITS,
   ground: { left: minX / GROUND_SCALE, top: minY / GROUND_SCALE, width: (maxX - minX) / GROUND_SCALE, height: (maxY - minY) / GROUND_SCALE },
   frames: Object.fromEntries(frameList.sort((a, b) => a.id - b.id).map(f => [f.id, [f.x, f.y, f.w, f.h, Math.round(f.pivotX), Math.round(f.pivotY)]])),
-  props: placed.map(p => [p.f, p.x, p.y, p.d, p.ground ? 1 : 0]),
+  /** [frame, x, y, depth, flags]: flags 1 lies flat (drawn with the ground), 2 is a shadow (faded with all the others). */
+  props: placed.map(p => [p.f, p.x, p.y, p.d, (p.ground ? 1 : 0) | (p.shadow ? 2 : 0)]),
   /** Prop index -> its clip: sprite frames with their start times and the loop's length, or a spin in degrees a second. */
   animations: Object.fromEntries(placed.map((p, index) => [index, p.anim ? { frames: p.anim.frames, times: p.anim.times, length: p.anim.length } : p.spin ? { spin: p.spin } : null]).filter(([, a]) => a)),
   /** [left, top, width, height] in game units: everything a player cannot walk through. */

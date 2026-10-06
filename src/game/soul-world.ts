@@ -49,6 +49,8 @@ export function soulWindowDecor(x: number, y: number): WorldDecor[] {
     for (const prop of soulChunkProps(cx, cy)) {
       const look = PROP_FRAMES[prop.kind];
       const frame = look.frames[prop.variant % look.frames.length], s = look.s * prop.s;
+      const shadow = `${frame}__shadow`;
+      if (shadow in SOUL_ATLAS.frames) decor.push({ type: "soulProp", x: prop.x, y: prop.y, s, frame: shadow, flip: prop.flip, shadow: true });
       decor.push({ type: "soulProp", x: prop.x, y: prop.y, s, frame, flip: prop.flip, ground: lowEnough(frame, s) });
     }
   }

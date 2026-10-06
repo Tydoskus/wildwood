@@ -143,6 +143,7 @@ const RESUME_REDRAW_AFTER_MS = 3_000;
 
 export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
   let invalidateDepthOrder = () => {};
+  let soulGround: ReturnType<typeof createSoulGroundRenderer>;
   const drawEntityShadow: DrawShadow = (x, y, width, alpha) => {
     // Arena scenes are visually separate from the current world map and retain
     // their shadows. Night Forest relies on its vignette to ground world actors.
@@ -305,7 +306,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     };
     const drawSoulProp = createSoulPropRenderer({ ctx: options.ctx, camera: options.camera, atlas: () => options.assets.soulAtlas,
       villageProps: () => options.assets.soulVillageProps, devicePixelRatio: options.devicePixelRatio, time: options.gameTime });
-    const drawSoulGround = createSoulGroundRenderer({ ctx: options.ctx, camera: options.camera, ground: () => options.assets.soulVillageGround,
+    soulGround = createSoulGroundRenderer({ ctx: options.ctx, camera: options.camera, ground: () => options.assets.soulVillageGround,
       decor: options.decor, drawProp: drawSoulProp,
       viewport: options.viewport, devicePixelRatio: options.devicePixelRatio, active: () => isSoulMap(options.currentMapId()) });
     const depth = createDepthWorldRenderer({
@@ -344,7 +345,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
         options.playerPower(options.player),
       )),
     });
-    invalidateDepthOrder = depth.invalidateDepthOrder;
+    invalidateDepthOrder = () => { depth.invalidateDepthOrder(); soulGround.invalidate(); };
     renderer = createRenderController({
       ctx: options.ctx,
       camera: options.camera,
@@ -372,7 +373,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawStaticWorld: world.drawStaticWorld,
       drawDuelArena: actor.drawDuelArena,
       drawDuelScene: actor.drawDuelScene,
-      drawDecor: () => { world.drawDecor(); drawSoulGround(); },
+      drawDecor: () => { world.drawDecor(); soulGround.draw(); },
       drawBossTelegraphs: () => {
         const mapBoss = bossForMap(options.currentMapId());
         if (mapBoss) boss.drawBossTelegraphs[mapBoss.kind]();
