@@ -258,7 +258,7 @@ export function createSoulDimensionRuntime(deps: {
       else landFall();
     }
     // A fade that never came (one was already running) must not leave the player in the well.
-    if (fall && t > 3) landFall();
+    if (fall && t > FALL_DARK_AT + FALL_DARK_MS / 1_000 + 1.5) landFall();
   }
   /** On the dark: back on the square, and the server is told so it agrees where the player is. */
   function landFall() {
