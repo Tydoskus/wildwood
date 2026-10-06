@@ -325,6 +325,9 @@ export async function spriteImage(item, { solidShadow = false } = {}) {
   if (pw !== w || ph !== h) buffer = await sharp(buffer).resize(pw, ph, { fit: "fill" }).png().toBuffer();
   if (sx < 0) buffer = await sharp(buffer).flop().png().toBuffer();
   if (sy < 0) buffer = await sharp(buffer).flip().png().toBuffer();
+  // Unity multiplies a sprite by its renderer's colour (a white window pane is tinted dark by day).
+  const tint = item.color ? [num(item.color.r, 1), num(item.color.g, 1), num(item.color.b, 1)] : [1, 1, 1];
+  if (!sprite.shadow && tint.some(value => value < .999)) buffer = await sharp(buffer).ensureAlpha().linear([...tint, 1], [0, 0, 0, 0]).png().toBuffer();
   // The pack draws shadows with a translucent material; the sprite itself is solid black.
   const alpha = (item.color ? num(item.color.a, 1) : 1) * (sprite.shadow && !solidShadow ? SHADOW_ALPHA : 1);
   if (alpha < 1) buffer = await sharp(buffer).ensureAlpha().composite([{ input: Buffer.from([0, 0, 0, Math.round(255 * alpha)]), raw: { width: 1, height: 1, channels: 4 }, tile: true, blend: "dest-in" }]).png().toBuffer();

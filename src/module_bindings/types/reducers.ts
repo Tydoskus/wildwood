@@ -191,6 +191,7 @@ import UnlockSecondUpgradeSlotReducer from "../unlock_second_upgrade_slot_reduce
 import UnlockThirdUpgradeSlotReducer from "../unlock_third_upgrade_slot_reducer";
 import UpdateMovementStateReducer from "../update_movement_state_reducer";
 import UseFreePrestigeRespecReducer from "../use_free_prestige_respec_reducer";
+import UseSoulDoorReducer from "../use_soul_door_reducer";
 
 export type AbandonAggroRunParams = __Infer<typeof AbandonAggroRunReducer>;
 export type AbandonPrestigeChallengeParams = __Infer<typeof AbandonPrestigeChallengeReducer>;
@@ -377,4 +378,5 @@ export type UnlockSecondUpgradeSlotParams = __Infer<typeof UnlockSecondUpgradeSl
 export type UnlockThirdUpgradeSlotParams = __Infer<typeof UnlockThirdUpgradeSlotReducer>;
 export type UpdateMovementStateParams = __Infer<typeof UpdateMovementStateReducer>;
 export type UseFreePrestigeRespecParams = __Infer<typeof UseFreePrestigeRespecReducer>;
+export type UseSoulDoorParams = __Infer<typeof UseSoulDoorReducer>;
 

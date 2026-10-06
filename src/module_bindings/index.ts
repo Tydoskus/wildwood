@@ -219,6 +219,7 @@ import UnlockSecondUpgradeSlotReducer from "./unlock_second_upgrade_slot_reducer
 import UnlockThirdUpgradeSlotReducer from "./unlock_third_upgrade_slot_reducer";
 import UpdateMovementStateReducer from "./update_movement_state_reducer";
 import UseFreePrestigeRespecReducer from "./use_free_prestige_respec_reducer";
+import UseSoulDoorReducer from "./use_soul_door_reducer";
 
 // Import all procedure arg schemas
 import * as BeginPatreonLinkProcedure from "./begin_patreon_link_procedure";
@@ -1806,6 +1807,7 @@ const reducersSchema = __reducers(
   __reducerSchema("unlock_third_upgrade_slot", UnlockThirdUpgradeSlotReducer),
   __reducerSchema("update_movement_state", UpdateMovementStateReducer),
   __reducerSchema("use_free_prestige_respec", UseFreePrestigeRespecReducer),
+  __reducerSchema("use_soul_door", UseSoulDoorReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */

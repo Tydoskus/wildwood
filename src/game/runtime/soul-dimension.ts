@@ -10,7 +10,6 @@ import { createSoulDimensionRuntime } from "./soul-dimension-runtime";
  */
 export function createSoulDimension(deps: Parameters<typeof createSoulDimensionRuntime>[0] & {
   travel: (mapId: MapId) => Promise<boolean>;
-  clearInput?: () => void;
 }) {
   const runtime = createSoulDimensionRuntime(deps);
   const window = createSoulDimensionWindow({

@@ -3,7 +3,7 @@ import { Timestamp } from "spacetimedb";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { fillDefeatBudget, reportKills } from "../../tests/helpers/enemy-defeat";
 import { STARTER_BOW } from "../../shared/items";
-import { SOUL_ARRIVAL, SOUL_MAP_ID } from "../../shared/soul-dimension";
+import { SOUL_ARRIVAL, SOUL_DOORS, SOUL_MAP_ID } from "../../shared/soul-dimension";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 function soulReady(options: { open?: boolean; prestige?: number; kills?: number } = {}) {
@@ -61,4 +61,25 @@ it("refuses the way in to a player who has never prestiged", () => {
   const f = soulReady({ prestige: 0 });
   f.patch("player", { mapId: "home_exterior", x: 600, y: 1242 });
   expect(() => f.run(server.changeMap, { mapId: SOUL_MAP_ID, x: 600, y: 1242 })).toThrow(/not open to you/);
+});
+
+it("takes a player through a door into its room, and back out the room's doorway", () => {
+  const f = soulReady();
+  const door = SOUL_DOORS[2];
+  f.patch("player", { mapId: SOUL_MAP_ID, x: door.outside.x, y: door.outside.y });
+  f.run(server.useSoulDoor, { door: 2 });
+  const inside = f.db.player.identity.find(f.ctx.sender);
+  expect([inside.x, inside.y]).toEqual([door.inside.x, door.inside.y]);
+  f.run(server.useSoulDoor, { door: 2 });
+  const outside = f.db.player.identity.find(f.ctx.sender);
+  expect([outside.x, outside.y]).toEqual([door.outside.x, door.outside.y]);
+});
+
+it("refuses a door the player is nowhere near, and another house's door from inside a room", () => {
+  const f = soulReady();
+  f.patch("player", { mapId: SOUL_MAP_ID, x: SOUL_ARRIVAL.x, y: SOUL_ARRIVAL.y });
+  expect(() => f.run(server.useSoulDoor, { door: 0 })).toThrow(/too far/);
+  f.patch("player", { x: SOUL_DOORS[1].inside.x, y: SOUL_DOORS[1].inside.y });
+  expect(() => f.run(server.useSoulDoor, { door: 0 })).toThrow(/too far/);
+  expect(() => f.run(server.useSoulDoor, { door: 99 })).toThrow(/too far/);
 });

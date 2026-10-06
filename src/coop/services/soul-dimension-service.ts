@@ -49,6 +49,13 @@ export function createSoulDimensionRows(connection: () => DbConnection | null, n
         await current.reducers.fallIntoWell({});
         return true;
       },
+      /** Going through a village door, into its room or back out: the server moves the player if they are at it. */
+      async useSoulDoor(door: number) {
+        const current = connection();
+        if (!current?.isActive) return false;
+        await current.reducers.useSoulDoor({ door });
+        return true;
+      },
       /** Developer only: open the Soul Dimension to everyone who has prestiged, or close it. */
       async setSoulDimensionOpen(next: boolean) {
         const current = connection();

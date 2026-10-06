@@ -46,6 +46,7 @@ type ExpectedApiKey =
   | "soulDimensionOpen"
   | "setSoulDimensionOpen"
   | "fallIntoWell"
+  | "useSoulDoor"
   | "connect"
   | "connectionDiagnostics"
   | "continueAsGuest"

@@ -1,6 +1,6 @@
 import { SOUL_VILLAGE_GROUND } from "../soul-village";
 import { WORLD_WIDTH } from "../../../shared/rules";
-import { isSoulMap, SOUL_STAT_DETAILS } from "../../../shared/soul-dimension";
+import { inSoulInteriors, isSoulMap, SOUL_DOORS, SOUL_INTERIOR_MARGIN, SOUL_STAT_DETAILS } from "../../../shared/soul-dimension";
 import { soulStatOfCampName } from "../soul-world";
 import { residentDrawable } from "./resident-image";
 import { drawHomeCourtyard, drawHomeQuestBoard, drawHomeResearchDesk, drawHomeStationSign } from "./home-courtyard";
@@ -905,6 +905,13 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     draw.drawImage(soulVillageThumbnail, (area.x - ox) * sx, (area.y - oy) * sy, area.w * sx, area.h * sy);
   }
 
+  /** Inside a village room the map is that room in the dark, as the world is. */
+  function drawSoulRoomsOnMinimap(draw: CanvasRenderingContext2D, size: number, ox: number, oy: number, sx: number, sy: number) {
+    draw.fillStyle = "#000"; draw.fillRect(0, 0, size, size);
+    draw.fillStyle = "#b98448";
+    for (const { room } of SOUL_DOORS) draw.fillRect((room.left - ox) * sx, (room.top - oy) * sy, (room.right - room.left) * sx, (room.bottom - room.top) * sy);
+  }
+
   function renderMinimapFrame(remotePlayers: MapPlayerMarker[], size: number, view: Viewport) {
     if (!minimapCtx) return;
     const dpr = options.getDevicePixelRatio();
@@ -929,6 +936,7 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     const colors = mapColors();
     draw.fillStyle = colors.ground; draw.fillRect(innerX, innerY, innerSize, innerSize);
     if (local) drawSoulVillageOnMinimap(draw, ox, oy, sx, sy);
+    if (local && inSoulInteriors(options.player.x, options.player.y, SOUL_INTERIOR_MARGIN)) drawSoulRoomsOnMinimap(draw, innerSize, ox, oy, sx, sy);
     draw.fillStyle = colors.path; for (const path of options.paths) draw.fillRect(innerX + (path.x - ox) * sx, innerY + (path.y - oy) * sy, path.w * sx, path.h * sy);
     draw.save();
     draw.globalAlpha = options.getMapId() === options.infernalMapId ? .5 : 1;

@@ -15,6 +15,7 @@
  */
 import { armorDamageReduction } from "./combat";
 import { MIN_ATTACK_INTERVAL } from "./rules";
+import doorData from "./soul-doors.json";
 
 export const SOUL_MAP_ID = "soul_dimension";
 export type SoulMapId = typeof SOUL_MAP_ID;
@@ -201,6 +202,68 @@ export const inSoulVillage = (x: number, y: number, margin = 0) =>
   x > SOUL_CENTER.x + SOUL_VILLAGE_BOUNDS.left - margin && x < SOUL_CENTER.x + SOUL_VILLAGE_BOUNDS.right + margin
   && y > SOUL_CENTER.y + SOUL_VILLAGE_BOUNDS.top - margin && y < SOUL_CENTER.y + SOUL_VILLAGE_BOUNDS.bottom + margin;
 
+/**
+ * The village's rooms, one behind each door (baked with the village into soul-doors.json): they stand in a
+ * row here, a world away from the village and walled all round, so a door is the only way in or out.
+ */
+export const SOUL_INTERIORS = Object.freeze({ x: 20_000, y: 20_000 });
+/** Where a player's feet are below their position: what doors, walls and wells are measured against. */
+export const SOUL_FEET_OFFSET = 29;
+/** How far from a door (or out of its room) the server still lets a player use it: their position lags a little. */
+export const SOUL_DOOR_REACH = 160;
+export type SoulDoor = {
+  index: number;
+  /** The middle of the door's sill, and its half-width at the sill. */
+  x: number; y: number; half: number;
+  /** The wall's front at the door: as close as feet get. */
+  enter: number;
+  /** The room's floor. */
+  room: { left: number; top: number; right: number; bottom: number };
+  /** The doorway out of the room, in the middle of its front wall, and its half-width. */
+  exit: { x: number; y: number; half: number };
+  /** Where a player stands after going through: just outside the door, or just inside the room's doorway. */
+  outside: { x: number; y: number };
+  inside: { x: number; y: number };
+};
+export const SOUL_DOORS: readonly SoulDoor[] = doorData.doors.map((door, index) => {
+  const [rx, ry, rw, rh] = door.room;
+  const room = { left: SOUL_INTERIORS.x + rx, top: SOUL_INTERIORS.y + ry, right: SOUL_INTERIORS.x + rx + rw, bottom: SOUL_INTERIORS.y + ry + rh };
+  const x = SOUL_CENTER.x + door.x, y = SOUL_CENTER.y + door.y, exitX = (room.left + room.right) / 2;
+  return Object.freeze({
+    index, x, y, half: door.half, enter: SOUL_CENTER.y + door.enter, room,
+    exit: { x: exitX, y: room.bottom, half: doorData.gap / 2 },
+    outside: { x, y: y + 40 - SOUL_FEET_OFFSET },
+    inside: { x: exitX, y: room.bottom - 56 - SOUL_FEET_OFFSET },
+  });
+});
+/** The whole row of rooms, walls and all. */
+const SOUL_INTERIOR_AREA = Object.freeze({
+  left: Math.min(...SOUL_DOORS.map(door => door.room.left)) - 200, right: Math.max(...SOUL_DOORS.map(door => door.room.right)) + 200,
+  top: Math.min(...SOUL_DOORS.map(door => door.room.top)) - 400, bottom: Math.max(...SOUL_DOORS.map(door => door.room.bottom)) + 200,
+});
+/** Nothing wild grows or camps this close to the rooms: from inside one there is only dark around it. */
+export const SOUL_INTERIOR_MARGIN = 3_500;
+export const inSoulInteriors = (x: number, y: number, margin = 0) =>
+  x > SOUL_INTERIOR_AREA.left - margin && x < SOUL_INTERIOR_AREA.right + margin && y > SOUL_INTERIOR_AREA.top - margin && y < SOUL_INTERIOR_AREA.bottom + margin;
+export const soulInteriorArea = (margin = 0) => ({
+  left: SOUL_INTERIOR_AREA.left - margin, top: SOUL_INTERIOR_AREA.top - margin, right: SOUL_INTERIOR_AREA.right + margin, bottom: SOUL_INTERIOR_AREA.bottom + margin,
+});
+/** The room a point is in (with a little to spare), if any. */
+export function soulRoomAt(x: number, y: number, spare = 0) {
+  return SOUL_DOORS.find(({ room }) => x >= room.left - spare && x <= room.right + spare && y >= room.top - spare - 200 && y <= room.bottom + spare) ?? null;
+}
+/**
+ * Where going through a door takes a player at this position: in, when they are at it outside; out, when
+ * they are in its room; nowhere (null) when they are at neither. The server's rule, and the client's.
+ */
+export function soulDoorDestination(index: number, x: number, y: number) {
+  const door = SOUL_DOORS[index];
+  if (!door) return null;
+  if (Math.hypot(x - door.x, y + SOUL_FEET_OFFSET - door.enter) <= SOUL_DOOR_REACH) return door.inside;
+  if (soulRoomAt(x, y, SOUL_DOOR_REACH) === door) return door.outside;
+  return null;
+}
+
 export type SoulCamp = {
   /** Stable across clients: chunk and index. */
   key: string;
@@ -223,7 +286,7 @@ export function soulChunkCamps(cx: number, cy: number): SoulCamp[] {
     const y = cy * SOUL_CHUNK_SIZE + 260 + random() * (SOUL_CHUNK_SIZE - 520);
     const size = 3 + Math.floor(random() * 3);
     const statRoll = random();
-    if (inSoulVillage(x, y, 420)) continue;
+    if (inSoulVillage(x, y, 420) || inSoulInteriors(x, y, SOUL_INTERIOR_MARGIN)) continue;
     if (camps.some(camp => Math.hypot(camp.x - x, camp.y - y) < 520)) continue;
     camps.push({ key: `${cx}:${cy}:${index}`, x: Math.round(x), y: Math.round(y), radius: 150, count: size, roll: statRoll });
   }
@@ -253,7 +316,7 @@ export function soulChunkProps(cx: number, cy: number): SoulProp[] {
     const s = .9 + random() * .2;
     const flip = random() < .5;
     const variant = Math.floor(random() * 1_000);
-    if (inSoulVillage(x, y, 60)) continue;
+    if (inSoulVillage(x, y, 60) || inSoulInteriors(x, y, SOUL_INTERIOR_MARGIN)) continue;
     if (kind !== "grass" && camps.some(camp => Math.hypot(camp.x - x, camp.y - y) < camp.radius + 110)) continue;
     props.push({ kind, x: Math.round(x), y: Math.round(y), s, flip, variant });
   }

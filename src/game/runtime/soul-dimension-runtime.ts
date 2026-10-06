@@ -1,11 +1,12 @@
 import {
-  addSoulKills, cleanSoulStats, EMPTY_REWARD_KILLS, isSoulMap, soulChunkOf, soulDimensionAccess, soulEnemyStats, soulTier, SOUL_ARRIVAL,
-  withSoulStats, SOUL_HOME_GATE, SOUL_STAT_DETAILS, type RewardKillCounts, type SoulStatId, type SoulStats, type SoulStrength,
+  addSoulKills, cleanSoulStats, EMPTY_REWARD_KILLS, isSoulMap, soulChunkOf, soulDimensionAccess, soulEnemyStats, soulRoomAt, soulTier,
+  SOUL_ARRIVAL, SOUL_DOORS, SOUL_FEET_OFFSET, withSoulStats, SOUL_HOME_GATE, SOUL_STAT_DETAILS,
+  type RewardKillCounts, type SoulDoor, type SoulStatId, type SoulStats, type SoulStrength,
 } from "../../../shared/soul-dimension";
 import { HOME_EXTERIOR_MAP_ID, HOME_SOUL_PORTAL } from "../../../shared/home";
 import { isDeveloperIdentity } from "../../app/developer";
 import { ENEMY_TYPES, type EnemyDefinition } from "../enemies";
-import { SOUL_VILLAGE_PITS, SOUL_VILLAGE_SOLIDS, type SoulSolid } from "../soul-village";
+import { SOUL_DOORS_OPEN, SOUL_INTERIOR_SOLIDS, SOUL_VILLAGE_PITS, SOUL_VILLAGE_SOLIDS, type SoulSolid } from "../soul-village";
 import { soulCampName, soulCampPoints, soulCampStat, soulStatOfCampName, soulWindowCamps, soulWindowDecor, SOUL_ENEMY_SPECIES } from "../soul-world";
 import type { MapId, SpawnSite, WorldDecor } from "../world";
 import type { MapPortal } from "./map-controller";
@@ -19,6 +20,7 @@ export type SoulDimensionSource = {
   soulDimensionOpen?: () => boolean;
   setSoulDimensionOpen?: (open: boolean) => Promise<boolean>;
   fallIntoWell?: () => Promise<boolean>;
+  useSoulDoor?: (door: number) => Promise<boolean>;
 };
 
 /** The gate home in the village, drawn and used like any map portal. */
@@ -26,12 +28,16 @@ export const SOUL_HOME_GATE_PORTAL: MapPortal = { x: SOUL_HOME_GATE.x, y: SOUL_H
   destination: HOME_EXTERIOR_MAP_ID, label: "Home" };
 const HOME_PORTAL: MapPortal = { ...HOME_SOUL_PORTAL };
 
-/** The village's water and building footprints: a player cannot walk through them. */
-const SOLIDS = SOUL_VILLAGE_SOLIDS;
+/** The village's water and building footprints, and the rooms' walls and furniture: a player cannot walk through them. */
+const SOLIDS = [...SOUL_VILLAGE_SOLIDS, ...SOUL_INTERIOR_SOLIDS];
 const STRENGTH_REFRESH_SECONDS = 1;
 /** Where the feet are below the player's position (depth-world-renderer sorts the player there too), and how wide. */
-const FEET_OFFSET = 29;
+const FEET_OFFSET = SOUL_FEET_OFFSET;
 const FEET_RADIUS = 12;
+/** A door swings open while feet are this near its sill. */
+const DOOR_OPEN_RANGE = 120;
+/** Going through: a few steps into the doorway while the screen goes dark. */
+const DOORWAY_STEP = 22, DOORWAY_MS = 240;
 /** How far into a well's outline the feet must reach to fall: its opening, not its rim. */
 const WELL_OPENING = .6;
 
@@ -90,6 +96,9 @@ export function createSoulDimensionRuntime(deps: {
   /** The player as combat has them now: weapon damage a second, health, armor, regen. */
   strength: () => SoulStrength;
   logPickup?: (label: string, color: string) => void;
+  /** Darkens the screen, runs the action once it is black, and brings the world back around the player. */
+  fadeToWorld?: (onBlack: () => void, durationMs?: number) => void;
+  clearInput?: () => void;
 }) {
   let windowKey = "";
   let windowTier = -1;
@@ -224,6 +233,60 @@ export function createSoulDimensionRuntime(deps: {
     void (source()?.fallIntoWell?.() ?? Promise.resolve(false)).catch(() => false).finally(() => { falling = false; });
   }
 
+  /** A trip through a door under way: the doorway's walk, then the move on the dark. */
+  let doorway: { door: SoulDoor; inward: boolean; x: number; y: number; elapsed: number; done: boolean } | null = null;
+  /** Where collision last left the player: whether they are walking into a door is how they moved since. */
+  let lastY = Number.NaN;
+
+  function finishDoorway() {
+    const trip = doorway;
+    if (!trip || trip.done) return;
+    trip.done = true;
+    const { player } = deps;
+    const to = trip.inward ? trip.door.inside : trip.door.outside;
+    player.x = to.x;
+    player.y = to.y;
+    player.moving = false;
+    lastY = player.y;
+    doorway = null;
+    void (source()?.useSoulDoor?.(trip.door.index) ?? Promise.resolve(false)).catch(() => false);
+  }
+  function startDoorway(door: SoulDoor, inward: boolean) {
+    const { player } = deps;
+    doorway = { door, inward, x: player.x, y: player.y, elapsed: 0, done: false };
+    deps.clearInput?.();
+    if (deps.fadeToWorld) deps.fadeToWorld(finishDoorway, DOORWAY_MS);
+    else finishDoorway();
+  }
+  /** The few steps in: the player walks on into the doorway, through the wall, as the dark comes down. */
+  function walkDoorway(dt: number) {
+    if (!doorway) return;
+    const { player } = deps;
+    doorway.elapsed += dt;
+    const t = Math.min(1, doorway.elapsed * 1_000 / DOORWAY_MS);
+    player.x = doorway.x + (doorway.door.x - doorway.x) * t * (doorway.inward ? 1 : 0);
+    player.y = doorway.y + (doorway.inward ? -1 : 1) * DOORWAY_STEP * t;
+    player.moving = true;
+    // A fade that never came (one was already running) must not leave the player stuck in a doorway.
+    if (doorway.elapsed > 1.5) finishDoorway();
+  }
+  /**
+   * Doors near the player stand open; walking on into an open one (feet at its sill, between its posts, still
+   * heading in) or out of a room's doorway goes through.
+   */
+  function checkDoors() {
+    const { player } = deps;
+    SOUL_DOORS_OPEN.clear();
+    if (player.hp <= 0) return;
+    const feetX = player.x, feetY = player.y + FEET_OFFSET;
+    const heading = Number.isFinite(lastY) ? player.y - lastY : 0;
+    for (const door of SOUL_DOORS) if (Math.hypot(feetX - door.x, feetY - door.y) < DOOR_OPEN_RANGE) SOUL_DOORS_OPEN.add(door.index);
+    const into = SOUL_DOORS.find(door => SOUL_DOORS_OPEN.has(door.index) && Math.abs(feetX - door.x) < door.half && feetY < door.enter + FEET_RADIUS + 8);
+    if (into && heading < 0) { startDoorway(into, true); return; }
+    const room = soulRoomAt(player.x, player.y);
+    if (room && heading > 0 && Math.abs(feetX - room.exit.x) < room.exit.half && feetY > room.exit.y + 4) startDoorway(room, false);
+  }
+
   function reset() {
     windowKey = "";
     windowTier = -1;
@@ -238,8 +301,12 @@ export function createSoulDimensionRuntime(deps: {
       // A map load empties the site list; start the window over with it.
       if (windowKey && !deps.spawnSites.length) reset();
       refreshWindow();
+      if (doorway) { walkDoorway(dt); return; }
+      checkDoors();
+      if (doorway) return;
       checkWells();
       resolveVillageCollision();
+      lastY = deps.player.y;
       strengthClock -= dt;
       if (strengthClock <= 0) { strengthClock = STRENGTH_REFRESH_SECONDS; refreshWaitingDefinitions(); }
     },

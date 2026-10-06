@@ -4,7 +4,7 @@ import { isDeveloperIdentity } from "../../shared/developer-identity";
 import { isProceduralMap } from "../../shared/procedural-maps";
 import { CAMPAIGN_MAPS } from "../../shared/campaign-registry";
 import {
-  addSoulKills, cleanSoulStats, isSoulMap, soulDimensionAccess, soulStatsUnlocked, soulTier, SOUL_ARRIVAL, SOUL_MAP_ID,
+  addSoulKills, cleanSoulStats, isSoulMap, soulDimensionAccess, soulDoorDestination, soulStatsUnlocked, soulTier, SOUL_ARRIVAL, SOUL_MAP_ID,
   SOUL_STAT_ORDER, SOUL_TIER_KILL_TYPES, type RewardKillCounts, type SoulStatId, type SoulStats,
 } from "../../shared/soul-dimension";
 
@@ -175,7 +175,19 @@ export function registerSoulDimension(spacetimedb: typeof spacetimedbType, deps:
     if (!isSoulMap(player.mapId)) throw new SenderError("There is no well here.");
     deps.transitionPlayerMap(ctx, deps.playerWithMotion(ctx, player), SOUL_MAP_ID, SOUL_ARRIVAL);
   });
-  return { mySoulStats, myRewardKills, setSoulDimensionOpen, fallIntoWell };
+  /**
+   * Going through a village door: into its room from just outside it, or back out from inside the room.
+   * It only ever moves a player between a door and its own room, and only when they are at one of the two.
+   */
+  const useSoulDoor = spacetimedb.reducer({ door: t.u32() }, (ctx, { door }) => {
+    const player = deps.requireControllingPlayer(ctx);
+    if (!isSoulMap(player.mapId)) throw new SenderError("There is no door here.");
+    const moving = deps.playerWithMotion(ctx, player);
+    const destination = soulDoorDestination(door, moving.x, moving.y);
+    if (!destination) throw new SenderError("That door is too far away.");
+    deps.transitionPlayerMap(ctx, moving, SOUL_MAP_ID, destination);
+  });
+  return { mySoulStats, myRewardKills, setSoulDimensionOpen, fallIntoWell, useSoulDoor };
 }
 
 export function requireSoulDimensionOpen(ctx: any) {

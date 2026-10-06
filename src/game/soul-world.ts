@@ -1,8 +1,8 @@
 import {
-  inSoulVillage, SOUL_CHUNK_SIZE, soulChunkCamps, soulChunkProps, soulRandom, soulStatsUnlocked,
+  inSoulInteriors, inSoulVillage, SOUL_CHUNK_SIZE, soulChunkCamps, soulChunkProps, soulRandom, soulStatsUnlocked,
   soulWindowChunks, type SoulCamp, type SoulPropKind, type SoulStatId,
 } from "../../shared/soul-dimension";
-import { SOUL_ATLAS, SOUL_VILLAGE_DECOR, type SoulFrame } from "./soul-village";
+import { SOUL_ATLAS, SOUL_INTERIOR_DECOR, SOUL_VILLAGE_DECOR, type SoulFrame } from "./soul-village";
 import type { EnemyKind } from "./enemies";
 import type { WorldDecor, WorldPath } from "./world";
 
@@ -45,6 +45,7 @@ const villageNear = (x: number, y: number) => inSoulVillage(x, y, SOUL_CHUNK_SIZ
 /** Every prop in the chunk window around a point, the village's included when it is near. */
 export function soulWindowDecor(x: number, y: number): WorldDecor[] {
   const decor: WorldDecor[] = villageNear(x, y) ? [...SOUL_VILLAGE_DECOR] : [];
+  if (inSoulInteriors(x, y, SOUL_CHUNK_SIZE * 2.5)) decor.push(...SOUL_INTERIOR_DECOR);
   for (const { cx, cy } of soulWindowChunks(x, y)) {
     for (const prop of soulChunkProps(cx, cy)) {
       const look = PROP_FRAMES[prop.kind];

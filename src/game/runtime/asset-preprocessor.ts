@@ -1,5 +1,5 @@
 import { SOUL_SHORE_SOURCE, SOUL_WATER_SOURCE } from "./soul-water";
-import { SOUL_ATLAS_SOURCE, SOUL_VILLAGE_GROUND_SOURCE, SOUL_VILLAGE_PROPS_SOURCE } from "./soul-prop-renderer";
+import { SOUL_ATLAS_SOURCE, SOUL_INTERIORS_SOURCE, SOUL_VILLAGE_GROUND_SOURCE, SOUL_VILLAGE_PROPS_SOURCE } from "./soul-prop-renderer";
 import { isProceduralMap } from "../../../shared/procedural-maps";
 import { DUEL_PLATFORM_ART_SOURCE, DUEL_SPACE_BACKGROUND_SOURCE } from "../duel";
 import { requiredCanvasContext } from "./dom";
@@ -281,6 +281,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   const soulVillageGroundAsset = createLazyImageAsset(SOUL_VILLAGE_GROUND_SOURCE);
   const soulWaterAsset = createLazyImageAsset(SOUL_WATER_SOURCE);
   const soulShoreAsset = createLazyImageAsset(SOUL_SHORE_SOURCE);
+  const soulInteriorsAsset = createLazyImageAsset(SOUL_INTERIORS_SOURCE);
   const assetGroups = {
     forestDecor: [treeAsset],
     orchardDecor: lavaAssets.slice(6),
@@ -288,7 +289,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     lavaDecor: lavaAssets,
     nightDecor: [nightTreeAsset],
     cherryDecor: [cherryTreeAsset],
-    soulVillage: [soulAtlasAsset, soulVillagePropsAsset, soulVillageGroundAsset, soulWaterAsset, soulShoreAsset],
+    soulVillage: [soulAtlasAsset, soulVillagePropsAsset, soulVillageGroundAsset, soulWaterAsset, soulShoreAsset, soulInteriorsAsset],
     packNature: [soulAtlasAsset],
     ...Object.fromEntries(BOSS_KINDS.map((kind) => [BOSSES[kind].assetGroup, bossArt[kind].assets])),
   } as Record<MapArtAssetGroup, LazyImageAsset[]>;
@@ -341,6 +342,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     soulAtlas: soulAtlasAsset.image,
     soulVillageProps: soulVillagePropsAsset.image,
     soulVillageGround: soulVillageGroundAsset.image,
+    soulInteriors: soulInteriorsAsset.image,
     soulWater: soulWaterAsset.image,
     soulShore: soulShoreAsset.image,
     lavaPools: lavaAssets.slice(0, 3).map((asset) => asset.image),

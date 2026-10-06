@@ -77,6 +77,7 @@ export type WorldRenderRuntimeOptions = {
     soulAtlas?: HTMLImageElement;
     soulVillageProps?: HTMLImageElement;
     soulVillageGround?: HTMLImageElement;
+    soulInteriors?: HTMLImageElement;
     soulWater?: HTMLImageElement;
     soulShore?: HTMLImageElement;
     bossArt: BossArtAssets;
@@ -309,7 +310,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     };
     const drawSoulProp = createSoulPropRenderer({ ctx: options.ctx, camera: options.camera, atlas: () => options.assets.soulAtlas,
       villageProps: () => options.assets.soulVillageProps, devicePixelRatio: options.devicePixelRatio, time: options.gameTime });
-    soulGround = createSoulGroundRenderer({ ctx: options.ctx, camera: options.camera, ground: () => options.assets.soulVillageGround,
+    soulGround = createSoulGroundRenderer({ ctx: options.ctx, camera: options.camera, ground: () => options.assets.soulVillageGround, interiors: () => options.assets.soulInteriors,
       decor: options.decor, drawProp: drawSoulProp,
       drawWater: createSoulWater({ ctx: options.ctx, camera: options.camera, water: () => options.assets.soulWater, shore: () => options.assets.soulShore,
         viewport: options.viewport, time: options.gameTime }),

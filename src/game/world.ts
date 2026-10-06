@@ -44,6 +44,8 @@ export type WorldDecor = WorldDecorPlacement & (
     ground?: boolean;
     /** A shadow: drawn with the ground, every shadow faded together so overlapping ones do not stack darker. */
     shadow?: boolean;
+    /** A village door (its index in SOUL_DOORS): drawn as `openFrame` while it stands open. */
+    door?: number; openFrame?: string;
     /** The pack's own clips: sprite frames on a loop (fires, the fountain), or a spin in degrees a second (the windmill). */
     anim?: { frames: readonly number[]; times: readonly number[]; length: number }; spin?: number }
 );

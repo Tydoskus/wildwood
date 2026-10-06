@@ -26,6 +26,7 @@ import sharp from "sharp";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { byGuid, expand, loadPackage, num, parseUnity, spriteFor, nineSlice } from "./unity-prefab.mjs";
+import { bakeInteriors } from "./soul-interiors.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
 const packageDir = process.argv[2];
@@ -267,7 +268,7 @@ for (const [goId] of gameObjects) {
   for (let id = goId, guard = 0; id && guard < 64; guard++, id = parentGo(id)) if (componentOf(id, 210)) chain.unshift({ order: num(componentOf(id, 210).data?.m_SortingOrder), y: worldOf(id).y, id });
   chain.push({ order: num(renderer.m_SortingOrder), y: world.y, id: goId });
   const shadow = sprite.shadow;
-  props.push({ clip, goId,
+  props.push({ clip, goId, door: /^Door_/.test(gameObjects.get(goId)?.m_Name ?? ""),
     depthY: groupWorld.y, unitOrder, chain, order: num(renderer.m_SortingOrder), seq: seq++, x: world.x, y: world.y, sprite, group,
     flipX: String(renderer.m_FlipX) === "1" !== (world.sx < 0), flipY: String(renderer.m_FlipY) === "1",
     size: num(renderer.m_DrawMode) === 1 && renderer.m_Size ? { x: num(renderer.m_Size.x) * Math.abs(world.sx), y: num(renderer.m_Size.y) * Math.abs(world.sy) } : null,
@@ -377,7 +378,8 @@ const strips = [];
 for (const [unit, parts] of byUnit) {
   const colliders = unitColliders.get(unit) ?? [];
   if (colliders.length < 2 || Math.max(...colliders.map(c => c[1])) - Math.min(...colliders.map(c => c[1])) < .25) continue;
-  const standing = parts.filter(part => !part.shadow && !part.clip && (part.unitOrder ?? part.order) >= 0);
+  // A door stays its own sprite, to swing open when someone walks up.
+  const standing = parts.filter(part => !part.shadow && !part.clip && !part.door && (part.unitOrder ?? part.order) >= 0);
   if (standing.length < 2) continue;
   const pieces = [];
   for (const part of standing) {
@@ -417,6 +419,11 @@ for (const [unit, parts] of byUnit) {
   // more than one strip: it sorts just in front of the building's front-most strip.
   const front = Math.max(...runs.map(run => run.depth));
   for (const part of parts.filter(p => p.clip)) part.depthY = -(front + .5) / UNITS;
+  // A door is on the wall it opens in: just in front of the strip it stands on.
+  for (const part of parts.filter(p => p.door)) {
+    const doorX = part.x * UNITS;
+    part.depthY = -((runs.find(run => run.left <= doorX && run.right >= doorX)?.depth ?? front) + 1) / UNITS;
+  }
   for (const part of standing) sliced.add(part);
 }
 props.splice(0, props.length, ...props.filter(prop => !sliced.has(prop)), ...strips);
@@ -425,13 +432,30 @@ props.sort((a, b) => b.depthY - a.depthY
   || a.seq - b.seq);
 
 const frames = new Map();
-const placed = [];
-for (const prop of props) {
-  const image = await imageOf(prop);
+/** An image's frame in the sheet, the same image always the same frame. */
+function addFrame(image) {
   const key = createHash("sha1").update(image.buffer).digest("hex");
   if (!frames.has(key)) frames.set(key, { id: frames.size, ...image });
-  const frame = frames.get(key);
-  const item = { f: frame.id, x: Math.round(prop.x * UNITS), y: Math.round(-prop.y * UNITS), d: Math.round(-prop.depthY * UNITS),
+  return frames.get(key).id;
+}
+/** A pack texture by name, as a sprite (the whole image). */
+function spriteNamed(name) {
+  const entry = [...byGuid].find(([, value]) => value.path.endsWith(`/${name}.png`));
+  return entry ? spriteFor({ guid: entry[0], fileID: "21300000" }) : null;
+}
+const placed = [];
+/** Each door: its prop, its pictures shut and open, and where its sill is. */
+const doorways = [];
+for (const prop of props) {
+  let image = await imageOf(prop);
+  let openImage = null;
+  if (prop.door) {
+    const name = (gameObjects.get(String(prop.goId))?.m_Name ?? "").replace(/_Open$/, "");
+    const closed = spriteNamed(name), open = spriteNamed(`${name}_Open`);
+    const draw = sprite => spriteBuffer(sprite, PROP_SCALE * (prop.scale ?? 1), { flipX: prop.flipX, flipY: prop.flipY, alpha: prop.alpha, tint: prop.tint });
+    if (closed && open) { image = await draw(closed); openImage = await draw(open); }
+  }
+  const item = { f: addFrame(image), x: Math.round(prop.x * UNITS), y: Math.round(-prop.y * UNITS), d: Math.round(-prop.depthY * UNITS),
     // Unity draws a negative order under anything at zero (the characters): garden beds, campfire rings, bridge planks.
     ground: !prop.shadow && (prop.unitOrder ?? prop.order) < 0, shadow: Boolean(prop.shadow) };
   if (prop.clip?.kind === "frames") {
@@ -439,13 +463,16 @@ for (const prop of props) {
     for (const key of prop.clip.frames) {
       const sprite = spriteFor(key.sprite);
       const keyImage = sprite ? await spriteBuffer(sprite, PROP_SCALE * (prop.scale ?? 1), { flipX: prop.flipX, flipY: prop.flipY, alpha: prop.alpha, tint: prop.tint }) : image;
-      const keyHash = createHash("sha1").update(keyImage.buffer).digest("hex");
-      if (!frames.has(keyHash)) frames.set(keyHash, { id: frames.size, ...keyImage });
-      ids.push(frames.get(keyHash).id);
+      ids.push(addFrame(keyImage));
     }
     item.anim = { frames: ids, times: prop.clip.frames.map(key => +key.time.toFixed(4)), length: +prop.clip.length.toFixed(4) };
   }
   if (prop.clip?.kind === "spin") item.spin = +prop.clip.degreesPerSecond.toFixed(3);
+  if (openImage) {
+    item.open = addFrame(openImage);
+    item.door = doorways.length;
+    doorways.push({ item, prop, image });
+  }
   placed.push(item);
 }
 // Equal depths keep Unity's order inside a group: nudge each later part a hair deeper.
@@ -518,14 +545,27 @@ for (const [goId] of gameObjects) {
   });
 }
 
-const frameList = [...frames.values()].sort((a, b) => b.h - a.h);
-const WIDTH = 2048, PADDING = 2;
-let x = 0, y = 0, shelf = 0;
-for (const frame of frameList) {
-  if (x + frame.w + PADDING > WIDTH) { x = 0; y += shelf + PADDING; shelf = 0; }
-  frame.x = x; frame.y = y; x += frame.w + PADDING; shelf = Math.max(shelf, frame.h);
+// ---- The rooms behind the doors (soul-interiors.mjs); their furniture goes in this sheet with the rest. ----
+const interiors = await bakeInteriors(doorways.map(({ prop }) => ({ building: gameObjects.get(String(prop.group))?.m_Name ?? "" })), addFrame);
+/** Shelves of images packed into one sheet `width` wide: sets each one's x and y, returns the height. */
+function pack(list, width) {
+  let x = 0, y = 0, shelf = 0;
+  for (const frame of list) {
+    if (x + frame.w + PADDING > width) { x = 0; y += shelf + PADDING; shelf = 0; }
+    frame.x = x; frame.y = y; x += frame.w + PADDING; shelf = Math.max(shelf, frame.h);
+  }
+  return y + shelf;
 }
-await sharp({ create: { width: WIDTH, height: y + shelf, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+const WIDTH = 2048, PADDING = 2;
+const roomSheet = interiors.rooms.map(room => ({ room, buffer: room.image, w: room.imageW, h: room.imageH }));
+const roomSheetHeight = pack([...roomSheet].sort((a, b) => b.h - a.h), 2048);
+await sharp({ create: { width: 2048, height: roomSheetHeight, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+  .composite(roomSheet.map(r => ({ input: r.buffer, left: r.x, top: r.y })))
+  .webp({ quality: 88, alphaQuality: 90, effort: 6 }).toFile(join(outDir, "village-interiors.webp"));
+
+const frameList = [...frames.values()].sort((a, b) => b.h - a.h);
+const sheetHeight = pack(frameList, WIDTH);
+await sharp({ create: { width: WIDTH, height: sheetHeight, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
   .composite(frameList.map(f => ({ input: f.buffer, left: f.x, top: f.y })))
   .webp({ quality: 92, alphaQuality: 100, effort: 6 }).toFile(join(outDir, "village-props.webp"));
 
@@ -541,8 +581,11 @@ const scene = {
   units: UNITS,
   ground: { left: minX / GROUND_SCALE, top: minY / GROUND_SCALE, width: (maxX - minX) / GROUND_SCALE, height: (maxY - minY) / GROUND_SCALE },
   frames: Object.fromEntries(frameList.sort((a, b) => a.id - b.id).map(f => [f.id, [f.x, f.y, f.w, f.h, Math.round(f.pivotX), Math.round(f.pivotY)]])),
-  /** [frame, x, y, depth, flags]: flags 1 lies flat (drawn with the ground), 2 is a shadow (faded with all the others). */
-  props: placed.map(p => [p.f, p.x, p.y, p.d, (p.ground ? 1 : 0) | (p.shadow ? 2 : 0)]),
+  /**
+   * [frame, x, y, depth, flags, open frame, door]: flags 1 lies flat (drawn with the ground), 2 is a shadow
+   * (faded with all the others), 4 a door (drawn open while someone is at it; the last two only for one).
+   */
+  props: placed.map(p => p.open === undefined ? [p.f, p.x, p.y, p.d, (p.ground ? 1 : 0) | (p.shadow ? 2 : 0)] : [p.f, p.x, p.y, p.d, 4, p.open, p.door]),
   /** Prop index -> its clip: sprite frames with their start times and the loop's length, or a spin in degrees a second. */
   animations: Object.fromEntries(placed.map((p, index) => [index, p.anim ? { frames: p.anim.frames, times: p.anim.times, length: p.anim.length } : p.spin ? { spin: p.spin } : null]).filter(([, a]) => a)),
   /** Polygons as flat [x, y, x, y…] lists in game units: everything a player cannot walk through, as round as the pack made it. */
@@ -550,6 +593,26 @@ const scene = {
   pits: pits.map(({ points }) => points.flatMap(([x, y]) => [Math.round(x * UNITS), Math.round(-y * UNITS)])),
   emitters,
   fountain: fountain ? [Math.round(fountain.x * UNITS), Math.round(-fountain.y * UNITS)] : [0, 0],
+  /**
+   * The rooms, from their row's origin (SOUL_INTERIORS): each room's picture as [sheet x, y, w, h, world x, y]
+   * in village-interiors.webp, its furniture as props ([frame, x, y, depth, flags]) and its walls as solids.
+   */
+  interiors: {
+    rooms: roomSheet.map(r => [r.x, r.y, r.w, r.h, ...r.room.imageAt]),
+    props: interiors.props.map(p => [p.f, Math.round(p.x), Math.round(p.y), Math.round(p.d), p.shadow ? 2 : 0]),
+    solids: interiors.solids,
+  },
 };
+// ---- The doors and their rooms, for the server too (it moves a player through one): from the village's
+// centre (its fountain) and the rooms' origin. `enter` is the wall's front at the door: the feet stop there. ----
+const doorData = doorways.map(({ item, prop, image }, index) => {
+  const bottom = item.y - image.pivotY + image.h;
+  const under = (unitColliders.get(prop.group) ?? []).filter(c => c[0] * UNITS <= item.x && c[2] * UNITS >= item.x);
+  const front = under.length ? Math.max(...under.map(c => -c[1] * UNITS)) : bottom;
+  return { x: item.x - scene.fountain[0], y: Math.round(bottom - scene.fountain[1]), half: Math.round(image.w / 2 - 8),
+    enter: Math.round(Math.max(bottom, front) - scene.fountain[1]), room: interiors.rooms[index].floor };
+});
+writeFileSync(join(root, "shared/soul-doors.json"), `${JSON.stringify({ gap: interiors.gap, doors: doorData }, null, 1)}\n`);
 writeFileSync(join(root, "src/game/soul-village-scene.json"), JSON.stringify(scene));
+console.log(`${doorData.length} doors, rooms sheet 2048x${roomSheetHeight}`);
 console.log(`ground ${maxX - minX}x${maxY - minY}px, ${frameList.length} frames for ${placed.length} props, ${solidShapes.length} solids, ${emitters.length} particle emitters, fountain ${scene.fountain}`);
