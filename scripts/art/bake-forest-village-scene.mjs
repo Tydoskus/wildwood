@@ -247,9 +247,11 @@ for (const [goId] of gameObjects) {
   // Inside a unit, Unity draws a sorting group by the group's own order, and a lone sprite by its order.
   const unitOrder = sorting ? num(componentOf(sorting, 210)?.data?.m_SortingOrder) : num(renderer.m_SortingOrder);
   // Unity sorts level by level: the outermost sorting group's order, then each nested group's, then the sprite's own.
+  // Two groups tied on order are each drawn whole, the farther (higher) one first: a house's Front group
+  // (gable, door) over its Back group (wings, long roof), whatever the orders of the sprites inside them.
   const chain = [];
-  for (let id = goId, guard = 0; id && guard < 64; guard++, id = parentGo(id)) if (componentOf(id, 210)) chain.unshift(num(componentOf(id, 210).data?.m_SortingOrder));
-  chain.push(num(renderer.m_SortingOrder));
+  for (let id = goId, guard = 0; id && guard < 64; guard++, id = parentGo(id)) if (componentOf(id, 210)) chain.unshift({ order: num(componentOf(id, 210).data?.m_SortingOrder), y: worldOf(id).y, id });
+  chain.push({ order: num(renderer.m_SortingOrder), y: world.y, id: goId });
   const shadow = sprite.shadow;
   props.push({ clip, goId,
     depthY: groupWorld.y, unitOrder, chain, order: num(renderer.m_SortingOrder), seq: seq++, x: world.x, y: world.y, sprite, group,
@@ -275,15 +277,19 @@ for (const prop of props) {
   prop.group = outer;
   prop.depthY = worldOf(outer).y;
   prop.unitOrder = (prop.unitOrder ?? prop.order) + .5;
-  if (prop.chain) prop.chain = [prop.chain[0] + .5, ...prop.chain.slice(1)];
+  if (prop.chain) prop.chain = [{ ...prop.chain[0], order: prop.chain[0].order + .5 }, ...prop.chain.slice(1)];
 }
 
 /** Order inside one unit: each level's sorting order in turn, as Unity's nested sorting groups do. */
 function compareChains(a, b) {
-  const x = a.chain ?? [a.unitOrder ?? a.order], y = b.chain ?? [b.unitOrder ?? b.order];
+  const x = a.chain ?? [{ order: a.unitOrder ?? a.order }], y = b.chain ?? [{ order: b.unitOrder ?? b.order }];
   for (let i = 0; i < Math.max(x.length, y.length); i++) {
-    const difference = (x[i] ?? 0) - (y[i] ?? 0);
+    const p = x[i], q = y[i];
+    const difference = (p?.order ?? 0) - (q?.order ?? 0);
     if (difference) return difference;
+    // The same group: its contents decide, at the next level. Different ones: the farther is drawn first.
+    if (!p || !q || p.id === q.id) continue;
+    return q.y - p.y;
   }
   return 0;
 }
