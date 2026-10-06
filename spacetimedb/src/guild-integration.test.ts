@@ -36,6 +36,14 @@ function fixture() {
 }
 
 describe("guild root reducer integration", () => {
+  it("lets the President pick any of the 32 badges, the turtle among them, and no others", () => {
+    const f = fixture(); const guildId = f.guild(["1"], "Tort");
+    f.run(server.setGuildEmblem, { emblem: 16 });
+    expect(f.db.guild.id.find(guildId).emblem).toBe(16);
+    f.run(server.setGuildEmblem, { emblem: 31 });
+    expect(f.db.guild.id.find(guildId).emblem).toBe(31);
+    expect(() => f.run(server.setGuildEmblem, { emblem: 32 })).toThrow(/valid guild badge/);
+  });
   it("requires one billion saved power only for creation, including at the boundary", () => {
     const f = fixture(); f.actor("1");
     const saved = f.db.playerProgress.identity.find(f.ctx.sender);

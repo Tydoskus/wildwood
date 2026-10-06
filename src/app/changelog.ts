@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.899.12": [
+    "16 new guild badges to choose from, a turtle among them",
+  ],
   "0.899.11": [
     "A tab waiting on another tab, or a player hidden from others, stops re-asking the server for other players' movement",
   ],
@@ -2895,6 +2898,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.899.12": "2026-10-06",
   "0.899.11": "2026-10-06",
   "0.899.10": "2026-10-06",
   "0.899.9": "2026-10-05",
