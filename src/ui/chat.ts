@@ -32,6 +32,7 @@ import { createChatChannelPicker, type ChatChannel, type ChatConversation } from
 import type { PlayerDirectoryEntry } from "../../shared/player-search";
 import { createChatInputSizer } from "./chat-input-size";
 import { createChatMuteDisplay } from "./chat-mute";
+import { createChatGuildCrests } from "./chat-guild-crests";
 import type { ChatMuteRecord } from "../../shared/chat-mute";
 import { chatListFingerprint, createChatInputMemo, sameChatRows, setChatAttribute, setChatHidden, setChatText } from "./chat-refresh-cache";
 
@@ -292,6 +293,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     onTick: () => updateChatCooldown(),
     showMessage,
   });
+  const guildCrests = createChatGuildCrests(() => getCoop()?.guild?.battleBadges);
   const messageActions = createChatMessageActionsController({
     elements: elements.messageActions,
     isMuted: () => muteDisplay.isMuted(),
@@ -608,6 +610,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       const messageBody = document.createElement("span");
       messageBody.className = "chat-message-body";
       messageBody.textContent = shownMessage;
+      if (guildReplayKey && !message.moderated) guildCrests(messageBody, guildReplayKey);
       if (!large && message.replyToMessageId > 0n) {
         const replyPrefix = document.createElement("span");
         replyPrefix.className = "chat-reply-prefix";

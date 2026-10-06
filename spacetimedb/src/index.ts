@@ -6067,8 +6067,8 @@ const { savedWorldLocation, clearOrphanPresence, applyMovementState } = createPr
 });
 
 export const { createGuild, joinGuild, leaveGuild, transferGuildLeadership, setGuildVicePresident,
-  setGuildEmblem, kickGuildMember, challengeGuild, guildAdmission, shareGuildBattle } = registerGuildReducers(spacetimedb,
-  { guildService, requireGuildPlayer, effectivePowerForProgress, isPublicDisplayNameAllowed });
+  setGuildEmblem, kickGuildMember, challengeGuild, guildAdmission, shareGuildBattle, getGuildBattleBadges } = registerGuildReducers(spacetimedb,
+  { guildService, requireGuildPlayer, requireGuildConnection, effectivePowerForProgress, isPublicDisplayNameAllowed });
 export const getGuildHub = spacetimedb.procedure({ afterId: t.u64() }, t.string(), (ctx, { afterId }) => ctx.withTx(tx => {
   requireGuildConnection(tx);
   return JSON.stringify(guildService.snapshot(tx, afterId, hasSpacetimeAuthAccount(tx)));

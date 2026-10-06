@@ -57,6 +57,13 @@ export function createGuildService(deps: Dependencies) {
       current.check();
       return JSON.parse(result) as GuildPreview;
     },
+    /** Both guilds' names and badges for a battle shared in chat (-1: no badge chosen). */
+    async battleBadges(reportKey: string): Promise<{ name: string; emblem: number }[]> {
+      const current = request();
+      const result = await current.connection.procedures.getGuildBattleBadges({ reportKey });
+      current.check();
+      return JSON.parse(result) as { name: string; emblem: number }[];
+    },
     async loadReplay(reportKey: string): Promise<GuildReport> {
       const current = request();
       const result = await current.connection.procedures.getGuildReplay({ reportKey });

@@ -168,6 +168,21 @@ describe("guild root reducer integration", () => {
     expect(f.snapshot().battles[0].result).toEqual(result);
     expect(f.snapshot().guild?.members[0]).not.toHaveProperty("fighter");
   });
+  it("gives chat both guilds' badges for a shared battle, and nothing for one not shared", () => {
+    const f = fixture();
+    const ours = f.guild(["1", "2"], "Rose");
+    const theirs = f.guild(["3", "4"], "Moon");
+    f.actor("1"); f.run(server.setGuildEmblem, { emblem: 16 });
+    f.run(server.challengeGuild, { opponentGuildId: theirs });
+    const report = f.snapshot().battles[0];
+    const badges = (reportKey: string) => JSON.parse((server.getGuildBattleBadges as any)(
+      { withTx: (action: (ctx: typeof f.ctx) => unknown) => f.transaction(() => action(f.ctx)) }, { reportKey }));
+    expect(() => badges(`${ours}:${report.id}`)).toThrow("not shared");
+    f.run(server.shareGuildBattle, { battleId: report.id });
+    // Rose chose the turtle; Moon never chose, so chat falls back to its name's badge.
+    expect(badges(`${ours}:${report.id}`)).toEqual([{ name: "Rose", emblem: 16 }, { name: "Moon", emblem: -1 }]);
+    expect(() => badges("not a key")).toThrow("not shared");
+  });
   it("posts a battle to chat only when a member shares it, once, and lets spectators fetch only a shared retained report", () => {
     const f = fixture();
     const ours = f.guild(["1", "2"], "Rose");

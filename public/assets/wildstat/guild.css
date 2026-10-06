@@ -170,6 +170,8 @@ body:has(.guild-overlay:not([hidden])) #profileIconPicker { z-index: 14; }
 
 .guild-emblem.guild-emblem { display: block; aspect-ratio: 1; background: url("guild-emblems-v3.webp") no-repeat; background-size: 418% 418%; clip-path: none; border-radius: 0; }
 .guild-emblem.guild-emblem--sheet-2 { background-image: url("guild-emblems-v4.webp"); }
+/* A guild's crest beside its name in a battle shared to chat. */
+.chat-guild-crest.guild-emblem { display: inline-block; width: 1.35em; height: 1.35em; margin: 0 .2em 0 .1em; vertical-align: -.3em; }
 .guild-office-vacancy--future .guild-office-placeholder { color: var(--guild-muted); }
 .guild-roster .guild-member-profile .guild-avatar { width: 44px; height: 44px; flex-basis: 44px; }
 .guild-roster .guild-row { min-height: 56px; padding: 5px 0; }
