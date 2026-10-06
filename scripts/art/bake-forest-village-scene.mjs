@@ -143,6 +143,13 @@ const animatorClip = goId => {
   return animator?.m_Controller?.guid ? clipFor(animator.m_Controller.guid) : null;
 };
 
+const renderersPer = new Map();
+for (const [, object] of objects) if (object.classId === 212) for (const id of object.instances ?? []) renderersPer.set(id, (renderersPer.get(id) ?? 0) + 1);
+/** The unit a renderer or collider belongs to: its outermost placed prefab small enough to be one thing, else its sorting group. */
+const unitOf = (component, goId) => (component?.instances ?? []).find(id => (renderersPer.get(id) ?? 0) <= 24) ?? sortingGroup(goId);
+/** Each unit's box colliders, [left, bottom, right, top]: a building's tell where each of its walls stands. */
+const unitColliders = new Map();
+
 // ---- Colliders: the pack's own boxes (trees, house bases, stones, hay, the bridges' rails) and polygons (wells). ----
 for (const [goId] of gameObjects) {
   if (!active(goId)) continue;
@@ -163,19 +170,19 @@ for (const [goId] of gameObjects) {
       const cx = world.x + num(data.m_Offset?.x) * world.sx, cy = world.y + num(data.m_Offset?.y) * world.sy;
       const w = num(data.m_Size?.x) * Math.abs(world.sx), h = num(data.m_Size?.y) * Math.abs(world.sy);
       solids.push([cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]);
+      const unit = unitOf(component, goId);
+      if (unit) unitColliders.set(unit, [...(unitColliders.get(unit) ?? []), [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]]);
     } else if (component.classId === 60) {
       for (const path of data.m_Points?.m_Paths ?? []) {
         if (!Array.isArray(path) || !path.length) continue;
         const xs = path.map(point => world.x + (num(point.x) + num(data.m_Offset?.x)) * world.sx);
         const ys = path.map(point => world.y + (num(point.y) + num(data.m_Offset?.y)) * world.sy);
-        solids.push([Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys), "tilemap"]);
+        solids.push([Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]);
       }
     }
   }
 }
 
-const renderersPer = new Map();
-for (const [, object] of objects) if (object.classId === 212) for (const id of object.instances ?? []) renderersPer.set(id, (renderersPer.get(id) ?? 0) + 1);
 
 // ---- Collect the ground (chunked tilemaps) and the props. ----
 const ground = []; // { order, layer, x, y, sprite, flipX, flipY, alpha } in Unity units
@@ -233,9 +240,8 @@ for (const [goId] of gameObjects) {
   const world = worldOf(goId);
   // Unity sorts by order in layer before position, so a campfire's fire (a higher order) is always over its base.
   // Keep each placed prefab together, its order inside it, unless it is a big container of many things.
-  const placedAs = (componentOf(goId, 212)?.instances ?? []).find(id => (renderersPer.get(id) ?? 0) <= 24) ?? null;
   const sorting = sortingGroup(goId);
-  const group = placedAs ?? sorting;
+  const group = unitOf(componentOf(goId, 212), goId);
   const groupWorld = group ? worldOf(group) : world;
   // Inside a unit, Unity draws a sorting group by the group's own order, and a lone sprite by its order.
   const unitOrder = sorting ? num(componentOf(sorting, 210)?.data?.m_SortingOrder) : num(renderer.m_SortingOrder);
@@ -272,10 +278,66 @@ await sharp({ create: { width: maxX - minX, height: maxY - minY, channels: 4, ba
 props.sort((a, b) => b.depthY - a.depthY
   || (a.group && a.group === b.group ? (a.unitOrder ?? a.order) - (b.unitOrder ?? b.order) || a.order - b.order || b.y - a.y || a.seq - b.seq : 0)
   || a.seq - b.seq);
+// ---- Buildings whose walls stand at different depths (a front gable and the wings behind it) are cut into
+// vertical strips, each sorted at the base of the wall above it, by the colliders under each part. Sorting
+// a whole house at one point put a player standing before a wing behind the house, and a barrel too.
+const imageOf = prop => prop.prebuilt ?? spriteBuffer(prop.sprite, PROP_SCALE * (prop.scale ?? 1), { flipX: prop.flipX, flipY: prop.flipY, size: prop.size, alpha: prop.alpha });
+const byUnit = new Map();
+for (const prop of props) if (prop.group) byUnit.set(prop.group, [...(byUnit.get(prop.group) ?? []), prop]);
+const sliced = new Set();
+const strips = [];
+for (const [unit, parts] of byUnit) {
+  const colliders = unitColliders.get(unit) ?? [];
+  if (colliders.length < 2 || Math.max(...colliders.map(c => c[1])) - Math.min(...colliders.map(c => c[1])) < .25) continue;
+  const standing = parts.filter(part => !part.shadow && !part.clip && (part.unitOrder ?? part.order) >= 0);
+  if (standing.length < 2) continue;
+  const pieces = [];
+  for (const part of standing) {
+    const image = await imageOf(part);
+    pieces.push({ ...image, left: part.x * UNITS - image.pivotX, top: -part.y * UNITS - image.pivotY });
+  }
+  const minX = Math.floor(Math.min(...pieces.map(p => p.left))), minY = Math.floor(Math.min(...pieces.map(p => p.top)));
+  const maxX = Math.ceil(Math.max(...pieces.map(p => p.left + p.w))), maxY = Math.ceil(Math.max(...pieces.map(p => p.top + p.h)));
+  const composite = await sharp({ create: { width: maxX - minX, height: maxY - minY, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+    .composite(pieces.map(p => ({ input: p.buffer, left: Math.round(p.left - minX), top: Math.round(p.top - minY) }))).png().toBuffer();
+  // Strip edges where a collider starts or ends; each strip sorts at the front of the colliders under it.
+  const edges = [...new Set([minX, maxX, ...colliders.flatMap(c => [Math.round(c[0] * UNITS), Math.round(c[2] * UNITS)])])]
+    .filter(x => x >= minX && x <= maxX).sort((a, b) => a - b);
+  const depthAt = x => {
+    const under = colliders.filter(c => c[0] * UNITS <= x && c[2] * UNITS >= x);
+    const near = under.length ? under : [colliders.reduce((best, c) => Math.min(Math.abs(c[0] * UNITS - x), Math.abs(c[2] * UNITS - x))
+      < Math.min(Math.abs(best[0] * UNITS - x), Math.abs(best[2] * UNITS - x)) ? c : best)];
+    return Math.max(...near.map(c => -c[1] * UNITS));
+  };
+  const runs = [];
+  for (let i = 0; i + 1 < edges.length; i++) {
+    if (edges[i + 1] - edges[i] < 1) continue;
+    const depth = depthAt((edges[i] + edges[i + 1]) / 2);
+    const last = runs.at(-1);
+    if (last && last.depth === depth && last.right === edges[i]) last.right = edges[i + 1];
+    else runs.push({ left: edges[i], right: edges[i + 1], depth });
+  }
+  for (const run of runs) {
+    const buffer = await sharp(composite).extract({ left: run.left - minX, top: 0, width: run.right - run.left, height: maxY - minY }).png().toBuffer();
+    strips.push({ prebuilt: { buffer, w: run.right - run.left, h: maxY - minY, pivotX: 0, pivotY: 0 }, strip: true,
+      x: run.left / UNITS, y: -minY / UNITS, depthY: -run.depth / UNITS, group: unit, order: 0, unitOrder: 0, seq: seq++ });
+  }
+  // An animated part (the windmill's sails) sorts with the strip it stands in, just in front of it.
+  for (const part of parts.filter(p => p.clip)) {
+    const run = runs.find(r => part.x * UNITS >= r.left && part.x * UNITS <= r.right) ?? runs[0];
+    part.depthY = -(run.depth + .5) / UNITS;
+  }
+  for (const part of standing) sliced.add(part);
+}
+props.splice(0, props.length, ...props.filter(prop => !sliced.has(prop)), ...strips);
+props.sort((a, b) => b.depthY - a.depthY
+  || (a.group && a.group === b.group ? (a.unitOrder ?? a.order) - (b.unitOrder ?? b.order) || a.order - b.order || b.y - a.y || a.seq - b.seq : 0)
+  || a.seq - b.seq);
+
 const frames = new Map();
 const placed = [];
 for (const prop of props) {
-  const image = await spriteBuffer(prop.sprite, PROP_SCALE * (prop.scale ?? 1), { flipX: prop.flipX, flipY: prop.flipY, size: prop.size, alpha: prop.alpha });
+  const image = await imageOf(prop);
   const key = createHash("sha1").update(image.buffer).digest("hex");
   if (!frames.has(key)) frames.set(key, { id: frames.size, ...image });
   const frame = frames.get(key);
