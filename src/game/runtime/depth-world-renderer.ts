@@ -3,6 +3,7 @@ import { type MapId, type WorldDecor } from "../world";
 import type { Camera } from "./camera";
 import type { EnemyState, PlayerState } from "./types";
 import { bossForMap, type BossKind, type BossStates } from "./boss-registry";
+import { soulPropExtent, type SoulPropDecor } from "./soul-prop-renderer";
 
 type Viewport = { width: number; height: number };
 type TreeDecor = Extract<WorldDecor, { type: "tree" }>;
@@ -10,7 +11,7 @@ type CactusDecor = Extract<WorldDecor, { type: "cactus" }>;
 type SnowPineDecor = Extract<WorldDecor, { type: "snowPine" }>;
 type UpgradeBenchDecor = Extract<WorldDecor, { type: "upgradeBench" }>;
 type CharredTreeDecor = Extract<WorldDecor, { type: "charredTree" }>;
-type TallDecor = TreeDecor | CactusDecor | SnowPineDecor | UpgradeBenchDecor | CharredTreeDecor;
+type TallDecor = TreeDecor | CactusDecor | SnowPineDecor | UpgradeBenchDecor | CharredTreeDecor | SoulPropDecor;
 type Portal = { depth: number };
 type BootsPickup = { y: number; r: number; collected: boolean };
 type DepthLayerKind = "enemy" | "boss" | "boots" | "portal" | "secondaryPortal" | "remotePlayer" | "player";
@@ -38,11 +39,14 @@ export function createDepthWorldRenderer(options: {
   drawSnowPine: (tree: SnowPineDecor) => void;
   drawUpgradeBench: (bench: UpgradeBenchDecor) => void;
   drawCharredTree: (tree: CharredTreeDecor) => void;
+  drawSoulProp?: (prop: SoulPropDecor) => void;
   drawEnemy: (enemy: EnemyState, opacity?: number) => void;
   enemyOpacity?: (enemy: EnemyState) => number;
   drawBoss: (kind: BossKind) => void;
   /** Developer overlay, drawn over the finished world. */
   drawBossHitboxes?: () => void;
+  /** Drawn over the finished world, under the developer overlay: the Soul Dimension village's smoke and sparks. */
+  drawOverWorld?: () => void;
   drawBootPickup: () => void;
   drawPortal: () => void;
   drawSecondaryPortal: () => void;
@@ -63,7 +67,7 @@ export function createDepthWorldRenderer(options: {
   function sortedStaticDecor() {
     if (!staticDepthDirty) return staticDepthDecor;
     staticDepthDecor = options.decor
-      .filter((decor): decor is TallDecor => decor.type === "tree" || decor.type === "cactus" || decor.type === "snowPine" || decor.type === "upgradeBench" || decor.type === "charredTree")
+      .filter((decor): decor is TallDecor => decor.type === "tree" || decor.type === "cactus" || decor.type === "snowPine" || decor.type === "upgradeBench" || decor.type === "charredTree" || decor.type === "soulProp")
       .sort((a, b) => a.y - b.y);
     staticDepthDirty = false;
     return staticDepthDecor;
@@ -92,7 +96,11 @@ export function createDepthWorldRenderer(options: {
     for (let index = start; index < decor.length; index += 1) {
       const item = decor[index];
       if (item.y > endY + cullPadding + 300) break;
-      if (item.type === "cactus") {
+      if (item.type === "soulProp") {
+        const extent = soulPropExtent(item);
+        if (item.x + extent.right < camera.x - 40 || item.x - extent.left > camera.x + visibleW + 40
+          || item.y + extent.down < camera.y - 40 || item.y - extent.up > endY + 40) continue;
+      } else if (item.type === "cactus") {
         if (
           item.x < camera.x - 90 ||
           item.x > camera.x + visibleW + 90 ||
@@ -144,6 +152,7 @@ export function createDepthWorldRenderer(options: {
     else if (item.type === "cactus") options.drawCactus(item);
     else if (item.type === "snowPine") options.drawSnowPine(item);
     else if (item.type === "upgradeBench") options.drawUpgradeBench(item);
+    else if (item.type === "soulProp") options.drawSoulProp?.(item);
     else options.drawCharredTree(item);
   }
 
@@ -236,6 +245,7 @@ export function createDepthWorldRenderer(options: {
         staticIndex += 1;
       }
     }
+    options.drawOverWorld?.();
     options.drawBossHitboxes?.();
   }
 

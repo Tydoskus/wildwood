@@ -1,3 +1,7 @@
+import { SOUL_VILLAGE_GROUND } from "../soul-village";
+import { WORLD_WIDTH } from "../../../shared/rules";
+import { isSoulMap, SOUL_STAT_DETAILS } from "../../../shared/soul-dimension";
+import { soulStatOfCampName } from "../soul-world";
 import { residentDrawable } from "./resident-image";
 import { drawHomeCourtyard, drawHomeQuestBoard, drawHomeResearchDesk, drawHomeStationSign } from "./home-courtyard";
 import { drawIonRoads } from "./ion-ground";
@@ -39,6 +43,12 @@ type LavaRockDecor = Extract<WorldDecor, { type: "lavaRock" }>;
 type CharredTreeDecor = Extract<WorldDecor, { type: "charredTree" }>;
 
 const STATIC_TILE_SIZE = 640;
+/** The Soul Dimension's minimap: a campaign map's 4,800 square, following the player. */
+const SOUL_MINIMAP_SPAN = WORLD_WIDTH;
+function soulMarkerColor(enemy: EnemyState) {
+  const stat = soulStatOfCampName(enemy.campName);
+  return stat ? SOUL_STAT_DETAILS[stat].color : null;
+}
 const PORTAL_TINTED_SHEET_SIZE = 768;
 export function staticWorldTileRange(
   cameraX: number,
@@ -77,6 +87,8 @@ export type WorldRendererOptions = {
   camera: Camera;
   getViewport: () => Viewport;
   getMinimapBounds?: () => MinimapBounds | null;
+  /** The Soul Dimension village's baked ground, shown on its minimap. */
+  minimapVillageGround?: () => HTMLImageElement | undefined;
   getDevicePixelRatio: () => number;
   getMapId: () => MapId;
   getGameTime: () => number;
@@ -878,6 +890,21 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     target.closePath();
   }
 
+  // A small copy of the village's ground for the minimap, made once: the full image is far too big to scale every frame.
+  let soulVillageThumbnail: HTMLCanvasElement | null = null;
+  function drawSoulVillageOnMinimap(draw: CanvasRenderingContext2D, ox: number, oy: number, sx: number, sy: number) {
+    const image = options.minimapVillageGround?.();
+    if (!soulVillageThumbnail && image?.complete && image.naturalWidth > 0) {
+      soulVillageThumbnail = document.createElement("canvas");
+      soulVillageThumbnail.width = 256;
+      soulVillageThumbnail.height = Math.max(1, Math.round(256 * image.naturalHeight / image.naturalWidth));
+      soulVillageThumbnail.getContext("2d")?.drawImage(image, 0, 0, soulVillageThumbnail.width, soulVillageThumbnail.height);
+    }
+    if (!soulVillageThumbnail) return;
+    const area = SOUL_VILLAGE_GROUND;
+    draw.drawImage(soulVillageThumbnail, (area.x - ox) * sx, (area.y - oy) * sy, area.w * sx, area.h * sy);
+  }
+
   function renderMinimapFrame(remotePlayers: MapPlayerMarker[], size: number, view: Viewport) {
     if (!minimapCtx) return;
     const dpr = options.getDevicePixelRatio();
@@ -894,10 +921,15 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     minimapCtx.imageSmoothingEnabled = false;
     const draw = minimapCtx;
     draw.save(); minimapRoundedRect(draw, 0, 0, size, size, 4); draw.clip();
-    const innerX = 0; const innerY = 0; const innerSize = size; const sx = innerSize / WORLD.w; const sy = innerSize / WORLD.h;
+    const innerX = 0; const innerY = 0; const innerSize = size;
+    // The Soul Dimension is far too wide to show whole: its map is the stretch around the player.
+    const local = isSoulMap(options.getMapId());
+    const ox = local ? options.player.x - SOUL_MINIMAP_SPAN / 2 : 0, oy = local ? options.player.y - SOUL_MINIMAP_SPAN / 2 : 0;
+    const sx = innerSize / (local ? SOUL_MINIMAP_SPAN : WORLD.w); const sy = innerSize / (local ? SOUL_MINIMAP_SPAN : WORLD.h);
     const colors = mapColors();
     draw.fillStyle = colors.ground; draw.fillRect(innerX, innerY, innerSize, innerSize);
-    draw.fillStyle = colors.path; for (const path of options.paths) draw.fillRect(innerX + path.x * sx, innerY + path.y * sy, path.w * sx, path.h * sy);
+    if (local) drawSoulVillageOnMinimap(draw, ox, oy, sx, sy);
+    draw.fillStyle = colors.path; for (const path of options.paths) draw.fillRect(innerX + (path.x - ox) * sx, innerY + (path.y - oy) * sy, path.w * sx, path.h * sy);
     draw.save();
     draw.globalAlpha = options.getMapId() === options.infernalMapId ? .5 : 1;
     // Each enemy in the colour of the stat it pays (the autofarm tiles' colours), outlined so
@@ -905,14 +937,14 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     for (const enemy of options.enemies) {
       const definition = enemy.definition ?? ENEMY_TYPES[enemy.type];
       const marker = enemy.generatedBoss || definition.elite ? 5 : 3;
-      const ex = innerX + enemy.x * sx - 1, ey = innerY + enemy.y * sy - 1;
+      const ex = innerX + (enemy.x - ox) * sx - 1, ey = innerY + (enemy.y - oy) * sy - 1;
       draw.fillStyle = "#0b120e"; draw.fillRect(ex - 1, ey - 1, marker + 2, marker + 2);
-      draw.fillStyle = REWARD_DATA[definition.reward.type]?.color ?? "#ff5d5d"; draw.fillRect(ex, ey, marker, marker);
+      draw.fillStyle = soulMarkerColor(enemy) ?? REWARD_DATA[definition.reward.type]?.color ?? "#ff5d5d"; draw.fillRect(ex, ey, marker, marker);
     }
     draw.restore();
 
     const drawPortalMarker = (portal: Portal) => {
-      const px = Math.round(innerX + portal.x * sx); const py = Math.round(innerY + portal.y * sy);
+      const px = Math.round(innerX + (portal.x - ox) * sx); const py = Math.round(innerY + (portal.y - oy) * sy);
       const unlocked = options.portalIsUnlocked(portal);
       drawPortalMapMarker(draw, px, py, portal.destination, unlocked);
     };
@@ -924,7 +956,7 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     const mapBoss = bossForMap(options.getMapId());
     if (mapBoss) {
       const state = options.bosses[mapBoss.kind];
-      const bx = Math.round(innerX + state.x * sx); const by = Math.round(innerY + state.y * sy);
+      const bx = Math.round(innerX + (state.x - ox) * sx); const by = Math.round(innerY + (state.y - oy) * sy);
       draw.save();
       draw.globalAlpha = state.dead ? .46 : 1;
       draw.fillStyle = "#101820"; draw.fillRect(bx - 5, by - 4, 11, 9);
@@ -936,15 +968,15 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     // Players are white, so they never read as an enemy's stat colour: others a small outlined square,
     // yourself an outlined diamond on top. Self is drawn from local simulation, even with the eye off.
     for (const player of remotePlayers) {
-      const px = innerX + player.x * sx, py = innerY + player.y * sy;
+      const px = innerX + (player.x - ox) * sx, py = innerY + (player.y - oy) * sy;
       draw.fillStyle = "#0b120e"; draw.fillRect(px - 3, py - 3, 6, 6);
       draw.fillStyle = "#f4f1e8"; draw.fillRect(px - 2, py - 2, 4, 4);
     }
-    const selfX = innerX + options.player.x * sx, selfY = innerY + options.player.y * sy;
+    const selfX = innerX + (options.player.x - ox) * sx, selfY = innerY + (options.player.y - oy) * sy;
     const diamond = (radius: number) => { draw.beginPath(); draw.moveTo(selfX, selfY - radius); draw.lineTo(selfX + radius, selfY); draw.lineTo(selfX, selfY + radius); draw.lineTo(selfX - radius, selfY); draw.closePath(); draw.fill(); };
     draw.fillStyle = "#0b120e"; diamond(6);
     draw.fillStyle = "#ffffff"; diamond(4);
-    draw.strokeStyle = "rgba(255,255,255,.52)"; draw.lineWidth = 1; draw.strokeRect(innerX + camera.x * sx, innerY + camera.y * sy, (view.width / camera.zoom) * sx, (view.height / camera.zoom) * sy); draw.restore();
+    draw.strokeStyle = "rgba(255,255,255,.52)"; draw.lineWidth = 1; draw.strokeRect(innerX + (camera.x - ox) * sx, innerY + (camera.y - oy) * sy, (view.width / camera.zoom) * sx, (view.height / camera.zoom) * sy); draw.restore();
     minimapCacheKey = cacheKey;
   }
 

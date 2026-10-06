@@ -77,7 +77,8 @@ import { allowedAvatarFrame, isAvatarFrame } from "../../shared/avatar-frames";
 import { createGemPurchaseService } from "./gem-purchase-service";
 import { rescaleEndgameProgress } from "../../shared/endgame-power-rescale";
 import { CAMPAIGN_UNLOCK_FIELDS, equipmentMapRequirement } from "../../shared/equipment-access";
-import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_TRAVEL_PORTAL, HOME_BENCH_POSITION } from "../../shared/home";
+import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_TRAVEL_PORTAL, HOME_BENCH_POSITION, HOME_SOUL_PORTAL } from "../../shared/home";
+import { isSoulMap, noteEnemyDefeats, registerSoulDimension, requireSoulDimensionOpen, soulDimensionOpenFor, soulDimensionTables, soulStatsFor, SOUL_ARRIVAL, wideMotionMap, withSoulStats, worldBoundsFor } from "./soul-dimension";
 import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./snapshot-row-writes";
 import { compressLegacyMapPower } from "../../shared/map-power-rescale";
 import { createPlayerMotionFrameSampler } from "../../shared/player-motion-sample";
@@ -238,7 +239,7 @@ const LEGACY_CLIENT_ERRORS = {
 } as const;
 
 const WORLD = { width: WORLD_WIDTH, height: WORLD_HEIGHT };
-const VALID_MAP_IDS = { has: (id: string) => MAP_IDS.includes(id) || id === HOME_EXTERIOR_MAP_ID || isProceduralMap(id) };
+const VALID_MAP_IDS = { has: (id: string) => MAP_IDS.includes(id) || id === HOME_EXTERIOR_MAP_ID || isProceduralMap(id) || isSoulMap(id) };
 const LEGACY_FROSTWIND_EXPANSE_MAP_ID = "frostwind_expanse";
 
 function canonicalMapId(mapId: string) {
@@ -1679,6 +1680,8 @@ const patreonSweepSchedule = table(
 );
 const spacetimedb = schema({
   ...offlineProgressTables,
+  // The Soul Dimension's three tables (soul-dimension.ts).
+  ...soulDimensionTables,
   playerOfflinePreference, playerAudioSetting,
   defeatSessionRestriction,
   mapBalanceVersion, mapBalanceHead, playerMapBalance,
@@ -2401,7 +2404,7 @@ function powerForProgress(progress: { maxHp: number; damage: number; attackRate:
 
 function effectivePowerStatsForProgress(ctx: any, progress: any) {
   return effectivePlayerPowerStats(
-    progress,
+    withSoulStats(progress, soulStatsFor(ctx, progress.identity)),
     ctx.db.playerResearch.identity.find(progress.identity),
     (itemId) => itemUpgradeLevelFor(ctx, progress.identity, itemId),
   );
@@ -2409,7 +2412,7 @@ function effectivePowerStatsForProgress(ctx: any, progress: any) {
 
 function effectivePowerForProgress(ctx: any, progress: any) {
   return effectivePlayerPower(
-    progress,
+    withSoulStats(progress, soulStatsFor(ctx, progress.identity)),
     ctx.db.playerResearch.identity.find(progress.identity),
     (itemId) => itemUpgradeLevelFor(ctx, progress.identity, itemId),
   );
@@ -2426,7 +2429,7 @@ function researchedDamage(ctx: any, identity: any, damage: number, knownProgress
   const weaponItem = progress ? equippedRightHandForProgress(progress) || equippedLeftHandForProgress(progress) : "";
   const headItem = progress ? equippedHeadForProgress(progress) : "";
   const chestItem = progress ? equippedChestForProgress(progress) : "";
-  return equipmentDamage(damage,
+  return equipmentDamage(damage + (soulStatsFor(ctx, identity)?.damage ?? 0),
     weaponItem,
     headItem,
     chestItem,
@@ -2439,7 +2442,7 @@ function researchedDamage(ctx: any, identity: any, damage: number, knownProgress
 
 function researchedArmor(ctx: any, identity: any, armor: number) {
   const rank = ctx.db.playerResearch.identity.find(identity)?.precision ?? 0;
-  return armor * (1 + rank * .02);
+  return (armor + (soulStatsFor(ctx, identity)?.armor ?? 0)) * (1 + rank * .02);
 }
 
 function researchedRegen(ctx: any, identity: any, regen: number) {
@@ -2447,7 +2450,7 @@ function researchedRegen(ctx: any, identity: any, regen: number) {
   const progress = readPlayerProgress(ctx, identity);
   const headItem = progress ? equippedHeadForProgress(progress) : "";
   const chestItem = progress ? equippedChestForProgress(progress) : "";
-  return equipmentRegeneration(regen,
+  return equipmentRegeneration(regen + (soulStatsFor(ctx, identity)?.regen ?? 0),
     headItem,
     chestItem,
     1 + rank * .02,
@@ -2967,7 +2970,7 @@ function maxHealthForProgress(ctx: any, identity: any, progress: any) {
   const headItem = equippedHeadForProgress(progress);
   const chestItem = equippedChestForProgress(progress);
   const vitalityMultiplier = 1 + (ctx.db.playerResearch.identity.find(identity)?.vitality ?? 0) * .02;
-  return equipmentMaxHealth(progress.maxHp,
+  return equipmentMaxHealth(progress.maxHp + (soulStatsFor(ctx, identity)?.maxHp ?? 0),
     headItem,
     chestItem,
     vitalityMultiplier,
@@ -3510,12 +3513,12 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
       return;
     }
     const normalizedMapId = canonicalMapId(existing.mapId);
-    const entryMapId = VALID_MAP_IDS.has(normalizedMapId) ? normalizedMapId : TUTORIAL_FOREST_MAP_ID;
+    const entryMapId = VALID_MAP_IDS.has(normalizedMapId) && (!isSoulMap(normalizedMapId) || soulDimensionOpenFor(ctx, ctx.sender)) ? normalizedMapId : TUTORIAL_FOREST_MAP_ID;
     const fallbackPosition = MAP_ARRIVALS[entryMapId as keyof typeof MAP_ARRIVALS] ?? PLAYER_SPAWN;
-    const entryPosition = VALID_MAP_IDS.has(normalizedMapId)
+    const entryPosition = entryMapId === normalizedMapId
       ? {
-        x: Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, existing.x)),
-        y: Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, existing.y)),
+        x: Math.max(PLAYER_RADIUS, Math.min(worldBoundsFor(entryMapId).width - PLAYER_RADIUS, existing.x)),
+        y: Math.max(PLAYER_RADIUS, Math.min(worldBoundsFor(entryMapId).height - PLAYER_RADIUS, existing.y)),
       }
       : fallbackPosition;
     updateSnapshotRow(ctx, "player", {
@@ -3753,7 +3756,7 @@ export const publishMotionDetailFrames = spacetimedb.reducer(
         recipient: interest.identity,
         emittedAt: ctx.timestamp,
         playerCount: samples.length,
-        payload: encodePlayerMotionFrame(samples),
+        payload: encodePlayerMotionFrame(samples, wideMotionMap(observer.mapId)),
       });
     }
     for (const identity of staleIdentities) ctx.db.playerMotionInterest.identity.delete(identity);
@@ -3789,12 +3792,12 @@ export const publishMapFrames = spacetimedb.reducer(
       }
     }
     for (const [mapId, samples] of maps) {
-      const compacted = compactPlayerMapSamples(samples, WORLD.width, WORLD.height);
+      const compacted = compactPlayerMapSamples(samples, worldBoundsFor(mapId).width, worldBoundsFor(mapId).height);
       ctx.db.playerMapFrame.insert({
         mapId,
         emittedAt: ctx.timestamp,
         playerCount: compacted.length,
-        payload: encodePlayerMapFrame(compacted),
+        payload: encodePlayerMapFrame(compacted, wideMotionMap(mapId)),
       });
     }
 
@@ -5247,7 +5250,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
     recordAnalyticsMilestone(ctx, "kill");
     if (accepted.rewards.some(reward => reward.type === "boss")) recordAnalyticsMilestone(ctx, "boss");
     killGems.grantKillGems(ctx, ctx.sender, accepted.count, enemyKills);
-    recordDailyQuestKills(ctx, ctx.sender, batch.mapId, accepted.kills);
+    recordDailyQuestKills(ctx, ctx.sender, batch.mapId, accepted.kills); noteEnemyDefeats(ctx, batch.mapId, accepted.rewards);
     enforce();
     if (!accepted.restrict && accepted.rewards.some(reward => reward.type === "boss")) prestige.completeChallengeIfMet(ctx);
 }
@@ -5572,6 +5575,7 @@ export const startPrestigeChallenge = spacetimedb.reducer({}, ctx => prestige.ch
 export const abandonPrestigeChallenge = spacetimedb.reducer({}, ctx => prestige.changeChallenge(ctx, false));
 export const { startAggroRun, abandonAggroRun } = registerAggroReducers(spacetimedb, { requireControllingPlayer, activeDuelFor, startFreshRun, respawnWithProgress });
 export const { setAutoFarmPuppet } = registerAutoFarmPuppetReducers(spacetimedb, { blockedSession, requireControllingPlayer, playerWithMotion });
+export const { mySoulStats, myRewardKills, setSoulDimensionOpen } = registerSoulDimension(spacetimedb, { requireDeveloper });
 export const prestigeAccount = spacetimedb.reducer({}, (ctx) => { prestige.prestigeAccount(ctx); });
 export const spendPrestigePerkPoint = spacetimedb.reducer({ perk: t.string() },
   (ctx, { perk }) => { prestige.spendPerkPoint(ctx, perk); });
@@ -5854,16 +5858,16 @@ export const changeMap = spacetimedb.reducer(
         const progress = readPlayerProgress(ctx, ctx.sender);
         const converted = ctx.db.playerEndlessRebaseBackup.identity.find(ctx.sender);
         const savedMapIndex = saved ? MAP_IDS.indexOf(saved.mapId) : -1;
-        const permitted = !converted || (saved && (isProceduralMap(saved.mapId)
+        const permitted = (!isSoulMap(saved?.mapId) || soulDimensionOpenFor(ctx, ctx.sender)) && (!converted || (saved && (isProceduralMap(saved.mapId)
           ? generatedMapUnlocked(saved.mapId, ctx.db.proceduralProgress.identity.find(ctx.sender)?.completed ?? 0,
             Boolean((progress?.bossRewardClaims ?? 0) & BOSS_REWARD_CLAIM_BITS[PROCEDURAL_ENTRY_BOSS]))
-          : savedMapIndex === 0 || (savedMapIndex > 0 && Boolean(progress?.[CAMPAIGN_UNLOCK_FIELDS[savedMapIndex - 1]]))));
+          : savedMapIndex === 0 || (savedMapIndex > 0 && Boolean(progress?.[CAMPAIGN_UNLOCK_FIELDS[savedMapIndex - 1]])))));
         const destination = permitted && saved && saved.mapId !== HOME_EXTERIOR_MAP_ID && VALID_MAP_IDS.has(saved.mapId)
           && [saved.x, saved.y, saved.facing].every(Number.isFinite)
           ? saved : { mapId: TUTORIAL_FOREST_MAP_ID, ...PLAYER_SPAWN, facing: 0 };
         transitionPlayerMap(ctx, current, destination.mapId, destination, destination.facing);
       } else {
-        if (![x, y].every(Number.isFinite) || x < PLAYER_RADIUS || y < PLAYER_RADIUS || x > WORLD.width - PLAYER_RADIUS || y > WORLD.height - PLAYER_RADIUS) throw new SenderError("Invalid teleport position.");
+        if (![x, y].every(Number.isFinite) || x < PLAYER_RADIUS || y < PLAYER_RADIUS || x > worldBoundsFor(current.mapId).width - PLAYER_RADIUS || y > worldBoundsFor(current.mapId).height - PLAYER_RADIUS) throw new SenderError("Invalid teleport position.");
         const saved = { identity: ctx.sender, mapId: current.mapId, x, y, facing: current.facing };
         if (ctx.db.homeReturnLocation.identity.find(ctx.sender)) ctx.db.homeReturnLocation.identity.update(saved);
         else ctx.db.homeReturnLocation.insert(saved);
@@ -5874,9 +5878,10 @@ export const changeMap = spacetimedb.reducer(
     }
     if (!VALID_MAP_IDS.has(mapId) || mapId === current.mapId) throw new SenderError("Unsupported map destination.");
     if (!Number.isFinite(x) || !Number.isFinite(y)) throw new SenderError("Portal position must be finite.");
-    if (x < PLAYER_RADIUS || x > WORLD.width - PLAYER_RADIUS || y < PLAYER_RADIUS || y > WORLD.height - PLAYER_RADIUS) {
+    if (x < PLAYER_RADIUS || x > worldBoundsFor(current.mapId).width - PLAYER_RADIUS || y < PLAYER_RADIUS || y > worldBoundsFor(current.mapId).height - PLAYER_RADIUS) {
       throw new SenderError("Portal position is outside the world.");
     }
+    if (isSoulMap(mapId)) requireSoulDimensionOpen(ctx);
     const currentProgress = readPlayerProgress(ctx, ctx.sender);
     const campaignIndex = CAMPAIGN_MAPS.findIndex(map => map.id === mapId);
     if (campaignIndex > 0 && !campaignMapUnlocked(campaignIndex, currentProgress ?? {})) {
@@ -5890,12 +5895,13 @@ export const changeMap = spacetimedb.reducer(
     }
     // Home's travel portal reaches every map the checks above allow, from beside the pad.
     const sourcePortals = current.mapId === HOME_EXTERIOR_MAP_ID
-      ? [{ ...HOME_TRAVEL_PORTAL, y: HOME_TRAVEL_PORTAL.y - HOME_TRAVEL_PORTAL.height * .32, destination: mapId }]
+      ? [{ ...HOME_TRAVEL_PORTAL, y: HOME_TRAVEL_PORTAL.y - HOME_TRAVEL_PORTAL.height * .32, destination: mapId },
+        { ...HOME_SOUL_PORTAL, y: HOME_SOUL_PORTAL.y - HOME_SOUL_PORTAL.height * .32 }]
       : isProceduralMap(current.mapId)
       ? generateMap(current.mapId).portals.map(portal => ({ ...portal, y:portal.y-portal.height*.32 }))
       : [...(MAP_PORTALS[current.mapId as keyof typeof MAP_PORTALS] ?? []),
         ...(current.mapId === PROCEDURAL_ENTRY_MAP ? [{x:580,y:617,destination:proceduralMapId(1)}] : [])];
-    const sourcePortal = sourcePortals.find((portal) => portal.destination === mapId);
+    const sourcePortal = sourcePortals.filter((portal) => portal.destination === mapId).sort((a, b) => Math.hypot(x - a.x, y - a.y) - Math.hypot(x - b.x, y - b.y))[0];
     if (!sourcePortal) throw new SenderError("Maps are not connected.");
     // Movement is client-authoritative. Validate the coordinate from this
     // discrete portal action instead of a potentially one-heartbeat-old
@@ -5903,7 +5909,7 @@ export const changeMap = spacetimedb.reducer(
     const portalDistance = Math.hypot(x - sourcePortal.x, y - sourcePortal.y);
     if (portalDistance > MAP_PORTAL_USE_RANGE) throw new SenderError("Move closer to the portal.");
 
-    const arrival = isProceduralMap(mapId) ? generateMap(mapId).arrival : MAP_ARRIVALS[mapId as keyof typeof MAP_ARRIVALS];
+    const arrival = isProceduralMap(mapId) ? generateMap(mapId).arrival : isSoulMap(mapId) ? SOUL_ARRIVAL : MAP_ARRIVALS[mapId as keyof typeof MAP_ARRIVALS];
     transitionPlayerMap(ctx, current, mapId, arrival);
   },
 );
@@ -5965,7 +5971,7 @@ const bossRewardHandlers: Record<string, (ctx: any, identity: any) => void> = {
 };
 export const prepareWorldActionPosition = spacetimedb.reducer({ x: t.f64(), y: t.f64() }, (ctx, { x, y }) => {
   const player = requireControllingPlayer(ctx);
-  if (![x, y].every(Number.isFinite) || x < PLAYER_RADIUS || y < PLAYER_RADIUS || x > WORLD.width - PLAYER_RADIUS || y > WORLD.height - PLAYER_RADIUS) {
+  if (![x, y].every(Number.isFinite) || x < PLAYER_RADIUS || y < PLAYER_RADIUS || x > worldBoundsFor(player.mapId).width - PLAYER_RADIUS || y > worldBoundsFor(player.mapId).height - PLAYER_RADIUS) {
     throw new SenderError("Invalid bench position");
   }
   if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel first.");
@@ -5993,7 +5999,7 @@ function guildFighterFor(ctx: ModuleReducerCtx, identity: Identity): DuelFighter
     damage: weapon ? duelDamage(ctx, identity, progress.damage) : 0,
     armor: researchedArmor(ctx, identity, progress.armor),
     regen: researchedRegen(ctx, identity, progress.regen),
-    attackRate: weapon ? attackIntervalForProgress(progress) : 31,
+    attackRate: weapon ? attackIntervalForProgress(withSoulStats(progress, soulStatsFor(ctx, identity))) : 31,
   };
 }
 

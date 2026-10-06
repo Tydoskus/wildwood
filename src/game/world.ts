@@ -1,5 +1,7 @@
 import { ONBOARDING_MAP_ID, ONBOARDING_ART_OFFSET } from "../../shared/onboarding";
 import { isProceduralMap, type ProceduralMapId } from "../../shared/procedural-maps";
+import { isSoulMap, type SoulMapId } from "../../shared/soul-dimension";
+import { soulWorldLayout } from "./soul-world";
 import { generatedMapContent } from "./procedural-maps";
 import { createIonCitadelLayout } from "./ion-layout";
 import { createVerdantCatacombsLayout } from "./verdant-layout";
@@ -35,6 +37,11 @@ export type WorldDecor = WorldDecorPlacement & (
   | { type: "skyShard"; s: number; variant: number }
   | { type: "glowMushroom"; s: number; variant: number }
   | { type: "lilyPad"; s: number; variant: number }
+  /** A Soul Dimension sprite from its atlas (soul-village.ts): village pieces and the wilds' props. */
+  /** `sheet: "village"` is the baked demo village's; `dy` draws it that far from its depth point (a house's parts share one depth). */
+  | { type: "soulProp"; s: number; frame: string; flip?: boolean; sheet?: "village"; dy?: number;
+    /** The pack's own clips: sprite frames on a loop (fires, the fountain), or a spin in degrees a second (the windmill). */
+    anim?: { frames: readonly number[]; times: readonly number[]; length: number }; spin?: number }
 );
 export type SpawnSite = {
   definition?: import("./enemies").EnemyDefinition;
@@ -68,6 +75,7 @@ export const ION_CITADEL_MAP_ID = "ion_citadel";
 export const UPGRADE_BENCH_POSITION = HOME_BENCH_POSITION;
 export type MapId =
   | typeof ONBOARDING_MAP_ID
+  | SoulMapId
   | ProceduralMapId
   | typeof HOME_EXTERIOR_MAP_ID
   | typeof TUTORIAL_FOREST_MAP_ID
@@ -591,6 +599,7 @@ export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FO
     ] as WorldDecor[],
   };
   if (isProceduralMap(mapId)) { const content = generatedMapContent(mapId); return { paths: content.map.paths, decor: content.decor }; }
+  if (isSoulMap(mapId)) return soulWorldLayout(playerSpawn.x, playerSpawn.y);
   const saved = savedMapDesign(mapId);
   if (saved) {
     return {
@@ -669,7 +678,8 @@ export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FO
 }
 
 export function mapSpawnCamps(mapId: MapId = TUTORIAL_FOREST_MAP_ID): readonly SpawnCamp[] {
-  if (mapId === HOME_EXTERIOR_MAP_ID || mapId === ONBOARDING_MAP_ID) return [];
+  // The Soul Dimension's camps come and go with the player (soul-dimension-runtime.ts).
+  if (mapId === HOME_EXTERIOR_MAP_ID || mapId === ONBOARDING_MAP_ID || isSoulMap(mapId)) return [];
   if (isProceduralMap(mapId)) return generatedMapContent(mapId).camps;
   const saved = savedMapDesign(mapId);
   if (saved?.spawnCamps.length) return saved.spawnCamps.map((camp) => ({ ...camp, types: [...camp.types] }));
@@ -697,7 +707,7 @@ export function mapSpawnCamps(mapId: MapId = TUTORIAL_FOREST_MAP_ID): readonly S
 /** `_boss` is kept for callers: regions are laid out clear of the boss, so nothing is pushed from it any more. */
 export function createSpawnSites(_boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID): SpawnSite[] {
   if (isProceduralMap(mapId)) return generatedMapContent(mapId).sites;
-  if (mapId === HOME_EXTERIOR_MAP_ID || mapId === ONBOARDING_MAP_ID) return [];
+  if (mapId === HOME_EXTERIOR_MAP_ID || mapId === ONBOARDING_MAP_ID || isSoulMap(mapId)) return [];
   const sites: SpawnSite[] = [];
   const camps = mapSpawnCamps(mapId);
   assertCampContracts(camps);

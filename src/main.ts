@@ -35,8 +35,8 @@ import { leaderboardEligible } from "../shared/leaderboard-window";
 import { createProceduralBossController } from "./game/runtime/procedural-boss-controller";
 import { bindPlayerNameTags } from "./app/player-name-tags";
 import { bindAvatarFrames } from "./app/avatar-frames";
-import { HOME_WORLD_WIDTH, HOME_WORLD_HEIGHT } from "../shared/home";
-import { WORLD_WIDTH, WORLD_HEIGHT } from "../shared/rules";
+import { isSoulMap } from "../shared/soul-dimension";
+import { worldBoundsFor } from "../shared/world-bounds";
 import { createGuildPanel } from "./ui/guild-panel";
 import { bindHomeTeleportButton } from "./ui/home-teleport-button";
 import { isDeveloperIdentity } from "./app/developer";
@@ -81,6 +81,7 @@ import { createAutoFarmController } from "./game/runtime/auto-farm-controller";
 import { createAutoFarmResumeStore } from "./app/auto-farm-resume";
 import { createAutoFarmPanel } from "./ui/auto-farm-panel";
 import { createHomeTravelController } from "./ui/home-travel-controller";
+import { createSoulDimension } from "./game/runtime/soul-dimension";
 import { createQuestBoardRuntime, guildQuestStandingFrom } from "./ui/quest-board-controller";
 import { createPlayerController, type PlayerController } from "./game/runtime/player-controller";
 import { applyPlayerMaxHealthMultiplierBonus } from "./game/runtime/player-health";
@@ -269,8 +270,8 @@ import {
 
   function setCurrentMap(mapId: MapId) {
     currentMapId = mapId;
-    WORLD.w = mapId === ONBOARDING_MAP_ID ? ONBOARDING_WORLD.width : mapId === "home_exterior" ? HOME_WORLD_WIDTH : WORLD_WIDTH;
-    WORLD.h = mapId === ONBOARDING_MAP_ID ? ONBOARDING_WORLD.height : mapId === "home_exterior" ? HOME_WORLD_HEIGHT : WORLD_HEIGHT;
+    WORLD.w = mapId === ONBOARDING_MAP_ID ? ONBOARDING_WORLD.width : worldBoundsFor(mapId).width;
+    WORLD.h = mapId === ONBOARDING_MAP_ID ? ONBOARDING_WORLD.height : worldBoundsFor(mapId).height;
     void prepareMapAssets(mapId).catch(() => {});
     preloadAdjacentMapAssets(mapId);
     const atBase = mapId === "home_exterior";
@@ -625,7 +626,7 @@ import {
     inventory,
     bootsPickup,
     legacyStorageKey: LEGACY_SAVE_KEY,
-    getSavedProgress: () => coop?.savedProgress?.() ?? null,
+    getSavedProgress: () => soulDimension.withSoul(coop?.savedProgress?.() ?? null),
     saveRemoteProgress: (saved, immediate) => { coop?.saveProgress?.(saved, immediate); },
     localIdentity: () => coop?.localIdentity?.() ?? "",
     lifetimeEnemyKills: (identity) => coop?.playerProfile?.(identity)?.lifetime.enemyKills,
@@ -640,7 +641,7 @@ import {
   });
 
   playerCombat = createPlayerCombatController({
-    onEnemyDefeated: () => onboarding?.enemyDefeated() ?? false,
+    onEnemyDefeated: () => onboarding?.enemyDefeated() ?? false, soulStatOf: enemy => soulDimension.soulStatOf(enemy), onSoulKill: stat => soulDimension.soulKill(stat),
     player, enemies, spawnSites, projectileStore, bosses,
     nowSeconds: () => session?.gameTime() ?? 0,
     serverNowMs: () => coop?.serverNowMs?.() ?? Date.now(),
@@ -652,7 +653,7 @@ import {
     ),
     researchDamageMultiplier,
     researchCriticalChance,
-    researchCriticalDamageMultiplier,
+    researchCriticalDamageMultiplier: () => researchCriticalDamageMultiplier() + soulDimension.critDamage(),
     researchRewardMultiplier,
     displayRewardAmount: rewardDisplay.totalAmount,
     prestigeBossSlayer: () => prestigePerkValue(coop?.prestigePerks?.(), "bossSlayer"), recordDamageDealt: damage => farmProgress.recordDamage(damage),
@@ -756,7 +757,7 @@ import {
 
   let playerController: PlayerController;
   const mapController = createMapController({
-    openHomeTravel: () => homeTravel.open(),
+    openHomeTravel: portal => isSoulMap(portal.destination) ? soulDimension.openWindow() : homeTravel.open(),
     onTravelStarted: () => autoFarm.travelStarted(),
     markPortalCutsceneSeen: (cutscene) => coop?.markPortalCutsceneSeen?.(cutscene),
     mapConfig: MAP_CONFIG,
@@ -810,6 +811,8 @@ import {
   const quests = createQuestBoardRuntime({ source: () => coop, atHome: () => currentMapId === "home_exterior", tracker: questTracker,
     pause: () => {}, clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id as MapId]?.name ?? id, showProgress: (enemy, count, target) => runtimeHud.showQuestProgress(enemy, count, target) });
   const homeTravel = createHomeTravelController({ source: () => coop, travel: mapController.travelFromHome, departure: mapController.homeDeparture, atHome: () => currentMapId === "home_exterior", pause: () => {}, clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id].name });
+  const soulDimension = createSoulDimension({ source: () => coop, player, enemies, spawnSites, decor, currentMapId: () => currentMapId, spawnFromSite, invalidateDepthOrder: () => worldRenderRuntime.invalidateDepthOrder(), homeMap: MAP_CONFIG.home_exterior,
+    strength: () => ({ dps: playerCombat.expectedDps(), maxHp: player.maxHp, armor: effectiveArmor(), regen: regenerationPerSecond() }), logPickup, travel: mapController.travelFromHome, clearInput: playerInput.clear });
   const { activePortal, secondaryPortal, portalIsUnlocked, startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene, startSamuraiPortalCutscene } = mapController;
 
   const bossController = createBossController({
@@ -1537,7 +1540,7 @@ import {
     syncBoss: () => bossController.forMap(currentMapId)?.sync(),
     cutsceneActive: mapController.isCutsceneActive, updateCutscene: mapController.updatePortalCutscene,
     worldCombatReady: () => !mapController.isMapTransitioning() && (inTutorial() || mapBalanceReady() && Boolean(coop?.isConnected?.()) && coop?.localState?.()?.mapId === currentMapId),
-    updatePlayer: (dt) => { if (!mapController.isMapTransitioning() && !(inTutorial() && player.hp <= 0)) playerController.update(dt); }, updateUpgradeBench: updateHomeStations, updatePortal: mapController.updatePortal,
+    updatePlayer: (dt) => { if (!mapController.isMapTransitioning() && !(inTutorial() && player.hp <= 0)) playerController.update(dt); }, updateUpgradeBench: updateHomeStations, updatePortal: dt => { mapController.updatePortal(dt); soulDimension.update(dt); },
     updateEnemies: (dt) => { personalBosses.update(dt); proceduralBoss.update(dt); enemySimulation.update(dt); },
     updateBoss: (dt) => bossController.forMap(currentMapId)?.update(dt),
     updateProjectiles: playerCombat.updateProjectiles, updateRespawns: time => { if (!inTutorial()) updateRespawns(time); },

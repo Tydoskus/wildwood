@@ -639,6 +639,14 @@
       "maxHp:f64",
       "respawnAtMicros:u64"
     ],
+    "my_reward_kills": [
+      "identity:identity",
+      "damage:u64",
+      "health:u64",
+      "armor:u64",
+      "regen:u64",
+      "speed:u64"
+    ],
     "my_social_hub": [
       "identity:identity",
       "snapshot:string"
@@ -683,6 +691,16 @@
       "replyToSenderName:string",
       "replyToMessage:string",
       "reactionCountsJson:string"
+    ],
+    "my_soul_stats": [
+      "identity:identity",
+      "damage:f64",
+      "maxHp:f64",
+      "armor:f64",
+      "regen:f64",
+      "attackSpeed:f64",
+      "critDamage:f64",
+      "kills:u64"
     ],
     "my_upgrade_bench": [
       "identity:identity",
@@ -1018,6 +1036,10 @@
       "sender:identity",
       "recipient:identity",
       "sentAt:timestamp"
+    ],
+    "soul_dimension_config": [
+      "id:u8",
+      "open:bool"
     ],
     "spider_boss": [
       "id:u32",

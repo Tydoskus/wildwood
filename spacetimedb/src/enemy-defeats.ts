@@ -1,5 +1,6 @@
 import { pinnedMapBalance } from "./map-balance";
 import { isProceduralMap } from "../../shared/procedural-maps";
+import { isSoulMap, soulEnemyBoundHp } from "../../shared/soul-dimension";
 import { personalBossDefinition } from "../../shared/personal-bosses";
 import { Range, SenderError, table, t } from "spacetimedb/server";
 import { defeatBudget, defeatMinRespawnSeconds, enemyDefeatDefinition, mapEnemyPopulation, DEFEAT_BUDGET_WINDOW_SECONDS, ENEMY_DEFEAT_BATCH_MAX, SIM_CLOCK_BANK_SECONDS, type EnemyDefeat } from "../../shared/enemy-defeats";
@@ -525,10 +526,12 @@ export function acceptEnemyDefeats(ctx: BossRewardContext, batch: EnemyDefeatBat
       // them by its last kill; anything less pays a fast-growing farmer at
       // the rate they started the report with.
       const combat = bossCombat([...rewards, { ...definition.reward, count: acceptedCount }]);
+      // A soul enemy is built at its player's strength: its health follows their damage.
+      const hp = isSoulMap(batch.mapId) ? soulEnemyBoundHp(combat.dps + (combat.reflectDps ?? 0)) : definition.hp;
       // Reflect's own kills add to the weapon's: outside Reflect Only a reflected
       // hit can be as big as max health, so it is no share of the bow's kills.
-      const plausibleRate = (plausibleKillsPerSecond(definition.hp, combat.dps, combat.attackInterval, combat.projectiles ?? 1) * (combat.reach ?? 1)
-        + (combat.reflectDps ? plausibleKillsPerSecond(definition.hp, combat.reflectDps, combat.reflectTick ?? .1) : 0)) * PLAUSIBLE_KILL_TOLERANCE;
+      const plausibleRate = (plausibleKillsPerSecond(hp, combat.dps, combat.attackInterval, combat.projectiles ?? 1) * (combat.reach ?? 1)
+        + (combat.reflectDps ? plausibleKillsPerSecond(hp, combat.reflectDps, combat.reflectTick ?? .1) : 0)) * PLAUSIBLE_KILL_TOLERANCE;
       const floorCost = PAY_CEILING.enforced ? Math.max(wallSecondsPerKill, ceilingSecondsPerKill) : wallSecondsPerKill;
       const costPerKill = plausibleRate > 0 ? Math.max(1 / plausibleRate, floorCost) : Infinity;
       const plausible = Number.isFinite(costPerKill) ? Math.max(0, Math.floor(combatSeconds / costPerKill + 1e-6)) : 0;

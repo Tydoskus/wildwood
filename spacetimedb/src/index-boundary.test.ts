@@ -190,7 +190,12 @@ import { describe, expect, it } from "vitest";
 // live in autofarm-puppet.ts.
 // 6_580: the set_presence declaration (the eye plus "seen while idle or
 // autofarming"), its comment, and the shared applyPresence wrapper lines.
-const MAX_LINES = 6_580;
+// 6_586 (2026-10-05): the Soul Dimension. Its three tables in the schema
+// (with their note), the my_soul_stats / my_reward_kills views and the
+// set_soul_dimension_open reducer's export line, one import line, its portal
+// on home's list of portals, and the open-to-you check on change_map. The
+// rules, tables and reducer bodies live in soul-dimension.ts.
+const MAX_LINES = 6_586;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

@@ -5,6 +5,7 @@ import { ENEMY_TYPES, type EnemyKind } from "./enemy-definitions";
 import * as camps from "./enemy-camps";
 import designs from "./map-designs.json";
 import { generateMap, generatedEnemyStats, isProceduralMap } from "./procedural-maps";
+import { isSoulMap, soulRewardType, soulStatFromEnemyId, SOUL_POPULATION, SOUL_STAT_DETAILS, SOUL_STAT_ORDER } from "./soul-dimension";
 import { MAX_ARMOR, MAX_PLAYER_STAT, MIN_ATTACK_INTERVAL, REGULAR_ENEMY_RESPAWN_SECONDS, REGULAR_KILL_REPORT_SECONDS } from "./rules";
 
 export type EnemyDefeat = { enemy: string; count: number };
@@ -53,6 +54,12 @@ function generatedDefinition(mapId: `endless_${number}`) {
   return map;
 }
 export function enemyDefeatDefinition(mapId: string, enemy: string, balance?: MapBalanceSnapshot) {
+  if (isSoulMap(mapId)) {
+    // Each player's soul enemies are built at their own strength, so health is
+    // left for the kill bound to set from the player's damage (soulEnemyBoundHp).
+    const stat = soulStatFromEnemyId(enemy);
+    return stat ? { reward: { type: soulRewardType(stat), amount: SOUL_STAT_DETAILS[stat].reward }, hp: Number.NaN, population: SOUL_POPULATION, loot: false } : null;
+  }
   if (enemy === "boss") return personalBossDefinition(mapId) ? { reward: { type: "boss", amount: 0 }, hp: 0, population: 1, loot: false } : null;
   if (isProceduralMap(mapId)) {
     // Generated art is cosmetic. A stable spawn index identifies its actual reward lane.
@@ -90,7 +97,8 @@ const mapPopulations = new Map<string, number>();
 export function mapEnemyPopulation(mapId: string) {
   let population = mapPopulations.get(mapId);
   if (population !== undefined) return population;
-  if (isProceduralMap(mapId)) {
+  if (isSoulMap(mapId)) population = SOUL_POPULATION * SOUL_STAT_ORDER.length;
+  else if (isProceduralMap(mapId)) {
     population = generatedDefinition(mapId as `endless_${number}`).camps.reduce((sum, camp) => sum + camp.count, 0);
   } else {
     population = Object.keys(ENEMY_TYPES).reduce((sum, kind) => sum + (enemyDefeatDefinition(mapId, kind)?.population ?? 0), 0);
@@ -101,6 +109,8 @@ export function mapEnemyPopulation(mapId: string) {
   return population;
 }
 export function combatMap(mapId: string) { return CAMPAIGN_MAPS.some(map => map.id === mapId) || isProceduralMap(mapId); }
+/** Maps whose kills are reported: the combat maps and the Soul Dimension. */
+export function killReportMap(mapId: string) { return combatMap(mapId) || isSoulMap(mapId); }
 
 /**
  * Nobody can kill a species faster than it comes back, and the fastest it

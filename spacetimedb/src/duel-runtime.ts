@@ -7,6 +7,7 @@
 // call. Membership checks keep going through the duel.byChallenger index (see
 // docs/development.md). Helpers that still live in index.ts arrive through
 // createDuelRuntime's deps so the moved code reads exactly as it did.
+import { soulStatsFor, withSoulStats } from "./soul-dimension";
 import { ScheduleAt, Timestamp } from "spacetimedb";
 import { SenderError } from "spacetimedb/server";
 import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./snapshot-row-writes";
@@ -109,7 +110,7 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
     const ranks = prestigePerkRanks(ctx, identity);
     const baseDamage = researchedDamage(ctx, identity, damage);
     const criticalChance = (research?.criticalChance ?? 0) * .01 + prestigePerkValue(ranks, "keenEdge");
-    const criticalMultiplier = 1.05 + (research?.criticalDamage ?? 0) * .05 + prestigeCriticalDamageBonus(ranks);
+    const criticalMultiplier = 1.05 + (research?.criticalDamage ?? 0) * .05 + prestigeCriticalDamageBonus(ranks) + (soulStatsFor(ctx, identity)?.critDamage ?? 0);
     // Duel simulation is deterministic and both sides replay it, so random
     // rolls fold into expected damage. Criticals and Double Strike both do.
     return baseDamage * (1 + criticalChance * (criticalMultiplier - 1)) * prestigeSwingMultiplier(ranks);
@@ -322,7 +323,7 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
       challengerMaxHp,
       challengerDamage: duelDamage(ctx, ctx.sender, challengerProgress.damage),
       challengerArmor: researchedArmor(ctx, ctx.sender, challengerProgress.armor),
-      challengerAttackRate: challengerRightHandItem || challengerLeftHandItem ? attackIntervalForProgress(challengerProgress) : inactiveAttackRate,
+      challengerAttackRate: challengerRightHandItem || challengerLeftHandItem ? attackIntervalForProgress(withSoulStats(challengerProgress, soulStatsFor(ctx, challengerProgress.identity))) : inactiveAttackRate,
       challengerRegen: researchedRegen(ctx, ctx.sender, challengerProgress.regen),
       challengerAttacks: 0,
       challengerDamageDealt: 0,
@@ -332,7 +333,7 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
       opponentMaxHp,
       opponentDamage: duelDamage(ctx, opponent, opponentProgress.damage),
       opponentArmor: researchedArmor(ctx, opponent, opponentProgress.armor),
-      opponentAttackRate: opponentRightHandItem || opponentLeftHandItem ? attackIntervalForProgress(opponentProgress) : inactiveAttackRate,
+      opponentAttackRate: opponentRightHandItem || opponentLeftHandItem ? attackIntervalForProgress(withSoulStats(opponentProgress, soulStatsFor(ctx, opponentProgress.identity))) : inactiveAttackRate,
       opponentRegen: researchedRegen(ctx, opponent, opponentProgress.regen),
       opponentAttacks: 0,
       opponentDamageDealt: 0,

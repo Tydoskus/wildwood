@@ -1492,6 +1492,9 @@ export type MyPlayerBlocks = __Infer<typeof MyPlayerBlocks>;
 export const MyProceduralBoss = __t.object("MyProceduralBoss", {});
 export type MyProceduralBoss = __Infer<typeof MyProceduralBoss>;
 
+export const MyRewardKills = __t.object("MyRewardKills", {});
+export type MyRewardKills = __Infer<typeof MyRewardKills>;
+
 export const MySocialHub = __t.object("MySocialHub", {});
 export type MySocialHub = __Infer<typeof MySocialHub>;
 
@@ -1500,6 +1503,9 @@ export type MySocialMessages = __Infer<typeof MySocialMessages>;
 
 export const MySocialMessagesWithReactions = __t.object("MySocialMessagesWithReactions", {});
 export type MySocialMessagesWithReactions = __Infer<typeof MySocialMessagesWithReactions>;
+
+export const MySoulStats = __t.object("MySoulStats", {});
+export type MySoulStats = __Infer<typeof MySoulStats>;
 
 export const MyUpgradeBench = __t.object("MyUpgradeBench", {});
 export type MyUpgradeBench = __Infer<typeof MyUpgradeBench>;
@@ -2251,6 +2257,16 @@ export const PlayerResearch = __t.object("PlayerResearch", {
 });
 export type PlayerResearch = __Infer<typeof PlayerResearch>;
 
+export const PlayerRewardKills = __t.object("PlayerRewardKills", {
+  identity: __t.identity(),
+  damage: __t.u64(),
+  health: __t.u64(),
+  armor: __t.u64(),
+  regen: __t.u64(),
+  speed: __t.u64(),
+});
+export type PlayerRewardKills = __Infer<typeof PlayerRewardKills>;
+
 export const PlayerSession = __t.object("PlayerSession", {
   connectionId: __t.connectionId(),
   identity: __t.identity(),
@@ -2277,6 +2293,18 @@ export const PlayerSoloQuestWeek = __t.object("PlayerSoloQuestWeek", {
   lastPoints: __t.u32(),
 });
 export type PlayerSoloQuestWeek = __Infer<typeof PlayerSoloQuestWeek>;
+
+export const PlayerSoulStats = __t.object("PlayerSoulStats", {
+  identity: __t.identity(),
+  damage: __t.f64(),
+  maxHp: __t.f64(),
+  armor: __t.f64(),
+  regen: __t.f64(),
+  attackSpeed: __t.f64(),
+  critDamage: __t.f64(),
+  kills: __t.u64(),
+});
+export type PlayerSoulStats = __Infer<typeof PlayerSoulStats>;
 
 export const PlayerUpgradeBench = __t.object("PlayerUpgradeBench", {
   identity: __t.identity(),
@@ -2640,6 +2668,12 @@ export const SocialRequest = __t.object("SocialRequest", {
   recipient: __t.identity(),
 });
 export type SocialRequest = __Infer<typeof SocialRequest>;
+
+export const SoulDimensionConfig = __t.object("SoulDimensionConfig", {
+  id: __t.u8(),
+  open: __t.bool(),
+});
+export type SoulDimensionConfig = __Infer<typeof SoulDimensionConfig>;
 
 export const SpiderAttackWindow = __t.object("SpiderAttackWindow", {
   identity: __t.identity(),

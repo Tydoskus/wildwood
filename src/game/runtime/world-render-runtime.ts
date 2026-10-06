@@ -18,6 +18,9 @@ import type { Particle } from "./combat-effects";
 import { parseHexColorOrNull, STATIC_WORLD_LAYER_RESET_EVENT, type StaticWorldColorQuadFrame, type StaticWorldLayer, type StaticWorldSpriteFrame } from "./webgl-static-world-layer";
 import { nightEnemyOpacity, nightGroundShadowsVisible } from "./night-visibility";
 import { snapWorldRenderCoordinate } from "./render-space";
+import { createSoulGroundRenderer, createSoulPropRenderer } from "./soul-prop-renderer";
+import { createSoulParticles } from "./soul-particles";
+import { isSoulMap } from "../../../shared/soul-dimension";
 
 type Viewport = { width: number; height: number; dpr: number };
 type Portal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
@@ -69,6 +72,10 @@ export type WorldRenderRuntimeOptions = {
     lavaPools: HTMLImageElement[];
     lavaRocks: HTMLImageElement[];
     charredTrees: HTMLImageElement[];
+    /** The Soul Dimension's one atlas (soul-village.ts). */
+    soulAtlas?: HTMLImageElement;
+    soulVillageProps?: HTMLImageElement;
+    soulVillageGround?: HTMLImageElement;
     bossArt: BossArtAssets;
     duelPlatformArt: HTMLImageElement;
   };
@@ -149,6 +156,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     camera: options.camera,
     getViewport: () => options.viewport(),
     getMinimapBounds: options.minimapBounds,
+    minimapVillageGround: () => options.assets.soulVillageGround,
     getDevicePixelRatio: options.devicePixelRatio,
     getMapId: options.currentMapId,
     getGameTime: options.gameTime,
@@ -295,6 +303,8 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       }
       return webGLParticleBatchState;
     };
+    const drawSoulGround = createSoulGroundRenderer({ ctx: options.ctx, camera: options.camera, ground: () => options.assets.soulVillageGround,
+      viewport: options.viewport, devicePixelRatio: options.devicePixelRatio, active: () => isSoulMap(options.currentMapId()) });
     const depth = createDepthWorldRenderer({
       camera: options.camera,
       viewport: () => options.viewport(),
@@ -312,12 +322,16 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawSnowPine: world.drawSnowPine,
       drawUpgradeBench: world.drawUpgradeBench,
       drawCharredTree: world.drawCharredTree,
+      drawSoulProp: createSoulPropRenderer({ ctx: options.ctx, camera: options.camera, atlas: () => options.assets.soulAtlas,
+        villageProps: () => options.assets.soulVillageProps, devicePixelRatio: options.devicePixelRatio, time: options.gameTime }),
       drawEnemy: actor.drawEnemy,
       enemyOpacity: (enemy) => options.currentMapId() === options.infernalMapId
         ? nightEnemyOpacity(Math.hypot(enemy.x - options.player.x, enemy.y - options.player.y), options.player.attackRange, enemy.r)
         : 1,
       drawBoss: (kind) => boss.drawBoss[kind](),
       drawBossHitboxes: boss.drawBossHitboxes,
+      drawOverWorld: createSoulParticles({ ctx: options.ctx, camera: options.camera, image: () => options.assets.soulVillageProps,
+        viewport: options.viewport, time: options.gameTime, active: () => isSoulMap(options.currentMapId()) }),
       drawBootPickup: () => renderer.drawBootPickup(),
       drawPortal: world.drawPortal,
       drawSecondaryPortal: world.drawSecondaryPortal,
@@ -356,7 +370,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawStaticWorld: world.drawStaticWorld,
       drawDuelArena: actor.drawDuelArena,
       drawDuelScene: actor.drawDuelScene,
-      drawDecor: world.drawDecor,
+      drawDecor: () => { world.drawDecor(); drawSoulGround(); },
       drawBossTelegraphs: () => {
         const mapBoss = bossForMap(options.currentMapId());
         if (mapBoss) boss.drawBossTelegraphs[mapBoss.kind]();
@@ -403,5 +417,5 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
   window.addEventListener("pageshow", (event) => { if (event.persisted) redrawWorld(true); });
   window.addEventListener(STATIC_WORLD_LAYER_RESET_EVENT, (event) => redrawWorld((event as CustomEvent).detail === "restored"));
 
-  return { ...world, ...boss, ...actor, createFrameRenderer, invalidateStaticWorld };
+  return { ...world, ...boss, ...actor, createFrameRenderer, invalidateStaticWorld, invalidateDepthOrder: () => invalidateDepthOrder() };
 }

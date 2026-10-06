@@ -1,3 +1,5 @@
+import { isSoulMap } from "../../../shared/soul-dimension";
+import { worldBoundsFor } from "../../../shared/world-bounds";
 import { parseReleaseWindow } from "../../../shared/release-window";
 import { createRemoteCorpses } from "./remote-corpses";
 import { recordConnectionDiagnostic } from "./connection-diagnostic-runtime";
@@ -58,8 +60,6 @@ import {
   SAMURAI_GARDEN_MAP_ID,
   TUTORIAL_FOREST_MAP_ID,
   WATER_REACH_MAP_ID,
-  WORLD_HEIGHT,
-  WORLD_WIDTH,
 } from "../../../shared/rules";
 import type {
   LocalPlayerState,
@@ -299,8 +299,8 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     const consensusAt = now - REGULAR_ENEMY_CONSENSUS_DELAY_MS;
     const elapsedSeconds = Math.max(0, Math.min(1_500, consensusAt - lastSentMovement.sentAt)) / 1_000;
     return {
-      x: Math.max(PLAYER_RADIUS, Math.min(WORLD_WIDTH - PLAYER_RADIUS, localState.x + lastSentMovement.vx * elapsedSeconds)),
-      y: Math.max(PLAYER_RADIUS, Math.min(WORLD_HEIGHT - PLAYER_RADIUS, localState.y + lastSentMovement.vy * elapsedSeconds)),
+      x: Math.max(PLAYER_RADIUS, Math.min(worldBoundsFor(localState.mapId).width - PLAYER_RADIUS, localState.x + lastSentMovement.vx * elapsedSeconds)),
+      y: Math.max(PLAYER_RADIUS, Math.min(worldBoundsFor(localState.mapId).height - PLAYER_RADIUS, localState.y + lastSentMovement.vy * elapsedSeconds)),
     };
   }
 
@@ -1171,7 +1171,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
           !connection ||
           !Number.isFinite(x) ||
           !Number.isFinite(y) ||
-          !isProceduralMap(mapId) && !["home_exterior", TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, INFERNAL_DEPTHS_MAP_ID, WATER_REACH_MAP_ID, SAMURAI_GARDEN_MAP_ID, CLOUDSPIRE_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, NEON_BASTION_MAP_ID, VERDANT_CATACOMBS_MAP_ID, ION_CITADEL_MAP_ID].includes(mapId)
+          !isProceduralMap(mapId) && !isSoulMap(mapId) && !["home_exterior", TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, INFERNAL_DEPTHS_MAP_ID, WATER_REACH_MAP_ID, SAMURAI_GARDEN_MAP_ID, CLOUDSPIRE_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, NEON_BASTION_MAP_ID, VERDANT_CATACOMBS_MAP_ID, ION_CITADEL_MAP_ID].includes(mapId)
         ) return false;
         try {
           if (dependencies.drainEnemyLoot && !await dependencies.drainEnemyLoot()) throw new Error("Enemy rewards are still syncing. Try the portal again.");

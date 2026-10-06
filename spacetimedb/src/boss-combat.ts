@@ -88,6 +88,7 @@ import { bowSkillBossDamageMultiplier, bowSkillReachMultiplier } from "../../sha
 import { updateSnapshotRow } from "./snapshot-row-writes";
 import type { ModuleReducerCtx } from "./index";
 import { readPlayerProgress } from "./wide-stats";
+import { soulStatsFor, withSoulStats } from "./soul-dimension";
 
 type GameReducerContext = ModuleReducerCtx;
 
@@ -177,8 +178,10 @@ export function createBossCombat(deps: BossCombatDeps) {
       const saved = readPlayerProgress(ctx, ctx.sender);
       const research = ctx.db.playerResearch.identity.find(ctx.sender);
       const statMultiplier = statRewardMultiplier(ctx, ctx.sender);
+      // Soul stats add to the run's in every fight; the saved row stays the run's alone.
+      const soul = soulStatsFor(ctx, ctx.sender);
       const loadout = saved ? damageLoadout(ctx, saved, research) : null;
-      if (!saved || !loadout) return { saved, research, loadout, statMultiplier, gear: null };
+      if (!saved || !loadout) return { saved, research, loadout, statMultiplier, soul, gear: null };
       // Empty hands still earn through Reflect (an unarmed Reflect run): the
       // bound must not read no weapon as no combat, which paid them nothing.
       const armed = Boolean(loadout.weapon);
@@ -188,7 +191,7 @@ export function createBossCombat(deps: BossCombatDeps) {
       // still be critting; the bound has to know that or it clips them.
       const ranks = prestigePerkRanks(ctx, ctx.sender);
       const critical = (research?.criticalChance ?? 0) > 0 || prestigePerkValue(ranks, "keenEdge") > 0
-        ? Math.max(1, 1.05 + (research?.criticalDamage ?? 0) * .05 + prestigeCriticalDamageBonus(ranks)) : 1;
+        ? Math.max(1, 1.05 + (research?.criticalDamage ?? 0) * .05 + prestigeCriticalDamageBonus(ranks) + (soul?.critDamage ?? 0)) : 1;
       // Double Strike is more damage per swing; Split Shot and Riposte are more
       // enemies reached per swing. The first belongs in damage per second, the
       // second in how many kills per second that damage can finish. The bow's
@@ -197,13 +200,13 @@ export function createBossCombat(deps: BossCombatDeps) {
       // too, so the two reaches multiply. Against a lone boss only Arrow Storm
       // adds anything, as more damage, so it widens the boss bound alone.
       const bowSkills = bowSkillRollFor(ctx, ctx.sender, loadout.weapon);
-      return { saved, research, loadout, statMultiplier, gear: {
+      return { saved, research, loadout, statMultiplier, soul, gear: {
         loadout, critical, swing: prestigeSwingMultiplier(ranks),
         // Projectile count is not a kill reward, so the saved row holds for the whole report.
         armed,
         projectiles: !armed || itemDefinition(loadout.weapon)?.weapon?.mode === "MELEE" ? 1 : Math.max(1, saved.projectileCount),
         // Reflect returns the hit before armor, so armor raises what it adds.
-        reach: prestigeReachMultiplier(ranks, armorDamageReduction(effectivePlayerPowerStats(saved, research, loadout.levelFor).armor))
+        reach: prestigeReachMultiplier(ranks, armorDamageReduction(effectivePlayerPowerStats(withSoulStats(saved, soul), research, loadout.levelFor).armor))
           * bowSkillReachMultiplier(bowSkills),
         bossDamage: bowSkillBossDamageMultiplier(bowSkills) * (1 + prestigePerkValue(ranks, "bossSlayer")),
         reflects: prestigePerkValue(ranks, "riposte") > 0,
@@ -215,9 +218,9 @@ export function createBossCombat(deps: BossCombatDeps) {
     return {
       /** The bound with the given earned rewards applied, as the client had them by its last kill. */
       bound(earned: { type: string; amount: number; count: number }[]) {
-        const { saved, statMultiplier, gear } = report();
+        const { saved, statMultiplier, gear, soul } = report();
         if (!saved) return { dps: 0, attackInterval: 1 };
-        const progress = earned.length ? applyEnemyRewards(saved, earned, statMultiplier, challengeMinimumInterval(reflectRewardsInPlay(ctx, ctx.sender))) : saved;
+        const progress = withSoulStats(earned.length ? applyEnemyRewards(saved, earned, statMultiplier, challengeMinimumInterval(reflectRewardsInPlay(ctx, ctx.sender))) : saved, soul);
         const attackInterval = attackIntervalForProgress(progress);
         if (!gear) return { dps: 0, attackInterval, projectiles: 1 };
         const dps = gear.armed ? gear.loadout.damage(progress.damage) * gear.critical * gear.swing * gear.projectiles / attackInterval : 0;
@@ -253,9 +256,9 @@ export function createBossCombat(deps: BossCombatDeps) {
        * nothing, and the levels are memoised by slot, so this is exact.
        */
       powerFields(progress: any) {
-        const { research, loadout } = report();
+        const { research, loadout, soul } = report();
         if (!loadout) return powerFieldsForProgress(ctx, progress);
-        const powerLevel = effectivePlayerPower(progress, research, loadout.levelFor);
+        const powerLevel = effectivePlayerPower(withSoulStats(progress, soul), research, loadout.levelFor);
         return { power: legacyU32Power(powerLevel), powerLevel };
       },
     };

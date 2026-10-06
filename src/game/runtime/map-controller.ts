@@ -74,7 +74,8 @@ export type MapController = {
 
 /** Owns map travel, portal collisions, and cinematic portal state. */
 export function createMapController(options: {
-  openHomeTravel?: () => void;
+  /** Home's portals open windows rather than travel: the destination picker, or the Soul Dimension's. */
+  openHomeTravel?: (portal: MapPortal) => void;
   onTravelStarted?: () => void;
   mapConfig: MapConfig;
   tutorialMapId: MapId;
@@ -280,7 +281,7 @@ export function createMapController(options: {
       // on it after Back never reopens the window; walking off and on does.
       portalExitGuard = portal;
       keys.clear(); stopTouchMove(); player.moving = false;
-      options.openHomeTravel();
+      options.openHomeTravel(portal);
       return;
     }
     options.onTravelStarted?.();

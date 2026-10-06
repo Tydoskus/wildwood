@@ -197,6 +197,7 @@ import SetPresenceReducer from "./set_presence_reducer";
 import SetProfileIconReducer from "./set_profile_icon_reducer";
 import SetReleaseWindowReducer from "./set_release_window_reducer";
 import SetSkinToneReducer from "./set_skin_tone_reducer";
+import SetSoulDimensionOpenReducer from "./set_soul_dimension_open_reducer";
 import SetSpeedReducer from "./set_speed_reducer";
 import ShareDuelReplayReducer from "./share_duel_replay_reducer";
 import ShareGuildBattleReducer from "./share_guild_battle_reducer";
@@ -326,9 +327,11 @@ import MyOfflineProgressRow from "./my_offline_progress_table";
 import MyOnboardingRow from "./my_onboarding_table";
 import MyPlayerBlocksRow from "./my_player_blocks_table";
 import MyProceduralBossRow from "./my_procedural_boss_table";
+import MyRewardKillsRow from "./my_reward_kills_table";
 import MySocialHubRow from "./my_social_hub_table";
 import MySocialMessagesRow from "./my_social_messages_table";
 import MySocialMessagesWithReactionsRow from "./my_social_messages_with_reactions_table";
+import MySoulStatsRow from "./my_soul_stats_table";
 import MyUpgradeBenchRow from "./my_upgrade_bench_table";
 import MyUpgradeBenchThirdSlotRow from "./my_upgrade_bench_third_slot_table";
 import PatreonTickerSupportersRow from "./patreon_ticker_supporters_table";
@@ -368,6 +371,7 @@ import ProceduralBossRow from "./procedural_boss_table";
 import ProceduralProgressRow from "./procedural_progress_table";
 import ReleaseNoticeRow from "./release_notice_table";
 import SocialDuelMessageRow from "./social_duel_message_table";
+import SoulDimensionConfigRow from "./soul_dimension_config_table";
 import SpiderBossRow from "./spider_boss_table";
 import SpiderResultRow from "./spider_result_table";
 import TempestKirinBossRow from "./tempest_kirin_boss_table";
@@ -1229,6 +1233,17 @@ const tablesSchema = __schema({
       { name: 'social_duel_message_message_id_key', constraint: 'unique', columns: ['messageId'] },
     ],
   }, SocialDuelMessageRow),
+  soulDimensionConfig: __table({
+    name: 'soul_dimension_config',
+    indexes: [
+      { accessor: 'id', name: 'soul_dimension_config_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'soul_dimension_config_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, SoulDimensionConfigRow),
   spiderBoss: __table({
     name: 'spider_boss',
     indexes: [
@@ -1545,6 +1560,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyProceduralBossRow),
+  myRewardKills: __table({
+    name: 'my_reward_kills',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyRewardKillsRow),
   mySocialHub: __table({
     name: 'my_social_hub',
     indexes: [
@@ -1566,6 +1588,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MySocialMessagesWithReactionsRow),
+  mySoulStats: __table({
+    name: 'my_soul_stats',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MySoulStatsRow),
   myUpgradeBench: __table({
     name: 'my_upgrade_bench',
     indexes: [
@@ -1754,6 +1783,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_profile_icon", SetProfileIconReducer),
   __reducerSchema("set_release_window", SetReleaseWindowReducer),
   __reducerSchema("set_skin_tone", SetSkinToneReducer),
+  __reducerSchema("set_soul_dimension_open", SetSoulDimensionOpenReducer),
   __reducerSchema("set_speed", SetSpeedReducer),
   __reducerSchema("share_duel_replay", ShareDuelReplayReducer),
   __reducerSchema("share_guild_battle", ShareGuildBattleReducer),

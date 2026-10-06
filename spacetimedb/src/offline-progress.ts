@@ -1,3 +1,4 @@
+import { countRewardKills } from "./soul-dimension";
 import { challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { table, t } from "spacetimedb/server";
 import { offlineProgressEnabled } from "./offline-preference";
@@ -234,6 +235,8 @@ export function grantOfflineProgress(ctx: any, progress: any, ports: OfflineGran
     attackSpeed: progress.attackRate - next.attackRate,
   });
   ports.writeProgress(ctx, next);
+  // Offline farming is campaign or Endless farming: its kills count towards the Soul Dimension's tiers.
+  countRewardKills(ctx, ctx.sender, grant.outcome.rewards);
   const lifetime = ctx.db.playerLifetime.identity.find(ctx.sender);
   if (lifetime) {
     ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: lifetime.enemyKills + BigInt(grant.outcome.kills) });

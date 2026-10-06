@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.899.10": [
+    "Moonfen and Verdant Catacombs mushrooms have new art",
+  ],
   "0.899.9": [
     "Autofarm judges when to move to the next map by that map's current enemy stats, not outdated ones",
   ],
@@ -2889,6 +2892,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.899.10": "2026-10-05",
   "0.899.9": "2026-10-05",
   "0.899.8": "2026-10-05",
   "0.899.7": "2026-10-05",

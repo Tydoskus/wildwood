@@ -607,3 +607,12 @@
 .quest-sheet .is-done .quest-bar span { background: var(--green); }
 .quest-sheet .quest-count { flex: 0 0 auto; color: #ffdf7e; font-size: 14px; }
 .quest-sheet .is-done .quest-count { color: var(--green); }
+/* The Soul Dimension portal's window: its stats and tier progress, in the travel window's frame. */
+.soul-sheet .soul-body { display: flex; flex-direction: column; gap: 10px; }
+.soul-section { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border: 2px solid rgba(196,140,255,.28); border-radius: 12px; background: #ffffff06; }
+.soul-section h3 { margin: 0 0 2px; color: #d9b8ff; font-size: 15px; }
+.soul-row { display: flex; justify-content: space-between; gap: 12px; margin: 0; font-size: 14px; }
+.soul-row strong { color: #fff; font-variant-numeric: tabular-nums; }
+.soul-row.is-done strong { color: #7ee08a; }
+.soul-note { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.35; }
+.farm-sheet .soul-toggle { justify-content: center; font-weight: 700; }

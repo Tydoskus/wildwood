@@ -95,6 +95,7 @@ export type MapGuideZone = {
 const MAP_GUIDE_DROPS: Record<MapId, readonly MapGuideDrop[]> = {
   first_steps: [],
   home_exterior: [],
+  soul_dimension: [],
   [TUTORIAL_FOREST_MAP_ID]: [
   ],
   [BEGINNER_DESERT_MAP_ID]: [
@@ -118,6 +119,7 @@ const MAP_GUIDE_DROPS: Record<MapId, readonly MapGuideDrop[]> = {
 const MAP_GUIDE_THEMES: Record<MapId, { ground: string; path: string; glow: string }> = {
   first_steps: { ground: "#31945b", path: "#8b6551", glow: "#65e889" },
   home_exterior: { ground: "#488761", path: "#b29a78", glow: "#82e9ff" },
+  soul_dimension: { ground: "#61864e", path: "#b89070", glow: "#c48cff" },
   [TUTORIAL_FOREST_MAP_ID]: { ground: "#31945b", path: "#8b6551", glow: "#65e889" },
   [BEGINNER_DESERT_MAP_ID]: { ground: "#d9a95f", path: "#c48b4b", glow: "#ffe09a" },
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: { ground: "#bfddeb", path: "#8fb7d0", glow: "#e9fbff" },

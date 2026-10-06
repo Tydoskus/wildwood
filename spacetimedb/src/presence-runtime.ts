@@ -15,7 +15,10 @@ import { generatedMapUnlocked } from "./procedural-maps";
 import { updateSnapshotRow } from "./snapshot-row-writes";
 import { requireAllowedDefeatSession } from "./defeat-session";
 import { generateMap, isProceduralMap, PROCEDURAL_ENTRY_BOSS } from "../../shared/procedural-maps";
-import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_WORLD_WIDTH, HOME_WORLD_HEIGHT } from "../../shared/home";
+import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN } from "../../shared/home";
+import { worldBoundsFor } from "../../shared/world-bounds";
+import { isSoulMap, SOUL_ARRIVAL } from "../../shared/soul-dimension";
+import { soulDimensionOpenFor } from "./soul-dimension";
 import { BLACK_BOOTS, BLACK_BOOTS_SPEED_BONUS } from "../../shared/items";
 import { PLAYER_MAP_FRAME_HZ, PLAYER_VELOCITY_SCALE, type PlayerMotionSample } from "../../shared/player-motion-frame";
 import { PLAYER_MOTION_DETAIL_FRAME_HZ } from "../../shared/player-motion-interest";
@@ -63,11 +66,7 @@ export function analyticalMotionAt(motion: any, sampledAtMicros: bigint) {
     moving: motion.moving,
     simulationTick: motion.simulationTick,
     anchoredAtMicros: motion.lastInputAt.microsSinceUnixEpoch,
-  }, sampledAtMicros);
-  if (motion.mapId === HOME_EXTERIOR_MAP_ID) {
-    sampled.x = Math.max(PLAYER_RADIUS, Math.min(HOME_WORLD_WIDTH - PLAYER_RADIUS, sampled.x));
-    sampled.y = Math.max(PLAYER_RADIUS, Math.min(HOME_WORLD_HEIGHT - PLAYER_RADIUS, sampled.y));
-  }
+  }, sampledAtMicros, worldBoundsFor(motion.mapId));
   return {
     ...motion,
     ...sampled,
@@ -415,7 +414,7 @@ export type PresenceRuntimeDeps = {
 
 export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
   const {
-    WORLD, VALID_MAP_IDS, MAP_ARRIVALS, hasEndlessTravelAccess, sameIdentity, finishLifetimeSession,
+    VALID_MAP_IDS, MAP_ARRIVALS, hasEndlessTravelAccess, sameIdentity, finishLifetimeSession,
     removeIdentityPresence, LEGACY_CLIENT_ERRORS, sessionForContext, isSupportedProtocol, sameConnection,
     activeDuelFor, effectiveMovementSpeedForProgress, equippedFeetForProgress,
   } = deps;
@@ -425,14 +424,16 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
     const requestedMap = VALID_MAP_IDS.has(saved?.mapId) ? saved.mapId : TUTORIAL_FOREST_MAP_ID;
     let mapId = requestedMap;
     mapId = accessibleCampaignMap(mapId, progress);
+    if (isSoulMap(mapId) && !soulDimensionOpenFor(ctx, identity)) mapId = HOME_EXTERIOR_MAP_ID;
     if (isProceduralMap(mapId) && !hasEndlessTravelAccess(ctx, identity) && !generatedMapUnlocked(mapId, ctx.db.proceduralProgress.identity.find(identity)?.completed ?? 0, Boolean(progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS[PROCEDURAL_ENTRY_BOSS]))) mapId = TUTORIAL_FOREST_MAP_ID;
-    const fallback = isProceduralMap(mapId) ? generateMap(mapId).arrival : mapId === HOME_EXTERIOR_MAP_ID ? HOME_EXTERIOR_SPAWN : mapId === TUTORIAL_FOREST_MAP_ID ? PLAYER_SPAWN : MAP_ARRIVALS[mapId as keyof typeof MAP_ARRIVALS];
+    const fallback = isProceduralMap(mapId) ? generateMap(mapId).arrival : isSoulMap(mapId) ? SOUL_ARRIVAL : mapId === HOME_EXTERIOR_MAP_ID ? HOME_EXTERIOR_SPAWN : mapId === TUTORIAL_FOREST_MAP_ID ? PLAYER_SPAWN : MAP_ARRIVALS[mapId as keyof typeof MAP_ARRIVALS];
     const useSavedPosition = mapId === requestedMap;
+    const bounds = worldBoundsFor(mapId);
     const x = useSavedPosition && Number.isFinite(saved?.x)
-      ? Math.max(PLAYER_RADIUS, Math.min(WORLD.width - PLAYER_RADIUS, saved.x))
+      ? Math.max(PLAYER_RADIUS, Math.min(bounds.width - PLAYER_RADIUS, saved.x))
       : fallback.x;
     const y = useSavedPosition && Number.isFinite(saved?.y)
-      ? Math.max(PLAYER_RADIUS, Math.min(WORLD.height - PLAYER_RADIUS, saved.y))
+      ? Math.max(PLAYER_RADIUS, Math.min(bounds.height - PLAYER_RADIUS, saved.y))
       : fallback.y;
     return { mapId, x, y, facing: useSavedPosition && Number.isFinite(saved?.facing) ? saved.facing : 0 };
   }
@@ -542,7 +543,7 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
     if (sequence <= current.lastInputSequence || ["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) return;
     if (![x, y, vx, vy, simulationTick, motionEpoch].every(Number.isFinite)) throw new SenderError("Movement state values must be finite");
 
-    const bounds = current.mapId === HOME_EXTERIOR_MAP_ID ? { width: HOME_WORLD_WIDTH, height: HOME_WORLD_HEIGHT } : WORLD;
+    const bounds = worldBoundsFor(current.mapId);
     const clampedX = Math.max(PLAYER_RADIUS, Math.min(bounds.width - PLAYER_RADIUS, x));
     const clampedY = Math.max(PLAYER_RADIUS, Math.min(bounds.height - PLAYER_RADIUS, y));
     const boundedVx = Math.max(-MAX_PACKED_PLAYER_VELOCITY, Math.min(MAX_PACKED_PLAYER_VELOCITY, vx));

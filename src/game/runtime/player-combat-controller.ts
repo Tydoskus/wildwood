@@ -1,3 +1,5 @@
+import { SOUL_STAT_DETAILS, soulEnemyId, type SoulStatId } from "../../../shared/soul-dimension";
+import { MIN_ATTACK_INTERVAL } from "../../../shared/rules";
 import { compareAutoFarmTargets, farmGroupMatches, type AutoFarmGroup, type AutoFarmPriority } from './auto-farm-priority';
 import { isMeleeWeapon, weaponAttackRange, segmentCircleHit, segmentEllipseHit } from "../weapon-combat";
 import { isProceduralMap } from "../../../shared/procedural-maps";
@@ -73,6 +75,7 @@ export function attackReadyAtWithoutTarget(nextAttackAtSeconds: number, nowSecon
 }
 
 export type PlayerCombatController = {
+  expectedDps: () => number;
   attackNearest: (enemyType?: AutoFarmGroup | null, campName?: string | null, priority?: AutoFarmPriority) => void;
   updateProjectiles: (dt: number) => void;
   /** `source` is who dealt it, which Reflect answers. */
@@ -145,6 +148,9 @@ export function createPlayerCombatController(options: {
   };
   currentMapId: () => string;
   onEnemyDefeated?: (enemy: EnemyState) => boolean;
+  /** The Soul Dimension: the soul stat an enemy pays (its kill pays no run stats), and what to do with one. */
+  soulStatOf?: (enemy: EnemyState) => SoulStatId | null;
+  onSoulKill?: (stat: SoulStatId) => void;
   onCombat?: () => void;
   playBowAttackSound?: () => void;
   logPickup: (text: string, color: string, baseText?: string) => void;
@@ -505,6 +511,25 @@ export function createPlayerCombatController(options: {
     saveProgress();
   }
 
+  /**
+   * A soul enemy's reward: flat (no research or prestige multiplier), straight
+   * onto the player like a run stat so the fight feels it now; the server's
+   * soul row is what keeps it.
+   */
+  function applySoulReward(stat: SoulStatId, x: number, y: number) {
+    const amount = SOUL_STAT_DETAILS[stat].reward;
+    switch (stat) {
+      case "damage": player.damage += amount; break;
+      case "health": addPlayerBaseMaxHealth(player, amount, options.healthMultiplierBonus()); break;
+      case "armor": player.armor += amount; break;
+      case "regen": player.regen += amount; break;
+      case "attackSpeed": player.attackRate = Math.min(player.attackRate, Math.max(MIN_ATTACK_INTERVAL, 1 / (1 / player.attackRate + amount))); break;
+      case "critDamage": break;
+    }
+    options.onSoulKill?.(stat);
+    spawnBurst(x, y, SOUL_STAT_DETAILS[stat].color, 16, 110);
+  }
+
   function killEnemy(enemy: EnemyState) {
     if (enemy.dead) return;
     enemy.dead = true;
@@ -518,9 +543,11 @@ export function createPlayerCombatController(options: {
     const site = spawnSites[enemy.siteId];
     if (site) scheduleEnemyRespawn(site);
     const base = enemy.definition ?? ENEMY_TYPES[enemy.type];
-    applyReward(enemy.reward, enemy.x, enemy.y);
+    const soulStat = options.soulStatOf?.(enemy) ?? null;
+    if (soulStat) applySoulReward(soulStat, enemy.x, enemy.y);
+    else applyReward(enemy.reward, enemy.x, enemy.y);
     const mapId = options.currentMapId();
-    recordRegularEnemyDefeat(mapId, isProceduralMap(mapId) ? `site:${enemy.siteId}` : enemy.type);
+    recordRegularEnemyDefeat(mapId, soulStat ? soulEnemyId(soulStat) : isProceduralMap(mapId) ? `site:${enemy.siteId}` : enemy.type);
     spawnBurst(enemy.x, enemy.y, DEATH_PARTICLE_COLOR, base.elite ? 28 : 12, base.elite ? 150 : 90);
   }
 
@@ -780,6 +807,12 @@ export function createPlayerCombatController(options: {
   }
 
   return {
+    /** Weapon damage a second as the player stands, criticals averaged in: what Soul Dimension enemies are built against. */
+    expectedDps() {
+      const chance = Math.max(0, Math.min(1, researchCriticalChance()));
+      const projectiles = isMeleeWeapon(options.equippedWeapon()) ? 1 : Math.max(1, player.projectileCount ?? 1);
+      return weaponDamage(false) * (1 + chance * (researchCriticalDamageMultiplier() - 1)) * projectiles / Math.max(.05, player.attackRate);
+    },
     attackNearest,
     updateProjectiles,
     damagePlayer,

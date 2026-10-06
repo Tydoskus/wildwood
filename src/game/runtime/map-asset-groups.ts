@@ -14,6 +14,7 @@ import {
   type MapId,
 } from "../world";
 import type { EnemyKind } from "../enemies";
+import { SOUL_ENEMY_KINDS } from "../soul-world";
 
 export type MapArtAssetGroup =
   | "forestBoss"
@@ -31,6 +32,9 @@ export type MapArtAssetGroup =
   | "cloudspireBoss"
   | "moonfenBoss"
   | "orchardDecor"
+  | "soulVillage"
+  /** The Soul Dimension's nature atlas alone: the pack mushrooms the glowing campaign maps draw. */
+  | "packNature"
   | "crystalHollowsBoss" | "clockworkRuinsBoss" | "duskfallOrchardBoss" | "neonBastionBoss" | "verdantCatacombsBoss" | "ionCitadelBoss";
 
 export type MapAssetGroup = {
@@ -44,6 +48,7 @@ export type MapAssetGroup = {
 const AUTHORED_MAP_ASSET_GROUPS = {
   [ONBOARDING_MAP_ID]: { art: ["forestDecor"], enemies: ["Spitter", "Brood"] },
   home_exterior: { art: ["forestDecor", "snowDecor"], enemies: [] },
+  soul_dimension: { art: ["soulVillage"], enemies: SOUL_ENEMY_KINDS },
   [TUTORIAL_FOREST_MAP_ID]: {
     art: ["forestBoss", "forestDecor"],
     enemies: ["Bramble", "Needle", "Mossback", "Spitter", "Brood", "Cindermaw", "King Slime", "Dread Warden"],
@@ -107,6 +112,7 @@ export const MAP_ASSET_GROUPS = withGeneratedMaps<MapAssetGroup>(AUTHORED_MAP_AS
 export const MAP_ENEMY_SPRITE_GROUPS = withGeneratedMaps<readonly EnemyKind[]>({
   [ONBOARDING_MAP_ID]: ["Spitter", "Brood"],
   home_exterior: [],
+  soul_dimension: SOUL_ENEMY_KINDS,
   [TUTORIAL_FOREST_MAP_ID]: MAP_ASSET_GROUPS[TUTORIAL_FOREST_MAP_ID].enemies,
   [BEGINNER_DESERT_MAP_ID]: MAP_ASSET_GROUPS[BEGINNER_DESERT_MAP_ID].enemies,
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: MAP_ASSET_GROUPS[INTERMEDIATE_SNOWLANDS_MAP_ID].enemies,

@@ -1,3 +1,5 @@
+import { SOUL_STAT_DETAILS, type SoulStatId } from "../../../shared/soul-dimension";
+import { soulStatOfCampName } from "../soul-world";
 import { residentDrawable } from "./resident-image";
 import { isMeleeWeapon } from "../weapon-combat";
 import { paintArrowProjectile, paintRockProjectile, rockProjectileSize } from "./weapon-projectile-renderer";
@@ -338,6 +340,21 @@ export function createActorRenderer(options: {
       x += labelCtx.measureText(segment.text).width;
     }
     return { canvas, width, height, anchorY: y };
+  }
+
+  /** A Soul Dimension enemy is named for the soul stat it pays, and shows that flat reward in its colour. */
+  function soulEnemyLabels(stat: SoulStatId) {
+    const cacheKey = `soul:${stat}`;
+    const cached = enemyLabelCache.get(cacheKey);
+    if (cached) return cached;
+    const detail = SOUL_STAT_DETAILS[stat];
+    const amount = stat === "critDamage" ? `+${+(detail.reward * 100).toFixed(1)}%` : stat === "attackSpeed" ? `+${detail.reward}/s` : `+${detail.reward}`;
+    const labels = {
+      name: createLabelBitmap([{ text: `Soul ${detail.label}`, color: "#f5e9c4" }], "bottom"),
+      reward: createLabelBitmap([{ text: amount, color: "#ffffff" }, { text: " ", color: "#ffffff" }, { text: detail.label, color: detail.color }], "top"),
+    };
+    enemyLabelCache.set(cacheKey, labels);
+    return labels;
   }
 
   function enemyLabels(type: string, reward: EnemyDefinition["reward"]) {
@@ -786,7 +803,9 @@ export function createActorRenderer(options: {
     drawScreenSpaceAt(ctx, camera.zoom, x, y, () => {
       ctx.globalAlpha = visibility;
       const displayAmount = (reward: EnemyDefinition["reward"]) => options.rewardAmount?.(reward.type, reward.amount) ?? reward.amount * options.rewardMultiplier();
-      const labels = enemyLabels(enemy.displayName ?? (enemy.generatedBoss ? enemy.campName : enemy.type), { ...enemy.reward, amount: displayAmount(enemy.reward) });
+      const soulStat = soulStatOfCampName(enemy.campName);
+      const labels = soulStat ? soulEnemyLabels(soulStat)
+        : enemyLabels(enemy.displayName ?? (enemy.generatedBoss ? enemy.campName : enemy.type), { ...enemy.reward, amount: displayAmount(enemy.reward) });
       // Name and empty bar, plus the full bar at full health: one image
       // shared by every enemy of this kind (enemy-status-plate.ts).
       const full = hpRatio >= 1;

@@ -1,3 +1,4 @@
+import { SOUL_ATLAS_SOURCE, SOUL_VILLAGE_GROUND_SOURCE, SOUL_VILLAGE_PROPS_SOURCE } from "./soul-prop-renderer";
 import { isProceduralMap } from "../../../shared/procedural-maps";
 import { DUEL_PLATFORM_ART_SOURCE, DUEL_SPACE_BACKGROUND_SOURCE } from "../duel";
 import { requiredCanvasContext } from "./dom";
@@ -274,6 +275,9 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     "assets/wildstat/lava/charred-tree-2.webp",
   ];
   const lavaAssets = lavaAssetSources.map((source) => createLazyImageAsset(source));
+  const soulAtlasAsset = createLazyImageAsset(SOUL_ATLAS_SOURCE);
+  const soulVillagePropsAsset = createLazyImageAsset(SOUL_VILLAGE_PROPS_SOURCE);
+  const soulVillageGroundAsset = createLazyImageAsset(SOUL_VILLAGE_GROUND_SOURCE);
   const assetGroups = {
     forestDecor: [treeAsset],
     orchardDecor: lavaAssets.slice(6),
@@ -281,6 +285,8 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     lavaDecor: lavaAssets,
     nightDecor: [nightTreeAsset],
     cherryDecor: [cherryTreeAsset],
+    soulVillage: [soulAtlasAsset, soulVillagePropsAsset, soulVillageGroundAsset],
+    packNature: [soulAtlasAsset],
     ...Object.fromEntries(BOSS_KINDS.map((kind) => [BOSSES[kind].assetGroup, bossArt[kind].assets])),
   } as Record<MapArtAssetGroup, LazyImageAsset[]>;
   const mapAssets = {} as Record<MapId, LazyImageAsset[]>;
@@ -290,6 +296,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     if (editedDecor.has("tree") && mapId !== "samurai_garden") groups.add(mapId === "infernal_depths" ? "nightDecor" : "forestDecor");
     if (editedDecor.has("snowPine") || editedDecor.has("upgradeBench")) groups.add("snowDecor");
     if (editedDecor.has("lavaPool") || editedDecor.has("lavaRock") || editedDecor.has("charredTree")) groups.add("lavaDecor");
+    if (editedDecor.has("glowMushroom") || mapId === "moonfen" || mapId === "verdant_catacombs") groups.add("packNature");
     mapAssets[mapId] = [...groups].flatMap((group) => assetGroups[group]);
   }
   function ensureMapAssets(mapId: MapId) {
@@ -328,6 +335,9 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     portalArch: portalArchAsset.image,
     portalSwirl: portalSwirlAsset.image,
     charredTrees: lavaAssets.slice(6).map((asset) => asset.image),
+    soulAtlas: soulAtlasAsset.image,
+    soulVillageProps: soulVillagePropsAsset.image,
+    soulVillageGround: soulVillageGroundAsset.image,
     lavaPools: lavaAssets.slice(0, 3).map((asset) => asset.image),
     lavaRocks: lavaAssets.slice(3, 6).map((asset) => asset.image),
     nightTreeSpriteBounds: () => nightTreeBounds,

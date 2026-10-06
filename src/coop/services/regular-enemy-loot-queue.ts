@@ -1,5 +1,5 @@
 import { REGULAR_KILL_REPORT_SECONDS } from "../../../shared/rules";
-import { combatMap, type EnemyDefeat } from "../../../shared/enemy-defeats";
+import { killReportMap, type EnemyDefeat } from "../../../shared/enemy-defeats";
 import { withRequestDeadline } from "./request-deadline";
 import { wallClockNowMs } from "../../app/trusted-clock";
 import { REGULAR_ENEMY_LOOT_BATCH_MAX } from "../../../shared/regular-map-loot";
@@ -112,7 +112,7 @@ export function createRegularEnemyLootQueue(options: {
       const saved = JSON.parse(options.storage.getItem(storageKey) ?? "null") as State | null;
       if (saved && typeof saved.streamId === "string" && Number.isSafeInteger(saved.nextSequence) &&
           saved.nextSequence > 0 && Array.isArray(saved.batches) && saved.batches.every(batch =>
-            Number.isSafeInteger(batch.sequence) && batch.sequence > 0 && combatMap(batch.mapId) &&
+            Number.isSafeInteger(batch.sequence) && batch.sequence > 0 && killReportMap(batch.mapId) &&
             Number.isInteger(batch.count) && batch.count > 0 && batch.count <= REGULAR_ENEMY_LOOT_BATCH_MAX &&
             validSimulatedMillis(batch.simulatedMillis) &&
             (Array.isArray(batch.enemies) && batch.enemies.every(entry => typeof entry.enemy === "string" && Number.isInteger(entry.count) && entry.count > 0) && batch.enemies.reduce((sum, entry) => sum + entry.count, 0) === batch.count))) return saved;
@@ -262,7 +262,7 @@ export function createRegularEnemyLootQueue(options: {
     hasPending: () => Boolean(state?.batches.length || adopted.length),
     record(mapId: string, enemy: string, autoFarm = false) {
       if (owner !== options.identity()) begin();
-      if (!owner || !state || !combatMap(mapId) || !enemy) return;
+      if (!owner || !state || !killReportMap(mapId) || !enemy) return;
       const tail = state.batches.at(-1);
       let target = tail;
       // Both reducers pay the same rewards. Manual movement can override

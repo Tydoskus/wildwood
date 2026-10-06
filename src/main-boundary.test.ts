@@ -78,7 +78,11 @@ import { describe, expect, it } from "vitest";
 // runtime module fifteen boss states, fifteen hazard lists, and a sync, update,
 // reset, collision and map check per boss: it passes the two boss records and
 // one hook per concern, and the registry says which boss a map has.
-const MAX_LINES = 1_943;
+// 1_946 (2026-10-05): the Soul Dimension's construction (two lines) and its
+// import. Only the composition root holds the coop session, the player, the
+// world's lists, combat's strength and the map controller's travel; the world
+// streaming, enemies, portal and window live in soul-dimension*.ts.
+const MAX_LINES = 1_946;
 const TARGET_LINES = 1_000;
 
 describe("game composition boundary", () => {

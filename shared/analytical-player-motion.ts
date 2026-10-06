@@ -34,6 +34,8 @@ export type AnalyticalPlayerMotion = {
 export function analyticalPlayerMotionAt(
   anchor: PlayerMotionAnchor,
   sampledAtMicros: bigint,
+  /** The map's size (worldBoundsFor); the classic 4800 square when left out. */
+  bounds: { width: number; height: number } = { width: WORLD_WIDTH, height: WORLD_HEIGHT },
 ): AnalyticalPlayerMotion {
   const rawElapsedMicros = sampledAtMicros > anchor.anchoredAtMicros
     ? sampledAtMicros - anchor.anchoredAtMicros
@@ -49,8 +51,8 @@ export function analyticalPlayerMotionAt(
   const vy = moving ? anchorVy : 0;
   const anchorX = Number.isFinite(anchor.x) ? anchor.x : PLAYER_RADIUS;
   const anchorY = Number.isFinite(anchor.y) ? anchor.y : PLAYER_RADIUS;
-  const x = Math.max(PLAYER_RADIUS, Math.min(WORLD_WIDTH - PLAYER_RADIUS, anchorX + anchorVx * elapsedSeconds));
-  const y = Math.max(PLAYER_RADIUS, Math.min(WORLD_HEIGHT - PLAYER_RADIUS, anchorY + anchorVy * elapsedSeconds));
+  const x = Math.max(PLAYER_RADIUS, Math.min(bounds.width - PLAYER_RADIUS, anchorX + anchorVx * elapsedSeconds));
+  const y = Math.max(PLAYER_RADIUS, Math.min(bounds.height - PLAYER_RADIUS, anchorY + anchorVy * elapsedSeconds));
   const baseTick = Number.isFinite(anchor.simulationTick) ? Math.max(0, Math.floor(anchor.simulationTick)) >>> 0 : 0;
   const elapsedTicks = Math.floor(Number(elapsedMicros) * PLAYER_SIMULATION_HZ / 1_000_000);
 
