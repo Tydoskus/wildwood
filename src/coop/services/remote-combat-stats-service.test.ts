@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Identity } from "spacetimedb";
-import { remoteCombatStatsFromRows } from "./remote-combat-stats-service";
+import { createRemoteCombatStatsService, remoteCombatStatsFromRows } from "./remote-combat-stats-service";
 
 const identity = {} as Identity;
 
@@ -50,5 +50,59 @@ describe("remote combat stats", () => {
     });
     expect(stats.damage).toBeCloseTo(110);
     expect(stats.regen).toBeCloseTo(5.3);
+  });
+});
+
+describe("remote combat stats loading", () => {
+  /** A connection whose subscriptions apply at once, counting each one. */
+  function connection(players: string[]) {
+    const counts = { subscribe: 0, unsubscribe: 0 };
+    const progress = (hex: string) => ({ identity: { toHexString: () => hex }, maxHp: 100, damage: 10, attackRate: 1, projectileSpeed: 1000,
+      projectileCount: 1, attackRange: 200, armor: 0, regen: 0, equippedHead: "", equippedChest: "", equippedRightHand: "", equippedLeftHand: "" });
+    const conn = {
+      db: {
+        playerProgress: { iter: () => players.map(progress) },
+        playerWideStats: { iter: () => [], identity: { find: () => undefined } },
+        playerResearch: { iter: () => [] },
+        playerItemUpgrade: { iter: () => [] },
+      },
+      subscriptionBuilder() {
+        let applied = () => {};
+        const builder = {
+          onApplied(callback: () => void) { applied = callback; return builder; },
+          onError() { return builder; },
+          subscribe() {
+            counts.subscribe += 1;
+            const handle = { unsubscribe: () => { counts.unsubscribe += 1; } };
+            queueMicrotask(() => applied());
+            return handle;
+          },
+        };
+        return builder;
+      },
+    };
+    return { conn, counts };
+  }
+
+  it("loads each player on screen once, however many there are and however often they are asked for", async () => {
+    vi.stubGlobal("window", { setTimeout, clearTimeout });
+    const players = Array.from({ length: 20 }, (_, index) => `player-${index}`);
+    const { conn, counts } = connection(players);
+    let now = 0;
+    const service = createRemoteCombatStatsService({
+      connection: () => conn as never,
+      identityFor: () => ({ toHexString: () => "" }) as never,
+      nowMs: () => now,
+    });
+    // Ten seconds of frames, every player asked for each frame, as the enemy simulation does.
+    for (let frame = 0; frame < 600; frame++) {
+      now += 1_000 / 60;
+      for (const player of players) service.api.remoteCombatStats(player);
+      await Promise.resolve();
+    }
+    expect(counts.subscribe).toBe(players.length);
+    expect(counts.unsubscribe).toBe(players.length);
+    expect(service.api.remoteCombatStats("player-7")).toMatchObject({ maxHp: 100 });
+    vi.unstubAllGlobals();
   });
 });
