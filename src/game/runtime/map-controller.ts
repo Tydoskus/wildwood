@@ -5,7 +5,7 @@ import type { EnemyState, PlayerState } from "./types";
 import { BOSS_KINDS, clearBossAttack, type BossHazards, type BossStates } from "./boss-registry";
 import type { MapId, SpawnSite } from "../world";
 
-export type MapPortal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId; label?: string };
+export type MapPortal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId; label?: string; art?: "packGate" };
 
 type MapConfig = Record<MapId, { portal: MapPortal | null; arrival: { x: number; y: number }; secondaryPortal?: MapPortal }>;
 

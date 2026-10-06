@@ -39,6 +39,12 @@ export type SoulEmitter = (typeof scene.emitters)[number];
 /** The village's particle emitters (chimney smoke, campfire smoke and sparks), in world units. */
 export const SOUL_VILLAGE_EMITTERS: readonly SoulEmitter[] = scene.emitters.map(emitter => ({ ...emitter, x: originX + emitter.x, y: originY + emitter.y }));
 
+/** The wells, as polygons: walk into one and you fall in. */
+export const SOUL_VILLAGE_PITS: readonly SoulSolid[] = (scene.pits ?? []).map(flat => {
+  const xs: number[] = [], ys: number[] = [];
+  for (let i = 0; i + 1 < flat.length; i += 2) { xs.push(originX + flat[i]); ys.push(originY + flat[i + 1]); }
+  return { xs, ys, left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) };
+});
 export type SoulSolid = { xs: number[]; ys: number[]; left: number; top: number; right: number; bottom: number };
 /** What a player cannot walk through: the pack's own colliders, as drawn (a round fountain stays round). */
 export const SOUL_VILLAGE_SOLIDS: readonly SoulSolid[] = scene.solids.map(flat => {

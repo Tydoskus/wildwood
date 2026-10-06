@@ -45,6 +45,7 @@ type ExpectedApiKey =
   | "rewardKills"
   | "soulDimensionOpen"
   | "setSoulDimensionOpen"
+  | "fallIntoWell"
   | "connect"
   | "connectionDiagnostics"
   | "continueAsGuest"

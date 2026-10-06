@@ -20,6 +20,7 @@ import { nightEnemyOpacity, nightGroundShadowsVisible } from "./night-visibility
 import { snapWorldRenderCoordinate } from "./render-space";
 import { createSoulGroundRenderer, createSoulPropRenderer } from "./soul-prop-renderer";
 import { createSoulParticles } from "./soul-particles";
+import { createSoulWater } from "./soul-water";
 import { isSoulMap } from "../../../shared/soul-dimension";
 
 type Viewport = { width: number; height: number; dpr: number };
@@ -76,6 +77,8 @@ export type WorldRenderRuntimeOptions = {
     soulAtlas?: HTMLImageElement;
     soulVillageProps?: HTMLImageElement;
     soulVillageGround?: HTMLImageElement;
+    soulWater?: HTMLImageElement;
+    soulShore?: HTMLImageElement;
     bossArt: BossArtAssets;
     duelPlatformArt: HTMLImageElement;
   };
@@ -308,6 +311,8 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       villageProps: () => options.assets.soulVillageProps, devicePixelRatio: options.devicePixelRatio, time: options.gameTime });
     soulGround = createSoulGroundRenderer({ ctx: options.ctx, camera: options.camera, ground: () => options.assets.soulVillageGround,
       decor: options.decor, drawProp: drawSoulProp,
+      drawWater: createSoulWater({ ctx: options.ctx, camera: options.camera, water: () => options.assets.soulWater, shore: () => options.assets.soulShore,
+        viewport: options.viewport, time: options.gameTime }),
       viewport: options.viewport, devicePixelRatio: options.devicePixelRatio, active: () => isSoulMap(options.currentMapId()) });
     const depth = createDepthWorldRenderer({
       camera: options.camera,

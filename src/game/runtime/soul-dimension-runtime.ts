@@ -1,11 +1,11 @@
 import {
-  addSoulKills, cleanSoulStats, EMPTY_REWARD_KILLS, isSoulMap, soulChunkOf, soulDimensionAccess, soulEnemyStats, soulTier,
+  addSoulKills, cleanSoulStats, EMPTY_REWARD_KILLS, isSoulMap, soulChunkOf, soulDimensionAccess, soulEnemyStats, soulTier, SOUL_ARRIVAL,
   withSoulStats, SOUL_HOME_GATE, SOUL_STAT_DETAILS, type RewardKillCounts, type SoulStatId, type SoulStats, type SoulStrength,
 } from "../../../shared/soul-dimension";
 import { HOME_EXTERIOR_MAP_ID, HOME_SOUL_PORTAL } from "../../../shared/home";
 import { isDeveloperIdentity } from "../../app/developer";
 import { ENEMY_TYPES, type EnemyDefinition } from "../enemies";
-import { SOUL_VILLAGE_SOLIDS, type SoulSolid } from "../soul-village";
+import { SOUL_VILLAGE_PITS, SOUL_VILLAGE_SOLIDS, type SoulSolid } from "../soul-village";
 import { soulCampName, soulCampPoints, soulCampStat, soulStatOfCampName, soulWindowCamps, soulWindowDecor, SOUL_ENEMY_SPECIES } from "../soul-world";
 import type { MapId, SpawnSite, WorldDecor } from "../world";
 import type { MapPortal } from "./map-controller";
@@ -18,11 +18,12 @@ export type SoulDimensionSource = {
   rewardKills?: () => RewardKillCounts;
   soulDimensionOpen?: () => boolean;
   setSoulDimensionOpen?: (open: boolean) => Promise<boolean>;
+  fallIntoWell?: () => Promise<boolean>;
 };
 
 /** The gate home in the village, drawn and used like any map portal. */
-export const SOUL_HOME_GATE_PORTAL: MapPortal = { x: SOUL_HOME_GATE.x, y: SOUL_HOME_GATE.y, width: 130, height: 150, depth: SOUL_HOME_GATE.y,
-  destination: HOME_EXTERIOR_MAP_ID, label: "Home" };
+export const SOUL_HOME_GATE_PORTAL: MapPortal = { x: SOUL_HOME_GATE.x, y: SOUL_HOME_GATE.y, width: 150, height: 158, depth: SOUL_HOME_GATE.y,
+  destination: HOME_EXTERIOR_MAP_ID, label: "Home", art: "packGate" };
 const HOME_PORTAL: MapPortal = { ...HOME_SOUL_PORTAL };
 
 /** The village's water and building footprints: a player cannot walk through them. */
@@ -31,6 +32,22 @@ const STRENGTH_REFRESH_SECONDS = 1;
 /** Where the feet are below the player's position (depth-world-renderer sorts the player there too), and how wide. */
 const FEET_OFFSET = 29;
 const FEET_RADIUS = 12;
+/** How far into a well's outline the feet must reach to fall: its opening, not its rim. */
+const WELL_OPENING = .6;
+
+function inside(x: number, y: number, solid: SoulSolid) {
+  let hit = false;
+  for (let i = 0, j = solid.xs.length - 1; i < solid.xs.length; j = i++) {
+    if ((solid.ys[i] > y) !== (solid.ys[j] > y) && x < (solid.xs[j] - solid.xs[i]) * (y - solid.ys[i]) / (solid.ys[j] - solid.ys[i]) + solid.xs[i]) hit = !hit;
+  }
+  return hit;
+}
+/** Whether a point is in a well's opening: inside its outline shrunk towards its middle. */
+function inWell(x: number, y: number, well: SoulSolid) {
+  if (x < well.left || x > well.right || y < well.top || y > well.bottom) return false;
+  const cx = well.xs.reduce((sum, v) => sum + v, 0) / well.xs.length, cy = well.ys.reduce((sum, v) => sum + v, 0) / well.ys.length;
+  return inside(cx + (x - cx) / WELL_OPENING, cy + (y - cy) / WELL_OPENING, well);
+}
 
 /** Moves a circle out of a polygon: to the nearest point of its outline, plus the circle's radius. */
 export function pushOutOf(circle: { x: number; y: number; r: number }, solid: SoulSolid) {
@@ -192,6 +209,21 @@ export function createSoulDimensionRuntime(deps: {
     player.y = feet.y - FEET_OFFSET;
   }
 
+  let falling = false;
+  /** Feet in a well: splash, back on the square, and the server is told so it agrees where the player is. */
+  function checkWells() {
+    const { player } = deps;
+    if (falling || player.hp <= 0) return;
+    const feetY = player.y + FEET_OFFSET;
+    if (!SOUL_VILLAGE_PITS.some(well => inWell(player.x, feetY, well))) return;
+    falling = true;
+    deps.logPickup?.("Splash! You fell into the well", "#7fd4ff");
+    player.x = SOUL_ARRIVAL.x;
+    player.y = SOUL_ARRIVAL.y;
+    player.moving = false;
+    void (source()?.fallIntoWell?.() ?? Promise.resolve(false)).catch(() => false).finally(() => { falling = false; });
+  }
+
   function reset() {
     windowKey = "";
     windowTier = -1;
@@ -206,6 +238,7 @@ export function createSoulDimensionRuntime(deps: {
       // A map load empties the site list; start the window over with it.
       if (windowKey && !deps.spawnSites.length) reset();
       refreshWindow();
+      checkWells();
       resolveVillageCollision();
       strengthClock -= dt;
       if (strengthClock <= 0) { strengthClock = STRENGTH_REFRESH_SECONDS; refreshWaitingDefinitions(); }

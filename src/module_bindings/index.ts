@@ -120,6 +120,7 @@ import DevWarnPlayerReducer from "./dev_warn_player_reducer";
 import DisconnectPatreonReducer from "./disconnect_patreon_reducer";
 import EnterWorldReducer from "./enter_world_reducer";
 import EnterWorldWithTutorialReducer from "./enter_world_with_tutorial_reducer";
+import FallIntoWellReducer from "./fall_into_well_reducer";
 import FinishLoginMoveReducer from "./finish_login_move_reducer";
 import FriendActionReducer from "./friend_action_reducer";
 import FulfillGemPurchaseReducer from "./fulfill_gem_purchase_reducer";
@@ -1706,6 +1707,7 @@ const reducersSchema = __reducers(
   __reducerSchema("disconnect_patreon", DisconnectPatreonReducer),
   __reducerSchema("enter_world", EnterWorldReducer),
   __reducerSchema("enter_world_with_tutorial", EnterWorldWithTutorialReducer),
+  __reducerSchema("fall_into_well", FallIntoWellReducer),
   __reducerSchema("finish_login_move", FinishLoginMoveReducer),
   __reducerSchema("friend_action", FriendActionReducer),
   __reducerSchema("fulfill_gem_purchase", FulfillGemPurchaseReducer),

@@ -44,6 +44,8 @@ if (!guid) throw new Error(`no ${PREFAB} in the package`);
 const objects = expand(guid);
 /** What blocks walking, as Unity colliders do: each a polygon in Unity units, with its box. */
 const solids = [], passages = [];
+/** The wells: walk into one and you fall in (the game puts you back on the square). */
+const pits = [];
 const shapeOf = points => ({ points, box: [Math.min(...points.map(p => p[0])), Math.min(...points.map(p => p[1])), Math.max(...points.map(p => p[0])), Math.max(...points.map(p => p[1]))] });
 
 // ---- Index the expanded prefab. ----
@@ -148,6 +150,7 @@ const renderersPer = new Map();
 for (const [, object] of objects) if (object.classId === 212) for (const id of object.instances ?? []) renderersPer.set(id, (renderersPer.get(id) ?? 0) + 1);
 /** The unit a renderer or collider belongs to: its outermost placed prefab small enough to be one thing, else its sorting group. */
 const unitOf = (component, goId) => (component?.instances ?? []).find(id => (renderersPer.get(id) ?? 0) <= 24) ?? sortingGroup(goId);
+const isWell = (component, goId) => /^Well/.test(gameObjects.get(String(unitOf(component, goId)))?.m_Name ?? "");
 /** Each unit's box colliders, [left, bottom, right, top]: a building's tell where each of its walls stands. */
 const unitColliders = new Map();
 
@@ -170,13 +173,13 @@ for (const [goId] of gameObjects) {
     if (component.classId === 61) {
       const cx = world.x + num(data.m_Offset?.x) * world.sx, cy = world.y + num(data.m_Offset?.y) * world.sy;
       const w = num(data.m_Size?.x) * Math.abs(world.sx), h = num(data.m_Size?.y) * Math.abs(world.sy);
-      solids.push(shapeOf([[cx - w / 2, cy - h / 2], [cx + w / 2, cy - h / 2], [cx + w / 2, cy + h / 2], [cx - w / 2, cy + h / 2]]));
+      (isWell(component, goId) ? pits : solids).push(shapeOf([[cx - w / 2, cy - h / 2], [cx + w / 2, cy - h / 2], [cx + w / 2, cy + h / 2], [cx - w / 2, cy + h / 2]]));
       const unit = unitOf(component, goId);
       if (unit) unitColliders.set(unit, [...(unitColliders.get(unit) ?? []), solids.at(-1).box]);
     } else if (component.classId === 60) {
       for (const path of data.m_Points?.m_Paths ?? []) {
         if (!Array.isArray(path) || !path.length) continue;
-        solids.push(shapeOf(path.map(point => [world.x + (num(point.x) + num(data.m_Offset?.x)) * world.sx, world.y + (num(point.y) + num(data.m_Offset?.y)) * world.sy])));
+        (isWell(component, goId) ? pits : solids).push(shapeOf(path.map(point => [world.x + (num(point.x) + num(data.m_Offset?.x)) * world.sx, world.y + (num(point.y) + num(data.m_Offset?.y)) * world.sy])));
       }
     }
   }
@@ -213,7 +216,7 @@ for (const [goId] of gameObjects) {
       const matrix = matrices[num(info.m_TileMatrixIndex)]?.m_Data ?? {};
       const color = colors[num(info.m_TileColorIndex)]?.m_Data ?? {};
       const x = world.x + (num(at.x) + num(anchor.x, .5)) * cw, y = world.y + (num(at.y) + num(anchor.y, .5)) * ch;
-      const piece = { order: num(renderer.m_SortingOrder), x, y, sprite, flipX: num(matrix.e00, 1) < 0, flipY: num(matrix.e11, 1) < 0, alpha: num(color.a, 1), seq: seq++ };
+      const piece = { order: num(renderer.m_SortingOrder), layer: name, x, y, sprite, flipX: num(matrix.e00, 1) < 0, flipY: num(matrix.e11, 1) < 0, alpha: num(color.a, 1), seq: seq++ };
       // A tilemap collider takes each tile's own physics shape: points in pixels from the sprite's centre.
       if (collides) for (const points of sprite.physicsShape ?? []) {
         if (!Array.isArray(points) || points.length < 3) continue;
@@ -243,9 +246,13 @@ for (const [goId] of gameObjects) {
   const groupWorld = group ? worldOf(group) : world;
   // Inside a unit, Unity draws a sorting group by the group's own order, and a lone sprite by its order.
   const unitOrder = sorting ? num(componentOf(sorting, 210)?.data?.m_SortingOrder) : num(renderer.m_SortingOrder);
+  // Unity sorts level by level: the outermost sorting group's order, then each nested group's, then the sprite's own.
+  const chain = [];
+  for (let id = goId, guard = 0; id && guard < 64; guard++, id = parentGo(id)) if (componentOf(id, 210)) chain.unshift(num(componentOf(id, 210).data?.m_SortingOrder));
+  chain.push(num(renderer.m_SortingOrder));
   const shadow = sprite.shadow;
   props.push({ clip, goId,
-    depthY: groupWorld.y, unitOrder, order: num(renderer.m_SortingOrder), seq: seq++, x: world.x, y: world.y, sprite, group,
+    depthY: groupWorld.y, unitOrder, chain, order: num(renderer.m_SortingOrder), seq: seq++, x: world.x, y: world.y, sprite, group,
     flipX: String(renderer.m_FlipX) === "1" !== (world.sx < 0), flipY: String(renderer.m_FlipY) === "1",
     size: num(renderer.m_DrawMode) === 1 && renderer.m_Size ? { x: num(renderer.m_Size.x) * Math.abs(world.sx), y: num(renderer.m_Size.y) * Math.abs(world.sy) } : null,
     // Shadows at full strength: the game fades them all together, so overlapping ones do not stack darker.
@@ -257,6 +264,30 @@ if (process.env.DEBUG_AT) {
   const [ax, ay] = process.env.DEBUG_AT.split(",").map(Number);
   for (const prop of props) if (Math.hypot(prop.x * UNITS - ax, -prop.y * UNITS - ay) < 80) console.log(JSON.stringify({ name: gameObjects.get(String(prop.goId))?.m_Name, x: Math.round(prop.x * UNITS), y: Math.round(-prop.y * UNITS), depth: Math.round(-prop.depthY * UNITS), order: prop.order, group: prop.group, groupName: gameObjects.get(String(prop.group))?.m_Name }));
 }
+// A prefab parented onto another (the crossbow on its tower) is one thing with it: it sorts at the other's
+// base, drawn after the other's own parts of the same order, as a child is.
+const unitRoots = new Set(props.map(prop => prop.group).filter(Boolean));
+for (const prop of props) {
+  if (!prop.group) continue;
+  let outer = null;
+  for (let id = parentGo(prop.group), guard = 0; id && guard < 64; guard++, id = parentGo(id)) if (unitRoots.has(id)) outer = id;
+  if (!outer) continue;
+  prop.group = outer;
+  prop.depthY = worldOf(outer).y;
+  prop.unitOrder = (prop.unitOrder ?? prop.order) + .5;
+  if (prop.chain) prop.chain = [prop.chain[0] + .5, ...prop.chain.slice(1)];
+}
+
+/** Order inside one unit: each level's sorting order in turn, as Unity's nested sorting groups do. */
+function compareChains(a, b) {
+  const x = a.chain ?? [a.unitOrder ?? a.order], y = b.chain ?? [b.unitOrder ?? b.order];
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    const difference = (x[i] ?? 0) - (y[i] ?? 0);
+    if (difference) return difference;
+  }
+  return 0;
+}
+
 // ---- The ground image. ----
 ground.sort((a, b) => a.order - b.order || a.seq - b.seq);
 const groundPieces = [];
@@ -272,9 +303,48 @@ await sharp({ create: { width: maxX - minX, height: maxY - minY, channels: 4, ba
   .composite(groundPieces.map(p => ({ input: p.buffer, left: Math.round(p.gx - minX), top: Math.round(p.gy - minY) })))
   .webp({ quality: 90, alphaQuality: 90, effort: 6 }).toFile(join(outDir, "village-ground.webp"));
 
+// ---- The river's masks, for the game's moving water (the demo animates it with a shader): the open water
+// you can see (water tiles, less everything drawn over them: banks, bridges), and a band along its shore. ----
+{
+  const width = maxX - minX, height = maxY - minY;
+  const waterOrder = Math.max(...ground.filter(piece => /^Water$/i.test(piece.layer)).map(piece => piece.order));
+  const solidWhite = async piece => sharp(piece.buffer).ensureAlpha().linear([0, 0, 0, 1], [255, 255, 255, 0]).png().toBuffer();
+  const layers = [];
+  for (const [index, piece] of groundPieces.entries()) {
+    const source = ground[index];
+    const water = /^Water$/i.test(source.layer);
+    if (!water && source.order <= waterOrder) continue;
+    layers.push({ input: await solidWhite(piece), left: Math.round(piece.gx - minX), top: Math.round(piece.gy - minY), blend: water ? "over" : "dest-out" });
+  }
+  const mask = await sharp({ create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).composite(layers).raw().toBuffer();
+  const alpha = new Float32Array(width * height);
+  for (let i = 0; i < alpha.length; i++) alpha[i] = mask[i * 4 + 3] / 255;
+  // A box blur of the mask: near 1 only well inside the water, so 1 minus it lights the shore.
+  const blur = (source, radius) => {
+    const out = new Float32Array(source.length), tmp = new Float32Array(source.length);
+    for (let y = 0; y < height; y++) { let sum = 0; for (let x = -radius; x < width + radius; x++) {
+      sum += source[y * width + Math.min(width - 1, Math.max(0, x + radius))] - source[y * width + Math.min(width - 1, Math.max(0, x - radius - 1))];
+      if (x >= 0 && x < width) tmp[y * width + x] = sum / (radius * 2 + 1); } }
+    for (let x = 0; x < width; x++) { let sum = 0; for (let y = -radius; y < height + radius; y++) {
+      sum += tmp[Math.min(height - 1, Math.max(0, y + radius)) * width + x] - tmp[Math.min(height - 1, Math.max(0, y - radius - 1)) * width + x];
+      if (y >= 0 && y < height) out[y * width + x] = sum / (radius * 2 + 1); } }
+    return out;
+  };
+  const near = blur(alpha, 6);
+  const inner = Buffer.alloc(width * height * 4), shore = Buffer.alloc(width * height * 4);
+  for (let i = 0; i < alpha.length; i++) {
+    const deep = Math.max(0, Math.min(1, (near[i] - .7) / .3)) * alpha[i];
+    const band = Math.max(0, alpha[i] - Math.max(0, Math.min(1, (near[i] - .45) / .4)));
+    inner.fill(255, i * 4, i * 4 + 3); inner[i * 4 + 3] = Math.round(deep * 255);
+    shore.fill(255, i * 4, i * 4 + 3); shore[i * 4 + 3] = Math.round(band * 255);
+  }
+  await sharp(inner, { raw: { width, height, channels: 4 } }).webp({ quality: 80, alphaQuality: 80, effort: 6 }).toFile(join(outDir, "village-water.webp"));
+  await sharp(shore, { raw: { width, height, channels: 4 } }).webp({ quality: 80, alphaQuality: 80, effort: 6 }).toFile(join(outDir, "village-shore.webp"));
+}
+
 // ---- The props: unique frames packed into one atlas. ----
 props.sort((a, b) => b.depthY - a.depthY
-  || (a.group && a.group === b.group ? (a.unitOrder ?? a.order) - (b.unitOrder ?? b.order) || a.order - b.order || b.y - a.y || a.seq - b.seq : 0)
+  || (a.group && a.group === b.group ? compareChains(a, b) || b.y - a.y || a.seq - b.seq : 0)
   || a.seq - b.seq);
 // ---- Buildings whose walls stand at different depths (a front gable and the wings behind it) are cut into
 // vertical strips, each sorted at the base of the wall above it, by the colliders under each part. Sorting
@@ -315,9 +385,12 @@ for (const [unit, parts] of byUnit) {
     if (last && last.depth === depth && last.right === edges[i]) last.right = edges[i + 1];
     else runs.push({ left: edges[i], right: edges[i + 1], depth });
   }
-  for (const run of runs) {
-    const buffer = await sharp(composite).extract({ left: run.left - minX, top: 0, width: run.right - run.left, height: maxY - minY }).png().toBuffer();
-    strips.push({ prebuilt: { buffer, w: run.right - run.left, h: maxY - minY, pivotX: 0, pivotY: 0 }, strip: true,
+  for (const [index, run] of runs.entries()) {
+    // Each strip but the last reaches a pixel into the next: at a zoom between whole pixels two strips
+    // that only met left a hairline between them.
+    const right = index < runs.length - 1 ? Math.min(maxX, run.right + 1) : run.right;
+    const buffer = await sharp(composite).extract({ left: run.left - minX, top: 0, width: right - run.left, height: maxY - minY }).png().toBuffer();
+    strips.push({ prebuilt: { buffer, w: right - run.left, h: maxY - minY, pivotX: 0, pivotY: 0 }, strip: true,
       x: run.left / UNITS, y: -minY / UNITS, depthY: -run.depth / UNITS, group: unit, order: 0, unitOrder: 0, seq: seq++ });
   }
   // An animated part (the windmill's sails) is on top of its whole building in Unity, and it swings across
@@ -328,7 +401,7 @@ for (const [unit, parts] of byUnit) {
 }
 props.splice(0, props.length, ...props.filter(prop => !sliced.has(prop)), ...strips);
 props.sort((a, b) => b.depthY - a.depthY
-  || (a.group && a.group === b.group ? (a.unitOrder ?? a.order) - (b.unitOrder ?? b.order) || a.order - b.order || b.y - a.y || a.seq - b.seq : 0)
+  || (a.group && a.group === b.group ? compareChains(a, b) || b.y - a.y || a.seq - b.seq : 0)
   || a.seq - b.seq);
 
 const frames = new Map();
@@ -454,6 +527,7 @@ const scene = {
   animations: Object.fromEntries(placed.map((p, index) => [index, p.anim ? { frames: p.anim.frames, times: p.anim.times, length: p.anim.length } : p.spin ? { spin: p.spin } : null]).filter(([, a]) => a)),
   /** Polygons as flat [x, y, x, y…] lists in game units: everything a player cannot walk through, as round as the pack made it. */
   solids: solidShapes,
+  pits: pits.map(({ points }) => points.flatMap(([x, y]) => [Math.round(x * UNITS), Math.round(-y * UNITS)])),
   emitters,
   fountain: fountain ? [Math.round(fountain.x * UNITS), Math.round(-fountain.y * UNITS)] : [0, 0],
 };

@@ -4,7 +4,7 @@ import { isDeveloperIdentity } from "../../shared/developer-identity";
 import { isProceduralMap } from "../../shared/procedural-maps";
 import { CAMPAIGN_MAPS } from "../../shared/campaign-registry";
 import {
-  addSoulKills, cleanSoulStats, isSoulMap, soulDimensionAccess, soulStatsUnlocked, soulTier,
+  addSoulKills, cleanSoulStats, isSoulMap, soulDimensionAccess, soulStatsUnlocked, soulTier, SOUL_ARRIVAL, SOUL_MAP_ID,
   SOUL_STAT_ORDER, SOUL_TIER_KILL_TYPES, type RewardKillCounts, type SoulStatId, type SoulStats,
 } from "../../shared/soul-dimension";
 
@@ -146,7 +146,12 @@ export function mergeSoulDimensionRows(ctx: any, from: any, into: any) {
   removeSoulDimensionRows(ctx, from);
 }
 
-type SoulDeps = { requireDeveloper: (ctx: any, action: string) => void };
+type SoulDeps = {
+  requireDeveloper: (ctx: any, action: string) => void;
+  requireControllingPlayer: (ctx: any) => any;
+  playerWithMotion: (ctx: any, player: any) => any;
+  transitionPlayerMap: (ctx: any, current: any, mapId: string, arrival: { x: number; y: number }) => void;
+};
 
 export function registerSoulDimension(spacetimedb: typeof spacetimedbType, deps: SoulDeps) {
   const mySoulStats = spacetimedb.view({ name: "my_soul_stats", public: true }, t.array(playerSoulStats.rowType), (ctx: any) => {
@@ -164,7 +169,13 @@ export function registerSoulDimension(spacetimedb: typeof spacetimedbType, deps:
     if (row) ctx.db.soulDimensionConfig.id.update({ id: 0, open });
     else ctx.db.soulDimensionConfig.insert({ id: 0, open });
   });
-  return { mySoulStats, myRewardKills, setSoulDimensionOpen };
+  /** Walking into one of the village's wells: a splash, and back on the square. It only ever moves a player to the arrival. */
+  const fallIntoWell = spacetimedb.reducer({}, ctx => {
+    const player = deps.requireControllingPlayer(ctx);
+    if (!isSoulMap(player.mapId)) throw new SenderError("There is no well here.");
+    deps.transitionPlayerMap(ctx, deps.playerWithMotion(ctx, player), SOUL_MAP_ID, SOUL_ARRIVAL);
+  });
+  return { mySoulStats, myRewardKills, setSoulDimensionOpen, fallIntoWell };
 }
 
 export function requireSoulDimensionOpen(ctx: any) {

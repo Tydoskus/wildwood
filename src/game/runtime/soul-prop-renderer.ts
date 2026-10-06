@@ -88,6 +88,8 @@ export function createSoulGroundRenderer(options: {
   /** The world's decor: its flat props are drawn here, over the ground, in depth order among themselves. */
   decor: readonly WorldDecor[];
   drawProp: (prop: SoulPropDecor, target?: CanvasRenderingContext2D) => void;
+  /** The river's moving light, over the ground and under everything on it. */
+  drawWater?: () => void;
   viewport: () => { width: number; height: number };
   devicePixelRatio: () => number;
   active: () => boolean;
@@ -154,6 +156,7 @@ export function createSoulGroundRenderer(options: {
         ctx.drawImage(image, (left - area.x) * scaleX, (top - area.y) * scaleY, (right - left) * scaleX, (bottom - top) * scaleY,
           snap(left - camera.x), snap(top - camera.y), right - left, bottom - top);
       }
+      options.drawWater?.();
       for (const item of flat) if (inView(item, viewRight, viewBottom)) options.drawProp(item);
       drawShadows(viewRight, viewBottom);
     },
