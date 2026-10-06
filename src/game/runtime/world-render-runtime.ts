@@ -1,4 +1,5 @@
 import { drawHomeTeleport } from "./home-teleport";
+import { drawSoulWellFall } from "./soul-well-fall";
 import { createActorRenderer, type ActorStatus } from "./actor-renderer";
 import { createBossRenderer } from "./boss-renderer";
 import type { Camera } from "./camera";
@@ -345,11 +346,12 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawPortal: world.drawPortal,
       drawSecondaryPortal: world.drawSecondaryPortal,
       drawRemotePlayer: actor.drawRemotePlayer,
-      drawPlayer: () => drawHomeTeleport(options.ctx, options.player.x - options.camera.x, options.player.y - options.camera.y, () => actor.drawPlayer(
-        frame.localIdentity(),
-        options.publicPlayerName(frame.localIdentity(), frame.localDisplayName()),
-        options.playerPower(options.player),
-      )),
+      drawPlayer: () => drawSoulWellFall(options.ctx, options.player.x - options.camera.x, options.player.y - options.camera.y, options.player.y,
+        () => drawHomeTeleport(options.ctx, options.player.x - options.camera.x, options.player.y - options.camera.y, () => actor.drawPlayer(
+          frame.localIdentity(),
+          options.publicPlayerName(frame.localIdentity(), frame.localDisplayName()),
+          options.playerPower(options.player),
+        ))),
     });
     invalidateDepthOrder = () => { depth.invalidateDepthOrder(); soulGround.invalidate(); };
     renderer = createRenderController({

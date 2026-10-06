@@ -10,6 +10,7 @@ import { SOUL_DOORS_OPEN, SOUL_INTERIOR_SOLIDS, SOUL_VILLAGE_PITS, SOUL_VILLAGE_
 import { soulCampName, soulCampPoints, soulCampStat, soulStatOfCampName, soulWindowCamps, soulWindowDecor, SOUL_ENEMY_SPECIES } from "../soul-world";
 import type { MapId, SpawnSite, WorldDecor } from "../world";
 import type { MapPortal } from "./map-controller";
+import { soulWellFall } from "./soul-well-fall";
 import type { EnemyState, PlayerState } from "./types";
 
 export type SoulDimensionSource = {
@@ -40,6 +41,8 @@ const DOOR_OPEN_RANGE = 120;
 const DOORWAY_STEP = 22, DOORWAY_MS = 240;
 /** How far into a well's outline the feet must reach to fall: its opening, not its rim. */
 const WELL_OPENING = .6;
+/** A fall: a stumble to the middle, then the drop, the screen going dark from partway down. */
+const FALL_STUMBLE = .18, FALL_SECONDS = 1, FALL_DEPTH = 110, FALL_DARK_AT = .3, FALL_DARK_MS = 600;
 
 function inside(x: number, y: number, solid: SoulSolid) {
   let hit = false;
@@ -218,19 +221,57 @@ export function createSoulDimensionRuntime(deps: {
     player.y = feet.y - FEET_OFFSET;
   }
 
-  let falling = false;
-  /** Feet in a well: splash, back on the square, and the server is told so it agrees where the player is. */
+  /** A fall under way: the stumble to the well's middle, the drop (the camera with it), the dark, the square. */
+  let fall: { x: number; y: number; cx: number; cy: number; elapsed: number; dark: boolean } | null = null;
+  /** Feet in a well's opening: in they go. */
   function checkWells() {
     const { player } = deps;
-    if (falling || player.hp <= 0) return;
+    if (fall || player.hp <= 0) return;
     const feetY = player.y + FEET_OFFSET;
-    if (!SOUL_VILLAGE_PITS.some(well => inWell(player.x, feetY, well))) return;
-    falling = true;
-    deps.logPickup?.("Splash! You fell into the well", "#7fd4ff");
+    const well = SOUL_VILLAGE_PITS.find(pit => inWell(player.x, feetY, pit));
+    if (!well) return;
+    const cx = well.xs.reduce((sum, v) => sum + v, 0) / well.xs.length, cy = well.ys.reduce((sum, v) => sum + v, 0) / well.ys.length;
+    fall = { x: player.x, y: player.y, cx, cy, elapsed: 0, dark: false };
+    Object.assign(soulWellFall, { active: true, lip: cy + (well.bottom - cy) * WELL_OPENING, progress: 0 });
+    deps.clearInput?.();
+  }
+  function updateFall(dt: number) {
+    if (!fall) return;
+    const { player } = deps;
+    fall.elapsed += dt;
+    const t = fall.elapsed;
+    if (t < FALL_STUMBLE) {
+      const k = t / FALL_STUMBLE;
+      player.x = fall.x + (fall.cx - fall.x) * k;
+      player.y = fall.y + (fall.cy - FEET_OFFSET - fall.y) * k;
+    } else {
+      // Gravity: slow at the lip, then gone.
+      const k = Math.min(1, (t - FALL_STUMBLE) / (FALL_SECONDS - FALL_STUMBLE));
+      player.x = fall.cx;
+      player.y = fall.cy - FEET_OFFSET + FALL_DEPTH * k * k;
+      soulWellFall.progress = k;
+    }
+    player.moving = false;
+    if (!fall.dark && t >= FALL_DARK_AT) {
+      fall.dark = true;
+      if (deps.fadeToWorld) deps.fadeToWorld(landFall, FALL_DARK_MS);
+      else landFall();
+    }
+    // A fade that never came (one was already running) must not leave the player in the well.
+    if (fall && t > 3) landFall();
+  }
+  /** On the dark: back on the square, and the server is told so it agrees where the player is. */
+  function landFall() {
+    if (!fall) return;
+    fall = null;
+    soulWellFall.active = false;
+    const { player } = deps;
     player.x = SOUL_ARRIVAL.x;
     player.y = SOUL_ARRIVAL.y;
     player.moving = false;
-    void (source()?.fallIntoWell?.() ?? Promise.resolve(false)).catch(() => false).finally(() => { falling = false; });
+    lastY = player.y;
+    deps.logPickup?.("Splash! You fell into the well", "#7fd4ff");
+    void (source()?.fallIntoWell?.() ?? Promise.resolve(false)).catch(() => false);
   }
 
   /** A trip through a door under way: the doorway's walk, then the move on the dark. */
@@ -301,6 +342,7 @@ export function createSoulDimensionRuntime(deps: {
       // A map load empties the site list; start the window over with it.
       if (windowKey && !deps.spawnSites.length) reset();
       refreshWindow();
+      if (fall) { updateFall(dt); return; }
       if (doorway) { walkDoorway(dt); return; }
       checkDoors();
       if (doorway) return;
