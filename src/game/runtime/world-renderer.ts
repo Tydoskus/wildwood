@@ -1,5 +1,4 @@
 import { SOUL_VILLAGE_GROUND } from "../soul-village";
-import { soulFrame } from "./soul-prop-renderer";
 import { WORLD_WIDTH } from "../../../shared/rules";
 import { isSoulMap, SOUL_STAT_DETAILS } from "../../../shared/soul-dimension";
 import { soulStatOfCampName } from "../soul-world";
@@ -32,9 +31,7 @@ export { snapWorldRenderCoordinate } from "./render-space";
 
 type Viewport = { width: number; height: number };
 export type MinimapBounds = { left: number; top: number; width: number; height: number };
-type Portal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId; label?: string;
-  /** "packGate": the Soul Dimension village's own stone gate (from its atlas) frames the swirl instead of the usual arch. */
-  art?: "packGate" };
+type Portal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId; label?: string };
 type TreeSpriteBounds = StaticTileTreeBounds;
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
 type DrawShadow = (x: number, y: number, width: number, alpha?: number) => void;
@@ -92,8 +89,6 @@ export type WorldRendererOptions = {
   getMinimapBounds?: () => MinimapBounds | null;
   /** The Soul Dimension village's baked ground, shown on its minimap. */
   minimapVillageGround?: () => HTMLImageElement | undefined;
-  /** The Soul Dimension's atlas: its stone gate frames the portal home there. */
-  soulAtlas?: HTMLImageElement;
   getDevicePixelRatio: () => number;
   getMapId: () => MapId;
   getGameTime: () => number;
@@ -671,8 +666,6 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
 
   function drawPortalAt(portal: Portal, cutscene = false) {
     if (!options.portalArch.complete || options.portalArch.naturalWidth <= 0) return;
-    const gate = portal.art === "packGate" ? soulFrame("GateFrame_01") : null;
-    const gateImage = gate && options.soulAtlas?.complete && options.soulAtlas.naturalWidth > 0 ? options.soulAtlas : null;
     const x = snapToWorldPixel(portal.x - camera.x);
     const y = snapToWorldPixel(portal.y - camera.y);
     options.drawShadow(x, y - 4, Math.round(portal.width * .68), .14);
@@ -688,16 +681,14 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
       const frame = Math.round(sweep * 15);
       const cellWidth = portalSwirl.width / 4;
       const cellHeight = portalSwirl.height / 4;
-      // The stone gate's opening is narrower and lower than the arch's: the swirl fills that instead.
-      const width = Math.round(gateImage ? portal.width * .62 : portal.width * .59 * 1.265 * 1.05);
-      const height = Math.round(gateImage ? portal.height * .7 : portal.height * .75 * 1.265);
+      const width = Math.round(portal.width * .59 * 1.265 * 1.05);
+      const height = Math.round(portal.height * .75 * 1.265);
       ctx.save();
       ctx.globalAlpha = portalIntensity;
-      ctx.drawImage(portalSwirl, (frame % 4) * cellWidth, Math.floor(frame / 4) * cellHeight, cellWidth, cellHeight, x - width / 2, y - height - (gateImage ? 2 : 5), width, height);
+      ctx.drawImage(portalSwirl, (frame % 4) * cellWidth, Math.floor(frame / 4) * cellHeight, cellWidth, cellHeight, x - width / 2, y - height - 5, width, height);
       ctx.restore();
     }
-    if (gate && gateImage) ctx.drawImage(gateImage, gate.x, gate.y, gate.w, gate.h, x - portal.width / 2, y - portal.height, portal.width, portal.height);
-    else ctx.drawImage(options.portalArch, x - portal.width / 2, y - portal.height, portal.width, portal.height);
+    ctx.drawImage(options.portalArch, x - portal.width / 2, y - portal.height, portal.width, portal.height);
     const destinationOpacity = cutsceneActive ? options.portalDestinationOpacity() : options.portalIsUnlocked(portal) ? 1 : 0;
     if (destinationOpacity <= 0) return;
     drawScreenSpaceAt(ctx, camera.zoom, x, y - portal.height, () => {

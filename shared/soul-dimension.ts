@@ -30,8 +30,8 @@ export const SOUL_ARRIVAL = Object.freeze({ x: SOUL_CENTER.x + 120, y: SOUL_CENT
  * fountain): no camps and no wild props inside it. Offsets from the centre.
  */
 export const SOUL_VILLAGE_BOUNDS = Object.freeze({ left: -2_560, right: 2_120, top: -1_420, bottom: 2_030 });
-/** The portal home, on the square's open cobbles west of the fountain, off the road south. */
-export const SOUL_HOME_GATE = Object.freeze({ x: SOUL_CENTER.x - 150, y: SOUL_CENTER.y + 115 });
+/** The portal home, outside the village: on the open road past its north gate, between the torch and the signpost. */
+export const SOUL_HOME_GATE = Object.freeze({ x: SOUL_CENTER.x + 10, y: SOUL_CENTER.y - 640 });
 
 // ---- Soul stats and tiers ----
 

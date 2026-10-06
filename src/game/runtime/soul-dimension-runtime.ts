@@ -22,8 +22,8 @@ export type SoulDimensionSource = {
 };
 
 /** The gate home in the village, drawn and used like any map portal. */
-export const SOUL_HOME_GATE_PORTAL: MapPortal = { x: SOUL_HOME_GATE.x, y: SOUL_HOME_GATE.y, width: 150, height: 158, depth: SOUL_HOME_GATE.y,
-  destination: HOME_EXTERIOR_MAP_ID, label: "Home", art: "packGate" };
+export const SOUL_HOME_GATE_PORTAL: MapPortal = { x: SOUL_HOME_GATE.x, y: SOUL_HOME_GATE.y, width: 150, height: 150, depth: SOUL_HOME_GATE.y,
+  destination: HOME_EXTERIOR_MAP_ID, label: "Home" };
 const HOME_PORTAL: MapPortal = { ...HOME_SOUL_PORTAL };
 
 /** The village's water and building footprints: a player cannot walk through them. */

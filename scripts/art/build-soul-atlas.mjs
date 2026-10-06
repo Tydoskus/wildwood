@@ -30,8 +30,6 @@ const frames = Object.keys(JSON.parse(readFileSync(join(composed, "anchors.json"
 const mushrooms = resolve(root, "../../../art-source/vendor/forest-village/Pack/Forest/Nature/ResourcesData/Sprites/Mushroom");
 const mushroomDir = existsSync(mushrooms) ? mushrooms : resolve(root, "art-source/vendor/forest-village/Pack/Forest/Nature/ResourcesData/Sprites/Mushroom");
 for (const name of ["Mushroom_04_Blue", "Mushroom_05_Blue", "Mushroom_04_Purple", "Mushroom_05_Purple", "Mushroom_06_Mint"]) frames.push({ name, file: join(mushroomDir, `${name}.png`) });
-// The village's stone gate, which frames the Soul Dimension's portal home.
-frames.push({ name: "GateFrame_01", file: join(mushroomDir, "../../../../ForestVillage/ResourcesData/Sprites/Prop/GateFrame_01.png") });
 const anchors = JSON.parse(readFileSync(join(composed, "anchors.json"), "utf8"));
 const images = [];
 for (const frame of frames) {
