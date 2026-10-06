@@ -31,6 +31,9 @@ const PROP_FRAMES: Readonly<Record<SoulPropKind, { frames: readonly SoulFrame[];
   stump: { frames: ["Tree_Stump_01", "Tree_Stump_02", "Tree_Stump_03"], s: 1 },
 };
 
+/** Props too low to stand in front of anyone: drawn with the ground. */
+const FLAT = new Set<SoulPropKind>(["grass", "flower", "mushroom", "stoneSmall"]);
+
 /** Whether the village is close enough to this point to be worth drawing. */
 const villageNear = (x: number, y: number) => inSoulVillage(x, y, SOUL_CHUNK_SIZE * 2.5);
 
@@ -40,7 +43,8 @@ export function soulWindowDecor(x: number, y: number): WorldDecor[] {
   for (const { cx, cy } of soulWindowChunks(x, y)) {
     for (const prop of soulChunkProps(cx, cy)) {
       const look = PROP_FRAMES[prop.kind];
-      decor.push({ type: "soulProp", x: prop.x, y: prop.y, s: look.s * prop.s, frame: look.frames[prop.variant % look.frames.length], flip: prop.flip });
+      decor.push({ type: "soulProp", x: prop.x, y: prop.y, s: look.s * prop.s, frame: look.frames[prop.variant % look.frames.length], flip: prop.flip,
+        ground: FLAT.has(prop.kind) });
     }
   }
   return decor;

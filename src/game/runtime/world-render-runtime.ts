@@ -303,7 +303,10 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       }
       return webGLParticleBatchState;
     };
+    const drawSoulProp = createSoulPropRenderer({ ctx: options.ctx, camera: options.camera, atlas: () => options.assets.soulAtlas,
+      villageProps: () => options.assets.soulVillageProps, devicePixelRatio: options.devicePixelRatio, time: options.gameTime });
     const drawSoulGround = createSoulGroundRenderer({ ctx: options.ctx, camera: options.camera, ground: () => options.assets.soulVillageGround,
+      decor: options.decor, drawProp: drawSoulProp,
       viewport: options.viewport, devicePixelRatio: options.devicePixelRatio, active: () => isSoulMap(options.currentMapId()) });
     const depth = createDepthWorldRenderer({
       camera: options.camera,
@@ -322,8 +325,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawSnowPine: world.drawSnowPine,
       drawUpgradeBench: world.drawUpgradeBench,
       drawCharredTree: world.drawCharredTree,
-      drawSoulProp: createSoulPropRenderer({ ctx: options.ctx, camera: options.camera, atlas: () => options.assets.soulAtlas,
-        villageProps: () => options.assets.soulVillageProps, devicePixelRatio: options.devicePixelRatio, time: options.gameTime }),
+      drawSoulProp,
       drawEnemy: actor.drawEnemy,
       enemyOpacity: (enemy) => options.currentMapId() === options.infernalMapId
         ? nightEnemyOpacity(Math.hypot(enemy.x - options.player.x, enemy.y - options.player.y), options.player.attackRange, enemy.r)

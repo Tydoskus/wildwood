@@ -40,6 +40,8 @@ export type WorldDecor = WorldDecorPlacement & (
   /** A Soul Dimension sprite from its atlas (soul-village.ts): village pieces and the wilds' props. */
   /** `sheet: "village"` is the baked demo village's; `dy` draws it that far from its depth point (a house's parts share one depth). */
   | { type: "soulProp"; s: number; frame: string; flip?: boolean; sheet?: "village"; dy?: number;
+    /** Lies flat: drawn with the ground, under everyone, never sorted against them (garden beds, bridges, grass). */
+    ground?: boolean;
     /** The pack's own clips: sprite frames on a loop (fires, the fountain), or a spin in degrees a second (the windmill). */
     anim?: { frames: readonly number[]; times: readonly number[]; length: number }; spin?: number }
 );

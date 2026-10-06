@@ -81,23 +81,38 @@ export function createSoulGroundRenderer(options: {
   ctx: CanvasRenderingContext2D;
   camera: Camera;
   ground: () => HTMLImageElement | undefined;
+  /** The world's decor: its flat props are drawn here, over the ground, in depth order among themselves. */
+  decor: readonly WorldDecor[];
+  drawProp: (prop: SoulPropDecor) => void;
   viewport: () => { width: number; height: number };
   devicePixelRatio: () => number;
   active: () => boolean;
 }) {
+  const flat: SoulPropDecor[] = [];
   return function drawSoulGround() {
     if (!options.active()) return;
-    const image = options.ground();
-    if (!image?.complete || image.naturalWidth <= 0) return;
     const { ctx, camera } = options;
     const view = options.viewport();
+    const viewRight = camera.x + view.width / camera.zoom, viewBottom = camera.y + view.height / camera.zoom;
+    const image = options.ground();
     const area = SOUL_VILLAGE_GROUND;
     const left = Math.max(area.x, camera.x), top = Math.max(area.y, camera.y);
-    const right = Math.min(area.x + area.w, camera.x + view.width / camera.zoom), bottom = Math.min(area.y + area.h, camera.y + view.height / camera.zoom);
-    if (left >= right || top >= bottom) return;
-    const scaleX = image.naturalWidth / area.w, scaleY = image.naturalHeight / area.h;
-    const snap = (value: number) => snapWorldRenderCoordinate(value, camera.zoom, options.devicePixelRatio());
-    ctx.drawImage(image, (left - area.x) * scaleX, (top - area.y) * scaleY, (right - left) * scaleX, (bottom - top) * scaleY,
-      snap(left - camera.x), snap(top - camera.y), right - left, bottom - top);
+    const right = Math.min(area.x + area.w, viewRight), bottom = Math.min(area.y + area.h, viewBottom);
+    if (image?.complete && image.naturalWidth > 0 && left < right && top < bottom) {
+      const scaleX = image.naturalWidth / area.w, scaleY = image.naturalHeight / area.h;
+      const snap = (value: number) => snapWorldRenderCoordinate(value, camera.zoom, options.devicePixelRatio());
+      ctx.drawImage(image, (left - area.x) * scaleX, (top - area.y) * scaleY, (right - left) * scaleX, (bottom - top) * scaleY,
+        snap(left - camera.x), snap(top - camera.y), right - left, bottom - top);
+    }
+    flat.length = 0;
+    for (const item of options.decor) {
+      if (item.type !== "soulProp" || !item.ground) continue;
+      const extent = soulPropExtent(item);
+      if (item.x + extent.right < camera.x || item.x - extent.left > viewRight || item.y + extent.down < camera.y || item.y - extent.up > viewBottom) continue;
+      flat.push(item);
+    }
+    // The decor list keeps the village's own order; the sort is stable, so ties keep it.
+    flat.sort((a, b) => a.y - b.y);
+    for (const item of flat) options.drawProp(item);
   };
 }

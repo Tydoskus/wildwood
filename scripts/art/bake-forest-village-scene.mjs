@@ -9,7 +9,9 @@
  *   (the log fence), as props the game depth-sorts. A sorting group (a
  *   house, a tree) stays one unit: its parts share the group's depth and
  *   keep their order inside it, as in Unity;
- * - the water cells no bridge covers, so the game can keep players out.
+ * - the pack's own colliders (tilemap colliders on the river banks and the
+ *   fence, boxes and polygons on trees, house bases, wells, bridge rails),
+ *   so the game keeps players out of what Unity kept its character out of.
  *
  *   tar -xzf "art-source/2D Minimal World - ForestVillage.unitypackage" -C <pkg>
  *   node scripts/art/bake-forest-village-scene.mjs <pkg>
@@ -41,6 +43,8 @@ const PREFAB = "Demo/ForestVillage Variant.prefab";
 const guid = [...byGuid].find(([, entry]) => entry.path.endsWith(PREFAB))?.[0];
 if (!guid) throw new Error(`no ${PREFAB} in the package`);
 const objects = expand(guid);
+/** What blocks walking, as Unity colliders do: [left, bottom, right, top] in Unity units. */
+const solids = [], passages = [];
 
 // ---- Index the expanded prefab. ----
 const transforms = new Map(), gameObjects = new Map(), byGameObject = new Map();
@@ -140,13 +144,44 @@ const animatorClip = goId => {
   return animator?.m_Controller?.guid ? clipFor(animator.m_Controller.guid) : null;
 };
 
+// ---- Colliders: the pack's own boxes (trees, house bases, stones, hay, the bridges' rails) and polygons (wells). ----
+for (const [goId] of gameObjects) {
+  if (!active(goId)) continue;
+  const world = worldOf(goId);
+  for (const component of byGameObject.get(goId) ?? []) {
+    const data = component.data ?? {};
+    if (String(data.m_Enabled ?? "1") === "0") continue;
+    if (String(data.m_IsTrigger ?? "0") === "1") {
+      // The demo's bridge passages: triggers that let its character over the river's collision. Walkable, here.
+      if (component.classId === 61 && /BridgePassage/.test(gameObjects.get(goId)?.m_Name ?? "")) {
+        const cx = world.x + num(data.m_Offset?.x) * world.sx, cy = world.y + num(data.m_Offset?.y) * world.sy;
+        const w = num(data.m_Size?.x) * Math.abs(world.sx), h = num(data.m_Size?.y) * Math.abs(world.sy);
+        passages.push([cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]);
+      }
+      continue;
+    }
+    if (component.classId === 61) {
+      const cx = world.x + num(data.m_Offset?.x) * world.sx, cy = world.y + num(data.m_Offset?.y) * world.sy;
+      const w = num(data.m_Size?.x) * Math.abs(world.sx), h = num(data.m_Size?.y) * Math.abs(world.sy);
+      solids.push([cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]);
+    } else if (component.classId === 60) {
+      for (const path of data.m_Points?.m_Paths ?? []) {
+        if (!Array.isArray(path) || !path.length) continue;
+        const xs = path.map(point => world.x + (num(point.x) + num(data.m_Offset?.x)) * world.sx);
+        const ys = path.map(point => world.y + (num(point.y) + num(data.m_Offset?.y)) * world.sy);
+        solids.push([Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys), "tilemap"]);
+      }
+    }
+  }
+}
+
 const renderersPer = new Map();
 for (const [, object] of objects) if (object.classId === 212) for (const id of object.instances ?? []) renderersPer.set(id, (renderersPer.get(id) ?? 0) + 1);
 
 // ---- Collect the ground (chunked tilemaps) and the props. ----
 const ground = []; // { order, layer, x, y, sprite, flipX, flipY, alpha } in Unity units
 const props = [];  // { depthY, order, seq, x, y, sprite, flipX, flipY, size, alpha, group }
-const water = [], bridges = new Set();
+
 let seq = 0;
 for (const [goId] of gameObjects) {
   if (!active(goId)) continue;
@@ -163,6 +198,7 @@ for (const [goId] of gameObjects) {
     const matrices = tilemap.data.m_TileMatrixArray ?? [];
     const colors = tilemap.data.m_TileColorArray ?? [];
     const individual = String(renderer.m_Mode ?? "0") === "1";
+    const collides = Boolean(componentOf(goId, 19719996)) && String(componentOf(goId, 19719996)?.data?.m_IsTrigger ?? "0") !== "1";
     for (const tile of tilemap.data.m_Tiles ?? []) {
       const at = tile.first ?? {}, info = tile.second ?? {};
       const ref = spriteArray[num(info.m_TileSpriteIndex)]?.m_Data;
@@ -173,8 +209,14 @@ for (const [goId] of gameObjects) {
       const color = colors[num(info.m_TileColorIndex)]?.m_Data ?? {};
       const x = world.x + (num(at.x) + num(anchor.x, .5)) * cw, y = world.y + (num(at.y) + num(anchor.y, .5)) * ch;
       const piece = { order: num(renderer.m_SortingOrder), x, y, sprite, flipX: num(matrix.e00, 1) < 0, flipY: num(matrix.e11, 1) < 0, alpha: num(color.a, 1), seq: seq++ };
-      if (/water/i.test(name)) water.push({ x: num(at.x), y: num(at.y), cx: x, cy: y, half: cw / 2 });
-      if (/bridge/i.test(name)) bridges.add({ cx: x, cy: y, half: Math.max(cw, ch) / 2 });
+      // A tilemap collider takes each tile's own physics shape: points in pixels from the sprite's centre.
+      if (collides) for (const shape of sprite.physicsShape ?? []) {
+        if (!Array.isArray(shape) || shape.length < 3) continue;
+        const rect = sprite.rect ?? { width: 256, height: 256 };
+        const px = (num(rect.width) * .5 - sprite.pivot[0] * num(rect.width)) / sprite.ppu, py = (num(rect.height) * .5 - sprite.pivot[1] * num(rect.height)) / sprite.ppu;
+        const xs = shape.map(point => x + px + num(point.x) / sprite.ppu * (piece.flipX ? -1 : 1)), ys = shape.map(point => y + py + num(point.y) / sprite.ppu * (piece.flipY ? -1 : 1));
+        solids.push([Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]);
+      }
       // Sorted at the tile's pivot, the foot of its posts, as Unity sorts it.
       if (individual) props.push({ ...piece, depthY: y, group: null });
       else ground.push(piece);
@@ -237,7 +279,9 @@ for (const prop of props) {
   const key = createHash("sha1").update(image.buffer).digest("hex");
   if (!frames.has(key)) frames.set(key, { id: frames.size, ...image });
   const frame = frames.get(key);
-  const item = { f: frame.id, x: Math.round(prop.x * UNITS), y: Math.round(-prop.y * UNITS), d: Math.round(-prop.depthY * UNITS) };
+  const item = { f: frame.id, x: Math.round(prop.x * UNITS), y: Math.round(-prop.y * UNITS), d: Math.round(-prop.depthY * UNITS),
+    // Unity draws a negative order under anything at zero (the characters): garden beds, campfire rings, bridge planks.
+    ground: (prop.unitOrder ?? prop.order) < 0 };
   if (prop.clip?.kind === "frames") {
     const ids = [];
     for (const key of prop.clip.frames) {
@@ -333,41 +377,25 @@ await sharp({ create: { width: WIDTH, height: y + shelf, channels: 4, background
   .composite(frameList.map(f => ({ input: f.buffer, left: f.x, top: f.y })))
   .webp({ quality: 92, alphaQuality: 100, effort: 6 }).toFile(join(outDir, "village-props.webp"));
 
-// Where the square's fountain stands (the game centres the village on it), and every building's footprint.
+// Where the square's fountain stands: the game centres the village on it.
 let fountain = null;
-const groupBoxes = new Map();
-for (const [goId, go] of gameObjects) {
-  if (!active(goId)) continue;
-  if (!fountain && /^Fountain/.test(go.m_Name ?? "")) fountain = worldOf(goId);
-}
-for (const prop of props) {
-  if (!prop.group) continue;
-  const name = gameObjects.get(prop.group)?.m_Name ?? "";
-  if (!/House|Inn|Apothecary|Forge|Tower|Well|Fountain|PopUp|Windmill|Tools/i.test(name)) continue;
-  const box = groupBoxes.get(prop.group) ?? { left: Infinity, right: -Infinity, base: prop.depthY };
-  const half = (prop.size ? prop.size.x : num(prop.sprite.rect?.width, 100) / prop.sprite.ppu) * (prop.scale ?? 1) / 2;
-  if (!prop.sprite.shadow) { box.left = Math.min(box.left, prop.x - half); box.right = Math.max(box.right, prop.x + half); }
-  groupBoxes.set(prop.group, box);
-}
-const buildings = [...groupBoxes.values()].filter(box => Number.isFinite(box.left)).map(box => {
-  const width = (box.right - box.left) * .8;
-  return [Math.round(((box.left + box.right) / 2 - width / 2) * UNITS), Math.round(-box.base * UNITS) - 50, Math.round(width * UNITS), 60];
-});
-// A bridge's tiles sit on their own tilemap, so match them to the water by where they are, not by cell number.
-const bridged = cell => [...bridges].some(bridge => Math.abs(bridge.cx - cell.cx) < bridge.half + cell.half * .5 && Math.abs(bridge.cy - cell.cy) < bridge.half + cell.half * .5);
-const solidWater = water.filter(cell => !bridged(cell))
-  .map(cell => [Math.round((cell.cx - cell.half) * UNITS), Math.round(-(cell.cy + cell.half) * UNITS), Math.round(cell.half * 2 * UNITS)]);
+for (const [goId, go] of gameObjects) if (!fountain && active(goId) && /^Fountain/.test(go.m_Name ?? "")) fountain = worldOf(goId);
+const overlaps = (a, b) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
+const solidRects = solids.filter(([l, b, r, t]) => r - l > 1e-3 && t - b > 1e-3)
+  // Inside a passage only the bridge's rails (thin blockers along its sides) still stop anyone.
+  .filter(rect => Math.min(rect[2] - rect[0], rect[3] - rect[1]) < .2 || !passages.some(passage => overlaps(rect, passage)))
+  .map(([l, b, r, t]) => [Math.round(l * UNITS), Math.round(-t * UNITS), Math.round((r - l) * UNITS), Math.round((t - b) * UNITS)]);
 const scene = {
   units: UNITS,
   ground: { left: minX / GROUND_SCALE, top: minY / GROUND_SCALE, width: (maxX - minX) / GROUND_SCALE, height: (maxY - minY) / GROUND_SCALE },
   frames: Object.fromEntries(frameList.sort((a, b) => a.id - b.id).map(f => [f.id, [f.x, f.y, f.w, f.h, Math.round(f.pivotX), Math.round(f.pivotY)]])),
-  props: placed.map(p => [p.f, p.x, p.y, p.d]),
+  props: placed.map(p => [p.f, p.x, p.y, p.d, p.ground ? 1 : 0]),
   /** Prop index -> its clip: sprite frames with their start times and the loop's length, or a spin in degrees a second. */
   animations: Object.fromEntries(placed.map((p, index) => [index, p.anim ? { frames: p.anim.frames, times: p.anim.times, length: p.anim.length } : p.spin ? { spin: p.spin } : null]).filter(([, a]) => a)),
-  water: solidWater,
-  buildings,
+  /** [left, top, width, height] in game units: everything a player cannot walk through. */
+  solids: solidRects,
   emitters,
   fountain: fountain ? [Math.round(fountain.x * UNITS), Math.round(-fountain.y * UNITS)] : [0, 0],
 };
 writeFileSync(join(root, "src/game/soul-village-scene.json"), JSON.stringify(scene));
-console.log(`ground ${maxX - minX}x${maxY - minY}px, ${frameList.length} frames for ${placed.length} props, ${solidWater.length} water cells, ${buildings.length} buildings, ${emitters.length} particle emitters, fountain ${scene.fountain}`);
+console.log(`ground ${maxX - minX}x${maxY - minY}px, ${frameList.length} frames for ${placed.length} props, ${solidRects.length} solids, ${emitters.length} particle emitters, fountain ${scene.fountain}`);

@@ -59,10 +59,15 @@ function parseBlock(lines, start, indent) {
       // "- key: value" starts a map whose keys sit at indent + 2.
       const rest = line.slice(indent + 2);
       if (rest.startsWith("- ")) {
-        // A list of lists (a sprite's physics shape): nothing here reads one, so step over it whole.
-        out.push(null);
+        // A list of lists of points (a sprite's physics shape, a polygon collider's paths).
+        const inner = [scalar(rest.slice(2))];
         i++;
-        while (i < lines.length && lines[i].trim() && (lines[i].length - lines[i].trimStart().length > indent)) i++;
+        while (i < lines.length && lines[i].trim() && (lines[i].length - lines[i].trimStart().length > indent)) {
+          const item = lines[i].trim();
+          if (item.startsWith("- ")) inner.push(scalar(item.slice(2)));
+          i++;
+        }
+        out.push(inner);
         continue;
       }
       const keyMatch = /^([A-Za-z0-9_.]+):(.*)$/.exec(rest);
@@ -174,7 +179,7 @@ export function spriteFor(ref) {
     const name = names.get(String(ref.fileID));
     const legacy = Number(ref.fileID) >= 21300000 && Number(ref.fileID) % 2 === 0 ? sprites[(Number(ref.fileID) - 21300000) / 2] : undefined;
     const found = sprites.find(s => String(s.internalID) === String(ref.fileID)) ?? sprites.find(s => s.name === name) ?? legacy ?? (sprites.length === 1 ? sprites[0] : null);
-    if (found) sprite = { rect: found.rect, pivot: pivotFor(found.alignment, found.pivot), border: border(found.border) };
+    if (found) sprite = { rect: found.rect, pivot: pivotFor(found.alignment, found.pivot), border: border(found.border), physicsShape: found.physicsShape ?? [] };
     else console.warn(`unresolved sprite ${ref.fileID} in ${entry.path}`);
   }
   if (!sprite) sprite = { rect: null, pivot: pivotFor(importer.alignment, importer.spritePivot), border: border(importer.spriteBorder) };
