@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.899.11": [
+    "A tab waiting on another tab, or a player hidden from others, stops re-asking the server for other players' movement",
+  ],
   "0.899.10": [
     "Fixed the game reloading other players' stats many times a second when lots of players share a map",
   ],
@@ -2892,6 +2895,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.899.11": "2026-10-06",
   "0.899.10": "2026-10-06",
   "0.899.9": "2026-10-05",
   "0.899.8": "2026-10-05",
