@@ -3,7 +3,7 @@ import { parseHTML } from "linkedom";
 import { createProfileIconPicker } from "./profile-icon-picker";
 import { applyProfileIcon, createProfileIconCanvasPainter } from "../app/profile-icons";
 import { isValidProfileIcon, profileIconLocation } from "../../shared/profile-icons";
-import { OBJECT_ATLAS_SIZE, OBJECT_ICON_CROPS, containedIconRect } from "../app/profile-icon-crops";
+import { OBJECT_ATLAS_SIZE, OBJECT_ICON_CROPS, containedIconRect, objectIconCrop } from "../app/profile-icon-crops";
 
 beforeEach(() => {
   const { document, window } = parseHTML('<html><body><div><div id="choices"></div></div></body></html>');
@@ -21,7 +21,7 @@ function fixture(selected = 0, setIcon = vi.fn(async () => ({ ok: true }))) {
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 
 it("preserves old portraits and maps every new sheet boundary consistently", () => {
-  for (const [index, sheet, cell] of [[0,0,0], [63,0,63], [64,1,0], [127,1,63], [128,2,0], [191,2,63]]) {
+  for (const [index, sheet, cell] of [[0,0,0], [63,0,63], [64,1,0], [127,1,63], [128,2,0], [191,2,63], [192,3,0], [255,3,63]]) {
     const location = profileIconLocation(index);
     expect(location.sheetIndex).toBe(sheet); expect(location.cell).toBe(cell);
     const element = document.createElement("span"); applyProfileIcon(element, index);
@@ -29,12 +29,14 @@ it("preserves old portraits and maps every new sheet boundary consistently", () 
     expect(element.dataset.profileIcon).toBe(String(index));
     expect(isValidProfileIcon(index)).toBe(true);
   }
-  for (const invalid of [-1, 192, NaN, Infinity, 1.5]) expect(isValidProfileIcon(invalid)).toBe(false);
+  for (const invalid of [-1, 256, NaN, Infinity, 1.5]) expect(isValidProfileIcon(invalid)).toBe(false);
 });
 
 it("offers all people and objects separately and opens the selected category", () => {
   const f = fixture(191);
-  expect(f.choices.children).toHaveLength(64);
+  // Both object sheets, the newer first.
+  expect(f.choices.children).toHaveLength(128);
+  expect(f.choices.firstElementChild?.getAttribute("data-profile-icon")).toBe("192");
   expect(f.choices.querySelector('[aria-pressed="true"]')?.getAttribute("data-profile-icon")).toBe("191");
   document.getElementById("profile-icon-tab-people")!.click();
   expect(f.choices.children).toHaveLength(128);
@@ -69,6 +71,20 @@ it("contains the full tent and book without exposing them in neighboring avatars
   applyProfileIcon(element, 2);
   expect(element.querySelector(".profile-icon-art")).toBeNull();
   expect(element.classList.contains("profile-icon-cropped")).toBe(false);
+});
+
+it("crops every object on the second sheet inside the atlas without taking in a neighbour", () => {
+  const crops = Array.from({ length: 64 }, (_, cell) => objectIconCrop("assets/wildstat/profile-objects-grid-v2.webp", cell)!);
+  for (const [cell, crop] of crops.entries()) {
+    expect(crop, String(cell)).toBeDefined();
+    expect(crop.x).toBeGreaterThanOrEqual(0); expect(crop.y).toBeGreaterThanOrEqual(0);
+    expect(crop.x + crop.width).toBeLessThanOrEqual(OBJECT_ATLAS_SIZE); expect(crop.y + crop.height).toBeLessThanOrEqual(OBJECT_ATLAS_SIZE);
+    if (cell % 8) expect(crops[cell - 1].x + crops[cell - 1].width, String(cell)).toBeLessThanOrEqual(crop.x);
+    if (cell >= 8) expect(crops[cell - 8].y + crops[cell - 8].height, String(cell)).toBeLessThanOrEqual(crop.y);
+  }
+  const element = document.createElement("span");
+  applyProfileIcon(element, 192);
+  expect(element.querySelector<HTMLElement>(".profile-icon-art")?.style.backgroundImage).toContain("profile-objects-grid-v2");
 });
 
 it("keeps the picker available after a failed save and prevents duplicate requests", async () => {

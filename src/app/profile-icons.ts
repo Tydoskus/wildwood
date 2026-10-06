@@ -1,5 +1,5 @@
 import { PROFILE_ICON_GRID, PROFILE_ICON_SHEETS, profileIconLocation } from "../../shared/profile-icons";
-import { OBJECT_ATLAS_SIZE, OBJECT_ICON_CROPS, containedIconRect } from "./profile-icon-crops";
+import { OBJECT_ATLAS_SIZE, containedIconRect, objectIconCrop } from "./profile-icon-crops";
 
 const ZOOM = 1.03;
 const POSITION_STEP = ZOOM / (PROFILE_ICON_GRID * ZOOM - 1) * 100;
@@ -8,7 +8,7 @@ const POSITION_START = (ZOOM - 1) / 2 / (PROFILE_ICON_GRID * ZOOM - 1) * 100;
 export function applyProfileIcon(element: HTMLElement, iconIndex: number) {
   const icon = profileIconLocation(iconIndex);
   element.dataset.profileIcon = String(icon.index);
-  const crop = icon.category === "objects" ? OBJECT_ICON_CROPS[icon.cell] : undefined;
+  const crop = icon.category === "objects" ? objectIconCrop(icon.path, icon.cell) : undefined;
   let art = element.querySelector<HTMLElement>(":scope > .profile-icon-art");
   element.classList.toggle("profile-icon-cropped", Boolean(crop));
   if (crop) {
@@ -50,8 +50,9 @@ export function createProfileIconCanvasPainter(onSheetLoaded: () => void) {
       sheet.src = PROFILE_ICON_SHEETS[icon.sheetIndex].path;
     }
     if (!sheet.complete || !sheet.naturalWidth) return;
-    if (icon.category === "objects") {
-      const crop = OBJECT_ICON_CROPS[icon.cell], target = containedIconRect(crop);
+    const crop = icon.category === "objects" ? objectIconCrop(icon.path, icon.cell) : undefined;
+    if (crop) {
+      const target = containedIconRect(crop);
       const sx = sheet.naturalWidth / OBJECT_ATLAS_SIZE, sy = sheet.naturalHeight / OBJECT_ATLAS_SIZE;
       context.imageSmoothingEnabled = true;
       context.drawImage(sheet, crop.x * sx, crop.y * sy, crop.width * sx, crop.height * sy,

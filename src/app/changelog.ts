@@ -2,6 +2,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
   "0.899.13": [
     "The guild quest pool starts each week at 300 and only goes down as quests are finished, so active members can always make up for missing ones",
     "Guild battles shared to chat show both guilds' crests",
+    "64 new object profile pictures: animals, food and more",
   ],
   "0.899.12": [
     "16 new guild badges to choose from, a turtle among them",
