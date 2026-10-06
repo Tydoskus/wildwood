@@ -196,8 +196,6 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     bosses: options.bosses, hazards: options.bossHazards, art: options.assets.bossArt,
     gameTime: options.gameTime, pixelCircle: options.pixelCircle, outlinedText: options.outlinedText,
     drawShadow: drawEntityShadow, hpLossFlashDuration: options.bossHpLossFlashDuration, spiderWebRange: options.spiderWebRange,
-    rewardMultiplier: options.rewardMultiplier,
-    rewardAmount: options.rewardAmount,
     showBossHitboxes: options.showBossHitboxes,
   });
   const actor = createActorRenderer({

@@ -1,9 +1,9 @@
 import { CHALLENGE_ABSOLUTE_MIN_INTERVAL } from "./prestige-challenge";
 import { DEFAULT_ATTACK_INTERVAL, PLAYER_BASE_DAMAGE, PLAYER_BASE_HP, PLAYER_BASE_REGEN } from "./rules";
 import {
-  equipmentDamage,
-  equipmentMaxHealth,
-  equipmentRegeneration,
+  equipmentDamageMultiplierBonus,
+  equipmentMaxHealthMultiplierBonus,
+  equipmentRegenerationMultiplierBonus,
 } from "./items";
 
 export type PlayerPowerStats = {
@@ -48,37 +48,40 @@ export function effectivePlayerPowerStats(
   research: PlayerPowerResearch | null | undefined = null,
   itemUpgradeLevel: ItemUpgradeLevel = () => 0,
 ): PlayerPowerStats {
-  const weaponItem = progress.equippedRightHand || progress.equippedLeftHand || "";
-  const headItem = progress.equippedHead || "";
-  const chestItem = progress.equippedChest || "";
+  return preparePlayerPowerStats(progress, research, itemUpgradeLevel)(progress);
+}
+
+/** Resolve fixed gear/research once; reuse while only the earned base stats change.
+ * Keep equipment and research factors separate to preserve floating-point order.
+ */
+export function preparePlayerPowerStats(
+  loadout: PlayerPowerProgress,
+  research: PlayerPowerResearch | null | undefined = null,
+  itemUpgradeLevel: ItemUpgradeLevel = () => 0,
+): (progress: PlayerPowerStats) => PlayerPowerStats {
+  const weaponItem = loadout.equippedRightHand || loadout.equippedLeftHand || "";
+  const headItem = loadout.equippedHead || "";
+  const chestItem = loadout.equippedChest || "";
   const weaponLevel = itemUpgradeLevel(weaponItem);
   const headLevel = itemUpgradeLevel(headItem);
   const chestLevel = itemUpgradeLevel(chestItem);
   // Vitality multiplies saved health live, like every other research (0.883).
   // It used to be baked into the saved number by the client at each rank-up,
   // which the server stopped accepting in 0.695, so ranks since did nothing.
-  const vitalityMultiplier = 1 + researchRank(research?.vitality) * .02;
-  return {
-    maxHp: equipmentMaxHealth(progress.maxHp, headItem, chestItem, vitalityMultiplier, headLevel, chestLevel),
-    damage: equipmentDamage(progress.damage,
-      weaponItem,
-      headItem,
-      chestItem,
-      1 + researchRank(research?.warcraft) * .02,
-      weaponLevel,
-      headLevel,
-      chestLevel,
-    ),
+  const health = 1 + equipmentMaxHealthMultiplierBonus(headItem, chestItem, headLevel, chestLevel);
+  const damage = 1 + equipmentDamageMultiplierBonus(weaponItem, headItem, chestItem, weaponLevel, headLevel, chestLevel);
+  const regen = 1 + equipmentRegenerationMultiplierBonus(headItem, chestItem, headLevel, chestLevel);
+  const vitality = 1 + researchRank(research?.vitality) * .02;
+  const warcraft = 1 + researchRank(research?.warcraft) * .02;
+  const precision = 1 + researchRank(research?.precision) * .02;
+  const regeneration = 1 + researchRank(research?.regeneration) * .02;
+  return progress => ({
+    maxHp: progress.maxHp * health * vitality,
+    damage: progress.damage * damage * warcraft,
     attackRate: Math.max(CHALLENGE_ABSOLUTE_MIN_INTERVAL, progress.attackRate),
-    armor: progress.armor * (1 + researchRank(research?.precision) * .02),
-    regen: equipmentRegeneration(progress.regen,
-      headItem,
-      chestItem,
-      1 + researchRank(research?.regeneration) * .02,
-      headLevel,
-      chestLevel,
-    ),
-  };
+    armor: progress.armor * precision,
+    regen: progress.regen * regen * regeneration,
+  });
 }
 
 export function effectivePlayerPower(

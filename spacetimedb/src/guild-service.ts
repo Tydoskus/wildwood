@@ -297,6 +297,18 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
       ctx.db.guild.id.update(updated);
       writeRanking(ctx, updated);
     },
+    /**
+     * The two guilds' names and badges, for a battle shared in chat to show
+     * beside them (-1: a guild that never chose one, or is gone). Only a
+     * battle already shared is answered.
+     */
+    battleBadges(ctx: Ctx, reportKey: string) {
+      if (!/^\d{1,20}:\d{1,20}$/.test(reportKey) || !deps.battleShared?.(ctx, reportKey)) fail("This battle was not shared.");
+      const row = ctx.db.guildBattleReport.key.find(reportKey) ?? fail("This battle report is no longer available.");
+      const report: GuildSnapshot["battles"][number] = JSON.parse(row.payload);
+      const badge = (id: string) => /^\d{1,20}$/.test(id) ? ctx.db.guild.id.find(BigInt(id))?.emblem ?? -1 : -1;
+      return [{ name: report.attacker, emblem: badge(report.attackerId) }, { name: report.defender, emblem: badge(report.defenderId) }];
+    },
     preview(ctx: Ctx, guildId: bigint) {
       const stored = ctx.db.guild.id.find(guildId) ?? fail("Guild no longer exists.");
       const guild = currentGuild(ctx, stored), roster = members(ctx, guildId);

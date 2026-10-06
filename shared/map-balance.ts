@@ -135,7 +135,7 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
       hp: grow(last.boss!.hp * factors.bossHealth, ENDLESS_STEPS.bossHealth),
       damage: grow(heaviest * factors.bossDamage, ENDLESS_STEPS.hit),
       respawnSeconds: definition.respawnSeconds, attacks: {},
-      rewards: Object.fromEntries(Object.entries(last.boss!.rewards).map(([type, amount]) => [type, grow(amount * factors.bossRewards, ENDLESS_STEPS.reward)])) };
+      rewards: {} };
   } else {
     for (const kind of Object.keys(ENEMY_TYPES) as EnemyKind[]) {
       if (!enemyDefeatDefinition(mapId, kind)) continue;

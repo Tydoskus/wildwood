@@ -1,5 +1,5 @@
 import { ENEMY_TYPES, type RewardType } from "../../shared/enemy-definitions";
-import { generateMap, generatedBossStats, isProceduralMap } from "../../shared/procedural-maps";
+import { generateMap, isProceduralMap } from "../../shared/procedural-maps";
 import { MAP_DISPLAY_NAMES, MAP_IDS } from "../../shared/rules";
 import { createSpawnSites, type MapId } from "../game/world";
 import { AUTHORED_MAPS } from "./stat-graph-data";
@@ -38,15 +38,7 @@ export function rewardHealthRows(mapIds: readonly string[] = MAP_IDS): RewardHea
         reward: enemy.reward.amount, ratio: enemy.reward.amount / enemy.hp, population: 1 });
     }
     rows.push(...enemies.values());
-    const boss = generated ? generatedBossStats(generated) : null;
-    const rewards = boss?.rewards ?? Object.entries(authored!.bossRewards).map(([type, amount]) => ({ type: type as RewardType, amount }));
-    const enemyId = `${mapId}:boss`;
-    const enemy = generated ? `Endless ${generated.number} boss` : authored!.bossKind === "spider" ? "Desert Scorpion" : authored!.bossKind.replace(/([A-Z])/g, " $1").replace(/^./, letter => letter.toUpperCase());
-    for (const reward of rewards) {
-      const hp = boss?.hp ?? authored!.bossMaxHp;
-      rows.push({ id: `${enemyId}:${reward.type}`, enemyId, mapId, mapName, enemy, kind: "boss", elite: false,
-        hp, stat: reward.type, reward: reward.amount, ratio: reward.amount / hp, population: 1 });
-    }
+
   }
   return rows;
 }

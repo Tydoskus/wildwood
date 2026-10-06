@@ -15,7 +15,7 @@ export function resolveSimulationMap(map: BalanceMapDefinition, settings: Balanc
     }),
     boss: map.boss && boss ? { ...map.boss, hp: boss.hp,
       strongestHit: Math.max(boss.damage, ...Object.values(boss.attacks)),
-      rewards: map.boss.rewards.map(reward => ({ ...reward, amount: boss.rewards[reward.type] ?? reward.amount })),
+      rewards: [], drops: [],
     } : map.boss,
   };
 }

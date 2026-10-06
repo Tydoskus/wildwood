@@ -2,7 +2,29 @@ import { expect, it, vi } from "vitest";
 import { ScheduleAt } from "spacetimedb";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { ensureMapFrameSchedule, ensureMotionDetailFrameSchedule } from "./presence-runtime";
+import { decodePlayerMotionFrame } from "../../shared/player-motion-frame";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
+
+it("reads shared motion targets and missing IDs once per publication, then refreshes the next frame", () => {
+  const f = crystalFixture();
+  for (let i = 1; i <= 4; i++) {
+    f.seed("playerMotion", { identity: identity(String(i)), networkId: i, mapId: "water_reach", isVisible: true, x: 100 * i, y: 100 });
+    if (i < 4) f.seed("playerMotionInterest", { identity: identity(String(i)), networkIds: [4, 99] });
+  }
+  const reads = vi.spyOn(f.db.playerMotion.networkId, "find");
+  f.run(server.publishMotionDetailFrames);
+  expect(reads.mock.calls.map(([id]) => id)).toEqual([4, 99]);
+  for (const frame of f.db.playerMotionDetailFrame.iter()) {
+    expect(decodePlayerMotionFrame(frame.payload, frame.playerCount)).toMatchObject([{ networkId: 4, x: 400 }]);
+  }
+  const target = [...f.db.playerMotion.iter()].find(row => row.networkId === 4)!;
+  f.db.playerMotion.networkId.update({ ...target, isVisible: false });
+  reads.mockClear();
+  const before = f.db.playerMotionDetailFrame.count();
+  f.run(server.publishMotionDetailFrames);
+  expect(reads.mock.calls.map(([id]) => id)).toEqual([4, 99]);
+  expect(f.db.playerMotionDetailFrame.count()).toBe(before);
+});
 
 it("stops a stale publisher without scanning or broadcasting private homes", () => {
   const f = crystalFixture();

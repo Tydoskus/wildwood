@@ -7,9 +7,21 @@ import type { RemoteCombatStats } from "../contracts";
 import { withWideProgress } from "./wide-progress";
 
 const LOAD_TIMEOUT_MS = 5_000;
-const CACHE_TTL_MS = 30_000;
-const FAILED_CACHE_TTL_MS = 5_000;
-const MAX_CACHE_ENTRIES = 8;
+/**
+ * Each load is a subscription and its unsubscribe, so a player's stats are
+ * kept a good while: they only shape how their fights with enemies are drawn.
+ */
+const CACHE_TTL_MS = 5 * 60_000;
+const FAILED_CACHE_TTL_MS = 30_000;
+/**
+ * Room for everyone on a map. Everyone on it is drawn (0.899.1), and the
+ * enemy simulation asks for each of them every frame: a cache smaller than
+ * the crowd evicted one player to load the next, frame after frame, and
+ * every load was a subscription (1,700 a second across Maincloud).
+ */
+const MAX_CACHE_ENTRIES = 256;
+/** Arriving on a busy map loads its players a few at a time, not all at once. */
+const MAX_PENDING_LOADS = 3;
 
 type ProgressRow = {
   identity: Identity;
@@ -127,7 +139,7 @@ export function createRemoteCombatStatsService(dependencies: {
   }
 
   function beginLoad(identity: string) {
-    if (pending.has(identity)) return;
+    if (pending.has(identity) || pending.size >= MAX_PENDING_LOADS) return;
     const connection = dependencies.connection();
     const dbIdentity = dependencies.identityFor(identity);
     if (!connection || !dbIdentity) return;

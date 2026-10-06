@@ -2,7 +2,9 @@ import { simulateDuelBattle } from "./duel-combat";
 import { simulateGuildBattle, type GuildBattleResult } from "./guild-combat";
 export type { GuildFighter } from "./guild-combat";
 
-export const GUILD_EMBLEMS = ["wolf", "fox", "bear", "owl", "dragon", "lion", "raven", "stag", "swords", "fire", "serpent", "moon", "sun", "tree", "crystal", "leopard"] as const;
+/** Guild badges, in sheet order: guild-emblems-v3 holds the first 16, guild-emblems-v4 the next 16. */
+export const GUILD_EMBLEMS = ["wolf", "fox", "bear", "owl", "dragon", "lion", "raven", "stag", "swords", "fire", "serpent", "moon", "sun", "tree", "crystal", "leopard",
+  "turtle", "boar", "eagle", "bat", "shark", "octopus", "unicorn", "phoenix", "badger", "ram", "spider", "tiger", "mushroom", "anchor", "hammer", "lightning"] as const;
 export const GUILD_MEMBER_LIMIT = 20;
 export const GUILD_CREATION_MIN_POWER = 1_000_000_000;
 export const GUILD_DAILY_ATTACKS = 3;

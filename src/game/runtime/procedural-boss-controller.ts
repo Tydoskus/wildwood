@@ -120,12 +120,11 @@ export function createProceduralBossController(options: {
           r: 95,
           speed: 0,
           elite: true,
-          reward: stats.rewards[0],
+          reward: { type: "damage", amount: 0 },
         },
       });
       boss = options.enemies[options.enemies.length - 1];
       boss.generatedBoss = true;
-      boss.bossRewards = stats.rewards;
       encounter = row.encounter;
       bossKey = row.key;
       resetAttacks();

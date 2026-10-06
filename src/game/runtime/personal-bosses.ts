@@ -6,7 +6,7 @@ import type { RespawnMemory } from './respawn-memory';
 import type { BossFightMemory } from './boss-fight-memory';
 import { wallClockNowMs } from '../../app/trusted-clock';
 
-/** Local combat owns HP. Only the completed defeat is sent to the reward queue. */
+/** Local combat owns HP. Only a gate-clear acknowledgement goes to the server. */
 export function createPersonalBosses(options: {
   mapId: () => string; identity: () => string; alive: () => boolean;
   /** Defaults to the wall clock captured at boot, so a Date.now override does not respawn bosses. */

@@ -8,6 +8,7 @@ import { readPlayerProgress } from "./wide-stats";
 export function registerGuildReducers(spacetimedb: typeof spacetimedbType, deps: {
   guildService: ReturnType<typeof createGuildService>;
   requireGuildPlayer: (ctx: ModuleReducerCtx) => void;
+  requireGuildConnection: (ctx: ModuleReducerCtx) => void;
   effectivePowerForProgress: (ctx: ModuleReducerCtx, progress: NonNullable<ReturnType<ModuleReducerCtx["db"]["playerProgress"]["identity"]["find"]>>) => number;
   isPublicDisplayNameAllowed: (name: string) => boolean;
 }) {
@@ -30,5 +31,10 @@ const kickGuildMember = spacetimedb.reducer({ identity: t.identity() }, (ctx, { 
 const challengeGuild = spacetimedb.reducer({ opponentGuildId: t.u64() }, (ctx, { opponentGuildId }) => { requireGuildPlayer(ctx); guildService.challenge(ctx, opponentGuildId); });
 const shareGuildBattle = spacetimedb.reducer({ battleId: t.string() }, (ctx, { battleId }) => { requireGuildPlayer(ctx); guildService.shareBattle(ctx, battleId); });
 const guildAdmission = spacetimedb.reducer({ action: t.string(), guildId: t.u64(), identity: t.identity(), note: t.string() }, (ctx, { action, guildId, identity, note }) => { requireGuildPlayer(ctx); guildService.admission(ctx, action, guildId, identity, note); });
-  return { createGuild, joinGuild, leaveGuild, transferGuildLeadership, setGuildVicePresident, setGuildEmblem, kickGuildMember, challengeGuild, guildAdmission, shareGuildBattle };
+/** Both guilds' names and badges, for chat to show beside a battle a member shared. */
+const getGuildBattleBadges = spacetimedb.procedure({ reportKey: t.string() }, t.string(), (ctx, { reportKey }) => ctx.withTx(tx => {
+  deps.requireGuildConnection(tx);
+  return JSON.stringify(guildService.battleBadges(tx, reportKey));
+}));
+  return { createGuild, joinGuild, leaveGuild, transferGuildLeadership, setGuildVicePresident, setGuildEmblem, kickGuildMember, challengeGuild, guildAdmission, shareGuildBattle, getGuildBattleBadges };
 }

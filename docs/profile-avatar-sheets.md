@@ -2,6 +2,8 @@
 
 Generated with the built-in image-generation tool using `public/assets/wildstat/profile-portraits-grid-v2.png` as the art-style reference. All three atlases are 1254 × 1254 with an 8 × 8 grid. Existing IDs 0–63 remain unchanged; new people use 64–127 and objects use 128–191.
 
+A second object sheet, `public/assets/wildstat/profile-objects-grid-v2.webp` (IDs 192–255, animals, food and keepsakes), was generated at 2048 × 2048 on transparency and fitted to the v1 format by `scripts/art/fit-profile-object-sheet.mjs`, which centres each object in its cell at one size and prints the bounds kept in `src/app/profile-icon-crops.ts`.
+
 Outputs:
 - `public/assets/wildstat/profile-portraits-varied-v1.png`
 - `public/assets/wildstat/profile-objects-grid-v1.png`

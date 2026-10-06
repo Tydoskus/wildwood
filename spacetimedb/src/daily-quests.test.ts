@@ -132,15 +132,15 @@ it("lets a member whose own fifteen are done take more from the guild's pool, wi
   ]) });
   f.seed("playerDailyQuest", { identity: helper, day, bonus: 1, guildPoints: 0, guildName: "Oaks", questsJson: finishedWeek() });
   f.seed("guildQuestWeek", { key: `${questWeek(day)}:7`, week: questWeek(day), guildId: 7n, guildName: "Oaks", points: 15 });
-  // 300 in the pool at any size: 15 earned, and the sender's and sleepy's own unfinished fifteen held for them.
-  expect(questCollectStanding(f.ctx, helper)).toMatchObject({ ready: true, left: 15, pool: 255, poolSize: 300 });
+  // 300 in the pool at any size, less only the 15 finished: nobody's open quests hold any of it.
+  expect(questCollectStanding(f.ctx, helper)).toMatchObject({ ready: true, left: 15, pool: 285, poolSize: 300 });
   expect(collectGuildQuests(f.ctx, helper)).toBe(15);
   const mine = JSON.parse(f.db.playerDailyQuest.identity.find(helper).questsJson);
   expect(mine.filter((quest: any) => quest.from === GUILD_POOL_FROM)).toHaveLength(15);
   // Nobody's quests were taken.
   expect(JSON.parse(f.db.playerDailyQuest.identity.find(sleepy).questsJson).some((quest: any) => quest.takenBy)).toBe(false);
-  // Open pool quests count against the pool until they are done.
-  expect(questCollectStanding(f.ctx, helper)).toMatchObject({ left: 0, pool: 240 });
+  // Collected quests hold nothing either: the pool goes down only as quests are finished.
+  expect(questCollectStanding(f.ctx, helper)).toMatchObject({ left: 0, pool: 285 });
   // Finished pool quests show beside the member's own fifteen.
   const list = JSON.parse(f.db.playerDailyQuest.identity.find(helper).questsJson);
   f.db.playerDailyQuest.identity.update({ ...f.db.playerDailyQuest.identity.find(helper), questsJson: JSON.stringify(list.map((quest: any, index: number) => index === 15 ? { ...quest, progress: quest.target } : quest)) });
@@ -164,19 +164,36 @@ it("caps a guild's week at 300 points whatever its size", () => {
   expect(f.db.guildQuestWeek.key.find(`${questWeek(day)}:7`).points).toBe(300);
 });
 
-it("holds every member's own fifteen: extras a guildmate collects never leave them paying nothing", () => {
+it("leaves the pool to whoever finishes: an extra collected and left undone blocks nobody", () => {
   const { f, day } = questing();
-  const helper = member(f, "44");
-  f.db.guild.id.update({ ...f.db.guild.id.find(7n), members: 2 });
+  const helper = member(f, "44"), other = member(f, "46");
+  f.db.guild.id.update({ ...f.db.guild.id.find(7n), members: 3 });
   f.seed("playerDailyQuest", { identity: helper, day, bonus: 1, guildPoints: 0, guildName: "Oaks", questsJson: finishedWeek() });
-  f.seed("guildQuestWeek", { key: `${questWeek(day)}:7`, week: questWeek(day), guildId: 7n, guildName: "Oaks", points: 270 });
-  // 30 left: the sender's own fifteen are held, so the helper may collect the other 15.
-  expect(questCollectStanding(f.ctx, helper)).toMatchObject({ pool: 15 });
+  f.seed("playerDailyQuest", { identity: other, day, bonus: 1, guildPoints: 0, guildName: "Oaks", questsJson: finishedWeek() });
+  f.seed("guildQuestWeek", { key: `${questWeek(day)}:7`, week: questWeek(day), guildId: 7n, guildName: "Oaks", points: 285 });
+  // Fifteen left. The helper collects fifteen and then goes quiet; the other member can still collect.
   expect(collectGuildQuests(f.ctx, helper)).toBe(15);
-  expect(questCollectStanding(f.ctx, helper).pool).toBe(0);
-  // The sender's own quest still pays.
+  expect(questCollectStanding(f.ctx, other)).toMatchObject({ pool: 15 });
+  expect(collectGuildQuests(f.ctx, other)).toBe(15);
+  // The sender's own quest still pays while the pool has room.
   spitters(f, 10);
-  expect(f.db.guildQuestWeek.key.find(`${questWeek(day)}:7`).points).toBe(271);
+  expect(f.db.guildQuestWeek.key.find(`${questWeek(day)}:7`).points).toBe(286);
+});
+
+it("lets a full guild reach 300 though a member who opened their quests never does one", () => {
+  const { f, day } = questing();
+  // Twenty members, every board open on the first day: the sender's fifteen unfinished, and nineteen others'.
+  const others = Array.from({ length: 19 }, (_, i) => member(f, (0x80 + i).toString(16)));
+  f.db.guild.id.update({ ...f.db.guild.id.find(7n), members: 20 });
+  const openWeek = JSON.stringify(Array.from({ length: WEEKLY_QUEST_COUNT }, () => ({ mapId: "tutorial_forest", enemy: "Spitter", target: 50, progress: 0 })));
+  for (const who of others) f.seed("playerDailyQuest", { identity: who, day, bonus: 1, guildPoints: 0, guildName: "Oaks", questsJson: openWeek });
+  // All 300 are in the pool before anyone has done a thing.
+  expect(questCollectStanding(f.ctx, others[0])).toMatchObject({ pool: 300 });
+  // Eighteen finish their own; the sender never plays. One of the eighteen makes up the sender's fifteen.
+  for (const who of others.slice(0, 18)) f.db.playerDailyQuest.identity.update({ ...f.db.playerDailyQuest.identity.find(who), questsJson: finishedWeek() });
+  f.seed("guildQuestWeek", { key: `${questWeek(day)}:7`, week: questWeek(day), guildId: 7n, guildName: "Oaks", points: 270 });
+  expect(questCollectStanding(f.ctx, others[0])).toMatchObject({ ready: true, left: 15, pool: 30 });
+  expect(collectGuildQuests(f.ctx, others[0])).toBe(15);
 });
 
 it("moves a new member's guildless quests from this week to their guild, up to the 300 cap", () => {
@@ -254,8 +271,8 @@ it("holds own quests only for members who opened this week's: a full guild's abs
   f.db.guild.id.update({ ...f.db.guild.id.find(7n), members: 20 });
   f.seed("playerDailyQuest", { identity: helper, day, bonus: 1, guildPoints: 0, guildName: "Oaks", questsJson: finishedWeek() });
   f.seed("guildQuestWeek", { key: `${questWeek(day)}:7`, week: questWeek(day), guildId: 7n, guildName: "Oaks", points: 15 });
-  // 300 - 15 points - the sender's own fifteen; the absent eighteen hold nothing.
-  expect(questCollectStanding(f.ctx, helper)).toMatchObject({ pool: 270 });
+  // 300 - 15 points: the sender's open fifteen hold nothing, and nor do the absent eighteen.
+  expect(questCollectStanding(f.ctx, helper)).toMatchObject({ pool: 285 });
 });
 
 it("pays a player without a guild bonus 1% for every quest they finished last week, guild ones included", () => {

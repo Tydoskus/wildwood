@@ -1,6 +1,18 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.899.13": [
+    "The guild quest pool starts each week at 300 and only goes down as quests are finished, so active members can always make up for missing ones",
+    "Guild battles shared to chat show both guilds' crests",
+    "64 new object profile pictures: animals, food and more",
+    "Boss fights run on your device: beating a boss unlocks the next map, and bosses no longer give stats, items or gems",
+  ],
+  "0.899.12": [
+    "16 new guild badges to choose from, a turtle among them",
+  ],
+  "0.899.11": [
+    "A tab waiting on another tab, or a player hidden from others, stops re-asking the server for other players' movement",
+  ],
   "0.899.10": [
-    "Moonfen and Verdant Catacombs mushrooms have new art",
+    "Fixed the game reloading other players' stats many times a second when lots of players share a map",
   ],
   "0.899.9": [
     "Autofarm judges when to move to the next map by that map's current enemy stats, not outdated ones",
@@ -2892,7 +2904,10 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
-  "0.899.10": "2026-10-05",
+  "0.899.13": "2026-10-06",
+  "0.899.12": "2026-10-06",
+  "0.899.11": "2026-10-06",
+  "0.899.10": "2026-10-06",
   "0.899.9": "2026-10-05",
   "0.899.8": "2026-10-05",
   "0.899.7": "2026-10-05",

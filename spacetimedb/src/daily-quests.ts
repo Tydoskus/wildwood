@@ -300,34 +300,25 @@ export function questCollectStanding(ctx: Ctx, identity: any) {
 export const GUILD_POOL_FROM = "your guild";
 
 /**
- * A guild's quest pool for the week: GUILD_WEEK_QUEST_CAP (300) at any size
- * (it was fifteen a member until 0.897.1). Its points use it up, and so do
- * the quests still open on members' boards: collected ones, and every
- * member's own unfinished fifteen, which are held for them, so extras one
- * member collects never leave a guildmate's own quests paying nothing.
+ * A guild's quest pool for the week: GUILD_WEEK_QUEST_CAP (300) at any size,
+ * used up only by quests finished. Nothing on anyone's board holds it: until
+ * 0.899.13 every member's own unfinished fifteen and every collected extra
+ * did, so a full guild started the week at zero, one member who never played
+ * capped it at 285, and an extra collected and left undone blocked everyone
+ * else. Points stop at 300 however many quests are finished, so holding
+ * nothing never overpays; whoever finishes first counts.
  */
 export function guildQuestPool(ctx: Ctx, guildId: bigint) {
   const week = questWeek(questDay(ctx.timestamp.microsSinceUnixEpoch));
-  let outstanding = 0;
-  for (const member of ctx.db.guildMember.guildId.filter(guildId) as Iterable<any>) {
-    const quests = weeksQuests(ctx, member.identity);
-    // Only a member who has opened this week's quests has them held. Holding
-    // fifteen for everyone left a full guild's pool at zero all week, its
-    // absent members' quests uncollectable (0.899.4).
-    if (!quests) continue;
-    const own = quests.filter(ownQuest);
-    // A short list from the daily quests: the rest of their fifteen are still to come.
-    outstanding += own.filter(questOpen).length + Math.max(0, WEEKLY_QUEST_COUNT - own.length);
-    outstanding += (quests ?? []).filter(quest => quest.from && questOpen(quest)).length;
-  }
-  return { size: GUILD_WEEK_QUEST_CAP, left: Math.max(0, GUILD_WEEK_QUEST_CAP - weekPoints(ctx, week, guildId) - outstanding) };
+  return { size: GUILD_WEEK_QUEST_CAP, left: Math.max(0, GUILD_WEEK_QUEST_CAP - weekPoints(ctx, week, guildId)) };
 }
 
 /**
  * A member whose own fifteen are done draws extra quests from the guild's
- * pool, fresh from the maps they can reach, up to fifteen a week. Nothing is
- * taken from anyone: the pool is the guild's whole week, so a member who
- * misses theirs leaves room for the rest to make it up.
+ * pool, fresh from the maps they can reach, up to fifteen a week (thirty in
+ * all). Nothing is taken from anyone and nothing is held: the pool is the
+ * guild's whole week, so a member who misses theirs leaves room for the rest
+ * to make it up.
  */
 export function collectGuildQuests(ctx: Ctx, collector: any) {
   const fail = (message: string): never => { throw new SenderError(message); };
@@ -340,7 +331,7 @@ export function collectGuildQuests(ctx: Ctx, collector: any) {
   if (!standing.left) fail(`You have collected ${GUILD_QUEST_COLLECT_LIMIT} quests this week.`);
   const pool = guildQuestPool(ctx, seat.guildId);
   const count = Math.min(standing.left, pool.left);
-  if (!count) fail("Your guild's quests are all taken for this week.");
+  if (!count) fail(`Your guild has finished its ${GUILD_WEEK_QUEST_CAP} quests this week.`);
   const quests = parseDailyQuests(mine.questsJson);
   const taken = quests.filter(quest => quest.from).length;
   const drawn = weeklyQuestsFor(`${collector.toHexString()}:pool:${taken}`, questWeek(day), readPlayerProgress(ctx, collector) ?? {})

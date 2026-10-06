@@ -37,54 +37,16 @@ import {
   WORLD,
 } from "../constants";
 import {
-  FROSTCLAW_REWARD_ARMOR,
-  FROSTCLAW_REWARD_DAMAGE,
-  FROSTCLAW_REWARD_HEALTH,
-  GLOOMROOT_REWARD_ARMOR,
-  GLOOMROOT_REWARD_DAMAGE,
-  GLOOMROOT_REWARD_HEALTH,
-  GLOOMROOT_REWARD_REGEN,
-  KOI_SHOGUN_REWARD_ARMOR,
-  KOI_SHOGUN_REWARD_DAMAGE,
-  KOI_SHOGUN_REWARD_HEALTH,
-  KOI_SHOGUN_REWARD_REGEN,
-  TEMPEST_KIRIN_REWARD_ARMOR,
-  TEMPEST_KIRIN_REWARD_DAMAGE,
-  TEMPEST_KIRIN_REWARD_HEALTH,
-  TEMPEST_KIRIN_REWARD_REGEN,
-  DRAGON_REWARD_DAMAGE,
-  MAGMALISK_REWARD_ARMOR,
-  MAGMALISK_REWARD_DAMAGE,
-  MAGMALISK_REWARD_HEALTH,
-  MAGMALISK_REWARD_REGEN,
-  MIREMAW_REWARD_ARMOR,
-  PRISMSHELL_REWARD_ARMOR, IRONHORN_REWARD_ARMOR, DREADREAPER_REWARD_ARMOR, VOLTWARDEN_REWARD_ARMOR, GRAVEBLOOM_REWARD_ARMOR, AEGIS_PRIME_REWARD_ARMOR,
-  MIREMAW_REWARD_DAMAGE,
-  PRISMSHELL_REWARD_DAMAGE, IRONHORN_REWARD_DAMAGE, DREADREAPER_REWARD_DAMAGE, VOLTWARDEN_REWARD_DAMAGE, GRAVEBLOOM_REWARD_DAMAGE, AEGIS_PRIME_REWARD_DAMAGE,
-  MIREMAW_REWARD_HEALTH,
-  PRISMSHELL_REWARD_HEALTH, IRONHORN_REWARD_HEALTH, DREADREAPER_REWARD_HEALTH, VOLTWARDEN_REWARD_HEALTH, GRAVEBLOOM_REWARD_HEALTH, AEGIS_PRIME_REWARD_HEALTH,
-  MIREMAW_REWARD_REGEN,
-  PRISMSHELL_REWARD_REGEN, IRONHORN_REWARD_REGEN, DREADREAPER_REWARD_REGEN, VOLTWARDEN_REWARD_REGEN, GRAVEBLOOM_REWARD_REGEN, AEGIS_PRIME_REWARD_REGEN,
-  SPIDER_REWARD_DAMAGE,
-  SPIDER_REWARD_HEALTH,
-  TIDEWYRM_REWARD_ARMOR,
-  TIDEWYRM_REWARD_DAMAGE,
-  TIDEWYRM_REWARD_HEALTH,
-  TIDEWYRM_REWARD_REGEN,
-} from "../../../shared/rules";
-import {
   bossAbilityTimelineAt,
   bossSeededUnit,
   seededBossHazardPolar,
   type BossAbilityName,
 } from "../../../shared/boss-simulation";
-import { REWARD_DATA, rewardLabel, type RewardType } from "../enemies";
 import { BOSS_DAMAGE_PROFILES } from "../boss-damage";
 import { clamp } from "../math";
 import type { PlayerGender } from "../../../shared/player-gender";
 import type { BossCone, PlayerState } from "./types";
 import { BOSSES, BOSS_KINDS, bossForMap, clearBossAttack, perBoss, type BossHazards, type BossKind, type BossStates } from "./boss-registry";
-import { addPlayerBaseMaxHealth } from "./player-health";
 
 export const BOSS_HP_LOSS_FLASH_DURATION = .18;
 export const SPIDER_WEB_RANGE = 720;
@@ -140,7 +102,6 @@ export type BossResult = {
 type BossAbilityTarget = { id: string; x: number; y: number };
 type AbilityTarget = Pick<BossAbilityTarget, "x" | "y">;
 type Burst = readonly [color: string, count: number, speed: number];
-type StatReward = "damage" | "health" | "armor" | "regen";
 type Hazard = { x: number; y: number; r: number; timer: number; maxTimer: number };
 type PortalCutscene = { seen: () => boolean; start: () => boolean | void };
 
@@ -163,16 +124,14 @@ export type BossController = {
 
 type StandardKind = Exclude<BossKind, "dragon">;
 
-/** How a boss other than the Dragon dies and pays out. */
+/** Death effects and gate-reveal behavior for a local campaign boss. */
 type BossOutcome = {
-  /** Read when paid: a map's balance replaces the reward values once it loads. */
-  rewards: () => readonly (readonly [StatReward, number])[];
   deathBurst: Burst;
   /**
    * A boss already dead when the player arrives still shows that player's
-   * reward. Frostclaw only did so while its portal reveal was unseen.
+   * gate reveal. Frostclaw only does so while its portal reveal is unseen.
    */
-  rewardOnArrival: boolean | "beforeCutscene";
+  revealOnArrival: boolean | "beforeCutscene";
   /**
    * The Scorpion predates two details every later boss shares: a heal clears
    * the health-loss flash, and a reset clears `hurt`.
@@ -184,68 +143,47 @@ type BossOutcome = {
 
 const BOSS_OUTCOMES: Record<StandardKind, BossOutcome> = {
   spider: {
-    rewards: () => [["damage", SPIDER_REWARD_DAMAGE], ["health", SPIDER_REWARD_HEALTH]],
-    deathBurst: [DEATH_PARTICLE_COLOR, 64, 230], rewardOnArrival: false, scorpion: true,
+    deathBurst: [DEATH_PARTICLE_COLOR, 64, 230], revealOnArrival: false, scorpion: true,
   },
   frostclaw: {
-    rewards: () => [["damage", FROSTCLAW_REWARD_DAMAGE], ["health", FROSTCLAW_REWARD_HEALTH], ["armor", FROSTCLAW_REWARD_ARMOR]],
-    deathBurst: ["#8eeeff", 76, 260], rewardOnArrival: "beforeCutscene",
+    deathBurst: ["#8eeeff", 76, 260], revealOnArrival: "beforeCutscene",
   },
   magmalisk: {
-    rewards: () => [["damage", MAGMALISK_REWARD_DAMAGE], ["health", MAGMALISK_REWARD_HEALTH], ["armor", MAGMALISK_REWARD_ARMOR], ["regen", MAGMALISK_REWARD_REGEN]],
-    deathBurst: ["#ff6b24", 88, 280], rewardOnArrival: true,
+    deathBurst: ["#ff6b24", 88, 280], revealOnArrival: true,
   },
   gloomroot: {
-    rewards: () => [["damage", GLOOMROOT_REWARD_DAMAGE], ["health", GLOOMROOT_REWARD_HEALTH], ["armor", GLOOMROOT_REWARD_ARMOR], ["regen", GLOOMROOT_REWARD_REGEN]],
-    deathBurst: ["#43d9e6", 96, 290], rewardOnArrival: true,
+    deathBurst: ["#43d9e6", 96, 290], revealOnArrival: true,
   },
   tidewyrm: {
-    rewards: () => [["damage", TIDEWYRM_REWARD_DAMAGE], ["health", TIDEWYRM_REWARD_HEALTH], ["armor", TIDEWYRM_REWARD_ARMOR], ["regen", TIDEWYRM_REWARD_REGEN]],
-    deathBurst: ["#40d9f2", 104, 310], rewardOnArrival: true, spriteClock: true,
+    deathBurst: ["#40d9f2", 104, 310], revealOnArrival: true, spriteClock: true,
   },
   koiShogun: {
-    rewards: () => [["damage", KOI_SHOGUN_REWARD_DAMAGE], ["health", KOI_SHOGUN_REWARD_HEALTH], ["armor", KOI_SHOGUN_REWARD_ARMOR], ["regen", KOI_SHOGUN_REWARD_REGEN]],
-    deathBurst: ["#f0a044", 112, 320], rewardOnArrival: true,
+    deathBurst: ["#f0a044", 112, 320], revealOnArrival: true,
   },
   tempestKirin: {
-    rewards: () => [["damage", TEMPEST_KIRIN_REWARD_DAMAGE], ["health", TEMPEST_KIRIN_REWARD_HEALTH], ["armor", TEMPEST_KIRIN_REWARD_ARMOR], ["regen", TEMPEST_KIRIN_REWARD_REGEN]],
-    deathBurst: ["#9fe9ff", 120, 340], rewardOnArrival: true,
+    deathBurst: ["#9fe9ff", 120, 340], revealOnArrival: true,
   },
   miremaw: {
-    rewards: () => [["damage", MIREMAW_REWARD_DAMAGE], ["health", MIREMAW_REWARD_HEALTH], ["armor", MIREMAW_REWARD_ARMOR], ["regen", MIREMAW_REWARD_REGEN]],
-    deathBurst: ["#71efc1", 120, 340], rewardOnArrival: true,
+    deathBurst: ["#71efc1", 120, 340], revealOnArrival: true,
   },
   prismshell: {
-    rewards: () => [["damage", PRISMSHELL_REWARD_DAMAGE], ["health", PRISMSHELL_REWARD_HEALTH], ["armor", PRISMSHELL_REWARD_ARMOR], ["regen", PRISMSHELL_REWARD_REGEN]],
-    deathBurst: ["#c3a6ff", 120, 340], rewardOnArrival: true,
+    deathBurst: ["#c3a6ff", 120, 340], revealOnArrival: true,
   },
   ironhorn: {
-    rewards: () => [["damage", IRONHORN_REWARD_DAMAGE], ["health", IRONHORN_REWARD_HEALTH], ["armor", IRONHORN_REWARD_ARMOR], ["regen", IRONHORN_REWARD_REGEN]],
-    deathBurst: ["#c3a6ff", 120, 340], rewardOnArrival: true, spriteClock: true,
+    deathBurst: ["#c3a6ff", 120, 340], revealOnArrival: true, spriteClock: true,
   },
   dreadreaper: {
-    rewards: () => [["damage", DREADREAPER_REWARD_DAMAGE], ["health", DREADREAPER_REWARD_HEALTH], ["armor", DREADREAPER_REWARD_ARMOR], ["regen", DREADREAPER_REWARD_REGEN]],
-    deathBurst: ["#c3a6ff", 120, 340], rewardOnArrival: true, spriteClock: true,
+    deathBurst: ["#c3a6ff", 120, 340], revealOnArrival: true, spriteClock: true,
   },
   voltwarden: {
-    rewards: () => [["damage", VOLTWARDEN_REWARD_DAMAGE], ["health", VOLTWARDEN_REWARD_HEALTH], ["armor", VOLTWARDEN_REWARD_ARMOR], ["regen", VOLTWARDEN_REWARD_REGEN]],
-    deathBurst: ["#c3a6ff", 120, 340], rewardOnArrival: true,
+    deathBurst: ["#c3a6ff", 120, 340], revealOnArrival: true,
   },
   gravebloom: {
-    rewards: () => [["damage", GRAVEBLOOM_REWARD_DAMAGE], ["health", GRAVEBLOOM_REWARD_HEALTH], ["armor", GRAVEBLOOM_REWARD_ARMOR], ["regen", GRAVEBLOOM_REWARD_REGEN]],
-    deathBurst: ["#c3a6ff", 120, 340], rewardOnArrival: true,
+    deathBurst: ["#c3a6ff", 120, 340], revealOnArrival: true,
   },
   aegisPrime: {
-    rewards: () => [["damage", AEGIS_PRIME_REWARD_DAMAGE], ["health", AEGIS_PRIME_REWARD_HEALTH], ["armor", AEGIS_PRIME_REWARD_ARMOR], ["regen", AEGIS_PRIME_REWARD_REGEN]],
-    deathBurst: ["#c3a6ff", 120, 340], rewardOnArrival: true,
+    deathBurst: ["#c3a6ff", 120, 340], revealOnArrival: true,
   },
-};
-
-const REWARD_LOG_COLORS: Record<StatReward, string> = {
-  damage: "#ff655a",
-  health: "#6fe48e",
-  armor: REWARD_DATA.armor.color,
-  regen: REWARD_DATA.regen.color,
 };
 
 /** A ring of hazards seeded from the encounter, dropped around the target. */
@@ -336,11 +274,10 @@ type PulseBoss = {
 };
 
 /**
- * Owns world-boss state synchronization, attacks, collision, and reward UI.
+ * Owns local boss presentation, attacks, collision, and gate reveals.
  * The application entry point supplies DOM and multiplayer boundaries only.
  */
 export function createBossController(options: {
-  serverOwnsRewards?: boolean;
   bosses: BossStates;
   hazards: BossHazards;
   player: PlayerState;
@@ -362,13 +299,8 @@ export function createBossController(options: {
   damageEnemies?: (attack: object, amount: number, inside: (x: number, y: number, r: number) => boolean) => void;
   /** Pushes map enemies out of a boss's body. */
   collideEnemies?: (boss: { x: number; y: number; r: number; ry?: number; hitboxOffsetY?: number }) => void;
-  logPickup: (text: string, color: string, baseText?: string) => void;
-  saveProgress: () => void;
-  healthMultiplierBonus?: () => number;
-  rewardMultiplier?: () => number;
-  displayRewardAmount?: (type: RewardType, baseAmount: number) => number;
 }): BossController {
-  const { bosses, hazards, player, localIdentity, running, portalCutsceneActive, spawnBurst, damagePlayer, logPickup, saveProgress } = options;
+  const { bosses, hazards, player, localIdentity, running, portalCutsceneActive, spawnBurst, damagePlayer } = options;
   const hitEnemies = options.damageEnemies ?? (() => {});
   const boss = bosses.dragon;
   const bossRain = hazards.dragon;
@@ -386,7 +318,7 @@ export function createBossController(options: {
   const aegisPrimeCrystalBursts = hazards.aegisPrime;
 
   // Which encounter each boss was last seen in, whether it was alive then, and
-  // the reward result waiting to be shown, shown already, or held back while a
+  // the gate-clear result waiting to be shown, shown already, or held back while a
   // portal reveal plays.
   const encounters = perBoss(() => ({
     observed: null as bigint | null,
@@ -394,7 +326,6 @@ export function createBossController(options: {
     pendingResult: null as bigint | null,
     shownResult: null as bigint | null,
     queuedResult: null as BossResult | null,
-    locallyRewarded: new Set<string>(),
   }));
   const patternIndex = perBoss(() => 0);
 
@@ -482,21 +413,6 @@ export function createBossController(options: {
     return options.serverNowMs?.() ?? Date.now();
   }
 
-  function scaledReward(type: RewardType, baseAmount: number) {
-    const multiplier = options.rewardMultiplier?.() ?? 1;
-    return {
-      type,
-      amount: baseAmount * (Number.isFinite(multiplier) && multiplier >= 0 ? multiplier : 1),
-      baseAmount,
-    };
-  }
-
-  function logReward(reward: ReturnType<typeof scaledReward>, color: string) {
-    // Bosses on the live balance pay nothing: no "+0" pop-up for them.
-    if (!(reward.baseAmount > 0)) return;
-    logPickup(rewardLabel({ ...reward, amount: options.displayRewardAmount?.(reward.type, reward.baseAmount) ?? reward.amount }), color, rewardLabel({ type: reward.type, amount: reward.baseAmount }));
-  }
-
   // Boss area attacks hit without knocking the player back. Restoring the push
   // is setting the angle, BOSS_AREA_KNOCKBACK_DURATION and
   // bossAreaKnockbackDistance(attackRange, bossRadius) here again.
@@ -548,22 +464,6 @@ export function createBossController(options: {
     }
     encounter.pendingResult = null;
     encounter.shownResult = result.encounter;
-    if (!localContribution) return;
-    const rewards = BOSS_OUTCOMES[kind].rewards().map(([type, amount]) => scaledReward(type, amount));
-    const encounterKey = String(result.encounter);
-    if (!options.serverOwnsRewards && !encounter.locallyRewarded.has(encounterKey)) {
-      // The authoritative reward arrives through the server result. Mirror it
-      // into the active runtime now so the overhead HP and Power labels change
-      // in the same frame as the reward notice, not after a later save sync.
-      encounter.locallyRewarded.add(encounterKey);
-      for (const reward of rewards) {
-        if (reward.type === "damage") player.damage += reward.amount;
-        else if (reward.type === "health") addPlayerBaseMaxHealth(player, reward.amount, options.healthMultiplierBonus?.() ?? 0);
-        else if (reward.type === "armor") player.armor += reward.amount;
-        else player.regen += reward.amount;
-      }
-    }
-    for (const reward of rewards) logReward(reward, REWARD_LOG_COLORS[reward.type as StatReward]);
   }
 
   function killBoss() {
@@ -592,15 +492,6 @@ export function createBossController(options: {
     }
     encounter.shownResult = result.encounter;
     encounter.pendingResult = null;
-    if (!localContribution) return;
-    const damageReward = scaledReward("damage", DRAGON_REWARD_DAMAGE);
-    const encounterKey = String(result.encounter);
-    if (!options.serverOwnsRewards && !encounter.locallyRewarded.has(encounterKey)) {
-      encounter.locallyRewarded.add(encounterKey);
-      player.damage += damageReward.amount;
-      logReward(damageReward, "#ff655a");
-      saveProgress();
-    }
   }
 
   function syncState(kind: StandardKind) {
@@ -648,13 +539,12 @@ export function createBossController(options: {
     state.encounter = shared.encounter;
     state.maxHp = shared.maxHp;
     state.hp = shared.hp;
-    const rewardOnArrival = () => outcome.rewardOnArrival === "beforeCutscene"
+    const revealOnArrival = () => outcome.revealOnArrival === "beforeCutscene"
       ? !options.portalCutscenes[kind]?.seen()
-      : outcome.rewardOnArrival;
-    if (!initialized && !shared.alive && onMap(kind) && rewardOnArrival()) {
+      : outcome.revealOnArrival;
+    if (!initialized && !shared.alive && onMap(kind) && revealOnArrival()) {
       const result = options.bossResult(kind);
       if (result?.encounter === shared.encounter && result.contributors.some((entry) => entry.identity === localIdentity())) {
-        encounter.locallyRewarded.add(String(result.encounter));
         showResult(kind, result);
       }
     }
@@ -1438,7 +1328,7 @@ export function createBossController(options: {
     resetAll: () => { for (const kind of BOSS_KINDS) byKind[kind].reset(); },
     applyBossKnockback,
     onPortalCutsceneFinished() {
-      // Rewards held back while a first kill's portal reveal played, in map order.
+      // Clear results held while a first kill's portal reveal played, in map order.
       for (const kind of BOSS_KINDS) {
         const result = encounters[kind].queuedResult;
         encounters[kind].queuedResult = null;

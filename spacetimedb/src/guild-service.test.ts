@@ -371,7 +371,7 @@ it('restricts badge edits to the President and Vice President and persists the c
   f.run(1, ctx => f.service.setVicePresident(ctx, identity(2), true));
   f.run(2, ctx => f.service.setEmblem(ctx, 15));
   expect(f.run(1, ctx => f.service.snapshot(ctx)).guild?.emblem).toBe(15);
-  expect(() => f.run(2, ctx => f.service.setEmblem(ctx, 16))).toThrow('valid');
+  expect(() => f.run(2, ctx => f.service.setEmblem(ctx, 32))).toThrow('valid');
   expect(() => f.run(2, ctx => f.service.setEmblem(ctx, -1))).toThrow('valid');
 });
 it('ranks opponents by saved power across page boundaries and reports member power', () => {

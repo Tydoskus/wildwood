@@ -816,7 +816,6 @@ import {
   const { activePortal, secondaryPortal, portalIsUnlocked, startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene, startSamuraiPortalCutscene } = mapController;
 
   const bossController = createBossController({
-    serverOwnsRewards: true,
     bosses,
     hazards: bossHazards,
     player,
@@ -838,11 +837,6 @@ import {
     },
     spawnBurst,
     damagePlayer: (amount) => playerCombat.damagePlayerFromBoss(amount), damageEnemies: (attack, amount, inside) => playerCombat.damageEnemiesFromBoss(attack, amount, inside), collideEnemies: boss => playerCombat.pushEnemiesFromBoss(boss),
-    logPickup,
-    saveProgress,
-    healthMultiplierBonus,
-    rewardMultiplier: researchRewardMultiplier,
-    displayRewardAmount: rewardDisplay.totalAmount,
   });
 
   let playerSpriteReady = false;

@@ -7,7 +7,6 @@ import {BOSS_CONE_RANGE, FROSTCLAW_ROAR_RANGE, GLOOMROOT_SWEEP_RANGE, KOI_SHOGUN
 import {DRAGON_MAX_HP, FROSTCLAW_MAX_HP, FROSTCLAW_REWARD_ARMOR, FROSTCLAW_REWARD_DAMAGE, FROSTCLAW_REWARD_HEALTH, GLOOMROOT_MAX_HP, GLOOMROOT_REWARD_ARMOR, GLOOMROOT_REWARD_DAMAGE, GLOOMROOT_REWARD_HEALTH, GLOOMROOT_REWARD_REGEN, KOI_SHOGUN_MAX_HP, KOI_SHOGUN_REWARD_ARMOR, KOI_SHOGUN_REWARD_DAMAGE, KOI_SHOGUN_REWARD_HEALTH, KOI_SHOGUN_REWARD_REGEN, MAGMALISK_MAX_HP, MAGMALISK_REWARD_ARMOR, MAGMALISK_REWARD_DAMAGE, MAGMALISK_REWARD_HEALTH, MAGMALISK_REWARD_REGEN, MIREMAW_MAX_HP, PRISMSHELL_MAX_HP, MIREMAW_REWARD_ARMOR, PRISMSHELL_REWARD_ARMOR, MIREMAW_REWARD_DAMAGE, PRISMSHELL_REWARD_DAMAGE, MIREMAW_REWARD_HEALTH, PRISMSHELL_REWARD_HEALTH, MIREMAW_REWARD_REGEN, PRISMSHELL_REWARD_REGEN, TEMPEST_KIRIN_MAX_HP, TEMPEST_KIRIN_REWARD_ARMOR, TEMPEST_KIRIN_REWARD_DAMAGE, TEMPEST_KIRIN_REWARD_HEALTH, TEMPEST_KIRIN_REWARD_REGEN, TIDEWYRM_MAX_HP, TIDEWYRM_REWARD_ARMOR, TIDEWYRM_REWARD_DAMAGE, TIDEWYRM_REWARD_HEALTH, TIDEWYRM_REWARD_REGEN} from "../../../shared/rules";
 import {bossAbilityTimelineAt} from "../../../shared/boss-simulation";
 import {ION_SWEEP} from "../../../shared/ion-attacks";
-import {rewardLabel} from "../enemies";
 import {ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, CLOUDSPIRE_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ION_CITADEL_MAP_ID, MOONFEN_MAP_ID, NEON_BASTION_MAP_ID, SAMURAI_GARDEN_MAP_ID, WATER_REACH_MAP_ID} from "../world";
 import type {BossKind} from "./boss-registry";
 
@@ -49,8 +48,6 @@ function createFrostclawHarness(overrides: Partial<Parameters<typeof createBossC
     portalCutscenes: { dragon: seen, spider: seen, frostclaw: seen, magmalisk: seen, gloomroot: seen, tidewyrm: seen },
     spawnBurst: () => undefined,
     damagePlayer,
-    logPickup: () => undefined,
-    saveProgress: () => undefined,
     ...overrides,
   });
   return { ...state, controller, damagePlayer };
@@ -181,60 +178,19 @@ describe("Boss body and map enemies", () => {
 });
 
 describe("Boss defeat presentation", () => {
-  it("pays participants through the stat reward popups alone", () => {
-    type FakeElement = {
-      className: string;
-      hidden: boolean;
-      textContent: string;
-      children: FakeElement[];
-      style: Record<string, string>;
-      offsetWidth: number;
-      append: (...children: FakeElement[]) => void;
-      appendChild: (child: FakeElement) => FakeElement;
-      replaceChildren: (...children: FakeElement[]) => void;
-      querySelector: (_selector: string) => FakeElement | null;
-    };
-    const fakeElement = (): FakeElement => {
-      const element: FakeElement = {
-        className: "",
-        hidden: true,
-        textContent: "",
-        children: [],
-        style: {},
-        offsetWidth: 0,
-        append: (...children) => { element.children.push(...children); },
-        appendChild: (child) => { element.children.push(child); return child; },
-        replaceChildren: (...children) => { element.children = [...children]; },
-        querySelector: () => null,
-      };
-      return element;
-    };
-    vi.stubGlobal("document", { createElement: () => fakeElement() });
-    vi.stubGlobal("window", { setTimeout: vi.fn(() => 1), clearTimeout: vi.fn() });
-
-    let shared = { encounter: 71n, hp: FROSTCLAW_MAX_HP, maxHp: FROSTCLAW_MAX_HP, alive: true };
-    const logPickup = vi.fn();
-    const { controller } = createFrostclawHarness({
-      sharedBoss: forKind("frostclaw", () => shared),
-      bossResult: forKind("frostclaw", () => ({
-        encounter: 71n,
-        totalDamage: 100,
-        contributors: [{ identity: "local", name: "Local", gender: 0, damage: 100, percentage: 100 }],
-      })),
-      logPickup,
-      rewardMultiplier: () => 1.2,
+  it("leaves player stats unchanged when a local boss dies or its result is replayed", () => {
+    let local = { encounter: 71n, hp: FROSTCLAW_MAX_HP, maxHp: FROSTCLAW_MAX_HP, alive: true };
+    const { controller, player } = createFrostclawHarness({
+      sharedBoss: forKind("frostclaw", () => local),
+      bossResult: forKind("frostclaw", () => ({ encounter: 71n, totalDamage: 100,
+        contributors: [{ identity: "local", name: "Local", gender: 0, damage: 100, percentage: 100 }] })),
     });
-
+    const before = { ...player };
     controller.byKind.frostclaw.sync();
-    shared = { ...shared, hp: 0, alive: false };
+    local = { ...local, hp: 0, alive: false };
     controller.byKind.frostclaw.sync();
-
-    expect(logPickup).toHaveBeenCalledTimes(3);
-    expect(logPickup).toHaveBeenCalledWith(
-      rewardLabel({ type: "damage", amount: FROSTCLAW_REWARD_DAMAGE * 1.2 }),
-      "#ff655a",
-      rewardLabel({ type: "damage", amount: FROSTCLAW_REWARD_DAMAGE }),
-    );
+    controller.byKind.frostclaw.sync();
+    expect(player).toEqual(before);
   });
 });
 

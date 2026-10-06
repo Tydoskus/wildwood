@@ -216,6 +216,11 @@ function appendRemoteMotionSample(existing: RemotePlayerTarget, sample: Omit<Rem
   existing.moving = sample.moving;
 }
 
+/** The longest a tab waits between asks for missing movement detail. */
+const MOTION_DETAIL_RECOVERY_MAX_MS = 30_000;
+/** A failed presence subscription's first retry, and the longest wait it backs off to. */
+const SUBSCRIPTION_RETRY_MIN_MS = 1_000, SUBSCRIPTION_RETRY_MAX_MS = 30_000;
+
 export function createPresenceService(dependencies: PresenceServiceDependencies) {
   const players = new Map<string, RemotePlayerTarget>();
   const presentations = new Map<string, PlayerPresentationRow>();
@@ -248,6 +253,15 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   let remotePlayersVisible = false;
   let missingMotionDetailSince: number | null = null;
   let lastMotionDetailRecoveryAt = Number.NEGATIVE_INFINITY;
+  /** Each recovery that brings nothing waits twice as long for the next: every one resubscribes. */
+  let motionDetailRecoveryDelayMs = PLAYER_MOTION_DETAIL_RECOVERY_MS;
+  /** Whether the server shows us: it keeps no motion interest for a player it hides, so asking for detail then is futile. */
+  let localVisible = true;
+  /** A failed subscription is retried later and later, not every second or on every update of our row. */
+  let mapSubscriptionRetryMs = SUBSCRIPTION_RETRY_MIN_MS;
+  let mapSubscriptionRetryAt = Number.NEGATIVE_INFINITY;
+  let mapMarkerRetryMs = SUBSCRIPTION_RETRY_MIN_MS;
+  let mapMarkerRetryAt = Number.NEGATIVE_INFINITY;
   let lastSentMovement: SentMovementState | null = null;
   // Held while the eye is off; flushed the moment presence returns.
   let deferredSpeed: number | null = null;
@@ -370,10 +384,20 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     if (inserted) dependencies.changes.notify();
   }
 
+  /**
+   * Whether the server will send this tab movement detail at all. A tab another one took over, one
+   * waiting for a deploy, or a player the server hides gets none however often it asks, and every ask
+   * resubscribes: it waits instead.
+   */
+  function motionDetailServable() {
+    return localVisible && !dependencies.reducers.protocolBlocked() && !dependencies.reducers.worldEntryBlocked() && !dependencies.sessionConflict();
+  }
+
   function recoverMissingMotionDetail(now: number) {
     const missing = hasMissingPlayerMotionDetail(desiredMotionNetworkIds, detailedMotionReadyNetworkIds);
-    if (!missing) {
+    if (!missing || !motionDetailServable()) {
       missingMotionDetailSince = null;
+      if (!missing) motionDetailRecoveryDelayMs = PLAYER_MOTION_DETAIL_RECOVERY_MS;
       return;
     }
     if (missingMotionDetailSince === null) {
@@ -387,9 +411,10 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         missingSince: missingMotionDetailSince,
         now,
       }) ||
-      now - lastMotionDetailRecoveryAt < PLAYER_MOTION_DETAIL_RECOVERY_MS
+      now - lastMotionDetailRecoveryAt < motionDetailRecoveryDelayMs
     ) return;
     lastMotionDetailRecoveryAt = now;
+    motionDetailRecoveryDelayMs = Math.min(MOTION_DETAIL_RECOVERY_MAX_MS, motionDetailRecoveryDelayMs * 2);
     submittedMotionNetworkIds = [];
     submitMotionInterest();
     queueMicrotask(() => refreshMapMarkerSubscription(true));
@@ -443,6 +468,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     if (!samePlayerMotionInterest(next, desiredMotionNetworkIds)) {
       desiredMotionNetworkIds = next;
       missingMotionDetailSince = null;
+      motionDetailRecoveryDelayMs = PLAYER_MOTION_DETAIL_RECOVERY_MS;
       for (const networkId of detailedMotionReadyNetworkIds) {
         if (!desiredMotionNetworkIds.includes(networkId)) detailedMotionReadyNetworkIds.delete(networkId);
       }
@@ -463,6 +489,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     motionInterestInFlight = false;
     missingMotionDetailSince = null;
     lastMotionDetailRecoveryAt = Number.NEGATIVE_INFINITY;
+    motionDetailRecoveryDelayMs = PLAYER_MOTION_DETAIL_RECOVERY_MS;
   }
 
   function upsertPlayer(row: PlayerRow) {
@@ -479,6 +506,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       const conflictBefore = dependencies.sessionConflict();
       playerMaps.set(id, nextMapId);
       dependencies.developer.observePresence(row.isVisible);
+      localVisible = row.isVisible;
       if (dependencies.worldEntryReady() && row.controllerTabId && row.controllerTabId !== dependencies.authTabId()) {
         dependencies.onControllerConflict();
       }
@@ -880,7 +908,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     const connection = dependencies.reducers.connection();
     const selfIdentity = dependencies.localDbIdentity();
     if (!connection?.isActive || !dependencies.hydrationReady() || !selfIdentity) return;
-    if (!force && mapMarkerSubscription) return;
+    if (!force && (mapMarkerSubscription || monotonicNowMs() < mapMarkerRetryAt)) return;
 
     const previous = mapMarkerSubscription;
     const generation = ++mapMarkerSubscriptionGeneration;
@@ -893,11 +921,14 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
           return;
         }
         unsubscribeIfActive(previous);
+        mapMarkerRetryMs = SUBSCRIPTION_RETRY_MIN_MS;
       })
       .onError((ctx) => {
         if (dependencies.reducers.connection() !== connection || generation !== mapMarkerSubscriptionGeneration) return;
         console.error("WildStat map marker subscription error:", ctx.event);
         mapMarkerSubscription = previous;
+        mapMarkerRetryAt = monotonicNowMs() + mapMarkerRetryMs;
+        mapMarkerRetryMs = Math.min(SUBSCRIPTION_RETRY_MAX_MS, mapMarkerRetryMs * 2);
       })
       .subscribe([
         tables.playerMapFrame.where((frame) => frame.mapId.eq(mapId)),
@@ -959,6 +990,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       return;
     }
     if (!force && mapPlayerSubscription && mapSubscriptionAreaKey === areaKey) return;
+    if (!force && !mapPlayerSubscription && mapSubscriptionAreaKey === "" && monotonicNowMs() < mapSubscriptionRetryAt) return;
 
     const previous = mapPlayerSubscription;
     const previousAreaKey = mapSubscriptionAreaKey;
@@ -990,6 +1022,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
               return;
             }
             const staleMap = currentMapId !== mapId;
+            mapSubscriptionRetryMs = SUBSCRIPTION_RETRY_MIN_MS;
             if (!staleMap) reconcileMapPlayerSubscription(connection);
             mapPlayerSubscriptionTransitioning = false;
             const refreshPending = mapSubscriptionRefreshPending || staleMap;
@@ -1004,7 +1037,10 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
             mapSubscriptionAreaKey = "";
             mapPlayerSubscriptionTransitioning = false;
             mapSubscriptionRefreshPending = false;
-            window.setTimeout(() => refreshMapPlayerSubscription(true), 1_000);
+            const retryMs = mapSubscriptionRetryMs;
+            mapSubscriptionRetryAt = monotonicNowMs() + retryMs;
+            mapSubscriptionRetryMs = Math.min(SUBSCRIPTION_RETRY_MAX_MS, retryMs * 2);
+            window.setTimeout(() => refreshMapPlayerSubscription(true), retryMs);
           })
           .subscribe([mapPresentations, mapPlayerDeaths, mapPuppets]);
         mapPlayerSubscription = next;
@@ -1015,6 +1051,8 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         mapSubscriptionAreaKey = "";
         mapPlayerSubscriptionTransitioning = false;
         mapSubscriptionRefreshPending = false;
+        mapSubscriptionRetryAt = monotonicNowMs() + mapSubscriptionRetryMs;
+        mapSubscriptionRetryMs = Math.min(SUBSCRIPTION_RETRY_MAX_MS, mapSubscriptionRetryMs * 2);
       }
     };
     startAfterSubscriptionEnds(previous, subscribeNext, (error) => {

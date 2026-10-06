@@ -159,31 +159,6 @@ it("gives a bow with no roll, or a roll on a bow not in hand, no extra reach", (
   expect(kills(f)).toBe(Math.floor(10 * PLAUSIBLE_KILL_TOLERANCE));
 });
 
-it("widens the boss bound by Arrow Storm's extra damage on a lone boss, and only by that", () => {
-  // Whether a first boss kill is paid depends on whether this player's damage
-  // could have finished it inside the credit a report window grants. Find the
-  // least damage that is paid, with and without the skills.
-  const paid = (damage: number, roll?: typeof TOP) => {
-    const f = crystalFixture();
-    f.patch("playerProgress", { equippedRightHand: STARTER_BOW, inventoryJson: '["starter_bow"]', bowCount: 1, damage, attackRate: 1, projectileCount: 1 });
-    if (roll) seedRoll(f, STARTER_BOW, roll);
-    reportEnemy(f, "boss", 1);
-    return Boolean(f.db.enemyDefeatBudget.key.find(`${f.ctx.sender.toHexString()}:crystal_hollows:boss`));
-  };
-  const threshold = (roll?: typeof TOP) => {
-    let low = 1, high = 1e30;
-    for (let step = 0; step < 80; step++) {
-      const mid = Math.sqrt(low * high);
-      if (paid(mid, roll)) high = mid; else low = mid;
-    }
-    return high;
-  };
-  const plain = threshold();
-  // 15% Arrow Storm: five extra arrows at half damage, 1 + .15 * 5 * .5 = 1.375.
-  expect(plain / threshold(TOP)).toBeCloseTo(1.375, 2);
-  // Ricochet and Piercing Shot have nothing else to reach on a boss.
-  expect(plain / threshold({ arrowStorm: 0, ricochet: 15, piercingShot: 15 })).toBeCloseTo(1, 2);
-});
 
 function duelAfter(seconds: number, roll?: typeof TOP) {
   const f = crystalFixture();

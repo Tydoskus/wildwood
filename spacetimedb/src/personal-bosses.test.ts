@@ -1,82 +1,85 @@
 import { expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { reportEnemy, reportKills } from "../../tests/helpers/enemy-defeat";
+import { CAMPAIGN_MAPS } from "../../shared/campaign-registry";
 import { CAMPAIGN_UNLOCK_FIELDS } from "../../shared/equipment-access";
-import { MAP_IDS, BOSS_REWARD_CLAIM_BITS } from "../../shared/rules";
-import { personalBossDefinition } from "../../shared/personal-bosses";
-import { generatedBossStats, generateMap } from "../../shared/procedural-maps";
-import { researchStatRewardMultiplier } from "../../shared/research";
-import { Timestamp } from 'spacetimedb';
+import { combatTimeKey, simulationClockKey } from "./enemy-defeats";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
-function strongBossFixture(mapId: string) {
+
+const baseStats = (row: any) => Object.fromEntries(["damage", "maxHp", "armor", "regen", "attackRate", "inventoryJson"].map(key => [key, row[key]]));
+
+it.each([...CAMPAIGN_MAPS.map(map => map.id), "endless_1", "endless_40"])("records only gate access for a client boss clear on %s", mapId => {
   const f = crystalFixture();
-  f.patch('player', { mapId });
-  f.patch('playerProgress', { damage: personalBossDefinition(mapId)!.hp,
-    inventoryJson: '["starter_bow"]', equippedRightHand: 'starter_bow' });
-  return f;
-}
-it('consumes an excessive boss backlog once and keeps the player in the world', () => {
-  const f = strongBossFixture('endless_40');
-  reportEnemy(f, 'boss', 100);
-  // One minute of credit plus the 60-second respawn: two clears, the rest is excess.
-  expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(2n);
-  expect(() => reportKills(f, { mapId: 'endless_40', streamId: 'test-defeats-stream-0001', sequence: 1n, enemies: [{ enemy: 'boss', count: 100 }] })).not.toThrow();
-  expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(2n);
-  expect(f.db.regularEnemyStream.key.find(`${f.ctx.sender.toHexString()}:test-defeats-stream-0001`).sequence).toBe(1n);
-  // The excess earns nothing and nothing is queued for review. It never costs
-  // the session: a client can send this many boss kills honestly enough.
-  expect([...f.db.enemyDefeatReview.iter()]).toEqual([]);
-  expect(f.db.defeatSessionRestriction.identity.find(f.ctx.sender)).toBeNull();
-  expect(() => f.run(server.changeMap, { mapId: 'home_exterior', x: 600, y: 700 })).not.toThrow();
-  expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe('home_exterior');
-});
-it('uses each map combat-time budget instead of a global twenty-boss cutoff', () => {
-  const f = strongBossFixture('endless_40'), start = f.ctx.timestamp.microsSinceUnixEpoch;
-  let calls = 0;
-  const claim = (mapId: string, count: number, seconds: number) => {
-    f.patch('player', { mapId }); f.ctx.timestamp = new Timestamp(start + BigInt(seconds) * 1_000_000n);
-    reportKills(f, { mapId, streamId: `different-browser-${++calls}`, sequence: 1n, enemies: [{ enemy: 'boss', count }] });
-  };
-  // Each map's own credit pays two instant clears; the retired global cutoff never applies.
-  claim('tutorial_forest', 2, 0); claim('beginner_desert', 2, 100); claim('intermediate_snowlands', 2, 200);
-  expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(6n);
-  claim('advanced_lava_wastes', 2, 299);
-  expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(8n);
-  expect(f.db.bossDefeatWindow.identity.find(f.ctx.sender)).toBeNull();
-  claim('infernal_depths', 2, 301);
-  expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(10n);
-});
-it.each(["endless_1", "endless_40"] as const)("awards all four scaled stats once for %s", mapId => {
-  const f = strongBossFixture(mapId);
-  const before = { ...f.db.playerProgress.identity.find(f.ctx.sender) };
-  const multiplier = researchStatRewardMultiplier(f.db.playerResearch.identity.find(f.ctx.sender));
+  f.patch("player", { mapId });
+  // No weapon, no DPS, no simulated time: there is no server-side boss fight.
+  f.patch("playerProgress", { damage: 0, equippedRightHand: "", equippedLeftHand: "" });
+  const before = baseStats(f.db.playerProgress.identity.find(f.ctx.sender));
+  const rolls = vi.spyOn(f.ctx.random, "integerInRange");
   reportEnemy(f, "boss");
   const after = f.db.playerProgress.identity.find(f.ctx.sender);
-  const fields = { damage: "damage", health: "maxHp", armor: "armor", regen: "regen" } as const;
-  const rewards = generatedBossStats(generateMap(mapId)).rewards;
-  expect(rewards.map(reward => reward.type)).toEqual(["damage", "health", "armor", "regen"]);
-  for (const reward of rewards) {
-    const field = fields[reward.type as keyof typeof fields];
-    expect(after[field]).toBe(before[field] + reward.amount * multiplier);
+  expect(baseStats(after)).toEqual(before);
+  if (mapId.startsWith("endless_")) {
+    expect(f.db.proceduralProgress.identity.find(f.ctx.sender).completed).toBe(Number(mapId.slice(8)));
+  } else {
+    const index = CAMPAIGN_MAPS.findIndex(map => map.id === mapId);
+    expect(after.bossRewardClaims & 2 ** CAMPAIGN_MAPS[index].claimIndex).not.toBe(0);
+    const unlock = CAMPAIGN_MAPS[index + 1]?.unlockField;
+    if ((CAMPAIGN_UNLOCK_FIELDS as readonly string[]).includes(unlock)) expect(after[unlock]).toBe(true);
   }
-  reportKills(f, { streamId: "test-defeats-stream-0001", sequence: 1n, mapId, enemies: [{ enemy: "boss", count: 1 }] });
-  expect(f.db.playerProgress.identity.find(f.ctx.sender)).toEqual(after);
+  expect(f.db.playerLifetime.identity.find(f.ctx.sender)?.enemyKills ?? 0n).toBe(0n);
+  expect([...f.db.playerItemDrop.iter()]).toEqual([]);
+  expect([...f.db.playerDailyQuest.iter()]).toEqual([]);
+  expect(rolls).not.toHaveBeenCalled();
+  expect([...f.db.enemyDefeatBudget.iter()].map(row => row.key)).toEqual([`${f.ctx.sender.toHexString()}:report-rate-v1`]);
+  expect([...f.db.dragonContribution.iter()]).toEqual([]);
+  expect([...f.db.proceduralInstanceContribution.iter()]).toEqual([]);
+  expect([...f.db.dragonRespawnSchedule.iter()]).toEqual([]);
 });
-it.each([...MAP_IDS, "endless_40"].filter(mapId => personalBossDefinition(mapId)))("awards the reporting player's personal clear on %s", mapId => {
-  const f = strongBossFixture(mapId);
-  reportEnemy(f, "boss");
-  const definition = personalBossDefinition(mapId)!;
-  if (definition.kind === "procedural") expect(f.db.proceduralProgress.identity.find(f.ctx.sender).completed).toBe(40);
-  else {
-    const progress = f.db.playerProgress.identity.find(f.ctx.sender);
-    expect(progress.bossRewardClaims & (BOSS_REWARD_CLAIM_BITS as any)[definition.kind]).not.toBe(0);
-    const index = MAP_IDS.indexOf(mapId as typeof MAP_IDS[number]);
-    if (index < CAMPAIGN_UNLOCK_FIELDS.length) expect(progress[CAMPAIGN_UNLOCK_FIELDS[index]]).toBe(true);
+
+it.each(["tutorial_forest", "endless_40"])("retries and repeated %s clears never repay or rewrite the gate", mapId => {
+  const f = crystalFixture(); f.patch("player", { mapId });
+  reportEnemy(f, "boss", 100);
+  const progressWrites = vi.spyOn(f.db.playerProgress.identity, "update");
+  const endlessWrites = vi.spyOn(f.db.proceduralProgress.identity, "update");
+  const batch = { mapId, streamId: "test-defeats-stream-0001", sequence: 1n, enemies: [{ enemy: "boss", count: 100 }] };
+  reportKills(f, batch); // lost acknowledgement
+  reportKills(f, { ...batch, sequence: 2n }); // another local clear
+  expect(progressWrites).not.toHaveBeenCalled(); expect(endlessWrites).not.toHaveBeenCalled();
+  expect(f.db.playerLifetime.identity.find(f.ctx.sender)?.enemyKills ?? 0n).toBe(0n);
+  expect(f.db.regularEnemyStream.key.find(`${f.ctx.sender.toHexString()}:${batch.streamId}`).sequence).toBe(2n);
+});
+
+it("leaves both regular-enemy clocks alone on a gate-only report", () => {
+  const f = crystalFixture();
+  for (const key of [combatTimeKey(f.ctx.sender), simulationClockKey(f.ctx.sender)]) {
+    f.seed("enemyDefeatBudget", { key, identity: f.ctx.sender, tokens: 0, updatedAtMicros: f.ctx.timestamp.microsSinceUnixEpoch });
   }
-  // Client simulation never writes shared HP, contribution tables or reward schedules.
-  expect([...f.db.dragonContribution.iter()]).toHaveLength(0);
-  expect([...f.db.proceduralInstanceContribution.iter()]).toHaveLength(0);
-  expect([...f.db.dragonRespawnSchedule.iter()]).toHaveLength(0);
+  reportEnemy(f, "boss", 1, 60_000);
+  for (const key of [combatTimeKey(f.ctx.sender), simulationClockKey(f.ctx.sender)]) expect(f.db.enemyDefeatBudget.key.find(key).tokens).toBe(0);
+  expect(f.db.playerProgress.identity.find(f.ctx.sender).clockworkRuinsUnlocked).toBe(true);
+});
+
+it("keeps regular rewards and kill counts identical when the same batch also opens a gate", () => {
+  const regular = crystalFixture(), mixed = crystalFixture();
+  for (const f of [regular, mixed]) f.patch("playerProgress", { damage: 1e15, inventoryJson: '["starter_bow"]', equippedRightHand: "starter_bow" });
+  const batch = { mapId: "crystal_hollows", streamId: "mixed-gate-report-stream", sequence: 1n, simulatedMillis: 30_000,
+    enemies: [{ enemy: "Shard Hopper", count: 3 }] };
+  reportKills(regular, batch);
+  reportKills(mixed, { ...batch, enemies: [...batch.enemies, { enemy: "boss", count: 7 }] });
+  expect(baseStats(mixed.db.playerProgress.identity.find(mixed.ctx.sender))).toEqual(baseStats(regular.db.playerProgress.identity.find(regular.ctx.sender)));
+  expect(mixed.db.playerLifetime.identity.find(mixed.ctx.sender).enemyKills).toBe(3n);
+  expect([...mixed.db.playerItemDrop.iter()]).toEqual([...regular.db.playerItemDrop.iter()]);
+  expect(mixed.db.playerProgress.identity.find(mixed.ctx.sender).clockworkRuinsUnlocked).toBe(true);
+});
+
+it("checks session, map and report identity before recording a gate", () => {
+  const f = crystalFixture();
+  const batch = { mapId: "endless_100", streamId: "wrong-map-gate-stream", sequence: 1n, enemies: [{ enemy: "boss", count: 1 }] };
+  expect(() => reportKills(f, batch)).toThrow("another map");
+  expect(f.db.proceduralProgress.identity.find(f.ctx.sender)).toBeNull();
+  expect(() => reportKills(f, { ...batch, mapId: "crystal_hollows", enemies: [...batch.enemies, ...batch.enemies] })).toThrow("Invalid enemy");
+  f.ctx.connectionId = null;
+  expect(() => reportKills(f, { ...batch, mapId: "crystal_hollows" })).toThrow();
 });
 it.each(["damageDragon", "damageSpiderFromPosition", "damageFrostclawFromPosition", "damageMagmaliskFromPosition", "damageGloomrootFromPosition", "damageTidewyrmFromPosition", "damageKoiShogunFromPosition", "damageTempestKirinFromPosition", "damageMiremawFromPosition", "damagePrismshellFromPosition", "damageIronhornFromPosition", "damageDreadreaperFromPosition", "damageVoltwardenFromPosition", "damageGravebloomFromPosition", "damageAegisPrimeFromPosition", "hitProceduralBoss", "hitProceduralBossBatch"])("blocks old shared combat endpoint %s", name => {
   const f = crystalFixture();

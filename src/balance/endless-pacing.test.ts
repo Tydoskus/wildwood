@@ -20,7 +20,7 @@ describe("Endless advancement effort", () => {
     expect(endlessPacing(20).damageKills).toBeGreaterThan(endlessPacing(10).damageKills * 3);
     expect(endlessPacing(40).damageKills).toBeGreaterThan(endlessPacing(20).damageKills * 4);
   });
-  it("uses the actual boss regeneration and carries forward the previous payout", () => {
+  it("uses the actual boss regeneration and carries forward the previous build without a boss payout", () => {
     for (const number of [1, 2, 10, 40]) {
       const row = endlessPacing(number);
       expect(row.extraDamage).toBeGreaterThan(0);

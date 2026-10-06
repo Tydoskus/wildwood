@@ -237,6 +237,7 @@ import * as GetDevConsoleProcedure from "./get_dev_console_procedure";
 import * as GetDevPlayerCardProcedure from "./get_dev_player_card_procedure";
 import * as GetDevReviewQueueProcedure from "./get_dev_review_queue_procedure";
 import * as GetDeveloperTravelTargetProcedure from "./get_developer_travel_target_procedure";
+import * as GetGuildBattleBadgesProcedure from "./get_guild_battle_badges_procedure";
 import * as GetGuildBattleHubProcedure from "./get_guild_battle_hub_procedure";
 import * as GetGuildHubProcedure from "./get_guild_hub_procedure";
 import * as GetGuildPreviewProcedure from "./get_guild_preview_procedure";
@@ -1827,6 +1828,7 @@ const proceduresSchema = __procedures(
   __procedureSchema("get_dev_player_card", GetDevPlayerCardProcedure.params, GetDevPlayerCardProcedure.returnType),
   __procedureSchema("get_dev_review_queue", GetDevReviewQueueProcedure.params, GetDevReviewQueueProcedure.returnType),
   __procedureSchema("get_developer_travel_target", GetDeveloperTravelTargetProcedure.params, GetDeveloperTravelTargetProcedure.returnType),
+  __procedureSchema("get_guild_battle_badges", GetGuildBattleBadgesProcedure.params, GetGuildBattleBadgesProcedure.returnType),
   __procedureSchema("get_guild_battle_hub", GetGuildBattleHubProcedure.params, GetGuildBattleHubProcedure.returnType),
   __procedureSchema("get_guild_hub", GetGuildHubProcedure.params, GetGuildHubProcedure.returnType),
   __procedureSchema("get_guild_preview", GetGuildPreviewProcedure.params, GetGuildPreviewProcedure.returnType),

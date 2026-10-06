@@ -4,7 +4,7 @@ import { createGuildPanel } from "./guild-panel";
 import type { SocialApi } from "../coop/services/social-service";
 import type { SocialSnapshot } from "../../shared/social";
 import type { GuildApi } from "../coop/services/guild-service";
-import { resolveGuildBattle, type GuildSnapshot } from "../../shared/guilds";
+import { GUILD_EMBLEMS, resolveGuildBattle, type GuildSnapshot } from "../../shared/guilds";
 
 const member = (identity: string) => ({ identity, name: identity.toUpperCase(), eligibleAt: "0" });
 const fixture = (): GuildSnapshot => ({
@@ -17,7 +17,7 @@ const disposals: (() => void)[] = [];
 afterEach(() => { disposals.splice(0).forEach(dispose => dispose()); vi.useRealTimers(); });
 function setup(snapshot = fixture(), socialApi?: SocialApi) {
   const { document } = parseHTML('<html><body><button id="guildBtn">Guilds</button></body></html>');
-  const api = { cancel: vi.fn(), loadGuildPreview: vi.fn(async () => ({ ...snapshot.guild!, id: '2', name: 'Moonlight' })), loadReplay: vi.fn(async () => snapshot.battles[0]), loadGuild: vi.fn(async () => snapshot), guildAction: vi.fn(async () => {}) } satisfies GuildApi;
+  const api = { cancel: vi.fn(), loadGuildPreview: vi.fn(async () => ({ ...snapshot.guild!, id: '2', name: 'Moonlight' })), battleBadges: vi.fn(async () => []), loadReplay: vi.fn(async () => snapshot.battles[0]), loadGuild: vi.fn(async () => snapshot), guildAction: vi.fn(async () => {}) } satisfies GuildApi;
   let session = "a";
   const onClose = vi.fn(), onOpenPlayer = vi.fn();
   const panel = createGuildPanel({ document: document as unknown as Document, api: () => api, socialApi: () => socialApi, sessionKey: () => session, beforeOpen: vi.fn(), onClose, onOpenPlayer });
@@ -377,7 +377,7 @@ it.each(["a", "b", "c"])("shows the badge pencil only to officers (%s)", async v
   expect(h.document.querySelector("strong .player-prestige-badge")?.textContent).toBe("3");
   if (viewer !== "c") {
     h.click("Change guild badge");
-    expect(h.document.querySelectorAll(".guild-badge-picker button")).toHaveLength(16);
+    expect(h.document.querySelectorAll(".guild-badge-picker button")).toHaveLength(GUILD_EMBLEMS.length);
     h.click("wolf badge"); await settled();
     expect(h.api.guildAction).toHaveBeenCalledWith({ kind: "emblem", emblem: 0 });
   }

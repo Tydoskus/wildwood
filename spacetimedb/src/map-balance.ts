@@ -154,9 +154,7 @@ export function pinnedMapBalance(ctx: Pick<Context, 'db'>, identity: Context['se
   const row = ctx.db.playerMapBalance.identity.find(identity);
   return row?.mapId === mapId ? parsedMapBalance(row.snapshotJson) : null;
 }
-export function pinnedBossReward(ctx: Pick<Context, 'db'>, identity: Context['sender'], mapId: string, stat: string, fallback: number) {
-  return pinnedMapBalance(ctx, identity, mapId)?.boss?.rewards[stat] ?? fallback;
-}
+
 /**
  * The balance a player would meet on a map right now: their pinned visit when
  * it is that map, otherwise what arriving there would pin (the head revision,

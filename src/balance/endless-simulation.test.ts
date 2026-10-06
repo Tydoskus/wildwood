@@ -14,7 +14,7 @@ it("continues through Ion into Endless and stops only at the last selected boss"
     stopAfterCampaign: true, researchPlan: "off", steadyEquipmentUpgrades: false, strategy: "efficient" }, ready);
   expect(result.maps.map(m => m.mapId)).toEqual(["ion_citadel", "endless_1", "endless_2"]);
   expect(result.maps.every(m => m.exitedAtSeconds !== null)).toBe(true);
-  const expected = createMapDefinitions(2).slice(14).reduce((sum, map) => sum + map.boss!.rewards.find(r => r.type === "damage")!.amount, ready.stats.damage);
+  const expected = ready.stats.damage;
   expect(result.finalState.stats.damage).toBe(expected);
   expect(result.maps.at(-1)!.repeatBossKills).toBe(0);
   expect(result.samples.at(-1)!.power).toBe(result.maps.at(-1)!.exitPower);
@@ -37,9 +37,9 @@ it("farms generated sites instead of their sprite's Forest stats", () => {
   const result = simulateExistingPlayer({ durationSeconds: 3600, endlessMaps: 1, requiredClears: 1,
     stopAfterCampaign: true, researchPlan: "off", steadyEquipmentUpgrades: false, strategy: "efficient" }, { ...ready, mapIndex: 15 });
   expect(result.maps[0].regularKills).toBe(33);
-  expect(result.maps[0].statInvestments.health.rewardEvents).toBe(7); // 6 enemies + boss
+  expect(result.maps[0].statInvestments.health.rewardEvents).toBe(6); // Only regular enemies pay stats.
   const snapshot = resolveMapBalance("endless_1", defaultBalanceSettings(), 0);
-  const expectedHealth = ready.stats.maxHp + 6 * snapshot.lanes.Bramble.reward.amount + snapshot.boss!.rewards.health;
+  const expectedHealth = ready.stats.maxHp + 6 * snapshot.lanes.Bramble.reward.amount;
   expect(result.finalState.stats.maxHp / expectedHealth).toBeCloseTo(1, 12);
 });
 it("shows a sandbox kill-budget proposal without changing the input or authored boss", () => {
