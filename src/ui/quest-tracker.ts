@@ -1,6 +1,5 @@
 import type { QuestTrackerView } from "./quest-board-controller";
-import { REWARD_DATA } from "../game/enemies";
-import { SHORT_STAT } from "./map-enemy-index";
+import { REWARD_DATA, rewardStatLabel } from "../game/enemies";
 
 const COLLAPSED_KEY = "wildstat-quest-tracker-collapsed-v1";
 const POSITION_KEY = "wildstat-quest-tracker-position-v1";
@@ -130,7 +129,8 @@ export function installQuestTracker(options: {
       if (item.stat) {
         const stat = document.createElement("span");
         stat.className = "quest-tracker-stat";
-        stat.textContent = SHORT_STAT[item.stat];
+        // The enemy's own label's words ("Damage", "Atk/sec"), so the quest names the stat as the map does.
+        stat.textContent = rewardStatLabel({ type: item.stat, amount: 0 });
         stat.style.color = REWARD_DATA[item.stat].color;
         label.append(stat);
       }

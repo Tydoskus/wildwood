@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.899.14": [
+    "The quest tracker names each quest's stat the way enemies' labels do (Damage, Atk/sec), not Atk",
+  ],
   "0.899.13": [
     "The guild quest pool starts each week at 300 and only goes down as quests are finished, so active members can always make up for missing ones",
     "Guild battles shared to chat show both guilds' crests",
@@ -2904,6 +2907,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.899.14": "2026-10-06",
   "0.899.13": "2026-10-06",
   "0.899.12": "2026-10-06",
   "0.899.11": "2026-10-06",
