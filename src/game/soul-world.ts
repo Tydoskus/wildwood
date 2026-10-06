@@ -2,7 +2,7 @@ import {
   inSoulVillage, SOUL_CHUNK_SIZE, soulChunkCamps, soulChunkProps, soulRandom, soulStatsUnlocked,
   soulWindowChunks, type SoulCamp, type SoulPropKind, type SoulStatId,
 } from "../../shared/soul-dimension";
-import { SOUL_VILLAGE_DECOR, type SoulFrame } from "./soul-village";
+import { SOUL_ATLAS, SOUL_VILLAGE_DECOR, type SoulFrame } from "./soul-village";
 import type { EnemyKind } from "./enemies";
 import type { WorldDecor, WorldPath } from "./world";
 
@@ -31,8 +31,13 @@ const PROP_FRAMES: Readonly<Record<SoulPropKind, { frames: readonly SoulFrame[];
   stump: { frames: ["Tree_Stump_01", "Tree_Stump_02", "Tree_Stump_03"], s: 1 },
 };
 
-/** Props too low to stand in front of anyone: drawn with the ground. */
-const FLAT = new Set<SoulPropKind>(["grass", "flower", "mushroom", "stoneSmall"]);
+/**
+ * Props too low to stand in front of anyone are drawn with the ground. A tall
+ * tuft of grass or a big mushroom stands, and sorts against players and trees
+ * like anything else that does.
+ */
+const FLAT_HEIGHT = 30;
+const lowEnough = (frame: SoulFrame, s: number) => SOUL_ATLAS.frames[frame].ay * s <= FLAT_HEIGHT;
 
 /** Whether the village is close enough to this point to be worth drawing. */
 const villageNear = (x: number, y: number) => inSoulVillage(x, y, SOUL_CHUNK_SIZE * 2.5);
@@ -43,8 +48,8 @@ export function soulWindowDecor(x: number, y: number): WorldDecor[] {
   for (const { cx, cy } of soulWindowChunks(x, y)) {
     for (const prop of soulChunkProps(cx, cy)) {
       const look = PROP_FRAMES[prop.kind];
-      decor.push({ type: "soulProp", x: prop.x, y: prop.y, s: look.s * prop.s, frame: look.frames[prop.variant % look.frames.length], flip: prop.flip,
-        ground: FLAT.has(prop.kind) });
+      const frame = look.frames[prop.variant % look.frames.length], s = look.s * prop.s;
+      decor.push({ type: "soulProp", x: prop.x, y: prop.y, s, frame, flip: prop.flip, ground: lowEnough(frame, s) });
     }
   }
   return decor;
