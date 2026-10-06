@@ -79,9 +79,16 @@ function worldOf(goId) {
   }
   return { x, y, sx, sy };
 }
+/**
+ * The demo was saved at night (it starts at 3am): its day/night script shows each building's lit window
+ * panes and hides the dark ones. Ours is always day, so as that script does by day, the other way round.
+ */
+const DAYTIME = [[/Window_In_Light/, false], [/Window_In_Dark/, true]];
 function active(goId) {
   for (let id = goId, guard = 0; id && guard < 64; guard++, id = parentGo(id)) {
-    if (String(gameObjects.get(id)?.m_IsActive ?? "1") === "0") return false;
+    const go = gameObjects.get(id);
+    const daytime = DAYTIME.find(([name]) => name.test(go?.m_Name ?? ""));
+    if (daytime ? !daytime[1] : String(go?.m_IsActive ?? "1") === "0") return false;
   }
   return true;
 }
@@ -94,8 +101,13 @@ function sortingGroup(goId) {
 
 // ---- Sprites at a scale, cached. ----
 const spriteCache = new Map();
-async function spriteBuffer(sprite, scale, { flipX = false, flipY = false, size = null, alpha = 1 } = {}) {
-  const key = `${sprite.texture}:${JSON.stringify(sprite.rect)}:${scale}:${flipX}:${flipY}:${JSON.stringify(size)}:${alpha}`;
+/** A renderer's colour as a tint, or null for white. */
+const tintOf = color => {
+  const tint = [num(color?.r, 1), num(color?.g, 1), num(color?.b, 1)];
+  return tint.every(value => value > .999) ? null : tint;
+};
+async function spriteBuffer(sprite, scale, { flipX = false, flipY = false, size = null, alpha = 1, tint = null } = {}) {
+  const key = `${sprite.texture}:${JSON.stringify(sprite.rect)}:${scale}:${flipX}:${flipY}:${JSON.stringify(size)}:${alpha}:${tint}`;
   if (spriteCache.has(key)) return spriteCache.get(key);
   const meta = await sharp(sprite.texture).metadata();
   const rect = sprite.rect ? { x: num(sprite.rect.x), y: num(sprite.rect.y), w: num(sprite.rect.width), h: num(sprite.rect.height) } : { x: 0, y: 0, w: meta.width, h: meta.height };
@@ -112,6 +124,8 @@ async function spriteBuffer(sprite, scale, { flipX = false, flipY = false, size 
   if (flipX) image = image.flop();
   if (flipY) image = image.flip();
   buffer = await image.png().toBuffer();
+  // Unity multiplies a sprite by its renderer's colour: one white window pane is a dark one by day, a lit one by night.
+  if (tint) buffer = await sharp(buffer).ensureAlpha().linear([...tint, 1], [0, 0, 0, 0]).png().toBuffer();
   if (alpha < 1) buffer = await sharp(buffer).ensureAlpha().composite([{ input: Buffer.from([0, 0, 0, Math.round(255 * alpha)]), raw: { width: 1, height: 1, channels: 4 }, tile: true, blend: "dest-in" }]).png().toBuffer();
   const result = { buffer, w: ow, h: oh, pivotX: (flipX ? 1 - sprite.pivot[0] : sprite.pivot[0]) * ow, pivotY: (1 - (flipY ? 1 - sprite.pivot[1] : sprite.pivot[1])) * oh };
   spriteCache.set(key, result);
@@ -216,7 +230,7 @@ for (const [goId] of gameObjects) {
       const matrix = matrices[num(info.m_TileMatrixIndex)]?.m_Data ?? {};
       const color = colors[num(info.m_TileColorIndex)]?.m_Data ?? {};
       const x = world.x + (num(at.x) + num(anchor.x, .5)) * cw, y = world.y + (num(at.y) + num(anchor.y, .5)) * ch;
-      const piece = { order: num(renderer.m_SortingOrder), layer: name, x, y, sprite, flipX: num(matrix.e00, 1) < 0, flipY: num(matrix.e11, 1) < 0, alpha: num(color.a, 1), seq: seq++ };
+      const piece = { order: num(renderer.m_SortingOrder), layer: name, x, y, sprite, flipX: num(matrix.e00, 1) < 0, flipY: num(matrix.e11, 1) < 0, alpha: num(color.a, 1), tint: tintOf(color), seq: seq++ };
       // A tilemap collider takes each tile's own physics shape: points in pixels from the sprite's centre.
       if (collides) for (const points of sprite.physicsShape ?? []) {
         if (!Array.isArray(points) || points.length < 3) continue;
@@ -258,7 +272,7 @@ for (const [goId] of gameObjects) {
     flipX: String(renderer.m_FlipX) === "1" !== (world.sx < 0), flipY: String(renderer.m_FlipY) === "1",
     size: num(renderer.m_DrawMode) === 1 && renderer.m_Size ? { x: num(renderer.m_Size.x) * Math.abs(world.sx), y: num(renderer.m_Size.y) * Math.abs(world.sy) } : null,
     // Shadows at full strength: the game fades them all together, so overlapping ones do not stack darker.
-    scale: Math.abs(world.sx), alpha: num(renderer.m_Color?.a, 1), shadow,
+    scale: Math.abs(world.sx), alpha: num(renderer.m_Color?.a, 1), tint: tintOf(renderer.m_Color), shadow,
   });
 }
 
@@ -298,7 +312,7 @@ function compareChains(a, b) {
 ground.sort((a, b) => a.order - b.order || a.seq - b.seq);
 const groundPieces = [];
 for (const piece of ground) {
-  const image = await spriteBuffer(piece.sprite, GROUND_SCALE * UNITS / 100, { flipX: piece.flipX, flipY: piece.flipY, alpha: piece.alpha });
+  const image = await spriteBuffer(piece.sprite, GROUND_SCALE * UNITS / 100, { flipX: piece.flipX, flipY: piece.flipY, alpha: piece.alpha, tint: piece.tint });
   groundPieces.push({ ...image, gx: piece.x * UNITS * GROUND_SCALE - image.pivotX, gy: -piece.y * UNITS * GROUND_SCALE - image.pivotY });
 }
 const minX = Math.floor(Math.min(...groundPieces.map(p => p.gx))), minY = Math.floor(Math.min(...groundPieces.map(p => p.gy)));
@@ -355,7 +369,7 @@ props.sort((a, b) => b.depthY - a.depthY
 // ---- Buildings whose walls stand at different depths (a front gable and the wings behind it) are cut into
 // vertical strips, each sorted at the base of the wall above it, by the colliders under each part. Sorting
 // a whole house at one point put a player standing before a wing behind the house, and a barrel too.
-const imageOf = prop => prop.prebuilt ?? spriteBuffer(prop.sprite, PROP_SCALE * (prop.scale ?? 1), { flipX: prop.flipX, flipY: prop.flipY, size: prop.size, alpha: prop.alpha });
+const imageOf = prop => prop.prebuilt ?? spriteBuffer(prop.sprite, PROP_SCALE * (prop.scale ?? 1), { flipX: prop.flipX, flipY: prop.flipY, size: prop.size, alpha: prop.alpha, tint: prop.tint });
 const byUnit = new Map();
 for (const prop of props) if (prop.group) byUnit.set(prop.group, [...(byUnit.get(prop.group) ?? []), prop]);
 const sliced = new Set();
@@ -424,7 +438,7 @@ for (const prop of props) {
     const ids = [];
     for (const key of prop.clip.frames) {
       const sprite = spriteFor(key.sprite);
-      const keyImage = sprite ? await spriteBuffer(sprite, PROP_SCALE * (prop.scale ?? 1), { flipX: prop.flipX, flipY: prop.flipY, alpha: prop.alpha }) : image;
+      const keyImage = sprite ? await spriteBuffer(sprite, PROP_SCALE * (prop.scale ?? 1), { flipX: prop.flipX, flipY: prop.flipY, alpha: prop.alpha, tint: prop.tint }) : image;
       const keyHash = createHash("sha1").update(keyImage.buffer).digest("hex");
       if (!frames.has(keyHash)) frames.set(keyHash, { id: frames.size, ...keyImage });
       ids.push(frames.get(keyHash).id);
