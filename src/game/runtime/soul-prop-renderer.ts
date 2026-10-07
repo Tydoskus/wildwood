@@ -103,7 +103,7 @@ export function createSoulPropRenderer(options: {
  * it. Only the part in view is drawn.
  */
 /** How dark the pack's shadows are: its shadow material draws them at about a fifth. */
-const SHADOW_STRENGTH = .22;
+export const SOUL_SHADOW_STRENGTH = .22;
 
 export function createSoulGroundRenderer(options: {
   ctx: CanvasRenderingContext2D;
@@ -123,6 +123,11 @@ export function createSoulGroundRenderer(options: {
   viewport: () => { width: number; height: number };
   devicePixelRatio: () => number;
   active: () => boolean;
+  /**
+   * The ground, rooms, flat props and shadows are baked into the static world's tiles (town-ground-tiles.ts):
+   * only the moving water is drawn here, over them.
+   */
+  baked?: boolean;
 }) {
   let flat: SoulPropDecor[] = [], shadows: SoulPropDecor[] = [], dirty = true;
   const visible: SoulPropDecor[] = [];
@@ -164,7 +169,7 @@ export function createSoulGroundRenderer(options: {
     for (const item of visible) options.drawProp(item, shadowContext);
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.globalAlpha = SHADOW_STRENGTH;
+    ctx.globalAlpha = SOUL_SHADOW_STRENGTH;
     ctx.drawImage(layer, 0, 0);
     ctx.restore();
   }
@@ -188,6 +193,7 @@ export function createSoulGroundRenderer(options: {
     invalidate() { dirty = true; },
     draw() {
       if (!options.active()) return;
+      if (options.baked) { options.drawWater?.(); return; }
       if (dirty) gather();
       const { ctx, camera } = options;
       const view = options.viewport();

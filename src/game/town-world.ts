@@ -39,7 +39,7 @@ export const TOWN_STATION_DECOR: readonly WorldDecor[] = [
   { type: "upgradeBench", x: TOWN_QUEST_BOARD_POSITION.x, y: TOWN_QUEST_BOARD_POSITION.y, s: 1, label: "Quest Board" },
 ];
 const replacedByStation = (item: WorldDecor) => TOWN_STATION_DECOR.some(station => item.x === station.x && Math.abs(item.y - station.y) < 40);
-const TOWN_INTERIOR_DECOR: readonly WorldDecor[] = [...SOUL_INTERIOR_DECOR.filter(item => !replacedByStation(item)), ...TOWN_STATION_DECOR];
+export const TOWN_INTERIOR_DECOR: readonly WorldDecor[] = [...SOUL_INTERIOR_DECOR.filter(item => !replacedByStation(item)), ...TOWN_STATION_DECOR];
 
 /**
  * The square's signpost, just east of where every traveller lands (on open cobbles, clear of the fountain,
@@ -53,15 +53,29 @@ export const TOWN_SIGNPOST: WorldDecor = { type: "soulProp", frame: "", s: 1, x:
 export function townWindowDecor(x: number, y: number): WorldDecor[] {
   const decor: WorldDecor[] = inTownVillage(x, y, TOWN_CHUNK_SIZE * 2.5) ? [...SOUL_VILLAGE_DECOR, TOWN_SIGNPOST, TOWN_RUNESTONE] : [];
   if (inTownInteriors(x, y, TOWN_INTERIOR_MARGIN)) decor.push(...TOWN_INTERIOR_DECOR);
-  for (const { cx, cy } of townWindowChunks(x, y)) {
-    for (const prop of townChunkProps(cx, cy)) {
-      const look = PROP_FRAMES[prop.kind];
-      const frame = look.frames[prop.variant % look.frames.length], s = look.s * prop.s;
-      const shadow = `${frame}__shadow`;
-      if (shadow in SOUL_ATLAS.frames) decor.push({ type: "soulProp", x: prop.x, y: prop.y, s, frame: shadow, flip: prop.flip, shadow: true });
-      decor.push({ type: "soulProp", x: prop.x, y: prop.y, s, frame, flip: prop.flip, ground: lowEnough(frame, s) });
-    }
+  for (const { cx, cy } of townWindowChunks(x, y)) decor.push(...townChunkDecor(cx, cy));
+  return decor;
+}
+
+const chunkDecor = new Map<string, readonly WorldDecor[]>();
+/**
+ * One countryside chunk's props as decor, each tree's or stone's shadow just before it. The countryside never
+ * changes, so each chunk is made once and shared by every window (and the ground's baked tiles) that holds it.
+ */
+export function townChunkDecor(cx: number, cy: number): readonly WorldDecor[] {
+  const key = `${cx}:${cy}`;
+  let decor = chunkDecor.get(key);
+  if (decor) return decor;
+  const made: WorldDecor[] = [];
+  for (const prop of townChunkProps(cx, cy)) {
+    const look = PROP_FRAMES[prop.kind];
+    const frame = look.frames[prop.variant % look.frames.length], s = look.s * prop.s;
+    const shadow = `${frame}__shadow`;
+    if (shadow in SOUL_ATLAS.frames) made.push({ type: "soulProp", x: prop.x, y: prop.y, s, frame: shadow, flip: prop.flip, shadow: true });
+    made.push({ type: "soulProp", x: prop.x, y: prop.y, s, frame, flip: prop.flip, ground: lowEnough(frame, s) });
   }
+  decor = Object.freeze(made);
+  chunkDecor.set(key, decor);
   return decor;
 }
 

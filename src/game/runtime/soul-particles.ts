@@ -8,6 +8,19 @@ type Running = { emitter: SoulEmitter; particles: Particle[]; owed: number };
 const TINT_STEPS = 12;
 const random = (range: readonly number[]) => range[0] + Math.random() * ((range[1] ?? range[0]) - range[0]);
 
+/** A one-value curve's value at t (alpha, size), without the array `sample` makes: it runs per particle per frame. */
+function sampleOne(keys: readonly (readonly number[])[], t: number) {
+  if (!keys.length) return 1;
+  if (t <= keys[0][0]) return keys[0][1];
+  for (let i = 1; i < keys.length; i++) {
+    if (t <= keys[i][0]) {
+      const a = keys[i - 1], b = keys[i], f = (t - a[0]) / Math.max(1e-6, b[0] - a[0]);
+      return a[1] + (b[1] - a[1]) * f;
+    }
+  }
+  return keys[keys.length - 1][1];
+}
+
 /** A gradient's value at t, from Unity's keys ([time, ...values]). */
 function sample(keys: readonly (readonly number[])[], t: number, width: number) {
   if (!keys.length) return new Array(width).fill(1);
@@ -84,12 +97,13 @@ export function createSoulParticles(options: {
     const view = options.viewport();
     const left = camera.x - 400, right = camera.x + view.width / camera.zoom + 400;
     const top = camera.y - 600, bottom = camera.y + view.height / camera.zoom + 400;
+    const viewLeft = camera.x, viewRight = camera.x + view.width / camera.zoom, viewTop = camera.y, viewBottom = camera.y + view.height / camera.zoom;
     for (const run of running) {
       const { emitter } = run;
       if (emitter.x < left || emitter.x > right || emitter.y < top || emitter.y > bottom) { run.particles.length = 0; run.owed = 0; continue; }
       run.owed += emitter.rate * dt;
       while (run.owed >= 1) { run.owed -= 1; if (run.particles.length < emitter.max) run.particles.push(spawn(emitter)); }
-      const startAlpha = sample(emitter.startColor.alphas, 0, 1)[0];
+      const startAlpha = sampleOne(emitter.startColor.alphas, 0);
       ctx.save();
       if (emitter.additive) ctx.globalCompositeOperation = "lighter";
       for (let index = run.particles.length - 1; index >= 0; index--) {
@@ -101,9 +115,11 @@ export function createSoulParticles(options: {
         p.y += p.vy * dt;
         p.rotation += p.spin * dt;
         const t = p.age / p.life;
-        const alpha = startAlpha * (emitter.color ? sample(emitter.color.alphas, t, 1)[0] : 1);
-        const size = p.size * (emitter.sizeCurve ? sample(emitter.sizeCurve, t, 1)[0] : 1);
+        const alpha = startAlpha * (emitter.color ? sampleOne(emitter.color.alphas, t) : 1);
+        const size = p.size * (emitter.sizeCurve ? sampleOne(emitter.sizeCurve, t) : 1);
         if (alpha <= .002 || size <= .5) continue;
+        // Simulated near the view, so smoke drifts in already risen, but only drawn when it shows.
+        if (p.x + size < viewLeft || p.x - size > viewRight || p.y + size < viewTop || p.y - size > viewBottom) continue;
         const sprite = tintedSprite(emitter, image, emitter.color ? Math.round(t * (TINT_STEPS - 1)) : 0);
         ctx.save();
         ctx.globalAlpha = Math.min(1, alpha);

@@ -995,7 +995,7 @@ import {
     drawSpeechBubble,
     publicPlayerName,
     playerPower,
-    worldHealthBarHeight: WORLD_HEALTH_BAR_HEIGHT,
+    worldHealthBarHeight: WORLD_HEALTH_BAR_HEIGHT, lowPerformanceMode: appShell.lowPerformanceMode,
   });
   const { invalidateStaticWorld } = worldRenderRuntime;
   duelRuntime = createDuelRuntime({

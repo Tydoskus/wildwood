@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.900.4": [
+    "The Town runs much faster: its ground, rooms and shadows are drawn once and reused instead of every frame",
+    "Low Performance Mode also turns off the Town's water shimmer and chimney smoke",
+  ],
   "0.900.3": [
     "Fixed Town and Guild Hall doors refusing to let you through (\"That door is too far away\")",
     "Fixed the Town's portals asking you to move closer",
@@ -2941,6 +2945,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.900.4": "2026-10-07",
   "0.900.3": "2026-10-06",
   "0.900.2": "2026-10-06",
   "0.900.1": "2026-10-06",

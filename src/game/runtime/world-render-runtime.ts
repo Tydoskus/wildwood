@@ -22,6 +22,7 @@ import { snapWorldRenderCoordinate } from "./render-space";
 import { createSoulGroundRenderer, createSoulPropRenderer } from "./soul-prop-renderer";
 import { createSoulParticles } from "./soul-particles";
 import { createSoulWater } from "./soul-water";
+import { createTownGroundTilePainter, TOWN_GROUND_WORLD } from "./town-ground-tiles";
 import { isTownMap } from "../../../shared/town";
 import { isGuildHallMap } from "../../../shared/guild-hall";
 import { GUILD_HALL_GROUND } from "../guild-hall";
@@ -118,6 +119,8 @@ export type WorldRenderRuntimeOptions = {
   publicPlayerName: (identity: string | undefined, name: string | undefined) => string;
   playerPower: (player: PlayerState) => number;
   worldHealthBarHeight: number;
+  /** Low Performance Mode: the Town drops its moving water and its smoke and sparks. */
+  lowPerformanceMode?: () => boolean;
 };
 
 export type FrameRendererOptions = {
@@ -165,6 +168,10 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       options.drawShadow(x, y, width, alpha);
     }
   };
+  const townGround = createTownGroundTilePainter({ ground: () => options.assets.soulVillageGround, interiors: () => options.assets.soulInteriors,
+    villageProps: () => options.assets.soulVillageProps, atlas: () => options.assets.soulAtlas });
+  const townStaticTiles = { world: TOWN_GROUND_WORLD, ...townGround };
+  const lowPerformance = () => options.lowPerformanceMode?.() ?? false;
   const world = createWorldRenderer({
     ctx: options.ctx,
     staticWorldLayer: options.staticWorldLayer,
@@ -199,6 +206,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     researchStatus: options.researchStatus,
     questBoardStatus: options.questBoardStatus,
     ...options.assets,
+    customStaticTiles: mapId => isTownMap(mapId) ? townStaticTiles : null,
   });
   const boss = createBossRenderer({
     ctx: options.ctx, camera: options.camera, devicePixelRatio: options.devicePixelRatio,
@@ -323,10 +331,11 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       interiors: () => undefined, drawRooms: createGuildHallRoomsDrawer({ ctx: options.ctx, camera: options.camera, rooms: () => options.assets.guildHallRooms,
         devicePixelRatio: options.devicePixelRatio }),
       decor: options.decor, drawProp: drawSoulProp, viewport: options.viewport, devicePixelRatio: options.devicePixelRatio, active: () => isGuildHallMap(options.currentMapId()) });
+    // The Town's ground, rooms, flat props and shadows are baked into the static world's tiles: only its water moves.
     soulGround = createSoulGroundRenderer({ ctx: options.ctx, camera: options.camera, ground: () => options.assets.soulVillageGround, interiors: () => options.assets.soulInteriors,
-      decor: options.decor, drawProp: drawSoulProp,
+      decor: options.decor, drawProp: drawSoulProp, baked: true,
       drawWater: createSoulWater({ ctx: options.ctx, camera: options.camera, water: () => options.assets.soulWater, shore: () => options.assets.soulShore,
-        viewport: options.viewport, time: options.gameTime }),
+        viewport: options.viewport, time: options.gameTime, active: () => !lowPerformance() }),
       viewport: options.viewport, devicePixelRatio: options.devicePixelRatio, active: () => isTownMap(options.currentMapId()) });
     const depth = createDepthWorldRenderer({
       camera: options.camera,
@@ -353,7 +362,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawBoss: (kind) => boss.drawBoss[kind](),
       drawBossHitboxes: boss.drawBossHitboxes,
       drawOverWorld: createSoulParticles({ ctx: options.ctx, camera: options.camera, image: () => options.assets.soulVillageProps,
-        viewport: options.viewport, time: options.gameTime, active: () => isTownMap(options.currentMapId()) }),
+        viewport: options.viewport, time: options.gameTime, active: () => isTownMap(options.currentMapId()) && !lowPerformance() }),
       drawBootPickup: () => renderer.drawBootPickup(),
       drawPortal: world.drawPortal,
       drawSecondaryPortal: world.drawSecondaryPortal,

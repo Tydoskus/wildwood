@@ -57,15 +57,38 @@ export function staticWorldTileRange(
   visibleWidth: number,
   visibleHeight: number,
   padding = 1,
+  world: { w: number; h: number } = WORLD,
 ) {
-  const maximumTileX = Math.ceil(WORLD.w / STATIC_TILE_SIZE) - 1;
-  const maximumTileY = Math.ceil(WORLD.h / STATIC_TILE_SIZE) - 1;
+  const maximumTileX = Math.ceil(world.w / STATIC_TILE_SIZE) - 1;
+  const maximumTileY = Math.ceil(world.h / STATIC_TILE_SIZE) - 1;
   return {
     startX: Math.max(0, Math.floor(cameraX / STATIC_TILE_SIZE) - padding),
     startY: Math.max(0, Math.floor(cameraY / STATIC_TILE_SIZE) - padding),
     endX: Math.min(maximumTileX, Math.floor((cameraX + visibleWidth) / STATIC_TILE_SIZE) + padding),
     endY: Math.min(maximumTileY, Math.floor((cameraY + visibleHeight) / STATIC_TILE_SIZE) + padding),
   };
+}
+
+/**
+ * The tiles of the movement ring to build ahead this frame, for a map painted on the main thread: at most
+ * `budget`, and only into room the cache has to spare. A tile ahead must never push out one in view (or one
+ * just walked past), or walking back and forth rebuilds the same tiles over and over.
+ */
+export function staticTilesToPreload(
+  range: { startX: number; startY: number; endX: number; endY: number },
+  cached: (tileX: number, tileY: number) => boolean,
+  cacheSize: number,
+  cacheLimit: number,
+  budget: number,
+) {
+  const tiles: { tileX: number; tileY: number }[] = [];
+  const room = Math.min(budget, cacheLimit - cacheSize);
+  for (let tileY = range.startY; tileY <= range.endY && tiles.length < room; tileY += 1) {
+    for (let tileX = range.startX; tileX <= range.endX && tiles.length < room; tileX += 1) {
+      if (!cached(tileX, tileY)) tiles.push({ tileX, tileY });
+    }
+  }
+  return tiles;
 }
 
 export function minimapDrawLayout(viewportWidth: number, bounds?: MinimapBounds | null) {
@@ -129,7 +152,20 @@ export type WorldRendererOptions = {
   charredTrees: HTMLImageElement[];
   drawShadow: DrawShadow;
   outlinedText: OutlinedText;
+  /**
+   * A map whose static tiles are painted here on the main thread (the Town's baked ground), over its ground
+   * colour, across its own world. Until it is ready (or when `paint` returns false) the tile is the ground colour, retried later.
+   */
+  customStaticTiles?: (mapId: MapId) => {
+    world: { w: number; h: number };
+    /** Whether it can paint yet (its images have loaded). */
+    ready: () => boolean;
+    paint: (context: CanvasRenderingContext2D, tileX: number, tileY: number, tileSize: number) => boolean;
+  } | null;
 };
+
+/** Tiles of a custom-painted map built ahead of the camera, at most, per frame: walking never waits on a row of them. */
+const CUSTOM_STATIC_TILE_PRELOADS_PER_FRAME = 1;
 
 export function createWorldRenderer(options: WorldRendererOptions) {
   const { ctx, camera } = options;
@@ -389,6 +425,21 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       return cached;
     }
     const scene = staticScene();
+    const custom = options.customStaticTiles?.(options.getMapId());
+    if (custom) {
+      if (!custom.ready()) return sharedStaticTilePlaceholder(scene);
+      const tile = createTileCanvas();
+      const tileContext = tile.getContext("2d");
+      if (!tileContext) return sharedStaticTilePlaceholder(scene);
+      tileContext.fillStyle = scene.colors.ground;
+      tileContext.fillRect(0, 0, STATIC_TILE_SIZE, STATIC_TILE_SIZE);
+      if (!custom.paint(tileContext, tileX, tileY, STATIC_TILE_SIZE)) {
+        closeStaticTile(tile);
+        return sharedStaticTilePlaceholder(scene);
+      }
+      cacheStaticTile(key, tile);
+      return tile;
+    }
     if (staticTileWorkerEnabled && staticTileWorker) {
       configureStaticTileWorker(scene);
       if (!pendingStaticTiles.has(key)) {
@@ -438,8 +489,9 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       return false;
     }
     const visible = visibleSize();
-    const preloadRange = staticWorldTileRange(camera.x, camera.y, visible.width, visible.height);
-    const visibleRange = staticWorldTileRange(camera.x, camera.y, visible.width, visible.height, 0);
+    const custom = options.customStaticTiles?.(options.getMapId());
+    const preloadRange = staticWorldTileRange(camera.x, camera.y, visible.width, visible.height, 1, custom?.world);
+    const visibleRange = staticWorldTileRange(camera.x, camera.y, visible.width, visible.height, 0, custom?.world);
     // Keep every tile required by this camera view plus a small movement edge.
     // A fixed limit below the visible count turns camera movement into an LRU
     // rebuild loop, repeatedly redrawing the world tiles each frame.
@@ -468,8 +520,13 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       }
     }
     // The edge ring is useful for movement, but it never needs a placeholder
-    // or GPU upload. Queue it only while the worker can fill it off-thread.
-    if (staticTileWorkerEnabled) {
+    // or GPU upload. Queue it only while the worker can fill it off-thread,
+    // or, for a map painted here, a tile or so a frame.
+    if (custom) {
+      const ahead = staticTilesToPreload(preloadRange, (tileX, tileY) => staticTiles.has(tileKey(tileX, tileY)),
+        staticTiles.size, staticTileLimit, CUSTOM_STATIC_TILE_PRELOADS_PER_FRAME);
+      for (const { tileX, tileY } of ahead) staticTile(tileX, tileY);
+    } else if (staticTileWorkerEnabled) {
       for (let tileY = preloadRange.startY; tileY <= preloadRange.endY; tileY += 1) {
         for (let tileX = preloadRange.startX; tileX <= preloadRange.endX; tileX += 1) {
           if (tileX >= visibleRange.startX && tileX <= visibleRange.endX
@@ -537,8 +594,9 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     syncStaticTreeBounds();
     if (!options.staticWorldLayer?.active() || options.isArenaScene()) return;
     const visible = visibleSize();
-    const range = staticWorldTileRange(camera.x, camera.y, visible.width, visible.height);
-    const visibleRange = staticWorldTileRange(camera.x, camera.y, visible.width, visible.height, 0);
+    const world = options.customStaticTiles?.(options.getMapId())?.world;
+    const range = staticWorldTileRange(camera.x, camera.y, visible.width, visible.height, 1, world);
+    const visibleRange = staticWorldTileRange(camera.x, camera.y, visible.width, visible.height, 0, world);
     const keys: string[] = [];
     const tileCount = (range.endX - range.startX + 1) * (range.endY - range.startY + 1);
     staticTileLimit = Math.max(staticTileLimit, tileCount + STATIC_TILE_CACHE_PADDING);
