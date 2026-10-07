@@ -26,6 +26,7 @@
     "tutorial:text": "node scripts/tutorial-editor-server.mjs",
     "map:editor": "node scripts/map-editor-server.mjs",
     "test:unit": "vitest run --exclude src/balance/simulator.test.ts",
+    "sim:autofarm": "AUTOFARM_SIM=1 vitest run src/game/runtime/autofarm-sim/autofarm-sim.test.ts --silent=false",
     "test:unit:watch": "vitest --exclude src/balance/simulator.test.ts",
     "test:balance": "vitest run src/balance/simulator.test.ts",
     "loadtest:virtual": "tsx scripts/virtual-player-load-test.ts",

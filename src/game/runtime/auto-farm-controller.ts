@@ -1,6 +1,6 @@
 import { isMeleeWeapon, weaponAttackRange } from "../weapon-combat";
 import { WORLD } from '../constants';
-import { monotonicNowMs } from '../../app/trusted-clock';
+import { monotonicNowMs, wallClockNowMs } from '../../app/trusted-clock';
 import { ENEMY_TYPES, rewardStatLabel, type EnemyDefinition, type EnemyKind } from '../enemies';
 import type { SpawnSite } from '../world';
 import type { Circle, EnemyState, PlayerState, Position } from './types';
@@ -11,19 +11,21 @@ import { bossSurfaceDistance, bossVerticalRadius } from '../../../shared/boss-hi
 import { compareAutoFarmTargets, enemyRewardStat, farmGroupMatches, farmStatGroup, readAutoFarmPriority, readAutoFarmPull, writeAutoFarmPriority, writeAutoFarmPull, type AutoFarmGroup, type AutoFarmPriority } from './auto-farm-priority';
 import type { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 import {
-  AUTO_REPLAN_SECONDS, BOSS_READY_DAMAGE_SHARE, BOSS_READY_FIGHT_SECONDS, BOSS_RETRY_MS, bossReady, pickRankedCandidate, rankFarmCandidates, decodeFarmPlan, encodeFarmPlan, nextRouteKey,
+  AUTO_REPLAN_SECONDS, pickRankedCandidate, rankFarmCandidates, decodeFarmPlan, encodeFarmPlan, nextRouteKey,
   readFarmAdvance, readFarmChoice, routeEntry, routeEntryText, writeFarmAdvance, writeFarmChoice, type FarmEvaluation, type FarmReward,
 } from './auto-farm-plan';
+import {
+  BOSS_FIRST_TRY_MS, BOSS_MARGIN_READY, DIED_TO_GROUP_MS, FARM_PUSHES, bossFightMargin, bossRetryKey, type LostBossFight, createPowerGainMeter, createRetryMemory, probationVerdict, readFarmPush, shouldLeaveBoss, writeFarmPush, type FarmPush,
+} from './auto-farm-brain';
+import { formatCompactNumber } from '../../../shared/compact-number';
 
 export type AutoFarmController = ReturnType<typeof createAutoFarmController>;
 const idle = (): Movement => ({ x: 0, y: 0, source: 'none' });
 export const AUTO_FARM_DEFEAT_LIMIT = 5;
 export const AUTO_FARM_DEFEAT_WINDOW_MS = 180_000;
-/** After walking back a map from repeated defeats, how long before it may go forward again. */
-export const RETREAT_HOLD_MS = 20 * 60_000;
-/** Freshly moved forward, this many defeats this soon send it straight back: the map was too much after all. */
-export const ARRIVAL_DEFEAT_LIMIT = 2;
-export const ARRIVAL_PROBATION_MS = 10 * 60_000;
+/** A death this soon after walking away from a boss is the boss's: its retry power is already raised. */
+const BOSS_LEAVE_GRACE_MS = 15_000;
+const READY_STATUSES = new Set(['Next Map Open', 'Boss Next']);
 /** How far inside its full reach autofarm stops: enough that a target at the stop point is still in range. */
 export const AUTO_FARM_REACH_MARGIN = 6;
 /** A waypoint this close is reached; the stop point gets the same slack. */
@@ -63,28 +65,28 @@ export function createAutoFarmController(options: {
   localIdentity?: () => string | undefined;
   connection?: () => 'ready' | 'recovering' | 'ended';
   now?: () => number;
+  /** The wall clock retry waits are kept by, so they survive a reload. */
+  wallNow?: () => number;
   resumeStore?: ReturnType<typeof createAutoFarmResumeStore>;
   unavailable: () => string | null;
   paused: () => boolean;
   speed: () => number;
   obstacles: () => Circle[];
   priorityStorage?: () => Pick<Storage, 'getItem' | 'setItem'> | undefined;
-  /** The build now, or after one more kill's reward: power, boss fight time and how hard the boss hits it. */
+  /** The build's power now, or after one more kill's reward. */
   evaluate?: (reward?: FarmReward) => FarmEvaluation;
+  /** The live build's power, as the profile shows it before rounding. */
+  power?: () => number;
   /** Damage per second against regular enemies, for how long a kill takes. */
   farmDps?: () => number;
-  /** This map's boss while it stands (null once it is down or respawning). */
-  mapBoss?: () => (Position & { r: number; dead?: boolean; isBoss?: boolean; ry?: number; hitboxOffsetY?: number }) | null;
-  /** The next map exists and is unlocked but this build would not survive farming it. */
-  nextMapTooHard?: () => boolean;
+  /** This map's boss while it stands (null once it is down or respawning), with its health to judge the fight by. */
+  mapBoss?: () => (Position & { r: number; hp?: number; maxHp?: number; dead?: boolean; isBoss?: boolean; ry?: number; hitboxOffsetY?: number }) | null;
   /** Reflect Only: the bow does nothing, so enemies must be stood among to be hit and hit back. */
   reflectOnly?: () => boolean;
   /** The unlocked portal forward to the next map, at its trigger point. */
   nextPortal?: () => (Position & { destination: string }) | null;
   /** The portal back to the previous map, for a farm that keeps dying here. */
   previousPortal?: () => (Position & { destination: string }) | null;
-  /** How close fighting a stat group comes to killing the player: above .75, Auto keeps away. */
-  campDanger?: (group: AutoFarmGroup) => number;
   /** Whether beating this map's boss opens a locked way forward; it is not fought otherwise. */
   bossUnlocksNext?: () => boolean;
   /** How many picked camps (stat groups) Pull aggroes at once: one, one more per Aggro win, and none during a run. */
@@ -146,13 +148,24 @@ export function createAutoFarmController(options: {
   /** What it is doing now: a camp, the boss, or walking to another map. */
   let phase: 'farm' | 'boss' | 'portal' = 'farm';
   let travellingTo: string | null = null;
-  /** Walking back a map after too many defeats, and the map it may not return to before `until`. */
+  /** Walking back a map: too many defeats, or a new map that did not hold up. */
   let retreating = false;
-  let forwardBlocked: { mapId: string; until: number } | null = null;
-  /** When autofarm last walked forward a map, for the arrival probation. */
-  let advancedAt: number | null = null;
-  let bossRetryAt = 0;
+  let push = readFarmPush(options.priorityStorage);
+  const wallNow = options.wallNow ?? wallClockNowMs;
+  const retries = createRetryMemory(options.priorityStorage, wallNow);
+  const gain = createPowerGainMeter();
+  /** A map just walked forward to, on trial (auto-farm-brain.ts probationVerdict), with the gain rate of the map before. */
+  let probation: { mapId: string; since: number; previousRate: number | null } | null = null;
+  /** The boss fight under way, measured from the moment it set off for the boss; and when it last walked away. */
+  let bossFight: { at: number; bossStart: number; playerStart: number; reached?: boolean } | null = null;
+  let bossLeftAt = -Infinity;
+  /** The last boss fight lost here, as measured: while that boss holds the way forward, Auto farms for what the fight lacked. */
+  let lostFight: LostBossFight | null = null;
+  /** When the player last died to each of this map's groups ("map|group"). */
+  const diedTo = new Map<string, number>();
   let planClock = 0;
+  /** Auto is farming for the boss (bossToBeat), not for power: for the status line. */
+  let bossFarming = false;
   /** Kills of the current camp since it was chosen: a route moves on after a camp's worth. */
   let groupKills = 0;
   const seenAlive = new WeakSet<EnemyState>();
@@ -165,7 +178,7 @@ export function createAutoFarmController(options: {
   let active = false;
   let manualControl = false;
   let pendingResume = options.resumeStore?.read() ?? null;
-  let startedMap = '';
+  let startedMap = '', mapStartedAt = -Infinity;
   let startedIdentity: string | undefined;
   let recovering = false;
   let readySince: number | null = null;
@@ -230,20 +243,66 @@ export function createAutoFarmController(options: {
   function defeated() {
     if (!active && !pendingResume) return;
     const at = now();
-    // Beaten at the boss: farm on and come back to it later, rather than walk into it again.
-    if (phase === 'boss') { bossRetryAt = at + BOSS_RETRY_MS; phase = 'farm'; }
+    // Beaten at the boss: farm on, and try it again only with more power. A
+    // boss death is the boss's alone; the map's own deaths are counted below.
+    if (phase === 'boss' || at - bossLeftAt < BOSS_LEAVE_GRACE_MS) {
+      if (phase === 'boss') leaveBoss(at);
+      return;
+    }
+    // Auto looks again after the respawn, past the group that did it.
+    if (phase === 'farm' && selected) { diedTo.set(`${options.mapId()}|${selected}`, at); planClock = 0; }
     defeats = defeats.filter(previous => at - previous < AUTO_FARM_DEFEAT_WINDOW_MS);
     defeats.push(at);
-    const probation = advancedAt !== null && at - advancedAt < ARRIVAL_PROBATION_MS;
-    if (defeats.length < (probation ? ARRIVAL_DEFEAT_LIMIT : AUTO_FARM_DEFEAT_LIMIT)) return;
-    advancedAt = null;
+    if (defeats.length < AUTO_FARM_DEFEAT_LIMIT) return;
+    // Too strong here: farm the map before it. With none (the first map, or
+    // Reflect Only, which never walks forward again) it farms on, past the
+    // groups that did it: players woke to a dead or stranded farm.
     defeats = [];
-    // Too strong here: farm the map before it for a while rather than stop (players woke to a dead farm).
-    const back = options.previousPortal?.();
-    if (!back) { stop(`Autofarm stopped after ${AUTO_FARM_DEFEAT_LIMIT} defeats in a row`); return; }
+    if (!options.reflectOnly?.()) goBack('Too strong here · moving back a map');
+  }
+
+  const identityKey = () => startedIdentity ?? options.localIdentity?.() ?? '';
+  // Power is read for every decision; the build changes a kill at a time, so twice a second is plenty.
+  let powerAt = -Infinity, powerNow = 0;
+  function currentPower() {
+    const at = now();
+    if (at - powerAt >= 500 || at < powerAt) { powerAt = at; powerNow = options.power?.() ?? options.evaluate?.().power ?? 0; }
+    return powerNow;
+  }
+  const retryGate = (key: string) => retries.get(identityKey(), key, currentPower());
+  /** Whether `key` may be tried now: the power its last failure asked for, and its wait over. */
+  const retryReady = (key: string) => { const gate = retryGate(key); return currentPower() >= gate.power && wallNow() >= gate.at; };
+  const waitMs = (minutes: number) => minutes * 60_000;
+  /**
+   * Walks back a map, and the map it leaves now needs more power than this
+   * build has, and a wait, before it is tried again. Nothing with no map behind it.
+   */
+  function goBack(reason: string) {
+    probation = null;
+    if (!options.previousPortal?.()) return;
+    retries.raise(identityKey(), options.mapId(), currentPower(), FARM_PUSHES[push].retry, waitMs(FARM_PUSHES[push].waitMinutes));
     retreating = true;
-    forwardBlocked = { mapId: options.mapId(), until: at + RETREAT_HOLD_MS };
-    status = 'Too strong here · moving back a map';
+    status = reason;
+  }
+  /**
+   * Walks away from (or was beaten by) the boss: farm on. The next try waits
+   * half a map's wait and needs more power, the more so the less the boss was
+   * hurt: one left untouched needs twice the power.
+   */
+  function leaveBoss(at: number) {
+    const boss = options.mapBoss?.();
+    const left = boss?.maxHp && boss.hp !== undefined ? Math.max(0, Math.min(1, boss.hp / boss.maxHp)) : 1;
+    const seconds = bossFight ? (at - bossFight.at) / 1_000 : 0, stats = options.evaluate?.().stats;
+    // Only a fight that reached the boss measured it: a walk in worn down by the camps on the way did not.
+    // One that never scratched it still says how far behind the damage was: as near nothing as can be.
+    if (bossFight?.reached && seconds >= 1 && stats && player.maxHp > 0) lostFight = { mapId: options.mapId(), stats,
+      boss: Math.max(1e-6, (bossFight.bossStart - left) / seconds), player: (bossFight.playerStart - Math.max(0, player.hp) / player.maxHp) / seconds };
+    retries.raise(identityKey(), bossRetryKey(options.mapId()), currentPower(), Math.max(FARM_PUSHES[push].retry, 1 + left), waitMs(FARM_PUSHES[push].waitMinutes / 2));
+    bossLeftAt = at;
+    bossFight = null;
+    planClock = 0;
+    phase = 'farm';
+    target = null; route = []; lastGoal = null; routeClock = 0; holding = false;
   }
 
   function stop(reason = 'Autofarm stopped') {
@@ -260,6 +319,7 @@ export function createAutoFarmController(options: {
     route = [];
     lastGoal = null;
     holding = false;
+    bossFight = null;
     status = reason;
   }
 
@@ -339,49 +399,100 @@ export function createAutoFarmController(options: {
     // Choosing again often meant walking between camps half the time.
     if (current && current.alive > 0 && planClock > 0) return;
     planClock = AUTO_REPLAN_SECONDS;
+    const powerOf: (reward?: FarmReward) => FarmEvaluation = options.evaluate ?? (() => ({ power: 0 }));
+    // A boss that beat this build holds the way forward: the margin it would win by stands in for power.
+    const fight = bossToBeat();
+    bossFarming = Boolean(fight && powerOf().stats);
+    const evaluate = fight && bossFarming ? (reward?: FarmReward) => ({ power: bossFightMargin(fight, powerOf(reward).stats!) }) : powerOf;
+    const at = now();
+    const died = (key: string) => at - (diedTo.get(`${options.mapId()}|${key}`) ?? -Infinity) < DIED_TO_GROUP_MS;
+    // The most power per second of farming: the kill and the walk to it.
     const dps = Math.max(1e-9, options.farmDps?.() ?? player.damage);
     const speed = Math.max(1, options.speed());
-    const evaluate = options.evaluate ?? (() => ({ power: 0, fightSeconds: null, hitShare: null, fightDamageShare: null }));
-    const ranked = rankFarmCandidates(all.map(entry => ({
+    const reach = weaponAttackRange(options.equippedWeapon?.(), player.attackRange);
+    // A group that just killed the player is left alone while another has enemies.
+    const pool = all.some(entry => entry.alive > 0 && !died(entry.key)) ? all.filter(entry => !died(entry.key)) : all;
+    const ranked = rankFarmCandidates(pool.map(entry => ({
       key: entry.key, alive: entry.alive,
       reward: entry.reward ?? ENEMY_TYPES[entry.type].reward,
-      // The walk is paid in full: a camp across the map has to be worth it.
-      secondsPerKill: entry.hp / dps + (entry.key === selected || !Number.isFinite(entry.nearest) ? 0 : entry.nearest / speed),
-      danger: options.campDanger?.(entry.key),
-    })), evaluate, advance && Boolean(options.mapBoss?.()));
+      // The walk is paid in full, the farmed group's too (it used to be free,
+      // so Auto kept a group spread across the map and walked most of the night).
+      secondsPerKill: entry.hp / dps + (Number.isFinite(entry.nearest) ? Math.max(0, entry.nearest - reach) / speed : 0),
+    })), evaluate);
     autoOrder = ranked.map(entry => entry.key);
     if (selected && autoOrder.includes(selected) && pullCoversFarm()) return;
     const key = pickRankedCandidate(ranked, selected);
     if (key) select(key);
   }
 
-  /** Boss, next map or a camp. Moving on needs the toggle; the boss also needs the build to be ready for it. */
-  /** The portal it is walking to: back a map after repeated defeats, otherwise forward unless that map just beat it. */
+  /** On trial here: the map was just walked forward to. */
+  const onProbation = () => probation !== null && probation.mapId === options.mapId();
+  /** The portal it is walking to: back a map, or forward once the build has the power that map's last try asked for. */
   function exitPortal() {
     if (retreating) return options.previousPortal?.() ?? null;
     const portal = options.nextPortal?.();
-    return portal && !(forwardBlocked && forwardBlocked.mapId === portal.destination && now() < forwardBlocked.until) ? portal : null;
+    return portal && retryReady(portal.destination) ? portal : null;
   }
+  /**
+   * Boss, next map or a camp. Moving on needs the toggle; the boss also the
+   * power its last try asked for, and a map that has passed its trial: a boss
+   * fight on probation is power not gained, and judged as the map's.
+   */
   function choosePhase(dt: number) {
+    if (probation && probation.mapId !== options.mapId()) probation = null;
+    if (probation) {
+      const verdict = probationVerdict(probation, now(), gain.rate(now(), options.mapId()), push);
+      if (verdict === 'back') goBack('Farming slower here · moving back a map');
+      else if (verdict === 'stay') probation = null;
+    }
     if (retreating) {
       const back = exitPortal();
       if (back) { phase = 'portal'; travellingTo = back.destination; return; }
       retreating = false;
     }
-    // Reflect Only leaves the boss to the player: the fight is won by taking its hits, which readiness does not model.
+    // Reflect Only leaves the boss to the player: the fight is won by taking its hits.
     if (advance && !options.reflectOnly?.()) {
       const portal = exitPortal();
       if (portal) { phase = 'portal'; travellingTo = portal.destination; return; }
-      const boss = options.mapBoss?.();
-      const evaluation = options.evaluate?.();
-      if (boss && !boss.dead && options.bossUnlocksNext?.() !== false && evaluation && bossReady(evaluation) && now() >= bossRetryAt) {
-        phase = 'boss'; travellingTo = null; return;
-      }
+      if (bossWanted()) { phase = 'boss'; travellingTo = null; return; }
     }
     if (phase !== 'farm') { target = null; route = []; lastGoal = null; routeClock = 0; holding = false; }
     phase = 'farm';
     travellingTo = null;
     chooseCamp(dt);
+  }
+
+  function bossWanted() {
+    const boss = options.mapBoss?.();
+    if (!boss || boss.dead || options.bossUnlocksNext?.() === false || onProbation() || now() - mapStartedAt < BOSS_FIRST_TRY_MS) return false;
+    const key = bossRetryKey(options.mapId());
+    // A build that would now win the fight it lost goes back, whatever power the retry asked for.
+    return retryReady(key) || (bossMargin() >= BOSS_MARGIN_READY && wallNow() >= retryGate(key).at);
+  }
+  /** The lost fight to farm for: this map's, while its boss still holds the way forward. */
+  const bossToBeat = () => lostFight?.mapId === options.mapId() && advance && !options.reflectOnly?.()
+    && options.bossUnlocksNext?.() === true && Boolean(options.mapBoss?.()) ? lostFight : null;
+  let marginAt = -Infinity, marginNow = 0;
+  /** How the lost fight would go with the build now (bossFightMargin), twice a second. */
+  function bossMargin() {
+    const fight = bossToBeat(), stats = fight && options.evaluate?.().stats;
+    if (!fight || !stats) return 0;
+    const at = now();
+    if (at - marginAt >= 500 || at < marginAt) { marginAt = at; marginNow = bossFightMargin(fight, stats); }
+    return marginNow;
+  }
+  /**
+   * Projects the boss fight from its real health and the player's, from the
+   * moment it set off: walk away from one being lost, before dying. The walk
+   * in counts, so a player worn down by the camps on the way turns back too.
+   */
+  function judgeBossFight(boss: { hp?: number; maxHp?: number }) {
+    if (!boss.maxHp || boss.hp === undefined || !(player.maxHp > 0)) return false;
+    const at = now(), bossShare = boss.hp / boss.maxHp, playerShare = player.hp / player.maxHp;
+    bossFight ??= { at, bossStart: bossShare, playerStart: playerShare };
+    if (!shouldLeaveBoss({ seconds: (at - bossFight.at) / 1_000, bossStart: bossFight.bossStart, boss: bossShare, playerStart: bossFight.playerStart, player: playerShare })) return false;
+    leaveBoss(at);
+    return true;
   }
 
   /**
@@ -410,6 +521,7 @@ export function createAutoFarmController(options: {
     travellingTo = null;
     active = true;
     manualControl = false;
+    if (startedMap !== options.mapId()) mapStartedAt = now();
     startedMap = options.mapId();
     startedIdentity = options.localIdentity?.();
     pendingResume = null;
@@ -436,7 +548,8 @@ export function createAutoFarmController(options: {
     if (!active || phase !== 'portal' || !travellingTo || !startedIdentity) { stop('Map changed · choose an enemy'); return; }
     const intent = { identity: startedIdentity, map: travellingTo, choice: encodeFarmPlan(readFarmChoice(startedMap, options.priorityStorage)) };
     const label = retreating ? 'Moving back a map' : 'Moving to the next map';
-    advancedAt = retreating ? null : now();
+    // Forward: the new map is on trial against how fast this one was growing the build.
+    probation = retreating ? null : { mapId: travellingTo, since: now(), previousRate: gain.rate(now(), startedMap) };
     stop(label);
     pendingResume = intent;
     options.resumeStore?.write(intent);
@@ -468,8 +581,11 @@ export function createAutoFarmController(options: {
       if (!enemy.dead && enemy.hp > 0) seenAlive.add(enemy);
       else if (seenAlive.delete(enemy)) { groupKills++; pullWait = 0; }
     }
+    gain.sample(now(), currentPower(), options.mapId());
     choosePhase(dt);
+    if (phase !== 'boss') bossFight = null;
     const boss = phase === 'boss' ? options.mapBoss?.() ?? null : null;
+    if (boss && judgeBossFight(boss)) return idle();
     const portal = phase === 'portal' ? exitPortal() : null;
     if (phase !== 'farm') target = null;
     else if (!target || !validEnemy(target) || !enemies.includes(target)) {
@@ -550,6 +666,7 @@ export function createAutoFarmController(options: {
     // "Waiting for a clear route", beside a boss that never moves.
     holding = remaining <= (holding ? standoff.resume : standoff.stop) + WAYPOINT_REACHED;
     if (holding && !portal) {
+      if (boss && !enemy && bossFight) bossFight.reached = true;
       status = threat ? 'Defending' : boss ? 'Fighting the boss' : target ? 'Farming' : 'Waiting for respawn';
       route = [];
       routeClock = 0;
@@ -586,9 +703,31 @@ export function createAutoFarmController(options: {
     return { x: (waypoint.x - player.x) / length * magnitude, y: (waypoint.y - player.y) / length * magnitude, source: 'steer' };
   }
 
+  /** What the boss and next-map switch will do next, in a word or two for the panel. */
+  function bossStatus() {
+    if (options.reflectOnly?.()) return 'Off In Reflect Only';
+    if (retreating) return 'Moving Back A Map';
+    if (onProbation()) return 'Trying Next Map';
+    // What a try still waits for: more power first, then the time.
+    const gate = (label: string, key: string, earliest = 0) => {
+      const { power, at } = retryGate(key);
+      if (currentPower() < power) return `${label} At ${formatCompactNumber(Math.ceil(power))}`;
+      const minutes = Math.ceil(Math.max(at - wallNow(), earliest) / 60_000);
+      return minutes > 0 ? `${label} In ${minutes} Min` : null;
+    };
+    const portal = options.nextPortal?.();
+    if (portal) return gate('Next Map', portal.destination) ?? 'Next Map Open';
+    if (options.bossUnlocksNext?.() === false) return 'Boss Beaten';
+    const boss = options.mapBoss?.();
+    if (!boss || boss.dead) return '';
+    return gate('Boss', bossRetryKey(options.mapId()), mapStartedAt + BOSS_FIRST_TRY_MS - now()) ?? 'Boss Next';
+  }
+
   return { start, stop, defeated, refresh, choices, movement, travelStarted,
     state: () => ({ active, selected, selectedLabel, plan: [...plan], phase, advance,
-      status: active && !recovering && options.paused() ? 'Paused' : status }),
+      // On Auto, what it farms and why: "Farming Armor · Best Gain".
+      status: active && !recovering && options.paused() ? 'Paused'
+        : active && !plan.length && phase === 'farm' && status === 'Farming' ? `Farming ${selectedLabel} · ${bossFarming ? 'For The Boss' : 'Best Gain'}` : status }),
     /** The camp being farmed; null at the boss or on the way out, so the boss and anything in the way are fair game. */
     targetType: () => active && !manualControl && phase === 'farm' ? selectedType : null,
     /** What combat aims at: the farmed camp, or, with every farmed group pulled, whatever is nearest. */
@@ -599,19 +738,13 @@ export function createAutoFarmController(options: {
       advance = next;
       writeFarmAdvance(next, options.priorityStorage);
     },
-    /** Why it will or won't take on the boss, in a word or two for the panel. */
-    bossStatus() {
-      if (options.reflectOnly?.()) return 'Off in Reflect Only';
-      if (retreating) return 'Moving back a map';
-      if (exitPortal()) return 'Next map open';
-      if (options.nextMapTooHard?.()) return 'Next map too hard';
-      if (options.bossUnlocksNext?.() === false) return 'Boss beaten';
-      const boss = options.mapBoss?.();
-      const evaluation = options.evaluate?.();
-      if (!boss || !evaluation || evaluation.fightSeconds === null) return '';
-      if (bossReady(evaluation)) return now() < bossRetryAt ? 'Retrying soon' : 'Ready';
-      // Whichever limit is further off: the fight is too long, or it hits too hard over it.
-      return (evaluation.fightDamageShare ?? 0) / BOSS_READY_DAMAGE_SHARE > (evaluation.fightSeconds ?? 0) / BOSS_READY_FIGHT_SECONDS ? 'Needs defense' : 'Needs damage';
+    bossStatus,
+    /** Whether the switch's next step is ready to go ('Next Map Open', 'Boss Next'): the panel shows it lit. */
+    bossStatusReady: () => READY_STATUSES.has(bossStatus()),
+    push: () => push,
+    setPush(next: FarmPush) {
+      push = next;
+      writeFarmPush(next, options.priorityStorage);
     },
     /** The route saved for this map, for the panel to show. */
     savedPlan: () => readFarmChoice(options.mapId(), options.priorityStorage),

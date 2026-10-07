@@ -1,4 +1,13 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.0": [
+    "Autofarm redesign: a simpler window with Auto or your own stats, one Move On switch, and the rest under More",
+    "Auto farms whatever grows your power fastest",
+    "Move On tries the next map and only comes back if you farm slower there, instead of guessing it is too hard",
+    "After a lost boss fight, autofarm farms what that fight was missing, then tries again",
+    "Each failed try waits longer than the last, so autofarm no longer bounces between maps",
+    "New Push setting under More: Safe, Normal or Bold",
+    "Autofarm no longer turns itself off after repeated deaths",
+  ],
   "0.900.4": [
     "The Town runs much faster: its ground, rooms and shadows are drawn once and reused instead of every frame",
     "Low Performance Mode also turns off the Town's water shimmer and chimney smoke",
@@ -2945,6 +2954,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.0": "2026-10-07",
   "0.900.4": "2026-10-07",
   "0.900.3": "2026-10-06",
   "0.900.2": "2026-10-06",

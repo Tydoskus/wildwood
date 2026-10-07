@@ -1,44 +1,13 @@
-import { BOSS_TARGET_SECONDS } from '../../../shared/progression';
 import type { RewardType } from '../enemies';
+import type { PlayerPowerStats } from '../../../shared/player-power';
 
-/**
- * Autofarm's decisions: which camp, when the boss, when the next map.
- *
- * - The boss is ready once the fight takes at most BOSS_TARGET_SECONDS (the
- *   balance simulator's readiness target) and everything it lands over that
- *   fight, less regeneration, costs at most BOSS_READY_DAMAGE_SHARE of max
- *   health. Its single hardest hit was the old gate, at 30% of health; a
- *   fight is thirty of them, and autofarm walked in "ready" and died.
- * - Until then, the camp to farm is the one that closes the gap fastest:
- *   whichever of the two limits is furthest off. Damage shortens the fight
- *   and so the hits taken, so a build is not sent for armor it barely needs.
- *   With no boss to aim at, power gained per second.
- * - A camp whose group fight would kill the player is not farmed while any
- *   other is safe (auto-farm-build.ts, SAFE_GROUP_DANGER).
- */
-export const BOSS_READY_FIGHT_SECONDS = BOSS_TARGET_SECONDS;
-export const BOSS_READY_DAMAGE_SHARE = .6;
-/** The panel's "Needs defense" line: one hit taking more than this much. */
-export const BOSS_READY_HIT_SHARE = .3;
 /** A camp has to beat the current one by this much before Auto walks over to it (players saw it hop camps). */
 export const AUTO_SWITCH_MARGIN = 1.5;
 /** How often Auto looks again while its camp still has enemies. */
 export const AUTO_REPLAN_SECONDS = 20;
-/** After a death at the boss, farm this long before trying again. */
-export const BOSS_RETRY_MS = 5 * 60_000;
-/** The danger at or below which a camp is safe to farm (auto-farm-build.ts keeps the same number). */
-export const SAFE_CAMP_DANGER = .75;
 
-/** What the player's build would be, with or without one more kill's reward. */
-export type FarmEvaluation = {
-  power: number;
-  /** Seconds to defeat this map's boss; null when there is no boss to fight. */
-  fightSeconds: number | null;
-  /** The boss's hardest hit after armor, as a share of max health. */
-  hitShare: number | null;
-  /** All the boss lands over the fight, less regeneration, as a share of max health. */
-  fightDamageShare: number | null;
-};
+/** What the player's build would be, with or without one more kill's reward: its power, and its effective stats when known. */
+export type FarmEvaluation = { power: number; stats?: PlayerPowerStats };
 export type FarmReward = { type: RewardType; amount: number };
 export type FarmCandidate = {
   key: string;
@@ -46,65 +15,31 @@ export type FarmCandidate = {
   reward: FarmReward;
   /** Time to kill one, plus the walk there when it is not the current camp. */
   secondsPerKill: number;
-  /** How close fighting the group comes to killing the player; above SAFE_CAMP_DANGER it is avoided. */
-  danger?: number;
 };
 
-/** How far the build is from boss-ready: 1 or less is ready. The larger of the two limits' shortfalls. */
-export function bossReadiness(evaluation: FarmEvaluation) {
-  if (evaluation.fightSeconds === null || evaluation.fightDamageShare === null) return null;
-  return Math.max(evaluation.fightSeconds / BOSS_READY_FIGHT_SECONDS, evaluation.fightDamageShare / BOSS_READY_DAMAGE_SHARE);
-}
-
-export function bossReady(evaluation: FarmEvaluation) {
-  const readiness = bossReadiness(evaluation);
-  return readiness !== null && readiness <= 1;
-}
-
-function objective(now: FarmEvaluation, aimForBoss: boolean): (evaluation: FarmEvaluation) => number {
-  const readiness = bossReadiness(now);
-  if (aimForBoss && readiness !== null && Number.isFinite(readiness)) return evaluation => -(bossReadiness(evaluation) ?? readiness);
-  return evaluation => evaluation.power;
-}
-
 /**
- * Auto's camps, best first, each with its rate. A camp whose stat can no
- * longer grow (attack speed at its cap) is left out while any other helps:
- * Auto used to farm a capped speed camp whenever it was the only one alive,
- * for nothing, over and over. Camps with nobody alive count only when every
- * useful camp is empty (it waits for one there); camps it cannot survive,
- * only when none is safe (then the least dangerous alone).
+ * Auto's camps, on every map, best first, each with its power per second of
+ * killing and walking. A camp whose stat
+ * can no longer grow (attack speed at its cap) is left out while any other
+ * helps: Auto used to farm a capped speed camp whenever it was the only one
+ * alive, for nothing, over and over. Camps with nobody alive count only when
+ * every useful camp is empty (it waits for one there).
  */
-export function rankFarmCandidates(candidates: readonly FarmCandidate[], evaluate: (reward?: FarmReward) => FarmEvaluation, aimForBoss: boolean) {
-  const now = evaluate();
+export function rankFarmCandidates(candidates: readonly FarmCandidate[], evaluate: (reward?: FarmReward) => FarmEvaluation) {
+  const now = evaluate().power;
   const alive = (pool: readonly FarmCandidate[]) => pool.some(candidate => candidate.alive > 0) ? pool.filter(candidate => candidate.alive > 0) : pool;
-  const safeAll = candidates.filter(candidate => (candidate.danger ?? 0) <= SAFE_CAMP_DANGER);
-  if (!safeAll.length) {
-    const living = alive(candidates);
-    if (!living.length) return [];
-    const least = living.reduce((low, candidate) => (candidate.danger ?? 0) < (low.danger ?? 0) ? candidate : low);
-    return [{ key: least.key, rate: 0 }];
-  }
-  // Safe first, then useful, then alive: a useful camp respawning beats a useless one standing there.
-  const useful = safeAll.filter(candidate => evaluate(candidate.reward).power > now.power);
-  const safe = alive(useful.length ? useful : safeAll);
-  const rate = (score: (evaluation: FarmEvaluation) => number) => {
-    const base = score(now);
-    return new Map(safe.map(candidate => {
-      const gain = score(evaluate(candidate.reward)) - base;
-      return [candidate.key, Number.isFinite(gain) ? Math.max(0, gain) / Math.max(.1, candidate.secondsPerKill) : 0];
-    }));
-  };
-  let rates = rate(objective(now, aimForBoss));
-  // Nothing on this map helps the goal: fall back to growing power.
-  if (![...rates.values()].some(value => value > 0)) rates = rate(objective(now, false));
-  return safe.map(candidate => ({ key: candidate.key, rate: rates.get(candidate.key)! })).sort((a, b) => b.rate - a.rate);
+  const gains = new Map(candidates.map(candidate => [candidate.key, evaluate(candidate.reward).power - now]));
+  // Useful first, then alive: a useful camp respawning beats a useless one standing there.
+  const useful = candidates.filter(candidate => gains.get(candidate.key)! > 0);
+  return alive(useful.length ? useful : candidates).map(candidate => {
+    const gain = gains.get(candidate.key)!;
+    return { key: candidate.key, rate: Number.isFinite(gain) ? Math.max(0, gain) / Math.max(.1, candidate.secondsPerKill) : 0 };
+  }).sort((a, b) => b.rate - a.rate);
 }
 
 /** The best camp for Auto (rankFarmCandidates), or the current one when nothing beats it by the switch margin. */
-export function bestFarmCandidate(candidates: readonly FarmCandidate[], evaluate: (reward?: FarmReward) => FarmEvaluation,
-  aimForBoss: boolean, current: string | null = null) {
-  return pickRankedCandidate(rankFarmCandidates(candidates, evaluate, aimForBoss), current);
+export function bestFarmCandidate(candidates: readonly FarmCandidate[], evaluate: (reward?: FarmReward) => FarmEvaluation, current: string | null = null) {
+  return pickRankedCandidate(rankFarmCandidates(candidates, evaluate), current);
 }
 export function pickRankedCandidate(ranked: readonly { key: string; rate: number }[], current: string | null = null) {
   if (!ranked.length) return null;
