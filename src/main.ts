@@ -1217,8 +1217,9 @@ import {
     renderStats: (profile, element) => renderProfileStats(profile, element, formatArmorReduction, challengeMinimumInterval(profile.identity === coop?.localIdentity?.() && coop?.aggroChallenge?.()?.active ? null : profile.prestigeChallenge), profile.research,
       profile.identity === coop?.localIdentity?.() ? (coop?.aggroChallenge?.()?.active ? 0 : coop?.prestige?.()?.level ?? 0) : profile.prestigeLevel ?? 0,
       profile.identity === coop?.localIdentity?.() ? coop?.prestigePerks?.() : profile.prestigePerks,
-      profile.identity === coop?.localIdentity?.() ? coop?.dailyQuests?.()?.bonus ?? 1 : 1),
-    formatPower: (profile) => formatCompactNumber(profilePower(profile)), formatPlayedTime,
+      profile.identity === coop?.localIdentity?.() ? coop?.dailyQuests?.()?.bonus ?? 1 : 1,
+      profile.identity === coop?.localIdentity?.() ? soulDimension.inPlay() : null),
+    formatPower: (profile) => formatCompactNumber(profilePower(profile, profile.identity === coop?.localIdentity?.() ? soulDimension.inPlay() : null)), formatPlayedTime,
     profile: (identity) => coop?.playerProfile?.(identity), loadProfile: async (identity) => coop?.loadPlayerProfile?.(identity), releaseProfile: () => { coop?.releasePlayerProfile?.(); },
     isDueling, duelCooldownMs: () => coop?.duelCooldownRemainingMs?.() ?? 0,
     requestDuel: async (identity) => {

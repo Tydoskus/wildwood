@@ -149,6 +149,7 @@ export function createSoulDimensionRuntime(deps: {
       return withoutSoulStats(stats, inPlay(), savedAttackRate);
     },
     critDamage: () => inPlay().critDamage,
+    inPlay,
     soulStats,
     rewardKills,
     tier,

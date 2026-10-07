@@ -321,3 +321,22 @@ it("uses a remote profile's prestige bonuses without local-only arguments", () =
   expect(implicit).toEqual(explicit);
   expect(implicit.find(row => row.kind === "stat-gain")?.sources).toContainEqual({ label: "Prestige", value: "1.30×" });
 });
+
+it("adds the soul stats in play to each row's base, before the multipliers, and names them as a source", () => {
+  const profile = {
+    progress: { ...progress(), damage: 100, maxHp: 500, armor: 10, regen: 2 },
+    research: { ...createEmptyResearchRanks(), warcraft: 5 },
+    itemUpgradeLevels: {},
+  } as Parameters<typeof profileStatDisplayRows>[0];
+  const plain = profileStatDisplayRows(profile, () => "0%", MIN_ATTACK_INTERVAL);
+  const soul = profileStatDisplayRows(profile, () => "0%", MIN_ATTACK_INTERVAL, undefined, 0, null, 1, { damage: 50, maxHp: 200, critDamage: .1 });
+  const row = (rows: typeof plain, kind: string) => rows.find(entry => entry.kind === kind)!;
+  expect(row(plain, "damage")).toMatchObject({ base: "100", multiplier: "1.10", total: "110" });
+  expect(row(soul, "damage")).toMatchObject({ base: "150", multiplier: "1.10", total: "165" });
+  expect(row(soul, "damage").sources).toEqual([{ label: "Soul", value: "+50" }, { label: "Tech", value: "+10%" }]);
+  expect(row(soul, "health")).toMatchObject({ base: "700", total: "700" });
+  expect(row(soul, "critical-damage")).toMatchObject({ total: "1.15×" });
+  expect(row(soul, "critical-damage").sources).toContainEqual({ label: "Soul", value: "+0.10×" });
+  // None to add: the rows are as they were.
+  expect(profileStatDisplayRows(profile, () => "0%", MIN_ATTACK_INTERVAL, undefined, 0, null, 1, null)).toEqual(plain);
+});

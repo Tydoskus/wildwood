@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.2": [
+    "Your profile counts your soul stats: each stat's base includes them, they are listed in its breakdown, and your power includes them",
+  ],
   "0.901.1": [
     "Health bars show black behind missing health, for you, other players, enemies and bosses",
   ],
@@ -2957,6 +2960,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.2": "2026-10-07",
   "0.901.1": "2026-10-07",
   "0.901.0": "2026-10-07",
   "0.900.4": "2026-10-07",

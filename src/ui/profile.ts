@@ -8,6 +8,7 @@ import { formatCompactNumber, formatRate } from "./number-format";
 import { paysSpeedRating } from "../game/combat";
 import { speedFromAttacksPerSecond } from "../../shared/attack-speed-rating";
 import { upgradeSlotForItem } from "../../shared/slot-upgrades";
+import { cleanSoulStats, withSoulStats, type SoulStats } from "../../shared/soul-dimension";
 
 export function formatPlayedTime(seconds: number) {
   const wholeMinutes = Math.max(0, Math.floor(seconds / 60));
@@ -85,16 +86,17 @@ export function slotUpgradeLevelFor(itemUpgradeLevels: Record<string, number>, i
   return itemUpgradeLevels[upgradeSlotForItem(itemId) ?? ""] ?? 0;
 }
 
-export function profilePower(profile: PlayerProfileData) {
+/** The profile's power, with the soul stats in play added as combat adds them. */
+export function profilePower(profile: PlayerProfileData, soul: Partial<SoulStats> | null = null) {
   return effectivePlayerPower(
-    profile.progress,
+    withSoulStats(profile.progress, cleanSoulStats(soul)),
     profile.research,
     (itemId) => slotUpgradeLevelFor(profile.itemUpgradeLevels, itemId),
   );
 }
 
 export type ProfileStatDisplaySource = {
-  label: "Tech" | "Equipment" | "Slot Upgrade" | "Prestige" | "Guild";
+  label: "Tech" | "Equipment" | "Slot Upgrade" | "Prestige" | "Guild" | "Soul";
   value: string;
 };
 
@@ -111,6 +113,10 @@ export type ProfileStatDisplayRow = {
   sources: ProfileStatDisplaySource[];
 };
 
+/** A row's soul share, as a source line, once there is one. */
+const soulSource = (amount: number, format: (value: number) => string): ProfileStatDisplaySource[] =>
+  amount > 0 ? [{ label: "Soul", value: `+${format(amount)}` }] : [];
+
 export function profileStatDisplayRows(
   profile: PlayerProfileData,
   armorReduction: (armor: number) => string,
@@ -119,8 +125,12 @@ export function profileStatDisplayRows(
   prestigeLevel = profile.prestigeLevel ?? 0,
   perks: Partial<PrestigePerkRanks> | null | undefined = profile.prestigePerks,
   guildBonus = 1,
+  soulStats: Partial<SoulStats> | null = null,
 ) {
-  const { progress } = profile;
+  // Soul stats add to the run's base before any multiplier, as combat adds them,
+  // so each row's base includes them and its sources say how much was soul.
+  const soul = cleanSoulStats(soulStats);
+  const progress = withSoulStats(profile.progress, soul);
   const ranks = research ?? profile.research ?? createEmptyResearchRanks();
   const statValue = (value: number) => Math.abs(value) >= 1_000_000 ? formatCompactNumber(value) : Math.round(value).toLocaleString();
   const effective = effectiveProfileStats({ ...progress, attackRate: Math.max(minAttackInterval, progress.attackRate) }, ranks, profile.itemUpgradeLevels);
@@ -163,13 +173,13 @@ export function profileStatDisplayRows(
       equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.healthResearch * (1 + effective.equipment.health)),
       total: statValue(effective.maxHp),
-      sources: multiplierSources(healthResearchBonus, effective.gear.health, effective.slotTiers.health),
+      sources: [...soulSource(soul.maxHp, statValue), ...multiplierSources(healthResearchBonus, effective.gear.health, effective.slotTiers.health)],
     },
     {
       kind: "damage", label: "Damage:", base: statValue(progress.damage),
       equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.damageResearch * (1 + effective.equipment.damage)), total: statValue(effective.damage),
-      sources: multiplierSources(damageResearchBonus, effective.gear.damage, effective.slotTiers.damage),
+      sources: [...soulSource(soul.damage, statValue), ...multiplierSources(damageResearchBonus, effective.gear.damage, effective.slotTiers.damage)],
     },
     {
       kind: "armor", label: "Armor:", base: statValue(progress.armor),
@@ -177,14 +187,14 @@ export function profileStatDisplayRows(
       multiplier: multiplierValue(effective.multipliers.armor),
       expandedDetail: `(${armorReduction(effective.armor)} Block)`,
       total: statValue(effective.armor),
-      sources: multiplierSources(armorResearchBonus),
+      sources: [...soulSource(soul.armor, statValue), ...multiplierSources(armorResearchBonus)],
     },
     {
       kind: "attack", label: "Attack Speed:", base: baseAttackSpeed,
       equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.attackSpeed), total: attackSpeed,
       ...(speedRating === null ? {} : { expandedDetail: `(${speedRating >= 1_000 ? formatCompactNumber(speedRating) : Number(speedRating.toPrecision(3))} Attack Speed)` }),
-      sources: [],
+      sources: soulSource(soul.attackSpeed, value => `${value.toFixed(3)}/s`),
     },
     {
       kind: "range", label: "Attack Range:", base: statValue(baseRange),
@@ -197,7 +207,7 @@ export function profileStatDisplayRows(
       base: `${formatRate(progress.regen)}/s`,
       equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.regenResearch * (1 + effective.equipment.regen)), total: regen,
-      sources: multiplierSources(regenResearchBonus, effective.gear.regen, effective.slotTiers.regen),
+      sources: [...soulSource(soul.regen, value => `${formatRate(value)}/s`), ...multiplierSources(regenResearchBonus, effective.gear.regen, effective.slotTiers.regen)],
     },
     {
       kind: "speed", label: "Move Speed:", base: statValue(progress.speedOverride > 0 ? progress.speedOverride : progress.speed),
@@ -238,13 +248,14 @@ export function profileStatDisplayRows(
       ...(perkCritical ? [{ label: "Prestige" as const, value: `+${percentPoints(perkCritical)}` }] : []),
     ],
   });
-  const criticalDamageBonus = ranks.criticalDamage * .05 + perkCriticalDamage;
+  const criticalDamageBonus = ranks.criticalDamage * .05 + perkCriticalDamage + soul.critDamage;
   const criticalDamage = 1.05 + criticalDamageBonus;
   stats.push({
     kind: "critical-damage", label: "Critical Damage:", base: "1.05×", equationOperator: "+", multiplier: `${criticalDamageBonus.toFixed(2)}×`, total: `${criticalDamage.toFixed(2)}×`,
     sources: [
       ...(ranks.criticalDamage ? [{ label: "Tech" as const, value: `+${(ranks.criticalDamage * .05).toFixed(2)}×` }] : []),
       ...(perkCriticalDamage ? [{ label: "Prestige" as const, value: `+${perkCriticalDamage.toFixed(2)}×` }] : []),
+      ...soulSource(soul.critDamage, value => `${value.toFixed(2)}×`),
     ],
   });
   // The remaining perks have no research behind them, so a row only appears
@@ -273,8 +284,9 @@ export function renderProfileStats(
   prestigeLevel = profile.prestigeLevel ?? 0,
   perks: Partial<PrestigePerkRanks> | null | undefined = profile.prestigePerks,
   guildBonus = 1,
+  soulStats: Partial<SoulStats> | null = null,
 ) {
-  const stats = profileStatDisplayRows(profile, armorReduction, minAttackInterval, research, prestigeLevel, perks, guildBonus);
+  const stats = profileStatDisplayRows(profile, armorReduction, minAttackInterval, research, prestigeLevel, perks, guildBonus, soulStats);
   const expandedKinds = statGrid.dataset.identity === profile.identity
     ? new Set([...statGrid.querySelectorAll<HTMLElement>('[aria-expanded="true"]')].map((row) => row.dataset.stat))
     : new Set<string>();
