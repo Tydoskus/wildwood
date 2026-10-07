@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
-import { HOME_BENCH_POSITION } from "../../shared/home";
+import { TOWN_BENCH_POSITION } from "../../shared/town";
 import { itemUpgradeDurationMs } from "../../shared/items";
 import { slotUpgradeDurationWithResearch } from "../../shared/utility-research";
 import { UPGRADE_BENCH_THIRD_SLOT_GEM_COST } from "../../shared/gems";
@@ -56,7 +56,7 @@ it("does not put the slot's name in the bag if the upgrade is cancelled", () => 
 
 it("starts new slot upgrades at the researched speed", () => {
   const f = crystalFixture();
-  f.patch("player", { mapId: "home_exterior", x: HOME_BENCH_POSITION.x, y: HOME_BENCH_POSITION.y });
+  f.patch("player", { mapId: "town", x: TOWN_BENCH_POSITION.x, y: TOWN_BENCH_POSITION.y });
   f.seed("playerResearch", { identity: f.ctx.sender, slotUpgradeSpeed: 5 });
   f.run(server.startItemUpgrade, { slot: 1, itemId: "HAND" });
   const active = f.db.activeItemUpgrade.identity.find(f.ctx.sender);
@@ -66,7 +66,7 @@ it("starts new slot upgrades at the researched speed", () => {
 
 it("shortens every running slot timer when Slot Speed research completes", () => {
   const f = crystalFixture();
-  f.patch("player", { mapId: "home_exterior", x: HOME_BENCH_POSITION.x, y: HOME_BENCH_POSITION.y });
+  f.patch("player", { mapId: "town", x: TOWN_BENCH_POSITION.x, y: TOWN_BENCH_POSITION.y });
   f.seed("playerResearch", { identity: f.ctx.sender, ...createEmptyResearchRanks(), researchSpeed: 1 });
   f.seed("playerUpgradeBench", { identity: f.ctx.sender, secondSlotUnlocked: true });
   f.run(server.startItemUpgrade, { slot: 1, itemId: "HAND" });
@@ -89,7 +89,7 @@ it("shortens every running slot timer when Slot Speed research completes", () =>
 
 it("requires slot two, charges 200 Gems once, and completes slot three beside two running jobs", () => {
   const f = crystalFixture();
-  f.patch("player", { mapId: "home_exterior", x: HOME_BENCH_POSITION.x, y: HOME_BENCH_POSITION.y });
+  f.patch("player", { mapId: "town", x: TOWN_BENCH_POSITION.x, y: TOWN_BENCH_POSITION.y });
   f.seed("playerGemWallet", { identity: f.ctx.sender, balance: UPGRADE_BENCH_THIRD_SLOT_GEM_COST });
   expect(() => f.run(server.unlockThirdUpgradeSlot)).toThrow("second upgrade slot first");
   f.seed("playerUpgradeBench", { identity: f.ctx.sender, secondSlotUnlocked: true });

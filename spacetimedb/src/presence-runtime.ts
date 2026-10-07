@@ -17,7 +17,7 @@ import { generatedMapUnlocked } from "./procedural-maps";
 import { updateSnapshotRow } from "./snapshot-row-writes";
 import { requireAllowedDefeatSession } from "./defeat-session";
 import { generateMap, isProceduralMap, PROCEDURAL_ENTRY_BOSS } from "../../shared/procedural-maps";
-import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN } from "../../shared/home";
+import { HOME_EXTERIOR_MAP_ID } from "../../shared/home";
 import { worldBoundsFor } from "../../shared/world-bounds";
 import { isSoulMap, SOUL_ARRIVAL } from "../../shared/soul-dimension";
 import { soulDimensionOpenFor } from "./soul-dimension";
@@ -423,15 +423,16 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
 
   function savedWorldLocation(ctx: any, identity: any, progress: any) {
     const saved = ctx.db.playerLastLocation.identity.find(identity);
-    // A new account starts in the Town; a saved place that no longer exists falls back to the forest.
-    const requestedMap = !saved ? TOWN_MAP_ID : VALID_MAP_IDS.has(saved.mapId) ? saved.mapId : TUTORIAL_FOREST_MAP_ID;
+    // A new account starts in the Town, and so does one saved at Home (retired: its coordinates mean nothing in the Town);
+    // a saved place that no longer exists falls back to the forest.
+    const requestedMap = !saved || saved.mapId === HOME_EXTERIOR_MAP_ID ? TOWN_MAP_ID : VALID_MAP_IDS.has(saved.mapId) ? saved.mapId : TUTORIAL_FOREST_MAP_ID;
     let mapId = requestedMap;
     mapId = accessibleCampaignMap(mapId, progress);
-    if (isSoulMap(mapId) && !soulDimensionOpenFor(ctx, identity)) mapId = HOME_EXTERIOR_MAP_ID;
-    if (isGuildHallMap(mapId) && !guildHallMember(ctx, identity, mapId)) mapId = HOME_EXTERIOR_MAP_ID;
+    if (isSoulMap(mapId) && !soulDimensionOpenFor(ctx, identity)) mapId = TOWN_MAP_ID;
+    if (isGuildHallMap(mapId) && !guildHallMember(ctx, identity, mapId)) mapId = TOWN_MAP_ID;
     if (isProceduralMap(mapId) && !hasEndlessTravelAccess(ctx, identity) && !generatedMapUnlocked(mapId, ctx.db.proceduralProgress.identity.find(identity)?.completed ?? 0, Boolean(progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS[PROCEDURAL_ENTRY_BOSS]))) mapId = TUTORIAL_FOREST_MAP_ID;
-    const fallback = isProceduralMap(mapId) ? generateMap(mapId).arrival : isSoulMap(mapId) ? SOUL_ARRIVAL : isGuildHallMap(mapId) ? GUILD_HALL_ARRIVAL : isTownMap(mapId) ? TOWN_ARRIVAL : mapId === HOME_EXTERIOR_MAP_ID ? HOME_EXTERIOR_SPAWN : mapId === TUTORIAL_FOREST_MAP_ID ? PLAYER_SPAWN : MAP_ARRIVALS[mapId as keyof typeof MAP_ARRIVALS];
-    const useSavedPosition = mapId === requestedMap;
+    const fallback = isProceduralMap(mapId) ? generateMap(mapId).arrival : isSoulMap(mapId) ? SOUL_ARRIVAL : isGuildHallMap(mapId) ? GUILD_HALL_ARRIVAL : isTownMap(mapId) ? TOWN_ARRIVAL : mapId === TUTORIAL_FOREST_MAP_ID ? PLAYER_SPAWN : MAP_ARRIVALS[mapId as keyof typeof MAP_ARRIVALS];
+    const useSavedPosition = mapId === requestedMap && saved?.mapId !== HOME_EXTERIOR_MAP_ID;
     const bounds = worldBoundsFor(mapId);
     const x = useSavedPosition && Number.isFinite(saved?.x)
       ? Math.max(PLAYER_RADIUS, Math.min(bounds.width - PLAYER_RADIUS, saved.x))

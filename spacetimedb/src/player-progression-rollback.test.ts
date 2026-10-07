@@ -19,7 +19,7 @@ function setup() {
   return { ...f, target, args, current };
 }
 
-it("restores only progression, locks retained gear, moves home and records an atomic before/after", () => {
+it("restores only progression, locks retained gear, moves to the Town and records an atomic before/after", () => {
   const f = setup();
   f.seed("playerGemWallet", { identity: f.target, balance: 999n });
   f.seed("regularEnemyLootCursor", { key: "accepted", identity: f.target, sequence: 20n });
@@ -31,9 +31,9 @@ it("restores only progression, locks retained gear, moves home and records an at
   expect(next).toMatchObject({ damage: 1000, maxHp: 2000, regen: 10, armor: 10, moonfenUnlocked: true,
     crystalHollowsUnlocked: false, ionCitadelUnlocked: false, bossRewardClaims: 255,
     equippedRightHand: "starter_bow", equippedChest: "", inventoryJson: f.current.inventoryJson });
-  expect(f.db.player.identity.find(f.target)).toMatchObject({ mapId: "home_exterior", maxHp: 2000, hp: 2000 });
+  expect(f.db.player.identity.find(f.target)).toMatchObject({ mapId: "town", maxHp: 2000, hp: 2000 });
   expect(f.db.homeReturnLocation.identity.find(f.target).mapId).toBe("moonfen");
-  expect(f.db.playerLastLocation.identity.find(f.target).mapId).toBe("home_exterior");
+  expect(f.db.playerLastLocation.identity.find(f.target).mapId).toBe("town");
   expect(f.db.playerGemWallet.identity.find(f.target).balance).toBe(999n);
   expect(f.db.regularEnemyLootCursor.key.find("accepted").sequence).toBe(20n);
   expect(f.db.enemyDefeatBudget.key.find("old-credit")).toBeNull();

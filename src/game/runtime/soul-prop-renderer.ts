@@ -4,6 +4,7 @@ import { guildHallDoorState, guildHallFrame } from "../guild-hall";
 import type { WorldDecor } from "../world";
 import type { Camera } from "./camera";
 import { snapWorldRenderCoordinate } from "./render-space";
+import { drawTownSignpost, TOWN_SIGNPOST_EXTENT } from "./town-signpost";
 
 export type SoulPropDecor = Extract<WorldDecor, { type: "soulProp" }>;
 export const SOUL_ATLAS_SOURCE = "assets/wildstat/soul-dimension/soul-atlas.webp";
@@ -30,6 +31,7 @@ export function animationFrame(anim: NonNullable<SoulPropDecor["anim"]>, seconds
 
 /** How far above and to each side of its depth point a prop reaches, for culling. */
 export function soulPropExtent(item: SoulPropDecor) {
+  if (item.signpost) return TOWN_SIGNPOST_EXTENT;
   if (item.crest) { const half = item.crest / 2, dy = item.dy ?? 0; return { left: half, right: half, up: Math.max(0, half - dy), down: Math.max(0, half + dy) }; }
   const frame = soulFrame(item.frame, item.sheet);
   if (!frame) return { left: 0, right: 0, up: 0, down: 0 };
@@ -56,6 +58,12 @@ export function createSoulPropRenderer(options: {
       const { camera } = options;
       options.drawCrest?.(target ?? options.ctx, snapWorldRenderCoordinate(item.x - camera.x, camera.zoom, options.devicePixelRatio()),
         snapWorldRenderCoordinate(item.y + (item.dy ?? 0) - camera.y, camera.zoom, options.devicePixelRatio()), item.crest);
+      return;
+    }
+    if (item.signpost) {
+      const { camera } = options;
+      drawTownSignpost(target ?? options.ctx, snapWorldRenderCoordinate(item.x - camera.x, camera.zoom, options.devicePixelRatio()),
+        snapWorldRenderCoordinate(item.y - camera.y, camera.zoom, options.devicePixelRatio()), item.signpost);
       return;
     }
     const image = item.sheet === "village" ? options.villageProps() : item.sheet === "hall" ? options.hallProps?.() : options.atlas();

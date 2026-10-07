@@ -32,21 +32,21 @@ function travellingPlayer() {
   f.patch("playerProgress", { clockworkRuinsUnlocked: true, crystalHollowsUnlocked: true });
   // Production players already own motion and map-state rows; a fresh fixture
   // would insert them on the first call and count that against the budget.
-  f.run(server.changeMap, { mapId: "home_exterior", x: 100, y: 100 });
-  f.run(server.changeMap, { mapId: "home_exterior", x: 100, y: 100 });
+  f.run(server.changeMap, { mapId: "town", x: 100, y: 100 });
+  f.run(server.changeMap, { mapId: "town", x: 100, y: 100 });
   return f;
 }
 
-it("keeps a Home round trip within its host-call budget and leaves the map's balance pin alone", () => {
+it("keeps a Base/Fight round trip through the Town within its host-call budget and leaves the map's balance pin alone", () => {
   const f = travellingPlayer();
   const meter = countHostCalls(f.db);
-  f.run(server.changeMap, { mapId: "home_exterior", x: 100, y: 100 });
+  f.run(server.changeMap, { mapId: "town", x: 100, y: 100 });
   const toHome = meter.read();
-  expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe("home_exterior");
-  // Home has no enemies: the pin still names the map the player left.
+  expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe("town");
+  // The Town has no enemies: the pin still names the map the player left.
   expect(f.db.playerMapBalance.identity.find(f.ctx.sender).mapId).toBe("crystal_hollows");
   meter.reset();
-  f.run(server.changeMap, { mapId: "home_exterior", x: 100, y: 100 });
+  f.run(server.changeMap, { mapId: "town", x: 100, y: 100 });
   const back = meter.read();
   expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe("crystal_hollows");
   expect(f.db.playerLastLocation.identity.find(f.ctx.sender)?.mapId).toBe("crystal_hollows");

@@ -97,7 +97,7 @@ export function createGameBootstrap() {
     // Campaign portals and arrivals are shared with the server (shared/map-gateways.ts).
     ...Object.fromEntries(CAMPAIGN_MAPS.map(map => [map.id, campaignMapEntry(map.id as MapId)])) as Record<MapId, BootstrapMapEntry>,
     [ONBOARDING_MAP_ID]: { name: "First Steps", portal: null, arrival: ONBOARDING_WORLD.spawn },
-    // Home's pad leads to the Town.
+    // Home is retired (the Town is the hub): nothing sends a player here; its pad leads to the Town.
     home_exterior: { name: "Home", portal: HOME_TRAVEL_PORTAL, arrival: HOME_EXTERIOR_SPAWN },
     // The travel portal opens the map picker (its destination is the picker's); the second, the Soul Dimension's,
     // is set by the soul runtime for players who may use it.
@@ -107,8 +107,8 @@ export function createGameBootstrap() {
   const mapConfig = withGeneratedMaps<BootstrapMapEntry>(authoredMapConfig, id => {
     const map = generateMap(id);
     return { name: map.name, arrival: map.arrival, portal: { ...map.portals[0], destination: map.portals[0].destination as MapId }, secondaryPortal: map.portals[1] ? { ...map.portals[1], destination: map.portals[1].destination as MapId } : undefined };
-  // Every guild's hall: the yard's portal home at the foot of the path.
-  }, { name: "Guild Hall", arrival: GUILD_HALL_ARRIVAL, portal: { ...GUILD_HALL_HOME_PAD, destination: "home_exterior" } }) as typeof authoredMapConfig & Record<MapId, BootstrapMapEntry>;
+  // Every guild's hall: the yard's portal back to the Town at the foot of the path.
+  }, { name: "Guild Hall", arrival: GUILD_HALL_ARRIVAL, portal: { ...GUILD_HALL_HOME_PAD, destination: TOWN_MAP_ID } }) as typeof authoredMapConfig & Record<MapId, BootstrapMapEntry>;
   mapConfig[PROCEDURAL_ENTRY_MAP as MapId].secondaryPortal = { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: proceduralMapId(1) };
   const player: PlayerState = {
     x: startSpawn.x, y: startSpawn.y, r: 17,

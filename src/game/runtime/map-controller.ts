@@ -44,9 +44,9 @@ type TeleportArrival = { mapId: string; x: number; y: number; facing: number };
 export type MapController = {
   teleportHome: () => Promise<boolean>;
   teleportToMap: (destination: MapId, request: () => Promise<boolean | TeleportArrival>) => Promise<boolean>;
-  /** Leaves Home through its travel portal for a destination the picker chose. */
+  /** Leaves the Town through its travel portal for a destination the picker chose. */
   travelFromHome: (destination: MapId) => Promise<boolean>;
-  /** The map the toolbar teleport last left for Home, while this page has seen it. */
+  /** The map the toolbar teleport last left for the Town, while this page has seen it. */
   homeDeparture: () => MapId | null;
   activePortal: () => MapPortal | null;
   secondaryPortal: () => MapPortal | null;
@@ -148,7 +148,7 @@ export function createMapController(options: {
     mapTransitioning = true;
     const attempt = ++mapLoadGeneration;
     const departure = getCurrentMapId();
-    const returning = departure === "home_exterior";
+    const returning = departure === "town";
     let finished = false;
     const current = () => !finished && attempt === mapLoadGeneration && running() && player.hp > 0;
     try {
@@ -161,11 +161,11 @@ export function createMapController(options: {
       const travel = async () => {
         await new Promise(resolve => setTimeout(resolve, 650));
         if (!current()) return false;
-        const changed = request ? await request() : await changeMap("home_exterior", player.x, player.y);
+        const changed = request ? await request() : await changeMap("town", player.x, player.y);
         if (!current() || !changed) return false;
         const arrival = typeof changed === "object" ? changed : null;
         let state = arrival ?? localMapState();
-        while (current() && (!state || (destination ? state.mapId !== destination : (state.mapId === "home_exterior") === returning))) {
+        while (current() && (!state || (destination ? state.mapId !== destination : (state.mapId === "town") === returning))) {
           await new Promise(resolve => setTimeout(resolve, 25));
           state = localMapState();
         }
@@ -405,7 +405,7 @@ export function createMapController(options: {
   return {
     teleportHome: () => teleport(),
     teleportToMap: (destination, request) => teleport(destination, request),
-    travelFromHome: async (destination) => getCurrentMapId() === "town" && destination !== "home_exterior"
+    travelFromHome: async (destination) => getCurrentMapId() === "town" && destination !== "town" && destination !== "home_exterior"
       && teleport(destination, async () => Boolean(await changeMap(destination, player.x, player.y))),
     homeDeparture: () => homeDeparture,
     activePortal,

@@ -4,9 +4,9 @@ import {
   GUILD_HALL_ARRIVAL, GUILD_HALL_PART_IDS, guildHallDoorDestination, guildHallGuildId, guildHallMapId, guildHallUpgradeCost,
   isGuildHallMap, parseGuildHallLevels, type GuildHallPart,
 } from "../../shared/guild-hall";
-import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN } from "../../shared/home";
+import { HOME_EXTERIOR_MAP_ID } from "../../shared/home";
 import { questDay, questWeek } from "../../shared/daily-quests";
-import { isTownMap } from "../../shared/town";
+import { isTownMap, TOWN_ARRIVAL, TOWN_MAP_ID } from "../../shared/town";
 
 /**
  * Guild halls on the server (shared/guild-hall.ts has the rules).
@@ -17,8 +17,8 @@ import { isTownMap } from "../../shared/town";
  *   points still on record) the first time anything touches it.
  * - The guild's quest points fill the fund as they are earned (creditGuildHall
  *   from daily-quests.ts), on top of counting for the week's bonus.
- * - Only members enter, from anywhere, as Home is entered; someone who
- *   leaves the guild while in its hall is sent home.
+ * - Only members enter, from anywhere, as the Town is entered; someone who
+ *   leaves the guild while in its hall is sent to the Town.
  */
 export const guildHall = table({ name: "guild_hall", public: false }, {
   guildId: t.u64().primaryKey(),
@@ -113,8 +113,8 @@ export function registerGuildHall(spacetimedb: typeof spacetimedbType, deps: Gui
 }
 
 /**
- * change_map into a guild hall: from anywhere, as Home is, for its members only. Coming from a map with
- * enemies, that place is kept as where "Fight" from Home returns, as going Home keeps it.
+ * change_map into a guild hall: from anywhere, as the Town is, for its members only. Coming from a map with
+ * enemies, that place is kept as where "Fight" from the Town returns, as going to the Town keeps it.
  */
 export function enterGuildHall(ctx: any, current: any, mapId: string, x: number, y: number, deps: Pick<GuildHallDeps, "transitionPlayerMap" | "persistWorldLocation">) {
   if (!guildHallMember(ctx, ctx.sender, mapId)) throw new SenderError("Only the guild's members can enter its hall.");
@@ -131,13 +131,13 @@ export function enterGuildHall(ctx: any, current: any, mapId: string, x: number,
 
 /**
  * A member left (or was removed from) a guild: out of its hall if they are in it, and no way back through
- * Home's "Fight". The last member leaving deletes the guild, and its hall with it.
+ * the Town's "Fight". The last member leaving deletes the guild, and its hall with it.
  */
 export function guildHallMemberLeft(ctx: any, identity: any, guildId: bigint, guildDeleted: boolean, deps: Pick<GuildHallDeps, "transitionPlayerMap" | "persistWorldLocation">) {
   const hallMap = guildHallMapId(guildId);
   const player = ctx.db.player.identity.find(identity);
   if (player?.mapId === hallMap) {
-    deps.transitionPlayerMap({ ...ctx, sender: identity }, player, HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN);
+    deps.transitionPlayerMap({ ...ctx, sender: identity }, player, TOWN_MAP_ID, TOWN_ARRIVAL);
     deps.persistWorldLocation({ ...ctx, sender: identity }, ctx.db.player.identity.find(identity));
   }
   if (ctx.db.homeReturnLocation.identity.find(identity)?.mapId === hallMap) ctx.db.homeReturnLocation.identity.delete(identity);

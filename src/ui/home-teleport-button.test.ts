@@ -75,7 +75,7 @@ describe("Home teleport hold after chat closes", () => {
     expect(s.countdown().hidden).toBe(true);
     s.click();
     expect(s.teleport).not.toHaveBeenCalled();
-    expect(s.showBlocked).toHaveBeenCalledWith("HOME READY IN 3S");
+    expect(s.showBlocked).toHaveBeenCalledWith("TOWN READY IN 3S");
     await vi.advanceTimersByTimeAsync(HOME_TELEPORT_CHAT_CLOSE_HOLD_MS - 1);
     s.click();
     expect(s.teleport).not.toHaveBeenCalled();
@@ -91,5 +91,23 @@ describe("Home teleport hold after chat closes", () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(s.teleport).toHaveBeenCalledOnce();
     expect(s.showBlocked).not.toHaveBeenCalled();
+  });
+});
+
+describe("Town toolbar teleport", () => {
+  it("reads Town away from the Town and Fight in it, never Base or Home", async () => {
+    const { homeTeleportLook, paintHomeTeleportButton } = await import("./home-teleport-button");
+    expect(homeTeleportLook("tutorial_forest")).toMatchObject({ label: "Town", ariaLabel: "Teleport to Town" });
+    expect(homeTeleportLook("soul_dimension").label).toBe("Town");
+    expect(homeTeleportLook("town")).toMatchObject({ label: "Fight", ariaLabel: "Return to enemy map" });
+    // Home is retired: being there is not being at the hub.
+    expect(homeTeleportLook("home_exterior").label).toBe("Town");
+    const { document } = parseHTML('<button><img class="toolbar-icon" src=""><span class="toolbar-label">Base</span></button>');
+    const button = document.querySelector("button")! as unknown as HTMLButtonElement;
+    paintHomeTeleportButton(button, "beginner_desert");
+    expect(button.querySelector(".toolbar-label")!.textContent).toBe("Town");
+    paintHomeTeleportButton(button, "town");
+    expect(button.querySelector(".toolbar-label")!.textContent).toBe("Fight");
+    expect(button.querySelector("img")!.getAttribute("src")).toContain("Icon_AutoFarm");
   });
 });

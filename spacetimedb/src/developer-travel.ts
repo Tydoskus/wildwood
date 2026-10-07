@@ -1,6 +1,6 @@
 import { Identity } from "spacetimedb";
 import { SenderError } from "spacetimedb/server";
-import { HOME_EXTERIOR_MAP_ID } from "../../shared/home";
+import { isTownMap } from "../../shared/town";
 import { combatMap } from "../../shared/enemy-defeats";
 
 // Called only after the authenticated developer check; never exposed as a public location directory.
@@ -19,7 +19,8 @@ export function readDeveloperTravelTarget(ctx: any, identity: Identity, expected
   const controller = ctx.db.playerController.identity.find(identity);
   const session = controller && ctx.db.playerSession.connectionId.find(controller.connectionId);
   if (!player || !session?.enteredWorld || !session.identity.equals(identity)) throw new SenderError("Player is offline.");
-  if (player.mapId === HOME_EXTERIOR_MAP_ID || !combatMap(player.mapId)) throw new SenderError("Player is in a private map.");
+  // The Town is public, like the maps; Home (retired) and guild halls are not.
+  if (!combatMap(player.mapId) && !isTownMap(player.mapId)) throw new SenderError("Player is in a private map.");
   if (expectedMap && expectedMap !== player.mapId) throw new SenderError("Player changed maps. Try again.");
   const motion = ctx.db.playerMotion.identity.find(identity);
   const position = motion?.mapId === player.mapId ? motion : player;

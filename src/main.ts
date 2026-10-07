@@ -38,7 +38,7 @@ import { bindAvatarFrames } from "./app/avatar-frames";
 import { isSoulMap } from "../shared/soul-dimension";
 import { worldBoundsFor } from "../shared/world-bounds";
 import { createGuildPanel } from "./ui/guild-panel";
-import { bindHomeTeleportButton } from "./ui/home-teleport-button";
+import { bindHomeTeleportButton, paintHomeTeleportButton } from "./ui/home-teleport-button";
 import { isDeveloperIdentity } from "./app/developer";
 import { nativeBridgeForRuntime } from "./app/native-ads";
 import {
@@ -275,13 +275,8 @@ import {
     WORLD.h = mapId === ONBOARDING_MAP_ID ? ONBOARDING_WORLD.height : worldBoundsFor(mapId).height;
     void prepareMapAssets(mapId).catch(() => {});
     preloadAdjacentMapAssets(mapId);
-    const atBase = mapId === "home_exterior";
-    gameElements.techTreeBtn.setAttribute("aria-label", atBase ? "Return to enemy map" : "Teleport home");
-    const toolbarIcon = gameElements.techTreeBtn.querySelector<HTMLImageElement>(".toolbar-icon");
-    if (toolbarIcon) toolbarIcon.src = atBase ? "assets/wildstat/icons/Icon_AutoFarm.svg" : "assets/wildstat/icons/Icon_Home.svg";
-    // The button always leaves the current map, so it names the destination.
-    const toolbarLabel = gameElements.techTreeBtn.querySelector(".toolbar-label");
-    if (toolbarLabel) toolbarLabel.textContent = atBase ? "Fight" : "Base";
+    // The button always leaves the current map, so it names the destination: Town, or Fight in the Town.
+    paintHomeTeleportButton(gameElements.techTreeBtn, mapId);
   }
 
   function mapNameForPresence(mapId: string | undefined) {
@@ -809,7 +804,7 @@ import {
     onCutsceneFinished: () => bossController.onPortalCutsceneFinished(),
   });
   const questTracker = createQuestTrackerSetting(localStorage);
-  const quests = createQuestBoardRuntime({ source: () => coop, atHome: () => currentMapId === "home_exterior", tracker: questTracker,
+  const quests = createQuestBoardRuntime({ source: () => coop, atHome: () => currentMapId === "town", tracker: questTracker,
     pause: () => {}, clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id as MapId]?.name ?? id, showProgress: (enemy, count, target) => runtimeHud.showQuestProgress(enemy, count, target) });
   const homeTravel = createHomeTravelController({ source: () => coop, travel: mapController.travelFromHome, departure: mapController.homeDeparture, atHome: () => currentMapId === "town", pause: () => {}, clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id].name, guildHall: () => guildHall.hallMap() });
   const soulDimension = createSoulDimension({ source: () => coop, player, enemies, spawnSites, decor, currentMapId: () => currentMapId, spawnFromSite, invalidateDepthOrder: () => worldRenderRuntime.invalidateDepthOrder(), townMap: MAP_CONFIG.town,
@@ -1363,7 +1358,7 @@ import {
     showFailure: failed => showMessage(failed ? "TELEPORT FAILED · TRY AGAIN" : "TELEPORT UNAVAILABLE", "#ffbc91"), showBlocked: text => showMessage(text, "#ffbc91"),
   });
   const updateHomeStations = createHomeStationTouchHandler(
-    () => currentMapId === "home_exterior" && !mapController.isMapTransitioning(), player,
+    () => currentMapId === "town" && !mapController.isMapTransitioning(), player,
     () => { playerInput.clear(); techTree.open(); }, () => { upgradeBenchController.updateTouch(); quests.refreshAtHome(); },
     () => { playerInput.clear(); quests.board.open(); },
   );
@@ -1384,7 +1379,7 @@ import {
   }, {
     playerPosition: () => player,
     currentMapId: () => currentMapId,
-    benchMapId: "home_exterior",
+    benchMapId: "town",
     benchPosition: UPGRADE_BENCH_POSITION,
     activeUpgrades: () => coop?.activeItemUpgrades?.() ?? [],
     secondSlotUnlocked: () => coop?.secondUpgradeSlotUnlocked?.() ?? false,

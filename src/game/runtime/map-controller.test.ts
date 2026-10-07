@@ -313,12 +313,12 @@ describe("Home teleport", () => {
     expect(h.player).toMatchObject({ x: 360, y: 770 });
     expect(await h.controller.travelFromHome("tutorial_forest")).toBe(false);
   });
-  it("remembers which map the toolbar teleport left for Home", async () => {
+  it("remembers which map the toolbar teleport left for the Town", async () => {
     vi.useFakeTimers();
     const h = portalArrivalHarness({ x: 300, y: 400 });
     expect(h.controller.homeDeparture()).toBeNull();
     h.changeMap.mockImplementationOnce(async () => {
-      h.setServerMap({ mapId: "home_exterior", x: 500, y: 700, facing: 0 });
+      h.setServerMap({ mapId: "town", x: 500, y: 700, facing: 0 });
       return true;
     });
     const travel = h.controller.teleportHome();
@@ -332,7 +332,7 @@ describe("Home teleport", () => {
     const h = portalArrivalHarness({ x: 300, y: 400 });
     h.player.x = 1234; h.player.y = 2345;
     h.changeMap.mockImplementationOnce(async () => {
-      h.setServerMap({ mapId: "home_exterior", x: 500, y: 700, facing: 0 });
+      h.setServerMap({ mapId: "town", x: 500, y: 700, facing: 0 });
       return true;
     });
     const travel = h.controller.teleportHome();
@@ -342,8 +342,8 @@ describe("Home teleport", () => {
     expect(h.changeMap).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(650);
     expect(await travel).toBe(true);
-    expect(h.currentMapId()).toBe("home_exterior");
-    expect(h.changeMap).toHaveBeenCalledWith("home_exterior", 1234, 2345);
+    expect(h.currentMapId()).toBe("town");
+    expect(h.changeMap).toHaveBeenCalledWith("town", 1234, 2345);
     h.player.x = 380; h.player.y = 414;
     h.changeMap.mockImplementationOnce(async () => {
       h.setServerMap({ mapId: "tutorial_forest", x: 1234, y: 2345, facing: Math.PI });
@@ -354,6 +354,28 @@ describe("Home teleport", () => {
     expect(await back).toBe(true);
     expect(h.player).toMatchObject({ x: 1234, y: 2345, facing: Math.PI });
     expect(h.controller.isMapTransitioning()).toBe(false);
+  });
+  it("sends Fight from the Town as the same Town request, then follows the server back to the fight", async () => {
+    vi.useFakeTimers();
+    const h = portalArrivalHarness({ x: 300, y: 400 });
+    h.controller.loadMap("town", 6_120, 5_110);
+    h.changeMap.mockImplementationOnce(async () => {
+      h.setServerMap({ mapId: "beginner_desert", x: 900, y: 1_200, facing: 0 });
+      return true;
+    });
+    const back = h.controller.teleportHome();
+    await vi.advanceTimersByTimeAsync(650);
+    expect(await back).toBe(true);
+    expect(h.changeMap).toHaveBeenCalledWith("town", 6_120, 5_110);
+    expect(h.changeMap).not.toHaveBeenCalledWith("home_exterior", expect.anything(), expect.anything());
+    expect(h.currentMapId()).toBe("beginner_desert");
+    expect(h.player).toMatchObject({ x: 900, y: 1_200 });
+  });
+  it("never offers Home as a picked destination from the Town", async () => {
+    const h = portalArrivalHarness({ x: 300, y: 400 });
+    h.controller.loadMap("town", 6_120, 5_110);
+    expect(await h.controller.travelFromHome("home_exterior")).toBe(false);
+    expect(h.changeMap).not.toHaveBeenCalled();
   });
   it("keeps the player in place and unlocks input when travel fails", async () => {
     vi.useFakeTimers();
@@ -396,7 +418,7 @@ it.each(["reducer", "state", "assets"])("bounds a stalled home %s and ignores la
   let finish!: () => void;
   const pending = new Promise<void>(resolve => { finish = resolve; });
   if (stage === "reducer") h.changeMap.mockImplementationOnce(async () => { await pending; return true; });
-  if (stage !== "state") h.setServerMap({ mapId: "home_exterior", x: 500, y: 700, facing: 0 });
+  if (stage !== "state") h.setServerMap({ mapId: "town", x: 500, y: 700, facing: 0 });
   if (stage === "assets") h.prepareMapAssets.mockImplementationOnce(() => pending);
   const travel = h.controller.teleportHome();
   await vi.advanceTimersByTimeAsync(30_000);
@@ -434,7 +456,7 @@ it("clears departure on reset and prevents stale cleanup unlocking a new telepor
 it.each(["reducer", "assets"])("restores visibility after rejected home %s", async stage => {
   vi.useFakeTimers();
   const h = portalArrivalHarness({ x: 300, y: 400 });
-  h.setServerMap({ mapId: "home_exterior", x: 500, y: 700, facing: 0 });
+  h.setServerMap({ mapId: "town", x: 500, y: 700, facing: 0 });
   if (stage === "reducer") h.changeMap.mockRejectedValueOnce(new Error("Disconnected"));
   else h.prepareMapAssets.mockRejectedValueOnce(new Error("Asset failed"));
   const travel = h.controller.teleportHome();
@@ -448,7 +470,7 @@ it("rejects an arrival replaced during asset loading", async () => {
   vi.useFakeTimers();
   const h = portalArrivalHarness({ x: 300, y: 400 });
   let finish!: () => void;
-  h.setServerMap({ mapId: "home_exterior", x: 500, y: 700, facing: 0 });
+  h.setServerMap({ mapId: "town", x: 500, y: 700, facing: 0 });
   h.prepareMapAssets.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
   const travel = h.controller.teleportHome();
   await vi.advanceTimersByTimeAsync(650);
@@ -465,7 +487,7 @@ it("rejects an arrival replaced during asset loading", async () => {
 it.each(["reject", "stall"])("allows reconciliation to retry after assets %s", async mode => {
   vi.useFakeTimers();
   const h = portalArrivalHarness({ x: 300, y: 400 });
-  h.setServerMap({ mapId: "home_exterior", x: 500, y: 700, facing: 0 });
+  h.setServerMap({ mapId: "town", x: 500, y: 700, facing: 0 });
   if (mode === "reject") h.prepareMapAssets.mockRejectedValueOnce(new Error("Asset failed"));
   else h.prepareMapAssets.mockImplementationOnce(() => new Promise<void>(() => {}));
   h.controller.reconcileMapFromServer();
@@ -473,7 +495,7 @@ it.each(["reject", "stall"])("allows reconciliation to retry after assets %s", a
   expect(h.controller.isMapTransitioning()).toBe(false);
   h.controller.reconcileMapFromServer();
   await vi.advanceTimersByTimeAsync(0);
-  expect(h.currentMapId()).toBe("home_exterior");
+  expect(h.currentMapId()).toBe("town");
   expectPlayerVisible();
 });
 

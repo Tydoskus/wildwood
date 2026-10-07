@@ -2,6 +2,7 @@ import { ConnectionId } from "spacetimedb";
 import { expect, it, vi } from "vitest";
 import { Identity, Timestamp } from "../../tests/helpers/spacetime-memory-db";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
+import { PROTOCOL_VERSION } from "../../shared/rules";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 function fixture(protocol: number, recent = false) {
@@ -26,7 +27,7 @@ it("cleans an abandoned obsolete session without banking idle days or touching p
   f.run(server.devCleanupStaleSessions, {});
   expect(f.db.playerLifetime.identity.find(f.identity).playedMicros).toBe(123000000n);
 });
-it.each([[108, false], [104, true]])("preserves supported or recently active sessions (%s, %s)", (protocol, recent) => {
+it.each([[PROTOCOL_VERSION, false], [104, true]])("preserves supported or recently active sessions (%s, %s)", (protocol, recent) => {
   const f = fixture(Number(protocol), Boolean(recent));
   f.run(server.devCleanupStaleSessions, {});
   expect(f.db.player.identity.find(f.identity)).toBeTruthy();
@@ -40,7 +41,7 @@ it("rejects normal players", () => {
 it("keeps a current session and its presence when another tab is obsolete", () => {
   const f = fixture(104);
   const old = f.db.playerSession.connectionId.find(f.ctx.connectionId);
-  const current = { ...old, connectionId: new ConnectionId(999n), protocolVersion: 108 };
+  const current = { ...old, connectionId: new ConnectionId(999n), protocolVersion: PROTOCOL_VERSION };
   f.seed("playerSession", current);
   f.run(server.devCleanupStaleSessions, {});
   expect(f.db.playerSession.count()).toBe(1n);

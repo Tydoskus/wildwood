@@ -31,8 +31,8 @@ describe("developer Endless travel", () => {
     expect(f.db.playerLastLocation.identity.find(f.ctx.sender)).toMatchObject(arrival);
     expect(f.db.playerProgress.identity.find(f.ctx.sender)).toEqual(before);
     expect(f.db.proceduralProgress.identity.find(f.ctx.sender)).toBeNull();
-    f.run(server.changeMap, { mapId: "home_exterior", x: arrival.x, y: arrival.y });
-    f.run(server.changeMap, { mapId: "home_exterior", x: 0, y: 0 });
+    f.run(server.changeMap, { mapId: "town", x: arrival.x, y: arrival.y });
+    f.run(server.changeMap, { mapId: "town", x: 0, y: 0 });
     expect(f.db.player.identity.find(f.ctx.sender)).toMatchObject(arrival);
   });
   it.each([0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])("rejects invalid number %s", number => {

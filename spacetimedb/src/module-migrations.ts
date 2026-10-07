@@ -34,7 +34,8 @@ import { compressLegacyMapPower } from "../../shared/map-power-rescale";
 import { rescaleEndgameProgress, rescaleRankingConflict, rescaleRankingStats } from "../../shared/endgame-power-rescale";
 import { rebaseProgressByEffort } from "../../shared/progression-rebase";
 import { unlockedPortalCutsceneMask } from "../../shared/portal-cutscenes";
-import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN } from "../../shared/home";
+import { HOME_EXTERIOR_MAP_ID } from "../../shared/home";
+import { isTownMap, TOWN_ARRIVAL, TOWN_MAP_ID } from "../../shared/town";
 import { generateMap, isProceduralMap, proceduralMapId, proceduralMapNumber } from "../../shared/procedural-maps";
 import { balanceApologyTransactionReference, isBalanceApologyEligible } from "./balance-apology";
 import { BALANCE_APOLOGY_GEM_GIFT } from "../../shared/gems";
@@ -823,7 +824,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     if (procedural && procedural.completed !== result.completedEndless) ctx.db.proceduralProgress.identity.update({ ...procedural, completed: result.completedEndless });
     const history = ctx.db.playerCutsceneHistory.identity.find(progress.identity);
     if (history) ctx.db.playerCutsceneHistory.identity.update({ ...history, seenMask: history.seenMask & unlockedPortalCutsceneMask(next), generation: history.generation + 1 });
-    const allowed = (mapId: string) => mapId === HOME_EXTERIOR_MAP_ID || mapId === "first_steps"
+    const allowed = (mapId: string) => mapId === HOME_EXTERIOR_MAP_ID || isTownMap(mapId) || mapId === "first_steps"
       || (isProceduralMap(mapId) ? result.mapIndex === 15 && proceduralMapNumber(mapId)! <= result.completedEndless + 1
         : MAP_IDS.indexOf(mapId) >= 0 && MAP_IDS.indexOf(mapId) <= result.mapIndex);
     const fallbackMap = result.mapIndex === 15 ? proceduralMapId(result.completedEndless + 1) : MAP_IDS[result.mapIndex];
@@ -834,8 +835,8 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     }
     const active = ctx.db.player.identity.find(progress.identity);
     if (progress.desertUnlocked && active && !allowed(active.mapId)) {
-      // Moving home prevents a weakened character reconnecting into a hostile camp.
-      const moved = transitionPlayerMap({ ...ctx, sender: progress.identity }, active, HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN);
+      // Moving to the Town prevents a weakened character reconnecting into a hostile camp.
+      const moved = transitionPlayerMap({ ...ctx, sender: progress.identity }, active, TOWN_MAP_ID, TOWN_ARRIVAL);
       const homeReturn = { identity: progress.identity, mapId: fallbackMap, ...fallback, facing: 0 };
       if (ctx.db.homeReturnLocation.identity.find(progress.identity)) ctx.db.homeReturnLocation.identity.update(homeReturn);
       else ctx.db.homeReturnLocation.insert(homeReturn);

@@ -6,6 +6,8 @@ vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module
 
 it("requires flat-stat combat clients so boss validation uses matching DPS", () => {
   expect(COMPATIBLE_PROTOCOL_VERSIONS).toContain(PROTOCOL_VERSION);
+  // 109: the Town replaced Home; a 108 tab cannot draw where it would arrive.
+  expect(COMPATIBLE_PROTOCOL_VERSIONS).not.toContain(108);
   expect(COMPATIBLE_PROTOCOL_VERSIONS).not.toContain(106);
   expect(COMPATIBLE_PROTOCOL_VERSIONS).not.toContain(104);
   expect(COMPATIBLE_PROTOCOL_VERSIONS).not.toContain(105);

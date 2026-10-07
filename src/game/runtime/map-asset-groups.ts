@@ -50,7 +50,8 @@ export type MapAssetGroup = {
 const AUTHORED_MAP_ASSET_GROUPS = {
   [ONBOARDING_MAP_ID]: { art: ["forestDecor"], enemies: ["Spitter", "Brood"] },
   home_exterior: { art: ["forestDecor", "snowDecor"], enemies: [] },
-  town: { art: ["soulVillage"], enemies: [] },
+  // The Town's Loadout Upgrades bench is the snow set's workbench sprite, as Home's was.
+  town: { art: ["soulVillage", "snowDecor"], enemies: [] },
   soul_dimension: { art: ["nightDecor"], enemies: SOUL_ENEMY_KINDS },
   [TUTORIAL_FOREST_MAP_ID]: {
     art: ["forestBoss", "forestDecor"],

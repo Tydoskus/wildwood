@@ -5,6 +5,7 @@ import { formatCompactNumber } from "./number-format";
 
 export function offlineMapName(mapId: string) {
   if (isProceduralMap(mapId)) return `Endless ${proceduralMapNumber(mapId)}`;
+  if (mapId === "town") return "Town";
   const name = MAP_DISPLAY_NAMES[mapId as keyof typeof MAP_DISPLAY_NAMES];
   return name ? numberedMapName(mapId, name) : mapId;
 }

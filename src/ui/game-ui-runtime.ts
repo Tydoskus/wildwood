@@ -2,7 +2,7 @@ import { challengeMinimumInterval } from "../../shared/prestige-challenge";
 export { challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { createGemShopController } from "./gem-shop-controller";
 import { installDesktopHotkeys } from "./desktop-hotkeys";
-import { HOME_QUEST_BOARD_POSITION, HOME_RESEARCH_POSITION } from "../../shared/home";
+import { TOWN_QUEST_BOARD_POSITION, TOWN_RESEARCH_POSITION } from "../../shared/town";
 import { recentReleaseNotes } from "../app/changelog";
 import { isDeveloperIdentity } from "../app/developer";
 import {
@@ -23,6 +23,7 @@ import { installLoginMove } from "./login-move-controller";
 import { createTechTreeController } from "./tech-tree-controller";
 import { installCameraZoomControl } from "./camera-zoom-control";
 
+/** Tech Research and the Weekly Quests board, in the Town's windmill and Inn, open as a player walks up to them. */
 export function createHomeStationTouchHandler(
   isHome: () => boolean,
   player: { x: number; y: number },
@@ -32,11 +33,11 @@ export function createHomeStationTouchHandler(
 ) {
   let touchingResearch = false, touchingQuestBoard = false;
   return () => {
-    const touching = isHome() && Math.hypot(player.x - HOME_RESEARCH_POSITION.x, player.y - (HOME_RESEARCH_POSITION.y - 36)) < 42.5;
+    const touching = isHome() && Math.hypot(player.x - TOWN_RESEARCH_POSITION.x, player.y - (TOWN_RESEARCH_POSITION.y - 36)) < 42.5;
     if (touching && !touchingResearch) openResearch();
     touchingResearch = touching;
     // The board is wider than the desk: walk up to its face to read it.
-    const atBoard = isHome() && Math.hypot(player.x - HOME_QUEST_BOARD_POSITION.x, player.y - (HOME_QUEST_BOARD_POSITION.y - 30)) < 55;
+    const atBoard = isHome() && Math.hypot(player.x - TOWN_QUEST_BOARD_POSITION.x, player.y - (TOWN_QUEST_BOARD_POSITION.y - 30)) < 55;
     if (atBoard && !touchingQuestBoard) openQuestBoard?.();
     touchingQuestBoard = atBoard;
     updateBench();

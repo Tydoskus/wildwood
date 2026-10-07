@@ -43,6 +43,13 @@ it.each(["offline", "home", "changed"])("rejects unavailable target: %s", state 
   expect(() => f.jump()).toThrow(state === "offline" ? /offline/ : state === "home" ? /private map/ : /changed maps/);
   expect(f.db.player.identity.find(f.who).mapId).toBe("tutorial_forest");
 });
+it("reaches a player in the Town, which is public", () => {
+  const f = fixture();
+  f.patch("player", { mapId: "town", x: 6100, y: 5100 }, f.target);
+  expect(f.lookup()).toMatchObject({ mapId: "town" });
+  const moved = JSON.parse(server.devTeleportToPlayer(f.ctx as any, { identity: f.target, mapId: "town" }));
+  expect(moved).toMatchObject({ mapId: "town", x: 6100, y: 5100 });
+});
 it("does not expose locations to a developer identity without authenticated credentials", () => {
   const f = fixture(); f.ctx.senderAuth.jwt = undefined;
   expect(() => f.lookup()).toThrow(/Developer access/);

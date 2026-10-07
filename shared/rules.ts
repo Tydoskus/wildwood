@@ -205,7 +205,7 @@ export const NEON_BASTION_MAP_ID = "neon_bastion";
 export const VERDANT_CATACOMBS_MAP_ID = "verdant_catacombs";
 export const ION_CITADEL_MAP_ID = "ion_citadel";
 export const MAP_DISPLAY_NAMES: Record<string, string> = {
-  first_steps: "First Steps", home_exterior: "Base",
+  first_steps: "First Steps", home_exterior: "Base", town: "Town",
   ...Object.fromEntries(CAMPAIGN_MAPS.map((map, index) => [map.id, `${map.displayName.replace(/ - \d+$/, "")} - ${index + 1}`])),
 };
 export const MAP_IDS: readonly string[] = CAMPAIGN_MAPS.map(map => map.id);
@@ -216,7 +216,7 @@ export function numberedMapName(mapId: string, name: string) {
   return index < 0 ? name : `${name.replace(/ - \d+$/, "")} - ${index + 1}`;
 }
 
-export const PROTOCOL_VERSION = 108;
+export const PROTOCOL_VERSION = 109;
 // Add a previous version only after reviewing wire/schema and security compatibility.
 // Flat equipment changes combat DPS and boss-claim validation. Percentage-based
 // clients must update together with the servers, even though the wire is unchanged.

@@ -1,6 +1,7 @@
 import { table, t, SenderError } from "spacetimedb/server";
 import type { default as spacetimedbType } from "./index";
 import { HOME_EXTERIOR_MAP_ID } from "../../shared/home";
+import { isTownMap } from "../../shared/town";
 import { AUTO_FARM_PUPPET_CAMP_MAX, AUTO_FARM_PUPPET_GROUP_MAX, AUTO_FARM_PUPPET_MIN_RESEND_MICROS } from "../../shared/autofarm-puppet";
 
 /**
@@ -48,7 +49,7 @@ export function setAutoFarmPuppetFor(ctx: any, group: string, camp: string, deps
   const player = deps.requireControllingPlayer(ctx);
   const current = ctx.db.playerAutoFarmPuppet.identity.find(ctx.sender);
   const motion = ctx.db.playerMotion.identity.find(ctx.sender);
-  if (!group || !motion?.isVisible || player.mapId === HOME_EXTERIOR_MAP_ID) {
+  if (!group || !motion?.isVisible || player.mapId === HOME_EXTERIOR_MAP_ID || isTownMap(player.mapId)) {
     if (current) ctx.db.playerAutoFarmPuppet.identity.delete(ctx.sender);
     return;
   }

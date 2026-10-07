@@ -7,6 +7,27 @@ export const HOME_TELEPORT_CHAT_CLOSE_HOLD_MS = 3_000;
 /** Dispatched on window by chat when its expanded panel closes. */
 export const CHAT_CLOSED_EVENT = "wildwood:chat-closed";
 
+/**
+ * The toolbar teleport names where it goes: the Town from anywhere else, and Fight in the Town (back to
+ * the spot the player left). Both send the same Town request; the server picks which.
+ */
+export function homeTeleportLook(mapId: string) {
+  const inTown = mapId === "town";
+  return inTown
+    ? { label: "Fight", ariaLabel: "Return to enemy map", icon: "assets/wildstat/icons/Icon_AutoFarm.svg" }
+    : { label: "Town", ariaLabel: "Teleport to Town", icon: "assets/wildstat/icons/Icon_Home.svg" };
+}
+
+/** Paints the toolbar teleport button for the map the player is on. */
+export function paintHomeTeleportButton(button: HTMLElement, mapId: string) {
+  const look = homeTeleportLook(mapId);
+  button.setAttribute("aria-label", look.ariaLabel);
+  const icon = button.querySelector<HTMLImageElement>(".toolbar-icon");
+  if (icon) icon.src = look.icon;
+  const label = button.querySelector(".toolbar-label");
+  if (label) label.textContent = look.label;
+}
+
 export function bindHomeTeleportButton(
   button: HTMLButtonElement,
   options: {
@@ -53,7 +74,7 @@ export function bindHomeTeleportButton(
     if (button.disabled) return;
     const held = heldUntil - performance.now();
     if (held > 0) {
-      options.showBlocked?.(`HOME READY IN ${Math.ceil(held / 1_000)}S`);
+      options.showBlocked?.(`TOWN READY IN ${Math.ceil(held / 1_000)}S`);
       return;
     }
     button.disabled = true;

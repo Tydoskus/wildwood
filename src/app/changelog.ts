@@ -1,8 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.900.0": [
     "The Inspiration Update",
-    "The Town: a whole village where new players start, and Home's travel portal now leads there",
-    "Take the Town's travel portal, at the end of its top road, to any map you have unlocked",
+    "The Town replaces Home: a whole village where everyone gathers and new players start",
+    "The Town button takes you to the Town, and Fight takes you back to where you were",
+    "Loadout Upgrades is in the Smithy, Tech Research in the Windmill and Weekly Quests in the Inn",
+    "Take the Travel portal, at the end of the Town's top road, to any map you have unlocked; a signpost on the square points the way",
     "Walk into the Town's houses through their doors, and watch out for the wells",
     "The Soul Dimension is open: prestige once, then take the portal at the end of the Town's bottom road",
     "The Soul Dimension is Tutorial Forest in the dark, and its enemies give permanent Soul Stats that never reset",

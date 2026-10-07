@@ -28,7 +28,7 @@ it("calculates stats and independent loot rolls once in one transaction", () => 
   expect(f.db.playerProgress.identity.find(f.ctx.sender).damage).toBeCloseTo(base.damage + enemyDefeatDefinition(batch.mapId, enemy)!.reward.amount * 20);
   expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(20n);
   expect(f.ctx.random.integerInRange).toHaveBeenCalledTimes(60);
-  f.patch("player", { mapId: "home_exterior" });
+  f.patch("player", { mapId: "town" });
   reportKills(f, batch);
   expect(update).toHaveBeenCalledTimes(1);
   expect(f.ctx.random.integerInRange).toHaveBeenCalledTimes(60);
@@ -43,9 +43,9 @@ it.each([
   expect([...f.db.regularEnemyStream.iter()]).toHaveLength(0);
   expect([...f.db.enemyDefeatBudget.iter()]).toHaveLength(0);
 });
-it("honours a report for the map the player left for Home, paid by that map's budget", () => {
+it("honours a report for the map the player left for the Town, paid by that map's budget", () => {
   const f = fixture(), base = f.db.playerProgress.identity.find(f.ctx.sender);
-  f.patch("player", { mapId: "home_exterior" });
+  f.patch("player", { mapId: "town" });
   f.db.homeReturnLocation.insert({ identity: f.ctx.sender, mapId: batch.mapId, x: 1, y: 1, facing: 0 });
   reportKills(f, batch);
   expect(f.db.playerProgress.identity.find(f.ctx.sender).damage).toBeCloseTo(base.damage + enemyDefeatDefinition(batch.mapId, enemy)!.reward.amount * 20);
@@ -55,8 +55,8 @@ it("honours a report for the map the player left for Home, paid by that map's bu
   expect([...f.db.enemyDefeatBudget.iter()].filter(row => !accountWide.includes(row.key))
     .every(row => row.key.includes(`:${batch.mapId}:`))).toBe(true);
 });
-it("still rejects a report for a map the player did not come Home from, even when unlocked", () => {
-  const f = fixture(); f.patch("player", { mapId: "home_exterior" }); f.patch("playerProgress", { waterUnlocked: true });
+it("still rejects a report for a map the player did not come to the Town from, even when unlocked", () => {
+  const f = fixture(); f.patch("player", { mapId: "town" }); f.patch("playerProgress", { waterUnlocked: true });
   f.db.homeReturnLocation.insert({ identity: f.ctx.sender, mapId: "cloudspire", x: 1, y: 1, facing: 0 });
   expect(() => reportKills(f, batch)).toThrow("another map");
   expect([...f.db.regularEnemyStream.iter()]).toHaveLength(0);

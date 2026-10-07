@@ -36,4 +36,4 @@ export function registerTown(spacetimedb: typeof spacetimedbType, deps: TownDeps
 }
 
 // index.ts has no lines to spare, so what it needs from the shared module comes through here.
-export { isTownMap, TOWN_ARRIVAL, TOWN_SOUL_PORTAL, TOWN_TRAVEL_PORTAL } from "../../shared/town";
+export { isTownMap, TOWN_ARRIVAL, TOWN_BENCH_POSITION, TOWN_MAP_ID, TOWN_SOUL_PORTAL, TOWN_TRAVEL_PORTAL } from "../../shared/town";

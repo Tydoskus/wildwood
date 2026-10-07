@@ -3,7 +3,7 @@ import { isProceduralMap, type ProceduralMapId } from "../../shared/procedural-m
 import { isSoulMap, type SoulMapId } from "../../shared/soul-dimension";
 import { isGuildHallMap, type GuildHallMapId } from "../../shared/guild-hall";
 import { townWorldLayout } from "./town-world";
-import { isTownMap, type TownMapId } from "../../shared/town";
+import { isTownMap, TOWN_BENCH_POSITION, type TownMapId } from "../../shared/town";
 import { generatedMapContent } from "./procedural-maps";
 import { createIonCitadelLayout } from "./ion-layout";
 import { createVerdantCatacombsLayout } from "./verdant-layout";
@@ -44,6 +44,8 @@ export type WorldDecor = WorldDecorPlacement & (
   | { type: "soulProp"; s: number; frame: string; flip?: boolean; sheet?: "village" | "hall"; dy?: number;
     /** A guild hall's crest point: the guild's badge, this many units square, centred there. */
     crest?: number;
+    /** The Town square's painted signpost (town-signpost.ts), its plank labelled this; it has no sprite. */
+    signpost?: string;
     /** Lies flat: drawn with the ground, under everyone, never sorted against them (garden beds, bridges, grass). */
     ground?: boolean;
     /** A shadow: drawn with the ground, every shadow faded together so overlapping ones do not stack darker. */
@@ -82,7 +84,8 @@ export const DUSKFALL_ORCHARD_MAP_ID = "duskfall_orchard";
 export const NEON_BASTION_MAP_ID = "neon_bastion";
 export const VERDANT_CATACOMBS_MAP_ID = "verdant_catacombs";
 export const ION_CITADEL_MAP_ID = "ion_citadel";
-export const UPGRADE_BENCH_POSITION = HOME_BENCH_POSITION;
+/** The Loadout Upgrades bench, in the Town's smithy (Home, which held it before the Town, is retired). */
+export const UPGRADE_BENCH_POSITION = TOWN_BENCH_POSITION;
 export type MapId =
   | typeof ONBOARDING_MAP_ID
   | SoulMapId

@@ -98,6 +98,21 @@ export const TOWN_DOORS: readonly TownDoor[] = doorData.doors.map((door, index) 
     inside: { x: exitX, y: room.bottom - 56 - TOWN_FEET_OFFSET },
   });
 });
+/**
+ * The stations Home used to hold, each inside a Town building, against its back wall where a piece of the
+ * room's own furniture stood (the client draws the station in its place and keeps its collider as the
+ * station's): Loadout Upgrades in the smithy (door 6) for its tool table, Tech Research in the windmill
+ * (door 1) for its roped-off display, Weekly Quests in the Inn (door 5) for its notice board. Each is
+ * (door, offset from the room's top-left corner). The server checks the bench's reach from the same point.
+ */
+const stationIn = (door: number, dx: number, dy: number) => {
+  const { room } = TOWN_DOORS[door];
+  return Object.freeze({ door, x: room.left + dx, y: room.top + dy });
+};
+export const TOWN_BENCH_POSITION = stationIn(6, 210, 65);
+export const TOWN_RESEARCH_POSITION = stationIn(1, 210, 50);
+export const TOWN_QUEST_BOARD_POSITION = stationIn(5, 300, 44);
+
 /** The whole row of rooms, walls and all. */
 const TOWN_INTERIOR_AREA = Object.freeze({
   left: Math.min(...TOWN_DOORS.map(door => door.room.left)) - 200, right: Math.max(...TOWN_DOORS.map(door => door.room.right)) + 200,

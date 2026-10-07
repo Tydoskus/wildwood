@@ -1,4 +1,4 @@
-import { inTownInteriors, inTownVillage, TOWN_CHUNK_SIZE, TOWN_INTERIOR_MARGIN, townChunkProps, townWindowChunks, type TownPropKind } from "../../shared/town";
+import { inTownInteriors, inTownVillage, TOWN_ARRIVAL, TOWN_BENCH_POSITION, TOWN_CHUNK_SIZE, TOWN_INTERIOR_MARGIN, TOWN_QUEST_BOARD_POSITION, TOWN_RESEARCH_POSITION, townChunkProps, townWindowChunks, type TownPropKind } from "../../shared/town";
 import { SOUL_ATLAS, SOUL_INTERIOR_DECOR, SOUL_VILLAGE_DECOR, type SoulFrame } from "./soul-village";
 import type { WorldDecor, WorldPath } from "./world";
 
@@ -29,10 +29,28 @@ const PROP_FRAMES: Readonly<Record<TownPropKind, { frames: readonly SoulFrame[];
 const FLAT_HEIGHT = 30;
 const lowEnough = (frame: SoulFrame, s: number) => SOUL_ATLAS.frames[frame].ay * s <= FLAT_HEIGHT;
 
+/**
+ * Home's three stations, in the Town's buildings (shared/town.ts places them): each stands where a piece of
+ * its room's furniture did, so that piece is not drawn (its collider stays, as the station's).
+ */
+export const TOWN_STATION_DECOR: readonly WorldDecor[] = [
+  { type: "upgradeBench", x: TOWN_BENCH_POSITION.x, y: TOWN_BENCH_POSITION.y, s: 1, label: "Upgrade Bench" },
+  { type: "upgradeBench", x: TOWN_RESEARCH_POSITION.x, y: TOWN_RESEARCH_POSITION.y, s: 1, label: "Tech Research" },
+  { type: "upgradeBench", x: TOWN_QUEST_BOARD_POSITION.x, y: TOWN_QUEST_BOARD_POSITION.y, s: 1, label: "Quest Board" },
+];
+const replacedByStation = (item: WorldDecor) => TOWN_STATION_DECOR.some(station => item.x === station.x && Math.abs(item.y - station.y) < 40);
+const TOWN_INTERIOR_DECOR: readonly WorldDecor[] = [...SOUL_INTERIOR_DECOR.filter(item => !replacedByStation(item)), ...TOWN_STATION_DECOR];
+
+/**
+ * The square's signpost, just east of where every traveller lands (on open cobbles, clear of the fountain,
+ * the barn's hay and the doors): its plank, labelled Travel, points up the road to the travel portal.
+ */
+export const TOWN_SIGNPOST: WorldDecor = { type: "soulProp", frame: "", s: 1, x: TOWN_ARRIVAL.x + 230, y: TOWN_ARRIVAL.y - 10, signpost: "Travel" };
+
 /** Every prop in the chunk window around a point: the village's and its rooms' when they are near, and the countryside's. */
 export function townWindowDecor(x: number, y: number): WorldDecor[] {
-  const decor: WorldDecor[] = inTownVillage(x, y, TOWN_CHUNK_SIZE * 2.5) ? [...SOUL_VILLAGE_DECOR] : [];
-  if (inTownInteriors(x, y, TOWN_INTERIOR_MARGIN)) decor.push(...SOUL_INTERIOR_DECOR);
+  const decor: WorldDecor[] = inTownVillage(x, y, TOWN_CHUNK_SIZE * 2.5) ? [...SOUL_VILLAGE_DECOR, TOWN_SIGNPOST] : [];
+  if (inTownInteriors(x, y, TOWN_INTERIOR_MARGIN)) decor.push(...TOWN_INTERIOR_DECOR);
   for (const { cx, cy } of townWindowChunks(x, y)) {
     for (const prop of townChunkProps(cx, cy)) {
       const look = PROP_FRAMES[prop.kind];

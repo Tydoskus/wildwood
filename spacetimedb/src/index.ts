@@ -76,8 +76,8 @@ import { allowedAvatarFrame, isAvatarFrame } from "../../shared/avatar-frames";
 import { createGemPurchaseService } from "./gem-purchase-service";
 import { rescaleEndgameProgress } from "../../shared/endgame-power-rescale";
 import { CAMPAIGN_UNLOCK_FIELDS, equipmentMapRequirement } from "../../shared/equipment-access";
-import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_TRAVEL_PORTAL, HOME_BENCH_POSITION } from "../../shared/home";
-import { isTownMap, registerTown, TOWN_ARRIVAL, TOWN_SOUL_PORTAL, TOWN_TRAVEL_PORTAL } from "./town";
+import { HOME_EXTERIOR_MAP_ID, HOME_TRAVEL_PORTAL } from "../../shared/home";
+import { isTownMap, registerTown, TOWN_ARRIVAL, TOWN_BENCH_POSITION, TOWN_MAP_ID, TOWN_SOUL_PORTAL, TOWN_TRAVEL_PORTAL } from "./town";
 import { enterGuildHall, guildHallMember, memberEnteredWorld, guildHallMemberLeft, guildHallTables, isGuildHallMap, registerGuildHall } from "./guild-hall";
 import { isSoulMap, noteEnemyDefeats, registerSoulDimension, requireSoulDimensionOpen, soulDimensionOpenFor, soulDimensionTables, soulStatsFor, SOUL_ARRIVAL, SOUL_TOWN_PORTAL, wideMotionMap, withSoulStats, worldBoundsFor } from "./soul-dimension";
 import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./snapshot-row-writes";
@@ -3501,10 +3501,10 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
       return;
     }
     const normalizedMapId = canonicalMapId(existing.mapId);
-    const entryMapId = VALID_MAP_IDS.has(normalizedMapId) && (!isSoulMap(normalizedMapId) || soulDimensionOpenFor(ctx, ctx.sender))
-      && (!isGuildHallMap(normalizedMapId) || guildHallMember(ctx, ctx.sender, normalizedMapId)) ? normalizedMapId
-      : isSoulMap(normalizedMapId) || isGuildHallMap(normalizedMapId) ? HOME_EXTERIOR_MAP_ID : TUTORIAL_FOREST_MAP_ID;
-    const fallbackPosition = entryMapId === HOME_EXTERIOR_MAP_ID ? HOME_EXTERIOR_SPAWN : MAP_ARRIVALS[entryMapId as keyof typeof MAP_ARRIVALS] ?? PLAYER_SPAWN;
+    const entryMapId = VALID_MAP_IDS.has(normalizedMapId) && normalizedMapId !== HOME_EXTERIOR_MAP_ID && (!isSoulMap(normalizedMapId) || soulDimensionOpenFor(ctx, ctx.sender))
+      && (!isGuildHallMap(normalizedMapId) || guildHallMember(ctx, ctx.sender, normalizedMapId)) ? normalizedMapId // Home is retired: its players arrive in the Town.
+      : isSoulMap(normalizedMapId) || isGuildHallMap(normalizedMapId) || normalizedMapId === HOME_EXTERIOR_MAP_ID ? TOWN_MAP_ID : TUTORIAL_FOREST_MAP_ID;
+    const fallbackPosition = entryMapId === TOWN_MAP_ID ? TOWN_ARRIVAL : MAP_ARRIVALS[entryMapId as keyof typeof MAP_ARRIVALS] ?? PLAYER_SPAWN;
     const entryPosition = entryMapId === normalizedMapId
       ? {
         x: Math.max(PLAYER_RADIUS, Math.min(worldBoundsFor(entryMapId).width - PLAYER_RADIUS, existing.x)),
@@ -4535,10 +4535,10 @@ export const devRollbackPlayerProgression = spacetimedb.reducer(
       const active = ctx.db.player.identity.find(args.identity);
       if (active) {
         const maxHp = maxHealthForProgress(ctx, args.identity, progress);
-        const moved = transitionPlayerMap({ ...ctx, sender: args.identity }, { ...active, maxHp, hp: maxHp }, HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN);
+        const moved = transitionPlayerMap({ ...ctx, sender: args.identity }, { ...active, maxHp, hp: maxHp }, TOWN_MAP_ID, TOWN_ARRIVAL);
         persistWorldLocation(ctx, moved);
       } else {
-        const location = { identity: args.identity, mapId: HOME_EXTERIOR_MAP_ID, ...HOME_EXTERIOR_SPAWN, facing: 0 };
+        const location = { identity: args.identity, mapId: TOWN_MAP_ID, ...TOWN_ARRIVAL, facing: 0 };
         if (ctx.db.playerLastLocation.identity.find(args.identity)) ctx.db.playerLastLocation.identity.update(location);
         else ctx.db.playerLastLocation.insert(location);
       }
@@ -5020,8 +5020,8 @@ export const startItemUpgrade = spacetimedb.reducer(
   (ctx, { slot: requestedSlot, itemId }) => {
     const slot = requireUpgradeBenchSlot(requestedSlot);
     const playerAtBench = requireControllingPlayer(ctx);
-    if (playerAtBench.mapId !== HOME_EXTERIOR_MAP_ID ||
-      Math.hypot(playerAtBench.x - HOME_BENCH_POSITION.x, playerAtBench.y - HOME_BENCH_POSITION.y) > UPGRADE_BENCH_USE_RANGE) {
+    if (!isTownMap(playerAtBench.mapId) ||
+      Math.hypot(playerAtBench.x - TOWN_BENCH_POSITION.x, playerAtBench.y - TOWN_BENCH_POSITION.y) > UPGRADE_BENCH_USE_RANGE) {
       throw new SenderError("Touch the Upgrade Bench first.");
     }
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel first.");
@@ -5177,7 +5177,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch) {
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Enemy rewards require your account world connection.");
     // Everything the combat bound reads, read once for the whole report.
     const combat = combatBoundForReport(ctx);
-    const accepted = acceptEnemyDefeats(ctx, batch, permittedDefeatMaps(ctx, player, HOME_EXTERIOR_MAP_ID), combat);
+    const accepted = acceptEnemyDefeats(ctx, batch, permittedDefeatMaps(ctx, player, TOWN_MAP_ID), combat);
     if (!accepted) return;
     const enforce = () => {
       // Only a report no real client could have sent. A clipped claim is
@@ -5807,8 +5807,8 @@ function transitionPlayerMap(
   syncPlayerMotionIdentity(ctx, nextPlayer, { motion });
   syncPlayerMapMarker(ctx, nextPlayer, true);
   ensureRealtimeFrameSchedules(ctx);
-  // Home and guild halls have no enemies: nothing reads a pin there, and the old pin still fits on the way back.
-  if (mapId !== HOME_EXTERIOR_MAP_ID && !isGuildHallMap(mapId)) pinMapBalance(ctx, mapId);
+  // Home, the Town and guild halls have no enemies: nothing reads a pin there, and the old pin still fits on the way back.
+  if (mapId !== HOME_EXTERIOR_MAP_ID && !isTownMap(mapId) && !isGuildHallMap(mapId)) pinMapBalance(ctx, mapId);
   recordAnalyticsMapVisit(ctx, mapId);
   return nextPlayer;
 }
@@ -5819,9 +5819,10 @@ export const changeMap = spacetimedb.reducer(
     if (blockedSession(ctx)) return;
     const current = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish the duel before using a portal.");
-    if (mapId === HOME_EXTERIOR_MAP_ID) {
-      if (current.hp <= 0) throw new SenderError("Respawn before teleporting home.");
-      if (current.mapId === HOME_EXTERIOR_MAP_ID) {
+    // "Base" and "Fight" both ask for the Town (Home, retired, means the same): Base from anywhere, Fight from the Town.
+    if (mapId === HOME_EXTERIOR_MAP_ID || isTownMap(mapId)) {
+      if (current.hp <= 0) throw new SenderError("Respawn before teleporting to the Town.");
+      if (isTownMap(current.mapId)) {
         const saved = ctx.db.homeReturnLocation.identity.find(ctx.sender);
         // Recover already-linked accounts whose older client/server omitted
         // their Home return record. Keep their stats and unlocks intact.
@@ -5832,16 +5833,16 @@ export const changeMap = spacetimedb.reducer(
           ? generatedMapUnlocked(saved.mapId, ctx.db.proceduralProgress.identity.find(ctx.sender)?.completed ?? 0,
             Boolean((progress?.bossRewardClaims ?? 0) & BOSS_REWARD_CLAIM_BITS[PROCEDURAL_ENTRY_BOSS]))
           : savedMapIndex === 0 || (savedMapIndex > 0 && Boolean(progress?.[CAMPAIGN_UNLOCK_FIELDS[savedMapIndex - 1]])))));
-        const destination = permitted && saved && saved.mapId !== HOME_EXTERIOR_MAP_ID && VALID_MAP_IDS.has(saved.mapId)
+        const destination = permitted && saved && saved.mapId !== HOME_EXTERIOR_MAP_ID && !isTownMap(saved.mapId) && VALID_MAP_IDS.has(saved.mapId)
           && [saved.x, saved.y, saved.facing].every(Number.isFinite)
           ? saved : { mapId: TUTORIAL_FOREST_MAP_ID, ...PLAYER_SPAWN, facing: 0 };
         transitionPlayerMap(ctx, current, destination.mapId, destination, destination.facing);
       } else {
         if (![x, y].every(Number.isFinite) || x < PLAYER_RADIUS || y < PLAYER_RADIUS || x > worldBoundsFor(current.mapId).width - PLAYER_RADIUS || y > worldBoundsFor(current.mapId).height - PLAYER_RADIUS) throw new SenderError("Invalid teleport position.");
         const saved = { identity: ctx.sender, mapId: current.mapId, x, y, facing: current.facing };
-        if (isGuildHallMap(current.mapId) || isTownMap(current.mapId)) { /* "Fight" from Home still goes back to where the fighting was */ } else if (ctx.db.homeReturnLocation.identity.find(ctx.sender)) ctx.db.homeReturnLocation.identity.update(saved);
+        if (isGuildHallMap(current.mapId) || current.mapId === HOME_EXTERIOR_MAP_ID) { /* "Fight" from the Town still goes back to where the fighting was */ } else if (ctx.db.homeReturnLocation.identity.find(ctx.sender)) ctx.db.homeReturnLocation.identity.update(saved);
         else ctx.db.homeReturnLocation.insert(saved);
-        transitionPlayerMap(ctx, current, HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN);
+        transitionPlayerMap(ctx, current, TOWN_MAP_ID, TOWN_ARRIVAL);
       }
       persistWorldLocation(ctx, ctx.db.player.identity.find(ctx.sender));
       return;

@@ -2,7 +2,7 @@ import { createTestGuild } from "../../tests/helpers/guild-creation";
 import { expect, it, vi } from "vitest";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { SPACETIME_AUTH_CLIENT_ID, SPACETIME_AUTH_ISSUER } from "../../shared/rules";
-import { HOME_EXTERIOR_MAP_ID } from "../../shared/home";
+import { TOWN_MAP_ID } from "../../shared/town";
 import { GUILD_HALL_ARRIVAL, GUILD_HALL_DOOR, GUILD_HALL_WORLD, guildHallMapId, guildHallRoom, parseGuildHallLevels } from "../../shared/guild-hall";
 import { PLAYER_POSITION_SCALE } from "../../shared/player-motion-frame";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
@@ -47,15 +47,15 @@ it("fits the narrow motion format", () => {
   expect(GUILD_HALL_WORLD.height * PLAYER_POSITION_SCALE).toBeLessThanOrEqual(0xffff);
 });
 
-it("lets members in from a fighting map, keeps that place for Home's Fight, and keeps everyone else out", () => {
+it("lets members in from a fighting map, keeps that place for the Town's Fight, and keeps everyone else out", () => {
   const f = fixture(); const guildId = f.guild(["1", "2"], "Rose");
   const hall = guildHallMapId(guildId);
   f.run(server.changeMap, { mapId: hall, x: 4050, y: 4050 });
   expect(f.me().mapId).toBe(hall);
   expect([f.me().x, f.me().y]).toEqual([GUILD_HALL_ARRIVAL.x, GUILD_HALL_ARRIVAL.y]);
   expect(f.db.homeReturnLocation.identity.find(f.ctx.sender).mapId).toBe("crystal_hollows");
-  // Hall to Home keeps the fighting map, not the hall, as where Fight goes.
-  f.run(server.changeMap, { mapId: HOME_EXTERIOR_MAP_ID, x: GUILD_HALL_ARRIVAL.x, y: GUILD_HALL_ARRIVAL.y });
+  // Hall to the Town keeps the fighting map, not the hall, as where Fight goes.
+  f.run(server.changeMap, { mapId: TOWN_MAP_ID, x: GUILD_HALL_ARRIVAL.x, y: GUILD_HALL_ARRIVAL.y });
   expect(f.db.homeReturnLocation.identity.find(f.ctx.sender).mapId).toBe("crystal_hollows");
   f.actor("3");
   expect(() => f.run(server.changeMap, { mapId: hall, x: 4050, y: 4050 })).toThrow(/Only the guild's members/);
@@ -104,18 +104,18 @@ it("adds quest points a guild earns to its hall's fund", () => {
   expect(f.db.guildHall.guildId.find(guildId).fund).toBe(56);
 });
 
-it("sends a member who leaves home from the hall, and takes the hall with the guild", () => {
+it("sends a member who leaves to the Town from the hall, and takes the hall with the guild", () => {
   const f = fixture(); const guildId = f.guild(["1", "2"], "Rose");
   const hall = guildHallMapId(guildId);
   f.actor("2");
   f.run(server.changeMap, { mapId: hall, x: 4050, y: 4050 });
   f.run(server.leaveGuild);
-  expect(f.me().mapId).toBe(HOME_EXTERIOR_MAP_ID);
+  expect(f.me().mapId).toBe(TOWN_MAP_ID);
   f.actor("1");
   f.run(server.changeMap, { mapId: hall, x: 4050, y: 4050 });
   expect(f.db.guildHall.guildId.find(guildId)).toBeTruthy();
   f.run(server.leaveGuild);
-  expect(f.me().mapId).toBe(HOME_EXTERIOR_MAP_ID);
+  expect(f.me().mapId).toBe(TOWN_MAP_ID);
   expect(f.db.guildHall.guildId.find(guildId)).toBeFalsy();
 });
 
@@ -128,6 +128,6 @@ it("keeps who a member is watching through the door, so the guildmates they see 
   f.run(server.useGuildHallDoor, {});
   expect(f.db.playerMotionInterest.identity.find(f.ctx.sender)?.networkIds).toEqual([7]);
   // A real map change still drops it: the client asks again for the new map.
-  f.run(server.changeMap, { mapId: HOME_EXTERIOR_MAP_ID, x: f.me().x, y: f.me().y });
+  f.run(server.changeMap, { mapId: TOWN_MAP_ID, x: f.me().x, y: f.me().y });
   expect(f.db.playerMotionInterest.identity.find(f.ctx.sender)).toBeFalsy();
 });

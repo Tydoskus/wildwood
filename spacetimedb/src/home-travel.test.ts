@@ -1,6 +1,7 @@
 import { expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { HOME_TRAVEL_PORTAL } from "../../shared/home";
+import { TOWN_ARRIVAL } from "../../shared/town";
 import { BOSS_REWARD_CLAIM_BITS } from "../../shared/rules";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 const position = { x: HOME_TRAVEL_PORTAL.x, y: HOME_TRAVEL_PORTAL.y - HOME_TRAVEL_PORTAL.height * .32 };
@@ -41,18 +42,23 @@ it("refuses travel from anywhere but beside the portal", () => {
   expect(mapOf(f)).toBe("home_exterior");
 });
 
-it("still sends the toolbar teleport back to the saved spot", () => {
+it("treats Home's old Base/Fight request as the Town's: Home is retired", () => {
   const f = home(); f.patch("playerProgress", { desertUnlocked: true });
   f.seed("homeReturnLocation", { identity: f.ctx.sender, mapId: "beginner_desert", x: 1500, y: 1600, facing: 0 });
   f.run(server.changeMap, { mapId: "home_exterior", ...position });
+  expect(f.db.player.identity.find(f.ctx.sender)).toMatchObject({ mapId: "town", x: TOWN_ARRIVAL.x, y: TOWN_ARRIVAL.y });
+  // Home is never kept as where Fight returns to.
+  expect(f.db.homeReturnLocation.identity.find(f.ctx.sender).mapId).toBe("beginner_desert");
+  f.run(server.changeMap, { mapId: "home_exterior", ...TOWN_ARRIVAL });
   expect(f.db.player.identity.find(f.ctx.sender)).toMatchObject({ mapId: "beginner_desert", x: 1500, y: 1600 });
 });
 
-it("does not bypass new unlocks through an old Home return point", () => {
+it("does not bypass new unlocks through an old Fight return point", () => {
   const f = home();
+  f.patch("player", { mapId: "town", ...TOWN_ARRIVAL });
   f.patch("playerProgress", { desertUnlocked: true, ionCitadelUnlocked: false });
   f.seed("playerEndlessRebaseBackup", { identity: f.ctx.sender, recordedAt: f.ctx.timestamp });
   f.seed("homeReturnLocation", { identity: f.ctx.sender, mapId: "ion_citadel", x: 1500, y: 1500, facing: 0 });
-  f.run(server.changeMap, { mapId: "home_exterior", ...position });
+  f.run(server.changeMap, { mapId: "town", ...TOWN_ARRIVAL });
   expect(mapOf(f)).toBe("tutorial_forest");
 });

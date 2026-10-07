@@ -19,6 +19,7 @@ import {
   SPACETIME_AUTH_ISSUER,
 } from "../../shared/rules";
 import { HOME_EXTERIOR_MAP_ID } from "../../shared/home";
+import { isTownMap } from "../../shared/town";
 import { cosmeticUnlocks } from "../../shared/cosmetic-conversion";
 import { PLAYER_GENDER_UNSET } from "../../shared/player-gender";
 import { PLAYER_SKIN_TONES } from "../../shared/player-skin-tones";
@@ -251,8 +252,8 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
       if (ctx.db.homeReturnLocation.identity.find(ctx.sender)) ctx.db.homeReturnLocation.identity.update(nextHomeReturn);
       else ctx.db.homeReturnLocation.insert(nextHomeReturn);
       ctx.db.homeReturnLocation.identity.delete(link.guest);
-    } else if (guestLocation?.mapId === HOME_EXTERIOR_MAP_ID && ctx.db.homeReturnLocation.identity.find(ctx.sender)) {
-      // Never borrow a different save's return point when importing a Home save.
+    } else if ((guestLocation?.mapId === HOME_EXTERIOR_MAP_ID || isTownMap(guestLocation?.mapId)) && ctx.db.homeReturnLocation.identity.find(ctx.sender)) {
+      // Never borrow a different save's return point when importing a save at the Town (or Home).
       ctx.db.homeReturnLocation.identity.delete(ctx.sender);
     }
 

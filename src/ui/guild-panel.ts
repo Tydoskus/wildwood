@@ -129,7 +129,7 @@ export function createGuildPanel(options: Options) {
         if (socialAction.action === "inviteGuild") drafts.invite = "";
         if (socialAction.action === "acceptGuildInvite") { section = "guild"; notice = "You joined the guild."; }
       }
-      if (action?.kind === "collectQuests") notice = "Collected. They are on your Quest Board at home.";
+      if (action?.kind === "collectQuests") notice = "Collected. They are on your Quest Board in the Town Inn.";
       if (action?.kind === "shareBattle") notice = "Shared to the Guilds chat.";
       if (action?.kind === "admission") notice = action.action === "request" ? "Join request sent." : action.action === "cancel" ? "Request cancelled." : action.action === "accept" ? "Member accepted." : action.action === "decline" ? "Request declined." : "Guild admission updated.";
       clockOffset = date(next.serverNow).getTime() - Date.now();
@@ -436,7 +436,7 @@ export function createGuildPanel(options: Options) {
     } else empty(body, "No guild yet", "Join or found a guild, and every weekly quest you finish becomes a point for it.");
     renderQuestMembers(body);
     heading(body, "Guild ranking", "Every guild's quest points this week.");
-    if (!standing?.ranking.length) { empty(body, "No points yet this week", "Finish weekly quests on the Quest Board at home to put a guild here."); return; }
+    if (!standing?.ranking.length) { empty(body, "No points yet this week", "Finish weekly quests on the Quest Board in the Town Inn to put a guild here."); return; }
     const list = element("ol", undefined, "guild-ranking");
     for (const entry of standing.ranking) {
       const item = element("li", undefined, entry.mine ? "guild-ranking-own" : "");

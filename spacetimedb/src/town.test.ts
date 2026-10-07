@@ -1,7 +1,8 @@
 import { expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
-import { HOME_TRAVEL_PORTAL } from "../../shared/home";
-import { TOWN_ARRIVAL, TOWN_DOORS, TOWN_TRAVEL_PORTAL, TOWN_WALK_AREA, TOWN_WORLD } from "../../shared/town";
+import { HOME_BENCH_POSITION, HOME_TRAVEL_PORTAL } from "../../shared/home";
+import { AGE_BAND_ADULT, TERMS_VERSION } from "../../shared/legal";
+import { TOWN_ARRIVAL, TOWN_BENCH_POSITION, TOWN_DOORS, TOWN_TRAVEL_PORTAL, TOWN_WALK_AREA, TOWN_WORLD } from "../../shared/town";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 const portalSpot = (portal: { x: number; y: number; height: number }) => ({ x: portal.x, y: portal.y - portal.height * .32 });
@@ -29,13 +30,52 @@ it("is reached from Home's pad, and its travel portal reaches the maps", () => {
   expect(me(f).mapId).toBe("tutorial_forest");
 });
 
-it("does not keep the Town as where Home's Fight returns to", () => {
+it("is where Base goes from any map, keeping that spot for Fight, which takes the player back", () => {
+  const f = crystalFixture();
+  f.run(server.changeMap, { mapId: "town", x: 4050, y: 4060 });
+  expect(me(f)).toMatchObject({ mapId: "town", x: TOWN_ARRIVAL.x, y: TOWN_ARRIVAL.y });
+  expect(f.db.homeReturnLocation.identity.find(f.ctx.sender)).toMatchObject({ mapId: "crystal_hollows", x: 4050, y: 4060 });
+  expect(f.db.playerLastLocation.identity.find(f.ctx.sender)?.mapId).toBe("town");
+  // Fight: the same request from inside the Town (a room too) goes back, and never keeps the Town.
+  f.patch("player", { x: TOWN_DOORS[3].inside.x, y: TOWN_DOORS[3].inside.y });
+  f.run(server.changeMap, { mapId: "town", x: TOWN_DOORS[3].inside.x, y: TOWN_DOORS[3].inside.y });
+  expect(me(f)).toMatchObject({ mapId: "crystal_hollows", x: 4050, y: 4060 });
+  expect(f.db.homeReturnLocation.identity.find(f.ctx.sender).mapId).toBe("crystal_hollows");
+});
+
+it("answers Home's retired request as the Town's, and refuses Base to the dead", () => {
   const f = crystalFixture();
   f.run(server.changeMap, { mapId: "home_exterior", x: 4050, y: 4050 });
-  expect(f.db.homeReturnLocation.identity.find(f.ctx.sender).mapId).toBe("crystal_hollows");
-  f.patch("player", { mapId: "town", ...TOWN_ARRIVAL });
+  expect(me(f)).toMatchObject({ mapId: "town", x: TOWN_ARRIVAL.x, y: TOWN_ARRIVAL.y });
   f.run(server.changeMap, { mapId: "home_exterior", ...TOWN_ARRIVAL });
-  expect(f.db.homeReturnLocation.identity.find(f.ctx.sender).mapId).toBe("crystal_hollows");
+  expect(me(f).mapId).toBe("crystal_hollows");
+  f.patch("player", { hp: 0 });
+  expect(() => f.run(server.changeMap, { mapId: "town", x: 4050, y: 4050 })).toThrow(/Respawn/);
+});
+
+it("keeps the Upgrade Bench in the Town's smithy, not at Home's old spot", () => {
+  const f = crystalFixture();
+  f.patch("player", { mapId: "home_exterior", x: HOME_BENCH_POSITION.x, y: HOME_BENCH_POSITION.y });
+  expect(() => f.run(server.startItemUpgrade, { slot: 1, itemId: "HAND" })).toThrow(/Upgrade Bench/);
+  f.patch("player", { mapId: "town", x: HOME_BENCH_POSITION.x, y: HOME_BENCH_POSITION.y });
+  expect(() => f.run(server.startItemUpgrade, { slot: 1, itemId: "HAND" })).toThrow(/Upgrade Bench/);
+  f.patch("player", { mapId: "town", x: TOWN_BENCH_POSITION.x, y: TOWN_BENCH_POSITION.y });
+  f.run(server.startItemUpgrade, { slot: 1, itemId: "HAND" });
+  expect(f.db.activeItemUpgrade.identity.find(f.ctx.sender)).toBeTruthy();
+});
+
+it("brings a player saved at Home into the Town's square, online or not", () => {
+  const f = crystalFixture();
+  f.run(server.acceptTerms, { termsVersion: TERMS_VERSION, ageBand: AGE_BAND_ADULT });
+  f.patch("player", { mapId: "home_exterior", x: 500, y: 600 });
+  f.run(server.enterWorldWithTutorial, { forceTakeover: true, tabId: "home-player-row" });
+  expect(me(f)).toMatchObject({ mapId: "town", x: TOWN_ARRIVAL.x, y: TOWN_ARRIVAL.y });
+  const g = crystalFixture();
+  g.run(server.acceptTerms, { termsVersion: TERMS_VERSION, ageBand: AGE_BAND_ADULT });
+  g.db.player.identity.delete(g.ctx.sender);
+  g.seed("playerLastLocation", { identity: g.ctx.sender, mapId: "home_exterior", x: 500, y: 600, facing: 1 });
+  g.run(server.enterWorldWithTutorial, { forceTakeover: true, tabId: "home-saved-location" });
+  expect(me(g)).toMatchObject({ mapId: "town", x: TOWN_ARRIVAL.x, y: TOWN_ARRIVAL.y });
 });
 
 it("takes a player through a door into its room, and back out the room's doorway", () => {
