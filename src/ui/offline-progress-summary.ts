@@ -2,22 +2,13 @@ import { MAP_DISPLAY_NAMES, numberedMapName } from "../../shared/rules";
 import { isProceduralMap, proceduralMapNumber } from "../../shared/procedural-maps";
 import type { OfflineProgressSummary } from "../coop/services/offline-progress-watch";
 import { formatCompactNumber } from "./number-format";
+import { formatTimer } from "../../shared/timer-format";
 
 export function offlineMapName(mapId: string) {
   if (isProceduralMap(mapId)) return `Endless ${proceduralMapNumber(mapId)}`;
   if (mapId === "town") return "Town";
   const name = MAP_DISPLAY_NAMES[mapId as keyof typeof MAP_DISPLAY_NAMES];
   return name ? numberedMapName(mapId, name) : mapId;
-}
-
-export function formatOfflineDuration(seconds: number) {
-  const whole = Math.max(0, Math.round(seconds));
-  const minutes = Math.floor(whole / 60);
-  if (!minutes) return `${whole} second${whole === 1 ? "" : "s"}`;
-  const hours = Math.floor(minutes / 60);
-  if (!hours) return `${minutes} minute${minutes === 1 ? "" : "s"}`;
-  const spare = minutes % 60;
-  return spare ? `${hours}h ${spare}m` : `${hours} hour${hours === 1 ? "" : "s"}`;
 }
 
 /**
@@ -99,7 +90,7 @@ export function createOfflineProgressSummary(dependencies: {
 
   function show(summary: OfflineProgressSummary) {
     const map = offlineMapName(summary.mapId);
-    const away = formatOfflineDuration(summary.seconds);
+    const away = formatTimer(Math.round(summary.seconds));
     stats.replaceChildren();
     if (summary.blocked) {
       lead.textContent = `You were away for ${away}, but ${map} would have finished you before you got back.`;

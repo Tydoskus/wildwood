@@ -1,3 +1,4 @@
+import { formatTimer } from "../../shared/timer-format";
 import { formatCompactNumber } from './number-format';
 import { renderBooleanSetting } from './settings';
 import { createStatTrackerModel, TRACKED_STATS, type TrackerBuild, type TrackerValues } from './stat-tracker-model';
@@ -96,7 +97,7 @@ export function installStatTracker(options: {
     if (panel.hidden || !result) return;
     if (wasHidden) place();
     const seconds = Math.floor(result.elapsedMs / 1000);
-    clock.textContent = `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+    clock.textContent = formatTimer(seconds);
     for (const row of result.rows) {
       const rowCells = cells.get(row.stat)!;
       // Three significant digits throughout keeps every column narrow. Values

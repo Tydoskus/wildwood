@@ -6,6 +6,8 @@
  * chat-mute.ts); the client only reads the account's own row to show the
  * countdown.
  */
+import { formatTimerMs } from "./timer-format";
+
 export const CHAT_MUTE_STRIKE_LIMIT = 3;
 export const CHAT_MUTE_STRIKE_WINDOW_MS = 24 * 60 * 60_000;
 export const CHAT_MUTE_FIRST_MS = 60 * 60_000;
@@ -31,7 +33,10 @@ export function chatMuteRemainingMs(record: ChatMuteRecord | null, nowMs: number
   return record ? Math.max(0, record.mutedUntilMs - nowMs) : 0;
 }
 
-/** 42:10 under an hour, 23:59:59 beyond it; always rounded up to the second. */
+/**
+ * 42:10 under an hour, 23:59:59 beyond it; always rounded up to the second.
+ * Only the moderation log uses this precision; players see formatTimerMs.
+ */
 export function formatChatMuteRemaining(ms: number) {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1_000));
   const hours = Math.floor(totalSeconds / 3_600);
@@ -41,7 +46,7 @@ export function formatChatMuteRemaining(ms: number) {
 }
 
 export function chatMuteRefusal(remainingMs: number) {
-  return `Chat muted for ${formatChatMuteRemaining(remainingMs)} — repeated filtered messages.`;
+  return `Chat muted for ${formatTimerMs(remainingMs)} — repeated filtered messages.`;
 }
 
 /** The mute a new one would be: a repeat inside the window is the long one. */

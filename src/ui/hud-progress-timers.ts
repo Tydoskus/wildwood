@@ -1,3 +1,4 @@
+import { formatTimerMs } from "../../shared/timer-format";
 import type { ActiveItemUpgrade } from "../wildstat-coop";
 import type { ActiveResearch } from "./tech-tree-controller";
 
@@ -16,17 +17,6 @@ type TimerSources = {
   nowMs?: () => number;
 };
 
-/** Keep minute and hour countdowns calm; show seconds only in the last minute. */
-export function formatHudRemaining(milliseconds: number) {
-  const seconds = Math.max(0, Math.ceil(milliseconds / 1_000));
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.ceil(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const extraMinutes = minutes % 60;
-  return extraMinutes ? `${hours}h ${extraMinutes}m` : `${hours}h`;
-}
-
 export function hudProgressTimers(
   connected: boolean,
   research: ActiveResearch | null,
@@ -38,10 +28,10 @@ export function hudProgressTimers(
     const job = active.find((upgrade) => upgrade.slot === number);
     if (!job) return null;
     const remaining = job.paused ? job.remainingMs : job.completesAtMs - nowMs;
-    return { remaining: formatHudRemaining(remaining), paused: job.paused };
+    return { remaining: formatTimerMs(remaining), paused: job.paused };
   };
   return {
-    research: connected && research ? formatHudRemaining(research.completesAtMs - nowMs) : null,
+    research: connected && research ? formatTimerMs(research.completesAtMs - nowMs) : null,
     slotOne: slot(1),
     slotTwo: slot(2),
     slotThree: slot(3),

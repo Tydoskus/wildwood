@@ -519,7 +519,7 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     s.farm.start([]);
     s.tick();
     expect(s.farm.state().phase).toBe('farm');
-    expect(s.farm.bossStatus()).toBe('Boss In 3 Min');
+    expect(s.farm.bossStatus()).toBe('Boss In 00:03');
     s.advance(3 * 60_000);
     expect(s.farm.bossStatus()).toBe('Boss Next');
     expect(s.farm.bossStatusReady()).toBe(true);
@@ -534,7 +534,7 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     expect(s.farm.bossStatusReady()).toBe(false);
     power = 2_000;
     s.advance(1_000);
-    expect(s.farm.bossStatus()).toBe('Boss In 5 Min');
+    expect(s.farm.bossStatus()).toBe('Boss In 00:04');
     s.tick();
     expect(s.farm.state().phase).toBe('farm');
     s.advance(5 * 60_000);
@@ -914,7 +914,7 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     s.tick();
     expect(s.farm.state().phase).toBe('portal');
     travel('beginner_desert');
-    expect(s.farm.bossStatus()).toBe('Trying Next Map · 10 Min');
+    expect(s.farm.bossStatus()).toBe('Trying Next Map · 00:09');
     for (let death = 1; death < AUTO_FARM_DEFEAT_LIMIT; death++) s.farm.defeated();
     s.tick();
     expect(s.farm.state().phase).toBe('farm');
@@ -928,7 +928,7 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     expect(s.farm.bossStatus()).toBe('Next Map At 1.20k');
     power.value = 1_200;
     s.advance(1_000);
-    expect(s.farm.bossStatus()).toBe('Next Map In 10 Min');
+    expect(s.farm.bossStatus()).toBe('Next Map In 00:09');
     s.advance(10 * 60_000);
     expect(s.farm.bossStatus()).toBe('Next Map Open');
     expect(s.farm.bossStatusReady()).toBe(true);
@@ -941,7 +941,7 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     travel('forest');
     power.value = 2_000;
     s.advance(1_000);
-    expect(s.farm.bossStatus()).toBe('Next Map In 20 Min');
+    expect(s.farm.bossStatus()).toBe('Next Map In 00:19');
   });
 
   it("goes back after ten minutes on a new map that grows the build slower than the last, and keeps one that doesn't", () => {
@@ -953,7 +953,7 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
       s.tick();
       travel('beginner_desert');
       farmFor(9.5, rate);
-      expect(s.farm.bossStatus()).toBe('Trying Next Map · 1 Min');
+      expect(s.farm.bossStatus()).toBe('Trying Next Map · 00:29');
       farmFor(1, rate);
       expect(s.farm.state().phase, `${rate}`).toBe(kept ? 'farm' : 'portal');
       expect(s.farm.bossStatus(), `${rate}`).toBe(kept ? '' : 'Moving Back A Map');

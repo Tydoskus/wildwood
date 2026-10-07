@@ -36,7 +36,7 @@ export function summarize(reports: readonly VirtualPlayerReport[], references: r
     // Waits and powers vary by the minute: one line per kind of status.
     const kinds: Record<string, { first: number; seconds: number }> = {};
     for (const [key, value] of Object.entries(report.bossStatuses)) {
-      const kind = key.replace(/ In \d+ Min$/, ' In N Min').replace(/ At [\d.]+[a-z]*$/, ' At X');
+      const kind = key.replace(/ (In|·) \d+:\d\d$/, ' $1 HH:MM').replace(/ At [\d.]+[a-z]*$/, ' At X');
       const entry = kinds[kind] ??= { first: value.first, seconds: 0 };
       entry.seconds += value.seconds; entry.first = Math.min(entry.first, value.first);
     }

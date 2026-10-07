@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { parseHTML } from "linkedom";
-import { formatQuestReset, guildQuestStanding, questBoardView, questBoardWorldStatus } from "./quest-board-controller";
+import { guildQuestStanding, questBoardView, questBoardWorldStatus } from "./quest-board-controller";
 import { questWeekEndsAtMs } from "../../shared/daily-quests";
 
 const state = { day: 20_000, bonus: 1.1, guildPoints: 37, guildName: "Oaks", quests: [
@@ -14,8 +14,9 @@ it("lists the quests in play, the week's count, and when the next fifteen come",
   // The finished quest leaves the board; the open ones stay.
   expect(view.quests.map(quest => quest.title)).toEqual(["Defeat 60 Dune Raider", "Defeat 50 Spitter"]);
   expect(view.quests[0]).toMatchObject({ where: "Desert", progress: "12/60", done: false });
-  expect(view).toMatchObject({ done: 1, total: 3, resetsIn: "1h 30m", finished: false });
-  expect(formatQuestReset(3 * 86_400_000 + 2 * 3_600_000)).toBe("3d 2h");
+  expect(view).toMatchObject({ done: 1, total: 3, resetsIn: "01:30", finished: false });
+  expect(questBoardView(state, questWeekEndsAtMs(20_000) - 3 * 86_400_000 - 2 * 3_600_000, (id: string) => id).resetsIn).toBe("74:00");
+  expect(questBoardView(state, questWeekEndsAtMs(20_000) - 30_000, (id: string) => id).resetsIn).toBe("00:30");
 });
 
 it("gives the Guild window the guild's week, its bonus, and the ranking", () => {
@@ -32,7 +33,6 @@ it("gives the Guild window the guild's week, its bonus, and the ranking", () => 
 it("tells the courtyard board how many papers are still pinned up, and the week's count", () => {
   expect(questBoardWorldStatus(state)).toEqual({ finished: [false, false, true], timer: "1/3 done" });
   expect(questBoardWorldStatus(null)).toBeNull();
-  expect(formatQuestReset(30_000)).toBe("1m");
 });
 
 it("counts a quest enemy at once, never backwards, catching up to the server and stopping at the target", async () => {

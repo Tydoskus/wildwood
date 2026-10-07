@@ -15,9 +15,9 @@ afterEach(() => vi.useRealTimers());
 describe("planned update handoff", () => {
   it("counts down locally without saving or pausing gameplay", () => {
     const f = fixture(); f.controller.tick();
-    expect(f.d.render).toHaveBeenLastCalledWith({ text: "Update in 5:00", blocking: false, urgent: false });
+    expect(f.d.render).toHaveBeenLastCalledWith({ text: "Update in 00:05", blocking: false, urgent: false });
     f.time(291000); f.controller.tick();
-    expect(f.d.render).toHaveBeenLastCalledWith({ text: "Update in 0:10", blocking: false, urgent: true });
+    expect(f.d.render).toHaveBeenLastCalledWith({ text: "Update in 00:10", blocking: false, urgent: true });
     expect(f.d.drain).not.toHaveBeenCalled(); expect(f.d.pause).not.toHaveBeenCalled();
     expect(f.controller.canReload()).toBe(false);
   });
@@ -76,6 +76,6 @@ it("uses the existing update screen and preserves its independent protocol gate"
   expect(gate.hasAttribute("data-scheduled-update")).toBe(false);
   expect(gate.hasAttribute("hidden")).toBe(true);
   gate.removeAttribute("hidden");
-  render({ text: "Update in 2:00", blocking: false, urgent: false });
+  render({ text: "Update in 00:02", blocking: false, urgent: false });
   expect(gate.hasAttribute("hidden")).toBe(false);
 });

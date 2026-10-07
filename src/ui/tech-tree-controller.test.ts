@@ -109,7 +109,7 @@ it("pauses running research and offers to resume a paused one", async () => {
   await Promise.resolve(); await Promise.resolve();
   expect(pauseResearch).toHaveBeenCalledOnce();
   expect(document.querySelector(".tech-tree-pause")).toBeNull();
-  expect(element("content").textContent).toContain("PAUSED · TIME LEFT35s");
+  expect(element("content").textContent).toContain("PAUSED · TIME LEFT00:35");
   expect(element("content").textContent).toContain("RESUME RESEARCH");
   expect(element("active").textContent).toBe("NO RESEARCH ACTIVE · 1 PAUSED");
   expect(document.querySelector('[data-tech-node="tech-utility-researchSpeed"]')!.classList.contains("is-paused")).toBe(true);

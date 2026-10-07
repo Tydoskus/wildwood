@@ -61,10 +61,10 @@ it("shows the new copy's skills beside the one the player has, with the time lef
   expect(view.text(".equipment-offer-note")).toBe("You already have this");
   expect(view.lines("is-yours")).toEqual(["Arrow Storm 2.4%"]);
   expect(view.lines("is-new")).toEqual(["Ricochet 3.1%"]);
-  expect(view.text(".equipment-offer-timer")).toBe("Ignored in 5:00");
+  expect(view.text(".equipment-offer-timer")).toBe("Ignored in 00:05");
   view.setNow(61_000);
   vi.advanceTimersByTime(1_000);
-  expect(view.text(".equipment-offer-timer")).toBe("Ignored in 4:00");
+  expect(view.text(".equipment-offer-timer")).toBe("Ignored in 00:04");
   expect(view.badge().textContent).toBe("1");
 });
 
@@ -72,7 +72,7 @@ it("says No skills for a roll without any, and compares nothing for gear without
   const view = harness([bowOffer(1n, NONE), { id: 2n, itemId: "samurai_hat", roll: NONE, expiresAtMs: 301_000 }],
     { copies: [{ id: 9n, itemId: "samurai_hat" }] });
   expect(view.lines("is-new")).toEqual(["No skills"]);
-  expect(view.text(".equipment-offer-timer")).toBe("Ignored in 5:00 · 1 of 2");
+  expect(view.text(".equipment-offer-timer")).toBe("Ignored in 00:05 · 1 of 2");
   view.click(".equipment-offer-ignore");
   return flush().then(() => {
     expect(view.answers).toEqual([[1n, false]]);
@@ -95,7 +95,7 @@ it("keeps, reports a full bag without losing the offer, and moves on to the next
   await flush();
   expect(view.answers).toEqual([[1n, true]]);
   expect(view.messages.at(-1)).toBe("KEPT · ADDED TO YOUR BAG");
-  expect(view.text(".equipment-offer-timer")).toBe("Ignored in 5:00");
+  expect(view.text(".equipment-offer-timer")).toBe("Ignored in 00:05");
   view.click(".equipment-offer-keep");
   await flush();
   expect(view.card.hidden).toBe(true);

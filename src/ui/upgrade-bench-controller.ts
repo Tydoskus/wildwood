@@ -1,4 +1,4 @@
-import { formatRemaining } from "./format-remaining";
+import { formatTimerMs } from "../../shared/timer-format";
 import { formatEquipmentStat } from "./equipment-stat-format";
 import { isUpgradeSlot, normalizeSlotTier, UPGRADE_SLOT_LABELS } from "../../shared/slot-upgrades";
 import {
@@ -429,8 +429,8 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
 
     elements.timer.hidden = !itemId;
     elements.timer.textContent = selectedJob
-      ? `UPGRADING · ${formatRemaining(remaining)}`
-      : itemId ? `UPGRADE TIME · ${formatRemaining(slotUpgradeDurationWithResearch(itemUpgradeDurationMs(level), dependencies.slotUpgradeSpeedRank?.() ?? 0))}` : "";
+      ? `UPGRADING · ${formatTimerMs(remaining)}`
+      : itemId ? `UPGRADE TIME · ${formatTimerMs(slotUpgradeDurationWithResearch(itemUpgradeDurationMs(level), dependencies.slotUpgradeSpeedRank?.() ?? 0))}` : "";
     elements.action.classList.toggle("is-cancel", Boolean(selectedJob));
     elements.action.textContent = selectedJob ? "Cancel" : "Upgrade";
     elements.action.hidden = !itemId;
@@ -683,7 +683,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
     worldStatus: () => {
       const job = activeUpgrades().find((active) => !active.paused);
       if (!job) return null;
-      return { itemId: job.itemId, level: job.currentLevel, timer: formatRemaining(remainingFor(job)) };
+      return { itemId: job.itemId, level: job.currentLevel, timer: formatTimerMs(remainingFor(job)) };
     },
     /**
      * A completed tier is auto-granted. Poll each UI frame so the badge and

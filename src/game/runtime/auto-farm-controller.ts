@@ -18,6 +18,7 @@ import {
   BOSS_FIRST_TRY_MS, BOSS_MARGIN_READY, PROBATION_MS, DIED_TO_GROUP_MS, FARM_PUSHES, bossFightMargin, bossRetryKey, type LostBossFight, createPowerGainMeter, createRetryMemory, probationVerdict, readFarmPush, shouldLeaveBoss, writeFarmPush, type FarmPush,
 } from './auto-farm-brain';
 import { formatCompactNumber } from '../../../shared/compact-number';
+import { formatTimerMs } from '../../../shared/timer-format';
 import { isSoulMap, SOUL_STAT_DETAILS, type SoulStatId } from '../../../shared/soul-dimension';
 import { soulStatOfCampName } from '../soul-world';
 
@@ -729,13 +730,13 @@ export function createAutoFarmController(options: {
   function bossStatus() {
     if (options.reflectOnly?.()) return 'Off In Reflect Only';
     if (retreating) return 'Moving Back A Map';
-    if (onProbation()) return `Trying Next Map · ${Math.max(1, Math.ceil((probation!.since + PROBATION_MS - now()) / 60_000))} Min`;
+    if (onProbation()) return `Trying Next Map · ${formatTimerMs(probation!.since + PROBATION_MS - now())}`;
     // What a try still waits for: more power first, then the time.
     const gate = (label: string, key: string, earliest = 0) => {
       const { power, at } = retryGate(key);
       if (currentPower() < power) return `${label} At ${formatCompactNumber(Math.ceil(power))}`;
-      const minutes = Math.ceil(Math.max(at - wallNow(), earliest) / 60_000);
-      return minutes > 0 ? `${label} In ${minutes} Min` : null;
+      const wait = Math.max(at - wallNow(), earliest);
+      return wait > 0 ? `${label} In ${formatTimerMs(wait)}` : null;
     };
     const portal = options.nextPortal?.();
     if (portal) return gate('Next Map', portal.destination) ?? 'Next Map Open';

@@ -1,6 +1,7 @@
 import { renderBooleanSetting } from "./settings";
 import { ENEMY_TYPES, type EnemyKind, type RewardType } from "../game/enemies";
 import { GUILD_QUEST_BONUS_PER_POINT, SOLO_QUEST_BONUS_PER_QUEST, WEEKLY_QUEST_COUNT, activeQuestIndices, ownQuest, questDay, questDone, questOpen, questWeek, questWeekEndsAtMs, type DailyQuest } from "../../shared/daily-quests";
+import { formatTimerMs } from "../../shared/timer-format";
 
 type QuestState = { day: number; quests: DailyQuest[]; bonus: number; guildPoints: number; guildName: string };
 type RankingRow = { guildId: string; guildName: string; points: number };
@@ -16,12 +17,6 @@ export type QuestBoardSource = {
 
 const RANKING_ROWS = 8;
 const percent = (fraction: number) => `${Math.round(fraction * 1000) / 10}%`;
-
-export function formatQuestReset(msLeft: number) {
-  const minutes = Math.max(1, Math.ceil(msLeft / 60_000));
-  const hours = Math.floor(minutes / 60), days = Math.floor(hours / 24);
-  return days ? `${days}d ${hours % 24}h` : hours ? `${hours}h ${minutes % 60}m` : `${minutes}m`;
-}
 
 /**
  * The quest week for the Guild window's Quests tab: the guild's points and its
@@ -67,7 +62,7 @@ export function questBoardView(state: QuestState | null, nowMs: number, mapName:
     taken: Boolean(quest.takenBy) && quest.progress < quest.target,
   }));
   const extra = all.filter(quest => !ownQuest(quest));
-  return { quests, resetsIn: state ? formatQuestReset(questWeekEndsAtMs(state.day) - nowMs) : "",
+  return { quests, resetsIn: state ? formatTimerMs(questWeekEndsAtMs(state.day) - nowMs) : "",
     done: own.filter(questDone).length, total: own.length || WEEKLY_QUEST_COUNT,
     collected: extra.length ? `${extra.filter(questDone).length}/${extra.length} collected` : "",
     finished: own.length > 0 && !all.some(questOpen) };

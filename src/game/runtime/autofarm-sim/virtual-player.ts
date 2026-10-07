@@ -467,7 +467,7 @@ export function createVirtualPlayer(profile: VirtualPlayerProfile, options: { du
     hits = hits.filter(hit => clock.ms - hit.at < 15_000);
     const byKind: Record<string, number> = {};
     for (const hit of hits) byKind[hit.kind] = (byKind[hit.kind] ?? 0) + hit.share;
-    report.deaths.push({ t: t(), map: currentMapId, phase: state.phase, selected: state.selected, probation: autoFarm.bossStatus() === 'Trying Next Map',
+    report.deaths.push({ t: t(), map: currentMapId, phase: state.phase, selected: state.selected, probation: autoFarm.bossStatus().startsWith('Trying Next Map'),
       afterBossLeave: t() - lastBossLeaveAt < 15, status: state.status, taken: byKind, biggestHit: Math.max(0, ...hits.map(hit => hit.share)) });
     hits = [];
     if (attempt) closeAttempt('died');

@@ -6,6 +6,8 @@
  * last one, and a UTC day holds four. The day is the daily Gem bonus's day, so
  * both reset together at 00:00 UTC.
  */
+import { formatTimerMs } from "./timer-format";
+
 export const AD_GEM_REWARD = 10;
 export const AD_GEM_COOLDOWN_MS = 30 * 60_000;
 export const AD_GEM_DAILY_LIMIT = 4;
@@ -49,22 +51,10 @@ export function adGemRewardStatus(record: AdGemRewardRecord | null, nowMs: numbe
   return { kind: "ready", dayKey, claimsToday, claimsLeft };
 }
 
-/**
- * A wait as the HUD and the refusal show it: "12:34" under an hour, "5:12:00"
- * from an hour up. Partial seconds round up, so it never reads ready early.
- */
-export function formatAdGemWait(waitMs: number) {
-  const totalSeconds = Math.max(0, Math.ceil(waitMs / 1_000));
-  const hours = Math.floor(totalSeconds / 3_600);
-  const minutes = Math.floor((totalSeconds % 3_600) / 60);
-  const seconds = String(totalSeconds % 60).padStart(2, "0");
-  return hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}:${seconds}` : `${minutes}:${seconds}`;
-}
-
 /** The refusal a claim gets, or null when it would be paid. */
 export function adGemRefusal(status: AdGemRewardStatus) {
-  if (status.kind === "cooldown") return `Next ad in ${formatAdGemWait(status.waitMs)}`;
-  if (status.kind === "limit") return `No more ads today · resets in ${formatAdGemWait(status.waitMs)}`;
+  if (status.kind === "cooldown") return `Next ad in ${formatTimerMs(status.waitMs)}`;
+  if (status.kind === "limit") return `No more ads today · resets in ${formatTimerMs(status.waitMs)}`;
   return null;
 }
 

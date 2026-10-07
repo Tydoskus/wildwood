@@ -127,7 +127,7 @@ describe("rewarded gem ad", () => {
     expect(h.showGemReward).toHaveBeenCalledWith(10);
     expect(h.elements.browserAd.hidden).toBe(true);
     expect(h.setAdPlaybackActive).toHaveBeenLastCalledWith(false);
-    await vi.waitFor(() => expectCountdown(h.elements, "Ad in 30:00\n3 left today"));
+    await vi.waitFor(() => expectCountdown(h.elements, "Ad in 00:30\n3 left today"));
     h.controller.destroy();
   });
 
@@ -135,14 +135,14 @@ describe("rewarded gem ad", () => {
     stubWindow();
     const h = harness({ record: { lastClaimAtMs: NOON - 48_000, dayKey: utcDayKey(NOON), claimsToday: 1 } });
     h.controller.init();
-    expectCountdown(h.elements, "Ad in 29:12\n3 left today");
-    expect(h.elements.button.title).toBe("Next ad in 29:12");
+    expectCountdown(h.elements, "Ad in 00:29\n3 left today");
+    expect(h.elements.button.title).toBe("Next ad in 00:29");
     click(h.elements.button);
     expect(h.elements.prompt.hidden).toBe(true);
 
-    h.advance(1_000);
+    h.advance(13_000);
     h.controller.sync();
-    expect(h.elements.countdown.textContent).toBe("Ad in 29:11\n3 left today");
+    expect(h.elements.countdown.textContent).toBe("Ad in 00:28\n3 left today");
 
     h.advance(AD_GEM_COOLDOWN_MS);
     h.controller.sync();
@@ -161,7 +161,7 @@ describe("rewarded gem ad", () => {
     timerShown = true;
     h.advance(1_000);
     h.controller.sync();
-    expectCountdown(h.elements, "Ad in 29:11\n3 left today");
+    expectCountdown(h.elements, "Ad in 00:29\n3 left today");
     timerShown = false;
     h.advance(AD_GEM_COOLDOWN_MS);
     h.controller.sync();
@@ -174,9 +174,9 @@ describe("rewarded gem ad", () => {
     stubWindow();
     const h = harness({ record: { lastClaimAtMs: NOON - 2 * 3_600_000, dayKey: utcDayKey(NOON), claimsToday: 4 } });
     h.controller.init();
-    expectCountdown(h.elements, "Ad in 12:00:00\n0 left today");
+    expectCountdown(h.elements, "Ad in 12:00\n0 left today");
     expect(h.elements.button.dataset.state).toBe("limit");
-    expect(h.elements.button.title).toBe("No more ads today · resets in 12:00:00");
+    expect(h.elements.button.title).toBe("No more ads today · resets in 12:00");
     h.controller.destroy();
   });
 
@@ -187,7 +187,7 @@ describe("rewarded gem ad", () => {
     expect(h.elements.button.dataset.state).toBe("browser");
     h.server.record = { lastClaimAtMs: NOON, dayKey: utcDayKey(NOON), claimsToday: 2 };
     h.controller.sync();
-    expectCountdown(h.elements, "Ad in 30:00\n2 left today");
+    expectCountdown(h.elements, "Ad in 00:30\n2 left today");
     h.controller.destroy();
   });
 
@@ -204,7 +204,7 @@ describe("rewarded gem ad", () => {
     expect(show).not.toHaveBeenCalled();
     expect(h.setAdPlaybackActive).not.toHaveBeenCalled();
     await vi.waitFor(() => expect(h.claimAdGems).toHaveBeenCalledOnce());
-    await vi.waitFor(() => expectCountdown(h.elements, "Ad in 30:00\n3 left today"));
+    await vi.waitFor(() => expectCountdown(h.elements, "Ad in 00:30\n3 left today"));
     expect(h.showMessage).toHaveBeenCalledWith("+10 GEMS", expect.any(String));
     h.controller.destroy();
   });
@@ -237,10 +237,10 @@ describe("rewarded gem ad", () => {
 
   it("shows the server's refusal when a claim is turned down", async () => {
     stubWindow();
-    const h = harness({ supporter: true, claim: async () => ({ ok: false, error: "Next ad in 12:34" }) });
+    const h = harness({ supporter: true, claim: async () => ({ ok: false, error: "Next ad in 00:12" }) });
     h.controller.init();
     click(h.elements.button);
-    await vi.waitFor(() => expect(h.showMessage).toHaveBeenCalledWith("NEXT AD IN 12:34", expect.any(String)));
+    await vi.waitFor(() => expect(h.showMessage).toHaveBeenCalledWith("NEXT AD IN 00:12", expect.any(String)));
     expect(h.showGemReward).not.toHaveBeenCalled();
     h.controller.destroy();
   });

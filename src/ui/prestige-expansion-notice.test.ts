@@ -9,10 +9,10 @@ it("shows the shared countdown and unlock without restarting on reload", () => {
   let now = 100;
   const d = { root: document as unknown as Document, unlocksAt: () => deadline, now: () => now, visible: () => true };
   const notice = createPrestigeExpansionNotice(d); notice.tick();
-  expect(document.body.textContent).toContain("Prestige 20 uncapped in 30 min");
+  expect(document.body.textContent).toContain("Prestige 20 uncapped in 00:30");
   now += 600_000;
   const reloaded = createPrestigeExpansionNotice(d); reloaded.tick();
-  expect(document.body.lastElementChild?.textContent).toContain("20 min");
+  expect(document.body.lastElementChild?.textContent).toContain("in 00:20");
   expect(notice.unlocked()).toBe(false);
   now = deadline; reloaded.tick();
   expect(reloaded.unlocked()).toBe(true);

@@ -1,3 +1,4 @@
+import { formatTimer } from "../../shared/timer-format";
 import { buildGuildReplayEntrance } from "./guild-replay-entrance";
 import type { GuildBattleResult } from "../../shared/guild-combat";
 import { frameDeadlineReached, nextPresentationDeadline } from "../game/runtime/render-budget";
@@ -38,7 +39,7 @@ export function createGuildBattleReplay(parent: HTMLElement, battle: GuildBattle
     const actors = renderer?.draw(combatTime, true, elapsed) ?? timeline!.sample(combatTime);
     const alive = (from: number, to: number) => actors.slice(from, to).filter(actor => actor.hp > 0).length;
     const done = elapsed >= endTime;
-    const nextStatus = done ? `${battle.outcome === "DRAW" ? "Draw" : `[${battle.outcome === "VICTORY" ? names[0] : names[1]}] wins`} · ${battle.attackerSurvivors}–${battle.defenderSurvivors} survivors` : `[${names[0]}] ${alive(0, split)}/${split}  ·  ${Math.min(battle.duration, combatTime).toFixed(1)}s  ·  [${names[1]}] ${alive(split, fighters.length)}/${fighters.length - split}`;
+    const nextStatus = done ? `${battle.outcome === "DRAW" ? "Draw" : `[${battle.outcome === "VICTORY" ? names[0] : names[1]}] wins`} · ${battle.attackerSurvivors}–${battle.defenderSurvivors} survivors` : `[${names[0]}] ${alive(0, split)}/${split}  ·  ${formatTimer(Math.min(battle.duration, combatTime))}  ·  [${names[1]}] ${alive(split, fighters.length)}/${fighters.length - split}`;
     if (status.textContent !== nextStatus) status.textContent = nextStatus;
     const seekValue = String(elapsed);
     if (seek.value !== seekValue) seek.value = seekValue;

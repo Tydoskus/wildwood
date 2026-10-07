@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.9": [
+    "Timers and countdowns all read the same way: HH:MM, switching to MM:SS in the final minute",
+  ],
   "0.901.8": [
     "Other players' profiles include their soul stats",
   ],
@@ -2987,6 +2990,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.9": "2026-10-07",
   "0.901.8": "2026-10-07",
   "0.901.7": "2026-10-07",
   "0.901.6": "2026-10-07",

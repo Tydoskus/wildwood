@@ -1,3 +1,4 @@
+import { formatTimer } from "../../shared/timer-format";
 import { replaceChildrenIfChanged } from "./replace-children-if-changed";
 import { createProfileNameEditor } from "./profile-name-editor";
 import { createProfileLoading } from "./profile-loading";
@@ -155,7 +156,7 @@ export function createProfileWindowController(elements: {
     const disabled = api.isBlocked(identity) || active || remainingSeconds > 0;
     if (elements.duel.disabled !== disabled) elements.duel.disabled = disabled;
     if (elements.duel.classList.contains("is-cooling-down") !== remainingSeconds > 0) elements.duel.classList.toggle("is-cooling-down", remainingSeconds > 0);
-    setText(elements.duel, active ? "DUEL IN PROGRESS" : remainingSeconds > 0 ? `DUEL · ${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, "0")}` : "DUEL");
+    setText(elements.duel, active ? "DUEL IN PROGRESS" : remainingSeconds > 0 ? `DUEL · ${formatTimer(remainingSeconds)}` : "DUEL");
   }
 
   function render(profile: Profile | null) {

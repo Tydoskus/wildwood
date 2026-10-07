@@ -10,7 +10,6 @@ import {
   CHAT_MUTE_REPEAT_WINDOW_MS,
   CHAT_MUTE_STRIKE_WINDOW_MS,
   chatMuteRefusal,
-  formatChatMuteRemaining,
 } from "../../shared/chat-mute";
 import { ATTACK_BALANCE_VERSION, BOSS_REWARD_CLAIM_BITS, SPACETIME_AUTH_CLIENT_ID, SPACETIME_AUTH_ISSUER } from "../../shared/rules";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
@@ -130,7 +129,7 @@ it("refuses every send path while muted, before the cooldown, inserting nothing"
   // so this is the mute refusing, not the cooldown.
   at(f, mutedAt + 1_000);
   const refusal = chatMuteRefusal(CHAT_MUTE_FIRST_MS - 1_000);
-  expect(refusal).toBe("Chat muted for 59:59 — repeated filtered messages.");
+  expect(refusal).toBe("Chat muted for 00:59 — repeated filtered messages.");
   expect(() => f.run(server.sendChatMessage, { message: "Hello" })).toThrow(refusal);
   expect(() => f.run(server.sendChatReply, { message: "Hello", replyToMessageId: replyTo })).toThrow(refusal);
   expect(() => f.run(server.sendSocialMessage, { channel: "guild", target: "", message: "Hi", replyToMessageId: 0n })).toThrow(refusal);
@@ -173,7 +172,7 @@ it("ends on time", () => {
   world(f); world(f); world(f);
   const until = mutedUntilMs(f);
   at(f, until - 1);
-  expect(() => f.run(server.sendChatMessage, { message: "Hello" })).toThrow("Chat muted for 0:01");
+  expect(() => f.run(server.sendChatMessage, { message: "Hello" })).toThrow("Chat muted for 00:01");
   at(f, until);
   f.run(server.sendChatMessage, { message: "Hello" });
   expect([...f.db.chatMessage.iter()].at(-1)).toMatchObject({ message: "Hello", moderated: false });
@@ -195,7 +194,7 @@ it("refuses a player, lets the database owner set and lift a mute, and logs both
 
   Object.assign(f.ctx, player);
   later(f);
-  expect(() => f.run(server.sendChatMessage, { message: "Hello" })).toThrow(`Chat muted for ${formatChatMuteRemaining(90 * 60_000 - 3_000)}`);
+  expect(() => f.run(server.sendChatMessage, { message: "Hello" })).toThrow("Chat muted for 01:29");
 
   f.ctx.sender = owner; f.ctx.connectionId = null;
   f.run(server.devSetChatMute, { identity: target, minutes: 0 });

@@ -30,10 +30,10 @@ it("pays 10 Gems, refuses inside thirty minutes, and pays again after", () => {
   expect(ledger[0]).toMatchObject({ delta: 10n, balanceAfter: 10n });
 
   at(f, NOON + 17 * MINUTE_MS + 26_000);
-  expect(() => claim(f)).toThrow("Next ad in 12:34");
+  expect(() => claim(f)).toThrow("Next ad in 00:12");
   expect(balance(f)).toBe(10n);
   at(f, NOON + AD_GEM_COOLDOWN_MS - 1);
-  expect(() => claim(f)).toThrow("Next ad in 0:01");
+  expect(() => claim(f)).toThrow("Next ad in 00:01");
 
   at(f, NOON + AD_GEM_COOLDOWN_MS);
   claim(f);
@@ -53,13 +53,13 @@ it("pays four a day thirty minutes apart, refuses the fifth, and pays again afte
   // Two hours after the fourth: the cooldown is long over, the day is not.
   const fifth = NOON + 3 * AD_GEM_COOLDOWN_MS + 2 * 60 * MINUTE_MS;
   at(f, fifth);
-  expect(() => claim(f)).toThrow("No more ads today · resets in 8:30:00");
+  expect(() => claim(f)).toThrow("No more ads today · resets in 08:30");
   expect(balance(f)).toBe(40n);
 
   // 00:00 UTC, the daily Gem bonus's boundary.
   const midnight = (Math.floor(NOON / DAY_MS) + 1) * DAY_MS;
   at(f, midnight - 1);
-  expect(() => claim(f)).toThrow(/^No more ads today · resets in 0:01$/);
+  expect(() => claim(f)).toThrow(/^No more ads today · resets in 00:01$/);
   at(f, midnight);
   claim(f);
   expect(balance(f)).toBe(50n);
@@ -72,7 +72,7 @@ it("keeps the thirty minutes across midnight: a new day brings claims, not an ea
   at(f, midnight - 10 * MINUTE_MS);
   claim(f);
   at(f, midnight + 5 * MINUTE_MS);
-  expect(() => claim(f)).toThrow("Next ad in 15:00");
+  expect(() => claim(f)).toThrow("Next ad in 00:15");
   at(f, midnight + 20 * MINUTE_MS);
   claim(f);
   expect(row(f)).toMatchObject({ dayKey: utcDayKey(midnight), claimsToday: 1 });
@@ -97,7 +97,7 @@ it("keeps each account's claims to itself", () => {
   expect(row(f, first)).toMatchObject({ claimsToday: 1 });
   expect(row(f, second)).toMatchObject({ claimsToday: 1 });
   at(f, NOON + MINUTE_MS);
-  expect(() => claim(f)).toThrow("Next ad in 29:00");
+  expect(() => claim(f)).toThrow("Next ad in 00:29");
 });
 
 it("needs the controlling tab", () => {
@@ -133,7 +133,7 @@ it("cannot reset the cooldown or the day by linking a guest", () => {
   expect(row(f, guest)).toBeNull();
   expect(row(f)).toMatchObject({ dayKey: utcDayKey(NOON), claimsToday: 3 });
   expect(row(f).lastClaimAt).toEqual(new Timestamp(BigInt(NOON - MINUTE_MS) * 1000n));
-  expect(() => claim(f)).toThrow("Next ad in 29:00");
+  expect(() => claim(f)).toThrow("Next ad in 00:29");
   at(f, NOON + 29 * MINUTE_MS);
   claim(f);
   at(f, NOON + 59 * MINUTE_MS);

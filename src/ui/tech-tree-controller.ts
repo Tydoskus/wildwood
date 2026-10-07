@@ -1,4 +1,4 @@
-import { formatRemaining } from "./format-remaining";
+import { formatTimerMs } from "../../shared/timer-format";
 import {
   RESEARCH_DEFINITIONS,
   POWER_RESEARCH_IDS,
@@ -191,15 +191,6 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
   let nextRenderAt = 0;
   const completionTracker = createResearchCompletionTracker();
 
-  function formatResearchTime(milliseconds: number) {
-    const seconds = Math.max(0, Math.ceil(milliseconds / 1_000));
-    if (seconds < 60) return `${seconds}s`;
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
-    const hours = Math.floor(minutes / 60);
-    return `${hours}h ${minutes % 60}m`;
-  }
-
   function techProgress(node: TechTreeNode, ranks: ResearchRanks) {
     const rank = ranks[node.researchId];
     return {
@@ -290,7 +281,7 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     updateNotice();
     active.textContent = current
       ? activeRemaining > 0
-        ? `${RESEARCH_DEFINITIONS[current.researchId].effect} · ${formatResearchTime(activeRemaining)}`
+        ? `${RESEARCH_DEFINITIONS[current.researchId].effect} · ${formatTimerMs(activeRemaining)}`
         : `${RESEARCH_DEFINITIONS[current.researchId].effect} · FINALIZING`
       : pausedCount ? `NO RESEARCH ACTIVE · ${pausedCount} PAUSED` : "NO RESEARCH ACTIVE";
 
@@ -353,7 +344,7 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
       const timeLabel = document.createElement("span");
       timeLabel.textContent = selectedActive && activeRemaining > 0 ? "RESEARCH REMAINING" : selectedPaused ? "PAUSED · TIME LEFT" : "NEXT RESEARCH";
       const timeValue = document.createElement("strong");
-      timeValue.textContent = formatResearchTime(selectedActive && activeRemaining > 0 ? activeRemaining : selectedPaused ? pausedRemaining : duration);
+      timeValue.textContent = formatTimerMs(selectedActive && activeRemaining > 0 ? activeRemaining : selectedPaused ? pausedRemaining : duration);
       time.append(timeLabel, timeValue);
       detailContent.append(time);
     }
@@ -523,7 +514,7 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
     /** Timer for the research desk sign, formatted like the upgrade bench. */
     worldStatus: () => {
       const current = hooks.activeResearch();
-      return current ? { timer: formatRemaining(current.completesAtMs - Date.now()) } : null;
+      return current ? { timer: formatTimerMs(current.completesAtMs - Date.now()) } : null;
     },
   };
 }

@@ -1,7 +1,7 @@
 import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { chatFixture, mountChat } from "../../tests/helpers/chat-controller";
-import { CHAT_STRIKE_NOTICE, createChatMuteDisplay, formatChatMuteButton } from "./chat-mute";
+import { CHAT_STRIKE_NOTICE, createChatMuteDisplay } from "./chat-mute";
 import { canReactToMessage, createChatMessageActionsController, messageActionAvailability, type ChatMessageActionElements } from "./chat-message-actions";
 import type { ChatMuteRecord } from "../../shared/chat-mute";
 
@@ -39,25 +39,28 @@ function display(initial: ChatMuteRecord | null, visible = true) {
 }
 
 describe("chat mute display", () => {
-  it("disables the input with the countdown and shows the time left on Send, ticking each second", () => {
+  it("disables the input with the countdown and shows the time left on Send as HH:MM", () => {
     const d = display(record(NOW + 42 * 60_000 + 10_000));
     expect(d.mute.apply()).toBe(true);
     expect(d.input.disabled).toBe(true);
-    expect(d.input.placeholder).toBe("Chat muted · 42:10");
+    expect(d.input.placeholder).toBe("Chat muted · 00:42");
     expect(d.sendButton.disabled).toBe(true);
     expect(d.sendButton.classList.contains("is-muted")).toBe(true);
-    expect(d.sendButton.textContent).toBe("42:10");
+    expect(d.sendButton.textContent).toBe("00:42");
     d.advance(1_000);
-    expect(d.input.placeholder).toBe("Chat muted · 42:09");
-    expect(d.sendButton.textContent).toBe("42:09");
+    expect(d.input.placeholder).toBe("Chat muted · 00:42");
     d.advance(60_000);
-    expect(d.sendButton.textContent).toBe("41:09");
+    expect(d.sendButton.textContent).toBe("00:41");
+    d.advance(41 * 60_000 + 9_000 - 45_000);
+    expect(d.input.placeholder).toBe("Chat muted · 00:45");
+    d.advance(1_000);
+    expect(d.sendButton.textContent).toBe("00:44");
   });
 
   it("gives the composer back by itself when the mute ends", () => {
     const d = display(record(NOW + 2_500));
     d.mute.apply();
-    expect(d.sendButton.textContent).toBe("0:03");
+    expect(d.sendButton.textContent).toBe("00:03");
     d.advance(2_499);
     expect(d.input.disabled).toBe(true);
     d.advance(1);
@@ -69,13 +72,11 @@ describe("chat mute display", () => {
     expect(d.pending()).toHaveLength(0);
   });
 
-  it("shows hours on a long mute, compact on the narrow Send button", () => {
+  it("shows hours on a long mute in the same five characters", () => {
     const d = display(record(NOW + 23 * 3_600_000 + 59 * 60_000 + 59_000));
     d.mute.apply();
-    expect(d.input.placeholder).toBe("Chat muted · 23:59:59");
-    expect(d.sendButton.textContent).toBe("23h 59m");
-    expect(formatChatMuteButton(3_600_000)).toBe("1h 00m");
-    expect(formatChatMuteButton(3_599_000)).toBe("59:59");
+    expect(d.input.placeholder).toBe("Chat muted · 23:59");
+    expect(d.sendButton.textContent).toBe("23:59");
   });
 
   it("only ticks while the composer is on screen, and catches up when it returns", () => {
@@ -88,7 +89,7 @@ describe("chat mute display", () => {
     d.state.visible = true;
     expect(d.mute.stale()).toBe(true);
     d.mute.apply();
-    expect(d.sendButton.textContent).toBe("5:00");
+    expect(d.sendButton.textContent).toBe("00:05");
     expect(d.pending()).toHaveLength(1);
     // A mute that ended while hidden is picked up by the next refresh.
     d.state.visible = false; d.mute.apply();
@@ -131,8 +132,8 @@ describe("a muted player in the chat window", () => {
   it("keeps showing incoming messages while the composer is muted", () => {
     const { fixture, chat, elements, flushFrames } = mounted(() => record(NOW + 42 * 60_000 + 10_000));
     expect(elements.input.disabled).toBe(true);
-    expect(elements.input.placeholder).toBe("Chat muted · 42:10");
-    expect(elements.sendButton.textContent).toBe("42:10");
+    expect(elements.input.placeholder).toBe("Chat muted · 00:42");
+    expect(elements.sendButton.textContent).toBe("00:42");
     fixture.addPublicMessage("still readable while muted");
     chat.refresh(); flushFrames();
     expect(elements.messages.textContent).toContain("still readable while muted");
@@ -156,8 +157,8 @@ describe("a muted player in the chat window", () => {
     current = record(NOW + 3_600_000);
     chat.refresh();
     expect(elements.input.disabled).toBe(true);
-    expect(elements.input.placeholder).toBe("Chat muted · 1:00:00");
-    expect(elements.sendButton.textContent).toBe("1h 00m");
+    expect(elements.input.placeholder).toBe("Chat muted · 01:00");
+    expect(elements.sendButton.textContent).toBe("01:00");
   });
 });
 

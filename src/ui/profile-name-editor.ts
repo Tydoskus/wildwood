@@ -1,3 +1,4 @@
+import { formatTimerMs } from "../../shared/timer-format";
 import type { NameChangeStatus } from "../../shared/name-change";
 
 export function createProfileNameEditor(elements: {
@@ -23,8 +24,7 @@ export function createProfileNameEditor(elements: {
     elements.save.textContent = status.cost ? `Save · ${status.cost} Gems` : "Save · Free";
     const remaining = status.availableAtMs - status.serverNowMs - (Date.now() - receivedAt);
     if (remaining > 0) {
-      const minutes = Math.ceil(remaining / 60_000);
-      note.textContent = `Available in ${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+      note.textContent = `Available in ${formatTimerMs(remaining)}`;
     } else if (status.balance < status.cost) {
       note.textContent = `You need ${status.cost} Gems to change your name.`;
     } else {
