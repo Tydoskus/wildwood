@@ -1,4 +1,4 @@
-import { inTownInteriors, inTownVillage, TOWN_ARRIVAL, TOWN_BENCH_POSITION, TOWN_CHUNK_SIZE, TOWN_INTERIOR_MARGIN, TOWN_QUEST_BOARD_POSITION, TOWN_RESEARCH_POSITION, townChunkProps, townWindowChunks, type TownPropKind } from "../../shared/town";
+import { inTownInteriors, inTownVillage, TOWN_ARRIVAL, TOWN_BENCH_POSITION, TOWN_CHUNK_SIZE, TOWN_INTERIOR_MARGIN, TOWN_QUEST_BOARD_POSITION, TOWN_RESEARCH_POSITION, townChunkProps, townWindowChunks, type TownPropKind, TOWN_SOUL_RUNESTONE } from "../../shared/town";
 import { SOUL_ATLAS, SOUL_INTERIOR_DECOR, SOUL_VILLAGE_DECOR, type SoulFrame } from "./soul-village";
 import type { WorldDecor, WorldPath } from "./world";
 
@@ -45,11 +45,13 @@ const TOWN_INTERIOR_DECOR: readonly WorldDecor[] = [...SOUL_INTERIOR_DECOR.filte
  * The square's signpost, just east of where every traveller lands (on open cobbles, clear of the fountain,
  * the barn's hay and the doors): its plank, labelled Travel, points up the road to the travel portal.
  */
+/** The rune stone beside the Soul Dimension's portal (the pack's RuneStone_01, in the countryside's atlas). */
+export const TOWN_RUNESTONE: WorldDecor = { type: "soulProp", frame: "RuneStone_01", s: .8, ...TOWN_SOUL_RUNESTONE };
 export const TOWN_SIGNPOST: WorldDecor = { type: "soulProp", frame: "", s: 1, x: TOWN_ARRIVAL.x + 230, y: TOWN_ARRIVAL.y - 10, signpost: "Travel" };
 
 /** Every prop in the chunk window around a point: the village's and its rooms' when they are near, and the countryside's. */
 export function townWindowDecor(x: number, y: number): WorldDecor[] {
-  const decor: WorldDecor[] = inTownVillage(x, y, TOWN_CHUNK_SIZE * 2.5) ? [...SOUL_VILLAGE_DECOR, TOWN_SIGNPOST] : [];
+  const decor: WorldDecor[] = inTownVillage(x, y, TOWN_CHUNK_SIZE * 2.5) ? [...SOUL_VILLAGE_DECOR, TOWN_SIGNPOST, TOWN_RUNESTONE] : [];
   if (inTownInteriors(x, y, TOWN_INTERIOR_MARGIN)) decor.push(...TOWN_INTERIOR_DECOR);
   for (const { cx, cy } of townWindowChunks(x, y)) {
     for (const prop of townChunkProps(cx, cy)) {

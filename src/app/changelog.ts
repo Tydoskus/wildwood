@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.900.2": [
+    "The Town's Travel and Soul Dimension portals stand at the very ends of their roads",
+    "A rune stone marks the Soul Dimension's portal",
+  ],
   "0.900.1": [
     "Soul Dimension tiers no longer ask for attack speed enemy kills: Damage, Health, Armor and Regen enemies, found on every map, are enough",
   ],
@@ -2925,6 +2929,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.900.2": "2026-10-06",
   "0.900.1": "2026-10-06",
   "0.900.0": "2026-10-06",
   "0.899.13": "2026-10-06",

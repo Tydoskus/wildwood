@@ -38,10 +38,15 @@ export const TOWN_WALK_AREA = Object.freeze({
 
 type Pad = { x: number; y: number; width: number; height: number; depth: number };
 const pad = (dx: number, dy: number): Pad => Object.freeze({ x: TOWN_CENTER.x + dx, y: TOWN_CENTER.y + dy, width: 150, height: 150, depth: TOWN_CENTER.y + dy });
-/** The travel portal, where the village's top road leaves it: it opens the map picker. */
-export const TOWN_TRAVEL_PORTAL = Object.freeze({ ...pad(-1_225, -1_215), label: "Travel" });
-/** The Soul Dimension's portal, where the bottom road leaves the village past the bridge. */
-export const TOWN_SOUL_PORTAL = Object.freeze({ ...pad(-610, 1_880), destination: "soul_dimension" as const, label: "Soul Dimension" });
+/**
+ * The travel portal, at the very end of the village's top road (where its dirt meets the ground's north edge),
+ * standing on it with its arch over the grass beyond: it opens the map picker.
+ */
+export const TOWN_TRAVEL_PORTAL = Object.freeze({ ...pad(-1_220, -1_365), label: "Travel" });
+/** The Soul Dimension's portal, at the very end of the bottom road past the bridge, where it meets the south edge. */
+export const TOWN_SOUL_PORTAL = Object.freeze({ ...pad(-609, 1_985), destination: "soul_dimension" as const, label: "Soul Dimension" });
+/** The rune stone that marks the Soul Dimension's portal, beside it. */
+export const TOWN_SOUL_RUNESTONE = Object.freeze({ x: TOWN_SOUL_PORTAL.x + 118, y: TOWN_SOUL_PORTAL.y - 6 });
 
 /** A seeded random stream from whole-number parts: the countryside is laid from it, the same on every client. */
 export function townRandom(...parts: number[]) {

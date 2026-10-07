@@ -27,3 +27,13 @@ it("has its portals on the village's roads, inside the walls, and its rooms far 
   expect(TOWN_SOUL_PORTAL.y).toBeGreaterThan(TOWN_CENTER.y);
   for (const door of TOWN_DOORS) expect(door.room.top - TOWN_WALK_AREA.bottom).toBeGreaterThan(3_000);
 });
+
+it("stands both portals at the very ends of their roads, and the rune stone beside the Soul Dimension's", async () => {
+  const { TOWN_SOUL_RUNESTONE } = await import("./town");
+  // The roads leave the village ground at its north and south edges (TOWN_VILLAGE_BOUNDS is that ground, a little inside).
+  expect(TOWN_TRAVEL_PORTAL.y).toBeLessThan(TOWN_CENTER.y - 1_350);
+  expect(TOWN_SOUL_PORTAL.y).toBeGreaterThan(TOWN_CENTER.y + 1_970);
+  const fromPortal = Math.hypot(TOWN_SOUL_RUNESTONE.x - TOWN_SOUL_PORTAL.x, TOWN_SOUL_RUNESTONE.y - TOWN_SOUL_PORTAL.y);
+  expect(fromPortal).toBeGreaterThan(TOWN_SOUL_PORTAL.width / 2);
+  expect(fromPortal).toBeLessThan(200);
+});

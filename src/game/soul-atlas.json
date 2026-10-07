@@ -1,6 +1,6 @@
 {
  "width": 2048,
- "height": 778,
+ "height": 908,
  "frames": {
   "Birch_01_Green": {
    "x": 174,
@@ -393,6 +393,14 @@
    "h": 49,
    "ax": 21,
    "ay": 46
+  },
+  "RuneStone_01": {
+   "x": 0,
+   "y": 780,
+   "w": 82,
+   "h": 128,
+   "ax": 41,
+   "ay": 122
   },
   "Small_Tree_01_Green": {
    "x": 1357,
