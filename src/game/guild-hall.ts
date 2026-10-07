@@ -36,12 +36,19 @@ export const GUILD_HALL_INTERIOR_LEFT = scene.interiorLeft;
 export const guildHallDoorState = { open: false };
 /** The hall's badge (its index in GUILD_EMBLEMS, -1 until the guild is known) and seats now: set by the runtime, drawn by the renderer. */
 export const guildHallShown: { emblem: number; size: number; seats: readonly GuildHallSeat[] } = { emblem: -1, size: 0, seats: [] };
-/** How close a standing player's feet must be to a seat to be sitting in it. */
-export const GUILD_HALL_SEATED_WITHIN = 4;
-/** The seat a player standing at this position (their feet a FEET_OFFSET below it) is sitting in, if any. */
+/**
+ * How close a standing player's feet must be to a seat to be sitting in it. Sitting is drawn, never moved: every
+ * client draws everyone from the positions it already has, so a sitter needs no packet the server would weigh.
+ */
+export const GUILD_HALL_SEATED_WITHIN = 26;
+/** The nearest seat a player standing with their feet here is sitting in, if any. */
 export function guildHallSeatAt(x: number, feetY: number) {
-  for (const seat of guildHallShown.seats) if (Math.abs(seat.x - x) <= GUILD_HALL_SEATED_WITHIN && Math.abs(seat.y - feetY) <= GUILD_HALL_SEATED_WITHIN) return seat;
-  return null;
+  let nearest: GuildHallSeat | null = null, distance = GUILD_HALL_SEATED_WITHIN;
+  for (const seat of guildHallShown.seats) {
+    const d = Math.hypot(seat.x - x, seat.y - feetY);
+    if (d < distance) { nearest = seat; distance = d; }
+  }
+  return nearest;
 }
 
 type Prop = (typeof scene.props)[number] & { open?: number; door?: number; ground?: boolean; shadow?: boolean;

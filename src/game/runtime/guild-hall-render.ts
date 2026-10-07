@@ -13,17 +13,19 @@ export const GUILD_HALL_SEAT_FACING: Readonly<Record<GuildHallSeat["side"], numb
 export const seatedAt = (x: number, y: number) => guildHallShown.seats.length ? guildHallSeatAt(x, y + GUILD_HALL_FEET_OFFSET) : null;
 
 /**
- * Draws someone sitting at the great table: their legs (under the table top or
- * on the stool) cut away and the body lowered onto the seat. `screenY` is
- * their position on screen; anyone not seated is drawn as they are.
+ * Draws someone sitting at the great table: moved onto the seat, their legs
+ * (under the table top or on the stool) cut away and the body lowered onto it.
+ * `x`, `y` are their world position and `screenY` where that is on screen;
+ * anyone not seated is drawn as they are.
  */
-export function drawSeated(ctx: CanvasRenderingContext2D, screenY: number, seated: boolean, draw: () => void) {
-  if (!seated) { draw(); return; }
+export function drawSeated(ctx: CanvasRenderingContext2D, x: number, y: number, screenY: number, seat: GuildHallSeat | null, draw: () => void) {
+  if (!seat) { draw(); return; }
+  const dx = seat.x - x, dy = seat.y - GUILD_HALL_FEET_OFFSET - y;
   ctx.save();
   ctx.beginPath();
-  ctx.rect(-1e5, -1e5, 2e5, 1e5 + screenY + SIT_CLIP);
+  ctx.rect(-1e5, -1e5, 2e5, 1e5 + screenY + dy + SIT_CLIP);
   ctx.clip();
-  ctx.translate(0, SIT_DROP);
+  ctx.translate(dx, dy + SIT_DROP);
   draw();
   ctx.restore();
 }

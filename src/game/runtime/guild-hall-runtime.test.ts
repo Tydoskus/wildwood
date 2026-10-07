@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { EMPTY_GUILD_HALL_LEVELS, GUILD_HALL_DOOR, GUILD_HALL_FEET_OFFSET, guildHallRoom, type GuildHallLevels } from "../../../shared/guild-hall";
-import { guildHallBoard, guildHallDoorState, guildHallSeats, guildHallShown } from "../guild-hall";
+import { guildHallBoard, guildHallDoorState, guildHallSeatAt, guildHallSeats, guildHallShown } from "../guild-hall";
 import type { MapId, WorldDecor } from "../world";
 import { createGuildHallRuntime } from "./guild-hall-runtime";
 import type { PlayerState } from "./types";
@@ -52,17 +52,19 @@ it("opens the door as a member walks up, takes them in on the dark, and out of t
   expect([h.player.x, h.player.y]).toEqual([GUILD_HALL_DOOR.outside.x, GUILD_HALL_DOOR.outside.y]);
 });
 
-it("sits a player down when they stop by a seat, facing the table", () => {
+it("sits a player down when they stop by a seat, facing the table, without moving them", () => {
   const h = hall();
   h.step();
   const [north] = guildHallSeats(EMPTY_GUILD_HALL_LEVELS).filter(seat => seat.side === "north");
   const south = guildHallSeats(EMPTY_GUILD_HALL_LEVELS).find(seat => seat.side === "south")!;
   Object.assign(h.player, { x: south.x + 10, y: south.y - GUILD_HALL_FEET_OFFSET + 8, moving: true });
   h.step();
-  expect(h.player.x).toBe(south.x + 10);
+  expect(h.player.facing).toBe(0);
   h.player.moving = false;
   h.step();
-  expect([h.player.x, h.player.y]).toEqual([south.x, south.y - GUILD_HALL_FEET_OFFSET]);
+  // The renderer draws them on the seat; their position, which other players see too, stays theirs.
+  expect([h.player.x, h.player.y]).toEqual([south.x + 10, south.y - GUILD_HALL_FEET_OFFSET + 8]);
+  expect(guildHallSeatAt(h.player.x, h.player.y + GUILD_HALL_FEET_OFFSET)).toEqual(south);
   expect(h.player.facing).toBeCloseTo(-Math.PI / 2);
   Object.assign(h.player, { x: north.x - 6, y: north.y - GUILD_HALL_FEET_OFFSET });
   h.step();

@@ -3501,8 +3501,9 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
     }
     const normalizedMapId = canonicalMapId(existing.mapId);
     const entryMapId = VALID_MAP_IDS.has(normalizedMapId) && (!isSoulMap(normalizedMapId) || soulDimensionOpenFor(ctx, ctx.sender))
-      && (!isGuildHallMap(normalizedMapId) || guildHallMember(ctx, ctx.sender, normalizedMapId)) ? normalizedMapId : TUTORIAL_FOREST_MAP_ID;
-    const fallbackPosition = MAP_ARRIVALS[entryMapId as keyof typeof MAP_ARRIVALS] ?? PLAYER_SPAWN;
+      && (!isGuildHallMap(normalizedMapId) || guildHallMember(ctx, ctx.sender, normalizedMapId)) ? normalizedMapId
+      : isSoulMap(normalizedMapId) || isGuildHallMap(normalizedMapId) ? HOME_EXTERIOR_MAP_ID : TUTORIAL_FOREST_MAP_ID;
+    const fallbackPosition = entryMapId === HOME_EXTERIOR_MAP_ID ? HOME_EXTERIOR_SPAWN : MAP_ARRIVALS[entryMapId as keyof typeof MAP_ARRIVALS] ?? PLAYER_SPAWN;
     const entryPosition = entryMapId === normalizedMapId
       ? {
         x: Math.max(PLAYER_RADIUS, Math.min(worldBoundsFor(entryMapId).width - PLAYER_RADIUS, existing.x)),
@@ -5779,9 +5780,8 @@ function transitionPlayerMap(
   arrival: { x: number; y: number },
   facing = current.facing,
 ) {
-  if (ctx.db.playerMotionInterest.identity.find(current.identity)) {
-    ctx.db.playerMotionInterest.identity.delete(current.identity);
-  }
+  // Through a door on the same map (Soul village, guild hall) the client keeps its interest and never resends it.
+  if (mapId !== current.mapId && ctx.db.playerMotionInterest.identity.find(current.identity)) ctx.db.playerMotionInterest.identity.delete(current.identity);
   const currentMotion = ctx.db.playerMotion.identity.find(current.identity);
   const nextPlayer = {
     ...current,
@@ -5805,8 +5805,8 @@ function transitionPlayerMap(
   syncPlayerMotionIdentity(ctx, nextPlayer, { motion });
   syncPlayerMapMarker(ctx, nextPlayer, true);
   ensureRealtimeFrameSchedules(ctx);
-  // Home has no enemies: nothing reads a pin there, and the old pin still fits on the way back.
-  if (mapId !== HOME_EXTERIOR_MAP_ID) pinMapBalance(ctx, mapId);
+  // Home and guild halls have no enemies: nothing reads a pin there, and the old pin still fits on the way back.
+  if (mapId !== HOME_EXTERIOR_MAP_ID && !isGuildHallMap(mapId)) pinMapBalance(ctx, mapId);
   recordAnalyticsMapVisit(ctx, mapId);
   return nextPlayer;
 }

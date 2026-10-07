@@ -204,17 +204,13 @@ const bushes = [];
 for (const name of ["Bush_01_Green", "Bush_03_Green", "Bush_05_Green"]) bushes.push(await compose(name, { scale: .6 }));
 let seed = 11;
 const random = () => { seed = (seed * 1_103_515_245 + 12_345) >>> 0; return seed / 4_294_967_296; };
-// A wood all round: rows of trees beyond the yard, and solid, so the yard is the place to be.
-for (let x = 120; x <= 1480; x += 130) for (const y of [380, 2060]) {
-  const tree = treeImages[Math.floor(random() * treeImages.length)];
-  // The portal home stands at the path's end: keep the trees off it.
-  if (y > 2000 && Math.abs(x - HALL_X) < 220) continue;
-  putPrefab(tree, x + random() * 40 - 20, y + random() * 30);
-}
-for (let y = 460; y <= 1980; y += 130) for (const x of [150, 1450]) {
-  const tree = treeImages[Math.floor(random() * treeImages.length)];
-  putPrefab(tree, x + random() * 40 - 20, y + random() * 30);
-}
+// A wood all round, evenly spaced: rows of trees beyond the yard, and solid, so the yard is the place to be.
+let treeIndex = 0;
+const nextTree = () => treeImages[treeIndex++ % treeImages.length];
+for (let x = 200; x <= 1400; x += 120) putPrefab(nextTree(), x + random() * 16 - 8, 400 + random() * 12);
+// The portal home stands at the path's end: keep the trees off it.
+for (let x = 200; x <= 1400; x += 120) if (Math.abs(x - HALL_X) >= 220) putPrefab(nextTree(), x + random() * 16 - 8, 2060 + random() * 12);
+for (let y = 540; y <= 1920; y += 140) for (const x of [160, 1440]) putPrefab(nextTree(), x + random() * 12 - 6, y + random() * 12);
 block(0, 0, 1600, 420); block(0, 2040, 1600, 2400); block(0, 0, 200, 2400); block(1400, 0, 1600, 2400);
 for (const [x, y] of [[PLAZA.left - 60, PLAZA.top + 160], [PLAZA.right + 60, PLAZA.top + 160], [PLAZA.left - 70, PLAZA.bottom - 120], [PLAZA.right + 70, PLAZA.bottom - 120]]) {
   putPrefab(bushes[Math.floor(random() * bushes.length)], x, y);
@@ -235,40 +231,50 @@ putPrefab(fountain, HALL_X, fountainY, { when: when(["courtyard", 2, 9]) });
   for (let i = 0; i < 16; i++) points.push(HALL_X + Math.cos(i / 16 * Math.PI * 2) * r, fountainY - 22 + Math.sin(i / 16 * Math.PI * 2) * r * .55);
   solids.push({ points: points.map(Math.round), when: when(["courtyard", 2, 9]) });
 }
-// Grass and a few stones, always, for texture.
-const tufts = [];
-for (const name of ["Grass_01_Green", "Grass_03_Green", "Grass_05_Green", "Grass_08_Green"]) tufts.push((await compose(name, { scale: .6 })).body);
-for (let i = 0; i < 90; i++) {
-  const x = 220 + random() * 1160, y = 460 + random() * 1560;
-  const onStone = (x > PLAZA.left - 20 && x < PLAZA.right + 20 && y > PLAZA.top - 20 && y < PLAZA.bottom + 20) || (x > PATH.left - 20 && x < PATH.right + 20 && y > PATH.top - 20);
-  if (onStone || Math.abs(x - HALL_X) < 300 && y < HALL_BASE + 40) continue;
-  put(tufts[Math.floor(random() * tufts.length)], x, y, { ground: true });
-}
-
-// The yard's ground: grass, and cobbles laid in front of the hall and down to the portal.
-function cobbles(w, h, seedValue) {
-  let state = seedValue;
-  const next = () => { state = (state * 1_103_515_245 + 12_345) >>> 0; return state / 4_294_967_296; };
-  const fills = ["#b9ab93", "#ad9f88", "#c3b59c", "#a69a84"];
-  const stones = [];
-  for (let y = 0, row = 0; y < h; y += 30, row++) {
-    for (let x = row % 2 ? -18 : 0; x < w; x += 38) {
-      const jx = next() * 6 - 3, jy = next() * 4 - 2, sw = 32 + next() * 6, sh = 24 + next() * 4;
-      stones.push(`<rect x="${(x + jx).toFixed(1)}" y="${(y + jy).toFixed(1)}" width="${sw.toFixed(1)}" height="${sh.toFixed(1)}" rx="9" fill="${fills[Math.floor(next() * fills.length)]}" stroke="#6c6152" stroke-width="2.5"/>`);
-    }
-  }
-  return stones.join("");
-}
+// The yard's ground, in the Soul village's own colours (sampled from village-ground.webp): its field and lighter
+// patches of grass, one soft-edged dirt yard in front of the hall and down to the portal, pebbles laid at its heart.
+const GRASS = "#54783c", GRASS_LIGHT = "#60844c", DIRT = "#b89474", DIRT_MARK = "#a8845f", DIRT_EDGE = "#7c6044";
+const PEBBLE = ["#a9a59c", "#9d998f", "#b3afa5"], PEBBLE_EDGE = "#7c776e";
 const groundScale = .5;
 {
   const W = EXTERIOR.right - EXTERIOR.left, H = EXTERIOR.bottom - EXTERIOR.top;
-  const shape = (left, top, right, bottom, body) => `<g transform="translate(${left - EXTERIOR.left} ${top - EXTERIOR.top})"><clipPath id="c${left}${top}"><rect width="${right - left}" height="${bottom - top}" rx="26"/></clipPath>
-    <rect x="-4" y="-4" width="${right - left + 8}" height="${bottom - top + 8}" rx="30" fill="#5a4c3c"/><g clip-path="url(#c${left}${top})"><rect width="${right - left}" height="${bottom - top}" fill="#8d806c"/>${body}</g></g>`;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><rect width="${W}" height="${H}" fill="#61864e"/>
-    ${shape(PLAZA.left, PLAZA.top, PLAZA.right, PLAZA.bottom, cobbles(PLAZA.right - PLAZA.left, PLAZA.bottom - PLAZA.top, 3))}
-    ${shape(PATH.left, PATH.top - 30, PATH.right, PATH.bottom, cobbles(PATH.right - PATH.left, PATH.bottom - PATH.top + 30, 5))}
-    <ellipse cx="${HALL_X - EXTERIOR.left}" cy="${PATH.bottom - 40 - EXTERIOR.top}" rx="130" ry="70" fill="#5a4c3c"/>
-    <ellipse cx="${HALL_X - EXTERIOR.left}" cy="${PATH.bottom - 40 - EXTERIOR.top}" rx="124" ry="64" fill="#a39581" stroke="#6c6152" stroke-width="3"/></svg>`;
+  const X = x => x - EXTERIOR.left, Y = y => y - EXTERIOR.top;
+  let state = 29;
+  const next = () => { state = (state * 1_103_515_245 + 12_345) >>> 0; return state / 4_294_967_296; };
+  const yard = [
+    `<rect x="${X(470)}" y="${Y(690)}" width="660" height="520" rx="90"/>`,
+    `<rect x="${X(400)}" y="${Y(830)}" width="800" height="250" rx="80"/>`,
+    `<rect x="${X(728)}" y="${Y(1150)}" width="144" height="760" rx="44"/>`,
+    `<ellipse cx="${X(HALL_X)}" cy="${Y(PATH.bottom - 40)}" rx="140" ry="82"/>`,
+  ].join("");
+  const patches = [[250, 560, 190, 150], [1160, 1260, 200, 190], [260, 1440, 210, 170]]
+    .map(([x, y, w, h]) => `<rect x="${X(x)}" y="${Y(y)}" width="${w}" height="${h}" rx="34" fill="${GRASS_LIGHT}"/>`).join("");
+  const marks = [];
+  for (let i = 0; i < 160; i++) {
+    const x = 220 + next() * 1160, y = 460 + next() * 1560;
+    marks.push(`<path d="M${X(x) - 5} ${Y(y) - 3}L${X(x)} ${Y(y) + 2}L${X(x) + 5} ${Y(y) - 3}" fill="none" stroke="${GRASS_LIGHT}" stroke-width="2.5" stroke-linecap="round"/>`);
+  }
+  for (let i = 0; i < 70; i++) {
+    const x = 480 + next() * 640, y = 760 + next() * 1120;
+    const inYard = (x > 470 && x < 1130 && y < 1200) || (x > 735 && x < 865);
+    if (inYard) marks.push(`<path d="M${X(x) - 8} ${Y(y)}H${X(x) + 8}" stroke="${DIRT_MARK}" stroke-width="2.5" stroke-linecap="round" stroke-opacity=".6"/>`);
+  }
+  const pebbles = [];
+  const pebble = (x, y, r) => pebbles.push(`<ellipse cx="${X(x).toFixed(1)}" cy="${Y(y).toFixed(1)}" rx="${(r * 1.25).toFixed(1)}" ry="${r.toFixed(1)}" fill="${PEBBLE[Math.floor(next() * PEBBLE.length)]}" stroke="${PEBBLE_EDGE}" stroke-width="2"/>`);
+  // The heart of the yard, before the door: an even oval of pebbles, as the village square has them.
+  for (let y = 1000 - 120; y <= 1000 + 120; y += 17) for (let x = HALL_X - 200 + (Math.round(y / 17) % 2) * 9; x <= HALL_X + 200; x += 19) {
+    if (((x - HALL_X) / 200) ** 2 + ((y - 1000) / 120) ** 2 > 1) continue;
+    pebble(x + next() * 6 - 3, y + next() * 5 - 2.5, 5 + next() * 2.5);
+  }
+  // A line of them down the path, and round the portal's pad.
+  for (let y = 1120; y < PATH.bottom - 100; y += 16) pebble(HALL_X + next() * 30 - 15, y + next() * 6, 4 + next() * 3);
+  for (let i = 0; i < 40; i++) { const angle = i / 40 * Math.PI * 2; pebble(HALL_X + Math.cos(angle) * 112, PATH.bottom - 40 + Math.sin(angle) * 62, 4 + next() * 3); }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+    <defs><filter id="fringe" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency=".35" numOctaves="1" seed="4"/>
+      <feDisplacementMap in="SourceGraphic" scale="5" xChannelSelector="R" yChannelSelector="G"/></filter></defs>
+    <rect width="${W}" height="${H}" fill="${GRASS}"/>${patches}
+    <g filter="url(#fringe)"><g fill="${DIRT_EDGE}" stroke="${DIRT_EDGE}" stroke-width="10">${yard}</g><g fill="${DIRT}">${yard}</g></g>
+    ${marks.join("")}${pebbles.join("")}</svg>`;
   const full = await sharp(Buffer.from(svg)).png().toBuffer();
   mkdirSync(join(root, "public/assets/wildstat/guild-hall"), { recursive: true });
   await sharp(full).resize(Math.round(W * groundScale), Math.round(H * groundScale)).webp({ quality: 88, effort: 6 }).toFile(join(root, "public/assets/wildstat/guild-hall/hall-ground.webp"));

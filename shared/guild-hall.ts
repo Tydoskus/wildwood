@@ -75,6 +75,8 @@ export const GUILD_HALL_ROOMS = geometry.rooms.map(room => {
   return Object.freeze({ left: x, top: y, right: x + w, bottom: y + h, exit: room.exit,
     inside: { x: room.exit.x, y: room.exit.y - 60 - GUILD_HALL_FEET_OFFSET } });
 });
+/** Everything east of this is indoors: the great hall's rooms and the dark round them. */
+export const GUILD_HALL_INDOORS_LEFT = Math.min(...GUILD_HALL_ROOMS.map(room => room.left)) - 400;
 /** The room of a hall this size. */
 export const guildHallRoom = (size: number) => GUILD_HALL_ROOMS[Math.max(0, Math.min(GUILD_HALL_ROOMS.length - 1, size))];
 /**

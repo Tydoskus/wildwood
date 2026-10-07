@@ -1,7 +1,7 @@
 import {
   EMPTY_GUILD_HALL_LEVELS, GUILD_HALL_DOOR, GUILD_HALL_FEET_OFFSET, guildHallGuildId, guildHallRoom, isGuildHallMap, type GuildHallLevels,
 } from "../../../shared/guild-hall";
-import { guildHallBoard, guildHallDecor, guildHallDoorState, guildHallSeats, guildHallShown, guildHallSolids, type GuildHallSeat } from "../guild-hall";
+import { guildHallBoard, guildHallDecor, guildHallDoorState, guildHallSeatAt, guildHallSeats, guildHallShown, guildHallSolids } from "../guild-hall";
 import type { SoulSolid } from "../soul-village";
 import type { MapId, WorldDecor } from "../world";
 import { pushOutOf } from "./soul-dimension-runtime";
@@ -18,8 +18,6 @@ const FEET_RADIUS = 12;
 const DOOR_OPEN_RANGE = 120;
 /** Going through: a few steps into the doorway while the screen goes dark. */
 const DOORWAY_STEP = 22, DOORWAY_MS = 240;
-/** Standing still with feet this near a seat sits down in it. */
-const SIT_RANGE = 26;
 /** Feet this near the upgrade board open it. */
 const BOARD_RANGE = 55;
 /** Sitting faces the table: north seats look down at it, south seats up. Facing is an angle, y down. */
@@ -134,20 +132,12 @@ export function createGuildHallRuntime(deps: {
     if (inRoom && heading > 0 && Math.abs(feetX - room.exit.x) < room.exit.half && feetY > room.exit.y + 4) startDoorway(false);
   }
 
-  /** Standing still by a seat sits down in it: on its spot, facing the table. */
+  /** Standing still by a seat sits down in it, facing the table (the renderer draws them on the seat itself). */
   function checkSeat() {
     const { player } = deps;
     if (player.moving || player.hp <= 0) return;
-    const feetY = player.y + FEET_OFFSET;
-    let nearest: GuildHallSeat | null = null, distance = SIT_RANGE;
-    for (const seat of guildHallShown.seats) {
-      const d = Math.hypot(seat.x - player.x, seat.y - feetY);
-      if (d < distance) { nearest = seat; distance = d; }
-    }
-    if (!nearest) return;
-    player.x = nearest.x;
-    player.y = nearest.y - FEET_OFFSET;
-    player.facing = SEAT_FACING[nearest.side];
+    const seat = guildHallSeatAt(player.x, player.y + FEET_OFFSET);
+    if (seat) player.facing = SEAT_FACING[seat.side];
   }
 
   function checkBoard() {

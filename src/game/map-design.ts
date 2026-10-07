@@ -221,7 +221,7 @@ export function savedMapName(mapId: string) {
 }
 
 /** Every guild hall's: the courtyard's grass round its baked ground. */
-const GUILD_HALL_THEME: MapVisualTheme = { ground: "#61864e", path: "#b89070", pathDetail: "rgba(120,80,50,.15)", decorColors: {} };
+const GUILD_HALL_THEME: MapVisualTheme = { ground: "#54783c", path: "#b89070", pathDetail: "rgba(120,80,50,.15)", decorColors: {} };
 
 export function mapVisualTheme(mapId: MapId): MapVisualTheme {
   const cached = resolvedThemeCache.get(mapId);

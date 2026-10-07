@@ -1,7 +1,7 @@
 import { HOME_EXTERIOR_MAP_ID, HOME_WORLD_HEIGHT, HOME_WORLD_WIDTH } from "./home";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "./rules";
-import { SOUL_MAP_ID, SOUL_WORLD_SIZE } from "./soul-dimension";
-import { GUILD_HALL_WORLD, isGuildHallMap } from "./guild-hall";
+import { inSoulInteriors, SOUL_MAP_ID, SOUL_WORLD_SIZE } from "./soul-dimension";
+import { GUILD_HALL_INDOORS_LEFT, GUILD_HALL_WORLD, isGuildHallMap } from "./guild-hall";
 
 export type WorldBounds = { width: number; height: number };
 const CAMPAIGN_BOUNDS: WorldBounds = Object.freeze({ width: WORLD_WIDTH, height: WORLD_HEIGHT });
@@ -21,3 +21,15 @@ export function worldBoundsFor(mapId: string | null | undefined): WorldBounds {
 }
 /** Whether a map's positions need the wide (u32) motion format. */
 export const wideMotionMap = (mapId: string | null | undefined) => mapId === SOUL_MAP_ID;
+
+/**
+ * Whether a point is indoors: behind a door, in the rooms a map keeps far from
+ * its open ground (the Soul village's houses, a guild hall's great hall). Maps
+ * without doors are all outdoors. Someone on the other side of a door went
+ * through it, so they are not walked across the dark between.
+ */
+export function indoors(mapId: string | null | undefined, x: number, y: number) {
+  if (mapId === SOUL_MAP_ID) return inSoulInteriors(x, y);
+  if (isGuildHallMap(mapId)) return x >= GUILD_HALL_INDOORS_LEFT;
+  return false;
+}

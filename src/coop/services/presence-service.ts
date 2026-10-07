@@ -1,4 +1,5 @@
 import { isSoulMap } from "../../../shared/soul-dimension";
+import { indoors } from "../../../shared/world-bounds";
 import { isGuildHallMap } from "../../../shared/guild-hall";
 import { worldBoundsFor } from "../../../shared/world-bounds";
 import { parseReleaseWindow } from "../../../shared/release-window";
@@ -839,7 +840,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     return { pose: puppetPoseAt(puppet.plan, puppet.legs, serverNow), simulationX: simulation.x, simulationY: simulation.y };
   }
 
-  /** Draws the nearest figures toward their targets: placed when first seen, walked ever after. */
+  /** Draws the nearest figures toward their targets: placed when first seen or through a door, walked ever after. */
   function drawFigures(targets: Map<string, FigureTarget>, now: number, serverNow: number, out: RemotePlayer[]) {
     const origin = localState;
     const ordered = [...targets].sort(([, a], [, b]) => origin
@@ -856,7 +857,10 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         figures.set(identity, shown = { figure, drawnAt: now, presentation });
       } else {
         if (shown.presentation !== presentation) { applyPresentation(shown.figure, presentation); shown.presentation = presentation; }
-        walkFigure(shown.figure, target.pose, Math.min(.25, Math.max(0, (now - shown.drawnAt) / 1_000)));
+        // Through a door: in at one and out of the other, not a walk across the dark between (shared/world-bounds.ts).
+        if (indoors(currentMapId, shown.figure.x, shown.figure.y) !== indoors(currentMapId, target.pose.x, target.pose.y)) {
+          Object.assign(shown.figure, { x: target.pose.x, y: target.pose.y, facing: target.pose.facing, moving: target.pose.moving });
+        } else walkFigure(shown.figure, target.pose, Math.min(.25, Math.max(0, (now - shown.drawnAt) / 1_000)));
         shown.drawnAt = now;
       }
       Object.assign(shown.figure, { simulationX: target.simulationX, simulationY: target.simulationY, throwClock: undefined });

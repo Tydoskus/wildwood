@@ -360,9 +360,9 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       // Anyone standing still at a guild hall's table is drawn sitting at it.
       drawRemotePlayer: remote => {
         const seat = remote.moving ? null : seatedAt(remote.x, remote.y);
-        drawSeated(options.ctx, remote.y - options.camera.y, Boolean(seat), () => actor.drawRemotePlayer(seat ? { ...remote, facing: GUILD_HALL_SEAT_FACING[seat.side] } : remote));
+        drawSeated(options.ctx, remote.x, remote.y, remote.y - options.camera.y, seat, () => actor.drawRemotePlayer(seat ? { ...remote, facing: GUILD_HALL_SEAT_FACING[seat.side] } : remote));
       },
-      drawPlayer: () => drawSeated(options.ctx, options.player.y - options.camera.y, !options.player.moving && Boolean(seatedAt(options.player.x, options.player.y)), () => drawSoulWellFall(options.ctx, options.player.x - options.camera.x, options.player.y - options.camera.y, options.player.y,
+      drawPlayer: () => drawSeated(options.ctx, options.player.x, options.player.y, options.player.y - options.camera.y, options.player.moving ? null : seatedAt(options.player.x, options.player.y), () => drawSoulWellFall(options.ctx, options.player.x - options.camera.x, options.player.y - options.camera.y, options.player.y,
         () => drawHomeTeleport(options.ctx, options.player.x - options.camera.x, options.player.y - options.camera.y, () => actor.drawPlayer(
           frame.localIdentity(),
           options.publicPlayerName(frame.localIdentity(), frame.localDisplayName()),

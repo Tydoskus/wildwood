@@ -9,7 +9,7 @@ const { encodePlayerMapFrame } = await import("../../../shared/player-motion-fra
 const me = new Identity("1".repeat(64)), farmer = new Identity("2".repeat(64)), walker = new Identity("3".repeat(64));
 const sites = [500, 900, 1300].map(x => ({ x, y: 600, type: "Bramble", campName: "Damage Camp", definition: { reward: { type: "damage" } } }));
 
-function harness() {
+function harness(mapId = "tutorial_forest") {
   const sent: { label: string; args?: unknown }[] = [];
   const handlers: Record<string, (ctx: unknown, ...rows: any[]) => void> = {};
   const connection: any = {
@@ -39,7 +39,7 @@ function harness() {
       sendReducer: (_label: string, run: (c: unknown) => void, _reject: unknown, accept?: () => void) => { run(connection); accept?.(); } },
     changes: { notify() {}, batch: (run: () => void) => run() },
   } as any);
-  presence.tables.upsertPlayer({ identity: me, mapId: "tutorial_forest", x: 100, y: 600, speed: 200, facing: 0, moving: false,
+  presence.tables.upsertPlayer({ identity: me, mapId, x: 100, y: 600, speed: 200, facing: 0, moving: false,
     motionEpoch: 1, lastInputSequence: 1, isVisible: true, controllerTabId: "tab" });
   return { presence, sent, handlers };
 }
@@ -156,4 +156,26 @@ it("draws everyone on the map, not only the nearest few, and walks every change 
     startedAt: new Timestamp(BigInt(Math.round(clock)) * 1_000n) });
   frames(120);
   expect(fastest).toBeLessThanOrEqual(150 / 30 + 1.01);
+});
+
+it("shows a guildmate going through the hall's door at the other side of it, but walks every other gap", () => {
+  const hall = "guild_hall_4";
+  const { presence } = harness(hall);
+  presence.api.setRemotePlayersVisible(true);
+  presence.tables.upsertMotionIdentity({ networkId: 10, identity: walker, mapId: hall, isVisible: true, zoneX: 0, zoneY: 0,
+    displayName: "Walker", profileIcon: 0, playerSprite: 0, skinTone: 0, isGuest: false, gender: 0, speed: 150, powerLevel: 1,
+    feetItem: "", headItem: "", chestItem: "", rightHandItem: "", leftHandItem: "" });
+  presence.api.syncMovementState(100, 600, 0, 0, "keyboard", false, undefined, { group: null, camp: null, sites });
+  const frame = (x: number, y: number) => presence.tables.upsertPlayerMapFrame({ mapId: hall, emittedAt: new Timestamp(BigInt(Math.round(clock)) * 1_000n),
+    playerCount: 1, payload: encodePlayerMapFrame([{ networkId: 10, x, y }]) });
+  const where = () => presence.api.remotePlayers().find(p => p.id === walker.toHexString())!;
+  const tick = () => { clock += 1_000 / 30; return where(); };
+  frame(800, 780);
+  expect(where()).toMatchObject({ x: 800, y: 780 });
+  // In at the door, out in the great hall: there at once.
+  clock += 500; frame(5300, 1171);
+  expect(tick()).toMatchObject({ x: 5300, y: 1171 });
+  // Across the hall: walked at their own speed (a step is at most a quarter second of walking).
+  clock += 500; frame(5600, 1171);
+  expect(tick().x).toBeLessThan(5300 + 150 * .25 + 1.01);
 });

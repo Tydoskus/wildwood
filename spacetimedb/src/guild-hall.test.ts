@@ -118,3 +118,16 @@ it("sends a member who leaves home from the hall, and takes the hall with the gu
   expect(f.me().mapId).toBe(HOME_EXTERIOR_MAP_ID);
   expect(f.db.guildHall.guildId.find(guildId)).toBeFalsy();
 });
+
+it("keeps who a member is watching through the door, so the guildmates they see keep moving", () => {
+  const f = fixture(); const guildId = f.guild(["1"], "Rose");
+  const hall = guildHallMapId(guildId);
+  f.run(server.changeMap, { mapId: hall, x: 4050, y: 4050 });
+  f.place(hall, GUILD_HALL_DOOR.outside.x, GUILD_HALL_DOOR.outside.y);
+  f.seed("playerMotionInterest", { identity: f.ctx.sender, networkIds: [7] });
+  f.run(server.useGuildHallDoor, {});
+  expect(f.db.playerMotionInterest.identity.find(f.ctx.sender)?.networkIds).toEqual([7]);
+  // A real map change still drops it: the client asks again for the new map.
+  f.run(server.changeMap, { mapId: HOME_EXTERIOR_MAP_ID, x: f.me().x, y: f.me().y });
+  expect(f.db.playerMotionInterest.identity.find(f.ctx.sender)).toBeFalsy();
+});
