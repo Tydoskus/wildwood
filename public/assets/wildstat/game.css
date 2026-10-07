@@ -5,7 +5,7 @@
   /* Above HUD controls (5–8), below full-screen windows (10+). */
   #hud > .stat-tracker { z-index: 6; }
   /* Quest tracker: top left under the gem row until dragged. Three quests in play, this map's first and bright. */
-  .quest-tracker { position: fixed; top: calc(var(--hud-safe-top) + var(--player-hud-visual-height) + 48px); left: var(--hud-safe-left); z-index: 5; width: min(196px, 46vw); padding: 0 0 4px; border: 2px solid var(--hud-frame); border-radius: var(--hud-radius-small); background: rgba(10, 10, 10, .82); box-shadow: 0 2px 0 rgba(0,0,0,.35); color: #fff; font: 700 11px/1.25 "Wildstat Chat", sans-serif; pointer-events: auto; }
+  .quest-tracker { position: fixed; top: calc(var(--hud-safe-top) + var(--player-hud-visual-height) + 48px); left: var(--hud-safe-left); z-index: 5; width: min(196px, 46vw); padding: 0 0 4px; border: 2px solid var(--hud-frame); border-radius: var(--hud-radius-small); background: var(--hud-surface); box-shadow: 0 2px 0 rgba(0,0,0,.35); color: #fff; font: 700 11px/1.25 "Wildstat Chat", sans-serif; pointer-events: auto; }
   .quest-tracker[hidden] { display: none; }
   .quest-tracker .quest-tracker-header:active { cursor: grabbing; }
   .quest-tracker.is-world-gesture, .quest-tracker.is-world-gesture * { pointer-events: none; }
@@ -108,7 +108,7 @@
     --window-content-max-width: 420px;
     --game-window-width: min(420px, calc(100vw - 24px));
     --inventory-toolbar-color: #543822;
-    --hud-surface: rgba(8, 8, 8, .92);
+    --hud-surface: rgba(24, 24, 24, .60);
     --hud-frame: #050a06;
     --hud-radius: 9px;
     --hud-radius-small: 8px;

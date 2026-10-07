@@ -9,11 +9,11 @@ vi.mock("./prestige-panel", async (original) => ({
 it("hands the prestige window every option the panel reads", async () => {
   const { createPrestigePanel } = await import("./game-ui-runtime");
   const fns = Object.fromEntries(["prestige", "unlocked", "completed", "runPrestige", "perks", "spendPerk", "respec", "expanded",
-    "expansionCountdown", "challenge", "challengeGoal", "challengesWon", "freeRespec", "freeRespecAvailable", "showMessage", "beforeOpen"]
+    "expansionCountdown", "challenge", "challengeGoal", "challengesWon", "showMessage", "beforeOpen"]
     .map(name => [name, () => name]));
   createPrestigePanel({ ...fns, e: {} });
   // Each of these was once dropped on the way in, and the window ran without it.
-  for (const name of ["challengeGoal", "challengesWon", "freeRespec", "freeRespecAvailable", "respec", "challenge"]) {
+  for (const name of ["challengeGoal", "challengesWon", "respec", "challenge"]) {
     expect(created.options[name], name).toBe(fns[name]);
   }
 });

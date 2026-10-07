@@ -79,7 +79,7 @@ export function createPrestigePanel(d: Record<string, any>) {
     perkList: e.prestigePerks, prestige: d.prestige, unlocked: d.unlocked, completed: d.completed, runPrestige: d.runPrestige,
     perks: d.perks, spendPerk: d.spendPerk, respec: d.respec, expanded: d.expanded, expansionCountdown: d.expansionCountdown, challenge: d.challenge,
     // Each of these once went missing here, and the window quietly ran without it.
-    challengeGoal: d.challengeGoal, challengesWon: d.challengesWon, freeRespec: d.freeRespec, freeRespecAvailable: d.freeRespecAvailable,
+    challengeGoal: d.challengeGoal, challengesWon: d.challengesWon,
     showMessage: d.showMessage, beforeOpen: d.beforeOpen });
 }
 

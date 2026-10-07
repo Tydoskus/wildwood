@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.6": [
+    "Respec is free and keeps your stats, map and gear, as often as you like",
+    "Mini chat, the quest tracker and the HUD cards share one see-through background, no darker than before",
+    "Enemy health bars flash only the health each hit took, not the whole empty bar",
+  ],
   "0.901.5": [
     "Autofarm tries a new map's boss during its trial, and beating it ends the trial; Trying Next Map counts its minutes down",
     "A boss try worn down on the walk in no longer doubles the power the next try needs",
@@ -2976,6 +2981,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.6": "2026-10-07",
   "0.901.5": "2026-10-07",
   "0.901.4": "2026-10-07",
   "0.901.3": "2026-10-07",

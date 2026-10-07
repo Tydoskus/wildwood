@@ -329,7 +329,7 @@ describe("prestige respec", () => {
     spent.controller.open();
     expect(respecRow(spent).hidden).toBe(false);
     expect(respecRow(spent).textContent).toContain("Refund 3 spent points");
-    expect(respecRow(spent).textContent).toContain("starting stats");
+    expect(respecRow(spent).textContent).toContain("Free, and keeps your stats");
   });
 
   it("says what it costs on the first press and only respecs on the second, keeping the window open", async () => {
@@ -338,8 +338,8 @@ describe("prestige respec", () => {
     const button = respecRow(s).querySelector("button");
     button.click();
     expect(s.respec).not.toHaveBeenCalled();
-    expect(button.textContent).toBe("Yes, respec");
-    expect(s.pick("status").textContent).toContain("starting stats");
+    expect(button.textContent).toBe("Yes, Respec");
+    expect(s.pick("status").textContent).toContain("Your stats, map and gear stay");
     button.click();
     await settle();
     expect(s.respec).toHaveBeenCalledOnce();
@@ -388,33 +388,3 @@ it("follows the Reflect Only goal instead of prestige's own requirement while a 
   expect(met.showMessage).not.toHaveBeenCalled();
 });
 
-it("makes the regular Respec the free one until it is used, then a normal respec", async () => {
-  let available = true;
-  const freeRespec = vi.fn(async () => { available = false; return { ok: true }; });
-  const respec = vi.fn(async () => ({ ok: true }));
-  const { document } = parseHTML(`<html><body><div id="own" hidden><button id="open">Prestige</button></div>
-    <div id="overlay" hidden><div id="level"></div><div id="bonus"></div><div id="points"></div><div id="peak"></div>
-    <div id="perks"></div><p id="cost"></p><div id="status"></div><button id="confirm">Prestige</button><button id="close">Back</button></div></body></html>`);
-  const pick = (id: string) => document.getElementById(id) as any;
-  const controller = createPrestigeController({
-    openButton: pick("open"), ownActions: pick("own"), overlay: pick("overlay"), closeButton: pick("close"), confirmButton: pick("confirm"),
-    level: pick("level"), bonus: pick("bonus"), points: pick("points"), peak: pick("peak"), cost: pick("cost"), status: pick("status"),
-    prestige: () => ({ level: 2, perkPoints: 0, peakPower: 0 }), unlocked: () => false, perkList: pick("perks"),
-    perks: () => ({ keenEdge: 2 } as any), spendPerk: vi.fn() as any, runPrestige: vi.fn() as any,
-    respec, freeRespec, freeRespecAvailable: () => available,
-  });
-  controller.open();
-  const button = pick("perks").querySelector(".prestige-respec-btn");
-  expect(pick("perks").querySelectorAll(".prestige-respec-btn")).toHaveLength(1);
-  expect(button.textContent).toBe("Respec (1 free)");
-  expect(pick("perks").querySelector(".prestige-respec-text").textContent).toBe("1 free respec: refunds your 2 spent points and keeps your stats.");
-  button.click();
-  expect(button.textContent).toBe("Yes, free respec");
-  expect(pick("status").textContent).toContain("keeps your stats");
-  button.click();
-  await vi.waitFor(() => expect(freeRespec).toHaveBeenCalledOnce());
-  expect(respec).not.toHaveBeenCalled();
-  await vi.waitFor(() => expect(button.textContent).toBe("Respec"));
-  button.click(); button.click();
-  await vi.waitFor(() => expect(respec).toHaveBeenCalledOnce());
-});

@@ -1,15 +1,13 @@
 import { challengeActive, challengeWinReady, resumeParkedChallenge, setPrestigeChallenge } from "./prestige-challenge";
 import { guildQuestBonusFor } from "./daily-quests";
-import { challengeAttackInterval, challengeGoal, challengeGoalMet } from "../../shared/prestige-challenge";
+import { challengeGoal, challengeGoalMet } from "../../shared/prestige-challenge";
 import { SenderError } from "spacetimedb/server";
 import { researchStatRewardMultiplier } from "../../shared/research";
-import { PLAYER_STARTING_POWER, playerPowerForStats } from "../../shared/player-power";
-import { updateSnapshotRow } from "./snapshot-row-writes";
+import { playerPowerForStats } from "../../shared/player-power";
 import { PRESTIGE_CAP_HINT, PRESTIGE_PERK_POINTS_PER_LEVEL, prestigeCapped, prestigeCampaignTarget, prestigeCampaignComplete, prestigeEndlessRequirement, prestigeStatMultiplier, prestigeUnlocked } from "../../shared/prestige";
 import { PRESTIGE_PERK_IDS, isPrestigePerkId, prestigePerkMaxRank, type PrestigePerkRanks } from "../../shared/prestige-perks";
 import { PRESTIGE_EXPANSION_PERK_IDS } from "../../shared/prestige-expansion";
 import { prestigeExpanded } from "./prestige-expansion";
-import { attackRangeWithResearch } from "../../shared/utility-research";
 import { readPlayerProgress } from "./wide-stats";
 import { aggroChallengeActive } from "./aggro-challenge";
 import { aggroGoal, aggroGoalMet } from "../../shared/aggro-challenge";
@@ -136,53 +134,28 @@ export function createPrestige(deps: PrestigeDeps) {
   }
 
   /**
-   * Hands back every spent perk point to place again. The price is the run's
-   * power: the stats kills raised go back to where a new run starts them, and
-   * the player starts again at the forest spawn, since starting power on a
-   * late map is a death loop. Map unlocks, Endless stages, research, gear,
-   * bench tiers and the prestige level all stay, so the maps already opened
-   * are there to farm again. The peak records the power traded away.
+   * Hands back every spent perk point to place again, free, as often as the
+   * player likes. The run keeps its stats, map and position; only the perks'
+   * own effects (Fleet Foot's speed, Long Shot's range) come off with their
+   * ranks. Respec used to cost the run's power, which made trying a build a
+   * reset; one free stat-keeping respec per account was the stopgap.
    */
   function respecPerks(ctx: any) {
     const activePlayer = requireControllingPlayer(ctx);
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel before respeccing.");
-    const current = ctx.db.playerPrestige.identity.find(ctx.sender);
     if (challengeActive(ctx, ctx.sender)) throw new SenderError("Finish or abandon the prestige challenge before respeccing.");
-    const ranks = storedPrestigePerkRanks(ctx, ctx.sender);
-    const spent = PRESTIGE_PERK_IDS.reduce((sum, perk) => sum + ranks[perk], 0);
-    const progress = readPlayerProgress(ctx, ctx.sender);
-    if (!current || !progress || spent < 1) throw new SenderError("No perk points to respec.");
-    writePrestigePerkRanks(ctx, ctx.sender, Object.fromEntries(PRESTIGE_PERK_IDS.map(perk => [perk, 0])) as PrestigePerkRanks);
-    ctx.db.playerPrestige.identity.update({ ...current, perkPoints: current.perkPoints + spent,
-      peakPower: Math.max(current.peakPower, playerPowerForStats(progress)) });
-    const next = { ...progress, ...PLAYER_STARTING_POWER,
-      attackRate: challengeAttackInterval(PLAYER_STARTING_POWER.attackRate, ctx.db.playerPrestigeChallenge.identity.find(ctx.sender)),
-      attackRange: attackRangeWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.utilityAttackRange ?? 0) };
-    updateSnapshotRow(ctx, "playerProgress", next);
-    respawnWithProgress(ctx, activePlayer, next);
-    return spent;
-  }
-
-  /**
-   * The one free respec every account gets: the same refund as respecPerks, but
-   * the run keeps its stats, map and position. Only the perks' own effects
-   * (Fleet Foot's speed, Long Shot's range) come off with their ranks.
-   */
-  function freeRespecPerks(ctx: any) {
-    const activePlayer = requireControllingPlayer(ctx);
-    if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel before respeccing.");
-    if (ctx.db.playerFreeRespec.identity.find(ctx.sender)) throw new SenderError("Your free respec is already used.");
-    if (challengeActive(ctx, ctx.sender)) throw new SenderError("Finish or drop out of the prestige challenge before respeccing.");
     const current = ctx.db.playerPrestige.identity.find(ctx.sender);
     const ranks = storedPrestigePerkRanks(ctx, ctx.sender);
     const spent = PRESTIGE_PERK_IDS.reduce((sum, perk) => sum + ranks[perk], 0);
     if (!current || spent < 1) throw new SenderError("No perk points to respec.");
     writePrestigePerkRanks(ctx, ctx.sender, Object.fromEntries(PRESTIGE_PERK_IDS.map(perk => [perk, 0])) as PrestigePerkRanks);
     ctx.db.playerPrestige.identity.update({ ...current, perkPoints: current.perkPoints + spent });
-    ctx.db.playerFreeRespec.insert({ identity: ctx.sender, usedAt: ctx.timestamp });
     deps.refreshPerkEffects(ctx, activePlayer);
     return spent;
   }
+
+  /** The old free-respec reducer, kept for clients that still call it: every respec is free now. */
+  const freeRespecPerks = respecPerks;
 
   function changeChallenge(ctx: any, active: boolean) {
     const player = requireControllingPlayer(ctx);

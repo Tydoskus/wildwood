@@ -15,20 +15,11 @@ export const PRESTIGE_COST = 'Prestige resets your stats and map unlocks. '
 /** The warning shown once a prestige button is armed and the next press resets. */
 export const PRESTIGE_ARMED_WARNING = 'This cannot be undone.';
 /** What a respec costs, spelled out before the press that does it. */
-export const RESPEC_ARMED_WARNING = 'Your power resets to starting stats and you return to the forest. '
-  + 'Maps, research, gear and your prestige level stay. This cannot be undone.';
+export const RESPEC_ARMED_WARNING = 'Refunds every spent perk point. Your stats, map and gear stay.';
 
-/** What the free respec does, before the press that does it. */
-export const FREE_RESPEC_ARMED_WARNING = 'Refunds every spent perk point and keeps your stats, map and gear. You only get one free respec.';
-
-/** The respec row's line while the free respec is unused. */
-export function freeRespecLabel(spent: number) {
-  return `1 free respec: refunds your ${spent} spent point${spent === 1 ? '' : 's'} and keeps your stats.`;
-}
-
-/** The respec row's line: the points it hands back, and its price in a phrase. */
+/** The respec row's line: the points it hands back. Respec is free and keeps the run. */
 export function respecLabel(spent: number) {
-  return `Refund ${spent} spent point${spent === 1 ? '' : 's'} to place again. Resets your power to starting stats.`;
+  return `Refund ${spent} spent point${spent === 1 ? '' : 's'} to place again. Free, and keeps your stats.`;
 }
 
 /**
@@ -84,8 +75,6 @@ export function createPrestigeController(options: {
   /** Refund every spent perk point for the run's power. The row stays hidden without it. */
   respec?: () => Promise<PrestigeResult>;
   /** The account's one free respec: the same refund, keeping the run's stats. */
-  freeRespec?: () => Promise<PrestigeResult>;
-  freeRespecAvailable?: () => boolean;
   showMessage?: (text: string) => void;
   beforeOpen?: () => void;
 }) {
@@ -131,8 +120,6 @@ export function createPrestigeController(options: {
    */
   let respecRow: { row: HTMLElement; text: HTMLElement; button: HTMLButtonElement } | null = null;
 
-  const freeRespecReady = () => Boolean(options.freeRespec && options.freeRespecAvailable?.());
-
   function buildRespecRow(create: (tag: string) => HTMLElement) {
     const row = create('div');
     row.className = 'prestige-respec';
@@ -142,14 +129,12 @@ export function createPrestigeController(options: {
     button.type = 'button';
     button.className = 'prestige-respec-btn';
     button.addEventListener('click', async () => {
-      // While the account's one free respec is unused, this button is that respec.
-      const free = freeRespecReady();
-      const run = free ? options.freeRespec : options.respec;
+      const run = options.respec;
       if (pending || button.disabled || !run) return;
       if (!respecArmed) {
         disarm();
         respecArmed = true;
-        status.textContent = free ? FREE_RESPEC_ARMED_WARNING : RESPEC_ARMED_WARNING;
+        status.textContent = RESPEC_ARMED_WARNING;
         render();
         return;
       }
@@ -159,7 +144,7 @@ export function createPrestigeController(options: {
       try {
         const result = await run();
         const ok = typeof result === 'boolean' ? result : result?.ok === true;
-        status.textContent = ok ? (free ? 'Perk points refunded, stats kept. Place them again.' : 'Perk points refunded. Place them again.')
+        status.textContent = ok ? 'Perk points refunded, stats kept. Place them again.'
           : (typeof result === 'object' && result?.error) || "Couldn't respec. Please try again.";
       } catch {
         status.textContent = "Couldn't respec. Please try again.";
@@ -262,12 +247,10 @@ export function createPrestigeController(options: {
     }
     if (respecRow) {
       const spent = PRESTIGE_PERK_IDS.reduce((sum, id) => sum + prestigePerkRank(ranks, id), 0);
-      const free = freeRespecReady();
       respecRow.row.hidden = !options.respec || spent < 1;
-      respecRow.text.textContent = free ? freeRespecLabel(spent) : respecLabel(spent);
-      respecRow.button.textContent = respecArmed ? (free ? 'Yes, free respec' : 'Yes, respec') : free ? 'Respec (1 free)' : 'Respec';
+      respecRow.text.textContent = respecLabel(spent);
+      respecRow.button.textContent = respecArmed ? 'Yes, Respec' : 'Respec';
       respecRow.button.classList.toggle('is-armed', respecArmed);
-      respecRow.button.classList.toggle('prestige-respec-free', free && !respecArmed);
       respecRow.button.disabled = Boolean(options.challenge?.()) || pending;
     }
   }

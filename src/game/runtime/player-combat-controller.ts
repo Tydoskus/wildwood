@@ -568,7 +568,7 @@ export function createPlayerCombatController(options: {
       if (enemy.dead || enemy.generatedBoss || enemy.remoteCombatGhost || hit?.has(enemy) || !inside(enemy.x, enemy.y, enemy.r)) continue;
       if (!hit) bossAttackHits.set(attack, hit = new WeakSet());
       hit.add(enemy);
-      if (!((enemy.hpLossFlashTimer ?? 0) > 0)) enemy.hpLossFlashFrom = enemy.hp;
+      enemy.hpLossFlashFrom = enemy.hp;
       enemy.hpLossFlashTimer = ENEMY_HP_LOSS_FLASH_SECONDS;
       enemy.hurt = .12;
       enemy.hp -= amount;
@@ -689,8 +689,10 @@ export function createPlayerCombatController(options: {
       // The generated-boss controller owns its health and defeat handling.
     } else {
       engageEnemy(target);
-      // Hits in quick succession grow one chunk from the health before the first.
-      if (!((target.hpLossFlashTimer ?? 0) > 0)) target.hpLossFlashFrom = target.hp;
+      // Only this hit's health lights up. Hits in quick succession used to grow one chunk from the
+      // health before the first, and at a fast attack speed the chunk never ended: the whole empty
+      // bar flashed white.
+      target.hpLossFlashFrom = target.hp;
       target.hpLossFlashTimer = ENEMY_HP_LOSS_FLASH_SECONDS;
       target.hp -= damage;
       if (player.knockback > 0) {

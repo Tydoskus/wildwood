@@ -833,8 +833,8 @@ describe("bow skills", () => {
   });
 });
 
-describe("enemy health bar loss chunk", () => {
-  it("remembers the health before a run of hits and keeps it while hits keep landing", () => {
+describe("enemy health bar loss flash", () => {
+  it("lights only the health each hit took, even while hits keep landing", () => {
     let now = 0;
     const state = createCombatHarness({ nowSeconds: () => now });
     state.bosses.dragon.dead = true;
@@ -847,6 +847,11 @@ describe("enemy health bar loss chunk", () => {
     expect(enemy.hp).toBeLessThan(1_000);
     expect(enemy.hpLossFlashFrom).toBe(1_000);
     expect(enemy.hpLossFlashTimer).toBeGreaterThan(0);
+    // The next hit flashes from where the last one left it, not from full health.
+    const before = enemy.hp;
+    for (let frame = 0; frame < 240 && enemy.hp === before; frame++) { now += 1 / 60; state.controller.attackNearest(); state.controller.updateProjectiles(1 / 60); }
+    expect(enemy.hp).toBeLessThan(before);
+    expect(enemy.hpLossFlashFrom).toBe(before);
   });
 });
 

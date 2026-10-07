@@ -3,7 +3,6 @@ import { expect, it, vi } from "vitest";
 import { ScheduleAt, Timestamp } from "spacetimedb";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { STARTER_BOW } from "../../shared/items";
-import { PLAYER_STARTING_POWER } from "../../shared/player-power";
 import { ATTACK_BALANCE_VERSION, BOSS_REWARD_CLAIM_BITS, SPACETIME_AUTH_CLIENT_ID, SPACETIME_AUTH_ISSUER } from "../../shared/rules";
 import { PRESTIGE_CAP_HINT, PRESTIGE_MAX_LEVEL, PRESTIGE_STAT_GAIN_PER_LEVEL, prestigeRequirementHint, prestigeStatMultiplier, prestigeUnlocked } from "../../shared/prestige";
 import { PRESTIGE_PERK_MAX_RANK } from "../../shared/prestige-perks";
@@ -290,7 +289,7 @@ it("keeps a prestiged player on the leaderboard at their reset power", () => {
   expect(f.db.leaderboardPosition.identity.find(f.ctx.sender)?.ranks[0]).toBeGreaterThan(0);
 });
 
-it("respecs every spent perk point back, at the price of the run's power, keeping maps and gear", () => {
+it("respecs every spent perk point back for free, as often as wanted, keeping the run's stats, map and gear", () => {
   const f = farmer();
   f.seed("playerPrestige", { identity: f.ctx.sender, level: 4, perkPoints: 1, peakPower: 5, prestigedAt: f.ctx.timestamp });
   f.seed("playerPrestigePerk", { identity: f.ctx.sender, keenEdge: 2, doubleStrike: 0, splitShot: 1, riposte: 0 });
@@ -300,11 +299,15 @@ it("respecs every spent perk point back, at the price of the run's power, keepin
   f.run(server.respecPrestigePerks, {});
   expect(perkRow(f)).toMatchObject({ keenEdge: 0, doubleStrike: 0, splitShot: 0, riposte: 0 });
   expect(prestigeRow(f)).toMatchObject({ level: 4, perkPoints: 4 });
-  expect(prestigeRow(f)!.peakPower).toBeGreaterThan(5);
-  const progress = f.db.playerProgress.identity.find(f.ctx.sender);
-  expect(progress).toMatchObject({ ...PLAYER_STARTING_POWER, ...unlocked, equippedRightHand: STARTER_BOW });
-  // Starting power on a late map is a death loop, so the run restarts at the forest.
-  expect(f.db.player.identity.find(f.ctx.sender)).toMatchObject({ mapId: "tutorial_forest", hp: PLAYER_STARTING_POWER.maxHp });
+  expect(f.db.playerProgress.identity.find(f.ctx.sender)).toMatchObject({ ...unlocked, maxHp: 90_000, damage: 40_000, armor: 300, regen: 900, attackRate: .4 });
+  expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe("ion_citadel");
+  // Again, at once: nothing is used up. The old free-respec reducer is the same respec.
+  f.run(server.spendPrestigePerkPoint, { perk: "keenEdge" });
+  f.run(server.respecPrestigePerks, {});
+  f.run(server.spendPrestigePerkPoint, { perk: "keenEdge" });
+  f.run(server.useFreePrestigeRespec, {});
+  expect(prestigeRow(f)).toMatchObject({ perkPoints: 4 });
+  expect(f.db.playerProgress.identity.find(f.ctx.sender)).toMatchObject({ damage: 40_000 });
 });
 
 it("refuses a respec with nothing spent, and changes nothing", () => {
@@ -373,22 +376,7 @@ it("raises Reflect's cap by one for each Reflect Only win, while every other per
   expect(prestigeRow(f).perkPoints).toBe(8);
 });
 
-it("gives every account one free respec that refunds perks and keeps the run's stats and map", () => {
-  const f = farmer();
-  f.seed("playerPrestige", { identity: f.ctx.sender, level: 4, perkPoints: 1, peakPower: 5, prestigedAt: f.ctx.timestamp });
-  f.seed("playerPrestigePerk", { identity: f.ctx.sender, keenEdge: 2, doubleStrike: 0, splitShot: 1, riposte: 0 });
-  const before = { ...f.db.playerProgress.identity.find(f.ctx.sender) };
-  const mapId = f.db.player.identity.find(f.ctx.sender).mapId;
-  f.run(server.useFreePrestigeRespec, {});
-  expect(prestigeRow(f)).toMatchObject({ level: 4, perkPoints: 4 });
-  expect(perkRow(f)).toMatchObject({ keenEdge: 0, splitShot: 0 });
-  expect(f.db.playerProgress.identity.find(f.ctx.sender)).toMatchObject({ damage: before.damage, maxHp: before.maxHp, bossRewardClaims: before.bossRewardClaims });
-  expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe(mapId);
-  f.run(server.spendPrestigePerkPoint, { perk: "riposte" });
-  expect(() => f.run(server.useFreePrestigeRespec, {})).toThrow("already used");
-});
-
-it("keeps the free respec out of a running challenge", () => {
+it("keeps respec out of a running challenge", () => {
   const f = farmer();
   f.seed("playerPrestige", { identity: f.ctx.sender, level: 1, perkPoints: 0, peakPower: 0, prestigedAt: f.ctx.timestamp });
   f.seed("playerPrestigePerk", { identity: f.ctx.sender, keenEdge: 1, doubleStrike: 0, splitShot: 0, riposte: 0 });

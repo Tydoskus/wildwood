@@ -70,8 +70,6 @@ export function createPrestigeExpansionRuntime(d: {
           const state = coop?.prestigeChallenge?.(); return state?.active ? coop?.prestigeChallengeGoal?.(state.completed) ?? null : null;
         },
         respec: () => options.runPrestige(coop?.respecPrestigePerks),
-        freeRespec: () => options.runPrestige(coop?.useFreePrestigeRespec),
-        freeRespecAvailable: () => coop?.freeRespecAvailable?.() ?? false,
       });
       const doc = options.e.prestigePerks.ownerDocument as Document;
       installPrestigeTabs(doc);
