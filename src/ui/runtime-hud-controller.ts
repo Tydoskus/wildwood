@@ -121,7 +121,8 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
     }, 2_400);
   }
 
-  function logPickup(text: string, color: string, mode: "total" | "base" = "total") {
+  /** `value` is the amount the text shows, unrounded: a popup summing kills adds it rather than re-reading the rounded text. */
+  function logPickup(text: string, color: string, mode: "total" | "base" = "total", value?: number) {
     if (mode !== rewardDisplayMode) {
       for (const [key, reward] of activeStatRewards) {
         if (key.startsWith("completion:")) continue;
@@ -134,6 +135,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
     }
     const attackSpeedCapped = dependencies.player.attackRate <= (dependencies.minimumAttackInterval?.() ?? MIN_ATTACK_INTERVAL) + 1e-7;
     const model = statRewardToastModel(text, attackSpeedCapped);
+    if (model && !model.capped && value !== undefined && Number.isFinite(value)) model.value = value;
     // A stat reward of nothing is not news, whoever paid it; and none show with stat gain popups off.
     if (model && !model.capped && !(model.value > 0)) return;
     if (model && !statPopupsEnabled()) return;

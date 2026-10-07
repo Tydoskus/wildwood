@@ -1,5 +1,5 @@
 import type { RewardType } from "./enemy-definitions";
-import { equipmentDamageMultiplierBonus, equipmentMaxHealthMultiplierBonus, equipmentRegenerationMultiplierBonus } from "./items";
+import { preparePlayerPowerStats } from "./player-power";
 import type { ResearchRanks } from "./research";
 
 type RewardEquipment = {
@@ -7,21 +7,29 @@ type RewardEquipment = {
   weaponLevel: number; headLevel: number; chestLevel: number;
 };
 
-/** The increase in the displayed combat stat from one server-awarded base reward. */
+const ZERO_STATS = { damage: 0, maxHp: 0, attackRate: 1, armor: 0, regen: 0 };
+const SCALED_STAT = { damage: "damage", health: "maxHp", armor: "armor", regen: "regen" } as const;
+
+/**
+ * The increase in the displayed combat stat from one server-awarded base
+ * reward: the base times the stat gain the server pays it at (Tech × Prestige
+ * × Guild, as researchRewardMultiplier gives it), times the gear and research
+ * factors the profile shows that stat with. Those factors come from
+ * preparePlayerPowerStats, the profile's own calculation, so the popup, the
+ * labels and the stat they raise cannot drift apart. (Vitality used to be
+ * left out here when it was baked into saved health; since 0.883 it
+ * multiplies health live, so health popups read short by every rank.)
+ */
 export function effectiveRewardAmount(
   type: RewardType, baseAmount: number, statGainMultiplier: number,
   research: Partial<ResearchRanks>, equipment: RewardEquipment,
 ) {
+  const amount = baseAmount * statGainMultiplier;
+  const field = SCALED_STAT[type as keyof typeof SCALED_STAT];
+  // Attack speed has no gear or research factor.
+  if (!field) return amount;
   const { weapon, head, chest, weaponLevel, headLevel, chestLevel } = equipment;
-  const rank = (value: number | undefined) => Number.isFinite(value) ? Math.max(0, Math.floor(value!)) : 0;
-  const bonus = type === "damage"
-    ? (1 + equipmentDamageMultiplierBonus(weapon, head, chest, weaponLevel, headLevel, chestLevel)) * (1 + rank(research.warcraft) * .02)
-    : type === "health"
-      // Vitality is already folded into saved base HP before the reward is paid.
-      ? 1 + equipmentMaxHealthMultiplierBonus(head, chest, headLevel, chestLevel)
-      : type === "armor" ? 1 + rank(research.precision) * .02
-      : type === "regen"
-        ? (1 + equipmentRegenerationMultiplierBonus(head, chest, headLevel, chestLevel)) * (1 + rank(research.regeneration) * .02)
-        : 1;
-  return baseAmount * statGainMultiplier * bonus;
+  const levelOf = (itemId: string) => itemId === weapon ? weaponLevel : itemId === head ? headLevel : itemId === chest ? chestLevel : 0;
+  const scale = preparePlayerPowerStats({ ...ZERO_STATS, equippedRightHand: weapon, equippedHead: head, equippedChest: chest }, research, levelOf);
+  return scale({ ...ZERO_STATS, [field]: amount })[field];
 }

@@ -749,6 +749,12 @@ export function createAutoFarmController(options: {
     /** The route saved for this map, for the panel to show. */
     savedPlan: () => readFarmChoice(options.mapId(), options.priorityStorage),
     priority: () => priority,
+    /**
+     * The Target rule combat aims by: while farming (a pulled crowd too) and all
+     * through an Aggro run, where every chasing group comes at once and the
+     * player picks it in the Aggro window. Steering by hand otherwise aims at the nearest.
+     */
+    attackPriority: (): AutoFarmPriority => (active && !manualControl && phase === 'farm') || forcedGroups().size ? priority : 'closest',
     pullAll: () => pullAll,
     /** False during an Aggro run, when Pull is off. */
     pullAvailable: () => (options.pullCamps?.() ?? 1) > 0,

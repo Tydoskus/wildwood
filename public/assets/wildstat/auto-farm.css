@@ -269,15 +269,20 @@
 .farm-setting { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .farm-setting-label { flex: 1 0 auto; color: var(--muted); font-size: 13px; white-space: nowrap; }
 .farm-segment { display: flex; flex: 0 1 auto; margin-left: auto; overflow: hidden; border: 2px solid var(--farm-line); border-radius: 8px; background: #000; }
-.farm-sheet .farm-segment button {
+:is(.farm-sheet, .aggro-pick-window) .farm-segment button {
   min-width: 52px; height: 34px; padding: 0 10px; border: 0; border-radius: 0; background: transparent; box-shadow: none;
   color: var(--muted); font: inherit; font-size: 13px; white-space: nowrap; cursor: pointer;
 }
-.farm-sheet .farm-segment button + button { border-left: 1px solid var(--farm-line); }
-.farm-sheet .farm-segment button[aria-checked="true"] { background: #262626; color: #fff; box-shadow: inset 0 -2px var(--green); }
+:is(.farm-sheet, .aggro-pick-window) .farm-segment button + button { border-left: 1px solid var(--farm-line); }
+:is(.farm-sheet, .aggro-pick-window) .farm-segment button[aria-checked="true"] { background: #262626; color: #fff; box-shadow: inset 0 -2px var(--green); }
 .farm-segment.is-off { opacity: .45; }
 .farm-sheet .farm-segment button:disabled { cursor: default; }
 .farm-segment.is-off button[aria-checked="true"] { box-shadow: inset 0 -2px var(--muted); }
+/* The Aggro picker's Target row: the same segment, since that window replaces this one during a run. */
+.aggro-pick-target { --muted: #bdbdbd; --farm-line: rgba(255,255,255,.13); font: 900 13px/1.35 var(--font-rounded); }
+.aggro-pick-window .farm-segment button { margin: 0; }
+.aggro-pick-window .farm-segment button:active { transform: none; }
+.aggro-pick-window .farm-segment button:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
 #autoFarmSheet .farm-start { text-transform: none; font-size: 14px; }
 #autoFarmSheet .window-back-button { font-size: 14px; }
 #autoFarmSheet .farm-selection { font-size: 13px; }

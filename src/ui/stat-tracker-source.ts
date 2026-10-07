@@ -1,6 +1,6 @@
 import { hasApprovedGameSession } from "../coop/startup-state-machine";
-import { effectivePlayerPowerStats, playerPowerForStats } from "../../shared/player-power";
-import type { TrackerValues } from "./stat-tracker-model";
+import { effectivePlayerPowerStats, playerPowerForStats, unroundedPlayerPower } from "../../shared/player-power";
+import type { TrackerBuild, TrackerValues } from "./stat-tracker-model";
 
 /**
  * Reading the tracker's figures needs the connection, the session, the loaded
@@ -12,6 +12,8 @@ export function createStatTrackerSource(deps: {
     localIdentity?: () => string | undefined;
     isConnected?: () => boolean;
     prestige?: () => { level: number } | null;
+    prestigeChallenge?: () => { active?: boolean } | null;
+    aggroChallenge?: () => { active?: boolean } | null;
     accountState?: () => unknown;
     itemUpgradeLevel?: (itemId: string) => number;
   } | null | undefined;
@@ -24,16 +26,20 @@ export function createStatTrackerSource(deps: {
   researchRanks: () => Parameters<typeof effectivePlayerPowerStats>[1];
   kills: () => number;
 }) {
-  return (): { identity: string; prestigeLevel: number; values: TrackerValues } | null => {
+  return (): { identity: string; prestigeLevel: number; values: TrackerValues; build: TrackerBuild } | null => {
     const coop = deps.coop();
     const identity = coop?.localIdentity?.();
     if (!identity || !deps.hasStarted() || !deps.isLoadedFor(identity) || !coop?.isConnected?.()
       || !hasApprovedGameSession(coop?.accountState?.() as never) || deps.inTutorial()) return null;
-    const progress = deps.displayedProgress({ maxHp: deps.player.baseMaxHp, damage: deps.player.damage,
-      attackRate: deps.player.attackRate, armor: deps.player.armor, regen: deps.player.regen }, deps.inventory);
+    const base = { maxHp: deps.player.baseMaxHp, damage: deps.player.damage,
+      attackRate: deps.player.attackRate, armor: deps.player.armor, regen: deps.player.regen };
+    const progress = deps.displayedProgress(base, deps.inventory);
     const stats = effectivePlayerPowerStats(progress, deps.researchRanks(),
       itemId => coop?.itemUpgradeLevel?.(itemId) ?? 0);
     return { identity, prestigeLevel: coop.prestige?.()?.level ?? 0, values: { power: playerPowerForStats(stats), hp: stats.maxHp,
-      damage: stats.damage, armor: stats.armor, regen: stats.regen, kills: deps.kills() } };
+      damage: stats.damage, armor: stats.armor, regen: stats.regen, kills: deps.kills() },
+      // The run the build belongs to, so the tracker starts over when a challenge swaps it.
+      build: { run: coop.aggroChallenge?.()?.active ? "aggro" : coop.prestigeChallenge?.()?.active ? "reflect" : "main",
+        basePower: unroundedPlayerPower(base) } };
   };
 }

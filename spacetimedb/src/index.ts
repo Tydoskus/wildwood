@@ -80,7 +80,7 @@ import { HOME_EXTERIOR_MAP_ID, HOME_TRAVEL_PORTAL } from "../../shared/home";
 import { withinStationReach } from "./door-reach";
 import { isTownMap, registerTown, TOWN_ARRIVAL, TOWN_BENCH_POSITION, TOWN_MAP_ID, townPortalUsePoints } from "./town";
 import { enterGuildHall, guildHallMember, memberEnteredWorld, guildHallMemberLeft, guildHallTables, isGuildHallMap, registerGuildHall } from "./guild-hall";
-import { isSoulMap, noteEnemyDefeats, registerSoulDimension, requireSoulDimensionOpen, soulDimensionOpenFor, soulDimensionTables, soulStatsFor, SOUL_ARRIVAL, SOUL_TOWN_PORTAL, wideMotionMap, withSoulStats, worldBoundsFor } from "./soul-dimension";
+import { isSoulMap, noteEnemyDefeats, registerSoulDimension, requireSoulDimensionOpen, soulDimensionOpenFor, soulDimensionTables, soulReturnOpenFor, soulStatsFor, SOUL_ARRIVAL, SOUL_TOWN_PORTAL, wideMotionMap, withSoulStats, worldBoundsFor } from "./soul-dimension";
 import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./snapshot-row-writes";
 import { compressLegacyMapPower } from "../../shared/map-power-rescale";
 import { createPlayerMotionFrameSampler } from "../../shared/player-motion-sample";
@@ -5829,8 +5829,8 @@ export const changeMap = spacetimedb.reducer(
         // their Home return record. Keep their stats and unlocks intact.
         const progress = readPlayerProgress(ctx, ctx.sender);
         const savedMapIndex = saved ? MAP_IDS.indexOf(saved.mapId) : -1;
-        // Fight only goes back to a map this run has open: a challenge run (or a reset) must not land on the main run's map 15.
-        const permitted = (!isSoulMap(saved?.mapId) || soulDimensionOpenFor(ctx, ctx.sender)) && (!isGuildHallMap(saved?.mapId) || guildHallMember(ctx, ctx.sender, saved!.mapId)) && Boolean(saved && (isProceduralMap(saved.mapId)
+        // Fight only goes back to a map this run has open: a challenge run (or a reset) must not land on the main run's map 15, or its Soul Dimension.
+        const permitted = (!isSoulMap(saved?.mapId) || soulReturnOpenFor(ctx, ctx.sender)) && (!isGuildHallMap(saved?.mapId) || guildHallMember(ctx, ctx.sender, saved!.mapId)) && Boolean(saved && (isProceduralMap(saved.mapId)
           ? hasEndlessTravelAccess(ctx, ctx.sender) || generatedMapUnlocked(saved.mapId, ctx.db.proceduralProgress.identity.find(ctx.sender)?.completed ?? 0,
             Boolean((progress?.bossRewardClaims ?? 0) & BOSS_REWARD_CLAIM_BITS[PROCEDURAL_ENTRY_BOSS]))
           : savedMapIndex <= 0 || Boolean(progress?.[CAMPAIGN_UNLOCK_FIELDS[savedMapIndex - 1]])));

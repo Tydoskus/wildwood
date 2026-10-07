@@ -3,6 +3,7 @@ import { parseHTML } from "linkedom";
 import { createAggroPickPrompt } from "./aggro-pick-prompt";
 import { togglePick } from "../game/runtime/aggro-picks";
 import type { RewardType } from "../game/enemies";
+import type { AutoFarmPriority } from "../game/runtime/auto-farm-priority";
 
 it("stays open until the run has its count of groups", () => {
   const { document } = parseHTML("<html><body></body></html>");
@@ -60,4 +61,27 @@ it("changes nothing that chases the player until Done: unpicking everything and 
   chip("Regen").click();
   (document.querySelector(".aggro-pick-done") as unknown as HTMLButtonElement).click();
   expect(picks).toEqual(["regen"]);
+});
+
+it("holds autofarm's Target, which applies on tap without waiting for Done", () => {
+  const { document } = parseHTML("<html><body></body></html>");
+  let picks: RewardType[] = [], priority: AutoFarmPriority = "closest";
+  const prompt = createAggroPickPrompt(document as unknown as Document, { picks: () => picks, setPicks: next => { picks = next; },
+    priority: () => priority, setPriority: next => { priority = next; } });
+  prompt.open(1);
+  const targets = [...document.querySelectorAll(".aggro-pick-target [data-priority]")] as unknown as HTMLButtonElement[];
+  expect(targets.map(button => button.textContent)).toEqual(["Closest", "Lowest HP", "Strongest"]);
+  expect(targets.map(button => button.getAttribute("aria-checked"))).toEqual(["true", "false", "false"]);
+  targets[2].click();
+  expect(priority).toBe("strongest");
+  expect(targets.map(button => button.getAttribute("aria-checked"))).toEqual(["false", "false", "true"]);
+  // Picks still gate Done; Target never does.
+  expect(prompt.isOpen()).toBe(true);
+  expect((document.querySelector(".aggro-pick-done") as unknown as HTMLButtonElement).disabled).toBe(true);
+});
+
+it("has no Target row without a farm to set it on", () => {
+  const { document } = parseHTML("<html><body></body></html>");
+  createAggroPickPrompt(document as unknown as Document, { picks: () => [], setPicks: () => {} }).open(1);
+  expect(document.querySelector(".aggro-pick-target")).toBeNull();
 });

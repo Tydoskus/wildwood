@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createStatTrackerModel, type TrackerValues } from './stat-tracker-model';
+import { createStatTrackerModel, RUN_SETTLE_MS, type TrackerValues } from './stat-tracker-model';
 
 const values: TrackerValues = { power: 1000, hp: 500, damage: 100, armor: 20, regen: 5, kills: 50 };
 function setup() {
@@ -85,4 +85,76 @@ it("migrates old sessions once and preserves the prestige level on manual reset"
   tracker.update('alice', { ...values, damage: 5 }, 0);
   tracker.reset(); env.advance(1000);
   expect(tracker.update('alice', { ...values, damage: 6 }, 2)!.rows.find(r => r.stat === 'damage')!.gain).toBe(1);
+});
+
+describe('a run change starts the session over', () => {
+  const main = { run: 'main', basePower: 900 };
+  const gain = (result: any, stat = 'power') => result.rows.find((row: any) => row.stat === stat).gain;
+
+  it('starts over when a challenge starts, once the change has held', () => {
+    const env = setup(), tracker = createStatTrackerModel(env.storage, env.now);
+    tracker.update('alice', values, 3, main);
+    env.advance(3_600_000);
+    tracker.update('alice', { ...values, power: 1500, kills: 80 }, 3, main);
+    // Reflect Only: starting stats, same prestige level, lifetime kills kept.
+    const fresh = { ...values, power: 50, hp: 30, damage: 2, armor: 0, regen: 1, kills: 80 };
+    const settling = tracker.update('alice', fresh, 3, { run: 'reflect', basePower: 40 })!;
+    expect(settling.elapsedMs).toBe(3_600_000);
+    env.advance(RUN_SETTLE_MS);
+    const started = tracker.update('alice', fresh, 3, { run: 'reflect', basePower: 40 })!;
+    expect(started.elapsedMs).toBe(0);
+    expect(started.rows.every(row => row.gain === 0)).toBe(true);
+    env.advance(60_000);
+    expect(gain(tracker.update('alice', { ...fresh, power: 70 }, 3, { run: 'reflect', basePower: 55 }))).toBe(20);
+  });
+
+  it('starts over when a challenge ends and the main run comes back', () => {
+    const env = setup(), tracker = createStatTrackerModel(env.storage, env.now);
+    tracker.update('alice', { ...values, power: 50 }, 3, { run: 'aggro', basePower: 40 });
+    env.advance(600_000);
+    tracker.update('alice', { ...values, power: 2000 }, 3, main);
+    env.advance(RUN_SETTLE_MS);
+    const back = tracker.update('alice', { ...values, power: 2000 }, 3, main)!;
+    expect(back.elapsedMs).toBe(0);
+    expect(gain(back)).toBe(0);
+  });
+
+  it('starts over when an Aggro run starts again after a death', () => {
+    const env = setup(), tracker = createStatTrackerModel(env.storage, env.now);
+    tracker.update('alice', { ...values, power: 50 }, 3, { run: 'aggro', basePower: 40 });
+    env.advance(600_000);
+    tracker.update('alice', { ...values, power: 400 }, 3, { run: 'aggro', basePower: 300 });
+    tracker.update('alice', { ...values, power: 50 }, 3, { run: 'aggro', basePower: 40 });
+    env.advance(RUN_SETTLE_MS);
+    const restarted = tracker.update('alice', { ...values, power: 50 }, 3, { run: 'aggro', basePower: 40 })!;
+    expect(restarted.elapsedMs).toBe(0);
+    env.advance(1000);
+    expect(gain(tracker.update('alice', { ...values, power: 60 }, 3, { run: 'aggro', basePower: 48 }))).toBe(10);
+  });
+
+  it('keeps the session through a reconnect that briefly reads no challenge, and through a gear swap', () => {
+    const env = setup(), tracker = createStatTrackerModel(env.storage, env.now);
+    const aggro = { run: 'aggro', basePower: 300 };
+    tracker.update('alice', values, 3, aggro);
+    env.advance(60_000);
+    tracker.update('alice', { ...values, power: 800 }, 3, { run: 'main', basePower: 300 });
+    env.advance(RUN_SETTLE_MS - 1);
+    tracker.update('alice', values, 3, aggro);
+    env.advance(RUN_SETTLE_MS);
+    // Weaker gear lowers power, not the stats kills raise.
+    const swapped = tracker.update('alice', { ...values, power: 500 }, 3, aggro)!;
+    expect(swapped.elapsedMs).toBe(60_000 + RUN_SETTLE_MS * 2 - 1);
+  });
+
+  it('remembers the run across a reload and adopts it for an older session', () => {
+    const env = setup();
+    env.storage.setItem('wildstat-native-stat-tracker-v1:alice', JSON.stringify({ startedAt: 0, baseline: values, lastKills: 50, prestigeLevel: 3 }));
+    const tracker = createStatTrackerModel(env.storage, env.now);
+    expect(tracker.update('alice', values, 3, main)!.elapsedMs).toBe(1000);
+    tracker.save();
+    const restored = createStatTrackerModel(env.storage, env.now);
+    restored.update('alice', values, 3, { run: 'reflect', basePower: 40 });
+    env.advance(RUN_SETTLE_MS);
+    expect(restored.update('alice', values, 3, { run: 'reflect', basePower: 40 })!.elapsedMs).toBe(0);
+  });
 });

@@ -105,6 +105,7 @@ export function createPlayerCombatController(options: {
   researchCriticalChance: () => number;
   researchCriticalDamageMultiplier: () => number;
   researchRewardMultiplier: () => number;
+  /** What a kill's reward shows as (popups, labels, autofarm): reward-display.ts displayedAmount, which honours the base-rewards setting. */
   displayRewardAmount?: (type: RuntimeReward["type"], baseAmount: number) => number;
   /** Chance for a hit to land a second time, from the Double Strike perk. */
   prestigeDoubleStrike?: () => number;
@@ -151,7 +152,8 @@ export function createPlayerCombatController(options: {
   onSoulKill?: (stat: SoulStatId) => void;
   onCombat?: () => void;
   playBowAttackSound?: () => void;
-  logPickup: (text: string, color: string, baseText?: string) => void;
+  /** `value` is the shown amount unrounded, so a popup that sums several kills adds what was paid, not what the text rounded it to. */
+  logPickup: (text: string, color: string, value?: number) => void;
   saveProgress: () => void;
   recordDeath: () => void;
   endGame: () => void;
@@ -409,8 +411,8 @@ export function createPlayerCombatController(options: {
   }
 
   function findAttackTarget(enemyType: AutoFarmGroup | null, campName: string | null, mapBoss: BossTarget | null, priority: AutoFarmPriority) {
-    // Priority only applies to an Autofarm target type; manual play aims at the nearest.
-    const ranked = enemyType !== null && priority !== 'closest';
+    // The caller decides when the Target choice applies (autofarm, an Aggro run); otherwise it passes Closest.
+    const ranked = priority !== 'closest';
     let target: EnemyState | BossTarget | null = null;
     let best = attackRange() * attackRange();
     // A direct scan avoids rebuilding the projectile grid just to choose one target.
@@ -439,7 +441,11 @@ export function createPlayerCombatController(options: {
       // left autofarm parked in range on one side and never firing (Koi Shogun).
       const edgeDistance = targetDistance(mapBoss);
       if (mapBoss === retainedTarget && edgeDistance < attackRange()) retainedDistance = edgeDistance * edgeDistance;
-      if (edgeDistance * edgeDistance < best) { best = edgeDistance * edgeDistance; target = mapBoss; }
+      const edge = edgeDistance * edgeDistance;
+      // Among a crowd (an Aggro run's chasing groups) a ranked Target weighs the boss like any enemy:
+      // Strongest takes it, Lowest HP finishes the wounded first.
+      const bossBetter = ranked && target ? edge < attackRange() * attackRange() && compareAutoFarmTargets(priority, mapBoss, edge, target as EnemyState, best) < 0 : edge < best;
+      if (bossBetter) { best = edge; target = mapBoss; }
     }
     // An Endless boss is an enemy with generatedBoss set, which the farming
     // scan above skips: with autofarm on, a player who walked up to it and
@@ -504,7 +510,8 @@ export function createPlayerCombatController(options: {
       case "regen": player.regen += enhanced.amount; break;
     }
     const data = REWARD_DATA[enhanced.type];
-    logPickup(rewardLabel({ ...enhanced, amount: options.displayRewardAmount?.(reward.type, reward.amount) ?? enhanced.amount }), data.color, rewardLabel(reward));
+    const shown = options.displayRewardAmount?.(reward.type, reward.amount) ?? enhanced.amount;
+    logPickup(rewardLabel({ ...enhanced, amount: shown }), data.color, shown);
     spawnBurst(x, y, DEATH_PARTICLE_COLOR, 16, 110);
     saveProgress();
   }

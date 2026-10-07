@@ -129,6 +129,41 @@ describe('Aggro challenge on the client', () => {
   });
 });
 
+describe('Target during an Aggro run', () => {
+  const still = { x: 0, y: 0, source: 'none' as const }, steering = { x: 1, y: 0, source: 'keyboard' as const };
+  it('aims by the stored Target all through a run, steering by hand too; by hand outside one, at the nearest', () => {
+    const s = setup({ pullCamps: 0 });
+    s.add('Bramble', 700, 500, 'near');
+    s.farm.setPriority('lowest');
+    expect(s.farm.attackPriority()).toBe('closest');
+    s.farm.start([health]);
+    s.farm.movement(still, 1 / 60);
+    expect(s.farm.attackPriority()).toBe('lowest');
+    s.farm.movement(steering, 1 / 60);
+    expect(s.farm.attackPriority()).toBe('closest');
+    // The run: autofarm cannot be started, and every chasing group comes at once.
+    s.farm.stop();
+    s.setForced([health], 1); s.advance(1_000);
+    expect(s.farm.attackPriority()).toBe('lowest');
+    s.farm.movement(steering, 1 / 60);
+    expect(s.farm.attackPriority()).toBe('lowest');
+    s.farm.setPriority('strongest');
+    expect(s.farm.attackPriority()).toBe('strongest');
+    s.setForced(null); s.advance(1_000);
+    expect(s.farm.attackPriority()).toBe('closest');
+  });
+
+  it('keeps Target when Pull brings every farmed group and combat aims at the whole crowd', () => {
+    const s = setup({ pullCamps: 2 });
+    s.add('Bramble', 1500, 500, 'far'); s.add('Needle', 500, 1500, 'needle');
+    s.farm.setPriority('lowest'); s.farm.setPullAll(true);
+    s.farm.start([health, speed]);
+    s.farm.movement(still, 1 / 60);
+    expect(s.farm.attackType()).toBeNull();
+    expect(s.farm.attackPriority()).toBe('lowest');
+  });
+});
+
 describe('Aggro goal', () => {
   it("is a first prestige's for everyone: the campaign's last boss", async () => {
     const { aggroGoal, aggroGoalMet } = await import('../../../shared/aggro-challenge');

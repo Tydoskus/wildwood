@@ -18,7 +18,7 @@ type FarmOverrides = Partial<{ bossStatus: () => string; bossStatusReady: () => 
 function memoryStorage(values = new Map<string, string>()) {
   return { values, getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } };
 }
-function setup(empty = false, map = "forest", overrides: FarmOverrides = {}, storage = memoryStorage()) {
+function setup(empty = false, map = "forest", overrides: FarmOverrides = {}, storage = memoryStorage(), extra: Partial<Parameters<typeof createAutoFarmPanel>[0]> = {}) {
   const { document, window } = parseHTML('<html><body><div id="hud"><div id="chatPanel"></div></div></body></html>');
   vi.stubGlobal('window', window); vi.stubGlobal('document', document); vi.stubGlobal('HTMLElement', window.HTMLElement);
   const state = createGameBootstrap();
@@ -35,7 +35,7 @@ function setup(empty = false, map = "forest", overrides: FarmOverrides = {}, sto
     unavailable: () => unavailable, setPaused: pause, clearInput,
     rewardMultiplier: () => rewardMultiplier, showBaseStatRewards: () => showBase,
     rewardAmount: (type, amount) => showBase ? amount : amount * rewardMultiplier * (type === 'damage' ? damageBonus : 1),
-    storage: () => storage });
+    storage: () => storage, ...extra });
   destroy = panel.destroy;
   const sheet = document.querySelector<HTMLDialogElement>('dialog')!;
   Object.assign(sheet, { showModal() { sheet.open = true; }, close() { sheet.open = false; } });
@@ -268,4 +268,18 @@ it('picks how hard to push, and rests the picker while Move On is off', () => {
   expect(setPush).toHaveBeenLastCalledWith('bold');
   expect(button('bold').getAttribute('aria-checked')).toBe('true');
   expect(button('normal').getAttribute('aria-checked')).toBe('false');
+});
+it('during an Aggro run the button opens the group picker, whose Target is the farm window\'s own', () => {
+  let active = true;
+  const s = setup(false, 'forest', {}, memoryStorage(), { aggro: () => ({ active, completed: 0 }), identity: () => 'me' });
+  s.click('.farm-toggle');
+  expect(s.sheet.open).toBeFalsy();
+  expect(s.document.querySelector<HTMLElement>('.aggro-pick-overlay')!.hidden).toBe(false);
+  s.click('.aggro-pick-target [data-priority="lowest"]');
+  expect(s.farm.priority()).toBe('lowest');
+  // After the run, the farm window shows the same choice.
+  active = false;
+  s.click('.farm-toggle');
+  expect(s.sheet.open).toBe(true);
+  expect(s.document.querySelector('#autoFarmSheet .farm-target [data-priority="lowest"]')!.getAttribute('aria-checked')).toBe('true');
 });

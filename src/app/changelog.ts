@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.3": [
+    "Health reward popups and enemy labels include your Vitality bonus, and combined popups no longer drift from rounding",
+    "Fight no longer sends a challenge run into the Soul Dimension",
+    "In an Aggro run, the group picker has Target: Closest, Lowest HP or Strongest, and your shots follow it",
+    "The stat tracker starts over when you start or leave a challenge, or an Aggro run restarts",
+  ],
   "0.901.2": [
     "Your profile counts your soul stats: each stat's base includes them, they are listed in its breakdown, and your power includes them",
   ],
@@ -2960,6 +2966,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.3": "2026-10-07",
   "0.901.2": "2026-10-07",
   "0.901.1": "2026-10-07",
   "0.901.0": "2026-10-07",

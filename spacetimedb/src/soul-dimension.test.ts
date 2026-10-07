@@ -6,6 +6,7 @@ import { STARTER_BOW } from "../../shared/items";
 import { SOUL_ARRIVAL, SOUL_MAP_ID, SOUL_TOWN_PORTAL } from "../../shared/soul-dimension";
 import { TOWN_ARRIVAL, TOWN_SOUL_PORTAL } from "../../shared/town";
 import { HOME_TRAVEL_PORTAL } from "../../shared/home";
+import { ensurePrestigeExpansion } from "./prestige-expansion";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 function soulReady(options: { open?: boolean; prestige?: number; kills?: number } = {}) {
@@ -83,4 +84,32 @@ it("goes in from the Town's bottom road, and back to the Town through the forest
   const pad = portalSpot(HOME_TRAVEL_PORTAL);
   f.patch("player", { mapId: "home_exterior", ...pad });
   expect(() => f.run(server.changeMap, { mapId: SOUL_MAP_ID, ...pad })).toThrow(/not connected/);
+});
+
+it("is where Fight goes back to in the main run, never in a challenge run, whose start is the forest", () => {
+  const f = soulReady();
+  ensurePrestigeExpansion(f.ctx as any);
+  f.ctx.timestamp = f.db.prestigeExpansion.id.find(0).unlocksAt;
+  const me = () => f.db.player.identity.find(f.ctx.sender);
+  // Base from the Soul Dimension keeps the spot, and Fight goes back to it.
+  f.patch("player", { mapId: SOUL_MAP_ID, ...SOUL_ARRIVAL });
+  f.run(server.changeMap, { mapId: "town", ...SOUL_ARRIVAL });
+  expect(me().mapId).toBe("town");
+  f.run(server.changeMap, { mapId: "town", ...TOWN_ARRIVAL });
+  expect(me()).toMatchObject({ mapId: SOUL_MAP_ID, x: SOUL_ARRIVAL.x, y: SOUL_ARRIVAL.y });
+  f.run(server.changeMap, { mapId: "town", ...SOUL_ARRIVAL });
+  for (const [start, end] of [[server.startAggroRun, server.abandonAggroRun], [server.startPrestigeChallenge, server.abandonPrestigeChallenge]]) {
+    f.run(start);
+    // In the Town in the challenge run (a parked run resumed there): Fight starts the run where a fresh one does.
+    f.patch("player", { mapId: "town", ...TOWN_ARRIVAL });
+    f.run(server.changeMap, { mapId: "town", ...TOWN_ARRIVAL });
+    expect(me().mapId).toBe("tutorial_forest");
+    expect(f.db.homeReturnLocation.identity.find(f.ctx.sender).mapId).toBe(SOUL_MAP_ID);
+    // Back in the main run (in the Town, where it was left), Fight goes to the Soul Dimension again.
+    f.run(end);
+    expect(me().mapId).toBe("town");
+    f.run(server.changeMap, { mapId: "town", ...TOWN_ARRIVAL });
+    expect(me().mapId).toBe(SOUL_MAP_ID);
+    f.run(server.changeMap, { mapId: "town", ...SOUL_ARRIVAL });
+  }
 });

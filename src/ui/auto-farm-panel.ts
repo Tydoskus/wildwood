@@ -42,7 +42,7 @@ export function createAutoFarmPanel(options: {
   rewardMultiplier: () => number;
   showBaseStatRewards: () => boolean;
   rewardAmount?: (type: EnemyDefinition["reward"]["type"], amount: number) => number;
-  /** The Aggro challenge and whose picks to read: during a run this button opens the group picker instead. */
+  /** The Aggro challenge and whose picks to read: during a run this button opens the group picker (with Target) instead. */
   aggro?: () => AggroChallenge | null | undefined;
   identity?: () => string | undefined;
   /** Where More's open or closed is kept; localStorage by default. */
@@ -50,7 +50,8 @@ export function createAutoFarmPanel(options: {
 }) {
   const storage = options.storage ?? defaultStorage;
   const aggroRun = () => Boolean(options.aggro?.()?.active);
-  const picker = createAggroPickPrompt(document, { picks: () => readAggroPicks(options.identity?.()), setPicks: picks => writeAggroPicks(options.identity?.(), picks) });
+  const picker = createAggroPickPrompt(document, { picks: () => readAggroPicks(options.identity?.()), setPicks: picks => writeAggroPicks(options.identity?.(), picks),
+    priority: () => options.farm.priority(), setPriority: priority => options.farm.setPriority(priority) });
   /** This map's stat groups, as autofarm offers them; empty while it loads. */
   const mapGroups = () => options.farm.choices().flatMap(choice => choice.key.startsWith('stat:') ? [choice.key.slice(5) as RewardType] : []);
   const floating = document.createElement('div');

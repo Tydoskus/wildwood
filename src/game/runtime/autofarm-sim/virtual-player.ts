@@ -404,7 +404,7 @@ export function createVirtualPlayer(profile: VirtualPlayerProfile, options: { du
     regenerationPerSecond: () => playerRegenerationPerSecond(player.regen, inventory, researchController.regenerationMultiplier(), () => 0),
     healthMultiplierBonus,
     syncMovementState: noop,
-    autoAttack: () => playerCombat.attackNearest(autoFarm.attackType(), autoFarm.targetCamp(), autoFarm.priority()),
+    autoAttack: () => playerCombat.attackNearest(autoFarm.attackType(), autoFarm.targetCamp(), autoFarm.attackPriority()),
     isAutoAttackEnabled: () => true,
     activeDuel: () => null, isDueling: () => false, localIdentity: () => identity, localState: () => null,
     syncLiveDuelDamage: () => ({ state: { challengerHp: 0, opponentHp: 0 } }), liveDuelScene: () => null, setHeldDuelScene: noop,

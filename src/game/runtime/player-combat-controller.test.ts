@@ -72,9 +72,9 @@ describe("player attack timing", () => {
     expect(enemy.hp).toBeLessThan(before);
     expect(engageEnemy).toHaveBeenCalledWith(enemy);
   });
-  it("reports both earned and base stat rewards after research and prestige", () => {
+  it("pops up the shown reward (research, prestige and guild included) and pays the earned one", () => {
     const logPickup = vi.fn();
-    const multiplier = researchStatRewardMultiplier({ foraging: 5, prosperity: 4 }) * prestigeStatMultiplier(2);
+    const multiplier = researchStatRewardMultiplier({ foraging: 5, prosperity: 4 }) * prestigeStatMultiplier(2) * 1.07;
     let now = 0;
     const state = createCombatHarness({ nowSeconds: () => now, researchRewardMultiplier: () => multiplier,
       displayRewardAmount: (type, amount) => amount * multiplier * (type === "damage" ? 1.75 : 1), logPickup });
@@ -88,7 +88,8 @@ describe("player attack timing", () => {
     const before = state.player.damage;
     for (let i = 0; i < 180 && !enemy.dead; i++) { now += 1 / 60; state.controller.attackNearest(); state.controller.updateProjectiles(1 / 60); }
     expect(enemy.dead).toBe(true);
-    expect(logPickup).toHaveBeenCalledWith(rewardLabel({ ...reward, amount: reward.amount * multiplier * 1.75 }), expect.any(String), rewardLabel(reward));
+    const shown = reward.amount * multiplier * 1.75;
+    expect(logPickup).toHaveBeenCalledWith(rewardLabel({ ...reward, amount: shown }), expect.any(String), shown);
     if (reward.type === "damage") expect(state.player.damage - before).toBeCloseTo(reward.amount * multiplier);
   });
 
@@ -669,10 +670,14 @@ describe("autofarm target priority", () => {
   function harness() {
     const state = createCombatHarness();
     state.bosses.dragon.dead = true;
-    const template = state.enemies.find(enemy => !enemy.dead)!;
-    const at = (dx: number, hp: number, maxHp: number) => ({ ...template, x: state.player.x + dx, y: state.player.y, hp, maxHp, dead: false, generatedBoss: false, remoteCombatGhost: false });
-    const near = at(40, 100, 100), wounded = at(80, 10, 100), tough = at(120, 150, 300);
-    state.enemies.splice(0, state.enemies.length, near, wounded, tough);
+    state.enemies.length = 0;
+    const lifecycle = createEnemyLifecycle(state.enemies, state.spawnSites, () => {});
+    // Real Spitters, each in its own direction: the aim is all a test can see.
+    const at = (dx: number, dy: number, hp: number, maxHp: number) => {
+      lifecycle.spawnFromSite({ id: state.enemies.length, type: "Spitter", x: state.player.x + dx, y: state.player.y + dy, campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
+      return Object.assign(state.enemies[state.enemies.length - 1], { hp, maxHp });
+    };
+    const near = at(40, 0, 100, 100), wounded = at(0, -80, 10, 100), tough = at(-120, 0, 150, 300);
     state.player.attackRange = 200;
     return { state, near, wounded, tough };
   }
@@ -694,6 +699,28 @@ describe("autofarm target priority", () => {
     h.near.hp = 5;
     h.state.controller.attackNearest(h.near.type, null, "lowest");
     expect(aimedAt(h.state, h.wounded)).toBe(true);
+  });
+
+  // An Aggro run: every chasing group comes at once, with no farmed group to aim by.
+  it("ranks the whole crowd when no group is farmed, as in an Aggro run", () => {
+    for (const [priority, pick] of [["closest", "near"], ["lowest", "wounded"], ["strongest", "tough"]] as const) {
+      const h = harness();
+      h.state.controller.attackNearest(null, null, priority);
+      expect(aimedAt(h.state, h[pick]), priority).toBe(true);
+    }
+  });
+
+  it("weighs the map boss by the same rule among a crowd", () => {
+    const aim = (priority: "closest" | "lowest" | "strongest") => {
+      const h = harness();
+      const boss = h.state.bosses.dragon;
+      Object.assign(boss, { dead: false, x: h.state.player.x, y: h.state.player.y + 20, hp: 5_000, maxHp: 5_000 });
+      h.state.controller.attackNearest(null, null, priority);
+      return aimedAt(h.state, { x: boss.x, y: boss.y + (boss.hitboxOffsetY ?? 0) }) ? "boss" : aimedAt(h.state, h.wounded) ? "wounded" : "other";
+    };
+    expect(aim("closest")).toBe("boss");
+    expect(aim("strongest")).toBe("boss");
+    expect(aim("lowest")).toBe("wounded");
   });
 });
 

@@ -156,6 +156,17 @@ describe("runtime reward notifications", () => {
     expect(pickupLog.children[1].querySelector(".stat-reward-value")?.textContent).toBe("+1");
   });
 
+  it("sums the unrounded rewards, so a stat gain the text rounds away still adds up", () => {
+    const { controller, pickupLog } = setupHud();
+    // Needle's +0.05 Atk/sec at +12% stat gain is 0.056: each kill reads +0.06, ten of them are +0.56, not +0.60.
+    for (let i = 0; i < 10; i++) controller.logPickup("+0.06 ATK/SEC", "#fff", "total", .056);
+    expect(pickupLog.children).toHaveLength(1);
+    expect(pickupLog.children[0].querySelector(".stat-reward-value")?.textContent).toBe("+0.56");
+    // Compact amounts too: 1,234.4 a kill reads +1.23k, and three are 3.70k, not 3.69k.
+    for (let i = 0; i < 3; i++) controller.logPickup("+1.23k DAMAGE", "#fff", "total", 1_234.4);
+    expect(pickupLog.children[1].querySelector(".stat-reward-value")?.textContent).toBe("+3.70k");
+  });
+
   it("updates only the amount on the same card without restarting its entrance", () => {
     const { controller, pickupLog } = setupHud();
     controller.logPickup("+1 DAMAGE", "#ff655a");

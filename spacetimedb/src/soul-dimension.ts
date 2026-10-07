@@ -61,6 +61,14 @@ export function soulDimensionOpenFor(ctx: any, identity: any) {
 }
 
 /**
+ * Whether Fight may take this player back to a Soul Dimension spot saved on the way to the Town. Never
+ * during a challenge (Reflect Only or Aggro): that spot belongs to the main run, and a challenge plays from its own start.
+ */
+export function soulReturnOpenFor(ctx: any, identity: any) {
+  return soulDimensionOpenFor(ctx, identity) && !challengeActive(ctx, identity);
+}
+
+/**
  * The soul stats combat adds to a run: on top of its base stats in a normal run, and nothing during a
  * challenge (Reflect Only or Aggro), which plays from its own start. Nothing for a player with none.
  */

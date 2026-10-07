@@ -1,5 +1,6 @@
 import { AGGRO_GROUPS, AGGRO_GROUP_LABELS, togglePick } from "../game/runtime/aggro-picks";
 import { REWARD_DATA, type RewardType } from "../game/enemies";
+import { AUTO_FARM_PRIORITIES, type AutoFarmPriority } from "../game/runtime/auto-farm-priority";
 
 /**
  * The Aggro picker: during a run the autofarm button opens it, and it opens on
@@ -7,13 +8,20 @@ import { REWARD_DATA, type RewardType } from "../game/enemies";
  * predates picks, or a pick this map does not have, such as Atk Speed where no
  * enemy pays it). It offers only this map's groups, has no Back, and closes
  * once the run's count is picked; the picks are saved for the maps after.
+ * It also holds Target (autofarm's stored choice): the button never opens the
+ * autofarm window during a run, and with every group chasing at once, which
+ * one is shot first is the run's one targeting decision. It applies on tap.
  */
-export function createAggroPickPrompt(doc: Document, deps: { picks: () => RewardType[]; setPicks: (picks: RewardType[]) => void }) {
+export function createAggroPickPrompt(doc: Document, deps: {
+  picks: () => RewardType[]; setPicks: (picks: RewardType[]) => void;
+  priority?: () => AutoFarmPriority; setPriority?: (priority: AutoFarmPriority) => void;
+}) {
   let overlay: HTMLElement | null = null, needed = 1, available: readonly RewardType[] = AGGRO_GROUPS;
   // Taps change a draft; the saved picks (what chases the player) change only on Done, with the full count.
   let draft: RewardType[] = [];
   let label: HTMLElement, done: HTMLButtonElement;
   const chips = new Map<RewardType, HTMLButtonElement>();
+  let targets: HTMLButtonElement[] = [];
 
   // The picks this map can honour: those it has, in pick order.
   const here = () => draft.filter(pick => available.includes(pick)).slice(0, needed);
@@ -25,6 +33,8 @@ export function createAggroPickPrompt(doc: Document, deps: { picks: () => Reward
       chip.setAttribute("aria-pressed", String(picks.includes(group)));
     }
     done.disabled = picks.length < needed;
+    const priority = deps.priority?.();
+    for (const button of targets) button.setAttribute("aria-checked", String(button.dataset.priority === priority));
   }
 
   function build() {
@@ -37,6 +47,10 @@ export function createAggroPickPrompt(doc: Document, deps: { picks: () => Reward
         <p class="aggro-picks-label"></p>
         <div class="aggro-picks-chips" role="group" aria-label="Groups that chase you"></div>
         <p class="aggro-pick-note">They chase you on every map. Tap the autofarm button to switch them.</p>
+        ${deps.priority ? `<div class="farm-setting aggro-pick-target"><span id="aggroPickTargetLabel" class="farm-setting-label">Target</span>`
+          + `<div class="farm-segment farm-target" role="radiogroup" aria-labelledby="aggroPickTargetLabel">`
+          + AUTO_FARM_PRIORITIES.map(entry => `<button type="button" role="radio" data-priority="${entry.id}">${entry.label}</button>`).join("")
+          + `</div></div>` : ""}
         <button type="button" class="aggro-pick-done">Done</button>
       </section>`;
     doc.body.append(overlay);
@@ -53,6 +67,12 @@ export function createAggroPickPrompt(doc: Document, deps: { picks: () => Reward
       chips.set(group, chip);
       box.append(chip);
     }
+    targets = [...overlay.querySelectorAll<HTMLButtonElement>("[data-priority]")];
+    for (const button of targets) button.addEventListener("click", () => {
+      const choice = AUTO_FARM_PRIORITIES.find(entry => entry.id === button.dataset.priority);
+      if (choice) deps.setPriority?.(choice.id);
+      render();
+    });
     done.addEventListener("click", () => {
       if (here().length < needed || !overlay) return;
       deps.setPicks(here());

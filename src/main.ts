@@ -651,7 +651,7 @@ import {
     researchCriticalChance,
     researchCriticalDamageMultiplier: () => researchCriticalDamageMultiplier() + soulDimension.critDamage(),
     researchRewardMultiplier,
-    displayRewardAmount: rewardDisplay.totalAmount,
+    displayRewardAmount: rewardDisplay.displayedAmount,
     prestigeBossSlayer: () => prestigePerkValue(coop?.prestigePerks?.(), "bossSlayer"),
     prestigeSecondWind: () => prestigePerkValue(coop?.prestigePerks?.(), "secondWind"),
     prestigeDoubleStrike: () => prestigePerkValue(coop?.prestigePerks?.(), "doubleStrike"),
@@ -1055,7 +1055,7 @@ import {
     regenerationPerSecond,
     healthMultiplierBonus,
     syncMovementState: (x, y, vx, vy, inputSource, force, interestArea) => { if (!inTutorial()) coop?.syncMovementState?.(x, y, vx, vy, inputSource, force, interestArea, { group: autoFarm.targetType(), camp: autoFarm.targetCamp(), sites: spawnSites }); },
-    autoAttack: () => playerCombat.attackNearest(autoFarm.attackType(), autoFarm.targetCamp(), autoFarm.priority()),
+    autoAttack: () => playerCombat.attackNearest(autoFarm.attackType(), autoFarm.targetCamp(), autoFarm.attackPriority()),
     isAutoAttackEnabled: () => !onboarding?.blocksInput() && isWeaponItem(inventory.equippedRightHand || inventory.equippedLeftHand),
     activeDuel,
     isDueling,
@@ -1143,9 +1143,8 @@ import {
     runtimeHud.showMessage(text, color);
   }
 
-  function logPickup(text: string, color: string, baseText?: string) {
-    const showBase = appShell.showBaseStatRewards();
-    runtimeHud.logPickup(showBase && baseText ? baseText : text, color, showBase ? "base" : "total");
+  function logPickup(text: string, color: string, value?: number) {
+    runtimeHud.logPickup(text, color, appShell.showBaseStatRewards() ? "base" : "total", value);
   }
 
   let observedCoopSessionGeneration = 0;
