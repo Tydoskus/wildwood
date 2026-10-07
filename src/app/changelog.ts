@@ -2,6 +2,10 @@ export const RELEASE_NOTES: Record<string, string[]> = {
   "0.900.2": [
     "The Town's Travel and Soul Dimension portals stand at the very ends of their roads",
     "A rune stone marks the Soul Dimension's portal",
+    "Fixed every kill raising all your stats by your Soul Stats: they are added once, on top of your base stats",
+    "Soul Stats no longer apply during the Reflect Only and Aggro challenges",
+    "Fight no longer sends a challenge run to a map only your main run has unlocked",
+    "Reflect Only's reward now reads +1 Reflect Rank Cap: each win raises the cap, and ranks still cost points",
   ],
   "0.900.1": [
     "Soul Dimension tiers no longer ask for attack speed enemy kills: Damage, Health, Armor and Regen enemies, found on every map, are enough",

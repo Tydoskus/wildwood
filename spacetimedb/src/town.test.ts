@@ -30,8 +30,11 @@ it("is reached from Home's pad, and its travel portal reaches the maps", () => {
   expect(me(f).mapId).toBe("tutorial_forest");
 });
 
+// A player fighting on Crystal Hollows has opened it.
+const opened = () => { const f = crystalFixture(); f.patch("playerProgress", { crystalHollowsUnlocked: true }); return f; };
+
 it("is where Base goes from any map, keeping that spot for Fight, which takes the player back", () => {
-  const f = crystalFixture();
+  const f = opened();
   f.run(server.changeMap, { mapId: "town", x: 4050, y: 4060 });
   expect(me(f)).toMatchObject({ mapId: "town", x: TOWN_ARRIVAL.x, y: TOWN_ARRIVAL.y });
   expect(f.db.homeReturnLocation.identity.find(f.ctx.sender)).toMatchObject({ mapId: "crystal_hollows", x: 4050, y: 4060 });
@@ -43,8 +46,15 @@ it("is where Base goes from any map, keeping that spot for Fight, which takes th
   expect(f.db.homeReturnLocation.identity.find(f.ctx.sender).mapId).toBe("crystal_hollows");
 });
 
-it("answers Home's retired request as the Town's, and refuses Base to the dead", () => {
+it("never Fights a player back to a map their run has not opened", () => {
   const f = crystalFixture();
+  f.run(server.changeMap, { mapId: "town", x: 4050, y: 4060 });
+  f.run(server.changeMap, { mapId: "town", ...TOWN_ARRIVAL });
+  expect(me(f).mapId).toBe("tutorial_forest");
+});
+
+it("answers Home's retired request as the Town's, and refuses Base to the dead", () => {
+  const f = opened();
   f.run(server.changeMap, { mapId: "home_exterior", x: 4050, y: 4050 });
   expect(me(f)).toMatchObject({ mapId: "town", x: TOWN_ARRIVAL.x, y: TOWN_ARRIVAL.y });
   f.run(server.changeMap, { mapId: "home_exterior", ...TOWN_ARRIVAL });

@@ -204,3 +204,25 @@ it("wins on the spot when a boss clear meets the goal, as Reflect Only does", as
   expect(prestige.completeChallengeIfMet(f.ctx)).toBe(true);
   expect(winAggro).toHaveBeenCalledTimes(1);
 });
+
+it("plays an Aggro run without soul stats, and adds them back once it ends", async () => {
+  const { soulStatsFor } = await import("./soul-dimension");
+  const f = fixture();
+  f.seed("playerSoulStats", { identity: f.ctx.sender, damage: 100, maxHp: 1_000, armor: 50, regen: 5, attackSpeed: 0, critDamage: .1, kills: 10n });
+  expect(soulStatsFor(f.ctx, f.ctx.sender)).toMatchObject({ damage: 100 });
+  f.run(server.startAggroRun);
+  expect(soulStatsFor(f.ctx, f.ctx.sender)).toBeNull();
+  f.run(server.abandonAggroRun);
+  expect(soulStatsFor(f.ctx, f.ctx.sender)).toMatchObject({ damage: 100, critDamage: .1 });
+});
+
+it("never takes an Aggro run back to a map only the main run has open: Fight from the Town falls back to the forest", () => {
+  const f = fixture();
+  // Fighting on the main run's last map, then off to the Town: Fight would go back there.
+  f.patch("player", { mapId: "ion_citadel", x: 900, y: 900 });
+  f.seed("homeReturnLocation", { identity: f.ctx.sender, mapId: "ion_citadel", x: 900, y: 900, facing: 0 });
+  f.run(server.startAggroRun);
+  f.patch("player", { mapId: "town", x: 6120, y: 5110 });
+  f.run(server.changeMap, { mapId: "town", x: 6120, y: 5110 });
+  expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe("tutorial_forest");
+});

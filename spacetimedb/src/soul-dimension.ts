@@ -3,6 +3,7 @@ import type { default as spacetimedbType } from "./index";
 import { isDeveloperIdentity } from "../../shared/developer-identity";
 import { isProceduralMap } from "../../shared/procedural-maps";
 import { CAMPAIGN_MAPS } from "../../shared/campaign-registry";
+import { challengeActive } from "./prestige-challenge";
 import {
   addSoulKills, cleanSoulStats, isSoulMap, soulDimensionAccess, soulStatsUnlocked, soulTier,
   SOUL_STAT_ORDER, SOUL_REWARD_KILL_TYPES, type RewardKillCounts, type SoulStatId, type SoulStats,
@@ -59,9 +60,13 @@ export function soulDimensionOpenFor(ctx: any, identity: any) {
   }) === "open";
 }
 
-/** The soul stats combat adds to a run; nothing for a player with none. */
+/**
+ * The soul stats combat adds to a run: on top of its base stats in a normal run, and nothing during a
+ * challenge (Reflect Only or Aggro), which plays from its own start. Nothing for a player with none.
+ */
 export function soulStatsFor(ctx: any, identity: any): SoulStats | null {
-  const row = identity ? ctx.db.playerSoulStats.identity.find(identity) : null;
+  if (!identity || challengeActive(ctx, identity)) return null;
+  const row = ctx.db.playerSoulStats.identity.find(identity);
   return row ? cleanSoulStats(row) : null;
 }
 

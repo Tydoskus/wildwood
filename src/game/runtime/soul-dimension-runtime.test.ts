@@ -53,3 +53,32 @@ it("stands the Town's portal in only for a player who may go through it", () => 
   locked.runtime.update(1 / 60);
   expect(locked.town.secondaryPortal).toBeUndefined();
 });
+
+it("adds the soul stats once, however many saves and loads go round, and none during a challenge", async () => {
+  const { mergeProgress } = await import("../../coop/services/progress");
+  let aggro = false;
+  const soul = { damage: 100, maxHp: 1_000, armor: 50, regen: 5, attackSpeed: .5, critDamage: .1 };
+  const runtime = createSoulDimensionRuntime({
+    source: () => ({ soulStats: () => soul, aggroChallenge: () => ({ active: aggro }) }),
+    player: { x: 0, y: 0 } as never, enemies: [], spawnSites: [], currentMapId: () => "tutorial_forest", spawnFromSite: () => {}, townMap: {},
+    strength: () => ({ dps: 10, maxHp: 100, armor: 0, regen: 0 }),
+  });
+  const saved = { damage: 50, maxHp: 500, armor: 10, regen: 1, attackRate: 1, projectileSpeed: 0, projectileCount: 1, speed: 0, bootsCollected: false,
+    inventoryJson: "[]", equippedHead: "", equippedChest: "", equippedFeet: "", equippedRightHand: "", equippedLeftHand: "" } as never as Parameters<typeof mergeProgress>[0];
+  let pending: Parameters<typeof mergeProgress>[1] | null = null;
+  let playing = runtime.withSoul(saved)!;
+  // Each kill saves what the player plays with; each server row reload merges that save back in.
+  for (let kill = 0; kill < 5; kill++) {
+    pending = runtime.withoutSoul({ ...playing, maxHp: playing.maxHp + 1 }, saved.attackRate) as never;
+    playing = runtime.withSoul(mergeProgress(saved, pending!))!;
+  }
+  expect(playing.damage).toBe(150);
+  expect(playing.armor).toBe(60);
+  expect(playing.regen).toBe(6);
+  expect(playing.maxHp).toBe(1_505);
+  expect(playing.attackRate).toBeCloseTo(1 / 1.5);
+  // A challenge plays from its own start: no soul stats at all.
+  aggro = true;
+  expect(runtime.withSoul(saved)).toMatchObject({ damage: 50, maxHp: 500, armor: 10, regen: 1, attackRate: 1 });
+  expect(runtime.critDamage()).toBe(0);
+});

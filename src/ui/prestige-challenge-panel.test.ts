@@ -16,8 +16,8 @@ it("shows Reflect Only's rule and reward, and confirms starting or abandoning it
   expect(container.textContent).toContain("Starting saves your run");
   expect(container.textContent).toContain("Map 15 boss → Endless 1 → Endless 2 → Endless 3");
   expect(container.textContent).toContain("+0.5 attacks/sec");
-  expect(container.textContent).toContain("+1 Reflect rank");
-  expect(container.textContent).toContain("Won so far: +1 attacks/sec and +2 Reflect ranks, for good");
+  expect(container.textContent).toContain("+1 Reflect Rank Cap");
+  expect(container.textContent).toContain("Won so far: +1 attacks/sec and +2 Reflect Rank Cap, for good");
   expect(container.querySelectorAll(".prestige-challenge-pips li.is-done")).toHaveLength(2);
   const button = container.querySelector("button")!;
   button.click(); await vi.waitFor(() => expect(start).toHaveBeenCalledOnce());
@@ -31,7 +31,7 @@ it("shows Reflect Only's rule and reward, and confirms starting or abandoning it
   expect(confirm.mock.calls[0][0].message).toContain("saved and restored");
   state = { active: false, completed: 4 }; panel.render();
   expect(button.disabled).toBe(true);
-  expect(container.textContent).toContain("Won: +2 attacks/sec and +4 Reflect ranks, for good");
+  expect(container.textContent).toContain("Won: +2 attacks/sec and +4 Reflect Rank Cap, for good");
 });
 
 it("names why the challenge is locked and keeps its button off", () => {

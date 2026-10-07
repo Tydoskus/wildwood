@@ -5827,12 +5827,12 @@ export const changeMap = spacetimedb.reducer(
         // Recover already-linked accounts whose older client/server omitted
         // their Home return record. Keep their stats and unlocks intact.
         const progress = readPlayerProgress(ctx, ctx.sender);
-        const converted = ctx.db.playerEndlessRebaseBackup.identity.find(ctx.sender);
         const savedMapIndex = saved ? MAP_IDS.indexOf(saved.mapId) : -1;
-        const permitted = (!isSoulMap(saved?.mapId) || soulDimensionOpenFor(ctx, ctx.sender)) && (!isGuildHallMap(saved?.mapId) || guildHallMember(ctx, ctx.sender, saved!.mapId)) && (!converted || (saved && (isProceduralMap(saved.mapId)
-          ? generatedMapUnlocked(saved.mapId, ctx.db.proceduralProgress.identity.find(ctx.sender)?.completed ?? 0,
+        // Fight only goes back to a map this run has open: a challenge run (or a reset) must not land on the main run's map 15.
+        const permitted = (!isSoulMap(saved?.mapId) || soulDimensionOpenFor(ctx, ctx.sender)) && (!isGuildHallMap(saved?.mapId) || guildHallMember(ctx, ctx.sender, saved!.mapId)) && Boolean(saved && (isProceduralMap(saved.mapId)
+          ? hasEndlessTravelAccess(ctx, ctx.sender) || generatedMapUnlocked(saved.mapId, ctx.db.proceduralProgress.identity.find(ctx.sender)?.completed ?? 0,
             Boolean((progress?.bossRewardClaims ?? 0) & BOSS_REWARD_CLAIM_BITS[PROCEDURAL_ENTRY_BOSS]))
-          : savedMapIndex === 0 || (savedMapIndex > 0 && Boolean(progress?.[CAMPAIGN_UNLOCK_FIELDS[savedMapIndex - 1]])))));
+          : savedMapIndex <= 0 || Boolean(progress?.[CAMPAIGN_UNLOCK_FIELDS[savedMapIndex - 1]])));
         const destination = permitted && saved && saved.mapId !== HOME_EXTERIOR_MAP_ID && !isTownMap(saved.mapId) && VALID_MAP_IDS.has(saved.mapId)
           && [saved.x, saved.y, saved.facing].every(Number.isFinite)
           ? saved : { mapId: TUTORIAL_FOREST_MAP_ID, ...PLAYER_SPAWN, facing: 0 };

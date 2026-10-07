@@ -19,7 +19,7 @@ export function accountStorageKeys(host: string, databaseName: string) {
   const updateResumeKey = `${tokenKey}/forced_update_resume_v1`;
   const updateResumeConsumedKey = `${updateResumeKey}/consumed_version`;
   const authTabKey = `${accountMigrationPendingKey}/tab_id`;
-  const pendingProgressKey = `${tokenKey}/pending_progress_v1`;
+  const pendingProgressKey = `${tokenKey}/pending_progress_v2`;
   const legalConsentKey = `${tokenKey}/legal_consent_v1`;
   return {
     tokenKey, guestTokenKey, accountTokenKey, accountLinkKey, loginMoveKey, accountMigrationPendingKey,

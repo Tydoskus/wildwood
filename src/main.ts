@@ -623,7 +623,7 @@ import {
     bootsPickup,
     legacyStorageKey: LEGACY_SAVE_KEY,
     getSavedProgress: () => soulDimension.withSoul(coop?.savedProgress?.() ?? null),
-    saveRemoteProgress: (saved, immediate) => { coop?.saveProgress?.(saved, immediate); },
+    saveRemoteProgress: (saved, immediate) => { coop?.saveProgress?.(soulDimension.withoutSoul(saved, coop?.savedProgress?.()?.attackRate ?? saved.attackRate), immediate); },
     localIdentity: () => coop?.localIdentity?.() ?? "",
     lifetimeEnemyKills: (identity) => coop?.playerProfile?.(identity)?.lifetime.enemyKills,
     isDeveloper: isDeveloperIdentity,

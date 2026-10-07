@@ -124,6 +124,32 @@ export function withSoulStats<T extends { damage: number; maxHp: number; armor: 
   };
 }
 
+/**
+ * withSoulStats undone: the run's own stats back from what a player plays with, so a save never stores the
+ * soul's share as the run's (it would be added again on top: every save would add the soul stats once more).
+ * Attack speed at the cap cannot be undone exactly; then the run's saved interval, `savedAttackRate`, stands.
+ */
+export function withoutSoulStats<T extends { damage: number; maxHp: number; armor: number; regen: number; attackRate: number }>(
+  progress: T, soul: Partial<SoulStats> | null | undefined, savedAttackRate: number,
+): T {
+  if (!soul) return progress;
+  const clean = cleanSoulStats(soul);
+  if (!clean.damage && !clean.maxHp && !clean.armor && !clean.regen && !clean.attackSpeed) return progress;
+  let attackRate = progress.attackRate;
+  if (clean.attackSpeed > 0) {
+    const slower = 1 / progress.attackRate - clean.attackSpeed;
+    attackRate = progress.attackRate > MIN_ATTACK_INTERVAL + 1e-9 && slower > 0 ? 1 / slower : savedAttackRate;
+  }
+  return {
+    ...progress,
+    damage: Math.max(0, progress.damage - clean.damage),
+    maxHp: Math.max(1, progress.maxHp - clean.maxHp),
+    armor: Math.max(0, progress.armor - clean.armor),
+    regen: Math.max(0, progress.regen - clean.regen),
+    attackRate,
+  };
+}
+
 // ---- Soul enemies on the wire ----
 
 /** The enemy id a soul kill is reported as. */

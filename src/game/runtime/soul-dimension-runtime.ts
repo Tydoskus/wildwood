@@ -1,6 +1,6 @@
 import {
   addSoulKills, cleanSoulStats, EMPTY_REWARD_KILLS, isSoulMap, soulDimensionAccess, soulEnemyStats, soulTier,
-  withSoulStats, SOUL_CAMPS, SOUL_STAT_DETAILS,
+  withSoulStats, withoutSoulStats, EMPTY_SOUL_STATS, SOUL_CAMPS, SOUL_STAT_DETAILS,
   type RewardKillCounts, type SoulStatId, type SoulStats, type SoulStrength,
 } from "../../../shared/soul-dimension";
 import { TOWN_SOUL_PORTAL } from "../../../shared/town";
@@ -20,6 +20,8 @@ export type SoulDimensionSource = {
   rewardKills?: () => RewardKillCounts;
   soulDimensionOpen?: () => boolean;
   setSoulDimensionOpen?: (open: boolean) => Promise<boolean>;
+  prestigeChallenge?: () => { active?: boolean } | null;
+  aggroChallenge?: () => { active?: boolean } | null;
 };
 
 /** The Town's portal in, standing for players who may use it. */
@@ -61,6 +63,11 @@ export function createSoulDimensionRuntime(deps: {
       damage: base.damage + pending.damage, maxHp: base.maxHp + pending.maxHp, armor: base.armor + pending.armor,
       regen: base.regen + pending.regen, attackSpeed: base.attackSpeed + pending.attackSpeed, critDamage: base.critDamage + pending.critDamage,
     };
+  }
+  /** The soul stats in play: all of them in a normal run, none during a challenge (Reflect Only or Aggro). */
+  function inPlay(): SoulStats {
+    const coop = source();
+    return coop?.prestigeChallenge?.()?.active || coop?.aggroChallenge?.()?.active ? { ...EMPTY_SOUL_STATS } : soulStats();
   }
   const rewardKills = () => source()?.rewardKills?.() ?? EMPTY_REWARD_KILLS;
   const tier = () => soulTier(rewardKills());
@@ -130,11 +137,18 @@ export function createSoulDimensionRuntime(deps: {
       const amount = stat === "critDamage" ? `${+(detail.reward * 100).toFixed(1)}%` : `${detail.reward}`;
       deps.logPickup?.(`+${amount} Soul ${detail.label}`, detail.color);
     },
-    /** Saved progress with the soul stats added: what the player's stats load from. */
+    /** Saved progress with the soul stats added: what the player's stats load from. Nothing is added in a challenge. */
     withSoul<T extends { damage: number; maxHp: number; armor: number; regen: number; attackRate: number }>(progress: T | null): T | null {
-      return progress ? withSoulStats(progress, soulStats()) : progress;
+      return progress ? withSoulStats(progress, inPlay()) : progress;
     },
-    critDamage: () => soulStats().critDamage,
+    /**
+     * The player's stats with the soul's share taken back out: what a save stores. Saving them as they are
+     * stored the soul stats as the run's, and loading added them again, so every save added them once more.
+     */
+    withoutSoul<T extends { damage: number; maxHp: number; armor: number; regen: number; attackRate: number }>(stats: T, savedAttackRate: number): T {
+      return withoutSoulStats(stats, inPlay(), savedAttackRate);
+    },
+    critDamage: () => inPlay().critDamage,
     soulStats,
     rewardKills,
     tier,

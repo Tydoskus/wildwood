@@ -50,8 +50,9 @@ it("reuses challenge, equipment and armor calculations until an armor reward cha
     report.preview(reward); report.commit(reward);
   }
   const challengeCount = challengeReads.mock.calls.length, aggroCount = aggroReads.mock.calls.length;
-  expect(challengeCount).toBeLessThanOrEqual(3); // Includes fixed prestige multiplier/perk reads.
-  expect(aggroCount).toBeLessThanOrEqual(3);
+  // Includes fixed prestige multiplier/perk reads, and soul stats' check that no challenge is under way.
+  expect(challengeCount).toBeLessThanOrEqual(4);
+  expect(aggroCount).toBeLessThanOrEqual(4);
   expect(reduction).toHaveBeenCalledTimes(1);
   const equipmentCount = equipment.mock.calls.length;
   const preArmorCount = preArmor.mock.calls.length;
