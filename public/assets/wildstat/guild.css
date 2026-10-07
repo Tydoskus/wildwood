@@ -231,3 +231,4 @@ body:has(.guild-overlay:not([hidden])) #profileIconPicker { z-index: 14; }
 .guild-quest-pool .guild-row-copy { flex: 1; min-width: 0; }
 .guild-quest-pool .guild-row-copy strong { color: #ffd66b; }
 .guild-quest-pool .guild-quest-collect, .guild-quest-member .guild-quest-collect { flex-shrink: 0; min-height: 34px; margin: 0; padding: 4px 10px; font-size: 12px; }
+.guild-window .guild-hall-button { width: 100%; font-size: 14px; }

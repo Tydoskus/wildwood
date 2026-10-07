@@ -8,6 +8,7 @@ import {
   type ProceduralMapId,
 } from "../../shared/procedural-maps";
 import { campaignMeleeChaseSpeed } from "../../shared/enemy-definitions";
+import { isGuildHallMap } from "../../shared/guild-hall";
 import { ENEMY_TYPES, type EnemyKind } from "./enemies";
 import type { SpawnSite, SpawnCamp, WorldDecor } from "./world";
 import { isNearRegionSpawns, regionSpawnPoints } from "./region-scatter";
@@ -78,14 +79,19 @@ export function generatedMapContent(id: ProceduralMapId) {
   }
   return { map, camps, sites, decor, kinds };
 }
-/** Lazy extension point for existing map-keyed consumers; bounded cache for long sessions. */
+/**
+ * Lazy extension point for existing map-keyed consumers; bounded cache for long sessions. Every guild's hall
+ * (guild_hall_<id>) is one map to these consumers: `hall`'s entry, when one is given.
+ */
 export function withGeneratedMaps<T>(
   authored: object,
   generate: (id: ProceduralMapId) => T,
+  hall?: T,
 ): Record<string, T> {
   const cache = new Map<string, T>();
   return new Proxy(authored as Record<string, T>, {
     get(target, key, receiver) {
+      if (hall !== undefined && isGuildHallMap(key)) return hall;
       if (typeof key !== "string" || !isProceduralMap(key))
         return Reflect.get(target, key, receiver);
       const cacheKey = `${key}:${runtimeMapBalance(key)?.revision ?? "authored"}`;
@@ -97,7 +103,7 @@ export function withGeneratedMaps<T>(
     },
     has(target, key) {
       return (
-        (typeof key === "string" && isProceduralMap(key)) ||
+        (typeof key === "string" && isProceduralMap(key)) || (hall !== undefined && isGuildHallMap(key)) ||
         Reflect.has(target, key)
       );
     },

@@ -164,7 +164,7 @@ export function mapGuideDrops(mapId: MapId): readonly MapGuideDrop[] {
     denominator: outcomes,
     source: "Any regular enemy",
   }));
-  return [...regularDrops, ...MAP_GUIDE_DROPS[mapId]];
+  return [...regularDrops, ...(MAP_GUIDE_DROPS[mapId] ?? [])];
 }
 
 /**
@@ -351,7 +351,7 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
     if (!context) return;
     const mapId = shown();
     const layout = layoutOf(mapId);
-    const theme = isProceduralMap(mapId) ? { ...generateMap(mapId).palette, glow: generateMap(mapId).palette.accent } : MAP_GUIDE_THEMES[mapId];
+    const theme = isProceduralMap(mapId) ? { ...generateMap(mapId).palette, glow: generateMap(mapId).palette.accent } : MAP_GUIDE_THEMES[mapId] ?? MAP_GUIDE_THEMES.soul_dimension;
     const scaleX = width / WORLD.w;
     const scaleY = height / WORLD.h;
     context.setTransform(dpr, 0, 0, dpr, 0, 0);

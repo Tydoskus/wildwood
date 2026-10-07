@@ -1,4 +1,11 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.899.16": [
+    "Every guild has its own Guild Hall: a courtyard and a great hall with your guild's crest",
+    "Sit at the great table with your guildmates: stand still by a stool",
+    "Guild quest points fill the Hall Fund; the President and Vice Presidents buy upgrades on the board inside",
+    "Seven hall upgrades: a longer table, a bigger hall, banners, a hearth, a trophy wall, lanterns and a garden",
+    "Enter from Home's travel portal or the Guild Hall button in the Guild window",
+  ],
   "0.899.15": [
     "Moonfen and Verdant Catacombs mushrooms have new art",
   ],
@@ -2910,6 +2917,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.899.16": "2026-10-06",
   "0.899.15": "2026-10-06",
   "0.899.14": "2026-10-06",
   "0.899.13": "2026-10-06",

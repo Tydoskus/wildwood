@@ -561,6 +561,12 @@
       "revision:u64",
       "updatedAt:timestamp"
     ],
+    "my_guild_hall": [
+      "guildId:u64",
+      "fund:u32",
+      "spent:u32",
+      "levels:string"
+    ],
     "my_ignored_drops": [
       "key:string",
       "identity:identity",

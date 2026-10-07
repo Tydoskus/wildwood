@@ -1,6 +1,9 @@
 import { SOUL_SHORE_SOURCE, SOUL_WATER_SOURCE } from "./soul-water";
 import { SOUL_ATLAS_SOURCE, SOUL_INTERIORS_SOURCE, SOUL_VILLAGE_GROUND_SOURCE, SOUL_VILLAGE_PROPS_SOURCE } from "./soul-prop-renderer";
 import { isProceduralMap } from "../../../shared/procedural-maps";
+import { isGuildHallMap } from "../../../shared/guild-hall";
+import { GUILD_HALL_GROUND_SOURCE, GUILD_HALL_PROPS_SOURCE, GUILD_HALL_ROOMS_SOURCE } from "../guild-hall";
+import { GUILD_EMBLEM_SHEET_SOURCES } from "../../ui/guild-emblems";
 import { DUEL_PLATFORM_ART_SOURCE, DUEL_SPACE_BACKGROUND_SOURCE } from "../duel";
 import { requiredCanvasContext } from "./dom";
 import { scheduleBackgroundTask, yieldToUser } from "./scheduler";
@@ -282,6 +285,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   const soulWaterAsset = createLazyImageAsset(SOUL_WATER_SOURCE);
   const soulShoreAsset = createLazyImageAsset(SOUL_SHORE_SOURCE);
   const soulInteriorsAsset = createLazyImageAsset(SOUL_INTERIORS_SOURCE);
+  const guildHallAssets = [GUILD_HALL_PROPS_SOURCE, GUILD_HALL_GROUND_SOURCE, GUILD_HALL_ROOMS_SOURCE, ...GUILD_EMBLEM_SHEET_SOURCES].map(source => createLazyImageAsset(source));
   const assetGroups = {
     forestDecor: [treeAsset],
     orchardDecor: lavaAssets.slice(6),
@@ -291,6 +295,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     cherryDecor: [cherryTreeAsset],
     soulVillage: [soulAtlasAsset, soulVillagePropsAsset, soulVillageGroundAsset, soulWaterAsset, soulShoreAsset, soulInteriorsAsset],
     packNature: [soulAtlasAsset],
+    guildHall: guildHallAssets,
     ...Object.fromEntries(BOSS_KINDS.map((kind) => [BOSSES[kind].assetGroup, bossArt[kind].assets])),
   } as Record<MapArtAssetGroup, LazyImageAsset[]>;
   const mapAssets = {} as Record<MapId, LazyImageAsset[]>;
@@ -303,16 +308,18 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     if (editedDecor.has("glowMushroom") || mapId === "moonfen" || mapId === "verdant_catacombs") groups.add("packNature");
     mapAssets[mapId] = [...groups].flatMap((group) => assetGroups[group]);
   }
+  /** A map's art: none for Endless, the one hall set for every guild's hall (their ids are not enumerable). */
+  const assetsOf = (mapId: MapId) => isProceduralMap(mapId) ? [] : isGuildHallMap(mapId) ? guildHallAssets : mapAssets[mapId] ?? [];
   function ensureMapAssets(mapId: MapId) {
-    return Promise.all((isProceduralMap(mapId) ? [] : mapAssets[mapId]).map((asset) => asset.load())).then(() => undefined);
+    return Promise.all(assetsOf(mapId).map((asset) => asset.load())).then(() => undefined);
   }
 
   function mapAssetsReady(mapId: MapId) {
-    return (isProceduralMap(mapId) ? [] : mapAssets[mapId]).every((asset) => asset.settled());
+    return assetsOf(mapId).every((asset) => asset.settled());
   }
 
   function mapAssetLoadFailed(mapId: MapId) {
-    return (isProceduralMap(mapId) ? [] : mapAssets[mapId]).some((asset) => asset.failed());
+    return assetsOf(mapId).some((asset) => asset.failed());
   }
 
   /**
@@ -322,9 +329,9 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
    * in `keep` uses is let go; it loads again if the player walks back.
    */
   function releaseMapAssetsExcept(keep: readonly MapId[]) {
-    const needed = new Set(keep.flatMap((mapId) => isProceduralMap(mapId) ? [] : mapAssets[mapId] ?? []));
+    const needed = new Set(keep.flatMap(assetsOf));
     let released = 0;
-    for (const asset of new Set(Object.values(mapAssets).flat())) if (!needed.has(asset) && asset.release()) released += 1;
+    for (const asset of new Set([...Object.values(mapAssets).flat(), ...guildHallAssets])) if (!needed.has(asset) && asset.release()) released += 1;
     return released;
   }
 
@@ -343,6 +350,10 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     soulVillageProps: soulVillagePropsAsset.image,
     soulVillageGround: soulVillageGroundAsset.image,
     soulInteriors: soulInteriorsAsset.image,
+    guildHallProps: guildHallAssets[0].image,
+    guildHallGround: guildHallAssets[1].image,
+    guildHallRooms: guildHallAssets[2].image,
+    guildEmblemSheets: guildHallAssets.slice(3).map(asset => asset.image),
     soulWater: soulWaterAsset.image,
     soulShore: soulShoreAsset.image,
     lavaPools: lavaAssets.slice(0, 3).map((asset) => asset.image),

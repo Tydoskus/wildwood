@@ -1,4 +1,5 @@
 import { SOUL_ARRIVAL, SOUL_MAP_ID } from "../../../shared/soul-dimension";
+import { GUILD_HALL_ARRIVAL, GUILD_HALL_HOME_PAD } from "../../../shared/guild-hall";
 import { SOUL_HOME_GATE_PORTAL } from "./soul-dimension-runtime";
 import { CAMPAIGN_MAPS } from "../../../shared/campaign-registry";
 import { HOME_TRAVEL_PORTAL, HOME_EXTERIOR_SPAWN } from "../../../shared/home";
@@ -103,7 +104,8 @@ export function createGameBootstrap() {
   const mapConfig = withGeneratedMaps<BootstrapMapEntry>(authoredMapConfig, id => {
     const map = generateMap(id);
     return { name: map.name, arrival: map.arrival, portal: { ...map.portals[0], destination: map.portals[0].destination as MapId }, secondaryPortal: map.portals[1] ? { ...map.portals[1], destination: map.portals[1].destination as MapId } : undefined };
-  }) as typeof authoredMapConfig & Record<MapId, BootstrapMapEntry>;
+  // Every guild's hall: the yard's portal home at the foot of the path.
+  }, { name: "Guild Hall", arrival: GUILD_HALL_ARRIVAL, portal: { ...GUILD_HALL_HOME_PAD, destination: "home_exterior" } }) as typeof authoredMapConfig & Record<MapId, BootstrapMapEntry>;
   mapConfig[PROCEDURAL_ENTRY_MAP as MapId].secondaryPortal = { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: proceduralMapId(1) };
   const player: PlayerState = {
     x: startSpawn.x, y: startSpawn.y, r: 17,
@@ -178,7 +180,7 @@ export function createGameBootstrapAssets(options: {
   ])];
   // Generated IDs are intentionally not enumerable. Preserve their lazy lookup
   // when layering saved map edits over the authored groups.
-  const editedEnemySpriteGroups = withGeneratedMaps<readonly EnemyKind[]>({}, spriteKinds);
+  const editedEnemySpriteGroups = withGeneratedMaps<readonly EnemyKind[]>({}, spriteKinds, []);
   for (const mapId of Object.keys(MAP_ENEMY_SPRITE_GROUPS) as MapId[]) {
     editedEnemySpriteGroups[mapId] = spriteKinds(mapId);
   }

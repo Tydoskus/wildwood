@@ -616,3 +616,10 @@
 .soul-row.is-done strong { color: #7ee08a; }
 .soul-note { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.35; }
 .farm-sheet .soul-toggle { justify-content: center; font-weight: 700; }
+.guild-hall-sheet .soul-section { border-color: rgba(255,207,107,.28); }
+.guild-hall-sheet .soul-section h3 { color: #ffd98a; }
+.guild-hall-crest { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 2px 0 0; color: #fff; font-size: 16px; }
+.guild-hall-crest .guild-hall-badge { width: 52px; height: 52px; }
+.guild-hall-sheet .guild-hall-fund { color: #ffd98a; font-size: 14px; font-weight: 700; }
+.farm-sheet .guild-hall-upgrade { margin-top: 4px; font-size: 13px; }
+.guild-hall-sheet .guild-hall-enter[hidden] { display: none; }

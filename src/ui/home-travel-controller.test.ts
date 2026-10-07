@@ -7,7 +7,7 @@ import type { MapId } from "../game/world";
 let destroy: (() => void) | undefined;
 afterEach(() => { destroy?.(); destroy = undefined; vi.unstubAllGlobals(); });
 
-function setup(progress: CampaignAccess = {}, endless = { unlocked: false, completed: 0 }, departure: MapId | null = null) {
+function setup(progress: CampaignAccess = {}, endless = { unlocked: false, completed: 0 }, departure: MapId | null = null, guildHall: MapId | null = null) {
   const { document, window } = parseHTML("<html><body></body></html>");
   vi.stubGlobal("window", window); vi.stubGlobal("document", document); vi.stubGlobal("HTMLElement", window.HTMLElement);
   const source: HomeTravelSource = {
@@ -18,7 +18,7 @@ function setup(progress: CampaignAccess = {}, endless = { unlocked: false, compl
   let atHome = true;
   const travel = vi.fn(async (_mapId: MapId) => true);
   const pause = vi.fn(), clearInput = vi.fn();
-  const picker = createHomeTravelController({ source: () => source, travel, departure: () => departure, atHome: () => atHome, pause, clearInput });
+  const picker = createHomeTravelController({ source: () => source, travel, departure: () => departure, atHome: () => atHome, pause, clearInput, guildHall: () => guildHall });
   destroy = picker.destroy;
   const dialog = document.querySelector<HTMLDialogElement>("dialog")!;
   Object.assign(dialog, { showModal() { dialog.open = true; }, close() { dialog.open = false; } });
@@ -136,4 +136,21 @@ it("returns to the Endless stage the player left from", () => {
   expect(s.selected()).toBe("endless");
   expect(s.document.querySelector<HTMLInputElement>(".travel-stage")!.value).toBe("7");
   expect(s.document.querySelector('[data-map="endless"]')!.textContent).toContain("Where you left");
+});
+
+it("offers the player's guild hall first, and travels there", async () => {
+  const s = setup({}, undefined, null, "guild_hall_12");
+  s.picker.open();
+  expect(s.names()).toEqual(["Guild Hall", "Tutorial Forest", "Beginner Desert"]);
+  expect(s.rows()[0].querySelector(".farm-reward")!.textContent).toBe("Your guild's hall");
+  s.click('[data-map="guild_hall_12"]');
+  s.click(".travel-go");
+  await Promise.resolve();
+  expect(s.travel).toHaveBeenCalledWith("guild_hall_12");
+});
+
+it("has no hall row without a guild", () => {
+  const s = setup();
+  s.picker.open();
+  expect(s.names()).not.toContain("Guild Hall");
 });

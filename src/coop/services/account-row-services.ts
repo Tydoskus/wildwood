@@ -4,13 +4,15 @@ import { createBowSkills } from "./bow-skills";
 import { createAdGemReward } from "./ad-gem-reward";
 import { createChatMute } from "./chat-mute";
 import { createSoulDimensionRows } from "./soul-dimension-service";
+import { createGuildHallRows } from "./guild-hall-service";
 
 /**
  * The account's own small rows, each read through a caller-scoped view and
  * followed for as long as the connection is current: the offline-progress
  * opt-out, the bow skill rolls with their copies and loot settings, the
  * rewarded ad's Gem claims, the automatic chat mute and the Soul Dimension's
- * rows (soul stats, kills by reward type, whether it is open). They share one
+ * rows (soul stats, kills by reward type, whether it is open) and the guild
+ * hall's fund and levels. They share one
  * lifecycle, so the connection starts them together and the coop API serves
  * them together.
  */
@@ -20,6 +22,7 @@ export function createAccountRowServices(connection: () => DbConnection | null, 
   const adGemReward = createAdGemReward(notify);
   const chatMute = createChatMute(notify);
   const soulDimension = createSoulDimensionRows(connection, notify);
+  const guildHall = createGuildHallRows(connection, notify);
   return {
     watch(current: DbConnection, isCurrent: () => boolean) {
       offlinePreference.watch(current, isCurrent);
@@ -27,6 +30,7 @@ export function createAccountRowServices(connection: () => DbConnection | null, 
       adGemReward.watch(current, isCurrent);
       chatMute.watch(current, isCurrent);
       soulDimension.watch(current, isCurrent);
+      guildHall.watch(current, isCurrent);
     },
     api: {
       ...offlinePreference.api,
@@ -34,6 +38,7 @@ export function createAccountRowServices(connection: () => DbConnection | null, 
       ...adGemReward.api,
       ...chatMute.api,
       ...soulDimension.api,
+      ...guildHall.api,
     },
   };
 }

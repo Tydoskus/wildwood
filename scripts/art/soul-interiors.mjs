@@ -77,7 +77,7 @@ function random(seed) {
 }
 
 /** Planks in rows, each a little different, outlined as the pack outlines its wood. */
-function woodFloor(w, h, seed) {
+export function woodFloor(w, h, seed) {
   const next = random(seed), rows = [];
   const fills = ["#c8945a", "#c08a50", "#cf9c62", "#bb8549"];
   for (let y = 0, row = 0; y < h; y += 26, row++) {
@@ -94,7 +94,7 @@ function woodFloor(w, h, seed) {
 }
 
 /** Flagstones for the smithy: a forge is no place for planks. */
-function stoneFloor(w, h, seed) {
+export function stoneFloor(w, h, seed) {
   const next = random(seed), stones = [];
   const fills = ["#a39d92", "#9a9387", "#aca69b", "#958f84"];
   for (let y = 0, row = 0; y < h; y += 40, row++) {
@@ -108,11 +108,11 @@ function stoneFloor(w, h, seed) {
 }
 
 /** A texture of the pack's by name, as a sprite (the whole image). */
-function packSprite(name) {
+export function packSprite(name) {
   const entry = [...byGuid].find(([, value]) => value.path.endsWith(`/${name}.png`));
   return entry ? spriteFor({ guid: entry[0], fileID: "21300000" }) : null;
 }
-async function spritePixels(sprite) {
+export async function spritePixels(sprite) {
   const meta = await sharp(sprite.texture).metadata();
   const rect = sprite.rect ? { x: num(sprite.rect.x), y: num(sprite.rect.y), w: num(sprite.rect.width), h: num(sprite.rect.height) } : { x: 0, y: 0, w: meta.width, h: meta.height };
   return sharp(sprite.texture).extract({ left: Math.round(rect.x), top: Math.round(meta.height - rect.y - rect.h), width: Math.round(rect.w), height: Math.round(rect.h) }).png().toBuffer();
@@ -123,7 +123,7 @@ const composed = new Map();
  * A prefab drawn as the pack builds it, at game size: its body, and its shadow apart (solid, for the
  * game's shadow layer), each with the prefab's origin (where it stands) as its pivot.
  */
-async function composePrefab(name, recolor = null) {
+export async function composePrefab(name, recolor = null) {
   const key = `${name}:${JSON.stringify(recolor)}`;
   if (composed.has(key)) return composed.get(key);
   const match = [...byGuid].find(([, entry]) => entry.path.endsWith(`/${name}.prefab`));

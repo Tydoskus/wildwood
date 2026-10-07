@@ -218,7 +218,9 @@ import UnlockInventorySlotReducer from "./unlock_inventory_slot_reducer";
 import UnlockSecondUpgradeSlotReducer from "./unlock_second_upgrade_slot_reducer";
 import UnlockThirdUpgradeSlotReducer from "./unlock_third_upgrade_slot_reducer";
 import UpdateMovementStateReducer from "./update_movement_state_reducer";
+import UpgradeGuildHallReducer from "./upgrade_guild_hall_reducer";
 import UseFreePrestigeRespecReducer from "./use_free_prestige_respec_reducer";
+import UseGuildHallDoorReducer from "./use_guild_hall_door_reducer";
 import UseSoulDoorReducer from "./use_soul_door_reducer";
 
 // Import all procedure arg schemas
@@ -319,6 +321,7 @@ import MyEquipmentLocksRow from "./my_equipment_locks_table";
 import MyEquipmentOffersRow from "./my_equipment_offers_table";
 import MyGemPurchasesRow from "./my_gem_purchases_table";
 import MyGemWalletRow from "./my_gem_wallet_table";
+import MyGuildHallRow from "./my_guild_hall_table";
 import MyIgnoredDropsRow from "./my_ignored_drops_table";
 import MyInventoryCapacityRow from "./my_inventory_capacity_table";
 import MyItemGiftsRow from "./my_item_gifts_table";
@@ -1486,6 +1489,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyGemWalletRow),
+  myGuildHall: __table({
+    name: 'my_guild_hall',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyGuildHallRow),
   myIgnoredDrops: __table({
     name: 'my_ignored_drops',
     indexes: [
@@ -1807,7 +1817,9 @@ const reducersSchema = __reducers(
   __reducerSchema("unlock_second_upgrade_slot", UnlockSecondUpgradeSlotReducer),
   __reducerSchema("unlock_third_upgrade_slot", UnlockThirdUpgradeSlotReducer),
   __reducerSchema("update_movement_state", UpdateMovementStateReducer),
+  __reducerSchema("upgrade_guild_hall", UpgradeGuildHallReducer),
   __reducerSchema("use_free_prestige_respec", UseFreePrestigeRespecReducer),
+  __reducerSchema("use_guild_hall_door", UseGuildHallDoorReducer),
   __reducerSchema("use_soul_door", UseSoulDoorReducer),
 );
 

@@ -53,6 +53,8 @@ export function createHomeTravelController(deps: {
   pause: (paused: boolean) => void;
   clearInput?: () => void;
   mapName?: (mapId: MapId) => string;
+  /** The player's guild's hall, first in the list when they have one. */
+  guildHall?: () => MapId | null;
 }) {
   const dialog = document.createElement("dialog");
   dialog.className = "farm-sheet travel-sheet";
@@ -99,6 +101,8 @@ export function createHomeTravelController(deps: {
     const departed = deps.departure();
     const departedKey = departed && isProceduralMap(departed) ? ENDLESS : departed;
     const result = homeTravelEntries(deps.source(), deps.mapName);
+    const hall = deps.guildHall?.();
+    if (hall) result.entries.unshift({ key: hall, mark: "⚑", name: "Guild Hall", locked: null });
     endlessHighest = result.endlessHighest;
     const departedStage = departed ? proceduralMapNumber(departed) : null;
     endlessStage = departedStage && departedStage <= endlessHighest ? departedStage : Math.max(1, endlessHighest);
@@ -117,7 +121,7 @@ export function createHomeTravelController(deps: {
       } else {
         row.dataset.map = entry.key;
         const here = entry.key === departedKey;
-        note.textContent = entry.key === ENDLESS ? `Stages 1–${endlessHighest} unlocked${here ? " · Where you left" : ""}` : here ? "Where you left" : `Zone ${entry.mark}`;
+        note.textContent = entry.key === hall ? "Your guild's hall" : entry.key === ENDLESS ? `Stages 1–${endlessHighest} unlocked${here ? " · Where you left" : ""}` : here ? "Where you left" : `Zone ${entry.mark}`;
         row.classList.toggle("is-departure", here);
         row.addEventListener("click", () => choose(entry.key));
       }

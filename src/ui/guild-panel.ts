@@ -27,6 +27,8 @@ type Options = {
   lowPerformanceMode?: () => boolean;
   /** The guild's quest week: its points, its bonus, and every guild's ranking. */
   questStanding?: () => GuildQuestStanding;
+  /** Opens the Guild Hall window: the hall's upgrades and the way in. */
+  openHall?: () => void;
 };
 const number = (value: number) => new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value);
 const date = (micros: string) => new Date(Number(BigInt(micros) / 1000n));
@@ -339,6 +341,10 @@ export function createGuildPanel(options: Options) {
     icon.alt = ""; icon.setAttribute("aria-hidden", "true");
     power.append(element("span", "Power:"), element("span", amount, "power-value"), icon);
     body.append(power);
+    if (options.openHall) {
+      const hall = button("Guild Hall", () => { close(); options.openHall?.(); }, "primary", false, "guild-hall");
+      hall.classList.add("guild-hall-button"); body.append(hall);
+    }
     renderMembers(body);
     const settings = element("details", undefined, "guild-disclosure"); settings.append(element("summary", "Guild options"));
     if (canStartBattles()) {

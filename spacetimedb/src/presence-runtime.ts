@@ -9,6 +9,7 @@
 // contract test reads its source there. Helpers that still live in index.ts
 // arrive through createPresenceRuntime's deps so the moved code reads exactly
 // as it did.
+import { GUILD_HALL_ARRIVAL, guildHallMember, isGuildHallMap } from "./guild-hall";
 import { ScheduleAt } from "spacetimedb";
 import { SenderError } from "spacetimedb/server";
 import { generatedMapUnlocked } from "./procedural-maps";
@@ -425,8 +426,9 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
     let mapId = requestedMap;
     mapId = accessibleCampaignMap(mapId, progress);
     if (isSoulMap(mapId) && !soulDimensionOpenFor(ctx, identity)) mapId = HOME_EXTERIOR_MAP_ID;
+    if (isGuildHallMap(mapId) && !guildHallMember(ctx, identity, mapId)) mapId = HOME_EXTERIOR_MAP_ID;
     if (isProceduralMap(mapId) && !hasEndlessTravelAccess(ctx, identity) && !generatedMapUnlocked(mapId, ctx.db.proceduralProgress.identity.find(identity)?.completed ?? 0, Boolean(progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS[PROCEDURAL_ENTRY_BOSS]))) mapId = TUTORIAL_FOREST_MAP_ID;
-    const fallback = isProceduralMap(mapId) ? generateMap(mapId).arrival : isSoulMap(mapId) ? SOUL_ARRIVAL : mapId === HOME_EXTERIOR_MAP_ID ? HOME_EXTERIOR_SPAWN : mapId === TUTORIAL_FOREST_MAP_ID ? PLAYER_SPAWN : MAP_ARRIVALS[mapId as keyof typeof MAP_ARRIVALS];
+    const fallback = isProceduralMap(mapId) ? generateMap(mapId).arrival : isSoulMap(mapId) ? SOUL_ARRIVAL : isGuildHallMap(mapId) ? GUILD_HALL_ARRIVAL : mapId === HOME_EXTERIOR_MAP_ID ? HOME_EXTERIOR_SPAWN : mapId === TUTORIAL_FOREST_MAP_ID ? PLAYER_SPAWN : MAP_ARRIVALS[mapId as keyof typeof MAP_ARRIVALS];
     const useSavedPosition = mapId === requestedMap;
     const bounds = worldBoundsFor(mapId);
     const x = useSavedPosition && Number.isFinite(saved?.x)

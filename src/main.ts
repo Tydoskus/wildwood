@@ -82,6 +82,7 @@ import { createAutoFarmResumeStore } from "./app/auto-farm-resume";
 import { createAutoFarmPanel } from "./ui/auto-farm-panel";
 import { createHomeTravelController } from "./ui/home-travel-controller";
 import { createSoulDimension } from "./game/runtime/soul-dimension";
+import { createGuildHall } from "./game/runtime/guild-hall";
 import { createQuestBoardRuntime, guildQuestStandingFrom } from "./ui/quest-board-controller";
 import { createPlayerController, type PlayerController } from "./game/runtime/player-controller";
 import { applyPlayerMaxHealthMultiplierBonus } from "./game/runtime/player-health";
@@ -810,9 +811,11 @@ import {
   const questTracker = createQuestTrackerSetting(localStorage);
   const quests = createQuestBoardRuntime({ source: () => coop, atHome: () => currentMapId === "home_exterior", tracker: questTracker,
     pause: () => {}, clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id as MapId]?.name ?? id, showProgress: (enemy, count, target) => runtimeHud.showQuestProgress(enemy, count, target) });
-  const homeTravel = createHomeTravelController({ source: () => coop, travel: mapController.travelFromHome, departure: mapController.homeDeparture, atHome: () => currentMapId === "home_exterior", pause: () => {}, clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id].name });
+  const homeTravel = createHomeTravelController({ source: () => coop, travel: mapController.travelFromHome, departure: mapController.homeDeparture, atHome: () => currentMapId === "home_exterior", pause: () => {}, clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id].name, guildHall: () => guildHall.hallMap() });
   const soulDimension = createSoulDimension({ source: () => coop, player, enemies, spawnSites, decor, currentMapId: () => currentMapId, spawnFromSite, invalidateDepthOrder: () => worldRenderRuntime.invalidateDepthOrder(), homeMap: MAP_CONFIG.home_exterior,
     strength: () => ({ dps: playerCombat.expectedDps(), maxHp: player.maxHp, armor: effectiveArmor(), regen: regenerationPerSecond() }), logPickup, travel: mapController.travelFromHome, clearInput: playerInput.clear, fadeToWorld: (action, ms) => session.fadeToWorld(action, ms) });
+  const guildHall = createGuildHall({ source: () => coop, player, decor, currentMapId: () => currentMapId, invalidateDepthOrder: () => worldRenderRuntime.invalidateDepthOrder(), clearInput: playerInput.clear, fadeToWorld: (action, ms) => session.fadeToWorld(action, ms),
+    travel: mapId => { autoFarm.stop("Autofarm stopped for the Guild Hall"); return mapController.teleportToMap(mapId, async () => Boolean(await coop?.changeMap?.(mapId, player.x, player.y))); } });
   const { activePortal, secondaryPortal, portalIsUnlocked, startDragonPortalCutscene, startSnowlandsPortalCutscene, startLavaPortalCutscene, startInfernalPortalCutscene, startWaterPortalCutscene, startSamuraiPortalCutscene } = mapController;
 
   const bossController = createBossController({
@@ -1272,7 +1275,7 @@ import {
 
   guildPanel = createGuildPanel({
     onOpenPlayer: (identity, name) => { void profileWindow.open(identity, name); },
-    lowPerformanceMode: appShell.lowPerformanceMode, questStanding: () => guildQuestStandingFrom(coop),
+    lowPerformanceMode: appShell.lowPerformanceMode, questStanding: () => guildQuestStandingFrom(coop), openHall: () => guildHall.openWindow(),
     replayAssets: { player: playerAppearanceAssets, prepare: () => assets.ensureMapAssets("home_exterior"), trees: assets.treeSpritesheet, treeBounds: assets.treeSpriteBounds },
     api: () => coop?.guild,
     socialApi: () => coop?.social,
@@ -1534,7 +1537,7 @@ import {
     syncBoss: () => bossController.forMap(currentMapId)?.sync(),
     cutsceneActive: mapController.isCutsceneActive, updateCutscene: mapController.updatePortalCutscene,
     worldCombatReady: () => !mapController.isMapTransitioning() && (inTutorial() || mapBalanceReady() && Boolean(coop?.isConnected?.()) && coop?.localState?.()?.mapId === currentMapId),
-    updatePlayer: (dt) => { if (!mapController.isMapTransitioning() && !(inTutorial() && player.hp <= 0)) playerController.update(dt); }, updateUpgradeBench: updateHomeStations, updatePortal: dt => { mapController.updatePortal(dt); soulDimension.update(dt); },
+    updatePlayer: (dt) => { if (!mapController.isMapTransitioning() && !(inTutorial() && player.hp <= 0)) playerController.update(dt); }, updateUpgradeBench: updateHomeStations, updatePortal: dt => { mapController.updatePortal(dt); soulDimension.update(dt); guildHall.update(dt); },
     updateEnemies: (dt) => { personalBosses.update(dt); proceduralBoss.update(dt); enemySimulation.update(dt); },
     updateBoss: (dt) => bossController.forMap(currentMapId)?.update(dt),
     updateProjectiles: playerCombat.updateProjectiles, updateRespawns: time => { if (!inTutorial()) updateRespawns(time); },
@@ -1812,7 +1815,7 @@ import {
     rewardMultiplier: researchRewardMultiplier,
     showBaseStatRewards: appShell.showBaseStatRewards,
     rewardAmount: rewardDisplay.displayedAmount,
-    visible: () => (farmUnlocked() || Boolean(coop?.aggroChallenge?.()?.active)) && currentMapId !== "home_exterior" && Boolean(session?.isRunning()) && player.hp > 0 && !isDueling() && !mapController.isMapTransitioning() && !mapController.isCutsceneActive(),
+    visible: () => (farmUnlocked() || Boolean(coop?.aggroChallenge?.()?.active)) && currentMapId !== "home_exterior" && !guildHall.guildId() && Boolean(session?.isRunning()) && player.hp > 0 && !isDueling() && !mapController.isMapTransitioning() && !mapController.isCutsceneActive(),
     unavailable: farmUnavailable,
     setPaused: () => {},
     clearInput: () => { playerInput.clear(); player.moving = false; coop?.correctMovementPosition?.(player.x, player.y, true); },

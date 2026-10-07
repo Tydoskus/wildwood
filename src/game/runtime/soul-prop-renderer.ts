@@ -1,5 +1,6 @@
 import { soulInteriorArea, SOUL_INTERIOR_MARGIN } from "../../../shared/soul-dimension";
 import { SOUL_ATLAS, SOUL_DOORS_OPEN, SOUL_INTERIOR_ROOMS, SOUL_VILLAGE_GROUND, SOUL_VILLAGE_SCENE } from "../soul-village";
+import { guildHallDoorState, guildHallFrame } from "../guild-hall";
 import type { WorldDecor } from "../world";
 import type { Camera } from "./camera";
 import { snapWorldRenderCoordinate } from "./render-space";
@@ -12,9 +13,10 @@ type Frame = { x: number; y: number; w: number; h: number; ax: number; ay: numbe
 const villageFrames = new Map<string, Frame>(Object.entries(SOUL_VILLAGE_SCENE.frames)
   .map(([id, [x, y, w, h, ax, ay]]) => [id, { x, y, w, h, ax, ay }]));
 
-/** A Soul Dimension prop's frame (the village's sheet or the wilds' atlas), or null for one neither has. */
-export function soulFrame(name: string, sheet?: "village"): Frame | null {
+/** A prop's frame (the village's sheet, a guild hall's, or the wilds' atlas), or null for one none has. */
+export function soulFrame(name: string, sheet?: "village" | "hall"): Frame | null {
   if (sheet === "village") return villageFrames.get(name) ?? null;
+  if (sheet === "hall") return guildHallFrame(name);
   return (SOUL_ATLAS.frames as Record<string, Frame | undefined>)[name] ?? null;
 }
 
@@ -28,6 +30,7 @@ export function animationFrame(anim: NonNullable<SoulPropDecor["anim"]>, seconds
 
 /** How far above and to each side of its depth point a prop reaches, for culling. */
 export function soulPropExtent(item: SoulPropDecor) {
+  if (item.crest) { const half = item.crest / 2, dy = item.dy ?? 0; return { left: half, right: half, up: Math.max(0, half - dy), down: Math.max(0, half + dy) }; }
   const frame = soulFrame(item.frame, item.sheet);
   if (!frame) return { left: 0, right: 0, up: 0, down: 0 };
   const s = item.spin ? 1.5 * item.s : item.s, dy = item.dy ?? 0;
@@ -40,13 +43,24 @@ export function createSoulPropRenderer(options: {
   camera: Camera;
   atlas: () => HTMLImageElement | undefined;
   villageProps: () => HTMLImageElement | undefined;
+  /** A guild hall's props. */
+  hallProps?: () => HTMLImageElement | undefined;
+  /** Draws the guild's badge, `size` square, centred at a point (screen units). */
+  drawCrest?: (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => void;
   devicePixelRatio: () => number;
   /** Seconds, for the pack's animations. */
   time: () => number;
 }) {
   return function drawSoulProp(item: SoulPropDecor, target?: CanvasRenderingContext2D) {
-    const image = item.sheet === "village" ? options.villageProps() : options.atlas();
-    const name = item.anim ? String(animationFrame(item.anim, options.time())) : item.openFrame && SOUL_DOORS_OPEN.has(item.door ?? -1) ? item.openFrame : item.frame;
+    if (item.crest) {
+      const { camera } = options;
+      options.drawCrest?.(target ?? options.ctx, snapWorldRenderCoordinate(item.x - camera.x, camera.zoom, options.devicePixelRatio()),
+        snapWorldRenderCoordinate(item.y + (item.dy ?? 0) - camera.y, camera.zoom, options.devicePixelRatio()), item.crest);
+      return;
+    }
+    const image = item.sheet === "village" ? options.villageProps() : item.sheet === "hall" ? options.hallProps?.() : options.atlas();
+    const open = item.sheet === "hall" ? guildHallDoorState.open : SOUL_DOORS_OPEN.has(item.door ?? -1);
+    const name = item.anim ? String(animationFrame(item.anim, options.time())) : item.openFrame && open ? item.openFrame : item.frame;
     const frame = soulFrame(name, item.sheet);
     if (!image?.complete || image.naturalWidth <= 0 || !frame) return;
     const { camera } = options;
@@ -87,8 +101,12 @@ export function createSoulGroundRenderer(options: {
   ctx: CanvasRenderingContext2D;
   camera: Camera;
   ground: () => HTMLImageElement | undefined;
+  /** Where the ground image lies in the world: the Soul village's unless given (a guild hall's courtyard). */
+  area?: { x: number; y: number; w: number; h: number };
   /** The rooms behind the village's doors: dark all round, each room's floor and walls under its furniture. */
   interiors: () => HTMLImageElement | undefined;
+  /** Draws the rooms instead of the village's (a guild hall's great hall), given the view's right and bottom edges. */
+  drawRooms?: (viewRight: number, viewBottom: number) => void;
   /** The world's decor: its flat props are drawn here, over the ground, in depth order among themselves. */
   decor: readonly WorldDecor[];
   drawProp: (prop: SoulPropDecor, target?: CanvasRenderingContext2D) => void;
@@ -167,7 +185,7 @@ export function createSoulGroundRenderer(options: {
       const view = options.viewport();
       const viewRight = camera.x + view.width / camera.zoom, viewBottom = camera.y + view.height / camera.zoom;
       const image = options.ground();
-      const area = SOUL_VILLAGE_GROUND;
+      const area = options.area ?? SOUL_VILLAGE_GROUND;
       const left = Math.max(area.x, camera.x), top = Math.max(area.y, camera.y);
       const right = Math.min(area.x + area.w, viewRight), bottom = Math.min(area.y + area.h, viewBottom);
       if (image?.complete && image.naturalWidth > 0 && left < right && top < bottom) {
@@ -177,7 +195,7 @@ export function createSoulGroundRenderer(options: {
           snap(left - camera.x), snap(top - camera.y), right - left, bottom - top);
       }
       options.drawWater?.();
-      drawInteriors(viewRight, viewBottom);
+      (options.drawRooms ?? drawInteriors)(viewRight, viewBottom);
       for (const item of flat) if (inView(item, viewRight, viewBottom)) options.drawProp(item);
       drawShadows(viewRight, viewBottom);
     },

@@ -97,8 +97,11 @@ function anonymizeAccountReports(ctx: Ctx, identity: Identity) {
     ctx.db.guildReportParticipant.key.delete(ref.key);
   }
 }
-function removeMember(ctx: Ctx, member: Member) {
+/** `onRemoved` hears of every member who goes, and whether the guild went with them (guild-hall.ts sends them out of its hall). */
+type MemberRemoved = (ctx: Ctx, identity: Identity, guildId: bigint, guildDeleted: boolean) => void;
+function removeMember(ctx: Ctx, member: Member, onRemoved?: MemberRemoved) {
   const guild = ctx.db.guild.id.find(member.guildId);
+  const deleted = Boolean(guild) && guild!.members <= 1;
   ctx.db.guildMember.identity.delete(member.identity);
   // Kept so a change of heart this week costs nothing: see insertMember.
   const left = { identity: member.identity, guildId: member.guildId, joinedAt: member.joinedAt, leftWeek: questWeek(questDay(now(ctx))) };
@@ -106,6 +109,7 @@ function removeMember(ctx: Ctx, member: Member) {
   syncGuildTag(ctx, member.identity);
   const previous = account(ctx, member.identity);
   ctx.db.guildAccount.identity.update({ ...previous, joinAfter: 0n });
+  onRemoved?.(ctx, member.identity, member.guildId, deleted || !guild);
   if (!guild) return;
   if (guild.members <= 1) {
     ctx.db.guild.id.delete(guild.id);
@@ -147,7 +151,9 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
   questCollect?: (ctx: Ctx, identity: Identity) => { ready: boolean; left: number; pool: number; poolSize: number };
   announceBattle?: (ctx: Ctx, report: GuildSnapshot["battles"][number]) => void;
   /** Whether a battle has been posted to chat, by its replay key ("attackerId:battleId"). */
-  battleShared?: (ctx: Ctx, replayKey: string) => boolean }) {
+  battleShared?: (ctx: Ctx, replayKey: string) => boolean;
+  /** A member left or was removed; whether the guild was deleted with them. */
+  onMemberRemoved?: MemberRemoved }) {
   function team(ctx: Ctx, guildId: bigint, lineup = members(ctx, guildId)): GuildFighter[] {
     const roster = [...lineup].sort((a, b) => key(a.identity).localeCompare(key(b.identity)));
     if (!roster.length) fail("Both guilds need members to battle.");
@@ -198,13 +204,13 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
       if (guildRequestOnly(ctx, guildId)) fail("This guild requires a join request.");
       joinApproved(ctx, guildId, ctx.sender);
     },
-    leave(ctx: Ctx) { removeMember(ctx, requireMember(ctx)); },
+    leave(ctx: Ctx) { removeMember(ctx, requireMember(ctx), deps.onMemberRemoved); },
     kick(ctx: Ctx, identity: Identity) {
       const guild = requireLeader(ctx);
       if (ctx.sender.equals(identity)) fail("Use Leave guild to leave or appoint a new President first.");
       const member = ctx.db.guildMember.identity.find(identity);
       if (!member || member.guildId !== guild.id) fail("That player is not in your guild.");
-      removeMember(ctx, member);
+      removeMember(ctx, member, deps.onMemberRemoved);
     },
     transfer(ctx: Ctx, identity: Identity) {
       const guild = requireLeader(ctx);
@@ -388,7 +394,7 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
       ctx.db.guildJoinRequest.identity.delete(identity);
       anonymizeAccountReports(ctx, identity);
       const member = ctx.db.guildMember.identity.find(identity);
-      if (member) removeMember(ctx, member);
+      if (member) removeMember(ctx, member, deps.onMemberRemoved);
       ctx.db.guildAccount.identity.delete(identity);
     },
     mergeGuest(ctx: Ctx, guest: Identity, accountIdentity: Identity) {
@@ -406,7 +412,7 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
         ctx.db.guildMember.insert({ ...guestMember, identity: accountIdentity, name: deps.fighterFor(ctx, accountIdentity).name });
         const guild = ctx.db.guild.id.find(guestMember.guildId);
         if (guild?.leader.equals(guest)) ctx.db.guild.id.update({ ...guild, leader: accountIdentity });
-      } else if (guestMember) removeMember(ctx, guestMember);
+      } else if (guestMember) removeMember(ctx, guestMember, deps.onMemberRemoved);
       if (ctx.db.guildMember.identity.find(accountIdentity)) ctx.db.guildJoinRequest.identity.delete(accountIdentity);
       // Keep the stricter cooldown/most recent attack history after linking.
       const history = guestHistory && guestHistory.lastAttackDay > previous.lastAttackDay ? guestHistory : previous;

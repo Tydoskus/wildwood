@@ -1,4 +1,5 @@
 import { isProceduralMap } from "../../../shared/procedural-maps";
+import { isGuildHallMap } from "../../../shared/guild-hall";
 import { DUEL_ARENA } from "../duel";
 import { snapCameraToPlayer, updateCamera } from "./camera";
 import type { PlayerState } from "./types";
@@ -204,7 +205,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     awaitingServerPosition = false;
     const serverMapId = dependencies.serverMapId();
     if (serverMapId && serverMapId !== dependencies.getMapId()
-      && (dependencies.validMapIds.includes(serverMapId) || isProceduralMap(serverMapId))) {
+      && (dependencies.validMapIds.includes(serverMapId) || isProceduralMap(serverMapId) || isGuildHallMap(serverMapId))) {
       dependencies.setMapId(serverMapId);
       dependencies.mapMusicSync();
       dependencies.resetPlayer(true);
@@ -328,7 +329,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     dependencies.hideGameOver();
     paused = false;
     const serverMapId = dependencies.serverMapId();
-    if (serverMapId && (dependencies.validMapIds.includes(serverMapId) || isProceduralMap(serverMapId))) dependencies.setMapId(serverMapId);
+    if (serverMapId && (dependencies.validMapIds.includes(serverMapId) || isProceduralMap(serverMapId) || isGuildHallMap(serverMapId))) dependencies.setMapId(serverMapId);
     dependencies.mapMusicSync();
     dependencies.resetPlayer(hasStarted);
     const serverState = dependencies.serverPlayerState();

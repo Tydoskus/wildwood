@@ -33,6 +33,8 @@ export type MapArtAssetGroup =
   | "moonfenBoss"
   | "orchardDecor"
   | "soulVillage"
+  /** A guild hall: its baked courtyard, rooms and props, and the guild badges its crests are cut from. */
+  | "guildHall"
   /** The Soul Dimension's nature atlas alone: the pack mushrooms the glowing campaign maps draw. */
   | "packNature"
   | "crystalHollowsBoss" | "clockworkRuinsBoss" | "duskfallOrchardBoss" | "neonBastionBoss" | "verdantCatacombsBoss" | "ionCitadelBoss";
@@ -106,7 +108,8 @@ const AUTHORED_MAP_ASSET_GROUPS = {
   },
 } as const satisfies Record<MapId, MapAssetGroup>;
 
-export const MAP_ASSET_GROUPS = withGeneratedMaps<MapAssetGroup>(AUTHORED_MAP_ASSET_GROUPS, id => ({ art: [], enemies: generatedMapContent(id).kinds }));
+export const MAP_ASSET_GROUPS = withGeneratedMaps<MapAssetGroup>(AUTHORED_MAP_ASSET_GROUPS, id => ({ art: [], enemies: generatedMapContent(id).kinds }),
+  { art: ["guildHall"], enemies: [] });
 
 /** Map-keyed view consumed by the regular-enemy image loader. */
 export const MAP_ENEMY_SPRITE_GROUPS = withGeneratedMaps<readonly EnemyKind[]>({
@@ -123,4 +126,4 @@ export const MAP_ENEMY_SPRITE_GROUPS = withGeneratedMaps<readonly EnemyKind[]>({
   [CLOUDSPIRE_MAP_ID]: MAP_ASSET_GROUPS[CLOUDSPIRE_MAP_ID].enemies,
   [MOONFEN_MAP_ID]: MAP_ASSET_GROUPS[MOONFEN_MAP_ID].enemies,
   [CRYSTAL_HOLLOWS_MAP_ID]: MAP_ASSET_GROUPS[CRYSTAL_HOLLOWS_MAP_ID].enemies, [CLOCKWORK_RUINS_MAP_ID]: MAP_ASSET_GROUPS[CLOCKWORK_RUINS_MAP_ID].enemies, [DUSKFALL_ORCHARD_MAP_ID]: MAP_ASSET_GROUPS[DUSKFALL_ORCHARD_MAP_ID].enemies, [NEON_BASTION_MAP_ID]: MAP_ASSET_GROUPS[NEON_BASTION_MAP_ID].enemies, [VERDANT_CATACOMBS_MAP_ID]: MAP_ASSET_GROUPS[VERDANT_CATACOMBS_MAP_ID].enemies, [ION_CITADEL_MAP_ID]: MAP_ASSET_GROUPS[ION_CITADEL_MAP_ID].enemies,
-}, id => MAP_ASSET_GROUPS[id].enemies);
+}, id => MAP_ASSET_GROUPS[id].enemies, []);

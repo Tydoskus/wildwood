@@ -77,6 +77,7 @@ import { createGemPurchaseService } from "./gem-purchase-service";
 import { rescaleEndgameProgress } from "../../shared/endgame-power-rescale";
 import { CAMPAIGN_UNLOCK_FIELDS, equipmentMapRequirement } from "../../shared/equipment-access";
 import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_TRAVEL_PORTAL, HOME_BENCH_POSITION, HOME_SOUL_PORTAL } from "../../shared/home";
+import { enterGuildHall, guildHallMember, memberEnteredWorld, guildHallMemberLeft, guildHallTables, isGuildHallMap, registerGuildHall } from "./guild-hall";
 import { isSoulMap, noteEnemyDefeats, registerSoulDimension, requireSoulDimensionOpen, soulDimensionOpenFor, soulDimensionTables, soulStatsFor, SOUL_ARRIVAL, wideMotionMap, withSoulStats, worldBoundsFor } from "./soul-dimension";
 import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./snapshot-row-writes";
 import { compressLegacyMapPower } from "../../shared/map-power-rescale";
@@ -238,7 +239,7 @@ const LEGACY_CLIENT_ERRORS = {
 } as const;
 
 const WORLD = { width: WORLD_WIDTH, height: WORLD_HEIGHT };
-const VALID_MAP_IDS = { has: (id: string) => MAP_IDS.includes(id) || id === HOME_EXTERIOR_MAP_ID || isProceduralMap(id) || isSoulMap(id) };
+const VALID_MAP_IDS = { has: (id: string) => MAP_IDS.includes(id) || id === HOME_EXTERIOR_MAP_ID || isProceduralMap(id) || isSoulMap(id) || isGuildHallMap(id) };
 const LEGACY_FROSTWIND_EXPANSE_MAP_ID = "frostwind_expanse";
 
 function canonicalMapId(mapId: string) {
@@ -1667,7 +1668,7 @@ const patreonSweepSchedule = table(
 const spacetimedb = schema({
   ...offlineProgressTables,
   // The Soul Dimension's three tables (soul-dimension.ts).
-  ...soulDimensionTables,
+  ...soulDimensionTables, ...guildHallTables,
   playerOfflinePreference, playerAudioSetting,
   defeatSessionRestriction,
   mapBalanceVersion, mapBalanceHead, playerMapBalance,
@@ -3453,7 +3454,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
     }
   }
   touchPlayerAccessAudit(ctx, session.protocolVersion);
-  backfillKnownAccessAudit(ctx);
+  backfillKnownAccessAudit(ctx); if (!virtualRegistration) memberEnteredWorld(ctx);
 
   const existing = playerWithMotion(ctx, ctx.db.player.identity.find(ctx.sender));
   const presencePreference = ctx.db.developerPresencePreference.identity.find(ctx.sender);
@@ -3499,7 +3500,8 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
       return;
     }
     const normalizedMapId = canonicalMapId(existing.mapId);
-    const entryMapId = VALID_MAP_IDS.has(normalizedMapId) && (!isSoulMap(normalizedMapId) || soulDimensionOpenFor(ctx, ctx.sender)) ? normalizedMapId : TUTORIAL_FOREST_MAP_ID;
+    const entryMapId = VALID_MAP_IDS.has(normalizedMapId) && (!isSoulMap(normalizedMapId) || soulDimensionOpenFor(ctx, ctx.sender))
+      && (!isGuildHallMap(normalizedMapId) || guildHallMember(ctx, ctx.sender, normalizedMapId)) ? normalizedMapId : TUTORIAL_FOREST_MAP_ID;
     const fallbackPosition = MAP_ARRIVALS[entryMapId as keyof typeof MAP_ARRIVALS] ?? PLAYER_SPAWN;
     const entryPosition = entryMapId === normalizedMapId
       ? {
@@ -4259,7 +4261,7 @@ export const joinVirtualPlayerLoadTest = spacetimedb.reducer(
       throw new SenderError("Developer cannot become a virtual player.");
     }
     if (session.enteredWorld) throw new SenderError("Virtual-player identity must be fresh.");
-    if (!VALID_MAP_IDS.has(mapId)) throw new SenderError("Unsupported virtual-player map.");
+    if (!VALID_MAP_IDS.has(mapId) || isGuildHallMap(mapId)) throw new SenderError("Unsupported virtual-player map.");
     if (!Number.isFinite(x) || !Number.isFinite(y)) throw new SenderError("Virtual-player position must be finite.");
 
     const run = ctx.db.virtualPlayerRun.owner.find(owner);
@@ -5824,7 +5826,7 @@ export const changeMap = spacetimedb.reducer(
         const progress = readPlayerProgress(ctx, ctx.sender);
         const converted = ctx.db.playerEndlessRebaseBackup.identity.find(ctx.sender);
         const savedMapIndex = saved ? MAP_IDS.indexOf(saved.mapId) : -1;
-        const permitted = (!isSoulMap(saved?.mapId) || soulDimensionOpenFor(ctx, ctx.sender)) && (!converted || (saved && (isProceduralMap(saved.mapId)
+        const permitted = (!isSoulMap(saved?.mapId) || soulDimensionOpenFor(ctx, ctx.sender)) && (!isGuildHallMap(saved?.mapId) || guildHallMember(ctx, ctx.sender, saved!.mapId)) && (!converted || (saved && (isProceduralMap(saved.mapId)
           ? generatedMapUnlocked(saved.mapId, ctx.db.proceduralProgress.identity.find(ctx.sender)?.completed ?? 0,
             Boolean((progress?.bossRewardClaims ?? 0) & BOSS_REWARD_CLAIM_BITS[PROCEDURAL_ENTRY_BOSS]))
           : savedMapIndex === 0 || (savedMapIndex > 0 && Boolean(progress?.[CAMPAIGN_UNLOCK_FIELDS[savedMapIndex - 1]])))));
@@ -5835,7 +5837,7 @@ export const changeMap = spacetimedb.reducer(
       } else {
         if (![x, y].every(Number.isFinite) || x < PLAYER_RADIUS || y < PLAYER_RADIUS || x > worldBoundsFor(current.mapId).width - PLAYER_RADIUS || y > worldBoundsFor(current.mapId).height - PLAYER_RADIUS) throw new SenderError("Invalid teleport position.");
         const saved = { identity: ctx.sender, mapId: current.mapId, x, y, facing: current.facing };
-        if (ctx.db.homeReturnLocation.identity.find(ctx.sender)) ctx.db.homeReturnLocation.identity.update(saved);
+        if (isGuildHallMap(current.mapId)) { /* "Fight" from Home still goes back to where the fighting was */ } else if (ctx.db.homeReturnLocation.identity.find(ctx.sender)) ctx.db.homeReturnLocation.identity.update(saved);
         else ctx.db.homeReturnLocation.insert(saved);
         transitionPlayerMap(ctx, current, HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN);
       }
@@ -5848,6 +5850,7 @@ export const changeMap = spacetimedb.reducer(
       throw new SenderError("Portal position is outside the world.");
     }
     if (isSoulMap(mapId)) requireSoulDimensionOpen(ctx);
+    if (isGuildHallMap(mapId)) return enterGuildHall(ctx, current, mapId, x, y, { transitionPlayerMap, persistWorldLocation });
     const currentProgress = readPlayerProgress(ctx, ctx.sender);
     const campaignIndex = CAMPAIGN_MAPS.findIndex(map => map.id === mapId);
     if (campaignIndex > 0 && !campaignMapUnlocked(campaignIndex, currentProgress ?? {})) {
@@ -5972,6 +5975,7 @@ function playerPresence(ctx: any, identity: any) {
     lastSeenAtMs: Number(ctx.db.playerLifetime.identity.find(identity)?.sessionStartedAt.microsSinceUnixEpoch ?? 0n) / 1000 };
 }
 const guildService = createGuildService({
+  onMemberRemoved: (ctx, identity, guildId, deleted) => guildHallMemberLeft(ctx, identity, guildId, deleted, { transitionPlayerMap, persistWorldLocation }),
   prestigeFor: (ctx, identity) => ctx.db.playerPrestige.identity.find(identity)?.level ?? 0,
   powerFor: (ctx, identity) => {
     const progress = readPlayerProgress(ctx, identity);
@@ -6035,6 +6039,7 @@ const { savedWorldLocation, clearOrphanPresence, applyMovementState } = createPr
 export const { createGuild, joinGuild, leaveGuild, transferGuildLeadership, setGuildVicePresident,
   setGuildEmblem, kickGuildMember, challengeGuild, guildAdmission, shareGuildBattle, getGuildBattleBadges } = registerGuildReducers(spacetimedb,
   { guildService, requireGuildPlayer, requireGuildConnection, effectivePowerForProgress, isPublicDisplayNameAllowed });
+export const { myGuildHall, upgradeGuildHall, useGuildHallDoor } = registerGuildHall(spacetimedb, { requireGuildPlayer, requireControllingPlayer, playerWithMotion, transitionPlayerMap, persistWorldLocation });
 export const getGuildHub = spacetimedb.procedure({ afterId: t.u64() }, t.string(), (ctx, { afterId }) => ctx.withTx(tx => {
   requireGuildConnection(tx);
   return JSON.stringify(guildService.snapshot(tx, afterId, hasSpacetimeAuthAccount(tx)));

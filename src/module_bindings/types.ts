@@ -925,6 +925,14 @@ export const GuildBattleReport = __t.object("GuildBattleReport", {
 });
 export type GuildBattleReport = __Infer<typeof GuildBattleReport>;
 
+export const GuildHall = __t.object("GuildHall", {
+  guildId: __t.u64(),
+  fund: __t.u32(),
+  spent: __t.u32(),
+  levels: __t.string(),
+});
+export type GuildHall = __Infer<typeof GuildHall>;
+
 export const GuildJoinRequest = __t.object("GuildJoinRequest", {
   identity: __t.identity(),
   guildId: __t.u64(),
@@ -1458,6 +1466,9 @@ export type MyGemPurchases = __Infer<typeof MyGemPurchases>;
 
 export const MyGemWallet = __t.object("MyGemWallet", {});
 export type MyGemWallet = __Infer<typeof MyGemWallet>;
+
+export const MyGuildHall = __t.object("MyGuildHall", {});
+export type MyGuildHall = __Infer<typeof MyGuildHall>;
 
 export const MyIgnoredDrops = __t.object("MyIgnoredDrops", {});
 export type MyIgnoredDrops = __Infer<typeof MyIgnoredDrops>;

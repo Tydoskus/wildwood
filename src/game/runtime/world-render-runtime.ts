@@ -23,6 +23,9 @@ import { createSoulGroundRenderer, createSoulPropRenderer } from "./soul-prop-re
 import { createSoulParticles } from "./soul-particles";
 import { createSoulWater } from "./soul-water";
 import { isSoulMap } from "../../../shared/soul-dimension";
+import { isGuildHallMap } from "../../../shared/guild-hall";
+import { GUILD_HALL_GROUND } from "../guild-hall";
+import { createGuildCrestDrawer, createGuildHallRoomsDrawer, drawSeated, GUILD_HALL_SEAT_FACING, seatedAt } from "./guild-hall-render";
 
 type Viewport = { width: number; height: number; dpr: number };
 type Portal = { x: number; y: number; width: number; height: number; depth: number; destination: MapId };
@@ -81,6 +84,11 @@ export type WorldRenderRuntimeOptions = {
     soulInteriors?: HTMLImageElement;
     soulWater?: HTMLImageElement;
     soulShore?: HTMLImageElement;
+    /** A guild hall's art (guild-hall.ts) and the badge sheets its crests are cut from. */
+    guildHallProps?: HTMLImageElement;
+    guildHallGround?: HTMLImageElement;
+    guildHallRooms?: HTMLImageElement;
+    guildEmblemSheets?: HTMLImageElement[];
     bossArt: BossArtAssets;
     duelPlatformArt: HTMLImageElement;
   };
@@ -149,6 +157,7 @@ const RESUME_REDRAW_AFTER_MS = 3_000;
 export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
   let invalidateDepthOrder = () => {};
   let soulGround: ReturnType<typeof createSoulGroundRenderer>;
+  let hallGround: ReturnType<typeof createSoulGroundRenderer>;
   const drawEntityShadow: DrawShadow = (x, y, width, alpha) => {
     // Arena scenes are visually separate from the current world map and retain
     // their shadows. Night Forest relies on its vignette to ground world actors.
@@ -308,7 +317,12 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       return webGLParticleBatchState;
     };
     const drawSoulProp = createSoulPropRenderer({ ctx: options.ctx, camera: options.camera, atlas: () => options.assets.soulAtlas,
-      villageProps: () => options.assets.soulVillageProps, devicePixelRatio: options.devicePixelRatio, time: options.gameTime });
+      villageProps: () => options.assets.soulVillageProps, devicePixelRatio: options.devicePixelRatio, time: options.gameTime,
+      hallProps: () => options.assets.guildHallProps, drawCrest: createGuildCrestDrawer(() => options.assets.guildEmblemSheets) });
+    hallGround = createSoulGroundRenderer({ ctx: options.ctx, camera: options.camera, ground: () => options.assets.guildHallGround, area: GUILD_HALL_GROUND,
+      interiors: () => undefined, drawRooms: createGuildHallRoomsDrawer({ ctx: options.ctx, camera: options.camera, rooms: () => options.assets.guildHallRooms,
+        devicePixelRatio: options.devicePixelRatio }),
+      decor: options.decor, drawProp: drawSoulProp, viewport: options.viewport, devicePixelRatio: options.devicePixelRatio, active: () => isGuildHallMap(options.currentMapId()) });
     soulGround = createSoulGroundRenderer({ ctx: options.ctx, camera: options.camera, ground: () => options.assets.soulVillageGround, interiors: () => options.assets.soulInteriors,
       decor: options.decor, drawProp: drawSoulProp,
       drawWater: createSoulWater({ ctx: options.ctx, camera: options.camera, water: () => options.assets.soulWater, shore: () => options.assets.soulShore,
@@ -343,15 +357,19 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawBootPickup: () => renderer.drawBootPickup(),
       drawPortal: world.drawPortal,
       drawSecondaryPortal: world.drawSecondaryPortal,
-      drawRemotePlayer: actor.drawRemotePlayer,
-      drawPlayer: () => drawSoulWellFall(options.ctx, options.player.x - options.camera.x, options.player.y - options.camera.y, options.player.y,
+      // Anyone standing still at a guild hall's table is drawn sitting at it.
+      drawRemotePlayer: remote => {
+        const seat = remote.moving ? null : seatedAt(remote.x, remote.y);
+        drawSeated(options.ctx, remote.y - options.camera.y, Boolean(seat), () => actor.drawRemotePlayer(seat ? { ...remote, facing: GUILD_HALL_SEAT_FACING[seat.side] } : remote));
+      },
+      drawPlayer: () => drawSeated(options.ctx, options.player.y - options.camera.y, !options.player.moving && Boolean(seatedAt(options.player.x, options.player.y)), () => drawSoulWellFall(options.ctx, options.player.x - options.camera.x, options.player.y - options.camera.y, options.player.y,
         () => drawHomeTeleport(options.ctx, options.player.x - options.camera.x, options.player.y - options.camera.y, () => actor.drawPlayer(
           frame.localIdentity(),
           options.publicPlayerName(frame.localIdentity(), frame.localDisplayName()),
           options.playerPower(options.player),
-        ))),
+        )))),
     });
-    invalidateDepthOrder = () => { depth.invalidateDepthOrder(); soulGround.invalidate(); };
+    invalidateDepthOrder = () => { depth.invalidateDepthOrder(); soulGround.invalidate(); hallGround.invalidate(); };
     renderer = createRenderController({
       ctx: options.ctx,
       camera: options.camera,
@@ -379,7 +397,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawStaticWorld: world.drawStaticWorld,
       drawDuelArena: actor.drawDuelArena,
       drawDuelScene: actor.drawDuelScene,
-      drawDecor: () => { world.drawDecor(); soulGround.draw(); },
+      drawDecor: () => { world.drawDecor(); soulGround.draw(); hallGround.draw(); },
       drawBossTelegraphs: () => {
         const mapBoss = bossForMap(options.currentMapId());
         if (mapBoss) boss.drawBossTelegraphs[mapBoss.kind]();

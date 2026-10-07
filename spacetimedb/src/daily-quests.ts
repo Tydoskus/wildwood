@@ -1,6 +1,7 @@
 import { Range, table, t, SenderError } from "spacetimedb/server";
 import { WEEKLY_QUEST_COUNT, GUILD_QUEST_COLLECT_LIMIT, GUILD_WEEK_QUEST_CAP, applyQuestKills, weeklyQuestsFor, guildQuestBonus, ownQuest, parseDailyQuests, questDay, questDone, questOpen, questWeek, soloQuestBonus, type DailyQuest } from "../../shared/daily-quests";
 import { readPlayerProgress } from "./wide-stats";
+import { creditGuildHall } from "./guild-hall";
 
 /**
  * A player's quests for one day, and what their guild stands at. The guild
@@ -141,6 +142,7 @@ export function moveSoloQuestsToGuild(ctx: Ctx, identity: any) {
   const key = weekKey(week, guild.id), current = ctx.db.guildQuestWeek.key.find(key);
   const total = { key, week, guildId: guild.id, guildName: guild.name, points: (current?.points ?? 0) + moved };
   if (current) ctx.db.guildQuestWeek.key.update(total); else ctx.db.guildQuestWeek.insert(total);
+  creditGuildHall(ctx, guild.id, moved);
   const mine = ctx.db.guildMemberQuestWeek.identity.find(identity);
   const tally = { identity, week, guildId: guild.id, points: (mine && mine.week === week && mine.guildId === guild.id ? mine.points : 0) + moved };
   if (mine) ctx.db.guildMemberQuestWeek.identity.update(tally); else ctx.db.guildMemberQuestWeek.insert(tally);
@@ -237,6 +239,7 @@ export function recordDailyQuestKills(ctx: Ctx, identity: any, mapId: string, ki
     const current = ctx.db.guildQuestWeek.key.find(key);
     const next = { key, week, guildId: guild.id, guildName: guild.name, points: (current?.points ?? 0) + credited };
     if (current) ctx.db.guildQuestWeek.key.update(next); else ctx.db.guildQuestWeek.insert(next);
+    creditGuildHall(ctx, guild.id, credited);
     guildPoints = next.points;
     const mine = ctx.db.guildMemberQuestWeek.identity.find(identity);
     const carried = mine && mine.week === week && mine.guildId === guild.id ? mine.points : 0;
