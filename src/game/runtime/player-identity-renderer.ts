@@ -272,7 +272,7 @@ export function createPlayerIdentityRenderer(options: {
       ctx.fillStyle = "rgba(0,0,0,.88)";
       options.roundRect(barX - framePad, barY - framePad, barW + framePad * 2, barH + framePad * 2, frameRadius);
       ctx.fill();
-      ctx.fillStyle = "#402326";
+      ctx.fillStyle = "#000";
       options.roundRect(barX, barY, barW, barH, options.healthBarRadius);
       ctx.fill();
       if (fillWidth > 0) {

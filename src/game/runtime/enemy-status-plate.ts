@@ -67,7 +67,7 @@ export function createEnemyStatusPlates(options: {
       plateCtx.drawImage(name.canvas, -name.width / 2, nameTop, name.width, name.height);
       plateCtx.fillStyle = "rgba(0,0,0,.8)";
       fillPill(plateCtx, barLeft - OUTLINE, -OUTLINE, barW + OUTLINE * 2, barH + OUTLINE * 2);
-      plateCtx.fillStyle = "#472225";
+      plateCtx.fillStyle = "#000";
       fillPill(plateCtx, barLeft, 0, barW, barH);
       if (full) {
         plateCtx.fillStyle = ENEMY_HEALTH_FILL;

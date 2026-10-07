@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.1": [
+    "Health bars show black behind missing health, for you, other players, enemies and bosses",
+  ],
   "0.901.0": [
     "Autofarm redesign: a simpler window with Auto or your own stats, one Move On switch, and the rest under More",
     "Auto farms whatever grows your power fastest",
@@ -2954,6 +2957,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.1": "2026-10-07",
   "0.901.0": "2026-10-07",
   "0.900.4": "2026-10-07",
   "0.900.3": "2026-10-06",

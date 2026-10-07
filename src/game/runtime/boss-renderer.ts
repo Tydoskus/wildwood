@@ -198,7 +198,6 @@ export function createBossRenderer(options: {
     maxHp: number;
     hpLossFlashTimer: number;
     hpLossFlashFrom: number;
-    backgroundColor: string;
     fillColor: string;
     name: { text: string; color: string };
     rewardBottomOffsetY?: number;
@@ -209,7 +208,7 @@ export function createBossRenderer(options: {
       const ratio = clamp(options_.hp / options_.maxHp, 0, 1);
       ctx.fillStyle = "rgba(0,0,0,.9)";
       ctx.fillRect(barX - 2, barY - 2, options_.barWidth + 4, options_.barHeight + 4);
-      ctx.fillStyle = options_.backgroundColor;
+      ctx.fillStyle = "#000";
       ctx.fillRect(barX, barY, options_.barWidth, options_.barHeight);
       ctx.fillStyle = options_.fillColor;
       ctx.fillRect(barX, barY, Math.round(options_.barWidth * ratio), options_.barHeight);
@@ -269,7 +268,6 @@ export function createBossRenderer(options: {
       maxHp: boss.maxHp,
       hpLossFlashTimer: boss.hpLossFlashTimer,
       hpLossFlashFrom: boss.hpLossFlashFrom,
-      backgroundColor: "#4d1d1d",
       fillColor: "#d8352d",
       name: { text: "Dragon", color: "#f5e9c4" },
       rewardBottomOffsetY: -5,
@@ -309,7 +307,6 @@ export function createBossRenderer(options: {
       maxHp: spiderBoss.maxHp,
       hpLossFlashTimer: spiderBoss.hpLossFlashTimer,
       hpLossFlashFrom: spiderBoss.hpLossFlashFrom,
-      backgroundColor: "#342027",
       fillColor: "#9f5c2f",
       name: { text: "Desert Scorpion", color: "#f5e9c4" },
       rewardBottomOffsetY: -5,
@@ -424,7 +421,6 @@ export function createBossRenderer(options: {
       maxHp: frostclawBoss.maxHp,
       hpLossFlashTimer: frostclawBoss.hpLossFlashTimer,
       hpLossFlashFrom: frostclawBoss.hpLossFlashFrom,
-      backgroundColor: "#17364b",
       fillColor: "#42c9f5",
       name: { text: "Frostclaw", color: "#dff8ff" },
     });
@@ -506,7 +502,6 @@ export function createBossRenderer(options: {
       maxHp: magmaliskBoss.maxHp,
       hpLossFlashTimer: magmaliskBoss.hpLossFlashTimer,
       hpLossFlashFrom: magmaliskBoss.hpLossFlashFrom,
-      backgroundColor: "#4b2119",
       fillColor: "#ef6428",
       name: { text: "Magmalisk", color: "#ffe0ad" },
     });
@@ -623,7 +618,6 @@ export function createBossRenderer(options: {
       maxHp: gloomrootBoss.maxHp,
       hpLossFlashTimer: gloomrootBoss.hpLossFlashTimer,
       hpLossFlashFrom: gloomrootBoss.hpLossFlashFrom,
-      backgroundColor: "#14293a",
       fillColor: "#39cbd3",
       name: { text: "Gloomroot", color: "#b9fbf5" },
     });
@@ -732,7 +726,6 @@ export function createBossRenderer(options: {
       maxHp: tidewyrmBoss.maxHp,
       hpLossFlashTimer: tidewyrmBoss.hpLossFlashTimer,
       hpLossFlashFrom: tidewyrmBoss.hpLossFlashFrom,
-      backgroundColor: "#123b56",
       fillColor: "#35cce5",
       name: { text: "Carapace Angler", color: "#c7faff" },
     });
@@ -839,7 +832,6 @@ export function createBossRenderer(options: {
       maxHp: koiShogunBoss.maxHp,
       hpLossFlashTimer: koiShogunBoss.hpLossFlashTimer,
       hpLossFlashFrom: koiShogunBoss.hpLossFlashFrom,
-      backgroundColor: "#482719",
       fillColor: "#e2832d",
       name: { text: "Koi Shogun", color: "#ffe6a4" },
     });
@@ -945,7 +937,6 @@ export function createBossRenderer(options: {
       maxHp: tempestKirinBoss.maxHp,
       hpLossFlashTimer: tempestKirinBoss.hpLossFlashTimer,
       hpLossFlashFrom: tempestKirinBoss.hpLossFlashFrom,
-      backgroundColor: "#193a67",
       fillColor: "#65c8ff",
       name: { text: "Tempest Kirin", color: "#e9fbff" },
     });
@@ -1130,7 +1121,6 @@ export function createBossRenderer(options: {
       maxHp: miremawBoss.maxHp,
       hpLossFlashTimer: miremawBoss.hpLossFlashTimer,
       hpLossFlashFrom: miremawBoss.hpLossFlashFrom,
-      backgroundColor: "#193c38",
       fillColor: "#55d6a8",
       name: { text: "Miremaw", color: "#e9fff5" },
     });
@@ -1181,7 +1171,6 @@ export function createBossRenderer(options: {
       maxHp: prismshellBoss.maxHp,
       hpLossFlashTimer: prismshellBoss.hpLossFlashTimer,
       hpLossFlashFrom: prismshellBoss.hpLossFlashFrom,
-      backgroundColor: "#333149",
       fillColor: "#ab8be6",
       name: { text: "Prismshell", color: "#f1e9ff" },
     });
@@ -1228,7 +1217,6 @@ export function createBossRenderer(options: {
       maxHp: state.maxHp,
       hpLossFlashTimer: state.hpLossFlashTimer,
       hpLossFlashFrom: state.hpLossFlashFrom,
-      backgroundColor: "#333149",
       fillColor: look.fillColor,
       name: { text: look.name, color: "#f1e9ff" },
     });
@@ -1273,7 +1261,6 @@ export function createBossRenderer(options: {
       maxHp: state.maxHp,
       hpLossFlashTimer: state.hpLossFlashTimer,
       hpLossFlashFrom: state.hpLossFlashFrom,
-      backgroundColor: "#333149",
       fillColor: "#35dae6",
       name: { text: look.name, color: "#f1e9ff" },
     });

@@ -148,7 +148,7 @@ export function createGuildBattlefieldRenderer(canvas: HTMLCanvasElement, ctx: C
       const barY = actor.y - Math.max(24, 50 * actorScale), barX = actor.x - barW / 2;
       const fill = Math.round(barW * Math.max(0, Math.min(1, actor.hp / fighter.fighter.maxHp)));
       ctx.fillStyle = "rgba(0,0,0,.88)"; ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
-      ctx.fillStyle = "#402326"; ctx.fillRect(barX, barY, barW, barH);
+      ctx.fillStyle = "#000"; ctx.fillRect(barX, barY, barW, barH);
       ctx.fillStyle = "#19d64b"; ctx.fillRect(barX, barY, fill, barH);
       ctx.fillStyle = "rgba(255,255,255,.25)"; ctx.fillRect(barX, barY, fill, 1);
       const health = `${formatCompactNumber(Math.ceil(actor.hp))} / ${formatCompactNumber(Math.ceil(fighter.fighter.maxHp))}`;
