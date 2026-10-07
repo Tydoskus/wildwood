@@ -10,7 +10,7 @@
 .guild-header, .guild-tabs, .guild-content { width: min(100%, var(--window-content-max-width)); min-width: 0; margin-inline: auto; }
 .guild-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px; min-height: 36px; flex-shrink: 0; }
 .guild-heading { min-width: 0; color: var(--guild-muted); font-size: 12px; }
-.guild-window .guild-button { min-height: 44px; margin: 0; padding: 8px 12px; border: 2px solid #ffffff2b; border-radius: 8px; background: linear-gradient(#27312b, #171e1a); box-shadow: inset 0 -3px 0 #0004; color: #fff; font: 900 11px/1.25 var(--font-rounded); cursor: pointer; }
+.guild-window .guild-button { min-height: 44px; margin: 0; padding: 8px 12px; border: 2px solid #ffffff2b; border-radius: 8px; background: linear-gradient(#2d2d2d, #1b1b1b); box-shadow: inset 0 -3px 0 #0004; color: #fff; font: 900 11px/1.25 var(--font-rounded); cursor: pointer; }
 .guild-window .guild-button:hover:not(:disabled) { border-color: var(--guild-accent); }
 .guild-window .guild-button--primary { background: linear-gradient(#4b9952, #286737); border-color: #193922; }
 .guild-window .guild-button--quiet, .guild-window .guild-button--danger, .guild-window .guild-button--icon { background: transparent; border-color: transparent; box-shadow: none; }
@@ -85,7 +85,7 @@
 .guild-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
 .guild-create { margin-top: 16px; padding-top: 18px; border-top: 1px solid var(--guild-line); }
 .guild-create label { display: block; margin-bottom: 8px; font-size: 12px; }
-.guild-create input { display: block; width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid #ffffff25; border-radius: 6px; background: #0c1814; color: #f0f4ed; font: inherit; user-select: text; -webkit-user-select: text; }
+.guild-create input { display: block; width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid #ffffff25; border-radius: 6px; background: #141414; color: #f0f4ed; font: inherit; user-select: text; -webkit-user-select: text; }
 .guild-create input::placeholder { color: #7f9589; }
 .guild-confirm { padding: 24px 0; }
 .guild-confirm h3 { font-size: 21px; margin-bottom: 10px; }
@@ -131,7 +131,7 @@
 .guild-replay-controls { position: absolute; z-index: 1; left: 50%; bottom: calc(74px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap; width: min(100% - 32px, 380px); }
 .guild-replay-controls input { flex: 0 0 100%; width: 100%; min-height: 26px; margin: 0; accent-color: var(--guild-accent); }
 .guild-replay-controls[hidden] { display: none; }
-.guild-replay-controls .guild-button { min-width: 70px; padding-inline: 10px; background: #15251eee; }
+.guild-replay-controls .guild-button { min-width: 70px; padding-inline: 10px; background: #1f1f1fee; }
 .guild-replay > .window-back-footer { position: absolute; z-index: 1; bottom: 0; left: 0; right: 0; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--window-back-bottom-gap)); }
 /* Social controls share the guild panel's focus, scrolling, and mobile shell. */
 .social-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; }

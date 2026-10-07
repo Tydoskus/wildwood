@@ -128,7 +128,7 @@
   -webkit-text-stroke: 0;
   text-shadow: none;
 }
-.farm-enemy[aria-pressed="true"] .farm-check { border-color: var(--green); background: var(--green); color: #0a120c; font-size: 13px; }
+.farm-enemy[aria-pressed="true"] .farm-check { border-color: var(--green); background: var(--green); color: #0f0f0f; font-size: 13px; }
 .farm-footer { flex-shrink: 0; padding: 8px 14px max(12px, env(safe-area-inset-bottom, 0px)); }
 .farm-selection { min-height: 0; margin: 0 0 8px; color: #ffcf7a; text-align: center; font-size: 12px; line-height: 1.35; }
 .farm-selection[hidden] { display: none; }
@@ -169,7 +169,7 @@
   --muted: #bdbdbd;
   --farm-line: rgba(255,255,255,.13);
   --farm-fill: #161616;
-  --farm-picked: #101a11;
+  --farm-picked: #161616;
   height: fit-content;
   max-height: min(600px, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px));
 }
@@ -234,7 +234,7 @@
   border: 2px solid var(--window-surface);
   border-radius: 10px;
   background: var(--green);
-  color: #0a120c;
+  color: #0f0f0f;
   font-size: 11px;
   line-height: 1;
   -webkit-text-stroke: 0;
@@ -635,7 +635,7 @@
   -webkit-text-stroke: 0;
   text-shadow: none;
 }
-.loot-filter-check::after { content: "\2713"; color: #0a120c; font-size: 14px; line-height: 1; }
+.loot-filter-check::after { content: "\2713"; color: #0f0f0f; font-size: 14px; line-height: 1; }
 [aria-checked="false"] .loot-filter-check { border-color: rgba(255,255,255,.3); background: #0006; }
 [aria-checked="false"] .loot-filter-check::after { content: ""; }
 .loot-filter-sheet .farm-selection { color: #ff9b91; }

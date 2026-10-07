@@ -1,11 +1,11 @@
-  .stat-tracker { position: fixed; right: max(12px, env(safe-area-inset-right)); bottom: max(100px, calc(env(safe-area-inset-bottom) + 90px)); width: max-content; min-width: min(228px, calc(100vw - 24px)); max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); overflow: hidden auto; z-index: 4; pointer-events: auto; background: rgba(18, 28, 22, var(--stat-tracker-bg, .6)); color: var(--text, #f5f5e9); border: 2px solid var(--hud-frame); border-color: color-mix(in srgb, var(--hud-frame) calc(var(--stat-tracker-ink, 1) * 100%), transparent); border-radius: var(--hud-radius); box-shadow: 0 2px 0 rgba(0, 0, 0, calc(.42 * var(--stat-tracker-bg, .6))); font: 12px/1.3 "Wildstat Chat", sans-serif; font-variant-numeric: tabular-nums; }
+  .stat-tracker { position: fixed; right: max(12px, env(safe-area-inset-right)); bottom: max(100px, calc(env(safe-area-inset-bottom) + 90px)); width: max-content; min-width: min(228px, calc(100vw - 24px)); max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); overflow: hidden auto; z-index: 4; pointer-events: auto; background: rgba(24, 24, 24, var(--stat-tracker-bg, .6)); color: var(--text, #f5f5e9); border: 2px solid var(--hud-frame); border-color: color-mix(in srgb, var(--hud-frame) calc(var(--stat-tracker-ink, 1) * 100%), transparent); border-radius: var(--hud-radius); box-shadow: 0 2px 0 rgba(0, 0, 0, calc(.42 * var(--stat-tracker-bg, .6))); font: 12px/1.3 "Wildstat Chat", sans-serif; font-variant-numeric: tabular-nums; }
   /* The slider fades the backdrop to nothing but keeps everything readable:
      text, frame and the slider itself bottom out at a quarter, never at zero. */
   .stat-tracker > header, .stat-tracker > table, .stat-tracker > footer, .stat-tracker > .stat-tracker-opacity { opacity: var(--stat-tracker-ink, 1); }
   /* Above HUD controls (5–8), below full-screen windows (10+). */
   #hud > .stat-tracker { z-index: 6; }
   /* Quest tracker: top left under the gem row until dragged. Three quests in play, this map's first and bright. */
-  .quest-tracker { position: fixed; top: calc(var(--hud-safe-top) + var(--player-hud-visual-height) + 48px); left: var(--hud-safe-left); z-index: 5; width: min(196px, 46vw); padding: 0 0 4px; border: 2px solid var(--hud-frame); border-radius: var(--hud-radius-small); background: rgba(18, 28, 22, .72); box-shadow: 0 2px 0 rgba(0,0,0,.35); color: #fff; font: 700 11px/1.25 "Wildstat Chat", sans-serif; pointer-events: auto; }
+  .quest-tracker { position: fixed; top: calc(var(--hud-safe-top) + var(--player-hud-visual-height) + 48px); left: var(--hud-safe-left); z-index: 5; width: min(196px, 46vw); padding: 0 0 4px; border: 2px solid var(--hud-frame); border-radius: var(--hud-radius-small); background: rgba(10, 10, 10, .82); box-shadow: 0 2px 0 rgba(0,0,0,.35); color: #fff; font: 700 11px/1.25 "Wildstat Chat", sans-serif; pointer-events: auto; }
   .quest-tracker[hidden] { display: none; }
   .quest-tracker .quest-tracker-header:active { cursor: grabbing; }
   .quest-tracker.is-world-gesture, .quest-tracker.is-world-gesture * { pointer-events: none; }
@@ -72,7 +72,7 @@
 
   :root {
     color-scheme: dark;
-    --panel: rgba(13, 20, 17, .90);
+    --panel: rgba(18, 18, 18, .90);
     /* One opaque off-black surface for every game window and toolbar. */
     --window-surface: #131413;
     --window-surface-neutral: var(--window-surface);
@@ -106,7 +106,7 @@
     --window-content-max-width: 420px;
     --game-window-width: min(420px, calc(100vw - 24px));
     --inventory-toolbar-color: #543822;
-    --hud-surface: rgba(18, 28, 22, .60);
+    --hud-surface: rgba(8, 8, 8, .92);
     --hud-frame: #050a06;
     --hud-radius: 9px;
     --hud-radius-small: 8px;
@@ -245,7 +245,7 @@
   #playerHudProfileIcon:active { transform: none; }
   .profile-window-icon { width: 58px; min-width: 58px; height: 58px; cursor: default; }
   .profile-window-icon.is-editable { position: relative; border-color: #000; cursor: pointer; }
-  .profile-window-icon.is-editable::after { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 17px; height: 17px; border: 2px solid #080a08; border-radius: 50%; background: var(--green); color: #0a120c; content: "✎"; font: 900 11px/1 Arial, sans-serif; -webkit-text-stroke: 0; text-shadow: none; }
+  .profile-window-icon.is-editable::after { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 17px; height: 17px; border: 2px solid #080a08; border-radius: 50%; background: var(--green); color: #0f0f0f; content: "✎"; font: 900 11px/1 Arial, sans-serif; -webkit-text-stroke: 0; text-shadow: none; }
   #profileIconPicker { position: fixed; inset: 0; z-index: 13; display: grid; place-items: center; padding: 10px; background: transparent; }
   #profileIconPicker[hidden] { display: none; }
   .profile-icon-picker-modal { display: grid; grid-template-rows: minmax(0, 1fr) auto; width: var(--game-window-width); max-height: calc(100vh - 18px); padding: 12px; overflow: hidden; text-align: left; }
@@ -394,8 +394,8 @@
   .settings-tab-panel .setting-reset { margin-top: 28px; }
 
   .card.inventory-panel {
-    --inventory-surface: #18221c;
-    --inventory-surface-deep: #0d1410;
+    --inventory-surface: #1e1e1e;
+    --inventory-surface-deep: #111111;
     --inventory-ink: #f4f3e8;
     --inventory-muted: #aebcaf;
     --inventory-line: rgba(255,255,255,.17);
@@ -630,7 +630,7 @@
   .inventory-panel.is-dragging .is-drag-over { z-index: 4; border-color: #d8ffab; box-shadow: 0 0 0 3px rgba(145,240,111,.72), 0 0 18px rgba(117,231,105,.45); }
   .inventory-panel.is-dragging .equipment-slot.is-drag-over { transform: scale(1.035); }
   .inventory-panel.is-dragging .bag-section.is-drag-over { box-shadow: inset 0 0 0 3px rgba(145,240,111,.72), inset 0 0 18px rgba(117,231,105,.32); transform: none; }
-  .inventory-drag-ghost { position: fixed; z-index: 1000; display: grid; width: 62px; height: 62px; place-items: center; overflow: hidden; border: 2px solid #d8ffab; border-radius: 10px; background: rgba(24,33,27,.92); box-shadow: 0 8px 18px rgba(0,0,0,.48), 0 0 14px rgba(117,231,105,.38); pointer-events: none; transform: translate(-50%, -50%) rotate(2deg); }
+  .inventory-drag-ghost { position: fixed; z-index: 1000; display: grid; width: 62px; height: 62px; place-items: center; overflow: hidden; border: 2px solid #d8ffab; border-radius: 10px; background: rgba(30,30,30,.92); box-shadow: 0 8px 18px rgba(0,0,0,.48), 0 0 14px rgba(117,231,105,.38); pointer-events: none; transform: translate(-50%, -50%) rotate(2deg); }
   .inventory-drag-ghost .inventory-item-art { width: 50px; height: 46px; }
   .inventory-drag-ghost .boot-pixel-icon { transform: scale(1.6); }
 
@@ -665,7 +665,7 @@
   .upgrade-bench-speed-up { display: flex; align-items: center; justify-content: center; gap: 6px; border-color: #65354f; background: linear-gradient(#d86f9f, #a84573); box-shadow: 0 3px 0 #53243d; }
   .upgrade-bench-speed-up img { display: block; width: 20px; height: 20px; object-fit: contain; }
   .upgrade-bench-speed-up strong { font: inherit; }
-  .upgrade-bench-action:disabled { border-color: #313a34; background: #4b554f; box-shadow: none; color: #9ba49e; }
+  .upgrade-bench-action:disabled { border-color: #373737; background: #4b554f; box-shadow: none; color: #9ba49e; }
   .upgrade-bench-back { position: absolute; right: 0; bottom: var(--window-back-bottom-gap); left: 0; display: flex; align-items: center; justify-content: center; width: min(220px, 80vw); height: 44px; min-height: 44px; margin: 0 auto; padding: 0 8px 2px; border-color: #351010; border-radius: 8px; background: linear-gradient(#c85050, #842f34); box-shadow: 0 3px 0 #351519; color: #fff; font-size: var(--font-readable-body); line-height: 1; }
   .upgrade-bench-back[hidden] { display: none; }
   .upgrade-bench-picker { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; padding: 16px; background: rgba(4,8,6,.76); }
@@ -1301,7 +1301,7 @@
   .respawn-ad-prompt-actions { display: grid; width: min(240px, 100%); gap: 9px; margin-top: 4px; }
   .respawn-ad-prompt-actions button { width: 100%; min-height: 46px; margin: 0; padding: 9px 15px; border-width: 2px; border-radius: 8px; font-size: 15px; line-height: 1; }
   .respawn-ad-prompt-confirm { border-color: #102d14; background: linear-gradient(#72ef58, #31bd34); box-shadow: 0 3px 0 #163c1b; }
-  .respawn-ad-prompt-cancel { border-color: rgba(255,255,255,.22); background: #29352e; box-shadow: none; color: rgba(255,255,255,.88); }
+  .respawn-ad-prompt-cancel { border-color: rgba(255,255,255,.22); background: #313131; box-shadow: none; color: rgba(255,255,255,.88); }
   .respawn-ad-prompt-actions button:focus-visible { border-color: #fff; outline: 2px solid rgba(114,239,88,.62); outline-offset: 2px; }
   .respawn-ad-prompt-actions button:active { transform: translateY(1px); }
 
@@ -1723,7 +1723,7 @@
     text-shadow: none;
   }
 
-  .chat-size-icon::before { position: absolute; inset: 2px 1px; background: #fff; content: ""; clip-path: polygon(0 0, 100% 50%, 0 100%, 22% 50%); filter: drop-shadow(1px 1px 0 #101914); transform: rotate(-45deg); }
+  .chat-size-icon::before { position: absolute; inset: 2px 1px; background: #fff; content: ""; clip-path: polygon(0 0, 100% 50%, 0 100%, 22% 50%); filter: drop-shadow(1px 1px 0 #161616); transform: rotate(-45deg); }
   #chatSizeToggle[aria-expanded="true"] .chat-size-icon::before { transform: rotate(135deg); }
 
   #chatForm button {
@@ -1900,17 +1900,17 @@
   /* Muted: grey and inert, keeping the countdown text, until the mute ends. */
   #chatForm #chatSendBtn.is-muted,
   #chatForm #chatSendBtn.is-muted:hover,
-  #chatForm #chatSendBtn.is-muted:active { border-color: #29302c; background: linear-gradient(#5d6a61, #37423b); box-shadow: none; color: rgba(236,240,236,.62); filter: none; opacity: 1; transform: none; cursor: not-allowed; }
+  #chatForm #chatSendBtn.is-muted:active { border-color: #2d2d2d; background: linear-gradient(#5d6a61, #3e3e3e); box-shadow: none; color: rgba(236,240,236,.62); filter: none; opacity: 1; transform: none; cursor: not-allowed; }
   .pickup {
     justify-self: center;
     max-width: 100%;
     padding: 9px 13px;
-    border: 2px solid rgba(2, 8, 5, .96);
+    border: 2px solid rgba(6, 6, 6, .96);
     border-radius: 13px;
-    background: rgba(10, 27, 18, .97);
+    background: rgba(21, 21, 21, .97);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, .08),
-      0 4px 0 rgba(2, 8, 5, .82),
+      0 4px 0 rgba(6, 6, 6, .82),
       0 9px 18px rgba(0, 0, 0, .30);
     color: #fff;
     font: 900 clamp(14px, 4vw, 18px)/1 var(--font-rounded);
@@ -2075,7 +2075,7 @@
   .signin-sound-muted { display: none; }
   .signin-mute-button:hover { border-color: rgba(255, 255, 255, .5); filter: brightness(1.12); }
   .signin-mute-button:focus-visible { outline: 3px solid rgba(255, 255, 255, .92); outline-offset: 3px; }
-  .signin-mute-button[aria-pressed="true"] { border-color: rgba(255, 255, 255, .2); background: linear-gradient(180deg, rgba(31, 37, 33, .9), rgba(7, 11, 8, .9)); color: #bdc6bf; }
+  .signin-mute-button[aria-pressed="true"] { border-color: rgba(255, 255, 255, .2); background: linear-gradient(180deg, rgba(35, 35, 35, .9), rgba(7, 11, 8, .9)); color: #bdc6bf; }
   .signin-mute-button[aria-pressed="true"] .signin-sound-waves { display: none; }
   .signin-mute-button[aria-pressed="true"] .signin-sound-muted { display: block; }
   .signin-mute-button:active { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 2px 6px rgba(0, 0, 0, .3); transform: translateY(1px); }
@@ -2244,7 +2244,7 @@
   .game-update-modal h2 { margin: 8px 0 3px; color: #fff; font-size: clamp(22px, 6vw, 30px); }
   .game-update-modal p { color: #fff; font-size: 10px; letter-spacing: .07em; }
   .game-update-modal .loading-detail { color: #fff !important; }
-  .update-wait-track { height: 10px; margin: 14px 0 10px; overflow: hidden; border: 2px solid #080a08; border-radius: 6px; background: #101914; }
+  .update-wait-track { height: 10px; margin: 14px 0 10px; overflow: hidden; border: 2px solid #080a08; border-radius: 6px; background: #161616; }
   .update-wait-track span { display: block; width: 34%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #34be39, #86f45d); animation: update-wait 1.25s ease-in-out infinite; }
 
   @keyframes update-wait {
@@ -2400,7 +2400,7 @@
     width: 24px;
     height: 24px;
     margin-top: -9.5px;
-    border: 3px solid #071008;
+    border: 3px solid #0c0c0c;
     border-radius: 50%;
     appearance: none;
     -webkit-appearance: none;
@@ -2411,7 +2411,7 @@
   #legalAgeSlider::-moz-range-thumb {
     width: 20px;
     height: 20px;
-    border: 3px solid #071008;
+    border: 3px solid #0c0c0c;
     border-radius: 50%;
     background: #fff;
     box-shadow: 0 2px 8px rgba(0, 0, 0, .38);
@@ -2582,7 +2582,7 @@
     /* The player HUD's colour, carried heavier: the HUD sits over the muted
        world and this sits over bright sign-in artwork, where .60 left the
        trees reading straight through the text. */
-    background: rgba(18, 28, 22, .84);
+    background: rgba(24, 24, 24, .84);
     box-shadow: 0 2px 0 rgba(0,0,0,.42);
     text-align: center;
   }
@@ -2735,7 +2735,7 @@
     overflow: hidden;
     border: 2px solid #0a0a0a;
     border-radius: 7px;
-    background: #101914;
+    background: #161616;
   }
 
   .loading-content {
@@ -2802,7 +2802,7 @@
     box-sizing: border-box;
     border: 2px solid rgba(255,255,255,.3);
     border-radius: 7px;
-    background: #07100b;
+    background: #0d0d0d;
     color: #fff;
     font: 900 17px var(--font-rounded);
     padding: 10px 12px;
@@ -3283,7 +3283,7 @@
     overflow: hidden;
     border: 0;
     border-radius: 0;
-    background: #17241c;
+    background: #1f1f1f;
     box-shadow: none;
     isolation: isolate;
   }
@@ -3589,7 +3589,7 @@
   .dev-load-test-control > :first-child { min-width: 150px; }
   .dev-presence-control > .dev-load-test-actions { display: flex; grid-auto-flow: column; align-items: center; justify-content: flex-end; gap: 6px; }
   .dev-load-test-actions label { color: var(--muted); font-size: 7px; letter-spacing: .08em; }
-  .dev-load-test-actions input { width: 66px; min-height: 32px; padding: 0 6px; border: 1px solid rgba(145,207,160,.32); border-radius: 4px; color: var(--cream); background: #111a13; font: inherit; font-size: 8px; }
+  .dev-load-test-actions input { width: 66px; min-height: 32px; padding: 0 6px; border: 1px solid rgba(145,207,160,.32); border-radius: 4px; color: var(--cream); background: #171717; font: inherit; font-size: 8px; }
   .dev-load-test-actions input:disabled { opacity: .5; }
   .dev-audit-help { margin: 4px 0 9px; font-size: 8px; }
   .profile-duel-button { display: block; min-width: 112px; margin: 7px auto 0; padding: 7px 12px; font-size: 10px; }
@@ -3630,7 +3630,7 @@
   .player-safety-dialog h2, .player-safety-dialog p { margin: 0; overflow-wrap: anywhere; }
   .player-safety-dialog label { display: grid; gap: 6px; }
   .player-safety-dialog label[hidden] { display: none; }
-  .player-safety-dialog select, .player-safety-dialog textarea { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #627466; border-radius: 4px; background: #0e1913; color: #fff; font: inherit; }
+  .player-safety-dialog select, .player-safety-dialog textarea { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #627466; border-radius: 4px; background: #151515; color: #fff; font: inherit; }
   .player-safety-dialog textarea { min-height: 90px; resize: vertical; }
   .player-safety-dialog footer { display: flex; justify-content: flex-end; gap: 8px; }
   .player-safety-dialog [role="status"] { color: #ffb9aa; }
@@ -3894,7 +3894,7 @@
 
   @media (pointer: coarse), (max-width: 800px) {
     .card {
-      background: rgba(13, 20, 17, .96);
+      background: rgba(18, 18, 18, .96);
       -webkit-backdrop-filter: none;
       backdrop-filter: none;
     }
@@ -4566,7 +4566,7 @@
 .game-confirm-detail[data-detail-kind="after"] { --confirm-detail-color: #72ef58; }
 .game-confirm-actions { display: flex; justify-content: center; gap: 10px; margin: 16px 0 0; }
 .game-confirm-actions .window-back-button { width: auto; min-width: 104px; flex: 0 1 auto; margin: 0; }
-.game-confirm-cancel { border-color: #29302c; background: linear-gradient(#5d6a61, #37423b); box-shadow: 0 3px 0 #212824; }
+.game-confirm-cancel { border-color: #2d2d2d; background: linear-gradient(#5d6a61, #3e3e3e); box-shadow: 0 3px 0 #252525; }
 /* The Back-button shape sets display, which would show a hidden Cancel as a blank button. */
 .game-confirm-actions [hidden] { display: none; }
 /* Going ahead is green; only a dangerous confirm turns it red, below. */
@@ -4620,7 +4620,7 @@
 .dev-review-context strong { color: #b9d6ff; }
 .dev-review-context time { color: var(--muted); font-size: 10px; font-weight: 500; }
 .dev-review-decisions { display: grid; gap: 3px; margin: 0; padding: 0 0 0 16px; color: var(--muted); font-size: 11px; }
-.dev-review-note, .dev-player-search input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 40px; padding: 6px 9px; border: 1px solid rgba(145,207,160,.32); border-radius: 6px; background: #111a13; color: var(--cream); font: 13px var(--font-rounded); }
+.dev-review-note, .dev-player-search input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 40px; padding: 6px 9px; border: 1px solid rgba(145,207,160,.32); border-radius: 6px; background: #171717; color: var(--cream); font: 13px var(--font-rounded); }
 .dev-review-actions { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 6px; }
 .dev-review-action { min-width: 0; min-height: 40px; margin: 0; padding: 6px 8px; border-width: 2px; border-radius: 8px; font-size: 12px; line-height: 1.15; }
 .dev-review-action.is-plain { background: linear-gradient(170deg, #676969 0%, #505d5e 52%, #425052 100%); }

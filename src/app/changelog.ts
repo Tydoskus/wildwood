@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.4": [
+    "Panels, chat, trackers and windows are neutral black instead of green-tinted, and the chat bar no longer shows the grass through it",
+  ],
   "0.901.3": [
     "Health reward popups and enemy labels include your Vitality bonus, and combined popups no longer drift from rounding",
     "Fight no longer sends a challenge run into the Soul Dimension",
@@ -2966,6 +2969,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.4": "2026-10-07",
   "0.901.3": "2026-10-07",
   "0.901.2": "2026-10-07",
   "0.901.1": "2026-10-07",

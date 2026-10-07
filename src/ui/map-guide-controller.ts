@@ -411,7 +411,7 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
     // The player's dot only on the map they stand on.
     if (live()) {
       context.fillStyle = "#fff";
-      context.strokeStyle = "#0a1510";
+      context.strokeStyle = "#111111";
       context.lineWidth = 3;
       context.beginPath();
       context.arc(dependencies.player.x * scaleX, dependencies.player.y * scaleY, 6, 0, Math.PI * 2);
