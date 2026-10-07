@@ -14,6 +14,7 @@ it("continues through Ion into Endless and stops only at the last selected boss"
     stopAfterCampaign: true, researchPlan: "off", steadyEquipmentUpgrades: false, strategy: "efficient" }, ready);
   expect(result.maps.map(m => m.mapId)).toEqual(["ion_citadel", "endless_1", "endless_2"]);
   expect(result.maps.every(m => m.exitedAtSeconds !== null)).toBe(true);
+  expect(result.maps.every(m => m.farmDeaths + m.bossDeaths === 0)).toBe(true);
   const expected = ready.stats.damage;
   expect(result.finalState.stats.damage).toBe(expected);
   expect(result.maps.at(-1)!.repeatBossKills).toBe(0);

@@ -103,7 +103,7 @@
             </div>
 
             <label class="field-label" for="targetMapDurationStepMinutes">Minutes added per map</label>
-            <input id="targetMapDurationStepMinutes" type="number" min="0" max="1440" step="5" />
+            <input id="targetMapDurationStepMinutes" type="number" min="0" max="1440" step="1" />
             <label class="field-label" for="targetMapDurationMultiplier">
               <span>Late-map curve adjustment</span>
               <span class="field-hint">1 = original campaign reference</span>
@@ -306,6 +306,7 @@
               <span class="travelSeconds">TRAVEL</span>
               <span class="respawnWaitSeconds">RESPAWN</span>
               <span class="lootRetargetSeconds">LOOT</span>
+              <span class="deathSeconds">Deaths</span>
             </div>
           </div>
           <div id="timeBudgetRows" class="time-budget-rows"></div>
@@ -389,6 +390,7 @@
                   <th scope="col">Log growth at 25 / 50 / 75%</th>
                   <th scope="col">Boss TTK entry → exit</th>
                   <th scope="col">Regular kills</th>
+                  <th scope="col">Deaths</th>
                   <th scope="col">Target fit</th>
                 </tr>
               </thead>

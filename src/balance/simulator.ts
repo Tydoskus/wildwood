@@ -48,6 +48,17 @@ import {
   type ItemId,
 } from "../../shared/items";
 import { effectivePlayerPowerStats, playerPowerForStats, type PlayerPowerStats } from "../../shared/player-power";
+import { AUTO_FARM_DEFEAT_LIMIT, AUTO_FARM_DEFEAT_WINDOW_MS } from "../game/runtime/auto-farm-controller";
+import { FARM_PUSHES } from "../game/runtime/auto-farm-brain";
+import {
+  DEATH_SCREEN_SECONDS,
+  DIED_TO_CAMP_SECONDS,
+  bossAttacker,
+  fightParticipants,
+  participantAttackers,
+  resolveFight,
+  standingPoint,
+} from "./death-model";
 import { LATE_MAP_DAMAGE_TIER, lateMapReferenceBuild, type LateDamageMap } from "../../shared/incoming-damage";
 import {
   RESEARCH_DEFINITIONS,
@@ -254,6 +265,8 @@ type ActiveResearch = {
 type MutableSimulationState = {
   time: number;
   mapIndex: number;
+  /** Health below the maximum: regeneration closes it, hits open it; a reward to max health leaves it as it is. */
+  missingHealth: number;
   stats: PersistentStats;
   research: ResearchRanks;
   equipped: EquippedItems;
@@ -298,6 +311,12 @@ export type TrialMapRecord = {
   repeatBossPowerGain: number;
   regularKills: number;
   fullClears: number;
+  /** Deaths while farming the map's camps, and at its boss. Their time is timeBudget.deathSeconds. */
+  farmDeaths: number;
+  bossDeaths: number;
+  /** Times the defeat limit sent the player back a map, and the time spent farming there (inside this map's time). */
+  fallbacks: number;
+  fallbackSeconds: number;
   timeBudget: MapTimeBudget;
   repeatTimeBudget: MapTimeBudget;
   statInvestments: Record<ProgressionStat, TrialStatInvestment>;
@@ -343,6 +362,8 @@ export type MapTimeBudget = {
   travelSeconds: number;
   respawnWaitSeconds: number;
   lootRetargetSeconds: number;
+  /** Lost to deaths: the fight cut short, the death screen, and the walk back from the map's arrival. */
+  deathSeconds: number;
 };
 
 export const PROGRESSION_STAT_IDS = ["damage", "health", "armor", "regeneration", "attackSpeed"] as const;
@@ -435,6 +456,16 @@ export type MapSummary = {
   repeatBossPowerGainMedian: number | null;
   regularKillsMedian: number | null;
   fullClearsMedian: number | null;
+  /** Median deaths per run on this map (farming + boss), and each part's own median. */
+  deathsMedian: number | null;
+  farmDeathsMedian: number | null;
+  bossDeathsMedian: number | null;
+  /** Median seconds lost to deaths, and deaths per hour spent on the map. */
+  deathSecondsMedian: number | null;
+  deathsPerHourMedian: number | null;
+  /** Median times the defeat limit sent the player back a map, and the time spent farming there. */
+  fallbacksMedian: number | null;
+  fallbackSecondsMedian: number | null;
   timeBudgetMedian: MapTimeBudget | null;
   repeatTimeBudgetMedian: MapTimeBudget | null;
   statProgression: StatProgressionMetric[];
@@ -491,6 +522,8 @@ export type BalanceSimulationResult = {
   diagnostics: string[];
   finalPower: { p10: number; median: number; p90: number };
   finalDps: { p10: number; median: number; p90: number };
+  /** Whole-run deaths, medians across runs. */
+  deaths: { totalMedian: number; farmMedian: number; bossMedian: number; secondsMedian: number };
   simulatedCampaigns: number;
   strategyMix: Record<GuidedFarmingStrategy | "boss-farm", number>;
   strategyTimelines?: StrategyTimeline[];
@@ -498,6 +531,8 @@ export type BalanceSimulationResult = {
 };
 
 const SAMPLE_COUNT = 180;
+/** More deaths an hour than this (one every six minutes) and the map is flagged as one the build cannot hold. */
+export const DEATHS_PER_HOUR_WARNING = 10;
 const MAP_TRANSITION_SECONDS = 6;
 const LOOT_AND_RETARGET_SECONDS = .3;
 const DEFAULT_CAMPAIGN_DURATION_SECONDS = 1.5 * CAMPAIGN_ENTRY_TARGET_SECONDS;
@@ -1492,9 +1527,13 @@ function selectSite(
   config: BalanceSimulationConfig,
   behavior: TrialBehavior,
   bossAlreadyCleared = false,
+  avoid?: (site: SiteState) => boolean,
 ) {
-  const available = sites.filter((site) => site.availableAt <= state.time);
-  if (!available.length) return null;
+  const alive = sites.filter((site) => site.availableAt <= state.time);
+  if (!alive.length) return null;
+  // Auto's rule: a camp the player just died to waits while another camp has enemies.
+  const safe = avoid ? alive.filter((site) => !avoid(site)) : alive;
+  const available = safe.length ? safe : alive;
   const pendingClear = available.filter((site) => site.kills < config.requiredClears);
   const adjustment = config.mapAdjustments[map.id];
   const currentBossTtk = bossFightSeconds(state, map, adjustment);
@@ -1710,12 +1749,21 @@ export function createSites(map: BalanceMapDefinition) {
 }
 
 /** A readiness estimate: survive the strongest telegraphed hit with room to recover.
- * This does not simulate dodging, deaths, or promise that a boss is safe. */
+ * It does not promise the fight is safe: the attempt itself is played out
+ * against the player's health (bossFightOutcome), and a lost one is a death. */
 function bossHitShare(state: EffectiveStatsState, map: BalanceMapDefinition, adjustment: MapAdjustment) {
   if (!map.boss) return 0;
   const stats = combatStats(state);
   const profile = BOSS_DAMAGE_PROFILES[map.boss.kind];
   return damageAfterArmor((map.boss.strongestHit ?? Math.max(...Object.values(profile))) * adjustment.damage, stats.armor) / Math.max(1, stats.maxHp);
+}
+
+/** The boss fight played against a full health bar, with nobody dodging. */
+function bossFightOutcome(state: EffectiveStatsState, map: BalanceMapDefinition, adjustment: MapAdjustment, fightSeconds: number) {
+  if (!map.boss) return null;
+  const stats = combatStats(state);
+  const strongestHit = (map.boss.strongestHit ?? Math.max(...Object.values(BOSS_DAMAGE_PROFILES[map.boss.kind]))) * adjustment.damage;
+  return resolveFight(stats.maxHp, stats.maxHp, stats.regen, fightSeconds, [bossAttacker(map.boss.kind, strongestHit, stats.armor)]);
 }
 
 function bossFightSeconds(state: EffectiveStatsState, map: BalanceMapDefinition, adjustment: MapAdjustment) {
@@ -1837,6 +1885,7 @@ function simulateTrial(
   const state: MutableSimulationState = {
     time: 0,
     mapIndex: 0,
+    missingHealth: 0,
     // Start the clock at Forest arrival after completing the private tutorial.
     stats: { damage: PLAYER_BASE_DAMAGE + ONBOARDING_DAMAGE_REWARD, maxHp: PLAYER_BASE_HP, attackRate: DEFAULT_ATTACK_INTERVAL, armor: 0, regen: PLAYER_BASE_REGEN + ONBOARDING_REGEN_REWARD },
     research: createEmptyResearchRanks(),
@@ -1891,6 +1940,7 @@ function simulateTrial(
     if (actual > 0) {
       budget[category] += actual;
       advanceTime(state, state.time + actual, config.researchPlan, recordHistory);
+      if (state.missingHealth > 0) state.missingHealth = Math.max(0, state.missingHealth - combatStats(state).regen * actual);
     }
     return actual + 1e-7 >= seconds;
   };
@@ -2032,12 +2082,17 @@ function simulateTrial(
     repeatBossPowerGain: 0,
     regularKills: 0,
     fullClears: 0,
+    farmDeaths: 0,
+    bossDeaths: 0,
+    fallbacks: 0,
+    fallbackSeconds: 0,
     timeBudget: {
       regularCombatSeconds: 0,
       bossCombatSeconds: 0,
       travelSeconds: 0,
       respawnWaitSeconds: 0,
       lootRetargetSeconds: 0,
+      deathSeconds: 0,
     },
     repeatTimeBudget: {
       regularCombatSeconds: 0,
@@ -2045,6 +2100,7 @@ function simulateTrial(
       travelSeconds: 0,
       respawnWaitSeconds: 0,
       lootRetargetSeconds: 0,
+      deathSeconds: 0,
     },
     statInvestments: emptyStatInvestments(),
     curveProgress: null,
@@ -2059,6 +2115,23 @@ function simulateTrial(
   recordHistory();
   startNextResearch(state, config.researchPlan);
 
+  // Death model state: when the player last died to each camp, and who is still chasing from the last fight.
+  const diedTo = new Map<string, number>();
+  let chasing = new Set<SiteState>();
+  const recentlyDiedTo = (site: SiteState) => state.time - (diedTo.get(site.campName) ?? -Infinity) < DIED_TO_CAMP_SECONDS;
+  const playerSpeed = () => 1 / Math.max(1e-9, simulationTravelSeconds(1, state.research.moveSpeed, state.bootsEquipped));
+  // Auto's defeat limit: too many deaths too quickly and the player farms the
+  // map behind until its build has grown and some time has passed. The map
+  // ahead keeps its camps (and its clear count) for the return.
+  let fallback: { mapIndex: number; aheadSites: typeof sites; retryPower: number; retryAt: number; since: number } | null = null;
+  let defeats: number[] = [];
+  const endFallback = (record: TrialMapRecord) => {
+    if (!fallback) return;
+    record.fallbackSeconds += state.time - fallback.since;
+    sites = fallback.aheadSites;
+    fallback = null;
+  };
+
   let stoppedAtCampaignClear = false;
   let safety = 0;
   while (state.time < config.durationSeconds && safety < 5_000_000) {
@@ -2066,16 +2139,45 @@ function simulateTrial(
     const map = MAP_DEFINITIONS[state.mapIndex];
     const mapRecord = records[records.length - 1];
     const adjustment = config.mapAdjustments[map.id];
+    if (fallback && state.time >= fallback.retryAt && powerForState(state) >= fallback.retryPower) {
+      endFallback(mapRecord);
+      chasing = new Set();
+      diedTo.clear();
+      defeats = [];
+      position = { ...map.arrival };
+      if (!spendTime(mapRecord, "travelSeconds", MAP_TRANSITION_SECONDS)) break;
+      continue;
+    }
+    // The map being farmed: the one behind while falling back.
+    const farmMap = fallback ? MAP_DEFINITIONS[fallback.mapIndex] : map;
+    const farmAdjustment = config.mapAdjustments[farmMap.id];
     const clears = sites.length ? Math.min(...sites.map((site) => site.kills)) : 0;
     const currentBossFight = bossFightSeconds(state, map, adjustment);
     const bossReadinessTarget = bossReadinessTargetSeconds(map.id, config);
 
-    if (map.boss && state.mapIndex < (existing?.highestUnlockedMapIndex ?? Infinity) && mapRecord.bossFightSeconds === null && clears >= config.requiredClears && currentBossFight !== null && currentBossFight <= bossReadinessTarget && (existing?.ignoreBossSurvival || bossHitShare(state, map, adjustment) <= .3)) {
+    if (!fallback && map.boss && state.mapIndex < (existing?.highestUnlockedMapIndex ?? Infinity) && mapRecord.bossFightSeconds === null && clears >= config.requiredClears && currentBossFight !== null && currentBossFight <= bossReadinessTarget && (existing?.ignoreBossSurvival || bossHitShare(state, map, adjustment) <= .3)
+      // Once beaten by it, the player comes back only with a build that wins the fight.
+      && (mapRecord.bossDeaths === 0 || existing?.ignoreBossSurvival || bossFightOutcome(state, map, adjustment, currentBossFight)?.diedAt === null)) {
       const statWeights = projectedBossStatWeights(map.boss, adjustment);
       const travel = travelSeconds(position, map.boss, state, config.pathingMultiplier);
       if (!spendBossTime(mapRecord, "travelSeconds", statWeights, travel)) break;
       position = { x: map.boss.x, y: map.boss.y };
+      chasing = new Set();
+      // The player goes in at full health; nobody dodges.
+      state.missingHealth = 0;
+      const bossOutcome = existing?.ignoreBossSurvival ? null : bossFightOutcome(state, map, adjustment, currentBossFight);
+      if (bossOutcome && bossOutcome.diedAt !== null) {
+        // Beaten: the fight so far and the death screen are lost, and the
+        // player farms on from the map's arrival.
+        mapRecord.bossDeaths += 1;
+        if (!spendTime(mapRecord, "deathSeconds", bossOutcome.diedAt)) break;
+        if (!spendTime(mapRecord, "deathSeconds", DEATH_SCREEN_SECONDS)) break;
+        state.missingHealth = 0;
+        position = { ...map.arrival };
+        continue;
+      }
       if (!spendBossTime(mapRecord, "bossCombatSeconds", statWeights, currentBossFight)) break;
+      if (bossOutcome) state.missingHealth = Math.max(0, combatStats(state).maxHp - bossOutcome.health);
       state.lastCombatAt = state.time;
       const bossRewardPowerGain = applyBossReward(mapRecord, map, adjustment);
       rollDrops(state, map.boss.drops, null, random, recordHistory);
@@ -2120,6 +2222,8 @@ function simulateTrial(
       const nextMap = MAP_DEFINITIONS[state.mapIndex];
       position = { ...nextMap.arrival };
       sites = createSites(nextMap);
+      diedTo.clear();
+      chasing = new Set();
       records.push(beginMapRecord(nextMap));
       recordHistory();
       continue;
@@ -2129,11 +2233,12 @@ function simulateTrial(
       sites,
       state,
       position,
-      map,
+      farmMap,
       mapRecord,
       config,
       behavior,
-      mapRecord.bossFightSeconds !== null,
+      fallback !== null || mapRecord.bossFightSeconds !== null,
+      recentlyDiedTo,
     );
     if (!selected) {
       const nextAvailable = Math.min(...sites.map((site) => site.availableAt));
@@ -2143,25 +2248,60 @@ function simulateTrial(
     const reward = siteEnemy(selected.site).reward;
     const stat = progressionStatForReward(reward.type);
     if (!spendTimeForStat(mapRecord, "travelSeconds", stat, selected.travel)) break;
+    const standing = standingPoint(position, selected.site);
     position = { x: selected.site.x, y: selected.site.y };
+    // The fight against the target and every camp mate it wakes, hit by hit, on the health the player has left.
+    const fighter = combatStats(state);
+    const participants = fightParticipants(selected.site, sites.filter((site) => site.availableAt <= state.time), standing, chasing, siteEnemy);
+    const attackers = participantAttackers(participants, standing, chasing, siteEnemy, fighter.armor, farmAdjustment.damage, playerSpeed());
+    const fight = resolveFight(Math.max(0, fighter.maxHp - state.missingHealth), fighter.maxHp, fighter.regen, selected.fight, attackers);
+    if (fight.diedAt !== null) {
+      // Dead: the fight so far is lost with the target's progress, then the
+      // death screen, then the walk from the map's arrival back to this camp.
+      mapRecord.farmDeaths += 1;
+      chasing = new Set();
+      if (!spendTime(mapRecord, "deathSeconds", fight.diedAt)) break;
+      diedTo.set(selected.site.campName, state.time);
+      if (!spendTime(mapRecord, "deathSeconds", DEATH_SCREEN_SECONDS)) break;
+      state.missingHealth = 0;
+      defeats = [...defeats.filter((at) => state.time - at < AUTO_FARM_DEFEAT_WINDOW_MS / 1_000), state.time];
+      if (!fallback && state.mapIndex > 0 && defeats.length >= AUTO_FARM_DEFEAT_LIMIT) {
+        // Too strong here: through the portal to the map behind.
+        const behind = MAP_DEFINITIONS[state.mapIndex - 1];
+        fallback = { mapIndex: state.mapIndex - 1, aheadSites: sites, retryPower: powerForState(state) * FARM_PUSHES.normal.retry,
+          retryAt: state.time + FARM_PUSHES.normal.waitMinutes * 60, since: state.time };
+        mapRecord.fallbacks += 1;
+        sites = createSites(behind);
+        position = { ...behind.arrival };
+        defeats = [];
+        diedTo.clear();
+        if (!spendTime(mapRecord, "travelSeconds", MAP_TRANSITION_SECONDS)) break;
+        continue;
+      }
+      if (!spendTime(mapRecord, "deathSeconds", travelSeconds(farmMap.arrival, selected.site, state, config.pathingMultiplier))) break;
+      continue;
+    }
     if (!spendTimeForStat(mapRecord, "regularCombatSeconds", stat, selected.fight)) break;
+    state.missingHealth = Math.max(0, fighter.maxHp - fight.health);
+    chasing = new Set([...participants].filter((site) => site !== selected.site));
     state.lastCombatAt = state.time;
     if (!spendTimeForStat(mapRecord, "lootRetargetSeconds", stat, LOOT_AND_RETARGET_SECONDS)) break;
     selected.site.kills += 1;
-    selected.site.availableAt = state.time + config.respawnSeconds * (map.balance?.regularRespawnSeconds ?? REGULAR_ENEMY_RESPAWN_SECONDS) / REGULAR_ENEMY_RESPAWN_SECONDS;
+    selected.site.availableAt = state.time + config.respawnSeconds * (farmMap.balance?.regularRespawnSeconds ?? REGULAR_ENEMY_RESPAWN_SECONDS) / REGULAR_ENEMY_RESPAWN_SECONDS;
     const directPowerBefore = continuousPowerForState(state);
-    applyRewardToStats(state.stats, reward.type, rewardAmount(state, reward.amount, adjustment.reward));
+    applyRewardToStats(state.stats, reward.type, rewardAmount(state, reward.amount, farmAdjustment.reward));
     mapRecord.statInvestments[stat].rewardPowerGain += Math.max(0, continuousPowerForState(state) - directPowerBefore);
     mapRecord.statInvestments[stat].rewardEvents += 1;
     mapRecord.regularKills += 1;
-    mapRecord.fullClears = Math.min(...sites.map((site) => site.kills));
-    rollDrops(state, map.regularDrops, selected.site.type, random, recordHistory);
+    if (!fallback) mapRecord.fullClears = Math.min(...sites.map((site) => site.kills));
+    rollDrops(state, farmMap.regularDrops, selected.site.type, random, recordHistory);
     recordHistory();
   }
 
   if (!stoppedAtCampaignClear && state.time < config.durationSeconds) advanceTime(state, config.durationSeconds, config.researchPlan, recordHistory);
   recordHistory();
   const activeRecord = records[records.length - 1];
+  endFallback(activeRecord);
   if (activeRecord && activeRecord.exitedAtSeconds === null) {
     activeRecord.exitPower = powerForState(state);
     activeRecord.exitState = stateSnapshot(state);
@@ -2247,6 +2387,7 @@ function mapSummary(
     travelSeconds: numericQuantile(records.map((record) => source(record).travelSeconds), probability),
     respawnWaitSeconds: numericQuantile(records.map((record) => source(record).respawnWaitSeconds), probability),
     lootRetargetSeconds: numericQuantile(records.map((record) => source(record).lootRetargetSeconds), probability),
+    deathSeconds: numericQuantile(records.map((record) => source(record).deathSeconds), probability),
   } : null;
   const powerComponentsAt = (
     stateForRecord: (record: TrialMapRecord) => SimulationStateSnapshot,
@@ -2395,6 +2536,16 @@ function mapSummary(
     repeatBossPowerGainMedian: map.boss ? quantile(records.map((record) => record.repeatBossPowerGain), .5) : null,
     regularKillsMedian: quantile(records.map((record) => record.regularKills), .5),
     fullClearsMedian: quantile(records.map((record) => record.fullClears), .5),
+    deathsMedian: quantile(records.map((record) => record.farmDeaths + record.bossDeaths), .5),
+    farmDeathsMedian: quantile(records.map((record) => record.farmDeaths), .5),
+    bossDeathsMedian: map.boss ? quantile(records.map((record) => record.bossDeaths), .5) : null,
+    deathSecondsMedian: quantile(records.map((record) => record.timeBudget.deathSeconds + record.repeatTimeBudget.deathSeconds), .5),
+    deathsPerHourMedian: quantile(records.flatMap((record) => {
+      const hours = durationForRecord(record) / 3_600;
+      return hours > 0 ? [(record.farmDeaths + record.bossDeaths) / hours] : [];
+    }), .5),
+    fallbacksMedian: quantile(records.map((record) => record.fallbacks), .5),
+    fallbackSecondsMedian: quantile(records.map((record) => record.fallbackSeconds), .5),
     timeBudgetMedian: timeBudgetAt((record) => record.timeBudget, .5),
     repeatTimeBudgetMedian: timeBudgetAt((record) => record.repeatTimeBudget, .5),
     statProgression,
@@ -2531,7 +2682,7 @@ function buildDiagnostics(
   finalPower: BalanceSimulationResult["finalPower"],
   enemyMetrics: Record<BalanceMapId, EnemyBalanceMetric[]>,
 ) {
-  const diagnostics: string[] = ["Model scope: clock starts after the completed tutorial; loot uses the live catalog. Boss readiness and initial full clears are strategy assumptions, not unlock requirements. One enemy at a time, immediate loot delivery, one upgrade bench, no paid skips or deaths are modeled."];
+  const diagnostics: string[] = ["Model scope: clock starts after the completed tutorial; loot uses the live catalog. Boss readiness and initial full clears are strategy assumptions, not unlock requirements. Each fight counts the target and every camp mate it wakes (aggro radius, group camps, chasers from the last fight), hit by hit after armor, and health carries between fights with regeneration. A death costs the fight in progress, the death screen and the walk back from the map's arrival; a camp just died to is skipped for 10 minutes, and 5 deaths in 3 minutes send the player back a map until it has 1.2× the power and 10 minutes have passed (Auto's rules). Bosses are fought from full health with every ability turn landing; a lost boss fight is a death, retried only once the build would win it. Nobody dodges or kites; loot arrives at once, one upgrade bench, no paid skips."];
   let measuredPacingTargets = 0;
   let pacingTargetsOnTrack = 0;
   let measuredPowerTargets = 0;
@@ -2774,7 +2925,7 @@ function buildDiagnostics(
     }
     const lethal = metrics.filter((metric) => metric.hitsToDefeatPlayer <= 1);
     if (lethal.length >= Math.ceil(metrics.length / 2)) {
-      diagnostics.push(`${map.name}: ${lethal.length}/${metrics.length} enemy types can one-hit the representative entry build; progression timing does not count deaths, dodges, or recovery.`);
+      diagnostics.push(`${map.name}: ${lethal.length}/${metrics.length} enemy types can one-hit the representative entry build; progression timing counts the deaths but not dodging.`);
     }
     const wall = [...metrics].sort((left, right) => right.ttkVsMapMedian - left.ttkVsMapMedian)[0];
     if (wall && wall.ttkVsMapMedian >= 2.5) {
@@ -2802,7 +2953,21 @@ function buildDiagnostics(
   }
   const lastReached = [...maps].reverse().find((map) => map.reachedPercent >= 50);
   if (lastReached) diagnostics.push(`The median run reaches ${lastReached.name}; map durations include travel, respawns, farming, and a solo boss attempted at the map-aware readiness target (${(config.bossTargetSeconds / 60).toFixed(1)}m minimum, ${(BALANCE_LATE_BOSS_TARGET_MAX_SECONDS / 60).toFixed(0)}m late-map cap).`);
-  diagnostics.push("Regular-enemy damage is reported as hit size and hits-to-defeat, but player dodging and boss attack patterns are intentionally not guessed by the progression clock.");
+  for (const map of maps) {
+    if (map.reachedPercent < 50 || map.deathsMedian === null) continue;
+    const perHour = map.deathsPerHourMedian ?? 0;
+    if (perHour > DEATHS_PER_HOUR_WARNING) {
+      const share = map.durationMedianSeconds ? (map.deathSecondsMedian ?? 0) / map.durationMedianSeconds * 100 : 0;
+      const fellBack = (map.fallbacksMedian ?? 0) > 0
+        ? ` and falls back a map ${Math.round(map.fallbacksMedian ?? 0)}× for ${formatDiagnosticDuration(map.fallbackSecondsMedian)}`
+        : "";
+      diagnostics.push(`${map.name}: the median run dies ${perHour.toFixed(1)} times an hour (${Math.round(map.farmDeathsMedian ?? 0)} farming, ${Math.round(map.bossDeathsMedian ?? 0)} at the boss), losing ${formatDiagnosticDuration(map.deathSecondsMedian)} (${share.toFixed(0)}% of its map time)${fellBack}; above ${DEATHS_PER_HOUR_WARNING} an hour the entry build cannot hold this map's camps.`);
+    }
+    if ((map.bossDeathsMedian ?? 0) >= 1) {
+      diagnostics.push(`${map.name}: the boss wins the median run's first attempt at the readiness target (${Math.round(map.bossDeathsMedian ?? 0)} boss death${Math.round(map.bossDeathsMedian ?? 0) === 1 ? "" : "s"}); the readiness gate does not mean the fight is survivable, so the player farms on until it is.`);
+    }
+  }
+  diagnostics.push("Deaths assume a player who stands and shoots: no dodging, kiting or walking away from a losing fight, and a boss lands one average ability hit per ability turn.");
   return diagnostics;
 }
 
@@ -2911,6 +3076,12 @@ function runBalanceSimulationInternal(
     diagnostics: buildDiagnostics(config, maps, finalPower, enemyMetrics),
     finalPower,
     finalDps,
+    deaths: {
+      totalMedian: numericQuantile(trials.map((trial) => trial.maps.reduce((sum, record) => sum + record.farmDeaths + record.bossDeaths, 0)), .5),
+      farmMedian: numericQuantile(trials.map((trial) => trial.maps.reduce((sum, record) => sum + record.farmDeaths, 0)), .5),
+      bossMedian: numericQuantile(trials.map((trial) => trial.maps.reduce((sum, record) => sum + record.bossDeaths, 0)), .5),
+      secondsMedian: numericQuantile(trials.map((trial) => trial.maps.reduce((sum, record) => sum + record.timeBudget.deathSeconds + record.repeatTimeBudget.deathSeconds, 0)), .5),
+    },
     simulatedCampaigns: trials.length,
     strategyMix,
   };

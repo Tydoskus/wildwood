@@ -7,6 +7,7 @@ import "./styles.css";
 import { formatCompactNumber } from "../ui/number-format";
 import {
   BALANCE_MAP_IDS, balanceMapIds, balanceMapName,
+  DEATHS_PER_HOUR_WARNING,
   defaultBalanceSimulationConfig,
   type BalanceMapId,
   type BalanceSimulationConfig,
@@ -362,6 +363,8 @@ function renderSummary(next: BalanceSimulationResult) {
       detail: "A momentum proxy; power is not interchangeable with damage, survival, or recovery." },
     { label: "BOSS BREAKTHROUGH", value: range(experience.map(map => map.bossSeconds), formatDuration),
       detail: `${range(experience.map(map => map.bossGrowthPercent), value => `${value.toFixed(0)}%`)} of map growth from bosses · ${pacingHits}/${pacingTargets.length} within the test pacing band` },
+    ...(next.deaths ? [{ label: "Deaths Per Run", value: Math.round(next.deaths.totalMedian).toLocaleString(),
+      detail: `Farm ${Math.round(next.deaths.farmMedian).toLocaleString()} · Boss ${Math.round(next.deaths.bossMedian).toLocaleString()} · ${formatDuration(next.deaths.secondsMedian)} lost to the death screen, the walk back and fights cut short` }] : []),
   ];
   summaryCards.replaceChildren();
   for (const card of cards) {
@@ -403,6 +406,7 @@ const TIME_BUDGET_CATEGORIES = [
   { key: "travelSeconds", label: "TRAVEL" },
   { key: "respawnWaitSeconds", label: "RESPAWN WAIT" },
   { key: "lootRetargetSeconds", label: "LOOT / RETARGET" },
+  { key: "deathSeconds", label: "Deaths" },
 ] as const;
 
 const STAT_TIME_CATEGORIES: Array<{ key: ProgressionStat; label: string }> = [
@@ -558,6 +562,19 @@ function renderHeadroom(next: BalanceSimulationResult) {
   }
 }
 
+function deathsMarkup(map: BalanceSimulationResult["maps"][number]) {
+  // A result saved before deaths were counted has none of these.
+  if (map.reachedPercent === 0 || map.deathsMedian === null || map.deathsMedian === undefined) return "—";
+  const count = (value: number | null) => value === null ? "—" : Math.round(value).toLocaleString();
+  const perHour = map.deathsPerHourMedian ?? 0;
+  const fellBack = (map.fallbacksMedian ?? 0) > 0
+    ? `<span class="cell-sub">Fell Back ${count(map.fallbacksMedian)}× · ${formatDuration(map.fallbackSecondsMedian)}</span>`
+    : "";
+  return `<span class="${perHour > DEATHS_PER_HOUR_WARNING ? "risk" : ""}">${count(map.deathsMedian)}</span>` +
+    `<span class="cell-sub">Farm ${count(map.farmDeathsMedian)} · Boss ${map.hasBoss ? count(map.bossDeathsMedian) : "—"}</span>` +
+    `<span class="cell-sub">${formatDuration(map.deathSecondsMedian)} Lost · ${perHour.toFixed(1)}/h</span>${fellBack}`;
+}
+
 function renderMapTable(next: BalanceSimulationResult) {
   mapTableBody.replaceChildren();
   next.maps.forEach((map, index) => {
@@ -580,6 +597,7 @@ function renderMapTable(next: BalanceSimulationResult) {
     const powerGrowth = map.powerGrowthMultiplier === null
       ? ""
       : `<span class="cell-sub">${formatRatio(map.powerGrowthMultiplier)} growth${map.targetPowerGrowthMultiplier === null ? " · onboarding" : ` · target ${formatRatio(map.targetPowerGrowthMultiplier)}`}${map.exitEffectiveStatsMedian ? ` · ${(map.exitEffectiveStatsMedian.damage / Math.max(1, map.exitEffectiveStatsMedian.maxHp)).toFixed(2)}× D/HP` : ""}</span>`;
+    const deaths = deathsMarkup(map);
     const durationTarget = map.targetDurationSeconds === null
       ? `<span class="cell-sub">onboarding baseline</span>`
       : `<span class="cell-sub">target ${formatDuration(map.targetDurationSeconds)}</span>`;
@@ -592,6 +610,7 @@ function renderMapTable(next: BalanceSimulationResult) {
       <td>${curveProgressMarkup(map)}</td>
       <td>${bossTtk}</td>
       <td>${map.regularKillsMedian === null ? "—" : Math.round(map.regularKillsMedian).toLocaleString()}</td>
+      <td>${deaths}</td>
       <td>${stepMarkup}</td>`;
     const selectRow = () => {
       selectedEnemyMap = map.mapId;

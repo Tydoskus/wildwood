@@ -215,13 +215,18 @@ for (const map of result.maps.filter((entry) => entry.hasBoss && entry.bossFirst
 }
 console.log("");
 console.log("Median map time allocation");
-console.log(`${pad("Map", 26)}${pad("Combat", 12)}${pad("Boss", 10)}${pad("Travel", 10)}${pad("Respawn", 10)}Loot`);
+console.log(`${pad("Map", 26)}${pad("Combat", 12)}${pad("Boss", 10)}${pad("Travel", 10)}${pad("Respawn", 10)}${pad("Loot", 10)}Deaths`);
 for (const map of result.maps) {
   const budget = map.timeBudgetMedian;
   if (!budget) continue;
   const total = Object.values(budget).reduce((sum, seconds) => sum + seconds, 0);
   const percent = (seconds: number) => `${Math.round(seconds / Math.max(1, total) * 100)}%`;
-  console.log(`${pad(map.name, 26)}${pad(percent(budget.regularCombatSeconds), 12)}${pad(percent(budget.bossCombatSeconds), 10)}${pad(percent(budget.travelSeconds), 10)}${pad(percent(budget.respawnWaitSeconds), 10)}${percent(budget.lootRetargetSeconds)}`);
+  console.log(`${pad(map.name, 26)}${pad(percent(budget.regularCombatSeconds), 12)}${pad(percent(budget.bossCombatSeconds), 10)}${pad(percent(budget.travelSeconds), 10)}${pad(percent(budget.respawnWaitSeconds), 10)}${pad(percent(budget.lootRetargetSeconds), 10)}${percent(budget.deathSeconds)}`);
+}
+console.log("");
+console.log(`Deaths · median run ${Math.round(result.deaths.totalMedian)} (farm ${Math.round(result.deaths.farmMedian)}, boss ${Math.round(result.deaths.bossMedian)}), ${(result.deaths.secondsMedian / 60).toFixed(0)}m lost`);
+for (const map of result.maps.filter((entry) => entry.reachedPercent > 0 && (entry.deathsMedian ?? 0) > 0)) {
+  console.log(`- ${map.name}: ${Math.round(map.deathsMedian ?? 0)} deaths (farm ${Math.round(map.farmDeathsMedian ?? 0)}, boss ${Math.round(map.bossDeathsMedian ?? 0)}) · ${((map.deathSecondsMedian ?? 0) / 60).toFixed(1)}m lost · ${(map.deathsPerHourMedian ?? 0).toFixed(1)}/h${(map.fallbacksMedian ?? 0) > 0 ? ` · fell back ${Math.round(map.fallbacksMedian ?? 0)}× for ${((map.fallbackSecondsMedian ?? 0) / 60).toFixed(0)}m` : ""}`);
 }
 const repeatMaps = result.maps.filter((map) => {
   const budget = map.repeatTimeBudgetMedian;

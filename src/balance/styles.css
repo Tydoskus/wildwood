@@ -429,6 +429,7 @@ input[type="range"] {
 .time-budget-legend .travelSeconds::before { background: var(--blue); }
 .time-budget-legend .respawnWaitSeconds::before { background: var(--amber); }
 .time-budget-legend .lootRetargetSeconds::before { background: var(--violet); }
+.time-budget-legend .deathSeconds::before { background: var(--text); }
 .stat-time-legend .health::before { background: var(--red); }
 .stat-time-legend .armor::before { background: var(--blue); }
 .stat-time-legend .regeneration::before { background: var(--amber); }
@@ -449,6 +450,7 @@ input[type="range"] {
 .time-budget-segment.travelSeconds { background: var(--blue); }
 .time-budget-segment.respawnWaitSeconds { background: var(--amber); }
 .time-budget-segment.lootRetargetSeconds { background: var(--violet); }
+.time-budget-segment.deathSeconds { background: var(--text); }
 .time-budget-total { color: #65736a; font-family: var(--mono); font-size: 9px; text-align: right; }
 
 .stat-time-help { margin: 0; padding: 10px 19px 0; }

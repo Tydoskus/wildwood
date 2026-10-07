@@ -5,7 +5,7 @@ import { createEmptyResearchRanks } from "../../shared/research";
 
 function fixture() {
   return {
-    time: 0, mapIndex: 1,
+    time: 0, mapIndex: 1, missingHealth: 0,
     stats: { damage: 100, maxHp: 1000, armor: 10, regen: 1, attackRate: 1 },
     research: createEmptyResearchRanks(),
     equipped: { head: "", chest: "", weapon: IRON_BOW },

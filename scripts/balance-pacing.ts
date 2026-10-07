@@ -174,7 +174,7 @@ const plateau = healthElites.filter((e,i) => i > 0 && e.hp <= healthElites[i-1].
 const limitations = [
   'Simulation estimates, not measured player analytics. Time is active play starting after the private tutorial; offline rewards are excluded.',
   'Mixed strategies, 20 seeded runs, balanced Power research, random gear drops, and one continuously used slot-upgrade queue. Slots stay equipped and tiers persist across gear swaps.',
-  'No prestige/perks, Utility research, bow-skill procs, extra purchased upgrade queues, simultaneous crowd combat, deaths, dodging, or recovery time. These can materially change real pacing.',
+  'No prestige/perks, Utility research, bow-skill procs, extra purchased upgrade queues, dodging or kiting. These can materially change real pacing. Deaths are counted: each fight includes the camp mates it wakes, and a death costs the death screen and the walk back (Auto falls back a map after five in three minutes).',
   'Nearby farming is a targeting-strategy comparison, not a faithful Auto Farm simulation.',
   'Both seed sets participate in the ordering fit. The alternate seed is a sensitivity check, not an unseen statistical holdout.',
   'Initial targets increase evenly, retaining Forest and the campaign budget. Neighboring rewards are then adjusted toward a 4% gap until every map increases in all five tested scenarios, keeping the reference budget within 1.5%.',

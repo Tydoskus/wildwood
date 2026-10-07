@@ -3,7 +3,7 @@ import {BOSS_TARGET_SECONDS, desertBossHealthAt} from "../../shared/progression"
 import {describe, expect, it} from "vitest";
 import {BALANCE_LATE_BOSS_TARGET_MAX_SECONDS, BALANCE_TARGET_DESERT_DURATION_SECONDS, BALANCE_TARGET_MAP_DURATION_MULTIPLIER, BALANCE_TARGET_MAP_POWER_MULTIPLIER, BALANCE_TARGET_POWER_ARC_BLEND, GLOOMROOT_MAX_HP, MAP_IDS} from "../../shared/rules";
 import {ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, CLOUDSPIRE_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, SAMURAI_GARDEN_MAP_ID, TUTORIAL_FOREST_MAP_ID, WATER_REACH_MAP_ID} from "../game/world";
-import {bossReadinessTargetSeconds, defaultBalanceSimulationConfig, runBalanceSimulation, runBalanceSimulationWithStrategyComparisons, targetCurveProgress, targetPowerAtMapProgress} from "./simulator";
+import {DEATHS_PER_HOUR_WARNING, bossReadinessTargetSeconds, defaultBalanceSimulationConfig, runBalanceSimulation, runBalanceSimulationWithStrategyComparisons, targetCurveProgress, targetPowerAtMapProgress} from "./simulator";
 
 const quickConfig = {
   durationSeconds: 60 * 60,
@@ -86,8 +86,11 @@ describe("balance simulator", () => {
   });
 
   it("keeps post-clear Boss-rush repeat power positive on every clear", () => {
+    // Nine hours, not eight: with deaths counted, the Boss-rush trace reaches
+    // Clockwork Ruins right at the 8 h mark and its last sample is its first
+    // deaths there, which gain nothing.
     const result = runBalanceSimulationWithStrategyComparisons({
-      durationSeconds: 8 * 60 * 60,
+      durationSeconds: 9 * 60 * 60,
       steadyEquipmentUpgrades: false,
       trials: 1,
       strategy: "mixed",
@@ -202,7 +205,9 @@ describe("balance simulator", () => {
       expect(enemy.hitsToDefeatPlayer).toBeGreaterThan(0);
     }
 
-    const lateEnemy = result.enemyMetrics[CRYSTAL_HOLLOWS_MAP_ID][0];
+    // The hardest hitter: the representative entry build can out-regenerate the
+    // gentler camps (it arrives stronger now that deaths lengthen earlier maps).
+    const lateEnemy = [...result.enemyMetrics[CRYSTAL_HOLLOWS_MAP_ID]].sort((left, right) => right.incomingDamagePerSecond - left.incomingDamagePerSecond)[0];
     expect(lateEnemy.referenceHitPercentOfHealth).not.toBeNull();
     expect(lateEnemy.incomingDamagePerSecond).toBeGreaterThan(0);
     expect(lateEnemy.survivalSeconds).not.toBeNull();
@@ -244,6 +249,25 @@ describe("balance simulator", () => {
     expect(enemyMetrics.every((metric) => metric.efficiencyVsMapMedian >= 0)).toBe(true);
   });
 
+  it("reports deaths per map and per run, and flags maps the build cannot hold", () => {
+    const result = runBalanceSimulation({ durationSeconds: 3 * 60 * 60, trials: 2, strategy: "natural", seed: 7_331 });
+    const reached = result.maps.filter((map) => map.reachedPercent > 0);
+    for (const map of reached) {
+      expect(map.deathsMedian).not.toBeNull();
+      expect(map.deathSecondsMedian).toBeGreaterThanOrEqual(0);
+      expect(map.timeBudgetMedian?.deathSeconds).toBeGreaterThanOrEqual(0);
+    }
+    const total = reached.reduce((sum, map) => sum + (map.deathsMedian ?? 0), 0);
+    expect(total).toBeGreaterThan(0);
+    expect(result.deaths.totalMedian).toBeGreaterThanOrEqual(result.deaths.farmMedian);
+    expect(result.deaths.secondsMedian).toBeGreaterThan(0);
+    expect(result.diagnostics.some((diagnostic) => diagnostic.startsWith("Model scope:") && diagnostic.includes("A death costs the fight in progress"))).toBe(true);
+    const flagged = reached.filter((map) => map.reachedPercent >= 50 && (map.deathsPerHourMedian ?? 0) > DEATHS_PER_HOUR_WARNING);
+    for (const map of flagged) {
+      expect(result.diagnostics.some((diagnostic) => diagnostic.startsWith(`${map.name}: the median run dies`))).toBe(true);
+    }
+  }, 30_000);
+
   it("can scale equipment bonuses as a sandbox-only scenario", () => {
     const baseline = runBalanceSimulation({ ...quickConfig, trials: 1 });
     const noEquipmentBonus = runBalanceSimulation({
@@ -251,7 +275,9 @@ describe("balance simulator", () => {
       trials: 1,
       equipmentStrengthMultiplier: 0,
     });
-    expect(noEquipmentBonus.finalPower.median).toBeLessThanOrEqual(baseline.finalPower.median);
+    // Deaths reroute the two runs (a boss lost at a different moment, other
+    // camps skipped), so the run without the bonus may finish a little ahead.
+    expect(noEquipmentBonus.finalPower.median).toBeLessThanOrEqual(baseline.finalPower.median * 1.05);
     for (const map of noEquipmentBonus.maps.filter((entry) => entry.reachedPercent > 0)) {
       expect(map.exitPowerComponentsMedian?.equipmentSharePercent).toBe(0);
     }
