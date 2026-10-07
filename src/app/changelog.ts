@@ -8,6 +8,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "The Soul Dimension is open: prestige once, then take the portal at the south end of Home",
     "Soul enemies give permanent Soul Stats that never reset; Soul Damage enemies give +1 Damage",
     "Soul Dimension tiers wake new soul enemies as you kill each enemy type in the campaign or Endless",
+    "Walk into the Soul village's houses through their doors, and watch out for the wells",
   ],
   "0.899.15": [
     "Moonfen and Verdant Catacombs mushrooms have new art",
