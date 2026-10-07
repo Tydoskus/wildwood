@@ -47,10 +47,16 @@ export const SOUL_STAT_DETAILS: Readonly<Record<SoulStatId, { label: string; sho
 };
 export const SOUL_TIER_COUNT = SOUL_STAT_ORDER.length;
 
-/** The campaign and Endless reward types every tier asks kills of. */
-export const SOUL_TIER_KILL_TYPES = ["damage", "health", "armor", "regen", "speed"] as const;
+/** The campaign and Endless reward types whose kills are counted (player_reward_kills has a column for each). */
+export const SOUL_REWARD_KILL_TYPES = ["damage", "health", "armor", "regen", "speed"] as const;
+export type RewardKillType = typeof SOUL_REWARD_KILL_TYPES[number];
+export type RewardKillCounts = Record<RewardKillType, number>;
+/**
+ * The reward types every tier asks kills of. Not attack speed: few maps have attack speed enemies, so asking
+ * for them held tiers back; these four are on every map, so farming anywhere fills them all.
+ */
+export const SOUL_TIER_KILL_TYPES = ["damage", "health", "armor", "regen"] as const satisfies readonly RewardKillType[];
 export type SoulTierKillType = typeof SOUL_TIER_KILL_TYPES[number];
-export type RewardKillCounts = Record<SoulTierKillType, number>;
 export const EMPTY_REWARD_KILLS: Readonly<RewardKillCounts> = Object.freeze({ damage: 0, health: 0, armor: 0, regen: 0, speed: 0 });
 
 /** Kills of every reward type tier `tier` (1-based) needs: 25, 125, 625… */

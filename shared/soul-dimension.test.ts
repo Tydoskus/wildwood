@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  addSoulKills, soulDimensionAccess, soulEnemyStats, soulStatsUnlocked, soulTier, soulTierKillsNeeded, withSoulStats, SOUL_CAMPS, SOUL_POPULATION,
+  addSoulKills, soulDimensionAccess, soulEnemyStats, soulStatsUnlocked, soulTier, soulTierKillsNeeded, withSoulStats, SOUL_CAMPS, SOUL_POPULATION, SOUL_TIER_KILL_TYPES,
 } from "./soul-dimension";
 import { MIN_ATTACK_INTERVAL } from "./rules";
 import { decodePlayerMapFrame, decodePlayerMotionFrame, encodePlayerMapFrame, encodePlayerMotionFrame } from "./player-motion-frame";
@@ -18,8 +18,13 @@ describe("soul tiers", () => {
   });
 
   it("counts the fewest type: one type behind holds the tier back", () => {
-    expect(soulTier({ ...each(1_000), speed: 30 })).toBe(1);
+    expect(soulTier({ ...each(1_000), armor: 30 })).toBe(1);
     expect(soulTier({ ...each(1_000), regen: 0 })).toBe(0);
+  });
+
+  it("asks nothing of attack speed enemies: few maps have them", () => {
+    expect(SOUL_TIER_KILL_TYPES).toEqual(["damage", "health", "armor", "regen"]);
+    expect(soulTier({ ...each(1_000), speed: 0 })).toBe(soulTier(each(1_000)));
   });
 
   it("wakes the soul enemies in order: damage, health, armor, regen, attack speed, crit damage", () => {

@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.900.1": [
+    "Soul Dimension tiers no longer ask for attack speed enemy kills: Damage, Health, Armor and Regen enemies, found on every map, are enough",
+  ],
   "0.900.0": [
     "The Inspiration Update",
     "The Town replaces Home: a whole village where everyone gathers and new players start",
@@ -2922,6 +2925,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.900.1": "2026-10-06",
   "0.900.0": "2026-10-06",
   "0.899.13": "2026-10-06",
   "0.899.12": "2026-10-06",

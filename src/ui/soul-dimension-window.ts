@@ -5,7 +5,7 @@ import {
 import { formatCompactNumber as compactNumber } from "../../shared/compact-number";
 
 const KILL_LABELS: Readonly<Record<SoulTierKillType, string>> = {
-  damage: "Damage Enemies", health: "Health Enemies", armor: "Armor Enemies", regen: "Regen Enemies", speed: "Speed Enemies",
+  damage: "Damage Enemies", health: "Health Enemies", armor: "Armor Enemies", regen: "Regen Enemies",
 };
 
 export type SoulWindowState = {

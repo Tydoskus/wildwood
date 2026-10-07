@@ -5,7 +5,7 @@ import { isProceduralMap } from "../../shared/procedural-maps";
 import { CAMPAIGN_MAPS } from "../../shared/campaign-registry";
 import {
   addSoulKills, cleanSoulStats, isSoulMap, soulDimensionAccess, soulStatsUnlocked, soulTier,
-  SOUL_STAT_ORDER, SOUL_TIER_KILL_TYPES, type RewardKillCounts, type SoulStatId, type SoulStats,
+  SOUL_STAT_ORDER, SOUL_REWARD_KILL_TYPES, type RewardKillCounts, type SoulStatId, type SoulStats,
 } from "../../shared/soul-dimension";
 
 /**
@@ -73,7 +73,7 @@ export function rewardKillsFor(ctx: any, identity: any): RewardKillCounts {
   };
 }
 
-const COUNTED = new Set<string>(SOUL_TIER_KILL_TYPES);
+const COUNTED = new Set<string>(SOUL_REWARD_KILL_TYPES);
 const isTierMap = (mapId: string) => CAMPAIGN_MAPS.some(map => map.id === mapId) || isProceduralMap(mapId);
 
 /** Adds paid campaign and Endless kills to the reward-type counters. Bosses are not a reward type. */
