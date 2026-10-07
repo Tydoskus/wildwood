@@ -10,7 +10,7 @@ import { attackRangeWithResearch } from '../../../shared/utility-research';
 import { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 import type { SpawnSite } from '../world';
 import { ENEMY_TYPES, type EnemyKind } from '../enemies';
-import type { FarmReward } from './auto-farm-plan';
+import { decodeFarmPlan, type FarmReward } from './auto-farm-plan';
 import type { Circle } from './types';
 import { BOSS_KINDS } from './boss-registry';
 import { bossSurfaceDistance } from '../../../shared/boss-hitbox';
@@ -475,7 +475,7 @@ describe('autofarm target priority', () => {
   });
 });
 
-describe('autofarm plans: camp order, the boss and the next map', () => {
+describe('autofarm plans: sliders, the boss and the next map', () => {
   function planned(extra: Partial<Parameters<typeof createAutoFarmController>[0]> = {}) {
     const state = createGameBootstrap();
     state.enemies.length = 0; state.spawnSites.length = 0;
@@ -497,7 +497,7 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
   }
   const health = `stat:${ENEMY_TYPES.Bramble.reward.type}`, speed = `stat:${ENEMY_TYPES.Needle.reward.type}`;
 
-  it("farms the player's camps in order, moving on when one is cleared and looping back", () => {
+  it("on equal sliders moves on when a group is cleared, and comes back when it respawns", () => {
     const s = planned();
     const bramble = s.add('Bramble', 1500, 500), needle = s.add('Needle', 600, 900);
     expect(s.farm.start([health, speed])).toBe(true);
@@ -660,7 +660,8 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
     expect(s.farm.state()).toMatchObject({ phase: 'portal', status: 'Heading to the next map' });
     s.farm.travelStarted();
     expect(s.farm.state()).toMatchObject({ active: false, status: 'Moving to the next map' });
-    expect(s.resumeStore.read()).toEqual({ identity: 'me', map: 'beginner_desert', choice: health });
+    expect(s.resumeStore.read()).toMatchObject({ identity: 'me', map: 'beginner_desert' });
+    expect(decodeFarmPlan(s.resumeStore.read()!.choice)![health]).toBe(100);
     // Without the switch, travel ends the farm as it always has.
     const off = planned({ nextPortal: () => ({ x: 200, y: 500, destination: 'beginner_desert' }) });
     off.add('Bramble', 900, 500); off.farm.start([]); off.tick();
@@ -669,7 +670,7 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
   });
 
   it("keeps the stats the player picked on the next map, and uses Auto only where none of them is paid", () => {
-    for (const [arrivals, expected] of [[['Needle', 'Bramble'], [health]], [['Needle'], []]] as const) {
+    for (const [arrivals, expected] of [[['Needle', 'Bramble'], [health]], [['Needle'], null]] as const) {
       const s = planned({ nextPortal: () => ({ x: 200, y: 500, destination: 'beginner_desert' }) });
       s.add('Bramble', 900, 500);
       s.farm.setAdvance(true);
@@ -680,7 +681,7 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
       s.setMap('beginner_desert');
       arrivals.forEach((type, index) => s.add(type, 900 + index * 200, 900));
       s.tick(); s.advance(1_000); s.tick();
-      expect(s.farm.state()).toMatchObject({ active: true, plan: expected });
+      expect(s.farm.state().weights && Object.keys(s.farm.state().weights!).filter(key => s.farm.state().weights![key] > 0)).toEqual(expected);
     }
   });
 
@@ -703,34 +704,64 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
     s.setMap('forest'); s.add('Bramble', 900, 500);
     s.farm.setAdvance(true);
     s.farm.start([health]);
+    const farming = () => s.farm.state().weights && Object.keys(s.farm.state().weights!).filter(key => s.farm.state().weights![key] > 0);
+    const saved = () => Object.keys(s.farm.savedChoice().weights).filter(key => s.farm.savedChoice().weights[key] > 0);
     travel('beginner_desert', ['Needle', 'Bramble']);
-    expect(s.farm.state()).toMatchObject({ active: true, plan: [health] });
+    expect(farming()).toEqual([health]);
     // No Health here: Auto for this map, and Health is still the pick.
     travel('intermediate_snowlands', ['Needle']);
-    expect(s.farm.state()).toMatchObject({ active: true, plan: [] });
-    expect(s.farm.savedPlan()).toEqual([health]);
+    expect(s.farm.state()).toMatchObject({ active: true, weights: null });
+    expect(saved()).toEqual([health]);
     travel('beginner_desert', ['Bramble']);
-    expect(s.farm.state()).toMatchObject({ active: true, plan: [health] });
+    expect(farming()).toEqual([health]);
     // Walked out by hand, the window offers the same pick on the next map.
     s.farm.stop(); s.setMap('forest');
-    expect(s.farm.savedPlan()).toEqual([health]);
+    expect(saved()).toEqual([health]);
   });
 
-  it("moves along a route after a camp's worth of kills, even while that camp keeps respawning", () => {
+  it("splits farming time by the sliders: 200 / 25 / 25 is about 80 / 10 / 10, and a 0% group is never farmed", () => {
     const s = planned();
-    const first = s.add('Bramble', 900, 500);
-    s.add('Needle', 600, 900);
-    s.farm.start([health, speed]);
+    const damage = `stat:${ENEMY_TYPES.Spitter.reward.type}`;
+    // Enemies that never die, side by side, so every group always has some alive.
+    s.add('Spitter', 700, 500); s.add('Bramble', 700, 560); s.add('Needle', 700, 620); s.add('Mossback', 700, 680);
+    const zero = s.farm.choices().map(choice => choice.key).find(key => ![damage, health, speed].includes(key))!;
+    expect(s.farm.choices()).toHaveLength(4);
+    expect(s.farm.start({ auto: false, weights: { [damage]: 200, [health]: 25, [speed]: 25, [zero]: 0 } })).toBe(true);
+    const time = new Map<string, number>();
+    let switches = 0, last = s.farm.state().selected;
+    // Two hours at ten frames a second.
+    for (let step = 0; step < 72_000; step++) {
+      s.farm.movement(idle, .1);
+      const at = s.farm.state().selected!;
+      time.set(at, (time.get(at) ?? 0) + .1);
+      if (at !== last) { switches++; last = at; }
+    }
+    expect((time.get(damage) ?? 0) / 7_200).toBeCloseTo(.8, 1);
+    expect((time.get(health) ?? 0) / 7_200).toBeCloseTo(.1, 1);
+    expect((time.get(speed) ?? 0) / 7_200).toBeCloseTo(.1, 1);
+    expect(time.get(zero)).toBeUndefined();
+    // It stays with a group between looks (every twenty seconds), not a hop every kill.
+    expect(switches).toBeLessThan(7_200 / 20);
+  });
+
+  it("leaves a group that runs empty for the next one behind its share, and waits where it is when every group is empty", () => {
+    const s = planned();
+    const bramble = s.add('Bramble', 900, 500), needle = s.add('Needle', 600, 900);
+    s.farm.start({ auto: false, weights: { [health]: 200, [speed]: 100 } });
     s.tick();
     expect(s.farm.state().selected).toBe(health);
-    // Killed and straight back (a respawn): one kill of a one-enemy camp is its worth.
-    first.dead = true; s.tick();
-    first.dead = false; first.hp = first.maxHp; s.tick();
+    bramble.dead = true;
+    s.tick();
     expect(s.farm.state().selected).toBe(speed);
+    needle.dead = true;
+    for (let frame = 0; frame < 60 * 30; frame++) s.tick();
+    expect(s.farm.state().selected).toBe(speed);
+    // With every slider at 0% there is nothing to farm.
+    expect(s.farm.start({ auto: false, weights: { [health]: 0, [speed]: 0 } })).toBe(false);
   });
 
-  it('stands still while a pulled group walks in; with Pull short of the route it goes out to one that never arrives', () => {
-    // Pull covers the whole route: it stands its ground, however long the group takes.
+  it('stands still while a pulled group walks in; with Pull short of the farmed groups it goes out to one that never arrives', () => {
+    // Pull covers every farmed group: it stands its ground, however long the group takes.
     const s = planned();
     const far = s.add('Bramble', 2500, 500);
     s.farm.setPullAll(true);
@@ -740,7 +771,7 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
     expect(s.farm.state().status).toBe('Pulling');
     for (let frame = 0; frame < 60 * PULL_WAIT_SECONDS + 5; frame++) s.tick();
     expect(s.tick()).toEqual(idle);
-    // Two camps on the route, one pulled: it walks out to a pulled group that never arrives.
+    // Two groups farmed, one pulled: it walks out to a pulled group that never arrives.
     const t = planned();
     const away = t.add('Bramble', 2500, 500);
     t.add('Needle', 600, 2500);
@@ -779,20 +810,6 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
         : Math.hypot(boss.x - s.player.x, boss.y - s.player.y);
       expect(gap).toBeLessThan(200);
     }
-  });
-
-  it("farms a pipped camp for that many camps' worth before moving along the route", () => {
-    const s = planned();
-    const first = s.add('Bramble', 900, 500);
-    s.add('Needle', 600, 900);
-    s.farm.start([`${health}*2`, speed]);
-    s.tick();
-    const respawn = () => { first.dead = true; s.tick(); first.dead = false; first.hp = first.maxHp; s.tick(); };
-    respawn();
-    expect(s.farm.state().selected).toBe(health);
-    respawn();
-    expect(s.farm.state().selected).toBe(speed);
-    expect(s.farm.state().plan).toEqual([`${health}*2`, speed]);
   });
 
   it('walks back a map after repeated defeats instead of stopping, and asks more power of the map it leaves', () => {

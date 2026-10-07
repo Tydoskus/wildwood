@@ -11,8 +11,8 @@ import { bossSurfaceDistance, bossVerticalRadius } from '../../../shared/boss-hi
 import { carryFarmGroup, compareAutoFarmTargets, farmGroupMatches, farmGroupOf, farmStatGroup, readAutoFarmPriority, soulFarmReward, readAutoFarmPull, writeAutoFarmPriority, writeAutoFarmPull, type AutoFarmGroup, type AutoFarmPriority } from './auto-farm-priority';
 import type { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 import {
-  AUTO_REPLAN_SECONDS, pickRankedCandidate, rankFarmCandidates, decodeFarmPlan, encodeFarmPlan, nextRouteKey,
-  readFarmAdvance, readFarmChoice, routeEntry, routeEntryText, writeFarmAdvance, writeFarmChoice, type FarmEvaluation, type FarmReward,
+  AUTO_FARM_CHOICE, AUTO_REPLAN_SECONDS, pickRankedCandidate, rankFarmCandidates, decodeFarmPlan, encodeFarmPlan, farmWeight, routeChoice, shareFarmKey,
+  readFarmAdvance, readFarmChoice, writeFarmAdvance, writeFarmChoice, type FarmChoice, type FarmEvaluation, type FarmReward, type FarmWeights,
 } from './auto-farm-plan';
 import {
   BOSS_FIRST_TRY_MS, BOSS_MARGIN_READY, PROBATION_MS, DIED_TO_GROUP_MS, FARM_PUSHES, bossFightMargin, bossRetryKey, type LostBossFight, createPowerGainMeter, createRetryMemory, probationVerdict, readFarmPush, shouldLeaveBoss, writeFarmPush, type FarmPush,
@@ -98,29 +98,26 @@ export function createAutoFarmController(options: {
 }) {
   let priority: AutoFarmPriority = readAutoFarmPriority(options.priorityStorage);
   // A camp is a stat group: every enemy on the map paying one stat, as the panel offers them.
-  // Pull's groups: the one being farmed, then the route's next picks, one more per Aggro win.
+  // Pull's groups: the one being farmed, then the next largest sliders (or Auto's next best), one more per Aggro win.
   let pulled = new Set<string>(), pulledKey = '';
   /** Auto's camps best first, from its last look: on Auto, Pull's extra camps are the next best. */
   let autoOrder: string[] = [];
   function pulledGroups() {
     // Zero during an Aggro run: its own chasing groups are the run's pull.
-    const count = Math.max(0, options.pullCamps?.() ?? 1), key = `${selected}|${count}|${plan.join()}|${autoOrder.join()}`;
+    const count = Math.max(0, options.pullCamps?.() ?? 1), key = `${selected}|${count}|${weightOrder.join()}|${autoOrder.join()}`;
     if (key === pulledKey) return pulled;
-    const keys = planKeys(), at = Math.max(0, keys.indexOf(selected ?? ''));
-    // A route pulls its next picks; Auto pulled only the camp it farmed, whatever the Aggro wins.
-    const order = [selected, ...(plan.length ? [...keys.slice(at + 1), ...keys.slice(0, at)] : autoOrder)]
-      .filter((group): group is string => Boolean(group));
+    const order = [selected, ...(weights ? weightOrder : autoOrder)].filter((group): group is string => Boolean(group));
     pulled = new Set([...new Set(order)].slice(0, count)); pulledKey = key;
     return pulled;
   }
   /**
-   * Pull brings every group it farms (the route's groups, or every camp Auto
+   * Pull brings every group it farms (every slider above 0%, or every camp Auto
    * would farm): all of it comes to the player, so walking to camps or
    * cycling between them only wastes time (Ryan). It stands and fights.
    */
   function pullCoversFarm() {
     if (!pullAll || !active || manualControl || phase !== 'farm') return false;
-    const groups = plan.length ? planKeys() : autoOrder;
+    const groups = weights ? weightOrder : autoOrder;
     if (!groups.length) return false;
     const pulledNow = pulledGroups();
     return groups.every(group => pulledNow.has(group));
@@ -145,9 +142,12 @@ export function createAutoFarmController(options: {
   }
   let pullAll = readAutoFarmPull(options.priorityStorage);
   let advance = readFarmAdvance(options.priorityStorage);
-  /** The player's route entries in order (camp keys, with weights); empty is Auto. */
-  let plan: string[] = [];
-  const planKeys = () => plan.map(entry => routeEntry(entry).key);
+  /** The player's sliders (FarmWeights); null is Auto. */
+  let weights: FarmWeights | null = null;
+  /** This map's groups above 0%, the largest slider first, from the start. */
+  let weightOrder: string[] = [];
+  /** Seconds spent farming each group on this map (walking to it included), for its share. */
+  let spent = new Map<string, number>(), spentMap = '';
   /** What it is doing now: a camp, the boss, or walking to another map. */
   let phase: 'farm' | 'boss' | 'portal' = 'farm';
   let travellingTo: string | null = null;
@@ -169,8 +169,6 @@ export function createAutoFarmController(options: {
   let planClock = 0;
   /** Auto is farming for the boss (bossToBeat), not for power: for the status line. */
   let bossFarming = false;
-  /** Kills of the current camp since it was chosen: a route moves on after a camp's worth. */
-  let groupKills = 0;
   const seenAlive = new WeakSet<EnemyState>();
   /** How long it has stood waiting for a pulled group that never arrives. */
   let pullWait = 0;
@@ -365,21 +363,19 @@ export function createAutoFarmController(options: {
     const reason = options.unavailable();
     if (reason) { stop(reason); return; }
     if (pendingResume) {
-      const choice = pendingResume.choice;
+      const carried = decodeFarmPlan(pendingResume.choice);
       pendingResume = null;
-      // Picks carried from another map keep the stats this map pays; with none
-      // of them here, Auto. Either way the pick itself is remembered as it was.
-      const available = new Set<string>(choices().map(entry => entry.key));
-      const plan = decodeFarmPlan(choice);
-      const kept = plan.filter(entry => available.has(normalizeKey(routeEntry(entry).key)));
-      start(kept, false);
+      // Sliders carried from another map farm the stats this map pays; with
+      // none of them above 0% here, Auto. Either way the choice is kept as it was.
+      const kept = carried && normalizeWeights(carried);
+      start(kept && choices().some(entry => farmWeight(kept, entry.key) > 0) ? { auto: false, weights: kept } : AUTO_FARM_CHOICE, false);
     }
   }
 
   function select(key: string) {
     const choice = choices().find(entry => entry.key === key);
     if (!choice) return false;
-    if (selected !== key) { target = null; route = []; lastGoal = null; routeClock = 0; holding = false; groupKills = 0; pullWait = 0; }
+    if (selected !== key) { target = null; route = []; lastGoal = null; routeClock = 0; holding = false; pullWait = 0; }
     selected = key;
     selectedType = choice.key;
     selectedCamp = choice.camp;
@@ -387,22 +383,22 @@ export function createAutoFarmController(options: {
     return true;
   }
 
-  /** The camp to farm now: the player's route if they set one, otherwise Auto's pick. */
+  /** The camp to farm now: the one furthest behind its slider's share if the player set them, otherwise Auto's pick. */
   function chooseCamp(dt: number) {
     // Everything farmed is already coming: no camp to change to.
-    if (selected && plan.length && pullCoversFarm()) return;
+    if (selected && weights && pullCoversFarm()) return;
     const all = choices();
-    if (plan.length) {
-      // A camp with respawns is never empty for long, so the route moves on
-      // once it has taken a camp's worth of kills here for each of its pips,
-      // or found it empty.
-      const current = all.find(entry => entry.key === selected);
-      const weight = routeEntry(plan.find(entry => routeEntry(entry).key === selected) ?? '').weight;
-      const done = current && groupKills >= current.total * weight;
-      // A pipped camp waits out its respawn until it has had its share; one pip moves on when it is empty.
-      const alive = (key: string) => key !== selected ? all.find(entry => entry.key === key)?.alive ?? 0
-        : done ? 0 : Math.max(weight > 1 ? 1 : 0, current?.alive ?? 0);
-      const key = nextRouteKey(planKeys(), alive, selected);
+    if (weights) {
+      const shares = weights;
+      if (spentMap !== options.mapId()) { spent = new Map(); spentMap = options.mapId(); }
+      if (selected) spent.set(selected, (spent.get(selected) ?? 0) + dt);
+      planClock -= dt;
+      // Looks again every so often, not every kill, or as soon as its group is empty; with every group empty it waits where it is.
+      const current = all.find(entry => entry.key === selected && farmWeight(shares, entry.key) > 0);
+      const anyAlive = all.some(entry => entry.alive > 0 && farmWeight(shares, entry.key) > 0);
+      if (current && (current.alive > 0 ? planClock > 0 : !anyAlive)) return;
+      planClock = AUTO_REPLAN_SECONDS;
+      const key = shareFarmKey(all.map(entry => ({ key: entry.key, weight: farmWeight(shares, entry.key), alive: entry.alive })), group => spent.get(group) ?? 0);
       if (key) select(key);
       return;
     }
@@ -512,26 +508,34 @@ export function createAutoFarmController(options: {
     return true;
   }
 
+  /** Keys saved under an older name, or carried between the campaign and the Soul Dimension, as this map names them; a merge keeps the larger. */
+  function normalizeWeights(next: FarmWeights) {
+    const out: Record<string, number> = {};
+    for (const key of Object.keys(next)) { const group = normalizeKey(key); out[group] = Math.max(out[group] ?? 0, farmWeight(next, key)); }
+    return out;
+  }
+
   /**
-   * Starts farming: a single camp, the player's camps in order, or Auto
-   * (an empty plan, or "auto"). A plain camp key is the plan it always was.
+   * Starts farming: Auto, or the player's sliders. An old route (a camp key,
+   * or keys in order, an empty list being Auto) still reads, as its sliders.
+   * `remember` is false when autofarm restarts itself: only the player's own choice is saved.
    */
-  /** `remember` is false when autofarm restarts itself: only the player's own pick is saved. */
-  function start(next: string | readonly string[], remember = true) {
+  function start(next: FarmChoice | string | readonly string[], remember = true) {
     if (options.connection && options.connection() !== 'ready') {
       stop('Connect to the server to farm'); return false;
     }
     const reason = options.unavailable();
     if (reason) { stop(reason); return false; }
-    const entries = (typeof next === 'string' ? decodeFarmPlan(next) : [...next]).map(routeEntry)
-      .map(entry => ({ ...entry, key: normalizeKey(entry.key) }));
-    const keys = [...new Set(entries.map(entry => entry.key))];
-    const available = new Set<string>(choices().map(choice => choice.key));
-    const kept = keys.filter(key => available.has(key))
-      .map(key => routeEntryText(key, Math.max(...entries.filter(entry => entry.key === key).map(entry => entry.weight))));
-    if (keys.length && !kept.length) { stop('No matching enemies in this map'); return false; }
-    if (!available.size) { stop('No matching enemies in this map'); return false; }
-    plan = kept;
+    const legacy = typeof next === 'string' ? decodeFarmPlan(next) : undefined;
+    const choice: FarmChoice = Array.isArray(next) ? routeChoice(next) : legacy !== undefined
+      ? (legacy ? { auto: false, weights: legacy } : AUTO_FARM_CHOICE) : next as FarmChoice;
+    const shares = normalizeWeights(choice.weights);
+    const available = choices().map(entry => entry.key);
+    const order = choice.auto ? [] : available.filter(key => farmWeight(shares, key) > 0).sort((a, b) => farmWeight(shares, b) - farmWeight(shares, a));
+    if (!available.length || (!choice.auto && !order.length)) { stop('No matching enemies in this map'); return false; }
+    weights = choice.auto ? null : shares;
+    weightOrder = order;
+    spent = new Map(); spentMap = options.mapId();
     selected = null;
     planClock = 0;
     phase = 'farm';
@@ -542,8 +546,8 @@ export function createAutoFarmController(options: {
     startedMap = options.mapId();
     startedIdentity = options.localIdentity?.();
     pendingResume = null;
-    if (remember) writeFarmChoice(plan, options.priorityStorage, options.mapId());
-    if (startedIdentity) options.resumeStore?.write({ identity: startedIdentity, map: startedMap, choice: encodeFarmPlan(plan) });
+    if (remember) writeFarmChoice({ auto: choice.auto, weights: shares }, options.priorityStorage, options.mapId());
+    if (startedIdentity) options.resumeStore?.write({ identity: startedIdentity, map: startedMap, choice: encodeFarmPlan(weights) });
     recovering = false;
     readySince = null;
     target = null;
@@ -558,12 +562,13 @@ export function createAutoFarmController(options: {
 
   /**
    * A portal autofarm walked into on purpose carries the farm across with the
-   * player's last pick, the same on every map (it used to switch to whatever
+   * player's last choice, the same on every map (it used to switch to whatever
    * that map was last farmed with). Any other travel ends it, as before.
    */
   function travelStarted() {
     if (!active || phase !== 'portal' || !travellingTo || !startedIdentity) { stop('Map changed · choose an enemy'); return; }
-    const intent = { identity: startedIdentity, map: travellingTo, choice: encodeFarmPlan(readFarmChoice(startedMap, options.priorityStorage)) };
+    const saved = readFarmChoice(startedMap, options.priorityStorage);
+    const intent = { identity: startedIdentity, map: travellingTo, choice: encodeFarmPlan(saved.auto ? null : saved.weights) };
     const label = retreating ? 'Moving back a map' : 'Moving to the next map';
     // Forward: the new map is on trial against how fast this one was growing the build.
     probation = retreating ? null : { mapId: travellingTo, since: now(), previousRate: gain.rate(now(), startedMap) };
@@ -596,7 +601,7 @@ export function createAutoFarmController(options: {
     for (const enemy of enemies) {
       if (selectedType === null || enemy.generatedBoss || !farmGroupMatches(enemy, selectedType)) continue;
       if (!enemy.dead && enemy.hp > 0) seenAlive.add(enemy);
-      else if (seenAlive.delete(enemy)) { groupKills++; pullWait = 0; }
+      else if (seenAlive.delete(enemy)) pullWait = 0;
     }
     gain.sample(now(), currentPower(), options.mapId());
     choosePhase(dt);
@@ -741,10 +746,10 @@ export function createAutoFarmController(options: {
   }
 
   return { start, stop, defeated, refresh, choices, movement, travelStarted,
-    state: () => ({ active, selected, selectedLabel, plan: [...plan], phase, advance,
+    state: () => ({ active, selected, selectedLabel, weights: weights && { ...weights }, phase, advance,
       // On Auto, what it farms and why: "Farming Armor · Best Gain".
       status: active && !recovering && options.paused() ? 'Paused'
-        : active && !plan.length && phase === 'farm' && status === 'Farming' ? `Farming ${selectedLabel} · ${bossFarming ? 'For The Boss' : 'Best Gain'}` : status }),
+        : active && !weights && phase === 'farm' && status === 'Farming' ? `Farming ${selectedLabel} · ${bossFarming ? 'For The Boss' : 'Best Gain'}` : status }),
     /** The camp being farmed; null at the boss or on the way out, so the boss and anything in the way are fair game. */
     targetType: () => active && !manualControl && phase === 'farm' ? selectedType : null,
     /** What combat aims at: the farmed camp, or, with every farmed group pulled, whatever is nearest. */
@@ -763,9 +768,8 @@ export function createAutoFarmController(options: {
       push = next;
       writeFarmPush(next, options.priorityStorage);
     },
-    /** The route saved for this map, for the panel to show: a campaign pick shows as its soul stat in the Soul Dimension. */
-    savedPlan: () => readFarmChoice(options.mapId(), options.priorityStorage)
-      .map(entry => { const { key, weight } = routeEntry(entry); return routeEntryText(normalizeKey(key), weight); }),
+    /** The choice saved for this map, for the panel to show: a campaign slider shows as its soul stat's in the Soul Dimension. */
+    savedChoice: (): FarmChoice => { const saved = readFarmChoice(options.mapId(), options.priorityStorage); return { auto: saved.auto, weights: normalizeWeights(saved.weights) }; },
     priority: () => priority,
     /**
      * The Target rule combat aims by: while farming (a pulled crowd too) and all
@@ -782,8 +786,8 @@ export function createAutoFarmController(options: {
     },
     /**
      * With "aggro on spawn" ticked, every live enemy of the farmed stat comes
-     * for the player from anywhere; each Aggro challenge win adds the route's
-     * next pick to the pull.
+     * for the player from anywhere; each Aggro challenge win adds the next
+     * largest slider (or Auto's next best) to the pull.
      */
     // Steering by hand keeps the pull: the group follows the player while they move.
     pulls: (enemy: EnemyState) => pullsEnemy(enemy),

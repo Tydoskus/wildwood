@@ -3,7 +3,7 @@ import type { AutoFarmController } from '../game/runtime/auto-farm-controller';
 import { AUTO_FARM_PRIORITIES, farmGroupRewardType } from '../game/runtime/auto-farm-priority';
 import { SOUL_STAT_DETAILS } from '../../shared/soul-dimension';
 import { soulRewardText } from '../game/soul-world';
-import { MAX_ROUTE_WEIGHT, routeEntry, routeEntryText } from '../game/runtime/auto-farm-plan';
+import { AUTO_FARM_CHOICE, FARM_WEIGHT_MAX, FARM_WEIGHT_STEP, farmWeight, type FarmChoice } from '../game/runtime/auto-farm-plan';
 import { aggroPicksNeeded, readAggroPicks, writeAggroPicks } from '../game/runtime/aggro-picks';
 import { createAggroPickPrompt } from './aggro-pick-prompt';
 import type { AggroChallenge } from '../../shared/aggro-challenge';
@@ -27,15 +27,15 @@ const segment = (label: string, labelId: string, className: string, buttons: str
   + `<div class="farm-segment ${className}" role="radiogroup" aria-labelledby="${labelId}">${buttons}</div></div>`;
 
 /**
- * The autofarm window, kept short. One grid of stat chips does the planning: tap stats in the order to farm them, tap a
- * picked one again for more time there each lap (pips, up to three), and once
- * more drops it. With none picked, Auto farms the stat that grows power fastest. Move On takes
- * the boss and the next map; Push, Pull and Target wait under More. The
- * floating button shows what the farm is doing at a glance and stops it with a tap.
+ * The autofarm window, kept short. Auto farms the stat that grows power
+ * fastest; Custom farms each stat for its slider's share of the time (200% /
+ * 25% / 25% is about 80% / 10% / 10%, 0% never). Touching a slider is Custom.
+ * Move On takes the boss and the next map; Push, Pull and Target wait under
+ * More. The floating button shows what the farm is doing at a glance and stops it with a tap.
  */
 export function createAutoFarmPanel(options: {
   farm: AutoFarmController;
-  /** Not shown: a new map redraws the chips. */
+  /** Not shown: a new map redraws the sliders. */
   mapName: () => string;
   visible: () => boolean;
   unavailable: () => string | null;
@@ -67,10 +67,9 @@ export function createAutoFarmPanel(options: {
   sheet.setAttribute('aria-labelledby', 'autoFarmTitle');
   sheet.innerHTML = `<header class="farm-header"><h2 id="autoFarmTitle" class="window-banner"><span>Auto Farm</span></h2></header>`
     + `<div class="farm-body">`
-    + `<div class="farm-stats-head"><span id="autoFarmStatsLabel" class="farm-stats-title">Stats</span><button type="button" class="farm-clear" hidden>Clear</button></div>`
-    + `<div class="farm-chips" role="group" aria-labelledby="autoFarmStatsLabel">`
-    + `<button type="button" class="farm-chip farm-auto" aria-pressed="true" aria-label="Auto, Farms The Stat That Grows Your Power Fastest"><span class="farm-chip-label">Auto</span><span class="farm-chip-sub">Best Gain</span>`
-    + `<span class="farm-chip-order" aria-hidden="true">✓</span></button></div>`
+    + segment('Stats', 'autoFarmStatsLabel', 'farm-mode', `<button type="button" role="radio" data-mode="auto" title="Farms The Stat That Grows Your Power Fastest">Auto</button>`
+      + `<button type="button" role="radio" data-mode="custom" title="Farms Each Stat For Its Share Of The Time">Custom</button>`)
+    + `<div class="farm-weights" role="group" aria-labelledby="autoFarmStatsLabel"></div>`
     + `<p class="farm-empty" hidden>No Enemies Here</p>`
     + `<button type="button" class="farm-switch farm-move" role="switch" data-switch="advance" aria-checked="false" aria-describedby="autoFarmBossStatus">`
     + `<span class="farm-switch-copy"><span class="farm-switch-label">Move On</span><small id="autoFarmBossStatus" class="farm-boss-status"></small></span><span class="farm-knob" aria-hidden="true"></span></button>`
@@ -87,17 +86,18 @@ export function createAutoFarmPanel(options: {
   const element = <T extends HTMLElement>(selector: string) => sheet.querySelector<T>(selector)!;
   const toggle = floating.querySelector<HTMLButtonElement>('.farm-toggle')!;
   const badge = floating.querySelector<HTMLElement>('.farm-badge')!;
-  const list = element('.farm-chips');
-  const autoButton = element<HTMLButtonElement>('.farm-auto');
-  const clearButton = element<HTMLButtonElement>('.farm-clear');
+  const list = element('.farm-weights');
+  const modeRow = element('.farm-mode').closest<HTMLElement>('.farm-setting')!;
+  const modeButtons = [...sheet.querySelectorAll<HTMLButtonElement>('[data-mode]')];
   const startButton = element<HTMLButtonElement>('.farm-start');
   const selection = element('.farm-selection');
   const emptyNote = element('.farm-empty');
   const moreToggle = element<HTMLButtonElement>('.farm-more-toggle');
   const more = element('.farm-more');
-  /** The stats picked in this window, in order, as route entries (key, with pips); empty is Auto. */
-  let draft: string[] = [];
-  const draftKeys = () => draft.map(entry => routeEntry(entry).key);
+  /** The choice in this window: Auto, or the sliders (kept while on Auto). */
+  let draft: FarmChoice = AUTO_FARM_CHOICE;
+  /** Custom with every slider here at 0%: nothing to farm. */
+  const nothingPicked = () => !draft.auto && !options.farm.choices().some(choice => farmWeight(draft.weights, choice.key) > 0);
   let priorFocus: HTMLElement | null = null;
   let choiceKey = '';
 
@@ -118,19 +118,17 @@ export function createAutoFarmPanel(options: {
   setMoreOpen(savedMore, false);
 
   function updateSelection() {
-    for (const button of list.querySelectorAll<HTMLButtonElement>('[data-enemy]')) {
-      const order = draftKeys().indexOf(button.dataset.enemy!);
-      const weight = order >= 0 ? routeEntry(draft[order]).weight : 0;
-      button.setAttribute('aria-pressed', String(order >= 0));
-      button.querySelector('.farm-chip-order')!.textContent = order >= 0 ? String(order + 1) : '';
-      // Picked, a pip per share of the lap, out of the most it takes.
-      const pips = button.querySelectorAll<HTMLElement>('.farm-pips > i');
-      pips.forEach((pip, index) => pip.classList.toggle('is-on', index < weight));
-      const name = `${button.querySelector('.farm-chip-label')!.textContent}, ${button.querySelector('.farm-chip-sub')!.textContent}`;
-      button.setAttribute('aria-label', `${name}${order >= 0 ? `, ${order + 1} In Order, Time ${weight} Of ${MAX_ROUTE_WEIGHT}` : ''}`);
+    for (const row of list.querySelectorAll<HTMLElement>('[data-group]')) {
+      const weight = farmWeight(draft.weights, row.dataset.group!), slider = row.querySelector('input')!;
+      if (slider.value !== String(weight)) slider.value = String(weight);
+      slider.setAttribute('aria-valuetext', `${weight}%`);
+      row.style.setProperty('--farm-weight-at', `${weight / FARM_WEIGHT_MAX * 100}%`);
+      row.querySelector('output')!.textContent = `${weight}%`;
+      row.classList.toggle('is-zero', weight === 0);
     }
-    autoButton.setAttribute('aria-pressed', String(!draft.length));
-    clearButton.hidden = !draft.length;
+    for (const button of modeButtons) button.setAttribute('aria-checked', String((button.dataset.mode === 'auto') === draft.auto));
+    // On Auto the sliders rest, kept for Custom; touching one picks Custom.
+    list.classList.toggle('is-auto', draft.auto);
     const priority = options.farm.priority();
     for (const button of priorityButtons) button.setAttribute('aria-checked', String(button.dataset.priority === priority));
     const advance = options.farm.advance();
@@ -160,11 +158,11 @@ export function createAutoFarmPanel(options: {
       button.disabled = pullOff;
     }
     const reason = options.unavailable();
-    const empty = !options.farm.choices().length;
-    startButton.disabled = empty || Boolean(reason);
-    startButton.textContent = draft.length > 1 ? `Start · ${draft.length} Stats` : 'Start';
-    selection.textContent = reason || '';
-    selection.hidden = !reason;
+    const empty = !options.farm.choices().length, nothing = !empty && nothingPicked();
+    startButton.disabled = empty || nothing || Boolean(reason);
+    const note = reason || (nothing ? 'Set A Stat Above 0%' : '');
+    if (selection.textContent !== note) selection.textContent = note;
+    selection.hidden = !note;
   }
 
   function renderChoices() {
@@ -178,41 +176,39 @@ export function createAutoFarmPanel(options: {
     }).join('|')}`;
     if (key !== choiceKey) {
       choiceKey = key;
-      const previousType = (document.activeElement as HTMLElement | null)?.dataset?.enemy;
-      for (const chip of list.querySelectorAll('[data-enemy]')) chip.remove();
-      draft = draft.filter(entry => choices.some(choice => choice.key === routeEntry(entry).key));
+      const previousGroup = (document.activeElement?.closest?.('[data-group]') as HTMLElement | null)?.dataset.group;
+      list.replaceChildren();
       for (const choice of choices) {
         const reward = choice.reward ?? ENEMY_TYPES[choice.type].reward;
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'farm-chip';
-        button.dataset.enemy = choice.key;
+        const row = document.createElement('label');
+        row.className = 'farm-weight';
+        row.dataset.group = choice.key;
         // A soul stat looks as its kill popup does: its own colour, a flat amount (never grown by research or prestige).
         const soul = choice.soul ? SOUL_STAT_DETAILS[choice.soul] : null;
-        button.style.setProperty('--farm-stat-color', soul?.color ?? REWARD_DATA[reward.type].color);
-        button.innerHTML = '<span class="farm-chip-label"></span><span class="farm-chip-sub"></span>'
-          + `<span class="farm-pips" aria-hidden="true">${'<i></i>'.repeat(MAX_ROUTE_WEIGHT)}</span><span class="farm-chip-order" aria-hidden="true"></span>`;
+        row.style.setProperty('--farm-stat-color', soul?.color ?? REWARD_DATA[reward.type].color);
+        row.innerHTML = '<span class="farm-weight-name"><span class="farm-weight-label"></span><span class="farm-weight-sub"></span></span>'
+          + `<input type="range" min="0" max="${FARM_WEIGHT_MAX}" step="${FARM_WEIGHT_STEP}"><output aria-hidden="true"></output>`;
         // The stat is the choice; what one kill pays is the detail.
-        button.querySelector('.farm-chip-label')!.textContent = soul?.label ?? rewardStatLabel(reward);
+        const label = soul?.label ?? rewardStatLabel(reward);
+        row.querySelector('.farm-weight-label')!.textContent = label;
         const displayedReward = { ...reward, amount: displayAmount(reward) };
         const amount = choice.maxReward && choice.maxReward > reward.amount
           ? `${rewardAmountLabel(displayedReward)}–${rewardAmountLabel({ ...displayedReward, amount: displayAmount(reward, choice.maxReward) }).slice(1)}`
           : rewardAmountLabel(displayedReward);
-        button.querySelector('.farm-chip-sub')!.textContent = choice.soul ? soulRewardText(choice.soul) : amount;
-        button.title = choice.kinds.join(', ');
-        button.addEventListener('click', () => {
-          const at = draftKeys().indexOf(choice.key);
-          const weight = at >= 0 ? routeEntry(draft[at]).weight : 0;
-          if (at < 0) draft = [...draft, choice.key];
-          else if (weight >= MAX_ROUTE_WEIGHT) draft = draft.filter((_entry, index) => index !== at);
-          else draft = draft.map((entry, index) => index === at ? routeEntryText(choice.key, weight + 1) : entry);
+        row.querySelector('.farm-weight-sub')!.textContent = choice.soul ? soulRewardText(choice.soul) : amount;
+        row.title = choice.kinds.join(', ');
+        const slider = row.querySelector('input')!;
+        slider.setAttribute('aria-label', `${label} Share Of Farming Time`);
+        slider.addEventListener('input', () => {
+          const weight = Math.min(FARM_WEIGHT_MAX, Math.max(0, Math.round(Number(slider.value) / FARM_WEIGHT_STEP) * FARM_WEIGHT_STEP));
+          draft = { auto: false, weights: { ...draft.weights, [choice.key]: Number.isFinite(weight) ? weight : 0 } };
           updateSelection();
         });
-        list.append(button);
-        if (previousType === choice.key) button.focus();
+        list.append(row);
+        if (previousGroup === choice.key) slider.focus();
       }
       list.hidden = !choices.length;
-      element('.farm-stats-head').hidden = !choices.length;
+      modeRow.hidden = !choices.length;
       emptyNote.hidden = Boolean(choices.length);
     }
     updateSelection();
@@ -231,9 +227,8 @@ export function createAutoFarmPanel(options: {
   function open() {
     if (!options.visible() || sheet.open) return;
     priorFocus = document.activeElement instanceof HTMLElement ? document.activeElement : toggle;
-    const state = options.farm.state();
-    // Reopening shows the plan this map was last farmed with.
-    draft = state.plan.length ? state.plan : options.farm.savedPlan();
+    // Reopening shows the choice last farmed with, as this map names its stats.
+    draft = options.farm.savedChoice();
     choiceKey = '';
     options.clearInput();
     options.setPaused(true);
@@ -242,14 +237,13 @@ export function createAutoFarmPanel(options: {
     element<HTMLButtonElement>('.farm-close').focus();
   }
 
-  /** A word or two on the floating button: which camp, its place in the route, the boss, or the way out. */
+  /** A word or two on the floating button: Auto, the boss, or the way out. */
   function badgeText() {
     const state = options.farm.state();
     if (!state.active) return '';
     if (state.phase === 'boss') return 'Boss';
     if (state.phase === 'portal') return 'Next Map';
-    if (state.plan.length > 1) return `${state.plan.map(entry => routeEntry(entry).key).indexOf(state.selected ?? '') + 1}/${state.plan.length}`;
-    return state.plan.length ? '' : 'Auto';
+    return state.weights ? '' : 'Auto';
   }
 
   function refresh() {
@@ -280,8 +274,7 @@ export function createAutoFarmPanel(options: {
   });
   element('.farm-close').addEventListener('click', close);
   moreToggle.addEventListener('click', () => setMoreOpen(more.hidden, true));
-  autoButton.addEventListener('click', () => { draft = []; updateSelection(); });
-  clearButton.addEventListener('click', () => { draft = []; updateSelection(); });
+  for (const button of modeButtons) button.addEventListener('click', () => { draft = { ...draft, auto: button.dataset.mode === 'auto' }; updateSelection(); });
   for (const button of priorityButtons) button.addEventListener('click', () => {
     const choice = AUTO_FARM_PRIORITIES.find(entry => entry.id === button.dataset.priority);
     if (choice) options.farm.setPriority(choice.id);

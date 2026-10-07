@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.7": [
+    "Autofarm: pips are gone. Pick Custom and set each stat's slider (0–200%) for its share of farming time",
+  ],
   "0.901.6": [
     "Respec is free and keeps your stats, map and gear, as often as you like",
     "Mini chat, the quest tracker and the HUD cards share one see-through background, no darker than before",
@@ -2981,6 +2984,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.7": "2026-10-07",
   "0.901.6": "2026-10-07",
   "0.901.5": "2026-10-07",
   "0.901.4": "2026-10-07",

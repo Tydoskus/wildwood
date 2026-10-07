@@ -33,7 +33,7 @@ describe('Aggro challenge on the client', () => {
     expect([0, 1, 4, 9].map(completed => aggroPullCamps({ active: false, completed }))).toEqual([1, 2, 5, 5]);
   });
 
-  it("Pull brings every enemy of the farmed stat, the route's next stat per win, and nothing during a run", () => {
+  it("Pull brings every enemy of the farmed stat, the next slider's stat per win, and nothing during a run", () => {
     for (const [pullCamps, expected] of [[1, ['near', 'far']], [2, ['near', 'far', 'needle']], [0, []]] as const) {
       const s = setup({ pullCamps });
       const near = s.add('Bramble', 700, 500, 'near'), far = s.add('Bramble', 2400, 500, 'far'), needle = s.add('Needle', 1200, 900, 'needle');
@@ -42,6 +42,16 @@ describe('Aggro challenge on the client', () => {
       expect([near, far, needle].filter(enemy => s.farm.pulls(enemy)).map(enemy => enemy.campName), `pull ${pullCamps}`).toEqual(expected);
       expect(s.farm.pullAvailable()).toBe(pullCamps > 0);
     }
+  });
+
+  it("with sliders, Pull's extra camps per win are the next largest sliders after the farmed one", () => {
+    const s = setup({ pullCamps: 2 });
+    const bramble = s.add('Bramble', 700, 500, 'near'), needle = s.add('Needle', 1200, 900, 'needle'), moss = s.add('Mossback', 1500, 500, 'moss');
+    const mossGroup = `stat:${ENEMY_TYPES.Mossback.reward.type}`;
+    s.farm.setPullAll(true);
+    s.farm.start({ auto: false, weights: { [health]: 100, [speed]: 200, [mossGroup]: 25 } });
+    expect(s.farm.state().selected).toBe(speed);
+    expect([bramble, needle, moss].filter(enemy => s.farm.pulls(enemy))).toEqual([bramble, needle]);
   });
 
   it("on Auto, Pull's extra camps per win are Auto's next best, not none", () => {
@@ -79,7 +89,7 @@ describe('Aggro challenge on the client', () => {
     for (let i = 0; i < 5; i++) s.farm.movement(still, 1 / 60);
     expect(s.farm.state().selected).toBe(before);
     expect(s.farm.movement(still, 1 / 60)).toMatchObject({ x: 0, y: 0 });
-    // One pulled group short of the route: it farms as before.
+    // One pulled group short of the farmed groups: it farms as before.
     const t = setup({ pullCamps: 1 });
     t.add('Bramble', 1500, 500, 'far'); t.add('Needle', 500, 1500, 'needle');
     t.farm.setPullAll(true);

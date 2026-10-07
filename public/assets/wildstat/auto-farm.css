@@ -162,14 +162,13 @@
   .farm-sheet .farm-enemy { min-height: 48px; padding: 6px 10px; }
 }
 /* The Auto Farm window itself: black surfaces, green only where something is
- * on (a picked chip, its order, Move On, a ready status). It sizes to what it
+ * on (the picked mode, Move On, a ready status). It sizes to what it
  * holds; the body scrolls between the banner and the footer when it must. */
 #autoFarmSheet {
   --window-surface: #0c0c0c;
   --muted: #bdbdbd;
   --farm-line: rgba(255,255,255,.13);
   --farm-fill: #161616;
-  --farm-picked: #161616;
   height: fit-content;
   max-height: min(600px, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px));
 }
@@ -188,59 +187,28 @@
 }
 .farm-body::-webkit-scrollbar { display: none; }
 .farm-body > * { flex-shrink: 0; }
-.farm-stats-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 26px; }
-.farm-stats-title { color: var(--muted); font-size: 13px; }
-.farm-sheet .farm-clear { min-height: 26px; padding: 2px 8px; border: 0; border-radius: 6px; background: none; box-shadow: none; color: #ffcf7a; font: inherit; font-size: 13px; cursor: pointer; }
-/* Auto first, then one chip per stat the map pays; tap order shows in the corner, time as pips. */
-.farm-chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 6px; padding-top: 4px; }
-.farm-sheet .farm-chip {
-  position: relative;
-  display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 2px;
-  min-width: 0;
-  min-height: 62px;
-  padding: 7px 4px 5px;
-  border: 2px solid var(--farm-line);
-  border-radius: 10px;
-  background: var(--farm-fill);
-  box-shadow: none;
-  color: #fff;
-  text-align: center;
-  font: inherit;
-  cursor: pointer;
+/* One slider per stat the map pays: its share of the farming time, 0% to 200%. They rest while on Auto. */
+.farm-weights { display: grid; gap: 2px; }
+.farm-weights.is-auto .farm-weight { opacity: .5; }
+.farm-weight { display: grid; grid-template-columns: 96px minmax(0, 1fr) 44px; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; }
+.farm-weight-name { display: grid; gap: 1px; min-width: 0; }
+.farm-weight-label { overflow: hidden; color: var(--farm-stat-color, #fff); font-size: 14px; line-height: 1.15; white-space: nowrap; text-overflow: ellipsis; }
+.farm-weight-sub { overflow: hidden; color: #e8e8e8; font-size: 13px; line-height: 1.15; white-space: nowrap; text-overflow: ellipsis; -webkit-text-stroke: 0; text-shadow: none; }
+.farm-weight output { color: #fff; font-size: 14px; text-align: right; -webkit-text-stroke: 0; text-shadow: none; }
+.farm-weight.is-zero output, .farm-weight.is-zero .farm-weight-label { color: var(--muted); }
+.farm-weight input[type="range"] {
+  --farm-track: linear-gradient(to right, var(--farm-stat-color) var(--farm-weight-at, 50%), #333 var(--farm-weight-at, 50%));
+  width: 100%; min-width: 0; height: 36px; margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none;
+  appearance: none; -webkit-appearance: none; cursor: pointer;
 }
-.farm-sheet .farm-chip[aria-pressed="true"] { border-color: var(--green); background: var(--farm-picked); }
-.farm-sheet .farm-auto { --farm-stat-color: #ffe08a; border-style: dashed; }
-.farm-sheet .farm-auto[aria-pressed="true"] { border-style: solid; }
-.farm-chip-label { max-width: 100%; color: var(--farm-stat-color, #fff); font-size: 14px; line-height: 1.1; overflow-wrap: anywhere; }
-.farm-chip-sub { max-width: 100%; overflow: hidden; color: #e8e8e8; font-size: 13px; line-height: 1.15; white-space: nowrap; text-overflow: ellipsis; -webkit-text-stroke: 0; text-shadow: none; }
-.farm-auto .farm-chip-sub { color: var(--muted); }
-.farm-pips { display: flex; gap: 4px; height: 6px; margin-top: 2px; visibility: hidden; }
-.farm-chip[aria-pressed="true"] .farm-pips { visibility: visible; }
-.farm-pips > i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.22); }
-.farm-pips > i.is-on { background: var(--farm-stat-color); }
-.farm-chip-order {
-  position: absolute;
-  top: -7px;
-  right: -6px;
-  display: grid;
-  place-items: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 4px;
-  box-sizing: border-box;
-  border: 2px solid var(--window-surface);
-  border-radius: 10px;
-  background: var(--green);
-  color: #0f0f0f;
-  font-size: 11px;
-  line-height: 1;
-  -webkit-text-stroke: 0;
-  text-shadow: none;
+.farm-weight input[type="range"]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: var(--farm-track); }
+.farm-weight input[type="range"]::-moz-range-track { height: 6px; border-radius: 3px; background: var(--farm-track); }
+.farm-weight input[type="range"]::-webkit-slider-thumb {
+  box-sizing: border-box; width: 22px; height: 22px; margin-top: -8px; border: 3px solid #000; border-radius: 50%; background: #f2f2f2;
+  appearance: none; -webkit-appearance: none;
 }
-.farm-chip-order:empty, .farm-chip[aria-pressed="false"] .farm-chip-order { display: none; }
+.farm-weight input[type="range"]::-moz-range-thumb { box-sizing: border-box; width: 22px; height: 22px; border: 3px solid #000; border-radius: 50%; background: #f2f2f2; }
+.farm-weight input[type="range"]:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 /* Move On: the boss, then the next map; what it will do next under the name. */
 .farm-sheet .farm-switch {
   display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; min-height: 50px; padding: 6px 12px;
@@ -287,12 +255,12 @@
 #autoFarmSheet .window-back-button { font-size: 14px; }
 #autoFarmSheet .farm-selection { font-size: 13px; }
 @media (max-height: 480px) {
-  /* Short landscape phones: wider, every chip on one row, a little tighter. */
+  /* Short landscape phones: wider, the sliders in two columns, a little tighter. */
   #autoFarmSheet { width: min(680px, calc(100vw - 24px)); height: fit-content; max-height: calc(100dvh - 16px); }
   #autoFarmSheet .farm-header { padding-top: 8px; }
   #autoFarmSheet .farm-body { gap: 6px; }
-  .farm-chips { grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); }
-  .farm-sheet .farm-chip { min-height: 54px; padding: 5px 4px 4px; }
+  .farm-weights { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); column-gap: 18px; }
+  .farm-weight { min-height: 40px; }
   .farm-sheet .farm-switch { min-height: 44px; padding: 4px 12px; }
   .farm-sheet .farm-more-toggle { min-height: 36px; }
   .farm-sheet .farm-segment button { height: 32px; }

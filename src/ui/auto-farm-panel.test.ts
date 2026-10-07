@@ -5,7 +5,7 @@ import { createAutoFarmController } from '../game/runtime/auto-farm-controller';
 import { createSpawnSites } from '../game/world';
 import { createGameBootstrap } from '../game/runtime/game-bootstrap';
 import { ENEMY_TYPES, rewardAmountLabel } from '../game/enemies';
-import { AUTO_FARM_CHOICE_KEY, MAX_ROUTE_WEIGHT } from '../game/runtime/auto-farm-plan';
+import { AUTO_FARM_CHOICE_KEY, AUTO_FARM_WEIGHTS_KEY } from '../game/runtime/auto-farm-plan';
 import { soulCampName, SOUL_ENEMY_SPECIES } from '../game/soul-world';
 import { SOUL_MAP_ID, SOUL_STAT_DETAILS, type SoulStatId } from '../../shared/soul-dimension';
 import { researchStatRewardMultiplier } from '../../shared/research';
@@ -47,57 +47,80 @@ function setup(empty = false, map = "forest", overrides: FarmOverrides = {}, sto
     setShowBase: (value: boolean) => { showBase = value; }, setRewardMultiplier: (value: number) => { rewardMultiplier = value; },
     setDamageBonus: (value: number) => { damageBonus = value; } };
 }
-it('opens on Auto, numbers picked stats in order, starts farming, and stops from the floating button', () => {
+const slider = (s: ReturnType<typeof setup>, key: string) => s.document.querySelector<HTMLInputElement>(`[data-group="${key}"] input`)!;
+/** Drags a slider to `value`, as the input event reports it. */
+function slide(s: ReturnType<typeof setup>, key: string, value: number) {
+  const input = slider(s, key);
+  input.value = String(value);
+  input.dispatchEvent(new s.window.Event('input', { bubbles: true }));
+}
+const checked = (s: ReturnType<typeof setup>, mode: 'auto' | 'custom') => s.document.querySelector(`[data-mode="${mode}"]`)!.getAttribute('aria-checked');
+it('opens on Auto, switches to Custom when a slider moves, starts farming, and stops from the floating button', () => {
   const s = setup();
   s.click('.farm-toggle');
   expect(s.sheet.open).toBe(true);
-  // Nothing picked is Auto, which can always start.
-  expect(s.document.querySelector('.farm-auto')!.getAttribute('aria-pressed')).toBe('true');
-  expect(s.document.querySelector('.farm-auto .farm-chip-sub')!.textContent).toBe('Best Gain');
+  // Auto by default, which can always start; the sliders rest at 100%.
+  expect(checked(s, 'auto')).toBe('true');
+  expect(s.document.querySelector('.farm-weights')!.classList.contains('is-auto')).toBe(true);
+  expect(slider(s, 'stat:health').value).toBe('100');
+  expect(s.document.querySelector('[data-group="stat:health"] output')!.textContent).toBe('100%');
   expect(s.document.querySelector<HTMLButtonElement>('.farm-start')!.disabled).toBe(false);
-  expect(s.document.querySelector<HTMLElement>('.farm-clear')!.hidden).toBe(true);
-  s.click('[data-enemy="stat:health"]');
-  expect(s.document.querySelector('[data-enemy="stat:health"]')!.getAttribute('aria-pressed')).toBe('true');
-  expect(s.document.querySelector('[data-enemy="stat:health"] .farm-chip-order')!.textContent).toBe('1');
-  expect(s.document.querySelector('.farm-auto')!.getAttribute('aria-pressed')).toBe('false');
-  expect(s.document.querySelector<HTMLElement>('.farm-clear')!.hidden).toBe(false);
+  slide(s, 'stat:health', 200);
+  expect(checked(s, 'custom')).toBe('true');
+  expect(checked(s, 'auto')).toBe('false');
+  expect(s.document.querySelector('.farm-weights')!.classList.contains('is-auto')).toBe(false);
+  expect(s.document.querySelector('[data-group="stat:health"] output')!.textContent).toBe('200%');
+  expect(slider(s, 'stat:health').getAttribute('aria-valuetext')).toBe('200%');
   s.click('.farm-start');
   expect(s.sheet.open).toBe(false);
-  expect(s.farm.state()).toMatchObject({ active: true, selected: 'stat:health', plan: ['stat:health'] });
+  expect(s.farm.state()).toMatchObject({ active: true, selected: 'stat:health', weights: { 'stat:health': 200 } });
+  expect(s.document.querySelector('.farm-badge')!.textContent).toBe('');
   expect(s.document.querySelector('.farm-toggle')!.getAttribute('aria-pressed')).toBe('true');
   s.click('.farm-toggle');
   expect(s.farm.state().active).toBe(false);
   expect(s.sheet.open).toBe(false);
 });
-it('draws one chip per stat, in its colour, and counts time there as pips until a last tap drops it', () => {
+it('draws one slider per stat, in its colour; with every one at 0% it cannot start, and Auto keeps the sliders for later', () => {
   const s = setup(true, 'endless_1');
   s.spawnSites.push(...createSpawnSites({x: 580, y: 770}, 'endless_1'));
   s.click('.farm-toggle');
-  const chips = [...s.document.querySelectorAll<HTMLElement>('.farm-chips [data-enemy]')];
-  expect(chips.length).toBe(s.farm.choices().length);
-  expect(chips.every(chip => chip.classList.contains('farm-chip') && chip.style.getPropertyValue('--farm-stat-color'))).toBe(true);
-  const [first, second] = chips.map(chip => chip.dataset.enemy!);
-  const chip = (key: string) => s.document.querySelector(`[data-enemy="${key}"]`)!;
-  const pipsOn = (key: string) => chip(key).querySelectorAll('.farm-pips > i.is-on').length;
-  expect(chip(first).querySelectorAll('.farm-pips > i')).toHaveLength(MAX_ROUTE_WEIGHT);
-  s.click(`[data-enemy="${second}"]`);
-  s.click(`[data-enemy="${first}"]`);
-  expect(chip(second).querySelector('.farm-chip-order')!.textContent).toBe('1');
-  expect(chip(first).querySelector('.farm-chip-order')!.textContent).toBe('2');
-  expect(pipsOn(first)).toBe(1);
-  for (let weight = 2; weight <= MAX_ROUTE_WEIGHT; weight++) {
-    s.click(`[data-enemy="${first}"]`);
-    expect(pipsOn(first)).toBe(weight);
-    expect(chip(first).getAttribute('aria-label')).toContain(`Time ${weight} Of ${MAX_ROUTE_WEIGHT}`);
-  }
-  s.click(`[data-enemy="${first}"]`);
-  expect(chip(first).getAttribute('aria-pressed')).toBe('false');
-  expect(chip(first).querySelector('.farm-chip-order')!.textContent).toBe('');
-  expect(pipsOn(first)).toBe(0);
-  expect(chip(second).querySelector('.farm-chip-order')!.textContent).toBe('1');
-  s.click('.farm-clear');
-  expect(s.document.querySelector('.farm-auto')!.getAttribute('aria-pressed')).toBe('true');
-  expect(s.document.querySelector<HTMLElement>('.farm-clear')!.hidden).toBe(true);
+  const rows = [...s.document.querySelectorAll<HTMLElement>('.farm-weights [data-group]')];
+  expect(rows.length).toBe(s.farm.choices().length);
+  expect(rows.every(row => row.style.getPropertyValue('--farm-stat-color'))).toBe(true);
+  expect(rows.map(row => ['min', 'max', 'step'].map(name => row.querySelector('input')!.getAttribute(name)).join())).toEqual(rows.map(() => '0,200,25'));
+  for (const row of rows) slide(s, row.dataset.group!, 0);
+  expect(rows.every(row => row.classList.contains('is-zero'))).toBe(true);
+  expect(s.document.querySelector<HTMLButtonElement>('.farm-start')!.disabled).toBe(true);
+  expect(s.document.querySelector('.farm-selection')!.textContent).toBe('Set A Stat Above 0%');
+  s.click('[data-mode="auto"]');
+  expect(checked(s, 'auto')).toBe('true');
+  expect(s.document.querySelector<HTMLButtonElement>('.farm-start')!.disabled).toBe(false);
+  expect(s.document.querySelector<HTMLElement>('.farm-selection')!.hidden).toBe(true);
+  s.click('[data-mode="custom"]');
+  expect(rows.map(row => row.querySelector('input')!.value)).toEqual(rows.map(() => '0'));
+});
+it('remembers the sliders and the mode for the next window, migrating an old route', () => {
+  const s = setup(true, 'endless_1');
+  s.spawnSites.push(...createSpawnSites({x: 580, y: 770}, 'endless_1'));
+  vi.stubGlobal('localStorage', s.storage);
+  // Before the sliders: Damage picked with two pips, nothing else.
+  s.storage.setItem(AUTO_FARM_CHOICE_KEY, JSON.stringify(['stat:damage*2']));
+  s.click('.farm-toggle');
+  expect(checked(s, 'custom')).toBe('true');
+  const values = () => Object.fromEntries([...s.document.querySelectorAll<HTMLElement>('[data-group]')].map(row => [row.dataset.group, row.querySelector('input')!.value]));
+  expect(Object.entries(values()).filter(([, value]) => value !== '0')).toEqual([['stat:damage', '200']]);
+  const other = Object.keys(values()).find(key => key !== 'stat:damage')!;
+  slide(s, other, 25);
+  s.click('.farm-start');
+  expect(JSON.parse(s.storage.values.get(AUTO_FARM_WEIGHTS_KEY)!)).toMatchObject({ auto: false, weights: { 'stat:damage': 200, [other]: 25 } });
+  s.click('.farm-toggle');
+  s.click('.farm-toggle');
+  expect(values()[other]).toBe('25');
+  // Auto, started, is remembered too, the sliders with it.
+  s.click('[data-mode="auto"]');
+  s.click('.farm-start');
+  expect(s.document.querySelector('.farm-badge')!.textContent).toBe('Auto');
+  expect(JSON.parse(s.storage.values.get(AUTO_FARM_WEIGHTS_KEY)!)).toMatchObject({ auto: true, weights: { [other]: 25 } });
 });
 it('canceling the picker preserves the selected enemy without starting farming', () => {
   const s = setup(); s.farm.start('Bramble'); s.farm.stop();
@@ -112,7 +135,8 @@ it('explains an empty map and disables starting when gameplay becomes unavailabl
   expect(s.document.querySelector<HTMLElement>('.farm-empty')!.hidden).toBe(false);
   expect(s.document.querySelector('.farm-empty')!.textContent).toContain('No Enemies Here');
   expect(s.document.querySelector<HTMLButtonElement>('.farm-start')!.disabled).toBe(true);
-  expect(s.document.querySelector<HTMLElement>('.farm-chips')!.hidden).toBe(true);
+  expect(s.document.querySelector<HTMLElement>('.farm-weights')!.hidden).toBe(true);
+  expect(s.document.querySelector<HTMLElement>('.farm-mode')!.closest<HTMLElement>('.farm-setting')!.hidden).toBe(true);
   s.setUnavailable('Equip a weapon to farm'); s.panel.refresh();
   expect(s.document.querySelector('.farm-selection')!.textContent).toBe('Equip a weapon to farm');
   s.setVisible(false); s.panel.refresh();
@@ -121,17 +145,17 @@ it('explains an empty map and disables starting when gameplay becomes unavailabl
   expect(s.pause).toHaveBeenLastCalledWith(false);
 });
 
-it('shows four reward stat chips for a generated map with one species, without enemy counts', () => {
+it('shows four reward stat sliders for a generated map with one species, without enemy counts', () => {
   const s = setup(true, 'endless_1');
   s.spawnSites.push(...createSpawnSites({x: 580, y: 770}, 'endless_1'));
   s.click('.farm-toggle');
-  const choices = [...s.document.querySelectorAll('[data-enemy]')];
+  const choices = [...s.document.querySelectorAll<HTMLElement>('[data-group]')];
   expect(choices).toHaveLength(4);
-  const damage = choices.find(button => button.querySelector('.farm-chip-label')?.textContent === 'Damage')!;
+  const damage = choices.find(row => row.querySelector('.farm-weight-label')?.textContent === 'Damage')!;
   expect(damage.textContent).not.toContain('enemies');
-  expect(damage.querySelector('.farm-chip-sub')!.textContent).toContain('–');
-  expect(s.document.querySelector('.farm-chips')!.textContent).not.toContain('Attack Speed');
-  damage.dispatchEvent(new s.window.Event('click', { bubbles: true }));
+  expect(damage.querySelector('.farm-weight-sub')!.textContent).toContain('–');
+  expect(s.document.querySelector('.farm-weights')!.textContent).not.toContain('Attack Speed');
+  for (const row of choices) if (row !== damage) slide(s, row.dataset.group!, 0);
   s.click('.farm-start');
   expect(s.farm.targetType()).toBe('stat:damage');
 });
@@ -142,7 +166,7 @@ it('shows earned research and prestige rewards by default, then base rewards whe
   const multiplier = researchStatRewardMultiplier({ foraging: 5, prosperity: 4 }) * prestigeStatMultiplier(2);
   s.setRewardMultiplier(multiplier);
   s.click('.farm-toggle');
-  const displayedReward = () => s.document.querySelector('[data-enemy] .farm-chip-sub')!.textContent;
+  const displayedReward = () => s.document.querySelector('[data-group] .farm-weight-sub')!.textContent;
   expect(displayedReward()).toBe(rewardAmountLabel({ ...base, amount: base.amount * multiplier }));
   s.setShowBase(true);
   s.panel.refresh();
@@ -159,10 +183,10 @@ it('shows damage rewards after a 75% damage bonus when base rewards are off', ()
   s.setDamageBonus(1.75);
   s.click('.farm-toggle');
   const reward = ENEMY_TYPES.Spitter.reward;
-  expect(s.document.querySelector('[data-enemy] .farm-chip-sub')!.textContent).toBe(rewardAmountLabel({ ...reward, amount: reward.amount * 1.2 * 1.75 }));
+  expect(s.document.querySelector('[data-group] .farm-weight-sub')!.textContent).toBe(rewardAmountLabel({ ...reward, amount: reward.amount * 1.2 * 1.75 }));
   s.setShowBase(true);
   s.panel.refresh();
-  expect(s.document.querySelector('[data-enemy] .farm-chip-sub')!.textContent).toBe(rewardAmountLabel(reward));
+  expect(s.document.querySelector('[data-group] .farm-weight-sub')!.textContent).toBe(rewardAmountLabel(reward));
 });
 it('switches the target priority from More and marks the chosen one', () => {
   const s = setup();
@@ -285,7 +309,7 @@ it('during an Aggro run the button opens the group picker, whose Target is the f
   expect(s.sheet.open).toBe(true);
   expect(s.document.querySelector('#autoFarmSheet .farm-target [data-priority="lowest"]')!.getAttribute('aria-checked')).toBe('true');
 });
-it('in the Soul Dimension draws a chip per soul stat present, in its soul colour, with its flat reward', () => {
+it('in the Soul Dimension draws a slider per soul stat present, in its soul colour, with its flat reward', () => {
   const s = setup(true, SOUL_MAP_ID);
   const soul = (stat: SoulStatId, camp: number) => s.spawnSites.push({ id: s.spawnSites.length, type: SOUL_ENEMY_SPECIES[stat], x: 900, y: 500 + camp * 40,
     campName: soulCampName(stat, { key: `forest:${camp}` }), leashRange: 500, alive: false, respawnAt: 50,
@@ -293,23 +317,23 @@ it('in the Soul Dimension draws a chip per soul stat present, in its soul colour
   soul('damage', 0); soul('damage', 1); soul('attackSpeed', 2); soul('critDamage', 3);
   // Rewards shown grown would mislead: soul rewards are flat.
   s.setRewardMultiplier(7);
-  // The controller keeps the player's pick in localStorage.
+  // The controller keeps the player's choice in localStorage; this one is an old campaign route.
   vi.stubGlobal('localStorage', s.storage);
   s.storage.setItem(AUTO_FARM_CHOICE_KEY, JSON.stringify(['stat:speed', 'stat:health']));
   s.click('.farm-toggle');
-  const chip = (stat: SoulStatId) => s.document.querySelector<HTMLElement>(`[data-enemy="soul:${stat}"]`)!;
-  expect([...s.document.querySelectorAll<HTMLElement>('.farm-chips [data-enemy]')].map(button => button.dataset.enemy))
+  const row = (stat: SoulStatId) => s.document.querySelector<HTMLElement>(`[data-group="soul:${stat}"]`)!;
+  expect([...s.document.querySelectorAll<HTMLElement>('.farm-weights [data-group]')].map(entry => entry.dataset.group))
     .toEqual(['soul:damage', 'soul:attackSpeed', 'soul:critDamage']);
   for (const stat of ['damage', 'attackSpeed', 'critDamage'] as const) {
-    expect(chip(stat).querySelector('.farm-chip-label')!.textContent).toBe(SOUL_STAT_DETAILS[stat].label);
-    expect(chip(stat).style.getPropertyValue('--farm-stat-color')).toBe(SOUL_STAT_DETAILS[stat].color);
+    expect(row(stat).querySelector('.farm-weight-label')!.textContent).toBe(SOUL_STAT_DETAILS[stat].label);
+    expect(row(stat).style.getPropertyValue('--farm-stat-color')).toBe(SOUL_STAT_DETAILS[stat].color);
   }
-  expect(chip('damage').querySelector('.farm-chip-sub')!.textContent).toBe('+1');
-  expect(chip('attackSpeed').querySelector('.farm-chip-sub')!.textContent).toBe('+0.001');
-  expect(chip('critDamage').querySelector('.farm-chip-sub')!.textContent).toBe('+0.2%');
-  // The campaign's Attack Speed pick opens as Soul Attack Speed; its Health pick has no camp at this tier.
-  expect(chip('attackSpeed').getAttribute('aria-pressed')).toBe('true');
-  s.click('[data-enemy="soul:critDamage"]');
+  expect(row('damage').querySelector('.farm-weight-sub')!.textContent).toBe('+1');
+  expect(row('attackSpeed').querySelector('.farm-weight-sub')!.textContent).toBe('+0.001');
+  expect(row('critDamage').querySelector('.farm-weight-sub')!.textContent).toBe('+0.2%');
+  // The campaign's Attack Speed pick opens as Soul Attack Speed at 100%; what it left unpicked is 0%.
+  expect(['damage', 'attackSpeed', 'critDamage'].map(stat => slider(s, `soul:${stat}`).value)).toEqual(['0', '100', '0']);
+  slide(s, 'soul:critDamage', 50);
   s.click('.farm-start');
-  expect(s.farm.state()).toMatchObject({ active: true, plan: ['soul:attackSpeed', 'soul:critDamage'] });
+  expect(s.farm.state()).toMatchObject({ active: true, weights: { 'soul:attackSpeed': 100, 'soul:critDamage': 50, 'soul:damage': 0 } });
 });
