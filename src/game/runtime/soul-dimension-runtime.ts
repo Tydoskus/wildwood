@@ -8,7 +8,7 @@ import { TUTORIAL_FOREST_MAP_ID } from "../../../shared/rules";
 import { isDeveloperIdentity } from "../../app/developer";
 import { ENEMY_TYPES, type EnemyDefinition } from "../enemies";
 import { regionSpawnPoints } from "../region-scatter";
-import { soulCampName, soulCampStat, soulStatOfCampName, SOUL_ENEMY_SPECIES } from "../soul-world";
+import { soulCampName, soulCampStat, soulRewardText, soulStatOfCampName, SOUL_ENEMY_SPECIES } from "../soul-world";
 import { mapSpawnCamps, type MapId, type SpawnSite } from "../world";
 import type { MapPortal } from "./map-controller";
 import type { EnemyState, PlayerState } from "./types";
@@ -134,8 +134,7 @@ export function createSoulDimensionRuntime(deps: {
       soulStats();
       pending = addSoulKills(pending, stat, 1);
       const detail = SOUL_STAT_DETAILS[stat];
-      const amount = stat === "critDamage" ? `${+(detail.reward * 100).toFixed(1)}%` : `${detail.reward}`;
-      deps.logPickup?.(`+${amount} Soul ${detail.label}`, detail.color);
+      deps.logPickup?.(`${soulRewardText(stat)} Soul ${detail.label}`, detail.color);
     },
     /** Saved progress with the soul stats added: what the player's stats load from. Nothing is added in a challenge. */
     withSoul<T extends { damage: number; maxHp: number; armor: number; regen: number; attackRate: number }>(progress: T | null): T | null {

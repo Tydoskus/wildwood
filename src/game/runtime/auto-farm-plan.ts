@@ -1,5 +1,6 @@
 import type { RewardType } from '../enemies';
 import type { PlayerPowerStats } from '../../../shared/player-power';
+import { isSoulMap } from '../../../shared/soul-dimension';
 
 /** A camp has to beat the current one by this much before Auto walks over to it (players saw it hop camps). */
 export const AUTO_SWITCH_MARGIN = 1.5;
@@ -8,7 +9,8 @@ export const AUTO_REPLAN_SECONDS = 20;
 
 /** What the player's build would be, with or without one more kill's reward: its power, and its effective stats when known. */
 export type FarmEvaluation = { power: number; stats?: PlayerPowerStats };
-export type FarmReward = { type: RewardType; amount: number };
+/** `flat`: paid as it is, never grown by research or prestige (soul rewards). */
+export type FarmReward = { type: RewardType; amount: number; flat?: boolean };
 export type FarmCandidate = {
   key: string;
   alive: number;
@@ -92,18 +94,26 @@ export const AUTO_FARM_ADVANCE_KEY = 'wildstat:autofarm-advance:v1';
  * is Auto, picked on purpose. Before the first pick, the old per-map route.
  */
 export const AUTO_FARM_CHOICE_KEY = 'wildstat:autofarm-choice:v1';
+/**
+ * The Soul Dimension's own last pick, so soul picks never replace the
+ * campaign's. Before one is made there, the campaign's pick is carried over.
+ */
+export const AUTO_FARM_SOUL_CHOICE_KEY = 'wildstat:autofarm-soul-choice:v1';
 const routeKeys = (value: unknown) => Array.isArray(value) ? value.filter((key): key is string => typeof key === 'string' && key.length > 0) : null;
 
 export function readFarmChoice(mapId: string, storage: () => Storage | undefined = () => localStorage): string[] {
   try {
+    const soul = isSoulMap(mapId) ? routeKeys(JSON.parse(storage()?.getItem(AUTO_FARM_SOUL_CHOICE_KEY) ?? 'null')) : null;
+    if (soul) return soul;
     const choice = routeKeys(JSON.parse(storage()?.getItem(AUTO_FARM_CHOICE_KEY) ?? 'null'));
     if (choice) return choice;
     return routeKeys(JSON.parse(storage()?.getItem(AUTO_FARM_ROUTES_KEY) ?? '{}')?.[mapId]) ?? [];
   } catch { return []; }
 }
 
-export function writeFarmChoice(route: readonly string[], storage: () => Storage | undefined = () => localStorage) {
-  try { storage()?.setItem(AUTO_FARM_CHOICE_KEY, JSON.stringify([...route])); } catch { /* The pick still applies this session. */ }
+export function writeFarmChoice(route: readonly string[], storage: () => Storage | undefined = () => localStorage, mapId = '') {
+  const key = isSoulMap(mapId) ? AUTO_FARM_SOUL_CHOICE_KEY : AUTO_FARM_CHOICE_KEY;
+  try { storage()?.setItem(key, JSON.stringify([...route])); } catch { /* The pick still applies this session. */ }
 }
 
 export function readFarmAdvance(storage: () => Storage | undefined = () => localStorage) {

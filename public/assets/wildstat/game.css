@@ -34,8 +34,6 @@
   .quest-tracker-item.is-here .quest-tracker-where { color: var(--green); }
   .stat-tracker.is-world-gesture, .stat-tracker.is-world-gesture * { pointer-events: none; }
   .stat-tracker.is-collapsed { width: max-content; max-width: calc(100vw - 24px); overflow: hidden; }
-  .stat-tracker.is-collapsed header { padding: 0 4px; }
-  .stat-tracker.is-collapsed .stat-tracker-handle { min-height: 32px; padding: 16px 12px; }
   .stat-tracker[hidden], .stat-tracker [hidden] { display: none; }
   .stat-tracker header, .stat-tracker footer { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 0 8px; }
   .stat-tracker button { color: inherit; background: transparent; border: 0; margin: 0; padding: 4px 6px; min-height: 32px; font: inherit; cursor: pointer; }
@@ -60,6 +58,10 @@
   .stat-tracker-opacity input::-moz-range-thumb { width: 14px; height: 14px; border: 2px solid var(--hud-frame); border-radius: 50%; background: var(--green); }
   .stat-tracker-reset { text-decoration: none; }
   @media (any-pointer: coarse) { .stat-tracker button, .stat-tracker.is-collapsed .stat-tracker-handle { min-height: 44px; } }
+  /* Folded, it is one row the size of the folded quest tracker, not a tall touch block. */
+  .stat-tracker.is-collapsed { min-width: 0; border-radius: var(--hud-radius-small); font: 700 11px/1.25 "Wildstat Chat", sans-serif; }
+  .stat-tracker.is-collapsed header { padding: 0; }
+  .stat-tracker.is-collapsed .stat-tracker-handle { min-height: 30px; padding: 4px 8px; }
   @media (max-width: 380px) { .stat-tracker { font-size: 11px; } .stat-tracker th, .stat-tracker td { padding: 3px 5px; } }
 
   @font-face {
@@ -1588,6 +1590,11 @@
   .player-visibility-toggle[aria-pressed="false"]:not(:disabled) { opacity: .65; }
   .player-visibility-toggle[aria-pressed="true"] .player-visibility-slash { display: none; }
   .player-visibility-toggle:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+  /* Eye and mail sit in cards like the gem balance beside them, the same height. */
+  .hud-secondary-controls .player-visibility-toggle { width: 36px; height: 30px; padding: 0; border: 2px solid var(--hud-frame); border-radius: var(--hud-radius-small); background: var(--hud-surface); box-shadow: 0 2px 0 rgba(0,0,0,.35); }
+  .hud-secondary-controls .player-visibility-toggle svg { width: 18px; height: 18px; }
+  .hud-secondary-controls .player-visibility-toggle[aria-pressed="false"]:not(:disabled) { opacity: 1; }
+  .hud-secondary-controls .player-visibility-toggle[aria-pressed="false"]:not(:disabled) svg { opacity: .65; }
 
   .daily-gem-bonus { position: fixed; inset: 0 0 var(--window-bottom-inset); z-index: 18; display: grid; place-items: center; padding: 18px; background: rgba(8, 7, 10, .78); pointer-events: auto; }
   .daily-gem-bonus[hidden] { display: none; }

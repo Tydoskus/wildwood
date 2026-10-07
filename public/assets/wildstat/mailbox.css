@@ -1,5 +1,5 @@
 /* The HUD envelope inherits the eye's exact hit area, icon scale and stroke. */
-.player-visibility-toggle.mailbox-toggle { flex: 0 0 40px; }
+.player-visibility-toggle.mailbox-toggle { flex: 0 0 auto; }
 .mailbox-toggle[hidden] { display: none; }
 .mailbox-unread-dot,
 .mailbox-tab-dot,

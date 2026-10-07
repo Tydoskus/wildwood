@@ -1,4 +1,4 @@
-import { soulStatsUnlocked, type SoulCamp, type SoulStatId } from "../../shared/soul-dimension";
+import { SOUL_STAT_DETAILS, soulStatsUnlocked, type SoulCamp, type SoulStatId } from "../../shared/soul-dimension";
 import type { EnemyKind } from "./enemies";
 
 /** Which forest creature wears each soul stat. */
@@ -19,4 +19,10 @@ export function soulStatOfCampName(campName: string | undefined): SoulStatId | n
   if (!campName?.startsWith("soul:")) return null;
   const stat = campName.split(":")[1] as SoulStatId;
   return stat in SOUL_ENEMY_SPECIES ? stat : null;
+}
+
+/** What one soul kill pays, as its popup and the autofarm window show it: "+1", "+0.1", "+0.2%". */
+export function soulRewardText(stat: SoulStatId) {
+  const reward = SOUL_STAT_DETAILS[stat].reward;
+  return stat === "critDamage" ? `+${+(reward * 100).toFixed(1)}%` : `+${reward}`;
 }

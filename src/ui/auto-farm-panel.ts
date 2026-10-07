@@ -1,6 +1,8 @@
 import { ENEMY_TYPES, REWARD_DATA, rewardAmountLabel, rewardStatLabel, type EnemyDefinition } from '../game/enemies';
 import type { AutoFarmController } from '../game/runtime/auto-farm-controller';
-import { AUTO_FARM_PRIORITIES } from '../game/runtime/auto-farm-priority';
+import { AUTO_FARM_PRIORITIES, farmGroupRewardType } from '../game/runtime/auto-farm-priority';
+import { SOUL_STAT_DETAILS } from '../../shared/soul-dimension';
+import { soulRewardText } from '../game/soul-world';
 import { MAX_ROUTE_WEIGHT, routeEntry, routeEntryText } from '../game/runtime/auto-farm-plan';
 import { aggroPicksNeeded, readAggroPicks, writeAggroPicks } from '../game/runtime/aggro-picks';
 import { createAggroPickPrompt } from './aggro-pick-prompt';
@@ -52,8 +54,8 @@ export function createAutoFarmPanel(options: {
   const aggroRun = () => Boolean(options.aggro?.()?.active);
   const picker = createAggroPickPrompt(document, { picks: () => readAggroPicks(options.identity?.()), setPicks: picks => writeAggroPicks(options.identity?.(), picks),
     priority: () => options.farm.priority(), setPriority: priority => options.farm.setPriority(priority) });
-  /** This map's stat groups, as autofarm offers them; empty while it loads. */
-  const mapGroups = () => options.farm.choices().flatMap(choice => choice.key.startsWith('stat:') ? [choice.key.slice(5) as RewardType] : []);
+  /** This map's stat groups, as autofarm offers them (a soul group as its run stat); empty while it loads. */
+  const mapGroups = () => [...new Set(options.farm.choices().flatMap(choice => farmGroupRewardType(choice.key) ?? []))] as RewardType[];
   const floating = document.createElement('div');
   floating.className = 'farm-floating';
   floating.hidden = true;
@@ -185,16 +187,18 @@ export function createAutoFarmPanel(options: {
         button.type = 'button';
         button.className = 'farm-chip';
         button.dataset.enemy = choice.key;
-        button.style.setProperty('--farm-stat-color', REWARD_DATA[reward.type].color);
+        // A soul stat looks as its kill popup does: its own colour, a flat amount (never grown by research or prestige).
+        const soul = choice.soul ? SOUL_STAT_DETAILS[choice.soul] : null;
+        button.style.setProperty('--farm-stat-color', soul?.color ?? REWARD_DATA[reward.type].color);
         button.innerHTML = '<span class="farm-chip-label"></span><span class="farm-chip-sub"></span>'
           + `<span class="farm-pips" aria-hidden="true">${'<i></i>'.repeat(MAX_ROUTE_WEIGHT)}</span><span class="farm-chip-order" aria-hidden="true"></span>`;
         // The stat is the choice; what one kill pays is the detail.
-        button.querySelector('.farm-chip-label')!.textContent = rewardStatLabel(reward);
+        button.querySelector('.farm-chip-label')!.textContent = soul?.label ?? rewardStatLabel(reward);
         const displayedReward = { ...reward, amount: displayAmount(reward) };
         const amount = choice.maxReward && choice.maxReward > reward.amount
           ? `${rewardAmountLabel(displayedReward)}–${rewardAmountLabel({ ...displayedReward, amount: displayAmount(reward, choice.maxReward) }).slice(1)}`
           : rewardAmountLabel(displayedReward);
-        button.querySelector('.farm-chip-sub')!.textContent = amount;
+        button.querySelector('.farm-chip-sub')!.textContent = choice.soul ? soulRewardText(choice.soul) : amount;
         button.title = choice.kinds.join(', ');
         button.addEventListener('click', () => {
           const at = draftKeys().indexOf(choice.key);

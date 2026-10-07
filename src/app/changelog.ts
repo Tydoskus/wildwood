@@ -1,4 +1,11 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.5": [
+    "Autofarm tries a new map's boss during its trial, and beating it ends the trial; Trying Next Map counts its minutes down",
+    "A boss try worn down on the walk in no longer doubles the power the next try needs",
+    "Autofarm in the Soul Dimension lets you pick each soul stat to farm",
+    "The eye and mail buttons sit in cards like the gem balance",
+    "The folded stat tracker is as small as the folded quest tracker",
+  ],
   "0.901.4": [
     "Panels, chat, trackers and windows are neutral black instead of green-tinted, and the chat bar no longer shows the grass through it",
   ],
@@ -2969,6 +2976,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.5": "2026-10-07",
   "0.901.4": "2026-10-07",
   "0.901.3": "2026-10-07",
   "0.901.2": "2026-10-07",

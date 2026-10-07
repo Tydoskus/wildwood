@@ -21,7 +21,8 @@ export function createFarmEvaluator(deps: {
   function build(reward?: FarmReward) {
     const stats = { ...deps.base() };
     if (reward) {
-      const amount = reward.amount * deps.rewardMultiplier();
+      // A soul kill's reward is flat: research and prestige never grow it.
+      const amount = reward.amount * (reward.flat ? 1 : deps.rewardMultiplier());
       // As applyReward does it (player-combat-controller.ts).
       if (reward.type === 'damage') stats.damage += amount;
       else if (reward.type === 'health') stats.maxHp += amount;

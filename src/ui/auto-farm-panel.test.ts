@@ -5,7 +5,9 @@ import { createAutoFarmController } from '../game/runtime/auto-farm-controller';
 import { createSpawnSites } from '../game/world';
 import { createGameBootstrap } from '../game/runtime/game-bootstrap';
 import { ENEMY_TYPES, rewardAmountLabel } from '../game/enemies';
-import { MAX_ROUTE_WEIGHT } from '../game/runtime/auto-farm-plan';
+import { AUTO_FARM_CHOICE_KEY, MAX_ROUTE_WEIGHT } from '../game/runtime/auto-farm-plan';
+import { soulCampName, SOUL_ENEMY_SPECIES } from '../game/soul-world';
+import { SOUL_MAP_ID, SOUL_STAT_DETAILS, type SoulStatId } from '../../shared/soul-dimension';
 import { researchStatRewardMultiplier } from '../../shared/research';
 import { prestigeStatMultiplier } from '../../shared/prestige';
 
@@ -282,4 +284,32 @@ it('during an Aggro run the button opens the group picker, whose Target is the f
   s.click('.farm-toggle');
   expect(s.sheet.open).toBe(true);
   expect(s.document.querySelector('#autoFarmSheet .farm-target [data-priority="lowest"]')!.getAttribute('aria-checked')).toBe('true');
+});
+it('in the Soul Dimension draws a chip per soul stat present, in its soul colour, with its flat reward', () => {
+  const s = setup(true, SOUL_MAP_ID);
+  const soul = (stat: SoulStatId, camp: number) => s.spawnSites.push({ id: s.spawnSites.length, type: SOUL_ENEMY_SPECIES[stat], x: 900, y: 500 + camp * 40,
+    campName: soulCampName(stat, { key: `forest:${camp}` }), leashRange: 500, alive: false, respawnAt: 50,
+    definition: { ...ENEMY_TYPES[SOUL_ENEMY_SPECIES[stat]], reward: { type: 'damage', amount: 0 } } });
+  soul('damage', 0); soul('damage', 1); soul('attackSpeed', 2); soul('critDamage', 3);
+  // Rewards shown grown would mislead: soul rewards are flat.
+  s.setRewardMultiplier(7);
+  // The controller keeps the player's pick in localStorage.
+  vi.stubGlobal('localStorage', s.storage);
+  s.storage.setItem(AUTO_FARM_CHOICE_KEY, JSON.stringify(['stat:speed', 'stat:health']));
+  s.click('.farm-toggle');
+  const chip = (stat: SoulStatId) => s.document.querySelector<HTMLElement>(`[data-enemy="soul:${stat}"]`)!;
+  expect([...s.document.querySelectorAll<HTMLElement>('.farm-chips [data-enemy]')].map(button => button.dataset.enemy))
+    .toEqual(['soul:damage', 'soul:attackSpeed', 'soul:critDamage']);
+  for (const stat of ['damage', 'attackSpeed', 'critDamage'] as const) {
+    expect(chip(stat).querySelector('.farm-chip-label')!.textContent).toBe(SOUL_STAT_DETAILS[stat].label);
+    expect(chip(stat).style.getPropertyValue('--farm-stat-color')).toBe(SOUL_STAT_DETAILS[stat].color);
+  }
+  expect(chip('damage').querySelector('.farm-chip-sub')!.textContent).toBe('+1');
+  expect(chip('attackSpeed').querySelector('.farm-chip-sub')!.textContent).toBe('+0.001');
+  expect(chip('critDamage').querySelector('.farm-chip-sub')!.textContent).toBe('+0.2%');
+  // The campaign's Attack Speed pick opens as Soul Attack Speed; its Health pick has no camp at this tier.
+  expect(chip('attackSpeed').getAttribute('aria-pressed')).toBe('true');
+  s.click('[data-enemy="soul:critDamage"]');
+  s.click('.farm-start');
+  expect(s.farm.state()).toMatchObject({ active: true, plan: ['soul:attackSpeed', 'soul:critDamage'] });
 });

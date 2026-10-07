@@ -8,7 +8,7 @@ import type { Movement } from './player-input-controller';
 import { isEnemyAttackingPlayer } from './enemy-threat';
 import { farmRoute } from './auto-farm-navigation';
 import { bossSurfaceDistance, bossVerticalRadius } from '../../../shared/boss-hitbox';
-import { compareAutoFarmTargets, enemyRewardStat, farmGroupMatches, farmStatGroup, readAutoFarmPriority, readAutoFarmPull, writeAutoFarmPriority, writeAutoFarmPull, type AutoFarmGroup, type AutoFarmPriority } from './auto-farm-priority';
+import { carryFarmGroup, compareAutoFarmTargets, farmGroupMatches, farmGroupOf, farmStatGroup, readAutoFarmPriority, soulFarmReward, readAutoFarmPull, writeAutoFarmPriority, writeAutoFarmPull, type AutoFarmGroup, type AutoFarmPriority } from './auto-farm-priority';
 import type { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 import {
   AUTO_REPLAN_SECONDS, pickRankedCandidate, rankFarmCandidates, decodeFarmPlan, encodeFarmPlan, nextRouteKey,
@@ -18,6 +18,8 @@ import {
   BOSS_FIRST_TRY_MS, BOSS_MARGIN_READY, PROBATION_MS, DIED_TO_GROUP_MS, FARM_PUSHES, bossFightMargin, bossRetryKey, type LostBossFight, createPowerGainMeter, createRetryMemory, probationVerdict, readFarmPush, shouldLeaveBoss, writeFarmPush, type FarmPush,
 } from './auto-farm-brain';
 import { formatCompactNumber } from '../../../shared/compact-number';
+import { isSoulMap, SOUL_STAT_DETAILS, type SoulStatId } from '../../../shared/soul-dimension';
+import { soulStatOfCampName } from '../soul-world';
 
 export type AutoFarmController = ReturnType<typeof createAutoFarmController>;
 const idle = (): Movement => ({ x: 0, y: 0, source: 'none' });
@@ -135,7 +137,8 @@ export function createAutoFarmController(options: {
     const forced = options.forcedGroups?.();
     if (!forced) { if (forcedSet.size) forcedSet = new Set(); return forcedSet; }
     const here: string[] = [...new Set(spawnSites.map(site => choiceKey(site)))];
-    const chosen = forced.groups.filter(group => here.includes(group)).slice(0, forced.needed);
+    // A run's picks are run stats; the Soul Dimension has each as its soul stat.
+    const chosen = forced.groups.map(normalizeKey).filter(group => here.includes(group)).slice(0, forced.needed);
     for (const group of here) if (chosen.length < forced.needed && !chosen.includes(group)) chosen.push(group);
     if (chosen.length !== forcedSet.size || chosen.some(group => !forcedSet.has(group))) forcedSet = new Set(chosen);
     return forcedSet;
@@ -198,20 +201,23 @@ export function createAutoFarmController(options: {
 
   /**
    * One choice per stat (0.873): a player farming health wants health, so a
-   * camp's regulars and elites, and every camp paying it, are one entry.
+   * camp's regulars and elites, and every camp paying it, are one entry. In
+   * the Soul Dimension, one per soul stat the player's tier has woken.
    */
-  const choiceKey = (site: Pick<SpawnSite, 'type' | 'definition'>) => farmStatGroup(enemyRewardStat(site));
+  const choiceKey = (site: Pick<SpawnSite, 'type' | 'definition' | 'campName'>) => farmGroupOf(site);
   function choices() {
     const counts = new Map<string, { key: AutoFarmGroup; type: EnemyKind; kinds: EnemyKind[]; label: string; camp: string | null;
-      alive: number; total: number; reward: EnemyDefinition['reward']; maxReward: number; hp: number; nearest: number }>();
+      alive: number; total: number; reward: FarmReward; maxReward: number; hp: number; nearest: number; soul: SoulStatId | null }>();
     for (const site of spawnSites) {
       const key = choiceKey(site), definition = site.definition ?? ENEMY_TYPES[site.type];
-      const choice = counts.get(key) ?? { key, type: site.type, kinds: [], label: rewardStatLabel(definition.reward), camp: null,
-        alive: 0, total: 0, reward: { ...definition.reward }, maxReward: definition.reward.amount, hp: 0, nearest: Infinity };
+      // A soul enemy pays its soul stat, flat, and nothing to the run: what it is worth is that stat.
+      const soul = soulStatOfCampName(site.campName), reward: FarmReward = soul ? soulFarmReward(soul) : definition.reward;
+      const choice = counts.get(key) ?? { key, type: site.type, kinds: [], label: soul ? `Soul ${SOUL_STAT_DETAILS[soul].label}` : rewardStatLabel(reward), camp: null,
+        alive: 0, total: 0, reward: { ...reward }, maxReward: reward.amount, hp: 0, nearest: Infinity, soul };
       choice.total++;
       if (!choice.kinds.includes(site.type)) choice.kinds.push(site.type);
-      choice.reward.amount = Math.min(choice.reward.amount, definition.reward.amount);
-      choice.maxReward = Math.max(choice.maxReward, definition.reward.amount);
+      choice.reward.amount = Math.min(choice.reward.amount, reward.amount);
+      choice.maxReward = Math.max(choice.maxReward, reward.amount);
       // The average enemy's health, for how long a kill takes.
       choice.hp += (definition.hp - choice.hp) / choice.total;
       counts.set(key, choice);
@@ -223,9 +229,12 @@ export function createAutoFarmController(options: {
     return [...counts.values()];
   }
 
-  /** A key saved before 0.873 named an enemy kind ("Bramble") or a generated camp ("Bramble:Health Camp"): its stat now. */
+  /**
+   * A key saved before 0.873 named an enemy kind ("Bramble") or a generated camp ("Bramble:Health Camp"): its stat now.
+   * A stat picked on a campaign map is its soul stat in the Soul Dimension, and back (carryFarmGroup).
+   */
   function normalizeKey(key: string) {
-    if (key.startsWith('stat:')) return key;
+    if (key.startsWith('stat:') || key.startsWith('soul:')) return carryFarmGroup(key, isSoulMap(options.mapId()));
     const [kind, camp] = key.split(':') as [EnemyKind, string?];
     const site = spawnSites.find(entry => entry.type === kind && (!camp || entry.campName === camp));
     return site ? choiceKey(site) : ENEMY_TYPES[kind] ? farmStatGroup(ENEMY_TYPES[kind].reward.type) : key;
@@ -414,7 +423,9 @@ export function createAutoFarmController(options: {
     const speed = Math.max(1, options.speed());
     const reach = weaponAttackRange(options.equippedWeapon?.(), player.attackRange);
     // A group that just killed the player is left alone while another has enemies.
-    const pool = all.some(entry => entry.alive > 0 && !died(entry.key)) ? all.filter(entry => !died(entry.key)) : all;
+    // Soul Crit Damage adds no power to weigh: it is farmed only when the player routes it.
+    const weighed = all.some(entry => entry.soul !== 'critDamage') ? all.filter(entry => entry.soul !== 'critDamage') : all;
+    const pool = weighed.some(entry => entry.alive > 0 && !died(entry.key)) ? weighed.filter(entry => !died(entry.key)) : weighed;
     const ranked = rankFarmCandidates(pool.map(entry => ({
       key: entry.key, alive: entry.alive,
       reward: entry.reward ?? ENEMY_TYPES[entry.type].reward,
@@ -531,7 +542,7 @@ export function createAutoFarmController(options: {
     startedMap = options.mapId();
     startedIdentity = options.localIdentity?.();
     pendingResume = null;
-    if (remember) writeFarmChoice(plan, options.priorityStorage);
+    if (remember) writeFarmChoice(plan, options.priorityStorage, options.mapId());
     if (startedIdentity) options.resumeStore?.write({ identity: startedIdentity, map: startedMap, choice: encodeFarmPlan(plan) });
     recovering = false;
     readySince = null;
@@ -752,8 +763,9 @@ export function createAutoFarmController(options: {
       push = next;
       writeFarmPush(next, options.priorityStorage);
     },
-    /** The route saved for this map, for the panel to show. */
-    savedPlan: () => readFarmChoice(options.mapId(), options.priorityStorage),
+    /** The route saved for this map, for the panel to show: a campaign pick shows as its soul stat in the Soul Dimension. */
+    savedPlan: () => readFarmChoice(options.mapId(), options.priorityStorage)
+      .map(entry => { const { key, weight } = routeEntry(entry); return routeEntryText(normalizeKey(key), weight); }),
     priority: () => priority,
     /**
      * The Target rule combat aims by: while farming (a pulled crowd too) and all

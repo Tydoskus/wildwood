@@ -97,6 +97,9 @@ type PlayerInterestArea = { left: number; top: number; right: number; bottom: nu
 
 type AutoFarmPuppetRow = { identity: Identity; mapId: string; group: string; camp: string; x: number; y: number; startedAt: { microsSinceUnixEpoch: bigint } };
 /** What the local player is autofarming, and the map's spawn sites, passed along with each movement frame. */
+/** A puppet's camps: a Soul Dimension farmer's soul group ("soul:armor") is every camp of that soul stat here. */
+const farmPuppetSites = (sites: readonly PuppetSite[], group: string, camp: string) =>
+  group.startsWith("soul:") ? sites.filter(site => site.campName.startsWith(`${group}:`)) : puppetSites(sites, group, camp);
 export type AutoFarmMovementContext = { group: string | null; camp: string | null; sites: readonly PuppetSite[] };
 type AutoFarmPuppet = { row: AutoFarmPuppetRow; plan: PuppetPlan; legs: PuppetLeg[] | null; sites: readonly PuppetSite[] | null };
 /** What is drawn for one remote player, kept from frame to frame so a change of source is walked, never jumped. */
@@ -826,7 +829,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     if (!puppet.legs || puppet.sites !== puppetSiteList) {
       puppet.sites = puppetSiteList;
       if (!(puppet.plan.speed > 0)) puppet.plan = { ...puppet.plan, speed: figures.get(identity)?.figure.speed ?? presentation.speed ?? PLAYER_SPEED };
-      puppet.legs = puppetLegs(puppet.plan, puppetSites(puppetSiteList, puppet.row.group, puppet.row.camp));
+      puppet.legs = puppetLegs(puppet.plan, farmPuppetSites(puppetSiteList, puppet.row.group, puppet.row.camp));
     }
     // A route that has run out carries on from where it ended, rather than standing there for good.
     for (let more = 0; more < 4 && puppet.legs.length; more += 1) {
@@ -834,7 +837,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       if (serverNow < puppet.plan.startedAtMs + lasts) break;
       const end = puppet.legs[puppet.legs.length - 1];
       puppet.plan = { ...puppet.plan, seed: `${puppet.plan.seed}+`, anchorX: end.x, anchorY: end.y, startedAtMs: puppet.plan.startedAtMs + lasts };
-      puppet.legs = puppetLegs(puppet.plan, puppetSites(puppetSiteList, puppet.row.group, puppet.row.camp));
+      puppet.legs = puppetLegs(puppet.plan, farmPuppetSites(puppetSiteList, puppet.row.group, puppet.row.camp));
     }
     const simulation = puppetPoseAt(puppet.plan, puppet.legs, serverNow - REGULAR_ENEMY_CONSENSUS_DELAY_MS);
     return { pose: puppetPoseAt(puppet.plan, puppet.legs, serverNow), simulationX: simulation.x, simulationY: simulation.y };
