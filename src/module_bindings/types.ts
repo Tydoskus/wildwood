@@ -2476,6 +2476,9 @@ export const ProceduralProgress = __t.object("ProceduralProgress", {
 });
 export type ProceduralProgress = __Infer<typeof ProceduralProgress>;
 
+export const ProfileSoulStats = __t.object("ProfileSoulStats", {});
+export type ProfileSoulStats = __Infer<typeof ProfileSoulStats>;
+
 export const PublicChatCursor = __t.object("PublicChatCursor", {
   id: __t.u8(),
   firstId: __t.u64(),

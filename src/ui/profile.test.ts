@@ -3,7 +3,7 @@ import { createEmptyResearchRanks } from "../../shared/research";
 import { FIRE_METAL_HELMET, FROST_ARMOR, FROST_BOW, STARTER_BOW, WOOD_FULL_HELM, WOODEN_ARMOR } from "../../shared/items";
 import { MIN_ATTACK_INTERVAL } from "../../shared/rules";
 import type { PlayerProgress } from "../wildstat-coop";
-import { effectiveProfileStats, profilePresenceText, profileStatDisplayRows } from "./profile";
+import { effectiveProfileStats, profilePower, profilePresenceText, profileSoulInPlay, profileStatDisplayRows } from "./profile";
 
 const progress = (equippedRightHand = "", equippedChest = ""): PlayerProgress => ({
   maxHp: 100,
@@ -339,4 +339,35 @@ it("adds the soul stats in play to each row's base, before the multipliers, and 
   expect(row(soul, "critical-damage").sources).toContainEqual({ label: "Soul", value: "+0.10×" });
   // None to add: the rows are as they were.
   expect(profileStatDisplayRows(profile, () => "0%", MIN_ATTACK_INTERVAL, undefined, 0, null, 1, null)).toEqual(plain);
+});
+
+describe("another player's soul stats", () => {
+  // Rendered as main.ts renders someone else's profile: their own row, through profileSoulInPlay.
+  const remote = (challenge: { prestige?: boolean; aggro?: boolean } = {}) => ({
+    identity: "friend", progress: { ...progress(), damage: 100, maxHp: 500, armor: 10, regen: 2 },
+    research: { ...createEmptyResearchRanks(), warcraft: 5 }, itemUpgradeLevels: {},
+    prestigeChallenge: { active: challenge.prestige ?? false, completed: 0 }, aggroChallenge: { active: challenge.aggro ?? false, completed: 0 },
+    soulStats: { damage: 50, maxHp: 200, armor: 0, regen: 0, attackSpeed: 0, critDamage: .1 },
+  }) as unknown as Parameters<typeof profileStatDisplayRows>[0];
+  const rows = (profile: ReturnType<typeof remote>) => profileStatDisplayRows(profile, () => "0%", MIN_ATTACK_INTERVAL, profile.research,
+    profile.prestigeLevel ?? 0, profile.prestigePerks, 1, profileSoulInPlay(profile));
+  const row = (list: ReturnType<typeof rows>, kind: string) => list.find(entry => entry.kind === kind)!;
+  const withoutSoul = (profile: ReturnType<typeof remote>) => ({ ...profile, soulStats: null });
+
+  it("counts in each row's base, its Soul source line, crit damage and power", () => {
+    const profile = remote(), list = rows(profile);
+    expect(row(list, "damage")).toMatchObject({ base: "150", total: "165" });
+    expect(row(list, "damage").sources).toContainEqual({ label: "Soul", value: "+50" });
+    expect(row(list, "health")).toMatchObject({ base: "700" });
+    expect(row(list, "critical-damage").sources).toContainEqual({ label: "Soul", value: "+0.10×" });
+    expect(profilePower(profile, profileSoulInPlay(profile))).toBeGreaterThan(profilePower(withoutSoul(profile), profileSoulInPlay(withoutSoul(profile))));
+  });
+
+  it.each([["Reflect Only", { prestige: true }], ["Aggro", { aggro: true }]])("counts for nothing while their %s challenge is active, as in combat", (_name, challenge) => {
+    const profile = remote(challenge);
+    expect(profileSoulInPlay(profile)).toBeNull();
+    expect(rows(profile)).toEqual(rows(withoutSoul(profile)));
+    expect(row(rows(profile), "damage").sources.some(source => source.label === "Soul")).toBe(false);
+    expect(profilePower(profile, profileSoulInPlay(profile))).toBe(profilePower(withoutSoul(profile)));
+  });
 });

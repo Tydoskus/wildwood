@@ -111,7 +111,7 @@ import { createInventoryController } from "./ui/inventory-controller";
 import { createItemInspectionController, itemStatsWithBowSkills } from "./ui/item-inspection-controller";
 import { createUpgradeBenchController } from "./ui/upgrade-bench-controller";
 import { createProfileWindowController } from "./ui/profile-window-controller";
-import { formatPlayedTime, profilePower, profilePresenceText, renderProfileStats } from "./ui/profile";
+import { formatPlayedTime, profilePower, profilePresenceText, profileSoulInPlay, renderProfileStats } from "./ui/profile";
 import { campaignMapUnlocked, equipmentMapRequirement } from "../shared/equipment-access";
 import { createAppShellController } from "./ui/app-shell-controller";
 import { createStartupController } from "./ui/startup-controller";
@@ -1217,8 +1217,8 @@ import {
       profile.identity === coop?.localIdentity?.() ? (coop?.aggroChallenge?.()?.active ? 0 : coop?.prestige?.()?.level ?? 0) : profile.prestigeLevel ?? 0,
       profile.identity === coop?.localIdentity?.() ? coop?.prestigePerks?.() : profile.prestigePerks,
       profile.identity === coop?.localIdentity?.() ? coop?.dailyQuests?.()?.bonus ?? 1 : 1,
-      profile.identity === coop?.localIdentity?.() ? soulDimension.inPlay() : null),
-    formatPower: (profile) => formatCompactNumber(profilePower(profile, profile.identity === coop?.localIdentity?.() ? soulDimension.inPlay() : null)), formatPlayedTime,
+      profile.identity === coop?.localIdentity?.() ? soulDimension.inPlay() : profileSoulInPlay(profile)),
+    formatPower: (profile) => formatCompactNumber(profilePower(profile, profile.identity === coop?.localIdentity?.() ? soulDimension.inPlay() : profileSoulInPlay(profile))), formatPlayedTime,
     profile: (identity) => coop?.playerProfile?.(identity), loadProfile: async (identity) => coop?.loadPlayerProfile?.(identity), releaseProfile: () => { coop?.releasePlayerProfile?.(); },
     isDueling, duelCooldownMs: () => coop?.duelCooldownRemainingMs?.() ?? 0,
     requestDuel: async (identity) => {

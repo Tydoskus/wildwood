@@ -86,6 +86,14 @@ export function slotUpgradeLevelFor(itemUpgradeLevels: Record<string, number>, i
   return itemUpgradeLevels[upgradeSlotForItem(itemId) ?? ""] ?? 0;
 }
 
+/**
+ * Another player's soul stats in play, as combat counts them: all of them in a normal run, none while
+ * their challenge (Reflect Only or Aggro) is active. The local player uses the Soul Dimension runtime's own.
+ */
+export function profileSoulInPlay(profile: PlayerProfileData): SoulStats | null {
+  return profile.prestigeChallenge?.active || profile.aggroChallenge?.active ? null : profile.soulStats ?? null;
+}
+
 /** The profile's power, with the soul stats in play added as combat adds them. */
 export function profilePower(profile: PlayerProfileData, soul: Partial<SoulStats> | null = null) {
   return effectivePlayerPower(

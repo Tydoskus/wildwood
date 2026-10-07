@@ -147,6 +147,8 @@ export type PlayerProfileData = {
   aggroChallenge?: import("../../shared/aggro-challenge").AggroChallenge;
   prestigeLevel?: number;
   prestigePerks?: Partial<import("../../shared/prestige-perks").PrestigePerkRanks>;
+  /** Their soul stats as the server holds them (profile_soul_stats), null with none; the profile drops them during a challenge. */
+  soulStats?: import("../../shared/soul-dimension").SoulStats | null;
   identity: string;
   name: string;
   gender: PlayerGender;

@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.8": [
+    "Other players' profiles include their soul stats",
+  ],
   "0.901.7": [
     "Autofarm: pips are gone. Pick Custom and set each stat's slider (0–200%) for its share of farming time",
   ],
@@ -2984,6 +2987,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.8": "2026-10-07",
   "0.901.7": "2026-10-07",
   "0.901.6": "2026-10-07",
   "0.901.5": "2026-10-07",

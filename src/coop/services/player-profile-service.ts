@@ -5,6 +5,7 @@ import { GLOBAL_LEADERBOARD_PRESTIGE, type LeaderboardStat, type PrestigeLeaderb
 import { Identity } from "spacetimedb";
 import { tables, type DbConnection } from "../../module_bindings";
 import { createEmptyResearchRanks } from "../../../shared/research";
+import { cleanSoulStats } from "../../../shared/soul-dimension";
 import { normalizePlayerGender } from "../../../shared/player-gender";
 import { resolvePlayerPresenceMap } from "./profile-presence";
 import { withWideProgress } from "./wide-progress";
@@ -107,6 +108,7 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
         return { keenEdge: row?.keenEdge ?? 0, doubleStrike: row?.doubleStrike ?? 0, splitShot: row?.splitShot ?? 0, riposte: row?.riposte ?? 0,
           bossSlayer: expansion?.bossSlayer ?? 0, secondWind: expansion?.secondWind ?? 0, longShot: expansion?.longShot ?? 0, fleetFoot: expansion?.fleetFoot ?? 0 };
       })(),
+      soulStats: (() => { const row = [...(dependencies.connection()?.db.profileSoulStats?.iter() ?? [])].find(row => row.identity.toHexString() === identity); return row ? cleanSoulStats(row) : null; })(),
       name: dependencies.directory.nameFor(identity) ?? "PLAYER",
       gender: dependencies.directory.genderFor(identity),
       progress: { ...progress },
@@ -250,6 +252,7 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
           tables.playerPrestigeChallenge.where(row => row.identity.eq(dbIdentity)),
           tables.playerAggroChallenge.where(row => row.identity.eq(dbIdentity)),
           tables.playerPrestigeExpansionPerk.where(row => row.identity.eq(dbIdentity)),
+          tables.profileSoulStats.where(row => row.identity.eq(dbIdentity)),
           tables.playerItemUpgrade.where((upgrade) => upgrade.identity.eq(dbIdentity)),
           tables.player.where((player) => player.identity.eq(dbIdentity)),
         ]);

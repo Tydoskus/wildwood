@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { Timestamp } from "spacetimedb";
+import { Identity, Timestamp } from "spacetimedb";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { fillDefeatBudget, reportKills } from "../../tests/helpers/enemy-defeat";
 import { STARTER_BOW } from "../../shared/items";
@@ -112,4 +112,17 @@ it("is where Fight goes back to in the main run, never in a challenge run, whose
     expect(me().mapId).toBe(SOUL_MAP_ID);
     f.run(server.changeMap, { mapId: "town", ...SOUL_ARRIVAL });
   }
+});
+
+it("shows every player's soul stats to profiles, through an anonymous view that needs no sender", () => {
+  const f = soulReady({ kills: 25 });
+  soulKills(f, [{ enemy: "soul:damage", count: 5 }]);
+  const other = new Identity(2n);
+  f.seed("playerSoulStats", { identity: other, damage: 0, maxHp: 12, armor: 3, regen: 0, attackSpeed: 0, critDamage: .2, kills: 13n });
+  const rows = server.profileSoulStats({ db: f.db } as never) as any[];
+  expect(rows).toHaveLength(2);
+  expect(rows.find(row => row.identity.isEqual(f.ctx.sender))).toMatchObject({ damage: 5, kills: 5n });
+  expect(rows.find(row => row.identity.isEqual(other))).toMatchObject({ maxHp: 12, armor: 3, critDamage: .2, kills: 13n });
+  // The owner's own view is unchanged: one row, theirs.
+  expect(server.mySoulStats(f.ctx)).toEqual([f.db.playerSoulStats.identity.find(f.ctx.sender)]);
 });

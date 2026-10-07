@@ -375,6 +375,7 @@ import PrismshellBossRow from "./prismshell_boss_table";
 import PrismshellResultRow from "./prismshell_result_table";
 import ProceduralBossRow from "./procedural_boss_table";
 import ProceduralProgressRow from "./procedural_progress_table";
+import ProfileSoulStatsRow from "./profile_soul_stats_table";
 import ReleaseNoticeRow from "./release_notice_table";
 import SocialDuelMessageRow from "./social_duel_message_table";
 import SoulDimensionConfigRow from "./soul_dimension_config_table";
@@ -1629,6 +1630,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, PatreonTickerSupportersRow),
+  profileSoulStats: __table({
+    name: 'profile_soul_stats',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, ProfileSoulStatsRow),
 });
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */

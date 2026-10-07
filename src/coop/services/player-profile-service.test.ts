@@ -4,20 +4,20 @@ import { createPlayerProfileService } from "./player-profile-service";
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 function fixture() {
   vi.stubGlobal("window", globalThis);
-  const subscriptions: Array<{ apply: () => void; unsubscribe: ReturnType<typeof vi.fn> }> = [];
+  const subscriptions: Array<{ apply: () => void; unsubscribe: ReturnType<typeof vi.fn>; queries: unknown[] }> = [];
   const presenceEvents = { insert: new Set<Function>(), update: new Set<Function>(), remove: new Set<Function>() };
   const connection = {
     isActive: true,
     procedures: { getPrestigeLeaderboardPage: vi.fn() },
-    db: Object.fromEntries(["playerPrestige", "playerPrestigePerk", "playerPrestigeExpansionPerk", "playerPrestigeChallenge", "playerChatHearts", "playerProgress", "playerLifetime", "playerResearch", "playerItemUpgrade", "playerProfile", "playerAccountStatus", "player"].map(name => [name, { iter: () => [] }])),
+    db: Object.fromEntries(["playerPrestige", "playerPrestigePerk", "playerPrestigeExpansionPerk", "playerPrestigeChallenge", "playerChatHearts", "playerProgress", "playerLifetime", "playerResearch", "playerItemUpgrade", "playerProfile", "playerAccountStatus", "player", "profileSoulStats"].map(name => [name, { iter: () => [] }])),
     subscriptionBuilder() {
       let applied = () => {}, ready = false;
       const unsubscribe = vi.fn(() => { if (!ready) throw new Error("Cannot unsubscribe pending"); });
       const builder = {
         onApplied(callback: () => void) { applied = callback; return builder; },
         onError() { return builder; },
-        subscribe() {
-          subscriptions.push({ apply() { ready = true; applied(); }, unsubscribe });
+        subscribe(queries: unknown[]) {
+          subscriptions.push({ apply() { ready = true; applied(); }, unsubscribe, queries });
           return { unsubscribe, isActive: () => ready, isEnded: () => false };
         },
       };
@@ -130,4 +130,28 @@ it("loads remote prestige, perks and slot tiers despite already cached base stat
   f.progression.tables.upsertItemUpgrade.mockImplementation(() => { f.progression.upgradeLevelsFor.mockReturnValue({ HAND: 7 }); });
   f.subscriptions[0].apply();
   expect(await request).toMatchObject({ prestigeLevel: 3, prestigePerks: { keenEdge: 2, fleetFoot: 3, longShot: 2 }, itemUpgradeLevels: { HAND: 7 } });
+});
+
+it("attaches the inspected player's soul stats, read from their row of profile_soul_stats", async () => {
+  const f = fixture(), identity = new Identity("1".repeat(64)), hex = identity.toHexString();
+  f.progression.progressFor.mockReturnValue({ damage: 10 });
+  f.progression.lifetimeFor.mockReturnValue({ enemyKills: 5 });
+  const request = f.service.api.loadPlayerProfile(hex);
+  const sql = f.subscriptions[0].queries.map(query => (query as { toSql(): string }).toSql());
+  expect(sql.find(text => text.includes("profile_soul_stats"))).toMatch(/WHERE .*identity.* = 0x1{64}/);
+  f.connection.db.profileSoulStats.iter = () => [
+    { identity: new Identity("2".repeat(64)), damage: 99, maxHp: 99, armor: 99, regen: 99, attackSpeed: 9, critDamage: 9, kills: 999n },
+    { identity, damage: 4, maxHp: 12, armor: 2, regen: .5, attackSpeed: .25, critDamage: .1, kills: 40n },
+  ] as never;
+  f.subscriptions[0].apply();
+  expect((await request)?.soulStats).toEqual({ damage: 4, maxHp: 12, armor: 2, regen: .5, attackSpeed: .25, critDamage: .1 });
+});
+
+it("gives a player with no soul stats none", async () => {
+  const f = fixture(), hex = new Identity("1".repeat(64)).toHexString();
+  f.progression.progressFor.mockReturnValue({ damage: 10 });
+  f.progression.lifetimeFor.mockReturnValue({ enemyKills: 5 });
+  const request = f.service.api.loadPlayerProfile(hex);
+  f.subscriptions[0].apply();
+  expect((await request)?.soulStats).toBeNull();
 });

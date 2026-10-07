@@ -5547,7 +5547,7 @@ export const startPrestigeChallenge = spacetimedb.reducer({}, ctx => prestige.ch
 export const abandonPrestigeChallenge = spacetimedb.reducer({}, ctx => prestige.changeChallenge(ctx, false));
 export const { startAggroRun, abandonAggroRun } = registerAggroReducers(spacetimedb, { requireControllingPlayer, activeDuelFor, startFreshRun, respawnWithProgress });
 export const { setAutoFarmPuppet } = registerAutoFarmPuppetReducers(spacetimedb, { blockedSession, requireControllingPlayer, playerWithMotion });
-export const { mySoulStats, myRewardKills, setSoulDimensionOpen } = registerSoulDimension(spacetimedb, { requireDeveloper });
+export const { mySoulStats, myRewardKills, profileSoulStats, setSoulDimensionOpen } = registerSoulDimension(spacetimedb, { requireDeveloper });
 export const { fallIntoWell, useTownDoor } = registerTown(spacetimedb, { requireControllingPlayer, playerWithMotion, transitionPlayerMap });
 export const prestigeAccount = spacetimedb.reducer({}, (ctx) => { prestige.prestigeAccount(ctx); });
 export const spendPrestigePerkPoint = spacetimedb.reducer({ perk: t.string() },

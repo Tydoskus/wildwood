@@ -15,7 +15,8 @@ import {
  * - player_reward_kills counts every campaign and Endless kill by its reward
  *   type, for everyone, from the release that adds it: tiers read it, and it
  *   fills while the dimension is still closed, so it is ready when it opens.
- * - player_soul_stats holds what soul enemies paid. Nothing resets it.
+ * - player_soul_stats holds what soul enemies paid. Nothing resets it. Private: the
+ *   owner reads it through my_soul_stats, profiles through profile_soul_stats.
  * - soul_dimension_config is the switch: closed, only the developer can
  *   travel there; open, anyone who has prestiged can.
  */
@@ -173,6 +174,13 @@ export function registerSoulDimension(spacetimedb: typeof spacetimedbType, deps:
     const row = ctx.db.playerRewardKills.identity.find(ctx.sender);
     return row ? [row] : [];
   });
+  /**
+   * Every player's soul stats, for profiles: a client subscribes to the one row of the player it inspects
+   * (WHERE identity = ...). Anonymous, so it is computed once for all subscribers, not once per viewer. It
+   * gives the stats as they are; the profile drops them while that player's challenge is active, as combat does.
+   */
+  const profileSoulStats = spacetimedb.anonymousView({ name: "profile_soul_stats", public: true }, t.array(playerSoulStats.rowType),
+    (ctx: any) => [...ctx.db.playerSoulStats.iter()]);
   /** The developer's switch: open the Soul Dimension to everyone who has prestiged, or close it again. */
   const setSoulDimensionOpen = spacetimedb.reducer({ open: t.bool() }, (ctx, { open }) => {
     deps.requireDeveloper(ctx, "set_soul_dimension_open");
@@ -180,7 +188,7 @@ export function registerSoulDimension(spacetimedb: typeof spacetimedbType, deps:
     if (row) ctx.db.soulDimensionConfig.id.update({ id: 0, open });
     else ctx.db.soulDimensionConfig.insert({ id: 0, open });
   });
-  return { mySoulStats, myRewardKills, setSoulDimensionOpen };
+  return { mySoulStats, myRewardKills, profileSoulStats, setSoulDimensionOpen };
 }
 
 export function requireSoulDimensionOpen(ctx: any) {
