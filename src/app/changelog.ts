@@ -1,5 +1,6 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.899.16": [
+    "The Inspiration Update",
     "Every guild has its own Guild Hall: a courtyard and a great hall with your guild's crest",
     "Sit at the great table with your guildmates: stand still by a stool",
     "Guild quest points fill the Hall Fund; the President and Vice Presidents buy upgrades on the board inside",
