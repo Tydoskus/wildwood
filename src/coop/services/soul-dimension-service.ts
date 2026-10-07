@@ -24,7 +24,8 @@ export function createSoulDimensionRows(connection: () => DbConnection | null, n
         damage: Number(killRow.damage), health: Number(killRow.health), armor: Number(killRow.armor),
         regen: Number(killRow.regen), speed: Number(killRow.speed),
       } : { ...EMPTY_REWARD_KILLS };
-      open = Boolean(current.db.soulDimensionConfig.id.find(0)?.open);
+      // Open unless the developer's switch has closed it: no row is open.
+      open = current.db.soulDimensionConfig.id.find(0)?.open ?? true;
       notify();
     };
     current.db.mySoulStats.onInsert(read); current.db.mySoulStats.onUpdate(read); current.db.mySoulStats.onDelete(read);

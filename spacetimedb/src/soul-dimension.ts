@@ -46,8 +46,9 @@ export const soulDimensionTables = { playerRewardKills, playerSoulStats, soulDim
 
 const identityHex = (identity: any) => identity?.toHexString?.() ?? "";
 
+/** Open to every prestiged player unless the developer's switch has closed it (no row: open). */
 export function soulDimensionOpen(ctx: any) {
-  return Boolean(ctx.db.soulDimensionConfig.id.find(0)?.open);
+  return ctx.db.soulDimensionConfig.id.find(0)?.open ?? true;
 }
 /** Whether this player may be in the Soul Dimension right now. */
 export function soulDimensionOpenFor(ctx: any, identity: any) {

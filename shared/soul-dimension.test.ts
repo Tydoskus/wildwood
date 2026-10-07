@@ -35,7 +35,7 @@ describe("soul stats", () => {
     let soul = addSoulKills(null, "damage", 10);
     soul = addSoulKills(soul, "health", 3);
     soul = addSoulKills(soul, "critDamage", 5);
-    expect(soul.damage).toBeCloseTo(1);
+    expect(soul.damage).toBe(10);
     expect(soul.maxHp).toBe(3);
     expect(soul.critDamage).toBeCloseTo(.01);
   });

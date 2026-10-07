@@ -40,7 +40,7 @@ export type SoulStatId = "damage" | "health" | "armor" | "regen" | "attackSpeed"
 /** Tier order: each tier adds the next of these to the soul enemies that spawn. */
 export const SOUL_STAT_ORDER: readonly SoulStatId[] = ["damage", "health", "armor", "regen", "attackSpeed", "critDamage"];
 export const SOUL_STAT_DETAILS: Readonly<Record<SoulStatId, { label: string; short: string; reward: number; color: string }>> = {
-  damage: { label: "Damage", short: "Dmg", reward: .1, color: "#ff8a7a" },
+  damage: { label: "Damage", short: "Dmg", reward: 1, color: "#ff8a7a" },
   health: { label: "Health", short: "HP", reward: 1, color: "#7ee08a" },
   armor: { label: "Armor", short: "Armor", reward: 1, color: "#9cc3ff" },
   regen: { label: "Regen", short: "Regen", reward: .1, color: "#7fe8d8" },

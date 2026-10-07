@@ -9,7 +9,8 @@ vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module
 function soulReady(options: { open?: boolean; prestige?: number; kills?: number } = {}) {
   const f = crystalFixture();
   f.patch("playerProgress", { equippedRightHand: STARTER_BOW, inventoryJson: '["starter_bow"]', damage: 1_000 });
-  if (options.open ?? true) f.seed("soulDimensionConfig", { id: 0, open: true });
+  // No row is open; a row the developer switched off closes it.
+  if (options.open === false) f.seed("soulDimensionConfig", { id: 0, open: false });
   if (options.prestige ?? 1) f.seed("playerPrestige", { identity: f.ctx.sender, level: options.prestige ?? 1, perkPoints: 0, peakPower: 0, prestigedAt: new Timestamp(0n) });
   const kills = BigInt(options.kills ?? 25);
   f.seed("playerRewardKills", { identity: f.ctx.sender, damage: kills, health: kills, armor: kills, regen: kills, speed: kills });
@@ -38,7 +39,7 @@ it("pays soul stats for the soul enemies a tier has woken, and nothing for the r
   const f = soulReady({ kills: 25 });
   soulKills(f, [{ enemy: "soul:damage", count: 5 }, { enemy: "soul:health", count: 3 }]);
   const soul = f.db.playerSoulStats.identity.find(f.ctx.sender);
-  expect(soul.damage).toBeCloseTo(.5);
+  expect(soul.damage).toBe(5);
   expect(soul.maxHp).toBe(0);
   expect(soul.kills).toBe(5n);
 });

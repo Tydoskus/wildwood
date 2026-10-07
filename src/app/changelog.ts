@@ -5,6 +5,9 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "Guild quest points fill the Hall Fund; the President and Vice Presidents buy upgrades on the board inside",
     "Seven hall upgrades: a longer table, a bigger hall, banners, a hearth, a trophy wall, lanterns and a garden",
     "Enter from Home's travel portal or the Guild Hall button in the Guild window",
+    "The Soul Dimension is open: prestige once, then take the portal at the south end of Home",
+    "Soul enemies give permanent Soul Stats that never reset; Soul Damage enemies give +1 Damage",
+    "Soul Dimension tiers wake new soul enemies as you kill each enemy type in the campaign or Endless",
   ],
   "0.899.15": [
     "Moonfen and Verdant Catacombs mushrooms have new art",
