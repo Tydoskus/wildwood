@@ -2,7 +2,8 @@ import { ONBOARDING_MAP_ID, ONBOARDING_ART_OFFSET } from "../../shared/onboardin
 import { isProceduralMap, type ProceduralMapId } from "../../shared/procedural-maps";
 import { isSoulMap, type SoulMapId } from "../../shared/soul-dimension";
 import { isGuildHallMap, type GuildHallMapId } from "../../shared/guild-hall";
-import { soulWorldLayout } from "./soul-world";
+import { townWorldLayout } from "./town-world";
+import { isTownMap, type TownMapId } from "../../shared/town";
 import { generatedMapContent } from "./procedural-maps";
 import { createIonCitadelLayout } from "./ion-layout";
 import { createVerdantCatacombsLayout } from "./verdant-layout";
@@ -87,6 +88,7 @@ export type MapId =
   | SoulMapId
   | ProceduralMapId
   | GuildHallMapId
+  | TownMapId
   | typeof HOME_EXTERIOR_MAP_ID
   | typeof TUTORIAL_FOREST_MAP_ID
   | typeof BEGINNER_DESERT_MAP_ID
@@ -609,7 +611,9 @@ export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FO
     ] as WorldDecor[],
   };
   if (isProceduralMap(mapId)) { const content = generatedMapContent(mapId); return { paths: content.map.paths, decor: content.decor }; }
-  if (isSoulMap(mapId)) return soulWorldLayout(playerSpawn.x, playerSpawn.y);
+  if (isTownMap(mapId)) return townWorldLayout(playerSpawn.x, playerSpawn.y);
+  // The Soul Dimension is Tutorial Forest's dark mirror: its paths and trees, in the dark (map-design.ts).
+  if (isSoulMap(mapId)) return createWorldLayout(playerSpawn, TUTORIAL_FOREST_MAP_ID);
   // A guild hall's decor follows its upgrades (guild-hall-runtime.ts); its ground is baked art.
   if (isGuildHallMap(mapId)) return { decor: [], paths: [] };
   const saved = savedMapDesign(mapId);
@@ -690,8 +694,8 @@ export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FO
 }
 
 export function mapSpawnCamps(mapId: MapId = TUTORIAL_FOREST_MAP_ID): readonly SpawnCamp[] {
-  // The Soul Dimension's camps come and go with the player (soul-dimension-runtime.ts).
-  if (mapId === HOME_EXTERIOR_MAP_ID || mapId === ONBOARDING_MAP_ID || isSoulMap(mapId) || isGuildHallMap(mapId)) return [];
+  // The Soul Dimension fills the forest's camps with each player's own (soul-dimension-runtime.ts).
+  if (mapId === HOME_EXTERIOR_MAP_ID || mapId === ONBOARDING_MAP_ID || isSoulMap(mapId) || isGuildHallMap(mapId) || isTownMap(mapId)) return [];
   if (isProceduralMap(mapId)) return generatedMapContent(mapId).camps;
   const saved = savedMapDesign(mapId);
   if (saved?.spawnCamps.length) return saved.spawnCamps.map((camp) => ({ ...camp, types: [...camp.types] }));
@@ -719,7 +723,7 @@ export function mapSpawnCamps(mapId: MapId = TUTORIAL_FOREST_MAP_ID): readonly S
 /** `_boss` is kept for callers: regions are laid out clear of the boss, so nothing is pushed from it any more. */
 export function createSpawnSites(_boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID): SpawnSite[] {
   if (isProceduralMap(mapId)) return generatedMapContent(mapId).sites;
-  if (mapId === HOME_EXTERIOR_MAP_ID || mapId === ONBOARDING_MAP_ID || isSoulMap(mapId) || isGuildHallMap(mapId)) return [];
+  if (mapId === HOME_EXTERIOR_MAP_ID || mapId === ONBOARDING_MAP_ID || isSoulMap(mapId) || isGuildHallMap(mapId) || isTownMap(mapId)) return [];
   const sites: SpawnSite[] = [];
   const camps = mapSpawnCamps(mapId);
   assertCampContracts(camps);

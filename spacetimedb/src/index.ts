@@ -76,9 +76,10 @@ import { allowedAvatarFrame, isAvatarFrame } from "../../shared/avatar-frames";
 import { createGemPurchaseService } from "./gem-purchase-service";
 import { rescaleEndgameProgress } from "../../shared/endgame-power-rescale";
 import { CAMPAIGN_UNLOCK_FIELDS, equipmentMapRequirement } from "../../shared/equipment-access";
-import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_TRAVEL_PORTAL, HOME_BENCH_POSITION, HOME_SOUL_PORTAL } from "../../shared/home";
+import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN, HOME_TRAVEL_PORTAL, HOME_BENCH_POSITION } from "../../shared/home";
+import { isTownMap, registerTown, TOWN_ARRIVAL, TOWN_SOUL_PORTAL, TOWN_TRAVEL_PORTAL } from "./town";
 import { enterGuildHall, guildHallMember, memberEnteredWorld, guildHallMemberLeft, guildHallTables, isGuildHallMap, registerGuildHall } from "./guild-hall";
-import { isSoulMap, noteEnemyDefeats, registerSoulDimension, requireSoulDimensionOpen, soulDimensionOpenFor, soulDimensionTables, soulStatsFor, SOUL_ARRIVAL, wideMotionMap, withSoulStats, worldBoundsFor } from "./soul-dimension";
+import { isSoulMap, noteEnemyDefeats, registerSoulDimension, requireSoulDimensionOpen, soulDimensionOpenFor, soulDimensionTables, soulStatsFor, SOUL_ARRIVAL, SOUL_TOWN_PORTAL, wideMotionMap, withSoulStats, worldBoundsFor } from "./soul-dimension";
 import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./snapshot-row-writes";
 import { compressLegacyMapPower } from "../../shared/map-power-rescale";
 import { createPlayerMotionFrameSampler } from "../../shared/player-motion-sample";
@@ -239,7 +240,7 @@ const LEGACY_CLIENT_ERRORS = {
 } as const;
 
 const WORLD = { width: WORLD_WIDTH, height: WORLD_HEIGHT };
-const VALID_MAP_IDS = { has: (id: string) => MAP_IDS.includes(id) || id === HOME_EXTERIOR_MAP_ID || isProceduralMap(id) || isSoulMap(id) || isGuildHallMap(id) };
+const VALID_MAP_IDS = { has: (id: string) => MAP_IDS.includes(id) || id === HOME_EXTERIOR_MAP_ID || isProceduralMap(id) || isSoulMap(id) || isGuildHallMap(id) || isTownMap(id) };
 const LEGACY_FROSTWIND_EXPANSE_MAP_ID = "frostwind_expanse";
 
 function canonicalMapId(mapId: string) {
@@ -5545,7 +5546,8 @@ export const startPrestigeChallenge = spacetimedb.reducer({}, ctx => prestige.ch
 export const abandonPrestigeChallenge = spacetimedb.reducer({}, ctx => prestige.changeChallenge(ctx, false));
 export const { startAggroRun, abandonAggroRun } = registerAggroReducers(spacetimedb, { requireControllingPlayer, activeDuelFor, startFreshRun, respawnWithProgress });
 export const { setAutoFarmPuppet } = registerAutoFarmPuppetReducers(spacetimedb, { blockedSession, requireControllingPlayer, playerWithMotion });
-export const { mySoulStats, myRewardKills, setSoulDimensionOpen, fallIntoWell, useSoulDoor } = registerSoulDimension(spacetimedb, { requireDeveloper, requireControllingPlayer, playerWithMotion, transitionPlayerMap });
+export const { mySoulStats, myRewardKills, setSoulDimensionOpen } = registerSoulDimension(spacetimedb, { requireDeveloper });
+export const { fallIntoWell, useTownDoor } = registerTown(spacetimedb, { requireControllingPlayer, playerWithMotion, transitionPlayerMap });
 export const prestigeAccount = spacetimedb.reducer({}, (ctx) => { prestige.prestigeAccount(ctx); });
 export const spendPrestigePerkPoint = spacetimedb.reducer({ perk: t.string() },
   (ctx, { perk }) => { prestige.spendPerkPoint(ctx, perk); });
@@ -5837,7 +5839,7 @@ export const changeMap = spacetimedb.reducer(
       } else {
         if (![x, y].every(Number.isFinite) || x < PLAYER_RADIUS || y < PLAYER_RADIUS || x > worldBoundsFor(current.mapId).width - PLAYER_RADIUS || y > worldBoundsFor(current.mapId).height - PLAYER_RADIUS) throw new SenderError("Invalid teleport position.");
         const saved = { identity: ctx.sender, mapId: current.mapId, x, y, facing: current.facing };
-        if (isGuildHallMap(current.mapId)) { /* "Fight" from Home still goes back to where the fighting was */ } else if (ctx.db.homeReturnLocation.identity.find(ctx.sender)) ctx.db.homeReturnLocation.identity.update(saved);
+        if (isGuildHallMap(current.mapId) || isTownMap(current.mapId)) { /* "Fight" from Home still goes back to where the fighting was */ } else if (ctx.db.homeReturnLocation.identity.find(ctx.sender)) ctx.db.homeReturnLocation.identity.update(saved);
         else ctx.db.homeReturnLocation.insert(saved);
         transitionPlayerMap(ctx, current, HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN);
       }
@@ -5862,10 +5864,11 @@ export const changeMap = spacetimedb.reducer(
       Boolean(currentProgress && (currentProgress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS[PROCEDURAL_ENTRY_BOSS])))) {
       throw new SenderError("Defeat the previous map's boss first.");
     }
-    // Home's travel portal reaches every map the checks above allow, from beside the pad.
-    const sourcePortals = current.mapId === HOME_EXTERIOR_MAP_ID
-      ? [{ ...HOME_TRAVEL_PORTAL, y: HOME_TRAVEL_PORTAL.y - HOME_TRAVEL_PORTAL.height * .32, destination: mapId },
-        { ...HOME_SOUL_PORTAL, y: HOME_SOUL_PORTAL.y - HOME_SOUL_PORTAL.height * .32 }]
+    // The Town's travel portal (and, for tabs from before the Town, Home's pad) reaches every map the checks above allow.
+    const usePoint = (portal: { x: number; y: number; height: number }, destination: string) => ({ x: portal.x, y: portal.y - portal.height * .32, destination });
+    const sourcePortals = current.mapId === HOME_EXTERIOR_MAP_ID ? [usePoint(HOME_TRAVEL_PORTAL, isSoulMap(mapId) ? "" : mapId)]
+      : isTownMap(current.mapId) ? [usePoint(TOWN_TRAVEL_PORTAL, mapId), usePoint(TOWN_SOUL_PORTAL, TOWN_SOUL_PORTAL.destination)]
+      : isSoulMap(current.mapId) ? [usePoint(SOUL_TOWN_PORTAL, SOUL_TOWN_PORTAL.destination)]
       : isProceduralMap(current.mapId)
       ? generateMap(current.mapId).portals.map(portal => ({ ...portal, y:portal.y-portal.height*.32 }))
       : [...(MAP_PORTALS[current.mapId as keyof typeof MAP_PORTALS] ?? []),
@@ -5878,7 +5881,7 @@ export const changeMap = spacetimedb.reducer(
     const portalDistance = Math.hypot(x - sourcePortal.x, y - sourcePortal.y);
     if (portalDistance > MAP_PORTAL_USE_RANGE) throw new SenderError("Move closer to the portal.");
 
-    const arrival = isProceduralMap(mapId) ? generateMap(mapId).arrival : isSoulMap(mapId) ? SOUL_ARRIVAL : MAP_ARRIVALS[mapId as keyof typeof MAP_ARRIVALS];
+    const arrival = isProceduralMap(mapId) ? generateMap(mapId).arrival : isSoulMap(mapId) ? SOUL_ARRIVAL : isTownMap(mapId) ? TOWN_ARRIVAL : MAP_ARRIVALS[mapId as keyof typeof MAP_ARRIVALS];
     transitionPlayerMap(ctx, current, mapId, arrival);
   },
 );

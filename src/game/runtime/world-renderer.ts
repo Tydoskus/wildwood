@@ -1,6 +1,7 @@
 import { SOUL_VILLAGE_GROUND } from "../soul-village";
 import { WORLD_WIDTH } from "../../../shared/rules";
-import { inSoulInteriors, isSoulMap, SOUL_DOORS, SOUL_INTERIOR_MARGIN, SOUL_STAT_DETAILS } from "../../../shared/soul-dimension";
+import { isSoulMap, SOUL_STAT_DETAILS } from "../../../shared/soul-dimension";
+import { inTownInteriors, isTownMap, TOWN_DOORS, TOWN_INTERIOR_MARGIN, TOWN_WALK_AREA } from "../../../shared/town";
 import { soulStatOfCampName } from "../soul-world";
 import { residentDrawable } from "./resident-image";
 import { drawHomeCourtyard, drawHomeQuestBoard, drawHomeResearchDesk, drawHomeStationSign } from "./home-courtyard";
@@ -43,8 +44,8 @@ type LavaRockDecor = Extract<WorldDecor, { type: "lavaRock" }>;
 type CharredTreeDecor = Extract<WorldDecor, { type: "charredTree" }>;
 
 const STATIC_TILE_SIZE = 640;
-/** The Soul Dimension's minimap: a campaign map's 4,800 square, following the player. */
-const SOUL_MINIMAP_SPAN = WORLD_WIDTH;
+/** The minimap inside the Town's rooms: a campaign map's 4,800 square, following the player. */
+const TOWN_ROOMS_MINIMAP_SPAN = WORLD_WIDTH;
 function soulMarkerColor(enemy: EnemyState) {
   const stat = soulStatOfCampName(enemy.campName);
   return stat ? SOUL_STAT_DETAILS[stat].color : null;
@@ -642,7 +643,8 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     if (mapId === SAMURAI_GARDEN_MAP_ID) {
       return { spritesheet: options.cherryTreeSpritesheet, bounds: options.cherryTreeSpriteBounds() };
     }
-    if (mapId === options.infernalMapId) {
+    // The Soul Dimension is Tutorial Forest in the dark: the Night Forest's trees.
+    if (mapId === options.infernalMapId || isSoulMap(mapId)) {
       return { spritesheet: options.nightTreeSpritesheet, bounds: options.nightTreeSpriteBounds() };
     }
     return { spritesheet: options.treeSpritesheet, bounds: options.treeSpriteBounds() };
@@ -905,11 +907,21 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     draw.drawImage(soulVillageThumbnail, (area.x - ox) * sx, (area.y - oy) * sy, area.w * sx, area.h * sy);
   }
 
+  /** Where the minimap looks on the Town, or null on any other map (it shows the whole world). */
+  function townMinimapFrame() {
+    if (!isTownMap(options.getMapId())) return null;
+    if (inTownInteriors(options.player.x, options.player.y, TOWN_INTERIOR_MARGIN)) {
+      return { x: options.player.x - TOWN_ROOMS_MINIMAP_SPAN / 2, y: options.player.y - TOWN_ROOMS_MINIMAP_SPAN / 2, span: TOWN_ROOMS_MINIMAP_SPAN, rooms: true };
+    }
+    const span = Math.max(TOWN_WALK_AREA.right - TOWN_WALK_AREA.left, TOWN_WALK_AREA.bottom - TOWN_WALK_AREA.top);
+    return { x: (TOWN_WALK_AREA.left + TOWN_WALK_AREA.right - span) / 2, y: (TOWN_WALK_AREA.top + TOWN_WALK_AREA.bottom - span) / 2, span, rooms: false };
+  }
+
   /** Inside a village room the map is that room in the dark, as the world is. */
   function drawSoulRoomsOnMinimap(draw: CanvasRenderingContext2D, size: number, ox: number, oy: number, sx: number, sy: number) {
     draw.fillStyle = "#000"; draw.fillRect(0, 0, size, size);
     draw.fillStyle = "#b98448";
-    for (const { room } of SOUL_DOORS) draw.fillRect((room.left - ox) * sx, (room.top - oy) * sy, (room.right - room.left) * sx, (room.bottom - room.top) * sy);
+    for (const { room } of TOWN_DOORS) draw.fillRect((room.left - ox) * sx, (room.top - oy) * sy, (room.right - room.left) * sx, (room.bottom - room.top) * sy);
   }
 
   function renderMinimapFrame(remotePlayers: MapPlayerMarker[], size: number, view: Viewport) {
@@ -929,14 +941,15 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     const draw = minimapCtx;
     draw.save(); minimapRoundedRect(draw, 0, 0, size, size, 4); draw.clip();
     const innerX = 0; const innerY = 0; const innerSize = size;
-    // The Soul Dimension is far too wide to show whole: its map is the stretch around the player.
-    const local = isSoulMap(options.getMapId());
-    const ox = local ? options.player.x - SOUL_MINIMAP_SPAN / 2 : 0, oy = local ? options.player.y - SOUL_MINIMAP_SPAN / 2 : 0;
-    const sx = innerSize / (local ? SOUL_MINIMAP_SPAN : WORLD.w); const sy = innerSize / (local ? SOUL_MINIMAP_SPAN : WORLD.h);
+    // The Town's map is its walled village, not its whole world (most of which is the dark round its rooms);
+    // inside a room, it is the stretch of rooms around the player.
+    const frame = townMinimapFrame();
+    const ox = frame?.x ?? 0, oy = frame?.y ?? 0;
+    const sx = innerSize / (frame?.span ?? WORLD.w); const sy = innerSize / (frame?.span ?? WORLD.h);
     const colors = mapColors();
     draw.fillStyle = colors.ground; draw.fillRect(innerX, innerY, innerSize, innerSize);
-    if (local) drawSoulVillageOnMinimap(draw, ox, oy, sx, sy);
-    if (local && inSoulInteriors(options.player.x, options.player.y, SOUL_INTERIOR_MARGIN)) drawSoulRoomsOnMinimap(draw, innerSize, ox, oy, sx, sy);
+    if (frame && !frame.rooms) drawSoulVillageOnMinimap(draw, ox, oy, sx, sy);
+    if (frame?.rooms) drawSoulRoomsOnMinimap(draw, innerSize, ox, oy, sx, sy);
     draw.fillStyle = colors.path; for (const path of options.paths) draw.fillRect(innerX + (path.x - ox) * sx, innerY + (path.y - oy) * sy, path.w * sx, path.h * sy);
     draw.save();
     draw.globalAlpha = options.getMapId() === options.infernalMapId ? .5 : 1;

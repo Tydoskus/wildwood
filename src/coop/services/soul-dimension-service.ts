@@ -43,18 +43,18 @@ export function createSoulDimensionRows(connection: () => DbConnection | null, n
       rewardKills: (): RewardKillCounts => kills,
       /** Whether the developer has opened the Soul Dimension to everyone. */
       soulDimensionOpen: () => open,
-      /** A fall into one of the village's wells: the server puts the player back on the square. */
+      /** A fall into one of the Town's wells: the server puts the player back on the square. */
       async fallIntoWell() {
         const current = connection();
         if (!current?.isActive) return false;
         await current.reducers.fallIntoWell({});
         return true;
       },
-      /** Going through a village door, into its room or back out: the server moves the player if they are at it. */
-      async useSoulDoor(door: number) {
+      /** Going through a Town door, into its room or back out: the server moves the player if they are at it. */
+      async useTownDoor(door: number) {
         const current = connection();
         if (!current?.isActive) return false;
-        await current.reducers.useSoulDoor({ door });
+        await current.reducers.useTownDoor({ door });
         return true;
       },
       /** Developer only: open the Soul Dimension to everyone who has prestiged, or close it. */

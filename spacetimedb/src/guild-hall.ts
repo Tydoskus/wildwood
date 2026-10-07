@@ -6,6 +6,7 @@ import {
 } from "../../shared/guild-hall";
 import { HOME_EXTERIOR_MAP_ID, HOME_EXTERIOR_SPAWN } from "../../shared/home";
 import { questDay, questWeek } from "../../shared/daily-quests";
+import { isTownMap } from "../../shared/town";
 
 /**
  * Guild halls on the server (shared/guild-hall.ts has the rules).
@@ -118,7 +119,7 @@ export function registerGuildHall(spacetimedb: typeof spacetimedbType, deps: Gui
 export function enterGuildHall(ctx: any, current: any, mapId: string, x: number, y: number, deps: Pick<GuildHallDeps, "transitionPlayerMap" | "persistWorldLocation">) {
   if (!guildHallMember(ctx, ctx.sender, mapId)) throw new SenderError("Only the guild's members can enter its hall.");
   if (current.hp <= 0) throw new SenderError("Respawn before travelling.");
-  if (current.mapId !== HOME_EXTERIOR_MAP_ID && !isGuildHallMap(current.mapId) && [x, y].every(Number.isFinite)) {
+  if (current.mapId !== HOME_EXTERIOR_MAP_ID && !isGuildHallMap(current.mapId) && !isTownMap(current.mapId) && [x, y].every(Number.isFinite)) {
     const saved = { identity: ctx.sender, mapId: current.mapId, x, y, facing: current.facing };
     if (ctx.db.homeReturnLocation.identity.find(ctx.sender)) ctx.db.homeReturnLocation.identity.update(saved);
     else ctx.db.homeReturnLocation.insert(saved);

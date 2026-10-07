@@ -1,8 +1,8 @@
 import { expect, it, vi } from "vitest";
 vi.mock("../../app/developer", () => ({ isDeveloperIdentity: () => true }));
-import { SOUL_ARRIVAL, SOUL_FEET_OFFSET, SOUL_MAP_ID } from "../../../shared/soul-dimension";
+import { TOWN_ARRIVAL as SOUL_ARRIVAL, TOWN_FEET_OFFSET as SOUL_FEET_OFFSET, TOWN_MAP_ID } from "../../../shared/town";
 import { SOUL_VILLAGE_PITS } from "../soul-village";
-import { createSoulDimensionRuntime } from "./soul-dimension-runtime";
+import { createTownRuntime } from "./town-runtime";
 import { drawSoulWellFall, soulWellFall } from "./soul-well-fall";
 import type { PlayerState } from "./types";
 
@@ -11,16 +11,15 @@ function world() {
   const fallIntoWell = vi.fn(async () => true);
   let onBlack: (() => void) | null = null;
   const fadeToWorld = vi.fn((action: () => void) => { onBlack = action; });
-  const runtime = createSoulDimensionRuntime({
-    source: () => ({ fallIntoWell, soulDimensionOpen: () => true }),
-    player, enemies: [], spawnSites: [], decor: [], currentMapId: () => SOUL_MAP_ID, spawnFromSite: () => {},
-    invalidateDepthOrder: () => {}, homeMap: {}, strength: () => ({ dps: 10, maxHp: 100, armor: 0, regen: 0 }), fadeToWorld,
+  const runtime = createTownRuntime({
+    source: () => ({ fallIntoWell }),
+    player, decor: [], currentMapId: () => TOWN_MAP_ID, invalidateDepthOrder: () => {}, fadeToWorld,
   });
   const well = SOUL_VILLAGE_PITS[0];
   const cx = well.xs.reduce((sum, v) => sum + v, 0) / well.xs.length, cy = well.ys.reduce((sum, v) => sum + v, 0) / well.ys.length;
   return { player, runtime, fallIntoWell, fadeToWorld, black: () => onBlack?.(), cx, cy };
 }
-const frames = (runtime: ReturnType<typeof createSoulDimensionRuntime>, seconds: number) => { for (let t = 0; t < seconds; t += 1 / 60) runtime.update(1 / 60); };
+const frames = (runtime: ReturnType<typeof createTownRuntime>, seconds: number) => { for (let t = 0; t < seconds; t += 1 / 60) runtime.update(1 / 60); };
 
 it("falls into a well: to its middle, down past the lip with the camera, dark, then back on the square", () => {
   const { player, runtime, fallIntoWell, fadeToWorld, black, cx, cy } = world();

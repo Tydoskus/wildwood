@@ -4,7 +4,7 @@ import { isDeveloperIdentity } from "../../shared/developer-identity";
 import { isProceduralMap } from "../../shared/procedural-maps";
 import { CAMPAIGN_MAPS } from "../../shared/campaign-registry";
 import {
-  addSoulKills, cleanSoulStats, isSoulMap, soulDimensionAccess, soulDoorDestination, soulStatsUnlocked, soulTier, SOUL_ARRIVAL, SOUL_MAP_ID,
+  addSoulKills, cleanSoulStats, isSoulMap, soulDimensionAccess, soulStatsUnlocked, soulTier,
   SOUL_STAT_ORDER, SOUL_TIER_KILL_TYPES, type RewardKillCounts, type SoulStatId, type SoulStats,
 } from "../../shared/soul-dimension";
 
@@ -149,9 +149,6 @@ export function mergeSoulDimensionRows(ctx: any, from: any, into: any) {
 
 type SoulDeps = {
   requireDeveloper: (ctx: any, action: string) => void;
-  requireControllingPlayer: (ctx: any) => any;
-  playerWithMotion: (ctx: any, player: any) => any;
-  transitionPlayerMap: (ctx: any, current: any, mapId: string, arrival: { x: number; y: number }) => void;
 };
 
 export function registerSoulDimension(spacetimedb: typeof spacetimedbType, deps: SoulDeps) {
@@ -170,25 +167,7 @@ export function registerSoulDimension(spacetimedb: typeof spacetimedbType, deps:
     if (row) ctx.db.soulDimensionConfig.id.update({ id: 0, open });
     else ctx.db.soulDimensionConfig.insert({ id: 0, open });
   });
-  /** Walking into one of the village's wells: a splash, and back on the square. It only ever moves a player to the arrival. */
-  const fallIntoWell = spacetimedb.reducer({}, ctx => {
-    const player = deps.requireControllingPlayer(ctx);
-    if (!isSoulMap(player.mapId)) throw new SenderError("There is no well here.");
-    deps.transitionPlayerMap(ctx, deps.playerWithMotion(ctx, player), SOUL_MAP_ID, SOUL_ARRIVAL);
-  });
-  /**
-   * Going through a village door: into its room from just outside it, or back out from inside the room.
-   * It only ever moves a player between a door and its own room, and only when they are at one of the two.
-   */
-  const useSoulDoor = spacetimedb.reducer({ door: t.u32() }, (ctx, { door }) => {
-    const player = deps.requireControllingPlayer(ctx);
-    if (!isSoulMap(player.mapId)) throw new SenderError("There is no door here.");
-    const moving = deps.playerWithMotion(ctx, player);
-    const destination = soulDoorDestination(door, moving.x, moving.y);
-    if (!destination) throw new SenderError("That door is too far away.");
-    deps.transitionPlayerMap(ctx, moving, SOUL_MAP_ID, destination);
-  });
-  return { mySoulStats, myRewardKills, setSoulDimensionOpen, fallIntoWell, useSoulDoor };
+  return { mySoulStats, myRewardKills, setSoulDimensionOpen };
 }
 
 export function requireSoulDimensionOpen(ctx: any) {
@@ -196,5 +175,5 @@ export function requireSoulDimensionOpen(ctx: any) {
 }
 
 // index.ts has no lines to spare, so what it needs from these shared modules comes through here.
-export { isSoulMap, SOUL_ARRIVAL, withSoulStats } from "../../shared/soul-dimension";
+export { isSoulMap, SOUL_ARRIVAL, SOUL_TOWN_PORTAL, withSoulStats } from "../../shared/soul-dimension";
 export { worldBoundsFor, wideMotionMap } from "../../shared/world-bounds";

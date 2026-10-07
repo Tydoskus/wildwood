@@ -221,7 +221,7 @@ import UpdateMovementStateReducer from "./update_movement_state_reducer";
 import UpgradeGuildHallReducer from "./upgrade_guild_hall_reducer";
 import UseFreePrestigeRespecReducer from "./use_free_prestige_respec_reducer";
 import UseGuildHallDoorReducer from "./use_guild_hall_door_reducer";
-import UseSoulDoorReducer from "./use_soul_door_reducer";
+import UseTownDoorReducer from "./use_town_door_reducer";
 
 // Import all procedure arg schemas
 import * as BeginPatreonLinkProcedure from "./begin_patreon_link_procedure";
@@ -1820,7 +1820,7 @@ const reducersSchema = __reducers(
   __reducerSchema("upgrade_guild_hall", UpgradeGuildHallReducer),
   __reducerSchema("use_free_prestige_respec", UseFreePrestigeRespecReducer),
   __reducerSchema("use_guild_hall_door", UseGuildHallDoorReducer),
-  __reducerSchema("use_soul_door", UseSoulDoorReducer),
+  __reducerSchema("use_town_door", UseTownDoorReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */

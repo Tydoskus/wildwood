@@ -22,7 +22,7 @@ import { snapWorldRenderCoordinate } from "./render-space";
 import { createSoulGroundRenderer, createSoulPropRenderer } from "./soul-prop-renderer";
 import { createSoulParticles } from "./soul-particles";
 import { createSoulWater } from "./soul-water";
-import { isSoulMap } from "../../../shared/soul-dimension";
+import { isTownMap } from "../../../shared/town";
 import { isGuildHallMap } from "../../../shared/guild-hall";
 import { GUILD_HALL_GROUND } from "../guild-hall";
 import { createGuildCrestDrawer, createGuildHallRoomsDrawer, drawSeated, GUILD_HALL_SEAT_FACING, seatedAt } from "./guild-hall-render";
@@ -327,7 +327,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       decor: options.decor, drawProp: drawSoulProp,
       drawWater: createSoulWater({ ctx: options.ctx, camera: options.camera, water: () => options.assets.soulWater, shore: () => options.assets.soulShore,
         viewport: options.viewport, time: options.gameTime }),
-      viewport: options.viewport, devicePixelRatio: options.devicePixelRatio, active: () => isSoulMap(options.currentMapId()) });
+      viewport: options.viewport, devicePixelRatio: options.devicePixelRatio, active: () => isTownMap(options.currentMapId()) });
     const depth = createDepthWorldRenderer({
       camera: options.camera,
       viewport: () => options.viewport(),
@@ -353,7 +353,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawBoss: (kind) => boss.drawBoss[kind](),
       drawBossHitboxes: boss.drawBossHitboxes,
       drawOverWorld: createSoulParticles({ ctx: options.ctx, camera: options.camera, image: () => options.assets.soulVillageProps,
-        viewport: options.viewport, time: options.gameTime, active: () => isSoulMap(options.currentMapId()) }),
+        viewport: options.viewport, time: options.gameTime, active: () => isTownMap(options.currentMapId()) }),
       drawBootPickup: () => renderer.drawBootPickup(),
       drawPortal: world.drawPortal,
       drawSecondaryPortal: world.drawSecondaryPortal,

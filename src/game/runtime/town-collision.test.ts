@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 vi.mock("../../app/developer", () => ({ isDeveloperIdentity: () => false }));
-import { pushOutOf } from "./soul-dimension-runtime";
+import { pushOutOf } from "./town-runtime";
 
 /** A twelve-sided "fountain" of radius 100 around the origin, as the pack's polygon colliders are. */
 function round(radius = 100, sides = 12) {

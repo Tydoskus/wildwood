@@ -19,7 +19,10 @@ import {
   type ItemDefinition,
   type ItemId,
 } from "../../shared/items";
-import { WORLD } from "../game/constants";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "../../shared/rules";
+// The guide shows campaign and Endless maps, every one the classic square, wherever the player stands
+// (the Town's or a guild hall's own world is a different size).
+const WORLD = { w: WORLD_WIDTH, h: WORLD_HEIGHT };
 import { createSpawnSites, createWorldLayout, mapSpawnCamps } from "../game/world";
 import { ENEMY_TYPES, REWARD_DATA, type RewardType } from "../game/enemies";
 import { itemPresentation } from "../game/item-presentation";
@@ -96,6 +99,7 @@ const MAP_GUIDE_DROPS: Record<MapId, readonly MapGuideDrop[]> = {
   first_steps: [],
   home_exterior: [],
   soul_dimension: [],
+  town: [],
   [TUTORIAL_FOREST_MAP_ID]: [
   ],
   [BEGINNER_DESERT_MAP_ID]: [
@@ -119,7 +123,8 @@ const MAP_GUIDE_DROPS: Record<MapId, readonly MapGuideDrop[]> = {
 const MAP_GUIDE_THEMES: Record<MapId, { ground: string; path: string; glow: string }> = {
   first_steps: { ground: "#31945b", path: "#8b6551", glow: "#65e889" },
   home_exterior: { ground: "#488761", path: "#b29a78", glow: "#82e9ff" },
-  soul_dimension: { ground: "#61864e", path: "#b89070", glow: "#c48cff" },
+  soul_dimension: { ground: "#1f1733", path: "#3b2b55", glow: "#c48cff" },
+  town: { ground: "#61864e", path: "#b89070", glow: "#ffd27a" },
   [TUTORIAL_FOREST_MAP_ID]: { ground: "#31945b", path: "#8b6551", glow: "#65e889" },
   [BEGINNER_DESERT_MAP_ID]: { ground: "#d9a95f", path: "#c48b4b", glow: "#ffe09a" },
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: { ground: "#bfddeb", path: "#8fb7d0", glow: "#e9fbff" },
@@ -351,7 +356,7 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
     if (!context) return;
     const mapId = shown();
     const layout = layoutOf(mapId);
-    const theme = isProceduralMap(mapId) ? { ...generateMap(mapId).palette, glow: generateMap(mapId).palette.accent } : MAP_GUIDE_THEMES[mapId] ?? MAP_GUIDE_THEMES.soul_dimension;
+    const theme = isProceduralMap(mapId) ? { ...generateMap(mapId).palette, glow: generateMap(mapId).palette.accent } : MAP_GUIDE_THEMES[mapId] ?? MAP_GUIDE_THEMES.town;
     const scaleX = width / WORLD.w;
     const scaleY = height / WORLD.h;
     context.setTransform(dpr, 0, 0, dpr, 0, 0);

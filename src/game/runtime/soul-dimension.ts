@@ -3,15 +3,19 @@ import { isDeveloperIdentity } from "../../app/developer";
 import { createSoulDimensionWindow } from "../../ui/soul-dimension-window";
 import type { MapId } from "../world";
 import { createSoulDimensionRuntime } from "./soul-dimension-runtime";
+import { createTownRuntime } from "./town-runtime";
 
 /**
- * The Soul Dimension as the composition root sees it: the runtime that runs
- * the world, and the home portal's window that leads into it.
+ * The Town and the Soul Dimension its bottom road leads to, as the
+ * composition root sees them: the Town's runtime (doors, wells, walls), the
+ * Soul Dimension's (its camps and the soul stats combat adds), and the
+ * window at the Town's portal that leads in.
  */
-export function createSoulDimension(deps: Parameters<typeof createSoulDimensionRuntime>[0] & {
+export function createSoulDimension(deps: Parameters<typeof createSoulDimensionRuntime>[0] & Parameters<typeof createTownRuntime>[0] & {
   travel: (mapId: MapId) => Promise<boolean>;
 }) {
   const runtime = createSoulDimensionRuntime(deps);
+  const town = createTownRuntime(deps);
   const window = createSoulDimensionWindow({
     state: () => {
       const source = deps.source();
@@ -29,5 +33,5 @@ export function createSoulDimension(deps: Parameters<typeof createSoulDimensionR
     pause: () => {},
     clearInput: deps.clearInput,
   });
-  return { ...runtime, openWindow: () => window.open() };
+  return { ...runtime, update: (dt: number) => { runtime.update(dt); town.update(dt); }, refreshTown: town.refresh, openWindow: () => window.open() };
 }

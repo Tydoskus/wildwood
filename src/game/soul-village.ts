@@ -1,13 +1,14 @@
-import { SOUL_CENTER, SOUL_INTERIORS } from "../../shared/soul-dimension";
+import { TOWN_CENTER, TOWN_INTERIORS } from "../../shared/town";
 import atlas from "./soul-atlas.json";
 import scene from "./soul-village-scene.json";
 import type { WorldDecor } from "./world";
 
 /**
- * The Soul Dimension's village: ForestVillage's own demo village, baked from
- * the pack's scene by scripts/art/bake-forest-village-scene.mjs (its ground,
- * every house, tree, fence and prop where the pack put them), centred on its
- * fountain. The wilds around it use soul-atlas.json.
+ * The Town's village: ForestVillage's own demo village, baked from the pack's
+ * scene by scripts/art/bake-forest-village-scene.mjs (its ground, every house,
+ * tree, fence and prop where the pack put them), centred on its fountain. The
+ * countryside around it uses soul-atlas.json. The art kept its first home's
+ * names (soul-dimension/village-*.webp): it was the Soul Dimension's village.
  */
 export type SoulFrame = keyof typeof atlas.frames;
 export const SOUL_ATLAS = atlas;
@@ -16,8 +17,8 @@ export const SOUL_VILLAGE_PROPS_SOURCE = "assets/wildstat/soul-dimension/village
 export const SOUL_VILLAGE_GROUND_SOURCE = "assets/wildstat/soul-dimension/village-ground.webp";
 export const SOUL_INTERIORS_SOURCE = "assets/wildstat/soul-dimension/village-interiors.webp";
 
-/** Where the scene's own origin lands in the world: the fountain on the dimension's centre. */
-const originX = SOUL_CENTER.x - scene.fountain[0], originY = SOUL_CENTER.y - scene.fountain[1];
+/** Where the scene's own origin lands in the world: the fountain on the Town's centre. */
+const originX = TOWN_CENTER.x - scene.fountain[0], originY = TOWN_CENTER.y - scene.fountain[1];
 
 /** The ground image's rectangle in world units. */
 export const SOUL_VILLAGE_GROUND = Object.freeze({
@@ -52,15 +53,15 @@ function solid(flat: readonly number[], dx: number, dy: number): SoulSolid {
 /** What a player cannot walk through: the pack's own colliders, as drawn (a round fountain stays round). */
 export const SOUL_VILLAGE_SOLIDS: readonly SoulSolid[] = scene.solids.map(flat => solid(flat, originX, originY));
 
-/** Which doors stand open now: the Soul Dimension's runtime opens one as someone walks up, the renderer draws it so. */
+/** Which doors stand open now: the Town's runtime opens one as someone walks up, the renderer draws it so. */
 export const SOUL_DOORS_OPEN = new Set<number>();
 
-/** The rooms behind the doors (shared/soul-dimension.ts places them): each one's picture, in village-interiors.webp. */
-export const SOUL_INTERIOR_ROOMS = scene.interiors.rooms.map(([sx, sy, w, h, x, y]) => ({ sx, sy, w, h, x: SOUL_INTERIORS.x + x, y: SOUL_INTERIORS.y + y }));
+/** The rooms behind the doors (shared/town.ts places them): each one's picture, in village-interiors.webp. */
+export const SOUL_INTERIOR_ROOMS = scene.interiors.rooms.map(([sx, sy, w, h, x, y]) => ({ sx, sy, w, h, x: TOWN_INTERIORS.x + x, y: TOWN_INTERIORS.y + y }));
 /** The rooms' furniture, standing and sorting like the village's props. */
 export const SOUL_INTERIOR_DECOR: readonly WorldDecor[] = scene.interiors.props.map(([frame, x, y, depth, flags]) => ({
-  type: "soulProp", sheet: "village", frame: String(frame), s: 1, x: SOUL_INTERIORS.x + x, y: SOUL_INTERIORS.y + depth, dy: y - depth,
+  type: "soulProp", sheet: "village", frame: String(frame), s: 1, x: TOWN_INTERIORS.x + x, y: TOWN_INTERIORS.y + depth, dy: y - depth,
   shadow: (flags & 2) === 2,
 }));
 /** The rooms' walls (all but the doorway) and furniture. */
-export const SOUL_INTERIOR_SOLIDS: readonly SoulSolid[] = scene.interiors.solids.map(flat => solid(flat, SOUL_INTERIORS.x, SOUL_INTERIORS.y));
+export const SOUL_INTERIOR_SOLIDS: readonly SoulSolid[] = scene.interiors.solids.map(flat => solid(flat, TOWN_INTERIORS.x, TOWN_INTERIORS.y));

@@ -1,20 +1,18 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
-  "0.899.16": [
+  "0.900.0": [
     "The Inspiration Update",
+    "The Town: a whole village where new players start, and Home's travel portal now leads there",
+    "Take the Town's travel portal, at the end of its top road, to any map you have unlocked",
+    "Walk into the Town's houses through their doors, and watch out for the wells",
+    "The Soul Dimension is open: prestige once, then take the portal at the end of the Town's bottom road",
+    "The Soul Dimension is Tutorial Forest in the dark, and its enemies give permanent Soul Stats that never reset",
+    "Soul Dimension tiers wake new soul enemies as you kill each enemy type in the campaign or Endless",
     "Every guild has its own Guild Hall: a courtyard and a great hall with your guild's crest",
     "Sit at the great table with your guildmates: stand still by a stool",
     "Guild quest points fill the Hall Fund; the President and Vice Presidents buy upgrades on the board inside",
     "Seven hall upgrades: a longer table, a bigger hall, banners, a hearth, a trophy wall, lanterns and a garden",
-    "Enter from Home's travel portal or the Guild Hall button in the Guild window",
-    "The Soul Dimension is open: prestige once, then take the portal at the south end of Home",
-    "Soul enemies give permanent Soul Stats that never reset; Soul Damage enemies give +1 Damage",
-    "Soul Dimension tiers wake new soul enemies as you kill each enemy type in the campaign or Endless",
-    "Walk into the Soul village's houses through their doors, and watch out for the wells",
-  ],
-  "0.899.15": [
+    "Enter your Guild Hall from the Town's travel portal or the Guild Hall button in the Guild window",
     "Moonfen and Verdant Catacombs mushrooms have new art",
-  ],
-  "0.899.14": [
     "The quest tracker names each quest's stat the way enemies' labels do (Damage, Atk/sec), not Atk",
   ],
   "0.899.13": [
@@ -2922,9 +2920,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
-  "0.899.16": "2026-10-06",
-  "0.899.15": "2026-10-06",
-  "0.899.14": "2026-10-06",
+  "0.900.0": "2026-10-06",
   "0.899.13": "2026-10-06",
   "0.899.12": "2026-10-06",
   "0.899.11": "2026-10-06",

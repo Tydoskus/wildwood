@@ -193,7 +193,7 @@ import UpdateMovementStateReducer from "../update_movement_state_reducer";
 import UpgradeGuildHallReducer from "../upgrade_guild_hall_reducer";
 import UseFreePrestigeRespecReducer from "../use_free_prestige_respec_reducer";
 import UseGuildHallDoorReducer from "../use_guild_hall_door_reducer";
-import UseSoulDoorReducer from "../use_soul_door_reducer";
+import UseTownDoorReducer from "../use_town_door_reducer";
 
 export type AbandonAggroRunParams = __Infer<typeof AbandonAggroRunReducer>;
 export type AbandonPrestigeChallengeParams = __Infer<typeof AbandonPrestigeChallengeReducer>;
@@ -382,5 +382,5 @@ export type UpdateMovementStateParams = __Infer<typeof UpdateMovementStateReduce
 export type UpgradeGuildHallParams = __Infer<typeof UpgradeGuildHallReducer>;
 export type UseFreePrestigeRespecParams = __Infer<typeof UseFreePrestigeRespecReducer>;
 export type UseGuildHallDoorParams = __Infer<typeof UseGuildHallDoorReducer>;
-export type UseSoulDoorParams = __Infer<typeof UseSoulDoorReducer>;
+export type UseTownDoorParams = __Infer<typeof UseTownDoorReducer>;
 

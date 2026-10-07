@@ -78,8 +78,10 @@ const resolvedThemeCache = new Map<string, MapVisualTheme>();
 const DEFAULT_MAP_THEMES: Record<MapId, MapVisualTheme> = {
   first_steps: { ground: "#31945b", path: "#8b6551", pathDetail: "rgba(68,38,29,.12)", decorColors: {} },
   home_exterior: { ground: "#3c7953", path: "#b6a381", pathDetail: "rgba(68,38,29,.12)", decorColors: {} },
-  // ForestVillage's own meadow green, the colour its village's ground fades out to.
-  soul_dimension: { ground: "#61864e", path: "#b89070", pathDetail: "rgba(120,80,50,.15)", decorColors: {} },
+  // ForestVillage's own meadow green, the colour the Town's village ground fades out to.
+  town: { ground: "#61864e", path: "#b89070", pathDetail: "rgba(120,80,50,.15)", decorColors: {} },
+  // Tutorial Forest in the dark: its layout under a violet night.
+  soul_dimension: { ground: "#1f1733", path: "#3b2b55", pathDetail: "rgba(170,120,255,.12)", decorColors: { grass: ["#2c2147", "#31264f"], petal: ["#c48cff", "#8f6bd6", "#6fd2ff"], rock: ["#3d3358", "#2f2846"] } },
   tutorial_forest: {
     ground: "#31945b",
     path: "#8b6551",

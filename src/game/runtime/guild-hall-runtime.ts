@@ -4,7 +4,7 @@ import {
 import { guildHallBoard, guildHallDecor, guildHallDoorState, guildHallSeatAt, guildHallSeats, guildHallShown, guildHallSolids } from "../guild-hall";
 import type { SoulSolid } from "../soul-village";
 import type { MapId, WorldDecor } from "../world";
-import { pushOutOf } from "./soul-dimension-runtime";
+import { pushOutOf } from "./town-runtime";
 import type { PlayerState } from "./types";
 
 export type GuildHallSource = {

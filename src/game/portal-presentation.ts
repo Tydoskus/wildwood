@@ -21,6 +21,7 @@ const PORTAL_DESTINATION_COLORS: Record<MapId, string> = {
   first_steps: "#61e87c",
   home_exterior: "#82e9ff",
   soul_dimension: "#c48cff",
+  town: "#ffd27a",
   [TUTORIAL_FOREST_MAP_ID]: "#61e87c",
   [BEGINNER_DESERT_MAP_ID]: "#ffd34d",
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: "#8deeff",

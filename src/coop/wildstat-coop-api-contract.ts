@@ -46,7 +46,7 @@ type ExpectedApiKey =
   | "soulDimensionOpen"
   | "setSoulDimensionOpen"
   | "fallIntoWell"
-  | "useSoulDoor"
+  | "useTownDoor"
   | "guildHall"
   | "upgradeGuildHall"
   | "useGuildHallDoor"

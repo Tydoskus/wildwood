@@ -811,8 +811,8 @@ import {
   const questTracker = createQuestTrackerSetting(localStorage);
   const quests = createQuestBoardRuntime({ source: () => coop, atHome: () => currentMapId === "home_exterior", tracker: questTracker,
     pause: () => {}, clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id as MapId]?.name ?? id, showProgress: (enemy, count, target) => runtimeHud.showQuestProgress(enemy, count, target) });
-  const homeTravel = createHomeTravelController({ source: () => coop, travel: mapController.travelFromHome, departure: mapController.homeDeparture, atHome: () => currentMapId === "home_exterior", pause: () => {}, clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id].name, guildHall: () => guildHall.hallMap() });
-  const soulDimension = createSoulDimension({ source: () => coop, player, enemies, spawnSites, decor, currentMapId: () => currentMapId, spawnFromSite, invalidateDepthOrder: () => worldRenderRuntime.invalidateDepthOrder(), homeMap: MAP_CONFIG.home_exterior,
+  const homeTravel = createHomeTravelController({ source: () => coop, travel: mapController.travelFromHome, departure: mapController.homeDeparture, atHome: () => currentMapId === "town", pause: () => {}, clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id].name, guildHall: () => guildHall.hallMap() });
+  const soulDimension = createSoulDimension({ source: () => coop, player, enemies, spawnSites, decor, currentMapId: () => currentMapId, spawnFromSite, invalidateDepthOrder: () => worldRenderRuntime.invalidateDepthOrder(), townMap: MAP_CONFIG.town,
     strength: () => ({ dps: playerCombat.expectedDps(), maxHp: player.maxHp, armor: effectiveArmor(), regen: regenerationPerSecond() }), logPickup, travel: mapController.travelFromHome, clearInput: playerInput.clear, fadeToWorld: (action, ms) => session.fadeToWorld(action, ms) });
   const guildHall = createGuildHall({ source: () => coop, player, decor, currentMapId: () => currentMapId, invalidateDepthOrder: () => worldRenderRuntime.invalidateDepthOrder(), clearInput: playerInput.clear, fadeToWorld: (action, ms) => session.fadeToWorld(action, ms),
     travel: mapId => { autoFarm.stop("Autofarm stopped for the Guild Hall"); return mapController.teleportToMap(mapId, async () => Boolean(await coop?.changeMap?.(mapId, player.x, player.y))); } });
@@ -1815,7 +1815,7 @@ import {
     rewardMultiplier: researchRewardMultiplier,
     showBaseStatRewards: appShell.showBaseStatRewards,
     rewardAmount: rewardDisplay.displayedAmount,
-    visible: () => (farmUnlocked() || Boolean(coop?.aggroChallenge?.()?.active)) && currentMapId !== "home_exterior" && !guildHall.guildId() && Boolean(session?.isRunning()) && player.hp > 0 && !isDueling() && !mapController.isMapTransitioning() && !mapController.isCutsceneActive(),
+    visible: () => (farmUnlocked() || Boolean(coop?.aggroChallenge?.()?.active)) && currentMapId !== "home_exterior" && currentMapId !== "town" && !guildHall.guildId() && Boolean(session?.isRunning()) && player.hp > 0 && !isDueling() && !mapController.isMapTransitioning() && !mapController.isCutsceneActive(),
     unavailable: farmUnavailable,
     setPaused: () => {},
     clearInput: () => { playerInput.clear(); player.moving = false; coop?.correctMovementPosition?.(player.x, player.y, true); },

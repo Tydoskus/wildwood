@@ -10,16 +10,9 @@ export const HOME_RESEARCH_POSITION = { x: 620 + HOME_ART_OFFSET.x, y: 450 + HOM
 export const HOME_QUEST_BOARD_POSITION = { x: 685 + HOME_ART_OFFSET.x, y: 765 + HOME_ART_OFFSET.y };
 
 // The arch art is square, so the pad is too (it was drawn 130 wide, squeezed). Close to the
-// workshop banners, centered over their shared courtyard. Walking
-// in opens a destination picker; the server accepts any map the player has
-// unlocked from beside it. The toolbar teleport stays the round trip back to
-// the exact spot you left, so this pad is an extra way out, not the only one.
+// workshop banners, centered over their shared courtyard. It leads to the Town, whose
+// travel portal picks the map (tabs from before the Town still pick from here: the server
+// accepts any map the player has unlocked from beside it). The toolbar teleport stays the
+// round trip back to the exact spot you left.
 export const HOME_TRAVEL_PORTAL = { x: HOME_WORLD_WIDTH / 2, y: 490,
-  width: 150, height: 150, depth: 490, destination: "tutorial_forest" as const, label: "Travel" };
-/**
- * The Soul Dimension's portal, at the south end of the entrance path. It only
- * stands for players who may use it (shared/soul-dimension.ts); the server
- * checks the same before it lets anyone through.
- */
-export const HOME_SOUL_PORTAL = { x: HOME_WORLD_WIDTH / 2, y: 1_290,
-  width: 150, height: 150, depth: 1_290, destination: "soul_dimension" as const, label: "Soul Dimension" };
+  width: 150, height: 150, depth: 490, destination: "town" as const, label: "Town" };

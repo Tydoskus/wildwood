@@ -612,7 +612,7 @@ const doorData = doorways.map(({ item, prop, image }, index) => {
   return { x: item.x - scene.fountain[0], y: Math.round(bottom - scene.fountain[1]), half: Math.round(image.w / 2 - 8),
     enter: Math.round(Math.max(bottom, front) - scene.fountain[1]), room: interiors.rooms[index].floor };
 });
-writeFileSync(join(root, "shared/soul-doors.json"), `${JSON.stringify({ gap: interiors.gap, doors: doorData }, null, 1)}\n`);
+writeFileSync(join(root, "shared/town-doors.json"), `${JSON.stringify({ gap: interiors.gap, doors: doorData }, null, 1)}\n`);
 writeFileSync(join(root, "src/game/soul-village-scene.json"), JSON.stringify(scene));
 console.log(`${doorData.length} doors, rooms sheet 2048x${roomSheetHeight}`);
 console.log(`ground ${maxX - minX}x${maxY - minY}px, ${frameList.length} frames for ${placed.length} props, ${solidShapes.length} solids, ${emitters.length} particle emitters, fountain ${scene.fountain}`);

@@ -276,7 +276,8 @@ export function createMapController(options: {
       playerIsInsidePortal(candidate),
     );
     if (!portal || !portalIsUnlocked(portal)) return;
-    if (getCurrentMapId() === "home_exterior" && options.openHomeTravel) {
+    // The Town's portals open a window (the map picker, the Soul Dimension's) that does the travelling.
+    if (getCurrentMapId() === "town" && options.openHomeTravel) {
       // The picker chooses the destination. Guarding the pad means standing
       // on it after Back never reopens the window; walking off and on does.
       portalExitGuard = portal;
@@ -404,7 +405,7 @@ export function createMapController(options: {
   return {
     teleportHome: () => teleport(),
     teleportToMap: (destination, request) => teleport(destination, request),
-    travelFromHome: async (destination) => getCurrentMapId() === "home_exterior" && destination !== "home_exterior"
+    travelFromHome: async (destination) => getCurrentMapId() === "town" && destination !== "home_exterior"
       && teleport(destination, async () => Boolean(await changeMap(destination, player.x, player.y))),
     homeDeparture: () => homeDeparture,
     activePortal,

@@ -1,6 +1,6 @@
-import { SOUL_ARRIVAL, SOUL_MAP_ID } from "../../../shared/soul-dimension";
+import { SOUL_ARRIVAL, SOUL_MAP_ID, SOUL_TOWN_PORTAL } from "../../../shared/soul-dimension";
+import { TOWN_ARRIVAL, TOWN_MAP_ID, TOWN_TRAVEL_PORTAL } from "../../../shared/town";
 import { GUILD_HALL_ARRIVAL, GUILD_HALL_HOME_PAD } from "../../../shared/guild-hall";
-import { SOUL_HOME_GATE_PORTAL } from "./soul-dimension-runtime";
 import { CAMPAIGN_MAPS } from "../../../shared/campaign-registry";
 import { HOME_TRAVEL_PORTAL, HOME_EXTERIOR_SPAWN } from "../../../shared/home";
 import { ONBOARDING_MAP_ID, ONBOARDING_WORLD } from "../../../shared/onboarding";
@@ -97,9 +97,12 @@ export function createGameBootstrap() {
     // Campaign portals and arrivals are shared with the server (shared/map-gateways.ts).
     ...Object.fromEntries(CAMPAIGN_MAPS.map(map => [map.id, campaignMapEntry(map.id as MapId)])) as Record<MapId, BootstrapMapEntry>,
     [ONBOARDING_MAP_ID]: { name: "First Steps", portal: null, arrival: ONBOARDING_WORLD.spawn },
+    // Home's pad leads to the Town.
     home_exterior: { name: "Home", portal: HOME_TRAVEL_PORTAL, arrival: HOME_EXTERIOR_SPAWN },
-    // Its second portal, home's Soul Dimension one, is set by the soul runtime for players who may use it.
-    [SOUL_MAP_ID]: { name: "Soul Dimension", portal: SOUL_HOME_GATE_PORTAL, arrival: SOUL_ARRIVAL },
+    // The travel portal opens the map picker (its destination is the picker's); the second, the Soul Dimension's,
+    // is set by the soul runtime for players who may use it.
+    [TOWN_MAP_ID]: { name: "Town", portal: { ...TOWN_TRAVEL_PORTAL, destination: TUTORIAL_FOREST_MAP_ID }, arrival: TOWN_ARRIVAL },
+    [SOUL_MAP_ID]: { name: "Soul Dimension", portal: SOUL_TOWN_PORTAL, arrival: SOUL_ARRIVAL },
   };
   const mapConfig = withGeneratedMaps<BootstrapMapEntry>(authoredMapConfig, id => {
     const map = generateMap(id);

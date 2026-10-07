@@ -50,7 +50,8 @@ export type MapAssetGroup = {
 const AUTHORED_MAP_ASSET_GROUPS = {
   [ONBOARDING_MAP_ID]: { art: ["forestDecor"], enemies: ["Spitter", "Brood"] },
   home_exterior: { art: ["forestDecor", "snowDecor"], enemies: [] },
-  soul_dimension: { art: ["soulVillage"], enemies: SOUL_ENEMY_KINDS },
+  town: { art: ["soulVillage"], enemies: [] },
+  soul_dimension: { art: ["nightDecor"], enemies: SOUL_ENEMY_KINDS },
   [TUTORIAL_FOREST_MAP_ID]: {
     art: ["forestBoss", "forestDecor"],
     enemies: ["Bramble", "Needle", "Mossback", "Spitter", "Brood", "Cindermaw", "King Slime", "Dread Warden"],
@@ -116,6 +117,7 @@ export const MAP_ENEMY_SPRITE_GROUPS = withGeneratedMaps<readonly EnemyKind[]>({
   [ONBOARDING_MAP_ID]: ["Spitter", "Brood"],
   home_exterior: [],
   soul_dimension: SOUL_ENEMY_KINDS,
+  town: [],
   [TUTORIAL_FOREST_MAP_ID]: MAP_ASSET_GROUPS[TUTORIAL_FOREST_MAP_ID].enemies,
   [BEGINNER_DESERT_MAP_ID]: MAP_ASSET_GROUPS[BEGINNER_DESERT_MAP_ID].enemies,
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: MAP_ASSET_GROUPS[INTERMEDIATE_SNOWLANDS_MAP_ID].enemies,

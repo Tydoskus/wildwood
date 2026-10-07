@@ -1,4 +1,4 @@
-import { soulInteriorArea, SOUL_INTERIOR_MARGIN } from "../../../shared/soul-dimension";
+import { townInteriorArea as soulInteriorArea, TOWN_INTERIOR_MARGIN as SOUL_INTERIOR_MARGIN } from "../../../shared/town";
 import { SOUL_ATLAS, SOUL_DOORS_OPEN, SOUL_INTERIOR_ROOMS, SOUL_VILLAGE_GROUND, SOUL_VILLAGE_SCENE } from "../soul-village";
 import { guildHallDoorState, guildHallFrame } from "../guild-hall";
 import type { WorldDecor } from "../world";

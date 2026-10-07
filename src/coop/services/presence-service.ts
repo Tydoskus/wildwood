@@ -1214,7 +1214,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
           !connection ||
           !Number.isFinite(x) ||
           !Number.isFinite(y) ||
-          !isProceduralMap(mapId) && !isSoulMap(mapId) && !isGuildHallMap(mapId) && !["home_exterior", TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, INFERNAL_DEPTHS_MAP_ID, WATER_REACH_MAP_ID, SAMURAI_GARDEN_MAP_ID, CLOUDSPIRE_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, NEON_BASTION_MAP_ID, VERDANT_CATACOMBS_MAP_ID, ION_CITADEL_MAP_ID].includes(mapId)
+          !isProceduralMap(mapId) && !isSoulMap(mapId) && !isGuildHallMap(mapId) && !["home_exterior", "town", TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ADVANCED_LAVA_WASTES_MAP_ID, INFERNAL_DEPTHS_MAP_ID, WATER_REACH_MAP_ID, SAMURAI_GARDEN_MAP_ID, CLOUDSPIRE_MAP_ID, MOONFEN_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, CLOCKWORK_RUINS_MAP_ID, DUSKFALL_ORCHARD_MAP_ID, NEON_BASTION_MAP_ID, VERDANT_CATACOMBS_MAP_ID, ION_CITADEL_MAP_ID].includes(mapId)
         ) return false;
         try {
           if (dependencies.drainEnemyLoot && !await dependencies.drainEnemyLoot()) throw new Error("Enemy rewards are still syncing. Try the portal again.");

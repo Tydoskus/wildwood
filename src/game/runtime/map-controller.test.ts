@@ -1,3 +1,4 @@
+import { TOWN_ARRIVAL } from "../../../shared/town";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { drawHomeTeleport, endHomeTeleport } from "./home-teleport";
 import { createMapController, prepareMapTransition } from "./map-controller";
@@ -260,19 +261,19 @@ describe("reset map presentation", () => {
 });
 
 describe("Home teleport", () => {
-  it("has a Home travel portal without triggering it from the spawn point", () => {
+  it("has the Town's travel portal without triggering it from the arrival", () => {
     const h = portalArrivalHarness({ x: 300, y: 400 });
-    h.controller.loadMap("home_exterior", 500, 700);
+    h.controller.loadMap("town", TOWN_ARRIVAL.x, TOWN_ARRIVAL.y);
     expect(h.controller.activePortal()).toMatchObject({ label: "Travel" });
     h.controller.resolvePortalCollision();
     h.controller.updatePortal(1);
-    expect(h.player).toMatchObject({ x: 500, y: 700 });
+    expect(h.player).toMatchObject({ x: TOWN_ARRIVAL.x, y: TOWN_ARRIVAL.y });
     expect(h.changeMap).not.toHaveBeenCalled();
     expect(h.openHomeTravel).not.toHaveBeenCalled();
   });
-  it("opens the picker on the Home portal instead of travelling, and only again after walking off it", () => {
+  it("opens the picker on the Town's portal instead of travelling, and only again after walking off it", () => {
     const h = portalArrivalHarness({ x: 300, y: 400 });
-    h.controller.loadMap("home_exterior", 500, 700);
+    h.controller.loadMap("town", TOWN_ARRIVAL.x, TOWN_ARRIVAL.y);
     const portal = h.controller.activePortal()!;
     const onPad = () => { h.player.x = portal.x; h.player.y = portal.y - portal.height * .32; };
     onPad(); h.controller.updatePortal(1);
@@ -285,10 +286,20 @@ describe("Home teleport", () => {
     onPad(); h.controller.updatePortal(1);
     expect(h.openHomeTravel).toHaveBeenCalledTimes(2);
   });
-  it("travels from Home to the picked map through the server and stops autofarm first", async () => {
+  it("takes Home's pad straight to the Town, with no picker", () => {
+    const h = portalArrivalHarness({ x: 300, y: 400 });
+    h.controller.loadMap("home_exterior", 500, 700);
+    const portal = h.controller.activePortal()!;
+    expect(portal).toMatchObject({ destination: "town", label: "Town" });
+    h.player.x = portal.x; h.player.y = portal.y - portal.height * .32;
+    h.controller.updatePortal(1);
+    expect(h.openHomeTravel).not.toHaveBeenCalled();
+    expect(h.changeMap).toHaveBeenCalledWith("town", h.player.x, h.player.y);
+  });
+  it("travels from the Town to the picked map through the server and stops autofarm first", async () => {
     vi.useFakeTimers();
     const h = portalArrivalHarness({ x: 300, y: 400 });
-    h.controller.loadMap("home_exterior", 600, 442);
+    h.controller.loadMap("town", 600, 442);
     h.changeMap.mockImplementationOnce(async () => {
       h.setServerMap({ mapId: "beginner_desert", x: 360, y: 770, facing: 0 });
       return true;

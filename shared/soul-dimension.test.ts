@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  addSoulKills, soulChunkCamps, soulChunkProps, soulDimensionAccess, soulEnemyStats, soulStatsUnlocked, soulTier, soulTierKillsNeeded,
-  soulWindowChunks, withSoulStats, SOUL_CENTER, SOUL_CHUNK_SIZE, inSoulVillage, soulChunkOf,
+  addSoulKills, soulDimensionAccess, soulEnemyStats, soulStatsUnlocked, soulTier, soulTierKillsNeeded, withSoulStats, SOUL_CAMPS, SOUL_POPULATION,
 } from "./soul-dimension";
 import { MIN_ATTACK_INTERVAL } from "./rules";
 import { decodePlayerMapFrame, decodePlayerMotionFrame, encodePlayerMapFrame, encodePlayerMotionFrame } from "./player-motion-frame";
@@ -67,30 +66,12 @@ describe("soul enemies", () => {
   });
 });
 
-describe("the soul world", () => {
-  it("builds the same chunk on every client", () => {
-    expect(soulChunkCamps(400, 410)).toEqual(soulChunkCamps(400, 410));
-    expect(soulChunkProps(400, 410)).toEqual(soulChunkProps(400, 410));
-  });
-
-  it("keeps camps and wild props out of the village", () => {
-    for (const { cx, cy } of soulWindowChunks(SOUL_CENTER.x, SOUL_CENTER.y)) {
-      for (const camp of soulChunkCamps(cx, cy)) expect(inSoulVillage(camp.x, camp.y, 300)).toBe(false);
-      for (const prop of soulChunkProps(cx, cy)) expect(inSoulVillage(prop.x, prop.y)).toBe(false);
-    }
-  });
-
-  it("has camps out in the wilds: a fair number in any 5x5 window", () => {
-    const x = SOUL_CENTER.x + SOUL_CHUNK_SIZE * 40, y = SOUL_CENTER.y - SOUL_CHUNK_SIZE * 17;
-    const camps = soulWindowChunks(x, y).flatMap(({ cx, cy }) => soulChunkCamps(cx, cy));
-    expect(camps.length).toBeGreaterThan(10);
-    expect(new Set(camps.map(camp => camp.key)).size).toBe(camps.length);
-    for (const camp of camps) expect(soulChunkOf(camp.x)).toBe(Number(camp.key.split(":")[0]));
-  });
-
-  it("has an edge: nothing past the world's last chunk", () => {
-    expect(soulChunkCamps(-1, 5)).toEqual([]);
-    expect(soulChunkProps(5, 1e9)).toEqual([]);
+describe("the soul forest", () => {
+  it("holds Tutorial Forest's camps, every one of them, and as many enemies as the forest has", () => {
+    expect(SOUL_CAMPS.length).toBeGreaterThan(5);
+    expect(new Set(SOUL_CAMPS.map(camp => camp.key)).size).toBe(SOUL_CAMPS.length);
+    expect(SOUL_POPULATION).toBe(SOUL_CAMPS.reduce((sum, camp) => sum + camp.count, 0));
+    for (const camp of SOUL_CAMPS) { expect(camp.roll).toBeGreaterThanOrEqual(0); expect(camp.roll).toBeLessThan(1); }
   });
 });
 
@@ -104,7 +85,7 @@ describe("Soul Dimension access", () => {
 });
 
 describe("wide motion frames", () => {
-  it("carry Soul Dimension positions far past u16, and stay apart from the narrow format", () => {
+  it("carry Town positions far past u16, and stay apart from the narrow format", () => {
     const motion = [{ networkId: 7, x: 512_345.6, y: 499_999.9, vx: -240.5, vy: 12, simulationTick: 70_000, motionEpoch: 3 }];
     const wide = encodePlayerMotionFrame(motion, true);
     expect(wide.byteLength).toBe(20);
