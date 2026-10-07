@@ -526,11 +526,11 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
     expect(s.tick().x).toBeGreaterThan(0);
     expect(s.farm.state().phase).toBe('boss');
     expect(s.farm.targetType()).toBeNull();
-    // Beaten with the boss untouched: twice the power, and half a map's wait.
+    // Beaten on the walk in, before reaching the boss: the push's retry power, and half a map's wait.
     s.farm.defeated();
     s.tick();
     expect(s.farm.state().phase).toBe('farm');
-    expect(s.farm.bossStatus()).toBe('Boss At 2.00k');
+    expect(s.farm.bossStatus()).toBe('Boss At 1.20k');
     expect(s.farm.bossStatusReady()).toBe(false);
     power = 2_000;
     s.advance(1_000);
@@ -609,7 +609,8 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
     s.player.hp = s.player.maxHp * .45;
     s.tick();
     expect(s.farm.state().phase).toBe('farm');
-    expect(s.farm.bossStatus()).toBe('Boss At 4.00k');
+    // It never reached the boss, so the boss asks only the push's retry, not twice the power.
+    expect(s.farm.bossStatus()).toBe('Boss At 2.40k');
   });
 
   it('stays in a boss fight it is winning, even low on health', () => {
@@ -896,7 +897,7 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
     s.tick();
     expect(s.farm.state().phase).toBe('portal');
     travel('beginner_desert');
-    expect(s.farm.bossStatus()).toBe('Trying Next Map');
+    expect(s.farm.bossStatus()).toBe('Trying Next Map · 10 Min');
     for (let death = 1; death < AUTO_FARM_DEFEAT_LIMIT; death++) s.farm.defeated();
     s.tick();
     expect(s.farm.state().phase).toBe('farm');
@@ -935,7 +936,7 @@ describe('autofarm plans: camp order, the boss and the next map', () => {
       s.tick();
       travel('beginner_desert');
       farmFor(9.5, rate);
-      expect(s.farm.bossStatus()).toBe('Trying Next Map');
+      expect(s.farm.bossStatus()).toBe('Trying Next Map · 1 Min');
       farmFor(1, rate);
       expect(s.farm.state().phase, `${rate}`).toBe(kept ? 'farm' : 'portal');
       expect(s.farm.bossStatus(), `${rate}`).toBe(kept ? '' : 'Moving Back A Map');

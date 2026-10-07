@@ -40,6 +40,8 @@ export function virtualPlayers(references: readonly ReferenceBuild[]): VirtualPl
     campaignPlayer('perks', 5, 10, { damage: .8, maxHp: .8, armor: .8, regen: .8 },
       { prestigeLevel: 10, perks: { riposte: 3, secondWind: 2, bossSlayer: 2, doubleStrike: 2, splitShot: 1 } }),
     campaignPlayer('late-balanced', 6, 13, {}),
+    // Far stronger than its map: it should beat every boss in turn and keep moving on, never settle.
+    campaignPlayer('overpowered', 12, 6, { damage: 6, maxHp: 6, armor: 6, regen: 6 }),
     endless,
     campaignPlayer('under-geared-wall', 8, 9, { damage: .5, maxHp: .5, armor: .5, regen: .5 }),
     campaignPlayer('glass-bold', 9, 5, glass, { push: 'bold' }),

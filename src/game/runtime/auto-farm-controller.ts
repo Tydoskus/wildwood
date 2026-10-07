@@ -15,7 +15,7 @@ import {
   readFarmAdvance, readFarmChoice, routeEntry, routeEntryText, writeFarmAdvance, writeFarmChoice, type FarmEvaluation, type FarmReward,
 } from './auto-farm-plan';
 import {
-  BOSS_FIRST_TRY_MS, BOSS_MARGIN_READY, DIED_TO_GROUP_MS, FARM_PUSHES, bossFightMargin, bossRetryKey, type LostBossFight, createPowerGainMeter, createRetryMemory, probationVerdict, readFarmPush, shouldLeaveBoss, writeFarmPush, type FarmPush,
+  BOSS_FIRST_TRY_MS, BOSS_MARGIN_READY, PROBATION_MS, DIED_TO_GROUP_MS, FARM_PUSHES, bossFightMargin, bossRetryKey, type LostBossFight, createPowerGainMeter, createRetryMemory, probationVerdict, readFarmPush, shouldLeaveBoss, writeFarmPush, type FarmPush,
 } from './auto-farm-brain';
 import { formatCompactNumber } from '../../../shared/compact-number';
 
@@ -297,7 +297,10 @@ export function createAutoFarmController(options: {
     // One that never scratched it still says how far behind the damage was: as near nothing as can be.
     if (bossFight?.reached && seconds >= 1 && stats && player.maxHp > 0) lostFight = { mapId: options.mapId(), stats,
       boss: Math.max(1e-6, (bossFight.bossStart - left) / seconds), player: (bossFight.playerStart - Math.max(0, player.hp) / player.maxHp) / seconds };
-    retries.raise(identityKey(), bossRetryKey(options.mapId()), currentPower(), Math.max(FARM_PUSHES[push].retry, 1 + left), waitMs(FARM_PUSHES[push].waitMinutes / 2));
+    // Doubling the power asked of a boss left untouched is for a fight that reached it: worn down by the
+    // camps on the walk in, the boss said nothing, and a strong build waited twice its power for it.
+    const factor = bossFight?.reached ? Math.max(FARM_PUSHES[push].retry, 1 + left) : FARM_PUSHES[push].retry;
+    retries.raise(identityKey(), bossRetryKey(options.mapId()), currentPower(), factor, waitMs(FARM_PUSHES[push].waitMinutes / 2));
     bossLeftAt = at;
     bossFight = null;
     planClock = 0;
@@ -435,11 +438,14 @@ export function createAutoFarmController(options: {
   }
   /**
    * Boss, next map or a camp. Moving on needs the toggle; the boss also the
-   * power its last try asked for, and a map that has passed its trial: a boss
-   * fight on probation is power not gained, and judged as the map's.
+   * power its last try asked for. The boss may be tried on trial: beating it
+   * ends the trial, since the map is plainly held.
    */
   function choosePhase(dt: number) {
     if (probation && probation.mapId !== options.mapId()) probation = null;
+    // A boss beaten here (or one that holds nothing back) shows the map is held: the trial is over.
+    // A strong build used to wait out the whole trial before it could even try the boss.
+    if (probation && options.bossUnlocksNext?.() === false) probation = null;
     if (probation) {
       const verdict = probationVerdict(probation, now(), gain.rate(now(), options.mapId()), push);
       if (verdict === 'back') goBack('Farming slower here · moving back a map');
@@ -464,7 +470,7 @@ export function createAutoFarmController(options: {
 
   function bossWanted() {
     const boss = options.mapBoss?.();
-    if (!boss || boss.dead || options.bossUnlocksNext?.() === false || onProbation() || now() - mapStartedAt < BOSS_FIRST_TRY_MS) return false;
+    if (!boss || boss.dead || options.bossUnlocksNext?.() === false || now() - mapStartedAt < BOSS_FIRST_TRY_MS) return false;
     const key = bossRetryKey(options.mapId());
     // A build that would now win the fight it lost goes back, whatever power the retry asked for.
     return retryReady(key) || (bossMargin() >= BOSS_MARGIN_READY && wallNow() >= retryGate(key).at);
@@ -707,7 +713,7 @@ export function createAutoFarmController(options: {
   function bossStatus() {
     if (options.reflectOnly?.()) return 'Off In Reflect Only';
     if (retreating) return 'Moving Back A Map';
-    if (onProbation()) return 'Trying Next Map';
+    if (onProbation()) return `Trying Next Map · ${Math.max(1, Math.ceil((probation!.since + PROBATION_MS - now()) / 60_000))} Min`;
     // What a try still waits for: more power first, then the time.
     const gate = (label: string, key: string, earliest = 0) => {
       const { power, at } = retryGate(key);
