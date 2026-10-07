@@ -81,3 +81,21 @@ it("opens the upgrade board once as a player walks up to it", () => {
   Object.assign(h.player, { x: board.x, y: board.y - GUILD_HALL_FEET_OFFSET }); h.step();
   expect(h.openBoard).toHaveBeenCalledTimes(2);
 });
+
+it("tells the server where the member stands before the door, and puts them back outside when it refuses", async () => {
+  const h = hall();
+  const syncMovementState = vi.fn();
+  const refuse = vi.fn(async () => { throw new Error("The door is too far away."); });
+  const fade: { onBlack?: () => void } = {};
+  const runtime = createGuildHallRuntime({
+    source: () => ({ guildHall: () => ({ guildId: "7", fund: 0, levels: EMPTY_GUILD_HALL_LEVELS }), useGuildHallDoor: refuse, syncMovementState }),
+    player: h.player, decor: [], currentMapId: () => "guild_hall_7", invalidateDepthOrder: () => {}, openBoard: () => {},
+    fadeToWorld: action => { fade.onBlack = action; }, loadEmblem: async () => 3,
+  });
+  for (let i = 0; i < 120 && !refuse.mock.calls.length; i++) { h.player.y -= 2; runtime.update(1 / 60); if (guildHallDoorState.open) fade.onBlack?.(); }
+  expect(refuse).toHaveBeenCalledTimes(1);
+  expect(syncMovementState).toHaveBeenCalledTimes(1);
+  expect(syncMovementState.mock.calls[0].slice(2)).toEqual([0, 0, "keyboard", true]);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(Math.hypot(h.player.x - GUILD_HALL_DOOR.x, h.player.y + GUILD_HALL_FEET_OFFSET - GUILD_HALL_DOOR.enter)).toBeLessThan(60);
+});

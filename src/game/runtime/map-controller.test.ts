@@ -24,8 +24,9 @@ function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
   const markPortalCutsceneSeen = vi.fn();
   const onTravelStarted = vi.fn();
   const openHomeTravel = vi.fn();
+  const closeHomeTravel = vi.fn();
   const controller = createMapController({
-    openHomeTravel,
+    openHomeTravel, closeHomeTravel,
     onTravelStarted,
     mapConfig: {
       ...bootstrap.mapConfig,
@@ -81,7 +82,7 @@ function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
     onCutsceneFinished: vi.fn(),
   } as unknown as Parameters<typeof createMapController>[0]);
   return {
-    onTravelStarted, openHomeTravel, changeMap, controller, currentMapId: () => currentMapId, desertMapId, player, markPortalCutsceneSeen,
+    onTravelStarted, openHomeTravel, closeHomeTravel, changeMap, controller, currentMapId: () => currentMapId, desertMapId, player, markPortalCutsceneSeen,
     bootstrap, prepareMapAssets,
     setMap: (value: MapId) => { currentMapId = value; },
     setUnlocked: (value: boolean) => { unlocked = value; },
@@ -282,7 +283,10 @@ describe("Home teleport", () => {
     expect(h.onTravelStarted).not.toHaveBeenCalled();
     for (let frame = 0; frame < 5; frame++) h.controller.updatePortal(1);
     expect(h.openHomeTravel).toHaveBeenCalledOnce();
+    expect(h.closeHomeTravel).not.toHaveBeenCalled();
+    // Walking off the pad with the picker open closes it: the server would refuse a trip sent from there.
     h.player.y += 200; h.controller.updatePortal(1);
+    expect(h.closeHomeTravel).toHaveBeenCalledOnce();
     onPad(); h.controller.updatePortal(1);
     expect(h.openHomeTravel).toHaveBeenCalledTimes(2);
   });

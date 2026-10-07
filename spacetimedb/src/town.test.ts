@@ -1,8 +1,11 @@
 import { expect, it, vi } from "vitest";
+import { Timestamp } from "spacetimedb";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { HOME_BENCH_POSITION, HOME_TRAVEL_PORTAL } from "../../shared/home";
 import { AGE_BAND_ADULT, TERMS_VERSION } from "../../shared/legal";
-import { TOWN_ARRIVAL, TOWN_BENCH_POSITION, TOWN_DOORS, TOWN_TRAVEL_PORTAL, TOWN_WALK_AREA, TOWN_WORLD } from "../../shared/town";
+import { TOWN_ARRIVAL, TOWN_BENCH_POSITION, TOWN_CENTER, TOWN_DOORS, TOWN_FEET_OFFSET, TOWN_SOUL_PORTAL, TOWN_TRAVEL_PORTAL, TOWN_WALK_AREA, TOWN_WORLD } from "../../shared/town";
+import { DOOR_POSITION_TOLERANCE } from "./door-reach";
+import { MOVEMENT_POSITION_PACKET_TOLERANCE } from "./presence-runtime";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 const portalSpot = (portal: { x: number; y: number; height: number }) => ({ x: portal.x, y: portal.y - portal.height * .32 });
@@ -115,4 +118,79 @@ it("puts a well's faller back on the square", () => {
   f.patch("player", { mapId: "town", x: TOWN_ARRIVAL.x + 300, y: TOWN_ARRIVAL.y + 300 });
   f.run(server.fallIntoWell, {});
   expect([me(f).x, me(f).y]).toEqual([TOWN_ARRIVAL.x, TOWN_ARRIVAL.y]);
+});
+
+// Movement packets are sparse: with multiplayer off, a walk to a door sends nothing, so the server still has the
+// player where they last stopped (0.900.0–0.900.2 refused hundreds of honest trips an hour from that).
+const moveTo = (f: ReturnType<typeof crystalFixture>, x: number, y: number) => {
+  const sequence = (f.db.playerMotion.identity.find(f.ctx.sender)?.lastInputSequence ?? 0) + 1;
+  f.run(server.updateMovementState, { x, y, vx: 0, vy: 0, simulationTick: sequence, motionEpoch: 0, sequence });
+};
+const wait = (f: ReturnType<typeof crystalFixture>, seconds: number) => {
+  f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + BigInt(Math.round(seconds * 1_000_000)));
+};
+
+it("lets a player through a door they could have walked to since their last movement packet, and no further", () => {
+  const f = crystalFixture();
+  const door = TOWN_DOORS[2];
+  f.patch("player", { mapId: "town", x: TOWN_ARRIVAL.x, y: TOWN_ARRIVAL.y });
+  moveTo(f, TOWN_ARRIVAL.x, TOWN_ARRIVAL.y);
+  const walk = Math.hypot(door.x - TOWN_ARRIVAL.x, door.enter - TOWN_FEET_OFFSET - TOWN_ARRIVAL.y);
+  expect(walk).toBeGreaterThan(400);
+  // Just stopped on the square: the door is too far to have reached.
+  expect(() => f.run(server.useTownDoor, { door: 2 })).toThrow(/too far/);
+  // Long enough later to have walked there (base speed, with the slack a packet gets), it opens.
+  wait(f, walk / 200);
+  f.run(server.useTownDoor, { door: 2 });
+  expect([me(f).x, me(f).y]).toEqual([door.inside.x, door.inside.y]);
+  // And straight back out from the room's doorway, where the trip put them.
+  f.run(server.useTownDoor, { door: 2 });
+  expect([me(f).x, me(f).y]).toEqual([door.outside.x, door.outside.y]);
+  expect(DOOR_POSITION_TOLERANCE).toBe(MOVEMENT_POSITION_PACKET_TOLERANCE);
+});
+
+it("takes the halt a client sends at the door as where the player is, as the client now does before every trip", () => {
+  const f = crystalFixture();
+  const door = TOWN_DOORS[4];
+  f.patch("player", { mapId: "town", x: TOWN_ARRIVAL.x, y: TOWN_ARRIVAL.y });
+  moveTo(f, TOWN_ARRIVAL.x, TOWN_ARRIVAL.y);
+  wait(f, 30);
+  moveTo(f, door.x, door.enter - TOWN_FEET_OFFSET - 10);
+  f.run(server.useTownDoor, { door: 4 });
+  expect([me(f).x, me(f).y]).toEqual([door.inside.x, door.inside.y]);
+});
+
+it("still sends a tab from before 0.900.2 on from where its Town portals used to stand, but not from just anywhere", () => {
+  const f = crystalFixture();
+  const old = { x: TOWN_CENTER.x - 1_225, y: TOWN_CENTER.y - 1_215 - TOWN_TRAVEL_PORTAL.height * .32 };
+  f.patch("player", { mapId: "town", ...old });
+  f.run(server.changeMap, { mapId: "tutorial_forest", ...old });
+  expect(me(f).mapId).toBe("tutorial_forest");
+  const g = crystalFixture();
+  const between = { x: old.x + 300, y: old.y + 300 };
+  g.patch("player", { mapId: "town", ...between });
+  expect(() => g.run(server.changeMap, { mapId: "tutorial_forest", ...between })).toThrow(/closer/);
+  // The Soul Dimension's old spot is taken too, by the same rule (its own gate decides who may go in).
+  const oldSoul = { x: TOWN_CENTER.x - 610, y: TOWN_CENTER.y + 1_880 - TOWN_SOUL_PORTAL.height * .32 };
+  const h = crystalFixture();
+  h.patch("player", { mapId: "town", ...oldSoul });
+  expect(() => h.run(server.changeMap, { mapId: "soul_dimension", ...oldSoul })).not.toThrow(/closer/);
+});
+
+it("lets a player use the bench they walked up to after coming in, though the server last heard of them at the doorway", () => {
+  const f = crystalFixture();
+  const smithy = TOWN_DOORS[TOWN_BENCH_POSITION.door];
+  // Standing on the square, just heard of: the bench in the smithy is far out of reach.
+  f.patch("player", { mapId: "town", x: TOWN_ARRIVAL.x, y: TOWN_ARRIVAL.y });
+  moveTo(f, TOWN_ARRIVAL.x, TOWN_ARRIVAL.y);
+  expect(() => f.run(server.startItemUpgrade, { slot: 1, itemId: "HAND" })).toThrow(/Upgrade Bench/);
+  // In through the smithy's door: the server's position is its doorway, the player walks on to the bench.
+  const g = crystalFixture();
+  g.patch("player", { mapId: "town", x: smithy.outside.x, y: smithy.outside.y });
+  moveTo(g, smithy.outside.x, smithy.outside.y);
+  g.run(server.useTownDoor, { door: TOWN_BENCH_POSITION.door });
+  expect([me(g).x, me(g).y]).toEqual([smithy.inside.x, smithy.inside.y]);
+  wait(g, 1);
+  g.run(server.startItemUpgrade, { slot: 1, itemId: "HAND" });
+  expect(g.db.activeItemUpgrade.identity.find(g.ctx.sender)).toBeTruthy();
 });

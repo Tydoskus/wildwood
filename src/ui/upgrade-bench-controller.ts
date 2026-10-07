@@ -116,6 +116,23 @@ export function upgradePickerPreview(track: UpgradeSlot, tier: unknown, equipped
   };
 }
 
+/**
+ * Whether the player could start a tier right now: one of their unlocked
+ * benches is idle and some track is below its last tier and not already on a
+ * bench. The red dot means "go start the next upgrade", so it needs both.
+ */
+export function upgradeBenchCanStart(
+  active: readonly Pick<ActiveItemUpgrade, "slot" | "itemId">[],
+  isSlotUnlocked: (slot: UpgradeBenchSlot) => boolean,
+  slotTier?: (track: UpgradeSlot) => number,
+) {
+  const busySlots = new Set(active.map((job) => job.slot));
+  if (!UPGRADE_SLOTS.some((slot) => isSlotUnlocked(slot) && !busySlots.has(slot))) return false;
+  const busyTracks = new Set(active.map((job) => job.itemId));
+  return UPGRADE_TRACKS.some((track) => !busyTracks.has(track) &&
+    (typeof slotTier !== "function" || normalizeSlotTier(slotTier(track)) < MAX_SLOT_UPGRADE_TIER));
+}
+
 /** Fullscreen upgrade interaction plus enter/leave collision latch. */
 /**
  * The server grants a finished upgrade and removes it on its own, so there is
@@ -672,9 +689,10 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
      * A completed tier is auto-granted. Poll each UI frame so the badge and
      * completion card still appear while gameplay is paused by a panel.
      * The badge means a bench is free to start the next tier, so it shows only
-     * while one of the player's unlocked benches is idle; once every bench is
-     * busy again, however the next upgrade was started (this tab, another tab
-     * or device), the badge is acknowledged.
+     * while one of the player's unlocked benches is idle and some track is
+     * still below its last tier and not already on a bench. Once nothing can be
+     * started — every bench busy again, however that happened (this tab,
+     * another tab or device), or every track maxed — the badge is acknowledged.
      */
     finishedUpgradeWaiting(connected = true) {
       loadSnapshot();
@@ -698,7 +716,7 @@ export function createUpgradeBenchController(elements: UpgradeBenchElements, dep
           dependencies.slotTier(job.itemId) >= job.targetLevel) continue;
         tracked.set(slot, job);
       }
-      if (finishedWaiting && UPGRADE_SLOTS.every((slot) => !isSlotUnlocked(slot) || current.has(slot))) rememberFinished(false);
+      if (finishedWaiting && !upgradeBenchCanStart([...current.values()], isSlotUnlocked, dependencies.slotTier)) rememberFinished(false);
       saveSnapshot();
       return finishedWaiting;
     },

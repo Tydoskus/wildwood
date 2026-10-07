@@ -10,7 +10,42 @@ import type { PlayerState } from "./types";
 export type TownSource = {
   fallIntoWell?: () => Promise<boolean>;
   useTownDoor?: (door: number) => Promise<boolean>;
+  /** A movement packet; forced, it is sent whatever the sparse-movement rules would hold back. */
+  syncMovementState?: (x: number, y: number, vx: number, vy: number, inputKind?: "keyboard", force?: boolean) => void;
 };
+
+/**
+ * Takes a player through a door on the server once the client has them through it. The server judges a door from
+ * where it last heard of them, and movement packets are sparse (with multiplayer off a walk sends nothing for up to
+ * half a minute), so it first hears where they stand at the door: a halt, forced. A refused door (the server still
+ * has them on this side) puts them back where the trip started, so client and server never disagree about which
+ * side of a wall they are on.
+ */
+export function goThroughDoor(options: {
+  source: { syncMovementState?: TownSource["syncMovementState"] } | null | undefined;
+  player: PlayerState;
+  /** Where the trip started, and where it lands. */
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+  use: () => Promise<boolean> | undefined;
+  /** Whether a refusal arriving now still belongs to this trip (no later trip, still on the map). */
+  current: () => boolean;
+  moved: () => void;
+}) {
+  const { player, to, from } = options;
+  options.source?.syncMovementState?.(player.x, player.y, 0, 0, "keyboard", true);
+  player.x = to.x;
+  player.y = to.y;
+  player.moving = false;
+  options.moved();
+  void (options.use() ?? Promise.resolve(false)).catch(() => {
+    if (!options.current()) return;
+    player.x = from.x;
+    player.y = from.y;
+    player.moving = false;
+    options.moved();
+  });
+}
 
 /** The village's water and building footprints, and the rooms' walls and furniture: a player cannot walk through them. */
 const SOLIDS = [...SOUL_VILLAGE_SOLIDS, ...SOUL_INTERIOR_SOLIDS];
@@ -169,18 +204,20 @@ export function createTownRuntime(deps: {
   /** Where collision last left the player: whether they are walking into a door is how they moved since. */
   let lastY = Number.NaN;
 
+  /** Counts trips through doors, so a refusal for an old one is not applied to a newer one. */
+  let trips = 0;
   function finishDoorway() {
     const trip = doorway;
     if (!trip || trip.done) return;
     trip.done = true;
-    const { player } = deps;
-    const to = trip.inward ? trip.door.inside : trip.door.outside;
-    player.x = to.x;
-    player.y = to.y;
-    player.moving = false;
-    lastY = player.y;
     doorway = null;
-    void (source()?.useTownDoor?.(trip.door.index) ?? Promise.resolve(false)).catch(() => false);
+    const serial = ++trips, current = source();
+    goThroughDoor({
+      source: current, player: deps.player, from: trip, to: trip.inward ? trip.door.inside : trip.door.outside,
+      use: () => current?.useTownDoor?.(trip.door.index),
+      current: () => serial === trips && !fall && isTownMap(deps.currentMapId()),
+      moved: () => { lastY = deps.player.y; },
+    });
   }
   function startDoorway(door: TownDoor, inward: boolean) {
     const { player } = deps;

@@ -19,7 +19,16 @@ const STAT_REWARD_PRESENTATION: Readonly<Record<string, StatRewardPresentation>>
   "ATK/SEC": { icon: "⚡", label: "Attack Speed" },
   "ATTACK SPEED": { icon: "⚡", label: "Attack Speed" },
   "HP/SEC": { icon: "✚", label: "Regeneration" },
+  // Soul kills (soul-dimension-runtime.ts): shown as stat gains, kept apart from the run's own so totals never mix.
+  "SOUL DAMAGE": { icon: "⚔️", label: "Soul Damage" },
+  "SOUL HEALTH": { icon: "♥", label: "Soul Health" },
+  "SOUL ARMOR": { icon: "🛡️", label: "Soul Armor" },
+  "SOUL REGEN": { icon: "✚", label: "Soul Regen" },
+  "SOUL ATTACK SPEED": { icon: "⚡", label: "Soul Attack Speed" },
+  "SOUL CRIT DAMAGE": { icon: "✦", label: "Soul Crit Damage" },
 };
+/** Stats whose gains read as a percentage (+0.2%). */
+const PERCENT_STATS = new Set(["SOUL CRIT DAMAGE"]);
 
 const COMPACT_MULTIPLIERS: Readonly<Record<string, number>> = {
   "": 1,
@@ -47,6 +56,7 @@ const COMPACT_MULTIPLIERS: Readonly<Record<string, number>> = {
 };
 
 function statRewardValue(amount: string) {
+  if (amount.endsWith("%")) { const value = Number(amount.slice(1, -1)); return amount.startsWith("+") && Number.isFinite(value) ? value : null; }
   // Scientific notation (a setting) reads as mantissa and exponent: +5.00e6.
   const scientific = /^\+([0-9]+(?:\.[0-9]+)?)e([0-9]+)$/i.exec(amount);
   if (scientific) { const value = Number(scientific[1]) * 10 ** Number(scientific[2]); return Number.isFinite(value) ? value : null; }
@@ -59,6 +69,9 @@ function statRewardValue(amount: string) {
 }
 
 export function formatStatRewardToastAmount(stat: string, value: number) {
+  if (PERCENT_STATS.has(stat)) return `+${+value.toFixed(2)}%`;
+  // Soul attack speed comes a thousandth at a time.
+  if (stat === "SOUL ATTACK SPEED") return `+${+value.toFixed(3)}`;
   if (stat === "ATK/SEC" || (Math.abs(value) < 1_000 && !Number.isInteger(value))) {
     return `+${value.toFixed(2)}`;
   }

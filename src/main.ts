@@ -753,7 +753,7 @@ import {
 
   let playerController: PlayerController;
   const mapController = createMapController({
-    openHomeTravel: portal => isSoulMap(portal.destination) ? soulDimension.openWindow() : homeTravel.open(),
+    openHomeTravel: portal => isSoulMap(portal.destination) ? soulDimension.openWindow() : homeTravel.open(), closeHomeTravel: () => { homeTravel.close(); soulDimension.closeWindow(); },
     onTravelStarted: () => autoFarm.travelStarted(),
     markPortalCutsceneSeen: (cutscene) => coop?.markPortalCutsceneSeen?.(cutscene),
     mapConfig: MAP_CONFIG,

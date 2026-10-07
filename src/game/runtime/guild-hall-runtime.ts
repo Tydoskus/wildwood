@@ -4,12 +4,13 @@ import {
 import { guildHallBoard, guildHallDecor, guildHallDoorState, guildHallSeatAt, guildHallSeats, guildHallShown, guildHallSolids } from "../guild-hall";
 import type { SoulSolid } from "../soul-village";
 import type { MapId, WorldDecor } from "../world";
-import { pushOutOf } from "./town-runtime";
+import { goThroughDoor, pushOutOf, type TownSource } from "./town-runtime";
 import type { PlayerState } from "./types";
 
 export type GuildHallSource = {
   guildHall?: () => { guildId: string; fund: number; levels: GuildHallLevels } | null;
   useGuildHallDoor?: () => Promise<boolean>;
+  syncMovementState?: TownSource["syncMovementState"];
 };
 
 const FEET_OFFSET = GUILD_HALL_FEET_OFFSET;
@@ -84,18 +85,20 @@ export function createGuildHallRuntime(deps: {
     player.y = feet.y - FEET_OFFSET;
   }
 
+  /** Counts trips through the door, so a refusal for an old one is not applied to a newer one. */
+  let trips = 0;
   function finishDoorway() {
     const trip = doorway;
     if (!trip || trip.done) return;
     trip.done = true;
-    const { player } = deps;
-    const to = trip.inward ? guildHallRoom(size).inside : GUILD_HALL_DOOR.outside;
-    player.x = to.x;
-    player.y = to.y;
-    player.moving = false;
-    lastY = player.y;
     doorway = null;
-    void (deps.source()?.useGuildHallDoor?.() ?? Promise.resolve(false)).catch(() => false);
+    const serial = ++trips, current = deps.source(), mapId = deps.currentMapId();
+    goThroughDoor({
+      source: current, player: deps.player, from: trip, to: trip.inward ? guildHallRoom(size).inside : GUILD_HALL_DOOR.outside,
+      use: () => current?.useGuildHallDoor?.(),
+      current: () => serial === trips && deps.currentMapId() === mapId,
+      moved: () => { lastY = deps.player.y; },
+    });
   }
   function startDoorway(inward: boolean) {
     const { player } = deps;

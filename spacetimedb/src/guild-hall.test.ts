@@ -1,9 +1,10 @@
 import { createTestGuild } from "../../tests/helpers/guild-creation";
 import { expect, it, vi } from "vitest";
+import { Timestamp } from "spacetimedb";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { SPACETIME_AUTH_CLIENT_ID, SPACETIME_AUTH_ISSUER } from "../../shared/rules";
 import { TOWN_MAP_ID } from "../../shared/town";
-import { GUILD_HALL_ARRIVAL, GUILD_HALL_DOOR, GUILD_HALL_WORLD, guildHallMapId, guildHallRoom, parseGuildHallLevels } from "../../shared/guild-hall";
+import { GUILD_HALL_ARRIVAL, GUILD_HALL_DOOR, GUILD_HALL_FEET_OFFSET, GUILD_HALL_WORLD, guildHallMapId, guildHallRoom, parseGuildHallLevels } from "../../shared/guild-hall";
 import { PLAYER_POSITION_SCALE } from "../../shared/player-motion-frame";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
@@ -130,4 +131,19 @@ it("keeps who a member is watching through the door, so the guildmates they see 
   // A real map change still drops it: the client asks again for the new map.
   f.run(server.changeMap, { mapId: TOWN_MAP_ID, x: f.me().x, y: f.me().y });
   expect(f.db.playerMotionInterest.identity.find(f.ctx.sender)).toBeFalsy();
+});
+
+it("lets a member through the door they could have walked to since their last movement packet, and no further", () => {
+  const f = fixture(); f.guild(["1"], "Rose");
+  const hall = guildHallMapId(f.db.guildMember.identity.find(f.ctx.sender).guildId);
+  f.run(server.changeMap, { mapId: hall, x: 4050, y: 4050 });
+  // Arrived and stood still; then walked to the door with multiplayer off, which sends no packet on the way.
+  const sequence = (f.db.playerMotion.identity.find(f.ctx.sender)?.lastInputSequence ?? 0) + 1;
+  f.run(server.updateMovementState, { x: GUILD_HALL_ARRIVAL.x, y: GUILD_HALL_ARRIVAL.y, vx: 0, vy: 0, simulationTick: sequence, motionEpoch: 0, sequence });
+  const walk = Math.hypot(GUILD_HALL_DOOR.x - GUILD_HALL_ARRIVAL.x, GUILD_HALL_DOOR.enter - GUILD_HALL_FEET_OFFSET - GUILD_HALL_ARRIVAL.y);
+  expect(walk).toBeGreaterThan(400);
+  expect(() => f.run(server.useGuildHallDoor, {})).toThrow(/too far/);
+  f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + BigInt(Math.ceil(walk / 200 * 1_000_000)));
+  f.run(server.useGuildHallDoor, {});
+  expect([f.me().x, f.me().y]).toEqual([guildHallRoom(0).inside.x, guildHallRoom(0).inside.y]);
 });

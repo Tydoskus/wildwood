@@ -33,5 +33,5 @@ export function createSoulDimension(deps: Parameters<typeof createSoulDimensionR
     pause: () => {},
     clearInput: deps.clearInput,
   });
-  return { ...runtime, update: (dt: number) => { runtime.update(dt); town.update(dt); }, refreshTown: town.refresh, openWindow: () => window.open() };
+  return { ...runtime, update: (dt: number) => { runtime.update(dt); town.update(dt); }, refreshTown: town.refresh, openWindow: () => window.open(), closeWindow: () => window.close() };
 }

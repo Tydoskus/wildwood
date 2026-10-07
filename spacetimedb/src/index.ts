@@ -77,7 +77,8 @@ import { createGemPurchaseService } from "./gem-purchase-service";
 import { rescaleEndgameProgress } from "../../shared/endgame-power-rescale";
 import { CAMPAIGN_UNLOCK_FIELDS, equipmentMapRequirement } from "../../shared/equipment-access";
 import { HOME_EXTERIOR_MAP_ID, HOME_TRAVEL_PORTAL } from "../../shared/home";
-import { isTownMap, registerTown, TOWN_ARRIVAL, TOWN_BENCH_POSITION, TOWN_MAP_ID, TOWN_SOUL_PORTAL, TOWN_TRAVEL_PORTAL } from "./town";
+import { withinStationReach } from "./door-reach";
+import { isTownMap, registerTown, TOWN_ARRIVAL, TOWN_BENCH_POSITION, TOWN_MAP_ID, townPortalUsePoints } from "./town";
 import { enterGuildHall, guildHallMember, memberEnteredWorld, guildHallMemberLeft, guildHallTables, isGuildHallMap, registerGuildHall } from "./guild-hall";
 import { isSoulMap, noteEnemyDefeats, registerSoulDimension, requireSoulDimensionOpen, soulDimensionOpenFor, soulDimensionTables, soulStatsFor, SOUL_ARRIVAL, SOUL_TOWN_PORTAL, wideMotionMap, withSoulStats, worldBoundsFor } from "./soul-dimension";
 import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./snapshot-row-writes";
@@ -5021,7 +5022,7 @@ export const startItemUpgrade = spacetimedb.reducer(
     const slot = requireUpgradeBenchSlot(requestedSlot);
     const playerAtBench = requireControllingPlayer(ctx);
     if (!isTownMap(playerAtBench.mapId) ||
-      Math.hypot(playerAtBench.x - TOWN_BENCH_POSITION.x, playerAtBench.y - TOWN_BENCH_POSITION.y) > UPGRADE_BENCH_USE_RANGE) {
+      !withinStationReach(ctx, playerAtBench, TOWN_BENCH_POSITION, UPGRADE_BENCH_USE_RANGE)) {
       throw new SenderError("Touch the Upgrade Bench first.");
     }
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel first.");
@@ -5868,7 +5869,7 @@ export const changeMap = spacetimedb.reducer(
     // The Town's travel portal (and, for tabs from before the Town, Home's pad) reaches every map the checks above allow.
     const usePoint = (portal: { x: number; y: number; height: number }, destination: string) => ({ x: portal.x, y: portal.y - portal.height * .32, destination });
     const sourcePortals = current.mapId === HOME_EXTERIOR_MAP_ID ? [usePoint(HOME_TRAVEL_PORTAL, isSoulMap(mapId) ? "" : mapId)]
-      : isTownMap(current.mapId) ? [usePoint(TOWN_TRAVEL_PORTAL, mapId), usePoint(TOWN_SOUL_PORTAL, TOWN_SOUL_PORTAL.destination)]
+      : isTownMap(current.mapId) ? townPortalUsePoints(mapId)
       : isSoulMap(current.mapId) ? [usePoint(SOUL_TOWN_PORTAL, SOUL_TOWN_PORTAL.destination)]
       : isProceduralMap(current.mapId)
       ? generateMap(current.mapId).portals.map(portal => ({ ...portal, y:portal.y-portal.height*.32 }))

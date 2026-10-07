@@ -90,3 +90,8 @@ export function guildHallDoorDestination(size: number, x: number, y: number) {
   if (x >= room.left - spare && x <= room.right + spare && y >= room.top - spare - 200 && y <= room.bottom + spare) return GUILD_HALL_DOOR.outside;
   return null;
 }
+/** Where a member stands to go through the hall's door, by their position: at its sill outside, and in the room's doorway. */
+export function guildHallDoorSides(size: number) {
+  const room = guildHallRoom(size);
+  return [{ x: GUILD_HALL_DOOR.x, y: GUILD_HALL_DOOR.enter - GUILD_HALL_FEET_OFFSET }, { x: room.exit.x, y: room.exit.y - GUILD_HALL_FEET_OFFSET }];
+}

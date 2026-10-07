@@ -1,4 +1,12 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.900.3": [
+    "Fixed Town and Guild Hall doors refusing to let you through (\"That door is too far away\")",
+    "Fixed the Town's portals asking you to move closer",
+    "Loadout Upgrades works as soon as you walk up to it",
+    "Walking off a Town portal closes its window",
+    "The Inventory's upgrade dot no longer stays on when nothing can be upgraded",
+    "Soul Stat gains show like other stat gains, and follow the Stat Gain Popups setting",
+  ],
   "0.900.2": [
     "The Town's Travel and Soul Dimension portals stand at the very ends of their roads",
     "A rune stone marks the Soul Dimension's portal",
@@ -2933,6 +2941,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.900.3": "2026-10-06",
   "0.900.2": "2026-10-06",
   "0.900.1": "2026-10-06",
   "0.900.0": "2026-10-06",

@@ -76,6 +76,8 @@ export type MapController = {
 export function createMapController(options: {
   /** Home's portals open windows rather than travel: the destination picker, or the Soul Dimension's. */
   openHomeTravel?: (portal: MapPortal) => void;
+  /** Closes those windows: walking off the portal leaves it, as the server only sends a player on from beside it. */
+  closeHomeTravel?: () => void;
   onTravelStarted?: () => void;
   mapConfig: MapConfig;
   tutorialMapId: MapId;
@@ -271,6 +273,7 @@ export function createMapController(options: {
     if (portalExitGuard) {
       if (playerIsInsidePortal(portalExitGuard)) return;
       portalExitGuard = null;
+      if (getCurrentMapId() === "town") options.closeHomeTravel?.();
     }
     const portal = [activePortal(), secondaryPortal()].filter((candidate): candidate is MapPortal => candidate !== null).find((candidate) =>
       playerIsInsidePortal(candidate),

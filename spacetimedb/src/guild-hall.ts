@@ -1,12 +1,13 @@
 import { table, t, SenderError } from "spacetimedb/server";
 import type { default as spacetimedbType } from "./index";
 import {
-  GUILD_HALL_ARRIVAL, GUILD_HALL_PART_IDS, guildHallDoorDestination, guildHallGuildId, guildHallMapId, guildHallUpgradeCost,
+  GUILD_HALL_ARRIVAL, GUILD_HALL_PART_IDS, guildHallDoorDestination, guildHallDoorSides, guildHallGuildId, guildHallMapId, guildHallUpgradeCost,
   isGuildHallMap, parseGuildHallLevels, type GuildHallPart,
 } from "../../shared/guild-hall";
 import { HOME_EXTERIOR_MAP_ID } from "../../shared/home";
 import { questDay, questWeek } from "../../shared/daily-quests";
 import { isTownMap, TOWN_ARRIVAL, TOWN_MAP_ID } from "../../shared/town";
+import { doorDestinationFor } from "./door-reach";
 
 /**
  * Guild halls on the server (shared/guild-hall.ts has the rules).
@@ -105,7 +106,8 @@ export function registerGuildHall(spacetimedb: typeof spacetimedbType, deps: Gui
     if (!isGuildHallMap(player.mapId) || !guildHallMember(ctx, ctx.sender, player.mapId)) throw new SenderError("There is no door here.");
     const hall = ctx.db.guildHall.guildId.find(guildHallGuildId(player.mapId));
     const moving = deps.playerWithMotion(ctx, player);
-    const destination = guildHallDoorDestination(parseGuildHallLevels(hall?.levels).size, moving.x, moving.y);
+    const size = parseGuildHallLevels(hall?.levels).size;
+    const destination = doorDestinationFor(ctx, moving, (x, y) => guildHallDoorDestination(size, x, y), guildHallDoorSides(size));
     if (!destination) throw new SenderError("The door is too far away.");
     deps.transitionPlayerMap(ctx, moving, player.mapId, destination);
   });

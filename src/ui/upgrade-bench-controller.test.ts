@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseHTML } from "linkedom";
-import { FROST_BOW } from "../../shared/items";
-import { UPGRADE_BENCH_TOUCH_OFFSET_Y, UPGRADE_CANCEL_CONFIRMATION, createUpgradeBenchController, playerTouchesUpgradeBench, upgradeBenchTouchTransition, upgradePickerPreview, upgradeSlotAfterPickerDismiss, upgradesFinishedSinceLastPoll } from "./upgrade-bench-controller";
+import { FROST_BOW, MAX_SLOT_UPGRADE_TIER } from "../../shared/items";
+import { UPGRADE_BENCH_TOUCH_OFFSET_Y, UPGRADE_CANCEL_CONFIRMATION, createUpgradeBenchController, playerTouchesUpgradeBench, upgradeBenchCanStart, upgradeBenchTouchTransition, upgradePickerPreview, upgradeSlotAfterPickerDismiss, upgradesFinishedSinceLastPoll } from "./upgrade-bench-controller";
 import type { ActiveItemUpgrade } from "../wildstat-coop";
 import { createInventoryNotice } from "./inventory-notice";
 
@@ -298,5 +298,46 @@ describe("finished upgrade notification", () => {
     secondUnlocked = true;
     active = [job(1, 5_000, "HEAD")];
     expect(other.finishedUpgradeWaiting()).toBe(true);
+  });
+  it("can start an upgrade only with a free bench and a track below its last tier", () => {
+    const one = (slot: 1 | 2 | 3) => slot === 1;
+    const two = (slot: 1 | 2 | 3) => slot !== 3;
+    const tiers = (tier: Partial<Record<string, number>>) => (track: string) => tier[track] ?? 0;
+    const maxed = tiers({ HAND: MAX_SLOT_UPGRADE_TIER, HEAD: MAX_SLOT_UPGRADE_TIER, CHEST: MAX_SLOT_UPGRADE_TIER });
+    // Every track at its last tier: nothing to put on the bench.
+    expect(upgradeBenchCanStart([], one, maxed)).toBe(false);
+    expect(upgradeBenchCanStart([], two, maxed)).toBe(false);
+    // One track below max and a free bench.
+    expect(upgradeBenchCanStart([], one, tiers({ HAND: MAX_SLOT_UPGRADE_TIER, HEAD: MAX_SLOT_UPGRADE_TIER, CHEST: 34 }))).toBe(true);
+    // The only bench is busy.
+    expect(upgradeBenchCanStart([job(1, 500, "CHEST")], one, tiers({}))).toBe(false);
+    // A second bench is free, but the only unfinished track is already on the first one.
+    expect(upgradeBenchCanStart([job(1, 500, "CHEST")], two, tiers({ HAND: MAX_SLOT_UPGRADE_TIER, HEAD: MAX_SLOT_UPGRADE_TIER }))).toBe(false);
+    expect(upgradeBenchCanStart([job(1, 500, "CHEST")], two, tiers({ HAND: MAX_SLOT_UPGRADE_TIER }))).toBe(true);
+  });
+
+  it("drops the red dot when the last tier finishes and every track is maxed", () => {
+    const names = ["inventory", "slot", "slotTwo", "slotThree", "action", "speedUp", "back", "closePicker"];
+    const others = ["panel", "prompt", "statGain", "timer", "picker", "pickerItems"];
+    const { document } = parseHTML(`<html><body>${names.map((name) => `<button id="${name}"></button>`).join("")}${others.map((name) => `<div id="${name}"></div>`).join("")}</body></html>`);
+    vi.stubGlobal("document", document);
+    const values = new Map<string, string>([["wildstat-upgrade-finished:player", JSON.stringify({ waiting: true, jobs: [] })]]);
+    const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } };
+    const tier: Record<string, number> = { HAND: MAX_SLOT_UPGRADE_TIER, HEAD: MAX_SLOT_UPGRADE_TIER, CHEST: MAX_SLOT_UPGRADE_TIER - 1 };
+    const finished = vi.fn();
+    const controller = createUpgradeBenchController(Object.fromEntries([...names, ...others].map((name) => [name, document.getElementById(name)!])) as never, {
+      activeUpgrades: () => [], slotTier: (track: string) => tier[track], nowMs: () => 100, localIdentity: () => "player", storage,
+      secondSlotUnlocked: () => true, thirdSlotUnlocked: () => true, onUpgradeFinished: finished,
+    } as never);
+    // A remembered finish with CHEST still one tier short: the dot stays.
+    expect(controller.finishedUpgradeWaiting()).toBe(true);
+    // CHEST reaches its last tier: the toast still fires, but there is nothing left to start.
+    tier.CHEST = MAX_SLOT_UPGRADE_TIER;
+    controller.observeUpgradeTier("CHEST", MAX_SLOT_UPGRADE_TIER);
+    expect(finished).toHaveBeenCalledWith(expect.objectContaining({ itemId: "CHEST", targetLevel: MAX_SLOT_UPGRADE_TIER }));
+    expect(controller.finishedUpgradeWaiting()).toBe(false);
+    expect(JSON.parse(values.get("wildstat-upgrade-finished:player")!).waiting).toBe(false);
+    // Disconnected, the cleared state is what is remembered.
+    expect(controller.finishedUpgradeWaiting(false)).toBe(false);
   });
 });

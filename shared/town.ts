@@ -145,6 +145,11 @@ export function townDoorDestination(index: number, x: number, y: number) {
   if (townRoomAt(x, y, TOWN_DOOR_REACH) === door) return door.outside;
   return null;
 }
+/** Where a player stands to go through a door, by their position: at its sill outside, and in its room's doorway. */
+export function townDoorSides(index: number) {
+  const door = TOWN_DOORS[index];
+  return door ? [{ x: door.x, y: door.enter - TOWN_FEET_OFFSET }, { x: door.exit.x, y: door.exit.y - TOWN_FEET_OFFSET }] : [];
+}
 
 // ---- The countryside, chunk by chunk ----
 
