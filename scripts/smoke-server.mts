@@ -1,7 +1,8 @@
 // End-to-end smoke test against a running SpacetimeDB with this module
 // published: a new guest connects, registers the protocol, accepts the terms,
-// enters the world, reports one kill, and must then receive its own player and
-// progress rows with the kill counted.
+// enters the world (a new account starts in the Town), travels through the
+// Town's travel portal to Tutorial Forest, reports one kill, and must then
+// receive its own player and progress rows with the kill counted.
 // Unit tests run the reducers against an in-memory stand-in; this is the one
 // check that goes through the real host, wire format and visibility rules.
 //
@@ -11,6 +12,7 @@ import { PROTOCOL_VERSION } from "../shared/rules.ts";
 import { AGE_BAND_ADULT, TERMS_VERSION } from "../shared/legal.ts";
 import { enemyDefeatDefinition } from "../shared/enemy-defeats.ts";
 import { ENEMY_TYPES } from "../shared/enemy-definitions.ts";
+import { TOWN_TRAVEL_PORTAL } from "../shared/town.ts";
 
 const [uri = "ws://127.0.0.1:3000", database = "wildstat-smoke"] = process.argv.slice(2);
 const fail = (message: string) => { console.error(`Smoke test failed: ${message}`); process.exit(1); };
@@ -38,10 +40,17 @@ DbConnection.builder().withUri(uri).withDatabaseName(database)
           if (!player) fail("no player row after entering the world");
           if (!mine(connection.db.playerProgress.iter())) fail("no progress row after entering the world");
           console.log(`ok  own player and progress rows arrived (on ${player!.mapId})`);
-          const enemy = Object.keys(ENEMY_TYPES).find(kind => enemyDefeatDefinition(player!.mapId, kind));
-          if (!enemy) fail(`no enemy to report on ${player!.mapId}`);
-          await step(`report a ${enemy} kill`, () => connection.reducers.reportEnemyDefeats({
-            streamId: "smoke-test-stream-0001", sequence: 1n, mapId: player!.mapId, simulatedMillis: 30_000, enemies: [{ enemy: enemy!, count: 1 }],
+          // The Town has no enemies: on to the forest through its travel portal, from where the portal is used.
+          if (player!.mapId === "town") {
+            await step("travel from the Town to Tutorial Forest", () => connection.reducers.changeMap({
+              mapId: "tutorial_forest", x: TOWN_TRAVEL_PORTAL.x, y: TOWN_TRAVEL_PORTAL.y - TOWN_TRAVEL_PORTAL.height * .32,
+            }));
+          }
+          const mapId = mine(connection.db.player.iter())!.mapId;
+          const enemy = Object.keys(ENEMY_TYPES).find(kind => enemyDefeatDefinition(mapId, kind));
+          if (!enemy) fail(`no enemy to report on ${mapId}`);
+          await step(`report a ${enemy} kill on ${mapId}`, () => connection.reducers.reportEnemyDefeats({
+            streamId: "smoke-test-stream-0001", sequence: 1n, mapId, simulatedMillis: 30_000, enemies: [{ enemy: enemy!, count: 1 }],
           }));
           const kills = mine(connection.db.playerLifetime.iter())?.enemyKills ?? 0n;
           if (kills !== 1n) fail(`lifetime kills read ${kills} after one accepted kill`);
