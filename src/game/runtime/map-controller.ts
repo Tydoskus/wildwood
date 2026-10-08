@@ -10,6 +10,8 @@ export type MapPortal = { x: number; y: number; width: number; height: number; d
 type MapConfig = Record<MapId, { portal: MapPortal | null; arrival: { x: number; y: number }; secondaryPortal?: MapPortal }>;
 
 const PORTAL_TRIGGER_RADIUS = 48;
+/** How long a map change waits for its fade's dark before it loads without it. */
+const MAP_FADE_FALLBACK_MS = 5_000;
 
 async function withMapDeadline<T>(work: Promise<T>): Promise<T> {
   let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -142,6 +144,18 @@ export function createMapController(options: {
   const initialPortal = mapConfig[tutorialMapId].portal;
   if (!initialPortal) throw new Error("Tutorial map requires an introductory portal.");
   let portalCutscenePortal: MapPortal = initialPortal;
+
+  /**
+   * The map loads on the fade's dark, and loading is what ends the travel lock.
+   * A fade that never calls back would hold the player at the portal, unable to
+   * move or teleport until a reload, so the load also runs on a timer.
+   */
+  function fadeToMap(load: () => void) {
+    let done = false;
+    const once = () => { if (done) return; done = true; load(); };
+    fadeToWorld(once);
+    setTimeout(once, MAP_FADE_FALLBACK_MS);
+  }
 
   async function teleport(destination?: MapId, request?: () => Promise<boolean | TeleportArrival>) {
     if (!running() || player.hp <= 0 || isDueling() || mapTransitioning || portalCutscene.active) return false;
@@ -307,7 +321,7 @@ export function createMapController(options: {
         return;
       }
       const arrival = mapConfig[destination].arrival;
-      fadeToWorld(() => {
+      fadeToMap(() => {
         if (attempt !== mapLoadGeneration) return;
         loadMap(destination, arrival.x, arrival.y, Math.PI / 2);
         snapCameraToPlayer(camera, player, viewport());
@@ -332,7 +346,7 @@ export function createMapController(options: {
     const attempt = mapLoadGeneration;
     void withMapDeadline(options.prepareMapAssets(state.mapId as MapId)).then(() => {
       if (attempt !== mapLoadGeneration) return;
-      fadeToWorld(() => {
+      fadeToMap(() => {
         if (attempt !== mapLoadGeneration) return;
         loadMap(state.mapId as MapId, state.x, state.y, state.facing);
         snapCameraToPlayer(camera, player, viewport());

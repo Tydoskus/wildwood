@@ -16,6 +16,8 @@ export const MAX_SIMULATION_STEPS_PER_FRAME = 8;
 export const MAX_SIMULATION_CATCH_UP_SECONDS = SIMULATION_STEP_SECONDS * MAX_SIMULATION_STEPS_PER_FRAME;
 export const MAX_BACKGROUND_SIMULATION_STEPS = SIMULATION_HZ;
 export const IDLE_PRESENTATION_DELAY_MS = 2_000;
+/** How long a world fade waits for an animation frame before lifting anyway. */
+export const FADE_REVEAL_FALLBACK_MS = 250;
 
 export type FixedSimulationClock = {
   accumulatorSeconds: number;
@@ -165,6 +167,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
   let backgroundTimer: number | undefined;
   let nextPerformancePanelUpdateAt = 0;
   let fading = false;
+  const queuedFades: { onBlack: () => void | Promise<void>; durationMs: number }[] = [];
 
   function syncSharedWorldState() {
     dependencies.syncBoss();
@@ -367,7 +370,10 @@ export function createGameSessionController(dependencies: SessionDependencies) {
   }
 
   function fadeToWorld(onBlack: () => void | Promise<void>, durationMs = 180) {
-    if (fading) return;
+    // A fade asked for while another runs waits its turn. Dropping it dropped
+    // its action too, and a portal's action is what ends its travel: the
+    // player was left standing at the portal, unable to move or teleport.
+    if (fading) { queuedFades.push({ onBlack, durationMs }); return; }
     fading = true;
     const fade = dependencies.fadeElement;
     fade.style.transitionDuration = `${durationMs}ms`;
@@ -379,14 +385,23 @@ export function createGameSessionController(dependencies: SessionDependencies) {
       finally {
         snapCameraToPlayer(dependencies.camera, dependencies.player, dependencies.viewport());
         dependencies.resetPresentationState();
-        requestFrame(() => {
+        let revealed = false;
+        const reveal = () => {
+          if (revealed) return;
+          revealed = true;
           fade.classList.remove("is-visible");
           window.setTimeout(() => {
             fade.hidden = true;
             fading = false;
             fade.style.transitionDuration = "";
+            const next = queuedFades.shift();
+            if (next) fadeToWorld(next.onBlack, next.durationMs);
           }, durationMs);
-        });
+        };
+        // Lift after the new world's first frame. A hidden tab draws none, yet
+        // autofarm keeps travelling there, so a timer lifts it as well.
+        requestFrame(reveal);
+        window.setTimeout(reveal, FADE_REVEAL_FALLBACK_MS);
       }
     }, durationMs);
   }

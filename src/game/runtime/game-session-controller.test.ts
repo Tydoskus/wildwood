@@ -167,6 +167,35 @@ describe("game session frame scheduling", () => {
       await vi.runAllTimersAsync();
     } finally { vi.useRealTimers(); vi.unstubAllGlobals(); }
   });
+  it.each([["visible", true], ["hidden", false]] as const)("runs a fade asked for while another runs, in a %s tab", async (_tab, framesRun) => {
+    vi.useFakeTimers();
+    const { document } = parseHTML('<html><body><div id="fade" hidden></div></body></html>');
+    vi.stubGlobal("document", document);
+    vi.stubGlobal("window", { setTimeout });
+    // A hidden tab never runs an animation frame; autofarm still travels there.
+    vi.stubGlobal("requestAnimationFrame", (callback: () => void) => framesRun ? setTimeout(callback, 0) : 0);
+    const fadeElement = document.querySelector<HTMLElement>("#fade")!;
+    try {
+      const session = createGameSessionController({ fadeElement, camera: { x: 0, y: 0, zoom: 1 },
+        player: { x: 0, y: 0, attackRange: 155 }, viewport: () => ({ width: 1200, height: 800 }),
+        resetPresentationState: vi.fn(),
+      } as any);
+      const first = vi.fn(), second = vi.fn(), third = vi.fn();
+      session.fadeToWorld(first);
+      session.fadeToWorld(second);
+      await vi.advanceTimersByTimeAsync(180);
+      expect(first).toHaveBeenCalledOnce();
+      expect(second).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(second).toHaveBeenCalledOnce();
+      expect(fadeElement.hidden).toBe(true);
+      session.fadeToWorld(third);
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(third).toHaveBeenCalledOnce();
+      expect(first).toHaveBeenCalledOnce();
+      expect(fadeElement.hidden).toBe(true);
+    } finally { vi.useRealTimers(); vi.unstubAllGlobals(); }
+  });
   it.each([[false, "replay"], [true, "replay"], [false, "chat"], [true, "chat"]] as const)("keeps active presentation smooth with Low Performance Mode=%s during %s", (lowPerformanceMode, activity) => {
     vi.stubGlobal("document", { hidden: false, addEventListener: vi.fn() });
     vi.stubGlobal("requestAnimationFrame", vi.fn());

@@ -4,9 +4,13 @@ import { drawHomeTeleport, endHomeTeleport } from "./home-teleport";
 import { createMapController, prepareMapTransition } from "./map-controller";
 import type { PlayerState } from "./types";
 import { createGameBootstrap } from "./game-bootstrap";
+import { createGameSessionController } from "./game-session-controller";
+import { parseHTML } from "linkedom";
 import { CRYSTAL_HOLLOWS_MAP_ID, MOONFEN_MAP_ID, type MapId } from "../world";
 
-function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
+type MapControllerOptions = Parameters<typeof createMapController>[0];
+
+function portalArrivalHarness(destinationArrival: { x: number; y: number }, overrides: Partial<MapControllerOptions> = {}) {
   const tutorialMapId = "tutorial_forest" as const;
   const desertMapId = "beginner_desert" as const;
   const bootstrap = createGameBootstrap();
@@ -80,7 +84,8 @@ function portalArrivalHarness(destinationArrival: { x: number; y: number }) {
     bosses: bootstrap.bosses,
     bossHazards: bootstrap.bossHazards,
     onCutsceneFinished: vi.fn(),
-  } as unknown as Parameters<typeof createMapController>[0]);
+    ...overrides,
+  } as unknown as MapControllerOptions);
   return {
     onTravelStarted, openHomeTravel, closeHomeTravel, changeMap, controller, currentMapId: () => currentMapId, desertMapId, player, markPortalCutsceneSeen,
     bootstrap, prepareMapAssets,
@@ -584,4 +589,56 @@ it("notifies intentional portal travel, but not a reconnect's map hydration", as
   reconnect.controller.reconcileMapFromServer();
   await Promise.resolve(); await Promise.resolve();
   expect(reconnect.onTravelStarted).not.toHaveBeenCalled();
+});
+
+describe("stuck at the portal", () => {
+  function hiddenTabSession() {
+    const { document } = parseHTML('<html><body><div id="fade" hidden></div></body></html>');
+    vi.stubGlobal("document", document);
+    vi.stubGlobal("window", { setTimeout, clearTimeout });
+    // A hidden tab: the background timer keeps autofarm walking into portals, but no animation frame ever comes.
+    vi.stubGlobal("requestAnimationFrame", vi.fn());
+    return createGameSessionController({
+      fadeElement: document.querySelector<HTMLElement>("#fade")!, camera: { x: 0, y: 0, zoom: 1 },
+      player: { x: 0, y: 0 }, viewport: () => ({ width: 800, height: 600 }), resetPresentationState: vi.fn(),
+    } as any);
+  }
+
+  it("travels through a second portal in a hidden tab instead of locking the player in place", async () => {
+    vi.useFakeTimers();
+    const session = hiddenTabSession();
+    const h = portalArrivalHarness({ x: 300, y: 400 }, { fadeToWorld: action => session.fadeToWorld(action) });
+    h.controller.updatePortal(1 / 60);
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(h.currentMapId()).toBe(h.desertMapId);
+    expect(h.controller.isMapTransitioning()).toBe(false);
+
+    // On to the next portal while the first fade still waits for a frame to lift.
+    h.player.x = 300;
+    h.player.y = 268;
+    h.controller.updatePortal(1 / 60);
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(h.changeMap).toHaveBeenCalledTimes(2);
+    expect(h.currentMapId()).toBe("tutorial_forest");
+    expect(h.controller.isMapTransitioning()).toBe(false);
+  });
+
+  it("loads the destination and unlocks movement even when the fade never calls back", async () => {
+    vi.useFakeTimers();
+    const h = portalArrivalHarness({ x: 300, y: 400 }, { fadeToWorld: vi.fn() });
+    h.controller.updatePortal(1 / 60);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(h.currentMapId()).toBe(h.desertMapId);
+    expect(h.controller.isMapTransitioning()).toBe(false);
+  });
+
+  it("runs the map change once when the fade does call back", async () => {
+    vi.useFakeTimers();
+    const rebuildWorld = vi.fn();
+    const h = portalArrivalHarness({ x: 300, y: 400 }, { rebuildWorld });
+    h.controller.updatePortal(1 / 60);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(h.currentMapId()).toBe(h.desertMapId);
+    expect(rebuildWorld).toHaveBeenCalledOnce();
+  });
 });
