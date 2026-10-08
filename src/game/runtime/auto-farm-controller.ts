@@ -889,8 +889,9 @@ export function createAutoFarmController(options: {
     pullSetAt = at;
     const coming = (enemy: EnemyState) => isEnemyAttackingPlayer(enemy, options.localIdentity?.()) ? 0 : 1;
     const group = enemies.filter(pulledEnemy).sort((a, b) => coming(a) - coming(b) || distance(a) - distance(b));
-    // With no build to weigh (or the model off), everything pulled comes.
-    if (!kiteTuning.model || !options.evaluate) { pullSet = new Set(group); return pullSet; }
+    // Standing (kiting off), with no build to weigh, or the model off: the whole group comes.
+    // The tank limit fed the rest to the kite; standing, it left Pull bringing one or two at a time.
+    if (!evading || !kiteTuning.model || !options.evaluate) { pullSet = new Set(group); return pullSet; }
     const stats = build(), count = tankableCount({ chasers: group.map(threatOf), playerR: player.r, maxHp: stats.maxHp, regen: stats.regen, dps: stats.dps, perks: perks() });
     pullSet = new Set(group.slice(0, Math.max(count, group.filter(enemy => !coming(enemy)).length)));
     return pullSet;

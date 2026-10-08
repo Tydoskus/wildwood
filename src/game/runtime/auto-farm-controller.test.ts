@@ -795,6 +795,21 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     expect(s.farm.start({ [health]: 0, [speed]: 0 })).toBe(false);
   });
 
+  it("Pull On brings the whole group while autofarm fights standing, however weak the build; only the kite fed a strong one in a few at a time", () => {
+    const pulledFor = (evasion: boolean) => {
+      const s = planned({ evasion, evaluate: () => ({ power: 1 }), farmDps: () => 1e-3 });
+      s.player.maxHp = 10; s.player.hp = 10; s.player.regen = 0; s.player.armor = 0;
+      const damage = `stat:${ENEMY_TYPES.Spitter.reward.type}`;
+      const mob = Array.from({ length: 6 }, (_, index) => s.add('Spitter', 700 + index * 30, 500));
+      s.farm.setPullAll(true);
+      expect(s.farm.start({ [damage]: 100 })).toBe(true);
+      s.tick();
+      return mob.filter(enemy => s.farm.pulls(enemy)).length;
+    };
+    expect(pulledFor(false)).toBe(6);
+    expect(pulledFor(true)).toBeLessThan(6);
+  });
+
   it('stands still while a pulled group walks in; with Pull short of the farmed groups it goes out to one that never arrives', () => {
     // Pull covers every farmed group: it stands its ground, however long the group takes.
     const s = planned();

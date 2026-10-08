@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.12": [
+    "Pull Whole Group pulls the whole camp again, not one or two enemies at a time",
+  ],
   "0.901.11": [
     "Autofarm sliders always add up to 100%: put one stat at 100%, or any mix. Auto is gone",
     "Autofarm fights standing again, with no kiting or dodging for now",
@@ -3007,6 +3010,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.12": "2026-10-08",
   "0.901.11": "2026-10-08",
   "0.901.10": "2026-10-08",
   "0.901.9": "2026-10-07",
