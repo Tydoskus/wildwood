@@ -10,12 +10,6 @@ import type { AggroChallenge } from '../../shared/aggro-challenge';
 import type { RewardType } from '../game/enemies';
 
 const farmIcon = '<img class="farm-swords-icon" src="assets/wildstat/icons/Icon_AutoFarm.svg" alt="" aria-hidden="true">';
-/** How hard Move On pushes: when it tries a fight, how many deaths it takes, how much it keeps. */
-const PUSH_CHOICES: readonly { id: 'safe' | 'normal' | 'bold'; label: string }[] = [
-  { id: 'safe', label: 'Safe' },
-  { id: 'normal', label: 'Normal' },
-  { id: 'bold', label: 'Bold' },
-];
 /** Whether the window's More section was left open, per browser. */
 export const AUTO_FARM_MORE_KEY = 'wildstat:autofarm-more-open:v1';
 type PanelStorage = Pick<Storage, 'getItem' | 'setItem'>;
@@ -24,12 +18,11 @@ const defaultStorage = (): PanelStorage | undefined => { try { return window.loc
 /** The "?" page: what each control does, a line each, in the words a player would use. */
 const HELP_LINES: readonly [term: string, line: string][] = [
   ['Sliders', 'Share of farming time for each stat. They always add up to 100%.'],
-  ['Fighting', 'Walks to its target and fights standing.'],
-  ['Move On', 'Moves to the next map when you\'ll grow faster there, and fights bosses it can beat in 10 minutes. Steps back if it keeps dying.'],
-  ['Push', 'How soon it retries a map after stepping back.'],
-  ['Pull Whole Group', 'Pulls a whole camp only when you can tank it; on Auto, only where that grows you faster.'],
+  ['Move On', 'Goes to the next map when your power reaches its recommended power. Steps back after 3 deaths in 3 minutes.'],
+  ['Fight Bosses', "Fights the boss when your power reaches the boss's. Leaves below 30% health."],
+  ['Pull Whole Group', 'On pulls the whole camp at once.'],
   ['Target', 'Which enemy it hits first.'],
-];
+]
 const titleCase = (text: string) => text.replace(/(^|[\s(/-])(\p{Ll})/gu, (_match, lead: string, letter: string) => lead + letter.toUpperCase());
 const segment = (label: string, labelId: string, className: string, buttons: string) =>
   `<div class="farm-setting"><span id="${labelId}" class="farm-setting-label">${label}</span>`
@@ -38,8 +31,9 @@ const segment = (label: string, labelId: string, className: string, buttons: str
 /**
  * The autofarm window, kept short. Each stat is farmed for its slider's
  * share of the time; the sliders always add up to 100% (moving one moves the
- * others in proportion), and 0% is never farmed. Move On takes the boss and
- * the next map; Push, Pull and Target wait under More. The floating button shows what the farm is doing at a glance and stops it with a tap.
+ * others in proportion), and 0% is never farmed. Move On goes to the next
+ * map at its recommended power; Fight Bosses fights the boss at its; Pull and
+ * Target wait under More. The floating button shows what the farm is doing at a glance and stops it with a tap.
  */
 export function createAutoFarmPanel(options: {
   farm: AutoFarmController;
@@ -82,9 +76,10 @@ export function createAutoFarmPanel(options: {
     + `<p class="farm-empty" hidden>No Enemies Here</p>`
     + `<button type="button" class="farm-switch farm-move" role="switch" data-switch="advance" aria-checked="false" aria-describedby="autoFarmBossStatus">`
     + `<span class="farm-switch-copy"><span class="farm-switch-label">Move On</span><small id="autoFarmBossStatus" class="farm-boss-status"></small></span><span class="farm-knob" aria-hidden="true"></span></button>`
+    + `<button type="button" class="farm-switch farm-bosses" role="switch" data-switch="bosses" aria-checked="false" aria-describedby="autoFarmBossLine">`
+    + `<span class="farm-switch-copy"><span class="farm-switch-label">Fight Bosses</span><small id="autoFarmBossLine" class="farm-boss-status"></small></span><span class="farm-knob" aria-hidden="true"></span></button>`
     + `<button type="button" class="farm-more-toggle" aria-expanded="false" aria-controls="autoFarmMore"><span>More</span><span class="farm-more-caret" aria-hidden="true"></span></button>`
     + `<div id="autoFarmMore" class="farm-more" hidden>`
-    + segment('Push', 'autoFarmPushLabel', 'farm-push', PUSH_CHOICES.map(entry => `<button type="button" role="radio" data-push="${entry.id}">${entry.label}</button>`).join(''))
     + segment('Pull Whole Group', 'autoFarmPullLabel', 'farm-pull', `<button type="button" role="radio" data-pull="off">Off</button><button type="button" role="radio" data-pull="on">On</button>`)
     + segment('Target', 'autoFarmTargetLabel', 'farm-target', AUTO_FARM_PRIORITIES.map(entry => `<button type="button" role="radio" data-priority="${entry.id}">${entry.label}</button>`).join(''))
     + `</div></div>`
@@ -124,11 +119,18 @@ export function createAutoFarmPanel(options: {
   let choiceKey = '';
 
   const priorityButtons = [...sheet.querySelectorAll<HTMLButtonElement>('[data-priority]')];
-  const pushRow = element('.farm-push');
-  const pushButtons = [...pushRow.querySelectorAll<HTMLButtonElement>('[data-push]')];
   const pullRow = element('.farm-pull');
   const pullButtons = [...pullRow.querySelectorAll<HTMLButtonElement>('[data-pull]')];
   const advanceSwitch = element<HTMLButtonElement>('[data-switch="advance"]');
+  const bossSwitch = element<HTMLButtonElement>('[data-switch="bosses"]');
+  /** A switch and its status line: the line lit when the controller says it is going now, quiet with the switch off. */
+  function showSwitch(button: HTMLButtonElement, on: boolean, line: string, ready: boolean) {
+    button.setAttribute('aria-checked', String(on));
+    const text = titleCase(line), status = button.querySelector<HTMLElement>('.farm-boss-status')!;
+    if (status.textContent !== text) status.textContent = text;
+    status.classList.toggle('is-ready', on && ready);
+    status.classList.toggle('is-idle', !on);
+  }
 
   function setMoreOpen(open: boolean, remember: boolean) {
     more.hidden = !open;
@@ -150,22 +152,8 @@ export function createAutoFarmPanel(options: {
     }
     const priority = options.farm.priority();
     for (const button of priorityButtons) button.setAttribute('aria-checked', String(button.dataset.priority === priority));
-    const advance = options.farm.advance();
-    advanceSwitch.setAttribute('aria-checked', String(advance));
-    const bossStatus = titleCase(options.farm.bossStatus());
-    const statusElement = advanceSwitch.querySelector<HTMLElement>('.farm-boss-status')!;
-    if (statusElement.textContent !== bossStatus) statusElement.textContent = bossStatus;
-    // With Move On off the status is what it would do: told quietly, never as ready.
-    statusElement.classList.toggle('is-ready', advance && options.farm.bossStatusReady());
-    statusElement.classList.toggle('is-idle', !advance);
-    // Push only steers Move On, so it rests with that switch off.
-    const push = options.farm.push();
-    pushRow.classList.toggle('is-off', !advance);
-    pushRow.setAttribute('aria-disabled', String(!advance));
-    for (const button of pushButtons) {
-      button.setAttribute('aria-checked', String(button.dataset.push === push));
-      button.disabled = !advance;
-    }
+    showSwitch(advanceSwitch, options.farm.advance(), options.farm.moveStatus(), options.farm.moveReady());
+    showSwitch(bossSwitch, options.farm.fightBosses(), options.farm.bossStatus(), options.farm.bossReady());
     // Off during an Aggro run: the run's own chasing groups are its pull.
     const pullOff = options.farm.pullAvailable?.() === false;
     const pulling = options.farm.pullAll() && !pullOff;
@@ -310,12 +298,8 @@ export function createAutoFarmPanel(options: {
     if (choice) options.farm.setPriority(choice.id);
     updateSelection();
   });
-  for (const button of pushButtons) button.addEventListener('click', () => {
-    const choice = PUSH_CHOICES.find(entry => entry.id === button.dataset.push);
-    if (choice && options.farm.advance()) options.farm.setPush(choice.id);
-    updateSelection();
-  });
   advanceSwitch.addEventListener('click', () => { options.farm.setAdvance(!options.farm.advance()); updateSelection(); });
+  bossSwitch.addEventListener('click', () => { options.farm.setFightBosses(!options.farm.fightBosses()); updateSelection(); });
   for (const button of pullButtons) button.addEventListener('click', () => {
     if (options.farm.pullAvailable?.() !== false) options.farm.setPullAll(button.dataset.pull === 'on');
     updateSelection();

@@ -20,7 +20,7 @@ import {
   type Point,
 } from '../../balance/death-model';
 import { rankFarmCandidates, pickRankedCandidate, AUTO_REPLAN_SECONDS, type FarmReward } from './auto-farm-plan';
-import { AUTO_FARM_DEFEAT_LIMIT, AUTO_FARM_DEFEAT_WINDOW_MS, AUTO_FARM_REACH_MARGIN, BITE_SHARE } from './auto-farm-controller';
+import { AUTO_FARM_DEFEAT_LIMIT, AUTO_FARM_DEFEAT_WINDOW_MS, AUTO_FARM_REACH_MARGIN, BITE_SHARE } from './auto-farm-smart-controller';
 import { rangedEnemyHoldBand } from './ranged-enemy-range';
 import { AUTO_FARM_EVASION, orbitRadii } from './auto-farm-dodge';
 import { contactCapacity, kitedHitInterval, perkFightLoss, tankableCount, TANK_RESERVE, type ChaserThreat, type TankPerks } from './auto-farm-kite-model';

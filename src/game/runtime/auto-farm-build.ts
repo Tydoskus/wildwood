@@ -2,6 +2,7 @@ import { effectivePlayerPowerStats, unroundedPlayerPower, type PlayerPowerProgre
 import type { FarmEvaluation, FarmReward } from './auto-farm-plan';
 import { isProceduralMap, proceduralMapNumber } from '../../../shared/procedural-maps';
 import { MAP_IDS as CAMPAIGN_MAP_IDS } from '../../../shared/rules';
+import { recommendedBossPower, recommendedMapPower } from './auto-farm-power';
 
 /**
  * Prices a kill's reward against the player's live build, for autofarm to
@@ -88,5 +89,8 @@ export function createAutoFarmProgress(deps: Parameters<typeof createFarmEvaluat
       return deps.portals().some(portal => Boolean(portal) && farmMapRank(portal!.destination) > here && !deps.portalUnlocked(portal!));
     },
     reflectOnly: deps.reflectOnly,
+    /** A map's recommended power (auto-farm-power.ts), and this map's boss's. */
+    mapPower: recommendedMapPower,
+    bossPower: () => recommendedBossPower(deps.mapId()),
   };
 }

@@ -13,10 +13,8 @@ import { prestigeStatMultiplier } from '../../shared/prestige';
 
 let destroy: (() => void) | undefined;
 afterEach(() => { destroy?.(); destroy = undefined; vi.unstubAllGlobals(); });
-type FarmPush = 'safe' | 'normal' | 'bold';
 /** The panel's view of a controller; tests swap in the members they steer. */
-type FarmOverrides = Partial<{ bossStatus: () => string; bossStatusReady: () => boolean; push: () => FarmPush; setPush: (next: FarmPush) => void;
-  pullAvailable: () => boolean }>;
+type FarmOverrides = Partial<{ moveStatus: () => string; moveReady: () => boolean; bossStatus: () => string; bossReady: () => boolean; pullAvailable: () => boolean }>;
 function memoryStorage(values = new Map<string, string>()) {
   return { values, getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } };
 }
@@ -213,24 +211,32 @@ it('leaves the map name and the long hint out, and names Move On', () => {
   expect(s.document.querySelector('.farm-pull')!.getAttribute('aria-labelledby')).toBe('autoFarmPullLabel');
   expect(s.document.getElementById('autoFarmPullLabel')!.textContent).toBe('Pull Whole Group');
 });
-it('shows the boss status under Move On and lights it only when the controller calls it ready and Move On is on', () => {
-  let status = 'Boss At 1.2K', ready = false;
-  const s = setup(false, 'forest', { bossStatus: () => status, bossStatusReady: () => ready });
+it('shows each switch with its own status, lit only when the controller says it is going and the switch is on', () => {
+  let move = 'Next Map At 1.20K', moveReady = false, boss = 'Boss At 1.20K', bossReady = false;
+  const s = setup(false, 'forest', { moveStatus: () => move, moveReady: () => moveReady, bossStatus: () => boss, bossReady: () => bossReady });
   s.farm.setAdvance(true);
   s.click('.farm-toggle');
-  const element = s.document.querySelector('[data-switch="advance"] .farm-boss-status')!;
-  expect(s.document.querySelector('[data-switch="advance"]')!.getAttribute('aria-describedby')).toBe(element.id);
-  expect(element.textContent).toBe('Boss At 1.2K');
-  expect(element.classList.contains('is-ready')).toBe(false);
-  status = 'Boss Next'; ready = true; s.panel.refresh();
-  expect(element.textContent).toBe('Boss Next');
-  expect(element.classList.contains('is-ready')).toBe(true);
+  const line = (name: string) => s.document.querySelector(`[data-switch="${name}"] .farm-boss-status`)!;
+  expect(s.document.querySelector('[data-switch="advance"]')!.getAttribute('aria-describedby')).toBe(line('advance').id);
+  expect(s.document.querySelector('[data-switch="bosses"]')!.getAttribute('aria-describedby')).toBe(line('bosses').id);
+  expect(line('advance').textContent).toBe('Next Map At 1.20K');
+  expect(line('bosses').textContent).toBe('Boss At 1.20K');
+  expect(line('advance').classList.contains('is-ready')).toBe(false);
+  move = 'Moving On'; moveReady = true; s.panel.refresh();
+  expect(line('advance').textContent).toBe('Moving On');
+  expect(line('advance').classList.contains('is-ready')).toBe(true);
+  // Fight Bosses off: its line is what it would do, told quietly; on, lit when it goes.
+  expect(line('bosses').classList.contains('is-idle')).toBe(true);
+  s.click('[data-switch="bosses"]');
+  expect(s.farm.fightBosses()).toBe(true);
+  expect(s.document.querySelector('[data-switch="bosses"]')!.getAttribute('aria-checked')).toBe('true');
+  boss = 'Fighting Boss'; bossReady = true; s.panel.refresh();
+  expect(line('bosses').textContent).toBe('Fighting Boss');
+  expect(line('bosses').classList.contains('is-ready')).toBe(true);
   s.click('[data-switch="advance"]');
   expect(s.farm.advance()).toBe(false);
-  expect(s.document.querySelector('[data-switch="advance"]')!.getAttribute('aria-checked')).toBe('false');
-  // Off, it is what Move On would do, told quietly.
-  expect(element.classList.contains('is-ready')).toBe(false);
-  expect(element.classList.contains('is-idle')).toBe(true);
+  expect(line('advance').classList.contains('is-ready')).toBe(false);
+  expect(line('advance').classList.contains('is-idle')).toBe(true);
 });
 it('keeps More folded by default, and remembers it open or closed', () => {
   const storage = memoryStorage();
@@ -277,28 +283,15 @@ it('sets Pull Whole Group from its Off and On, and rests it during an Aggro run'
   s.click('[data-pull="on"]');
   expect(s.farm.pullAll()).toBe(false);
 });
-it('picks how hard to push, and rests the picker while Move On is off', () => {
-  let push: FarmPush = 'normal';
-  const setPush = vi.fn((next: FarmPush) => { push = next; });
-  const s = setup(false, 'forest', { push: () => push, setPush });
-  s.farm.setAdvance(false);
+it('has no Push setting, and keeps Pull Whole Group and Target under More', () => {
+  const s = setup();
   s.click('.farm-toggle');
-  const row = s.document.querySelector('.farm-push')!;
-  const button = (id: FarmPush) => s.document.querySelector<HTMLButtonElement>(`[data-push="${id}"]`)!;
-  expect([...row.querySelectorAll('[data-push]')].map(entry => entry.textContent)).toEqual(['Safe', 'Normal', 'Bold']);
-  expect(button('normal').getAttribute('aria-checked')).toBe('true');
-  // Off, it shows the setting but takes no change.
-  expect(row.classList.contains('is-off')).toBe(true);
-  expect(button('bold').disabled).toBe(true);
-  s.click('[data-push="bold"]');
-  expect(setPush).not.toHaveBeenCalled();
-  s.click('[data-switch="advance"]');
-  expect(row.classList.contains('is-off')).toBe(false);
-  expect(button('bold').disabled).toBe(false);
-  s.click('[data-push="bold"]');
-  expect(setPush).toHaveBeenLastCalledWith('bold');
-  expect(button('bold').getAttribute('aria-checked')).toBe('true');
-  expect(button('normal').getAttribute('aria-checked')).toBe('false');
+  expect(s.document.querySelector('.farm-push')).toBeNull();
+  expect(s.document.querySelector('[data-push]')).toBeNull();
+  const more = s.document.querySelector('.farm-more')!;
+  expect(more.querySelector('.farm-pull')).not.toBeNull();
+  expect(more.querySelector('.farm-target')).not.toBeNull();
+  expect([...s.document.querySelectorAll('.farm-body > [data-switch]')].map(entry => entry.getAttribute('data-switch'))).toEqual(['advance', 'bosses']);
 });
 it('during an Aggro run the button opens the group picker, whose Target is the farm window\'s own', () => {
   let active = true;
@@ -355,7 +348,7 @@ it('the ? opens a page saying what each control does in place of the settings; B
   expect(toggle.getAttribute('aria-expanded')).toBe('true');
   // Every control in the window is explained.
   const terms = [...help.querySelectorAll('dt')].map(term => term.textContent);
-  expect(terms).toEqual(['Sliders', 'Fighting', 'Move On', 'Push', 'Pull Whole Group', 'Target']);
+  expect(terms).toEqual(['Sliders', 'Move On', 'Fight Bosses', 'Pull Whole Group', 'Target']);
   expect([...help.querySelectorAll('dd')].every(line => (line.textContent ?? '').length > 10)).toBe(true);
   s.click('.farm-close');
   expect(s.sheet.open).toBe(true);

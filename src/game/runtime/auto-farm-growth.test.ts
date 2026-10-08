@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createGrowthPlanner, PLAN_SECONDS, type GrowthContext } from './auto-farm-growth';
-import { createAutoFarmController } from './auto-farm-controller';
+import { createSmartAutoFarmController } from './auto-farm-smart-controller';
 import { createGameBootstrap } from './game-bootstrap';
 import { createEnemyLifecycle } from './enemy-lifecycle';
 import { armorRule } from './forecast-inputs';
@@ -112,7 +112,7 @@ describe('autofarm with the growth planner', () => {
     }
     const storage = new Map<string, string>();
     storage.set('wildstat:autofarm-advance:v1', '1');
-    const farm = createAutoFarmController({
+    const farm = createSmartAutoFarmController({
       ...state, mapId: () => 'here', unavailable: () => null, paused: () => false, speed: () => 200, obstacles: () => [],
       equippedWeapon: () => 'starter_bow', connection: () => 'ready', localIdentity: () => 'me', now: () => now, wallNow: () => now,
       priorityStorage: () => ({ getItem: key => storage.get(key) ?? null, setItem: (key, value) => { storage.set(key, value); } }),

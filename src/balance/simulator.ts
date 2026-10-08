@@ -48,7 +48,7 @@ import {
   type ItemId,
 } from "../../shared/items";
 import { effectivePlayerPowerStats, playerPowerForStats, type PlayerPowerStats } from "../../shared/player-power";
-import { AUTO_FARM_DEFEAT_LIMIT, AUTO_FARM_DEFEAT_WINDOW_MS } from "../game/runtime/auto-farm-controller";
+import { AUTO_FARM_DEFEAT_LIMIT, AUTO_FARM_DEFEAT_WINDOW_MS } from "../game/runtime/auto-farm-smart-controller";
 import { FARM_PUSHES } from "../game/runtime/auto-farm-brain";
 import {
   DEATH_SCREEN_SECONDS,

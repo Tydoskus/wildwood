@@ -33,7 +33,7 @@ function setup(extra: Partial<Parameters<typeof createAutoFarmController>[0]> = 
   const soul = (stat: SoulStatId, x: number, y: number, camp = 0) =>
     site(SOUL_ENEMY_SPECIES[stat], x, y, soulCampName(stat, { key: `forest:${camp}` }), soulDefinition(stat));
   const farm = createAutoFarmController({ ...state, mapId: () => map, unavailable: () => null, paused: () => false,
-    speed: () => 300, obstacles: () => [], localIdentity: () => 'me', priorityStorage: () => memory, farmDps: () => 1e9, ...extra });
+    speed: () => 300, obstacles: () => [], localIdentity: () => 'me', priorityStorage: () => memory, ...extra });
   return { ...state, farm, soul, site, values, tick: () => farm.movement(idle, 1 / 60), setMap: (value: string) => { map = value; } };
 }
 
