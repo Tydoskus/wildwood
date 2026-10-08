@@ -156,26 +156,30 @@ describe("portal arrival activation", () => {
   it("gates the Moonfen exit and supports the actual Crystal Hollows round trip", async () => {
     const harness = portalArrivalHarness({ x: 300, y: 400 });
     const { controller, player, bootstrap, changeMap, prepareMapAssets } = harness;
-    controller.loadMap(MOONFEN_MAP_ID, 580, 770);
+    // Moonfen's way on and Crystal Hollows' way back, in the middle of their maps.
+    const useOf = (portal: { x: number; y: number; height: number } | null | undefined) => ({ x: portal!.x, y: portal!.y - portal!.height * .32 });
+    const onward = useOf(bootstrap.mapConfig[MOONFEN_MAP_ID].secondaryPortal), back = useOf(bootstrap.mapConfig[CRYSTAL_HOLLOWS_MAP_ID].portal);
+    const arrival = bootstrap.mapConfig[CRYSTAL_HOLLOWS_MAP_ID].arrival;
+    controller.loadMap(MOONFEN_MAP_ID, bootstrap.mapConfig[MOONFEN_MAP_ID].arrival.x, bootstrap.mapConfig[MOONFEN_MAP_ID].arrival.y);
     harness.setUnlocked(false);
-    player.x = 580;
-    player.y = 617;
+    player.x = onward.x;
+    player.y = onward.y;
     controller.updatePortal(1 / 60);
     expect(changeMap).not.toHaveBeenCalled();
 
     harness.setUnlocked(true);
     controller.updatePortal(1 / 60);
     await vi.waitFor(() => expect(harness.currentMapId()).toBe(CRYSTAL_HOLLOWS_MAP_ID));
-    expect(changeMap).toHaveBeenLastCalledWith(CRYSTAL_HOLLOWS_MAP_ID, 580, 617);
+    expect(changeMap).toHaveBeenLastCalledWith(CRYSTAL_HOLLOWS_MAP_ID, onward.x, onward.y);
     expect(prepareMapAssets).toHaveBeenCalledWith(CRYSTAL_HOLLOWS_MAP_ID);
-    expect(player).toMatchObject({ x: 580, y: 770 });
+    expect(player).toMatchObject(arrival);
 
     bootstrap.bossHazards.prismshell.push({ x: 100, y: 100, r: 86, timer: .5, maxTimer: 1 });
-    player.x = 360;
-    player.y = 617;
+    player.x = back.x;
+    player.y = back.y;
     controller.updatePortal(1 / 60);
     await vi.waitFor(() => expect(harness.currentMapId()).toBe(MOONFEN_MAP_ID));
-    expect(changeMap).toHaveBeenLastCalledWith(MOONFEN_MAP_ID, 360, 617);
+    expect(changeMap).toHaveBeenLastCalledWith(MOONFEN_MAP_ID, back.x, back.y);
     expect(bootstrap.bossHazards.prismshell).toHaveLength(0);
     expect(bootstrap.bosses.prismshell.shatter).toBeNull();
   });

@@ -56,9 +56,9 @@ it("keeps a Base/Fight round trip through the Town within its host-call budget a
 
 it("keeps portal travel within its host-call budget", () => {
   const f = travellingPlayer();
-  f.patch("player", { x: 580, y: 617 });
+  f.patch("player", { x: 2510, y: 2337 });
   const meter = countHostCalls(f.db);
-  f.run(server.changeMap, { mapId: "clockwork_ruins", x: 580, y: 617 });
+  f.run(server.changeMap, { mapId: "clockwork_ruins", x: 2510, y: 2337 });
   expect(meter.read()).toBeLessThanOrEqual(PORTAL_TRAVEL_BUDGET);
   expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe("clockwork_ruins");
   expect(f.db.playerMapBalance.identity.find(f.ctx.sender).mapId).toBe("clockwork_ruins");

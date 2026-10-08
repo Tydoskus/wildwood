@@ -1,7 +1,6 @@
 import { CAMPAIGN_MAPS } from "./campaign-registry";
 // Browser- and server-safe values. Keep this module free of DOM, Node, and
 // SpacetimeDB imports so both runtime targets use one gameplay contract.
-import { MAP_EDITOR_GAMEPLAY_OVERRIDES } from "./map-editor-overrides";
 import { utilityMovementSpeedBonus } from "./research";
 import {
   MAP_STAT_GROWTH, MAP_TARGET_SECONDS, BOSS_TARGET_SECONDS,
@@ -9,8 +8,14 @@ import {
 
 export const WORLD_WIDTH = 4800;
 export const WORLD_HEIGHT = 4800;
-export const PLAYER_SPAWN: Readonly<{ x: number; y: number }> =
-  MAP_EDITOR_GAMEPLAY_OVERRIDES.tutorial_forest?.arrival ?? { x: 360, y: 360 };
+/**
+ * Where a new character starts, and where the dead respawn on Tutorial Forest:
+ * between Thornshot Rise's Spitters and Ember Fen's Brambles, the forest's easiest enemies. It used to be the
+ * forest's portal arrival, but the portal moved to the middle (0.901.15), among
+ * Needles and Mossbacks a fresh character cannot beat. Portal travellers still
+ * arrive by the portal (shared/map-gateways.ts).
+ */
+export const PLAYER_SPAWN: Readonly<{ x: number; y: number }> = Object.freeze({ x: 1025, y: 850 });
 export const PLAYER_RADIUS = 17;
 export const PLAYER_BASE_HP = 100;
 export const PLAYER_BASE_DAMAGE = 3;

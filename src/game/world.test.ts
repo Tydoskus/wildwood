@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PRISMSHELL_RADIUS, GLOOMROOT_RADIUS, KOI_SHOGUN_RADIUS, MAGMALISK_RADIUS, MIREMAW_RADIUS, TEMPEST_KIRIN_RADIUS, TIDEWYRM_RADIUS } from "../../shared/boss-hitbox";
-import { GLOOMROOT_MAX_HP, KOI_SHOGUN_MAX_HP, MAGMALISK_MAX_HP, MIREMAW_MAX_HP, PLAYER_BASE_REGEN, PRISMSHELL_MAX_HP, TEMPEST_KIRIN_MAX_HP, TIDEWYRM_MAX_HP } from "../../shared/rules";
+import { GLOOMROOT_MAX_HP, KOI_SHOGUN_MAX_HP, MAGMALISK_MAX_HP, MIREMAW_MAX_HP, PLAYER_BASE_REGEN, PLAYER_SPAWN, PRISMSHELL_MAX_HP, TEMPEST_KIRIN_MAX_HP, TIDEWYRM_MAX_HP } from "../../shared/rules";
 import { ENEMY_TYPES } from "./enemies";
 import { createGameBootstrap } from "./runtime/game-bootstrap";
 import {
@@ -333,14 +333,19 @@ describe("Home", () => {
 
 
 describe("regional group aggro", () => {
-  it("uses the forest portal-side arrival for starting and respawning players", () => {
+  it("starts new characters by the forest's Spitters and Brambles, and lands portal travellers just below the forest's portal", () => {
     const bootstrap = createGameBootstrap();
     const { arrival, portal } = bootstrap.mapConfig[TUTORIAL_FOREST_MAP_ID];
     if (!portal) throw new Error("The forest has a portal.");
-    expect(bootstrap.startSpawn).toEqual(arrival);
-    expect(bootstrap.player).toMatchObject(arrival);
-    expect(arrival.x - portal.x).toBe(150);
-    expect(arrival.y).toBe(portal.y);
+    // The portal moved to the middle (0.901.15); new characters stayed by the easiest enemies.
+    expect(bootstrap.startSpawn).toEqual(PLAYER_SPAWN);
+    expect(bootstrap.player).toMatchObject(PLAYER_SPAWN);
+    const nearest = [...mapSpawnCamps(TUTORIAL_FOREST_MAP_ID)].sort((a, b) =>
+      Math.hypot(a.x - PLAYER_SPAWN.x, a.y - PLAYER_SPAWN.y) - a.radius - (Math.hypot(b.x - PLAYER_SPAWN.x, b.y - PLAYER_SPAWN.y) - b.radius));
+    expect(new Set(nearest.slice(0, 2).flatMap(camp => camp.types))).toEqual(new Set(["Spitter", "Bramble"]));
+    // Just below the portal (0.901.15), outside the reach that would walk the player straight back through it.
+    expect(arrival.x).toBe(portal.x);
+    expect(arrival.y - portal.y).toBe(90);
     expect(Math.hypot(arrival.x - portal.x, arrival.y - (portal.y - portal.height * .32))).toBeGreaterThan(125);
   });
   it("starts new characters with passive recovery", () => {

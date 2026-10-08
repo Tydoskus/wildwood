@@ -35,7 +35,7 @@ describe("Crystal Hollows reducer behavior (in-memory, not native host integrati
   it("rejects locked travel without moving the player, then accepts an earned unlock", () => {
     const f = crystalFixture();
     f.patch("player", { mapId: "moonfen" });
-    const travel = () => f.run(server.changeMap, { mapId: "crystal_hollows", x: 580, y: 617 });
+    const travel = () => f.run(server.changeMap, { mapId: "crystal_hollows", x: 2510, y: 2337 });
     expect(travel).toThrow("Defeat Miremaw");
     expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe("moonfen");
     f.patch("playerProgress", { crystalHollowsUnlocked: true });
