@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.23": [
+    "Sign-in and loading are on plain black, and their logo and loading bar grow on large screens",
+  ],
   "0.901.22": [
     "The Auto Farm card starts centred above the chat again, and stays on screen above the toolbar when the window is resized",
     "Fight Bosses and Move On can be switched in an Aggro run, from the Aggro picker",
@@ -3056,6 +3059,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.23": "2026-10-08",
   "0.901.22": "2026-10-08",
   "0.901.21": "2026-10-08",
   "0.901.20": "2026-10-08",

@@ -1,6 +1,5 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import postcss from "postcss";
 import { createGameDocument } from "../../tests/helpers/game-document";
 
 const doc = createGameDocument();
@@ -30,20 +29,9 @@ describe("startup image and install assets", () => {
     expect(doc.querySelector('link[rel="preload"][as="image"]')!.getAttribute("href")).toBe(images[0].getAttribute("src"));
   });
 
-  it("resolves the artwork loader and CSS to the same file on both hosting paths", () => {
-    const descriptor = doc.querySelector("meta[data-signin-artwork]")!.getAttribute("content")!;
-    expect(asset(descriptor).length).toBeGreaterThan(0);
-    let artwork = "";
-    for (const style of doc.querySelectorAll("style")) {
-      postcss.parse(style.textContent ?? "").walkDecls("--signin-artwork", (decl) => { artwork = decl.value; });
-    }
-    const relative = artwork.match(/^url\(["']?([^"')]+)["']?\)$/)?.[1];
-    expect(relative).toBeTruthy();
-    for (const base of ["https://example.test/", "https://example.test/wildwood/"]) {
-      const resolved = new URL(relative!, new URL("assets/wildstat/game.css", base));
-      expect(resolved.href).toBe(new URL(descriptor, base).href);
-      expect(resolved.search).toBe("");
-    }
+  it("shows sign-in and loading on plain black, with no artwork to load", () => {
+    expect(doc.querySelector("meta[data-signin-artwork]")).toBeNull();
+    for (const style of doc.querySelectorAll("style")) expect(style.textContent).not.toContain("--signin-artwork");
   });
 
   it("ships relative install routes and valid opaque icons at their declared sizes", () => {

@@ -2005,33 +2005,8 @@
     height: calc(100vh + 30px);
     height: calc(100lvh + 30px);
     isolation: isolate;
-    background-color: #000;
-    /* The versioned artwork URL from index.html resolves relative to this stylesheet. */
-    background-image: var(--signin-artwork, none);
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: cover;
-  }
-
-  #start::before,
-  #gameUpdateGate::before {
-    position: absolute;
-    inset: 0;
-    z-index: -1;
+    /* Plain black behind sign-in and loading (Ryan): the painted artwork was cropped and out of scale on large screens. */
     background: #000;
-    content: "";
-    opacity: 1;
-    pointer-events: none;
-    transition: opacity 2s ease;
-  }
-
-  html.signin-auth-return #start::before,
-  html.signin-auth-return #gameUpdateGate::before,
-  html.signin-artwork-ready #start::before,
-  html.signin-artwork-ready #gameUpdateGate::before { opacity: 0; }
-
-  @media (prefers-reduced-motion: reduce) {
-    #start::before, #gameUpdateGate::before { transition: none; }
   }
 
   .signin-mute-button {
@@ -2305,6 +2280,18 @@
     overflow-y: auto;
     transform: translate(-50%, -50%);
   }
+
+  /* A large landscape screen grows the startup panels with its height, so the logo and loading bar keep their size against it. */
+  @media (min-aspect-ratio: 4/3) and (min-height: 900px) {
+    .modal.connection-modal, .modal.account-choice-modal, .modal.game-update-modal, .modal.legal-gate-modal { transform: translate(-50%, -50%) scale(1.25); }
+  }
+  @media (min-aspect-ratio: 4/3) and (min-height: 1200px) {
+    .modal.connection-modal, .modal.account-choice-modal, .modal.game-update-modal, .modal.legal-gate-modal { transform: translate(-50%, -50%) scale(1.6); }
+  }
+  @media (min-aspect-ratio: 4/3) and (min-height: 1600px) {
+    .modal.connection-modal, .modal.account-choice-modal, .modal.game-update-modal, .modal.legal-gate-modal { transform: translate(-50%, -50%) scale(2.1); }
+  }
+
 
   .modal.account-choice-modal {
     overflow: hidden;
