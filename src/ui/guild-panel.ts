@@ -244,7 +244,7 @@ export function createGuildPanel(options: Options) {
     else item.querySelector(".guild-row-copy > span")?.classList.add(member.online ? "guild-presence--online" : "guild-presence--offline");
     const portrait = element("span", undefined, "guild-avatar");
     portrait.setAttribute("aria-hidden", "true");
-    applyProfileIcon(portrait, member.profileIcon ?? 0);
+    applyProfileIcon(portrait, member.profileIcon ?? 0, member.identity);
     const profile = element("button", undefined, "guild-member-profile");
     profile.type = "button";
     profile.setAttribute("aria-label", `View ${member.name}'s profile`);
@@ -492,7 +492,7 @@ export function createGuildPanel(options: Options) {
       const item = element("li", undefined, `guild-quest-member${member.identity === snapshot!.identity ? " is-self" : ""}`);
       const portrait = element("span", undefined, "guild-avatar");
       portrait.setAttribute("aria-hidden", "true");
-      applyProfileIcon(portrait, member.profileIcon ?? 0);
+      applyProfileIcon(portrait, member.profileIcon ?? 0, member.identity);
       const copy = element("div", undefined, "guild-row-copy");
       const done = member.questsDone ?? 0, collected = member.questsCollected ?? 0, total = member.questsTotal ?? WEEKLY_QUEST_COUNT;
       // Marks match points: a done quest is green only when it earned this guild a point. Pool quests count

@@ -1,7 +1,7 @@
 import { createReleaseNotesIndicator } from "./release-notes-unread";
 import { renderUpdateNotice } from "./overlays";
 import { createAvatarFramePicker, type SupporterActions } from "./avatar-frame-picker";
-import { createProfileIconPicker } from "./profile-icon-picker";
+import { createProfileIconPicker, type ProfileSnapshotHooks } from "./profile-icon-picker";
 
 export function createOverlaysController(elements: {
   update: { overlay: HTMLElement; items: HTMLElement; toggle: HTMLElement };
@@ -11,8 +11,9 @@ export function createOverlaysController(elements: {
   connected: () => boolean;
   selectedIcon: () => number;
   setIcon: (index: number) => Promise<{ ok: boolean; error?: string } | undefined>;
-  paintIcon: (element: HTMLElement, index: number) => void;
+  paintIcon: (element: HTMLElement, index: number, identity?: string) => void;
   afterIconSet: () => void;
+  snapshot?: ProfileSnapshotHooks;
   showMessage: (message: string, color: string) => void;
   supporter?: SupporterActions;
 }) {
@@ -26,6 +27,8 @@ export function createOverlaysController(elements: {
     selectedIcon: hooks.selectedIcon, setIcon: hooks.setIcon, paintIcon: hooks.paintIcon,
     onSaved: () => { hooks.afterIconSet(); closeIconPicker(); hooks.showMessage("PROFILE ICON UPDATED", "#72ef58"); },
     onBackgroundSaved: hooks.afterIconSet,
+    snapshot: hooks.snapshot,
+    onSnapshotSaved: () => { hooks.afterIconSet(); hooks.showMessage("Character Snapshot Saved", "#72ef58"); },
     onError: message => hooks.showMessage(message, "#ff9b91"),
   });
   let hasUpdateNotes = false;

@@ -203,6 +203,7 @@ import SetSpeedReducer from "./set_speed_reducer";
 import ShareDuelReplayReducer from "./share_duel_replay_reducer";
 import ShareGuildBattleReducer from "./share_guild_battle_reducer";
 import SimulateTimeAwayReducer from "./simulate_time_away_reducer";
+import SnapshotProfileCharacterReducer from "./snapshot_profile_character_reducer";
 import SpeedUpItemUpgradeWithGemsReducer from "./speed_up_item_upgrade_with_gems_reducer";
 import SpeedUpResearchWithGemsReducer from "./speed_up_research_with_gems_reducer";
 import SpendPrestigePerkPointReducer from "./spend_prestige_perk_point_reducer";
@@ -367,6 +368,7 @@ import PlayerPrestigeChallengeParkedRow from "./player_prestige_challenge_parked
 import PlayerPrestigeExpansionPerkRow from "./player_prestige_expansion_perk_table";
 import PlayerPrestigePerkRow from "./player_prestige_perk_table";
 import PlayerProfileRow from "./player_profile_table";
+import PlayerProfileSnapshotRow from "./player_profile_snapshot_table";
 import PlayerProgressRow from "./player_progress_table";
 import PlayerResearchRow from "./player_research_table";
 import PlayerWideStatsRow from "./player_wide_stats_table";
@@ -1124,6 +1126,17 @@ const tablesSchema = __schema({
       { name: 'player_profile_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerProfileRow),
+  playerProfileSnapshot: __table({
+    name: 'player_profile_snapshot',
+    indexes: [
+      { accessor: 'identity', name: 'player_profile_snapshot_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_profile_snapshot_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerProfileSnapshotRow),
   playerProgress: __table({
     name: 'player_progress',
     indexes: [
@@ -1810,6 +1823,7 @@ const reducersSchema = __reducers(
   __reducerSchema("share_duel_replay", ShareDuelReplayReducer),
   __reducerSchema("share_guild_battle", ShareGuildBattleReducer),
   __reducerSchema("simulate_time_away", SimulateTimeAwayReducer),
+  __reducerSchema("snapshot_profile_character", SnapshotProfileCharacterReducer),
   __reducerSchema("speed_up_item_upgrade_with_gems", SpeedUpItemUpgradeWithGemsReducer),
   __reducerSchema("speed_up_research_with_gems", SpeedUpResearchWithGemsReducer),
   __reducerSchema("spend_prestige_perk_point", SpendPrestigePerkPointReducer),

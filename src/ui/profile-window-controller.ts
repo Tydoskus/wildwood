@@ -34,7 +34,7 @@ export function createProfileWindowController(elements: {
   /** Own-profile actions live outside this controller; prestige is the first. */
   onOwnProfile?: (own: boolean) => void;
   prestigeLevel?: () => number;
-  localIdentity: () => string | undefined; localDisplayName: () => string | undefined; profileIcon: (identity?: string) => number; paintIcon: (element: HTMLElement, index: number) => void;
+  localIdentity: () => string | undefined; localDisplayName: () => string | undefined; profileIcon: (identity?: string) => number; paintIcon: (element: HTMLElement, index: number, identity?: string) => void;
   renderName: (element: HTMLElement, identity: string, name: string, gender?: PlayerGender) => void; isGuest: (identity: string) => boolean; isOnline: (identity: string) => boolean; presenceText: (profile: Profile, online: boolean) => string;
   renderCharacter: (identity: string, progress: Profile["progress"] | null, visible: boolean) => void; skinTone: (identity?: string) => number; setSkinTone: (value: number) => Promise<{ ok?: boolean; error?: string } | undefined>;
   playerGender: (identity?: string) => PlayerGender; setGender: (value: PlayerGender) => Promise<{ ok?: boolean; error?: string } | undefined>;
@@ -171,7 +171,7 @@ export function createProfileWindowController(elements: {
     const challenge = profile.aggroChallenge?.active ? "Aggro" : profile.prestigeChallenge?.active ? "Reflect Only" : "";
     const challengeLine = elements.window.querySelector<HTMLElement>("#playerProfileChallenge");
     if (challengeLine) { challengeLine.hidden = !challenge; challengeLine.textContent = challenge ? `In challenge - ${challenge}` : ""; }
-    api.paintIcon(elements.icon, api.profileIcon(profile.identity));
+    api.paintIcon(elements.icon, api.profileIcon(profile.identity), profile.identity);
     applyAvatarFrame(elements.icon, profile.identity);
     elements.icon.classList.toggle("is-editable", own); elements.icon.disabled = !own; elements.icon.setAttribute("aria-label", own ? "Choose profile icon" : `${profile.name}'s profile icon`);
     elements.editName.hidden = !own;
@@ -210,7 +210,7 @@ export function createProfileWindowController(elements: {
     elements.window.hidden = false; updateDuelButton(); api.renderName(elements.name, nextIdentity, fallbackName, api.playerGender(nextIdentity)); elements.guest.hidden = !api.isGuest(nextIdentity);
     const online = api.isOnline(nextIdentity); elements.presence.textContent = online ? "Online" : "CHECKING LAST SEEN"; elements.presence.classList.toggle("is-online", online);
     const challengeLine = elements.window.querySelector<HTMLElement>("#playerProfileChallenge"); if (challengeLine) challengeLine.hidden = true;
-    api.paintIcon(elements.icon, api.profileIcon(nextIdentity)); applyAvatarFrame(elements.icon, nextIdentity); const own = nextIdentity === api.localIdentity(); elements.icon.classList.toggle("is-editable", own); elements.icon.disabled = !own; elements.editName.hidden = !own; elements.genderSetting.hidden = !own; closeGenderChoices(); if (own) updateGenderChoices(api.playerGender(nextIdentity));
+    api.paintIcon(elements.icon, api.profileIcon(nextIdentity), nextIdentity); applyAvatarFrame(elements.icon, nextIdentity); const own = nextIdentity === api.localIdentity(); elements.icon.classList.toggle("is-editable", own); elements.icon.disabled = !own; elements.editName.hidden = !own; elements.genderSetting.hidden = !own; closeGenderChoices(); if (own) updateGenderChoices(api.playerGender(nextIdentity));
     if (elements.settings) elements.settings.hidden = !own;
     renderEquipment(null); updatePreview(nextIdentity, own); renderPower("—"); selectTab("stats"); loading.show();
     const cached = api.profile(nextIdentity); if (cached) { render(cached); if (own) return; }

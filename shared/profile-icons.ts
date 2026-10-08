@@ -34,9 +34,22 @@ export const PROFILE_ICON_BACKGROUND_COLORS: Readonly<Record<ProfileIconBackgrou
  * 273: the eggplant (third object sheet, row 3, column 2), removed in 0.901.18.
  */
 export const RETIRED_PROFILE_ICONS: ReadonlySet<number> = new Set([273]);
+/**
+ * The reserved picture "my character, as I snapshotted it". The server keeps
+ * the look in player_profile_snapshot, never pixels; a client draws it. It sits
+ * at the top of the index range, far past any sheet, and takes a backdrop like
+ * any picture. A client from before it reads the index as invalid and draws
+ * picture 0, the default silhouette, on White.
+ */
+export const PROFILE_ICON_SNAPSHOT = PROFILE_ICON_INDEX_MASK;
+
 export const isValidProfileIcon = (value: number) => Number.isInteger(value) && value >= 0
-  && value <= (PROFILE_ICON_BLACK_BACKGROUND | PROFILE_ICON_INDEX_MASK) && (value & PROFILE_ICON_INDEX_MASK) < PROFILE_ICON_COUNT
-  && !RETIRED_PROFILE_ICONS.has(value & PROFILE_ICON_INDEX_MASK);
+  && value <= (PROFILE_ICON_BLACK_BACKGROUND | PROFILE_ICON_INDEX_MASK)
+  && (((value & PROFILE_ICON_INDEX_MASK) < PROFILE_ICON_COUNT && !RETIRED_PROFILE_ICONS.has(value & PROFILE_ICON_INDEX_MASK))
+    || (value & PROFILE_ICON_INDEX_MASK) === PROFILE_ICON_SNAPSHOT);
+/** A saved icon that shows the player's snapshotted character. */
+export const isSnapshotProfileIcon = (value: number) => Number.isFinite(value) && isValidProfileIcon(Math.floor(value))
+  && (Math.floor(value) & PROFILE_ICON_INDEX_MASK) === PROFILE_ICON_SNAPSHOT;
 export function normalizeProfileIcon(value: number) {
   return Number.isFinite(value) && isValidProfileIcon(Math.floor(value)) ? Math.floor(value) : 0;
 }
@@ -49,11 +62,17 @@ export const profileIconBackground = (value: number): ProfileIconBackground =>
   normalizeProfileIcon(value) & PROFILE_ICON_BLACK_BACKGROUND ? "black" : "white";
 /** The same picture on another backdrop. */
 export const withProfileIconBackground = (value: number, background: ProfileIconBackground) => encodeProfileIcon(profileIconIndex(value), background);
+/**
+ * Where a picture sits in its sheet. A snapshot has no cell of its own: it
+ * reports the default silhouette's, which is what is drawn until the
+ * character is, and `snapshot` says which it is.
+ */
 export function profileIconLocation(value: number) {
-  const index = profileIconIndex(value), sheetIndex = Math.floor(index / PROFILE_ICONS_PER_SHEET);
-  const cell = index % PROFILE_ICONS_PER_SHEET;
+  const index = profileIconIndex(value), snapshot = index === PROFILE_ICON_SNAPSHOT;
+  const picture = snapshot ? 0 : index, sheetIndex = Math.floor(picture / PROFILE_ICONS_PER_SHEET);
+  const cell = picture % PROFILE_ICONS_PER_SHEET;
   return {
-    index, sheetIndex, cell, column: cell % PROFILE_ICON_GRID, row: Math.floor(cell / PROFILE_ICON_GRID),
+    index, snapshot, sheetIndex, cell, column: cell % PROFILE_ICON_GRID, row: Math.floor(cell / PROFILE_ICON_GRID),
     background: profileIconBackground(value), ...PROFILE_ICON_SHEETS[sheetIndex],
   };
 }

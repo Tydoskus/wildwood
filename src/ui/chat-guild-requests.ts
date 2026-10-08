@@ -45,7 +45,7 @@ export function createChatGuildRequests(options: {
       const card = node("article", "", "guild-request-card");
       const profile = node("button", "", "guild-member-profile"); profile.type = "button";
       profile.setAttribute("aria-label", `View ${request.name}'s profile`);
-      const avatar = node("span", "", "guild-avatar"); applyProfileIcon(avatar, request.profileIcon);
+      const avatar = node("span", "", "guild-avatar"); applyProfileIcon(avatar, request.profileIcon, request.identity);
       const name = node("strong", "", "guild-row-copy"); renderGuildMemberName(name, request);
       profile.append(avatar, name); profile.addEventListener("click", () => options.openPlayer?.(request.identity, request.name)); card.append(profile);
       card.append(node("p", request.online ? "Online" : "Offline", request.online ? "guild-request-online" : "guild-request-offline"));

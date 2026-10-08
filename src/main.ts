@@ -190,7 +190,7 @@ import {
     hudGemWallet.setAttribute("aria-label", `${balance} Gems`);
   }
   refreshGemCounter();
-  const overlays = createGameOverlays({ e: gameElements, coop, version: GAME_VERSION, applyProfileIcon: (element: HTMLElement, index: number) => applyProfileIcon(element, index), showMessage, afterIconSet: () => { applyProfileIcon(playerHudProfileIcon, coop?.profileIcon?.() ?? 0); if (profileWindow.identity() === coop?.localIdentity?.()) applyProfileIcon(playerProfileIcon, coop?.profileIcon?.() ?? 0); } });
+  const overlays = createGameOverlays({ e: gameElements, coop, version: GAME_VERSION, applyProfileIcon: (element: HTMLElement, index: number, identity?: string) => applyProfileIcon(element, index, identity), showMessage, afterIconSet: () => { applyProfileIcon(playerHudProfileIcon, coop?.profileIcon?.() ?? 0, coop?.localIdentity?.()); if (profileWindow.identity() === coop?.localIdentity?.()) applyProfileIcon(playerProfileIcon, coop?.profileIcon?.() ?? 0, coop?.localIdentity?.()); } });
 
   let startupCoordinator!: ReturnType<typeof createStartupCoordinator>;
   const localCorpses = createLocalCorpses();
@@ -709,7 +709,7 @@ import {
     isDeveloper: isDeveloperIdentity,
     isLocallyInvisible: (identity) => identity === coop?.localIdentity?.() && isDeveloperIdentity(identity) && coop?.developerPresenceVisible?.() === false,
     isGuest: (identity) => coop?.isGuest?.(identity) ?? false,
-    profileIcon: (identity) => coop?.profileIcon?.(identity) ?? 0,
+    profileIcon: (identity) => coop?.profileIcon?.(identity) ?? 0, profileSnapshots: { look: (identity) => coop?.profileSnapshot?.(identity), revision: () => coop?.profileSnapshotsRevision?.() ?? 0 },
     playerGender: (identity) => coop?.playerGender?.(identity) ?? 0,
     chatRevision: () => coop?.chatRevision?.() ?? -1,
     chatMessages: () => (coop?.chatMessages?.() ?? []).filter(message => !message.guildReplayKey),
@@ -1293,7 +1293,7 @@ import {
     localPrestige: () => coop?.prestige?.()?.level ?? 0,
     localIdentity: () => coop?.localIdentity?.() || "",
     isDeveloper: isDeveloperIdentity,
-    paintProfileIcon: (canvas: HTMLCanvasElement, identity: string) => paintProfileIconCanvas(canvas, coop?.profileIcon?.(identity) ?? 0),
+    paintProfileIcon: (canvas: HTMLCanvasElement, identity: string) => paintProfileIconCanvas(canvas, coop?.profileIcon?.(identity) ?? 0, identity),
     podiumAssetsReady: () => playerSpriteReady,
     drawPodiumCharacter: (canvas: HTMLCanvasElement, entry: LeaderboardEntry, rank: 1 | 2 | 3) => leaderboardPodiumPreview.draw(canvas, entry, rank),
     openProfile: (identity: string, name: string) => { void profileWindow.open(identity, name); },

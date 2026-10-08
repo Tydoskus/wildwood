@@ -34,6 +34,7 @@ import { mergeAudioSettings, removeAudioSettings } from "./audio-settings";
 import { mergeAdGemReward, removeAdGemReward } from "./ad-gem-reward";
 import { mergeChatMute, removeChatMute } from "./chat-mute";
 import { mergeLootSettings, removeLootSettings } from "./loot-settings";
+import { mergeProfileSnapshot, removeProfileSnapshot } from "./profile-snapshot";
 import { mergeSoulDimensionRows, removeSoulDimensionRows } from "./soul-dimension";
 import { mergeIgnoredDrops, removeIgnoredDrops } from "./ignored-drops";
 import { mergeOfflinePreference } from "./offline-preference";
@@ -217,6 +218,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
     mergeOnboarding(ctx, link.guest, ctx.sender);
     mergeAudioSettings(ctx, link.guest, ctx.sender);
     mergeLootSettings(ctx, link.guest, ctx.sender);
+    mergeProfileSnapshot(ctx, link.guest, ctx.sender);
     mergeSoulDimensionRows(ctx, link.guest, ctx.sender);
     mergeEquipmentLocks(ctx, link.guest, ctx.sender);
     mergeIgnoredDrops(ctx, link.guest, ctx.sender);
@@ -765,6 +767,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.playerMultiplayerPreference.identity.find(identity)) ctx.db.playerMultiplayerPreference.identity.delete(identity);
     removeAudioSettings(ctx, identity);
     removeLootSettings(ctx, identity);
+    removeProfileSnapshot(ctx, identity);
     removeSoulDimensionRows(ctx, identity);
     removeEquipmentLocks(ctx, identity);
     removeIgnoredDrops(ctx, identity);
@@ -877,6 +880,7 @@ for (const [contributionTable, attackWindowTable] of [
     if (ctx.db.playerMultiplayerPreference.identity.find(identity)) ctx.db.playerMultiplayerPreference.identity.delete(identity);
     removeAudioSettings(ctx, identity);
     removeLootSettings(ctx, identity);
+    removeProfileSnapshot(ctx, identity);
     removeSoulDimensionRows(ctx, identity);
     removeEquipmentLocks(ctx, identity);
     removeIgnoredDrops(ctx, identity);

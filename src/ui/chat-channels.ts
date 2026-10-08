@@ -176,7 +176,7 @@ export function createChatChannelPicker(
         portrait.addEventListener("keydown", event => {
           if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openProfile(event); }
         });
-        applyProfileIcon(portrait, person.profileIcon ?? 0);
+        applyProfileIcon(portrait, person.profileIcon ?? 0, person.identity);
         const content = document.createElement("span");
         content.className = "chat-conversation-content";
         const preview = document.createElement("span");

@@ -1,3 +1,4 @@
+import { onProfileSnapshotsChanged } from "../app/profile-snapshot-portraits";
 import { challengeMinimumInterval } from "../../shared/prestige-challenge";
 export { challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { createGemShopController } from "./gem-shop-controller";
@@ -50,6 +51,7 @@ export function createGameOverlays(d: Record<string, any>) {
   const overlays = createOverlaysController({ update: { overlay: e.updateNoticeEl, items: e.updateNoticeItemsEl, toggle: e.signinVersionButton }, iconPicker: { overlay: e.profileIconPickerEl, choices: e.profileIconChoices, close: e.closeProfileIconPickerBtn } }, {
     supporter: coop,
     releases: () => recentReleaseNotes(2), connected: () => Boolean(coop?.isConnected?.()), selectedIcon: () => coop?.profileIcon?.() ?? 0, setIcon: async (index: number) => coop?.setProfileIcon?.(index), paintIcon: d.applyProfileIcon, afterIconSet: d.afterIconSet, showMessage: d.showMessage,
+    snapshot: { identity: () => coop?.localIdentity?.(), exists: () => Boolean(coop?.profileSnapshot?.()), take: async () => coop?.snapshotProfileCharacter?.(), onChanged: onProfileSnapshotsChanged },
   });
   // The game says it is in alpha on the sign-in screen; the version label is
   // where a player looks for it while playing.
