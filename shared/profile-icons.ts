@@ -28,8 +28,15 @@ const PROFILE_ICON_INDEX_MASK = 0xffff;
 /** The colour drawn behind a picture for each backdrop. */
 export const PROFILE_ICON_BACKGROUND_COLORS: Readonly<Record<ProfileIconBackground, string>> = { white: "#ffffff", black: "#000000" };
 
+/**
+ * Pictures taken off their sheet after shipping: their cell is empty now. They
+ * cannot be chosen, and one already saved reads as the default silhouette.
+ * 273: the eggplant (third object sheet, row 3, column 2), removed in 0.901.18.
+ */
+export const RETIRED_PROFILE_ICONS: ReadonlySet<number> = new Set([273]);
 export const isValidProfileIcon = (value: number) => Number.isInteger(value) && value >= 0
-  && value <= (PROFILE_ICON_BLACK_BACKGROUND | PROFILE_ICON_INDEX_MASK) && (value & PROFILE_ICON_INDEX_MASK) < PROFILE_ICON_COUNT;
+  && value <= (PROFILE_ICON_BLACK_BACKGROUND | PROFILE_ICON_INDEX_MASK) && (value & PROFILE_ICON_INDEX_MASK) < PROFILE_ICON_COUNT
+  && !RETIRED_PROFILE_ICONS.has(value & PROFILE_ICON_INDEX_MASK);
 export function normalizeProfileIcon(value: number) {
   return Number.isFinite(value) && isValidProfileIcon(Math.floor(value)) ? Math.floor(value) : 0;
 }
@@ -53,5 +60,5 @@ export function profileIconLocation(value: number) {
 export function profileIconsInCategory(category: ProfileIconCategory) {
   // Feature the newest sheet first while preserving the original IDs and choices.
   return (category === "people" ? [1, 0] : [4, 3, 2]).flatMap(sheet =>
-    Array.from({ length: PROFILE_ICONS_PER_SHEET }, (_, cell) => sheet * PROFILE_ICONS_PER_SHEET + cell));
+    Array.from({ length: PROFILE_ICONS_PER_SHEET }, (_, cell) => sheet * PROFILE_ICONS_PER_SHEET + cell)).filter(index => !RETIRED_PROFILE_ICONS.has(index));
 }

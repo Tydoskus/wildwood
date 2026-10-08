@@ -51,3 +51,14 @@ it("reads as the default silhouette, not another picture, in a client from befor
   for (const index of [0, 42, 255]) expect(shippedNormalize(encodeProfileIcon(index, "black"))).toBe(0);
   expect(shippedNormalize(encodeProfileIcon(42, "white"))).toBe(42);
 });
+
+it("retires the eggplant: it cannot be chosen, is not offered, and a saved one reads as the default silhouette", async () => {
+  const { RETIRED_PROFILE_ICONS, profileIconsInCategory } = await import("./profile-icons");
+  expect(RETIRED_PROFILE_ICONS.has(273)).toBe(true);
+  expect(isValidProfileIcon(273)).toBe(false);
+  expect(isValidProfileIcon(273 | PROFILE_ICON_BLACK_BACKGROUND)).toBe(false);
+  expect(normalizeProfileIcon(273)).toBe(0);
+  expect(profileIconsInCategory("objects")).not.toContain(273);
+  expect(isValidProfileIcon(272)).toBe(true);
+  expect(isValidProfileIcon(274)).toBe(true);
+});

@@ -113,7 +113,8 @@ export async function fitObjectSheet(input) {
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (solid(x, y) && mine(x, y)) {
       left = Math.min(left, x); right = Math.max(right, x); top = Math.min(top, y); bottom = Math.max(bottom, y);
     }
-    if (right < left) throw new Error(`cell ${cell} is empty`);
+    // A cell left empty on purpose (a retired picture, shared/profile-icons.ts) stays empty: bounds of zeros.
+    if (right < left) { bounds.push([0, 0, 0, 0]); continue; }
     const w = right - left + 1, h = bottom - top + 1, scale = OBJECT_SIZE / Math.max(w, h);
     const sw = Math.round(w * scale), sh = Math.round(h * scale);
     // Found by shape, only this object's own pixels are cut out: a neighbour reaching into its box is left behind.

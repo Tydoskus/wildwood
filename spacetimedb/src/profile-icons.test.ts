@@ -11,7 +11,7 @@ it("saves the added portrait sheets while rejecting indices outside the catalog"
     expect(f.db.playerProfile.identity.find(identity("1")).profileIcon).toBe(profileIcon);
     expect(f.db.playerProfile.identity.find(identity("2")).profileIcon).toBe(42);
   }
-  for (const profileIcon of [-1, 320, 1.5]) {
+  for (const profileIcon of [-1, 320, 1.5, 273]) {
     expect(() => f.run(server.setProfileIcon, { profileIcon })).toThrow("Choose an available profile picture.");
     expect(f.db.playerProfile.identity.find(identity("1")).profileIcon).toBe(319);
   }

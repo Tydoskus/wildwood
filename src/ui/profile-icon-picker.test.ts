@@ -42,8 +42,8 @@ it("preserves old portraits and maps every new sheet boundary consistently", () 
 
 it("offers all people and objects separately and opens the selected category", () => {
   const f = fixture(191);
-  // All three object sheets, the newest first.
-  expect(f.choices.children).toHaveLength(192);
+  // All three object sheets, the newest first (the retired eggplant left out).
+  expect(f.choices.children).toHaveLength(191);
   expect(f.choices.firstElementChild?.getAttribute("data-profile-icon")).toBe("256");
   expect(f.choices.querySelector('[aria-pressed="true"]')?.getAttribute("data-profile-icon")).toBe("191");
   document.getElementById("profile-icon-tab-people")!.click();

@@ -1,0 +1,4 @@
+Tool: built-in ImageGen
+Edit target: profile-objects-grid-v3-distinct.png
+
+Use case: precise-object-edit. Edit target: the attached transparent 8 by 8 game icon sprite sheet. Remove ONLY the purple eggplant in row 3, column 2 (between the carrot and broccoli). Leave that cell entirely empty and transparent. Do not replace it with any object and do not rearrange or shift any other icon. Preserve every other icon exactly as shown, including tree, blue fish, capybara, taco, burger, and all remaining objects. Preserve the original crisp outlines, colors, icon sizes, grid positions, canvas dimensions, and transparent alpha background. No text, no watermark, no added objects.
