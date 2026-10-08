@@ -1,4 +1,15 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.10": [
+    "Autofarm kites small groups in a circle, dodges boss attacks, and only pulls a whole camp it can tank",
+    "Autofarm moves to the next map when it will grow you faster there, and fights bosses it can beat in 10 minutes",
+    "Autofarm says what it is doing: Moving On, or Staying and why",
+    "Autofarm has a ? page explaining each setting",
+    "Fixed getting stuck at a portal, unable to move or teleport until a reload",
+    "Profile pictures can sit on a White or Black background, and the second object sheet is sharper",
+    "The prestige unlock popup no longer pauses the game, and closes itself after a minute",
+    "Guild tags on the leaderboard show both square brackets",
+    "The minimap's question mark is gone; tap the minimap for the map guide",
+  ],
   "0.901.9": [
     "Timers and countdowns all read the same way: HH:MM, switching to MM:SS in the final minute",
   ],
@@ -2990,6 +3001,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.10": "2026-10-08",
   "0.901.9": "2026-10-07",
   "0.901.8": "2026-10-07",
   "0.901.7": "2026-10-07",
