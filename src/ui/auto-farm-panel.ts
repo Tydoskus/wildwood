@@ -204,11 +204,24 @@ export function createAutoFarmPanel(options: {
     const multiplier = options.showBaseStatRewards() ? 1 : options.rewardMultiplier();
     const displayAmount = (reward: EnemyDefinition["reward"], amount = reward.amount) =>
       options.rewardAmount?.(reward.type, amount) ?? amount * multiplier;
-    const key = `${options.mapName()}:${multiplier}:${choices.map(c => {
-      const reward = c.reward ?? ENEMY_TYPES[c.type].reward;
-      return `${c.key}:${c.total}:${reward.amount}:${c.maxReward}:${displayAmount(reward)}`;
-    }).join('|')}`;
-    if (key !== choiceKey) {
+    const rewardText = (choice: typeof choices[number]) => {
+      const reward = choice.reward ?? ENEMY_TYPES[choice.type].reward;
+      if (choice.soul) return soulRewardText(choice.soul);
+      const displayedReward = { ...reward, amount: displayAmount(reward) };
+      return choice.maxReward && choice.maxReward > reward.amount
+        ? `${rewardAmountLabel(displayedReward)}–${rewardAmountLabel({ ...displayedReward, amount: displayAmount(reward, choice.maxReward) }).slice(1)}`
+        : rewardAmountLabel(displayedReward);
+    };
+    // Rebuilt only when the stats on offer change. The game runs behind the window, so
+    // rewards grow while it is open; rebuilding for that dropped a slider mid-drag.
+    const key = `${options.mapName()}:${choices.map(c => c.key).join('|')}`;
+    if (key === choiceKey) {
+      for (const choice of choices) {
+        const sub = list.querySelector<HTMLElement>(`[data-group="${choice.key}"] .farm-weight-sub`);
+        const text = rewardText(choice);
+        if (sub && sub.textContent !== text) sub.textContent = text;
+      }
+    } else {
       choiceKey = key;
       const previousGroup = (document.activeElement?.closest?.('[data-group]') as HTMLElement | null)?.dataset.group;
       list.replaceChildren();
@@ -225,11 +238,7 @@ export function createAutoFarmPanel(options: {
         // The stat is the choice; what one kill pays is the detail.
         const label = soul?.label ?? rewardStatLabel(reward);
         row.querySelector('.farm-weight-label')!.textContent = label;
-        const displayedReward = { ...reward, amount: displayAmount(reward) };
-        const amount = choice.maxReward && choice.maxReward > reward.amount
-          ? `${rewardAmountLabel(displayedReward)}–${rewardAmountLabel({ ...displayedReward, amount: displayAmount(reward, choice.maxReward) }).slice(1)}`
-          : rewardAmountLabel(displayedReward);
-        row.querySelector('.farm-weight-sub')!.textContent = choice.soul ? soulRewardText(choice.soul) : amount;
+        row.querySelector('.farm-weight-sub')!.textContent = rewardText(choice);
         row.title = choice.kinds.join(', ');
         const slider = row.querySelector('input')!;
         slider.setAttribute('aria-label', `${label} Share Of Farming Time`);
@@ -380,9 +389,10 @@ export function createAutoFarmPanel(options: {
     else if (!options.farm.start(options.farm.savedShares())) open();
     refresh();
   };
-  document.addEventListener('keydown', onKey);
+  // Capture: a click leaves focus on the card, and the card keeps keys pressed on it from the world.
+  document.addEventListener('keydown', onKey, true);
   // Hidden, there is no button to update; autofarm itself refreshes from its movement step.
   const timer = window.setInterval(() => { if (!document.hidden) refresh(); }, 250);
   refresh();
-  return { close, refresh, destroy() { document.removeEventListener('keydown', onKey); movable.destroy(); window.clearInterval(timer); backdrop.remove(); sheet.remove(); } };
+  return { close, refresh, destroy() { document.removeEventListener('keydown', onKey, true); movable.destroy(); window.clearInterval(timer); backdrop.remove(); sheet.remove(); } };
 }

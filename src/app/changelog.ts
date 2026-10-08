@@ -1,6 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.901.20": [
     "The Auto Farm window scrolls on small screens, and More is gone: Pull Whole Group and Target are always shown",
+    "Fixed players not being drawn on Firefox for some players",
+    "Fixed the Auto Farm sliders not moving while farming",
+    "Fixed F not starting or stopping Auto Farm after clicking the card",
   ],
   "0.901.19": [
     "Snapshot Character in the profile picture picker makes your character, as it looks right now, your profile picture",

@@ -485,3 +485,11 @@ it('F on a map with nothing to farm opens the window instead', () => {
   expect(s.farm.state().active).toBe(false);
   expect(s.content.hidden).toBe(false);
 });
+
+it('keeps a slider while its reward grows behind the open window', () => {
+  const s = setup();
+  s.click('.farm-toggle');
+  const before = s.document.querySelector('[data-group] input');
+  s.setRewardMultiplier(5); s.panel.refresh();
+  expect(s.document.querySelector('[data-group] input')).toBe(before);
+});

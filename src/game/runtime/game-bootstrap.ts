@@ -217,10 +217,13 @@ export function createGameBootstrapAssets(options: {
       return preprocessedAssets.worldArtReady() && actorShadowReady && (!mapId || mapAssetsReady(mapId));
     },
   };
-  // Snapshot profile pictures are drawn from the same art, once it has all settled.
+  // The game hears the art is ready first, always: in 0.901.19 the snapshot
+  // portraits went first, and a part that failed to load made Firefox throw
+  // there, so players were never drawn. Snapshot pictures follow, and can fail alone.
   const playerAppearanceAssets = loadPlayerAppearanceAssets(() => {
-    setProfileSnapshotRenderer(createProfileSnapshotRenderer(playerAppearanceAssets));
     options.onPlayerAppearanceAssetReady();
+    try { setProfileSnapshotRenderer(createProfileSnapshotRenderer(playerAppearanceAssets)); }
+    catch (error) { console.warn('WildStat snapshot portraits unavailable:', error); }
   });
   return {
     actorShadowSprite,

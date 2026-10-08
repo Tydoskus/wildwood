@@ -52,7 +52,8 @@ export function createProfileSnapshotRenderer(assets: PlayerAppearanceAssets, si
     canvas.width = size; canvas.height = size;
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
-    drawProfileSnapshot(ctx, assets, look, size);
+    // Firefox throws drawing a part that failed to load: that portrait is the default silhouette, nothing else breaks.
+    try { drawProfileSnapshot(ctx, assets, look, size); } catch { return null; }
     return { key: profileSnapshotKey(look), canvas, url: canvas.toDataURL("image/png") };
   };
 }
