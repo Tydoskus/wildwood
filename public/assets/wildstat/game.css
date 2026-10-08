@@ -1099,26 +1099,6 @@
   }
   .minimap-button:active { transform: none; }
   .minimap-button:focus-visible { outline: 2px solid #fff; outline-offset: -4px; }
-  .minimap-help-mark {
-    position: absolute;
-    top: 7px;
-    right: 7px;
-    display: grid;
-    width: 25px;
-    height: 25px;
-    place-items: center;
-    /* Just the mark: no ring or backing behind it (Ryan, 2026-10-05). */
-    border: 0;
-    background: none;
-    box-shadow: none;
-    color: #fff;
-    font: 900 18px/1 var(--font-rounded);
-    -webkit-text-stroke: 0;
-    text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
-    transition: transform 120ms ease;
-  }
-  .minimap-button:hover .minimap-help-mark,
-  .minimap-button:focus-visible .minimap-help-mark { transform: scale(1.12); }
   body:is(.is-dueling, .is-replaying) .minimap-button,
   body:is(.is-dueling, .is-replaying) .minimap-meta,
   body:is(.is-dueling, .is-replaying) .hud-timer-column { visibility: hidden; pointer-events: none; }
@@ -3553,7 +3533,8 @@
   .leaderboard-row:nth-child(1) .leaderboard-rank { color: #ffe05d; }
   .leaderboard-row:nth-child(2) .leaderboard-rank { color: #dce6e8; }
   .leaderboard-row:nth-child(3) .leaderboard-rank { color: #e4a96a; }
-  .leaderboard-name { display: flex; align-items: center; gap: 2px; min-width: 0; margin: 0; padding: 0; overflow: hidden; border: 0; background: transparent; color: #fff; font-size: 10px; text-align: left; white-space: nowrap; cursor: pointer; }
+  /* The left padding keeps the 2px outline of a leading "[" inside the clip; without it the bracket read as "(". */
+  .leaderboard-name { display: flex; align-items: center; gap: 2px; min-width: 0; margin: 0; padding: 0 0 0 2px; overflow: hidden; border: 0; background: transparent; color: #fff; font-size: 10px; text-align: left; white-space: nowrap; cursor: pointer; }
   .leaderboard-name-text { min-width: 0; padding: 3px; margin: -3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* Explicit descendants override the global * text treatment on name spans. */
   .leaderboard-podium-name, .leaderboard-podium-name *,
