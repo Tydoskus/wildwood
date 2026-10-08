@@ -552,7 +552,9 @@ export function createAutoFarmController(options: {
       return;
     }
     if (!plan) { nextVerdict = { kind: 'weighing', ratio: 0 }; return; }
-    const here = plan.current.powerPerMinute;
+    // This map's rate: the forecast's, or what it measures growing here when that is more. A forecast of another
+    // map is weighed against what this one plainly gives, not against a forecast here that came out low.
+    const here = Math.max(plan.current.powerPerMinute, gain.rate(at, options.mapId()) ?? 0);
     const beats = (price: { powerPerMinute: number } | null) => Boolean(price) && price!.powerPerMinute > Math.max(1e-9, here) * MAP_SWITCH_MARGIN;
     const onward = beats(plan.next) && (!plan.previous || plan.next!.powerPerMinute >= plan.previous.powerPerMinute);
     nextVerdict = !plan.next ? { kind: 'weighing', ratio: 0 } : onward ? { kind: 'on', ratio: plan.next.powerPerMinute / Math.max(1e-9, here) }
@@ -939,6 +941,7 @@ export function createAutoFarmController(options: {
       if (player.hp > 0 && phase === 'farm') planner.observe(at, mapId, dt, killsSince, lost);
       killsSince = 0;
       planner.tick(at, mapId, () => options.growth?.() ?? null, () => ({ pull: pullAll, pulling: pulling(), groups: selected ? [selected] : null,
+        pulled: [...pulledGroups()], pullCamps: Math.max(0, options.pullCamps?.() ?? 1),
         position: { x: player.x, y: player.y }, health: player.maxHp > 0 ? Math.max(0, player.hp) / player.maxHp : 1 }));
     }
     choosePhase(dt);
@@ -1081,7 +1084,8 @@ export function createAutoFarmController(options: {
   function nextMapStatus() {
     const { kind, ratio } = nextVerdict;
     if (kind === 'weighing') return 'Weighing Next Map';
-    if (kind === 'on') return 'Moving On';
+    // Faster ahead, but Auto Advance is off: the player holds the switch.
+    if (kind === 'on') return advance ? 'Moving On' : 'Next Map Open';
     if (kind === 'too-hard') return 'Staying · Next Map Too Hard';
     return ratio < 1 ? `Staying · Next Map ${Math.round((1 - ratio) * 100)}% Slower` : `Staying · Next Map Only ${Math.round((ratio - 1) * 100)}% Faster`;
   }

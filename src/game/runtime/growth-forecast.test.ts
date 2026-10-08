@@ -47,6 +47,14 @@ describe('growth forecast', () => {
     expect(rates[3]).toBeGreaterThan(rates[0]);
   });
 
+  it('kills by Reflect in Reflect Only, and corrects those kills by the measured damage correction', () => {
+    const biters = map(camp('damage', 400, 400, 6, enemy({ hp: 300, damage: 40, reward: { type: 'damage', amount: 1 } }), 150));
+    const reflector = (damageCalibration: number) => build({ maxHp: 5_000, regen: 100 }, { melee: true, reflectOnly: true, reflect: 1, damageCalibration });
+    const kills = (damageCalibration: number) => forecastOption(biters, reflector(damageCalibration), single('damage'), run).kills;
+    expect(kills(1)).toBeGreaterThan(0);
+    expect(kills(.25)).toBeLessThan(kills(1));
+  });
+
   it('dies less with more health or armor', () => {
     const hard = map(camp('damage', 1_400, 1_400, 8, enemy({ hp: 400, damage: 60, reward: { type: 'damage', amount: 1 } }), 220));
     const deaths = (stats: Partial<PlayerPowerStats>) => forecastOption(hard, build(stats, { melee: true }), single('damage'), run).deathsPerHour;

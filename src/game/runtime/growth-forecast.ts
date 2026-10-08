@@ -322,7 +322,11 @@ export function forecastOption(map: ForecastMap, build: ForecastBuild, option: F
 
   const critAverage = 1 + Math.max(0, Math.min(1, build.criticalChance)) * (Math.max(1, build.criticalMultiplier) - 1);
   const damageCalibration = build.damageCalibration ?? 1;
-  const incoming = (build.incomingCalibration ?? 1) * tuning.incomingEfficiency;
+  // What enemies deal: each hit as the enemy's own (the model's efficiency aside), and the measured correction
+  // as how often they land. A hit's size is known from its definition; what the forecast misses is the blows it
+  // does not see coming (walk-bys, a dodge that fails), and a correction on the size would turn a few of those
+  // into a lethal hit the build never takes.
+  const incoming = tuning.incomingEfficiency, incomingRate = Math.max(1e-6, build.incomingCalibration ?? 1);
   const storm = bowSkillChance(build.bowSkills, 'arrowStorm');
   const ricochet = bowSkillChance(build.bowSkills, 'ricochet');
   const pierce = bowSkillChance(build.bowSkills, 'piercingShot');
@@ -358,7 +362,8 @@ export function forecastOption(map: ForecastMap, build: ForecastBuild, option: F
   function engage(site: ForecastSite, standing: Point, at: number): Foe | null {
     const enemy = site.definition;
     const distance = Math.hypot(site.x - standing.x, site.y - standing.y);
-    const [attacker] = participantAttackers([site], standing, new Set(), enemyOf, stats.armor, incoming, build.moveSpeed, map.hitAfterArmor);
+    const [found] = participantAttackers([site], standing, new Set(), enemyOf, stats.armor, incoming, build.moveSpeed, map.hitAfterArmor);
+    const attacker = found && { ...found, interval: found.interval / incomingRate, start: found.start / incomingRate };
     const melee = !enemy.ranged;
     const reach = reachFor(site);
     const reachAt = at + closeGapSeconds(distance - reach, chase);
@@ -463,7 +468,7 @@ export function forecastOption(map: ForecastMap, build: ForecastBuild, option: F
       const room = ringRoom(chasing[0].site);
       const rates = chasing.map(foe => foe.hit / Math.max(1e-9, foe.interval)).sort((a, b) => b - a);
       const standing = rates.slice(0, room).reduce((sum, rate) => sum + rate, 0);
-      const cycle = kitedHitInterval(speed, chase) * tuning.kiteScale;
+      const cycle = kitedHitInterval(speed, chase) * tuning.kiteScale / incomingRate;
       const kitedRate = chasing.reduce((sum, foe) => sum + foe.hit / Math.max(cycle, foe.interval), 0);
       const regen = Math.max(0, stats.regen);
       if (orbitHolds(chasing.length, meanR, speed, chase, build.reach)) mode = standing > regen ? 'hold' : 'stand';
@@ -563,14 +568,16 @@ export function forecastOption(map: ForecastMap, build: ForecastBuild, option: F
             hitter.landing += tuning.orbitLeak;
             if (hitter.landing < 1) continue;
             hitter.landing -= 1;
-          } else hitter.nextHit = t + (mode === 'kite' ? Math.max(hitter.interval, kitedHitInterval(speed, chase) * tuning.kiteScale) : hitter.interval);
+          } else hitter.nextHit = t + (mode === 'kite' ? Math.max(hitter.interval, kitedHitInterval(speed, chase) * tuning.kiteScale / incomingRate) : hitter.interval);
         }
-        // A hit lands: armor already off it; Reflect throws some back.
+        // A hit lands: armor already off it; Reflect throws some back. Reflect is damage the build
+        // deals, so the measured damage correction applies to it too: a Reflect Only build has no
+        // other, and a correction that moved nothing would run on to its bound.
         if (hitter.melee) hits.melee++; else hits.shots++;
         hp -= hitter.hit;
         hits.damage += hitter.hit;
         lastLanded = t;
-        if (build.reflect > 0) damageFoe(hitter, worldReflectDamage(hitter.raw, stats.maxHp, Boolean(build.reflectOnly)) * Math.min(1, build.reflect), t);
+        if (build.reflect > 0) damageFoe(hitter, worldReflectDamage(hitter.raw, stats.maxHp, Boolean(build.reflectOnly)) * Math.min(1, build.reflect) * damageCalibration, t);
         lowest = Math.min(lowest, hp / Math.max(1e-9, stats.maxHp));
         if (hp <= 0 && !run.immortal) { die(t); return false; }
         continue;
@@ -690,7 +697,7 @@ export function forecastOption(map: ForecastMap, build: ForecastBuild, option: F
           .sort((a, b) => Math.hypot(a.x - position.x, a.y - position.y) - Math.hypot(b.x - position.x, b.y - position.y));
         const dps = Math.max(1e-9, stats.damage * critAverage / Math.max(build.minAttackInterval, stats.attackRate));
         limit = !group.length ? Infinity : tankableCount({ playerR: PLAYER_RADIUS, maxHp: stats.maxHp, regen: Math.max(0, stats.regen), dps,
-          chasers: group.map(site => ({ damage: map.hitAfterArmor(site.definition.damage * incoming, stats.armor), attackSpeed: site.definition.attackSpeed, hp: site.definition.hp, r: site.definition.r })) });
+          chasers: group.map(site => ({ damage: map.hitAfterArmor(site.definition.damage * incoming, stats.armor), attackSpeed: site.definition.attackSpeed * incomingRate, hp: site.definition.hp, r: site.definition.r })) });
       }
       return Math.max(0, limit - pulledLiving());
     };
@@ -968,7 +975,7 @@ export function chooseGrowthOption(results: readonly ForecastedOption[],
  * next map, deaths). Each group is priced by a probe: its reward added until
  * the stat it pays has grown by `probeShare`, and the best rate the build can
  * then reach, read as a slope (rise per kill). A group's own rate is forecast
- * too, one at a time standing and kited, that group alone: a single kill's
+ * too, one at a time standing and kited (and pulled, with Pull on), that group alone: a single kill's
  * power over its time (Best Gain) misses the arrows a fan lands on a whole camp,
  * the chasers a kite holds, and the deaths. Then, per second of farming it:
  *   score = its power a second (that forecast)
@@ -1000,6 +1007,12 @@ export type StatChoiceInput = {
   now?: ForecastedOption | null;
   /** How the next map's pricing differs from `build` (the planner's own correction there), applied to each probe too. */
   nextAdjust?: (build: ForecastBuild) => ForecastBuild;
+  /**
+   * The groups being farmed, where the damage-taken correction was measured
+   * (null: every group, Auto's pick). Another group's enemies may hit harder or
+   * softer: there the correction only ever raises what it takes.
+   */
+  measuredGroups?: readonly string[] | null;
   tuning?: ForecastTuning;
 };
 export function growthStatChoice(input: StatChoiceInput) {
@@ -1034,9 +1047,16 @@ export function* growthStatChoiceSteps(input: StatChoiceInput) {
   for (const group of groups) {
     // The group farmed alone, as autofarm would: its best way, one at a time.
     const own: ForecastResult[] = [];
+    const measured = !input.measuredGroups || input.measuredGroups.includes(group);
+    const priced = measured ? input.build : { ...input.build, incomingCalibration: Math.max(1, input.build.incomingCalibration ?? 1) };
     for (const kite of canKite ? [false, true] : [false]) {
       if (input.modes && !input.modes.includes(kite ? 'kited' : 'standing')) continue;
-      own.push(forecastOption(input.current, input.build, { pull: false, groups: [group], kite }, run, input.tuning));
+      own.push(forecastOption(input.current, priced, { pull: false, groups: [group], kite }, run, input.tuning));
+      yield;
+    }
+    // And pulled, where Pull is on: the group brought in as many at once as the build can stand.
+    if (input.modes?.includes('pull')) {
+      own.push(forecastOption(input.current, priced, { pull: true, groups: [group], pullCamps: 1 }, run, input.tuning));
       yield;
     }
     const lasting = own.filter(result => result.sustainable);
