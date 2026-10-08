@@ -9,7 +9,7 @@
  * forecast: kills by the damage calibration, damage taken by the incoming one.
  */
 import {
-  forecastOption, growthStatChoiceSteps, pullTankCheck, KITE_MAX_CHASERS,
+  forecastOption, growthStatChoiceSteps, pullTankCheck,
   type ForecastBuild, type ForecastMap, type ForecastOption, type ForecastResult, type ForecastRun, type ForecastedOption, type GrowthMode,
 } from './growth-forecast';
 import type { Point } from '../../balance/death-model';
@@ -37,7 +37,7 @@ export type GrowthContext = {
   previousPortal: Point | null;
 };
 
-/** One map, priced: its best option a build can take (valid and sustainable), or nothing. */
+/** One map, priced: its best sustainable option, or nothing. */
 export type MapPrice = { powerPerMinute: number; deathsPerHour: number; mode: GrowthMode | null; option: ForecastOption | null };
 
 export type GrowthPlan = {
@@ -49,6 +49,8 @@ export type GrowthPlan = {
   previous: MapPrice | null;
   /** The stat group to farm for growth (growthStatChoice); null when it found none. */
   group: string | null;
+  /** Every group's score, best first: its kills' own power and the rise they bring, a second of farming it (growthStatChoice). */
+  groups: { group: string; score: number; gain: number; rise: number }[];
   /** What it is doing now, as the forecast sees it: what the measurement is checked against. */
   doing: { killsPerMinute: number; damagePerMinute: number; deathsPerHour: number; powerPerMinute: number } | null;
   calibration: { damage: number; incoming: number };
@@ -78,7 +80,7 @@ const CALIBRATION_BOUNDS = [.2, 8] as const;
 const nothing: MapPrice = { powerPerMinute: 0, deathsPerHour: 0, mode: null, option: null };
 
 function bestOf(options: readonly ForecastedOption[]): MapPrice {
-  const open = options.filter(option => option.valid && option.sustainable);
+  const open = options.filter(option => option.sustainable);
   if (!open.length) return { ...nothing, deathsPerHour: Math.min(...options.map(option => option.deathsPerHour)) };
   const best = open.reduce((a, b) => b.powerPerMinute > a.powerPerMinute ? b : a);
   return { powerPerMinute: best.powerPerMinute, deathsPerHour: best.deathsPerHour, mode: best.mode, option: best.option };
@@ -92,16 +94,16 @@ function* priceMap(map: ForecastMap, build: ForecastBuild, run: ForecastRun, mod
   if (modes.includes('pull') && all.length) {
     const tank = pullTankCheck(map, build, all, { start: run.start, health: run.health });
     yield;
-    results.push({ ...forecastOption(map, build, { pull: true, groups: all, pullCamps: all.length }, run), map: which, mode: 'pull', valid: tank.tankable, tank });
+    results.push({ ...forecastOption(map, build, { pull: true, groups: all, pullCamps: all.length }, run), map: which, mode: 'pull', tank });
     yield;
   }
   if (modes.includes('standing')) {
-    results.push({ ...forecastOption(map, build, { pull: false, groups: null, kite: false }, run), map: which, mode: 'standing', valid: true });
+    results.push({ ...forecastOption(map, build, { pull: false, groups: null, kite: false }, run), map: which, mode: 'standing' });
     yield;
   }
   if (canKite && modes.includes('kited')) {
     const kited = forecastOption(map, build, { pull: false, groups: null, kite: true }, run);
-    results.push({ ...kited, map: which, mode: 'kited', valid: kited.chasers.peak <= KITE_MAX_CHASERS });
+    results.push({ ...kited, map: which, mode: 'kited' });
     yield;
   }
   return results;
@@ -116,6 +118,9 @@ export type GrowthTuning = {
 };
 export const GROWTH_TUNING: GrowthTuning = { horizonMinutes: 60, statChoice: true };
 
+/** What autofarm is doing as a plan starts: Pull allowed (the player's toggle) and pulling now, the group farmed, where it stands. */
+export type GrowthDoing = { pull: boolean; pulling?: boolean; groups: readonly string[] | null; position: Point; health: number };
+
 export function createGrowthPlanner(overrides: Partial<GrowthTuning> = {}) {
   const tuning: GrowthTuning = { ...GROWTH_TUNING, ...overrides };
   let plan: GrowthPlan | null = null;
@@ -125,25 +130,30 @@ export function createGrowthPlanner(overrides: Partial<GrowthTuning> = {}) {
   /** Measured on this map: per second, kills and health lost (as damage), for the calibration. */
   let measured: { mapId: string; samples: { at: number; seconds: number; kills: number; damage: number }[] } = { mapId: '', samples: [] };
 
-  function* make(at: number, mapId: string, context: GrowthContext, doing: { pull: boolean; groups: readonly string[] | null; position: Point; health: number }): Generator<void, GrowthPlan | null, void> {
+  function* make(at: number, mapId: string, context: GrowthContext, doing: GrowthDoing): Generator<void, GrowthPlan | null, void> {
     const build: ForecastBuild = { ...context.build, damageCalibration: calibration.damage, incomingCalibration: calibration.incoming };
+    // Another map: the damage the build deals is the build's, measured here and carried; what a map's enemies
+    // deal is that map's, so what was measured here only ever raises it there, never lowers it.
+    const elsewhere: ForecastBuild = { ...build, incomingCalibration: Math.max(1, calibration.incoming) };
     const modes: GrowthMode[] = doing.pull ? ['pull', 'standing', 'kited'] : ['standing', 'kited'];
     const here: ForecastRun = { horizonSeconds: MAP_HORIZON_SECONDS, start: doing.position, health: doing.health };
     const lead = (portal: Point | null) => portal ? Math.hypot(portal.x - doing.position.x, portal.y - doing.position.y) / Math.max(1, build.moveSpeed) + 2 : 0;
     const currentOptions = yield* priceMap(context.current, build, here, modes, 'current');
-    const nextOptions = context.next ? yield* priceMap(context.next, build, { horizonSeconds: MAP_HORIZON_SECONDS, leadSeconds: lead(context.nextPortal) }, modes, 'next') : null;
-    const previousOptions = context.previous ? yield* priceMap(context.previous, build, { horizonSeconds: MAP_HORIZON_SECONDS, leadSeconds: lead(context.previousPortal) }, modes, 'next') : null;
+    const nextOptions = context.next ? yield* priceMap(context.next, elsewhere, { horizonSeconds: MAP_HORIZON_SECONDS, leadSeconds: lead(context.nextPortal) }, modes, 'next') : null;
+    const previousOptions = context.previous ? yield* priceMap(context.previous, elsewhere, { horizonSeconds: MAP_HORIZON_SECONDS, leadSeconds: lead(context.previousPortal) }, modes, 'next') : null;
     // What it is doing now, priced the same way: the measurement is checked against it.
-    const now: ForecastResult = forecastOption(context.current, build, { pull: doing.pull, groups: doing.groups, pullCamps: doing.groups?.length ?? 1 }, here);
+    const now: ForecastResult = forecastOption(context.current, build, { pull: doing.pulling ?? doing.pull, groups: doing.groups, pullCamps: doing.groups?.length ?? 1 }, here);
     yield;
     // The stat to farm here: the most growth, the next map's options counted in (its probes, and their baseline, on the short horizon).
     const choice = tuning.statChoice ? yield* growthStatChoiceSteps({ current: context.current, next: context.next, build, start: doing.position, health: doing.health,
-      horizonSeconds: PLAN_HORIZON_SECONDS, nextLeadSeconds: lead(context.nextPortal), modes, horizonMinutes: tuning.horizonMinutes }) : { group: null };
+      horizonSeconds: PLAN_HORIZON_SECONDS, nextLeadSeconds: lead(context.nextPortal), modes, horizonMinutes: tuning.horizonMinutes,
+      nextAdjust: probe => ({ ...probe, incomingCalibration: elsewhere.incomingCalibration }) }) : { group: null, groups: [] };
     const minutes = MAP_HORIZON_SECONDS / 60;
     return {
       at, mapId,
       current: bestOf(currentOptions), next: nextOptions && bestOf(nextOptions), previous: previousOptions && bestOf(previousOptions),
       group: choice.group,
+      groups: choice.groups.map(entry => ({ group: entry.group, score: entry.score, gain: entry.gainPerSecond, rise: entry.rateRise })),
       doing: { killsPerMinute: now.kills / minutes, damagePerMinute: now.hits.damage / minutes, deathsPerHour: now.deathsPerHour, powerPerMinute: now.powerPerMinute },
       calibration: { ...calibration },
     };
@@ -171,7 +181,7 @@ export function createGrowthPlanner(overrides: Partial<GrowthTuning> = {}) {
      * A frame: starts a plan every PLAN_SECONDS (from `context`, read only
      * then) and plays a few of its forecasts.
      */
-    tick(at: number, mapId: string, context: () => GrowthContext | null, doing: () => { pull: boolean; groups: readonly string[] | null; position: Point; health: number }) {
+    tick(at: number, mapId: string, context: () => GrowthContext | null, doing: () => GrowthDoing) {
       if (!working && at - startedAt >= PLAN_SECONDS * 1_000) {
         const live = context();
         if (!live) return;

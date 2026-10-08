@@ -36,7 +36,7 @@ export const AUTO_FARM_DEFEAT_LIMIT = 5;
 export const AUTO_FARM_DEFEAT_WINDOW_MS = 180_000;
 /** A death this soon after walking away from a boss is the boss's: its retry wait is already set. */
 const BOSS_LEAVE_GRACE_MS = 15_000;
-const READY_STATUSES = new Set(['Next Map Open', 'Boss Next']);
+const READY_STATUSES = new Set(['Next Map Open', 'Moving On', 'Boss Next']);
 /** How far inside its full reach autofarm stops: enough that a target at the stop point is still in range. */
 export const AUTO_FARM_REACH_MARGIN = 6;
 /** A waypoint this close is reached; the stop point gets the same slack. */
@@ -50,7 +50,7 @@ const WAKE_SCAN = 1_000;
 /** How far ahead a walk looks for an attack about to land, in seconds of walking. */
 const WALK_LOOKAHEAD_SECONDS = .25;
 /** An enemy hit this big a share of max health is stepped out of even at full health. */
-const BITE_SHARE = .05;
+export const BITE_SHARE = .05;
 /**
  * A campaign boss is fought from this close to its hitbox, whatever the
  * weapon's reach: its cones widen from its body, so near it one is a short
@@ -161,7 +161,7 @@ export function createAutoFarmController(options: {
    * cycling between them only wastes time (Ryan). It stands and fights.
    */
   function pullCoversFarm() {
-    if (!pullAll || !active || manualControl || phase !== 'farm') return false;
+    if (!pulling() || !active || manualControl || phase !== 'farm') return false;
     const groups = weights ? weightOrder : autoOrder;
     if (!groups.length) return false;
     const pulledNow = pulledGroups();
@@ -525,6 +525,12 @@ export function createAutoFarmController(options: {
   };
   /** The planner wants the next map (set by growthMove). */
   let forward = false;
+  /**
+   * What the planner made of the next map at its last look, for the panel:
+   * not yet priced (first minutes here), on, or staying because the next map
+   * is forecast slower (`ratio` its rate over this map's), or not farmable.
+   */
+  let nextVerdict: { kind: 'weighing' | 'on' | 'stay' | 'too-hard'; ratio: number } = { kind: 'weighing', ratio: 0 };
   /** A map is farmed this long before the planner may leave it: what it measures there corrects its forecasts. */
   const GROWTH_DWELL_MS = 90_000;
   /** How much better the map behind has to be forecast before the planner walks back to it. */
@@ -545,10 +551,14 @@ export function createAutoFarmController(options: {
       goBack('Dying more than expected · moving back a map');
       return;
     }
-    if (!plan || at - arrivedAt < GROWTH_DWELL_MS) return;
+    if (!plan) { nextVerdict = { kind: 'weighing', ratio: 0 }; return; }
     const here = plan.current.powerPerMinute;
     const beats = (price: { powerPerMinute: number } | null) => Boolean(price) && price!.powerPerMinute > Math.max(1e-9, here) * MAP_SWITCH_MARGIN;
-    if (advance && !options.reflectOnly?.() && beats(plan.next) && (!plan.previous || plan.next!.powerPerMinute >= plan.previous.powerPerMinute)) { forward = true; return; }
+    const onward = beats(plan.next) && (!plan.previous || plan.next!.powerPerMinute >= plan.previous.powerPerMinute);
+    nextVerdict = !plan.next ? { kind: 'weighing', ratio: 0 } : onward ? { kind: 'on', ratio: plan.next.powerPerMinute / Math.max(1e-9, here) }
+      : plan.next.powerPerMinute > 0 ? { kind: 'stay', ratio: plan.next.powerPerMinute / Math.max(1e-9, here) } : { kind: 'too-hard', ratio: 0 };
+    if (at - arrivedAt < GROWTH_DWELL_MS) { if (nextVerdict.kind === 'on') nextVerdict = { kind: 'weighing', ratio: 0 }; return; }
+    if (advance && !options.reflectOnly?.() && onward) { forward = true; return; }
     // Back is for a map clearly better: leaving asks the map left for more power before it is tried again.
     if (plan.previous && plan.previous.powerPerMinute > Math.max(1e-9, here) * Math.max(GROWTH_BACK_MARGIN, MAP_SWITCH_MARGIN) && options.previousPortal?.() && !options.reflectOnly?.())
       goBack('Growing faster a map back · moving back');
@@ -865,8 +875,17 @@ export function createAutoFarmController(options: {
     status = label;
   }
 
+  /**
+   * With the planner, Pull Whole Group is a choice Auto makes: the player's
+   * toggle allows it, and it pulls where the forecast's best way to farm this
+   * map is the pull (priced as it pulls: as many at once as the build can stand
+   * through), and farms one group at a time where that is better.
+   */
+  const pullPlanned = () => { if (!planner || weights) return true; const plan = growthPlan(); return !plan || plan.current.mode === 'pull'; };
+  /** Pull Whole Group is on, and (with the planner on Auto) the plan pulls here. */
+  const pulling = () => pullAll && pullPlanned();
   function pullsEnemy(enemy: EnemyState) {
-    return pullAll && active && phase === 'farm' && !healing && !recovering && !pendingResume && !options.paused()
+    return pulling() && active && phase === 'farm' && !healing && !recovering && !pendingResume && !options.paused()
       && !enemy.dead && !enemy.remoteCombatGhost && !enemy.generatedBoss && enemy.hp > 0 && pulledGroups().has(choiceKey(enemy)) && pullable().has(enemy);
   }
   /**
@@ -919,7 +938,7 @@ export function createAutoFarmController(options: {
       lastHp = player.hp;
       if (player.hp > 0 && phase === 'farm') planner.observe(at, mapId, dt, killsSince, lost);
       killsSince = 0;
-      planner.tick(at, mapId, () => options.growth?.() ?? null, () => ({ pull: pullAll, groups: selected ? [selected] : null,
+      planner.tick(at, mapId, () => options.growth?.() ?? null, () => ({ pull: pullAll, pulling: pulling(), groups: selected ? [selected] : null,
         position: { x: player.x, y: player.y }, health: player.maxHp > 0 ? Math.max(0, player.hp) / player.maxHp : 1 }));
     }
     choosePhase(dt);
@@ -940,7 +959,7 @@ export function createAutoFarmController(options: {
     // chases nobody: a group camp's attackers respawn faster than they die,
     // and turning to each one meant never arriving. A pulled group is coming
     // anyway, so walking out to meet each of them only zig-zags.
-    if (phase === 'farm' && !pullAll) for (const enemy of enemies) {
+    if (phase === 'farm' && !pulling()) for (const enemy of enemies) {
       if (!enemy.generatedBoss && isEnemyAttackingPlayer(enemy, options.localIdentity?.()) && (!threat || distance(enemy) < distance(threat))) threat = enemy;
     }
     // Out of what is about to land, and back from melee enemies on a bow, before anything else: still shooting.
@@ -964,10 +983,10 @@ export function createAutoFarmController(options: {
     // frame after every kill, before Pull's aggro landed on the next group.
     const reach = weaponAttackRange(options.equippedWeapon?.(), player.attackRange);
     if (phase === 'farm' && !threat) {
-      const coming = enemies.some(enemy => validEnemy(enemy) && (enemy.engaged || (pullAll && pullsEnemy(enemy))));
+      const coming = enemies.some(enemy => validEnemy(enemy) && (enemy.engaged || (pulling() && pullsEnemy(enemy))));
       const inReach = enemies.some(enemy => validEnemy(enemy) && distance(enemy) <= reach + enemy.r);
       pullWait = coming && !inReach ? pullWait + dt : 0;
-      if (coming && (inReach || pullWait < PULL_WAIT_SECONDS)) { holding = true; route = []; status = inReach ? 'Farming' : pullAll ? 'Pulling' : 'Holding ground'; return idle(); }
+      if (coming && (inReach || pullWait < PULL_WAIT_SECONDS)) { holding = true; route = []; status = inReach ? 'Farming' : pulling() ? 'Pulling' : 'Holding ground'; return idle(); }
     }
     // Walking to the portal, nothing stops it but a fight that finds it.
     // A boss is aimed at its hitbox, not its sprite's foot.
@@ -1054,6 +1073,19 @@ export function createAutoFarmController(options: {
     return steer(waypoint, dt);
   }
 
+  /**
+   * With the planner, what it will do about the open next map: weigh it (its
+   * first minutes here, while it measures), move on, or stay, and why: the next
+   * map forecast slower by so much, only a little faster, or not farmable.
+   */
+  function nextMapStatus() {
+    const { kind, ratio } = nextVerdict;
+    if (kind === 'weighing') return 'Weighing Next Map';
+    if (kind === 'on') return 'Moving On';
+    if (kind === 'too-hard') return 'Staying · Next Map Too Hard';
+    return ratio < 1 ? `Staying · Next Map ${Math.round((1 - ratio) * 100)}% Slower` : `Staying · Next Map Only ${Math.round((ratio - 1) * 100)}% Faster`;
+  }
+
   /** What the boss and next-map switch will do next, in a word or two for the panel. */
   function bossStatus() {
     if (options.reflectOnly?.()) return 'Off In Reflect Only';
@@ -1067,7 +1099,7 @@ export function createAutoFarmController(options: {
       return wait > 0 ? `${label} In ${formatTimerMs(wait)}` : null;
     };
     const portal = options.nextPortal?.();
-    if (portal) return gate('Next Map', portal.destination) ?? 'Next Map Open';
+    if (portal) return gate('Next Map', portal.destination) ?? (planner ? nextMapStatus() : 'Next Map Open');
     if (options.bossUnlocksNext?.() === false) return 'Boss Beaten';
     const boss = options.mapBoss?.();
     if (!boss || boss.dead) return '';
@@ -1100,7 +1132,7 @@ export function createAutoFarmController(options: {
     circling: () => Boolean(orbit) && active && !manualControl,
     /** What the kite is doing now and whether a circle holds the chasers, for the virtual-player measurement. */
     kiteState: () => ({ mode: kiteMode, holds: kiteHolds }),
-    /** Whether the switch's next step is ready to go ('Next Map Open', 'Boss Next'): the panel shows it lit. */
+    /** Whether the switch's next step is ready to go ('Next Map Open', 'Moving On', 'Boss Next'): the panel shows it lit. */
     bossStatusReady: () => READY_STATUSES.has(bossStatus()),
     push: () => push,
     setPush(next: FarmPush) {

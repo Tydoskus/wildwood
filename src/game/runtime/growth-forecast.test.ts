@@ -65,14 +65,18 @@ describe('growth forecast', () => {
     expect(pulled.powerPerMinute).toBeGreaterThan(walked.powerPerMinute * 1.2);
   });
 
-  it('loses with Pull when the whole group at once kills the build', () => {
+  it('loses with the whole group pulled at once when it kills the build, and pulls only what it can stand', () => {
     const brutes = map(camp('damage', 900, 900, 12, enemy({ hp: 300, damage: 45, attackSpeed: 1, reward: { type: 'damage', amount: 1 } }), 250));
     const glass = build({ damage: 120, maxHp: 400, regen: 10 }, { melee: true });
-    const pulled = forecastOption(brutes, glass, pull('damage'), run);
+    const whole = forecastOption(brutes, glass, { ...pull('damage'), tankLimit: false }, run);
     const walked = forecastOption(brutes, glass, single('damage'), run);
-    expect(pulled.deathsPerHour).toBeGreaterThan(walked.deathsPerHour);
-    expect(walked.powerPerMinute).toBeGreaterThan(pulled.powerPerMinute);
-    expect(pulled.sustainable).toBe(false);
+    expect(whole.deathsPerHour).toBeGreaterThan(walked.deathsPerHour);
+    expect(walked.powerPerMinute).toBeGreaterThan(whole.powerPerMinute);
+    expect(whole.sustainable).toBe(false);
+    // As autofarm pulls: only as many at once as it can stand through.
+    const limited = forecastOption(brutes, glass, pull('damage'), run);
+    expect(limited.deathsPerHour).toBeLessThan(whole.deathsPerHour);
+    expect(limited.powerPerMinute).toBeGreaterThan(whole.powerPerMinute);
   });
 
   it('moves on when the next map pays more and the build can take it', () => {
@@ -125,7 +129,7 @@ describe('growth forecast', () => {
     expect(kited.deaths).toBeLessThanOrEqual(standing.deaths);
   });
 
-  it('allows Pull only when the build can tank the whole group at once', () => {
+  it('tells whether the build can tank the whole group at once', () => {
     const pack = map(camp('damage', 700, 700, 10, enemy({ hp: 200, damage: 20, reward: { type: 'damage', amount: 1 } }), 120));
     const tank = pullTankCheck(pack, build({ damage: 200, maxHp: 4_000, regen: 50 }, { melee: true }), ['stat:damage']);
     expect(tank.tankable).toBe(true);
@@ -134,8 +138,9 @@ describe('growth forecast', () => {
     const frail = pullTankCheck(pack, build({ damage: 20, maxHp: 150, regen: 1 }, { melee: true }), ['stat:damage']);
     expect(frail.tankable).toBe(false);
     expect(frail.peakDamage).toBeGreaterThan(frail.maxHp);
+    // Priced as autofarm pulls, a few at a time, and told whether the whole of it could be stood.
     const options = forecastGrowth({ current: pack, build: build({ damage: 20, maxHp: 150, regen: 1 }, { melee: true }), horizonSeconds: 120 });
-    expect(options.filter(option => option.mode === 'pull').every(option => !option.valid)).toBe(true);
+    expect(options.filter(option => option.mode === 'pull').every(option => option.tank && !option.tank.tankable)).toBe(true);
   });
 
   it('counts the arrows of a fan that strike one target', () => {

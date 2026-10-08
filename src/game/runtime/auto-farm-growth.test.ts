@@ -26,7 +26,8 @@ const here = map('here', [
   ...camp('damage', 800, 800, 6, enemy({ hp: 200, reward: { type: 'damage', amount: 1 } })),
   ...camp('health', 800, 1_400, 6, enemy({ hp: 200, reward: { type: 'health', amount: 4 } }), 10),
 ]);
-const richer = map('ahead', camp('damage', 800, 800, 6, enemy({ hp: 200, reward: { type: 'damage', amount: 20 } })));
+// Tough enough that its kills are all shooting: a quarter more damage there is a quarter more kills, the rise the stat choice looks for.
+const richer = map('ahead', camp('damage', 800, 800, 6, enemy({ hp: 1_000, reward: { type: 'damage', amount: 20 } })));
 const context = (next: ForecastMap | null = null): GrowthContext => ({ build: build(), current: here, next, previous: null, nextPortal: next ? { x: 300, y: 250 } : null, previousPortal: null });
 const doing = () => ({ pull: false, groups: null, position: { x: 300, y: 300 }, health: 1 });
 
@@ -80,6 +81,7 @@ describe('autofarm with the growth planner', () => {
       equippedWeapon: () => 'starter_bow', connection: () => 'ready', localIdentity: () => 'me', now: () => now, wallNow: () => now,
       priorityStorage: () => ({ getItem: key => storage.get(key) ?? null, setItem: (key, value) => { storage.set(key, value); } }),
       nextPortal: () => next ? { x: 300, y: 250, destination: 'ahead' } : null, previousPortal: () => null, bossUnlocksNext: () => false,
+      power: () => 100,
       growth: () => context(next),
     });
     const run = (seconds: number) => { for (let frame = 0; frame < seconds * 60; frame++) { now += 1_000 / 60; farm.movement(idle, 1 / 60); } };
@@ -91,8 +93,19 @@ describe('autofarm with the growth planner', () => {
     s.farm.start({ auto: true, weights: {} });
     s.run(10);
     expect(s.farm.state().phase).toBe('farm');
+    expect(s.farm.bossStatus()).toBe('Weighing Next Map');
     s.run(120);
     expect(s.farm.state().phase).toBe('portal');
+  });
+
+  it('says it stays, and why, when the next map is forecast slower', () => {
+    const poorer = map('ahead', camp('damage', 2_400, 2_400, 3, enemy({ hp: 2_000, reward: { type: 'damage', amount: .1 } })));
+    const s = setup(poorer);
+    s.farm.start({ auto: true, weights: {} });
+    s.run(130);
+    expect(s.farm.state().phase).toBe('farm');
+    expect(s.farm.bossStatus()).toMatch(/^Staying · Next Map (\d+% Slower|Too Hard)$/);
+    expect(s.farm.bossStatusReady()).toBe(false);
   });
 
   it('stays when nothing ahead is better, deaths aside', () => {

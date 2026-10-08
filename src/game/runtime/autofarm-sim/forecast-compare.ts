@@ -12,7 +12,7 @@ import { isSoulMap } from '../../../../shared/soul-dimension';
 import { movementSpeedMultiplier, PLAYER_SPEED } from '../../../../shared/rules';
 import { BASE_ATTACK_RANGE, BASE_PROJECTILE_SPEED } from '../../constants';
 import { isMeleeWeapon, weaponAttackRange } from '../../weapon-combat';
-import { forecastOption, pullTankCheck, FORECAST_TUNING, KITE_MAX_CHASERS, type ForecastResult, type ForecastTuning } from '../growth-forecast';
+import { forecastOption, FORECAST_TUNING, type ForecastResult, type ForecastTuning } from '../growth-forecast';
 import { balancedForecastSites, forecastBuild, forecastMap, forecastSite } from '../forecast-inputs';
 import { calibrationSites } from './forecast-soul';
 import { nextMapProfile, type CalibrationBuild } from './forecast-builds';
@@ -24,8 +24,11 @@ export type CompareRow = {
   build: string; which: string; map: string; group: string; pull: boolean;
   /** How it fought: pulled, one at a time standing, or one at a time kited (autofarm's own way with a bow). */
   mode: 'pull' | 'standing' | 'kited';
-  measured: { powerPerMinute: number; deathsPerHour: number; kills: number; meleeHits: number; shotHits: number; killsByGroup: Record<string, number> };
-  forecast: { powerPerMinute: number; deathsPerHour: number; kills: number; sustainable: boolean; valid: boolean; meleeHits: number; shotHits: number; killsByGroup: Record<string, number> };
+  measured: { powerPerMinute: number; deathsPerHour: number; kills: number; meleeHits: number; shotHits: number; killsByGroup: Record<string, number>;
+    /** Health lost a minute alive, in shares of max health. */
+    damagePerMinute: number };
+  forecast: { powerPerMinute: number; deathsPerHour: number; kills: number; sustainable: boolean; meleeHits: number; shotHits: number; killsByGroup: Record<string, number>;
+    damagePerMinute: number };
   /** Forecast over measured power a minute (null when both are ~0). */
   ratio: number | null;
 };
@@ -62,7 +65,7 @@ export function calibrationInputs(build: CalibrationBuild, profile: VirtualPlaye
 }
 
 const inputCache = new Map<string, ReturnType<typeof calibrationInputs>>();
-export function forecastRun(build: CalibrationBuild, run: MeasuredRun, tuning: ForecastTuning = FORECAST_TUNING): ForecastResult & { valid: boolean } {
+export function forecastRun(build: CalibrationBuild, run: MeasuredRun, tuning: ForecastTuning = FORECAST_TUNING): ForecastResult {
   const key = `${build.name}|${run.which}`;
   let inputs = inputCache.get(key);
   if (!inputs) {
@@ -73,11 +76,7 @@ export function forecastRun(build: CalibrationBuild, run: MeasuredRun, tuning: F
   const groups = run.option.group === 'all' ? all : run.option.group ? [run.option.group] : null;
   const result = forecastOption(inputs.map, inputs.build, { pull: run.option.pull, groups, pullCamps: run.option.pullCamps ?? 1, kite: run.option.kite ?? undefined },
     { horizonSeconds: run.simSeconds }, tuning);
-  // What autofarm may take: a pull only when the build can tank all of it; kiting no bigger a crowd than it prices.
-  const kited = !run.option.pull && run.option.kite !== false && !inputs.build.melee;
-  const valid = run.option.pull ? pullTankCheck(inputs.map, inputs.build, groups ?? all, {}, tuning).tankable
-    : kited ? result.chasers.peak <= KITE_MAX_CHASERS : true;
-  return { ...result, valid };
+  return result;
 }
 
 const fmt = (value: number) => Math.abs(value) >= 1e5 ? value.toExponential(2) : value.toFixed(value >= 100 ? 0 : 2);
@@ -93,9 +92,11 @@ export function compareCalibration(builds: CalibrationBuild[], runs: MeasuredRun
     rows.push({
       build: run.build, which: run.which, map: run.map, group: run.option.group ?? 'auto', pull: run.option.pull,
       mode: run.option.pull ? 'pull' : run.option.kite === false || isMeleeWeapon(build.profile.weapon) ? 'standing' : 'kited',
-      measured: { powerPerMinute: measured, deathsPerHour: run.deathsPerHour, kills: run.kills, meleeHits: run.combat?.meleeHits ?? NaN, shotHits: run.combat?.otherHits ?? NaN, killsByGroup: run.combat?.killsByGroup ?? {} },
-      forecast: { powerPerMinute: predicted, deathsPerHour: forecast.deathsPerHour, kills: forecast.kills, sustainable: forecast.sustainable, valid: forecast.valid,
-        meleeHits: forecast.hits.melee, shotHits: forecast.hits.shots, killsByGroup: forecast.killsByGroup },
+      measured: { powerPerMinute: measured, deathsPerHour: run.deathsPerHour, kills: run.kills, meleeHits: run.combat?.meleeHits ?? NaN, shotHits: run.combat?.otherHits ?? NaN, killsByGroup: run.combat?.killsByGroup ?? {},
+        damagePerMinute: run.combat?.aliveSeconds ? run.combat.damageTaken / (run.combat.aliveSeconds / 60) : NaN },
+      forecast: { powerPerMinute: predicted, deathsPerHour: forecast.deathsPerHour, kills: forecast.kills, sustainable: forecast.sustainable,
+        meleeHits: forecast.hits.melee, shotHits: forecast.hits.shots, killsByGroup: forecast.killsByGroup,
+        damagePerMinute: forecast.hits.damage / Math.max(1, forecast.maxHealth) / (Math.max(1, run.simSeconds - forecast.time.dead) / 60) },
       ratio: scale <= 1e-9 ? null : measured > 0 ? predicted / measured : null,
     });
   }
@@ -106,7 +107,7 @@ export function compareCalibration(builds: CalibrationBuild[], runs: MeasuredRun
     return row.group === 'auto' || !total ? '-' : ((kills[row.group] ?? 0) / total).toFixed(2);
   };
   for (const row of rows) {
-    lines.push(`${row.build} ${row.which} ${row.map} ${row.group} ${row.mode} | ${fmt(row.measured.powerPerMinute)} ${fmt(row.forecast.powerPerMinute)} ${row.ratio === null ? '-' : row.ratio.toFixed(2)} | ${row.measured.deathsPerHour.toFixed(0)} ${row.forecast.deathsPerHour.toFixed(0)} | ${row.measured.kills} ${row.forecast.kills} | ${row.measured.meleeHits} ${row.forecast.meleeHits} | ${row.measured.shotHits} ${row.forecast.shotHits} | ${farmedShare(row, row.measured.killsByGroup)} ${farmedShare(row, row.forecast.killsByGroup)} | ${!row.forecast.valid ? (row.pull ? 'not tankable' : 'too many to kite') : row.forecast.sustainable ? 'ok' : 'unsustainable'}`);
+    lines.push(`${row.build} ${row.which} ${row.map} ${row.group} ${row.mode} | ${fmt(row.measured.powerPerMinute)} ${fmt(row.forecast.powerPerMinute)} ${row.ratio === null ? '-' : row.ratio.toFixed(2)} | ${row.measured.deathsPerHour.toFixed(0)} ${row.forecast.deathsPerHour.toFixed(0)} | ${row.measured.kills} ${row.forecast.kills} | ${row.measured.meleeHits} ${row.forecast.meleeHits} | ${row.measured.shotHits} ${row.forecast.shotHits} | ${farmedShare(row, row.measured.killsByGroup)} ${farmedShare(row, row.forecast.killsByGroup)} | ${row.forecast.sustainable ? 'ok' : 'unsustainable'}`);
   }
   const score = scoreRows(rows);
   lines.push('', score.text);
@@ -142,8 +143,8 @@ export function scoreRows(rows: readonly CompareRow[]) {
   const regrets: { build: string; share: number; pick: string; best: string }[] = [];
   for (const build of new Set(rows.map(row => row.build))) {
     const options = rows.filter(row => row.build === build);
-    // The forecast's pick, by the decision rule: the most power a minute among the options it calls valid and sustainable.
-    const open = options.filter(row => row.forecast.valid && row.forecast.sustainable);
+    // The forecast's pick, by the decision rule: the most power a minute among the options it calls sustainable.
+    const open = options.filter(row => row.forecast.sustainable);
     if (!open.length) continue;
     const pick = open.reduce((a, b) => b.forecast.powerPerMinute > a.forecast.powerPerMinute ? b : a);
     const top = options.reduce((a, b) => b.measured.powerPerMinute > a.measured.powerPerMinute ? b : a);
@@ -157,16 +158,30 @@ export function scoreRows(rows: readonly CompareRow[]) {
     return `${mode} ${rowsOf.length}: within ±30% ${errors.filter(value => value <= Math.log(1.3)).length}, median x${Math.exp(median(errors)).toFixed(2)}`;
   }).join('; ');
   const meanLog = logs.reduce((sum, value) => sum + value, 0) / Math.max(1, logs.length);
+  const damageLogs = rows.filter(row => row.measured.damagePerMinute > .01)
+    .map(row => Math.min(Math.log(20), Math.abs(Math.log(Math.max(1e-6, row.forecast.damagePerMinute) / row.measured.damagePerMinute))));
+  const damageLog = damageLogs.reduce((sum, value) => sum + value, 0) / Math.max(1, damageLogs.length);
+  // Damage taken: the forecast's health lost a minute alive against what was measured, per mode.
+  const damageByMode = (['pull', 'standing', 'kited'] as const).map(mode => {
+    const measured = rows.filter(row => row.mode === mode && Number.isFinite(row.measured.damagePerMinute));
+    if (!measured.length) return `${mode} -`;
+    const sum = measured.reduce((acc, row) => ({ m: acc.m + row.measured.damagePerMinute, f: acc.f + row.forecast.damagePerMinute }), { m: 0, f: 0 });
+    const logs = measured.filter(row => row.measured.damagePerMinute > .01 && row.forecast.damagePerMinute > 0)
+      .map(row => Math.abs(Math.log(row.forecast.damagePerMinute / row.measured.damagePerMinute)));
+    return `${mode} ${measured.length}: forecast/measured ${(sum.f / Math.max(1e-9, sum.m)).toFixed(2)}, within ±30% ${logs.filter(value => value <= Math.log(1.3)).length}/${logs.length}`;
+  }).join('; ');
   const text = [
     `options measured ${rows.length}; growing ${growing.length}: within ±30% ${within(1.3)}, within 2x ${within(2)}, median error x${Math.exp(median(logs)).toFixed(2)}, mean |log| ${meanLog.toFixed(3)}`,
     `by mode (growing options): ${byMode}`,
+    `damage taken a minute (shares of max health), by mode: ${damageByMode}`,
     `not growing ${idle.length}: forecast agrees on ${idleAgree}`,
     `deaths/hour: median abs error ${median(deathErrors).toFixed(0)}`,
     `picks (forecast's best option, measured rate as a share of the measured best): ${regrets.map(entry => `${entry.build} ${(entry.share * 100).toFixed(0)}%${entry.share < .999 ? ` [${entry.pick} vs ${entry.best}]` : ''}`).join(', ')}`,
   ].join('\n');
   return { growing: growing.length, within30: within(1.3), within2: within(2), medianLog: median(logs), meanLog, idle: idle.length, idleAgree, regrets, text,
-    // One number to tune by: growth error, idle disagreement, and lost growth from bad picks.
-    loss: meanLog + (idle.length - idleAgree) / Math.max(1, rows.length) * 2 + regrets.reduce((sum, entry) => sum + (1 - entry.share), 0) / Math.max(1, regrets.length) };
+    // One number to tune by: growth error, idle disagreement, lost growth from bad picks, and the error in damage taken.
+    loss: meanLog + (idle.length - idleAgree) / Math.max(1, rows.length) * 2 + regrets.reduce((sum, entry) => sum + (1 - entry.share), 0) / Math.max(1, regrets.length)
+      + damageLog * .5 };
 }
 
 function median(values: number[]) {

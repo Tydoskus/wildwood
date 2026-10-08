@@ -45,9 +45,12 @@ export type CombatMeasure = {
   rangedPotentialHits: number;
   /** Kills by the group they paid ("stat:health", "soul:armor"). */
   killsByGroup: Record<string, number>;
+  /** Health lost, in shares of max health, and the seconds alive it was lost over. */
+  damageTaken: number;
+  aliveSeconds: number;
 };
 const emptyMeasure = (): CombatMeasure => ({ enemyTypes: ENEMY_TYPES, meleeHits: 0, otherHits: 0, shotsFired: 0,
-  meleeEngagedSeconds: 0, rangedEngagedSeconds: 0, meleeNearSeconds: 0, rangedNearSeconds: 0, meleePotentialHits: 0, rangedPotentialHits: 0, killsByGroup: {} });
+  meleeEngagedSeconds: 0, rangedEngagedSeconds: 0, meleeNearSeconds: 0, rangedNearSeconds: 0, meleePotentialHits: 0, rangedPotentialHits: 0, killsByGroup: {}, damageTaken: 0, aliveSeconds: 0 });
 
 export type HarnessOption = {
   /** One stat group ("stat:health", "soul:armor"), 'all' (every group's slider up), or null for Auto. */
@@ -96,8 +99,8 @@ export async function runOption(profile: VirtualPlayerProfile, option: HarnessOp
     bossUnlocksNext: () => false,
     pullCamps: () => option.pullCamps ?? 1,
     forcedGroups: () => null,
-    // Standing: the kite off. Pulled: the whole of every pulled group comes (the kite model does not cut the pull down).
-    kite: option.kite === false ? { mode: 'off' } : option.pull ? { model: false } : {},
+    // Standing: the kite off. Pulled, as the game pulls: as many at once as the build can stand through (tankableCount).
+    kite: option.kite === false ? { mode: 'off' } : {},
   };
   captured = null;
   const measure = emptyMeasure();

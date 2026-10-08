@@ -69,6 +69,8 @@ export function calibrationBuilds(references: readonly ReferenceBuild[]): Calibr
       { prestigeLevel: 10, perks: { riposte: 3, secondWind: 2, bossSlayer: 2, doubleStrike: 2, splitShot: 1, keenEdge: 2 } }),
     campaign('late-balanced', 'map 13, Lab entry build', 6, 13, {}),
     campaign('final', 'map 15, Lab entry build x1.5', 16, 15, { damage: 1.5, maxHp: 1.5, armor: 1.5, regen: 1.5 }),
+    // Reflect Only: Reflect does all the damage (the profile's own, profiles.ts).
+    campaign('reflect-only', 'map 4, Reflect Only, Reflect 5', 11, 4, { maxHp: 1.2, armor: 1.2, regen: 1.2 }, { reflectOnly: true, perks: { riposte: 5 }, prestigeLevel: 5 }),
     endless,
     soul,
   ];

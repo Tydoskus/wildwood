@@ -60,8 +60,15 @@ vi.mock('../enemy-simulation', async importOriginal => {
       const counts = measure();
       // A drop in health since the last frame that melee did not cause is a shot (or a boss) landing.
       if (counts && player.hp < lastHp - 1e-9 && meleeThisFrame === 0) counts.otherHits++;
+      // Health lost since the last frame (shots land after the enemies move), and in this one (melee blows land in it).
+      if (counts && player.hp > 0) {
+        counts.aliveSeconds += dt;
+        if (player.hp < lastHp) counts.damageTaken += (lastHp - player.hp) / Math.max(1, player.maxHp);
+      }
       meleeThisFrame = 0;
+      const before = player.hp;
       simulation.update(dt);
+      if (counts && player.hp < before) counts.damageTaken += (before - Math.max(0, player.hp)) / Math.max(1, player.maxHp);
       if (counts) for (const enemy of enemies) {
         if (enemy.dead || !enemy.engaged || enemy.generatedBoss) continue;
         const definition = enemy.definition ?? counts.enemyTypes[enemy.type];
@@ -194,6 +201,7 @@ const TUNING_GRID: Partial<Record<keyof typeof FORECAST_TUNING, number[]>> = {
   sideArrowHitShare: [0, .25, .5, .75, 1],
   pierceLineShare: [0, .25, .5, .75],
   retargetSeconds: [0, .3, .6, 1, 1.5],
+  orbitLeak: [0, .05, .1, .2, .35],
 };
 
 describe.skipIf(mode !== 'fit')('growth forecast calibration: fitting the tuning', () => {

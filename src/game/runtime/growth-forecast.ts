@@ -20,10 +20,11 @@ import {
   type Point,
 } from '../../balance/death-model';
 import { rankFarmCandidates, pickRankedCandidate, AUTO_REPLAN_SECONDS, type FarmReward } from './auto-farm-plan';
-import { AUTO_FARM_DEFEAT_LIMIT, AUTO_FARM_DEFEAT_WINDOW_MS, AUTO_FARM_REACH_MARGIN } from './auto-farm-controller';
+import { AUTO_FARM_DEFEAT_LIMIT, AUTO_FARM_DEFEAT_WINDOW_MS, AUTO_FARM_REACH_MARGIN, BITE_SHARE } from './auto-farm-controller';
 import { rangedEnemyHoldBand } from './ranged-enemy-range';
-import { KITE_TUNING, orbitRadii } from './auto-farm-dodge';
-import { contactCapacity, kitedHitInterval, TANK_RESERVE } from './auto-farm-kite-model';
+import { orbitRadii } from './auto-farm-dodge';
+import { contactCapacity, kitedHitInterval, tankableCount, TANK_RESERVE } from './auto-farm-kite-model';
+import { worldReflectDamage } from '../../../shared/prestige-perks';
 import type { EnemyDefinition } from '../enemies';
 import { ATTACK_WINDUP_SECONDS, ATTACK_ANIMATION_SECONDS } from '../attack-timeline';
 import { curveArmorReduction } from '../../../shared/balance-curve';
@@ -115,6 +116,12 @@ export type ForecastOption = {
    * Default: what autofarm does, kiting with a bow (auto-farm-dodge.ts), never with a melee weapon or in Reflect Only.
    */
   kite?: boolean;
+  /**
+   * Pull brings only as many of the pulled groups at once as the build can stand
+   * through (auto-farm-kite-model.ts tankableCount, as the controller pulls);
+   * false brings the whole of them (pullTankCheck). Default true.
+   */
+  tankLimit?: boolean;
 };
 
 export type ForecastRun = {
@@ -151,6 +158,8 @@ export type ForecastResult = {
   chasers: { mean: number; peak: number };
   /** The lowest health reached, as a share of max health (below 0 only when immortal). */
   lowestHealth: number;
+  /** Max health as it started: hits.damage over it is damage taken in shares. */
+  maxHealth: number;
 };
 
 /**
@@ -196,6 +205,8 @@ export const FORECAST_TUNING = {
    * circle stays inside the weapon's reach (auto-farm-dodge.ts chooseOrbit maxRadius).
    */
   kiteShotLoss: 0,
+  /** On a circle that holds the chasers, the share of their swings that still land. */
+  orbitLeak: 0,
 };
 export type ForecastTuning = typeof FORECAST_TUNING;
 
@@ -354,16 +365,14 @@ export function forecastOption(map: ForecastMap, build: ForecastBuild, option: F
     const hold = rangedEnemyHoldBand(build.reach, PLAYER_RADIUS + enemy.r + 4).approachAbove;
     const closeAt = at + closeGapSeconds(distance - (melee ? contactDistance(site) : hold), chase);
     const kited = kites && melee && Boolean(attacker);
-    // Kited, it arrives at the chase speed: the circle starts at KITE_TUNING.startGap from the player's edge,
-    // and it gains the 25 a second it has on the player from there (unless the circle holds it off: hitInterval).
-    const readyAt = !attacker ? Infinity
-      : kited ? at + attacker.start + KITE_TUNING.startGap / Math.max(1, chase - speed) * tuning.kiteScale : at + attacker.start;
+    const readyAt = !attacker ? Infinity : at + attacker.start;
     return {
       site, hp: enemy.hp, reachAt, readyAt, closeAt,
-      nextHit: attacker ? (melee && !kited ? Infinity : readyAt) : Infinity,
-      interval: !attacker ? Infinity : kited ? Math.max(attacker.interval, kitedHitInterval(speed, chase) * tuning.kiteScale) : attacker.interval,
-      hit: attacker?.hit ?? 0, raw: enemy.damage * incoming,
-      melee, slotted: kited, kited, landing: 0,
+      nextHit: attacker ? (melee ? Infinity : readyAt) : Infinity,
+      interval: attacker?.interval ?? Infinity,
+      // Reflect throws back the hit as it arrived: the enemy's own, before armor.
+      hit: attacker?.hit ?? 0, raw: enemy.damage,
+      melee, slotted: false, kited, landing: 0,
     };
   }
 
@@ -434,6 +443,41 @@ export function forecastOption(map: ForecastMap, build: ForecastBuild, option: F
     return next;
   }
 
+  /**
+   * What autofarm's kite does about the melee enemies on the player now
+   * (auto-farm-controller.ts kiteWorth, on the kite model): 'hold' on a circle
+   * that holds them all, when standing would cost health regeneration does not
+   * put back (no blows land); past what a circle holds, 'kite' (each lands one
+   * blow per kite cycle) only when standing the fight out would take the
+   * player below TANK_RESERVE and kiting costs less; otherwise 'stand' (each
+   * one in the ring round the player lands one per swing).
+   */
+  let kiteCache = { at: -1, mode: 'stand' as 'hold' | 'kite' | 'stand' };
+  function kiteMode(at: number): 'hold' | 'kite' | 'stand' {
+    if (!kites) return 'stand';
+    if (kiteCache.at === at) return kiteCache.mode;
+    const chasing = foes.filter(foe => foe.kited && foe.hp > 0);
+    let mode: 'hold' | 'kite' | 'stand' = 'stand';
+    if (chasing.length) {
+      const meanR = chasing.reduce((sum, foe) => sum + foe.site.definition.r, 0) / chasing.length;
+      const room = ringRoom(chasing[0].site);
+      const rates = chasing.map(foe => foe.hit / Math.max(1e-9, foe.interval)).sort((a, b) => b - a);
+      const standing = rates.slice(0, room).reduce((sum, rate) => sum + rate, 0);
+      const cycle = kitedHitInterval(speed, chase) * tuning.kiteScale;
+      const kitedRate = chasing.reduce((sum, foe) => sum + foe.hit / Math.max(cycle, foe.interval), 0);
+      const regen = Math.max(0, stats.regen);
+      if (orbitHolds(chasing.length, meanR, speed, chase, build.reach)) mode = standing > regen ? 'hold' : 'stand';
+      else {
+        const dps = Math.max(1e-9, stats.damage * critAverage / Math.max(build.minAttackInterval, stats.attackRate));
+        const seconds = chasing.reduce((sum, foe) => sum + Math.max(0, foe.hp), 0) / dps;
+        const loss = (rate: number) => Math.max(0, rate - regen) * seconds;
+        mode = loss(standing) > hp - stats.maxHp * TANK_RESERVE && loss(kitedRate) < loss(standing) ? 'kite' : 'stand';
+      }
+    }
+    kiteCache = { at, mode };
+    return mode;
+  }
+
   let stream: ((at: number) => Foe[]) | null = null;
   let streamNext: (() => number) | null = null;
 
@@ -500,26 +544,33 @@ export function forecastOption(map: ForecastMap, build: ForecastBuild, option: F
       if (t >= horizon - 1e-9) return true;
       if (next === streaming && stream) { foes.push(...adopt(stream(t))); continue; }
       if (next === hitAt && hitter) {
-        if (evades && !hitter.melee) {
-          // A shot in flight is stepped out of, mostly.
-          hitter.landing += option.pull ? tuning.pullShotLandShare : tuning.shotLandShare;
-          hitter.nextHit += hitter.interval;
-          if (hitter.landing < 1) { hits.dodged++; continue; }
-          hitter.landing -= 1;
-        } else if (hitter.kited) {
-          // Kited: on a circle that holds the chasers there are no blows at all; past that, one per kite cycle each,
-          // the crowd cutting the room the circle has.
-          const near = foes.filter(foe => foe.kited && foe.hp > 0 && foe.closeAt <= t);
-          const holds = orbitHolds(near.length, near.reduce((sum, foe) => sum + foe.site.definition.r, 0) / Math.max(1, near.length), speed, chase, build.reach);
-          hitter.nextHit = t + hitter.interval / (1 + tuning.kiteCrowdPenalty * Math.max(0, near.length - 1));
-          if (holds) continue;
-        } else hitter.nextHit = hitter.melee ? t + hitter.interval : Math.max(t, hitter.nextHit) + hitter.interval;
+        if (!hitter.melee) {
+          hitter.nextHit = Math.max(t, hitter.nextHit) + hitter.interval;
+          // A shot is stepped out of when it is worth it (auto-farm-controller.ts worthAvoiding): the player hurt at
+          // all, or the shot a real bite; at full health a small one is left to land, regeneration keeping up.
+          const worth = evades && (hp < stats.maxHp - 1e-9 || hitter.raw >= stats.maxHp * BITE_SHARE);
+          if (worth) {
+            hitter.landing += option.pull ? tuning.pullShotLandShare : tuning.shotLandShare;
+            if (hitter.landing < 1) { hits.dodged++; continue; }
+            hitter.landing -= 1;
+          }
+        } else {
+          const mode = hitter.kited ? kiteMode(t) : 'stand';
+          if (mode === 'hold') {
+            // A circle that holds keeps nearly every blow off; the share that still lands (the circle's entry, a chaser
+            // joining it, a turn at the map's edge) is measured (orbitLeak).
+            hitter.nextHit = t + hitter.interval;
+            hitter.landing += tuning.orbitLeak;
+            if (hitter.landing < 1) continue;
+            hitter.landing -= 1;
+          } else hitter.nextHit = t + (mode === 'kite' ? Math.max(hitter.interval, kitedHitInterval(speed, chase) * tuning.kiteScale) : hitter.interval);
+        }
         // A hit lands: armor already off it; Reflect throws some back.
         if (hitter.melee) hits.melee++; else hits.shots++;
         hp -= hitter.hit;
         hits.damage += hitter.hit;
         lastLanded = t;
-        if (build.reflect > 0) damageFoe(hitter, build.reflect * Math.min(hitter.raw, build.reflectOnly ? Infinity : stats.maxHp), t);
+        if (build.reflect > 0) damageFoe(hitter, worldReflectDamage(hitter.raw, stats.maxHp, Boolean(build.reflectOnly)) * Math.min(1, build.reflect), t);
         lowest = Math.min(lowest, hp / Math.max(1e-9, stats.maxHp));
         if (hp <= 0 && !run.immortal) { die(t); return false; }
         continue;
@@ -628,12 +679,32 @@ export function forecastOption(map: ForecastMap, build: ForecastBuild, option: F
     };
     repick();
     const engagedSites = new Set<ForecastSite>();
+    // As many pulled at once as the build can stand through (auto-farm-controller.ts pullable): looked at again every 10 seconds.
+    let limit = Infinity, limitAt = -Infinity;
+    const pulledLiving = () => { let count = 0; for (const foe of foes) if (foe.hp > 0 && pulled.has(foe.site.group)) count++; return count; };
+    const room = (at: number) => {
+      if (option.tankLimit === false) return Infinity;
+      if (at - limitAt >= 10) {
+        limitAt = at;
+        const group = comers.filter(site => pulled.has(site.group) && alive(site, at))
+          .sort((a, b) => Math.hypot(a.x - position.x, a.y - position.y) - Math.hypot(b.x - position.x, b.y - position.y));
+        const dps = Math.max(1e-9, stats.damage * critAverage / Math.max(build.minAttackInterval, stats.attackRate));
+        limit = !group.length ? Infinity : tankableCount({ playerR: PLAYER_RADIUS, maxHp: stats.maxHp, regen: Math.max(0, stats.regen), dps,
+          chasers: group.map(site => ({ damage: map.hitAfterArmor(site.definition.damage * incoming, stats.armor), attackSpeed: site.definition.attackSpeed, hp: site.definition.hp, r: site.definition.r })) });
+      }
+      return Math.max(0, limit - pulledLiving());
+    };
     const wake = (at: number) => {
       repick();
       refreshComers();
       const woken: Foe[] = [];
+      let free = room(at);
       for (const site of comers) {
         if (engagedSites.has(site) || !alive(site, at)) continue;
+        if (pulled.has(site.group) && !(Math.hypot(site.x - position.x, site.y - position.y) <= enemyAggroRadius(site.definition) + tuning.wakeDrift)) {
+          if (free <= 0) continue;
+          free--;
+        }
         const foe = engage(site, position, at);
         if (foe) { woken.push(foe); engagedSites.add(site); }
       }
@@ -652,7 +723,10 @@ export function forecastOption(map: ForecastMap, build: ForecastBuild, option: F
     streamNext = () => {
       let next = Infinity;
       refreshComers();
+      const full = room(t) <= 0;
       for (const site of comers) {
+        // A pulled site waiting its turn comes once one of those coming is killed (the fight's own events).
+        if (full && pulled.has(site.group) && !(Math.hypot(site.x - position.x, site.y - position.y) <= enemyAggroRadius(site.definition) + tuning.wakeDrift)) continue;
         const at = availableAt.get(site)!;
         if (at > t + 1e-9) next = Math.min(next, at);
         else if (!living.has(site)) next = Math.min(next, t);
@@ -725,6 +799,7 @@ export function forecastOption(map: ForecastMap, build: ForecastBuild, option: F
     sustainable: !tripsDefeatLimit && endPower > startPower,
     tripsDefeatLimit, time, hits, killsByGroup,
     chasers: { mean: fightSeconds > 0 ? chaserSeconds / fightSeconds : 0, peak: peakChasers }, lowestHealth: lowest,
+    maxHealth: build.effective(build.base).maxHp,
   };
 }
 
@@ -754,7 +829,7 @@ function toward(from: Point, target: Point, distance: number): Point {
 export function pullTankCheck(map: ForecastMap, build: ForecastBuild, groups: readonly string[] | null, run: Omit<ForecastRun, 'horizonSeconds' | 'immortal'> = {},
   tuning: ForecastTuning = FORECAST_TUNING) {
   const once = { ...map, respawnSeconds: Infinity };
-  const result = forecastOption(once, build, { pull: true, groups, pullCamps: groups?.length ?? Infinity, kite: false },
+  const result = forecastOption(once, build, { pull: true, groups, pullCamps: groups?.length ?? Infinity, kite: false, tankLimit: false },
     { ...run, horizonSeconds: 1_800, immortal: true }, tuning);
   const maxHp = build.effective(build.base).maxHp;
   const startShare = Math.max(0, Math.min(1, run.health ?? 1));
@@ -775,9 +850,7 @@ export type GrowthMode = 'pull' | 'standing' | 'kited';
 export type ForecastedOption = ForecastResult & {
   map: 'current' | 'next';
   mode: GrowthMode;
-  /** Whether autofarm may take it: a pull the build can tank, kiting no more chasers than it can keep off. */
-  valid: boolean;
-  /** For a pull: pullTankCheck. */
+  /** For a pull: whether the build could stand through the whole of it at once (pullTankCheck). */
   tank?: ReturnType<typeof pullTankCheck>;
 };
 
@@ -787,16 +860,10 @@ export function mapSwitchSeconds(from: Point, portal: Point | null, moveSpeed: n
   return portal ? Math.hypot(portal.x - from.x, portal.y - from.y) / Math.max(1, moveSpeed) + MAP_CHANGE_SECONDS : 0;
 }
 
-/**
- * Kiting singles is priced for at most this many melee enemies on the player
- * at once (at the busiest): past it they come from all sides and the
- * one-chaser kite cycle (auto-farm-kite-model.ts kitedHitInterval) no longer holds.
- */
-export const KITE_MAX_CHASERS = 3;
 
 /**
  * Every option, on this map and (when given) the next, each one: Pull Whole
- * Group (valid only when pullTankCheck passes), one group at a time standing,
+ * Group (as many at once as the build can stand: tankLimit), one group at a time standing,
  * and one at a time kited; for every group together (Auto's pick for one at a
  * time) and for each stat group alone. Groups that pay no power (Soul Crit
  * Damage) are left out, as Auto leaves them.
@@ -816,6 +883,8 @@ export type GrowthInput = {
   perGroup?: boolean;
   /** The ways of fighting to price (default all three; Pull only when the player has it on, say). */
   modes?: readonly GrowthMode[];
+  /** The build as priced on the next map, when it differs (another correction); default `build`. */
+  nextBuild?: ForecastBuild;
   tuning?: ForecastTuning;
 };
 export function forecastGrowth(input: GrowthInput): ForecastedOption[] {
@@ -831,6 +900,8 @@ export function* forecastGrowthSteps(input: GrowthInput): Generator<void, Foreca
   for (const which of ['current', 'next'] as const) {
     const map = which === 'current' ? input.current : input.next;
     if (!map) continue;
+    // The next map's own correction, if the caller has one (the planner's: what enemies deal is the map's).
+    const build = which === 'next' && input.nextBuild ? input.nextBuild : input.build;
     const run: ForecastRun = which === 'current'
       ? { horizonSeconds, start: input.start, health: input.health }
       : { horizonSeconds, leadSeconds: input.nextLeadSeconds ?? 0 };
@@ -841,20 +912,20 @@ export function* forecastGrowthSteps(input: GrowthInput): Generator<void, Foreca
       const pulled = groups ?? all;
       const priced = (mode: GrowthMode) => !input.modes || input.modes.includes(mode);
       if (priced('pull')) {
-        const tank = pullTankCheck(map, input.build, pulled, which === 'current' ? { start: input.start, health: input.health } : {}, input.tuning);
+        const tank = pullTankCheck(map, build, pulled, which === 'current' ? { start: input.start, health: input.health } : {}, input.tuning);
         yield;
-        const pull = forecastOption(map, input.build, { pull: true, groups: pulled, pullCamps: pulled.length }, run, input.tuning);
-        results.push({ ...pull, option: { pull: true, groups, pullCamps: pulled.length }, map: which, mode: 'pull', valid: tank.tankable, tank });
+        const pull = forecastOption(map, build, { pull: true, groups: pulled, pullCamps: pulled.length }, run, input.tuning);
+        results.push({ ...pull, option: { pull: true, groups, pullCamps: pulled.length }, map: which, mode: 'pull', tank });
         yield;
       }
       if (priced('standing')) {
-        const standing = forecastOption(map, input.build, { pull: false, groups, kite: false }, run, input.tuning);
-        results.push({ ...standing, map: which, mode: 'standing', valid: true });
+        const standing = forecastOption(map, build, { pull: false, groups, kite: false }, run, input.tuning);
+        results.push({ ...standing, map: which, mode: 'standing' });
         yield;
       }
       if (canKite && priced('kited')) {
-        const kited = forecastOption(map, input.build, { pull: false, groups, kite: true }, run, input.tuning);
-        results.push({ ...kited, map: which, mode: 'kited', valid: kited.chasers.peak <= KITE_MAX_CHASERS });
+        const kited = forecastOption(map, build, { pull: false, groups, kite: true }, run, input.tuning);
+        results.push({ ...kited, map: which, mode: 'kited' });
         yield;
       }
     }
@@ -871,13 +942,13 @@ const sameOption = (a: ForecastedOption, b: { map: 'current' | 'next'; mode: Gro
   a.map === b.map && a.mode === b.mode && (a.option.groups === null) === (b.groups === null) && (a.option.groups ?? []).join() === (b.groups ?? []).join();
 
 /**
- * The decision rule: of the options that are valid and sustainable, the most
+ * The decision rule: of the options that are sustainable, the most
  * power a minute; but what it is doing now (`current`, priced in the same set)
  * is kept unless the best beats it by the switch margin. Null when nothing is.
  */
 export function chooseGrowthOption(results: readonly ForecastedOption[],
   current: { map: 'current' | 'next'; mode: GrowthMode; groups: readonly string[] | null } | null = null) {
-  const open = results.filter(result => result.valid && result.sustainable);
+  const open = results.filter(result => result.sustainable);
   if (!open.length) return null;
   const best = open.reduce((a, b) => b.powerPerMinute > a.powerPerMinute ? b : a);
   const held = current && open.find(result => sameOption(result, current));
@@ -890,15 +961,18 @@ export function chooseGrowthOption(results: readonly ForecastedOption[],
  * Which stat to farm for growth, not for the power one kill shows. A kill
  * adds its own power (what Auto's Best Gain ranks by), and it changes the
  * build, which changes the best power a minute the build can reach from here
- * (the best valid, sustainable option of forecastGrowth: a pull it can tank,
+ * (the best sustainable option of forecastGrowth: a pull of what it can stand,
  * one at a time standing or kited, the next map). Damage and attack speed
  * raise that by killing faster; health, armor and regeneration raise it only
  * where they relax what holds the build back (a pull that would kill it, the
  * next map, deaths). Each group is priced by a probe: its reward added until
  * the stat it pays has grown by `probeShare`, and the best rate the build can
- * then reach, read as a slope (rise per kill). Then, per second of farming it:
- *   score = power of a kill / seconds a kill takes
- *         + rise per kill x (horizonMinutes - chunkMinutes) / seconds a kill takes
+ * then reach, read as a slope (rise per kill). A group's own rate is forecast
+ * too, one at a time standing and kited, that group alone: a single kill's
+ * power over its time (Best Gain) misses the arrows a fan lands on a whole camp,
+ * the chasers a kite holds, and the deaths. Then, per second of farming it:
+ *   score = its power a second (that forecast)
+ *         + rise per kill x (horizonMinutes - chunkMinutes) x its kills a second
  * the rise being earned after a chunk of farming it (`chunkMinutes`) and kept
  * for the rest of the horizon. The probe is big enough to see a threshold
  * coming (the next map opening, a pull becoming tankable) and is not lost in
@@ -924,6 +998,8 @@ export type StatChoiceInput = {
   modes?: readonly GrowthMode[];
   /** The best option for the build as it stands, when the caller has it already. */
   now?: ForecastedOption | null;
+  /** How the next map's pricing differs from `build` (the planner's own correction there), applied to each probe too. */
+  nextAdjust?: (build: ForecastBuild) => ForecastBuild;
   tuning?: ForecastTuning;
 };
 export function growthStatChoice(input: StatChoiceInput) {
@@ -931,7 +1007,7 @@ export function growthStatChoice(input: StatChoiceInput) {
   for (;;) { const step = steps.next(); if (step.done) return step.value; }
 }
 
-/** growthStatChoice one forecast at a time (forecastGrowthSteps): about 4 x (groups + 1) steps of a few milliseconds each. */
+/** growthStatChoice one forecast at a time (forecastGrowthSteps): about 6 x (groups + 1) steps of a few milliseconds each. */
 export function* growthStatChoiceSteps(input: StatChoiceInput) {
   const horizonMinutes = input.horizonMinutes ?? 60, sample = Math.max(1, input.sampleKills ?? 10);
   const chunkMinutes = Math.min(horizonMinutes, input.chunkMinutes ?? 10), probeShare = input.probeShare ?? .25;
@@ -939,9 +1015,9 @@ export function* growthStatChoiceSteps(input: StatChoiceInput) {
   const statSize = (base: PlayerPowerStats, type: FarmReward['type']) => type === 'damage' ? base.damage : type === 'health' ? base.maxHp
     : type === 'armor' ? Math.max(1, base.armor) : type === 'regen' ? Math.max(.1, base.regen) : 1 / Math.max(1e-9, base.attackRate);
   function* best(build: ForecastBuild) {
-    const options: ForecastedOption[] = yield* forecastGrowthSteps({ current: input.current, next: input.next, build, start: input.start, health: input.health,
+    const options: ForecastedOption[] = yield* forecastGrowthSteps({ current: input.current, next: input.next, build, nextBuild: input.nextAdjust?.(build), start: input.start, health: input.health,
       horizonSeconds: input.horizonSeconds ?? 120, nextLeadSeconds: input.nextLeadSeconds, perGroup: false, modes: input.modes, tuning: input.tuning });
-    const open = options.filter(option => option.valid && option.sustainable);
+    const open = options.filter(option => option.sustainable);
     return open.length ? open.reduce((a, b) => b.powerPerMinute > a.powerPerMinute ? b : a) : null;
   }
   const now = input.now !== undefined ? input.now : yield* best(input.build);
@@ -952,8 +1028,19 @@ export function* growthStatChoiceSteps(input: StatChoiceInput) {
   const dps = Math.max(1e-9, stats.damage * critAverage / Math.max(input.build.minAttackInterval, stats.attackRate));
   const from = input.start ?? input.current.arrival;
   const groups = [...new Set(input.current.sites.map(site => site.group))].filter(group => group !== 'soul:critDamage');
+  const run: ForecastRun = { horizonSeconds: input.horizonSeconds ?? 120, start: input.start, health: input.health };
+  const canKite = !input.build.melee && !input.build.reflectOnly;
   const scored = [];
   for (const group of groups) {
+    // The group farmed alone, as autofarm would: its best way, one at a time.
+    const own: ForecastResult[] = [];
+    for (const kite of canKite ? [false, true] : [false]) {
+      if (input.modes && !input.modes.includes(kite ? 'kited' : 'standing')) continue;
+      own.push(forecastOption(input.current, input.build, { pull: false, groups: [group], kite }, run, input.tuning));
+      yield;
+    }
+    const lasting = own.filter(result => result.sustainable);
+    const farmed = (lasting.length ? lasting : own).reduce<ForecastResult | null>((a, b) => !a || b.powerPerMinute > a.powerPerMinute ? b : a, null);
     const members = input.current.sites.filter(site => site.group === group);
     const reward = members.reduce((low, site) => site.reward.amount < low.amount ? site.reward : low, members[0].reward);
     const hp = members.reduce((sum, site) => sum + site.definition.hp, 0) / members.length;
@@ -967,13 +1054,19 @@ export function* growthStatChoiceSteps(input: StatChoiceInput) {
     const killPower = (power(base) - power(input.build.base)) / kills;
     const after = yield* best({ ...input.build, base });
     const rateRise = ((after?.powerPerMinute ?? 0) - nowRate) / kills;
+    // Its kills a second: the forecast's, or Auto's estimate when nothing was priced.
+    const minutes = run.horizonSeconds / 60;
+    const killsPerSecond = farmed ? farmed.kills / minutes / 60 : 1 / Math.max(.1, secondsPerKill);
+    const gainPerSecond = farmed ? Math.max(0, farmed.powerPerMinute) / 60 : killPower / Math.max(.1, secondsPerKill);
     scored.push({
       group, secondsPerKill, killPower,
       /** The rise in the best power a minute, per kill. */
       rateRise,
       /** The best option once this group has been farmed a while: what its rise is a rise to. */
       unlocks: after ? { map: after.map, mode: after.mode } : null,
-      score: (killPower + Math.max(0, rateRise) * (horizonMinutes - chunkMinutes)) / Math.max(.1, secondsPerKill),
+      /** Its own power a second, farmed alone as autofarm would (the forecast). */
+      gainPerSecond, killsPerSecond,
+      score: gainPerSecond + Math.max(0, rateRise) * (horizonMinutes - chunkMinutes) * killsPerSecond,
       /** Auto's Best Gain, for comparison: the kill's power alone, per second. */
       bestGain: killPower / Math.max(.1, secondsPerKill),
       sampledKills: kills,

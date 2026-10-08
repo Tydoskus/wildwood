@@ -114,7 +114,7 @@ export type BossDuelSetup = {
 
 type Sample = { t: number; map: string; power: number; phase: string; selected: string | null; hp: number; status: string; bossStatus: string;
   /** The growth planner's forecast for what it was doing (power a minute), this map's best option, and its calibration. */
-  forecast?: { doing: number | null; best: number; mode: string | null; group: string | null; damage: number; incoming: number } };
+  forecast?: { doing: number | null; best: number; mode: string | null; group: string | null; damage: number; incoming: number; groups?: string } };
 type MapVisit = { map: string; from: number; to: number | null; entryPower: number; exitPower: number | null; deaths: number; reason: string };
 type DeathEvent = { t: number; map: string; phase: string; selected: string | null; probation: boolean; afterBossLeave: boolean;
   /** What happened in the last 15 s: health shares taken by source, and the biggest single hit. */
@@ -710,7 +710,8 @@ export function createVirtualPlayer(profile: VirtualPlayerProfile, options: { du
         report.samples.push({ t: Math.round(t()), map: currentMapId, power: power(), phase: state.phase, selected: state.selected,
           hp: player.maxHp > 0 ? player.hp / player.maxHp : 0, status: state.status, bossStatus: autoFarm.bossStatus(),
           ...growth ? { forecast: { doing: plan?.doing?.powerPerMinute ?? null, best: plan?.current.powerPerMinute ?? 0, mode: plan?.current.mode ?? null,
-            group: plan?.group ?? null, damage: growth.calibration.damage, incoming: growth.calibration.incoming } } : {} });
+            group: plan?.group ?? null, damage: growth.calibration.damage, incoming: growth.calibration.incoming,
+            groups: plan?.groups.map(entry => `${entry.group} ${entry.score.toPrecision(3)}=${entry.gain.toPrecision(3)}+rise ${entry.rise.toPrecision(3)}`).join(' | ') } } : {} });
       }
       if (onProgress && clock.ms >= nextProgress) { nextProgress += 1_800_000; report.simSeconds = t(); onProgress(report); }
       if (options.duel && (!bossAlive() || report.deaths.length)) break;
