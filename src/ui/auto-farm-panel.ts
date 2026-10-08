@@ -28,6 +28,10 @@ const HELP_LINES: readonly [term: string, line: string][] = [
 const powerSlider = (className: string, label: string, sub: string, aria: string) =>
   `<label class="farm-weight farm-power ${className}"><span class="farm-weight-name"><span class="farm-weight-label">${label}</span><span class="farm-weight-sub">${sub}</span></span>`
   + `<input type="range" min="0" max="${POWER_STEPS.length - 1}" step="1" aria-label="${aria}"><output aria-hidden="true"></output></label>`;
+const sameShares = (a: FarmShares, b: FarmShares) => {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  return [...keys].every(key => (a[key] ?? 0) === (b[key] ?? 0));
+};
 const titleCase = (text: string) => text.replace(/(^|[\s(/-])(\p{Ll})/gu, (_match, lead: string, letter: string) => lead + letter.toUpperCase());
 const segment = (label: string, labelId: string, className: string, buttons: string) =>
   `<div class="farm-setting"><span id="${labelId}" class="farm-setting-label">${label}</span>`
@@ -100,6 +104,10 @@ export function createAutoFarmPanel(options: {
   const list = element('.farm-weights');
   const statsRow = element('.farm-stats-heading');
   const startButton = element<HTMLButtonElement>('.farm-start');
+  const backButton = element<HTMLButtonElement>('.farm-close');
+  /** Opened while farming, the game is not paused: autofarm keeps going behind the window. */
+  let pausedByWindow = false;
+  const farming = () => options.farm.state().active;
   const selection = element('.farm-selection');
   const emptyNote = element('.farm-empty');
   const moreToggle = element<HTMLButtonElement>('.farm-more-toggle');
@@ -189,6 +197,10 @@ export function createAutoFarmPanel(options: {
       button.setAttribute('aria-checked', String((button.dataset.pull === 'on') === pulling));
       button.disabled = pullOff;
     }
+    // While farming the window is a look and a change: Stop ends the farm, Done keeps it going with what is set.
+    const live = farming();
+    if (backButton.textContent !== (live ? 'Stop' : 'Back')) backButton.textContent = live ? 'Stop' : 'Back';
+    if (startButton.textContent !== (live ? 'Done' : 'Start')) startButton.textContent = live ? 'Done' : 'Start';
     const reason = options.unavailable();
     const empty = !options.farm.choices().length;
     startButton.disabled = empty || nothingSet() || Boolean(reason);
@@ -254,7 +266,8 @@ export function createAutoFarmPanel(options: {
     setHelpOpen(false);
     sheet.close();
     options.clearInput();
-    options.setPaused(false);
+    if (pausedByWindow) options.setPaused(false);
+    pausedByWindow = false;
     priorFocus?.focus();
     refresh();
     return true;
@@ -276,7 +289,8 @@ export function createAutoFarmPanel(options: {
     choiceKey = '';
     setHelpOpen(false);
     options.clearInput();
-    options.setPaused(true);
+    pausedByWindow = !farming();
+    if (pausedByWindow) options.setPaused(true);
     sheet.showModal();
     renderChoices();
     element<HTMLButtonElement>('.farm-close').focus();
@@ -301,9 +315,9 @@ export function createAutoFarmPanel(options: {
     const state = options.farm.state();
     floating.classList.toggle('is-farming', state.active);
     toggle.setAttribute('aria-pressed', String(state.active));
-    toggle.setAttribute('aria-label', state.active ? `Stop farming ${state.selectedLabel}` : 'Set up autofarm');
-    toggle.setAttribute('aria-haspopup', state.active ? 'false' : 'dialog');
-    toggle.title = state.active ? `${state.selectedLabel} · ${state.status} · Tap to stop` : 'Autofarm';
+    toggle.setAttribute('aria-label', state.active ? `Autofarm settings, farming ${state.selectedLabel}` : 'Set up autofarm');
+    toggle.setAttribute('aria-haspopup', 'dialog');
+    toggle.title = state.active ? `${state.selectedLabel} · ${state.status} · Tap for settings` : 'Autofarm';
     const text = badgeText();
     if (badge.textContent !== text) badge.textContent = text;
     badge.hidden = !text;
@@ -313,10 +327,12 @@ export function createAutoFarmPanel(options: {
   toggle.addEventListener('click', () => {
     // In an Aggro run the button picks or switches the groups that chase you.
     if (aggroRun()) { const groups = mapGroups(); if (groups.length) picker.open(aggroPicksNeeded(options.aggro?.()), groups); return; }
-    if (options.farm.state().active) { options.farm.stop(); refresh(); }
-    else open();
+    open();
   });
-  element('.farm-close').addEventListener('click', back);
+  backButton.addEventListener('click', () => {
+    if (help.hidden && farming()) { options.farm.stop(); close(); return; }
+    back();
+  });
   moreToggle.addEventListener('click', () => setMoreOpen(more.hidden, true));
   helpToggle.addEventListener('click', () => setHelpOpen(help.hidden));
   for (const button of priorityButtons) button.addEventListener('click', () => {
@@ -344,6 +360,8 @@ export function createAutoFarmPanel(options: {
     if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) close();
   });
   startButton.addEventListener('click', () => {
+    // Done while farming: farming goes on, restarted only if the sliders changed.
+    if (farming() && sameShares(draft, options.farm.savedShares())) { close(); return; }
     if (options.farm.start(draft)) close();
     else updateSelection();
   });

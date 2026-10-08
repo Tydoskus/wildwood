@@ -85,9 +85,44 @@ it('opens on an even split, moves each slider on its own with its share of 100% 
   expect(s.farm.state()).toMatchObject({ active: true, selected: keys[1], shares: { [keys[1]]: 100 } });
   expect(s.document.querySelector('.farm-badge')!.textContent).toBe('');
   expect(s.document.querySelector('.farm-toggle')!.getAttribute('aria-pressed')).toBe('true');
+  // Tapped while farming it opens the window, farming on and unpaused; Stop ends it.
+  s.pause.mockClear();
   s.click('.farm-toggle');
+  expect(s.sheet.open).toBe(true);
+  expect(s.farm.state().active).toBe(true);
+  expect(s.pause).not.toHaveBeenCalledWith(true);
+  expect(s.document.querySelector('.farm-close')!.textContent).toBe('Stop');
+  expect(s.document.querySelector('.farm-start')!.textContent).toBe('Done');
+  s.click('.farm-close');
   expect(s.farm.state().active).toBe(false);
   expect(s.sheet.open).toBe(false);
+});
+
+it('opened while farming, Done keeps farming, applying slider changes; the window shows the live switch lines', () => {
+  const s = setup(true, 'endless_1');
+  s.spawnSites.push(...createSpawnSites({x: 580, y: 770}, 'endless_1'));
+  s.click('.farm-toggle');
+  const keys = Object.keys(values(s));
+  s.click('.farm-start');
+  expect(s.farm.state().active).toBe(true);
+  s.pause.mockClear();
+  s.click('.farm-toggle');
+  expect(s.sheet.open).toBe(true);
+  expect(s.pause).not.toHaveBeenCalled();
+  // Done with nothing changed: still farming, same shares.
+  s.click('.farm-start');
+  expect(s.sheet.open).toBe(false);
+  expect(s.farm.state()).toMatchObject({ active: true, shares: { [keys[0]]: 25 } });
+  // Changed: farming goes on with the new sliders.
+  s.click('.farm-toggle');
+  for (const key of keys.slice(1)) slide(s, key, 0);
+  s.click('.farm-start');
+  expect(s.farm.state()).toMatchObject({ active: true, shares: { [keys[0]]: 100 } });
+  // Closed from outside (Escape): farming goes on.
+  s.click('.farm-toggle');
+  s.sheet.dispatchEvent(new s.window.Event('cancel'));
+  expect(s.sheet.open).toBe(false);
+  expect(s.farm.state().active).toBe(true);
 });
 it('draws one slider per stat, in its colour, from 0 to 100; with every one at 0 there is nothing to start', () => {
   const s = setup(true, 'endless_1');
