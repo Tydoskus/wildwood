@@ -472,7 +472,8 @@ export function createVirtualPlayer(profile: VirtualPlayerProfile, options: { du
     player, boss: bosses.dragon, enemies, spawnSites, decor: bootstrap.decor, paths: bootstrap.paths,
     clearTransientCombat: () => { projectileStore.clear(); enemySimulation.clearRemoteCombat(); },
     getCurrentMapId: () => currentMapId,
-    mapSpawn: mapId => mapConfig[mapId].arrival,
+    // As main.ts: the forest's dead respawn at the new-character start, not by its portal.
+    mapSpawn: mapId => mapId === 'tutorial_forest' ? bootstrap.startSpawn : mapConfig[mapId].arrival,
     initialStats: { ...player },
     invalidateStaticWorld: noop, spawnFromSite,
     clearPlayerCombat: () => playerCombat.clearPendingThrow(),
@@ -509,7 +510,8 @@ export function createVirtualPlayer(profile: VirtualPlayerProfile, options: { du
   }
   installBalance(currentMapId);
   setCurrentMap(currentMapId);
-  mapController.loadMap(currentMapId, mapConfig[currentMapId].arrival.x, mapConfig[currentMapId].arrival.y);
+  const start = currentMapId === 'tutorial_forest' ? bootstrap.startSpawn : mapConfig[currentMapId].arrival;
+  mapController.loadMap(currentMapId, start.x, start.y);
   refreshMapBalanceEnemies(runtimeMapBalance(currentMapId)!, spawnSites, enemies);
   startSession();
 

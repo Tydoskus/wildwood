@@ -12,7 +12,7 @@ vi.mock(
 
 function fixture() {
   const f = crystalFixture();
-  f.patch("player", { mapId: "ion_citadel", x: 580, y: 617 });
+  f.patch("player", { mapId: "ion_citadel", x: 2510, y: 2337 });
   f.patch("playerProgress", {
     ionCitadelUnlocked: true,
     bossRewardClaims: BOSS_REWARD_CLAIM_BITS.aegisPrime,
@@ -26,18 +26,18 @@ describe("production generated map reducers", () => {
     const f = fixture();
     f.patch("playerProgress", { bossRewardClaims: 0 });
     expect(() =>
-      f.run(server.changeMap, { mapId: "endless_1", x: 580, y: 617 }),
+      f.run(server.changeMap, { mapId: "endless_1", x: 2510, y: 2337 }),
     ).toThrow(/previous map/);
     f.patch("playerProgress", {
       bossRewardClaims: BOSS_REWARD_CLAIM_BITS.aegisPrime,
     });
-    f.run(server.changeMap, { mapId: "endless_1", x: 580, y: 617 });
+    f.run(server.changeMap, { mapId: "endless_1", x: 2510, y: 2337 });
     expect(f.db.player.identity.find(f.ctx.sender)).toMatchObject({
       mapId: "endless_1",
       ...generateMap("endless_1").arrival,
     });
     expect(() =>
-      f.run(server.changeMap, { mapId: "endless_2", x: 580, y: 617 }),
+      f.run(server.changeMap, { mapId: "endless_2", x: 2510, y: 2337 }),
     ).toThrow(/previous map/);
     expect(() =>
       f.run(server.changeMap, { mapId: "ion_citadel", x: 50, y: 50 }),

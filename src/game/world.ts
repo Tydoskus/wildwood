@@ -14,6 +14,7 @@ import { WORLD } from "./constants";
 import { CAMPS, ENEMY_TYPES, type EnemyKind } from "./enemies";
 import { savedMapDesign } from "./map-design";
 import { isNearRegionSpawns, regionSpawnPoints } from "./region-scatter";
+import { gatewayClearings } from "../../shared/map-gateways";
 
 export type WorldPath = { x: number; y: number; w: number; h: number };
 type WorldDecorPlacement = { x: number; y: number; color?: string };
@@ -139,6 +140,11 @@ function isNearSpawnCamp(camps: readonly SpawnCamp[], x: number, y: number, padd
   return isNearRegionSpawns(camps, x, y, padding);
 }
 
+/** Near the portals or the arrival in the middle of a campaign map (0.901.15); layouts keep that clear as they keep the old corner. */
+function nearGateways(mapId: MapId, x: number, y: number, radius: number) {
+  return gatewayClearings(mapId).some(spot => Math.hypot(x - spot.x, y - spot.y) < radius);
+}
+
 function seededUnit(index: number, salt: number) {
   const value = Math.sin(index * 91.713 + salt * 37.119) * 43758.5453;
   return value - Math.floor(value);
@@ -178,7 +184,7 @@ function createDesertLayout() {
   for (let index = 0; index < 78; index += 1) {
     const x = 90 + seededUnit(index, 1) * (WORLD.w - 180);
     const y = 90 + seededUnit(index, 2) * (WORLD.h - 180);
-    if (isOnRoad(x, y, 55) || Math.hypot(x - 360, y - 680) < 340 || isNearSpawnCamp(DESERT_CAMPS, x, y, 70)) continue;
+    if (isOnRoad(x, y, 55) || Math.hypot(x - 360, y - 680) < 340 || nearGateways(BEGINNER_DESERT_MAP_ID, x, y, 340) || isNearSpawnCamp(DESERT_CAMPS, x, y, 70)) continue;
     decor.push({
       type: "cactus",
       x: Math.round(x),
@@ -229,7 +235,7 @@ function createSnowLayout() {
   for (let index = 0; index < 58; index += 1) {
     const x = 100 + seededUnit(index, 21) * (WORLD.w - 200);
     const y = 100 + seededUnit(index, 22) * (WORLD.h - 200);
-    if (isOnRoad(x, y, 70) || Math.hypot(x - 360, y - 770) < 360 || isNearSpawnCamp(SNOW_CAMPS, x, y, 70)) continue;
+    if (isOnRoad(x, y, 70) || Math.hypot(x - 360, y - 770) < 360 || nearGateways(INTERMEDIATE_SNOWLANDS_MAP_ID, x, y, 360) || isNearSpawnCamp(SNOW_CAMPS, x, y, 70)) continue;
     decor.push({ type: "snowPine", x: Math.round(x), y: Math.round(y), s: .62 + seededUnit(index, 23) * .48 });
   }
   for (let index = 0; index < 400; index += 1) {
@@ -252,7 +258,7 @@ function createLavaLayout() {
   const isOnRoad = (x: number, y: number, margin = 0) => paths.some((path) =>
     x > path.x - margin && x < path.x + path.w + margin &&
     y > path.y - margin && y < path.y + path.h + margin);
-  const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 380;
+  const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 380 || nearGateways(ADVANCED_LAVA_WASTES_MAP_ID, x, y, 380);
   const isNearMagmalisk = (x: number, y: number) => Math.hypot(x - 4050, y - 4050) < 640;
 
   for (let index = 0; index < 24; index += 1) {
@@ -320,7 +326,7 @@ function createNightForestLayout() {
   const isOnPath = (x: number, y: number, margin = 0) => paths.some((path) =>
     x > path.x - margin && x < path.x + path.w + margin &&
     y > path.y - margin && y < path.y + path.h + margin);
-  const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 330;
+  const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 330 || nearGateways(INFERNAL_DEPTHS_MAP_ID, x, y, 330);
   const isNearGloomroot = (x: number, y: number) => Math.hypot(x - 4050, y - 4050) < 660;
   const placed: { x: number; y: number; radius: number }[] = [];
   const placeTrees = (target: number, salt: number) => {
@@ -362,7 +368,7 @@ function createWaterLayout() {
   const isOnPath = (x: number, y: number, margin = 0) => paths.some((path) =>
     x > path.x - margin && x < path.x + path.w + margin &&
     y > path.y - margin && y < path.y + path.h + margin);
-  const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 330;
+  const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 330 || nearGateways(WATER_REACH_MAP_ID, x, y, 330);
   const isNearWaterBoss = (x: number, y: number) => Math.hypot(x - 4050, y - 4050) < 700;
 
   for (let index = 0; index < 130; index += 1) {
@@ -414,7 +420,7 @@ function createSamuraiGardenLayout() {
   const isOnPath = (x: number, y: number, margin = 0) => paths.some((path) =>
     x > path.x - margin && x < path.x + path.w + margin &&
     y > path.y - margin && y < path.y + path.h + margin);
-  const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 350;
+  const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 350 || nearGateways(SAMURAI_GARDEN_MAP_ID, x, y, 350);
   const placedTrees: { x: number; y: number; radius: number }[] = [];
 
   // The cherry artwork reads far wider than the trunk it stands on, so these
@@ -463,7 +469,7 @@ function createCloudspireLayout() {
   const isOnPath = (x: number, y: number, margin = 0) => paths.some((path) =>
     x > path.x - margin && x < path.x + path.w + margin &&
     y > path.y - margin && y < path.y + path.h + margin);
-  const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 350;
+  const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 350 || nearGateways(CLOUDSPIRE_MAP_ID, x, y, 350);
   const isNearBoss = (x: number, y: number) => Math.hypot(x - 4050, y - 4050) < 720;
 
   for (let index = 0; index < 190; index += 1) {
@@ -511,7 +517,7 @@ function createMoonfenLayout() {
   const isOnPath = (x: number, y: number, margin = 0) => paths.some((path) =>
     x > path.x - margin && x < path.x + path.w + margin &&
     y > path.y - margin && y < path.y + path.h + margin);
-  const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 350;
+  const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 350 || nearGateways(MOONFEN_MAP_ID, x, y, 350);
   const isNearBoss = (x: number, y: number) => Math.hypot(x - 4050, y - 4050) < 720;
 
   for (let index = 0; index < 190; index += 1) {
@@ -563,7 +569,7 @@ function createCrystalHollowsLayout() {
   const isOnPath = (x: number, y: number, margin = 0) => paths.some((path) =>
     x > path.x - margin && x < path.x + path.w + margin &&
     y > path.y - margin && y < path.y + path.h + margin);
-  const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 350;
+  const isNearArrival = (x: number, y: number) => Math.hypot(x - 580, y - 770) < 350 || nearGateways(CRYSTAL_HOLLOWS_MAP_ID, x, y, 350);
   const isNearBoss = (x: number, y: number) => Math.hypot(x - 4050, y - 4050) < 720;
 
   for (let index = 0; index < 210; index += 1) {
@@ -619,6 +625,24 @@ export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FO
   if (isSoulMap(mapId)) return createWorldLayout(playerSpawn, TUTORIAL_FOREST_MAP_ID);
   // A guild hall's decor follows its upgrades (guild-hall-runtime.ts); its ground is baked art.
   if (isGuildHallMap(mapId)) return { decor: [], paths: [] };
+  return clearOfGateways(authoredWorldLayout(playerSpawn, mapId), mapId);
+}
+
+/** Ground cover a portal can stand on; anything else is lifted from around the portals and the arrival. */
+const FLAT_DECOR = new Set<WorldDecor["type"]>(["grass", "petal", "cherryPetal", "desertGrass", "snowTuft", "shell"]);
+/** How far standing decor keeps from a portal's gate or the arrival; a lava pool also keeps its own reach. */
+export const GATEWAY_DECOR_CLEARANCE = 150;
+export function gatewayDecorReach(item: WorldDecor) {
+  return GATEWAY_DECOR_CLEARANCE + (item.type === "lavaPool" ? 150 * item.s : 0);
+}
+function clearOfGateways<T extends { decor: WorldDecor[]; paths: WorldPath[] }>(layout: T, mapId: MapId): T {
+  const clearings = gatewayClearings(mapId);
+  if (!clearings.length) return layout;
+  return { ...layout, decor: layout.decor.filter(item => FLAT_DECOR.has(item.type)
+    || clearings.every(spot => Math.hypot(item.x - spot.x, item.y - spot.y) >= gatewayDecorReach(item))) };
+}
+
+function authoredWorldLayout(playerSpawn: Point, mapId: MapId) {
   const saved = savedMapDesign(mapId);
   if (saved) {
     return {

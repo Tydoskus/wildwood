@@ -23,8 +23,8 @@ export const MAP_EDITOR_GAMEPLAY_OVERRIDES: Readonly<Record<string, MapEditorGam
   "tutorial_forest": {
     "name": "Tutorial Forest",
     "arrival": {
-      "x": 1025,
-      "y": 850
+      "x": 2240,
+      "y": 2900
     },
     "boss": {
       "x": 4040,
@@ -36,11 +36,11 @@ export const MAP_EDITOR_GAMEPLAY_OVERRIDES: Readonly<Record<string, MapEditorGam
     },
     "portals": [
       {
-        "x": 875,
-        "y": 850,
+        "x": 2240,
+        "y": 2810,
         "width": 198,
         "height": 198,
-        "depth": 850,
+        "depth": 2810,
         "destination": "beginner_desert"
       }
     ]
@@ -48,8 +48,8 @@ export const MAP_EDITOR_GAMEPLAY_OVERRIDES: Readonly<Record<string, MapEditorGam
   "beginner_desert": {
     "name": "Beginner Desert",
     "arrival": {
-      "x": 625,
-      "y": 800
+      "x": 2400,
+      "y": 2490
     },
     "boss": {
       "x": 4050,
@@ -57,19 +57,19 @@ export const MAP_EDITOR_GAMEPLAY_OVERRIDES: Readonly<Record<string, MapEditorGam
     },
     "portals": [
       {
-        "x": 500,
-        "y": 725,
+        "x": 2290,
+        "y": 2400,
         "width": 198,
         "height": 198,
-        "depth": 725,
+        "depth": 2400,
         "destination": "tutorial_forest"
       },
       {
-        "x": 750,
-        "y": 725,
+        "x": 2510,
+        "y": 2400,
         "width": 198,
         "height": 198,
-        "depth": 725,
+        "depth": 2400,
         "destination": "intermediate_snowlands"
       }
     ]

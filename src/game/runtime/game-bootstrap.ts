@@ -30,7 +30,7 @@ import {
 } from "../../../shared/rules";
 import { BASE_ATTACK_RANGE, BASE_PROJECTILE_SPEED } from "../constants";
 import { createProjectileStore } from "./projectile-store";
-import { CAMPAIGN_GATEWAYS } from "../../../shared/map-gateways";
+import { CAMPAIGN_GATEWAYS, endlessEntryPortal } from "../../../shared/map-gateways";
 import { MAP_EDITOR_GAMEPLAY_OVERRIDES } from "../../../shared/map-editor-overrides";
 import { savedMapDesign, savedMapName } from "../map-design";
 import { requestFrame } from "../../app/trusted-clock";
@@ -109,7 +109,7 @@ export function createGameBootstrap() {
     return { name: map.name, arrival: map.arrival, portal: { ...map.portals[0], destination: map.portals[0].destination as MapId }, secondaryPortal: map.portals[1] ? { ...map.portals[1], destination: map.portals[1].destination as MapId } : undefined };
   // Every guild's hall: the yard's portal back to the Town at the foot of the path.
   }, { name: "Guild Hall", arrival: GUILD_HALL_ARRIVAL, portal: { ...GUILD_HALL_HOME_PAD, destination: TOWN_MAP_ID } }) as typeof authoredMapConfig & Record<MapId, BootstrapMapEntry>;
-  mapConfig[PROCEDURAL_ENTRY_MAP as MapId].secondaryPortal = { x: 580, y: 680, width: 198, height: 198, depth: 680, destination: proceduralMapId(1) };
+  mapConfig[PROCEDURAL_ENTRY_MAP as MapId].secondaryPortal = { ...endlessEntryPortal(proceduralMapId(1)), destination: proceduralMapId(1) };
   const player: PlayerState = {
     x: startSpawn.x, y: startSpawn.y, r: 17,
     speed: PLAYER_SPEED,
