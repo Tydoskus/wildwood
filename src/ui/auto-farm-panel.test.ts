@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { parseHTML } from 'linkedom';
-import { AUTO_FARM_EXPANDED_KEY, AUTO_FARM_MORE_KEY, createAutoFarmPanel } from './auto-farm-panel';
+import { AUTO_FARM_MORE_KEY, createAutoFarmPanel } from './auto-farm-panel';
 import { createAutoFarmController } from '../game/runtime/auto-farm-controller';
 import { createSpawnSites } from '../game/world';
 import { createGameBootstrap } from '../game/runtime/game-bootstrap';
@@ -83,7 +83,7 @@ it('opens on an even split, moves each slider on its own with its share of 100% 
   s.click('.farm-start');
   expect(!s.content.hidden).toBe(false);
   expect(s.farm.state()).toMatchObject({ active: true, selected: keys[1], shares: { [keys[1]]: 100 } });
-  expect(s.document.querySelector('.farm-badge')!.textContent).toBe('On');
+  expect(s.document.querySelector('.farm-badge')!.textContent).toBe('Autofarm: On');
   expect(s.document.querySelector('.farm-toggle')!.getAttribute('aria-expanded')).toBe('false');
   // Tapped while farming it opens the window, farming on and unpaused; Stop ends it.
   s.pause.mockClear();
@@ -447,31 +447,34 @@ it('Move At sits under Move On, 0.1x to 10x of the next map power, and rests whi
 });
 
 
-it('is a collapsible HUD card that leaves gameplay running and remembers its expansion', () => {
-  const storage = memoryStorage();
-  const s = setup(false, 'forest', {}, storage);
+it('collapsed is a small "Autofarm: Off" card; opened it is a fixed window over a backdrop that closes it, never pausing the game', () => {
+  const s = setup();
   expect(s.sheet.parentElement?.id).toBe('hud');
   expect(s.sheet.tagName).toBe('SECTION');
+  const help = s.document.querySelector<HTMLElement>('.farm-help-toggle')!, backdrop = s.document.querySelector<HTMLElement>('.farm-window-backdrop')!;
   expect(s.content.hidden).toBe(true);
+  expect(s.sheet.classList.contains('farm-card')).toBe(true);
+  expect(s.document.querySelector('.farm-badge')!.textContent).toBe('Autofarm: Off');
+  expect(s.document.querySelector('.farm-swords-icon')).toBeNull();
+  // The "?" belongs to the window only.
+  expect(help.hidden).toBe(true);
+  expect(backdrop.hidden).toBe(true);
   s.click('.farm-toggle');
   expect(s.content.hidden).toBe(false);
+  expect(s.sheet.classList.contains('is-window')).toBe(true);
+  expect(s.sheet.classList.contains('farm-card')).toBe(false);
+  expect(help.hidden).toBe(false);
+  expect(backdrop.hidden).toBe(false);
   expect(s.pause).not.toHaveBeenCalled();
-  expect(storage.getItem(AUTO_FARM_EXPANDED_KEY)).toBe('1');
-  s.panel.destroy();
-  const restored = setup(false, 'forest', {}, storage);
-  expect(restored.content.hidden).toBe(false);
-  restored.click('.farm-toggle');
-  expect(restored.content.hidden).toBe(true);
-  expect(storage.getItem(AUTO_FARM_EXPANDED_KEY)).toBe('0');
+  backdrop.dispatchEvent(new s.window.Event('click', { bubbles: true }));
+  expect(s.content.hidden).toBe(true);
+  expect(s.sheet.classList.contains('farm-card')).toBe(true);
+  expect(backdrop.hidden).toBe(true);
 });
 
-it('restores an expanded card when gameplay first makes it available', () => {
-  let visible = false;
-  const s = setup(false, 'forest', {}, memoryStorage(new Map([[AUTO_FARM_EXPANDED_KEY, '1']])), { visible: () => visible });
-  expect(s.sheet.hidden).toBe(true);
-  visible = true; s.panel.refresh();
-  expect(s.content.hidden).toBe(false);
-  expect(values(s)).toEqual({ 'stat:health': 100 });
+it('always starts collapsed, even if it was left open before', () => {
+  const s = setup(false, 'forest', {}, memoryStorage(new Map([['wildstat:autofarm-expanded:v1', '1']])));
+  expect(s.content.hidden).toBe(true);
 });
 
 it('collapsing the header preserves a running farm and keeps its status visible', () => {
@@ -480,5 +483,25 @@ it('collapsing the header preserves a running farm and keeps its status visible'
   s.click('.farm-toggle'); s.click('.farm-toggle');
   expect(s.content.hidden).toBe(true);
   expect(s.farm.state().active).toBe(true);
-  expect(s.document.querySelector('.farm-badge')!.textContent).toBe('On');
+  expect(s.document.querySelector('.farm-badge')!.textContent).toBe('Autofarm: On');
+});
+
+it('F starts Auto Farm with the sliders last set and stops it, but not while typing', () => {
+  const s = setup();
+  const press = (target: EventTarget = s.document.body) => target.dispatchEvent(Object.assign(new s.window.Event('keydown', { bubbles: true, cancelable: true }), { code: 'KeyF' }));
+  press();
+  expect(s.farm.state().active).toBe(true);
+  expect(s.document.querySelector('.farm-badge')!.textContent).toBe('Autofarm: On');
+  press();
+  expect(s.farm.state().active).toBe(false);
+  const input = s.document.createElement('input'); s.document.body.append(input);
+  press(input);
+  expect(s.farm.state().active).toBe(false);
+});
+
+it('F on a map with nothing to farm opens the window instead', () => {
+  const s = setup(true);
+  s.document.body.dispatchEvent(Object.assign(new s.window.Event('keydown', { bubbles: true, cancelable: true }), { code: 'KeyF' }));
+  expect(s.farm.state().active).toBe(false);
+  expect(s.content.hidden).toBe(false);
 });

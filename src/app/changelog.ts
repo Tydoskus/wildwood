@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.19": [
+    "Snapshot Character in the profile picture picker makes your character, as it looks right now, your profile picture",
+    "The Auto Farm card is now small like the quest tracker and reads Autofarm: On or Off; opened, it is the normal Auto Farm window",
+    "F starts and stops Auto Farm",
+  ],
   "0.901.18": [
     "Auto Farm is a card on the HUD like the stat and quest trackers: drag it anywhere, tap to open or close",
     "The quest tracker can be moved with the arrow keys too, and the stat tracker keeps its opacity when put back",
@@ -3037,6 +3042,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.19": "2026-10-08",
   "0.901.18": "2026-10-08",
   "0.901.17": "2026-10-08",
   "0.901.16": "2026-10-08",

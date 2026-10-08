@@ -322,9 +322,33 @@
 #autoFarmSheet.farm-card .farm-help { padding: 8px; }
 #autoFarmSheet.farm-card .farm-help-list dt { font-size: 14px; }
 #autoFarmSheet.farm-card .farm-help-list dd { font-size: 13px; }
-#autoFarmSheet.farm-card.is-collapsed { width: max-content; min-width: 190px; }
+/* Collapsed: the quest tracker's header size and type, a single label. */
+#autoFarmSheet.farm-card.is-collapsed { width: max-content; min-width: 0; font: 700 11px/1.25 "Wildstat Chat", sans-serif; }
+#autoFarmSheet.farm-card.is-collapsed .farm-card-handle { min-height: 30px; padding: 4px 8px; font-weight: 700; }
+#autoFarmSheet.farm-card.is-collapsed .farm-badge { color: #fff; font-size: 11px; }
+#autoFarmSheet.farm-card.is-collapsed.is-farming .farm-badge { color: #98efaa; }
+#autoFarmSheet.farm-card.is-collapsed .farm-card-caret { font-size: 11px; }
+/* Opened: the ordinary Auto Farm window, centred and fixed, over a backdrop that closes it. */
+.farm-window-backdrop { position: fixed; inset: 0; z-index: 19; background: #0008; pointer-events: auto; }
+.farm-window-backdrop[hidden] { display: none; }
+#autoFarmSheet.is-window {
+  position: fixed; left: 50% !important; top: 50% !important; right: auto !important; bottom: auto !important; z-index: 20;
+  display: flex; flex-direction: column; transform: translate(-50%, -50%);
+  height: fit-content; max-height: min(600px, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px));
+}
+#autoFarmSheet.is-window .farm-header { position: relative; display: flex; align-items: center; justify-content: center; min-height: 52px; padding: 10px 12px 4px; }
+#autoFarmSheet.is-window .farm-card-handle {
+  display: flex; align-items: center; gap: 8px; padding: 4px 8px; border: 0; background: none; box-shadow: none; color: #fff;
+  font: inherit; font-size: 17px; cursor: pointer;
+}
+#autoFarmSheet.is-window .farm-card-handle:active { transform: none; }
+#autoFarmSheet.is-window .farm-card-handle { flex: 0 1 auto; }
+#autoFarmSheet.is-window .farm-help-toggle { position: absolute; top: 8px; right: 8px; }
+#autoFarmSheet.is-window.is-farming .farm-badge { color: #98efaa; }
+#autoFarmSheet.is-window .farm-card-content { display: flex; flex-direction: column; min-height: 0; }
+#autoFarmSheet .farm-help-toggle[hidden] { display: none; }
 @media (any-pointer: coarse) {
-  #autoFarmSheet.farm-card .farm-card-handle,
+  #autoFarmSheet.farm-card:not(.is-collapsed) .farm-card-handle,
   #autoFarmSheet.farm-card .farm-switch,
   #autoFarmSheet.farm-card .farm-more-toggle,
   #autoFarmSheet.farm-card .farm-actions button { min-height: 44px; }

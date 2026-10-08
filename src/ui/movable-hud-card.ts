@@ -13,7 +13,10 @@ export function installMovableHudCard(options: {
   storage: () => CardStorage | undefined;
   positionKey: string;
   toggle: () => void;
+  /** Whether it can move now (Auto Farm opened is a fixed window); always, by default. */
+  movable?: () => boolean;
 }) {
+  const movable = () => options.movable?.() ?? true;
   const { panel, handle } = options;
   const cleanup: (() => void)[] = [];
   function listen(target: EventTarget, type: string, listener: EventListener, capture = false) {
@@ -31,7 +34,7 @@ export function installMovableHudCard(options: {
     try { options.storage()?.setItem(options.positionKey, JSON.stringify(position)); } catch { /* Keep it for this session. */ }
   };
   function place() {
-    if (panel.hidden || panel.offsetWidth === 0 || panel.offsetHeight === 0) return;
+    if (!movable() || panel.hidden || panel.offsetWidth === 0 || panel.offsetHeight === 0) return;
     const bounds = panel.getBoundingClientRect();
     const desired = position ?? { x: bounds.left, y: bounds.top };
     const x = Math.max(8, Math.min(desired.x, window.innerWidth - panel.offsetWidth - 8));
@@ -50,7 +53,7 @@ export function installMovableHudCard(options: {
   }
   listen(handle, 'pointerdown', raw => {
     const event = raw as PointerEvent;
-    if (event.button !== 0) return;
+    if (event.button !== 0 || !movable()) return;
     const bounds = panel.getBoundingClientRect();
     suppressClick = false;
     drag = { id: event.pointerId, offset: { x: event.clientX - bounds.left, y: event.clientY - bounds.top },
@@ -75,13 +78,14 @@ export function installMovableHudCard(options: {
   for (const type of ['pointerup', 'lostpointercapture']) listen(handle, type, finishDrag);
   // A cancelled press (the browser took the gesture) never also toggles the card.
   listen(handle, 'pointercancel', () => { finishDrag(); suppressClick = true; });
-  listen(handle, 'dblclick', home);
+  listen(handle, 'dblclick', () => { if (movable()) home(); });
   listen(handle, 'click', raw => {
     if (suppressClick && (raw as MouseEvent).detail !== 0) { suppressClick = false; return; }
     options.toggle();
   });
   listen(handle, 'keydown', raw => {
     const event = raw as KeyboardEvent;
+    if (!movable()) return;
     if (event.key === 'Home') { event.preventDefault(); home(); return; }
     const delta = ({ ArrowLeft: [-10, 0], ArrowRight: [10, 0], ArrowUp: [0, -10], ArrowDown: [0, 10] } as Record<string, number[]>)[event.key];
     if (!delta) return;

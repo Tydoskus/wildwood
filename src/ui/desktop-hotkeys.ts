@@ -11,8 +11,8 @@ export const DESKTOP_HOTKEYS = [
   { code: "KeyG", label: "G", selector: "#guildBtn" },
   { code: "KeyM", label: "M", selector: "#minimapButton" },
   { code: "KeyP", label: "P", selector: "#playerHudProfileGear" },
-  { code: "KeyF", label: "F", selector: ".farm-toggle" },
 ] as const;
+// F starts and stops Auto Farm itself (auto-farm-panel.ts), rather than opening its window.
 
 /** Whether a click at the element's centre would reach it. */
 export function clickable(element: Element | null): element is HTMLElement {
