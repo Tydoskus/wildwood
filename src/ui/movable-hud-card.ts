@@ -37,18 +37,23 @@ export function installMovableHudCard(options: {
     if (!movable() || panel.hidden || panel.offsetWidth === 0 || panel.offsetHeight === 0) return;
     const bounds = panel.getBoundingClientRect();
     const desired = position ?? { x: bounds.left, y: bounds.top };
+    // On screen and clear of the toolbar, whatever the window was resized to.
+    const toolbarTop = panel.ownerDocument.getElementById('toolbar')?.getBoundingClientRect().top;
+    const floor = toolbarTop && toolbarTop > panel.offsetHeight + 16 ? Math.min(window.innerHeight, toolbarTop) : window.innerHeight;
     const x = Math.max(8, Math.min(desired.x, window.innerWidth - panel.offsetWidth - 8));
-    const y = Math.max(8, Math.min(desired.y, window.innerHeight - panel.offsetHeight - 8));
+    const y = Math.max(8, Math.min(desired.y, floor - panel.offsetHeight - 8));
     if (!position && x === desired.x && y === desired.y) return;
     position = { x, y };
     panel.style.left = `${x}px`;
     panel.style.top = `${y}px`;
     panel.style.right = 'auto';
     panel.style.bottom = 'auto';
+    // A card centred by its stylesheet (Auto Farm) is placed by its corner once moved.
+    panel.style.transform = 'none';
   }
   function home() {
     position = null;
-    for (const property of ['left', 'top', 'right', 'bottom']) panel.style.removeProperty(property);
+    for (const property of ['left', 'top', 'right', 'bottom', 'transform']) panel.style.removeProperty(property);
     save(); place();
   }
   listen(handle, 'pointerdown', raw => {

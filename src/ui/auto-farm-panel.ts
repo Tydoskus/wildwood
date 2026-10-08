@@ -11,7 +11,8 @@ import { installMovableHudCard } from './movable-hud-card';
 import type { AggroChallenge } from '../../shared/aggro-challenge';
 import type { RewardType } from '../game/enemies';
 
-export const AUTO_FARM_POSITION_KEY = 'wildstat:autofarm-position:v1';
+/** v2: positions saved before 0.901.22 (often under the joystick or skills) are dropped; the card starts centred. */
+export const AUTO_FARM_POSITION_KEY = 'wildstat:autofarm-position:v2';
 type PanelStorage = Pick<Storage, 'getItem' | 'setItem'>;
 const defaultStorage = (): PanelStorage | undefined => { try { return window.localStorage; } catch { return undefined; } };
 /** The controller's lines are sentence case ("Moving to enemy"); the window shows every word capitalised. */

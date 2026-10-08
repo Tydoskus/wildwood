@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.22": [
+    "The Auto Farm card starts centred above the chat again, and stays on screen above the toolbar when the window is resized",
+  ],
   "0.901.21": [
     "Fixed the Auto Farm window closing when tapped inside it, and its sliders not moving",
   ],
@@ -3051,6 +3054,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.22": "2026-10-08",
   "0.901.21": "2026-10-08",
   "0.901.20": "2026-10-08",
   "0.901.19": "2026-10-08",

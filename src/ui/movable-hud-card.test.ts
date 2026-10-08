@@ -86,3 +86,17 @@ it('ignores corrupt stored positions', () => {
   s.event(s.handle, 'click', { detail: 0 });
   expect(s.toggle).toHaveBeenCalledOnce();
 });
+
+it('keeps the card above the toolbar after a resize, and placed by its corner once moved', () => {
+  const s = setup(JSON.stringify({ x: 300, y: 580 }));
+  const toolbar = s.document.createElement('div'); toolbar.id = 'toolbar';
+  toolbar.getBoundingClientRect = () => ({ top: 540, left: 0, width: 800, height: 60 } as DOMRect);
+  s.document.body.append(toolbar);
+  s.event(s.window, 'resize');
+  // 540 toolbar top − 40 card − 8 margin.
+  expect(s.panel.style.top).toBe('492px');
+  expect(s.panel.style.transform).toBe('none');
+  // Put back, the stylesheet places it again.
+  s.event(s.handle, 'dblclick');
+  expect(s.panel.style.transform || '').toBe('');
+});
