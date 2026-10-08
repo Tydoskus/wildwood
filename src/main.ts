@@ -541,7 +541,7 @@ import {
     balance: createBalanceCache(mapId => coop?.mapIndexBalance?.(mapId)), nextPortal: () => farmProgress.nextPortal(), previousPortal: () => farmProgress.previousPortal() });
   const autoFarm = createAutoFarmController({
     resumeStore: createAutoFarmResumeStore(),
-    player, enemies, spawnSites, enemyShots, bossDps: () => playerCombat.expectedBossDps(),
+    player, enemies, spawnSites, enemyShots, bossDps: () => playerCombat.expectedBossDps(), tankPerks: () => ({ reflect: prestigePerkValue(coop?.prestigePerks?.(), "riposte"), secondWind: prestigePerkValue(coop?.prestigePerks?.(), "secondWind") }),
     growth: () => session?.isRunning() && !mapController.isMapTransitioning() ? growthContext() : null,
     bossDanger: (x, y, pad) => Math.min(bossController.forMap(currentMapId)?.danger(x, y, pad) ?? Infinity, proceduralBoss.danger(x, y, pad)),
     mapId: () => currentMapId, pullCamps: () => coop?.aggroChallenge?.()?.active ? 0 : aggroPullCamps(coop?.aggroChallenge?.()), forcedGroups: () => forcedAggroGroups(coop?.aggroChallenge?.(), coop?.localIdentity?.()),

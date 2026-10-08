@@ -47,6 +47,14 @@ describe('growth forecast', () => {
     expect(rates[3]).toBeGreaterThan(rates[0]);
   });
 
+  it('kills by Reflect in Reflect Only, and corrects those kills by the measured damage correction', () => {
+    const biters = map(camp('damage', 400, 400, 6, enemy({ hp: 300, damage: 40, reward: { type: 'damage', amount: 1 } }), 150));
+    const reflector = (damageCalibration: number) => build({ maxHp: 5_000, regen: 100 }, { melee: true, reflectOnly: true, reflect: 1, damageCalibration });
+    const kills = (damageCalibration: number) => forecastOption(biters, reflector(damageCalibration), single('damage'), run).kills;
+    expect(kills(1)).toBeGreaterThan(0);
+    expect(kills(.25)).toBeLessThan(kills(1));
+  });
+
   it('dies less with more health or armor', () => {
     const hard = map(camp('damage', 1_400, 1_400, 8, enemy({ hp: 400, damage: 60, reward: { type: 'damage', amount: 1 } }), 220));
     const deaths = (stats: Partial<PlayerPowerStats>) => forecastOption(hard, build(stats, { melee: true }), single('damage'), run).deathsPerHour;
@@ -151,8 +159,9 @@ describe('growth forecast', () => {
 
   it('keeps what it is doing unless something is clearly better', () => {
     const results = forecastGrowth({ current: field, build: build(), horizonSeconds: 300 });
-    const held = results.find(result => result.mode === 'kited' && result.option.groups?.[0] === 'stat:damage')!;
-    const choice = chooseGrowthOption(results, { map: 'current', mode: 'kited', groups: held.option.groups });
+    // Standing (kiting is off for now: AUTO_FARM_EVASION), one group.
+    const held = results.find(result => result.mode === 'standing' && result.option.groups?.[0] === 'stat:damage')!;
+    const choice = chooseGrowthOption(results, { map: 'current', mode: 'standing', groups: held.option.groups });
     expect(choice).not.toBeNull();
     expect(choice!.powerPerMinute).toBeGreaterThanOrEqual(held.powerPerMinute);
   });

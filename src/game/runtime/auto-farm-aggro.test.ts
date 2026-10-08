@@ -68,12 +68,12 @@ describe('Aggro challenge on the client', () => {
     const bramble = s.add('Bramble', 700, 500, 'near'), needle = s.add('Needle', 1200, 900, 'needle'), moss = s.add('Mossback', 1500, 500, 'moss');
     const mossGroup = `stat:${ENEMY_TYPES.Mossback.reward.type}`;
     s.farm.setPullAll(true);
-    s.farm.start({ auto: false, weights: { [health]: 100, [speed]: 200, [mossGroup]: 25 } });
+    s.farm.start({ [health]: 29, [speed]: 57, [mossGroup]: 14 });
     expect(s.farm.state().selected).toBe(speed);
     expect([bramble, needle, moss].filter(enemy => s.farm.pulls(enemy))).toEqual([bramble, needle]);
   });
 
-  it("on Auto, Pull's extra camps per win are Auto's next best, not none", () => {
+  it("on an even split, Pull's extra camps per win are the next groups, not none", () => {
     const s = setup({ pullCamps: 2 });
     const bramble = s.add('Bramble', 700, 500, 'near'), needle = s.add('Needle', 1200, 900, 'needle'), moss = s.add('Mossback', 1500, 500, 'moss');
     s.farm.setPullAll(true);

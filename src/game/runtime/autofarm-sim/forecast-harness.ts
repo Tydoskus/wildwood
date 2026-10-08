@@ -114,7 +114,7 @@ export async function runOption(profile: VirtualPlayerProfile, option: HarnessOp
     if (option.group) {
       // A group left out of the sliders is at the default share, so every other group is set to 0.
       const weights = Object.fromEntries(controller.choices().map(choice => [choice.key, option.group === 'all' || choice.key === option.group ? 100 : 0]));
-      const started = controller.start({ auto: false, weights });
+      const started = controller.start(weights);
       if (!started) throw new Error(`${profile.name}: no ${option.group} on ${profile.startMap}`);
     }
     const minutes: number[] = [player.power()];
@@ -127,7 +127,7 @@ export async function runOption(profile: VirtualPlayerProfile, option: HarnessOp
         x: live.x, y: live.y, health: live.maxHp > 0 ? Math.max(0, live.hp) / live.maxHp : 1 });
       if (group && group !== picked && controller.choices().some(choice => choice.key === group)) {
         picked = group;
-        controller.start({ auto: false, weights: Object.fromEntries(controller.choices().map(choice => [choice.key, choice.key === group ? 100 : 0])) });
+        controller.start(Object.fromEntries(controller.choices().map(choice => [choice.key, choice.key === group ? 100 : 0])));
       }
     };
     choose();

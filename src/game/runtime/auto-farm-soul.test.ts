@@ -3,7 +3,7 @@ import { createGameBootstrap } from './game-bootstrap';
 import { createEnemyLifecycle } from './enemy-lifecycle';
 import { createAutoFarmController } from './auto-farm-controller';
 import { createFarmEvaluator } from './auto-farm-build';
-import { AUTO_FARM_CHOICE_KEY, AUTO_FARM_SOUL_WEIGHTS_KEY, AUTO_FARM_WEIGHTS_KEY, farmWeight, type FarmReward, type FarmWeights } from './auto-farm-plan';
+import { AUTO_FARM_CHOICE_KEY, AUTO_FARM_SHARES_KEY, AUTO_FARM_SOUL_SHARES_KEY, type FarmShares } from './auto-farm-plan';
 import { carryFarmGroup, farmGroupMatches, farmGroupRewardType, soulFarmReward } from './auto-farm-priority';
 import { ENEMY_TYPES, type EnemyKind } from '../enemies';
 import { soulCampName, SOUL_ENEMY_SPECIES } from '../soul-world';
@@ -13,7 +13,7 @@ import type { Movement } from './player-input-controller';
 
 const idle: Movement = { x: 0, y: 0, source: 'none' };
 /** The sliders set above 0%. */
-const farmed = (weights: FarmWeights | null) => Object.fromEntries(Object.entries(weights ?? {}).filter(([, weight]) => weight > 0));
+const farmed = (shares: FarmShares | null) => Object.fromEntries(Object.entries(shares ?? {}).filter(([, share]) => share > 0));
 /** Every soul enemy is built paying no run stat: what made them all one "Damage +0" choice. */
 const soulDefinition = (stat: SoulStatId) => ({ ...ENEMY_TYPES[SOUL_ENEMY_SPECIES[stat]], reward: { type: 'damage' as const, amount: 0 } });
 
@@ -74,51 +74,35 @@ describe('autofarm in the Soul Dimension', () => {
     expect(s.farm.pulls(armor)).toBe(false);
   });
 
-  it('Auto prices a soul kill as the stat it adds, and leaves Crit Damage to the sliders', () => {
-    // Health is worth the most here; crit damage would be worth nothing.
-    const evaluate = (reward?: FarmReward) => ({ power: 100 + (reward?.type === 'health' ? 5 : reward?.amount ? 1 : 0) });
-    const s = setup({ evaluate });
+  it('farms Soul Crit Damage like any soul stat: an even split includes it, and a 100% slider farms only it', () => {
+    const s = setup();
     s.soul('damage', 600, 500); s.soul('health', 600, 450, 1); s.soul('critDamage', 520, 500, 2);
-    expect(s.farm.start([])).toBe(true);
-    expect(s.farm.state().selected).toBe('soul:health');
-    // Crit damage is farmed when its slider is the only one up.
-    expect(s.farm.start(['soul:critDamage'])).toBe(true);
-    expect(s.farm.state().selected).toBe('soul:critDamage');
-    // And Auto never takes it while another soul stat stands.
-    const only = setup({ evaluate: () => ({ power: 100 }) });
-    only.soul('critDamage', 520, 500); only.soul('regen', 1600, 500, 1);
-    only.farm.start([]);
-    expect(only.farm.state().selected).toBe('soul:regen');
+    expect(s.farm.savedShares()).toEqual({ 'soul:damage': 34, 'soul:health': 33, 'soul:critDamage': 33 });
+    expect(s.farm.start({ 'soul:critDamage': 100, 'soul:damage': 0, 'soul:health': 0 })).toBe(true);
+    for (let frame = 0; frame < 60 * 60; frame++) { s.tick(); expect(s.farm.state().selected).toBe('soul:critDamage'); }
   });
 
-  it("never farms for the boss there: there is none, so Auto says Best Gain", () => {
-    const s = setup({ evaluate: () => ({ power: 1 }) });
+  it('has no boss there to fight or wait for', () => {
+    const s = setup();
     s.soul('damage', 560, 500);
     s.farm.start([]);
     expect(s.farm.bossStatus()).toBe('');
-    for (let frame = 0; frame < 5; frame++) s.tick();
-    expect(s.farm.state().status).toContain('Best Gain');
   });
 
   it("carries the campaign's sliders into the Soul Dimension as its soul stats, and keeps soul sliders apart from them", () => {
     const s = setup();
     s.soul('damage', 900, 500); s.soul('attackSpeed', 500, 900, 1); s.soul('critDamage', 100, 500, 2);
-    // An old campaign route: picked stats are 100%, a pip more 200%, the rest (Crit Damage too) 0%.
+    // An old campaign route: picked stats are 100%, a pip more 200%, the rest (Crit Damage too) 0%; brought to 100%.
     s.values.set(AUTO_FARM_CHOICE_KEY, JSON.stringify(['stat:speed*2', 'stat:damage', 'stat:health']));
-    const saved = s.farm.savedChoice();
-    expect(saved.auto).toBe(false);
-    expect(farmed(saved.weights)).toEqual({ 'soul:attackSpeed': 200, 'soul:damage': 100, 'soul:health': 100 });
-    expect(farmWeight(saved.weights, 'soul:critDamage')).toBe(0);
+    const saved = s.farm.savedShares();
+    expect(saved).toEqual({ 'soul:damage': 33, 'soul:attackSpeed': 67, 'soul:critDamage': 0 });
     expect(s.farm.start(saved)).toBe(true);
-    // Soul sliders are the Soul Dimension's own: the campaign's choice stands.
-    expect(farmed(JSON.parse(s.values.get(AUTO_FARM_SOUL_WEIGHTS_KEY)!).weights)).toEqual({ 'soul:attackSpeed': 200, 'soul:damage': 100, 'soul:health': 100 });
-    expect(s.values.has(AUTO_FARM_WEIGHTS_KEY)).toBe(false);
-    s.farm.start({ auto: false, weights: { 'soul:critDamage': 100, 'soul:damage': 0, 'soul:attackSpeed': 0 } });
+    // Soul sliders are the Soul Dimension's own: the campaign's stand.
+    expect(farmed(JSON.parse(s.values.get(AUTO_FARM_SOUL_SHARES_KEY)!))).toEqual({ 'soul:damage': 33, 'soul:attackSpeed': 67 });
+    expect(s.values.has(AUTO_FARM_SHARES_KEY)).toBe(false);
+    s.farm.start({ 'soul:critDamage': 100, 'soul:damage': 0, 'soul:attackSpeed': 0 });
     expect(s.farm.state().selected).toBe('soul:critDamage');
-    expect(farmed(s.farm.savedChoice().weights)).toEqual({ 'soul:critDamage': 100 });
-    s.farm.stop();
-    s.setMap('forest');
-    expect(farmed(s.farm.savedChoice().weights)).toEqual({ 'stat:speed': 200, 'stat:damage': 100, 'stat:health': 100 });
+    expect(farmed(s.farm.savedShares())).toEqual({ 'soul:critDamage': 100 });
   });
 
   it('a soul slider reaching a campaign map is its run stat there, and Crit Damage is simply absent', () => {
@@ -129,7 +113,7 @@ describe('autofarm in the Soul Dimension', () => {
     expect(s.farm.choices().map(choice => choice.key)).toEqual([health]);
     expect(s.farm.start(['soul:critDamage', `soul:${ENEMY_TYPES.Bramble.reward.type}`])).toBe(true);
     expect(s.farm.state().selected).toBe(health);
-    expect(farmWeight(s.farm.state().weights!, health)).toBe(100);
+    expect(s.farm.state().shares).toEqual({ [health]: 100 });
     expect(s.farm.start(['soul:critDamage'])).toBe(false);
   });
 });

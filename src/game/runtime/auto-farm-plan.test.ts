@@ -1,64 +1,112 @@
 import { describe, expect, it } from 'vitest';
 import {
-  AUTO_FARM_CHOICE_KEY, AUTO_FARM_WEIGHTS_KEY, AUTO_SWITCH_MARGIN, bestFarmCandidate, rankFarmCandidates, decodeFarmPlan, encodeFarmPlan, farmWeight,
-  readFarmChoice, routeChoice, shareFarmKey, writeFarmChoice, type FarmEvaluation, type FarmReward,
+  AUTO_FARM_CHOICE_KEY, AUTO_FARM_SHARES_KEY, AUTO_FARM_SOUL_SHARES_KEY, AUTO_FARM_WEIGHTS_KEY, decodeFarmPlan, encodeFarmPlan, evenShares, legacyShares,
+  readSavedShares, rebalanceShares, shareFarmKey, shareLabel, sharesForGroups, writeSavedShares,
 } from './auto-farm-plan';
 import { SOUL_MAP_ID } from '../../../shared/soul-dimension';
 
-const build = (power: number): FarmEvaluation => ({ power });
+const total = (shares: Readonly<Record<string, number>>) => Object.values(shares).reduce((sum, value) => sum + value, 0);
+const groups = ['stat:damage', 'stat:health', 'stat:armor', 'stat:regen'];
+function memory() {
+  const values = new Map<string, string>();
+  return { values, storage: () => ({ getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } }) };
+}
 
-describe('autofarm planning', () => {
-  it('without an expected build, farms the most power per second of killing', () => {
-    const candidates = [
-      { key: 'stat:health', alive: 3, reward: { type: 'health', amount: 10 } as FarmReward, secondsPerKill: 2 },
-      { key: 'stat:damage', alive: 3, reward: { type: 'damage', amount: 1 } as FarmReward, secondsPerKill: 2 },
-    ];
-    const evaluate = (reward?: FarmReward) => build(100 + (reward?.amount ?? 0) * 5);
-    expect(bestFarmCandidate(candidates, evaluate)).toBe('stat:health');
-    // A slow kill is worth less per second.
-    expect(bestFarmCandidate([{ ...candidates[0], secondsPerKill: 30 }, candidates[1]], evaluate)).toBe('stat:damage');
+describe('autofarm sliders', () => {
+  it('splits evenly in whole percents that add up to 100', () => {
+    expect(evenShares(groups)).toEqual({ 'stat:damage': 25, 'stat:health': 25, 'stat:armor': 25, 'stat:regen': 25 });
+    const three = evenShares(['a', 'b', 'c']);
+    expect(total(three)).toBe(100);
+    expect(Object.values(three).sort()).toEqual([33, 33, 34]);
+    expect(evenShares(['a'])).toEqual({ a: 100 });
   });
 
-  it('keeps the current camp unless another is better by the switch margin, and skips empty camps', () => {
-    const value = { 'stat:health': 1, 'stat:armor': AUTO_SWITCH_MARGIN * .99 };
-    const evaluate = (reward?: FarmReward) => build(reward ? value[`stat:${reward.type}` as keyof typeof value] : 0);
-    const candidates = [
-      { key: 'stat:health', alive: 1, reward: { type: 'health', amount: 1 } as FarmReward, secondsPerKill: 1 },
-      { key: 'stat:armor', alive: 1, reward: { type: 'armor', amount: 1 } as FarmReward, secondsPerKill: 1 },
-    ];
-    expect(bestFarmCandidate(candidates, evaluate, 'stat:health')).toBe('stat:health');
-    expect(bestFarmCandidate(candidates, evaluate, null)).toBe('stat:armor');
-    expect(bestFarmCandidate([{ ...candidates[0], alive: 0 }, candidates[1]], evaluate, 'stat:health')).toBe('stat:armor');
+  it('moves the others in proportion when one slider moves, keeping 100%', () => {
+    // 50 / 25 / 25: damage to 80 leaves 20 for the others, still 1:1.
+    const start = { a: 50, b: 25, c: 25 };
+    expect(rebalanceShares(start, ['a', 'b', 'c'], 'a', 80)).toEqual({ a: 80, b: 10, c: 10 });
+    // Proportions kept: 60 / 30 / 10, the last two to 40 between them (3:1).
+    expect(rebalanceShares({ a: 60, b: 30, c: 10 }, ['a', 'b', 'c'], 'a', 60)).toEqual({ a: 60, b: 30, c: 10 });
+    expect(rebalanceShares({ a: 40, b: 45, c: 15 }, ['a', 'b', 'c'], 'a', 60)).toEqual({ a: 60, b: 30, c: 10 });
+    // 100% alone is allowed: the others go to 0.
+    const alone = rebalanceShares(start, ['a', 'b', 'c'], 'b', 100);
+    expect(alone).toEqual({ a: 0, b: 100, c: 0 });
+    // From there, with the others all at 0, what one gives up is spread evenly.
+    expect(rebalanceShares(alone, ['a', 'b', 'c'], 'b', 60)).toEqual({ a: 20, b: 60, c: 20 });
+    // Whole percents, always adding up to 100.
+    for (const value of [0, 1, 33, 50.4, 99, 100, 140, -5]) {
+      const next = rebalanceShares({ a: 33, b: 33, c: 34 }, ['a', 'b', 'c'], 'c', value);
+      expect(total(next)).toBe(100);
+      expect(Object.values(next).every(share => Number.isInteger(share) && share >= 0)).toBe(true);
+    }
+    // One group is always 100%.
+    expect(rebalanceShares({ a: 100 }, ['a'], 'a', 20)).toEqual({ a: 100 });
+    expect(shareLabel(25)).toBe('25%');
   });
 
-  it('never farms a stat that can no longer grow while another camp helps, even waiting for that one to respawn', () => {
-    // Attack speed at its cap: a kill there adds nothing.
-    const evaluate = (reward?: FarmReward) => build(10 + (reward && reward.type !== 'speed' ? reward.amount : 0));
-    const candidates = [
-      { key: 'stat:speed', alive: 4, reward: { type: 'speed', amount: 1 } as FarmReward, secondsPerKill: 1 },
-      { key: 'stat:health', alive: 0, reward: { type: 'health', amount: 1 } as FarmReward, secondsPerKill: 1 },
-    ];
-    expect(bestFarmCandidate(candidates, evaluate)).toBe('stat:health');
-    expect(rankFarmCandidates(candidates, evaluate).map(entry => entry.key)).toEqual(['stat:health']);
-    // With nothing better on the map, it still farms something.
-    expect(bestFarmCandidate([candidates[0]], evaluate)).toBe('stat:speed');
+  it("reads this map's sliders from what is saved: unset groups 0%, nothing saved an even split", () => {
+    expect(sharesForGroups(null, groups)).toEqual(evenShares(groups));
+    expect(sharesForGroups({ 'stat:damage': 100 }, groups)).toEqual({ 'stat:damage': 100, 'stat:health': 0, 'stat:armor': 0, 'stat:regen': 0 });
+    expect(sharesForGroups({ 'stat:damage': 50, 'stat:health': 50, 'stat:speed': 80 }, groups)).toEqual({ 'stat:damage': 50, 'stat:health': 50, 'stat:armor': 0, 'stat:regen': 0 });
+    // Another map's stats only: an even split here.
+    expect(sharesForGroups({ 'stat:speed': 100 }, groups)).toEqual(evenShares(groups));
+  });
+
+  it('migrates the old 0-200% sliders by bringing them to 100%, and an old Auto to an even split', () => {
+    const { values, storage } = memory();
+    // Nothing saved: an even split.
+    expect(legacyShares(groups, 'forest', storage)).toBeNull();
+    // 200 / 50 / 0, regen never set (it was at 100%): 200 / 50 / 0 / 100 of 350.
+    values.set(AUTO_FARM_WEIGHTS_KEY, JSON.stringify({ auto: false, weights: { 'stat:damage': 200, 'stat:health': 50, 'stat:armor': 0 } }));
+    expect(sharesForGroups(legacyShares(groups, 'forest', storage), groups)).toEqual({ 'stat:damage': 57, 'stat:health': 14, 'stat:armor': 0, 'stat:regen': 29 });
+    // Auto saved: an even split, whatever its sliders were.
+    values.set(AUTO_FARM_WEIGHTS_KEY, JSON.stringify({ auto: true, weights: { 'stat:damage': 200 } }));
+    expect(legacyShares(groups, 'forest', storage)).toBeNull();
+    // An older route: picked stats only.
+    values.delete(AUTO_FARM_WEIGHTS_KEY);
+    values.set(AUTO_FARM_CHOICE_KEY, JSON.stringify(['stat:damage*2', 'stat:health']));
+    expect(sharesForGroups(legacyShares(groups, 'forest', storage), groups)).toEqual({ 'stat:damage': 67, 'stat:health': 33, 'stat:armor': 0, 'stat:regen': 0 });
+    // Storage that throws reads as nothing saved.
+    expect(legacyShares(groups, 'forest', () => { throw new Error('blocked'); })).toBeNull();
+  });
+
+  it("saves the sliders once for every map, keeping the campaign's and the Soul Dimension's apart", () => {
+    const { values, storage } = memory();
+    expect(readSavedShares('forest', storage)).toBeNull();
+    writeSavedShares({ 'stat:damage': 100, 'stat:health': 0 }, 'forest', storage);
+    expect(readSavedShares('forest', storage)).toEqual({ 'stat:damage': 100, 'stat:health': 0 });
+    // The last set is the record: another map reads what it has of it.
+    writeSavedShares({ 'stat:speed': 50, 'stat:health': 50 }, 'beginner_desert', storage);
+    expect(readSavedShares('forest', storage)).toEqual({ 'stat:speed': 50, 'stat:health': 50 });
+    expect(JSON.parse(values.get(AUTO_FARM_SHARES_KEY)!)).toEqual({ 'stat:speed': 50, 'stat:health': 50 });
+    // The Soul Dimension reads the campaign's until it has its own.
+    expect(readSavedShares(SOUL_MAP_ID, storage)).toEqual(readSavedShares('forest', storage));
+    writeSavedShares({ 'soul:armor': 100 }, SOUL_MAP_ID, storage);
+    expect(readSavedShares(SOUL_MAP_ID, storage)).toEqual({ 'soul:armor': 100 });
+    expect(values.has(AUTO_FARM_SOUL_SHARES_KEY)).toBe(true);
+    expect(readSavedShares('forest', storage)).not.toHaveProperty('soul:armor');
+  });
+
+  it('round-trips the sliders through the resume store; an old "auto" there is an even split', () => {
+    expect(decodeFarmPlan(encodeFarmPlan({ 'stat:health': 75, 'stat:armor': 25 }))).toEqual({ 'stat:health': 75, 'stat:armor': 25 });
+    expect(decodeFarmPlan('auto')).toBeNull();
   });
 
   it('farms the group furthest behind its share, only where enemies are alive, and never a 0% one', () => {
-    const groups = [{ key: 'a', weight: 200, alive: 3 }, { key: 'b', weight: 25, alive: 3 }, { key: 'c', weight: 0, alive: 3 }];
-    // Nothing farmed yet: the largest slider.
-    expect(shareFarmKey(groups, () => 0)).toBe('a');
-    // 'a' has had all 10 seconds: 'b' is 10 * 25 / 225 behind.
-    expect(shareFarmKey(groups, key => key === 'a' ? 10 : 0)).toBe('b');
+    const shares = [{ key: 'a', weight: 80, alive: 3 }, { key: 'b', weight: 20, alive: 3 }, { key: 'c', weight: 0, alive: 3 }];
+    // Nothing farmed yet: the largest share.
+    expect(shareFarmKey(shares, () => 0)).toBe('a');
+    // 'a' has had all 10 seconds: 'b' is 2 seconds behind.
+    expect(shareFarmKey(shares, key => key === 'a' ? 10 : 0)).toBe('b');
     // 'b' empty: the next one behind that has enemies.
-    expect(shareFarmKey([groups[0], { ...groups[1], alive: 0 }, groups[2]], key => key === 'a' ? 10 : 0)).toBe('a');
+    expect(shareFarmKey([shares[0], { ...shares[1], alive: 0 }, shares[2]], key => key === 'a' ? 10 : 0)).toBe('a');
     // Every group empty: it waits at the one furthest behind.
-    expect(shareFarmKey(groups.map(group => ({ ...group, alive: 0 })), key => key === 'a' ? 10 : 0)).toBe('b');
+    expect(shareFarmKey(shares.map(group => ({ ...group, alive: 0 })), key => key === 'a' ? 10 : 0)).toBe('b');
     expect(shareFarmKey([{ key: 'c', weight: 0, alive: 3 }], () => 0)).toBeNull();
   });
 
-  it('splits farming time as the sliders say: 200 / 25 / 25 is about 80 / 10 / 10, all equal is even', () => {
-    for (const [weights, expected] of [[[200, 25, 25], [.8, .1, .1]], [[100, 100, 100], [1 / 3, 1 / 3, 1 / 3]]] as const) {
+  it('splits farming time as the sliders say: 80 / 10 / 10, and an even split is even', () => {
+    for (const [weights, expected] of [[[80, 10, 10], [.8, .1, .1]], [[34, 33, 33], [.34, .33, .33]]] as const) {
       const spent = new Map<string, number>(), keys = ['a', 'b', 'c'];
       // Twenty-second stints, as the controller looks again, for two hours.
       for (let step = 0; step < 360; step++) {
@@ -67,37 +115,5 @@ describe('autofarm planning', () => {
       }
       keys.forEach((key, index) => expect((spent.get(key) ?? 0) / 7_200).toBeCloseTo(expected[index], 2));
     }
-  });
-
-  it('reads an old route as sliders: picked 100%, a pip more 100% more up to 200%, the rest 0%; an empty one is Auto', () => {
-    expect(routeChoice([])).toEqual({ auto: true, weights: {} });
-    const { auto, weights } = routeChoice(['stat:damage*2', 'stat:health', 'stat:armor*3']);
-    expect(auto).toBe(false);
-    expect([farmWeight(weights, 'stat:damage'), farmWeight(weights, 'stat:health'), farmWeight(weights, 'stat:armor')]).toEqual([200, 100, 200]);
-    expect([farmWeight(weights, 'stat:regen'), farmWeight(weights, 'soul:critDamage')]).toEqual([0, 0]);
-    // A slider never set is at the default.
-    expect(farmWeight({}, 'stat:regen')).toBe(100);
-  });
-
-  it('round-trips a plan through the resume store, and still reads an old route there', () => {
-    expect(decodeFarmPlan(encodeFarmPlan(null))).toBeNull();
-    expect(decodeFarmPlan(encodeFarmPlan({ 'stat:health': 200, 'stat:armor': 25 }))).toEqual({ 'stat:health': 200, 'stat:armor': 25 });
-    expect(farmWeight(decodeFarmPlan('Bramble')!, 'Bramble')).toBe(100);
-    expect(farmWeight(decodeFarmPlan('stat:health\u001fstat:armor*2')!, 'stat:armor')).toBe(200);
-  });
-
-  it("migrates the saved route once, keeping the campaign's and the Soul Dimension's apart", () => {
-    const values = new Map<string, string>();
-    const storage = () => ({ getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } });
-    expect(readFarmChoice('forest', storage)).toEqual({ auto: true, weights: {} });
-    values.set(AUTO_FARM_CHOICE_KEY, JSON.stringify(['stat:speed*2']));
-    expect(farmWeight(readFarmChoice('forest', storage).weights, 'stat:speed')).toBe(200);
-    // The Soul Dimension carries the campaign's choice until it has its own.
-    expect(readFarmChoice(SOUL_MAP_ID, storage).auto).toBe(false);
-    writeFarmChoice({ auto: true, weights: { 'soul:armor': 25 } }, storage, SOUL_MAP_ID);
-    expect(readFarmChoice(SOUL_MAP_ID, storage)).toEqual({ auto: true, weights: { 'soul:armor': 25 } });
-    writeFarmChoice({ auto: false, weights: { 'stat:damage': 200 } }, storage, 'forest');
-    expect(readFarmChoice('forest', storage)).toEqual({ auto: false, weights: { 'stat:damage': 200 } });
-    expect(JSON.parse(values.get(AUTO_FARM_WEIGHTS_KEY)!)).toEqual({ auto: false, weights: { 'stat:damage': 200 } });
   });
 });

@@ -112,9 +112,9 @@ export type BossDuelSetup = {
   playerShare: number;
 };
 
-type Sample = { t: number; map: string; power: number; phase: string; selected: string | null; hp: number; status: string; bossStatus: string;
+type Sample = { t: number; map: string; power: number; phase: string; selected: string | null; x?: number; y?: number; hp: number; status: string; bossStatus: string;
   /** The growth planner's forecast for what it was doing (power a minute), this map's best option, and its calibration. */
-  forecast?: { doing: number | null; best: number; mode: string | null; group: string | null; damage: number; incoming: number; groups?: string } };
+  forecast?: { doing: number | null; best: number; mode: string | null; group: string | null; damage: number; incoming: number; groups?: string; next?: number | null; previous?: number | null } };
 type MapVisit = { map: string; from: number; to: number | null; entryPower: number; exitPower: number | null; deaths: number; reason: string };
 type DeathEvent = { t: number; map: string; phase: string; selected: string | null; probation: boolean; afterBossLeave: boolean;
   /** What happened in the last 15 s: health shares taken by source, and the biggest single hit. */
@@ -425,6 +425,7 @@ export function createVirtualPlayer(profile: VirtualPlayerProfile, options: { du
     player, enemies, spawnSites, mapId: () => currentMapId, pullCamps: () => profile.aggro ? 0 : 1,
     forcedGroups: () => profile.aggro ? { groups: [], needed: profile.aggro } : null,
     enemyShots: projectileStore.enemyShots, bossDps: () => playerCombat.expectedBossDps(),
+    tankPerks: () => ({ reflect: prestigePerkValue(perks, 'riposte'), secondWind: prestigePerkValue(perks, 'secondWind') }),
     bossDanger: (x, y, pad) => Math.min(bossController.forMap(currentMapId)?.danger(x, y, pad) ?? Infinity, proceduralBoss.danger(x, y, pad)),
     equippedWeapon: weapon, localIdentity: () => identity, now: () => clock.ms - SIM_EPOCH_MS,
     connection: () => !running || mapController.isMapTransitioning() ? 'recovering' : 'ready',
@@ -707,9 +708,10 @@ export function createVirtualPlayer(profile: VirtualPlayerProfile, options: { du
         nextSample += 10_000;
         const state = autoFarm.state();
         const growth = autoFarm.growthPlan(), plan = growth?.plan;
-        report.samples.push({ t: Math.round(t()), map: currentMapId, power: power(), phase: state.phase, selected: state.selected,
+        report.samples.push({ t: Math.round(t()), map: currentMapId, power: power(), phase: state.phase, selected: state.selected, x: Math.round(player.x), y: Math.round(player.y),
           hp: player.maxHp > 0 ? player.hp / player.maxHp : 0, status: state.status, bossStatus: autoFarm.bossStatus(),
           ...growth ? { forecast: { doing: plan?.doing?.powerPerMinute ?? null, best: plan?.current.powerPerMinute ?? 0, mode: plan?.current.mode ?? null,
+            next: plan?.next?.powerPerMinute ?? null, previous: plan?.previous?.powerPerMinute ?? null,
             group: plan?.group ?? null, damage: growth.calibration.damage, incoming: growth.calibration.incoming,
             groups: plan?.groups.map(entry => `${entry.group} ${entry.score.toPrecision(3)}=${entry.gain.toPrecision(3)}+rise ${entry.rise.toPrecision(3)}`).join(' | ') } } : {} });
       }

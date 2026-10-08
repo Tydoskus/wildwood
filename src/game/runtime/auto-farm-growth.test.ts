@@ -62,6 +62,42 @@ describe('growth planner', () => {
   });
 });
 
+describe('growth planner calibration', () => {
+  it('leaves the damage-taken correction alone where the forecast sees no hit, and moves it toward the measured where it does', () => {
+    const harmless = map('here', camp('damage', 800, 800, 6, enemy({ hp: 200, reward: { type: 'damage', amount: 1 } })).map(site => ({ ...site, respawnIn: 10_000 })));
+    const quiet: GrowthContext = { build: build(), current: harmless, next: null, previous: null, nextPortal: null, previousPortal: null };
+    const planner = createGrowthPlanner();
+    for (let frame = 0; frame < 400 && !planner.plan('here'); frame++) planner.tick(0, 'here', () => quiet, doing);
+    // Every enemy dead for longer than a plan looks ahead, so the forecast sees no hit: hurt by something it does not know of, no factor on its zero would forecast that.
+    for (let second = 1; second <= 120; second++) planner.observe(second * 1_000, 'here', 1, 1, 50);
+    for (let frame = 0; frame < 400; frame++) planner.tick(PLAN_SECONDS * 1_000 * 7, 'here', () => quiet, doing);
+    expect(planner.calibration().incoming).toBe(1);
+
+    // Where it forecasts hits, twice its damage measured raises the correction, by no more than a step a plan.
+    const biting = createGrowthPlanner();
+    for (let frame = 0; frame < 400 && !biting.plan('here'); frame++) biting.tick(0, 'here', () => context(), doing);
+    const forecast = biting.plan('here')?.doing?.damagePerMinute ?? 0;
+    expect(forecast).toBeGreaterThan(0);
+    for (let second = 1; second <= 120; second++) biting.observe(second * 1_000, 'here', 1, 0, forecast * 2 / 60);
+    for (let frame = 0; frame < 400; frame++) biting.tick(PLAN_SECONDS * 1_000 * 7, 'here', () => context(), doing);
+    expect(biting.calibration().incoming).toBeCloseTo(1.3, 9);
+  });
+});
+
+describe('growth planner kill correction', () => {
+  it('leaves the damage correction alone where kills are held back by something else', () => {
+    // Two weak enemies that respawn slowly: kills wait on the respawns, whatever the damage.
+    const sparse: ForecastMap = { ...map('here', camp('damage', 500, 300, 2, enemy({ hp: 20, reward: { type: 'damage', amount: 1 } }))), respawnSeconds: 600 };
+    const live: GrowthContext = { build: build(), current: sparse, next: null, previous: null, nextPortal: null, previousPortal: null };
+    const planner = createGrowthPlanner();
+    for (let frame = 0; frame < 400 && !planner.plan('here'); frame++) planner.tick(0, 'here', () => live, doing);
+    expect(planner.plan('here')!.doing!.killResponse).toBeLessThan(.25);
+    for (let second = 1; second <= 120; second++) planner.observe(second * 1_000, 'here', 1, 1, 0);
+    for (let frame = 0; frame < 400; frame++) planner.tick(PLAN_SECONDS * 1_000 * 7, 'here', () => live, doing);
+    expect(planner.calibration().damage).toBe(1);
+  });
+});
+
 describe('autofarm with the growth planner', () => {
   const idle: Movement = { x: 0, y: 0, source: 'none' };
   function setup(next: ForecastMap | null) {
@@ -90,7 +126,7 @@ describe('autofarm with the growth planner', () => {
 
   it('moves on when the next map is forecast to grow the build faster, once it has farmed here a while', () => {
     const s = setup(richer);
-    s.farm.start({ auto: true, weights: {} });
+    s.farm.start([]);
     s.run(10);
     expect(s.farm.state().phase).toBe('farm');
     expect(s.farm.bossStatus()).toBe('Weighing Next Map');
@@ -98,10 +134,19 @@ describe('autofarm with the growth planner', () => {
     expect(s.farm.state().phase).toBe('portal');
   });
 
+  it('leaves the switch to the player with Auto Advance off', () => {
+    const s = setup(richer);
+    s.farm.setAdvance(false);
+    s.farm.start([]);
+    s.run(130);
+    expect(s.farm.state().phase).toBe('farm');
+    expect(s.farm.bossStatus()).toBe('Next Map Open');
+  });
+
   it('says it stays, and why, when the next map is forecast slower', () => {
     const poorer = map('ahead', camp('damage', 2_400, 2_400, 3, enemy({ hp: 2_000, reward: { type: 'damage', amount: .1 } })));
     const s = setup(poorer);
-    s.farm.start({ auto: true, weights: {} });
+    s.farm.start([]);
     s.run(130);
     expect(s.farm.state().phase).toBe('farm');
     expect(s.farm.bossStatus()).toMatch(/^Staying · Next Map (\d+% Slower|Too Hard)$/);
@@ -110,7 +155,7 @@ describe('autofarm with the growth planner', () => {
 
   it('stays when nothing ahead is better, deaths aside', () => {
     const s = setup(null);
-    s.farm.start({ auto: true, weights: {} });
+    s.farm.start([]);
     s.run(30);
     for (let death = 0; death < 6; death++) s.farm.defeated();
     s.run(30);
