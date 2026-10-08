@@ -27,7 +27,7 @@ const HELP_LINES: readonly [term: string, line: string][] = [
   ['Fighting', 'Walks to its target and fights standing.'],
   ['Move On', 'Moves to the next map when you\'ll grow faster there, and fights bosses it can beat in 10 minutes. Steps back if it keeps dying.'],
   ['Push', 'How soon it retries a map after stepping back.'],
-  ['Pull Whole Group', 'Pulls a whole camp only when you can tank it; on Auto, only where that grows you faster.'],
+  ['Pull Whole Group', 'Pulls a whole camp when you can tank it.'],
   ['Target', 'Which enemy it hits first.'],
 ];
 const titleCase = (text: string) => text.replace(/(^|[\s(/-])(\p{Ll})/gu, (_match, lead: string, letter: string) => lead + letter.toUpperCase());

@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.11": [
+    "Autofarm sliders always add up to 100%: put one stat at 100%, or any mix. Auto is gone",
+    "Autofarm fights standing again, with no kiting or dodging for now",
+    "Pull Whole Group counts Reflect and Second Wind, so reflect builds pull and tank whole camps",
+    "Autofarm no longer refights a boss that opens nothing, or walks back and forth between two maps",
+  ],
   "0.901.10": [
     "Autofarm kites small groups in a circle, dodges boss attacks, and only pulls a whole camp it can tank",
     "Autofarm moves to the next map when it will grow you faster there, and fights bosses it can beat in 10 minutes",
@@ -3001,6 +3007,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.11": "2026-10-08",
   "0.901.10": "2026-10-08",
   "0.901.9": "2026-10-07",
   "0.901.8": "2026-10-07",
