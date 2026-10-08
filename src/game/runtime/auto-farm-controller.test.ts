@@ -3,14 +3,14 @@ import { parseHTML } from 'linkedom';
 import { createBalanceApologyGiftController } from '../../ui/balance-apology-gift-controller';
 import { createGameBootstrap } from './game-bootstrap';
 import { createEnemyLifecycle } from './enemy-lifecycle';
-import { createAutoFarmController, autoFarmStandoff, AUTO_FARM_DEFEAT_LIMIT, AUTO_FARM_DEFEAT_WINDOW_MS, AUTO_FARM_REACH_MARGIN, PULL_WAIT_SECONDS } from './auto-farm-controller';
+import { createAutoFarmController, autoFarmStandoff, AUTO_FARM_REACH_MARGIN, PULL_WAIT_SECONDS } from './auto-farm-controller';
 import { formatCompactNumber } from '../../../shared/compact-number';
 import { createEnemySimulation } from './enemy-simulation';
 import { attackRangeWithResearch } from '../../../shared/utility-research';
 import { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 import type { SpawnSite } from '../world';
 import { ENEMY_TYPES, type EnemyKind } from '../enemies';
-import { AUTO_FARM_BOSS_POWER_KEY, AUTO_FARM_SHARES_KEY, decodeFarmPlan } from './auto-farm-plan';
+import { AUTO_FARM_BOSS_POWER_KEY, AUTO_FARM_MOVE_POWER_KEY, AUTO_FARM_SHARES_KEY, decodeFarmPlan } from './auto-farm-plan';
 import type { Circle } from './types';
 import { BOSS_KINDS } from './boss-registry';
 import { bossSurfaceDistance } from '../../../shared/boss-hitbox';
@@ -254,26 +254,47 @@ describe('autofarm', () => {
 
   it('never ends a farm itself over defeats: with no map behind it, it farms on', () => {
     const s = setup(); s.add('Bramble', 1500, 500); s.farm.start('Bramble');
-    for (let death = 0; death < AUTO_FARM_DEFEAT_LIMIT * 2; death += 1) { s.farm.defeated(); s.advance(20_000); }
+    for (let death = 0; death < 6; death += 1) { s.farm.defeated(); s.advance(20_000); }
     expect(s.farm.state().active).toBe(true);
     expect(s.tick().x).toBeGreaterThan(0);
   });
 
   it('forgets old defeats, so dying now and then over a long session never ends the farm', () => {
     const s = setup(); s.add('Bramble', 1500, 500); s.farm.start('Bramble');
-    for (let death = 0; death < AUTO_FARM_DEFEAT_LIMIT * 3; death += 1) { s.farm.defeated(); s.advance(AUTO_FARM_DEFEAT_WINDOW_MS / 2); }
+    for (let death = 0; death < 9; death += 1) { s.farm.defeated(); s.advance(90_000); }
     expect(s.farm.state().active).toBe(true);
   });
 
-  it('stops on map changes, unavailable gameplay, and rejects enemies absent from the map', () => {
+  it('carries on through a map change it did not make, stops on unavailable gameplay, and rejects enemies absent from the map', () => {
     const s = setup(); s.add('Bramble', 1500, 500);
     expect(s.farm.start('Needle')).toBe(false);
-    s.farm.start('Bramble'); s.setMap('desert');
-    expect(s.tick()).toEqual(idle);
-    expect(s.farm.state().active).toBe(false);
+    // The player walks through a portal (or teleports) while farming: it farms on there, same sliders.
+    s.farm.start('Bramble'); s.farm.travelStarted(); s.setMap('desert');
+    s.farm.refresh(); s.advance(1_000); s.farm.refresh();
+    expect(s.farm.state().active).toBe(true);
+    expect(s.tick().x).toBeGreaterThan(0);
+    // Moved without travel being reported (a relocation): the same.
+    s.setMap('forest'); s.farm.refresh(); s.advance(1_000); s.farm.refresh();
+    expect(s.farm.state().active).toBe(true);
+    s.farm.stop();
     s.farm.start('Bramble'); s.setUnavailable('Disconnected'); s.farm.refresh();
     expect(s.farm.state()).toMatchObject({ active: false, status: 'Disconnected' });
     expect(s.farm.start('Bramble')).toBe(false);
+  });
+
+  it('waits in a town with nothing to farm, lets the player walk, and farms again on the next map with enemies', () => {
+    const s = setup(); const bramble = s.add('Bramble', 1500, 500);
+    s.farm.start('Bramble'); s.farm.travelStarted();
+    // Town: no enemies.
+    s.enemies.length = 0; s.spawnSites.length = 0; s.setMap('home');
+    s.farm.refresh(); s.advance(1_000); s.farm.refresh();
+    expect(s.farm.state()).toMatchObject({ active: false, status: 'Farming resumes on a map with enemies' });
+    expect(s.farm.movement({ x: 1, y: 0, source: 'touch' }, 1 / 60)).toEqual({ x: 1, y: 0, source: 'touch' });
+    // Through a portal to a map with the stat again: it picks the farm back up.
+    s.farm.travelStarted(); s.setMap('forest'); s.enemies.push(bramble); s.add('Bramble', 1500, 500);
+    s.farm.refresh(); s.advance(1_000); s.farm.refresh();
+    expect(s.farm.state().active).toBe(true);
+    expect(s.tick().x).toBeGreaterThan(0);
   });
 
   it('retains the selected camp through disconnects and reacquires a fresh world after reconnecting', () => {
@@ -314,12 +335,11 @@ describe('autofarm', () => {
     expect(s.tick().x).toBeGreaterThan(0);
   });
 
-  it.each(['stop', 'map', 'character', 'sign-in', 'unavailable'] as const)(
+  it.each(['stop', 'character', 'sign-in', 'unavailable'] as const)(
     'does not restart after %s interrupts recovery', interrupt => {
       const s = setup(); s.add('Bramble', 1500, 500); s.farm.start('Bramble');
       s.setConnection('recovering'); s.farm.refresh();
       if (interrupt === 'stop') s.farm.stop();
-      if (interrupt === 'map') s.setMap('desert');
       if (interrupt === 'character') s.setIdentity('another-player');
       if (interrupt === 'sign-in') s.setConnection('ended');
       if (interrupt === 'unavailable') { s.setConnection('ready'); s.setUnavailable('Autofarm stopped after defeat'); }
@@ -374,13 +394,12 @@ describe('autofarm update handoff', () => {
     s.setMap('forest'); s.setUnavailable(null); s.advance(1000);
     expect(s.tick().x).toBeGreaterThan(0);
   });
-  it.each(['stop', 'character', 'map', 'sign-in'] as const)('does not resurrect farming after %s', change => {
+  it.each(['stop', 'character', 'sign-in'] as const)('does not resurrect farming after %s', change => {
     const memory = store(), before = setup([], 'starter_bow', memory);
     before.add('Bramble', 1000, 500); before.farm.start('Bramble');
     if (change === 'stop') before.farm.stop();
     const after = setup([], 'starter_bow', memory); after.add('Bramble', 1000, 500);
     if (change === 'character') after.setIdentity('another-player');
-    if (change === 'map') after.setMap('desert');
     if (change === 'sign-in') after.setConnection('ended');
     after.farm.refresh(); after.advance(1000); after.farm.refresh();
     expect(after.farm.state().active).toBe(false);
@@ -520,34 +539,27 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
       expect(s.farm.state()).toMatchObject({ phase: 'portal', status: 'Heading to the next map' });
     });
 
-    it('steps back a map after 3 deaths in 3 minutes, and the map it left then asks 20% more power than it had', () => {
-      let map = 'beginner_desert';
-      const s = planned({ power: () => 5_000, mapPower: () => 100, mapId: () => map,
-        previousPortal: () => map === 'beginner_desert' ? { x: 200, y: 500, destination: 'forest' } : null,
-        nextPortal: () => map === 'forest' ? { x: 1_800, y: 500, destination: 'beginner_desert' } : null });
+    it('never steps back a map or remembers deaths: Move On goes as soon as power reaches Move At times the next map', () => {
+      let power = 5_000;
+      const s = planned({ power: () => power, mapPower: () => 4_000, mapId: () => 'beginner_desert',
+        previousPortal: () => ({ x: 200, y: 500, destination: 'forest' }), nextPortal: () => ({ x: 1_800, y: 500, destination: 'intermediate_snowlands' }) });
       s.add('Bramble', 900, 500);
-      s.farm.setAdvance(true);
       s.farm.start([health]);
-      // Two deaths, and a third more than three minutes after the first: it stays.
-      s.farm.defeated(); s.advance(60_000); s.farm.defeated(); s.advance(AUTO_FARM_DEFEAT_WINDOW_MS); s.farm.defeated();
-      s.tick();
+      s.farm.setAdvance(true);
+      // Move At 2x: the next map's 4,000 times two.
+      s.farm.setMovePower(2);
+      for (let death = 0; death < 10; death++) { s.farm.defeated(); s.advance(5_000); s.tick(); }
       expect(s.farm.state().phase).toBe('farm');
-      // Three inside three minutes: back a map.
-      s.advance(10_000); s.farm.defeated(); s.advance(10_000); s.farm.defeated();
-      expect(AUTO_FARM_DEFEAT_LIMIT).toBe(3);
-      s.tick();
-      expect(s.farm.state()).toMatchObject({ phase: 'portal', status: 'Moving back a map' });
-      expect(s.farm.moveStatus()).toBe('Moving Back A Map');
-      s.farm.travelStarted();
-      map = 'forest';
-      s.enemies.length = 0; s.spawnSites.length = 0; s.add('Bramble', 900, 500);
-      s.advance(2_000); s.tick(); s.advance(2_000); s.tick();
-      // The map it left asks 20% over the 5,000 it had: it farms here until then.
-      expect(s.farm.state()).toMatchObject({ active: true, phase: 'farm' });
-      expect(s.farm.moveStatus()).toBe(`Next Map At ${at(6_000)}`);
+      expect(s.farm.moveStatus()).toBe(`Next Map At ${at(8_000)}`);
+      power = 8_000; s.advance(1_000); s.tick();
+      expect(s.farm.state()).toMatchObject({ phase: 'portal', status: 'Heading to the next map' });
+      // Move At 0.5x goes at half; the setting is kept.
+      s.farm.setMovePower(.5);
+      expect(s.farm.movePower()).toBe(.5);
+      expect(s.values.get(AUTO_FARM_MOVE_POWER_KEY)).toBe('0.5');
     });
 
-    it('Fight Bosses fights at the boss power, leaves below 30% health, and tries again at 20% more power', () => {
+    it('Fight Bosses fights once power reaches the boss, until it or the player is down, and goes again with no wait', () => {
       let power = 1_500;
       const boss = { x: 900, y: 500, r: 60, hp: 1_000, maxHp: 1_000 };
       const s = planned({ power: () => power, bossPower: () => 2_000, mapBoss: () => boss, bossUnlocksNext: () => true });
@@ -565,20 +577,15 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
       expect(s.farm.state().phase).toBe('boss');
       expect(s.farm.bossStatus()).toBe('Fighting Boss');
       expect(s.farm.bossReady()).toBe(true);
-      // Below 30% health it walks away; the next try asks 20% over the 2,000 it had.
-      s.player.hp = s.player.maxHp * .29;
-      expect(s.tick()).toEqual(idle);
-      expect(s.farm.state().phase).toBe('farm');
-      s.player.hp = s.player.maxHp; s.advance(1_000); s.tick();
-      expect(s.farm.state().phase).toBe('farm');
-      expect(s.farm.bossStatus()).toBe(`Boss At ${at(2_400)}`);
-      power = 2_400; s.advance(1_000); s.tick();
+      // Low on health it fights on: nothing walks it away.
+      s.player.hp = s.player.maxHp * .05;
+      s.tick();
       expect(s.farm.state().phase).toBe('boss');
-      // Dying at the boss is the same: 20% more.
+      // Killed by the boss: back after the respawn at the same power, no wait and no more power asked.
       s.farm.defeated();
-      expect(s.farm.state().phase).toBe('farm');
-      s.advance(1_000);
-      expect(s.farm.bossStatus()).toBe(`Boss At ${at(2_880)}`);
+      s.player.hp = s.player.maxHp; s.advance(1_000); s.tick();
+      expect(s.farm.state().phase).toBe('boss');
+      expect(s.farm.bossStatus()).toBe('Fighting Boss');
     });
 
     it("Fight At scales the boss power it waits for: 0.5x goes at half, 2x at double, and the choice is kept", () => {

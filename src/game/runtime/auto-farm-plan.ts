@@ -199,58 +199,28 @@ export const readFightBosses = (storage: () => Storage | undefined = () => local
 export const writeFightBosses = (on: boolean, storage: () => Storage | undefined = () => localStorage) => writeSwitch(AUTO_FARM_BOSSES_KEY, on, storage);
 
 /**
- * Fight Bosses' slider: how much of the boss's power the player wants before
- * a fight, 0.1x (go early) to 10x (only a sure win). Even steps either side of
- * 1x, so the middle of the slider is the boss's own power.
+ * The sliders under Move On and Fight Bosses: how much of the next map's, or
+ * the boss's, recommended power the player wants before going, 0.1x (go early)
+ * to 10x (only when far ahead). Even steps either side of 1x, so the middle of
+ * each slider is the map's or boss's own power.
  */
-export const BOSS_POWER_STEPS = [.1, .2, .3, .5, .75, 1, 1.5, 2, 3, 5, 10] as const;
-export const DEFAULT_BOSS_POWER = 1;
+export const POWER_STEPS = [.1, .2, .3, .5, .75, 1, 1.5, 2, 3, 5, 10] as const;
+export const DEFAULT_POWER_STEP = 1;
+export const AUTO_FARM_MOVE_POWER_KEY = 'wildstat:autofarm-move-power:v1';
 export const AUTO_FARM_BOSS_POWER_KEY = 'wildstat:autofarm-boss-power:v1';
 /** The step nearest `value` (by ratio), so anything saved or passed lands on the slider. */
-export function bossPowerStep(value: number) {
-  if (!Number.isFinite(value) || value <= 0) return DEFAULT_BOSS_POWER;
-  return BOSS_POWER_STEPS.reduce((best, step) => Math.abs(Math.log(step / value)) < Math.abs(Math.log(best / value)) ? step : best, DEFAULT_BOSS_POWER as number);
+export function powerStep(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return DEFAULT_POWER_STEP;
+  return POWER_STEPS.reduce((best, step) => Math.abs(Math.log(step / value)) < Math.abs(Math.log(best / value)) ? step : best, DEFAULT_POWER_STEP as number);
 }
-export const bossPowerLabel = (value: number) => `${bossPowerStep(value)}x`;
-export function readBossPower(storage: () => Storage | undefined = () => localStorage) {
-  try { const saved = storage()?.getItem(AUTO_FARM_BOSS_POWER_KEY); return saved == null ? DEFAULT_BOSS_POWER : bossPowerStep(Number(saved)); } catch { return DEFAULT_BOSS_POWER; }
+export const powerLabel = (value: number) => `${powerStep(value)}x`;
+function readStep(key: string, storage: () => Storage | undefined) {
+  try { const saved = storage()?.getItem(key); return saved == null ? DEFAULT_POWER_STEP : powerStep(Number(saved)); } catch { return DEFAULT_POWER_STEP; }
 }
-export function writeBossPower(value: number, storage: () => Storage | undefined = () => localStorage) {
-  try { storage()?.setItem(AUTO_FARM_BOSS_POWER_KEY, String(bossPowerStep(value))); } catch { /* Applies this session. */ }
+function writeStep(key: string, value: number, storage: () => Storage | undefined) {
+  try { storage()?.setItem(key, String(powerStep(value))); } catch { /* Applies this session. */ }
 }
-
-/**
- * What a map or boss asks before it is tried again: the power the player had
- * when it stepped back or walked away, and 20% more. One number per thing,
- * per character, kept so a reload remembers; one set by a build more than
- * twice as strong (a prestige started over) is ignored.
- */
-export const RETRY_POWER_FACTOR = 1.2;
-export const AUTO_FARM_RETRY_KEY = 'wildstat:autofarm-retry:v2';
-export function createRetryPowers(storage: () => Storage | undefined = () => localStorage) {
-  let cache: Record<string, [needed: number, setAt: number]> | null = null;
-  const load = () => {
-    if (cache) return cache;
-    cache = {};
-    const saved = finiteRecordOfPairs(safeParse(storage()?.getItem(AUTO_FARM_RETRY_KEY)));
-    if (saved) cache = saved;
-    return cache;
-  };
-  return {
-    /** The power `key` asks for now (0: nothing holds it back). */
-    needed(identity: string, key: string, power: number) {
-      const entry = load()[`${identity}|${key}`];
-      return entry && entry[1] * .5 <= power ? entry[0] : 0;
-    },
-    /** Stepped back from, or walked away from, at `power`. */
-    raise(identity: string, key: string, power: number) {
-      load()[`${identity}|${key}`] = [power * RETRY_POWER_FACTOR, power];
-      try { storage()?.setItem(AUTO_FARM_RETRY_KEY, JSON.stringify(cache)); } catch { /* Remembered this session. */ }
-    },
-  };
-}
-function finiteRecordOfPairs(value: unknown): Record<string, [number, number]> | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, [number, number]] =>
-    Array.isArray(entry[1]) && entry[1].length === 2 && entry[1].every(item => typeof item === 'number' && Number.isFinite(item) && item >= 0)));
-}
+export const readMovePower = (storage: () => Storage | undefined = () => localStorage) => readStep(AUTO_FARM_MOVE_POWER_KEY, storage);
+export const writeMovePower = (value: number, storage: () => Storage | undefined = () => localStorage) => writeStep(AUTO_FARM_MOVE_POWER_KEY, value, storage);
+export const readBossPower = (storage: () => Storage | undefined = () => localStorage) => readStep(AUTO_FARM_BOSS_POWER_KEY, storage);
+export const writeBossPower = (value: number, storage: () => Storage | undefined = () => localStorage) => writeStep(AUTO_FARM_BOSS_POWER_KEY, value, storage);

@@ -224,9 +224,9 @@
 }
 .farm-weight input[type="range"]::-moz-range-thumb { box-sizing: border-box; width: 22px; height: 22px; border: 3px solid #000; border-radius: 50%; background: #f2f2f2; }
 .farm-weight input[type="range"]:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-/* Fight Bosses' Fight At slider, under its switch: boss gold, resting with the switch off. */
-.farm-boss-power { --farm-stat-color: #ffcf7a; padding: 0 2px; }
-.farm-boss-power.is-off { opacity: .45; cursor: default; }
+/* Move At and Fight At, each under its switch: gold, resting with the switch off. */
+.farm-power { --farm-stat-color: #ffcf7a; padding: 0 2px; }
+.farm-power.is-off { opacity: .45; cursor: default; }
 /* Move On: the boss, then the next map; what it will do next under the name. */
 .farm-sheet .farm-switch {
   display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; min-height: 50px; padding: 6px 12px;

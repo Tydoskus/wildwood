@@ -1,12 +1,15 @@
 import { MAP_IDS as CAMPAIGN_MAP_IDS } from '../../../shared/rules';
+import { ENDLESS_STEPS } from '../../../shared/map-balance';
+import { proceduralMapNumber } from '../../../shared/procedural-maps';
 
 /**
  * The power the Balance Lab expects a player to bring to each campaign map:
  * its entry build's power in one Lab campaign from a fresh character
  * (autofarm-sim/reference-builds.ts campaignReferenceBuilds, the build the
  * maps are tuned to), at balance revision 79. The game has no recommended
- * power of its own; this is its balance curve. Endless and the Soul Dimension
- * have none. After a rebalance, regenerate it with
+ * power of its own; this is its balance curve. Endless carries it on by the
+ * live balance's per-stage growth (endlessMapPower); the Soul Dimension's
+ * enemies are sized to the player, so it has none. After a rebalance, regenerate it with
  * AUTOFARM_POWER_TABLE=1 npx vitest run src/game/runtime/auto-farm-power.test.ts
  */
 export const MAP_POWER_REVISION = 79;
@@ -28,9 +31,23 @@ export const MAP_ENTRY_POWER: Readonly<Record<string, number>> = {
   ion_citadel: 451_676_171_019,
 };
 
+/**
+ * How much more power each Endless stage asks than the one before. The live
+ * balance grows every Endless stage's enemy health by ENDLESS_STEPS.health and
+ * their hits by ENDLESS_STEPS.hit (shared/map-balance.ts resolveMapBalance);
+ * power counts damage and health alike, so it grows by the two's geometric
+ * mean, about 5.4x a stage.
+ */
+export const ENDLESS_STAGE_GROWTH = Math.sqrt(ENDLESS_STEPS.health * ENDLESS_STEPS.hit);
+/** Endless N's recommended power: the last campaign map's, grown one Endless step per stage. */
+export function endlessMapPower(number: number): number {
+  return MAP_ENTRY_POWER[CAMPAIGN_MAP_IDS[CAMPAIGN_MAP_IDS.length - 1]] * ENDLESS_STAGE_GROWTH ** Math.max(1, number);
+}
+
 /** A map's recommended power: what Move On waits for before going there. Null where there is none (Endless, the Soul Dimension). */
 export function recommendedMapPower(mapId: string): number | null {
-  return MAP_ENTRY_POWER[mapId] ?? null;
+  const endless = proceduralMapNumber(mapId);
+  return endless !== null ? endlessMapPower(endless) : MAP_ENTRY_POWER[mapId] ?? null;
 }
 
 /**
@@ -39,7 +56,11 @@ export function recommendedMapPower(mapId: string): number | null {
  * own where there is no map after it. Null where the map has none.
  */
 export function recommendedBossPower(mapId: string): number | null {
+  // An Endless boss gates the next stage: it is sized for that stage's entry.
+  const endless = proceduralMapNumber(mapId);
+  if (endless !== null) return endlessMapPower(endless + 1);
   const index = CAMPAIGN_MAP_IDS.indexOf(mapId);
   if (index < 0) return null;
-  return MAP_ENTRY_POWER[CAMPAIGN_MAP_IDS[index + 1]] ?? recommendedMapPower(mapId);
+  // The last campaign map's boss opens Endless 1.
+  return index === CAMPAIGN_MAP_IDS.length - 1 ? endlessMapPower(1) : MAP_ENTRY_POWER[CAMPAIGN_MAP_IDS[index + 1]] ?? recommendedMapPower(mapId);
 }

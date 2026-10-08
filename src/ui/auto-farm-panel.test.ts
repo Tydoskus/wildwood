@@ -348,7 +348,7 @@ it('the ? opens a page saying what each control does in place of the settings; B
   expect(toggle.getAttribute('aria-expanded')).toBe('true');
   // Every control in the window is explained.
   const terms = [...help.querySelectorAll('dt')].map(term => term.textContent);
-  expect(terms).toEqual(['Sliders', 'Move On', 'Fight Bosses', 'Pull Whole Group', 'Target']);
+  expect(terms).toEqual(['Sliders', 'Move On', 'Fight Bosses', 'Deaths', 'Pull Whole Group', 'Target']);
   expect([...help.querySelectorAll('dd')].every(line => (line.textContent ?? '').length > 10)).toBe(true);
   s.click('.farm-close');
   expect(s.sheet.open).toBe(true);
@@ -388,4 +388,20 @@ it('Fight At sets how much of the boss power to wait for, 0.1x to 10x with 1x in
   expect(s.farm.bossPower()).toBe(10);
   expect(row.querySelector('output')!.textContent).toBe('10x');
   expect(slider.getAttribute('aria-valuetext')).toBe('10x');
+});
+
+it('Move At sits under Move On, 0.1x to 10x of the next map power, and rests while Move On is off', () => {
+  const s = setup();
+  s.click('.farm-toggle');
+  const row = s.document.querySelector<HTMLElement>('.farm-move-power')!, slider = row.querySelector('input')!;
+  expect(row.querySelector('output')!.textContent).toBe('1x');
+  expect(slider.disabled).toBe(true);
+  s.click('[data-switch="advance"]');
+  expect(slider.disabled).toBe(false);
+  slider.value = '7';
+  slider.dispatchEvent(new s.window.Event('input', { bubbles: true }));
+  expect(s.farm.movePower()).toBe(2);
+  expect(row.querySelector('output')!.textContent).toBe('2x');
+  // Its own setting: Fight At is untouched.
+  expect(s.farm.bossPower()).toBe(1);
 });

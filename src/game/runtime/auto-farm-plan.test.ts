@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AUTO_FARM_CHOICE_KEY, AUTO_FARM_SHARES_KEY, AUTO_FARM_SOUL_SHARES_KEY, AUTO_FARM_WEIGHTS_KEY, decodeFarmPlan, encodeFarmPlan, evenShares, legacyShares,
-  AUTO_FARM_ADVANCE_KEY, AUTO_FARM_BOSSES_KEY, AUTO_FARM_BOSS_POWER_KEY, bossPowerStep, readBossPower, writeBossPower, readFightBosses, writeFightBosses, readSavedShares, rebalanceShares, shareFarmKey, shareLabel, sharesForGroups, writeSavedShares,
+  AUTO_FARM_ADVANCE_KEY, AUTO_FARM_BOSSES_KEY, AUTO_FARM_BOSS_POWER_KEY, AUTO_FARM_MOVE_POWER_KEY, powerStep, readBossPower, writeBossPower, readMovePower, writeMovePower, readFightBosses, writeFightBosses, readSavedShares, rebalanceShares, shareFarmKey, shareLabel, sharesForGroups, writeSavedShares,
 } from './auto-farm-plan';
 import { SOUL_MAP_ID } from '../../../shared/soul-dimension';
 
@@ -134,10 +134,15 @@ it('Fight At is 1x until set, snaps anything to the nearest step, and survives a
   expect(readBossPower(m.storage)).toBe(1);
   writeBossPower(.5, m.storage);
   expect(readBossPower(m.storage)).toBe(.5);
-  expect(bossPowerStep(.9)).toBe(1);
-  expect(bossPowerStep(7)).toBe(5);
-  expect(bossPowerStep(50)).toBe(10);
-  expect(bossPowerStep(.01)).toBe(.1);
+  expect(powerStep(.9)).toBe(1);
+  expect(powerStep(7)).toBe(5);
+  expect(powerStep(50)).toBe(10);
+  expect(powerStep(.01)).toBe(.1);
   m.values.set(AUTO_FARM_BOSS_POWER_KEY, 'nope');
+  expect(readBossPower(m.storage)).toBe(1);
+  // Move At is its own slider, kept apart.
+  expect(readMovePower(m.storage)).toBe(1);
+  writeMovePower(3, m.storage);
+  expect(m.values.get(AUTO_FARM_MOVE_POWER_KEY)).toBe('3');
   expect(readBossPower(m.storage)).toBe(1);
 });
