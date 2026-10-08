@@ -21,6 +21,12 @@ const SETTLE_MS = 1_200;
  */
 const INPUT_GRACE_MS = 700;
 const CONFIRM_GAP_MS = 400;
+/**
+ * It closes itself this long after opening, unless a prestige is under way.
+ * It used to pause the game until answered, so a player who was idle or
+ * autofarming when the unlock arrived sat frozen until they came back.
+ */
+export const AUTO_CLOSE_MS = 60_000;
 
 /**
  * The level to announce, or 0 for none.
@@ -77,7 +83,6 @@ export type PrestigeUnlockPopupDependencies = {
   /** The prestige panel's own reducer call. */
   runPrestige: () => Promise<PrestigeResult>;
   showMessage?: (text: string) => void;
-  pause?: (paused: boolean) => void;
   storage?: StorageLike | null;
   root?: Document;
   now?: () => number;
@@ -171,7 +176,6 @@ export function createPrestigeUnlockPopup(dependencies: PrestigeUnlockPopupDepen
     open = true;
     openedAt = now();
     overlay.hidden = false;
-    dependencies.pause?.(true);
     // The way out, not the reset, holds focus: a stray Enter only closes it.
     laterButton.focus?.();
   }
@@ -181,7 +185,6 @@ export function createPrestigeUnlockPopup(dependencies: PrestigeUnlockPopupDepen
     open = false;
     overlay.hidden = true;
     disarm();
-    dependencies.pause?.(false);
   }
 
   /**
@@ -191,7 +194,8 @@ export function createPrestigeUnlockPopup(dependencies: PrestigeUnlockPopupDepen
    * be free before opening, once.
    */
   function poll() {
-    if (open) return;
+    // The game runs on behind it, so it does not wait forever for an answer.
+    if (open) { if (!pending && now() - openedAt >= AUTO_CLOSE_MS) close(); return; }
     const identity = dependencies.identity();
     if (!identity || !dependencies.ready()) { due = null; return; }
     const current = Math.max(0, Math.floor(dependencies.level()));

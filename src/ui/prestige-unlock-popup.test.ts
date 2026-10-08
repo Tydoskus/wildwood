@@ -25,12 +25,11 @@ function setup(options: {
   const storage = options.storage ?? memoryStorage();
   const runPrestige = vi.fn(options.run ?? (async () => { state.level += 1; state.campaign = false; return { ok: true }; }));
   const showMessage = vi.fn();
-  const pause = vi.fn();
   const popup = createPrestigeUnlockPopup({
     root: document as unknown as Document, storage, now: () => state.time, settleMs: 1_000,
     identity: () => IDENTITY, ready: () => state.ready, blocked: () => state.blocked,
     level: () => state.level, campaignComplete: () => state.campaign, completedEndless: () => state.endless,
-    runPrestige, showMessage, pause,
+    runPrestige, showMessage,
   });
   const overlay = document.getElementById("prestigeUnlock") as any;
   const pick = (selector: string) => overlay.querySelector(selector) as any;
@@ -38,7 +37,7 @@ function setup(options: {
   const tick = (ms = 0) => { state.time += ms; popup.poll(); };
   /** Polls until the settle delay has passed, the way the HUD tick would. */
   const settle = () => { tick(); tick(1_000); };
-  return { document, popup, overlay, pick, state, storage, runPrestige, showMessage, pause, tick, settle };
+  return { document, popup, overlay, pick, state, storage, runPrestige, showMessage, tick, settle };
 }
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 
@@ -74,7 +73,6 @@ describe("prestige unlock popup", () => {
     expect(s.pick(".prestige-unlock-badge").textContent).toBe("1");
     expect(s.pick(".prestige-unlock-reward").textContent).toBe("You would earn +10% stat gain and 1 perk point.");
     expect(s.pick(".prestige-cost").textContent).toContain("resets your stats and map unlocks");
-    expect(s.pause).toHaveBeenLastCalledWith(true);
   });
 
   it("announces each level once per identity", () => {
@@ -85,7 +83,6 @@ describe("prestige unlock popup", () => {
     s.tick(1_000);
     s.pick(".prestige-unlock-later-button").click();
     expect(s.popup.isOpen()).toBe(false);
-    expect(s.pause).toHaveBeenLastCalledWith(false);
     for (let i = 0; i < 5; i++) s.tick(1_000);
     expect(s.popup.isOpen()).toBe(false);
   });
@@ -217,7 +214,6 @@ describe("prestiging from the unlock popup", () => {
     expect(s.runPrestige).toHaveBeenCalledTimes(1);
     expect(s.popup.isOpen()).toBe(false);
     expect(s.showMessage).toHaveBeenCalledWith("Prestige 1 complete.");
-    expect(s.pause).toHaveBeenLastCalledWith(false);
   });
 
   it("keeps the window open and says why when the server refuses", async () => {
@@ -278,4 +274,29 @@ describe("prestiging from the unlock popup", () => {
 it("is not held back by the loading class, which the page never removes", () => {
   const { document } = parseHTML('<html><body class="is-loading-game-assets has-webgl-world"></body></html>');
   expect(screenIsBusy(document as unknown as Document)).toBe(false);
+});
+
+it("never pauses the game, and closes itself a minute after opening unless a prestige is under way", async () => {
+  const s = setup();
+  s.settle();
+  expect(s.popup.isOpen()).toBe(true);
+  s.tick(59_000);
+  expect(s.popup.isOpen()).toBe(true);
+  s.tick(1_000);
+  expect(s.popup.isOpen()).toBe(false);
+  expect(s.overlay.hidden).toBe(true);
+  // Announced once: an idle player is not shown it again on the next tick.
+  s.tick(1_000);
+  expect(s.popup.isOpen()).toBe(false);
+});
+
+it("stays open past the minute while a prestige it started is still being saved", () => {
+  const s = setup({ run: () => new Promise(() => {}) });
+  s.settle();
+  const confirm = s.pick(".prestige-unlock-confirm");
+  s.tick(1_000); confirm.click();
+  s.tick(500); confirm.click();
+  expect(s.runPrestige).toHaveBeenCalledTimes(1);
+  s.tick(61_000);
+  expect(s.popup.isOpen()).toBe(true);
 });

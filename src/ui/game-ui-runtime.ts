@@ -104,7 +104,6 @@ export function createPrestigeUnlockRuntime(d: Record<string, any>) {
     expanded: d.expanded,
     runPrestige: d.runPrestige,
     showMessage: d.showMessage,
-    pause: d.pause,
   });
 }
 
