@@ -337,3 +337,32 @@ it('in the Soul Dimension draws a slider per soul stat present, in its soul colo
   s.click('.farm-start');
   expect(s.farm.state()).toMatchObject({ active: true, weights: { 'soul:attackSpeed': 100, 'soul:critDamage': 50, 'soul:damage': 0 } });
 });
+
+it('the ? opens a page saying what each control does in place of the settings; Back returns to them, then closes', () => {
+  const s = setup();
+  s.click('.farm-toggle');
+  const help = s.document.querySelector<HTMLElement>('.farm-help')!, body = s.document.querySelector<HTMLElement>('.farm-body')!;
+  const toggle = s.document.querySelector('.farm-help-toggle')!;
+  expect(help.hidden).toBe(true);
+  s.click('.farm-help-toggle');
+  expect(help.hidden).toBe(false);
+  expect(body.hidden).toBe(true);
+  expect(toggle.getAttribute('aria-expanded')).toBe('true');
+  // Every control in the window is explained.
+  const terms = [...help.querySelectorAll('dt')].map(term => term.textContent);
+  expect(terms).toEqual(['Auto', 'Custom', 'Fighting', 'Move On', 'Push', 'Pull Whole Group', 'Target']);
+  expect([...help.querySelectorAll('dd')].every(line => (line.textContent ?? '').length > 10)).toBe(true);
+  s.click('.farm-close');
+  expect(s.sheet.open).toBe(true);
+  expect(help.hidden).toBe(true);
+  expect(body.hidden).toBe(false);
+  s.click('.farm-close');
+  expect(s.sheet.open).toBe(false);
+  // Reopened, it starts on the settings even if it was closed from the help page.
+  s.click('.farm-toggle');
+  s.click('.farm-help-toggle');
+  s.panel.close();
+  s.click('.farm-toggle');
+  expect(help.hidden).toBe(true);
+  expect(body.hidden).toBe(false);
+});

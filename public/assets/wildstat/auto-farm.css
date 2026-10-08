@@ -187,6 +187,21 @@
 }
 .farm-body::-webkit-scrollbar { display: none; }
 .farm-body > * { flex-shrink: 0; }
+/* "?" in the banner's corner opens a page saying what each control does: just the mark, like the old minimap one. */
+#autoFarmSheet .farm-header { position: relative; }
+#autoFarmSheet .farm-help-toggle {
+  position: absolute; top: 6px; right: 6px; display: grid; place-items: center; width: 36px; height: 36px; margin: 0; padding: 0;
+  border: 0; background: none; box-shadow: none; color: #fff; font: 900 20px/1 var(--font-rounded); cursor: pointer;
+  -webkit-text-stroke: 0; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+}
+#autoFarmSheet .farm-help-toggle[aria-expanded="true"] { color: var(--green); }
+#autoFarmSheet .farm-help-toggle:active { transform: scale(.94); }
+.farm-help { flex: 1 1 auto; min-height: 0; padding: 4px 16px 8px; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: none; }
+.farm-help::-webkit-scrollbar { display: none; }
+.farm-help-list { display: grid; gap: 3px; margin: 0; }
+.farm-help-list dt { margin-top: 7px; color: #fff; font-size: 14px; }
+.farm-help-list dt:first-child { margin-top: 0; }
+.farm-help-list dd { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.35; -webkit-text-stroke: 0; text-shadow: none; }
 /* One slider per stat the map pays: its share of the farming time, 0% to 200%. They rest while on Auto. */
 .farm-weights { display: grid; gap: 2px; }
 .farm-weights.is-auto .farm-weight { opacity: .5; }

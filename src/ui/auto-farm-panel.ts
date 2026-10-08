@@ -21,6 +21,16 @@ export const AUTO_FARM_MORE_KEY = 'wildstat:autofarm-more-open:v1';
 type PanelStorage = Pick<Storage, 'getItem' | 'setItem'>;
 const defaultStorage = (): PanelStorage | undefined => { try { return window.localStorage; } catch { return undefined; } };
 /** The controller's lines are sentence case ("Moving to enemy"); the window shows every word capitalised. */
+/** The "?" page: what each control does, a line each, in the words a player would use. */
+const HELP_LINES: readonly [term: string, line: string][] = [
+  ['Auto', 'Farms the stat that grows your power fastest.'],
+  ['Custom', 'Splits farming time by your sliders. 0% skips a stat.'],
+  ['Fighting', 'Circles a few enemies so they can\'t catch you, and dodges boss attacks.'],
+  ['Move On', 'Moves to the next map when you\'ll grow faster there, and fights bosses it can beat in 10 minutes. Steps back if it keeps dying.'],
+  ['Push', 'How soon it retries a map after stepping back.'],
+  ['Pull Whole Group', 'Pulls a whole camp when you can tank it.'],
+  ['Target', 'Which enemy it hits first.'],
+];
 const titleCase = (text: string) => text.replace(/(^|[\s(/-])(\p{Ll})/gu, (_match, lead: string, letter: string) => lead + letter.toUpperCase());
 const segment = (label: string, labelId: string, className: string, buttons: string) =>
   `<div class="farm-setting"><span id="${labelId}" class="farm-setting-label">${label}</span>`
@@ -65,7 +75,9 @@ export function createAutoFarmPanel(options: {
   sheet.id = 'autoFarmSheet';
   sheet.className = 'farm-sheet';
   sheet.setAttribute('aria-labelledby', 'autoFarmTitle');
-  sheet.innerHTML = `<header class="farm-header"><h2 id="autoFarmTitle" class="window-banner"><span>Auto Farm</span></h2></header>`
+  sheet.innerHTML = `<header class="farm-header"><h2 id="autoFarmTitle" class="window-banner"><span>Auto Farm</span></h2>`
+    + `<button type="button" class="farm-help-toggle" aria-expanded="false" aria-controls="autoFarmHelp" aria-label="How Auto Farm Works" title="How Auto Farm Works">?</button></header>`
+    + `<div id="autoFarmHelp" class="farm-help" hidden><dl class="farm-help-list"></dl></div>`
     + `<div class="farm-body">`
     + segment('Stats', 'autoFarmStatsLabel', 'farm-mode', `<button type="button" role="radio" data-mode="auto" title="Farms The Stat That Grows Your Power Fastest">Auto</button>`
       + `<button type="button" role="radio" data-mode="custom" title="Farms Each Stat For Its Share Of The Time">Custom</button>`)
@@ -94,6 +106,21 @@ export function createAutoFarmPanel(options: {
   const emptyNote = element('.farm-empty');
   const moreToggle = element<HTMLButtonElement>('.farm-more-toggle');
   const more = element('.farm-more');
+  const helpToggle = element<HTMLButtonElement>('.farm-help-toggle');
+  const help = element('.farm-help');
+  const body = element('.farm-body');
+  const helpList = element('.farm-help-list');
+  for (const [term, line] of HELP_LINES) {
+    const dt = document.createElement('dt'), dd = document.createElement('dd');
+    dt.textContent = term; dd.textContent = line;
+    helpList.append(dt, dd);
+  }
+  /** The "?" page takes the settings' place, so the window keeps its size; Back returns to them. */
+  function setHelpOpen(open: boolean) {
+    help.hidden = !open;
+    body.hidden = open;
+    helpToggle.setAttribute('aria-expanded', String(open));
+  }
   /** The choice in this window: Auto, or the sliders (kept while on Auto). */
   let draft: FarmChoice = AUTO_FARM_CHOICE;
   /** Custom with every slider here at 0%: nothing to farm. */
@@ -216,11 +243,20 @@ export function createAutoFarmPanel(options: {
 
   function close() {
     if (!sheet.open) return false;
+    setHelpOpen(false);
     sheet.close();
     options.clearInput();
     options.setPaused(false);
     priorFocus?.focus();
     refresh();
+    return true;
+  }
+
+  /** Back and Escape leave the "?" page first, then the window. */
+  function back() {
+    if (help.hidden) return close();
+    setHelpOpen(false);
+    helpToggle.focus();
     return true;
   }
 
@@ -230,6 +266,7 @@ export function createAutoFarmPanel(options: {
     // Reopening shows the choice last farmed with, as this map names its stats.
     draft = options.farm.savedChoice();
     choiceKey = '';
+    setHelpOpen(false);
     options.clearInput();
     options.setPaused(true);
     sheet.showModal();
@@ -272,8 +309,9 @@ export function createAutoFarmPanel(options: {
     if (options.farm.state().active) { options.farm.stop(); refresh(); }
     else open();
   });
-  element('.farm-close').addEventListener('click', close);
+  element('.farm-close').addEventListener('click', back);
   moreToggle.addEventListener('click', () => setMoreOpen(more.hidden, true));
+  helpToggle.addEventListener('click', () => setHelpOpen(help.hidden));
   for (const button of modeButtons) button.addEventListener('click', () => { draft = { ...draft, auto: button.dataset.mode === 'auto' }; updateSelection(); });
   for (const button of priorityButtons) button.addEventListener('click', () => {
     const choice = AUTO_FARM_PRIORITIES.find(entry => entry.id === button.dataset.priority);
@@ -290,7 +328,7 @@ export function createAutoFarmPanel(options: {
     if (options.farm.pullAvailable?.() !== false) options.farm.setPullAll(button.dataset.pull === 'on');
     updateSelection();
   });
-  sheet.addEventListener('cancel', event => { event.preventDefault(); close(); });
+  sheet.addEventListener('cancel', event => { event.preventDefault(); back(); });
   sheet.addEventListener('click', event => {
     if (event.target !== sheet) return;
     const bounds = sheet.getBoundingClientRect();
