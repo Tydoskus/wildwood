@@ -16,11 +16,11 @@ import { enemyChaseSpeed } from '../../../shared/rules';
 import { carryFarmGroup, compareAutoFarmTargets, farmGroupMatches, farmGroupOf, farmStatGroup, readAutoFarmPriority, soulFarmReward, readAutoFarmPull, writeAutoFarmPriority, writeAutoFarmPull, type AutoFarmGroup, type AutoFarmPriority } from './auto-farm-priority';
 import type { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 import {
-  AUTO_FARM_CHOICE, AUTO_REPLAN_SECONDS, pickRankedCandidate, rankFarmCandidates, decodeFarmPlan, encodeFarmPlan, farmWeight, routeChoice, shareFarmKey,
-  readFarmAdvance, readFarmChoice, writeFarmAdvance, writeFarmChoice, type FarmChoice, type FarmEvaluation, type FarmReward, type FarmWeights,
+  SHARE_REPLAN_SECONDS, decodeFarmPlan, encodeFarmPlan, legacyShares, readSavedShares, sharesForGroups, shareFarmKey,
+  readFarmAdvance, writeFarmAdvance, writeSavedShares, type FarmEvaluation, type FarmReward, type FarmShares,
 } from './auto-farm-plan';
 import {
-  BOSS_READY_HEALTH, PROBATION_MS, DIED_TO_GROUP_MS, FARM_PUSHES, bossFightRates, bossReadiness, bossRetryKey, type MeasuredBossFight, createPowerGainMeter, createRetryMemory,
+  BOSS_READY_HEALTH, PROBATION_MS, FARM_PUSHES, bossFightRates, bossReadiness, bossRetryKey, type MeasuredBossFight, createPowerGainMeter, createRetryMemory,
   probationVerdict, readFarmPush, rescaleBossFight, shouldLeaveBoss, writeFarmPush, type FarmPush,
 } from './auto-farm-brain';
 import { createGrowthPlanner, PLAN_SECONDS, type GrowthContext, type GrowthPlan, type GrowthTuning } from './auto-farm-growth';
@@ -148,29 +148,25 @@ export function createAutoFarmController(options: {
   const evading = options.evasion ?? AUTO_FARM_EVASION;
   let priority: AutoFarmPriority = readAutoFarmPriority(options.priorityStorage);
   // A camp is a stat group: every enemy on the map paying one stat, as the panel offers them.
-  // Pull's groups: the one being farmed, then the next largest sliders (or Auto's next best), one more per Aggro win.
+  // Pull's groups: the one being farmed, then the next largest sliders, one more per Aggro win; never a 0% one.
   let pulled = new Set<string>(), pulledKey = '';
-  /** Auto's camps best first, from its last look: on Auto, Pull's extra camps are the next best. */
-  let autoOrder: string[] = [];
   function pulledGroups() {
     // Zero during an Aggro run: its own chasing groups are the run's pull.
-    const count = Math.max(0, options.pullCamps?.() ?? 1), key = `${selected}|${count}|${weightOrder.join()}|${autoOrder.join()}`;
+    const count = Math.max(0, options.pullCamps?.() ?? 1), key = `${selected}|${count}|${weightOrder.join()}`;
     if (key === pulledKey) return pulled;
-    const order = [selected, ...(weights ? weightOrder : autoOrder)].filter((group): group is string => Boolean(group));
+    const order = [selected, ...weightOrder].filter((group): group is string => Boolean(group));
     pulled = new Set([...new Set(order)].slice(0, count)); pulledKey = key;
     return pulled;
   }
   /**
-   * Pull brings every group it farms (every slider above 0%, or every camp Auto
-   * would farm): all of it comes to the player, so walking to camps or
-   * cycling between them only wastes time (Ryan). It stands and fights.
+   * Pull brings every group it farms (every slider above 0%): all of it comes
+   * to the player, so walking to camps or cycling between them only wastes
+   * time (Ryan). It stands and fights.
    */
   function pullCoversFarm() {
-    if (!pulling() || !active || manualControl || phase !== 'farm') return false;
-    const groups = weights ? weightOrder : autoOrder;
-    if (!groups.length) return false;
+    if (!pulling() || !active || manualControl || phase !== 'farm' || !weightOrder.length) return false;
     const pulledNow = pulledGroups();
-    return groups.every(group => pulledNow.has(group));
+    return weightOrder.every(group => pulledNow.has(group));
   }
   const pulledEnemy = (enemy: EnemyState) => !enemy.dead && !enemy.remoteCombatGhost && !enemy.generatedBoss && enemy.hp > 0 && pulledGroups().has(choiceKey(enemy));
 
@@ -192,8 +188,8 @@ export function createAutoFarmController(options: {
   }
   let pullAll = readAutoFarmPull(options.priorityStorage);
   let advance = readFarmAdvance(options.priorityStorage);
-  /** The player's sliders (FarmWeights); null is Auto. */
-  let weights: FarmWeights | null = null;
+  /** The player's sliders: each group's share of the farming time, adding up to 100%. */
+  let shares: FarmShares = {};
   /** This map's groups above 0%, the largest slider first, from the start. */
   let weightOrder: string[] = [];
   /** Seconds spent farming each group on this map (walking to it included), for its share. */
@@ -223,13 +219,7 @@ export function createAutoFarmController(options: {
   let bossLeftAt = -Infinity;
   /** The last boss fight lost or left here, as measured at the boss: while that boss holds the way forward, Auto farms for what the fight lacked. */
   let lostFight: MeasuredBossFight | null = null;
-  /** When the player last died to each of this map's groups ("map|group"). */
-  const diedTo = new Map<string, number>();
   let planClock = 0;
-  /** Auto is farming for the boss (bossToBeat), not for power: for the status line. */
-  let bossFarming = false;
-  /** Auto is farming the planner's pick (growth), not Best Gain's. */
-  let growthGroup = false;
   /** The boss is ready but the player is not: it starts no new fight while it heals. */
   let healing = false;
   const seenAlive = new WeakSet<EnemyState>();
@@ -325,8 +315,6 @@ export function createAutoFarmController(options: {
       if (phase === 'boss') leaveBoss(at);
       return;
     }
-    // Auto looks again after the respawn, past the group that did it.
-    if (phase === 'farm' && selected) { diedTo.set(`${options.mapId()}|${selected}`, at); planClock = 0; }
     // With the planner, deaths are priced in its forecasts and checked by its safety net (growthMove), not counted here.
     if (planner) { farmDeaths = [...farmDeaths.filter(previous => at - previous < AUTO_FARM_DEFEAT_WINDOW_MS), at]; return; }
     defeats = defeats.filter(previous => at - previous < AUTO_FARM_DEFEAT_WINDOW_MS);
@@ -438,8 +426,7 @@ export function createAutoFarmController(options: {
       pendingResume = null;
       // Sliders carried from another map farm the stats this map pays; with
       // none of them above 0% here, Auto. Either way the choice is kept as it was.
-      const kept = carried && normalizeWeights(carried);
-      start(kept && choices().some(entry => farmWeight(kept, entry.key) > 0) ? { auto: false, weights: kept } : AUTO_FARM_CHOICE, false);
+      start(sharesForGroups(normalizeShares(carried), choices().map(entry => entry.key)), false);
     }
   }
 
@@ -454,63 +441,20 @@ export function createAutoFarmController(options: {
     return true;
   }
 
-  /** The camp to farm now: the one furthest behind its slider's share if the player set them, otherwise Auto's pick. */
+  /** The camp to farm now: the one furthest behind its slider's share, looked at again every so often, or as soon as its group is empty. */
   function chooseCamp(dt: number) {
     // Everything farmed is already coming: no camp to change to.
-    if (selected && weights && pullCoversFarm()) return;
+    if (selected && pullCoversFarm()) return;
     const all = choices();
-    if (weights) {
-      const shares = weights;
-      if (spentMap !== options.mapId()) { spent = new Map(); spentMap = options.mapId(); }
-      if (selected) spent.set(selected, (spent.get(selected) ?? 0) + dt);
-      planClock -= dt;
-      // Looks again every so often, not every kill, or as soon as its group is empty; with every group empty it waits where it is.
-      const current = all.find(entry => entry.key === selected && farmWeight(shares, entry.key) > 0);
-      const anyAlive = all.some(entry => entry.alive > 0 && farmWeight(shares, entry.key) > 0);
-      if (current && (current.alive > 0 ? planClock > 0 : !anyAlive)) return;
-      planClock = AUTO_REPLAN_SECONDS;
-      const key = shareFarmKey(all.map(entry => ({ key: entry.key, weight: farmWeight(shares, entry.key), alive: entry.alive })), group => spent.get(group) ?? 0);
-      if (key) select(key);
-      return;
-    }
+    if (spentMap !== options.mapId()) { spent = new Map(); spentMap = options.mapId(); }
+    if (selected) spent.set(selected, (spent.get(selected) ?? 0) + dt);
     planClock -= dt;
-    const current = all.find(entry => entry.key === selected);
-    // Choosing again often meant walking between camps half the time.
-    if (current && current.alive > 0 && planClock > 0) return;
-    planClock = AUTO_REPLAN_SECONDS;
-    const powerOf: (reward?: FarmReward) => FarmEvaluation = options.evaluate ?? (() => ({ power: 0 }));
-    // A boss that beat this build, or one not yet ready to try, holds the way forward: how ready its fight would be stands in for power.
-    const fight = bossToBeat() ?? bossToReach();
-    bossFarming = Boolean(fight && powerOf().stats);
-    const evaluate = fight && bossFarming ? (reward?: FarmReward) => ({ power: bossReadiness(rescaleBossFight(fight, powerOf(reward).stats!)) }) : powerOf;
-    const at = now();
-    const died = (key: string) => at - (diedTo.get(`${options.mapId()}|${key}`) ?? -Infinity) < DIED_TO_GROUP_MS;
-    // The most power per second of farming: the kill and the walk to it.
-    const dps = Math.max(1e-9, options.farmDps?.() ?? player.damage);
-    const speed = Math.max(1, options.speed());
-    const reach = weaponAttackRange(options.equippedWeapon?.(), player.attackRange);
-    // A group that just killed the player is left alone while another has enemies.
-    // Soul Crit Damage adds no power to weigh: it is farmed only when the player routes it.
-    const weighed = all.some(entry => entry.soul !== 'critDamage') ? all.filter(entry => entry.soul !== 'critDamage') : all;
-    const pool = weighed.some(entry => entry.alive > 0 && !died(entry.key)) ? weighed.filter(entry => !died(entry.key)) : weighed;
-    const ranked = rankFarmCandidates(pool.map(entry => ({
-      key: entry.key, alive: entry.alive,
-      reward: entry.reward ?? ENEMY_TYPES[entry.type].reward,
-      // The walk is paid in full, the farmed group's too (it used to be free,
-      // so Auto kept a group spread across the map and walked most of the night).
-      secondsPerKill: entry.hp / dps + (Number.isFinite(entry.nearest) ? Math.max(0, entry.nearest - reach) / speed : 0),
-    })), evaluate);
-    autoOrder = ranked.map(entry => entry.key);
-    if (selected && autoOrder.includes(selected) && pullCoversFarm()) return;
-    // Growth: the planner's pick (the stat whose kills grow the best rate the build can reach), unless the boss is being farmed for.
-    const grown = !bossFarming ? growthPlan()?.group : null;
-    if (grown && all.some(entry => entry.key === grown && (entry.alive > 0 || !pool.some(other => other.alive > 0)))) {
-      growthGroup = true;
-      if (grown !== selected) select(grown);
-      return;
-    }
-    growthGroup = false;
-    const key = pickRankedCandidate(ranked, selected);
+    // With every group empty it waits where it is.
+    const current = all.find(entry => entry.key === selected && (shares[entry.key] ?? 0) > 0);
+    const anyAlive = all.some(entry => entry.alive > 0 && (shares[entry.key] ?? 0) > 0);
+    if (current && (current.alive > 0 ? planClock > 0 : !anyAlive)) return;
+    planClock = SHARE_REPLAN_SECONDS;
+    const key = shareFarmKey(all.map(entry => ({ key: entry.key, weight: shares[entry.key] ?? 0, alive: entry.alive })), group => spent.get(group) ?? 0);
     if (key) select(key);
   }
 
@@ -658,21 +602,6 @@ export function createAutoFarmController(options: {
   /** The lost fight to farm for: this map's, while its boss still holds the way forward. */
   const bossToBeat = () => lostFight?.mapId === options.mapId() && advance && !options.reflectOnly?.()
     && options.bossUnlocksNext?.() === true && Boolean(options.mapBoss?.()) ? lostFight : null;
-  /**
-   * Before any fight here, a boss that holds the way forward and is not yet
-   * ready to try: its fight as bossReady projects it (the build's damage
-   * against its health, survival unknown), so Auto farms what makes it ready.
-   * A farm that never died never tried the boss: it farmed the stat with the
-   * most power (often health), and never the damage the boss asked for.
-   */
-  function bossToReach(): MeasuredBossFight | null {
-    const boss = options.mapBoss?.(), stats = options.evaluate?.().stats, dps = options.bossDps?.() ?? 0;
-    // With the planner, the stat it farms is the one that grows the build (damage, where damage is what holds it back):
-    // farming for a boss never yet tried would trade that for a fight that may open nothing better.
-    if (planner) return null;
-    if (!boss || !stats || !(dps > 0) || !advance || options.reflectOnly?.() || options.bossUnlocksNext?.() !== true || bossReady() >= 1) return null;
-    return { mapId: options.mapId(), stats, boss: dps / Math.max(1, boss.maxHp ?? boss.hp ?? 1), player: 0 };
-  }
   let readyAt = -Infinity, readyNow = 0;
   /**
    * How ready the boss fight is (bossReadiness), twice a second: the fight last
@@ -857,32 +786,41 @@ export function createAutoFarmController(options: {
     return { x: (point.x - player.x) / length * magnitude, y: (point.y - player.y) / length * magnitude, source: 'steer' };
   }
 
-  /** Keys saved under an older name, or carried between the campaign and the Soul Dimension, as this map names them; a merge keeps the larger. */
-  function normalizeWeights(next: FarmWeights) {
+  /** Shares saved under an older name, or carried between the campaign and the Soul Dimension, as this map names them; a merge keeps the larger. */
+  function normalizeShares(next: FarmShares | null) {
+    if (!next) return null;
     const out: Record<string, number> = {};
-    for (const key of Object.keys(next)) { const group = normalizeKey(key); out[group] = Math.max(out[group] ?? 0, farmWeight(next, key)); }
+    for (const [key, value] of Object.entries(next)) { const group = normalizeKey(key); out[group] = Math.max(out[group] ?? 0, value); }
     return out;
+  }
+  /** The sliders saved for this map's groups (an even split when none is), the 0-200% ones of before migrated. */
+  function savedShares(): FarmShares {
+    const here = choices().map(entry => entry.key), mapId = options.mapId();
+    const saved = normalizeShares(readSavedShares(mapId, options.priorityStorage)) ?? legacyShares(here, mapId, options.priorityStorage, normalizeKey);
+    return sharesForGroups(saved, here);
   }
 
   /**
-   * Starts farming: Auto, or the player's sliders. An old route (a camp key,
-   * or keys in order, an empty list being Auto) still reads, as its sliders.
-   * `remember` is false when autofarm restarts itself: only the player's own choice is saved.
+   * Starts farming on the sliders (`next`: shares, or a group or list of
+   * groups for an even split of them, an empty list every group here). `remember` is false when autofarm restarts itself:
+   * only the player's own choice is saved.
    */
-  function start(next: FarmChoice | string | readonly string[], remember = true) {
+  function start(next: FarmShares | readonly string[] | string, remember = true) {
+    if (typeof next === 'string') next = [next];
     if (options.connection && options.connection() !== 'ready') {
       stop('Connect to the server to farm'); return false;
     }
     const reason = options.unavailable();
     if (reason) { stop(reason); return false; }
-    const legacy = typeof next === 'string' ? decodeFarmPlan(next) : undefined;
-    const choice: FarmChoice = Array.isArray(next) ? routeChoice(next) : legacy !== undefined
-      ? (legacy ? { auto: false, weights: legacy } : AUTO_FARM_CHOICE) : next as FarmChoice;
-    const shares = normalizeWeights(choice.weights);
     const available = choices().map(entry => entry.key);
-    const order = choice.auto ? [] : available.filter(key => farmWeight(shares, key) > 0).sort((a, b) => farmWeight(shares, b) - farmWeight(shares, a));
-    if (!available.length || (!choice.auto && !order.length)) { stop('No matching enemies in this map'); return false; }
-    weights = choice.auto ? null : shares;
+    // A list of groups is an even split of them; an empty one, of every group here.
+    const listed = Array.isArray(next) ? ((next as readonly string[]).length ? (next as readonly string[]).map(normalizeKey) : available) : null;
+    const picked = listed ? Object.fromEntries(listed.map(key => [key, 1])) : normalizeShares(next as FarmShares);
+    // Only what was picked: a group not on this map, or every one here at 0%, is nothing to farm.
+    if (!available.some(key => (picked?.[key] ?? 0) > 0)) { stop('No matching enemies in this map'); return false; }
+    const chosen = sharesForGroups(picked, available);
+    const order = available.filter(key => (chosen[key] ?? 0) > 0).sort((a, b) => chosen[b] - chosen[a]);
+    shares = chosen;
     weightOrder = order;
     spent = new Map(); spentMap = options.mapId();
     selected = null;
@@ -894,8 +832,8 @@ export function createAutoFarmController(options: {
     startedMap = options.mapId();
     startedIdentity = options.localIdentity?.();
     pendingResume = null;
-    if (remember) writeFarmChoice({ auto: choice.auto, weights: shares }, options.priorityStorage, options.mapId());
-    if (startedIdentity) options.resumeStore?.write({ identity: startedIdentity, map: startedMap, choice: encodeFarmPlan(weights) });
+    if (remember) writeSavedShares(shares, options.mapId(), options.priorityStorage);
+    if (startedIdentity) options.resumeStore?.write({ identity: startedIdentity, map: startedMap, choice: encodeFarmPlan(shares) });
     recovering = false;
     readySince = null;
     target = null;
@@ -915,8 +853,8 @@ export function createAutoFarmController(options: {
    */
   function travelStarted() {
     if (!active || phase !== 'portal' || !travellingTo || !startedIdentity) { stop('Map changed · choose an enemy'); return; }
-    const saved = readFarmChoice(startedMap, options.priorityStorage);
-    const intent = { identity: startedIdentity, map: travellingTo, choice: encodeFarmPlan(saved.auto ? null : saved.weights) };
+    // The player's sliders as last set, not this map's split of them: a stat this map lacks is farmed again where it is paid.
+    const intent = { identity: startedIdentity, map: travellingTo, choice: encodeFarmPlan(readSavedShares(startedMap, options.priorityStorage) ?? shares) };
     const label = retreating ? 'Moving back a map' : 'Moving to the next map';
     // Forward: the new map is on trial against how fast this one was growing the build.
     probation = retreating ? null : { mapId: travellingTo, since: now(), previousRate: gain.rate(now(), startedMap) };
@@ -932,9 +870,7 @@ export function createAutoFarmController(options: {
    * map is the pull (priced as it pulls: as many at once as the build can stand
    * through), and farms one group at a time where that is better.
    */
-  const pullPlanned = () => { if (!planner || weights) return true; const plan = growthPlan(); return !plan || plan.current.mode === 'pull'; };
-  /** Pull Whole Group is on, and (with the planner on Auto) the plan pulls here. */
-  const pulling = () => pullAll && pullPlanned();
+  const pulling = () => pullAll;
   function pullsEnemy(enemy: EnemyState) {
     return pulling() && active && phase === 'farm' && !healing && !recovering && !pendingResume && !options.paused()
       && !enemy.dead && !enemy.remoteCombatGhost && !enemy.generatedBoss && enemy.hp > 0 && pulledGroups().has(choiceKey(enemy)) && pullable().has(enemy);
@@ -1166,10 +1102,8 @@ export function createAutoFarmController(options: {
     killed() { killsSince++; },
     /** The growth planner's last plan here, and its calibration (for the panel and the virtual-player measurement). */
     growthPlan: () => planner ? { plan: growthPlan(), calibration: planner.calibration() } : null,
-    state: () => ({ active, selected, selectedLabel, weights: weights && { ...weights }, phase, advance,
-      // On Auto, what it farms and why: "Farming Armor · Best Gain".
-      status: active && !recovering && options.paused() ? 'Paused'
-        : active && !weights && phase === 'farm' && status === 'Farming' ? `Farming ${selectedLabel} · ${bossFarming ? 'For The Boss' : growthGroup ? 'Best Growth' : 'Best Gain'}` : status }),
+    state: () => ({ active, selected, selectedLabel, shares: { ...shares }, phase, advance,
+      status: active && !recovering && options.paused() ? 'Paused' : status }),
     /** The camp being farmed; null at the boss or on the way out, so the boss and anything in the way are fair game. */
     targetType: () => active && !manualControl && phase === 'farm' ? selectedType : null,
     /** What combat aims at: the farmed camp, or, with every farmed group pulled, whatever is nearest. */
@@ -1192,8 +1126,8 @@ export function createAutoFarmController(options: {
       push = next;
       writeFarmPush(next, options.priorityStorage);
     },
-    /** The choice saved for this map, for the panel to show: a campaign slider shows as its soul stat's in the Soul Dimension. */
-    savedChoice: (): FarmChoice => { const saved = readFarmChoice(options.mapId(), options.priorityStorage); return { auto: saved.auto, weights: normalizeWeights(saved.weights) }; },
+    /** The sliders saved for this map, for the panel to show: a campaign slider shows as its soul stat's in the Soul Dimension. */
+    savedShares,
     priority: () => priority,
     /**
      * The Target rule combat aims by: while farming (a pulled crowd too) and all

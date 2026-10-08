@@ -126,7 +126,7 @@ describe('autofarm with the growth planner', () => {
 
   it('moves on when the next map is forecast to grow the build faster, once it has farmed here a while', () => {
     const s = setup(richer);
-    s.farm.start({ auto: true, weights: {} });
+    s.farm.start([]);
     s.run(10);
     expect(s.farm.state().phase).toBe('farm');
     expect(s.farm.bossStatus()).toBe('Weighing Next Map');
@@ -137,7 +137,7 @@ describe('autofarm with the growth planner', () => {
   it('leaves the switch to the player with Auto Advance off', () => {
     const s = setup(richer);
     s.farm.setAdvance(false);
-    s.farm.start({ auto: true, weights: {} });
+    s.farm.start([]);
     s.run(130);
     expect(s.farm.state().phase).toBe('farm');
     expect(s.farm.bossStatus()).toBe('Next Map Open');
@@ -146,7 +146,7 @@ describe('autofarm with the growth planner', () => {
   it('says it stays, and why, when the next map is forecast slower', () => {
     const poorer = map('ahead', camp('damage', 2_400, 2_400, 3, enemy({ hp: 2_000, reward: { type: 'damage', amount: .1 } })));
     const s = setup(poorer);
-    s.farm.start({ auto: true, weights: {} });
+    s.farm.start([]);
     s.run(130);
     expect(s.farm.state().phase).toBe('farm');
     expect(s.farm.bossStatus()).toMatch(/^Staying · Next Map (\d+% Slower|Too Hard)$/);
@@ -155,7 +155,7 @@ describe('autofarm with the growth planner', () => {
 
   it('stays when nothing ahead is better, deaths aside', () => {
     const s = setup(null);
-    s.farm.start({ auto: true, weights: {} });
+    s.farm.start([]);
     s.run(30);
     for (let death = 0; death < 6; death++) s.farm.defeated();
     s.run(30);
