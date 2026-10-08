@@ -659,7 +659,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
         event.preventDefault();
         openPlayer(event);
       });
-      applyProfileIcon(icon, iconIndex);
+      applyProfileIcon(icon, iconIndex, displayIdentity);
       const content = document.createElement("div");
       content.className = "chat-message-content";
       content.append(name, text);

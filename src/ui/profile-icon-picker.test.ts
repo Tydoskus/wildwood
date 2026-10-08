@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { parseHTML } from "linkedom";
 import { createProfileIconPicker } from "./profile-icon-picker";
 import { applyProfileIcon, createProfileIconCanvasPainter } from "../app/profile-icons";
-import { PROFILE_ICON_BLACK_BACKGROUND, isValidProfileIcon, profileIconLocation } from "../../shared/profile-icons";
+import { PROFILE_ICON_BLACK_BACKGROUND, PROFILE_ICON_SNAPSHOT, isValidProfileIcon, profileIconLocation } from "../../shared/profile-icons";
 import { OBJECT_ATLAS_SIZE, OBJECT_ICON_CROPS, containedIconRect, objectIconCrop } from "../app/profile-icon-crops";
 
 beforeEach(() => {
@@ -243,4 +243,87 @@ it("paints a canvas portrait's backdrop before its picture, loaded or not", () =
   paint(canvas, 3);
   expect(fills).toEqual(["#000000", "#ffffff"]);
   expect(context.fillRect.mock.invocationCallOrder[1]).toBeLessThan(context.drawImage.mock.invocationCallOrder[0]);
+});
+
+function snapshotFixture(selected: number, options: { exists?: boolean; take?: () => Promise<{ ok: boolean; error?: string }> } = {}) {
+  document.body.innerHTML = '<div><div id="choices"></div></div>';
+  const choices = document.getElementById("choices")!;
+  const state = { selected, exists: options.exists ?? false };
+  const listeners = new Set<() => void>();
+  const painted: [number, string | undefined][] = [];
+  const hooks = {
+    selectedIcon: () => state.selected,
+    paintIcon: vi.fn((element: HTMLElement, icon: number, identity?: string) => { applyProfileIcon(element, icon, identity); if (element.classList.contains("profile-icon-snapshot-preview")) painted.push([icon, identity]); }),
+    setIcon: vi.fn(async (icon: number) => { state.selected = icon; return { ok: true }; }),
+    onSaved: vi.fn(), onBackgroundSaved: vi.fn(), onError: vi.fn(), onSnapshotSaved: vi.fn(),
+    snapshot: {
+      identity: () => "me", exists: () => state.exists,
+      // Like the profile directory: the server saved the look and made it the picture on the same backdrop.
+      take: vi.fn(options.take ?? (async () => { state.exists = true; state.selected = PROFILE_ICON_SNAPSHOT | (state.selected & PROFILE_ICON_BLACK_BACKGROUND); return { ok: true }; })),
+      onChanged: (listener: () => void) => { listeners.add(listener); return () => listeners.delete(listener); },
+    },
+  };
+  const picker = createProfileIconPicker(choices, hooks);
+  picker.open();
+  const preview = document.querySelector<HTMLButtonElement>(".profile-icon-snapshot-preview")!;
+  const take = document.querySelector<HTMLButtonElement>(".profile-icon-snapshot-take")!;
+  return { choices, picker, hooks, state, preview, take, painted, listeners, note: () => document.querySelector(".profile-icon-snapshot-note")!.textContent };
+}
+
+it("puts Snapshot Character above the backdrop, with a preview that is disabled until a snapshot exists", () => {
+  const f = snapshotFixture(7);
+  expect(f.take.textContent).toBe("Snapshot Character");
+  expect(document.querySelector(".profile-icon-snapshot-title")?.textContent).toBe("Your Character");
+  expect(document.querySelector(".profile-icon-snapshot")?.nextElementSibling?.className).toBe("profile-icon-background");
+  expect(f.preview.disabled).toBe(true);
+  expect(f.preview.getAttribute("aria-label")).toBe("No Snapshot Yet");
+  expect(f.painted.at(-1)).toEqual([PROFILE_ICON_SNAPSHOT, "me"]);
+});
+
+it("takes a snapshot, shows it selected on the chosen backdrop and stays open", async () => {
+  const f = snapshotFixture(7 | PROFILE_ICON_BLACK_BACKGROUND);
+  f.take.click(); await flush();
+  expect(f.hooks.snapshot.take).toHaveBeenCalledOnce();
+  expect(f.hooks.setIcon).not.toHaveBeenCalled();
+  expect(f.hooks.onSnapshotSaved).toHaveBeenCalledOnce();
+  expect(f.hooks.onSaved).not.toHaveBeenCalled();
+  expect(f.preview.classList.contains("is-selected")).toBe(true);
+  expect(f.preview.getAttribute("aria-pressed")).toBe("true");
+  expect(f.preview.dataset.profileBackground).toBe("black");
+  expect(f.choices.querySelector('[aria-pressed="true"]')).toBeNull();
+  expect(f.painted.at(-1)).toEqual([PROFILE_ICON_SNAPSHOT | PROFILE_ICON_BLACK_BACKGROUND, "me"]);
+  expect(f.note()).toContain("until you snapshot again");
+});
+
+it("switches back on any normal picture and uses the saved snapshot again without retaking it", async () => {
+  const f = snapshotFixture(PROFILE_ICON_SNAPSHOT, { exists: true });
+  expect(f.preview.classList.contains("is-selected")).toBe(true);
+  f.choices.querySelector<HTMLButtonElement>('[data-profile-icon="9"]')!.click(); await flush();
+  expect(f.hooks.setIcon).toHaveBeenLastCalledWith(9);
+  f.picker.close(); f.picker.open();
+  expect(f.preview.classList.contains("is-selected")).toBe(false);
+  expect(f.preview.disabled).toBe(false);
+  expect(f.preview.getAttribute("aria-label")).toBe("Use Snapshot");
+  f.preview.click(); await flush();
+  expect(f.hooks.setIcon).toHaveBeenLastCalledWith(PROFILE_ICON_SNAPSHOT);
+  expect(f.hooks.snapshot.take).not.toHaveBeenCalled();
+});
+
+it("shows the server's refusal and keeps the current picture", async () => {
+  const f = snapshotFixture(3, { exists: true, take: async () => ({ ok: false, error: "You can snapshot your character again in 12 seconds." }) });
+  f.take.click(); f.take.click(); await flush();
+  expect(f.hooks.snapshot.take).toHaveBeenCalledOnce();
+  expect(f.hooks.onError).toHaveBeenCalledExactlyOnceWith("You can snapshot your character again in 12 seconds.");
+  expect(f.take.disabled).toBe(false);
+  expect(f.choices.querySelector('[aria-pressed="true"]')?.getAttribute("data-profile-icon")).toBe("3");
+});
+
+it("enables Use Snapshot when the saved snapshot arrives while open, and stops listening once closed", () => {
+  const f = snapshotFixture(3);
+  expect(f.preview.disabled).toBe(true);
+  f.state.exists = true;
+  for (const listener of f.listeners) listener();
+  expect(f.preview.disabled).toBe(false);
+  f.picker.close();
+  expect(f.listeners.size).toBe(0);
 });

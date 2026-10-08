@@ -170,6 +170,7 @@ export const ERASURE_TARGETS: readonly ErasureTarget[] = [
   { table: "playerQuestWeekTotal", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "guildRejoin", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerProfile", columns: ["identity"], pk: "identity", mode: "key" },
+  { table: "playerProfileSnapshot", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerProgress", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerWideStats", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerReport", columns: ["reporter","target"], pk: "id", mode: "scan" },

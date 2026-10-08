@@ -2178,6 +2178,18 @@ export const PlayerProfile = __t.object("PlayerProfile", {
 });
 export type PlayerProfile = __Infer<typeof PlayerProfile>;
 
+export const PlayerProfileSnapshot = __t.object("PlayerProfileSnapshot", {
+  identity: __t.identity(),
+  skinTone: __t.u8(),
+  headItem: __t.string(),
+  chestItem: __t.string(),
+  feetItem: __t.string(),
+  rightHandItem: __t.string(),
+  leftHandItem: __t.string(),
+  takenAt: __t.timestamp(),
+});
+export type PlayerProfileSnapshot = __Infer<typeof PlayerProfileSnapshot>;
+
 export const PlayerProgress = __t.object("PlayerProgress", {
   identity: __t.identity(),
   maxHp: __t.f32(),

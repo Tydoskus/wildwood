@@ -2,6 +2,8 @@ import { replaceChildrenIfChanged } from "../../ui/replace-children-if-changed";
 import { drawPlayerPowerLabel } from "./player-power-label";
 import { residentImage } from "./resident-image";
 import { applyProfileIcon, createProfileIconCanvasPainter } from "../../app/profile-icons";
+import { setProfileSnapshotSource } from "../../app/profile-snapshot-portraits";
+import type { ProfileSnapshotLook } from "../../../shared/profile-snapshot";
 import { playerNamePrefix, appendPlayerNameTags, appendPrestigeBadge, playerPrestigeLevel } from "../../app/player-name-tags";
 import { PRESTIGE_BADGE_ASSET, PRESTIGE_BADGE_PX } from "../../../shared/prestige";
 import {
@@ -84,6 +86,8 @@ export function createPlayerIdentityRenderer(options: {
   isLocallyInvisible: (identity: string | undefined) => boolean;
   isGuest: (identity: string | undefined) => boolean;
   profileIcon: (identity: string | undefined) => number;
+  /** Players' snapshotted looks, for snapshot profile pictures, and a number that moves when one arrives. */
+  profileSnapshots?: { look: (identity: string) => ProfileSnapshotLook | undefined; revision: () => number };
   playerGender: (identity: string | undefined) => PlayerGender;
   chatRevision: () => number;
   chatMessages: () => ChatMessage[];
@@ -132,6 +136,7 @@ export function createPlayerIdentityRenderer(options: {
     });
   }
 
+  if (options.profileSnapshots) setProfileSnapshotSource(options.profileSnapshots);
   const paintProfileIconCanvas = createProfileIconCanvasPainter(options.onProfileIconsLoaded);
 
   function updateSpeechBubbles() {

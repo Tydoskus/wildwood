@@ -890,6 +890,16 @@
       "peakPower:f64",
       "prestigedAt:timestamp"
     ],
+    "player_profile_snapshot": [
+      "identity:identity",
+      "skinTone:u8",
+      "headItem:string",
+      "chestItem:string",
+      "feetItem:string",
+      "rightHandItem:string",
+      "leftHandItem:string",
+      "takenAt:timestamp"
+    ],
     "player_profile": [
       "identity:identity",
       "displayName:string",

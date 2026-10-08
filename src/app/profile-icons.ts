@@ -1,20 +1,42 @@
 import { PROFILE_ICON_BACKGROUND_COLORS, PROFILE_ICON_GRID, PROFILE_ICON_SHEETS, profileIconLocation } from "../../shared/profile-icons";
 import { OBJECT_ATLAS_SIZE, containedIconRect, objectIconCrop } from "./profile-icon-crops";
+import { onProfileSnapshotsChanged, profileSnapshotPortrait, watchProfileSnapshotElement } from "./profile-snapshot-portraits";
 
 const ZOOM = 1.03;
 const POSITION_STEP = ZOOM / (PROFILE_ICON_GRID * ZOOM - 1) * 100;
 const POSITION_START = (ZOOM - 1) / 2 / (PROFILE_ICON_GRID * ZOOM - 1) * 100;
 
+const appliedSnapshots = new WeakMap<HTMLElement, string>();
+
 /**
  * Paints a saved profile icon (picture and backdrop) into any portrait element.
  * The backdrop is set here, inline, because the sheets are transparent and the
  * portraits' own stylesheets (chat, guild, shop, leaderboard) differ.
+ *
+ * A snapshot picture needs whose it is: `identity`. Until that player's look
+ * has arrived (or without an identity) it draws the default silhouette, and
+ * the element repaints itself when the look comes in.
  */
-export function applyProfileIcon(element: HTMLElement, iconIndex: number) {
+export function applyProfileIcon(element: HTMLElement, iconIndex: number, identity?: string) {
   const icon = profileIconLocation(iconIndex);
   element.dataset.profileIcon = String(icon.index);
   element.dataset.profileBackground = icon.background;
   element.style.backgroundColor = PROFILE_ICON_BACKGROUND_COLORS[icon.background];
+  watchProfileSnapshotElement(element, icon.snapshot && identity ? () => applyProfileIcon(element, iconIndex, identity) : null);
+  const portrait = icon.snapshot ? profileSnapshotPortrait(identity) : undefined;
+  element.classList.toggle("profile-icon-is-snapshot", Boolean(portrait));
+  if (portrait) {
+    element.querySelector(":scope > .profile-icon-art")?.remove();
+    element.classList.remove("profile-icon-cropped");
+    // The HUD repaints its own portrait often; a data URL is only set again when it changed.
+    if (appliedSnapshots.get(element) === portrait.key && element.style.backgroundImage !== "none") return;
+    appliedSnapshots.set(element, portrait.key);
+    Object.assign(element.style, {
+      backgroundImage: `url("${portrait.url}")`, backgroundRepeat: "no-repeat", backgroundSize: "100% 100%", backgroundPosition: "50% 50%",
+    });
+    return;
+  }
+  appliedSnapshots.delete(element);
   const crop = icon.category === "objects" ? objectIconCrop(icon.path, icon.cell) : undefined;
   let art = element.querySelector<HTMLElement>(":scope > .profile-icon-art");
   element.classList.toggle("profile-icon-cropped", Boolean(crop));
@@ -43,15 +65,23 @@ export function applyProfileIcon(element: HTMLElement, iconIndex: number) {
 }
 
 /** Canvas portraits use the same atlas coordinates as DOM portraits. Load each sheet once, on demand. */
+/** A snapshot arriving calls `onSheetLoaded` too, so the caller redraws the same way. */
 export function createProfileIconCanvasPainter(onSheetLoaded: () => void) {
   const sheets = new Map<number, HTMLImageElement>();
-  return (canvas: HTMLCanvasElement, iconIndex: number) => {
+  onProfileSnapshotsChanged(onSheetLoaded);
+  return (canvas: HTMLCanvasElement, iconIndex: number, identity?: string) => {
     const context = canvas.getContext("2d");
     if (!context) return;
     const icon = profileIconLocation(iconIndex);
     // The backdrop is painted even before the sheet loads, as the DOM portraits' is.
     context.fillStyle = PROFILE_ICON_BACKGROUND_COLORS[icon.background];
     context.fillRect(0, 0, canvas.width, canvas.height);
+    const portrait = icon.snapshot ? profileSnapshotPortrait(identity) : undefined;
+    if (portrait) {
+      context.imageSmoothingEnabled = true;
+      context.drawImage(portrait.canvas, 0, 0, canvas.width, canvas.height);
+      return;
+    }
     let sheet = sheets.get(icon.sheetIndex);
     if (!sheet) {
       sheet = new Image(); sheets.set(icon.sheetIndex, sheet);

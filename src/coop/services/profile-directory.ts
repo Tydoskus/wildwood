@@ -13,7 +13,8 @@ import type { ReducerPort } from "../ports";
 import { createChatPortraits } from "./chat-portraits";
 import { createPatreonService } from "./patreon-service";
 import { clearAvatarFrames } from "../../app/avatar-frames";
-import { normalizeProfileIcon } from "../../../shared/profile-icons";
+import { PROFILE_ICON_SNAPSHOT, encodeProfileIcon, isSnapshotProfileIcon, normalizeProfileIcon, profileIconBackground } from "../../../shared/profile-icons";
+import { createProfileSnapshots } from "./profile-snapshots";
 import { preloadProfileIcons } from "../../app/profile-icon-preload";
 
 export type ProfilePresentation = {
@@ -82,6 +83,10 @@ export function createProfileDirectory(dependencies: ProfileDirectoryDependencie
     connection: () => dependencies.reducers?.connection() ?? null,
     changed: () => { dependencies.markChatPresentationChanged(); dependencies.notify(); },
   });
+  const snapshots = createProfileSnapshots({
+    connection: () => dependencies.reducers?.connection() ?? null,
+    changed: () => dependencies.notify(),
+  });
   let localDisplayName = "";
   let localReady = false;
   function trimPresentations() {
@@ -100,6 +105,8 @@ export function createProfileDirectory(dependencies: ProfileDirectoryDependencie
     names.set(presentation.identity, presentation.displayName);
     if (presentation.profileIcon !== undefined) {
       const icon = normalizeProfileIcon(Number(presentation.profileIcon));
+      // A player who just switched to their snapshot has likely just taken it: fetch it fresh.
+      if (isSnapshotProfileIcon(icon) && icons.has(presentation.identity) && icons.get(presentation.identity) !== icon) snapshots.refresh(presentation.identity);
       icons.set(presentation.identity, icon);
       chatPortraits.remember(presentation.identity, icon);
     }
@@ -274,6 +281,32 @@ export function createProfileDirectory(dependencies: ProfileDirectoryDependencie
           return { ok: false, error: message };
         }
       },
+      /** A player's snapshotted look, fetched on first ask; undefined until it arrives or when there is none. */
+      profileSnapshot(identity = dependencies.localIdentity()) {
+        return snapshots.look(identity);
+      },
+      profileSnapshotsRevision: () => snapshots.revision(),
+      /** Freezes the character as it looks now and makes it the profile picture. The server reads the look itself. */
+      async snapshotProfileCharacter() {
+        if (dependencies.reducers.protocolBlocked()) return { ok: false, error: "UPDATE REQUIRED" };
+        const connection = dependencies.reducers.connection();
+        if (!connection) return { ok: false, error: "NOT CONNECTED" };
+        const identity = dependencies.localIdentity();
+        try {
+          await dependencies.reducers.runWorldReducer(() => connection.reducers.snapshotProfileCharacter({}));
+          if (identity === dependencies.localIdentity() && connection === dependencies.reducers.connection()) {
+            const icon = encodeProfileIcon(PROFILE_ICON_SNAPSHOT, profileIconBackground(icons.get(identity) ?? 0));
+            icons.set(identity, icon); chatPortraits.remember(identity, icon);
+            snapshots.refresh(identity);
+            dependencies.markChatPresentationChanged(); dependencies.notify();
+          }
+          return { ok: true };
+        } catch (error) {
+          const message = dependencies.reducers.errorMessage(error);
+          dependencies.reducers.handleFailure("profile snapshot", error);
+          return { ok: false, error: message };
+        }
+      },
       async setGender(gender: number) {
         if (dependencies.reducers.protocolBlocked()) return { ok: false, error: "UPDATE REQUIRED" };
         const connection = dependencies.reducers.connection();
@@ -341,7 +374,7 @@ export function createProfileDirectory(dependencies: ProfileDirectoryDependencie
     },
     clearSession() {
       patreon.clear(); clearAvatarFrames();
-      chatPortraits.clear();
+      chatPortraits.clear(); snapshots.clear();
       clearPlayerNameTags();
       names.clear();
       icons.clear();

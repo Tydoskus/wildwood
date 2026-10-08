@@ -15,6 +15,8 @@ import { MAP_ENEMY_SPRITE_GROUPS } from "./map-asset-groups";
 import { createProfileCharacterPreview } from "./profile-character-preview";
 import { createLeaderboardPodiumPreview } from "./leaderboard-podium-preview";
 import { createInventoryCharacterPreview } from "./inventory-character-preview";
+import { createProfileSnapshotRenderer } from "./profile-snapshot-render";
+import { setProfileSnapshotRenderer } from "../../app/profile-snapshot-portraits";
 import { updateCamera } from "./camera";
 import type { EnemyState, PlayerState } from "./types";
 import { BOSSES, perBoss, type BossHazards, type BossKind, type BossStates } from "./boss-registry";
@@ -215,7 +217,11 @@ export function createGameBootstrapAssets(options: {
       return preprocessedAssets.worldArtReady() && actorShadowReady && (!mapId || mapAssetsReady(mapId));
     },
   };
-  const playerAppearanceAssets = loadPlayerAppearanceAssets(options.onPlayerAppearanceAssetReady);
+  // Snapshot profile pictures are drawn from the same art, once it has all settled.
+  const playerAppearanceAssets = loadPlayerAppearanceAssets(() => {
+    setProfileSnapshotRenderer(createProfileSnapshotRenderer(playerAppearanceAssets));
+    options.onPlayerAppearanceAssetReady();
+  });
   return {
     actorShadowSprite,
     assets,

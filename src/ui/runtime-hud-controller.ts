@@ -61,7 +61,7 @@ type RuntimeHudDependencies = {
   connected: () => boolean;
   isDeveloper: () => boolean;
   profileIcon: () => number;
-  applyProfileIcon: (target: HTMLElement, icon: number) => void;
+  applyProfileIcon: (target: HTMLElement, icon: number, identity?: string) => void;
   playerPower: (player: PlayerState) => number;
   setDeveloperAccess: (enabled: boolean) => void;
   applyVitalityResearch: () => void;
@@ -395,7 +395,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
         : dependencies.connected() ? dependencies.remotePlayerCount() + 1 : 0;
     }
     const developer = dependencies.isDeveloper();
-    dependencies.applyProfileIcon(elements.playerIcon, dependencies.profileIcon());
+    dependencies.applyProfileIcon(elements.playerIcon, dependencies.profileIcon(), dependencies.localIdentity());
     applyAvatarFrame(elements.playerIcon, dependencies.localIdentity());
     dependencies.setDeveloperAccess(developer);
     const identity = dependencies.localIdentity();

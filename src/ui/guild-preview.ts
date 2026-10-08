@@ -31,7 +31,7 @@ export function createGuildPreview(options: {
   function profile(member: GuildPreview['members'][number], role: string) {
     const button = node('button', '', 'guild-member-profile');
     button.setAttribute('aria-label', `View ${member.name}'s profile`);
-    const icon = node('span', '', 'guild-avatar'); applyProfileIcon(icon, member.profileIcon ?? 0);
+    const icon = node('span', '', 'guild-avatar'); applyProfileIcon(icon, member.profileIcon ?? 0, member.identity);
     const text = node('span', '', 'guild-row-copy'); text.append(node('strong', member.name), node('span', role || guildMemberPresence(member, Date.now()), role ? '' : member.online ? 'guild-presence--online' : 'guild-presence--offline'));
     renderGuildMemberName(text.querySelector<HTMLElement>("strong")!, member);
     button.append(icon, text); button.addEventListener('click', () => { options.openPlayer(member.identity, member.name); });

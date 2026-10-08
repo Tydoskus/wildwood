@@ -30,6 +30,7 @@ import { playerOfflinePreference, writeOfflinePreference } from "./offline-prefe
 import { playerAudioSetting, writeAudioSettings } from "./audio-settings";
 import { keepWantedDrops, playerIgnoredDrop, writeIgnoredDrops } from "./ignored-drops";
 import { playerLootSetting, writeLootSettings } from "./loot-settings";
+import { playerProfileSnapshot, requireSnapshotForIcon, takeProfileSnapshot } from "./profile-snapshot";
 import { claimAdGemReward, playerAdReward } from "./ad-gem-reward";
 import { assertChatNotMuted, playerChatMute, recordChatStrike, setChatMute } from "./chat-mute";
 import { createAutoEquip } from "./auto-equip";
@@ -1701,7 +1702,7 @@ const spacetimedb = schema({
   bossAttackFrame,
   bossHitResult,
   playerDeathFrame,
-  playerProfile,
+  playerProfile, playerProfileSnapshot,
   playerGemWallet,
   gemTransaction,
   dailyGemBonus,
@@ -4442,15 +4443,26 @@ export const setProfileIcon = spacetimedb.reducer(
   (ctx, { profileIcon }) => {
     requireControllingPlayer(ctx);
     if (!isValidProfileIcon(profileIcon)) throw new SenderError("Choose an available profile picture.");
+    requireSnapshotForIcon(ctx, profileIcon);
     const profile = ctx.db.playerProfile.identity.find(ctx.sender);
     if (!profile) throw new SenderError("Player profile not found.");
-    if (profile.profileIcon === profileIcon) return;
-    updateSnapshotRow(ctx, "playerProfile", { ...profile, profileIcon });
-    const leaderboard = ctx.db.leaderboardEntry.identity.find(ctx.sender);
-    if (leaderboard) ctx.db.leaderboardEntry.identity.update({ ...leaderboard, profileIcon });
-    syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, ctx.db.player.identity.find(ctx.sender)));
+    saveProfileIcon(ctx, profile, profileIcon);
   },
 );
+function saveProfileIcon(ctx: any, profile: any, profileIcon: number) {
+  if (profile.profileIcon === profileIcon) return;
+  updateSnapshotRow(ctx, "playerProfile", { ...profile, profileIcon });
+  const leaderboard = ctx.db.leaderboardEntry.identity.find(ctx.sender);
+  if (leaderboard) ctx.db.leaderboardEntry.identity.update({ ...leaderboard, profileIcon });
+  syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, ctx.db.player.identity.find(ctx.sender)));
+}
+/** Freezes the caller's current look, read from the server's own rows, as their picture. Body: profile-snapshot.ts. */
+export const snapshotProfileCharacter = spacetimedb.reducer({}, (ctx) => {
+  requireControllingPlayer(ctx);
+  const profile = ctx.db.playerProfile.identity.find(ctx.sender), progress = readPlayerProgress(ctx, ctx.sender);
+  takeProfileSnapshot(ctx, { profile, look: progress ? leaderboardAppearanceForProgress(progress, profile) : undefined,
+    saveIcon: (profileIcon) => saveProfileIcon(ctx, profile, profileIcon) });
+});
 
 export const setGender = spacetimedb.reducer(
   { gender: t.u8() },
