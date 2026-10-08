@@ -875,7 +875,7 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
   });
 
   it('farms with no weapon: it walks into the enemy so it attacks, and Reflect does the killing', () => {
-    const s = planned({ equippedWeapon: () => undefined });
+    const s = planned({ equippedWeapon: () => '' });
     const mob = s.add('Bramble', 900, 500);
     expect(s.farm.start([health])).toBe(true);
     for (let frame = 0; frame < 200; frame++) { const step = s.tick(); s.player.x += step.x * 5; s.player.y += step.y * 5; }
