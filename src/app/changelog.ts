@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.15": [
+    "Autofarm does only what its controls say: Move At and Fight At sliders (0.1x to 10x), no retries and no stepping back after deaths",
+    "Move On and Fight Bosses work in Endless too, with each stage's power",
+    "Autofarm keeps farming when you change maps yourself, with the same sliders",
+    "Every campaign map's portals stand together in the middle of the map",
+  ],
   "0.901.14": [
     "Fight Bosses has a Fight At slider: fight a boss once you have 0.1x to 10x its power (1x is even)",
   ],
@@ -3018,6 +3024,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.15": "2026-10-08",
   "0.901.14": "2026-10-08",
   "0.901.13": "2026-10-08",
   "0.901.12": "2026-10-08",
