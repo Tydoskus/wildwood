@@ -54,8 +54,11 @@ function slide(s: ReturnType<typeof setup>, key: string, value: number) {
 }
 const values = (s: ReturnType<typeof setup>) => Object.fromEntries([...s.document.querySelectorAll<HTMLElement>('[data-group]')]
   .map(row => [row.dataset.group!, Number(row.querySelector('input')!.value)]));
+/** The share each slider shows beside it, as a number. */
+const shown = (s: ReturnType<typeof setup>) => Object.fromEntries([...s.document.querySelectorAll<HTMLElement>('.farm-weights [data-group]')]
+  .map(row => [row.dataset.group!, Number.parseInt(row.querySelector('output')!.textContent!, 10)]));
 const sum = (shares: Record<string, number>) => Object.values(shares).reduce((total, share) => total + share, 0);
-it('opens on an even split, moves the other sliders to keep 100%, starts farming, and stops from the floating button', () => {
+it('opens on an even split, moves each slider on its own with its share of 100% beside it, starts farming, and stops from the floating button', () => {
   const s = setup(true, 'endless_1');
   s.spawnSites.push(...createSpawnSites({x: 580, y: 770}, 'endless_1'));
   s.click('.farm-toggle');
@@ -66,19 +69,17 @@ it('opens on an even split, moves the other sliders to keep 100%, starts farming
   expect(keys.length).toBe(4);
   expect(Object.values(values(s))).toEqual([25, 25, 25, 25]);
   expect(s.document.querySelector(`[data-group="${keys[0]}"] output`)!.textContent).toBe('25%');
-  // 50 for the first: the others share the rest in proportion.
-  slide(s, keys[0], 50);
-  expect(values(s)).toEqual({ [keys[0]]: 50, [keys[1]]: 17, [keys[2]]: 17, [keys[3]]: 16 });
+  // Moving one moves only it; the shares beside them still add up to 100%.
+  slide(s, keys[0], 75);
+  expect(values(s)).toEqual({ [keys[0]]: 75, [keys[1]]: 25, [keys[2]]: 25, [keys[3]]: 25 });
+  expect(shown(s)).toEqual({ [keys[0]]: 50, [keys[1]]: 17, [keys[2]]: 17, [keys[3]]: 16 });
   expect(slider(s, keys[0]).getAttribute('aria-valuetext')).toBe('50%');
-  // 100% for one stat alone.
-  slide(s, keys[1], 100);
-  expect(values(s)).toEqual({ [keys[0]]: 0, [keys[1]]: 100, [keys[2]]: 0, [keys[3]]: 0 });
+  // One stat alone: the rest to 0.
+  for (const key of [keys[0], keys[2], keys[3]]) slide(s, key, 0);
+  expect(shown(s)).toEqual({ [keys[0]]: 0, [keys[1]]: 100, [keys[2]]: 0, [keys[3]]: 0 });
   expect(s.document.querySelector(`[data-group="${keys[0]}"]`)!.classList.contains('is-zero')).toBe(true);
-  // Others all at 0: what one gives up is spread evenly.
-  slide(s, keys[1], 70);
-  expect(values(s)).toEqual({ [keys[0]]: 10, [keys[1]]: 70, [keys[2]]: 10, [keys[3]]: 10 });
-  for (const value of [3, 99, 0, 41]) { slide(s, keys[2], value); expect(sum(values(s))).toBe(100); }
-  slide(s, keys[1], 100);
+  for (const value of [3, 99, 0, 41]) { slide(s, keys[2], value); expect(sum(shown(s))).toBe(100); }
+  slide(s, keys[2], 0);
   s.click('.farm-start');
   expect(s.sheet.open).toBe(false);
   expect(s.farm.state()).toMatchObject({ active: true, selected: keys[1], shares: { [keys[1]]: 100 } });
@@ -88,7 +89,7 @@ it('opens on an even split, moves the other sliders to keep 100%, starts farming
   expect(s.farm.state().active).toBe(false);
   expect(s.sheet.open).toBe(false);
 });
-it('draws one slider per stat, in its colour, in whole percents from 0 to 100, and can always start', () => {
+it('draws one slider per stat, in its colour, from 0 to 100; with every one at 0 there is nothing to start', () => {
   const s = setup(true, 'endless_1');
   s.spawnSites.push(...createSpawnSites({x: 580, y: 770}, 'endless_1'));
   s.click('.farm-toggle');
@@ -96,9 +97,11 @@ it('draws one slider per stat, in its colour, in whole percents from 0 to 100, a
   expect(rows.length).toBe(s.farm.choices().length);
   expect(rows.every(row => row.style.getPropertyValue('--farm-stat-color'))).toBe(true);
   expect(rows.map(row => ['min', 'max', 'step'].map(name => row.querySelector('input')!.getAttribute(name)).join())).toEqual(rows.map(() => '0,100,1'));
-  // Every one dragged to 0 still leaves 100% somewhere: there is always something to farm.
   for (const row of rows) slide(s, row.dataset.group!, 0);
-  expect(sum(values(s))).toBe(100);
+  expect(sum(shown(s))).toBe(0);
+  expect(s.document.querySelector<HTMLButtonElement>('.farm-start')!.disabled).toBe(true);
+  expect(s.document.querySelector('.farm-selection')!.textContent).toBe('Set A Stat Above 0%');
+  slide(s, rows[0].dataset.group!, 10);
   expect(s.document.querySelector<HTMLButtonElement>('.farm-start')!.disabled).toBe(false);
 });
 it('remembers the sliders for the next window, migrating the old 0-200% ones and an old Auto', () => {
@@ -114,7 +117,8 @@ it('remembers the sliders for the next window, migrating the old 0-200% ones and
   s.click('.farm-start');
   const saved = JSON.parse(s.storage.values.get(AUTO_FARM_SHARES_KEY)!);
   expect(sum(saved)).toBe(100);
-  expect(saved[zero]).toBe(40);
+  // 40 beside 50, 25 and 25: its share of the four.
+  expect(Math.abs(saved[zero] - 40 / 140 * 100)).toBeLessThanOrEqual(1);
   s.click('.farm-toggle');
   s.click('.farm-toggle');
   expect(values(s)).toEqual(saved);
@@ -333,7 +337,7 @@ it('in the Soul Dimension draws a slider per soul stat present, in its soul colo
   expect(['damage', 'attackSpeed', 'critDamage'].map(stat => slider(s, `soul:${stat}`).value)).toEqual(['0', '100', '0']);
   slide(s, 'soul:critDamage', 50);
   s.click('.farm-start');
-  expect(s.farm.state()).toMatchObject({ active: true, shares: { 'soul:attackSpeed': 50, 'soul:critDamage': 50, 'soul:damage': 0 } });
+  expect(s.farm.state()).toMatchObject({ active: true, shares: { 'soul:attackSpeed': 67, 'soul:critDamage': 33, 'soul:damage': 0 } });
 });
 
 it('the ? opens a page saying what each control does in place of the settings; Back returns to them, then closes', () => {

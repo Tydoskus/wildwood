@@ -3,7 +3,7 @@ import type { AutoFarmController } from '../game/runtime/auto-farm-controller';
 import { AUTO_FARM_PRIORITIES, farmGroupRewardType } from '../game/runtime/auto-farm-priority';
 import { SOUL_STAT_DETAILS } from '../../shared/soul-dimension';
 import { soulRewardText } from '../game/soul-world';
-import { POWER_STEPS, powerLabel, rebalanceShares, shareLabel, type FarmShares } from '../game/runtime/auto-farm-plan';
+import { POWER_STEPS, powerLabel, sharesForGroups, shareLabel, type FarmShares } from '../game/runtime/auto-farm-plan';
 import { aggroPicksNeeded, readAggroPicks, writeAggroPicks } from '../game/runtime/aggro-picks';
 import { createAggroPickPrompt } from './aggro-pick-prompt';
 import type { AggroChallenge } from '../../shared/aggro-challenge';
@@ -17,7 +17,7 @@ const defaultStorage = (): PanelStorage | undefined => { try { return window.loc
 /** The controller's lines are sentence case ("Moving to enemy"); the window shows every word capitalised. */
 /** The "?" page: what each control does, a line each, in the words a player would use. */
 const HELP_LINES: readonly [term: string, line: string][] = [
-  ['Sliders', 'Share of farming time for each stat. They always add up to 100%.'],
+  ['Sliders', 'Set each stat on its own; the % beside it is its share of farming time, all adding up to 100%.'],
   ['Move On', "Goes to the next map once your power reaches Move At times the map's (1x is even)."],
   ['Fight Bosses', "Fights the boss once your power reaches Fight At times the boss's (1x is even), until it or you go down."],
   ['Deaths', 'It respawns and carries on with the same settings.'],
@@ -153,12 +153,16 @@ export function createAutoFarmPanel(options: {
   try { savedMore = storage()?.getItem(AUTO_FARM_MORE_KEY) === '1'; } catch { /* Closed. */ }
   setMoreOpen(savedMore, false);
 
+  /** Every slider at 0: nothing to farm. */
+  const nothingSet = () => !groupKeys().some(key => (draft[key] ?? 0) > 0);
   function updateSelection() {
+    // Each slider moves on its own; the number beside it is its share of all of them, so they always read 100% together.
+    const shares = nothingSet() ? {} : sharesForGroups(draft, groupKeys());
     for (const row of list.querySelectorAll<HTMLElement>('[data-group]')) {
-      const share = draft[row.dataset.group!] ?? 0, slider = row.querySelector('input')!;
-      if (slider.value !== String(share)) slider.value = String(share);
+      const key = row.dataset.group!, weight = draft[key] ?? 0, share = shares[key] ?? 0, slider = row.querySelector('input')!;
+      if (slider.value !== String(weight)) slider.value = String(weight);
       slider.setAttribute('aria-valuetext', shareLabel(share));
-      row.style.setProperty('--farm-weight-at', `${share}%`);
+      row.style.setProperty('--farm-weight-at', `${weight}%`);
       row.querySelector('output')!.textContent = shareLabel(share);
       row.classList.toggle('is-zero', share === 0);
     }
@@ -187,8 +191,8 @@ export function createAutoFarmPanel(options: {
     }
     const reason = options.unavailable();
     const empty = !options.farm.choices().length;
-    startButton.disabled = empty || Boolean(reason);
-    const note = reason ?? '';
+    startButton.disabled = empty || nothingSet() || Boolean(reason);
+    const note = reason ?? (!empty && nothingSet() ? 'Set A Stat Above 0%' : '');
     if (selection.textContent !== note) selection.textContent = note;
     selection.hidden = !note;
   }
@@ -227,9 +231,10 @@ export function createAutoFarmPanel(options: {
         row.title = choice.kinds.join(', ');
         const slider = row.querySelector('input')!;
         slider.setAttribute('aria-label', `${label} Share Of Farming Time`);
-        // Moving one slider moves the others in proportion: the total stays 100%.
+        // Each slider moves on its own (Jasmean: "move them independently, while all still being percentage of 100").
         slider.addEventListener('input', () => {
-          draft = rebalanceShares(draft, groupKeys(), choice.key, Number(slider.value));
+          const value = Math.min(100, Math.max(0, Math.round(Number(slider.value))));
+          draft = { ...draft, [choice.key]: Number.isFinite(value) ? value : 0 };
           updateSelection();
         });
         list.append(row);
@@ -237,8 +242,8 @@ export function createAutoFarmPanel(options: {
       }
       list.hidden = !choices.length;
       statsRow.hidden = !choices.length;
-      // A map whose groups changed while open: the sliders are its own, adding up to 100%.
-      draft = rebalanceShares(draft, choices.map(choice => choice.key), '', 0);
+      // A map whose groups changed while open: its own groups, in the proportions set (all at 0 stays at 0).
+      if (!nothingSet()) draft = sharesForGroups(draft, choices.map(choice => choice.key));
       emptyNote.hidden = Boolean(choices.length);
     }
     updateSelection();
