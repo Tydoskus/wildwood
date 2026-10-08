@@ -11,8 +11,6 @@ import { installMovableHudCard } from './movable-hud-card';
 import type { AggroChallenge } from '../../shared/aggro-challenge';
 import type { RewardType } from '../game/enemies';
 
-/** Whether the window's More section was left open, per browser. */
-export const AUTO_FARM_MORE_KEY = 'wildstat:autofarm-more-open:v1';
 export const AUTO_FARM_POSITION_KEY = 'wildstat:autofarm-position:v1';
 type PanelStorage = Pick<Storage, 'getItem' | 'setItem'>;
 const defaultStorage = (): PanelStorage | undefined => { try { return window.localStorage; } catch { return undefined; } };
@@ -44,7 +42,7 @@ const segment = (label: string, labelId: string, className: string, buttons: str
  * share of the time; the sliders always add up to 100% (moving one moves the
  * others in proportion), and 0% is never farmed. Move On goes to the next
  * map at its recommended power; Fight Bosses fights the boss at its; Pull and
- * Target wait under More. The movable card header shows what the farm is doing even when collapsed.
+ * Target sit below them. The movable card header shows what the farm is doing even when collapsed.
  */
 export function createAutoFarmPanel(options: {
   farm: AutoFarmController;
@@ -88,8 +86,7 @@ export function createAutoFarmPanel(options: {
     + `<button type="button" class="farm-switch farm-bosses" role="switch" data-switch="bosses" aria-checked="false" aria-describedby="autoFarmBossLine">`
     + `<span class="farm-switch-copy"><span class="farm-switch-label">Fight Bosses</span><small id="autoFarmBossLine" class="farm-boss-status"></small></span><span class="farm-knob" aria-hidden="true"></span></button>`
     + powerSlider('farm-boss-power', 'Fight At', 'Of Boss Power', 'Fight Bosses At This Much Of Their Power')
-    + `<button type="button" class="farm-more-toggle" aria-expanded="false" aria-controls="autoFarmMore"><span>More</span><span class="farm-more-caret" aria-hidden="true"></span></button>`
-    + `<div id="autoFarmMore" class="farm-more" hidden>`
+    + `<div class="farm-more">`
     + segment('Pull Whole Group', 'autoFarmPullLabel', 'farm-pull', `<button type="button" role="radio" data-pull="off">Off</button><button type="button" role="radio" data-pull="on">On</button>`)
     + segment('Target', 'autoFarmTargetLabel', 'farm-target', AUTO_FARM_PRIORITIES.map(entry => `<button type="button" role="radio" data-priority="${entry.id}">${entry.label}</button>`).join(''))
     + `</div></div>`
@@ -113,8 +110,6 @@ export function createAutoFarmPanel(options: {
   const farming = () => options.farm.state().active;
   const selection = element('.farm-selection');
   const emptyNote = element('.farm-empty');
-  const moreToggle = element<HTMLButtonElement>('.farm-more-toggle');
-  const more = element('.farm-more');
   const helpToggle = element<HTMLButtonElement>('.farm-help-toggle');
   const help = element('.farm-help');
   const body = element('.farm-body');
@@ -153,15 +148,6 @@ export function createAutoFarmPanel(options: {
     status.classList.toggle('is-ready', on && ready);
     status.classList.toggle('is-idle', !on);
   }
-
-  function setMoreOpen(open: boolean, remember: boolean) {
-    more.hidden = !open;
-    moreToggle.setAttribute('aria-expanded', String(open));
-    if (remember) try { storage()?.setItem(AUTO_FARM_MORE_KEY, open ? '1' : '0'); } catch { /* Applies this session. */ }
-  }
-  let savedMore = false;
-  try { savedMore = storage()?.getItem(AUTO_FARM_MORE_KEY) === '1'; } catch { /* Closed. */ }
-  setMoreOpen(savedMore, false);
 
   /** Every slider at 0: nothing to farm. */
   const nothingSet = () => !groupKeys().some(key => (draft[key] ?? 0) > 0);
@@ -349,7 +335,6 @@ export function createAutoFarmPanel(options: {
     if (help.hidden && farming()) { options.farm.stop(); close(); return; }
     back();
   });
-  moreToggle.addEventListener('click', () => setMoreOpen(more.hidden, true));
   helpToggle.addEventListener('click', () => { if (content.hidden) open(); setHelpOpen(help.hidden); });
   for (const button of priorityButtons) button.addEventListener('click', () => {
     const choice = AUTO_FARM_PRIORITIES.find(entry => entry.id === button.dataset.priority);

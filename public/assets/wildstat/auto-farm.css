@@ -202,13 +202,6 @@
 .farm-switch[aria-checked="true"] .farm-knob { background: #2f7d38; box-shadow: none; }
 .farm-switch[aria-checked="true"] .farm-knob::after { transform: translateX(14px); background: #fff; }
 /* More: Push, Pull and Target, folded away until wanted. */
-.farm-sheet .farm-more-toggle {
-  display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 40px; padding: 4px 12px;
-  border: 2px solid var(--farm-line); border-radius: 10px; background: transparent; box-shadow: none;
-  color: var(--muted); font: inherit; font-size: 13px; cursor: pointer;
-}
-.farm-more-caret { width: 8px; height: 8px; margin: 0 2px 4px 0; border: solid currentColor; border-width: 0 2px 2px 0; transform: rotate(45deg); }
-.farm-more-toggle[aria-expanded="true"] .farm-more-caret { margin: 4px 2px 0 0; transform: rotate(-135deg); }
 .farm-more { display: grid; gap: 8px; padding: 0 2px; }
 .farm-setting { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .farm-setting-label { flex: 1 0 auto; color: var(--muted); font-size: 13px; white-space: nowrap; }
@@ -238,7 +231,6 @@
   .farm-weights { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); column-gap: 18px; }
   .farm-weight { min-height: 40px; }
   .farm-sheet .farm-switch { min-height: 44px; padding: 4px 12px; }
-  .farm-sheet .farm-more-toggle { min-height: 36px; }
   .farm-sheet .farm-segment button { height: 32px; }
 }
 /* Auto Farm lives alongside the quest/stat trackers, outside the modal layer. */
@@ -311,7 +303,6 @@
 #autoFarmSheet.farm-card .farm-weight-label, #autoFarmSheet.farm-card .farm-weight output { font-size: 13px; }
 #autoFarmSheet.farm-card .farm-weight-sub, #autoFarmSheet.farm-card .farm-boss-status { font-size: 13px; }
 #autoFarmSheet.farm-card .farm-switch { min-height: 40px; padding: 5px 8px; border-width: 1px; border-radius: 6px; font-size: 13px; }
-#autoFarmSheet.farm-card .farm-more-toggle { min-height: 30px; padding: 4px 8px; border-width: 1px; border-radius: 6px; font-size: 13px; }
 #autoFarmSheet.farm-card .farm-setting-label { font-size: 13px; }
 #autoFarmSheet.farm-card .farm-segment { border-width: 1px; border-radius: 6px; }
 #autoFarmSheet.farm-card .farm-segment button { min-width: 40px; height: 30px; padding: 0 6px; font-size: 13px; }
@@ -345,12 +336,15 @@
 #autoFarmSheet.is-window .farm-card-handle { flex: 0 1 auto; }
 #autoFarmSheet.is-window .farm-help-toggle { position: absolute; top: 8px; right: 8px; }
 #autoFarmSheet.is-window.is-farming .farm-badge { color: #98efaa; }
-#autoFarmSheet.is-window .farm-card-content { display: flex; flex-direction: column; min-height: 0; }
+/* The body scrolls between the fixed header and footer when the window is taller than the screen. */
+#autoFarmSheet.is-window .farm-card-content { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; overflow: hidden; }
+#autoFarmSheet.is-window .farm-body, #autoFarmSheet.is-window .farm-help { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: none; }
+#autoFarmSheet.is-window .farm-body::-webkit-scrollbar, #autoFarmSheet.is-window .farm-help::-webkit-scrollbar { display: none; }
+#autoFarmSheet.is-window .farm-footer { flex-shrink: 0; }
 #autoFarmSheet .farm-help-toggle[hidden] { display: none; }
 @media (any-pointer: coarse) {
   #autoFarmSheet.farm-card:not(.is-collapsed) .farm-card-handle,
   #autoFarmSheet.farm-card .farm-switch,
-  #autoFarmSheet.farm-card .farm-more-toggle,
   #autoFarmSheet.farm-card .farm-actions button { min-height: 44px; }
   #autoFarmSheet.farm-card .farm-help-toggle { width: 44px; height: 44px; flex-basis: 44px; }
   #autoFarmSheet.farm-card .farm-weight, #autoFarmSheet.farm-card .farm-weight input { min-height: 44px; }

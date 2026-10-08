@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { parseHTML } from 'linkedom';
-import { AUTO_FARM_MORE_KEY, createAutoFarmPanel } from './auto-farm-panel';
+import { createAutoFarmPanel } from './auto-farm-panel';
 import { createAutoFarmController } from '../game/runtime/auto-farm-controller';
 import { createSpawnSites } from '../game/world';
 import { createGameBootstrap } from '../game/runtime/game-bootstrap';
@@ -278,34 +278,14 @@ it('shows each switch with its own status, lit only when the controller says it 
   expect(line('advance').classList.contains('is-ready')).toBe(false);
   expect(line('advance').classList.contains('is-idle')).toBe(true);
 });
-it('keeps More folded by default, and remembers it open or closed', () => {
-  const storage = memoryStorage();
-  const s = setup(false, 'forest', {}, storage);
-  s.click('.farm-toggle');
-  const more = () => s.document.querySelector<HTMLElement>('.farm-more')!;
-  const toggle = () => s.document.querySelector('.farm-more-toggle')!;
-  expect(more().hidden).toBe(true);
-  expect(toggle().getAttribute('aria-expanded')).toBe('false');
-  expect(toggle().getAttribute('aria-controls')).toBe(more().id);
-  s.click('.farm-more-toggle');
-  expect(more().hidden).toBe(false);
-  expect(toggle().getAttribute('aria-expanded')).toBe('true');
-  expect(storage.values.get(AUTO_FARM_MORE_KEY)).toBe('1');
-  s.panel.destroy();
-  // A new window reads it back open.
-  const again = setup(false, 'forest', {}, storage);
-  destroy = again.panel.destroy;
-  expect(again.document.querySelector<HTMLElement>('.farm-more')!.hidden).toBe(false);
-  again.click('.farm-more-toggle');
-  expect(storage.values.get(AUTO_FARM_MORE_KEY)).toBe('0');
-});
-it('opens even when storage throws', () => {
+it('shows Pull Whole Group and Target in the window with no More to open, even when storage throws', () => {
   const broken = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } };
   const s = setup(false, 'forest', {}, broken as unknown as ReturnType<typeof memoryStorage>);
   s.click('.farm-toggle');
-  expect(s.document.querySelector<HTMLElement>('.farm-more')!.hidden).toBe(true);
-  s.click('.farm-more-toggle');
+  expect(s.document.querySelector('.farm-more-toggle')).toBeNull();
   expect(s.document.querySelector<HTMLElement>('.farm-more')!.hidden).toBe(false);
+  expect(s.document.querySelector('[data-pull="on"]')).not.toBeNull();
+  expect(s.document.querySelector('[data-priority]')).not.toBeNull();
 });
 it('sets Pull Whole Group from its Off and On, and rests it during an Aggro run', () => {
   let available = true;
