@@ -87,3 +87,13 @@ it('fades the backdrop to nothing while text and frame keep a quarter', () => {
   expect(trackerOpacityStyle(-20).background).toBe(0);
   expect(trackerOpacityStyle(140).background).toBe(1);
 });
+
+it('puts itself back on a double tap without losing its chosen opacity', () => {
+  const { panel, fire } = setup();
+  const before = (panel as HTMLElement).style.getPropertyValue('--stat-tracker-bg');
+  expect(before).not.toBe('');
+  (panel as HTMLElement).style.left = '40px';
+  fire('dblclick');
+  expect((panel as HTMLElement).style.left || '').toBe('');
+  expect((panel as HTMLElement).style.getPropertyValue('--stat-tracker-bg')).toBe(before);
+});

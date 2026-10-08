@@ -1,4 +1,5 @@
 import { formatCompactNumber } from './number-format';
+import { installMovableHudCard } from './movable-hud-card';
 import { renderBooleanSetting } from './settings';
 import { createStatTrackerModel, TRACKED_STATS, type TrackerBuild, type TrackerValues } from './stat-tracker-model';
 
@@ -56,14 +57,10 @@ export function installStatTracker(options: {
 
   const clock = panel.querySelector<HTMLElement>('.stat-tracker-time')!;
   const cells = new Map(TRACKED_STATS.map(stat => [stat, panel.querySelectorAll<HTMLTableCellElement>(`[data-stat="${stat}"] td`)]));
-  let enabled = false, lastSave = 0, collapsed = false, suppressClick = false;
-  let position: { x: number; y: number } | null = null;
-  let drag: { id: number; x: number; y: number; startX: number; startY: number; moved: boolean } | null = null;
+  let enabled = false, lastSave = 0, collapsed = false;
   try {
     enabled = options.storage.getItem(ENABLED_KEY) === 'true';
     collapsed = options.storage.getItem(COLLAPSED_KEY) === 'true';
-    const saved = JSON.parse(options.storage.getItem(POSITION_KEY) || 'null');
-    if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) position = saved;
   } catch {}
   function renderCollapsed() {
     panel.classList.toggle('is-collapsed', collapsed);
@@ -71,21 +68,8 @@ export function installStatTracker(options: {
     handle.setAttribute('aria-label', `${collapsed ? 'Expand' : 'Collapse'} stat tracker. Drag to move; Home to reset position.`);
     handle.textContent = `Stat tracker ${collapsed ? '▸' : '▾'}`;
     for (const element of panel.querySelectorAll<HTMLElement>('table, footer, .stat-tracker-opacity')) element.hidden = collapsed;
-    place();
+    movable.place();
   }
-  function savePosition() {
-    try { options.storage.setItem(POSITION_KEY, JSON.stringify(position)); } catch {}
-  }
-  function place() {
-    if (panel.hidden || !position) return;
-    position.x = Math.max(8, Math.min(position.x, window.innerWidth - panel.offsetWidth - 8));
-    position.y = Math.max(8, Math.min(position.y, window.innerHeight - panel.offsetHeight - 8));
-    panel.style.left = `${position.x}px`;
-    panel.style.top = `${position.y}px`;
-    panel.style.right = 'auto';
-    panel.style.bottom = 'auto';
-  }
-  function home() { position = null; panel.removeAttribute('style'); savePosition(); }
   function refresh() {
     const snapshot = options.read();
     // Keep session tracking independent of visibility; hiding does not reset it.
@@ -94,7 +78,7 @@ export function installStatTracker(options: {
     panel.hidden = !enabled || !result;
     if (result && Date.now() - lastSave >= 10_000) { model.save(); lastSave = Date.now(); }
     if (panel.hidden || !result) return;
-    if (wasHidden) place();
+    if (wasHidden) movable.place();
     const seconds = Math.floor(result.elapsedMs / 1000);
     clock.textContent = `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
     for (const row of result.rows) {
@@ -120,64 +104,14 @@ export function installStatTracker(options: {
   toggle.addEventListener('click', () => setEnabled(!enabled));
 
   reset.addEventListener('click', () => { if (options.read()) { refresh(); model.reset(); refresh(); } });
-  // A world gesture keeps ownership when its pointer crosses this overlay.
-  window.addEventListener('pointerdown', event => {
-    if (event.button === 0 && (event.target as HTMLElement | null)?.tagName === 'CANVAS') {
-      panel.classList.add('is-world-gesture');
-    }
-  }, true);
-  const endWorldGesture = () => panel.classList.remove('is-world-gesture');
-  window.addEventListener('pointerup', endWorldGesture, true);
-  window.addEventListener('pointercancel', endWorldGesture, true);
-  window.addEventListener('blur', endWorldGesture);
   // Pointer activation should not move keyboard focus onto the reset button.
   reset.addEventListener('pointerdown', event => event.preventDefault());
-  // UI gestures must never become world movement or combat input.
-  for (const event of ['pointerdown', 'pointermove', 'pointerup', 'click', 'dblclick']) {
-    panel.addEventListener(event, e => e.stopPropagation());
-  }
-  for (const type of ['keydown', 'keyup'] as const) {
-    panel.addEventListener(type, event => {
-      if (!['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(event.code)) event.stopPropagation();
-    });
-  }
-  handle.addEventListener('pointerdown', event => {
-    if (event.button !== 0) return;
-    const bounds = panel.getBoundingClientRect();
-    suppressClick = false;
-    drag = { id: event.pointerId, x: event.clientX - bounds.left, y: event.clientY - bounds.top,
-      startX: event.clientX, startY: event.clientY, moved: false };
-    handle.setPointerCapture(event.pointerId);
-    event.preventDefault();
-  });
-  handle.addEventListener('pointermove', event => {
-    if (!drag || drag.id !== event.pointerId) return;
-    if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 6) drag.moved = true;
-    if (!drag.moved) return;
-    position = { x: event.clientX - drag.x, y: event.clientY - drag.y };
-    place();
-  });
-  const finishDrag = () => { if (drag?.moved) { suppressClick = true; savePosition(); } drag = null; };
-  handle.addEventListener('pointerup', finishDrag);
-  handle.addEventListener('pointercancel', () => { finishDrag(); suppressClick = true; });
-  handle.addEventListener('lostpointercapture', finishDrag);
-  handle.addEventListener('dblclick', home);
-  handle.addEventListener('click', event => {
-    if (suppressClick && event.detail !== 0) { suppressClick = false; return; }
+  // Dragging, keyboard moves and keeping its touches out of the world: the shared HUD card.
+  const movable = installMovableHudCard({ panel, handle, storage: () => options.storage, positionKey: POSITION_KEY, toggle: () => {
     collapsed = !collapsed;
     try { options.storage.setItem(COLLAPSED_KEY, String(collapsed)); } catch {}
     renderCollapsed();
-  });
-  handle.addEventListener('keydown', event => {
-    if (event.key === 'Home') { event.preventDefault(); home(); return; }
-    const delta = ({ ArrowLeft: [-10, 0], ArrowRight: [10, 0], ArrowUp: [0, -10], ArrowDown: [0, 10] } as Record<string, number[]>)[event.key];
-    if (!delta) return;
-    event.preventDefault();
-    const bounds = panel.getBoundingClientRect();
-    position = { x: bounds.left + delta[0], y: bounds.top + delta[1] };
-    place(); savePosition();
-  });
-  window.addEventListener('resize', place);
+  } });
   window.addEventListener('pagehide', model.save);
   document.addEventListener('visibilitychange', () => { model.save(); if (!document.hidden) refresh(); });
   window.setInterval(() => { if (!document.hidden) refresh(); }, 1000);

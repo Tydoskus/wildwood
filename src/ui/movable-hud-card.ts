@@ -1,7 +1,12 @@
 type Position = { x: number; y: number };
 type CardStorage = Pick<Storage, 'getItem' | 'setItem'>;
 
-/** Tracker-style dragging, keyboard movement, and ownership of HUD gestures. */
+/**
+ * A HUD card the player can move: the stat tracker, the quest tracker and Auto
+ * Farm share it. Drag the handle (a tap toggles), arrow keys move it, Home or a
+ * double tap puts it back; touches on it never reach the world, and a world
+ * gesture that slides across it keeps going.
+ */
 export function installMovableHudCard(options: {
   panel: HTMLElement;
   handle: HTMLButtonElement;
@@ -67,7 +72,9 @@ export function installMovableHudCard(options: {
     drag = null;
     panel.classList.remove('is-dragging');
   };
-  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) listen(handle, type, finishDrag);
+  for (const type of ['pointerup', 'lostpointercapture']) listen(handle, type, finishDrag);
+  // A cancelled press (the browser took the gesture) never also toggles the card.
+  listen(handle, 'pointercancel', () => { finishDrag(); suppressClick = true; });
   listen(handle, 'dblclick', home);
   listen(handle, 'click', raw => {
     if (suppressClick && (raw as MouseEvent).detail !== 0) { suppressClick = false; return; }

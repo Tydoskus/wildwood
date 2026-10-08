@@ -83,7 +83,7 @@ it('opens on an even split, moves each slider on its own with its share of 100% 
   s.click('.farm-start');
   expect(!s.content.hidden).toBe(false);
   expect(s.farm.state()).toMatchObject({ active: true, selected: keys[1], shares: { [keys[1]]: 100 } });
-  expect(s.document.querySelector('.farm-badge')!.textContent).toBe('Farming');
+  expect(s.document.querySelector('.farm-badge')!.textContent).toBe('On');
   expect(s.document.querySelector('.farm-toggle')!.getAttribute('aria-expanded')).toBe('false');
   // Tapped while farming it opens the window, farming on and unpaused; Stop ends it.
   s.pause.mockClear();
@@ -480,5 +480,5 @@ it('collapsing the header preserves a running farm and keeps its status visible'
   s.click('.farm-toggle'); s.click('.farm-toggle');
   expect(s.content.hidden).toBe(true);
   expect(s.farm.state().active).toBe(true);
-  expect(s.document.querySelector('.farm-badge')!.textContent).toBe('Farming');
+  expect(s.document.querySelector('.farm-badge')!.textContent).toBe('On');
 });

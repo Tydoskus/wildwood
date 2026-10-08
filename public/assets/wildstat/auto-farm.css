@@ -249,7 +249,7 @@
   z-index: 6;
   display: flex;
   flex-direction: column;
-  width: min(300px, calc(100vw - 16px));
+  width: min(320px, calc(100vw - 16px));
   max-width: calc(100vw - 16px);
   height: auto;
   max-height: min(600px, calc(100dvh - 16px));
@@ -258,7 +258,7 @@
   border-radius: var(--hud-radius-small);
   background: var(--hud-surface);
   box-shadow: 0 2px 0 #0006;
-  font: 700 12px/1.3 "Wildstat Chat", sans-serif;
+  font: 700 13px/1.3 "Wildstat Chat", sans-serif;
   pointer-events: auto;
 }
 #autoFarmSheet.farm-card, #autoFarmSheet.farm-card * {
@@ -293,9 +293,9 @@
 }
 #autoFarmSheet .farm-card-handle:active { transform: none; cursor: grabbing; }
 #autoFarmSheet .farm-swords-icon { width: 18px; height: 18px; }
-#autoFarmSheet .farm-badge { margin-left: auto; color: var(--muted); font-size: 11px; }
+#autoFarmSheet .farm-badge { color: var(--muted); font-size: 13px; }
 #autoFarmSheet.is-farming .farm-badge { color: #98efaa; }
-#autoFarmSheet .farm-card-caret { font-size: 11px; }
+#autoFarmSheet .farm-card-caret { font-size: 13px; }
 #autoFarmSheet.farm-card .farm-help-toggle {
   position: static;
   flex: 0 0 30px;
@@ -307,21 +307,21 @@
 #autoFarmSheet .farm-card-content { display: flex; flex-direction: column; min-height: 0; border-top: 1px solid var(--farm-line); }
 #autoFarmSheet.farm-card .farm-body { gap: 5px; padding: 8px; }
 #autoFarmSheet.farm-card .farm-weights { grid-template-columns: 1fr; }
-#autoFarmSheet.farm-card .farm-weight { grid-template-columns: 84px minmax(0, 1fr) 34px; gap: 6px; min-height: 34px; }
-#autoFarmSheet.farm-card .farm-weight-label, #autoFarmSheet.farm-card .farm-weight output { font-size: 12px; }
-#autoFarmSheet.farm-card .farm-weight-sub, #autoFarmSheet.farm-card .farm-boss-status { font-size: 10px; }
-#autoFarmSheet.farm-card .farm-switch { min-height: 40px; padding: 5px 8px; border-width: 1px; border-radius: 6px; font-size: 12px; }
-#autoFarmSheet.farm-card .farm-more-toggle { min-height: 30px; padding: 4px 8px; border-width: 1px; border-radius: 6px; font-size: 11px; }
-#autoFarmSheet.farm-card .farm-setting-label { font-size: 11px; }
+#autoFarmSheet.farm-card .farm-weight { grid-template-columns: 96px minmax(0, 1fr) 40px; gap: 6px; min-height: 34px; }
+#autoFarmSheet.farm-card .farm-weight-label, #autoFarmSheet.farm-card .farm-weight output { font-size: 13px; }
+#autoFarmSheet.farm-card .farm-weight-sub, #autoFarmSheet.farm-card .farm-boss-status { font-size: 13px; }
+#autoFarmSheet.farm-card .farm-switch { min-height: 40px; padding: 5px 8px; border-width: 1px; border-radius: 6px; font-size: 13px; }
+#autoFarmSheet.farm-card .farm-more-toggle { min-height: 30px; padding: 4px 8px; border-width: 1px; border-radius: 6px; font-size: 13px; }
+#autoFarmSheet.farm-card .farm-setting-label { font-size: 13px; }
 #autoFarmSheet.farm-card .farm-segment { border-width: 1px; border-radius: 6px; }
-#autoFarmSheet.farm-card .farm-segment button { min-width: 40px; height: 30px; padding: 0 6px; font-size: 11px; }
+#autoFarmSheet.farm-card .farm-segment button { min-width: 40px; height: 30px; padding: 0 6px; font-size: 13px; }
 #autoFarmSheet.farm-card .farm-footer { padding: 6px 8px 8px; }
-#autoFarmSheet.farm-card .farm-selection { font-size: 11px; }
+#autoFarmSheet.farm-card .farm-selection { font-size: 13px; }
 #autoFarmSheet.farm-card .farm-actions { gap: 6px; }
-#autoFarmSheet.farm-card .farm-actions button { height: 32px; min-height: 32px; font: inherit; font-size: 12px; border-width: 1px; box-shadow: none; text-transform: none; }
+#autoFarmSheet.farm-card .farm-actions button { height: 32px; min-height: 32px; font: inherit; font-size: 13px; border-width: 1px; box-shadow: none; text-transform: none; }
 #autoFarmSheet.farm-card .farm-help { padding: 8px; }
-#autoFarmSheet.farm-card .farm-help-list dt { font-size: 12px; }
-#autoFarmSheet.farm-card .farm-help-list dd { font-size: 11px; }
+#autoFarmSheet.farm-card .farm-help-list dt { font-size: 14px; }
+#autoFarmSheet.farm-card .farm-help-list dd { font-size: 13px; }
 #autoFarmSheet.farm-card.is-collapsed { width: max-content; min-width: 190px; }
 @media (any-pointer: coarse) {
   #autoFarmSheet.farm-card .farm-card-handle,

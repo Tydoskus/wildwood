@@ -1,3 +1,4 @@
+import { installMovableHudCard } from "./movable-hud-card";
 import type { QuestTrackerView } from "./quest-board-controller";
 import { REWARD_DATA, rewardStatLabel } from "../game/enemies";
 
@@ -41,65 +42,18 @@ export function installQuestTracker(options: {
   const read = () => { try { return options.storage.getItem(COLLAPSED_KEY) === "true"; } catch { return false; } };
   let collapsed = read();
   let signature = "";
-  // Dragged by its header like the stat tracker; a double tap puts it back under the gem row.
-  let position: { x: number; y: number } | null = null;
-  let drag: { id: number; x: number; y: number; startX: number; startY: number; moved: boolean } | null = null;
-  let suppressClick = false;
-  try {
-    const saved = JSON.parse(options.storage.getItem(POSITION_KEY) || "null");
-    if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) position = saved;
-  } catch { /* the default spot */ }
-  const savePosition = () => { try { options.storage.setItem(POSITION_KEY, JSON.stringify(position)); } catch { /* this session only */ } };
-  function place() {
-    if (panel.hidden || !position) return;
-    position.x = Math.max(8, Math.min(position.x, window.innerWidth - panel.offsetWidth - 8));
-    position.y = Math.max(8, Math.min(position.y, window.innerHeight - panel.offsetHeight - 8));
-    panel.style.left = `${position.x}px`;
-    panel.style.top = `${position.y}px`;
-  }
-  const home = () => { position = null; panel.style.left = ""; panel.style.top = ""; savePosition(); };
-
   function applyCollapsed() {
     panel.classList.toggle("is-collapsed", collapsed);
     header.setAttribute("aria-expanded", String(!collapsed));
     header.setAttribute("aria-label", `${collapsed ? "Show" : "Hide"} quests. Drag to move; double tap to put it back.`);
   }
-  header.addEventListener("click", event => {
-    if (suppressClick && event.detail !== 0) { suppressClick = false; return; }
+  // Dragged by its header like the stat tracker (the shared HUD card); a double tap puts it back under the gem row.
+  const movable = installMovableHudCard({ panel, handle: header, storage: () => options.storage, positionKey: POSITION_KEY, toggle: () => {
     collapsed = !collapsed;
     try { options.storage.setItem(COLLAPSED_KEY, String(collapsed)); } catch { /* the choice still holds this session */ }
     applyCollapsed();
-    place();
-  });
-  header.addEventListener("pointerdown", event => {
-    if (event.button !== 0) return;
-    const bounds = panel.getBoundingClientRect();
-    suppressClick = false;
-    drag = { id: event.pointerId, x: event.clientX - bounds.left, y: event.clientY - bounds.top, startX: event.clientX, startY: event.clientY, moved: false };
-    header.setPointerCapture(event.pointerId);
-    event.preventDefault();
-  });
-  header.addEventListener("pointermove", event => {
-    if (!drag || drag.id !== event.pointerId) return;
-    if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 6) drag.moved = true;
-    if (!drag.moved) return;
-    position = { x: event.clientX - drag.x, y: event.clientY - drag.y };
-    place();
-  });
-  const finishDrag = () => { if (drag?.moved) { suppressClick = true; savePosition(); } drag = null; };
-  header.addEventListener("pointerup", finishDrag);
-  header.addEventListener("pointercancel", () => { finishDrag(); suppressClick = true; });
-  header.addEventListener("lostpointercapture", finishDrag);
-  header.addEventListener("dblclick", home);
-  // Touches on the tracker are the tracker's, never a step or a shot in the world.
-  for (const type of ["pointerdown", "pointermove", "pointerup", "click", "dblclick"]) panel.addEventListener(type, event => event.stopPropagation());
-  // A world gesture that slides across the panel keeps going.
-  window.addEventListener("pointerdown", event => {
-    if (event.button === 0 && (event.target as HTMLElement | null)?.tagName === "CANVAS") panel.classList.add("is-world-gesture");
-  }, true);
-  const endWorldGesture = () => panel.classList.remove("is-world-gesture");
-  window.addEventListener("pointerup", endWorldGesture, true);
-  window.addEventListener("pointercancel", endWorldGesture, true);
+    movable.place();
+  } });
   applyCollapsed();
 
   function render() {
@@ -109,7 +63,7 @@ export function installQuestTracker(options: {
     if (!view) { panel.hidden = true; return; }
     const wasHidden = panel.hidden;
     panel.hidden = false;
-    if (wasHidden) place();
+    if (wasHidden) movable.place();
     const next = JSON.stringify(view);
     if (next === signature) return;
     signature = next;

@@ -77,7 +77,7 @@ export function createAutoFarmPanel(options: {
   sheet.className = 'farm-sheet farm-card is-collapsed';
   sheet.hidden = true;
   sheet.setAttribute('aria-labelledby', 'autoFarmTitle');
-  sheet.innerHTML = `<header class="farm-header"><button type="button" class="farm-toggle farm-card-handle" aria-expanded="false" aria-controls="autoFarmContent">${farmIcon}<span id="autoFarmTitle">Auto Farm</span><span class="farm-badge"></span><span class="farm-card-caret" aria-hidden="true">▸</span></button>`
+  sheet.innerHTML = `<header class="farm-header"><button type="button" class="farm-toggle farm-card-handle" aria-expanded="false" aria-controls="autoFarmContent">${farmIcon}<span id="autoFarmTitle" class="visually-hidden">Auto Farm</span><span class="farm-badge"></span><span class="farm-card-caret" aria-hidden="true">▸</span></button>`
     + `<button type="button" class="farm-help-toggle" aria-expanded="false" aria-controls="autoFarmHelp" aria-label="How Auto Farm Works" title="How Auto Farm Works">?</button></header>`
     + `<div id="autoFarmContent" class="farm-card-content" hidden>`
     + `<div id="autoFarmHelp" class="farm-help" hidden><dl class="farm-help-list"></dl></div>`
@@ -87,7 +87,7 @@ export function createAutoFarmPanel(options: {
     + `<p class="farm-empty" hidden>No Enemies Here</p>`
     + `<button type="button" class="farm-switch farm-move" role="switch" data-switch="advance" aria-checked="false" aria-describedby="autoFarmBossStatus">`
     + `<span class="farm-switch-copy"><span class="farm-switch-label">Move On</span><small id="autoFarmBossStatus" class="farm-boss-status"></small></span><span class="farm-knob" aria-hidden="true"></span></button>`
-    + powerSlider('farm-move-power', 'Move At', 'Of Next Map Power', 'Move On At This Much Of The Next Map Power')
+    + powerSlider('farm-move-power', 'Move At', 'Of Map Power', 'Move On At This Much Of The Next Map Power')
     + `<button type="button" class="farm-switch farm-bosses" role="switch" data-switch="bosses" aria-checked="false" aria-describedby="autoFarmBossLine">`
     + `<span class="farm-switch-copy"><span class="farm-switch-label">Fight Bosses</span><small id="autoFarmBossLine" class="farm-boss-status"></small></span><span class="farm-knob" aria-hidden="true"></span></button>`
     + powerSlider('farm-boss-power', 'Fight At', 'Of Boss Power', 'Fight Bosses At This Much Of Their Power')
@@ -303,13 +303,8 @@ export function createAutoFarmPanel(options: {
     refresh();
   }
 
-  /** A short status stays visible when the card is collapsed. */
-  function badgeText() {
-    const state = options.farm.state();
-    if (!state.active) return 'Off';
-    if (state.phase === 'boss') return 'Boss';
-    return state.phase === 'portal' ? 'Next Map' : 'Farming';
-  }
+  /** Beside the icon, collapsed or open: On or Off (Ryan: "just on or off is fine"). */
+  const badgeText = () => options.farm.state().active ? 'On' : 'Off';
 
   function refresh() {
     options.farm.refresh();
