@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.14": [
+    "Fight Bosses has a Fight At slider: fight a boss once you have 0.1x to 10x its power (1x is even)",
+  ],
   "0.901.13": [
     "Autofarm's Move On goes to the next map once your power reaches its recommended power, and steps back after 3 deaths in 3 minutes",
     "New Fight Bosses switch: fights a boss once your power reaches it, and leaves below 30% health",
@@ -3015,6 +3018,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.14": "2026-10-08",
   "0.901.13": "2026-10-08",
   "0.901.12": "2026-10-08",
   "0.901.11": "2026-10-08",

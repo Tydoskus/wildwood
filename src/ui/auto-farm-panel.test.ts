@@ -364,3 +364,28 @@ it('the ? opens a page saying what each control does in place of the settings; B
   expect(help.hidden).toBe(true);
   expect(body.hidden).toBe(false);
 });
+
+it('Fight At sets how much of the boss power to wait for, 0.1x to 10x with 1x in the middle, and rests while Fight Bosses is off', () => {
+  const s = setup();
+  s.click('.farm-toggle');
+  const row = s.document.querySelector<HTMLElement>('.farm-boss-power')!, slider = row.querySelector('input')!;
+  expect(row.querySelector('output')!.textContent).toBe('1x');
+  expect(slider.getAttribute('min')).toBe('0');
+  expect(slider.getAttribute('max')).toBe('10');
+  expect(slider.value).toBe('5');
+  // Off by default for a new player: the slider rests.
+  expect(s.farm.fightBosses()).toBe(false);
+  expect(slider.disabled).toBe(true);
+  expect(row.classList.contains('is-off')).toBe(true);
+  s.click('[data-switch="bosses"]');
+  expect(slider.disabled).toBe(false);
+  slider.value = '0';
+  slider.dispatchEvent(new s.window.Event('input', { bubbles: true }));
+  expect(s.farm.bossPower()).toBe(.1);
+  expect(row.querySelector('output')!.textContent).toBe('0.1x');
+  slider.value = '10';
+  slider.dispatchEvent(new s.window.Event('input', { bubbles: true }));
+  expect(s.farm.bossPower()).toBe(10);
+  expect(row.querySelector('output')!.textContent).toBe('10x');
+  expect(slider.getAttribute('aria-valuetext')).toBe('10x');
+});

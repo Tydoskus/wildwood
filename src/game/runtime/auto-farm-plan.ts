@@ -199,6 +199,27 @@ export const readFightBosses = (storage: () => Storage | undefined = () => local
 export const writeFightBosses = (on: boolean, storage: () => Storage | undefined = () => localStorage) => writeSwitch(AUTO_FARM_BOSSES_KEY, on, storage);
 
 /**
+ * Fight Bosses' slider: how much of the boss's power the player wants before
+ * a fight, 0.1x (go early) to 10x (only a sure win). Even steps either side of
+ * 1x, so the middle of the slider is the boss's own power.
+ */
+export const BOSS_POWER_STEPS = [.1, .2, .3, .5, .75, 1, 1.5, 2, 3, 5, 10] as const;
+export const DEFAULT_BOSS_POWER = 1;
+export const AUTO_FARM_BOSS_POWER_KEY = 'wildstat:autofarm-boss-power:v1';
+/** The step nearest `value` (by ratio), so anything saved or passed lands on the slider. */
+export function bossPowerStep(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return DEFAULT_BOSS_POWER;
+  return BOSS_POWER_STEPS.reduce((best, step) => Math.abs(Math.log(step / value)) < Math.abs(Math.log(best / value)) ? step : best, DEFAULT_BOSS_POWER as number);
+}
+export const bossPowerLabel = (value: number) => `${bossPowerStep(value)}x`;
+export function readBossPower(storage: () => Storage | undefined = () => localStorage) {
+  try { const saved = storage()?.getItem(AUTO_FARM_BOSS_POWER_KEY); return saved == null ? DEFAULT_BOSS_POWER : bossPowerStep(Number(saved)); } catch { return DEFAULT_BOSS_POWER; }
+}
+export function writeBossPower(value: number, storage: () => Storage | undefined = () => localStorage) {
+  try { storage()?.setItem(AUTO_FARM_BOSS_POWER_KEY, String(bossPowerStep(value))); } catch { /* Applies this session. */ }
+}
+
+/**
  * What a map or boss asks before it is tried again: the power the player had
  * when it stepped back or walked away, and 20% more. One number per thing,
  * per character, kept so a reload remembers; one set by a build more than

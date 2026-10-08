@@ -10,7 +10,7 @@ import { attackRangeWithResearch } from '../../../shared/utility-research';
 import { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 import type { SpawnSite } from '../world';
 import { ENEMY_TYPES, type EnemyKind } from '../enemies';
-import { AUTO_FARM_SHARES_KEY, decodeFarmPlan } from './auto-farm-plan';
+import { AUTO_FARM_BOSS_POWER_KEY, AUTO_FARM_SHARES_KEY, decodeFarmPlan } from './auto-farm-plan';
 import type { Circle } from './types';
 import { BOSS_KINDS } from './boss-registry';
 import { bossSurfaceDistance } from '../../../shared/boss-hitbox';
@@ -579,6 +579,30 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
       expect(s.farm.state().phase).toBe('farm');
       s.advance(1_000);
       expect(s.farm.bossStatus()).toBe(`Boss At ${at(2_880)}`);
+    });
+
+    it("Fight At scales the boss power it waits for: 0.5x goes at half, 2x at double, and the choice is kept", () => {
+      let power = 1_000;
+      const boss = { x: 900, y: 500, r: 60, hp: 1_000, maxHp: 1_000 };
+      const s = planned({ power: () => power, bossPower: () => 2_000, mapBoss: () => boss, bossUnlocksNext: () => true });
+      s.add('Bramble', 500, 1_500);
+      s.farm.start([health]);
+      s.farm.setFightBosses(true);
+      expect(s.farm.bossPower()).toBe(1);
+      s.farm.setBossPower(.5);
+      s.advance(1_000); s.tick();
+      expect(s.farm.state().phase).toBe('boss');
+      s.farm.stop(); s.farm.start([health]);
+      s.farm.setBossPower(2);
+      power = 3_000; s.advance(1_000); s.tick();
+      expect(s.farm.state().phase).toBe('farm');
+      expect(s.farm.bossStatus()).toBe(`Boss At ${at(4_000)}`);
+      power = 4_000; s.advance(1_000); s.tick();
+      expect(s.farm.state().phase).toBe('boss');
+      // Off the slider's steps it lands on the nearest, and is saved for next time.
+      s.farm.setBossPower(4.2);
+      expect(s.farm.bossPower()).toBe(5);
+      expect(s.values.get(AUTO_FARM_BOSS_POWER_KEY)).toBe('5');
     });
 
     it("leaves a beaten boss alone (the way on open, or a win that opened nothing); Move On says when it needs the boss", () => {

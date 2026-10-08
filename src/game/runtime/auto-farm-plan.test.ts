@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AUTO_FARM_CHOICE_KEY, AUTO_FARM_SHARES_KEY, AUTO_FARM_SOUL_SHARES_KEY, AUTO_FARM_WEIGHTS_KEY, decodeFarmPlan, encodeFarmPlan, evenShares, legacyShares,
-  AUTO_FARM_ADVANCE_KEY, AUTO_FARM_BOSSES_KEY, readFightBosses, writeFightBosses, readSavedShares, rebalanceShares, shareFarmKey, shareLabel, sharesForGroups, writeSavedShares,
+  AUTO_FARM_ADVANCE_KEY, AUTO_FARM_BOSSES_KEY, AUTO_FARM_BOSS_POWER_KEY, bossPowerStep, readBossPower, writeBossPower, readFightBosses, writeFightBosses, readSavedShares, rebalanceShares, shareFarmKey, shareLabel, sharesForGroups, writeSavedShares,
 } from './auto-farm-plan';
 import { SOUL_MAP_ID } from '../../../shared/soul-dimension';
 
@@ -127,4 +127,17 @@ it('Fight Bosses, never set, starts as Move On is, so a farm that moved on keeps
   writeFightBosses(false, on.storage);
   expect(on.values.get(AUTO_FARM_BOSSES_KEY)).toBe('0');
   expect(readFightBosses(on.storage)).toBe(false);
+});
+
+it('Fight At is 1x until set, snaps anything to the nearest step, and survives a bad saved value', () => {
+  const m = memory();
+  expect(readBossPower(m.storage)).toBe(1);
+  writeBossPower(.5, m.storage);
+  expect(readBossPower(m.storage)).toBe(.5);
+  expect(bossPowerStep(.9)).toBe(1);
+  expect(bossPowerStep(7)).toBe(5);
+  expect(bossPowerStep(50)).toBe(10);
+  expect(bossPowerStep(.01)).toBe(.1);
+  m.values.set(AUTO_FARM_BOSS_POWER_KEY, 'nope');
+  expect(readBossPower(m.storage)).toBe(1);
 });

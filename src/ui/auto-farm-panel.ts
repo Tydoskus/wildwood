@@ -3,7 +3,7 @@ import type { AutoFarmController } from '../game/runtime/auto-farm-controller';
 import { AUTO_FARM_PRIORITIES, farmGroupRewardType } from '../game/runtime/auto-farm-priority';
 import { SOUL_STAT_DETAILS } from '../../shared/soul-dimension';
 import { soulRewardText } from '../game/soul-world';
-import { rebalanceShares, shareLabel, type FarmShares } from '../game/runtime/auto-farm-plan';
+import { BOSS_POWER_STEPS, bossPowerLabel, rebalanceShares, shareLabel, type FarmShares } from '../game/runtime/auto-farm-plan';
 import { aggroPicksNeeded, readAggroPicks, writeAggroPicks } from '../game/runtime/aggro-picks';
 import { createAggroPickPrompt } from './aggro-pick-prompt';
 import type { AggroChallenge } from '../../shared/aggro-challenge';
@@ -19,7 +19,7 @@ const defaultStorage = (): PanelStorage | undefined => { try { return window.loc
 const HELP_LINES: readonly [term: string, line: string][] = [
   ['Sliders', 'Share of farming time for each stat. They always add up to 100%.'],
   ['Move On', 'Goes to the next map when your power reaches its recommended power. Steps back after 3 deaths in 3 minutes.'],
-  ['Fight Bosses', "Fights the boss when your power reaches the boss's. Leaves below 30% health."],
+  ['Fight Bosses', "Fights the boss once your power reaches Fight At times the boss's (1x is even). Leaves below 30% health."],
   ['Pull Whole Group', 'On pulls the whole camp at once.'],
   ['Target', 'Which enemy it hits first.'],
 ]
@@ -78,6 +78,8 @@ export function createAutoFarmPanel(options: {
     + `<span class="farm-switch-copy"><span class="farm-switch-label">Move On</span><small id="autoFarmBossStatus" class="farm-boss-status"></small></span><span class="farm-knob" aria-hidden="true"></span></button>`
     + `<button type="button" class="farm-switch farm-bosses" role="switch" data-switch="bosses" aria-checked="false" aria-describedby="autoFarmBossLine">`
     + `<span class="farm-switch-copy"><span class="farm-switch-label">Fight Bosses</span><small id="autoFarmBossLine" class="farm-boss-status"></small></span><span class="farm-knob" aria-hidden="true"></span></button>`
+    + `<label class="farm-weight farm-boss-power"><span class="farm-weight-name"><span class="farm-weight-label">Fight At</span><span class="farm-weight-sub">Of Boss Power</span></span>`
+    + `<input type="range" min="0" max="${BOSS_POWER_STEPS.length - 1}" step="1" aria-label="Fight Bosses At This Much Of Their Power"><output aria-hidden="true"></output></label>`
     + `<button type="button" class="farm-more-toggle" aria-expanded="false" aria-controls="autoFarmMore"><span>More</span><span class="farm-more-caret" aria-hidden="true"></span></button>`
     + `<div id="autoFarmMore" class="farm-more" hidden>`
     + segment('Pull Whole Group', 'autoFarmPullLabel', 'farm-pull', `<button type="button" role="radio" data-pull="off">Off</button><button type="button" role="radio" data-pull="on">On</button>`)
@@ -123,6 +125,8 @@ export function createAutoFarmPanel(options: {
   const pullButtons = [...pullRow.querySelectorAll<HTMLButtonElement>('[data-pull]')];
   const advanceSwitch = element<HTMLButtonElement>('[data-switch="advance"]');
   const bossSwitch = element<HTMLButtonElement>('[data-switch="bosses"]');
+  const bossPowerRow = element('.farm-boss-power');
+  const bossPowerSlider = bossPowerRow.querySelector('input')!;
   /** A switch and its status line: the line lit when the controller says it is going now, quiet with the switch off. */
   function showSwitch(button: HTMLButtonElement, on: boolean, line: string, ready: boolean) {
     button.setAttribute('aria-checked', String(on));
@@ -154,6 +158,14 @@ export function createAutoFarmPanel(options: {
     for (const button of priorityButtons) button.setAttribute('aria-checked', String(button.dataset.priority === priority));
     showSwitch(advanceSwitch, options.farm.advance(), options.farm.moveStatus(), options.farm.moveReady());
     showSwitch(bossSwitch, options.farm.fightBosses(), options.farm.bossStatus(), options.farm.bossReady());
+    // The slider steers Fight Bosses, so it rests with that switch off.
+    const bossPower = options.farm.bossPower(), step = String(BOSS_POWER_STEPS.indexOf(bossPower as typeof BOSS_POWER_STEPS[number]));
+    if (bossPowerSlider.value !== step) bossPowerSlider.value = step;
+    bossPowerSlider.setAttribute('aria-valuetext', bossPowerLabel(bossPower));
+    bossPowerRow.querySelector('output')!.textContent = bossPowerLabel(bossPower);
+    bossPowerRow.style.setProperty('--farm-weight-at', `${Number(step) / (BOSS_POWER_STEPS.length - 1) * 100}%`);
+    bossPowerRow.classList.toggle('is-off', !options.farm.fightBosses());
+    bossPowerSlider.disabled = !options.farm.fightBosses();
     // Off during an Aggro run: the run's own chasing groups are its pull.
     const pullOff = options.farm.pullAvailable?.() === false;
     const pulling = options.farm.pullAll() && !pullOff;
@@ -300,6 +312,11 @@ export function createAutoFarmPanel(options: {
   });
   advanceSwitch.addEventListener('click', () => { options.farm.setAdvance(!options.farm.advance()); updateSelection(); });
   bossSwitch.addEventListener('click', () => { options.farm.setFightBosses(!options.farm.fightBosses()); updateSelection(); });
+  bossPowerSlider.addEventListener('input', () => {
+    const step = BOSS_POWER_STEPS[Math.max(0, Math.min(BOSS_POWER_STEPS.length - 1, Math.round(Number(bossPowerSlider.value))))];
+    options.farm.setBossPower(step);
+    updateSelection();
+  });
   for (const button of pullButtons) button.addEventListener('click', () => {
     if (options.farm.pullAvailable?.() !== false) options.farm.setPullAll(button.dataset.pull === 'on');
     updateSelection();

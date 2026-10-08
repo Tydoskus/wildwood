@@ -11,7 +11,7 @@ import { bossSurfaceDistance, bossVerticalRadius } from '../../../shared/boss-hi
 import { carryFarmGroup, compareAutoFarmTargets, farmGroupMatches, farmGroupOf, farmStatGroup, readAutoFarmPriority, soulFarmReward, readAutoFarmPull, writeAutoFarmPriority, writeAutoFarmPull, type AutoFarmGroup, type AutoFarmPriority } from './auto-farm-priority';
 import type { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 import {
-  SHARE_REPLAN_SECONDS, createRetryPowers, decodeFarmPlan, encodeFarmPlan, legacyShares, readFarmAdvance, readFightBosses, readSavedShares, sharesForGroups, shareFarmKey,
+  SHARE_REPLAN_SECONDS, createRetryPowers, decodeFarmPlan, encodeFarmPlan, legacyShares, readBossPower, writeBossPower, bossPowerStep, readFarmAdvance, readFightBosses, readSavedShares, sharesForGroups, shareFarmKey,
   writeFarmAdvance, writeFightBosses, writeSavedShares, type FarmReward, type FarmShares,
 } from './auto-farm-plan';
 import { formatCompactNumber } from '../../../shared/compact-number';
@@ -120,6 +120,8 @@ export function createAutoFarmController(options: {
   let pullAll = readAutoFarmPull(options.priorityStorage);
   let advance = readFarmAdvance(options.priorityStorage);
   let fightBosses = readFightBosses(options.priorityStorage);
+  /** Fight Bosses' slider: the share of the boss's power to have before a fight (1 is even). */
+  let bossPower = readBossPower(options.priorityStorage);
   const retries = createRetryPowers(options.priorityStorage);
   /** This map's sliders, and its groups above 0%, the largest first. */
   let shares: FarmShares = {};
@@ -270,7 +272,7 @@ export function createAutoFarmController(options: {
   }
 
   // ---- Fight Bosses ----
-  const bossNeeds = () => Math.max(options.bossPower?.() ?? options.mapPower?.(options.mapId()) ?? 0, retries.needed(identityKey(), bossKey(options.mapId()), currentPower()));
+  const bossNeeds = () => Math.max((options.bossPower?.() ?? options.mapPower?.(options.mapId()) ?? 0) * bossPower, retries.needed(identityKey(), bossKey(options.mapId()), currentPower()));
   /** Beaten, as far as it can tell: the way forward it holds is open, or a win here opened nothing. */
   const bossBeaten = () => options.bossUnlocksNext?.() === false || opensNothing.has(options.mapId());
   /** Whether to fight the boss now: Fight Bosses on, a boss standing that is not beaten, and power enough (a fight under way goes on). */
@@ -606,6 +608,9 @@ export function createAutoFarmController(options: {
     setAdvance(next: boolean) { advance = next; writeFarmAdvance(next, options.priorityStorage); },
     fightBosses: () => fightBosses,
     setFightBosses(next: boolean) { fightBosses = next; writeFightBosses(next, options.priorityStorage); },
+    /** Fight Bosses' slider, 0.1x to 10x the boss's power. */
+    bossPower: () => bossPower,
+    setBossPower(next: number) { bossPower = bossPowerStep(next); writeBossPower(bossPower, options.priorityStorage); },
     moveStatus,
     /** Whether Move On is going now: the panel shows it lit. */
     moveReady: () => moveStatus() === 'Moving On',
