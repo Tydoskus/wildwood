@@ -110,6 +110,14 @@ export function installMovableHudCard(options: {
   for (const type of ['pointerdown', 'pointermove', 'pointerup', 'click', 'dblclick', 'wheel']) {
     listen(panel, type, event => event.stopPropagation());
   }
+  // A click or drag on the card hands the keyboard back to the world once it ends: focus left on a
+  // button or slider here kept the arrow keys, and players could not walk until they clicked elsewhere.
+  // Typing in a text field keeps its focus; reaching the card with Tab never moves it.
+  listen(panel, 'pointerup', () => globalThis.setTimeout(() => {
+    const focused = panel.ownerDocument.activeElement as HTMLElement | null;
+    if (!focused || !panel.contains(focused) || focused.tagName === 'TEXTAREA' || (focused.tagName === 'INPUT' && (focused as HTMLInputElement).type !== 'range')) return;
+    focused.blur();
+  }, 0));
   for (const type of ['keydown', 'keyup']) listen(panel, type, raw => {
     if (!['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes((raw as KeyboardEvent).code)) raw.stopPropagation();
   });

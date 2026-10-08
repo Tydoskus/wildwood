@@ -100,3 +100,26 @@ it('keeps the card above the toolbar after a resize, and placed by its corner on
   s.event(s.handle, 'dblclick');
   expect(s.panel.style.transform || '').toBe('');
 });
+
+it('hands the keyboard back to the world after a click or drag on the card, so arrow keys walk again', async () => {
+  const s = setup();
+  const slider = s.panel.querySelector('input')!;
+  let focused: Element | null = slider;
+  Object.defineProperty(s.document, 'activeElement', { configurable: true, get: () => focused });
+  const blur = vi.fn(() => { focused = null; });
+  Object.assign(slider, { blur }); Object.assign(s.handle, { blur });
+  s.event(slider, 'pointerup');
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(blur).toHaveBeenCalledTimes(1);
+  focused = s.handle;
+  s.event(s.handle, 'pointerup');
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(blur).toHaveBeenCalledTimes(2);
+  // A text field being typed in keeps its focus.
+  const text = s.document.createElement('input'); s.panel.append(text);
+  const keep = vi.fn(); Object.assign(text, { blur: keep });
+  focused = text;
+  s.event(text, 'pointerup');
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(keep).not.toHaveBeenCalled();
+});

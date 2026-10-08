@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.24": [
+    "Clicking the Auto Farm card, the stat tracker or the quest tracker no longer keeps the arrow keys from moving your character",
+  ],
   "0.901.23": [
     "Sign-in and loading are on plain black, and their logo and loading bar grow on large screens",
   ],
@@ -3059,6 +3062,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.24": "2026-10-08",
   "0.901.23": "2026-10-08",
   "0.901.22": "2026-10-08",
   "0.901.21": "2026-10-08",
