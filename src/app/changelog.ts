@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.18": [
+    "Auto Farm is a card on the HUD like the stat and quest trackers: drag it anywhere, tap to open or close",
+    "The quest tracker can be moved with the arrow keys too, and the stat tracker keeps its opacity when put back",
+    "The eggplant profile picture is gone; anyone using it shows the default picture",
+  ],
   "0.901.17": [
     "Timers are back to how they were, seconds included; only tech research and slot upgrades read HH:MM",
   ],
@@ -3032,6 +3037,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.18": "2026-10-08",
   "0.901.17": "2026-10-08",
   "0.901.16": "2026-10-08",
   "0.901.15": "2026-10-08",
