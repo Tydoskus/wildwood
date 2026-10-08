@@ -10,6 +10,7 @@ export const PROFILE_ICON_SHEETS = [
   { path: "assets/wildstat/profile-portraits-varied-v1-alpha.webp", category: "people" },
   { path: "assets/wildstat/profile-objects-grid-v1-alpha.webp", category: "objects" },
   { path: "assets/wildstat/profile-objects-grid-v2-alpha.webp", category: "objects" },
+  { path: "assets/wildstat/profile-objects-grid-v3-alpha.webp", category: "objects" },
 ] as const;
 export const PROFILE_ICON_COUNT = PROFILE_ICON_SHEETS.length * PROFILE_ICONS_PER_SHEET;
 
@@ -51,6 +52,6 @@ export function profileIconLocation(value: number) {
 }
 export function profileIconsInCategory(category: ProfileIconCategory) {
   // Feature the newest sheet first while preserving the original IDs and choices.
-  return (category === "people" ? [1, 0] : [3, 2]).flatMap(sheet =>
+  return (category === "people" ? [1, 0] : [4, 3, 2]).flatMap(sheet =>
     Array.from({ length: PROFILE_ICONS_PER_SHEET }, (_, cell) => sheet * PROFILE_ICONS_PER_SHEET + cell));
 }

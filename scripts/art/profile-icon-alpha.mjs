@@ -218,6 +218,7 @@ export const ALPHA_SHEETS = [
   { from: "public/assets/wildstat/profile-portraits-varied-v1.webp", to: "public/assets/wildstat/profile-portraits-varied-v1-alpha.webp" },
   { from: "public/assets/wildstat/profile-objects-grid-v1.webp", to: "public/assets/wildstat/profile-objects-grid-v1-alpha.webp" },
   { fit: "art-source/generated/profile-icons/profile-objects-grid-v2.png", to: "public/assets/wildstat/profile-objects-grid-v2-alpha.webp", bounds: "OBJECT_BOUNDS_V2" },
+  { fit: "art-source/generated/profile-icons/profile-objects-grid-v3-final.png", to: "public/assets/wildstat/profile-objects-grid-v3-alpha.webp", bounds: "OBJECT_BOUNDS_V3" },
 ];
 
 /** The object bounds src/app/profile-icon-crops.ts keeps for a sheet, as written there. */

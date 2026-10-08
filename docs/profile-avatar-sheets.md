@@ -4,6 +4,8 @@ Generated with the built-in image-generation tool using `public/assets/wildstat/
 
 A second object sheet, `public/assets/wildstat/profile-objects-grid-v2.webp` (IDs 192–255, animals, food and keepsakes), was generated at 2048 × 2048 on transparency and fitted to the v1 format by `scripts/art/fit-profile-object-sheet.mjs`, which centres each object in its cell at one size and prints the bounds kept in `src/app/profile-icon-crops.ts`.
 
+A third object sheet, `public/assets/wildstat/profile-objects-grid-v3-alpha.webp` (IDs 256–319: nature, animals, food, toys and tools, none repeating the first two sheets), comes from `art-source/generated/profile-icons/profile-objects-grid-v3-final.png` (its prompt beside it). Some of its objects reach into the gaps between cells, so the fit finds each object by its shape rather than by empty rows and columns.
+
 ## Backdrops
 
 Each player picks a White or Black backdrop for their picture. It is stored in bit 16 of the same `profileIcon` u32 (`shared/profile-icons.ts`), so no column changed; icons saved before have the bit clear and stay White.

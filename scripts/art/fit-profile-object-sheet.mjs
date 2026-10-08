@@ -55,6 +55,42 @@ function bands(length, filled) {
   return runs.sort((a, b) => (b[1] - b[0]) - (a[1] - a[0])).slice(0, GRID).sort((a, b) => a[0] - b[0]);
 }
 
+/**
+ * Each pixel's object, for a sheet whose objects reach into the gaps (sheet 3's
+ * fishing rod and wheat do), so no empty row or column parts every cell. The
+ * solid shapes are labelled and each goes to the eighth of the sheet its centre
+ * is in; faint rims join the shape beside them. Returns, per pixel, its cell
+ * plus one (0: nothing), so an object is cut out without a neighbour's edge.
+ */
+function cellsByShape(data, W, H, channels) {
+  const label = new Int32Array(W * H), cells = [0];
+  const alpha = (i) => data[i * channels + 3];
+  const stack = new Int32Array(W * H);
+  let next = 0;
+  for (let start = 0; start < W * H; start++) {
+    if (label[start] || alpha(start) <= 40) continue;
+    const id = ++next;
+    let top = 0, sx = 0, sy = 0, n = 0;
+    stack[top++] = start; label[start] = id;
+    while (top) {
+      const i = stack[--top], x = i % W, y = (i - x) / W;
+      sx += x; sy += y; n++;
+      for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, y > 0 ? i - W : -1, y < H - 1 ? i + W : -1])
+        if (j >= 0 && !label[j] && alpha(j) > 40) { label[j] = id; stack[top++] = j; }
+    }
+    cells.push(1 + Math.min(GRID - 1, Math.floor(sy / n / (H / GRID))) * GRID + Math.min(GRID - 1, Math.floor(sx / n / (W / GRID))));
+  }
+  const cell = new Int32Array(W * H);
+  for (let i = 0; i < W * H; i++) if (label[i]) cell[i] = cells[label[i]];
+  // Three passes give each faint rim pixel the cell of a solid neighbour.
+  for (let pass = 0; pass < 3; pass++) for (let i = 0; i < W * H; i++) {
+    if (cell[i] || !alpha(i)) continue;
+    const x = i % W;
+    for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) if (j >= 0 && j < W * H && cell[j]) { cell[i] = cell[j]; break; }
+  }
+  return cell;
+}
+
 /** Lays the source's objects out on a transparent 1254px sheet. Returns the sheet (RGBA) and each object's bounds. */
 export async function fitObjectSheet(input) {
   const { data, info } = await sharp(input).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
@@ -62,7 +98,8 @@ export async function fitObjectSheet(input) {
   const solid = (x, y) => data[(y * W + x) * channels + 3] > 40;
   const rows = bands(H, y => { for (let x = 0; x < W; x++) if (solid(x, y)) return true; return false; });
   const columns = bands(W, x => { for (let y = 0; y < H; y++) if (solid(x, y)) return true; return false; });
-  if (rows.length !== GRID || columns.length !== GRID) throw new Error(`expected ${GRID}x${GRID} bands, found ${columns.length}x${rows.length}`);
+  // Where the gaps do not part the cells, each object is found by its shape instead.
+  const byShape = rows.length !== GRID || columns.length !== GRID ? cellsByShape(data, W, H, channels) : null;
 
   const opaque = Buffer.from(data);
   for (let i = 3; i < opaque.length; i += channels) opaque[i] = opaque[i] >= SOLID_ALPHA ? 255 : Math.round(opaque[i] * 255 / SOLID_ALPHA);
@@ -70,15 +107,27 @@ export async function fitObjectSheet(input) {
 
   const layers = [], bounds = [];
   for (let cell = 0; cell < GRID * GRID; cell++) {
-    const [x0, x1] = columns[cell % GRID], [y0, y1] = rows[Math.floor(cell / GRID)];
+    const [x0, x1] = byShape ? [0, W - 1] : columns[cell % GRID], [y0, y1] = byShape ? [0, H - 1] : rows[Math.floor(cell / GRID)];
+    const mine = byShape ? (x, y) => byShape[y * W + x] === cell + 1 : () => true;
     let left = x1, right = x0, top = y1, bottom = y0;
-    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (solid(x, y)) {
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (solid(x, y) && mine(x, y)) {
       left = Math.min(left, x); right = Math.max(right, x); top = Math.min(top, y); bottom = Math.max(bottom, y);
     }
+    if (right < left) throw new Error(`cell ${cell} is empty`);
     const w = right - left + 1, h = bottom - top + 1, scale = OBJECT_SIZE / Math.max(w, h);
     const sw = Math.round(w * scale), sh = Math.round(h * scale);
+    // Found by shape, only this object's own pixels are cut out: a neighbour reaching into its box is left behind.
+    let cut = source().extract({ left, top, width: w, height: h });
+    if (byShape) {
+      const own = Buffer.alloc(w * h * channels);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const from = ((top + y) * W + left + x), to = (y * w + x) * channels;
+        if (byShape[from] === cell + 1) opaque.copy(own, to, from * channels, from * channels + channels);
+      }
+      cut = sharp(own, { raw: { width: w, height: h, channels } });
+    }
     // Pad the extracted object so the sharpen sees transparency, not a cut edge, at its border.
-    const object = await source().extract({ left, top, width: w, height: h }).resize(sw, sh, { kernel: "lanczos3" })
+    const object = await cut.resize(sw, sh, { kernel: "lanczos3" })
       .extend({ top: 4, bottom: 4, left: 4, right: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } })
       .sharpen(SHARPEN).png().toBuffer();
     const at = { left: Math.round((cell % GRID) * CELL + (CELL - sw) / 2), top: Math.round(Math.floor(cell / GRID) * CELL + (CELL - sh) / 2) };

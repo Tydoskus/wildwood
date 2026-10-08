@@ -1,0 +1,23 @@
+Built-in image_gen edit; transparent_background=true.
+Reference: profile-objects-grid-v3-burger.png
+
+Use case: precise-object-edit.
+Edit target: the attached transparent 8-by-8 cartoon game icon atlas. Keep the exact 64-cell layout, dimensions, transparent backdrop, sharp bold outlines, warm saturated colors, clean simple cel shading, consistent icon sizes and generous clear margins. This revision removes icons too similar to ones already in our older sheets.
+Make ONLY these specified replacements, using 1-based row and column positions:
+R2 C2 yellow duckling -> a charming black toucan with large orange-yellow beak.
+R2 C6 hermit crab -> a friendly brown walrus with two ivory tusks.
+R5 C4 brown hiking boot -> a dark green walkie-talkie with short antenna.
+R5 C6 canoe -> a simple curved wooden boomerang with two colored stripes.
+R5 C8 axe in a log -> a chunky steel blacksmith anvil.
+R6 C6 yellow rain boot -> a magnifying glass with brown handle and pale blue clear lens.
+R6 C8 beach ball -> a colorful 3x3 twisty puzzle cube, no branding.
+R7 C1 pink seashell -> a small rocky volcano with glowing orange lava at its summit.
+R7 C4 amber stone -> a wooden spool of red thread with a silver sewing needle.
+R7 C5 blue feather -> a quaint small windmill with four clear sails.
+R7 C8 white water lily -> a small twig bird nest holding three pale blue eggs.
+R8 C1 green watering can -> a pair of red-handled scissors.
+R8 C4 mint plant in a pot -> a compact vintage teal sewing machine.
+R8 C7 closed green journal -> a chunky gold padlock with silver shackle.
+R8 C8 orange sailboat -> a small bright red fire extinguisher with black hose, no text.
+Keep every other icon and its position unchanged, particularly R1 C1 full-size oak tree, R1 C2 blue freshwater fish, R1 C3 capybara, R3 C6 cheeseburger, R4 C1 taco. The peach must remain absent.
+All 64 are distinct objects, no repeated subjects within this sheet. No boats, no boots, no books, no watering cans, no seashells, no lilies, no quills, no ducks, no crabs, no axes. Do not alter untouched artwork. No blur, glow, grain, white sticker borders, text, labels, grid lines, tile backgrounds or shadows. Truly transparent backdrop and fully opaque crisp artwork.

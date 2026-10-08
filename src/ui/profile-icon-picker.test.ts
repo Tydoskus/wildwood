@@ -29,7 +29,7 @@ function fixture(selected = 0, setIcon = vi.fn(async (_icon: number) => ({ ok: t
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 
 it("preserves old portraits and maps every new sheet boundary consistently", () => {
-  for (const [index, sheet, cell] of [[0,0,0], [63,0,63], [64,1,0], [127,1,63], [128,2,0], [191,2,63], [192,3,0], [255,3,63]]) {
+  for (const [index, sheet, cell] of [[0,0,0], [63,0,63], [64,1,0], [127,1,63], [128,2,0], [191,2,63], [192,3,0], [255,3,63], [256,4,0], [319,4,63]]) {
     const location = profileIconLocation(index);
     expect(location.sheetIndex).toBe(sheet); expect(location.cell).toBe(cell);
     const element = document.createElement("span"); applyProfileIcon(element, index);
@@ -37,14 +37,14 @@ it("preserves old portraits and maps every new sheet boundary consistently", () 
     expect(element.dataset.profileIcon).toBe(String(index));
     expect(isValidProfileIcon(index)).toBe(true);
   }
-  for (const invalid of [-1, 256, NaN, Infinity, 1.5]) expect(isValidProfileIcon(invalid)).toBe(false);
+  for (const invalid of [-1, 320, NaN, Infinity, 1.5]) expect(isValidProfileIcon(invalid)).toBe(false);
 });
 
 it("offers all people and objects separately and opens the selected category", () => {
   const f = fixture(191);
-  // Both object sheets, the newer first.
-  expect(f.choices.children).toHaveLength(128);
-  expect(f.choices.firstElementChild?.getAttribute("data-profile-icon")).toBe("192");
+  // All three object sheets, the newest first.
+  expect(f.choices.children).toHaveLength(192);
+  expect(f.choices.firstElementChild?.getAttribute("data-profile-icon")).toBe("256");
   expect(f.choices.querySelector('[aria-pressed="true"]')?.getAttribute("data-profile-icon")).toBe("191");
   document.getElementById("profile-icon-tab-people")!.click();
   expect(f.choices.children).toHaveLength(128);
