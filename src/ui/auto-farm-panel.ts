@@ -6,12 +6,15 @@ import { soulRewardText } from '../game/soul-world';
 import { POWER_STEPS, powerLabel, sharesForGroups, shareLabel, type FarmShares } from '../game/runtime/auto-farm-plan';
 import { aggroPicksNeeded, readAggroPicks, writeAggroPicks } from '../game/runtime/aggro-picks';
 import { createAggroPickPrompt } from './aggro-pick-prompt';
+import { installMovableHudCard } from './movable-hud-card';
 import type { AggroChallenge } from '../../shared/aggro-challenge';
 import type { RewardType } from '../game/enemies';
 
 const farmIcon = '<img class="farm-swords-icon" src="assets/wildstat/icons/Icon_AutoFarm.svg" alt="" aria-hidden="true">';
 /** Whether the window's More section was left open, per browser. */
 export const AUTO_FARM_MORE_KEY = 'wildstat:autofarm-more-open:v1';
+export const AUTO_FARM_POSITION_KEY = 'wildstat:autofarm-position:v1';
+export const AUTO_FARM_EXPANDED_KEY = 'wildstat:autofarm-expanded:v1';
 type PanelStorage = Pick<Storage, 'getItem' | 'setItem'>;
 const defaultStorage = (): PanelStorage | undefined => { try { return window.localStorage; } catch { return undefined; } };
 /** The controller's lines are sentence case ("Moving to enemy"); the window shows every word capitalised. */
@@ -42,7 +45,7 @@ const segment = (label: string, labelId: string, className: string, buttons: str
  * share of the time; the sliders always add up to 100% (moving one moves the
  * others in proportion), and 0% is never farmed. Move On goes to the next
  * map at its recommended power; Fight Bosses fights the boss at its; Pull and
- * Target wait under More. The floating button shows what the farm is doing at a glance and stops it with a tap.
+ * Target wait under More. The movable card header shows what the farm is doing even when collapsed.
  */
 export function createAutoFarmPanel(options: {
   farm: AutoFarmController;
@@ -58,26 +61,25 @@ export function createAutoFarmPanel(options: {
   /** The Aggro challenge and whose picks to read: during a run this button opens the group picker (with Target) instead. */
   aggro?: () => AggroChallenge | null | undefined;
   identity?: () => string | undefined;
-  /** Where More's open or closed is kept; localStorage by default. */
+  /** Card position and disclosure preferences; localStorage by default. */
   storage?: () => PanelStorage | undefined;
 }) {
   const storage = options.storage ?? defaultStorage;
+  let restoreExpanded = false;
+  try { restoreExpanded = storage()?.getItem(AUTO_FARM_EXPANDED_KEY) === '1'; } catch { /* Closed. */ }
   const aggroRun = () => Boolean(options.aggro?.()?.active);
   const picker = createAggroPickPrompt(document, { picks: () => readAggroPicks(options.identity?.()), setPicks: picks => writeAggroPicks(options.identity?.(), picks),
     priority: () => options.farm.priority(), setPriority: priority => options.farm.setPriority(priority) });
   /** This map's stat groups, as autofarm offers them (a soul group as its run stat); empty while it loads. */
   const mapGroups = () => [...new Set(options.farm.choices().flatMap(choice => farmGroupRewardType(choice.key) ?? []))] as RewardType[];
-  const floating = document.createElement('div');
-  floating.className = 'farm-floating';
-  floating.hidden = true;
-  floating.innerHTML = `<button type="button" class="farm-toggle" aria-pressed="false" aria-haspopup="dialog" aria-controls="autoFarmSheet">${farmIcon}<svg class="farm-stop-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>`
-    + `<span class="farm-badge" aria-hidden="true"></span>`;
-  const sheet = document.createElement('dialog');
+  const sheet = document.createElement('section');
   sheet.id = 'autoFarmSheet';
-  sheet.className = 'farm-sheet';
+  sheet.className = 'farm-sheet farm-card is-collapsed';
+  sheet.hidden = true;
   sheet.setAttribute('aria-labelledby', 'autoFarmTitle');
-  sheet.innerHTML = `<header class="farm-header"><h2 id="autoFarmTitle" class="window-banner"><span>Auto Farm</span></h2>`
+  sheet.innerHTML = `<header class="farm-header"><button type="button" class="farm-toggle farm-card-handle" aria-expanded="false" aria-controls="autoFarmContent">${farmIcon}<span id="autoFarmTitle">Auto Farm</span><span class="farm-badge"></span><span class="farm-card-caret" aria-hidden="true">▸</span></button>`
     + `<button type="button" class="farm-help-toggle" aria-expanded="false" aria-controls="autoFarmHelp" aria-label="How Auto Farm Works" title="How Auto Farm Works">?</button></header>`
+    + `<div id="autoFarmContent" class="farm-card-content" hidden>`
     + `<div id="autoFarmHelp" class="farm-help" hidden><dl class="farm-help-list"></dl></div>`
     + `<div class="farm-body">`
     + `<div class="farm-setting farm-stats-heading"><span id="autoFarmStatsLabel" class="farm-setting-label">Stats</span></div>`
@@ -95,18 +97,17 @@ export function createAutoFarmPanel(options: {
     + segment('Target', 'autoFarmTargetLabel', 'farm-target', AUTO_FARM_PRIORITIES.map(entry => `<button type="button" role="radio" data-priority="${entry.id}">${entry.label}</button>`).join(''))
     + `</div></div>`
     + `<footer class="farm-footer"><p class="farm-selection" aria-live="polite"></p>`
-    + `<div class="farm-actions"><button type="button" class="window-back-button farm-close">Back</button><button type="button" class="farm-start">Start</button></div></footer>`;
-  document.getElementById('hud')!.append(floating);
-  document.body.append(sheet);
+    + `<div class="farm-actions"><button type="button" class="window-back-button farm-close">Collapse</button><button type="button" class="farm-start">Start</button></div></footer></div>`;
+  document.getElementById('hud')!.append(sheet);
   const element = <T extends HTMLElement>(selector: string) => sheet.querySelector<T>(selector)!;
-  const toggle = floating.querySelector<HTMLButtonElement>('.farm-toggle')!;
-  const badge = floating.querySelector<HTMLElement>('.farm-badge')!;
+  const toggle = element<HTMLButtonElement>('.farm-toggle');
+  const badge = element('.farm-badge');
+  const content = element('.farm-card-content');
+  const caret = element('.farm-card-caret');
   const list = element('.farm-weights');
   const statsRow = element('.farm-stats-heading');
   const startButton = element<HTMLButtonElement>('.farm-start');
   const backButton = element<HTMLButtonElement>('.farm-close');
-  /** Opened while farming, the game is not paused: autofarm keeps going behind the window. */
-  let pausedByWindow = false;
   const farming = () => options.farm.state().active;
   const selection = element('.farm-selection');
   const emptyNote = element('.farm-empty');
@@ -130,7 +131,6 @@ export function createAutoFarmPanel(options: {
   /** The sliders in this window: each group's share, adding up to 100%. */
   let draft: FarmShares = {};
   const groupKeys = () => options.farm.choices().map(choice => choice.key);
-  let priorFocus: HTMLElement | null = null;
   let choiceKey = '';
 
   const priorityButtons = [...sheet.querySelectorAll<HTMLButtonElement>('[data-priority]')];
@@ -199,7 +199,9 @@ export function createAutoFarmPanel(options: {
     }
     // While farming the window is a look and a change: Stop ends the farm, Done keeps it going with what is set.
     const live = farming();
-    if (backButton.textContent !== (live ? 'Stop' : 'Back')) backButton.textContent = live ? 'Stop' : 'Back';
+    // A persistent HUD card must not register as a modal Back button with desktop hotkeys.
+    const backLabel = live ? 'Stop' : 'Collapse';
+    if (backButton.textContent !== backLabel) backButton.textContent = backLabel;
     if (startButton.textContent !== (live ? 'Done' : 'Start')) startButton.textContent = live ? 'Done' : 'Start';
     const reason = options.unavailable();
     const empty = !options.farm.choices().length;
@@ -261,19 +263,27 @@ export function createAutoFarmPanel(options: {
     updateSelection();
   }
 
+  function setExpanded(expanded: boolean, remember = true) {
+    content.hidden = !expanded;
+    sheet.classList.toggle('is-collapsed', !expanded);
+    toggle.setAttribute('aria-expanded', String(expanded));
+    caret.textContent = expanded ? '▾' : '▸';
+    if (remember) try { storage()?.setItem(AUTO_FARM_EXPANDED_KEY, expanded ? '1' : '0'); } catch { /* Applies this session. */ }
+    movable.place();
+  }
+
   function close() {
-    if (!sheet.open) return false;
+    if (content.hidden) return false;
+    const restoreFocus = content.contains(document.activeElement) || document.activeElement === helpToggle;
     setHelpOpen(false);
-    sheet.close();
+    setExpanded(false);
     options.clearInput();
-    if (pausedByWindow) options.setPaused(false);
-    pausedByWindow = false;
-    priorFocus?.focus();
+    if (restoreFocus) toggle.focus();
     refresh();
     return true;
   }
 
-  /** Back and Escape leave the "?" page first, then the window. */
+  /** Back and Escape leave the "?" page first, then collapse the card. */
   function back() {
     if (help.hidden) return close();
     setHelpOpen(false);
@@ -281,27 +291,24 @@ export function createAutoFarmPanel(options: {
     return true;
   }
 
-  function open() {
-    if (!options.visible() || sheet.open) return;
-    priorFocus = document.activeElement instanceof HTMLElement ? document.activeElement : toggle;
-    // Reopening shows the sliders last farmed with, as this map names its stats (an even split on a new map).
+  function open(remember = true) {
+    if (!options.visible() || !content.hidden) return;
+    // Reopening shows the sliders last farmed with, as this map names its stats.
     draft = options.farm.savedShares();
     choiceKey = '';
     setHelpOpen(false);
     options.clearInput();
-    pausedByWindow = !farming();
-    if (pausedByWindow) options.setPaused(true);
-    sheet.showModal();
     renderChoices();
-    element<HTMLButtonElement>('.farm-close').focus();
+    setExpanded(true, remember);
+    refresh();
   }
 
-  /** A word or two on the floating button: the boss, or the way out. */
+  /** A short status stays visible when the card is collapsed. */
   function badgeText() {
     const state = options.farm.state();
-    if (!state.active) return '';
+    if (!state.active) return 'Off';
     if (state.phase === 'boss') return 'Boss';
-    return state.phase === 'portal' ? 'Next Map' : '';
+    return state.phase === 'portal' ? 'Next Map' : 'Farming';
   }
 
   function refresh() {
@@ -309,32 +316,34 @@ export function createAutoFarmPanel(options: {
     // A run lacking its picked groups on this map gets the picker, which stays until they are picked.
     const groups = mapGroups(), needed = aggroPicksNeeded(options.aggro?.());
     if (aggroRun() && options.visible() && groups.length && !picker.isOpen() && picker.lacking(needed, groups)) picker.open(needed, groups);
+    helpToggle.hidden = aggroRun();
+    if (aggroRun() && !content.hidden) { setHelpOpen(false); setExpanded(false, false); }
     const visible = options.visible();
-    floating.hidden = !visible;
-    if (!visible && sheet.open) { close(); return; }
+    const wasHidden = sheet.hidden;
+    sheet.hidden = !visible;
+    if (wasHidden && visible) movable.place();
+    if (visible && restoreExpanded && !aggroRun()) { restoreExpanded = false; open(false); }
     const state = options.farm.state();
-    floating.classList.toggle('is-farming', state.active);
-    toggle.setAttribute('aria-pressed', String(state.active));
-    toggle.setAttribute('aria-label', state.active ? `Autofarm settings, farming ${state.selectedLabel}` : 'Set up autofarm');
-    toggle.setAttribute('aria-haspopup', 'dialog');
-    toggle.title = state.active ? `${state.selectedLabel} · ${state.status} · Tap for settings` : 'Autofarm';
+    sheet.classList.toggle('is-farming', state.active);
+    toggle.setAttribute('aria-label', `${content.hidden ? 'Expand' : 'Collapse'} Auto Farm. ${state.active ? `Farming ${state.selectedLabel}. ` : ''}Drag or use arrow keys to move; Home to reset position.`);
+    toggle.title = `${state.active ? `${state.selectedLabel} · ${state.status} · ` : ''}Click to ${content.hidden ? 'expand' : 'collapse'} · Drag to move`;
     const text = badgeText();
     if (badge.textContent !== text) badge.textContent = text;
     badge.hidden = !text;
-    if (sheet.open) renderChoices();
+    if (visible && !content.hidden) renderChoices();
   }
 
-  toggle.addEventListener('click', () => {
+  const movable = installMovableHudCard({ panel: sheet, handle: toggle, storage, positionKey: AUTO_FARM_POSITION_KEY, toggle: () => {
     // In an Aggro run the button picks or switches the groups that chase you.
     if (aggroRun()) { const groups = mapGroups(); if (groups.length) picker.open(aggroPicksNeeded(options.aggro?.()), groups); return; }
-    open();
-  });
+    if (content.hidden) open(); else close();
+  } });
   backButton.addEventListener('click', () => {
     if (help.hidden && farming()) { options.farm.stop(); close(); return; }
     back();
   });
   moreToggle.addEventListener('click', () => setMoreOpen(more.hidden, true));
-  helpToggle.addEventListener('click', () => setHelpOpen(help.hidden));
+  helpToggle.addEventListener('click', () => { if (content.hidden) open(); setHelpOpen(help.hidden); });
   for (const button of priorityButtons) button.addEventListener('click', () => {
     const choice = AUTO_FARM_PRIORITIES.find(entry => entry.id === button.dataset.priority);
     if (choice) options.farm.setPriority(choice.id);
@@ -353,11 +362,8 @@ export function createAutoFarmPanel(options: {
     if (options.farm.pullAvailable?.() !== false) options.farm.setPullAll(button.dataset.pull === 'on');
     updateSelection();
   });
-  sheet.addEventListener('cancel', event => { event.preventDefault(); back(); });
-  sheet.addEventListener('click', event => {
-    if (event.target !== sheet) return;
-    const bounds = sheet.getBoundingClientRect();
-    if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) close();
+  sheet.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !content.hidden) { event.preventDefault(); back(); }
   });
   startButton.addEventListener('click', () => {
     // Done while farming: farming goes on, restarted only if the sliders changed.
@@ -366,7 +372,7 @@ export function createAutoFarmPanel(options: {
     else updateSelection();
   });
   // Hidden, there is no button to update; autofarm itself refreshes from its movement step.
-  const timer = window.setInterval(() => { if (!document.hidden || sheet.open) refresh(); }, 250);
+  const timer = window.setInterval(() => { if (!document.hidden) refresh(); }, 250);
   refresh();
-  return { close, refresh, destroy() { close(); window.clearInterval(timer); floating.remove(); sheet.remove(); } };
+  return { close, refresh, destroy() { movable.destroy(); window.clearInterval(timer); sheet.remove(); } };
 }

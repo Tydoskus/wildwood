@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { parseHTML } from 'linkedom';
-import { AUTO_FARM_MORE_KEY, createAutoFarmPanel } from './auto-farm-panel';
+import { AUTO_FARM_EXPANDED_KEY, AUTO_FARM_MORE_KEY, createAutoFarmPanel } from './auto-farm-panel';
 import { createAutoFarmController } from '../game/runtime/auto-farm-controller';
 import { createSpawnSites } from '../game/world';
 import { createGameBootstrap } from '../game/runtime/game-bootstrap';
@@ -37,10 +37,10 @@ function setup(empty = false, map = "forest", overrides: FarmOverrides = {}, sto
     rewardAmount: (type, amount) => showBase ? amount : amount * rewardMultiplier * (type === 'damage' ? damageBonus : 1),
     storage: () => storage, ...extra });
   destroy = panel.destroy;
-  const sheet = document.querySelector<HTMLDialogElement>('dialog')!;
-  Object.assign(sheet, { showModal() { sheet.open = true; }, close() { sheet.open = false; } });
+  const sheet = document.querySelector<HTMLElement>('#autoFarmSheet')!;
+  const content = sheet.querySelector<HTMLElement>('.farm-card-content')!;
   const click = (selector: string) => document.querySelector(selector)!.dispatchEvent(new window.Event('click', { bubbles: true }));
-  return { ...state, farm, panel, document, window, sheet, pause, clearInput, click, storage,
+  return { ...state, farm, panel, document, window, sheet, content, pause, clearInput, click, storage,
     setUnavailable: (value: string | null) => { unavailable = value; }, setVisible: (value: boolean) => { visible = value; },
     setShowBase: (value: boolean) => { showBase = value; }, setRewardMultiplier: (value: number) => { rewardMultiplier = value; },
     setDamageBonus: (value: number) => { damageBonus = value; } };
@@ -58,11 +58,11 @@ const values = (s: ReturnType<typeof setup>) => Object.fromEntries([...s.documen
 const shown = (s: ReturnType<typeof setup>) => Object.fromEntries([...s.document.querySelectorAll<HTMLElement>('.farm-weights [data-group]')]
   .map(row => [row.dataset.group!, Number.parseInt(row.querySelector('output')!.textContent!, 10)]));
 const sum = (shares: Record<string, number>) => Object.values(shares).reduce((total, share) => total + share, 0);
-it('opens on an even split, moves each slider on its own with its share of 100% beside it, starts farming, and stops from the floating button', () => {
+it('opens on an even split, moves each slider on its own with its share of 100% beside it, starts farming, and stops from the card', () => {
   const s = setup(true, 'endless_1');
   s.spawnSites.push(...createSpawnSites({x: 580, y: 770}, 'endless_1'));
   s.click('.farm-toggle');
-  expect(s.sheet.open).toBe(true);
+  expect(!s.content.hidden).toBe(true);
   // No Auto or Custom: the sliders are the choice.
   expect(s.document.querySelector('[data-mode]')).toBeNull();
   const keys = Object.keys(values(s));
@@ -81,21 +81,21 @@ it('opens on an even split, moves each slider on its own with its share of 100% 
   for (const value of [3, 99, 0, 41]) { slide(s, keys[2], value); expect(sum(shown(s))).toBe(100); }
   slide(s, keys[2], 0);
   s.click('.farm-start');
-  expect(s.sheet.open).toBe(false);
+  expect(!s.content.hidden).toBe(false);
   expect(s.farm.state()).toMatchObject({ active: true, selected: keys[1], shares: { [keys[1]]: 100 } });
-  expect(s.document.querySelector('.farm-badge')!.textContent).toBe('');
-  expect(s.document.querySelector('.farm-toggle')!.getAttribute('aria-pressed')).toBe('true');
+  expect(s.document.querySelector('.farm-badge')!.textContent).toBe('Farming');
+  expect(s.document.querySelector('.farm-toggle')!.getAttribute('aria-expanded')).toBe('false');
   // Tapped while farming it opens the window, farming on and unpaused; Stop ends it.
   s.pause.mockClear();
   s.click('.farm-toggle');
-  expect(s.sheet.open).toBe(true);
+  expect(!s.content.hidden).toBe(true);
   expect(s.farm.state().active).toBe(true);
   expect(s.pause).not.toHaveBeenCalledWith(true);
   expect(s.document.querySelector('.farm-close')!.textContent).toBe('Stop');
   expect(s.document.querySelector('.farm-start')!.textContent).toBe('Done');
   s.click('.farm-close');
   expect(s.farm.state().active).toBe(false);
-  expect(s.sheet.open).toBe(false);
+  expect(!s.content.hidden).toBe(false);
 });
 
 it('opened while farming, Done keeps farming, applying slider changes; the window shows the live switch lines', () => {
@@ -107,11 +107,11 @@ it('opened while farming, Done keeps farming, applying slider changes; the windo
   expect(s.farm.state().active).toBe(true);
   s.pause.mockClear();
   s.click('.farm-toggle');
-  expect(s.sheet.open).toBe(true);
+  expect(!s.content.hidden).toBe(true);
   expect(s.pause).not.toHaveBeenCalled();
   // Done with nothing changed: still farming, same shares.
   s.click('.farm-start');
-  expect(s.sheet.open).toBe(false);
+  expect(!s.content.hidden).toBe(false);
   expect(s.farm.state()).toMatchObject({ active: true, shares: { [keys[0]]: 25 } });
   // Changed: farming goes on with the new sliders.
   s.click('.farm-toggle');
@@ -120,8 +120,8 @@ it('opened while farming, Done keeps farming, applying slider changes; the windo
   expect(s.farm.state()).toMatchObject({ active: true, shares: { [keys[0]]: 100 } });
   // Closed from outside (Escape): farming goes on.
   s.click('.farm-toggle');
-  s.sheet.dispatchEvent(new s.window.Event('cancel'));
-  expect(s.sheet.open).toBe(false);
+  s.sheet.dispatchEvent(Object.assign(new s.window.Event('keydown'), { key: 'Escape' }));
+  expect(!s.content.hidden).toBe(false);
   expect(s.farm.state().active).toBe(true);
 });
 it('draws one slider per stat, in its colour, from 0 to 100; with every one at 0 there is nothing to start', () => {
@@ -155,7 +155,6 @@ it('remembers the sliders for the next window, migrating the old 0-200% ones and
   // 40 beside 50, 25 and 25: its share of the four.
   expect(Math.abs(saved[zero] - 40 / 140 * 100)).toBeLessThanOrEqual(1);
   s.click('.farm-toggle');
-  s.click('.farm-toggle');
   expect(values(s)).toEqual(saved);
   // An old Auto, with nothing saved since, opens as an even split.
   s.click('.farm-close');
@@ -167,9 +166,9 @@ it('remembers the sliders for the next window, migrating the old 0-200% ones and
 it('canceling the picker preserves the selected enemy without starting farming', () => {
   const s = setup(); s.farm.start('Bramble'); s.farm.stop();
   s.click('.farm-toggle');
-  s.sheet.dispatchEvent(new s.window.Event('cancel', { cancelable: true }));
-  expect(s.sheet.open).toBe(false);
-  expect(s.pause).toHaveBeenLastCalledWith(false);
+  s.sheet.dispatchEvent(Object.assign(new s.window.Event('keydown', { cancelable: true }), { key: 'Escape' }));
+  expect(!s.content.hidden).toBe(false);
+  expect(s.pause).not.toHaveBeenCalled();
   expect(s.farm.state()).toMatchObject({ active: false, selected: 'stat:health' });
 });
 it('explains an empty map and disables starting when gameplay becomes unavailable', () => {
@@ -182,9 +181,11 @@ it('explains an empty map and disables starting when gameplay becomes unavailabl
   s.setUnavailable('Equip a weapon to farm'); s.panel.refresh();
   expect(s.document.querySelector('.farm-selection')!.textContent).toBe('Equip a weapon to farm');
   s.setVisible(false); s.panel.refresh();
-  expect(s.sheet.open).toBe(false);
-  expect(s.document.querySelector<HTMLElement>('.farm-floating')!.hidden).toBe(true);
-  expect(s.pause).toHaveBeenLastCalledWith(false);
+  expect(s.sheet.hidden).toBe(true);
+  s.setVisible(true); s.panel.refresh();
+  expect(s.sheet.hidden).toBe(false);
+  expect(s.content.hidden).toBe(false);
+  expect(s.pause).not.toHaveBeenCalled();
 });
 
 it('shows four reward stat sliders for a generated map with one species, without enemy counts', () => {
@@ -336,14 +337,14 @@ it('during an Aggro run the button opens the group picker, whose Target is the f
   let active = true;
   const s = setup(false, 'forest', {}, memoryStorage(), { aggro: () => ({ active, completed: 0 }), identity: () => 'me' });
   s.click('.farm-toggle');
-  expect(s.sheet.open).toBeFalsy();
+  expect(!s.content.hidden).toBeFalsy();
   expect(s.document.querySelector<HTMLElement>('.aggro-pick-overlay')!.hidden).toBe(false);
   s.click('.aggro-pick-target [data-priority="lowest"]');
   expect(s.farm.priority()).toBe('lowest');
   // After the run, the farm window shows the same choice.
   active = false;
   s.click('.farm-toggle');
-  expect(s.sheet.open).toBe(true);
+  expect(!s.content.hidden).toBe(true);
   expect(s.document.querySelector('#autoFarmSheet .farm-target [data-priority="lowest"]')!.getAttribute('aria-checked')).toBe('true');
 });
 it('in the Soul Dimension draws a slider per soul stat present, in its soul colour, with its flat reward', () => {
@@ -390,11 +391,11 @@ it('the ? opens a page saying what each control does in place of the settings; B
   expect(terms).toEqual(['Sliders', 'Move On', 'Fight Bosses', 'Deaths', 'Pull Whole Group', 'Target']);
   expect([...help.querySelectorAll('dd')].every(line => (line.textContent ?? '').length > 10)).toBe(true);
   s.click('.farm-close');
-  expect(s.sheet.open).toBe(true);
+  expect(!s.content.hidden).toBe(true);
   expect(help.hidden).toBe(true);
   expect(body.hidden).toBe(false);
   s.click('.farm-close');
-  expect(s.sheet.open).toBe(false);
+  expect(!s.content.hidden).toBe(false);
   // Reopened, it starts on the settings even if it was closed from the help page.
   s.click('.farm-toggle');
   s.click('.farm-help-toggle');
@@ -443,4 +444,41 @@ it('Move At sits under Move On, 0.1x to 10x of the next map power, and rests whi
   expect(row.querySelector('output')!.textContent).toBe('2x');
   // Its own setting: Fight At is untouched.
   expect(s.farm.bossPower()).toBe(1);
+});
+
+
+it('is a collapsible HUD card that leaves gameplay running and remembers its expansion', () => {
+  const storage = memoryStorage();
+  const s = setup(false, 'forest', {}, storage);
+  expect(s.sheet.parentElement?.id).toBe('hud');
+  expect(s.sheet.tagName).toBe('SECTION');
+  expect(s.content.hidden).toBe(true);
+  s.click('.farm-toggle');
+  expect(s.content.hidden).toBe(false);
+  expect(s.pause).not.toHaveBeenCalled();
+  expect(storage.getItem(AUTO_FARM_EXPANDED_KEY)).toBe('1');
+  s.panel.destroy();
+  const restored = setup(false, 'forest', {}, storage);
+  expect(restored.content.hidden).toBe(false);
+  restored.click('.farm-toggle');
+  expect(restored.content.hidden).toBe(true);
+  expect(storage.getItem(AUTO_FARM_EXPANDED_KEY)).toBe('0');
+});
+
+it('restores an expanded card when gameplay first makes it available', () => {
+  let visible = false;
+  const s = setup(false, 'forest', {}, memoryStorage(new Map([[AUTO_FARM_EXPANDED_KEY, '1']])), { visible: () => visible });
+  expect(s.sheet.hidden).toBe(true);
+  visible = true; s.panel.refresh();
+  expect(s.content.hidden).toBe(false);
+  expect(values(s)).toEqual({ 'stat:health': 100 });
+});
+
+it('collapsing the header preserves a running farm and keeps its status visible', () => {
+  const s = setup();
+  s.click('.farm-toggle'); s.click('.farm-start');
+  s.click('.farm-toggle'); s.click('.farm-toggle');
+  expect(s.content.hidden).toBe(true);
+  expect(s.farm.state().active).toBe(true);
+  expect(s.document.querySelector('.farm-badge')!.textContent).toBe('Farming');
 });
