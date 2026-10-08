@@ -1,3 +1,4 @@
+import { isWeaponItem } from '../../../shared/items';
 import { isMeleeWeapon, weaponAttackRange } from "../weapon-combat";
 import { WORLD } from '../constants';
 import { monotonicNowMs } from '../../app/trusted-clock';
@@ -497,8 +498,9 @@ export function createAutoFarmController(options: {
       destination: enemy ?? destination,
       enemy: Boolean(enemy),
     });
-    if (enemy && options.reflectOnly?.()) {
-      // Nothing the bow does lands here: stand at the enemy so it attacks, and Reflect does the killing.
+    if (enemy && (options.reflectOnly?.() || !isWeaponItem(options.equippedWeapon?.()))) {
+      // Nothing the bow does lands here (Reflect Only), or there is no weapon (a Reflect build may
+      // farm bare-handed): stand at the enemy so it attacks, and Reflect does the killing.
       const contact = player.r + enemy.r + 6;
       standoff = { stop: contact, resume: contact + 20 };
     } else if (enemy && (enemy.vx * (enemy.x - player.x) + enemy.vy * (enemy.y - player.y)) > 0 && Math.hypot(enemy.vx, enemy.vy) > 10) {

@@ -521,7 +521,6 @@ import {
     if (isDueling()) return "Autofarm stopped for duel";
     if (mapController.isMapTransitioning() || mapController.isCutsceneActive()) return "Autofarm stopped for travel";
     if (!coop?.isConnected?.()) return "Connect to the server to farm";
-    if (!isWeaponItem(inventory.equippedRightHand || inventory.equippedLeftHand)) return "Equip a weapon to farm";
     return null;
   };
   let farmConnection: 'ready' | 'recovering' | 'ended' = 'recovering';

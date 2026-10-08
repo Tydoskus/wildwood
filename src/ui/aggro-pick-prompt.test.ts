@@ -85,3 +85,19 @@ it("has no Target row without a farm to set it on", () => {
   createAggroPickPrompt(document as unknown as Document, { picks: () => [], setPicks: () => {} }).open(1);
   expect(document.querySelector(".aggro-pick-target")).toBeNull();
 });
+
+it("holds autofarm's Fight Bosses and Move On switches, since during a run it is the only window", () => {
+  const { document } = parseHTML("<html><body></body></html>");
+  let picks: RewardType[] = [], bosses = true, advance = true;
+  const prompt = createAggroPickPrompt(document as unknown as Document, { picks: () => picks, setPicks: next => { picks = next; },
+    fightBosses: () => bosses, setFightBosses: on => { bosses = on; }, advance: () => advance, setAdvance: on => { advance = on; } });
+  prompt.open(1);
+  const button = (name: string, on: 0 | 1) => document.querySelector<HTMLButtonElement>(`[data-switch="${name}"][data-on="${on}"]`)!;
+  expect(button("bosses", 1).getAttribute("aria-checked")).toBe("true");
+  button("bosses", 0).click();
+  expect(bosses).toBe(false);
+  expect(button("bosses", 0).getAttribute("aria-checked")).toBe("true");
+  button("advance", 0).click();
+  expect(advance).toBe(false);
+  expect(button("advance", 1).getAttribute("aria-checked")).toBe("false");
+});

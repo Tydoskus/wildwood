@@ -12,9 +12,17 @@ import { AUTO_FARM_PRIORITIES, type AutoFarmPriority } from "../game/runtime/aut
  * autofarm window during a run, and with every group chasing at once, which
  * one is shot first is the run's one targeting decision. It applies on tap.
  */
+/** An Off / On row in the picker's own segment style. */
+const onOff = (name: string, label: string) => `<div class="farm-setting aggro-pick-target"><span id="aggroPick-${name}" class="farm-setting-label">${label}</span>`
+  + `<div class="farm-segment" role="radiogroup" aria-labelledby="aggroPick-${name}">`
+  + `<button type="button" role="radio" data-switch="${name}" data-on="0">Off</button><button type="button" role="radio" data-switch="${name}" data-on="1">On</button></div></div>`;
+
 export function createAggroPickPrompt(doc: Document, deps: {
   picks: () => RewardType[]; setPicks: (picks: RewardType[]) => void;
   priority?: () => AutoFarmPriority; setPriority?: (priority: AutoFarmPriority) => void;
+  /** Autofarm's Fight Bosses and Move On switches: during a run this is the only window, so they live here too. */
+  fightBosses?: () => boolean; setFightBosses?: (on: boolean) => void;
+  advance?: () => boolean; setAdvance?: (on: boolean) => void;
 }) {
   let overlay: HTMLElement | null = null, needed = 1, available: readonly RewardType[] = AGGRO_GROUPS;
   // Taps change a draft; the saved picks (what chases the player) change only on Done, with the full count.
@@ -22,6 +30,8 @@ export function createAggroPickPrompt(doc: Document, deps: {
   let label: HTMLElement, done: HTMLButtonElement;
   const chips = new Map<RewardType, HTMLButtonElement>();
   let targets: HTMLButtonElement[] = [];
+  let switches: HTMLButtonElement[] = [];
+  const switchValue = (name: string) => name === "bosses" ? deps.fightBosses?.() : deps.advance?.();
 
   // The picks this map can honour: those it has, in pick order.
   const here = () => draft.filter(pick => available.includes(pick)).slice(0, needed);
@@ -35,6 +45,7 @@ export function createAggroPickPrompt(doc: Document, deps: {
     done.disabled = picks.length < needed;
     const priority = deps.priority?.();
     for (const button of targets) button.setAttribute("aria-checked", String(button.dataset.priority === priority));
+    for (const button of switches) button.setAttribute("aria-checked", String((button.dataset.on === "1") === Boolean(switchValue(button.dataset.switch!))));
   }
 
   function build() {
@@ -51,6 +62,8 @@ export function createAggroPickPrompt(doc: Document, deps: {
           + `<div class="farm-segment farm-target" role="radiogroup" aria-labelledby="aggroPickTargetLabel">`
           + AUTO_FARM_PRIORITIES.map(entry => `<button type="button" role="radio" data-priority="${entry.id}">${entry.label}</button>`).join("")
           + `</div></div>` : ""}
+        ${deps.setFightBosses ? onOff("bosses", "Fight Bosses") : ""}
+        ${deps.setAdvance ? onOff("advance", "Move On") : ""}
         <button type="button" class="aggro-pick-done">Done</button>
       </section>`;
     doc.body.append(overlay);
@@ -68,6 +81,12 @@ export function createAggroPickPrompt(doc: Document, deps: {
       box.append(chip);
     }
     targets = [...overlay.querySelectorAll<HTMLButtonElement>("[data-priority]")];
+    switches = [...overlay.querySelectorAll<HTMLButtonElement>("[data-switch]")];
+    for (const button of switches) button.addEventListener("click", () => {
+      const on = button.dataset.on === "1";
+      if (button.dataset.switch === "bosses") deps.setFightBosses?.(on); else deps.setAdvance?.(on);
+      render();
+    });
     for (const button of targets) button.addEventListener("click", () => {
       const choice = AUTO_FARM_PRIORITIES.find(entry => entry.id === button.dataset.priority);
       if (choice) deps.setPriority?.(choice.id);

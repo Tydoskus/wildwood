@@ -65,7 +65,9 @@ export function createAutoFarmPanel(options: {
   const storage = options.storage ?? defaultStorage;
   const aggroRun = () => Boolean(options.aggro?.()?.active);
   const picker = createAggroPickPrompt(document, { picks: () => readAggroPicks(options.identity?.()), setPicks: picks => writeAggroPicks(options.identity?.(), picks),
-    priority: () => options.farm.priority(), setPriority: priority => options.farm.setPriority(priority) });
+    priority: () => options.farm.priority(), setPriority: priority => options.farm.setPriority(priority),
+    fightBosses: () => options.farm.fightBosses(), setFightBosses: on => options.farm.setFightBosses(on),
+    advance: () => options.farm.advance(), setAdvance: on => options.farm.setAdvance(on) });
   /** This map's stat groups, as autofarm offers them (a soul group as its run stat); empty while it loads. */
   const mapGroups = () => [...new Set(options.farm.choices().flatMap(choice => farmGroupRewardType(choice.key) ?? []))] as RewardType[];
   const sheet = document.createElement('section');

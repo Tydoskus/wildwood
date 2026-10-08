@@ -510,7 +510,7 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
       return state.enemies[state.enemies.length - 1];
     };
     const farm = createAutoFarmController({ ...state, mapId: () => map, unavailable: () => null, paused: () => false,
-      speed: () => 300, obstacles: () => [], localIdentity: () => 'me', now: () => now, resumeStore, priorityStorage: () => memory, ...extra });
+      speed: () => 300, obstacles: () => [], localIdentity: () => 'me', now: () => now, resumeStore, priorityStorage: () => memory, equippedWeapon: () => 'starter_bow', ...extra });
     const tick = () => farm.movement(idle, 1 / 60);
     return { ...state, farm, add, tick, resumeStore, values, setMap: (value: string) => { map = value; }, advance: (ms: number) => { now += ms; } };
   }
@@ -872,6 +872,15 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     expect(s.farm.state().phase).toBe('farm');
     expect(Math.hypot(mob.x - s.player.x, mob.y - s.player.y)).toBeLessThan(s.player.r + mob.r + 30);
     expect(s.farm.bossStatus()).toBe('Off In Reflect Only');
+  });
+
+  it('farms with no weapon: it walks into the enemy so it attacks, and Reflect does the killing', () => {
+    const s = planned({ equippedWeapon: () => undefined });
+    const mob = s.add('Bramble', 900, 500);
+    expect(s.farm.start([health])).toBe(true);
+    for (let frame = 0; frame < 200; frame++) { const step = s.tick(); s.player.x += step.x * 5; s.player.y += step.y * 5; }
+    expect(s.farm.state().active).toBe(true);
+    expect(Math.hypot(mob.x - s.player.x, mob.y - s.player.y)).toBeLessThan(s.player.r + mob.r + 30);
   });
 
   it("stands within reach of a campaign boss's hitbox, and of an Endless boss's centre", () => {

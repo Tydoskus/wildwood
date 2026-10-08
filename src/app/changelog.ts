@@ -1,6 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.901.22": [
     "The Auto Farm card starts centred above the chat again, and stays on screen above the toolbar when the window is resized",
+    "Fight Bosses and Move On can be switched in an Aggro run, from the Aggro picker",
+    "Auto Farm works with no weapon equipped: it walks into enemies so Reflect does the killing",
   ],
   "0.901.21": [
     "Fixed the Auto Farm window closing when tapped inside it, and its sliders not moving",
