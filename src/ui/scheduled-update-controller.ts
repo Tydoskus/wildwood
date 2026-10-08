@@ -1,4 +1,3 @@
-import { formatTimer } from "../../shared/timer-format";
 import { activeRelease, type ReleaseWindow } from "../../shared/release-window";
 
 type UpdateView = { text: string; blocking: boolean; urgent: boolean };
@@ -64,7 +63,7 @@ export function createScheduledUpdateController(d: {
     if (active.phase === "scheduled") {
       pause(false);
       const seconds = Math.max(0, Math.ceil((active.startsAt - now) / 1000));
-      d.render({ text: seconds ? `Update in ${formatTimer(seconds)}` : "Update preparing…",
+      d.render({ text: seconds ? `Update in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}` : "Update preparing…",
         blocking: false, urgent: seconds <= 30 });
       return;
     }

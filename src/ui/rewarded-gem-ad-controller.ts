@@ -8,11 +8,11 @@ import {
   AD_GEM_REWARD,
   adGemRefusal,
   adGemRewardStatus,
+  formatAdGemWait,
   utcDayKey,
   type AdGemRewardRecord,
   type AdGemRewardStatus,
 } from "../../shared/ad-gem-reward";
-import { formatTimer, formatTimerMs } from "../../shared/timer-format";
 
 type RewardedGemAdElements = {
   button: HTMLButtonElement;
@@ -118,7 +118,7 @@ export function createRewardedGemAdController(
   /** Cooldown or spent day: the button counts down and cannot be pressed. */
   function renderWait(status: WaitStatus) {
     closePrompt(false);
-    const wait = formatTimerMs(status.waitMs);
+    const wait = formatAdGemWait(status.waitMs);
     render(status.kind, `NEXT AD IN ${wait}`, true, adGemRefusal(status) ?? WATCH_LABEL);
     elements.countdown.hidden = false;
     elements.countdown.textContent = `Ad in ${wait}\n${status.claimsLeft} left today`;
@@ -241,7 +241,7 @@ export function createRewardedGemAdController(
 
     const tick = () => {
       const secondsLeft = Math.max(0, Math.ceil((endsAt - Date.now()) / 1_000));
-      elements.browserAdTimer.textContent = formatTimer(secondsLeft);
+      elements.browserAdTimer.textContent = `0:${String(secondsLeft).padStart(2, "0")}`;
       if (secondsLeft <= 0) {
         finishBrowserAd();
         return;

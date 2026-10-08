@@ -19,7 +19,6 @@ import {
 } from "./presence-runtime";
 import { advanceDuelCombat, duelOutcome, DUEL_COMBAT_VERSION } from "../../shared/duel-combat";
 import { duelAnnouncementText } from "../../shared/duel-announcement";
-import { formatTimer } from "../../shared/timer-format";
 import { prestigePerkRanks } from "./prestige";
 import { prestigeCriticalDamageBonus, prestigePerkValue, prestigeRiposteChance, prestigeSwingMultiplier } from "../../shared/prestige-perks";
 import { duelBowSkillFields } from "./bow-skills";
@@ -283,7 +282,7 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
       : DUEL_REQUEST_COOLDOWN_MICROS;
     if (cooldownElapsed < DUEL_REQUEST_COOLDOWN_MICROS) {
       const remainingSeconds = Number((DUEL_REQUEST_COOLDOWN_MICROS - cooldownElapsed + 999_999n) / 1_000_000n);
-      throw new SenderError(`Duel cooldown: ${formatTimer(remainingSeconds)} remaining.`);
+      throw new SenderError(`Duel cooldown: ${remainingSeconds} seconds remaining.`);
     }
 
     const challengerProgress = readPlayerProgress(ctx, ctx.sender);

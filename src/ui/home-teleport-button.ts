@@ -1,4 +1,3 @@
-import { formatTimer, formatTimerMs } from "../../shared/timer-format";
 const HOME_TELEPORT_COOLDOWN_MS = 5_000;
 /**
  * After chat closes, the home teleport ignores taps this long, so the tap
@@ -65,7 +64,7 @@ export function bindHomeTeleportButton(
       const seconds = Math.ceil(remaining / 1_000);
       cooldown.textContent = String(seconds);
       cooldown.style.setProperty("--cooldown-progress", `${remaining / HOME_TELEPORT_COOLDOWN_MS * 100}%`);
-      button.title = `Teleport ready in ${formatTimer(seconds)}`;
+      button.title = `Teleport ready in ${seconds}s`;
       setTimeout(update, Math.min(50, remaining));
     };
     update();
@@ -75,7 +74,7 @@ export function bindHomeTeleportButton(
     if (button.disabled) return;
     const held = heldUntil - performance.now();
     if (held > 0) {
-      options.showBlocked?.(`TOWN READY IN ${formatTimerMs(held)}`);
+      options.showBlocked?.(`TOWN READY IN ${Math.ceil(held / 1_000)}S`);
       return;
     }
     button.disabled = true;

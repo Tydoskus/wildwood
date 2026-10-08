@@ -1,4 +1,3 @@
-import { formatTimer } from "../../shared/timer-format";
 import { EYE_OFF_SHOWN_IDLE_MS, installMultiplayerIdle } from "./multiplayer-idle";
 import { MULTIPLAYER_TOGGLE_COOLDOWN_MS as COOLDOWN_MS } from "../../shared/multiplayer";
 
@@ -58,7 +57,7 @@ export function createPlayerVisibilityToggle(options: {
     options.button.setAttribute("aria-pressed", String(enabled));
     options.button.dataset.state = !enabled ? "off" : idleHidden ? "idle" : "on";
     const action = enabled ? (idleHidden ? "Multiplayer idle — move to resume, or turn off" : "Turn multiplayer off") : "Turn multiplayer on";
-    const label = seconds ? `${action} — available in ${formatTimer(seconds)}` : action;
+    const label = seconds ? `${action} — available in ${seconds} seconds` : action;
     options.button.setAttribute("aria-label", label);
     options.button.title = label;
     if (seconds) timer = setTimeout(refresh, Math.min(1000, cooldownUntil - performance.now()));

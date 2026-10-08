@@ -231,7 +231,6 @@ import {
 import { readPlayerProgress, iterPlayerProgress, withDuelWide, deleteReplayWide } from "./wide-stats";
 import { playerWideStats, duelWideStats, duelReplayWideStats } from "./wide-stats-table";
 import { narrowStat } from "../../shared/wide-stats";
-import { formatTimer } from "../../shared/timer-format";
 
 // Cached clients parse these exact wire messages. Current clients rebrand them
 // for display; changing them would break reconnects and account linking in old tabs.
@@ -5590,7 +5589,7 @@ function sendPlayerChatMessage(ctx: ModuleReducerCtx, message: string, replyToMe
   if (cooldown && ctx.timestamp.microsSinceUnixEpoch - cooldown.lastSentAt.microsSinceUnixEpoch < CHAT_COOLDOWN_MICROS) {
     const elapsed = ctx.timestamp.microsSinceUnixEpoch - cooldown.lastSentAt.microsSinceUnixEpoch;
     const remainingSeconds = Math.max(1, Math.ceil(Number(CHAT_COOLDOWN_MICROS - elapsed) / 1_000_000));
-    throw new SenderError(`Wait ${formatTimer(remainingSeconds)} before sending another chat message.`);
+    throw new SenderError(`Wait ${remainingSeconds} seconds before sending another chat message.`);
   }
   if (cooldown) ctx.db.chatCooldown.identity.update({ ...cooldown, lastSentAt: ctx.timestamp });
   else ctx.db.chatCooldown.insert({ identity: ctx.sender, lastSentAt: ctx.timestamp });

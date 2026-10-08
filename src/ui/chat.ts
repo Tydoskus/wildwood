@@ -1,4 +1,3 @@
-import { formatTimerMs } from "../../shared/timer-format";
 import { createChatGuildRequests } from "./chat-guild-requests";
 import { CHAT_CLOSED_EVENT } from "./home-teleport-button";
 import type { GuildApi } from "../coop/services/guild-service";
@@ -417,7 +416,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
     const remaining = Math.max(0, chatCooldownUntil - Date.now());
     const active = remaining > 0;
     elements.sendButton.disabled = active || submitting;
-    elements.sendButton.textContent = active ? `WAIT ${formatTimerMs(remaining)}` : "SEND";
+    elements.sendButton.textContent = active ? `WAIT ${Math.ceil(remaining / 1000)}S` : "SEND";
     if (chatCooldownTimer !== null) window.clearTimeout(chatCooldownTimer);
     chatCooldownTimer = active ? window.setTimeout(updateChatCooldown, Math.min(remaining, 250)) : null;
   }
@@ -840,7 +839,7 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
       event.preventDefault();
       if (submitting || muteDisplay.isMuted()) return;
       if (Date.now() < chatCooldownUntil) {
-        showMessage(`CHAT READY IN ${formatTimerMs(chatCooldownUntil - Date.now())}`, "#ffdb84");
+        showMessage(`CHAT READY IN ${Math.ceil((chatCooldownUntil - Date.now()) / 1000)}S`, "#ffdb84");
         return;
       }
       const message = elements.input.value.trim();

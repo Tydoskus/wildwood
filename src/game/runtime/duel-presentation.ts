@@ -1,4 +1,3 @@
-import { formatTimer } from '../../../shared/timer-format';
 import { showDuelSkillEffects, type DuelSkillEffects } from "./duel-skill-effects";
 import { duelAttackDelays, duelPositionsAt, duelWeapon } from "../../../shared/duel-approach";
 import { duelHitMultiplier } from "../../../shared/duel-combat";
@@ -280,7 +279,7 @@ export function createDuelPresentation(hooks: DuelPresentationHooks) {
       challengerGender: replay.challengerGender,
       opponentName: replay.opponentName,
       opponentGender: replay.opponentGender,
-      detail: countdown > 0 ? undefined : `${formatTimer(elapsed)} / ${formatTimer(Math.round(replay.durationSeconds))}${(replay.combatVersion ?? 0) >= 1 && elapsed > 10 ? " · ESCALATION" : ""}`,
+      detail: countdown > 0 ? undefined : `${elapsed.toFixed(1)} / ${replay.durationSeconds.toFixed(1)}s${(replay.combatVersion ?? 0) >= 1 && elapsed > 10 ? " · ESCALATION" : ""}`,
     });
     return {
       hitMultiplier: duelHitMultiplier(elapsed, replay.combatVersion),

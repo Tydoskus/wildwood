@@ -1,9 +1,18 @@
-import { chatMuteRemainingMs, type ChatMuteRecord } from "../../shared/chat-mute";
-import { formatTimerMs } from "../../shared/timer-format";
+import { chatMuteRemainingMs, formatChatMuteRemaining, type ChatMuteRecord } from "../../shared/chat-mute";
 
 export const CHAT_STRIKE_NOTICE = "REPEATED FILTERED MESSAGES WILL MUTE CHAT";
 /** A strike that lands this long after a local send is that send's. */
 const STRIKE_EXPECTATION_MS = 15_000;
+
+/**
+ * The Send button is 53px wide: 42:10 fits on one line, 23:59:59 does not, so
+ * an hour or more reads "23h 59m" and wraps onto two lines like "WAIT 3S".
+ */
+export function formatChatMuteButton(ms: number) {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1_000));
+  if (totalSeconds < 3_600) return formatChatMuteRemaining(ms);
+  return `${Math.floor(totalSeconds / 3_600)}h ${String(Math.floor(totalSeconds % 3_600 / 60)).padStart(2, "0")}m`;
+}
 
 type ChatMuteDisplayOptions = {
   input: HTMLTextAreaElement;
@@ -55,15 +64,15 @@ export function createChatMuteDisplay({ input, sendButton, record, visible, onTi
     appliedRecord = current; appliedVisible = shown; appliedMuted = muted;
     if (timer !== null) { window.clearTimeout(timer); timer = null; }
     if (input.disabled !== muted) input.disabled = muted;
-    // HH:MM, or MM:SS in the last minute: five characters, so it fits the 53px Send button.
-    const label = formatTimerMs(remaining);
+    const label = formatChatMuteRemaining(remaining);
     const nextPlaceholder = muted ? `Chat muted · ${label}` : placeholder;
     if (input.placeholder !== nextPlaceholder) input.placeholder = nextPlaceholder;
     // Greyed out, not merely disabled: the green cooldown look read as "wait a moment".
     if (sendButton.classList.contains("is-muted") !== muted) sendButton.classList.toggle("is-muted", muted);
     if (!muted) return false;
     sendButton.disabled = true;
-    if (sendButton.textContent !== label) sendButton.textContent = label;
+    const buttonLabel = formatChatMuteButton(remaining);
+    if (sendButton.textContent !== buttonLabel) sendButton.textContent = buttonLabel;
     if (shown) timer = window.setTimeout(() => { timer = null; onTick(); }, remaining % 1_000 || 1_000);
     return true;
   }

@@ -4,6 +4,7 @@ import {
   AD_GEM_DAILY_LIMIT,
   AD_GEM_REWARD,
   adGemRewardStatus,
+  formatAdGemWait,
   mergeAdGemRewardRecords,
   utcDayKey,
 } from "./ad-gem-reward";
@@ -22,6 +23,15 @@ it("keys days the way the daily Gem bonus does: whole UTC days since the epoch",
   expect(utcDayKey(20_001 * DAY_MS - 1)).toBe("20000");
   expect(utcDayKey(20_001 * DAY_MS)).toBe("20001");
   expect(utcDayKey(NOON)).toBe(String(BigInt(NOON) * 1000n / 86_400_000_000n));
+});
+
+it("formats waits as the HUD and the refusal show them", () => {
+  expect(formatAdGemWait(30 * 60_000)).toBe("30:00");
+  expect(formatAdGemWait(754_000)).toBe("12:34");
+  expect(formatAdGemWait(1)).toBe("0:01");
+  expect(formatAdGemWait(0)).toBe("0:00");
+  expect(formatAdGemWait(5 * 3_600_000 + 12 * 60_000)).toBe("5:12:00");
+  expect(formatAdGemWait(29 * 60_000 + 1)).toBe("29:01");
 });
 
 it("reads ready, cooldown and a spent day", () => {

@@ -16,8 +16,8 @@ describe("death screen", () => {
   });
 
   it("uses lowercase return-to-spawn copy", () => {
-    expect(formatDeathCountdown(5_000)).toBe("returning to spawn in 00:05");
-    expect(formatDeathCountdown(1)).toBe("returning to spawn in 00:01");
+    expect(formatDeathCountdown(5_000)).toBe("returning to spawn in 5");
+    expect(formatDeathCountdown(1)).toBe("returning to spawn in 1");
     expect(formatDeathCountdown(0)).toBe("returning to spawn");
   });
 
@@ -38,14 +38,14 @@ describe("death screen", () => {
 
     controller.show();
     expect(screen.hidden).toBe(true);
-    expect(countdown.textContent).toBe("returning to spawn in 00:03");
+    expect(countdown.textContent).toBe("returning to spawn in 3");
 
     vi.advanceTimersByTime(DEATH_SCREEN_REVEAL_DELAY_MS);
     expect(screen.hidden).toBe(false);
-    expect(countdown.textContent).toBe("returning to spawn in 00:03");
+    expect(countdown.textContent).toBe("returning to spawn in 3");
 
     vi.advanceTimersByTime(1_000);
-    expect(countdown.textContent).toBe("returning to spawn in 00:02");
+    expect(countdown.textContent).toBe("returning to spawn in 2");
     expect(onRespawn).not.toHaveBeenCalled();
 
     vi.advanceTimersByTime(2_000);

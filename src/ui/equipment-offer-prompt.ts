@@ -2,7 +2,7 @@ import { bowSkillLines, formatBowSkillScore, isSkillBow, type BowSkillRoll } fro
 import { itemDisplayName } from "../../shared/items";
 import { itemArtMarkup } from "../game/item-presentation";
 import type { InventoryState } from "../game/inventory";
-import { formatTimerMs } from "../../shared/timer-format";
+import { formatRemaining } from "./format-remaining";
 import { itemDropColor } from "./item-drop-color";
 import { itemInspectionButtonLabel } from "./item-inspection-controller";
 
@@ -140,7 +140,7 @@ export function createEquipmentOfferPrompt(options: EquipmentOfferPromptOptions)
       showLines(yours, holds ? skillList(options.coop?.bowSkills?.(offer.itemId)) : ["None"]);
       showLines(fresh, skillList(offer.roll));
     }
-    const remaining = formatTimerMs(offer.expiresAtMs - now());
+    const remaining = formatRemaining(offer.expiresAtMs - now());
     timer.textContent = total > 1 ? `Ignored in ${remaining} · ${position} of ${total}` : `Ignored in ${remaining}`;
     keepButton.disabled = busy;
     ignoreButton.disabled = busy;

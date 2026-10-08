@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.17": [
+    "Timers are back to how they were, seconds included; only tech research and slot upgrades read HH:MM",
+  ],
   "0.901.16": [
     "Open the autofarm window while farming: it keeps going, and shows when it will move on or fight the boss. Stop ends it, Done keeps it going",
     "64 new profile pictures: a third object sheet",
@@ -3029,6 +3032,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.17": "2026-10-08",
   "0.901.16": "2026-10-08",
   "0.901.15": "2026-10-08",
   "0.901.14": "2026-10-08",

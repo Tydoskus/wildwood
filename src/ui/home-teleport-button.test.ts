@@ -29,7 +29,7 @@ describe("Home toolbar cooldown", () => {
     expect(countdown.textContent).toBe("5");
     await vi.advanceTimersByTimeAsync(1_000);
     expect(countdown.textContent).toBe("4");
-    expect(button.title).toBe("Teleport ready in 00:04");
+    expect(button.title).toBe("Teleport ready in 4s");
     await vi.advanceTimersByTimeAsync(3_999);
     click();
     expect(teleport).toHaveBeenCalledTimes(1);
@@ -75,7 +75,7 @@ describe("Home teleport hold after chat closes", () => {
     expect(s.countdown().hidden).toBe(true);
     s.click();
     expect(s.teleport).not.toHaveBeenCalled();
-    expect(s.showBlocked).toHaveBeenCalledWith("TOWN READY IN 00:03");
+    expect(s.showBlocked).toHaveBeenCalledWith("TOWN READY IN 3S");
     await vi.advanceTimersByTimeAsync(HOME_TELEPORT_CHAT_CLOSE_HOLD_MS - 1);
     s.click();
     expect(s.teleport).not.toHaveBeenCalled();

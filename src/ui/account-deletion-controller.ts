@@ -1,4 +1,3 @@
-import { formatTimer } from "../../shared/timer-format";
 type Hooks = {
   identity: () => string;
   request: () => Promise<{ ok: boolean; error?: string } | undefined>;
@@ -43,7 +42,7 @@ export function installAccountDeletion(doc: Document, hooks: Hooks) {
     const tick = () => {
       if (owner !== hooks.identity()) { clear(); status.textContent = "Account changed. Request canceled."; confirm.hidden = true; return; }
       const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1_000));
-      status.textContent = `Sending deletion request in ${formatTimer(left)}. You can still cancel.`;
+      status.textContent = `Sending deletion request in ${left}s. You can still cancel.`;
       if (left > 0) return;
       clear(); pending = true; cancel.disabled = true; status.textContent = "Sending request…";
       void hooks.request().then(result => {

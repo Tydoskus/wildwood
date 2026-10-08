@@ -1,4 +1,3 @@
-import { formatTimer } from "../../shared/timer-format";
 import { monotonicNowMs } from "../app/trusted-clock";
 import { PLAYER_DEATH_FALL_DURATION_MS } from "../game/runtime/player-death-animation";
 
@@ -13,7 +12,7 @@ type DeathScreenClock = {
 
 export function formatDeathCountdown(remainingMs: number) {
   const seconds = Math.max(0, Math.ceil(remainingMs / 1_000));
-  return seconds > 0 ? `returning to spawn in ${formatTimer(seconds)}` : "returning to spawn";
+  return seconds > 0 ? `returning to spawn in ${seconds}` : "returning to spawn";
 }
 
 /** Owns death-screen visibility and its automatic return-to-spawn timer. */

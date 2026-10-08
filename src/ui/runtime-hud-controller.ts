@@ -1,4 +1,3 @@
-import { formatTimer } from "../../shared/timer-format";
 import { applyAvatarFrame } from "../app/avatar-frames";
 import { MIN_ATTACK_INTERVAL } from "../../shared/rules";
 import type { PlayerState, RuntimeDuelReplay, RuntimeDuelState } from "../game/runtime/types";
@@ -363,7 +362,7 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
       opponentName.className = "duel-status-name";
       opponentName.append(document.createTextNode(dependencies.duelOpponentName(duel)));
       appendPlayerGenderIcon(opponentName, opponentIsChallenger ? duel.challengerGender : duel.opponentGender);
-      elements.duelStatus.replaceChildren("DUEL · ", opponentName, ` · ${formatTimer(remaining)}`);
+      elements.duelStatus.replaceChildren("DUEL · ", opponentName, ` · ${remaining}s`);
       elements.duelControls.hidden = false;
       return;
     }
