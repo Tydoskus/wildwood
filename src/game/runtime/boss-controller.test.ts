@@ -8,7 +8,7 @@ import {DRAGON_MAX_HP, FROSTCLAW_MAX_HP, FROSTCLAW_REWARD_ARMOR, FROSTCLAW_REWAR
 import {bossAbilityTimelineAt} from "../../../shared/boss-simulation";
 import {ION_SWEEP} from "../../../shared/ion-attacks";
 import {ADVANCED_LAVA_WASTES_MAP_ID, BEGINNER_DESERT_MAP_ID, CLOUDSPIRE_MAP_ID, CRYSTAL_HOLLOWS_MAP_ID, INFERNAL_DEPTHS_MAP_ID, INTERMEDIATE_SNOWLANDS_MAP_ID, ION_CITADEL_MAP_ID, MOONFEN_MAP_ID, NEON_BASTION_MAP_ID, SAMURAI_GARDEN_MAP_ID, WATER_REACH_MAP_ID} from "../world";
-import type {BossKind} from "./boss-registry";
+import {BOSSES, BOSS_KINDS, type BossKind} from "./boss-registry";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -747,4 +747,83 @@ it("leads Angler hits by half a second without replaying on staggered circles", 
   expect(h.bosses.tidewyrm.spriteAttackElapsed).toBeCloseTo(.51);
   h.controller.byKind.tidewyrm.reset();
   expect(h.bosses.tidewyrm.spriteAttackElapsed).toBeUndefined();
+});
+
+describe("boss danger: what autofarm dodges", () => {
+  const FRAME = 1 / 60;
+  /** Whether any of the boss's attacks is in play: an attack slot filled, or hazards on the ground. */
+  const inPlay = (h: BossHarness, kind: BossKind) => h.bossHazards[kind].length > 0
+    || BOSSES[kind].attackSlots.some((slot) => (h.bosses[kind] as unknown as Record<string, unknown>)[slot]);
+  /**
+   * Plays the boss's attacks with the player standing at `start` until the
+   * `attack`th one begins, moves the player to `point`, and reads danger()
+   * there; then plays that attack out and notes when, if ever, it hits.
+   */
+  function playOut(kind: BossKind, attack: number, point: (h: BossHarness) => { x: number; y: number }) {
+    const h = createFrostclawHarness({ currentMapId: () => BOSSES[kind].mapId });
+    const boss = h.bosses[kind];
+    Object.assign(h.player, { x: boss.x + 260, y: boss.y + 140 });
+    boss.attackClock = 0;
+    const update = h.controller.byKind[kind].update;
+    for (let seen = 0, was = false, frame = 0; frame < 3_000; frame++) {
+      update(FRAME);
+      const now = inPlay(h, kind);
+      if (now && !was && seen++ === attack) break;
+      was = now;
+    }
+    expect(inPlay(h, kind), `${kind} attack ${attack} began`).toBe(true);
+    Object.assign(h.player, point(h));
+    const predicted = h.controller.byKind[kind].danger(h.player.x, h.player.y);
+    h.damagePlayer.mockClear();
+    let hitAt = Infinity;
+    for (let frame = 1; frame < 600 && inPlay(h, kind); frame++) {
+      update(FRAME);
+      if (h.damagePlayer.mock.calls.length) { hitAt = frame * FRAME; break; }
+    }
+    return { predicted, hitAt };
+  }
+  /** Spots around the boss, and around where its attacks were aimed. */
+  const points: ((h: BossHarness, kind: BossKind) => { x: number; y: number })[] = [];
+  for (const distance of [60, 220, 420, 640]) for (let turn = 0; turn < 8; turn++) {
+    points.push((h, kind) => {
+      const boss = h.bosses[kind], angle = turn * Math.PI / 4 + .2;
+      return { x: boss.x + Math.cos(angle) * (boss.r + distance), y: boss.y + Math.sin(angle) * (boss.r + distance) };
+    });
+  }
+  for (const dx of [-160, -60, 0, 50, 150]) for (const dy of [-150, -40, 0, 70, 160]) {
+    points.push((h, kind) => ({ x: h.bosses[kind].x + 260 + dx, y: h.bosses[kind].y + 140 + dy }));
+  }
+
+  it.each(BOSS_KINDS)("%s: every attack in play lands where and when danger() said it would, and nowhere else", (kind) => {
+    const attacks = kind === "frostclaw" ? 3 : 2;
+    let hits = 0, misses = 0;
+    for (let attack = 0; attack < attacks; attack++) {
+      for (const point of points) {
+        const { predicted, hitAt } = playOut(kind, attack, (h) => point(h, kind));
+        if (Number.isFinite(predicted)) {
+          hits++;
+          // Within a few frames: a pulse's clock is stepped a twentieth of a second at a time.
+          expect(Math.abs(hitAt - predicted), `${kind} attack ${attack}: predicted ${predicted.toFixed(2)}s, hit at ${hitAt.toFixed(2)}s`).toBeLessThanOrEqual(.07);
+        } else {
+          misses++;
+          expect(hitAt, `${kind} attack ${attack}: predicted no hit`).toBe(Infinity);
+        }
+      }
+    }
+    // Both kinds of answer were tried: some spots are hit, some are safe.
+    expect(hits).toBeGreaterThan(0);
+    expect(misses).toBeGreaterThan(0);
+  });
+
+  it("is wider by its pad, and nothing once the boss is dead", () => {
+    const kind: BossKind = "magmalisk";
+    const h = createFrostclawHarness({ currentMapId: () => BOSSES[kind].mapId });
+    const boss = h.bosses[kind];
+    h.bossHazards[kind].push({ x: boss.x + 400, y: boss.y, r: 50, timer: .5, maxTimer: .5 } as never);
+    const danger = h.controller.byKind[kind].danger;
+    expect(danger(boss.x + 455, boss.y)).toBe(Infinity);
+    expect(danger(boss.x + 455, boss.y, 10)).toBeCloseTo(.5);
+    boss.dead = true;
+    expect(danger(boss.x + 400, boss.y)).toBe(Infinity);
+  });
 });

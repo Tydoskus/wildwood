@@ -76,6 +76,7 @@ export function attackReadyAtWithoutTarget(nextAttackAtSeconds: number, nowSecon
 
 export type PlayerCombatController = {
   expectedDps: () => number;
+  expectedBossDps: () => number;
   attackNearest: (enemyType?: AutoFarmGroup | null, campName?: string | null, priority?: AutoFarmPriority) => void;
   updateProjectiles: (dt: number) => void;
   /** `source` is who dealt it, which Reflect answers. */
@@ -811,13 +812,17 @@ export function createPlayerCombatController(options: {
     projectileStore.compactEnemyShots();
   }
 
+  /** Weapon damage a second as the player stands, criticals averaged in: what Soul Dimension enemies are built against. */
+  function expectedDps() {
+    const chance = Math.max(0, Math.min(1, researchCriticalChance()));
+    const projectiles = isMeleeWeapon(options.equippedWeapon()) ? 1 : Math.max(1, player.projectileCount ?? 1);
+    return weaponDamage(false) * (1 + chance * (researchCriticalDamageMultiplier() - 1)) * projectiles / Math.max(.05, player.attackRate);
+  }
+
   return {
-    /** Weapon damage a second as the player stands, criticals averaged in: what Soul Dimension enemies are built against. */
-    expectedDps() {
-      const chance = Math.max(0, Math.min(1, researchCriticalChance()));
-      const projectiles = isMeleeWeapon(options.equippedWeapon()) ? 1 : Math.max(1, player.projectileCount ?? 1);
-      return weaponDamage(false) * (1 + chance * (researchCriticalDamageMultiplier() - 1)) * projectiles / Math.max(.05, player.attackRate);
-    },
+    expectedDps,
+    /** The same against a boss, Boss Slayer included: how long a boss fight would take. */
+    expectedBossDps: () => expectedDps() * (1 + (options.prestigeBossSlayer?.() ?? 0)),
     attackNearest,
     updateProjectiles,
     damagePlayer,

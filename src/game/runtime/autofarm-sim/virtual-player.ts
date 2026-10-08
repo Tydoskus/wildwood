@@ -330,6 +330,8 @@ export function createVirtualPlayer(profile: VirtualPlayerProfile, options: { du
 
   autoFarm = createAutoFarmController({
     player, enemies, spawnSites, mapId: () => currentMapId, pullCamps: () => 1, forcedGroups: () => null,
+    enemyShots: projectileStore.enemyShots, bossDps: () => playerCombat.expectedBossDps(),
+    bossDanger: (x, y, pad) => Math.min(bossController.forMap(currentMapId)?.danger(x, y, pad) ?? Infinity, proceduralBoss.danger(x, y, pad)),
     equippedWeapon: weapon, localIdentity: () => identity, now: () => clock.ms - SIM_EPOCH_MS,
     connection: () => !running || mapController.isMapTransitioning() ? 'recovering' : 'ready',
     unavailable: () => !running || player.hp <= 0 ? 'Start your adventure to farm' : mapController.isMapTransitioning() ? 'Autofarm stopped for travel' : null,
@@ -478,11 +480,11 @@ export function createVirtualPlayer(profile: VirtualPlayerProfile, options: { du
     if (!running) return 'dead';
     if (mapController.isMapTransitioning()) return 'travel';
     if (!autoFarm.state().active) return /moving/i.test(status) ? 'travel' : 'inactive';
-    if (phase === 'boss') return /Fighting/.test(status) ? 'boss-fight' : 'boss-walk';
+    if (phase === 'boss') return /Fighting|Dodging|Kiting/.test(status) ? 'boss-fight' : 'boss-walk';
     if (phase === 'portal') return 'portal-walk';
-    if (/^Farming|Defending|Holding ground|Pulling/.test(status)) return 'fight';
+    if (/^Farming|Defending|Holding ground|Pulling|Dodging|Kiting|Waiting out/.test(status)) return 'fight';
     if (/^Moving to/.test(status)) return 'walk';
-    if (/Waiting for respawn/.test(status)) return 'wait';
+    if (/Waiting for respawn|Healing/.test(status)) return 'wait';
     if (/clear route/.test(status)) return 'stuck';
     return `other`;
   }

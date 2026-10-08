@@ -12,9 +12,10 @@ import type { PlayerPowerStats } from '../../../shared/player-power';
  */
 
 /**
- * How hard autofarm pushes forward: how much more power a retry needs, how
- * much slower a new map may farm, and the wait before a retry (doubling with
- * each failure on the same map; a boss waits half as long).
+ * How hard autofarm pushes forward: how much more power a map's retry needs,
+ * how much slower a new map may farm, and the wait before a retry (doubling
+ * with each failure on the same map; a boss waits half as long, and asks for
+ * no power, only a fight that projects a win: bossReadiness).
  */
 export type FarmPush = 'safe' | 'normal' | 'bold';
 export const FARM_PUSHES: Readonly<Record<FarmPush, { retry: number; keep: number; waitMinutes: number }>> = {
@@ -44,8 +45,6 @@ const GAIN_SAMPLE_MS = 5_000;
 export const DIED_TO_GROUP_MS = 10 * 60_000;
 /** A boss fight, walk in included, is judged once this long under way. */
 export const BOSS_JUDGE_SECONDS = 3;
-/** No boss try in a map's first minutes: they are the walk out and the first fights, not a measure of the build. */
-export const BOSS_FIRST_TRY_MS = 3 * 60_000;
 /** Walking away from a losing boss fight happens below this share of health, before the last hit. */
 export const BOSS_LEAVE_HEALTH = .5;
 /**
@@ -137,50 +136,74 @@ export function createRetryMemory(storage: () => Storage | undefined = () => loc
 }
 export const bossRetryKey = (mapId: string) => `boss:${mapId}`;
 
+/** A boss fight so far: seconds since it began, and the share of health each side had then and has now. */
+export type BossFightProgress = { seconds: number; bossStart: number; boss: number; playerStart: number; player: number };
+/**
+ * Shares of health a second: the boss's lost to the player, the player's lost
+ * to the boss, regeneration and everything else included, so a player rate of
+ * 0 or less never loses.
+ */
+export type BossFightRates = { boss: number; player: number };
+export const bossFightRates = (fight: BossFightProgress): BossFightRates => ({
+  boss: (fight.bossStart - fight.boss) / Math.max(1e-9, fight.seconds), player: (fight.playerStart - fight.player) / Math.max(1e-9, fight.seconds) });
+
 /**
  * Whether a boss fight is being lost: the share of the boss's health falling
  * slower than the player's, projected to the end. The real numbers, measured
  * since the fight began, so every damage source and regeneration is in them.
  */
-export function bossFightLosing(fight: { seconds: number; bossStart: number; boss: number; playerStart: number; player: number }) {
+export function bossFightLosing(fight: BossFightProgress) {
   if (fight.seconds < BOSS_JUDGE_SECONDS) return false;
-  const bossRate = (fight.bossStart - fight.boss) / fight.seconds;
-  const playerRate = (fight.playerStart - fight.player) / fight.seconds;
-  if (!(playerRate > 0)) return false;
-  return !(bossRate > 0) || fight.player / playerRate < fight.boss / bossRate;
+  const rates = bossFightRates(fight);
+  if (!(rates.player > 0)) return false;
+  return !(rates.boss > 0) || fight.player / rates.player < fight.boss / rates.boss;
 }
 
-/**
- * A boss fight that was lost, as measured: how fast the boss's share of
- * health fell, how fast the player's did, and the build that fought it.
- */
-export type LostBossFight = { mapId: string; boss: number; player: number; stats: PlayerPowerStats };
-/** A boss is tried again, whatever its retry power, once the measured fight would be won with this much to spare. */
-export const BOSS_MARGIN_READY = 1.15;
-const BOSS_MARGIN_CAP = 10;
+/** A boss is fought when the fight projects a win inside this long (Ryan: "5-10 minutes"), and left once it no longer does. */
+export const BOSS_FIGHT_SECONDS = 10 * 60;
+/** How long a fight is watched at the boss before its pace alone can send the player away. */
+export const BOSS_PACE_SECONDS = 30;
+/** A boss is gone to with at least this share of health, as a player heals up first. */
+export const BOSS_READY_HEALTH = .9;
 
 /**
- * How a lost boss fight would go with another build: the time the player
- * would last over the time the boss would, from the rates that fight
- * measured, each rescaled by what changed. Damage and attack speed speed up
- * the boss's loss; health makes each hit a smaller share, armor a smaller
- * hit, and regeneration heals some of it back. Above 1 the fight is won.
+ * How ready a boss fight is: the seconds the player would last (counted up to
+ * BOSS_FIGHT_SECONDS) over the seconds the boss would, from the shares of
+ * health each has. 1 or more is a win inside the limit.
  */
-export function bossFightMargin(fight: LostBossFight, stats: PlayerPowerStats) {
+export function bossReadiness(rates: BossFightRates, shares = { boss: 1, player: 1 }) {
+  const needs = shares.boss / Math.max(1e-12, rates.boss);
+  const lasts = rates.player > 0 ? shares.player / rates.player : Infinity;
+  return Math.min(lasts, BOSS_FIGHT_SECONDS) / needs;
+}
+
+/** A boss fight that was lost or left, as measured at the boss: its rates, and the build that fought it. */
+export type MeasuredBossFight = BossFightRates & { mapId: string; stats: PlayerPowerStats };
+
+/**
+ * A measured fight's rates as another build would see them, each rescaled by
+ * what changed. Damage and attack speed speed up the boss's loss; health makes
+ * each hit a smaller share, armor a smaller hit, and regeneration heals some
+ * of it back.
+ */
+export function rescaleBossFight(fight: MeasuredBossFight, stats: PlayerPowerStats): BossFightRates {
   const old = fight.stats;
   const offence = (build: PlayerPowerStats) => build.damage / Math.max(1e-9, build.attackRate);
-  const boss = fight.boss * offence(stats) / Math.max(1e-9, offence(old));
   // What the boss took off before regeneration put some back, in health, then as this build feels it.
   const hits = (fight.player + old.regen / Math.max(1, old.maxHp)) * old.maxHp;
   const armor = (1 - armorDamageReduction(stats.armor)) / Math.max(1e-9, 1 - armorDamageReduction(old.armor));
-  const player = (hits * armor - stats.regen) / Math.max(1, stats.maxHp);
-  // Capped: a fight the player cannot lose is still a number to compare against.
-  return player > 0 ? Math.min(BOSS_MARGIN_CAP, Math.max(0, boss) / player) : BOSS_MARGIN_CAP;
+  return { boss: fight.boss * offence(stats) / Math.max(1e-9, offence(old)), player: (hits * armor - stats.regen) / Math.max(1, stats.maxHp) };
 }
 
-/** Walk away before dying: the fight is being lost and the player is under half health. */
-export function shouldLeaveBoss(fight: Parameters<typeof bossFightLosing>[0]) {
-  return fight.player < BOSS_LEAVE_HEALTH && bossFightLosing(fight);
+/**
+ * Walk away before dying, or from a fight not worth its time: the fight is
+ * being lost and the player is under half health; or, watched at the boss for
+ * BOSS_PACE_SECONDS, what is left of it no longer projects a win inside
+ * BOSS_FIGHT_SECONDS. The walk in counts for the first, not the second.
+ */
+export function shouldLeaveBoss(fight: BossFightProgress, atBoss?: BossFightProgress) {
+  if (fight.player < BOSS_LEAVE_HEALTH && bossFightLosing(fight)) return true;
+  return Boolean(atBoss && atBoss.seconds >= BOSS_PACE_SECONDS && bossReadiness(bossFightRates(atBoss), atBoss) < 1);
 }
 
 /**

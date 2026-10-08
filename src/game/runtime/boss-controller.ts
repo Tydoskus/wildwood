@@ -45,7 +45,7 @@ import {
 import { BOSS_DAMAGE_PROFILES } from "../boss-damage";
 import { clamp } from "../math";
 import type { PlayerGender } from "../../../shared/player-gender";
-import type { BossCone, PlayerState } from "./types";
+import type { BossCone, PlayerState, SpiderWeb } from "./types";
 import { BOSSES, BOSS_KINDS, bossForMap, clearBossAttack, perBoss, type BossHazards, type BossKind, type BossStates } from "./boss-registry";
 
 export const BOSS_HP_LOSS_FLASH_DURATION = .18;
@@ -85,6 +85,8 @@ const PRISMSHELL_SHATTER_DURATION = .8;
 const IRONHORN_SHATTER_DURATION = .8;
 const DREADREAPER_SHATTER_DURATION = .8;
 const DEATH_PARTICLE_COLOR = "#e53935";
+/** How finely danger() steps a pulse's clock forward: a ring moves well under its own width in this long. */
+const PULSE_LOOK_STEP = .05;
 
 export type SharedBossState = {
   encounter: bigint;
@@ -111,6 +113,12 @@ export type BossBehaviour = {
   sync: () => void;
   update: (dt: number) => void;
   resolveCollision: () => void;
+  /**
+   * Seconds until an attack already in play would hit a player standing at
+   * (x, y), every shape `pad` wider; Infinity when none will. Read from the
+   * same shapes and clocks the attacks land by: what a player sees coming.
+   */
+  danger: (x: number, y: number, pad?: number) => number;
 };
 
 export type BossController = {
@@ -1290,6 +1298,61 @@ export function createBossController(options: {
     bossKnockbackDistanceRemaining = Math.max(0, bossKnockbackDistanceRemaining - distance);
   }
 
+  /**
+   * Seconds until a travelling front (onSweep) reaches a point `distance` from
+   * its centre: it runs from `inner` out to `range` once the windup is over,
+   * hitting `reach` either side of it. Infinity once it has passed the point,
+   * when it never gets that far, or when it has already hit the player.
+   */
+  function frontEta(sweep: { windup?: number; timer: number; duration: number; hitPlayer: boolean }, distance: number, inner: number, range: number, reach: number) {
+    if (sweep.hitPlayer || distance > range + reach) return Infinity;
+    const span = Math.max(1e-6, range - inner), progress = clamp(1 - sweep.timer / sweep.duration, 0, 1);
+    if (inner + span * progress - reach > distance) return Infinity;
+    return Math.max(0, sweep.windup ?? 0) + Math.max(0, (distance - reach - inner) / span - progress) * sweep.duration;
+  }
+
+  function danger(kind: BossKind, x: number, y: number, pad = 0) {
+    const state = bosses[kind];
+    if (state.dead) return Infinity;
+    const dx = x - state.x, dy = y - state.y, distance = Math.hypot(dx, dy) || 1, bearing = Math.atan2(dy, dx);
+    const aimed = (angle: number, halfAngle: number) => Math.abs(Math.atan2(Math.sin(bearing - angle), Math.cos(bearing - angle))) <= halfAngle + pad / distance;
+    const ground: (Hazard & { hitPlayer?: boolean })[] = hazards[kind];
+    let soonest = Infinity;
+    if (kind in PULSE_BOSSES) {
+      const rules = PULSE_BOSSES[kind as PulseKind], radius = player.r + pad;
+      // A pulse is a function of its own clock: step that clock forward to the first frame it would hit.
+      for (const pulse of ground) {
+        if (pulse.hitPlayer) continue;
+        const from = pulse.maxTimer - pulse.timer, gap = Math.hypot(x - pulse.x, y - pulse.y);
+        for (let at = from; at < pulse.maxTimer; at += PULSE_LOOK_STEP) {
+          if (rules.pulses.hits(gap, at, at + PULSE_LOOK_STEP, radius)) { soonest = Math.min(soonest, at - from); break; }
+        }
+      }
+      const laser = bosses[kind as PulseKind].shatter, front = rules.laser.front;
+      if (laser && !laser.hitPlayer && rules.laser.hits(dx, dy, laser.angle, radius)) {
+        // Without a front it hits its whole shape from the first frame after the windup until it ends.
+        soonest = Math.min(soonest, front ? frontEta(laser, distance, front.innerRange, front.range, 42 + pad) : Math.max(0, laser.windup));
+      }
+      return soonest;
+    }
+    for (const hazard of ground) if (Math.hypot(x - hazard.x, y - hazard.y) <= hazard.r + pad) soonest = Math.min(soonest, Math.max(0, hazard.timer));
+    const sweep = (attack: BossCone | SpiderWeb | null, range: number, reach: number, halfAngle?: number, hold = 0) => {
+      if (attack && (halfAngle === undefined || aimed((attack as BossCone).angle, halfAngle))) soonest = Math.min(soonest, hold + frontEta(attack, distance, state.r, range, reach + pad));
+    };
+    if (kind === "dragon") sweep(boss.cone, BOSS_CONE_RANGE, 34, BOSS_CONE_HALF_ANGLE);
+    else if (kind === "spider") sweep(spiderBoss.web, SPIDER_WEB_RANGE, 30);
+    else if (kind === "frostclaw") {
+      sweep(frostclawBoss.roar, FROSTCLAW_ROAR_RANGE, 38);
+      const rift = frostclawBoss.rift;
+      if (rift && [-.28, 0, .28].some((offset) => aimed(rift.angle + offset, FROSTCLAW_RIFT_HALF_ANGLE + 24 / distance))) sweep(rift, FROSTCLAW_RIFT_RANGE, 32);
+    } else {
+      // A cone boss's cone waits for the last of its ground hazards to land.
+      const rules = CONE_BOSSES[kind as ConeKind];
+      sweep(coneOf(kind as ConeKind), rules.cone.range, rules.cone.reach, rules.cone.halfAngle, Math.max(0, ...ground.map((hazard) => hazard.timer)));
+    }
+    return soonest;
+  }
+
   const UPDATES: Record<BossKind, (dt: number) => void> = {
     dragon: updateBoss,
     spider: updateSpiderBoss,
@@ -1317,6 +1380,7 @@ export function createBossController(options: {
       BOSS_DAMAGE_PROFILES[kind].contact,
       kind === "dragon" ? DRAGON_CONTACT_DAMAGE_COOLDOWN : .75,
     ),
+    danger: (x, y, pad) => danger(kind, x, y, pad),
   }));
 
   return {

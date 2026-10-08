@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  AUTO_FARM_PUSH_KEY, AUTO_FARM_RETRY_KEY, BUILD_CHANGE, FARM_PUSHES, GAIN_MIN_MS, PROBATION_MS, bossFightLosing, createPowerGainMeter, createRetryMemory,
-  bossFightMargin, probationVerdict, readFarmPush, shouldLeaveBoss, writeFarmPush,
+  AUTO_FARM_PUSH_KEY, AUTO_FARM_RETRY_KEY, BOSS_FIGHT_SECONDS, BOSS_PACE_SECONDS, BUILD_CHANGE, FARM_PUSHES, GAIN_MIN_MS, PROBATION_MS, bossFightLosing,
+  bossReadiness, createPowerGainMeter, createRetryMemory, probationVerdict, readFarmPush, rescaleBossFight, shouldLeaveBoss, writeFarmPush,
 } from './auto-farm-brain';
 import { armorDamageReduction } from '../combat';
 
@@ -26,21 +26,48 @@ describe('autofarm boss fight', () => {
   });
 });
 
+describe('autofarm boss fight by time', () => {
+  it('is ready for a fight it projects to win inside ten minutes, from the health each side has', () => {
+    // The boss loses 1% a second (100 s), the player 0.5% (200 s): a win in 100 s, twice over.
+    expect(bossReadiness({ boss: .01, player: .005 })).toBeCloseTo(2);
+    // The player would last half as long as the boss: lost.
+    expect(bossReadiness({ boss: .01, player: .02 })).toBeCloseTo(.5);
+    // Never losing, but the boss would take 20 minutes: not inside the limit.
+    expect(bossReadiness({ boss: 1 / (2 * BOSS_FIGHT_SECONDS), player: 0 })).toBeCloseTo(.5);
+    expect(bossReadiness({ boss: 1 / BOSS_FIGHT_SECONDS, player: -.01 })).toBeCloseTo(1);
+    // Half the boss left, or the player at half health, count.
+    expect(bossReadiness({ boss: .01, player: .02 }, { boss: .5, player: 1 })).toBeCloseTo(1);
+    expect(bossReadiness({ boss: .01, player: .005 }, { boss: 1, player: .5 })).toBeCloseTo(1);
+  });
+  it('walks away from a fight that, watched at the boss, no longer projects a win in time, and never sooner', () => {
+    // At the boss for the pace window: the boss lost 1% (50 minutes to go), the player nothing.
+    const slow = { seconds: BOSS_PACE_SECONDS, bossStart: 1, boss: .99, playerStart: 1, player: 1 };
+    expect(shouldLeaveBoss(slow, slow)).toBe(true);
+    expect(shouldLeaveBoss(slow, { ...slow, seconds: BOSS_PACE_SECONDS - 1 })).toBe(false);
+    // Fast enough: a third of the boss in the window, so the rest inside the limit.
+    expect(shouldLeaveBoss(slow, { ...slow, boss: .67 })).toBe(false);
+    // Losing above half health, once watched long enough at the boss.
+    expect(shouldLeaveBoss(slow, { ...slow, boss: .67, player: .6 })).toBe(true);
+  });
+});
+
 describe('autofarm farming for a lost boss fight', () => {
   const stats = { damage: 100, attackRate: 1, maxHp: 1_000, armor: 0, regen: 0 };
   // The boss lost 1% a second, the player 2%: the player lasted half as long as the boss would have.
   const fight = { mapId: 'forest', boss: .01, player: .02, stats };
+  const ready = (build: typeof stats) => bossReadiness(rescaleBossFight(fight, build));
   it('rescales the measured fight by what a build changes', () => {
-    expect(bossFightMargin(fight, stats)).toBeCloseTo(.5);
-    expect(bossFightMargin(fight, { ...stats, damage: 200 })).toBeCloseTo(1);
-    expect(bossFightMargin(fight, { ...stats, attackRate: .5 })).toBeCloseTo(1);
-    expect(bossFightMargin(fight, { ...stats, maxHp: 2_000 })).toBeCloseTo(1);
+    expect(ready(stats)).toBeCloseTo(.5);
+    expect(ready({ ...stats, damage: 200 })).toBeCloseTo(1);
+    expect(ready({ ...stats, attackRate: .5 })).toBeCloseTo(1);
+    expect(ready({ ...stats, maxHp: 2_000 })).toBeCloseTo(1);
     // 10 health a second back on 1,000: half of the 2% a second lost.
-    expect(bossFightMargin(fight, { ...stats, regen: 10 })).toBeCloseTo(1);
-    expect(bossFightMargin(fight, { ...stats, armor: 100 })).toBeCloseTo(.5 / (1 - armorDamageReduction(100)));
+    expect(ready({ ...stats, regen: 10 })).toBeCloseTo(1);
+    expect(ready({ ...stats, armor: 100 })).toBeCloseTo(.5 / (1 - armorDamageReduction(100)));
   });
-  it('caps a fight the player would never lose', () => {
-    expect(bossFightMargin(fight, { ...stats, regen: 1_000 })).toBe(10);
+  it('a fight the player would never lose is ready once the boss falls inside the limit', () => {
+    // 100 s for the boss against 600 s allowed.
+    expect(ready({ ...stats, regen: 1_000 })).toBeCloseTo(BOSS_FIGHT_SECONDS / 100);
   });
 });
 

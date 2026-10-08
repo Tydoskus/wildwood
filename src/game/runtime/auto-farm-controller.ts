@@ -3,11 +3,12 @@ import { WORLD } from '../constants';
 import { monotonicNowMs, wallClockNowMs } from '../../app/trusted-clock';
 import { ENEMY_TYPES, rewardStatLabel, type EnemyDefinition, type EnemyKind } from '../enemies';
 import type { SpawnSite } from '../world';
-import type { Circle, EnemyState, PlayerState, Position } from './types';
+import type { Circle, EnemyShot, EnemyState, PlayerState, Position } from './types';
 import type { Movement } from './player-input-controller';
 import { isEnemyAttackingPlayer } from './enemy-threat';
 import { farmRoute } from './auto-farm-navigation';
 import { bossSurfaceDistance, bossVerticalRadius } from '../../../shared/boss-hitbox';
+import { DODGE_PAD, KITE_GAP, KITE_ROOM, evadePoint, shotDanger } from './auto-farm-dodge';
 import { carryFarmGroup, compareAutoFarmTargets, farmGroupMatches, farmGroupOf, farmStatGroup, readAutoFarmPriority, soulFarmReward, readAutoFarmPull, writeAutoFarmPriority, writeAutoFarmPull, type AutoFarmGroup, type AutoFarmPriority } from './auto-farm-priority';
 import type { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
 import {
@@ -15,7 +16,8 @@ import {
   readFarmAdvance, readFarmChoice, writeFarmAdvance, writeFarmChoice, type FarmChoice, type FarmEvaluation, type FarmReward, type FarmWeights,
 } from './auto-farm-plan';
 import {
-  BOSS_FIRST_TRY_MS, BOSS_MARGIN_READY, PROBATION_MS, DIED_TO_GROUP_MS, FARM_PUSHES, bossFightMargin, bossRetryKey, type LostBossFight, createPowerGainMeter, createRetryMemory, probationVerdict, readFarmPush, shouldLeaveBoss, writeFarmPush, type FarmPush,
+  BOSS_READY_HEALTH, PROBATION_MS, DIED_TO_GROUP_MS, FARM_PUSHES, bossFightRates, bossReadiness, bossRetryKey, type MeasuredBossFight, createPowerGainMeter, createRetryMemory,
+  probationVerdict, readFarmPush, rescaleBossFight, shouldLeaveBoss, writeFarmPush, type FarmPush,
 } from './auto-farm-brain';
 import { formatCompactNumber } from '../../../shared/compact-number';
 import { formatTimerMs } from '../../../shared/timer-format';
@@ -26,7 +28,7 @@ export type AutoFarmController = ReturnType<typeof createAutoFarmController>;
 const idle = (): Movement => ({ x: 0, y: 0, source: 'none' });
 export const AUTO_FARM_DEFEAT_LIMIT = 5;
 export const AUTO_FARM_DEFEAT_WINDOW_MS = 180_000;
-/** A death this soon after walking away from a boss is the boss's: its retry power is already raised. */
+/** A death this soon after walking away from a boss is the boss's: its retry wait is already set. */
 const BOSS_LEAVE_GRACE_MS = 15_000;
 const READY_STATUSES = new Set(['Next Map Open', 'Boss Next']);
 /** How far inside its full reach autofarm stops: enough that a target at the stop point is still in range. */
@@ -35,6 +37,21 @@ export const AUTO_FARM_REACH_MARGIN = 6;
 const WAYPOINT_REACHED = 2;
 /** How long a pulled group may take to arrive before autofarm walks out to it. */
 export const PULL_WAIT_SECONDS = 4;
+/** How often a step out of an attack, or back from a melee enemy, is chosen again. */
+const EVADE_REPLAN_SECONDS = .1;
+/** How far ahead a walk looks for an attack about to land, in seconds of walking. */
+const WALK_LOOKAHEAD_SECONDS = .25;
+/** An enemy hit this big a share of max health is stepped out of even at full health. */
+const BITE_SHARE = .05;
+/**
+ * A campaign boss is fought from this close to its hitbox, whatever the
+ * weapon's reach: its cones widen from its body, so near it one is a short
+ * sidestep, and at the edge of a bow's reach a run that cannot be made in time.
+ */
+const BOSS_STAND_GAP = 40;
+
+/** What autofarm fights: an enemy, a campaign boss's hitbox (isBoss) or an Endless boss, hit at its centre. */
+type Fight = Position & { r: number; ry?: number; hitboxOffsetY?: number; isBoss?: boolean };
 
 /**
  * Where autofarm stops walking (`stop`) and how far the destination may then
@@ -83,7 +100,13 @@ export function createAutoFarmController(options: {
   /** Damage per second against regular enemies, for how long a kill takes. */
   farmDps?: () => number;
   /** This map's boss while it stands (null once it is down or respawning), with its health to judge the fight by. */
-  mapBoss?: () => (Position & { r: number; hp?: number; maxHp?: number; dead?: boolean; isBoss?: boolean; ry?: number; hitboxOffsetY?: number }) | null;
+  mapBoss?: () => (Fight & { hp?: number; maxHp?: number; dead?: boolean }) | null;
+  /** Damage per second against the boss as the player stands, Boss Slayer included: how long a first fight would take. */
+  bossDps?: () => number;
+  /** Seconds until a boss attack already in play would hit a player at (x, y), every shape `pad` wider; Infinity when none will. */
+  bossDanger?: (x: number, y: number, pad: number) => number;
+  /** Enemy shots in flight: they fly straight, so they can be stepped out of. */
+  enemyShots?: readonly EnemyShot[];
   /** Reflect Only: the bow does nothing, so enemies must be stood among to be hit and hit back. */
   reflectOnly?: () => boolean;
   /** The unlocked portal forward to the next map, at its trigger point. */
@@ -160,16 +183,21 @@ export function createAutoFarmController(options: {
   const gain = createPowerGainMeter();
   /** A map just walked forward to, on trial (auto-farm-brain.ts probationVerdict), with the gain rate of the map before. */
   let probation: { mapId: string; since: number; previousRate: number | null } | null = null;
-  /** The boss fight under way, measured from the moment it set off for the boss; and when it last walked away. */
-  let bossFight: { at: number; bossStart: number; playerStart: number; reached?: boolean } | null = null;
+  /**
+   * The boss fight under way, measured from the moment it set off for the boss,
+   * and again from when it first stood in reach of it; and when it last walked away.
+   */
+  let bossFight: { at: number; bossStart: number; playerStart: number; reached?: { at: number; boss: number; player: number } } | null = null;
   let bossLeftAt = -Infinity;
-  /** The last boss fight lost here, as measured: while that boss holds the way forward, Auto farms for what the fight lacked. */
-  let lostFight: LostBossFight | null = null;
+  /** The last boss fight lost or left here, as measured at the boss: while that boss holds the way forward, Auto farms for what the fight lacked. */
+  let lostFight: MeasuredBossFight | null = null;
   /** When the player last died to each of this map's groups ("map|group"). */
   const diedTo = new Map<string, number>();
   let planClock = 0;
   /** Auto is farming for the boss (bossToBeat), not for power: for the status line. */
   let bossFarming = false;
+  /** The boss is ready but the player is not: it starts no new fight while it heals. */
+  let healing = false;
   const seenAlive = new WeakSet<EnemyState>();
   /** How long it has stood waiting for a pulled group that never arrives. */
   let pullWait = 0;
@@ -180,7 +208,7 @@ export function createAutoFarmController(options: {
   let active = false;
   let manualControl = false;
   let pendingResume = options.resumeStore?.read() ?? null;
-  let startedMap = '', mapStartedAt = -Infinity;
+  let startedMap = '';
   let startedIdentity: string | undefined;
   let recovering = false;
   let readySince: number | null = null;
@@ -193,6 +221,8 @@ export function createAutoFarmController(options: {
   let lastGoal: Position | null = null;
   // True while standing in range; walking resumes only past the resume distance.
   let holding = false;
+  /** Where a step out of an attack, or back from a melee enemy, is going (chosen again every EVADE_REPLAN_SECONDS), and whether it is kiting. */
+  let evadeTo: Position | null = null, evadeClock = 0, kiting = false;
   const { player, enemies, spawnSites } = options;
   const distance = (point: Position) => Math.hypot(point.x - player.x, point.y - player.y);
   const validEnemy = (enemy: EnemyState) => !enemy.dead && !enemy.remoteCombatGhost && !enemy.generatedBoss && selectedType !== null
@@ -251,8 +281,8 @@ export function createAutoFarmController(options: {
   function defeated() {
     if (!active && !pendingResume) return;
     const at = now();
-    // Beaten at the boss: farm on, and try it again only with more power. A
-    // boss death is the boss's alone; the map's own deaths are counted below.
+    // Beaten at the boss: farm on, and try it again once the fight projects a
+    // win. A boss death is the boss's alone; the map's own deaths are counted below.
     if (phase === 'boss' || at - bossLeftAt < BOSS_LEAVE_GRACE_MS) {
       if (phase === 'boss') leaveBoss(at);
       return;
@@ -294,26 +324,24 @@ export function createAutoFarmController(options: {
   }
   /**
    * Walks away from (or was beaten by) the boss: farm on. The next try waits
-   * half a map's wait and needs more power, the more so the less the boss was
-   * hurt: one left untouched needs twice the power.
+   * half a map's wait (doubling with each failure, so it can never loop), and
+   * then goes once the fight, as measured at the boss, projects a win in time.
    */
   function leaveBoss(at: number) {
-    const boss = options.mapBoss?.();
+    const boss = options.mapBoss?.(), reached = bossFight?.reached, stats = options.evaluate?.().stats;
     const left = boss?.maxHp && boss.hp !== undefined ? Math.max(0, Math.min(1, boss.hp / boss.maxHp)) : 1;
-    const seconds = bossFight ? (at - bossFight.at) / 1_000 : 0, stats = options.evaluate?.().stats;
     // Only a fight that reached the boss measured it: a walk in worn down by the camps on the way did not.
     // One that never scratched it still says how far behind the damage was: as near nothing as can be.
-    if (bossFight?.reached && seconds >= 1 && stats && player.maxHp > 0) lostFight = { mapId: options.mapId(), stats,
-      boss: Math.max(1e-6, (bossFight.bossStart - left) / seconds), player: (bossFight.playerStart - Math.max(0, player.hp) / player.maxHp) / seconds };
-    // Doubling the power asked of a boss left untouched is for a fight that reached it: worn down by the
-    // camps on the walk in, the boss said nothing, and a strong build waited twice its power for it.
-    const factor = bossFight?.reached ? Math.max(FARM_PUSHES[push].retry, 1 + left) : FARM_PUSHES[push].retry;
-    retries.raise(identityKey(), bossRetryKey(options.mapId()), currentPower(), factor, waitMs(FARM_PUSHES[push].waitMinutes / 2));
+    if (reached && at - reached.at >= 1_000 && stats && player.maxHp > 0) {
+      const rates = bossFightRates({ seconds: (at - reached.at) / 1_000, bossStart: reached.boss, boss: left, playerStart: reached.player, player: Math.max(0, player.hp) / player.maxHp });
+      lostFight = { mapId: options.mapId(), stats, boss: Math.max(1e-6, rates.boss), player: rates.player };
+    }
+    retries.raise(identityKey(), bossRetryKey(options.mapId()), currentPower(), 1, waitMs(FARM_PUSHES[push].waitMinutes / 2));
     bossLeftAt = at;
     bossFight = null;
     planClock = 0;
     phase = 'farm';
-    target = null; route = []; lastGoal = null; routeClock = 0; holding = false;
+    target = null; route = []; lastGoal = null; routeClock = 0; holding = false; evadeTo = null;
   }
 
   function stop(reason = 'Autofarm stopped') {
@@ -331,6 +359,7 @@ export function createAutoFarmController(options: {
     lastGoal = null;
     holding = false;
     bossFight = null;
+    evadeTo = null;
     status = reason;
   }
 
@@ -409,10 +438,10 @@ export function createAutoFarmController(options: {
     if (current && current.alive > 0 && planClock > 0) return;
     planClock = AUTO_REPLAN_SECONDS;
     const powerOf: (reward?: FarmReward) => FarmEvaluation = options.evaluate ?? (() => ({ power: 0 }));
-    // A boss that beat this build holds the way forward: the margin it would win by stands in for power.
+    // A boss that beat this build holds the way forward: how ready its fight would be stands in for power.
     const fight = bossToBeat();
     bossFarming = Boolean(fight && powerOf().stats);
-    const evaluate = fight && bossFarming ? (reward?: FarmReward) => ({ power: bossFightMargin(fight, powerOf(reward).stats!) }) : powerOf;
+    const evaluate = fight && bossFarming ? (reward?: FarmReward) => ({ power: bossReadiness(rescaleBossFight(fight, powerOf(reward).stats!)) }) : powerOf;
     const at = now();
     const died = (key: string) => at - (diedTo.get(`${options.mapId()}|${key}`) ?? -Infinity) < DIED_TO_GROUP_MS;
     // The most power per second of farming: the kill and the walk to it.
@@ -445,9 +474,9 @@ export function createAutoFarmController(options: {
     return portal && retryReady(portal.destination) ? portal : null;
   }
   /**
-   * Boss, next map or a camp. Moving on needs the toggle; the boss also the
-   * power its last try asked for. The boss may be tried on trial: beating it
-   * ends the trial, since the map is plainly held.
+   * Boss, next map or a camp. Moving on needs the toggle; the boss also a
+   * fight that projects a win in time. The boss may be tried on trial: beating
+   * it ends the trial, since the map is plainly held.
    */
   function choosePhase(dt: number) {
     if (probation && probation.mapId !== options.mapId()) probation = null;
@@ -465,10 +494,13 @@ export function createAutoFarmController(options: {
       retreating = false;
     }
     // Reflect Only leaves the boss to the player: the fight is won by taking its hits.
+    healing = false;
     if (advance && !options.reflectOnly?.()) {
       const portal = exitPortal();
       if (portal) { phase = 'portal'; travellingTo = portal.destination; return; }
-      if (bossWanted()) { phase = 'boss'; travellingTo = null; return; }
+      const boss = bossWanted();
+      if (boss === 'go') { phase = 'boss'; travellingTo = null; return; }
+      healing = boss === 'heal';
     }
     if (phase !== 'farm') { target = null; route = []; lastGoal = null; routeClock = 0; holding = false; }
     phase = 'farm';
@@ -476,37 +508,130 @@ export function createAutoFarmController(options: {
     chooseCamp(dt);
   }
 
-  function bossWanted() {
+  /**
+   * The boss is fought, as a player would, once the fight projects a win
+   * inside BOSS_FIGHT_SECONDS and healed up ('heal' until then); after a loss,
+   * not before its wait.
+   */
+  function bossWanted(): 'go' | 'heal' | null {
     const boss = options.mapBoss?.();
-    if (!boss || boss.dead || options.bossUnlocksNext?.() === false || now() - mapStartedAt < BOSS_FIRST_TRY_MS) return false;
-    const key = bossRetryKey(options.mapId());
-    // A build that would now win the fight it lost goes back, whatever power the retry asked for.
-    return retryReady(key) || (bossMargin() >= BOSS_MARGIN_READY && wallNow() >= retryGate(key).at);
+    if (!boss || boss.dead || options.bossUnlocksNext?.() === false) return null;
+    // A fight under way goes on until it is won, or judged not worth going on with (judgeBossFight).
+    if (phase === 'boss') return 'go';
+    if (wallNow() < retryGate(bossRetryKey(options.mapId())).at || bossReady() < 1) return null;
+    return player.hp >= player.maxHp * BOSS_READY_HEALTH ? 'go' : 'heal';
   }
   /** The lost fight to farm for: this map's, while its boss still holds the way forward. */
   const bossToBeat = () => lostFight?.mapId === options.mapId() && advance && !options.reflectOnly?.()
     && options.bossUnlocksNext?.() === true && Boolean(options.mapBoss?.()) ? lostFight : null;
-  let marginAt = -Infinity, marginNow = 0;
-  /** How the lost fight would go with the build now (bossFightMargin), twice a second. */
-  function bossMargin() {
-    const fight = bossToBeat(), stats = fight && options.evaluate?.().stats;
-    if (!fight || !stats) return 0;
+  let readyAt = -Infinity, readyNow = 0;
+  /**
+   * How ready the boss fight is (bossReadiness), twice a second: the fight last
+   * measured here as the build now would fight it or, before one, the build's
+   * damage against the boss's health, the player's survival unknown.
+   */
+  function bossReady() {
     const at = now();
-    if (at - marginAt >= 500 || at < marginAt) { marginAt = at; marginNow = bossFightMargin(fight, stats); }
-    return marginNow;
+    if (at - readyAt < 500 && at >= readyAt) return readyNow;
+    readyAt = at;
+    const boss = options.mapBoss?.(), fight = bossToBeat(), stats = fight && options.evaluate?.().stats;
+    if (!boss || !(player.maxHp > 0)) return readyNow = 0;
+    const share = boss.maxHp && boss.hp !== undefined ? Math.max(0, boss.hp / boss.maxHp) : 1;
+    const rates = fight && stats ? rescaleBossFight(fight, stats) : { boss: (options.bossDps?.() ?? 0) / Math.max(1, boss.maxHp ?? boss.hp ?? 1), player: 0 };
+    return readyNow = bossReadiness(rates, { boss: share, player: Math.max(0, player.hp) / player.maxHp });
   }
   /**
-   * Projects the boss fight from its real health and the player's, from the
-   * moment it set off: walk away from one being lost, before dying. The walk
-   * in counts, so a player worn down by the camps on the way turns back too.
+   * Projects the boss fight from its real health and the player's: walk away
+   * from one being lost, before dying (from the moment it set off, so a player
+   * worn down by the camps on the way turns back too), or from one that, at
+   * the boss, no longer projects a win in time.
    */
-  function judgeBossFight(boss: { hp?: number; maxHp?: number }) {
+  function judgeBossFight(boss: Fight & { hp?: number; maxHp?: number }) {
     if (!boss.maxHp || boss.hp === undefined || !(player.maxHp > 0)) return false;
     const at = now(), bossShare = boss.hp / boss.maxHp, playerShare = player.hp / player.maxHp;
     bossFight ??= { at, bossStart: bossShare, playerStart: playerShare };
-    if (!shouldLeaveBoss({ seconds: (at - bossFight.at) / 1_000, bossStart: bossFight.bossStart, boss: bossShare, playerStart: bossFight.playerStart, player: playerShare })) return false;
+    if (!bossFight.reached && reaches(boss, player)) bossFight.reached = { at, boss: bossShare, player: playerShare };
+    const { reached } = bossFight, since = (start: number) => (at - start) / 1_000;
+    if (!shouldLeaveBoss({ seconds: since(bossFight.at), bossStart: bossFight.bossStart, boss: bossShare, playerStart: bossFight.playerStart, player: playerShare },
+      reached && { seconds: since(reached.at), bossStart: reached.boss, boss: bossShare, playerStart: reached.player, player: playerShare })) return false;
     leaveBoss(at);
     return true;
+  }
+
+  /** Whether `fight` is in the weapon's reach from `point`, measured as combat measures it and autofarm stands for it. */
+  function reaches(fight: Fight, point: Position) {
+    const weapon = options.equippedWeapon?.(), reach = weaponAttackRange(weapon, player.attackRange);
+    if (fight.isBoss) return bossSurfaceDistance(point.x - fight.x, point.y - fight.y, fight.r, fight.ry, fight.hitboxOffsetY) <= reach;
+    return Math.hypot(point.x - fight.x, point.y - fight.y) <= reach + (isMeleeWeapon(weapon) ? fight.r : 0);
+  }
+
+  /** Seconds until a boss attack in play would hit the player at `point`. */
+  const bossDangerAt = (point: Position) => options.bossDanger?.(point.x, point.y, DODGE_PAD) ?? Infinity;
+  /**
+   * A regular enemy's shot or blow is worth stepping out of when it would take
+   * a real bite, or once the player is hurt at all: at full health regeneration
+   * is keeping up with the rest, and standing farms faster. Reflect Only takes
+   * every enemy hit, so it steps out of none.
+   */
+  const worthAvoiding = (damage: number) => !options.reflectOnly?.() && (player.hp < player.maxHp || damage >= player.maxHp * BITE_SHARE);
+  /** Seconds until a boss attack, or an enemy shot worth avoiding, would hit the player at a point. */
+  function dangerNow() {
+    const shots = (options.enemyShots ?? []).filter(shot => worthAvoiding(shot.damage));
+    return (point: Position) => Math.min(bossDangerAt(point), shots.length ? shotDanger(shots, point, player.r + DODGE_PAD) : Infinity);
+  }
+  /** Where it can stand: inside the map, clear of the boss's body and of the portals it must not walk into. */
+  function standableNow() {
+    const body = options.mapBoss?.();
+    const portals = options.obstacles().filter(circle => !body || Math.hypot(circle.x - body.x, circle.y - body.y) > 4);
+    return (point: Position) => point.x >= player.r && point.y >= player.r && point.x <= WORLD.w - player.r && point.y <= WORLD.h - player.r
+      && (!body || (body.isBoss ? bossSurfaceDistance(point.x - body.x, point.y - body.y, body.r, body.ry, body.hitboxOffsetY) : Math.hypot(point.x - body.x, point.y - body.y) - body.r) >= player.r)
+      && portals.every(circle => Math.hypot(point.x - circle.x, point.y - circle.y) > circle.r);
+  }
+  /** Spots around the boss from its body out to the edge of reach, so a step out of an attack can keep shooting. */
+  function aroundBoss(boss: Fight) {
+    const weapon = options.equippedWeapon?.(), reach = weaponAttackRange(weapon, player.attackRange) - AUTO_FARM_REACH_MARGIN;
+    const edge = boss.isBoss ? reach : reach + (isMeleeWeapon(weapon) ? boss.r : 0) - boss.r, nearest = player.r + DODGE_PAD;
+    const centreY = boss.y + (boss.hitboxOffsetY ?? 0), vertical = bossVerticalRadius(boss.r, boss.ry), spots: Position[] = [];
+    for (const share of [0, .5, 1]) for (let turn = 0; turn < 16; turn++) {
+      const angle = turn * Math.PI / 8, ux = Math.cos(angle), uy = Math.sin(angle);
+      const scale = (nearest + Math.max(0, edge - nearest) * share + boss.r) / Math.hypot(ux, uy * boss.r / vertical);
+      spots.push({ x: boss.x + ux * scale, y: centreY + uy * scale });
+    }
+    return spots;
+  }
+  /**
+   * A step out of an attack about to land, kept within reach of `fight` where it
+   * can be; with a bow, a step back from a melee enemy closing in (kiting).
+   * Null when neither is needed: the farm carries on as it was.
+   */
+  function evasion(fight: Fight | null, boss: Fight | null, dt: number): Movement | null {
+    evadeClock -= dt;
+    const dangerAt = dangerNow(), threatened = dangerAt(player) < Infinity;
+    if (evadeTo && distance(evadeTo) < WAYPOINT_REACHED) evadeTo = null;
+    if (evadeClock <= 0 || (evadeTo && dangerAt(evadeTo) < Infinity)) {
+      evadeClock = EVADE_REPLAN_SECONDS;
+      // A melee weapon fights what reaches it, Reflect Only needs its hits, and the walk to a portal never turns back.
+      const kite = phase !== 'portal' && !isMeleeWeapon(options.equippedWeapon?.());
+      const chasers: EnemyState[] = [], idle: EnemyState[] = [];
+      for (const enemy of enemies) {
+        if (enemy.dead || enemy.generatedBoss || enemy.remoteCombatGhost || distance(enemy) > KITE_ROOM + 400) continue;
+        if (!isEnemyAttackingPlayer(enemy, options.localIdentity?.())) { if (!enemy.engaged) idle.push(enemy); }
+        else if (kite && !(enemy.definition ?? ENEMY_TYPES[enemy.type]).ranged && worthAvoiding(enemy.damage)) chasers.push(enemy);
+      }
+      evadeTo = evadePoint({ from: { x: player.x, y: player.y }, speed: Math.max(1, options.speed()), r: player.r, standable: standableNow(), danger: dangerAt,
+        chasers, idle, kiteGap: kiting ? KITE_ROOM : KITE_GAP, inReach: point => !fight || reaches(fight, point), extra: boss ? aroundBoss(boss) : [] });
+      kiting = Boolean(evadeTo) && !threatened;
+    }
+    if (!evadeTo) return null;
+    holding = false; route = []; routeClock = 0;
+    status = kiting ? 'Kiting' : 'Dodging';
+    return steer(evadeTo, dt);
+  }
+  function steer(point: Position, dt: number): Movement {
+    const length = distance(point);
+    if (!(length > 0)) return idle();
+    const magnitude = Math.min(1, length / Math.max(1, options.speed() * dt));
+    return { x: (point.x - player.x) / length * magnitude, y: (point.y - player.y) / length * magnitude, source: 'steer' };
   }
 
   /** Keys saved under an older name, or carried between the campaign and the Soul Dimension, as this map names them; a merge keeps the larger. */
@@ -543,7 +668,6 @@ export function createAutoFarmController(options: {
     travellingTo = null;
     active = true;
     manualControl = false;
-    if (startedMap !== options.mapId()) mapStartedAt = now();
     startedMap = options.mapId();
     startedIdentity = options.localIdentity?.();
     pendingResume = null;
@@ -580,7 +704,7 @@ export function createAutoFarmController(options: {
   }
 
   function pullsEnemy(enemy: EnemyState) {
-    return pullAll && active && phase === 'farm' && !recovering && !pendingResume && !options.paused()
+    return pullAll && active && phase === 'farm' && !healing && !recovering && !pendingResume && !options.paused()
       && !enemy.dead && !enemy.remoteCombatGhost && !enemy.generatedBoss && enemy.hp > 0 && pulledGroups().has(choiceKey(enemy));
   }
 
@@ -626,6 +750,14 @@ export function createAutoFarmController(options: {
     if (phase === 'farm' && !pullAll) for (const enemy of enemies) {
       if (!enemy.generatedBoss && isEnemyAttackingPlayer(enemy, options.localIdentity?.()) && (!threat || distance(enemy) < distance(threat))) threat = enemy;
     }
+    // Out of what is about to land, and back from melee enemies on a bow, before anything else: still shooting.
+    const evade = evasion(boss ?? threat ?? target, boss, dt);
+    if (evade) return evade;
+    // Healing up for the boss: what attacks it is fought (or kited) as ever, but nothing new is gone after or pulled.
+    if (phase === 'farm' && healing && !enemies.some(enemy => isEnemyAttackingPlayer(enemy, options.localIdentity?.()))) {
+      holding = true; route = []; status = 'Healing for the boss';
+      return idle();
+    }
     // Everything it farms comes to it: it stands its ground (Ryan: no walking out, whatever arrives).
     if (phase === 'farm' && pullCoversFarm()) {
       const reachAll = weaponAttackRange(options.equippedWeapon?.(), player.attackRange);
@@ -661,7 +793,7 @@ export function createAutoFarmController(options: {
     const hitbox = !enemy && boss?.isBoss ? boss : null;
     const bossReach = !enemy && boss && !hitbox && isMeleeWeapon(weapon) ? boss.r : 0;
     let standoff = !enemy && portal ? { stop: 0, resume: 0 } : autoFarmStandoff({
-      weaponRange: weaponAttackRange(weapon, player.attackRange) + bossReach,
+      weaponRange: hitbox ? Math.min(weaponAttackRange(weapon, player.attackRange), BOSS_STAND_GAP + AUTO_FARM_REACH_MARGIN) : weaponAttackRange(weapon, player.attackRange) + bossReach,
       playerAttackRange: player.attackRange,
       melee: isMeleeWeapon(weapon),
       playerRadius: player.r,
@@ -686,10 +818,11 @@ export function createAutoFarmController(options: {
     };
     // Slack as wide as the waypoint drop below (2px): a step landing 1-2px short
     // dropped the last waypoint without arriving, and it stood there for good,
-    // "Waiting for a clear route", beside a boss that never moves.
-    holding = remaining <= (holding ? standoff.resume : standoff.stop) + WAYPOINT_REACHED;
+    // "Waiting for a clear route", beside a boss that never moves. A squat
+    // hitbox's surface distance is stretched vertically, and the slack with it.
+    const slack = WAYPOINT_REACHED * (hitbox ? Math.max(1, hitbox.r / bossVerticalRadius(hitbox.r, hitbox.ry)) : 1);
+    holding = remaining <= (holding ? standoff.resume : standoff.stop) + slack;
     if (holding && !portal) {
-      if (boss && !enemy && bossFight) bossFight.reached = true;
       status = threat ? 'Defending' : boss ? 'Fighting the boss' : target ? 'Farming' : 'Waiting for respawn';
       route = [];
       routeClock = 0;
@@ -721,9 +854,11 @@ export function createAutoFarmController(options: {
     const waypoint = route[0];
     if (!waypoint) { status = 'Waiting for a clear route'; return idle(); }
     status = threat ? 'Moving to attacker' : portal ? (retreating ? 'Moving back a map' : 'Heading to the next map') : boss ? 'Moving to the boss' : target ? 'Moving to enemy' : 'Moving to spawn';
-    const length = distance(waypoint);
-    const magnitude = Math.min(1, length / Math.max(1, options.speed() * dt));
-    return { x: (waypoint.x - player.x) / length * magnitude, y: (waypoint.y - player.y) / length * magnitude, source: 'steer' };
+    // Never walk into a boss attack about to land: it waits for it to pass, as a player would.
+    // A shot is only a line, crossed in a moment: one coming at the player is stepped out of instead.
+    const length = distance(waypoint), look = Math.min(length, options.speed() * WALK_LOOKAHEAD_SECONDS) / length;
+    if (bossDangerAt({ x: player.x + (waypoint.x - player.x) * look, y: player.y + (waypoint.y - player.y) * look }) < Infinity) { status = 'Waiting out an attack'; return idle(); }
+    return steer(waypoint, dt);
   }
 
   /** What the boss and next-map switch will do next, in a word or two for the panel. */
@@ -731,11 +866,11 @@ export function createAutoFarmController(options: {
     if (options.reflectOnly?.()) return 'Off In Reflect Only';
     if (retreating) return 'Moving Back A Map';
     if (onProbation()) return `Trying Next Map · ${formatTimerMs(probation!.since + PROBATION_MS - now())}`;
-    // What a try still waits for: more power first, then the time.
-    const gate = (label: string, key: string, earliest = 0) => {
+    // What the next map's try still waits for: more power first, then the time.
+    const gate = (label: string, key: string) => {
       const { power, at } = retryGate(key);
       if (currentPower() < power) return `${label} At ${formatCompactNumber(Math.ceil(power))}`;
-      const wait = Math.max(at - wallNow(), earliest);
+      const wait = at - wallNow();
       return wait > 0 ? `${label} In ${formatTimerMs(wait)}` : null;
     };
     const portal = options.nextPortal?.();
@@ -743,7 +878,9 @@ export function createAutoFarmController(options: {
     if (options.bossUnlocksNext?.() === false) return 'Boss Beaten';
     const boss = options.mapBoss?.();
     if (!boss || boss.dead) return '';
-    return gate('Boss', bossRetryKey(options.mapId()), mapStartedAt + BOSS_FIRST_TRY_MS - now()) ?? 'Boss Next';
+    const wait = retryGate(bossRetryKey(options.mapId())).at - wallNow();
+    if (wait > 0) return `Boss In ${formatTimerMs(wait)}`;
+    return bossReady() >= 1 ? 'Boss Next' : 'Boss Needs More Power';
   }
 
   return { start, stop, defeated, refresh, choices, movement, travelStarted,

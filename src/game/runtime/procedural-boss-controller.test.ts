@@ -145,3 +145,21 @@ it("reveals a newly earned portal once, waits through death, and ignores initial
   loaded.controller.update(.016);
   expect(loaded.revealPortal).not.toHaveBeenCalled();
 });
+
+it("says when its pulse will land on a spot while the ring is drawn, and nothing outside it or once it has landed", () => {
+  const h = harness();
+  h.controller.update(.016);
+  const boss = h.controller.boss()!;
+  Object.assign(h.player, { x: boss.x + 200, y: boss.y, hp: 100 });
+  for (let step = 0; step < 4; step++) h.advance(100);
+  const predicted = h.controller.danger(h.player.x, h.player.y);
+  expect(predicted).toBeCloseTo(1.4 - .4, 1);
+  // Beyond the ring, and only inside it with the pad.
+  const edge = 330 + h.player.r;
+  expect(h.controller.danger(boss.x + edge + 5, boss.y)).toBe(Infinity);
+  expect(h.controller.danger(boss.x + edge + 5, boss.y, 10)).toBeCloseTo(predicted);
+  let landed = 0;
+  for (let ms = 0; ms < 2_000 && !h.damagePlayer.mock.calls.length; ms += 50) { h.advance(50); landed = ms + 50; }
+  expect(landed / 1000).toBeCloseTo(predicted, 1);
+  expect(h.controller.danger(h.player.x, h.player.y)).toBe(Infinity);
+});

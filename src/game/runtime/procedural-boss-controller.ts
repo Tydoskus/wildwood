@@ -18,6 +18,9 @@ type BossRow = {
 };
 /** How often an Endless boss's body hits an enemy touching it, as a campaign boss's contact does. */
 const ENEMY_CONTACT_SECONDS = .75;
+/** Its pulse lands this long into each six-second round, on everything this close to its centre; the ring is drawn from the round's start. */
+const PULSE_WINDUP = 1.4;
+const PULSE_RADIUS = 330;
 
 export function createProceduralBossController(options: {
   mapId: () => string;
@@ -164,12 +167,12 @@ export function createProceduralBossController(options: {
       attackElapsed %= 6;
       pulseFired = false;
     }
-    if (attackElapsed >= 1.4 && !pulseFired) {
+    if (attackElapsed >= PULSE_WINDUP && !pulseFired) {
       pulseFired = true;
       boss.attackAnimationElapsed = 0;
-      if (distance < 330 + options.player.r) options.damagePlayer(boss.damage, boss);
+      if (distance < PULSE_RADIUS + options.player.r) options.damagePlayer(boss.damage, boss);
       const { x, y } = boss;
-      options.damageEnemies?.({}, boss.damage, (ex, ey, r) => Math.hypot(ex - x, ey - y) < 330 + r);
+      options.damageEnemies?.({}, boss.damage, (ex, ey, r) => Math.hypot(ex - x, ey - y) < PULSE_RADIUS + r);
     }
     if (shotElapsed >= 1.6) {
       shotElapsed %= 1.6;
@@ -201,6 +204,15 @@ export function createProceduralBossController(options: {
   return {
     update,
     boss: () => (boss && !boss.dead && options.mapId() === mapId ? boss : null),
+    /**
+     * Seconds until its pulse would hit a player standing at (x, y), `pad`
+     * wider, while the ring is drawn; Infinity otherwise. Its shots fly as
+     * enemy shots.
+     */
+    danger(x: number, y: number, pad = 0) {
+      if (!boss || boss.dead || !boss.engaged || pulseFired || attackElapsed >= PULSE_WINDUP || options.mapId() !== mapId) return Infinity;
+      return Math.hypot(x - boss.x, y - boss.y) < PULSE_RADIUS + options.player.r + pad ? PULSE_WINDUP - attackElapsed : Infinity;
+    },
     draw(ctx: CanvasRenderingContext2D, camera: { x: number; y: number }) {
       if (
         !boss ||
@@ -218,16 +230,16 @@ export function createProceduralBossController(options: {
       ctx.save();
       ctx.translate(boss.x - camera.x, boss.y - camera.y);
       ctx.fillStyle =
-        phase < 1.4 ? "rgba(224,88,87,.14)" : "rgba(255,190,117,.5)";
+        phase < PULSE_WINDUP ? "rgba(224,88,87,.14)" : "rgba(255,190,117,.5)";
       ctx.strokeStyle = "#ae5356";
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(0, 0, 330, 0, Math.PI * 2);
+      ctx.arc(0, 0, PULSE_RADIUS, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
       ctx.globalAlpha = 0.65;
       ctx.beginPath();
-      ctx.arc(0, 0, 330 * Math.min(1, phase / 1.4), 0, Math.PI * 2);
+      ctx.arc(0, 0, PULSE_RADIUS * Math.min(1, phase / PULSE_WINDUP), 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     },
