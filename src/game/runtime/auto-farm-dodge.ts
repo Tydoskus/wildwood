@@ -188,6 +188,12 @@ export type KiteTuning = {
  * prices standing and pulling only while it is (growth-forecast.ts).
  */
 export const AUTO_FARM_EVASION = false;
+/**
+ * Whether autofarm thinks for the player (auto-farm-smart-controller.ts: the
+ * growth planner and forecast, probation, boss readiness). Off for now
+ * (Ryan): the game runs the simple rules (auto-farm-controller.ts).
+ */
+export const AUTO_FARM_PLANNER = false;
 
 export const KITE_TUNING: KiteTuning = { mode: 'circle', startGap: 120, stopGap: 260, maxChasers: Infinity, wakePad: 32, wide: true, model: true };
 

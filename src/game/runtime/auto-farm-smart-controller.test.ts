@@ -3,8 +3,8 @@ import { parseHTML } from 'linkedom';
 import { createBalanceApologyGiftController } from '../../ui/balance-apology-gift-controller';
 import { createGameBootstrap } from './game-bootstrap';
 import { createEnemyLifecycle } from './enemy-lifecycle';
-import { createAutoFarmController, autoFarmStandoff, AUTO_FARM_DEFEAT_LIMIT, AUTO_FARM_DEFEAT_WINDOW_MS, AUTO_FARM_REACH_MARGIN, PULL_WAIT_SECONDS } from './auto-farm-controller';
-import { formatCompactNumber } from '../../../shared/compact-number';
+import { createSmartAutoFarmController, autoFarmStandoff, AUTO_FARM_DEFEAT_LIMIT, AUTO_FARM_DEFEAT_WINDOW_MS, AUTO_FARM_REACH_MARGIN, PULL_WAIT_SECONDS } from './auto-farm-smart-controller';
+import { AUTO_FARM_RETRY_KEY } from './auto-farm-brain';
 import { createEnemySimulation } from './enemy-simulation';
 import { attackRangeWithResearch } from '../../../shared/utility-research';
 import { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
@@ -33,7 +33,7 @@ function setup(obstacles: Circle[] = [], weapon = "starter_bow", resumeStore?: R
     lifecycle.spawnFromSite(site);
     return state.enemies[state.enemies.length - 1];
   };
-  const farm = createAutoFarmController({
+  const farm = createSmartAutoFarmController({
     ...state, mapId: () => map, unavailable: () => unavailable, paused: () => paused,
     speed: () => state.player.speed, obstacles: () => obstacles, equippedWeapon: () => weapon,
     connection: () => connection, localIdentity: () => identity, now: () => now,
@@ -464,19 +464,19 @@ describe('autofarm target priority', () => {
     expect(s.tick().x).toBeGreaterThan(0);
     const values = new Map<string, string>();
     const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } };
-    const farm = createAutoFarmController({ ...s, mapId: () => 'forest', unavailable: () => null, paused: () => false,
+    const farm = createSmartAutoFarmController({ ...s, mapId: () => 'forest', unavailable: () => null, paused: () => false,
       speed: () => s.player.speed, obstacles: () => [], equippedWeapon: () => 'starter_bow', priorityStorage: () => storage });
     farm.setPriority('lowest');
     farm.start('Bramble');
     expect(farm.movement(idle, 1 / 60).x).toBeLessThan(0);
-    const reloaded = createAutoFarmController({ ...s, mapId: () => 'forest', unavailable: () => null, paused: () => false,
+    const reloaded = createSmartAutoFarmController({ ...s, mapId: () => 'forest', unavailable: () => null, paused: () => false,
       speed: () => s.player.speed, obstacles: () => [], priorityStorage: () => storage });
     expect(reloaded.priority()).toBe('lowest');
   });
 });
 
 describe('autofarm plans: sliders, the boss and the next map', () => {
-  function planned(extra: Partial<Parameters<typeof createAutoFarmController>[0]> = {}) {
+  function planned(extra: Partial<Parameters<typeof createSmartAutoFarmController>[0]> = {}) {
     const state = createGameBootstrap();
     state.enemies.length = 0; state.spawnSites.length = 0;
     Object.assign(state.player, { x: 500, y: 500, attackRange: 200, speed: 300 });
@@ -490,152 +490,14 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
       state.spawnSites.push(site); lifecycle.spawnFromSite(site);
       return state.enemies[state.enemies.length - 1];
     };
-    const farm = createAutoFarmController({ ...state, mapId: () => map, unavailable: () => null, paused: () => false,
-      speed: () => 300, obstacles: () => [], localIdentity: () => 'me', now: () => now, resumeStore, priorityStorage: () => memory, ...extra });
+    // A build that would beat any boss in seconds, unless a test says otherwise. Kiting and dodging are switched off in
+    // the game for now (AUTO_FARM_EVASION); these tests keep their code working, on, unless a test says otherwise.
+    const farm = createSmartAutoFarmController({ ...state, mapId: () => map, unavailable: () => null, paused: () => false, bossDps: () => 1e9,
+      speed: () => 300, obstacles: () => [], localIdentity: () => 'me', now: () => now, wallNow: () => now, resumeStore, priorityStorage: () => memory, evasion: true, ...extra });
     const tick = () => farm.movement(idle, 1 / 60);
     return { ...state, farm, add, tick, resumeStore, values, setMap: (value: string) => { map = value; }, advance: (ms: number) => { now += ms; } };
   }
   const health = `stat:${ENEMY_TYPES.Bramble.reward.type}`, speed = `stat:${ENEMY_TYPES.Needle.reward.type}`;
-
-  describe('the simple rules', () => {
-    const at = (power: number) => formatCompactNumber(Math.ceil(power));
-    it('Move On goes to the next map once power reaches its recommended power, and says what it waits for', () => {
-      let power = 900;
-      const s = planned({ power: () => power, mapPower: mapId => mapId === 'beginner_desert' ? 1_200 : 100,
-        nextPortal: () => ({ x: 200, y: 500, destination: 'beginner_desert' }) });
-      s.add('Bramble', 900, 500);
-      s.farm.start([health]);
-      // Move On off: it farms, and tells quietly what it would wait for.
-      s.tick();
-      expect(s.farm.state().phase).toBe('farm');
-      expect(s.farm.moveStatus()).toBe(`Next Map At ${at(1_200)}`);
-      s.farm.setAdvance(true);
-      s.tick();
-      expect(s.farm.state().phase).toBe('farm');
-      expect(s.farm.moveReady()).toBe(false);
-      power = 1_200; s.advance(1_000);
-      expect(s.farm.moveStatus()).toBe('Moving On');
-      expect(s.farm.moveReady()).toBe(true);
-      s.tick();
-      expect(s.farm.state()).toMatchObject({ phase: 'portal', status: 'Heading to the next map' });
-    });
-
-    it('steps back a map after 3 deaths in 3 minutes, and the map it left then asks 20% more power than it had', () => {
-      let map = 'beginner_desert';
-      const s = planned({ power: () => 5_000, mapPower: () => 100, mapId: () => map,
-        previousPortal: () => map === 'beginner_desert' ? { x: 200, y: 500, destination: 'forest' } : null,
-        nextPortal: () => map === 'forest' ? { x: 1_800, y: 500, destination: 'beginner_desert' } : null });
-      s.add('Bramble', 900, 500);
-      s.farm.setAdvance(true);
-      s.farm.start([health]);
-      // Two deaths, and a third more than three minutes after the first: it stays.
-      s.farm.defeated(); s.advance(60_000); s.farm.defeated(); s.advance(AUTO_FARM_DEFEAT_WINDOW_MS); s.farm.defeated();
-      s.tick();
-      expect(s.farm.state().phase).toBe('farm');
-      // Three inside three minutes: back a map.
-      s.advance(10_000); s.farm.defeated(); s.advance(10_000); s.farm.defeated();
-      expect(AUTO_FARM_DEFEAT_LIMIT).toBe(3);
-      s.tick();
-      expect(s.farm.state()).toMatchObject({ phase: 'portal', status: 'Moving back a map' });
-      expect(s.farm.moveStatus()).toBe('Moving Back A Map');
-      s.farm.travelStarted();
-      map = 'forest';
-      s.enemies.length = 0; s.spawnSites.length = 0; s.add('Bramble', 900, 500);
-      s.advance(2_000); s.tick(); s.advance(2_000); s.tick();
-      // The map it left asks 20% over the 5,000 it had: it farms here until then.
-      expect(s.farm.state()).toMatchObject({ active: true, phase: 'farm' });
-      expect(s.farm.moveStatus()).toBe(`Next Map At ${at(6_000)}`);
-    });
-
-    it('Fight Bosses fights at the boss power, leaves below 30% health, and tries again at 20% more power', () => {
-      let power = 1_500;
-      const boss = { x: 900, y: 500, r: 60, hp: 1_000, maxHp: 1_000 };
-      const s = planned({ power: () => power, bossPower: () => 2_000, mapBoss: () => boss, bossUnlocksNext: () => true });
-      s.add('Bramble', 500, 1_500);
-      s.farm.start([health]);
-      // Off: never to the boss.
-      power = 1e9; s.advance(1_000); s.tick();
-      expect(s.farm.state().phase).toBe('farm');
-      power = 1_500; s.advance(1_000);
-      s.farm.setFightBosses(true);
-      s.tick();
-      expect(s.farm.state().phase).toBe('farm');
-      expect(s.farm.bossStatus()).toBe(`Boss At ${at(2_000)}`);
-      power = 2_000; s.advance(1_000); s.tick();
-      expect(s.farm.state().phase).toBe('boss');
-      expect(s.farm.bossStatus()).toBe('Fighting Boss');
-      expect(s.farm.bossReady()).toBe(true);
-      // Below 30% health it walks away; the next try asks 20% over the 2,000 it had.
-      s.player.hp = s.player.maxHp * .29;
-      expect(s.tick()).toEqual(idle);
-      expect(s.farm.state().phase).toBe('farm');
-      s.player.hp = s.player.maxHp; s.advance(1_000); s.tick();
-      expect(s.farm.state().phase).toBe('farm');
-      expect(s.farm.bossStatus()).toBe(`Boss At ${at(2_400)}`);
-      power = 2_400; s.advance(1_000); s.tick();
-      expect(s.farm.state().phase).toBe('boss');
-      // Dying at the boss is the same: 20% more.
-      s.farm.defeated();
-      expect(s.farm.state().phase).toBe('farm');
-      s.advance(1_000);
-      expect(s.farm.bossStatus()).toBe(`Boss At ${at(2_880)}`);
-    });
-
-    it("leaves a beaten boss alone (the way on open, or a win that opened nothing); Move On says when it needs the boss", () => {
-      let locked = true, standing: { x: number; y: number; r: number } | null = { x: 2_500, y: 500, r: 80 };
-      const s = planned({ power: () => 1e9, mapBoss: () => standing, bossUnlocksNext: () => locked });
-      s.add('Bramble', 900, 500);
-      s.farm.setAdvance(true);
-      s.farm.start([health]);
-      // The way on is shut until the boss is beaten, and Fight Bosses is off.
-      s.tick();
-      expect(s.farm.moveStatus()).toBe('Boss Needed');
-      expect(s.farm.state().phase).toBe('farm');
-      s.farm.setFightBosses(true);
-      s.tick();
-      expect(s.farm.state().phase).toBe('boss');
-      // Beaten, and the way on opened.
-      locked = false;
-      s.tick();
-      expect(s.farm.state().phase).toBe('farm');
-      expect(s.farm.bossStatus()).toBe('Boss Beaten');
-      // A boss whose win left the way shut: beaten, gone, back again, and left alone.
-      locked = true;
-      s.tick();
-      expect(s.farm.state().phase).toBe('boss');
-      standing = null; s.tick();
-      s.advance(6_000); s.tick();
-      standing = { x: 2_500, y: 500, r: 80 };
-      s.advance(10 * 60_000);
-      for (let frame = 0; frame < 30; frame++) s.tick();
-      expect(s.farm.state().phase).toBe('farm');
-      expect(s.farm.bossStatus()).toBe('Boss Beaten');
-    });
-
-    it('Pull Whole Group on pulls the whole camp, however strong; off, nothing is pulled', () => {
-      const s = planned();
-      const mob = Array.from({ length: 12 }, (_, index) => s.add('Bramble', 900 + index * 40, 500));
-      for (const enemy of mob) enemy.damage = 1e6;
-      s.farm.start([health]);
-      s.tick();
-      expect(mob.filter(enemy => s.farm.pulls(enemy))).toHaveLength(0);
-      s.farm.setPullAll(true);
-      s.tick();
-      expect(mob.filter(enemy => s.farm.pulls(enemy))).toHaveLength(12);
-    });
-
-    it('fights an enemy on it standing: no circle, no stepping away', () => {
-      const s = planned();
-      const mob = s.add('Bramble', 540, 500);
-      mob.engaged = true;
-      s.farm.start([health]);
-      s.player.hp = s.player.maxHp * .5;
-      for (let frame = 0; frame < 30; frame++) s.tick();
-      expect(s.farm.state().status).toBe('Defending');
-      expect(s.tick()).toEqual(idle);
-    });
-  });
-
 
   it("on equal sliders moves on when a group is cleared, and comes back when it respawns", () => {
     const s = planned();
@@ -651,6 +513,130 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     expect(s.farm.state().selected).toBe(health);
   });
 
+  it("tries the boss once the fight projects a win inside ten minutes, healed up; after losing, not before its wait", () => {
+    let dps = 1;
+    const boss = { x: 2500, y: 500, r: 80, hp: 1_000, maxHp: 1_000 };
+    const s = planned({ bossDps: () => dps, mapBoss: () => boss });
+    const mob = s.add('Bramble', 900, 500);
+    s.farm.setAdvance(true);
+    s.farm.start([]);
+    // 1,000 seconds of fighting: not worth it.
+    s.tick();
+    expect(s.farm.state().phase).toBe('farm');
+    expect(s.farm.bossStatus()).toBe('Boss Needs More Power');
+    expect(s.farm.bossStatusReady()).toBe(false);
+    // 500 seconds: worth it, but not at half health. It heals up first, going after nothing new meanwhile.
+    dps = 2; s.advance(1_000);
+    s.player.hp = s.player.maxHp / 2;
+    expect(s.tick()).toEqual(idle);
+    expect(s.farm.state()).toMatchObject({ phase: 'farm', status: 'Healing for the boss' });
+    // Something attacking it is still fought.
+    mob.engaged = true;
+    s.tick();
+    expect(s.farm.state().status).not.toBe('Healing for the boss');
+    mob.engaged = false;
+    s.player.hp = s.player.maxHp;
+    expect(s.farm.bossStatus()).toBe('Boss Next');
+    expect(s.farm.bossStatusReady()).toBe(true);
+    expect(s.tick().x).toBeGreaterThan(0);
+    expect(s.farm.state().phase).toBe('boss');
+    expect(s.farm.targetType()).toBeNull();
+    // A fight under way goes on below the health a try needs.
+    s.player.hp = s.player.maxHp * .6;
+    s.tick();
+    expect(s.farm.state().phase).toBe('boss');
+    // Beaten on the walk in: half a map's wait, then the same projection.
+    s.farm.defeated();
+    s.player.hp = s.player.maxHp;
+    s.tick();
+    expect(s.farm.state().phase).toBe('farm');
+    expect(s.farm.bossStatus()).toBe('Boss In 00:05');
+    s.advance(5 * 60_000 - 2_000); s.tick();
+    expect(s.farm.state().phase).toBe('farm');
+    s.advance(2_000); s.tick();
+    expect(s.farm.state().phase).toBe('boss');
+    // A second loss waits twice as long: it can never loop.
+    s.farm.defeated(); s.tick();
+    expect(s.farm.bossStatus()).toBe('Boss In 00:10');
+  });
+
+  it('walks away from a boss fight it is losing before dying, and goes back once the fight as measured would be won', () => {
+    const boss = { x: 650, y: 500, r: 60, hp: 1_000, maxHp: 1_000 };
+    let damage = 100;
+    const evaluate = () => ({ power: 100, stats: { damage, attackRate: 1, maxHp: 1_000, armor: 0, regen: 0 } });
+    const s = planned({ evaluate, mapBoss: () => boss, bossUnlocksNext: () => true });
+    s.add('Bramble', 500, 1500);
+    s.farm.setAdvance(true);
+    s.farm.start([]);
+    s.tick();
+    expect(s.farm.state()).toMatchObject({ phase: 'boss', status: 'Fighting the boss' });
+    // Three seconds in: the boss has lost 5%, the player 60%.
+    s.advance(3_000);
+    boss.hp = 950; s.player.hp = s.player.maxHp * .4;
+    expect(s.tick()).toEqual(idle);
+    expect(s.farm.state().phase).toBe('farm');
+    expect(s.farm.bossStatus()).toBe('Boss In 00:05');
+    // Dying on the way out is the same try: it waits no longer.
+    s.farm.defeated();
+    expect(s.farm.bossStatus()).toBe('Boss In 00:05');
+    // The wait over and healed, the fight as measured is still lost: it farms on.
+    s.player.hp = s.player.maxHp;
+    s.advance(5 * 60_000); s.tick();
+    expect(s.farm.state().phase).toBe('farm');
+    expect(s.farm.bossStatus()).toBe('Boss Needs More Power');
+    // Twenty times the damage: the boss would fall in about 3 seconds, before the player (5).
+    damage = 2_000; s.advance(1_000); s.tick();
+    expect(s.farm.state().phase).toBe('boss');
+  });
+
+  it('turns back from a walk to the boss that the camps on the way are winning, and measures nothing by it', () => {
+    const boss = { x: 2_500, y: 500, r: 60, hp: 1_000, maxHp: 1_000 };
+    const s = planned({ mapBoss: () => boss });
+    s.add('Bramble', 500, 1500);
+    s.farm.setAdvance(true);
+    s.farm.start([]);
+    s.tick();
+    expect(s.farm.state()).toMatchObject({ phase: 'boss', status: 'Moving to the boss' });
+    s.advance(3_000);
+    s.player.hp = s.player.maxHp * .45;
+    s.tick();
+    expect(s.farm.state().phase).toBe('farm');
+    // It never reached the boss: after the wait, the build's own projection sends it again.
+    expect(s.farm.bossStatus()).toBe('Boss In 00:05');
+    s.player.hp = s.player.maxHp;
+    s.advance(5 * 60_000); s.tick();
+    expect(s.farm.state().phase).toBe('boss');
+  });
+
+  it('stays in a boss fight it is winning, even low on health', () => {
+    const boss = { x: 650, y: 500, r: 60, hp: 1_000, maxHp: 1_000 };
+    const s = planned({ mapBoss: () => boss });
+    s.add('Bramble', 500, 1500);
+    s.farm.setAdvance(true);
+    s.farm.start([]);
+    s.tick();
+    s.advance(10_000);
+    boss.hp = 100; s.player.hp = s.player.maxHp * .4;
+    s.tick();
+    expect(s.farm.state().phase).toBe('boss');
+  });
+
+  it('walks away from a fight too slow to be worth it, once watched at the boss', () => {
+    const boss = { x: 650, y: 500, r: 60, hp: 1_000, maxHp: 1_000 };
+    const s = planned({ mapBoss: () => boss });
+    s.add('Bramble', 500, 1500);
+    s.farm.setAdvance(true);
+    s.farm.start([]);
+    s.tick();
+    expect(s.farm.state().phase).toBe('boss');
+    // Half a minute at it: 1% of the boss gone, the player untouched. Fifty minutes to go.
+    s.advance(30_000);
+    boss.hp = 990;
+    s.tick();
+    expect(s.farm.state().phase).toBe('farm');
+    expect(s.farm.bossStatus()).toBe('Boss In 00:05');
+  });
+
   it("parks in real attack range of every boss, from any side", () => {
     const bosses = createGameBootstrap().bosses;
     for (const kind of BOSS_KINDS) {
@@ -659,7 +645,7 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
         const boss = { x: 2_000, y: 2_000, r, ry, hitboxOffsetY, isBoss: true };
         const s = planned({ mapBoss: () => boss, equippedWeapon: () => 'starter_bow' });
         s.add('Bramble', 200, 200);
-        s.farm.setFightBosses(true);
+        s.farm.setAdvance(true);
         s.farm.start([]);
         const angle = side * Math.PI / 4;
         Object.assign(s.player, { x: boss.x + Math.cos(angle) * 1_200, y: boss.y + Math.sin(angle) * 1_200 });
@@ -843,13 +829,204 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     expect(s.farm.bossStatus()).toBe('Off In Reflect Only');
   });
 
+  /** Walks the farm `seconds`, moving the player as the game does. */
+  const walk = (s: ReturnType<typeof planned>, seconds: number) => {
+    for (let frame = 0; frame < seconds * 60; frame++) { const step = s.tick(); s.player.x += step.x * 5; s.player.y += step.y * 5; }
+  };
+
+  it("steps out of a boss attack about to land, keeps shooting from reach, and steps back in after it", () => {
+    for (const weapon of ['starter_bow', 'wooden_sword']) {
+      const boss = { x: 900, y: 500, r: 60, ry: 60, isBoss: true, hp: 1_000, maxHp: 1_000 };
+      // A ring of ground landing in a second around where the player stands at the boss, counted down as the frames go.
+      let hazard: { x: number; y: number; r: number; at: number } | null = null;
+      const s = planned({ mapBoss: () => boss, equippedWeapon: () => weapon,
+        bossDanger: (x, y, pad) => hazard && Math.hypot(x - hazard.x, y - hazard.y) <= hazard.r + pad ? Math.max(0, hazard.at - frames / 60) : Infinity });
+      let frames = 0;
+      const seen = new Set<string>();
+      const play = (seconds: number) => {
+        for (let frame = 0; frame < seconds * 60; frame++, frames++) { const step = s.tick(); s.player.x += step.x * 5; s.player.y += step.y * 5; seen.add(s.farm.state().status); }
+      };
+      s.add('Bramble', 200, 1500);
+      s.farm.setAdvance(true);
+      s.farm.start([]);
+      play(4);
+      expect(s.farm.state().status, weapon).toBe('Fighting the boss');
+      hazard = { x: s.player.x, y: s.player.y, r: 70, at: frames / 60 + 1 };
+      // It keeps fighting while there is time, then steps out before it lands.
+      play(.2);
+      expect(s.farm.state().status, weapon).toBe('Fighting the boss');
+      seen.clear();
+      play(.75);
+      expect(seen.has('Dodging'), weapon).toBe(true);
+      expect(Math.hypot(s.player.x - hazard.x, s.player.y - hazard.y), weapon).toBeGreaterThan(70);
+      // A bow stays in reach of the boss while it waits the attack out.
+      if (weapon === 'starter_bow') expect(bossSurfaceDistance(s.player.x - boss.x, s.player.y - boss.y, boss.r, boss.ry)).toBeLessThanOrEqual(200);
+      hazard = null;
+      play(2);
+      expect(s.farm.state().status, weapon).toBe('Fighting the boss');
+    }
+  });
+
+  it("waits for an attack to land rather than walking into it", () => {
+    const boss = { x: 1_500, y: 500, r: 60, hp: 1_000, maxHp: 1_000 };
+    const hazard = { x: 1_000, y: 500, r: 120 };
+    let landed = false;
+    const s = planned({ mapBoss: () => boss, bossDanger: (x, y, pad) => !landed && Math.hypot(x - hazard.x, y - hazard.y) <= hazard.r + pad ? .8 : Infinity });
+    s.add('Bramble', 200, 1500);
+    s.farm.setAdvance(true);
+    s.farm.start([]);
+    walk(s, 1.6);
+    expect(s.farm.state().status).toBe('Waiting out an attack');
+    expect(Math.hypot(s.player.x - hazard.x, s.player.y - hazard.y)).toBeGreaterThan(hazard.r);
+    landed = true;
+    walk(s, 4);
+    expect(s.farm.state().status).toBe('Fighting the boss');
+  });
+
+  it("fights standing while kiting and dodging are off: no circle, no step out of a shot or a boss attack", () => {
+    const s = planned({ evasion: undefined });
+    const mob = s.add('Bramble', 540, 500);
+    mob.engaged = true;
+    s.farm.start([health]);
+    s.player.hp = s.player.maxHp * .5;
+    s.enemyShots.push({ x: 400, y: 500, vx: 495, vy: 0, r: 6, damage: s.player.maxHp * .2, life: 4 });
+    for (let frame = 0; frame < 30; frame++) s.tick();
+    expect(s.farm.state().status).not.toBe('Kiting');
+    expect(s.farm.state().status).not.toBe('Dodging');
+  });
+
+  it("steps off the line of an enemy shot that would bite, or of any once hurt; never in Reflect Only, which takes every hit", () => {
+    for (const [reflectOnly, damage, health, dodges] of [[false, 20, 1, true], [false, 1, 1, false], [false, 1, .9, true], [true, 20, .9, false]] as const) {
+      const s = planned({ reflectOnly: () => reflectOnly });
+      s.add('Brood', 700, 500);
+      s.farm.start([`stat:${ENEMY_TYPES.Brood.reward.type}`]);
+      s.player.hp = s.player.maxHp * health;
+      s.enemyShots.push({ x: 400, y: 500, vx: 495, vy: 0, r: 6, damage: s.player.maxHp * damage / 100, life: 4 });
+      const step = s.tick();
+      const label = `reflect ${reflectOnly}, ${damage}% shot at ${health * 100}% health`;
+      expect(s.farm.state().status === 'Dodging', label).toBe(dodges);
+      if (dodges) expect(Math.abs(step.y), label).toBeGreaterThan(0);
+    }
+  });
+
+  it("with a bow, circles a melee enemy closing in and keeps it in reach; never with a sword or in Reflect Only", () => {
+    for (const [weapon, reflectOnly, kites] of [['starter_bow', false, true], ['wooden_sword', false, false], ['starter_bow', true, false]] as const) {
+      const s = planned({ equippedWeapon: () => weapon, reflectOnly: () => reflectOnly });
+      const mob = s.add('Bramble', 540, 500);
+      mob.engaged = true;
+      s.farm.start([health]);
+      s.tick();
+      expect(s.farm.state().status === 'Kiting', `${weapon} ${reflectOnly}`).toBe(kites);
+      if (kites) {
+        // It runs a circle round where the fight is, never once stopping: the enemy chasing it never lands a blow, and stays in reach.
+        let hits = 0, clock = 0, still = 0, furthest = 0;
+        const start = { x: s.player.x, y: s.player.y };
+        const simulation = createEnemySimulation(s.enemies, () => {}, s.player, () => ({ width: 1200, height: 800, zoom: 1 }),
+          createEnemyLifecycle(s.enemies, s.spawnSites, () => {}).engageEnemy, () => { hits++; return true; },
+          { playerMovementSpeed: () => 300, serverNowMs: () => clock, localIdentity: () => 'me', currentMapId: () => 'forest' });
+        for (let frame = 0; frame < 600; frame++) {
+          const step = s.tick();
+          if (!step.x && !step.y) still++;
+          s.player.x += step.x * 5; s.player.y += step.y * 5;
+          simulation.update(1 / 60);
+          clock += 1000 / 60;
+          furthest = Math.max(furthest, Math.hypot(s.player.x - start.x, s.player.y - start.y));
+          expect(Math.hypot(s.player.x - mob.x, s.player.y - mob.y)).toBeLessThanOrEqual(200);
+        }
+        expect(still).toBe(0);
+        expect(hits).toBeLessThanOrEqual(1);
+        expect(s.farm.state().status).toBe('Kiting');
+        expect(furthest).toBeLessThan(400);
+      } else {
+        walk(s, .5);
+        expect(s.farm.state().status, `${weapon} ${reflectOnly}`).not.toBe('Kiting');
+      }
+    }
+    // One whose blows regeneration more than puts back is left to them: standing costs nothing. Once they out-hit it, it is kited.
+    const scratch = planned();
+    const weak = scratch.add('Bramble', 540, 500);
+    weak.engaged = true;
+    scratch.player.regen = weak.damage * 2;
+    scratch.farm.start([health]);
+    scratch.tick();
+    expect(scratch.farm.state().status).not.toBe('Kiting');
+    scratch.player.regen = weak.damage / 4;
+    // It looks again a few frames on (the build is read twice a second).
+    scratch.advance(600);
+    for (let frame = 0; frame < 12; frame++) scratch.tick();
+    expect(scratch.farm.state().status).toBe('Kiting');
+    // A ranged enemy is shot from where it stands, not kited.
+    const archer = planned();
+    archer.add('Brood', 540, 500).engaged = true;
+    archer.farm.start([`stat:${ENEMY_TYPES.Brood.reward.type}`]);
+    archer.tick();
+    expect(archer.farm.state().status).not.toBe('Kiting');
+  });
+
+  it("with Reflect, stands and takes the blows it can stand, and the shots: they are its damage; circles once they would take it to its reserve", () => {
+    const tank = planned({ tankPerks: () => ({ reflect: .1, secondWind: 0 }) });
+    const mob = tank.add('Bramble', 540, 500);
+    mob.engaged = true;
+    tank.player.regen = 0;
+    // Arrows that take the Bramble down while it costs about a tenth of max health: well within the reserve at full health.
+    const blows = mob.damage * (mob.definition ?? ENEMY_TYPES[mob.type]).attackSpeed;
+    tank.player.damage = mob.hp / (tank.player.maxHp * .1 / blows) * tank.player.attackRate;
+    tank.farm.start([health]);
+    tank.tick();
+    expect(tank.farm.state().status).not.toBe('Kiting');
+    // A shot that would bite another build is taken while far from the reserve.
+    tank.player.hp = tank.player.maxHp * .9;
+    tank.enemyShots.push({ x: 400, y: 500, vx: 495, vy: 0, r: 6, damage: tank.player.maxHp * .2, life: 4 });
+    tank.advance(600);
+    tank.tick();
+    expect(tank.farm.state().status).not.toBe('Dodging');
+    // Near the reserve, the blows are only a cost again: it circles.
+    tank.enemyShots.length = 0;
+    tank.player.hp = tank.player.maxHp * .36;
+    tank.advance(600);
+    for (let frame = 0; frame < 12; frame++) tank.tick();
+    expect(tank.farm.state().status).toBe('Kiting');
+  });
+
+  it("circles clear of other camps, where it is fought: backing straight off is caught again and again, far across the map", () => {
+    for (const mode of ['circle', 'back-off'] as const) {
+      const s = planned({ kite: { mode } });
+      Object.assign(s.player, { x: 1_500, y: 1_500 });
+      // A Bramble chasing from the east; another camp's Needle to the north, just outside its aggro, and one to the west.
+      const mob = s.add('Bramble', 1_600, 1_500);
+      mob.engaged = true;
+      const north = s.add('Needle', 1_500, 1_160), west = s.add('Needle', 1_160, 1_500);
+      s.farm.start([health]);
+      let clock = 0, hits = 0;
+      const simulation = createEnemySimulation(s.enemies, () => {}, s.player, () => ({ width: 1200, height: 800, zoom: 1 }),
+        createEnemyLifecycle(s.enemies, s.spawnSites, () => {}).engageEnemy, () => { hits++; return true; },
+        { playerMovementSpeed: () => 300, serverNowMs: () => clock, localIdentity: () => 'me', currentMapId: () => 'forest' });
+      for (let frame = 0; frame < 900; frame++) {
+        const step = s.tick();
+        s.player.x += step.x * 5; s.player.y += step.y * 5;
+        simulation.update(1 / 60);
+        clock += 1000 / 60;
+      }
+      const travelled = Math.hypot(s.player.x - 1_500, s.player.y - 1_500);
+      if (mode === 'circle') {
+        expect(north.engaged || north.leashing, 'north').toBe(false);
+        expect(west.engaged || west.leashing, 'west').toBe(false);
+        expect(hits).toBeLessThanOrEqual(1);
+        expect(travelled).toBeLessThan(300);
+      } else {
+        // Backing off (the fallback with no safe circle) outruns nothing: it is caught again and again, far across the map.
+        expect(hits).toBeGreaterThan(2);
+        expect(travelled).toBeGreaterThan(1_000);
+      }
+    }
+  });
+
   it("stands within reach of a campaign boss's hitbox, and of an Endless boss's centre", () => {
     for (const boss of [
       { x: 2500, y: 500, r: 150, ry: 90, isBoss: true, hitboxOffsetY: 0 },
       { x: 2500, y: 500, r: 60 },
     ]) {
       const s = planned({ mapBoss: () => ({ ...boss }) });
-      s.farm.setFightBosses(true);
       s.add('Bramble', 600, 900);
       s.farm.setAdvance(true);
       s.farm.start([]);
@@ -861,4 +1038,143 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     }
   });
 
+  it('walks back a map after repeated defeats instead of stopping, and asks more power of the map it leaves', () => {
+    const s = planned({ power: () => 500, previousPortal: () => ({ x: 200, y: 500, destination: 'tutorial_forest' }) });
+    s.add('Bramble', 900, 500);
+    s.farm.start([health]);
+    s.tick();
+    for (let death = 0; death < AUTO_FARM_DEFEAT_LIMIT; death++) s.farm.defeated();
+    expect(s.farm.state().active).toBe(true);
+    expect(s.tick().x).toBeLessThan(0);
+    expect(s.farm.state()).toMatchObject({ phase: 'portal', status: 'Moving back a map' });
+    s.farm.travelStarted();
+    expect(s.resumeStore.read()).toMatchObject({ map: 'tutorial_forest' });
+    expect(JSON.parse(s.values.get(AUTO_FARM_RETRY_KEY)!)).toEqual({ me: { forest: [600, 500, 1, 10 * 60_000] } });
+    // Without a map behind it, or in Reflect Only (which never walks forward again), it farms on.
+    for (const extra of [{}, { reflectOnly: () => true, previousPortal: () => ({ x: 200, y: 500, destination: 'tutorial_forest' }) }]) {
+      const stay = planned(extra);
+      stay.add('Bramble', 900, 500); stay.farm.start([health]); stay.tick();
+      for (let death = 0; death < AUTO_FARM_DEFEAT_LIMIT; death++) stay.farm.defeated();
+      stay.tick();
+      expect(stay.farm.state()).toMatchObject({ active: true, phase: 'farm' });
+    }
+  });
+
+  it('leaves a beaten boss alone once the next map is open: it pays no stats', () => {
+    let locked = true;
+    const s = planned({ mapBoss: () => ({ x: 2500, y: 500, r: 80 }), bossUnlocksNext: () => locked });
+    s.add('Bramble', 900, 500);
+    s.farm.setAdvance(true);
+    s.farm.start([health]);
+    s.tick();
+    expect(s.farm.state().phase).toBe('boss');
+    locked = false;
+    s.tick();
+    expect(s.farm.state().phase).toBe('farm');
+    expect(s.farm.bossStatus()).toBe('Boss Beaten');
+  });
+
+  it('never fights again a boss whose win opened nothing: the way on stays shut for something else', () => {
+    let boss: { x: number; y: number; r: number; dead?: boolean } | null = { x: 2500, y: 500, r: 80 };
+    const s = planned({ mapBoss: () => boss, bossUnlocksNext: () => true });
+    s.add('Bramble', 900, 500);
+    s.farm.setAdvance(true);
+    s.farm.start([health]);
+    s.tick();
+    expect(s.farm.state().phase).toBe('boss');
+    // Won: the boss is gone, and the way on is still shut a few seconds later.
+    boss = null;
+    s.tick();
+    expect(s.farm.state().phase).toBe('farm');
+    s.advance(6_000); s.tick();
+    // It comes back, and is left alone.
+    boss = { x: 2500, y: 500, r: 80 };
+    s.advance(10 * 60_000);
+    for (let frame = 0; frame < 30; frame++) s.tick();
+    expect(s.farm.state().phase).toBe('farm');
+    expect(s.farm.bossStatus()).toBe('Boss Beaten');
+  });
+
+  /** A farm on 'forest' with a way on to 'beginner_desert' and back, and a power it controls. */
+  function twoMaps() {
+    const power = { value: 1_000 };
+    let map = 'forest';
+    const s = planned({
+      power: () => power.value,
+      nextPortal: () => map === 'forest' ? { x: 200, y: 500, destination: 'beginner_desert' } : null,
+      previousPortal: () => map === 'beginner_desert' ? { x: 200, y: 500, destination: 'forest' } : null,
+    });
+    s.add('Bramble', 900, 500);
+    const travel = (to: string) => {
+      s.farm.travelStarted();
+      map = to; s.setMap(to);
+      s.tick(); s.advance(1_000); s.tick();
+      expect(s.farm.state().active).toBe(true);
+    };
+    /** Farms for `minutes`, the power growing `perMinute`, looking every five seconds. */
+    const farmFor = (minutes: number, perMinute: number) => {
+      for (let step = 0; step < minutes * 12; step++) { s.advance(5_000); power.value += perMinute / 12; s.tick(); }
+    };
+    return { s, power, travel, farmFor };
+  }
+
+  it('rides out deaths on a new map; five in three minutes sends it back, and the map then waits for more power and time', () => {
+    const { s, power, travel } = twoMaps();
+    s.farm.setAdvance(true);
+    s.farm.start([health]);
+    s.tick();
+    expect(s.farm.state().phase).toBe('portal');
+    travel('beginner_desert');
+    expect(s.farm.bossStatus()).toBe('Trying Next Map · 00:09');
+    for (let death = 1; death < AUTO_FARM_DEFEAT_LIMIT; death++) s.farm.defeated();
+    s.tick();
+    expect(s.farm.state().phase).toBe('farm');
+    s.farm.defeated();
+    expect(s.tick().x).toBeLessThan(0);
+    expect(s.farm.state()).toMatchObject({ phase: 'portal', status: 'Moving back a map' });
+    expect(s.farm.bossStatus()).toBe('Moving Back A Map');
+    travel('forest');
+    // Back where it was: the map it left needs 20% more power, then ten minutes.
+    expect(s.farm.state().phase).toBe('farm');
+    expect(s.farm.bossStatus()).toBe('Next Map At 1.20k');
+    power.value = 1_200;
+    s.advance(1_000);
+    expect(s.farm.bossStatus()).toBe('Next Map In 00:09');
+    s.advance(10 * 60_000);
+    expect(s.farm.bossStatus()).toBe('Next Map Open');
+    expect(s.farm.bossStatusReady()).toBe(true);
+    s.tick();
+    expect(s.farm.state().phase).toBe('portal');
+    // Beaten again: twenty minutes this time.
+    travel('beginner_desert');
+    for (let death = 0; death < AUTO_FARM_DEFEAT_LIMIT; death++) s.farm.defeated();
+    s.tick();
+    travel('forest');
+    power.value = 2_000;
+    s.advance(1_000);
+    expect(s.farm.bossStatus()).toBe('Next Map In 00:19');
+  });
+
+  it("goes back after ten minutes on a new map that grows the build slower than the last, and keeps one that doesn't", () => {
+    for (const [rate, kept] of [[50, false], [95, true]] as const) {
+      const { s, travel, farmFor } = twoMaps();
+      s.farm.start([health]);
+      farmFor(10, 100);
+      s.farm.setAdvance(true);
+      s.tick();
+      travel('beginner_desert');
+      farmFor(9.5, rate);
+      expect(s.farm.bossStatus()).toBe('Trying Next Map · 00:29');
+      farmFor(1, rate);
+      expect(s.farm.state().phase, `${rate}`).toBe(kept ? 'farm' : 'portal');
+      expect(s.farm.bossStatus(), `${rate}`).toBe(kept ? '' : 'Moving Back A Map');
+    }
+  });
+
+  it('remembers the push setting', () => {
+    const s = planned();
+    expect(s.farm.push()).toBe('normal');
+    s.farm.setPush('safe');
+    expect(s.values.get('wildstat:autofarm-push:v1')).toBe('safe');
+  });
 });

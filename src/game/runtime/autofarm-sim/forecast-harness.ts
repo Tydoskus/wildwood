@@ -99,8 +99,7 @@ export async function runOption(profile: VirtualPlayerProfile, option: HarnessOp
     bossUnlocksNext: () => false,
     pullCamps: () => option.pullCamps ?? 1,
     forcedGroups: () => null,
-    // Standing: the kite off. Pulled, as the game pulls: as many at once as the build can stand through (tankableCount).
-    kite: option.kite === false ? { mode: 'off' } : {},
+    // Kiting is off in the game (AUTO_FARM_EVASION): every option is fought standing, Pull pulling the whole camp.
   };
   captured = null;
   const measure = emptyMeasure();

@@ -87,7 +87,9 @@ import { describe, expect, it } from "vitest";
 // inventory, research, the coop session's perks, bow skills and other maps'
 // balance, and the map config; the planner, its forecasts and the balance
 // cache live in auto-farm-growth.ts and growth-forecast.ts.
-const MAX_LINES = 1_951;
+// 1_939 (2026-10-08): the growth planner's inputs gone with autofarm's simple
+// rules (the planner is kept, switched off, in auto-farm-smart-controller.ts).
+const MAX_LINES = 1_939;
 const TARGET_LINES = 1_000;
 
 describe("game composition boundary", () => {
