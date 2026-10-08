@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AUTO_FARM_CHOICE_KEY, AUTO_FARM_SHARES_KEY, AUTO_FARM_SOUL_SHARES_KEY, AUTO_FARM_WEIGHTS_KEY, decodeFarmPlan, encodeFarmPlan, evenShares, legacyShares,
-  readSavedShares, rebalanceShares, shareFarmKey, shareLabel, sharesForGroups, writeSavedShares,
+  AUTO_FARM_ADVANCE_KEY, AUTO_FARM_BOSSES_KEY, readFightBosses, writeFightBosses, readSavedShares, rebalanceShares, shareFarmKey, shareLabel, sharesForGroups, writeSavedShares,
 } from './auto-farm-plan';
 import { SOUL_MAP_ID } from '../../../shared/soul-dimension';
 
@@ -116,4 +116,15 @@ describe('autofarm sliders', () => {
       keys.forEach((key, index) => expect((spent.get(key) ?? 0) / 7_200).toBeCloseTo(expected[index], 2));
     }
   });
+});
+
+it('Fight Bosses, never set, starts as Move On is, so a farm that moved on keeps beating bosses; once set it is its own', () => {
+  const off = memory();
+  expect(readFightBosses(off.storage)).toBe(false);
+  const on = memory();
+  on.values.set(AUTO_FARM_ADVANCE_KEY, '1');
+  expect(readFightBosses(on.storage)).toBe(true);
+  writeFightBosses(false, on.storage);
+  expect(on.values.get(AUTO_FARM_BOSSES_KEY)).toBe('0');
+  expect(readFightBosses(on.storage)).toBe(false);
 });

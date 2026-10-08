@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.13": [
+    "Autofarm's Move On goes to the next map once your power reaches its recommended power, and steps back after 3 deaths in 3 minutes",
+    "New Fight Bosses switch: fights a boss once your power reaches it, and leaves below 30% health",
+    "Push is gone from the autofarm window",
+  ],
   "0.901.12": [
     "Pull Whole Group pulls the whole camp again, not one or two enemies at a time",
   ],
@@ -3010,6 +3015,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.13": "2026-10-08",
   "0.901.12": "2026-10-08",
   "0.901.11": "2026-10-08",
   "0.901.10": "2026-10-08",

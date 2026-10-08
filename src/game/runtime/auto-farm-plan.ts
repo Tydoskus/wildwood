@@ -191,7 +191,11 @@ function writeSwitch(key: string, on: boolean, storage: () => Storage | undefine
 }
 export const readFarmAdvance = (storage: () => Storage | undefined = () => localStorage) => readSwitch(AUTO_FARM_ADVANCE_KEY, storage);
 export const writeFarmAdvance = (on: boolean, storage: () => Storage | undefined = () => localStorage) => writeSwitch(AUTO_FARM_ADVANCE_KEY, on, storage);
-export const readFightBosses = (storage: () => Storage | undefined = () => localStorage) => readSwitch(AUTO_FARM_BOSSES_KEY, storage);
+/** Never set, it starts as Move On is: Move On used to fight the boss itself, and would otherwise wait at "Boss Needed". */
+export const readFightBosses = (storage: () => Storage | undefined = () => localStorage) => {
+  try { if (storage()?.getItem(AUTO_FARM_BOSSES_KEY) == null) return readFarmAdvance(storage); } catch { return false; }
+  return readSwitch(AUTO_FARM_BOSSES_KEY, storage);
+};
 export const writeFightBosses = (on: boolean, storage: () => Storage | undefined = () => localStorage) => writeSwitch(AUTO_FARM_BOSSES_KEY, on, storage);
 
 /**
