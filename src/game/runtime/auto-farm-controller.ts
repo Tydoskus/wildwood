@@ -8,8 +8,8 @@ import type { Movement } from './player-input-controller';
 import { isEnemyAttackingPlayer } from './enemy-threat';
 import { farmRoute } from './auto-farm-navigation';
 import { bossSurfaceDistance, bossVerticalRadius } from '../../../shared/boss-hitbox';
-import { DODGE_PAD, KITE_GAP, KITE_ROOM, KITE_TUNING, orbitRadii, orbitStep, planEvasion, shotDanger, type KiteTuning, type Orbit, type WakeZone } from './auto-farm-dodge';
-import { TANK_RESERVE, chaseDamage, fightLoss, tankableCount, type ChaserThreat } from './auto-farm-kite-model';
+import { AUTO_FARM_EVASION, DODGE_PAD, KITE_GAP, KITE_ROOM, KITE_TUNING, orbitRadii, orbitStep, planEvasion, shotDanger, type KiteTuning, type Orbit, type WakeZone } from './auto-farm-dodge';
+import { TANK_RESERVE, chaseDamage, perkFightLoss, tankableCount, type ChaserThreat, type TankPerks } from './auto-farm-kite-model';
 import { damageAfterArmor } from '../../../shared/combat';
 import { regularEnemyAggroRadius } from './enemy-simulation';
 import { enemyChaseSpeed } from '../../../shared/rules';
@@ -117,6 +117,8 @@ export function createAutoFarmController(options: {
   enemyShots?: readonly EnemyShot[];
   /** Reflect Only: the bow does nothing, so enemies must be stood among to be hit and hit back. */
   reflectOnly?: () => boolean;
+  /** Reflect's chance and Second Wind's heal (prestige perks): a build with them gains by taking the hits it can stand. */
+  tankPerks?: () => { reflect: number; secondWind: number };
   /** The unlocked portal forward to the next map, at its trigger point. */
   nextPortal?: () => (Position & { destination: string }) | null;
   /** The portal back to the previous map, for a farm that keeps dying here. */
@@ -129,6 +131,8 @@ export function createAutoFarmController(options: {
   forcedGroups?: () => { groups: readonly string[]; needed: number } | null;
   /** The kite's tuning, for the virtual-player comparisons (autofarm-sim): the game uses the defaults. */
   kite?: Partial<KiteTuning>;
+  /** Kiting and dodging (default AUTO_FARM_EVASION: off for now); the tests of that code turn it on. */
+  evasion?: boolean;
   /**
    * The growth forecast's inputs (auto-farm-growth.ts GrowthContext): the live
    * build, this map, and the maps either side priced from their balance. With
@@ -141,6 +145,7 @@ export function createAutoFarmController(options: {
   growthTuning?: Partial<GrowthTuning>;
 }) {
   const kiteTuning: KiteTuning = { ...KITE_TUNING, ...options.kite };
+  const evading = options.evasion ?? AUTO_FARM_EVASION;
   let priority: AutoFarmPriority = readAutoFarmPriority(options.priorityStorage);
   // A camp is a stat group: every enemy on the map paying one stat, as the panel offers them.
   // Pull's groups: the one being farmed, then the next largest sliders (or Auto's next best), one more per Aggro win.
@@ -526,6 +531,20 @@ export function createAutoFarmController(options: {
   /** The planner wants the next map (set by growthMove). */
   let forward = false;
   /**
+   * What each map measured growing there when last farmed, and the power then.
+   * A forecast of a map just farmed is held to what it gave (scaled by the
+   * power gained since): each map priced from the other side as a fresh map
+   * looks better than it keeps up, and autofarm walked to and fro between two.
+   * Forgotten once the build has grown past FARMED_GROWTH since.
+   */
+  const farmed = new Map<string, { rate: number; power: number }>();
+  const FARMED_GROWTH = 2;
+  const knownRate = (mapId: string, forecast: number) => {
+    const known = farmed.get(mapId), power = currentPower();
+    if (!known || !(known.power > 0) || power > known.power * FARMED_GROWTH) return forecast;
+    return Math.min(forecast, Math.max(0, known.rate) * power / known.power);
+  };
+  /**
    * What the planner made of the next map at its last look, for the panel:
    * not yet priced (first minutes here), on, or staying because the next map
    * is forecast slower (`ratio` its rate over this map's), or not farmable.
@@ -543,7 +562,8 @@ export function createAutoFarmController(options: {
    */
   function growthMove() {
     forward = false;
-    const plan = growthPlan(), at = now();
+    let plan = growthPlan();
+    const at = now();
     farmDeaths = farmDeaths.filter(previous => at - previous < AUTO_FARM_DEFEAT_WINDOW_MS);
     const measuredPerHour = farmDeaths.length * 3_600_000 / AUTO_FARM_DEFEAT_WINDOW_MS;
     if (farmDeaths.length >= 3 && measuredPerHour > Math.max(20, 3 * (plan?.doing?.deathsPerHour ?? 0)) && options.previousPortal?.() && !options.reflectOnly?.()) {
@@ -551,10 +571,14 @@ export function createAutoFarmController(options: {
       goBack('Dying more than expected · moving back a map');
       return;
     }
+    const measuredHere = gain.rate(at, options.mapId());
+    if (measuredHere !== null) farmed.set(options.mapId(), { rate: measuredHere, power: currentPower() });
     if (!plan) { nextVerdict = { kind: 'weighing', ratio: 0 }; return; }
     // This map's rate: the forecast's, or what it measures growing here when that is more. A forecast of another
     // map is weighed against what this one plainly gives, not against a forecast here that came out low.
-    const here = Math.max(plan.current.powerPerMinute, gain.rate(at, options.mapId()) ?? 0);
+    const here = Math.max(plan.current.powerPerMinute, measuredHere ?? 0);
+    const priced = (price: GrowthPlan['next'], portal: { destination: string } | null | undefined) => price && portal ? { ...price, powerPerMinute: knownRate(portal.destination, price.powerPerMinute) } : price;
+    plan = { ...plan, next: priced(plan.next, options.nextPortal?.()), previous: priced(plan.previous, options.previousPortal?.()) };
     const beats = (price: { powerPerMinute: number } | null) => Boolean(price) && price!.powerPerMinute > Math.max(1e-9, here) * MAP_SWITCH_MARGIN;
     const onward = beats(plan.next) && (!plan.previous || plan.next!.powerPerMinute >= plan.previous.powerPerMinute);
     nextVerdict = !plan.next ? { kind: 'weighing', ratio: 0 } : onward ? { kind: 'on', ratio: plan.next.powerPerMinute / Math.max(1e-9, here) }
@@ -607,8 +631,14 @@ export function createAutoFarmController(options: {
    * not before its wait.
    */
   function bossWanted(): 'go' | 'heal' | null {
-    const boss = options.mapBoss?.();
-    if (!boss || boss.dead || options.bossUnlocksNext?.() === false) return null;
+    const boss = options.mapBoss?.(), mapId = options.mapId();
+    // A fight that ended with the boss gone was won: whether that opened anything is read a few seconds on.
+    if (phase === 'boss' && (!boss || boss.dead)) bossWin = { mapId, at: now() };
+    if (bossWin && bossWin.mapId === mapId && now() - bossWin.at >= BOSS_WIN_SETTLE_MS) {
+      if (options.bossUnlocksNext?.() === true) opensNothing.add(mapId);
+      bossWin = null;
+    }
+    if (!boss || boss.dead || options.bossUnlocksNext?.() === false || opensNothing.has(mapId)) return null;
     // A fight under way goes on until it is won, or judged not worth going on with (judgeBossFight).
     if (phase === 'boss') return 'go';
     if (wallNow() < retryGate(bossRetryKey(options.mapId())).at || bossReady() < 1) return null;
@@ -616,6 +646,15 @@ export function createAutoFarmController(options: {
     if (planner) return 'go';
     return player.hp >= player.maxHp * BOSS_READY_HEALTH ? 'go' : 'heal';
   }
+  /**
+   * Maps whose boss was beaten and opened nothing (a way forward that stays
+   * locked for something else): it is not fought again there. Bosses pay no
+   * stats, and players watched autofarm kill the same boss over and over.
+   */
+  const opensNothing = new Set<string>();
+  let bossWin: { mapId: string; at: number } | null = null;
+  /** How long after a win the way forward is looked at again: the unlock reaches the map's portals in a moment. */
+  const BOSS_WIN_SETTLE_MS = 5_000;
   /** The lost fight to farm for: this map's, while its boss still holds the way forward. */
   const bossToBeat = () => lostFight?.mapId === options.mapId() && advance && !options.reflectOnly?.()
     && options.bossUnlocksNext?.() === true && Boolean(options.mapBoss?.()) ? lostFight : null;
@@ -683,7 +722,13 @@ export function createAutoFarmController(options: {
    * is keeping up with the rest, and standing farms faster. Reflect Only takes
    * every enemy hit, so it steps out of none.
    */
-  const worthAvoiding = (damage: number) => !options.reflectOnly?.() && (player.hp < player.maxHp || damage >= player.maxHp * BITE_SHARE);
+  const worthAvoiding = (damage: number) => !options.reflectOnly?.() && (reflects()
+    // A Reflect build's hits are its damage: it takes them while it stands well clear of its reserve.
+    ? player.hp - damage < player.maxHp * TANK_RESERVE
+    : player.hp < player.maxHp || damage >= player.maxHp * BITE_SHARE);
+  /** The perks as the kite model weighs them; a Reflect build is one that throws hits back. */
+  const perks = (): TankPerks => ({ reflect: 0, secondWind: 0, ...options.tankPerks?.(), reflectOnly: Boolean(options.reflectOnly?.()) });
+  const reflects = () => (options.tankPerks?.().reflect ?? 0) > 0;
   /** Seconds until a boss attack, or an enemy shot worth avoiding, would hit the player at a point. */
   function dangerNow() {
     const shots = (options.enemyShots ?? []).filter(shot => worthAvoiding(shot.damage));
@@ -767,7 +812,7 @@ export function createAutoFarmController(options: {
   /** An enemy as the kite model weighs it: its blow after armor, how often it lands one, what is left of its health. */
   function threatOf(enemy: EnemyState): ChaserThreat {
     const definition = enemy.definition ?? ENEMY_TYPES[enemy.type];
-    return { damage: damageAfterArmor(enemy.damage, build().armor), attackSpeed: Math.max(0, definition.attackSpeed), hp: Math.max(0, enemy.hp), r: enemy.r };
+    return { damage: damageAfterArmor(enemy.damage, build().armor), raw: enemy.damage, attackSpeed: Math.max(0, definition.attackSpeed), hp: Math.max(0, enemy.hp), r: enemy.r };
   }
   /** What the kite is doing, for the virtual-player measurement: circling, backing off, standing a chase out, or nothing chasing. */
   let kiteMode: 'orbit' | 'back-off' | 'stand' | 'none' = 'none', kiteHolds = false;
@@ -786,9 +831,13 @@ export function createAutoFarmController(options: {
     const stats = build(), threats = chasing.map(threatOf);
     kiteHolds = near.length > 0 && orbitRadii({ speed, chaseSpeed, r: player.r, chasers: chasing, maxRadius: weaponAttackRange(options.equippedWeapon?.(), player.attackRange) }).band !== null;
     const damage = chaseDamage({ chasers: threats, speed, chaseSpeed, playerR: player.r, holds: kiteHolds });
-    if (kiteHolds) return damage.standing > stats.regen;
-    const standing = fightLoss(damage.standing, stats.regen, threats, stats.dps), kited = fightLoss(damage.kited, stats.regen, threats, stats.dps);
-    return standing > player.hp - player.maxHp * TANK_RESERVE && kited < standing;
+    const loss = (damagePerSecond: number, hitsPerSecond: number) => perkFightLoss({ damagePerSecond, hitsPerSecond, chasers: threats, maxHp: stats.maxHp, regen: stats.regen, dps: stats.dps, perks: perks() });
+    const standing = loss(damage.standing, damage.standingHits), kited = loss(damage.kited, damage.kitedHits);
+    const breaks = standing > player.hp - player.maxHp * TANK_RESERVE;
+    // A circle that holds costs nothing, so a build whose hits are only a cost circles whenever standing costs health.
+    // A Reflect build's hits are its damage: it stands while it can stand it, and circles only past that.
+    if (kiteHolds) return reflects() ? breaks : damage.standing > stats.regen;
+    return breaks && kited < standing;
   }
   /**
    * Where enemies not fighting would wake: each one's aggro radius (an elite's
@@ -906,7 +955,7 @@ export function createAutoFarmController(options: {
     const group = enemies.filter(pulledEnemy).sort((a, b) => coming(a) - coming(b) || distance(a) - distance(b));
     // With no build to weigh (or the model off), everything pulled comes.
     if (!kiteTuning.model || !options.evaluate) { pullSet = new Set(group); return pullSet; }
-    const stats = build(), count = tankableCount({ chasers: group.map(threatOf), playerR: player.r, maxHp: stats.maxHp, regen: stats.regen, dps: stats.dps });
+    const stats = build(), count = tankableCount({ chasers: group.map(threatOf), playerR: player.r, maxHp: stats.maxHp, regen: stats.regen, dps: stats.dps, perks: perks() });
     pullSet = new Set(group.slice(0, Math.max(count, group.filter(enemy => !coming(enemy)).length)));
     return pullSet;
   }
@@ -966,7 +1015,7 @@ export function createAutoFarmController(options: {
       if (!enemy.generatedBoss && isEnemyAttackingPlayer(enemy, options.localIdentity?.()) && (!threat || distance(enemy) < distance(threat))) threat = enemy;
     }
     // Out of what is about to land, and back from melee enemies on a bow, before anything else: still shooting.
-    const evade = evasion(boss ?? threat ?? target, boss, dt);
+    const evade = evading ? evasion(boss ?? threat ?? target, boss, dt) : null;
     if (evade) return evade;
     // Healing up for the boss: what attacks it is fought (or kited) as ever, but nothing new is gone after or pulled.
     if (phase === 'farm' && healing && !enemies.some(enemy => isEnemyAttackingPlayer(enemy, options.localIdentity?.()))) {
@@ -1072,7 +1121,7 @@ export function createAutoFarmController(options: {
     // Never walk into a boss attack about to land: it waits for it to pass, as a player would.
     // A shot is only a line, crossed in a moment: one coming at the player is stepped out of instead.
     const length = distance(waypoint), look = Math.min(length, options.speed() * WALK_LOOKAHEAD_SECONDS) / length;
-    if (bossDangerAt({ x: player.x + (waypoint.x - player.x) * look, y: player.y + (waypoint.y - player.y) * look }) < Infinity) { status = 'Waiting out an attack'; return idle(); }
+    if (evading && bossDangerAt({ x: player.x + (waypoint.x - player.x) * look, y: player.y + (waypoint.y - player.y) * look }) < Infinity) { status = 'Waiting out an attack'; return idle(); }
     return steer(waypoint, dt);
   }
 
@@ -1104,7 +1153,7 @@ export function createAutoFarmController(options: {
     };
     const portal = options.nextPortal?.();
     if (portal) return gate('Next Map', portal.destination) ?? (planner ? nextMapStatus() : 'Next Map Open');
-    if (options.bossUnlocksNext?.() === false) return 'Boss Beaten';
+    if (options.bossUnlocksNext?.() === false || opensNothing.has(options.mapId())) return 'Boss Beaten';
     const boss = options.mapBoss?.();
     if (!boss || boss.dead) return '';
     const wait = retryGate(bossRetryKey(options.mapId())).at - wallNow();

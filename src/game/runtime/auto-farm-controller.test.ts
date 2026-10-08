@@ -490,9 +490,10 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
       state.spawnSites.push(site); lifecycle.spawnFromSite(site);
       return state.enemies[state.enemies.length - 1];
     };
-    // A build that would beat any boss in seconds, unless a test says otherwise.
+    // A build that would beat any boss in seconds, unless a test says otherwise. Kiting and dodging are switched off in
+    // the game for now (AUTO_FARM_EVASION); these tests keep their code working, on, unless a test says otherwise.
     const farm = createAutoFarmController({ ...state, mapId: () => map, unavailable: () => null, paused: () => false, bossDps: () => 1e9,
-      speed: () => 300, obstacles: () => [], localIdentity: () => 'me', now: () => now, wallNow: () => now, resumeStore, priorityStorage: () => memory, ...extra });
+      speed: () => 300, obstacles: () => [], localIdentity: () => 'me', now: () => now, wallNow: () => now, resumeStore, priorityStorage: () => memory, evasion: true, ...extra });
     const tick = () => farm.movement(idle, 1 / 60);
     return { ...state, farm, add, tick, resumeStore, values, setMap: (value: string) => { map = value; }, advance: (ms: number) => { now += ms; } };
   }
@@ -913,6 +914,18 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     expect(s.farm.state().status).toBe('Fighting the boss');
   });
 
+  it("fights standing while kiting and dodging are off: no circle, no step out of a shot or a boss attack", () => {
+    const s = planned({ evasion: undefined });
+    const mob = s.add('Bramble', 540, 500);
+    mob.engaged = true;
+    s.farm.start([health]);
+    s.player.hp = s.player.maxHp * .5;
+    s.enemyShots.push({ x: 400, y: 500, vx: 495, vy: 0, r: 6, damage: s.player.maxHp * .2, life: 4 });
+    for (let frame = 0; frame < 30; frame++) s.tick();
+    expect(s.farm.state().status).not.toBe('Kiting');
+    expect(s.farm.state().status).not.toBe('Dodging');
+  });
+
   it("steps off the line of an enemy shot that would bite, or of any once hurt; never in Reflect Only, which takes every hit", () => {
     for (const [reflectOnly, damage, health, dodges] of [[false, 20, 1, true], [false, 1, 1, false], [false, 1, .9, true], [true, 20, .9, false]] as const) {
       const s = planned({ reflectOnly: () => reflectOnly });
@@ -979,6 +992,31 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     archer.farm.start([`stat:${ENEMY_TYPES.Brood.reward.type}`]);
     archer.tick();
     expect(archer.farm.state().status).not.toBe('Kiting');
+  });
+
+  it("with Reflect, stands and takes the blows it can stand, and the shots: they are its damage; circles once they would take it to its reserve", () => {
+    const tank = planned({ tankPerks: () => ({ reflect: .1, secondWind: 0 }) });
+    const mob = tank.add('Bramble', 540, 500);
+    mob.engaged = true;
+    tank.player.regen = 0;
+    // Arrows that take the Bramble down while it costs about a tenth of max health: well within the reserve at full health.
+    const blows = mob.damage * (mob.definition ?? ENEMY_TYPES[mob.type]).attackSpeed;
+    tank.player.damage = mob.hp / (tank.player.maxHp * .1 / blows) * tank.player.attackRate;
+    tank.farm.start([health]);
+    tank.tick();
+    expect(tank.farm.state().status).not.toBe('Kiting');
+    // A shot that would bite another build is taken while far from the reserve.
+    tank.player.hp = tank.player.maxHp * .9;
+    tank.enemyShots.push({ x: 400, y: 500, vx: 495, vy: 0, r: 6, damage: tank.player.maxHp * .2, life: 4 });
+    tank.advance(600);
+    tank.tick();
+    expect(tank.farm.state().status).not.toBe('Dodging');
+    // Near the reserve, the blows are only a cost again: it circles.
+    tank.enemyShots.length = 0;
+    tank.player.hp = tank.player.maxHp * .36;
+    tank.advance(600);
+    for (let frame = 0; frame < 12; frame++) tank.tick();
+    expect(tank.farm.state().status).toBe('Kiting');
   });
 
   it("circles clear of other camps, where it is fought: backing straight off is caught again and again, far across the map", () => {
@@ -1098,6 +1136,27 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     expect(s.farm.state().phase).toBe('boss');
     locked = false;
     s.tick();
+    expect(s.farm.state().phase).toBe('farm');
+    expect(s.farm.bossStatus()).toBe('Boss Beaten');
+  });
+
+  it('never fights again a boss whose win opened nothing: the way on stays shut for something else', () => {
+    let boss: { x: number; y: number; r: number; dead?: boolean } | null = { x: 2500, y: 500, r: 80 };
+    const s = planned({ mapBoss: () => boss, bossUnlocksNext: () => true });
+    s.add('Bramble', 900, 500);
+    s.farm.setAdvance(true);
+    s.farm.start([health]);
+    s.tick();
+    expect(s.farm.state().phase).toBe('boss');
+    // Won: the boss is gone, and the way on is still shut a few seconds later.
+    boss = null;
+    s.tick();
+    expect(s.farm.state().phase).toBe('farm');
+    s.advance(6_000); s.tick();
+    // It comes back, and is left alone.
+    boss = { x: 2500, y: 500, r: 80 };
+    s.advance(10 * 60_000);
+    for (let frame = 0; frame < 30; frame++) s.tick();
     expect(s.farm.state().phase).toBe('farm');
     expect(s.farm.bossStatus()).toBe('Boss Beaten');
   });

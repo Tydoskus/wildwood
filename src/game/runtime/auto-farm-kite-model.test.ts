@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chaseDamage, contactCapacity, fightLoss, kitedHitInterval, tankableCount, type ChaserThreat } from './auto-farm-kite-model';
+import { chaseDamage, contactCapacity, kitedHitInterval, perkFightLoss, tankableCount, type ChaserThreat } from './auto-farm-kite-model';
 import { createEnemySimulation } from './enemy-simulation';
 import { createEnemyLifecycle } from './enemy-lifecycle';
 import { WORLD } from '../constants';
@@ -61,9 +61,11 @@ describe('kite model', () => {
   it('Pull Whole Group pulls only as many as the build farms standing without falling below the reserve', () => {
     const chaser: ChaserThreat = { damage: 10, attackSpeed: 1, hp: 100, r: 14 };
     const mob = Array(12).fill(chaser);
-    // Health lost: (damage a second - regeneration) for as long as killing them takes.
-    expect(fightLoss(30, 10, [chaser, chaser], 50)).toBeCloseTo(80);
-    expect(fightLoss(5, 10, [chaser], 50)).toBe(0);
+    // Health lost: (damage a second - regeneration) while each is killed, the blows thinning as the crowd does:
+    // both hitting for the first kill's 2 seconds, one for the second's, which regeneration covers.
+    const lost = (damagePerSecond: number, regen: number, chasers: ChaserThreat[]) => perkFightLoss({ damagePerSecond, hitsPerSecond: chasers.length, chasers, maxHp: 1_000, regen, dps: 50 });
+    expect(lost(20, 10, [chaser, chaser])).toBeCloseTo(20);
+    expect(lost(5, 10, [chaser])).toBe(0);
     const weak = tankableCount({ chasers: mob, playerR: 17, maxHp: 300, regen: 0, dps: 50 });
     const strong = tankableCount({ chasers: mob, playerR: 17, maxHp: 3_000, regen: 20, dps: 200 });
     expect(weak).toBeGreaterThanOrEqual(1);
@@ -71,5 +73,18 @@ describe('kite model', () => {
     expect(strong).toBe(12);
     // One it cannot even stand through still comes alone, to be kited.
     expect(tankableCount({ chasers: mob, playerR: 17, maxHp: 10, regen: 0, dps: 1 })).toBe(1);
+  });
+
+  it('counts Reflect and Second Wind in what a build can stand: its hits kill, and its kills heal', () => {
+    // Weak arrows, and hits that Reflect throws back hard: the mob dies to its own blows.
+    const brute: ChaserThreat = { damage: 20, raw: 40, attackSpeed: 1, hp: 200, r: 14 };
+    const mob = Array(8).fill(brute);
+    const plain = tankableCount({ chasers: mob, playerR: 17, maxHp: 600, regen: 0, dps: 10 });
+    const reflecting = tankableCount({ chasers: mob, playerR: 17, maxHp: 600, regen: 0, dps: 10, perks: { reflect: 1, secondWind: 0 } });
+    expect(plain).toBeLessThan(3);
+    expect(reflecting).toBeGreaterThan(plain);
+    // Second Wind pays health back for each kill.
+    const lost = (secondWind: number) => perkFightLoss({ damagePerSecond: 40, hitsPerSecond: 2, chasers: [brute, brute], maxHp: 600, regen: 0, dps: 20, perks: { reflect: 0, secondWind } });
+    expect(lost(.1)).toBeLessThan(lost(0));
   });
 });

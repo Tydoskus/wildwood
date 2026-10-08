@@ -14,6 +14,7 @@ import {
 } from './growth-forecast';
 import type { Point } from '../../balance/death-model';
 import { balancedForecastSites, forecastBuild, forecastMap, liveForecastSites } from './forecast-inputs';
+import { AUTO_FARM_EVASION } from './auto-farm-dodge';
 import { damageAfterArmor as installedDamageAfterArmor } from '../combat';
 import { isMeleeWeapon, weaponAttackRange } from '../weapon-combat';
 import { prestigePerkValue, type PrestigePerkRanks } from '../../../shared/prestige-perks';
@@ -110,7 +111,7 @@ function* priceMap(map: ForecastMap, build: ForecastBuild, run: ForecastRun, mod
   pull: { groups: readonly string[] | null; camps: number }): Generator<void, ForecastedOption[], void> {
   const all = [...new Set(map.sites.map(site => site.group))].filter(group => group !== 'soul:critDamage');
   const results: ForecastedOption[] = [];
-  const canKite = !build.melee && !build.reflectOnly;
+  const canKite = AUTO_FARM_EVASION && !build.melee && !build.reflectOnly;
   const pulled = pull.groups?.filter(group => all.includes(group)) ?? null;
   if (modes.includes('pull') && all.length && pull.camps > 0 && (!pulled || pulled.length)) {
     const tank = pullTankCheck(map, build, pulled ?? all, { start: run.start, health: run.health });
@@ -165,7 +166,8 @@ export function createGrowthPlanner(overrides: Partial<GrowthTuning> = {}) {
     // Another map: the damage the build deals is the build's, measured here and carried; what a map's enemies
     // deal is that map's, so what was measured here only ever raises it there, never lowers it.
     const elsewhere: ForecastBuild = { ...build, incomingCalibration: Math.max(1, calibration.incoming) };
-    const modes: GrowthMode[] = doing.pull ? ['pull', 'standing', 'kited'] : ['standing', 'kited'];
+    // As the controller fights: standing, and pulling; kited too only while autofarm kites (AUTO_FARM_EVASION).
+    const modes: GrowthMode[] = [...doing.pull ? ['pull' as const] : [], 'standing', ...AUTO_FARM_EVASION ? ['kited' as const] : []];
     const here: ForecastRun = { horizonSeconds: MAP_HORIZON_SECONDS, start: doing.position, health: doing.health };
     const lead = (portal: Point | null) => portal ? Math.hypot(portal.x - doing.position.x, portal.y - doing.position.y) / Math.max(1, build.moveSpeed) + 2 : 0;
     const camps = doing.pullCamps ?? 1, pulledHere = { groups: doing.pulled ?? null, camps }, pulledThere = { groups: null, camps };

@@ -180,6 +180,15 @@ export type KiteTuning = {
    */
   model: boolean;
 };
+/**
+ * Whether autofarm kites (the circle, backing off) and dodges (boss attacks,
+ * enemy shots) at all. Off for now (Ryan): it fights standing, walking to the
+ * target and standing to fight, as it did before kiting, so a Reflect build
+ * tanks as it should. The code is kept, switched off; the growth forecast
+ * prices standing and pulling only while it is (growth-forecast.ts).
+ */
+export const AUTO_FARM_EVASION = false;
+
 export const KITE_TUNING: KiteTuning = { mode: 'circle', startGap: 120, stopGap: 260, maxChasers: Infinity, wakePad: 32, wide: true, model: true };
 
 /** Room kept between a settled chaser and the player beyond touching. */

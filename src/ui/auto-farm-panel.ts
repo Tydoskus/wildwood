@@ -25,10 +25,10 @@ const defaultStorage = (): PanelStorage | undefined => { try { return window.loc
 const HELP_LINES: readonly [term: string, line: string][] = [
   ['Auto', 'Farms the stat that grows your power fastest.'],
   ['Custom', 'Splits farming time by your sliders. 0% skips a stat.'],
-  ['Fighting', 'Circles a few enemies so they can\'t catch you, and dodges boss attacks.'],
+  ['Fighting', 'Walks to its target and fights standing.'],
   ['Move On', 'Moves to the next map when you\'ll grow faster there, and fights bosses it can beat in 10 minutes. Steps back if it keeps dying.'],
   ['Push', 'How soon it retries a map after stepping back.'],
-  ['Pull Whole Group', 'Allows pulling a camp: on Auto it pulls only as many as you can tank, and only where that grows you faster than one at a time.'],
+  ['Pull Whole Group', 'Pulls a whole camp only when you can tank it; on Auto, only where that grows you faster.'],
   ['Target', 'Which enemy it hits first.'],
 ];
 const titleCase = (text: string) => text.replace(/(^|[\s(/-])(\p{Ll})/gu, (_match, lead: string, letter: string) => lead + letter.toUpperCase());

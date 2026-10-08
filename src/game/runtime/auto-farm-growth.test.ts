@@ -64,11 +64,11 @@ describe('growth planner', () => {
 
 describe('growth planner calibration', () => {
   it('leaves the damage-taken correction alone where the forecast sees no hit, and moves it toward the measured where it does', () => {
-    const harmless = map('here', camp('damage', 800, 800, 6, enemy({ hp: 200, ranged: true, damage: 100, reward: { type: 'damage', amount: 1 } })));
+    const harmless = map('here', camp('damage', 800, 800, 6, enemy({ hp: 200, reward: { type: 'damage', amount: 1 } })).map(site => ({ ...site, respawnIn: 10_000 })));
     const quiet: GrowthContext = { build: build(), current: harmless, next: null, previous: null, nextPortal: null, previousPortal: null };
     const planner = createGrowthPlanner();
     for (let frame = 0; frame < 400 && !planner.plan('here'); frame++) planner.tick(0, 'here', () => quiet, doing);
-    // Shots this big are all stepped out of, so the forecast sees no hit: hurt by something it does not know of, no factor on its zero would forecast that.
+    // Every enemy dead for longer than a plan looks ahead, so the forecast sees no hit: hurt by something it does not know of, no factor on its zero would forecast that.
     for (let second = 1; second <= 120; second++) planner.observe(second * 1_000, 'here', 1, 1, 50);
     for (let frame = 0; frame < 400; frame++) planner.tick(PLAN_SECONDS * 1_000 * 7, 'here', () => quiet, doing);
     expect(planner.calibration().incoming).toBe(1);

@@ -159,8 +159,9 @@ describe('growth forecast', () => {
 
   it('keeps what it is doing unless something is clearly better', () => {
     const results = forecastGrowth({ current: field, build: build(), horizonSeconds: 300 });
-    const held = results.find(result => result.mode === 'kited' && result.option.groups?.[0] === 'stat:damage')!;
-    const choice = chooseGrowthOption(results, { map: 'current', mode: 'kited', groups: held.option.groups });
+    // Standing (kiting is off for now: AUTO_FARM_EVASION), one group.
+    const held = results.find(result => result.mode === 'standing' && result.option.groups?.[0] === 'stat:damage')!;
+    const choice = chooseGrowthOption(results, { map: 'current', mode: 'standing', groups: held.option.groups });
     expect(choice).not.toBeNull();
     expect(choice!.powerPerMinute).toBeGreaterThanOrEqual(held.powerPerMinute);
   });
