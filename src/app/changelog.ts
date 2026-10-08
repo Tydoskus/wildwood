@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.21": [
+    "Fixed the Auto Farm window closing when tapped inside it, and its sliders not moving",
+  ],
   "0.901.20": [
     "The Auto Farm window scrolls on small screens, and More is gone: Pull Whole Group and Target are always shown",
     "Fixed players not being drawn on Firefox for some players",
@@ -3048,6 +3051,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.21": "2026-10-08",
   "0.901.20": "2026-10-08",
   "0.901.19": "2026-10-08",
   "0.901.18": "2026-10-08",

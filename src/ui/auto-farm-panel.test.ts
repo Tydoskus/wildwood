@@ -493,3 +493,10 @@ it('keeps a slider while its reward grows behind the open window', () => {
   s.setRewardMultiplier(5); s.panel.refresh();
   expect(s.document.querySelector('[data-group] input')).toBe(before);
 });
+
+it('the opened window takes its own touches: the HUD passes them through, and they fell to the backdrop and closed it', async () => {
+  const { readFileSync } = await import('node:fs');
+  const css = readFileSync('public/assets/wildstat/auto-farm.css', 'utf8');
+  const rule = css.slice(css.indexOf('#autoFarmSheet.is-window {'), css.indexOf('}', css.indexOf('#autoFarmSheet.is-window {')));
+  expect(rule).toContain('pointer-events: auto');
+});

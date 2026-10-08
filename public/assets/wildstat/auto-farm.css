@@ -323,6 +323,8 @@
 .farm-window-backdrop { position: fixed; inset: 0; z-index: 19; background: #0008; pointer-events: auto; }
 .farm-window-backdrop[hidden] { display: none; }
 #autoFarmSheet.is-window {
+  /* The HUD lets touches through to the world; the window takes its own, or they fell through to the backdrop and closed it. */
+  pointer-events: auto;
   position: fixed; left: 50% !important; top: 50% !important; right: auto !important; bottom: auto !important; z-index: 20;
   display: flex; flex-direction: column; transform: translate(-50%, -50%);
   height: fit-content; max-height: min(600px, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px));
