@@ -61,7 +61,7 @@ export function standingPoint(from: Point, target: Point): Point {
  * Seconds for a newly woken enemy to cover `gap`. Its speed ramps from nothing
  * to the chase speed over ENEMY_HIT_SPEED_RECOVERY_SECONDS (enemy-simulation.ts recoverySpeed).
  */
-function closeGapSeconds(gap: number, chaseSpeed: number) {
+export function closeGapSeconds(gap: number, chaseSpeed: number) {
   if (gap <= 0) return 0;
   const ramp = ENEMY_HIT_SPEED_RECOVERY_SECONDS;
   const rampDistance = chaseSpeed * ramp / 2;
@@ -92,7 +92,16 @@ export function fightParticipants<Site extends CampSite>(
   return woken;
 }
 
-/** When and how hard each participant hits the player standing at `standing`. */
+/** The chase speed every woken enemy runs at, against a player of `playerSpeed` (shared/rules.ts enemyChaseSpeed). */
+export function chaseSpeedFor(playerSpeed: number) {
+  return Math.max(1, playerSpeed + ENEMY_CHASE_SPEED_MARGIN);
+}
+
+/**
+ * When and how hard each participant hits the player standing at `standing`.
+ * `hitAfterArmor` is the map's armor rule; the installed one unless a caller
+ * prices another map's (the growth forecast's next map).
+ */
 export function participantAttackers<Site extends CampSite>(
   participants: Iterable<Site>,
   standing: Point,
@@ -101,12 +110,13 @@ export function participantAttackers<Site extends CampSite>(
   armor: number,
   damageMultiplier: number,
   playerSpeed: number,
+  hitAfterArmor: (damage: number, armor: number) => number = damageAfterArmor,
 ): Attacker[] {
-  const chaseSpeed = Math.max(1, playerSpeed + ENEMY_CHASE_SPEED_MARGIN);
+  const chaseSpeed = chaseSpeedFor(playerSpeed);
   const attackers: Attacker[] = [];
   for (const site of participants) {
     const enemy = enemyOf(site);
-    const hit = damageAfterArmor(enemy.damage * damageMultiplier, armor);
+    const hit = hitAfterArmor(enemy.damage * damageMultiplier, armor);
     if (!(hit > 0) || !(enemy.attackSpeed > 0)) continue;
     const interval = 1 / Math.max(.01, enemy.attackSpeed);
     const distance = Math.hypot(site.x - standing.x, site.y - standing.y);

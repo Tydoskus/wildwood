@@ -30,6 +30,15 @@ export function summarize(reports: readonly VirtualPlayerReport[], references: r
       lines.push(`  t=${minutes(entry.t)} ${entry.map} power ${power(entry.power)} ${entry.outcome} after ${entry.fightSeconds.toFixed(0)}s fighting; boss ${(entry.bossShareStart * 100).toFixed(0)}%->${((entry.bossShareEnd ?? 0) * 100).toFixed(0)}%, player ${((entry.playerShareStart ?? 1) * 100).toFixed(0)}%->${((entry.playerShareEnd ?? 0) * 100).toFixed(0)}%${entry.foughtOn ? `; fought on: ${entry.foughtOn.won ? 'WON' : 'lost'} in ${entry.foughtOn.seconds.toFixed(0)}s (boss ${(entry.foughtOn.bossShare * 100).toFixed(0)}%)` : ''}`);
     }
     for (const travel of report.travels) lines.push(`  travel t=${minutes(travel.t)} ${travel.from} -> ${travel.to} (${travel.why}) at ${power(travel.power)}, gain here ${travel.rateHere === null ? 'n/a' : power(travel.rateHere) + '/min'}`);
+    const { combat, wakes } = report;
+    if (combat) {
+      const alive = Math.max(1, combat.aliveSeconds) / 60, count = (kinds: string[]) => kinds.reduce((sum, kind) => sum + (combat.hits[kind] ?? 0), 0);
+      const melee = count(['regular', 'elite']), all = Object.values(combat.hits).reduce((sum, value) => sum + value, 0);
+      const taken = Object.values(combat.taken).reduce((sum, value) => sum + value, 0);
+      lines.push(`combat: hits ${(all / alive).toFixed(1)}/min (melee ${(melee / alive).toFixed(1)}, shots ${(count(['shots']) / alive).toFixed(1)}, boss ${(count(['boss']) / alive).toFixed(1)}), health lost ${(taken / alive).toFixed(2)} max/min; `
+        + `shots fired ${(combat.shots / alive).toFixed(1)}/min, landed ${((combat.landed ?? 0) / alive).toFixed(1)}/min, shooting ${share(combat.shootingSeconds, combat.aliveSeconds)} of alive time, kiting ${share(combat.kitingSeconds, combat.aliveSeconds)}`);
+    }
+    if (wakes) lines.push(`wake-ups by walking near: other camps ${wakes.other} (${wakes.otherKiting} while kiting or dodging), own ${wakes.own}`);
     lines.push(`time: ${Object.entries(report.activity).sort((a, b) => b[1] - a[1]).map(([key, value]) => `${key} ${share(value, total)}`).join(', ')}`);
     const farmed = Object.values(report.groups).reduce((sum, value) => sum + value, 0);
     lines.push(`groups: ${Object.entries(report.groups).sort((a, b) => b[1] - a[1]).map(([key, value]) => `${key} ${share(value, farmed)}`).join(', ')}`);

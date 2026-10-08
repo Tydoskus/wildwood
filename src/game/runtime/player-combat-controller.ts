@@ -152,6 +152,12 @@ export function createPlayerCombatController(options: {
   soulStatOf?: (enemy: EnemyState) => SoulStatId | null;
   onSoulKill?: (stat: SoulStatId) => void;
   onCombat?: () => void;
+  /**
+   * Whether to keep the target until it dies or leaves range (autofarm while it
+   * circles: moving changes which enemy is nearest, and a target given up on
+   * part-way heals back, on a regen camp, or is never finished).
+   */
+  keepTarget?: () => boolean;
   playBowAttackSound?: () => void;
   /** `value` is the shown amount unrounded, so a popup that sums several kills adds what was paid, not what the text rounded it to. */
   logPickup: (text: string, color: string, value?: number) => void;
@@ -462,7 +468,7 @@ export function createPlayerCombatController(options: {
     // priority keeps its target until it dies or leaves range, so two wounded
     // enemies are never alternated between.
     if (target && retainedTarget && retainedThreat === defending && Number.isFinite(retainedDistance) &&
-        (ranked || Math.sqrt(retainedDistance) <= Math.sqrt(best) + TARGET_SWITCH_DISTANCE)) target = retainedTarget;
+        (ranked || options.keepTarget?.() || Math.sqrt(retainedDistance) <= Math.sqrt(best) + TARGET_SWITCH_DISTANCE)) target = retainedTarget;
     return target;
   }
 

@@ -82,7 +82,12 @@ import { describe, expect, it } from "vitest";
 // import. Only the composition root holds the coop session, the player, the
 // world's lists, combat's strength and the map controller's travel; the world
 // streaming, enemies, portal and window live in soul-dimension*.ts.
-const MAX_LINES = 1_946;
+// 1_951 (2026-10-07): autofarm's growth planner's inputs (createGrowthContextSource,
+// nine lines, and its import). Only the composition root holds the player, the
+// inventory, research, the coop session's perks, bow skills and other maps'
+// balance, and the map config; the planner, its forecasts and the balance
+// cache live in auto-farm-growth.ts and growth-forecast.ts.
+const MAX_LINES = 1_951;
 const TARGET_LINES = 1_000;
 
 describe("game composition boundary", () => {

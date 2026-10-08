@@ -78,6 +78,7 @@ import { createMapController } from "./game/runtime/map-controller";
 import { createPlayerCombatController, type PlayerCombatController } from "./game/runtime/player-combat-controller";
 import { createPlayerInputController } from "./game/runtime/player-input-controller";
 import { createAutoFarmController } from "./game/runtime/auto-farm-controller";
+import { createBalanceCache, createGrowthContextSource } from "./game/runtime/auto-farm-growth";
 import { createAutoFarmResumeStore } from "./app/auto-farm-resume";
 import { createAutoFarmPanel } from "./ui/auto-farm-panel";
 import { createHomeTravelController } from "./ui/home-travel-controller";
@@ -529,9 +530,19 @@ import {
     equipment: () => ({ equippedHead: inventory.equippedHead, equippedChest: inventory.equippedChest, equippedRightHand: inventory.equippedRightHand, equippedLeftHand: inventory.equippedLeftHand }),
     research: () => researchRanks(), upgradeLevel: itemId => coop?.itemUpgradeLevel?.(itemId) ?? 0, rewardMultiplier: () => researchRewardMultiplier(), minAttackInterval: () => challengeMinimumInterval(coop?.aggroChallenge?.()?.active ? null : coop?.prestigeChallenge?.()), criticalChance: () => researchCriticalChance(), criticalMultiplier: () => researchCriticalDamageMultiplier(),
     reflectOnly: () => Boolean(coop?.prestigeChallenge?.()?.active), mapBoss: () => proceduralBoss.boss() ?? bossStateForMap(bosses, currentMapId), portalUnlocked: portal => mapController.portalIsUnlocked(portal as never), portals: () => { const config = MAP_CONFIG[currentMapId]; return [config.portal, "secondaryPortal" in config ? config.secondaryPortal : null]; } });
+  // The growth planner's inputs (auto-farm-growth.ts); other maps' balance comes from the map window's fetch.
+  const growthContext = createGrowthContextSource({ player, spawnSites, mapId: () => currentMapId, gameTime: () => session?.gameTime() ?? 0,
+    weapon: () => inventory.equippedRightHand || inventory.equippedLeftHand, equipment: () => ({ equippedHead: inventory.equippedHead, equippedChest: inventory.equippedChest, equippedRightHand: inventory.equippedRightHand, equippedLeftHand: inventory.equippedLeftHand }),
+    research: () => researchRanks(), upgradeLevel: itemId => coop?.itemUpgradeLevel?.(itemId) ?? 0, rewardMultiplier: () => researchRewardMultiplier(),
+    minAttackInterval: () => challengeMinimumInterval(coop?.aggroChallenge?.()?.active ? null : coop?.prestigeChallenge?.()), criticalChance: () => researchCriticalChance(),
+    criticalMultiplier: () => researchCriticalDamageMultiplier(), moveSpeed: () => player.speed * movementMultiplier(), perks: () => coop?.prestigePerks?.(),
+    bowSkills: () => coop?.bowSkills?.(inventory.equippedRightHand || inventory.equippedLeftHand), reflectOnly: () => Boolean(coop?.prestigeChallenge?.()?.active),
+    arrival: mapId => MAP_CONFIG[mapId as MapId]?.arrival ?? { x: 0, y: 0 }, currentBalance: () => runtimeMapBalance(currentMapId),
+    balance: createBalanceCache(mapId => coop?.mapIndexBalance?.(mapId)), nextPortal: () => farmProgress.nextPortal(), previousPortal: () => farmProgress.previousPortal() });
   const autoFarm = createAutoFarmController({
     resumeStore: createAutoFarmResumeStore(),
     player, enemies, spawnSites, enemyShots, bossDps: () => playerCombat.expectedBossDps(),
+    growth: () => session?.isRunning() && !mapController.isMapTransitioning() ? growthContext() : null,
     bossDanger: (x, y, pad) => Math.min(bossController.forMap(currentMapId)?.danger(x, y, pad) ?? Infinity, proceduralBoss.danger(x, y, pad)),
     mapId: () => currentMapId, pullCamps: () => coop?.aggroChallenge?.()?.active ? 0 : aggroPullCamps(coop?.aggroChallenge?.()), forcedGroups: () => forcedAggroGroups(coop?.aggroChallenge?.(), coop?.localIdentity?.()),
     equippedWeapon: () => inventory.equippedRightHand || inventory.equippedLeftHand,
@@ -640,7 +651,7 @@ import {
 
   playerCombat = createPlayerCombatController({
     onEnemyDefeated: () => onboarding?.enemyDefeated() ?? false, soulStatOf: enemy => soulDimension.soulStatOf(enemy), onSoulKill: stat => soulDimension.soulKill(stat),
-    player, enemies, spawnSites, projectileStore, bosses,
+    player, enemies, spawnSites, projectileStore, bosses, keepTarget: () => autoFarm.circling(),
     nowSeconds: () => session?.gameTime() ?? 0,
     serverNowMs: () => coop?.serverNowMs?.() ?? Date.now(),
     localIdentity: () => coop?.localIdentity?.(),
@@ -676,7 +687,7 @@ import {
       regularEnemyRespawn.schedule(site);
       respawnMemory.remember(enemyRespawnKey(site), (site.respawnAt - session.gameTime()) * 1000);
     },
-    recordRegularEnemyDefeat: (mapId, enemy) => { gameBridge?.recordRegularEnemyDefeat(mapId, enemy, Boolean(autoFarm.targetType())); quests.noteKill(mapId, enemy); },
+    recordRegularEnemyDefeat: (mapId, enemy) => { gameBridge?.recordRegularEnemyDefeat(mapId, enemy, Boolean(autoFarm.targetType())); quests.noteKill(mapId, enemy); autoFarm.killed(); },
     incrementKills: () => { totalKills += 1; },
     currentMapId: () => currentMapId,
     spawnBurst,

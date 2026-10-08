@@ -6,7 +6,7 @@ import { aggroForcedCamps, aggroPullCamps } from '../../../shared/aggro-challeng
 import { ENEMY_TYPES, type EnemyKind } from '../enemies';
 import type { SpawnSite } from '../world';
 
-function setup(options: { pullCamps?: number; forced?: string[]; needed?: number } = {}) {
+function setup(options: { pullCamps?: number; forced?: string[]; needed?: number; evaluate?: Parameters<typeof createAutoFarmController>[0]['evaluate']; farmDps?: () => number } = {}) {
   const state = createGameBootstrap();
   state.enemies.length = 0; state.spawnSites.length = 0;
   Object.assign(state.player, { x: 500, y: 500, attackRange: 200, speed: 300 });
@@ -21,7 +21,7 @@ function setup(options: { pullCamps?: number; forced?: string[]; needed?: number
   const farm = createAutoFarmController({ ...state, mapId: () => map, unavailable: () => null, paused: () => false,
     speed: () => 300, obstacles: () => [], localIdentity: () => 'me', now: () => now,
     priorityStorage: () => ({ getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); }, removeItem: (key: string) => { values.delete(key); } }),
-    pullCamps: () => options.pullCamps ?? 1, forcedGroups: () => forced });
+    pullCamps: () => options.pullCamps ?? 1, forcedGroups: () => forced, evaluate: options.evaluate, farmDps: options.farmDps });
   return { ...state, farm, add, setMap: (value: string) => { map = value; }, advance: (ms: number) => { now += ms; }, setForced: (value: string[] | null, needed = value?.length ?? 0) => { forced = value ? { groups: value, needed } : null; } };
 }
 const health = `stat:${ENEMY_TYPES.Bramble.reward.type}`, speed = `stat:${ENEMY_TYPES.Needle.reward.type}`;
@@ -42,6 +42,25 @@ describe('Aggro challenge on the client', () => {
       expect([near, far, needle].filter(enemy => s.farm.pulls(enemy)).map(enemy => enemy.campName), `pull ${pullCamps}`).toEqual(expected);
       expect(s.farm.pullAvailable()).toBe(pullCamps > 0);
     }
+  });
+
+  it("Pull brings only as many as the build farms standing: a mob it cannot tank comes a few at a time, to be kited", () => {
+    const stats = (maxHp: number, regen: number) => () => ({ power: 1, stats: { maxHp, regen, armor: 0, damage: 10, attackRate: 1 } });
+    const pulled = (maxHp: number, regen: number, dps: number) => {
+      const s = setup({ evaluate: stats(maxHp, regen), farmDps: () => dps });
+      s.player.maxHp = s.player.hp = maxHp;
+      const mob = Array.from({ length: 10 }, (_, index) => s.add('Bramble', 700 + index * 120, 500, 'camp'));
+      s.farm.setPullAll(true);
+      s.farm.start([health]);
+      return mob.filter(enemy => s.farm.pulls(enemy));
+    };
+    // Ten Brambles (14 a blow, one a second, 42 health each): a build that tanks them all pulls them all...
+    expect(pulled(10_000, 100, 500)).toHaveLength(10);
+    // ...a fragile one only the nearest few, at least one.
+    const few = pulled(200, 0, 20);
+    expect(few.length).toBeGreaterThanOrEqual(1);
+    expect(few.length).toBeLessThan(10);
+    expect(few[0].x).toBe(700);
   });
 
   it("with sliders, Pull's extra camps per win are the next largest sliders after the farmed one", () => {

@@ -26,6 +26,12 @@ import { createRespawnMemory } from '../respawn-memory';
 import { createBossFightMemory } from '../boss-fight-memory';
 import { createResearchController } from '../research-controller';
 import { createAutoFarmController, type AutoFarmController } from '../auto-farm-controller';
+import type { KiteTuning } from '../auto-farm-dodge';
+import { AUTO_FARM_PULL_KEY, farmGroupOf } from '../auto-farm-priority';
+import { isEnemyAttackingPlayer } from '../enemy-threat';
+import { chaseDamage } from '../auto-farm-kite-model';
+import { enemyChaseSpeed } from '../../../../shared/rules';
+import { damageAfterArmor } from '../../../../shared/combat';
 import { createAutoFarmProgress, farmMapRank } from '../auto-farm-build';
 import { createPowerGainMeter, type FarmPush } from '../auto-farm-brain';
 import { applyMapBalance } from '../map-balance-loader';
@@ -53,6 +59,7 @@ import type { BowSkillRoll } from '../../../../shared/bow-skills';
 import type { PlayerPowerStats } from '../../../../shared/player-power';
 import { AUTO_FARM_ADVANCE_KEY } from '../auto-farm-plan';
 import { AUTO_FARM_PUSH_KEY } from '../auto-farm-brain';
+import { createGrowthContextSource } from '../auto-farm-growth';
 
 export const SIM_STEP_SECONDS = 1 / 60;
 const STEP_MS = 1000 / 60;
@@ -86,6 +93,16 @@ export type VirtualPlayerProfile = {
   advance: boolean;
   /** The Reflect Only prestige challenge. */
   reflectOnly?: boolean;
+  /** The kite's tuning, for comparing kites (the game's defaults otherwise). */
+  kite?: Partial<KiteTuning>;
+  /** "Pull Whole Group": the farmed group comes for the player as it spawns. */
+  pull?: boolean;
+  /** An Aggro run: this many of the map's groups chase the player from arrival (Pull is off during one). */
+  aggro?: number;
+  /** False: autofarm without the growth planner (auto-farm-growth.ts), as it was before it. */
+  growth?: boolean;
+  /** The growth planner's tuning, for comparing it (the game's defaults otherwise). */
+  growthTuning?: Partial<import('../auto-farm-growth').GrowthTuning>;
 };
 
 export type BossDuelSetup = {
@@ -95,7 +112,9 @@ export type BossDuelSetup = {
   playerShare: number;
 };
 
-type Sample = { t: number; map: string; power: number; phase: string; selected: string | null; hp: number; status: string; bossStatus: string };
+type Sample = { t: number; map: string; power: number; phase: string; selected: string | null; hp: number; status: string; bossStatus: string;
+  /** The growth planner's forecast for what it was doing (power a minute), this map's best option, and its calibration. */
+  forecast?: { doing: number | null; best: number; mode: string | null; group: string | null; damage: number; incoming: number } };
 type MapVisit = { map: string; from: number; to: number | null; entryPower: number; exitPower: number | null; deaths: number; reason: string };
 type DeathEvent = { t: number; map: string; phase: string; selected: string | null; probation: boolean; afterBossLeave: boolean;
   /** What happened in the last 15 s: health shares taken by source, and the biggest single hit. */
@@ -104,6 +123,30 @@ type BossAttempt = { t: number; map: string; power: number; end: number | null; 
   bossShareStart: number; playerShareStart: number; bossShareEnd: number | null; playerShareEnd: number | null; fightSeconds: number; base?: PlayerPowerStats;
   /** For a walk-away: the same fight fought on to the end (bossDuel). */
   foughtOn?: { won: boolean; seconds: number; bossShare: number } };
+/**
+ * How the fighting went: hits taken (and how much of the player's health they
+ * took, in max-health shares), shots fired, and the seconds alive, with a
+ * target in range (shooting), and kiting. `landed` counts hits on regular
+ * enemies: each arrow (and skill arrow) that lands, reflected hits aside, and
+ * the rare boss attack that catches an enemy.
+ */
+type Combat = {
+  /** Kills of elites, of enemies on a regen camp, and of the rest; and arrows landed on each (a fight kiting keeps it in, or not). */
+  killsBy: Record<string, number>; landedBy: Record<string, number>;
+  hits: Record<string, number>; taken: Record<string, number>; shots: number; landed: number; aliveSeconds: number; shootingSeconds: number; kitingSeconds: number;
+  /**
+   * The kite model checked against the fight: for each thing the kite did with
+   * melee enemies chasing (circling, backing off, standing), the seconds, the
+   * melee blows landed and health they took, and the blows the model predicts
+   * (auto-farm-kite-model.ts chaseDamage, from the chasers within 160 of the player's edge).
+   */
+  modes: Record<string, { seconds: number; hits: number; taken: number; predicted: number; predictedTaken: number }> };
+/**
+ * Enemies woken by walking near them (not by a shot, a pull or an Aggro run),
+ * one per camp woken at once: of the farmed group or a camp already fighting
+ * (own), or any other camp, and of those, how many while kiting or dodging.
+ */
+type Wakes = { own: number; other: number; otherKiting: number; otherCamps: Record<string, number> };
 type Travel = { t: number; from: string; to: string; direction: 'forward' | 'back'; power: number; why: string; previousRate: number | null; rateHere: number | null };
 
 export type VirtualPlayerReport = {
@@ -127,6 +170,8 @@ export type VirtualPlayerReport = {
   endPower: number;
   endMap: string;
   autofarmStopped: { t: number; status: string }[];
+  combat: Combat;
+  wakes: Wakes;
 };
 
 function mulberry32(seed: number) {
@@ -174,6 +219,7 @@ export function createVirtualPlayer(profile: VirtualPlayerProfile, options: { du
   const storage = memoryStorage();
   storage.setItem(AUTO_FARM_ADVANCE_KEY, profile.advance ? '1' : '0');
   storage.setItem(AUTO_FARM_PUSH_KEY, profile.push);
+  storage.setItem(AUTO_FARM_PULL_KEY, profile.pull ? '1' : '0');
 
   const bootstrap = createGameBootstrap();
   const { bosses, bossHazards, enemies, spawnSites, player, projectileStore, inventory } = bootstrap;
@@ -258,11 +304,40 @@ export function createVirtualPlayer(profile: VirtualPlayerProfile, options: { du
   });
   /** Damage taken lately, by what dealt it, as shares of max health: why each death happened. */
   let hits: { at: number; kind: string; share: number }[] = [];
+  const combat: Combat = { killsBy: {}, landedBy: {}, modes: {}, hits: {}, taken: {}, shots: 0, landed: 0, aliveSeconds: 0, shootingSeconds: 0, kitingSeconds: 0 };
+  /** Inside a hit on the player: the combat callback it fires is not a shot. */
+  let dealing = false;
   function taken<T>(kind: string, deal: () => T) {
-    const before = player.hp;
-    const result = deal();
-    if (player.hp < before && player.maxHp > 0) hits.push({ at: clock.ms, kind, share: (before - Math.max(0, player.hp)) / player.maxHp });
+    const before = player.hp, outer = dealing;
+    dealing = true;
+    let result: T;
+    try { result = deal(); } finally { dealing = outer; }
+    if (player.hp < before && player.maxHp > 0) {
+      const share = (before - Math.max(0, player.hp)) / player.maxHp;
+      hits.push({ at: clock.ms, kind, share });
+      combat.hits[kind] = (combat.hits[kind] ?? 0) + 1;
+      combat.taken[kind] = (combat.taken[kind] ?? 0) + share;
+      if (kind === 'regular' || kind === 'elite') { const mode = modeNow(); mode.hits++; mode.taken += share; }
+    }
     return result;
+  }
+  const modeNow = () => combat.modes[autoFarm.kiteState().mode] ??= { seconds: 0, hits: 0, taken: 0, predicted: 0, predictedTaken: 0 };
+  const enemyKind = (enemy: typeof enemies[number]) => { const definition = enemy.definition ?? ENEMY_TYPES[enemy.type]; return definition.elite ? 'elite' : definition.regen ? 'regen' : 'regular'; };
+  const wakes: Wakes = { own: 0, other: 0, otherKiting: 0, otherCamps: {} };
+  /** The enemy simulation's own aggro: an enemy woken by the player walking near it. */
+  function proximityEngage(enemy: typeof enemies[number], targetId?: string | null, startedAtTick?: number) {
+    if (!enemy.engaged && !autoFarm.pulls(enemy) && !autoFarm.forced(enemy)) {
+      const state = autoFarm.state();
+      const own = (state.phase === 'farm' && state.selected === farmGroupOf(enemy))
+        || enemies.some(other => other !== enemy && other.campName === enemy.campName && isEnemyAttackingPlayer(other, identity));
+      if (own) wakes.own++;
+      else {
+        wakes.other++;
+        wakes.otherCamps[`${currentMapId}|${enemy.campName}`] = (wakes.otherCamps[`${currentMapId}|${enemy.campName}`] ?? 0) + 1;
+        if (/Kiting|Dodging/.test(state.status)) wakes.otherKiting++;
+      }
+    }
+    engageEnemy(enemy, targetId, startedAtTick);
   }
   const proceduralBoss = createProceduralBossController({
     mapId: () => currentMapId, state: mapId => ({ ready: true, completed: endlessCompleted, boss: personalBosses.proceduralState(mapId) }),
@@ -272,7 +347,7 @@ export function createVirtualPlayer(profile: VirtualPlayerProfile, options: { du
     collideEnemies: boss => playerCombat.pushEnemiesFromBoss(boss), burst: noop, shot: projectileStore.spawnEnemyShot,
   });
   const enemySimulation = createEnemySimulation(enemies, projectileStore.spawnEnemyShot, player,
-    () => ({ width: 1280, height: 720, zoom: 1 }), engageEnemy,
+    () => ({ width: 1280, height: 720, zoom: 1 }), proximityEngage,
     (amount, source) => taken(source?.generatedBoss ? 'boss' : source && (source.definition ?? ENEMY_TYPES[source.type])?.elite ? 'elite' : 'regular',
       () => playerCombat.damagePlayer(amount, source)), {
       currentMapId: () => currentMapId, serverNowMs: () => clock.ms, localIdentity: () => identity,
@@ -328,8 +403,27 @@ export function createVirtualPlayer(profile: VirtualPlayerProfile, options: { du
     collideEnemies: boss => playerCombat.pushEnemiesFromBoss(boss),
   });
 
+  /** The growth planner's inputs, wired as main.ts wires them; the maps either side priced from their balance at once. */
+  const growthContext = createGrowthContextSource({
+    player, weapon, research: () => research, upgradeLevel: () => 0, spawnSites, mapId: () => currentMapId, gameTime: () => gameTime,
+    equipment: () => ({ equippedHead: inventory.equippedHead, equippedChest: inventory.equippedChest, equippedRightHand: inventory.equippedRightHand, equippedLeftHand: inventory.equippedLeftHand }),
+    rewardMultiplier: () => researchController.rewardMultiplier(), minAttackInterval, criticalChance: () => researchController.criticalChance(),
+    criticalMultiplier: () => researchController.criticalDamageMultiplier(), moveSpeed: () => player.speed * movementMultiplier(),
+    bowSkills: () => profile.bowSkills, perks: () => perks, reflectOnly: () => Boolean(profile.reflectOnly),
+    arrival: mapId => mapConfig[mapId as MapId]?.arrival ?? { x: 0, y: 0 },
+    currentBalance: () => runtimeMapBalance(currentMapId), balance: mapId => balanceOf(mapId),
+    nextPortal: () => farmProgress.nextPortal(), previousPortal: () => farmProgress.previousPortal(),
+  });
+  const balances = new Map<string, ReturnType<typeof resolveMapBalance>>();
+  function balanceOf(mapId: string) {
+    let snapshot = balances.get(mapId);
+    if (!snapshot) { snapshot = resolveMapBalance(mapId, LIVE_BALANCE.settings, LIVE_BALANCE.revision); balances.set(mapId, snapshot); }
+    return snapshot;
+  }
+
   autoFarm = createAutoFarmController({
-    player, enemies, spawnSites, mapId: () => currentMapId, pullCamps: () => 1, forcedGroups: () => null,
+    player, enemies, spawnSites, mapId: () => currentMapId, pullCamps: () => profile.aggro ? 0 : 1,
+    forcedGroups: () => profile.aggro ? { groups: [], needed: profile.aggro } : null,
     enemyShots: projectileStore.enemyShots, bossDps: () => playerCombat.expectedBossDps(),
     bossDanger: (x, y, pad) => Math.min(bossController.forMap(currentMapId)?.danger(x, y, pad) ?? Infinity, proceduralBoss.danger(x, y, pad)),
     equippedWeapon: weapon, localIdentity: () => identity, now: () => clock.ms - SIM_EPOCH_MS,
@@ -347,10 +441,13 @@ export function createVirtualPlayer(profile: VirtualPlayerProfile, options: { du
       return obstacles;
     },
     ...farmProgress,
+    kite: profile.kite,
+    growth: profile.growth === false ? undefined : () => running ? growthContext() : null,
+    growthTuning: profile.growthTuning,
   });
 
   playerCombat = createPlayerCombatController({
-    player, enemies, spawnSites, projectileStore, bosses, random,
+    player, enemies, spawnSites, projectileStore, bosses, random, keepTarget: () => autoFarm.circling(),
     nowSeconds: () => gameTime, serverNowMs: () => clock.ms, localIdentity: () => identity,
     engageEnemy: enemy => engageEnemy(enemy, identity || LOCAL_REGULAR_ENEMY_TARGET_ID, regularEnemySimulationTick(clock.ms)),
     researchDamageMultiplier: researchController.damageMultiplier,
@@ -372,8 +469,16 @@ export function createVirtualPlayer(profile: VirtualPlayerProfile, options: { du
       regularEnemyRespawn.schedule(site);
       respawnMemory.remember(enemyRespawnKey(site), (site.respawnAt - gameTime) * 1000);
     },
-    recordRegularEnemyDefeat: () => { kills += 1; }, incrementKills: noop,
-    currentMapId: () => currentMapId, spawnBurst: noop, spawnParticle: noop, spawnDamageNumber: noop,
+    recordRegularEnemyDefeat: () => { kills += 1; autoFarm.killed(); }, incrementKills: noop,
+    currentMapId: () => currentMapId, spawnBurst: noop, spawnParticle: noop,
+    spawnDamageNumber: (x, y, _amount, _critical, damageTaken, reflected) => {
+      if (damageTaken || reflected) return;
+      combat.landed++;
+      const struck = enemies.find(enemy => enemy.x === x && enemy.y === y);
+      if (struck) { const kind = enemyKind(struck); combat.landedBy[kind] = (combat.landedBy[kind] ?? 0) + 1; }
+    },
+    onCombat: () => { if (!dealing) combat.shots++; },
+    onEnemyDefeated: enemy => { const kind = enemyKind(enemy); combat.killsBy[kind] = (combat.killsBy[kind] ?? 0) + 1; return false; },
     logPickup: noop, saveProgress: noop, recordDeath: noop,
     endGame: () => {
       // session.end() -> showGameOver: the farm hears of it at once; the death screen respawns later.
@@ -438,7 +543,7 @@ export function createVirtualPlayer(profile: VirtualPlayerProfile, options: { du
   const report: VirtualPlayerReport = {
     name: profile.name, simSeconds: 0, wallMs: 0, samples: [], visits: [], deaths: [], bossAttempts: [], travels: [],
     activity: {}, groups: {}, statuses: {}, bossStatuses: {}, kills: 0, stuck: [], startPower, endPower: startPower, endMap: currentMapId,
-    autofarmStopped: [],
+    autofarmStopped: [], combat, wakes,
   };
   const t = () => (clock.ms - SIM_EPOCH_MS) / 1000;
   let visit: MapVisit = { map: currentMapId, from: 0, to: null, entryPower: startPower, exitPower: null, deaths: 0, reason: 'start' };
@@ -507,6 +612,23 @@ export function createVirtualPlayer(profile: VirtualPlayerProfile, options: { du
       report.bossAttempts.push(attempt);
     }
     if (attempt && activity === 'boss-fight') attempt.fightSeconds += seconds;
+    if (running) {
+      combat.aliveSeconds += seconds;
+      if (player.combatFacing !== null) combat.shootingSeconds += seconds;
+      if (status === 'Kiting') combat.kitingSeconds += seconds;
+      const kite = autoFarm.kiteState();
+      if (kite.mode !== 'none') {
+        const speed = player.speed * movementMultiplier(), armor = researchController.effectiveArmor();
+        const near = enemies.filter(enemy => !enemy.dead && !enemy.generatedBoss && isEnemyAttackingPlayer(enemy, identity) && !(enemy.definition ?? ENEMY_TYPES[enemy.type]).ranged
+          && Math.hypot(enemy.x - player.x, enemy.y - player.y) - enemy.r - player.r < 160);
+        const model = chaseDamage({ chasers: near.map(enemy => ({ damage: damageAfterArmor(enemy.damage, armor), attackSpeed: (enemy.definition ?? ENEMY_TYPES[enemy.type]).attackSpeed, hp: enemy.hp, r: enemy.r })),
+          speed, chaseSpeed: enemyChaseSpeed(205, speed), playerR: player.r, holds: kite.holds });
+        const mode = modeNow(), standing = kite.mode === 'stand';
+        mode.seconds += seconds;
+        mode.predicted += (standing ? model.standingHits : model.kitedHits) * seconds;
+        mode.predictedTaken += (standing ? model.standing : model.kited) / Math.max(1, player.maxHp) * seconds;
+      }
+    }
     if (attempt && running && state.phase !== 'boss') {
       if (!bossAlive()) closeAttempt('won');
       else if (state.phase === 'farm') { lastBossLeaveAt = t(); closeAttempt('walked'); }
@@ -584,8 +706,11 @@ export function createVirtualPlayer(profile: VirtualPlayerProfile, options: { du
       if (clock.ms >= nextSample) {
         nextSample += 10_000;
         const state = autoFarm.state();
+        const growth = autoFarm.growthPlan(), plan = growth?.plan;
         report.samples.push({ t: Math.round(t()), map: currentMapId, power: power(), phase: state.phase, selected: state.selected,
-          hp: player.maxHp > 0 ? player.hp / player.maxHp : 0, status: state.status, bossStatus: autoFarm.bossStatus() });
+          hp: player.maxHp > 0 ? player.hp / player.maxHp : 0, status: state.status, bossStatus: autoFarm.bossStatus(),
+          ...growth ? { forecast: { doing: plan?.doing?.powerPerMinute ?? null, best: plan?.current.powerPerMinute ?? 0, mode: plan?.current.mode ?? null,
+            group: plan?.group ?? null, damage: growth.calibration.damage, incoming: growth.calibration.incoming } } : {} });
       }
       if (onProgress && clock.ms >= nextProgress) { nextProgress += 1_800_000; report.simSeconds = t(); onProgress(report); }
       if (options.duel && (!bossAlive() || report.deaths.length)) break;

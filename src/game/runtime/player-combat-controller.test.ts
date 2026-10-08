@@ -667,8 +667,8 @@ it('passes Endless critical damage and the critical flag to its hit display', ()
 describe("autofarm target priority", () => {
   // Three of one type in range: nearest at full health, a wounded one further
   // out, and a tougher one furthest away.
-  function harness() {
-    const state = createCombatHarness();
+  function harness(overrides: Parameters<typeof createCombatHarness>[0] = {}) {
+    const state = createCombatHarness(overrides);
     state.bosses.dragon.dead = true;
     state.enemies.length = 0;
     const lifecycle = createEnemyLifecycle(state.enemies, state.spawnSites, () => {});
@@ -699,6 +699,25 @@ describe("autofarm target priority", () => {
     h.near.hp = 5;
     h.state.controller.attackNearest(h.near.type, null, "lowest");
     expect(aimedAt(h.state, h.wounded)).toBe(true);
+  });
+
+  it("while autofarm circles, keeps the nearest target until it dies or leaves range, though moving brings another nearer", () => {
+    for (const keep of [false, true]) {
+      let now = 0;
+      const h = harness({ keepTarget: () => keep, nowSeconds: () => now });
+      h.state.controller.attackNearest(h.near.type, null, "closest");
+      expect(aimedAt(h.state, h.near)).toBe(true);
+      // Circling carries the player round: the wounded one is now far nearer.
+      h.state.player.y -= 70;
+      now += 1;
+      h.state.controller.attackNearest(h.near.type, null, "closest");
+      expect(aimedAt(h.state, h.near), `keep ${keep}`).toBe(keep);
+      // Out of range, the next nearest after all.
+      h.near.x += 400;
+      now += 1;
+      h.state.controller.attackNearest(h.near.type, null, "closest");
+      expect(aimedAt(h.state, h.wounded), `keep ${keep}`).toBe(true);
+    }
   });
 
   // An Aggro run: every chasing group comes at once, with no farmed group to aim by.

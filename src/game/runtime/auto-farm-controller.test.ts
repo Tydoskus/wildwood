@@ -5,7 +5,6 @@ import { createGameBootstrap } from './game-bootstrap';
 import { createEnemyLifecycle } from './enemy-lifecycle';
 import { createAutoFarmController, autoFarmStandoff, AUTO_FARM_DEFEAT_LIMIT, AUTO_FARM_DEFEAT_WINDOW_MS, AUTO_FARM_REACH_MARGIN, PULL_WAIT_SECONDS } from './auto-farm-controller';
 import { AUTO_FARM_RETRY_KEY } from './auto-farm-brain';
-import { KITE_GAP } from './auto-farm-dodge';
 import { createEnemySimulation } from './enemy-simulation';
 import { attackRangeWithResearch } from '../../../shared/utility-research';
 import { createAutoFarmResumeStore } from '../../app/auto-farm-resume';
@@ -620,6 +619,32 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     expect(s.farm.state().phase).toBe('boss');
   });
 
+  it('before any fight, farms what makes the boss ready (its damage), not the most power, and goes once it projects a win', () => {
+    const boss = { x: 2_500, y: 500, r: 60, hp: 1_000, maxHp: 1_000 };
+    let dps = .5;
+    // A health kill is worth the most power; a damage kill is what the boss asks for.
+    const evaluate = (reward?: FarmReward) => ({ power: 100 + (reward?.type === 'health' ? 10 : reward?.type === 'damage' ? 1 : 0),
+      stats: { damage: 10 + (reward?.type === 'damage' ? 5 : 0), attackRate: 1, maxHp: 1_000 + (reward?.type === 'health' ? 100 : 0), armor: 0, regen: 0 } });
+    const s = planned({ evaluate, farmDps: () => 1e9, mapBoss: () => boss, bossUnlocksNext: () => true, bossDps: () => dps });
+    s.add('Bramble', 500, 900);
+    s.add('Spitter', 560, 1_100);
+    s.farm.setAdvance(true);
+    s.farm.start([]);
+    s.tick();
+    expect(s.farm.state()).toMatchObject({ phase: 'farm', selected: `stat:${ENEMY_TYPES.Spitter.reward.type}` });
+    // Without the boss to beat (advance off) it farms the most power, as before.
+    s.farm.setAdvance(false);
+    s.advance(60_000);
+    s.farm.start([]);
+    s.tick();
+    expect(s.farm.state().selected).toBe(`stat:${ENEMY_TYPES.Bramble.reward.type}`);
+    // Ready: it goes.
+    s.farm.setAdvance(true);
+    dps = 10;
+    s.advance(1_000); s.tick();
+    expect(s.farm.state().phase).toBe('boss');
+  });
+
   it('turns back from a walk to the boss that the camps on the way are winning, and measures nothing by it', () => {
     const boss = { x: 2_500, y: 500, r: 60, hp: 1_000, maxHp: 1_000 };
     const s = planned({ mapBoss: () => boss });
@@ -902,7 +927,7 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     }
   });
 
-  it("with a bow, backs away from a melee enemy closing in and keeps it in reach; never with a sword or in Reflect Only", () => {
+  it("with a bow, circles a melee enemy closing in and keeps it in reach; never with a sword or in Reflect Only", () => {
     for (const [weapon, reflectOnly, kites] of [['starter_bow', false, true], ['wooden_sword', false, false], ['starter_bow', true, false]] as const) {
       const s = planned({ equippedWeapon: () => weapon, reflectOnly: () => reflectOnly });
       const mob = s.add('Bramble', 540, 500);
@@ -911,23 +936,41 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
       s.tick();
       expect(s.farm.state().status === 'Kiting', `${weapon} ${reflectOnly}`).toBe(kites);
       if (kites) {
-        // The enemy stands still here: it opens room, and stays in reach of it.
+        // It runs a circle round where the fight is, never once stopping: the enemy chasing it never lands a blow, and stays in reach.
+        let hits = 0, clock = 0, still = 0, furthest = 0;
+        const start = { x: s.player.x, y: s.player.y };
+        const simulation = createEnemySimulation(s.enemies, () => {}, s.player, () => ({ width: 1200, height: 800, zoom: 1 }),
+          createEnemyLifecycle(s.enemies, s.spawnSites, () => {}).engageEnemy, () => { hits++; return true; },
+          { playerMovementSpeed: () => 300, serverNowMs: () => clock, localIdentity: () => 'me', currentMapId: () => 'forest' });
+        for (let frame = 0; frame < 600; frame++) {
+          const step = s.tick();
+          if (!step.x && !step.y) still++;
+          s.player.x += step.x * 5; s.player.y += step.y * 5;
+          simulation.update(1 / 60);
+          clock += 1000 / 60;
+          furthest = Math.max(furthest, Math.hypot(s.player.x - start.x, s.player.y - start.y));
+          expect(Math.hypot(s.player.x - mob.x, s.player.y - mob.y)).toBeLessThanOrEqual(200);
+        }
+        expect(still).toBe(0);
+        expect(hits).toBeLessThanOrEqual(1);
+        expect(s.farm.state().status).toBe('Kiting');
+        expect(furthest).toBeLessThan(400);
+      } else {
         walk(s, .5);
-        const gap = Math.hypot(s.player.x - mob.x, s.player.y - mob.y);
-        expect(gap - mob.r - s.player.r).toBeGreaterThan(KITE_GAP);
-        expect(gap).toBeLessThanOrEqual(200);
+        expect(s.farm.state().status, `${weapon} ${reflectOnly}`).not.toBe('Kiting');
       }
     }
-    // One whose blows barely scratch is left to them at full health; once hurt at all, it is kited too.
+    // One whose blows regeneration more than puts back is left to them: standing costs nothing. Once they out-hit it, it is kited.
     const scratch = planned();
     const weak = scratch.add('Bramble', 540, 500);
     weak.engaged = true;
-    Object.assign(scratch.player, { maxHp: weak.damage * 100, hp: weak.damage * 100 });
+    scratch.player.regen = weak.damage * 2;
     scratch.farm.start([health]);
     scratch.tick();
     expect(scratch.farm.state().status).not.toBe('Kiting');
-    scratch.player.hp -= 1;
-    // It looks again a few frames on.
+    scratch.player.regen = weak.damage / 4;
+    // It looks again a few frames on (the build is read twice a second).
+    scratch.advance(600);
     for (let frame = 0; frame < 12; frame++) scratch.tick();
     expect(scratch.farm.state().status).toBe('Kiting');
     // A ranged enemy is shot from where it stands, not kited.
@@ -936,6 +979,39 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     archer.farm.start([`stat:${ENEMY_TYPES.Brood.reward.type}`]);
     archer.tick();
     expect(archer.farm.state().status).not.toBe('Kiting');
+  });
+
+  it("circles clear of other camps, where it is fought: backing straight off is caught again and again, far across the map", () => {
+    for (const mode of ['circle', 'back-off'] as const) {
+      const s = planned({ kite: { mode } });
+      Object.assign(s.player, { x: 1_500, y: 1_500 });
+      // A Bramble chasing from the east; another camp's Needle to the north, just outside its aggro, and one to the west.
+      const mob = s.add('Bramble', 1_600, 1_500);
+      mob.engaged = true;
+      const north = s.add('Needle', 1_500, 1_160), west = s.add('Needle', 1_160, 1_500);
+      s.farm.start([health]);
+      let clock = 0, hits = 0;
+      const simulation = createEnemySimulation(s.enemies, () => {}, s.player, () => ({ width: 1200, height: 800, zoom: 1 }),
+        createEnemyLifecycle(s.enemies, s.spawnSites, () => {}).engageEnemy, () => { hits++; return true; },
+        { playerMovementSpeed: () => 300, serverNowMs: () => clock, localIdentity: () => 'me', currentMapId: () => 'forest' });
+      for (let frame = 0; frame < 900; frame++) {
+        const step = s.tick();
+        s.player.x += step.x * 5; s.player.y += step.y * 5;
+        simulation.update(1 / 60);
+        clock += 1000 / 60;
+      }
+      const travelled = Math.hypot(s.player.x - 1_500, s.player.y - 1_500);
+      if (mode === 'circle') {
+        expect(north.engaged || north.leashing, 'north').toBe(false);
+        expect(west.engaged || west.leashing, 'west').toBe(false);
+        expect(hits).toBeLessThanOrEqual(1);
+        expect(travelled).toBeLessThan(300);
+      } else {
+        // Backing off (the fallback with no safe circle) outruns nothing: it is caught again and again, far across the map.
+        expect(hits).toBeGreaterThan(2);
+        expect(travelled).toBeGreaterThan(1_000);
+      }
+    }
   });
 
   it("stands within reach of a campaign boss's hitbox, and of an Endless boss's centre", () => {

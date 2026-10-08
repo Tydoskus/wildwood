@@ -25,6 +25,21 @@ import type { EnemyState, PlayerState } from "./types";
 
 const FULL_SIMULATION_MARGIN = 220;
 export const LOCAL_REGULAR_ENEMY_TARGET_ID = "local-player";
+/**
+ * How quickly a chasing enemy turns: its velocity eases toward the player at
+ * this rate a second, so a player who keeps turning stays a step ahead of it.
+ */
+export const ENEMY_CHASE_TURN_RATE = 6;
+
+/** How near a player's centre must come to an enemy not yet fighting to wake it. */
+export function regularEnemyAggroRadius(enemy: Pick<EnemyState, "type" | "definition" | "aggroRadius">) {
+  const base = (enemy.definition ?? ENEMY_TYPES[enemy.type]);
+  // Melee: 225 for a regular, 300 for an elite. Ranged keep theirs.
+  if (!base.ranged) return base.elite ? 300 : 225;
+  return base.elite
+    ? enemy.aggroRadius
+    : Math.max(0, BASE_ATTACK_RANGE - REGULAR_ENEMY_AGGRO_PADDING);
+}
 
 function recoverySpeed(enemy: EnemyState, chaseSpeed: number) {
   const minimum = Math.min(chaseSpeed, ENEMY_HIT_MIN_MOVE_SPEED);
@@ -90,18 +105,9 @@ export function createEnemySimulation(
     return shared.localIdentity?.() || LOCAL_REGULAR_ENEMY_TARGET_ID;
   }
 
-  function regularAggroRadius(enemy: EnemyState) {
-    const base = (enemy.definition ?? ENEMY_TYPES[enemy.type]);
-    // Melee: 225 for a regular, 300 for an elite. Ranged keep theirs.
-    if (!base.ranged) return base.elite ? 300 : 225;
-    return base.elite
-      ? enemy.aggroRadius
-      : Math.max(0, BASE_ATTACK_RANGE - REGULAR_ENEMY_AGGRO_PADDING);
-  }
-
   function regularRetainRadius(enemy: EnemyState) {
     const authoredLeash = enemy.leashRange;
-    const base = regularEnemyAggroRetainRadius(regularAggroRadius(enemy), authoredLeash);
+    const base = regularEnemyAggroRetainRadius(regularEnemyAggroRadius(enemy), authoredLeash);
     // A runner opens a temporary gap while a newly alerted enemy accelerates.
     // Keep that gap inside the leash so the enemy gets to reach chase speed.
     const playerSpeed = shared.playerMovementSpeed?.() ?? 0;
@@ -140,7 +146,7 @@ export function createEnemySimulation(
     if (ranged) direction = distance > rangedEnemyHoldBand(player.attackRange, player.r + enemy.r + 4).approachAbove ? 1 : 0;
     // Exponential easing makes authored speed the actual cruising speed at
     // both low and high frame rates, instead of acceleration/damping overshoot.
-    const blend = 1 - Math.exp(-6 * dt);
+    const blend = 1 - Math.exp(-ENEMY_CHASE_TURN_RATE * dt);
     enemy.vx += (dx / distance * currentMoveSpeed * direction - enemy.vx) * blend;
     enemy.vy += (dy / distance * currentMoveSpeed * direction - enemy.vy) * blend;
     if (Math.abs(dx) > .5) enemy.facingX = dx < 0 ? -1 : 1;
@@ -229,7 +235,7 @@ export function createEnemySimulation(
           enemy,
           base,
           ambient,
-          acquireRadius: regularAggroRadius(enemy),
+          acquireRadius: regularEnemyAggroRadius(enemy),
           engagementTick: serverTick,
           statsFor: shared.remoteCombatStats ?? (() => null),
         });
@@ -259,7 +265,7 @@ export function createEnemySimulation(
         const selected = selectRegularEnemyAggroTarget({
           enemyX: enemy.x,
           enemyY: enemy.y,
-          acquireRadius: pulled ? Number.POSITIVE_INFINITY : regularAggroRadius(enemy),
+          acquireRadius: pulled ? Number.POSITIVE_INFINITY : regularEnemyAggroRadius(enemy),
           retainRadius: pulled ? Number.POSITIVE_INFINITY : regularRetainRadius(enemy),
           currentTargetId: enemy.engaged ? enemy.aggroTargetId : null,
           candidates: [localCandidate],
