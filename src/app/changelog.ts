@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.16": [
+    "Open the autofarm window while farming: it keeps going, and shows when it will move on or fight the boss. Stop ends it, Done keeps it going",
+    "64 new profile pictures: a third object sheet",
+  ],
   "0.901.15": [
     "Autofarm does only what its controls say: Move At and Fight At sliders (0.1x to 10x), no retries and no stepping back after deaths",
     "Move On and Fight Bosses work in Endless too, with each stage's power",
@@ -3025,6 +3029,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.16": "2026-10-08",
   "0.901.15": "2026-10-08",
   "0.901.14": "2026-10-08",
   "0.901.13": "2026-10-08",
