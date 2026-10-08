@@ -1,13 +1,20 @@
-import { PROFILE_ICON_GRID, PROFILE_ICON_SHEETS, profileIconLocation } from "../../shared/profile-icons";
+import { PROFILE_ICON_BACKGROUND_COLORS, PROFILE_ICON_GRID, PROFILE_ICON_SHEETS, profileIconLocation } from "../../shared/profile-icons";
 import { OBJECT_ATLAS_SIZE, containedIconRect, objectIconCrop } from "./profile-icon-crops";
 
 const ZOOM = 1.03;
 const POSITION_STEP = ZOOM / (PROFILE_ICON_GRID * ZOOM - 1) * 100;
 const POSITION_START = (ZOOM - 1) / 2 / (PROFILE_ICON_GRID * ZOOM - 1) * 100;
 
+/**
+ * Paints a saved profile icon (picture and backdrop) into any portrait element.
+ * The backdrop is set here, inline, because the sheets are transparent and the
+ * portraits' own stylesheets (chat, guild, shop, leaderboard) differ.
+ */
 export function applyProfileIcon(element: HTMLElement, iconIndex: number) {
   const icon = profileIconLocation(iconIndex);
   element.dataset.profileIcon = String(icon.index);
+  element.dataset.profileBackground = icon.background;
+  element.style.backgroundColor = PROFILE_ICON_BACKGROUND_COLORS[icon.background];
   const crop = icon.category === "objects" ? objectIconCrop(icon.path, icon.cell) : undefined;
   let art = element.querySelector<HTMLElement>(":scope > .profile-icon-art");
   element.classList.toggle("profile-icon-cropped", Boolean(crop));
@@ -41,8 +48,10 @@ export function createProfileIconCanvasPainter(onSheetLoaded: () => void) {
   return (canvas: HTMLCanvasElement, iconIndex: number) => {
     const context = canvas.getContext("2d");
     if (!context) return;
-    context.clearRect(0, 0, canvas.width, canvas.height);
     const icon = profileIconLocation(iconIndex);
+    // The backdrop is painted even before the sheet loads, as the DOM portraits' is.
+    context.fillStyle = PROFILE_ICON_BACKGROUND_COLORS[icon.background];
+    context.fillRect(0, 0, canvas.width, canvas.height);
     let sheet = sheets.get(icon.sheetIndex);
     if (!sheet) {
       sheet = new Image(); sheets.set(icon.sheetIndex, sheet);

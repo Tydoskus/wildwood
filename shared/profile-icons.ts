@@ -2,21 +2,52 @@ export type ProfileIconCategory = "people" | "objects";
 export const PROFILE_ICON_GRID = 8;
 export const PROFILE_ICONS_PER_SHEET = PROFILE_ICON_GRID ** 2;
 // Append sheets so every previously saved icon keeps its original appearance.
+// The sheets are transparent (scripts/art/profile-icon-alpha.mjs) so the chosen
+// backdrop shows behind each picture. The flattened sheets they were made from
+// stay in public/ under the old names for clients that predate the backdrop.
 export const PROFILE_ICON_SHEETS = [
-  { path: "assets/wildstat/profile-portraits-grid-v2.webp", category: "people" },
-  { path: "assets/wildstat/profile-portraits-varied-v1.webp", category: "people" },
-  { path: "assets/wildstat/profile-objects-grid-v1.webp", category: "objects" },
-  { path: "assets/wildstat/profile-objects-grid-v2.webp", category: "objects" },
+  { path: "assets/wildstat/profile-portraits-grid-v2-alpha.webp", category: "people" },
+  { path: "assets/wildstat/profile-portraits-varied-v1-alpha.webp", category: "people" },
+  { path: "assets/wildstat/profile-objects-grid-v1-alpha.webp", category: "objects" },
+  { path: "assets/wildstat/profile-objects-grid-v2-alpha.webp", category: "objects" },
 ] as const;
 export const PROFILE_ICON_COUNT = PROFILE_ICON_SHEETS.length * PROFILE_ICONS_PER_SHEET;
-export const isValidProfileIcon = (value: number) => Number.isInteger(value) && value >= 0 && value < PROFILE_ICON_COUNT;
+
+/**
+ * A saved profile icon is one u32: the picture's index in its low 16 bits and,
+ * in bit 16, the Black backdrop. Every icon saved before the choice existed
+ * has the bit clear, so it stays on White, and no column or client binding
+ * changed. A client from before the choice does not know the bit: it reads a
+ * Black icon as invalid and draws picture 0, the default silhouette.
+ */
+export type ProfileIconBackground = "white" | "black";
+export const PROFILE_ICON_BACKGROUNDS: readonly ProfileIconBackground[] = ["white", "black"];
+export const PROFILE_ICON_BLACK_BACKGROUND = 0x10000;
+const PROFILE_ICON_INDEX_MASK = 0xffff;
+/** The colour drawn behind a picture for each backdrop. */
+export const PROFILE_ICON_BACKGROUND_COLORS: Readonly<Record<ProfileIconBackground, string>> = { white: "#ffffff", black: "#000000" };
+
+export const isValidProfileIcon = (value: number) => Number.isInteger(value) && value >= 0
+  && value <= (PROFILE_ICON_BLACK_BACKGROUND | PROFILE_ICON_INDEX_MASK) && (value & PROFILE_ICON_INDEX_MASK) < PROFILE_ICON_COUNT;
 export function normalizeProfileIcon(value: number) {
   return Number.isFinite(value) && isValidProfileIcon(Math.floor(value)) ? Math.floor(value) : 0;
 }
+export function encodeProfileIcon(index: number, background: ProfileIconBackground) {
+  const picture = normalizeProfileIcon(index) & PROFILE_ICON_INDEX_MASK;
+  return background === "black" ? picture | PROFILE_ICON_BLACK_BACKGROUND : picture;
+}
+export const profileIconIndex = (value: number) => normalizeProfileIcon(value) & PROFILE_ICON_INDEX_MASK;
+export const profileIconBackground = (value: number): ProfileIconBackground =>
+  normalizeProfileIcon(value) & PROFILE_ICON_BLACK_BACKGROUND ? "black" : "white";
+/** The same picture on another backdrop. */
+export const withProfileIconBackground = (value: number, background: ProfileIconBackground) => encodeProfileIcon(profileIconIndex(value), background);
 export function profileIconLocation(value: number) {
-  const index = normalizeProfileIcon(value), sheetIndex = Math.floor(index / PROFILE_ICONS_PER_SHEET);
+  const index = profileIconIndex(value), sheetIndex = Math.floor(index / PROFILE_ICONS_PER_SHEET);
   const cell = index % PROFILE_ICONS_PER_SHEET;
-  return { index, sheetIndex, cell, column: cell % PROFILE_ICON_GRID, row: Math.floor(cell / PROFILE_ICON_GRID), ...PROFILE_ICON_SHEETS[sheetIndex] };
+  return {
+    index, sheetIndex, cell, column: cell % PROFILE_ICON_GRID, row: Math.floor(cell / PROFILE_ICON_GRID),
+    background: profileIconBackground(value), ...PROFILE_ICON_SHEETS[sheetIndex],
+  };
 }
 export function profileIconsInCategory(category: ProfileIconCategory) {
   // Feature the newest sheet first while preserving the original IDs and choices.

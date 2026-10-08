@@ -16,7 +16,10 @@ const OBJECT_BOUNDS = [
   [25,1092,145,1232], [175,1116,297,1230], [345,1102,431,1239], [472,1101,607,1232], [647,1098,746,1238], [782,1102,920,1234], [932,1120,1093,1234], [1111,1102,1226,1239],
 ] as const;
 
-/** The second object sheet, fitted by scripts/art/fit-profile-object-sheet.mjs, which printed these bounds. */
+/**
+ * The second object sheet, fitted by scripts/art/fit-profile-object-sheet.mjs, which printed these bounds.
+ * scripts/art/profile-icon-alpha.mjs refuses to rebuild the sheet if they would change.
+ */
 const OBJECT_BOUNDS_V2 = [
   [8,20,147,135], [165,17,304,139], [330,8,453,147], [479,12,618,144], [635,13,774,142], [792,14,931,141], [957,8,1080,147], [1106,12,1245,143],
   [8,166,147,303], [165,169,304,301], [324,165,458,304], [481,165,616,304], [647,165,763,304], [799,165,924,304], [961,165,1075,304], [1110,165,1241,304],
@@ -34,8 +37,8 @@ const crops = (bounds: readonly (readonly [number, number, number, number])[]): 
 export const OBJECT_ICON_CROPS: readonly ProfileIconCrop[] = crops(OBJECT_BOUNDS);
 /** Each object sheet's crops, by its path in PROFILE_ICON_SHEETS. */
 const OBJECT_SHEET_CROPS: Readonly<Record<string, readonly ProfileIconCrop[]>> = {
-  "assets/wildstat/profile-objects-grid-v1.webp": OBJECT_ICON_CROPS,
-  "assets/wildstat/profile-objects-grid-v2.webp": crops(OBJECT_BOUNDS_V2),
+  "assets/wildstat/profile-objects-grid-v1-alpha.webp": OBJECT_ICON_CROPS,
+  "assets/wildstat/profile-objects-grid-v2-alpha.webp": crops(OBJECT_BOUNDS_V2),
 };
 export const objectIconCrop = (path: string, cell: number) => OBJECT_SHEET_CROPS[path]?.[cell];
 

@@ -251,7 +251,7 @@
   #profileIconPicker { position: fixed; inset: 0; z-index: 13; display: grid; place-items: center; padding: 10px; background: transparent; }
   #profileIconPicker[hidden] { display: none; }
   .profile-icon-picker-modal { display: grid; grid-template-rows: minmax(0, 1fr) auto; width: var(--game-window-width); max-height: calc(100vh - 18px); padding: 12px; overflow: hidden; text-align: left; }
-  .profile-icon-choices { grid-row: 3; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-content: start; gap: 8px; min-height: 0; margin: 0; padding: 4px; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
+  .profile-icon-choices { grid-row: 4; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-content: start; gap: 8px; min-height: 0; margin: 0; padding: 4px; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
   .profile-icon-choice { aspect-ratio: 1; width: 100%; margin: 0; padding: 0; border: 2px solid #000; border-radius: 6px; background-color: #fff; background-repeat: no-repeat; background-size: var(--profile-portrait-sheet-size) var(--profile-portrait-sheet-size); background-clip: padding-box; }
   .profile-icon-choice.is-selected { border-color: var(--green); box-shadow: 0 0 0 1px rgba(105,229,111,.5); }
   .profile-icon-cropped { position: relative; }
@@ -1839,7 +1839,7 @@
   .chat-profile-icon { grid-column: 1; grid-row: 1 / 3; display: block; width: 29px; height: 29px; margin: 0; border: 1px solid #000; border-radius: 4px; background-color: #fff; background-repeat: no-repeat; background-size: var(--profile-portrait-sheet-size) var(--profile-portrait-sheet-size); background-clip: padding-box; cursor: pointer; -webkit-text-stroke: 0; text-shadow: none; }
   body.is-loading-game-assets .profile-icon,
   body.is-loading-game-assets .profile-icon-choice,
-  .chat-profile-icon { background-image: url("../../assets/wildstat/profile-portraits-grid-v2.webp"); }
+  .chat-profile-icon { background-image: url("../../assets/wildstat/profile-portraits-grid-v2-alpha.webp"); }
   .chat-profile-icon:focus-visible, canvas.leaderboard-profile-icon:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
   .chat-time { grid-column: 3; grid-row: 1; color: var(--muted); font-size: 10px; line-height: 1.25; text-align: right; white-space: nowrap; }
   .chat-name { grid-column: 2; grid-row: 1; display: flex; align-items: center; gap: 4px; min-width: 0; margin: 0; padding: 0; overflow: hidden; border: 0; border-radius: 0; background: transparent; color: var(--gold); font-family: var(--player-name-font); font-size: 11.25px; font-weight: 900; line-height: 1.25; text-align: left; white-space: nowrap; cursor: default; }
@@ -4472,14 +4472,24 @@
 .leaderboard-framed-portrait { display: block; width: 25px; height: 25px; }
 .leaderboard-framed-portrait[data-avatar-frame="gold"] > canvas,
 .leaderboard-framed-portrait[data-avatar-frame="silver"] > canvas { border-color: transparent; border-radius: 10%; }
-.profile-icon-picker-modal { grid-template-rows: auto auto minmax(0, 1fr) auto; gap: 8px; height: min(680px, calc(100vh - 18px)); height: min(680px, calc(100dvh - 18px)); }
-.profile-icon-picker-modal > .window-back-footer { grid-row: 4; }
+.profile-icon-picker-modal { grid-template-rows: auto auto auto minmax(0, 1fr) auto; gap: 8px; height: min(680px, calc(100vh - 18px)); height: min(680px, calc(100dvh - 18px)); }
+.profile-icon-picker-modal > .window-back-footer { grid-row: 5; }
 .profile-frame-options { grid-row: 1; min-height: 0; max-height: 35dvh; overflow-y: auto; }
 .profile-frame-options > summary { min-height: 32px; display: list-item; cursor: pointer; color: #ddd; font-size: 13px; }
 .avatar-frame-summary { display: inline-flex; align-items: center; gap: 5px; height: 22px; vertical-align: middle; font-size: 12px; color: #fff; }
 .avatar-frame-summary img { width: 20px; height: 20px; object-fit: contain; }
 .profile-frame-options .avatar-frame-picker > h3 { display: none; }
-.profile-icon-tabs { grid-row: 2; display: flex; gap: 8px; }
+/* The backdrop behind the current picture: the autofarm window's segment. */
+.profile-icon-background { grid-row: 2; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 38px; }
+.profile-icon-background-label { color: #bdbdbd; font-size: 14px; }
+.profile-icon-background-choice { display: flex; flex: 0 0 auto; overflow: hidden; border: 2px solid rgba(255,255,255,.13); border-radius: 8px; background: #000; }
+.profile-icon-background-choice button { min-width: 68px; height: 34px; margin: 0; padding: 0 12px; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #bdbdbd; font: 900 14px/1 var(--font-rounded); text-shadow: none; text-transform: none; white-space: nowrap; cursor: pointer; }
+.profile-icon-background-choice button + button { border-left: 1px solid rgba(255,255,255,.13); }
+.profile-icon-background-choice button[aria-checked="true"] { background: #262626; color: #fff; box-shadow: inset 0 -2px var(--green); }
+.profile-icon-background-choice button:active { transform: none; }
+.profile-icon-background-choice button:disabled { cursor: default; }
+.profile-icon-background-choice button:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+.profile-icon-tabs { grid-row: 3; display: flex; gap: 8px; }
 .profile-icon-tabs button { flex: 1; margin: 0; min-height: 42px; padding: 8px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; box-shadow: none; color: #aeb5b1; font-size: 15px; text-transform: none; }
 .profile-icon-tabs button[aria-selected="true"] { color: #fff; border-bottom-color: #fff; background: rgba(255,255,255,.04); }
 .profile-icon-tabs button:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }

@@ -25,6 +25,7 @@ export function createOverlaysController(elements: {
   const icons = createProfileIconPicker(elements.iconPicker.choices, {
     selectedIcon: hooks.selectedIcon, setIcon: hooks.setIcon, paintIcon: hooks.paintIcon,
     onSaved: () => { hooks.afterIconSet(); closeIconPicker(); hooks.showMessage("PROFILE ICON UPDATED", "#72ef58"); },
+    onBackgroundSaved: hooks.afterIconSet,
     onError: message => hooks.showMessage(message, "#ff9b91"),
   });
   let hasUpdateNotes = false;
