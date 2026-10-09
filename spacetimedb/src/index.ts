@@ -5105,6 +5105,10 @@ export const convertItemToCosmetic = spacetimedb.reducer(
   { itemId: t.string() }, (ctx, { itemId }) => cosmeticConversion.convertItemToCosmetic(ctx, itemId),
 );
 
+export const buyOxShopCosmetic = spacetimedb.reducer(
+  { itemId: t.string() }, (ctx, { itemId }) => cosmeticConversion.buyOxShopCosmetic(ctx, itemId),
+);
+
 export const cancelItemUpgrade = spacetimedb.reducer(
   { slot: t.u8() },
   (ctx, { slot: requestedSlot }) => {

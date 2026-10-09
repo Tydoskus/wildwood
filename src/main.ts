@@ -84,6 +84,7 @@ import { createHomeTravelController } from "./ui/home-travel-controller";
 import { createSoulDimension } from "./game/runtime/soul-dimension";
 import { createGuildHall } from "./game/runtime/guild-hall";
 import { createQuestBoardRuntime, guildQuestStandingFrom } from "./ui/quest-board-controller";
+import { createOxShopRuntime } from "./ui/ox-shop-controller";
 import { createPlayerController, type PlayerController } from "./game/runtime/player-controller";
 import { applyPlayerMaxHealthMultiplierBonus } from "./game/runtime/player-health";
 import { createRegularEnemyRespawn, REGULAR_ENEMY_RESPAWN_SECONDS } from "./game/runtime/regular-enemy-respawn";
@@ -1354,14 +1355,15 @@ import {
   });
 
   bindHomeTeleportButton(gameElements.techTreeBtn, {
-    beforeTeleport: () => { techTree.close(); upgradeBenchController.close(); quests.board.close(); },
+    beforeTeleport: () => { techTree.close(); upgradeBenchController.close(); quests.board.close(); oxShop.close(); },
     teleport: () => inTutorial() ? Promise.resolve(false) : mapController.teleportHome(),
     showFailure: failed => showMessage(failed ? "TELEPORT FAILED · TRY AGAIN" : "TELEPORT UNAVAILABLE", "#ffbc91"), showBlocked: text => showMessage(text, "#ffbc91"),
   });
+  const oxShop = createOxShopRuntime({ coop: () => coop, inventory, renderInventory, showMessage, clearInput: playerInput.clear, inTown: () => currentMapId === "town" });
   const updateHomeStations = createHomeStationTouchHandler(
     () => currentMapId === "town" && !mapController.isMapTransitioning(), player,
     () => { playerInput.clear(); techTree.open(); }, () => { upgradeBenchController.updateTouch(); quests.refreshAtHome(); },
-    () => { playerInput.clear(); quests.board.open(); },
+    () => { playerInput.clear(); quests.board.open(); }, () => { playerInput.clear(); oxShop.open(); },
   );
   upgradeBenchController = createUpgradeBenchController({
     panel: gameElements.upgradeBenchPanel,

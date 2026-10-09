@@ -1,6 +1,7 @@
 import { SenderError } from "spacetimedb/server";
 import { STARTER_BOW, WOODEN_ARMOR, canonicalItemId } from "../../shared/items";
 import { COSMETIC_CONVERSION_GEM_COST, canConvertToCosmetic, cosmeticUnlocks } from "../../shared/cosmetic-conversion";
+import { OX_SHOP_GEM_PRICE, isOxShopItem } from "../../shared/ox-shop";
 import { readPlayerProgress } from "./wide-stats";
 
 /** A Gem purchase unlocks an appearance while retaining the original item. */
@@ -44,5 +45,28 @@ export function createCosmeticConversion(deps: {
     });
   }
 
-  return { removeItemFromProgress, convertItemToCosmetic };
+  /** Ox sells each Galaxy piece once; the Gems and the look change hands in one transaction. */
+  function buyOxShopCosmetic(ctx: any, itemId: string) {
+    deps.requireControllingPlayer(ctx);
+    if (deps.activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel first.");
+    const canonical = canonicalItemId(itemId);
+    if (!canonical || !isOxShopItem(canonical)) throw new SenderError("Ox does not sell that.");
+    const progress = readPlayerProgress(ctx, ctx.sender);
+    if (!progress) throw new SenderError("Player unavailable.");
+    const unlocked = cosmeticUnlocks(progress.cosmeticItemsJson);
+    // Developer accounts already own the whole set through the catalogue.
+    if (unlocked.includes(canonical) || deps.inventoryForProgress(progress).includes(canonical)) {
+      throw new SenderError("You already own this.");
+    }
+    deps.applyGemBalanceChange(ctx, {
+      identity: ctx.sender, delta: -OX_SHOP_GEM_PRICE,
+      kind: "ox_shop_cosmetic", note: `Bought ${canonical} from Ox.`,
+      externalReference: `ox-shop:${ctx.sender.toHexString()}:${canonical}`,
+    });
+    deps.writeProgressAndPresentation(ctx, {
+      ...progress, cosmeticItemsJson: JSON.stringify([...unlocked, canonical]),
+    });
+  }
+
+  return { removeItemFromProgress, convertItemToCosmetic, buyOxShopCosmetic };
 }

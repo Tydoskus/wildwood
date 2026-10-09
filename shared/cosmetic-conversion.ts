@@ -1,10 +1,16 @@
 import { canDestroyEquipment, canonicalItemId, isCosmeticOnlyItem } from "./items";
+import { isOxShopItem } from "./ox-shop";
 
 export const COSMETIC_CONVERSION_GEM_COST = 10n;
 
 export function canConvertToCosmetic(itemId: unknown) {
   const id = canonicalItemId(itemId);
   return Boolean(id && canDestroyEquipment(id) && !isCosmeticOnlyItem(id));
+}
+
+/** Looks an account can own outright: converted drops, and pieces bought from Ox. */
+function canBeAccountLook(itemId: unknown) {
+  return canConvertToCosmetic(itemId) || isOxShopItem(itemId);
 }
 
 /** Account-owned looks are unique and independent of equipment inventory. */
@@ -14,6 +20,6 @@ export function cosmeticUnlocks(value: unknown): string[] {
     try { parsed = JSON.parse(value); } catch { return []; }
   }
   return Array.isArray(parsed)
-    ? [...new Set(parsed.map(canonicalItemId).filter(canConvertToCosmetic))] as string[]
+    ? [...new Set(parsed.map(canonicalItemId).filter(canBeAccountLook))] as string[]
     : [];
 }

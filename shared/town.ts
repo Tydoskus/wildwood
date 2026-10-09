@@ -117,6 +117,13 @@ const stationIn = (door: number, dx: number, dy: number) => {
 export const TOWN_BENCH_POSITION = stationIn(6, 210, 65);
 export const TOWN_RESEARCH_POSITION = stationIn(1, 210, 50);
 export const TOWN_QUEST_BOARD_POSITION = stationIn(5, 300, 44);
+/**
+ * Ox keeps the bottom-right house (door 8) and sells the Galaxy set. Where his feet are: in the open
+ * floor between the back wall's furniture and the table, so a player can walk right up to him.
+ */
+export const TOWN_OX_POSITION = stationIn(8, 120, 100);
+/** How close a player's feet come to Ox's before his shop opens. */
+export const TOWN_OX_REACH = 60;
 
 /** The whole row of rooms, walls and all. */
 const TOWN_INTERIOR_AREA = Object.freeze({

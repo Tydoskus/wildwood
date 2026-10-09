@@ -17,6 +17,7 @@ import AttackForestRewardPrototypeReducer from "../attack_forest_reward_prototyp
 import BeginAccountLinkReducer from "../begin_account_link_reducer";
 import BeginAdventureReducer from "../begin_adventure_reducer";
 import BeginForestRewardPrototypeReducer from "../begin_forest_reward_prototype_reducer";
+import BuyOxShopCosmeticReducer from "../buy_ox_shop_cosmetic_reducer";
 import CancelGemPurchaseReducer from "../cancel_gem_purchase_reducer";
 import CancelItemUpgradeReducer from "../cancel_item_upgrade_reducer";
 import ChallengeGuildReducer from "../challenge_guild_reducer";
@@ -207,6 +208,7 @@ export type AttackForestRewardPrototypeParams = __Infer<typeof AttackForestRewar
 export type BeginAccountLinkParams = __Infer<typeof BeginAccountLinkReducer>;
 export type BeginAdventureParams = __Infer<typeof BeginAdventureReducer>;
 export type BeginForestRewardPrototypeParams = __Infer<typeof BeginForestRewardPrototypeReducer>;
+export type BuyOxShopCosmeticParams = __Infer<typeof BuyOxShopCosmeticReducer>;
 export type CancelGemPurchaseParams = __Infer<typeof CancelGemPurchaseReducer>;
 export type CancelItemUpgradeParams = __Infer<typeof CancelItemUpgradeReducer>;
 export type ChallengeGuildParams = __Infer<typeof ChallengeGuildReducer>;

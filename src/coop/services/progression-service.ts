@@ -757,6 +757,23 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     };
   }
 
+  /** Runs a purchase that makes `itemId` an account-owned look, then shows it as owned at once. */
+  async function unlockAccountLook(itemId: string, purchase: () => Promise<{ ok: boolean; error?: string }>) {
+    const identity = dependencies.localIdentity();
+    const result = await purchase();
+    if (result.ok && identity !== dependencies.localIdentity()) return { ok: false, error: "ACCOUNT CHANGED" };
+    if (result.ok) {
+      if (localProgress) {
+        const unlocked = cosmeticUnlocks(localProgress.cosmeticItemsJson);
+        localProgress = { ...localProgress,
+          cosmeticItemsJson: JSON.stringify([...new Set([...unlocked, itemId])]) };
+        progressByIdentity.set(identity, localProgress);
+      }
+      dependencies.notify();
+    }
+    return result;
+  }
+
   const pageHide = () => flush(true);
   // The captured timer: a hooked setInterval must not shorten the report period.
   const flushTimer = nativeTimers.setInterval(() => flush(), PROGRESS_SAVE_INTERVAL_MS);
@@ -1019,19 +1036,11 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
         return result;
       },
       async convertItemToCosmetic(itemId: string) {
-        const identity = dependencies.localIdentity();
-        const result = await reducerResult("cosmetic conversion", (connection) => connection.reducers.convertItemToCosmetic({ itemId }))();
-        if (result.ok && identity !== dependencies.localIdentity()) return { ok: false, error: "ACCOUNT CHANGED" };
-        if (result.ok) {
-          if (localProgress) {
-            const unlocked = cosmeticUnlocks(localProgress.cosmeticItemsJson);
-            localProgress = { ...localProgress,
-              cosmeticItemsJson: JSON.stringify([...new Set([...unlocked, itemId])]) };
-            progressByIdentity.set(identity, localProgress);
-          }
-          dependencies.notify();
-        }
-        return result;
+        return unlockAccountLook(itemId, reducerResult("cosmetic conversion", (connection) => connection.reducers.convertItemToCosmetic({ itemId })));
+      },
+      /** Buys one Galaxy piece from Ox; the server checks and takes the Gems. */
+      async buyOxShopCosmetic(itemId: string) {
+        return unlockAccountLook(itemId, reducerResult("Ox shop purchase", (connection) => connection.reducers.buyOxShopCosmetic({ itemId })));
       },
       async unlockInventorySlot() {
         if (dependencies.reducers.protocolBlocked()) return { ok: false, error: "UPDATE REQUIRED" };

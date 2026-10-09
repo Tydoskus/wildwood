@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 vi.mock("../app/developer", () => ({ isDeveloperIdentity: () => false }));
 import { HOME_BENCH_POSITION, HOME_QUEST_BOARD_POSITION, HOME_RESEARCH_POSITION } from "../../shared/home";
-import { TOWN_ARRIVAL, TOWN_BENCH_POSITION, TOWN_CENTER, TOWN_DOORS, TOWN_FEET_OFFSET, TOWN_QUEST_BOARD_POSITION, TOWN_RESEARCH_POSITION, TOWN_TRAVEL_PORTAL, townRoomAt } from "../../shared/town";
+import { TOWN_ARRIVAL, TOWN_BENCH_POSITION, TOWN_CENTER, TOWN_DOORS, TOWN_FEET_OFFSET, TOWN_OX_POSITION, TOWN_QUEST_BOARD_POSITION, TOWN_RESEARCH_POSITION, TOWN_TRAVEL_PORTAL, townRoomAt } from "../../shared/town";
 import { SOUL_INTERIOR_DECOR, SOUL_INTERIOR_SOLIDS, SOUL_VILLAGE_SOLIDS } from "./soul-village";
 import { TOWN_SIGNPOST, townWindowDecor } from "./town-world";
 import { UPGRADE_BENCH_POSITION } from "./world";
@@ -100,6 +100,35 @@ describe("Home's stations in the Town's buildings", () => {
   });
   it("loads the bench's sprite with the Town's art", () => {
     expect(MAP_ASSET_GROUPS.town.art).toContain("snowDecor");
+  });
+});
+
+describe("Ox in the bottom-right house", () => {
+  it("stands in door 8's room, the village's furthest south-east, on open floor a player can walk to", () => {
+    const southEast = [...TOWN_DOORS].sort((a, b) => (b.x + b.y) - (a.x + a.y))[0];
+    expect(southEast.index).toBe(8);
+    expect(townRoomAt(TOWN_OX_POSITION.x, TOWN_OX_POSITION.y)).toBe(TOWN_DOORS[8]);
+    expect(townWindowDecor(TOWN_OX_POSITION.x, TOWN_OX_POSITION.y)).toContainEqual(expect.objectContaining({ type: "upgradeBench", label: "Ox" }));
+    // His feet are on the floor itself, clear of the furniture.
+    expect(standable(TOWN_OX_POSITION.x, TOWN_OX_POSITION.y - TOWN_FEET_OFFSET)).toBe(true);
+    expect(reachable(8, { x: TOWN_OX_POSITION.x, y: TOWN_OX_POSITION.y - TOWN_FEET_OFFSET })).toBe(true);
+  });
+  it("opens his shop once as a player walks up, and again only after they step away", () => {
+    const openOx = vi.fn(), player = { x: TOWN_DOORS[8].inside.x, y: TOWN_DOORS[8].inside.y };
+    let inTown = true;
+    const touch = createHomeStationTouchHandler(() => inTown, player, vi.fn(), vi.fn(), vi.fn(), openOx);
+    touch();
+    expect(openOx).not.toHaveBeenCalled();
+    Object.assign(player, { x: TOWN_OX_POSITION.x + 40, y: TOWN_OX_POSITION.y - TOWN_FEET_OFFSET });
+    touch(); touch();
+    expect(openOx).toHaveBeenCalledOnce();
+    Object.assign(player, TOWN_DOORS[8].inside); touch();
+    Object.assign(player, { x: TOWN_OX_POSITION.x - 40, y: TOWN_OX_POSITION.y - TOWN_FEET_OFFSET }); touch();
+    expect(openOx).toHaveBeenCalledTimes(2);
+    inTown = false;
+    Object.assign(player, TOWN_DOORS[8].inside); touch();
+    Object.assign(player, { x: TOWN_OX_POSITION.x, y: TOWN_OX_POSITION.y - TOWN_FEET_OFFSET }); touch();
+    expect(openOx).toHaveBeenCalledTimes(2);
   });
 });
 

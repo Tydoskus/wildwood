@@ -89,7 +89,9 @@ import { describe, expect, it } from "vitest";
 // cache live in auto-farm-growth.ts and growth-forecast.ts.
 // 1_939 (2026-10-08): the growth planner's inputs gone with autofarm's simple
 // rules (the planner is kept, switched off, in auto-farm-smart-controller.ts).
-const MAX_LINES = 1_939;
+// 1_941 (2026-10-09): Ox's Galaxy shop in Town, its import and one line of
+// wiring; the window and its purchase live in ox-shop-controller.ts.
+const MAX_LINES = 1_941;
 const TARGET_LINES = 1_000;
 
 describe("game composition boundary", () => {

@@ -749,6 +749,14 @@
 .quest-sheet .is-done .quest-bar span { background: var(--green); }
 .quest-sheet .quest-count { flex: 0 0 auto; color: #ffdf7e; font-size: 14px; }
 .quest-sheet .is-done .quest-count { color: var(--green); }
+/* Ox's Galaxy Shop: the board's rows, each with its piece, slot and price. */
+.ox-shop-sheet .ox-shop-intro { margin: 0 14px 6px; color: var(--muted); text-align: center; font-size: 13px; line-height: 1.35; }
+.ox-shop-sheet .ox-shop-balance { margin: 0 14px 10px; color: #c9b8ff; text-align: center; font-size: 15px; font-weight: 800; }
+.ox-shop-sheet .ox-shop-art { flex: 0 0 52px; display: grid; place-items: center; width: 52px; height: 52px; }
+.ox-shop-sheet .ox-shop-art .inventory-item-art { width: 48px; height: 44px; }
+.ox-shop-sheet .quest-copy strong { font-size: 15px; }
+.ox-shop-sheet .farm-start.ox-shop-buy { flex: 0 0 96px; height: 40px; min-height: 40px; font-size: 13px; text-transform: none; }
+.ox-shop-sheet .is-owned { border-color: rgba(201,184,255,.5); }
 /* The Soul Dimension portal's window: its stats and tier progress, in the travel window's frame. */
 .soul-sheet .soul-body { display: flex; flex-direction: column; gap: 10px; }
 .soul-section { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border: 2px solid rgba(196,140,255,.28); border-radius: 12px; background: #ffffff06; }

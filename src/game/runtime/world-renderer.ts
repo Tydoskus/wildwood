@@ -147,6 +147,8 @@ export type WorldRendererOptions = {
   researchStatus?: () => { timer: string } | null;
   /** Today's quests, finished or not, and the line under the board's sign. */
   questBoardStatus?: () => { finished: boolean[]; timer: string } | null;
+  /** Draws Ox, the Town's Galaxy seller, with his feet at a screen point. */
+  drawOx?: (x: number, y: number) => void;
   lavaPools: HTMLImageElement[];
   lavaRocks: HTMLImageElement[];
   charredTrees: HTMLImageElement[];
@@ -814,6 +816,19 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     if (bench.label === "Tech Research") {
       drawHomeResearchDesk(ctx, x, y - 8, options.getGameTime());
       drawHomeStationSign(ctx, x, y, "Tech Research", options.researchStatus?.()?.timer);
+      return;
+    }
+    if (bench.label === "Ox") {
+      options.drawOx?.(x, y);
+      drawScreenSpaceAt(ctx, camera.zoom, x, y - 112, () => {
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        const bob = Math.sin(options.getGameTime() * 2.2) * 2;
+        ctx.font = '900 15px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+        options.outlinedText("Ox", 0, -18 + bob, "#ffb347", 4);
+        ctx.font = '900 13px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+        options.outlinedText("Galaxy Shop", 0, -2 + bob, "#c9b8ff", 4);
+      });
       return;
     }
     if (bench.label === "Quest Board") {

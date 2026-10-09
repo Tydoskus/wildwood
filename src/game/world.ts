@@ -28,7 +28,7 @@ export type WorldDecor = WorldDecorPlacement & (
   | { type: "desertGrass"; variant: number }
   | { type: "snowPine"; s: number }
   | { type: "snowTuft"; variant: number }
-  | { type: "upgradeBench"; s: number; label: "Upgrade Bench" | "Tech Research" | "Quest Board" }
+  | { type: "upgradeBench"; s: number; label: "Upgrade Bench" | "Tech Research" | "Quest Board" | "Ox" }
   | { type: "lavaPool"; s: number; variant: number }
   | { type: "lavaRock"; s: number; variant: number }
   | { type: "charredTree"; s: number; variant: number }

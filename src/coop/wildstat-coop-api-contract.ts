@@ -232,6 +232,7 @@ type ExpectedApiKey =
   | "unlockInventorySlot"
   | "destroyEquipment"
   | "convertItemToCosmetic"
+  | "buyOxShopCosmetic"
   | "unlockSecondUpgradeSlot"
   | "unlockThirdUpgradeSlot"
   | "updatePlayerSave"
