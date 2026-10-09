@@ -20,6 +20,7 @@ const ENEMY_HP_BAR_HEIGHT = 11;
 import type { BossTarget, DuelCombatant, DuelScene, EnemyShot, EnemyState, PlayerState, Projectile } from "./types";
 import { itemPresentation, projectileKindForWeapon } from "../item-presentation";
 import { playerDeathPose, type PlayerDeathAnimationState } from "./player-death-animation";
+import { finishedEquipmentSprite } from "../player-appearance";
 import type { StaticWorldSpriteFrame } from "./webgl-static-world-layer";
 import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render-space";
 import { createTintedImageCanvas } from "./image-tint";
@@ -396,7 +397,7 @@ export function createActorRenderer(options: {
     ctx.translate(x, y);
     ctx.rotate(rotation);
     if (Math.cos(facing) < 0) ctx.scale(-1, 1);
-    ctx.drawImage(residentDrawable(image), -width / 2, -height / 2, width, height);
+    ctx.drawImage(residentDrawable(finishedEquipmentSprite(itemId, image)), -width / 2, -height / 2, width, height);
     ctx.restore();
   }
 

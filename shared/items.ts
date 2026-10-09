@@ -24,6 +24,11 @@ export const SAMURAI_BOW_DROP_NUMERATOR = 13;
 export const SAMURAI_BOW_DROP_DENOMINATOR = 2_000; // Exactly 0.65%, independently of the helmet.
 export const SAMURAI_HAT = "samurai_hat";
 export const LEGENDARY_WHITE_GOLD_ARMOR = "legendary_white_gold_armor";
+/** The Galaxy set: Ion Sovereign silhouettes filled with drifting galaxies (client-side finish). */
+export const GALAXY_HELMET = "galaxy_helmet";
+export const GALAXY_ARMOR = "galaxy_armor";
+export const GALAXY_BOW = "galaxy_bow";
+export const GALAXY_BOOTS = "galaxy_boots";
 export const BLACK_BOOTS = "black_boots";
 export const BLACK_BOOTS_DROP_DENOMINATOR = 50;
 export const BLACK_BOOTS_SPEED_BONUS = 25;
@@ -181,6 +186,43 @@ export const ITEM_DEFINITIONS = {
     slot: "CHEST",
     acquisition: "DEVELOPER",
     description: "White gold plate with a legendary gleam. Cosmetic only.",
+    stats: ["COSMETIC · NO STATS"],
+  },
+  // Developer accounts own these automatically; how players earn them is not decided yet.
+  [GALAXY_HELMET]: {
+    id: GALAXY_HELMET,
+    cosmeticOnly: true,
+    name: "GALAXY HELMET",
+    slot: "HEAD",
+    acquisition: "DEVELOPER",
+    description: "A winged helm made of drifting galaxies. Cosmetic only.",
+    stats: ["COSMETIC · NO STATS"],
+  },
+  [GALAXY_ARMOR]: {
+    id: GALAXY_ARMOR,
+    cosmeticOnly: true,
+    name: "GALAXY ARMOR",
+    slot: "CHEST",
+    acquisition: "DEVELOPER",
+    description: "Sovereign plate made of drifting galaxies. Cosmetic only.",
+    stats: ["COSMETIC · NO STATS"],
+  },
+  [GALAXY_BOW]: {
+    id: GALAXY_BOW,
+    cosmeticOnly: true,
+    name: "GALAXY BOW",
+    slot: "HAND",
+    acquisition: "DEVELOPER",
+    description: "A bow made of drifting galaxies. Changes how your weapon looks, not how it fights.",
+    stats: ["COSMETIC · NO STATS"],
+  },
+  [GALAXY_BOOTS]: {
+    id: GALAXY_BOOTS,
+    cosmeticOnly: true,
+    name: "GALAXY BOOTS",
+    slot: "FEET",
+    acquisition: "DEVELOPER",
+    description: "Boots made of drifting galaxies. Cosmetic only.",
     stats: ["COSMETIC · NO STATS"],
   },
   [BLACK_BOOTS]: {

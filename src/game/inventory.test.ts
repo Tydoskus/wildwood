@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { GALAXY_ARMOR, GALAXY_BOOTS, GALAXY_BOW, GALAXY_HELMET } from "../../shared/items";
 import { cosmeticInventoryStacks, bagInventoryStacks, BASIC_PAPER_HAT, DARK_METAL_HELMET, equipmentAppearance, FIRE_METAL_BOW, FROST_ARMOR, FROST_BOW, HIDDEN_COSMETIC_ITEM_ID, inventoryFromSave, inventoryItemQuantity, IRON_BOW, LEGENDARY_WHITE_GOLD_ARMOR, moveCosmeticInventoryItem, moveInventoryItem, NIGHT_BOW, normaliseInventory, serialiseInventory, setInventoryItemQuantity, SNOW_BOW, STARTER_BOW, STARTER_STONE, SUPERIOR_GOLDEN_HELMET, toggleCosmeticEquipmentVisibility, WOOD_FULL_HELM, WOODEN_ARMOR } from "./inventory";
 
 const emptyCosmetics = {
@@ -47,7 +48,7 @@ describe("inventory rules", () => {
 
   it("keeps the developer-only golden helmet cosmetic available and equipable", () => {
     expect(inventoryFromSave("[]", "", SUPERIOR_GOLDEN_HELMET, LEGENDARY_WHITE_GOLD_ARMOR, false, true)).toEqual({
-      itemIds: [STARTER_STONE, "wooden_sword", SUPERIOR_GOLDEN_HELMET, LEGENDARY_WHITE_GOLD_ARMOR],
+      itemIds: [STARTER_STONE, "wooden_sword", SUPERIOR_GOLDEN_HELMET, LEGENDARY_WHITE_GOLD_ARMOR, GALAXY_HELMET, GALAXY_ARMOR, GALAXY_BOW, GALAXY_BOOTS],
       equippedHead: "",
       equippedChest: "",
       equippedFeet: "",

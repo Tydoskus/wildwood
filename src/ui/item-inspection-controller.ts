@@ -1,6 +1,6 @@
 import { formatEquipmentStat } from "./equipment-stat-format";
 import { appendItemTierLabel } from "./item-tier-label";
-import { itemArtMarkup, itemInventoryRotation, itemPresentation } from "../game/item-presentation";
+import { itemArtMarkup, itemHasGalaxyFinish, itemInventoryRotation, itemPresentation } from "../game/item-presentation";
 import {
   itemDefinition,
   itemDisplayName,
@@ -78,7 +78,8 @@ export function createItemInspectionController(elements: ItemInspectionElements)
     const icon = document.createElement("div");
     icon.className = "item-inspection-icon";
     const source = itemPresentation(item.id)?.inventory.source;
-    if (source) {
+    // A finished piece is a masked CSS layer stack, not a plain image.
+    if (source && !itemHasGalaxyFinish(item.id)) {
       const image = document.createElement("img");
       image.src = source;
       image.style.setProperty("--item-art-rotation", `${itemInventoryRotation(item.id)}deg`);
@@ -86,7 +87,7 @@ export function createItemInspectionController(elements: ItemInspectionElements)
       image.draggable = false;
       icon.append(image);
     } else {
-      icon.classList.add("has-fallback-art");
+      if (!source) icon.classList.add("has-fallback-art");
       icon.innerHTML = itemArtMarkup(item.id, false);
     }
     const preview = document.createElement("div");

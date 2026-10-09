@@ -4,7 +4,8 @@ import { EXPANSION_HEAD_FRAME, DEFAULT_HEAD_ALIGNMENT } from "./player-head-temp
 import { drawPlayerHead, drawPlayerEyes } from "./player-face";
 import { drawAlignedPlayerLayer, type PlayerLayer, type PlayerLayerAlignment, type LayerBounds } from "./player-layer-alignment";
 import { STARTER_STONE } from "./inventory";
-import { ITEM_PRESENTATIONS, itemPresentation, type WorldSpritePresentation } from "./item-presentation";
+import { ITEM_PRESENTATIONS, itemHasGalaxyFinish, itemPresentation, type WorldSpritePresentation } from "./item-presentation";
+import { galaxyFinishFrame } from "./galaxy-finish";
 import { PLAYER_WORLD_SCALE } from "./player-render-scale";
 import { residentDrawable } from "./runtime/resident-image";
 
@@ -14,6 +15,8 @@ const BOW_SOURCE_DOWN_ANGLE_DEGREES = 90;
 /** Same frame as every chest sprite, so the default body sits where armour does. */
 const DEFAULT_CHEST = { source: "assets/wildstat/player-parts/default-chest.webp", width: 76, height: 68, top: 100 };
 const DEGREES_TO_RADIANS = Math.PI / 180;
+type BodyPart = "ALL" | "TORSO" | "HEAD";
+type BodyPieces = "ALL" | "STATIC" | "LIVE";
 
 export type PlayerAppearanceAssets = {
   basicFrontLeg: HTMLImageElement;
@@ -200,6 +203,16 @@ export function skinTonedLeg(leg: HTMLImageElement, tone: string): PlayerLayerAs
   return canvas;
 }
 
+/** The art to draw for a piece this frame: its galaxy finish where it has one, else the art itself. */
+export function finishedEquipmentSprite<T extends PlayerLayerAsset>(itemId: string | undefined, sprite: T): T | HTMLCanvasElement {
+  if (!itemHasGalaxyFinish(itemId)) return sprite;
+  // Sized from the drawn size, not the file's, so the sky has the same grain
+  // on every piece however large its art was made.
+  const world = itemPresentation(itemId)?.world;
+  const size = { width: world?.width ?? assetWidth(sprite), height: world?.height ?? assetHeight(sprite) };
+  return galaxyFinishFrame(sprite, size) ?? sprite;
+}
+
 export function skinToneColor(value: number | undefined) {
   return PLAYER_SKIN_TONES[Math.max(0, Math.min(PLAYER_SKIN_TONES.length - 1, Math.floor(value ?? DEFAULT_SKIN_TONE)))] ?? PLAYER_SKIN_TONES[DEFAULT_SKIN_TONE];
 }
@@ -371,24 +384,37 @@ export function drawStartingPlayer(
   const backLeg = feetAssets?.backLeg ?? skinTonedLeg(assets.basicBackLeg, skin);
   const frontLeg = feetAssets?.frontLeg ?? skinTonedLeg(assets.basicFrontLeg, skin);
   const headItem = options.headItem ?? "";
-  const drawLayer = (target: CanvasRenderingContext2D, asset: PlayerLayerAsset, x: number, y: number, width = assetWidth(asset), height = assetHeight(asset), layer?: PlayerLayer, report = false) => {
+  const liveFeet = Boolean(feetAssets?.frontLeg && feetAssets.backLeg) && itemHasGalaxyFinish(options.feetItem);
+  const feetPresentation = feetAssets ? itemPresentation(options.feetItem)?.world : undefined;
+  const legSize = feetPresentation?.kind === "LEGS" && feetPresentation.width && feetPresentation.height
+    ? { width: feetPresentation.width, height: feetPresentation.height }
+    : undefined;
+  const drawLayer =(target: CanvasRenderingContext2D, asset: PlayerLayerAsset, x: number, y: number, width = assetWidth(asset), height = assetHeight(asset), layer?: PlayerLayer, report = false, smooth = false) => {
     if (!readyImage(asset)) return;
     if (!layer) { target.drawImage(residentDrawable(asset), x, y, width, height); return; }
     drawAlignedPlayerLayer(target, layer, { x, y, width, height }, options.alignment?.[layer] ?? (layer === "weapon" ? defaultWeaponAlignment(heldSpritePresentation) : undefined),
       () => {
         if (layer === "helmet") target.globalAlpha *= options.helmetOpacity ?? 1;
+        // A finish frame is painted at twice the art's size; nearest-neighbour
+        // scaling would make its stars crawl as they drift.
+        if (smooth) { target.imageSmoothingEnabled = true; target.imageSmoothingQuality = "high"; }
         target.drawImage(residentDrawable(asset), x, y, width, height);
       }, report ? options.onLayerBounds : undefined);
   };
-  const drawEquippedSprite = (target: CanvasRenderingContext2D, itemId: string | undefined, layer: WorldSpritePresentation["layer"], gaitY = 0, report = false) => {
+  // A live finish repaints every frame, so it cannot be baked into the cached
+  // body: "STATIC" leaves those pieces out, "LIVE" draws only them, "ALL" both.
+  const drawEquippedSprite = (target: CanvasRenderingContext2D, itemId: string | undefined, layer: WorldSpritePresentation["layer"], gaitY = 0, report = false, pieces: BodyPieces = "ALL") => {
     if (!itemId) return;
+    const live = itemHasGalaxyFinish(itemId);
+    if ((pieces === "STATIC" && live) || (pieces === "LIVE" && !live)) return;
     const presentation = options.presentationOverrides?.[itemId] ?? itemPresentation(itemId)?.world;
     const asset = assets.equipment[itemId]?.sprite;
     if (!asset || presentation?.kind !== "SPRITE" || presentation.layer !== layer) return;
     const width = presentation.width ?? asset.naturalWidth;
     const height = presentation.height ?? asset.naturalHeight;
     const y = presentation.top ?? (presentation.bottom ?? height) - height + gaitY;
-    drawLayer(target, asset, 90 - width / 2, y, width, height, layer === "HEAD" ? "helmet" : "chest", report);
+    const art = live && readyImage(asset) ? finishedEquipmentSprite(itemId, asset) : asset;
+    drawLayer(target, art, 90 - width / 2, y, width, height, layer === "HEAD" ? "helmet" : "chest", report, art !== asset);
   };
   // Only one of the two draws: armour covers the default body rather than
   // stacking on top of it.
@@ -407,11 +433,21 @@ export function drawStartingPlayer(
     if (presentation?.kind !== "SPRITE" || presentation.layer !== layer) return true;
     return readyImage(assets.equipment[itemId]?.sprite);
   });
-  const drawBody = (target: CanvasRenderingContext2D, report = false) => {
-    const backSize = { width: assetWidth(backLeg), height: assetHeight(backLeg) };
-    const frontSize = { width: assetWidth(frontLeg), height: assetHeight(frontLeg) };
-    drawLayer(target, backLeg, 90 - backSize.width / 2 - 8 + gait.back.x, 171 - backSize.height + gait.back.y, backSize.width, backSize.height, "backLeg", report);
-    drawLayer(target, frontLeg, 90 - frontSize.width / 2 + 8 + gait.front.x, 171 - frontSize.height + gait.front.y, frontSize.width, frontSize.height, "frontLeg", report);
+  const drawBody = (target: CanvasRenderingContext2D, report = false, part: BodyPart = "ALL", pieces: BodyPieces = "ALL") => {
+    if (part !== "HEAD") drawTorso(target, report, pieces);
+    if (part !== "TORSO") drawHeadAndHelmet(target, report, pieces);
+  };
+  const drawLegs = (target: CanvasRenderingContext2D, report: boolean, pieces: BodyPieces) => {
+    if ((pieces === "STATIC" && liveFeet) || (pieces === "LIVE" && !liveFeet)) return;
+    const backSize = { width: legSize?.width ?? assetWidth(backLeg), height: legSize?.height ?? assetHeight(backLeg) };
+    const frontSize = { width: legSize?.width ?? assetWidth(frontLeg), height: legSize?.height ?? assetHeight(frontLeg) };
+    const back = liveFeet && readyImage(backLeg) ? finishedEquipmentSprite(options.feetItem, backLeg) : backLeg;
+    const front = liveFeet && readyImage(frontLeg) ? finishedEquipmentSprite(options.feetItem, frontLeg) : frontLeg;
+    drawLayer(target, back, 90 - backSize.width / 2 - 8 + gait.back.x, 171 - backSize.height + gait.back.y, backSize.width, backSize.height, "backLeg", report, back !== backLeg);
+    drawLayer(target, front, 90 - frontSize.width / 2 + 8 + gait.front.x, 171 - frontSize.height + gait.front.y, frontSize.width, frontSize.height, "frontLeg", report, front !== frontLeg);
+  };
+  const drawTorso = (target: CanvasRenderingContext2D, report: boolean, pieces: BodyPieces) => {
+    drawLegs(target, report, pieces);
     const body = { x: 90 - 41.4675 / 2, y: 157 - 45.315, width: 41.4675, height: 45.315 };
     drawAlignedPlayerLayer(target, "body", body, options.alignment?.body, () => {
       target.translate(body.x, body.y);
@@ -421,14 +457,16 @@ export function drawStartingPlayer(
     if (defaultChest) {
       drawLayer(target, defaultChest, 90 - DEFAULT_CHEST.width / 2, DEFAULT_CHEST.top, DEFAULT_CHEST.width, DEFAULT_CHEST.height);
     }
-    drawEquippedSprite(target, options.chestItem, "CHEST", 0, report);
+    drawEquippedSprite(target, options.chestItem, "CHEST", 0, report, pieces);
+  };
+  const drawHeadAndHelmet = (target: CanvasRenderingContext2D, report: boolean, pieces: BodyPieces) => {
     const head = { ...EXPANSION_HEAD_FRAME, y: EXPANSION_HEAD_FRAME.y + gait.head };
     drawAlignedPlayerLayer(target, "head", head, options.alignment?.head ?? DEFAULT_HEAD_ALIGNMENT, () => {
       target.translate(head.x, head.y);
       drawPlayerHead(target, head.width, head.height, skinToneColor(options.skinTone));
       drawPlayerEyes(target, head.width, head.height, options.alignment?.eyes, report ? options.onLayerBounds : undefined);
     }, report ? options.onLayerBounds : undefined);
-    drawEquippedSprite(target, headItem, "HEAD", gait.head, report);
+    drawEquippedSprite(target, headItem, "HEAD", gait.head, report, pieces);
   };
 
   ctx.save();
@@ -441,10 +479,11 @@ export function drawStartingPlayer(
   ctx.scale(scale, scale); ctx.translate(-90, -171);
   const drawHeldItem = () => {
     if (!heldItem || !heldSpritePresentation || !heldVisible) return;
-    const asset = assets.equipment[heldItem]?.sprite;
-    if (!asset) return;
-    const width = heldSpritePresentation.width ?? asset.naturalWidth;
-    const height = heldSpritePresentation.height ?? asset.naturalHeight;
+    const sprite = assets.equipment[heldItem]?.sprite;
+    if (!sprite) return;
+    const asset = readyImage(sprite) ? finishedEquipmentSprite(heldItem, sprite) : sprite;
+    const width = heldSpritePresentation.width ?? sprite.naturalWidth;
+    const height = heldSpritePresentation.height ?? sprite.naturalHeight;
     const left = 90 - width / 2 + heldX;
     ctx.save();
     ctx.translate(left + width / 2, heldY + height / 2);
@@ -465,7 +504,7 @@ export function drawStartingPlayer(
       drawAlignedPlayerLayer(ctx, "weapon", { x: -width / 2, y: -height / 2, width, height },
         { ...alignment, angle }, () => ctx.drawImage(residentDrawable(asset), -width / 2, -height / 2, width, height), options.onLayerBounds);
     } else {
-      drawLayer(ctx, asset, -width / 2, -height / 2, width, height, "weapon", true);
+      drawLayer(ctx, asset, -width / 2, -height / 2, width, height, "weapon", true, asset !== sprite);
     }
     ctx.restore();
   };
@@ -482,11 +521,29 @@ export function drawStartingPlayer(
     walkFrame,
     idleFrame,
   ].join("|");
-  const bodyCanvas = bodyAssetsReady
-    ? cachedPlayerBody(assets, bodyCacheKey, drawBody, bodyResolution)
-    : null;
-  if (bodyCanvas) ctx.drawImage(bodyCanvas, 0, 0, PLAYER_BODY_WIDTH, PLAYER_BODY_HEIGHT);
-  else drawBody(ctx);
+  const drawCachedBody = (key: string, draw: (target: CanvasRenderingContext2D) => void) => {
+    const bodyCanvas = cachedPlayerBody(assets, key, draw, bodyResolution);
+    if (bodyCanvas) ctx.drawImage(bodyCanvas, 0, 0, PLAYER_BODY_WIDTH, PLAYER_BODY_HEIGHT);
+    else draw(ctx);
+  };
+  const liveChest = chestSpriteDrawn && itemHasGalaxyFinish(options.chestItem);
+  const liveHead = itemHasGalaxyFinish(headItem);
+  if (!bodyAssetsReady) drawBody(ctx);
+  else if (!liveChest && !liveHead && !liveFeet) drawCachedBody(bodyCacheKey, drawBody);
+  else {
+    // Legs are the bottom layer, so live boots go under the cached body. The
+    // head overlaps the top of the chest, so a live chest goes between two
+    // cached halves of the body rather than over the whole of it.
+    drawLegs(ctx, false, "LIVE");
+    if (liveChest) {
+      drawCachedBody(`${bodyCacheKey}|torso`, (target) => drawBody(target, false, "TORSO", "STATIC"));
+      drawEquippedSprite(ctx, options.chestItem, "CHEST", 0, false, "LIVE");
+      drawCachedBody(`${bodyCacheKey}|head`, (target) => drawBody(target, false, "HEAD", "STATIC"));
+    } else {
+      drawCachedBody(`${bodyCacheKey}|static`, (target) => drawBody(target, false, "ALL", "STATIC"));
+    }
+    drawEquippedSprite(ctx, headItem, "HEAD", gait.head, false, "LIVE");
+  }
   if (options.onLayerBounds) {
     ctx.save(); ctx.globalAlpha = 0; drawBody(ctx, true); ctx.restore();
   }

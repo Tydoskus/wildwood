@@ -1,4 +1,5 @@
 import { CAMPAIGN_ITEM_PRESENTATIONS } from "./campaign-item-presentation";
+import { applyGalaxyArtTexture } from "./galaxy-finish";
 import type { WeaponCategory } from "./equipment-alignment";
 import type { LayerAdjustment } from "./player-layer-alignment";
 import {
@@ -17,6 +18,10 @@ import {
   FIRE_METAL_HELMET,
   FROST_ARMOR,
   FROST_BOW,
+  GALAXY_ARMOR,
+  GALAXY_BOOTS,
+  GALAXY_BOW,
+  GALAXY_HELMET,
   IRON_BOW,
   LEGENDARY_WHITE_GOLD_ARMOR,
   LAVA_BOW,
@@ -32,6 +37,7 @@ import {
   type ProjectileKind,
 } from "../../shared/items";
 import { STARTER_BOW_ASSET_SOURCE } from "./starter-bow-asset";
+import { GALAXY_BOOTS_BACK_SOURCE, GALAXY_BOOTS_FRONT_SOURCE, GALAXY_BOOTS_SIZE } from "./galaxy-boots-asset";
 import { WOODEN_ARMOR_ASSET_SOURCE } from "./wooden-armor-asset";
 
 type InventoryArt = {
@@ -58,19 +64,36 @@ export type WorldLegPresentation = {
   kind: "LEGS";
   frontSource: string;
   backSource: string;
+  /** Drawn size of each leg when the art is not at character scale. */
+  width?: number;
+  height?: number;
 };
 
 export type ItemPresentation = {
   inventory: InventoryArt;
   world?: WorldSpritePresentation | WorldLegPresentation;
   projectile?: ProjectileKind;
+  /** Paints the art with a live finish instead of drawing it as is (galaxy-finish.ts). */
+  finish?: "GALAXY";
 };
 
 const PLAYER_PARTS = "assets/wildstat/player-parts";
 
+/** The Galaxy set borrows the Ion Sovereign art, the endgame set, as its silhouettes; the boots are its own. */
+const galaxyFinish = (base: ItemPresentation): ItemPresentation => ({ ...base, finish: "GALAXY" });
+/** The icon's sky before galaxy-finish.ts has painted the real one, or where it cannot. */
+const GALAXY_ART_FALLBACK = "radial-gradient(circle at 35% 35%, #6a3cc8, #1c2276 45%, #050619 80%)";
+
 /** Client-only art registry. New equipment gets one catalog entry and assets. */
 export const ITEM_PRESENTATIONS: Partial<Record<ItemId, ItemPresentation>> = {
   ...CAMPAIGN_ITEM_PRESENTATIONS,
+  [GALAXY_HELMET]: galaxyFinish(CAMPAIGN_ITEM_PRESENTATIONS.ion_helmet),
+  [GALAXY_ARMOR]: galaxyFinish(CAMPAIGN_ITEM_PRESENTATIONS.ion_armor),
+  [GALAXY_BOW]: galaxyFinish(CAMPAIGN_ITEM_PRESENTATIONS.ion_bow),
+  [GALAXY_BOOTS]: galaxyFinish({
+    inventory: { source: GALAXY_BOOTS_FRONT_SOURCE, equippedWidth: 32, equippedHeight: 27 },
+    world: { kind: "LEGS", frontSource: GALAXY_BOOTS_FRONT_SOURCE, backSource: GALAXY_BOOTS_BACK_SOURCE, ...GALAXY_BOOTS_SIZE },
+  }),
   [WOODEN_SWORD]: {
     inventory: { source: `${PLAYER_PARTS}/wooden-sword.webp`, equippedWidth: 32, equippedHeight: 28 },
     world: { kind: "SPRITE", source: `${PLAYER_PARTS}/wooden-sword.webp`, layer: "HAND", top: 116, handAction: "SWING", weaponCategory: "SWORD" },
@@ -271,6 +294,10 @@ export function itemPresentation(itemId: string | undefined) {
   return ITEM_PRESENTATIONS[itemId as ItemId];
 }
 
+export function itemHasGalaxyFinish(itemId: string | undefined) {
+  return itemPresentation(itemId)?.finish === "GALAXY";
+}
+
 /** UI-only rotation shared by bag, loadout, and inspection; world grips stay unchanged. */
 export function itemInventoryRotation(itemId: string) {
   const world = itemPresentation(itemId)?.world;
@@ -280,6 +307,21 @@ export function itemInventoryRotation(itemId: string) {
 export function itemArtMarkup(itemId: string, hidden = true) {
   const presentation = itemPresentation(itemId)?.inventory;
   const aria = hidden ? ' aria-hidden="true"' : "";
+  if (presentation?.source && itemHasGalaxyFinish(itemId)) {
+    // The art masks the shared sky and is blended back over it (game.css). Its
+    // url stays inline: one inside a custom property would resolve against the
+    // stylesheet's folder instead of the page.
+    applyGalaxyArtTexture();
+    const style = [
+      `background-image: url(${presentation.source}), var(--galaxy-art-texture, ${GALAXY_ART_FALLBACK})`,
+      `-webkit-mask-image: url(${presentation.source})`,
+      `mask-image: url(${presentation.source})`,
+      `--item-art-rotation: ${itemInventoryRotation(itemId)}deg`,
+      presentation.equippedWidth ? `--equipped-art-width: ${presentation.equippedWidth}px` : "",
+      presentation.equippedHeight ? `--equipped-art-height: ${presentation.equippedHeight}px` : "",
+    ].filter(Boolean).join("; ");
+    return `<span class="inventory-item-art has-galaxy-finish" style="${style}"${aria}></span>`;
+  }
   if (presentation?.source) {
     const style = [
       `background-image: url(${presentation.source})`,
