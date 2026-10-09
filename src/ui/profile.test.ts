@@ -355,7 +355,8 @@ it("counts soul attack speed up to a Reflect winner's raised cap, and lists only
   expect(attack(twoWins, .5).sources).toEqual([{ label: "Soul", value: "+0.500/s" }]);
   // More than fits: only what fits, marked Max.
   expect(attack(twoWins, 5).sources).toEqual([{ label: "Soul", value: "+1.000/s (Max)" }]);
-  expect(attack(MIN_ATTACK_INTERVAL, .5).sources).toEqual([]);
+  // No room at all under the base cap: said plainly, not as +0.000/s.
+  expect(attack(MIN_ATTACK_INTERVAL, .5).sources).toEqual([{ label: "Soul", value: "Already At Max" }]);
 });
 
 describe("another player's soul stats", () => {

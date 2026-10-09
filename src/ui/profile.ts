@@ -206,7 +206,9 @@ export function profileStatDisplayRows(
       equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.attackSpeed), total: attackSpeed,
       ...(speedRating === null ? {} : { expandedDetail: `(${speedRating >= 1_000 ? formatCompactNumber(speedRating) : Number(speedRating.toPrecision(3))} Attack Speed)` }),
-      sources: soulSource(soulAttackSpeed, value => `${value.toFixed(3)}/s${soulAttackSpeed < soul.attackSpeed - 1e-6 ? " (Max)" : ""}`),
+      // At the cap already, soul attack speed has no room: say so rather than "+0.000/s".
+      sources: soul.attackSpeed > 0 && soulAttackSpeed < .0005 ? [{ label: "Soul", value: "Already At Max" }]
+        : soulSource(soulAttackSpeed, value => `${value.toFixed(3)}/s${soulAttackSpeed < soul.attackSpeed - 1e-6 ? " (Max)" : ""}`),
     },
     {
       kind: "range", label: "Attack Range:", base: statValue(baseRange),
