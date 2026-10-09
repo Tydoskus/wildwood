@@ -23,7 +23,8 @@ import { createSoulGroundRenderer, createSoulPropRenderer } from "./soul-prop-re
 import { createSoulParticles } from "./soul-particles";
 import { createSoulWater } from "./soul-water";
 import { createTownGroundTilePainter, TOWN_GROUND_WORLD } from "./town-ground-tiles";
-import { isTownMap, TOWN_OX_POSITION } from "../../../shared/town";
+import { isTownMap } from "../../../shared/town";
+import { drawOxSprite } from "./ox-sprite";
 import { isGuildHallMap } from "../../../shared/guild-hall";
 import { GUILD_HALL_GROUND } from "../guild-hall";
 import { createGuildCrestDrawer, createGuildHallRoomsDrawer, drawSeated, GUILD_HALL_SEAT_FACING, seatedAt } from "./guild-hall-render";
@@ -205,14 +206,11 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     },
     researchStatus: options.researchStatus,
     questBoardStatus: options.questBoardStatus,
-    // Ox is the original character: default skin, the default orange shirt, nothing equipped. He turns to
-    // face whoever is in the room with him.
+    // Ox is the game's original player sprite, standing still facing down, grounded by the same shadow
+    // as a player.
     drawOx: (x, y) => {
-      options.drawShadow(x, y, 34, .17);
-      drawStartingPlayer(options.ctx, options.playerAppearanceAssets, {
-        x, y: y - 29, facing: options.player.x < TOWN_OX_POSITION.x ? Math.PI : 0, gameTime: options.gameTime(),
-        skinTone: DEFAULT_SKIN_TONE, headItem: "", chestItem: "", feetItem: "", rightHandItem: "", leftHandItem: "",
-      });
+      drawEntityShadow(x, y, 34, .17);
+      drawOxSprite(options.ctx, x, y);
     },
     ...options.assets,
     customStaticTiles: mapId => isTownMap(mapId) ? townStaticTiles : null,

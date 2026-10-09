@@ -820,7 +820,7 @@ if (options.getMapId() === ION_CITADEL_MAP_ID) { drawIonRoads(ctx, options.paths
     }
     if (bench.label === "Ox") {
       options.drawOx?.(x, y);
-      drawScreenSpaceAt(ctx, camera.zoom, x, y - 112, () => {
+      drawScreenSpaceAt(ctx, camera.zoom, x, y - 70, () => {
         ctx.textAlign = "center";
         ctx.textBaseline = "bottom";
         const bob = Math.sin(options.getGameTime() * 2.2) * 2;

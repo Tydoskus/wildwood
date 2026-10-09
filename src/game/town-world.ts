@@ -39,7 +39,7 @@ export const TOWN_STATION_DECOR: readonly WorldDecor[] = [
   { type: "upgradeBench", x: TOWN_QUEST_BOARD_POSITION.x, y: TOWN_QUEST_BOARD_POSITION.y, s: 1, label: "Quest Board" },
 ];
 const replacedByStation = (item: WorldDecor) => TOWN_STATION_DECOR.some(station => item.x === station.x && Math.abs(item.y - station.y) < 40);
-/** Ox, the Galaxy set's seller, drawn like a player and depth-sorted with the room's furniture. */
+/** Ox, the Galaxy set's seller, drawn from the original player sprite and depth-sorted with the room's furniture. */
 export const TOWN_OX_DECOR: WorldDecor = { type: "upgradeBench", x: TOWN_OX_POSITION.x, y: TOWN_OX_POSITION.y, s: 1, label: "Ox" };
 export const TOWN_INTERIOR_DECOR: readonly WorldDecor[] = [...SOUL_INTERIOR_DECOR.filter(item => !replacedByStation(item)), ...TOWN_STATION_DECOR, TOWN_OX_DECOR];
 
